@@ -132,7 +132,7 @@
           </div>
 
           <h3 class="vc-cookie-section-title"><i class="fa fa-check-circle-o" aria-hidden="true"></i> Cookie essenziali</h3>
-          <p>Utilizziamo cookie tecnici strettamente necessari e, dove richiesto dal login Discord, token tecnici di sessione salvati nel browser. Disabilitare questi elementi può impedire accesso e funzioni riservate.</p>
+          <p>Utilizziamo cookie tecnici strettamente necessari e, dove richiesto dal login Discord, token tecnici di sessione salvati nel browser. La sessione locale del sito può durare fino a 90 giorni. Disabilitare questi elementi può impedire accesso e funzioni riservate.</p>
 
           <div class="vc-cookie-mini-stack">
             <div class="vc-cookie-mini-card">
@@ -142,7 +142,7 @@
               </div>
               <ul class="vc-legal-kvlist">
                 <li><span class="vc-legal-kvlist__k">Scopo</span> — mantiene il login attivo e gestisce autenticazione OAuth.</li>
-                <li><span class="vc-legal-kvlist__k">Durata</span> — determinata dal provider OAuth (Discord) tramite scadenza del token o fino al logout.</li>
+                <li><span class="vc-legal-kvlist__k">Durata</span> — fino a 90 giorni come sessione locale del sito, oppure fino al logout o alla scadenza/invalida del token Discord.</li>
                 <li><span class="vc-legal-kvlist__k">Tipo</span> — dati tecnici locali del browser (non cookie di marketing).</li>
               </ul>
             </div>
@@ -194,7 +194,7 @@
           <ul class="vc-legal-list">
             <li><span class="vc-legal-card__label">HTTPS/TLS</span> — comunicazioni cifrate con i servizi API.</li>
             <li><span class="vc-legal-card__label">State OAuth anti-CSRF</span> — verifica dello stato nelle callback di login.</li>
-            <li><span class="vc-legal-card__label">Scadenza token</span> — la sessione termina alla scadenza OAuth o logout.</li>
+            <li><span class="vc-legal-card__label">Scadenza sessione</span> — la sessione locale termina dopo massimo 90 giorni, logout o invalida/scadenza del token Discord.</li>
             <li><span class="vc-legal-card__label">Dati minimizzati</span> — solo dati tecnici strettamente necessari al funzionamento.</li>
           </ul>
         </article>
@@ -269,7 +269,7 @@
             <tbody>
               <tr>
                 <td>Sessione autenticazione sito</td>
-                <td>Fino a scadenza token Discord o logout</td>
+                <td>Fino a 90 giorni, logout o invalida/scadenza token Discord</td>
               </tr>
               <tr>
                 <td>Token sicurezza</td>

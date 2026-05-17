@@ -45,8 +45,11 @@
     hideLoading();
     var cinema = document.getElementById("vc-hw-cinema");
     if (cinema) {
-      cinema.hidden = true;
-      cinema.setAttribute("hidden", "");
+      cinema.classList.add("vc-hw-cinema--done");
+      setTimeout(function () {
+        cinema.hidden = true;
+        cinema.setAttribute("hidden", "");
+      }, 850);
     }
     try {
       document.body.classList.remove("vc-hw-cinema-active");
@@ -61,6 +64,15 @@
     try {
       if (typeof window.__vcHogwartsYoutubeStartAfterIntro === "function") {
         window.__vcHogwartsYoutubeStartAfterIntro();
+      }
+      if (typeof window.__vcHogwartsYoutubeSetupIfConfigured === "function") {
+        if (window.__vcHogwartsYoutubeSetupIfConfigured()) {
+          var musicBtn = document.getElementById("vc-hw-music-btn");
+          if (musicBtn) {
+            musicBtn.hidden = false;
+            musicBtn.removeAttribute("hidden");
+          }
+        }
       }
     } catch (eBgm) {}
     whenQuizReady(function () {
@@ -102,6 +114,10 @@
     });
   }
 
+  try {
+    window.__vcHogwartsRevealApp = revealApp;
+  } catch (eExp) {}
+
   function run() {
     try {
       document.body.classList.remove("vc-hw-app-revealed");
@@ -109,12 +125,32 @@
       window.__vcHogwartsIntroCompleted = false;
       window.__vcHogwartsBgmAllowed = false;
     } catch (eR1) {}
-    hideLoading();
-    if (typeof window.__vcHogwartsIntroOpen === "function") {
-      window.__vcHogwartsIntroOpen(revealApp);
-      return;
-    }
-    revealApp();
+    whenQuizReady(function () {
+      var initPromise = null;
+      try {
+        if (typeof window.__vcHogwartsInit === "function") initPromise = window.__vcHogwartsInit();
+      } catch (eInit) {}
+      function afterInit() {
+        var shouldPlayIntro = false;
+        try {
+          shouldPlayIntro =
+            typeof window.__vcHogwartsShouldPlayIntro === "function" &&
+            window.__vcHogwartsShouldPlayIntro() === true;
+        } catch (eShould) {
+          shouldPlayIntro = false;
+        }
+        if (shouldPlayIntro && typeof window.__vcHogwartsIntroOpen === "function") {
+          window.__vcHogwartsIntroOpen(revealApp);
+          return;
+        }
+        revealApp();
+      }
+      if (initPromise && typeof initPromise.then === "function") {
+        initPromise.then(afterInit).catch(afterInit);
+      } else {
+        afterInit();
+      }
+    });
   }
 
   if (document.readyState === "loading") {

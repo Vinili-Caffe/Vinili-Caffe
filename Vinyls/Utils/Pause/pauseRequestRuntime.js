@@ -61,12 +61,59 @@ function tryParseDateFromTokens(tokens, startIndex) {
   return null;
 }
 
+const USER_DATE_SCAN_PATTERN = /\b(?:oggi|today|domani|tomorrow|\d{1,2}[\/\-.]\d{1,2}(?:[\/\-.]\d{2,4})?|\d{1,2}\s+(?:gennaio|feb|febbraio|mar|marzo|apr|aprile|mag|maggio|giu|giugno|lug|luglio|ago|agosto|set|sett|settembre|ott|ottobre|nov|novembre|dic|dicembre)(?:\s+\d{2,4})?)\b/gi;
+
+function scanUserDates(raw) {
+  const dates = [];
+  const text = String(raw || "");
+  for (const match of text.matchAll(USER_DATE_SCAN_PATTERN)) {
+    const value = String(match[0] || "").trim();
+    if (!value || !parseUserDateInput(value)) continue;
+    dates.push({ raw: value, index: match.index || 0, end: (match.index || 0) + value.length });
+  }
+  return dates;
+}
+
+function cleanPauseReasonCandidate(value) {
+  return String(value || "")
+    .replace(/\b(?:data\s+)?(?:inizio|richiesta|ritorno|fine|start|end)\b\s*[:=\-–—]*/gi, " ")
+    .replace(/\b(?:dal|da|al|a)\b\s*[:=\-–—]*/gi, " ")
+    .replace(/\b(?:motivo|motivazione|reason|perche|perché)\b\s*[:=\-–—]*/gi, " ")
+    .replace(/[|•·]+/g, " ")
+    .replace(/\s*[-–—]{1,3}\s*/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function extractLabelledPauseReason(raw) {
+  const text = String(raw || "");
+  const match = text.match(/\b(?:motivo|motivazione|reason|perche|perché)\b\s*[:=\-–—]?\s*([\s\S]+)$/i);
+  if (!match) return "";
+  const afterLabel = String(match[1] || "");
+  const nextDateLabel = afterLabel.search(/\b(?:data\s+)?(?:inizio|richiesta|ritorno|fine|start|end)\b\s*[:=\-–—]?|\b(?:dal|da|al)\b\s*[:=\-–—]?/i);
+  const candidate = nextDateLabel >= 0 ? afterLabel.slice(0, nextDateLabel) : afterLabel;
+  return cleanPauseReasonCandidate(candidate);
+}
+
+function parsePauseContentByDateScan(trimmed) {
+  const dates = scanUserDates(trimmed);
+  if (dates.length < 2) return null;
+  const rawStart = dates[0].raw;
+  const rawEnd = dates[1].raw;
+  const withoutDates = `${trimmed.slice(0, dates[0].index)} ${trimmed.slice(dates[0].end, dates[1].index)} ${trimmed.slice(dates[1].end)}`;
+  const reason = extractLabelledPauseReason(trimmed) || cleanPauseReasonCandidate(withoutDates);
+  if (!reason) return null;
+  return { rawStart, rawEnd, reason };
+}
+
 /**
- * Messaggio canale pause: `<data> - <data> - <motivo>` oppure `<data> <data> <motivo>` (stesso ordine, senza trattini).
+ * Messaggio canale pause: accetta date e motivo anche con etichette/separatori liberi.
  */
 function parsePauseChannelMessageContent(raw) {
   const trimmed = String(raw || "").trim();
   if (!trimmed) return null;
+  const scanned = parsePauseContentByDateScan(trimmed);
+  if (scanned) return scanned;
   const hyphen = trimmed.match(/^(.+?)\s-\s(.+?)\s-\s(.+)$/);
   if (hyphen) {
     const rawStart = String(hyphen[1] || "").trim();
@@ -130,7 +177,7 @@ function normalizePauseDates(startRaw, endRaw) {
     if (!startDate) return null;
   }
   if (endDate < startDate) return null;
-  return { dataRichiesta: formatDateDDMMYYYY(startDate), dataRitorno: formatDateDDMMYYYY(endDate) };
+  return { dataRichiesta: formatDateDDMMYYYY(startDate), dataRitorno: formatDateDDMMYYYY(endDate), startDate };
 }
 
 function buildPauseRequestButtonsRow(userId, pauseId) {
@@ -165,7 +212,10 @@ async function createPauseRequest({ guild, userId, requesterMention, rawStart, r
   const pauseChannel = guild.channels.cache.get(IDs.channels?.pause) || (await getGuildChannelCached(guild, IDs.channels?.pause)) || (await getClientChannelCached(client, IDs.channels?.pause));
   const normalized = normalizePauseDates(rawStart, rawEnd);
   if (!normalized) {
-    return { ok: false, error: "<a:VC_Alert:1482706673176150077> Date non valide. Formati supportati: `oggi`, `domani`, `GG/MM`, `GG/MM/AAAA`, `1 agosto`, `1 agosto 2027`." };
+    return { ok: false, error: "<a:VC_Alert:1482706673176150077> Date non valide. Formati supportati: `domani`, `GG/MM`, `GG/MM/AAAA`, `1 agosto`, `1 agosto 2027`." };
+  }
+  if (normalized.startDate <= getTodayUtc()) {
+    return { ok: false, error: "<a:VC_Alert:1482706673176150077> La pausa deve iniziare almeno da domani. Non puoi richiederla per oggi o per una data già passata." };
   }
   if (!String(reason || "").trim()) {
     return { ok: false, error: "<a:VC_Alert:1482706673176150077> Devi specificare una motivazione valida." };

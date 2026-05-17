@@ -24,8 +24,14 @@
   },
   "status": "idle",
   "presence": {
-    "activityName": "www.viniliecaffe.it | discord.gg/viniliecaffe | ,help",
-    "streamUrl": ""
+    "activityName": "viniliecaffe.it | .gg/viniliecaffe | ,help",
+    "streamUrl": "",
+    "forbiddenSectionEvent": {
+      "enabled": true,
+      "startDate": "2026-06-20",
+      "endDate": "2026-08-31",
+      "bookEmoji": "📖"
+    }
   },
   "tts": {
     "enabled": true,

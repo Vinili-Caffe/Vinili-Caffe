@@ -476,6 +476,11 @@
 (function () {
   var cfg = typeof window !== "undefined" ? window.__VC_LIVE : null;
   if (!cfg || cfg.enabled !== true) return;
+  try {
+    if (window.__VC_DISABLE_LIVE_EVENT_UI === true) return;
+    if (document.body && document.body.classList.contains("vc-hw-page")) return;
+    if (document.body && document.body.classList.contains("vc-seratafilm-page")) return;
+  } catch (e0) {}
   var apiProd = String(cfg.liveEventApiUrl || "").trim();
   if (!apiProd) return;
 

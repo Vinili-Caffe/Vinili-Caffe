@@ -158,10 +158,9 @@ async function migrateVoteTopggNoDmSplitOnce() {
   return voteTopggSplitMigrationPromise;
 }
 
-const DM_CATEGORIES = Object.freeze(["weekly", "bump", "vote_topgg", "broadcast", "invites", "perks"]);
+const DM_CATEGORIES = Object.freeze(["bump", "vote_topgg", "broadcast", "invites", "perks"]);
 const DM_CATEGORY_ALL = "all";
 const DM_CATEGORY_LABELS = Object.freeze({
-  weekly: "Promemoria settimanali",
   bump: "Promemoria voto Discadia",
   vote_topgg: "Promemoria voto Top.gg",
   broadcast: "Avvisi dallo staff",
@@ -301,7 +300,7 @@ async function removeNoDm(guildId, userId) {
  * Invia un DM all'utente. Con bypassNoDm: true non applica il filtro no-dm (per moderazione, ticket, security, ecc.).
  * @param {import("discord.js").User} user
  * @param {import("discord.js").MessageCreateOptions} payload
- * @param {{ guildId?: string, bypassNoDm?: boolean, category?: string }} options - category: chiave categoria (weekly, bump, broadcast, invites, perks)
+ * @param {{ guildId?: string, bypassNoDm?: boolean, category?: string }} options - category: chiave categoria (bump, broadcast, invites, perks)
  * @returns {Promise<import("discord.js").Message|null>} Il messaggio inviato o null
  */
 async function sendDm(user, payload, options = {}) {

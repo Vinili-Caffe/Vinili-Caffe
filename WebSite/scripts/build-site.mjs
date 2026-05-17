@@ -189,6 +189,10 @@ function applyPlaceholderMap(html, map) {
       /href=(["'])([^"']*\/?css\/(?:tw-build|vc-landing|seratafilm-page)\.css)(?![?])\1/g,
       `href=$1$2?v=${assetVersion}$1`,
     );
+    html = html.replace(
+      /src=(["'])([^"']*\/?js\/[a-z0-9._-]+\.js)(?![?])\1/gi,
+      `src=$1$2?v=${assetVersion}$1`,
+    );
   }
   return html;
 }
@@ -197,6 +201,35 @@ function warnLeftoverPlaceholders(html, label) {
   const leftover = [...html.matchAll(/\{\{([A-Z0-9_]+)\}\}/g)].map((m) => m[1]);
   if (leftover.length) {
     console.warn(`Placeholder non sostituiti (${label}):`, [...new Set(leftover)].join(", "));
+  }
+}
+
+/** Evita pubblicare un dist incompleto (es. build interrotta dopo copyRecursive). */
+function assertDistHasNoTemplatePlaceholders(distDir) {
+  const re = /\{\{[A-Z0-9_]+\}\}/g;
+  const bad = [];
+  function walk(dir) {
+    for (const name of fs.readdirSync(dir, { withFileTypes: true })) {
+      const p = path.join(dir, name.name);
+      if (name.isDirectory()) {
+        walk(p);
+        continue;
+      }
+      if (!name.name.toLowerCase().endsWith(".html")) continue;
+      const html = fs.readFileSync(p, "utf8");
+      const found = html.match(re);
+      if (found && found.length) {
+        bad.push({
+          rel: path.relative(distDir, p),
+          keys: [...new Set(found)].slice(0, 12).join(", "),
+        });
+      }
+    }
+  }
+  walk(distDir);
+  if (bad.length) {
+    const msg = bad.map((b) => `  ${b.rel}: ${b.keys}`).join("\n");
+    throw new Error(`[build-site] dist/ contiene ancora placeholder {{...}} (build incompleta o pagina non processata):\n${msg}`);
   }
 }
 
@@ -641,7 +674,12 @@ function buildMaintenanceBootHtml(cfg, extra = {}) {
     redirectUri: String(cfg.discordOauth?.redirectUri || cfg.siteUrl || "").trim(),
   };
   const json = JSON.stringify(payload).replace(/</g, "\\u003c");
+  const extensionNoiseBoot = `    <script>(function(){function s(x,d){try{d=d||0;if(x&&typeof x==="object"){var p=[];if(x.message!=null)p.push(String(x.message));if(x.stack!=null)p.push(String(x.stack));if(x.name!=null)p.push(String(x.name));if(d<2&&x.reason!=null)p.push(s(x.reason,d+1));if(d<2&&x.error!=null)p.push(s(x.error,d+1));if(p.length)return p.join(" ")}return String(x||"")}catch(e){return""}}function n(x){var m=s(x);return /listener indicated an asynchronous response/i.test(m)||/asynchronous response by returning true/i.test(m)||/message channel closed before a response was received/i.test(m)||/closed before a response was received/i.test(m)||/could not establish connection\\.?\\s*receiving end does not exist/i.test(m)||/message port closed before a response was received/i.test(m)||/extension context invalidated/i.test(m)||/unchecked runtime\\.lasterror/i.test(m)||/wrappedSendMessageCallback/i.test(m)||/cookieCrumbler\\.js/i.test(m)||/chrome-extension:\\/\\//i.test(m)||/moz-extension:\\/\\//i.test(m)||(/cannot read properties of undefined/i.test(m)&&/useCache/i.test(m))}function h(e){if(!n(e&&e.reason)&&!n(e&&e.message)&&!n(e&&e.error))return;try{e.preventDefault();e.stopImmediatePropagation()}catch(_e){}}window.addEventListener("unhandledrejection",h,true);window.addEventListener("error",h,true);["error","warn"].forEach(function(l){var o=console[l];if(typeof o!=="function")return;console[l]=function(){var a="";for(var i=0;i<arguments.length;i++)a+=" "+s(arguments[i]);if(n(a)||/forced reflow while executing javascript took/i.test(a))return;return o.apply(console,arguments)}})})();</script>\n`;
+  const trustedTypesBoot = `    <script>(function(){try{if(window.trustedTypes){window.trustedTypes.createPolicy("default",{createHTML:function(s){return String(s)},createScript:function(s){return String(s)},createScriptURL:function(s){return String(s)}})}}catch(e){}})();</script>\n`;
   return (
+    extensionNoiseBoot +
+    trustedTypesBoot +
+    `    <script src="/js/vc-suppress-extension-errors.js"></script>\n` +
     `    <script>(function(){var w=window;w.__VC_MAINTENANCE=${json};var m=w.__VC_MAINTENANCE;if(!m||m.enabled!==true)return;var de=w.document.documentElement;de.classList.add("vc-maintenance-pending");try{de.style.overflow="hidden";de.style.height="100%";}catch(e1){}})();</script>\n` +
     `    <script src="/js/site-maintenance.js"></script>\n`
   );
@@ -697,6 +735,7 @@ function applyLiveStatsBootToDist(distDir, cfg, inviteCode) {
       }
       if (!name.toLowerCase().endsWith(".html")) continue;
       const html = fs.readFileSync(p, "utf8");
+      if (html.includes("window.__VC_DISABLE_LIVE_EVENT_UI = true") || html.includes("vc-hw-page") || html.includes("vc-seratafilm-page")) continue;
       if (html.includes("window.__VC_LIVE") || html.includes("js/live-stats.js")) continue;
       const scriptPrefix = relativeScriptPrefixFromHtml(p);
       const boot = buildLiveStatsBootHtml(cfg, inviteCode, { scriptPrefix });
@@ -1138,11 +1177,7 @@ async function main() {
   const indexPath = path.join(DIST, "index.html");
   let html = fs.readFileSync(indexPath, "utf8");
 
-  const cookieYesClientId = String(cfg.cookieYesClientId || "").trim();
-  const cookieYesSafe = /^[a-zA-Z0-9_-]+$/.test(cookieYesClientId) ? cookieYesClientId : "";
-  const cookieYesBlock = cookieYesSafe
-    ? `    <script id="cookieyes" type="text/javascript" src="https://cdn-cookieyes.com/client_data/${cookieYesSafe}/script.js"></script>\n`
-    : "";
+  const cookieYesBlock = "";
 
   const gaId = String(cfg.googleAnalyticsMeasurementId || "").trim();
   const gaBlock = gaId
@@ -1570,10 +1605,121 @@ async function main() {
       ? hogwartsSortingApiLocalRaw
       : "";
   const hogwartsSortingPageUrl = siteBaseNoSlash
-    ? `${siteBaseNoSlash}/evento-hogwarts/smistamento`
-    : "/evento-hogwarts/smistamento";
+    ? `${siteBaseNoSlash}/evento/smistamento`
+    : "/evento/smistamento";
+  const hogwartsPointsPageUrl = siteBaseNoSlash
+    ? `${siteBaseNoSlash}/evento/coppa`
+    : "/evento/coppa";
+  const hogwartsShopPageUrl = siteBaseNoSlash
+    ? `${siteBaseNoSlash}/evento/shop`
+    : "/evento/shop";
   const hogwartsCrestsPath = "../../images/evento-hogwarts/crests/";
   const hogwartsIntroVideo = "/images/evento-hogwarts/inizio.mp4";
+  const hogwartsEventRaw = cfg.hogwartsEvent && typeof cfg.hogwartsEvent === "object" ? cfg.hogwartsEvent : {};
+  const hogwartsIntroDurationSec = Math.max(
+    1,
+    Math.min(120, Number(hogwartsEventRaw.introVideoDurationSec) || 12),
+  );
+  const hogwartsIntroTrimEndSec = Math.max(
+    0,
+    Math.min(30, Number(hogwartsEventRaw.introVideoTrimEndSec) || 0),
+  );
+  const {
+    HOUSES: hogwartsHouses,
+    QUESTIONS: hogwartsScoringQuestions,
+    getHouseMeta: getHogwartsHouseMeta,
+    getPublicQuestions: getHogwartsPublicQuestions,
+  } = require(path.join(ROOT, "..", "Vinyls", "Utils", "Web", "hogwartsSortingBank.js"));
+  const hogwartsEventKey = String(hogwartsEventRaw.eventKey || "hogwarts_summer_2026").trim() || "hogwarts_summer_2026";
+  const hogwartsStaticBootstrap = {
+    ok: true,
+    event: {
+      enabled: hogwartsEventRaw.enabled !== false,
+      previewMode: hogwartsEventRaw.previewMode === true,
+      timezone: String(hogwartsEventRaw.timezone || "Europe/Rome"),
+      startDate: String(hogwartsEventRaw.startDate || "2026-06-01T14:00:00"),
+      endDate: String(hogwartsEventRaw.endDate || "2026-08-31T00:00:00"),
+      eventKey: hogwartsEventKey,
+      gringott: {
+        bank: "Gringott",
+        currency: "Galeone d'Oro",
+        currencyPlural: "Galeoni d'Oro",
+        sortingReward: Math.max(1, Math.floor(Number(hogwartsEventRaw.gringott?.sortingReward) || 25)),
+      },
+      windowLabel: "",
+      phase: hogwartsEventRaw.previewMode === true ? "preview" : "live",
+      open: true,
+      startsAtMs: null,
+      endsAtMs: null,
+    },
+    questions: getHogwartsPublicQuestions(),
+    scoringQuestions: hogwartsScoringQuestions.map((q) => ({
+      id: q.id,
+      choices: q.choices.map((c) => ({ id: c.id, weights: c.weights })),
+    })),
+    houses: hogwartsHouses.map((id) => getHogwartsHouseMeta(id, String(hogwartsEventRaw.houses?.[id]?.crestUrl || "").trim() || undefined)).filter(Boolean),
+  };
+  const hogwartsStaticBootstrapUri = encodeURIComponent(JSON.stringify(hogwartsStaticBootstrap)).replace(/'/g, "%27");
+  const hogwartsHousePointsRaw =
+    cfg.hogwartsHousePoints && typeof cfg.hogwartsHousePoints === "object"
+      ? cfg.hogwartsHousePoints
+      : hogwartsEventRaw.housePoints && typeof hogwartsEventRaw.housePoints === "object"
+        ? hogwartsEventRaw.housePoints
+        : {};
+  const buildHogwartsPointsBoardPayload = (rawBoard = {}, fallbackRaw = {}) => {
+    const board = rawBoard && typeof rawBoard === "object" ? rawBoard : {};
+    const fallback = fallbackRaw && typeof fallbackRaw === "object" ? fallbackRaw : {};
+    return {
+      title: String(board.title || "").trim(),
+      subtitle: String(board.subtitle || "").trim(),
+      periods: Array.isArray(board.periods)
+        ? board.periods
+            .map((period) => {
+              if (period && typeof period === "object") {
+                return {
+                  label: String(period.label || "").trim(),
+                  range: String(period.range || period.duration || "").trim(),
+                  startDate: String(period.startDate || "").trim(),
+                  endDate: String(period.endDate || "").trim(),
+                };
+              }
+              return String(period || "").trim();
+            })
+            .filter((period) => typeof period === "string" ? Boolean(period) : Boolean(period.label || period.range || period.startDate || period.endDate))
+        : [],
+      maxPoints: Math.max(1, Math.floor(Number(board.maxPoints ?? fallback.maxPoints) || 10000)),
+      scaleStops: Array.isArray(board.scaleStops || fallback.scaleStops)
+        ? (board.scaleStops || fallback.scaleStops)
+          .map((n) => Math.max(0, Math.floor(Number(n) || 0)))
+          .filter(Boolean)
+        : undefined,
+      houses: Object.fromEntries(
+        hogwartsHouses.map((id) => {
+          const meta = getHogwartsHouseMeta(id, String(hogwartsEventRaw.houses?.[id]?.crestUrl || "").trim() || undefined);
+          return [
+            id,
+            {
+              label: meta?.label || id,
+              motto: meta?.motto || "",
+              points: Math.max(0, Math.floor(Number(board[id] ?? fallback[id]) || 0)),
+              color: meta?.primary || "#7c2d12",
+              accent: meta?.accent || "#d4af37",
+              crestUrl: meta?.crestUrl || `${hogwartsCrestsPath}${meta?.crestFile || `${id}.png`}`,
+            },
+          ];
+        }),
+      ),
+    };
+  };
+  const schoolYearPointsRaw = hogwartsHousePointsRaw.schoolYear && typeof hogwartsHousePointsRaw.schoolYear === "object" ? hogwartsHousePointsRaw.schoolYear : hogwartsHousePointsRaw;
+  const eventTotalPointsRaw = hogwartsHousePointsRaw.eventTotal && typeof hogwartsHousePointsRaw.eventTotal === "object" ? hogwartsHousePointsRaw.eventTotal : hogwartsHousePointsRaw;
+  const hogwartsPointsPayload = {
+    boards: {
+      schoolYear: buildHogwartsPointsBoardPayload(schoolYearPointsRaw, hogwartsHousePointsRaw),
+      eventTotal: buildHogwartsPointsBoardPayload(eventTotalPointsRaw, hogwartsHousePointsRaw),
+    },
+  };
+  const hogwartsPointsUri = encodeURIComponent(JSON.stringify(hogwartsPointsPayload)).replace(/'/g, "%27");
   const seratafilmBgmRaw = cfg.seratafilmBgm && typeof cfg.seratafilmBgm === "object" ? cfg.seratafilmBgm : {};
   const seratafilmBgmTrackUrls = Array.isArray(seratafilmBgmRaw.trackUrls)
     ? seratafilmBgmRaw.trackUrls
@@ -1635,8 +1781,8 @@ async function main() {
     baseVolume: Math.min(1, Math.max(0.02, Number(hogwartsBgmRaw.baseVolume) || 0.2)),
   };
   if (hogwartsBgmYoutubePublic) hogwartsBgmPayload.youtube = hogwartsBgmYoutubePublic;
-  const hogwartsBgmUri = encodeURIComponent(JSON.stringify(hogwartsBgmPayload)).replace(/'/g, "%27");
-  const hogwartsBgmJson = JSON.stringify(hogwartsBgmPayload);
+  let hogwartsBgmUri = encodeURIComponent(JSON.stringify(hogwartsBgmPayload)).replace(/'/g, "%27");
+  let hogwartsBgmJson = JSON.stringify(hogwartsBgmPayload);
   const seratafilmBgmYtPlaylistId = seratafilmParseYoutubePlaylistId(
     String(seratafilmYtRaw.playlistId || seratafilmYtRaw.playlistUrl || "").trim(),
   );
@@ -1649,6 +1795,15 @@ async function main() {
   const seratafilmBgmYtVideoIds = [
     ...new Set([...seratafilmBgmYtVideoIdsDirect, ...seratafilmBgmYtVideoIdsFromUrls]),
   ];
+  if (hogwartsBgmPayload.youtube && Array.isArray(hogwartsBgmPayload.youtube.videoIds) && seratafilmBgmYtVideoIds.length) {
+    const seratafilmVidSet = new Set(seratafilmBgmYtVideoIds);
+    hogwartsBgmPayload.youtube.videoIds = hogwartsBgmPayload.youtube.videoIds.filter((id) => !seratafilmVidSet.has(id));
+    if (!hogwartsBgmPayload.youtube.videoIds.length && !hogwartsBgmPayload.youtube.playlistId) {
+      delete hogwartsBgmPayload.youtube;
+    }
+    hogwartsBgmUri = encodeURIComponent(JSON.stringify(hogwartsBgmPayload)).replace(/'/g, "%27");
+    hogwartsBgmJson = JSON.stringify(hogwartsBgmPayload);
+  }
   let seratafilmBgmYoutubePublic = null;
   if (seratafilmBgmYtPlaylistId) {
     seratafilmBgmYoutubePublic = { playlistId: seratafilmBgmYtPlaylistId, videoIds: [] };
@@ -1768,6 +1923,7 @@ async function main() {
     );
   }
 
+  const buildAssetVersion = String(Date.now());
   const map = {
     COOKIEYES_BLOCK: cookieYesBlock,
     GA_BLOCK: gaBlock,
@@ -1789,7 +1945,7 @@ async function main() {
     ABOUT_DESCRIPTION: escHtml(aboutPlain),
     SITE_NAME: siteName,
     SITE_URL: escAttr(siteUrlTrim),
-    BUILD_ASSET_VERSION: String(Date.now()),
+    BUILD_ASSET_VERSION: buildAssetVersion,
     TERMS_URL: escAttr(termsUrlResolved),
     PRIVACY_URL: escAttr(privacyUrlResolved),
     COOKIE_POLICY_URL: escAttr(cookiePolicyUrlResolved),
@@ -1862,17 +2018,38 @@ async function main() {
     SERATAFILM_ACCESS_API_URL_LOCAL: escAttr(seratafilmAccessApiLocalResolved),
     HOGWARTS_SORTING_API_URL: escAttr(hogwartsSortingApiResolved),
     HOGWARTS_SORTING_API_URL_LOCAL: escAttr(hogwartsSortingApiLocalResolved),
+    HOGWARTS_SHOP_API_URL: escAttr(`${hogwartsSortingApiResolved.replace(/\/+$/, "")}/shop`),
+    HOGWARTS_SHOP_API_URL_LOCAL: escAttr(hogwartsSortingApiLocalResolved ? `${hogwartsSortingApiLocalResolved.replace(/\/+$/, "")}/shop` : ""),
     HOGWARTS_CRESTS_PATH: escAttr(hogwartsCrestsPath),
     HOGWARTS_INTRO_VIDEO: escAttr(hogwartsIntroVideo),
+    HOGWARTS_INTRO_DURATION_SEC: String(hogwartsIntroDurationSec),
+    HOGWARTS_INTRO_TRIM_END_SEC: String(hogwartsIntroTrimEndSec),
+    HOGWARTS_CRESTS_CACHE_BUST: buildAssetVersion,
+    HOGWARTS_STATIC_BOOTSTRAP_URI: hogwartsStaticBootstrapUri,
+    HOGWARTS_POINTS_URI: hogwartsPointsUri,
     HOGWARTS_BGM_URI: hogwartsBgmUri,
     HOGWARTS_BGM_JSON: hogwartsBgmJson,
     HOGWARTS_SORTING_PAGE_URL: escAttr(hogwartsSortingPageUrl),
+    HOGWARTS_POINTS_PAGE_URL: escAttr(hogwartsPointsPageUrl),
+    HOGWARTS_SHOP_PAGE_URL: escAttr(hogwartsShopPageUrl),
     HOGWARTS_SORTING_PAGE_TITLE: escAttr(`${siteName} | Smistamento Hogwarts`),
     HOGWARTS_SORTING_META_DESCRIPTION: escAttr(
       `Quiz di smistamento Harry Potter: scopri la tua casa a Hogwarts nell'evento estivo ${siteName}.`,
     ),
     HOGWARTS_SORTING_OG_TITLE: escAttr(`${siteName} | Smistamento Hogwarts`),
     HOGWARTS_SORTING_OG_URL: escAttr(hogwartsSortingPageUrl),
+    HOGWARTS_POINTS_PAGE_TITLE: escAttr(`${siteName} | Punti Hogwarts`),
+    HOGWARTS_POINTS_META_DESCRIPTION: escAttr(
+      `Clessidre delle case di Hogwarts: segui i punti di Grifondoro, Corvonero, Tassorosso e Serpeverde nell'evento ${siteName}.`,
+    ),
+    HOGWARTS_POINTS_OG_TITLE: escAttr(`${siteName} | Punti Hogwarts`),
+    HOGWARTS_POINTS_OG_URL: escAttr(hogwartsPointsPageUrl),
+    HOGWARTS_SHOP_PAGE_TITLE: escAttr(`${siteName} | Shop Hogwarts`),
+    HOGWARTS_SHOP_META_DESCRIPTION: escAttr(
+      `Shop Hogwarts ${siteName}: acquista bacchette, scope e animali usando i Galeoni d'Oro dell'evento.`,
+    ),
+    HOGWARTS_SHOP_OG_TITLE: escAttr(`${siteName} | Shop Hogwarts`),
+    HOGWARTS_SHOP_OG_URL: escAttr(hogwartsShopPageUrl),
     SERATAFILM_BGM_URI: seratafilmBgmUri,
     SERATAFILM_EVENT_URI: seratafilmEventUri,
     REVIEWS_PAGE_URL: escAttr(reviewsPageUrl),
@@ -2113,11 +2290,16 @@ async function main() {
     console.warn("[build-site] Manca suggerimenti/index.html (saltato placeholder).");
   }
 
-  const hogwartsSortingIndexPath = path.join(DIST, "evento-hogwarts", "smistamento", "index.html");
+  const hogwartsSortingIndexPath = path.join(DIST, "evento", "smistamento", "index.html");
   if (fs.existsSync(hogwartsSortingIndexPath)) {
     let hogwartsHtml = fs.readFileSync(hogwartsSortingIndexPath, "utf8");
     hogwartsHtml = applyPlaceholderMap(hogwartsHtml, map);
-    warnLeftoverPlaceholders(hogwartsHtml, "evento-hogwarts/smistamento/index.html");
+    const hogwartsBgmJsonEscaped = hogwartsBgmJson.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+    hogwartsHtml = hogwartsHtml.replace(
+      /window\.__VC_HOGWARTS_BGM = JSON\.parse\('\{"baseVolume":0\.2\}'\);/,
+      `window.__VC_HOGWARTS_BGM = JSON.parse('${hogwartsBgmJsonEscaped}');`,
+    );
+    warnLeftoverPlaceholders(hogwartsHtml, "evento/smistamento/index.html");
     fs.writeFileSync(hogwartsSortingIndexPath, hogwartsHtml, "utf8");
     const crestDir = path.join(DIST, "images", "evento-hogwarts", "crests");
     const crestNames = ["gryffindor.png", "ravenclaw.png", "hufflepuff.png", "slytherin.png"];
@@ -2136,7 +2318,27 @@ async function main() {
       );
     }
   } else {
-    console.warn("[build-site] Manca evento-hogwarts/smistamento/index.html (saltato placeholder).");
+    console.warn("[build-site] Manca evento/smistamento/index.html (saltato placeholder).");
+  }
+
+  const hogwartsPointsIndexPath = path.join(DIST, "evento", "coppa", "index.html");
+  if (fs.existsSync(hogwartsPointsIndexPath)) {
+    let hogwartsPointsHtml = fs.readFileSync(hogwartsPointsIndexPath, "utf8");
+    hogwartsPointsHtml = applyPlaceholderMap(hogwartsPointsHtml, map);
+    warnLeftoverPlaceholders(hogwartsPointsHtml, "evento/coppa/index.html");
+    fs.writeFileSync(hogwartsPointsIndexPath, hogwartsPointsHtml, "utf8");
+  } else {
+    console.warn("[build-site] Manca evento/coppa/index.html (saltato placeholder).");
+  }
+
+  const hogwartsShopIndexPath = path.join(DIST, "evento", "shop", "index.html");
+  if (fs.existsSync(hogwartsShopIndexPath)) {
+    let hogwartsShopHtml = fs.readFileSync(hogwartsShopIndexPath, "utf8");
+    hogwartsShopHtml = applyPlaceholderMap(hogwartsShopHtml, map);
+    warnLeftoverPlaceholders(hogwartsShopHtml, "evento/shop/index.html");
+    fs.writeFileSync(hogwartsShopIndexPath, hogwartsShopHtml, "utf8");
+  } else {
+    console.warn("[build-site] Manca evento/shop/index.html (saltato placeholder).");
   }
 
   const seratafilmIndexPath = path.join(DIST, "seratafilm", "index.html");
@@ -2223,6 +2425,8 @@ async function main() {
   } else {
     console.log("[build-site] Offuscamento/minify client disattivato (siteBuild.obfuscateClientAssets: false).");
   }
+
+  assertDistHasNoTemplatePlaceholders(DIST);
 
   console.log("Build OK:", path.relative(process.cwd(), DIST));
 }

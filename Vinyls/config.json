@@ -3,11 +3,26 @@
   "mainGuildId": "1329080093599076474",
   "status": "idle",
   "presence": {
-    "activityName": "www.viniliecaffe.it | discord.gg/viniliecaffe | +help",
-    "streamUrl": ""
+    "activityName": "viniliecaffe.it | .gg/viniliecaffe | +help",
+    "streamUrl": "",
+    "forbiddenSectionEvent": {
+      "enabled": true,
+      "startDate": "2026-06-20",
+      "endDate": "2026-08-31",
+      "bookEmoji": "📖"
+    }
   },
   "logLevel": "debug",
   "eventListeners": 50,
+  "globalExpEvents": [
+    {
+      "key": "august_double_exp_2026",
+      "enabled": true,
+      "startDate": "2026-08-01",
+      "endDate": "2026-08-31",
+      "multiplier": 2
+    }
+  ],
   "developers": [
     "295500038401163264"
   ],
@@ -386,6 +401,12 @@
       "apiUrl": "https://opentdb.com/api.php?amount=5",
       "requireItalian": false
     },
+    "hogwartsQuiz": {
+      "durationMs": 180000,
+      "rewardExp": 200,
+      "housePoints": 10,
+      "unsortedHousePoints": 2
+    },
     "drivingQuiz": {
       "durationMs": 180000,
       "rewardExp": 150,
@@ -397,10 +418,44 @@
     },
     "findBot": {
       "durationMs": 300000,
+      "rewardExp": 200
+    },
+    "findScroll": {
+      "startDate": "2026-06-15T12:00:00",
+      "durationMs": 300000,
       "rewardExp": 200,
-      "excludedChannelIds": [
-        "1470775925426618468"
-      ]
+      "housePoints": 10,
+      "unsortedHousePoints": 2
+    },
+    "memoryEmoji": {
+      "displayMs": 8000,
+      "durationMs": 180000,
+      "rewardExp": 250
+    },
+    "hogwartsMemoryEmoji": {
+      "startDate": "2026-06-29T12:00:00",
+      "displayMs": 8000,
+      "durationMs": 180000,
+      "rewardExp": 250,
+      "housePoints": 10,
+      "unsortedHousePoints": 2
+    },
+    "hogwartsCipher": {
+      "startDate": "2026-07-13T12:00:00",
+      "durationMs": 180000,
+      "rewardExp": 250,
+      "housePoints": 10,
+      "unsortedHousePoints": 2
+    },
+    "hogwartsObservationTower": {
+      "startDate": "2026-07-27T12:00:00",
+      "durationMs": 60000,
+      "targetBricks": 50,
+      "maxPerUser": 10,
+      "minLetters": 5,
+      "rewardExp": 150,
+      "housePoints": 10,
+      "unsortedHousePoints": 2
     },
     "guessYear": {
       "durationMs": 180000,
@@ -424,19 +479,37 @@
     },
     "synonymAntonym": {
       "durationMs": 180000,
-      "rewardExp": 120
+      "rewardExp": 150
     },
     "guessCity": {
       "durationMs": 180000,
       "rewardExp": 150
     },
     "treasureHunt": {
+      "emojiPairs": [
+        { "decoy": "<:VC_Logo:1498073401317916803>", "winner": "💎" }
+      ],
       "buckets": [
         { "weight": 1, "minMessages": 20, "maxMessages": 30, "minDurationMs": 60000,  "maxDurationMs": 120000, "rewardExp": 100 },
         { "weight": 1, "minMessages": 30, "maxMessages": 50, "minDurationMs": 90000,  "maxDurationMs": 180000, "rewardExp": 150 },
         { "weight": 1, "minMessages": 40, "maxMessages": 70, "minDurationMs": 120000, "maxDurationMs": 240000, "rewardExp": 200 }
       ]
     }
+  },
+  "premiLaReact": {
+    "enabled": true,
+    "eventKey": "premi_la_react_2026",
+    "startDate": "2026-07-11T00:00:00",
+    "endDate": "2026-08-11T23:59:59",
+    "emoji": "⚡",
+    "rewardGaleoni": 3,
+    "rewardHousePoints": 10,
+    "minIntervalMs": 3600000,
+    "maxIntervalMs": 3600000,
+    "activeDurationMs": 600000,
+    "maxPerDay": 24,
+    "minCandidateAgeMs": 120000,
+    "maxCandidateAgeMs": 21600000
   },
   "categoryNumbering": {
     "enabled": true,
@@ -482,14 +555,17 @@
     "enabled": true,
     "previewMode": true,
     "timezone": "Europe/Rome",
-    "startDate": "2026-06-01",
-    "endDate": "2026-08-30",
+    "startDate": "2026-06-01T14:00:00",
+    "endDate": "2026-08-31T00:00:00",
     "eventKey": "hogwarts_summer_2026",
     "houses": {
       "gryffindor": { "roleId": "1504791825657888898", "label": "Gryffindor" },
       "ravenclaw": { "roleId": "1504791921246339072", "label": "Ravenclaw" },
       "hufflepuff": { "roleId": "1504791899100155987", "label": "Hufflepuff" },
       "slytherin": { "roleId": "1504791872671973537", "label": "Slytherin" }
+    },
+    "gringott": {
+      "sortingReward": 150
     },
     "staffBypassUserIds": []
   }

@@ -1,6 +1,7 @@
 const { AuditLogEvent, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionsBitField, } = require("discord.js");
 const IDs = require("../Utils/Config/ids");
 const { startSerataFilmSession } = require("../Services/Staff/staffAutoValutazioniService");
+const { handleMovieNightEventStart } = require("../Services/Community/movieNightAnnouncementService");
 const AUDIT_FETCH_LIMIT = 20;
 const AUDIT_LOOKBACK_MS = 120 * 1000;
 
@@ -95,6 +96,9 @@ module.exports = {
       if (Number(scheduledEvent?.status || 0) === 2) {
         await startSerataFilmSession(scheduledEvent).catch((err) => {
           global.logger?.warn?.("[guildScheduledEventCreate] serata film auto:", err?.message || err);
+        });
+        await handleMovieNightEventStart(scheduledEvent).catch((err) => {
+          global.logger?.warn?.("[guildScheduledEventCreate] movie night start:", err?.message || err);
         });
       }
       const guild = scheduledEvent?.guild;

@@ -1,6 +1,7 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder, ChannelType, } = require("discord.js");
 const { skullboardFindOneLean, skullboardUpsert } = require("../Utils/Global/globalSettingsGuildStores");
 const { handleMinigameReaction } = require("../Services/Minigames/minigameService");
+const { handleReactPressReaction } = require("../Services/Community/hogwartsReactPressService");
 const IDs = require("../Utils/Config/ids");
 const { getGuildChannelCached, getGuildMemberCached } = require("../Utils/Interaction/interactionEntityCache");
 const renderSkullboardCanvas = require("../Utils/Render/skullboardCanvas");
@@ -251,10 +252,12 @@ module.exports = {
       if (user?.bot) return;
       try {
         const client = reaction.client || reaction.message?.client || user?.client;
+        const reactPressHandled = await handleReactPressReaction(client, reaction, user);
+        if (reactPressHandled) return;
         const handled = await handleMinigameReaction(client, reaction, user);
         if (handled) return;
       } catch (mgErr) {
-        global.logger?.error?.("[Minigame:treasureHunt] reaction handler:", mgErr?.message || mgErr);
+        global.logger?.error?.("[ReactionAdd] event reaction handler:", mgErr?.message || mgErr);
       }
       if (!isSkullReaction(reaction)) return;
 

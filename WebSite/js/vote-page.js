@@ -174,9 +174,17 @@
     if (remaining.length > 0) {
       var left = Math.max(0, remaining.length - loadedExtra);
       var nextChunk = Math.min(EXTRA_STEP, left);
-      loadBtn.hidden = left === 0;
-      minimizeBtn.hidden = loadedExtra === 0;
-      if (left > 0) {
+      var allExtraLoaded = left === 0;
+      if (loadBtn) {
+        loadBtn.hidden = allExtraLoaded;
+        loadBtn.disabled = allExtraLoaded;
+        loadBtn.setAttribute("aria-hidden", allExtraLoaded ? "true" : "false");
+      }
+      if (minimizeBtn) {
+        minimizeBtn.hidden = loadedExtra === 0;
+        minimizeBtn.setAttribute("aria-hidden", loadedExtra === 0 ? "true" : "false");
+      }
+      if (!allExtraLoaded) {
         loadBtn.innerHTML =
           '<i class="fa fa-angle-down" aria-hidden="true"></i> Carica altri ' +
           String(nextChunk) +

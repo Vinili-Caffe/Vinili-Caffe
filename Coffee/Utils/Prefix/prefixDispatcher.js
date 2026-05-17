@@ -2,7 +2,7 @@ const { PermissionFlagsBits } = require("discord.js");
 const IDs = require("../Config/ids");
 const { handleOfficialPrefixMessage } = require("./officialPrefixDispatcher");
 const { getGuildMemberCached } = require("../Interaction/entityCache");
-const BOT_MENTION_REGEX = /<@!?\d+>/;
+const USER_MENTION_PREFIX_REGEX = /^<@!?\d+>/;
 const WRONG_PREFIX_HINT_CHANNEL_IDS = new Set([IDs.channels?.commands, IDs.channels?.staffCmds].filter(Boolean).map(String));
 const TEMPORARY_NOTICE_LIFETIME_MS = 8000;
 const STAFF_BYPASS_PERMISSIONS = [PermissionFlagsBits.Administrator, PermissionFlagsBits.ManageGuild, PermissionFlagsBits.ManageChannels, PermissionFlagsBits.ManageRoles, PermissionFlagsBits.ManageMessages, PermissionFlagsBits.KickMembers, PermissionFlagsBits.BanMembers, PermissionFlagsBits.ModerateMembers];
@@ -33,6 +33,12 @@ function resolvePrefixCommandByToken(client, token) {
     client?.pcommands?.get?.(client?.aliases?.get?.(safe)) ||
     null
   );
+}
+
+function getBotMentionPrefixRegex(client) {
+  const botId = String(client?.user?.id || "");
+  if (!/^\d+$/.test(botId)) return null;
+  return new RegExp(`^<@!?${botId}>`);
 }
 
 function parseWrongPrefixAttempt(content, validPrefix = ",") {
@@ -70,7 +76,7 @@ function shouldSendWrongPrefixHint(message, usedPrefix, commandName) {
   return true;
 }
 
-async function maybeSendWrongPrefixHint(message, client, validPrefix = "-") {
+async function maybeSendWrongPrefixHint(message, client, validPrefix = ",") {
   const channelId = String(message?.channelId || "");
   if (WRONG_PREFIX_HINT_CHANNEL_IDS.size && !WRONG_PREFIX_HINT_CHANNEL_IDS.has(channelId)) {
     return false;
@@ -100,19 +106,21 @@ async function dispatchPrefixMessage(message, client) {
   const safePrefix = String(client?.config?.prefix || "-").trim() || "-";
 
   let startsWithPrefix = content.startsWith(safePrefix);
-  const isMention =
-    client.user &&
-    BOT_MENTION_REGEX.test(content) &&
-    content.replace(BOT_MENTION_REGEX, "").trim().length > 0;
+  const botMentionPrefixRegex = getBotMentionPrefixRegex(client);
+  const startsWithBotMention = Boolean(botMentionPrefixRegex?.test(content));
 
-  if (!startsWithPrefix && !isMention) {
+  if (!startsWithPrefix && USER_MENTION_PREFIX_REGEX.test(content) && !startsWithBotMention) {
+    return false;
+  }
+
+  if (!startsWithPrefix && !startsWithBotMention) {
     await maybeSendWrongPrefixHint(message, client, safePrefix);
     return false;
   }
 
-  if (!startsWithPrefix && isMention) {
+  if (!startsWithPrefix && startsWithBotMention) {
     try {
-      message.content = content.replace(BOT_MENTION_REGEX, safePrefix).replace(/\s+/g, " ").trim();
+      message.content = content.replace(botMentionPrefixRegex, safePrefix).replace(/\s+/g, " ").trim();
     } catch (e) {
       global.logger?.warn?.("[PREFIX] mention normalize failed:", e?.message || e);
       return false;

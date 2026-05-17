@@ -1,6 +1,7 @@
 const { EmbedBuilder, PermissionFlagsBits, MessageType } = require("discord.js");
 const { handleTtsMessage } = require("../Services/TTS/ttsService");
 const { handleMinigameMessage } = require("../Services/Minigames/minigameService");
+const { recordReactPressCandidateMessage } = require("../Services/Community/hogwartsReactPressService");
 const { recordMessageActivity } = require("../Services/Community/activityService");
 const { trackMessageEngagement } = require("../Services/Community/dailyEngagementStatsService");
 const { trackChannelMessage } = require("../Services/Community/dailyChannelMessageStatsService");
@@ -307,6 +308,11 @@ module.exports = {
         recordMessageActivity(message).catch((err) =>
           logEventError(resolvedClient, "ACTIVITY MESSAGE ERROR", err),
         );
+        try {
+          recordReactPressCandidateMessage(message);
+        } catch (err) {
+          logEventError(resolvedClient, "PREMI LA REACT CANDIDATE ERROR", err);
+        }
         trackMessageEngagement(message).catch((err) =>
           logEventError(resolvedClient, "DAILY ENGAGEMENT MESSAGE ERROR", err),
         );

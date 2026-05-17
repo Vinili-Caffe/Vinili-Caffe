@@ -1,4 +1,5 @@
 const { finishSerataFilmSessionsForChannel } = require("../Services/Staff/staffAutoValutazioniService");
+const { handleMovieNightStageClose } = require("../Services/Community/movieNightAnnouncementService");
 
 module.exports = {
   name: "stageInstanceDelete",
@@ -8,6 +9,9 @@ module.exports = {
     if (!guild || !channelId) return;
     await finishSerataFilmSessionsForChannel(guild, channelId).catch((err) => {
       global.logger?.warn?.("[stageInstanceDelete] serata film staff auto:", err?.message || err);
+    });
+    await handleMovieNightStageClose(stageInstance).catch((err) => {
+      global.logger?.warn?.("[stageInstanceDelete] movie night close:", err?.message || err);
     });
   },
 };

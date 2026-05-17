@@ -1,6 +1,7 @@
 const { ActivityUserProfile, GlobalSettings, LEVEL_HISTORY_MAX_ENTRIES } = require("../../Schemas/Community/communitySchemas");
 const { isValidGuildUserId } = require("../../Utils/DB/validateWriteIds");
 const IDs = require("../../Utils/Config/ids");
+const botConfig = require("../../config.json");
 const { getGuildChannelCached, getGuildMemberCached, getGuildRoleCached, getClientGuildCached, getClientChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { shouldBlockDm } = require("../../Utils/noDmList");
 const { sendLevelMilestoneSupportersAnnouncement } = require("../../Utils/Community/levelMilestoneSupportersAnnounceEmbeds");
@@ -138,12 +139,50 @@ function buildRoleMultipliersMerged(doc) {
   return merged;
 }
 
+function parseExpEventStartMs(value) {
+  const date = String(value || "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+  const ms = new Date(`${date}T00:00:00`).getTime();
+  return Number.isFinite(ms) ? ms : null;
+}
+
+function parseExpEventEndMs(value) {
+  const date = String(value || "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+  const ms = new Date(`${date}T23:59:59.999`).getTime();
+  return Number.isFinite(ms) ? ms : null;
+}
+
+function getScheduledExpEvent(nowMs = Date.now()) {
+  const events = Array.isArray(botConfig?.globalExpEvents) ? botConfig.globalExpEvents : [];
+  let best = null;
+  for (const event of events) {
+    if (!event || event.enabled === false) continue;
+    const multiplier = Number(event.multiplier || 1);
+    if (!Number.isFinite(multiplier) || multiplier <= 1) continue;
+    const startMs = parseExpEventStartMs(event.startDate);
+    const endMs = parseExpEventEndMs(event.endDate);
+    if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) continue;
+    if (nowMs < startMs || nowMs > endMs) continue;
+    if (!best || multiplier > best.multiplier) {
+      best = { multiplier, expiresAt: new Date(endMs), key: String(event.key || "").trim() || null };
+    }
+  }
+  return best;
+}
+
 function normalizeSettingsDoc(doc) {
   const now = Date.now();
   const expiresAtValue = doc?.expEventMultiplierExpiresAt ? new Date(doc.expEventMultiplierExpiresAt).getTime() : null;
   const tempBoostActive = Number.isFinite(expiresAtValue) && expiresAtValue > now;
   const baseMultiplier = Number(doc?.expMultiplier || DEFAULT_MULTIPLIER);
-  const eventMultiplier = tempBoostActive ? Number(doc?.expEventMultiplier || 1) : 1;
+  const tempEventMultiplier = tempBoostActive ? Number(doc?.expEventMultiplier || 1) : 1;
+  const scheduledEvent = getScheduledExpEvent(now);
+  const scheduledEventMultiplier = Number(scheduledEvent?.multiplier || 1);
+  const eventMultiplier = Math.max(tempEventMultiplier, scheduledEventMultiplier);
+  const eventExpiresAt = scheduledEventMultiplier >= tempEventMultiplier
+    ? scheduledEvent?.expiresAt || null
+    : new Date(expiresAtValue);
   return {
     baseMultiplier:
       Number.isFinite(baseMultiplier) && baseMultiplier > 0
@@ -153,7 +192,7 @@ function normalizeSettingsDoc(doc) {
       Number.isFinite(eventMultiplier) && eventMultiplier > 0
         ? eventMultiplier
         : 1,
-    eventExpiresAt: tempBoostActive ? new Date(expiresAtValue) : null,
+    eventExpiresAt: eventMultiplier > 1 ? eventExpiresAt : null,
     lockedChannelIds: Array.isArray(doc?.expLockedChannelIds)
       ? doc.expLockedChannelIds.filter(Boolean)
       : [],

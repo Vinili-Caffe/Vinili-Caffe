@@ -106,7 +106,7 @@ function Invoke-SiteDeploy {
       & tar -czf $localTgz -C dist .
       Write-Host "Upload archivio sito su ${User}@${Server}:${remoteTgz}"
       Invoke-RemoteScp @($localTgz, "${User}@${Server}:${remoteTgz}")
-      $extract = "mkdir -p '$RemotePath' && tar -xzf '$remoteTgz' -C '$RemotePath' && rm -f '$remoteTgz'"
+      $extract = "mkdir -p '$RemotePath' && rm -f '$RemotePath/js/main.js' && tar -xzf '$remoteTgz' -C '$RemotePath' && rm -f '$remoteTgz'"
       Write-Host "Estrazione archivio sito in $RemotePath sul server..."
       Invoke-RemoteSsh "${User}@${Server}" $extract
       Write-Host "Estrazione sito completata."

@@ -1,6 +1,12 @@
 (function () {
   var CONSENT_KEY = "vc_cookie_banner_ack_v3";
   var CONSENT_COOKIE = "vc_cookie_banner_ack_v3";
+  var DISCORD_ACCESS_TOKEN_KEY = "vc_discord_access_token";
+  var DISCORD_EXPIRES_AT_KEY = "vc_discord_expires_at";
+  var FORBIDDEN_BOOKS_KEY = "vc_forbidden_section_books_v1";
+  var FORBIDDEN_BOOKS_START_MS = new Date("2026-06-20T00:00:00").getTime();
+  var FORBIDDEN_BOOKS_END_MS = new Date("2026-08-31T23:59:59.999").getTime();
+  var FORBIDDEN_SITE_BOOKS_TOTAL = 8;
 
   function normalizeLegalPath(pathname) {
     var path = String(pathname || "/").replace(/\/+$/, "") || "/";
@@ -140,7 +146,7 @@
       '<span class="vc-necessity-banner__icon" aria-hidden="true">' + cookieIcon + "</span>" +
       '<div class="vc-necessity-banner__titlewrap">' +
       '<h2 id="vc-necessity-title">Cookie essenziali</h2>' +
-      '<p>Usiamo solo dati tecnici necessari per login Discord, sicurezza e funzioni base del sito.</p>' +
+      '<p>Usiamo solo dati tecnici necessari per login Discord, sicurezza e funzioni base del sito. La sessione locale può durare fino a 90 giorni.</p>' +
       "</div>" +
       '<button type="button" class="vc-necessity-banner__close" data-vc-necessity-dismiss aria-label="Chiudi avviso cookie">' + closeIcon + "</button>" +
       "</div>" +
@@ -148,7 +154,7 @@
       '<div class="vc-necessity-banner__scroll">' +
       '<div class="vc-necessity-banner__notice">' +
       '<span class="vc-necessity-banner__noticeico" aria-hidden="true">' + infoIcon + "</span>" +
-      '<p><strong>Solo tecnici essenziali.</strong> Nessun cookie di marketing o profilazione: solo accesso, sicurezza e preferenze minime.</p>' +
+      '<p><strong>Solo tecnici essenziali.</strong> Nessun cookie di marketing o profilazione: solo accesso Discord, sicurezza e preferenze minime.</p>' +
       "</div>" +
       '<details class="vc-necessity-banner__details">' +
       '<summary><span><span class="vc-necessity-banner__summaryico" aria-hidden="true">' + shieldIcon + '</span> Dettagli tecnici</span><span class="vc-necessity-banner__chev" aria-hidden="true">' + chevIcon + "</span></summary>" +
@@ -543,13 +549,27 @@
     }
     if (accountMenu && notif) {
       accountMenu.addEventListener("pointerenter", function () {
-        if (notif.open) notif.open = false;
         syncHeaderDropdownOpenClasses();
       });
       accountMenu.addEventListener("focusin", function () {
         if (notif.open) notif.open = false;
         syncHeaderDropdownOpenClasses();
       });
+    }
+    function pointInside(el, ev) {
+      if (!el || typeof ev.clientX !== "number" || typeof ev.clientY !== "number") return false;
+      try {
+        var r = el.getBoundingClientRect();
+        return ev.clientX >= r.left && ev.clientX <= r.right && ev.clientY >= r.top && ev.clientY <= r.bottom;
+      } catch (e) {
+        return false;
+      }
+    }
+    function eventInsideOpenDropdown(openEl, ev) {
+      if (!openEl) return false;
+      var t = ev.target;
+      if (t && openEl.contains(t)) return true;
+      return pointInside(openEl, ev);
     }
     function closeAllHeaderDropdowns() {
       detailsList.forEach(function (d) {
@@ -569,7 +589,7 @@
         );
         if (!opens.length) return;
         for (var i = 0; i < opens.length; i++) {
-          if (opens[i].contains(t)) return;
+          if (eventInsideOpenDropdown(opens[i], ev)) return;
         }
         closeAllHeaderDropdowns();
       },
@@ -1116,60 +1136,6 @@
     }
   }
 
-  /** Swipe verticale sul foglio mobile: giù chiude, su apre /notifications/. */
-  function applyNotifSheetSwipeDelta(dy, dd) {
-    if (!dd || !dd.open) return false;
-    if (Math.abs(dy) < 52) return false;
-    if (dy > 0) {
-      dd.removeAttribute("open");
-      return true;
-    }
-    try {
-      dd.removeAttribute("open");
-    } catch (e) {}
-    window.location.href = notificationsPageUrl();
-    return true;
-  }
-
-  function bindNotifBackdropSwipe(bd, dd) {
-    var y0 = 0;
-    var track = false;
-    bd.addEventListener(
-      "touchstart",
-      function (ev) {
-        if (!isMobileNotifViewport() || !dd.open) return;
-        if (ev.touches.length !== 1) return;
-        y0 = ev.touches[0].clientY;
-        track = true;
-      },
-      { passive: true },
-    );
-    bd.addEventListener(
-      "touchend",
-      function (ev) {
-        if (!track) return;
-        track = false;
-        if (!isMobileNotifViewport() || !dd.open) return;
-        var t = ev.changedTouches && ev.changedTouches[0];
-        if (!t) return;
-        applyNotifSheetSwipeDelta(t.clientY - y0, dd);
-      },
-      { passive: true },
-    );
-    bd.addEventListener(
-      "touchcancel",
-      function () {
-        track = false;
-      },
-      { passive: true },
-    );
-  }
-
-  function wireNotifSheetSwipeGestures(dd) {
-    if (!dd || dd.dataset.vcNotifSwipe === "1") return;
-    if (!dd.querySelector(".vc-notif-panel")) return;
-    dd.dataset.vcNotifSwipe = "1";
-  }
   function timeAgoIt(atMs) {
     var s = Math.floor((Date.now() - atMs) / 1000);
     if (s < 45) return "Ora";
@@ -1576,7 +1542,6 @@
         bd.addEventListener("click", function () {
           dd.removeAttribute("open");
         });
-        bindNotifBackdropSwipe(bd, dd);
         dd.insertBefore(bd, dd.firstChild);
       }
     } else {
@@ -1617,6 +1582,7 @@
   }
   function siteRealtimeWsUrl() {
     var c = typeof window !== "undefined" && window.__VC_SITE_NOTIFS ? window.__VC_SITE_NOTIFS : {};
+    if (c.wsEnabled !== true && c.wsEnabled !== "true" && !String(c.wsUrl || "").trim()) return "";
     var explicit = String(c.wsUrl || "").trim();
     if (explicit) return explicit;
     var http = resolvedSiteNotificationsUrl();
@@ -1914,8 +1880,9 @@
     } catch (eDd) {}
     if (!normalizeUserId(currentUserId) || !getDiscordAccessToken()) return;
     syncSiteNotificationsFromServer();
+    var wsUrl = siteRealtimeWsUrl();
     var rs = siteRealtimeWs ? siteRealtimeWs.readyState : 3;
-    if (rs !== 0 && rs !== 1) connectSiteRealtimeWebSocket();
+    if (wsUrl && rs !== 0 && rs !== 1) connectSiteRealtimeWebSocket();
     if (!siteRealtimeWs || siteRealtimeWs.readyState !== 1) {
       siteNotifsTimer = setInterval(syncSiteNotificationsFromServer, SITE_NOTIFS_POLL_MS);
     }
@@ -1923,7 +1890,6 @@
   function wireNotifMobileSheet() {
     var dd = document.getElementById("vc-notif-dropdown");
     if (!dd) return;
-    wireNotifSheetSwipeGestures(dd);
     dd.addEventListener("toggle", syncNotifMobileSheetChrome);
     window.addEventListener("resize", function () {
       if (!isMobileNotifViewport()) syncNotifMobileSheetChrome();
@@ -2022,6 +1988,12 @@
   var DRAWER_ID = "vc-mobile-nav-drawer";
   var TOGGLE_ID = "vc-mobile-nav-toggle";
   var BODY_OPEN_CLASS = "vc-mobile-nav-open";
+  var DISCORD_ACCESS_TOKEN_KEY = "vc_discord_access_token";
+  var DISCORD_EXPIRES_AT_KEY = "vc_discord_expires_at";
+  var FORBIDDEN_BOOKS_KEY = "vc_forbidden_section_books_v1";
+  var FORBIDDEN_BOOKS_START_MS = new Date("2026-06-20T00:00:00").getTime();
+  var FORBIDDEN_BOOKS_END_MS = new Date("2026-08-31T23:59:59.999").getTime();
+  var FORBIDDEN_SITE_BOOKS_TOTAL = 8;
   var mq = null;
   var drawer = null;
   var toggle = null;
@@ -2397,12 +2369,252 @@
   }
 
   function init() {
+    revealForbiddenSectionBooks();
     ensure();
     var m = getMq();
     if (m.addEventListener) m.addEventListener("change", onMqChange);
     else if (m.addListener) m.addListener(onMqChange);
     syncDrawerFooter();
   }
+
+  function revealForbiddenSectionBooks() {
+    var now = Date.now();
+    ensureForbiddenBookForCurrentPage();
+    var books = document.querySelectorAll("[data-vc-forbidden-book]");
+    if (!books.length) return;
+    if (!Number.isFinite(FORBIDDEN_BOOKS_START_MS) || (Number.isFinite(FORBIDDEN_BOOKS_END_MS) && now > FORBIDDEN_BOOKS_END_MS)) {
+      removeForbiddenBooks(books);
+      return;
+    }
+    if (now < FORBIDDEN_BOOKS_START_MS) {
+      hideForbiddenBooks(books);
+      syncForbiddenBooksFromServer(books, { setupOnSuccess: true });
+      return;
+    }
+    for (var i = 0; i < books.length; i += 1) {
+      setupForbiddenBook(books[i], []);
+    }
+    syncForbiddenBooksFromServer(books);
+  }
+
+  function currentForbiddenBookPageId() {
+    var path = String(window.location.pathname || "/").replace(/\/index\.html$/i, "").replace(/\/+$/, "") || "/";
+    var map = {
+      "/": "home",
+      "/faq": "faq",
+      "/wiki": "wiki",
+      "/regole": "regole",
+      "/donazioni": "donazioni",
+      "/vote": "vote",
+      "/ruoli": "ruoli",
+      "/sponsor": "sponsor",
+    };
+    return map[path] || "";
+  }
+
+  function ensureForbiddenBookForCurrentPage() {
+    if (document.querySelector("[data-vc-forbidden-book]")) return;
+    var id = currentForbiddenBookPageId();
+    if (!id || !document.body) return;
+    var el = document.createElement("span");
+    el.className = "vc-forbidden-book";
+    el.setAttribute("data-vc-forbidden-book", id);
+    el.setAttribute("role", "img");
+    el.setAttribute("aria-label", "libro proibito");
+    el.hidden = true;
+    el.textContent = "📖";
+    document.body.appendChild(el);
+  }
+
+  function hideForbiddenBooks(books) {
+    for (var i = 0; i < books.length; i += 1) {
+      books[i].hidden = true;
+      books[i].setAttribute("hidden", "");
+    }
+  }
+
+  function readForbiddenBooks() {
+    try {
+      var raw = window.localStorage ? window.localStorage.getItem(FORBIDDEN_BOOKS_KEY) : "";
+      var parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed.map(String) : [];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  function saveForbiddenBooks(ids) {
+    try {
+      if (window.localStorage) window.localStorage.setItem(FORBIDDEN_BOOKS_KEY, JSON.stringify(ids));
+    } catch (_) {}
+  }
+
+  function forbiddenBookId(el) {
+    var explicit = String(el.getAttribute("data-vc-forbidden-book") || "").trim();
+    if (explicit && explicit !== "true") return explicit;
+    var path = String(window.location.pathname || "/").replace(/\/index\.html$/i, "").replace(/\/+$/, "") || "home";
+    return path.replace(/[^\w-]+/g, "_");
+  }
+
+  function setupForbiddenBook(el, collected) {
+    var id = forbiddenBookId(el);
+    var already = collected.indexOf(id) !== -1;
+    if (already) {
+      el.remove();
+      return;
+    }
+    if (el.__vcForbiddenBookReady) return;
+    el.__vcForbiddenBookReady = true;
+    el.hidden = false;
+    el.removeAttribute("hidden");
+    el.setAttribute("role", "button");
+    el.setAttribute("tabindex", "0");
+    el.setAttribute("title", "Cattura il libro proibito");
+    el.setAttribute("aria-label", "Cattura libro proibito");
+    startFlyingForbiddenBook(el);
+    var collect = function () {
+      if (el.__vcClaiming) return;
+      el.__vcClaiming = true;
+      claimForbiddenBook(id).then(function (data) {
+        var current = Array.isArray(data.collectedBookIds) ? data.collectedBookIds.map(String) : readForbiddenBooks();
+        saveForbiddenBooks(current);
+        if (el.__vcFlyTimer) window.clearInterval(el.__vcFlyTimer);
+        el.classList.add("vc-forbidden-book--caught");
+        el.setAttribute("title", "Libro raccolto");
+        el.setAttribute("aria-label", "Libro proibito raccolto");
+        showForbiddenBookToast(current.length, data.closed ? "Libro raccolto. La caccia ai libri proibiti è conclusa!" : "");
+        window.setTimeout(function () {
+          el.remove();
+        }, 220);
+        if (data.closed) removeAllForbiddenBooks();
+      }).catch(function (err) {
+        el.__vcClaiming = false;
+        showForbiddenBookToast(readForbiddenBooks().length, err && err.message ? err.message : "Per raccoglierlo devi accedere e aver completato lo smistamento.");
+      });
+    };
+    el.addEventListener("click", collect);
+    el.addEventListener("keydown", function (event) {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      collect();
+    });
+  }
+
+  function forbiddenBooksApiUrl() {
+    return String(window.__VC_HOGWARTS_FORBIDDEN_BOOKS_API || "/webhooks/site-hogwarts-sorting/forbidden-books").trim() || "/webhooks/site-hogwarts-sorting/forbidden-books";
+  }
+
+  function getDiscordAccessTokenForForbiddenBooks() {
+    try {
+      var token = localStorage.getItem(DISCORD_ACCESS_TOKEN_KEY);
+      var expiresAt = Number(localStorage.getItem(DISCORD_EXPIRES_AT_KEY) || "0");
+      if (!token || !expiresAt || Date.now() >= expiresAt) return "";
+      return token;
+    } catch (_) {
+      return "";
+    }
+  }
+
+  function forbiddenBooksRequest(method, body) {
+    var token = getDiscordAccessTokenForForbiddenBooks();
+    if (!token) return Promise.reject(new Error("Accedi con Discord e completa lo smistamento per raccogliere i libri."));
+    return fetch(forbiddenBooksApiUrl(), {
+      method: method,
+      headers: {
+        Authorization: "Bearer " + token,
+        "Content-Type": "application/json",
+      },
+      body: body ? JSON.stringify(body) : undefined,
+      cache: "no-store",
+    }).then(function (res) {
+      return res.json().catch(function () { return {}; }).then(function (data) {
+        if (!res.ok || !data || data.ok !== true) {
+          throw new Error((data && data.message) || "Libro non raccolto.");
+        }
+        return data;
+      });
+    });
+  }
+
+  function claimForbiddenBook(bookId) {
+    return forbiddenBooksRequest("POST", { bookId: bookId });
+  }
+
+  function syncForbiddenBooksFromServer(books, options) {
+    if (!getDiscordAccessTokenForForbiddenBooks()) return;
+    forbiddenBooksRequest("GET").then(function (data) {
+      var collected = Array.isArray(data.collectedBookIds) ? data.collectedBookIds.map(String) : [];
+      saveForbiddenBooks(collected);
+      if (data.closed) {
+        removeAllForbiddenBooks();
+        return;
+      }
+      for (var i = 0; i < books.length; i += 1) {
+        var id = forbiddenBookId(books[i]);
+        if (collected.indexOf(id) !== -1) {
+          if (books[i].__vcFlyTimer) window.clearInterval(books[i].__vcFlyTimer);
+          books[i].remove();
+        } else if (options && options.setupOnSuccess) {
+          setupForbiddenBook(books[i], collected);
+        }
+      }
+    }).catch(function () {});
+  }
+
+  function removeForbiddenBooks(books) {
+    for (var i = 0; i < books.length; i += 1) {
+      if (books[i].__vcFlyTimer) window.clearInterval(books[i].__vcFlyTimer);
+      books[i].remove();
+    }
+  }
+
+  function removeAllForbiddenBooks() {
+    var books = document.querySelectorAll("[data-vc-forbidden-book]");
+    removeForbiddenBooks(books);
+  }
+
+  function startFlyingForbiddenBook(el) {
+    try {
+      if (el.parentNode !== document.body) document.body.appendChild(el);
+    } catch (_) {}
+    var move = function () {
+      var margin = 72;
+      var width = Math.max(320, window.innerWidth || document.documentElement.clientWidth || 320);
+      var height = Math.max(320, window.innerHeight || document.documentElement.clientHeight || 320);
+      var x = margin + Math.random() * Math.max(1, width - margin * 2);
+      var y = margin + Math.random() * Math.max(1, height - margin * 2);
+      var rotate = Math.round(-28 + Math.random() * 56);
+      el.style.left = x + "px";
+      el.style.top = y + "px";
+      el.style.setProperty("--vc-book-rotate", rotate + "deg");
+    };
+    el.classList.add("vc-forbidden-book--flying");
+    move();
+    window.setTimeout(move, 80);
+    el.__vcFlyTimer = window.setInterval(move, 850 + Math.floor(Math.random() * 450));
+  }
+
+  function showForbiddenBookToast(count, customMessage) {
+    var total = FORBIDDEN_SITE_BOOKS_TOTAL;
+    var toast = document.getElementById("vc-forbidden-book-toast");
+    if (!toast) {
+      toast = document.createElement("div");
+      toast.id = "vc-forbidden-book-toast";
+      toast.className = "vc-forbidden-book-toast";
+      toast.setAttribute("role", "status");
+      document.body.appendChild(toast);
+    }
+    toast.textContent = customMessage || ("Libro raccolto: " + Math.min(count, total) + "/" + total + " sul sito. Ricorda: 2 sono negli status dei bot.");
+    toast.classList.add("vc-forbidden-book-toast--show");
+    window.clearTimeout(toast.__vcTimer);
+    toast.__vcTimer = window.setTimeout(function () {
+      toast.classList.remove("vc-forbidden-book-toast--show");
+    }, 3600);
+  }
+
+  window.addEventListener("vc-discord-profile", function () {
+    revealForbiddenSectionBooks();
+  });
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", init);

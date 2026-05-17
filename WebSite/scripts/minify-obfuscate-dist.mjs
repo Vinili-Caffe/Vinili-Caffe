@@ -14,6 +14,7 @@ const SKIP_JS_OBFUSCATION = new Set([
   "hogwarts-access-gate.js",
   "hogwarts-bgm-youtube.js",
   "vc-suppress-extension-errors.js",
+  "vc-youtube-iframe-api.js",
 ]);
 
 const OBF_OPTIONS = {

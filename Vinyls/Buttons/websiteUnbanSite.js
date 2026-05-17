@@ -1,8 +1,11 @@
+const { EmbedBuilder } = require("discord.js");
 const IDs = require("../Utils/Config/ids");
 const { enqueueSiteInAppNotification } = require("../Utils/Web/siteInAppNotificationsService");
 const ACC_PREFIX = "website_unban_acc";
 const REJ_PREFIX = "website_unban_rej";
 const EPHEMERAL = 1 << 6;
+const UNBAN_ACCEPTED_COLOR = "#2ECC71";
+const UNBAN_REJECTED_COLOR = "#ED4245";
 
 function hasHighStaffRole(interaction) {
   const highStaffRoleId = IDs?.roles?.HighStaff ? String(IDs.roles.HighStaff) : "";
@@ -32,6 +35,17 @@ async function deleteUnbanStarterThread(message) {
   }
   if (!thread) return;
   await thread.delete("Richiesta unban.").catch(() => null);
+}
+
+function recolorEmbeds(embeds, color) {
+  return (Array.isArray(embeds) ? embeds : [])
+    .map((embed) => EmbedBuilder.from(embed).setColor(color));
+}
+
+async function setUnbanMessageStatusColor(message, color) {
+  if (!message?.editable) return;
+  const embeds = recolorEmbeds(message.embeds, color);
+  await message.edit({ embeds, components: [] }).catch(() => null);
 }
 
 async function execute(interaction) {
@@ -103,7 +117,7 @@ async function execute(interaction) {
     } catch (_) {}
   }
   if (msg?.editable) {
-    await msg.edit({ components: [] }).catch(() => null);
+    await setUnbanMessageStatusColor(msg, accept ? UNBAN_ACCEPTED_COLOR : UNBAN_REJECTED_COLOR);
   }
   await deleteUnbanStarterThread(msg);
   if (accept && staffNote === "Unban completato.") {

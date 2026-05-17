@@ -1,13 +1,7 @@
 const crypto = require("node:crypto");
 const IDs = require("../../Utils/Config/ids");
-const {
-  resolveDiscordOauthClientIdForSite,
-  resolveDiscordOauthRedirectUriForSite,
-  normalizeSiteOAuthReturnPath,
-} = require("../../Utils/Web/verifyOauthPublicUrl");
+const { resolveDiscordOauthClientIdForSite, resolveDiscordOauthRedirectUriForSite, normalizeSiteOAuthReturnPath } = require("../../Utils/Web/verifyOauthPublicUrl");
 const { processDiscadiaVote } = require("../../Utils/Message/officialMessageAutomationHandlers");
-
-/** Allineato a @top-gg/sdk (structs/Webhook.ts): finestra anti-replay in ms. */
 const TOPGG_V1_SIGNATURE_TIMESTAMP_WINDOW_MS = 30_000;
 
 function tryRequireExpress() {
@@ -43,12 +37,7 @@ function shouldStartPublicSiteReadonlyHttp() {
 }
 
 function shouldStartBotHttpServer(client) {
-  return (
-    shouldStartDiscadiaVoteHttpWebhook(client) ||
-    shouldStartTopggVoteHttpWebhook(client) ||
-    isCandidatureWebsiteApiEnabled() ||
-    shouldStartPublicSiteReadonlyHttp()
-  );
+  return shouldStartDiscadiaVoteHttpWebhook(client) || shouldStartTopggVoteHttpWebhook(client) || isCandidatureWebsiteApiEnabled() || shouldStartPublicSiteReadonlyHttp();
 }
 
 function normalizeHeaderSecret(raw) {
@@ -60,7 +49,6 @@ function normalizeHeaderSecret(raw) {
   return s;
 }
 
-/** Normalizza una voce .env (virgolette, spazi, slash finale) → stringa `origin` come la manda il browser. */
 function normalizeCorsOriginEntry(entry) {
   const stripped = String(entry || "")
     .trim()
@@ -76,7 +64,6 @@ function normalizeCorsOriginEntry(entry) {
   }
 }
 
-/** Es. `https://sito.it,http://localhost:3000` → il browser richiede `Access-Control-Allow-Origin` uguale all'Origin della pagina. */
 function parseCorsOriginAllowlist(raw) {
   return String(raw || "")
     .split(",")
@@ -84,7 +71,6 @@ function parseCorsOriginAllowlist(raw) {
     .filter(Boolean);
 }
 
-/** `localhost` e `127.0.0.1` sono origini diverse per il browser: se ne elenchi una, accettiamo anche l’altra (stessa porta). */
 function expandCorsOriginAllowlist(origins) {
   const set = new Set(origins);
   for (const o of origins) {
@@ -100,7 +86,7 @@ function expandCorsOriginAllowlist(origins) {
         set.add(alt.origin);
       }
     } catch {
-      /* ignore */
+      continue;
     }
   }
   return [...set];
@@ -115,7 +101,6 @@ function isLoopbackBrowserOriginUrl(origin) {
   }
 }
 
-/** Se in allowlist c’è almeno un http(s)://localhost… (qualsiasi porta), accetta qualsiasi porta loopback in richiesta (evita 5173 vs 3000 in dev). */
 function corsAllowlistPermitsAnyLoopbackDevOrigin(allowlist) {
   return allowlist.some((o) => isLoopbackBrowserOriginUrl(o));
 }
@@ -126,18 +111,7 @@ function extractVoteWebhookUserId(body) {
     const u = String(body.user).trim();
     if (/^\d{17,22}$/.test(u)) return u;
   }
-  const candidates = [
-    body.user_id,
-    body.userId,
-    body.id,
-    body.voter_id,
-    body.voterId,
-    body.discord_id,
-    body.discordId,
-    body.user?.id,
-    body.voter?.id,
-    body.member?.id,
-  ];
+  const candidates = [body.user_id, body.userId, body.id, body.voter_id, body.voterId, body.discord_id, body.discordId, body.user?.id, body.voter?.id, body.member?.id];
   for (const c of candidates) {
     if (c == null) continue;
     const id = String(c).trim();
@@ -146,7 +120,6 @@ function extractVoteWebhookUserId(body) {
   return null;
 }
 
-/** Top.gg API v1: `vote.create` / `webhook.test` → Discord ID in `data.user.platform_id`. */
 function extractTopggVoteDiscordUserId(body) {
   if (!body || typeof body !== "object") return null;
   const type = String(body.type || "").toLowerCase();
@@ -176,7 +149,6 @@ function parseTopggV1SignatureHeader(raw) {
   return { t, v1 };
 }
 
-/** Stesso algoritmo di @top-gg/sdk Webhook._parseRequest: messaggio `${t}.${rawBodyUtf8}`. */
 function verifyTopggV1Signature(secret, timestampSec, rawBodyBuffer, signatureHex) {
   const t = String(timestampSec);
   const bodyStr = Buffer.isBuffer(rawBodyBuffer) ? rawBodyBuffer.toString("utf8") : String(rawBodyBuffer);
@@ -198,9 +170,7 @@ function isTopggWebhookAuthorized(req, topggSecret) {
     if (Math.abs(Date.now() - tsMs) > TOPGG_V1_SIGNATURE_TIMESTAMP_WINDOW_MS) return false;
     return verifyTopggV1Signature(topggSecret, parsed.t, rawBuf, parsed.v1);
   }
-  const receivedSecret = normalizeHeaderSecret(
-    req.headers["authorization"] || req.headers["x-topgg-secret"] || req.headers["x-topgg-authorization"],
-  );
+  const receivedSecret = normalizeHeaderSecret(req.headers["authorization"] || req.headers["x-topgg-secret"] || req.headers["x-topgg-authorization"]);
   return receivedSecret === topggSecret;
 }
 
@@ -211,9 +181,7 @@ async function startWebhookServer(client) {
 
   const express = tryRequireExpress();
   if (!express) {
-    global.logger?.error?.(
-      "[WEBHOOK] Modulo `express` non trovato. Installa le dipendenze del bot (es. `npm install` in Vinyls). HTTP disabilitato.",
-    );
+    global.logger?.error?.( "[WEBHOOK] Modulo `express` non trovato. Installa le dipendenze del bot. HTTP disabilitato.");
     return;
   }
 
@@ -269,26 +237,7 @@ async function startWebhookServer(client) {
     const isSitePayments = pathStr.startsWith("/webhooks/site-payments");
     const isSiteSeratafilmAccess = pathStr.startsWith("/webhooks/site-seratafilm-access");
     const isSiteHogwartsSorting = pathStr.startsWith("/webhooks/site-hogwarts-sorting");
-    if (
-      !isCandidature &&
-      !isUnban &&
-      !isSiteRules &&
-      !isSiteUsers &&
-      !isSiteVote &&
-      !isSiteLiveEvent &&
-      !isSiteRoles &&
-      !isSiteRankCard &&
-      !isSiteReviews &&
-      !isSiteSuggestions &&
-      !isSiteNotifications &&
-      !isSiteForum &&
-      !isSiteVerify &&
-      !isSitePayments &&
-      !isSiteSeratafilmAccess &&
-      !isSiteHogwartsSorting
-    ) {
-      return next();
-    }
+    if (!isCandidature && !isUnban && !isSiteRules && !isSiteUsers && !isSiteVote && !isSiteLiveEvent && !isSiteRoles && !isSiteRankCard && !isSiteReviews && !isSiteSuggestions && !isSiteNotifications && !isSiteForum && !isSiteVerify && !isSitePayments && !isSiteSeratafilmAccess && !isSiteHogwartsSorting) return next();
     const originRaw = String(req.headers.origin || "").trim();
     const originNorm = originRaw ? normalizeCorsOriginEntry(originRaw) || originRaw : "";
     let allowOrigin = "";
@@ -307,30 +256,12 @@ async function startWebhookServer(client) {
     if (allowOrigin) {
       res.setHeader("Access-Control-Allow-Origin", allowOrigin);
       res.append("Vary", "Origin");
-    } else if (
-      isSiteRules ||
-      isSiteUsers ||
-      isSiteVote ||
-      isSiteLiveEvent ||
-      isSiteRoles ||
-      isSiteRankCard ||
-      isSiteReviews ||
-      isSiteSuggestions ||
-      isSiteNotifications ||
-      isSitePayments ||
-      isSiteSeratafilmAccess ||
-      isSiteHogwartsSorting
-    ) {
+    } else if (isSiteRules || isSiteUsers || isSiteVote || isSiteLiveEvent || isSiteRoles || isSiteRankCard || isSiteReviews || isSiteSuggestions || isSiteNotifications || isSitePayments || isSiteSeratafilmAccess || isSiteHogwartsSorting) {
       res.setHeader("Access-Control-Allow-Origin", "*");
     }
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS");
-    res.setHeader(
-      "Access-Control-Allow-Headers",
-      "Content-Type, Authorization, Access-Control-Request-Private-Network",
-    );
-    if (allowOrigin) {
-      res.setHeader("Access-Control-Allow-Private-Network", "true");
-    }
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Access-Control-Request-Private-Network");
+    if (allowOrigin) res.setHeader("Access-Control-Allow-Private-Network", "true");
     if (req.method === "OPTIONS") {
       res.status(204).end();
       return;
@@ -340,14 +271,8 @@ async function startWebhookServer(client) {
 
   if (isCandidatureWebsiteApiEnabled()) {
     app.use(siteCandidatureCorsMiddleware);
-    const {
-      submitCandidatureWebsite,
-      getCandidatureEligibilitySummary,
-    } = require("../../Events/interaction/candidatureApplicationHandlers");
-    const {
-      getWebsiteUnbanEligibility,
-      submitWebsiteUnban,
-    } = require("../../Events/interaction/unbanWebsiteHandlers");
+    const { submitCandidatureWebsite, getCandidatureEligibilitySummary } = require("../../Events/interaction/candidatureApplicationHandlers");
+    const { getWebsiteUnbanEligibility, submitWebsiteUnban } = require("../../Events/interaction/unbanWebsiteHandlers");
     app.get("/webhooks/site-candidature/eligibility", async (req, res) => {
       try {
         const accessToken = normalizeHeaderSecret(req.headers.authorization);
@@ -427,9 +352,7 @@ async function startWebhookServer(client) {
 
   if (shouldStartTopggVoteHttpWebhook(client)) {
     if (!topggSecret) {
-      global.logger?.error?.(
-        "[WEBHOOK] Top.gg: webhook abilitato ma manca TOPGG_WEBHOOK_SECRET (o topgg.webhookSecret in config). Imposta lo stesso valore del campo Authorization nel pannello Top.gg.",
-      );
+      global.logger?.error?.( "[WEBHOOK] Top.gg: webhook abilitato ma manca TOPGG_WEBHOOK_SECRET. Imposta lo stesso valore del campo Authorization nel pannello Top.gg.");
     } else {
       app.post("/webhooks/topgg", async (req, res) => {
         try {
@@ -489,54 +412,14 @@ async function startWebhookServer(client) {
   const { handleSiteRolesGet } = require("../../Utils/Web/siteRolesApi");
   const { submitSiteRoleRequest } = require("../../Utils/Web/siteRoleRequestApi");
   const { getRankCardCustomization, updateRankCardCustomization, getRankCardPreview, getPublicRankCardPreview } = require("../../Utils/Web/siteRankCardApi");
-  const {
-    getSiteReviews,
-    submitSiteReview,
-    deleteSiteReview,
-    toggleSiteReviewLike,
-    upsertServerReviewReply,
-  } = require("../../Utils/Web/siteReviewsApi");
-  const {
-    getSiteSuggestions,
-    createSiteSuggestion,
-    updateOwnSiteSuggestion,
-    deleteOwnSiteSuggestion,
-    addSiteSuggestionComment,
-    updateSiteSuggestionComment,
-    deleteSiteSuggestionComment,
-    setSiteSuggestionCommentVote,
-    setSiteSuggestionVote,
-    staffAcceptSiteSuggestion,
-    staffRejectSiteSuggestion,
-    staffDeleteSiteSuggestion,
-  } = require("../../Utils/Web/siteSuggestionsApi");
-  const {
-    handleSiteNotificationsGet,
-    handleSiteNotificationsMarkReadPost,
-    handleSiteNotificationsClearPost,
-  } = require("../../Utils/Web/siteInAppNotificationsApi");
-  const {
-    listSitePaymentPlans,
-    createSitePaymentOrder,
-    captureSitePaymentOrder,
-    handleSitePayPalWebhook,
-  } = require("../../Utils/Web/sitePaymentsApi");
-  const {
-    getSiteForumThreads,
-    getSiteForumThreadMessages,
-    getSiteForumThreadMessagesAuthed,
-    createSiteForumThread,
-    createSiteForumMessage,
-    updateSiteForumThread,
-  } = require("../../Utils/Web/siteForumApi");
+  const { getSiteReviews, submitSiteReview, deleteSiteReview, toggleSiteReviewLike, upsertServerReviewReply } = require("../../Utils/Web/siteReviewsApi");
+  const { getSiteSuggestions, createSiteSuggestion, updateOwnSiteSuggestion, deleteOwnSiteSuggestion, addSiteSuggestionComment, updateSiteSuggestionComment, deleteSiteSuggestionComment, setSiteSuggestionCommentVote, setSiteSuggestionVote, staffAcceptSiteSuggestion, staffRejectSiteSuggestion, staffDeleteSiteSuggestion } = require("../../Utils/Web/siteSuggestionsApi");
+  const { handleSiteNotificationsGet, handleSiteNotificationsMarkReadPost, handleSiteNotificationsClearPost } = require("../../Utils/Web/siteInAppNotificationsApi");
+  const { getSiteForumThreads, getSiteForumThreadMessages, getSiteForumThreadMessagesAuthed, createSiteForumThread, createSiteForumMessage, updateSiteForumThread } = require("../../Utils/Web/siteForumApi");
   const { completeSiteVerify } = require("../../Utils/Web/siteVerifyApi");
   const { handleSiteSeratafilmAccessGet } = require("../../Utils/Web/siteSeratafilmAccessApi");
-  const {
-    handleHogwartsSortingBootstrap,
-    handleHogwartsSortingEligibility,
-    handleHogwartsSortingSubmit,
-    handleHogwartsSortingAccessGet,
-  } = require("../../Utils/Web/siteHogwartsSortingApi");
+  const { handleHogwartsForbiddenBooksClaim, handleHogwartsForbiddenBooksGet, handleHogwartsHousePointsGet, handleHogwartsShopGet, handleHogwartsShopPurchasePost, handleHogwartsSortingBootstrap, handleHogwartsSortingEligibility, handleHogwartsSortingSubmit, handleHogwartsSortingAccessGet, handleHogwartsGringottGet } = require("../../Utils/Web/siteHogwartsSortingApi");
+
   app.get("/webhooks/site-rules", (req, res) => {
     try {
       res.setHeader("Cache-Control", "public, max-age=120");
@@ -564,6 +447,12 @@ async function startWebhookServer(client) {
   app.get("/webhooks/site-seratafilm-access", (req, res) => handleSiteSeratafilmAccessGet(client, req, res));
   app.get("/webhooks/site-hogwarts-sorting/bootstrap", (req, res) => handleHogwartsSortingBootstrap(client, req, res));
   app.get("/webhooks/site-hogwarts-sorting/access", (req, res) => handleHogwartsSortingAccessGet(client, req, res));
+  app.get("/webhooks/site-hogwarts-sorting/gringott", (req, res) => handleHogwartsGringottGet(client, req, res));
+  app.get("/webhooks/site-hogwarts-sorting/points", (req, res) => handleHogwartsHousePointsGet(client, req, res));
+  app.get("/webhooks/site-hogwarts-sorting/shop", (req, res) => handleHogwartsShopGet(client, req, res));
+  app.post("/webhooks/site-hogwarts-sorting/shop/purchase", (req, res) => handleHogwartsShopPurchasePost(client, req, res));
+  app.get("/webhooks/site-hogwarts-sorting/forbidden-books", (req, res) => handleHogwartsForbiddenBooksGet(client, req, res));
+  app.post("/webhooks/site-hogwarts-sorting/forbidden-books", (req, res) => handleHogwartsForbiddenBooksClaim(client, req, res));
   app.get("/webhooks/site-hogwarts-sorting/eligibility", (req, res) =>
     handleHogwartsSortingEligibility(client, req, res),
   );
@@ -1317,11 +1206,4 @@ async function startWebhookServer(client) {
   });
 }
 
-module.exports = {
-  startWebhookServer,
-  shouldStartDiscadiaVoteHttpWebhook,
-  shouldStartTopggVoteHttpWebhook,
-  shouldStartBotHttpServer,
-  shouldStartPublicSiteReadonlyHttp,
-  isCandidatureWebsiteApiEnabled,
-};
+module.exports = { startWebhookServer, shouldStartDiscadiaVoteHttpWebhook, shouldStartTopggVoteHttpWebhook, shouldStartBotHttpServer, shouldStartPublicSiteReadonlyHttp, isCandidatureWebsiteApiEnabled };

@@ -1,6 +1,10 @@
 const { ActivityUserProfile, UserLeaveBackup } = require("../../Schemas/Community/communitySchemas");
-const { addRolesAndGetMember, getGuildRoleCached } = require("../../Utils/Interaction/interactionEntityCache");
+const { addRolesAndGetMember, getClientGuildCached, getGuildChannelCached, getGuildRoleCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { isValidGuildUserId } = require("../../Utils/DB/validateWriteIds");
+const {
+  deleteStaffPauseRequestChannelMessages,
+  deleteStaffRelatedMessagesFromConfiguredChannels,
+} = require("../../Utils/Staff/staffDocUtils");
 const IDs = require("../../Utils/Config/ids");
 
 const RESTORE_ON_REJOIN_ROLE_IDS = [
@@ -70,6 +74,43 @@ function getRestorableRoleIdsFromMember(member) {
     .filter(Boolean);
 }
 
+function normalizeLeaveDepexMessageRefs(refs) {
+  return Array.from(
+    new Map(
+      (Array.isArray(refs) ? refs : [])
+        .map((ref) => {
+          const channelId = String(ref?.channelId || "").trim();
+          const messageId = String(ref?.messageId || "").trim();
+          if (!channelId || !messageId) return null;
+          return [`${channelId}:${messageId}`, { channelId, messageId }];
+        })
+        .filter(Boolean),
+    ).values(),
+  ).slice(-10);
+}
+
+async function recordLeaveDepexMessages(guildId, userId, refs) {
+  const gid = String(guildId || "");
+  const uid = String(userId || "");
+  if (!isValidGuildUserId(gid, uid)) return false;
+  const leaveDepexMessages = normalizeLeaveDepexMessageRefs(refs);
+  if (!leaveDepexMessages.length) return false;
+  await UserLeaveBackup.updateOne(
+    { guildId: gid, userId: uid },
+    {
+      $set: {
+        guildId: gid,
+        userId: uid,
+        leaveDepexMessages,
+        expiresAt: resolveExpiryDate(),
+      },
+      $setOnInsert: { leftAt: new Date() },
+    },
+    { upsert: true },
+  ).catch(() => null);
+  return true;
+}
+
 async function backupUserOnLeave(guildId, userId, member = null) {
   const gid = String(guildId || "");
   const uid = String(userId || "");
@@ -133,6 +174,21 @@ async function restoreRolesOnJoin(member, roleIds) {
   return fullyApplied;
 }
 
+async function deleteLeaveDepexMessages(guild, refs) {
+  if (!guild) return 0;
+  const rows = normalizeLeaveDepexMessageRefs(refs);
+  let deleted = 0;
+  for (const ref of rows) {
+    const channel = guild.channels?.cache?.get(ref.channelId) || (await getGuildChannelCached(guild, ref.channelId).catch(() => null));
+    if (!channel?.messages?.fetch) continue;
+    const message = await channel.messages.fetch(ref.messageId).catch(() => null);
+    if (!message) continue;
+    const ok = await message.delete().then(() => true).catch(() => false);
+    if (ok) deleted += 1;
+  }
+  return deleted;
+}
+
 async function restoreUserOnJoin(guildId, userId, member = null) {
   const gid = String(guildId || "");
   const uid = String(userId || "");
@@ -141,6 +197,7 @@ async function restoreUserOnJoin(guildId, userId, member = null) {
   const backup = await UserLeaveBackup.findOne({ guildId: gid, userId: uid }).lean().catch(() => null);
   const roleIdsFromMemory = Array.isArray(backup?.rejoinTrackedRoleIds) ? backup.rejoinTrackedRoleIds : [];
   const roleIdsFallback = Array.isArray(backup?.restoreRoleIds) ? backup.restoreRoleIds : [];
+  let leaveDepexMessages = Array.isArray(backup?.leaveDepexMessages) ? backup.leaveDepexMessages : [];
   const restoreRoleIds = filterRestoreRoleIdsExcludingStaffPm(
     [...roleIdsFromMemory, ...roleIdsFallback].map((id) => String(id || "").trim()).filter(Boolean),
   );
@@ -148,8 +205,9 @@ async function restoreUserOnJoin(guildId, userId, member = null) {
   if (backup?.expiresAt && new Date(backup.expiresAt).getTime() <= Date.now()) {
     await UserLeaveBackup.deleteOne({ guildId: gid, userId: uid }).catch(() => null);
     payload = null;
+    leaveDepexMessages = [];
   }
-  if ((!payload || typeof payload !== "object") && restoreRoleIds.length === 0) return false;
+  if ((!payload || typeof payload !== "object") && restoreRoleIds.length === 0 && leaveDepexMessages.length === 0) return false;
 
   let restoredProfile = false;
   if (payload && typeof payload === "object") {
@@ -186,7 +244,7 @@ async function restoreUserOnJoin(guildId, userId, member = null) {
     };
     await ActivityUserProfile.updateOne(
       { guildId: gid, userId: uid },
-      { $setOnInsert: setOnInsert, $set: setPayload },
+      { $setOnInsert: setOnInsert, $set: setPayload, $unset: { staffPendingPurgeAt: "" } },
       { upsert: true },
     ).catch(() => null);
     restoredProfile = true;
@@ -196,6 +254,12 @@ async function restoreUserOnJoin(guildId, userId, member = null) {
   if (member && restoreRoleIds.length > 0) {
     restoredRoles = await restoreRolesOnJoin(member, restoreRoleIds).catch(() => false);
   }
+  if (member && leaveDepexMessages.length > 0) {
+    const deleted = await deleteLeaveDepexMessages(member.guild, leaveDepexMessages).catch(() => 0);
+    if (deleted > 0) {
+      global.logger?.info?.("[USER LEAVE BACKUP] deleted leave depex messages on rejoin:", gid, uid, deleted);
+    }
+  }
 
   const hasPendingRoleRestore = restoreRoleIds.length > 0 && !restoredRoles;
   if (backup?._id && !hasPendingRoleRestore) {
@@ -204,17 +268,36 @@ async function restoreUserOnJoin(guildId, userId, member = null) {
   return restoredProfile || restoredRoles;
 }
 
-async function purgeDueStaffGraceProfiles() {
+async function purgeDueStaffGraceProfiles(client = null) {
   const now = new Date();
-  await ActivityUserProfile.updateMany(
-    { staffPendingPurgeAt: { $lte: now } },
-    { $unset: { staff: "", staffPendingPurgeAt: "" } },
-  ).catch(() => null);
+  const rows = await ActivityUserProfile.find({ staffPendingPurgeAt: { $lte: now } })
+    .select("guildId userId")
+    .limit(100)
+    .lean()
+    .catch(() => []);
+  for (const row of rows || []) {
+    const gid = String(row?.guildId || "").trim();
+    const uid = String(row?.userId || "").trim();
+    if (!isValidGuildUserId(gid, uid)) continue;
+    const guild = client ? await getClientGuildCached(client, gid).catch(() => null) : null;
+    if (guild) {
+      await deleteStaffPauseRequestChannelMessages(guild, uid).catch((err) => {
+        global.logger?.warn?.("[STAFF GRACE PURGE] pause cleanup:", uid, err?.message || err);
+      });
+      await deleteStaffRelatedMessagesFromConfiguredChannels(guild, uid).catch((err) => {
+        global.logger?.warn?.("[STAFF GRACE PURGE] staff channel cleanup:", uid, err?.message || err);
+      });
+    }
+    await ActivityUserProfile.updateOne(
+      { guildId: gid, userId: uid },
+      { $unset: { staff: "", staffPendingPurgeAt: "" } },
+    ).catch(() => null);
+  }
 }
 
 function startStaffGracePurgeLoop(client) {
   if (!client || client._staffGracePurgeInterval) return;
-  const tick = () => purgeDueStaffGraceProfiles().catch(() => null);
+  const tick = () => purgeDueStaffGraceProfiles(client).catch(() => null);
   tick();
   const timer = setInterval(tick, 60 * 60 * 1000);
   if (typeof timer.unref === "function") timer.unref();
@@ -249,6 +332,7 @@ async function resolveNextLeaveBackupExpiryClock(guildId, userId) {
 
 module.exports = {
   backupUserOnLeave,
+  recordLeaveDepexMessages,
   restoreUserOnJoin,
   purgeExpiredUserLeaveBackups,
   purgeDueStaffGraceProfiles,

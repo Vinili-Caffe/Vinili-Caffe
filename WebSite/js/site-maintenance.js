@@ -1,6 +1,7 @@
 (function () {
   var ACCESS_TOKEN_KEY = "vc_discord_access_token";
   var EXPIRES_AT_KEY = "vc_discord_expires_at";
+  var SITE_SESSION_TTL_MS = 90 * 24 * 60 * 60 * 1000;
   var ROOT_CLASS = "vc-maintenance-pending";
   var BYPASS_CLASS = "vc-maintenance-bypass";
   var PAGE_CLASS = "vc-maintenance-page";
@@ -221,12 +222,11 @@
       if (h.indexOf("access_token=") === -1) return out;
       var p = new URLSearchParams(h.slice(1));
       var token = p.get("access_token");
-      var sec = Number(p.get("expires_in") || "0");
       var returnPath = normalizeOAuthReturnPath(p.get("state"));
       out.returnPath = returnPath;
       if (!token) return out;
       localStorage.setItem(ACCESS_TOKEN_KEY, token);
-      localStorage.setItem(EXPIRES_AT_KEY, String(Date.now() + Math.max(60, sec) * 1000));
+      localStorage.setItem(EXPIRES_AT_KEY, String(Date.now() + SITE_SESSION_TTL_MS));
       out.token = String(token || "");
       if (history && history.replaceState) {
         history.replaceState({}, document.title, window.location.pathname + window.location.search);

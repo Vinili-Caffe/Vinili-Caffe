@@ -441,7 +441,7 @@ const OBSOLETE_PREFIX_HELP_NAMES = new Set([
 ]);
 
 function shouldIncludeSlashCommandInHelp(command) {
-  if (!command || command.skipDeploy) return false;
+  if (!command || command.skipDeploy || command.hideFromHelp) return false;
   const dataJson = command?._helpDataJson || command?.data?.toJSON?.();
   const nm = String(dataJson?.name || command?.data?.name || "").trim().toLowerCase();
   if (OBSOLETE_SLASH_HELP_NAMES.has(nm)) return false;

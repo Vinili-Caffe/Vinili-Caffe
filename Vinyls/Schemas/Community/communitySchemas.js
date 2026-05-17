@@ -196,6 +196,20 @@ const contestFinalePendingRoleRemovalEntrySchema = new Schema(
   { _id: false },
 );
 
+const gringottLedgerEntrySchema = new Schema(
+  {
+    type: { type: String, enum: ["credit", "debit", "reward"], required: true },
+    amount: { type: Number, required: true },
+    balanceAfter: { type: Number, default: 0 },
+    reason: { type: String, default: "" },
+    actorId: { type: String, default: null },
+    source: { type: String, default: "manual" },
+    rewardKey: { type: String, default: "" },
+    createdAt: { type: Date, default: Date.now },
+  },
+  { _id: false },
+);
+
 const staffRolesHistoryEntrySchema = new Schema(
   {
     oldRole: String,
@@ -496,6 +510,23 @@ const activityUserProfileSchema = new Schema(
         dmSent: { type: Boolean, default: false },
         dmFailed: { type: Boolean, default: false },
       },
+      events: {
+        hogwarts: {
+          gringott: {
+            eventKey: { type: String, default: "" },
+            balance: { type: Number, default: 0 },
+            earned: { type: Number, default: 0 },
+            spent: { type: Number, default: 0 },
+            ledger: { type: [gringottLedgerEntrySchema], default: [] },
+            rewardKeys: { type: [String], default: [] },
+          },
+          shop: {
+            eventKey: { type: String, default: "" },
+            updatedAt: { type: Date, default: null },
+            items: { type: Schema.Types.Mixed, default: () => ({}) },
+          },
+        },
+      },
     },
     staff: { type: staffEmbeddedSchema },
     /** Append-only: `staff.rolesHistory` viene fuso qui prima di `$unset staff` al depex, per regole (es. top weekly) che devono vedere lo storico ruoli. */
@@ -527,6 +558,18 @@ const userLeaveBackupSchema = new Schema(
     restoreRoleIds: { type: [String], default: [] },
     /** Ruoli RESTORE_ON_REJOIN (stessa TTL del backup). */
     rejoinTrackedRoleIds: { type: [String], default: [] },
+    leaveDepexMessages: {
+      type: [
+        new Schema(
+          {
+            channelId: { type: String, required: true },
+            messageId: { type: String, required: true },
+          },
+          { _id: false },
+        ),
+      ],
+      default: [],
+    },
     leftAt: { type: Date, default: Date.now },
     expiresAt: { type: Date, required: true },
   },
@@ -580,6 +623,9 @@ const SITE_DOCUMENT_TYPE = Object.freeze({
   SUGGESTION: "suggestion",
   PAYMENT: "payment",
   HOGWARTS_SORTING: "hogwarts_sorting",
+  HOGWARTS_FORBIDDEN_BOOKS: "hogwarts_forbidden_books",
+  HOGWARTS_HOUSE_POINTS: "hogwarts_house_points",
+  HOGWARTS_REACT_PRESS: "hogwarts_react_press",
 });
 
 const siteSuggestionCommentSchema = new Schema(
@@ -723,6 +769,22 @@ siteDocumentSchema.index(
 siteDocumentSchema.index(
   { docType: 1, guildId: 1, userId: 1, dedupeKey: 1 },
   { unique: true, partialFilterExpression: { docType: SITE_DOC.HOGWARTS_SORTING } },
+);
+siteDocumentSchema.index(
+  { docType: 1, guildId: 1, userId: 1, dedupeKey: 1 },
+  { unique: true, name: "hogwarts_forbidden_books_user_event_unique", partialFilterExpression: { docType: SITE_DOC.HOGWARTS_FORBIDDEN_BOOKS } },
+);
+siteDocumentSchema.index(
+  { docType: 1, guildId: 1, dedupeKey: 1 },
+  { unique: true, name: "hogwarts_house_points_event_unique", partialFilterExpression: { docType: SITE_DOC.HOGWARTS_HOUSE_POINTS } },
+);
+siteDocumentSchema.index(
+  { docType: 1, guildId: 1, dedupeKey: 1 },
+  { unique: true, name: "hogwarts_react_press_message_unique", partialFilterExpression: { docType: SITE_DOC.HOGWARTS_REACT_PRESS } },
+);
+siteDocumentSchema.index(
+  { docType: 1, guildId: 1, status: 1, createdAt: -1 },
+  { name: "hogwarts_react_press_status_created", partialFilterExpression: { docType: SITE_DOC.HOGWARTS_REACT_PRESS } },
 );
 
 const MOD_CASE_COLLECTION = process.env.MOD_CASE_COLLECTION ? String(process.env.MOD_CASE_COLLECTION).trim() : "mod_case";

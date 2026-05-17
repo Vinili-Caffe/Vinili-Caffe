@@ -126,6 +126,27 @@ async function handleMovieNightVoteMessage(message) {
   if (!message?.guild) return false;
   if (message.author?.bot || message.webhookId || message.system) return false;
   if (!isMovieNightVoteThread(message)) return false;
+
+  const normalizedCurrent = normalizeThreadVoteText(message.content);
+  if (normalizedCurrent) {
+    const recent = await message.channel.messages
+      .fetch({ limit: DEFAULT_THREAD_VOTE_LOOKBACK_LIMIT })
+      .catch(() => null);
+    const duplicate = recent?.find((msg) => {
+      if (!msg || String(msg.id) === String(message.id)) return false;
+      if (msg.author?.bot || msg.webhookId || msg.system) return false;
+      return normalizeThreadVoteText(msg.content) === normalizedCurrent;
+    });
+    if (duplicate) {
+      await message.delete().catch(() => {});
+      const warning = await message.channel
+        .send({ content: `${message.author} questa proposta è già presente nel thread. Evita duplicati.` })
+        .catch(() => null);
+      if (warning) scheduleMessageDeletion(warning, EPHEMERAL_TTL_NORMAL_MS);
+      return true;
+    }
+  }
+
   const reacted = await message.react(MOVIE_NIGHT_THREAD_REACTION).then(() => true).catch(() => false);
   if (!reacted && MOVIE_NIGHT_THREAD_REACTION !== DEFAULT_THREAD_VOTE_REACTION) {
     await message.react(DEFAULT_THREAD_VOTE_REACTION).catch(() => {});
@@ -856,7 +877,7 @@ async function handlePauseChannelMessage(message) {
   if (!raw) return false;
   const parsed = parsePauseChannelMessageContent(raw);
   if (!parsed) {
-    const warning = await message.channel.send({ content: `${message.author} formato non valido. Usa: \`<data richiesta> - <data ritorno> - <motivazione>\` oppure \`<data richiesta> <data ritorno> <motivazione>\` (stesso ordine, anche senza trattini).` }).catch(() => null);
+    const warning = await message.channel.send({ content: `${message.author} formato non valido. Mi servono almeno data inizio, data fine e motivo. Vanno bene anche formati tipo \`20/05 - 22/05 - viaggio\`, \`inizio: 20/05 fine: 22/05 motivo: viaggio\` o \`dal 20 maggio al 22 maggio per motivi personali\`.` }).catch(() => null);
     await message.delete().catch(() => { });
     if (warning) scheduleMessageDeletion(warning, EPHEMERAL_TTL_NORMAL_MS);
     return true;

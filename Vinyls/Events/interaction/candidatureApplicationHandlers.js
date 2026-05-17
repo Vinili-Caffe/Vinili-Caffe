@@ -27,6 +27,9 @@ const STATE_TTL_MS = 30 * 60 * 1000;
 const DRAFT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const APPLICATION_COOLDOWN_MS = 15 * 24 * 60 * 60 * 1000;
 const APPLICATION_REACTIONS = ["<:thumbsup:1471292172145004768>", "<:thumbsdown:1471292163957457013>",];
+const APPLICATION_PENDING_COLOR = "#6f4e37";
+const APPLICATION_ACCEPTED_COLOR = "#2ECC71";
+const APPLICATION_REJECTED_COLOR = "#ED4245";
 const NOMODULI_ROLE_ID = IDs.roles.blacklistModuli;
 const MEMBER_ROLE_ID = IDs.roles.Member;
 const HELPER_ROLE_ID = IDs.roles.Helper;
@@ -39,6 +42,32 @@ const cooldownByUserAndType = new Map();
 let cooldownLoaded = false;
 let countersLoaded = false;
 let draftsLoaded = false;
+const WEBSITE_AUTH_TIMEOUT_MS = 7000;
+
+function withTimeout(promise, timeoutMs, label) {
+  let timer = null;
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error(`${label || "operation"}_timeout`)), timeoutMs);
+    }),
+  ]).finally(() => {
+    if (timer) clearTimeout(timer);
+  });
+}
+
+async function fetchDiscordMe(accessToken) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), WEBSITE_AUTH_TIMEOUT_MS);
+  try {
+    return await fetch("https://discord.com/api/v10/users/@me", {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      signal: ctrl.signal,
+    });
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 function cooldownTypeKey(type) {
   return type === "partnermanager" ? "partnermanager" : "helper";
@@ -496,6 +525,17 @@ function buildCandidateActionRow(type, userId) {
   );
 }
 
+function recolorEmbeds(embeds, color) {
+  return (Array.isArray(embeds) ? embeds : [])
+    .map((embed) => EmbedBuilder.from(embed).setColor(color));
+}
+
+async function setApplicationMessageStatusColor(message, color) {
+  if (!message?.editable) return;
+  const embeds = recolorEmbeds(message.embeds, color);
+  await message.edit({ embeds, components: [] }).catch(() => null);
+}
+
 function getTargetRoleIdByType(type) {
   if (type === "partnermanager") return PARTNER_MANAGER_ROLE_ID;
   if (type === "helper") return HELPER_ROLE_ID;
@@ -741,7 +781,7 @@ async function postCandidatureToVisioneModuli(client, guild, user, type, answers
   const fullText = formatApplicationDescription(type, answers);
   const descChunks = capChunksToMaxEmbeds(chunkStringForEmbedDescriptions(fullText));
   const embeds = descChunks.map((chunk, idx) => {
-    const e = new EmbedBuilder().setColor("#3498DB");
+    const e = new EmbedBuilder().setColor(APPLICATION_PENDING_COLOR);
     if (idx === 0) {
       e.setAuthor({
         name: accountUsername(authorLike),
@@ -882,14 +922,13 @@ async function resolveWebsiteCandidatureMember(client, accessToken) {
 
   let meJson;
   try {
-    const meRes = await fetch("https://discord.com/api/v10/users/@me", {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    const meRes = await fetchDiscordMe(token);
     if (!meRes.ok) {
       return { ok: false, status: 401, error: "invalid_token", message: "Sessione Discord non valida o scaduta: effettua di nuovo il login." };
     }
     meJson = await meRes.json();
-  } catch {
+  } catch (err) {
+    global.logger?.warn?.("[candidature-site] Discord /users/@me timeout/unreachable:", err?.message || err);
     return { ok: false, status: 502, error: "discord_unreachable", message: "Impossibile contattare Discord." };
   }
 
@@ -903,12 +942,15 @@ async function resolveWebsiteCandidatureMember(client, accessToken) {
     return { ok: false, status: 503, error: "misconfigured", message: "Guild principale non configurata." };
   }
 
-  const guild = client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
+  const guild = client.guilds.cache.get(guildId) || (await withTimeout(client.guilds.fetch(guildId), WEBSITE_AUTH_TIMEOUT_MS, "guild_fetch").catch(() => null));
   if (!guild) {
     return { ok: false, status: 503, error: "guild_unavailable", message: "Server Discord temporaneamente non disponibile." };
   }
 
-  const member = await guild.members.fetch(userId).catch(() => null);
+  let member = guild.members.cache.get(userId) || null;
+  if (!member) {
+    member = await withTimeout(guild.members.fetch(userId), WEBSITE_AUTH_TIMEOUT_MS, "member_fetch").catch(() => null);
+  }
   if (!member) {
     return {
       ok: false,
@@ -1130,7 +1172,7 @@ ${actionEmoji} \`${oldRole?.name || roleBeforeId || "N/A"}\` <a:VC_Arrow:1482706
   }
 
   if (sourceMessage) {
-    await sourceMessage.edit({ components: [] }).catch(() => null);
+    await setApplicationMessageStatusColor(sourceMessage, APPLICATION_ACCEPTED_COLOR);
     await deleteThreadForMessage(guild, sourceMessage);
   }
 
@@ -1402,7 +1444,7 @@ async function handleCandidatureApplicationInteraction(interaction) {
       const rejUid = String(rejParts[2] || "").trim();
       const rejMessageId = String(interaction.message?.id || "").trim();
       if (interaction.message) {
-        await interaction.message.edit({ components: [] }).catch(() => null);
+        await setApplicationMessageStatusColor(interaction.message, APPLICATION_REJECTED_COLOR);
         await deleteThreadForMessage(interaction.guild, interaction.message);
       }
       if (rejUid && ["helper", "partnermanager"].includes(rejType)) {

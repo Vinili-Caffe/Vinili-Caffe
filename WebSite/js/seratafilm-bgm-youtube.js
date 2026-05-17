@@ -99,70 +99,42 @@
   }
 
   function loadYoutubeIframeApi() {
+    if (typeof window.__vcLoadYoutubeIframeApi === "function") {
+      return window.__vcLoadYoutubeIframeApi();
+    }
     return new Promise(function (resolve, reject) {
-      if (window.YT && window.YT.Player) {
-        resolve();
+      var existing = document.querySelector('script[data-vc-yt-api="seratafilm"]');
+      if (existing) {
+        var tries = 0;
+        var poll = setInterval(function () {
+          tries += 1;
+          if (typeof window.__vcLoadYoutubeIframeApi === "function") {
+            clearInterval(poll);
+            window.__vcLoadYoutubeIframeApi().then(resolve).catch(reject);
+            return;
+          }
+          if (tries >= 80) {
+            clearInterval(poll);
+            reject(new Error("yt_api"));
+          }
+        }, 50);
         return;
       }
-      var settled = false;
-      var iv = null;
-      function done() {
-        if (settled) return;
-        settled = true;
-        try {
-          if (iv) clearInterval(iv);
-        } catch (eCl) {}
-        resolve();
-      }
-      var prev = window.onYouTubeIframeAPIReady;
-      window.onYouTubeIframeAPIReady = function () {
-        try {
-          if (typeof prev === "function") prev();
-        } catch (e3) {}
-        done();
-      };
-      function hasYoutubeIframeApiScript() {
-        try {
-          var nodes = document.getElementsByTagName("script");
-          for (var si = 0; si < nodes.length; si += 1) {
-            var ssrc = String(nodes[si].src || "");
-            if (!ssrc) continue;
-            if (/^https:\/\/(www\.)?youtube\.com\/iframe_api/i.test(ssrc)) return true;
-            if (/^https:\/\/(www\.)?youtube-nocookie\.com\/iframe_api/i.test(ssrc)) return true;
-          }
-        } catch (eSc) {}
-        return false;
-      }
-      if (!hasYoutubeIframeApiScript()) {
-        var tag = document.createElement("script");
-        tag.src = "https://www.youtube.com/iframe_api";
-        tag.onerror = function () {
-          try {
-            if (iv) clearInterval(iv);
-          } catch (eTag) {}
-          if (settled) return;
-          settled = true;
-          reject(new Error("yt_api"));
-        };
-        document.head.appendChild(tag);
-      }
-      var n = 0;
-      iv = setInterval(function () {
-        if (window.YT && window.YT.Player) {
-          done();
+      var s = document.createElement("script");
+      s.src = "../js/vc-youtube-iframe-api.js";
+      s.async = true;
+      s.dataset.vcYtApi = "seratafilm";
+      s.onload = function () {
+        if (typeof window.__vcLoadYoutubeIframeApi === "function") {
+          window.__vcLoadYoutubeIframeApi().then(resolve).catch(reject);
           return;
         }
-        n += 1;
-        if (n >= 400) {
-          try {
-            if (iv) clearInterval(iv);
-          } catch (eIv2) {}
-          if (!settled) {
-            settled = true;
-            reject(new Error("yt_api_timeout"));
-          }
-        }
-      }, 25);
+        reject(new Error("yt_api"));
+      };
+      s.onerror = function () {
+        reject(new Error("yt_api_load"));
+      };
+      document.head.appendChild(s);
     });
   }
 
@@ -193,6 +165,7 @@
       if (originStr) playerVars.origin = originStr;
     } catch (eOr) {}
     var opts = {
+      host: window.__vcYoutubePlayerHost || "https://www.youtube-nocookie.com",
       height: "180",
       width: "320",
       playerVars: playerVars,
@@ -216,14 +189,15 @@
         onError: function (ev) {
           var code = ev && ev.data != null ? String(ev.data) : "?";
           ensureHint(
-            "YouTube: riproduzione non disponibile (codice " +
+            "YouTube bloccato (codice " +
               code +
-              "). Prova un altro video o controlla che l'embed sia consentito.",
+              "). Consenti youtube-nocookie.com / youtube.com per questo sito (ad-blocker).",
           );
         },
       },
     };
-    var bootstrapId = pub.videoIds.length ? pub.videoIds[0] : "jfKfPfyJRdk";
+    var bootstrapId = pub.videoIds.length ? pub.videoIds[0] : "";
+    if (!bootstrapId && !pub.playlistId) return;
     opts.videoId = bootstrapId;
     player = new window.YT.Player("vc-seratafilm-yt-player", opts);
   }
@@ -274,7 +248,7 @@
         createPlayerAndCue();
       })
       .catch(function () {
-        ensureHint("YouTube: caricamento player fallito. Controlla la connessione.");
+        ensureHint("YouTube non caricato: connessione o ad-blocker. Consenti youtube-nocookie.com per questo sito.");
       });
     return true;
   };
@@ -293,6 +267,14 @@
       player.setVolume(Math.round(vol * 100));
     } catch (e9) {}
   };
+
+  window.addEventListener("pagehide", function () {
+    try {
+      if (typeof window.__vcSeratafilmYoutubeStop === "function") {
+        window.__vcSeratafilmYoutubeStop();
+      }
+    } catch (ePh) {}
+  });
 
   window.__vcSeratafilmYoutubeStop = function () {
     hideHint();

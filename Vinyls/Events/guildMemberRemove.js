@@ -5,12 +5,10 @@ const { sponsorMainLeave } = require("../Utils/Community/activityUserProfilePath
 const IDs = require("../Utils/Config/ids");
 const { getGuildChannelCached, getClientGuildCached, getClientChannelCached } = require("../Utils/Interaction/interactionEntityCache");
 const { scheduleStaffListRefresh, memberHasStaffRole, } = require("../Utils/Community/staffListUtils");
-const { memberHasAnyStaffPresenceForDepexSync } = require("../Utils/Staff/staffPmUtils");
-const { deleteStaffPauseRequestChannelMessages, deleteStaffRelatedMessagesFromConfiguredChannels, } = require("../Utils/Staff/staffDocUtils");
 const { getStaffRoleEmojiByRoleId } = require("../Utils/Community/staffRoleEmoji");
 const { queueIdsCatalogSync } = require("../Utils/Config/idsAutoSync");
 const { runCleanupAfterMemberLeave } = require("../Services/Community/cleanupUsersNotInServerService");
-const { backupUserOnLeave } = require("../Services/Community/userLeaveBackupService");
+const { backupUserOnLeave, recordLeaveDepexMessages } = require("../Services/Community/userLeaveBackupService");
 const { enqueueCustomPerksDiscordCleanupAfterLeave } = require("../Services/Community/customPerksDiscordCleanupQueueService");
 const sponsorVerifiedRequiresMain = require("../Services/Community/sponsorVerifiedRequiresMainService");
 const { buildAuditExtraLines } = require("../Utils/Logging/channelRolesLogUtils");
@@ -189,10 +187,12 @@ async function handleTrackedStaffLeave(member) {
 
   const pmRole = hasPm ? guild.roles.cache.get(PARTNER_MANAGER_ROLE_ID) : null;
   const pmLabel = pmRole?.name || "Partner Manager";
+  const leaveDepexMessages = [];
 
   if (highestStaffExPm) {
     const content = buildStaffLeaveResignationContent(member, highestStaffExPm, userRoleLabel);
-    await resignChannel.send({ content }).catch(() => { });
+    const sent = await resignChannel.send({ content }).catch(() => null);
+    if (sent?.id) leaveDepexMessages.push({ channelId: String(resignChannel.id), messageId: String(sent.id) });
   }
   if (hasPm) {
     const contentPm = buildStaffLeaveResignationContent(
@@ -200,7 +200,13 @@ async function handleTrackedStaffLeave(member) {
       pmRole || { id: PARTNER_MANAGER_ROLE_ID, name: pmLabel },
       userRoleLabel,
     );
-    await resignChannel.send({ content: contentPm }).catch(() => { });
+    const sentPm = await resignChannel.send({ content: contentPm }).catch(() => null);
+    if (sentPm?.id) leaveDepexMessages.push({ channelId: String(resignChannel.id), messageId: String(sentPm.id) });
+  }
+  if (leaveDepexMessages.length > 0) {
+    await recordLeaveDepexMessages(guild.id, member.id, leaveDepexMessages).catch((err) => {
+      global.logger?.warn?.("[guildMemberRemove] leave depex message backup:", member.id, err?.message || err);
+    });
   }
 }
 
@@ -423,18 +429,6 @@ module.exports = {
         wasKicked ? "Utente kickato dal server" : "Utente uscito dal server",
       );
       await handleTrackedStaffLeave(member);
-      if (!member.user.bot && String(guild.id) === String(MAIN_GUILD_ID) && memberHasAnyStaffPresenceForDepexSync(member)) {
-        await deleteStaffPauseRequestChannelMessages(guild, member.id).catch((err) => {
-          global.logger?.warn?.("[guildMemberRemove] pause doc cleanup:", member.id, err?.message || err);
-        });
-        await deleteStaffRelatedMessagesFromConfiguredChannels(guild, member.id).catch((err) => {
-          global.logger?.warn?.("[guildMemberRemove] staff channels scan delete:", member.id, err?.message || err);
-        });
-        await ActivityUserProfile.updateOne(
-          { guildId: guild.id, userId: member.id },
-          { $unset: { "staff.pauses": "" } },
-        ).catch(() => {});
-      }
       await handlePartnershipOnLeave(member, client);
       const activeClient = client || member.client;
       await backupUserOnLeave(guild.id, member.id, member);

@@ -1,6 +1,9 @@
 (function () {
   var ACCESS_TOKEN_KEY = "vc_discord_access_token";
   var EXPIRES_AT_KEY = "vc_discord_expires_at";
+  var PENDING_SORTING_KEY = "vc_hogwarts_pending_sorting_submit";
+  var retryTimer = null;
+  var retryInFlight = false;
 
   var state = {
     bootstrap: null,
@@ -9,6 +12,7 @@
     answers: {},
     index: 0,
     submitting: false,
+    gringott: null,
     initStarted: false,
     eventsBound: false,
   };
@@ -95,6 +99,20 @@
     return out;
   }
 
+  function crestCacheBustSegment() {
+    var v = String(cfg().crestsCacheBust || "").trim();
+    if (!v || isTemplatePlaceholder(v)) return "";
+    return "v=" + encodeURIComponent(v);
+  }
+
+  function withCrestCacheBust(href) {
+    var seg = crestCacheBustSegment();
+    if (!seg) return href;
+    var h = String(href || "");
+    if (!h) return h;
+    return h + (h.indexOf("?") >= 0 ? "&" : "?") + seg;
+  }
+
   function crestSrcList(meta, ext) {
     if (!meta) return [];
     var custom = String(meta.crestUrl || "").trim();
@@ -102,10 +120,10 @@
       try {
         if (/^https?:\/\//i.test(custom)) {
           var cu = new URL(custom);
-          return [window.location.origin + cu.pathname + (cu.search || "")];
+          return [withCrestCacheBust(window.location.origin + cu.pathname + (cu.search || ""))];
         }
       } catch (e1) {}
-      return [custom];
+      return [withCrestCacheBust(custom)];
     }
     var file = crestFileName(meta, ext);
     if (!file) return [];
@@ -121,7 +139,7 @@
       }
       if (href && !seenUrl[href]) {
         seenUrl[href] = 1;
-        urls.push(href);
+        urls.push(withCrestCacheBust(href));
       }
     });
     return urls;
@@ -176,15 +194,74 @@
     else el.removeAttribute("hidden");
   }
 
+  function formatGaleoni(amount) {
+    var n = Math.max(0, Math.floor(Number(amount) || 0));
+    return String(n) + " " + (n === 1 ? "Galeone d'Oro" : "Galeoni d'Oro");
+  }
+
+  function formatLedgerDate(value) {
+    if (!value) return "";
+    try {
+      var d = new Date(value);
+      if (!Number.isFinite(d.getTime())) return "";
+      return d.toLocaleDateString("it-IT", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+    } catch (e) {
+      return "";
+    }
+  }
+
+  function renderGringott() {
+    var box = byId("vc-hw-gringott");
+    if (!box) return;
+    var token = getToken();
+    var data = state.gringott;
+    if (!token || !data) {
+      setHidden(box, true);
+      return;
+    }
+    var balance = Math.max(0, Math.floor(Number(data.balance) || 0));
+    var balanceEl = byId("vc-hw-gringott-balance");
+    var hintEl = byId("vc-hw-gringott-hint");
+    var ledgerEl = byId("vc-hw-gringott-ledger");
+    if (balanceEl) balanceEl.textContent = String(balance);
+    if (hintEl) {
+      hintEl.textContent = balance > 0 ? "Il tuo forziere stagionale custodisce " + formatGaleoni(balance) + "." : "Completa lo smistamento per ricevere il tuo primo accredito.";
+    }
+    if (ledgerEl) {
+      var ledger = Array.isArray(data.ledger) ? data.ledger.slice(0, 3) : [];
+      ledgerEl.innerHTML = "";
+      if (ledger.length) {
+        ledger.forEach(function (entry) {
+          var row = document.createElement("p");
+          var sign = entry.type === "debit" ? "-" : "+";
+          var date = formatLedgerDate(entry.createdAt);
+          row.textContent = sign + formatGaleoni(entry.amount) + " · " + (entry.reason || "Movimento Gringott") + (date ? " · " + date : "");
+          ledgerEl.appendChild(row);
+        });
+        setHidden(ledgerEl, false);
+      } else {
+        setHidden(ledgerEl, true);
+      }
+    }
+    setHidden(box, false);
+  }
+
   function showGate(msg) {
     var gate = byId("vc-hw-gate");
     var msgEl = byId("vc-hw-gate-msg");
+    var gateLogin = byId("vc-hw-gate-login");
     if (msgEl) msgEl.textContent = String(msg || "");
+    if (gateLogin) {
+      var showLogin = /accedi con discord/i.test(String(msg || ""));
+      if (showLogin) gateLogin.removeAttribute("hidden");
+      else gateLogin.setAttribute("hidden", "");
+    }
     setHidden(gate, !msg);
     setHidden(byId("vc-hw-intro"), true);
     setHidden(byId("vc-hw-quiz"), true);
     setHidden(byId("vc-hw-sorting"), true);
     setHidden(byId("vc-hw-result"), true);
+    renderGringott();
   }
 
   function updateWindowLabel() {
@@ -216,7 +293,33 @@
     return { res: res, data: data };
   }
 
+  async function fetchJsonWithTimeout(url, opts, timeoutMs) {
+    var controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+    var timer = null;
+    var nextOpts = opts || {};
+    if (controller) {
+      nextOpts = Object.assign({}, nextOpts, { signal: controller.signal });
+      timer = setTimeout(function () {
+        try {
+          controller.abort();
+        } catch (_) {}
+      }, Math.max(5000, Number(timeoutMs) || 25000));
+    }
+    try {
+      return await fetchJson(url, nextOpts);
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  }
+
   async function loadBootstrap() {
+    var staticBootstrap = typeof window !== "undefined" && window.__VC_HOGWARTS_STATIC_BOOTSTRAP;
+    if (staticBootstrap && staticBootstrap.ok && Array.isArray(staticBootstrap.questions)) {
+      state.bootstrap = staticBootstrap;
+      state.questions = staticBootstrap.questions;
+      updateWindowLabel();
+      return;
+    }
     var out = await fetchJson(apiBase() + "/bootstrap", { method: "GET" });
     if (!out.res.ok || !out.data.ok) throw new Error(out.data.message || "bootstrap_failed");
     state.bootstrap = out.data;
@@ -230,13 +333,20 @@
       state.eligibility = { ok: false, needsLogin: true };
       return;
     }
+    var staticBootstrap = typeof window !== "undefined" && window.__VC_HOGWARTS_STATIC_BOOTSTRAP;
+    if (staticBootstrap && staticBootstrap.ok) {
+      useEligibilityFallback();
+      return;
+    }
     var out = await fetchJson(apiBase() + "/eligibility", {
       method: "GET",
       headers: { Authorization: "Bearer " + token },
     });
     state.eligibility = out.data || {};
+    state.gringott = out.data && out.data.gringott ? out.data.gringott : state.gringott;
     if (out.res.status === 401) {
       state.eligibility = { ok: false, needsLogin: true };
+      state.gringott = null;
       return;
     }
     if (out.res.status === 403 && out.data && out.data.error === "preview_forbidden") {
@@ -253,10 +363,19 @@
     }
   }
 
+  function useEligibilityFallback() {
+    var token = getToken();
+    state.gringott = state.gringott || null;
+    state.eligibility = token
+      ? { ok: true, canSort: true, alreadySorted: false, message: "" }
+      : { ok: false, needsLogin: true };
+  }
+
   function syncUiFromState() {
     var ev = state.bootstrap && state.bootstrap.event;
     var elig = state.eligibility;
     var token = getToken();
+    renderGringott();
 
     if (!ev || !ev.enabled) {
       showGate("L'evento Hogwarts  non è attivo al momento.");
@@ -334,6 +453,7 @@
     setHidden(byId("vc-hw-quiz"), true);
     setHidden(byId("vc-hw-sorting"), true);
     setHidden(byId("vc-hw-result"), true);
+    renderGringott();
   }
 
   function currentQuestion() {
@@ -396,9 +516,13 @@
     renderQuestion();
   }
 
-  function showSortingAnimation() {
-    setHidden(byId("vc-hw-quiz"), true);
-    setHidden(byId("vc-hw-sorting"), false);
+  function resetSortingVideo() {
+    var vid = byId("vc-hw-sorting-video");
+    if (!vid) return;
+    try {
+      vid.pause();
+      vid.currentTime = 0;
+    } catch (_) {}
   }
 
   function showResult(meta, message, animated) {
@@ -429,8 +553,9 @@
 
     if (animated && result) {
       result.classList.remove("vc-hw-result--reveal");
-      void result.offsetWidth;
-      result.classList.add("vc-hw-result--reveal");
+      requestAnimationFrame(function () {
+        result.classList.add("vc-hw-result--reveal");
+      });
     }
   }
 
@@ -438,6 +563,158 @@
     return state.questions.map(function (q) {
       return { questionId: q.id, choiceId: state.answers[q.id] };
     });
+  }
+
+  function savePendingSortingSubmit(answers) {
+    try {
+      var payload = {
+        answers: Array.isArray(answers) ? answers : collectAnswersPayload(),
+        savedAt: Date.now(),
+        attempts: 0,
+      };
+      localStorage.setItem(PENDING_SORTING_KEY, JSON.stringify(payload));
+    } catch (_) {}
+  }
+
+  function clearPendingSortingSubmit() {
+    try {
+      localStorage.removeItem(PENDING_SORTING_KEY);
+    } catch (_) {}
+    if (retryTimer) {
+      clearTimeout(retryTimer);
+      retryTimer = null;
+    }
+  }
+
+  function loadPendingSortingSubmit() {
+    try {
+      var raw = localStorage.getItem(PENDING_SORTING_KEY);
+      if (!raw) return null;
+      var parsed = JSON.parse(raw);
+      if (!parsed || !Array.isArray(parsed.answers) || !parsed.answers.length) return null;
+      if (Date.now() - Number(parsed.savedAt || 0) > 24 * 60 * 60 * 1000) {
+        clearPendingSortingSubmit();
+        return null;
+      }
+      return parsed;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function schedulePendingSortingRetry(delayMs) {
+    if (retryTimer) clearTimeout(retryTimer);
+    retryTimer = setTimeout(function () {
+      flushPendingSortingSubmit();
+    }, Math.max(3000, Number(delayMs) || 10000));
+  }
+
+  async function flushPendingSortingSubmit() {
+    if (retryInFlight) return;
+    var pending = loadPendingSortingSubmit();
+    var token = getToken();
+    if (!pending || !token) return;
+    retryInFlight = true;
+    try {
+      var out = await fetchJsonWithTimeout(apiBase(), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer " + token,
+        },
+        body: JSON.stringify({ answers: pending.answers }),
+      }, 12000);
+      if (out.res && out.res.ok && out.data && out.data.ok) {
+        clearPendingSortingSubmit();
+        return;
+      }
+      pending.attempts = Math.min(20, Math.floor(Number(pending.attempts) || 0) + 1);
+      localStorage.setItem(PENDING_SORTING_KEY, JSON.stringify(pending));
+      schedulePendingSortingRetry(Math.min(60000, 5000 + pending.attempts * 5000));
+    } catch (_) {
+      pending.attempts = Math.min(20, Math.floor(Number(pending.attempts) || 0) + 1);
+      try {
+        localStorage.setItem(PENDING_SORTING_KEY, JSON.stringify(pending));
+      } catch (_) {}
+      schedulePendingSortingRetry(Math.min(60000, 5000 + pending.attempts * 5000));
+    } finally {
+      retryInFlight = false;
+    }
+  }
+
+  function houseMetaFromBootstrap(houseId) {
+    var id = String(houseId || "").trim();
+    var houses = state.bootstrap && Array.isArray(state.bootstrap.houses) ? state.bootstrap.houses : [];
+    for (var i = 0; i < houses.length; i += 1) {
+      if (String(houses[i] && houses[i].id || "").trim() === id) return houses[i];
+    }
+    return id ? { id: id, label: id } : null;
+  }
+
+  function computeLocalSortingResult() {
+    var scoring = state.bootstrap && Array.isArray(state.bootstrap.scoringQuestions) ? state.bootstrap.scoringQuestions : [];
+    if (!scoring.length) return null;
+    var houses = ["gryffindor", "ravenclaw", "hufflepuff", "slytherin"];
+    var totals = { gryffindor: 0, ravenclaw: 0, hufflepuff: 0, slytherin: 0 };
+    var decisive = { gryffindor: 0, ravenclaw: 0, hufflepuff: 0, slytherin: 0 };
+    for (var i = 0; i < scoring.length; i += 1) {
+      var q = scoring[i];
+      var picked = state.answers[q.id];
+      if (!picked) return null;
+      var choices = Array.isArray(q.choices) ? q.choices : [];
+      var choice = null;
+      for (var c = 0; c < choices.length; c += 1) {
+        if (String(choices[c].id) === String(picked)) {
+          choice = choices[c];
+          break;
+        }
+      }
+      if (!choice || !choice.weights) return null;
+      var maxW = -1;
+      for (var h0 = 0; h0 < houses.length; h0 += 1) {
+        var w0 = Number(choice.weights[houses[h0]] || 0);
+        if (w0 > maxW) maxW = w0;
+      }
+      for (var h1 = 0; h1 < houses.length; h1 += 1) {
+        var id = houses[h1];
+        var w = Number(choice.weights[id] || 0);
+        totals[id] += w;
+        if (w === maxW && maxW > 0) decisive[id] += 1;
+      }
+    }
+    var bestScore = -1;
+    var winners = [];
+    for (var h2 = 0; h2 < houses.length; h2 += 1) {
+      var house = houses[h2];
+      if (totals[house] > bestScore) {
+        bestScore = totals[house];
+        winners = [house];
+      } else if (totals[house] === bestScore) {
+        winners.push(house);
+      }
+    }
+    var chosen = winners[0];
+    if (winners.length > 1) {
+      var bestDec = -1;
+      for (var h3 = 0; h3 < winners.length; h3 += 1) {
+        var candidate = winners[h3];
+        if (decisive[candidate] > bestDec) {
+          bestDec = decisive[candidate];
+          chosen = candidate;
+        }
+      }
+    }
+    return { house: chosen, houseMeta: houseMetaFromBootstrap(chosen) };
+  }
+
+  function showLocalFallbackResult(detail) {
+    var local = computeLocalSortingResult();
+    if (!local || !local.houseMeta) return false;
+    var msg = "Il Cappello Parlante ti assegna " + (local.houseMeta.label || local.house) + "!";
+    msg += " Il server Discord non ha risposto in tempo: se il ruolo o i Galeoni non arrivano, riprova più tardi.";
+    if (detail) msg += " Dettaglio: " + String(detail).slice(0, 120);
+    showResult(local.houseMeta, msg, true);
+    return true;
   }
 
   async function submitSorting() {
@@ -448,32 +725,139 @@
       return;
     }
     state.submitting = true;
-    showSortingAnimation();
+    var answersPayload = collectAnswersPayload();
+
+    var videoDone = false;
+    var fetchDone = false;
+    var fetchOut = null;
+    var videoSafetyTimer = null;
+    var resultShown = false;
+    var localResultShown = false;
+
+    function finishSortingPhase() {
+      if (!videoDone) return;
+      if (videoSafetyTimer) {
+        clearTimeout(videoSafetyTimer);
+        videoSafetyTimer = null;
+      }
+      if (resultShown) {
+        if (localResultShown && fetchDone && fetchOut && fetchOut.res.ok && fetchOut.data && fetchOut.data.ok) {
+          if (fetchOut.data.gringott) {
+            state.gringott = fetchOut.data.gringott;
+            renderGringott();
+          }
+          showResult(fetchOut.data.houseMeta, fetchOut.data.message, true);
+          localResultShown = false;
+        }
+        return;
+      }
+      state.submitting = false;
+      try {
+        if (typeof window.__vcHogwartsYoutubeResumeAfterEmbeddedVideo === "function") {
+          window.__vcHogwartsYoutubeResumeAfterEmbeddedVideo();
+        }
+      } catch (_) {}
+      resetSortingVideo();
+      setHidden(byId("vc-hw-sorting"), true);
+      if (!fetchDone) {
+        if (showLocalFallbackResult("salvataggio Discord in corso")) {
+          resultShown = true;
+          localResultShown = true;
+          return;
+        }
+      }
+      var out = fetchOut;
+      if (!out) {
+        savePendingSortingSubmit(answersPayload);
+        schedulePendingSortingRetry(5000);
+        if (showLocalFallbackResult("timeout del server")) {
+          resultShown = true;
+          localResultShown = true;
+          return;
+        }
+        showGate("Impossibile contattare il server. Verifica che il bot sia online e riprova.");
+        resultShown = true;
+        return;
+      }
+      if (!out.res.ok || !out.data || !out.data.ok) {
+        savePendingSortingSubmit(answersPayload);
+        schedulePendingSortingRetry(5000);
+        if (out.data && out.data.gringott) {
+          state.gringott = out.data.gringott;
+          renderGringott();
+        }
+        if (showLocalFallbackResult(out.data && out.data.message)) {
+          resultShown = true;
+          localResultShown = true;
+          return;
+        }
+        showGate((out.data && out.data.message) || "Smistamento non riuscito.");
+        resultShown = true;
+        return;
+      }
+      if (out.data.gringott) {
+        state.gringott = out.data.gringott;
+        renderGringott();
+      }
+      clearPendingSortingSubmit();
+      showResult(out.data.houseMeta, out.data.message, true);
+      resultShown = true;
+    }
+
+    function signalVideoDone() {
+      if (videoDone) return;
+      videoDone = true;
+      finishSortingPhase();
+    }
+
+    setHidden(byId("vc-hw-quiz"), true);
+    setHidden(byId("vc-hw-sorting"), false);
     try {
-      var out = await fetchJson(apiBase(), {
+      var sortEl = byId("vc-hw-sorting");
+      if (sortEl && sortEl.scrollIntoView) sortEl.scrollIntoView({ behavior: "smooth", block: "center" });
+    } catch (_) {}
+
+    resetSortingVideo();
+    try {
+      if (typeof window.__vcHogwartsYoutubePauseForEmbeddedVideo === "function") {
+        window.__vcHogwartsYoutubePauseForEmbeddedVideo();
+      }
+    } catch (_) {}
+    var vid = byId("vc-hw-sorting-video");
+    if (vid) {
+      var onVideoStopped = function () {
+        signalVideoDone();
+      };
+      vid.addEventListener("ended", onVideoStopped, { once: true });
+      vid.addEventListener("error", onVideoStopped, { once: true });
+      vid.addEventListener("stalled", onVideoStopped, { once: true });
+      videoSafetyTimer = setTimeout(onVideoStopped, 18000);
+      try {
+        var playP = vid.play();
+        if (playP && typeof playP.catch === "function") playP.catch(onVideoStopped);
+      } catch (_) {
+        onVideoStopped();
+      }
+    } else {
+      signalVideoDone();
+    }
+
+    try {
+      fetchOut = await fetchJsonWithTimeout(apiBase(), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: "Bearer " + token,
         },
-        body: JSON.stringify({ answers: collectAnswersPayload() }),
-      });
-      if (!out.res.ok || !out.data.ok) {
-        setHidden(byId("vc-hw-sorting"), true);
-        if (out.res.status === 409 && out.data.houseMeta) {
-          showResult(out.data.houseMeta, out.data.message, true);
-          return;
-        }
-        showGate(out.data.message || "Smistamento non riuscito.");
-        return;
-      }
-      showResult(out.data.houseMeta, out.data.message, true);
+        body: JSON.stringify({ answers: answersPayload }),
+      }, 25000);
     } catch (e) {
-      setHidden(byId("vc-hw-sorting"), true);
-      showGate("Impossibile contattare il server. Verifica che il bot sia online e riprova.");
-    } finally {
-      state.submitting = false;
+      fetchOut = null;
+      savePendingSortingSubmit(answersPayload);
+      schedulePendingSortingRetry(5000);
     }
+    fetchDone = true;
+    finishSortingPhase();
   }
 
   function onNext() {
@@ -504,6 +888,11 @@
     if (prevBtn) prevBtn.addEventListener("click", onPrev);
     document.addEventListener("vc-discord-auth-ready", function () {
       loadEligibility().then(syncUiFromState).catch(function () {});
+      flushPendingSortingSubmit();
+    });
+    window.addEventListener("online", flushPendingSortingSubmit);
+    document.addEventListener("visibilitychange", function () {
+      if (!document.hidden) flushPendingSortingSubmit();
     });
   }
 
@@ -513,7 +902,11 @@
       state.initStarted = true;
       try {
         await loadBootstrap();
-        await loadEligibility();
+        try {
+          await loadEligibility();
+        } catch (eEligibility) {
+          useEligibilityFallback();
+        }
       } catch (e) {
         showGate("Non riesco a caricare il quiz. Ricarica la pagina o riprova più tardi.");
         return;
@@ -521,9 +914,12 @@
     } else {
       try {
         await loadEligibility();
-      } catch (e2) {}
+      } catch (e2) {
+        useEligibilityFallback();
+      }
     }
     syncUiFromState();
+    flushPendingSortingSubmit();
   }
 
   window.__vcHogwartsInit = init;
@@ -574,6 +970,12 @@
     scrollToQuizPanel();
   };
 
+  window.__vcHogwartsShouldPlayIntro = function () {
+    var ev = state.bootstrap && state.bootstrap.event;
+    var elig = state.eligibility;
+    return canShowQuizNow(ev, elig, getToken());
+  };
+
   function setupBgm() {
     try {
       if (typeof window.__vcHogwartsYoutubeSetupIfConfigured === "function") {
@@ -586,15 +988,18 @@
     if (window.__VC_HOGWARTS_USE_ACCESS_GATE) return;
     var app = byId("vc-hogwarts-app");
     if (app) app.style.display = "";
-    if (typeof window.__vcHogwartsIntroOpen === "function") {
-      window.__vcHogwartsIntroOpen(function () {
-        init();
-        setupBgm();
-      });
-      return;
-    }
-    init();
-    setupBgm();
+    init().then(function () {
+      if (typeof window.__vcHogwartsIntroOpen === "function" && window.__vcHogwartsShouldPlayIntro()) {
+        window.__vcHogwartsIntroOpen(function () {
+          setupBgm();
+          window.__vcHogwartsStartQuizAfterIntro();
+        });
+        return;
+      }
+      setupBgm();
+    }).catch(function () {
+      setupBgm();
+    });
   }
 
   if (document.readyState === "loading") {
@@ -602,4 +1007,11 @@
   } else {
     boot();
   }
+  try {
+    if (/\{\{/.test(String(typeof document !== "undefined" ? document.title || "" : ""))) {
+      console.warn(
+        "[VC Hogwarts] Pagina senza build: nel titolo compaiono {{ }}. Esegui `node WebSite/scripts/build-site.mjs` e servi `WebSite/dist`, non i file modello in `WebSite/`.",
+      );
+    }
+  } catch (eUnb) {}
 })();

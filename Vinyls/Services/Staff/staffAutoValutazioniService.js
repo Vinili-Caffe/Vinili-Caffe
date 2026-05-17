@@ -5,7 +5,7 @@ const { ActivityUserProfile, SiteDocument } = require("../../Schemas/Community/c
 const { getGuildChannelCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { ensureStaff } = require("../../Utils/Staff/staffDocUtils");
 const { ensureStaffProfileDoc, getStaffDoc, valutazionePositiveAddCore, valutazioneNegativeAddCore, } = require("../../Utils/Staff/valutazionePanelActions");
-const { getWeeklySanctionCountByMod, resolveStaffRole, STAFF_SANCTION_LIMITS } = require("./weeklyStaffResocontoService");
+const { resolveStaffRole } = require("./weeklyStaffResocontoService");
 const MAIN_GUILD_ID = String(IDs.guilds?.main || "");
 const SERATA_FILM_CHANNEL_ID = "1497535199813042306";
 const SERATA_FILM_MIN_MS = 30 * 60 * 1000;
@@ -156,32 +156,6 @@ async function handleStaffBoostAutoValutazioneMemberUpdate(oldMember, newMember)
     }
   }, 12_000);
   retry.unref?.();
-}
-
-function weekKeyFromDate(date) {
-  return new Date(date).toISOString().slice(0, 10);
-}
-
-function getCurrentWeekStartRome(now = new Date()) {
-  const date = new Date(now);
-  const mondayOffset = (date.getDay() + 6) % 7;
-  date.setHours(0, 0, 0, 0);
-  date.setDate(date.getDate() - mondayOffset);
-  return date;
-}
-
-function shouldEvaluateWeeklyForStaffRole(staffRoleId, now = new Date()) {
-  const date = new Date(now);
-  if (date.getDay() !== 0) return false;
-  const minutes = date.getHours() * 60 + date.getMinutes();
-  const thresholds = {
-    [String(IDs.roles?.Mod || "")]: 17 * 60,
-    [String(IDs.roles?.SeniorModerator || "")]: 17 * 60 + 30,
-    [String(IDs.roles?.Director || "")]: 17 * 60 + 45,
-    [String(IDs.roles?.Admin || "")]: 18 * 60,
-  };
-  const threshold = thresholds[String(staffRoleId || "")];
-  return threshold != null && minutes >= threshold;
 }
 
 async function resolveValutazioniChannel(guild) {
@@ -364,27 +338,8 @@ async function syncPersistentAutoValutazioniForMember(member) {
 }
 
 async function syncWeeklyAutoValutazioniForMember(member, now = new Date()) {
-  if (!member?.guild || !isStaffMember(member)) return;
-  const staffRoleId = resolveStaffRole(member);
-  if (!staffRoleId) return;
-
-  const weekStart = getCurrentWeekStartRome(now);
-  const weekEnd = now;
-  const weekKey = weekKeyFromDate(weekStart);
-  const sanctionKey = `weekly_sanzioni:${weekKey}`;
-  const canEvaluateForRole = shouldEvaluateWeeklyForStaffRole(staffRoleId, now);
-
-  const sanctionLimit = STAFF_SANCTION_LIMITS[String(staffRoleId)];
-  if (sanctionLimit != null) {
-    if (!canEvaluateForRole) return;
-    const sanctions = await getWeeklySanctionCountByMod(member.guild.id, weekStart, weekEnd);
-    const count = Number(sanctions.get(String(member.id)) || 0);
-    if (count >= Number(sanctionLimit)) {
-      await ensureAutoValutazione(member.guild, member, sanctionKey, "positive", `Compito sanzioni completato.`);
-    } else {
-      await removeAutoValutazione(member.guild, member.id, sanctionKey);
-    }
-  }
+  void member;
+  void now;
 }
 
 async function fetchMainGuildStaffMembers(client, withPresences = false) {

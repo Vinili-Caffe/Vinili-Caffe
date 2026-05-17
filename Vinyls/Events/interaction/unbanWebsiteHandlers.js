@@ -4,6 +4,7 @@ const { getBotState, setBotState } = require("../../Utils/BotState/botStateStore
 const { EPHEMERAL_TTL_PING_ONLY_MS, scheduleMessageDeletion } = require("../../Utils/Config/ephemeralMessageTtl");
 const { resolveSubmissionChannel } = require("./candidatureApplicationHandlers");
 const UNBAN_VISIONE_REACTIONS = ["<:thumbsup:1471292172145004768>", "<:thumbsdown:1471292163957457013>",];
+const UNBAN_PENDING_COLOR = "#6f4e37";
 const UNBAN_COOLDOWN_MS = 15 * 24 * 60 * 60 * 1000;
 const cooldownByUser = new Map();
 let cooldownLoaded = false;
@@ -179,7 +180,7 @@ async function submitWebsiteUnban(client, payload) {
   }
 
   const embed = new EmbedBuilder()
-    .setColor("#ef4444")
+    .setColor(UNBAN_PENDING_COLOR)
     .setTitle("Richiesta Unban")
     .setDescription(
       [

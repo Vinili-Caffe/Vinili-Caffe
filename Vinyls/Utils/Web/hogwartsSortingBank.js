@@ -1,5 +1,4 @@
 const HOUSES = Object.freeze(["gryffindor", "ravenclaw", "hufflepuff", "slytherin"]);
-
 const HOUSE_META = Object.freeze({
   gryffindor: {
     id: "gryffindor",

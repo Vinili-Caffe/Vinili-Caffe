@@ -11,14 +11,15 @@ const { bootstrapSupporter } = require("./presenceUpdate");
 const { restoreTtsConnections } = require("../Services/TTS/ttsService");
 const { runDueOneTimeReminders, } = require("../Services/Reminders/oneTimeReminderService");
 const { bootstrapMinigameScheduler } = require("../Services/Minigames/minigameService");
-const { startWeeklyDmReminderLoop, } = require("../Services/Community/weeklyDmReminderService");
 const { startVerificationTenureLoop, backfillVerificationTenure, startVoteRoleCleanupLoop, runAllGuilds: renumberAllCategories, startCategoryNumberingLoop, startSponsorKickLoop, startSponsorGuildNicknameSweepLoop, } = require("../Services/Community/communityOpsService");
 const { startBirthdayLoop } = require("../Services/Community/birthdayService");
 const { startDailyMemberStatsLoop } = require("../Services/Community/dailyMemberStatsService");
 const { startDailyEngagementStatsLoop } = require("../Services/Community/dailyEngagementStatsService");
 const { startDailyChannelMessageStatsLoop } = require("../Services/Community/dailyChannelMessageStatsService");
+const { startReactPressEventLoop } = require("../Services/Community/hogwartsReactPressService");
 const { migrateLegacyDailyStatsCollections } = require("../Services/Community/dailyStatsStore");
 const { restoreTempBans } = require("../Services/Moderation/joinRaidService");
+const { sweepExpiredCommunicationTimeoutMirrors } = require("../Services/Moderation/mutedMirrorRoleService");
 const { sendBannedUnbanLinkDms, shouldRunBannedUnbanDmOnStartup } = require("../Services/Moderation/bannedUnbanDmService");
 const { rehydrateAntiNukePanicForGuild } = require("../Services/Moderation/antiNukeService");
 const { syncLiveVoiceSessionsFromGateway, startLiveVoiceExpLoop, } = require("../Services/Community/activityService");
@@ -44,6 +45,7 @@ const { startVoteQueueLoop } = require("../Services/Web/discadiaVoteQueueService
 const { startWebhookServer, shouldStartBotHttpServer } = require("../Services/Web/webhookService");
 const { checkAndInstallPackages } = require("../Utils/Moderation/checkPackages");
 const { startAutoPollLoop } = require("../Services/Community/autoPollService");
+const { startMovieNightAnnouncementLoop } = require("../Services/Community/movieNightAnnouncementService");
 const { startNoRoleKickLoop } = require("../Services/Community/noRoleKickService");
 const { printRecoveryHealthOnce } = require("../../shared/recovery/recoveryHealth");
 const IDs = require("../Utils/Config/ids");
@@ -180,6 +182,10 @@ function buildPrimaryHeavyTasks(client, mainGuild, engagementTick) {
     {
       label: "heavy task: custom role expiry sweep",
       run: () => runExpiredCustomRolesSweep(client),
+    },
+    {
+      label: "heavy task: expired mute role restore sweep",
+      run: () => sweepExpiredCommunicationTimeoutMirrors(client, { limit: 100 }),
     },
     {
       label: "heavy task: custom perks rules migration",
@@ -578,7 +584,6 @@ function startPrimaryLoops(client, engagementTick) {
     ["[LIVE VOICE EXP] Failed to start loop", () => startLiveVoiceExpLoop(client)],
     ["[MINIGAMES] Failed to start loop", () => void bootstrapMinigameScheduler(client).catch((err) => global.logger?.error?.("[MINIGAMES] bootstrap failed:", err?.message || err))],
     ["[VOTE ROLE] Failed to start cleanup loop", () => startVoteRoleCleanupLoop(client)],
-    ["[WEEKLY DM REMINDER] Failed to start loop", () => startWeeklyDmReminderLoop(client)],
     ["[VERIFY TENURE] Failed to start loop", () => startVerificationTenureLoop(client)],
     ["[CATEGORY NUMBERING] Failed to start loop", () => startCategoryNumberingLoop(client)],
     ["[SPONSOR 24H KICK] Failed to start loop", () => startSponsorKickLoop(client)],
@@ -588,6 +593,7 @@ function startPrimaryLoops(client, engagementTick) {
     ["[DAILY MEMBER STATS] Failed to start loop", () => startDailyMemberStatsLoop(client)],
     ["[DAILY ENGAGEMENT STATS] Failed to start loop", () => startDailyEngagementStatsLoop(client)],
     ["[DAILY CHANNEL MESSAGE STATS] Failed to start loop", () => startDailyChannelMessageStatsLoop(client)],
+    ["[PREMI LA REACT] Failed to start loop", () => startReactPressEventLoop(client)],
     ["[CUSTOM ROLE EXPIRY] Failed to start cleanup loop", () => startCustomRoleExpiryLoop(client)],
     ["[MOD CASE LIFECYCLE] Failed to start loop", () => startModCaseLifecycleLoop(client)],
     ["[TICKET AUTO CLOSE PROMPT] Failed to start loop", () => startTicketAutoClosePromptLoop(client)],
@@ -597,6 +603,7 @@ function startPrimaryLoops(client, engagementTick) {
     ["[WEEKLY STAFF RESOCONTO] Failed to start loop", () => startWeeklyStaffResocontoLoop(client)],
     ["[STAFF WARN RESET 6M] Failed to start loop", () => startStaffWarnResetLoop(client)],
     ["[STAFF AUTO VALUTAZIONI] Failed to start loop", () => startStaffAutoValutazioniLoop(client)],
+    ["[MOVIE NIGHT ANNOUNCE] Failed to start loop", () => startMovieNightAnnouncementLoop(client)],
     ["[DB MAINTENANCE] Failed to start loop", () => startDbMaintenanceLoop(client)],
     ["[STAFF GRACE PURGE] Failed to start loop", () => startStaffGracePurgeLoop(client)],
     ["[JOIN RAID RESTORE] Failed to start loop", () => {

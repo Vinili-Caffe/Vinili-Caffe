@@ -78,6 +78,8 @@ const ROLE_UP = {
 let weeklyStaffResocontoTasks = [];
 const resocontoMemberHydrationStateByGuild = new Map();
 const RESOCONTO_MEMBER_HYDRATE_TTL_MS = 2 * 60 * 1000;
+const RESOCONTO_MEMBER_FETCH_PAGE_LIMIT = 1000;
+const RESOCONTO_MEMBER_FETCH_PAGE_DELAY_MS = 400;
 const BOT_STATE_KEY_LAST_RESOCONTO = "lastResocontoRun";
 
 async function writeLastResocontoRun() {
@@ -142,6 +144,74 @@ function collectVoiceChannelIdsUnderCategory(guild, categoryId) {
     out.add(String(ch.id));
   }
   return out;
+}
+
+function wait(ms) {
+  return new Promise((resolve) => {
+    const timer = setTimeout(resolve, ms);
+    timer.unref?.();
+  });
+}
+
+function maxMemberSnowflakeInChunk(chunk) {
+  if (!chunk?.size) return null;
+  let max = null;
+  for (const id of chunk.keys()) {
+    const s = String(id);
+    if (!max || BigInt(s) > BigInt(max)) max = s;
+  }
+  return max;
+}
+
+function isGuildMemberCacheLikelyComplete(guild) {
+  const memberCount = Number(guild?.memberCount ?? 0) || 0;
+  const cacheSize = Number(guild?.members?.cache?.size ?? 0) || 0;
+  return memberCount > 0 && cacheSize >= memberCount;
+}
+
+async function fetchGuildMembersByPagesForResoconto(guild, segment) {
+  if (!guild?.members?.fetch) return 0;
+  const guildId = String(guild.id || "");
+  const memberCount = Number(guild.memberCount ?? 0) || 0;
+  const maxPages = Math.min(50, Math.max(1, Math.ceil((memberCount || 25000) / RESOCONTO_MEMBER_FETCH_PAGE_LIMIT) + 2));
+  let after = null;
+  let totalFetched = 0;
+
+  for (let page = 1; page <= maxPages; page += 1) {
+    const chunk = await guild.members
+      .fetch({ limit: RESOCONTO_MEMBER_FETCH_PAGE_LIMIT, after: after ?? undefined, force: true })
+      .catch((err) => {
+        global.logger?.warn?.("[WEEKLY STAFF RESOCONTO] paged member fetch failed:", {
+          guildId,
+          segment: segment || null,
+          page,
+          after: after ?? null,
+          err: err?.message || String(err),
+          code: err?.code,
+        });
+        return null;
+      });
+    if (!chunk?.size) break;
+
+    totalFetched += chunk.size;
+    if (chunk.size < RESOCONTO_MEMBER_FETCH_PAGE_LIMIT) break;
+
+    const nextAfter = maxMemberSnowflakeInChunk(chunk);
+    if (!nextAfter || String(nextAfter) === String(after ?? "")) {
+      global.logger?.warn?.("[WEEKLY STAFF RESOCONTO] paged member fetch cursor stopped:", {
+        guildId,
+        segment: segment || null,
+        page,
+        after: after ?? null,
+        nextAfter,
+      });
+      break;
+    }
+    after = nextAfter;
+    await wait(RESOCONTO_MEMBER_FETCH_PAGE_DELAY_MS);
+  }
+
+  return totalFetched;
 }
 
 function buildResocontoActivityScope(guild) {
@@ -303,6 +373,25 @@ function getResocontoPexSkipWindowUtc(referenceNow = new Date()) {
   const monParts = addDaysToRomeYmd(sunParts.year, sunParts.month, sunParts.day, -6);
   const windowStart = createUtcFromRomeLocal(monParts.year, monParts.month, monParts.day, 0, 0, 0);
   return { windowStart, windowEndExclusive: closingSunday };
+}
+
+function getCurrentResocontoPexWeekWindowUtc(referenceNow = new Date()) {
+  const r = parseRomeWallClock(referenceNow);
+  const wdMap = { Sun: 6, Mon: 0, Tue: 1, Wed: 2, Thu: 3, Fri: 4, Sat: 5 };
+  const daysFromMonday = wdMap[r.weekday] ?? 0;
+  const monParts = addDaysToRomeYmd(r.year, r.month, r.day, -daysFromMonday);
+  const sunParts = addDaysToRomeYmd(monParts.year, monParts.month, monParts.day, 6);
+  return {
+    windowStart: createUtcFromRomeLocal(monParts.year, monParts.month, monParts.day, 0, 0, 0),
+    windowEndExclusive: createUtcFromRomeLocal(
+      sunParts.year,
+      sunParts.month,
+      sunParts.day,
+      RESOCONTO_CLOSE_HOUR_ROME,
+      0,
+      0,
+    ),
+  };
 }
 
 function getPmResocontoWindow(now = new Date()) {
@@ -647,6 +736,7 @@ function wasPmPromotedInResocontoSkipWindow(staffDoc, windowStart, windowEndExcl
   const t1 = windowEndExclusive.getTime();
   return history.some((row) => {
     if (String(row?.newRole || "") !== pmRoleId) return false;
+    if (!isStaffRolesHistoryPexRow(row)) return false;
     const when = row?.date ? new Date(row.date) : null;
     if (!when || Number.isNaN(when.getTime())) return false;
     const ms = when.getTime();
@@ -720,6 +810,22 @@ function wasPromotedToRoleInLastDays(staffDoc, roleId, days, now = new Date()) {
   });
 }
 
+function wasPromotedToRoleInWindow(staffDoc, roleId, windowStart, windowEndExclusive) {
+  const targetRoleId = String(roleId || "");
+  if (!targetRoleId || !windowStart || !windowEndExclusive) return false;
+  const history = Array.isArray(staffDoc?.rolesHistory) ? staffDoc.rolesHistory : [];
+  const t0 = windowStart.getTime();
+  const t1 = windowEndExclusive.getTime();
+  return history.some((row) => {
+    if (String(row?.newRole || "") !== targetRoleId) return false;
+    if (!isStaffRolesHistoryPexRow(row)) return false;
+    const when = row?.date ? new Date(row.date) : null;
+    if (!when || Number.isNaN(when.getTime())) return false;
+    const ms = when.getTime();
+    return ms >= t0 && ms < t1;
+  });
+}
+
 function computePmAction(weeklyPartners, pmPexedInWeek) {
   if (pmPexedInWeek) return "Nulla";
   const partners = Math.max(0, Math.floor(toSafeNumber(weeklyPartners)));
@@ -732,7 +838,7 @@ function resocontoAutoActor(guild) {
   return { user: guild?.client?.user || { username: "Automazione Resoconti" }, member: null };
 }
 
-async function ensureWeeklyLimitAutoValutazione({ guild, member, key, type, reason }) {
+async function ensureWeeklyLimitAutoValutazione({ guild, member, key, type, reason, force = false, equivalentReasonNeedles = null }) {
   if (!guild || !member?.user || !key || !type) return { ok: false };
   const channel = guild.channels.cache.get(IDs.channels?.valutazioniStaff) ||
     (await getClientChannelCached(guild.client, IDs.channels?.valutazioniStaff).catch(() => null));
@@ -746,8 +852,28 @@ async function ensureWeeklyLimitAutoValutazione({ guild, member, key, type, reas
   const staff = ensureStaff(profileDoc);
   if (!staff) return { ok: false, skipped: "no_staff_doc" };
   if (!Array.isArray(staff.autoValutazioni)) staff.autoValutazioni = [];
+  const weeklyLimitReasons = Array.isArray(equivalentReasonNeedles)
+    ? equivalentReasonNeedles
+    : type === "negative"
+      ? ["limiti settimanali non raggiunti", "limiti settimanali non rispettati"]
+      : ["limiti settimanali completati", "limiti settimanali rispettati"];
+  const reasonList = type === "negative" ? staff.negativeReasons : staff.positiveReasons;
+  const alreadyHasEquivalentWeeklyLimitValutazione =
+    weeklyLimitReasons.length > 0 &&
+    Array.isArray(reasonList) &&
+    reasonList.some((entry) => {
+      const normalized = String(entry || "").toLowerCase();
+      return weeklyLimitReasons.some((needle) => normalized.includes(needle));
+    });
+  if (alreadyHasEquivalentWeeklyLimitValutazione) {
+    return { ok: true, skipped: "equivalent_exists" };
+  }
   const existing = staff.autoValutazioni.find((entry) => String(entry?.key || "") === String(key));
-  if (existing) return { ok: true, skipped: "exists" };
+  if (existing && !force) return { ok: true, skipped: "exists" };
+  if (existing && force) {
+    staff.autoValutazioni = staff.autoValutazioni.filter((entry) => String(entry?.key || "") !== String(key));
+    profileDoc.markModified("staff");
+  }
 
   const actor = resocontoAutoActor(guild);
   const result = type === "negative"
@@ -767,7 +893,7 @@ async function ensureWeeklyLimitAutoValutazione({ guild, member, key, type, reas
   });
   profileDoc.markModified("staff");
   await profileDoc.save();
-  return { ok: true };
+  return { ok: true, created: true };
 }
 
 function staffActionToKey(action) {
@@ -968,6 +1094,23 @@ async function recentStaffResocontoMessageExists(channel, userId, roleId, sinceD
   return false;
 }
 
+async function recentPmResocontoMessageExists(channel, userId, sinceDate) {
+  if (!channel?.messages?.fetch) return false;
+  const uid = String(userId || "").trim();
+  const sinceMs = sinceDate instanceof Date ? sinceDate.getTime() : 0;
+  if (!uid) return false;
+  const batch = await channel.messages.fetch({ limit: 100 }).catch(() => null);
+  if (!batch?.size) return false;
+  for (const message of batch.values()) {
+    if (sinceMs && Number(message.createdTimestamp || 0) < sinceMs) continue;
+    const content = String(message.content || "");
+    if (!content.includes("**Partner Manager:**")) continue;
+    if (!content.includes(`<@${uid}>`) && !content.includes(`<@!${uid}>`)) continue;
+    return true;
+  }
+  return false;
+}
+
 async function sendResocontoMessageWithRetry(channel, payload, context = {}) {
   if (!channel?.send) return null;
   const first = await channel.send(payload).catch((err) => {
@@ -998,29 +1141,51 @@ async function hydrateGuildMembersForResoconto(guild, segment) {
   const guildId = String(guild.id || "");
   const now = Date.now();
   const state = resocontoMemberHydrationStateByGuild.get(guildId);
-  if (state?.lastOkAt && now - Number(state.lastOkAt || 0) < RESOCONTO_MEMBER_HYDRATE_TTL_MS) {
+  if (
+    state?.lastOkAt &&
+    now - Number(state.lastOkAt || 0) < RESOCONTO_MEMBER_HYDRATE_TTL_MS &&
+    isGuildMemberCacheLikelyComplete(guild)
+  ) {
     return true;
   }
   if (state?.promise) {
     return state.promise;
   }
 
-  const promise = fetchGuildMembersRespectingGatewayRateLimit(guild, {
-    maxAttempts: 12,
-    onRateLimit: (waitMs, attempt, maxAttempts) => {
-      if (!jobsDebug) return;
-      global.logger?.info?.(`[WEEKLY STAFF RESOCONTO] Member fetch rate-limited (${segment || "unknown"}), retry ${attempt}/${maxAttempts} in ~${Math.round(waitMs / 1000)}s.`);
-    },
-  })
-    .then(() => {
+  const promise = (async () => {
+    let ok = false;
+    await fetchGuildMembersRespectingGatewayRateLimit(guild, {
+      maxAttempts: 12,
+      onRateLimit: (waitMs, attempt, maxAttempts) => {
+        if (!jobsDebug) return;
+        global.logger?.info?.(`[WEEKLY STAFF RESOCONTO] Member fetch rate-limited (${segment || "unknown"}), retry ${attempt}/${maxAttempts} in ~${Math.round(waitMs / 1000)}s.`);
+      },
+    })
+      .then(() => {
+        ok = true;
+      })
+      .catch((err) => {
+        global.logger?.warn?.(
+          `[WEEKLY STAFF RESOCONTO] Member fetch failed (${segment || "unknown"}), trying paged fetch:`,
+          err?.message || err,
+        );
+      });
+
+    if (!isGuildMemberCacheLikelyComplete(guild)) {
+      const fetched = await fetchGuildMembersByPagesForResoconto(guild, segment);
+      ok = ok || fetched > 0;
+    }
+
+    if (ok || isGuildMemberCacheLikelyComplete(guild)) {
       resocontoMemberHydrationStateByGuild.set(guildId, { lastOkAt: Date.now(), promise: null });
       return true;
-    })
+    }
+
+    resocontoMemberHydrationStateByGuild.set(guildId, { lastOkAt: 0, promise: null });
+    return false;
+  })()
     .catch((err) => {
-      global.logger?.warn?.(
-        `[WEEKLY STAFF RESOCONTO] Member fetch failed (${segment || "unknown"}):`,
-        err?.message || err,
-      );
+      global.logger?.warn?.(`[WEEKLY STAFF RESOCONTO] Member hydration failed (${segment || "unknown"}):`, err?.message || err);
       resocontoMemberHydrationStateByGuild.set(guildId, { lastOkAt: 0, promise: null });
       return false;
     });
@@ -1035,6 +1200,7 @@ async function runWeeklyStaffResocontoSegment(client, segment, opts = {}) {
   const jobsDebug = String(process.env.DEBUG_JOBS || "").trim() === "1";
   const targetUserId = String(opts.userId || opts.targetUserId || "").trim();
   const forceTarget = Boolean(opts.force && /^\d{16,20}$/.test(targetUserId));
+  const ignorePostedState = Boolean(opts.ignorePostedState || opts.recovery);
 
   const guildId = String(IDs.guilds?.main || "");
   const channelId = String(IDs.channels?.resocontiStaff || "");
@@ -1058,7 +1224,7 @@ async function runWeeklyStaffResocontoSegment(client, segment, opts = {}) {
   const now = new Date();
   const weekStart = getWeekStartDate(now);
   const weekEnd = now;
-  const pexSkipWindow = getResocontoPexSkipWindowUtc(now);
+  const pexSkipWindow = getCurrentResocontoPexWeekWindowUtc(now);
   const nowRomeParts = getRomeDateParts(now);
   const resocontoMessageSince = createUtcFromRomeLocal(nowRomeParts.year, nowRomeParts.month, nowRomeParts.day, 0, 0, 0);
   const closingPartsForResocontoKey = getRomeDateParts(pexSkipWindow.windowEndExclusive);
@@ -1126,26 +1292,31 @@ async function runWeeklyStaffResocontoSegment(client, segment, opts = {}) {
   let sentCount = 0;
   let eligibleCount = 0;
   let completedCount = 0;
+  const skippedCounts = {
+    alreadyPosted: 0,
+    pexWindow: 0,
+    sendFailed: 0,
+  };
 
   for (const member of candidateMembers) {
     const userId = String(member.id);
     const staffDoc = staffMap.get(userId) || null;
     const staffRoleId = resolveStaffRole(member);
     const graceNewStaffRole =
-      Boolean(staffRoleId) && wasPromotedToRoleInLastDays(staffDoc, staffRoleId, 7, now);
-    const pmPexedInLast7Days = wasPromotedToRoleInLastDays(staffDoc, IDs.roles.PartnerManager, 7, now);
+      Boolean(staffRoleId) &&
+      wasPromotedToRoleInWindow(staffDoc, staffRoleId, pexSkipWindow.windowStart, pexSkipWindow.windowEndExclusive);
+    const pmPexedInCurrentWeek = wasPromotedToRoleInWindow(
+      staffDoc,
+      IDs.roles.PartnerManager,
+      pexSkipWindow.windowStart,
+      pexSkipWindow.windowEndExclusive,
+    );
     const skipForStaffPexInWindow = shouldSkipResocontoForPexInCalendarWeek(
       staffDoc,
       pexSkipWindow.windowStart,
       pexSkipWindow.windowEndExclusive,
     );
-    const skipForPmPromotionInWindow = wasPmPromotedInResocontoSkipWindow(
-      staffDoc,
-      pexSkipWindow.windowStart,
-      pexSkipWindow.windowEndExclusive,
-    );
-    const shouldSkipStaffResoconto = skipForStaffPexInWindow && !graceNewStaffRole;
-    const shouldSkipPmResoconto = skipForPmPromotionInWindow && !pmPexedInLast7Days;
+    const shouldSkipStaffResoconto = !forceTarget && (graceNewStaffRole || skipForStaffPexInWindow);
 
     const matchStaffSegment =
       wantStaffForSegment && staffRoleId && String(staffRoleId) === wantStaffForSegment;
@@ -1155,24 +1326,38 @@ async function runWeeklyStaffResocontoSegment(client, segment, opts = {}) {
       !forceTarget &&
       staffRoleId &&
       (
-        staffResocontoPostedIds.has(`${staffRoleId}:${userId}`) ||
+        (!ignorePostedState && staffResocontoPostedIds.has(`${staffRoleId}:${userId}`)) ||
         await recentStaffResocontoMessageExists(channel, userId, staffRoleId, resocontoMessageSince)
       );
     if (matchStaffSegment && alreadyHadStaffResocontoThisCycle) completedCount += 1;
+    if (matchStaffSegment && alreadyHadStaffResocontoThisCycle) skippedCounts.alreadyPosted += 1;
+    if (matchStaffSegment && shouldSkipStaffResoconto) skippedCounts.pexWindow += 1;
 
     if (matchStaffSegment && !shouldSkipStaffResoconto && !alreadyHadStaffResocontoThisCycle) {
       const overview = overviewMap.get(userId);
-      if (overviewLooksLikeEmptyFallback(overview)) {
+      const overviewUnavailable = overviewLooksLikeEmptyFallback(overview);
+      if (overviewUnavailable) {
         if (jobsDebug) {
-          global.logger?.info?.(`[WEEKLY STAFF RESOCONTO] Staff skipped: ${userId} (${member.user?.tag || member.user?.username || "unknown"}) segment=${segment} reason=activity_stats_unavailable`);
+          global.logger?.info?.(`[WEEKLY STAFF RESOCONTO] Staff overview unavailable: ${userId} (${member.user?.tag || member.user?.username || "unknown"}) segment=${segment}`);
         }
-        continue;
       }
       const d7 = overview?.windows?.d7;
       const weeklyMessages = Math.max(0, Math.floor(toSafeNumber(d7?.text ?? 0)),);
       const weeklyVoiceSeconds = Math.max(0, Math.floor(toSafeNumber(d7?.voiceSeconds ?? 0)),);
       const weeklyVoiceHours = weeklyVoiceSeconds / 3600;
-      const activityGrade = computeActivityGrade(staffRoleId, weeklyMessages, weeklyVoiceHours,);
+      const limits = STAFF_ACTIVITY_LIMITS[String(staffRoleId)];
+      const canCreateWeeklyLimitAutoValutazione =
+        Boolean(limits) &&
+        !graceNewStaffRole &&
+        !skipForStaffPexInWindow &&
+        !overviewUnavailable;
+      const reachedWeeklyLimits =
+        canCreateWeeklyLimitAutoValutazione &&
+        weeklyMessages >= Number(limits.messages || 0) &&
+        weeklyVoiceHours >= Number(limits.hours || 0);
+      const activityGrade = overviewUnavailable
+        ? "Non disponibile"
+        : computeActivityGrade(staffRoleId, weeklyMessages, weeklyVoiceHours,);
       const behaviorGrade = computeBehaviorGrade(staffDoc?.positiveCount, staffDoc?.negativeCount,);
       const pexedInWeek = wasPexedInWeek(staffDoc, weekStart);
       const endedPauseDuringWeek = didPauseEndDuringWeek(staffDoc, weekStart, weekEnd, "Staff");
@@ -1192,7 +1377,12 @@ async function runWeeklyStaffResocontoSegment(client, segment, opts = {}) {
             staffDoc?.positiveCount,
             staffDoc?.negativeCount,
           );
-      const action = graceNewStaffRole ? "Nulla" : metWeeklySanctionLimit ? "Valutazione Positiva" : baseAction;
+      const rawAction = graceNewStaffRole || overviewUnavailable ? "Nulla" : metWeeklySanctionLimit ? "Valutazione Positiva" : baseAction;
+      const action =
+        canCreateWeeklyLimitAutoValutazione &&
+        (rawAction === "Valutazione Positiva" || rawAction === "Valutazione Negativa")
+          ? "Nulla"
+          : rawAction;
       const staffNewBadge = action === "Nulla" && graceNewStaffRole ? ` ${STAFF_NEW_EMOJI}` : "";
 
       const staffRoleEmoji = getStaffRoleEmojiByRoleId(staffRoleId);
@@ -1207,6 +1397,9 @@ async function runWeeklyStaffResocontoSegment(client, segment, opts = {}) {
       ];
       if (sanctionLimit != null) {
         contentLines.push(`<:VC_Dot:1443660294596329582> **Sanzioni nella settimana:** __${weeklySanctions}__ (minimo __${sanctionLimit}__)`);
+      }
+      if (overviewUnavailable) {
+        contentLines.push("<a:VC_Exclamation:1482534702077444217> **Stats attività non disponibili:** controllare manualmente.");
       }
       contentLines.push(`<:VC_BanHammer:1482534474502897795> **Azione:** __${action}__`);
       const pauseLine = getStaffPauseLine(staffDoc, "Staff");
@@ -1237,11 +1430,7 @@ async function runWeeklyStaffResocontoSegment(client, segment, opts = {}) {
         await appendStaffResocontoPostedRoleId(guildId, resocontoWeekKey, userId, staffRoleId);
         staffResocontoPostedIds.add(userId);
         staffResocontoPostedIds.add(`${staffRoleId}:${userId}`);
-        const limits = STAFF_ACTIVITY_LIMITS[String(staffRoleId)];
-        if (limits && !graceNewStaffRole && !skipForStaffPexInWindow) {
-          const reachedWeeklyLimits =
-            weeklyMessages >= Number(limits.messages || 0) &&
-            weeklyVoiceHours >= Number(limits.hours || 0);
+        if (canCreateWeeklyLimitAutoValutazione) {
           const evalType = reachedWeeklyLimits ? "positive" : "negative";
           const evalReason = reachedWeeklyLimits
             ? "Limiti settimanali completati."
@@ -1260,6 +1449,24 @@ async function runWeeklyStaffResocontoSegment(client, segment, opts = {}) {
             );
           });
         }
+        if (metWeeklySanctionLimit) {
+          await ensureWeeklyLimitAutoValutazione({
+            guild,
+            member,
+            key: `weekly_sanzioni:${resocontoWeekKey}:${staffRoleId}`,
+            type: "positive",
+            reason: "Compito sanzioni completato.",
+            equivalentReasonNeedles: ["compito sanzioni completato"],
+          }).catch((err) => {
+            global.logger?.warn?.(
+              "[WEEKLY STAFF RESOCONTO] weekly sanctions valutazione failed:",
+              userId,
+              err?.message || err,
+            );
+          });
+        }
+      } else {
+        skippedCounts.sendFailed += 1;
       }
     } else if (matchStaffSegment) {
       const reason = alreadyHadStaffResocontoThisCycle
@@ -1272,20 +1479,35 @@ async function runWeeklyStaffResocontoSegment(client, segment, opts = {}) {
       }
     }
 
-    if (
+    const matchPmSegment =
       segment === "pm" &&
-      member.roles.cache.has(String(IDs.roles.PartnerManager)) &&
+      member.roles.cache.has(String(IDs.roles.PartnerManager));
+    const alreadyHadPmResocontoThisCycle =
+      matchPmSegment &&
+      !forceTarget &&
+      await recentPmResocontoMessageExists(channel, userId, resocontoMessageSince);
+    const pmWindow = matchPmSegment ? getPmResocontoWindow(new Date()) : null;
+    const pmPromotedInResocontoWindow = pmWindow
+      ? wasPmPromotedInResocontoSkipWindow(staffDoc, pmWindow.weekStart, pmWindow.weekEnd)
+      : false;
+    const shouldSkipPmResoconto =
+      matchPmSegment &&
+      !forceTarget &&
+      (pmPexedInCurrentWeek || pmPromotedInResocontoWindow);
+
+    if (
+      matchPmSegment &&
+      !alreadyHadPmResocontoThisCycle &&
       !shouldSkipPmResoconto &&
       !isPmResocontoExcludedUserId(userId)
     ) {
-      const pmWindow = getPmResocontoWindow(new Date());
       const weeklyPartners = countPmWeeklyPartners(staffDoc, pmWindow.weekStart, pmWindow.weekEnd,);
       const pmPexedInWeek = wasPmPexedInWeek(staffDoc, pmWindow.weekStart);
       const pmInPauseDuringWeek = wasPartnerManagerInPauseForResocontoWeek(staffDoc, pmWindow.weekStart, pmWindow.weekEnd, member);
       const basePmAction = pmInPauseDuringWeek ? "Nulla" : computePmAction(weeklyPartners, pmPexedInWeek);
-      const action = pmPexedInLast7Days ? "Nulla" : basePmAction;
+      const action = pmPexedInCurrentWeek || pmPromotedInResocontoWindow ? "Nulla" : basePmAction;
       const pmPauseLine = getPmResocontoPauseDisplayLine(staffDoc, member);
-      const pmNewBadge = action === "Nulla" && pmPexedInLast7Days ? ` ${STAFF_NEW_EMOJI}` : "";
+      const pmNewBadge = action === "Nulla" && (pmPexedInCurrentWeek || pmPromotedInResocontoWindow) ? ` ${STAFF_NEW_EMOJI}` : "";
       const pmContentLines = [
         `<:VC_PartnerManager:1494286911286808576> **Partner Manager:** __<@${userId}>__${pmNewBadge}`,
         `<:partneredserverowner:1443651871125409812> **Partner:** __${weeklyPartners}__`,
@@ -1294,22 +1516,26 @@ async function runWeeklyStaffResocontoSegment(client, segment, opts = {}) {
       if (pmPauseLine) pmContentLines.push(pmPauseLine);
 
       const pmComponents = [buildResocontoButtons("p", userId, pmActionToKey(action))];
-      await channel
-        .send({
+      const pmMsg = await sendResocontoMessageWithRetry(
+        channel,
+        {
           content: pmContentLines.join("\n"),
           ...(pmComponents.length ? { components: pmComponents } : {}),
-        })
-        .then((msg) => createResocontoThread(msg, userId, member.user?.username, staffDoc))
-        .then(() => {
-          sentCount += 1;
-        })
-        .catch(() => null);
-    } else if (segment === "pm" && member.roles.cache.has(String(IDs.roles.PartnerManager))) {
-      const reason = isPmResocontoExcludedUserId(userId)
-        ? "excluded_config"
+        },
+        { userId, segment },
+      );
+      if (pmMsg) {
+        sentCount += 1;
+        await createResocontoThread(pmMsg, userId, member.user?.username, staffDoc);
+      }
+    } else if (matchPmSegment) {
+      const reason = alreadyHadPmResocontoThisCycle
+        ? "already_posted_this_cycle"
         : shouldSkipPmResoconto
-          ? "pm_promotion_skip_window"
-          : "unknown";
+        ? "pex_window"
+        : isPmResocontoExcludedUserId(userId)
+        ? "excluded_config"
+        : "unknown";
       if (jobsDebug) {
         global.logger?.info?.(`[WEEKLY STAFF RESOCONTO] PM skipped: ${userId} (${member.user?.tag || member.user?.username || "unknown"}) reason=${reason}`);
       }
@@ -1318,7 +1544,7 @@ async function runWeeklyStaffResocontoSegment(client, segment, opts = {}) {
   if (segment === "admin") {
     await writeLastResocontoRun();
   }
-  return { sent: sentCount, eligible: eligibleCount, completed: completedCount, segment };
+  return { sent: sentCount, eligible: eligibleCount, completed: completedCount, skipped: skippedCounts, segment };
 }
 
 function getStaffResocontoChainSegments(segment) {
@@ -1483,7 +1709,7 @@ function getPassedStaffResocontoSegments(now = new Date()) {
   return starts.filter((item) => currentMinutes >= item.minutes).map((item) => item.segment);
 }
 
-async function runWeeklyLimitAutoValutazioniCatchupSegment(client, segment, now = new Date()) {
+async function runWeeklyLimitAutoValutazioniCatchupSegment(client, segment, now = new Date(), opts = {}) {
   const staffRoleId = getStaffRoleIdForResocontoSegment(segment);
   const limits = STAFF_ACTIVITY_LIMITS[String(staffRoleId)];
   if (!staffRoleId || !limits) return;
@@ -1501,13 +1727,9 @@ async function runWeeklyLimitAutoValutazioniCatchupSegment(client, segment, now 
   const resocontoOverviewVoiceExclude =
     resocontoExcludeVoiceChannels.size > 0 ? resocontoExcludeVoiceChannels : null;
   const resocontoScope = buildResocontoActivityScope(guild);
-  const pexSkipWindow = getResocontoPexSkipWindowUtc(now);
-  const nowRomeParts = getRomeDateParts(now);
-  const resocontoMessageSince = createUtcFromRomeLocal(nowRomeParts.year, nowRomeParts.month, nowRomeParts.day, 0, 0, 0);
+  const pexSkipWindow = getCurrentResocontoPexWeekWindowUtc(now);
   const closingPartsForResocontoKey = getRomeDateParts(pexSkipWindow.windowEndExclusive);
   const resocontoWeekKey = `${closingPartsForResocontoKey.year}-${String(closingPartsForResocontoKey.month).padStart(2, "0")}-${String(closingPartsForResocontoKey.day).padStart(2, "0")}`;
-  const channel = await resolveChannel(client, String(IDs.channels?.resocontiStaff || ""));
-  if (!channel?.isTextBased?.()) return;
 
   const staffDocs = await ActivityUserProfile.find({ guildId, staff: { $exists: true } }, { userId: 1, staff: 1 }).lean().catch(() => []);
   const staffMap = new Map((Array.isArray(staffDocs) ? staffDocs : []).map((row) => [String(row.userId), row.staff || {}]));
@@ -1525,6 +1747,11 @@ async function runWeeklyLimitAutoValutazioniCatchupSegment(client, segment, now 
     String(resolveStaffRole(member) || "") === String(staffRoleId),
   );
   if (!members.length) return;
+  let eligibleCount = 0;
+  let appliedCount = 0;
+  let existingCount = 0;
+  let skippedCount = 0;
+  const forceAutoValutazioni = Boolean(opts.force || opts.forceAutoValutazioni);
 
   const overviewResults = await Promise.all(
     members.map((member) =>
@@ -1544,24 +1771,27 @@ async function runWeeklyLimitAutoValutazioniCatchupSegment(client, segment, now 
     const member = members[i];
     const userId = String(member.id);
     const staffDoc = staffMap.get(userId) || null;
-    const graceNewStaffRole = wasPromotedToRoleInLastDays(staffDoc, staffRoleId, 7, now);
+    const graceNewStaffRole = wasPromotedToRoleInWindow(
+      staffDoc,
+      staffRoleId,
+      pexSkipWindow.windowStart,
+      pexSkipWindow.windowEndExclusive,
+    );
     const skipForStaffPexInWindow = shouldSkipResocontoForPexInCalendarWeek(
       staffDoc,
       pexSkipWindow.windowStart,
       pexSkipWindow.windowEndExclusive,
     );
-    if (graceNewStaffRole || skipForStaffPexInWindow) continue;
-    const hasResoconto = await recentStaffResocontoMessageExists(channel, userId, staffRoleId, resocontoMessageSince);
-    if (!hasResoconto) {
-      if (String(process.env.DEBUG_JOBS || "").trim() === "1") {
-        global.logger?.info?.(`[WEEKLY STAFF RESOCONTO] same-day catchup skipped: ${userId} reason=no_resoconto_message`);
-      }
+    if (graceNewStaffRole || skipForStaffPexInWindow) {
+      skippedCount += 1;
       continue;
     }
+    eligibleCount += 1;
     if (overviewLooksLikeEmptyFallback(overviewResults[i])) {
       if (String(process.env.DEBUG_JOBS || "").trim() === "1") {
         global.logger?.info?.(`[WEEKLY STAFF RESOCONTO] same-day catchup skipped: ${userId} reason=activity_stats_unavailable`);
       }
+      skippedCount += 1;
       continue;
     }
 
@@ -1572,7 +1802,7 @@ async function runWeeklyLimitAutoValutazioniCatchupSegment(client, segment, now 
     const reachedWeeklyLimits =
       weeklyMessages >= Number(limits.messages || 0) &&
       weeklyVoiceHours >= Number(limits.hours || 0);
-    await ensureWeeklyLimitAutoValutazione({
+    const result = await ensureWeeklyLimitAutoValutazione({
       guild,
       member,
       key: `weekly_limits:${resocontoWeekKey}:${staffRoleId}`,
@@ -1580,29 +1810,71 @@ async function runWeeklyLimitAutoValutazioniCatchupSegment(client, segment, now 
       reason: reachedWeeklyLimits
         ? "Limiti settimanali completati."
         : "Limiti settimanali non raggiunti.",
-    }).catch((err) => {
-      global.logger?.warn?.(
-        "[WEEKLY STAFF RESOCONTO] same-day catchup valutazione failed:",
-        userId,
-        err?.message || err,
-      );
-    });
+      force: forceAutoValutazioni,
+    })
+      .catch((err) => {
+        global.logger?.warn?.(
+          "[WEEKLY STAFF RESOCONTO] same-day catchup valutazione failed:",
+          userId,
+          err?.message || err,
+        );
+        return { ok: false };
+      });
+    if (result?.created) {
+      appliedCount += 1;
+    } else if (result?.skipped === "exists" || result?.skipped === "equivalent_exists") {
+      existingCount += 1;
+    } else {
+      skippedCount += 1;
+    }
   }
+  return {
+    segment,
+    eligible: eligibleCount,
+    applied: appliedCount,
+    existing: existingCount,
+    skipped: skippedCount,
+  };
 }
 
 async function runSameDayWeeklyLimitAutoValutazioniRecovery(client) {
   const now = new Date();
   if (parseRomeWallClock(now).weekday !== "Sun") return;
-  const segments = STAFF_RESOCONTO_SEGMENTS;
+  const segments = getPassedStaffResocontoSegments(now);
   if (!segments.length) return;
-  global.logger?.info?.(
-    `[WEEKLY STAFF RESOCONTO] Same-day recovery: weekly limit valutazioni following existing resoconti (${segments.join(", ")}).`,
-  );
   for (const segment of segments) {
-    await runWeeklyLimitAutoValutazioniCatchupSegment(client, segment, now).catch((err) => {
-      global.logger?.error?.(`[WEEKLY STAFF RESOCONTO] Same-day recovery failed (${segment}):`, err);
-    });
+    await runWeeklyLimitAutoValutazioniCatchupSegment(client, segment, now)
+      .catch((err) => {
+        global.logger?.error?.(`[WEEKLY STAFF RESOCONTO] Same-day recovery failed (${segment}):`, err);
+        return null;
+      });
   }
+}
+
+async function runSameDayStaffResocontoRecovery(client) {
+  const now = new Date();
+  const segments = getPassedStaffResocontoSegments(now);
+  if (!segments.length) return;
+  for (const segment of segments) {
+    await runWeeklyStaffResocontoSegment(client, segment, { recovery: true })
+      .catch((err) => {
+        global.logger?.error?.(`[WEEKLY STAFF RESOCONTO] Same-day staff recovery failed (${segment}):`, err);
+        return null;
+      });
+  }
+}
+
+function hasPassedPmResocontoTime(now = new Date()) {
+  const r = parseRomeWallClock(now);
+  if (r.weekday !== "Sun") return false;
+  const currentMinutes = Number(r.hour || 0) * 60 + Number(r.minute || 0);
+  return currentMinutes >= 15 * 60;
+}
+
+async function runSameDayPmResocontoRecovery(client) {
+  const now = new Date();
+  if (!hasPassedPmResocontoTime(now)) return;
+  await runWeeklyStaffResocontoSegment(client, "pm", { recovery: true });
 }
 
 function startWeeklyStaffResocontoLoop(client) {
@@ -1636,10 +1908,22 @@ function startWeeklyStaffResocontoLoop(client) {
   if (typeof preResocontoTask?.ref === "function") preResocontoTask.ref();
 
   setTimeout(() => {
+    runSameDayPmResocontoRecovery(client).catch((err) => {
+      global.logger?.error?.("[WEEKLY STAFF RESOCONTO] Same-day PM recovery failed:", err);
+    });
+  }, 45_000).unref?.();
+
+  setTimeout(() => {
+    runSameDayStaffResocontoRecovery(client).catch((err) => {
+      global.logger?.error?.("[WEEKLY STAFF RESOCONTO] Same-day staff recovery failed:", err);
+    });
+  }, 55_000).unref?.();
+
+  setTimeout(() => {
     runSameDayWeeklyLimitAutoValutazioniRecovery(client).catch((err) => {
       global.logger?.error?.("[WEEKLY STAFF RESOCONTO] Same-day recovery failed:", err);
     });
-  }, 60_000).unref?.();
+  }, 75_000).unref?.();
 
   return weeklyStaffResocontoTasks[0];
 }
@@ -1648,6 +1932,7 @@ module.exports = {
   startWeeklyStaffResocontoLoop,
   runWeeklyStaffResoconti,
   runWeeklyStaffResocontoSegment,
+  runWeeklyLimitAutoValutazioniCatchupSegment,
   getPartnerLeaderboardWeekBoundsUtc,
   buildResocontoActivityScope,
   getWeekStartDate,

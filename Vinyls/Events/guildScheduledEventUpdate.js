@@ -2,6 +2,7 @@ const { AuditLogEvent, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyl
 const IDs = require("../Utils/Config/ids");
 const { getGuildChannelCached } = require("../Utils/Interaction/interactionEntityCache");
 const { handleSerataFilmScheduledEventUpdate } = require("../Services/Staff/staffAutoValutazioniService");
+const { handleMovieNightEventStart } = require("../Services/Community/movieNightAnnouncementService");
 const AUDIT_FETCH_LIMIT = 20;
 const AUDIT_LOOKBACK_MS = 120 * 1000;
 const CHANGE_LABELS=new Map([["name","Name"],["description","Description"],["scheduled_start_time","Start Time"],["scheduled_end_time","End Time"],["privacy_level","Privacy Level"],["status","Status"],["entity_type","Entity Type"],["channel_id","Channel"],["location","Location"],["entity_metadata.location","Location"],]);
@@ -154,6 +155,11 @@ module.exports = {
       await handleSerataFilmScheduledEventUpdate(oldEvent, newEvent).catch((err) => {
         global.logger?.warn?.("[guildScheduledEventUpdate] serata film auto:", err?.message || err);
       });
+      if (Number(newEvent?.status || 0) === 2 && Number(oldEvent?.status || 0) !== 2) {
+        await handleMovieNightEventStart(newEvent).catch((err) => {
+          global.logger?.warn?.("[guildScheduledEventUpdate] movie night start:", err?.message || err);
+        });
+      }
       const guild = newEvent?.guild || oldEvent?.guild;
       const eventId = String(newEvent?.id || oldEvent?.id || "");
       if (!guild || !eventId) return;

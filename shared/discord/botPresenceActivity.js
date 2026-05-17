@@ -18,7 +18,16 @@ function isDiscordStreamingUrl(url) {
 
 function buildBotPresenceActivities(client) {
   const cfg = client?.config?.presence && typeof client.config.presence === "object" ? client.config.presence : {};
-  const name = String(cfg.activityName || "Vinili & Caffè").trim() || "Vinili & Caffè";
+  let name = String(cfg.activityName || "Vinili & Caffè").trim() || "Vinili & Caffè";
+  const forbiddenEvent = cfg.forbiddenSectionEvent && typeof cfg.forbiddenSectionEvent === "object" ? cfg.forbiddenSectionEvent : {};
+  const forbiddenStartMs = new Date(`${String(forbiddenEvent.startDate || "2026-06-20").trim()}T00:00:00`).getTime();
+  const forbiddenEndRaw = String(forbiddenEvent.endDate || "").trim();
+  const forbiddenEndMs = forbiddenEndRaw ? new Date(`${forbiddenEndRaw}T23:59:59.999`).getTime() : null;
+  const now = Date.now();
+  if (forbiddenEvent.enabled !== false && Number.isFinite(forbiddenStartMs) && now >= forbiddenStartMs && (!Number.isFinite(forbiddenEndMs) || now <= forbiddenEndMs)) {
+    const bookEmoji = String(forbiddenEvent.bookEmoji || "📖").trim() || "📖";
+    if (!name.includes(bookEmoji)) name = `${name} ${bookEmoji}`;
+  }
   const streamUrl = String(process.env.BOT_PRESENCE_STREAM_URL || cfg.streamUrl || "").trim();
   if (streamUrl && isDiscordStreamingUrl(streamUrl)) {
     return [{ type: ActivityType.Streaming, name, url: streamUrl }];

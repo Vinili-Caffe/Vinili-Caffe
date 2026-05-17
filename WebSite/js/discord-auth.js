@@ -5,6 +5,7 @@
   var OAUTH_LOGIN_COUNT_KEY = "vc_discord_oauth_login_count_v1";
   var OAUTH_FRESH_AFTER_BOUNCE_KEY = "vc_oauth_fresh_after_bounce_v1";
   var OAUTH_STATE_NONCE_KEY = "vc_oauth_state_nonce_v1";
+  var SITE_SESSION_TTL_MS = 90 * 24 * 60 * 60 * 1000;
   /** Backup percorso ritorno se `state` non torna nel fragment OAuth. */
   var OAUTH_PENDING_RETURN_KEY = "vc_oauth_pending_return_v1";
   /** Profilo `@me` in sessione: evita round-trip Discord a ogni navigazione. */
@@ -188,8 +189,6 @@
     }
     var p = new URLSearchParams(h.slice(1));
     var t = p.get("access_token");
-    var sec = Number(p.get("expires_in") || "0");
-    if (!Number.isFinite(sec) || sec <= 0) sec = 604800;
     var stateParsed = parseOAuthState(p.get("state"));
     var returnPath = stateParsed.returnPath;
     if (!returnPath && t) {
@@ -202,7 +201,7 @@
     try {
       sessionStorage.removeItem(OAUTH_PENDING_RETURN_KEY);
     } catch (eR) {}
-    var exp = Date.now() + Math.max(60, sec) * 1000;
+    var exp = Date.now() + SITE_SESSION_TTL_MS;
     localStorage.setItem(ACCESS_TOKEN_KEY, t);
     localStorage.setItem(EXPIRES_AT_KEY, String(exp));
     if (history && history.replaceState) {
@@ -261,6 +260,7 @@
   }
 
   async function fetchServerAvatarUrl(accessToken) {
+    if (window.__VC_DISABLE_RANK_CARD_FETCH === true) return "";
     var token = String(accessToken || "").trim();
     if (!token) return "";
     try {

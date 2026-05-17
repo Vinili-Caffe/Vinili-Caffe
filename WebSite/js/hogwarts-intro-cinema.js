@@ -4,7 +4,11 @@
   var pendingDone = null;
   var srcIdx = 0;
   var srcList = [];
-  var started = false;
+  var userStartedVideo = false;
+  var playStartedAt = 0;
+  var maxKnownDuration = 0;
+  var completingIntro = false;
+  var introEndTimer = null;
 
   function byId(id) {
     return document.getElementById(id);
@@ -16,6 +20,20 @@
 
   function isTemplatePlaceholder(value) {
     return /\{\{.*\}\}/.test(String(value || ""));
+  }
+
+  function pageRelativePrefix() {
+    try {
+      var pathname = window.location.pathname || "/";
+      var segs = pathname.split("/").filter(function (s) {
+        return s && s.length;
+      });
+      if (segs.length && /\.html?$/i.test(segs[segs.length - 1])) segs.pop();
+      if (!segs.length) return "";
+      return new Array(segs.length + 1).join("../");
+    } catch (e) {
+      return "../../";
+    }
   }
 
   function introVideoSrcList() {
@@ -36,6 +54,12 @@
       } catch (e0) {
         push(raw);
       }
+    }
+    var rel = pageRelativePrefix() + "images/evento-hogwarts/inizio.mp4";
+    try {
+      push(new URL(rel, window.location.href).href);
+    } catch (eR) {
+      push(rel);
     }
     try {
       push(new URL("/images/evento-hogwarts/inizio.mp4", window.location.origin).href);
@@ -62,10 +86,25 @@
       document.documentElement.classList.add("vc-hw-loading-done");
     } catch (e0) {}
     var el = byId("vc-hw-loading");
-    if (!el) return;
-    try {
-      el.remove();
-    } catch (e3) {}
+    if (el) {
+      try {
+        el.remove();
+      } catch (e3) {}
+    }
+  }
+
+  function showStartButton() {
+    var startEl = byId("vc-hw-cinema-start");
+    if (!startEl) return;
+    startEl.hidden = false;
+    startEl.removeAttribute("hidden");
+  }
+
+  function hideStartButton() {
+    var startEl = byId("vc-hw-cinema-start");
+    if (!startEl) return;
+    startEl.hidden = true;
+    startEl.setAttribute("hidden", "");
   }
 
   function showErr(msg) {
@@ -81,85 +120,201 @@
     err.hidden = true;
   }
 
+  function showCinema() {
+    var cinema = byId("vc-hw-cinema");
+    if (!cinema) return false;
+    cinema.hidden = false;
+    cinema.removeAttribute("hidden");
+    cinema.classList.add("vc-hw-cinema--open", "vc-hw-cinema--boot");
+    setCinemaActive(true);
+    return true;
+  }
+
+  function signalUserGesture() {
+    try {
+      window.__vcHwUserGestureAt = Date.now();
+    } catch (eG) {}
+    try {
+      if (typeof window.__vcHogwartsYoutubePrimeFromGesture === "function") {
+        window.__vcHogwartsYoutubePrimeFromGesture();
+      }
+    } catch (eY) {}
+  }
+
+  function noteVideoDuration(video) {
+    if (!video) return;
+    var d = Number(video.duration);
+    if (Number.isFinite(d) && d > maxKnownDuration) maxKnownDuration = d;
+  }
+
+  function configuredIntroDurationSec() {
+    var n = Number(hogwartsCfg().introVideoDurationSec);
+    if (Number.isFinite(n) && n > 0) return n;
+    return 12;
+  }
+
+  function configuredIntroTrimEndSec() {
+    var n = Number(hogwartsCfg().introVideoTrimEndSec);
+    if (!Number.isFinite(n) || n < 0) return 0;
+    return n;
+  }
+
+  function introWallClockMs() {
+    var video = byId("vc-hw-cinema-video");
+    var sec = introTargetMediaSec(video) + 1.25;
+    return Math.round(sec * 1000);
+  }
+
+  function introElapsedMs() {
+    if (!playStartedAt) return 0;
+    return Math.max(0, Date.now() - playStartedAt);
+  }
+
+  function hasIntroWallClockElapsed() {
+    return introElapsedMs() >= introWallClockMs();
+  }
+
+  function introTargetMediaSec(video) {
+    if (video) noteVideoDuration(video);
+    var configured = configuredIntroDurationSec();
+    var mediaDuration = video ? Number(video.duration) : 0;
+    var base = configured;
+    if (Number.isFinite(mediaDuration) && mediaDuration > 0) base = Math.max(base, mediaDuration);
+    if (Number.isFinite(maxKnownDuration) && maxKnownDuration > 0) base = Math.max(base, maxKnownDuration);
+    return Math.max(1, base - configuredIntroTrimEndSec());
+  }
+
+  function hasIntroMediaReachedEnd(video) {
+    if (!video) return hasIntroWallClockElapsed();
+    var current = Number(video.currentTime);
+    if (!Number.isFinite(current)) return false;
+    var target = introTargetMediaSec(video);
+    return current >= Math.max(0, target - 0.08);
+  }
+
+  function clearIntroEndTimer() {
+    if (!introEndTimer) return;
+    try {
+      clearTimeout(introEndTimer);
+    } catch (eCl) {}
+    introEndTimer = null;
+  }
+
+  function scheduleIntroEndTimer() {
+    clearIntroEndTimer();
+    var ms = introWallClockMs();
+    introEndTimer = setTimeout(function () {
+      introEndTimer = null;
+      if (introDone || !userStartedVideo) return;
+      var video = byId("vc-hw-cinema-video");
+      if (video && !video.ended && !hasIntroMediaReachedEnd(video)) {
+        scheduleIntroEndTimer();
+        return;
+      }
+      completeIntro();
+    }, ms);
+    if (typeof introEndTimer.unref === "function") introEndTimer.unref();
+  }
+
   function completeIntro() {
-    if (introDone) return;
+    clearIntroEndTimer();
+    if (introDone) {
+      if (typeof pendingDone === "function") {
+        var recoverCb = pendingDone;
+        pendingDone = null;
+        try {
+          recoverCb();
+        } catch (eRec) {}
+      } else if (typeof window.__vcHogwartsRevealApp === "function") {
+        try {
+          window.__vcHogwartsRevealApp();
+        } catch (eRec2) {}
+      }
+      completingIntro = false;
+      return;
+    }
     introDone = true;
     introRunning = false;
-    setCinemaActive(false);
+    userStartedVideo = false;
+    completingIntro = false;
     var cinema = byId("vc-hw-cinema");
     var video = byId("vc-hw-cinema-video");
+    var cb = pendingDone;
+    pendingDone = null;
     if (video) {
       try {
         video.onended = null;
         video.ontimeupdate = null;
+        video.classList.add("vc-hw-cinema__video--out");
         video.pause();
-      } catch (eP) {}
+      } catch (eF) {}
     }
     if (cinema) {
       cinema.classList.add("vc-hw-cinema--magic");
-      setTimeout(function () {
-        if (typeof pendingDone === "function") {
-          try {
-            pendingDone();
-          } catch (eD) {}
-        }
-        pendingDone = null;
-      }, 1400);
-    } else if (typeof pendingDone === "function") {
-      try {
-        pendingDone();
-      } catch (eD2) {}
-      pendingDone = null;
     }
+    setCinemaActive(false);
+    if (typeof cb === "function") {
+      try {
+        cb();
+      } catch (eD) {}
+    }
+    setTimeout(function () {
+      if (cinema) {
+        try {
+          cinema.classList.remove("vc-hw-cinema--magic");
+        } catch (eM) {}
+      }
+    }, 700);
   }
 
   function tryLoadSrc() {
     var video = byId("vc-hw-cinema-video");
     if (!video) return false;
+    if (!srcList.length) srcList = introVideoSrcList();
     if (srcIdx >= srcList.length) {
-      showErr("Video intro non trovato sul server (/images/evento-hogwarts/inizio.mp4).");
-      setTimeout(completeIntro, 2500);
+      showErr("Video non trovato. Usa «Salta intro» in basso a destra.");
+      showStartButton();
       return false;
     }
     hideErr();
     video.src = srcList[srcIdx];
     srcIdx += 1;
-    video.load();
+    try {
+      video.load();
+    } catch (eL) {}
     return true;
   }
 
-  function unmuteVideoPlayback() {
-    var video = byId("vc-hw-cinema-video");
-    if (!video) return;
-    video.muted = false;
-    video.volume = 1;
-    try {
-      video.removeAttribute("muted");
-    } catch (eM) {}
-    var p = video.play();
-    if (p && typeof p.catch === "function") p.catch(function () {});
-    hideErr();
+  function onVideoEnded() {
+    if (introDone || !userStartedVideo) return;
+    /* Sempre chiudi: se introVideoDurationSec in config è più lungo del video reale,
+       attendere il wall-clock lascerebbe la pagina bloccati a fine riproduzione. */
+    completeIntro();
   }
 
-  function playWithSound() {
+  function onVideoTimeUpdate() {
+    if (introDone || !userStartedVideo) return;
+    var video = byId("vc-hw-cinema-video");
+    if (!hasIntroMediaReachedEnd(video)) return;
+    try {
+      if (video) {
+        video.onended = null;
+        video.ontimeupdate = null;
+      }
+    } catch (eOff) {}
+    completeIntro();
+  }
+
+  function startVideoPlayback() {
     var video = byId("vc-hw-cinema-video");
     var cinema = byId("vc-hw-cinema");
-    var startEl = byId("vc-hw-cinema-start");
-    if (!video || !cinema) return false;
-    if (!introRunning && !introDone) {
-      openIntro(null);
-    }
-    if (started && video.muted) {
-      unmuteVideoPlayback();
-      return true;
-    }
-    if (started) return true;
-    started = true;
-    if (startEl) {
-      startEl.hidden = true;
-      startEl.setAttribute("hidden", "");
-    }
-    hideErr();
+    if (!video || !cinema || introDone) return;
+
+    signalUserGesture();
+    userStartedVideo = true;
+    playStartedAt = Date.now();
+    maxKnownDuration = 0;
+    noteVideoDuration(video);
     cinema.classList.add("vc-hw-cinema--playing");
     video.playsInline = true;
     video.muted = false;
@@ -168,30 +323,40 @@
       video.removeAttribute("muted");
     } catch (eM) {}
     if (!video.src) tryLoadSrc();
+    try {
+      video.currentTime = 0;
+    } catch (e0) {}
+
     var p = video.play();
-    if (p && typeof p.catch === "function") {
-      p.catch(function () {
+    if (p && typeof p.then === "function") {
+      p.then(function () {
+        hideStartButton();
+        hideErr();
+        scheduleIntroEndTimer();
+      }).catch(function () {
         video.muted = true;
-        video.volume = 0;
-        var p2 = video.play();
-        if (p2 && typeof p2.catch === "function") {
-          p2.catch(function () {
-            started = false;
-            if (startEl) {
-              startEl.hidden = false;
-              startEl.removeAttribute("hidden");
-            }
-            showErr("Impossibile avviare il video. Tocca di nuovo per riprovare.");
+        video
+          .play()
+          .then(function () {
+            hideStartButton();
+            showErr("Tocca di nuovo per l'audio del video.");
+            showStartButton();
+            userStartedVideo = true;
+            playStartedAt = Date.now();
+            scheduleIntroEndTimer();
+          })
+          .catch(function () {
+            userStartedVideo = false;
+            showStartButton();
+            showErr("Tocca di nuovo per avviare il video.");
           });
-        } else {
-          showErr("Tocca di nuovo lo schermo per l'audio del video.");
-        }
       });
+    } else {
+      hideStartButton();
     }
-    return true;
   }
 
-  function onStartUserAction(ev) {
+  function onStartTap(ev) {
     if (introDone) return;
     if (ev) {
       try {
@@ -199,59 +364,68 @@
         ev.stopPropagation();
       } catch (e0) {}
     }
-    playWithSound();
-  }
-
-  function bindStartTap() {
-    var cinema = byId("vc-hw-cinema");
-    var startEl = byId("vc-hw-cinema-start");
-    if (startEl && !startEl.__vcHwStartBound) {
-      startEl.__vcHwStartBound = 1;
-      startEl.addEventListener("click", onStartUserAction, true);
-      startEl.addEventListener("touchend", onStartUserAction, { capture: true, passive: false });
+    var hint = byId("vc-hw-cinema-start");
+    if (hint) {
+      var hintEl = hint.querySelector(".vc-hw-cinema-start__hint");
+      if (hintEl && /salta|continua/i.test(hintEl.textContent || "")) {
+        completeIntro();
+        return;
+      }
     }
-    if (cinema && !cinema.__vcHwCinemaTapBound) {
-      cinema.__vcHwCinemaTapBound = 1;
-      cinema.addEventListener(
-        "click",
-        function (ev) {
-          if (introDone) return;
-          var t = ev && ev.target;
-          if (t && t.closest && t.closest("#vc-hw-cinema-start")) return;
-          onStartUserAction(ev);
-        },
-        true,
-      );
-    }
+    if (!introRunning) openIntro(null);
+    showCinema();
+    startVideoPlayback();
   }
 
   function wireVideo() {
     var video = byId("vc-hw-cinema-video");
     if (!video || video.__vcHwWired) return;
     video.__vcHwWired = 1;
-    video.onended = function () {
-      completeIntro();
-    };
-    video.ontimeupdate = function () {
-      if (introDone || !started) return;
-      var d = Number(video.duration);
-      var t = Number(video.currentTime);
-      if (Number.isFinite(d) && d > 0.5 && Number.isFinite(t) && t >= d - 0.35) completeIntro();
-    };
+    video.preload = "auto";
+    video.onended = onVideoEnded;
+    video.ontimeupdate = onVideoTimeUpdate;
     video.onerror = function () {
-      started = false;
-      var startEl = byId("vc-hw-cinema-start");
-      if (startEl) {
-        startEl.hidden = false;
-        startEl.removeAttribute("hidden");
+      userStartedVideo = false;
+      showStartButton();
+      if (!tryLoadSrc()) {
+        showErr("Video non caricato. Tocca «Salta intro».");
       }
-      if (!tryLoadSrc()) return;
     };
+    video.addEventListener("loadeddata", function () {
+      noteVideoDuration(video);
+      var cinema = byId("vc-hw-cinema");
+      if (cinema) cinema.classList.add("vc-hw-cinema--has-video");
+    });
+    video.addEventListener("loadedmetadata", function () {
+      noteVideoDuration(video);
+    });
+    video.addEventListener("durationchange", function () {
+      noteVideoDuration(video);
+    });
   }
 
-  function bootCinemaModule() {
-    bindStartTap();
-    wireVideo();
+  function wireSkip() {
+    var skip = byId("vc-hw-cinema-skip");
+    if (!skip || skip.__vcHwWired) return;
+    skip.__vcHwWired = 1;
+    skip.addEventListener("click", function (ev) {
+      if (ev) {
+        try {
+          ev.preventDefault();
+          ev.stopPropagation();
+        } catch (e0) {}
+      }
+      signalUserGesture();
+      completeIntro();
+    });
+  }
+
+  function bindStartTap() {
+    var startEl = byId("vc-hw-cinema-start");
+    if (startEl && !startEl.__vcHwBound) {
+      startEl.__vcHwBound = 1;
+      startEl.addEventListener("click", onStartTap, true);
+    }
   }
 
   function openIntro(onDone) {
@@ -262,13 +436,15 @@
     if (typeof onDone === "function") pendingDone = onDone;
     if (introRunning) return true;
     introRunning = true;
-    started = false;
+    userStartedVideo = false;
+    maxKnownDuration = 0;
+    completingIntro = false;
+    clearIntroEndTimer();
     srcIdx = 0;
     srcList = introVideoSrcList();
 
     var cinema = byId("vc-hw-cinema");
     var video = byId("vc-hw-cinema-video");
-    var startEl = byId("vc-hw-cinema-start");
     if (!cinema || !video) {
       introDone = true;
       introRunning = false;
@@ -277,36 +453,37 @@
     }
 
     hideLoadingOverlay();
-    cinema.hidden = false;
-    cinema.removeAttribute("hidden");
-    cinema.classList.add("vc-hw-cinema--open", "vc-hw-cinema--boot");
-    if (startEl) {
-      startEl.hidden = false;
-      startEl.removeAttribute("hidden");
+    showCinema();
+    showStartButton();
+    var hint = byId("vc-hw-cinema-start");
+    if (hint) {
+      var hintEl = hint.querySelector(".vc-hw-cinema-start__hint");
+      if (hintEl) hintEl.textContent = "Tocca per iniziare";
     }
-    setCinemaActive(true);
-    bootCinemaModule();
+    bindStartTap();
+    wireVideo();
+    wireSkip();
     tryLoadSrc();
     return true;
   }
 
+  function boot() {
+    bindStartTap();
+    wireVideo();
+    wireSkip();
+  }
+
   window.__vcHogwartsIntroOpen = openIntro;
-  window.__vcHogwartsCinemaStart = onStartUserAction;
+  window.__vcHogwartsCinemaStart = onStartTap;
   window.__vcHogwartsIntroIsRunning = function () {
     return introRunning && !introDone;
   };
-  window.__vcHogwartsIntroForceClose = function () {
-    introDone = true;
-    introRunning = false;
-    var cinema = byId("vc-hw-cinema");
-    if (cinema) cinema.hidden = true;
-    setCinemaActive(false);
-  };
+  window.__vcHogwartsIntroForceClose = completeIntro;
 
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", bootCinemaModule);
+    document.addEventListener("DOMContentLoaded", boot);
   } else {
-    bootCinemaModule();
+    boot();
   }
 
   try {
