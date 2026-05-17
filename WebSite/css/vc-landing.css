@@ -21024,12 +21024,23 @@ body.vc-hw-main-reveal #vc-hogwarts-app {
 .vc-hw-shop-card__art::before {
   content: "";
   position: absolute;
-  width: 9rem;
-  height: 9rem;
+  width: 11rem;
+  height: 11rem;
   border: 1px solid color-mix(in srgb, var(--shop-accent) 42%, transparent);
   border-radius: 999px;
   background: radial-gradient(circle, color-mix(in srgb, var(--shop-accent) 22%, transparent), transparent 62%);
   filter: blur(0.2px);
+}
+
+.vc-hw-shop-card__image {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: min(86%, 11.5rem);
+  height: 9.5rem;
+  object-fit: contain;
+  filter: drop-shadow(0 18px 34px rgba(0, 0, 0, 0.46)) drop-shadow(0 0 24px color-mix(in srgb, var(--shop-accent) 34%, transparent));
+  transform: rotate(-6deg) scale(1.08);
 }
 
 .vc-hw-shop-card__sigil {

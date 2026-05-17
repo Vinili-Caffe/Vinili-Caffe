@@ -108,6 +108,10 @@
 
   function itemVisual(item) {
     var key = String(item.imageKey || "");
+    if (item.imageFile) {
+      var src = "../../images/evento-hogwarts/" + String(item.imageFile).split("/").map(encodeURIComponent).join("/");
+      return '<img class="vc-hw-shop-card__image" src="' + esc(src) + '" alt="' + esc(item.name || "") + '" loading="lazy" decoding="async" />';
+    }
     var icon = key.indexOf("broom") === 0 ? "fa-rocket" : key.indexOf("pet") === 0 ? "fa-paw" : "fa-magic";
     return '<span class="vc-hw-shop-card__sigil vc-hw-shop-card__sigil--' + esc(key) + '"><i class="fa ' + icon + '" aria-hidden="true"></i></span>';
   }
