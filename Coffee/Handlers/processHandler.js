@@ -1,10 +1,23 @@
+const { flushAllRecoverySnapshots } = require("../../shared/recovery/shutdownCheckpoint");
+
+let shutdownRunning = false;
+
+async function exitAfterFlush(signal) {
+  if (shutdownRunning) return;
+  shutdownRunning = true;
+  global.logger?.error?.(`[PROCESS] ${signal}: Flushing recovery snapshots and exiting...`);
+  await flushAllRecoverySnapshots(signal).catch((err) => {
+    global.logger?.error?.("[PROCESS] Recovery flush failed: " + (err?.stack || err));
+  });
+  setTimeout(() => process.exit(0), 200).unref?.();
+}
+
 module.exports = function installProcessHandlers() {
   if (process.__viniliTestProcessHandlersInstalled) return;
   process.__viniliTestProcessHandlersInstalled = true;
 
   process.on("SIGINT", () => {
-    global.logger?.error?.("[PROCESS] SIGINT: Exiting...");
-    process.exit();
+    void exitAfterFlush("SIGINT");
   });
 
   process.on("uncaughtException", (err) => {
@@ -12,8 +25,7 @@ module.exports = function installProcessHandlers() {
   });
 
   process.on("SIGTERM", () => {
-    global.logger?.error?.("[PROCESS] SIGTERM: Exiting...");
-    process.exit();
+    void exitAfterFlush("SIGTERM");
   });
 
   process.on("unhandledRejection", (err) => {

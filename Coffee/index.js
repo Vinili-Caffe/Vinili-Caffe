@@ -17,7 +17,13 @@ if (process.env.RUN_UNDER_LOADER !== "1") {
 const installProcessHandlers = require("./Handlers/processHandler");
 installProcessHandlers();
 
-const intentList = [...new Set(Object.values(GatewayIntentBits).filter((x) => typeof x === "number" && x > 0))];
+const intentList = [
+  GatewayIntentBits.Guilds,
+  GatewayIntentBits.GuildMessages,
+  GatewayIntentBits.MessageContent,
+  GatewayIntentBits.GuildVoiceStates,
+  GatewayIntentBits.GuildMessageReactions,
+].filter((x) => typeof x === "number" && x > 0);
 if (intentList.length === 0) intentList.push(1);
 const partialList = [...new Set(Object.values(Partials).filter((x) => typeof x === "number"))];
 const client = new Client({

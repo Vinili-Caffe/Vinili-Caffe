@@ -750,6 +750,31 @@ function applyLiveStatsBootToDist(distDir, cfg, inviteCode) {
   walk(distDir);
 }
 
+function applyAvatarFallbackToDist(distDir, assetVersion = "") {
+  const suffix = assetVersion ? `?v=${encodeURIComponent(String(assetVersion))}` : "";
+  const walk = (dir) => {
+    for (const name of fs.readdirSync(dir)) {
+      const p = path.join(dir, name);
+      const st = fs.statSync(p);
+      if (st.isDirectory()) {
+        walk(p);
+        continue;
+      }
+      if (!name.toLowerCase().endsWith(".html")) continue;
+      const html = fs.readFileSync(p, "utf8");
+      if (html.includes("vc-avatar-fallback.js")) continue;
+      const scriptPrefix = relativeScriptPrefixFromHtml(p);
+      const boot = `  <script src="${scriptPrefix}js/vc-avatar-fallback.js${suffix}" defer></script>\n`;
+      let next = html;
+      if (next.includes("</body>")) next = next.replace("</body>", `${boot}  </body>`);
+      else if (next.includes("</head>")) next = next.replace("</head>", `${boot}  </head>`);
+      else next += `\n${boot}`;
+      if (next !== html) fs.writeFileSync(p, next, "utf8");
+    }
+  };
+  walk(distDir);
+}
+
 async function buildStaffListBlock(cfg, guildId) {
   const b = cfg.discordStaffListBuild;
   if (!b || b.enabled !== true) return staffListFallback();
@@ -2441,6 +2466,7 @@ async function main() {
     fs.writeFileSync(legalPath, legalHtml, "utf8");
   }
 
+  applyAvatarFallbackToDist(DIST, buildAssetVersion);
   applyLiveStatsBootToDist(DIST, cfg, inviteCode);
   applyMaintenanceGateToDist(DIST, maintenanceBoot);
 

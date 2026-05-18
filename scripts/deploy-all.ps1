@@ -51,6 +51,14 @@ function Require-Command([string]$Name) {
   }
 }
 
+function Invoke-BackendConfigValidation([string]$Root) {
+  $script = "const fs=require('fs'); const path=require('path'); for (const f of ['Vinyls/config.json','Coffee/config.json']) JSON.parse(fs.readFileSync(path.join(process.argv[1], f), 'utf8')); console.log('Config JSON OK.');"
+  & node -e $script $Root
+  if ($LASTEXITCODE -ne 0) {
+    throw "Validazione config JSON fallita"
+  }
+}
+
 function Invoke-SiteDeploy {
   param(
     [string]$Server,
@@ -135,6 +143,7 @@ Require-Command "ssh"
 Require-Command "scp"
 Require-Command "tar"
 Require-Command "npm"
+Require-Command "node"
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 
@@ -161,6 +170,7 @@ $remoteTgz = "/tmp/vc-bot-src-" + [guid]::NewGuid().ToString("N") + ".tar.gz"
 
 try {
   Set-Location $repoRoot
+  Invoke-BackendConfigValidation $repoRoot
   & tar -czf $localTgz `
     --exclude ".git" `
     --exclude "node_modules" `
@@ -214,6 +224,7 @@ try {
     '"$NODE_BIN" -v'
     '"$NODE_BIN" "$NPM_CLI" -v'
     "cd '$BotRemotePath'"
+    '"$NODE_BIN" -e ''for (const f of ["Vinyls/config.json","Coffee/config.json"]) JSON.parse(require("fs").readFileSync(f,"utf8")); console.log("[deploy] Bot config JSON OK.")'''
     'NODE_ABI=$("$NODE_BIN" -p "process.versions.modules")'
     'echo "Using Node ABI: $NODE_ABI"'
     'NEED_INSTALL=0'

@@ -2,6 +2,47 @@ const { ActivityUserProfile, ACTIVITY_MAIN_GUILD_ID } = require("../../Schemas/C
 const { automodBadUser } = require("../../Utils/Community/activityUserProfilePaths");
 const guildScoped = [ [ActivityUserProfile, "ActivityUserProfile"] ];
 const SYSTEM_PROFILE_USERID_REGEX = /^__.*__$/;
+const LEAVE_CLEANUP_MIN_INTERVAL_MS = 5 * 60 * 1000;
+const MEMBER_FETCH_RETRY_MAX_MS = 60 * 1000;
+const leaveCleanupRunningGuildIds = new Set();
+const leaveCleanupLastStartedAt = new Map();
+
+function wait(ms) {
+  return new Promise((resolve) => {
+    const timer = setTimeout(resolve, Math.max(1, Number(ms) || 1));
+    timer.unref?.();
+  });
+}
+
+function parseRateLimitRetryMs(err) {
+  const direct = Number(err?.retryAfter ?? err?.retry_after ?? err?.data?.retry_after ?? 0);
+  if (Number.isFinite(direct) && direct > 0) return direct > 1000 ? direct : direct * 1000;
+  const msg = String(err?.message || "");
+  const match = msg.match(/Retry after\s+([\d.]+)\s+seconds/i);
+  if (!match) return 0;
+  const seconds = Number(match[1]);
+  return Number.isFinite(seconds) && seconds > 0 ? seconds * 1000 : 0;
+}
+
+async function fetchCompleteGuildMemberIds(guild, options = {}) {
+  if (!guild?.members?.fetch) return null;
+  try {
+    const fetched = await guild.members.fetch();
+    const source = fetched?.values ? fetched.values() : guild.members?.cache?.values?.();
+    const ids = Array.from(source ?? []).map((m) => m?.id).filter(Boolean).map(String);
+    if (!ids.length) return null;
+    return ids;
+  } catch (err) {
+    const retryMs = Math.min(MEMBER_FETCH_RETRY_MAX_MS, parseRateLimitRetryMs(err));
+    if (options.retryRateLimit !== false && retryMs > 0) {
+      global.logger?.warn?.("[CLEANUP USERS NOT IN SERVER] member fetch rate limited, retrying:", guild?.id, `${Math.ceil(retryMs / 1000)}s`);
+      await wait(retryMs + 1000);
+      return fetchCompleteGuildMemberIds(guild, { retryRateLimit: false });
+    }
+    global.logger?.warn?.("[CLEANUP USERS NOT IN SERVER] member fetch failed, cleanup skipped:", guild?.id, err?.message || err);
+    return null;
+  }
+}
 
 async function clearGlobalAutomodBadUserForUsersNotIn(memberIds, dryRun) {
   const filter = {
@@ -121,16 +162,6 @@ async function runCleanupUserScopedNotInAnyServer(memberIds, { dryRun = false } 
   return { total, details };
 }
 
-function collectAllMemberUserIdsFromClient(client) {
-  const set = new Set();
-  for (const g of client.guilds?.cache?.values() ?? []) {
-    for (const m of g.members?.cache?.values() ?? []) {
-      if (m?.id) set.add(String(m.id));
-    }
-  }
-  return Array.from(set);
-}
-
 /**
  * Stessa logica del cleanup post-ready: tutte le guild del client, fetch membri, poi user-scoped globale.
  */
@@ -141,8 +172,11 @@ async function runFullCleanupUsersNotInServer(client) {
   for (const guild of guilds) {
     const guildId = guild?.id;
     if (!guildId) continue;
-    await guild.members.fetch().catch(() => null);
-    const memberIds = Array.from(guild.members?.cache?.values() ?? []).map((m) => m?.id).filter(Boolean).map(String);
+    const memberIds = await fetchCompleteGuildMemberIds(guild);
+    if (!memberIds) {
+      global.logger?.warn?.("[CLEANUP USERS NOT IN SERVER] Guild cleanup skipped: incomplete member list.", guildId);
+      return;
+    }
     for (const memberId of memberIds) allMemberIds.add(memberId);
     await runCleanupUsersNotInServer(guildId, memberIds, { dryRun: false, includeUserScoped: false });
   }
@@ -155,10 +189,31 @@ async function runFullCleanupUsersNotInServer(client) {
 async function runCleanupAfterMemberLeave(client, guild) {
   if (!client?.guilds || !guild?.id) return;
   const guildId = String(guild.id);
-  const memberIds = Array.from(guild.members?.cache?.values() ?? []).map((m) => m?.id).filter(Boolean).map(String);
-  await runCleanupUsersNotInServer(guildId, memberIds, { dryRun: false, includeUserScoped: false });
-  const allIds = collectAllMemberUserIdsFromClient(client);
-  await runCleanupUserScopedNotInAnyServer(allIds, { dryRun: false });
+  const now = Date.now();
+  const lastStartedAt = Number(leaveCleanupLastStartedAt.get(guildId) || 0);
+  if (leaveCleanupRunningGuildIds.has(guildId) || now - lastStartedAt < LEAVE_CLEANUP_MIN_INTERVAL_MS) return;
+  leaveCleanupRunningGuildIds.add(guildId);
+  leaveCleanupLastStartedAt.set(guildId, now);
+  try {
+    const memberIds = await fetchCompleteGuildMemberIds(guild);
+    if (!memberIds) {
+      global.logger?.warn?.("[CLEANUP USERS NOT IN SERVER] Leave cleanup skipped: incomplete member list.", guildId);
+      return;
+    }
+    await runCleanupUsersNotInServer(guildId, memberIds, { dryRun: false, includeUserScoped: false });
+    const allIds = [];
+    for (const g of client.guilds.cache.values()) {
+      const ids = String(g?.id || "") === guildId ? memberIds : await fetchCompleteGuildMemberIds(g);
+      if (!ids) {
+        global.logger?.warn?.("[CLEANUP USERS NOT IN SERVER] Global leave cleanup skipped: incomplete member list.", g?.id);
+        return;
+      }
+      allIds.push(...ids);
+    }
+    await runCleanupUserScopedNotInAnyServer(allIds, { dryRun: false });
+  } finally {
+    leaveCleanupRunningGuildIds.delete(guildId);
+  }
 }
 
 module.exports = {

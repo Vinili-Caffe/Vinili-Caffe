@@ -21,7 +21,11 @@ module.exports = (client) => {
         if (!event?.name || typeof event.execute !== "function") continue;
 
         const eventName = normalizeLifecycleEventName(event.name);
-        const handler = (...args) => event.execute(...args, client);
+        const handler = async (...args) => {
+          return Promise.resolve(event.execute(...args, client)).catch((err) => {
+            global.logger?.error?.(`[EVENT ${eventName}]`, err);
+          });
+        };
         const bind = event.once ? client.once.bind(client) : client.on.bind(client);
         bind(eventName, handler);
 

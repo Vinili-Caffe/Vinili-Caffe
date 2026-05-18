@@ -610,9 +610,16 @@ function startHourlyReminderLoop(client) {
     await loadRotationState(guildId, getDateKey(parts));
     await sendReminderAtFixedSlot(client, parts, slotKey);
   };
-  restoreSchedules(client).catch(() => { });
-  tick();
-  hourlyLoopHandle = setInterval(tick, 60 * 1000);
+  const runTick = () => {
+    void tick().catch((err) => {
+      global.logger?.warn?.("[CHAT REMINDER] hourly tick failed:", err?.message || err);
+    });
+  };
+  restoreSchedules(client).catch((err) => {
+    global.logger?.warn?.("[CHAT REMINDER] restore schedules failed:", err?.message || err);
+  });
+  runTick();
+  hourlyLoopHandle = setInterval(runTick, 60 * 1000);
   hourlyLoopHandle.unref?.();
   return hourlyLoopHandle;
 }

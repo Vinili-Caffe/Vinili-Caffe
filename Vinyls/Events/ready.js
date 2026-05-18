@@ -737,7 +737,13 @@ module.exports = {
     client.setMaxListeners(maxListeners);
     require("events").EventEmitter.defaultMaxListeners = maxListeners;
 
-    await connectMongo(client);
+    const mongoConnected = await connectMongo(client);
+    if (!mongoConnected) {
+      logError(client, "[DATABASE] Startup aborted: MongoDB is required for ready services.");
+      const t = setTimeout(() => process.exit(1), 5000);
+      t.unref?.();
+      return;
+    }
     const primaryScheduler = isPrimaryScheduler(client);
     if (primaryScheduler) {
       try {
