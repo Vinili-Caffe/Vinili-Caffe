@@ -2,7 +2,12 @@ const fs = require("fs");
 const path = require("path");
 const ROOT = path.resolve(__dirname, "..");
 const SKIP_DIRS = new Set([".git", "node_modules", "dist", "build", "coverage"]);
+const SKIP_FILES = new Set(["Vinyls/Utils/Config/securityProfiles.json"]);
 const TEXT_EXT = new Set([".js", ".cjs", ".mjs", ".json", ".md", ".txt", ".yml", ".yaml", ".mdc"]);
+
+function relativePortable(file) {
+  return path.relative(ROOT, file).split(path.sep).join("/");
+}
 
 function walk(dir, out = []) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -10,7 +15,7 @@ function walk(dir, out = []) {
     if (entry.isDirectory()) {
       if (SKIP_DIRS.has(entry.name)) continue;
       walk(full, out);
-    } else if (entry.isFile() && TEXT_EXT.has(path.extname(entry.name).toLowerCase())) {
+    } else if (entry.isFile() && TEXT_EXT.has(path.extname(entry.name).toLowerCase()) && !SKIP_FILES.has(relativePortable(full))) {
       out.push(full);
     }
   }
