@@ -525,6 +525,10 @@ const activityUserProfileSchema = new Schema(
             updatedAt: { type: Date, default: null },
             items: { type: Schema.Types.Mixed, default: () => ({}) },
           },
+          potions: {
+            type: Schema.Types.Mixed,
+            default: () => ({}),
+          },
         },
       },
     },

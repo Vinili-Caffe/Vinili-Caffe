@@ -21140,3 +21140,153 @@ body.vc-hw-main-reveal #vc-hogwarts-app {
     grid-template-columns: 1fr;
   }
 }
+
+.vc-hw-potions-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.25rem;
+  border: 1px solid rgba(167, 243, 208, 0.22);
+  border-radius: 1.4rem;
+  background:
+    radial-gradient(circle at 15% 0%, rgba(16, 185, 129, 0.14), transparent 34%),
+    linear-gradient(135deg, rgba(12, 24, 20, 0.92), rgba(8, 7, 9, 0.9));
+  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.34);
+}
+
+.vc-hw-potions-cooldown {
+  border: 1px solid rgba(167, 243, 208, 0.28);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #d1fae5;
+  font-weight: 800;
+  padding: 0.55rem 0.85rem;
+}
+
+.vc-hw-potions-game {
+  border: 1px solid rgba(167, 243, 208, 0.16);
+  border-radius: 1.6rem;
+  background:
+    radial-gradient(circle at 80% 0%, rgba(52, 211, 153, 0.1), transparent 32%),
+    linear-gradient(180deg, rgba(12, 20, 17, 0.82), rgba(8, 7, 9, 0.92));
+  padding: clamp(1rem, 2.5vw, 1.4rem);
+}
+
+.vc-hw-potions-game__head {
+  margin: 0 auto 1.1rem;
+  max-width: 48rem;
+  text-align: center;
+}
+
+.vc-hw-potions-game__head h2 {
+  margin: 0;
+  color: #fff7ed;
+  font-family: "Cinzel", serif;
+  font-size: clamp(1.4rem, 3vw, 2.1rem);
+}
+
+.vc-hw-potions-game__head p {
+  margin: 0.4rem 0 0;
+  color: rgba(255, 247, 236, 0.7);
+}
+
+.vc-hw-potions-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.vc-hw-potion-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 1rem;
+  border: 1px solid rgba(167, 243, 208, 0.16);
+  border-radius: 1.25rem;
+  background:
+    radial-gradient(circle at 20% 12%, rgba(45, 212, 191, 0.1), transparent 34%),
+    rgba(255, 255, 255, 0.045);
+  padding: 1rem;
+}
+
+.vc-hw-potion-card__bottle {
+  position: relative;
+  display: grid;
+  width: 4rem;
+  height: 5.5rem;
+  place-items: end center;
+}
+
+.vc-hw-potion-card__bottle::before {
+  content: "";
+  position: absolute;
+  top: 0.25rem;
+  width: 1.2rem;
+  height: 1.6rem;
+  border: 1px solid rgba(209, 250, 229, 0.42);
+  border-bottom: 0;
+  border-radius: 0.35rem 0.35rem 0 0;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.vc-hw-potion-card__bottle span {
+  width: 3.1rem;
+  height: 3.5rem;
+  border: 1px solid rgba(209, 250, 229, 0.42);
+  border-radius: 1rem 1rem 1.35rem 1.35rem;
+  background:
+    radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.28), transparent 16%),
+    linear-gradient(180deg, rgba(20, 184, 166, 0.22), rgba(16, 185, 129, 0.5));
+  box-shadow: 0 0 30px rgba(16, 185, 129, 0.2);
+}
+
+.vc-hw-potion-card__body h3 {
+  margin: 0.25rem 0 0.45rem;
+  color: #fff7ed;
+  font-family: "Cinzel", serif;
+  font-size: 1.08rem;
+}
+
+.vc-hw-potion-card__body p {
+  margin: 0 0 0.8rem;
+  color: rgba(255, 247, 236, 0.68);
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.vc-hw-potion-card label {
+  display: grid;
+  gap: 0.4rem;
+  color: rgba(232, 201, 168, 0.72);
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.vc-hw-potion-card select {
+  width: 100%;
+  border: 1px solid rgba(234, 214, 187, 0.2);
+  border-radius: 0.85rem;
+  background: rgba(8, 7, 9, 0.92);
+  color: #fff7ed;
+  font-size: 0.9rem;
+  letter-spacing: 0;
+  padding: 0.72rem 0.8rem;
+  text-transform: none;
+}
+
+@media (max-width: 760px) {
+  .vc-hw-potions-status,
+  .vc-hw-potion-card {
+    grid-template-columns: 1fr;
+  }
+
+  .vc-hw-potions-status {
+    align-items: stretch;
+  }
+
+  .vc-hw-potions-grid {
+    grid-template-columns: 1fr;
+  }
+}

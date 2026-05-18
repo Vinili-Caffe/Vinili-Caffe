@@ -1613,9 +1613,15 @@ async function main() {
   const hogwartsShopPageUrl = siteBaseNoSlash
     ? `${siteBaseNoSlash}/evento/shop`
     : "/evento/shop";
+  const hogwartsPotionsPageUrl = siteBaseNoSlash
+    ? `${siteBaseNoSlash}/evento/pozioni`
+    : "/evento/pozioni";
   const hogwartsCrestsPath = "../../images/evento-hogwarts/crests/";
   const hogwartsIntroVideo = "/images/evento-hogwarts/inizio.mp4";
   const hogwartsEventRaw = cfg.hogwartsEvent && typeof cfg.hogwartsEvent === "object" ? cfg.hogwartsEvent : {};
+  const hogwartsPotionsRaw = cfg.hogwartsPotions && typeof cfg.hogwartsPotions === "object" ? cfg.hogwartsPotions : {};
+  const hogwartsPotionsStartDate = String(hogwartsPotionsRaw.startDate || "2026-08-24T00:00:00").trim() || "2026-08-24T00:00:00";
+  const hogwartsPotionsRedirectUrl = String(hogwartsPotionsRaw.redirectUrl || hogwartsShopPageUrl || "/evento/shop").trim() || "/evento/shop";
   const hogwartsIntroDurationSec = Math.max(
     1,
     Math.min(120, Number(hogwartsEventRaw.introVideoDurationSec) || 12),
@@ -2020,6 +2026,10 @@ async function main() {
     HOGWARTS_SORTING_API_URL_LOCAL: escAttr(hogwartsSortingApiLocalResolved),
     HOGWARTS_SHOP_API_URL: escAttr(`${hogwartsSortingApiResolved.replace(/\/+$/, "")}/shop`),
     HOGWARTS_SHOP_API_URL_LOCAL: escAttr(hogwartsSortingApiLocalResolved ? `${hogwartsSortingApiLocalResolved.replace(/\/+$/, "")}/shop` : ""),
+    HOGWARTS_POTIONS_API_URL: escAttr(`${hogwartsSortingApiResolved.replace(/\/+$/, "")}/potions`),
+    HOGWARTS_POTIONS_API_URL_LOCAL: escAttr(hogwartsSortingApiLocalResolved ? `${hogwartsSortingApiLocalResolved.replace(/\/+$/, "")}/potions` : ""),
+    HOGWARTS_POTIONS_START_DATE: escAttr(hogwartsPotionsStartDate),
+    HOGWARTS_POTIONS_REDIRECT_URL: escAttr(hogwartsPotionsRedirectUrl),
     HOGWARTS_CRESTS_PATH: escAttr(hogwartsCrestsPath),
     HOGWARTS_INTRO_VIDEO: escAttr(hogwartsIntroVideo),
     HOGWARTS_INTRO_DURATION_SEC: String(hogwartsIntroDurationSec),
@@ -2032,6 +2042,7 @@ async function main() {
     HOGWARTS_SORTING_PAGE_URL: escAttr(hogwartsSortingPageUrl),
     HOGWARTS_POINTS_PAGE_URL: escAttr(hogwartsPointsPageUrl),
     HOGWARTS_SHOP_PAGE_URL: escAttr(hogwartsShopPageUrl),
+    HOGWARTS_POTIONS_PAGE_URL: escAttr(hogwartsPotionsPageUrl),
     HOGWARTS_SORTING_PAGE_TITLE: escAttr(`${siteName} | Smistamento Hogwarts`),
     HOGWARTS_SORTING_META_DESCRIPTION: escAttr(
       `Quiz di smistamento Harry Potter: scopri la tua casa a Hogwarts nell'evento estivo ${siteName}.`,
@@ -2050,6 +2061,12 @@ async function main() {
     ),
     HOGWARTS_SHOP_OG_TITLE: escAttr(`${siteName} | Shop Hogwarts`),
     HOGWARTS_SHOP_OG_URL: escAttr(hogwartsShopPageUrl),
+    HOGWARTS_POTIONS_PAGE_TITLE: escAttr(`${siteName} | Pozioni Hogwarts`),
+    HOGWARTS_POTIONS_META_DESCRIPTION: escAttr(
+      `Pozioni Hogwarts ${siteName}: abbina pozioni ed effetti nel minigioco da 12 ore dell'evento.`,
+    ),
+    HOGWARTS_POTIONS_OG_TITLE: escAttr(`${siteName} | Pozioni Hogwarts`),
+    HOGWARTS_POTIONS_OG_URL: escAttr(hogwartsPotionsPageUrl),
     SERATAFILM_BGM_URI: seratafilmBgmUri,
     SERATAFILM_EVENT_URI: seratafilmEventUri,
     REVIEWS_PAGE_URL: escAttr(reviewsPageUrl),
@@ -2339,6 +2356,16 @@ async function main() {
     fs.writeFileSync(hogwartsShopIndexPath, hogwartsShopHtml, "utf8");
   } else {
     console.warn("[build-site] Manca evento/shop/index.html (saltato placeholder).");
+  }
+
+  const hogwartsPotionsIndexPath = path.join(DIST, "evento", "pozioni", "index.html");
+  if (fs.existsSync(hogwartsPotionsIndexPath)) {
+    let hogwartsPotionsHtml = fs.readFileSync(hogwartsPotionsIndexPath, "utf8");
+    hogwartsPotionsHtml = applyPlaceholderMap(hogwartsPotionsHtml, map);
+    warnLeftoverPlaceholders(hogwartsPotionsHtml, "evento/pozioni/index.html");
+    fs.writeFileSync(hogwartsPotionsIndexPath, hogwartsPotionsHtml, "utf8");
+  } else {
+    console.warn("[build-site] Manca evento/pozioni/index.html (saltato placeholder).");
   }
 
   const seratafilmIndexPath = path.join(DIST, "seratafilm", "index.html");

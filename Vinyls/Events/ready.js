@@ -17,6 +17,7 @@ const { startDailyMemberStatsLoop } = require("../Services/Community/dailyMember
 const { startDailyEngagementStatsLoop } = require("../Services/Community/dailyEngagementStatsService");
 const { startDailyChannelMessageStatsLoop } = require("../Services/Community/dailyChannelMessageStatsService");
 const { startReactPressEventLoop } = require("../Services/Community/hogwartsReactPressService");
+const { startPotionReminderLoop } = require("../Services/Community/hogwartsPotionReminderService");
 const { migrateLegacyDailyStatsCollections } = require("../Services/Community/dailyStatsStore");
 const { restoreTempBans } = require("../Services/Moderation/joinRaidService");
 const { sweepExpiredCommunicationTimeoutMirrors } = require("../Services/Moderation/mutedMirrorRoleService");
@@ -594,6 +595,7 @@ function startPrimaryLoops(client, engagementTick) {
     ["[DAILY ENGAGEMENT STATS] Failed to start loop", () => startDailyEngagementStatsLoop(client)],
     ["[DAILY CHANNEL MESSAGE STATS] Failed to start loop", () => startDailyChannelMessageStatsLoop(client)],
     ["[PREMI LA REACT] Failed to start loop", () => startReactPressEventLoop(client)],
+    ["[HOGWARTS POTIONS] Failed to start reminder loop", () => startPotionReminderLoop(client)],
     ["[CUSTOM ROLE EXPIRY] Failed to start cleanup loop", () => startCustomRoleExpiryLoop(client)],
     ["[MOD CASE LIFECYCLE] Failed to start loop", () => startModCaseLifecycleLoop(client)],
     ["[TICKET AUTO CLOSE PROMPT] Failed to start loop", () => startTicketAutoClosePromptLoop(client)],

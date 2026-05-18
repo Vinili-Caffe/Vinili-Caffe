@@ -511,6 +511,18 @@
     "minCandidateAgeMs": 120000,
     "maxCandidateAgeMs": 21600000
   },
+  "hogwartsPotions": {
+    "enabled": true,
+    "startDate": "2026-08-24T00:00:00",
+    "cooldownMs": 43200000,
+    "rewardGaleoni": 10,
+    "rewardHousePoints": 10,
+    "roundSize": 4,
+    "reminderSweepMs": 1800000,
+    "reminderDmCategory": "perks",
+    "pageUrl": "/evento/pozioni",
+    "redirectUrl": "/evento/shop"
+  },
   "categoryNumbering": {
     "enabled": true,
     "debounceMs": 1200,

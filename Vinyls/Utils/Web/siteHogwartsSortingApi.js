@@ -11,6 +11,7 @@ const {
   toPublicGringottPayload,
 } = require("../../Services/Community/gringottService");
 const { getShopItemById, normalizeShopCategory, publicShopCatalog } = require("./hogwartsShopCatalog");
+const { buildPotionsRound, normalizePotionId } = require("./hogwartsPotionsCatalog");
 const DOC = SITE_DOCUMENT_TYPE.HOGWARTS_SORTING;
 const FORBIDDEN_DOC = SITE_DOCUMENT_TYPE.HOGWARTS_FORBIDDEN_BOOKS;
 const HOUSE_POINTS_DOC = SITE_DOCUMENT_TYPE.HOGWARTS_HOUSE_POINTS;
@@ -22,6 +23,24 @@ const FORBIDDEN_START_MS = new Date("2026-06-20T00:00:00").getTime();
 const FORBIDDEN_END_MS = new Date("2026-08-31T23:59:59.999").getTime();
 const FORBIDDEN_REWARD_GALEONI = 50;
 const FORBIDDEN_REWARD_HOUSE_POINTS = 100;
+const POTIONS_PROFILE_PATH = "profile.events.hogwarts.potions";
+const POTIONS_DEFAULT_CONFIG = Object.freeze({
+  enabled: true,
+  startDate: "2026-08-24T00:00:00",
+  cooldownMs: 12 * 60 * 60 * 1000,
+  rewardGaleoni: 10,
+  rewardHousePoints: 10,
+  roundSize: 4,
+});
+const HOUSE_POINT_PERIODS = Object.freeze([
+  { key: "2026-06-01_2026-06-14", start: "2026-06-01", end: "2026-06-14" },
+  { key: "2026-06-15_2026-06-28", start: "2026-06-15", end: "2026-06-28" },
+  { key: "2026-06-29_2026-07-12", start: "2026-06-29", end: "2026-07-12" },
+  { key: "2026-07-13_2026-07-26", start: "2026-07-13", end: "2026-07-26" },
+  { key: "2026-07-27_2026-08-09", start: "2026-07-27", end: "2026-08-09" },
+  { key: "2026-08-10_2026-08-23", start: "2026-08-10", end: "2026-08-23" },
+  { key: "2026-08-24_2026-08-31", start: "2026-08-24", end: "2026-08-31" },
+]);
 
 function houseMetaFromCfg(cfg, houseId) {
   const id = String(houseId || "").trim();
@@ -480,6 +499,375 @@ async function handleHogwartsShopPurchasePost(client, req, res) {
   }
 }
 
+function safeInt(value, fallback, min = 0, max = Number.MAX_SAFE_INTEGER) {
+  const n = Math.floor(Number(value));
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(min, Math.min(max, n));
+}
+
+function resolvePotionsConfig(client) {
+  const raw = client?.config?.hogwartsPotions && typeof client.config.hogwartsPotions === "object" ? client.config.hogwartsPotions : {};
+  const out = { ...POTIONS_DEFAULT_CONFIG, ...raw };
+  out.enabled = out.enabled !== false;
+  out.startDate = String(out.startDate || POTIONS_DEFAULT_CONFIG.startDate).trim();
+  out.startMs = new Date(out.startDate).getTime();
+  out.cooldownMs = safeInt(out.cooldownMs, POTIONS_DEFAULT_CONFIG.cooldownMs, 60 * 60 * 1000, 7 * 24 * 60 * 60 * 1000);
+  out.rewardGaleoni = safeInt(out.rewardGaleoni, POTIONS_DEFAULT_CONFIG.rewardGaleoni, 0, 1000);
+  out.rewardHousePoints = safeInt(out.rewardHousePoints, POTIONS_DEFAULT_CONFIG.rewardHousePoints, 0, 1000);
+  out.roundSize = safeInt(out.roundSize, POTIONS_DEFAULT_CONFIG.roundSize, 2, 8);
+  out.pageUrl = String(out.pageUrl || "/evento/pozioni").trim() || "/evento/pozioni";
+  return out;
+}
+
+function potionsOpen(potionsCfg, nowMs = Date.now()) {
+  return Boolean(potionsCfg?.enabled) && Number.isFinite(Number(potionsCfg.startMs)) && Number(nowMs || Date.now()) >= Number(potionsCfg.startMs);
+}
+
+function canPreviewPotions(cfg, potionsCfg, member, userId, nowMs = Date.now()) {
+  return Boolean(cfg?.previewMode) && !potionsOpen(potionsCfg, nowMs) && hasPreviewAccess(cfg, member, userId);
+}
+
+function publicPotionsState(raw, potionsCfg) {
+  const state = raw && typeof raw === "object" ? raw : {};
+  const nextMs = new Date(state.nextAvailableAt || 0).getTime();
+  const now = Date.now();
+  return {
+    lastPlayedAt: state.lastPlayedAt || null,
+    nextAvailableAt: Number.isFinite(nextMs) && nextMs > now ? state.nextAvailableAt : null,
+    available: !(Number.isFinite(nextMs) && nextMs > now),
+    totalBrews: Math.max(0, Math.floor(Number(state.totalBrews) || 0)),
+    successfulBrews: Math.max(0, Math.floor(Number(state.successfulBrews) || 0)),
+    bestScore: Math.max(0, Math.floor(Number(state.bestScore) || 0)),
+    cooldownMs: potionsCfg.cooldownMs,
+  };
+}
+
+async function resolvePotionsParticipant(client, req) {
+  const accessToken = normalizeHeaderSecret(req.headers.authorization);
+  if (!accessToken) return { ok: false, status: 401, error: "missing_token", message: "Header Authorization: Bearer <token> richiesto." };
+  const resolved = await resolveWebsiteCandidatureMember(client, accessToken);
+  if (!resolved.ok) return { ok: false, status: Number(resolved.status) || 500, ...resolved };
+  const cfg = resolveHogwartsEventConfig(client);
+  if (!hasPreviewAccess(cfg, resolved.member, resolved.userId)) {
+    const denied = previewAccessDeniedPayload();
+    return { ok: false, status: denied.status, error: denied.error, message: denied.message };
+  }
+  const potionsCfg = resolvePotionsConfig(client);
+  const previewViewer = canPreviewPotions(cfg, potionsCfg, resolved.member, resolved.userId);
+  if (!potionsOpen(potionsCfg) && !previewViewer) {
+    return {
+      ok: false,
+      status: 403,
+      error: "event_not_started",
+      message: "La classe di pozioni non è ancora aperta.",
+      startsAt: potionsCfg.startDate,
+      redirectUrl: potionsCfg.redirectUrl || "/evento/shop",
+    };
+  }
+  const sorting = await findExistingSort(resolved.guild.id, resolved.userId, cfg.eventKey);
+  const houseId = String(sorting?.status || "").trim();
+  if (!houseId && previewViewer) {
+    return { ok: true, resolved, cfg, potionsCfg, houseId: "", houseMeta: null, previewViewer: true };
+  }
+  if (!houseId) return { ok: false, status: 403, error: "not_sorted", message: "Completa prima lo smistamento per accedere alle pozioni." };
+  return { ok: true, resolved, cfg, potionsCfg, houseId, houseMeta: houseMetaFromCfg(cfg, houseId), previewViewer: false };
+}
+
+function makePotionRoundKey(userId) {
+  return `${Date.now().toString(36)}_${String(userId || "").slice(-6)}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function makePotionPreviewRoundKey(userId) {
+  return `preview:${String(userId || "staff")}:${new Date().toISOString().slice(0, 10)}`;
+}
+
+async function ensurePotionsRound(guildId, userId, eventKey, potionsCfg) {
+  const now = Date.now();
+  let doc = await ActivityUserProfile.findOne({ guildId: String(guildId || ""), userId: String(userId || "") })
+    .select(POTIONS_PROFILE_PATH)
+    .lean()
+    .catch(() => null);
+  const state = doc?.profile?.events?.hogwarts?.potions && typeof doc.profile.events.hogwarts.potions === "object" ? doc.profile.events.hogwarts.potions : {};
+  const nextMs = new Date(state.nextAvailableAt || 0).getTime();
+  const available = !(Number.isFinite(nextMs) && nextMs > now);
+  if (!available) return { state, round: null };
+  const activeRoundKey = String(state.activeRoundKey || "").trim();
+  if (activeRoundKey) return { state, round: buildPotionsRound(activeRoundKey, potionsCfg.roundSize) };
+  const activeSeed = `${String(eventKey || "hogwarts")}:potions:${userId}:${makePotionRoundKey(userId)}`;
+  await ActivityUserProfile.updateOne(
+    { guildId: String(guildId || ""), userId: String(userId || "") },
+    {
+      $setOnInsert: { guildId: String(guildId || ""), userId: String(userId || "") },
+      $set: {
+        [`${POTIONS_PROFILE_PATH}.eventKey`]: eventKey,
+        [`${POTIONS_PROFILE_PATH}.activeRoundKey`]: activeSeed,
+        [`${POTIONS_PROFILE_PATH}.activeRoundCreatedAt`]: new Date(),
+      },
+    },
+    { upsert: true, setDefaultsOnInsert: true },
+  ).catch(() => null);
+  doc = await ActivityUserProfile.findOne({ guildId: String(guildId || ""), userId: String(userId || "") })
+    .select(POTIONS_PROFILE_PATH)
+    .lean()
+    .catch(() => null);
+  const updatedState = doc?.profile?.events?.hogwarts?.potions && typeof doc.profile.events.hogwarts.potions === "object" ? doc.profile.events.hogwarts.potions : {};
+  return { state: updatedState, round: buildPotionsRound(activeSeed, potionsCfg.roundSize) };
+}
+
+function normalizePotionAnswers(body) {
+  const raw = body?.answers && typeof body.answers === "object" ? body.answers : {};
+  const out = {};
+  for (const [potionId, effectPotionId] of Object.entries(raw)) {
+    const p = normalizePotionId(potionId);
+    const e = normalizePotionId(effectPotionId);
+    if (p && e) out[p] = e;
+  }
+  return out;
+}
+
+function dateOnlyMs(value, endOfDay = false) {
+  const s = String(value || "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
+  const ms = new Date(`${s}T${endOfDay ? "23:59:59.999" : "00:00:00"}`).getTime();
+  return Number.isFinite(ms) ? ms : null;
+}
+
+function housePointPeriodKey(nowMs = Date.now()) {
+  const now = Number(nowMs || Date.now());
+  for (const period of HOUSE_POINT_PERIODS) {
+    const start = dateOnlyMs(period.start, false);
+    const end = dateOnlyMs(period.end, true);
+    if (Number.isFinite(start) && Number.isFinite(end) && now >= start && now <= end) return period.key;
+  }
+  return "";
+}
+
+async function awardPotionsHousePoints(guildId, houseId, eventKey, points) {
+  const amount = safeInt(points, 0, 0, 1000);
+  const house = String(houseId || "").trim();
+  if (!amount || !HOUSES.includes(house)) return null;
+  const now = new Date();
+  const periodKey = housePointPeriodKey(now.getTime());
+  const inc = {
+    "rawWebhook.byGame.potions": amount,
+    "rawWebhook.total": amount,
+    [`rawWebhook.totals.${house}`]: amount,
+  };
+  if (periodKey) inc[`rawWebhook.byPeriod.${periodKey}.${house}`] = amount;
+  await SiteDocument.findOneAndUpdate(
+    { docType: HOUSE_POINTS_DOC, guildId: String(guildId || ""), userId: HOUSE_POINTS_OWNER_ID, dedupeKey: String(eventKey || "hogwarts") },
+    {
+      $setOnInsert: {
+        docType: HOUSE_POINTS_DOC,
+        guildId: String(guildId || ""),
+        userId: HOUSE_POINTS_OWNER_ID,
+        dedupeKey: String(eventKey || "hogwarts"),
+        createdBy: "hogwarts_potions",
+        status: "active",
+      },
+      $set: {
+        planKey: "hogwarts_house_points",
+        "rawWebhook.eventKey": String(eventKey || "hogwarts"),
+        "rawWebhook.updatedAt": now,
+      },
+      $inc: inc,
+    },
+    { upsert: true, new: true, setDefaultsOnInsert: true },
+  ).catch(() => null);
+  return { houseId: house, points: amount };
+}
+
+async function handleHogwartsPotionsGet(client, req, res) {
+  try {
+    const participant = await resolvePotionsParticipant(client, req);
+    if (!participant.ok) return res.status(participant.status || 500).json(participant);
+    const { resolved, cfg, potionsCfg, houseId, houseMeta, previewViewer } = participant;
+    const previewRound = previewViewer ? buildPotionsRound(makePotionPreviewRoundKey(resolved.userId), potionsCfg.roundSize) : null;
+    const { state, round } = previewViewer
+      ? { state: {}, round: previewRound }
+      : await ensurePotionsRound(resolved.guild.id, resolved.userId, cfg.eventKey, potionsCfg);
+    const gringott = await getGringottBalance(resolved.guild.id, resolved.userId, cfg.eventKey);
+    res.setHeader("Cache-Control", "private, no-store");
+    return res.status(200).json({
+      ok: true,
+      eventKey: cfg.eventKey,
+      previewViewer: Boolean(previewViewer),
+      house: houseId,
+      houseMeta,
+      potions: publicPotionsState(state, potionsCfg),
+      reward: {
+        galeoni: previewViewer ? 0 : potionsCfg.rewardGaleoni,
+        housePoints: previewViewer ? 0 : potionsCfg.rewardHousePoints,
+        previewDisabled: Boolean(previewViewer),
+      },
+      round,
+      gringott: toPublicGringottPayload(gringott || { eventKey: cfg.eventKey }),
+    });
+  } catch (err) {
+    global.logger?.error?.("[WEBHOOK] hogwarts-potions get:", err);
+    return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+  }
+}
+
+async function handleHogwartsPotionsPost(client, req, res) {
+  try {
+    const participant = await resolvePotionsParticipant(client, req);
+    if (!participant.ok) return res.status(participant.status || 500).json(participant);
+    const { resolved, cfg, potionsCfg, houseId, houseMeta, previewViewer } = participant;
+    const body = req.body && typeof req.body === "object" ? req.body : {};
+    const roundKey = String(body.roundKey || "").trim();
+    const answers = normalizePotionAnswers(body);
+    const now = new Date();
+    if (previewViewer) {
+      const expectedRoundKey = makePotionPreviewRoundKey(resolved.userId);
+      if (!roundKey || roundKey !== expectedRoundKey) {
+        return res.status(409).json({ ok: false, error: "stale_round", message: "Round preview non valido. Ricarica la pagina e riprova." });
+      }
+      const round = buildPotionsRound(roundKey, potionsCfg.roundSize);
+      const requiredIds = round.potions.map((item) => item.id);
+      let correct = 0;
+      const results = {};
+      for (const potionId of requiredIds) {
+        const ok = answers[potionId] === potionId;
+        if (ok) correct += 1;
+        results[potionId] = { selected: answers[potionId] || "", correct: potionId, ok };
+      }
+      const total = requiredIds.length;
+      const success = total > 0 && correct === total;
+      const gringott = await getGringottBalance(resolved.guild.id, resolved.userId, cfg.eventKey);
+      res.setHeader("Cache-Control", "private, no-store");
+      return res.status(200).json({
+        ok: true,
+        previewViewer: true,
+        success,
+        score: { correct, total },
+        results,
+        house: houseId,
+        houseMeta,
+        reward: { galeoni: 0, housePoints: 0, previewDisabled: true },
+        potions: publicPotionsState({}, potionsCfg),
+        gringott: toPublicGringottPayload(gringott || { eventKey: cfg.eventKey }),
+        message: success
+          ? "Preview completata: nessun premio reale assegnato."
+          : `Preview: hai indovinato ${correct}/${total}. Nessun cooldown applicato.`,
+      });
+    }
+    const existing = await ActivityUserProfile.findOne({ guildId: resolved.guild.id, userId: resolved.userId })
+      .select(POTIONS_PROFILE_PATH)
+      .lean()
+      .catch(() => null);
+    const state = existing?.profile?.events?.hogwarts?.potions && typeof existing.profile.events.hogwarts.potions === "object" ? existing.profile.events.hogwarts.potions : {};
+    const nextMs = new Date(state.nextAvailableAt || 0).getTime();
+    if (Number.isFinite(nextMs) && nextMs > Date.now()) {
+      return res.status(409).json({ ok: false, error: "cooldown", message: "Hai già completato il minigioco. Torna quando il cooldown è finito.", potions: publicPotionsState(state, potionsCfg) });
+    }
+    if (!roundKey || roundKey !== String(state.activeRoundKey || "")) {
+      return res.status(409).json({ ok: false, error: "stale_round", message: "Round non valido o scaduto. Ricarica la pagina e riprova." });
+    }
+    const round = buildPotionsRound(roundKey, potionsCfg.roundSize);
+    const requiredIds = round.potions.map((item) => item.id);
+    let correct = 0;
+    const results = {};
+    for (const potionId of requiredIds) {
+      const ok = answers[potionId] === potionId;
+      if (ok) correct += 1;
+      results[potionId] = { selected: answers[potionId] || "", correct: potionId, ok };
+    }
+    const total = requiredIds.length;
+    const success = total > 0 && correct === total;
+    const nextAvailableAt = new Date(now.getTime() + potionsCfg.cooldownMs);
+    const reserved = await ActivityUserProfile.findOneAndUpdate(
+      {
+        guildId: resolved.guild.id,
+        userId: resolved.userId,
+        [`${POTIONS_PROFILE_PATH}.activeRoundKey`]: roundKey,
+        $or: [
+          { [`${POTIONS_PROFILE_PATH}.nextAvailableAt`]: { $exists: false } },
+          { [`${POTIONS_PROFILE_PATH}.nextAvailableAt`]: { $lte: now } },
+          { [`${POTIONS_PROFILE_PATH}.nextAvailableAt`]: null },
+        ],
+      },
+      {
+        $setOnInsert: { guildId: resolved.guild.id, userId: resolved.userId },
+        $set: {
+          [`${POTIONS_PROFILE_PATH}.eventKey`]: cfg.eventKey,
+          [`${POTIONS_PROFILE_PATH}.lastPlayedAt`]: now,
+          [`${POTIONS_PROFILE_PATH}.nextAvailableAt`]: nextAvailableAt,
+          [`${POTIONS_PROFILE_PATH}.lastScore`]: correct,
+          [`${POTIONS_PROFILE_PATH}.lastTotal`]: total,
+          [`${POTIONS_PROFILE_PATH}.lastSuccess`]: success,
+          [`${POTIONS_PROFILE_PATH}.lastRoundKey`]: roundKey,
+          [`${POTIONS_PROFILE_PATH}.lastReminderSlot`]: "",
+          [`${POTIONS_PROFILE_PATH}.activeRoundKey`]: "",
+        },
+        $inc: {
+          [`${POTIONS_PROFILE_PATH}.totalBrews`]: 1,
+          [`${POTIONS_PROFILE_PATH}.successfulBrews`]: success ? 1 : 0,
+        },
+        $max: {
+          [`${POTIONS_PROFILE_PATH}.bestScore`]: correct,
+        },
+      },
+      { new: true, setDefaultsOnInsert: true },
+    ).lean().catch(() => null);
+    if (!reserved) {
+      const current = await ActivityUserProfile.findOne({ guildId: resolved.guild.id, userId: resolved.userId })
+        .select(POTIONS_PROFILE_PATH)
+        .lean()
+        .catch(() => null);
+      const currentState = current?.profile?.events?.hogwarts?.potions || {};
+      return res.status(409).json({
+        ok: false,
+        error: "round_already_used",
+        message: "Questo round è già stato consegnato. Attendi il prossimo cooldown.",
+        potions: publicPotionsState(currentState, potionsCfg),
+      });
+    }
+    const rewardKey = `${cfg.eventKey}:potions:${resolved.userId}:${roundKey}`;
+    let gringottAward = null;
+    let housePointsAward = null;
+    if (success && potionsCfg.rewardGaleoni > 0) {
+      gringottAward = await addGaleoni({
+        guildId: resolved.guild.id,
+        userId: resolved.userId,
+        amount: potionsCfg.rewardGaleoni,
+        reason: "Compito di pozioni completato",
+        actorId: "site",
+        source: "hogwarts_potions",
+        eventKey: cfg.eventKey,
+        rewardKey,
+      }).catch(() => null);
+    }
+    if (success && potionsCfg.rewardHousePoints > 0) {
+      housePointsAward = await awardPotionsHousePoints(resolved.guild.id, houseId, cfg.eventKey, potionsCfg.rewardHousePoints);
+    }
+    const updatedState = reserved?.profile?.events?.hogwarts?.potions || {};
+    const gringott = gringottAward?.state || await getGringottBalance(resolved.guild.id, resolved.userId, cfg.eventKey);
+    res.setHeader("Cache-Control", "private, no-store");
+    return res.status(200).json({
+      ok: true,
+      success,
+      score: { correct, total },
+      results,
+      house: houseId,
+      houseMeta,
+      reward: {
+        galeoni: success ? potionsCfg.rewardGaleoni : 0,
+        housePoints: success ? potionsCfg.rewardHousePoints : 0,
+        housePointsAward,
+      },
+      potions: publicPotionsState(updatedState, potionsCfg),
+      gringott: toPublicGringottPayload(gringott || { eventKey: cfg.eventKey }),
+      message: success
+        ? `Pozioni abbinate alla perfezione: +${potionsCfg.rewardGaleoni} Galeoni e +${potionsCfg.rewardHousePoints} punti casa.`
+        : `Hai indovinato ${correct}/${total}. Potrai riprovare tra 12 ore.`,
+    });
+  } catch (err) {
+    global.logger?.error?.("[WEBHOOK] hogwarts-potions post:", err);
+    return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+  }
+}
+
 function publicHousePointsPayload(doc) {
   const totals = doc?.rawWebhook?.totals && typeof doc.rawWebhook.totals === "object" ? doc.rawWebhook.totals : {};
   const out = { totals: {}, byPeriod: {} };
@@ -794,4 +1182,4 @@ async function handleHogwartsSortingAccessGet(client, req, res) {
   }
 }
 
-module.exports = { handleHogwartsForbiddenBooksClaim, handleHogwartsForbiddenBooksGet, handleHogwartsHousePointsGet, handleHogwartsShopGet, handleHogwartsShopPurchasePost, handleHogwartsSortingBootstrap, handleHogwartsSortingEligibility, handleHogwartsSortingSubmit, handleHogwartsSortingAccessGet, handleHogwartsGringottGet };
+module.exports = { handleHogwartsForbiddenBooksClaim, handleHogwartsForbiddenBooksGet, handleHogwartsHousePointsGet, handleHogwartsPotionsGet, handleHogwartsPotionsPost, handleHogwartsShopGet, handleHogwartsShopPurchasePost, handleHogwartsSortingBootstrap, handleHogwartsSortingEligibility, handleHogwartsSortingSubmit, handleHogwartsSortingAccessGet, handleHogwartsGringottGet };

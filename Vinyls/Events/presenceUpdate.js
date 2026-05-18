@@ -472,7 +472,6 @@ function buildPendingEmbed(member) {
       ].join("\n"),
     )
     .setFooter({ text: "Grazie per il tuo supporto!" })
-    .setImage(DIVIDER_URL);
 }
 
 async function scheduleSupporterRoleGrantWithoutChannelEmbed(member) {
