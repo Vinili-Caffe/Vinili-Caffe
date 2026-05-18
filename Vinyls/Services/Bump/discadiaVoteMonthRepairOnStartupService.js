@@ -7,6 +7,18 @@ const { voteCountMonthKeyRome, isFirstCalendarDayRome } = require("../../Utils/r
 
 const VOTE_LEAF = "profile.totals.exp.bumpVoteRewards.discadia_vote";
 
+function previousMonthKey(monthKey) {
+  const match = String(monthKey || "").match(/^(\d{4})-(\d{2})$/);
+  if (!match) return "";
+  let year = Number(match[1]);
+  let month = Number(match[2]) - 1;
+  if (month < 1) {
+    year -= 1;
+    month = 12;
+  }
+  return `${year}-${String(month).padStart(2, "0")}`;
+}
+
 function shouldRunDiscadiaVoteMonthRepairOnStartup(client) {
   const envValue = String(process.env.DISCADIA_VOTE_MONTH_REPAIR_ON_STARTUP || "").trim().toLowerCase();
   if (["0", "false", "no", "off"].includes(envValue)) return false;
@@ -30,6 +42,7 @@ async function repairDiscadiaVoteMonthRowsForMainGuild(client, mode = "startup")
   const guildId = String(client?.config?.mainGuildId || IDs.guilds?.main || "").trim();
   if (!guildId) return { matched: 0, modified: 0 };
   const currentKey = voteCountMonthKeyRome(new Date());
+  const fallbackPreviousKey = previousMonthKey(currentKey);
   const kPath = `${VOTE_LEAF}.voteCountMonthKey`;
   const staleKey = {
     $or: [{ [kPath]: { $exists: false } }, { [kPath]: "" }, { [kPath]: { $ne: currentKey } }],
@@ -53,14 +66,27 @@ async function repairDiscadiaVoteMonthRowsForMainGuild(client, mode = "startup")
     mode === "cron"
       ? { guildId, $and: [staleKey, hasVoteActivity] }
       : { guildId, $and: [staleKey, hasCounters] };
-  const res = await ActivityUserProfile.updateMany(filter, {
-    $set: {
-      [`${VOTE_LEAF}.voteCountMonthKey`]: currentKey,
-      [`${VOTE_LEAF}.voteCountTopgg`]: 0,
-      [`${VOTE_LEAF}.voteCountDiscadia`]: 0,
+  const res = await ActivityUserProfile.updateMany(filter, [
+    {
+      $set: {
+        [`${VOTE_LEAF}.prevVoteCountMonthKey`]: {
+          $cond: [
+            { $gt: [{ $strLenCP: { $toString: { $ifNull: [`$${VOTE_LEAF}.voteCountMonthKey`, ""] } } }, 0] },
+            `$${VOTE_LEAF}.voteCountMonthKey`,
+            fallbackPreviousKey,
+          ],
+        },
+        [`${VOTE_LEAF}.prevVoteCountTopgg`]: { $ifNull: [`$${VOTE_LEAF}.voteCountTopgg`, 0] },
+        [`${VOTE_LEAF}.prevVoteCountDiscadia`]: {
+          $ifNull: [`$${VOTE_LEAF}.voteCountDiscadia`, { $ifNull: [`$${VOTE_LEAF}.voteCount`, 0] }],
+        },
+        [`${VOTE_LEAF}.voteCountMonthKey`]: currentKey,
+        [`${VOTE_LEAF}.voteCountTopgg`]: 0,
+        [`${VOTE_LEAF}.voteCountDiscadia`]: 0,
+      },
     },
-    $unset: { [`${VOTE_LEAF}.voteCount`]: "" },
-  }).catch(() => ({ matchedCount: 0, modifiedCount: 0 }));
+    { $unset: `${VOTE_LEAF}.voteCount` },
+  ]).catch(() => ({ matchedCount: 0, modifiedCount: 0 }));
   const matched = Number(res?.matchedCount ?? 0);
   const modified = Number(res?.modifiedCount ?? 0);
   const tag = mode === "cron" ? "[DISCADIA_VOTE_MONTH_CRON]" : "[DISCADIA_VOTE_MONTH_REPAIR]";

@@ -402,6 +402,9 @@ const activityUserProfileSchema = new Schema(
                 voteCountMonthKey: "",
                 voteCountTopgg: 0,
                 voteCountDiscadia: 0,
+                prevVoteCountMonthKey: "",
+                prevVoteCountTopgg: 0,
+                prevVoteCountDiscadia: 0,
                 pendingVotes: [],
                 voteRole: {
                   expiresAt: null,

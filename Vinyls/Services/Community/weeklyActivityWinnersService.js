@@ -1122,10 +1122,21 @@ async function resolvePreviousMonthTopVoters(client, guild) {
   const monthKey = previousMonthKeyRome(new Date());
   const docs = await ActivityUserProfile.find({
     guildId: guild.id,
-    "profile.totals.exp.bumpVoteRewards.discadia_vote.voteCountMonthKey": monthKey,
     $or: [
-      { "profile.totals.exp.bumpVoteRewards.discadia_vote.voteCountTopgg": { $gt: 0 } },
-      { "profile.totals.exp.bumpVoteRewards.discadia_vote.voteCountDiscadia": { $gt: 0 } },
+      {
+        "profile.totals.exp.bumpVoteRewards.discadia_vote.voteCountMonthKey": monthKey,
+        $or: [
+          { "profile.totals.exp.bumpVoteRewards.discadia_vote.voteCountTopgg": { $gt: 0 } },
+          { "profile.totals.exp.bumpVoteRewards.discadia_vote.voteCountDiscadia": { $gt: 0 } },
+        ],
+      },
+      {
+        "profile.totals.exp.bumpVoteRewards.discadia_vote.prevVoteCountMonthKey": monthKey,
+        $or: [
+          { "profile.totals.exp.bumpVoteRewards.discadia_vote.prevVoteCountTopgg": { $gt: 0 } },
+          { "profile.totals.exp.bumpVoteRewards.discadia_vote.prevVoteCountDiscadia": { $gt: 0 } },
+        ],
+      },
     ],
   })
     .select("userId profile.totals.exp.bumpVoteRewards.discadia_vote")
@@ -1134,7 +1145,13 @@ async function resolvePreviousMonthTopVoters(client, guild) {
   const sorted = docs
     .map((doc) => {
       const vote = doc?.profile?.totals?.exp?.bumpVoteRewards?.discadia_vote || {};
-      const total = Math.max(0, Number(vote.voteCountTopgg || 0)) + Math.max(0, Number(vote.voteCountDiscadia || 0));
+      const activeMatches = String(vote.voteCountMonthKey || "") === monthKey;
+      const snapshotMatches = String(vote.prevVoteCountMonthKey || "") === monthKey;
+      const total = activeMatches
+        ? Math.max(0, Number(vote.voteCountTopgg || 0)) + Math.max(0, Number(vote.voteCountDiscadia || 0))
+        : snapshotMatches
+          ? Math.max(0, Number(vote.prevVoteCountTopgg || 0)) + Math.max(0, Number(vote.prevVoteCountDiscadia || 0))
+          : 0;
       return { ...doc, _voteTotal: total };
     })
     .filter((doc) => Number(doc?._voteTotal || 0) > 0)

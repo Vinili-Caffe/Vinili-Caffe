@@ -35,6 +35,9 @@ const DISCADIA_VOTE_COUNT_LEGACY_PATH = `${DISCADIA_VOTE_ROOT}.voteCount`;
 const DISCADIA_VOTE_COUNT_TOPGG_PATH = `${DISCADIA_VOTE_ROOT}.voteCountTopgg`;
 const DISCADIA_VOTE_COUNT_DISCADIA_PATH = `${DISCADIA_VOTE_ROOT}.voteCountDiscadia`;
 const DISCADIA_VOTE_COUNT_MONTH_KEY_PATH = `${DISCADIA_VOTE_ROOT}.voteCountMonthKey`;
+const DISCADIA_PREV_VOTE_COUNT_MONTH_KEY_PATH = `${DISCADIA_VOTE_ROOT}.prevVoteCountMonthKey`;
+const DISCADIA_PREV_VOTE_COUNT_TOPGG_PATH = `${DISCADIA_VOTE_ROOT}.prevVoteCountTopgg`;
+const DISCADIA_PREV_VOTE_COUNT_DISCADIA_PATH = `${DISCADIA_VOTE_ROOT}.prevVoteCountDiscadia`;
 
 function latestVoteDateFromVoteSub(sub) {
   const raw = [sub?.lastVoteAtTopgg, sub?.lastVoteAtDiscadia, sub?.lastVoteAt].filter(Boolean);
@@ -866,6 +869,9 @@ async function recordDiscadiaVote(client, guildId, userId, options = {}) {
     Object.prototype.hasOwnProperty.call(sub, "voteCountTopgg") ||
     Object.prototype.hasOwnProperty.call(sub, "voteCountDiscadia");
   const needsMigrate = legacy > 0 && !hasSplitCounters;
+  const previousMonthKey = storedMonthKey || lastVoteMonthKey;
+  const shouldSnapshotPreviousMonth =
+    monthChanged && hasAnyCounter && previousMonthKey && previousMonthKey !== currentMonthKey;
 
   const update = {
     $setOnInsert: { guildId: IDs.guilds.main, userId },
@@ -877,6 +883,11 @@ async function recordDiscadiaVote(client, guildId, userId, options = {}) {
   };
 
   if (monthChanged) {
+    if (shouldSnapshotPreviousMonth) {
+      update.$set[DISCADIA_PREV_VOTE_COUNT_MONTH_KEY_PATH] = previousMonthKey;
+      update.$set[DISCADIA_PREV_VOTE_COUNT_TOPGG_PATH] = hasSplitCounters ? topggC : 0;
+      update.$set[DISCADIA_PREV_VOTE_COUNT_DISCADIA_PATH] = hasSplitCounters ? discadiaC : legacy;
+    }
     update.$set[DISCADIA_VOTE_COUNT_MONTH_KEY_PATH] = currentMonthKey;
     if (voteListing === "topgg") {
       update.$set[DISCADIA_VOTE_COUNT_TOPGG_PATH] = 1;
@@ -889,10 +900,10 @@ async function recordDiscadiaVote(client, guildId, userId, options = {}) {
   } else if (needsMigrate) {
     update.$set[DISCADIA_VOTE_COUNT_MONTH_KEY_PATH] = currentMonthKey;
     if (voteListing === "topgg") {
-      update.$set[DISCADIA_VOTE_COUNT_TOPGG_PATH] = 1;
+      update.$set[DISCADIA_VOTE_COUNT_TOPGG_PATH] = legacy + 1;
       update.$set[DISCADIA_VOTE_COUNT_DISCADIA_PATH] = 0;
     } else {
-      update.$set[DISCADIA_VOTE_COUNT_DISCADIA_PATH] = 1;
+      update.$set[DISCADIA_VOTE_COUNT_DISCADIA_PATH] = legacy + 1;
       update.$set[DISCADIA_VOTE_COUNT_TOPGG_PATH] = 0;
     }
     update.$unset = { [DISCADIA_VOTE_COUNT_LEGACY_PATH]: "" };
