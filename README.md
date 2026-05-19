@@ -1,6 +1,6 @@
 # Vinili & Caffè — DiscordBot
 
-Workspace per i bot **Vinyls** (ufficiale) e **Coffee** (test), sito web e script di supporto.
+Workspace per i bot **Vinyls** e **Coffee**, sito web e script di supporto.
 
 ## Licenza e copyright
 
