@@ -9,6 +9,7 @@ const {
 const { findCustomVoiceByOwner, findCustomVoiceByRole } = require("../Interaction/customRoleUtils");
 const { getRankCardThemeFromDoc, resolveRankCardWallpaper } = require("../Render/rankCardTheme");
 const { userAvatarUrlDynamic, guildMemberDisplayAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
+const { getEffectiveJoinedAt } = require("../../Services/Community/effectiveMemberJoinService");
 
 const LIST_CACHE_TTL_MS = 30_000;
 const listCache = new Map();
@@ -227,12 +228,14 @@ async function buildCustomProfileData(guild, userId) {
     .filter((member) => member.id);
   /** Solo utenti aggiunti alla voc (overwrite membro: Connect+ViewChannel, senza Gestisci canali come il proprietario). */
   let voiceSharedCount = 0;
+  const voiceSharedMembers = [];
   if (voice?.permissionOverwrites?.cache) {
     const ownerSid = String(userId || "").trim();
     const botSid = String(guild.members?.me?.id || guild.client?.user?.id || "").trim();
     const V = PermissionsBitField.Flags.ViewChannel;
     const C = PermissionsBitField.Flags.Connect;
     const M = PermissionsBitField.Flags.ManageChannels;
+    const sharedIds = [];
     voice.permissionOverwrites.cache.forEach((overwrite) => {
       if (overwrite.type !== OverwriteType.Member) return;
       const sid = String(overwrite.id || "");
@@ -240,8 +243,22 @@ async function buildCustomProfileData(guild, userId) {
       const allow = overwrite.allow;
       if (!allow?.has?.(V) || !allow?.has?.(C)) return;
       if (allow.has(M)) return;
+      sharedIds.push(sid);
       voiceSharedCount += 1;
     });
+    for (const sid of sharedIds.slice(0, 60)) {
+      const member = guild.members.cache.get(sid) || (await guild.members.fetch({ user: sid, force: true }).catch(() => null));
+      if (!member || member.user?.bot) continue;
+      voiceSharedMembers.push({
+        id: String(member.id || member.user?.id || ""),
+        username: String(member.user?.username || "").trim(),
+        displayName: String(member.user?.username || "Utente").trim(),
+        avatarUrl: guildMemberDisplayAvatarUrlDynamic(member, { size: 128 }) || "",
+      });
+    }
+    voiceSharedMembers.sort((a, b) =>
+      String(a.username || "").localeCompare(String(b.username || ""), "it"),
+    );
   }
 
   return {
@@ -283,6 +300,7 @@ async function buildCustomProfileData(guild, userId) {
           emoji: String(doc?.customVocEmoji || "").trim(),
           createdAt: voice.createdAt ? new Date(voice.createdAt).toISOString() : "",
           memberCount: voiceSharedCount,
+          sharedMembers: voiceSharedMembers,
         }
       : null,
   };
@@ -701,6 +719,7 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
       const weeklyMultiplierSources =
         board === "weekly" ? buildWeeklyMultiplierSources(member, guildExpSettings, globalExpMultiplier) : null;
       const customProfile = await buildCustomProfileData(guild, searchId);
+      const effectiveJoined = member ? await getEffectiveJoinedAt(member).catch(() => null) : null;
       if (guild && (board === "messages" || board === "voice")) {
         stats.siteRomeCalendarDay = getRomeDayKey(new Date());
       }
@@ -720,7 +739,11 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
           username: String(row.username || "").trim(),
           displayName: String((member && member.user?.username) || row.username || "").trim(),
           avatarUrl: String(profileAvatarUrl || "").trim(),
-          joinedAt: member?.joinedAt ? new Date(member.joinedAt).toISOString() : "",
+          joinedAt: effectiveJoined
+            ? effectiveJoined.toISOString()
+            : member?.joinedAt
+              ? new Date(member.joinedAt).toISOString()
+              : "",
           rankCard: getRankCardThemeFromDoc(doc),
           rankCardResolvedWallpaper: resolveRankCardWallpaper(doc?.profile?.rankCard || {}),
           roles: profileRoles,

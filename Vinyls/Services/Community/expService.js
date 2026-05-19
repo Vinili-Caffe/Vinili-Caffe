@@ -341,7 +341,7 @@ async function addExp(guildId, userId, amount, applyMultiplier = false, weeklyAm
       { $max: { "profile.totals.exp.totalExp": beforeExp }, $set: { "profile.totals.exp.level": storedLevel } },
     ).catch(() => null);
   }
-  const prevLevel = getLevelInfo(beforeExp).level;
+  const prevLevel = Math.max(storedLevel, getLevelInfo(beforeExp).level);
   const eff = Math.floor(effective);
   const wk = Math.floor(weeklyEffective);
   const activityDelta = Math.max(0, Math.floor(Number(options?.activityAmount || 0)));
@@ -389,22 +389,29 @@ async function addExp(guildId, userId, amount, applyMultiplier = false, weeklyAm
     }
     fallback.profile.totals.exp.weeklyExp = Number(fallback.profile.totals.exp.weeklyExp || 0) + wk;
     const li = getLevelInfo(fallback.profile.totals.exp.totalExp);
-    fallback.profile.totals.exp.level = li.level;
+    const fallbackStoredLevel = Math.max(0, Math.floor(Number(fallback.profile.totals.exp.level || 0)));
+    const fallbackLevel = Math.max(fallbackStoredLevel, li.level);
+    fallback.profile.totals.exp.level = fallbackLevel;
+    li.level = fallbackLevel;
     await fallback.save();
     doc = fallback;
   }
   if (!doc) return null;
   const afterExp = Math.max(0, Math.floor(Number(doc.profile?.totals?.exp?.totalExp || 0)));
   const levelInfo = getLevelInfo(afterExp);
-  if (levelInfo.level !== Number(doc.profile?.totals?.exp?.level || 0)) {
+  const persistedLevel = Math.max(storedLevel, levelInfo.level);
+  if (persistedLevel !== Number(doc.profile?.totals?.exp?.level || 0)) {
     if (!doc.profile) doc.profile = {};
     if (!doc.profile.totals) doc.profile.totals = {};
     if (!doc.profile.totals.exp) doc.profile.totals.exp = {};
-    doc.profile.totals.exp.level = levelInfo.level;
+    doc.profile.totals.exp.level = persistedLevel;
+    levelInfo.level = persistedLevel;
     await ActivityUserProfile.updateOne(
       { guildId: gid, userId: uid },
-      { $set: { "profile.totals.exp.level": levelInfo.level } },
+      { $set: { "profile.totals.exp.level": persistedLevel } },
     ).catch(() => null);
+  } else if (persistedLevel > levelInfo.level) {
+    levelInfo.level = persistedLevel;
   }
   recordLevelHistory(guildId, userId, null, "update", beforeExp, afterExp, null).catch(() => null);
   return {
@@ -629,7 +636,9 @@ function scheduleEventLevelUpMessage(clientOrGuild, guildId, userId, level) {
       if (!g) return;
       const mem = await getGuildMemberCached(g, userId);
       if (!mem) return;
-      await sendLevelUpAnnouncement(g, mem, flushLevel);
+      const stats = await getUserExpStats(guildId, userId).catch(() => null);
+      const actualLevel = Math.max(flushLevel, Math.floor(Number(stats?.level || 0)));
+      await sendLevelUpAnnouncement(g, mem, actualLevel);
     } catch (err) {
       global.logger?.error?.("[expService] scheduleEventLevelUpMessage flush error:", err);
     }

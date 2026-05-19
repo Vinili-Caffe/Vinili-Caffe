@@ -7,7 +7,8 @@ const SERVER_REFRESH_CUSTOM_ID_PREFIX = "server_refresh";
 const ALLOWED_LOOKBACK = [7, 14, 21, 30];
 const SERVER_STATS_TIMEOUT_MS = Math.max(5_000, Math.min(60_000, Number(process.env.SERVER_STATS_TIMEOUT_MS ?? 18_000)));
 const SERVER_RESOLVE_TIMEOUT_MS = Math.max(2_000, Math.min(30_000, Number(process.env.SERVER_RESOLVE_TIMEOUT_MS ?? 8_000)));
-const SERVER_RENDER_TIMEOUT_MS = Math.max(5_000, Math.min(60_000, Number(process.env.SERVER_RENDER_TIMEOUT_MS ?? 22_000)));
+const SERVER_RENDER_TIMEOUT_MS = Math.max(5_000, Math.min(60_000, Number(process.env.SERVER_RENDER_TIMEOUT_MS ?? 35_000)));
+const SERVER_CANVAS_GIF = String(process.env.VC_SERVER_CANVAS_GIF ?? "0").trim() === "1";
 
 function normalizeLookback(value) {
   const n = Number.parseInt(String(value || "14"), 10);
@@ -64,11 +65,54 @@ function buildServerFallbackPayload({ guild, safeLookback, authorId, stats = nul
       { name: "Utenti", value: String(Number(selected.contributors || 0)), inline: true },
     );
   }
+  const lines = [`Periodo: ultimi **${safeLookback}** giorni`];
+  if (reason) {
+    lines.push("", "<a:VC_pixeltime:1482535344103620771> Grafico non generato in tempo. Premi ↻ per riprovare.");
+  }
   const embed = new EmbedBuilder()
     .setColor("#6f4e37")
-    .setTitle(`Statistiche Server`)
-    .setDescription(`Periodo: ultimi ${safeLookback} giorni`)
-    return { embeds: [embed], files: [], components: [buildRefreshRow(authorId, safeLookback)] };
+    .setTitle("Statistiche Server")
+    .setDescription(lines.join("\n"));
+  if (fields.length) embed.setFields(fields);
+  if (guild?.name) embed.setFooter({ text: String(guild.name).slice(0, 2048) });
+  return { embeds: [embed], files: [], components: [buildRefreshRow(authorId, safeLookback)] };
+}
+
+function buildServerLoadingPayload(safeLookback, authorId) {
+  const embed = new EmbedBuilder()
+    .setColor("#6f4e37")
+    .setTitle("Statistiche Server")
+    .setDescription(`<a:VC_pixeltime:1482535344103620771> Caricamento ultimi **${safeLookback}** giorni…`);
+  return { embeds: [embed], files: [], components: [buildRefreshRow(authorId, safeLookback)] };
+}
+
+function normalizeServerMessageEdit(payload, allowedMentions = null) {
+  const out = {
+    content: payload?.content != null ? String(payload.content) : "",
+    embeds: Array.isArray(payload?.embeds) ? payload.embeds : [],
+    files: payload?.files || [],
+    components: payload?.components || [],
+  };
+  if (allowedMentions) out.allowedMentions = allowedMentions;
+  return out;
+}
+
+async function editServerPanel(interaction, payload) {
+  const msg = interaction.message;
+  const body = normalizeServerMessageEdit(payload);
+  if (!msg?.edit) {
+    if (interaction.channel?.send) await interaction.channel.send(body).catch(() => null);
+    return;
+  }
+  try {
+    await msg.edit(body);
+  } catch (err) {
+    if (err?.code === 10008) {
+      await interaction.channel?.send?.(body).catch(() => null);
+      return;
+    }
+    throw err;
+  }
 }
 
 async function execute(interaction) {
@@ -86,18 +130,11 @@ async function execute(interaction) {
 
   try {
     await interaction.deferUpdate().catch(() => {});
-    const payload = await buildServerOverviewPayload(guild, parsed.lookbackDays, parsed.ownerId || interaction.user?.id);
-    const msg = interaction.message;
-    if (!msg?.edit) {
-      await sendControlErrorFallback(interaction);
-      return true;
-    }
-    await msg.edit({
-      files: payload.files || [],
-      components: payload.components || [],
-      embeds: Array.isArray(payload.embeds) ? payload.embeds : [],
-      content: typeof payload.content === "string" ? payload.content : null,
-    });
+    const safeLookback = normalizeLookback(parsed.lookbackDays);
+    const authorId = parsed.ownerId || interaction.user?.id;
+    await editServerPanel(interaction, buildServerLoadingPayload(safeLookback, authorId));
+    const payload = await buildServerOverviewPayload(guild, safeLookback, authorId);
+    await editServerPanel(interaction, payload);
     return true;
   } catch (err) {
     global.logger?.error?.("[Buttons/server] execute", err);
@@ -142,7 +179,20 @@ async function buildServerOverviewPayload(guild, lookbackDays, authorId) {
   let buffer = null;
   try {
     buffer = await withServerTimeout(
-      renderServerActivityCanvas({ guildName, guildIconUrl: guildIconUrlResolved, createdOn, invitedBotOn, lookbackDays: safeLookback, windows: stats.windows, topUsersText, topUsersVoice, topChannelsText, topChannelsVoice, chart: stats.chart }),
+      renderServerActivityCanvas({
+        guildName,
+        guildIconUrl: guildIconUrlResolved,
+        createdOn,
+        invitedBotOn,
+        lookbackDays: safeLookback,
+        windows: stats.windows,
+        topUsersText,
+        topUsersVoice,
+        topChannelsText,
+        topChannelsVoice,
+        chart: stats.chart,
+        forceStatic: !SERVER_CANVAS_GIF,
+      }),
       "renderServerActivityCanvas",
       SERVER_RENDER_TIMEOUT_MS,
     );
@@ -164,4 +214,4 @@ function parseServerActivityArgs(args) {
   return { lookbackDays: normalizeLookback(lookback) };
 }
 
-module.exports = { name: "server", order: 5, match, execute, SERVER_REFRESH_CUSTOM_ID_PREFIX, buildServerOverviewPayload, parseServerActivityArgs };
+module.exports = { name: "server", order: 5, match, execute, SERVER_REFRESH_CUSTOM_ID_PREFIX, buildServerOverviewPayload, buildServerLoadingPayload, normalizeServerMessageEdit, parseServerActivityArgs };

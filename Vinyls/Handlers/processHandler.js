@@ -1,4 +1,5 @@
 const logs = require("../Utils/Moderation/logs");
+const { isVoiceTransportError } = require("../../shared/discord/voiceTransportErrors");
 
 function error(message) {
   logs.error(`[ERROR] ${message}`);
@@ -23,6 +24,10 @@ module.exports = () => {
   });
 
   process.on("unhandledRejection", (err) => {
+    if (isVoiceTransportError(err)) {
+      logs.warn(`[PROCESS] Voice transport (recovered): ${err?.message || err}`);
+      return;
+    }
     error(`UNHANDLED REJECTION: ${err?.stack || err}`);
   });
 

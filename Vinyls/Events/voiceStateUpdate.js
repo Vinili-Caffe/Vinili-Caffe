@@ -332,6 +332,12 @@ module.exports = {
     } catch (error) {
       global.logger?.error?.("[DAILY ENGAGEMENT VOICE ERROR]", error);
     }
+    try {
+      const { handlePmVoiceAfkVoiceState } = require("../Services/Staff/pmVoiceAfkWatchService");
+      handlePmVoiceAfkVoiceState(oldState, newState);
+    } catch (error) {
+      global.logger?.error?.("[PM AFK WATCH] voiceStateUpdate failed:", error);
+    }
 
     if (!client?.user?.id) return;
     if (client?.config?.tts?.stayConnected) return;

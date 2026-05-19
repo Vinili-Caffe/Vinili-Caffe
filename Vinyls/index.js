@@ -1,3 +1,8 @@
+/*!
+ * Copyright (c) 2024–2026 Vinili & Caffè. Tutti i diritti riservati.
+ * Uso, copia, modifica e distribuzione vietati senza autorizzazione scritta.
+ * SPDX-License-Identifier: LicenseRef-Proprietary-ViniliCaffe — vedi LICENSE.
+ */
 const discord = require("discord.js");
 const { Client, IntentsBitField } = discord;
 const GatewayIntentBits = discord.GatewayIntentBits || IntentsBitField?.Flags || {};
@@ -8,6 +13,7 @@ const { EventEmitter } = require("events");
 const APP_ROOT = __dirname;
 const { acquireSingleInstanceLock, installHandlers, listFoldersIfExists, loadEnvFiles, } = require("../shared/runtime/fsRuntime");
 const { initializeCommandCollections } = require("../shared/runtime/clientRuntime");
+const { connectMongo, isMongoReady } = require("./Utils/Database/mongoConnect");
 
 loadEnvFiles(APP_ROOT);
 global.logger = require("./Utils/Moderation/logger");
@@ -151,6 +157,12 @@ initializeCommandCollections(client, { includeSnipes: true });
 
     if (typeof client.logBootTables === "function") {
       client.logBootTables();
+    }
+
+    const mongoConnected = await connectMongo(client);
+    if (!mongoConnected || !isMongoReady()) {
+      global.logger.error("[DATABASE] Startup aborted: MongoDB is required before login.");
+      process.exit(1);
     }
 
     client.login(client.config.token).catch((error) => {

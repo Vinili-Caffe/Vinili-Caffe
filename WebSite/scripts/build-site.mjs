@@ -1,3 +1,5 @@
+// Copyright (c) 2024–2026 Vinili & Caffè. Tutti i diritti riservati.
+// Uso, copia, modifica e distribuzione vietati — vedi ../../LICENSE.
 import fs from "fs";
 import path from "path";
 import { execFileSync } from "child_process";
@@ -674,7 +676,7 @@ function buildMaintenanceBootHtml(cfg, extra = {}) {
     redirectUri: String(cfg.discordOauth?.redirectUri || cfg.siteUrl || "").trim(),
   };
   const json = JSON.stringify(payload).replace(/</g, "\\u003c");
-  const extensionNoiseBoot = `    <script>(function(){function s(x,d){try{d=d||0;if(x&&typeof x==="object"){var p=[];if(x.message!=null)p.push(String(x.message));if(x.stack!=null)p.push(String(x.stack));if(x.name!=null)p.push(String(x.name));if(d<2&&x.reason!=null)p.push(s(x.reason,d+1));if(d<2&&x.error!=null)p.push(s(x.error,d+1));if(p.length)return p.join(" ")}return String(x||"")}catch(e){return""}}function n(x){var m=s(x);return /listener indicated an asynchronous response/i.test(m)||/asynchronous response by returning true/i.test(m)||/message channel closed before a response was received/i.test(m)||/closed before a response was received/i.test(m)||/could not establish connection\\.?\\s*receiving end does not exist/i.test(m)||/message port closed before a response was received/i.test(m)||/extension context invalidated/i.test(m)||/unchecked runtime\\.lasterror/i.test(m)||/wrappedSendMessageCallback/i.test(m)||/cookieCrumbler\\.js/i.test(m)||/chrome-extension:\\/\\//i.test(m)||/moz-extension:\\/\\//i.test(m)||(/cannot read properties of undefined/i.test(m)&&/useCache/i.test(m))}function h(e){if(!n(e&&e.reason)&&!n(e&&e.message)&&!n(e&&e.error))return;try{e.preventDefault();e.stopImmediatePropagation()}catch(_e){}}window.addEventListener("unhandledrejection",h,true);window.addEventListener("error",h,true);["error","warn"].forEach(function(l){var o=console[l];if(typeof o!=="function")return;console[l]=function(){var a="";for(var i=0;i<arguments.length;i++)a+=" "+s(arguments[i]);if(n(a)||/forced reflow while executing javascript took/i.test(a))return;return o.apply(console,arguments)}})})();</script>\n`;
+  const extensionNoiseBoot = `    <script>(function(){function s(x,d){try{d=d||0;if(x&&typeof x==="object"){var p=[];if(x.message!=null)p.push(String(x.message));if(x.stack!=null)p.push(String(x.stack));if(x.name!=null)p.push(String(x.name));if(d<2&&x.reason!=null)p.push(s(x.reason,d+1));if(d<2&&x.error!=null)p.push(s(x.error,d+1));if(p.length)return p.join(" ")}return String(x||"")}catch(e){return""}}function n(x){var m=s(x);return /listener indicated an asynchronous response/i.test(m)||/listener.*returning true.*(?:message )?channel closed/i.test(m)||/asynchronous response by returning true/i.test(m)||/message channel closed before a response was received/i.test(m)||/channel closed before a response was received/i.test(m)||/closed before a response was received/i.test(m)||/could not establish connection\\.?\\s*receiving end does not exist/i.test(m)||/message port closed before a response was received/i.test(m)||/extension context invalidated/i.test(m)||/unchecked runtime\\.lasterror/i.test(m)||/wrappedSendMessageCallback/i.test(m)||/cookieCrumbler\\.js/i.test(m)||/chrome-extension:\\/\\//i.test(m)||/moz-extension:\\/\\//i.test(m)||(/cannot read properties of undefined/i.test(m)&&/useCache/i.test(m))}function h(e){if(!n(e&&e.reason)&&!n(e&&e.message)&&!n(e&&e.error))return;try{e.preventDefault();e.stopImmediatePropagation()}catch(_e){}}window.addEventListener("unhandledrejection",h,true);window.addEventListener("error",h,true);window.onunhandledrejection=h;["error","warn"].forEach(function(l){var o=console[l];if(typeof o!=="function")return;console[l]=function(){var a="";for(var i=0;i<arguments.length;i++)a+=" "+s(arguments[i]);if(n(a)||/forced reflow while executing javascript took/i.test(a))return;return o.apply(console,arguments)}})})();</script>\n`;
   const trustedTypesBoot = `    <script>(function(){try{if(window.trustedTypes){window.trustedTypes.createPolicy("default",{createHTML:function(s){return String(s)},createScript:function(s){return String(s)},createScriptURL:function(s){return String(s)}})}}catch(e){}})();</script>\n`;
   return (
     extensionNoiseBoot +
@@ -1481,18 +1483,22 @@ async function main() {
   }
   const discordOauthRedirectResolved = discordOauthRedirectRaw || siteUrlTrim;
   const discordOauthRedirectNoSlash = discordOauthRedirectResolved.replace(/\/+$/, "");
+  const resolvePublicWebhookApiUrl = (raw, fallbackPath = "") => {
+    const value = String(raw ?? "").trim();
+    if (!value) return fallbackPath;
+    if (/^https?:\/\//i.test(value)) return value;
+    if (value.startsWith("/")) return value;
+    return siteBaseNoSlash
+      ? `${siteBaseNoSlash.replace(/\/+$/, "")}/${value.replace(/^\/+/, "")}`
+      : value;
+  };
   const candidatureSubmitApiFromEnv = String(process.env.VC_CANDIDATURE_SUBMIT_API_URL ?? "").trim();
   const candidatureSubmitApiRaw =
     candidatureSubmitApiFromEnv || String(cfg.candidatureSubmitApiUrl ?? "").trim();
   if (candidatureSubmitApiFromEnv) {
     buildInfoLog("[build-site] VC_CANDIDATURE_SUBMIT_API_URL (override):", candidatureSubmitApiFromEnv);
   }
-  const candidatureSubmitApiResolved =
-    candidatureSubmitApiRaw && /^https?:\/\//i.test(candidatureSubmitApiRaw)
-      ? candidatureSubmitApiRaw
-      : candidatureSubmitApiRaw && siteBaseNoSlash
-        ? `${siteBaseNoSlash.replace(/\/+$/, "")}${candidatureSubmitApiRaw.startsWith("/") ? "" : "/"}${candidatureSubmitApiRaw}`
-        : "";
+  const candidatureSubmitApiResolved = resolvePublicWebhookApiUrl(candidatureSubmitApiRaw);
   const candidatureSubmitApiLocalFromEnv = String(
     process.env.VC_CANDIDATURE_SUBMIT_API_URL_LOCAL ?? "",
   ).trim();
@@ -1511,12 +1517,7 @@ async function main() {
   const unbanSubmitApiFromEnv = String(process.env.VC_UNBAN_SUBMIT_API_URL ?? "").trim();
   const unbanSubmitApiRaw =
     unbanSubmitApiFromEnv || String(cfg.unbanSubmitApiUrl ?? "").trim();
-  const unbanSubmitApiResolved =
-    unbanSubmitApiRaw && /^https?:\/\//i.test(unbanSubmitApiRaw)
-      ? unbanSubmitApiRaw
-      : unbanSubmitApiRaw && siteBaseNoSlash
-        ? `${siteBaseNoSlash.replace(/\/+$/, "")}${unbanSubmitApiRaw.startsWith("/") ? "" : "/"}${unbanSubmitApiRaw}`
-        : "";
+  const unbanSubmitApiResolved = resolvePublicWebhookApiUrl(unbanSubmitApiRaw);
   const unbanSubmitApiLocalFromEnv = String(process.env.VC_UNBAN_SUBMIT_API_URL_LOCAL ?? "").trim();
   const unbanSubmitApiLocalRaw =
     unbanSubmitApiLocalFromEnv || String(cfg.unbanSubmitApiUrlLocal ?? "").trim();
@@ -1527,14 +1528,7 @@ async function main() {
   const communityRulesApiFromEnv = String(process.env.VC_COMMUNITY_RULES_API_URL ?? "").trim();
   const communityRulesApiRaw =
     communityRulesApiFromEnv || String(cfg.communityRulesApiUrl ?? "").trim();
-  const communityRulesApiResolved =
-    communityRulesApiRaw && /^https?:\/\//i.test(communityRulesApiRaw)
-      ? communityRulesApiRaw
-      : communityRulesApiRaw && siteBaseNoSlash
-        ? `${siteBaseNoSlash.replace(/\/+$/, "")}${communityRulesApiRaw.startsWith("/") ? "" : "/"}${communityRulesApiRaw}`
-        : siteBaseNoSlash
-          ? `${siteBaseNoSlash}/webhooks/site-rules`
-          : "/webhooks/site-rules";
+  const communityRulesApiResolved = resolvePublicWebhookApiUrl(communityRulesApiRaw, "/webhooks/site-rules");
   const communityRulesApiLocalFromEnv = String(process.env.VC_COMMUNITY_RULES_API_URL_LOCAL ?? "").trim();
   const communityRulesApiLocalRaw =
     communityRulesApiLocalFromEnv || String(cfg.communityRulesApiUrlLocal ?? "").trim();
@@ -1545,14 +1539,7 @@ async function main() {
   const usersLeaderboardApiFromEnv = String(process.env.VC_USERS_LEADERBOARD_API_URL ?? "").trim();
   const usersLeaderboardApiRaw =
     usersLeaderboardApiFromEnv || String(cfg.usersLeaderboardApiUrl ?? "").trim();
-  const usersLeaderboardApiResolved =
-    usersLeaderboardApiRaw && /^https?:\/\//i.test(usersLeaderboardApiRaw)
-      ? usersLeaderboardApiRaw
-      : usersLeaderboardApiRaw && siteBaseNoSlash
-        ? `${siteBaseNoSlash.replace(/\/+$/, "")}${usersLeaderboardApiRaw.startsWith("/") ? "" : "/"}${usersLeaderboardApiRaw}`
-        : siteBaseNoSlash
-          ? `${siteBaseNoSlash}/webhooks/site-users`
-          : "/webhooks/site-users";
+  const usersLeaderboardApiResolved = resolvePublicWebhookApiUrl(usersLeaderboardApiRaw, "/webhooks/site-users");
   const usersLeaderboardApiLocalFromEnv = String(process.env.VC_USERS_LEADERBOARD_API_URL_LOCAL ?? "").trim();
   const usersLeaderboardApiLocalRaw =
     usersLeaderboardApiLocalFromEnv || String(cfg.usersLeaderboardApiUrlLocal ?? "").trim();
@@ -1562,14 +1549,7 @@ async function main() {
       : "";
   const voteApiFromEnv = String(process.env.VC_VOTE_API_URL ?? "").trim();
   const voteApiRaw = voteApiFromEnv || String(cfg.voteApiUrl ?? "").trim();
-  const voteApiResolved =
-    voteApiRaw && /^https?:\/\//i.test(voteApiRaw)
-      ? voteApiRaw
-      : voteApiRaw && siteBaseNoSlash
-        ? `${siteBaseNoSlash.replace(/\/+$/, "")}${voteApiRaw.startsWith("/") ? "" : "/"}${voteApiRaw}`
-        : siteBaseNoSlash
-          ? `${siteBaseNoSlash}/webhooks/site-vote`
-          : "/webhooks/site-vote";
+  const voteApiResolved = resolvePublicWebhookApiUrl(voteApiRaw, "/webhooks/site-vote");
   const voteApiLocalFromEnv = String(process.env.VC_VOTE_API_URL_LOCAL ?? "").trim();
   const voteApiLocalRaw = voteApiLocalFromEnv || String(cfg.voteApiUrlLocal ?? "").trim();
   const voteApiLocalResolved =
@@ -1578,17 +1558,9 @@ async function main() {
       : "";
   const siteNotifsApiFromEnv = String(process.env.VC_SITE_NOTIFICATIONS_API_URL ?? "").trim();
   const siteNotifsApiRaw = siteNotifsApiFromEnv || String(cfg.siteNotificationsApiUrl ?? "").trim();
-  const siteNotifsApiResolved =
-    siteNotifsApiRaw && /^https?:\/\//i.test(siteNotifsApiRaw)
-      ? siteNotifsApiRaw
-      : siteNotifsApiRaw && siteBaseNoSlash
-        ? `${siteBaseNoSlash.replace(/\/+$/, "")}${siteNotifsApiRaw.startsWith("/") ? "" : "/"}${siteNotifsApiRaw}`
-        : siteBaseNoSlash
-          ? `${siteBaseNoSlash}/webhooks/site-notifications`
-          : "/webhooks/site-notifications";
+  const siteNotifsApiResolved = resolvePublicWebhookApiUrl(siteNotifsApiRaw, "/webhooks/site-notifications");
   const siteNotifsApiLocalFromEnv = String(process.env.VC_SITE_NOTIFICATIONS_API_URL_LOCAL ?? "").trim();
-  const siteNotifsApiLocalRaw =
-    siteNotifsApiLocalFromEnv || String(cfg.siteNotificationsApiUrlLocal ?? "").trim();
+  const siteNotifsApiLocalRaw = siteNotifsApiLocalFromEnv || String(cfg.siteNotificationsApiUrlLocal ?? "").trim();
   const siteNotifsApiLocalResolved =
     siteNotifsApiLocalRaw && /^https?:\/\//i.test(siteNotifsApiLocalRaw)
       ? siteNotifsApiLocalRaw
@@ -1596,14 +1568,10 @@ async function main() {
   const seratafilmAccessApiFromEnv = String(process.env.VC_SERATAFILM_ACCESS_API_URL ?? "").trim();
   const seratafilmAccessApiRaw =
     seratafilmAccessApiFromEnv || String(cfg.seratafilmAccessApiUrl ?? "").trim();
-  const seratafilmAccessApiResolved =
-    seratafilmAccessApiRaw && /^https?:\/\//i.test(seratafilmAccessApiRaw)
-      ? seratafilmAccessApiRaw
-      : seratafilmAccessApiRaw && siteBaseNoSlash
-        ? `${siteBaseNoSlash.replace(/\/+$/, "")}${seratafilmAccessApiRaw.startsWith("/") ? "" : "/"}${seratafilmAccessApiRaw}`
-        : siteBaseNoSlash
-          ? `${siteBaseNoSlash}/webhooks/site-seratafilm-access`
-          : "/webhooks/site-seratafilm-access";
+  const seratafilmAccessApiResolved = resolvePublicWebhookApiUrl(
+    seratafilmAccessApiRaw,
+    "/webhooks/site-seratafilm-access",
+  );
   const seratafilmAccessApiLocalFromEnv = String(process.env.VC_SERATAFILM_ACCESS_API_URL_LOCAL ?? "").trim();
   const seratafilmAccessApiLocalRaw =
     seratafilmAccessApiLocalFromEnv || String(cfg.seratafilmAccessApiUrlLocal ?? "").trim();
@@ -1614,14 +1582,10 @@ async function main() {
   const hogwartsSortingApiFromEnv = String(process.env.VC_HOGWARTS_SORTING_API_URL ?? "").trim();
   const hogwartsSortingApiRaw =
     hogwartsSortingApiFromEnv || String(cfg.hogwartsSortingApiUrl ?? "").trim();
-  const hogwartsSortingApiResolved =
-    hogwartsSortingApiRaw && /^https?:\/\//i.test(hogwartsSortingApiRaw)
-      ? hogwartsSortingApiRaw
-      : hogwartsSortingApiRaw && siteBaseNoSlash
-        ? `${siteBaseNoSlash.replace(/\/+$/, "")}${hogwartsSortingApiRaw.startsWith("/") ? "" : "/"}${hogwartsSortingApiRaw}`
-        : siteBaseNoSlash
-          ? `${siteBaseNoSlash}/webhooks/site-hogwarts-sorting`
-          : "/webhooks/site-hogwarts-sorting";
+  const hogwartsSortingApiResolved = resolvePublicWebhookApiUrl(
+    hogwartsSortingApiRaw,
+    "/webhooks/site-hogwarts-sorting",
+  );
   const hogwartsSortingApiLocalFromEnv = String(process.env.VC_HOGWARTS_SORTING_API_URL_LOCAL ?? "").trim();
   const hogwartsSortingApiLocalRaw =
     hogwartsSortingApiLocalFromEnv || String(cfg.hogwartsSortingApiUrlLocal ?? "").trim();
@@ -1869,14 +1833,7 @@ async function main() {
   const seratafilmEventUri = encodeURIComponent(JSON.stringify(seratafilmEventPayload)).replace(/'/g, "%27");
   const reviewsApiFromEnv = String(process.env.VC_REVIEWS_API_URL ?? "").trim();
   const reviewsApiRaw = reviewsApiFromEnv || String(cfg.reviewsApiUrl ?? "").trim();
-  const reviewsApiResolved =
-    reviewsApiRaw && /^https?:\/\//i.test(reviewsApiRaw)
-      ? reviewsApiRaw
-      : reviewsApiRaw && siteBaseNoSlash
-        ? `${siteBaseNoSlash.replace(/\/+$/, "")}${reviewsApiRaw.startsWith("/") ? "" : "/"}${reviewsApiRaw}`
-        : siteBaseNoSlash
-          ? `${siteBaseNoSlash}/webhooks/site-reviews`
-          : "/webhooks/site-reviews";
+  const reviewsApiResolved = resolvePublicWebhookApiUrl(reviewsApiRaw, "/webhooks/site-reviews");
   const reviewsApiLocalFromEnv = String(process.env.VC_REVIEWS_API_URL_LOCAL ?? "").trim();
   const reviewsApiLocalRaw = reviewsApiLocalFromEnv || String(cfg.reviewsApiUrlLocal ?? "").trim();
   const reviewsApiLocalResolved =
@@ -1885,14 +1842,7 @@ async function main() {
       : "";
   const suggestionsApiFromEnv = String(process.env.VC_SUGGESTIONS_API_URL ?? "").trim();
   const suggestionsApiRaw = suggestionsApiFromEnv || String(cfg.suggestionsApiUrl ?? "").trim();
-  const suggestionsApiResolved =
-    suggestionsApiRaw && /^https?:\/\//i.test(suggestionsApiRaw)
-      ? suggestionsApiRaw
-      : suggestionsApiRaw && siteBaseNoSlash
-        ? `${siteBaseNoSlash.replace(/\/+$/, "")}${suggestionsApiRaw.startsWith("/") ? "" : "/"}${suggestionsApiRaw}`
-        : siteBaseNoSlash
-          ? `${siteBaseNoSlash}/webhooks/site-suggestions`
-          : "/webhooks/site-suggestions";
+  const suggestionsApiResolved = resolvePublicWebhookApiUrl(suggestionsApiRaw, "/webhooks/site-suggestions");
   const suggestionsApiLocalFromEnv = String(process.env.VC_SUGGESTIONS_API_URL_LOCAL ?? "").trim();
   const suggestionsApiLocalRaw =
     suggestionsApiLocalFromEnv || String(cfg.suggestionsApiUrlLocal ?? "").trim();
@@ -1902,14 +1852,7 @@ async function main() {
       : "";
   const rolesApiFromEnv = String(process.env.VC_ROLES_API_URL ?? "").trim();
   const rolesApiRaw = rolesApiFromEnv || String(cfg.rolesApiUrl ?? "").trim();
-  const rolesApiResolved =
-    rolesApiRaw && /^https?:\/\//i.test(rolesApiRaw)
-      ? rolesApiRaw
-      : rolesApiRaw && siteBaseNoSlash
-        ? `${siteBaseNoSlash.replace(/\/+$/, "")}${rolesApiRaw.startsWith("/") ? "" : "/"}${rolesApiRaw}`
-        : siteBaseNoSlash
-          ? `${siteBaseNoSlash}/webhooks/site-roles`
-          : "/webhooks/site-roles";
+  const rolesApiResolved = resolvePublicWebhookApiUrl(rolesApiRaw, "/webhooks/site-roles");
   const rolesApiLocalFromEnv = String(process.env.VC_ROLES_API_URL_LOCAL ?? "").trim();
   const rolesApiLocalRaw =
     rolesApiLocalFromEnv || String(cfg.rolesApiUrlLocal ?? "").trim();

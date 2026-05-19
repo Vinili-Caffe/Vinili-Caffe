@@ -3,6 +3,7 @@ const { runCronDetached } = require("../../../shared/scheduling/cronDetached");
 const { getBotState, setBotState } = require("../../Utils/BotState/botStateStore");
 const { getClientGuildCached, getGuildChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
 const IDs = require("../../Utils/Config/ids");
+const { extractMovieNightProposalTitle } = require("../../Utils/Community/movieNightProposal");
 const TIME_ZONE = "Europe/Rome";
 const STATE_KEY = "movieNightAnnouncement.v1";
 const ANNOUNCE_CRON = "0 15 * * 1";
@@ -20,6 +21,10 @@ const ANNOUNCEMENT_CHANNEL_ID = "1481660281032675510";
 const MOVIE_NIGHT_EVENT_CHANNEL_ID = "1497535199813042306";
 const EVENTS_ROLE_ID = String(IDs.roles?.Events || "1442569012063109151");
 const SERATA_FILM_ROLE_ID = String(IDs.roles?.SerataFilm || "1500844750956400761");
+const STAFF_COMMUNICATION_CHANNEL_ID = String(IDs.channels?.staffNews || "1442569239063167139");
+const STAFF_COMMUNICATION_ROLE_ID = String(IDs.roles?.Staff || "1442568910070349985");
+const MOVIE_NIGHT_DISPLAY_TIME = "21:30";
+const ITALIAN_MONTH_NAMES = ["gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno", "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"];
 const TARGET_WEEKDAY = 6;
 const TARGET_HOUR = 21;
 const TARGET_MINUTE = 15;
@@ -56,15 +61,7 @@ const ROME_PARTS_FORMATTER = new Intl.DateTimeFormat("en-GB", {
   hour12: false,
 });
 
-const WEEKDAY_INDEX = {
-  Mon: 1,
-  Tue: 2,
-  Wed: 3,
-  Thu: 4,
-  Fri: 5,
-  Sat: 6,
-  Sun: 7,
-};
+const WEEKDAY_INDEX = { Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6, Sun: 7 };
 
 function getRomeParts(date = new Date()) {
   const parts = {};
@@ -100,6 +97,12 @@ function getRomeSaturdayKeyForWeek(date = new Date()) {
   const saturdayUtc = utcDate + (TARGET_WEEKDAY - Math.max(1, parts.weekday)) * 24 * 60 * 60 * 1000;
   const saturday = new Date(saturdayUtc);
   return toDateKey(saturday.getUTCFullYear(), saturday.getUTCMonth() + 1, saturday.getUTCDate());
+}
+
+function formatMovieNightStaffDateLabel(date = new Date()) {
+  const parts = getRomeParts(date);
+  const monthName = ITALIAN_MONTH_NAMES[Math.max(0, parts.month - 1)] || "";
+  return `Oggi, ${parts.day} ${monthName}, alle ${MOVIE_NIGHT_DISPLAY_TIME}`;
 }
 
 function getHarryPotterMovieNightScheduleForWeek(date = new Date()) {
@@ -199,16 +202,34 @@ function buildDiscordEventUrl(guildId, eventId) {
   return `https://discord.com/events/${gid}/${eid}`;
 }
 
+function buildMovieNightStaffCommunicationMessage({ title, dateLabel }) {
+  const film = String(title || "").trim() || "il film in programma";
+  const when = String(dateLabel || "").trim() || `Oggi, alle ${MOVIE_NIGHT_DISPLAY_TIME}`;
+  return [
+    "# <a:VC_Alert:1482706673176150077> COMUNICAZIONE SERATA FILM",
+    "",
+    `> <a:VC_Calendar:1482706208149475358> **${when}**, proietteremo **${film}**. Durerà all'incirca un'ora e mezza ma tanto saremo tutti mutati (__non silenziati__) quindi potete anche stare AFK. __L'importante è essere presenti nel canale vocale.__`,
+    "",
+    "> <a:VC_Exclamation:1482534702077444217> Dobbiamo far vedere che gli eventi sono frequentati. L'affluenza genera interesse e credibilità. Se lo staff partecipa in massa, si innesca un effetto catena positivo su tutta la community perché gli utenti vedranno che l'iniziativa funziona e si uniranno di più in futuro. __Chi non parteciperà all'evento è importante che sia conscio del fatto che riceverà una valutazione negativa.__",
+    "",
+    "> <:VC_handleft:1482730852164305068><:VC_handright:1482730777719476305> Supportare l'evento equivale a sostenere il server. Non si tratta solo di guardare un film, ma di mandare un segnale chiaro: *le iniziative della community contano e meritano attenzione.*",
+    "",
+    "> <a:VC_Rocket:1468544312475123753> Vi ricordo anche che in vocale gli **XP** sono **doppi**. Questo è da tenere in considerazione per futuri eventi.",
+    "",
+    `<a:VC_Ping:1482694298687246377>・<@&${STAFF_COMMUNICATION_ROLE_ID}>`,
+  ].join("\n");
+}
+
 function buildFinalMovieNightAnnouncementMessage({ title, description, eventUrl }) {
   return [
     "# <a:VC_Announce:1482534613568979007> SERATA FILM",
     "",
-    `> <:VC_movie:1497534838801174559> Tutto è pronto! Questa sera, alle **21:30**, inizierà il nostro appuntamento con il cinema trasmettendo **${title}**!`,
+    `> <:VC_movie:1497534838801174559> Tutto è pronto! Questa sera, alle **${MOVIE_NIGHT_DISPLAY_TIME}**, inizierà il nostro appuntamento con il cinema trasmettendo **${title}**!`,
     "",
     "<:VC_Info:1482526956703580372> Non sai di cosa parla?",
     description,
     "",
-    "> <a:VC_Rocket:1468544312475123753>  Ci vediamo stasera! E ricorda: chi partecipa all'evento in vocale riceverà il **doppio **degli **XP **validi per la top weekly. Non mancare!",
+    "> <a:VC_Rocket:1468544312475123753> Ci vediamo stasera! E ricorda: chi partecipa all'evento in vocale riceverà il **doppio **degli **XP **validi per la top weekly. Non mancare!",
     "",
     `<:VC_CommunityManager:1494286896459681924> [Salva l'evento](${eventUrl})`,
     "",
@@ -469,11 +490,11 @@ async function collectMovieNightVoteResults(thread, client) {
   const messages = await fetchAllThreadMessages(thread);
   const proposals = messages
     .filter((message) => !message.author?.bot && !message.webhookId && !message.system)
-    .filter((message) => String(message.content || "").trim())
+    .filter((message) => extractMovieNightProposalTitle(message.content))
     .sort((a, b) => Number(a.createdTimestamp || 0) - Number(b.createdTimestamp || 0));
   const results = [];
   for (const message of proposals) {
-    const title = String(message.content || "").trim().replace(/\s+/g, " ");
+    const title = extractMovieNightProposalTitle(message.content);
     const votes = await countReactionVotes(getMovieVoteReaction(message), client?.user?.id);
     results.push({ messageId: String(message.id || ""), title, votes });
   }
@@ -540,6 +561,25 @@ async function resolveFinalMovieTitle(client, state, now = new Date()) {
   return getFixedMovieTitleForWeek(now) || (await resolveTieBreakerPollWinner(client, state)) || resolveWinnerFromVoteResults(state?.voteResults);
 }
 
+async function publishMovieNightStaffCommunication(client, { title, weekKey, now = new Date() }) {
+  const channel =
+    client.channels.cache.get(STAFF_COMMUNICATION_CHANNEL_ID) ||
+    (await client.channels.fetch(STAFF_COMMUNICATION_CHANNEL_ID).catch(() => null));
+  if (!channel?.isTextBased?.() || !channel?.send) {
+    return { ok: false, reason: "staff_channel_unavailable", weekKey };
+  }
+
+  const message = await channel.send({
+    content: buildMovieNightStaffCommunicationMessage({
+      title,
+      dateLabel: formatMovieNightStaffDateLabel(now),
+    }),
+    allowedMentions: { roles: [STAFF_COMMUNICATION_ROLE_ID] },
+  });
+
+  return { ok: true, messageId: String(message.id || ""), weekKey };
+}
+
 async function runMovieNightFinalAnnouncementCheck(client, opts = {}) {
   if (movieNightFinalAnnouncementRunning) return { skipped: true, reason: "already_running" };
   movieNightFinalAnnouncementRunning = true;
@@ -552,6 +592,19 @@ async function runMovieNightFinalAnnouncementCheck(client, opts = {}) {
     const hasFixedMovie = Boolean(getFixedMovieTitleForWeek(now));
     if (state?.weekKey !== weekKey && !hasFixedMovie) return { skipped: true, reason: "state_not_current_week", weekKey };
     if (!opts.force && state?.weekKey === weekKey && state?.finalAnnouncementMessageId) {
+      if (!state?.staffCommunicationMessageId) {
+        const title = await resolveFinalMovieTitle(client, state, now);
+        if (title) {
+          const staffResult = await publishMovieNightStaffCommunication(client, { title, weekKey, now });
+          if (staffResult?.ok) {
+            await setBotState(STATE_KEY, {
+              ...state,
+              staffCommunicationMessageId: String(staffResult.messageId || ""),
+              staffCommunicationAt: new Date().toISOString(),
+            });
+          }
+        }
+      }
       return { skipped: true, reason: "already_announced", weekKey };
     }
 
@@ -577,6 +630,7 @@ async function runMovieNightFinalAnnouncementCheck(client, opts = {}) {
       allowedMentions: { roles: [EVENTS_ROLE_ID, SERATA_FILM_ROLE_ID] },
     });
 
+    const staffResult = await publishMovieNightStaffCommunication(client, { title, weekKey, now });
     await setBotState(STATE_KEY, {
       ...previousState,
       weekKey,
@@ -586,8 +640,20 @@ async function runMovieNightFinalAnnouncementCheck(client, opts = {}) {
       finalMovieDescription: description,
       finalAnnouncementMessageId: String(message.id || ""),
       finalAnnouncedAt: new Date().toISOString(),
+      ...(staffResult?.ok
+        ? {
+            staffCommunicationMessageId: String(staffResult.messageId || ""),
+            staffCommunicationAt: new Date().toISOString(),
+          }
+        : {}),
     });
-    return { ok: true, title, messageId: String(message.id || ""), weekKey };
+    return {
+      ok: true,
+      title,
+      messageId: String(message.id || ""),
+      staffCommunicationMessageId: staffResult?.ok ? String(staffResult.messageId || "") : "",
+      weekKey,
+    };
   } finally {
     movieNightFinalAnnouncementRunning = false;
   }
@@ -890,25 +956,4 @@ function startMovieNightAnnouncementLoop(client) {
   return movieNightAnnouncementTasks;
 }
 
-module.exports = {
-  buildFinalMovieNightAnnouncementMessage,
-  buildMovieNightEndAnnouncementMessage,
-  buildMovieNightAnnouncementMessage,
-  buildMovieNightStartAnnouncementMessage,
-  buildTieBreakerAnnouncementMessage,
-  collectMovieNightVoteResults,
-  fetchItalianMovieDescription,
-  findCurrentWeekMovieNightEvent,
-  getFixedMovieTitleForWeek,
-  getHarryPotterMovieNightScheduleForWeek,
-  getRomeWeekKey,
-  handleMovieNightEventStart,
-  handleMovieNightStageClose,
-  isTargetMovieNightEvent,
-  closeMovieNightStagePermissions,
-  closeMovieNightReviewThreadIfDue,
-  runMovieNightAnnouncementCheck,
-  runMovieNightFinalAnnouncementCheck,
-  runMovieNightThreadCloseCheck,
-  startMovieNightAnnouncementLoop,
-};
+module.exports = { buildMovieNightStaffCommunicationMessage, buildFinalMovieNightAnnouncementMessage, buildMovieNightEndAnnouncementMessage, buildMovieNightAnnouncementMessage, buildMovieNightStartAnnouncementMessage, buildTieBreakerAnnouncementMessage, collectMovieNightVoteResults, fetchItalianMovieDescription, findCurrentWeekMovieNightEvent, getFixedMovieTitleForWeek, getHarryPotterMovieNightScheduleForWeek, getRomeWeekKey, handleMovieNightEventStart, handleMovieNightStageClose, isTargetMovieNightEvent, closeMovieNightStagePermissions, closeMovieNightReviewThreadIfDue, runMovieNightAnnouncementCheck, runMovieNightFinalAnnouncementCheck, runMovieNightThreadCloseCheck, startMovieNightAnnouncementLoop };

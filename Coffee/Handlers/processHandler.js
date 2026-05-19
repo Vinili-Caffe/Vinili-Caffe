@@ -1,4 +1,5 @@
 const { flushAllRecoverySnapshots } = require("../../shared/recovery/shutdownCheckpoint");
+const { isVoiceTransportError } = require("../../shared/discord/voiceTransportErrors");
 
 let shutdownRunning = false;
 
@@ -29,6 +30,10 @@ module.exports = function installProcessHandlers() {
   });
 
   process.on("unhandledRejection", (err) => {
+    if (isVoiceTransportError(err)) {
+      global.logger?.warn?.("[PROCESS] Voice transport (recovered): " + (err?.message || err));
+      return;
+    }
     global.logger?.error?.("[PROCESS] UNHANDLED REJECTION: " + (err?.stack || err));
   });
 

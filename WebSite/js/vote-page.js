@@ -154,6 +154,20 @@
     renderMore();
   }
 
+  function renderVoteError(message) {
+    var top3 = byId("vc-vote-top3");
+    var chip = byId("vc-vote-top-chip");
+    if (chip) chip.textContent = "Non disponibile";
+    if (top3) {
+      top3.innerHTML =
+        '<div class="vc-vote-empty-state">' +
+        '<i class="fa fa-exclamation-triangle" aria-hidden="true"></i>' +
+        '<span>' +
+        esc(message || "Statistiche voti temporaneamente non disponibili.") +
+        "</span></div>";
+    }
+  }
+
   function renderMore() {
     var remaining = allRows.slice(3);
     var visible = remaining.slice(0, loadedExtra);
@@ -225,14 +239,23 @@
     if (!url) return;
     fetch(url, { credentials: "omit", cache: "no-store" })
       .then(function (r) {
-        return r.json();
+        return r.json().then(function (body) {
+          return { ok: r.ok, status: r.status, body: body };
+        });
       })
-      .then(function (body) {
+      .then(function (out) {
+        var body = out && out.body;
+        if (!out || !out.ok) {
+          renderVoteError("Non riesco a caricare i voti in questo momento.");
+          return;
+        }
         if (!body || body.ok !== true) return;
         renderStats(body.stats || {}, body.personal || {});
         renderTop(Array.isArray(body.rows) ? body.rows : []);
       })
-      .catch(function () {});
+      .catch(function () {
+        renderVoteError("Non riesco a caricare i voti in questo momento.");
+      });
   }
 
   function stopLiveVotesPolling() {

@@ -177,17 +177,28 @@
       var raw = localStorage.getItem(key);
       if (!raw) return [];
       var arr = JSON.parse(raw);
-      return Array.isArray(arr) ? arr : [];
+      return sortNotifItems(Array.isArray(arr) ? arr : []);
     } catch (e) {
       return [];
     }
+  }
+  function notifTime(item) {
+    var n = Number(item && item.at);
+    return Number.isFinite(n) ? n : 0;
+  }
+  function sortNotifItems(items) {
+    return (Array.isArray(items) ? items.slice() : []).sort(function (a, b) {
+      var dt = notifTime(b) - notifTime(a);
+      if (dt !== 0) return dt;
+      return String(b && b.id || "").localeCompare(String(a && a.id || ""));
+    });
   }
 
   function saveStored(items) {
     var key = userStorageKey();
     if (!key) return;
     try {
-      localStorage.setItem(key, JSON.stringify(items));
+      localStorage.setItem(key, JSON.stringify(sortNotifItems(items)));
     } catch (e) {}
   }
 
@@ -286,7 +297,8 @@
         return s;
       }
     }
-    s.unshift(item);
+    s.push(item);
+    s = sortNotifItems(s);
     try {
       localStorage.setItem(key, JSON.stringify(s));
     } catch (e2) {}
@@ -531,7 +543,9 @@
     var token = getDiscordAccessToken();
     var uid = normalizeUserId(currentUserId);
     if (!token || !uid) return;
-    fetch(resolvedSiteNotificationsUrl(), { headers: { Authorization: "Bearer " + token }, credentials: "omit" })
+    var url = resolvedSiteNotificationsUrl();
+    if (!url) return;
+    fetch(url, { headers: { Authorization: "Bearer " + token }, credentials: "omit" })
       .then(function (r) {
         return r.json();
       })

@@ -11,6 +11,7 @@ const { applyDefaultFooterToEmbeds } = require("../../Utils/Embeds/defaultFooter
 const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
 const { getBotState, setBotState } = require("../../Utils/BotState/botStateStore");
 const { getUserExpStats } = require("../../Services/Community/expService");
+const { getEffectiveJoinedAt } = require("../../Services/Community/effectiveMemberJoinService");
 const BOT_ROOT = path.resolve(__dirname, "..", "..");
 const APPLY_HELPER_BUTTON = "apply_helper";
 const APPLY_PM_BUTTON = "apply_partnermanager";
@@ -389,7 +390,7 @@ async function evaluateHelperCandidatureGate(member) {
       message: "Impossibile verificare i requisiti: membro non valido.",
     };
   }
-  const joined = member.joinedAt;
+  const joined = await getEffectiveJoinedAt(member);
   if (!joined || !(joined instanceof Date) || Number.isNaN(joined.getTime())) {
     return {
       ok: false,

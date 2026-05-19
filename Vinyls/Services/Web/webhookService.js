@@ -193,6 +193,7 @@ async function startWebhookServer(client) {
   const topggSecret = String(process.env.TOPGG_WEBHOOK_SECRET || client?.config?.topgg?.webhookSecret || "").trim();
 
   const app = express();
+  app.set("trust proxy", true);
   app.use(
     express.json({
       limit: "12mb",
@@ -221,6 +222,7 @@ async function startWebhookServer(client) {
   const siteCandidatureCorsMiddleware = (req, res, next) => {
     const rawPath = String(req.originalUrl || req.url || req.path || "");
     const pathStr = rawPath.split("?")[0];
+    const isStatus = pathStr === "/webhooks/status";
     const isCandidature = pathStr.startsWith("/webhooks/site-candidature");
     const isUnban = pathStr.startsWith("/webhooks/site-unban");
     const isSiteRules = pathStr.startsWith("/webhooks/site-rules");
@@ -237,7 +239,7 @@ async function startWebhookServer(client) {
     const isSitePayments = pathStr.startsWith("/webhooks/site-payments");
     const isSiteSeratafilmAccess = pathStr.startsWith("/webhooks/site-seratafilm-access");
     const isSiteHogwartsSorting = pathStr.startsWith("/webhooks/site-hogwarts-sorting");
-    if (!isCandidature && !isUnban && !isSiteRules && !isSiteUsers && !isSiteVote && !isSiteLiveEvent && !isSiteRoles && !isSiteRankCard && !isSiteReviews && !isSiteSuggestions && !isSiteNotifications && !isSiteForum && !isSiteVerify && !isSitePayments && !isSiteSeratafilmAccess && !isSiteHogwartsSorting) return next();
+    if (!isStatus && !isCandidature && !isUnban && !isSiteRules && !isSiteUsers && !isSiteVote && !isSiteLiveEvent && !isSiteRoles && !isSiteRankCard && !isSiteReviews && !isSiteSuggestions && !isSiteNotifications && !isSiteForum && !isSiteVerify && !isSitePayments && !isSiteSeratafilmAccess && !isSiteHogwartsSorting) return next();
     const originRaw = String(req.headers.origin || "").trim();
     const originNorm = originRaw ? normalizeCorsOriginEntry(originRaw) || originRaw : "";
     let allowOrigin = "";
@@ -256,7 +258,7 @@ async function startWebhookServer(client) {
     if (allowOrigin) {
       res.setHeader("Access-Control-Allow-Origin", allowOrigin);
       res.append("Vary", "Origin");
-    } else if (isSiteRules || isSiteUsers || isSiteVote || isSiteLiveEvent || isSiteRoles || isSiteRankCard || isSiteReviews || isSiteSuggestions || isSiteNotifications || isSitePayments || isSiteSeratafilmAccess || isSiteHogwartsSorting) {
+    } else if (isStatus || isSiteRules || isSiteUsers || isSiteVote || isSiteLiveEvent || isSiteRoles || isSiteRankCard || isSiteReviews || isSiteSuggestions || isSiteNotifications || isSitePayments || isSiteSeratafilmAccess || isSiteHogwartsSorting) {
       res.setHeader("Access-Control-Allow-Origin", "*");
     }
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS");

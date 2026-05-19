@@ -5,6 +5,7 @@ const { ActivityUserProfile, ACTIVITY_MAIN_GUILD_ID } = require("../../Schemas/C
 const { sponsorMainLeave } = require("../../Utils/Community/activityUserProfilePaths");
 const { isSponsorGuildVerify } = require("../../Utils/Interaction/verifyUtils");
 const IDs = require("../../Utils/Config/ids");
+const { getEffectiveJoinedAt } = require("./effectiveMemberJoinService");
 const VOTE_ROLE_ID = IDs.roles.Voter;
 const CHECK_INTERVAL_MS = 60 * 1000;
 const MAIN_GUILD_ID = IDs.guilds.main;
@@ -175,7 +176,8 @@ async function applyTenureForMember(member, record) {
   if (!guildId || String(guildId) !== String(MAIN_GUILD_ID || "")) return;
   if (!hasVerifiedRole) return;
   const now = new Date();
-  const joinedMs = Number(member.joinedTimestamp || member.joinedAt?.getTime?.() || 0);
+  const effectiveJoined = await getEffectiveJoinedAt(member);
+  const joinedMs = Number(effectiveJoined?.getTime?.() || member.joinedTimestamp || member.joinedAt?.getTime?.() || 0);
   const verifiedAtValue = record?.profile?.verificationTenure?.verifiedAt || record?.verifiedAt;
   const stageValue = Number(record?.profile?.verificationTenure?.stage ?? record?.stage ?? 1);
   const verifiedMs = Number(new Date(verifiedAtValue).getTime() || 0);

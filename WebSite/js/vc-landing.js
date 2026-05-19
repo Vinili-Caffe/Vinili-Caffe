@@ -991,7 +991,7 @@
   var siteNotifsTimer = null;
   var siteRealtimeWs = null;
   var siteRealtimeWsReconnectTimer = null;
-  var SITE_NOTIFS_POLL_MS = 300000;
+  var SITE_NOTIFS_POLL_MS = 60000;
   /** Milliseconds the toast stays visible before flying to the bell. */
   var NOTIF_FLY_READ_MS = 4000;
   /** Fly animation duration (ms); match .vc-notif-fly-card--run in vc-landing.css. */
@@ -1103,16 +1103,27 @@
       var raw = localStorage.getItem(key);
       if (!raw) return [];
       var arr = JSON.parse(raw);
-      return Array.isArray(arr) ? arr : [];
+      return sortNotifItems(Array.isArray(arr) ? arr : []);
     } catch (e) {
       return [];
     }
+  }
+  function notifTime(item) {
+    var n = Number(item && item.at);
+    return Number.isFinite(n) ? n : 0;
+  }
+  function sortNotifItems(items) {
+    return (Array.isArray(items) ? items.slice() : []).sort(function (a, b) {
+      var dt = notifTime(b) - notifTime(a);
+      if (dt !== 0) return dt;
+      return String(b && b.id || "").localeCompare(String(a && a.id || ""));
+    });
   }
   function saveStored(items) {
     var key = userStorageKey();
     if (!key) return;
     try {
-      localStorage.setItem(key, JSON.stringify(items));
+      localStorage.setItem(key, JSON.stringify(sortNotifItems(items)));
     } catch (e) {}
   }
   function rows() {
@@ -1484,7 +1495,8 @@
         return { added: false };
       }
     }
-    s.unshift(item);
+    s.push(item);
+    s = sortNotifItems(s);
     try {
       localStorage.setItem(key, JSON.stringify(s));
     } catch (e2) {}
@@ -1832,6 +1844,7 @@
     var uid = normalizeUserId(currentUserId);
     if (!token || !uid) return;
     var url = resolvedSiteNotificationsUrl();
+    if (!url) return;
     var ctrl = null;
     var tid = null;
     try {

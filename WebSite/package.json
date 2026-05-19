@@ -1,6 +1,8 @@
 {
   "name": "viniliecaffe-website",
   "private": true,
+  "license": "UNLICENSED",
+  "copyright": "Copyright (c) 2024–2026 Vinili & Caffè. Tutti i diritti riservati.",
   "type": "module",
   "scripts": {
     "dev:candidature-proxy": "node scripts/dev-candidature-proxy.mjs",

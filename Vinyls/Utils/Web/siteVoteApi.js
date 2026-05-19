@@ -38,15 +38,21 @@ function voteLeaf(doc) {
 function combinedVotesFromLeaf(leaf, now = new Date()) {
   const currentMonthKey = voteCountMonthKeyRome(now);
   const storedMonthKey = String(leaf?.voteCountMonthKey || "").trim();
-  const monthChanged = Boolean(storedMonthKey) && storedMonthKey !== currentMonthKey;
-  if (monthChanged) {
-    return { total: 0, topgg: 0, discadia: 0 };
+  const prevMonthKey = String(leaf?.prevVoteCountMonthKey || "").trim();
+  let topgg = nInt(leaf?.voteCountTopgg);
+  let discadia = nInt(leaf?.voteCountDiscadia);
+  const legacy = nInt(leaf?.voteCount);
+  if (storedMonthKey && storedMonthKey !== currentMonthKey) {
+    if (prevMonthKey === currentMonthKey) {
+      topgg = nInt(leaf?.prevVoteCountTopgg);
+      discadia = nInt(leaf?.prevVoteCountDiscadia);
+    } else {
+      return { total: 0, topgg: 0, discadia: 0 };
+    }
   }
-  if (!storedMonthKey) {
-    return { total: 0, topgg: 0, discadia: 0 };
+  if (!storedMonthKey && legacy > 0 && topgg + discadia === 0) {
+    discadia = legacy;
   }
-  const topgg = nInt(leaf?.voteCountTopgg);
-  const discadia = nInt(leaf?.voteCountDiscadia);
   if (topgg > 0 || discadia > 0) {
     return {
       total: topgg + discadia,
@@ -142,8 +148,11 @@ async function handleSiteVoteGet(client, req, res) {
     const docs = await ActivityUserProfile.find({
       guildId,
       $or: [
+        { "profile.totals.exp.bumpVoteRewards.discadia_vote.voteCount": { $gt: 0 } },
         { "profile.totals.exp.bumpVoteRewards.discadia_vote.voteCountTopgg": { $gt: 0 } },
         { "profile.totals.exp.bumpVoteRewards.discadia_vote.voteCountDiscadia": { $gt: 0 } },
+        { "profile.totals.exp.bumpVoteRewards.discadia_vote.prevVoteCountTopgg": { $gt: 0 } },
+        { "profile.totals.exp.bumpVoteRewards.discadia_vote.prevVoteCountDiscadia": { $gt: 0 } },
       ],
     })
       .select(

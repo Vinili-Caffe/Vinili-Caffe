@@ -1,11 +1,13 @@
 const { EmbedBuilder } = require("discord.js");
-const { DIVIDER_URL } = require("../../../shared/discord/constants");
 const IDs = require("../Config/ids");
 const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
-const { getGuildChannelCached } = require("../Interaction/interactionEntityCache");
-const DONATIONS_INFO_URL = "https://www.viniliecaffe.it/donazioni/";
+const { getGuildChannelCached, getGuildMemberCached } = require("../Interaction/interactionEntityCache");
 
 const TIER_RANK = { donator: 1, vip: 2, vipPlus: 3 };
+const DONATION_ANNOUNCE_DEBOUNCE_MS = 5000;
+const DONATION_ANNOUNCE_COOLDOWN_MS = 90_000;
+const pendingDonationAnnounceByMember = new Map();
+const lastDonationAnnounceByMember = new Map();
 const ROLE_ID_BY_TIER = {
   donator: IDs.roles.Donator,
   vip: IDs.roles.VIP,
@@ -92,6 +94,71 @@ function buildDonationPackageEmbed(tier, member) {
     .setThumbnail(avatarUrl || null)
 }
 
+function memberAnnounceKey(guildId, userId) {
+  return `${String(guildId || "").trim()}:${String(userId || "").trim()}`;
+}
+
+function mergePendingDonationAnnounce(key, tier, newMember) {
+  const rank = TIER_RANK[tier] || 0;
+  let pending = pendingDonationAnnounceByMember.get(key);
+  if (!pending) {
+    pending = { maxTier: tier, maxRank: rank, guild: newMember.guild, userId: newMember.id, timer: null };
+    pendingDonationAnnounceByMember.set(key, pending);
+  } else if (rank >= pending.maxRank) {
+    pending.maxTier = tier;
+    pending.maxRank = rank;
+  }
+  pending.guild = newMember.guild;
+  if (pending.timer) clearTimeout(pending.timer);
+  pending.timer = setTimeout(() => {
+    void flushDonationPackageAnnounce(key).catch(() => null);
+  }, DONATION_ANNOUNCE_DEBOUNCE_MS);
+}
+
+async function flushDonationPackageAnnounce(key) {
+  const pending = pendingDonationAnnounceByMember.get(key);
+  if (!pending) return;
+  pendingDonationAnnounceByMember.delete(key);
+  if (pending.timer) clearTimeout(pending.timer);
+
+  const tier = pending.maxTier;
+  const rank = TIER_RANK[tier] || 0;
+  if (!tier || !rank) return;
+
+  const now = Date.now();
+  const last = lastDonationAnnounceByMember.get(key);
+  if (last && now - last.at < DONATION_ANNOUNCE_COOLDOWN_MS && rank <= (TIER_RANK[last.tier] || 0)) return;
+
+  const guild = pending.guild;
+  const userId = String(pending.userId || "");
+  const mainId = String(IDs.guilds?.main || "");
+  if (!guild || String(guild.id) !== mainId || !userId) return;
+
+  const channelId = IDs.channels?.supporters;
+  if (!channelId) return;
+
+  const member = await getGuildMemberCached(guild, userId, { preferFresh: true }).catch(() => null);
+  if (!member?.guild) return;
+
+  const channel =
+    member.guild.channels.cache.get(channelId) || (await getGuildChannelCached(member.guild, channelId));
+  if (!channel?.isTextBased?.()) return;
+
+  const staffPing = String(IDs.roles?.Staff || "").trim();
+  const content = staffPing
+    ? `<a:ThankYou:1329504268369002507> \`|\`  ${member.user} \`|\` <@&${staffPing}>`
+    : `<a:ThankYou:1329504268369002507> \`|\`  ${member.user}`;
+
+  await channel
+    .send({
+      content,
+      embeds: [buildDonationPackageEmbed(tier, member)],
+    })
+    .catch(() => null);
+
+  lastDonationAnnounceByMember.set(key, { tier, at: now });
+}
+
 async function maybeAnnounceDonationPackageInSupporters(oldMember, newMember) {
   const mainId = String(IDs.guilds?.main || "");
   if (!mainId || String(newMember.guild.id) !== mainId) return;
@@ -100,24 +167,7 @@ async function maybeAnnounceDonationPackageInSupporters(oldMember, newMember) {
   const tier = pickHighestNewPurchasedTier(oldMember, newMember);
   if (!tier) return;
 
-  const channelId = IDs.channels?.supporters;
-  if (!channelId) return;
-
-  const channel =
-    newMember.guild.channels.cache.get(channelId) || (await getGuildChannelCached(newMember.guild, channelId));
-  if (!channel?.isTextBased?.()) return;
-
-  const staffPing = String(IDs.roles?.Staff || "").trim();
-  const content = staffPing
-    ? `<a:ThankYou:1329504268369002507> \`|\`  ${newMember.user} \`|\` <@&${staffPing}>`
-    : `<a:ThankYou:1329504268369002507> \`|\`  ${newMember.user}`;
-
-  await channel
-    .send({
-      content,
-      embeds: [buildDonationPackageEmbed(tier, newMember)],
-    })
-    .catch(() => null);
+  mergePendingDonationAnnounce(memberAnnounceKey(newMember.guild.id, newMember.id), tier, newMember);
 }
 
 module.exports = { maybeAnnounceDonationPackageInSupporters };

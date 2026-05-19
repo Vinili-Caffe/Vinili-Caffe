@@ -7,11 +7,6 @@ const {
   timingSafeHexEq,
 } = require("../../Utils/Ticket/ticketTranscriptSecure");
 const { resolvePublicSiteBase } = require("../../Utils/Web/verifyOauthPublicUrl");
-const {
-  fetchDiscordUserIdFromUserAccessToken,
-  canUserViewTicketTranscript,
-  parseAuthorizationBearer,
-} = require("./ticketTranscriptAccess");
 
 const RATE_WINDOW_MS = 60_000;
 const RATE_MAX = 120;
@@ -90,6 +85,29 @@ function wantsTranscriptGateHtml(req) {
   return true;
 }
 
+function resolveTranscriptRequestBase(req) {
+  const rawHost = String(req.headers["x-forwarded-host"] || req.headers.host || "")
+    .split(",")[0]
+    .trim();
+  if (!/^[a-z0-9.-]+(?::\d+)?$/i.test(rawHost)) return resolvePublicSiteBase();
+  const rawProto = String(req.headers["x-forwarded-proto"] || req.protocol || "https")
+    .split(",")[0]
+    .trim()
+    .toLowerCase();
+  const proto = rawProto === "http" ? "http" : "https";
+  return `${proto}://${rawHost}`;
+}
+
+function transcriptReturnPath(req, token) {
+  return String(req.originalUrl || req.path || `/ticket-transcript/${token}`).trim();
+}
+
+function buildTranscriptLoginUrl(req, returnPath) {
+  const base = resolveTranscriptRequestBase(req);
+  const qs = new URLSearchParams({ r: returnPath });
+  return `${base}/webhooks/site-verify/oauth-start?${qs.toString()}`;
+}
+
 function escHtml(s) {
   return String(s || "")
     .replace(/&/g, "&amp;")
@@ -98,11 +116,32 @@ function escHtml(s) {
     .replace(/"/g, "&quot;");
 }
 
-function buildTranscriptGateHtml(loginUrl, returnPath) {
+function setTranscriptPageHeaders(res) {
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Robots-Tag", "noindex, nofollow");
+  res.setHeader("Cache-Control", "private, no-store");
+  const csp =
+    "default-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'; " +
+    "img-src 'self' data: blob: https:; " +
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; " +
+    "font-src 'self' data: https://fonts.gstatic.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; " +
+    "script-src 'self' 'unsafe-inline'; connect-src 'self' https://discord.com";
+  res.setHeader(
+    "Content-Security-Policy",
+    csp,
+  );
+  res.removeHeader?.("Content-Security-Policy-Report-Only");
+}
+
+function buildTranscriptGateHtml(loginUrl, returnPath, options = {}) {
   const hrefLogin = escHtml(loginUrl);
   const pathJson = JSON.stringify(returnPath);
   const tokenKey = JSON.stringify(ACCESS_TOKEN_KEY);
   const expKey = JSON.stringify(EXPIRES_AT_KEY);
+  const initialError = JSON.stringify(String(options.message || ""));
+  const shouldClearToken = options.clearToken === true ? "true" : "false";
+  const shouldAutoLoad = options.autoLoad === false ? "false" : "true";
   return (
     "<!DOCTYPE html><html lang=\"it\"><head><meta charset=\"utf-8\"><meta name=\"robots\" content=\"noindex,nofollow\">" +
     "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>Transcript — accesso</title>" +
@@ -119,14 +158,21 @@ function buildTranscriptGateHtml(loginUrl, returnPath) {
     '">Accedi con Discord</a></p>' +
     '<p id="vc-tr-wait" style="display:none;color:#94a3b8;font-size:.9rem;">Caricamento transcript…</p>' +
     '<p id="err" hidden></p></div>' +
-    "<script>(function(){var P=" +
+    "<script>(function(){function S(x,d){try{d=d||0;if(x&&typeof x==='object'){var p=[];if(x.message!=null)p.push(String(x.message));if(x.stack!=null)p.push(String(x.stack));if(x.name!=null)p.push(String(x.name));if(d<2&&x.reason!=null)p.push(S(x.reason,d+1));if(d<2&&x.error!=null)p.push(S(x.error,d+1));if(p.length)return p.join(' ')}return String(x||'')}catch(e){return''}}function N(x){var m=S(x);return /listener indicated an asynchronous response/i.test(m)||/asynchronous response by returning true/i.test(m)||/channel closed before a response was received/i.test(m)||/message channel closed/i.test(m)||/extension context invalidated/i.test(m)}function H(e){if(!N(e&&e.reason)&&!N(e&&e.message)&&!N(e&&e.error))return;try{e.preventDefault();e.stopImmediatePropagation()}catch(_e){}}window.addEventListener('unhandledrejection',H,true);window.addEventListener('error',H,true);var P=" +
     pathJson +
     ";var TK=" +
     tokenKey +
     ";var EX=" +
     expKey +
+    ";var MSG=" +
+    initialError +
+    ";var CLEAR=" +
+    shouldClearToken +
+    ";var AUTO=" +
+    shouldAutoLoad +
     ";var wait=document.getElementById('vc-tr-wait');var err=document.getElementById('err');" +
     "function getTok(){try{var t=localStorage.getItem(TK)||'';var exp=Number(localStorage.getItem(EX)||0);if(!t||!exp||Date.now()>=exp)return '';return t;}catch(e){return '';}}" +
+    "function clearTok(){try{localStorage.removeItem(TK);localStorage.removeItem(EX);}catch(e){}}" +
     "function showErr(m){if(err){err.hidden=false;err.textContent=m;}if(wait)wait.style.display='none';}" +
     "function loadTx(){var tok=getTok();if(!tok){return;}if(wait)wait.style.display='block';" +
     "fetch(P,{headers:{Authorization:'Bearer '+tok},credentials:'omit',cache:'no-store'})" +
@@ -134,29 +180,23 @@ function buildTranscriptGateHtml(loginUrl, returnPath) {
     "if(r.status===403)throw new Error('forbidden');throw new Error('http');})" +
     ".then(function(html){document.open('text/html','replace');document.write(html);document.close();})" +
     ".catch(function(e){if(wait)wait.style.display='none';if(String(e&&e.message)==='forbidden'){" +
-    "showErr('Accesso negato: solo l\\'autore del ticket o lo staff possono leggere questo transcript.');}else if(String(e&&e.message)==='sessione'){" +
+    "clearTok();showErr('Accesso negato con la sessione Discord salvata. Premi Accedi con Discord e usa l\\'account staff corretto.');}else if(String(e&&e.message)==='sessione'){" +
     "showErr('Sessione scaduta. Usa «Accedi con Discord».');}else{showErr('Impossibile caricare il transcript. Riprova.');}});}" +
-    "loadTx();})();<\/script></body></html>"
+    "if(CLEAR)clearTok();if(MSG)showErr(MSG);if(AUTO)loadTx();})();<\/script></body></html>"
   );
 }
 
 function sendTranscriptHtmlResponse(ticketDoc, res) {
   const inline = typeof ticketDoc.transcriptHtmlInline === "string" ? ticketDoc.transcriptHtmlInline : "";
   if (inline) {
-    res.setHeader("Content-Type", "text/html; charset=utf-8");
-    res.setHeader("X-Content-Type-Options", "nosniff");
-    res.setHeader("X-Robots-Tag", "noindex, nofollow");
-    res.setHeader("Cache-Control", "private, no-store");
+    setTranscriptPageHeaders(res);
     return res.status(200).send(inline);
   }
   const fp = String(ticketDoc.transcriptHtmlPath || "").trim();
   if (!fp || !fs.existsSync(fp)) {
     return res.status(404).type("text/plain").send("Transcript non disponibile.");
   }
-  res.setHeader("Content-Type", "text/html; charset=utf-8");
-  res.setHeader("X-Content-Type-Options", "nosniff");
-  res.setHeader("X-Robots-Tag", "noindex, nofollow");
-  res.setHeader("Cache-Control", "private, no-store");
+  setTranscriptPageHeaders(res);
   return res.status(200).sendFile(fp, (err) => {
     if (err) {
       global.logger?.warn?.("[TICKET TRANSCRIPT HTTP] sendFile:", err?.message || err);
@@ -166,7 +206,7 @@ function sendTranscriptHtmlResponse(ticketDoc, res) {
 }
 
 function mountTicketTranscriptRoutes(app, client) {
-  app.get("/ticket-transcript/:token", async (req, res) => {
+  const handleTicketTranscriptGet = async (req, res) => {
     const ip = transcriptClientIp(req);
     if (!allowTranscriptRate(ip)) {
       res.setHeader("Retry-After", "60");
@@ -201,50 +241,10 @@ function mountTicketTranscriptRoutes(app, client) {
       return res.status(410).type("text/plain").send("Transcript scaduto.");
     }
 
-    const bearer = parseAuthorizationBearer(req);
-    if (!bearer) {
-      if (!wantsTranscriptGateHtml(req)) {
-        return res.status(401).json({
-          ok: false,
-          error: "login_required",
-          message: "Richiesto login Discord: header Authorization: Bearer <token> (stesso token OAuth del sito).",
-        });
-      }
-      const base = resolvePublicSiteBase();
-      const returnPath = String(req.path || `/ticket-transcript/${param}`);
-      const qs = new URLSearchParams({ r: returnPath });
-      const loginUrl = `${base}/webhooks/site-verify/oauth-start?${qs.toString()}`;
-      res.setHeader("Content-Type", "text/html; charset=utf-8");
-      res.setHeader("X-Content-Type-Options", "nosniff");
-      res.setHeader("X-Robots-Tag", "noindex, nofollow");
-      res.setHeader("Cache-Control", "private, no-store");
-      return res.status(200).send(buildTranscriptGateHtml(loginUrl, returnPath));
-    }
-
-    if (!client) {
-      return res.status(503).type("text/plain").send("Servizio non disponibile.");
-    }
-
-    const authMe = await fetchDiscordUserIdFromUserAccessToken(bearer);
-    if (!authMe.ok) {
-      res.setHeader("X-Robots-Tag", "noindex, nofollow");
-      return res
-        .status(Number(authMe.status) || 401)
-        .type("text/plain")
-        .send(authMe.message || "Sessione non valida.");
-    }
-
-    const allow = await canUserViewTicketTranscript(client, authMe.userId, ticketDoc);
-    if (!allow.ok) {
-      res.setHeader("X-Robots-Tag", "noindex, nofollow");
-      return res
-        .status(Number(allow.status) || 403)
-        .type("text/plain")
-        .send(allow.message || "Accesso negato.");
-    }
-
     return sendTranscriptHtmlResponse(ticketDoc, res);
-  });
+  };
+
+  app.get(["/ticket-transcript/:token", "/ticket_transcript/:token"], handleTicketTranscriptGet);
 }
 
 module.exports = { mountTicketTranscriptRoutes };

@@ -71,7 +71,7 @@
         },
         "security": {
             "roles": [
-                "roles.Founder"
+                "roles.HighStaff"
             ],
             "channels": [
                 "channels.staffCmds"
@@ -618,6 +618,7 @@
                 "channels.commands",
                 "channels.forum",
                 "channels.selfieVerificati",
+                "channels.serataFilm",
                 "channels.vocaleLounge1",
                 "channels.vocaleLounge2",
                 "channels.vocaleLounge3",
@@ -683,6 +684,78 @@
             ],
             "channels": [
                 "channels.ship"
+            ]
+        },
+        "bal": {
+            "roles": [
+                "roles.Member"
+            ],
+            "channels": [
+                "channels.economy"
+            ]
+        },
+        "work": {
+            "roles": [
+                "roles.Member"
+            ],
+            "channels": [
+                "channels.economy"
+            ]
+        },
+        "daily": {
+            "roles": [
+                "roles.Member"
+            ],
+            "channels": [
+                "channels.economy"
+            ]
+        },
+        "weekly": {
+            "roles": [
+                "roles.Member"
+            ],
+            "channels": [
+                "channels.economy"
+            ]
+        },
+        "monthly": {
+            "roles": [
+                "roles.Member"
+            ],
+            "channels": [
+                "channels.economy"
+            ]
+        },
+        "rob": {
+            "roles": [
+                "roles.Member"
+            ],
+            "channels": [
+                "channels.economy"
+            ]
+        },
+        "roulette": {
+            "roles": [
+                "roles.Member"
+            ],
+            "channels": [
+                "channels.economy"
+            ]
+        },
+        "rps": {
+            "roles": [
+                "roles.Member"
+            ],
+            "channels": [
+                "channels.economy"
+            ]
+        },
+        "slots": {
+            "roles": [
+                "roles.Member"
+            ],
+            "channels": [
+                "channels.economy"
             ]
         },
         "snipe": {
@@ -1013,9 +1086,6 @@
             "ownerSegment": 3
         },
         "security_panel:hub:*": {
-            "roles": [
-                "roles.Founder"
-            ],
             "ownerSegment": 2
         },
         "security_panel:pick:*": {
@@ -1025,27 +1095,15 @@
             "ownerSegment": 2
         },
         "security_panel:status:*": {
-            "roles": [
-                "roles.Founder"
-            ],
             "ownerSegment": 2
         },
         "security_panel:panic:*": {
-            "roles": [
-                "roles.Founder"
-            ],
             "ownerSegment": 2
         },
         "security_panel:statics:*": {
-            "roles": [
-                "roles.Founder"
-            ],
             "ownerSegment": 2
         },
         "security_panel:back:*": {
-            "roles": [
-                "roles.Founder"
-            ],
             "ownerSegment": 2
         },
         "cmd_colors_btn:*": {
@@ -1754,6 +1812,15 @@
                 "roles.VIPplus"
             ],
             "ownerSegment": 1
+        },
+        "security_panel:hub:*": {
+            "ownerSegment": 2
+        },
+        "security_panel:pick:*": {
+            "roles": [
+                "roles.HighStaff"
+            ],
+            "ownerSegment": 2
         },
         "profile_panel:select:*": {
             "roles": [

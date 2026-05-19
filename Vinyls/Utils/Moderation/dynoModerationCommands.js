@@ -46,6 +46,60 @@ function isServerOwner(member, guild) {
   return Boolean(member && guild && String(member.id) === String(guild.ownerId));
 }
 
+function describeBanError(err) {
+  const code = Number(err?.code ?? err?.rawError?.code ?? 0);
+  const raw = String(err?.message || err?.rawError?.message || "").toLowerCase();
+  if (code === 50013 || raw.includes("missing permissions")) {
+    return "Il bot non può bannare questo utente. Spesso il bersaglio ha il permesso **Amministratore** (non basta avere un ruolo più alto in lista).";
+  }
+  if (code === 50035 || raw.includes("delete_message")) {
+    return "Discord non accetta i parametri del ban (cancellazione messaggi). Riprova con `+ban save <utente> <motivo>`.";
+  }
+  if (code === 10026 || raw.includes("already banned")) {
+    return "Questo utente è **già bannato**.";
+  }
+  if (raw.includes("owner")) {
+    return "Non si può bannare il **proprietario** del server.";
+  }
+  if (raw.includes("cannot ban") || raw.includes("hierarchy") || raw.includes("role hierarchy")) {
+    return "Discord rifiuta il ban per **gerarchia ruoli** o perché il bersaglio ha permessi che il bot non può superare.";
+  }
+  if (code === 10013 || raw.includes("unknown user")) {
+    return "Utente sconosciuto o **ID non valido**.";
+  }
+  if (code === 30032) {
+    return "Raggiunto il **limite massimo** di ban del server.";
+  }
+  const detail = String(err?.message || err?.rawError?.message || "").trim();
+  if (detail) return `Discord: ${detail.slice(0, 240)}`;
+  return "Discord ha rifiutato il ban senza ulteriori dettagli.";
+}
+
+async function executeGuildBan(guild, userId, options) {
+  const id = String(userId || "").trim();
+  if (!/^\d{17,20}$/.test(id)) return { ok: false, error: "ID utente non valido." };
+  let lastErr = null;
+  try {
+    await guild.members.ban(id, options);
+    return { ok: true };
+  } catch (err) {
+    lastErr = err;
+  }
+  try {
+    await guild.bans.create(id, options);
+    return { ok: true };
+  } catch (err) {
+    lastErr = err;
+  }
+  global.logger?.warn?.("[moderation] ban failed:", {
+    guildId: guild?.id,
+    userId: id,
+    code: lastErr?.code ?? lastErr?.rawError?.code,
+    message: lastErr?.message || lastErr?.rawError?.message,
+  });
+  return { ok: false, error: describeBanError(lastErr) };
+}
+
 async function validateModerationTarget(message, member, actionLabel, targetUserId = "") {
   let targetMember = member || null;
   const fallbackId = String(targetUserId || targetMember?.id || "").trim();
@@ -61,6 +115,15 @@ async function validateModerationTarget(message, member, actionLabel, targetUser
   }
   if (isServerOwner(targetMember, message.guild)) {
     return { ok: false, error: "<:VC_Lock:1482526739044368476> Non puoi moderare il proprietario del server." };
+  }
+  if (targetMember.permissions?.has(PermissionsBitField.Flags.Administrator)) {
+    const botAdmin = message.guild?.members?.me?.permissions?.has(PermissionsBitField.Flags.Administrator);
+    if (!botAdmin) {
+      return {
+        ok: false,
+        error: "<:VC_Lock:1482526739044368476> Questo utente ha **Amministratore**: il bot non può bannarlo finché non ha anche Amministratore o finché non gli togli quel permesso.",
+      };
+    }
   }
   const actorMember = message.member;
   const actorHighest = getHighestModerationRelevantRolePosition(actorMember);
@@ -387,8 +450,10 @@ async function runNamed(name, message, args, client) {
       return reply(message, client, "Ban", "<:VC_Lock:1482526739044368476> Il motivo è obbligatorio per il ban. Uso: `+ban [utente] [durata] [motivo]`", "Red");
     }
     const deleteSeconds = mode === "save" ? 0 : 604800;
-    const ok = await message.guild.members.ban(userId, { reason, deleteMessageSeconds: deleteSeconds }).then(() => true).catch(() => false);
-    if (!ok) return reply(message, client, "Ban", "<:VC_Lock:1482526739044368476> Operazione fallita.", "Red");
+    const banOut = await executeGuildBan(message.guild, userId, { reason, deleteMessageSeconds: deleteSeconds });
+    if (!banOut.ok) {
+      return reply(message, client, "Ban", `<:VC_Lock:1482526739044368476> ${banOut.error}`, "Red");
+    }
     await sendModerationDm({
       user,
       guildId: message.guild.id,

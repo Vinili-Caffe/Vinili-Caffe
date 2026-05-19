@@ -1,7 +1,7 @@
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, PermissionsBitField, ChannelType } = require("discord.js");
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, PermissionsBitField, ChannelType, InteractionWebhook } = require("discord.js");
 const { MentionReaction } = require("../Schemas/Community/autoInteractionSchemas");
 const { ActivityUserProfile, CustomRole, AvatarPrivacy, BannerPrivacy, QuotePrivacy } = require("../Schemas/Community/communitySchemas");
-const { getBirthdayProfile, setBirthdayProfile, clearBirthdayProfile } = require("../Services/Community/profileStore");
+const { getBirthdayProfile, setBirthdayProfile, clearBirthdayProfile, getMentionResponse, setMentionResponse, clearMentionResponse } = require("../Services/Community/profileStore");
 const { applyZodiacRoleFromBirthday, stripAllZodiacRoles } = require("../Utils/Community/zodiacRoles");
 const { applyAgeBracketRoleFromBirthday, stripAllAgeBracketRoles } = require("../Utils/Community/ageBracketRoles");
 const { inferBirthYearFromAge, getRomeDateParts, tryCelebrateBirthdayAfterProfileSave } = require("../Services/Community/birthdayService");
@@ -26,6 +26,7 @@ const SECTION_CUSTOMROLE = "customrole";
 const SECTION_CUSTOMROLE_SECONDARY = "customrole_secondary";
 const SECTION_CUSTOMVOC = "customvoc";
 const SECTION_CUSTOMREACTION = "customreaction";
+const SECTION_MENTIONRESPONSE = "mentionresponse";
 const SECTION_DMFILTERS = "dmfilters";
 const SECTION_PRIVACY = "privacy";
 const SECTION_ROLE_PANEL = "rolepanel";
@@ -33,8 +34,10 @@ const SECTION_COLORS = "colors";
 const CMD_COLORS_SEG = "cmd_colors_seg:";
 const PRIVATE_FLAG = 1 << 6;
 const birthdayDrafts = new Map();
+const mentionResponsePrompts = new Map();
 const BIRTHDAY_DRAFTS_SNAPSHOT_PATH = path.join(__dirname, "..", "Data", "birthdayDraftsSnapshot.json");
 const BIRTHDAY_DRAFT_TTL_MS = 3 * 60 * 60 * 1000;
+const MENTION_RESPONSE_PROMPT_TTL_MS = 90_000;
 let birthdayDraftsLoaded = false;
 const ANCHOR_ROLE_ID = IDs?.roles?.separatore4 || "1469452890761596981";
 const CUSTOM_VOICE_CATEGORY_ID = IDs?.categories?.categoryPrivate || "1442569078379118755";
@@ -156,17 +159,58 @@ function sanitizeVoiceBaseName(name) {
   return clean || "privata";
 }
 
+const { buildCustomVocName: buildCustomVocNameFromUtils } = require("../Utils/Interaction/customRoleUtils");
+
 function buildCustomVocName(emoji, baseName) {
-  const safeEmoji = String(emoji || "🎧").trim() || "🎧";
-  const safeBase = sanitizeVoiceBaseName(baseName);
-  const prefix = `༄${safeEmoji}︲`;
-  const maxBaseLength = Math.max(1, 100 - prefix.length);
-  return `${prefix}${safeBase.slice(0, maxBaseLength)}`;
+  return buildCustomVocNameFromUtils(emoji, baseName);
 }
 
 function memberCanCreateCustomVoc(member) {
   if (!member?.roles?.cache) return false;
   return CUSTOM_VOC_CREATE_ROLE_IDS.some((roleId) => member.roles.cache.has(roleId));
+}
+
+function memberHasMentionResponseAccess(member) {
+  const roleId = String(IDs?.roles?.HighStaff || "").trim();
+  return Boolean(roleId && member?.roles?.cache?.has(roleId));
+}
+
+function mentionResponsePromptKey(guildId, userId) {
+  return `${String(guildId || "")}:${String(userId || "")}`;
+}
+
+function clearMentionResponsePrompt(guildId, userId) {
+  const key = mentionResponsePromptKey(guildId, userId);
+  const old = mentionResponsePrompts.get(key);
+  if (old?.timerId) clearTimeout(old.timerId);
+  mentionResponsePrompts.delete(key);
+}
+
+function registerMentionResponsePrompt(interaction, ownerId) {
+  const guildId = String(interaction.guild?.id || "");
+  const userId = String(interaction.user?.id || "");
+  if (!guildId || !userId) return;
+  clearMentionResponsePrompt(guildId, userId);
+  const key = mentionResponsePromptKey(guildId, userId);
+  const timerId = setTimeout(() => mentionResponsePrompts.delete(key), MENTION_RESPONSE_PROMPT_TTL_MS);
+  timerId.unref?.();
+  mentionResponsePrompts.set(key, {
+    ownerId: String(ownerId || ""),
+    channelId: String(interaction.channelId || interaction.channel?.id || ""),
+    panelMessageId: String(interaction.message?.id || ""),
+    interactionApplicationId: interaction.applicationId ? String(interaction.applicationId) : "",
+    interactionToken: interaction.token ? String(interaction.token) : "",
+    expiresAt: Date.now() + MENTION_RESPONSE_PROMPT_TTL_MS,
+    timerId,
+  });
+}
+
+async function editMentionResponsePromptReply(client, pending, content) {
+  const appId = pending?.interactionApplicationId;
+  const token = pending?.interactionToken;
+  if (!client || !appId || !token) return false;
+  const hook = new InteractionWebhook(client, appId, token);
+  return hook.editMessage("@original", { content, embeds: [], components: [] }).then(() => true).catch(() => false);
 }
 
 function listVoiceChannelsWithOwnerPrivateAccess(guild, ownerId) {
@@ -297,9 +341,10 @@ function parsePanelCustomId(customId) {
 
 async function fetchProfilePanelState(guild, userId, client) {
   const guildId = guild?.id;
-  const [birthday, reactionDoc, customState, customDocLean, noDmPrefs, avatarPrivacy, bannerPrivacy, quotePrivacy, member, contestPrizeLean, eventWeek2Grant, eventWeek3Grant] = await Promise.all([
+  const [birthday, reactionDoc, mentionResponse, customState, customDocLean, noDmPrefs, avatarPrivacy, bannerPrivacy, quotePrivacy, member, contestPrizeLean, eventWeek2Grant, eventWeek3Grant] = await Promise.all([
     getBirthdayProfile(guildId, userId),
     MentionReaction.findOne({ guildId, userId }).lean().catch(() => null),
+    getMentionResponse(guildId, userId).catch(() => null),
     resolveCustomRoleState({ guild, userId, client, cleanupExpired: false }),
     CustomRole.findOne(
       { guildId, userId },
@@ -322,6 +367,7 @@ async function fetchProfilePanelState(guild, userId, client) {
   const hasCustomRoleAccess = memberHasCustomRolePanelAccess(member, { hasContestSecondPlaceUnlock: contestSecondUnlock, hasEventWeek2Grant: Boolean(eventWeek2Grant), hasEventWeek3Grant: Boolean(eventWeek3Grant), hasPartnerManagerCustomBundle: pmCustomBundleActive });
   const hasCustomVocAccess = memberCanCreateCustomVoc(member) || contestSecondUnlock || Boolean(eventWeek2Grant) || Boolean(eventWeek3Grant) || pmCustomBundleActive;
   const hasCustomReactionAccess = memberHasCustomReactionRoleAccess(member);
+  const hasMentionResponseAccess = memberHasMentionResponseAccess(member);
   const customReactionMax = getCustomReactionMax(member);
   const colorLevel = await colorUnlocks.fetchNumericProfileLevel(guildId, userId).catch(() => 0);
   const colorCanPickPlus = await colorUnlocks.memberHasPlusColorFullEligibilityAsync(member).catch(() => false);
@@ -354,11 +400,12 @@ async function fetchProfilePanelState(guild, userId, client) {
   return {
     birthday: birthday || null,
     reactions: cappedReactionList,
+    mentionResponse: mentionResponse || null,
     custom: mergedCustomState,
     panelMember: member && member.guild ? member : null,
     noDm: noDmPrefs || { blockAll: false, disabled: new Set() },
     privacy: { avatar: Boolean(avatarPrivacy?.blocked), banner: Boolean(bannerPrivacy?.blocked), quotes: Boolean(quotePrivacy?.blocked) },
-    featureAccess: { customRole: hasCustomRoleAccess, customVoc: hasCustomVocAccess, customReaction: hasCustomReactionAccess, customReactionMax, secondaryCustomRole: memberHasCustomRoleSecondarySlot(member) },
+    featureAccess: { customRole: hasCustomRoleAccess, customVoc: hasCustomVocAccess, customReaction: hasCustomReactionAccess, mentionResponse: hasMentionResponseAccess, customReactionMax, secondaryCustomRole: memberHasCustomRoleSecondarySlot(member) },
     colors: { level: colorLevel, canPickPlus: colorCanPickPlus },
   };
 }
@@ -403,6 +450,8 @@ function buildSectionEmbed(section, state, userOrMember, guild = null) {
   const reactionList = Array.isArray(state?.reactions) ? state.reactions : [];
   const reactionMax = Math.max(1, Number(state?.featureAccess?.customReactionMax || MAX_REACTIONS));
   const reactionsText = reactionList.length ? reactionList.map((token) => renderReactionToken(token, guild)).join(" ") : "Non impostate";
+  const mentionResponseText = String(state?.mentionResponse?.text || "").trim();
+  const mentionResponsePreview = mentionResponseText ? mentionResponseText.slice(0, 700) : "Non impostata";
   const birthdayPrivacy = birthday?.showAge === false ? "Nascosta" : "Visibile";
   const noDm = state?.noDm || { blockAll: false, disabled: new Set() };
   const disabledDmSet = noDm?.disabled instanceof Set ? noDm.disabled : new Set(Array.isArray(noDm?.disabled) ? noDm.disabled : []);
@@ -486,6 +535,19 @@ function buildSectionEmbed(section, state, userOrMember, guild = null) {
       ].join("\n"));
   }
 
+  if (section === SECTION_MENTIONRESPONSE) {
+    return base
+      .setDescription([
+        "<:VC_Info:1482526956703580372> **Mention Response**",
+        "",
+        "Quando qualcuno ti menziona esplicitamente in chat, il bot invia questa risposta automatica.",
+        "",
+        `<:VC_Modifica:1478859646587633717> Risposta attuale: ${mentionResponseText ? `\n> ${mentionResponsePreview}` : "**Non impostata**"}`,
+        "",
+        "<:VC_Lock:1482526739044368476> Funzione riservata all'High Staff.",
+      ].join("\n"));
+  }
+
   if (section === SECTION_DMFILTERS) {
     const isAll = Boolean(noDm?.blockAll || disabledDmSet.has(DM_CATEGORY_ALL));
     const lines = DM_CATEGORIES.map((key) => {
@@ -554,6 +616,7 @@ function buildSectionEmbed(section, state, userOrMember, guild = null) {
       ...homeRoleLines,
       `<:VC_Modifica:1478859646587633717> Vocale Privata: ${customVocLinked}`,
       `<:VC_emoji:1485419161168511036> Custom Reactions: ${reactionsText}`,
+      ...(state?.featureAccess?.mentionResponse ? [`<a:VC_Ping:1482694298687246377> Mention Response: **${mentionResponseText ? "Impostata" : "Non impostata"}**`] : []),
       "",
       "<:VC_Modifica:1478859646587633717> Usa il menu a tendina per cambiare pagina e i pulsanti per agire.",
     ].join("\n"))
@@ -570,6 +633,7 @@ function buildRows(guild, ownerId, section, state = null, rolePanelCategory = nu
   const canAccessCustomRole = Boolean(state?.featureAccess?.customRole);
   const canAccessCustomVoc = Boolean(state?.featureAccess?.customVoc);
   const canAccessCustomReaction = Boolean(state?.featureAccess?.customReaction);
+  const canAccessMentionResponse = Boolean(state?.featureAccess?.mentionResponse);
   const canCreateSecondaryRole = Boolean(state?.featureAccess?.secondaryCustomRole);
   const roleId = String(state?.custom?.role?.id || "").trim();
   const secondaryRoleId = String(state?.custom?.secondaryRole?.id || "").trim();
@@ -601,6 +665,11 @@ function buildRows(guild, ownerId, section, state = null, rolePanelCategory = nu
   if (canAccessCustomReaction) {
     selectOptions.push(
       { label: "Mention Reactions", value: SECTION_CUSTOMREACTION, emoji: "<:VC_Vip:1482534921472835895>", default: section === SECTION_CUSTOMREACTION },
+    );
+  }
+  if (canAccessMentionResponse) {
+    selectOptions.push(
+      { label: "Mention Response", value: SECTION_MENTIONRESPONSE, emoji: "<a:VC_Ping:1482694298687246377>", default: section === SECTION_MENTIONRESPONSE },
     );
   }
   const select = new StringSelectMenuBuilder()
@@ -677,6 +746,12 @@ function buildRows(guild, ownerId, section, state = null, rolePanelCategory = nu
     return [row1, row2, closeRow()];
   } else if (section === SECTION_CUSTOMREACTION) {
     return [row1, ...buildCustomReactionPanelRows(ownerId), closeRow()];
+  } else if (section === SECTION_MENTIONRESPONSE) {
+    row2.addComponents(
+      new ButtonBuilder().setCustomId(`${PANEL_PREFIX}:action:${ownerId}:mentionresponse_set`).setLabel("Imposta Risposta").setEmoji("<:VC_Modifica:1478859646587633717>").setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId(`${PANEL_PREFIX}:action:${ownerId}:mentionresponse_clear`).setLabel("Rimuovi").setEmoji("<:VC_delete:1485421886589501511>").setStyle(ButtonStyle.Danger).setDisabled(!String(state?.mentionResponse?.text || "").trim()),
+    );
+    return [row1, row2, closeRow()];
   } else if (section === SECTION_DMFILTERS) {
     const noDm = state?.noDm || { blockAll: false, disabled: new Set() };
     const isAll = Boolean(noDm?.blockAll || noDm?.disabled?.has?.(DM_CATEGORY_ALL));
@@ -771,6 +846,7 @@ async function buildPanelPayload(guild, ownerId, client, section = SECTION_HOME,
   const canAccessSecondaryCustomRole = Boolean(state?.featureAccess?.secondaryCustomRole);
   const canAccessCustomVoc = Boolean(state?.featureAccess?.customVoc);
   const canAccessCustomReaction = Boolean(state?.featureAccess?.customReaction);
+  const canAccessMentionResponse = Boolean(state?.featureAccess?.mentionResponse);
   let requestedSection = String(section || SECTION_HOME);
   let roleCatIn = rolePanelCategory;
   if (requestedSection === SECTION_COLORS) {
@@ -789,7 +865,8 @@ async function buildPanelPayload(guild, ownerId, client, section = SECTION_HOME,
   const isDeniedCustomVoc =
     !canAccessCustomVoc && requestedSection === SECTION_CUSTOMVOC;
   const isDeniedCustomReaction = !canAccessCustomReaction && requestedSection === SECTION_CUSTOMREACTION;
-  const safeSection = (isDeniedCustomRole || isDeniedSecondaryCustomRole || isDeniedSecondaryNoPrimary || isDeniedCustomVoc || isDeniedCustomReaction)
+  const isDeniedMentionResponse = !canAccessMentionResponse && requestedSection === SECTION_MENTIONRESPONSE;
+  const safeSection = (isDeniedCustomRole || isDeniedSecondaryCustomRole || isDeniedSecondaryNoPrimary || isDeniedCustomVoc || isDeniedCustomReaction || isDeniedMentionResponse)
     ? SECTION_HOME
     : requestedSection;
   const draft = getBirthdayDraft(guild?.id, ownerId);
@@ -838,6 +915,21 @@ async function ensureCustomReactionEnabled(interaction, ownerId, client) {
   await interaction.reply({
     content:
       "<:VC_Attention:1482534443632558151> Serve VIP, Server Booster, Level 70, Double Booster o VIP+ per usare le custom reactions.",
+    flags: PRIVATE_FLAG,
+  }).catch(() => { });
+  return false;
+}
+
+async function ensureMentionResponseEnabled(interaction, ownerId) {
+  const guild = interaction.guild;
+  const member =
+    interaction.member ||
+    (guild && typeof guild.members?.fetch === "function"
+      ? await guild.members.fetch(ownerId).catch(() => null)
+      : null);
+  if (memberHasMentionResponseAccess(member)) return true;
+  await interaction.reply({
+    content: "<:VC_Attention:1482534443632558151> Mention Response e riservata all'High Staff.",
     flags: PRIVATE_FLAG,
   }).catch(() => { });
   return false;
@@ -1140,6 +1232,50 @@ async function handleReactionSetModal(interaction, ownerId) {
     content: `<:vegacheckmark:1443666279058772028> Reactions salvate: ${tokens.map((token) => renderReactionToken(token, interaction.guild)).join(" ")}`,
     flags: PRIVATE_FLAG,
   }).catch(() => { });
+  return true;
+}
+
+async function handleProfileMentionResponsePromptMessage(message) {
+  if (!message?.guild || message.author?.bot || message.webhookId || message.system) return false;
+  const key = mentionResponsePromptKey(message.guild.id, message.author.id);
+  const pending = mentionResponsePrompts.get(key);
+  if (!pending) return false;
+  if (Date.now() > Number(pending.expiresAt || 0)) {
+    clearMentionResponsePrompt(message.guild.id, message.author.id);
+    return false;
+  }
+  if (String(message.channelId || "") !== String(pending.channelId || "")) return false;
+  const prefix = String(message.client?.config?.prefix || "+");
+  const raw = String(message.content || "").trim();
+  if (!raw || raw.startsWith(prefix)) return false;
+  const ownerId = String(pending.ownerId || "");
+  const member = await message.guild.members.fetch(ownerId).catch(() => null);
+  if (!memberHasMentionResponseAccess(member)) {
+    clearMentionResponsePrompt(message.guild.id, message.author.id);
+    await message.delete().catch(() => { });
+    await editMentionResponsePromptReply(message.client, pending, "<:VC_Attention:1482534443632558151> Mention Response e riservata all'High Staff.");
+    return true;
+  }
+  if (/^annulla$/i.test(raw)) {
+    clearMentionResponsePrompt(message.guild.id, message.author.id);
+    await message.delete().catch(() => { });
+    await editMentionResponsePromptReply(message.client, pending, "<:cancel:1461730653677551691> Operazione annullata.");
+    return true;
+  }
+  const text = raw.replace(/\s+/g, " ").slice(0, 500).trim();
+  if (!text) return false;
+  await setMentionResponse(message.guild.id, ownerId, text).catch(() => { });
+  clearMentionResponsePrompt(message.guild.id, message.author.id);
+  await message.delete().catch(() => { });
+  if (pending.panelMessageId && message.channel?.messages?.fetch) {
+    const panel = await message.channel.messages.fetch(pending.panelMessageId).catch(() => null);
+    if (panel?.editable) {
+      const payload = await buildPanelPayload(message.guild, ownerId, message.client, SECTION_MENTIONRESPONSE).catch(() => null);
+      if (payload) await panel.edit(payload).catch(() => { });
+    }
+  }
+  const edited = await editMentionResponsePromptReply(message.client, pending, "<:vegacheckmark:1443666279058772028> Mention Response salvata.");
+  if (!edited) await message.channel.send({ content: "<:vegacheckmark:1443666279058772028> Mention Response salvata." }).catch(() => { });
   return true;
 }
 
@@ -1545,6 +1681,59 @@ async function execute(interaction, client) {
       return true;
     }
 
+    if (action === "mentionresponse_set") {
+      const allowed = await ensureMentionResponseEnabled(interaction, ownerId);
+      if (!allowed) return true;
+      await interaction.reply({
+        content: "✏️ Invia in chat la risposta automatica da usare quando qualcuno ti menziona.\nScrivi `annulla` per annullare.",
+        flags: PRIVATE_FLAG,
+      }).catch(() => { });
+      const filter = (msg) =>
+        String(msg?.author?.id || "") === String(interaction.user?.id || "") &&
+        !msg.author?.bot &&
+        !msg.webhookId &&
+        !msg.system;
+      const collector = interaction.channel?.createMessageCollector?.({ filter, time: MENTION_RESPONSE_PROMPT_TTL_MS, max: 1 });
+      if (!collector) return true;
+      collector.on("collect", async (msg) => {
+        const raw = String(msg.content || "").trim();
+        const prefix = String(msg.client?.config?.prefix || "+");
+        if (!raw || raw.startsWith(prefix)) {
+          await interaction.editReply({ content: "<:vegax:1443934876440068179> Risposta non valida. Clicca di nuovo il bottone per riprovare." }).catch(() => { });
+          return;
+        }
+        await msg.delete().catch(() => { });
+        if (/^annulla$/i.test(raw)) {
+          await interaction.editReply({ content: "<:cancel:1461730653677551691> Operazione annullata." }).catch(() => { });
+          return;
+        }
+        const text = raw.replace(/\s+/g, " ").slice(0, 500).trim();
+        if (!text) {
+          await interaction.editReply({ content: "<:vegax:1443934876440068179> Risposta non valida. Clicca di nuovo il bottone per riprovare." }).catch(() => { });
+          return;
+        }
+        await setMentionResponse(interaction.guild.id, ownerId, text).catch(() => { });
+        const payload = await buildPanelPayload(interaction.guild, ownerId, interaction.client, SECTION_MENTIONRESPONSE);
+        await interaction.message?.edit?.(payload).catch(() => { });
+        await interaction.editReply({ content: "<:vegacheckmark:1443666279058772028> Mention Response salvata." }).catch(() => { });
+      });
+      collector.on("end", async (collected, reason) => {
+        if (reason === "time" && collected.size === 0) {
+          await interaction.editReply({ content: "<:VC_Clock:1473359204189474886> Tempo scaduto. Clicca di nuovo il bottone per riprovare." }).catch(() => { });
+        }
+      });
+      return true;
+    }
+
+    if (action === "mentionresponse_clear") {
+      const allowed = await ensureMentionResponseEnabled(interaction, ownerId);
+      if (!allowed) return true;
+      await clearMentionResponse(interaction.guild.id, ownerId).catch(() => { });
+      const payload = await buildPanelPayload(interaction.guild, ownerId, client, SECTION_MENTIONRESPONSE);
+      await safeUpdatePanelInteraction(interaction, payload);
+      return true;
+    }
+
     if (action === "open_customrole" || action === "open_customvoc" || action === "open_customreaction") {
       const cmd = action === "open_customrole"
         ? "+profile"
@@ -1578,4 +1767,4 @@ async function execute(interaction, client) {
   return false;
 }
 
-module.exports = { name: "profile", order: 70, match, execute, buildPanelPayload };
+module.exports = { name: "profile", order: 70, match, execute, buildPanelPayload, handleProfileMentionResponsePromptMessage };

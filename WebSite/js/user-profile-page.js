@@ -618,12 +618,7 @@
         esc(vid || "—") +
         "</span>" +
         "</div>" +
-        '<div class="vc-user-profile-customgrid__row">' +
-        '<span class="vc-user-profile-customgrid__label"><i class="fa fa-users" aria-hidden="true"></i> Condiviso con</span>' +
-        '<span class="vc-user-profile-customgrid__value">' +
-        esc(formatIntIt(count)) +
-        " utenti</span>" +
-        "</div>" +
+        sharedMembersMarkup(voice.sharedMembers, count, "Utenti con accesso") +
         '<div class="vc-user-profile-customgrid__row">' +
         '<span class="vc-user-profile-customgrid__label"><i class="fa fa-calendar-o" aria-hidden="true"></i> Creato</span>' +
         '<span class="vc-user-profile-customgrid__value">' +

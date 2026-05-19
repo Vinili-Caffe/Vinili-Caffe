@@ -1,3 +1,8 @@
+/*!
+ * Copyright (c) 2024–2026 Vinili & Caffè. Tutti i diritti riservati.
+ * Uso, copia, modifica e distribuzione vietati senza autorizzazione scritta.
+ * SPDX-License-Identifier: LicenseRef-Proprietary-ViniliCaffe — vedi LICENSE.
+ */
 const child_process = require('child_process');
 const fs = require('fs');
 const path = require('path');

@@ -317,15 +317,14 @@ async function handleStaffButtons(interaction) {
 ${staffSanctionRuleIntro("1.1")}                <:VC_Reply:1482532158080942191> Sanzione: **Ban**
 
                 <:rules:1443307208543703131> **__Regola \`1.2\`__**
-${staffSanctionRuleIntro("1.2")}                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Mute __2h__**
-                <:VC_DoubleReply:1482532332509466797> 2° Sanzione: **Mute __6h__**
-                <:VC_DoubleReply:1482532332509466797> 3° Sanzione: **Mute __12h__**
-                <:VC_Reply:1482532158080942191> 4° Sanzione: **Mute __24h__**
+${staffSanctionRuleIntro("1.2")}                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Mute __4h__**
+                <:VC_DoubleReply:1482532332509466797> 2° Sanzione: **Mute __12h__**
+                <:VC_Reply:1482532158080942191> 3° Sanzione: **Mute __24h__**
 
                 <:rules:1443307208543703131> **__Regola \`1.3\`__**
 ${staffSanctionRuleIntro("1.3")}                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Warn**
-                <:VC_DoubleReply:1482532332509466797> 2° Sanzione: **Mute __3h__**
-                <:VC_DoubleReply:1482532332509466797> 3° Sanzione: **Mute __6h__**
+                <:VC_DoubleReply:1482532332509466797> 2° Sanzione: **Mute __4h__**
+                <:VC_DoubleReply:1482532332509466797> 3° Sanzione: **Mute __8h__**
                 <:VC_Reply:1482532158080942191> 4° Sanzione: **Mute __18h__**
 
                 <:rules:1443307208543703131> **__Regola \`1.4\`__**
@@ -339,26 +338,19 @@ ${staffSanctionRuleIntro("1.5")}                <:VC_Reply:1482532158080942191> 
 
   if (interaction.customId == "testualimoderazione") {
     const embed = new EmbedBuilder().setColor("#6f4e37").setDescription(`<:rules:1443307208543703131> **__Regola \`2.1\`__**
-${staffSanctionRuleIntro("2.1")}                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Mute __18h__**
+${staffSanctionRuleIntro("2.1")}                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Mute __24h__**
                 <:VC_Reply:1482532158080942191> 2° Sanzione: **Ban**
 
                 <:rules:1443307208543703131> **__Regola \`2.2\`__**
-${staffSanctionRuleIntro("2.2")}               <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Warn**
-                <:VC_DoubleReply:1482532332509466797> 2° Sanzione: **Mute __12h__**
-                <:VC_DoubleReply:1482532332509466797> 3° Sanzione: **Mute __18h__**
-                <:VC_DoubleReply:1482532332509466797> 4° Sanzione: **Mute __24h__**
-                <:VC_Reply:1482532158080942191> 5° Sanzione: **Ban**
+${staffSanctionRuleIntro("2.2")}                <:VC_Reply:1482532158080942191> Sanzione: **Ban**
 
                 <:rules:1443307208543703131> **__Regola \`2.3\`__**
-${staffSanctionRuleIntro("2.3")}                <:VC_Reply:1482532158080942191> Sanzione: **Ban**
+${staffSanctionRuleIntro("2.3")}                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Warn**
+                <:VC_DoubleReply:1482532332509466797> 2° Sanzione: **Mute __3h__**
+                <:VC_Reply:1482532158080942191> 3° Sanzione: **Mute __6h__**
 
                 <:rules:1443307208543703131> **__Regola \`2.4\`__**
-${staffSanctionRuleIntro("2.4")}               <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Warn**
-                <:VC_DoubleReply:1482532332509466797> 2° Sanzione: **Mute __6h__**
-                <:VC_Reply:1482532158080942191> 3° Sanzione: **Mute __18h__**
-
-                <:rules:1443307208543703131> **__Regola \`2.5\`__**
-${staffSanctionRuleIntro("2.5")}                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Richiamo verbale**
+${staffSanctionRuleIntro("2.4")}                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Warn**
                 <:VC_Reply:1482532158080942191> 2° Sanzione: **Mute __2h__**`);
     await interaction.reply({ embeds: [embed], flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
     return true;
@@ -366,43 +358,29 @@ ${staffSanctionRuleIntro("2.5")}                <:VC_DoubleReply:148253233250946
 
   if (interaction.customId == "vocalimoderazione") {
     const embed = new EmbedBuilder().setColor("#6f4e37").setDescription(`<:rules:1443307208543703131> **__Regola \`3.1\`__**
-${staffSanctionRuleIntro("3.1")}                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Mute __16h__**
-                <:VC_Reply:1482532158080942191> 2° Sanzione: **Ban**
+${staffSanctionRuleIntro("3.1")}                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Mute __12h__**
+                <:VC_DoubleReply:1482532332509466797> 2° Sanzione: **Mute __24h__**
+                <:VC_Reply:1482532158080942191> 3° Sanzione: **Ban**
 
                 <:rules:1443307208543703131> **__Regola \`3.2\`__**
-${staffSanctionRuleIntro("3.2")}                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Mute __12h__**
-                <:VC_DoubleReply:1482532332509466797> 2° Sanzione: **Mute __18h__**
-                <:VC_DoubleReply:1482532332509466797> 3° Sanzione: **Mute __24h__**
-                <:VC_Reply:1482532158080942191> 4° Sanzione: **Ban**
+${staffSanctionRuleIntro("3.2")}                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Mute __4h__**
+                <:VC_DoubleReply:1482532332509466797> 2° Sanzione: **Mute __12h__**
+                <:VC_Reply:1482532158080942191> 3° Sanzione: **Mute __24h__**
 
                 <:rules:1443307208543703131> **__Regola \`3.3\`__**
-${staffSanctionRuleIntro("3.3")}                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Mute __6h__**
-                <:VC_DoubleReply:1482532332509466797> 2° Sanzione: **Mute __12h__**
-                <:VC_DoubleReply:1482532332509466797> 3° Sanzione: **Mute __24h__**
-                <:VC_Reply:1482532158080942191> 4° Sanzione: **Mute __48h__**
+${staffSanctionRuleIntro("3.3")}                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Mute __2h__**
+                <:VC_DoubleReply:1482532332509466797> 2° Sanzione: **Mute __6h__**
+                <:VC_Reply:1482532158080942191> 3° Sanzione: **Mute __12h__**
 
                 <:rules:1443307208543703131> **__Regola \`3.4\`__**
-${staffSanctionRuleIntro("3.4")}                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Mute __3h__**
-                <:VC_DoubleReply:1482532332509466797> 2° Sanzione: **Mute __6h__**
-                <:VC_DoubleReply:1482532332509466797> 3° Sanzione: **Mute __12h__**
-                <:VC_Reply:1482532158080942191> 4° Sanzione: **Ban**
-
-                <:rules:1443307208543703131> **__Regola \`3.5\`__**
-${staffSanctionRuleIntro("3.5")}                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Mute __3h__**
-                <:VC_DoubleReply:1482532332509466797> 2° Sanzione: **Mute __12h__**
-                <:VC_DoubleReply:1482532332509466797> 3° Sanzione: **Mute __24h__**
-                <:VC_Reply:1482532158080942191> 4° Sanzione: **Ban**
+${staffSanctionRuleIntro("3.4")}                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Mute __6h__**
+                <:VC_DoubleReply:1482532332509466797> 2° Sanzione: **Mute __15h__**
+                <:VC_Reply:1482532158080942191> 3° Sanzione: **Mute __35h__**
 
                 <:rules:1443307208543703131> **__Regola \`3.6\`__**
-${staffSanctionRuleIntro("3.6")}                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Richiamo verbale**
-                <:VC_Reply:1482532158080942191> 2° Sanzione: **Mute __2h__**
-
-                <:rules:1443307208543703131> **__Regola \`3.7\`__**
-${staffSanctionRuleIntro("3.7")}                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Mute __4h__**
-                <:VC_DoubleReply:1482532332509466797> 2° Sanzione: **Mute __12h__**
-                <:VC_DoubleReply:1482532332509466797> 3° Sanzione: **Mute __18h__**
-                <:VC_DoubleReply:1482532332509466797> 4° Sanzione: **Mute __24h__**
-                <:VC_Reply:1482532158080942191> 5° Sanzione: **Ban**`);
+${staffSanctionRuleIntro("3.6")}                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Mute __5h__**
+                <:VC_DoubleReply:1482532332509466797> 2° Sanzione: **Mute __11h__**
+                <:VC_Reply:1482532158080942191> 3° Sanzione: **Mute __24h__**`);
     await interaction.reply({ embeds: [embed], flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
     return true;
   }
@@ -880,9 +858,6 @@ module.exports = {
         "",
         "<:rules:1443307208543703131> **`REGOLA TESTUALE 2.4`**",
         `<:VC_Reply:1482532158080942191> ${MOD_RULE_DETAIL["2.4"]}`,
-        "",
-        "<:rules:1443307208543703131> **`REGOLA TESTUALE 2.5`**",
-        `<:VC_Reply:1482532158080942191> ${MOD_RULE_DETAIL["2.5"]}`,
       ].join("\n");
       const voiceRules = [
         "<:rules:1443307208543703131> **`REGOLA VOCALE 3.1`**",
@@ -897,14 +872,8 @@ module.exports = {
         "<:rules:1443307208543703131> **`REGOLA VOCALE 3.4`**",
         `<:VC_Reply:1482532158080942191> ${MOD_RULE_DETAIL["3.4"]}`,
         "",
-        "<:rules:1443307208543703131> **`REGOLA VOCALE 3.5`**",
-        `<:VC_Reply:1482532158080942191> ${MOD_RULE_DETAIL["3.5"]}`,
-        "",
         "<:rules:1443307208543703131> **`REGOLA VOCALE 3.6`**",
         `<:VC_Reply:1482532158080942191> ${MOD_RULE_DETAIL["3.6"]}`,
-        "",
-        "<:rules:1443307208543703131> **`REGOLA VOCALE 3.7`**",
-        `<:VC_Reply:1482532158080942191> ${MOD_RULE_DETAIL["3.7"]}`,
       ].join("\n");
       await interaction.reply({
         components: [

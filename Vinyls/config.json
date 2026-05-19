@@ -523,6 +523,30 @@
     "pageUrl": "/evento/pozioni",
     "redirectUrl": "/evento/shop"
   },
+  "galeoniEconomy": {
+    "enabled": true,
+    "previewMode": true,
+    "startDate": "2026-08-10T00:00:00",
+    "minBet": 5,
+    "maxBet": 250,
+    "dailyBetCap": 1000,
+    "work": { "cooldownMs": 3600000, "minReward": 8, "maxReward": 24, "streakStepPct": 1, "streakMaxBonusPct": 10, "streakGraceMs": 10800000 },
+    "daily": { "cooldownMs": 86400000, "reward": 50, "streakStepPct": 3, "streakMaxBonusPct": 30, "streakGraceMs": 172800000 },
+    "weekly": { "cooldownMs": 604800000, "reward": 250, "streakStepPct": 5, "streakMaxBonusPct": 50, "streakGraceMs": 1209600000 },
+    "monthly": { "cooldownMs": 2592000000, "reward": 900, "streakStepPct": 10, "streakMaxBonusPct": 100, "streakGraceMs": 5356800000 },
+    "rob": {
+      "cooldownMs": 21600000,
+      "successChance": 35,
+      "minTargetBalance": 80,
+      "minSteal": 15,
+      "maxSteal": 120,
+      "failPenalty": 25,
+      "targetProtectionMs": 43200000
+    },
+    "roulette": { "cooldownMs": 30000, "numberPayout": 36, "simplePayout": 2 },
+    "rps": { "cooldownMs": 5000, "winPayout": 2 },
+    "slots": { "cooldownMs": 5000, "pairPayout": 2, "triplePayout": 5, "jackpotPayout": 10 }
+  },
   "categoryNumbering": {
     "enabled": true,
     "debounceMs": 1200,

@@ -44,12 +44,14 @@
       /injectscript\.js/i.test(msg) ||
       /message channel closed before a response was received/i.test(msg) ||
       /message channel closed/i.test(msg) ||
+      /channel closed before a response was received/i.test(msg) ||
       /closed before a response was received/i.test(msg) ||
       /could not establish connection\.?\s*receiving end does not exist/i.test(msg) ||
       /extension context invalidated/i.test(msg) ||
       /the message port closed before a response was received/i.test(msg) ||
       /message port closed/i.test(msg) ||
       /listener indicated an asynchronous response/i.test(msg) ||
+      /listener.*returning true.*(?:message )?channel closed/i.test(msg) ||
       /asynchronous response by returning true/i.test(msg) ||
       /unchecked runtime\.lasterror/i.test(msg) ||
       /wrappedSendMessageCallback/i.test(msg) ||

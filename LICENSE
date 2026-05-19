@@ -1,0 +1,52 @@
+LICENZA PROPRIETARIA — VINILI & CAFFÈ
+=====================================
+
+Copyright (c) 2024–2026 Vinili & Caffè. Tutti i diritti riservati.
+
+Il presente repository e tutto il materiale in esso contenuto (codice sorgente,
+script, configurazioni, asset, documentazione e file derivati) sono di proprietà
+esclusiva di Vinili & Caffè e dei suoi titolari.
+
+CONCESSIONE
+-----------
+
+Non viene concessa alcuna licenza, esplicita o implicita, a terzi per l'uso di
+questo software o di qualsiasi sua parte.
+
+È espressamente vietato, senza previa autorizzazione scritta dei titolari:
+
+  • copiare, riprodurre o duplicare il codice o i file del progetto;
+  • modificare, adattare, tradurre o creare opere derivate;
+  • distribuire, pubblicare, sublicenziare o mettere a disposizione di terzi;
+  • eseguire, installare o far girare il software in ambienti non autorizzati;
+  • decompilare, disassemblare o effettuare reverse engineering, salvo dove
+    la legge applicabile lo imponga in modo inderogabile;
+  • rimuovere o alterare avvisi di copyright o di licenza.
+
+USO AUTORIZZATO
+---------------
+
+L'uso del codice è consentito esclusivamente al personale autorizzato di
+Vinili & Caffè, per finalità interne e operative concordate dai titolari.
+Ogni altro uso è non autorizzato e costituisce violazione dei diritti del
+titolare.
+
+TERZE PARTI
+-----------
+
+Componenti di terze parti (librerie npm, script vendor, tool in deploy/tools)
+restano soggetti alle rispettive licenze indicate nei file originali o in
+NOTICE.md. Il presente documento non estende diritti su tali componenti.
+
+GARANZIE E RESPONSABILITÀ
+-------------------------
+
+Il software è fornito "così com'è", senza garanzie di alcun tipo. In nessun
+caso i titolari saranno responsabili per danni derivanti dall'uso non autorizzato
+o da qualsiasi utilizzo del materiale coperto da questa licenza.
+
+CONTATTI
+--------
+
+Per richieste di autorizzazione: contattare i titolari di Vinili & Caffè
+attraverso i canali ufficiali della community.

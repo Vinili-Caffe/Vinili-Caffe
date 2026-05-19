@@ -1231,7 +1231,7 @@ async function renderChannelActivityCanvas(props) {
   if (!GIFEncoder || !ACTIVITY_CANVAS_GIF) {
     const canvas = getCanvasModule().createCanvas(width, height);
     const ctx = canvas.getContext("2d");
-    await paintChannelActivityCanvas(ctx, props, 0, channelIconResolved);
+    await paintChannelActivityCanvas(ctx, props, 1, channelIconResolved);
     return canvas.toBuffer("image/png");
   }
 
@@ -1537,7 +1537,7 @@ async function renderUserActivityCanvas(props) {
   if (!GIFEncoder || !ACTIVITY_CANVAS_GIF) {
     const canvas = getCanvasModule().createCanvas(width, height);
     const ctx = canvas.getContext("2d");
-    await paintUserActivityCanvas(ctx, props, 0, avatarResolved);
+    await paintUserActivityCanvas(ctx, props, 1, avatarResolved);
     return canvas.toBuffer("image/png");
   }
 
@@ -1765,6 +1765,7 @@ async function renderServerActivityCanvas(props) {
   registerCanvasFonts(getCanvasModule());
   const width = 1280;
   const height = 940;
+  const forceStatic = Boolean(props?.forceStatic);
   const guildIconResolved = props.guildIconUrl ? await loadAvatarForStatsCanvas(props.guildIconUrl) : null;
   let GIFEncoder = null;
   try {
@@ -1773,10 +1774,10 @@ async function renderServerActivityCanvas(props) {
     GIFEncoder = null;
   }
 
-  if (!GIFEncoder || !ACTIVITY_CANVAS_GIF) {
+  if (!GIFEncoder || !ACTIVITY_CANVAS_GIF || forceStatic) {
     const canvas = getCanvasModule().createCanvas(width, height);
     const ctx = canvas.getContext("2d");
-    await paintServerActivityCanvas(ctx, props, 0, guildIconResolved);
+    await paintServerActivityCanvas(ctx, props, 1, guildIconResolved);
     return canvas.toBuffer("image/png");
   }
 
@@ -1785,17 +1786,17 @@ async function renderServerActivityCanvas(props) {
   encoder.start();
   encoder.setRepeat(0);
   encoder.setDelay(72);
-  encoder.setQuality(12);
+  encoder.setQuality(10);
   const canvas = getCanvasModule().createCanvas(width, height);
   const ctx = canvas.getContext("2d");
   for (let f = 0; f < animFrames; f += 1) {
     const phase = animFrames > 1 ? f / (animFrames - 1) : 1;
     await paintServerActivityCanvas(ctx, props, phase, guildIconResolved);
-    encoder.addFrame(ctx.getImageData(0, 0, width, height).data);
+    encoder.addFrame(ctx);
   }
   encoder.setDelay(ACTIVITY_CANVAS_STATIC_TAIL_DELAY_MS);
   await paintServerActivityCanvas(ctx, props, 1, guildIconResolved);
-  encoder.addFrame(ctx.getImageData(0, 0, width, height).data);
+  encoder.addFrame(ctx);
   encoder.finish();
   return Buffer.from(encoder.out.getData());
 }

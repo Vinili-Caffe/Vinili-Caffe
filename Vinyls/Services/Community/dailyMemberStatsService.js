@@ -7,8 +7,11 @@ const {
   getOrCreateDailyStats,
   getSeenUser,
   incrementDailyStatsValue,
-  setSeenUser,
 } = require("./dailyStatsStore");
+const {
+  recordEffectiveMemberJoin,
+  recordEffectiveMemberLeave,
+} = require("./effectiveMemberJoinService");
 const TIME_ZONE = "Europe/Rome";
 const DAILY_STATS_CHANNEL_ID = "1502241331295031326";
 
@@ -85,11 +88,8 @@ async function trackMemberJoin(member) {
   try {
     const userId = String(member.id);
     const existing = await getSeenUser("memberSeen", guildId, userId);
-    isNewUser = !existing;
-    await setSeenUser("memberSeen", guildId, userId, {
-      firstJoinedAt: existing?.firstJoinedAt || now,
-      lastJoinedAt: now,
-    });
+    isNewUser = !existing?.firstJoinedAt;
+    await recordEffectiveMemberJoin(member);
     if (isNewUser && await wasKnownBeforeStatsTracker(guildId, String(member.id))) {
       isNewUser = false;
     }
@@ -108,6 +108,9 @@ async function trackMemberLeave(member) {
   const guildId = getMainGuildId();
   if (!guildId || String(member.guild.id) !== guildId) return;
 
+  await recordEffectiveMemberLeave(member).catch((err) => {
+    global.logger?.warn?.("[DAILY MEMBER STATS] effective join leave failed:", err?.message || err);
+  });
   await incrementDailyStats(guildId, getRomeDateKey(new Date()), { leftUsers: 1 });
 }
 

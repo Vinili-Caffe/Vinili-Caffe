@@ -4,6 +4,9 @@
   "description": "Bot ufficiale del server",
   "main": "index.js",
   "author": "lXo",
+  "license": "UNLICENSED",
+  "private": true,
+  "copyright": "Copyright (c) 2024–2026 Vinili & Caffè. Tutti i diritti riservati.",
   "nodeVersion": "24.7.0",
   "scripts": {
     "start": "node --disable-warning=ExperimentalWarning index.js",

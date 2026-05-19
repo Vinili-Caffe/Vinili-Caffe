@@ -443,6 +443,10 @@ const activityUserProfileSchema = new Schema(
       mentionReaction: {
         reactions: { type: [String], default: [] },
       },
+      mentionResponse: {
+        text: { type: String, default: "" },
+        updatedAt: { type: Date, default: null },
+      },
       privacy: {
         avatar: {
           blocked: { type: Boolean, default: false },
@@ -492,7 +496,11 @@ const activityUserProfileSchema = new Schema(
         joinedAt: { type: Date, default: null },
         leftAt: { type: Date, default: null },
       },
-      /** true: welcome in chat / join log / inviti differiti finché non Member+separatore; DM join inviato subito all'ingresso; consumato da runDeferredJoinAnnouncements */
+      effectiveJoin: {
+        firstJoinedAt: { type: Date, default: null },
+        lastJoinedAt: { type: Date, default: null },
+        lastLeftAt: { type: Date, default: null },
+      },
       joinAnnouncePending: { type: Boolean, default: null },
       inviteReminderState: {
         inviteNearTargets: { type: [Number], default: [] },
@@ -529,6 +537,10 @@ const activityUserProfileSchema = new Schema(
             items: { type: Schema.Types.Mixed, default: () => ({}) },
           },
           potions: {
+            type: Schema.Types.Mixed,
+            default: () => ({}),
+          },
+          economy: {
             type: Schema.Types.Mixed,
             default: () => ({}),
           },

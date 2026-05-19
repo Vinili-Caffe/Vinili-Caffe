@@ -158,12 +158,16 @@
       var rp = normalizeReturnPath(obj && obj.r);
       if (rp) out.returnPath = rp;
       var n = String(obj && obj.n || "").trim();
+      var ts = Number(obj && obj.t || 0);
       var expected = "";
       try {
         expected = String(sessionStorage.getItem(OAUTH_STATE_NONCE_KEY) || "").trim();
         sessionStorage.removeItem(OAUTH_STATE_NONCE_KEY);
       } catch (e0) {}
       out.validNonce = Boolean(expected) && Boolean(n) && n === expected;
+      if (!out.validNonce && !expected && out.returnPath && Number.isFinite(ts) && Math.abs(Date.now() - ts) <= 10 * 60 * 1000) {
+        out.validNonce = true;
+      }
       return out;
     } catch (e) {
       out.returnPath = normalizeReturnPath(s);

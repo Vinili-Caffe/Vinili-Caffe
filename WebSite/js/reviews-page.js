@@ -12,6 +12,7 @@
       page: 1,
       perPage: 9,
       totalPages: 1,
+      userControlled: false,
     },
     draft: {
       server: { rating: 5, content: "" },
@@ -78,6 +79,7 @@
     state.editModalOpen = false;
     state.reviewsPager.page = 1;
     state.reviewsPager.totalPages = 1;
+    state.reviewsPager.userControlled = false;
     var serverWrap = byId("vc-reviews-server-list");
     if (serverWrap) serverWrap.innerHTML = "";
     var pager = byId("vc-reviews-pager");
@@ -409,6 +411,7 @@
   }
 
   function ensurePageIncludesDeepLink(sortedReviews) {
+    if (state.reviewsPager.userControlled) return;
     var reviewId = extractDeepLinkReviewId();
     if (!reviewId) return;
     var idx = -1;
@@ -704,22 +707,38 @@
     });
   }
 
-  function bind() {
-    var prevBtn = document.querySelector("[data-reviews-page-prev]");
-    if (prevBtn) {
-      prevBtn.addEventListener("click", function () {
-        state.reviewsPager.page = Math.max(1, Number(state.reviewsPager.page || 1) - 1);
-        render();
-      });
-    }
-    var nextBtn = document.querySelector("[data-reviews-page-next]");
-    if (nextBtn) {
-      nextBtn.addEventListener("click", function () {
-        state.reviewsPager.page = Math.max(1, Number(state.reviewsPager.page || 1) + 1);
-        render();
-      });
-    }
+  var reviewsPagerClickBound = false;
 
+  function bindReviewsPagerOnce() {
+    if (reviewsPagerClickBound) return;
+    var pager = byId("vc-reviews-pager");
+    if (!pager) return;
+    reviewsPagerClickBound = true;
+    pager.addEventListener("click", function (ev) {
+      var btn = ev.target && ev.target.closest ? ev.target.closest("[data-reviews-page-prev],[data-reviews-page-next]") : null;
+      if (!btn || btn.disabled) return;
+      state.reviewsPager.userControlled = true;
+      if (btn.hasAttribute("data-reviews-page-prev")) {
+        state.reviewsPager.page = Math.max(1, Number(state.reviewsPager.page || 1) - 1);
+      } else {
+        state.reviewsPager.page = Math.min(
+          Math.max(1, Number(state.reviewsPager.totalPages || 1)),
+          Number(state.reviewsPager.page || 1) + 1,
+        );
+      }
+      render();
+      var list = byId("vc-reviews-server-list");
+      if (list && typeof list.scrollIntoView === "function") {
+        window.requestAnimationFrame(function () {
+          try {
+            list.scrollIntoView({ behavior: "smooth", block: "start" });
+          } catch (eScroll) {}
+        });
+      }
+    });
+  }
+
+  function bind() {
     var taModal = byId("vc-review-modal-content");
     if (taModal) {
       taModal.addEventListener("input", function () {
@@ -966,6 +985,7 @@
 
   function main() {
     wireGateLoginCta();
+    bindReviewsPagerOnce();
     if (shouldUnlockReviewsPage()) {
       hideReviewsGate();
       fetchPayload();
@@ -1005,7 +1025,9 @@
 
   window.addEventListener("hashchange", function () {
     if (byId("vc-reviews-server-list")) {
+      state.reviewsPager.userControlled = false;
       window.requestAnimationFrame(function () {
+        if (state.payload) render();
         applyReviewDeepLink();
       });
     }

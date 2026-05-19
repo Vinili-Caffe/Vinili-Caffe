@@ -25,5 +25,7 @@
   },
   "nodeVersion": "24.7.0",
   "file": "loader.js",
-  "author": "lXo"
+  "author": "lXo",
+  "license": "UNLICENSED",
+  "copyright": "Copyright (c) 2024–2026 Vinili & Caffè. Tutti i diritti riservati."
 }

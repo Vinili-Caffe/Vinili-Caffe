@@ -3,6 +3,10 @@
   "version": "1.0.0",
   "description": "Bot ufficiale del server",
   "main": "index.js",
+  "author": "lXo",
+  "license": "UNLICENSED",
+  "private": true,
+  "copyright": "Copyright (c) 2024–2026 Vinili & Caffè. Tutti i diritti riservati.",
   "scripts": {
     "start": "node --disable-warning=ExperimentalWarning index.js",
     "check:mojibake": "node ../scripts/check-mojibake.js Coffee",

@@ -24,6 +24,10 @@ const DailyStats =
 
 let migrationPromise = null;
 
+function isMongoReady() {
+  return mongoose.connection?.readyState === 1;
+}
+
 function cleanObject(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : {};
 }
@@ -52,6 +56,7 @@ async function findDailyStats(scope, guildId, dateKey = "") {
 }
 
 async function getOrCreateDailyStats(scope, guildId, dateKey = "", defaultValue = {}) {
+  if (!isMongoReady()) return null;
   return DailyStats.findOneAndUpdate(
     {
       scope: String(scope || ""),
@@ -74,6 +79,7 @@ async function getOrCreateDailyStats(scope, guildId, dateKey = "", defaultValue 
 }
 
 async function incrementDailyStatsValue(scope, guildId, dateKey, increment = {}, defaultValue = {}) {
+  if (!isMongoReady()) return null;
   const inc = {};
   for (const [key, value] of Object.entries(increment || {})) {
     const n = numberOrZero(value);
@@ -94,6 +100,7 @@ async function incrementDailyStatsValue(scope, guildId, dateKey, increment = {},
 }
 
 async function addToSetDailyStatsValue(scope, guildId, dateKey, addToSet = {}, defaultValue = {}) {
+  if (!isMongoReady()) return null;
   const set = {};
   for (const [key, value] of Object.entries(addToSet || {})) {
     if (value == null || value === "") continue;
@@ -122,7 +129,7 @@ async function getSeenUser(scope, guildId, userId, bucket = "users") {
 
 async function setSeenUser(scope, guildId, userId, payload = {}, bucket = "users") {
   const uid = cleanString(userId);
-  if (!uid) return null;
+  if (!uid || !isMongoReady()) return null;
   return DailyStats.updateOne(
     { scope, guildId, dateKey: "" },
     {

@@ -1,5 +1,5 @@
 const config = require("../config.json");
-const mongoose = require("mongoose");
+const { connectMongo } = require("../Utils/Database/mongoConnect");
 const cron = require("node-cron");
 const { runCronDetached } = require("../../shared/scheduling/cronDetached");
 const { scheduleStaffListRefresh } = require("../Utils/Community/staffListUtils");
@@ -24,6 +24,7 @@ const { sweepExpiredCommunicationTimeoutMirrors } = require("../Services/Moderat
 const { sendBannedUnbanLinkDms, shouldRunBannedUnbanDmOnStartup } = require("../Services/Moderation/bannedUnbanDmService");
 const { rehydrateAntiNukePanicForGuild } = require("../Services/Moderation/antiNukeService");
 const { syncLiveVoiceSessionsFromGateway, startLiveVoiceExpLoop, } = require("../Services/Community/activityService");
+const { syncPmVoiceAfkWatchFromGateway, startPmVoiceAfkWatchLoop, } = require("../Services/Staff/pmVoiceAfkWatchService");
 const { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop, } = require("../Services/Community/customRoleExpiryService");
 const { startDailyPartnerAuditLoop, } = require("../Services/Partner/partnerAuditService");
 const { startPartnershipChannelCleanupLoop } = require("../Services/Partner/partnershipChannelCleanupService");
@@ -379,96 +380,6 @@ async function processPendingPrefixCommands(client) {
   }
 }
 
-function buildMongoUrl(client) {
-  return process.env.MONGO_URL_LOCAL || process.env.MONGODB_URI_LOCAL || process.env.MONGO_URL || process.env.MONGODB_URI || client.config.mongoURL;
-}
-
-function getMongoUrlSource() {
-  if (process.env.MONGO_URL_LOCAL) return "MONGO_URL_LOCAL (env)";
-  if (process.env.MONGODB_URI_LOCAL) return "MONGODB_URI_LOCAL (env)";
-  if (process.env.MONGO_URL) return "MONGO_URL (env)";
-  if (process.env.MONGODB_URI) return "MONGODB_URI (env)";
-  return "client.config.mongoURL";
-}
-
-function mongoUrlWith127(url) {
-  if (!url || typeof url !== "string" || url.startsWith("mongodb+srv://")) return null;
-  try {
-    const parsed = new URL(url.replace(/^mongodb:/, "https:"));
-    const host = (parsed.hostname || "").toLowerCase();
-    if (host === "127.0.0.1") return null;
-    parsed.hostname = "127.0.0.1";
-    return parsed.toString().replace(/^https:/, "mongodb:");
-  } catch {
-    return null;
-  }
-}
-
-const MONGO_CONNECT_OPTIONS = { serverSelectionTimeoutMS: 5000, connectTimeoutMS: 5000, socketTimeoutMS: 20000, maxPoolSize: 25, minPoolSize: 2, maxIdleTimeMS: 60_000 };
-const MONGO_RETRY_ATTEMPTS = 4;
-const MONGO_RETRY_DELAY_MS = 3000;
-
-function maskMongoUrlForLog(url) {
-  if (!url || typeof url !== "string") return "***";
-  try {
-    const u = url.replace(/^mongodb(\+srv)?:/, "https:");
-    const parsed = new URL(u);
-    const host = (parsed.hostname || "").toLowerCase();
-    const path = (parsed.pathname || "/").replace(/^\//, "") || "(default)";
-    const protocol = url.startsWith("mongodb+srv") ? "mongodb+srv" : "mongodb";
-    return `${protocol}://***@${host}${parsed.port && parsed.port !== "443" && parsed.port !== "80" ? ":" + parsed.port : ""}/${path}`;
-  } catch {
-    return "***";
-  }
-}
-
-async function connectMongo(client) {
-  const mongoUrl = buildMongoUrl(client);
-  if (!mongoUrl) {
-    logError(client, "[DATABASE] No MongoDB URL. Set MONGO_URL or MONGO_URL_LOCAL (or MONGODB_URI) in .env.");
-    return false;
-  }
-
-  logAlways(client, "[DATABASE] Connecting to: " + maskMongoUrlForLog(mongoUrl));
-
-  mongoose.set("strictQuery", false);
-  mongoose.set("bufferCommands", false);
-
-  if (mongoose.connection.readyState === 1) {
-    logInfo(client, "[DATABASE] Already connected to MongoDB.");
-    return true;
-  }
-
-  const fallbackUrl = mongoUrlWith127(mongoUrl);
-  const urlsToTry = [mongoUrl];
-  if (fallbackUrl && fallbackUrl !== mongoUrl) urlsToTry.push(fallbackUrl);
-
-  for (let attempt = 1; attempt <= MONGO_RETRY_ATTEMPTS; attempt++) {
-    for (const url of urlsToTry) {
-      try {
-        await mongoose.connect(url, MONGO_CONNECT_OPTIONS);
-        logInfo(client, "[DATABASE] Connected to MongoDB successfully.");
-        return true;
-      } catch (err) {
-        const isLast = attempt === MONGO_RETRY_ATTEMPTS && url === urlsToTry[urlsToTry.length - 1];
-        if (isLast) {
-          logError(client, `[DATABASE] Error connecting to the database (${err?.message || err})`);
-          return false;
-        }
-        if (attempt === 1 && url === mongoUrl) {
-          logInfo(client, `[DATABASE] First connection failed, retrying up to ${MONGO_RETRY_ATTEMPTS - 1} times (${err?.message || err})`);
-        }
-      }
-    }
-    if (attempt < MONGO_RETRY_ATTEMPTS) {
-      await new Promise((r) => setTimeout(r, MONGO_RETRY_DELAY_MS));
-    }
-  }
-
-  logError(client, "[DATABASE] All connection attempts failed.");
-  return false;
-}
-
 function isPrimaryScheduler(client) {
   return !client.shard || client.shard.ids?.[0] === 0;
 }
@@ -502,10 +413,11 @@ async function restoreBumpReminders(client) {
 }
 
 async function restoreCoreStartupState(client) {
-  const [bootstrap, inviteCache, liveVoiceSync, joinRaidRestore] = await Promise.allSettled([
+  const [bootstrap, inviteCache, liveVoiceSync, pmAfkWatchSync, joinRaidRestore] = await Promise.allSettled([
     bootstrapSupporter(client),
     primeInviteCache(client),
     syncLiveVoiceSessionsFromGateway(client),
+    syncPmVoiceAfkWatchFromGateway(client),
     Promise.allSettled(
       [...client.guilds.cache.values()].map((guild) => restoreTempBans(guild, { force: true })),
     ),
@@ -517,6 +429,8 @@ async function restoreCoreStartupState(client) {
     global.logger?.error?.("[INVITE CACHE] Failed to prime:", inviteCache.reason);
   if (liveVoiceSync.status === "rejected")
     global.logger?.error?.("[VOICE LIVE SYNC ERROR]", liveVoiceSync.reason);
+  if (pmAfkWatchSync.status === "rejected")
+    global.logger?.error?.("[PM AFK WATCH] Sync fallita:", pmAfkWatchSync.reason);
   if (joinRaidRestore.status === "rejected")
     global.logger?.error?.("[JOIN RAID RESTORE ERROR]", joinRaidRestore.reason);
 
@@ -605,6 +519,7 @@ function startPrimaryLoops(client, engagementTick) {
     ["[WEEKLY STAFF RESOCONTO] Failed to start loop", () => startWeeklyStaffResocontoLoop(client)],
     ["[STAFF WARN RESET 6M] Failed to start loop", () => startStaffWarnResetLoop(client)],
     ["[STAFF AUTO VALUTAZIONI] Failed to start loop", () => startStaffAutoValutazioniLoop(client)],
+    ["[PM AFK WATCH] Failed to start loop", () => startPmVoiceAfkWatchLoop(client)],
     ["[MOVIE NIGHT ANNOUNCE] Failed to start loop", () => startMovieNightAnnouncementLoop(client)],
     ["[DB MAINTENANCE] Failed to start loop", () => startDbMaintenanceLoop(client)],
     ["[STAFF GRACE PURGE] Failed to start loop", () => startStaffGracePurgeLoop(client)],

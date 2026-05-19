@@ -12,19 +12,12 @@ const { CORE_EXEMPT_USER_IDS } = require("./joinGateExemptUtils");
 const { ActivityUserProfile, ACTIVITY_MAIN_GUILD_ID } = require("../../Schemas/Community/communitySchemas");
 const { automodBadUser } = require("../../Utils/Community/activityUserProfilePaths");
 const { isValidGuildUserId } = require("../../Utils/DB/validateWriteIds");
-const {
-  pickPrimaryAutomodRegolaBucket,
-  getAutomodRegolaSanction,
-  formatRegolaDotFromBucket,
-  buildAutomodRegolaSummaryLine,
-  violationKeyLabelIt,
-} = require("../../Utils/Moderation/modRegolamentoConstants");
+const { pickPrimaryAutomodRegolaBucket, getAutomodRegolaSanction, formatRegolaDotFromBucket, buildAutomodRegolaSummaryLine, violationKeyLabelIt, MOD_RULE_DETAIL, } = require("../../Utils/Moderation/modRegolamentoConstants");
 const { isChannelInTicketCategory } = require("../../Utils/Ticket/ticketCategoryUtils");
 const { isMinigameFloodExemptChannel } = require("../Minigames/minigameService");
 const { createModCase, getModConfig, logModCase, formatDuration } = require("../../Utils/Moderation/moderation");
 const { getGuildChannelCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { accountUsername } = require("../../Utils/Discord/guildDiscordIdentity");
-const ARROW = "<:VC_right_arrow:1482459908245815296>";
 const USER_STATE = new Map();
 const ACTION_COOLDOWN = new Map();
 const ACTION_CHANNEL_LOG_COOLDOWN = new Map();
@@ -2485,12 +2478,198 @@ function buildAutomodAttachmentLinkEvidenceLine(message, violations = []) {
   return `🔗 **Link conteggiati (2.4):**\n${truncateText(joined, 900)}`;
 }
 
+function pickSortedViolations(violations = []) {
+  return [...(Array.isArray(violations) ? violations : [])]
+    .map((v) => ({
+      key: String(v?.key || "unknown").trim(),
+      heat: Number(v?.heat || 0),
+      info: v?.info ? String(v.info).trim() : "",
+    }))
+    .filter((v) => v.key && v.key !== "unknown")
+    .sort((a, b) => b.heat - a.heat);
+}
+
+function automodEmbedColor(action) {
+  const a = String(action || "").toLowerCase();
+  if (a === "ban") return 0x992f22;
+  if (a === "timeout") return 0xe67e22;
+  if (a === "delete" || a === "delete_webhook") return 0xf59e0b;
+  return 0x5865f2;
+}
+
+function automodActionLabelIt(action) {
+  const a = String(action || "").toLowerCase();
+  if (a === "timeout") return "Timeout";
+  if (a === "ban") return "Ban";
+  if (a === "delete" || a === "delete_webhook") return "Messaggio rimosso";
+  return "Avviso";
+}
+
+function formatAutomodViolationTechnical(info, { publicSafe = false } = {}) {
+  const raw = String(info || "").trim();
+  if (!raw) return null;
+  if (publicSafe) {
+    if (/racist list|word_blacklist|blacklist|custom_token|profane|vulgar/i.test(raw)) {
+      return "Corrispondenza in lista parole vietate.";
+    }
+    const invite = raw.match(/discord\.gg\/(\S+)/i);
+    if (invite) return `Invito rilevato: \`discord.gg/${truncateText(invite[1], 32)}\``;
+    return truncateText(raw, 100);
+  }
+  const racist = raw.match(/racist list\s*\(([^:]+):\s*.+\)/i);
+  if (racist) {
+    const src =
+      String(racist[1] || "").trim() === "custom_token"
+        ? "lista personalizzata server"
+        : String(racist[1] || "").replace(/_/g, " ");
+    return `Blacklist (${src}) · termine non mostrato nel log`;
+  }
+  return truncateText(raw, 180);
+}
+
+function buildAutomodRegolaFieldValue(violations = []) {
+  const bucket = pickPrimaryAutomodRegolaBucket(violations);
+  const dot = formatRegolaDotFromBucket(bucket);
+  if (!dot) return "Nessun riferimento regolamento automatico.";
+  const detail = MOD_RULE_DETAIL[dot];
+  if (!detail) return `Regola **${dot}**`;
+  const plain = detail
+    .replace(/\*\*/g, "")
+    .replace(/__/g, "")
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1");
+  return `**${dot}** — ${truncateText(plain, 220)}`;
+}
+
 function firstViolationLabel(violations = []) {
-  const v0 = violations?.[0];
-  const key = String(v0?.key || "unknown");
-  const base = violationKeyLabelIt(key);
-  const info = v0?.info ? ` (${v0.info})` : "";
-  return `${base}${info}`;
+  const sorted = pickSortedViolations(violations);
+  if (!sorted.length) return "Violazione regolamento";
+  return violationKeyLabelIt(sorted[0].key);
+}
+
+function buildAutomodChannelEmbed(message, action, violations, context = {}) {
+  const who = accountUsername(message.member || message.author);
+  const sorted = pickSortedViolations(violations);
+  const primary = sorted[0];
+  const durationLabel = context.timeoutMs ? formatDurationShort(context.timeoutMs) : null;
+  const actionIt = automodActionLabelIt(action);
+  const title =
+    action === "timeout"
+      ? `${actionIt}${durationLabel ? ` · ${durationLabel}` : ""}`
+      : actionIt;
+  const fields = [
+    {
+      name: "Utente",
+      value: `${message.author}\n\`${message.author.id}\``,
+      inline: true,
+    },
+    {
+      name: "Violazione",
+      value: primary ? violationKeyLabelIt(primary.key) : "Violazione regolamento",
+      inline: true,
+    },
+  ];
+  if (durationLabel) {
+    fields.push({ name: "Durata", value: durationLabel, inline: true });
+  }
+  fields.push({
+    name: "Regolamento",
+    value: buildAutomodRegolaFieldValue(violations),
+    inline: false,
+  });
+  const tech = primary ? formatAutomodViolationTechnical(primary.info, { publicSafe: true }) : null;
+  if (tech) {
+    fields.push({ name: "Dettaglio", value: tech, inline: false });
+  }
+  return new EmbedBuilder()
+    .setColor(automodEmbedColor(action))
+    .setTitle(`${title} · ${who}`)
+    .addFields(fields)
+    .setFooter({ text: "AutoMod · Vinili & Caffè" });
+}
+
+function buildAutomodStaffLogEmbed(message, action, violations, heatValue, context = {}) {
+  const whoLog = accountUsername(message.member || message.author);
+  const sorted = pickSortedViolations(violations);
+  const violationDetail = sorted
+    .slice(0, 6)
+    .map((v) => {
+      const label = violationKeyLabelIt(v.key);
+      const tech = formatAutomodViolationTechnical(v.info, { publicSafe: false });
+      const heatBit = Number.isFinite(v.heat) && v.heat > 0 ? ` · heat ${v.heat.toFixed(1)}` : "";
+      return tech ? `• **${label}**${heatBit}\n　↳ ${tech}` : `• **${label}**${heatBit}`;
+    })
+    .join("\n");
+  const timeoutLabel = context.timeoutMs ? formatDurationShort(context.timeoutMs) : null;
+  const title =
+    action === "timeout"
+      ? `AutoMod · timeout${timeoutLabel ? ` (${timeoutLabel})` : ""}`
+      : action === "ban"
+        ? "AutoMod · ban"
+        : action === "delete" || action === "delete_webhook"
+          ? "AutoMod · messaggio rimosso"
+          : "AutoMod · avviso";
+  const fields = [
+    {
+      name: "Utente",
+      value: `${message.author}\n\`${message.author.id}\``,
+      inline: true,
+    },
+    {
+      name: "Canale",
+      value: `${message.channel}\n\`${message.channelId}\``,
+      inline: true,
+    },
+    {
+      name: "Heat / azione",
+      value: `**${Number(heatValue || 0).toFixed(1)}** · ${automodActionLabelIt(action)}${timeoutLabel ? `\nDurata: **${timeoutLabel}**` : ""}`,
+      inline: true,
+    },
+    {
+      name: "Regolamento",
+      value: buildAutomodRegolaFieldValue(violations),
+      inline: false,
+    },
+  ];
+  if (violationDetail) {
+    fields.push({
+      name: "Filtri attivati",
+      value: truncateText(violationDetail, 1020),
+      inline: false,
+    });
+  }
+  fields.push({
+    name: "Decisione automatica",
+    value: truncateText(buildAutoModDecisionExplain(action, heatValue, violations, context), 1020),
+    inline: false,
+  });
+  const linkEvidenceLine = buildAutomodAttachmentLinkEvidenceLine(message, violations);
+  if (linkEvidenceLine) {
+    const linksBody = linkEvidenceLine
+      .replace(/^🔗\s*\*\*Link conteggiati \(2\.4\):\*\*\s*/i, "")
+      .replace(/^🔗[^\n]*\n?/, "")
+      .trim();
+    if (linksBody) {
+      fields.push({
+        name: "Link nel messaggio (2.4)",
+        value: truncateText(linksBody, 1020),
+        inline: false,
+      });
+    }
+  }
+  const embed = new EmbedBuilder()
+    .setColor(automodEmbedColor(action))
+    .setTitle(`${title} · ${whoLog}`)
+    .addFields(fields)
+    .setTimestamp();
+  const rawMsg = String(message?.content || "").trim();
+  if (rawMsg) {
+    embed.addFields({
+      name: "Testo del messaggio",
+      value: `\`\`\`\n${escapeDiscordTripleBackticks(truncateText(rawMsg, 980))}\n\`\`\``,
+      inline: false,
+    });
+  }
+  return embed;
 }
 
 function formatDurationShort(ms) {
@@ -2565,19 +2744,7 @@ async function sendAutomodActionInChannel(message, action, violations, context =
   const lastSentAt = ACTION_CHANNEL_LOG_COOLDOWN.get(cooldownKey) || 0;
   if (nowMs() - lastSentAt < ACTION_CHANNEL_LOG_COOLDOWN_MS) return;
   ACTION_CHANNEL_LOG_COOLDOWN.set(cooldownKey, nowMs());
-  const durationLabel = context.timeoutMs ? ` (${formatDurationShort(context.timeoutMs)})`
-    : "";
-  const who = accountUsername(message.member || message.author);
-  const title = action === "timeout" ? `${who}: timeout${durationLabel}`
-    : action === "ban" ? `${who}: ban dal server (AutoMod)`
-    : action === "delete" || action === "delete_webhook"
-      ? `${who}: messaggio rimosso dall’AutoMod` : `${who}: avviso AutoMod`;
-
-  const embed = new EmbedBuilder()
-    .setColor(action === "ban" ? "#992f22" : action === "timeout" ? "#f4d35e" : action === "delete" || action === "delete_webhook" ? "#f59e0b" : "#5865f2",)
-    .setTitle(title)
-    .setDescription([`${ARROW} **Motivo:** ${reason}`].join("\n"))
-    .setFooter({ text: `${who} | ${message.author.id}` });
+  const embed = buildAutomodChannelEmbed(message, action, violations, context);
 
   const sent = await message.channel.send({ embeds: [embed] }).catch(() => null);
   if (sent) {
@@ -2592,50 +2759,7 @@ async function sendAutomodActionInChannel(message, action, violations, context =
 async function sendAutomodLog(message, action, violations, heatValue, context = {}) {
   const channel = await resolveLogChannel(message.guild);
   if (!channel?.isTextBased?.()) return;
-  const primaryFilter = firstViolationLabel(violations);
-  const timeoutLabel = context.timeoutMs ? ` (${formatDurationShort(context.timeoutMs)})`
-    : "";
-  const whoLog = accountUsername(message.member || message.author);
-  const actionHeadline = action === "timeout" ? `${whoLog}: timeout AutoMod${timeoutLabel}`
-    : action === "ban" ? `${whoLog}: ban dal server (AutoMod)`
-    : action === "delete" || action === "delete_webhook"
-      ? `${whoLog}: messaggio rimosso (AutoMod)` : `${whoLog}: avviso AutoMod`;
-
-  const regolaSummary = truncateText(buildAutomodRegolaSummaryLine(violations), 400);
-  const linkEvidenceLine = buildAutomodAttachmentLinkEvidenceLine(message, violations);
-  const descBody = [
-    `<a:VC_Alert:1482706673176150077> **Filtro:** ${primaryFilter}`,
-    regolaSummary ? `<:VC_reason:1478517122929004544> **Regolamento (riferimento):** ${regolaSummary}` : null,
-    `<:channeltext:1443247596922470551> **Canale:** ${message.channel} [\`${message.channelId}\`]`,
-    linkEvidenceLine,
-    "",
-    `<:member_role_icon:1330530086792728618> **Utente:** ${message.author} [\`${message.author.id}\`]`,
-    `<a:VC_Alarm:1482706641618079816> **Heat:** ${Number(heatValue || 0).toFixed(1)}`,
-    context.timeoutMs
-      ? `<:VC_Clock:1473359204189474886> **Timeout:** ${formatDurationShort(context.timeoutMs,)}`
-      : null,
-    `<:VC_BanHammer:1482534474502897795> **Decisione:** ${buildAutoModDecisionExplain(action, heatValue, violations, context,)}`,
-    violations?.length
-      ? `<:VC_reason:1478517122929004544> **Violazioni tecniche:** ${violations.map((v) => `\`${v.key}\`${v.info ? ` (${v.info})` : ""}`).join(", ")}`
-      : null,
-  ]
-    .filter(Boolean)
-    .join("\n");
-
-  const embed = new EmbedBuilder()
-    .setColor(action === "ban" ? "#992f22" : action === "timeout" ? "#ED4245" : action === "delete" || action === "delete_webhook" ? "#F59E0B" : "#5865F2",)
-    .setTitle(actionHeadline)
-    .setDescription(descBody)
-    .setTimestamp();
-
-  const rawMsg = String(message?.content || "").trim();
-  if (rawMsg) {
-    embed.addFields({
-      name: "Messaggio (testo inviato)",
-      value: escapeDiscordTripleBackticks(truncateText(rawMsg, 1020)),
-    });
-  }
-
+  const embed = buildAutomodStaffLogEmbed(message, action, violations, heatValue, context);
   await channel.send({ embeds: [embed] }).catch(() => { });
 }
 

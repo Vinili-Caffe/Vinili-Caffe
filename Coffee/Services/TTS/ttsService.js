@@ -1,4 +1,5 @@
 const { joinVoiceChannel, getVoiceConnection, createAudioPlayer, createAudioResource, AudioPlayerStatus, entersState, VoiceConnectionStatus, StreamType, } = require("@discordjs/voice");
+const { isVoiceTransportError, voiceTransportErrorMessage } = require("../../../shared/discord/voiceTransportErrors");
 const { Readable } = require("stream");
 const fs = require("fs");
 const path = require("path");
@@ -645,10 +646,26 @@ function shouldIgnoreTtsVoiceDisconnectFinalize(guildId) {
   return typeof until === "number" && Date.now() < until;
 }
 
+function attachTtsVoiceConnectionErrorHandler(connection, guildId, channelId = "") {
+  if (!connection || connection.__vcTtsErrorHook) return;
+  connection.__vcTtsErrorHook = true;
+  connection.on("error", (err) => {
+    const errMessage = voiceTransportErrorMessage(err);
+    if (!isVoiceTransportError(err)) {
+      global.logger?.warn?.("[TTS] voice connection error:", errMessage || err);
+      return;
+    }
+    if (shouldLogTtsJoinWarning(guildId, channelId, errMessage)) {
+      global.logger?.warn?.("[TTS] voice transport:", errMessage);
+    }
+  });
+}
+
 function attachTtsVoiceConnectionDisconnectHandler(connection, voiceChannel) {
   const guildId = String(voiceChannel?.guild?.id || "");
   if (!guildId || !connection || connection.__vcTtsDisconnectHook) return;
   connection.__vcTtsDisconnectHook = true;
+  attachTtsVoiceConnectionErrorHandler(connection, guildId, String(voiceChannel?.id || ""));
   connection.on("stateChange", (_oldState, newState) => {
     if (newState.status !== VoiceConnectionStatus.Disconnected) return;
     const delayMs = 1000;
@@ -803,10 +820,7 @@ async function ensureConnection(state, voiceChannel) {
   }
   markTtsVoiceDisconnectSuppress(voiceChannel.guild.id);
   await destroyGuildVoiceConnection(voiceChannel.guild.id);
-  const isIpDiscoveryError = (err) => {
-    const msg = String(err?.message || "").toLowerCase();
-    return msg.includes("ip discovery") || msg.includes("socket closed") || msg.includes("aborted") || msg.includes("signalling");
-  };
+  const isIpDiscoveryError = isVoiceTransportError;
   const maxAttempts = Math.max(1, Number(process.env.TTS_VOICE_JOIN_MAX_ATTEMPTS || 2));
   const readyTimeoutMs = Math.max(5_000, Number(process.env.TTS_VOICE_JOIN_READY_TIMEOUT_MS || 10_000));
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
@@ -818,6 +832,7 @@ async function ensureConnection(state, voiceChannel) {
         adapterCreator: voiceChannel.guild.voiceAdapterCreator,
         selfDeaf: false,
       });
+      attachTtsVoiceConnectionErrorHandler(connection, voiceChannel.guild.id, voiceChannel.id);
       state.connection = connection;
       state.guildId = voiceChannel.guild.id;
       state.channelId = voiceChannel.id;

@@ -6,9 +6,7 @@ const fs = require("fs");
 const path = require("path");
 const { readSnapshotWithMeta, writeSnapshotWithMeta } = require("../../../shared/recovery/snapshotStore");
 const { registerShutdownFlush, armShutdownCheckpoint } = require("../../../shared/recovery/shutdownCheckpoint");
-
 const MUSIC_LOGS = String(process.env.MUSIC_LOGS || "0").trim() === "1";
-/** Percentuale inviata a Lavalink v4 al join (0–100; Shoukaku default player `volume` = 100 = pieno). */
 const MUSIC_DEFAULT_LAVALINK_VOLUME = 20;
 
 /**
@@ -22,9 +20,6 @@ function lavalinkGlobalVolumeFromUserPercent(percent0to100) {
   return Math.min(100, Math.max(0, n));
 }
 
-/**
- * `MUSIC_DEFAULT_VOLUME`: percentuale 0–100. Valori >100 interpretati come legacy scala 0–1000 (es. 250 → 25).
- */
 function resolveDefaultJoinGlobalVolume() {
   const raw = Number(process.env.MUSIC_DEFAULT_VOLUME);
   if (!Number.isFinite(raw) || raw < 0) return lavalinkGlobalVolumeFromUserPercent(MUSIC_DEFAULT_LAVALINK_VOLUME);
@@ -38,12 +33,6 @@ const MUSIC_INACTIVITY_MS = Math.max(
   Number.isFinite(_musicIdleRawMs) && _musicIdleRawMs > 0 ? _musicIdleRawMs : 180_000,
 );
 
-/**
- * `youtube` (default): testo → ytsearch + ytmsearch.
- * `spotify`: testo = prima spsearch, poi fallback yt/ytm se Spotify non restituisce nulla; **link** YouTube ancora rifiutati.
- * `spotify_first`: stesso ordine di ricerca testo di `spotify`; consente anche **link** YouTube (modalità meno restrittiva).
- * L’audio effettivo dipende dai `providers` Lavalink (lavasrc).
- */
 function getMusicSearchMode() {
   const m = String(process.env.MUSIC_SEARCH_MODE || "").trim().toLowerCase();
   if (m === "spotify") return "spotify";
@@ -65,6 +54,7 @@ function isYoutubeLikeUrl(query) {
 const guildQueues = new Map();
 /** @type {Set<string>} */
 const endListeners = new Set();
+const lastMusicEndHandledByGuild = new Map();
 /** @type {Map<string, number>} guildId -> timestamp (ms) inizio stato “inattivo” */
 const musicIdleSince = new Map();
 const MUSIC_QUEUE_SNAPSHOT_PATH = path.join(__dirname, "..", "..", "Data", "musicQueueSnapshot.json");
@@ -192,6 +182,60 @@ function getGuildMusicVoiceChannelId(guildId) {
   const session = guildQueues.get(String(guildId || "").trim());
   const vc = session?.voiceChannelId;
   return vc ? String(vc) : null;
+}
+
+function resolveGuildMusicVoiceChannelId(client, guildId) {
+  const gid = String(guildId || "").trim();
+  if (!gid) return null;
+  const conn = client?.shoukaku?.connections?.get(gid);
+  if (conn?.channelId) return String(conn.channelId);
+  const guild = client?.guilds?.cache?.get(gid);
+  const botVc = guild?.members?.me?.voice?.channelId;
+  if (botVc) return String(botVc);
+  return getGuildMusicVoiceChannelId(gid);
+}
+
+function guildMusicSessionBlocksOtherVoiceChannels(client, guildId) {
+  const gid = String(guildId || "").trim();
+  if (!gid) return { blocked: false, channelId: null };
+  const musicVc = resolveGuildMusicVoiceChannelId(client, gid);
+  if (!musicVc) return { blocked: false, channelId: null };
+  const player = client?.shoukaku?.players?.get(gid);
+  const session = guildQueues.get(gid);
+  const active =
+    Boolean(player?.track) ||
+    Boolean(String(session?.nowPlaying || "").trim()) ||
+    (Array.isArray(session?.tracks) && session.tracks.length > 0);
+  return { blocked: active, channelId: musicVc };
+}
+
+function assertRequesterInActiveMusicVoiceChannel(client, guild, member) {
+  if (!guild?.id) {
+    return { ok: false, message: "<a:VC_Cross:1482532424570376253> Solo in server." };
+  }
+  const { blocked, channelId } = guildMusicSessionBlocksOtherVoiceChannels(client, guild.id);
+  if (!blocked || !channelId) return { ok: true };
+  const userVc = member?.voice?.channelId ? String(member.voice.channelId) : "";
+  if (userVc === channelId) return { ok: true };
+  const channelMention = `<#${channelId}>`;
+  if (!userVc) {
+    return {
+      ok: false,
+      message:
+        `<a:VC_Cross:1482532424570376253> La musica è attiva in ${channelMention}. Entra in quel canale vocale per usare i comandi musica.`,
+    };
+  }
+  return {
+    ok: false,
+    message:
+      `<a:VC_Cross:1482532424570376253> La musica è attiva in ${channelMention}. Non puoi usare questo comando da un altro canale vocale.`,
+  };
+}
+
+function assertMusicCommandAllowed(client, guild, member, requesterUserId) {
+  const vcGate = assertRequesterInActiveMusicVoiceChannel(client, guild, member);
+  if (!vcGate.ok) return vcGate;
+  return assertMusicSessionOwnerOrAllowLegacy(guild?.id, requesterUserId);
 }
 
 function guildHasMusicVoiceResumeHint(guildId) {
@@ -618,16 +662,58 @@ function describeTrack(t) {
   return `${info.title || "Senza titolo"} — ${info.author || "?"}`;
 }
 
+/** Solo encoded + info: niente pluginInfo LavaSrc (evita auto-loop playlist Spotify). */
+function trackForManualQueue(track) {
+  if (!track) return null;
+  const encoded =
+    typeof track.encoded === "string"
+      ? track.encoded
+      : typeof track === "string"
+        ? track
+        : null;
+  if (!encoded) return null;
+  const out = { encoded };
+  if (track.info && typeof track.info === "object") out.info = track.info;
+  if (track.vcRequestedByUserId) out.vcRequestedByUserId = String(track.vcRequestedByUserId);
+  if (track.vcRequestedByUserTag) out.vcRequestedByUserTag = String(track.vcRequestedByUserTag);
+  return out;
+}
+
 function tagTracksWithRequester(tracks, requesterUser) {
   const uid = requesterUser?.id ? String(requesterUser.id) : "";
   const tag = requesterUser
     ? String(requesterUser.globalName || requesterUser.username || "").trim()
     : "";
-  return tracks.map((t) => ({
-    ...t,
-    vcRequestedByUserId: uid || null,
-    vcRequestedByUserTag: tag || null,
-  }));
+  return tracks
+    .map((t) => {
+      const base = trackForManualQueue(t);
+      if (!base) return null;
+      return {
+        ...base,
+        vcRequestedByUserId: uid || base.vcRequestedByUserId || null,
+        vcRequestedByUserTag: tag || base.vcRequestedByUserTag || null,
+      };
+    })
+    .filter(Boolean);
+}
+
+function shiftNextQueueTrack(session, skipEncoded = null) {
+  const list = session?.tracks;
+  if (!Array.isArray(list)) return null;
+  const skip = skipEncoded ? String(skipEncoded) : "";
+  while (list.length) {
+    const raw = list.shift();
+    const row = trackForManualQueue(raw);
+    if (!row?.encoded) continue;
+    if (skip && row.encoded === skip) continue;
+    return row;
+  }
+  return null;
+}
+
+function isNaturalTrackEndReason(reasonRaw) {
+  const r = String(reasonRaw || "").toLowerCase();
+  return r === "finished" || r === "ended" || r === "finish" || r === "end";
 }
 
 function setSessionCurrentRequesterFromUser(session, requesterUser) {
@@ -1545,7 +1631,11 @@ async function leaveMusicVoiceChannelMarked(client, guildId) {
   const gid = String(guildId || "").trim();
   if (!gid || !client) return;
   musicIdleSince.delete(gid);
+  lastMusicEndHandledByGuild.delete(gid);
   markMusicVoiceLeaveIntentional(client, gid);
+  const pl = client.shoukaku?.players?.get(gid);
+  if (pl?.removeAllListeners) pl.removeAllListeners("end");
+  endListeners.delete(gid);
   if (client.shoukaku) {
     await client.shoukaku.leaveVoiceChannel(gid).catch(() => {});
   }
@@ -1630,16 +1720,29 @@ async function destroyGhostMusicStateIfBotNotInVoice(client, guild) {
  * @param {string} guildId
  */
 function attachEndHandler(client, player, guildId) {
-  if (endListeners.has(guildId)) return;
-  endListeners.add(guildId);
+  const gid = String(guildId || "").trim();
+  if (!gid || !player) return;
+  if (typeof player.removeAllListeners === "function") player.removeAllListeners("end");
+  endListeners.add(gid);
   player.on("end", async (ev) => {
-    if (ev.reason === "replaced") return;
-    const session = guildQueues.get(guildId);
-    if (!session) return;
     const reasonRaw = String(ev?.reason ?? ev?.endReason ?? "").toLowerCase();
-    const naturalEnd = reasonRaw === "finished" || reasonRaw === "ended";
+    if (reasonRaw === "replaced") return;
+    const session = guildQueues.get(gid);
+    if (!session) return;
+    const endedEncoded = encodedFromEvTrack(ev?.track);
+    const now = Date.now();
+    const prevEnd = lastMusicEndHandledByGuild.get(gid);
+    if (
+      endedEncoded &&
+      prevEnd?.encoded === endedEncoded &&
+      now - Number(prevEnd?.at || 0) < 900
+    ) {
+      return;
+    }
+    lastMusicEndHandledByGuild.set(gid, { encoded: endedEncoded || "", at: now });
+    const naturalEnd = isNaturalTrackEndReason(reasonRaw);
     if (!session.repeatQueue && session.repeatOne && naturalEnd) {
-      const encoded = encodedFromEvTrack(ev?.track) || session.repeatEncoded;
+      const encoded = endedEncoded || session.repeatEncoded;
       if (typeof encoded === "string" && encoded.length) {
         try {
           await playEncodedFromStart(player, encoded);
@@ -1653,8 +1756,7 @@ function attachEndHandler(client, player, guildId) {
       }
     }
     const endedLabel = String(session.nowPlaying || "").trim() || "Traccia";
-    const endedEncoded = encodedFromEvTrack(ev?.track);
-    const next = session.tracks?.shift();
+    const next = shiftNextQueueTrack(session, endedEncoded);
     if (!next) {
       if (
         session.repeatQueue &&
@@ -1711,7 +1813,6 @@ function attachEndHandler(client, player, guildId) {
       global.logger?.warn?.("[MUSIC] play next failed:", err?.message || err);
       await leaveMusicVoiceChannelMarked(client, guildId);
       guildQueues.delete(guildId);
-      endListeners.delete(guildId);
     }
   });
 }
@@ -1820,8 +1921,26 @@ async function playMusicRequest(ctx, query) {
   await destroyGhostMusicStateIfBotNotInVoice(client, guild);
 
   const shoukaku = client.shoukaku;
+  const musicLock = guildMusicSessionBlocksOtherVoiceChannels(client, guildId);
+  if (
+    musicLock.blocked &&
+    musicLock.channelId &&
+    String(voiceChannel.id) !== musicLock.channelId
+  ) {
+    const channelMention = `<#${musicLock.channelId}>`;
+    return {
+      ok: false,
+      message:
+        `<a:VC_Cross:1482532424570376253> La musica è attiva in ${channelMention}. Non puoi usare la musica da un altro canale vocale.`,
+    };
+  }
+
   const existingConn = shoukaku.connections.get(guildId);
-  if (existingConn?.channelId && existingConn.channelId !== voiceChannel.id) {
+  if (
+    !musicLock.blocked &&
+    existingConn?.channelId &&
+    existingConn.channelId !== voiceChannel.id
+  ) {
     await leaveMusicVoiceChannelMarked(client, guildId);
     endListeners.delete(guildId);
   }
@@ -1995,8 +2114,12 @@ async function playMusicRequest(ctx, query) {
     };
   }
 
-  const [first, ...rest] = tracks;
-  session.tracks.push(...tagTracksWithRequester(rest, requesterUser));
+  const normalized = tagTracksWithRequester(tracks, requesterUser);
+  if (!normalized.length) {
+    return { ok: false, message: "<a:VC_Cross:1482532424570376253> Nessun brano valido da riprodurre." };
+  }
+  const [first, ...rest] = normalized;
+  session.tracks.push(...rest);
   session.nowPlaying = describeTrack(first);
   setSessionCurrentRequesterFromUser(session, requesterUser);
   session.repeatOne = false;
@@ -2045,7 +2168,10 @@ async function setGuildMusicVolume(client, guild, rawPercent, requesterUserId) {
   if (!player) {
     return { ok: false, message: "<a:VC_Cross:1482532424570376253> Nessun player musicale attivo in questo server." };
   }
-  const volGate = assertMusicSessionOwnerOrAllowLegacy(guildId, requesterUserId);
+  const member =
+    guild.members.cache.get(String(requesterUserId || "")) ||
+    (await guild.members.fetch(String(requesterUserId || "")).catch(() => null));
+  const volGate = assertMusicCommandAllowed(client, guild, member, requesterUserId);
   if (!volGate.ok) return volGate;
   const n = Number(String(rawPercent ?? "").trim().replace(",", "."));
   if (!Number.isFinite(n)) {
@@ -2076,7 +2202,8 @@ async function skipGuild(interaction) {
   if (!player?.track) {
     return { ok: false, message: "<a:VC_Cross:1482532424570376253> Non c'è nulla in riproduzione." };
   }
-  const gate = assertMusicSessionOwnerOrAllowLegacy(guildId, requester.id);
+  const member = interaction.member || guild.members.cache.get(requester.id) || null;
+  const gate = assertMusicCommandAllowed(client, guild, member, requester.id);
   if (!gate.ok) return gate;
   const session = guildQueues.get(guildId);
   let skippedLabel = String(session?.nowPlaying || "").trim();
@@ -2134,7 +2261,8 @@ async function stopGuild(interaction) {
       message: "<a:VC_Cross:1482532424570376253> Il bot non è in un canale vocale: non c'è una sessione musica da fermare.",
     };
   }
-  const stopGate = assertMusicSessionOwnerOrAllowLegacy(guildId, requester.id);
+  const member = interaction.member || guild.members.cache.get(requester.id) || null;
+  const stopGate = assertMusicCommandAllowed(client, guild, member, requester.id);
   if (!stopGate.ok) return stopGate;
   guildQueues.delete(guildId);
   endListeners.delete(guildId);
@@ -2198,7 +2326,8 @@ async function pauseToggle(interaction, pause) {
   if (!requester?.id) return { ok: false, message: "<a:VC_Cross:1482532424570376253> Utente non disponibile." };
   const player = interaction.client.shoukaku?.players?.get(guild.id);
   if (!player) return { ok: false, message: "<a:VC_Cross:1482532424570376253> Il bot non è in un canale vocale." };
-  const ptGate = assertMusicSessionOwnerOrAllowLegacy(guild.id, requester.id);
+  const member = interaction.member || guild.members.cache.get(requester.id) || null;
+  const ptGate = assertMusicCommandAllowed(interaction.client, guild, member, requester.id);
   if (!ptGate.ok) return ptGate;
   try {
     await player.setPaused(pause);
@@ -2225,7 +2354,8 @@ async function pauseGuildTrack(interaction) {
   if (!player.track) {
     return { ok: false, message: "<a:VC_Cross:1482532424570376253> Non c'è nulla in riproduzione." };
   }
-  const pauGate = assertMusicSessionOwnerOrAllowLegacy(guild.id, requester.id);
+  const member = interaction.member || guild.members.cache.get(requester.id) || null;
+  const pauGate = assertMusicCommandAllowed(client, guild, member, requester.id);
   if (!pauGate.ok) return pauGate;
   if (player.paused) {
     return { ok: false, message: "<a:VC_Cross:1482532424570376253> La traccia è già in pausa." };
@@ -2257,7 +2387,8 @@ async function resumeGuildTrack(interaction) {
   if (!player.track) {
     return { ok: false, message: "<a:VC_Cross:1482532424570376253> Non c'è nulla in riproduzione." };
   }
-  const resGate = assertMusicSessionOwnerOrAllowLegacy(guild.id, requester.id);
+  const member = interaction.member || guild.members.cache.get(requester.id) || null;
+  const resGate = assertMusicCommandAllowed(client, guild, member, requester.id);
   if (!resGate.ok) return resGate;
   if (!player.paused) {
     return { ok: false, message: "<a:VC_Cross:1482532424570376253> La traccia non è in pausa." };
@@ -2298,7 +2429,8 @@ async function toggleRepeatOneGuild(interaction, keyword) {
   if (!player?.track) {
     return { ok: false, message: "<a:VC_Cross:1482532424570376253> Non c'è nulla in riproduzione." };
   }
-  const repGate = assertMusicSessionOwnerOrAllowLegacy(guild.id, requester.id);
+  const member = interaction.member || guild.members.cache.get(requester.id) || null;
+  const repGate = assertMusicCommandAllowed(client, guild, member, requester.id);
   if (!repGate.ok) return repGate;
   const session = getSession(guild.id);
   const kw = String(keyword || "").trim().toLowerCase();
@@ -2381,7 +2513,8 @@ async function previousGuildTrack(interaction) {
   if (!Array.isArray(session.history) || !session.history.length) {
     return { ok: false, message: "<a:VC_Cross:1482532424570376253> Non c'è un brano precedente." };
   }
-  const prevGate = assertMusicSessionOwnerOrAllowLegacy(guildId, requester.id);
+  const member = interaction.member || guild.members.cache.get(requester.id) || null;
+  const prevGate = assertMusicCommandAllowed(client, guild, member, requester.id);
   if (!prevGate.ok) return prevGate;
   const prev = session.history.pop();
   if (!prev?.encoded) {
@@ -2442,7 +2575,8 @@ async function shuffleGuildQueue(interaction) {
   if (tracks.length < 2) {
     return { ok: false, message: "<a:VC_Cross:1482532424570376253> Servono almeno due brani in coda per mescolare." };
   }
-  const shufGate = assertMusicSessionOwnerOrAllowLegacy(guildId, requester.id);
+  const member = interaction.member || guild.members.cache.get(requester.id) || null;
+  const shufGate = assertMusicCommandAllowed(client, guild, member, requester.id);
   if (!shufGate.ok) return shufGate;
   shuffleInPlace(tracks);
   syncRepeatQueueSnapshotAfterShuffle(session);
@@ -2463,7 +2597,8 @@ async function rewindGuildTrack(interaction) {
   if (!player?.track) {
     return { ok: false, message: "<a:VC_Cross:1482532424570376253> Non c'è nulla in riproduzione." };
   }
-  const rewGate = assertMusicSessionOwnerOrAllowLegacy(guild.id, requester.id);
+  const member = interaction.member || guild.members.cache.get(requester.id) || null;
+  const rewGate = assertMusicCommandAllowed(client, guild, member, requester.id);
   if (!rewGate.ok) return rewGate;
   const enc = encodedFromPlayerTrack(player.track);
   if (!enc) {
@@ -2516,7 +2651,8 @@ async function restartQueueGuild(interaction) {
   if (!snap.length) {
     return { ok: false, message: "<a:VC_Cross:1482532424570376253> Impossibile ricominciare la coda." };
   }
-  const rstGate = assertMusicSessionOwnerOrAllowLegacy(guildId, requester.id);
+  const member = interaction.member || guild.members.cache.get(requester.id) || null;
+  const rstGate = assertMusicCommandAllowed(client, guild, member, requester.id);
   if (!rstGate.ok) return rstGate;
   session.repeatOne = false;
   session.repeatEncoded = null;
@@ -2551,7 +2687,8 @@ async function clearGuildQueue(interaction) {
   if (!hadPending) {
     return { ok: false, message: "<a:VC_Cross:1482532424570376253> La coda è già vuota." };
   }
-  const clrGate = assertMusicSessionOwnerOrAllowLegacy(guildId, requester.id);
+  const member = interaction.member || guild.members.cache.get(requester.id) || null;
+  const clrGate = assertMusicCommandAllowed(client, guild, member, requester.id);
   if (!clrGate.ok) return clrGate;
   session.tracks.length = 0;
   if (session.repeatQueue && player?.track) {

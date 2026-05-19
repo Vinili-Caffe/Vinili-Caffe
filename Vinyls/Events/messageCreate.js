@@ -8,9 +8,11 @@ const { trackChannelMessage } = require("../Services/Community/dailyChannelMessa
 const { handleIdeaBugMessage } = require("../Services/Community/ideaBugThreadService");
 const { handleOfficialPrefixMessage } = require("../Utils/Prefix/officialPrefixDispatcher");
 const { channelAllowsMedia, getCachedOrFetchMember, handleDisboardBump, handleDiscadiaBump, handleMovieNightVoteMessage, handlePauseChannelMessage, handleThreadVoteMessage, handleVoteManagerMessage, hasMediaPermission, isDiscordInviteLinkMessage, isMediaMessage, } = require("../Utils/Message/officialMessageAutomationHandlers");
-const { handleAfk, handleCounting, handleMentionAutoReactions, handleWordReactions, logEventError, } = require("../Utils/Message/officialMessageCommunityHandlers");
+const { handleAfk, handleCounting, handleMentionAutoReactions, handleMentionAutoResponses, handleWordReactions, logEventError, } = require("../Utils/Message/officialMessageCommunityHandlers");
 const { handleAmbientOllamaMessage } = require("../Services/AI/ollamaChatRuntime");
 const { runAutoModMessage } = require("../Services/Moderation/automodService");
+const { handleCustomProfilePromptMessage } = require("./interaction/customRoleHandlers");
+const { handleProfileMentionResponsePromptMessage } = require("../Buttons/profile");
 const IDs = require("../Utils/Config/ids");
 const { EPHEMERAL_TTL_SHORT_MS, scheduleMessageDeletion } = require("../Utils/Config/ephemeralMessageTtl");
 const { isCoffeePrefixCommandToken } = require("../../shared/discord/coffeePrefixCommandTokens");
@@ -276,6 +278,15 @@ module.exports = {
       return;
     }
 
+    if (!isEditedPrefixExecution && message.guild) {
+      try {
+        if (await handleProfileMentionResponsePromptMessage(message)) return;
+        if (await handleCustomProfilePromptMessage(message)) return;
+      } catch (error) {
+        logEventError(resolvedClient, "CUSTOM PROFILE PROMPT ERROR", error);
+      }
+    }
+
     if (message.guild) {
       setImmediate(() => {
         handleIdeaBugMessage(message).catch((err) =>
@@ -318,7 +329,7 @@ module.exports = {
         );
       });
 
-      const [minigameResult, afkResult, mentionsResult, countingResult, wordReactionsResult] = await Promise.allSettled([handleMinigameMessage(message, resolvedClient), handleAfk(message), handleMentionAutoReactions(message), handleCounting(message, resolvedClient), handleWordReactions(message),]);
+      const [minigameResult, afkResult, mentionsResult, mentionResponsesResult, countingResult, wordReactionsResult] = await Promise.allSettled([handleMinigameMessage(message, resolvedClient), handleAfk(message), handleMentionAutoReactions(message), handleMentionAutoResponses(message), handleCounting(message, resolvedClient), handleWordReactions(message),]);
       if (minigameResult.status === "rejected") {
         logEventError(resolvedClient, "MINIGAME ERROR", minigameResult.reason);
       }
@@ -327,6 +338,9 @@ module.exports = {
       }
       if (mentionsResult.status === "rejected") {
         logEventError(resolvedClient, "MENTION REACTION ERROR", mentionsResult.reason);
+      }
+      if (mentionResponsesResult.status === "rejected") {
+        logEventError(resolvedClient, "MENTION RESPONSE ERROR", mentionResponsesResult.reason);
       }
       if (countingResult.status === "rejected") {
         logEventError(resolvedClient, "COUNTING ERROR", countingResult.reason);

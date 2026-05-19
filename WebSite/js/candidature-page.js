@@ -1,53 +1,70 @@
 (function () {
-  /** Allineato a Vinyls/Events/interaction/candidatureApplicationHandlers.js (APPLICATIONS). */
   var APPLICATIONS = {
     helper: {
       label: "Helper",
       questions: [
-        { id: "id_discord", text: "1. ID Discord", modalLabel: "1. ID", placeholder: "Dal profilo OAuth", kind: "short" },
-        { id: "eta", text: "2. Età", modalLabel: "2. Età", placeholder: "Scrivi la tua età", kind: "short" },
+        { 
+          id: "id_discord", 
+          text: "1. ID Discord", 
+          modalLabel: "1. ID", 
+          placeholder: "Copia e incolla il tuo ID di Discord", 
+          kind: "short" 
+        },
+        { 
+          id: "eta", 
+          text: "2. Età", 
+          modalLabel: "2. Età", 
+          placeholder: "Scrivi la tua età", 
+          kind: "short" 
+        },
         {
-          id: "staff_server",
-          text: "3. Nomina tutti i server dove sei stato staff, per quanto tempo e che ruolo avevi",
-          modalLabel: "3. Esperienze staff",
+          id: "tos_linee_guida",
+          text: "3. Cosa sono i ToS e le Linee Guida di Discord?",
+          modalLabel: "3. ToS e Linee Guida di Discord",
           placeholder: "",
           kind: "paragraph",
         },
         {
           id: "motivo_candidatura",
-          text: "4. Come mai ti sei voluto candidare su Vinili & Caffè?",
-          modalLabel: "4. Motivo candidatura",
+          text: "4. Seleziona una o più opzioni che sei disposto a intraprendere per sostenere il server",
+          modalLabel: "4. Opzioni di supporto",
+          placeholder: "Le risposte verranno prese in considerazione per determinare i ruoli nello staff.",
+          kind: "multi_choice",
+          hint: "Puoi selezionare più di un’opzione.",
+          options: [
+            { value: "Facendo attività vocale", label: "Facendo attività vocale" },
+            { value: "Scrivendo nei canali", label: "Scrivendo nei canali" },
+            { value: "Pensando a eventi per il server", label: "Pensando a eventi per il server" },
+            { value: "Giveaway di nitro, decorazioni o altro", label: "Giveaway di nitro, decorazioni o altro" },
+            { value: "Boostando il server", label: "Boostando il server" },
+            { value: "Aiutando economicamente il server", label: "Aiutando economicamente il server" },
+          ],
+        },
+        {
+          id: "gestione_community",
+          text: "5. Se hai già gestito delle community Discord, su quale tema si basavano (esempio: anime, giochi, musica, sport, ecc.)?",
+          modalLabel: "5. Gestione community",
           placeholder: "",
           kind: "paragraph",
         },
         {
-          id: "aiuto_economico",
-          text: "5. Saresti disposto ad aiutare il server economicamente?",
-          modalLabel: "5. Aiuto economico",
-          kind: "choice",
-          options: [
-            { value: "Sì", label: "Sì" },
-            { value: "No", label: "No" },
-          ],
-        },
-        {
-          id: "flame_testuale",
-          text: "6. Se due utenti si flammano a vicenda su un determinato argomento, come ti comporti? (in testuale)",
-          modalLabel: "6. Gestione flame",
+          id: "staff_altri_server",
+          text: "6. Attualmente ricopri qualche carica da staffer in altri server? Se si, indica quali",
+          modalLabel: "6. Staff in altri serverx",
           placeholder: "",
           kind: "paragraph",
         },
         {
           id: "comandi_dyno",
-          text: "7. Elenca i comandi di moderazioni più importanti di Dyno",
+          text: "7. Elenca i comandi di moderazioni più importanti",
           modalLabel: "7. Comandi Dyno",
           placeholder: "",
           kind: "paragraph",
         },
         {
-          id: "critica_staff",
-          text: "8. Se una persona critica il server o lo staff in maniera non idonea, come ti comporti?",
-          modalLabel: "8. Gestione critica",
+          id: "gestione_discussione",
+          text: "8. Che comportamento assumi nel caso due utenti discutessero in un canale testuale o vocale?",
+          modalLabel: "8. Gestione discussione",
           placeholder: "",
           kind: "paragraph",
         },
@@ -61,13 +78,77 @@
             { value: "No", label: "No" },
           ],
         },
-        { id: "definizione_flame", text: "10. Definizione di flame", modalLabel: "10. Definizione flame", placeholder: "", kind: "paragraph" },
-        {
-          id: "troll_pubblico",
-          text: "11. Se due utenti iniziassero a trollare in pubblico, come agiresti?",
-          modalLabel: "11. Gestione troll",
+        { id: "definizione_caps_wall_of_text", 
+          text: "10. Definisci 'caps' e 'wall of text'.",
+          modalLabel: "10. Definizione 'caps' e 'wall of text'",
           placeholder: "",
           kind: "paragraph",
+        },
+        {
+          id: "definizione_flood_spam",
+          text: "11. Definisci e scrivi la differenza sostanziale tra flood e spam.",
+          modalLabel: "11. Definizione flood e spam",
+          placeholder: "",
+          kind: "paragraph",
+        },
+        {
+          id: "compito_staffer",
+          text: "12. Secondo te, qual è il compito di uno Staffer?",
+          modalLabel: "12. Compito di uno Staffer",
+          placeholder: "",
+          kind: "paragraph",
+        },
+        {
+          id: "caratteristiche_vinili_caffe",
+          text: "13. Su cosa si basa Vinili & Caffè e quali sono le sue caratteristiche principali e punti di forza?",
+          modalLabel: "13. Caratteristiche di Vinili & Caffè",
+          placeholder: "",
+          kind: "paragraph",
+        },
+        {
+          id: "valutazione_abilita_staffer",
+          text: "14. Quanto valuti le tue abilità da Staffer?",
+          modalLabel: "14. Valutazione abilità da Staffer",
+          kind: "choice",
+          options: [
+            { value: "Pessime", label: "Pessime" },
+            { value: "Scarse", label: "Scarse" },
+            { value: "Buone", label: "Buone" },
+            { value: "Eccellenti", label: "Eccellenti" },
+          ],
+        },
+        {
+          id: "motivi_candidatura",
+          text: "15. Perchè dovremmo scegliere te? Indica due motivi per il quale la tua candidatura dovrebbe essere presa in considerazione più delle altre.",
+          modalLabel: "15. Punti di forza",
+          placeholder: "",
+          kind: "paragraph",
+        },
+        {
+          id: "fascia_oraria_disponibilita",
+          text: "15. In quale fascia oraria sei solitamente disponibile su discord?",
+          modalLabel: "15. Fascia oraria disponibile",
+          placeholder: "",
+          kind: "multi_choice",
+          hint: "Puoi selezionare più di un’opzione.",
+          options: [
+            { value: "Mattino (07:00 - 12:30)", label: "Mattino (07:00 - 12:30)" },
+            { value: "Pomeriggio (12:30 - 18:30)", label: "Pomeriggio (12:30 - 18:30)" },
+            { value: "Sera (18:30 - 00:00)", label: "Sera (18:30 - 00:00)" },
+            { value: "Notte (00:00 - 07:00)", label: "Notte (00:00 - 07:00)" },
+          ],
+        },
+        {
+          id: "tempo_dedicato_server",
+          text: "15. Quanto tempo riesci a dedicare giornalmente al server?",
+          modalLabel: "15. Tempo dedicato al server",
+          kind: "choice",
+          options: [
+            { value: "Da 1 a 3 ore", label: "Da 1 a 3 ore" },
+            { value: "Da 3 a 5 ore", label: "Da 3 a 5 ore" },
+            { value: "Da 5 a 8 ore", label: "Da 5 a 8 ore" },
+            { value: "8+ ore", label: "8+ ore" },
+          ],
         },
       ],
     },
@@ -606,6 +687,14 @@
     if (w) w.hidden = !show;
   }
 
+  function isSingleChoiceQuestion(q) {
+    return Boolean(q && q.kind === "choice" && q.options && q.options.length);
+  }
+
+  function isMultiChoiceQuestion(q) {
+    return Boolean(q && q.kind === "multi_choice" && q.options && q.options.length);
+  }
+
   function renderFields() {
     var root = byId("vc-candidature-fields");
     if (!root) return;
@@ -617,7 +706,40 @@
     cfg.questions.forEach(function (q) {
       var wrap = document.createElement("div");
       wrap.className = "vc-candidature-field";
-      if (q.kind === "choice" && q.options && q.options.length) {
+      if (isMultiChoiceQuestion(q)) {
+        var mTitle = document.createElement("div");
+        mTitle.className = "vc-candidature-label";
+        mTitle.textContent = q.text;
+        wrap.appendChild(mTitle);
+        if (q.hint) {
+          var mHint = document.createElement("p");
+          mHint.className = "vc-candidature-field-hint";
+          mHint.textContent = String(q.hint);
+          wrap.appendChild(mHint);
+        }
+        var mGroup = document.createElement("div");
+        mGroup.className = "vc-candidature-choice-group vc-candidature-multi-group";
+        mGroup.setAttribute("role", "group");
+        mGroup.setAttribute("aria-label", q.text);
+        for (var mi = 0; mi < q.options.length; mi++) {
+          var mOpt = q.options[mi];
+          var mBtn = document.createElement("button");
+          mBtn.type = "button";
+          mBtn.className = "vc-candidature-multi-choice";
+          mBtn.id = "vc-cf-" + q.id + "-" + mi;
+          mBtn.setAttribute("data-qid", q.id);
+          mBtn.setAttribute("data-value", String(mOpt.value != null ? mOpt.value : ""));
+          mBtn.setAttribute("aria-pressed", "false");
+          mBtn.textContent = String(mOpt.label != null ? mOpt.label : mOpt.value || "");
+          mBtn.addEventListener("click", function () {
+            var on = this.classList.toggle("vc-candidature-multi-choice--on");
+            this.setAttribute("aria-pressed", on ? "true" : "false");
+          });
+          mGroup.appendChild(mBtn);
+        }
+        wrap.appendChild(mGroup);
+        root.appendChild(wrap);
+      } else if (isSingleChoiceQuestion(q)) {
         var title = document.createElement("div");
         title.className = "vc-candidature-label";
         title.textContent = q.text;
@@ -693,7 +815,21 @@
     var fieldsRoot = byId("vc-candidature-fields");
     var out = {};
     cfg.questions.forEach(function (q) {
-      if (q.kind === "choice" && q.options && q.options.length) {
+      if (isMultiChoiceQuestion(q)) {
+        var pickedMulti = fieldsRoot
+          ? fieldsRoot.querySelectorAll(
+              '.vc-candidature-multi-choice--on[data-qid="' + q.id + '"]',
+            )
+          : [];
+        var multiVals = [];
+        for (var mvi = 0; mvi < pickedMulti.length; mvi++) {
+          var mv = String(pickedMulti[mvi].getAttribute("data-value") || "").trim();
+          if (mv) multiVals.push(mv);
+        }
+        out[q.id] = multiVals.length ? multiVals.map(function (v) { return "• " + v; }).join("\n") : "";
+        return;
+      }
+      if (isSingleChoiceQuestion(q)) {
         var picked = fieldsRoot
           ? fieldsRoot.querySelector('input[type="radio"][name="vc-cf-' + q.id + '"]:checked')
           : null;
@@ -718,7 +854,13 @@
       }
     }
     if (!q) return byId("vc-cf-" + qid);
-    if (q.kind === "choice" && q.options && q.options.length) return byId("vc-cf-" + qid + "-0");
+    if (isMultiChoiceQuestion(q)) {
+      return (
+        document.querySelector('.vc-candidature-multi-choice[data-qid="' + qid + '"]') ||
+        byId("vc-cf-" + qid + "-0")
+      );
+    }
+    if (isSingleChoiceQuestion(q)) return byId("vc-cf-" + qid + "-0");
     return byId("vc-cf-" + qid);
   }
 

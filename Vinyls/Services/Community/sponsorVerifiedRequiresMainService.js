@@ -1,5 +1,3 @@
-"use strict";
-
 const path = require("path");
 const IDs = require("../../Utils/Config/ids");
 const { getClientGuildCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
@@ -7,9 +5,7 @@ const { isUserInMainGuild } = require("../../Utils/Interaction/verifyUtils");
 const { ensureSponsorVerificatoForMember } = require("./communityOpsService");
 const { readSnapshotWithMeta, writeSnapshotWithMeta } = require("../../../shared/recovery/snapshotStore");
 const { registerShutdownFlush, armShutdownCheckpoint } = require("../../../shared/recovery/shutdownCheckpoint");
-
 const KICK_DELAY_MS = 24 * 60 * 60 * 1000;
-/** Solo questo nome ruolo sul server TAG sponsor attiva il bypass (non altri ruoli booster). */
 const SERVER_BOOSTER_ROLE_NAME = "༄ Server Booster";
 /** @type {Map<string, { timeoutId: ReturnType<typeof setTimeout> }>} */
 const pending = new Map();
@@ -80,15 +76,15 @@ function mainInviteUrl() {
 async function sendMustJoinMainDm(user) {
   const invite = mainInviteUrl();
   const text = [
-    "**Vinili & Caffè — server partner (TAG)**",
+    "**Vinili & Caffè**",
     "",
-    "Hai il ruolo **verificato** su questo server partner, ma **non risulti nel server principale** Vinili & Caffè.",
+    "Hai una nostra TAGS, ma **non risulti nel server principale** Vinili & Caffè.",
     "",
-    "Per **continuare a usare la TAG** devi **entrare nel server principale** entro **24 ore** da questo messaggio.",
+    "Per **continuare ad usarla** devi **entrare nel server principale** entro **24 ore** da questo messaggio.",
     "",
     `Link di invito: ${invite}`,
     "",
-    "Se entri in tempo non succede nulla. Se non entri, verrai **rimosso da questo server partner** allo scadere delle 24 ore.",
+    "Se entri in tempo non succede nulla. Se non entri, verrai **kickato** allo scadere delle 24 ore.",
   ].join("\n");
   await user.send({ content: text }).catch(() => null);
 }
@@ -278,11 +274,4 @@ function handleGuildMemberRemoveFromSponsor(member) {
   clearPending(gid, String(member.id));
 }
 
-module.exports = {
-  handleGuildMemberAdd,
-  handleGuildMemberUpdate,
-  handleGuildMemberRemoveFromSponsor,
-  maybeScheduleEnforcement,
-  clearAllPendingForUser,
-  clearPending,
-};
+module.exports = { handleGuildMemberAdd, handleGuildMemberUpdate, handleGuildMemberRemoveFromSponsor, maybeScheduleEnforcement, clearAllPendingForUser, clearPending };

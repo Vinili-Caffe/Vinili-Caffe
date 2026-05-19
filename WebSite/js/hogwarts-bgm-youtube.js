@@ -1,4 +1,5 @@
 (function () {
+  var BGM_PREF_KEY = "vc_hogwarts_bgm_enabled_v1";
   var hintEl = null;
   var started = false;
   var mutedByUser = false;
@@ -57,6 +58,20 @@
     } catch (eA) {
       return false;
     }
+  }
+
+  function isUserOptedOut() {
+    try {
+      return localStorage.getItem(BGM_PREF_KEY) === "0";
+    } catch (eP) {
+      return false;
+    }
+  }
+
+  function rememberBgmEnabled(enabled) {
+    try {
+      localStorage.setItem(BGM_PREF_KEY, enabled ? "1" : "0");
+    } catch (eP) {}
   }
 
   function readVolume() {
@@ -291,6 +306,10 @@
 
   function pauseAudible() {
     mutedByUser = true;
+    rememberBgmEnabled(false);
+    try {
+      window.__vcHogwartsBgmAllowed = false;
+    } catch (eA) {}
     if (pausedForEmbeddedVideo) shouldResumeAfterEmbeddedVideo = false;
     started = false;
     try {
@@ -424,11 +443,17 @@
   };
 
   window.__vcHogwartsYoutubeStartAfterIntro = function () {
+    if (isUserOptedOut()) {
+      showMusicButton();
+      updateMusicButtonUi();
+      return;
+    }
     playAudible(true);
     showMusicButton();
   };
 
   window.__vcHogwartsYoutubeStartFromGesture = function () {
+    rememberBgmEnabled(true);
     playAudible(true);
   };
 
@@ -471,6 +496,20 @@
     updateMusicButtonUi();
   };
 
+  function startDefaultBgm() {
+    if (!youtubePublicCfg()) return;
+    showMusicButton();
+    if (isUserOptedOut()) {
+      updateMusicButtonUi();
+      return;
+    }
+    try {
+      window.__vcHogwartsBgmAllowed = true;
+    } catch (eA) {}
+    mutedByUser = false;
+    playAudible(false);
+  }
+
   document.addEventListener("DOMContentLoaded", function () {
     stopOtherSiteBgm();
     var btn = document.getElementById("vc-hw-music-btn");
@@ -485,10 +524,12 @@
           pauseAudible();
           return;
         }
+        rememberBgmEnabled(true);
         mutedByUser = false;
         playAudible(true);
       });
     }
+    startDefaultBgm();
   });
 
   window.addEventListener("pagehide", function () {
@@ -504,6 +545,6 @@
   });
 
   try {
-    window.__vcHogwartsBgmAllowed = false;
+    window.__vcHogwartsBgmAllowed = !isUserOptedOut();
   } catch (e0) {}
 })();

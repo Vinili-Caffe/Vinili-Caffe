@@ -115,14 +115,6 @@
       h.className = "vc-regole-card-title";
       h.textContent = String(r.title || "");
       var bodyStr = String(r.body != null ? r.body : "").trim();
-      var summaryStr = String(r.summary != null ? r.summary : "").trim() || bodyStr;
-      var showSummaryLine = summaryStr !== bodyStr;
-      var sn = null;
-      if (showSummaryLine && summaryStr) {
-        sn = document.createElement("p");
-        sn.className = "vc-regole-card-snippet";
-        sn.textContent = summaryStr;
-      }
       var tag = document.createElement("div");
       tag.className = "vc-regole-card-tag";
       var ti = document.createElement("i");
@@ -131,7 +123,6 @@
       tag.appendChild(ti);
       tag.appendChild(document.createTextNode(" " + String(r.tag || "")));
       main.appendChild(h);
-      if (sn) main.appendChild(sn);
       main.appendChild(tag);
       var chev = document.createElement("span");
       chev.className = "vc-regole-card-chev";

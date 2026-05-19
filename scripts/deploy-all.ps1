@@ -114,7 +114,7 @@ function Invoke-SiteDeploy {
       & tar -czf $localTgz -C dist .
       Write-Host "Upload archivio sito su ${User}@${Server}:${remoteTgz}"
       Invoke-RemoteScp @($localTgz, "${User}@${Server}:${remoteTgz}")
-      $extract = "mkdir -p '$RemotePath' && rm -f '$RemotePath/js/main.js' && tar -xzf '$remoteTgz' -C '$RemotePath' && rm -f '$remoteTgz'"
+      $extract = "mkdir -p '$RemotePath' && find '$RemotePath' -mindepth 1 -maxdepth 1 -exec rm -rf -- {} + && tar -xzf '$remoteTgz' -C '$RemotePath' && rm -f '$remoteTgz'"
       Write-Host "Estrazione archivio sito in $RemotePath sul server..."
       Invoke-RemoteSsh "${User}@${Server}" $extract
       Write-Host "Estrazione sito completata."
@@ -123,6 +123,7 @@ function Invoke-SiteDeploy {
     }
   } else {
     Write-Warning "Comando tar non trovato: fallback a scp ricorsivo (lento)."
+    Invoke-RemoteSsh "${User}@${Server}" "mkdir -p '$RemotePath' && find '$RemotePath' -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +"
     Invoke-RemoteScp @("-r", ".\dist\*", "${User}@${Server}:${RemotePath}/")
   }
 

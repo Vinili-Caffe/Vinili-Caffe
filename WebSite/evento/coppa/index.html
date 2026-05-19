@@ -34,6 +34,8 @@
     <div class="vc-blob vc-blob-a" aria-hidden="true"></div>
     <div class="vc-blob vc-blob-b" aria-hidden="true"></div>
 
+    <button type="button" class="vc-hw-music-fab vc-hw-music-btn" id="vc-hw-music-btn" hidden aria-label="Musica di sottofondo"><i class="fa fa-volume-up" aria-hidden="true"></i></button>
+
     <main id="vc-hw-points-app" class="relative z-10 mx-auto max-w-6xl px-4 pb-20 pt-10 sm:pt-12" hidden>
       <section class="vc-hw-hero text-center" aria-labelledby="vc-hw-points-title">
         <p class="vc-hw-eyebrow">Coppa delle Case</p>
@@ -92,7 +94,11 @@
       window.__VC_HOGWARTS_POINTS_ACCESS_API_LOCAL = "{{HOGWARTS_SORTING_API_URL_LOCAL}}/access";
       window.__VC_HOGWARTS_POINTS_API = "{{HOGWARTS_SORTING_API_URL}}/points";
       window.__VC_HOGWARTS_POINTS_API_LOCAL = "{{HOGWARTS_SORTING_API_URL_LOCAL}}/points";
+      window.__VC_HOGWARTS_BGM = JSON.parse(decodeURIComponent("{{HOGWARTS_BGM_URI}}"));
     </script>
+    <script src="../../js/vc-youtube-iframe-api.js"></script>
+    <script src="../../js/hogwarts-bgm-youtube.js"></script>
+    <script>if(window.__vcHogwartsYoutubeSetupIfConfigured)window.__vcHogwartsYoutubeSetupIfConfigured();</script>
     <script src="../../js/hogwarts-house-points-page.js"></script>
     <script src="../../js/discord-auth.js" defer></script>
   </body>

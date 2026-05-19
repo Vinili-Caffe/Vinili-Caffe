@@ -12,10 +12,11 @@ const HELP_EMBED_COLOR = "#6f4e37";
 const ERROR_EMBED_COLOR = "Red";
 const PRIVATE_FLAG = 1 << 6;
 const NO_REPLY_MENTIONS = { repliedUser: false, parse: [] };
+const DEFAULT_ECONOMY_START_DATE = "2026-08-10T00:00:00";
 const PAGE_ROLE_IDS = [IDs.roles.Member, IDs.roles.Staff, IDs.roles.HighStaff, IDs.roles.Founder,].filter(Boolean);
 const PAGE_TITLES = { [IDs.roles.Member]: "Comandi Utente", [IDs.roles.Staff]: "Comandi Staff", [IDs.roles.HighStaff]: "Comandi High Staff", [IDs.roles.Founder]: "Comandi Dev", all: "Comandi Disponibili", };
-const CATEGORY_LABELS = { utility: "Utility", music: "Musica", tts: "TTS", level: "Level", minigames: "Minigames", stats: "Stats", moderation: "Moderation", admin: "Admin", staff: "Staff", vip: "VIP", dev: "Dev", };
-const CATEGORY_ORDER = ["utility", "tts", "level", "minigames", "stats", "music", "staff", "moderation", "admin", "dev",];
+const CATEGORY_LABELS = { utility: "Utility", music: "Musica", tts: "TTS", level: "Level", minigames: "Minigames", stats: "Stats", economy: "Economy", moderation: "Moderation", admin: "Admin", staff: "Staff", vip: "VIP", dev: "Dev", };
+const CATEGORY_ORDER = ["utility", "tts", "level", "minigames", "stats", "music", "economy", "staff", "moderation", "admin", "dev",];
 const PREFIX_MUSIC_SESSION_OWNER_COMMANDS = new Set(["skip", "stop", "pause", "resume", "volume", "shuffle", "clear", "repeat", "previous", "rewind", "restart"]);
 const PREFIX_MUSIC_SESSION_OWNER_NOTE = " *Solo chi ha avviato la riproduzione può usarlo.*";
 const HELP_NEW_EMOJI = "<:VC_New:1471891729471770819>";
@@ -49,6 +50,15 @@ const PREFIX_HELP_DESCRIPTIONS = {
   channel: "Mostra le statistiche attività di un canale.",
   top: "Mostra la top completa utenti/canali.",
   rank: "Mostra livello, exp e posizione in classifica di un utente.",
+  bal: "Mostra il saldo Gringott in Galeoni.",
+  work: "Lavora per ottenere Galeoni.",
+  daily: "Riscuote la ricompensa giornaliera in Galeoni.",
+  weekly: "Riscuote la ricompensa settimanale in Galeoni.",
+  monthly: "Riscuote la ricompensa mensile in Galeoni.",
+  rob: "Prova a rubare Galeoni a un altro utente.",
+  roulette: "Apri la roulette interattiva con ruota animata e Galeoni.",
+  rps: "Gioca a sasso carta forbici con i Galeoni.",
+  slots: "Gioca alle slot con i Galeoni.",
   info: "Mostra una scheda completa di un utente: account, ruoli, permessi, strike e stato sicurezza.",
   desc: "Invia nel ticket la descrizione ufficiale del server.",
   purge: "Elimina messaggi da un canale.",
@@ -448,12 +458,22 @@ function shouldIncludeSlashCommandInHelp(command) {
   return true;
 }
 
+function shouldShowEconomyHelp(client) {
+  const cfg = client?.config?.galeoniEconomy || {};
+  if (cfg.enabled === false) return false;
+  const startDate = String(cfg.startDate || DEFAULT_ECONOMY_START_DATE).trim();
+  const startMs = new Date(startDate).getTime();
+  return Number.isFinite(startMs) ? Date.now() >= startMs : true;
+}
+
 function buildEntries(client, permissions) {
   const entries = [];
+  const showEconomyHelp = shouldShowEconomyHelp(client);
 
   for (const command of client.pcommands.values()) {
     if (!command?.name) continue;
     if (OBSOLETE_PREFIX_HELP_NAMES.has(String(command.name).trim().toLowerCase())) continue;
+    if (normalizeCategoryKey(command.folder || "misc") === "economy" && !showEconomyHelp) continue;
 
     const perm = permissions.prefix?.[command.name];
     const commandRoles = Array.isArray(perm) ? perm : Array.isArray(perm?.roles) ? perm.roles : null;

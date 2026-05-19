@@ -9,7 +9,7 @@ const {
 } = require("discord.js");
 const { inspect } = require("node:util");
 const { getCountingConfigFromBucket } = require("../Global/globalSettingsBucket");
-const { getAfk, clearAfk, listMentionReactions } = require("../../Services/Community/profileStore");
+const { getAfk, clearAfk, listMentionReactions, listMentionResponses } = require("../../Services/Community/profileStore");
 const { getCustomReactionMax } = require("../Community/mentionReactionPanelUtils");
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const IDs = require("../Config/ids");
@@ -339,6 +339,62 @@ async function handleMentionAutoReactions(message) {
     }
   } catch (error) {
     global.logger?.error?.("[MENTION-REACTION] Fatal error:", error);
+  }
+}
+
+async function handleMentionAutoResponses(message) {
+  try {
+    const mentionedUsers = message.mentions?.users;
+    if (!mentionedUsers || mentionedUsers.size === 0) return;
+
+    const explicitMentionIds = new Set();
+    const mentionRegex = /<@!?(\d{16,20})>/g;
+    let match = null;
+    const content = String(message.content || "");
+    while ((match = mentionRegex.exec(content)) !== null) {
+      explicitMentionIds.add(String(match[1]));
+    }
+    explicitMentionIds.delete(String(message.author?.id || ""));
+    if (explicitMentionIds.size === 0) return;
+
+    const targetIds = Array.from(
+      new Set(
+        mentionedUsers
+          .filter((user) => !user.bot && explicitMentionIds.has(user.id))
+          .map((user) => user.id),
+      ),
+    );
+    if (!targetIds.length) return;
+
+    const docs = await listMentionResponses(message.guild.id, targetIds).catch(() => []);
+    if (!Array.isArray(docs) || !docs.length) return;
+
+    const highStaffRoleId = String(IDs.roles?.HighStaff || "").trim();
+    if (!highStaffRoleId) return;
+    let sent = 0;
+    for (const doc of docs) {
+      if (sent >= 3) break;
+      const member =
+        message.guild.members.cache.get(String(doc?.userId || "")) ||
+        (await message.guild.members.fetch(String(doc?.userId || "")).catch(() => null));
+      if (!member?.roles?.cache?.has(highStaffRoleId)) continue;
+      const text = String(doc?.text || "").trim();
+      if (!text) continue;
+      const mentionerId = String(message.author?.id || "").trim();
+      const content = mentionerId ? `${text}` : text;
+      await safeMessageReply(message, {
+        content,
+        allowedMentions: {
+          parse: [],
+          users: mentionerId ? [mentionerId] : [],
+          roles: [],
+          repliedUser: false,
+        },
+      }).catch(() => {});
+      sent += 1;
+    }
+  } catch (error) {
+    global.logger?.error?.("[MENTION-RESPONSE] Fatal error:", error);
   }
 }
 
@@ -791,6 +847,7 @@ module.exports = {
   handleAfk,
   handleCounting,
   handleMentionAutoReactions,
+  handleMentionAutoResponses,
   handleWordReactions,
   logEventError,
   processPendingCountingMessages,

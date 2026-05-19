@@ -346,12 +346,28 @@
     return Boolean(vid && oid && vid === oid);
   }
 
+  function viewerHasRole(row) {
+    var vid = viewerDiscordUserId();
+    var members = Array.isArray(row && row.members) ? row.members : [];
+    if (!vid || !members.length) return false;
+    for (var i = 0; i < members.length; i += 1) {
+      if (String(members[i] && members[i].userId ? members[i].userId : "").trim() === vid) return true;
+    }
+    return false;
+  }
+
   function roleRequestCtaHtml(row) {
     var rid = esc(String(row.roleId || ""));
     if (viewerIsRoleOwner(row)) {
       return (
         '<button type="button" class="vc-role-card-cta vc-role-card-cta--owner-self" disabled title="Ruolo che hai creato con +profile: non puoi richiederlo a te stesso">' +
         '<i class="fa fa-user" aria-hidden="true"></i> Il tuo ruolo</button>'
+      );
+    }
+    if (viewerHasRole(row)) {
+      return (
+        '<button type="button" class="vc-role-card-cta vc-role-card-cta--already-member" disabled title="Hai già questo ruolo">' +
+        '<i class="fa fa-check" aria-hidden="true"></i> Già tuo</button>'
       );
     }
     return (
@@ -602,6 +618,10 @@
       setState("Non puoi inviare una richiesta per un ruolo che hai creato tu.", true);
       return;
     }
+    if (viewerHasRole(row)) {
+      setState("Hai già questo ruolo: non serve inviare una richiesta.", true);
+      return;
+    }
     state.activeRequestRoleId = String(row.roleId || "");
     state.requestAuthRequired = false;
     state.submittingRequest = false;
@@ -659,6 +679,11 @@
     var activeRow = findRow(state.activeRequestRoleId);
     if (activeRow && viewerIsRoleOwner(activeRow)) {
       setRequestState("Sei già il creatore di questo ruolo: non serve inviare una richiesta.", true);
+      syncRequestModalState();
+      return;
+    }
+    if (activeRow && viewerHasRole(activeRow)) {
+      setRequestState("Hai già questo ruolo: non serve inviare una richiesta.", true);
       syncRequestModalState();
       return;
     }
