@@ -166,8 +166,8 @@ function renderCacheKey(session, animating, previewSpin = false) {
   const spin = last?.result || {};
   if (!last) return IDLE_CACHE_KEY;
   const choice = session.choice || "";
-  if (previewSpin && last) {
-    return `preview:${spin.number}|${spin.color}:${choice}`;
+  if (previewSpin) {
+    return "preview:spinning";
   }
   if (animating && last) {
     return `gif:${spin.number}|${spin.color}:${choice}:${last.win ? 1 : 0}`;
@@ -272,12 +272,18 @@ function scheduleRouletteIdlePanel(message, session, cfg, notice = "", disabled 
   }, waitMs);
 }
 
-async function pushRouletteSpinGif(message, session, cfg, spinNotice, finalNotice) {
+async function pushRouletteSpinGif(message, session, cfg, spinNotice, finalNotice, opts = {}) {
   const messageId = String(message?.id || "");
   if (!message?.edit || !messageId) return;
+  const skipPlaceholder = Boolean(opts.skipPlaceholder);
   const gifStarted = Date.now();
   try {
-    const payload = await buildRouletteGuiPayload(session, cfg, spinNotice, false, true, false);
+    const gifPromise = opts.gifPromise || buildRouletteGuiPayload(session, cfg, spinNotice, false, true, false);
+    if (!skipPlaceholder) {
+      const placeholderPayload = await buildRouletteGuiPayload(session, cfg, spinNotice, false, false, true);
+      await message.edit(placeholderPayload).catch(() => {});
+    }
+    const payload = await gifPromise;
     await message.edit(payload).catch(() => {});
     const remaining = Math.max(0, spinAnimationDurationMs() - (Date.now() - gifStarted));
     scheduleRouletteIdlePanel(message, session, cfg, finalNotice, false, remaining);
@@ -296,7 +302,8 @@ function formatRouletteSpinNotice(result) {
 
 function buildEmbed(session, notice, animating) {
   const last = session.lastResult;
-  const color = last?.win ? "#2ecc71" : last ? "#ed4245" : "#d4af37";
+  const hideOutcome = Boolean(animating);
+  const color = hideOutcome ? "#d4af37" : last?.win ? "#2ecc71" : last ? "#ed4245" : "#d4af37";
   const lines = [
     `🪙 Puntata: **${formatGaleoni(session.bet)}**`,
     `🎯 Scelta: **${choiceLabel(session)}**`,
@@ -308,7 +315,7 @@ function buildEmbed(session, notice, animating) {
 
 async function buildRouletteGuiPayload(session, cfg, notice = "", disabled = false, animating = false, previewSpin = false) {
   const attachment = await resolvePanelAttachment(session, animating, previewSpin);
-  const embed = buildEmbed(session, notice, animating);
+  const embed = buildEmbed(session, notice, animating || previewSpin);
   const files = attachment.files?.length ? attachment.files : undefined;
   if (attachment.image && files?.length && !attachment.isGif) {
     embed.setImage(attachment.image);

@@ -744,6 +744,12 @@ function encodedFromPlayerTrack(track) {
   return null;
 }
 
+function isMusicPlayingNow(player, session) {
+  const enc = encodedFromPlayerTrack(player?.track);
+  const label = String(session?.nowPlaying || "").trim();
+  return Boolean(enc && label);
+}
+
 function buildRepeatQueueSnapshot(session, player) {
   const enc = encodedFromPlayerTrack(player.track);
   if (!enc) return [];
@@ -1483,7 +1489,7 @@ async function sendMusicQueueEndedEmbed(client, textChannelId, guildId) {
       gid ? client.guilds.cache.get(gid) || (await client.guilds.fetch(gid).catch(() => null)) : ch.guild || null;
     const embed = new EmbedBuilder()
       .setColor(0xed4245)
-      .setDescription("Non ci sono altre tracce.");
+      .setDescription("Coda finita — nessun altro brano in attesa.");
     const payload = applyDefaultFooterToEmbeds({ embeds: [embed] }, guild || ch.guild);
     await ch.send(payload).catch(() => {});
   } catch (_) {}
@@ -2032,7 +2038,7 @@ async function playMusicRequest(ctx, query) {
     await player.setGlobalVolume(volume);
   }
 
-  const playing = Boolean(player.track);
+  const playing = isMusicPlayingNow(player, session);
   if (playing) {
     const beforeLen = session.tracks.length;
     let remainingCurrent = 0;

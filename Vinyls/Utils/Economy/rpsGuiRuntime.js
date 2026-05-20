@@ -1,12 +1,15 @@
 const { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require("discord.js");
 const { formatGaleoni } = require("../../Services/Community/gringottService");
-const { economyConfig, playRps } = require("../../Services/Community/galeoniEconomyService");
+const { economyConfig, lockRpsPvpStakes, normalizeRps, playRps, refundRpsPvpStake, settleRpsPvp } = require("../../Services/Community/galeoniEconomyService");
 
 const PREFIX = "rps_gui";
 const SESSION_TTL_MS = 10 * 60 * 1000;
+const PVP_INVITE_TTL_MS = 90 * 1000;
+const PVP_PICK_TTL_MS = 3 * 60 * 1000;
 const RENDER_CACHE_MAX = 64;
 const IDLE_CACHE_KEY = "png:idle";
 const sessions = new Map();
+const pvpUserLocks = new Map();
 const renderCache = new Map();
 let defaultIdleCache = null;
 let warmupPromise = null;
@@ -30,13 +33,19 @@ function betStep(cfg) {
   return Math.max(1, Math.floor(Number(cfg?.minBet) || 5));
 }
 
-function makeSession({ ownerId, guildId, bet, cfg, playerName }) {
+function makeSession({ ownerId, guildId, bet, cfg, playerName, mode = "bot", opponentId = "", opponentName = "Rivale" }) {
   return {
+    mode: mode === "pvp" ? "pvp" : "bot",
     ownerId: String(ownerId || ""),
+    opponentId: String(opponentId || ""),
     guildId: String(guildId || ""),
     bet: clampBet(bet, cfg),
     playerName: String(playerName || "Tu").trim() || "Tu",
-    opponentName: "Rivale",
+    opponentName: String(opponentName || "Rivale").trim() || "Rivale",
+    phase: mode === "pvp" ? "pending" : "bot",
+    stakesLocked: false,
+    challengerChoice: "",
+    opponentChoice: "",
     lastResult: null,
     panelAnimating: false,
     createdAt: now(),
@@ -44,8 +53,37 @@ function makeSession({ ownerId, guildId, bet, cfg, playerName }) {
   };
 }
 
+function userLockKey(guildId, userId) {
+  return `${String(guildId || "").trim()}:${String(userId || "").trim()}`;
+}
+
+function bindPvpUsers(session, messageId) {
+  const gid = String(session?.guildId || "");
+  const mid = String(messageId || "");
+  if (!gid || !mid || session.mode !== "pvp") return;
+  pvpUserLocks.set(userLockKey(gid, session.ownerId), mid);
+  pvpUserLocks.set(userLockKey(gid, session.opponentId), mid);
+}
+
+function releasePvpUsers(session) {
+  if (session?.mode !== "pvp") return;
+  const gid = String(session.guildId || "");
+  pvpUserLocks.delete(userLockKey(gid, session.ownerId));
+  pvpUserLocks.delete(userLockKey(gid, session.opponentId));
+}
+
+function findActivePvpMessageId(guildId, userId) {
+  return pvpUserLocks.get(userLockKey(guildId, userId)) || "";
+}
+
+function isParticipant(session, userId) {
+  const uid = String(userId || "");
+  return uid === String(session?.ownerId || "") || uid === String(session?.opponentId || "");
+}
+
 function setSession(messageId, session) {
   sessions.set(sessionKey(messageId), { ...session, updatedAt: now() });
+  bindPvpUsers(session, messageId);
 }
 
 function getSession(messageId) {
@@ -60,6 +98,8 @@ function getSession(messageId) {
 }
 
 function deleteSession(messageId) {
+  const live = sessions.get(sessionKey(messageId));
+  if (live) releasePvpUsers(live);
   sessions.delete(sessionKey(messageId));
 }
 
@@ -77,7 +117,7 @@ function parseRpsGuiCustomId(customId) {
   return { action: parts[1], ownerId: parts[2] };
 }
 
-function buildRows(session, cfg, disabled = false) {
+function buildBotRows(session, cfg, disabled = false) {
   const ownerId = session.ownerId;
   const step = betStep(cfg);
   const min = Math.max(1, Math.floor(Number(cfg?.minBet) || 1));
@@ -125,6 +165,53 @@ function buildRows(session, cfg, disabled = false) {
         .setDisabled(disabled),
     ),
   ];
+}
+
+function buildPvpInviteRows(session, disabled = false) {
+  const ownerId = session.ownerId;
+  return [
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(controlId("accept", ownerId))
+        .setLabel("Accetta sfida")
+        .setEmoji("<a:VC_Verified:1482532479637127188>")
+        .setStyle(ButtonStyle.Success)
+        .setDisabled(disabled),
+      new ButtonBuilder()
+        .setCustomId(controlId("decline", ownerId))
+        .setLabel("Rifiuta")
+        .setEmoji("<a:VC_Cross:1482532424570376253>")
+        .setStyle(ButtonStyle.Danger)
+        .setDisabled(disabled),
+      new ButtonBuilder()
+        .setCustomId(controlId("cancel", ownerId))
+        .setLabel("Annulla")
+        .setEmoji("🚫")
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(disabled),
+    ),
+  ];
+}
+
+function buildPvpPickRows(session, disabled = false) {
+  const ownerId = session.ownerId;
+  const locked = disabled || Boolean(session.panelAnimating);
+  return [
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId(controlId("sasso", ownerId)).setLabel("Sasso").setEmoji("✊").setStyle(ButtonStyle.Primary).setDisabled(locked),
+      new ButtonBuilder().setCustomId(controlId("carta", ownerId)).setLabel("Carta").setEmoji("✋").setStyle(ButtonStyle.Primary).setDisabled(locked),
+      new ButtonBuilder().setCustomId(controlId("forbici", ownerId)).setLabel("Forbici").setEmoji("✌️").setStyle(ButtonStyle.Primary).setDisabled(locked),
+    ),
+  ];
+}
+
+function buildRows(session, cfg, disabled = false) {
+  if (session.mode === "pvp") {
+    if (session.phase === "pending") return buildPvpInviteRows(session, disabled);
+    if (session.phase === "pick") return buildPvpPickRows(session, disabled);
+    return [];
+  }
+  return buildBotRows(session, cfg, disabled);
 }
 
 function spinAnimationDurationMs() {
@@ -183,6 +270,8 @@ async function renderRpsAttachment(session, { animating = false } = {}) {
       draw: Boolean(last?.draw),
       hasResult: Boolean(last),
       animating: Boolean(animating && last),
+      isPvp: session.mode === "pvp",
+      winnerName: last?.winnerId === session.ownerId ? session.playerName : last?.winnerId === session.opponentId ? session.opponentName : "",
     });
     const fileName = rendered.format === "gif" ? "rps-match.gif" : "rps-panel.png";
     rememberRenderCache(key, rendered.buffer, fileName);
@@ -238,27 +327,48 @@ function scheduleRpsIdlePanel(message, session, cfg, notice = "", disabled = fal
     const live = getSession(messageId);
     if (!live) return;
     live.panelAnimating = false;
+    const pvpDone = live.mode === "pvp";
+    if (pvpDone) live.phase = "done";
     setSession(messageId, live);
-    buildRpsGuiPayload(live, cfg, notice, disabled, false)
+    buildRpsGuiPayload(live, cfg, notice, disabled || pvpDone, false)
       .then((payload) => message.edit(payload).catch(() => {}))
+      .then(() => { if (pvpDone) deleteSession(messageId); })
       .catch(() => {});
   }, delayMs);
 }
 
 function formatRpsRoundNotice(result) {
   if (!result?.ok) return "";
+  if (result.game === "rps_pvp") return formatRpsPvpNotice(result);
   if (result.draw) return `🤝 Pareggio: ti tornano **${formatGaleoni(result.payout)}**.`;
   if (result.win) return `🏆 Hai vinto **${formatGaleoni(result.payout)}**.`;
   return `<a:VC_Cross:1482532424570376253> Hai perso.\n<a:VC_pixeltime:1482535344103620771> Puoi rigiocare quando il cooldown lo permette.`;
 }
 
+function formatRpsPvpNotice(result) {
+  if (result.draw) return `🤝 **Pareggio!** Le puntate tornano a entrambi i giocatori.`;
+  const winnerName = result.winnerId === result.challengerId ? result.challengerName : result.opponentName;
+  return `🏆 **${winnerName}** vince il montepremi: **${formatGaleoni(result.payout)}**.`;
+}
+
 function buildEmbed(session, notice, animating) {
   const last = session.lastResult;
-  const color = last?.draw ? "#d4af37" : last?.win ? "#2ecc71" : last ? "#ed4245" : "#38bdf8";
-  const lines = [
-    `🪙 Puntata: **${formatGaleoni(session.bet)}**`,
-    `👤 Tu vs Bot`,
-  ];
+  const hideOutcome = Boolean(animating);
+  const color = hideOutcome ? "#38bdf8" : last?.draw ? "#d4af37" : last?.winnerId ? "#2ecc71" : last ? "#ed4245" : "#38bdf8";
+  const lines = [`🪙 Puntata: **${formatGaleoni(session.bet)}**`];
+  if (session.mode === "pvp") {
+    lines.push(`👥 **${session.playerName}** vs **${session.opponentName}**`);
+    if (session.phase === "pending") lines.push("⏳ In attesa che l'avversario accetti la sfida.");
+    if (session.phase === "pick") {
+      const cDone = Boolean(session.challengerChoice);
+      const oDone = Boolean(session.opponentChoice);
+      lines.push(`✊ Sfida accettata — scegli in segreto la tua mossa.`);
+      lines.push(`• ${session.playerName}: ${cDone ? "✅ pronto" : "⏳ in attesa"}`);
+      lines.push(`• ${session.opponentName}: ${oDone ? "✅ pronto" : "⏳ in attesa"}`);
+    }
+  } else {
+    lines.push("👤 Tu vs Bot");
+  }
   if (animating) lines.push("🎬 **Animazione in corso…**");
   if (notice) lines.push(notice);
   return new EmbedBuilder().setColor(color).setDescription(lines.filter(Boolean).join("\n"));
@@ -299,21 +409,140 @@ async function playRpsSession(client, messageLike, session, choice) {
   return { ok: true, result };
 }
 
+function choiceSide(session, userId) {
+  if (String(userId) === String(session.ownerId)) return "challenger";
+  if (String(userId) === String(session.opponentId)) return "opponent";
+  return "";
+}
+
+function setPvpChoice(session, userId, choiceRaw) {
+  const choice = normalizeRps(choiceRaw);
+  if (!choice) return { ok: false, message: "Mossa non valida." };
+  const side = choiceSide(session, userId);
+  if (!side) return { ok: false, message: "Non fai parte di questa sfida." };
+  if (session.phase !== "pick") return { ok: false, message: "Non puoi scegliere ora." };
+  if (side === "challenger" && session.challengerChoice) return { ok: false, message: "Hai già scelto la tua mossa." };
+  if (side === "opponent" && session.opponentChoice) return { ok: false, message: "Hai già scelto la tua mossa." };
+  if (side === "challenger") session.challengerChoice = choice;
+  else session.opponentChoice = choice;
+  session.updatedAt = now();
+  return { ok: true, choice, side, ready: Boolean(session.challengerChoice && session.opponentChoice) };
+}
+
+async function finalizePvpMatch(client, guild, session, actorId) {
+  const settled = await settleRpsPvp(
+    client,
+    guild,
+    session.ownerId,
+    session.opponentId,
+    session.challengerChoice,
+    session.opponentChoice,
+    session.bet,
+    actorId,
+  );
+  if (!settled.ok) return { ok: false, message: settled.message };
+  settled.challengerId = session.ownerId;
+  settled.opponentId = session.opponentId;
+  settled.challengerName = session.playerName;
+  settled.opponentName = session.opponentName;
+  session.lastResult = settled;
+  session.phase = "done";
+  session.panelAnimating = true;
+  session.updatedAt = now();
+  return { ok: true, result: settled };
+}
+
+async function refundLockedPvpStakes(client, session, actorId, reason) {
+  if (!session.stakesLocked) return;
+  await refundRpsPvpStake(client, session.guildId, session.ownerId, session.bet, actorId, reason);
+  await refundRpsPvpStake(client, session.guildId, session.opponentId, session.bet, actorId, reason);
+  session.stakesLocked = false;
+}
+
+function schedulePvpInviteExpiry(message, session, cfg) {
+  const messageId = String(message?.id || "");
+  if (!message?.edit || !messageId) return;
+  setTimeout(() => {
+    const live = getSession(messageId);
+    if (!live || live.mode !== "pvp" || live.phase !== "pending") return;
+    deleteSession(messageId);
+    buildRpsGuiPayload(live, cfg, "<a:VC_pixeltime:1482535344103620771> Sfida scaduta: nessuna risposta.", true, false)
+      .then((payload) => message.edit(payload).catch(() => {}))
+      .catch(() => {});
+  }, PVP_INVITE_TTL_MS);
+}
+
+function schedulePvpPickExpiry(message, session, cfg, client) {
+  const messageId = String(message?.id || "");
+  if (!message?.edit || !messageId) return;
+  setTimeout(async () => {
+    const live = getSession(messageId);
+    if (!live || live.mode !== "pvp" || live.phase !== "pick") return;
+    if (live.challengerChoice && live.opponentChoice) return;
+    await refundLockedPvpStakes(client, live, live.ownerId, "rps: timeout scelta pvp");
+    deleteSession(messageId);
+    buildRpsGuiPayload(live, cfg, "<a:VC_pixeltime:1482535344103620771> Tempo scaduto: puntate rimborsate.", true, false)
+      .then((payload) => message.edit(payload).catch(() => {}))
+      .catch(() => {});
+  }, PVP_PICK_TTL_MS);
+}
+
+async function acceptPvpChallenge(client, interaction, session, cfg) {
+  const guild = interaction.guild;
+  const opponentId = String(interaction.user?.id || "");
+  if (opponentId !== session.opponentId) return { ok: false, message: "Solo l'avversario sfidato può accettare." };
+  const locked = await lockRpsPvpStakes(client, guild, session.ownerId, session.opponentId, session.bet, opponentId);
+  if (!locked.ok) return locked;
+  session.stakesLocked = true;
+  session.phase = "pick";
+  session.updatedAt = now();
+  setSession(interaction.message.id, session);
+  schedulePvpPickExpiry(interaction.message, session, cfg, client);
+  return { ok: true, notice: "<a:VC_Verified:1482532479637127188> Sfida accettata! Scegli sasso, carta o forbici." };
+}
+
+async function declinePvpChallenge(interaction, session) {
+  const uid = String(interaction.user?.id || "");
+  if (uid !== session.opponentId) return { ok: false, message: "Solo l'avversario può rifiutare la sfida." };
+  if (session.phase !== "pending") return { ok: false, message: "Questa sfida non è più in attesa." };
+  deleteSession(interaction.message.id);
+  return { ok: true, notice: `<a:VC_Cross:1482532424570376253> **${session.opponentName}** ha rifiutato la sfida.`, disabled: true };
+}
+
+async function cancelPvpChallenge(interaction, session) {
+  if (String(interaction.user?.id || "") !== session.ownerId) return { ok: false, message: "Solo chi ha lanciato la sfida può annullarla." };
+  if (session.phase !== "pending") return { ok: false, message: "Non puoi annullare ora." };
+  deleteSession(interaction.message.id);
+  return { ok: true, notice: "🚫 Sfida annullata.", disabled: true };
+}
+
 module.exports = {
   SESSION_TTL_MS,
+  PVP_INVITE_TTL_MS,
+  PVP_PICK_TTL_MS,
+  acceptPvpChallenge,
   buildRpsBetPayload,
   buildRpsGuiPayload,
+  cancelPvpChallenge,
   clampBet,
+  choiceSide,
+  declinePvpChallenge,
   deleteSession,
   economyConfig,
+  finalizePvpMatch,
+  findActivePvpMessageId,
+  formatRpsPvpNotice,
   formatRpsRoundNotice,
   getSession,
   interactionMessageAdapter,
+  isParticipant,
   isRpsGuiCustomId,
   makeSession,
   parseRpsGuiCustomId,
   playRpsSession,
+  schedulePvpInviteExpiry,
   scheduleRpsIdlePanel,
+  setPvpChoice,
   setSession,
   spinAnimationDurationMs,
   warmupRpsPanel,

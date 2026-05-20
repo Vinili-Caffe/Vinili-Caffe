@@ -103,9 +103,8 @@ async function execute(interaction, client) {
     setSession(interaction.message.id, session);
     const live = getSession(interaction.message.id) || session;
     const finalNotice = formatRouletteSpinNotice(spin.result);
-    const quickPayload = await buildRouletteGuiPayload(live, cfg, "🎡 La pallina è in movimento...", false, false, true);
-    await interaction.message?.edit?.(quickPayload).catch(() => {});
-    void pushRouletteSpinGif(interaction.message, live, cfg, "🎡 La pallina è in movimento...", finalNotice);
+    const spinNotice = "🎡 La pallina è in movimento...";
+    void pushRouletteSpinGif(interaction.message, live, cfg, spinNotice, finalNotice);
     return true;
   }
 

@@ -1,0 +1,169 @@
+const canvasModule = require("canvas");
+const { formatGaleoni } = require("../../Services/Community/gringottService");
+const { registerCanvasFonts, drawTextWithSpecialFallback } = require("./canvasFonts");
+const { PLAYER, cellLabel } = require("../Economy/trisEngine");
+const { createCanvas } = canvasModule;
+let fontsReady = false;
+
+function ensureFonts() {
+  if (fontsReady) return;
+  registerCanvasFonts(canvasModule);
+  fontsReady = true;
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  const rr = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + rr, y);
+  ctx.arcTo(x + w, y, x + w, y + h, rr);
+  ctx.arcTo(x + w, y + h, x, y + h, rr);
+  ctx.arcTo(x, y + h, x, y, rr);
+  ctx.arcTo(x, y, x + w, y, rr);
+  ctx.closePath();
+}
+
+function fillRoundRect(ctx, x, y, w, h, r, fillStyle) {
+  ctx.save();
+  roundRect(ctx, x, y, w, h, r);
+  ctx.fillStyle = fillStyle;
+  ctx.fill();
+  ctx.restore();
+}
+
+function strokeRoundRect(ctx, x, y, w, h, r, strokeStyle, lineWidth = 2) {
+  ctx.save();
+  roundRect(ctx, x, y, w, h, r);
+  ctx.strokeStyle = strokeStyle;
+  ctx.lineWidth = lineWidth;
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawText(ctx, text, x, y, opts = {}) {
+  drawTextWithSpecialFallback(ctx, text, x, y, {
+    size: opts.size || 22,
+    weight: opts.weight || "700",
+    color: opts.color || "#ffffff",
+    align: opts.align || "center",
+    baseline: opts.baseline || "middle",
+    forcePrimaryFont: opts.forcePrimaryFont === true,
+  });
+}
+
+function drawPlainText(ctx, text, x, y, opts = {}) {
+  ctx.save();
+  const size = Math.max(10, Math.floor(Number(opts.size) || 18));
+  ctx.font = `${opts.weight || "700"} ${size}px Arial, Helvetica, sans-serif`;
+  ctx.fillStyle = opts.color || "#ffffff";
+  ctx.textAlign = opts.align || "center";
+  ctx.textBaseline = opts.baseline || "middle";
+  ctx.fillText(String(text ?? ""), x, y);
+  ctx.restore();
+}
+
+function drawBg(ctx, width, height) {
+  const bg = ctx.createLinearGradient(0, 0, width, height);
+  bg.addColorStop(0, "#0f172a");
+  bg.addColorStop(0.5, "#1e293b");
+  bg.addColorStop(1, "#0b1220");
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, width, height);
+  fillRoundRect(ctx, 36, 56, width - 72, height - 110, 28, "rgba(0,0,0,0.24)");
+  strokeRoundRect(ctx, 36, 56, width - 72, height - 110, 28, "rgba(212,175,55,0.35)", 2);
+}
+
+function drawBoard(ctx, board, width, height) {
+  const gridX = 150;
+  const gridY = 108;
+  const cell = 150;
+  const gap = 10;
+  for (let row = 0; row < 3; row += 1) {
+    for (let col = 0; col < 3; col += 1) {
+      const idx = row * 3 + col;
+      const x = gridX + col * (cell + gap);
+      const y = gridY + row * (cell + gap);
+      const mark = board[idx];
+      fillRoundRect(ctx, x, y, cell, cell, 16, mark ? "rgba(255,255,255,0.95)" : "rgba(15,23,42,0.75)");
+      strokeRoundRect(ctx, x, y, cell, cell, 16, mark === PLAYER ? "#38bdf8" : mark === BOT ? "#f87171" : "rgba(148,163,184,0.45)", mark ? 4 : 2);
+      if (mark) {
+        const color = mark === PLAYER ? "#0369a1" : "#b91c1c";
+        drawPlainText(ctx, cellLabel(mark), x + cell / 2, y + cell / 2, { size: mark === PLAYER ? 88 : 80, color, weight: "900" });
+      } else {
+        drawPlainText(ctx, String(idx + 1), x + cell / 2, y + cell / 2, { size: 28, color: "#64748b", weight: "700" });
+      }
+    }
+  }
+}
+
+function drawArena(ctx, params) {
+  const width = params.width;
+  const height = params.height;
+  const board = Array.isArray(params.board) ? params.board : Array(9).fill("");
+  drawBg(ctx, width, height);
+  drawText(ctx, "TRIS", width / 2, 34, { size: 26, color: "#f8d875", weight: "900", forcePrimaryFont: true });
+  let subtitle = "Tu = X  ·  Bot = O";
+  if (params.isPvp) {
+    const p1 = String(params.playerName || "X").slice(0, 14);
+    const p2 = String(params.opponentName || "O").slice(0, 14);
+    subtitle = `${p1} = X  ·  ${p2} = O`;
+    if (params.phase === "playing" && params.turnName) {
+      subtitle += `  ·  Turno: ${String(params.turnName).slice(0, 12)}`;
+    }
+  }
+  drawPlainText(ctx, subtitle, width / 2, 78, { size: 14, color: "#94a3b8", weight: "700" });
+  drawBoard(ctx, board, width, height);
+  let footer = "Premi **Inizia** per giocare";
+  let footerColor = "#e2e8f0";
+  if (params.phase === "playing") {
+    footer = "Tocca una casella libera";
+    footerColor = "#f8d875";
+  } else if (params.phase === "done" && params.resultLabel) {
+    footer = params.resultLabel;
+    footerColor = params.win ? "#4ade80" : params.draw ? "#f8d875" : "#f87171";
+  }
+  const betLine = params.bet > 0 ? `Puntata: ${formatGaleoni(params.bet)}` : "";
+  const footerH = betLine ? 56 : 36;
+  const footerY = height - footerH - 14;
+  fillRoundRect(ctx, 48, footerY, width - 96, footerH, 16, "rgba(0,0,0,0.45)");
+  const footerMid = footerY + footerH / 2;
+  if (betLine) {
+    drawPlainText(ctx, betLine, width / 2, footerMid - 12, { size: 14, color: "#cbd5e1" });
+    drawText(ctx, footer, width / 2, footerMid + 12, { size: 17, color: footerColor, forcePrimaryFont: true });
+  } else {
+    drawText(ctx, footer, width / 2, footerMid, { size: 17, color: footerColor, forcePrimaryFont: true });
+  }
+}
+
+async function renderTrisCanvas(params = {}) {
+  if (!canvasModule) throw new Error("Canvas module not available");
+  ensureFonts();
+  const width = 760;
+  const height = 420;
+  const canvas = createCanvas(width, height);
+  const ctx = canvas.getContext("2d");
+  drawArena(ctx, {
+    width,
+    height,
+    board: params.board || [],
+    bet: Math.max(0, Math.floor(Number(params.bet) || 0)),
+    phase: String(params.phase || "idle"),
+    resultLabel: String(params.resultLabel || ""),
+    win: Boolean(params.win),
+    draw: Boolean(params.draw),
+    isPvp: Boolean(params.isPvp),
+    playerName: String(params.playerName || ""),
+    opponentName: String(params.opponentName || ""),
+    turnName: String(params.turnName || ""),
+  });
+  return { buffer: canvas.toBuffer("image/png"), format: "png" };
+}
+
+renderTrisCanvas.warmup = function warmup() {
+  if (!canvasModule) return;
+  ensureFonts();
+  try {
+    renderTrisCanvas({ phase: "idle", bet: 10 });
+  } catch (_) {}
+};
+
+module.exports = renderTrisCanvas;

@@ -1,5 +1,6 @@
 const canvasModule = require("canvas");
 const GIFEncoder = require("gif-encoder-2");
+const { formatGaleoni } = require("../../Services/Community/gringottService");
 const { registerCanvasFonts, drawTextWithSpecialFallback } = require("./canvasFonts");
 const { createCanvas } = canvasModule;
 const CHOICES = ["sasso", "carta", "forbici"];
@@ -311,7 +312,15 @@ function drawArena(ctx, params) {
   } else if (hasResult) {
     const pLabel = CHOICE_LABEL[normalizeChoice(params.playerChoice)] || "";
     const bLabel = CHOICE_LABEL[normalizeChoice(params.botChoice)] || "";
-    if (params.draw) {
+    if (params.isPvp) {
+      if (params.draw) {
+        footer = `Pareggio — ${pLabel} vs ${bLabel}`;
+        footerColor = "#f8d875";
+      } else {
+        footer = `${params.winnerName || "Vincitore"} vince ${formatGaleoni(params.bet * 2)}`;
+        footerColor = "#4ade80";
+      }
+    } else if (params.draw) {
       footer = `Pareggio — ${pLabel} vs ${bLabel}`;
       footerColor = "#f8d875";
     } else if (params.win) {
@@ -338,6 +347,8 @@ function normalizeParams(params = {}) {
     draw: Boolean(params.draw),
     hasResult: Boolean(params.hasResult),
     animating: Boolean(params.animating),
+    isPvp: Boolean(params.isPvp),
+    winnerName: String(params.winnerName || "").trim(),
   };
 }
 

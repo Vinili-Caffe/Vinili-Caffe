@@ -313,7 +313,7 @@ function drawArena(ctx, params) {
   const lite = Boolean(params.lite);
   drawBg(ctx, width, height, frameIndex, lite);
 
-  drawText(ctx, "ROULETTE EUROPEA", width / 2, 34, { size: 24, color: "#f8d875", weight: "900", forcePrimaryFont: true });
+  drawText(ctx, "ROULETTE", width / 2, 34, { size: 24, color: "#f8d875", weight: "900", forcePrimaryFont: true });
 
   const wheelCx = Math.round(width * 0.34);
   const wheelCy = Math.round(height * 0.54);
@@ -333,7 +333,7 @@ function drawArena(ctx, params) {
   const panelY = 78;
   const panelW = Math.min(300, width - panelX - 24);
   drawBetPanel(ctx, panelX, panelY, panelW, 190, params);
-  if (hasResult) {
+  if (hasResult && (!animating || activeFrame >= totalFrames - 3)) {
     drawResultBadge(ctx, panelX, panelY + 208, panelW, result, params.win);
   }
 
@@ -405,7 +405,14 @@ function renderSpinPreviewPng(params) {
   const canvas = createCanvas(width, height);
   const ctx = canvas.getContext("2d");
   const timing = spinFrameTiming();
-  const normalized = normalizeParams({ ...params, animating: true, hasResult: true });
+  const normalized = normalizeParams({
+    ...params,
+    animating: true,
+    hasResult: false,
+    spinResult: {},
+    win: false,
+    payout: 0,
+  });
   drawArena(ctx, {
     ...normalized,
     width,
@@ -474,8 +481,6 @@ renderRouletteCanvas.warmup = function warmup() {
     renderSpinPreviewPng({
       bet: 5,
       playerChoice: "rosso",
-      spinResult: { number: 7, color: "rosso", evenOdd: "dispari" },
-      hasResult: true,
     });
   } catch (_) {}
 };

@@ -182,7 +182,7 @@
         '<article class="vc-hw-potion-card">' +
           '<div class="vc-hw-potion-card__bottle" aria-hidden="true"><span></span></div>' +
           '<div class="vc-hw-potion-card__body">' +
-            '<p class="vc-hw-shop-card__rarity">Difficolta ' + esc(potion.difficulty || 1) + "</p>" +
+            '<p class="vc-hw-shop-card__rarity">Difficoltà' + esc(potion.difficulty || 1) + "</p>" +
             '<h3>' + esc(potion.name || "") + "</h3>" +
             '<p>' + esc(potion.flavor || "") + "</p>" +
             '<label>Effetto corretto<select data-potion-id="' + esc(potion.id) + '">' +

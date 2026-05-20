@@ -758,6 +758,54 @@
                 "channels.economy"
             ]
         },
+        "blackjack": {
+            "roles": [
+                "roles.Member"
+            ],
+            "channels": [
+                "channels.economy"
+            ]
+        },
+        "bj": {
+            "roles": [
+                "roles.Member"
+            ],
+            "channels": [
+                "channels.economy"
+            ]
+        },
+        "coinflip": {
+            "roles": [
+                "roles.Member"
+            ],
+            "channels": [
+                "channels.economy"
+            ]
+        },
+        "cf": {
+            "roles": [
+                "roles.Member"
+            ],
+            "channels": [
+                "channels.economy"
+            ]
+        },
+        "tris": {
+            "roles": [
+                "roles.Member"
+            ],
+            "channels": [
+                "channels.economy"
+            ]
+        },
+        "scratch": {
+            "roles": [
+                "roles.Member"
+            ],
+            "channels": [
+                "channels.economy"
+            ]
+        },
         "snipe": {
             "roles": [
                 "roles.Member"

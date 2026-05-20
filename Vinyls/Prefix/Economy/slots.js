@@ -1,6 +1,6 @@
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const { formatGaleoni } = require("../../Services/Community/gringottService");
-const { assertEconomyAccess, flushSlotsGuiPendingBank } = require("../../Services/Community/galeoniEconomyService");
+const { assertEconomyGamblingAccess, flushSlotsGuiPendingBank } = require("../../Services/Community/galeoniEconomyService");
 const { buildSlotsGuiPayload, clampBet, formatSlotsSpinNotice, getSession, makeSession, scheduleSlotsIdlePanel, setSession, spinSession, warmupSlotsPanel } = require("../../Utils/Economy/slotsGuiRuntime");
 
 module.exports = {
@@ -10,7 +10,7 @@ module.exports = {
   usage: "+slots [puntata]",
   examples: ["+slots", "+slots 10", "+slots 50"],
   async execute(message, args, client) {
-    const access = await assertEconomyAccess(message, client);
+    const access = await assertEconomyGamblingAccess(message, client, args?.[0]);
     if (!access.ok) {
       await safeMessageReply(message, { content: `<a:VC_Cross:1482532424570376253> ${access.message}`, allowedMentions: { repliedUser: false } });
       return;

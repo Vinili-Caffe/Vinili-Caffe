@@ -1,5 +1,6 @@
 const { randomInt } = require("node:crypto");
-const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
+const { ActivityUserProfile, SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Schemas/Community/communitySchemas");
+const { isValidGuildUserId } = require("../../Utils/DB/validateWriteIds");
 const IDs = require("../../Utils/Config/ids");
 const { getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { resolveHogwartsEventConfig } = require("../../Utils/Web/hogwartsSortingConfig");
@@ -16,11 +17,23 @@ const DEFAULT_CONFIG = Object.freeze({
   daily: { cooldownMs: 24 * 60 * 60 * 1000, reward: 50, streakStepPct: 3, streakMaxBonusPct: 30, streakGraceMs: 48 * 60 * 60 * 1000 },
   weekly: { cooldownMs: 7 * 24 * 60 * 60 * 1000, reward: 250, streakStepPct: 5, streakMaxBonusPct: 50, streakGraceMs: 14 * 24 * 60 * 60 * 1000 },
   monthly: { cooldownMs: 30 * 24 * 60 * 60 * 1000, reward: 900, streakStepPct: 10, streakMaxBonusPct: 100, streakGraceMs: 62 * 24 * 60 * 60 * 1000 },
-  rob: { cooldownMs: 6 * 60 * 60 * 1000, successChance: 35, minTargetBalance: 80, minSteal: 15, maxSteal: 120, failPenalty: 25, targetProtectionMs: 12 * 60 * 60 * 1000 },
+  rob: { cooldownMs: 5 * 60 * 1000, successChance: 35, minTargetBalance: 80, minSteal: 15, maxSteal: 120, failPenalty: 25, targetProtectionMs: 2 * 60 * 60 * 1000 },
   roulette: { cooldownMs: 5 * 1000, numberPayout: 36, simplePayout: 2 },
   rps: { cooldownMs: 5 * 1000, winPayout: 2 },
   slots: { cooldownMs: 5 * 1000, pairPayout: 1, triplePayout: 5, jackpotPayout: 10 },
+  blackjack: { cooldownMs: 5 * 1000, winPayout: 2, blackjackPayout: 2.5 },
+  coinflip: { cooldownMs: 5 * 1000, winPayout: 2 },
+  tris: { cooldownMs: 5 * 1000, winPayout: 2, botRandomPct: 35 },
+  scratch: { cooldownMs: 5 * 1000, pairPayout: 2, triplePayout: 8, jackpotPayout: 15 },
 });
+const GAMBLING_ACTIONS = new Set(["roulette", "rps", "slots", "blackjack", "coinflip", "tris", "scratch"]);
+const SORTED_HOUSE_IDS = ["gryffindor", "hufflepuff", "ravenclaw", "slytherin"];
+const ROB_BANK_TARGET_ID = "gringott";
+
+function isRobBankTarget(targetId) {
+  const id = normalizeId(targetId).toLowerCase();
+  return id === ROB_BANK_TARGET_ID || id === "gringott" || id === "banca";
+}
 
 function normalizeId(value) {
   return String(value || "").trim();
@@ -45,6 +58,10 @@ function mergeConfig(raw = {}) {
     roulette: { ...DEFAULT_CONFIG.roulette, ...(cfg.roulette || {}) },
     rps: { ...DEFAULT_CONFIG.rps, ...(cfg.rps || {}) },
     slots: { ...DEFAULT_CONFIG.slots, ...(cfg.slots || {}) },
+    blackjack: { ...DEFAULT_CONFIG.blackjack, ...(cfg.blackjack || {}) },
+    coinflip: { ...DEFAULT_CONFIG.coinflip, ...(cfg.coinflip || {}) },
+    tris: { ...DEFAULT_CONFIG.tris, ...(cfg.tris || {}) },
+    scratch: { ...DEFAULT_CONFIG.scratch, ...(cfg.scratch || {}) },
   };
 }
 
@@ -57,7 +74,7 @@ function economyConfig(client) {
   raw.minBet = int(raw.minBet, DEFAULT_CONFIG.minBet, 1, 100000);
   raw.maxBet = int(raw.maxBet, DEFAULT_CONFIG.maxBet, raw.minBet, 100000);
   raw.dailyBetCap = int(raw.dailyBetCap, DEFAULT_CONFIG.dailyBetCap, raw.maxBet, 1000000);
-  for (const action of ["work", "daily", "weekly", "monthly", "rob", "roulette", "rps", "slots"]) {
+  for (const action of ["work", "daily", "weekly", "monthly", "rob", "roulette", "rps", "slots", "blackjack", "coinflip", "tris", "scratch"]) {
     raw[action].cooldownMs = int(raw[action].cooldownMs, DEFAULT_CONFIG[action].cooldownMs, 0, 365 * 24 * 60 * 60 * 1000);
   }
   raw.work.minReward = int(raw.work.minReward, DEFAULT_CONFIG.work.minReward, 1, 100000);
@@ -120,6 +137,64 @@ async function assertEconomyAccess(message, client) {
   }
   if (!await isMember(message.member, client, message.author.id)) return { ok: false, message: "Devi essere Member per usare l'economia Galeoni." };
   return { ok: true, preview: false, cfg };
+}
+
+function normalizeSortedHouseId(value) {
+  const house = normalizeId(value).toLowerCase();
+  return SORTED_HOUSE_IDS.includes(house) ? house : "";
+}
+
+async function resolveSortedHouseForUser(guildId, userId, client) {
+  const gid = normalizeId(guildId);
+  const uid = normalizeId(userId);
+  if (!isValidGuildUserId(gid, uid)) return "";
+  const evt = eventKey(client);
+  const doc = await SiteDocument.findOne({
+    docType: SITE_DOCUMENT_TYPE.HOGWARTS_SORTING,
+    guildId: gid,
+    userId: uid,
+    dedupeKey: evt,
+  })
+    .select("status planKey")
+    .lean()
+    .catch(() => null);
+  return normalizeSortedHouseId(doc?.status || doc?.planKey);
+}
+
+async function canBypassGamblingSortedGate(member, client, userId, preview) {
+  if (preview) return true;
+  return isHighStaff(member, client, userId);
+}
+
+async function checkGamblingUserEligibility(message, client, betRaw, accessBase = null) {
+  const access = accessBase?.ok != null ? accessBase : await assertEconomyAccess(message, client);
+  if (!access.ok) return access;
+  const cfg = access.cfg;
+  const userId = normalizeId(message?.author?.id);
+  const guildId = normalizeId(message?.guild?.id);
+  if (!await canBypassGamblingSortedGate(message?.member, client, userId, access.preview)) {
+    const house = await resolveSortedHouseForUser(guildId, userId, client);
+    if (!house) {
+      return { ok: false, message: "Completa prima lo smistamento Hogwarts per usare i giochi d'azzardo dell'evento." };
+    }
+  }
+  const parsed = parseBet(betRaw == null ? cfg.minBet : betRaw, cfg);
+  if (!parsed.ok) return parsed;
+  const balance = await getGringottBalance(guildId, userId, eventKey(client));
+  if (!balance || balance.balance <= 0) {
+    return { ok: false, message: "Non hai Galeoni disponibili: ottieni monete dall'evento prima di giocare." };
+  }
+  if (balance.balance < parsed.amount) {
+    return {
+      ok: false,
+      message: `Non hai abbastanza Galeoni.`,
+    };
+  }
+  return { ok: true, preview: access.preview, cfg, betAmount: parsed.amount };
+}
+
+async function assertEconomyGamblingAccess(message, client, betRaw) {
+  return checkGamblingUserEligibility(message, client, betRaw);
 }
 
 function dayKey(date = new Date()) {
@@ -236,6 +311,39 @@ async function claimFixed(client, message, action) {
   return creditIncome(client, message, action, cfg[action].reward, `Ricompensa ${action}`);
 }
 
+const FIXED_INCOME_ACTIONS = new Set(["daily", "weekly", "monthly"]);
+
+async function peekFixedClaim(client, message, action) {
+  const key = String(action || "").trim().toLowerCase();
+  if (!FIXED_INCOME_ACTIONS.has(key)) return { ok: false, message: "Ricompensa non valida." };
+  const access = await assertEconomyAccess(message, client);
+  if (!access.ok) return access;
+  const state = await getEconomyState(message.guild.id, message.author.id);
+  const left = remainingMs(state?.cooldowns?.[key]);
+  const cfgAction = access.cfg[key];
+  const baseReward = Math.max(1, Math.floor(Number(cfgAction.reward) || 0));
+  const streakRaw = state?.streaks?.[key] && typeof state.streaks[key] === "object" ? state.streaks[key] : {};
+  const projected = resolveIncomeStreak(state, key, cfgAction, baseReward);
+  const currentCount = int(streakRaw.count, 0, 0, 100000);
+  return {
+    ok: true,
+    action: key,
+    canClaim: left <= 0,
+    remainingMs: left,
+    baseReward,
+    bonusAmount: projected.bonusAmount,
+    totalPreview: baseReward + projected.bonusAmount,
+    streak: {
+      count: left <= 0 ? projected.count : currentCount,
+      nextCount: projected.count,
+      best: Math.max(int(streakRaw.best, 0, 0, 100000), projected.best),
+      bonusPct: projected.bonusPct,
+    },
+    preview: access.preview,
+    cfg: access.cfg,
+  };
+}
+
 function parseBet(raw, cfg) {
   const amount = int(raw, 0, 0, cfg.maxBet);
   if (!amount) return { ok: false, message: `Inserisci una puntata valida tra ${formatGaleoni(cfg.minBet)} e ${formatGaleoni(cfg.maxBet)}.` };
@@ -282,12 +390,19 @@ async function recordBet(guildId, userId, amount, capState) {
 async function spendBet(client, message, action, bet) {
   const access = await assertEconomyAccess(message, client);
   if (!access.ok) return { ok: false, message: access.message };
-  const parsed = parseBet(bet, access.cfg);
-  if (!parsed.ok) return parsed;
+  let parsed;
+  if (GAMBLING_ACTIONS.has(action)) {
+    const gamb = await checkGamblingUserEligibility(message, client, bet, access);
+    if (!gamb.ok) return gamb;
+    parsed = { ok: true, amount: gamb.betAmount };
+  } else {
+    parsed = parseBet(bet, access.cfg);
+    if (!parsed.ok) return parsed;
+    const balance = await getGringottBalance(message.guild.id, message.author.id, eventKey(client));
+    if (!balance || balance.balance < parsed.amount) return { ok: false, message: "Non hai abbastanza Galeoni per questa puntata.", state: balance };
+  }
   const cap = await checkBetCap(message.guild.id, message.author.id, parsed.amount, access.cfg);
   if (!cap.ok) return cap;
-  const balance = await getGringottBalance(message.guild.id, message.author.id, eventKey(client));
-  if (!balance || balance.balance < parsed.amount) return { ok: false, message: "Non hai abbastanza Galeoni per questa puntata.", state: balance };
   const reserve = await reserveCooldown(message.guild.id, message.author.id, action, access.cfg[action].cooldownMs);
   if (!reserve.ok) return { ok: false, code: "cooldown", message: `Puoi rigiocare tra ${formatDuration(reserve.remainingMs)}.` };
   const spent = await spendGaleoni({ guildId: message.guild.id, userId: message.author.id, amount: parsed.amount, reason: `${action}: puntata`, actorId: message.author.id, source: `economy_${action}`, eventKey: eventKey(client) });
@@ -364,6 +479,318 @@ function normalizeRps(value) {
   return "";
 }
 
+function evaluateRpsOutcome(choiceA, choiceB) {
+  const a = normalizeRps(choiceA);
+  const b = normalizeRps(choiceB);
+  if (!a || !b) return { ok: false, draw: false, winnerSide: null };
+  if (a === b) return { ok: true, draw: true, winnerSide: null };
+  const aWins = (a === "sasso" && b === "forbici") || (a === "carta" && b === "sasso") || (a === "forbici" && b === "carta");
+  return { ok: true, draw: false, winnerSide: aWins ? "a" : "b" };
+}
+
+async function assertEconomyAccessForUser(client, guild, member, userId) {
+  return assertEconomyAccess({ guild, member, author: { id: normalizeId(userId), bot: false } }, client);
+}
+
+async function assertEconomyGamblingAccessForUser(client, guild, member, userId, betRaw) {
+  return assertEconomyGamblingAccess({ guild, member, author: { id: normalizeId(userId), bot: false } }, client, betRaw);
+}
+
+async function lockRpsPvpStakes(client, guild, challengerId, opponentId, betAmount, actorId) {
+  const cfg = economyConfig(client);
+  const parsed = parseBet(String(betAmount), cfg);
+  if (!parsed.ok) return parsed;
+  const guildId = normalizeId(guild?.id);
+  const challenger = normalizeId(challengerId);
+  const opponent = normalizeId(opponentId);
+  const evt = eventKey(client);
+  const stakes = [];
+  for (const uid of [challenger, opponent]) {
+    const member = await getGuildMemberCached(guild, uid, { preferFresh: false }).catch(() => null);
+    const gamb = await checkGamblingUserEligibility(
+      { guild, member, author: { id: uid, bot: false } },
+      client,
+      parsed.amount,
+      { ok: true, preview: false, cfg },
+    );
+    if (!gamb.ok) {
+      return { ok: false, message: uid === challenger ? gamb.message : `L'avversario: ${gamb.message}` };
+    }
+    const cap = await checkBetCap(guildId, uid, parsed.amount, cfg);
+    if (!cap.ok) {
+      return { ok: false, message: uid === challenger ? cap.message : "L'avversario ha raggiunto il limite giornaliero di puntate." };
+    }
+  }
+  for (const uid of [challenger, opponent]) {
+    const cap = await checkBetCap(guildId, uid, parsed.amount, cfg);
+    const spent = await spendGaleoni({
+      guildId,
+      userId: uid,
+      amount: parsed.amount,
+      reason: "rps: puntata pvp",
+      actorId: normalizeId(actorId) || uid,
+      source: "economy_rps_pvp",
+      eventKey: evt,
+    });
+    if (!spent?.ok) {
+      for (const ref of stakes) {
+        await addGaleoni({
+          guildId,
+          userId: ref.userId,
+          amount: ref.amount,
+          reason: "rps: rimborso pvp",
+          actorId: normalizeId(actorId) || ref.userId,
+          source: "economy_rps_pvp",
+          eventKey: evt,
+        }).catch(() => null);
+      }
+      return { ok: false, message: "Non sono riuscito a bloccare le puntate. Riprova." };
+    }
+    await recordBet(guildId, uid, parsed.amount, cap);
+    stakes.push({ userId: uid, amount: parsed.amount });
+  }
+  return { ok: true, amount: parsed.amount, cfg, stakes };
+}
+
+async function refundRpsPvpStake(client, guildId, userId, amount, actorId, reason = "rps: rimborso pvp") {
+  const value = Math.max(0, Math.floor(Number(amount) || 0));
+  if (!value) return { ok: true, amount: 0 };
+  const paid = await addGaleoni({
+    guildId: normalizeId(guildId),
+    userId: normalizeId(userId),
+    amount: value,
+    reason,
+    actorId: normalizeId(actorId) || normalizeId(userId),
+    source: "economy_rps_pvp",
+    eventKey: eventKey(client),
+  });
+  return paid?.ok ? { ok: true, amount: value } : { ok: false, message: "Rimborso non riuscito." };
+}
+
+async function applyRpsCooldown(client, guildId, userId, cfg) {
+  await reserveCooldown(normalizeId(guildId), normalizeId(userId), "rps", cfg?.rps?.cooldownMs ?? DEFAULT_CONFIG.rps.cooldownMs);
+}
+
+async function settleRpsPvp(client, guild, challengerId, opponentId, challengerChoice, opponentChoice, betAmount, actorId) {
+  const cfg = economyConfig(client);
+  const bet = Math.max(0, Math.floor(Number(betAmount) || 0));
+  const guildId = normalizeId(guild?.id);
+  const challenger = normalizeId(challengerId);
+  const opponent = normalizeId(opponentId);
+  const outcome = evaluateRpsOutcome(challengerChoice, opponentChoice);
+  if (!outcome.ok) return { ok: false, message: "Mosse non valide." };
+  const evt = eventKey(client);
+  const actor = normalizeId(actorId) || challenger;
+  if (outcome.draw) {
+    await refundRpsPvpStake(client, guildId, challenger, bet, actor, "rps: pareggio pvp");
+    await refundRpsPvpStake(client, guildId, opponent, bet, actor, "rps: pareggio pvp");
+    await applyRpsCooldown(client, guildId, challenger, cfg);
+    await applyRpsCooldown(client, guildId, opponent, cfg);
+    return {
+      ok: true,
+      game: "rps_pvp",
+      draw: true,
+      win: false,
+      payout: bet,
+      winnerId: null,
+      loserId: null,
+      result: { player: normalizeRps(challengerChoice), bot: normalizeRps(opponentChoice) },
+    };
+  }
+  const winnerId = outcome.winnerSide === "a" ? challenger : opponent;
+  const loserId = outcome.winnerSide === "a" ? opponent : challenger;
+  const pot = bet * 2;
+  const paid = await addGaleoni({
+    guildId,
+    userId: winnerId,
+    amount: pot,
+    reason: "rps: vincita pvp",
+    actorId: actor,
+    source: "economy_rps_pvp",
+    eventKey: evt,
+  });
+  if (!paid?.ok) {
+    await refundRpsPvpStake(client, guildId, challenger, bet, actor, "rps: errore vincita pvp");
+    await refundRpsPvpStake(client, guildId, opponent, bet, actor, "rps: errore vincita pvp");
+    return { ok: false, message: "Non sono riuscito a pagare la vincita. Le puntate sono state rimborsate." };
+  }
+  await applyRpsCooldown(client, guildId, challenger, cfg);
+  await applyRpsCooldown(client, guildId, opponent, cfg);
+  return {
+    ok: true,
+    game: "rps_pvp",
+    draw: false,
+    win: winnerId === challenger,
+    payout: pot,
+    winnerId,
+    loserId,
+    result: { player: normalizeRps(challengerChoice), bot: normalizeRps(opponentChoice) },
+  };
+}
+
+async function playBlackjackBet(client, message, betRaw) {
+  return spendBet(client, message, "blackjack", betRaw);
+}
+
+async function payBlackjackWin(client, message, amount, reason = "blackjack: vincita") {
+  return payout(client, message, "blackjack", amount, reason);
+}
+
+async function playTrisBet(client, message, betRaw) {
+  return spendBet(client, message, "tris", betRaw);
+}
+
+async function payTrisWin(client, message, amount, reason = "tris: vincita") {
+  return payout(client, message, "tris", amount, reason);
+}
+
+async function lockTrisPvpStakes(client, guild, challengerId, opponentId, betAmount, actorId) {
+  const cfg = economyConfig(client);
+  const parsed = parseBet(String(betAmount), cfg);
+  if (!parsed.ok) return parsed;
+  const guildId = normalizeId(guild?.id);
+  const challenger = normalizeId(challengerId);
+  const opponent = normalizeId(opponentId);
+  const evt = eventKey(client);
+  const stakes = [];
+  for (const uid of [challenger, opponent]) {
+    const member = await getGuildMemberCached(guild, uid, { preferFresh: false }).catch(() => null);
+    const gamb = await checkGamblingUserEligibility(
+      { guild, member, author: { id: uid, bot: false } },
+      client,
+      parsed.amount,
+      { ok: true, preview: false, cfg },
+    );
+    if (!gamb.ok) {
+      return { ok: false, message: uid === challenger ? gamb.message : `L'avversario: ${gamb.message}` };
+    }
+    const cap = await checkBetCap(guildId, uid, parsed.amount, cfg);
+    if (!cap.ok) {
+      return { ok: false, message: uid === challenger ? cap.message : "L'avversario ha raggiunto il limite giornaliero di puntate." };
+    }
+  }
+  for (const uid of [challenger, opponent]) {
+    const cap = await checkBetCap(guildId, uid, parsed.amount, cfg);
+    const spent = await spendGaleoni({
+      guildId,
+      userId: uid,
+      amount: parsed.amount,
+      reason: "tris: puntata pvp",
+      actorId: normalizeId(actorId) || uid,
+      source: "economy_tris_pvp",
+      eventKey: evt,
+    });
+    if (!spent?.ok) {
+      for (const ref of stakes) {
+        await addGaleoni({
+          guildId,
+          userId: ref.userId,
+          amount: ref.amount,
+          reason: "tris: rimborso pvp",
+          actorId: normalizeId(actorId) || ref.userId,
+          source: "economy_tris_pvp",
+          eventKey: evt,
+        }).catch(() => null);
+      }
+      return { ok: false, message: "Non sono riuscito a bloccare le puntate. Riprova." };
+    }
+    await recordBet(guildId, uid, parsed.amount, cap);
+    stakes.push({ userId: uid, amount: parsed.amount });
+  }
+  return { ok: true, amount: parsed.amount, cfg, stakes };
+}
+
+async function refundTrisPvpStake(client, guildId, userId, amount, actorId, reason = "tris: rimborso pvp") {
+  const value = Math.max(0, Math.floor(Number(amount) || 0));
+  if (!value) return { ok: true, amount: 0 };
+  const paid = await addGaleoni({
+    guildId: normalizeId(guildId),
+    userId: normalizeId(userId),
+    amount: value,
+    reason,
+    actorId: normalizeId(actorId) || normalizeId(userId),
+    source: "economy_tris_pvp",
+    eventKey: eventKey(client),
+  });
+  return paid?.ok ? { ok: true, amount: value } : { ok: false, message: "Rimborso non riuscito." };
+}
+
+async function applyTrisCooldown(client, guildId, userId, cfg) {
+  await reserveCooldown(normalizeId(guildId), normalizeId(userId), "tris", cfg?.tris?.cooldownMs ?? DEFAULT_CONFIG.tris.cooldownMs);
+}
+
+async function settleTrisPvp(client, guild, challengerId, opponentId, winnerId, draw, betAmount, actorId) {
+  const cfg = economyConfig(client);
+  const bet = Math.max(0, Math.floor(Number(betAmount) || 0));
+  const guildId = normalizeId(guild?.id);
+  const challenger = normalizeId(challengerId);
+  const opponent = normalizeId(opponentId);
+  const evt = eventKey(client);
+  const actor = normalizeId(actorId) || challenger;
+  const winId = normalizeId(winnerId);
+  if (draw) {
+    await refundTrisPvpStake(client, guildId, challenger, bet, actor, "tris: pareggio pvp");
+    await refundTrisPvpStake(client, guildId, opponent, bet, actor, "tris: pareggio pvp");
+    await applyTrisCooldown(client, guildId, challenger, cfg);
+    await applyTrisCooldown(client, guildId, opponent, cfg);
+    return { ok: true, game: "tris_pvp", draw: true, win: false, payout: bet, winnerId: null, loserId: null };
+  }
+  const loserId = winId === challenger ? opponent : challenger;
+  const pot = bet * 2;
+  const paid = await addGaleoni({
+    guildId,
+    userId: winId,
+    amount: pot,
+    reason: "tris: vincita pvp",
+    actorId: actor,
+    source: "economy_tris_pvp",
+    eventKey: evt,
+  });
+  if (!paid?.ok) {
+    await refundTrisPvpStake(client, guildId, challenger, bet, actor, "tris: errore vincita pvp");
+    await refundTrisPvpStake(client, guildId, opponent, bet, actor, "tris: errore vincita pvp");
+    return { ok: false, message: "Non sono riuscito a pagare la vincita. Le puntate sono state rimborsate." };
+  }
+  await applyTrisCooldown(client, guildId, challenger, cfg);
+  await applyTrisCooldown(client, guildId, opponent, cfg);
+  return {
+    ok: true,
+    game: "tris_pvp",
+    draw: false,
+    win: winId === challenger,
+    payout: pot,
+    winnerId: winId,
+    loserId,
+  };
+}
+
+async function playScratchBet(client, message, betRaw) {
+  return spendBet(client, message, "scratch", betRaw);
+}
+
+async function payScratchWin(client, message, amount, reason = "scratch: vincita") {
+  return payout(client, message, "scratch", amount, reason);
+}
+
+function normalizeCoinChoice(value) {
+  const v = String(value || "").trim().toLowerCase();
+  if (["heads", "head", "testa", "t", "h"].includes(v)) return "testa";
+  if (["tails", "tail", "croce", "c", "cross"].includes(v)) return "croce";
+  return ["testa", "croce"].includes(v) ? v : "";
+}
+
+async function playCoinflip(client, message, betRaw, choiceRaw) {
+  const player = normalizeCoinChoice(choiceRaw);
+  if (!player) return { ok: false, message: "Scegli `testa` o `croce`." };
+  const bet = await spendBet(client, message, "coinflip", betRaw);
+  if (!bet.ok) return bet;
+  const flip = ["testa", "croce"][randomInt(0, 2)];
+  const win = player === flip;
+  const payoutAmount = win ? bet.amount * bet.cfg.coinflip.winPayout : 0;
+  const paid = await payout(client, message, "coinflip", payoutAmount, "coinflip: vincita");
+  return { ok: true, game: "coinflip", bet: bet.amount, win, payout: payoutAmount, paid, result: { player, flip } };
+}
+
 async function playRps(client, message, betRaw, choiceRaw) {
   const player = normalizeRps(choiceRaw);
   if (!player) return { ok: false, message: "Scegli `sasso`, `carta` o `forbici`." };
@@ -420,24 +847,76 @@ async function flushSlotsGuiPendingBank(client, message) {
   return { ok: true, amount: out.amount, auto: true };
 }
 
-async function rob(client, message, targetUser) {
+async function evaluateRobTarget(client, guild, targetUserId, cfg, robberId) {
+  const guildId = normalizeId(guild?.id);
+  const uid = normalizeId(targetUserId);
+  const robber = normalizeId(robberId);
+  const minBal = Math.max(1, Math.floor(Number(cfg?.rob?.minTargetBalance) || DEFAULT_CONFIG.rob.minTargetBalance));
+  if (!isValidGuildUserId(guildId, uid)) return { ok: false, message: "Bersaglio non valido." };
+  if (uid === robber) return { ok: false, message: "Non puoi derubare te stesso." };
+  let member = guild?.members?.cache?.get(uid) || null;
+  if (!member?.user && guild) {
+    member = await getGuildMemberCached(guild, uid, { preferFresh: false }).catch(() => null);
+  }
+  if (!member?.user || member.user.bot) return { ok: false, message: "Scegli un utente valido da derubare." };
+  if (!await isMember(member, client, uid)) return { ok: false, message: "Puoi derubare solo membri con economia Galeoni attiva." };
+  const house = await resolveSortedHouseForUser(guildId, uid, client);
+  if (!house) return { ok: false, message: "Questo utente non ha completato lo smistamento Hogwarts." };
+  const targetState = await getEconomyState(guildId, uid);
+  if (remainingMs(targetState?.robProtectionUntil) > 0) return { ok: false, message: "Questo utente è protetto da un furto recente." };
+  const targetBalance = await getGringottBalance(guildId, uid, eventKey(client));
+  const balance = Math.max(0, Math.floor(Number(targetBalance?.balance) || 0));
+  if (balance < minBal) {
+    return { ok: false, message: `Il bersaglio deve avere almeno ${formatGaleoni(minBal)} (saldo ${formatGaleoni(balance)}).` };
+  }
+  return { ok: true, balance, house };
+}
+
+async function assertRobberCanSteal(client, message) {
   const access = await assertEconomyAccess(message, client);
+  if (!access.ok) return access;
+  if (!await canBypassGamblingSortedGate(message.member, client, message.author.id, access.preview)) {
+    const robberHouse = await resolveSortedHouseForUser(message.guild.id, message.author.id, client);
+    if (!robberHouse) return { ok: false, message: "Completa prima lo smistamento Hogwarts per tentare un furto." };
+  }
+  return access;
+}
+
+async function robBank(client, message) {
+  const access = await assertRobberCanSteal(client, message);
   if (!access.ok) return { ok: false, message: access.message };
-  if (!targetUser || targetUser.bot) return { ok: false, message: "Scegli un utente valido da derubare." };
-  if (targetUser.id === message.author.id) return { ok: false, message: "Non puoi derubare te stesso." };
   const reserve = await reserveCooldown(message.guild.id, message.author.id, "rob", access.cfg.rob.cooldownMs);
   if (!reserve.ok) return { ok: false, code: "cooldown", message: `Puoi riprovare un furto tra ${formatDuration(reserve.remainingMs)}.` };
-  const targetState = await getEconomyState(message.guild.id, targetUser.id);
-  if (remainingMs(targetState?.robProtectionUntil) > 0) return { ok: false, message: "Questo utente è protetto da un furto recente." };
-  const targetBalance = await getGringottBalance(message.guild.id, targetUser.id, eventKey(client));
-  if (!targetBalance || targetBalance.balance < access.cfg.rob.minTargetBalance) return { ok: false, message: "Il bersaglio non ha abbastanza Galeoni da rubare." };
+  const success = randomInt(1, 101) <= access.cfg.rob.successChance;
+  if (!success) {
+    const penalty = Math.min(access.cfg.rob.failPenalty, (await getGringottBalance(message.guild.id, message.author.id, eventKey(client)))?.balance || 0);
+    if (penalty > 0) {
+      await spendGaleoni({ guildId: message.guild.id, userId: message.author.id, amount: penalty, reason: "rob: multa fallimento cassaforte", actorId: message.author.id, source: "economy_rob", eventKey: eventKey(client) });
+    }
+    return { ok: true, game: "rob", success: false, penalty, bank: true };
+  }
+  const steal = randomBetween(access.cfg.rob.minSteal, access.cfg.rob.maxSteal);
+  const gained = await addGaleoni({ guildId: message.guild.id, userId: message.author.id, amount: steal, reason: "Furto cassaforte Gringott", actorId: message.author.id, source: "economy_rob", eventKey: eventKey(client) });
+  if (!gained?.ok) return { ok: false, message: "Non sono riuscito ad accreditare il bottino. Riprova più tardi." };
+  return { ok: true, game: "rob", success: true, amount: steal, gained, bank: true };
+}
+
+async function rob(client, message, targetUser) {
+  const access = await assertRobberCanSteal(client, message);
+  if (!access.ok) return { ok: false, message: access.message };
+  if (!targetUser || targetUser.bot) return { ok: false, message: "Scegli un utente valido da derubare." };
+  const targetCheck = await evaluateRobTarget(client, message.guild, targetUser.id, access.cfg, message.author.id);
+  if (!targetCheck.ok) return { ok: false, message: targetCheck.message };
+  const reserve = await reserveCooldown(message.guild.id, message.author.id, "rob", access.cfg.rob.cooldownMs);
+  if (!reserve.ok) return { ok: false, code: "cooldown", message: `Puoi riprovare un furto tra ${formatDuration(reserve.remainingMs)}.` };
+  const targetBalance = { balance: targetCheck.balance };
   const success = randomInt(1, 101) <= access.cfg.rob.successChance;
   if (!success) {
     const penalty = Math.min(access.cfg.rob.failPenalty, (await getGringottBalance(message.guild.id, message.author.id, eventKey(client)))?.balance || 0);
     if (penalty > 0) {
       await spendGaleoni({ guildId: message.guild.id, userId: message.author.id, amount: penalty, reason: "rob: multa fallimento", actorId: message.author.id, source: "economy_rob", eventKey: eventKey(client) });
     }
-    return { ok: true, game: "rob", success: false, penalty };
+    return { ok: true, game: "rob", success: false, penalty, bank: false };
   }
   const steal = Math.min(randomBetween(access.cfg.rob.minSteal, access.cfg.rob.maxSteal), targetBalance.balance);
   const taken = await spendGaleoni({ guildId: message.guild.id, userId: targetUser.id, amount: steal, reason: `Furto subito da ${message.author.id}`, actorId: message.author.id, source: "economy_rob", eventKey: eventKey(client) });
@@ -448,7 +927,7 @@ async function rob(client, message, targetUser) {
     { $set: { [`${ECONOMY_PATH}.robProtectionUntil`]: new Date(Date.now() + access.cfg.rob.targetProtectionMs) } },
     { upsert: true, setDefaultsOnInsert: true },
   ).catch(() => null);
-  return { ok: true, game: "rob", success: true, amount: steal, gained };
+  return { ok: true, game: "rob", success: true, amount: steal, gained, bank: false };
 }
 
-module.exports = { assertEconomyAccess, cashoutSlotsBank, claimFixed, claimWork, economyConfig, evaluateRouletteWin, eventKey, flushSlotsGuiPendingBank, formatDuration, normalizeRouletteChoice, playRoulette, playRouletteBanked, playRps, playSlots, playSlotsBanked, rob, RED_NUMBERS, spinRouletteResult };
+module.exports = { ROB_BANK_TARGET_ID, assertEconomyAccess, assertEconomyAccessForUser, assertEconomyGamblingAccess, assertEconomyGamblingAccessForUser, applyRpsCooldown, applyTrisCooldown, cashoutSlotsBank, claimFixed, claimWork, economyConfig, evaluateRobTarget, evaluateRouletteWin, evaluateRpsOutcome, eventKey, flushSlotsGuiPendingBank, formatDuration, isRobBankTarget, lockRpsPvpStakes, lockTrisPvpStakes, normalizeCoinChoice, normalizeRouletteChoice, normalizeRps, payBlackjackWin, payScratchWin, payTrisWin, payout, peekFixedClaim, playBlackjackBet, playCoinflip, playRoulette, playRouletteBanked, playRps, playScratchBet, playSlots, playSlotsBanked, playTrisBet, refundRpsPvpStake, refundTrisPvpStake, rob, robBank, RED_NUMBERS, resolveSortedHouseForUser, settleRpsPvp, settleTrisPvp, spendBet, spinRouletteResult };
