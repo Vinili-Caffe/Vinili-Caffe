@@ -180,7 +180,7 @@ try {
     --exclude "Lavalink/plugins" `
     --exclude "Lavalink/Lavalink.jar" `
     --exclude "Lavalink/.env.lavalink" `
-    "Vinyls" "shared" "Coffee" "scripts" "package.json" "package-lock.json" `
+    "Vinyls" "WebSite/images/evento-hogwarts" "shared" "Coffee" "scripts" "package.json" "package-lock.json" `
     "wait-for-lavalink.js" "loader.js" "ecosystem.config.cjs" "Lavalink"
 
   Write-Host "Upload archivio backend su ${User}@${Server}:${remoteTgz}"

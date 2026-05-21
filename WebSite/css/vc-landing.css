@@ -21095,8 +21095,7 @@ body.vc-hw-main-reveal #vc-hogwarts-app {
   gap: 0.55rem;
 }
 
-.vc-hw-shop-status__meta span,
-.vc-hw-shop-category__owned {
+.vc-hw-shop-status__meta span {
   display: inline-flex;
   align-items: center;
   border: 1px solid rgba(234, 214, 187, 0.2);
@@ -21106,6 +21105,20 @@ body.vc-hw-main-reveal #vc-hogwarts-app {
   font-size: 0.78rem;
   font-weight: 700;
   padding: 0.45rem 0.7rem;
+}
+
+.vc-hw-shop-category__owned {
+  margin: 0;
+  max-width: 100%;
+  color: rgba(255, 247, 236, 0.78);
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.vc-hw-shop-category__owned strong {
+  color: #fff7ed;
+  font-weight: 700;
 }
 
 .vc-hw-shop-toast {
@@ -21133,22 +21146,20 @@ body.vc-hw-main-reveal #vc-hogwarts-app {
 }
 
 .vc-hw-shop-category {
-  border: 1px solid rgba(234, 214, 187, 0.18);
-  border-radius: 1.6rem;
-  background:
-    linear-gradient(180deg, rgba(26, 18, 13, 0.74), rgba(10, 8, 6, 0.86)),
-    radial-gradient(circle at 80% 0%, rgba(212, 175, 55, 0.1), transparent 30%);
+  border: 1px solid rgba(234, 214, 187, 0.14);
+  border-radius: 1.25rem;
+  background: rgba(16, 12, 9, 0.55);
   padding: clamp(1rem, 2.5vw, 1.35rem);
-  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.28);
 }
 
 .vc-hw-shop-category__head {
   display: flex;
-  align-items: end;
-  justify-content: center;
-  gap: 1rem;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1.25rem;
   margin-bottom: 1rem;
-  text-align: center;
+  text-align: left;
 }
 
 .vc-hw-shop-category__head h2 {
@@ -21156,6 +21167,25 @@ body.vc-hw-main-reveal #vc-hogwarts-app {
   color: #fff7ed;
   font-family: "Cinzel", serif;
   font-size: clamp(1.35rem, 3vw, 2rem);
+  flex: 0 0 auto;
+}
+
+.vc-hw-shop-category__meta {
+  flex: 1 1 16rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.35rem;
+  max-width: min(100%, 40rem);
+  text-align: right;
+}
+
+.vc-hw-shop-category__hint {
+  margin: 0;
+  color: rgba(232, 201, 168, 0.8);
+  font-size: 0.86rem;
+  font-weight: 500;
+  line-height: 1.45;
 }
 
 .vc-hw-shop-items {
@@ -21170,12 +21200,10 @@ body.vc-hw-main-reveal #vc-hogwarts-app {
   min-height: 100%;
   flex-direction: column;
   overflow: hidden;
-  border: 1px solid rgba(234, 214, 187, 0.18);
+  border: 1px solid rgba(234, 214, 187, 0.16);
   border-radius: 1.25rem;
-  background:
-    radial-gradient(circle at 50% 18%, color-mix(in srgb, var(--shop-accent) 24%, transparent), transparent 36%),
-    linear-gradient(180deg, rgba(26, 18, 13, 0.95), rgba(9, 7, 6, 0.96));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 16px 40px rgba(0, 0, 0, 0.28);
+  background: linear-gradient(180deg, rgba(22, 16, 12, 0.96), rgba(11, 9, 7, 0.98));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 .vc-hw-shop-card--owned {
@@ -21197,12 +21225,16 @@ body.vc-hw-main-reveal #vc-hogwarts-app {
 .vc-hw-shop-card__art::before {
   content: "";
   position: absolute;
-  width: 11rem;
-  height: 11rem;
-  border: 1px solid color-mix(in srgb, var(--shop-accent) 42%, transparent);
+  width: 9rem;
+  height: 9rem;
+  border: 1px solid color-mix(in srgb, var(--shop-accent) 28%, transparent);
   border-radius: 999px;
-  background: radial-gradient(circle, color-mix(in srgb, var(--shop-accent) 22%, transparent), transparent 62%);
-  filter: blur(0.2px);
+  background: color-mix(in srgb, var(--shop-accent) 8%, transparent);
+  opacity: 0.65;
+}
+
+.vc-hw-shop-card__glow {
+  display: none;
 }
 
 .vc-hw-shop-card__image {
@@ -21303,6 +21335,12 @@ body.vc-hw-main-reveal #vc-hogwarts-app {
   .vc-hw-shop-category__head {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .vc-hw-shop-category__meta,
+  .vc-hw-shop-category__owned {
+    align-items: flex-start;
+    text-align: left;
   }
 
   .vc-hw-shop-status__meta {

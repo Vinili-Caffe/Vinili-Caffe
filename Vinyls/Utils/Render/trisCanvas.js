@@ -1,7 +1,7 @@
 const canvasModule = require("canvas");
 const { formatGaleoni } = require("../../Services/Community/gringottService");
 const { registerCanvasFonts, drawTextWithSpecialFallback } = require("./canvasFonts");
-const { PLAYER, cellLabel } = require("../Economy/trisEngine");
+const { BOT, PLAYER, cellLabel } = require("../Economy/trisEngine");
 const { createCanvas } = canvasModule;
 let fontsReady = false;
 

@@ -1,5 +1,6 @@
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const { assertEconomyAccess } = require("../../Services/Community/galeoniEconomyService");
+const { assertRobberHasBroom } = require("../../Services/Community/hogwartsShopBoostsService");
 const {
   attemptRob,
   buildRobGuiPayload,
@@ -18,13 +19,18 @@ module.exports = {
   name: "rob",
   aliases: ["ruba"],
   allowEmptyArgs: true,
-  description: "Tenta un furto a Gringott con pannello interattivo.",
+  description: "Furto a Gringott (serve smistamento e scopa dallo shop Hogwarts).",
   usage: "+rob [@utente]",
   examples: ["+rob", "+rob @utente", "+ruba"],
   async execute(message, args, client) {
     const access = await assertEconomyAccess(message, client);
     if (!access.ok) {
       await safeMessageReply(message, { content: `<a:VC_Cross:1482532424570376253> ${access.message}`, allowedMentions: { repliedUser: false } });
+      return;
+    }
+    const broom = await assertRobberHasBroom(client, message.guild?.id, message.author.id);
+    if (!broom.ok) {
+      await safeMessageReply(message, { content: `<:vegax:1443934876440068179> ${broom.message}`, allowedMentions: { repliedUser: false } });
       return;
     }
     const cfg = economyConfig(client);
@@ -37,13 +43,14 @@ module.exports = {
       });
       return;
     }
-    const session = makeSession({
+    const session = await makeSession({
       ownerId: message.author.id,
       guildId: message.guild.id,
       targetId: resolved.id,
       targetName: resolved.name,
       isBank: resolved.isBank,
       cfg,
+      client,
     });
     await warmupRobPanel();
     let notice = resolved.isBank

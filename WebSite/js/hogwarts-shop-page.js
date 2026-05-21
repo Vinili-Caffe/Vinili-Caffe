@@ -1,7 +1,11 @@
 (function () {
   var ACCESS_TOKEN_KEY = "vc_discord_access_token";
   var EXPIRES_AT_KEY = "vc_discord_expires_at";
-  var CATEGORY_LABELS = { wand: "Bacchetta", broom: "Scopa", pet: "Animale" };
+  var CATEGORY_BOOST_HINTS = {
+    wand: "Boost duello (+duel): più probabilità di vincere; i tier superiori contano di più.",
+    broom: "Boost economia (+rob): più chance di furto riuscito durante l'evento.",
+    pet: "Boost minigiochi: moltiplica i punti casata nei minigame e premi react dell'evento.",
+  };
   var state = { loaded: false, buying: "", data: null };
 
   function byId(id) {
@@ -106,6 +110,20 @@
     }).length;
   }
 
+  function ownedTierPrice(owned) {
+    if (!owned || !owned.id) return 0;
+    return Math.max(numberOf(owned.price), numberOf(owned.pricePaid));
+  }
+
+  function purchaseOffer(owned, item) {
+    var itemPrice = numberOf(item.price);
+    if (!owned || !owned.id) return { mode: "buy", pay: itemPrice };
+    if (owned.id === item.id) return { mode: "owned", pay: 0 };
+    var tier = ownedTierPrice(owned);
+    if (itemPrice > tier) return { mode: "upgrade", pay: itemPrice - tier };
+    return { mode: "below", pay: itemPrice };
+  }
+
   function itemVisual(item) {
     var key = String(item.imageKey || "");
     if (item.imageFile) {
@@ -137,20 +155,44 @@
       var category = String(cat.id || "");
       var owned = inventory[category] || null;
       var items = Array.isArray(cat.items) ? cat.items : [];
+      var boostHint = String(cat.boostHint || CATEGORY_BOOST_HINTS[category] || "").trim();
+      var ownedNote = owned && owned.name
+        ? '<p class="vc-hw-shop-category__owned">In uso: <strong>' + esc(owned.name) 
+        : "";
+      var metaHtml = boostHint || ownedNote
+        ? '<div class="vc-hw-shop-category__meta">' +
+            (boostHint ? '<p class="vc-hw-shop-category__hint">' + esc(boostHint) + "</p>" : "") +
+            ownedNote +
+          "</div>"
+        : "";
       return (
         '<section class="vc-hw-shop-category vc-hw-shop-category--' + esc(category) + '">' +
           '<div class="vc-hw-shop-category__head">' +
             '<h2>' + esc(cat.label || category) + "</h2>" +
+            metaHtml +
           "</div>" +
           '<div class="vc-hw-shop-items">' +
             items.map(function (item) {
-              var isOwned = owned && owned.id === item.id;
-              var locked = owned && owned.id !== item.id;
-              var affordable = balance >= numberOf(item.price);
-              var disabled = state.buying || isOwned || locked || !affordable;
-              var label = isOwned ? "Acquistato" : locked ? "Categoria completata" : affordable ? "Acquista" : "Galeoni insufficienti";
+              var offer = purchaseOffer(owned, item);
+              var isOwned = offer.mode === "owned";
+              var isUpgrade = offer.mode === "upgrade";
+              var isBelow = offer.mode === "below";
+              var affordable = balance >= offer.pay;
+              var disabled = state.buying || isOwned || isBelow || !affordable;
+              var label = isOwned
+                ? "In uso"
+                : isUpgrade
+                  ? (affordable ? "Migliora" : "Galeoni insufficienti")
+                  : isBelow
+                    ? "Già superato"
+                    : affordable
+                      ? "Acquista"
+                      : "Galeoni insufficienti";
+              var priceText = isUpgrade
+                ? "+" + offer.pay.toLocaleString("it-IT") + " Galeoni"
+                : numberOf(item.price).toLocaleString("it-IT") + " Galeoni";
               return (
-                '<article class="vc-hw-shop-card' + (isOwned ? " vc-hw-shop-card--owned" : "") + (locked ? " vc-hw-shop-card--locked" : "") + '" style="--shop-accent:' + esc(item.accent || "#d4af37") + '">' +
+                '<article class="vc-hw-shop-card' + (isOwned ? " vc-hw-shop-card--owned" : "") + (isBelow ? " vc-hw-shop-card--locked" : "") + (isUpgrade ? " vc-hw-shop-card--upgrade" : "") + '" style="--shop-accent:' + esc(item.accent || "#d4af37") + '">' +
                   '<div class="vc-hw-shop-card__art">' + itemVisual(item) + '<span class="vc-hw-shop-card__glow"></span></div>' +
                   '<div class="vc-hw-shop-card__body">' +
                     '<p class="vc-hw-shop-card__rarity">' + esc(item.rarity || "") + "</p>" +
@@ -159,7 +201,7 @@
                     '<p class="vc-hw-shop-card__detail">' + esc(item.detail || "") + "</p>" +
                   "</div>" +
                   '<div class="vc-hw-shop-card__foot">' +
-                    '<span class="vc-hw-shop-card__price">' + numberOf(item.price).toLocaleString("it-IT") + " Galeoni</span>" +
+                    '<span class="vc-hw-shop-card__price">' + esc(priceText) + (isUpgrade ? ' <span class="vc-hw-shop-card__price-full">(' + numberOf(item.price).toLocaleString("it-IT") + " totali)</span>" : "") + "</span>" +
                     '<button type="button" class="vc-hw-btn vc-hw-btn--primary vc-hw-shop-buy" data-category="' + esc(category) + '" data-item-id="' + esc(item.id) + '"' + (disabled ? " disabled" : "") + ">" + esc(label) + "</button>" +
                   "</div>" +
                 "</article>"

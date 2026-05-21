@@ -879,6 +879,9 @@ async function assertRobberCanSteal(client, message) {
     const robberHouse = await resolveSortedHouseForUser(message.guild.id, message.author.id, client);
     if (!robberHouse) return { ok: false, message: "Completa prima lo smistamento Hogwarts per tentare un furto." };
   }
+  const { assertRobberHasBroom } = require("./hogwartsShopBoostsService");
+  const broom = await assertRobberHasBroom(client, message.guild?.id, message.author?.id);
+  if (!broom.ok) return broom;
   return access;
 }
 
@@ -887,7 +890,9 @@ async function robBank(client, message) {
   if (!access.ok) return { ok: false, message: access.message };
   const reserve = await reserveCooldown(message.guild.id, message.author.id, "rob", access.cfg.rob.cooldownMs);
   if (!reserve.ok) return { ok: false, code: "cooldown", message: `Puoi riprovare un furto tra ${formatDuration(reserve.remainingMs)}.` };
-  const success = randomInt(1, 101) <= access.cfg.rob.successChance;
+  const { resolveRobSuccessChance } = require("./hogwartsShopBoostsService");
+  const robChance = await resolveRobSuccessChance(client, message.guild.id, message.author.id, access.cfg.rob.successChance);
+  const success = randomInt(1, 101) <= robChance.chance;
   if (!success) {
     const penalty = Math.min(access.cfg.rob.failPenalty, (await getGringottBalance(message.guild.id, message.author.id, eventKey(client)))?.balance || 0);
     if (penalty > 0) {
@@ -910,7 +915,9 @@ async function rob(client, message, targetUser) {
   const reserve = await reserveCooldown(message.guild.id, message.author.id, "rob", access.cfg.rob.cooldownMs);
   if (!reserve.ok) return { ok: false, code: "cooldown", message: `Puoi riprovare un furto tra ${formatDuration(reserve.remainingMs)}.` };
   const targetBalance = { balance: targetCheck.balance };
-  const success = randomInt(1, 101) <= access.cfg.rob.successChance;
+  const { resolveRobSuccessChance } = require("./hogwartsShopBoostsService");
+  const robChance = await resolveRobSuccessChance(client, message.guild.id, message.author.id, access.cfg.rob.successChance);
+  const success = randomInt(1, 101) <= robChance.chance;
   if (!success) {
     const penalty = Math.min(access.cfg.rob.failPenalty, (await getGringottBalance(message.guild.id, message.author.id, eventKey(client)))?.balance || 0);
     if (penalty > 0) {
@@ -930,4 +937,4 @@ async function rob(client, message, targetUser) {
   return { ok: true, game: "rob", success: true, amount: steal, gained, bank: false };
 }
 
-module.exports = { ROB_BANK_TARGET_ID, assertEconomyAccess, assertEconomyAccessForUser, assertEconomyGamblingAccess, assertEconomyGamblingAccessForUser, applyRpsCooldown, applyTrisCooldown, cashoutSlotsBank, claimFixed, claimWork, economyConfig, evaluateRobTarget, evaluateRouletteWin, evaluateRpsOutcome, eventKey, flushSlotsGuiPendingBank, formatDuration, isRobBankTarget, lockRpsPvpStakes, lockTrisPvpStakes, normalizeCoinChoice, normalizeRouletteChoice, normalizeRps, payBlackjackWin, payScratchWin, payTrisWin, payout, peekFixedClaim, playBlackjackBet, playCoinflip, playRoulette, playRouletteBanked, playRps, playScratchBet, playSlots, playSlotsBanked, playTrisBet, refundRpsPvpStake, refundTrisPvpStake, rob, robBank, RED_NUMBERS, resolveSortedHouseForUser, settleRpsPvp, settleTrisPvp, spendBet, spinRouletteResult };
+module.exports = { ROB_BANK_TARGET_ID, assertEconomyAccess, assertEconomyAccessForUser, assertEconomyGamblingAccess, assertEconomyGamblingAccessForUser, applyRpsCooldown, applyTrisCooldown, cashoutSlotsBank, claimFixed, claimWork, economyConfig, evaluateRobTarget, evaluateRouletteWin, evaluateRpsOutcome, eventKey, flushSlotsGuiPendingBank, formatDuration, isHighStaff, isRobBankTarget, lockRpsPvpStakes, lockTrisPvpStakes, normalizeCoinChoice, normalizeRouletteChoice, normalizeRps, payBlackjackWin, payScratchWin, payTrisWin, payout, peekFixedClaim, playBlackjackBet, playCoinflip, playRoulette, playRouletteBanked, playRps, playScratchBet, playSlots, playSlotsBanked, playTrisBet, refundRpsPvpStake, refundTrisPvpStake, rob, robBank, RED_NUMBERS, resolveSortedHouseForUser, settleRpsPvp, settleTrisPvp, spendBet, spinRouletteResult };

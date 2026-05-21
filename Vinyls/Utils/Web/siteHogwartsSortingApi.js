@@ -10,7 +10,7 @@ const {
   spendGaleoni,
   toPublicGringottPayload,
 } = require("../../Services/Community/gringottService");
-const { getShopItemById, normalizeShopCategory, publicShopCatalog } = require("./hogwartsShopCatalog");
+const { getShopItemById, normalizeShopCategory, publicShopCatalog, resolveShopPurchaseOffer } = require("./hogwartsShopCatalog");
 const { buildPotionsRound, normalizePotionId } = require("./hogwartsPotionsCatalog");
 const DOC = SITE_DOCUMENT_TYPE.HOGWARTS_SORTING;
 const FORBIDDEN_DOC = SITE_DOCUMENT_TYPE.HOGWARTS_FORBIDDEN_BOOKS;
@@ -416,13 +416,30 @@ async function handleHogwartsShopPurchasePost(client, req, res) {
     if (!item || !category || item.category !== category) {
       return res.status(400).json({ ok: false, error: "invalid_item", message: "Oggetto shop non valido." });
     }
-    const current = await getGringottBalance(resolved.guild.id, resolved.userId, cfg.eventKey);
-    if (!current || current.balance < item.price) {
+    const stateBefore = await getShopProfileState(resolved.guild.id, resolved.userId, cfg.eventKey);
+    const ownedRow = stateBefore.inventory[category];
+    const offer = resolveShopPurchaseOffer(ownedRow, item);
+    if (!offer.ok) {
+      return res.status(409).json({
+        ok: false,
+        error: offer.code || "purchase_denied",
+        message: offer.message || "Acquisto non consentito.",
+        inventory: stateBefore.inventory,
+        gringott: stateBefore.gringott,
+      });
+    }
+    const amountToPay = Math.max(0, Math.floor(Number(offer.amount) || 0));
+    const current = stateBefore.gringott || (await getGringottBalance(resolved.guild.id, resolved.userId, cfg.eventKey));
+    const balance = Math.max(0, Math.floor(Number(current?.balance) || 0));
+    if (balance < amountToPay) {
       return res.status(409).json({
         ok: false,
         error: "insufficient_funds",
-        message: "Non hai abbastanza Galeoni per acquistare questo oggetto.",
+        message: offer.mode === "upgrade"
+          ? "Non hai abbastanza Galeoni per migliorare questo oggetto."
+          : "Non hai abbastanza Galeoni per acquistare questo oggetto.",
         gringott: toPublicGringottPayload(current || { eventKey: cfg.eventKey }),
+        inventory: stateBefore.inventory,
       });
     }
     const now = new Date();
@@ -433,12 +450,15 @@ async function handleHogwartsShopPurchasePost(client, req, res) {
       pricePaid: item.price,
       purchasedAt: now,
     };
+    const isUpgrade = offer.mode === "upgrade";
+    const previousPurchase = isUpgrade && ownedRow?.id
+      ? { id: ownedRow.id, category, pricePaid: ownedRow.pricePaid, purchasedAt: ownedRow.purchasedAt }
+      : null;
+    const filter = isUpgrade
+      ? { guildId: resolved.guild.id, userId: resolved.userId, [`${itemPath}.id`]: offer.replacesId }
+      : { guildId: resolved.guild.id, userId: resolved.userId, [`${itemPath}.id`]: { $exists: false } };
     const reserved = await ActivityUserProfile.findOneAndUpdate(
-      {
-        guildId: resolved.guild.id,
-        userId: resolved.userId,
-        [`${itemPath}.id`]: { $exists: false },
-      },
+      filter,
       {
         $set: {
           [itemPath]: purchase,
@@ -447,14 +467,16 @@ async function handleHogwartsShopPurchasePost(client, req, res) {
         },
         $setOnInsert: { guildId: resolved.guild.id, userId: resolved.userId },
       },
-      { new: true, upsert: true, setDefaultsOnInsert: true },
+      { new: true, upsert: !isUpgrade, setDefaultsOnInsert: true },
     ).catch(() => null);
     if (!reserved) {
       const state = await getShopProfileState(resolved.guild.id, resolved.userId, cfg.eventKey);
       return res.status(409).json({
         ok: false,
-        error: "already_owned",
-        message: "Hai già acquistato un oggetto per questa categoria.",
+        error: isUpgrade ? "upgrade_conflict" : "already_owned",
+        message: isUpgrade
+          ? "Impossibile completare il miglioramento. Ricarica lo shop e riprova."
+          : "Hai già un oggetto per questa categoria.",
         inventory: state.inventory,
         gringott: state.gringott,
       });
@@ -462,27 +484,33 @@ async function handleHogwartsShopPurchasePost(client, req, res) {
     const payment = await spendGaleoni({
       guildId: resolved.guild.id,
       userId: resolved.userId,
-      amount: item.price,
-      reason: `Shop Hogwarts: ${item.name}`,
+      amount: amountToPay,
+      reason: isUpgrade ? `Shop Hogwarts: migliora ${item.name}` : `Shop Hogwarts: ${item.name}`,
       actorId: "site",
       source: "hogwarts_shop",
       eventKey: cfg.eventKey,
     });
     if (!payment?.ok) {
+      const rollback = previousPurchase
+        ? { $set: { [itemPath]: previousPurchase, "profile.events.hogwarts.shop.updatedAt": new Date() } }
+        : { $unset: { [itemPath]: "" }, $set: { "profile.events.hogwarts.shop.updatedAt": new Date() } };
       await ActivityUserProfile.updateOne(
-        { guildId: resolved.guild.id, userId: resolved.userId, [`${itemPath}.id`]: item.id },
-        { $unset: { [itemPath]: "" }, $set: { "profile.events.hogwarts.shop.updatedAt": new Date() } },
+        { guildId: resolved.guild.id, userId: resolved.userId },
+        rollback,
       ).catch(() => null);
       const state = await getShopProfileState(resolved.guild.id, resolved.userId, cfg.eventKey);
       return res.status(409).json({
         ok: false,
         error: payment?.code || "payment_failed",
-        message: payment?.code === "insufficient_funds" ? "Non hai abbastanza Galeoni per acquistare questo oggetto." : "Acquisto non completato. Riprova tra poco.",
+        message: payment?.code === "insufficient_funds"
+          ? (isUpgrade ? "Non hai abbastanza Galeoni per migliorare questo oggetto." : "Non hai abbastanza Galeoni per acquistare questo oggetto.")
+          : "Acquisto non completato. Riprova tra poco.",
         inventory: state.inventory,
         gringott: state.gringott,
       });
     }
     const state = await getShopProfileState(resolved.guild.id, resolved.userId, cfg.eventKey);
+    const prevName = previousPurchase ? getShopItemById(previousPurchase.id)?.name : "";
     res.setHeader("Cache-Control", "private, no-store");
     return res.status(200).json({
       ok: true,
@@ -491,7 +519,10 @@ async function handleHogwartsShopPurchasePost(client, req, res) {
       houseMeta,
       inventory: state.inventory,
       gringott: state.gringott,
-      message: `${item.name} acquistato con successo.`,
+      upgraded: isUpgrade,
+      message: isUpgrade
+        ? `${item.name} equipaggiato al posto di ${prevName || "l'oggetto precedente"}.`
+        : `${item.name} acquistato con successo.`,
     });
   } catch (err) {
     global.logger?.error?.("[WEBHOOK] hogwarts-shop purchase:", err);

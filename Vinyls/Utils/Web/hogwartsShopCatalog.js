@@ -1,15 +1,10 @@
-const SHOP_CATEGORIES = Object.freeze({
-  WAND: "wand",
-  BROOM: "broom",
-  PET: "pet",
+const SHOP_CATEGORIES = Object.freeze({ WAND: "wand", BROOM: "broom", PET: "pet" });
+const SHOP_CATEGORY_LABELS = Object.freeze({ [SHOP_CATEGORIES.WAND]: "Bacchette", [SHOP_CATEGORIES.BROOM]: "Scope", [SHOP_CATEGORIES.PET]: "Animali" });
+const SHOP_CATEGORY_BOOST_HINTS = Object.freeze({
+  [SHOP_CATEGORIES.WAND]: "Boost duello : più probabilità di vincere.",
+  [SHOP_CATEGORIES.BROOM]: "Boost economia: più chance di furto riuscito.",
+  [SHOP_CATEGORIES.PET]: "Boost minigiochi: moltiplica i punti casa nei minigame.",
 });
-
-const SHOP_CATEGORY_LABELS = Object.freeze({
-  [SHOP_CATEGORIES.WAND]: "Bacchette",
-  [SHOP_CATEGORIES.BROOM]: "Scope",
-  [SHOP_CATEGORIES.PET]: "Animali",
-});
-
 const HOGWARTS_SHOP_CATALOG = Object.freeze([
   {
     id: "willow-spark-wand",
@@ -175,23 +170,50 @@ function getShopItemById(itemId) {
   return HOGWARTS_SHOP_CATALOG.find((item) => item.id === id) || null;
 }
 
+function shopItemPrice(item) {
+  return Math.max(0, Math.floor(Number(item?.price) || 0));
+}
+
+function ownedTierPrice(ownedRow) {
+  if (!ownedRow?.id) return 0;
+  const catalog = getShopItemById(ownedRow.id);
+  const paid = Math.max(0, Math.floor(Number(ownedRow.pricePaid) || 0));
+  return Math.max(shopItemPrice(catalog), paid);
+}
+
+/**
+ * @param {{ id?: string, pricePaid?: number }|null} ownedRow
+ * @param {{ id: string, price: number, name?: string }} item
+ */
+function resolveShopPurchaseOffer(ownedRow, item) {
+  if (!item?.id) return { ok: false, code: "invalid_item", message: "Oggetto shop non valido." };
+  const newPrice = shopItemPrice(item);
+  if (!ownedRow?.id) {
+    return { ok: true, mode: "buy", amount: newPrice };
+  }
+  if (normalizeShopItemId(ownedRow.id) === normalizeShopItemId(item.id)) {
+    return { ok: false, code: "already_owned", message: "Hai già questo oggetto equipaggiato." };
+  }
+  const ownedPrice = ownedTierPrice(ownedRow);
+  if (newPrice <= ownedPrice) {
+    return {
+      ok: false,
+      code: "not_upgrade",
+      message: "Puoi solo passare a un oggetto di livello superiore nella stessa categoria.",
+    };
+  }
+  return { ok: true, mode: "upgrade", amount: newPrice - ownedPrice, replacesId: ownedRow.id };
+}
+
 function publicShopCatalog() {
   return {
     categories: Object.values(SHOP_CATEGORIES).map((id) => ({
       id,
       label: SHOP_CATEGORY_LABELS[id] || id,
+      boostHint: SHOP_CATEGORY_BOOST_HINTS[id] || "",
       items: HOGWARTS_SHOP_CATALOG.filter((item) => item.category === id).map((item) => ({ ...item })),
     })),
   };
 }
 
-module.exports = {
-  HOGWARTS_SHOP_CATALOG,
-  SHOP_CATEGORIES,
-  SHOP_CATEGORY_LABELS,
-  getShopItemById,
-  listShopCatalog,
-  normalizeShopCategory,
-  normalizeShopItemId,
-  publicShopCatalog,
-};
+module.exports = { HOGWARTS_SHOP_CATALOG, SHOP_CATEGORIES, SHOP_CATEGORY_BOOST_HINTS, SHOP_CATEGORY_LABELS, getShopItemById, listShopCatalog, normalizeShopCategory, normalizeShopItemId, ownedTierPrice, publicShopCatalog, resolveShopPurchaseOffer, shopItemPrice };

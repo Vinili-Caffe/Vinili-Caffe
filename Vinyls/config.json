@@ -607,6 +607,12 @@
     "gringott": {
       "sortingReward": 150
     },
+    "duel": {
+      "cooldownMs": 180000,
+      "voldemortPortraitFile": "voldemort.png",
+      "vsBot": { "galeoni": 10, "housePoints": 15 },
+      "vsUser": { "galeoni": 10, "housePoints": 15 }
+    },
     "staffBypassUserIds": []
   }
 }

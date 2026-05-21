@@ -3893,8 +3893,13 @@ function buildWinEmbed(winnerId, effectiveExp, totalExp, details = null) {
     const extras = [];
     if (details.fastBonus > 0) extras.push(`<a:VC_Flame:1482725674711126140> Risposta fulminea **+${details.fastBonus} exp**`);
     if (details.streakBonus > 0) extras.push(`<a:VC_Flame:1482725674711126140> Streak ${details.newStreak} **+${details.streakBonus} exp**`);
-    if (details.housePoints > 0 && details.allHouses) extras.push(`<a:VC_Star:1482706774372253788> Utente non smistato: **+${details.housePoints} punti** a tutte le case`);
-    else if (details.housePoints > 0) extras.push(`<a:VC_Star:1482706774372253788> Casata **+${details.housePoints} punti**`);
+    if (details.housePoints > 0 && details.allHouses) {
+      const petTag = details.petMultiplier > 1 ? ` (×${details.petMultiplier} ${details.petName || "animale"})` : "";
+      extras.push(`<a:VC_Star:1482706774372253788> Utente non smistato: **+${details.housePoints} punti** a tutte le case${petTag}`);
+    } else if (details.housePoints > 0) {
+      const petTag = details.petMultiplier > 1 ? ` (×${details.petMultiplier} ${details.petName || "animale"})` : "";
+      extras.push(`<a:VC_Star:1482706774372253788> Casata **+${details.housePoints} punti**${petTag}`);
+    }
     if (extras.length) lines.push("", ...extras);
   }
   lines.push("", "<:VC_Stats:1482527532682055780> **Le tue statistiche:**", `<a:VC_Arrow:1482706699365257397> Ora hai un totale di **${totalExp} exp**`);
@@ -4456,12 +4461,18 @@ async function resolveHogwartsSortedHouse(guildId, userId, eventKey) {
 }
 
 async function awardHogwartsHousePointsForWinner(client, guildId, userId, gameType, amount, unsortedAmount = 0) {
-  const points = Math.max(0, Math.floor(Number(amount) || 0));
-  const fallbackPoints = Math.max(0, Math.floor(Number(unsortedAmount) || 0));
-  if (!isHogwartsMinigameType(gameType) || (points <= 0 && fallbackPoints <= 0) || !isHogwartsEventLiveForMinigames(client)) return null;
+  const basePoints = Math.max(0, Math.floor(Number(amount) || 0));
+  const baseFallback = Math.max(0, Math.floor(Number(unsortedAmount) || 0));
+  if (!isHogwartsMinigameType(gameType) || (basePoints <= 0 && baseFallback <= 0) || !isHogwartsEventLiveForMinigames(client)) return null;
   const gid = String(guildId || "").trim();
   const uid = String(userId || "").trim();
   if (!isValidGuildUserId(gid, uid)) return null;
+  const { applyPetHousePointsBoost } = require("../Community/hogwartsShopBoostsService");
+  const petBoostSorted = await applyPetHousePointsBoost(client, gid, uid, basePoints);
+  const petBoostFallback = await applyPetHousePointsBoost(client, gid, uid, baseFallback);
+  const points = petBoostSorted.points;
+  const fallbackPoints = petBoostFallback.points;
+  const petMultiplier = Math.max(petBoostSorted.multiplier, petBoostFallback.multiplier);
   const eventKey = hogwartsHousePointsDedupeKey(client);
   const houseId = await resolveHogwartsSortedHouse(gid, uid, eventKey);
   if (!houseId && fallbackPoints <= 0) return null;
@@ -4507,7 +4518,13 @@ async function awardHogwartsHousePointsForWinner(client, guildId, userId, gameTy
     },
     { upsert: true, new: true, setDefaultsOnInsert: true },
   ).catch((err) => warnMinigame(err));
-  return { houseId, points: allHouses ? fallbackPoints : points, allHouses };
+  return {
+    houseId,
+    points: allHouses ? fallbackPoints : points,
+    allHouses,
+    petMultiplier: petMultiplier > 1 ? petMultiplier : 0,
+    petName: petBoostSorted.petName || petBoostFallback.petName || "",
+  };
 }
 
 async function loadRotationState(client, cfg, guildIdOverride = null) {
@@ -7853,7 +7870,19 @@ async function awardWinAndReply(message, rewardExp, game = null) {
     await message.react(MINIGAME_CORRECT_FALLBACK_EMOJI).catch(() => { });
   }
   const hasDetails = fastBonus > 0 || streakBonus > 0 || Number(houseAward?.points || 0) > 0;
-  const details = hasDetails ? { baseExp, fastBonus, streakBonus, newStreak, bestStreak, housePoints: Number(houseAward?.points || 0), allHouses: Boolean(houseAward?.allHouses) } : null;
+  const details = hasDetails
+    ? {
+      baseExp,
+      fastBonus,
+      streakBonus,
+      newStreak,
+      bestStreak,
+      housePoints: Number(houseAward?.points || 0),
+      allHouses: Boolean(houseAward?.allHouses),
+      petMultiplier: Number(houseAward?.petMultiplier || 0),
+      petName: houseAward?.petName || "",
+    }
+    : null;
   await message.reply({ embeds: [buildWinEmbed(message.author.id, effectiveExp, nextTotal, details)] }).catch(() => { });
   if (member) {
     await handleExpReward(message.client, member, nextTotal);
@@ -8924,7 +8953,19 @@ ${game.previewUrl}`,
     getHogwartsUnsortedHousePointReward(cfg, game?.type),
   );
   const hasDetails = fastBonus > 0 || streakBonus > 0 || Number(houseAward?.points || 0) > 0;
-  const details = hasDetails ? { baseExp, fastBonus, streakBonus, newStreak, bestStreak, housePoints: Number(houseAward?.points || 0), allHouses: Boolean(houseAward?.allHouses) } : null;
+  const details = hasDetails
+    ? {
+      baseExp,
+      fastBonus,
+      streakBonus,
+      newStreak,
+      bestStreak,
+      housePoints: Number(houseAward?.points || 0),
+      allHouses: Boolean(houseAward?.allHouses),
+      petMultiplier: Number(houseAward?.petMultiplier || 0),
+      petName: houseAward?.petName || "",
+    }
+    : null;
   const winEmbed = buildWinEmbed(interaction.user.id, effectiveExp, nextTotal, details);
   const mainChannel = await getChannelCached(interaction.client, cfg.channelId);
   if (mainChannel) {

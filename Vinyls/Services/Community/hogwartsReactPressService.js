@@ -130,7 +130,11 @@ async function resolveSortedHouse(guildId, userId, eventKey) {
 }
 
 async function awardHousePoints(client, guildId, userId, amount) {
-  const points = safeInt(amount, 0, 0, 1000);
+  const base = safeInt(amount, 0, 0, 1000);
+  if (base <= 0) return null;
+  const { applyPetHousePointsBoost } = require("./hogwartsShopBoostsService");
+  const petBoost = await applyPetHousePointsBoost(client, guildId, userId, base);
+  const points = petBoost.points;
   if (points <= 0) return null;
   const gid = normalizeId(guildId);
   const uid = normalizeId(userId);
@@ -172,7 +176,12 @@ async function awardHousePoints(client, guildId, userId, amount) {
     },
     { upsert: true, new: true, setDefaultsOnInsert: true },
   ).catch(() => null);
-  return { houseId, points };
+  return {
+    houseId,
+    points,
+    petMultiplier: petBoost.multiplier > 1 ? petBoost.multiplier : 0,
+    petName: petBoost.petName || "",
+  };
 }
 
 function recordReactPressCandidateMessage(message) {
@@ -385,7 +394,9 @@ async function handleReactPressReaction(client, reaction, user) {
   const winnerName = member?.displayName || user.username || "Utente";
   const rewardText = [
     c.rewardGaleoni > 0 ? formatGaleoni(c.rewardGaleoni) : "",
-    houseAward?.points ? `${houseAward.points} punti ${houseAward.houseId}` : "",
+    houseAward?.points
+      ? `${houseAward.points} punti ${houseAward.houseId}${houseAward.petMultiplier > 1 ? ` (×${houseAward.petMultiplier} animale)` : ""}`
+      : "",
   ].filter(Boolean).join(" + ") || "punto evento";
   const embed = new EmbedBuilder()
     .setColor(0xd4af37)

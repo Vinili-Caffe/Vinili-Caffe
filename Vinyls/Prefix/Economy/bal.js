@@ -1,7 +1,6 @@
-const { EmbedBuilder } = require("discord.js");
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
-const { getGringottBalance, formatGaleoni } = require("../../Services/Community/gringottService");
-const { assertEconomyAccess, eventKey } = require("../../Services/Community/galeoniEconomyService");
+const { assertEconomyAccess, isHighStaff } = require("../../Services/Community/galeoniEconomyService");
+const { openBalPanel, setSession } = require("../../Utils/Economy/balGuiRuntime");
 
 function extractUserId(value) {
   const clean = String(value || "").replace(/[<@!>]/g, "").trim();
@@ -12,7 +11,7 @@ module.exports = {
   name: "bal",
   aliases: ["balance", "saldo", "galeoni"],
   allowEmptyArgs: true,
-  description: "Mostra il saldo Gringott.",
+  description: "Mostra il saldo.",
   usage: "+bal [@utente]",
   examples: ["+bal", "+bal @utente"],
   async execute(message, args, client) {
@@ -23,17 +22,19 @@ module.exports = {
     }
 
     const targetId = message.mentions.users.first()?.id || extractUserId(args?.[0]) || message.author.id;
-    const target = targetId === message.author.id ? message.author : await client.users.fetch(targetId).catch(() => null);
-    const state = await getGringottBalance(message.guild.id, targetId, eventKey(client));
-    const embed = new EmbedBuilder()
-      .setColor("#d4af37")
-      .setTitle("Gringott")
-      .setDescription(`Saldo di ${target || `<@${targetId}>`}: **${formatGaleoni(state?.balance || 0)}**`)
-      .addFields(
-        { name: "Guadagnati", value: formatGaleoni(state?.earned || 0), inline: true },
-        { name: "Spesi", value: formatGaleoni(state?.spent || 0), inline: true },
-      );
-    if (access.preview) embed.setFooter({ text: "Preview High Staff attiva" });
-    await safeMessageReply(message, { embeds: [embed], allowedMentions: { repliedUser: false } });
+    let targetName = message.author.displayName || message.author.username;
+    if (targetId !== message.author.id) {
+      const targetUser = message.mentions.users.first() || await client.users.fetch(targetId).catch(() => null);
+      targetName = targetUser?.displayName || targetUser?.username || `Utente ${targetId.slice(-4)}`;
+    }
+
+    const showStaffControls = await isHighStaff(message.member, client, message.author.id);
+    const opened = await openBalPanel(client, message, { targetId, targetName, showStaffControls, preview: access.preview });
+    if (!opened.ok) {
+      await safeMessageReply(message, { content: `<:vegax:1443934876440068179> ${opened.message}`, allowedMentions: { repliedUser: false } });
+      return;
+    }
+    const sent = await safeMessageReply(message, opened.payload);
+    if (sent?.id) setSession(sent.id, opened.session);
   },
 };

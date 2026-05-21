@@ -1,14 +1,6 @@
 const { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require("discord.js");
 const { formatGaleoni } = require("../../Services/Community/gringottService");
-const {
-  ROB_BANK_TARGET_ID,
-  economyConfig,
-  evaluateRobTarget,
-  isRobBankTarget,
-  rob,
-  robBank,
-} = require("../../Services/Community/galeoniEconomyService");
-
+const { ROB_BANK_TARGET_ID, economyConfig, evaluateRobTarget, isRobBankTarget, rob, robBank } = require("../../Services/Community/galeoniEconomyService");
 const PREFIX = "rob_gui";
 const SESSION_TTL_MS = 10 * 60 * 1000;
 const sessions = new Map();
@@ -24,24 +16,37 @@ function sessionKey(messageId) {
 function makeGringottTarget() {
   return {
     id: ROB_BANK_TARGET_ID,
-    name: "Gringott (Banca)",
+    name: "Gringott",
     user: null,
     isBank: true,
   };
 }
 
-function makeSession({ ownerId, guildId, targetId, targetName, cfg, isBank }) {
+async function makeSession({ ownerId, guildId, targetId, targetName, cfg, isBank, client }) {
   const bank = Boolean(isBank) || isRobBankTarget(targetId);
+  const baseChance = Math.max(1, Math.min(99, Math.floor(Number(cfg?.rob?.successChance) || 35)));
+  let successChance = baseChance;
+  let robBroomBonus = 0;
+  let robBroomName = "";
+  if (client) {
+    const { resolveRobSuccessChance } = require("../../Services/Community/hogwartsShopBoostsService");
+    const resolved = await resolveRobSuccessChance(client, guildId, ownerId, baseChance);
+    successChance = resolved.chance;
+    robBroomBonus = resolved.bonus;
+    robBroomName = resolved.broomName || "";
+  }
   return {
     ownerId: String(ownerId || ""),
     guildId: String(guildId || ""),
     targetId: bank ? ROB_BANK_TARGET_ID : String(targetId || ""),
-    targetName: bank ? "Gringott (Banca)" : String(targetName || "").trim() || "Bersaglio",
+    targetName: bank ? "Gringott" : String(targetName || "").trim() || "Bersaglio",
     isBank: bank,
     phase: "idle",
     lastResult: null,
     panelAnimating: false,
-    successChance: Math.max(1, Math.min(99, Math.floor(Number(cfg?.rob?.successChance) || 35))),
+    successChance,
+    robBroomBonus,
+    robBroomName,
     createdAt: now(),
     updatedAt: now(),
   };
@@ -84,7 +89,7 @@ function buildRows(session, panelClosed = false) {
   const ownerId = session.ownerId;
   const locked = Boolean(panelClosed) || Boolean(session.panelAnimating);
   const done = session.phase === "done";
-  const rerollLabel = session.isBank ? "Rubare a utente" : "Verso Gringott";
+  const rerollLabel = session.isBank ? "Rubare a utente" : "alla Gringott";
   const rerollEmoji = session.isBank ? "👤" : "🏦";
   return [
     new ActionRowBuilder().addComponents(
@@ -124,9 +129,9 @@ function buildEmbed(session, notice) {
   const color = last?.success ? "#2ecc71" : last ? "#ed4245" : "#5c4510";
   const lines = [
     session.isBank
-      ? "🏦 Obiettivo: **cassaforte di Gringott** (bottino dalla banca)"
+      ? "🏦 Obiettivo: **cassaforte di Gringott**"
       : `🎯 Bersaglio: **${session.targetName}**`,
-    `📊 Probabilità di successo: **${session.successChance}%**`,
+    `📊 Probabilità di successo: **${session.successChance}%**${session.robBroomBonus > 0 ? ` (+${session.robBroomBonus}% ${session.robBroomName || "scopa"})` : ""}`,
   ];
   if (session.phase === "idle") {
     lines.push(session.isBank
@@ -282,25 +287,4 @@ async function attemptRob(client, messageLike, session, cfg) {
   return { ok: true, result, animating: true };
 }
 
-module.exports = {
-  ROB_BANK_TARGET_ID,
-  attemptRob,
-  buildRobGuiPayload,
-  deleteSession,
-  economyConfig,
-  extractUserId,
-  formatRobNotice,
-  getSession,
-  interactionMessageAdapter,
-  isRobBankTarget,
-  isRobGuiCustomId,
-  makeGringottTarget,
-  makeSession,
-  parseRobGuiCustomId,
-  pickRandomTarget,
-  resetForNewAttempt,
-  resolveTargetUser,
-  scheduleRobIdlePanel,
-  setSession,
-  warmupRobPanel,
-};
+module.exports = { ROB_BANK_TARGET_ID, attemptRob, buildRobGuiPayload, deleteSession, economyConfig, extractUserId, formatRobNotice, getSession, interactionMessageAdapter, isRobBankTarget, isRobGuiCustomId, makeGringottTarget, makeSession, parseRobGuiCustomId, pickRandomTarget, resetForNewAttempt, resolveTargetUser, scheduleRobIdlePanel, setSession, warmupRobPanel };
