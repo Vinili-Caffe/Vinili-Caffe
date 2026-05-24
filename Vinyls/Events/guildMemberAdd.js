@@ -20,6 +20,7 @@ const { addRolesAndGetMember, getClientGuildCached, getGuildChannelCached, getGu
 const { applyDefaultFooterToEmbeds } = require("../Utils/Embeds/defaultFooter");
 const { setWelcomeContextActive } = require("../Utils/Message/officialMessageCommunityHandlers");
 const { restoreUserOnJoin } = require("../Services/Community/userLeaveBackupService");
+const { syncMutedMirrorOnMemberJoin } = require("../Services/Moderation/mutedMirrorRoleService");
 const { cancelCustomPerksDiscordCleanupQueue } = require("../Services/Community/customPerksDiscordCleanupQueueService");
 const { restoreManagerLeftServerPartnerPointsOnRejoin } = require("../Services/Partner/partnerAuditService");
 const sponsorVerifiedRequiresMain = require("../Services/Community/sponsorVerifiedRequiresMainService");
@@ -31,6 +32,7 @@ const path = require("path");
 const { readSnapshotWithMeta, writeSnapshotWithMeta } = require("../../shared/recovery/snapshotStore");
 const { ghostPingNewMemberOnJoin } = require("../Utils/Message/ghostPingOnChannelEnter");
 const { trackMemberJoin } = require("../Services/Community/dailyMemberStatsService");
+const { maybeAssignHogwartsCompletionRoleOnJoin } = require("../Services/Community/hogwartsEventEndService");
 const INVITE_LOG_CHANNEL_ID = IDs.channels.chat;
 const THANKS_CHANNEL_ID = IDs.channels.supporters;
 const INFO_PERKS_CHANNEL_ID = IDs.channels.info;
@@ -753,7 +755,8 @@ function detectSuspiciousAccount(member) {
   const ageHours = accountAgeMs / (60 * 60 * 1000);
   const ageDays = ageHours / 24;
 
-  const suspiciousKeywords = ["support", "moderator", "admin", "staff", "official", "nitro", "airdrop", "crypto", "steam", "gift", "discord", "giveaway",];
+  const scamKeywords = ["nitro", "airdrop", "crypto", "steam", "gift", "giveaway", "freegift", "steamgift"];
+  const impersonationKeywords = ["support", "moderator", "admin", "staff", "discordstaff", "discordsupport"];
 
   const signalLabels = [];
   let score = 0;
@@ -765,24 +768,30 @@ function detectSuspiciousAccount(member) {
     signalLabels.push("invite-link");
   }
 
-  const keywordHits = suspiciousKeywords.filter((kw) => combinedSkeleton.includes(kw),);
-  if (keywordHits.length > 0) {
-    const keywordScore = Math.min(45, 18 + keywordHits.length * 9);
-    score += keywordScore;
-    if (keywordHits.some((kw) => ["nitro", "airdrop", "crypto", "gift", "giveaway"].includes(kw))) {
-      strongSignals += 1;
-    }
-    signalLabels.push(`keywords:${keywordHits.slice(0, 3).join(",")}`);
+  const scamHits = scamKeywords.filter((kw) => combinedSkeleton.includes(kw));
+  if (scamHits.length > 0) {
+    score += Math.min(50, 22 + scamHits.length * 10);
+    strongSignals += 1;
+    signalLabels.push(`scam:${scamHits.slice(0, 3).join(",")}`);
+  }
+  const impersonationHits = impersonationKeywords.filter((kw) => combinedSkeleton.includes(kw));
+  if (impersonationHits.length >= 2) {
+    score += 28;
+    strongSignals += 1;
+    signalLabels.push(`impersonation:${impersonationHits.slice(0, 3).join(",")}`);
+  } else if (impersonationHits.length === 1) {
+    score += 10;
+    signalLabels.push(`impersonation:${impersonationHits[0]}`);
   }
 
   const digitCount = (combinedRaw.match(/\d/g) || []).length;
   const separatorCount = (combinedRaw.match(/[._-]/g) || []).length;
-  if (digitCount >= 6) {
-    score += 20;
+  if (digitCount >= 8) {
+    score += 16;
     signalLabels.push(`digits:${digitCount}`);
   }
-  if (separatorCount >= 4) {
-    score += 12;
+  if (separatorCount >= 5) {
+    score += 10;
     signalLabels.push(`separators:${separatorCount}`);
   }
   if (/(.)\1{4,}/i.test(combinedRaw)) {
@@ -802,39 +811,36 @@ function detectSuspiciousAccount(member) {
   }
 
   if (ageHours <= 24) {
-    score += 32;
+    score += 28;
     signalLabels.push("age<=24h");
   } else if (ageHours <= 72) {
-    score += 24;
+    score += 18;
     signalLabels.push("age<=72h");
   } else if (ageDays <= 7) {
-    score += 12;
+    score += 8;
     signalLabels.push("age<=7d");
-  } else if (ageDays <= 30) {
-    score += 6;
-    signalLabels.push("age<=30d");
   }
 
-  if (hasNoAvatar(member) && ageDays <= 30) {
-    score += 24;
+  if (hasNoAvatar(member) && ageDays <= 7) {
+    score += 22;
     signalLabels.push("no-avatar+young");
   }
 
   const { reusedAvatarCount, similarNameCount } = getJoinSignalStats(member);
-  if (reusedAvatarCount >= 2) {
+  if (reusedAvatarCount >= 3) {
     score += 36;
     strongSignals += 1;
     signalLabels.push(`avatar-reused:${reusedAvatarCount + 1}`);
-  } else if (reusedAvatarCount === 1) {
-    score += 16;
-    signalLabels.push("avatar-reused:2");
+  } else if (reusedAvatarCount === 2) {
+    score += 14;
+    signalLabels.push("avatar-reused:3");
   }
-  if (similarNameCount >= 2) {
+  if (similarNameCount >= 3) {
     score += 18;
     signalLabels.push(`name-clone:${similarNameCount + 1}`);
   }
 
-  const suspicious = score >= 75 || (strongSignals >= 2 && score >= 58);
+  const suspicious = score >= 90 || (strongSignals >= 2 && score >= 78);
   if (suspicious) {
     return `score ${Math.min(100, score)}/100 | segnali: ${signalLabels.slice(0, 5).join(" | ")}`;
   }
@@ -1560,6 +1566,9 @@ module.exports = { name: "guildMemberAdd", kickForJoinGate, runDeferredJoinAnnou
         });
       }
 
+      await syncMutedMirrorOnMemberJoin(member).catch((err) => {
+        global.logger?.warn?.("[guildMemberAdd] muted mirror rejoin:", member.id, err?.message || err);
+      });
       await restoreUserOnJoin(member.guild.id, member.id, member).catch(() => false);
       if (String(member.guild?.id || "") === String(IDs.guilds?.main || "")) {
         await cancelCustomPerksDiscordCleanupQueue(member.guild.id, member.id).catch(() => {});
@@ -1658,6 +1667,7 @@ module.exports = { name: "guildMemberAdd", kickForJoinGate, runDeferredJoinAnnou
           try {
             await restoreDiscadiaVoteRoleOnRejoin(member).catch(() => {});
             await restoreCustomRoleOnRejoin(member).catch(() => {});
+            await maybeAssignHogwartsCompletionRoleOnJoin(member.client, member).catch(() => {});
             if (canAnnounce) {
               await sendJoinLog(member);
 

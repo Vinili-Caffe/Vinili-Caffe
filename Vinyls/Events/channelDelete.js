@@ -6,6 +6,9 @@ const { ARROW, toDiscordTimestamp, channelTypeLabel, formatAuditActor, buildAudi
 const { handleChannelDeletionAction: antiNukeHandleChannelDeletionAction } = require("../Services/Moderation/antiNukeService");
 const { clearGameForChannel } = require("../Services/Minigames/minigameService");
 const { finishSerataFilmSessionsForChannel } = require("../Services/Staff/staffAutoValutazioniService");
+const { isTicketCategoryName } = require("../Utils/Ticket/ticketCategoryUtils");
+const { shouldResyncAutomodForChannel, scheduleDiscordAutomodRulesResync } = require("../Services/Moderation/discordAutomodRulesService");
+const { ChannelType } = require("discord.js");
 const CHANNEL_DELETE_ACTION = AuditLogEvent?.ChannelDelete ?? 12;
 const AUDIT_RETRY_ATTEMPTS = 3;
 const AUDIT_RETRY_DELAY_MS = 700;
@@ -104,6 +107,11 @@ module.exports = {
     if (client) {
       queueCategoryRenumber(client, channel.guildId);
       queueIdsCatalogSync(client, channel.guildId, "channelDelete");
+      const ticketCategoryDeleted =
+        channel.type === ChannelType.GuildCategory && isTicketCategoryName(channel.name);
+      if (ticketCategoryDeleted || shouldResyncAutomodForChannel(channel)) {
+        scheduleDiscordAutomodRulesResync(client);
+      }
     }
   },
 };

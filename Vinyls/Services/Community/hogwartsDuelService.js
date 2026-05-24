@@ -5,6 +5,8 @@ const { getShopItemById } = require("../../Utils/Web/hogwartsShopCatalog");
 const { applyPetHousePointsBoost, isHogwartsShopBoostActive, normalizeShopInventory } = require("./hogwartsShopBoostsService");
 const { addGaleoni, formatGaleoni } = require("./gringottService");
 const { resolveHogwartsEventConfig } = require("../../Utils/Web/hogwartsSortingConfig");
+const { isUserHighStaffExcludedFromHogwartsEvent } = require("../../Utils/Web/hogwartsEventParticipation");
+const { getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { isValidGuildUserId } = require("../../Utils/DB/validateWriteIds");
 const SORTING_DOC = SITE_DOCUMENT_TYPE.HOGWARTS_SORTING;
 const HOUSE_POINTS_DOC = SITE_DOCUMENT_TYPE.HOGWARTS_HOUSE_POINTS;
@@ -44,6 +46,22 @@ function computeWandWinChance(wandId) {
 function computeHouseBonus(houseId) {
   const h = String(houseId || "").trim();
   return HOUSE_BONUS[h] ?? 0;
+}
+
+function readVsBotWinBounds(raw) {
+  const src = raw && typeof raw === "object" ? raw : {};
+  const min = readPositiveInt(src.minPlayerWinChance, 20, 8, 50);
+  const max = readPositiveInt(src.maxPlayerWinChance, 65, min, 85);
+  return { min, max };
+}
+
+function computeVsBotWinChance(playerWinChance, vsBotCfg = {}) {
+  const { min, max } = readVsBotWinBounds(vsBotCfg);
+  const shop = Math.max(1, Math.min(100, Math.floor(Number(playerWinChance) || 42)));
+  const shopMin = 42;
+  const shopMax = 100;
+  const t = Math.max(0, Math.min(1, (shop - shopMin) / Math.max(1, shopMax - shopMin)));
+  return Math.round(min + t * (max - min));
 }
 
 function buildFighterFromProfile({ userId, displayName, username, houseId, wand }) {
@@ -151,6 +169,30 @@ function resolveDuelOutcome(left, right, seed = "") {
   };
 }
 
+function resolveBotDuelOutcome(left, right, seed = "", vsBotCfg = {}) {
+  const lPow = Math.max(1, Math.min(100, Math.floor(Number(left?.power) || 1)));
+  const rPow = Math.max(1, Math.min(100, Math.floor(Number(right?.power) || 94)));
+  const winPct = computeVsBotWinChance(left?.winChance, vsBotCfg);
+  const roll = randomInt(1, 100);
+  const jitter = String(seed || "").length ? (hashSeed(seed) % 9) - 4 : randomInt(-4, 4);
+  const threshold = Math.max(5, Math.min(95, winPct + jitter));
+  const playerWins = roll <= threshold;
+  const winnerId = playerWins ? String(left.userId || "") : String(right.userId || "");
+  const spellLine = pickSpellLine(left, right, winnerId, false);
+  return {
+    winnerId,
+    loserId: playerWins ? String(right.userId || "") : String(left.userId || ""),
+    draw: false,
+    leftRoll: roll,
+    rightRoll: threshold,
+    leftPower: lPow,
+    rightPower: rPow,
+    spellLine,
+    winnerSide: playerWins ? "left" : "right",
+    vsBotWinChance: winPct,
+  };
+}
+
 function hashSeed(source) {
   let h = 2166136261;
   const text = String(source || "");
@@ -196,9 +238,13 @@ function pickSpellLine(left, right, winnerId, draw) {
   );
 }
 
-function formatFighterStatsLine(fighter) {
+function formatFighterStatsLine(fighter, opts = {}) {
   const wand = fighter.wandName || "Nessuna bacchetta acquistata";
-  return `🏠 ${fighter.houseLabel} · 🪄 ${wand} · ⚡ **${fighter.winChance}%** prob. successo`;
+  if (opts?.vsBot && !fighter?.isBot) {
+    const vs = computeVsBotWinChance(fighter.winChance, opts.vsBotCfg);
+    return `🏠 ${fighter.houseLabel} · 🪄 ${wand} · ⚡ **~${vs}%** chance vs Voldemort`;
+  }
+  return `🏠 ${fighter.houseLabel} · 🪄 ${wand} · ⚡ **${fighter.winChance}%** potenza duello`;
 }
 
 function readPositiveInt(value, fallback, min = 0, max = 100000) {
@@ -217,6 +263,7 @@ function resolveDuelRewards(client) {
     vsBot: {
       galeoni: readPositiveInt(vsBot.galeoni, DEFAULT_DUEL_REWARDS.vsBot.galeoni, 0, 500),
       housePoints: readPositiveInt(vsBot.housePoints, DEFAULT_DUEL_REWARDS.vsBot.housePoints, 0, 500),
+      ...readVsBotWinBounds(vsBot),
     },
     vsUser: {
       galeoni: readPositiveInt(vsUser.galeoni, DEFAULT_DUEL_REWARDS.vsUser.galeoni, 0, 500),
@@ -320,6 +367,19 @@ async function settleDuelVictoryRewards(client, { guildId, winnerId, vsBot = fal
   const gid = String(guildId || "").trim();
   const uid = String(winnerId || "").trim();
   if (!isValidGuildUserId(gid, uid) || String(uid) === VOLDEMORT.userId) return null;
+  const guild = client?.guilds?.cache?.get(gid) || (await client?.guilds?.fetch?.(gid).catch(() => null));
+  const member = guild ? await getGuildMemberCached(guild, uid).catch(() => null) : null;
+  if (await isUserHighStaffExcludedFromHogwartsEvent(client, uid, member)) {
+    return {
+      awarded: false,
+      galeoni: 0,
+      housePoints: 0,
+      houseLabel: "",
+      petMultiplier: 0,
+      cooldownMs: 0,
+      message: "",
+    };
+  }
   if (!isHogwartsShopBoostActive(client)) {
     return { awarded: false, galeoni: 0, housePoints: 0, houseLabel: "", petMultiplier: 0, cooldownMs: 0, message: "" };
   }
@@ -396,4 +456,4 @@ async function settleDuelVictoryRewards(client, { guildId, winnerId, vsBot = fal
   };
 }
 
-module.exports = { BOT_ALIASES, VOLDEMORT, buildFighterFromProfile, computeHouseBonus, computeWandWinChance, formatDuelRewardLine, formatFighterStatsLine, getVoldemortFighter, isBotDuelToken, loadDuelFighter, resolveDuelOutcome, resolveDuelRewards, settleDuelVictoryRewards };
+module.exports = { BOT_ALIASES, VOLDEMORT, buildFighterFromProfile, computeHouseBonus, computeVsBotWinChance, computeWandWinChance, formatDuelRewardLine, formatFighterStatsLine, getVoldemortFighter, isBotDuelToken, loadDuelFighter, resolveBotDuelOutcome, resolveDuelOutcome, resolveDuelRewards, settleDuelVictoryRewards };

@@ -2,11 +2,11 @@ const canvasModule = require("canvas");
 const { formatDuration } = require("../../Services/Community/galeoniEconomyService");
 const { registerCanvasFonts } = require("./canvasFonts");
 const { createCanvas } = canvasModule;
-
 const TYPE_META = {
   daily: { title: "GIORNALIERA", sub: "Ricompensa giornaliera", accent: "#fbbf24", glow: "rgba(251,191,36,0.4)", label: "Giornaliera" },
   weekly: { title: "SETTIMANALE", sub: "Ricompensa settimanale", accent: "#60a5fa", glow: "rgba(96,165,250,0.4)", label: "Settimanale" },
   monthly: { title: "MENSILE", sub: "Ricompensa mensile", accent: "#c084fc", glow: "rgba(192,132,252,0.4)", label: "Mensile" },
+  work: { title: "LAVORO", sub: "Turno al calderone", accent: "#34d399", glow: "rgba(52,211,153,0.35)", label: "Lavoro", titleOnHeader: "#ecfdf5", subOnHeader: "#bbf7d0" },
 };
 let fontsReady = false;
 
@@ -76,17 +76,27 @@ function fitPlainText(ctx, text, maxW, size, weight = "700") {
   return `${cut}…`;
 }
 
-function drawHeaderBand(ctx, cx, bandX, bandW, bandY, bandH, meta) {
+function drawHeaderBand(ctx, cx, bandX, bandW, bandY, bandH, meta, incomeType = "") {
+  const isWork = incomeType === "work";
   const foil = ctx.createLinearGradient(bandX, bandY, bandX + bandW, bandY + bandH);
-  foil.addColorStop(0, meta.glow);
-  foil.addColorStop(0.5, "rgba(255,248,220,0.5)");
-  foil.addColorStop(1, meta.glow);
+  if (isWork) {
+    foil.addColorStop(0, "#064e3b");
+    foil.addColorStop(0.45, "#047857");
+    foil.addColorStop(1, "#065f46");
+  } else {
+    foil.addColorStop(0, meta.glow);
+    foil.addColorStop(0.5, "rgba(255,248,220,0.5)");
+    foil.addColorStop(1, meta.glow);
+  }
   fillRoundRect(ctx, bandX, bandY, bandW, bandH, 10, foil);
-  strokeRoundRect(ctx, bandX, bandY, bandW, bandH, 10, "rgba(45,34,8,0.35)", 1);
-  let titleSize = 20;
+  strokeRoundRect(ctx, bandX, bandY, bandW, bandH, 10, isWork ? "rgba(110,231,183,0.45)" : "rgba(45,34,8,0.35)", 1);
+  let titleSize = isWork ? 22 : 20;
   while (titleSize > 12 && measurePlain(ctx, meta.title, titleSize, "900") > bandW - 20) titleSize -= 1;
-  drawPlainText(ctx, meta.title, cx, bandY + bandH / 2 - 7, { size: titleSize, color: "#5c4510", weight: "900" });
-  drawPlainText(ctx, meta.sub, cx, bandY + bandH / 2 + 11, { size: 11, color: "#78350f", weight: "600" });
+  const titleColor = isWork ? meta.titleOnHeader || "#ecfdf5" : "#5c4510";
+  const subColor = isWork ? meta.subOnHeader || "#bbf7d0" : "#78350f";
+  const subSize = isWork ? 12 : 11;
+  drawPlainText(ctx, meta.title, cx, bandY + bandH / 2 - 8, { size: titleSize, color: titleColor, weight: "900" });
+  drawPlainText(ctx, meta.sub, cx, bandY + bandH / 2 + 12, { size: subSize, color: subColor, weight: "600" });
 }
 
 function drawThemeIcon(ctx, type, cx, cy, ready, claimed) {
@@ -122,6 +132,39 @@ function drawThemeIcon(ctx, type, cx, cy, ready, claimed) {
     ctx.arc(0, 0, 14, 0, Math.PI * 2);
     ctx.fillStyle = on ? "#2563eb" : "#334155";
     ctx.fill();
+  } else if (type === "work") {
+    const pot = ctx.createRadialGradient(0, -6, 4, 0, -6, 42);
+    pot.addColorStop(0, on ? "rgba(110,231,183,0.25)" : "rgba(71,85,105,0.2)");
+    pot.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = pot;
+    ctx.fillRect(-48, -48, 96, 96);
+    ctx.beginPath();
+    ctx.ellipse(0, 14, 38, 14, 0, 0, Math.PI * 2);
+    ctx.fillStyle = on ? "#064e3b" : "#1e293b";
+    ctx.fill();
+    ctx.strokeStyle = on ? "#34d399" : "#475569";
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.ellipse(0, -14, 26, 30, 0, 0, Math.PI * 2);
+    const potFill = ctx.createLinearGradient(0, -38, 0, 8);
+    potFill.addColorStop(0, on ? "#6ee7b7" : "#64748b");
+    potFill.addColorStop(1, on ? "#047857" : "#334155");
+    ctx.fillStyle = potFill;
+    ctx.fill();
+    ctx.strokeStyle = on ? "#a7f3d0" : "#64748b";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    for (let i = 0; i < 6; i += 1) {
+      const t = i / 6;
+      const bx = -18 + t * 36;
+      const by = -38 - Math.sin(t * Math.PI) * 10;
+      const r = 2.5 + (i % 2);
+      ctx.fillStyle = on ? `rgba(167,243,208,${0.5 + (i % 3) * 0.15})` : "rgba(148,163,184,0.35)";
+      ctx.beginPath();
+      ctx.arc(bx, by, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
   } else {
     ctx.beginPath();
     ctx.arc(-12, 5, 20, 0, Math.PI * 2);
@@ -141,11 +184,11 @@ function drawThemeIcon(ctx, type, cx, cy, ready, claimed) {
   ctx.restore();
 }
 
-function drawStreakBlock(ctx, cx, topY, maxShow, count, accent) {
+function drawStreakBlock(ctx, cx, topY, maxShow, count, accent, labelPrefix = "Streak") {
   const barW = Math.min(340, 24 + maxShow * 30);
   const x = cx - barW / 2;
-  drawPlainText(ctx, `Streak x${Math.max(1, count)}`, cx, topY, { size: 12, color: "#cbd5e1", weight: "800" });
-  const barY = topY + 16;
+  drawPlainText(ctx, `${labelPrefix} x${Math.max(1, count)}`, cx, topY, { size: 12, color: "#cbd5e1", weight: "800" });
+  const barY = topY + 18;
   const barH = 20;
   fillRoundRect(ctx, x, barY, barW, barH, 8, "rgba(0,0,0,0.42)");
   const gap = 4;
@@ -173,10 +216,21 @@ function drawInfoFooter(ctx, width, frameX, frameW, frameBottom, h, leftText, ri
   drawPlainText(ctx, fitted, barX + barW - innerPad, midY, { size: 13, color: rightColor, align: "right", weight: "700" });
 }
 
+function formatRewardAmount(params, claimed, meta) {
+  if (params.incomeType === "work" && !claimed && params.canClaim) {
+    const min = Math.max(0, Math.floor(Number(params.totalPreviewMin ?? params.rewardMin) || 0));
+    const max = Math.max(min, Math.floor(Number(params.totalPreviewMax ?? params.rewardMax) || 0));
+    if (min > 0 && max > min) return `${min}–${max} Galeoni`;
+    return formatGaleoniShort(params.totalPreview);
+  }
+  const amount = claimed ? params.claimedAmount : params.totalPreview;
+  return formatGaleoniShort(amount);
+}
+
 function drawArena(ctx, params) {
   const width = params.width;
   const height = params.height;
-  const incomeType = ["daily", "weekly", "monthly"].includes(params.incomeType) ? params.incomeType : "daily";
+  const incomeType = TYPE_META[params.incomeType] ? params.incomeType : "daily";
   const meta = TYPE_META[incomeType];
   const canClaim = Boolean(params.canClaim);
   const claimed = Boolean(params.claimed);
@@ -194,34 +248,40 @@ function drawArena(ctx, params) {
   const frameBottom = fy + fh;
   fillRoundRect(ctx, fx, fy, fw, fh, 18, "rgba(0,0,0,0.3)");
   strokeRoundRect(ctx, fx, fy, fw, fh, 18, meta.accent, 2);
-  const bandH = 44;
-  drawHeaderBand(ctx, cx, fx + 14, fw - 28, fy + 10, bandH, meta);
-  const iconY = fy + 98;
+  const isWork = incomeType === "work";
+  const bandH = isWork ? 50 : 44;
+  drawHeaderBand(ctx, cx, fx + 14, fw - 28, fy + 10, bandH, meta, incomeType);
+  const iconY = isWork ? fy + 118 : fy + 98;
   drawThemeIcon(ctx, incomeType, cx, iconY, canClaim || claimed, claimed);
-  const amount = claimed ? params.claimedAmount : params.totalPreview;
-  const amountY = fy + 158;
-  let amountSize = 34;
-  const amountStr = formatGaleoniShort(amount);
+  const amountY = isWork ? fy + 178 : fy + 158;
+  let amountSize = isWork ? 36 : 34;
+  const amountStr = formatRewardAmount(params, claimed, meta);
   while (amountSize > 22 && measurePlain(ctx, amountStr, amountSize, "900") > fw - 48) amountSize -= 2;
   drawPlainText(ctx, amountStr, cx, amountY, { size: amountSize, color: claimed ? "#4ade80" : meta.accent, weight: "900" });
-  const subY = amountY + 28;
+  const subY = amountY + (isWork ? 24 : 28);
   if (claimed) {
     drawPlainText(ctx, "Accreditato sul saldo", cx, subY, { size: 12, color: "#86efac" });
+  } else if (isWork && canClaim && !claimed) {
+    drawPlainText(ctx, "Importo casuale", cx, subY, { size: 11, color: "#94a3b8", weight: "600" });
   } else if (params.bonusAmount > 0) {
     drawPlainText(ctx, `Base ${formatGaleoniShort(params.baseReward)} + ${formatGaleoniShort(params.bonusAmount)} bonus`, cx, subY, { size: 12, color: "#94a3b8" });
-  } else {
+  } else if (!isWork) {
     drawPlainText(ctx, `Ricompensa base ${formatGaleoniShort(params.baseReward)}`, cx, subY, { size: 12, color: "#94a3b8" });
   }
-  const maxStreak = incomeType === "monthly" ? 8 : incomeType === "weekly" ? 7 : 5;
-  drawStreakBlock(ctx, cx, fy + 198, maxStreak, params.streakCount || 1, meta.accent);
+  const maxStreak = incomeType === "monthly" ? 8 : incomeType === "weekly" ? 7 : isWork ? 6 : 5;
+  const streakY = isWork ? fy + 218 : fy + 198;
+  drawStreakBlock(ctx, cx, streakY, maxStreak, params.streakCount || 1, meta.accent, isWork ? "Turni" : "Streak");
   let statusRight = "Pronto";
   let statusColor = "#4ade80";
   if (claimed) {
     statusRight = `+${formatGaleoniShort(params.claimedAmount)}`;
     statusColor = "#4ade80";
   } else if (!canClaim) {
-    statusRight = `Tra ${formatDuration(params.remainingMs)}`;
+    statusRight = isWork ? `Riposo ${formatDuration(params.remainingMs)}` : `Tra ${formatDuration(params.remainingMs)}`;
     statusColor = "#fca5a5";
+  } else if (isWork) {
+    statusRight = "Turno disponibile";
+    statusColor = "#6ee7b7";
   }
   drawInfoFooter(ctx, width, fx, fw, frameBottom, 38, meta.label, statusRight, statusColor);
 }
@@ -236,13 +296,17 @@ async function renderIncomeRewardCanvas(params = {}) {
   drawArena(ctx, {
     width,
     height,
-    incomeType: ["daily", "weekly", "monthly"].includes(params.incomeType) ? params.incomeType : "daily",
+    incomeType: TYPE_META[params.incomeType] ? params.incomeType : "daily",
     canClaim: Boolean(params.canClaim),
     claimed: Boolean(params.claimed),
     remainingMs: Math.max(0, Number(params.remainingMs) || 0),
     baseReward: Math.max(0, Math.floor(Number(params.baseReward) || 0)),
     bonusAmount: Math.max(0, Math.floor(Number(params.bonusAmount) || 0)),
     totalPreview: Math.max(0, Math.floor(Number(params.totalPreview) || 0)),
+    rewardMin: Math.max(0, Math.floor(Number(params.rewardMin) || 0)),
+    rewardMax: Math.max(0, Math.floor(Number(params.rewardMax) || 0)),
+    totalPreviewMin: Math.max(0, Math.floor(Number(params.totalPreviewMin) || 0)),
+    totalPreviewMax: Math.max(0, Math.floor(Number(params.totalPreviewMax) || 0)),
     claimedAmount: Math.max(0, Math.floor(Number(params.claimedAmount) || 0)),
     streakCount: Math.max(1, Math.floor(Number(params.streakCount) || 1)),
   });

@@ -16,9 +16,10 @@ const LOANER_WAND_ID = "willow-spark-wand";
 const BOT_WAND_ID = "elder-ember-wand";
 const DEFAULT_LOANER_WAND = "bacchetta di salice.png";
 const VOLDEMORT_PORTRAIT_CANDIDATES = ["voldemort.png", "Voldemort.png"];
-const INTRO_PHASE_END = 0.34;
-const CLASH_PHASE_END = 0.56;
-const RESULT_PHASE_START = 0.56;
+const INTRO_PHASE_END = 0.3;
+const CLASH_PHASE_END = 0.74;
+const RESULT_PHASE_START = 0.74;
+const DUEL_CLASH_WAND = Object.freeze({ leftX: 280, rightX: 720, tipInset: 36 });
 const DUEL_SPELL = Object.freeze({
   left: { core: "#ef4444", bright: "#fecaca", beam: "#dc2626", glow: "rgba(239,68,68," },
   right: { core: "#22c55e", bright: "#bbf7d0", beam: "#16a34a", glow: "rgba(34,197,94," },
@@ -53,6 +54,11 @@ function easeOutCubic(t) {
   return 1 - (1 - x) ** 3;
 }
 
+function easeInOutCubic(t) {
+  const x = Math.max(0, Math.min(1, Number(t) || 0));
+  return x < 0.5 ? 4 * x * x * x : 1 - (-2 * x + 2) ** 3 / 2;
+}
+
 function stripMd(text) {
   return String(text || "").replace(/\*\*/g, "").trim();
 }
@@ -82,7 +88,7 @@ function resultReveal(frameIndex, totalFrames) {
   if (frameIndex < start) return 0;
   const span = Math.max(1, totalFrames - start);
   const t = (frameIndex - start) / span;
-  if (t < 0.12) return easeOutCubic(t / 0.12);
+  if (t < 0.32) return easeOutCubic(t / 0.32);
   return 1;
 }
 
@@ -220,6 +226,58 @@ function resolveWandImageFilename(wandId, imageFile, fallbackId) {
   return DEFAULT_LOANER_WAND;
 }
 
+function isWebpBuffer(buf) {
+  if (!buf || buf.length < 12) return false;
+  return buf[0] === 0x52 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x46
+    && buf[8] === 0x57 && buf[9] === 0x45 && buf[10] === 0x42 && buf[11] === 0x50;
+}
+
+async function loadCanvasImageFromBuffer(buf) {
+  if (!buf?.length) return null;
+  if (isWebpBuffer(buf) && ffmpegPath) {
+    let tmpIn = "";
+    let tmpOut = "";
+    try {
+      tmpIn = path.join(os.tmpdir(), `vc-duel-webp-${Date.now()}.webp`);
+      tmpOut = path.join(os.tmpdir(), `vc-duel-webp-${Date.now()}.png`);
+      fs.writeFileSync(tmpIn, buf);
+      const out = spawnSync(ffmpegPath, ["-y", "-i", tmpIn, "-frames:v", "1", tmpOut], { stdio: "ignore", windowsHide: true });
+      if (Number(out?.status) === 0 && fs.existsSync(tmpOut)) {
+        const pngBuf = fs.readFileSync(tmpOut);
+        const img = await canvasModule.loadImage(pngBuf).catch(() => null);
+        if (img) return img;
+      }
+    } catch {
+    } finally {
+      for (const p of [tmpIn, tmpOut]) {
+        if (p) {
+          try {
+            fs.unlinkSync(p);
+          } catch {
+          }
+        }
+      }
+    }
+  }
+  return canvasModule.loadImage(buf).catch(() => null);
+}
+
+async function loadCanvasImageFromPath(filePath) {
+  const p = String(filePath || "").trim();
+  if (!p || !fs.existsSync(p)) return null;
+  try {
+    const img = await canvasModule.loadImage(p);
+    if (img?.width > 0 && img?.height > 0) return img;
+  } catch {
+  }
+  try {
+    const buf = fs.readFileSync(p);
+    return loadCanvasImageFromBuffer(buf);
+  } catch {
+  }
+  return safeLoadImage(p, { suppressWarning: true, timeoutMs: 12_000 }).catch(() => null);
+}
+
 function findLocalHogwartsAssetPath(filename) {
   const name = String(filename || "").trim();
   if (!name) return null;
@@ -243,8 +301,12 @@ async function loadHogwartsAssetImage(filename, opts = {}) {
   const silent = Boolean(opts.silent);
   const local = findLocalHogwartsAssetPath(name);
   if (local) {
-    const img = await canvasModule.loadImage(local).catch(() => null);
+    const img = await loadCanvasImageFromPath(local);
     if (img) return img;
+    if (!silent && !missingAssetWarned.has(`decode:${name}`)) {
+      missingAssetWarned.add(`decode:${name}`);
+      global.logger?.warn?.("[duelCanvas] file trovato ma non decodificabile:", local);
+    }
   }
   const bases = [HOGWARTS_IMG_REMOTE_BASE, "https://viniliecaffe.it/images/evento-hogwarts"];
   for (const base of bases) {
@@ -252,7 +314,7 @@ async function loadHogwartsAssetImage(filename, opts = {}) {
     try {
       const buf = await fetchHttpImageBuffer(url, { timeoutMs: 14_000 });
       if (buf?.length) {
-        const img = await canvasModule.loadImage(buf).catch(() => null);
+        const img = await loadCanvasImageFromBuffer(buf);
         if (img) return img;
       }
     } catch {
@@ -290,12 +352,8 @@ async function loadVoldemortPortraitImage(customFile) {
   const warnKey = "__voldemort_portrait__";
   if (!missingAssetWarned.has(warnKey)) {
     missingAssetWarned.add(warnKey);
-    global.logger?.warn?.(
-      "[duelCanvas] ritratto Voldemort non trovato:",
-      candidates.join(", "),
-      "dirs=",
-      hogwartsImageDirs().join(" | "),
-    );
+    const tried = candidates.map((file) => `${file}=>${findLocalHogwartsAssetPath(file) || "?"}`).join(" | ");
+    global.logger?.warn?.("[duelCanvas] ritratto Voldemort non caricato:", tried);
   }
   return null;
 }
@@ -409,10 +467,53 @@ function drawWandSprite(ctx, image, centerX, baseY, accent, facingLeft) {
 
 function duelClashProgress(frameIndex, totalFrames) {
   const clashStart = Math.floor(totalFrames * INTRO_PHASE_END);
-  const clashEnd = Math.floor(totalFrames * CLASH_PHASE_END);
+  const meetEnd = Math.floor(totalFrames * (INTRO_PHASE_END + 0.12));
   if (frameIndex < clashStart) return 0;
-  if (frameIndex >= clashEnd) return 1;
-  return easeOutCubic((frameIndex - clashStart) / Math.max(1, clashEnd - clashStart));
+  if (frameIndex >= meetEnd) return 1;
+  return easeOutCubic((frameIndex - clashStart) / Math.max(1, meetEnd - clashStart));
+}
+
+function duelClashPushProgress(frameIndex, totalFrames) {
+  const pushStart = Math.floor(totalFrames * (INTRO_PHASE_END + 0.06));
+  const pushEnd = Math.floor(totalFrames * CLASH_PHASE_END);
+  if (frameIndex < pushStart) return 0;
+  if (frameIndex >= pushEnd) return 1;
+  return easeInOutCubic((frameIndex - pushStart) / Math.max(1, pushEnd - pushStart));
+}
+
+/** +1 = pallino verso destra (sopraffà il sinistro), -1 = verso sinistra (sopraffà il destro). */
+function clashPushDirection(winnerSide, leftPower, rightPower) {
+  if (winnerSide === "left") return 1;
+  if (winnerSide === "right") return -1;
+  if (winnerSide === "draw") return 0;
+  const delta = Number(rightPower) - Number(leftPower);
+  if (Math.abs(delta) < 1) return 0;
+  return delta > 0 ? -1 : 1;
+}
+
+function clashPowerGap(leftPower, rightPower) {
+  return Math.max(0, Math.min(1, Math.abs(Number(rightPower) - Number(leftPower)) / 36));
+}
+
+function duelClashLayout(centerX) {
+  const { leftX, rightX, tipInset } = DUEL_CLASH_WAND;
+  const leftStop = leftX + tipInset;
+  const rightStop = rightX - tipInset;
+  return {
+    leftWandX: leftX,
+    rightWandX: rightX,
+    leftStop,
+    rightStop,
+    reachLeft: centerX - leftStop,
+    reachRight: rightStop - centerX,
+  };
+}
+
+function clashPushReach(layout, winnerSide, leftPower, rightPower) {
+  const dir = clashPushDirection(winnerSide, leftPower, rightPower);
+  if (dir < 0) return { dir, reach: layout.reachLeft };
+  if (dir > 0) return { dir, reach: layout.reachRight };
+  return { dir: 0, reach: 0 };
 }
 
 function drawSpellBeam(ctx, fromX, fromY, toX, toY, spell, strength, pulse) {
@@ -439,26 +540,82 @@ function drawSpellBeam(ctx, fromX, fromY, toX, toY, spell, strength, pulse) {
   ctx.restore();
 }
 
-function clashBeadOffsetX(frameIndex, totalFrames, winnerSide, centerX) {
+function clashBeadOffsetX(frameIndex, totalFrames, winnerSide, centerX, leftPower, rightPower, layout) {
   const phase = duelPhase(frameIndex, totalFrames);
   const meet = duelClashProgress(frameIndex, totalFrames);
-  const wobble = Math.sin(frameIndex * 0.52) * 16 * Math.min(1, meet + 0.15);
-  if (phase === "intro") return centerX;
-  if (phase === "clash") return centerX + wobble;
-  const rev = resultReveal(frameIndex, totalFrames);
-  const dir = winnerSide === "left" ? -1 : winnerSide === "right" ? 1 : 0;
-  const drift = dir * easeOutCubic(rev) * 118;
-  const pull = dir * Math.sin(frameIndex * 0.78) * (8 + rev * 16);
-  return centerX + wobble * (1 - rev) + drift + pull;
+  if (phase === "intro" || meet <= 0.02) return centerX;
+  const pushT = duelClashPushProgress(frameIndex, totalFrames);
+  const { dir, reach } = clashPushReach(layout, winnerSide, leftPower, rightPower);
+  const gap = clashPowerGap(leftPower, rightPower);
+  const struggle = Math.sin(frameIndex * 0.58) * 22 * (1 - pushT) * (0.35 + gap * 0.65);
+  const surge = Math.sin(frameIndex * 1.35 + pushT * 2.4) * 8 * (1 - pushT * 0.85);
+  const drift = dir * pushT * reach;
+  return centerX + struggle + surge + drift;
 }
 
-function drawMagicClash(ctx, centerX, cy, frameIndex, totalFrames, winnerSide) {
+function spellBeamStrength(meet, beadX, centerX, side, normReach) {
+  const span = Math.max(1, normReach);
+  const norm = Math.max(-1, Math.min(1, (beadX - centerX) / span));
+  const base = Math.max(0.08, meet);
+  if (side === "left") return base * (1 + norm * 0.55);
+  return base * (1 - norm * 0.55);
+}
+
+function drawClashEnergyFill(ctx, layout, beadX, cy, pushT, dir, meet, pulse) {
+  if (pushT < 0.2 || dir === 0) return;
+  const spell = dir < 0 ? DUEL_SPELL.right : DUEL_SPELL.left;
+  const fromX = dir < 0 ? layout.rightWandX : layout.leftWandX;
+  const toX = dir < 0 ? layout.leftStop : layout.rightStop;
+  const x0 = Math.min(fromX, toX);
+  const x1 = Math.max(fromX, toX, beadX + (dir < 0 ? -8 : 8));
+  const alpha = meet * pushT * pulse * 0.5;
+  const grad = ctx.createLinearGradient(x0, cy, x1, cy);
+  grad.addColorStop(0, `${spell.glow}${(alpha * 0.85).toFixed(3)})`);
+  grad.addColorStop(0.45, `${DUEL_SPELL.center.gold}${(alpha * 0.4).toFixed(3)})`);
+  grad.addColorStop(1, `${spell.glow}${(alpha * 0.2).toFixed(3)})`);
+  ctx.save();
+  ctx.fillStyle = grad;
+  ctx.fillRect(x0, cy - 26, x1 - x0, 52);
+  ctx.restore();
+}
+
+function drawDominantSpellWash(ctx, layout, cy, wandY, pushT, dir, meet, pulse, flicker) {
+  if (pushT < 0.35 || dir === 0) return;
+  const wash = meet * (0.42 + pushT * 0.58) * pulse * flicker;
+  if (dir < 0) {
+    drawSpellBeam(ctx, layout.rightWandX, wandY, layout.leftStop, cy, DUEL_SPELL.right, wash, 1);
+    drawSpellBeam(ctx, layout.rightWandX, wandY, layout.leftWandX + 18, cy, DUEL_SPELL.right, wash * 0.72, 0.95);
+  } else {
+    drawSpellBeam(ctx, layout.leftWandX, wandY, layout.rightStop, cy, DUEL_SPELL.left, wash, 1);
+    drawSpellBeam(ctx, layout.leftWandX, wandY, layout.rightWandX - 18, cy, DUEL_SPELL.left, wash * 0.72, 0.95);
+  }
+}
+
+function animatedDuelPower(basePower, frameIndex, totalFrames, side, winnerSide, leftPower, rightPower) {
+  const pushT = duelClashPushProgress(frameIndex, totalFrames);
+  if (pushT <= 0) return basePower;
+  const dir = clashPushDirection(winnerSide, leftPower, rightPower);
+  const gap = clashPowerGap(leftPower, rightPower);
+  const swing = pushT * (14 + gap * 22);
+  if (dir === 0) return basePower;
+  const isWinnerSide = (dir > 0 && side === "left") || (dir < 0 && side === "right");
+  const delta = isWinnerSide ? swing * 0.35 : -swing;
+  return Math.max(4, Math.min(99, Math.round(basePower + delta)));
+}
+
+function drawMagicClash(ctx, centerX, cy, frameIndex, totalFrames, winnerSide, leftPower, rightPower) {
   const phase = duelPhase(frameIndex, totalFrames);
   if (phase === "intro") return;
+  const layout = duelClashLayout(centerX);
   const meet = duelClashProgress(frameIndex, totalFrames);
   const pulse = 0.6 + 0.4 * Math.sin(frameIndex * 0.62);
   const flicker = 0.85 + 0.15 * Math.sin(frameIndex * 1.1 + 0.4);
-  const beadX = clashBeadOffsetX(frameIndex, totalFrames, winnerSide, centerX);
+  const beadX = clashBeadOffsetX(frameIndex, totalFrames, winnerSide, centerX, leftPower, rightPower, layout);
+  const pushT = duelClashPushProgress(frameIndex, totalFrames);
+  const { dir, reach } = clashPushReach(layout, winnerSide, leftPower, rightPower);
+  const normReach = reach || Math.max(layout.reachLeft, layout.reachRight);
+  const leftStr = spellBeamStrength(meet, beadX, centerX, "left", normReach);
+  const rightStr = spellBeamStrength(meet, beadX, centerX, "right", normReach);
   let state = hashSeed(`${frameIndex}:${totalFrames}:clash`);
   const next = () => {
     state = (state * 1664525 + 1013904223) % 4294967296;
@@ -466,18 +623,26 @@ function drawMagicClash(ctx, centerX, cy, frameIndex, totalFrames, winnerSide) {
   };
   const left = DUEL_SPELL.left;
   const right = DUEL_SPELL.right;
-  const leftWandX = 280;
-  const rightWandX = 720;
+  const { leftWandX, rightWandX } = layout;
   const wandY = cy + 52;
-  drawSpellBeam(ctx, leftWandX, wandY, beadX - 10, cy, left, meet, pulse * flicker);
-  drawSpellBeam(ctx, rightWandX, wandY, beadX + 10, cy, right, meet, pulse * flicker);
+  drawClashEnergyFill(ctx, layout, beadX, cy, pushT, dir, meet, pulse);
+  drawDominantSpellWash(ctx, layout, cy, wandY, pushT, dir, meet, pulse, flicker);
+  const loserEndX = dir < 0 ? layout.leftStop : dir > 0 ? layout.rightStop : beadX;
+  const winnerEndX = dir < 0 ? beadX + 8 : dir > 0 ? beadX - 8 : beadX;
+  const leftEndX = dir > 0 ? winnerEndX : dir < 0 ? loserEndX : beadX - 10;
+  const rightEndX = dir < 0 ? winnerEndX : dir > 0 ? loserEndX : beadX + 10;
+  const leftFromX = leftWandX;
+  const rightFromX = rightWandX;
+  drawSpellBeam(ctx, leftFromX, wandY, leftEndX, cy, left, leftStr, pulse * flicker);
+  drawSpellBeam(ctx, rightFromX, wandY, rightEndX, cy, right, rightStr, pulse * flicker);
+  const spill = dir * pushT * Math.max(layout.reachLeft, layout.reachRight) * 0.35;
   for (let i = 0; i < 36; i += 1) {
     const sideLeft = i % 2 === 0;
     const spell = sideLeft ? left : right;
     const spread = sideLeft ? -1 : 1;
     const along = next() * meet;
     const lateral = (next() - 0.5) * 42;
-    const px = beadX + spread * (18 + along * 95) + lateral * 0.35;
+    const px = beadX + spread * (18 + along * 95) + lateral * 0.35 + spill * 0.55;
     const py = cy + (next() - 0.5) * 38 * meet;
     const r = 1.2 + next() * 3.5;
     const alpha = (0.2 + next() * 0.55) * meet * pulse;
@@ -695,9 +860,27 @@ function drawDuelFrame(ctx, params) {
     baseline: "middle",
     forcePrimaryFont: true,
   });
-  drawPowerBar(ctx, 72, 388, 235, 18, leftPower, visualLeft, barAnim, DUEL_SPELL.left.bright);
-  drawPowerBar(ctx, 693, 388, 235, 18, rightPower, visualRight, barAnim, DUEL_SPELL.right.bright);
-  drawTextWithSpecialFallback(ctx, `${leftPower}%`, 189, 418, {
+  const showLeftPower = animatedDuelPower(
+    leftPower,
+    frameIndex,
+    totalFrames,
+    "left",
+    params.winnerSide,
+    leftPower,
+    rightPower,
+  );
+  const showRightPower = animatedDuelPower(
+    rightPower,
+    frameIndex,
+    totalFrames,
+    "right",
+    params.winnerSide,
+    leftPower,
+    rightPower,
+  );
+  drawPowerBar(ctx, 72, 388, 235, 18, showLeftPower, visualLeft, barAnim, DUEL_SPELL.left.bright);
+  drawPowerBar(ctx, 693, 388, 235, 18, showRightPower, visualRight, barAnim, DUEL_SPELL.right.bright);
+  drawTextWithSpecialFallback(ctx, `${showLeftPower}%`, 189, 418, {
     size: 20,
     weight: "600",
     color: phase === "intro" ? "#d4af37" : DUEL_SPELL.left.bright,
@@ -705,7 +888,7 @@ function drawDuelFrame(ctx, params) {
     baseline: "middle",
     forcePrimaryFont: true,
   });
-  drawTextWithSpecialFallback(ctx, `${rightPower}%`, 799, 418, {
+  drawTextWithSpecialFallback(ctx, `${showRightPower}%`, 799, 418, {
     size: 20,
     weight: "600",
     color: phase === "intro" ? "#d4af37" : DUEL_SPELL.right.bright,
@@ -713,7 +896,16 @@ function drawDuelFrame(ctx, params) {
     baseline: "middle",
     forcePrimaryFont: true,
   });
-  drawMagicClash(ctx, width / 2, 228, frameIndex, totalFrames, params.winnerSide);
+  drawMagicClash(
+    ctx,
+    width / 2,
+    228,
+    frameIndex,
+    totalFrames,
+    params.winnerSide,
+    leftPower,
+    rightPower,
+  );
   if (phase === "result") {
     drawResultCard(ctx, width, captions, resultReveal(frameIndex, totalFrames));
   }
@@ -783,6 +975,7 @@ async function renderSinglePngBuffer(params) {
     frameIndex: Math.floor(100 * RESULT_PHASE_START) + 8,
     totalFrames: 100,
     captions: assets.captions,
+    winnerSide: params.winnerSide,
   });
   return canvas.toBuffer("image/png");
 }
@@ -798,7 +991,7 @@ async function renderDuelCanvas(params) {
     const buf = await renderSinglePngBuffer(params);
     return { buffer: buf, format: "png" };
   }
-  const FRAME_COUNT = Math.max(24, Math.min(36, Math.floor(Number(process.env.VC_DUEL_GIF_FRAMES ?? 30))));
+  const FRAME_COUNT = Math.max(28, Math.min(48, Math.floor(Number(process.env.VC_DUEL_GIF_FRAMES ?? 42))));
   const FRAMERATE = Math.max(6, Math.min(10, Math.floor(Number(process.env.VC_DUEL_GIF_FPS ?? 8))));
   let tmpDir = "";
   try {
@@ -836,6 +1029,7 @@ async function renderDuelCanvas(params) {
         frameIndex: i,
         totalFrames: FRAME_COUNT,
         captions: assets.captions,
+        winnerSide: params.winnerSide,
       });
       const name = `duel_${String(i + 1).padStart(3, "0")}.png`;
       fs.writeFileSync(path.join(tmpDir, name), canvas.toBuffer("image/png"));

@@ -4,6 +4,7 @@ const { addGaleoni, formatGaleoni } = require("./gringottService");
 const { resolveHogwartsEventConfig } = require("../../Utils/Web/hogwartsSortingConfig");
 const { isValidGuildUserId } = require("../../Utils/DB/validateWriteIds");
 const { getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
+const { isUserHighStaffExcludedFromHogwartsEvent } = require("../../Utils/Web/hogwartsEventParticipation");
 const IDs = require("../../Utils/Config/ids");
 const DOC = SITE_DOCUMENT_TYPE.HOGWARTS_REACT_PRESS;
 const HOUSE_POINTS_DOC = SITE_DOCUMENT_TYPE.HOGWARTS_HOUSE_POINTS;
@@ -191,18 +192,23 @@ function recordReactPressCandidateMessage(message) {
   if (message.system || message.webhookId || message.applicationId) return;
   if (normalizeId(message.channelId) !== c.channelId) return;
   if (!normalizeId(message.content) && !message.attachments?.size) return;
-  addCandidate(message.guild.id, {
-    guildId: normalizeId(message.guild.id),
-    channelId: normalizeId(message.channelId),
-    messageId: normalizeId(message.id),
-    authorId: normalizeId(message.author.id),
-    createdAt: Number(message.createdTimestamp || Date.now()),
-  }, c);
+  void (async () => {
+    const authorMember = message.member || (await getGuildMemberCached(message.guild, message.author.id).catch(() => null));
+    if (await isUserHighStaffExcludedFromHogwartsEvent(message.client, message.author.id, authorMember)) return;
+    addCandidate(message.guild.id, {
+      guildId: normalizeId(message.guild.id),
+      channelId: normalizeId(message.channelId),
+      messageId: normalizeId(message.id),
+      authorId: normalizeId(message.author.id),
+      createdAt: Number(message.createdTimestamp || Date.now()),
+    }, c);
+  })().catch(() => null);
 }
 
 function addCandidate(guildId, row, c) {
   const gid = normalizeId(guildId);
   if (!gid) return;
+  if (row?.authorExcludedFromHogwarts) return;
   const arr = candidatesByGuild.get(gid) || [];
   if (arr.some((item) => normalizeId(item.messageId) === normalizeId(row.messageId))) return;
   arr.push(row);
@@ -217,11 +223,19 @@ async function seedRecentCandidatesFromChannel(client, guildId, c) {
   for (const message of messages.values()) {
     if (!message?.guild || message.author?.bot || message.system || message.webhookId || message.applicationId) continue;
     if (!normalizeId(message.content) && !message.attachments?.size) continue;
+    const authorId = normalizeId(message.author.id);
+    const authorMember = await getGuildMemberCached(message.guild, authorId).catch(() => null);
+    const authorExcludedFromHogwarts = await isUserHighStaffExcludedFromHogwartsEvent(
+      client,
+      authorId,
+      authorMember,
+    );
     addCandidate(guildId, {
       guildId: normalizeId(guildId),
       channelId: normalizeId(message.channelId),
       messageId: normalizeId(message.id),
-      authorId: normalizeId(message.author.id),
+      authorId,
+      authorExcludedFromHogwarts,
       createdAt: Number(message.createdTimestamp || Date.now()),
     }, c);
   }
@@ -281,6 +295,8 @@ async function spawnReactPressChallenge(client, guild, c) {
   if (!channel?.messages) return false;
   const message = await channel.messages.fetch(chosen.messageId).catch(() => null);
   if (!message || message.author?.bot) return false;
+  const authorMember = await getGuildMemberCached(guild, chosen.authorId).catch(() => null);
+  if (await isUserHighStaffExcludedFromHogwartsEvent(client, chosen.authorId, authorMember)) return false;
   await message.react(c.emoji);
   const now = new Date();
   const expiresAt = new Date(now.getTime() + c.activeDurationMs);
@@ -357,6 +373,8 @@ async function handleReactPressReaction(client, reaction, user) {
   const gid = normalizeId(message.guild.id);
   const uid = normalizeId(user.id);
   if (!isValidGuildUserId(gid, uid)) return false;
+  const clickerMember = await getGuildMemberCached(message.guild, uid).catch(() => null);
+  if (await isUserHighStaffExcludedFromHogwartsEvent(client, uid, clickerMember)) return false;
   const now = new Date();
   const doc = await SiteDocument.findOneAndUpdate(
     {

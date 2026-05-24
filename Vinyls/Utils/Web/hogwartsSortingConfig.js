@@ -1,4 +1,5 @@
 const { HOUSES } = require("./hogwartsSortingBank");
+const { hasHogwartsSortingPreviewAccess } = require("./hogwartsEventParticipation");
 const DEFAULT_EVENT_KEY = "hogwarts_summer_2026";
 
 function readBool(v, fallback) {
@@ -59,9 +60,10 @@ function resolveHogwartsEventConfig(client) {
     : [];
   const gringottRaw = raw.gringott && typeof raw.gringott === "object" ? raw.gringott : {};
   const gringott = {
-    sortingReward: readPositiveInt(process.env.HOGWARTS_GRINGOTT_SORTING_REWARD ?? gringottRaw.sortingReward, 150),
+    sortingReward: readPositiveInt(process.env.HOGWARTS_GRINGOTT_SORTING_REWARD ?? gringottRaw.sortingReward, 250),
   };
-  return { enabled, previewMode, timezone, startDate, endDate, startMs: parseDateStart(startDate), endMs: parseDateEnd(endDate), eventKey, houses, staffBypassUserIds, gringott };
+  const completionRoleId = String(process.env.HOGWARTS_COMPLETION_ROLE_ID || raw.completionRoleId || "1507000390493798511").trim();
+  return { enabled, previewMode, timezone, startDate, endDate, startMs: parseDateStart(startDate), endMs: parseDateEnd(endDate), eventKey, houses, staffBypassUserIds, gringott, completionRoleId };
 }
 
 function isEventWindowOpen(cfg, nowMs, userId) {
@@ -69,13 +71,22 @@ function isEventWindowOpen(cfg, nowMs, userId) {
   const now = Number(nowMs || Date.now());
   const bypass =
     userId && Array.isArray(cfg.staffBypassUserIds) && cfg.staffBypassUserIds.includes(String(userId));
-  if (cfg.previewMode || bypass) return { open: true, phase: cfg.previewMode ? "preview" : "staff_bypass" };
+  if (bypass) return { open: true, phase: "staff_bypass" };
   const start = Number(cfg.startMs);
   const end = Number(cfg.endMs);
   if (!Number.isFinite(start) || !Number.isFinite(end)) return { open: false, phase: "misconfigured" };
   if (now < start) return { open: false, phase: "before_start", startsAtMs: start };
   if (now > end) return { open: false, phase: "after_end", endsAtMs: end };
   return { open: true, phase: "live" };
+}
+
+function resolveEventWindowForViewer(cfg, nowMs, member, userId) {
+  const dateState = isEventWindowOpen(cfg, nowMs, userId);
+  if (dateState.open) return dateState;
+  if (cfg?.previewMode && hasHogwartsSortingPreviewAccess(cfg, member, userId)) {
+    return { ...dateState, open: true, phase: "preview" };
+  }
+  return dateState;
 }
 
 function formatEventWindowIt(cfg) {
@@ -105,4 +116,4 @@ function formatEventWindowIt(cfg) {
   }
 }
 
-module.exports = { resolveHogwartsEventConfig, isEventWindowOpen, formatEventWindowIt };
+module.exports = { resolveHogwartsEventConfig, isEventWindowOpen, resolveEventWindowForViewer, formatEventWindowIt };

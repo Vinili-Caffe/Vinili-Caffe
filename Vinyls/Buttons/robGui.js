@@ -1,20 +1,5 @@
 const { MessageFlags } = require("discord.js");
-const {
-  attemptRob,
-  buildRobGuiPayload,
-  deleteSession,
-  economyConfig,
-  formatRobNotice,
-  getSession,
-  interactionMessageAdapter,
-  isRobGuiCustomId,
-  makeGringottTarget,
-  parseRobGuiCustomId,
-  pickRandomTarget,
-  resetForNewAttempt,
-  scheduleRobIdlePanel,
-  setSession,
-} = require("../Utils/Economy/robGuiRuntime");
+const { attemptRob, buildRobGuiPayload, deleteSession, economyConfig, getSession, interactionMessageAdapter, isRobGuiCustomId, makeGringottTarget, parseRobGuiCustomId, pickRandomTarget, resetForNewAttempt, pushRobHitAnimation, setSession } = require("../Utils/Economy/robGuiRuntime");
 const PRIVATE_FLAG = MessageFlags.Ephemeral;
 
 function match(interaction) {
@@ -43,7 +28,6 @@ async function execute(interaction, client) {
     if (session.phase === "done") resetForNewAttempt(session);
     if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate().catch(() => {});
     const cfg = economyConfig(client);
-    let notice = "<a:VC_Verified:1482532479637127188> Obiettivo: cassaforte Gringott.";
     if (session.isBank) {
       const pick = await pickRandomTarget(client, interaction.message, interaction.user.id, cfg);
       if (!pick) {
@@ -53,7 +37,6 @@ async function execute(interaction, client) {
       session.targetId = pick.id;
       session.targetName = pick.name;
       session.isBank = false;
-      notice = `<a:VC_Verified:1482532479637127188> Bersaglio: **${pick.name}**.`;
     } else {
       const bank = makeGringottTarget();
       session.targetId = bank.id;
@@ -63,7 +46,7 @@ async function execute(interaction, client) {
     session.lastResult = null;
     session.phase = "idle";
     setSession(interaction.message.id, session);
-    const payload = await buildRobGuiPayload(session, notice, false, false);
+    const payload = await buildRobGuiPayload(session, "", false, false);
     await interaction.message?.edit?.(payload).catch(() => {});
     return true;
   }
@@ -74,17 +57,11 @@ async function execute(interaction, client) {
       await replyPrivate(interaction, "<:vegax:1443934876440068179> Hai già tentato il colpo. Usa di nuovo `+rob` quando il cooldown è finito.");
       return true;
     }
-    const hit = await attemptRob(client, msg, session, economyConfig(client));
+    const cfg = economyConfig(client);
+    const hit = await pushRobHitAnimation(interaction.message, session, () => attemptRob(client, msg, session, cfg));
     if (!hit.ok) {
       await interaction.followUp({ content: `<:vegax:1443934876440068179> ${hit.message}`, flags: PRIVATE_FLAG }).catch(() => {});
-      return true;
     }
-    session.panelAnimating = true;
-    setSession(interaction.message.id, session);
-    const notice = formatRobNotice(hit.result, session.targetName);
-    const spinPayload = await buildRobGuiPayload(session, "🥷 Infiltrazione in corso…", false, true);
-    await interaction.message?.edit?.(spinPayload).catch(() => {});
-    scheduleRobIdlePanel(interaction.message, getSession(interaction.message.id) || session, notice);
     return true;
   }
 
@@ -92,7 +69,7 @@ async function execute(interaction, client) {
     if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate().catch(() => {});
     deleteSession(interaction.message?.id);
     resetForNewAttempt(session);
-    const payload = await buildRobGuiPayload(session, "Sessione chiusa.", true, false);
+    const payload = await buildRobGuiPayload(session, "", true, false);
     await interaction.message?.edit?.(payload).catch(() => {});
     return true;
   }

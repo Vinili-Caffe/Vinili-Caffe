@@ -155,7 +155,7 @@ module.exports = {
       await handleSerataFilmScheduledEventUpdate(oldEvent, newEvent).catch((err) => {
         global.logger?.warn?.("[guildScheduledEventUpdate] serata film auto:", err?.message || err);
       });
-      if (Number(newEvent?.status || 0) === 2 && Number(oldEvent?.status || 0) !== 2) {
+      if (Number(newEvent?.status || 0) === 2 && Number(oldEvent?.status || 0) === 1) {
         await handleMovieNightEventStart(newEvent).catch((err) => {
           global.logger?.warn?.("[guildScheduledEventUpdate] movie night start:", err?.message || err);
         });

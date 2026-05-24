@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "defaults": {
+    "mode": "tenant",
+    "enabled": true,
+    "features": {
+      "utility": true,
+      "music": true,
+      "tts": true,
+      "minigames": true,
+      "moderation": false,
+      "level": false,
+      "stats": false,
+      "economy": false,
+      "ticket": false,
+      "security": false,
+      "community_automations": false,
+      "website": false,
+      "staff_tools": false
+    }
+  },
+  "guilds": {}
+}

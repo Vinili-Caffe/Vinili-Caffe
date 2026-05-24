@@ -9,6 +9,7 @@ const { getStaffRoleEmojiByRoleId } = require("../Utils/Community/staffRoleEmoji
 const { queueIdsCatalogSync } = require("../Utils/Config/idsAutoSync");
 const { runCleanupAfterMemberLeave } = require("../Services/Community/cleanupUsersNotInServerService");
 const { backupUserOnLeave, recordLeaveDepexMessages } = require("../Services/Community/userLeaveBackupService");
+const { handleMuteMirrorOnMemberLeave } = require("../Services/Moderation/mutedMirrorRoleService");
 const { enqueueCustomPerksDiscordCleanupAfterLeave } = require("../Services/Community/customPerksDiscordCleanupQueueService");
 const sponsorVerifiedRequiresMain = require("../Services/Community/sponsorVerifiedRequiresMainService");
 const { buildAuditExtraLines } = require("../Utils/Logging/channelRolesLogUtils");
@@ -431,6 +432,7 @@ module.exports = {
       await handleTrackedStaffLeave(member);
       await handlePartnershipOnLeave(member, client);
       const activeClient = client || member.client;
+      await handleMuteMirrorOnMemberLeave(member).catch(() => null);
       await backupUserOnLeave(guild.id, member.id, member);
       if (!member.user.bot && String(guild.id) === String(MAIN_GUILD_ID)) {
         await enqueueCustomPerksDiscordCleanupAfterLeave(guild.id, member.id).catch(() => {});

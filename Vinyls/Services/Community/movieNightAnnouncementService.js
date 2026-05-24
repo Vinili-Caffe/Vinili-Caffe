@@ -1,6 +1,9 @@
 const cron = require("node-cron");
 const { runCronDetached } = require("../../../shared/scheduling/cronDetached");
+const BotState = require("../../Schemas/BotState/botStateSchema");
+const { COMPACT_BOTSTATE_KEY } = BotState;
 const { getBotState, setBotState } = require("../../Utils/BotState/botStateStore");
+const { isMongoReady } = require("../../Utils/Database/mongoConnect");
 const { getClientGuildCached, getGuildChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
 const IDs = require("../../Utils/Config/ids");
 const { extractMovieNightProposalTitle } = require("../../Utils/Community/movieNightProposal");
@@ -28,6 +31,11 @@ const ITALIAN_MONTH_NAMES = ["gennaio", "febbraio", "marzo", "aprile", "maggio",
 const TARGET_WEEKDAY = 6;
 const TARGET_HOUR = 21;
 const TARGET_MINUTE = 15;
+const MOVIE_NIGHT_START_MINUTE_LO = 10;
+const MOVIE_NIGHT_START_MINUTE_HI = 25;
+const FINAL_ANNOUNCEMENT_EXTRA_BEFORE_PING_SATURDAYS = new Set(["2026-05-23"]);
+const CHAT_CHANNEL_ID = String(IDs.channels?.chat || "1442569130573303898");
+
 const HARRY_POTTER_MOVIE_NIGHT_SCHEDULE = new Map([
   ["2026-06-06", { title: "Harry Potter e la pietra filosofale" }],
   ["2026-06-13", { title: "Harry Potter e la camera dei segreti" }],
@@ -49,6 +57,9 @@ let movieNightThreadCloseRunning = false;
 let movieNightFinalAnnouncementRunning = false;
 let movieNightReviewCloseTimer = null;
 let movieNightReviewCloseSweep = null;
+const movieNightStageCloseLocksByWeek = new Map();
+const MOVIE_NIGHT_END_ANNOUNCE_MARKER = "SERATA FILM ANDATA";
+const MOVIE_NIGHT_END_ANNOUNCE_DEDUPE_MS = 10 * 60 * 1000;
 
 const ROME_PARTS_FORMATTER = new Intl.DateTimeFormat("en-GB", {
   timeZone: TIME_ZONE,
@@ -114,32 +125,68 @@ function getFixedMovieTitleForWeek(date = new Date()) {
   return entry?.skip ? null : String(entry?.title || "").trim() || null;
 }
 
-function isTargetMovieNightTimeAndChannel(event, now = new Date()) {
+function getMovieNightEventStartDate(event) {
+  return event?.scheduledStartAt || (event?.scheduledStartTimestamp ? new Date(event.scheduledStartTimestamp) : null);
+}
+
+function isMovieNightEventChannelAndStatus(event) {
   if (String(event?.channelId || "") !== MOVIE_NIGHT_EVENT_CHANNEL_ID) return false;
-
   const status = Number(event?.status || 0);
-  if (status !== 1 && status !== 2) return false;
+  return status === 1 || status === 2;
+}
 
-  const startDate = event?.scheduledStartAt || (event?.scheduledStartTimestamp ? new Date(event.scheduledStartTimestamp) : null);
+function isMovieNightEventName(event) {
+  return String(event?.name || "").toUpperCase().includes(MOVIE_NIGHT_NAME);
+}
+
+function isSaturdayMovieNightStart(startDate, now = new Date()) {
   if (!startDate) return false;
-
   const parts = getRomeParts(startDate);
   return (
-    getRomeWeekKey(startDate) === getRomeWeekKey(now) &&
+    getRomeSaturdayKeyForWeek(startDate) === getRomeSaturdayKeyForWeek(now) &&
     parts.weekday === TARGET_WEEKDAY &&
     parts.hour === TARGET_HOUR &&
-    parts.minute === TARGET_MINUTE
+    parts.minute >= MOVIE_NIGHT_START_MINUTE_LO &&
+    parts.minute <= MOVIE_NIGHT_START_MINUTE_HI
   );
 }
 
+function isTargetMovieNightTimeAndChannel(event, now = new Date()) {
+  if (!isMovieNightEventChannelAndStatus(event)) return false;
+  const startDate = getMovieNightEventStartDate(event);
+  if (!startDate) return false;
+  return isSaturdayMovieNightStart(startDate, now);
+}
+
 function isTargetMovieNightEvent(event, now = new Date()) {
-  const name = String(event?.name || "").toUpperCase();
-  return name.includes(MOVIE_NIGHT_NAME) && isTargetMovieNightTimeAndChannel(event, now);
+  return isMovieNightEventName(event) && isTargetMovieNightTimeAndChannel(event, now);
 }
 
 function isFixedScheduleMovieNightEvent(event, now = new Date()) {
-  const startDate = event?.scheduledStartAt || (event?.scheduledStartTimestamp ? new Date(event.scheduledStartTimestamp) : now);
+  const startDate = getMovieNightEventStartDate(event) || now;
   return Boolean(getFixedMovieTitleForWeek(startDate)) && isTargetMovieNightTimeAndChannel(event, now);
+}
+
+function isRelaxedSaturdayMovieNightEvent(event, now = new Date()) {
+  if (!isMovieNightEventName(event) || !isMovieNightEventChannelAndStatus(event)) return false;
+  const startDate = getMovieNightEventStartDate(event);
+  return isSaturdayMovieNightStart(startDate, now);
+}
+
+function pickBestMovieNightEvent(candidates, now = new Date()) {
+  const list = Array.isArray(candidates) ? candidates.filter(Boolean) : [];
+  if (!list.length) return null;
+  const exact = list.filter((event) => isTargetMovieNightEvent(event, now) || isFixedScheduleMovieNightEvent(event, now));
+  const pool = exact.length ? exact : list.filter((event) => isRelaxedSaturdayMovieNightEvent(event, now));
+  return [...pool].sort((a, b) => Number(a.scheduledStartTimestamp || 0) - Number(b.scheduledStartTimestamp || 0))[0] || null;
+}
+
+async function fetchMovieNightEventById(guild, eventId) {
+  const id = String(eventId || "").trim();
+  if (!id || !guild?.scheduledEvents?.fetch) return null;
+  const event = await guild.scheduledEvents.fetch(id).catch(() => null);
+  if (!event || !isMovieNightEventName(event)) return null;
+  return event;
 }
 
 async function findCurrentWeekMovieNightEvent(guild, now = new Date()) {
@@ -149,17 +196,14 @@ async function findCurrentWeekMovieNightEvent(guild, now = new Date()) {
     return null;
   });
   if (!events?.size) return null;
-
-  return [...events.values()]
-    .filter((event) => isTargetMovieNightEvent(event, now) || isFixedScheduleMovieNightEvent(event, now))
-    .sort((a, b) => Number(a.scheduledStartTimestamp || 0) - Number(b.scheduledStartTimestamp || 0))[0] || null;
+  return pickBestMovieNightEvent([...events.values()], now);
 }
 
 function buildMovieNightAnnouncementMessage() {
   return [
     "## <a:VC_Announce:1482534613568979007> **SERATA FILM**",
     "",
-    "> <:VC_Stats:1482527532682055780> Ecco il thread in cui suggerire il film da guadare **Sabato alle 21:30**. Non c'è un genere definito, quindi potete consigliare **qualsiasi film**.",
+    `> <:VC_Stats:1482527532682055780> Ecco il thread in cui suggerire il film da guadare **Sabato alle ${MOVIE_NIGHT_DISPLAY_TIME}**. Non c'è un genere definito, quindi potete consigliare **qualsiasi film**.`,
     "",
     "<:VC_PinkQuestionMark:1471892611026391306> Come funziona:",
     "<:VC_DoubleReply:1482532332509466797> Scrivete il nome di uno o più film (in messaggi separati) e il bot in automatico aggiungerà la reaction <a:VC_Vote:1482535223001485473> per votare;",
@@ -220,8 +264,15 @@ function buildMovieNightStaffCommunicationMessage({ title, dateLabel }) {
   ].join("\n");
 }
 
-function buildFinalMovieNightAnnouncementMessage({ title, description, eventUrl }) {
+function buildFinalAnnouncementMonthlyActivityBlock() {
   return [
+    "> # <a:VC_Exclamation:1482534702077444217> RICORDA L’EVENTO MENSILE!",
+    `Il membro che a fine mese risulterà il più attivo vincerà Nitro Boost per un mese, il secondo una decorazione da massimo 15,99€ e il terzo Nitro Basic! Ti aspettiamo in <#${CHAT_CHANNEL_ID}>!`,
+  ].join("\n");
+}
+
+function buildFinalMovieNightAnnouncementMessage({ title, description, eventUrl, saturdayKey }) {
+  const lines = [
     "# <a:VC_Announce:1482534613568979007> SERATA FILM",
     "",
     `> <:VC_movie:1497534838801174559> Tutto è pronto! Questa sera, alle **${MOVIE_NIGHT_DISPLAY_TIME}**, inizierà il nostro appuntamento con il cinema trasmettendo **${title}**!`,
@@ -232,16 +283,20 @@ function buildFinalMovieNightAnnouncementMessage({ title, description, eventUrl 
     "> <a:VC_Rocket:1468544312475123753> Ci vediamo stasera! E ricorda: chi partecipa all'evento in vocale riceverà il **doppio **degli **XP **validi per la top weekly. Non mancare!",
     "",
     `<:VC_CommunityManager:1494286896459681924> [Salva l'evento](${eventUrl})`,
-    "",
-    `<a:VC_Ping:1482694298687246377>︲<@&${EVENTS_ROLE_ID}> . <@&${SERATA_FILM_ROLE_ID}>`,
-  ].join("\n");
+  ];
+  const satKey = String(saturdayKey || "").trim();
+  if (satKey && FINAL_ANNOUNCEMENT_EXTRA_BEFORE_PING_SATURDAYS.has(satKey)) {
+    lines.push("", buildFinalAnnouncementMonthlyActivityBlock());
+  }
+  lines.push("", `<a:VC_Ping:1482694298687246377>︲<@&${EVENTS_ROLE_ID}> . <@&${SERATA_FILM_ROLE_ID}>`);
+  return lines.join("\n");
 }
 
 function buildMovieNightStartAnnouncementMessage(title) {
   return [
     "# <a:VC_Announce:1482534613568979007> SERATA FILM",
     "",
-    `> <:VC_movie:1497534838801174559> Tutto è pronto! Tra pochi minuti, alle **21:30**, inizierà il nostro appuntamento con il cinema trasmettendo **${title}**!`,
+    `> <:VC_movie:1497534838801174559> Tutto è pronto! Tra pochi minuti, alle **${MOVIE_NIGHT_DISPLAY_TIME}**, inizierà il nostro appuntamento con il cinema trasmettendo **${title}**!`,
     "",
     `<a:VC_HeartsPink:1468685897389052008> Vi aspettiamo in numerosi in <#${MOVIE_NIGHT_EVENT_CHANNEL_ID}>`,
     "",
@@ -289,7 +344,11 @@ async function publishMovieNightAnnouncement(guild, event, weekKey) {
     });
   }
 
+  const previousState = await getBotState(STATE_KEY, null);
+  const previousWeekKey = String(previousState?.weekKey || "");
+  const keepPriorWeekFields = previousWeekKey && previousWeekKey === weekKey && previousState && typeof previousState === "object";
   await setBotState(STATE_KEY, {
+    ...(keepPriorWeekFields ? previousState : {}),
     weekKey,
     guildId: String(guild.id || ""),
     eventId: String(event?.id || ""),
@@ -522,7 +581,7 @@ async function maybePublishTieBreakerPoll(client, thread, state) {
     content: buildTieBreakerAnnouncementMessage(thread.id, options.map((option) => option.title)),
     allowedMentions: { roles: [EVENTS_ROLE_ID, SERATA_FILM_ROLE_ID] },
     poll: {
-      question: { text: "Quale film guardiamo domani alle 21:30?" },
+      question: { text: `Quale film guardiamo domani alle ${MOVIE_NIGHT_DISPLAY_TIME}?` },
       answers: options.map((option) => ({ text: option.title })),
       duration: MOVIE_NIGHT_TIE_POLL_DURATION_HOURS,
       allowMultiselect: false,
@@ -557,14 +616,348 @@ async function resolveTieBreakerPollWinner(client, state) {
   return answers[0]?.text || null;
 }
 
+function extractTitleFromEventDescription(description) {
+  const desc = String(description || "").trim();
+  if (!desc) return null;
+  const patterns = [
+    /(?:film|titolo|proiezione|stasera|guardiamo|trasmettendo|proiettando)\s*[:\-–—]\s*(.+)/iu,
+    /(?:trasmettendo|proiettando)\s+(.+?)(?:[.!?\n]|$)/iu,
+  ];
+  for (const pattern of patterns) {
+    const match = desc.match(pattern);
+    if (!match?.[1]) continue;
+    const title = extractMovieNightProposalTitle(match[1]);
+    if (title && title.toUpperCase() !== MOVIE_NIGHT_NAME) return title;
+  }
+  for (const line of desc.split(/\n+/)) {
+    const title = extractMovieNightProposalTitle(line);
+    if (title && title.toUpperCase() !== MOVIE_NIGHT_NAME && title.length >= 2) return title;
+  }
+  return null;
+}
+
+function resolveTitleFromMovieNightEvent(event) {
+  const name = String(event?.name || "").trim();
+  if (!name) return extractTitleFromEventDescription(event?.description);
+
+  const splitPatterns = [
+    /^serata\s*film\s*(?:[\|\-–—:»>]+\s*)+(.+)$/iu,
+    /^(.+?)\s*(?:[\|\-–—:]+\s*)+serata\s*film\s*$/iu,
+  ];
+  for (const pattern of splitPatterns) {
+    const match = name.match(pattern);
+    if (!match?.[1]) continue;
+    const title = extractMovieNightProposalTitle(match[1]);
+    if (title && title.toUpperCase() !== MOVIE_NIGHT_NAME) return title;
+  }
+
+  let rest = name;
+  if (name.toUpperCase().includes(MOVIE_NIGHT_NAME)) {
+    rest = name
+      .replace(/serata\s*film/gi, " ")
+      .replace(/^[\s|\-–—:>]+/, "")
+      .replace(/[\s|\-–—:]+$/, "")
+      .trim();
+  }
+  const title = extractMovieNightProposalTitle(rest) || extractMovieNightProposalTitle(name);
+  if (title && title.toUpperCase() !== MOVIE_NIGHT_NAME) return title;
+  return extractTitleFromEventDescription(event?.description);
+}
+
+async function resolveAnnouncementChannel(client) {
+  return (
+    client?.channels?.cache?.get(ANNOUNCEMENT_CHANNEL_ID) ||
+    (await client?.channels?.fetch?.(ANNOUNCEMENT_CHANNEL_ID).catch(() => null))
+  );
+}
+
+function isMovieNightVoteThread(thread, weekKey) {
+  if (!thread?.isThread?.()) return false;
+  const threadName = String(thread.name || "").trim().toUpperCase();
+  if (threadName !== MOVIE_NIGHT_NAME) return false;
+  const createdAt = Number(thread.createdTimestamp || 0);
+  if (!createdAt) return false;
+  return getRomeWeekKey(new Date(createdAt)) === weekKey;
+}
+
+async function discoverMovieNightVoteThread(client, weekKey) {
+  const key = String(weekKey || "").trim();
+  if (!key) return null;
+  const channel = await resolveAnnouncementChannel(client);
+  if (!channel?.isTextBased?.()) return null;
+
+  const candidates = [];
+  if (channel.threads?.fetchActive) {
+    const active = await channel.threads.fetchActive().catch(() => null);
+    if (active?.threads?.size) candidates.push(...active.threads.values());
+  }
+  if (channel.threads?.fetchArchived) {
+    let before;
+    for (let page = 0; page < 4; page += 1) {
+      const archived = await channel.threads
+        .fetchArchived({ limit: 25, ...(before ? { before } : {}) })
+        .catch(() => null);
+      if (!archived?.threads?.size) break;
+      candidates.push(...archived.threads.values());
+      before = archived.threads.last()?.id;
+      if (archived.threads.size < 25) break;
+    }
+  }
+
+  const fromThreads = candidates.filter((thread) => isMovieNightVoteThread(thread, key));
+  if (fromThreads.length) {
+    return [...fromThreads].sort((a, b) => Number(b.createdTimestamp || 0) - Number(a.createdTimestamp || 0))[0];
+  }
+
+  const messages = await channel.messages.fetch({ limit: 100 }).catch(() => null);
+  if (!messages?.size) return null;
+  const sorted = [...messages.values()].sort(
+    (a, b) => Number(b.createdTimestamp || 0) - Number(a.createdTimestamp || 0),
+  );
+  for (const message of sorted) {
+    if (getRomeWeekKey(new Date(Number(message.createdTimestamp || 0))) !== key) continue;
+    if (!message.hasThread) continue;
+    const thread = message.thread || (await message.fetchThread?.().catch(() => null));
+    if (isMovieNightVoteThread(thread, key)) return thread;
+  }
+  return null;
+}
+
+async function hydrateMovieNightStateForWeek(client, state, weekKey) {
+  const key = String(weekKey || "").trim();
+  const base = state && typeof state === "object" ? { ...state } : {};
+  if (!key) return base;
+  if (base.threadId && base.weekKey === key) return base;
+  const thread = await discoverMovieNightVoteThread(client, key);
+  if (!thread?.id) return base;
+  return {
+    ...base,
+    weekKey: key,
+    threadId: String(thread.id),
+    guildId: String(thread.guildId || base.guildId || IDs.guilds?.main || ""),
+  };
+}
+
+async function resolveMovieNightThread(client, threadId) {
+  const id = String(threadId || "");
+  if (!id) return null;
+  return client.channels.cache.get(id) || (await client.channels.fetch(id).catch(() => null));
+}
+
+async function resolveMovieTitleFromVoteThread(client, state, weekKey = "") {
+  const key = String(weekKey || state?.weekKey || "").trim();
+  let thread = null;
+  const threadId = String(state?.threadId || "");
+  if (threadId) thread = await resolveMovieNightThread(client, threadId);
+  if (!thread?.isThread?.() && key) {
+    thread = await discoverMovieNightVoteThread(client, key);
+  }
+  if (!thread?.isThread?.()) return null;
+  const voteResults = await collectMovieNightVoteResults(thread, client).catch(() => []);
+  const fromVotes = resolveWinnerFromVoteResults(voteResults);
+  if (fromVotes) return fromVotes;
+  const topVotes = voteResults.length ? Math.max(...voteResults.map((r) => Number(r.votes || 0))) : 0;
+  if (topVotes > 0) {
+    const leader = voteResults.find((r) => Number(r.votes || 0) === topVotes);
+    if (leader?.title) return leader.title;
+  }
+  return null;
+}
+
 async function resolveFinalMovieTitle(client, state, now = new Date()) {
-  return getFixedMovieTitleForWeek(now) || (await resolveTieBreakerPollWinner(client, state)) || resolveWinnerFromVoteResults(state?.voteResults);
+  const weekKey = getRomeWeekKey(now);
+  const savedTitle = String(state?.finalMovieTitle || "").trim();
+  if (savedTitle) return savedTitle;
+  const fromSchedule = getFixedMovieTitleForWeek(now);
+  if (fromSchedule) return fromSchedule;
+  const hydrated = await hydrateMovieNightStateForWeek(client, state, weekKey);
+  const fromTie = await resolveTieBreakerPollWinner(client, hydrated);
+  if (fromTie) return fromTie;
+  const fromVotes = resolveWinnerFromVoteResults(hydrated?.voteResults);
+  if (fromVotes) return fromVotes;
+  const fromThread = await resolveMovieTitleFromVoteThread(client, hydrated, weekKey).catch(() => null);
+  if (fromThread) return fromThread;
+  const guildId = String(IDs.guilds?.main || client?.config?.mainGuildId || "");
+  const guild = guildId
+    ? await getClientGuildCached(client, guildId).catch(() => null)
+    : null;
+  if (!guild) return null;
+  const event = await findCurrentWeekMovieNightEvent(guild, now);
+  const fromCurrentEvent = resolveTitleFromMovieNightEvent(event);
+  if (fromCurrentEvent) return fromCurrentEvent;
+  const storedEventId = String(hydrated?.eventId || state?.eventId || event?.id || "").trim();
+  if (storedEventId) {
+    const storedEvent = await fetchMovieNightEventById(guild, storedEventId);
+    const fromStored = resolveTitleFromMovieNightEvent(storedEvent);
+    if (fromStored) return fromStored;
+  }
+  return null;
+}
+
+async function describeFinalMovieTitleMiss(client, state, now = new Date()) {
+  const bits = [];
+  if (getFixedMovieTitleForWeek(now)) bits.push("schedule_ok");
+  else bits.push("no_schedule");
+  const voteCount = Array.isArray(state?.voteResults) ? state.voteResults.length : 0;
+  bits.push(`voteResults=${voteCount}`);
+  bits.push(state?.tieBreakerPollMessageId ? "tie_poll=yes" : "tie_poll=no");
+  bits.push(state?.threadId ? `thread=${state.threadId}` : "thread=none");
+  const guildId = String(IDs.guilds?.main || client?.config?.mainGuildId || "");
+  const guild = guildId ? await getClientGuildCached(client, guildId).catch(() => null) : null;
+  if (!guild) {
+    bits.push("guild=missing");
+    return bits.join(" ");
+  }
+  const event = await findCurrentWeekMovieNightEvent(guild, now);
+  if (!event) {
+    bits.push("event=not_found");
+    return bits.join(" ");
+  }
+  const startDate = getMovieNightEventStartDate(event);
+  const parts = startDate ? getRomeParts(startDate) : null;
+  bits.push(`event=${event.id}`);
+  bits.push(parts ? `eventStart=${parts.hour}:${String(parts.minute).padStart(2, "0")}` : "eventStart=?");
+  const title = resolveTitleFromMovieNightEvent(event);
+  bits.push(`eventName=${String(event.name || "").slice(0, 60)}`);
+  bits.push(title ? `eventTitle=${title.slice(0, 40)}` : "eventTitle=unparsed");
+  const discovered = await discoverMovieNightVoteThread(client, getRomeWeekKey(now)).catch(() => null);
+  bits.push(discovered?.id ? `discoveredThread=${discovered.id}` : "discoveredThread=none");
+  return bits.join(" ");
+}
+
+async function fetchAnnouncementChannel(client) {
+  return (
+    client.channels.cache.get(ANNOUNCEMENT_CHANNEL_ID) ||
+    (await client.channels.fetch(ANNOUNCEMENT_CHANNEL_ID).catch(() => null))
+  );
+}
+
+async function finalAnnouncementMessageStillExists(client, messageId) {
+  const id = String(messageId || "").trim();
+  if (!id) return false;
+  const channel = await fetchAnnouncementChannel(client);
+  if (!channel?.messages?.fetch) return false;
+  const message = await channel.messages.fetch(id).catch(() => null);
+  return Boolean(message?.id);
+}
+
+async function fetchStaffCommunicationChannel(client) {
+  return (
+    client.channels.cache.get(STAFF_COMMUNICATION_CHANNEL_ID) ||
+    (await client.channels.fetch(STAFF_COMMUNICATION_CHANNEL_ID).catch(() => null))
+  );
+}
+
+async function staffCommunicationMessageStillExists(client, messageId) {
+  const id = String(messageId || "").trim();
+  if (!id) return false;
+  const channel = await fetchStaffCommunicationChannel(client);
+  if (!channel?.messages?.fetch) return false;
+  const message = await channel.messages.fetch(id).catch(() => null);
+  return Boolean(message?.id);
+}
+
+async function resolveMovieNightFinalAnnounceStatus(client, state, weekKey, saturdayKey) {
+  const wk = String(weekKey || "").trim();
+  const sat = String(saturdayKey || "").trim();
+  if (!wk) return { done: false };
+  if (sat && String(state?.finalAnnouncedSaturdayKey || "") === sat) {
+    return { done: true, reason: "already_announced_saturday" };
+  }
+  const messageId = String(state?.finalAnnouncementMessageId || "").trim();
+  if (messageId && (await finalAnnouncementMessageStillExists(client, messageId))) {
+    return {
+      done: true,
+      reason: "already_announced",
+      repairSaturdayKey: Boolean(sat && String(state?.finalAnnouncedSaturdayKey || "") !== sat),
+      repairWeekKey: String(state?.weekKey || "") !== wk,
+    };
+  }
+  return { done: false };
+}
+
+async function resolveMovieNightStaffCommunicationStatus(client, state, saturdayKey) {
+  const sat = String(saturdayKey || "").trim();
+  if (sat && String(state?.staffAnnouncedSaturdayKey || "") === sat) {
+    return { done: true, reason: "already_announced_saturday" };
+  }
+  const messageId = String(state?.staffCommunicationMessageId || "").trim();
+  if (messageId && (await staffCommunicationMessageStillExists(client, messageId))) {
+    return {
+      done: true,
+      reason: "already_announced",
+      repairSaturdayKey: Boolean(sat && String(state?.staffAnnouncedSaturdayKey || "") !== sat),
+    };
+  }
+  return { done: false };
+}
+
+async function resolveMovieNightEventStartStatus(client, state, weekKey) {
+  const wk = String(weekKey || "").trim();
+  const messageId = String(state?.eventStartMessageId || "").trim();
+  if (!messageId) return { done: false };
+  if (!(await finalAnnouncementMessageStillExists(client, messageId))) return { done: false };
+  return {
+    done: true,
+    reason: "already_announced",
+    repairWeekKey: String(state?.weekKey || "") !== wk,
+  };
+}
+
+async function repairMovieNightFinalAnnounceState(client, state, weekKey, saturdayKey, status) {
+  if (!status || typeof state !== "object") return state;
+  const sat = String(saturdayKey || "").trim();
+  const needsRepair =
+    status.repairSaturdayKey || status.repairWeekKey;
+  if (!needsRepair) return state;
+  const next = {
+    ...state,
+    weekKey: String(weekKey || state.weekKey || ""),
+  };
+  if (sat && status.repairSaturdayKey) next.finalAnnouncedSaturdayKey = sat;
+  await setBotState(STATE_KEY, next);
+  return next;
+}
+
+async function repairMovieNightStaffCommunicationState(client, state, saturdayKey, status) {
+  if (!status?.repairSaturdayKey || !state || typeof state !== "object") return state;
+  const sat = String(saturdayKey || "").trim();
+  if (!sat) return state;
+  const next = {
+    ...state,
+    staffAnnouncedSaturdayKey: sat,
+  };
+  await setBotState(STATE_KEY, next);
+  return next;
+}
+
+function logMovieNightFinalResult(result, label = "") {
+  if (!result) return;
+  const tag = label ? `[MOVIE NIGHT FINAL] ${label}` : "[MOVIE NIGHT FINAL]";
+  if (result.ok) {
+    global.logger?.info?.(
+      `${tag} inviato:`,
+      result.title || "?",
+      result.messageId ? `msg=${result.messageId}` : "",
+      result.weekKey ? `week=${result.weekKey}` : "",
+    );
+    return;
+  }
+  if (!result.skipped) {
+    global.logger?.warn?.(`${tag} errore:`, result.reason || "unknown");
+    return;
+  }
+  global.logger?.info?.(
+    `${tag} skip:`,
+    result.reason || "unknown",
+    result.weekKey ? `week=${result.weekKey}` : "",
+    result.stateWeekKey ? `stateWeek=${result.stateWeekKey}` : "",
+    result.detail ? `(${result.detail})` : "",
+  );
 }
 
 async function publishMovieNightStaffCommunication(client, { title, weekKey, now = new Date() }) {
-  const channel =
-    client.channels.cache.get(STAFF_COMMUNICATION_CHANNEL_ID) ||
-    (await client.channels.fetch(STAFF_COMMUNICATION_CHANNEL_ID).catch(() => null));
+  const channel = await fetchStaffCommunicationChannel(client);
   if (!channel?.isTextBased?.() || !channel?.send) {
     return { ok: false, reason: "staff_channel_unavailable", weekKey };
   }
@@ -581,56 +974,106 @@ async function publishMovieNightStaffCommunication(client, { title, weekKey, now
 }
 
 async function runMovieNightFinalAnnouncementCheck(client, opts = {}) {
-  if (movieNightFinalAnnouncementRunning) return { skipped: true, reason: "already_running" };
+  if (movieNightFinalAnnouncementRunning) {
+    const out = { skipped: true, reason: "already_running" };
+    logMovieNightFinalResult(out, "concurrent");
+    return out;
+  }
   movieNightFinalAnnouncementRunning = true;
   try {
+    if (!isMongoReady()) {
+      const out = { skipped: true, reason: "mongo_not_ready" };
+      logMovieNightFinalResult(out);
+      return out;
+    }
     const now = opts.now || new Date();
     const weekKey = getRomeWeekKey(now);
-    const state = await getBotState(STATE_KEY, null);
+    const saturdayKey = getRomeSaturdayKeyForWeek(now);
+    let state = await hydrateMovieNightStateForWeek(client, await getBotState(STATE_KEY, null), weekKey);
+    if (state?.threadId && !state?.closedAt) {
+      await runMovieNightThreadCloseCheck(client, { now }).catch((err) => {
+        global.logger?.warn?.("[MOVIE NIGHT FINAL] thread close before announce failed:", err?.message || err);
+      });
+      state = (await hydrateMovieNightStateForWeek(client, await getBotState(STATE_KEY, null), weekKey)) || state;
+    }
     const fixedSchedule = getHarryPotterMovieNightScheduleForWeek(now);
-    if (fixedSchedule?.skip) return { skipped: true, reason: "fixed_schedule_skip", weekKey };
+    if (fixedSchedule?.skip) {
+      const out = { skipped: true, reason: "fixed_schedule_skip", weekKey };
+      logMovieNightFinalResult(out);
+      return out;
+    }
     const hasFixedMovie = Boolean(getFixedMovieTitleForWeek(now));
-    if (state?.weekKey !== weekKey && !hasFixedMovie) return { skipped: true, reason: "state_not_current_week", weekKey };
-    if (!opts.force && state?.weekKey === weekKey && state?.finalAnnouncementMessageId) {
-      if (!state?.staffCommunicationMessageId) {
-        const title = await resolveFinalMovieTitle(client, state, now);
-        if (title) {
-          const staffResult = await publishMovieNightStaffCommunication(client, { title, weekKey, now });
-          if (staffResult?.ok) {
-            await setBotState(STATE_KEY, {
-              ...state,
-              staffCommunicationMessageId: String(staffResult.messageId || ""),
-              staffCommunicationAt: new Date().toISOString(),
-            });
-          }
+    const allowWithoutMondayState =
+      hasFixedMovie || FINAL_ANNOUNCEMENT_EXTRA_BEFORE_PING_SATURDAYS.has(saturdayKey);
+    if (state?.weekKey !== weekKey && !allowWithoutMondayState) {
+      const out = {
+        skipped: true,
+        reason: "state_not_current_week",
+        weekKey,
+        stateWeekKey: state?.weekKey || null,
+      };
+      logMovieNightFinalResult(out);
+      return out;
+    }
+    if (!opts.force) {
+      const announceStatus = await resolveMovieNightFinalAnnounceStatus(client, state, weekKey, saturdayKey);
+      if (announceStatus.done) {
+        state = await repairMovieNightFinalAnnounceState(client, state, weekKey, saturdayKey, announceStatus);
+        const staffStatus = await resolveMovieNightStaffCommunicationStatus(client, state, saturdayKey);
+        if (staffStatus.done) {
+          await repairMovieNightStaffCommunicationState(client, state, saturdayKey, staffStatus);
         }
+        const out = {
+          skipped: true,
+          reason: announceStatus.reason || "already_announced",
+          weekKey,
+          saturdayKey,
+        };
+        logMovieNightFinalResult(out);
+        return out;
       }
-      return { skipped: true, reason: "already_announced", weekKey };
     }
 
     const title = await resolveFinalMovieTitle(client, state, now);
-    if (!title) return { skipped: true, reason: "winner_unavailable", weekKey };
+    if (!title) {
+      const detail = await describeFinalMovieTitleMiss(client, state, now).catch(() => "");
+      const out = { skipped: true, reason: "winner_unavailable", weekKey, detail };
+      logMovieNightFinalResult(out);
+      if (detail) global.logger?.warn?.("[MOVIE NIGHT FINAL] winner_unavailable:", detail);
+      return out;
+    }
 
-    const channel = client.channels.cache.get(ANNOUNCEMENT_CHANNEL_ID) || (await client.channels.fetch(ANNOUNCEMENT_CHANNEL_ID).catch(() => null));
+    const channel = await fetchAnnouncementChannel(client);
     if (!channel?.isTextBased?.() || !channel?.send) {
-      return { skipped: true, reason: "announcement_channel_unavailable", weekKey };
+      const out = { skipped: true, reason: "announcement_channel_unavailable", weekKey };
+      logMovieNightFinalResult(out);
+      return out;
     }
 
     const description = await fetchItalianMovieDescription(title);
     const guildId = String(IDs.guilds?.main || client?.config?.mainGuildId || "");
     const guild = guildId ? await getClientGuildCached(client, guildId).catch(() => null) : null;
     const event = guild ? await findCurrentWeekMovieNightEvent(guild, now) : null;
-    const previousState = state?.weekKey === weekKey && typeof state === "object" ? state : {};
+    const previousState =
+      state?.weekKey === weekKey && typeof state === "object"
+        ? state
+        : typeof state === "object"
+          ? state
+          : {};
     const message = await channel.send({
       content: buildFinalMovieNightAnnouncementMessage({
         title,
         description,
         eventUrl: buildDiscordEventUrl(previousState?.guildId || guildId || IDs.guilds?.main, previousState?.eventId || event?.id),
+        saturdayKey,
       }),
       allowedMentions: { roles: [EVENTS_ROLE_ID, SERATA_FILM_ROLE_ID] },
     });
 
-    const staffResult = await publishMovieNightStaffCommunication(client, { title, weekKey, now });
+    const staffStatus = await resolveMovieNightStaffCommunicationStatus(client, previousState, saturdayKey);
+    const staffResult = staffStatus.done
+      ? { ok: true, messageId: String(previousState?.staffCommunicationMessageId || ""), skipped: true }
+      : await publishMovieNightStaffCommunication(client, { title, weekKey, now });
     await setBotState(STATE_KEY, {
       ...previousState,
       weekKey,
@@ -639,21 +1082,25 @@ async function runMovieNightFinalAnnouncementCheck(client, opts = {}) {
       finalMovieTitle: title,
       finalMovieDescription: description,
       finalAnnouncementMessageId: String(message.id || ""),
+      finalAnnouncedSaturdayKey: saturdayKey,
       finalAnnouncedAt: new Date().toISOString(),
       ...(staffResult?.ok
         ? {
             staffCommunicationMessageId: String(staffResult.messageId || ""),
             staffCommunicationAt: new Date().toISOString(),
+            staffAnnouncedSaturdayKey: saturdayKey,
           }
         : {}),
     });
-    return {
+    const out = {
       ok: true,
       title,
       messageId: String(message.id || ""),
       staffCommunicationMessageId: staffResult?.ok ? String(staffResult.messageId || "") : "",
       weekKey,
     };
+    logMovieNightFinalResult(out);
+    return out;
   } finally {
     movieNightFinalAnnouncementRunning = false;
   }
@@ -709,8 +1156,14 @@ async function handleMovieNightEventStart(event, opts = {}) {
   const client = event.client || guild.client;
   const weekKey = getRomeWeekKey(startDate);
   const state = await getBotState(STATE_KEY, null);
-  if (!opts.force && state?.weekKey === weekKey && state?.eventStartMessageId) {
-    return { skipped: true, reason: "already_announced", weekKey };
+  if (!opts.force) {
+    const startStatus = await resolveMovieNightEventStartStatus(client, state, weekKey);
+    if (startStatus.done) {
+      if (startStatus.repairWeekKey && state && typeof state === "object") {
+        await setBotState(STATE_KEY, { ...state, weekKey });
+      }
+      return { skipped: true, reason: startStatus.reason || "already_announced", weekKey };
+    }
   }
 
   const permissionsOpened = await openMovieNightStagePermissions(guild);
@@ -793,6 +1246,116 @@ function scheduleMovieNightReviewThreadClose(client, closeAt) {
   movieNightReviewCloseTimer.unref?.();
 }
 
+async function withMovieNightStageCloseLock(weekKey, fn) {
+  const lockKey = String(weekKey || "");
+  const prev = movieNightStageCloseLocksByWeek.get(lockKey) || Promise.resolve();
+  const mine = prev.catch(() => {}).then(() => fn());
+  movieNightStageCloseLocksByWeek.set(lockKey, mine);
+  try {
+    return await mine;
+  } finally {
+    if (movieNightStageCloseLocksByWeek.get(lockKey) === mine) {
+      movieNightStageCloseLocksByWeek.delete(lockKey);
+    }
+  }
+}
+
+function isMovieNightStageCloseMessage(message, client, maxAgeMs = MOVIE_NIGHT_END_ANNOUNCE_DEDUPE_MS) {
+  if (!message) return false;
+  const botId = String(client?.user?.id || "");
+  if (botId && String(message.author?.id || "") !== botId) return false;
+  if (!String(message.content || "").includes(MOVIE_NIGHT_END_ANNOUNCE_MARKER)) return false;
+  const age = Date.now() - Number(message.createdTimestamp || 0);
+  return age >= 0 && age <= maxAgeMs;
+}
+
+async function findRecentMovieNightEndAnnouncementInChannel(channel, client, maxAgeMs = MOVIE_NIGHT_END_ANNOUNCE_DEDUPE_MS) {
+  if (!channel?.messages?.fetch) return null;
+  const messages = await channel.messages.fetch({ limit: 25 }).catch(() => null);
+  if (!messages?.size) return null;
+  for (const message of messages.values()) {
+    if (isMovieNightStageCloseMessage(message, client, maxAgeMs)) return message;
+  }
+  return null;
+}
+
+async function claimMovieNightStageCloseSlot(weekKey) {
+  if (!isMongoReady()) return { claimed: true, reason: "no_mongo" };
+  const stageCloseIdPath = `value.${STATE_KEY}.stageCloseMessageId`;
+  const weekKeyPath = `value.${STATE_KEY}.weekKey`;
+  try {
+    const compact = await BotState.findOne({ key: COMPACT_BOTSTATE_KEY }).lean();
+    if (!compact) {
+      const state = await getBotState(STATE_KEY, null);
+      if (state?.weekKey === weekKey && state?.stageCloseMessageId && state.stageCloseMessageId !== "pending") {
+        return { claimed: false, reason: "already_announced", state };
+      }
+      await setBotState(STATE_KEY, {
+        ...(state && typeof state === "object" ? state : {}),
+        weekKey,
+        stageCloseMessageId: "pending",
+      });
+      return { claimed: true, reason: "legacy_reserve" };
+    }
+    const result = await BotState.updateOne(
+      {
+        key: COMPACT_BOTSTATE_KEY,
+        $or: [
+          { [weekKeyPath]: { $ne: weekKey } },
+          { [stageCloseIdPath]: { $exists: false } },
+          { [stageCloseIdPath]: null },
+          { [stageCloseIdPath]: "" },
+        ],
+      },
+      {
+        $set: {
+          [stageCloseIdPath]: "pending",
+          [weekKeyPath]: weekKey,
+        },
+      },
+    );
+    if (Number(result?.modifiedCount || 0) > 0) return { claimed: true };
+    const state = await getBotState(STATE_KEY, null);
+    if (state?.weekKey === weekKey && state?.stageCloseMessageId && state.stageCloseMessageId !== "pending") {
+      return { claimed: false, reason: "already_announced", state };
+    }
+    return { claimed: false, reason: "pending_other", state };
+  } catch (err) {
+    global.logger?.warn?.("[MOVIE NIGHT ANNOUNCE] stage close claim failed:", err?.message || err);
+    return { claimed: true, reason: "claim_error_fallback" };
+  }
+}
+
+async function resolveReviewThreadFromMessage(message) {
+  if (!message) return null;
+  if (message.thread) return message.thread;
+  const fetched = await message.fetch?.().catch(() => null);
+  return fetched?.thread || null;
+}
+
+async function persistMovieNightStageCloseState({
+  state,
+  guild,
+  weekKey,
+  title,
+  messageId,
+  threadId,
+  reviewThreadCloseAt,
+  permissionsClosed,
+}) {
+  await setBotState(STATE_KEY, {
+    ...(state && typeof state === "object" ? state : {}),
+    weekKey,
+    guildId: String(guild.id || ""),
+    stageCloseMovieTitle: title,
+    stageCloseMessageId: String(messageId || ""),
+    reviewThreadId: String(threadId || ""),
+    reviewThreadCloseAt,
+    stagePermissionsClosedAt: permissionsClosed ? new Date().toISOString() : state?.stagePermissionsClosedAt || "",
+    stageClosedAt: new Date().toISOString(),
+  });
+}
+
 async function handleMovieNightStageClose(stageInstance, opts = {}) {
   const guild = stageInstance?.guild || stageInstance?.client?.guilds?.cache?.get(stageInstance?.guildId || "");
   const channelId = String(stageInstance?.channelId || stageInstance?.channel?.id || "");
@@ -802,44 +1365,90 @@ async function handleMovieNightStageClose(stageInstance, opts = {}) {
   const weekKey = getRomeWeekKey(opts.now || new Date());
   const fixedSchedule = getHarryPotterMovieNightScheduleForWeek(opts.now || new Date());
   if (fixedSchedule?.skip) return { skipped: true, reason: "fixed_schedule_skip", weekKey };
-  const state = await getBotState(STATE_KEY, null);
-  if (!opts.force && state?.weekKey === weekKey && state?.stageCloseMessageId) {
-    return { skipped: true, reason: "already_announced", weekKey };
-  }
 
-  const permissionsClosed = await closeMovieNightStagePermissions(guild);
-  const title = (await resolveFinalMovieTitle(client, state, opts.now || new Date()).catch(() => null)) || state?.finalMovieTitle || state?.eventStartMovieTitle || "il film scelto";
-  const channel = await resolveTextChannelForMovieNight(guild);
-  if (!channel?.isTextBased?.() || !channel?.send) {
-    return { skipped: true, reason: "announcement_channel_unavailable", weekKey, permissionsClosed };
-  }
+  return withMovieNightStageCloseLock(weekKey, async () => {
+    const state = await getBotState(STATE_KEY, null);
+    if (!opts.force && state?.weekKey === weekKey && state?.stageCloseMessageId && state.stageCloseMessageId !== "pending") {
+      return { skipped: true, reason: "already_announced", weekKey };
+    }
 
-  const message = await channel.send({
-    content: buildMovieNightEndAnnouncementMessage(title),
-    allowedMentions: { roles: [SERATA_FILM_ROLE_ID] },
+    const permissionsClosed = await closeMovieNightStagePermissions(guild);
+    const title = (await resolveFinalMovieTitle(client, state, opts.now || new Date()).catch(() => null)) || state?.finalMovieTitle || state?.eventStartMovieTitle || "il film scelto";
+    const channel = await resolveTextChannelForMovieNight(guild);
+    if (!channel?.isTextBased?.() || !channel?.send) {
+      return { skipped: true, reason: "announcement_channel_unavailable", weekKey, permissionsClosed };
+    }
+
+    const existingMessage = !opts.force ? await findRecentMovieNightEndAnnouncementInChannel(channel, client) : null;
+    if (existingMessage) {
+      const existingThread = await resolveReviewThreadFromMessage(existingMessage);
+      const reviewThreadCloseAt = Number(state?.reviewThreadCloseAt || 0) || (Date.now() + REVIEW_THREAD_CLOSE_AFTER_MS);
+      await persistMovieNightStageCloseState({
+        state,
+        guild,
+        weekKey,
+        title,
+        messageId: existingMessage.id,
+        threadId: existingThread?.id || state?.reviewThreadId || "",
+        reviewThreadCloseAt,
+        permissionsClosed,
+      });
+      if (existingThread?.id) scheduleMovieNightReviewThreadClose(client, reviewThreadCloseAt);
+      return { ok: true, deduped: true, reason: "channel_recent_message", messageId: String(existingMessage.id || ""), threadId: String(existingThread?.id || ""), title, permissionsClosed, weekKey };
+    }
+
+    if (!opts.force) {
+      const claim = await claimMovieNightStageCloseSlot(weekKey);
+      if (!claim.claimed) {
+        if (claim.reason === "already_announced" || claim.reason === "pending_other") {
+          const retryMessage = await findRecentMovieNightEndAnnouncementInChannel(channel, client);
+          if (retryMessage) {
+            const retryThread = await resolveReviewThreadFromMessage(retryMessage);
+            const reviewThreadCloseAt = Number(claim.state?.reviewThreadCloseAt || 0) || (Date.now() + REVIEW_THREAD_CLOSE_AFTER_MS);
+            await persistMovieNightStageCloseState({
+              state: claim.state || state,
+              guild,
+              weekKey,
+              title,
+              messageId: retryMessage.id,
+              threadId: retryThread?.id || claim.state?.reviewThreadId || "",
+              reviewThreadCloseAt,
+              permissionsClosed,
+            });
+            if (retryThread?.id) scheduleMovieNightReviewThreadClose(client, reviewThreadCloseAt);
+            return { ok: true, deduped: true, reason: "claim_lost_channel_message", messageId: String(retryMessage.id || ""), threadId: String(retryThread?.id || ""), title, permissionsClosed, weekKey };
+          }
+        }
+        return { skipped: true, reason: claim.reason || "claim_failed", weekKey, permissionsClosed };
+      }
+    }
+
+    const message = await channel.send({
+      content: buildMovieNightEndAnnouncementMessage(title),
+      allowedMentions: { roles: [SERATA_FILM_ROLE_ID] },
+    });
+    const thread = await message.startThread({
+      name: REVIEW_THREAD_NAME,
+      autoArchiveDuration: 1440,
+      reason: "Thread automatico recensioni e suggerimenti Serata Film",
+    }).catch((err) => {
+      global.logger?.warn?.("[MOVIE NIGHT ANNOUNCE] review thread create failed:", err?.message || err);
+      return null;
+    });
+    const reviewThreadCloseAt = Date.now() + REVIEW_THREAD_CLOSE_AFTER_MS;
+    await persistMovieNightStageCloseState({
+      state,
+      guild,
+      weekKey,
+      title,
+      messageId: message.id,
+      threadId: thread?.id || "",
+      reviewThreadCloseAt,
+      permissionsClosed,
+    });
+    if (thread?.id) scheduleMovieNightReviewThreadClose(client, reviewThreadCloseAt);
+    return { ok: true, messageId: String(message.id || ""), threadId: String(thread?.id || ""), title, permissionsClosed, weekKey };
   });
-  const thread = await message.startThread({
-    name: REVIEW_THREAD_NAME,
-    autoArchiveDuration: 1440,
-    reason: "Thread automatico recensioni e suggerimenti Serata Film",
-  }).catch((err) => {
-    global.logger?.warn?.("[MOVIE NIGHT ANNOUNCE] review thread create failed:", err?.message || err);
-    return null;
-  });
-  const reviewThreadCloseAt = Date.now() + REVIEW_THREAD_CLOSE_AFTER_MS;
-  await setBotState(STATE_KEY, {
-    ...(state && typeof state === "object" ? state : {}),
-    weekKey,
-    guildId: String(guild.id || ""),
-    stageCloseMovieTitle: title,
-    stageCloseMessageId: String(message.id || ""),
-    reviewThreadId: String(thread?.id || ""),
-    reviewThreadCloseAt,
-    stagePermissionsClosedAt: permissionsClosed ? new Date().toISOString() : state?.stagePermissionsClosedAt || "",
-    stageClosedAt: new Date().toISOString(),
-  });
-  if (thread?.id) scheduleMovieNightReviewThreadClose(client, reviewThreadCloseAt);
-  return { ok: true, messageId: String(message.id || ""), threadId: String(thread?.id || ""), title, permissionsClosed, weekKey };
 }
 
 async function runMovieNightAnnouncementCheck(client, opts = {}) {
@@ -870,12 +1479,6 @@ async function runMovieNightAnnouncementCheck(client, opts = {}) {
   }
 }
 
-async function resolveMovieNightThread(client, threadId) {
-  const id = String(threadId || "");
-  if (!id) return null;
-  return client.channels.cache.get(id) || (await client.channels.fetch(id).catch(() => null));
-}
-
 async function runMovieNightThreadCloseCheck(client, opts = {}) {
   if (movieNightThreadCloseRunning) return { skipped: true, reason: "already_running" };
   movieNightThreadCloseRunning = true;
@@ -886,8 +1489,8 @@ async function runMovieNightThreadCloseCheck(client, opts = {}) {
     if (fixedSchedule) {
       return { skipped: true, reason: fixedSchedule.skip ? "fixed_schedule_skip" : "fixed_schedule_no_vote_thread", weekKey };
     }
-    const state = await getBotState(STATE_KEY, null);
-    if (state?.weekKey !== weekKey || !state?.threadId) {
+    let state = await hydrateMovieNightStateForWeek(client, await getBotState(STATE_KEY, null), weekKey);
+    if (!state?.threadId) {
       return { skipped: true, reason: "thread_not_recorded", weekKey };
     }
     if (!opts.force && state?.closedAt) {

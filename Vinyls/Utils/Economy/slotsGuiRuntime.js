@@ -1,4 +1,5 @@
-const { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require("discord.js");
+const { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
+const { buildImageButtonPayload } = require("./guiPanelPayload");
 const { formatGaleoni } = require("../../Services/Community/gringottService");
 const { cashoutSlotsBank, economyConfig, playSlotsBanked } = require("../../Services/Community/galeoniEconomyService");
 const { clearSlotsGuiSession, loadSlotsGuiSessionByMessage, persistSlotsGuiSession } = require("../../Services/Community/slotsGuiSessionStore");
@@ -252,18 +253,11 @@ function formatSlotsSpinNotice(spinResult, session) {
 
 async function buildSlotsGuiPayload(session, cfg, notice = "", disabled = false, animating = false) {
   const attachment = await resolvePanelAttachment(session, animating);
-  const embed = new EmbedBuilder()
-    .setColor(Number(session.bank || 0) > 0 ? "#d6a84f" : "#8b5cf6")
-    .setDescription([
-      `🪙 Puntata: **${formatGaleoni(session.bet)}**`,
-      `💰 Banco: **${formatGaleoni(session.bank)}**${Number(session.bank || 0) > 0 ? "" : ""}`,
-      `🎰 Giri: **${Math.max(0, Math.floor(Number(session.spins) || 0))}**`,
-      notice ? `\n${notice}` : "",
-    ].filter(Boolean).join("\n"));
-  const files = attachment.files?.length ? attachment.files : undefined;
-  if (attachment.image && files?.length) embed.setImage(attachment.image);
-  else if (!files?.length) global.logger?.warn?.("[SLOTS GUI] pannello senza immagine (canvas/cache vuoti)");
-  return { embeds: [embed], components: buildRows(session, cfg, disabled), files, allowedMentions: { repliedUser: false } };
+  if (!attachment.files?.length) global.logger?.warn?.("[SLOTS GUI] pannello senza immagine (canvas/cache vuoti)");
+  return buildImageButtonPayload({
+    files: attachment.files || [],
+    components: buildRows(session, cfg, disabled),
+  });
 }
 
 function interactionMessageAdapter(interaction) {

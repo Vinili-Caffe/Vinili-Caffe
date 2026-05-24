@@ -334,7 +334,8 @@
       return;
     }
     var staticBootstrap = typeof window !== "undefined" && window.__VC_HOGWARTS_STATIC_BOOTSTRAP;
-    if (staticBootstrap && staticBootstrap.ok) {
+    var staticEvent = staticBootstrap && staticBootstrap.event;
+    if (staticBootstrap && staticBootstrap.ok && staticEvent && !staticEvent.previewMode) {
       useEligibilityFallback();
       return;
     }
@@ -383,7 +384,16 @@
     }
 
     if (!token || (elig && elig.needsLogin)) {
-      showGate("Accedi con Discord per fare lo smistamento.");
+      showGate(
+        ev && ev.previewMode
+          ? "Anteprima staff: accedi con Discord (account High Staff) per fare lo smistamento."
+          : "Accedi con Discord per fare lo smistamento.",
+      );
+      return;
+    }
+
+    if (elig && elig.previewForbidden) {
+      showGate(elig.message || "In anteprima lo smistamento è riservato all'High Staff del server.");
       return;
     }
 
@@ -392,7 +402,7 @@
       return;
     }
 
-    if (ev && ev.open === false) {
+    if (ev && ev.open === false && !(elig && elig.canSort)) {
       var phaseMsg =
         elig && elig.message
           ? elig.message
@@ -400,11 +410,6 @@
             ? "Lo smistamento aprirà a giugno. Torna quando l'evento sarà live!"
             : "L'evento è terminato.";
       showGate(phaseMsg);
-      return;
-    }
-
-    if (elig && elig.previewForbidden) {
-      showGate(elig.message || "In anteprima lo smistamento è riservato all'High Staff del server.");
       return;
     }
 
@@ -434,7 +439,7 @@
     if (!token || (elig && elig.needsLogin)) return false;
     if (elig && elig.previewForbidden) return false;
     if (elig && elig.alreadySorted && elig.houseMeta) return false;
-    if (ev && ev.open === false && !(ev.previewMode && token)) return false;
+    if (ev && ev.open === false && !(elig && elig.canSort)) return false;
     if (elig && elig.canSort === false && !elig.alreadySorted) return false;
     if (!state.questions.length) return false;
     return true;

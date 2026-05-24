@@ -905,16 +905,13 @@ function getMusicVoiceCoordination() {
   }
 }
 
-function musicOwnsGuildVoice(guildId) {
-  const music = getMusicVoiceCoordination();
-  if (!music) return false;
-  if (typeof music.guildHasMusicVoiceResumeHint === "function" && music.guildHasMusicVoiceResumeHint(guildId)) {
-    return true;
-  }
-  const vc = typeof music.getGuildMusicVoiceChannelId === "function"
-    ? music.getGuildMusicVoiceChannelId(guildId)
-    : null;
-  return Boolean(vc);
+function resolveMusicBlocksTtsForGuild(client, guildId) {
+  const { resolveMusicBlocksTts } = require("../../../shared/discord/musicTtsVoiceGuard");
+  return resolveMusicBlocksTts(client, guildId, getMusicVoiceCoordination());
+}
+
+function musicOwnsGuildVoice(guildId, client = null) {
+  return resolveMusicBlocksTtsForGuild(client, guildId).blocked;
 }
 
 async function purgeTtsVoicePersistence(guildId, client) {
@@ -946,6 +943,8 @@ async function destroyGuildVoiceConnection(guildId) {
   await sleep(600);
 }
 async function ensureConnection(state, voiceChannel) {
+  const musicBlock = resolveMusicBlocksTtsForGuild(voiceChannel.client, voiceChannel.guild.id);
+  if (musicBlock.blocked) return null;
   const lockedChannelId = getLockedChannelId(voiceChannel.guild.id);
   if (lockedChannelId && lockedChannelId !== voiceChannel.id) {
     return null;
@@ -1090,18 +1089,18 @@ async function handleTtsMessage(message, client, prefix) {
   }
   const lockedChannelId = guildId ? getLockedChannelId(guildId) : null;
   const autojoin = booleanFromConfig(config?.tts?.autojoin, false);
-  const ttsSessionActive = Boolean(autojoin || lockedChannelId);
+  if (!autojoin && !lockedChannelId) return;
   const activeConnectedChannelId = guildId ? findLockedChannelIdByGuild(guildId) : null;
   const canWarnMissingVoice = Boolean(activeConnectedChannelId || (guildId && isTtsPostJoinVoiceGraceActive(guildId)));
   if (!voiceChannel) {
-    if (!ttsSessionActive || !canWarnMissingVoice) return;
+    if (!canWarnMissingVoice) return;
     const warn = await message.reply("<a:VC_Alert:1482706673176150077> Devi essere in un canale vocale per usare il TTS.",);
     if (warn) scheduleMessageDeletion(warn, EPHEMERAL_TTL_SHORT_MS);
     return;
   }
   const authorVoiceId = message.member?.voice?.channelId ?? null;
   if (!authorVoiceId || String(authorVoiceId) !== String(voiceChannel.id)) {
-    if (!ttsSessionActive || !canWarnMissingVoice) return;
+    if (!canWarnMissingVoice) return;
     const warn = await message.reply("<a:VC_Alert:1482706673176150077> Devi essere nel canale vocale per usare il TTS.",);
     if (warn) scheduleMessageDeletion(warn, EPHEMERAL_TTL_SHORT_MS);
     return;
@@ -1110,18 +1109,24 @@ async function handleTtsMessage(message, client, prefix) {
   if (lockedChannelId && lockedChannelId !== voiceChannel.id) {
     return;
   }
-  if (!autojoin && !lockedChannelId) {
-    return;
-  }
-  const state = getState(voiceChannel);
-  const connection = await ensureConnection(state, voiceChannel).catch(() => null,);
-  if (!connection) return;
   const includeUsername = booleanFromConfig(config?.tts?.includeUsername, false,);
   await hydrateUserTtsLangForUser(message.author?.id);
   const lang = getUserTtsLang(message.author?.id) || config?.tts?.lang || "it";
   const rawMessageText = message.cleanContent ?? message.content ?? "";
   let baseText = sanitizeText(typeof rawMessageText === "string" ? rawMessageText : String(rawMessageText),);
   if (!baseText || !baseText.trim()) return;
+  const musicBlock = resolveMusicBlocksTtsForGuild(client, guildId);
+  if (musicBlock.blocked) {
+    const { buildMusicBlocksTtsUserMessage } = require("../../../shared/discord/musicTtsVoiceGuard");
+    const warn = await message.reply(
+      `<a:VC_Alert:1482706673176150077> ${buildMusicBlocksTtsUserMessage(musicBlock.channelId, prefix)}`,
+    );
+    if (warn) scheduleMessageDeletion(warn, EPHEMERAL_TTL_SHORT_MS);
+    return;
+  }
+  const state = getState(voiceChannel);
+  const connection = await ensureConnection(state, voiceChannel).catch(() => null,);
+  if (!connection) return;
   baseText = expandAbbreviationsForTts(baseText, lang);
   const name = accountUsername(message.member || message.author);
   let text = includeUsername ? `${name}: ${baseText}` : baseText;
@@ -1134,6 +1139,10 @@ async function handleTtsMessage(message, client, prefix) {
 async function joinTtsChannel(voiceChannel) {
   if (!voiceChannel) return { ok: false, reason: "no_voice_channel" };
   if (!voiceChannel.joinable) return { ok: false, reason: "not_joinable" };
+  const musicBlock = resolveMusicBlocksTtsForGuild(voiceChannel.client, voiceChannel.guild.id);
+  if (musicBlock.blocked) {
+    return { ok: false, reason: "music_active", musicChannelId: musicBlock.channelId };
+  }
   const lockedChannelId = getLockedChannelId(voiceChannel.guild.id);
   if (lockedChannelId && String(lockedChannelId) !== String(voiceChannel.id)) {
     return { ok: false, reason: "locked" };
@@ -1150,6 +1159,10 @@ async function joinTtsChannel(voiceChannel) {
 async function armTtsChannel(voiceChannel) {
   if (!voiceChannel) return { ok: false, reason: "no_voice_channel" };
   if (!voiceChannel.joinable) return { ok: false, reason: "not_joinable" };
+  const musicBlock = resolveMusicBlocksTtsForGuild(voiceChannel.client, voiceChannel.guild.id);
+  if (musicBlock.blocked) {
+    return { ok: false, reason: "music_active", musicChannelId: musicBlock.channelId };
+  }
   setLockedChannel(voiceChannel.guild.id, voiceChannel.id);
   await saveVoiceState(voiceChannel.guild.id, voiceChannel.id, String(voiceChannel.client?.user?.id || ""));
   return { ok: true };
@@ -1379,7 +1392,7 @@ async function restoreTtsConnections(client) {
           if (!channel || !channel.isVoiceBased?.()) return;
           const gid = String(channel.guild?.id || entry?.guildId || "");
           if (!gid) return;
-          if (musicOwnsGuildVoice(gid)) {
+          if (musicOwnsGuildVoice(gid, client)) {
             await purgeTtsVoicePersistence(gid, client);
             return;
           }

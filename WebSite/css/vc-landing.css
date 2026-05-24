@@ -21225,27 +21225,41 @@ body.vc-hw-main-reveal #vc-hogwarts-app {
 .vc-hw-shop-card__art::before {
   content: "";
   position: absolute;
+  left: 50%;
+  top: 50%;
   width: 9rem;
   height: 9rem;
   border: 1px solid color-mix(in srgb, var(--shop-accent) 28%, transparent);
   border-radius: 999px;
   background: color-mix(in srgb, var(--shop-accent) 8%, transparent);
   opacity: 0.65;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
 }
 
 .vc-hw-shop-card__glow {
   display: none;
 }
 
-.vc-hw-shop-card__image {
+.vc-hw-shop-card__frame {
   position: relative;
   z-index: 1;
+  display: grid;
+  width: 9rem;
+  height: 9rem;
+  place-items: center;
+  margin-inline: auto;
+}
+
+.vc-hw-shop-card__image {
   display: block;
-  width: min(86%, 11.5rem);
-  height: 9.5rem;
+  width: auto;
+  height: auto;
+  max-width: 7.35rem;
+  max-height: 7.35rem;
   object-fit: contain;
+  object-position: center center;
   filter: drop-shadow(0 18px 34px rgba(0, 0, 0, 0.46)) drop-shadow(0 0 24px color-mix(in srgb, var(--shop-accent) 34%, transparent));
-  transform: rotate(-6deg) scale(1.08);
 }
 
 .vc-hw-shop-card__sigil {
@@ -21645,4 +21659,267 @@ body.vc-body.vc-users-page.vc-roles-page .vc-role-request-textarea {
 body.vc-body.vc-users-page.vc-roles-page .vc-role-request-textarea:focus {
   border-color: rgba(var(--vc-sand-rgb), 0.55) !important;
   box-shadow: 0 0 0 3px rgba(var(--vc-sand-rgb), 0.16), 0 0 20px rgba(var(--vc-sand-rgb), 0.08) !important;
+}
+
+.vc-snav-item--event.vc-snav-item--active {
+  color: #f8e7a2;
+  background: rgba(212, 175, 55, 0.14);
+  box-shadow: inset 0 0 0 1px rgba(212, 175, 55, 0.35);
+}
+
+.vc-hw-hub-page .vc-hw-hub-section-title {
+  font-family: Cinzel, "Cormorant Garamond", serif;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #f8e7a2;
+  letter-spacing: 0.04em;
+}
+
+.vc-hw-hub-current {
+  border: 1px solid rgba(52, 211, 153, 0.28);
+  border-radius: 1.25rem;
+  padding: 1.25rem 1.35rem;
+  background: linear-gradient(145deg, rgba(6, 78, 59, 0.35), rgba(15, 23, 42, 0.65));
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+}
+
+.vc-hw-hub-current__range {
+  margin: 0.35rem 0 0;
+  font-size: 0.9rem;
+  color: rgba(167, 243, 208, 0.9);
+}
+
+.vc-hw-hub-activity-grid {
+  display: grid;
+  gap: 0.85rem;
+}
+
+@media (min-width: 720px) {
+  .vc-hw-hub-activity-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.vc-hw-hub-activity {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+  padding: 1rem 1.1rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(15, 23, 42, 0.55);
+}
+
+.vc-hw-hub-activity--link {
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.vc-hw-hub-activity--link:hover {
+  border-color: rgba(52, 211, 153, 0.45);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
+}
+
+.vc-hw-hub-activity__ico {
+  flex-shrink: 0;
+  width: 2.5rem;
+  height: 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.75rem;
+  background: rgba(52, 211, 153, 0.15);
+  color: #6ee7b7;
+  font-size: 1.1rem;
+}
+
+.vc-hw-hub-activity__title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #f1f5f9;
+}
+
+.vc-hw-hub-activity__summary {
+  margin: 0.35rem 0 0;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: #94a3b8;
+}
+
+.vc-hw-hub-activity__chev {
+  margin-left: auto;
+  color: #6ee7b7;
+  opacity: 0.85;
+}
+
+.vc-hw-hub-week-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.vc-hw-hub-week-tab {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  padding: 0.45rem 0.9rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #cbd5e1;
+  background: rgba(15, 23, 42, 0.6);
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.vc-hw-hub-week-tab--on,
+.vc-hw-hub-week-tab--current {
+  border-color: rgba(52, 211, 153, 0.5);
+  color: #ecfdf5;
+  background: rgba(6, 95, 70, 0.45);
+}
+
+.vc-hw-hub-week-tab--past {
+  opacity: 0.65;
+}
+
+.vc-hw-hub-week-panel {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 1.15rem;
+  padding: 1.1rem 1.2rem;
+  background: rgba(15, 23, 42, 0.5);
+}
+
+.vc-hw-hub-week-panel__label {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #e2e8f0;
+}
+
+.vc-hw-hub-week-panel__label span {
+  color: #94a3b8;
+}
+
+.vc-hw-hub-page-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+}
+
+.vc-hw-hub-page-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 1rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(212, 175, 55, 0.22);
+  background: rgba(20, 15, 12, 0.72);
+  text-decoration: none;
+  color: #f8e7a2;
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.vc-hw-hub-page-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(212, 175, 55, 0.45);
+}
+
+.vc-hw-hub-page-card__ico {
+  font-size: 1.35rem;
+}
+
+.vc-hw-hub-empty {
+  margin: 0;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 0.9rem;
+}
+
+.vc-hw-hub-preview-tools__label {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(251, 191, 36, 0.9);
+}
+
+.vc-hw-hub-all {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.vc-hw-hub-all-week {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 1rem;
+  padding: 1rem 1.15rem;
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.vc-hw-hub-all-week--current,
+.vc-hw-hub-all-week--live {
+  border-color: rgba(52, 211, 153, 0.4);
+  background: rgba(6, 78, 59, 0.22);
+}
+
+.vc-hw-hub-all-week--past {
+  opacity: 0.72;
+}
+
+.vc-hw-hub-all-week__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.35rem 1rem;
+}
+
+.vc-hw-hub-all-week__title {
+  margin: 0;
+  font-family: Cinzel, "Cormorant Garamond", serif;
+  font-size: 1.05rem;
+  color: #f8e7a2;
+}
+
+.vc-hw-hub-all-week__range {
+  margin: 0;
+  font-size: 0.82rem;
+  color: #94a3b8;
+}
+
+body.vc-hw-page--with-header > main,
+body.vc-hw-page--with-header #vc-hogwarts-app > main,
+body.vc-hw-page--with-header #vc-hw-shop-app,
+body.vc-hw-page--with-header #vc-hw-points-app,
+body.vc-hw-page--with-header #vc-hw-potions-app {
+  padding-top: 6.5rem !important;
+}
+
+@media (min-width: 640px) {
+  body.vc-hw-page--with-header > main,
+  body.vc-hw-page--with-header #vc-hogwarts-app > main,
+  body.vc-hw-page--with-header #vc-hw-shop-app,
+  body.vc-hw-page--with-header #vc-hw-points-app,
+  body.vc-hw-page--with-header #vc-hw-potions-app {
+    padding-top: 7rem !important;
+  }
+}
+
+body.vc-hw-preview-locked main,
+body.vc-hw-preview-locked .vc-hw-stars,
+body.vc-hw-preview-locked .vc-blob,
+body.vc-hw-preview-locked footer,
+body.vc-hw-preview-locked #vc-hw-hub-preview-tools {
+  display: none !important;
+}
+
+.vc-hw-preview-gate {
+  position: relative;
+  z-index: 20;
+  max-width: 42rem;
+  margin: 6rem auto 2rem;
 }

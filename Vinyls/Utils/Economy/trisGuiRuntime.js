@@ -1,4 +1,5 @@
-const { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require("discord.js");
+const { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
+const { buildImageButtonPayload, canvasStatusLine } = require("./guiPanelPayload");
 const { formatGaleoni } = require("../../Services/Community/gringottService");
 const {
   economyConfig,
@@ -243,7 +244,7 @@ function buildRows(session, cfg, panelClosed = false) {
   ];
 }
 
-async function renderPanel(session) {
+async function renderPanel(session, notice = "") {
   const last = session.lastResult;
   let resultLabel = "";
   if (session.phase === "done" && last) {
@@ -267,6 +268,7 @@ async function renderPanel(session) {
       playerName: session.playerName,
       opponentName: session.opponentName,
       turnName: session.phase === "playing" ? displayNameForTurn(session) : "",
+      statusLine: canvasStatusLine(notice),
     });
     const fileName = "tris-panel.png";
     const files = [new AttachmentBuilder(Buffer.from(rendered.buffer), { name: fileName })];
@@ -277,38 +279,12 @@ async function renderPanel(session) {
   }
 }
 
-function buildEmbed(session, notice) {
-  const last = session.lastResult;
-  const color = last?.outcome === "win" || (last?.game === "tris_pvp" && last?.winnerId && !last?.draw)
-    ? "#2ecc71"
-    : last?.outcome === "draw" || last?.draw
-      ? "#d4af37"
-      : last
-        ? "#ed4245"
-        : "#1e3a5f";
-  const lines = [
-    `🪙 Puntata: **${formatGaleoni(session.bet)}**${session.wager ? ` (in gioco **${formatGaleoni(session.wager)}** ciascuno)` : ""}`,
-  ];
-  if (session.mode === "pvp") {
-    lines.push(`⭕ **${session.playerName} (X)** vs **${session.opponentName} (O)**`);
-    if (session.phase === "pending") lines.push("In attesa che l'avversario accetti la sfida.");
-    if (session.phase === "playing") lines.push(`Turno di **${displayNameForTurn(session)}**.`);
-    if (session.phase === "done") lines.push("Partita conclusa.");
-  } else {
-    lines.push("⭕ **Tu (X)** vs **Bot (O)**");
-    if (session.phase === "idle") lines.push("Premi **Inizia** per aprire la partita.");
-    if (session.phase === "playing") lines.push("Scegli una casella libera sulla griglia.");
-    if (session.phase === "done") lines.push("Premi **Nuova partita** per rigiocare (puoi cambiare puntata con ±).");
-  }
-  if (notice) lines.push(notice);
-  return new EmbedBuilder().setColor(color).setDescription(lines.filter(Boolean).join("\n"));
-}
-
 async function buildTrisGuiPayload(session, cfg, notice = "", panelClosed = false) {
-  const attachment = await renderPanel(session);
-  const embed = buildEmbed(session, notice);
-  if (attachment.image && attachment.files?.length) embed.setImage(attachment.image);
-  return { embeds: [embed], components: buildRows(session, cfg, panelClosed), files: attachment.files, allowedMentions: { repliedUser: false } };
+  const attachment = await renderPanel(session, notice);
+  return buildImageButtonPayload({
+    files: attachment.files || [],
+    components: buildRows(session, cfg, panelClosed),
+  });
 }
 
 async function warmupTrisPanel() {

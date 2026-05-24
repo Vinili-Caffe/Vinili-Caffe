@@ -1,4 +1,5 @@
-const { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require("discord.js");
+const { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
+const { buildImageButtonPayload } = require("./guiPanelPayload");
 const { formatGaleoni } = require("../../Services/Community/gringottService");
 const { economyConfig, payBlackjackWin, playBlackjackBet } = require("../../Services/Community/galeoniEconomyService");
 const { compareOutcome, dealerShouldHit, drawCard, freshShoe, handLabel, handValue, isNaturalBlackjack, payoutMultiplier } = require("./blackjackEngine");
@@ -139,38 +140,12 @@ async function renderPanel(session, cfg) {
   }
 }
 
-function buildEmbed(session, notice) {
-  const last = session.lastResult;
-  const color = last?.outcome === "blackjack" || last?.outcome === "win"
-    ? "#2ecc71"
-    : last?.outcome === "push"
-      ? "#d4af37"
-      : last
-        ? "#ed4245"
-        : "#14532d";
-  const lines = [
-    `🪙 Puntata: **${formatGaleoni(session.bet)}**${session.doubled ? ` (in gioco **${formatGaleoni(totalWager(session))}**)` : ""}`,
-    "🃏 Tu vs Banco",
-  ];
-  if (session.phase === "idle") lines.push("Premi **Distribuisci** per iniziare la mano.");
-  if (session.phase === "done") lines.push("Premi **Nuova mano** per rigiocare (puoi cambiare puntata con ±).");
-  if (session.phase === "playing") {
-    lines.push(`🂡 Tu: **${handLabel(session.playerHand)}** (${handValue(session.playerHand).total})`);
-    lines.push(`🏦 Banco: **${handLabel(session.dealerHand, session.hideDealerHole)}**`);
-  }
-  if (session.phase === "done" && last) {
-    lines.push(`🏦 Banco: **${handLabel(session.dealerHand)}** (${handValue(session.dealerHand).total})`);
-    lines.push(`🂡 Tu: **${handLabel(session.playerHand)}** (${handValue(session.playerHand).total})`);
-  }
-  if (notice) lines.push(notice);
-  return new EmbedBuilder().setColor(color).setDescription(lines.filter(Boolean).join("\n"));
-}
-
 async function buildBlackjackGuiPayload(session, cfg, notice = "", panelClosed = false) {
   const attachment = await renderPanel(session, cfg);
-  const embed = buildEmbed(session, notice);
-  if (attachment.image && attachment.files?.length) embed.setImage(attachment.image);
-  return { embeds: [embed], components: buildRows(session, cfg, panelClosed), files: attachment.files, allowedMentions: { repliedUser: false } };
+  return buildImageButtonPayload({
+    files: attachment.files || [],
+    components: buildRows(session, cfg, panelClosed),
+  });
 }
 
 async function warmupBlackjackPanel() {

@@ -4,6 +4,7 @@ const { isValidGuildUserId } = require("../../Utils/DB/validateWriteIds");
 const IDs = require("../../Utils/Config/ids");
 const { getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { resolveHogwartsEventConfig } = require("../../Utils/Web/hogwartsSortingConfig");
+const { isUserHighStaffExcludedFromHogwartsEvent, memberIsHogwartsExcludedStaff, resolveMainGuildMember } = require("../../Utils/Web/hogwartsEventParticipation");
 const { addGaleoni, formatGaleoni, getGringottBalance, spendGaleoni } = require("./gringottService");
 const ECONOMY_PATH = "profile.events.hogwarts.economy";
 const DEFAULT_CONFIG = Object.freeze({
@@ -16,7 +17,7 @@ const DEFAULT_CONFIG = Object.freeze({
   work: { cooldownMs: 60 * 60 * 1000, minReward: 8, maxReward: 24, streakStepPct: 1, streakMaxBonusPct: 10, streakGraceMs: 3 * 60 * 60 * 1000 },
   daily: { cooldownMs: 24 * 60 * 60 * 1000, reward: 50, streakStepPct: 3, streakMaxBonusPct: 30, streakGraceMs: 48 * 60 * 60 * 1000 },
   weekly: { cooldownMs: 7 * 24 * 60 * 60 * 1000, reward: 250, streakStepPct: 5, streakMaxBonusPct: 50, streakGraceMs: 14 * 24 * 60 * 60 * 1000 },
-  monthly: { cooldownMs: 30 * 24 * 60 * 60 * 1000, reward: 900, streakStepPct: 10, streakMaxBonusPct: 100, streakGraceMs: 62 * 24 * 60 * 60 * 1000 },
+  monthly: { cooldownMs: 30 * 24 * 60 * 60 * 1000, reward: 500, streakStepPct: 10, streakMaxBonusPct: 100, streakGraceMs: 62 * 24 * 60 * 60 * 1000 },
   rob: { cooldownMs: 5 * 60 * 1000, successChance: 35, minTargetBalance: 80, minSteal: 15, maxSteal: 120, failPenalty: 25, targetProtectionMs: 2 * 60 * 60 * 1000 },
   roulette: { cooldownMs: 5 * 1000, numberPayout: 36, simplePayout: 2 },
   rps: { cooldownMs: 5 * 1000, winPayout: 2 },
@@ -109,30 +110,26 @@ function hasAnyRole(member, roleIds = []) {
   return roleIds.some((roleId) => hasRole(member, roleId));
 }
 
-const STAFF_PREVIEW_ROLE_IDS = [IDs.roles?.HighStaff, IDs.roles?.Admin, IDs.roles?.Founder].filter(Boolean);
-
 async function isHighStaff(member, client, userId) {
-  if (hasAnyRole(member, STAFF_PREVIEW_ROLE_IDS)) return true;
-  const mainGuildId = normalizeId(IDs.guilds?.main);
-  const uid = normalizeId(userId || member?.id || member?.user?.id);
-  if (!mainGuildId || !uid || String(member?.guild?.id || "") === mainGuildId) return false;
-  const mainGuild = client?.guilds?.cache?.get(mainGuildId) || await client?.guilds?.fetch?.(mainGuildId).catch(() => null);
-  if (!mainGuild) return false;
-  const mainMember = await getGuildMemberCached(mainGuild, uid, { preferFresh: true }).catch(() => null);
-  return hasAnyRole(mainMember, STAFF_PREVIEW_ROLE_IDS);
+  if (memberIsHogwartsExcludedStaff(member)) return true;
+  const mainMember = await resolveMainGuildMember(client, userId, member);
+  return memberIsHogwartsExcludedStaff(mainMember);
 }
 
 async function isMember(member, client, userId) {
-  return hasRole(member, IDs.roles?.Member) || await isHighStaff(member, client, userId);
+  if (await isUserHighStaffExcludedFromHogwartsEvent(client, userId, member)) return false;
+  return hasRole(member, IDs.roles?.Member);
 }
 
 async function assertEconomyAccess(message, client) {
   const cfg = economyConfig(client);
   if (!cfg.enabled) return { ok: false, message: "L'economia Galeoni è disattivata." };
   if (!message?.guild || !message?.member || message.author?.bot) return { ok: false, message: "Comando disponibile solo nel server." };
+  if (await isUserHighStaffExcludedFromHogwartsEvent(client, message.author.id, message.member)) {
+    return { ok: false, message: HOGWARTS_HIGH_STAFF_EXCLUDED_MESSAGE };
+  }
   const now = Date.now();
   if (Number.isFinite(cfg.startMs) && now < cfg.startMs) {
-    if (cfg.previewMode && await isHighStaff(message.member, client, message.author.id)) return { ok: true, preview: true, cfg };
     return { ok: false, message: "L'economia Galeoni si sblocca lunedì 10 agosto." };
   }
   if (!await isMember(message.member, client, message.author.id)) return { ok: false, message: "Devi essere Member per usare l'economia Galeoni." };
@@ -163,7 +160,7 @@ async function resolveSortedHouseForUser(guildId, userId, client) {
 
 async function canBypassGamblingSortedGate(member, client, userId, preview) {
   if (preview) return true;
-  return isHighStaff(member, client, userId);
+  return false;
 }
 
 async function checkGamblingUserEligibility(message, client, betRaw, accessBase = null) {
@@ -249,6 +246,28 @@ async function reserveCooldown(guildId, userId, action, cooldownMs) {
   return { ok: false, remainingMs: remainingMs(state?.cooldowns?.[action]) };
 }
 
+async function releaseCooldown(guildId, userId, action) {
+  const path = `${ECONOMY_PATH}.cooldowns.${action}`;
+  await ActivityUserProfile.updateOne(
+    { guildId: normalizeId(guildId), userId: normalizeId(userId) },
+    { $unset: { [path]: "" }, $set: { [`${ECONOMY_PATH}.updatedAt`]: new Date() } },
+  ).catch(() => null);
+}
+
+function incomeCreditErrorMessage(action, out) {
+  const code = String(out?.code || "").trim();
+  if (code === "duplicate_reward") {
+    return "Questa ricompensa risulta già accreditata. Chiudi il pannello e controlla il saldo con `+bal`.";
+  }
+  if (code === "bad_input") {
+    return "Sessione non valida. Usa di nuovo il comando nel server.";
+  }
+  if (code === "save_failed") {
+    return "Errore temporaneo sul salvataggio Galeoni. Riprova tra qualche secondo.";
+  }
+  return "Non sono riuscito ad accreditare i Galeoni. Riprova più tardi.";
+}
+
 function randomBetween(min, max) {
   const a = Math.floor(Number(min) || 0);
   const b = Math.floor(Number(max) || a);
@@ -294,9 +313,19 @@ async function creditIncome(client, message, action, amount, reason) {
   const baseAmount = Math.max(1, Math.floor(Number(amount) || 0));
   const streak = resolveIncomeStreak(stateBefore, action, access.cfg[action], baseAmount);
   const totalAmount = baseAmount + streak.bonusAmount;
-  const key = `${eventKey(client)}:economy:${action}:${message.author.id}:${Math.floor(Date.now() / Math.max(1, access.cfg[action].cooldownMs || 1))}`;
+  const untilMs = reserve.until instanceof Date ? reserve.until.getTime() : new Date(reserve.until || 0).getTime();
+  const key = `${eventKey(client)}:economy:${action}:${message.author.id}:${untilMs}`;
   const out = await addGaleoni({ guildId: message.guild.id, userId: message.author.id, amount: totalAmount, reason, actorId: message.author.id, source: `economy_${action}`, eventKey: eventKey(client), rewardKey: key });
-  if (!out?.ok) return { ok: false, message: "Non sono riuscito ad accreditare i Galeoni. Riprova più tardi." };
+  if (!out?.ok) {
+    await releaseCooldown(message.guild.id, message.author.id, action);
+    global.logger?.warn?.(`[ECONOMY] creditIncome ${action} failed`, {
+      code: out?.code || "unknown",
+      userId: message.author.id,
+      guildId: message.guild.id,
+      rewardKey: key,
+    });
+    return { ok: false, code: out?.code, message: incomeCreditErrorMessage(action, out) };
+  }
   await saveIncomeStreak(message.guild.id, message.author.id, action, streak);
   return { ok: true, amount: totalAmount, baseAmount, bonusAmount: streak.bonusAmount, streak, state: out.state, preview: access.preview };
 }
@@ -304,6 +333,43 @@ async function creditIncome(client, message, action, amount, reason) {
 async function claimWork(client, message) {
   const cfg = economyConfig(client);
   return creditIncome(client, message, "work", randomBetween(cfg.work.minReward, cfg.work.maxReward), "Lavoro magico completato");
+}
+
+async function peekWorkClaim(client, message) {
+  const access = await assertEconomyAccess(message, client);
+  if (!access.ok) return access;
+  const state = await getEconomyState(message.guild.id, message.author.id);
+  const left = remainingMs(state?.cooldowns?.work);
+  const cfgAction = access.cfg.work;
+  const minReward = Math.max(1, Math.floor(Number(cfgAction.minReward) || 1));
+  const maxReward = Math.max(minReward, Math.floor(Number(cfgAction.maxReward) || minReward));
+  const previewBase = Math.floor((minReward + maxReward) / 2);
+  const streakRaw = state?.streaks?.work && typeof state.streaks.work === "object" ? state.streaks.work : {};
+  const projected = resolveIncomeStreak(state, "work", cfgAction, previewBase);
+  const bonusMin = Math.max(0, Math.floor(minReward * projected.bonusPct / 100));
+  const bonusMax = Math.max(0, Math.floor(maxReward * projected.bonusPct / 100));
+  const currentCount = int(streakRaw.count, 0, 0, 100000);
+  return {
+    ok: true,
+    action: "work",
+    canClaim: left <= 0,
+    remainingMs: left,
+    minReward,
+    maxReward,
+    baseReward: previewBase,
+    bonusAmount: projected.bonusAmount,
+    totalPreview: previewBase + projected.bonusAmount,
+    totalPreviewMin: minReward + bonusMin,
+    totalPreviewMax: maxReward + bonusMax,
+    streak: {
+      count: left <= 0 ? projected.count : currentCount,
+      nextCount: projected.count,
+      best: Math.max(int(streakRaw.best, 0, 0, 100000), projected.best),
+      bonusPct: projected.bonusPct,
+    },
+    preview: access.preview,
+    cfg: access.cfg,
+  };
 }
 
 async function claimFixed(client, message, action) {
@@ -937,4 +1003,4 @@ async function rob(client, message, targetUser) {
   return { ok: true, game: "rob", success: true, amount: steal, gained, bank: false };
 }
 
-module.exports = { ROB_BANK_TARGET_ID, assertEconomyAccess, assertEconomyAccessForUser, assertEconomyGamblingAccess, assertEconomyGamblingAccessForUser, applyRpsCooldown, applyTrisCooldown, cashoutSlotsBank, claimFixed, claimWork, economyConfig, evaluateRobTarget, evaluateRouletteWin, evaluateRpsOutcome, eventKey, flushSlotsGuiPendingBank, formatDuration, isHighStaff, isRobBankTarget, lockRpsPvpStakes, lockTrisPvpStakes, normalizeCoinChoice, normalizeRouletteChoice, normalizeRps, payBlackjackWin, payScratchWin, payTrisWin, payout, peekFixedClaim, playBlackjackBet, playCoinflip, playRoulette, playRouletteBanked, playRps, playScratchBet, playSlots, playSlotsBanked, playTrisBet, refundRpsPvpStake, refundTrisPvpStake, rob, robBank, RED_NUMBERS, resolveSortedHouseForUser, settleRpsPvp, settleTrisPvp, spendBet, spinRouletteResult };
+module.exports = { ROB_BANK_TARGET_ID, assertEconomyAccess, assertEconomyAccessForUser, assertEconomyGamblingAccess, assertEconomyGamblingAccessForUser, applyRpsCooldown, applyTrisCooldown, cashoutSlotsBank, claimFixed, claimWork, economyConfig, evaluateRobTarget, evaluateRouletteWin, evaluateRpsOutcome, eventKey, flushSlotsGuiPendingBank, formatDuration, isHighStaff, isRobBankTarget, lockRpsPvpStakes, lockTrisPvpStakes, normalizeCoinChoice, normalizeRouletteChoice, normalizeRps, payBlackjackWin, payScratchWin, payTrisWin, payout, peekFixedClaim, peekWorkClaim, playBlackjackBet, playCoinflip, playRoulette, playRouletteBanked, playRps, playScratchBet, playSlots, playSlotsBanked, playTrisBet, refundRpsPvpStake, refundTrisPvpStake, rob, robBank, RED_NUMBERS, resolveSortedHouseForUser, settleRpsPvp, settleTrisPvp, spendBet, spinRouletteResult };

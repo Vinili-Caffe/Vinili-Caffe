@@ -18,6 +18,7 @@ const { startDailyEngagementStatsLoop } = require("../Services/Community/dailyEn
 const { startDailyChannelMessageStatsLoop } = require("../Services/Community/dailyChannelMessageStatsService");
 const { startReactPressEventLoop } = require("../Services/Community/hogwartsReactPressService");
 const { startPotionReminderLoop } = require("../Services/Community/hogwartsPotionReminderService");
+const { startHogwartsEventEndLoop } = require("../Services/Community/hogwartsEventEndService");
 const { migrateLegacyDailyStatsCollections } = require("../Services/Community/dailyStatsStore");
 const { restoreTempBans } = require("../Services/Moderation/joinRaidService");
 const { sweepExpiredCommunicationTimeoutMirrors } = require("../Services/Moderation/mutedMirrorRoleService");
@@ -34,6 +35,7 @@ const { startAutoBackupLoop } = require("../Services/Backup/autoBackupService");
 const { startModCaseLifecycleLoop } = require("../Services/Moderation/modCaseLifecycleService");
 const { startWeeklyStaffResocontoLoop } = require("../Services/Staff/weeklyStaffResocontoService");
 const { startWeeklyActivityWinnersLoop } = require("../Services/Community/weeklyActivityWinnersService");
+const { startHogwartsHouseCupLoop } = require("../Services/Community/hogwartsHouseCupPublishService");
 const { startContestPrizeMaintenanceCron } = require("../Services/Community/contestPrizeMaintenanceService");
 const { startStaffWarnResetLoop } = require("../Services/Staff/staffWarnService");
 const { startStaffAutoValutazioniLoop, syncAllStaffAutoValutazioni, restoreActiveSerataFilmSessions, cleanupMalformedAutoValutazioni } = require("../Services/Staff/staffAutoValutazioniService");
@@ -48,7 +50,6 @@ const { startWebhookServer, shouldStartBotHttpServer } = require("../Services/We
 const { checkAndInstallPackages } = require("../Utils/Moderation/checkPackages");
 const { startAutoPollLoop } = require("../Services/Community/autoPollService");
 const { startMovieNightAnnouncementLoop } = require("../Services/Community/movieNightAnnouncementService");
-const { startNoRoleKickLoop } = require("../Services/Community/noRoleKickService");
 const { printRecoveryHealthOnce } = require("../../shared/recovery/recoveryHealth");
 const IDs = require("../Utils/Config/ids");
 const guildMemberUpdateExtras = require("./guildMemberUpdate");
@@ -316,6 +317,40 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
       enabled: true,
       run: () => queueStartupSync(client),
     },
+    {
+      label: "sync Discord AutoMod rules (Vinili)",
+      enabled: primaryScheduler,
+      run: async () => {
+        global.__vinylsDiscordClient = client;
+        const {
+          syncDiscordAutomodRulesForClient,
+          shouldSyncOnStartup,
+        } = require("../Services/Moderation/discordAutomodRulesService");
+        if (!shouldSyncOnStartup()) return;
+        const result = await syncDiscordAutomodRulesForClient(client);
+        const rows = Array.isArray(result?.results) ? result.results : [];
+        for (const row of rows) {
+          if (!row?.ok) {
+            global.logger?.warn?.(
+              "[discordAutomod] startup sync:",
+              row?.guildId || "?",
+              row?.reason || "failed",
+            );
+            continue;
+          }
+          const failedN = Array.isArray(row.failed) ? row.failed.length : 0;
+          global.logger?.info?.(
+            `[discordAutomod] guild ${row.guildId || "?"}: ${row.satisfied ?? row.managed ?? "?"}/${row.total ?? "?"} regole ok (${row.managed ?? "?"} [VC]), +${row.created || 0} ~${row.updated || 0} -${row.removed || 0}${failedN ? ` errori=${failedN}` : ""}`,
+          );
+          if (!row.ok) {
+            global.logger?.warn?.(
+              "[discordAutomod] sync incompleta:",
+              row.reason || "unknown",
+            );
+          }
+        }
+      },
+    },
   ];
 }
 
@@ -502,7 +537,6 @@ function startPrimaryLoops(client, engagementTick) {
     ["[VERIFY TENURE] Failed to start loop", () => startVerificationTenureLoop(client)],
     ["[CATEGORY NUMBERING] Failed to start loop", () => startCategoryNumberingLoop(client)],
     ["[SPONSOR 24H KICK] Failed to start loop", () => startSponsorKickLoop(client)],
-    ["[NO ROLE 24H KICK] Failed to start loop", () => startNoRoleKickLoop(client)],
     ["[SPONSOR NICK SWEEP] Failed to start loop", () => startSponsorGuildNicknameSweepLoop(client)],
     ["[BIRTHDAY] Failed to start loop", () => startBirthdayLoop(client)],
     ["[DAILY MEMBER STATS] Failed to start loop", () => startDailyMemberStatsLoop(client)],
@@ -510,11 +544,13 @@ function startPrimaryLoops(client, engagementTick) {
     ["[DAILY CHANNEL MESSAGE STATS] Failed to start loop", () => startDailyChannelMessageStatsLoop(client)],
     ["[PREMI LA REACT] Failed to start loop", () => startReactPressEventLoop(client)],
     ["[HOGWARTS POTIONS] Failed to start reminder loop", () => startPotionReminderLoop(client)],
+    ["[HOGWARTS EVENT END] Failed to start completion loop", () => startHogwartsEventEndLoop(client)],
     ["[CUSTOM ROLE EXPIRY] Failed to start cleanup loop", () => startCustomRoleExpiryLoop(client)],
     ["[MOD CASE LIFECYCLE] Failed to start loop", () => startModCaseLifecycleLoop(client)],
     ["[TICKET AUTO CLOSE PROMPT] Failed to start loop", () => startTicketAutoClosePromptLoop(client)],
     ["[TRANSCRIPT CLEANUP] Failed to start loop", () => startTranscriptCleanupLoop()],
     ["[WEEKLY ACTIVITY WINNERS] Failed to start loop", () => startWeeklyActivityWinnersLoop(client)],
+    ["[HOGWARTS HOUSE CUP] Failed to start loop", () => startHogwartsHouseCupLoop(client)],
     ["[CONTEST PRIZE] Failed to start cron", () => startContestPrizeMaintenanceCron(client)],
     ["[WEEKLY STAFF RESOCONTO] Failed to start loop", () => startWeeklyStaffResocontoLoop(client)],
     ["[STAFF WARN RESET 6M] Failed to start loop", () => startStaffWarnResetLoop(client)],
@@ -646,6 +682,7 @@ module.exports = {
       return;
     }
     client._readyBootstrapDone = true;
+    global.__vinylsDiscordClient = client;
 
     const readyStartedAt = Date.now();
     const maxListeners = resolveMaxListeners(client);

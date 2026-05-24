@@ -17,7 +17,7 @@ async function hydrateGuildMembersForRolePings(guild, logTag = "[threadRoleMembe
     await fetchGuildMembersRespectingGatewayRateLimit(guild, {
       maxAttempts: 12,
       onRateLimit: (waitMs, attempt, maxAttempts) => {
-        global.logger?.warn?.(
+        global.logger?.info?.(
           `${logTag} hydrate rate limit, retry ${attempt}/${maxAttempts} in ~${Math.round(waitMs / 1000)}s`,
         );
       },

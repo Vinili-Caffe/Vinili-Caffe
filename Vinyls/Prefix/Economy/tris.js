@@ -1,17 +1,7 @@
-const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const { assertEconomyGamblingAccess, assertEconomyGamblingAccessForUser, economyConfig } = require("../../Services/Community/galeoniEconomyService");
 const { formatGaleoni } = require("../../Services/Community/gringottService");
-const {
-  buildTrisGuiPayload,
-  clampBet,
-  findActiveTrisPvpMessageId,
-  getSession,
-  makeSession,
-  schedulePvpInviteExpiry,
-  setSession,
-  startGame,
-  warmupTrisPanel,
-} = require("../../Utils/Economy/trisGuiRuntime");
+const { buildTrisGuiPayload, clampBet, findActiveTrisPvpMessageId, getSession, makeSession, schedulePvpInviteExpiry, setSession, startGame, warmupTrisPanel } = require("../../Utils/Economy/trisGuiRuntime");
+const { postGuiPanel, runEconomyPanelCommand } = require("../../Utils/Economy/economyCommandHelpers");
 
 function extractUserId(value) {
   const clean = String(value || "").replace(/[<@!>]/g, "").trim();
@@ -27,92 +17,99 @@ function parseBetArg(raw, cfg, fallback) {
 
 module.exports = {
   name: "tris",
-  aliases: ["tictactoe", "ttt"],
+  allowEmptyArgs: true,
   description: "Tris vs bot o PvP con pannello interattivo.",
   usage: "+tris [puntata] · +tris @utente [puntata]",
   examples: ["+tris", "+tris 10", "+tris @utente", "+tris @utente 25"],
   async execute(message, args, client) {
-    const cfg = economyConfig(client);
-    const targetUser = message.mentions.users.first()
-      || (extractUserId(args?.[0]) ? await client.users.fetch(extractUserId(args[0])).catch(() => null) : null)
-      || (extractUserId(args?.[1]) ? await client.users.fetch(extractUserId(args[1])).catch(() => null) : null);
-    let rawBet = cfg.minBet;
-    if (targetUser) {
-      if (args?.[0] && extractUserId(args[0]) && parseBetArg(args[1], cfg, cfg.minBet) != null) {
-        rawBet = parseBetArg(args[1], cfg, cfg.minBet);
-      } else if (args?.[0] && !extractUserId(args[0]) && parseBetArg(args[0], cfg, cfg.minBet) != null) {
+    await runEconomyPanelCommand(message, client, "TRIS", async ({ message: msg, client: c, replyDeny: deny, postGuiPanel: post }) => {
+      const cfg = economyConfig(c);
+      const targetUser = msg.mentions.users.first()
+        || (extractUserId(args?.[0]) ? await c.users.fetch(extractUserId(args[0])).catch(() => null) : null)
+        || (extractUserId(args?.[1]) ? await c.users.fetch(extractUserId(args[1])).catch(() => null) : null);
+      let rawBet = cfg.minBet;
+      if (targetUser) {
+        if (args?.[0] && extractUserId(args[0]) && parseBetArg(args[1], cfg, cfg.minBet) != null) {
+          rawBet = parseBetArg(args[1], cfg, cfg.minBet);
+        } else if (args?.[0] && !extractUserId(args[0]) && parseBetArg(args[0], cfg, cfg.minBet) != null) {
+          rawBet = parseBetArg(args[0], cfg, cfg.minBet);
+        }
+      } else if (args?.[0] != null && parseBetArg(args[0], cfg, cfg.minBet) != null) {
         rawBet = parseBetArg(args[0], cfg, cfg.minBet);
       }
-    } else if (args?.[0] != null && parseBetArg(args[0], cfg, cfg.minBet) != null) {
-      rawBet = parseBetArg(args[0], cfg, cfg.minBet);
-    }
-    const access = await assertEconomyGamblingAccess(message, client, rawBet);
-    if (!access.ok) {
-      await safeMessageReply(message, { content: `<a:VC_Cross:1482532424570376253> ${access.message}`, allowedMentions: { repliedUser: false } });
-      return;
-    }
-    if (targetUser) {
-      if (targetUser.bot) {
-        await safeMessageReply(message, { content: "<:vegax:1443934876440068179> Non puoi sfidare un bot.", allowedMentions: { repliedUser: false } });
+      const access = await assertEconomyGamblingAccess(msg, c, rawBet);
+      if (!access.ok) {
+        await deny(msg, access.message, { gambling: true });
         return;
       }
-      if (targetUser.id === message.author.id) {
-        await safeMessageReply(message, { content: "<:vegax:1443934876440068179> Non puoi sfidare te stesso.", allowedMentions: { repliedUser: false } });
-        return;
-      }
-      const opponentMember = message.mentions.members?.first()
-        || await message.guild.members.fetch(targetUser.id).catch(() => null);
-      const opponentAccess = await assertEconomyGamblingAccessForUser(client, message.guild, opponentMember, targetUser.id, rawBet);
-      if (!opponentAccess.ok) {
-        await safeMessageReply(message, { content: `<:vegax:1443934876440068179> ${opponentAccess.message}`, allowedMentions: { repliedUser: false } });
-        return;
-      }
-      if (findActiveTrisPvpMessageId(message.guild.id, message.author.id)) {
-        await safeMessageReply(message, { content: "<:vegax:1443934876440068179> Hai già una sfida tris attiva.", allowedMentions: { repliedUser: false } });
-        return;
-      }
-      if (findActiveTrisPvpMessageId(message.guild.id, targetUser.id)) {
-        await safeMessageReply(message, { content: "<:vegax:1443934876440068179> Quell'utente ha già una sfida tris in corso.", allowedMentions: { repliedUser: false } });
+      if (targetUser) {
+        if (targetUser.bot) {
+          await deny(msg, "Non puoi sfidare un bot.");
+          return;
+        }
+        if (targetUser.id === msg.author.id) {
+          await deny(msg, "Non puoi sfidare te stesso.");
+          return;
+        }
+        const opponentMember = msg.mentions.members?.first()
+          || (await msg.guild.members.fetch(targetUser.id).catch(() => null));
+        const opponentAccess = await assertEconomyGamblingAccessForUser(c, msg.guild, opponentMember, targetUser.id, rawBet);
+        if (!opponentAccess.ok) {
+          await deny(msg, opponentAccess.message);
+          return;
+        }
+        if (findActiveTrisPvpMessageId(msg.guild.id, msg.author.id)) {
+          await deny(msg, "Hai già una sfida tris attiva.");
+          return;
+        }
+        if (findActiveTrisPvpMessageId(msg.guild.id, targetUser.id)) {
+          await deny(msg, "Quell'utente ha già una sfida tris in corso.");
+          return;
+        }
+        const session = makeSession({
+          ownerId: msg.author.id,
+          guildId: msg.guild.id,
+          bet: clampBet(rawBet, access.cfg),
+          cfg: access.cfg,
+          playerName: msg.member?.displayName || msg.author.username,
+          mode: "pvp",
+          opponentId: targetUser.id,
+          opponentName: opponentMember?.displayName || targetUser.globalName || targetUser.username,
+        });
+        await warmupTrisPanel();
+        const notice = `<:VC_Info:1482526956703580372> **${session.playerName}** sfida **${session.opponentName}** a tris per **${formatGaleoni(session.bet)}** ciascuno.\n${targetUser}, accetta o rifiuta entro 90 secondi.`;
+        const sent = await post(msg, {
+          payload: await buildTrisGuiPayload(session, access.cfg, notice, false),
+          session,
+          setSession,
+          label: "tris",
+        });
+        if (sent?.id) schedulePvpInviteExpiry(sent, getSession(sent.id) || session, access.cfg);
         return;
       }
       const session = makeSession({
-        ownerId: message.author.id,
-        guildId: message.guild.id,
+        ownerId: msg.author.id,
+        guildId: msg.guild.id,
         bet: clampBet(rawBet, access.cfg),
         cfg: access.cfg,
-        playerName: message.member?.displayName || message.author.username,
-        mode: "pvp",
-        opponentId: targetUser.id,
-        opponentName: opponentMember?.displayName || targetUser.globalName || targetUser.username,
+        playerName: msg.member?.displayName || msg.author.username,
       });
       await warmupTrisPanel();
-      const notice = `<:VC_Info:1482526956703580372> **${session.playerName}** sfida **${session.opponentName}** a tris per **${formatGaleoni(session.bet)}** ciascuno.\n${targetUser}, accetta o rifiuta entro 90 secondi.`;
-      const sent = await safeMessageReply(message, await buildTrisGuiPayload(session, access.cfg, notice, false));
-      if (sent?.id) {
-        setSession(sent.id, session);
-        schedulePvpInviteExpiry(sent, getSession(sent.id) || session, access.cfg);
+      let notice = "Regola la puntata e premi **Inizia** per giocare vs bot.";
+      if (args?.[0] != null && parseBetArg(args[0], access.cfg, access.cfg.minBet) != null) {
+        const started = await startGame(c, msg, session);
+        if (!started.ok) {
+          await deny(msg, started.message);
+          return;
+        }
+        notice = "<a:VC_Verified:1482532479637127188> Partita iniziata — scegli una casella.";
       }
-      return;
-    }
-    const session = makeSession({
-      ownerId: message.author.id,
-      guildId: message.guild.id,
-      bet: clampBet(rawBet, access.cfg),
-      cfg: access.cfg,
-      playerName: message.member?.displayName || message.author.username,
+      await post(msg, {
+        payload: await buildTrisGuiPayload(session, access.cfg, notice, false),
+        session,
+        setSession,
+        label: "tris",
+      });
     });
-    await warmupTrisPanel();
-    let notice = "Regola la puntata e premi **Inizia** per giocare vs bot.";
-    if (args?.[0] != null && parseBetArg(args[0], access.cfg, access.cfg.minBet) != null) {
-      const started = await startGame(client, message, session);
-      if (!started.ok) {
-        await safeMessageReply(message, { content: `<:vegax:1443934876440068179> ${started.message}`, allowedMentions: { repliedUser: false } });
-        return;
-      }
-      notice = "<a:VC_Verified:1482532479637127188> Partita iniziata — scegli una casella.";
-    }
-    const payload = await buildTrisGuiPayload(session, access.cfg, notice, false);
-    const sent = await safeMessageReply(message, payload);
-    if (sent?.id) setSession(sent.id, session);
   },
 };

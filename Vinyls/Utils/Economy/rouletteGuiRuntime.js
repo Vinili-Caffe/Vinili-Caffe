@@ -1,4 +1,5 @@
-const { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, StringSelectMenuBuilder } = require("discord.js");
+const { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } = require("discord.js");
+const { buildImageButtonPayload } = require("./guiPanelPayload");
 const { formatGaleoni } = require("../../Services/Community/gringottService");
 const { economyConfig, normalizeRouletteChoice, playRoulette } = require("../../Services/Community/galeoniEconomyService");
 const PREFIX = "roulette_gui";
@@ -300,36 +301,20 @@ function formatRouletteSpinNotice(result) {
   return `<a:VC_Cross:1482532424570376253> È uscito **${spin.number} ${spin.color} (${spin.evenOdd})**.\n<a:VC_pixeltime:1482535344103620771> Puoi rigiocare quando il cooldown lo permette.`;
 }
 
-function buildEmbed(session, notice, animating) {
-  const last = session.lastResult;
-  const hideOutcome = Boolean(animating);
-  const color = hideOutcome ? "#d4af37" : last?.win ? "#2ecc71" : last ? "#ed4245" : "#d4af37";
-  const lines = [
-    `🪙 Puntata: **${formatGaleoni(session.bet)}**`,
-    `🎯 Scelta: **${choiceLabel(session)}**`,
-  ];
-  if (animating) lines.push("🎬 **La ruota sta girando…**");
-  if (notice) lines.push(notice);
-  return new EmbedBuilder().setColor(color).setDescription(lines.filter(Boolean).join("\n"));
-}
-
 async function buildRouletteGuiPayload(session, cfg, notice = "", disabled = false, animating = false, previewSpin = false) {
   const attachment = await resolvePanelAttachment(session, animating, previewSpin);
-  const embed = buildEmbed(session, notice, animating || previewSpin);
-  const files = attachment.files?.length ? attachment.files : undefined;
-  if (attachment.image && files?.length && !attachment.isGif) {
-    embed.setImage(attachment.image);
-  }
-  return { embeds: [embed], components: buildRows(session, cfg, disabled), files, allowedMentions: { repliedUser: false } };
+  return buildImageButtonPayload({
+    files: attachment.files || [],
+    components: buildRows(session, cfg, disabled),
+  });
 }
 
 async function buildRouletteBetPayload(session, cfg, notice = "") {
   const attachment = defaultIdleCache ? attachmentFromCache(defaultIdleCache) : await resolvePanelAttachment(session, false);
-  const embed = buildEmbed(session, notice, false);
-  if (attachment.image && attachment.files?.length && !attachment.isGif) {
-    embed.setImage(attachment.image);
-  }
-  return { embeds: [embed], components: buildRows(session, cfg, false), files: attachment.files, allowedMentions: { repliedUser: false } };
+  return buildImageButtonPayload({
+    files: attachment.files || [],
+    components: buildRows(session, cfg, false),
+  });
 }
 
 function interactionMessageAdapter(interaction) {

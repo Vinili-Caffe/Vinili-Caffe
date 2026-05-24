@@ -555,6 +555,18 @@ async function handleOfficialPrefixMessage({ message, resolvedClient, defaultPre
     `permission precheck for ${command.name}`,
   );
   if (!permissionResult?.allowed) {
+    if (permissionResult?.reason === "multi_guild_tenant_only_media") {
+      await deleteCommandMessage();
+      await sendTemporaryMessage(
+        message.channel,
+        {
+          content:
+            "<:VC_Lock:1482526739044368476> Su questo server il bot offre **solo musica** e **TTS** (`+play`, `+join`, …). Gli altri comandi sono disponibili solo su **Vinili & Caffè**.",
+        },
+        EPHEMERAL_TTL_SHORT_MS,
+      );
+      return;
+    }
     if (
       permissionResult?.reason === "channel" &&
       Array.isArray(permissionResult.channels)

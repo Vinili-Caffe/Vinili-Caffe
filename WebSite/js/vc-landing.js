@@ -2568,7 +2568,8 @@
           if (books[i].__vcFlyTimer) window.clearInterval(books[i].__vcFlyTimer);
           books[i].remove();
         } else if (options && options.setupOnSuccess) {
-          setupForbiddenBook(books[i], collected);
+          var canShowBeforeStart = Date.now() >= FORBIDDEN_BOOKS_START_MS || data.previewViewer === true;
+          if (canShowBeforeStart) setupForbiddenBook(books[i], collected);
         }
       }
     }).catch(function () {});

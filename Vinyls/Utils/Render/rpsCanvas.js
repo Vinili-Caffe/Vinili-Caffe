@@ -306,7 +306,13 @@ function drawArena(ctx, params) {
 
   let footer = "Scegli sasso, carta o forbici con i pulsanti";
   let footerColor = "#e2e8f0";
-  if (animating && frameIndex >= COUNTDOWN_END_FRAME && !hasResult) {
+  if (params.statusLine) {
+    footer = params.statusLine;
+    footerColor = "#f8d875";
+  } else if (params.phase === "pending") {
+    footer = "Accetta o rifiuta la sfida";
+    footerColor = "#f8d875";
+  } else if (animating && frameIndex >= COUNTDOWN_END_FRAME && !hasResult) {
     footer = "Le mosse si rivelano...";
     footerColor = "#f8d875";
   } else if (hasResult) {
@@ -339,7 +345,8 @@ function drawArena(ctx, params) {
 function normalizeParams(params = {}) {
   return {
     bet: Math.max(0, Math.floor(Number(params.bet) || 0)),
-    playerName: String("Tu").trim() || "Tu",
+    phase: String(params.phase || ""),
+    playerName: String(params.playerName || "Tu").trim() || "Tu",
     opponentName: String(params.opponentName || "Rivale").trim() || "Rivale",
     playerChoice: normalizeChoice(params.playerChoice),
     botChoice: normalizeChoice(params.botChoice),
@@ -349,6 +356,7 @@ function normalizeParams(params = {}) {
     animating: Boolean(params.animating),
     isPvp: Boolean(params.isPvp),
     winnerName: String(params.winnerName || "").trim(),
+    statusLine: String(params.statusLine || "").trim(),
   };
 }
 

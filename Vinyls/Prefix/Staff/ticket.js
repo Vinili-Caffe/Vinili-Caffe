@@ -497,6 +497,11 @@ async function ticketReopenByNumber(ctx, ticketNumber) {
     return false;
   }
 
+  try {
+    const { scheduleDiscordAutomodRulesResync } = require("../../Services/Moderation/discordAutomodRulesService");
+    scheduleDiscordAutomodRulesResync(message.client);
+  } catch (_) {}
+
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId("close_ticket").setEmoji("<:VC_Lock:1482526739044368476>").setLabel("Chiudi").setStyle(ButtonStyle.Danger),
     new ButtonBuilder().setCustomId("close_ticket_motivo").setEmoji("<:VC_reason:1478517122929004544>").setLabel("Chiudi Con Motivo").setStyle(ButtonStyle.Danger),

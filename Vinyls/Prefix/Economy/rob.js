@@ -1,4 +1,3 @@
-const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const { assertEconomyAccess } = require("../../Services/Community/galeoniEconomyService");
 const { assertRobberHasBroom } = require("../../Services/Community/hogwartsShopBoostsService");
 const {
@@ -6,14 +5,14 @@ const {
   buildRobGuiPayload,
   economyConfig,
   extractUserId,
-  formatRobNotice,
   getSession,
   makeSession,
+  pushRobHitAnimation,
   resolveTargetUser,
-  scheduleRobIdlePanel,
   setSession,
   warmupRobPanel,
 } = require("../../Utils/Economy/robGuiRuntime");
+const { EMOJI_DENY, postGuiPanel, replyDeny, runEconomyPanelCommand } = require("../../Utils/Economy/economyCommandHelpers");
 
 module.exports = {
   name: "rob",
@@ -23,55 +22,46 @@ module.exports = {
   usage: "+rob [@utente]",
   examples: ["+rob", "+rob @utente", "+ruba"],
   async execute(message, args, client) {
-    const access = await assertEconomyAccess(message, client);
-    if (!access.ok) {
-      await safeMessageReply(message, { content: `<a:VC_Cross:1482532424570376253> ${access.message}`, allowedMentions: { repliedUser: false } });
-      return;
-    }
-    const broom = await assertRobberHasBroom(client, message.guild?.id, message.author.id);
-    if (!broom.ok) {
-      await safeMessageReply(message, { content: `<:vegax:1443934876440068179> ${broom.message}`, allowedMentions: { repliedUser: false } });
-      return;
-    }
-    const cfg = economyConfig(client);
-    const targetId = message.mentions.users.first()?.id || extractUserId(args?.[0]);
-    const resolved = await resolveTargetUser(client, message, targetId, cfg);
-    if (!resolved || resolved.error) {
-      await safeMessageReply(message, {
-        content: `<:vegax:1443934876440068179> ${resolved?.error || "Nessun bersaglio idoneo: smistamento Hogwarts completato e almeno il saldo minimo Galeoni."}`,
-        allowedMentions: { repliedUser: false },
-      });
-      return;
-    }
-    const session = await makeSession({
-      ownerId: message.author.id,
-      guildId: message.guild.id,
-      targetId: resolved.id,
-      targetName: resolved.name,
-      isBank: resolved.isBank,
-      cfg,
-      client,
-    });
-    await warmupRobPanel();
-    let notice = resolved.isBank
-      ? "Cassaforte di Gringott: bottino dalla banca. Premi **Colpo** o **Rubare a utente**."
-      : "Bersaglio giocatore idoneo. Premi **Colpo** o **Verso Gringott** per la banca.";
-    if (targetId) {
-      const hit = await attemptRob(client, message, session, cfg);
-      if (!hit.ok) {
-        await safeMessageReply(message, { content: `<:vegax:1443934876440068179> ${hit.message}`, allowedMentions: { repliedUser: false } });
+    await runEconomyPanelCommand(message, client, "ROB", async ({ message: msg, client: c, replyDeny: deny, postGuiPanel: post }) => {
+      const access = await assertEconomyAccess(msg, c);
+      if (!access.ok) {
+        await deny(msg, access.message);
         return;
       }
-      notice = formatRobNotice(hit.result, session.targetName);
-      session.panelAnimating = true;
-      const sent = await safeMessageReply(message, await buildRobGuiPayload(session, "🥷 Infiltrazione in corso…", false, true));
-      if (sent?.id) {
-        setSession(sent.id, session);
-        scheduleRobIdlePanel(sent, getSession(sent.id) || session, notice);
+      const broom = await assertRobberHasBroom(c, msg.guild.id, msg.author.id);
+      if (!broom.ok) {
+        await deny(msg, broom.message);
+        return;
       }
-      return;
-    }
-    const sent = await safeMessageReply(message, await buildRobGuiPayload(session, notice, false, false));
-    if (sent?.id) setSession(sent.id, session);
+      const cfg = economyConfig(c);
+      const targetId = msg.mentions.users.first()?.id || extractUserId(args?.[0]);
+      const resolved = await resolveTargetUser(c, msg, targetId, cfg);
+      if (!resolved || resolved.error) {
+        await deny(
+          msg,
+          resolved?.error || "Nessun bersaglio idoneo: smistamento Hogwarts completato e almeno il saldo minimo Galeoni.",
+        );
+        return;
+      }
+      const session = await makeSession({
+        ownerId: msg.author.id,
+        guildId: msg.guild.id,
+        targetId: resolved.id,
+        targetName: resolved.name,
+        isBank: resolved.isBank,
+        cfg,
+        client: c,
+      });
+      warmupRobPanel({ wait: false });
+      await warmupRobPanel({ maxMs: 3500 });
+      const payload = await buildRobGuiPayload(session, "", false, {});
+      const sent = await post(msg, { payload, session, setSession, label: "furto" });
+      if (!sent || !targetId) return;
+      const hit = await pushRobHitAnimation(sent, getSession(sent.id) || session, () => attemptRob(c, msg, session, cfg));
+      if (!hit.ok) {
+        const errPayload = await buildRobGuiPayload(session, `${EMOJI_DENY} ${hit.message}`, false, {});
+        await sent.edit(errPayload).catch(() => {});
+      }
+    });
   },
 };

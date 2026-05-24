@@ -2,11 +2,9 @@ const { AttachmentBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, Button
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const renderQuoteCanvas = require("../../Utils/Render/quoteCanvas");
 const { nextQuoteCount } = require("../../Utils/Quote/quoteCounter");
+const { resolveQuotePostChannel } = require("../../Utils/Quote/quotePostChannel");
 const { QuotePrivacy } = require("../../Schemas/Community/communitySchemas");
-const IDs = require("../../Utils/Config/ids");
 const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
-
-const QUOTE_CHANNEL_ID = IDs.channels.quotes;
 
 function normalizeQuoteText(targetMessage) {
   const raw = String(targetMessage?.content || "");
@@ -171,11 +169,13 @@ module.exports = {
     }
 
     const attachment = new AttachmentBuilder(buffer, { name: quoteFormat === "gif" ? "quote.gif" : "quote.png" });
+    const quoteChannel = await resolveQuotePostChannel(message.guild);
+    const embedDescription = quoteChannel
+      ? `<a:VC_Sparkles:1468546911936974889> Puoi trovare il post creato nel canale: <#${quoteChannel.id}>!`
+      : "<a:VC_Sparkles:1468546911936974889> Quote pubblicata in questo canale.";
     const embed = new EmbedBuilder()
       .setColor("#6f4e37")
-      .setDescription(
-        `<a:VC_Sparkles:1468546911936974889> Puoi trovare il post creato nel canale: <#${QUOTE_CHANNEL_ID}>!`,
-      )
+      .setDescription(embedDescription)
       .addFields({
         name: "📸 Totale immagini generate:",
         value: String(totalPosts),
@@ -183,8 +183,11 @@ module.exports = {
 
     const replyMsg=await safeMessageReply(message,{files:[attachment],embeds:[embed],allowedMentions:{repliedUser:false},});
 
-    const quoteChannel = message.guild.channels.cache.get(QUOTE_CHANNEL_ID);
-    if (quoteChannel) {
+    if (
+      quoteChannel?.isTextBased?.() &&
+      typeof quoteChannel.send === "function" &&
+      quoteChannel.id !== message.channel.id
+    ) {
       const postAttachment = new AttachmentBuilder(buffer, {
         name: quoteFormat === "gif" ? "quote.gif" : "quote.png",
       });

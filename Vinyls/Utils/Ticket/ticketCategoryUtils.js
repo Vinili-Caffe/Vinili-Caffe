@@ -34,4 +34,16 @@ function isChannelInTicketCategory(channel) {
   return isTicketCategoryName(category.name);
 }
 
-module.exports = { TICKETS_CATEGORY_NAME, TICKETS_OVERFLOW_SEPARATOR, buildOverflowTicketCategoryName, isChannelInTicketCategory, isTicketCategoryName };
+const TICKET_CHANNEL_TYPE_MARKERS = ["partnership", "supporto", "highstaff"];
+
+function isTicketChannelName(name) {
+  const raw = String(name || "");
+  const normalized = raw.toLowerCase();
+  if (!normalized) return false;
+  if (normalized.includes("᲼") || raw.includes("︲")) {
+    return TICKET_CHANNEL_TYPE_MARKERS.some((marker) => normalized.includes(marker));
+  }
+  return TICKET_CHANNEL_TYPE_MARKERS.some((marker) => normalized.startsWith(`${marker}-`) || normalized.startsWith(`${marker} `));
+}
+
+module.exports = { TICKETS_CATEGORY_NAME, TICKETS_OVERFLOW_SEPARATOR, TICKET_CHANNEL_TYPE_MARKERS, buildOverflowTicketCategoryName, isChannelInTicketCategory, isTicketCategoryName, isTicketChannelName };

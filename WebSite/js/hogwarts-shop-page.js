@@ -2,9 +2,9 @@
   var ACCESS_TOKEN_KEY = "vc_discord_access_token";
   var EXPIRES_AT_KEY = "vc_discord_expires_at";
   var CATEGORY_BOOST_HINTS = {
-    wand: "Boost duello (+duel): più probabilità di vincere; i tier superiori contano di più.",
-    broom: "Boost economia (+rob): più chance di furto riuscito durante l'evento.",
-    pet: "Boost minigiochi: moltiplica i punti casata nei minigame e premi react dell'evento.",
+    wand: "Boost duello: più chance di vincere i duelli.",
+    broom: "Boost economia: più chance di furto riuscito.",
+    pet: "Boost minigiochi: moltiplica i punti casa nei minigame.",
   };
   var state = { loaded: false, buying: "", data: null };
 
@@ -128,7 +128,13 @@
     var key = String(item.imageKey || "");
     if (item.imageFile) {
       var src = "../../images/evento-hogwarts/" + String(item.imageFile).split("/").map(encodeURIComponent).join("/");
-      return '<img class="vc-hw-shop-card__image" src="' + esc(src) + '" alt="' + esc(item.name || "") + '" loading="lazy" decoding="async" />';
+      return (
+        '<div class="vc-hw-shop-card__frame" aria-hidden="true">' +
+        '<img class="vc-hw-shop-card__image" src="' +
+        esc(src) +
+        '" alt="" loading="lazy" decoding="async" />' +
+        "</div>"
+      );
     }
     var icon = key.indexOf("broom") === 0 ? "fa-rocket" : key.indexOf("pet") === 0 ? "fa-paw" : "fa-magic";
     return '<span class="vc-hw-shop-card__sigil vc-hw-shop-card__sigil--' + esc(key) + '"><i class="fa ' + icon + '" aria-hidden="true"></i></span>';

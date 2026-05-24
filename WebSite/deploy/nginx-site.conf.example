@@ -27,8 +27,10 @@ server {
     }
     location / {
         # Includere $uri/ qui può dare 403 (cartella senza index, autoindex off), es. /regole incompleto.
-        try_files $uri $uri/index.html /index.html;
+        # Senza fallback su /index.html: i path inesistenti vanno in 404 → redirect pulito a /.
+        try_files $uri $uri/index.html =404;
     }
+    error_page 404 =302 /;
     # Stesso codice invite di site.config.json (path /api/v10/invites/CODICE?with_counts=true).
     location = /discord-invite.json {
         proxy_pass https://discord.com/api/v10/invites/viniliecaffe?with_counts=true;

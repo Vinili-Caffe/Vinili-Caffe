@@ -6,6 +6,13 @@ const {
   deleteStaffRelatedMessagesFromConfiguredChannels,
 } = require("../../Utils/Staff/staffDocUtils");
 const IDs = require("../../Utils/Config/ids");
+const {
+  isCommunicationTimeoutActive,
+  hasPendingMuteMirrorSnapshot,
+  shouldDeferRoleRestoreForMuteMirror,
+} = require("../Moderation/mutedMirrorRoleService");
+
+const MUTED_ROLE_ID = String(IDs.roles?.Muted || "").trim();
 
 const RESTORE_ON_REJOIN_ROLE_IDS = [
   "1463248874725576879",
@@ -42,6 +49,12 @@ function filterRestoreRoleIdsExcludingStaffPm(roleIds) {
   );
 }
 
+function filterRolesExcludedFromRejoinRestore(roleIds) {
+  const withoutStaffPm = filterRestoreRoleIdsExcludingStaffPm(roleIds);
+  if (!MUTED_ROLE_ID) return withoutStaffPm;
+  return withoutStaffPm.filter((id) => id !== MUTED_ROLE_ID);
+}
+
 function isStaffGraceActive(staffPendingPurgeAt) {
   if (!staffPendingPurgeAt) return false;
   const ms = new Date(staffPendingPurgeAt).getTime();
@@ -58,9 +71,9 @@ function resolveRestoreRoleIdsForRejoin(roleIds, staffGraceActive) {
   );
   if (staffGraceActive) {
     const pmId = String(IDs.roles?.PartnerManager || "").trim();
-    return unique.filter((id) => id !== pmId);
+    return filterRolesExcludedFromRejoinRestore(unique.filter((id) => id !== pmId));
   }
-  return filterRestoreRoleIdsExcludingStaffPm(unique);
+  return filterRolesExcludedFromRejoinRestore(unique);
 }
 
 function resolveRetentionDays() {
@@ -84,15 +97,17 @@ function getRestorableRoleIdsFromMember(member) {
   const cache = member?.roles?.cache;
   const guildId = String(member?.guild?.id || "");
   if (!cache || !guildId) return [];
-  return Array.from(cache.values())
-    .filter((role) => {
-      if (!role?.id) return false;
-      if (String(role.id) === guildId) return false;
-      if (role.managed) return false;
-      return true;
-    })
-    .map((role) => String(role.id))
-    .filter(Boolean);
+  return filterRolesExcludedFromRejoinRestore(
+    Array.from(cache.values())
+      .filter((role) => {
+        if (!role?.id) return false;
+        if (String(role.id) === guildId) return false;
+        if (role.managed) return false;
+        return true;
+      })
+      .map((role) => String(role.id))
+      .filter(Boolean),
+  );
 }
 
 function normalizeLeaveDepexMessageRefs(refs) {
@@ -138,7 +153,11 @@ async function backupUserOnLeave(guildId, userId, member = null) {
   if (!isValidGuildUserId(gid, uid)) return false;
 
   const source = await ActivityUserProfile.findOne({ guildId: gid, userId: uid }).lean().catch(() => null);
-  const restoreRoleIds = getRestorableRoleIdsFromMember(member);
+  const deferRolesForMute =
+    member &&
+    (isCommunicationTimeoutActive(member) ||
+      (await hasPendingMuteMirrorSnapshot(gid, uid).catch(() => false)));
+  const restoreRoleIds = deferRolesForMute ? [] : getRestorableRoleIdsFromMember(member);
   const trackedRoleIds = getTrackedRolesFromMember(member);
 
   const shouldUpsertBackup =
@@ -266,6 +285,7 @@ async function retryRestoreRolesFromBackup(guildId, userId, client) {
     .lean()
     .catch(() => null);
   const staffGraceActive = isStaffGraceActive(current?.staffPendingPurgeAt || backup?.backupDoc?.staffPendingPurgeAt);
+  if (await shouldDeferRoleRestoreForMuteMirror(member).catch(() => isCommunicationTimeoutActive(member))) return false;
   const restoreRoleIds = resolveRestoreRoleIdsForRejoin(
     [...roleIdsFromMemory, ...roleIdsFallback],
     staffGraceActive,
@@ -275,7 +295,6 @@ async function retryRestoreRolesFromBackup(guildId, userId, client) {
   const outcome = await restoreRolesOnJoin(member, restoreRoleIds).catch(() => null);
   if (!outcome?.ok) return false;
   await UserLeaveBackup.deleteOne({ _id: backup._id }).catch(() => null);
-  global.logger?.info?.("[USER LEAVE BACKUP] restored roles on rejoin (retry):", gid, uid, outcome);
   return true;
 }
 
@@ -295,10 +314,15 @@ async function restoreUserOnJoin(guildId, userId, member = null) {
   const staffGraceActive = isStaffGraceActive(
     currentBeforeRestore?.staffPendingPurgeAt || backup?.backupDoc?.staffPendingPurgeAt,
   );
-  const restoreRoleIds = resolveRestoreRoleIdsForRejoin(
-    [...roleIdsFromMemory, ...roleIdsFallback].map((id) => String(id || "").trim()).filter(Boolean),
-    staffGraceActive,
+  const skipRoleRestore = Boolean(
+    member && (await shouldDeferRoleRestoreForMuteMirror(member).catch(() => false)),
   );
+  const restoreRoleIds = skipRoleRestore
+    ? []
+    : resolveRestoreRoleIdsForRejoin(
+        [...roleIdsFromMemory, ...roleIdsFallback].map((id) => String(id || "").trim()).filter(Boolean),
+        staffGraceActive,
+      );
   let payload = backup?.backupDoc || null;
   if (backup?.expiresAt && new Date(backup.expiresAt).getTime() <= Date.now()) {
     await UserLeaveBackup.deleteOne({ guildId: gid, userId: uid }).catch(() => null);
@@ -353,25 +377,9 @@ async function restoreUserOnJoin(guildId, userId, member = null) {
   if (member && restoreRoleIds.length > 0) {
     roleOutcome = await restoreRolesOnJoin(member, restoreRoleIds).catch(() => null);
     restoredRoles = Boolean(roleOutcome?.ok);
-    global.logger?.info?.("[USER LEAVE BACKUP] restored roles on rejoin:", gid, uid, {
-      staffGrace: staffGraceActive,
-      requested: roleOutcome?.requested ?? restoreRoleIds.length,
-      applied: roleOutcome?.applied ?? 0,
-      skipped: roleOutcome?.skipped ?? 0,
-      ok: restoredRoles,
-      reason: roleOutcome?.reason || null,
-    });
-  } else if (backup && (roleIdsFromMemory.length > 0 || roleIdsFallback.length > 0)) {
-    global.logger?.info?.("[USER LEAVE BACKUP] no roles to restore on rejoin (filtered):", gid, uid, {
-      staffGrace: staffGraceActive,
-      raw: roleIdsFromMemory.length + roleIdsFallback.length,
-    });
   }
   if (member && leaveDepexMessages.length > 0) {
-    const deleted = await deleteLeaveDepexMessages(member.guild, leaveDepexMessages).catch(() => 0);
-    if (deleted > 0) {
-      global.logger?.info?.("[USER LEAVE BACKUP] deleted leave depex messages on rejoin:", gid, uid, deleted);
-    }
+    await deleteLeaveDepexMessages(member.guild, leaveDepexMessages).catch(() => 0);
   }
 
   const hasPendingRoleRestore = restoreRoleIds.length > 0 && !restoredRoles;

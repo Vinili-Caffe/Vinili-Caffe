@@ -8,6 +8,7 @@ let sportsDb429Consecutive = 0;
 let sportsDb429LastHitAt = 0;
 const SPORTSDB_429_BACKOFF_FLOOR_MS = 60_000;
 const { registerCanvasFonts, fontStackPrimaryOnly } = require("../../Utils/Render/canvasFonts");
+const { drawLabelWithEmoji, tokenizeEmojiText } = require("../../Utils/Render/canvasEmojiRichText");
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, PermissionsBitField, AttachmentBuilder, } = require("discord.js");
 const { minigameStateFindOneLean, minigameStateFindOneAndUpdate, minigameStateDeleteOne, minigameStateDeleteMany, minigameRotationFindOneLean, minigameRotationFindOneAndUpdate, minigameRotationDeleteOne, minigameRotationDeleteMany } = require("../../Utils/BotState/domainStatesStore");
 const { ActivityUserProfile, SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Schemas/Community/communitySchemas");
@@ -16,6 +17,7 @@ const IDs = require("../../Utils/Config/ids");
 const { getClientChannelCached, getGuildMemberCached, } = require("../../Utils/Interaction/interactionEntityCache");
 const { getGuessYearBank, getCompleteVerseBank, getGuessEmojiBank, getQuoteFilmBank, getProverbBank, getSynonymAntonymBank, getGuessCityBank, getCapitalQuizBank, getItalianRegionCapitalBank, getItalianGkBank, getDrivingTrueFalseBank, getDrivingMultipleChoiceBank, getDrivingSignQuestions, getFastTypingPhrases, getHangmanWords, getTreasureHuntEmojiPairs, getHogwartsQuizBank, getHogwartsCipherBank, getHogwartsMemoryEmojiBank, getMemoryEmojiBank, CAPITAL_ITALIAN, CAPITAL_COUNTRY_REGION, REGION_AREA, REGION_HINT_DATA, FAMOUS_CAPITAL_COUNTRIES, FLAG_WELL_KNOWN_COUNTRIES } = require("../../Data/Minigames/minigameBanks");
 const { resolveHogwartsEventConfig } = require("../../Utils/Web/hogwartsSortingConfig");
+const { isUserHighStaffExcludedFromHogwartsEvent } = require("../../Utils/Web/hogwartsEventParticipation");
 const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
 const { isValidGuildUserId } = require("../../Utils/DB/validateWriteIds");
 const activeGames = new Map();
@@ -2282,6 +2284,77 @@ function buildHangmanImageAttachment(maskedWord, misses = 0, maxMisses = 10, fil
   }
 }
 
+function promptLineHasEmoji(text) {
+  return tokenizeEmojiText(String(text || "")).some(
+    (token) => token.type === "emoji" || token.type === "custom_emoji",
+  );
+}
+
+async function buildEmojiRichPromptImageAttachment(title, lines = [], fileBaseName = "minigame") {
+  try {
+    registerCanvasFonts(canvasModule);
+    const width = 1400;
+    const height = 780;
+    const canvas = createCanvas(width, height);
+    const ctx = canvas.getContext("2d");
+
+    fillCanvasBackground(ctx, width, height);
+    const cardX = CANVAS_STYLE.padding;
+    const cardY = CANVAS_STYLE.padding;
+    const cardW = width - CANVAS_STYLE.padding * 2;
+    const cardH = height - CANVAS_STYLE.padding * 2;
+    fillCanvasCard(ctx, cardX, cardY, cardW, cardH);
+
+    await drawLabelWithEmoji(ctx, String(title || "Minigioco"), width / 2, cardY + 48, {
+      size: 68,
+      weight: "700",
+      color: CANVAS_STYLE.titleColor,
+      align: "center",
+      baseline: "top",
+      forcePrimaryFont: true,
+    });
+
+    const sourceLines = Array.isArray(lines)
+      ? lines.map((line) => String(line || "").trim()).filter(Boolean)
+      : [];
+    const bodyBlocks = sourceLines.map((line) => ({
+      line,
+      isEmojiLine: promptLineHasEmoji(line),
+    }));
+    if (!bodyBlocks.length) bodyBlocks.push({ line: "...", isEmojiLine: false });
+
+    const emojiSize = 112;
+    const textSize = 44;
+    const emojiBlockH = emojiSize + 36;
+    const textBlockH = textSize + 28;
+    const totalBodyH = bodyBlocks.reduce(
+      (sum, block) => sum + (block.isEmojiLine ? emojiBlockH : textBlockH),
+      0,
+    );
+    let y = Math.max(cardY + 180, Math.round(cardY + (cardH - totalBodyH) / 2 + 40));
+
+    for (const block of bodyBlocks) {
+      const size = block.isEmojiLine ? emojiSize : textSize;
+      const blockH = block.isEmojiLine ? emojiBlockH : textBlockH;
+      const centerY = y + Math.round(blockH / 2);
+      await drawLabelWithEmoji(ctx, block.line, width / 2, centerY, {
+        size,
+        weight: "700",
+        color: CANVAS_STYLE.bodyColor,
+        align: "center",
+        baseline: "middle",
+        forcePrimaryFont: !block.isEmojiLine,
+      });
+      y += blockH;
+    }
+
+    const name = `${String(fileBaseName || "minigame").replace(/[^a-z0-9_-]/gi, "_").toLowerCase()}.png`;
+    return new AttachmentBuilder(canvas.toBuffer("image/png"), { name });
+  } catch {
+    return null;
+  }
+}
+
 function buildPromptImageAttachment(title, lines = [], fileBaseName = "minigame", fileNameSuffix = "") {
   if (fileBaseName === "italian_gk" && Array.isArray(lines) && lines.length > 0) {
     try {
@@ -4467,6 +4540,9 @@ async function awardHogwartsHousePointsForWinner(client, guildId, userId, gameTy
   const gid = String(guildId || "").trim();
   const uid = String(userId || "").trim();
   if (!isValidGuildUserId(gid, uid)) return null;
+  const guild = client?.guilds?.cache?.get(gid) || (await client?.guilds?.fetch?.(gid).catch(() => null));
+  const member = guild ? await getGuildMemberCached(guild, uid).catch(() => null) : null;
+  if (await isUserHighStaffExcludedFromHogwartsEvent(client, uid, member)) return null;
   const { applyPetHousePointsBoost } = require("../Community/hogwartsShopBoostsService");
   const petBoostSorted = await applyPetHousePointsBoost(client, gid, uid, basePoints);
   const petBoostFallback = await applyPetHousePointsBoost(client, gid, uid, baseFallback);
@@ -5888,6 +5964,7 @@ async function awardObservationTowerParticipants(client, cfg, guild, participant
   for (const [userId, count] of Object.entries(serializeObservationTowerParticipants(participantCounts))) {
     if (!guildId || !userId || Number(count || 0) <= 0) continue;
     const member = await getGuildMemberCached(guild, userId, { ttlMs: 20_000 });
+    if (await isUserHighStaffExcludedFromHogwartsEvent(client, userId, member)) continue;
     const ignoreExp = await shouldIgnoreExpForMember({ guildId, member, channelId: cfg.channelId });
     if (ignoreExp) continue;
     const result = await addExpWithLevel(guild, userId, rewardExp, false, true).catch((err) => {
@@ -6717,7 +6794,11 @@ async function startGuessEmojiGame(client, cfg) {
   const channel = await getChannelCached(client, channelId);
   if (!channel) return false;
   if (cfg.roleId) await channel.send({ content: `<@&${cfg.roleId}>` }).catch(() => {});
-  const attachment = buildPromptImageAttachment("Indovina da emoji", [pick.emojis, `Categoria: ${pick.category}`], "guess_emoji");
+  const attachment = await buildEmojiRichPromptImageAttachment(
+    "Indovina da emoji",
+    [pick.emojis, `Categoria: ${pick.category}`],
+    "guess_emoji",
+  );
   const imageUrl = attachment ? `attachment://${attachment.name}` : null;
   const embed = buildGuessEmojiEmbed(pick.emojis, rewardExp, durationMs, imageUrl);
   const gameMessage = await channel.send({ embeds: [embed], files: attachment ? [attachment] : [] }).catch(() => null);
@@ -7014,15 +7095,29 @@ function findGuildEmojiForTreasure(guild, parsed) {
   return guild.emojis.cache.find((e) => String(e.name || "") === name) || null;
 }
 
+function treasureEmojiMarkup(parsed) {
+  if (!parsed?.id || !parsed?.name) return "";
+  return parsed.animated
+    ? `<a:${parsed.name}:${parsed.id}>`
+    : `<:${parsed.name}:${parsed.id}>`;
+}
+
+async function ensureGuildEmojisForTreasure(guild) {
+  if (!guild?.emojis?.fetch) return;
+  if (guild.emojis.cache.size < 5) {
+    await guild.emojis.fetch().catch(() => null);
+  }
+}
+
 function formatTreasureEmojiForEmbed(guild, token) {
   const parsed = parseTreasureEmojiToken(token);
+  const idMarkup = treasureEmojiMarkup(parsed);
+  if (idMarkup) {
+    const guildEmoji = findGuildEmojiForTreasure(guild, parsed);
+    return guildEmoji ? guildEmoji.toString() : idMarkup;
+  }
   const guildEmoji = findGuildEmojiForTreasure(guild, parsed);
   if (guildEmoji) return guildEmoji.toString();
-  if (parsed.id && parsed.name) {
-    return parsed.animated
-      ? `<a:${parsed.name}:${parsed.id}>`
-      : `<:${parsed.name}:${parsed.id}>`;
-  }
   return parsed.display || String(token || "").trim();
 }
 
@@ -7132,10 +7227,37 @@ async function reactTreasureHuntEmoji(message, token) {
   }
 }
 
-function mountTreasureHuntGame(client, cfg, channel, state, remainingMs) {
+async function catchUpTreasureHuntReactions(channel, game) {
+  if (!channel?.messages?.fetch || !game || !Array.isArray(game.candidateIds)) return;
+  for (let i = 0; i < game.candidateIds.length; i += 1) {
+    const msgId = String(game.candidateIds[i] || "");
+    if (!msgId) continue;
+    const msg = await channel.messages.fetch(msgId).catch(() => null);
+    if (!msg) continue;
+    const isWinner = i + 1 === Number(game.winnerIndex);
+    const token = isWinner ? game.winner : game.decoy;
+    if (findMessageReactionByToken(msg, token)) {
+      if (isWinner && !game.winnerMessageId) {
+        game.winnerMessageId = msgId;
+        game.botWinnerReactionReady = true;
+      }
+      continue;
+    }
+    const ok = await reactTreasureHuntEmoji(msg, token);
+    if (!ok) continue;
+    if (isWinner) {
+      game.winnerMessageId = msgId;
+      game.botWinnerReactionReady = true;
+    }
+  }
+}
+
+async function mountTreasureHuntGame(client, cfg, channel, state, remainingMs) {
   const parsed = parseStateTarget(state.target);
   const decoy = String(parsed?.decoy || "");
   const winner = String(parsed?.winner || "");
+  const decoyDisplay = String(parsed?.decoyDisplay || decoy);
+  const winnerDisplay = String(parsed?.winnerDisplay || winner);
   const winnerMessageId = parsed?.winnerMessageId ? String(parsed.winnerMessageId) : null;
   const candidateIds = Array.isArray(parsed?.candidateIds) ? parsed.candidateIds.map(String) : [];
   const introMessageId = parsed?.introMessageId ? String(parsed.introMessageId) : null;
@@ -7161,6 +7283,8 @@ function mountTreasureHuntGame(client, cfg, channel, state, remainingMs) {
     timeout,
     decoy,
     winner,
+    decoyDisplay,
+    winnerDisplay,
     winnerMessageId,
     botWinnerReactionReady: Boolean(winnerMessageId),
     winnerIndex,
@@ -7170,6 +7294,11 @@ function mountTreasureHuntGame(client, cfg, channel, state, remainingMs) {
     introMessageId,
   };
   activeGames.set(cfg.channelId, game);
+  await ensureGuildEmojisForTreasure(channel.guild);
+  await catchUpTreasureHuntReactions(channel, game);
+  if (game.winnerMessageId && !winnerMessageId) {
+    await persistTreasureHuntState(client, cfg, game);
+  }
   return game;
 }
 
@@ -7188,6 +7317,21 @@ async function ensureTreasureHuntGame(client, cfg) {
   const remainingMs = endsAt - Date.now();
   if (remainingMs <= 0) return null;
   return mountTreasureHuntGame(client, { ...cfg, guildId }, channel, state, remainingMs);
+}
+
+async function treasureHuntDisplayTexts(guild, gameOrDecoy, winnerOrGame) {
+  await ensureGuildEmojisForTreasure(guild);
+  if (gameOrDecoy && typeof gameOrDecoy === "object") {
+    const game = gameOrDecoy;
+    return {
+      decoy: formatTreasureEmojiForEmbed(guild, game.decoyDisplay || game.decoy),
+      winner: formatTreasureEmojiForEmbed(guild, game.winnerDisplay || game.winner),
+    };
+  }
+  return {
+    decoy: formatTreasureEmojiForEmbed(guild, gameOrDecoy),
+    winner: formatTreasureEmojiForEmbed(guild, winnerOrGame),
+  };
 }
 
 function pickTreasureHuntBucket(treasureCfg) {
@@ -7265,6 +7409,8 @@ function serializeTreasureHuntTarget(game) {
   return JSON.stringify({
     decoy: game.decoy,
     winner: game.winner,
+    decoyDisplay: game.decoyDisplay || game.decoy,
+    winnerDisplay: game.winnerDisplay || game.winner,
     winnerMessageId: game.winnerMessageId || "",
     candidateIds: Array.isArray(game.candidateIds) ? game.candidateIds : [],
     introMessageId: game.introMessageId || null,
@@ -7302,8 +7448,15 @@ async function handleTreasureHuntIncomingMessage(message, client, cfg) {
   const winnerIndex = Math.max(1, Number(live.winnerIndex || 1));
   const isWinner = nextCount === winnerIndex;
   const emoji = isWinner ? live.winner : live.decoy;
-  const reacted = await reactTreasureHuntEmoji(message, emoji);
-  if (!reacted) return false;
+  let reacted = await reactTreasureHuntEmoji(message, emoji);
+  if (!reacted && isWinner) {
+    await new Promise((r) => setTimeout(r, 400));
+    reacted = await reactTreasureHuntEmoji(message, live.winner);
+  }
+  if (!reacted) {
+    if (isWinner) warnMinigame(new Error(`treasure_hunt_winner_react_failed:${live.winner}`));
+    return false;
+  }
   live.collectedCount = nextCount;
   if (!Array.isArray(live.candidateIds)) live.candidateIds = [];
   live.candidateIds.push(msgId);
@@ -7390,14 +7543,11 @@ async function finishTreasureHuntByTimeout(client, cfg, channel, game) {
     removeTreasureHuntReactions(channel, game.candidateIds, game.decoy, game.winner).catch(() => {});
   }
   const url = getTreasureHuntMessageUrl(channel.guildId || channel.guild?.id, channel.id, game?.winnerMessageId);
+  const labels = await treasureHuntDisplayTexts(channel.guild, game);
   await channel
     .send({
       embeds: [
-        buildTreasureHuntTimeoutEmbed(
-          game.decoyDisplay || game.decoy,
-          game.winnerDisplay || game.winner,
-          url,
-        ),
+        buildTreasureHuntTimeoutEmbed(labels.decoy, labels.winner, url),
       ],
     })
     .catch(() => {});
@@ -7421,6 +7571,7 @@ async function startTreasureHuntGame(client, cfg) {
   const durationMs = randomBetween(minDurationMs, maxDurationMs);
   const channel = await getChannelCached(client, channelId);
   if (!channel?.isTextBased?.() || !channel.guild) return false;
+  await ensureGuildEmojisForTreasure(channel.guild);
   const pairRaw = pickTreasureHuntEmojiPair(channelId, treasureCfg);
   if (!pairRaw) return false;
   const pair = await normalizeTreasureEmojiPair(channel.guild, pairRaw);
@@ -7809,6 +7960,13 @@ async function forceStartMinigame(client) {
 
 async function awardWinAndReply(message, rewardExp, game = null) {
   clearNoParticipationDelay(message.channelId);
+  const member = message.member || (await getGuildMemberCached(message.guild, message.author.id, { ttlMs: 20_000 }));
+  if (
+    isHogwartsMinigameType(game?.type) &&
+    (await isUserHighStaffExcludedFromHogwartsEvent(message.client, message.author.id, member))
+  ) {
+    return false;
+  }
   const cfg = getConfig(message.client);
   const baseExp = normalizeRewardExp(rewardExp || 0);
   const startedAt = game?.startedAt ?? 0;
@@ -7842,7 +8000,6 @@ async function awardWinAndReply(message, rewardExp, game = null) {
     { guildId: message.guild.id, userId: { $ne: message.author.id } },
     { $set: { "profile.totals.exp.minigame.currentStreak": 0 } },
   ).catch((err) => warnMinigame(err));
-  const member = message.member || (await getGuildMemberCached(message.guild, message.author.id, { ttlMs: 20_000 }));
   const ignoreExp = await shouldIgnoreExpForMember({ guildId: message.guild.id, member, channelId: message.channel?.id || message.channelId || null, });
   if (!ignoreExp) {
     try {
@@ -8231,6 +8388,8 @@ async function handleMinigameMessage(message, client) {
   if (game.type === "hogwartsObservationTower") {
     if (getObservationTowerLetterCount(content) < Number(game.minLetters || 5)) return false;
     const userId = String(message.author.id || "");
+    const towerMember = message.member || (await getGuildMemberCached(message.guild, userId, { ttlMs: 20_000 }));
+    if (await isUserHighStaffExcludedFromHogwartsEvent(message.client, userId, towerMember)) return false;
     const participantCounts = serializeObservationTowerParticipants(game.participantCounts);
     const currentUserBricks = Number(participantCounts[userId] || 0);
     if (currentUserBricks >= Number(game.maxPerUser || 15)) {
@@ -9360,14 +9519,11 @@ async function restoreActiveGames(client) {
         warnMinigame(err);
       }
       const url = getTreasureHuntMessageUrl(channel.guildId || channel.guild?.id, channel.id, winnerMessageId);
+      const labels = await treasureHuntDisplayTexts(channel.guild, decoy, winner);
       await channel
         .send({
           embeds: [
-            buildTreasureHuntTimeoutEmbed(
-              formatTreasureEmojiForEmbed(channel.guild, decoy),
-              formatTreasureEmojiForEmbed(channel.guild, winner),
-              url,
-            ),
+            buildTreasureHuntTimeoutEmbed(labels.decoy, labels.winner, url),
           ],
         })
         .catch(() => { });
@@ -9996,14 +10152,11 @@ async function restoreActiveGames(client) {
       const winnerExists = await channel.messages.fetch(winnerMessageId).catch(() => null);
       if (!winnerExists) {
         const url = getTreasureHuntMessageUrl(channel.guildId || channel.guild?.id, channel.id, winnerMessageId);
+        const labels = await treasureHuntDisplayTexts(channel.guild, decoy, winner);
         await channel
           .send({
             embeds: [
-              buildTreasureHuntTimeoutEmbed(
-                formatTreasureEmojiForEmbed(channel.guild, decoy),
-                formatTreasureEmojiForEmbed(channel.guild, winner),
-                url,
-              ),
+              buildTreasureHuntTimeoutEmbed(labels.decoy, labels.winner, url),
             ],
           })
           .catch(() => {});
@@ -10011,7 +10164,7 @@ async function restoreActiveGames(client) {
         return;
       }
     }
-    mountTreasureHuntGame(client, cfg, channel, state, remainingMs);
+    await mountTreasureHuntGame(client, cfg, channel, state, remainingMs);
     return;
   }
   if (state.type === "findBot") {

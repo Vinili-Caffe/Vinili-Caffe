@@ -270,8 +270,57 @@ async function sweepExpiredCommunicationTimeoutMirrors(client, options = {}) {
   return { reconciled, scanned };
 }
 
+async function hasPendingMuteMirrorSnapshot(guildId, userId) {
+  const saved = await loadSnapshot(guildId, userId);
+  return saved.length > 0;
+}
+
+async function shouldDeferRoleRestoreForMuteMirror(member) {
+  if (!member?.guild?.id || !member?.id) return false;
+  if (isCommunicationTimeoutActive(member)) return true;
+  return hasPendingMuteMirrorSnapshot(member.guild.id, member.id);
+}
+
+async function handleMuteMirrorOnMemberLeave(member) {
+  if (!member?.guild || member.user?.bot) return;
+  const saved = await loadSnapshot(member.guild.id, member.id);
+  if (!saved.length) return;
+  if (isCommunicationTimeoutActive(member)) return;
+  await clearSnapshot(member.guild.id, member.id);
+}
+
+async function syncMutedMirrorOnMemberJoin(member) {
+  if (!member?.guild || member.user?.bot) return;
+
+  const mutedRoleId = String(IDs.roles?.Muted || "").trim();
+  if (!mutedRoleId) return;
+
+  const guild = member.guild;
+  const me = guild.members.me;
+  const ctx = await resolveMutedRoleContext(guild, me, mutedRoleId);
+  if (!ctx) return;
+
+  const timeoutActive = isCommunicationTimeoutActive(member);
+  const saved = await loadSnapshot(guild.id, member.id);
+  if (!timeoutActive && !saved.length) return;
+
+  const reasonIn = "Timeout Discord / +mute (rejoin)";
+  if (!saved.length && timeoutActive) {
+    const snapshotIds = collectSnapshotRoleIds(member, ctx.mutedRoleId);
+    if (snapshotIds.length) await upsertSnapshot(guild.id, member.id, snapshotIds);
+  }
+  await member.roles.set([ctx.mutedRoleId], reasonIn).catch((err) => {
+    global.logger?.warn?.("[mutedMirrorRole] rejoin strip+mirror failed:", guild.id, member.id, err?.message || err);
+    if (!timeoutActive) clearSnapshot(guild.id, member.id).catch(() => {});
+  });
+}
+
 module.exports = {
   syncMutedMirrorRoleFromMemberUpdate,
+  syncMutedMirrorOnMemberJoin,
+  handleMuteMirrorOnMemberLeave,
+  hasPendingMuteMirrorSnapshot,
+  shouldDeferRoleRestoreForMuteMirror,
   restoreRolesAfterCommunicationTimeoutEnd,
   sweepExpiredCommunicationTimeoutMirrors,
   isCommunicationTimeoutActive,

@@ -718,6 +718,87 @@ function applyMaintenanceGateToDist(distDir, maintenanceBoot) {
   walk(distDir);
 }
 
+function collectDistHtmlRoutes(distDir) {
+  const paths = new Set(["/"]);
+  const walk = (dir, segments) => {
+    for (const name of fs.readdirSync(dir)) {
+      const p = path.join(dir, name);
+      const st = fs.statSync(p);
+      if (st.isDirectory()) {
+        walk(p, segments.concat(name));
+        continue;
+      }
+      if (name.toLowerCase() !== "index.html") continue;
+      const route = segments.length ? `/${segments.join("/")}` : "/";
+      paths.add(route);
+    }
+  };
+  walk(distDir, []);
+  return [...paths].sort();
+}
+
+const SITE_ROUTE_GUARD_PATTERNS = Object.freeze([
+  { s: "^/users?/\\d{17,20}$", f: "" },
+  { s: "^/users/\\d{17,20}/customize$", f: "" },
+  { s: "^/user/\\d{17,20}/personalizza$", f: "" },
+]);
+
+const SITE_ROUTE_GUARD_HIDDEN_DEFAULTS = Object.freeze(["/seratafilm/accesso-richiesto"]);
+
+function buildSiteRouteGuardBoot(routesPayload) {
+  const json = JSON.stringify(routesPayload).replace(/</g, "\\u003c");
+  return (
+    `    <script>window.__VC_SITE_ROUTES=${json};</script>\n` +
+    `    <script src="/js/vc-site-route-guard.js"></script>\n`
+  );
+}
+
+function applySiteRouteGuardToHtml(html, routeGuardBoot) {
+  if (!routeGuardBoot || html.includes("window.__VC_SITE_ROUTES")) return html;
+  const headOpen = html.match(/<head\b[^>]*>/i);
+  if (headOpen) {
+    return html.replace(headOpen[0], `${headOpen[0]}\n${routeGuardBoot}`);
+  }
+  if (html.includes("</head>")) {
+    return html.replace("</head>", `${routeGuardBoot}  </head>`);
+  }
+  return routeGuardBoot + html;
+}
+
+function applySiteRouteGuardToDist(distDir, cfg) {
+  const paths = collectDistHtmlRoutes(distDir);
+  const siteRoutesRaw = cfg.siteRoutes && typeof cfg.siteRoutes === "object" ? cfg.siteRoutes : {};
+  const hiddenFromCfg = Array.isArray(siteRoutesRaw.hiddenPaths)
+    ? siteRoutesRaw.hiddenPaths.map((p) => String(p || "").trim()).filter(Boolean)
+    : [];
+  const hidden = [...new Set([...SITE_ROUTE_GUARD_HIDDEN_DEFAULTS, ...hiddenFromCfg])].map((p) => {
+    const s = p.replace(/\/+$/, "") || "/";
+    return s.startsWith("/") ? s : `/${s}`;
+  });
+  const payload = {
+    home: "/",
+    paths,
+    patterns: SITE_ROUTE_GUARD_PATTERNS,
+    hidden,
+  };
+  const boot = buildSiteRouteGuardBoot(payload);
+  const walk = (dir) => {
+    for (const name of fs.readdirSync(dir)) {
+      const p = path.join(dir, name);
+      const st = fs.statSync(p);
+      if (st.isDirectory()) {
+        walk(p);
+        continue;
+      }
+      if (!name.toLowerCase().endsWith(".html")) continue;
+      const html = fs.readFileSync(p, "utf8");
+      const next = applySiteRouteGuardToHtml(html, boot);
+      if (next !== html) fs.writeFileSync(p, next, "utf8");
+    }
+  };
+  walk(distDir);
+}
+
 function relativeScriptPrefixFromHtml(absHtmlPath) {
   const relDir = path.relative(path.dirname(absHtmlPath), DIST).replace(/\\/g, "/");
   if (!relDir || relDir === ".") return "";
@@ -1605,6 +1686,23 @@ async function main() {
   const hogwartsPotionsPageUrl = siteBaseNoSlash
     ? `${siteBaseNoSlash}/evento/pozioni`
     : "/evento/pozioni";
+  const hogwartsHubPageUrl = siteBaseNoSlash ? `${siteBaseNoSlash}/evento` : "/evento";
+  const {
+    resolveHogwartsEventCalendar,
+    buildEventNavItemsHtml,
+    buildEventHeaderHtml,
+    buildHogwartsEventNavBootHtml,
+    parseDateStartMs,
+    serializeCalendarForWeb,
+  } = require(path.join(ROOT, "..", "Vinyls", "Utils", "Web", "hogwartsEventCalendar.js"));
+  const { formatEventWindowIt: formatHogwartsEventWindowIt } = require(path.join(
+    ROOT,
+    "..",
+    "Vinyls",
+    "Utils",
+    "Web",
+    "hogwartsSortingConfig.js",
+  ));
   const hogwartsCrestsPath = "../../images/evento-hogwarts/crests/";
   const hogwartsIntroVideo = "/images/evento-hogwarts/inizio.mp4";
   const hogwartsEventRaw = cfg.hogwartsEvent && typeof cfg.hogwartsEvent === "object" ? cfg.hogwartsEvent : {};
@@ -1626,6 +1724,44 @@ async function main() {
     getPublicQuestions: getHogwartsPublicQuestions,
   } = require(path.join(ROOT, "..", "Vinyls", "Utils", "Web", "hogwartsSortingBank.js"));
   const hogwartsEventKey = String(hogwartsEventRaw.eventKey || "hogwarts_summer_2026").trim() || "hogwarts_summer_2026";
+  const hogwartsEventWindowLabel =
+    formatHogwartsEventWindowIt({
+      timezone: hogwartsEventRaw.timezone || "Europe/Rome",
+      startDate: hogwartsEventRaw.startDate || "2026-06-01T14:00:00",
+      endDate: hogwartsEventRaw.endDate || "2026-08-31T00:00:00",
+    }) || "";
+  const hogwartsEventCalendarResolved = resolveHogwartsEventCalendar(hogwartsEventRaw, siteBaseNoSlash);
+  hogwartsEventCalendarResolved.windowLabel = hogwartsEventWindowLabel;
+  hogwartsEventCalendarResolved.potions = {
+    enabled: hogwartsPotionsRaw.enabled !== false,
+    startMs: parseDateStartMs(hogwartsPotionsStartDate),
+    startDate: hogwartsPotionsStartDate,
+  };
+  const hogwartsEventCalendarWeb = serializeCalendarForWeb(hogwartsEventCalendarResolved);
+  const hogwartsEventNav = {
+    previewMode: hogwartsEventRaw.previewMode === true,
+    accessApiUrl: `${String(hogwartsSortingApiResolved || "/webhooks/site-hogwarts-sorting").replace(/\/+$/, "")}/access`,
+    accessApiUrlLocal: `${String(hogwartsSortingApiLocalResolved || "http://127.0.0.1:3042/webhooks/site-hogwarts-sorting").replace(/\/+$/, "")}/access`,
+    potions: hogwartsEventCalendarResolved.potions,
+  };
+  const hogwartsEventNavBoot = buildHogwartsEventNavBootHtml(hogwartsEventNav);
+  const hogwartsEventCalendarJsonEscaped = JSON.stringify(hogwartsEventCalendarWeb)
+    .replace(/\\/g, "\\\\")
+    .replace(/'/g, "\\'");
+  const notificationsPageUrl = siteBaseNoSlash ? `${siteBaseNoSlash}/notifications/` : "/notifications/";
+  const hogwartsEventHeaderFor = (activeId) =>
+    buildEventHeaderHtml({
+      siteName,
+      siteUrl: siteUrlTrim,
+      discordInviteUrl: discordInviteResolved,
+      guildIconUrl,
+      navItemsHtml: buildEventNavItemsHtml(hogwartsEventCalendarResolved.pages, activeId, {
+        previewMode: hogwartsEventRaw.previewMode === true,
+      }),
+      eventNavBootHtml: hogwartsEventNavBoot,
+      userPageUrl,
+      notificationsUrl: notificationsPageUrl,
+    });
   const hogwartsStaticBootstrap = {
     ok: true,
     event: {
@@ -1642,8 +1778,8 @@ async function main() {
         sortingReward: Math.max(1, Math.floor(Number(hogwartsEventRaw.gringott?.sortingReward) || 25)),
       },
       windowLabel: "",
-      phase: hogwartsEventRaw.previewMode === true ? "preview" : "live",
-      open: true,
+      phase: hogwartsEventRaw.previewMode === true ? "preview_forbidden" : "live",
+      open: hogwartsEventRaw.previewMode === true ? false : true,
       startsAtMs: null,
       endsAtMs: null,
     },
@@ -2011,6 +2147,16 @@ async function main() {
     HOGWARTS_POINTS_PAGE_URL: escAttr(hogwartsPointsPageUrl),
     HOGWARTS_SHOP_PAGE_URL: escAttr(hogwartsShopPageUrl),
     HOGWARTS_POTIONS_PAGE_URL: escAttr(hogwartsPotionsPageUrl),
+    HOGWARTS_HUB_PAGE_URL: escAttr(hogwartsHubPageUrl),
+    HOGWARTS_EVENT_HEADER: hogwartsEventHeaderFor("hub"),
+    HOGWARTS_EVENT_WINDOW_LABEL: escHtml(hogwartsEventWindowLabel),
+    HOGWARTS_EVENT_CALENDAR_JSON: hogwartsEventCalendarJsonEscaped,
+    HOGWARTS_HUB_PAGE_TITLE: escAttr(`${siteName} | Evento Hogwarts`),
+    HOGWARTS_HUB_META_DESCRIPTION: escAttr(
+      `Calendario settimanale dell'evento Hogwarts ${siteName}: smistamento, shop, pozioni, coppa e attività Discord.`,
+    ),
+    HOGWARTS_HUB_OG_TITLE: escAttr(`${siteName} | Evento Hogwarts`),
+    HOGWARTS_HUB_OG_URL: escAttr(hogwartsHubPageUrl),
     HOGWARTS_SORTING_PAGE_TITLE: escAttr(`${siteName} | Smistamento Hogwarts`),
     HOGWARTS_SORTING_META_DESCRIPTION: escAttr(
       `Quiz di smistamento Harry Potter: scopri la tua casa a Hogwarts nell'evento estivo ${siteName}.`,
@@ -2275,10 +2421,26 @@ async function main() {
     console.warn("[build-site] Manca suggerimenti/index.html (saltato placeholder).");
   }
 
+  const hogwartsHubIndexPath = path.join(DIST, "evento", "index.html");
+  if (fs.existsSync(hogwartsHubIndexPath)) {
+    let hogwartsHubHtml = fs.readFileSync(hogwartsHubIndexPath, "utf8");
+    hogwartsHubHtml = applyPlaceholderMap(hogwartsHubHtml, {
+      ...map,
+      HOGWARTS_EVENT_HEADER: hogwartsEventHeaderFor("hub"),
+    });
+    warnLeftoverPlaceholders(hogwartsHubHtml, "evento/index.html");
+    fs.writeFileSync(hogwartsHubIndexPath, hogwartsHubHtml, "utf8");
+  } else {
+    console.warn("[build-site] Manca evento/index.html (saltato placeholder).");
+  }
+
   const hogwartsSortingIndexPath = path.join(DIST, "evento", "smistamento", "index.html");
   if (fs.existsSync(hogwartsSortingIndexPath)) {
     let hogwartsHtml = fs.readFileSync(hogwartsSortingIndexPath, "utf8");
-    hogwartsHtml = applyPlaceholderMap(hogwartsHtml, map);
+    hogwartsHtml = applyPlaceholderMap(hogwartsHtml, {
+      ...map,
+      HOGWARTS_EVENT_HEADER: hogwartsEventHeaderFor("sorting"),
+    });
     const hogwartsBgmJsonEscaped = hogwartsBgmJson.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
     hogwartsHtml = hogwartsHtml.replace(
       /window\.__VC_HOGWARTS_BGM = JSON\.parse\('\{"baseVolume":0\.2\}'\);/,
@@ -2309,7 +2471,10 @@ async function main() {
   const hogwartsPointsIndexPath = path.join(DIST, "evento", "coppa", "index.html");
   if (fs.existsSync(hogwartsPointsIndexPath)) {
     let hogwartsPointsHtml = fs.readFileSync(hogwartsPointsIndexPath, "utf8");
-    hogwartsPointsHtml = applyPlaceholderMap(hogwartsPointsHtml, map);
+    hogwartsPointsHtml = applyPlaceholderMap(hogwartsPointsHtml, {
+      ...map,
+      HOGWARTS_EVENT_HEADER: hogwartsEventHeaderFor("points"),
+    });
     warnLeftoverPlaceholders(hogwartsPointsHtml, "evento/coppa/index.html");
     fs.writeFileSync(hogwartsPointsIndexPath, hogwartsPointsHtml, "utf8");
   } else {
@@ -2319,7 +2484,10 @@ async function main() {
   const hogwartsShopIndexPath = path.join(DIST, "evento", "shop", "index.html");
   if (fs.existsSync(hogwartsShopIndexPath)) {
     let hogwartsShopHtml = fs.readFileSync(hogwartsShopIndexPath, "utf8");
-    hogwartsShopHtml = applyPlaceholderMap(hogwartsShopHtml, map);
+    hogwartsShopHtml = applyPlaceholderMap(hogwartsShopHtml, {
+      ...map,
+      HOGWARTS_EVENT_HEADER: hogwartsEventHeaderFor("shop"),
+    });
     warnLeftoverPlaceholders(hogwartsShopHtml, "evento/shop/index.html");
     fs.writeFileSync(hogwartsShopIndexPath, hogwartsShopHtml, "utf8");
   } else {
@@ -2329,7 +2497,10 @@ async function main() {
   const hogwartsPotionsIndexPath = path.join(DIST, "evento", "pozioni", "index.html");
   if (fs.existsSync(hogwartsPotionsIndexPath)) {
     let hogwartsPotionsHtml = fs.readFileSync(hogwartsPotionsIndexPath, "utf8");
-    hogwartsPotionsHtml = applyPlaceholderMap(hogwartsPotionsHtml, map);
+    hogwartsPotionsHtml = applyPlaceholderMap(hogwartsPotionsHtml, {
+      ...map,
+      HOGWARTS_EVENT_HEADER: hogwartsEventHeaderFor("potions"),
+    });
     warnLeftoverPlaceholders(hogwartsPotionsHtml, "evento/pozioni/index.html");
     fs.writeFileSync(hogwartsPotionsIndexPath, hogwartsPotionsHtml, "utf8");
   } else {
@@ -2412,6 +2583,7 @@ async function main() {
   applyAvatarFallbackToDist(DIST, buildAssetVersion);
   applyLiveStatsBootToDist(DIST, cfg, inviteCode);
   applyMaintenanceGateToDist(DIST, maintenanceBoot);
+  applySiteRouteGuardToDist(DIST, cfg);
 
   const siteBuild = cfg.siteBuild && typeof cfg.siteBuild === "object" ? cfg.siteBuild : null;
   const skipClientObfuscation = siteBuild?.obfuscateClientAssets === false;

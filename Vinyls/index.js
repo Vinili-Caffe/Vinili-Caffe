@@ -155,6 +155,12 @@ initializeCommandCollections(client, { includeSnipes: true });
     await client.prefixCommands(pcommandFolders, path.join(APP_ROOT, "Prefix"));
     await client.loadButtonHandlers(path.join(APP_ROOT, "Buttons"));
 
+    try {
+      require("./MultiGuild").attachToClient(client);
+    } catch (err) {
+      global.logger?.warn?.("[MultiGuild] attach failed:", err?.message || err);
+    }
+
     if (typeof client.logBootTables === "function") {
       client.logBootTables();
     }
@@ -165,6 +171,7 @@ initializeCommandCollections(client, { includeSnipes: true });
       process.exit(1);
     }
 
+    global.__vinylsDiscordClient = client;
     client.login(client.config.token).catch((error) => {
       global.logger.error(
         "[LOGIN] Error while logging in. Check if your token is correct or double check your also using the correct intents.",

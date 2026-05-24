@@ -24,12 +24,13 @@
     <link rel="stylesheet" href="../../css/vc-landing.css" />
     <link rel="icon" href="{{GUILD_ICON_URL}}" />
   </head>
-  <body id="top" class="vc-body vc-hw-page vc-hw-shop-page relative min-h-screen overflow-x-hidden font-sans text-slate-100 antialiased">
+  <body id="top" class="vc-body vc-hw-page vc-hw-shop-page vc-hw-page--with-header relative min-h-screen overflow-x-hidden font-sans text-slate-100 antialiased">
     <div id="vc-hw-loading" class="vc-hw-loading" role="status" aria-live="polite">
       <div class="vc-hw-loading__card">
         <p class="vc-hw-loading__text">Apertura shop…</p>
       </div>
     </div>
+    {{HOGWARTS_EVENT_HEADER}}
     <div class="vc-hw-stars" aria-hidden="true"></div>
     <div class="vc-blob vc-blob-a" aria-hidden="true"></div>
     <div class="vc-blob vc-blob-b" aria-hidden="true"></div>
@@ -41,7 +42,7 @@
         <p class="vc-hw-eyebrow">Emporio Magico</p>
         <h1 id="vc-hw-shop-title" class="vc-hw-title">Shop</h1>
         <p class="vc-hw-subtitle">Spendi i tuoi Galeoni d'Oro per scegliere bacchetta, scopa e animale da portare con te durante l'evento.</p>
-        <a class="vc-hw-btn vc-hw-btn--ghost mt-6 inline-flex" href="{{HOGWARTS_POTIONS_PAGE_URL}}">
+        <a class="vc-hw-btn vc-hw-btn--ghost mt-6 inline-flex" href="{{HOGWARTS_POTIONS_PAGE_URL}}" data-vc-potions-link hidden>
           <i class="fa fa-flask" aria-hidden="true"></i> Aula di Pozioni
         </a>
       </section>

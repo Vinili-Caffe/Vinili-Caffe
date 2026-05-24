@@ -1,4 +1,5 @@
-const { EmbedBuilder } = require("discord.js");
+const { EmbedBuilder, PermissionsBitField } = require("discord.js");
+const IDs = require("../../Utils/Config/ids");
 const { getVoiceConnection, VoiceConnectionStatus } = require("@discordjs/voice");
 const { Shoukaku, Connectors, LoadType, Constants, Utils } = require("shoukaku");
 const { applyDefaultFooterToEmbeds } = require("../../Utils/Embeds/defaultFooter");
@@ -6,9 +7,7 @@ const fs = require("fs");
 const path = require("path");
 const { readSnapshotWithMeta, writeSnapshotWithMeta } = require("../../../shared/recovery/snapshotStore");
 const { registerShutdownFlush, armShutdownCheckpoint } = require("../../../shared/recovery/shutdownCheckpoint");
-
 const MUSIC_LOGS = String(process.env.MUSIC_LOGS || "0").trim() === "1";
-/** Percentuale inviata a Lavalink v4 al join (0–100; Shoukaku default player `volume` = 100 = pieno). */
 const MUSIC_DEFAULT_LAVALINK_VOLUME = 20;
 
 /**
@@ -22,9 +21,6 @@ function lavalinkGlobalVolumeFromUserPercent(percent0to100) {
   return Math.min(100, Math.max(0, n));
 }
 
-/**
- * `MUSIC_DEFAULT_VOLUME`: percentuale 0–100. Valori >100 interpretati come legacy scala 0–1000 (es. 250 → 25).
- */
 function resolveDefaultJoinGlobalVolume() {
   const raw = Number(process.env.MUSIC_DEFAULT_VOLUME);
   if (!Number.isFinite(raw) || raw < 0) return lavalinkGlobalVolumeFromUserPercent(MUSIC_DEFAULT_LAVALINK_VOLUME);
@@ -38,12 +34,6 @@ const MUSIC_INACTIVITY_MS = Math.max(
   Number.isFinite(_musicIdleRawMs) && _musicIdleRawMs > 0 ? _musicIdleRawMs : 180_000,
 );
 
-/**
- * `youtube` (default): testo → ytsearch + ytmsearch.
- * `spotify`: testo = prima spsearch, poi fallback yt/ytm se Spotify non restituisce nulla; **link** YouTube ancora rifiutati.
- * `spotify_first`: stesso ordine di ricerca testo di `spotify`; consente anche **link** YouTube (modalità meno restrittiva).
- * L’audio effettivo dipende dai `providers` Lavalink (lavasrc).
- */
 function getMusicSearchMode() {
   const m = String(process.env.MUSIC_SEARCH_MODE || "").trim().toLowerCase();
   if (m === "spotify") return "spotify";
@@ -65,7 +55,6 @@ function isYoutubeLikeUrl(query) {
 const guildQueues = new Map();
 /** @type {Set<string>} */
 const endListeners = new Set();
-/** Evita doppio avanzamento coda sullo stesso brano (end duplicati). */
 const lastMusicEndHandledByGuild = new Map();
 /** @type {Map<string, number>} guildId -> timestamp (ms) inizio stato “inattivo” */
 const musicIdleSince = new Map();
@@ -244,9 +233,23 @@ function assertRequesterInActiveMusicVoiceChannel(client, guild, member) {
   };
 }
 
+function resolveMainGuildIdForMusic() {
+  return String(IDs?.guilds?.main || "").trim();
+}
+
+function isMainGuildMusicAdminBypass(guild, member) {
+  const gid = String(guild?.id || "").trim();
+  const mainId = resolveMainGuildIdForMusic();
+  if (!gid || !mainId || gid !== mainId) return false;
+  const perms = member?.permissions;
+  if (!perms || typeof perms.has !== "function") return false;
+  return perms.has(PermissionsBitField.Flags.Administrator);
+}
+
 function assertMusicCommandAllowed(client, guild, member, requesterUserId) {
   const vcGate = assertRequesterInActiveMusicVoiceChannel(client, guild, member);
   if (!vcGate.ok) return vcGate;
+  if (isMainGuildMusicAdminBypass(guild, member)) return { ok: true };
   return assertMusicSessionOwnerOrAllowLegacy(guild?.id, requesterUserId);
 }
 
@@ -423,7 +426,6 @@ function getShardIdForGuild(guild) {
   return 0;
 }
 
-/** Secondi: handshake voce Discord ↔ Lavalink (Shoukaku `voiceConnectionTimeout`). Env `SHOUKAKU_VOICE_CONNECTION_TIMEOUT`. */
 function getShoukakuVoiceConnectionTimeoutSeconds() {
   const n = Number(process.env.SHOUKAKU_VOICE_CONNECTION_TIMEOUT);
   if (Number.isFinite(n) && n >= 15 && n <= 300) return Math.floor(n);
@@ -441,7 +443,6 @@ function musicJoinVoiceChannelErrorMessage(err) {
   return `Entrata in vocale fallita: ${m || "errore sconosciuto"}`;
 }
 
-/** True se c’è una VoiceConnection @discordjs/voice (es. TTS): Shoukaku non può joinare senza conflitto. */
 function guildHasBlockingNativeVoiceConnection(guildId) {
   const gid = String(guildId || "");
   if (!gid) return false;
@@ -525,7 +526,6 @@ function openSpotifyHttpsToSpotifyUri(query) {
   return `spotify:${m[1].toLowerCase()}:${m[2]}`;
 }
 
-/** Link Spotify musica: track / album / playlist. Esclusi show ed episode (podcast). */
 function isSpotifyPodcastOnlyInput(query) {
   const q = String(query || "").trim();
   if (!q) return false;
@@ -534,7 +534,6 @@ function isSpotifyPodcastOnlyInput(query) {
   return /open\.spotify\.com\/(?:intl-[a-z-]+\/)?(show|episode)\//i.test(lower);
 }
 
-/** Link musica Spotify (web o URI) che Lavalink risolve via LavaSrc, non come stream HTTP. */
 function isOpenSpotifyMusicUrlInput(query) {
   const q = String(query || "").trim();
   if (!q) return false;
@@ -632,7 +631,6 @@ function describeTrack(t) {
   return `${info.title || "Senza titolo"} — ${info.author || "?"}`;
 }
 
-/** Solo encoded + info: niente pluginInfo LavaSrc (evita auto-loop playlist Spotify). */
 function trackForManualQueue(track) {
   if (!track) return null;
   const encoded =
@@ -792,7 +790,6 @@ function spotifyIsrcSearchUrl(t) {
   return `https://open.spotify.com/search/isrc%3A${encodeURIComponent(hyphenated)}`;
 }
 
-/** URL pagina traccia Spotify (o null). */
 function spotifyDirectUrlFromTrack(t) {
   if (!t?.info) return null;
   const uri = String(t.info.uri || "").trim();
@@ -2706,4 +2703,5 @@ module.exports = {
   shouldDeferTtsLeaveForMusicEmptyVc,
   getGuildMusicVoiceChannelId,
   guildHasMusicVoiceResumeHint,
+  guildMusicSessionBlocksOtherVoiceChannels,
 };

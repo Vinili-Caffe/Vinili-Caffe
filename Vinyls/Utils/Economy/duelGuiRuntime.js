@@ -1,12 +1,8 @@
 const { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
+const { buildImageButtonPayload, canvasStatusLine } = require("./guiPanelPayload");
 const { guildMemberDisplayAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
 const { getGuildMemberCached } = require("../Interaction/interactionEntityCache");
-const {
-  getVoldemortFighter,
-  loadDuelFighter,
-  resolveDuelOutcome,
-  settleDuelVictoryRewards,
-} = require("../../Services/Community/hogwartsDuelService");
+const { getVoldemortFighter, loadDuelFighter, resolveBotDuelOutcome, resolveDuelOutcome, resolveDuelRewards, settleDuelVictoryRewards } = require("../../Services/Community/hogwartsDuelService");
 const renderDuelCanvas = require("../Render/duelCanvas");
 const { getShopItemById } = require("../Web/hogwartsShopCatalog");
 const LOANER_WAND_ID = "willow-spark-wand";
@@ -197,15 +193,6 @@ function duelParticipantUserIds(left, right) {
   return ids;
 }
 
-function buildDuelResultContent(left, right, outcome, notice = "") {
-  const lines = [`${fighterMention(left)} vs ${fighterMention(right, "Voldemort")}`];
-  const extra = plainNoticeLine(notice);
-  if (extra) lines.push(extra);
-  const reward = plainNoticeLine(outcome?.rewards?.message);
-  if (reward) lines.push(reward);
-  return lines.join("\n");
-}
-
 async function attachDuelVictoryRewards(client, guild, outcome, vsBot, dedupeKey) {
   if (!outcome || outcome.draw || !outcome.winnerId) return outcome;
   const rewards = await settleDuelVictoryRewards(client, {
@@ -219,7 +206,6 @@ async function attachDuelVictoryRewards(client, guild, outcome, vsBot, dedupeKey
 
 async function buildDuelPayload(client, guild, session, left, right, outcome, notice = "", disabled = false) {
   const attachment = await renderDuelAttachment(client, guild, left, right, outcome, `${session.ownerId}:${session.opponentId}:${Date.now()}`);
-  const content = buildDuelResultContent(left, right, outcome, notice);
   const ownerId = session.ownerId;
   const rows = session.mode === "pvp" && session.phase === "pending"
     ? [
@@ -230,18 +216,38 @@ async function buildDuelPayload(client, guild, session, left, right, outcome, no
         ),
       ]
     : [];
-  return {
-    content,
-    files: attachment.files,
+  return buildImageButtonPayload({
+    files: attachment.files || [],
     components: rows,
-    allowedMentions: { repliedUser: false, users: duelParticipantUserIds(left, right) },
+  });
+}
+
+async function buildDuelClosedPayload(client, guild, session, spellLine) {
+  const left = session.ownerFighter || {
+    userId: session.ownerId,
+    username: session.playerName,
+    displayName: session.playerName,
   };
+  const right = {
+    userId: session.opponentId,
+    username: session.opponentName,
+    displayName: session.opponentName,
+  };
+  const line = canvasStatusLine(spellLine) || String(spellLine || "").trim();
+  const outcome = { spellLine: line || "Sfida conclusa", winnerSide: "draw" };
+  const attachment = await renderDuelAttachment(client, guild, left, right, outcome, `closed:${session.ownerId}:${Date.now()}`);
+  return buildImageButtonPayload({ files: attachment.files || [], components: [] });
 }
 
 async function buildInvitePayload(client, guild, session, ownerFighter, notice) {
-  const lines = [`${fighterMention(ownerFighter)} vs ${fighterMention({ userId: session.opponentId, username: session.opponentName })}`];
-  const extra = plainNoticeLine(notice);
-  if (extra) lines.push(extra);
+  const opponentStub = {
+    userId: session.opponentId,
+    username: session.opponentName,
+    displayName: session.opponentName,
+  };
+  const inviteLine = canvasStatusLine(notice) || `${trimName(ownerFighter.displayName || ownerFighter.username)} vs ${trimName(session.opponentName)} — accetta o rifiuta`;
+  const outcome = { spellLine: inviteLine, winnerSide: "draw" };
+  const attachment = await renderDuelAttachment(client, guild, ownerFighter, opponentStub, outcome, `invite:${session.ownerId}:${session.opponentId}`);
   const rows = session.mode === "pvp"
     ? [
         new ActionRowBuilder().addComponents(
@@ -251,18 +257,16 @@ async function buildInvitePayload(client, guild, session, ownerFighter, notice) 
         ),
       ]
     : [];
-  const users = duelParticipantUserIds(ownerFighter, { userId: session.opponentId });
-  return {
-    content: lines.join("\n"),
+  return buildImageButtonPayload({
+    files: attachment.files || [],
     components: rows,
-    files: [],
-    allowedMentions: { repliedUser: false, users },
-  };
+  });
 }
 
 async function runBotDuel(client, message, ownerFighter, messageSeed) {
   const voldemort = getVoldemortFighter();
-  let outcome = resolveDuelOutcome(ownerFighter, voldemort, messageSeed);
+  const duelCfg = resolveDuelRewards(client);
+  let outcome = resolveBotDuelOutcome(ownerFighter, voldemort, messageSeed, duelCfg.vsBot);
   const youWon = !outcome.draw && outcome.winnerId === String(ownerFighter.userId);
   if (youWon) {
     outcome = await attachDuelVictoryRewards(client, message.guild, outcome, true, message.id);
@@ -277,12 +281,7 @@ async function runBotDuel(client, message, ownerFighter, messageSeed) {
   session.opponentFighter = voldemort;
   session.lastOutcome = outcome;
   session.phase = "done";
-  const notice = outcome.draw
-    ? "🤝 Hai combattuto alla pari con **Voldemort**."
-    : youWon
-      ? "<a:VC_Verified:1482532479637127188> Hai sconfitto **Voldemort**!"
-      : "<a:VC_Cross:1482532424570376253> **Voldemort** ti ha sopraffatto…";
-  return buildDuelPayload(client, message.guild, session, ownerFighter, voldemort, outcome, notice, true);
+  return buildDuelPayload(client, message.guild, session, ownerFighter, voldemort, outcome, "", true);
 }
 
 async function runPvpDuel(client, guild, session, messageSeed) {
@@ -297,16 +296,16 @@ async function runPvpDuel(client, guild, session, messageSeed) {
 
 function schedulePvpInviteExpiry(message, session) {
   const messageId = String(message?.id || "");
-  if (!message?.edit || !messageId) return;
+  const client = message?.client;
+  const guild = message?.guild;
+  if (!message?.edit || !messageId || !client || !guild) return;
   setTimeout(() => {
     const live = getSession(messageId);
     if (!live || live.mode !== "pvp" || live.phase !== "pending") return;
     deleteSession(messageId);
-    message.edit({
-      content: "<a:VC_pixeltime:1482535344103620771> Sfida duello scaduta: nessuna risposta.",
-      components: [],
-      files: [],
-    }).catch(() => {});
+    buildDuelClosedPayload(client, guild, live, "Sfida scaduta: nessuna risposta")
+      .then((payload) => message.edit(payload).catch(() => {}))
+      .catch(() => {});
   }, PVP_INVITE_TTL_MS);
 }
 
@@ -347,32 +346,20 @@ async function acceptPvpChallenge(client, interaction, session) {
   return { ok: true, payload };
 }
 
-async function declinePvpChallenge(interaction, session) {
+async function declinePvpChallenge(client, interaction, session) {
   if (String(interaction.user?.id || "") !== session.opponentId) return { ok: false, message: "Solo l'avversario può rifiutare." };
   if (session.phase !== "pending") return { ok: false, message: "Sfida non più valida." };
   deleteSession(interaction.message.id);
-  return {
-    ok: true,
-    payload: {
-      content: `<a:VC_Cross:1482532424570376253> **${session.opponentName}** ha rifiutato il duello.`,
-      components: [],
-      files: [],
-    },
-  };
+  const payload = await buildDuelClosedPayload(client, interaction.guild, session, `${session.opponentName} ha rifiutato il duello`);
+  return { ok: true, payload };
 }
 
-async function cancelPvpChallenge(interaction, session) {
+async function cancelPvpChallenge(client, interaction, session) {
   if (String(interaction.user?.id || "") !== session.ownerId) return { ok: false, message: "Solo chi ha lanciato la sfida può annullarla." };
   if (session.phase !== "pending") return { ok: false, message: "Non puoi annullare ora." };
   deleteSession(interaction.message.id);
-  return {
-    ok: true,
-    payload: {
-      content: "🚫 Sfida duello annullata.",
-      components: [],
-      files: [],
-    },
-  };
+  const payload = await buildDuelClosedPayload(client, interaction.guild, session, "Sfida duello annullata");
+  return { ok: true, payload };
 }
 
 function warmupDuelPanel() {

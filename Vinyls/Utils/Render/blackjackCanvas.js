@@ -99,11 +99,44 @@ function drawCard(ctx, x, y, card, hidden = false) {
   const suit = String(card?.suit || "spades");
   const ink = cardInkColor(suit);
   const sym = SUIT_SYMBOL[suit] || "♠";
-  const rankSize = rank.length > 1 ? 26 : 32;
-  drawPlainText(ctx, rank, x + w / 2, y + 30, { size: rankSize, color: ink, weight: "900" });
-  drawPlainText(ctx, sym, x + w / 2, y + 64, { size: 28, color: ink, weight: "700" });
-  drawPlainText(ctx, rank, x + 14, y + 18, { size: 14, color: ink, weight: "800", align: "left", baseline: "top" });
-  drawPlainText(ctx, sym, x + w - 14, y + h - 16, { size: 14, color: ink, weight: "800", align: "right", baseline: "bottom" });
+  const wideRank = rank.length > 1;
+  const pad = 9;
+  const cornerRankSize = wideRank ? 11 : 13;
+  const cornerSuitSize = wideRank ? 12 : 13;
+  const centerRankSize = wideRank ? 22 : 30;
+  const centerSuitSize = wideRank ? 24 : 28;
+  const centerRankY = y + (wideRank ? 46 : 28);
+  const centerSuitY = y + (wideRank ? 70 : 62);
+  drawPlainText(ctx, rank, x + pad, y + pad, {
+    size: cornerRankSize,
+    color: ink,
+    weight: "800",
+    align: "left",
+    baseline: "top",
+  });
+  drawPlainText(ctx, sym, x + pad, y + pad + cornerRankSize + 1, {
+    size: cornerSuitSize,
+    color: ink,
+    weight: "700",
+    align: "left",
+    baseline: "top",
+  });
+  drawPlainText(ctx, rank, x + w / 2, centerRankY, { size: centerRankSize, color: ink, weight: "900" });
+  drawPlainText(ctx, sym, x + w / 2, centerSuitY, { size: centerSuitSize, color: ink, weight: "700" });
+  drawPlainText(ctx, sym, x + w - pad, y + h - pad, {
+    size: cornerSuitSize,
+    color: ink,
+    weight: "700",
+    align: "right",
+    baseline: "bottom",
+  });
+  drawPlainText(ctx, rank, x + w - pad, y + h - pad - cornerSuitSize - 2, {
+    size: cornerRankSize,
+    color: ink,
+    weight: "800",
+    align: "right",
+    baseline: "bottom",
+  });
 }
 
 function drawHandRow(ctx, cards, startX, y, hideSecond) {

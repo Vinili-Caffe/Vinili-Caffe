@@ -1,7 +1,7 @@
 const SHOP_CATEGORIES = Object.freeze({ WAND: "wand", BROOM: "broom", PET: "pet" });
 const SHOP_CATEGORY_LABELS = Object.freeze({ [SHOP_CATEGORIES.WAND]: "Bacchette", [SHOP_CATEGORIES.BROOM]: "Scope", [SHOP_CATEGORIES.PET]: "Animali" });
 const SHOP_CATEGORY_BOOST_HINTS = Object.freeze({
-  [SHOP_CATEGORIES.WAND]: "Boost duello : più probabilità di vincere.",
+  [SHOP_CATEGORIES.WAND]: "Boost duello: più chance di vincere i duelli.",
   [SHOP_CATEGORIES.BROOM]: "Boost economia: più chance di furto riuscito.",
   [SHOP_CATEGORIES.PET]: "Boost minigiochi: moltiplica i punti casa nei minigame.",
 });

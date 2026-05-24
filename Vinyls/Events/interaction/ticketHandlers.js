@@ -437,6 +437,10 @@ async function handleTicketInteraction(interaction) {
             await refreshTicketOpenPanelSelect();
             return true;
           }
+          try {
+            const { scheduleDiscordAutomodRulesResync } = require("../../Services/Moderation/discordAutomodRulesService");
+            scheduleDiscordAutomodRulesResync(interaction.client);
+          } catch (_) {}
           const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId("close_ticket").setEmoji(`<:VC_Lock:1482526739044368476>`).setLabel("Chiudi").setStyle(ButtonStyle.Danger), new ButtonBuilder().setCustomId("close_ticket_motivo").setEmoji(`<:VC_reason:1478517122929004544>`).setLabel("Chiudi Con Motivo").setStyle(ButtonStyle.Danger), new ButtonBuilder().setCustomId("claim_ticket").setEmoji(`<:VC_claim:1478517202016669887>`).setLabel("Claim").setStyle(ButtonStyle.Success),);
           const mainMsg = await channel.send({ embeds: [config.embed], components: [row] }).catch((err) => { global.logger.error(err); return null; });
           if (mainMsg) {

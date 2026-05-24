@@ -39,7 +39,9 @@ const MAX_UNVERIFIED_ROLE_DIFF = 4;
 const ROLE_UPDATE_LOG_DEDUPE = new Map();
 const ROLE_UPDATE_LOG_DEDUPE_TTL_MS = 5_000;
 const PERK_ROLE_ID = IDs.roles.PicPerms;
-const BOOST_FOLLOWUP_DELAY_MS = 7000;
+const BOOST_NATIVE_WAIT_INITIAL_MS = 500;
+const BOOST_NATIVE_WAIT_POLL_MS = 800;
+const BOOST_NATIVE_WAIT_MAX_MS = 25000;
 const CUSTOM_ROLE_VOC_ELIGIBLE_ROLE_IDS = [IDs.roles.VIP, IDs.roles.DoubleBooster, IDs.roles.Level50, IDs.roles.Level70, IDs.roles.Donator, IDs.roles.vip, IDs.roles.VIPplus].filter(Boolean);
 const STAFF_HISTORY_ROLES = [IDs.roles.PartnerManager, IDs.roles.Staff, IDs.roles.Helper, IDs.roles.Mod, IDs.roles.SeniorModerator, IDs.roles.HighStaff, IDs.roles.Director, IDs.roles.Admin, IDs.roles.Founder,];
 const PLUS_COLOR_ROLE_IDS = [IDs.roles.redPlus, IDs.roles.orangePlus, IDs.roles.yellowPlus, IDs.roles.greenPlus, IDs.roles.bluePlus, IDs.roles.purplePlus, IDs.roles.pinkPlus, IDs.roles.blackPlus, IDs.roles.grayPlus, IDs.roles.whitePlus, IDs.roles.orangeBlackPlus, IDs.roles.greenBlackPlus, IDs.roles.aquaBlackPlus,];
@@ -47,6 +49,127 @@ const boostCountCache = new Map();
 const boostAnnounceCache = new Map();
 const boostFollowupLocks = new Map();
 const boostAnnounceSendLocks = new Set();
+const boostAnnounceHandledUntil = new Map();
+const nativeBoostSeenByKey = new Map();
+const BOOST_ANNOUNCE_HANDLED_TTL_MS = 3 * 60 * 1000;
+const NATIVE_BOOST_SEEN_TTL_MS = 15 * 60 * 1000;
+
+function noteNativeBoostSeen(guildId, userId, slotCount = 1) {
+  const gid = String(guildId || "").trim();
+  const uid = String(userId || "").trim();
+  if (!gid || !uid) return;
+  const key = `${gid}:${uid}`;
+  const at = Date.now();
+  const slots = Math.max(1, Number(slotCount || 1));
+  const prev = nativeBoostSeenByKey.get(key);
+  if (prev && at - Number(prev.at || 0) < 5000) {
+    nativeBoostSeenByKey.set(key, { at, slots: Math.max(Number(prev.slots || 1), slots) });
+  } else {
+    nativeBoostSeenByKey.set(key, { at, slots });
+  }
+}
+
+function nativeBoostSeenSince(guildId, userId, sinceMs) {
+  const row = nativeBoostSeenByKey.get(`${String(guildId || "")}:${String(userId || "")}`);
+  if (!row) return 0;
+  const at = Number(row.at || 0);
+  const minTs = Math.max(0, Number(sinceMs || 0) - 2000);
+  if (!at || at < minTs) return 0;
+  if (Date.now() - at > NATIVE_BOOST_SEEN_TTL_MS) {
+    nativeBoostSeenByKey.delete(`${String(guildId || "")}:${String(userId || "")}`);
+    return 0;
+  }
+  return Math.max(1, Number(row.slots || 1));
+}
+
+function resolveNativeBoostMessageUserId(message) {
+  if (!message || parseNativeBoostSlotCount(message) <= 0) return "";
+  const authorId = String(message.author?.id || "").trim();
+  if (authorId && !message.author?.bot) return authorId;
+  const memberId = String(message.member?.id || "").trim();
+  if (memberId) return memberId;
+  const users = message.mentions?.users;
+  if (users?.size) {
+    const first = users.first?.() || users.values?.()?.next?.()?.value;
+    if (first?.id) return String(first.id);
+  }
+  const text = String(message.content || "").trim();
+  const mentionMatch = text.match(/<@!?(\d{17,20})>/);
+  if (mentionMatch) return mentionMatch[1];
+  return "";
+}
+
+function handleNativeBoostSystemMessage(message) {
+  const guildId = String(message?.guild?.id || "").trim();
+  const mainId = String(IDs.guilds?.main || "").trim();
+  if (!guildId || !mainId || guildId !== mainId) return null;
+  const userId = resolveNativeBoostMessageUserId(message);
+  if (!userId) return null;
+  const slots = parseNativeBoostSlotCount(message);
+  noteNativeBoostSeen(guildId, userId, slots);
+  return { guildId, userId, slots };
+}
+
+function markBoostAnnounceHandled(boostKey) {
+  if (!boostKey) return;
+  boostAnnounceHandledUntil.set(String(boostKey), Date.now() + BOOST_ANNOUNCE_HANDLED_TTL_MS);
+}
+
+function isBoostAnnounceHandled(boostKey) {
+  const until = Number(boostAnnounceHandledUntil.get(String(boostKey || "")) || 0);
+  if (!until) return false;
+  if (Date.now() > until) {
+    boostAnnounceHandledUntil.delete(String(boostKey));
+    return false;
+  }
+  return true;
+}
+
+function boostAnnounceLooksLikeBoost(text) {
+  return (
+    /grazie\s+.*\s+per\s+il\s+boost/i.test(text) ||
+    /per\s+il\s+doppio\s+boost/i.test(text) ||
+    /per\s+il\s+boost/i.test(text) ||
+    /ora\s+siamo\s+a\s+\d+\s+boost/i.test(text)
+  );
+}
+
+async function countRecentBotBoostAnnouncesForUser(channel, userId, opts = {}) {
+  const uid = String(userId || "");
+  if (!channel?.messages?.fetch || !uid) return 0;
+  const botId = String(opts.botId || channel.client?.user?.id || "");
+  const lookbackMs = Math.max(60_000, Number(opts.lookbackMs || 10 * 60 * 1000));
+  const sinceMs = Number.isFinite(Number(opts.sinceMs))
+    ? Math.max(0, Number(opts.sinceMs))
+    : Date.now() - lookbackMs;
+  const limit = Math.max(20, Math.min(100, Number(opts.limit || 80)));
+  const recent = await channel.messages.fetch({ limit }).catch(() => null);
+  if (!recent) return 0;
+  let count = 0;
+  for (const message of recent.values()) {
+    const ts = Number(message?.createdTimestamp || 0);
+    if (!ts || ts < sinceMs) continue;
+    if (botId && String(message?.author?.id || "") !== botId) continue;
+    if (!botId && !message?.author?.bot) continue;
+    const embeds = Array.isArray(message.embeds) ? message.embeds : [];
+    const embedTexts = embeds.map((embed) =>
+      [embed?.title || "", embed?.description || "", embed?.footer?.text || ""].join("\n"),
+    );
+    const text = [message.content || "", ...embedTexts].join("\n");
+    if (!text.includes(`<@${uid}>`) && !text.includes(uid)) continue;
+    if (!boostAnnounceLooksLikeBoost(text)) continue;
+    count += 1;
+  }
+  return count;
+}
+
+async function resolveEffectiveAnnouncedBoostSlots(guildId, userId, channel, opts = {}) {
+  await ensureBoostSlotsSynced(guildId, userId).catch(() => null);
+  const tracked = getAnnouncedBoostSlots(guildId, userId);
+  if (!channel) return tracked;
+  const channelCount = await countRecentBotBoostAnnouncesForUser(channel, userId, opts).catch(() => 0);
+  return Math.max(tracked, Math.max(0, Number(channelCount || 0)));
+}
 
 function highestTrackedStaffRole(member) {
   if (!member?.roles?.cache) return "";
@@ -56,12 +179,30 @@ function highestTrackedStaffRole(member) {
   return "";
 }
 
+function listStaffRolesAdded(oldMember, newMember) {
+  const added = [];
+  for (const roleId of STAFF_HISTORY_ROLES) {
+    const id = String(roleId || "").trim();
+    if (!id) continue;
+    if (newMember?.roles?.cache?.has?.(id) && !oldMember?.roles?.cache?.has?.(id)) {
+      added.push(id);
+    }
+  }
+  const { STAFF_LIST_SECTION_ROLE_IDS } = require("../Utils/Community/staffListUtils");
+  const listSet = new Set(STAFF_LIST_SECTION_ROLE_IDS.map(String));
+  return added.sort((a, b) => {
+    const aListed = listSet.has(a) ? 0 : 1;
+    const bListed = listSet.has(b) ? 0 : 1;
+    return aListed - bListed;
+  });
+}
+
 async function recordManualStaffRoleHistoryIfNeeded(oldMember, newMember) {
   const guildId = String(newMember?.guild?.id || "").trim();
   if (!guildId || guildId !== String(IDs.guilds?.main || "")) return;
   if (newMember?.user?.bot) return;
-  const addedRoleId = highestTrackedStaffRole(newMember);
-  if (!addedRoleId || oldMember?.roles?.cache?.has?.(addedRoleId)) return;
+  const addedRoleIds = listStaffRolesAdded(oldMember, newMember);
+  if (!addedRoleIds.length) return;
 
   const beforeRoleId = highestTrackedStaffRole(oldMember) || String(IDs.roles?.Member || "").trim();
   const now = new Date();
@@ -74,20 +215,24 @@ async function recordManualStaffRoleHistoryIfNeeded(oldMember, newMember) {
   if (!profileDoc || !staff) return;
   if (!Array.isArray(staff.rolesHistory)) staff.rolesHistory = [];
 
-  const hasRecentSameRole = staff.rolesHistory.some((row) => {
-    if (String(row?.newRole || "") !== String(addedRoleId)) return false;
-    const when = row?.date ? new Date(row.date) : null;
-    if (!when || Number.isNaN(when.getTime())) return false;
-    return Math.abs(now.getTime() - when.getTime()) <= 5 * 60 * 1000;
-  });
-  if (hasRecentSameRole) return;
-
-  staff.rolesHistory.push({
-    oldRole: beforeRoleId,
-    newRole: addedRoleId,
-    reason: "Ruolo staff aggiunto manualmente.",
-    date: now,
-  });
+  let changed = false;
+  for (const addedRoleId of addedRoleIds) {
+    const hasRecentSameRole = staff.rolesHistory.some((row) => {
+      if (String(row?.newRole || "") !== String(addedRoleId)) return false;
+      const when = row?.date ? new Date(row.date) : null;
+      if (!when || Number.isNaN(when.getTime())) return false;
+      return Math.abs(now.getTime() - when.getTime()) <= 5 * 60 * 1000;
+    });
+    if (hasRecentSameRole) continue;
+    staff.rolesHistory.push({
+      oldRole: beforeRoleId,
+      newRole: addedRoleId,
+      reason: "Ruolo staff aggiunto manualmente.",
+      date: now,
+    });
+    changed = true;
+  }
+  if (!changed) return;
   profileDoc.markModified("staff");
   await profileDoc.save().catch((err) => {
     global.logger?.warn?.("[guildMemberUpdate] manual staff rolesHistory save:", newMember.id, err?.message || err);
@@ -825,6 +970,9 @@ async function resolveBoostNativeScanChannelsAsync(guild, primaryChannel) {
     if (!ch) ch = await guild.channels.fetch(sid).catch(() => null);
     push(ch);
   }
+  for (const ch of guild.channels.cache.values()) {
+    push(ch);
+  }
   return list;
 }
 
@@ -837,7 +985,8 @@ async function detectRecentNativeBoostEventsForUser(guild, primaryChannel, userI
     const recent = await channel.messages.fetch({ limit: 80 }).catch(() => null);
     if (!recent) continue;
     for (const m of recent.values()) {
-      if (!m?.author?.id || String(m.author.id) !== String(userId)) continue;
+      const messageUserId = resolveNativeBoostMessageUserId(m);
+      if (!messageUserId || String(messageUserId) !== String(userId)) continue;
       const ts = Number(m.createdTimestamp || 0);
       if (!ts || ts < minTs) continue;
       const slotCount = parseNativeBoostSlotCount(m);
@@ -847,43 +996,161 @@ async function detectRecentNativeBoostEventsForUser(guild, primaryChannel, userI
   return [...matchedSlotsById.values()].reduce((sum, n) => sum + Math.max(1, Number(n || 1)), 0);
 }
 
-function scheduleBoostFollowup(boostAnnounceChannel, newMember, guildId, boostKey) {
-  if (boostFollowupLocks.get(boostKey)) return;
-
-  boostFollowupLocks.set(boostKey, true);
-  const boostFollowupTimer = setTimeout(async () => {
-    try {
-      const freshGuild = await newMember.guild.fetch().catch(() => null);
-      const latestCount = Number(
-        freshGuild?.premiumSubscriptionCount ?? newMember.guild.premiumSubscriptionCount ?? 0,
-      );
-      boostCountCache.set(guildId, latestCount);
-
-      const nativeBoostEvents = await detectRecentNativeBoostEventsForUser(
-        newMember.guild,
-        boostAnnounceChannel,
-        newMember.id,
-      );
-      if (nativeBoostEvents > 0) {
-        await ensureBoostSlotsSynced(guildId, newMember.id);
-        const announcedSlots = getAnnouncedBoostSlots(guildId, newMember.id);
-        const extraMissing = Math.max(0, nativeBoostEvents - announcedSlots);
-        if (extraMissing > 0) {
-          const freshMember =
-            (await getGuildMemberCached(newMember.guild, newMember.id, { preferFresh: true }).catch(() => null)) ||
-            newMember;
-          await sendBoostEmbeds(boostAnnounceChannel, freshMember, extraMissing, latestCount, announcedSlots);
-          await trackBoostSlotsAnnouncedAndMaybeGrantDoubleBooster(freshMember, guildId, extraMissing);
-          rememberBoostAnnounce(boostKey, latestCount, freshMember.premiumSinceTimestamp);
-        }
-      }
-    } catch {
-      global.logger?.error?.("[guildMemberUpdate] boost followup failed");
-    } finally {
-      boostFollowupLocks.delete(boostKey);
+async function countNativeBoostEventsSince(guild, primaryChannel, userId, sinceMs) {
+  if (!primaryChannel?.isTextBased?.() || !userId) return 0;
+  const channels = await resolveBoostNativeScanChannelsAsync(guild, primaryChannel);
+  const minTs = Math.max(0, Number(sinceMs || 0) - 2000);
+  let total = 0;
+  for (const channel of channels) {
+    const recent = await channel.messages.fetch({ limit: 40 }).catch(() => null);
+    if (!recent) continue;
+    for (const m of recent.values()) {
+      const messageUserId = resolveNativeBoostMessageUserId(m);
+      if (!messageUserId || String(messageUserId) !== String(userId)) continue;
+      const ts = Number(m.createdTimestamp || 0);
+      if (!ts || ts < minTs) continue;
+      const slotCount = parseNativeBoostSlotCount(m);
+      if (slotCount > 0) total += slotCount;
     }
-  }, BOOST_FOLLOWUP_DELAY_MS);
-  boostFollowupTimer.unref?.();
+  }
+  return total;
+}
+
+async function resolveNativeBoostSignalsSince(guild, primaryChannel, userId, sinceMs, opts = {}) {
+  const seen = nativeBoostSeenSince(guild?.id, userId, sinceMs);
+  if (seen > 0) return seen;
+  if (opts.allowChannelScan !== true) return 0;
+  return countNativeBoostEventsSince(guild, primaryChannel, userId, sinceMs);
+}
+
+async function announceBoostEmbedsAfterNativeWait({
+  boostAnnounceChannel,
+  member,
+  guildId,
+  boostKey,
+  expectedSlots = 1,
+  currentCount = 0,
+  premiumSinceTs = 0,
+  startedAt = Date.now(),
+}) {
+  if (isBoostAnnounceHandled(boostKey)) return true;
+
+  const expectedNew = Math.max(1, Number(expectedSlots || 1));
+  const announcedAtStart = await resolveEffectiveAnnouncedBoostSlots(
+    guildId,
+    member.id,
+    boostAnnounceChannel,
+    { sinceMs: startedAt - 5000 },
+  ).catch(() => getAnnouncedBoostSlots(guildId, member.id));
+  const lookbackMs = Math.max(120_000, Date.now() - startedAt + 60_000);
+  const allowChannelScan = Date.now() - startedAt >= BOOST_NATIVE_WAIT_MAX_MS;
+  const nativeSinceStart = await resolveNativeBoostSignalsSince(
+    member.guild,
+    boostAnnounceChannel,
+    member.id,
+    startedAt,
+    { allowChannelScan },
+  );
+  const tryRecover = async () =>
+    recoverMissingBoostEmbedsForUser(member.guild, member.id, {
+      nativeLookbackMs: lookbackMs,
+      startedAt,
+    }).catch(() => ({ ok: false, sent: 0 }));
+
+  if (nativeSinceStart >= expectedNew) {
+    const recovered = await tryRecover();
+    if (Math.max(0, Number(recovered?.sent || 0)) > 0) return true;
+    const announcedNow = await resolveEffectiveAnnouncedBoostSlots(
+      guildId,
+      member.id,
+      boostAnnounceChannel,
+      { sinceMs: startedAt - 5000 },
+    ).catch(() => getAnnouncedBoostSlots(guildId, member.id));
+    if (announcedNow >= announcedAtStart + expectedNew) {
+      markBoostAnnounceHandled(boostKey);
+      return true;
+    }
+  }
+
+  if (Date.now() - startedAt < BOOST_NATIVE_WAIT_MAX_MS) return false;
+
+  const recovered = await tryRecover();
+  if (Math.max(0, Number(recovered?.sent || 0)) > 0) return true;
+
+  const announcedNow = await resolveEffectiveAnnouncedBoostSlots(
+    guildId,
+    member.id,
+    boostAnnounceChannel,
+    { sinceMs: startedAt - 5000 },
+  ).catch(() => getAnnouncedBoostSlots(guildId, member.id));
+  const channelSinceStart = await countRecentBotBoostAnnouncesForUser(
+    boostAnnounceChannel,
+    member.id,
+    { sinceMs: startedAt - 5000 },
+  ).catch(() => 0);
+  const effectiveAnnounced = Math.max(announcedNow, channelSinceStart);
+  const stillMissing = Math.max(0, announcedAtStart + expectedNew - effectiveAnnounced);
+  if (stillMissing <= 0 || channelSinceStart >= expectedNew) {
+    markBoostAnnounceHandled(boostKey);
+    return true;
+  }
+
+  markBoostAnnounceHandled(boostKey);
+  global.logger?.debug?.(
+    "[guildMemberUpdate] boost native wait scaduto senza messaggio nativo rilevato:",
+    member.id,
+  );
+  return true;
+}
+
+function scheduleBoostAnnounceAfterNative(boostAnnounceChannel, member, guildId, boostKey, opts = {}) {
+  if (boostFollowupLocks.get(boostKey)) return;
+  boostFollowupLocks.set(boostKey, true);
+  const startedAt = Date.now();
+  const expectedSlots = Math.max(1, Number(opts.expectedSlots || 1));
+  const currentCount = Number(opts.currentCount || 0);
+  const premiumSinceTs = Number(opts.premiumSinceTs || member.premiumSinceTimestamp || 0);
+
+  const release = () => {
+    boostFollowupLocks.delete(boostKey);
+  };
+
+  const poll = async () => {
+    try {
+      if (isBoostAnnounceHandled(boostKey)) {
+        release();
+        return;
+      }
+      const done = await announceBoostEmbedsAfterNativeWait({
+        boostAnnounceChannel,
+        member,
+        guildId,
+        boostKey,
+        expectedSlots,
+        currentCount,
+        premiumSinceTs,
+        startedAt,
+      });
+      if (done) {
+        release();
+        return;
+      }
+      if (Date.now() - startedAt >= BOOST_NATIVE_WAIT_MAX_MS) {
+        release();
+        return;
+      }
+      setTimeout(poll, BOOST_NATIVE_WAIT_POLL_MS).unref?.();
+    } catch (err) {
+      global.logger?.warn?.("[guildMemberUpdate] boost native wait failed:", member?.id, err?.message || err);
+      release();
+    }
+  };
+
+  setTimeout(poll, BOOST_NATIVE_WAIT_INITIAL_MS).unref?.();
+}
+
+function scheduleBoostFollowup(boostAnnounceChannel, newMember, guildId, boostKey, opts = {}) {
+  scheduleBoostAnnounceAfterNative(boostAnnounceChannel, newMember, guildId, boostKey, opts);
 }
 
 async function handleBoostUpdate(oldMember, newMember) {
@@ -944,7 +1211,7 @@ async function handleBoostUpdate(oldMember, newMember) {
   if (!shouldAnnounce) {
     boostCountCache.set(guildId, currentCount);
     if (newBoostTs > 0 || boosterRoleAdded) {
-      scheduleBoostFollowup(boostAnnounceChannel, newMember, guildId, boostKey);
+      scheduleBoostFollowup(boostAnnounceChannel, newMember, guildId, boostKey, { expectedSlots: 1, currentCount, premiumSinceTs: newBoostTs });
     }
     return;
   }
@@ -958,28 +1225,23 @@ async function handleBoostUpdate(oldMember, newMember) {
     boostCountCache.set(guildId, currentCount);
     return;
   }
-  boostAnnounceSendLocks.add(boostKey);
-  try {
-    await addPerkRoleIfPossible(newMember);
-    const sendTimes = startedBoostingNow ? Math.max(1, boostDelta) : (countIncreased ? boostDelta : 1);
-    const priorSlots = getAnnouncedBoostSlots(guildId, newMember.id);
-    await sendBoostEmbeds(boostAnnounceChannel, newMember, sendTimes, currentCount, priorSlots);
-    await trackBoostSlotsAnnouncedAndMaybeGrantDoubleBooster(newMember, guildId, sendTimes);
-    rememberBoostAnnounce(boostKey, currentCount, newBoostTs);
 
-    if (!startedBoostingNow) {
-      scheduleBoostFollowup(boostAnnounceChannel, newMember, guildId, boostKey);
-    }
-    boostCountCache.set(guildId, currentCount);
-  } finally {
-    boostAnnounceSendLocks.delete(boostKey);
-  }
+  boostCountCache.set(guildId, currentCount);
+  await addPerkRoleIfPossible(newMember);
+  const expectedSlots = startedBoostingNow ? Math.max(1, boostDelta) : (countIncreased ? boostDelta : 1);
+  scheduleBoostFollowup(boostAnnounceChannel, newMember, guildId, boostKey, {
+    expectedSlots,
+    currentCount,
+    premiumSinceTs: newBoostTs,
+  });
 }
 
 async function recoverMissingBoostEmbedsForUser(guild, userId, opts = {}) {
   const gid = String(guild?.id || "");
   const uid = String(userId || "");
   if (!gid || !uid) return { ok: false, reason: "invalid_input" };
+  const boostKey = `${gid}:${uid}`;
+  if (isBoostAnnounceHandled(boostKey)) return { ok: true, sent: 0, reason: "already_handled" };
   const boostChannelId = IDs.channels.supporters;
   if (!boostChannelId) return { ok: false, reason: "no_boost_channel" };
   const boostAnnounceChannel =
@@ -1003,25 +1265,45 @@ async function recoverMissingBoostEmbedsForUser(guild, userId, opts = {}) {
     60_000,
     Math.min(14 * 24 * 60 * 60 * 1000, Number(opts.nativeLookbackMs ?? 10 * 60 * 1000)),
   );
-  const nativeBoostEvents = await detectRecentNativeBoostEventsForUser(
+  const sinceMs = Number.isFinite(Number(opts.startedAt))
+    ? Math.max(0, Number(opts.startedAt) - 5000)
+    : Date.now() - nativeLookbackMs;
+  const knownNative = Math.max(0, Number(opts.knownNativeSlots || 0));
+  const seenNative = nativeBoostSeenSince(gid, uid, sinceMs);
+  const scannedNative = await detectRecentNativeBoostEventsForUser(
     guild,
     boostAnnounceChannel,
     uid,
     nativeLookbackMs,
-  );
+  ).catch(() => 0);
+  const nativeBoostEvents = Math.max(knownNative, seenNative, scannedNative);
   if (nativeBoostEvents <= 0) return { ok: true, sent: 0 };
-  const boostKey = `${gid}:${uid}`;
   if (boostAnnounceSendLocks.has(boostKey)) return { ok: true, sent: 0, reason: "send_in_progress" };
   boostAnnounceSendLocks.add(boostKey);
   try {
-    await ensureBoostSlotsSynced(gid, uid).catch(() => null);
-    const announcedSlots = getAnnouncedBoostSlots(gid, uid);
+    const announcedSlots = await resolveEffectiveAnnouncedBoostSlots(gid, uid, boostAnnounceChannel, {
+      sinceMs,
+      lookbackMs: nativeLookbackMs,
+    }).catch(() => getAnnouncedBoostSlots(gid, uid));
     const extraMissing = Math.max(0, nativeBoostEvents - announcedSlots);
-    if (extraMissing <= 0) return { ok: true, sent: 0 };
+    if (extraMissing <= 0) {
+      markBoostAnnounceHandled(boostKey);
+      return { ok: true, sent: 0 };
+    }
+    const channelSinceStart = await countRecentBotBoostAnnouncesForUser(
+      boostAnnounceChannel,
+      uid,
+      { sinceMs },
+    ).catch(() => 0);
+    if (channelSinceStart >= extraMissing) {
+      markBoostAnnounceHandled(boostKey);
+      return { ok: true, sent: 0, reason: "already_in_channel" };
+    }
     await addPerkRoleIfPossible(member).catch(() => { });
     await sendBoostEmbeds(boostAnnounceChannel, member, extraMissing, latestCount, announcedSlots);
     await trackBoostSlotsAnnouncedAndMaybeGrantDoubleBooster(member, gid, extraMissing);
     rememberBoostAnnounce(boostKey, latestCount, member.premiumSinceTimestamp);
+    markBoostAnnounceHandled(boostKey);
     return { ok: true, sent: extraMissing };
   } finally {
     boostAnnounceSendLocks.delete(boostKey);
@@ -1057,8 +1339,8 @@ async function recoverLastGlobalNativeBoostEmbedsOnStartup(client, opts = {}) {
     for (const m of recent.values()) {
       const ts = Number(m.createdTimestamp || 0);
       if (!ts || ts < minTs) continue;
-      if (!m.author?.id || m.author.bot) continue;
       if (parseNativeBoostSlotCount(m) <= 0) continue;
+      if (!resolveNativeBoostMessageUserId(m)) continue;
       collected.push(m);
     }
   }
@@ -1070,7 +1352,8 @@ async function recoverLastGlobalNativeBoostEmbedsOnStartup(client, opts = {}) {
   const top = unique.slice(0, messageTarget);
   let embedsSent = 0;
   for (const m of top) {
-    const uid = String(m.author.id);
+    const uid = resolveNativeBoostMessageUserId(m);
+    if (!uid) continue;
     const r = await recoverMissingBoostEmbedsForUser(guild, uid, { nativeLookbackMs: lookbackMs }).catch(() => ({
       ok: false,
       sent: 0,
@@ -1175,7 +1458,9 @@ async function recoverRecentBoostEmbedsOnStartup(client, opts = {}) {
       }
       const slotCount = parseNativeBoostSlotCount(m);
       if (slotCount <= 0) continue;
-      fromChannel.push({ targetId: String(m.author.id), createdMs, slotCount });
+      const targetId = resolveNativeBoostMessageUserId(m);
+      if (!targetId) continue;
+      fromChannel.push({ targetId, createdMs, slotCount });
     }
     candidates = fromChannel;
     channelCandidates = candidates.length;
@@ -1223,14 +1508,6 @@ async function recoverRecentBoostEmbedsOnStartup(client, opts = {}) {
   const recentMessages = await boostAnnounceChannel.messages.fetch({ limit: 80 }).catch(() => null);
   const recent = recentMessages ? Array.from(recentMessages.values()) : [];
   const botIdForBoostRecovery = String(client.user?.id || "");
-  function boostAnnounceLooksLikeBoost(text) {
-    return (
-      /grazie\s+per\s+il\s+boost/i.test(text) ||
-      /per\s+il\s+doppio\s+boost/i.test(text) ||
-      /per\s+il\s+boost/i.test(text) ||
-      /ora\s+siamo\s+a\s+\d+\s+boost/i.test(text)
-    );
-  }
   const countAlreadyAnnounced = (userId) => {
     const needle = `<@${String(userId)}>`;
     let n = 0;
@@ -1243,7 +1520,8 @@ async function recoverRecentBoostEmbedsOnStartup(client, opts = {}) {
       );
       const text = [m.content || "", ...embedTexts].join("\n");
       if (!text.includes(needle)) continue;
-      if (boostAnnounceLooksLikeBoost(text)) n += 1;
+      if (!boostAnnounceLooksLikeBoost(text)) continue;
+      n += 1;
     }
     return n;
   };
@@ -1653,6 +1931,7 @@ async function syncCustomRoleEligibilityWindow(newMember) {
 module.exports = {
   name: "guildMemberUpdate",
   channelIdIsBoostNativeRecoveryTarget,
+  handleNativeBoostSystemMessage,
   recoverMissingBoostEmbedsForUser,
   recoverLastGlobalNativeBoostEmbedsOnStartup,
   recoverRecentBoostEmbedsOnStartup,

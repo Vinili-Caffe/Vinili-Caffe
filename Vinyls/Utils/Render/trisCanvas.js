@@ -61,22 +61,49 @@ function drawPlainText(ctx, text, x, y, opts = {}) {
   ctx.restore();
 }
 
-function drawBg(ctx, width, height) {
+const TRIS_WIDTH = 760;
+const TRIS_HEIGHT = 500;
+const TRIS_GAP = 10;
+const TRIS_HEADER_BOTTOM = 92;
+const TRIS_FOOTER_H = 58;
+const TRIS_FOOTER_MARGIN = 18;
+const TRIS_PANEL_PAD = 36;
+
+function trisLayout(width, height) {
+  const boardTop = TRIS_HEADER_BOTTOM + 10;
+  const boardBottom = height - TRIS_FOOTER_H - TRIS_FOOTER_MARGIN;
+  const boardH = boardBottom - boardTop;
+  const boardW = width - TRIS_PANEL_PAD * 2 - 48;
+  const cell = Math.floor(Math.min((boardW - TRIS_GAP * 2) / 3, (boardH - TRIS_GAP * 2) / 3));
+  const gridW = cell * 3 + TRIS_GAP * 2;
+  const gridH = gridW;
+  return {
+    cell,
+    gap: TRIS_GAP,
+    gridX: Math.floor((width - gridW) / 2),
+    gridY: Math.floor(boardTop + (boardH - gridH) / 2),
+    footerY: height - TRIS_FOOTER_H - TRIS_FOOTER_MARGIN,
+    footerH: TRIS_FOOTER_H,
+    panelY: 52,
+    panelH: height - TRIS_FOOTER_MARGIN - 52,
+  };
+}
+
+function drawBg(ctx, width, height, layout) {
   const bg = ctx.createLinearGradient(0, 0, width, height);
   bg.addColorStop(0, "#0f172a");
   bg.addColorStop(0.5, "#1e293b");
   bg.addColorStop(1, "#0b1220");
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, width, height);
-  fillRoundRect(ctx, 36, 56, width - 72, height - 110, 28, "rgba(0,0,0,0.24)");
-  strokeRoundRect(ctx, 36, 56, width - 72, height - 110, 28, "rgba(212,175,55,0.35)", 2);
+  fillRoundRect(ctx, TRIS_PANEL_PAD, layout.panelY, width - TRIS_PANEL_PAD * 2, layout.panelH, 28, "rgba(0,0,0,0.24)");
+  strokeRoundRect(ctx, TRIS_PANEL_PAD, layout.panelY, width - TRIS_PANEL_PAD * 2, layout.panelH, 28, "rgba(212,175,55,0.35)", 2);
 }
 
-function drawBoard(ctx, board, width, height) {
-  const gridX = 150;
-  const gridY = 108;
-  const cell = 150;
-  const gap = 10;
+function drawBoard(ctx, board, layout) {
+  const { cell, gap, gridX, gridY } = layout;
+  const markSize = Math.max(52, Math.floor(cell * 0.58));
+  const numSize = Math.max(18, Math.floor(cell * 0.2));
   for (let row = 0; row < 3; row += 1) {
     for (let col = 0; col < 3; col += 1) {
       const idx = row * 3 + col;
@@ -87,9 +114,9 @@ function drawBoard(ctx, board, width, height) {
       strokeRoundRect(ctx, x, y, cell, cell, 16, mark === PLAYER ? "#38bdf8" : mark === BOT ? "#f87171" : "rgba(148,163,184,0.45)", mark ? 4 : 2);
       if (mark) {
         const color = mark === PLAYER ? "#0369a1" : "#b91c1c";
-        drawPlainText(ctx, cellLabel(mark), x + cell / 2, y + cell / 2, { size: mark === PLAYER ? 88 : 80, color, weight: "900" });
+        drawPlainText(ctx, cellLabel(mark), x + cell / 2, y + cell / 2, { size: markSize, color, weight: "900" });
       } else {
-        drawPlainText(ctx, String(idx + 1), x + cell / 2, y + cell / 2, { size: 28, color: "#64748b", weight: "700" });
+        drawPlainText(ctx, String(idx + 1), x + cell / 2, y + cell / 2, { size: numSize, color: "#64748b", weight: "700" });
       }
     }
   }
@@ -98,8 +125,9 @@ function drawBoard(ctx, board, width, height) {
 function drawArena(ctx, params) {
   const width = params.width;
   const height = params.height;
+  const layout = trisLayout(width, height);
   const board = Array.isArray(params.board) ? params.board : Array(9).fill("");
-  drawBg(ctx, width, height);
+  drawBg(ctx, width, height, layout);
   drawText(ctx, "TRIS", width / 2, 34, { size: 26, color: "#f8d875", weight: "900", forcePrimaryFont: true });
   let subtitle = "Tu = X  ·  Bot = O";
   if (params.isPvp) {
@@ -111,10 +139,16 @@ function drawArena(ctx, params) {
     }
   }
   drawPlainText(ctx, subtitle, width / 2, 78, { size: 14, color: "#94a3b8", weight: "700" });
-  drawBoard(ctx, board, width, height);
+  drawBoard(ctx, board, layout);
   let footer = "Premi **Inizia** per giocare";
   let footerColor = "#e2e8f0";
-  if (params.phase === "playing") {
+  if (params.statusLine) {
+    footer = params.statusLine;
+    footerColor = "#e2e8f0";
+  } else if (params.phase === "pending") {
+    footer = "Accetta o rifiuta la sfida";
+    footerColor = "#f8d875";
+  } else if (params.phase === "playing") {
     footer = "Tocca una casella libera";
     footerColor = "#f8d875";
   } else if (params.phase === "done" && params.resultLabel) {
@@ -122,8 +156,8 @@ function drawArena(ctx, params) {
     footerColor = params.win ? "#4ade80" : params.draw ? "#f8d875" : "#f87171";
   }
   const betLine = params.bet > 0 ? `Puntata: ${formatGaleoni(params.bet)}` : "";
-  const footerH = betLine ? 56 : 36;
-  const footerY = height - footerH - 14;
+  const footerH = layout.footerH;
+  const footerY = layout.footerY;
   fillRoundRect(ctx, 48, footerY, width - 96, footerH, 16, "rgba(0,0,0,0.45)");
   const footerMid = footerY + footerH / 2;
   if (betLine) {
@@ -137,8 +171,8 @@ function drawArena(ctx, params) {
 async function renderTrisCanvas(params = {}) {
   if (!canvasModule) throw new Error("Canvas module not available");
   ensureFonts();
-  const width = 760;
-  const height = 420;
+  const width = TRIS_WIDTH;
+  const height = TRIS_HEIGHT;
   const canvas = createCanvas(width, height);
   const ctx = canvas.getContext("2d");
   drawArena(ctx, {
@@ -154,6 +188,7 @@ async function renderTrisCanvas(params = {}) {
     playerName: String(params.playerName || ""),
     opponentName: String(params.opponentName || ""),
     turnName: String(params.turnName || ""),
+    statusLine: String(params.statusLine || "").trim(),
   });
   return { buffer: canvas.toBuffer("image/png"), format: "png" };
 }

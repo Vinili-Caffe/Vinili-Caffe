@@ -543,7 +543,7 @@
       "failPenalty": 25,
       "targetProtectionMs": 7200000
     },
-    "roulette": { "cooldownMs": 30000, "numberPayout": 36, "simplePayout": 2 },
+    "roulette": { "cooldownMs": 5000, "numberPayout": 36, "simplePayout": 2 },
     "rps": { "cooldownMs": 5000, "winPayout": 2 },
     "slots": { "cooldownMs": 5000, "pairPayout": 2, "triplePayout": 5, "jackpotPayout": 10 },
     "blackjack": { "cooldownMs": 5000, "winPayout": 2, "blackjackPayout": 2.5 },
@@ -596,7 +596,7 @@
     "previewMode": true,
     "timezone": "Europe/Rome",
     "startDate": "2026-06-01T14:00:00",
-    "endDate": "2026-08-31T00:00:00",
+    "endDate": "2026-09-01T23:59:59",
     "eventKey": "hogwarts_summer_2026",
     "houses": {
       "gryffindor": { "roleId": "1504791825657888898", "label": "Gryffindor" },
@@ -605,12 +605,16 @@
       "slytherin": { "roleId": "1504791872671973537", "label": "Slytherin" }
     },
     "gringott": {
-      "sortingReward": 150
+      "sortingReward": 250
+    },
+    "completionRoleId": "1507000390493798511",
+    "calendar": {
+      "timezone": "Europe/Rome"
     },
     "duel": {
       "cooldownMs": 180000,
       "voldemortPortraitFile": "voldemort.png",
-      "vsBot": { "galeoni": 10, "housePoints": 15 },
+      "vsBot": { "galeoni": 10, "housePoints": 15, "minPlayerWinChance": 22, "maxPlayerWinChance": 62 },
       "vsUser": { "galeoni": 10, "housePoints": 15 }
     },
     "staffBypassUserIds": []

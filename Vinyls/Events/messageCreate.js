@@ -27,6 +27,40 @@ const WRONG_PREFIX_HINT_CHANNEL_IDS = new Set([IDs.channels.commands, IDs.channe
 const AUTOMATION_RECHECK_DELAY_MS = 8000;
 const automationRecheckJobs = new Map();
 
+function isViniliFullFeatureGuild(guildId) {
+  try {
+    const { isViniliFullFeatureGuild: check } = require("../MultiGuild/core/guildFeatureScope");
+    return check(guildId);
+  } catch {
+    return true;
+  }
+}
+
+async function executeTenantMediaOnlyMessageFlow(message, resolvedClient, defaultPrefix, isEditedPrefixExecution) {
+  if (message.author?.bot || message.system || message.webhookId) return;
+  if (!isEditedPrefixExecution) {
+    try {
+      await handleTtsMessage(message, resolvedClient, defaultPrefix);
+    } catch (error) {
+      logEventError(resolvedClient, "TTS ERROR", error);
+    }
+    try {
+      await handleAfk(message);
+    } catch (error) {
+      logEventError(resolvedClient, "AFK ERROR", error);
+    }
+  }
+  await handleOfficialPrefixMessage({
+    message,
+    resolvedClient,
+    defaultPrefix,
+    overrideCommand: null,
+    maybeSendWrongPrefixHint,
+    getCachedOrFetchMember,
+    hasAnyStaffBypassPermission,
+  });
+}
+
 function resolveWebsiteForumChannelId(client) {
   return String(client?.config?.websiteForum?.channelId || IDs.channels?.forum || "").trim();
 }
@@ -164,6 +198,11 @@ module.exports = {
     const defaultPrefix = String(resolvedClient?.config?.prefix || "+");
     let automodProcessed = false;
 
+    if (message.guild && !isViniliFullFeatureGuild(message.guild.id)) {
+      await executeTenantMediaOnlyMessageFlow(message, resolvedClient, defaultPrefix, isEditedPrefixExecution);
+      return;
+    }
+
     const runAutomodOnce = async () => {
       if (automodProcessed) return { blocked: false, skipped: true };
       automodProcessed = true;
@@ -175,13 +214,13 @@ module.exports = {
 
     if (!isEditedPrefixExecution && message?.guild) {
       try {
-        if (
-          isNativeBoostSystemMessage(message) &&
-          guildMemberUpdateExtras.channelIdIsBoostNativeRecoveryTarget(message.guild, message.channelId) &&
-          message.author?.id
-        ) {
+        const nativeBoost = guildMemberUpdateExtras.handleNativeBoostSystemMessage?.(message);
+        if (nativeBoost?.userId) {
           await guildMemberUpdateExtras
-            .recoverMissingBoostEmbedsForUser(message.guild, message.author.id)
+            .recoverMissingBoostEmbedsForUser(message.guild, nativeBoost.userId, {
+              knownNativeSlots: nativeBoost.slots,
+              startedAt: Date.now() - 15_000,
+            })
             .catch(() => null);
         }
         if (message.author?.bot || message.webhookId || message.applicationId) {

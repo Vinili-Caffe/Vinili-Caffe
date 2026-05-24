@@ -1,4 +1,3 @@
-const { EmbedBuilder } = require("discord.js");
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const { assertEconomyAccess, assertEconomyAccessForUser } = require("../../Services/Community/galeoniEconomyService");
 const { getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
@@ -14,6 +13,7 @@ const {
   setSession,
   warmupDuelPanel,
 } = require("../../Utils/Economy/duelGuiRuntime");
+const { postGuiPanel, replyDeny, runEconomyPanelCommand } = require("../../Utils/Economy/economyCommandHelpers");
 
 function extractId(raw) {
   if (!raw) return null;
@@ -39,118 +39,84 @@ function isBotMode(args) {
 
 module.exports = {
   name: "duel",
+  allowEmptyArgs: true,
   description: "Duello magico vs Voldemort o PvP.",
   usage: "+duel · +duel voldemort · +duel @utente",
   examples: ["+duel", "+duel voldemort", "+duel @amico"],
   async execute(message, args, client) {
-    const access = await assertEconomyAccess(message, client);
-    if (!access.ok) {
-      await safeMessageReply(message, {
-        content: `<:vegax:1443934876440068179> ${access.message}`,
-        allowedMentions: { repliedUser: false },
-      });
-      return;
-    }
-    await message.channel.sendTyping();
-    const guild = message.guild;
-    if (!guild) {
-      await safeMessageReply(message, {
-        content: "<:vegax:1443934876440068179> Questo comando va usato in un server.",
-        allowedMentions: { repliedUser: false },
-      });
-      return;
-    }
-    const ownerName = message.member?.displayName || message.author.username;
-    const ownerLoaded = await loadDuelFighter(client, guild.id, message.author.id, ownerName, message.author.username);
-    if (!ownerLoaded.ok) {
-      const warn = new EmbedBuilder()
-        .setColor("Red")
-        .setDescription(`<:vegax:1443934876440068179> ${ownerLoaded.message}`);
-      await safeMessageReply(message, { embeds: [warn], allowedMentions: { repliedUser: false } });
-      return;
-    }
-    const ownerFighter = {
-      ...ownerLoaded.fighter,
-      userId: message.author.id,
-      username: message.author.username,
-    };
-    await warmupDuelPanel();
-    const targetUser = await resolveTargetUser(message, args);
-    if (targetUser === undefined && args?.[0] && !isBotDuelToken(args[0])) {
-      await safeMessageReply(message, {
-        content: "<:vegax:1443934876440068179> Utente non trovato.",
-        allowedMentions: { repliedUser: false },
-      });
-      return;
-    }
-    const botMode = targetUser == null && (isBotMode(args) || !args?.length);
-    if (!botMode && targetUser) {
-      if (targetUser.bot) {
-        await safeMessageReply(message, {
-          content: "<:vegax:1443934876440068179> Sfida il bot con `+duel voldemort`.",
-          allowedMentions: { repliedUser: false },
-        });
+    await runEconomyPanelCommand(message, client, "DUEL", async ({ message: msg, client: c, replyDeny: deny, postGuiPanel: post }) => {
+      const access = await assertEconomyAccess(msg, c);
+      if (!access.ok) {
+        await deny(msg, access.message);
         return;
       }
-      if (targetUser.id === message.author.id) {
-        await safeMessageReply(message, {
-          content: "<:vegax:1443934876440068179> Non puoi duellare contro te stesso.",
-          allowedMentions: { repliedUser: false },
-        });
+      const guild = msg.guild;
+      const ownerName = msg.member?.displayName || msg.author.username;
+      const ownerLoaded = await loadDuelFighter(c, guild.id, msg.author.id, ownerName, msg.author.username);
+      if (!ownerLoaded.ok) {
+        await deny(msg, ownerLoaded.message);
         return;
       }
-      if (findActiveDuelPvpMessageId(guild.id, message.author.id)) {
-        await safeMessageReply(message, {
-          content: "<:vegax:1443934876440068179> Hai già un duello PvP in attesa.",
-          allowedMentions: { repliedUser: false },
-        });
+      const ownerFighter = {
+        ...ownerLoaded.fighter,
+        userId: msg.author.id,
+        username: msg.author.username,
+      };
+      await warmupDuelPanel();
+      const targetUser = await resolveTargetUser(msg, args);
+      if (targetUser === undefined && args?.[0] && !isBotDuelToken(args[0])) {
+        await deny(msg, "Utente non trovato.");
         return;
       }
-      if (findActiveDuelPvpMessageId(guild.id, targetUser.id)) {
-        await safeMessageReply(message, {
-          content: "<:vegax:1443934876440068179> Quell'utente ha già un duello in corso.",
-          allowedMentions: { repliedUser: false },
+      const botMode = targetUser == null && (isBotMode(args) || !args?.length);
+      if (!botMode && targetUser) {
+        if (targetUser.bot) {
+          await deny(msg, "Sfida il bot con `+duel voldemort`.");
+          return;
+        }
+        if (targetUser.id === msg.author.id) {
+          await deny(msg, "Non puoi duellare contro te stesso.");
+          return;
+        }
+        if (findActiveDuelPvpMessageId(guild.id, msg.author.id)) {
+          await deny(msg, "Hai già un duello PvP in attesa.");
+          return;
+        }
+        if (findActiveDuelPvpMessageId(guild.id, targetUser.id)) {
+          await deny(msg, "Quell'utente ha già un duello in corso.");
+          return;
+        }
+        const opponentMember = msg.mentions.members?.first()
+          || (await getGuildMemberCached(guild, targetUser.id).catch(() => null));
+        const opponentAccess = await assertEconomyAccessForUser(c, guild, opponentMember, targetUser.id);
+        if (!opponentAccess.ok) {
+          await deny(msg, `${targetUser} non può duellare: ${opponentAccess.message}`);
+          return;
+        }
+        const opponentName = opponentMember?.displayName || targetUser.globalName || targetUser.username;
+        const oppLoaded = await loadDuelFighter(c, guild.id, targetUser.id, opponentName, targetUser.username);
+        if (!oppLoaded.ok) {
+          await deny(msg, `${targetUser}: ${oppLoaded.message}`);
+          return;
+        }
+        const session = makeSession({
+          ownerId: msg.author.id,
+          guildId: guild.id,
+          playerName: ownerName,
+          mode: "pvp",
+          opponentId: targetUser.id,
+          opponentName,
         });
+        session.ownerFighter = ownerFighter;
+        const notice = `<:VC_Info:1482526956703580372> ${targetUser}, accetta o rifiuta la sfida.`;
+        const payload = await buildInvitePayload(c, guild, session, ownerFighter, notice);
+        const sent = await post(msg, { payload, session, setSession, label: "duello" });
+        if (sent?.id) schedulePvpInviteExpiry(sent, getSession(sent.id) || session);
         return;
       }
-      const opponentMember = message.mentions.members?.first()
-        || (await getGuildMemberCached(guild, targetUser.id).catch(() => null));
-      const opponentAccess = await assertEconomyAccessForUser(client, guild, opponentMember, targetUser.id);
-      if (!opponentAccess.ok) {
-        await safeMessageReply(message, {
-          content: `<:vegax:1443934876440068179> ${targetUser} non può duellare: ${opponentAccess.message}`,
-          allowedMentions: { repliedUser: false },
-        });
-        return;
-      }
-      const opponentName = opponentMember?.displayName || targetUser.globalName || targetUser.username;
-      const oppLoaded = await loadDuelFighter(client, guild.id, targetUser.id, opponentName, targetUser.username);
-      if (!oppLoaded.ok) {
-        await safeMessageReply(message, {
-          content: `<:vegax:1443934876440068179> ${targetUser}: ${oppLoaded.message}`,
-          allowedMentions: { repliedUser: false },
-        });
-        return;
-      }
-      const session = makeSession({
-        ownerId: message.author.id,
-        guildId: guild.id,
-        playerName: ownerName,
-        mode: "pvp",
-        opponentId: targetUser.id,
-        opponentName,
-      });
-      session.ownerFighter = ownerFighter;
-      const notice = `<:VC_Info:1482526956703580372> ${targetUser}, accetta o rifiuta la sfida.`;
-      const payload = await buildInvitePayload(client, guild, session, ownerFighter, notice);
-      const sent = await safeMessageReply(message, payload);
-      if (sent?.id) {
-        setSession(sent.id, session);
-        schedulePvpInviteExpiry(sent, getSession(sent.id) || session);
-      }
-      return;
-    }
-    const payload = await runBotDuel(client, message, ownerFighter, message.id);
-    await safeMessageReply(message, payload);
+      const payload = await runBotDuel(c, msg, ownerFighter, msg.id);
+      const sent = await post(msg, { payload, session: null, setSession: null, label: "duello" });
+      if (!sent) await safeMessageReply(msg, payload);
+    });
   },
 };

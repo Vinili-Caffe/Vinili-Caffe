@@ -47,9 +47,12 @@
   "hogwartsEvent": {
     "previewMode": true,
     "startDate": "2026-06-01T14:00:00",
-    "endDate": "2026-08-31T21:00:00",
+    "endDate": "2026-09-01T23:59:59",
     "introVideoDurationSec": 12.2,
-    "introVideoTrimEndSec": 0
+    "introVideoTrimEndSec": 0,
+    "calendar": {
+      "timezone": "Europe/Rome"
+    }
   },
   "hogwartsHousePoints": {
     "maxPoints": 100000,
@@ -102,7 +105,7 @@
     "timezone": "Europe/Rome",
     "recurring": { "weekday": 6, "hour": 21, "minute": 30 },
     "overrideIso": "",
-    "linkFilm": "https://streamingcommunityz.band/it/watch/1922"
+    "linkFilm": "https://streamingcommunityz.associates/it/watch/7632"
   },
   "discordInviteCode": "viniliecaffe",
   "useDiscordGuildBanner": true,
@@ -170,5 +173,8 @@
   "googleAnalyticsMeasurementId": "",
   "termsUrl": "https://www.viniliecaffe.it/terms",
   "privacyUrl": "https://www.viniliecaffe.it/privacy",
-  "cookiePolicyUrl": "https://www.viniliecaffe.it/cookie"
+  "cookiePolicyUrl": "https://www.viniliecaffe.it/cookie",
+  "siteRoutes": {
+    "hiddenPaths": ["/seratafilm/accesso-richiesto"]
+  }
 }

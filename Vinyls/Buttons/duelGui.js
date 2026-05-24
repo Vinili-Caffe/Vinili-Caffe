@@ -30,7 +30,7 @@ async function execute(interaction) {
   }
   if (parsed.action === "decline") {
     if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate().catch(() => {});
-    const out = await declinePvpChallenge(interaction, session);
+    const out = await declinePvpChallenge(interaction.client, interaction, session);
     if (!out.ok) {
       await interaction.followUp({ content: `<:vegax:1443934876440068179> ${out.message}`, flags: PRIVATE_FLAG }).catch(() => {});
       return true;
@@ -40,7 +40,7 @@ async function execute(interaction) {
   }
   if (parsed.action === "cancel") {
     if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate().catch(() => {});
-    const out = await cancelPvpChallenge(interaction, session);
+    const out = await cancelPvpChallenge(interaction.client, interaction, session);
     if (!out.ok) {
       await interaction.followUp({ content: `<:vegax:1443934876440068179> ${out.message}`, flags: PRIVATE_FLAG }).catch(() => {});
       return true;

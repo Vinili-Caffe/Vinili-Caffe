@@ -4,6 +4,8 @@ const IDs = require("../../Utils/Config/ids");
 const { getBotState, setBotState } = require("../../Utils/BotState/botStateStore");
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ApplicationCommandType, ComponentType, MessageFlags, } = require("discord.js");
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
+const { isViniliFullFeatureGuild } = require("../../MultiGuild/core/guildFeatureScope");
+const { executeTenantHelp } = require("../../MultiGuild/utils/tenantHelp");
 const { DEFAULT_OBSOLETE_SLASH_NAMES } = require("../../../shared/discord/purgeObsoleteApplicationCommands");
 const { getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
 const PERMISSIONS_PATH = path.join(__dirname, "..", "..", "permissions.json");
@@ -52,7 +54,7 @@ const PREFIX_HELP_DESCRIPTIONS = {
   top: "Mostra la top completa utenti/canali.",
   rank: "Mostra il tuo livello e posizione in classifica.",
   bal: "Mostra il saldo.",
-  work: "Lavora per ottenere ricompense.",
+  work: "Turno di lavoro magico: pannello con bottino variabile e streak.",
   daily: "Ricompensa giornaliera.",
   weekly: "Ricompensa settimanale.",
   monthly: "Ricompensa mensile.",
@@ -477,6 +479,7 @@ function buildEntries(client, permissions) {
 
   for (const command of client.pcommands.values()) {
     if (!command?.name) continue;
+    if (command.tenantOnly) continue;
     if (OBSOLETE_PREFIX_HELP_NAMES.has(String(command.name).trim().toLowerCase())) continue;
     if (normalizeCategoryKey(command.folder || "misc") === "economy" && !showEconomyHelp) continue;
 
@@ -1550,6 +1553,9 @@ module.exports = {
   buildHelpNewUntilPayload,
   async execute(message, args, client) {
     if (!message.guild || !message.member) return;
+    if (!isViniliFullFeatureGuild(message.guild.id)) {
+      return executeTenantHelp(message, args);
+    }
     await message.channel.sendTyping().catch(() => { });
     const permissions = loadPermissions();
     const allEntries = buildEntries(client, permissions);

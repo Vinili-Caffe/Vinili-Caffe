@@ -5,7 +5,7 @@ const GRINGOTT_PATH = "profile.events.hogwarts.gringott";
 const LEDGER_PATH = `${GRINGOTT_PATH}.ledger`;
 const REWARD_KEYS_PATH = `${GRINGOTT_PATH}.rewardKeys`;
 const MAX_LEDGER_ENTRIES = 100;
-const DEFAULT_SORTING_REWARD = 150;
+const DEFAULT_SORTING_REWARD = 250;
 
 function normalizeId(value) {
   return String(value ?? "").trim();
@@ -125,7 +125,15 @@ async function addGaleoni({ guildId, userId, amount, reason, actorId = null, sou
     new: true,
     upsert: true,
     setDefaultsOnInsert: true,
-  }).catch(() => null);
+  }).catch((err) => {
+    global.logger?.warn?.("[GRINGOTT] addGaleoni failed", {
+      guildId: g,
+      userId: u,
+      rewardKey: entry.rewardKey || null,
+      error: err?.message || String(err),
+    });
+    return null;
+  });
   if (!doc) {
     const current = await getGringottBalance(g, u, eventKey);
     return { ok: false, code: entry.rewardKey ? "duplicate_reward" : "save_failed", state: current };

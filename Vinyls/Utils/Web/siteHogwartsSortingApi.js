@@ -2,7 +2,7 @@ const IDs = require("../Config/ids");
 const { ActivityUserProfile, SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Schemas/Community/communitySchemas");
 const { resolveWebsiteCandidatureMember } = require("../../Events/interaction/candidatureApplicationHandlers");
 const { getPublicQuestions, normalizeAnswers, computeHouseFromAnswers, getHouseMeta, HOUSES } = require("./hogwartsSortingBank");
-const { resolveHogwartsEventConfig, isEventWindowOpen, formatEventWindowIt } = require("./hogwartsSortingConfig");
+const { resolveHogwartsEventConfig, isEventWindowOpen, resolveEventWindowForViewer, formatEventWindowIt } = require("./hogwartsSortingConfig");
 const {
   addGaleoni,
   awardHogwartsSortingReward,
@@ -13,16 +13,20 @@ const {
 const { getShopItemById, normalizeShopCategory, publicShopCatalog, resolveShopPurchaseOffer } = require("./hogwartsShopCatalog");
 const { buildPotionsRound, normalizePotionId } = require("./hogwartsPotionsCatalog");
 const DOC = SITE_DOCUMENT_TYPE.HOGWARTS_SORTING;
-const FORBIDDEN_DOC = SITE_DOCUMENT_TYPE.HOGWARTS_FORBIDDEN_BOOKS;
 const HOUSE_POINTS_DOC = SITE_DOCUMENT_TYPE.HOGWARTS_HOUSE_POINTS;
-const FORBIDDEN_EVENT_DEDUPE = "forbidden_section_books";
-const FORBIDDEN_EVENT_OWNER_ID = "__event__";
 const HOUSE_POINTS_OWNER_ID = "__event__";
-const FORBIDDEN_BOOK_IDS = ["home", "faq", "wiki", "regole", "donazioni", "vote", "ruoli", "sponsor"];
-const FORBIDDEN_START_MS = new Date("2026-06-20T00:00:00").getTime();
-const FORBIDDEN_END_MS = new Date("2026-08-31T23:59:59.999").getTime();
-const FORBIDDEN_REWARD_GALEONI = 50;
-const FORBIDDEN_REWARD_HOUSE_POINTS = 100;
+const {
+  FORBIDDEN_DOC,
+  FORBIDDEN_BOOK_IDS,
+  normalizeForbiddenBookId,
+  forbiddenEventDedupeKey,
+  forbiddenEventOpen,
+  canPreviewForbiddenBooks,
+  forbiddenProgressPayload,
+  getForbiddenClosure,
+  getForbiddenUserDoc,
+  FORBIDDEN_END_MS,
+} = require("../../Services/Community/hogwartsForbiddenBooksService");
 const POTIONS_PROFILE_PATH = "profile.events.hogwarts.potions";
 const POTIONS_DEFAULT_CONFIG = Object.freeze({
   enabled: true,
@@ -32,15 +36,46 @@ const POTIONS_DEFAULT_CONFIG = Object.freeze({
   rewardHousePoints: 10,
   roundSize: 4,
 });
-const HOUSE_POINT_PERIODS = Object.freeze([
-  { key: "2026-06-01_2026-06-14", start: "2026-06-01", end: "2026-06-14" },
-  { key: "2026-06-15_2026-06-28", start: "2026-06-15", end: "2026-06-28" },
-  { key: "2026-06-29_2026-07-12", start: "2026-06-29", end: "2026-07-12" },
-  { key: "2026-07-13_2026-07-26", start: "2026-07-13", end: "2026-07-26" },
-  { key: "2026-07-27_2026-08-09", start: "2026-07-27", end: "2026-08-09" },
-  { key: "2026-08-10_2026-08-23", start: "2026-08-10", end: "2026-08-23" },
-  { key: "2026-08-24_2026-08-31", start: "2026-08-24", end: "2026-08-31" },
-]);
+const { housePointPeriodKey: resolveHousePointPeriod } = require("./hogwartsHousePointPeriods");
+const {
+  assertHogwartsEventParticipationForUser,
+  hasHogwartsSortingPreviewAccess,
+  isHogwartsStaffPreviewViewer,
+  HOGWARTS_EXCLUDED_STAFF_ROLE_IDS,
+  memberIsHogwartsExcludedStaff,
+} = require("./hogwartsEventParticipation");
+
+async function gateHogwartsEventParticipation(client, resolved, cfg) {
+  if (isHogwartsStaffPreviewViewer(cfg, resolved.member, resolved.userId)) {
+    return {
+      ok: true,
+      windowState: resolveEventWindowForViewer(cfg, Date.now(), resolved.member, resolved.userId),
+      previewStaff: true,
+    };
+  }
+  const participation = await assertHogwartsEventParticipationForUser(
+    client,
+    resolved.member,
+    resolved.userId,
+  );
+  if (!participation.ok) return participation;
+  const windowState = isEventWindowOpen(cfg, Date.now(), resolved.userId);
+  if (windowState.open) return { ok: true, windowState };
+  if (!cfg.previewMode) {
+    return {
+      ok: false,
+      status: 403,
+      error: "event_closed",
+      message: "Questa sezione dell'evento Hogwarts non è disponibile.",
+    };
+  }
+  return {
+    ok: false,
+    status: 403,
+    error: "preview_forbidden",
+    message: "In anteprima questa sezione è riservata all'High Staff del server.",
+  };
+}
 
 function houseMetaFromCfg(cfg, houseId) {
   const id = String(houseId || "").trim();
@@ -171,11 +206,11 @@ async function handleHogwartsSortingEligibility(client, req, res) {
       return res.status(Number(resolved.status) || 500).json(resolved);
     }
     const cfg = resolveHogwartsEventConfig(client);
-    if (!hasPreviewAccess(cfg, resolved.member, resolved.userId)) {
+    if (!hasHogwartsSortingPreviewAccess(cfg, resolved.member, resolved.userId)) {
       const denied = previewAccessDeniedPayload();
       return res.status(denied.status).json(denied);
     }
-    const windowState = isEventWindowOpen(cfg, Date.now(), resolved.userId);
+  const windowState = resolveEventWindowForViewer(cfg, Date.now(), resolved.member, resolved.userId);
     const existing = await findExistingSort(resolved.guild.id, resolved.userId, cfg.eventKey);
     const houseId = existing?.status ? String(existing.status).trim() : "";
     const meta = houseId ? houseMetaFromCfg(cfg, houseId) : null;
@@ -231,11 +266,11 @@ async function handleHogwartsSortingSubmit(client, req, res) {
     }
 
     const cfg = resolveHogwartsEventConfig(client);
-    if (!hasPreviewAccess(cfg, resolved.member, resolved.userId)) {
+    if (!hasHogwartsSortingPreviewAccess(cfg, resolved.member, resolved.userId)) {
       const denied = previewAccessDeniedPayload();
       return res.status(denied.status).json(denied);
     }
-    const windowState = isEventWindowOpen(cfg, Date.now(), resolved.userId);
+    const windowState = resolveEventWindowForViewer(cfg, Date.now(), resolved.member, resolved.userId);
     if (!windowState.open) {
       return res.status(403).json({
         ok: false,
@@ -318,10 +353,8 @@ async function handleHogwartsGringottGet(client, req, res) {
       return res.status(Number(resolved.status) || 500).json(resolved);
     }
     const cfg = resolveHogwartsEventConfig(client);
-    if (!hasPreviewAccess(cfg, resolved.member, resolved.userId)) {
-      const denied = previewAccessDeniedPayload();
-      return res.status(denied.status).json(denied);
-    }
+    const gate = await gateHogwartsEventParticipation(client, resolved, cfg);
+    if (!gate.ok) return res.status(gate.status || 403).json(gate);
     const gringott = await getGringottBalance(resolved.guild.id, resolved.userId, cfg.eventKey);
     res.setHeader("Cache-Control", "private, no-store");
     return res.status(200).json({
@@ -371,33 +404,37 @@ async function resolveShopParticipant(client, req) {
   const resolved = await resolveWebsiteCandidatureMember(client, accessToken);
   if (!resolved.ok) return { ok: false, status: Number(resolved.status) || 500, ...resolved };
   const cfg = resolveHogwartsEventConfig(client);
-  if (!hasPreviewAccess(cfg, resolved.member, resolved.userId)) {
-    const denied = previewAccessDeniedPayload();
-    return { ok: false, status: denied.status, error: denied.error, message: denied.message };
-  }
+  const gate = await gateHogwartsEventParticipation(client, resolved, cfg);
+  if (!gate.ok) return gate;
   const sorting = await findExistingSort(resolved.guild.id, resolved.userId, cfg.eventKey);
   const houseId = String(sorting?.status || "").trim();
-  if (!houseId) {
+  const previewViewer = isHogwartsStaffPreviewViewer(cfg, resolved.member, resolved.userId) && !houseId;
+  if (!houseId && !previewViewer) {
     return { ok: false, status: 403, error: "not_sorted", message: "Completa prima lo smistamento per accedere allo shop." };
   }
-  return { ok: true, resolved, cfg, houseId, houseMeta: houseMetaFromCfg(cfg, houseId) };
+  if (!houseId) {
+    return { ok: true, resolved, cfg, houseId: "", houseMeta: null, previewViewer: true };
+  }
+  return { ok: true, resolved, cfg, houseId, houseMeta: houseMetaFromCfg(cfg, houseId), previewViewer: false };
 }
 
 async function handleHogwartsShopGet(client, req, res) {
   try {
     const participant = await resolveShopParticipant(client, req);
     if (!participant.ok) return res.status(participant.status || 500).json(participant);
-    const { resolved, cfg, houseId, houseMeta } = participant;
+    const { resolved, cfg, houseId, houseMeta, previewViewer } = participant;
     const state = await getShopProfileState(resolved.guild.id, resolved.userId, cfg.eventKey);
     res.setHeader("Cache-Control", "private, no-store");
     return res.status(200).json({
       ok: true,
       eventKey: cfg.eventKey,
+      previewViewer: Boolean(previewViewer),
       house: houseId,
       houseMeta,
       catalog: publicShopCatalog(),
       inventory: state.inventory,
       gringott: state.gringott,
+      previewDisabled: Boolean(previewViewer),
     });
   } catch (err) {
     global.logger?.error?.("[WEBHOOK] hogwarts-shop get:", err);
@@ -409,6 +446,13 @@ async function handleHogwartsShopPurchasePost(client, req, res) {
   try {
     const participant = await resolveShopParticipant(client, req);
     if (!participant.ok) return res.status(participant.status || 500).json(participant);
+  if (participant.previewViewer) {
+      return res.status(403).json({
+        ok: false,
+        error: "preview_forbidden",
+        message: "In anteprima puoi solo consultare lo shop. Completa lo smistamento per acquistare.",
+      });
+    }
     const { resolved, cfg, houseId, houseMeta } = participant;
     const body = req.body && typeof req.body === "object" ? req.body : {};
     const item = getShopItemById(body.itemId);
@@ -554,8 +598,8 @@ function potionsOpen(potionsCfg, nowMs = Date.now()) {
   return Boolean(potionsCfg?.enabled) && Number.isFinite(Number(potionsCfg.startMs)) && Number(nowMs || Date.now()) >= Number(potionsCfg.startMs);
 }
 
-function canPreviewPotions(cfg, potionsCfg, member, userId, nowMs = Date.now()) {
-  return Boolean(cfg?.previewMode) && !potionsOpen(potionsCfg, nowMs) && hasPreviewAccess(cfg, member, userId);
+function canPreviewPotions(cfg, member, userId) {
+  return isHogwartsStaffPreviewViewer(cfg, member, userId);
 }
 
 function publicPotionsState(raw, potionsCfg) {
@@ -579,21 +623,25 @@ async function resolvePotionsParticipant(client, req) {
   const resolved = await resolveWebsiteCandidatureMember(client, accessToken);
   if (!resolved.ok) return { ok: false, status: Number(resolved.status) || 500, ...resolved };
   const cfg = resolveHogwartsEventConfig(client);
-  if (!hasPreviewAccess(cfg, resolved.member, resolved.userId)) {
-    const denied = previewAccessDeniedPayload();
-    return { ok: false, status: denied.status, error: denied.error, message: denied.message };
-  }
   const potionsCfg = resolvePotionsConfig(client);
-  const previewViewer = canPreviewPotions(cfg, potionsCfg, resolved.member, resolved.userId);
-  if (!potionsOpen(potionsCfg) && !previewViewer) {
-    return {
-      ok: false,
-      status: 403,
-      error: "event_not_started",
-      message: "La classe di pozioni non è ancora aperta.",
-      startsAt: potionsCfg.startDate,
-      redirectUrl: potionsCfg.redirectUrl || "/evento/shop",
-    };
+  const previewViewer = canPreviewPotions(cfg, resolved.member, resolved.userId);
+  if (!previewViewer) {
+    const participation = await assertHogwartsEventParticipationForUser(
+      client,
+      resolved.member,
+      resolved.userId,
+    );
+    if (!participation.ok) return participation;
+    if (!potionsOpen(potionsCfg)) {
+      return {
+        ok: false,
+        status: 403,
+        error: "event_not_started",
+        message: "La classe di pozioni non è ancora aperta.",
+        startsAt: potionsCfg.startDate,
+        redirectUrl: potionsCfg.redirectUrl || "/evento/shop",
+      };
+    }
   }
   const sorting = await findExistingSort(resolved.guild.id, resolved.userId, cfg.eventKey);
   const houseId = String(sorting?.status || "").trim();
@@ -656,21 +704,9 @@ function normalizePotionAnswers(body) {
   return out;
 }
 
-function dateOnlyMs(value, endOfDay = false) {
-  const s = String(value || "").trim();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
-  const ms = new Date(`${s}T${endOfDay ? "23:59:59.999" : "00:00:00"}`).getTime();
-  return Number.isFinite(ms) ? ms : null;
-}
-
 function housePointPeriodKey(nowMs = Date.now()) {
-  const now = Number(nowMs || Date.now());
-  for (const period of HOUSE_POINT_PERIODS) {
-    const start = dateOnlyMs(period.start, false);
-    const end = dateOnlyMs(period.end, true);
-    if (Number.isFinite(start) && Number.isFinite(end) && now >= start && now <= end) return period.key;
-  }
-  return "";
+  const period = resolveHousePointPeriod(nowMs);
+  return period?.key || "";
 }
 
 async function awardPotionsHousePoints(guildId, houseId, eventKey, points) {
@@ -927,7 +963,7 @@ async function handleHogwartsHousePointsGet(client, req, res) {
       }
       const resolved = await resolveWebsiteCandidatureMember(client, accessToken);
       if (!resolved.ok) return res.status(Number(resolved.status) || 403).json({ ok: false, error: resolved.error, message: resolved.message });
-      if (!hasPreviewAccess(cfg, resolved.member, resolved.userId)) {
+      if (!hasHogwartsSortingPreviewAccess(cfg, resolved.member, resolved.userId)) {
         return res.status(403).json({ ok: false, error: "forbidden", message: "In anteprima questa pagina è riservata all'High Staff del server." });
       }
     }
@@ -947,134 +983,45 @@ async function handleHogwartsHousePointsGet(client, req, res) {
   }
 }
 
-function normalizeForbiddenBookId(value) {
-  const id = String(value || "").trim().toLowerCase();
-  return FORBIDDEN_BOOK_IDS.includes(id) ? id : "";
-}
-
-function forbiddenEventDedupeKey(cfg) {
-  return `${String(cfg?.eventKey || "").trim() || "hogwarts"}:${FORBIDDEN_EVENT_DEDUPE}`;
-}
-
-function forbiddenEventOpen(cfg) {
-  const now = Date.now();
-  if (cfg?.previewMode) return Number.isFinite(FORBIDDEN_END_MS) && now <= FORBIDDEN_END_MS;
-  return Number.isFinite(FORBIDDEN_START_MS) && Number.isFinite(FORBIDDEN_END_MS) && now >= FORBIDDEN_START_MS && now <= FORBIDDEN_END_MS;
-}
-
-function forbiddenProgressPayload(doc, closureDoc = null) {
-  const ids = Array.isArray(doc?.rawWebhook?.collectedBookIds)
-    ? doc.rawWebhook.collectedBookIds.map(normalizeForbiddenBookId).filter(Boolean)
-    : [];
-  const unique = Array.from(new Set(ids));
-  const completed = unique.length >= FORBIDDEN_BOOK_IDS.length;
-  return {
-    bookIds: FORBIDDEN_BOOK_IDS,
-    collectedBookIds: unique,
-    collectedCount: unique.length,
-    requiredCount: FORBIDDEN_BOOK_IDS.length,
-    completed,
-    closed: String(closureDoc?.status || "") === "closed",
-    closedAt: closureDoc?.rawWebhook?.closedAt || null,
-    winners: Array.isArray(closureDoc?.rawWebhook?.winners) ? closureDoc.rawWebhook.winners : [],
-  };
-}
-
 async function resolveForbiddenBookParticipant(client, req, options = {}) {
   const accessToken = normalizeHeaderSecret(req.headers.authorization);
   if (!accessToken) return { ok: false, status: 401, error: "missing_token", message: "Accedi con Discord per raccogliere i libri proibiti." };
   const resolved = await resolveWebsiteCandidatureMember(client, accessToken);
   if (!resolved.ok) return { ...resolved, status: Number(resolved.status) || 500 };
   const cfg = resolveHogwartsEventConfig(client);
-  if (!hasPreviewAccess(cfg, resolved.member, resolved.userId)) {
-    const denied = previewAccessDeniedPayload();
-    return { ok: false, status: denied.status, error: denied.error, message: denied.message };
-  }
-  if (!forbiddenEventOpen(cfg)) {
-    return { ok: false, status: 403, error: "event_closed", message: "La caccia ai libri proibiti non è attiva." };
+  const participation = await assertHogwartsEventParticipationForUser(
+    client,
+    resolved.member,
+    resolved.userId,
+  );
+  if (!participation.ok) return participation;
+  const previewViewer = canPreviewForbiddenBooks(cfg, resolved.member, resolved.userId);
+  if (!forbiddenEventOpen(cfg) && !previewViewer) {
+    const now = Date.now();
+    if (Number.isFinite(FORBIDDEN_END_MS) && now > FORBIDDEN_END_MS) {
+      return {
+        ok: false,
+        status: 403,
+        error: "event_closed",
+        message: "La caccia ai libri proibiti è conclusa.",
+      };
+    }
+    return {
+      ok: false,
+      status: 403,
+      error: "event_not_started",
+      message: "La caccia ai libri proibiti inizia il 20 giugno 2026.",
+    };
   }
   const sorting = await findExistingSort(resolved.guild.id, resolved.userId, cfg.eventKey);
   const houseId = String(sorting?.status || "").trim();
-  if (!houseId && options.allowPreviewViewer && cfg.previewMode) {
+  if (!houseId && options.allowPreviewViewer && previewViewer) {
     return { ok: true, resolved, cfg, houseId: "", dedupeKey: forbiddenEventDedupeKey(cfg), previewViewer: true };
   }
   if (!houseId) {
     return { ok: false, status: 403, error: "not_sorted", message: "Completa prima lo smistamento per raccogliere i libri proibiti." };
   }
-  return { ok: true, resolved, cfg, houseId, dedupeKey: forbiddenEventDedupeKey(cfg) };
-}
-
-async function getForbiddenClosure(guildId, dedupeKey) {
-  return SiteDocument.findOne({
-    docType: FORBIDDEN_DOC,
-    guildId: String(guildId || ""),
-    userId: FORBIDDEN_EVENT_OWNER_ID,
-    dedupeKey,
-  }).lean().catch(() => null);
-}
-
-async function getForbiddenUserDoc(guildId, userId, dedupeKey) {
-  return SiteDocument.findOne({
-    docType: FORBIDDEN_DOC,
-    guildId: String(guildId || ""),
-    userId: String(userId || ""),
-    dedupeKey,
-  }).lean().catch(() => null);
-}
-
-async function maybeCloseForbiddenEvent(client, guildId, dedupeKey, eventKey) {
-  const existingClosure = await getForbiddenClosure(guildId, dedupeKey);
-  if (String(existingClosure?.status || "") === "closed") return existingClosure;
-  const completed = await SiteDocument.find({
-    docType: FORBIDDEN_DOC,
-    guildId: String(guildId || ""),
-    dedupeKey,
-    status: "completed",
-    userId: { $ne: FORBIDDEN_EVENT_OWNER_ID },
-  }).sort({ updatedAt: 1, createdAt: 1 }).limit(40).lean().catch(() => []);
-  const winners = [];
-  const houses = new Set();
-  for (const doc of completed) {
-    const houseId = String(doc?.rawWebhook?.houseId || doc?.planKey || "").trim();
-    if (!houseId || houses.has(houseId)) continue;
-    houses.add(houseId);
-    winners.push({ userId: String(doc.userId || ""), houseId, completedAt: doc?.rawWebhook?.completedAt || doc.updatedAt || doc.createdAt || new Date() });
-    if (winners.length >= 2) break;
-  }
-  if (winners.length < 2) return existingClosure;
-  const now = new Date();
-  for (const winner of winners) {
-    await addGaleoni({
-      guildId,
-      userId: winner.userId,
-      amount: FORBIDDEN_REWARD_GALEONI,
-      reason: "Avventura nella sezione proibita completata",
-      actorId: "site",
-      source: "hogwarts_forbidden_books",
-      eventKey,
-      rewardKey: `${eventKey}:forbidden_books:${winner.userId}`,
-    }).catch(() => null);
-  }
-  const closure = await SiteDocument.findOneAndUpdate(
-    { docType: FORBIDDEN_DOC, guildId: String(guildId || ""), userId: FORBIDDEN_EVENT_OWNER_ID, dedupeKey },
-    {
-      $setOnInsert: { docType: FORBIDDEN_DOC, guildId: String(guildId || ""), userId: FORBIDDEN_EVENT_OWNER_ID, dedupeKey, createdBy: "site" },
-      $set: {
-        status: "closed",
-        planKey: "forbidden_section_closed",
-        rawWebhook: {
-          closedAt: now,
-          winners,
-          rewardGaleoni: FORBIDDEN_REWARD_GALEONI,
-          rewardHousePoints: FORBIDDEN_REWARD_HOUSE_POINTS,
-          requiredDistinctHouses: 2,
-          bookIds: FORBIDDEN_BOOK_IDS,
-        },
-      },
-    },
-    { new: true, upsert: true, setDefaultsOnInsert: true },
-  ).lean().catch(() => null);
-  return closure || existingClosure;
+  return { ok: true, resolved, cfg, houseId, dedupeKey: forbiddenEventDedupeKey(cfg), previewViewer: Boolean(previewViewer) };
 }
 
 async function handleHogwartsForbiddenBooksGet(client, req, res) {
@@ -1135,7 +1082,7 @@ async function handleHogwartsForbiddenBooksClaim(client, req, res) {
         { new: true },
       ).lean().catch(() => doc);
     }
-    const closure = progress.completed ? await maybeCloseForbiddenEvent(client, resolved.guild.id, dedupeKey, cfg.eventKey) : await getForbiddenClosure(resolved.guild.id, dedupeKey);
+    const closure = await getForbiddenClosure(resolved.guild.id, dedupeKey);
     res.setHeader("Cache-Control", "private, no-store");
     return res.status(200).json({ ok: true, claimedBookId: bookId, house: houseId, ...forbiddenProgressPayload(doc, closure) });
   } catch (err) {
@@ -1144,23 +1091,13 @@ async function handleHogwartsForbiddenBooksClaim(client, req, res) {
   }
 }
 
-const HIGH_STAFF_ROLE_ID = String(IDs?.roles?.HighStaff || "").trim();
-
 function previewAccessDeniedPayload() {
   return {
     ok: false,
     status: 403,
     error: "preview_forbidden",
-    message: "In anteprima lo smistamento è riservato all'High Staff del server.",
+    message: "In anteprima lo smistamento è riservato a Founder, Admin e High Staff del server.",
   };
-}
-
-function hasPreviewAccess(cfg, member, userId) {
-  if (!cfg?.previewMode) return true;
-  const uid = String(userId || "").trim();
-  if (uid && Array.isArray(cfg.staffBypassUserIds) && cfg.staffBypassUserIds.includes(uid)) return true;
-  if (!HIGH_STAFF_ROLE_ID) return false;
-  return Boolean(member?.roles?.cache?.has(HIGH_STAFF_ROLE_ID));
 }
 
 async function handleHogwartsSortingAccessGet(client, req, res) {
@@ -1189,15 +1126,15 @@ async function handleHogwartsSortingAccessGet(client, req, res) {
       });
     }
 
-    if (!HIGH_STAFF_ROLE_ID) {
+    if (!HOGWARTS_EXCLUDED_STAFF_ROLE_IDS.length) {
       return res.status(503).json({
         ok: false,
         error: "misconfigured",
-        message: "Ruolo High Staff non configurato sul bot.",
+        message: "Ruoli staff dirigenziale non configurati sul bot.",
       });
     }
 
-    if (!resolved.member?.roles?.cache?.has(HIGH_STAFF_ROLE_ID)) {
+    if (!memberIsHogwartsExcludedStaff(resolved.member)) {
       return res.status(403).json({
         ok: false,
         error: "forbidden",

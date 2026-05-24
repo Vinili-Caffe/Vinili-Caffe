@@ -28,6 +28,15 @@ module.exports = {
     }
 
     const ttsResult = await joinTtsChannel(voiceChannel);
+    if (!ttsResult.ok && ttsResult.reason === "music_active") {
+      const { buildMusicBlocksTtsUserMessage } = require("../../../shared/discord/musicTtsVoiceGuard");
+      const musicEmbed = new EmbedBuilder()
+        .setColor("#ED4245")
+        .setDescription(buildMusicBlocksTtsUserMessage(ttsResult.musicChannelId, ","));
+      const warn = await safeMessageReply(message, { embeds: [musicEmbed] });
+      if (warn) scheduleMessageDeletion(warn, EPHEMERAL_TTL_SHORT_MS);
+      return;
+    }
     if (!ttsResult.ok && ttsResult.reason === "locked") {
       const lockedEmbed = new EmbedBuilder()
         .setColor("#ED4245")

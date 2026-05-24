@@ -1,6 +1,6 @@
-const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const { assertEconomyGamblingAccess, economyConfig } = require("../../Services/Community/galeoniEconomyService");
 const { buildCoinflipGuiPayload, clampBet, formatCoinflipNotice, getSession, makeSession, normalizeQuickChoice, playCoinflipSession, scheduleCoinflipIdlePanel, setSession, warmupCoinflipPanel } = require("../../Utils/Economy/coinflipGuiRuntime");
+const { postGuiPanel, replyDeny, runEconomyPanelCommand } = require("../../Utils/Economy/economyCommandHelpers");
 
 function parseBetArg(raw, cfg, fallback) {
   if (raw == null || raw === "") return clampBet(fallback, cfg);
@@ -12,52 +12,60 @@ function parseBetArg(raw, cfg, fallback) {
 module.exports = {
   name: "coinflip",
   aliases: ["cf"],
+  allowEmptyArgs: true,
   description: "Lancia la moneta: testa o croce con pannello interattivo.",
   usage: "+coinflip [puntata] [testa|croce] · +cf",
   examples: ["+coinflip", "+cf 10 testa", "+cf 20 croce"],
   async execute(message, args, client) {
-    const cfg = economyConfig(client);
-    const quickFromFirst = normalizeQuickChoice(args?.[0]);
-    const quickSecond = normalizeQuickChoice(args?.[1]);
-    let rawBet = cfg.minBet;
-    if (quickFromFirst && !quickSecond) rawBet = cfg.minBet;
-    else if (args?.[0] != null && parseBetArg(args[0], cfg, cfg.minBet) != null) {
-      rawBet = parseBetArg(args[0], cfg, cfg.minBet);
-    }
-    const access = await assertEconomyGamblingAccess(message, client, rawBet);
-    if (!access.ok) {
-      await safeMessageReply(message, { content: `<a:VC_Cross:1482532424570376253> ${access.message}`, allowedMentions: { repliedUser: false } });
-      return;
-    }
-    let quickChoice = quickSecond || (quickFromFirst && !quickSecond ? quickFromFirst : "");
-    const session = makeSession({
-      ownerId: message.author.id,
-      guildId: message.guild.id,
-      bet: clampBet(rawBet, access.cfg),
-      cfg: access.cfg,
-    });
-    await warmupCoinflipPanel();
-    let notice = "Scegli **Testa** o **Croce**.";
-    if (quickChoice) {
-      const flipped = await playCoinflipSession(client, message, session, quickChoice);
-      if (!flipped.ok) {
-        await safeMessageReply(message, { content: `<:vegax:1443934876440068179> ${flipped.message}`, allowedMentions: { repliedUser: false } });
+    await runEconomyPanelCommand(message, client, "COINFLIP", async ({ message: msg, client: c, replyDeny: deny, postGuiPanel: post }) => {
+      const cfg = economyConfig(c);
+      const quickFromFirst = normalizeQuickChoice(args?.[0]);
+      const quickSecond = normalizeQuickChoice(args?.[1]);
+      let rawBet = cfg.minBet;
+      if (quickFromFirst && !quickSecond) rawBet = cfg.minBet;
+      else if (args?.[0] != null && parseBetArg(args[0], cfg, cfg.minBet) != null) {
+        rawBet = parseBetArg(args[0], cfg, cfg.minBet);
+      }
+      const access = await assertEconomyGamblingAccess(msg, c, rawBet);
+      if (!access.ok) {
+        await deny(msg, access.message, { gambling: true });
         return;
       }
-      notice = formatCoinflipNotice(flipped.result);
-    }
-    const didFlip = Boolean(session.lastResult);
-    if (didFlip) session.panelAnimating = true;
-    let sent;
-    if (didFlip) {
-      sent = await safeMessageReply(message, await buildCoinflipGuiPayload(session, access.cfg, "🪙 La moneta è in aria…", false, true));
-      if (sent?.id) {
-        setSession(sent.id, session);
-        scheduleCoinflipIdlePanel(sent, getSession(sent.id) || session, access.cfg, notice);
+      const quickChoice = quickSecond || (quickFromFirst && !quickSecond ? quickFromFirst : "");
+      const session = makeSession({
+        ownerId: msg.author.id,
+        guildId: msg.guild.id,
+        bet: clampBet(rawBet, access.cfg),
+        cfg: access.cfg,
+      });
+      await warmupCoinflipPanel();
+      let notice = "Scegli **Testa** o **Croce**.";
+      if (quickChoice) {
+        const flipped = await playCoinflipSession(c, msg, session, quickChoice);
+        if (!flipped.ok) {
+          await deny(msg, flipped.message);
+          return;
+        }
+        notice = formatCoinflipNotice(flipped.result);
       }
-      return;
-    }
-    sent = await safeMessageReply(message, await buildCoinflipGuiPayload(session, access.cfg, notice, false, false));
-    if (sent?.id) setSession(sent.id, session);
+      const didFlip = Boolean(session.lastResult);
+      if (didFlip) session.panelAnimating = true;
+      if (didFlip) {
+        const sent = await post(msg, {
+          payload: await buildCoinflipGuiPayload(session, access.cfg, "🪙 La moneta è in aria…", false, true),
+          session,
+          setSession,
+          label: "coinflip",
+        });
+        if (sent?.id) scheduleCoinflipIdlePanel(sent, getSession(sent.id) || session, access.cfg, notice);
+        return;
+      }
+      await post(msg, {
+        payload: await buildCoinflipGuiPayload(session, access.cfg, notice, false, false),
+        session,
+        setSession,
+        label: "coinflip",
+      });
+    });
   },
 };

@@ -1,9 +1,16 @@
-const { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require("discord.js");
+const { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
+const { buildImageButtonPayload, canvasStatusLine } = require("./guiPanelPayload");
 const { formatGaleoni } = require("../../Services/Community/gringottService");
 const { ROB_BANK_TARGET_ID, economyConfig, evaluateRobTarget, isRobBankTarget, rob, robBank } = require("../../Services/Community/galeoniEconomyService");
 const PREFIX = "rob_gui";
 const SESSION_TTL_MS = 10 * 60 * 1000;
+const RENDER_CACHE_MAX = 32;
+const ROB_RENDER_TIMEOUT_MS = Math.max(4000, Math.floor(Number(process.env.VC_ROB_RENDER_TIMEOUT_MS || 12000)));
+const IDLE_CACHE_KEY = "idle:bank";
 const sessions = new Map();
+const renderCache = new Map();
+let defaultIdleCache = null;
+let warmupPromise = null;
 
 function now() {
   return Date.now();
@@ -100,60 +107,100 @@ function buildRows(session, panelClosed = false) {
   ];
 }
 
-async function renderPanel(session) {
+function spinPreviewCacheKey(session) {
+  return session.isBank ? "preview:spin:bank" : "preview:spin:user";
+}
+
+function renderCacheKey(session, opts = {}) {
+  if (opts.previewSpin) return spinPreviewCacheKey(session);
   const last = session.lastResult;
+  if (!last && !session.panelAnimating) {
+    return session.isBank ? IDLE_CACHE_KEY : "idle:user";
+  }
+  if (last) {
+    return `png:${session.isBank ? "bank" : "user"}:${last.success ? 1 : 0}:${last.amount || 0}:${last.penalty || 0}:${session.targetName}`;
+  }
+  return `${IDLE_CACHE_KEY}:${session.isBank ? "bank" : "user"}:${session.successChance}`;
+}
+
+function attachmentFromCache(entry) {
+  if (!entry?.buffer?.length) return { files: [], image: null, isGif: false };
+  const fileName = entry.fileName || "rob-heist.png";
+  const isGif = fileName.endsWith(".gif");
+  return {
+    files: [new AttachmentBuilder(Buffer.from(entry.buffer), { name: fileName })],
+    image: `attachment://${fileName}`,
+    isGif,
+  };
+}
+
+function rememberRenderCache(key, buffer, fileName) {
+  renderCache.set(key, { buffer, fileName, image: `attachment://${fileName}`, isGif: fileName.endsWith(".gif") });
+  if (renderCache.size > RENDER_CACHE_MAX) {
+    const oldest = renderCache.keys().next().value;
+    if (oldest) renderCache.delete(oldest);
+  }
+}
+
+async function renderPanel(session, opts = {}, notice = "", panelClosed = false) {
+  const last = session.lastResult;
+  const previewSpin = Boolean(opts.previewSpin);
+  const key = renderCacheKey(session, { previewSpin });
+  const cached = renderCache.get(key);
+  if (cached) return attachmentFromCache(cached);
+  if (!last && !previewSpin && !session.panelAnimating && defaultIdleCache) {
+    return attachmentFromCache(defaultIdleCache);
+  }
   try {
     const renderRobCanvas = require("../Render/robCanvas");
-    const rendered = await renderRobCanvas({
-      phase: session.phase,
-      targetName: session.targetName,
-      successChance: session.successChance,
-      success: Boolean(last?.success),
-      hasResult: Boolean(last),
-      amount: last?.amount || 0,
-      penalty: last?.penalty || 0,
-      animating: Boolean(session.panelAnimating),
-      isBank: Boolean(session.isBank),
-    });
+    const rendered = await Promise.race([
+      renderRobCanvas({
+        phase: previewSpin ? "animating" : session.phase === "spinning" ? "animating" : session.phase,
+        targetName: session.targetName,
+        successChance: session.successChance,
+        success: Boolean(last?.success),
+        hasResult: previewSpin ? false : Boolean(last),
+        amount: last?.amount || 0,
+        penalty: last?.penalty || 0,
+        animating: Boolean(previewSpin),
+        previewSpin,
+        isBank: Boolean(session.isBank),
+        statusLine: canvasStatusLine(notice || buildRobContent(session, notice, panelClosed)),
+      }),
+      new Promise((_, reject) => {
+        setTimeout(() => reject(new Error("rob_render_timeout")), ROB_RENDER_TIMEOUT_MS);
+      }),
+    ]);
     const fileName = rendered.format === "gif" ? "rob-heist.gif" : "rob-heist.png";
-    const files = [new AttachmentBuilder(Buffer.from(rendered.buffer), { name: fileName })];
-    return { files, image: `attachment://${fileName}`, isGif: rendered.format === "gif" };
+    rememberRenderCache(key, rendered.buffer, fileName);
+    return attachmentFromCache(renderCache.get(key));
   } catch (error) {
     global.logger?.warn?.("[ROB GUI] render:", error?.message || error);
+    if (defaultIdleCache) return attachmentFromCache(defaultIdleCache);
     return { files: [], image: null, isGif: false };
   }
 }
 
-function buildEmbed(session, notice) {
+function buildRobContent(session, notice, panelClosed) {
+  if (panelClosed) return String(notice || "").trim();
   const last = session.lastResult;
-  const color = last?.success ? "#2ecc71" : last ? "#ed4245" : "#5c4510";
-  const lines = [
-    session.isBank
-      ? "🏦 Obiettivo: **cassaforte di Gringott**"
-      : `🎯 Bersaglio: **${session.targetName}**`,
-    `📊 Probabilità di successo: **${session.successChance}%**${session.robBroomBonus > 0 ? ` (+${session.robBroomBonus}% ${session.robBroomName || "scopa"})` : ""}`,
-  ];
-  if (session.phase === "idle") {
-    lines.push(session.isBank
-      ? "Premi **Colpo** per tentare il furto alla cassaforte. Usa `+rob @utente` per derubare un giocatore."
-      : "Premi **Colpo** per tentare il furto. Usa **Verso Gringott** per la banca.");
-  }
   if (session.phase === "done" && last) {
-    lines.push(last.success
-      ? `🏆 Colpo riuscito: **+${formatGaleoni(last.amount)}**`
-      : `<a:VC_Cross:1482532424570376253> Beccato! Multa: **${formatGaleoni(last.penalty || 0)}**`);
+    return formatRobNotice(
+      { ok: true, success: Boolean(last.success), amount: last.amount, penalty: last.penalty, bank: session.isBank },
+      session.targetName,
+    );
   }
-  if (notice) lines.push(notice);
-  return new EmbedBuilder().setColor(color).setDescription(lines.filter(Boolean).join("\n"));
+  if (session.panelAnimating) return String(notice || "").trim();
+  return "";
 }
 
-async function buildRobGuiPayload(session, notice = "", panelClosed = false, animating = false) {
-  const live = { ...session, panelAnimating: Boolean(animating || session.panelAnimating) };
-  const attachment = await renderPanel(live);
-  const embed = buildEmbed(session, notice);
-  const files = attachment.files?.length ? attachment.files : undefined;
-  if (attachment.image && files?.length && !attachment.isGif) embed.setImage(attachment.image);
-  return { embeds: [embed], components: buildRows(session, panelClosed), files, allowedMentions: { repliedUser: false } };
+async function buildRobGuiPayload(session, notice = "", panelClosed = false, renderOpts = {}) {
+  const live = { ...session, panelAnimating: Boolean(renderOpts.forceAnimating ?? session.panelAnimating) };
+  const attachment = await renderPanel(live, renderOpts, notice, panelClosed);
+  return buildImageButtonPayload({
+    files: attachment.files || [],
+    components: buildRows(session, panelClosed),
+  });
 }
 
 function spinAnimationDurationMs() {
@@ -166,30 +213,115 @@ function spinAnimationDurationMs() {
   return 2600;
 }
 
-function scheduleRobIdlePanel(message, session, notice = "") {
+function scheduleRobIdlePanel(message, session, notice = "", delayMs = null) {
   const messageId = String(message?.id || "");
   if (!message?.edit || !messageId) return;
+  const waitMs = Number.isFinite(delayMs) ? Math.max(0, delayMs) : spinAnimationDurationMs();
   setTimeout(() => {
     const live = getSession(messageId);
     if (!live) return;
     live.panelAnimating = false;
+    live.phase = live.phase === "spinning" ? "done" : live.phase;
     setSession(messageId, live);
-    buildRobGuiPayload(live, notice, false, false)
+    buildRobGuiPayload(live, notice, false, {})
       .then((payload) => message.edit(payload).catch(() => {}))
       .catch(() => {});
-  }, spinAnimationDurationMs());
+  }, waitMs);
 }
 
-async function warmupRobPanel() {
+async function warmupSpinPreviews() {
+  for (const isBank of [true, false]) {
+    const key = spinPreviewCacheKey({ isBank });
+    if (renderCache.has(key)) continue;
+    const stub = {
+      isBank,
+      targetName: isBank ? "Gringott" : "Bersaglio",
+      successChance: 35,
+      phase: "idle",
+      panelAnimating: false,
+      lastResult: null,
+    };
+    await renderPanel(stub, { previewSpin: true }).catch(() => {});
+  }
+}
+
+async function warmupRobPanel(opts = {}) {
+  const maxMs = Math.max(500, Math.floor(Number(opts.maxMs) || 4000));
+  const wait = opts.wait !== false;
+  if (defaultIdleCache) {
+    if (!wait) {
+      if (!renderCache.has(spinPreviewCacheKey({ isBank: true }))) {
+        setImmediate(() => warmupSpinPreviews().catch(() => {}));
+      }
+      return;
+    }
+    if (renderCache.has(spinPreviewCacheKey({ isBank: true }))) return;
+  }
+  if (!warmupPromise) {
+    warmupPromise = (async () => {
+      try {
+        const renderRobCanvas = require("../Render/robCanvas");
+        if (typeof renderRobCanvas.warmup === "function") renderRobCanvas.warmup();
+        const idle = await renderRobCanvas({ phase: "idle", targetName: "Gringott", isBank: true, successChance: 35 });
+        const idleName = "rob-heist.png";
+        defaultIdleCache = { buffer: idle.buffer, fileName: idleName, image: `attachment://${idleName}`, isGif: false };
+        rememberRenderCache(IDLE_CACHE_KEY, idle.buffer, idleName);
+        rememberRenderCache("idle:user", idle.buffer, idleName);
+      } catch (err) {
+        global.logger?.warn?.("[ROB GUI] idle warmup:", err?.message || err);
+      } finally {
+        setImmediate(() => warmupSpinPreviews().catch(() => {}));
+      }
+    })();
+  }
+  if (!wait) return;
+  await Promise.race([
+    warmupPromise.catch(() => {}),
+    new Promise((resolve) => setTimeout(resolve, maxMs)),
+  ]);
+}
+
+async function pushRobHitAnimation(message, session, attemptFn) {
+  const messageId = String(message?.id || "");
+  if (!message?.edit || !messageId) return { ok: false, message: "Messaggio non modificabile." };
+  session.panelAnimating = true;
+  session.phase = "spinning";
+  session.lastResult = null;
+  setSession(messageId, session);
+  const started = Date.now();
+  const spinKey = spinPreviewCacheKey(session);
+  if (!renderCache.has(spinKey)) {
+    warmupRobPanel({ wait: false });
+  }
   try {
-    const renderRobCanvas = require("../Render/robCanvas");
-    if (typeof renderRobCanvas.warmup === "function") renderRobCanvas.warmup();
-    await renderRobCanvas({ phase: "idle", targetName: "Gringott", isBank: true });
-  } catch (_) {}
+    const spinPayload = await Promise.race([
+      buildRobGuiPayload(session, "", false, { previewSpin: true, forceAnimating: true }),
+      new Promise((resolve) => setTimeout(async () => resolve(buildRobGuiPayload(session, "", false, {})), 8000)),
+    ]);
+    await message.edit(spinPayload).catch(() => {});
+  } catch (error) {
+    global.logger?.warn?.("[ROB GUI] spin preview:", error?.message || error);
+  }
+  const hit = await attemptFn();
+  if (!hit?.ok) {
+    resetForNewAttempt(session);
+    setSession(messageId, session);
+    const idlePayload = await buildRobGuiPayload(session, "", false, {});
+    await message.edit(idlePayload).catch(() => {});
+    return hit;
+  }
+  session.lastResult = hit.result;
+  session.phase = "done";
+  session.panelAnimating = true;
+  setSession(messageId, session);
+  const notice = formatRobNotice(hit.result, session.targetName);
+  const remaining = Math.max(0, spinAnimationDurationMs() - (Date.now() - started));
+  scheduleRobIdlePanel(message, session, notice, remaining);
+  return hit;
 }
 
 setImmediate(() => {
-  warmupRobPanel().catch(() => {});
+  warmupRobPanel({ wait: true, maxMs: 15000 }).catch(() => {});
 });
 
 function interactionMessageAdapter(interaction) {
@@ -268,10 +400,8 @@ async function attemptRob(client, messageLike, session, cfg) {
   if (session.isBank || isRobBankTarget(session.targetId)) {
     const result = await robBank(client, messageLike);
     if (!result.ok) return result;
-    session.lastResult = result;
-    session.phase = "done";
     session.updatedAt = now();
-    return { ok: true, result, animating: true };
+    return { ok: true, result };
   }
   const target = await resolveTargetUser(client, messageLike, session.targetId, cfg || economyConfig(client));
   if (target?.error) return { ok: false, message: target.error };
@@ -281,10 +411,8 @@ async function attemptRob(client, messageLike, session, cfg) {
   session.isBank = false;
   const result = await rob(client, messageLike, target.user);
   if (!result.ok) return result;
-  session.lastResult = result;
-  session.phase = "done";
   session.updatedAt = now();
-  return { ok: true, result, animating: true };
+  return { ok: true, result };
 }
 
-module.exports = { ROB_BANK_TARGET_ID, attemptRob, buildRobGuiPayload, deleteSession, economyConfig, extractUserId, formatRobNotice, getSession, interactionMessageAdapter, isRobBankTarget, isRobGuiCustomId, makeGringottTarget, makeSession, parseRobGuiCustomId, pickRandomTarget, resetForNewAttempt, resolveTargetUser, scheduleRobIdlePanel, setSession, warmupRobPanel };
+module.exports = { ROB_BANK_TARGET_ID, attemptRob, buildRobGuiPayload, deleteSession, economyConfig, extractUserId, formatRobNotice, getSession, interactionMessageAdapter, isRobBankTarget, isRobGuiCustomId, makeGringottTarget, makeSession, parseRobGuiCustomId, pickRandomTarget, pushRobHitAnimation, resetForNewAttempt, resolveTargetUser, scheduleRobIdlePanel, setSession, spinAnimationDurationMs, warmupRobPanel };

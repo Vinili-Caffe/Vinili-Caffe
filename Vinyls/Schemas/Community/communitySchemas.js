@@ -645,6 +645,7 @@ const SITE_DOCUMENT_TYPE = Object.freeze({
   HOGWARTS_FORBIDDEN_BOOKS: "hogwarts_forbidden_books",
   HOGWARTS_HOUSE_POINTS: "hogwarts_house_points",
   HOGWARTS_REACT_PRESS: "hogwarts_react_press",
+  HOGWARTS_EVENT_COMPLETION: "hogwarts_event_completion",
 });
 
 const siteSuggestionCommentSchema = new Schema(
@@ -804,6 +805,10 @@ siteDocumentSchema.index(
 siteDocumentSchema.index(
   { docType: 1, guildId: 1, status: 1, createdAt: -1 },
   { name: "hogwarts_react_press_status_created", partialFilterExpression: { docType: SITE_DOC.HOGWARTS_REACT_PRESS } },
+);
+siteDocumentSchema.index(
+  { docType: 1, guildId: 1, dedupeKey: 1 },
+  { unique: true, name: "hogwarts_event_completion_unique", partialFilterExpression: { docType: SITE_DOC.HOGWARTS_EVENT_COMPLETION } },
 );
 
 const MOD_CASE_COLLECTION = process.env.MOD_CASE_COLLECTION ? String(process.env.MOD_CASE_COLLECTION).trim() : "mod_case";

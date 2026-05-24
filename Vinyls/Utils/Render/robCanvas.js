@@ -369,6 +369,7 @@ function drawThief(ctx, x, y, progress, frameIndex) {
 }
 
 function buildStatus(params) {
+  if (params.statusLine) return { right: params.statusLine, color: "#f8d875" };
   if (params.animating) return { right: "Infiltrazione in corso…", color: "#f8d875" };
   if (params.phase === "done" && params.hasResult) {
     if (params.success) return { right: `Bottino ${formatGaleoni(params.amount)}`, color: "#4ade80" };
@@ -515,11 +516,15 @@ async function renderRobCanvas(params = {}) {
     amount: Math.max(0, Math.floor(Number(params.amount) || 0)),
     penalty: Math.max(0, Math.floor(Number(params.penalty) || 0)),
     animating: Boolean(params.animating),
+    previewSpin: Boolean(params.previewSpin),
     isBank: Boolean(params.isBank),
   };
   try {
-    if (normalized.animating && !USE_PNG) {
-      return { buffer: await renderRobGif(normalized), format: "gif" };
+    if ((normalized.animating || normalized.previewSpin) && !USE_PNG) {
+      const spinParams = normalized.previewSpin
+        ? { ...normalized, phase: "animating", animating: true, hasResult: false, success: false }
+        : normalized;
+      return { buffer: await renderRobGif(spinParams), format: "gif" };
     }
     return { buffer: renderPng(normalized), format: "png" };
   } catch (err) {

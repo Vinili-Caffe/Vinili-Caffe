@@ -1,9 +1,11 @@
 const BotState = require("../../Schemas/BotState/botStateSchema");
+const { isMongoReady } = require("../Database/mongoConnect");
 
 const { COMPACT_BOTSTATE_KEY } = BotState;
 
 async function getBotState(key, fallback = null) {
   const k = String(key);
+  if (!isMongoReady()) return fallback;
   try {
     const compact = await BotState.findOne({ key: COMPACT_BOTSTATE_KEY }).lean();
     if (
@@ -22,6 +24,7 @@ async function getBotState(key, fallback = null) {
 
 async function setBotState(key, value) {
   const k = String(key);
+  if (!isMongoReady()) return;
   try {
     const compact = await BotState.findOne({ key: COMPACT_BOTSTATE_KEY }).lean();
     if (compact) {

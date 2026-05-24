@@ -1,4 +1,5 @@
-const { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } = require("discord.js");
+const { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle } = require("discord.js");
+const { buildImageButtonPayload, canvasStatusLine } = require("./guiPanelPayload");
 const { addGaleoni, formatGaleoni, getGringottBalance, spendGaleoni } = require("../../Services/Community/gringottService");
 const { eventKey } = require("../../Services/Community/galeoniEconomyService");
 const PREFIX = "bal_gui";
@@ -127,16 +128,17 @@ function buildRows(session, panelClosed = false) {
   return rows;
 }
 
-async function renderPanel(session) {
+async function renderPanel(session, notice = "") {
   try {
     const renderBalCanvas = require("../Render/balCanvas");
+    const status = canvasStatusLine(notice);
     const rendered = await renderBalCanvas({
       targetLabel: session.targetName,
       balance: session.state?.balance || 0,
       earned: session.state?.earned || 0,
       spent: session.state?.spent || 0,
       staffMode: session.showStaffControls,
-      noticeShort: session.showStaffControls ? `Importo ${session.adjustAmount}` : "Saldo",
+      noticeShort: status || (session.showStaffControls ? `Importo ${session.adjustAmount}` : "Saldo"),
     });
     const fileName = "gringott-bal.png";
     const files = [new AttachmentBuilder(Buffer.from(rendered.buffer), { name: fileName })];
@@ -147,24 +149,12 @@ async function renderPanel(session) {
   }
 }
 
-function buildEmbed(session, notice = "") {
-  const state = session.state || {};
-  const lines = [
-    `🏦 **Gringott** — conto di **${session.targetName}**`,
-    `💰 Saldo: **${formatGaleoni(state.balance || 0)}**`,
-    `📈 Guadagnati: **${formatGaleoni(state.earned || 0)}**`,
-    `📉 Spesi: **${formatGaleoni(state.spent || 0)}**`,
-  ];
-  if (notice) lines.push(notice);
-  const embed = new EmbedBuilder().setColor("#d4af37").setDescription(lines.filter(Boolean).join("\n"));
-  return embed;
-}
-
 async function buildBalPayload(session, notice = "", panelClosed = false) {
-  const attachment = await renderPanel(session);
-  const embed = buildEmbed(session, notice);
-  if (attachment.image && attachment.files?.length) embed.setImage(attachment.image);
-  return { embeds: [embed], components: buildRows(session, panelClosed), files: attachment.files, allowedMentions: { repliedUser: false } };
+  const attachment = await renderPanel(session, notice);
+  return buildImageButtonPayload({
+    files: attachment.files || [],
+    components: buildRows(session, panelClosed),
+  });
 }
 
 async function reloadBalance(client, session) {

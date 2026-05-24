@@ -9,6 +9,7 @@ const {
   isIncomeGuiCustomId,
   parseIncomeGuiCustomId,
   setSession,
+  syncSessionPeek,
 } = require("../Utils/Economy/incomeClaimGuiRuntime");
 const PRIVATE_FLAG = MessageFlags.Ephemeral;
 
@@ -38,9 +39,18 @@ async function execute(interaction, client) {
   }
 
   if (parsed.action === "claim") {
+    if (session.phase === "claiming") return true;
     if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate().catch(() => {});
-    const claimed = await claimFromPanel(client, interactionMessageAdapter(interaction), session);
+    session.phase = "claiming";
+    setSession(interaction.message.id, session);
+    const messageLike = await interactionMessageAdapter(interaction);
+    const claimed = await claimFromPanel(client, messageLike, session);
     if (!claimed.ok) {
+      session.phase = "idle";
+      await syncSessionPeek(client, messageLike, session);
+      setSession(interaction.message.id, session);
+      const payload = await buildIncomeClaimPayload(session, "", false);
+      await interaction.message?.edit?.(payload).catch(() => {});
       await interaction.followUp({ content: `<:vegax:1443934876440068179> ${claimed.message}`, flags: PRIVATE_FLAG }).catch(() => {});
       return true;
     }

@@ -70,7 +70,13 @@
     return Number.isFinite(ms) ? ms : new Date("2026-08-24T00:00:00").getTime();
   }
 
+  function previewModeActive() {
+    var nav = window.__VC_HOGWARTS_EVENT_NAV;
+    return Boolean(nav && nav.previewMode === true);
+  }
+
   function redirectIfLockedWithoutPreview() {
+    if (previewModeActive()) return false;
     if (Date.now() >= startMs()) return false;
     if (getToken()) return false;
     try {

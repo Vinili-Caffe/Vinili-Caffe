@@ -124,6 +124,16 @@
                 "channels.staffCmds"
             ]
         },
+        "punticasa": {
+            "roles": [
+                "roles.Founder",
+                "roles.Admin",
+                "roles.HighStaff"
+            ],
+            "channels": [
+                "channels.staffCmds"
+            ]
+        },
         "me": {
             "roles": [
                 "roles.Member"
@@ -642,6 +652,25 @@
                 "channels.staffCmds"
             ]
         },
+        "sezioneproibita": {
+            "roles": [
+                "roles.Founder",
+                "roles.Admin"
+            ],
+            "channels": [
+                "channels.staffCmds"
+            ],
+            "subcommands": {
+                "winner": [
+                    "roles.Founder",
+                    "roles.Admin"
+                ],
+                "check": [
+                    "roles.Founder",
+                    "roles.Admin"
+                ]
+            }
+        },
         "blacklist": {
             "roles": [
                 "roles.HighStaff",
@@ -849,7 +878,8 @@
         },
         "delwarn": {
             "roles": [
-                "roles.HighStaff"
+                "roles.HighStaff",
+                "roles.Director"
             ],
             "channels": [
                 "channels.staffCmds",
@@ -858,7 +888,8 @@
         },
         "clearwarn": {
             "roles": [
-                "roles.HighStaff"
+                "roles.HighStaff",
+                "roles.Director"
             ],
             "channels": [
                 "channels.staffCmds",

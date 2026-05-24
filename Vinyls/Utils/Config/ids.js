@@ -116,6 +116,7 @@ const ids = {
     pollBestStaff: "1446104429181927434",
     bestStaff: "1442569253281730653",
     topWeeklyUser: "1470183921236049940",
+    hogwartsHouseActivityReport: "1507685351102353448",
     info: "1442569111119990887",
     sponsor2: "1448693699432153218",
     vocaleduo3: "1470170379078078656",

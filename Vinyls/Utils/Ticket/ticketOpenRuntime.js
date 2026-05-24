@@ -48,6 +48,10 @@ async function createTicketsCategory(interaction, guild) {
 
   await moveCategoryToTop(category);
   interaction.client.ticketCategoryCache.set(guild.id, category.id);
+  try {
+    const { scheduleDiscordAutomodRulesResync } = require("../../Services/Moderation/discordAutomodRulesService");
+    scheduleDiscordAutomodRulesResync(interaction.client);
+  } catch (_) {}
   return category;
 }
 

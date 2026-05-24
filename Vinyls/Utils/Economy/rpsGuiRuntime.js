@@ -1,4 +1,5 @@
-const { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require("discord.js");
+const { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
+const { buildImageButtonPayload, canvasStatusLine } = require("./guiPanelPayload");
 const { formatGaleoni } = require("../../Services/Community/gringottService");
 const { economyConfig, lockRpsPvpStakes, normalizeRps, playRps, refundRpsPvpStake, settleRpsPvp } = require("../../Services/Community/galeoniEconomyService");
 
@@ -253,7 +254,7 @@ function rememberRenderCache(key, buffer, fileName) {
   }
 }
 
-async function renderRpsAttachment(session, { animating = false } = {}) {
+async function renderRpsAttachment(session, { animating = false, notice = "" } = {}) {
   const last = session.lastResult;
   const key = renderCacheKey(session, Boolean(animating && last));
   const hit = renderCache.get(key);
@@ -262,6 +263,7 @@ async function renderRpsAttachment(session, { animating = false } = {}) {
     const renderRpsCanvas = require("../Render/rpsCanvas");
     const rendered = await renderRpsCanvas({
       bet: session.bet,
+      phase: session.phase,
       playerName: session.playerName,
       opponentName: session.opponentName,
       playerChoice: last?.result?.player || "",
@@ -272,6 +274,7 @@ async function renderRpsAttachment(session, { animating = false } = {}) {
       animating: Boolean(animating && last),
       isPvp: session.mode === "pvp",
       winnerName: last?.winnerId === session.ownerId ? session.playerName : last?.winnerId === session.opponentId ? session.opponentName : "",
+      statusLine: canvasStatusLine(notice),
     });
     const fileName = rendered.format === "gif" ? "rps-match.gif" : "rps-panel.png";
     rememberRenderCache(key, rendered.buffer, fileName);
@@ -283,11 +286,11 @@ async function renderRpsAttachment(session, { animating = false } = {}) {
   }
 }
 
-async function resolvePanelAttachment(session, animating = false) {
-  if (!session.lastResult && !animating && defaultIdleCache) {
+async function resolvePanelAttachment(session, animating = false, notice = "") {
+  if (!session.lastResult && !animating && !notice && session.phase !== "pending" && defaultIdleCache) {
     return attachmentFromCache(defaultIdleCache);
   }
-  const out = await renderRpsAttachment(session, { animating });
+  const out = await renderRpsAttachment(session, { animating, notice });
   if (out.files?.length) return out;
   if (defaultIdleCache) return attachmentFromCache(defaultIdleCache);
   return out;
@@ -351,46 +354,20 @@ function formatRpsPvpNotice(result) {
   return `🏆 **${winnerName}** vince il montepremi: **${formatGaleoni(result.payout)}**.`;
 }
 
-function buildEmbed(session, notice, animating) {
-  const last = session.lastResult;
-  const hideOutcome = Boolean(animating);
-  const color = hideOutcome ? "#38bdf8" : last?.draw ? "#d4af37" : last?.winnerId ? "#2ecc71" : last ? "#ed4245" : "#38bdf8";
-  const lines = [`🪙 Puntata: **${formatGaleoni(session.bet)}**`];
-  if (session.mode === "pvp") {
-    lines.push(`👥 **${session.playerName}** vs **${session.opponentName}**`);
-    if (session.phase === "pending") lines.push("⏳ In attesa che l'avversario accetti la sfida.");
-    if (session.phase === "pick") {
-      const cDone = Boolean(session.challengerChoice);
-      const oDone = Boolean(session.opponentChoice);
-      lines.push(`✊ Sfida accettata — scegli in segreto la tua mossa.`);
-      lines.push(`• ${session.playerName}: ${cDone ? "✅ pronto" : "⏳ in attesa"}`);
-      lines.push(`• ${session.opponentName}: ${oDone ? "✅ pronto" : "⏳ in attesa"}`);
-    }
-  } else {
-    lines.push("👤 Tu vs Bot");
-  }
-  if (animating) lines.push("🎬 **Animazione in corso…**");
-  if (notice) lines.push(notice);
-  return new EmbedBuilder().setColor(color).setDescription(lines.filter(Boolean).join("\n"));
-}
-
 async function buildRpsGuiPayload(session, cfg, notice = "", disabled = false, animating = false) {
-  const attachment = await resolvePanelAttachment(session, animating);
-  const embed = buildEmbed(session, notice, animating);
-  const files = attachment.files?.length ? attachment.files : undefined;
-  if (attachment.image && files?.length && !attachment.isGif) {
-    embed.setImage(attachment.image);
-  }
-  return { embeds: [embed], components: buildRows(session, cfg, disabled), files, allowedMentions: { repliedUser: false } };
+  const attachment = await resolvePanelAttachment(session, animating, notice);
+  return buildImageButtonPayload({
+    files: attachment.files || [],
+    components: buildRows(session, cfg, disabled),
+  });
 }
 
 async function buildRpsBetPayload(session, cfg, notice = "") {
-  const attachment = defaultIdleCache ? attachmentFromCache(defaultIdleCache) : await resolvePanelAttachment(session, false);
-  const embed = buildEmbed(session, notice, false);
-  if (attachment.image && attachment.files?.length && !attachment.isGif) {
-    embed.setImage(attachment.image);
-  }
-  return { embeds: [embed], components: buildRows(session, cfg, false), files: attachment.files, allowedMentions: { repliedUser: false } };
+  const attachment = defaultIdleCache ? attachmentFromCache(defaultIdleCache) : await resolvePanelAttachment(session, false, notice);
+  return buildImageButtonPayload({
+    files: attachment.files || [],
+    components: buildRows(session, cfg, false),
+  });
 }
 
 function interactionMessageAdapter(interaction) {

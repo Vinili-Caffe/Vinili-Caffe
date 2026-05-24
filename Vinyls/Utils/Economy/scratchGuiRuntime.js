@@ -1,4 +1,5 @@
-const { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require("discord.js");
+const { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
+const { buildImageButtonPayload } = require("./guiPanelPayload");
 const { formatGaleoni } = require("../../Services/Community/gringottService");
 const { economyConfig, payScratchWin, playScratchBet } = require("../../Services/Community/galeoniEconomyService");
 const { allRevealed, emptyRevealed, evaluateCard, generateCard, symbolLabel } = require("./scratchEngine");
@@ -137,31 +138,13 @@ async function renderPanel(session) {
   }
 }
 
-function buildEmbed(session, notice) {
-  const last = session.lastResult;
-  const color = last?.win ? "#2ecc71" : last ? "#ed4245" : session.phase === "ready" ? "#d4af37" : "#5c4510";
-  const lines = [
-    `🎫 Biglietto: **${formatGaleoni(session.bet)}**`,
-    "✨ Abbina **2 o 3** simboli uguali per vincere.",
-  ];
-  if (session.phase === "idle") lines.push("Premi **Compra** per acquistare il gratta e vinci.");
-  if (session.phase === "ready") lines.push("Gratta le **9 zone** o usa **Gratta tutto**.");
-  if (session.phase === "done" && last) {
-    lines.push(last.win
-      ? `🏆 **${last.eval.max}× ${symbolLabel(last.eval.best)}** — +**${formatGaleoni(last.payout)}**`
-      : "<a:VC_Cross:1482532424570376253> Nessun premio su questo biglietto.");
-  }
-  if (notice) lines.push(notice);
-  return new EmbedBuilder().setColor(color).setDescription(lines.filter(Boolean).join("\n"));
-}
-
 async function buildScratchGuiPayload(session, cfg, notice = "", panelClosed = false, animating = false) {
   const live = { ...session, panelAnimating: Boolean(animating || session.panelAnimating) };
   const attachment = await renderPanel(live);
-  const embed = buildEmbed(session, notice);
-  const files = attachment.files?.length ? attachment.files : undefined;
-  if (attachment.image && files?.length && !attachment.isGif) embed.setImage(attachment.image);
-  return { embeds: [embed], components: buildRows(session, cfg, panelClosed), files, allowedMentions: { repliedUser: false } };
+  return buildImageButtonPayload({
+    files: attachment.files || [],
+    components: buildRows(session, cfg, panelClosed),
+  });
 }
 
 function spinAnimationDurationMs() {

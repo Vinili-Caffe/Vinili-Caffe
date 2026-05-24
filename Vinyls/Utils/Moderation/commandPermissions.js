@@ -4,6 +4,7 @@ const { EmbedBuilder, PermissionsBitField, PermissionFlagsBits, } = require("dis
 const IDs = require("../Config/ids");
 const { hasAdminsProfileCapability } = require("../../Services/Moderation/securityProfilesService");
 const { isPartnerPmDailyCommandsThread } = require("../Partner/partnersChatChannelUtils");
+const { isChannelInTicketCategory } = require("../Ticket/ticketCategoryUtils");
 const { buildPrefixLookupKeys, buildSlashLookupKeys } = require("./temporaryCommandPermissions");
 const { getGuildMemberCached } = require("../Interaction/interactionEntityCache");
 const { hasEventWeekWinnerGrant } = require("../../Services/Community/weekWinnerGrantsService");
@@ -15,6 +16,7 @@ let idsFallbackCache = null;
 const LIVE_MEMBER_CACHE_TTL_MS = 15_000;
 const liveMemberCache = new Map();
 const PM_THREAD_PREFIX_CHANNEL_BYPASS_COMMANDS = new Set(["help", "profile"]);
+const TICKET_PREFIX_CHANNEL_BYPASS_COMMANDS = new Set(["sezioneproibita", "libriproibiti", "forbiddenbooks"]);
 
 function getMainGuildIdFallback() {
   try {
@@ -766,11 +768,41 @@ async function checkSlashPermission(interaction, options = {}) {
   return allowed;
 }
 
+function tryResolveMultiGuildOpenMediaBypass(guildId, commandName, options) {
+  try {
+    const { resolveOpenMediaPrefixBypass } = require("../../MultiGuild/core/openMediaCommands");
+    return resolveOpenMediaPrefixBypass(guildId, commandName, options);
+  } catch (err) {
+    global.logger?.warn?.("[commandPermissions] MultiGuild open media bypass:", err?.message || err);
+    return null;
+  }
+}
+
+function tryResolveMultiGuildTenantPrefixRestriction(guildId, commandName, options) {
+  try {
+    const { resolveTenantPrefixRestriction } = require("../../MultiGuild/core/tenantPrefixGate");
+    return resolveTenantPrefixRestriction(guildId, commandName, options);
+  } catch (err) {
+    global.logger?.warn?.("[commandPermissions] MultiGuild tenant prefix gate:", err?.message || err);
+    return null;
+  }
+}
+
 async function checkPrefixPermission(message, commandName, subcommandName = null, options = {}) {
   const guildId = message?.guild?.id || null;
   const userId = message?.author?.id || null;
   const safeCommand = String(commandName || "").toLowerCase();
   const onMainGuild = isMainGuild(guildId);
+
+  const openMediaBypass = tryResolveMultiGuildOpenMediaBypass(guildId, safeCommand, options);
+  if (openMediaBypass !== null) {
+    return openMediaBypass;
+  }
+
+  const tenantRestriction = tryResolveMultiGuildTenantPrefixRestriction(guildId, safeCommand, options);
+  if (tenantRestriction !== null) {
+    return tenantRestriction;
+  }
 
   if (guildId && !onMainGuild) {
     const playOnSponsor = safeCommand === "play" && isAllowedGuildUfficiale(guildId);
@@ -800,7 +832,12 @@ async function checkPrefixPermission(message, commandName, subcommandName = null
       !allowed &&
       PM_THREAD_PREFIX_CHANNEL_BYPASS_COMMANDS.has(safeCommand) &&
       (await isPartnerPmDailyCommandsThread(ch).catch(() => false));
-    if (!allowed && !allowInPmThread) {
+    const allowInTicketChannel =
+      !allowed &&
+      !allowInPmThread &&
+      TICKET_PREFIX_CHANNEL_BYPASS_COMMANDS.has(safeCommand) &&
+      isChannelInTicketCategory(ch);
+    if (!allowed && !allowInPmThread && !allowInTicketChannel) {
       if (options.returnDetails) {
         return {
           allowed: false,

@@ -127,7 +127,12 @@ function rowQualifiesForStaffListNewBadge(row) {
       (STAFF_GENERIC_ROLE_ID && oldRole === STAFF_GENERIC_ROLE_ID));
   const staffToPm = newRole === PM_ROLE_ID && oldWasStaffForPm;
 
-  return fromMember || staffToPm;
+  const ontoStaffListFromNonListRole =
+    oldRole &&
+    !STAFF_LIST_ROLE_ID_SET.has(oldRole) &&
+    newRole !== PM_ROLE_ID;
+
+  return fromMember || staffToPm || ontoStaffListFromNonListRole;
 }
 
 async function getStaffListNewBadgeRoleIdsByUser(guildId) {
@@ -560,6 +565,7 @@ function queueStaffListRefreshAfterRoleMutation(client, guildId = IDs.guilds.mai
 
 module.exports = {
   STAFF_NEW_EMOJI,
+  STAFF_LIST_SECTION_ROLE_IDS,
   STAFF_ROLE_IDS,
   memberHasStaffRole,
   didStaffMembershipChange,

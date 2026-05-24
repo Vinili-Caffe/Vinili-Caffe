@@ -1,7 +1,8 @@
 const mongoose = require("mongoose");
 const { ActivityUserProfile, ActivityGuildHourly } = require("../../Schemas/Community/communitySchemas");
 const { isValidGuildUserId, isValidGuildUserIdChannelId } = require("../../Utils/DB/validateWriteIds");
-const { addExpWithLevel, MESSAGE_EXP, VOICE_EXP_PER_MINUTE, shouldIgnoreExpForMember, } = require("./expService");
+const { addExpWithLevel, MESSAGE_EXP, VOICE_EXP_PER_MINUTE, shouldIgnoreExpForMember, isLevelExpGuild, } = require("./expService");
+const { isViniliFullFeatureGuild } = require("../../MultiGuild/core/guildFeatureScope");
 const IDs = require("../../Utils/Config/ids");
 const { isChannelInTicketCategory } = require("../../Utils/Ticket/ticketCategoryUtils");
 const TIME_ZONE = "Europe/Rome";
@@ -719,6 +720,7 @@ async function getOrCreateActivityUser(guildId, userId) {
 }
 
 async function recordMessageActivity(message) {
+  if (!isViniliFullFeatureGuild(message?.guild?.id)) return;
   if (mongoose.connection?.readyState !== 1) {
     if (process.env.ACTIVITY_DEBUG === "1") {
       console.error("[ACTIVITY] recordMessageActivity skip: mongoose non connesso", mongoose.connection?.readyState);
@@ -756,9 +758,11 @@ async function recordMessageActivity(message) {
     1,
   );
   const member = message.member || (await message.guild.members.fetch(message.author.id).catch(() => null));
-  const ignored = await shouldIgnoreExpForMember({ guildId: message.guild.id, member, channelId: message.channel?.id || message.channelId || null, });
-  if (!ignored) {
-    await addExpWithLevel(message.guild, message.author.id, MESSAGE_EXP, true, true, { source: "activity" });
+  if (isLevelExpGuild(message.guild.id)) {
+    const ignored = await shouldIgnoreExpForMember({ guildId: message.guild.id, member, channelId: message.channel?.id || message.channelId || null, });
+    if (!ignored) {
+      await addExpWithLevel(message.guild, message.author.id, MESSAGE_EXP, true, true, { source: "activity" });
+    }
   }
 }
 
@@ -780,7 +784,7 @@ async function recordVoiceSessionEnd(doc, now, guild, skipExp = false) {
   const alreadyAwardedExp = Math.floor((alreadyAwardedSeconds * VOICE_EXP_PER_MINUTE) / 60,);
   const remainingExp = Math.max(0, totalAwardableExp - alreadyAwardedExp);
   doc.profile.totals.expAwardedSeconds = 0;
-  if (!skipExp && remainingExp > 0) {
+  if (!skipExp && remainingExp > 0 && isLevelExpGuild(guild?.id)) {
     await addExpWithLevel(guild, doc.userId, remainingExp, true, true, { source: "activity" });
   }
   return elapsedSeconds;
@@ -801,6 +805,7 @@ async function handleVoiceActivity(oldState, newState) {
   const guildId = newState?.guild?.id || oldState?.guild?.id;
   const userId = member.id;
   if (!guildId || !userId) return;
+  if (!isViniliFullFeatureGuild(guildId)) return;
 
   const now = new Date();
   const wasInVoice = Boolean(oldState?.channelId);
@@ -1808,6 +1813,7 @@ async function runLiveVoiceExpTick(client) {
     const startedAt = row?.profile?.totals?.sessionStartedAt;
     const channelId = String(row?.profile?.totals?.sessionChannelId || "");
     if (!guildId || !userId || !startedAt || !channelId) continue;
+    if (!isLevelExpGuild(guildId)) continue;
 
     const guild = client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
     if (!guild) continue;

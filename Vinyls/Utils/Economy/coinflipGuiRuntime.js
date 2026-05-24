@@ -1,4 +1,5 @@
-const { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require("discord.js");
+const { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
+const { buildImageButtonPayload } = require("./guiPanelPayload");
 const { formatGaleoni } = require("../../Services/Community/gringottService");
 const { economyConfig, playCoinflip } = require("../../Services/Community/galeoniEconomyService");
 const { normalizeCoinChoice, sideLabel } = require("./coinflipEngine");
@@ -197,31 +198,12 @@ function formatCoinflipNotice(result) {
   return `<a:VC_Cross:1482532424570376253> **${sideLabel(result.result.player)}** — esce **${sideLabel(result.result.flip)}**. Hai perso.\n<a:VC_pixeltime:1482535344103620771> Puoi rigiocare quando il cooldown lo permette.`;
 }
 
-function buildEmbed(session, notice, animating) {
-  const last = session.lastResult;
-  const hideOutcome = Boolean(animating);
-  const color = hideOutcome ? "#38bdf8" : last?.win ? "#2ecc71" : last ? "#ed4245" : "#1e3a5f";
-  const lines = [
-    `🪙 Puntata: **${formatGaleoni(session.bet)}**`,
-    "🪙 Scegli **Testa** o **Croce**.",
-  ];
-  if (animating) lines.push("🎬 **La moneta gira…**");
-  if (!animating && last?.result) {
-    lines.push(`• Tua scelta: **${sideLabel(last.result.player)}**`);
-    lines.push(`• Esito: **${sideLabel(last.result.flip)}**`);
-  }
-  if (notice) lines.push(notice);
-  return new EmbedBuilder().setColor(color).setDescription(lines.filter(Boolean).join("\n"));
-}
-
 async function buildCoinflipGuiPayload(session, cfg, notice = "", disabled = false, animating = false) {
   const attachment = await resolvePanelAttachment(session, animating);
-  const embed = buildEmbed(session, notice, animating);
-  const files = attachment.files?.length ? attachment.files : undefined;
-  if (attachment.image && files?.length && !attachment.isGif) {
-    embed.setImage(attachment.image);
-  }
-  return { embeds: [embed], components: buildRows(session, cfg, disabled), files, allowedMentions: { repliedUser: false } };
+  return buildImageButtonPayload({
+    files: attachment.files || [],
+    components: buildRows(session, cfg, disabled),
+  });
 }
 
 function interactionMessageAdapter(interaction) {

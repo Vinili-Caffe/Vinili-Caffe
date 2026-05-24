@@ -35,7 +35,7 @@ async function fetchCompleteGuildMemberIds(guild, options = {}) {
   } catch (err) {
     const retryMs = Math.min(MEMBER_FETCH_RETRY_MAX_MS, parseRateLimitRetryMs(err));
     if (options.retryRateLimit !== false && retryMs > 0) {
-      global.logger?.warn?.("[CLEANUP USERS NOT IN SERVER] member fetch rate limited, retrying:", guild?.id, `${Math.ceil(retryMs / 1000)}s`);
+      global.logger?.info?.("[CLEANUP USERS NOT IN SERVER] member fetch rate limited, retrying:", guild?.id, `${Math.ceil(retryMs / 1000)}s`);
       await wait(retryMs + 1000);
       return fetchCompleteGuildMemberIds(guild, { retryRateLimit: false });
     }

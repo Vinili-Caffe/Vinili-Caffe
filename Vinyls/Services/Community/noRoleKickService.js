@@ -3,6 +3,7 @@ const IDs = require("../../Utils/Config/ids");
 const { getClientGuildCached } = require("../../Utils/Interaction/interactionEntityCache");
 
 const MAIN_GUILD_ID = String(IDs.guilds?.main || "").trim();
+const NO_ROLE_KICK_ENABLED = false;
 const NO_ROLE_GRACE_MS = 24 * 60 * 60 * 1000;
 const NO_ROLE_SWEEP_INTERVAL_MS = Number(process.env.NO_ROLE_KICK_SWEEP_INTERVAL_MS) || 30 * 60 * 1000;
 const NO_ROLE_KICK_REASON = "Membro senza ruoli dopo 24h dall'ingresso.";
@@ -101,6 +102,7 @@ function buildNoRoleKickDm(guild) {
 }
 
 async function kickNoRoleMember(member) {
+  if (!NO_ROLE_KICK_ENABLED) return false;
   if (!isNoRoleKickCandidate(member)) return false;
   const me = member.guild?.members?.me || (await member.guild?.members?.fetchMe?.().catch(() => null));
   if (!me?.permissions?.has?.(PermissionsBitField.Flags.KickMembers)) {
@@ -119,6 +121,7 @@ async function kickNoRoleMember(member) {
 }
 
 async function runNoRoleKickSweep(client) {
+  if (!NO_ROLE_KICK_ENABLED) return { scanned: 0, kicked: 0 };
   if (!client || !MAIN_GUILD_ID) return { scanned: 0, kicked: 0 };
   const jobsDebug = String(process.env.DEBUG_JOBS || "").trim() === "1";
   const guild = client.guilds.cache.get(MAIN_GUILD_ID) || (await getClientGuildCached(client, MAIN_GUILD_ID));
@@ -149,6 +152,7 @@ async function runNoRoleKickSweep(client) {
 }
 
 function startNoRoleKickLoop(client) {
+  if (!NO_ROLE_KICK_ENABLED) return;
   if (!client || client._noRoleKickLoopStarted) return;
   client._noRoleKickLoopStarted = true;
   runNoRoleKickSweep(client).catch((err) => {
