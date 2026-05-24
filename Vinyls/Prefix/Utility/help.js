@@ -58,6 +58,7 @@ const PREFIX_HELP_DESCRIPTIONS = {
   daily: "Ricompensa giornaliera.",
   weekly: "Ricompensa settimanale.",
   monthly: "Ricompensa mensile.",
+  pay: "Invia Galeoni a un altro utente.",
   rob: "Furto vs banca o utente.",
   roulette: "Roulette interattiva.",
   rps: "Morra cinese vs bot o PvP.",

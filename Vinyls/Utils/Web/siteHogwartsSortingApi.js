@@ -989,13 +989,15 @@ async function resolveForbiddenBookParticipant(client, req, options = {}) {
   const resolved = await resolveWebsiteCandidatureMember(client, accessToken);
   if (!resolved.ok) return { ...resolved, status: Number(resolved.status) || 500 };
   const cfg = resolveHogwartsEventConfig(client);
-  const participation = await assertHogwartsEventParticipationForUser(
-    client,
-    resolved.member,
-    resolved.userId,
-  );
-  if (!participation.ok) return participation;
   const previewViewer = canPreviewForbiddenBooks(cfg, resolved.member, resolved.userId);
+  if (!previewViewer) {
+    const participation = await assertHogwartsEventParticipationForUser(
+      client,
+      resolved.member,
+      resolved.userId,
+    );
+    if (!participation.ok) return participation;
+  }
   if (!forbiddenEventOpen(cfg) && !previewViewer) {
     const now = Date.now();
     if (Number.isFinite(FORBIDDEN_END_MS) && now > FORBIDDEN_END_MS) {
@@ -1043,7 +1045,7 @@ async function handleHogwartsForbiddenBooksGet(client, req, res) {
 
 async function handleHogwartsForbiddenBooksClaim(client, req, res) {
   try {
-    const participant = await resolveForbiddenBookParticipant(client, req);
+    const participant = await resolveForbiddenBookParticipant(client, req, { allowPreviewViewer: true });
     if (!participant.ok) return res.status(participant.status || 500).json(participant);
     const bookId = normalizeForbiddenBookId(req.body?.bookId);
     if (!bookId) return res.status(400).json({ ok: false, error: "invalid_book", message: "Libro non valido." });

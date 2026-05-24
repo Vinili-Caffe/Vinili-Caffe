@@ -109,16 +109,37 @@ async function sendChannelEmbed(channel, payload) {
 
 function getValutazioneEntry(staff, kind, index, reason) {
   const listName = kind === "negative" ? "negativeValutazioni" : "positiveValutazioni";
+  const reasonsName = kind === "negative" ? "negativeReasons" : "positiveReasons";
   const list = Array.isArray(staff?.[listName]) ? staff[listName] : [];
+  const reasons = Array.isArray(staff?.[reasonsName]) ? staff[reasonsName] : [];
   const byIndex = list[index] || null;
   if (byIndex?.messageId && byIndex?.channelId) return byIndex;
+
+  const targetReason = String(reason || "");
+  let reasonOccurrenceAtIndex = 0;
+  for (let i = 0; i <= index && i < reasons.length; i += 1) {
+    if (String(reasons[i] || "") === targetReason) reasonOccurrenceAtIndex += 1;
+  }
+  if (reasonOccurrenceAtIndex <= 0) return null;
+
   const auto = Array.isArray(staff?.autoValutazioni) ? staff.autoValutazioni : [];
-  return auto.find((entry) =>
-    String(entry?.type || "") === kind &&
-    String(entry?.reason || "") === String(reason || "") &&
-    String(entry?.messageId || "") &&
-    String(entry?.channelId || "")
-  ) || null;
+  let seen = 0;
+  for (const entry of auto) {
+    if (String(entry?.type || "") !== kind) continue;
+    if (String(entry?.reason || "") !== targetReason) continue;
+    if (!String(entry?.messageId || "") || !String(entry?.channelId || "")) continue;
+    seen += 1;
+    if (seen === reasonOccurrenceAtIndex) return entry;
+  }
+  return null;
+}
+
+function removeLinkedAutoValutazioneEntry(staff, resolvedEntry) {
+  const messageId = String(resolvedEntry?.messageId || "").trim();
+  if (!messageId || !Array.isArray(staff?.autoValutazioni)) return;
+  staff.autoValutazioni = staff.autoValutazioni.filter(
+    (entry) => String(entry?.messageId || "") !== messageId,
+  );
 }
 
 function pushValutazioneEntry(staff, kind, reason, message) {
@@ -179,6 +200,7 @@ async function valutazionePositiveRemoveCore(profileDoc, staffUser, removeId, re
   const originalEntry = getValutazioneEntry(s, "positive", index, removedReason);
   s.positiveReasons.splice(removeId - 1, 1);
   removeValutazioneEntry(s, "positive", index);
+  removeLinkedAutoValutazioneEntry(s, originalEntry);
   s.positiveCount = Math.max(0, s.positiveCount - 1);
   s.valutazioniCount = Math.max(0, s.valutazioniCount - 1);
   profileDoc.markModified("staff");
@@ -269,6 +291,7 @@ async function valutazioneNegativeRemoveCore(profileDoc, staffUser, removeId, re
   const originalEntry = getValutazioneEntry(s, "negative", index, removedReason);
   s.negativeReasons.splice(removeId - 1, 1);
   removeValutazioneEntry(s, "negative", index);
+  removeLinkedAutoValutazioneEntry(s, originalEntry);
   s.negativeCount = Math.max(0, s.negativeCount - 1);
   s.valutazioniCount = Math.max(0, s.valutazioniCount - 1);
   profileDoc.markModified("staff");

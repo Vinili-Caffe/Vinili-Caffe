@@ -805,6 +805,44 @@ function relativeScriptPrefixFromHtml(absHtmlPath) {
   return relDir.endsWith("/") ? relDir : `${relDir}/`;
 }
 
+function applyHeaderPromoToHtml(html, { promoButtonHtml, promoBootHtml }) {
+  if (!html.includes('id="header-quick-actions"')) return html;
+  let next = html;
+  if (promoButtonHtml && !next.includes('id="vc-header-promo-btn"')) {
+    next = next.replace(
+      /(<div[^>]*id="header-quick-actions"[^>]*>)/i,
+      `$1\n          ${promoButtonHtml}`,
+    );
+  }
+  if (promoBootHtml && !next.includes("vc-header-promo.js")) {
+    if (next.includes("</body>")) next = next.replace("</body>", `${promoBootHtml}\n</body>`);
+    else if (next.includes("</head>")) next = next.replace("</head>", `${promoBootHtml}\n</head>`);
+    else next += `\n${promoBootHtml}`;
+  }
+  return next;
+}
+
+function applyHeaderPromoToDist(distDir, promoButtonHtml, headerPromoClientConfig) {
+  const { buildHeaderPromoBootHtml } = require(path.join(ROOT, "..", "Vinyls", "Utils", "Web", "hogwartsEventCalendar.js"));
+  const walk = (dir) => {
+    for (const name of fs.readdirSync(dir)) {
+      const p = path.join(dir, name);
+      const st = fs.statSync(p);
+      if (st.isDirectory()) {
+        walk(p);
+        continue;
+      }
+      if (!name.toLowerCase().endsWith(".html")) continue;
+      const html = fs.readFileSync(p, "utf8");
+      const scriptPrefix = relativeScriptPrefixFromHtml(p);
+      const promoBootHtml = buildHeaderPromoBootHtml(headerPromoClientConfig, scriptPrefix);
+      const next = applyHeaderPromoToHtml(html, { promoButtonHtml, promoBootHtml });
+      if (next !== html) fs.writeFileSync(p, next, "utf8");
+    }
+  };
+  walk(distDir);
+}
+
 function applyLiveStatsBootToDist(distDir, cfg, inviteCode) {
   const ls = cfg && cfg.liveStats && typeof cfg.liveStats === "object" ? cfg.liveStats : {};
   if (ls.enabled === false) return;
@@ -1691,7 +1729,11 @@ async function main() {
     resolveHogwartsEventCalendar,
     buildEventNavItemsHtml,
     buildEventHeaderHtml,
+    buildHeaderPromoBootHtml,
+    buildHeaderPromoButtonHtml,
+    buildHeaderPromoClientConfig,
     buildHogwartsEventNavBootHtml,
+    resolvePublicHeaderPromoMode,
     parseDateStartMs,
     serializeCalendarForWeb,
   } = require(path.join(ROOT, "..", "Vinyls", "Utils", "Web", "hogwartsEventCalendar.js"));
@@ -1749,6 +1791,17 @@ async function main() {
     .replace(/\\/g, "\\\\")
     .replace(/'/g, "\\'");
   const notificationsPageUrl = siteBaseNoSlash ? `${siteBaseNoSlash}/notifications/` : "/notifications/";
+  const headerPromoClientConfig = buildHeaderPromoClientConfig({
+    eventRaw: hogwartsEventRaw,
+    eventUrl: hogwartsHubPageUrl,
+    candidatureUrl: richiesteCandidatureUrl,
+  });
+  const headerPromoMode = resolvePublicHeaderPromoMode(hogwartsEventRaw);
+  const headerPromoButtonHtml = buildHeaderPromoButtonHtml({
+    mode: headerPromoMode,
+    eventUrl: hogwartsHubPageUrl,
+    candidatureUrl: richiesteCandidatureUrl,
+  });
   const hogwartsEventHeaderFor = (activeId) =>
     buildEventHeaderHtml({
       siteName,
@@ -1761,6 +1814,7 @@ async function main() {
       eventNavBootHtml: hogwartsEventNavBoot,
       userPageUrl,
       notificationsUrl: notificationsPageUrl,
+      promoButtonHtml: headerPromoButtonHtml,
     });
   const hogwartsStaticBootstrap = {
     ok: true,
@@ -2584,6 +2638,7 @@ async function main() {
   applyLiveStatsBootToDist(DIST, cfg, inviteCode);
   applyMaintenanceGateToDist(DIST, maintenanceBoot);
   applySiteRouteGuardToDist(DIST, cfg);
+  applyHeaderPromoToDist(DIST, headerPromoButtonHtml, headerPromoClientConfig);
 
   const siteBuild = cfg.siteBuild && typeof cfg.siteBuild === "object" ? cfg.siteBuild : null;
   const skipClientObfuscation = siteBuild?.obfuscateClientAssets === false;

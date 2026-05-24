@@ -763,6 +763,14 @@
                 "channels.economy"
             ]
         },
+        "pay": {
+            "roles": [
+                "roles.Member"
+            ],
+            "channels": [
+                "channels.economy"
+            ]
+        },
         "roulette": {
             "roles": [
                 "roles.Member"

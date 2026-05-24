@@ -3,6 +3,7 @@ const {
   markSiteInAppNotificationRead,
   markAllSiteInAppNotificationsRead,
   deleteAllSiteInAppNotificationsForUser,
+  deleteSiteInAppNotificationForUser,
 } = require("./siteInAppNotificationsService");
 
 function normalizeHeaderSecret(raw) {
@@ -93,8 +94,29 @@ async function handleSiteNotificationsClearPost(client, req, res) {
   }
 }
 
+async function handleSiteNotificationsDeletePost(client, req, res) {
+  try {
+    const accessToken = normalizeHeaderSecret(req.headers.authorization);
+    const resolved = await resolveUserIdFromBearer(accessToken);
+    if (!resolved.ok) {
+      return res.status(Number(resolved.status) || 401).json(resolved);
+    }
+    const body = req.body && typeof req.body === "object" ? req.body : {};
+    const id = String(body.id || "").trim();
+    if (!id) {
+      return res.status(400).json({ ok: false, error: "missing_id", message: "Campo id richiesto." });
+    }
+    const deleted = await deleteSiteInAppNotificationForUser(resolved.userId, id);
+    return res.status(200).json({ ok: true, deleted });
+  } catch (err) {
+    global.logger?.error?.("[WEBHOOK] site-notifications delete:", err);
+    return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+  }
+}
+
 module.exports = {
   handleSiteNotificationsGet,
   handleSiteNotificationsMarkReadPost,
   handleSiteNotificationsClearPost,
+  handleSiteNotificationsDeletePost,
 };

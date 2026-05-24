@@ -416,7 +416,7 @@ async function startWebhookServer(client) {
   const { getRankCardCustomization, updateRankCardCustomization, getRankCardPreview, getPublicRankCardPreview } = require("../../Utils/Web/siteRankCardApi");
   const { getSiteReviews, submitSiteReview, deleteSiteReview, toggleSiteReviewLike, upsertServerReviewReply } = require("../../Utils/Web/siteReviewsApi");
   const { getSiteSuggestions, createSiteSuggestion, updateOwnSiteSuggestion, deleteOwnSiteSuggestion, addSiteSuggestionComment, updateSiteSuggestionComment, deleteSiteSuggestionComment, setSiteSuggestionCommentVote, setSiteSuggestionVote, staffAcceptSiteSuggestion, staffRejectSiteSuggestion, staffDeleteSiteSuggestion } = require("../../Utils/Web/siteSuggestionsApi");
-  const { handleSiteNotificationsGet, handleSiteNotificationsMarkReadPost, handleSiteNotificationsClearPost } = require("../../Utils/Web/siteInAppNotificationsApi");
+  const { handleSiteNotificationsGet, handleSiteNotificationsMarkReadPost, handleSiteNotificationsClearPost, handleSiteNotificationsDeletePost } = require("../../Utils/Web/siteInAppNotificationsApi");
   const { getSiteForumThreads, getSiteForumThreadMessages, getSiteForumThreadMessagesAuthed, createSiteForumThread, createSiteForumMessage, updateSiteForumThread } = require("../../Utils/Web/siteForumApi");
   const { completeSiteVerify } = require("../../Utils/Web/siteVerifyApi");
   const { handleSiteSeratafilmAccessGet } = require("../../Utils/Web/siteSeratafilmAccessApi");
@@ -445,6 +445,9 @@ async function startWebhookServer(client) {
   });
   app.post("/webhooks/site-notifications/clear", (req, res) => {
     return handleSiteNotificationsClearPost(client, req, res);
+  });
+  app.post("/webhooks/site-notifications/delete", (req, res) => {
+    return handleSiteNotificationsDeletePost(client, req, res);
   });
   app.get("/webhooks/site-seratafilm-access", (req, res) => handleSiteSeratafilmAccessGet(client, req, res));
   app.get("/webhooks/site-hogwarts-sorting/bootstrap", (req, res) => handleHogwartsSortingBootstrap(client, req, res));

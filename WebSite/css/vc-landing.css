@@ -2267,6 +2267,101 @@ body.vc-body header .vc-nav-shell.vc-glass.vc-nav-shell--scrolled {
   -webkit-backdrop-filter: blur(var(--vc-header-ctrl-blur)) saturate(150%);
 }
 
+.vc-header-promo-btn,
+.vc-header-promo-btn:visited {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42rem;
+  padding: 0.28rem 0.38rem 0.28rem 0.5rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(34, 211, 238, 0.42);
+  background: rgba(6, 16, 20, 0.82);
+  color: #67e8f9;
+  text-decoration: none;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  line-height: 1;
+  white-space: nowrap;
+  transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+  backdrop-filter: blur(var(--vc-header-ctrl-blur)) saturate(150%);
+  -webkit-backdrop-filter: blur(var(--vc-header-ctrl-blur)) saturate(150%);
+}
+
+.vc-header-promo-btn--event,
+.vc-header-promo-btn--event:visited {
+  border-color: rgba(251, 191, 36, 0.45);
+  background: rgba(22, 12, 6, 0.84);
+  color: #fde68a;
+}
+
+.vc-header-promo-btn:hover,
+.vc-header-promo-btn:focus-visible {
+  border-color: rgba(34, 211, 238, 0.72);
+  background: rgba(8, 24, 30, 0.92);
+  box-shadow: 0 0 18px rgba(34, 211, 238, 0.16);
+  transform: translateY(-1px);
+}
+
+.vc-header-promo-btn--event:hover,
+.vc-header-promo-btn--event:focus-visible {
+  border-color: rgba(251, 191, 36, 0.72);
+  background: rgba(36, 20, 8, 0.92);
+  box-shadow: 0 0 18px rgba(251, 191, 36, 0.16);
+}
+
+.vc-header-promo-btn__dot {
+  width: 0.42rem;
+  height: 0.42rem;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 8px currentColor;
+  flex-shrink: 0;
+}
+
+.vc-header-promo-btn__label {
+  font-weight: 700;
+}
+
+.vc-header-promo-btn__badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.18rem 0.42rem;
+  border-radius: 9999px;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  line-height: 1.1;
+}
+
+.vc-header-promo-btn--candidature .vc-header-promo-btn__badge {
+  background: #22d3ee;
+  color: #042f2e;
+}
+
+.vc-header-promo-btn--event .vc-header-promo-btn__badge {
+  background: #fbbf24;
+  color: #451a03;
+}
+
+@media (max-width: 639px) {
+  .vc-header-promo-btn__label {
+    display: none;
+  }
+
+  .vc-header-promo-btn {
+    padding: 0.28rem 0.34rem 0.28rem 0.42rem;
+  }
+}
+
+@media (min-width: 640px) {
+  .vc-header-promo-btn__label {
+    display: inline;
+  }
+}
+
 .vc-header-pill:hover {
   border-color: var(--vc-header-ctrl-border-hover);
   background: var(--vc-header-ctrl-bg-hover);

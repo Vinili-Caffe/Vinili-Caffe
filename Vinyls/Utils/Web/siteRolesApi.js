@@ -70,8 +70,6 @@ async function fetchUserIdentity(client, guild, userId) {
 }
 
 /** Ordine badge (dall'alto della scaletta). Allineato a discordStaffListBuild.staffRoleIds principale. */
-const COMMUNITY_MANAGER_ROLE_ID = "1494089487863644330";
-
 function staffBadgeRoleOrder(ids) {
   const R = ids.roles;
   return [
@@ -85,7 +83,6 @@ function staffBadgeRoleOrder(ids) {
     R.PartnerManager,
     R.Staff,
     R.StafferDelMese,
-    COMMUNITY_MANAGER_ROLE_ID,
   ]
     .map((x) => String(x || "").trim())
     .filter(Boolean);

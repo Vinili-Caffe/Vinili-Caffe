@@ -352,6 +352,47 @@ function buildHogwartsEventNavBootHtml(eventNav) {
   return `<script>window.__VC_HOGWARTS_EVENT_NAV=${json};</script>\n<script src="/js/hogwarts-event-nav.js"></script>\n<script src="/js/hogwarts-event-preview-gate.js"></script>\n`;
 }
 
+function resolvePublicHeaderPromoMode(eventRaw = {}, nowMs = Date.now()) {
+  const enabled = eventRaw?.enabled !== false;
+  if (!enabled) return "candidature";
+  if (eventRaw?.previewMode === true) return "candidature";
+  const start = parseDateStartMs(eventRaw?.startDate);
+  const end = parseDateEndMs(eventRaw?.endDate);
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return "candidature";
+  const now = Number(nowMs);
+  if (now < start || now > end) return "candidature";
+  return "event";
+}
+
+function buildHeaderPromoButtonHtml({ mode, eventUrl, candidatureUrl }) {
+  const isEvent = mode === "event";
+  const href = isEvent ? eventUrl : candidatureUrl;
+  const label = isEvent ? "Evento" : "Candidature";
+  const badge = isEvent ? "ATTIVO" : "APERTE";
+  const modClass = isEvent ? "vc-header-promo-btn--event" : "vc-header-promo-btn--candidature";
+  const aria = isEvent ? "Evento Hogwarts attivo – vai al calendario" : "Candidature staff aperte";
+  return `<a class="vc-header-promo-btn ${modClass}" id="vc-header-promo-btn" href="${escHtml(href)}" aria-label="${escHtml(aria)}"><span class="vc-header-promo-btn__dot" aria-hidden="true"></span><span class="vc-header-promo-btn__label">${escHtml(label)}</span><span class="vc-header-promo-btn__badge">${escHtml(badge)}</span></a>`;
+}
+
+function buildHeaderPromoClientConfig({ eventRaw = {}, eventUrl, candidatureUrl }) {
+  return {
+    eventUrl: String(eventUrl || "/evento").trim() || "/evento",
+    candidatureUrl: String(candidatureUrl || "/candidature").trim() || "/candidature",
+    event: {
+      enabled: eventRaw?.enabled !== false,
+      previewMode: eventRaw?.previewMode === true,
+      startDate: String(eventRaw?.startDate || "").trim(),
+      endDate: String(eventRaw?.endDate || "").trim(),
+    },
+  };
+}
+
+function buildHeaderPromoBootHtml(clientConfig, scriptPrefix = "") {
+  const json = JSON.stringify(clientConfig || {}).replace(/</g, "\\u003c");
+  const src = `${scriptPrefix}js/vc-header-promo.js`;
+  return `<script>window.__VC_HEADER_PROMO=${json};</script>\n<script src="${src}" defer></script>`;
+}
+
 function buildEventHeaderHtml({
   siteName,
   siteUrl,
@@ -361,6 +402,7 @@ function buildEventHeaderHtml({
   eventNavBootHtml = "",
   userPageUrl = "/user/",
   notificationsUrl = "",
+  promoButtonHtml = "",
 }) {
   const notifFoot = notificationsUrl
     ? `<div class="vc-notif-panel-foot" id="vc-notif-panel-foot">
@@ -391,6 +433,7 @@ function buildEventHeaderHtml({
           ${navItemsHtml}
         </nav>
         <div class="flex shrink-0 flex-wrap items-center justify-end gap-2 justify-self-end" id="header-quick-actions">
+          ${promoButtonHtml}
           <details class="vc-notif-dropdown" id="vc-notif-dropdown">
             <summary class="vc-icon-btn vc-notif-summary relative inline-flex" aria-label="Notifiche"><i
                 class="fa fa-bell-o" aria-hidden="true"></i>
@@ -468,9 +511,13 @@ module.exports = {
   DEFAULT_WEEKS,
   buildEventHeaderHtml,
   buildEventNavItemsHtml,
+  buildHeaderPromoBootHtml,
+  buildHeaderPromoButtonHtml,
+  buildHeaderPromoClientConfig,
   buildHogwartsEventNavBootHtml,
   pickCurrentWeekKey,
   parseDateStartMs,
   resolveHogwartsEventCalendar,
+  resolvePublicHeaderPromoMode,
   serializeCalendarForWeb,
 };

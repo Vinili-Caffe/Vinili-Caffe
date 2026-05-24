@@ -84,14 +84,25 @@ function nativeBoostSeenSince(guildId, userId, sinceMs) {
 
 function resolveNativeBoostMessageUserId(message) {
   if (!message || parseNativeBoostSlotCount(message) <= 0) return "";
+  const boostTypes = getBoostSystemMessageTypes();
+  const isBoostType = boostTypes.has(Number(message?.type));
   const authorId = String(message.author?.id || "").trim();
-  if (authorId && !message.author?.bot) return authorId;
+  if (authorId && (!message.author?.bot || isBoostType)) return authorId;
   const memberId = String(message.member?.id || "").trim();
   if (memberId) return memberId;
   const users = message.mentions?.users;
   if (users?.size) {
     const first = users.first?.() || users.values?.()?.next?.()?.value;
     if (first?.id) return String(first.id);
+  }
+  const embeds = Array.isArray(message.embeds) ? message.embeds : [];
+  for (const embed of embeds) {
+    const blob = [embed?.description, embed?.title, embed?.author?.name, embed?.footer?.text]
+      .map((x) => String(x || ""))
+      .filter(Boolean)
+      .join("\n");
+    const mentionMatch = blob.match(/<@!?(\d{17,20})>/);
+    if (mentionMatch) return mentionMatch[1];
   }
   const text = String(message.content || "").trim();
   const mentionMatch = text.match(/<@!?(\d{17,20})>/);
@@ -1055,6 +1066,7 @@ async function announceBoostEmbedsAfterNativeWait({
     recoverMissingBoostEmbedsForUser(member.guild, member.id, {
       nativeLookbackMs: lookbackMs,
       startedAt,
+      knownNativeSlots: expectedNew,
     }).catch(() => ({ ok: false, sent: 0 }));
 
   if (nativeSinceStart >= expectedNew) {
@@ -1096,9 +1108,10 @@ async function announceBoostEmbedsAfterNativeWait({
   }
 
   markBoostAnnounceHandled(boostKey);
-  global.logger?.debug?.(
+  global.logger?.warn?.(
     "[guildMemberUpdate] boost native wait scaduto senza messaggio nativo rilevato:",
     member.id,
+    `missing=${stillMissing}`,
   );
   return true;
 }

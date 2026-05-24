@@ -47,9 +47,7 @@ const STAFF_LIST_ROLE_ID_SET = new Set(STAFF_LIST_SECTION_ROLE_IDS.map((id) => S
 const MEMBER_ROLE_ID = String(IDs.roles.Member || "");
 const PM_ROLE_ID = String(IDs.roles.PartnerManager || "");
 const STAFF_GENERIC_ROLE_ID = String(IDs.roles.Staff || "");
-const STAFF_LIST_EXTRA_PM_SECTIONS = [
-  { roleId: "1494089487863644330", emoji: "<:VC_EventManager:1494286896459681924>" },
-];
+const STAFF_LIST_EXTRA_PM_SECTIONS = [];
 const STAFF_LIST_WATCH_ROLE_IDS = Array.from(
   new Set([
     ...STAFF_LIST_SECTION_ROLE_IDS.map((id) => String(id)),

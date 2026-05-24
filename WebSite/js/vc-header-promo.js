@@ -1,0 +1,70 @@
+(function () {
+  function readCfg() {
+    try {
+      return window.__VC_HEADER_PROMO || null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function parseStartMs(value) {
+    var d = String(value || "").trim();
+    if (!/^\d{4}-\d{2}-\d{2}/.test(d)) return NaN;
+    var ms = new Date(d.indexOf("T") >= 0 ? d : d + "T00:00:00").getTime();
+    return Number.isFinite(ms) ? ms : NaN;
+  }
+
+  function parseEndMs(value) {
+    var d = String(value || "").trim();
+    if (!/^\d{4}-\d{2}-\d{2}/.test(d)) return NaN;
+    var ms = new Date(d.indexOf("T") >= 0 ? d : d + "T23:59:59.999").getTime();
+    return Number.isFinite(ms) ? ms : NaN;
+  }
+
+  function resolveMode(cfg) {
+    var event = cfg && cfg.event;
+    if (!event || event.enabled === false) return "candidature";
+    if (event.previewMode === true) return "candidature";
+    var start = parseStartMs(event.startDate);
+    var end = parseEndMs(event.endDate);
+    if (!Number.isFinite(start) || !Number.isFinite(end)) return "candidature";
+    var now = Date.now();
+    if (now < start || now > end) return "candidature";
+    return "event";
+  }
+
+  function applyMode(btn, cfg, mode) {
+    if (!btn || !cfg) return;
+    var isEvent = mode === "event";
+    var href = isEvent ? cfg.eventUrl : cfg.candidatureUrl;
+    var label = isEvent ? "Evento" : "Candidature";
+    var badge = isEvent ? "ATTIVO" : "APERTE";
+    btn.href = href || (isEvent ? "/evento" : "/candidature");
+    btn.classList.remove("vc-header-promo-btn--event", "vc-header-promo-btn--candidature");
+    btn.classList.add(isEvent ? "vc-header-promo-btn--event" : "vc-header-promo-btn--candidature");
+    btn.setAttribute("aria-label", isEvent ? "Evento Hogwarts attivo – vai al calendario" : "Candidature staff aperte");
+    var labelEl = btn.querySelector(".vc-header-promo-btn__label");
+    var badgeEl = btn.querySelector(".vc-header-promo-btn__badge");
+    if (labelEl) labelEl.textContent = label;
+    if (badgeEl) badgeEl.textContent = badge;
+    try {
+      var path = String(window.location.pathname || "").replace(/\/index\.html$/i, "").replace(/\/+$/, "") || "/";
+      var target = String(href || "").replace(/^https?:\/\/[^/]+/i, "").replace(/\/index\.html$/i, "").replace(/\/+$/, "") || "/";
+      if (path === target) btn.setAttribute("aria-current", "page");
+      else btn.removeAttribute("aria-current");
+    } catch (eCur) {}
+  }
+
+  function boot() {
+    var cfg = readCfg();
+    var btn = document.getElementById("vc-header-promo-btn");
+    if (!cfg || !btn) return;
+    applyMode(btn, cfg, resolveMode(cfg));
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", boot);
+  } else {
+    boot();
+  }
+})();

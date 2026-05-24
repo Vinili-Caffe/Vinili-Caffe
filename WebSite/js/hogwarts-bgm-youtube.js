@@ -13,6 +13,7 @@
   var pausedForEmbeddedVideo = false;
   /** Se true dopo unduck, la BGM torna a suonare (rispetta anche mutedByUser e il tap sul FAB). */
   var shouldResumeAfterEmbeddedVideo = false;
+  var detachFirst = null;
 
   function youtubePublicCfg() {
     try {
@@ -121,10 +122,55 @@
 
   function hideHint() {
     if (!hintEl) return;
+    hintEl.classList.add("vc-hw-bgm-hint--hide");
+    setTimeout(function () {
+      try {
+        if (hintEl && hintEl.parentNode) hintEl.parentNode.removeChild(hintEl);
+      } catch (e) {}
+      hintEl = null;
+    }, 400);
+  }
+
+  function detachFirstPointer() {
+    if (typeof detachFirst === "function") {
+      detachFirst();
+      detachFirst = null;
+    }
+  }
+
+  function startFromUserGesture() {
+    if (!youtubePublicCfg() || isUserOptedOut()) return;
+    if (isAudiblePlaying()) {
+      detachFirstPointer();
+      hideHint();
+      return;
+    }
+    detachFirstPointer();
     try {
-      hintEl.remove();
-    } catch (e) {}
-    hintEl = null;
+      window.__vcHwUserGestureAt = Date.now();
+    } catch (eG) {}
+    rememberBgmEnabled(true);
+    playAudible(true);
+    hideHint();
+  }
+
+  function armFirstPointer() {
+    if (isUserOptedOut() || !youtubePublicCfg()) return;
+    if (detachFirst) return;
+    detachFirst = function () {
+      document.removeEventListener("pointerdown", onPointer, true);
+      document.removeEventListener("keydown", onKey, true);
+    };
+    function onPointer() {
+      startFromUserGesture();
+    }
+    function onKey(ev) {
+      if (!ev || ev.metaKey || ev.ctrlKey || ev.altKey) return;
+      if (ev.key === "Escape") return;
+      startFromUserGesture();
+    }
+    document.addEventListener("pointerdown", onPointer, true);
+    document.addEventListener("keydown", onKey, true);
   }
 
   function ensureHint(msg) {
@@ -137,7 +183,15 @@
     hintEl.setAttribute("role", "status");
     hintEl.textContent =
       msg ||
-      "Tocca il pulsante volume in basso a destra per la musica di Hogwarts. Se non parte, disattiva ad-blocker/tracker per questo sito.";
+      "Musica Hogwarts: tocca un punto qualsiasi della pagina (o premi un tasto) per avviare l'audio. Puoi anche usare il pulsante volume in basso a destra.";
+    hintEl.addEventListener("click", function (ev) {
+      if (ev) {
+        try {
+          ev.preventDefault();
+        } catch (e0) {}
+      }
+      startFromUserGesture();
+    });
     document.body.appendChild(hintEl);
   }
 
@@ -272,6 +326,7 @@
             }
             started = true;
             hideHint();
+            detachFirstPointer();
             updateMusicButtonUi();
           }
           if (ev.data === YT.PlayerState.PAUSED && mutedByUser) {
@@ -448,18 +503,21 @@
       updateMusicButtonUi();
       return;
     }
+    ensureHint();
+    armFirstPointer();
     playAudible(true);
     showMusicButton();
   };
 
   window.__vcHogwartsYoutubeStartFromGesture = function () {
-    rememberBgmEnabled(true);
-    playAudible(true);
+    startFromUserGesture();
   };
 
   window.__vcHogwartsYoutubeSetupIfConfigured = function () {
     if (!youtubePublicCfg()) return false;
     showMusicButton();
+    ensureHint();
+    armFirstPointer();
     bootPlayer();
     return true;
   };
@@ -474,6 +532,7 @@
 
   window.__vcHogwartsYoutubeStop = function () {
     hideHint();
+    detachFirstPointer();
     try {
       if (player) player.stopVideo();
     } catch (eSt) {}
@@ -503,6 +562,8 @@
       updateMusicButtonUi();
       return;
     }
+    ensureHint();
+    armFirstPointer();
     try {
       window.__vcHogwartsBgmAllowed = true;
     } catch (eA) {}

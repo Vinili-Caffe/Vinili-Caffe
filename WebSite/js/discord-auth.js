@@ -415,9 +415,11 @@
     var displayName = String((user && user.username) || "utente").trim() || "utente";
     var site = siteDisplayName();
     var home = resolveHomeUrl();
+    var notifId = countBefore >= 1 ? "sys:login_return" : "sys:login_welcome";
     var payload =
       countBefore >= 1
         ? {
+          id: notifId,
           title: "Login effettuato con successo!",
           body: "Bentornato " + displayName + "! Sei ora connesso a " + site + ".",
           kind: "success",
@@ -426,6 +428,7 @@
           userId: String((user && user.id) || ""),
         }
         : {
+          id: notifId,
           title: "Benvenuto",
           body:
             "Ciao " +

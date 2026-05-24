@@ -1061,6 +1061,25 @@
     set.add(sid);
     saveDismissedSet(set, userId);
   }
+  function rememberDismissedNotif(item, userId) {
+    if (!item) return;
+    var uid = normalizeUserId(userId || currentUserId);
+    var lid = String((item && item.id) || "").trim();
+    if (!lid) return;
+    var set = loadDismissedSet(uid);
+    set.add(lid);
+    var fpId = buildNotifFingerprintId(item, uid, String((item && item.kind) || "info"), String((item && item.openUrl) || ""));
+    if (fpId && fpId !== lid) set.add(fpId);
+    saveDismissedSet(set, uid);
+  }
+  function isNotifDismissed(item, uid, dismissed) {
+    if (!item) return true;
+    var set = dismissed || loadDismissedSet(uid);
+    var lid = String((item && item.id) || "").trim();
+    if (lid && set.has(lid)) return true;
+    var fpId = buildNotifFingerprintId(item, uid, String((item && item.kind) || "info"), String((item && item.openUrl) || ""));
+    return Boolean(fpId && set.has(fpId));
+  }
   function hashText(input) {
     var s = String(input || "");
     var h = 5381;
@@ -1082,6 +1101,9 @@
   function buildNotifFingerprintId(payload, ownerId, kind, openUrl) {
     var p = payload && typeof payload === "object" ? Object.assign({}, payload) : {};
     delete p.id;
+    delete p.at;
+    delete p.read;
+    delete p.readAt;
     return buildStableNotifId(p, ownerId, kind, openUrl);
   }
   function isAutoClientNotifId(id) {
@@ -1234,8 +1256,11 @@
   function clearAll() {
     ephemeralDemo = null;
     var uid = normalizeUserId(currentUserId);
+    var items = loadStored();
+    for (var ci = 0; ci < items.length; ci += 1) {
+      rememberDismissedNotif(items[ci], uid);
+    }
     saveStored([]);
-    saveDismissedSet(new Set(), uid);
     render();
     clearAllSiteNotificationsOnServer().finally(function () {
       syncSiteNotificationsFromServer();
@@ -1800,8 +1825,11 @@
       if (!row || !row.title) continue;
       var sid = String(row.id || "").trim();
       if (!sid) continue;
+      var mapped = mapServerRowToStoredItem(row);
+      var fpId = buildNotifFingerprintId(mapped, uid, mapped.kind, mapped.openUrl);
+      if (dismissed.has(sid) || (fpId && dismissed.has(fpId))) continue;
       serverIdMap[sid] = true;
-      fromServer.unshift(mapServerRowToStoredItem(row));
+      fromServer.unshift(mapped);
     }
     var dismissed = loadDismissedSet(uid);
     var keepLocal = [];
@@ -1824,6 +1852,7 @@
       if (!fr) continue;
       var frid = String(fr.id || "").trim();
       if (!frid || oldIdMap[frid]) continue;
+      if (isNotifDismissed(fr, uid, dismissed)) continue;
       if (Date.now() - (fr.at || 0) < freshMs) {
         toastRow = {
           id: fr.id,
@@ -2627,6 +2656,9 @@
   }
 
   window.addEventListener("vc-discord-profile", function () {
+    revealForbiddenSectionBooks();
+  });
+  document.addEventListener("vc-hogwarts-staff-preview-unlock", function () {
     revealForbiddenSectionBooks();
   });
 

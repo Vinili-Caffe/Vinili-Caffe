@@ -136,6 +136,16 @@ async function assertEconomyAccess(message, client) {
   return { ok: true, preview: false, cfg };
 }
 
+async function assertSortedEconomyAccess(message, client) {
+  const access = await assertEconomyAccess(message, client);
+  if (!access.ok) return access;
+  const house = await resolveSortedHouseForUser(message.guild.id, message.author.id, client);
+  if (!house) {
+    return { ok: false, message: "Completa prima lo smistamento Hogwarts per usare questo comando." };
+  }
+  return { ok: true, preview: access.preview, cfg: access.cfg, houseId: house };
+}
+
 function normalizeSortedHouseId(value) {
   const house = normalizeId(value).toLowerCase();
   return SORTED_HOUSE_IDS.includes(house) ? house : "";
@@ -1003,4 +1013,65 @@ async function rob(client, message, targetUser) {
   return { ok: true, game: "rob", success: true, amount: steal, gained, bank: false };
 }
 
-module.exports = { ROB_BANK_TARGET_ID, assertEconomyAccess, assertEconomyAccessForUser, assertEconomyGamblingAccess, assertEconomyGamblingAccessForUser, applyRpsCooldown, applyTrisCooldown, cashoutSlotsBank, claimFixed, claimWork, economyConfig, evaluateRobTarget, evaluateRouletteWin, evaluateRpsOutcome, eventKey, flushSlotsGuiPendingBank, formatDuration, isHighStaff, isRobBankTarget, lockRpsPvpStakes, lockTrisPvpStakes, normalizeCoinChoice, normalizeRouletteChoice, normalizeRps, payBlackjackWin, payScratchWin, payTrisWin, payout, peekFixedClaim, peekWorkClaim, playBlackjackBet, playCoinflip, playRoulette, playRouletteBanked, playRps, playScratchBet, playSlots, playSlotsBanked, playTrisBet, refundRpsPvpStake, refundTrisPvpStake, rob, robBank, RED_NUMBERS, resolveSortedHouseForUser, settleRpsPvp, settleTrisPvp, spendBet, spinRouletteResult };
+function parsePayAmount(raw) {
+  const amount = int(raw, 0, 1, 1000000);
+  if (!amount) return { ok: false, message: "Inserisci un importo valido (minimo 1 Galeone)." };
+  return { ok: true, amount };
+}
+
+async function transferGaleoni(client, message, targetUser, amountRaw) {
+  const access = await assertSortedEconomyAccess(message, client);
+  if (!access.ok) return access;
+  if (!targetUser || targetUser.bot) return { ok: false, message: "Scegli un utente valido a cui inviare Galeoni." };
+  if (String(targetUser.id) === String(message.author.id)) return { ok: false, message: "Non puoi inviare Galeoni a te stesso." };
+  const parsed = parsePayAmount(amountRaw);
+  if (!parsed.ok) return parsed;
+  const guildId = normalizeId(message.guild.id);
+  const senderId = normalizeId(message.author.id);
+  const targetId = normalizeId(targetUser.id);
+  const evt = eventKey(client);
+  const senderBalance = await getGringottBalance(guildId, senderId, evt);
+  if (!senderBalance || senderBalance.balance < parsed.amount) {
+    return { ok: false, message: "Non hai abbastanza Galeoni per questo pagamento." };
+  }
+  const spent = await spendGaleoni({
+    guildId,
+    userId: senderId,
+    amount: parsed.amount,
+    reason: `Pagamento a ${targetUser.username || targetId}`,
+    actorId: targetId,
+    source: "economy_pay",
+    eventKey: evt,
+  });
+  if (!spent?.ok) return { ok: false, message: "Non ho potuto prelevare i Galeoni dal tuo conto. Riprova." };
+  const credited = await addGaleoni({
+    guildId,
+    userId: targetId,
+    amount: parsed.amount,
+    reason: `Pagamento da ${message.author.username || senderId}`,
+    actorId: senderId,
+    source: "economy_pay",
+    eventKey: evt,
+  });
+  if (!credited?.ok) {
+    await addGaleoni({
+      guildId,
+      userId: senderId,
+      amount: parsed.amount,
+      reason: "Rimborso pagamento fallito",
+      actorId: senderId,
+      source: "economy_pay_refund",
+      eventKey: evt,
+    }).catch(() => null);
+    return { ok: false, message: "Non sono riuscito a completare il pagamento. I Galeoni ti sono stati restituiti." };
+  }
+  return {
+    ok: true,
+    amount: parsed.amount,
+    senderState: spent.state,
+    recipientState: credited.state,
+    targetUser,
+  };
+}
+
+module.exports = { ROB_BANK_TARGET_ID, assertEconomyAccess, assertEconomyAccessForUser, assertEconomyGamblingAccess, assertEconomyGamblingAccessForUser, assertSortedEconomyAccess, applyRpsCooldown, applyTrisCooldown, cashoutSlotsBank, claimFixed, claimWork, economyConfig, evaluateRobTarget, evaluateRouletteWin, evaluateRpsOutcome, eventKey, flushSlotsGuiPendingBank, formatDuration, isHighStaff, isRobBankTarget, lockRpsPvpStakes, lockTrisPvpStakes, normalizeCoinChoice, normalizeRouletteChoice, normalizeRps, parsePayAmount, payBlackjackWin, payScratchWin, payTrisWin, payout, peekFixedClaim, peekWorkClaim, playBlackjackBet, playCoinflip, playRoulette, playRouletteBanked, playRps, playScratchBet, playSlots, playSlotsBanked, playTrisBet, refundRpsPvpStake, refundTrisPvpStake, rob, robBank, RED_NUMBERS, resolveSortedHouseForUser, settleRpsPvp, settleTrisPvp, spendBet, spinRouletteResult, transferGaleoni };

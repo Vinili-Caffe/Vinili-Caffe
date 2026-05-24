@@ -303,6 +303,26 @@ async function listSiteInAppNotificationsForUser(userId, limit = 50) {
   }));
 }
 
+async function deleteSiteInAppNotificationForUser(userId, notificationId) {
+  const uid = normalizeUserId(userId);
+  const nid = String(notificationId || "").trim();
+  if (!uid || !isValidNotificationId(nid)) return false;
+  await migrateLegacyInAppNotificationsForUser(uid).catch(() => null);
+  const oid = new mongoose.Types.ObjectId(nid);
+  const out = await SiteDocument.updateOne(
+    inboxQuery(uid),
+    { $pull: { inAppNotifItems: { _id: oid } } },
+  ).catch(() => null);
+  const modified = Number(out?.modifiedCount ?? out?.nModified ?? 0) > 0;
+  if (modified) {
+    try {
+      const { broadcastSiteNotificationsChanged } = require("./siteSuggestionsBroadcast");
+      broadcastSiteNotificationsChanged();
+    } catch (_) {}
+  }
+  return modified;
+}
+
 async function deleteAllSiteInAppNotificationsForUser(userId) {
   const uid = normalizeUserId(userId);
   if (!uid) return 0;
@@ -315,6 +335,7 @@ module.exports = {
   pruneSiteInAppNotificationsForUser,
   deleteSiteInAppNotifications,
   deleteAllSiteInAppNotificationsForUser,
+  deleteSiteInAppNotificationForUser,
   markSiteInAppNotificationRead,
   markAllSiteInAppNotificationsRead,
   migrateLegacyInAppNotificationsForUser,

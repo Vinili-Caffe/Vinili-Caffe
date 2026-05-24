@@ -88,6 +88,11 @@
     if (!base) return "/webhooks/site-notifications/clear";
     return String(base).replace(/\/+$/, "") + "/clear";
   }
+  function resolvedSiteNotificationsDeleteUrl() {
+    var base = resolvedSiteNotificationsUrl();
+    if (!base) return "/webhooks/site-notifications/delete";
+    return String(base).replace(/\/+$/, "") + "/delete";
+  }
   function getDiscordAccessToken() {
     try {
       return String(localStorage.getItem(DISCORD_ACCESS_TOKEN_KEY) || "").trim();
@@ -155,6 +160,9 @@
   function buildNotifFingerprintId(payload, ownerId, kind, openUrl) {
     var p = payload && typeof payload === "object" ? Object.assign({}, payload) : {};
     delete p.id;
+    delete p.at;
+    delete p.read;
+    delete p.readAt;
     return buildStableNotifId(p, ownerId, kind, openUrl);
   }
   function isAutoClientNotifId(id) {
@@ -449,6 +457,21 @@
       body: JSON.stringify({ all: true }),
     }).catch(function () {});
   }
+  function deleteSiteNotificationOnServer(id) {
+    var token = getDiscordAccessToken();
+    var uid = normalizeUserId(currentUserId);
+    var sid = String(id || "").trim();
+    if (!token || !uid || !sid || !/^[a-f0-9]{24}$/i.test(sid)) return;
+    fetch(resolvedSiteNotificationsDeleteUrl(), {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + token,
+        "Content-Type": "application/json",
+      },
+      credentials: "omit",
+      body: JSON.stringify({ id: sid }),
+    }).catch(function () {});
+  }
   function clearAllSiteNotificationsOnServer() {
     var token = getDiscordAccessToken();
     var uid = normalizeUserId(currentUserId);
@@ -521,8 +544,11 @@
       if (!row || !row.title) continue;
       var sid = String(row.id || "").trim();
       if (!sid) continue;
+      var mapped = mapServerRowToStoredItemPage(row);
+      var fpId = buildNotifFingerprintId(mapped, uid, mapped.kind, mapped.openUrl);
+      if (dismissed.has(sid) || (fpId && dismissed.has(fpId))) continue;
       serverIdMap[sid] = true;
-      fromServer.unshift(mapServerRowToStoredItemPage(row));
+      fromServer.unshift(mapped);
     }
     var dismissed = loadDismissedSet(uid);
     var keepLocal = [];
@@ -559,17 +585,42 @@
   }
 
   function removeOne(id) {
-    markDismissed(id);
-    var next = loadStored().filter(function (x) {
+    var uid = normalizeUserId(currentUserId);
+    var items = loadStored();
+    var item = null;
+    for (var ri = 0; ri < items.length; ri += 1) {
+      if (items[ri] && items[ri].id === id) {
+        item = items[ri];
+        break;
+      }
+    }
+    var dismissed = loadDismissedSet(uid);
+    var sid = String(id || "").trim();
+    if (sid) dismissed.add(sid);
+    if (item) {
+      var fpId = buildNotifFingerprintId(item, uid, String(item.kind || "info"), String(item.openUrl || ""));
+      if (fpId) dismissed.add(fpId);
+    }
+    saveDismissedSet(dismissed, uid);
+    saveStored(items.filter(function (x) {
       return x.id !== id;
-    });
-    saveStored(next);
+    }));
+    deleteSiteNotificationOnServer(id);
   }
 
   function clearAll() {
     var uid = normalizeUserId(currentUserId);
+    var items = loadStored();
+    var dismissed = loadDismissedSet(uid);
+    for (var ci = 0; ci < items.length; ci += 1) {
+      var it = items[ci];
+      var lid = String((it && it.id) || "").trim();
+      if (lid) dismissed.add(lid);
+      var fpId = buildNotifFingerprintId(it, uid, String((it && it.kind) || "info"), String((it && it.openUrl) || ""));
+      if (fpId) dismissed.add(fpId);
+    }
+    saveDismissedSet(dismissed, uid);
     saveStored([]);
-    saveDismissedSet(new Set(), uid);
     clearAllSiteNotificationsOnServer().finally(function () {
       syncSiteNotificationsFromServer();
     });
