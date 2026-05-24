@@ -51,13 +51,13 @@ module.exports = {
     });
     if (!result.ok) {
       return safeMessageReply(message, {
-        content: "<:vegax:1443934876440068179> Impossibile assegnare i punti casata.",
+        content: "<:vegax:1443934876440068179> Impossibile assegnare i punti casa.",
         allowedMentions: { repliedUser: false },
       });
     }
     const embed = new EmbedBuilder()
       .setColor("#2d6a4f")
-      .setTitle("Punti casata assegnati")
+      .setTitle("Punti casa assegnati")
       .setDescription(
         [
           `**${result.houseLabel}** +**${result.points}** punti Coppa.`,

@@ -32,6 +32,7 @@ function buildTransferPickerEmbed(ticketType) {
   let rolesLine = "**Supporto:** Staff.";
   if (t === "partnership") rolesLine = "**Partnership:** Partner Manager.";
   else if (t === "high") rolesLine = "**High Staff:** solo High Staff.";
+  else if (t === "perks") rolesLine = "**Perks:** Senior Moderator, Director o High Staff.";
   return new EmbedBuilder()
     .setColor("#6f4e37")
     .setTitle("🔀 Trasferisci claim")
@@ -179,7 +180,8 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
   }
 
   if (interaction.isButton?.() && cid === "ticket_panel_nav_add") {
-    if (!hasStaffTicketRole(interaction.member)) {
+    const ticketDocNav = await Ticket.findOne({ channelId: interaction.channel.id, open: true }, TICKET_READ_PROJECTION).lean().catch(() => null);
+    if (!hasStaffTicketRole(interaction.member, ticketDocNav?.ticketType)) {
       await safeReply(interaction, {
         embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> Non hai permesso di aggiungere utenti al ticket.")],
         flags: 1 << 6,
@@ -206,7 +208,8 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
   }
 
   if (interaction.isButton?.() && cid === "ticket_panel_nav_remove") {
-    if (!hasStaffTicketRole(interaction.member)) {
+    const ticketDocNav = await Ticket.findOne({ channelId: interaction.channel.id, open: true }, TICKET_READ_PROJECTION).lean().catch(() => null);
+    if (!hasStaffTicketRole(interaction.member, ticketDocNav?.ticketType)) {
       await safeReply(interaction, {
         embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> Non hai permesso di rimuovere utenti dal ticket.")],
         flags: 1 << 6,
@@ -268,6 +271,7 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
           { label: "SUPPORTO", value: "supporto", description: "SUPPORTO" },
           { label: "PARTNERSHIP", value: "partnership", description: "PARTNERSHIP" },
           { label: "HIGH STAFF", value: "highstaff", description: "HIGH STAFF" },
+          { label: "PERKS", value: "perks", description: "PERKS" },
         ),
     );
     await interaction.reply({
@@ -379,17 +383,17 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
     interaction.isUserSelectMenu?.() &&
     (cid === TICKET_PANEL_ADD_MEMBER_PREFIX || cid.startsWith(`${TICKET_PANEL_ADD_MEMBER_PREFIX}:`))
   ) {
-    if (!hasStaffTicketRole(interaction.member)) {
-      await safeReply(interaction, {
-        embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> Non hai permesso di aggiungere utenti.")],
-        flags: 1 << 6,
-      });
-      return true;
-    }
     const ticketDoc = await Ticket.findOne({ channelId: interaction.channel.id, open: true }).catch(() => null);
     if (!ticketDoc) {
       await safeReply(interaction, {
         embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> Ticket non trovato o non aperto.")],
+        flags: 1 << 6,
+      });
+      return true;
+    }
+    if (!hasStaffTicketRole(interaction.member, ticketDoc.ticketType)) {
+      await safeReply(interaction, {
+        embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> Non hai permesso di aggiungere utenti.")],
         flags: 1 << 6,
       });
       return true;
@@ -578,7 +582,7 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
     }
 
     if (cid === TICKET_PANEL_REMOVE_MEMBER_PREFIX || cid.startsWith(`${TICKET_PANEL_REMOVE_MEMBER_PREFIX}:`)) {
-      if (!hasStaffTicketRole(interaction.member)) {
+      if (!hasStaffTicketRole(interaction.member, ticketDoc.ticketType)) {
         await safeReply(interaction, {
           embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> Non hai permesso di rimuovere utenti.")],
           flags: 1 << 6,

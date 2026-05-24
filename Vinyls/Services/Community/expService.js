@@ -368,14 +368,30 @@ async function addExp(guildId, userId, amount, applyMultiplier = false, weeklyAm
   const now = new Date();
   const weekKey = getIsoWeekKey(now);
   const multiplier = applyMultiplier ? await getGlobalMultiplier(guildId) : 1;
-  const effective = Math.max(0, Math.floor(Number(amount))) * multiplier;
+  let effective = Math.max(0, Math.floor(Number(amount))) * multiplier;
+  const gid = String(guildId);
+  const uid = String(userId);
+  if (effective > 0) {
+    const client = options?.client || options?.guild?.client || null;
+    if (client) {
+      try {
+        const { isHogwartsShopBoostActive } = require("./hogwartsShopBoostsService");
+        const { resolveExpConsumableMultiplier } = require("./hogwartsConsumableBoostsService");
+        const { resolveSortedHouseForUser } = require("./galeoniEconomyService");
+        if (isHogwartsShopBoostActive(client)) {
+          const houseId = await resolveSortedHouseForUser(gid, uid, client).catch(() => "");
+          const consumable = await resolveExpConsumableMultiplier(client, gid, uid, houseId);
+          const consumableMult = Math.max(1, Number(consumable?.multiplier) || 1);
+          if (consumableMult > 1) effective = Math.max(0, Math.floor(effective * consumableMult));
+        }
+      } catch (_) {}
+    }
+  }
   const weeklyEffective =
     weeklyAmountOverride !== null
       ? Math.max(0, Math.floor(Number(weeklyAmountOverride)))
       : effective;
   if (effective === 0 && weeklyEffective === 0) return null;
-  const gid = String(guildId);
-  const uid = String(userId);
   const beforeRow = await ActivityUserProfile.findOne({ guildId: gid, userId: uid })
     .select("profile.totals.exp.totalExp profile.totals.exp.level")
     .lean()
@@ -888,7 +904,7 @@ async function addExpWithLevel(guild, userId, amount, applyMultiplier = false, i
     effectiveAmount,
     false,
     weeklyAmount,
-    { activityAmount },
+    { activityAmount, client: guild.client, guild },
   );
   if (!result || !result.levelInfo) return result;
   if (result.levelInfo.level > (result.prevLevel ?? 0)) {

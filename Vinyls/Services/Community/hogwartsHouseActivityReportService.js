@@ -180,10 +180,10 @@ function buildReportEmbed({ closingPeriod, buckets, eventCfg, guild }) {
   const periodTitle = closingPeriod?.label ? `${closingPeriod.label} (${closingPeriod.rangeLabel || ""})` : "Periodo bisettimanale";
   return new EmbedBuilder()
     .setColor("#6f4e37")
-    .setTitle(`Attività per casata`)
+    .setTitle(`Attività per casa`)
     .setDescription(
       [
-        `<:VC_Leaderboard:1482534806314287387> Riepilogo delle **ultime 2 settimane** per casata.`,
+        `<:VC_Leaderboard:1482534806314287387> Riepilogo delle **ultime 2 settimane** per casa.`,
         "",
         "<a:VC_HeartsPink:1468685897389052008> **Casata con più membri attivi**",
         `• Chat testuale: ${formatHouseWinner(chatMembers.houseId, chatMembers.value, "membri", eventCfg)}`,
@@ -195,7 +195,7 @@ function buildReportEmbed({ closingPeriod, buckets, eventCfg, guild }) {
         `• Ore vocali: ${vocVol.houseId && vocVol.value > 0 ? `**${houseLabel(vocVol.houseId, eventCfg)}** (${formatVoiceHours(vocVol.value)})` : "—"}`,
         `• Minigames vinti: ${formatHouseWinner(mgVol.houseId, mgVol.value, "pt", eventCfg)}`,
         "",
-        "<a:VC_Events:1482706144953897223> **MVP per casata**",
+        "<a:VC_Events:1482706144953897223> **MVP per casa**",
         ...mvpLines,
       ].join("\n"),
     )
@@ -263,7 +263,7 @@ async function publishHogwartsHouseActivityReport(client, options = {}) {
     content: `
 <a:VC_Winner:1482535294757507255> **Report attività casate**.
 
-<a:VC_Arrow:1482706699365257397> Ecco quale casata è stata più attiva nelle ultime 2 settimane e chi ha spinto di più per ogni casa.
+<a:VC_Arrow:1482706699365257397> Ecco quale casa è stata più attiva nelle ultime 2 settimane e chi ha spinto di più per ogni casa.
 _ _`,
     embeds: [embed],
   };

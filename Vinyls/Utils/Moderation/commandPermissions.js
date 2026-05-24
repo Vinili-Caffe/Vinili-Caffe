@@ -77,6 +77,7 @@ function channelMatchesPolicyChannelList(channel, policyIds) {
 const TICKET_INTERACTION_IDS = new Set([
   "ticket_partnership",
   "ticket_highstaff",
+  "ticket_perks",
   "ticket_supporto",
   "claim_ticket",
   "unclaim",

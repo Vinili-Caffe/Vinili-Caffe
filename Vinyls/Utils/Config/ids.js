@@ -177,7 +177,8 @@ const ids = {
     errorLogChannel: "1472733599496409292",
     messagesAutoDelete: "1494113971488297001",
     serataFilm: "1497535199813042306",
-    economy: "1505910037665808425"
+    economy: "1505910037665808425",
+    highCmds: "1508160859841499326"
   },
   roles: {
     Wick: "1443565454260965471",

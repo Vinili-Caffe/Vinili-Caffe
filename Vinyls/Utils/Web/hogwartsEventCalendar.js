@@ -151,7 +151,7 @@ const DEFAULT_WEEKS = Object.freeze([
     start: "2026-08-17",
     end: "2026-08-23",
     activities: [
-      { title: "Caccia alle liste", summary: "Sabato 22 Agosto | Due liste di incantesimi nella Sezione Proibita (altri canali): chi le trova per primo fa punti alla casata. In definizione.", icon: "fa-search" },
+      { title: "Caccia alle liste", summary: "Sabato 22 Agosto | Due liste di incantesimi nella Sezione Proibita (altri canali): chi le trova per primo fa punti alla casa. In definizione.", icon: "fa-search" },
       { title: "Risultati settimanali", summary: "Domenica 23 Agosto | Classifica attività della settimana.", pageId: "points", icon: "fa-trophy" },
       { title: "Fine 6º anno", summary: "Chiusura del sesto anno accademico.", icon: "fa-graduation-cap" },
     ],
@@ -176,7 +176,7 @@ const DEFAULT_WEEKS = Object.freeze([
     start: "2026-08-31",
     end: "2026-09-01",
     activities: [
-      { title: "Gran finale", summary: "Martedì 1° Settembre | Risultati mensili, podio case, classifica membri più attivi e estrazione premio extra per la casata vincitrice.", pageId: "points", icon: "fa-trophy" },
+      { title: "Gran finale", summary: "Martedì 1° Settembre | Risultati mensili, podio case, classifica membri più attivi e estrazione premio extra per la casa vincitrice.", pageId: "points", icon: "fa-trophy" },
       { title: "Ruolo Evento 2k26", summary: "A chiusura evento: tutti gli utenti smistati ricevono il ruolo ricordo di partecipazione.", icon: "fa-shield" },
     ],
   },

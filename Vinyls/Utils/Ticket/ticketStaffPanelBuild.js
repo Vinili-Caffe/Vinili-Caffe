@@ -3,14 +3,18 @@ const mongoose = require("mongoose");
 const Ticket = require("../../Schemas/Ticket/ticketSchema");
 const { GuildFeatureBucket } = require("../../Schemas/Guild/guildFeatureBucketSchema");
 const IDs = require("../Config/ids");
+const { memberCanAccessPerksTicket } = require("./ticketPerksStaffRoles");
 const { userAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
 const { getGuildMemberCached } = require("../Interaction/interactionEntityCache");
 const STAFF_ROLE_ID = IDs.roles.Staff;
 const HIGHSTAFF_ROLE_ID = IDs.roles.HighStaff;
 const PARTNERMANAGER_ROLE_ID = IDs.roles.PartnerManager;
 
-function hasStaffTicketRole(member) {
+function hasStaffTicketRole(member, ticketType) {
   if (!member?.roles?.cache) return false;
+  if (String(ticketType || "").toLowerCase() === "perks") {
+    return memberCanAccessPerksTicket(member);
+  }
   return [STAFF_ROLE_ID, HIGHSTAFF_ROLE_ID, PARTNERMANAGER_ROLE_ID].some(
     (id) => id && member.roles.cache.has(id),
   );
@@ -57,7 +61,7 @@ function buildRemoveMemberOptions(channel) {
 
 function buildTicketStaffPanelPayload(member, channel, ticketDoc) {
   const isHighStaff = Boolean(HIGHSTAFF_ROLE_ID && member?.roles?.cache?.has(HIGHSTAFF_ROLE_ID));
-  const staffTicket = hasStaffTicketRole(member);
+  const staffTicket = hasStaffTicketRole(member, ticketDoc?.ticketType);
   const remOptsLen = staffTicket ? buildRemoveMemberOptions(channel).length : 0;
   const claimedTrim = String(ticketDoc?.claimedBy || "").trim();
   const showTransfer = Boolean(claimedTrim && canSeeTransferPanel(member, ticketDoc));

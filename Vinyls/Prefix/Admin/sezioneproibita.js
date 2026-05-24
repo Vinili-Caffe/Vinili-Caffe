@@ -83,7 +83,7 @@ function winnerErrorMessage(code, result) {
     case "already_winner":
       return "<:vegax:1443934876440068179> Questo utente è **già** tra i vincitori dell'evento.";
     case "house_already_winner":
-      return `<:vegax:1443934876440068179> C'è già un vincitore per la casata **${result?.houseLabel || result?.houseId || "?"}**. Non puoi assegnare due vincitori della stessa casata.`;
+      return `<:vegax:1443934876440068179> C'è già un vincitore per la casa **${result?.houseLabel || result?.houseId || "?"}**. Non puoi assegnare due vincitori della stessa casa.`;
     case "max_winners":
       return `<:vegax:1443934876440068179> Sono già stati assegnati **${FORBIDDEN_MAX_WINNERS}** vincitori.`;
     case "event_closed":
@@ -108,7 +108,7 @@ function buildWinnerSuccessEmbed(result, targetUser, client) {
         formatForbiddenWinnersList(result.winners, cfg),
         result.closed
           ? "\n<:vegacheckmark:1443666279058772028> Evento **chiuso** (entrambi i vincitori assegnati)."
-          : "\nPuoi assegnare ancora **un** vincitore di un'altra casata.",
+          : "\nPuoi assegnare ancora **un** vincitore di un'altra casa.",
       ].join("\n"),
     );
 }

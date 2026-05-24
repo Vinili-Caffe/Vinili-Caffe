@@ -56,7 +56,7 @@
                 "roles.HighStaff"
             ],
             "channels": [
-                "channels.staffCmds"
+                "channels.highCmds"
             ]
         },
         "banner": {
@@ -74,7 +74,7 @@
                 "roles.HighStaff"
             ],
             "channels": [
-                "channels.staffCmds"
+                "channels.highCmds"
             ]
         },
         "profile": {
@@ -83,7 +83,8 @@
             ],
             "channels": [
                 "channels.commands",
-                "channels.staffCmds"
+                "channels.staffCmds",
+                "channels.highCmds"
             ]
         },
         "desc": [
@@ -95,7 +96,8 @@
             ],
             "channels": [
                 "channels.commands",
-                "channels.staffCmds"
+                "channels.staffCmds",
+                "channels.highCmds"
             ]
         },
         "info": {
@@ -103,7 +105,7 @@
                 "roles.HighStaff"
             ],
             "channels": [
-                "channels.staffCmds"
+                "channels.highCmds"
             ]
         },
         "join": {
@@ -121,7 +123,7 @@
                 "roles.HighStaff"
             ],
             "channels": [
-                "channels.staffCmds"
+                "channels.highCmds"
             ]
         },
         "punticasa": {
@@ -131,7 +133,7 @@
                 "roles.HighStaff"
             ],
             "channels": [
-                "channels.staffCmds"
+                "channels.highCmds"
             ]
         },
         "me": {
@@ -140,7 +142,8 @@
             ],
             "channels": [
                 "channels.commands",
-                "channels.staffCmds"
+                "channels.staffCmds",
+                "channels.highCmds"
             ]
         },
         "user": {
@@ -149,7 +152,8 @@
             ],
             "channels": [
                 "channels.commands",
-                "channels.staffCmds"
+                "channels.staffCmds",
+                "channels.highCmds"
             ]
         },
         "membercount": {
@@ -159,7 +163,8 @@
             "channels": [
                 "channels.commands",
                 "channels.staffCmds",
-                "channels.news"
+                "channels.news",
+                "channels.highCmds"
             ]
         },
         "mstats": {
@@ -168,7 +173,8 @@
             ],
             "channels": [
                 "channels.commands",
-                "channels.staffCmds"
+                "channels.staffCmds",
+                "channels.highCmds"
             ]
         },
         "ping": {
@@ -177,7 +183,8 @@
             ],
             "channels": [
                 "channels.commands",
-                "channels.staffCmds"
+                "channels.staffCmds",
+                "channels.highCmds"
             ]
         },
         "clear": {
@@ -201,7 +208,8 @@
                 "channels.vocaleSquad1",
                 "channels.vocaleSquad2",
                 "channels.vocaleSquad3",
-                "channels.staffCmds"
+                "channels.staffCmds",
+                "channels.highCmds"
             ]
         },
         "lyrics": {
@@ -225,7 +233,8 @@
                 "channels.vocaleSquad1",
                 "channels.vocaleSquad2",
                 "channels.vocaleSquad3",
-                "channels.staffCmds"
+                "channels.staffCmds",
+                "channels.highCmds"
             ]
         },
         "next": {
@@ -249,7 +258,8 @@
                 "channels.vocaleSquad1",
                 "channels.vocaleSquad2",
                 "channels.vocaleSquad3",
-                "channels.staffCmds"
+                "channels.staffCmds",
+                "channels.highCmds"
             ]
         },
         "now": {
@@ -297,7 +307,8 @@
                 "channels.vocaleSquad1",
                 "channels.vocaleSquad2",
                 "channels.vocaleSquad3",
-                "channels.staffCmds"
+                "channels.staffCmds",
+                "channels.highCmds"
             ]
         },
         "play": {
@@ -345,7 +356,8 @@
                 "channels.vocaleSquad1",
                 "channels.vocaleSquad2",
                 "channels.vocaleSquad3",
-                "channels.staffCmds"
+                "channels.staffCmds",
+                "channels.highCmds"
             ]
         },
         "queue": {
@@ -369,7 +381,8 @@
                 "channels.vocaleSquad1",
                 "channels.vocaleSquad2",
                 "channels.vocaleSquad3",
-                "channels.staffCmds"
+                "channels.staffCmds",
+                "channels.highCmds"
             ]
         },
         "repeat": {
@@ -393,7 +406,8 @@
                 "channels.vocaleSquad1",
                 "channels.vocaleSquad2",
                 "channels.vocaleSquad3",
-                "channels.staffCmds"
+                "channels.staffCmds",
+                "channels.highCmds"
             ]
         },
         "requested": {
@@ -417,7 +431,8 @@
                 "channels.vocaleSquad1",
                 "channels.vocaleSquad2",
                 "channels.vocaleSquad3",
-                "channels.staffCmds"
+                "channels.staffCmds",
+                "channels.highCmds"
             ]
         },
         "restart": {
@@ -441,7 +456,8 @@
                 "channels.vocaleSquad1",
                 "channels.vocaleSquad2",
                 "channels.vocaleSquad3",
-                "channels.staffCmds"
+                "channels.staffCmds",
+                "channels.highCmds"
             ]
         },
         "resume": {
@@ -465,7 +481,8 @@
                 "channels.vocaleSquad1",
                 "channels.vocaleSquad2",
                 "channels.vocaleSquad3",
-                "channels.staffCmds"
+                "channels.staffCmds",
+                "channels.highCmds"
             ]
         },
         "rewind": {
@@ -489,7 +506,8 @@
                 "channels.vocaleSquad1",
                 "channels.vocaleSquad2",
                 "channels.vocaleSquad3",
-                "channels.staffCmds"
+                "channels.staffCmds",
+                "channels.highCmds"
             ]
         },
         "shuffle": {
@@ -537,7 +555,8 @@
                 "channels.vocaleSquad1",
                 "channels.vocaleSquad2",
                 "channels.vocaleSquad3",
-                "channels.staffCmds"
+                "channels.staffCmds",
+                "channels.highCmds"
             ]
         },
         "stop": {
@@ -561,7 +580,8 @@
                 "channels.vocaleSquad1",
                 "channels.vocaleSquad2",
                 "channels.vocaleSquad3",
-                "channels.staffCmds"
+                "channels.staffCmds",
+                "channels.highCmds"
             ]
         },
         "upcoming": {
@@ -585,7 +605,8 @@
                 "channels.vocaleSquad1",
                 "channels.vocaleSquad2",
                 "channels.vocaleSquad3",
-                "channels.staffCmds"
+                "channels.staffCmds",
+                "channels.highCmds"
             ]
         },
         "volume": {
@@ -609,7 +630,8 @@
                 "channels.vocaleSquad1",
                 "channels.vocaleSquad2",
                 "channels.vocaleSquad3",
-                "channels.staffCmds"
+                "channels.staffCmds",
+                "channels.highCmds"
             ]
         },
         "purge": [
@@ -649,7 +671,8 @@
             ],
             "channels": [
                 "channels.commands",
-                "channels.staffCmds"
+                "channels.staffCmds",
+                "channels.highCmds"
             ]
         },
         "sezioneproibita": {
@@ -658,7 +681,7 @@
                 "roles.Admin"
             ],
             "channels": [
-                "channels.staffCmds"
+                "channels.highCmds"
             ],
             "subcommands": {
                 "winner": [
@@ -677,7 +700,7 @@
                 "roles.PartnerManager"
             ],
             "channels": [
-                "channels.staffCmds",
+                "channels.highCmds",
                 "channels.partnersChat"
             ],
             "subcommands": {
@@ -699,12 +722,18 @@
             ],
             "channels": [
                 "channels.commands",
-                "channels.staffCmds"
+                "channels.staffCmds",
+                "channels.highCmds"
             ]
         },
         "channel": {
             "roles": [
                 "roles.Member"
+            ],
+            "channels": [
+                "channels.commands",
+                "channels.staffCmds",
+                "channels.highCmds"
             ]
         },
         "ship": {
@@ -861,7 +890,8 @@
             ],
             "channels": [
                 "channels.commands",
-                "channels.staffCmds"
+                "channels.staffCmds",
+                "channels.highCmds"
             ]
         },
         "ban": {
@@ -871,7 +901,7 @@
                 "roles.Founder"
             ],
             "channels": [
-                "channels.staffCmds",
+                "channels.highCmds",
                 "channels.sanzioniUtenti"
             ]
         },
@@ -881,7 +911,8 @@
             ],
             "channels": [
                 "channels.staffCmds",
-                "channels.sanzioniUtenti"
+                "channels.sanzioniUtenti",
+                "channels.highCmds"
             ]
         },
         "delwarn": {
@@ -890,7 +921,7 @@
                 "roles.Director"
             ],
             "channels": [
-                "channels.staffCmds",
+                "channels.highCmds",
                 "channels.sanzioniUtenti"
             ]
         },
@@ -900,7 +931,7 @@
                 "roles.Director"
             ],
             "channels": [
-                "channels.staffCmds",
+                "channels.highCmds",
                 "channels.sanzioniUtenti"
             ]
         },
@@ -910,7 +941,7 @@
                 "roles.HighStaff"
             ],
             "channels": [
-                "channels.staffCmds",
+                "channels.highCmds",
                 "channels.sanzioniUtenti"
             ]
         },
@@ -920,17 +951,13 @@
                 "roles.HighStaff"
             ],
             "channels": [
-                "channels.staffCmds",
+                "channels.highCmds",
                 "channels.sanzioniUtenti"
             ]
         },
         "lock": {
             "roles": [
                 "roles.HighStaff"
-            ],
-            "channels": [
-                "channels.staffCmds",
-                "channels.sanzioniUtenti"
             ]
         },
         "moderations": {
@@ -979,17 +1006,13 @@
                 "roles.HighStaff"
             ],
             "channels": [
-                "channels.staffCmds",
+                "channels.highCmds",
                 "channels.sanzioniUtenti"
             ]
         },
         "unlock": {
             "roles": [
                 "roles.HighStaff"
-            ],
-            "channels": [
-                "channels.staffCmds",
-                "channels.sanzioniUtenti"
             ]
         },
         "unmute": {
@@ -998,7 +1021,7 @@
                 "roles.Director"
             ],
             "channels": [
-                "channels.staffCmds",
+                "channels.highCmds",
                 "channels.sanzioniUtenti"
             ]
         },

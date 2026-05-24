@@ -14,6 +14,7 @@ const { handleTicketStaffPanelInteraction } = require("../../Utils/Ticket/ticket
 const { resetTicketOpenPanelAfterInteraction } = require("../../Utils/Ticket/ticketOpenMenuComponents");
 const { buildTicketTranscriptViewUrl, transcriptViewExpired, } = require("../../Utils/Ticket/ticketTranscriptSecure");
 const { applyChannelPermissionOverwritesAfterUnclaim } = require("../../Utils/Ticket/ticketAutoUnclaimOnStaffLoss");
+const { PERKS_STAFF_ROLE_IDS, buildPerksPingMention } = require("../../Utils/Ticket/ticketPerksStaffRoles");
 
 async function handleTicketInteraction(interaction) {
   const selectedTicketAction = runtimeGetSelectedTicketAction(interaction);
@@ -194,7 +195,7 @@ async function handleTicketInteraction(interaction) {
         await refreshTicketOpenPanelSelect();
         return true;
       }
-      const ticketOpenButtons = ["ticket_partnership", "ticket_supporto", "ticket_highstaff",];
+      const ticketOpenButtons = ["ticket_partnership", "ticket_supporto", "ticket_highstaff", "ticket_perks"];
       if (
         ticketOpenButtons.includes(ticketActionId) &&
         interaction.member?.roles?.cache?.has(ROLE_TICKET_BLACKLIST)
@@ -210,7 +211,7 @@ async function handleTicketInteraction(interaction) {
         await refreshTicketOpenPanelSelect();
         return true;
       }
-      const userOnlyTickets = ["ticket_partnership", "ticket_highstaff"];
+      const userOnlyTickets = ["ticket_partnership", "ticket_highstaff", "ticket_perks"];
       if (userOnlyTickets.includes(ticketActionId)) {
         if (!ROLE_USER) {
           await safeReply(interaction, {
@@ -250,13 +251,20 @@ async function handleTicketInteraction(interaction) {
           return true;
         }
       }
-      const panelByAction = { ticket_supporto: "supporto", ticket_partnership: "partnership", ticket_highstaff: "highstaff" };
+      const panelByAction = { ticket_supporto: "supporto", ticket_partnership: "partnership", ticket_highstaff: "highstaff", ticket_perks: "perks" };
       const panelKey = panelByAction[ticketActionId] || "";
       const panelConfig = panelKey ? getTicketPanelConfig(panelKey) : null;
       const config = panelConfig
         ? {
           ...panelConfig,
-          role: panelConfig.type === "supporto" ? ROLE_STAFF : panelConfig.type === "partnership" ? ROLE_PARTNERMANAGER : ROLE_HIGHSTAFF,
+          role:
+            panelConfig.type === "supporto"
+              ? ROLE_STAFF
+              : panelConfig.type === "partnership"
+                ? ROLE_PARTNERMANAGER
+                : panelConfig.type === "perks"
+                  ? null
+                  : ROLE_HIGHSTAFF,
           requiredRoles:
             panelConfig.type === "supporto"
               ? []
@@ -312,7 +320,7 @@ async function handleTicketInteraction(interaction) {
           }
           let memOpen = interaction.member;
           if (interaction.guild && memOpen && (!memOpen.roles?.cache?.size || memOpen.partial)) { memOpen = (await interaction.guild.members.fetch(interaction.user.id).catch(() => null)) || memOpen; }
-          if (["ticket_partnership", "ticket_highstaff"].includes(ticketActionId)) {
+          if (["ticket_partnership", "ticket_highstaff", "ticket_perks"].includes(ticketActionId)) {
             if (!ROLE_USER || !memOpen?.roles?.cache?.has(ROLE_USER)) {
               await safeReply(interaction, {
                 embeds: [
@@ -419,6 +427,13 @@ async function handleTicketInteraction(interaction) {
                     { id: ROLE_PARTNERMANAGER, deny: [PermissionFlagsBits.ViewChannel] },
                   ]
                 : []),
+              ...(config.type === "perks"
+                ? [
+                    ...PERKS_STAFF_ROLE_IDS.map((roleId) => toCreateOverwrite(roleId, TICKET_ROLE_SPECTATE)),
+                    { id: ROLE_STAFF, deny: [PermissionFlagsBits.ViewChannel] },
+                    { id: ROLE_PARTNERMANAGER, deny: [PermissionFlagsBits.ViewChannel] },
+                  ]
+                : []),
             ],
           }).catch((err) => {
             global.logger.error(err);
@@ -493,7 +508,8 @@ async function handleTicketInteraction(interaction) {
             return true;
           }
           let tagRole = config.type === "partnership" ? ROLE_PARTNERMANAGER : config.role;
-          const mentionMsg = await channel.send(`<@${interaction.user.id}>${tagRole ? `<@&${tagRole}>` : ""}`).catch(() => null);
+          const pingSuffix = config.type === "perks" ? buildPerksPingMention() : tagRole ? `<@&${tagRole}>` : "";
+          const mentionMsg = await channel.send(`<@${interaction.user.id}>${pingSuffix}`).catch(() => null);
           if (mentionMsg) {
             const mentionCleanupTimer = setTimeout(() => {
               mentionMsg.delete().catch(() => { });
@@ -721,7 +737,8 @@ async function handleTicketInteraction(interaction) {
           const canClaimSupport = ticket.ticketType === "supporto" && STAFF_ROLES.some((r) => interaction.member?.roles?.cache?.has(r));
           const canClaimPartnership = ticket.ticketType === "partnership" && (interaction.member?.roles?.cache?.has(ROLE_PARTNERMANAGER) || interaction.member?.roles?.cache?.has(ROLE_HIGHSTAFF));
           const canClaimHigh = ticket.ticketType === "high" && interaction.member?.roles?.cache?.has(ROLE_HIGHSTAFF);
-          if (!canClaimSupport && !canClaimPartnership && !canClaimHigh) {
+          const canClaimPerks = ticket.ticketType === "perks" && PERKS_STAFF_ROLE_IDS.some((r) => interaction.member?.roles?.cache?.has(r));
+          if (!canClaimSupport && !canClaimPartnership && !canClaimHigh && !canClaimPerks) {
             await replyTicketClaim({
               embeds: [
                 makeErrorEmbed(
@@ -823,6 +840,10 @@ async function handleTicketInteraction(interaction) {
                 if (ROLE_HIGHSTAFF) await interaction.channel.permissionOverwrites.edit(ROLE_HIGHSTAFF, TICKET_ROLE_SPECTATE).catch(() => {});
               } else if (ticket.ticketType === "high") {
                 if (ROLE_HIGHSTAFF) await interaction.channel.permissionOverwrites.edit(ROLE_HIGHSTAFF, TICKET_ROLE_SPECTATE).catch(() => {});
+              } else if (ticket.ticketType === "perks") {
+                for (const r of PERKS_STAFF_ROLE_IDS) {
+                  if (r) await interaction.channel.permissionOverwrites.edit(r, TICKET_ROLE_SPECTATE).catch(() => {});
+                }
               } else if (ROLE_PARTNERMANAGER) {
                 await interaction.channel.permissionOverwrites.edit(ROLE_PARTNERMANAGER, { ViewChannel: false }).catch(() => {});
               }

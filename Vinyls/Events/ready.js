@@ -60,7 +60,7 @@ const { syncZodiacRolesFromStoredBirthdays } = require("../Utils/Community/zodia
 const { syncAgeBracketRolesFromStoredBirthdays } = require("../Utils/Community/ageBracketRoles");
 const { postTopggStatsDigestIfConfigured } = require("../Services/Web/topggDigestService");
 const { restorePauseMessageStatusSync } = require("../Utils/Pause/pauseHandlersUtils");
-const { formatDurationMs, runTaskGroup, runTaskSequence, } = require("../Utils/Startup/readyStartupRuntime");
+const { formatDurationMs, runPhasedStartupTasks, } = require("../Utils/Startup/readyStartupRuntime");
 const { logBotReady } = require("../../shared/discord/readyLog");
 const { buildBotPresenceActivities } = require("../../shared/discord/botPresenceActivity");
 const { sweepExpiredPartnerManagerTimedPerks } = require("../Utils/Staff/partnerManagerTimedPerks");
@@ -158,167 +158,64 @@ function createStartupHooks(client) {
   };
 }
 
-function buildPrimaryHeavyTasks(client, mainGuild, engagementTick) {
+function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
+  const mainGuildId = IDs.guilds.main || null;
+  const resolveMainGuild = async () => {
+    if (!mainGuildId) return client.guilds.cache.first() || null;
+    return client.guilds.cache.get(mainGuildId) || (await client.guilds.fetch(mainGuildId).catch(() => null));
+  };
   return [
     {
-      label: "heavy task: retro sync guild levels",
-      run: () =>
-        mainGuild
-          ? retroSyncGuildLevels(mainGuild, { syncRoles: false })
-          : Promise.resolve(),
-    },
-    {
-      label: "heavy task: engagement tick",
-      run: () => engagementTick(),
-    },
-    {
-      label: "heavy task: verification tenure backfill",
-      run: () =>
-        shouldRunVerificationTenureBackfill(client)
-          ? backfillVerificationTenure(client)
-          : Promise.resolve(),
-    },
-    {
-      label: "heavy task: renumber categories",
-      run: () => renumberAllCategories(client),
-    },
-    {
-      label: "heavy task: custom role expiry sweep",
-      run: () => runExpiredCustomRolesSweep(client),
-    },
-    {
-      label: "heavy task: expired mute role restore sweep",
+      label: "expired mute role restore sweep",
+      weight: 5,
+      enabled: primaryScheduler,
       run: () => sweepExpiredCommunicationTimeoutMirrors(client, { limit: 100 }),
     },
     {
-      label: "heavy task: custom perks rules migration",
-      run: () => runCustomPerksRulesMigration(client),
-    },
-  ];
-}
-
-function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
-  return [
-    {
-      label: "restore bump reminders",
-      enabled: primaryScheduler,
-      run: () => restoreBumpReminders(client),
-    },
-    {
-      label: "discadia vote month DB repair (solo 1° mese Roma, stale month key)",
-      enabled: primaryScheduler && shouldRunDiscadiaVoteMonthRepairOnStartup(client),
-      run: () => repairDiscadiaVoteMonthRowsForMainGuild(client),
-    },
-    {
-      label: "process recent automation messages (vote, bump)",
-      enabled: primaryScheduler,
-      run: () => processAllRecentAutomationMessages(client),
-    },
-    {
       label: "run due one-time reminders",
+      weight: 8,
       enabled: true,
       run: () => runDueOneTimeReminders(client),
     },
     {
       label: "restore core startup state",
+      weight: 10,
       enabled: true,
       run: () => restoreCoreStartupState(client),
     },
     {
-      label: "DM banned users unban link (run once)",
-      enabled: primaryScheduler && shouldRunBannedUnbanDmOnStartup(client),
-      run: async () => {
-        const result = await sendBannedUnbanLinkDms(client, { dryRun: false, once: true });
-        if (result?.skipped) {
-          global.logger?.info?.(`[dm-banned-unban] skipped: ${result.reason || "unknown"}`);
-        } else {
-          global.logger?.info?.(
-            `[dm-banned-unban] completed: sent=${result.sent} failed=${result.failed} target=${result.target}`,
-          );
-        }
-      },
-    },
-    {
-      label: "backfill boost announce slot counts from supporters history",
-      enabled: primaryScheduler,
-      run: () => guildMemberUpdateExtras.backfillAnnouncedBoostSlotsFromSupportersHistory(client),
-    },
-    {
-      label: "recover last 2 native boost system messages (multi-channel scan)",
-      enabled: primaryScheduler,
-      run: () =>
-        guildMemberUpdateExtras.recoverLastGlobalNativeBoostEmbedsOnStartup(client, {
-          messageLimit: 2,
-          lookbackMs: 7 * 24 * 60 * 60 * 1000,
-        }),
-    },
-    {
-      label: "recover missed boost embeds (audit vs ultimo embed bot)",
-      enabled: primaryScheduler,
-      run: () =>
-        guildMemberUpdateExtras.recoverRecentBoostEmbedsOnStartup(client, {
-          limit: 20,
-          lookbackMs: 24 * 60 * 60 * 1000,
-        }),
-    },
-    {
-      label: "reconcile double booster roles from stored boost slots",
-      enabled: primaryScheduler,
-      run: () =>
-        guildMemberUpdateExtras.reconcileDoubleBoosterRolesOnStartup(client, {
-          maxUsers: 400,
-        }),
-    },
-    {
-      label: "correct misleading single boost embeds (double booster)",
-      enabled: primaryScheduler,
-      run: () => guildMemberUpdateExtras.correctMisleadingSingleBoostEmbedsOnStartup(client),
-    },
-    {
-      label: "primary heavy tasks",
-      enabled: primaryScheduler,
-      run: () => runPrimaryHeavyTasks(client, engagementTick),
-    },
-    {
-      label: "startup sync clan tag roles",
-      enabled: primaryScheduler,
-      run: () => syncAllMembersClanTags(client),
-    },
-    {
-      label: "startup sync staff auto valutazioni",
-      enabled: primaryScheduler,
-      run: async () => {
-        await cleanupMalformedAutoValutazioni();
-        await syncAllStaffAutoValutazioni(client);
-      },
-    },
-    {
-      label: "restore active Serata Film staff tracking",
-      enabled: primaryScheduler,
-      run: () => restoreActiveSerataFilmSessions(client),
-    },
-    {
-      label: "startup sync zodiac roles from birthday profiles",
-      enabled: primaryScheduler,
-      run: () => syncZodiacRolesFromStoredBirthdays(client),
-    },
-    {
-      label: "startup sync age bracket roles from birthday profiles",
-      enabled: primaryScheduler,
-      run: () => syncAgeBracketRolesFromStoredBirthdays(client),
-    },
-    {
-      label: "optional Top.gg stats digest",
-      enabled: primaryScheduler && shouldRunTopggStatsDigestOnStartup(client),
-      run: () => postTopggStatsDigestIfConfigured(client),
-    },
-    {
       label: "startup sync queue",
+      weight: 12,
       enabled: true,
       run: () => queueStartupSync(client),
     },
     {
+      label: "restore bump reminders",
+      weight: 15,
+      enabled: primaryScheduler,
+      run: () => restoreBumpReminders(client),
+    },
+    {
+      label: "process recent automation messages (vote, bump)",
+      weight: 18,
+      enabled: primaryScheduler,
+      run: () => processAllRecentAutomationMessages(client),
+    },
+    {
+      label: "engagement tick",
+      weight: 20,
+      enabled: primaryScheduler,
+      run: () => engagementTick(),
+    },
+    {
+      label: "discadia vote month DB repair (solo 1° mese Roma, stale month key)",
+      weight: 25,
+      enabled: primaryScheduler && shouldRunDiscadiaVoteMonthRepairOnStartup(client),
+      run: () => repairDiscadiaVoteMonthRowsForMainGuild(client),
+    },
+    {
       label: "sync Discord AutoMod rules (Vinili)",
+      weight: 28,
       enabled: primaryScheduler,
       run: async () => {
         global.__vinylsDiscordClient = client;
@@ -350,6 +247,135 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
           }
         }
       },
+    },
+    {
+      label: "reconcile double booster roles from stored boost slots",
+      weight: 35,
+      enabled: primaryScheduler,
+      run: () =>
+        guildMemberUpdateExtras.reconcileDoubleBoosterRolesOnStartup(client, {
+          maxUsers: 400,
+        }),
+    },
+    {
+      label: "correct misleading single boost embeds (double booster)",
+      weight: 38,
+      enabled: primaryScheduler,
+      run: () => guildMemberUpdateExtras.correctMisleadingSingleBoostEmbedsOnStartup(client),
+    },
+    {
+      label: "optional Top.gg stats digest",
+      weight: 40,
+      enabled: primaryScheduler && shouldRunTopggStatsDigestOnStartup(client),
+      run: () => postTopggStatsDigestIfConfigured(client),
+    },
+    {
+      label: "recover missed boost embeds (audit vs ultimo embed bot)",
+      weight: 42,
+      enabled: primaryScheduler,
+      run: () =>
+        guildMemberUpdateExtras.recoverRecentBoostEmbedsOnStartup(client, {
+          limit: 20,
+          lookbackMs: 24 * 60 * 60 * 1000,
+        }),
+    },
+    {
+      label: "restore active Serata Film staff tracking",
+      weight: 45,
+      enabled: primaryScheduler,
+      run: () => restoreActiveSerataFilmSessions(client),
+    },
+    {
+      label: "backfill boost announce slot counts from supporters history",
+      weight: 48,
+      enabled: primaryScheduler,
+      run: () => guildMemberUpdateExtras.backfillAnnouncedBoostSlotsFromSupportersHistory(client),
+    },
+    {
+      label: "recover last 2 native boost system messages (multi-channel scan)",
+      weight: 50,
+      enabled: primaryScheduler,
+      run: () =>
+        guildMemberUpdateExtras.recoverLastGlobalNativeBoostEmbedsOnStartup(client, {
+          messageLimit: 2,
+          lookbackMs: 7 * 24 * 60 * 60 * 1000,
+        }),
+    },
+    {
+      label: "custom role expiry sweep",
+      weight: 52,
+      enabled: primaryScheduler,
+      run: () => runExpiredCustomRolesSweep(client),
+    },
+    {
+      label: "DM banned users unban link (run once)",
+      weight: 55,
+      enabled: primaryScheduler && shouldRunBannedUnbanDmOnStartup(client),
+      run: async () => {
+        const result = await sendBannedUnbanLinkDms(client, { dryRun: false, once: true });
+        if (result?.skipped) {
+          global.logger?.info?.(`[dm-banned-unban] skipped: ${result.reason || "unknown"}`);
+        } else {
+          global.logger?.info?.(
+            `[dm-banned-unban] completed: sent=${result.sent} failed=${result.failed} target=${result.target}`,
+          );
+        }
+      },
+    },
+    {
+      label: "custom perks rules migration",
+      weight: 75,
+      enabled: primaryScheduler,
+      run: () => runCustomPerksRulesMigration(client),
+    },
+    {
+      label: "startup sync zodiac roles from birthday profiles",
+      weight: 78,
+      enabled: primaryScheduler,
+      run: () => syncZodiacRolesFromStoredBirthdays(client),
+    },
+    {
+      label: "startup sync age bracket roles from birthday profiles",
+      weight: 78,
+      enabled: primaryScheduler,
+      run: () => syncAgeBracketRolesFromStoredBirthdays(client),
+    },
+    {
+      label: "startup sync staff auto valutazioni",
+      weight: 80,
+      enabled: primaryScheduler,
+      run: async () => {
+        await cleanupMalformedAutoValutazioni();
+        await syncAllStaffAutoValutazioni(client);
+      },
+    },
+    {
+      label: "verification tenure backfill",
+      weight: 85,
+      enabled: primaryScheduler && shouldRunVerificationTenureBackfill(client),
+      run: () => backfillVerificationTenure(client),
+    },
+    {
+      label: "renumber categories",
+      weight: 88,
+      enabled: primaryScheduler,
+      run: () => renumberAllCategories(client),
+    },
+    {
+      label: "retro sync guild levels",
+      weight: 90,
+      enabled: primaryScheduler,
+      run: async () => {
+        const mainGuild = await resolveMainGuild();
+        if (!mainGuild) return;
+        return retroSyncGuildLevels(mainGuild, { syncRoles: false });
+      },
+    },
+    {
+      label: "startup sync clan tag roles",
+      weight: 92,
+      enabled: primaryScheduler,
+      run: () => syncAllMembersClanTags(client),
     },
   ];
 }
@@ -496,25 +522,15 @@ async function runStartupPanels(client, label = "immediate") {
   }
 }
 
-async function runPrimaryHeavyTasks(client, engagementTick) {
-  const mainGuildId = IDs.guilds.main || null;
-  const mainGuild = mainGuildId ? client.guilds.cache.get(mainGuildId) || (await client.guilds.fetch(mainGuildId).catch(() => null)) : client.guilds.cache.first() || null;
-
-  const heavyTasks = buildPrimaryHeavyTasks(client, mainGuild, engagementTick);
+async function runDeferredStartup(client, primaryScheduler, engagementTick) {
+  const startupTasks = buildDeferredStartupTasks(client, primaryScheduler, engagementTick);
   const hooks = createStartupHooks(client);
-
   const startedAt = Date.now();
-  const results = await runTaskGroup(heavyTasks, hooks);
-  const failed = results.filter((result) => result.status === "rejected").length;
+  const summary = await runPhasedStartupTasks(startupTasks, hooks);
   logInfo(
     client,
-    `[STARTUP] primary heavy tasks finished in ${formatDurationMs(Date.now() - startedAt)}. failed=${failed}/${heavyTasks.length}.`,
+    `[STARTUP] phased startup queued: fast=${summary.fastResults.length} medium=${summary.mediumResults.length} heavy=${summary.heavyCount} in ${formatDurationMs(Date.now() - startedAt)}.`,
   );
-}
-
-async function runDeferredStartup(client, primaryScheduler, engagementTick) {
-  const startupTasks = buildDeferredStartupTasks(client, primaryScheduler, engagementTick,);
-  await runTaskSequence(startupTasks, createStartupHooks(client));
 }
 
 function startPrimaryLoops(client, engagementTick) {
@@ -698,6 +714,9 @@ module.exports = {
     }
     const primaryScheduler = isPrimaryScheduler(client);
     if (primaryScheduler) {
+      void sweepExpiredCommunicationTimeoutMirrors(client, { limit: 100 }).catch((err) => {
+        global.logger?.warn?.("[mutedMirrorRole] early startup sweep:", err?.message || err);
+      });
       try {
         const result = await migrateLegacyDailyStatsCollections();
         if (!result?.skipped) global.logger?.info?.("[DAILY STATS MIGRATION] completed into dailystats.");
@@ -747,9 +766,16 @@ module.exports = {
     if (primaryScheduler) {
       let engagementTickRunning = false;
       const engagementTick = async () => { if (engagementTickRunning) return; engagementTickRunning = true; try { await runDueOneTimeReminders(client); } catch (err) { global.logger?.error?.(err); } finally { engagementTickRunning = false; } };
+      client._engagementTick = engagementTick;
+
+      if (!client._deferredStartupRunning) {
+        client._deferredStartupRunning = true;
+        void runDeferredStartup(client, primaryScheduler, engagementTick).finally(() => {
+          client._deferredStartupRunning = false;
+        });
+      }
 
       startPrimaryLoops(client, engagementTick);
-      client._engagementTick = engagementTick;
     }
 
     if (primaryScheduler) {
@@ -780,13 +806,6 @@ module.exports = {
     void processPendingPrefixCommands(client).catch((err) => global.logger?.warn?.("[READY] pending commands:", err?.message || err));
     void processPendingCountingMessages(client).catch((err) => global.logger?.warn?.("[READY] counting catch-up:", err?.message || err));
 
-    if (!client._deferredStartupRunning) {
-      client._deferredStartupRunning = true;
-      const engagementTick = client._engagementTick || (async () => { });
-      void runDeferredStartup(client, primaryScheduler, engagementTick).finally(() => {
-        client._deferredStartupRunning = false;
-      });
-    }
     if (primaryScheduler) {
       void restorePauseMessageStatusSync(client).catch((err) => {
         global.logger?.warn?.("[PAUSE] restore pause message status sync failed:", err);

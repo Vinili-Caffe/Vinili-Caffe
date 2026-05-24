@@ -215,7 +215,7 @@ async function publishHogwartsHouseCupClose(client, options = {}) {
   const embed = buildHouseCupEmbed(closingPeriod, ranked, eventCfg, guild);
   const winner = ranked[0];
   const winnerRoleId = winner ? String(eventCfg?.houses?.[winner.houseId]?.roleId || "").trim() : "";
-  const winnerMention = winnerRoleId && winner?.points > 0 ? `<@&${winnerRoleId}>` : "nessuna casata in testa";
+  const winnerMention = winnerRoleId && winner?.points > 0 ? `<@&${winnerRoleId}>` : "nessuna casa in testa";
   const nextPeriod = nextPeriodAfter(closingPeriod);
   const button = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setLabel("Coppa sul sito").setStyle(ButtonStyle.Link).setEmoji("<:VC_FrogCute:1331620415185096746>").setURL(COPPA_URL),

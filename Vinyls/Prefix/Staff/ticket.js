@@ -4,6 +4,7 @@ const Ticket = require("../../Schemas/Ticket/ticketSchema");
 const { TICKETS_CATEGORY_NAME, isChannelInTicketCategory } = require("../../Utils/Ticket/ticketCategoryUtils");
 const { buildTicketChannelName, resolveTicketRenamePrefix, sanitizeTicketChannelTail } = require("../../Utils/Ticket/ticketNamingRuntime");
 const { getTicketPanelConfig } = require("../../Utils/Ticket/ticketPanelConfig");
+const { PERKS_STAFF_ROLE_IDS, PERKS_PING_ROLE_IDS, memberCanAccessPerksTicket, buildPerksPingMention } = require("../../Utils/Ticket/ticketPerksStaffRoles");
 const IDs = require("../../Utils/Config/ids");
 const { getClientGuildCached, getGuildChannelCached, getGuildMemberCached, } = require("../../Utils/Interaction/interactionEntityCache");
 const STAFF_ROLE_ID = IDs.roles.Staff;
@@ -11,13 +12,7 @@ const HIGHSTAFF_ROLE_ID = IDs.roles.HighStaff;
 const PARTNERMANAGER_ROLE_ID = IDs.roles.PartnerManager;
 const STAFF_ROLE_IDS = [STAFF_ROLE_ID, HIGHSTAFF_ROLE_ID].filter(Boolean);
 const NO_REPLY_MENTIONS = { repliedUser: false };
-const TICKET_SPECTATE_STAFF_ALLOW = [
-  PermissionFlagsBits.ViewChannel,
-  PermissionFlagsBits.EmbedLinks,
-  PermissionFlagsBits.AttachFiles,
-  PermissionFlagsBits.ReadMessageHistory,
-  PermissionFlagsBits.AddReactions,
-];
+const TICKET_SPECTATE_STAFF_ALLOW = [ PermissionFlagsBits.ViewChannel, PermissionFlagsBits.EmbedLinks, PermissionFlagsBits.AttachFiles, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.AddReactions ];
 const TICKET_SPECTATE_STAFF_DENY = [PermissionFlagsBits.SendMessages];
 
 function hasAnyRole(member, roleIds = []) {
@@ -29,7 +24,8 @@ function canClaimTicket(member, ticketType, _guildId = null) {
   const isSupport = ticketType === "supporto" && hasAnyRole(member, STAFF_ROLE_IDS);
   const isPartnership = ticketType === "partnership" && (member.roles.cache.has(PARTNERMANAGER_ROLE_ID) || member.roles.cache.has(HIGHSTAFF_ROLE_ID));
   const isHigh = ticketType === "high" && member.roles.cache.has(HIGHSTAFF_ROLE_ID);
-  return isSupport || isPartnership || isHigh;
+  const isPerks = ticketType === "perks" && memberCanAccessPerksTicket(member);
+  return isSupport || isPartnership || isHigh || isPerks;
 }
 
 function makeErrorEmbed(title, description) {
@@ -112,6 +108,24 @@ function getTicketChannelPermissionOverwrites(guild, userId, ticketType) {
         deny: [PermissionFlagsBits.ViewChannel],
       },
     );
+  } else if (ticketType === "perks") {
+    for (const roleId of PERKS_STAFF_ROLE_IDS) {
+      base.push({
+        id: roleId,
+        allow: TICKET_SPECTATE_STAFF_ALLOW,
+        deny: TICKET_SPECTATE_STAFF_DENY,
+      });
+    }
+    base.push(
+      {
+        id: STAFF_ROLE_ID,
+        deny: [PermissionFlagsBits.ViewChannel],
+      },
+      {
+        id: PARTNERMANAGER_ROLE_ID,
+        deny: [PermissionFlagsBits.ViewChannel],
+      },
+    );
   }
 
   return base.filter((entry) => Boolean(entry?.id));
@@ -165,7 +179,7 @@ async function ticketSwitchPanelExecute(message, categoryToken) {
           embeds: [
             makeErrorEmbed(
               "Errore",
-              "<:vegax:1443934876440068179> Categoria non valida. Usa: `supporto`, `partnership`, `highstaff`.",
+              "<:vegax:1443934876440068179> Categoria non valida. Usa: `supporto`, `partnership`, `highstaff`, `perks`.",
             ),
           ],
           allowedMentions: { repliedUser: false },
@@ -319,6 +333,30 @@ async function ticketSwitchPanelExecute(message, categoryToken) {
           await targetChannel.permissionOverwrites
             .edit(PARTNERMANAGER_ROLE_ID, roleHideFromTicket)
             .catch(() => { });
+        }
+
+        if (panelConfig.type === "perks") {
+          for (const roleId of PERKS_STAFF_ROLE_IDS) {
+            await targetChannel.permissionOverwrites
+              .edit(roleId, applyReadOnly)
+              .catch(() => { });
+          }
+          await targetChannel.permissionOverwrites
+            .edit(STAFF_ROLE_ID, roleHideFromTicket)
+            .catch(() => { });
+          await targetChannel.permissionOverwrites
+            .edit(PARTNERMANAGER_ROLE_ID, roleHideFromTicket)
+            .catch(() => { });
+        }
+
+        if (previousTicketType === "perks" && panelConfig.type !== "perks") {
+          for (const roleId of PERKS_PING_ROLE_IDS) {
+            if (roleId && roleId !== HIGHSTAFF_ROLE_ID) {
+              await targetChannel.permissionOverwrites
+                .edit(roleId, roleHideFromTicket)
+                .catch(() => { });
+            }
+          }
         }
 
         if (ticketDoc.claimedBy) {
@@ -541,8 +579,17 @@ async function ticketReopenByNumber(ctx, ticketNumber) {
     },
   ).catch(() => { });
 
-  const tagRole = config.type === "partnership" ? PARTNERMANAGER_ROLE_ID : STAFF_ROLE_ID;
-  const mentionMsg = await channel.send(`<@${ticketDoc.userId}>${tagRole ? `<@&${tagRole}>` : ""}`).catch(() => null);
+  const pingSuffix =
+    config.type === "partnership"
+      ? (PARTNERMANAGER_ROLE_ID ? `<@&${PARTNERMANAGER_ROLE_ID}>` : "")
+      : config.type === "high"
+        ? (HIGHSTAFF_ROLE_ID ? `<@&${HIGHSTAFF_ROLE_ID}>` : "")
+        : config.type === "perks"
+          ? buildPerksPingMention()
+          : STAFF_ROLE_ID
+            ? `<@&${STAFF_ROLE_ID}>`
+            : "";
+  const mentionMsg = await channel.send(`<@${ticketDoc.userId}>${pingSuffix}`).catch(() => null);
   if (mentionMsg) {
     const timer = setTimeout(() => mentionMsg.delete().catch(() => { }), 1);
     timer.unref?.();

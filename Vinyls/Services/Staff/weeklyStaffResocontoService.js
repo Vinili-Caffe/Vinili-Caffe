@@ -22,21 +22,18 @@ const RESOCONTO_CRON_SEGMENTS = [
   { segment: "mod", expression: "0 17 * * 0" },
   { segment: "senior_moderator", expression: "30 17 * * 0" },
   { segment: "director", expression: "45 17 * * 0" },
-  { segment: "admin", expression: "0 18 * * 0" },
 ];
-const STAFF_RESOCONTO_SEGMENTS = ["helper", "mod", "senior_moderator", "director", "admin"];
+const STAFF_RESOCONTO_SEGMENTS = ["helper", "mod", "senior_moderator", "director"];
 const STAFF_ACTIVITY_LIMITS = {
   [String(IDs.roles.Helper)]: { messages: 400, hours: 4 },
   [String(IDs.roles.Mod)]: { messages: 500, hours: 5 },
   [String(IDs.roles.SeniorModerator)]: { messages: 600, hours: 6 },
   [String(IDs.roles.Director)]: { messages: 550, hours: 5.5 },
-  [String(IDs.roles.Admin)]: { messages: 500, hours: 5 },
 };
 const STAFF_SANCTION_LIMITS = {
   [String(IDs.roles.Mod)]: 1,
   [String(IDs.roles.SeniorModerator)]: 2,
   [String(IDs.roles.Director)]: 1,
-  [String(IDs.roles.Admin)]: 1,
 };
 const SANCTION_ACTIONS = new Set(["WARN", "MUTE", "KICK", "BAN"]);
 const STAFF_ROLE_PRIORITY = [
@@ -647,7 +644,7 @@ function collectResocontoDiscordMemberIdsForSegment(guild, segment) {
     }
     return out;
   }
-  if (segment === "helper" || segment === "mod" || segment === "senior_moderator" || segment === "director" || segment === "admin") {
+  if (segment === "helper" || segment === "mod" || segment === "senior_moderator" || segment === "director") {
     const want =
       segment === "helper"
         ? String(IDs.roles.Helper || "").trim()
@@ -655,9 +652,7 @@ function collectResocontoDiscordMemberIdsForSegment(guild, segment) {
           ? String(IDs.roles.Mod || "").trim()
           : segment === "senior_moderator"
             ? String(IDs.roles.SeniorModerator || "").trim()
-            : segment === "director"
-              ? String(IDs.roles.Director || "").trim()
-              : String(IDs.roles.Admin || "").trim();
+            : String(IDs.roles.Director || "").trim();
     return collectMemberIdsMatchingResocontoStaffSegment(guild, want);
   }
   return [];
@@ -1416,7 +1411,7 @@ async function hydrateGuildMembersForResoconto(guild, segment) {
 }
 
 async function runWeeklyStaffResocontoSegment(client, segment, opts = {}) {
-  const allowed = new Set(["pm", "helper", "mod", "senior_moderator", "director", "admin"]);
+  const allowed = new Set(["pm", "helper", "mod", "senior_moderator", "director"]);
   if (!allowed.has(segment)) return { sent: 0, eligible: 0, segment };
   const jobsDebug = String(process.env.DEBUG_JOBS || "").trim() === "1";
   const targetUserId = String(opts.userId || opts.targetUserId || "").trim();
@@ -1453,7 +1448,7 @@ async function runWeeklyStaffResocontoSegment(client, segment, opts = {}) {
   const staffDocs = await ActivityUserProfile.find({ guildId, staff: { $exists: true } }, { userId: 1, staff: 1 }).lean().catch(() => []);
 
   const wantStaffForSegment =
-    segment === "helper" || segment === "mod" || segment === "senior_moderator" || segment === "director" || segment === "admin"
+    segment === "helper" || segment === "mod" || segment === "senior_moderator" || segment === "director"
       ? String(
           segment === "helper"
             ? IDs.roles.Helper
@@ -1461,9 +1456,7 @@ async function runWeeklyStaffResocontoSegment(client, segment, opts = {}) {
               ? IDs.roles.Mod
               : segment === "senior_moderator"
                 ? IDs.roles.SeniorModerator
-                : segment === "director"
-                  ? IDs.roles.Director
-                  : IDs.roles.Admin,
+                : IDs.roles.Director,
         )
       : null;
 
@@ -1755,7 +1748,7 @@ async function runWeeklyStaffResocontoSegment(client, segment, opts = {}) {
       }
     }
   }
-  if (segment === "admin") {
+  if (segment === "director") {
     await writeLastResocontoRun();
   }
   return { sent: sentCount, eligible: eligibleCount, completed: completedCount, skipped: skippedCounts, segment };
@@ -1848,7 +1841,7 @@ async function runPreResocontoReminders(client) {
   );
   const overviewByUserId = new Map(staffOnlyIds.map((id, i) => [String(id), overviewResults[i] || null]));
   const resocontoTime =
-    "**domenica (ora italiana):** Partner Manager **15:00**, Helper **16:00**, Mod **17:00**, Senior Moderator **17:30**, Director **17:45**, Admin **18:00**";
+    "**domenica (ora italiana):** Partner Manager **15:00**, Helper **16:00**, Mod **17:00**, Senior Moderator **17:30**, Director **17:45**";
   const reminderWindow = getPmResocontoWindow(new Date());
   const skipDmUserIds = new Set(getDevIds(client).map((id) => String(id)).filter((id) => /^\d{16,20}$/.test(id)));
 
@@ -1905,7 +1898,6 @@ function getStaffRoleIdForResocontoSegment(segment) {
   if (segment === "mod") return String(IDs.roles.Mod || "").trim();
   if (segment === "senior_moderator") return String(IDs.roles.SeniorModerator || "").trim();
   if (segment === "director") return String(IDs.roles.Director || "").trim();
-  if (segment === "admin") return String(IDs.roles.Admin || "").trim();
   return "";
 }
 
@@ -1918,7 +1910,6 @@ function getPassedStaffResocontoSegments(now = new Date()) {
     { segment: "mod", minutes: 17 * 60 },
     { segment: "senior_moderator", minutes: 17 * 60 + 30 },
     { segment: "director", minutes: 17 * 60 + 45 },
-    { segment: "admin", minutes: 18 * 60 },
   ];
   return starts.filter((item) => currentMinutes >= item.minutes).map((item) => item.segment);
 }

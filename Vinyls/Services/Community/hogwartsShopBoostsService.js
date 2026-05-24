@@ -69,16 +69,24 @@ function broomRobSuccessBonus(broomItem) {
 async function applyPetHousePointsBoost(client, guildId, userId, basePoints) {
   const base = Math.max(0, Math.floor(Number(basePoints) || 0));
   if (base <= 0 || !isHogwartsShopBoostActive(client)) {
-    return { points: base, multiplier: 1, petName: "" };
+    return { points: base, multiplier: 1, petName: "", consumableMultiplier: 1, consumableLabels: [] };
   }
   const inventory = await loadShopInventory(guildId, userId);
   const pet = inventory[SHOP_CATEGORIES.PET];
-  const mult = petHousePointsMultiplier(pet);
-  if (mult <= 1) return { points: base, multiplier: 1, petName: "" };
+  const petMult = petHousePointsMultiplier(pet);
+  const afterPet = petMult <= 1 ? base : Math.max(0, Math.floor(base * petMult));
+  const { resolveHousePointsConsumableMultiplier } = require("./hogwartsConsumableBoostsService");
+  const { resolveSortedHouseForUser } = require("./galeoniEconomyService");
+  const houseId = await resolveSortedHouseForUser(guildId, userId, client).catch(() => "");
+  const consumable = await resolveHousePointsConsumableMultiplier(client, guildId, userId, houseId);
+  const consumableMult = Math.max(1, Number(consumable?.multiplier) || 1);
+  const points = consumableMult <= 1 ? afterPet : Math.max(0, Math.floor(afterPet * consumableMult));
   return {
-    points: Math.max(0, Math.floor(base * mult)),
-    multiplier: mult,
-    petName: pet?.name || "",
+    points,
+    multiplier: (petMult > 1 ? petMult : 1) * consumableMult,
+    petName: petMult > 1 ? pet?.name || "" : "",
+    consumableMultiplier: consumableMult > 1 ? consumableMult : 1,
+    consumableLabels: Array.isArray(consumable?.labels) ? consumable.labels : [],
   };
 }
 

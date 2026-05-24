@@ -34,7 +34,7 @@ function isChannelInTicketCategory(channel) {
   return isTicketCategoryName(category.name);
 }
 
-const TICKET_CHANNEL_TYPE_MARKERS = ["partnership", "supporto", "highstaff"];
+const TICKET_CHANNEL_TYPE_MARKERS = ["partnership", "supporto", "highstaff", "perks"];
 
 function isTicketChannelName(name) {
   const raw = String(name || "");

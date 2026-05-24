@@ -1,8 +1,10 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const Ticket = require("../../Schemas/Ticket/ticketSchema");
 const IDs = require("../Config/ids");
+const { PERKS_STAFF_ROLE_IDS } = require("./ticketPerksStaffRoles");
 const { GuildFeatureBucket } = require("../../Schemas/Guild/guildFeatureBucketSchema");
 const { getGuildChannelCached } = require("../Interaction/interactionEntityCache");
+const TICKET_ROLE_UNCLAIMED_SPECTATE = { ViewChannel: true, SendMessages: false, ReadMessageHistory: true, EmbedLinks: true, AttachFiles: true, AddReactions: true };
 
 function buildTicketPanelUnclaimedButtonRow() {
   return new ActionRowBuilder().addComponents(
@@ -12,14 +14,6 @@ function buildTicketPanelUnclaimedButtonRow() {
   );
 }
 
-const TICKET_ROLE_UNCLAIMED_SPECTATE = {
-  ViewChannel: true,
-  SendMessages: false,
-  ReadMessageHistory: true,
-  EmbedLinks: true,
-  AttachFiles: true,
-  AddReactions: true,
-};
 
 async function applyChannelPermissionOverwritesAfterUnclaim(channel, ticketType) {
   const ROLE_STAFF = IDs.roles.Staff;
@@ -49,6 +43,18 @@ async function applyChannelPermissionOverwritesAfterUnclaim(channel, ticketType)
   } else if (ticketType === "high") {
     if (ROLE_HIGHSTAFF) {
       await channel.permissionOverwrites.edit(ROLE_HIGHSTAFF, TICKET_ROLE_UNCLAIMED_SPECTATE).catch(() => {});
+    }
+    if (ROLE_STAFF) {
+      await channel.permissionOverwrites.edit(ROLE_STAFF, { ViewChannel: false }).catch(() => {});
+    }
+    if (ROLE_PARTNERMANAGER) {
+      await channel.permissionOverwrites.edit(ROLE_PARTNERMANAGER, { ViewChannel: false }).catch(() => {});
+    }
+  } else if (ticketType === "perks") {
+    for (const roleId of PERKS_STAFF_ROLE_IDS) {
+      if (roleId) {
+        await channel.permissionOverwrites.edit(roleId, TICKET_ROLE_UNCLAIMED_SPECTATE).catch(() => {});
+      }
     }
     if (ROLE_STAFF) {
       await channel.permissionOverwrites.edit(ROLE_STAFF, { ViewChannel: false }).catch(() => {});

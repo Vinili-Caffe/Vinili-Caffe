@@ -11,6 +11,16 @@ const {
   toPublicGringottPayload,
 } = require("../../Services/Community/gringottService");
 const { getShopItemById, normalizeShopCategory, publicShopCatalog, resolveShopPurchaseOffer } = require("./hogwartsShopCatalog");
+const { getConsumableById, normalizeConsumableCategory, publicConsumablesCatalog } = require("./hogwartsShopConsumablesCatalog");
+const {
+  economyConsumablesLockMessage,
+  getActiveConsumableBoosts,
+  isEconomyConsumablesUnlocked,
+  loadGuildConsumableBoosts,
+  publicActiveBoostsPayload,
+  publicConsumablesCatalogWithAvailability,
+  purchaseAndActivateConsumable,
+} = require("../../Services/Community/hogwartsConsumableBoostsService");
 const { buildPotionsRound, normalizePotionId } = require("./hogwartsPotionsCatalog");
 const DOC = SITE_DOCUMENT_TYPE.HOGWARTS_SORTING;
 const HOUSE_POINTS_DOC = SITE_DOCUMENT_TYPE.HOGWARTS_HOUSE_POINTS;
@@ -424,6 +434,13 @@ async function handleHogwartsShopGet(client, req, res) {
     if (!participant.ok) return res.status(participant.status || 500).json(participant);
     const { resolved, cfg, houseId, houseMeta, previewViewer } = participant;
     const state = await getShopProfileState(resolved.guild.id, resolved.userId, cfg.eventKey);
+    const consumablesUnlocked = isEconomyConsumablesUnlocked(client);
+    const consumablesPreviewVisible = !consumablesUnlocked && Boolean(cfg.previewMode && hasHogwartsSortingPreviewAccess(cfg, resolved.member, resolved.userId));
+    const activeBoostsRaw = houseId
+      ? await getActiveConsumableBoosts(client, resolved.guild.id, resolved.userId, houseId)
+      : { housePoints: {}, exp: {} };
+    const activeBoosts = publicActiveBoostsPayload(activeBoostsRaw);
+    const guildBoosts = await loadGuildConsumableBoosts(client, resolved.guild.id);
     res.setHeader("Cache-Control", "private, no-store");
     return res.status(200).json({
       ok: true,
@@ -432,6 +449,11 @@ async function handleHogwartsShopGet(client, req, res) {
       house: houseId,
       houseMeta,
       catalog: publicShopCatalog(),
+      consumables: publicConsumablesCatalogWithAvailability(publicConsumablesCatalog(), activeBoostsRaw, guildBoosts),
+      consumablesUnlocked,
+      consumablesPreviewVisible,
+      consumablesLockedMessage: consumablesUnlocked ? "" : economyConsumablesLockMessage(client),
+      activeBoosts,
       inventory: state.inventory,
       gringott: state.gringott,
       previewDisabled: Boolean(previewViewer),
@@ -455,6 +477,71 @@ async function handleHogwartsShopPurchasePost(client, req, res) {
     }
     const { resolved, cfg, houseId, houseMeta } = participant;
     const body = req.body && typeof req.body === "object" ? req.body : {};
+    const consumable = getConsumableById(body.itemId);
+    if (consumable) {
+      if (!isEconomyConsumablesUnlocked(client)) {
+        return res.status(403).json({
+          ok: false,
+          error: "economy_locked",
+          message: economyConsumablesLockMessage(client),
+        });
+      }
+      const category = normalizeConsumableCategory(body.category || consumable.category);
+      if (!category || consumable.category !== category) {
+        return res.status(400).json({ ok: false, error: "invalid_item", message: "Boost consumabile non valido." });
+      }
+      const buyerDisplayName = resolved.member?.displayName || resolved.member?.user?.globalName || resolved.member?.user?.username || "Studente";
+      const result = await purchaseAndActivateConsumable(client, {
+        guildId: resolved.guild.id,
+        userId: resolved.userId,
+        houseId,
+        itemId: consumable.id,
+        eventKey: cfg.eventKey,
+        buyerDisplayName,
+        houseLabel: houseMeta?.label || houseMeta?.name || "",
+      });
+      const state = await getShopProfileState(resolved.guild.id, resolved.userId, cfg.eventKey);
+      const guildBoosts = await loadGuildConsumableBoosts(client, resolved.guild.id);
+      const buildConsumablesPayload = async () => {
+        const activeBoostsRaw = await getActiveConsumableBoosts(client, resolved.guild.id, resolved.userId, houseId);
+        return {
+          activeBoosts: publicActiveBoostsPayload(activeBoostsRaw),
+          consumables: publicConsumablesCatalogWithAvailability(publicConsumablesCatalog(), activeBoostsRaw, guildBoosts),
+        };
+      };
+      if (!result.ok) {
+        const boostPayload = await buildConsumablesPayload();
+        return res.status(result.code === "insufficient_funds" || result.code === "boost_active" ? 409 : 403).json({
+          ok: false,
+          error: result.code || "purchase_denied",
+          message: result.message || "Attivazione non consentita.",
+          inventory: state.inventory,
+          gringott: state.gringott,
+          activeBoosts: boostPayload.activeBoosts,
+          consumables: boostPayload.consumables,
+        });
+      }
+      const boostPayload = result.activeBoosts
+        ? {
+            activeBoosts: publicActiveBoostsPayload(result.activeBoosts),
+            consumables: publicConsumablesCatalogWithAvailability(publicConsumablesCatalog(), result.activeBoosts, guildBoosts),
+          }
+        : await buildConsumablesPayload();
+      res.setHeader("Cache-Control", "private, no-store");
+      return res.status(200).json({
+        ok: true,
+        consumable: true,
+        activated: result.item,
+        expiresAt: result.expiresAt,
+        house: houseId,
+        houseMeta,
+        inventory: state.inventory,
+        gringott: state.gringott,
+        activeBoosts: boostPayload.activeBoosts,
+        consumables: boostPayload.consumables,
+        message: result.message,
+      });
+    }
     const item = getShopItemById(body.itemId);
     const category = normalizeShopCategory(body.category || item?.category);
     if (!item || !category || item.category !== category) {
@@ -709,10 +796,14 @@ function housePointPeriodKey(nowMs = Date.now()) {
   return period?.key || "";
 }
 
-async function awardPotionsHousePoints(guildId, houseId, eventKey, points) {
-  const amount = safeInt(points, 0, 0, 1000);
+async function awardPotionsHousePoints(client, guildId, userId, houseId, eventKey, points) {
+  const base = safeInt(points, 0, 0, 1000);
   const house = String(houseId || "").trim();
-  if (!amount || !HOUSES.includes(house)) return null;
+  if (!base || !HOUSES.includes(house)) return null;
+  const { applyPetHousePointsBoost } = require("../../Services/Community/hogwartsShopBoostsService");
+  const boosted = await applyPetHousePointsBoost(client, guildId, userId, base);
+  const amount = Math.max(0, Math.floor(Number(boosted?.points) || 0));
+  if (amount <= 0) return null;
   const now = new Date();
   const periodKey = housePointPeriodKey(now.getTime());
   const inc = {
@@ -906,7 +997,7 @@ async function handleHogwartsPotionsPost(client, req, res) {
       }).catch(() => null);
     }
     if (success && potionsCfg.rewardHousePoints > 0) {
-      housePointsAward = await awardPotionsHousePoints(resolved.guild.id, houseId, cfg.eventKey, potionsCfg.rewardHousePoints);
+      housePointsAward = await awardPotionsHousePoints(client, resolved.guild.id, resolved.userId, houseId, cfg.eventKey, potionsCfg.rewardHousePoints);
     }
     const updatedState = reserved?.profile?.events?.hogwarts?.potions || {};
     const gringott = gringottAward?.state || await getGringottBalance(resolved.guild.id, resolved.userId, cfg.eventKey);

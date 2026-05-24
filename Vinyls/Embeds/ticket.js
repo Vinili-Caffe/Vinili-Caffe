@@ -27,7 +27,12 @@ async function run(client) {
 <:VC_2:1482706376525611090> **PARTNERSHIP**
 <a:VC_Arrow:1482706699365257397> Usalo per fare partnership con noi.
 <:VC_3:1482706404773990460> **HIGH STAFF**
-<a:VC_Arrow:1482706699365257397> Usalo per fare una donazione, per fare la "selfie verify", per richiedere una sponsor a pagamento o per parlare con un amministratore del server.
+<a:VC_Arrow:1482706699365257397> Usalo per fare una donazione, per richiedere una sponsor a pagamento o per parlare con un amministratore del server.
+<:VC_4:1482706432347344916> **PERKS**
+<a:VC_Arrow:1482706699365257397> Usalo per fare la verifica selfie o per riscattare i ruoli Supporter o Follower.
+
+<a:VC_Alert:1482706673176150077> Richieste di trasferimenti o fusioni noi da voi verranno sanzionate.
+<a:VC_Alarm:1482706641618079816> Non accettiamo richieste di bot o siti, aprire ticket per ciò comporterà un warn.
 
 <:VC_Attention:1482534443632558151> Aprire un ticket **__inutile__** oppure **__non rispondere__** nell'arco di **\`24\` ore** comporterà un **warn**.`,
     )

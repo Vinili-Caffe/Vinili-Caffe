@@ -183,7 +183,7 @@
     hintEl.setAttribute("role", "status");
     hintEl.textContent =
       msg ||
-      "Musica Hogwarts: tocca un punto qualsiasi della pagina (o premi un tasto) per avviare l'audio. Puoi anche usare il pulsante volume in basso a destra.";
+      "Tocca un punto qualsiasi della pagina per avviare l'audio. Puoi anche usare il pulsante volume in basso a destra.";
     hintEl.addEventListener("click", function (ev) {
       if (ev) {
         try {

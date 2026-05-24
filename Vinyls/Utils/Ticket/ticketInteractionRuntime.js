@@ -5,6 +5,7 @@ const guildChannelWarmCache = new Map();
 const HANDLED_TICKET_BUTTONS = new Set([
   "ticket_partnership",
   "ticket_highstaff",
+  "ticket_perks",
   "ticket_supporto",
   "claim_ticket",
   "close_ticket",

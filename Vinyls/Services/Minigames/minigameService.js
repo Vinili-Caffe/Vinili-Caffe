@@ -3633,7 +3633,7 @@ function buildObservationTowerSuccessEmbed(brickCount, participantCount, rewardE
     `Hanno partecipato **${participantCount} utenti**: ognuno riceve **${rewardExp} exp**.`,
   ];
   if (Number(housePoints || 0) > 0) {
-    lines.push(`Ogni casata dei partecipanti riceve anche **${housePoints} punti** per utente smistato.`);
+    lines.push(`Ogni casa dei partecipanti riceve anche **${housePoints} punti** per utente smistato.`);
   }
   if (Number(unsortedHousePoints || 0) > 0) {
     lines.push(`Per ogni partecipante non smistato, tutte le case ricevono **${unsortedHousePoints} punti**.`);
