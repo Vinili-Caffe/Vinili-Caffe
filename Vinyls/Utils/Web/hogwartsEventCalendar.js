@@ -14,11 +14,10 @@ const DEFAULT_WEEKS = Object.freeze([
     start: "2026-06-01",
     end: "2026-06-07",
     activities: [
-      { title: "Apertura evento", summary: "Lunedì 1° Giugno | Apertura dello smistamento sul sito.", pageId: "sorting", icon: "fa-magic" },
-      { title: "Shop 1º anno", summary: "Emporio Gringott: bacchetta, scopa e animale.", pageId: "shop", icon: "fa-shopping-bag" },
-      { title: "Quiz Hogwarts", summary: "Minigame quiz su Harry Potter attivi nel server.", icon: "fa-question-circle" },
-      { title: "Serata film", summary: "Sabato 6 Giugno | Harry Potter e la Pietra Filosofale.", icon: "fa-film" },
-      { title: "Risultati settimanali", summary: "Domenica 7 Giugno | Classifica attività della settimana.", pageId: "points", icon: "fa-trophy" },
+      { title: "Inizio 1º anno", summary: "Lunedì 1° Giugno | Attivazione dello smistamento e assegnazione di 250 galeoni.", pageId: "sorting", icon: "fa-magic" },
+      
+      { title: "Minigames a tema", summary: "Minigame quiz su argomenti Harry Potter attivi nel server.", icon: "fa-question-circle" },
+      { title: "Serata Film", summary: "Sabato 6 Giugno | Harry Potter e la Pietra Filosofale.", icon: "fa-film" },
     ],
   },
   {
@@ -28,9 +27,9 @@ const DEFAULT_WEEKS = Object.freeze([
     start: "2026-06-08",
     end: "2026-06-14",
     activities: [
-      { title: "Serata film", summary: "Sabato 13 Giugno | Harry Potter e la Camera dei Segreti.", icon: "fa-film" },
-      { title: "Risultati settimanali", summary: "Domenica 14 Giugno | Classifica attività della settimana.", pageId: "points", icon: "fa-trophy" },
-      { title: "Fine 1º anno", summary: "Chiusura del primo anno accademico.", icon: "fa-graduation-cap" },
+      { title: "Serata Film", summary: "Sabato 13 Giugno | Harry Potter e la Camera dei Segreti.", icon: "fa-film" },
+      { title: "Risultati anno accademico", summary: "Domenica 14 Giugno | Classifica attività delle due settimane.", pageId: "points", icon: "fa-trophy" },
+      { title: "Fine 1º anno", summary: "Termine del primo anno accademico.", icon: "fa-graduation-cap" },
     ],
   },
   {
@@ -40,9 +39,8 @@ const DEFAULT_WEEKS = Object.freeze([
     start: "2026-06-15",
     end: "2026-06-21",
     activities: [
-      { title: "Inizio 2º anno", summary: "Lunedì 15 Giugno | Minigame Caccia alla pergamena: il bot segnala un messaggio in un canale, vince chi lo trova per primo.", icon: "fa-search" },
-      { title: "Sezione proibita", summary: "Sabato 20 Giugno | Evento Avventura nella Sezione Proibita.", icon: "fa-book" },
-      { title: "Risultati settimanali", summary: "Domenica 21 Giugno | Classifica attività della settimana.", pageId: "points", icon: "fa-trophy" },
+      { title: "Inizio 2º anno", summary: "Lunedì 15 Giugno | Caccia alla pergamena: il bot segnala un messaggio in un canale, vince chi lo trova per primo.", icon: "fa-search" },
+      { title: "Evento | Sezione proibita", summary: "Sabato 20 Giugno | Evento Avventura nella Sezione Proibita.", icon: "fa-book" },
     ],
   },
   {
@@ -52,9 +50,9 @@ const DEFAULT_WEEKS = Object.freeze([
     start: "2026-06-22",
     end: "2026-06-28",
     activities: [
-      { title: "Serata film", summary: "Sabato 27 Giugno | Harry Potter e il Prigioniero di Azkaban.", icon: "fa-film" },
-      { title: "Risultati settimanali", summary: "Domenica 28 Giugno | Classifica attività della settimana.", pageId: "points", icon: "fa-trophy" },
-      { title: "Fine 2º anno", summary: "Chiusura del secondo anno accademico.", icon: "fa-graduation-cap" },
+      { title: "Serata Film", summary: "Sabato 27 Giugno | Harry Potter e il Prigioniero di Azkaban.", icon: "fa-film" },
+      { title: "Risultati anno accademico", summary: "Domenica 28 Giugno | Classifica attività delle due settimane.", pageId: "points", icon: "fa-trophy" },
+      { title: "Fine 2º anno", summary: "Termine del secondo anno accademico.", icon: "fa-graduation-cap" },
     ],
   },
   {
@@ -64,10 +62,9 @@ const DEFAULT_WEEKS = Object.freeze([
     start: "2026-06-29",
     end: "2026-07-05",
     activities: [
-      { title: "Inizio 3º anno", summary: "Lunedì 29 Giugno | Memoria emoji: il bot invia una sequenza in chat, poi la rimuove: ricordala e riscrivila.", icon: "fa-th" },
+      { title: "Inizio 3º anno", summary: "Lunedì 29 Giugno | Memoria emoji: il bot invia una sequenza in chat, poi la rimuove — riscrivila per vincere.", icon: "fa-th" },
       { title: "Risultati mensili", summary: "Mercoledì 1° Luglio | Classifica attività del mese.", pageId: "points", icon: "fa-calendar" },
-      { title: "Serata film", summary: "Sabato 4 Luglio | Harry Potter e il Calice di Fuoco.", icon: "fa-film" },
-      { title: "Risultati settimanali", summary: "Domenica 5 Luglio | Classifica attività della settimana.", pageId: "points", icon: "fa-trophy" },
+      { title: "Serata Film", summary: "Sabato 4 Luglio | Harry Potter e il Calice di Fuoco.", icon: "fa-film" },
     ],
   },
   {
@@ -77,9 +74,9 @@ const DEFAULT_WEEKS = Object.freeze([
     start: "2026-07-06",
     end: "2026-07-12",
     activities: [
-      { title: "Evento | Premi la reaction", summary: "Sabato 11 Luglio | Reazioni casuali in #chat: il primo che clicca vince punti casa e Galeoni.", icon: "fa-heart" },
-      { title: "Risultati settimanali", summary: "Domenica 12 Luglio | Classifica attività della settimana.", pageId: "points", icon: "fa-trophy" },
-      { title: "Fine 3º anno", summary: "Chiusura del terzo anno accademico.", icon: "fa-graduation-cap" },
+      { title: "Evento | Premi la reaction", summary: "Sabato 11 Luglio | Reazioni casuali in #chat: il primo che clicca vince punti casa e Galeoni personali. Durata di un mese.", icon: "fa-heart" },
+      { title: "Risultati anno accademico", summary: "Domenica 12 Luglio | Classifica attività delle due settimane.", pageId: "points", icon: "fa-trophy" },
+      { title: "Fine 3º anno", summary: "Termine del terzo anno accademico.", icon: "fa-graduation-cap" },
     ],
   },
   {
@@ -90,8 +87,7 @@ const DEFAULT_WEEKS = Object.freeze([
     end: "2026-07-19",
     activities: [
       { title: "Inizio 4º anno", summary: "Lunedì 13 Luglio | Minigame Parole cifrate attivo nel server.", icon: "fa-lock" },
-      { title: "Serata film", summary: "Sabato 18 Luglio | Harry Potter e l'Ordine della Fenice.", icon: "fa-film" },
-      { title: "Risultati settimanali", summary: "Domenica 19 Luglio | Classifica attività della settimana.", pageId: "points", icon: "fa-trophy" },
+      { title: "Serata Film", summary: "Sabato 18 Luglio | Harry Potter e l'Ordine della Fenice.", icon: "fa-film" },
     ],
   },
   {
@@ -101,9 +97,9 @@ const DEFAULT_WEEKS = Object.freeze([
     start: "2026-07-20",
     end: "2026-07-26",
     activities: [
-      { title: "Serata film", summary: "Sabato 25 Luglio | Harry Potter e il Principe Mezzosangue.", icon: "fa-film" },
-      { title: "Risultati settimanali", summary: "Domenica 26 Luglio | Classifica attività della settimana.", pageId: "points", icon: "fa-trophy" },
-      { title: "Fine 4º anno", summary: "Chiusura del quarto anno accademico.", icon: "fa-graduation-cap" },
+      { title: "Serata Film", summary: "Sabato 25 Luglio | Harry Potter e il Principe Mezzosangue.", icon: "fa-film" },
+      { title: "Risultati anno accademico", summary: "Domenica 26 Luglio | Classifica attività delle due settimane.", pageId: "points", icon: "fa-trophy" },
+      { title: "Fine 4º anno", summary: "Termine del quarto anno accademico.", icon: "fa-graduation-cap" },
     ],
   },
   {
@@ -114,9 +110,8 @@ const DEFAULT_WEEKS = Object.freeze([
     end: "2026-08-02",
     activities: [
       { title: "Inizio 5º anno", summary: "Lunedì 27 Luglio | Minigame Ristruttura la Torre di osservazione.", icon: "fa-eye" },
-      { title: "Risultati mensili", summary: "Sabato 1° Agosto | Classifica mensile ed evento Double EXP.", pageId: "points", icon: "fa-calendar" },
-      { title: "Double EXP", summary: "Sabato 1° Agosto | Moltiplicatore x2 per tutto il mese.", icon: "fa-bolt" },
-      { title: "Risultati settimanali", summary: "Domenica 2° Agosto | Classifica attività della settimana.", pageId: "points", icon: "fa-trophy" },
+      { title: "Risultati mensili", summary: "Sabato 1° Agosto | Classifica attività del mese.", pageId: "points", icon: "fa-calendar" },
+      { title: "Evento | Double EXP", summary: "Sabato 1° Agosto | Doppia exp per tutto il mese di Agosto.", icon: "fa-bolt" },
     ],
   },
   {
@@ -126,9 +121,9 @@ const DEFAULT_WEEKS = Object.freeze([
     start: "2026-08-03",
     end: "2026-08-09",
     activities: [
-      { title: "Serata film", summary: "Sabato 8 Agosto | Harry Potter e i Doni della Morte — Parte 1.", icon: "fa-film" },
-      { title: "Risultati settimanali", summary: "Domenica 9 Agosto | Classifica attività della settimana.", pageId: "points", icon: "fa-trophy" },
-      { title: "Fine 5º anno", summary: "Chiusura del quinto anno accademico.", icon: "fa-graduation-cap" },
+      { title: "Serata Film", summary: "Sabato 8 Agosto | Harry Potter e i Doni della Morte — Parte 1.", icon: "fa-film" },
+      { title: "Risultati anno accademico", summary: "Domenica 9 Agosto | Classifica attività delle due settimane.", pageId: "points", icon: "fa-trophy" },
+      { title: "Fine 5º anno", summary: "Termine del quinto anno accademico.", icon: "fa-graduation-cap" },
     ],
   },
   {
@@ -138,10 +133,11 @@ const DEFAULT_WEEKS = Object.freeze([
     start: "2026-08-10",
     end: "2026-08-16",
     activities: [
-      { title: "Inizio 6º anno", summary: "Lunedì 10 Agosto | Economia Galeoni: +daily, +weekly, +monthly, +work, +bal, +rob, +roulette, +slots, +rps, +scratch, +tris, +coinflip, +blackjack.", icon: "fa-money" },
-      { title: "Giveaway", summary: "Dal 10 al 15° Agosto | Giveaway sostitutivo in corso.", icon: "fa-gift" },
+      { title: "Inizio 6º anno", summary: "Lunedì 10 Agosto | Economia Galeoni attiva: +daily, +weekly, +monthly, +work, +bal, +rob, +pay, +roulette, +slots, +rps, +scratch, +coinflip, +tris.", pageId: "shop", icon: "fa-money" },
+      { title: "Shop 6º anno", summary: "Boost exp e punti casa disponibili nell'Emporio Gringott.", pageId: "shop", icon: "fa-shopping-bag" },
+      { title: "Fine Premi la reaction", summary: "Martedì 11 Agosto | Termine dell'evento: classifica top 3 vincitori pubblicata in #events.", pageId: "points", icon: "fa-trophy" },
+      { title: "Giveaway", summary: "Dal 10 al 15 Agosto | Giveaway sostitutivo.", icon: "fa-gift" },
       { title: "Termine giveaway", summary: "Sabato 15 Agosto | Chiusura giveaway.", icon: "fa-gift" },
-      { title: "Risultati settimanali", summary: "Domenica 16 Agosto | Classifica attività della settimana.", pageId: "points", icon: "fa-trophy" },
     ],
   },
   {
@@ -151,9 +147,9 @@ const DEFAULT_WEEKS = Object.freeze([
     start: "2026-08-17",
     end: "2026-08-23",
     activities: [
-      { title: "Caccia alle liste", summary: "Sabato 22 Agosto | Due liste di incantesimi nella Sezione Proibita (altri canali): chi le trova per primo fa punti alla casa. In definizione.", icon: "fa-search" },
-      { title: "Risultati settimanali", summary: "Domenica 23 Agosto | Classifica attività della settimana.", pageId: "points", icon: "fa-trophy" },
-      { title: "Fine 6º anno", summary: "Chiusura del sesto anno accademico.", icon: "fa-graduation-cap" },
+      { title: "Evento | Caccia alle liste", summary: "Sabato 22 Agosto | Ogni ora due liste di incantesimi della Sezione Proibita vengono inviati in canali diversi e i primi due della stessa casa a cliccarli vincono.", icon: "fa-search" },
+      { title: "Risultati anno accademico", summary: "Domenica 23 Agosto | Classifica attività delle due settimane.", pageId: "points", icon: "fa-trophy" },
+      { title: "Fine 6º anno", summary: "Termine del sesto anno accademico.", icon: "fa-graduation-cap" },
     ],
   },
   {
@@ -164,9 +160,9 @@ const DEFAULT_WEEKS = Object.freeze([
     end: "2026-08-30",
     activities: [
       { title: "Inizio 7º anno", summary: "Lunedì 24 Agosto | Aula Pozioni sul sito: ogni 12 ore abbina le voci richieste.", pageId: "potions", icon: "fa-flask" },
-      { title: "Serata film", summary: "Sabato 29 Agosto | Harry Potter e i Doni della Morte — Parte 2.", icon: "fa-film" },
-      { title: "Risultati settimanali", summary: "Domenica 30 Agosto | Classifica attività della settimana.", pageId: "points", icon: "fa-trophy" },
-      { title: "Fine 7º anno", summary: "Chiusura del settimo anno accademico.", icon: "fa-graduation-cap" },
+      { title: "Serata Film", summary: "Sabato 29 Agosto | Harry Potter e i Doni della Morte — Parte 2.", icon: "fa-film" },
+      { title: "Risultati anno accademico", summary: "Domenica 30 Agosto | Classifica attività della settimana.", pageId: "points", icon: "fa-trophy" },
+      { title: "Fine 7º anno", summary: "Termine del settimo anno accademico.", icon: "fa-graduation-cap" },
     ],
   },
   {
@@ -176,9 +172,9 @@ const DEFAULT_WEEKS = Object.freeze([
     start: "2026-08-31",
     end: "2026-09-01",
     activities: [
-      { title: "Gran finale", summary: "Martedì 1° Settembre | Risultati mensili, podio case, classifica membri più attivi e estrazione premio extra per la casa vincitrice.", pageId: "points", icon: "fa-trophy" },
-      { title: "Ruolo Evento 2k26", summary: "A chiusura evento: tutti gli utenti smistati ricevono il ruolo ricordo di partecipazione.", icon: "fa-shield" },
-    ],
+      { title: "Risultati mensili", summary: "Martedì 1° Settembre | Classifica attività del mese.", pageId: "points", icon: "fa-calendar" },
+      { title: "Gran finale", summary: "Martedì 1° Settembre | Podio case, classifica membri più attivi ed estrazione premio extra: la casa vincitrice partecipa a una ruota della fortuna per tutti i suoi membri.", pageId: "points", icon: "fa-trophy" },
+      ],
   },
 ]);
 

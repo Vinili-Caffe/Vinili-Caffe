@@ -65,9 +65,9 @@
   }
 
   function startMs() {
-    var raw = String(cfg().startDate || "2026-08-24T00:00:00").trim();
+    var raw = String(cfg().startDate || "2026-08-24T12:00:00").trim();
     var ms = new Date(raw).getTime();
-    return Number.isFinite(ms) ? ms : new Date("2026-08-24T00:00:00").getTime();
+    return Number.isFinite(ms) ? ms : new Date("2026-08-24T12:00:00").getTime();
   }
 
   function previewModeActive() {

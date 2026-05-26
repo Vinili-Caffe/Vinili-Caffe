@@ -797,6 +797,15 @@ async function checkPrefixPermission(message, commandName, subcommandName = null
 
   const openMediaBypass = tryResolveMultiGuildOpenMediaBypass(guildId, safeCommand, options);
   if (openMediaBypass !== null) {
+    if (openMediaBypass.allowed !== false && message?.member) {
+      try {
+        const { resolveTenantModerationMemberCheck } = require("../../MultiGuild/core/tenantModerationPermissions");
+        const modCheck = resolveTenantModerationMemberCheck(message.member, safeCommand, options);
+        if (modCheck !== null) return modCheck;
+      } catch (err) {
+        global.logger?.warn?.("[commandPermissions] MultiGuild tenant mod check:", err?.message || err);
+      }
+    }
     return openMediaBypass;
   }
 

@@ -3,6 +3,7 @@ const { resolveHogwartsEventConfig } = require("../../Utils/Web/hogwartsSortingC
 const { getHouseMeta } = require("../../Utils/Web/hogwartsSortingBank");
 const { isUserHighStaffExcludedFromHogwartsEvent, hasHogwartsSortingPreviewAccess } = require("../../Utils/Web/hogwartsEventParticipation");
 const { getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
+const { resolveForbiddenBooksSchedule } = require("../../Utils/Web/hogwartsEventSchedule");
 
 const FORBIDDEN_DOC = SITE_DOCUMENT_TYPE.HOGWARTS_FORBIDDEN_BOOKS;
 const SORTING_DOC = SITE_DOCUMENT_TYPE.HOGWARTS_SORTING;
@@ -19,8 +20,6 @@ const FORBIDDEN_BOOK_LABELS = Object.freeze({
   ruoli: "Ruoli",
   sponsor: "Sponsor",
 });
-const FORBIDDEN_START_MS = new Date("2026-06-20T00:00:00").getTime();
-const FORBIDDEN_END_MS = new Date("2026-08-31T23:59:59.999").getTime();
 const FORBIDDEN_MAX_WINNERS = 2;
 
 function normalizeHouseId(value) {
@@ -49,15 +48,18 @@ function forbiddenEventDedupeKey(cfg) {
   return `${String(cfg?.eventKey || "").trim() || "hogwarts"}:${FORBIDDEN_EVENT_DEDUPE}`;
 }
 
-function forbiddenEventOpen(cfg, nowMs = Date.now()) {
+function forbiddenEventOpen(client, nowMs = Date.now()) {
+  const { startMs, endMs } = resolveForbiddenBooksSchedule(client);
   const now = Number(nowMs || Date.now());
-  return Number.isFinite(FORBIDDEN_START_MS) && Number.isFinite(FORBIDDEN_END_MS) && now >= FORBIDDEN_START_MS && now <= FORBIDDEN_END_MS;
+  return Number.isFinite(startMs) && Number.isFinite(endMs) && now >= startMs && now <= endMs;
 }
 
-function canPreviewForbiddenBooks(cfg, member, userId, nowMs = Date.now()) {
+function canPreviewForbiddenBooks(client, member, userId, nowMs = Date.now()) {
+  const cfg = resolveHogwartsEventConfig(client);
   const now = Number(nowMs || Date.now());
-  if (Number.isFinite(FORBIDDEN_END_MS) && now > FORBIDDEN_END_MS) return false;
-  return Boolean(cfg?.previewMode && !forbiddenEventOpen(cfg, now) && hasHogwartsSortingPreviewAccess(cfg, member, userId));
+  const { endMs } = resolveForbiddenBooksSchedule(client);
+  if (Number.isFinite(endMs) && now > endMs) return false;
+  return Boolean(cfg?.previewMode && !forbiddenEventOpen(client, now) && hasHogwartsSortingPreviewAccess(cfg, member, userId));
 }
 
 function forbiddenProgressPayload(doc, closureDoc = null) {
@@ -136,7 +138,7 @@ async function auditForbiddenBooksForUser(client, guildId, userId) {
     sorted: Boolean(houseId),
     houseId,
     houseLabel: houseMeta?.label || houseId || "",
-    eventOpen: forbiddenEventOpen(cfg),
+    eventOpen: forbiddenEventOpen(client),
     progress,
     completedAt: doc?.rawWebhook?.completedAt || (progress.completed ? doc?.updatedAt : null) || null,
     lastCollectedAt: doc?.rawWebhook?.lastCollectedAt || null,
@@ -246,9 +248,8 @@ module.exports = {
   FORBIDDEN_BOOK_LABELS,
   FORBIDDEN_EVENT_DEDUPE,
   FORBIDDEN_EVENT_OWNER_ID,
-  FORBIDDEN_START_MS,
-  FORBIDDEN_END_MS,
   normalizeForbiddenBookId,
+  resolveForbiddenBooksSchedule,
   forbiddenEventDedupeKey,
   forbiddenEventOpen,
   canPreviewForbiddenBooks,

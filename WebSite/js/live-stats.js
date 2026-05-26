@@ -6,6 +6,7 @@
   var pollStarted = false;
   var ioFallbackTimer = null;
   var staffHoverGroups = [];
+  var staffLoadPending = false;
 
   function el(key) {
     return document.querySelector('[data-live-stat="' + key + '"]');
@@ -128,6 +129,83 @@
     return h % 360;
   }
 
+  function normalizeStaffHoverGroups(raw) {
+    if (!Array.isArray(raw)) return [];
+    return raw
+      .map(function (g) {
+        var rawMembers = Array.isArray(g && g.members) ? g.members.slice(0, 200) : [];
+        return {
+          role: String((g && g.role) || "Staff"),
+          roleId: String((g && g.roleId) || "").trim(),
+          members: rawMembers
+            .map(function (entry) {
+              if (entry && typeof entry === "object") {
+                return {
+                  name: String(entry.name || "").trim(),
+                  profileUrl: String(entry.profileUrl || "").trim(),
+                  isOwner: entry.isOwner === true,
+                  roleId: String(entry.roleId || "").trim(),
+                  roleLabel: String(entry.roleLabel || "").trim(),
+                };
+              }
+              return {
+                name: String(entry || "").trim(),
+                profileUrl: "",
+                isOwner: false,
+                roleId: "",
+                roleLabel: "",
+              };
+            })
+            .sort(function (a, b) {
+              return (b && b.isOwner ? 1 : 0) - (a && a.isOwner ? 1 : 0);
+            })
+            .filter(function (entry) {
+              return entry.name;
+            }),
+        };
+      })
+      .filter(function (g) {
+        return g.members.length > 0 && !isGenericStaffGroupRole(g.role);
+      });
+  }
+
+  function applyExtraStats(extra) {
+    if (!extra || typeof extra !== "object") return false;
+    var changed = false;
+    if (extra.staffNoPm != null) {
+      setText("staff", extra.staffNoPm);
+      changed = true;
+    }
+    if (Array.isArray(extra.staffHoverGroups)) {
+      staffHoverGroups = normalizeStaffHoverGroups(extra.staffHoverGroups);
+      updateStaffHoverUi();
+      changed = true;
+    }
+    return changed;
+  }
+
+  function prefetchStaffData() {
+    if (staffLoadPending) return;
+    staffLoadPending = true;
+    fetchExtraStatsJson()
+      .then(function (extra) {
+        applyExtraStats(extra);
+      })
+      .finally(function () {
+        staffLoadPending = false;
+      });
+  }
+
+  function requestStaffPopoverOpen(cell) {
+    if (!cell) return;
+    if (!staffHoverGroups.length) {
+      var body = cell.querySelector(".vc-stat-staff-popover__body");
+      if (body) body.textContent = "Caricamento...";
+      if (!staffLoadPending) prefetchStaffData();
+    }
+    cell.classList.add("vc-stat-cell--staff-open");
+  }
+
   function ensureStaffHoverUi() {
     var staffNode = el("staff");
     if (!staffNode) return;
@@ -152,8 +230,7 @@
     }
     function open() {
       clearCloseTimer();
-      if (!staffHoverGroups.length) return;
-      cell.classList.add("vc-stat-cell--staff-open");
+      requestStaffPopoverOpen(cell);
     }
     function closeWithDelay() {
       clearCloseTimer();
@@ -167,8 +244,12 @@
     pop.addEventListener("mouseleave", closeWithDelay);
     cell.addEventListener("focus", open);
     cell.addEventListener("blur", closeWithDelay);
-    cell.addEventListener("click", function () {
-      if (!staffHoverGroups.length) return;
+    cell.addEventListener("click", function (ev) {
+      if (ev && typeof ev.preventDefault === "function") ev.preventDefault();
+      if (!staffHoverGroups.length) {
+        requestStaffPopoverOpen(cell);
+        return;
+      }
       cell.classList.toggle("vc-stat-cell--staff-open");
     });
     document.addEventListener("click", function (ev) {
@@ -193,10 +274,9 @@
     var body = cell.querySelector(".vc-stat-staff-popover__body");
     if (!body) return;
     if (!staffHoverGroups.length) {
-      body.textContent = "Nessun membro staff disponibile.";
-      cell.classList.remove("vc-stat-cell--staff");
-      cell.classList.remove("vc-stat-cell--staff-open");
-      cell.removeAttribute("tabindex");
+      body.textContent = staffLoadPending ? "Caricamento..." : "Nessun membro staff disponibile.";
+      cell.classList.add("vc-stat-cell--staff");
+      cell.setAttribute("tabindex", "0");
       return;
     }
     cell.classList.add("vc-stat-cell--staff");
@@ -291,16 +371,24 @@
     return tryOne(0);
   }
 
-  function fetchExtraStatsJson() {
+  function resolveExtraStatsPath() {
     var p = cfg.extraStatsPath;
-    if (p == null || String(p).trim() === "") return Promise.resolve(null);
-    var url;
-    try {
-      url = new URL(String(p).trim(), location.origin).toString();
-    } catch (e) {
-      return Promise.resolve(null);
+    if (p != null && String(p).trim() !== "") {
+      try {
+        return new URL(String(p).trim(), location.origin).toString();
+      } catch (e) {
+        return String(p).trim();
+      }
     }
-    return fetchNoStore(url).catch(function () {
+    try {
+      return new URL("/live-stats-extra.json", location.origin).toString();
+    } catch (e2) {
+      return "/live-stats-extra.json";
+    }
+  }
+
+  function fetchExtraStatsJson() {
+    return fetchNoStore(resolveExtraStatsPath()).catch(function () {
       return null;
     });
   }
@@ -315,41 +403,7 @@
     })]).then(function (pair) {
       var extra = pair[0];
       var inv = pair[1];
-      if (extra && extra.staffNoPm != null) setText("staff", extra.staffNoPm);
-      if (extra && Array.isArray(extra.staffHoverGroups)) {
-        staffHoverGroups = extra.staffHoverGroups
-          .map(function (g) {
-            var rawMembers = Array.isArray(g && g.members) ? g.members.slice(0, 200) : [];
-            return {
-              role: String((g && g.role) || "Staff"),
-              members: rawMembers
-                .map(function (entry) {
-                  if (entry && typeof entry === "object") {
-                    return {
-                      name: String(entry.name || "").trim(),
-                      profileUrl: String(entry.profileUrl || "").trim(),
-                      isOwner: entry.isOwner === true,
-                    };
-                  }
-                  return {
-                    name: String(entry || "").trim(),
-                    profileUrl: "",
-                    isOwner: false,
-                  };
-                })
-                .sort(function (a, b) {
-                  return (b && b.isOwner ? 1 : 0) - (a && a.isOwner ? 1 : 0);
-                })
-                .filter(function (entry) {
-                  return entry.name;
-                }),
-            };
-          })
-          .filter(function (g) {
-            return g.members.length > 0 && !isGenericStaffGroupRole(g.role);
-          });
-        updateStaffHoverUi();
-      }
+      applyExtraStats(extra);
       var guildMem =
         extra && extra.guildMemberCount != null && Number.isFinite(Number(extra.guildMemberCount))
           ? Number(extra.guildMemberCount)
@@ -470,8 +524,18 @@
     }, fallbackMs);
   }
 
+  function bootstrapStaffList() {
+    ensureStaffHoverUi();
+    if (Array.isArray(cfg.staffHoverGroups) && cfg.staffHoverGroups.length) {
+      applyExtraStats({ staffHoverGroups: cfg.staffHoverGroups, staffNoPm: cfg.staffNoPm });
+    } else {
+      updateStaffHoverUi();
+      prefetchStaffData();
+    }
+  }
+
   wireIntroObserver();
-  updateStaffHoverUi();
+  bootstrapStaffList();
 })();
 (function () {
   var cfg = typeof window !== "undefined" ? window.__VC_LIVE : null;

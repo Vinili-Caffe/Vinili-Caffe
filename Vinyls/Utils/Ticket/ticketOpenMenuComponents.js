@@ -8,7 +8,7 @@ function buildTicketOpenSelectRows() {
     .addOptions(
       { label: "SUPPORTO", description: "Supporto generale • Segnalazioni • Problemi", value: "ticket_supporto", emoji: { id: "1443651872258003005", name: "discordstaff" } },
       { label: "PARTNERSHIP", description: "Partnership", value: "ticket_partnership", emoji: { id: "1443651871125409812", name: "partneredserverowner" } },
-      { label: "HIGH STAFF", description: "Donazioni • Sponsor • High Staff", value: "ticket_highstaff", emoji: { id: "1443670575376765130", name: "reportmessage" } },
+      { label: "HIGH STAFF", description: "Donazioni • Sponsor • Amministrazione", value: "ticket_highstaff", emoji: { id: "1443670575376765130", name: "reportmessage" } },
       { label: "PERKS", description: "Verifica Selfie • Supporter • Follower", value: "ticket_perks", emoji: { id: "1482534921472835895", name: "VC_Vip" } },
     );
   return [new ActionRowBuilder().addComponents(ticketMenu)];

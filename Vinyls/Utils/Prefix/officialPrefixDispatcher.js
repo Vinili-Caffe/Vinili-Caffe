@@ -561,7 +561,31 @@ async function handleOfficialPrefixMessage({ message, resolvedClient, defaultPre
         message.channel,
         {
           content:
-            "<:VC_Lock:1482526739044368476> Su questo server il bot offre **solo musica** e **TTS** (`+play`, `+join`, …). Gli altri comandi sono disponibili solo su **Vinili & Caffè**.",
+            "<:VC_Lock:1482526739044368476> Comando non disponibile su questo server tenant. Usa `+help` per l'elenco dei comandi attivi.",
+        },
+        EPHEMERAL_TTL_SHORT_MS,
+      );
+      return;
+    }
+    if (permissionResult?.reason === "multi_guild_tenant_mod_permission") {
+      await deleteCommandMessage();
+      await sendTemporaryMessage(
+        message.channel,
+        {
+          content:
+            "<:VC_Lock:1482526739044368476> Ti servono i permessi Discord adatti (es. **Banna membri**, **Espelli**, **Modera membri**, **Gestisci messaggi** o **Amministratore**).",
+        },
+        EPHEMERAL_TTL_SHORT_MS,
+      );
+      return;
+    }
+    if (String(permissionResult?.reason || "").startsWith("feature_disabled:")) {
+      await deleteCommandMessage();
+      await sendTemporaryMessage(
+        message.channel,
+        {
+          content:
+            "<:vegax:1443934876440068179> Questa funzione non è attiva su questo server tenant.",
         },
         EPHEMERAL_TTL_SHORT_MS,
       );

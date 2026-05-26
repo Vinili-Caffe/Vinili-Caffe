@@ -6,6 +6,7 @@ const { getGuildChannelCached, getGuildMemberCached, getGuildRoleCached, getClie
 const { shouldBlockDm } = require("../../Utils/noDmList");
 const { sendLevelMilestoneSupportersAnnouncement } = require("../../Utils/Community/levelMilestoneSupportersAnnounceEmbeds");
 const { guildMemberDisplayAvatarUrlDynamic, accountUsername } = require("../../Utils/Discord/guildDiscordIdentity");
+const { parseScheduleMs, parseScheduleEndMs } = require("../../Utils/Web/hogwartsEventSchedule");
 const EXP_EXCLUDED_CATEGORY_IDS = new Set([IDs.categories.categoryStanze, IDs.categories.categoryPrivate].filter(Boolean).map((id) => String(id)),);
 const TIME_ZONE = "Europe/Rome";
 const MESSAGE_EXP = 2;
@@ -188,17 +189,13 @@ function buildRoleMultipliersMerged(doc) {
 }
 
 function parseExpEventStartMs(value) {
-  const date = String(value || "").trim();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
-  const ms = new Date(`${date}T00:00:00`).getTime();
-  return Number.isFinite(ms) ? ms : null;
+  return parseScheduleMs(value, "12:00:00");
 }
 
 function parseExpEventEndMs(value) {
-  const date = String(value || "").trim();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
-  const ms = new Date(`${date}T23:59:59.999`).getTime();
-  return Number.isFinite(ms) ? ms : null;
+  const explicit = parseScheduleMs(value, "12:00:00");
+  if (explicit != null && /T\d{2}:\d{2}/.test(String(value || ""))) return explicit;
+  return parseScheduleEndMs(value, { endHour: 12 }) ?? parseScheduleMs(value, "23:59:59.999");
 }
 
 function getScheduledExpEvent(nowMs = Date.now()) {

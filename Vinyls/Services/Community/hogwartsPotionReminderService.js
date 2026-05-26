@@ -7,7 +7,7 @@ const IDs = require("../../Utils/Config/ids");
 const POTIONS_PROFILE_PATH = "profile.events.hogwarts.potions";
 const DEFAULT_CONFIG = Object.freeze({
   enabled: true,
-  startDate: "2026-08-24T00:00:00",
+  startDate: "2026-08-24T12:00:00",
   cooldownMs: 12 * 60 * 60 * 1000,
   reminderSweepMs: 30 * 60 * 1000,
   reminderDmCategory: "perks",

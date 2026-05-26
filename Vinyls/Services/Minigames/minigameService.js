@@ -16,7 +16,7 @@ const { addExpWithLevel, shouldIgnoreExpForMember, incrementMinigameWinCounters 
 const IDs = require("../../Utils/Config/ids");
 const { getClientChannelCached, getGuildMemberCached, } = require("../../Utils/Interaction/interactionEntityCache");
 const { getGuessYearBank, getCompleteVerseBank, getGuessEmojiBank, getQuoteFilmBank, getProverbBank, getSynonymAntonymBank, getGuessCityBank, getCapitalQuizBank, getItalianRegionCapitalBank, getItalianGkBank, getDrivingTrueFalseBank, getDrivingMultipleChoiceBank, getDrivingSignQuestions, getFastTypingPhrases, getHangmanWords, getTreasureHuntEmojiPairs, getHogwartsQuizBank, getHogwartsCipherBank, getHogwartsMemoryEmojiBank, getMemoryEmojiBank, CAPITAL_ITALIAN, CAPITAL_COUNTRY_REGION, REGION_AREA, REGION_HINT_DATA, FAMOUS_CAPITAL_COUNTRIES, FLAG_WELL_KNOWN_COUNTRIES } = require("../../Data/Minigames/minigameBanks");
-const { resolveHogwartsEventConfig } = require("../../Utils/Web/hogwartsSortingConfig");
+const { resolveHogwartsEventConfig, isEventWindowOpen } = require("../../Utils/Web/hogwartsSortingConfig");
 const { isUserHighStaffExcludedFromHogwartsEvent } = require("../../Utils/Web/hogwartsEventParticipation");
 const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
 const { isValidGuildUserId } = require("../../Utils/DB/validateWriteIds");
@@ -86,10 +86,10 @@ const MYMEMORY_MAX_CHARS = 450;
 const MYMEMORY_BASE = "https://api.mymemory.translated.net/get";
 const ITALIAN_GK_DEFAULT_CATEGORIES = ["cultura-generale", "storia", "geografia", "scienza", "arte", "musica", "sport", "letteratura", "cinema", "tecnologia",];
 const MINIGAME_FIXED_TIMEZONE = "Europe/Rome";
-const HOGWARTS_SCROLL_MINIGAME_DEFAULT_START_DATE = "2026-06-15T12:00:00";
-const HOGWARTS_MEMORY_MINIGAME_DEFAULT_START_DATE = "2026-06-29T12:00:00";
-const HOGWARTS_CIPHER_MINIGAME_DEFAULT_START_DATE = "2026-07-13T12:00:00";
-const HOGWARTS_TOWER_MINIGAME_DEFAULT_START_DATE = "2026-07-27T12:00:00";
+const HOGWARTS_SCROLL_MINIGAME_DEFAULT_START_DATE = "2026-06-15T14:00:00";
+const HOGWARTS_MEMORY_MINIGAME_DEFAULT_START_DATE = "2026-06-29T14:00:00";
+const HOGWARTS_CIPHER_MINIGAME_DEFAULT_START_DATE = "2026-07-13T14:00:00";
+const HOGWARTS_TOWER_MINIGAME_DEFAULT_START_DATE = "2026-07-27T14:00:00";
 const HOGWARTS_HOUSE_POINTS_DEFAULT_REWARD = 10;
 const HOGWARTS_UNSORTED_HOUSE_POINTS_DEFAULT_REWARD = 2;
 const HOGWARTS_HOUSE_POINTS_DOC_OWNER_ID = "__event__";
@@ -391,6 +391,7 @@ function getConfig(client) {
   const cfg = client?.config?.minigames || null;
   if (!cfg) return null;
   const hogwartsEventLive = isHogwartsEventLiveForMinigames(client);
+  const hogwartsExclusiveDuringEvent = cfg.hogwartsExclusiveDuringEvent !== false;
   const hogwartsQuizRaw = cfg.hogwartsQuiz;
   const findScrollRaw = cfg.findScroll;
   const hogwartsMemoryRaw = cfg.hogwartsMemoryEmoji;
@@ -430,9 +431,10 @@ function getConfig(client) {
         eventLive: hogwartsEventLive,
         unlocked: isHogwartsTowerMinigameUnlocked(client),
       };
-  return {
+  const out = {
     ...cfg,
     hogwartsEventLive,
+    hogwartsExclusiveDuringEvent,
     hogwartsQuiz: hogwartsQuizCfg,
     findScroll: findScrollCfg,
     hogwartsMemoryEmoji: hogwartsMemoryCfg,
@@ -445,21 +447,50 @@ function getConfig(client) {
       requiredRoleId: IDs.roles.Member,
     },
   };
+  if (hogwartsEventLive && hogwartsExclusiveDuringEvent) {
+    purgeNonHogwartsMinigameSchedulingState(out.channelId);
+    const active = out.channelId ? activeGames.get(out.channelId) : null;
+    if (active?.type && !isHogwartsMinigameType(active.type)) {
+      if (active.timeout) clearTimeout(active.timeout);
+      if (active.hintTimeout) clearTimeout(active.hintTimeout);
+      if (active.revealTimeout) clearTimeout(active.revealTimeout);
+      activeGames.delete(out.channelId);
+    }
+  }
+  return out;
 }
 
 function isHogwartsEventLiveForMinigames(client, nowMs = Date.now()) {
   const eventCfg = resolveHogwartsEventConfig(client);
-  if (!eventCfg?.enabled) return false;
-  const start = Number(eventCfg.startMs);
-  const end = Number(eventCfg.endMs);
-  const now = Number(nowMs || Date.now());
-  return Number.isFinite(start) && Number.isFinite(end) && now >= start && now <= end;
+  return Boolean(isEventWindowOpen(eventCfg, nowMs)?.open);
+}
+
+function isHogwartsExclusiveMinigamesEnabled(client, cfg) {
+  const raw = client?.config?.minigames?.hogwartsExclusiveDuringEvent;
+  if (raw === false) return false;
+  if (raw === true) return true;
+  return cfg?.hogwartsExclusiveDuringEvent !== false;
+}
+
+function purgeNonHogwartsMinigameSchedulingState(channelId) {
+  const hasBadQueue = rotationQueue.some((type) => !isHogwartsMinigameType(type));
+  if (hasBadQueue) {
+    rotationQueue = [];
+    rotationDate = "";
+  }
+  if (channelId) {
+    const pending = pendingGames.get(channelId);
+    if (pending?.type && !isHogwartsMinigameType(pending.type)) pendingGames.delete(channelId);
+    const lastTypes = lastPlayedGameTypesByChannel.get(channelId) || [];
+    const filtered = lastTypes.filter((type) => isHogwartsMinigameType(type));
+    if (filtered.length !== lastTypes.length) lastPlayedGameTypesByChannel.set(channelId, filtered);
+  }
 }
 
 function parseMinigameDateStartMs(dateValue) {
   const date = String(dateValue || "").trim();
   const normalized = /^\d{4}-\d{2}-\d{2}$/.test(date)
-    ? `${date}T12:00:00`
+    ? `${date}T14:00:00`
     : /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?$/.test(date)
       ? date
       : "";
@@ -3612,8 +3643,15 @@ function buildHogwartsCipherEmbed(numbers, rewardExp, durationMs) {
     );
 }
 
-function buildObservationTowerEmbed(targetBricks, durationMs, rewardExp, maxPerUser, minLetters) {
+function buildObservationTowerEmbed(targetBricks, durationMs, rewardExp, maxPerUser, minLetters, housePoints = 0, unsortedHousePoints = 0) {
   const seconds = Math.max(1, Math.round(durationMs / 1000));
+  const rewardLines = [`> Se la torre viene completata, tutti i partecipanti ricevono **${rewardExp} exp**.`];
+  if (Number(housePoints || 0) > 0) {
+    rewardLines.push(`> La casa di ogni partecipante smistato riceve **${housePoints} punti**.`);
+  }
+  if (Number(unsortedHousePoints || 0) > 0) {
+    rewardLines.push(`> Per ogni partecipante non smistato, tutte le case ricevono **${unsortedHousePoints} punti**.`);
+  }
   return new EmbedBuilder()
     .setColor("#6f4e37")
     .setTitle("Ristruttura la torre d'osservazione <a:VC_Exclamation:1482534702077444217>")
@@ -3623,7 +3661,7 @@ function buildObservationTowerEmbed(targetBricks, durationMs, rewardExp, maxPerU
       "",
       `> Minimo **${minLetters} lettere** per messaggio.`,
       `> Massimo **${maxPerUser} mattoni** per utente.`,
-      `> Se la torre viene completata, tutti i partecipanti ricevono **${rewardExp} exp**.`,
+      ...rewardLines,
     ].join("\n"));
 }
 
@@ -3971,7 +4009,7 @@ function buildWinEmbed(winnerId, effectiveExp, totalExp, details = null) {
       extras.push(`<a:VC_Star:1482706774372253788> Utente non smistato: **+${details.housePoints} punti** a tutte le case${petTag}`);
     } else if (details.housePoints > 0) {
       const petTag = details.petMultiplier > 1 ? ` (×${details.petMultiplier} ${details.petName || "animale"})` : "";
-      extras.push(`<a:VC_Star:1482706774372253788> Casata **+${details.housePoints} punti**${petTag}`);
+      extras.push(`<a:VC_Star:1482706774372253788> Casa **+${details.housePoints} punti**${petTag}`);
     }
     if (extras.length) lines.push("", ...extras);
   }
@@ -4428,13 +4466,13 @@ function buildGuessCityEmbed(landmark, rewardExp, durationMs, imageUrl = null) {
 
 function getAvailableGameTypes(cfg) {
   const types = [];
-  const hogwartsOnly = Boolean(cfg?.hogwartsEventLive);
+  const hogwartsOnly = Boolean(cfg?.hogwartsEventLive) && isHogwartsExclusiveMinigamesEnabled(null, cfg);
   if (hogwartsOnly) {
-    if (cfg?.hogwartsQuiz !== false && cfg?.hogwartsQuiz?.eventLive && getHogwartsQuizBank().length) types.push("hogwartsQuiz");
-    if (cfg?.findScroll !== false && cfg?.findScroll?.eventLive && cfg?.findScroll?.unlocked) types.push("findScroll");
-    if (cfg?.hogwartsMemoryEmoji !== false && cfg?.hogwartsMemoryEmoji?.eventLive && cfg?.hogwartsMemoryEmoji?.unlocked && getHogwartsMemoryEmojiBank().length) types.push("hogwartsMemoryEmoji");
-    if (cfg?.hogwartsCipher !== false && cfg?.hogwartsCipher?.eventLive && cfg?.hogwartsCipher?.unlocked && getHogwartsCipherBank().length) types.push("hogwartsCipher");
-    if (cfg?.hogwartsObservationTower !== false && cfg?.hogwartsObservationTower?.eventLive && cfg?.hogwartsObservationTower?.unlocked) types.push("hogwartsObservationTower");
+    if (cfg?.hogwartsQuiz !== false && getHogwartsQuizBank().length) types.push("hogwartsQuiz");
+    if (cfg?.findScroll !== false && cfg?.findScroll?.unlocked) types.push("findScroll");
+    if (cfg?.hogwartsMemoryEmoji !== false && cfg?.hogwartsMemoryEmoji?.unlocked && getHogwartsMemoryEmojiBank().length) types.push("hogwartsMemoryEmoji");
+    if (cfg?.hogwartsCipher !== false && cfg?.hogwartsCipher?.unlocked && getHogwartsCipherBank().length) types.push("hogwartsCipher");
+    if (cfg?.hogwartsObservationTower !== false && cfg?.hogwartsObservationTower?.unlocked) types.push("hogwartsObservationTower");
     return types;
   }
   if (cfg?.guessNumber !== false) types.push("guessNumber");
@@ -6009,6 +6047,8 @@ async function startObservationTowerGame(client, cfg) {
   if (!channelId || activeGames.has(channelId)) return false;
   if (!cfg?.hogwartsObservationTower?.eventLive || !cfg?.hogwartsObservationTower?.unlocked) return false;
   const towerCfg = getObservationTowerCfg(cfg);
+  const housePoints = getHogwartsHousePointReward(cfg, "hogwartsObservationTower");
+  const unsortedHousePoints = getHogwartsUnsortedHousePointReward(cfg, "hogwartsObservationTower");
   const channel = await getChannelCached(client, channelId);
   if (!channel?.guild) return false;
 
@@ -6022,6 +6062,8 @@ async function startObservationTowerGame(client, cfg) {
         towerCfg.rewardExp,
         towerCfg.maxPerUser,
         towerCfg.minLetters,
+        housePoints,
+        unsortedHousePoints,
       ),
     ],
   }).catch(() => null);
@@ -7717,7 +7759,7 @@ function is429Error(error) {
 
 async function safeStartGameByType(client, cfg, gameType) {
   try {
-    if (cfg?.hogwartsEventLive && !isHogwartsMinigameType(gameType)) return false;
+    if (cfg?.hogwartsEventLive && isHogwartsExclusiveMinigamesEnabled(client, cfg) && !isHogwartsMinigameType(gameType)) return false;
     if (gameType === "guessWord") return startGuessWordGame(client, cfg);
     if (gameType === "guessFlag") return startGuessFlagGame(client, cfg);
     if (gameType === "guessPlayer") return startGuessPlayerGame(client, cfg);
@@ -7838,6 +7880,9 @@ async function maybeStartRandomGame(client, force = false) {
       return;
     }
     cfg.guildId = String(channel?.guild?.id || cfg.guildId || "");
+    if (cfg.hogwartsEventLive && isHogwartsExclusiveMinigamesEnabled(client, cfg)) {
+      purgeNonHogwartsMinigameSchedulingState(cfg.channelId);
+    }
 
     const available = getAvailableGameTypes(cfg);
     if (!available.length) {
@@ -8075,7 +8120,7 @@ async function handleMinigameMessage(message, client) {
     await clearActiveGame(client, { ...cfg, guildId: message.guild.id });
     return false;
   }
-  if (game && cfg.hogwartsEventLive && !isHogwartsMinigameType(game.type)) {
+  if (game && cfg.hogwartsEventLive && isHogwartsExclusiveMinigamesEnabled(client, cfg) && !isHogwartsMinigameType(game.type)) {
     if (game.timeout) clearTimeout(game.timeout);
     if (game.hintTimeout) clearTimeout(game.hintTimeout);
     if (game.revealTimeout) clearTimeout(game.revealTimeout);
@@ -9160,7 +9205,7 @@ async function restoreActiveGames(client) {
   await loadRotationState(client, cfg);
   const state = await minigameStateFindOneLean({ guildId, channelId: cfg.channelId, }).catch(() => null);
   if (!state) return;
-  if (cfg.hogwartsEventLive && !isHogwartsMinigameType(state.type)) {
+  if (cfg.hogwartsEventLive && isHogwartsExclusiveMinigamesEnabled(client, cfg) && !isHogwartsMinigameType(state.type)) {
     await clearActiveGame(client, { ...cfg, guildId });
     return;
   }

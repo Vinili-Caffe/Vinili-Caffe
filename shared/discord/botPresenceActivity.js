@@ -20,9 +20,12 @@ function buildBotPresenceActivities(client) {
   const cfg = client?.config?.presence && typeof client.config.presence === "object" ? client.config.presence : {};
   let name = String(cfg.activityName || "Vinili & Caffè").trim() || "Vinili & Caffè";
   const forbiddenEvent = cfg.forbiddenSectionEvent && typeof cfg.forbiddenSectionEvent === "object" ? cfg.forbiddenSectionEvent : {};
-  const forbiddenStartMs = new Date(`${String(forbiddenEvent.startDate || "2026-06-20").trim()}T00:00:00`).getTime();
+  const { parseScheduleMs, parseScheduleEndMs } = require("../../Vinyls/Utils/Web/hogwartsEventSchedule");
+  const forbiddenStartMs = parseScheduleMs(forbiddenEvent.startDate || "2026-06-20T12:00:00", "12:00:00");
   const forbiddenEndRaw = String(forbiddenEvent.endDate || "").trim();
-  const forbiddenEndMs = forbiddenEndRaw ? new Date(`${forbiddenEndRaw}T23:59:59.999`).getTime() : null;
+  const forbiddenEndMs = forbiddenEndRaw
+    ? (parseScheduleEndMs(forbiddenEndRaw, { endHour: 10 }) ?? parseScheduleMs(forbiddenEndRaw, "10:00:00"))
+    : null;
   const now = Date.now();
   if (forbiddenEvent.enabled !== false && Number.isFinite(forbiddenStartMs) && now >= forbiddenStartMs && (!Number.isFinite(forbiddenEndMs) || now <= forbiddenEndMs)) {
     const bookEmoji = String(forbiddenEvent.bookEmoji || "📖").trim() || "📖";

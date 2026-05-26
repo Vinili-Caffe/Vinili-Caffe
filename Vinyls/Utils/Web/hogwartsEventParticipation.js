@@ -2,6 +2,7 @@ const IDs = require("../Config/ids");
 const { getGuildMemberCached } = require("../Interaction/interactionEntityCache");
 const HOGWARTS_EXCLUDED_STAFF_ROLE_IDS = [ IDs.roles?.Founder, IDs.roles?.Admin, IDs.roles?.HighStaff ].map((id) => String(id || "").trim()).filter(Boolean);
 const MAIN_GUILD_ID = String(IDs.guilds?.main || "").trim();
+const HOGWARTS_HIGH_STAFF_EXCLUDED_MESSAGE = "Founder, Admin e High Staff non partecipano all'evento Hogwarts.";
 
 function memberIsHogwartsExcludedStaff(member) {
   if (!member?.roles?.cache) return false;
@@ -63,4 +64,4 @@ function isHogwartsStaffPreviewViewer(cfg, member, userId) {
   return Boolean(cfg?.previewMode && hasHogwartsSortingPreviewAccess(cfg, member, userId));
 }
 
-module.exports = { HOGWARTS_EXCLUDED_STAFF_ROLE_IDS, memberIsHogwartsExcludedStaff, memberHasHighStaffRole, resolveMainGuildMember, isUserHighStaffExcludedFromHogwartsEvent, hogwartsHighStaffExcludedPayload, assertHogwartsEventParticipationForUser, isStaffBypassUserId, hasHogwartsSortingPreviewAccess, hasHogwartsEventStaffBypassAccess, isHogwartsStaffPreviewViewer };
+module.exports = { HOGWARTS_EXCLUDED_STAFF_ROLE_IDS, HOGWARTS_HIGH_STAFF_EXCLUDED_MESSAGE, memberIsHogwartsExcludedStaff, memberHasHighStaffRole, resolveMainGuildMember, isUserHighStaffExcludedFromHogwartsEvent, hogwartsHighStaffExcludedPayload, assertHogwartsEventParticipationForUser, isStaffBypassUserId, hasHogwartsSortingPreviewAccess, hasHogwartsEventStaffBypassAccess, isHogwartsStaffPreviewViewer };

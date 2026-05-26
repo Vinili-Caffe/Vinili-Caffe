@@ -152,7 +152,7 @@
   "liveStats": {
     "enabled": true,
     "inviteProxyPath": "",
-    "extraStatsPath": "",
+    "extraStatsPath": "/live-stats-extra.json",
     "pollIntervalMs": 45000,
     "introFallbackMs": 45000,
     "liveEventPollMs": 90000

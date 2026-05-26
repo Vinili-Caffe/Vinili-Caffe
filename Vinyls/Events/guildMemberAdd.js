@@ -33,6 +33,7 @@ const { readSnapshotWithMeta, writeSnapshotWithMeta } = require("../../shared/re
 const { ghostPingNewMemberOnJoin } = require("../Utils/Message/ghostPingOnChannelEnter");
 const { trackMemberJoin } = require("../Services/Community/dailyMemberStatsService");
 const { maybeAssignHogwartsCompletionRoleOnJoin } = require("../Services/Community/hogwartsEventEndService");
+const { buildMemberWelcomePhrase } = require("../Utils/Community/pronounWelcomeUtils");
 const INVITE_LOG_CHANNEL_ID = IDs.channels.chat;
 const THANKS_CHANNEL_ID = IDs.channels.supporters;
 const INFO_PERKS_CHANNEL_ID = IDs.channels.info;
@@ -55,6 +56,11 @@ function shortInviteLinkForFooter() {
   } catch {
     return raw.replace(/^https?:\/\//, "").replace(/\/$/, "");
   }
+}
+
+function formatInviteCountIt(count) {
+  const n = Math.max(0, Number(count || 0));
+  return n === 1 ? "1 invito" : `${n} inviti`;
 }
 
 function getInviteMilestoneTitle(target) {
@@ -106,7 +112,7 @@ function buildInviteMilestoneEmbeds(inviterMember, totalInvites, tierChunks) {
         ? `Per il prossimo ruolo raggiungi **${nextT} inviti** con il tuo link personalizzato 🌙`
         : "Hai raggiunto la soglia massima degli inviti reward! 💞",
       "",
-      `Ora hai **${safeTotal} inviti** registrati.`,
+      `Ora hai **${formatInviteCountIt(safeTotal)}** registrat${safeTotal === 1 ? "o" : "i"}.`,
       INFO_PERKS_CHANNEL_ID ? `\n<a:VC_Arrow:1482706699365257397> Dettagli perk: <#${INFO_PERKS_CHANNEL_ID}>` : "",
     ].join("\n");
     return new EmbedBuilder()
@@ -367,21 +373,26 @@ async function addBotRoles(member) {
   }
 }
 
+function buildWelcomeChannelContent(member) {
+  const { word } = buildMemberWelcomePhrase(member);
+  return `Ciao ${member.user}, ${word}! <@&${IDs.roles.Staff}> <a:VC_HeartOrange:1448673443762405386>`;
+}
+
 function buildWelcomeEmbed(member) {
   const visibleCount = getVerifiedPlusBotsCount(member.guild);
   const uname = accountUsername(member);
+  const { word, capitalized } = buildMemberWelcomePhrase(member);
   return new EmbedBuilder()
     .setAuthor({
       name: uname,
       iconURL: guildMemberDisplayAvatarUrlDynamic(member, { size: 128 }) || undefined,
     })
     .setTitle(
-      "<a:VC_HeartsPink:1468685897389052008> Benvenuto/a su Vinili & Caffè <a:VC_HeartsPink:1468685897389052008>",
+      `<a:VC_HeartsPink:1468685897389052008> ${capitalized} su Vinili & Caffè <a:VC_heartfinger:1504513546782769332>`,
     )
     .setDescription(
-      `__${uname}__  benvenuto/a nella nostra community <a:VC_Sparkles:1468546911936974889>\n` +
-      "<:VC_emoji:1485419161168511036> Passa su <id:customize> per **abbellire il tuo profilo** con i ruoli e i colori.\n" +
-      "<:VC_addperson:1485419347068588073> Usa il comando \`+profile\` per **personalizzare il tuo profilo**\n",
+      `__${uname}__ ${word} nella nostra community <a:VC_Sparkles:1468546911936974889>\n` +
+      "<:VC_addperson:1485419347068588073> Usa il comando \`+profile\` in <#1442569138114662490> per **personalizzare il tuo profilo**\n",
     )
     .setThumbnail(guildMemberDisplayAvatarUrlDynamic(member, { size: 256 }) || undefined)
     .setImage(DIVIDER_URL)
@@ -484,7 +495,7 @@ async function handleBotJoin(member, joinGateConfig) {
     if (welcomeChannelSponsor) {
       await welcomeChannelSponsor
         .send(applyDefaultFooterToEmbeds({
-          content: `Ciao ${member.user}, benvenuto/a! <@&${IDs.roles.Staff}> <a:VC_HeartOrange:1448673443762405386>`,
+          content: buildWelcomeChannelContent(member),
           embeds: [buildWelcomeEmbed(member)],
         }, member.guild))
         .catch(() => { });
@@ -555,7 +566,7 @@ async function handleBotJoin(member, joinGateConfig) {
   if (welcomeChannel) {
     await welcomeChannel
       .send(applyDefaultFooterToEmbeds({
-        content: `Ciao ${member.user}, benvenuto/a! <@&${IDs.roles.Staff}> <a:VC_HeartOrange:1448673443762405386>`,
+        content: buildWelcomeChannelContent(member),
         embeds: [buildWelcomeEmbed(member)],
       }, member.guild))
       .catch(() => { });
@@ -576,7 +587,7 @@ async function handleBotJoin(member, joinGateConfig) {
     } else {
       await inviteChannel
         .send({
-          content: `<:VC_Reply:1482532158080942191> Bot entrato con il link <${info.link}>,\n-# -> invitato da ${info.inviterTag} che ora ha **${info.totalInvites} inviti**.`,
+          content: `<:VC_Reply:1482532158080942191> Bot entrato con il link <${info.link}>,\n-# -> invitato da ${info.inviterTag} che ora ha **${formatInviteCountIt(info.totalInvites)}**.`,
         })
         .catch(() => { });
     }
@@ -1265,7 +1276,7 @@ async function announceInviteInfo(member, channel, info) {
 
   await channel
     .send({
-      content: `<:VC_Reply:1482532158080942191> È entratx con il link <${info.link}>,\n-# -> invitato da ${info.inviterTag} che ora ha **${info.totalInvites} inviti**.`,
+      content: `<:VC_Reply:1482532158080942191> È entratx con il link <${info.link}>,\n-# -> invitato da ${info.inviterTag} che ora ha **${formatInviteCountIt(info.totalInvites)}**.`,
     })
     .catch(() => { });
 }
@@ -1386,7 +1397,7 @@ async function runDeferredJoinAnnouncements(member) {
   if (welcomeChannel) {
     await welcomeChannel
       .send(applyDefaultFooterToEmbeds({
-        content: `Ciao ${fresh.user}, benvenuto/a! <@&${IDs.roles.Staff}> <a:VC_HeartOrange:1448673443762405386>`,
+        content: buildWelcomeChannelContent(fresh),
         embeds: [buildWelcomeEmbed(fresh)],
       }, fresh.guild))
       .catch(() => { });
@@ -1650,7 +1661,7 @@ module.exports = { name: "guildMemberAdd", kickForJoinGate, runDeferredJoinAnnou
         if (welcomeChannel && canAnnounce) {
           await welcomeChannel
             .send(applyDefaultFooterToEmbeds({
-              content: `Ciao ${memberAfterVerifyJoin.user}, benvenuto/a! <@&${IDs.roles.Staff}> <a:VC_HeartOrange:1448673443762405386>`,
+              content: buildWelcomeChannelContent(memberAfterVerifyJoin),
               embeds: [buildWelcomeEmbed(memberAfterVerifyJoin)],
             }, memberAfterVerifyJoin.guild))
             .catch(() => { });

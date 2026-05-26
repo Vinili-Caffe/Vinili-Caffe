@@ -5,6 +5,7 @@ const { isValidGuildUserId } = require("../DB/validateWriteIds");
 const IDs = require("../Config/ids");
 const { getGuildChannelCached } = require("../Interaction/interactionEntityCache");
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
+const MAX_SET_TIMEOUT_MS = 2147483647;
 const PAUSE_FESTIVI_TIMEZONE = "Europe/Rome";
 const STAFF_ROLE_PRIORITY = [
   IDs.roles.Founder,
@@ -645,18 +646,32 @@ async function syncSingleAcceptedPauseMessage(guild, userId, pause) {
   }
 }
 
+function scheduleDelayedCallback(runAtMs, callback) {
+  const delayMs = runAtMs - Date.now();
+  if (delayMs <= 0) {
+    callback();
+    return;
+  }
+  const waitMs = Math.min(delayMs, MAX_SET_TIMEOUT_MS);
+  const timer = setTimeout(() => {
+    if (Date.now() < runAtMs) {
+      scheduleDelayedCallback(runAtMs, callback);
+      return;
+    }
+    callback();
+  }, waitMs);
+  if (typeof timer?.unref === "function") timer.unref();
+}
+
 function schedulePauseStatusRefresh(guild, userId, pause) {
   const start = parseItalianDate(pause?.dataRichiesta);
   const end = parseItalianDate(pause?.dataRitorno);
   if (!guild || !pause || !start || !end) return;
   const checkpoints = [start.getTime(), end.getTime() + MS_PER_DAY];
   for (const at of checkpoints) {
-    const delayMs = at - Date.now();
-    if (delayMs <= 0) continue;
-    const timer = setTimeout(() => {
+    scheduleDelayedCallback(at, () => {
       syncSingleAcceptedPauseMessage(guild, userId, pause).catch(() => null);
-    }, delayMs);
-    if (typeof timer?.unref === "function") timer.unref();
+    });
   }
 }
 
@@ -686,6 +701,15 @@ function getBestStaffPauseBonusDays(member, staffDoc) {
   if (years.includes(y)) return 5;
   const pauses = Array.isArray(staffDoc?.staff?.pauses) ? staffDoc.staff.pauses : [];
   return pauseHistoryImpliesBestStaffBonusForYear(pauses, y) ? 5 : 0;
+}
+
+function getValPosTradedPauseBonusDays(staffDoc) {
+  const n = Number(staffDoc?.staff?.valPosTradedPauseBonusDays ?? staffDoc?.valPosTradedPauseBonusDays ?? 0);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
+}
+
+function getStaffPauseBonusDaysTotal(member, staffDoc) {
+  return getBestStaffPauseBonusDays(member, staffDoc) + getValPosTradedPauseBonusDays(staffDoc);
 }
 
 async function grantBestStaffPauseBonusYear(guildId, userId, year = null) {
@@ -724,4 +748,4 @@ async function restorePauseMessageStatusSync(client) {
   }
 }
 
-module.exports = { MS_PER_DAY, parseItalianDate, getPauseDaysBetween, getTodayUtc, getCurrentYearBoundsUtc, getMonthBoundsUtc, filterPausesByMonth, countOverlapDays, countEffectiveOverlapDays, rangesOverlap, computeStaffersInPauseByRoleForRange, getStaffPauseRecord, getStaffAndPauseByRequestMessageId, updatePauseInDb, computeConsumedPauseDays, getMemberRoleLabel, getBasePauseLimit, getPauseRoleLimit, getPauseStatusLabel, getPauseTimingText, computePauseScaledDaysThisYear, buildRequestButtonsRow, buildAcceptedButtonsRow, schedulePauseButtonsRemoval, restorePauseMessageStatusSync, getRomeMonthKey, getOnePausePerMonthWarning, getOneWeekBetweenWarning, getPauseReasonFromMessage, PAUSE_ROLE_STAFF, PAUSE_ROLE_PM, PAUSE_ROLE_BOTH, normalizePauseRoleChoice, getMemberPauseRoleChoices, getPauseRoleTargets, roleChoiceAppliesTo, getBestStaffPauseBonusDays, grantBestStaffPauseBonusYear };
+module.exports = { MS_PER_DAY, parseItalianDate, getPauseDaysBetween, getTodayUtc, getCurrentYearBoundsUtc, getMonthBoundsUtc, filterPausesByMonth, countOverlapDays, countEffectiveOverlapDays, rangesOverlap, computeStaffersInPauseByRoleForRange, getStaffPauseRecord, getStaffAndPauseByRequestMessageId, updatePauseInDb, computeConsumedPauseDays, getMemberRoleLabel, getBasePauseLimit, getPauseRoleLimit, getPauseStatusLabel, getPauseTimingText, computePauseScaledDaysThisYear, buildRequestButtonsRow, buildAcceptedButtonsRow, schedulePauseButtonsRemoval, restorePauseMessageStatusSync, getRomeMonthKey, getOnePausePerMonthWarning, getOneWeekBetweenWarning, getPauseReasonFromMessage, PAUSE_ROLE_STAFF, PAUSE_ROLE_PM, PAUSE_ROLE_BOTH, normalizePauseRoleChoice, getMemberPauseRoleChoices, getPauseRoleTargets, roleChoiceAppliesTo, getBestStaffPauseBonusDays, getValPosTradedPauseBonusDays, getStaffPauseBonusDaysTotal, grantBestStaffPauseBonusYear };

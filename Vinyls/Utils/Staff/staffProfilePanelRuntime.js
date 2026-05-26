@@ -5,7 +5,7 @@ const { getGuildMemberCached } = require("../Interaction/interactionEntityCache"
 const { STAFF_WARN_RESET_MS, STAFF_WARN_THREE_NEGATIVES_REASON } = require("../../Services/Staff/staffWarnService");
 const { countModActionsByMod } = require("../Moderation/modCaseStore");
 const { buildPauseListPayload } = require("../Pause/pauseListRuntime");
-const { roleChoiceAppliesTo, PAUSE_ROLE_PM } = require("../Pause/pauseHandlersUtils");
+const { roleChoiceAppliesTo, PAUSE_ROLE_PM, getValPosTradedPauseBonusDays } = require("../Pause/pauseHandlersUtils");
 const { memberHasStaffRole } = require("../Community/staffListUtils");
 const { getStaffRoleEmojiByRoleId } = require("../Community/staffRoleEmoji");
 const { resolvePartnerPointsShown } = require("./partnerPointsDisplayUtils");
@@ -92,6 +92,7 @@ function buildPmPartnerShopDescription(balance, opts = {}) {
 
 const STAFF_PM_SHOP_PREFIX = "staff_pm_shop";
 const STAFF_VAL_NEG_TRADE_PREFIX = "staff_val_neg_trade";
+const STAFF_VAL_PAUSE_TRADE_PREFIX = "staff_val_pause_trade";
 
 function buildPmShopSelfRedeemRows(viewerId, targetId, partnerPtsForRedeem) {
   const v = String(viewerId || "");
@@ -407,14 +408,59 @@ function parseStaffValNegTradeModalCustomId(customId) {
   return { viewerId, targetId, sourceMessageId };
 }
 
-function buildSelfNegTradeValutazioniButtonRow(viewerId, targetId, sourceMessageId = null) {
-  return new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId(formatStaffValNegTradeOpenCustomId(viewerId, targetId, sourceMessageId))
-      .setLabel("Compensa 1 negativa (3 positive)")
-      .setStyle(ButtonStyle.Secondary)
-      .setEmoji("⚖️"),
-  );
+function formatStaffValPauseTradeOpenCustomId(viewerId, targetId, sourceMessageId = null) {
+  const v = String(viewerId || "");
+  const t = String(targetId || "");
+  return withSourceSuffix(`${STAFF_VAL_PAUSE_TRADE_PREFIX}:open:${v}:${t}`, sourceMessageId);
+}
+
+function parseStaffValPauseTradeOpenCustomId(customId) {
+  const parts = String(customId || "").split(":");
+  if (parts.length < 4 || parts[0] !== STAFF_VAL_PAUSE_TRADE_PREFIX || parts[1] !== "open") return null;
+  const viewerId = String(parts[2] || "");
+  const targetId = String(parts[3] || "");
+  if (!/^\d{16,20}$/.test(viewerId) || !/^\d{16,20}$/.test(targetId)) return null;
+  const sourceMessageId = normalizeSourceMessageId(parts[4]);
+  return { viewerId, targetId, sourceMessageId };
+}
+
+function formatStaffValPauseTradeModalCustomId(viewerId, targetId, sourceMessageId = null) {
+  const v = String(viewerId || "");
+  const t = String(targetId || "");
+  return withSourceSuffix(`${STAFF_VAL_PAUSE_TRADE_PREFIX}:md:${v}:${t}`, sourceMessageId);
+}
+
+function parseStaffValPauseTradeModalCustomId(customId) {
+  const parts = String(customId || "").split(":");
+  if (parts.length < 4 || parts[0] !== STAFF_VAL_PAUSE_TRADE_PREFIX || parts[1] !== "md") return null;
+  const viewerId = String(parts[2] || "");
+  const targetId = String(parts[3] || "");
+  if (!/^\d{16,20}$/.test(viewerId) || !/^\d{16,20}$/.test(targetId)) return null;
+  const sourceMessageId = normalizeSourceMessageId(parts[4]);
+  return { viewerId, targetId, sourceMessageId };
+}
+
+function buildHsValutazioniTradeButtonRows(viewerId, targetId, sourceMessageId, { pos, neg }) {
+  const row = new ActionRowBuilder();
+  if (Math.max(0, Number(pos || 0)) >= 1) {
+    row.addComponents(
+      new ButtonBuilder()
+        .setCustomId(formatStaffValPauseTradeOpenCustomId(viewerId, targetId, sourceMessageId))
+        .setLabel("Positive → giorni pausa")
+        .setStyle(ButtonStyle.Secondary)
+        .setEmoji("<a:VC_Calendar:1482706208149475358>"),
+    );
+  }
+  if (Math.max(0, Number(pos || 0)) >= 3 && Math.max(0, Number(neg || 0)) >= 1) {
+    row.addComponents(
+      new ButtonBuilder()
+        .setCustomId(formatStaffValNegTradeOpenCustomId(viewerId, targetId, sourceMessageId))
+        .setLabel("Compensa 1 negativa (3 positive)")
+        .setStyle(ButtonStyle.Secondary)
+        .setEmoji("⚖️"),
+    );
+  }
+  return row.components.length ? [row] : [];
 }
 
 function resolveStaffPanelRoleOrder(member) {
@@ -905,32 +951,32 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
         ...(warnReset ? ["", warnReset] : []),
       ]
       : ["<:banhammer:1443651875441217639> **Warn** — Nessun warn."];
-    const body = [
+    const pauseBonusDays = getValPosTradedPauseBonusDays(s);
+    const bodyParts = [
       posLines.length ? "<:thumbsup:1471292172145004768> **Positive**" : "<:thumbsup:1471292172145004768> **Positive** — Nessuna.",
       ...posLines,
       "",
       negLines.length ? "<:thumbsdown:1471292163957457013> **Negative**" : "<:thumbsdown:1471292163957457013> **Negative** — Nessuna.",
       ...negLines,
-      "",
-      ...warnBlock,
-    ].join("\n");
-    const self = String(viewerId) === String(tid);
-    const canSelfNegTrade =
-      self &&
+    ];
+    if (pauseBonusDays > 0) {
+      bodyParts.push("", `<a:VC_Calendar:1482706208149475358> **Giorni pausa extra (scambio positive):** \`${pauseBonusDays}\``);
+    }
+    bodyParts.push("", ...warnBlock);
+    const canHsValTrade =
+      viewerIsHighStaff &&
       profileKind === PROFILE_FULL &&
       !hideValutazioniWarnForTarget &&
-      !usePartnersChatPmPanel &&
-      pos >= 3 &&
-      neg >= 1;
-    const negTradeRow = canSelfNegTrade ? buildSelfNegTradeValutazioniButtonRow(viewerId, tid, sourceMessageId) : null;
-    const chunks = chunkString(body, 3800);
+      !usePartnersChatPmPanel;
+    const valTradeRows = canHsValTrade ? buildHsValutazioniTradeButtonRows(viewerId, tid, sourceMessageId, { pos, neg }) : [];
+    const chunks = chunkString(bodyParts.join("\n"), 3800);
     const embeds = chunks.map((desc, i) =>
       new EmbedBuilder()
         .setColor("#6f4e37")
         .setDescription(desc)
         .setThumbnail(userAvatarUrlDynamic(targetUser, { size: 128 }) || null),
     );
-    const valExtraRows = [...(negTradeRow ? [negTradeRow] : []), ...homeBottomRows];
+    const valExtraRows = [...valTradeRows, ...homeBottomRows];
     return { embeds, components: withCloseProfileComponents(mergeProfileComponents(selectRow, hsRows, valExtraRows), viewerId, tid, sourceMessageId, { enableNextTargetButton }) };
   }
 
@@ -1046,4 +1092,4 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
   };
 }
 
-module.exports = { PANEL_PREFIX, STAFF_HP_PREFIX, STAFF_HP_SELECT_PREFIX, STAFF_PM_SHOP_PREFIX, STAFF_VAL_NEG_TRADE_PREFIX, SECTION_HOME, SECTION_VALUTAZIONI, SECTION_WARN, SECTION_PAUSE, SECTION_MODSTATS, SECTION_SHOP, formatStaffProfileSelectCustomId, parseStaffProfileSelectCustomId, formatStaffProfileCloseCustomId, parseStaffProfileCloseCustomId, formatStaffProfileNextCustomId, parseStaffProfileNextCustomId, formatStaffValNegTradeOpenCustomId, parseStaffValNegTradeOpenCustomId, formatStaffValNegTradeModalCustomId, parseStaffValNegTradeModalCustomId, formatStaffHpButtonCustomId, encodeStaffHpButtonAction, decodeStaffHpButtonActionToken, staffHpSectionToken, parseStaffHpButtonSectionToken, buildStaffProfilePayload, resolveStaffPartnerPointsDisplay, viewerCanUsePartnerPointsPanel, viewerIsCoordinatorOrAbove, viewerIsFounder, shouldOmitPexDepexHomeRow, resolveNextStaffPanelTargetId };
+module.exports = { PANEL_PREFIX, STAFF_HP_PREFIX, STAFF_HP_SELECT_PREFIX, STAFF_PM_SHOP_PREFIX, STAFF_VAL_NEG_TRADE_PREFIX, STAFF_VAL_PAUSE_TRADE_PREFIX, SECTION_HOME, SECTION_VALUTAZIONI, SECTION_WARN, SECTION_PAUSE, SECTION_MODSTATS, SECTION_SHOP, formatStaffProfileSelectCustomId, parseStaffProfileSelectCustomId, formatStaffProfileCloseCustomId, parseStaffProfileCloseCustomId, formatStaffProfileNextCustomId, parseStaffProfileNextCustomId, formatStaffValNegTradeOpenCustomId, parseStaffValNegTradeOpenCustomId, formatStaffValNegTradeModalCustomId, parseStaffValNegTradeModalCustomId, formatStaffValPauseTradeOpenCustomId, parseStaffValPauseTradeOpenCustomId, formatStaffValPauseTradeModalCustomId, parseStaffValPauseTradeModalCustomId, formatStaffHpButtonCustomId, encodeStaffHpButtonAction, decodeStaffHpButtonActionToken, staffHpSectionToken, parseStaffHpButtonSectionToken, buildStaffProfilePayload, resolveStaffPartnerPointsDisplay, viewerCanUsePartnerPointsPanel, viewerIsCoordinatorOrAbove, viewerIsFounder, shouldOmitPexDepexHomeRow, resolveNextStaffPanelTargetId };

@@ -47,18 +47,31 @@ Con layer ON, su ogni **guild non protetta**:
 
 Main / test / sponsor **esclusi**.
 
-## Musica, TTS, Utility e Minigiochi (solo su server tenant)
+## Musica, TTS, Utility, Minigiochi e Moderazione (solo su server tenant)
 
 Con `MULTI_GUILD_LAYER=1`, su **ogni guild non protetta** (tenant):
 
-- **Solo** comandi prefix **Musica**, **TTS**, **Utility** (`help`, `settings`, `ping`, `avatar`, `banner`, `afk`, `snipe`, `quote`) e **Minigiochi** (`ship`) — niente economia, level, altri minigiochi, … (**nemmeno con Administrator**)
+- **Solo** comandi prefix **Musica**, **TTS**, **Utility** (`help`, `settings`, `ping`, `avatar`, `banner`, `afk`, `snipe`, `quote`), **Minigiochi** (`ship`) e **Moderazione** (`ban`, `kick`, `mute`, `warn`, `purge`, `modlogs`, …) — niente economia, level, altri minigiochi, … (**nemmeno con Administrator** fuori da queste categorie)
 - **Nessun** minigioco / counting / automod community / EXP / bump su messaggio
-- Questi comandi **senza** gate `permissions.json` (canali/ruoli staff della main)
+- Musica / TTS / utility / minigiochi: **senza** gate `permissions.json` (canali/ruoli staff della main)
+- Moderazione: permessi **Discord nativi** del membro (es. Banna membri, Modera membri, Gestisci messaggi); non usa i ruoli Vinili di `permissions.json`
 - Risposte AFK su menzione attive anche sui tenant
 
 **Main, test e sponsor** = bot completo come prima (`permissions.json` + automazioni).
 
-Guild non in registry: stesse regole tenant. Flag `music` / `tts` / `utility` / `minigames` in `registry.json` per disabilitare singole categorie.
+Guild non in registry: stesse regole tenant. Flag `music` / `tts` / `utility` / `minigames` / `moderation` in `registry.json` per disabilitare singole categorie.
+
+### Log moderazione (tenant)
+
+Imposta il canale log con `+settings modlogs #canale` (serve **Gestisci server**). In `registry.json`:
+
+```json
+"channelMap": {
+  "modLogs": "ID_CANALE_MOD_LOG"
+}
+```
+
+Senza canale, i case vengono salvati nel database ma non inviati in un canale dedicato.
 
 ### Canale quote (tenant)
 
@@ -113,10 +126,12 @@ if (!gate.ok) return;
     "utility": true,
     "music": true,
     "tts": true,
-    "minigames": true
+    "minigames": true,
+    "moderation": true
   },
   "channelMap": {
-    "quotes": "ID_CANALE_QUOTE_OPZIONALE"
+    "quotes": "ID_CANALE_QUOTE_OPZIONALE",
+    "modLogs": "ID_CANALE_MOD_LOG_OPZIONALE"
   }
 }
 ```

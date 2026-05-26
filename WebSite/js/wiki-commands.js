@@ -8,6 +8,21 @@
   var emptyBox = document.getElementById("wiki-cmd-empty");
   var panesWrap = panel.querySelector(".vc-cmd-panes");
 
+  function isEconomyCategoryLocked() {
+    var unlockMs = Number(window.__VC_ECONOMY_UNLOCK_MS);
+    return Number.isFinite(unlockMs) && Date.now() < unlockMs;
+  }
+
+  function applyEconomyCategoryGate() {
+    if (!isEconomyCategoryLocked()) return;
+    panel.querySelectorAll('details.vc-cmd-grp[data-vc-cmd-cat="economy"]').forEach(function (grp) {
+      grp.classList.add("vc-cmd-grp--hidden");
+      grp.open = false;
+    });
+  }
+
+  applyEconomyCategoryGate();
+
   function stripLocationHash() {
     try {
       if (!location.hash || !window.history || !window.history.replaceState) return;

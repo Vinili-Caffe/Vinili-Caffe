@@ -16,8 +16,6 @@ const { handleProfileMentionResponsePromptMessage } = require("../Buttons/profil
 const IDs = require("../Utils/Config/ids");
 const { EPHEMERAL_TTL_SHORT_MS, scheduleMessageDeletion } = require("../Utils/Config/ephemeralMessageTtl");
 const { isCoffeePrefixCommandToken } = require("../../shared/discord/coffeePrefixCommandTokens");
-const { broadcastSiteRealtime } = require("../Utils/Web/siteSuggestionsBroadcast");
-const { syncForumMentionNotificationsForMessage } = require("../Utils/Web/siteForumMentionNotifications");
 const guildMemberUpdateExtras = require("./guildMemberUpdate");
 const STAFF_BYPASS_PERMISSIONS = [PermissionFlagsBits.Administrator, PermissionFlagsBits.ManageGuild, PermissionFlagsBits.ManageChannels, PermissionFlagsBits.ManageRoles, PermissionFlagsBits.ManageMessages, PermissionFlagsBits.KickMembers, PermissionFlagsBits.BanMembers, PermissionFlagsBits.ModerateMembers,];
 const FORCE_DELETE_CHANNEL_IDS = new Set([IDs.channels.messagesAutoDelete].filter(Boolean).map((id) => String(id)));
@@ -61,25 +59,12 @@ async function executeTenantMediaOnlyMessageFlow(message, resolvedClient, defaul
   });
 }
 
-function resolveWebsiteForumChannelId(client) {
-  return String(client?.config?.websiteForum?.channelId || IDs.channels?.forum || "").trim();
-}
-
 function isNativeBoostSystemMessage(message) {
   const t = Number(message?.type);
   const boostTypes = new Set([MessageType?.UserPremiumGuildSubscription, MessageType?.UserPremiumGuildSubscriptionTier1, MessageType?.UserPremiumGuildSubscriptionTier2, MessageType?.UserPremiumGuildSubscriptionTier3, 8].filter((x) => typeof x === "number"));
   if (boostTypes.has(t)) return true;
   const txt = String(message?.content || "");
   return /(ha\s+appena\s+potenziato\s+il\s+server|just\s+boosted\s+the\s+server)/i.test(txt);
-}
-
-function isForumThreadMessageForRealtime(message, client) {
-  if (!message?.guild || !message?.channel) return false;
-  if (message?.system || message?.author?.bot || message?.webhookId) return false;
-  const forumId = resolveWebsiteForumChannelId(client);
-  if (!forumId) return false;
-  const parentId = String(message.channel?.parentId || "");
-  return parentId === forumId;
 }
 
 function hasAnyStaffBypassPermission(permissions) {
@@ -297,20 +282,6 @@ module.exports = {
       }
     } catch (error) {
       logEventError(resolvedClient, "DISBOARD REMINDER ERROR", error);
-    }
-
-    try {
-      if (!isEditedPrefixExecution && isForumThreadMessageForRealtime(message, resolvedClient)) {
-        broadcastSiteRealtime({
-          type: "forum_changed",
-          at: new Date().toISOString(),
-          threadId: String(message.channelId || ""),
-          messageId: String(message.id || ""),
-        });
-        await syncForumMentionNotificationsForMessage(message, resolvedClient);
-      }
-    } catch (error) {
-      logEventError(resolvedClient, "FORUM REALTIME BRIDGE ERROR", error);
     }
 
     if (message.author.bot || message.system || message.webhookId) {

@@ -138,8 +138,19 @@
     }
   }
 
+  function cinemaIntroActive() {
+    try {
+      if (typeof window.__vcHogwartsIntroIsRunning === "function" && window.__vcHogwartsIntroIsRunning()) return true;
+      if (document.body && document.body.classList.contains("vc-hw-cinema-active")) return true;
+      var cinema = document.getElementById("vc-hw-cinema");
+      if (cinema && !cinema.hidden && !document.body.classList.contains("vc-hw-intro-finished")) return true;
+    } catch (eC) {}
+    return false;
+  }
+
   function startFromUserGesture() {
-    if (!youtubePublicCfg() || isUserOptedOut()) return;
+    if (!youtubePublicCfg()) return;
+    if (cinemaIntroActive()) return;
     if (isAudiblePlaying()) {
       detachFirstPointer();
       hideHint();
@@ -150,18 +161,21 @@
       window.__vcHwUserGestureAt = Date.now();
     } catch (eG) {}
     rememberBgmEnabled(true);
+    mutedByUser = false;
     playAudible(true);
     hideHint();
   }
 
   function armFirstPointer() {
-    if (isUserOptedOut() || !youtubePublicCfg()) return;
+    if (!youtubePublicCfg()) return;
+    if (cinemaIntroActive()) return;
     if (detachFirst) return;
     detachFirst = function () {
       document.removeEventListener("pointerdown", onPointer, true);
       document.removeEventListener("keydown", onKey, true);
     };
-    function onPointer() {
+    function onPointer(ev) {
+      if (ev && ev.target && ev.target.closest && ev.target.closest("#vc-hw-cinema, #vc-hw-cinema-start, #vc-hw-cinema-skip")) return;
       startFromUserGesture();
     }
     function onKey(ev) {
@@ -174,6 +188,7 @@
   }
 
   function ensureHint(msg) {
+    if (cinemaIntroActive()) return;
     if (hintEl) {
       hintEl.textContent = msg || hintEl.textContent;
       return;
@@ -493,6 +508,8 @@
     } catch (eM) {}
   }
 
+  window.__vcHogwartsYoutubeHideHint = hideHint;
+
   window.__vcHogwartsYoutubePrimeFromGesture = function () {
     playMutedPrime();
   };
@@ -503,6 +520,7 @@
       updateMusicButtonUi();
       return;
     }
+    if (cinemaIntroActive()) return;
     ensureHint();
     armFirstPointer();
     playAudible(true);
@@ -516,6 +534,7 @@
   window.__vcHogwartsYoutubeSetupIfConfigured = function () {
     if (!youtubePublicCfg()) return false;
     showMusicButton();
+    if (cinemaIntroActive()) return true;
     ensureHint();
     armFirstPointer();
     bootPlayer();
@@ -562,6 +581,7 @@
       updateMusicButtonUi();
       return;
     }
+    if (cinemaIntroActive()) return;
     ensureHint();
     armFirstPointer();
     try {
@@ -587,6 +607,8 @@
         }
         rememberBgmEnabled(true);
         mutedByUser = false;
+        hideHint();
+        detachFirstPointer();
         playAudible(true);
       });
     }

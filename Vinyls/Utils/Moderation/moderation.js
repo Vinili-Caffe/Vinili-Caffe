@@ -1,9 +1,7 @@
-const { EmbedBuilder } = require("discord.js");
 const IDs = require("../Config/ids");
 const { GlobalSettings } = require("../../Schemas/Community/communitySchemas");
 const { normalizeModConfigFromGlobal } = require("../Global/globalSettingsGuildStores");
 const { sendStaffActionToModLogs } = require("../Logging/modAuditLogUtils");
-const { getGuildChannelCached } = require("../Interaction/interactionEntityCache");
 const { createModCaseStore, closeCaseByRef } = require("./modCaseStore");
 
 async function getModConfig(guildId) {
@@ -109,32 +107,7 @@ async function closeCasePersist(modCase, closeReason = null) {
   await closeCaseByRef(String(modCase.guildId), String(modCase.userId), Number(modCase.caseId), closeReason).catch(() => null);
 }
 
-async function logModCase({ client, guild, modCase, config }) {
-  const channelId = config?.logChannelId;
-  const channel = channelId ? (await getGuildChannelCached(guild, channelId)) : null;
-  const duration = modCase.durationMs ? formatDuration(modCase.durationMs) : null;
-  const isUserId = /^\d{17,20}$/.test(String(modCase.userId));
-  const userLabel = isUserId ? `<@${modCase.userId}>(\`${modCase.userId}\`)` : String(modCase.userId);
-  const embed = new EmbedBuilder().setColor(client?.config?.embedModLight || "#6f4e37").setTitle(`Case #${modCase.caseId}-${modCase.action}`);
-  const fields = [{ name: "<:VC_User:1482527453586002103> Utente", value: userLabel, inline: true }, { name: "<:VC_Staff:1494286904089247754> Responsabile", value: `<@${modCase.modId}>`, inline: true },
-  ];
-  if (duration) {
-    fields.push({ name: "<:VC_Clock:1473359204189474886> Durata", value: duration, inline: true });
-    fields.push({ name: "<:VC_reason:1478517122929004544> Motivo", value: modCase.reason || "Nessun motivo fornito", inline: false });
-  } else {
-    fields.push({ name: "<:VC_reason:1478517122929004544> Motivo", value: modCase.reason || "Nessun motivo fornito", inline: true });
-  }
-  embed.addFields(...fields.slice(0, 25)).setTimestamp();
-  if (modCase.context?.channelId) {
-    embed.addFields({
-      name: "<:VC_Channel:1482532543273238569> Canale",
-      value: `<#${modCase.context.channelId}>`,
-      inline: true,
-    });
-  }
-  if (channel?.isTextBased?.()) {
-    await channel.send({ embeds: [embed] }).catch(() => { });
-  }
+async function logModCase({ guild, modCase }) {
   await sendStaffActionToModLogs(guild, modCase).catch(() => null);
 }
 

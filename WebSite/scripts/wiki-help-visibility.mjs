@@ -196,6 +196,32 @@ export function buildWikiMemberRoleSet(ids) {
   return s;
 }
 
+export const WIKI_ECONOMY_CATEGORY_ID = "economy";
+
+export function loadGaleoniEconomyUnlockMs(botRoot) {
+  const p = path.join(botRoot, "config.json");
+  if (!fs.existsSync(p)) return null;
+  try {
+    const cfg = JSON.parse(readUtf8(p));
+    const econ = cfg?.galeoniEconomy;
+    if (!econ || econ.enabled === false) return null;
+    const start = String(econ.startDate || "2026-08-10T12:00:00").trim();
+    const ms = new Date(start).getTime();
+    return Number.isFinite(ms) ? ms : null;
+  } catch {
+    return null;
+  }
+}
+
+export function isGaleoniEconomyUnlockedAtMs(startMs, nowMs = Date.now()) {
+  if (startMs == null || !Number.isFinite(Number(startMs))) return false;
+  return Number(nowMs) >= Number(startMs);
+}
+
+export function isWikiEconomyCategoryVisible(botRoot, nowMs = Date.now()) {
+  return isGaleoniEconomyUnlockedAtMs(loadGaleoniEconomyUnlockMs(botRoot), nowMs);
+}
+
 /**
  * @param {string} botRoot Vinyls o Coffee
  * @returns {{ ids: object; permissions: { slash: object; prefix: object }; memberRoleSet: Set<string> } | null}

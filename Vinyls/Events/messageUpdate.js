@@ -4,7 +4,6 @@ const { getGuildChannelCached, getClientChannelCached } = require("../Utils/Inte
 const { runAutoModMessage } = require("../Services/Moderation/automodService");
 const { handleDisboardBump, handleDiscadiaBump, handleVoteManagerMessage } = require("../Utils/Message/officialMessageAutomationHandlers");
 const { handleMentionAutoReactions, handleWordReactions, maybePunishCountingOnEdit } = require("../Utils/Message/officialMessageCommunityHandlers");
-const { syncForumMentionNotificationsForMessage } = require("../Utils/Web/siteForumMentionNotifications");
 const { toDiscordTimestamp } = require("../Utils/Logging/channelRolesLogUtils");
 const MAX_EMBED_DIFF_LENGTH = 900;
 const VERIFICATION_EXCLUDED_CHANNEL_IDS = new Set(
@@ -231,7 +230,6 @@ module.exports = {
       }
 
       await sendMessageEditLog(previous, updated);
-      await syncForumMentionNotificationsForMessage(updated, resolvedClient);
 
       if (updated.author.bot || updated.system || updated.webhookId || updated.applicationId) {
         try {

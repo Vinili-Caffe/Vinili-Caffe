@@ -4,13 +4,13 @@ const { isValidGuildUserId } = require("../../Utils/DB/validateWriteIds");
 const IDs = require("../../Utils/Config/ids");
 const { getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { resolveHogwartsEventConfig } = require("../../Utils/Web/hogwartsSortingConfig");
-const { isUserHighStaffExcludedFromHogwartsEvent, memberIsHogwartsExcludedStaff, resolveMainGuildMember } = require("../../Utils/Web/hogwartsEventParticipation");
+const { isUserHighStaffExcludedFromHogwartsEvent, memberIsHogwartsExcludedStaff, resolveMainGuildMember, HOGWARTS_HIGH_STAFF_EXCLUDED_MESSAGE, hasHogwartsSortingPreviewAccess, isStaffBypassUserId } = require("../../Utils/Web/hogwartsEventParticipation");
 const { addGaleoni, formatGaleoni, getGringottBalance, spendGaleoni } = require("./gringottService");
 const ECONOMY_PATH = "profile.events.hogwarts.economy";
 const DEFAULT_CONFIG = Object.freeze({
   enabled: true,
   previewMode: true,
-  startDate: "2026-08-10T00:00:00",
+  startDate: "2026-08-10T12:00:00",
   minBet: 5,
   maxBet: 250,
   dailyBetCap: 1000,
@@ -66,6 +66,25 @@ function mergeConfig(raw = {}) {
   };
 }
 
+function isEconomyLive(cfg, nowMs = Date.now()) {
+  return !Number.isFinite(cfg?.startMs) || Number(nowMs) >= cfg.startMs;
+}
+
+function hasGaleoniEconomyPreviewAccess(client, member, userId, cfg) {
+  if (!cfg?.previewMode) return false;
+  if (isStaffBypassUserId(cfg, userId)) return true;
+  const hogCfg = resolveHogwartsEventConfig(client);
+  if (isStaffBypassUserId(hogCfg, userId)) return true;
+  if (hogCfg?.previewMode) return hasHogwartsSortingPreviewAccess(hogCfg, member, userId);
+  return true;
+}
+
+function isGaleoniEconomyUnlocked(client, nowMs = Date.now()) {
+  const cfg = economyConfig(client);
+  if (!cfg.enabled) return false;
+  return isEconomyLive(cfg, nowMs) || cfg.previewMode;
+}
+
 function economyConfig(client) {
   const raw = mergeConfig(client?.config?.galeoniEconomy);
   raw.enabled = raw.enabled !== false;
@@ -94,6 +113,9 @@ function economyConfig(client) {
   raw.rob.maxSteal = int(raw.rob.maxSteal, DEFAULT_CONFIG.rob.maxSteal, raw.rob.minSteal, 100000);
   raw.rob.failPenalty = int(raw.rob.failPenalty, DEFAULT_CONFIG.rob.failPenalty, 0, 100000);
   raw.rob.targetProtectionMs = int(raw.rob.targetProtectionMs, DEFAULT_CONFIG.rob.targetProtectionMs, 0, 30 * 24 * 60 * 60 * 1000);
+  raw.staffBypassUserIds = Array.isArray(raw.staffBypassUserIds)
+    ? raw.staffBypassUserIds.map((v) => normalizeId(v)).filter(Boolean)
+    : [];
   return raw;
 }
 
@@ -125,20 +147,28 @@ async function assertEconomyAccess(message, client) {
   const cfg = economyConfig(client);
   if (!cfg.enabled) return { ok: false, message: "L'economia Galeoni è disattivata." };
   if (!message?.guild || !message?.member || message.author?.bot) return { ok: false, message: "Comando disponibile solo nel server." };
-  if (await isUserHighStaffExcludedFromHogwartsEvent(client, message.author.id, message.member)) {
-    return { ok: false, message: HOGWARTS_HIGH_STAFF_EXCLUDED_MESSAGE };
-  }
-  const now = Date.now();
-  if (Number.isFinite(cfg.startMs) && now < cfg.startMs) {
+  const userId = normalizeId(message.author.id);
+  const previewAccess = hasGaleoniEconomyPreviewAccess(client, message.member, userId, cfg);
+  const live = isEconomyLive(cfg);
+  if (!live && !previewAccess) {
     return { ok: false, message: "L'economia Galeoni si sblocca lunedì 10 agosto." };
   }
-  if (!await isMember(message.member, client, message.author.id)) return { ok: false, message: "Devi essere Member per usare l'economia Galeoni." };
-  return { ok: true, preview: false, cfg };
+  if (!previewAccess && await isUserHighStaffExcludedFromHogwartsEvent(client, userId, message.member)) {
+    return { ok: false, message: HOGWARTS_HIGH_STAFF_EXCLUDED_MESSAGE };
+  }
+  if (!previewAccess && !await isMember(message.member, client, userId)) {
+    return { ok: false, message: "Devi essere Member per usare l'economia Galeoni." };
+  }
+  const preview = Boolean(cfg.previewMode && previewAccess);
+  return { ok: true, preview, cfg };
 }
 
 async function assertSortedEconomyAccess(message, client) {
   const access = await assertEconomyAccess(message, client);
   if (!access.ok) return access;
+  if (access.preview) {
+    return { ok: true, preview: true, cfg: access.cfg, houseId: "" };
+  }
   const house = await resolveSortedHouseForUser(message.guild.id, message.author.id, client);
   if (!house) {
     return { ok: false, message: "Completa prima lo smistamento Hogwarts per usare questo comando." };
@@ -583,12 +613,7 @@ async function lockRpsPvpStakes(client, guild, challengerId, opponentId, betAmou
   const stakes = [];
   for (const uid of [challenger, opponent]) {
     const member = await getGuildMemberCached(guild, uid, { preferFresh: false }).catch(() => null);
-    const gamb = await checkGamblingUserEligibility(
-      { guild, member, author: { id: uid, bot: false } },
-      client,
-      parsed.amount,
-      { ok: true, preview: false, cfg },
-    );
+    const gamb = await assertEconomyGamblingAccessForUser(client, guild, member, uid, parsed.amount);
     if (!gamb.ok) {
       return { ok: false, message: uid === challenger ? gamb.message : `L'avversario: ${gamb.message}` };
     }
@@ -731,12 +756,7 @@ async function lockTrisPvpStakes(client, guild, challengerId, opponentId, betAmo
   const stakes = [];
   for (const uid of [challenger, opponent]) {
     const member = await getGuildMemberCached(guild, uid, { preferFresh: false }).catch(() => null);
-    const gamb = await checkGamblingUserEligibility(
-      { guild, member, author: { id: uid, bot: false } },
-      client,
-      parsed.amount,
-      { ok: true, preview: false, cfg },
-    );
+    const gamb = await assertEconomyGamblingAccessForUser(client, guild, member, uid, parsed.amount);
     if (!gamb.ok) {
       return { ok: false, message: uid === challenger ? gamb.message : `L'avversario: ${gamb.message}` };
     }
@@ -1074,4 +1094,4 @@ async function transferGaleoni(client, message, targetUser, amountRaw) {
   };
 }
 
-module.exports = { ROB_BANK_TARGET_ID, assertEconomyAccess, assertEconomyAccessForUser, assertEconomyGamblingAccess, assertEconomyGamblingAccessForUser, assertSortedEconomyAccess, applyRpsCooldown, applyTrisCooldown, cashoutSlotsBank, claimFixed, claimWork, economyConfig, evaluateRobTarget, evaluateRouletteWin, evaluateRpsOutcome, eventKey, flushSlotsGuiPendingBank, formatDuration, isHighStaff, isRobBankTarget, lockRpsPvpStakes, lockTrisPvpStakes, normalizeCoinChoice, normalizeRouletteChoice, normalizeRps, parsePayAmount, payBlackjackWin, payScratchWin, payTrisWin, payout, peekFixedClaim, peekWorkClaim, playBlackjackBet, playCoinflip, playRoulette, playRouletteBanked, playRps, playScratchBet, playSlots, playSlotsBanked, playTrisBet, refundRpsPvpStake, refundTrisPvpStake, rob, robBank, RED_NUMBERS, resolveSortedHouseForUser, settleRpsPvp, settleTrisPvp, spendBet, spinRouletteResult, transferGaleoni };
+module.exports = { ROB_BANK_TARGET_ID, assertEconomyAccess, assertEconomyAccessForUser, assertEconomyGamblingAccess, assertEconomyGamblingAccessForUser, assertSortedEconomyAccess, applyRpsCooldown, applyTrisCooldown, cashoutSlotsBank, claimFixed, claimWork, economyConfig, evaluateRobTarget, evaluateRouletteWin, evaluateRpsOutcome, eventKey, flushSlotsGuiPendingBank, formatDuration, isGaleoniEconomyUnlocked, isHighStaff, isRobBankTarget, lockRpsPvpStakes, lockTrisPvpStakes, normalizeCoinChoice, normalizeRouletteChoice, normalizeRps, parsePayAmount, payBlackjackWin, payScratchWin, payTrisWin, payout, peekFixedClaim, peekWorkClaim, playBlackjackBet, playCoinflip, playRoulette, playRouletteBanked, playRps, playScratchBet, playSlots, playSlotsBanked, playTrisBet, refundRpsPvpStake, refundTrisPvpStake, rob, robBank, RED_NUMBERS, resolveSortedHouseForUser, settleRpsPvp, settleTrisPvp, spendBet, spinRouletteResult, transferGaleoni };

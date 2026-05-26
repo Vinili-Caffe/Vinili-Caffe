@@ -2,6 +2,9 @@ const { EmbedBuilder } = require("discord.js");
 const IDs = require("../../Utils/Config/ids");
 const { getGuildChannelCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { accountUsername } = require("../../Utils/Discord/guildDiscordIdentity");
+const { MS_PER_DAY, parseItalianDate, getPauseDaysBetween, getTodayUtc, getCurrentYearBoundsUtc, countOverlapDays, computeConsumedPauseDays, getMemberRoleLabel, getPauseStatusLabel, computePauseScaledDaysThisYear, getStaffPauseRecord, getStaffAndPauseByRequestMessageId, updatePauseInDb, buildRequestButtonsRow, buildAcceptedButtonsRow, schedulePauseButtonsRemoval, getBasePauseLimit, getPauseRoleLimit, getPauseTimingText, computeStaffersInPauseByRoleForRange, getPauseReasonFromMessage, normalizePauseRoleChoice, getPauseRoleTargets, roleChoiceAppliesTo, PAUSE_ROLE_STAFF, PAUSE_ROLE_PM, PAUSE_ROLE_BOTH, getBestStaffPauseBonusDays, getStaffPauseBonusDaysTotal, grantBestStaffPauseBonusYear } = require("../../Utils/Pause/pauseHandlersUtils");
+const { buildPauseListPayload, buildPauseListMonthRows } = require("../../Utils/Pause/pauseListRuntime");
+const pauseActionLocks = new Set();
 
 function pauseListMemberLabel(guild, client, userId) {
   const mem = guild?.members?.cache?.get(userId);
@@ -22,9 +25,6 @@ async function deletePauseThreadIfAny(guild, requestThreadId) {
     global.logger?.warn?.("[pause] delete thread failed:", tid, err?.message || err);
   }
 }
-const { MS_PER_DAY, parseItalianDate, getPauseDaysBetween, getTodayUtc, getCurrentYearBoundsUtc, countOverlapDays, computeConsumedPauseDays, getMemberRoleLabel, getPauseStatusLabel, computePauseScaledDaysThisYear, getStaffPauseRecord, getStaffAndPauseByRequestMessageId, updatePauseInDb, buildRequestButtonsRow, buildAcceptedButtonsRow, schedulePauseButtonsRemoval, getBasePauseLimit, getPauseRoleLimit, getPauseTimingText, computeStaffersInPauseByRoleForRange, getPauseReasonFromMessage, normalizePauseRoleChoice, getPauseRoleTargets, roleChoiceAppliesTo, PAUSE_ROLE_STAFF, PAUSE_ROLE_PM, PAUSE_ROLE_BOTH, getBestStaffPauseBonusDays, grantBestStaffPauseBonusYear } = require("../../Utils/Pause/pauseHandlersUtils");
-const { buildPauseListPayload, buildPauseListMonthRows } = require("../../Utils/Pause/pauseListRuntime");
-const pauseActionLocks = new Set();
 
 function resolveAcceptedPauseRoleChoice(member, targetPause) {
   const requested = normalizePauseRoleChoice(targetPause?.ruoloRichiesto);
@@ -272,8 +272,8 @@ async function handlePauseButton(interaction) {
 
     const roleChoiceForPause = normalizePauseRoleChoice(targetPause?.ruolo || targetPause?.ruoloRichiesto) || PAUSE_ROLE_STAFF;
     const baseLimit = getBasePauseLimit(member, roleChoiceForPause);
-    const bonusBestStaff = getBestStaffPauseBonusDays(member, stafferRecord);
-    const maxGiorni = baseLimit + bonusBestStaff;
+    const bonusPause = getStaffPauseBonusDaysTotal(member, stafferRecord);
+    const maxGiorni = baseLimit + bonusPause;
     const giorniTotaliUsati = computeConsumedPauseDays(stafferRecord.staff?.pauses);
     const giorniRimanenti = Math.max(0, maxGiorni - giorniTotaliUsati);
 
@@ -330,7 +330,8 @@ async function handlePauseButton(interaction) {
   const roleChoice = resolveAcceptedPauseRoleChoice(member, targetPause);
   const baseLimit = getBasePauseLimit(member, roleChoice);
   const bonusBestStaff = getBestStaffPauseBonusDays(member, stafferRecord);
-  const maxGiorni = baseLimit + bonusBestStaff;
+  const bonusPause = getStaffPauseBonusDaysTotal(member, stafferRecord);
+  const maxGiorni = baseLimit + bonusPause;
   const usedBefore = computeConsumedPauseDays(stafferRecord.staff?.pauses);
   const giorniUsati = usedBefore + giorniRichiesti;
   const giorniRimanenti = maxGiorni - giorniUsati;

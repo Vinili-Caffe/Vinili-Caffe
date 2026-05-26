@@ -13,8 +13,12 @@ function normalizeChannelId(value) {
 
 function rowToChannelMap(row) {
   if (!row || typeof row !== "object") return {};
+  const out = {};
   const quotes = normalizeChannelId(row.q ?? row.quotes ?? row?.cm?.quotes);
-  return quotes ? { quotes } : {};
+  const modLogs = normalizeChannelId(row.ml ?? row.modLogs ?? row?.cm?.modLogs);
+  if (quotes) out.quotes = quotes;
+  if (modLogs) out.modLogs = modLogs;
+  return out;
 }
 
 async function loadSettingsMap() {
@@ -35,7 +39,7 @@ function getTenantChannelMapSync(guildId) {
   return rowToChannelMap(settingsCache[gid]);
 }
 
-async function setTenantQuoteChannel(guildId, channelId) {
+async function setTenantChannelField(guildId, fieldKey, channelId) {
   const gid = normalizeGuildId(guildId);
   if (!gid || isViniliProtectedGuild(gid)) {
     return { ok: false, reason: "protected_guild" };
@@ -43,6 +47,8 @@ async function setTenantQuoteChannel(guildId, channelId) {
   if (!isMongoReady()) {
     return { ok: false, reason: "mongo_not_ready" };
   }
+  const key = String(fieldKey || "").trim();
+  if (!key) return { ok: false, reason: "invalid_field" };
   const map = await loadSettingsMap();
   const nextId = channelId ? normalizeChannelId(channelId) : null;
   if (channelId && !nextId) {
@@ -50,20 +56,41 @@ async function setTenantQuoteChannel(guildId, channelId) {
   }
   const prev = map[gid] && typeof map[gid] === "object" ? { ...map[gid] } : {};
   if (!nextId) {
-    delete prev.q;
+    delete prev[key];
     if (!Object.keys(prev).length) delete map[gid];
     else map[gid] = prev;
   } else {
-    map[gid] = { ...prev, q: nextId };
+    map[gid] = { ...prev, [key]: nextId };
   }
-  await setBotState(BOT_STATE_KEY, map);
+  const saved = await setBotState(BOT_STATE_KEY, map);
+  if (!saved) return { ok: false, reason: "persist_failed" };
   await refreshTenantGuildSettingsCache();
+  const verifyKey = key === "q" ? "quotes" : key === "ml" ? "modLogs" : null;
+  if (verifyKey) {
+    const persisted = getTenantChannelMapSync(gid)[verifyKey] || null;
+    if (nextId && persisted !== nextId) {
+      return { ok: false, reason: "persist_verify_failed" };
+    }
+    if (!nextId && persisted) {
+      return { ok: false, reason: "persist_verify_failed" };
+    }
+  }
   return { ok: true, channelId: nextId };
+}
+
+async function setTenantQuoteChannel(guildId, channelId) {
+  return setTenantChannelField(guildId, "q", channelId);
+}
+
+async function setTenantModLogChannel(guildId, channelId) {
+  return setTenantChannelField(guildId, "ml", channelId);
 }
 
 module.exports = {
   BOT_STATE_KEY,
   getTenantChannelMapSync,
   refreshTenantGuildSettingsCache,
+  setTenantChannelField,
   setTenantQuoteChannel,
+  setTenantModLogChannel,
 };

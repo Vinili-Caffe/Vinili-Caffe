@@ -50,7 +50,7 @@
         {
           id: "staff_altri_server",
           text: "6. Attualmente ricopri qualche carica da staffer in altri server? Se si, indica quali",
-          modalLabel: "6. Staff in altri serverx",
+          modalLabel: "6. Staff in altri server",
           placeholder: "",
           kind: "paragraph",
         },
@@ -126,8 +126,8 @@
         },
         {
           id: "fascia_oraria_disponibilita",
-          text: "15. In quale fascia oraria sei solitamente disponibile su discord?",
-          modalLabel: "15. Fascia oraria disponibile",
+          text: "16. In quale fascia oraria sei solitamente disponibile su discord?",
+          modalLabel: "16. Fascia oraria disponibile",
           placeholder: "",
           kind: "multi_choice",
           hint: "Puoi selezionare più di un’opzione.",
@@ -140,8 +140,8 @@
         },
         {
           id: "tempo_dedicato_server",
-          text: "15. Quanto tempo riesci a dedicare giornalmente al server?",
-          modalLabel: "15. Tempo dedicato al server",
+          text: "17. Quanto tempo riesci a dedicare giornalmente al server?",
+          modalLabel: "17. Tempo dedicato al server",
           kind: "choice",
           options: [
             { value: "Da 1 a 3 ore", label: "Da 1 a 3 ore" },
@@ -561,6 +561,17 @@
 
     var d = eligibilityState.data;
     if (!d || d.ok !== true) {
+      if (currentUser && eligibilityApiUrl()) {
+        showGateMessage(
+          "amber",
+          "Non è stato possibile verificare se puoi inviare la candidatura (API non raggiungibile). Ricarica la pagina o riprova tra poco.",
+        );
+        setFormInnerAndModuloTitleHidden(inner, false);
+        syncTabDisabledState();
+        setFieldsDisabled(false);
+        if (sub) sub.disabled = true;
+        return;
+      }
       clearGate();
       setFormInnerAndModuloTitleHidden(inner, false);
       syncTabDisabledState();
@@ -718,24 +729,25 @@
           wrap.appendChild(mHint);
         }
         var mGroup = document.createElement("div");
-        mGroup.className = "vc-candidature-choice-group vc-candidature-multi-group";
+        mGroup.className = "vc-candidature-choice-group";
         mGroup.setAttribute("role", "group");
         mGroup.setAttribute("aria-label", q.text);
         for (var mi = 0; mi < q.options.length; mi++) {
           var mOpt = q.options[mi];
-          var mBtn = document.createElement("button");
-          mBtn.type = "button";
-          mBtn.className = "vc-candidature-multi-choice";
-          mBtn.id = "vc-cf-" + q.id + "-" + mi;
-          mBtn.setAttribute("data-qid", q.id);
-          mBtn.setAttribute("data-value", String(mOpt.value != null ? mOpt.value : ""));
-          mBtn.setAttribute("aria-pressed", "false");
-          mBtn.textContent = String(mOpt.label != null ? mOpt.label : mOpt.value || "");
-          mBtn.addEventListener("click", function () {
-            var on = this.classList.toggle("vc-candidature-multi-choice--on");
-            this.setAttribute("aria-pressed", on ? "true" : "false");
-          });
-          mGroup.appendChild(mBtn);
+          var mRow = document.createElement("label");
+          mRow.className = "vc-candidature-choice";
+          var mChk = document.createElement("input");
+          mChk.type = "checkbox";
+          mChk.id = "vc-cf-" + q.id + "-" + mi;
+          mChk.className = "vc-candidature-choice-input";
+          mChk.setAttribute("data-qid", q.id);
+          mChk.value = String(mOpt.value != null ? mOpt.value : "");
+          var mCap = document.createElement("span");
+          mCap.className = "vc-candidature-choice-label";
+          mCap.textContent = String(mOpt.label != null ? mOpt.label : mOpt.value || "");
+          mRow.appendChild(mChk);
+          mRow.appendChild(mCap);
+          mGroup.appendChild(mRow);
         }
         wrap.appendChild(mGroup);
         root.appendChild(wrap);
@@ -818,12 +830,12 @@
       if (isMultiChoiceQuestion(q)) {
         var pickedMulti = fieldsRoot
           ? fieldsRoot.querySelectorAll(
-              '.vc-candidature-multi-choice--on[data-qid="' + q.id + '"]',
+              'input[type="checkbox"][data-qid="' + q.id + '"]:checked',
             )
           : [];
         var multiVals = [];
         for (var mvi = 0; mvi < pickedMulti.length; mvi++) {
-          var mv = String(pickedMulti[mvi].getAttribute("data-value") || "").trim();
+          var mv = String(pickedMulti[mvi].value || "").trim();
           if (mv) multiVals.push(mv);
         }
         out[q.id] = multiVals.length ? multiVals.map(function (v) { return "• " + v; }).join("\n") : "";
@@ -856,7 +868,7 @@
     if (!q) return byId("vc-cf-" + qid);
     if (isMultiChoiceQuestion(q)) {
       return (
-        document.querySelector('.vc-candidature-multi-choice[data-qid="' + qid + '"]') ||
+        document.querySelector('input[type="checkbox"][data-qid="' + qid + '"]') ||
         byId("vc-cf-" + qid + "-0")
       );
     }
@@ -864,13 +876,13 @@
     return byId("vc-cf-" + qid);
   }
 
-  function firstMissingQuestionId(ans) {
+  function firstMissingQuestion(ans) {
     var cfg = APPLICATIONS[activeKind];
     for (var i = 0; i < cfg.questions.length; i++) {
       var q = cfg.questions[i];
-      if (!ans[q.id]) return q.id;
+      if (!ans[q.id]) return q;
     }
-    return "";
+    return null;
   }
 
   function setSubmitLoading(loading) {
@@ -963,11 +975,11 @@
       return;
     }
     var ans = collectAnswers();
-    var missingId = firstMissingQuestionId(ans);
-    if (missingId) {
-      var fieldEl = validationFocusControlForQuestion(missingId);
+    var missingQ = firstMissingQuestion(ans);
+    if (missingQ) {
+      var fieldEl = validationFocusControlForQuestion(missingQ.id);
       if (window.vcFieldValidationTip) window.vcFieldValidationTip.show(fieldEl);
-      else alert("Compila tutti i campi obbligatori.");
+      else alert("Compila tutti i campi obbligatori.\n\nManca: " + (missingQ.text || missingQ.id));
       return;
     }
     setSubmitSuccessVisible(false);
@@ -993,6 +1005,17 @@
           return;
         }
         var baseMsg = data.message || data.error || "Invio non riuscito (" + res.status + ").";
+        if (data.field) {
+          var cfgErr = APPLICATIONS[activeKind];
+          if (cfgErr && cfgErr.questions) {
+            for (var ei = 0; ei < cfgErr.questions.length; ei++) {
+              if (cfgErr.questions[ei].id === data.field) {
+                baseMsg += "\n\nCampo: " + cfgErr.questions[ei].text;
+                break;
+              }
+            }
+          }
+        }
         var hint404 = "";
         if (res.status === 404) {
           var origin = "";

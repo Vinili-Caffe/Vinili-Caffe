@@ -1,5 +1,6 @@
 const { isViniliProtectedGuild } = require("../../MultiGuild/core/viniliProtectedGuilds");
 const { resolveGuildAccess } = require("../../MultiGuild/core/guildRegistry");
+const { getTenantChannelMapSync } = require("../../MultiGuild/core/tenantGuildSettings");
 const { getGuildChannelCached } = require("../Interaction/interactionEntityCache");
 const IDs = require("../Config/ids");
 
@@ -14,6 +15,8 @@ function resolveQuoteChannelId(guildId) {
   if (isViniliProtectedGuild(gid)) {
     return normalizeQuoteChannelId(IDs.channels?.quotes);
   }
+  const fromTenantSettings = normalizeQuoteChannelId(getTenantChannelMapSync(gid).quotes);
+  if (fromTenantSettings) return fromTenantSettings;
   try {
     const access = resolveGuildAccess(gid);
     return normalizeQuoteChannelId(access?.entry?.channelMap?.quotes);

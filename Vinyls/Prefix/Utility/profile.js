@@ -4,7 +4,9 @@ const IDs = require("../../Utils/Config/ids");
 const { buildStaffProfilePayload, SECTION_HOME } = require("../../Utils/Staff/staffProfilePanelRuntime");
 
 const PROFILE_STAFF_PM_ONLY_CHANNEL_ID = "1495544523848286340";
-const PROFILE_STAFF_OR_PM_CHANNEL_ID = String(IDs.channels?.staffCmds || "1442569262689554444");
+const PROFILE_STAFF_PROFILE_CHANNEL_IDS = new Set(
+  [IDs.channels?.staffCmds, IDs.channels?.highCmds].filter(Boolean).map(String),
+);
 
 async function resolveTargetUser(message, args = []) {
   const mentioned = message?.mentions?.users?.first?.();
@@ -81,7 +83,7 @@ module.exports = {
       return;
     }
 
-    if (channelId === PROFILE_STAFF_OR_PM_CHANNEL_ID) {
+    if (PROFILE_STAFF_PROFILE_CHANNEL_IDS.has(channelId)) {
       const staffPayload = await buildStaffProfilePayload(
         message.guild,
         targetUser.id,

@@ -234,7 +234,6 @@ async function startWebhookServer(client) {
     const isSiteReviews = pathStr.startsWith("/webhooks/site-reviews");
     const isSiteSuggestions = pathStr.startsWith("/webhooks/site-suggestions");
     const isSiteNotifications = pathStr.startsWith("/webhooks/site-notifications");
-    const isSiteForum = pathStr.startsWith("/webhooks/site-forum");
     const isSiteVerify = pathStr.startsWith("/webhooks/site-verify");
     const isSitePayments = pathStr.startsWith("/webhooks/site-payments");
     const isSiteSeratafilmAccess = pathStr.startsWith("/webhooks/site-seratafilm-access");
@@ -417,7 +416,6 @@ async function startWebhookServer(client) {
   const { getSiteReviews, submitSiteReview, deleteSiteReview, toggleSiteReviewLike, upsertServerReviewReply } = require("../../Utils/Web/siteReviewsApi");
   const { getSiteSuggestions, createSiteSuggestion, updateOwnSiteSuggestion, deleteOwnSiteSuggestion, addSiteSuggestionComment, updateSiteSuggestionComment, deleteSiteSuggestionComment, setSiteSuggestionCommentVote, setSiteSuggestionVote, staffAcceptSiteSuggestion, staffRejectSiteSuggestion, staffDeleteSiteSuggestion } = require("../../Utils/Web/siteSuggestionsApi");
   const { handleSiteNotificationsGet, handleSiteNotificationsMarkReadPost, handleSiteNotificationsClearPost, handleSiteNotificationsDeletePost } = require("../../Utils/Web/siteInAppNotificationsApi");
-  const { getSiteForumThreads, getSiteForumThreadMessages, getSiteForumThreadMessagesAuthed, createSiteForumThread, createSiteForumMessage, updateSiteForumThread } = require("../../Utils/Web/siteForumApi");
   const { completeSiteVerify } = require("../../Utils/Web/siteVerifyApi");
   const { handleSiteSeratafilmAccessGet } = require("../../Utils/Web/siteSeratafilmAccessApi");
   const { handleHogwartsForbiddenBooksClaim, handleHogwartsForbiddenBooksGet, handleHogwartsHousePointsGet, handleHogwartsPotionsGet, handleHogwartsPotionsPost, handleHogwartsShopGet, handleHogwartsShopPurchasePost, handleHogwartsSortingBootstrap, handleHogwartsSortingEligibility, handleHogwartsSortingSubmit, handleHogwartsSortingAccessGet, handleHogwartsGringottGet } = require("../../Utils/Web/siteHogwartsSortingApi");
@@ -573,108 +571,6 @@ async function startWebhookServer(client) {
       urlJson +
       ");})();<\/script></body></html>";
     res.status(200).type("text/html; charset=utf-8").send(html);
-  });
-  app.get("/webhooks/site-forum", async (req, res) => {
-    try {
-      const out = await getSiteForumThreads(client, { limit: req.query?.limit });
-      return res.status(Number(out.status) || 500).json(out);
-    } catch (err) {
-      global.logger?.error?.("[WEBHOOK] site-forum get:", err);
-      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
-    }
-  });
-  app.get("/webhooks/site-forum/:threadId/messages", async (req, res) => {
-    try {
-      const accessToken = normalizeHeaderSecret(req.headers.authorization);
-      const load = accessToken ? getSiteForumThreadMessagesAuthed : getSiteForumThreadMessages;
-      const out = await load(client, {
-        accessToken,
-        threadId: req.params?.threadId,
-        limit: req.query?.limit,
-        before: req.query?.before,
-      });
-      return res.status(Number(out.status) || 500).json(out);
-    } catch (err) {
-      global.logger?.error?.("[WEBHOOK] site-forum messages get:", err);
-      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
-    }
-  });
-  app.post("/webhooks/site-forum", async (req, res) => {
-    try {
-      const accessToken = normalizeHeaderSecret(req.headers.authorization);
-      if (!accessToken) {
-        return res.status(401).json({
-          ok: false,
-          error: "missing_token",
-          message: "Header Authorization: Bearer <token> richiesto.",
-        });
-      }
-      const body = req.body && typeof req.body === "object" ? req.body : {};
-      const tagIds = Array.isArray(body.tagIds)
-        ? body.tagIds
-        : typeof body.tagIds === "string"
-          ? body.tagIds.split(",")
-          : [];
-      const out = await createSiteForumThread(client, {
-        accessToken,
-        title: body.title,
-        content: body.content,
-        media: body.media,
-        tagIds,
-      });
-      return res.status(Number(out.status) || 500).json(out);
-    } catch (err) {
-      global.logger?.error?.("[WEBHOOK] site-forum post:", err);
-      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
-    }
-  });
-  app.post("/webhooks/site-forum/:threadId/messages", async (req, res) => {
-    try {
-      const accessToken = normalizeHeaderSecret(req.headers.authorization);
-      if (!accessToken) {
-        return res.status(401).json({
-          ok: false,
-          error: "missing_token",
-          message: "Header Authorization: Bearer <token> richiesto.",
-        });
-      }
-      const body = req.body && typeof req.body === "object" ? req.body : {};
-      const out = await createSiteForumMessage(client, {
-        accessToken,
-        threadId: req.params?.threadId,
-        content: body.content,
-        media: body.media,
-      });
-      return res.status(Number(out.status) || 500).json(out);
-    } catch (err) {
-      global.logger?.error?.("[WEBHOOK] site-forum message post:", err);
-      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
-    }
-  });
-  app.patch("/webhooks/site-forum/:threadId", async (req, res) => {
-    try {
-      const accessToken = normalizeHeaderSecret(req.headers.authorization);
-      if (!accessToken) {
-        return res.status(401).json({
-          ok: false,
-          error: "missing_token",
-          message: "Header Authorization: Bearer <token> richiesto.",
-        });
-      }
-      const body = req.body && typeof req.body === "object" ? req.body : {};
-      const out = await updateSiteForumThread(client, {
-        accessToken,
-        threadId: req.params?.threadId,
-        title: body.title,
-        content: body.content,
-        archived: body.archived,
-        locked: body.locked,
-      });
-      return res.status(Number(out.status) || 500).json(out);
-    } catch (err) {
-      global.logger?.error?.("[WEBHOOK] site-forum thread patch:", err);
-      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
-    }
   });
   app.get("/webhooks/site-live-event", (req, res) => {
     return handleSiteLiveEventGet(client, req, res);

@@ -83,16 +83,14 @@ async function trackMemberJoin(member) {
 
   const now = new Date();
   const dateKey = getRomeDateKey(now);
+  const userId = String(member.id);
   let isNewUser = false;
 
   try {
-    const userId = String(member.id);
     const existing = await getSeenUser("memberSeen", guildId, userId);
-    isNewUser = !existing?.firstJoinedAt;
+    const knownBefore = await wasKnownBeforeStatsTracker(guildId, userId);
+    isNewUser = !existing?.firstJoinedAt && !knownBefore;
     await recordEffectiveMemberJoin(member);
-    if (isNewUser && await wasKnownBeforeStatsTracker(guildId, String(member.id))) {
-      isNewUser = false;
-    }
   } catch (err) {
     global.logger?.warn?.("[DAILY MEMBER STATS] seen user upsert failed:", err?.message || err);
   }

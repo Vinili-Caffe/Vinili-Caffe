@@ -7,6 +7,7 @@ const { resolveModLogChannel, sendStaffActionToModLogs, sendModCommandUsageToMod
 const { sendDm } = require("../noDmList");
 const { userAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
 const { buildUnbanRequestRow } = require("./unbanRequestButton");
+const { isViniliProtectedGuild } = require("../../MultiGuild/core/viniliProtectedGuilds");
 
 function embed(client, title, description, color = null) {
   return new EmbedBuilder()
@@ -194,9 +195,10 @@ async function sendModerationDm({ user, guildId, guildName, action, reason = "",
 
   const embed = new EmbedBuilder().setColor("#ED4245").setDescription(baseText);
   let components = undefined;
-  if (actionKey === "ban") {
+  const viniliGuild = isViniliProtectedGuild(guildId);
+  if (actionKey === "ban" && viniliGuild) {
     components = [buildUnbanRequestRow()];
-  } else if (actionKey === "unban") {
+  } else if (actionKey === "unban" && viniliGuild) {
     const rawInvite = String(IDs?.links?.invite || "").trim();
     const inviteUrl = /^https?:\/\//i.test(rawInvite) ? rawInvite : rawInvite ? `https://${rawInvite.replace(/^\/+/, "")}` : "";
     if (inviteUrl) {
@@ -274,10 +276,10 @@ function formatDurationWords(ms) {
   const minutes = Math.floor((total % 3600) / 60);
   const seconds = total % 60;
   const parts = [];
-  if (days > 0) parts.push(`${days} giorno ${days === 1 ? "" : "i"}`);
-  if (hours > 0) parts.push(`${hours} ora ${hours === 1 ? "" : "e"}`);
-  if (minutes > 0) parts.push(`${minutes} minuto ${minutes === 1 ? "" : "i"}`);
-  if (seconds > 0 && !parts.length) parts.push(`${seconds} secondo ${seconds === 1 ? "" : "i"}`);
+  if (days > 0) parts.push(`${days} giorno${days === 1 ? "" : "i"}`);
+  if (hours > 0) parts.push(`${hours} ora${hours === 1 ? "" : "e"}`);
+  if (minutes > 0) parts.push(`${minutes} minuto${minutes === 1 ? "" : "i"}`);
+  if (seconds > 0 && !parts.length) parts.push(`${seconds} secondo${seconds === 1 ? "" : "i"}`);
   return parts.join(", ");
 }
 

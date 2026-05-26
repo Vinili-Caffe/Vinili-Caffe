@@ -35,12 +35,12 @@ const {
   forbiddenProgressPayload,
   getForbiddenClosure,
   getForbiddenUserDoc,
-  FORBIDDEN_END_MS,
+  resolveForbiddenBooksSchedule,
 } = require("../../Services/Community/hogwartsForbiddenBooksService");
 const POTIONS_PROFILE_PATH = "profile.events.hogwarts.potions";
 const POTIONS_DEFAULT_CONFIG = Object.freeze({
   enabled: true,
-  startDate: "2026-08-24T00:00:00",
+  startDate: "2026-08-24T12:00:00",
   cooldownMs: 12 * 60 * 60 * 1000,
   rewardGaleoni: 10,
   rewardHousePoints: 10,
@@ -137,20 +137,26 @@ async function findExistingSort(guildId, userId, eventKey) {
 
 async function assignHouseRoles(member, cfg, houseId) {
   const houseRoleId = String(cfg.houses?.[houseId]?.roleId || "").trim();
+  const participantRoleId = String(cfg.completionRoleId || "").trim();
   const otherRoleIds = HOUSES.map((h) => String(cfg.houses?.[h]?.roleId || "").trim()).filter(
     (id) => id && id !== houseRoleId,
   );
-  const toAdd = houseRoleId ? [houseRoleId] : [];
+  const toAdd = [];
+  if (houseRoleId && !member.roles.cache.has(houseRoleId)) toAdd.push(houseRoleId);
+  if (participantRoleId && !member.roles.cache.has(participantRoleId)) toAdd.push(participantRoleId);
   const toRemove = otherRoleIds.filter((id) => member.roles.cache.has(id));
   if (!toAdd.length && !toRemove.length) {
     return { roleAssigned: false, roleSkippedReason: "roles_not_configured" };
   }
   try {
     if (toRemove.length) await member.roles.remove(toRemove, "Smistamento Evento");
-    if (toAdd.length && !member.roles.cache.has(houseRoleId)) {
-      await member.roles.add(houseRoleId, "Smistamento Evento");
-    }
-    return { roleAssigned: Boolean(houseRoleId), roleId: houseRoleId || null };
+    if (toAdd.length) await member.roles.add(toAdd, "Smistamento Evento");
+    return {
+      roleAssigned: Boolean(houseRoleId),
+      roleId: houseRoleId || null,
+      participantRoleAssigned: Boolean(participantRoleId && member.roles.cache.has(participantRoleId)),
+      participantRoleId: participantRoleId || null,
+    };
   } catch (err) {
     global.logger?.warn?.("[hogwarts-sorting] assign roles:", err?.message || err);
     return { roleAssigned: false, roleError: String(err?.message || err).slice(0, 200) };
@@ -1080,7 +1086,7 @@ async function resolveForbiddenBookParticipant(client, req, options = {}) {
   const resolved = await resolveWebsiteCandidatureMember(client, accessToken);
   if (!resolved.ok) return { ...resolved, status: Number(resolved.status) || 500 };
   const cfg = resolveHogwartsEventConfig(client);
-  const previewViewer = canPreviewForbiddenBooks(cfg, resolved.member, resolved.userId);
+  const previewViewer = canPreviewForbiddenBooks(client, resolved.member, resolved.userId);
   if (!previewViewer) {
     const participation = await assertHogwartsEventParticipationForUser(
       client,
@@ -1089,9 +1095,10 @@ async function resolveForbiddenBookParticipant(client, req, options = {}) {
     );
     if (!participation.ok) return participation;
   }
-  if (!forbiddenEventOpen(cfg) && !previewViewer) {
+  if (!forbiddenEventOpen(client) && !previewViewer) {
     const now = Date.now();
-    if (Number.isFinite(FORBIDDEN_END_MS) && now > FORBIDDEN_END_MS) {
+    const { endMs } = resolveForbiddenBooksSchedule(client);
+    if (Number.isFinite(endMs) && now > endMs) {
       return {
         ok: false,
         status: 403,

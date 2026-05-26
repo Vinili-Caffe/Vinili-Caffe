@@ -13,8 +13,8 @@ const HOUSE_IDS = ["gryffindor", "hufflepuff", "ravenclaw", "slytherin"];
 const DEFAULT_CONFIG = {
   enabled: true,
   eventKey: "premi_la_react_2026",
-  startDate: "2026-07-11T00:00:00",
-  endDate: "2026-08-11T23:59:59",
+  startDate: "2026-07-11T12:00:00",
+  endDate: "2026-08-11T10:00:00",
   emoji: "⚡",
   rewardGaleoni: 3,
   rewardHousePoints: 10,
@@ -78,6 +78,11 @@ function eventOpen(c, nowMs = Date.now()) {
   const startMs = parseLocalMs(c.startDate, DEFAULT_CONFIG.startDate);
   const endMs = parseLocalMs(c.endDate, DEFAULT_CONFIG.endDate);
   return Number.isFinite(startMs) && Number.isFinite(endMs) && nowMs >= startMs && nowMs <= endMs;
+}
+
+function isPremiLaReactEventEnded(c, nowMs = Date.now()) {
+  const endMs = parseLocalMs(c?.endDate, DEFAULT_CONFIG.endDate);
+  return Number.isFinite(endMs) && Number(nowMs) > endMs;
 }
 
 function randomDelay(c) {
@@ -430,4 +435,10 @@ async function handleReactPressReaction(client, reaction, user) {
   return true;
 }
 
-module.exports = { handleReactPressReaction, recordReactPressCandidateMessage, startReactPressEventLoop };
+module.exports = {
+  getPremiLaReactConfig: cfg,
+  handleReactPressReaction,
+  isPremiLaReactEventEnded,
+  recordReactPressCandidateMessage,
+  startReactPressEventLoop,
+};

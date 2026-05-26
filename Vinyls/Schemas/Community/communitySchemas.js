@@ -224,7 +224,6 @@ const staffPartnerActionSchema = new Schema(
     action: String,
     partner: String,
     invite: String,
-    /** ID Discord del server target (da API invite), per audit duplicati stesso giorno. */
     partnerGuildId: { type: String, default: null },
     managerId: String,
     partnershipChannelId: String,
@@ -280,7 +279,7 @@ const staffAutoValutazioneSchema = new Schema(
   },
   { _id: false },
 );
-/** Ex-dedicated `Staff` collection: dati staff/PM/pause/event incastonati nel profilo activity. */
+
 const staffEmbeddedSchema = new Schema(
   {
     rolesHistory: { type: [staffRolesHistoryEntrySchema], default: [] },
@@ -295,18 +294,14 @@ const staffEmbeddedSchema = new Schema(
     valutazioniCount: { type: Number, default: 0 },
     autoValutazioni: { type: [staffAutoValutazioneSchema], default: [] },
     partnerCount: { type: Number },
-    /** Somma punti tolti con riscatto premi PM (non modifica lo storico partnership). */
     partnerRedeemSpend: { type: Number, default: 0 },
     managerId: { type: String },
     partnerActions: { type: [staffPartnerActionSchema] },
-    /** Soglie premio PM (50/100/150/200) per cui è già stato inviato il promemoria in DM. */
     partnerMilestoneDmSent: { type: [Number], default: [] },
-    /** Riscatto 50 pt PM: accesso Custom Role + Custom Voc fino a questa data. */
     partnerManagerCustomPerksUntil: { type: Date, default: null },
-    /** Riscatto 100 pt PM: VIP fino a questa data (rimozione ruolo a scadenza). */
     partnerManagerVipUntil: { type: Date, default: null },
-    /** Anni (UTC) in cui vale +5 giorni pausa Staff del mese, anche dopo rimozione del ruolo. */
     bestStaffPauseBonusYears: { type: [Number], default: [] },
+    valPosTradedPauseBonusDays: { type: Number, default: 0 },
     pauses: { type: [staffPauseEntrySchema], default: [] },
   },
   { _id: false },
@@ -646,6 +641,7 @@ const SITE_DOCUMENT_TYPE = Object.freeze({
   HOGWARTS_HOUSE_POINTS: "hogwarts_house_points",
   HOGWARTS_REACT_PRESS: "hogwarts_react_press",
   HOGWARTS_EVENT_COMPLETION: "hogwarts_event_completion",
+  HOGWARTS_SPELL_LIST_HUNT: "hogwarts_spell_list_hunt",
 });
 
 const siteSuggestionCommentSchema = new Schema(
@@ -809,6 +805,10 @@ siteDocumentSchema.index(
 siteDocumentSchema.index(
   { docType: 1, guildId: 1, dedupeKey: 1 },
   { unique: true, name: "hogwarts_event_completion_unique", partialFilterExpression: { docType: SITE_DOC.HOGWARTS_EVENT_COMPLETION } },
+);
+siteDocumentSchema.index(
+  { docType: 1, guildId: 1, dedupeKey: 1 },
+  { unique: true, name: "hogwarts_spell_list_hunt_round_unique", partialFilterExpression: { docType: SITE_DOC.HOGWARTS_SPELL_LIST_HUNT } },
 );
 
 const MOD_CASE_COLLECTION = process.env.MOD_CASE_COLLECTION ? String(process.env.MOD_CASE_COLLECTION).trim() : "mod_case";

@@ -5,6 +5,7 @@
  * Categorie admin e dev: omesse dalla wiki pubblica.
  * Visibilità comandi (prefix/slash/context): come +help per un utente con solo ruolo Member
  * (permissions.json + canMemberSeeEntry). Cartella Prefix "misc" esclusa come in help.
+ * Comandi tenantOnly / hideFromHelp (es. +settings multi-guild): esclusi dalla wiki pubblica.
  */
 import fs from "fs";
 import path from "path";
@@ -16,6 +17,8 @@ import {
   getPrefixPermissionConfig,
   isPrefixCommandVisibleOnWiki,
   isSlashOrContextVisibleOnWiki,
+  isWikiEconomyCategoryVisible,
+  WIKI_ECONOMY_CATEGORY_ID,
 } from "./wiki-help-visibility.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -28,6 +31,7 @@ const PREFIX_FOLDER_LABELS = {
   minigames: "Minigiochi",
   stats: "Statistiche",
   moderation: "Moderazione",
+  economy: "Economia Galeoni",
   admin: "Admin",
   staff: "Staff",
   event: "Eventi",
@@ -40,6 +44,7 @@ const CATEGORY_ORDER = [
   "level",
   "minigames",
   "stats",
+  "economy",
   "staff",
   "moderation",
   "event",
@@ -182,6 +187,7 @@ function parsePrefixCommandFile(filePath, src) {
   const block = extractModuleExportsBlock(src);
   if (!block) return null;
   if (/\bskipLoad:\s*true/.test(block) || /\bskipPrefix:\s*true/.test(block)) return null;
+  if (/\btenantOnly:\s*true/.test(block) || /\bhideFromHelp:\s*true/.test(block)) return null;
   let name = null;
   const literalM = block.match(/\bname:\s*["']([a-zA-Z0-9_-]+)["']/);
   if (literalM) name = literalM[1];
@@ -296,6 +302,7 @@ function hintForPrefixCommand(name, meta, prefixMap, subMap) {
 
 function collectVinili() {
   const vinylsRoot = path.join(REPO_ROOT, "Vinyls");
+  const economyWikiVisible = isWikiEconomyCategoryVisible(vinylsRoot);
   const helpPath = path.join(vinylsRoot, "Prefix", "Utility", "help.js");
   const helpSrc = read(helpPath);
   const prefixDesc = parseConstStringMap(helpSrc, "PREFIX_HELP_DESCRIPTIONS");
@@ -381,6 +388,7 @@ function collectVinili() {
     const folderKey = String(folder).toLowerCase();
     if (folderKey === "misc") continue;
     if (!wikiPublicCategory(folderKey)) continue;
+    if (folderKey === WIKI_ECONOMY_CATEGORY_ID && !economyWikiVisible) continue;
     if (permFilter) {
       const nameKey = String(meta.name || "").trim().toLowerCase();
       const permCfg = getPrefixPermissionConfig(permFilter.permissions, nameKey);

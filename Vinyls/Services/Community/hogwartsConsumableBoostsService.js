@@ -5,14 +5,8 @@ const { getGuildChannelCached } = require("../../Utils/Interaction/interactionEn
 const { resolveHogwartsEventConfig } = require("../../Utils/Web/hogwartsSortingConfig");
 const { economyConfig } = require("./galeoniEconomyService");
 const { spendGaleoni } = require("./gringottService");
-const {
-  CONSUMABLE_BOOST_SCOPES,
-  CONSUMABLE_BOOST_TYPES,
-  consumablePrice,
-  getConsumableById,
-} = require("../../Utils/Web/hogwartsShopConsumablesCatalog");
+const { CONSUMABLE_BOOST_SCOPES, CONSUMABLE_BOOST_TYPES, consumablePrice, getConsumableById } = require("../../Utils/Web/hogwartsShopConsumablesCatalog");
 const { isHogwartsShopBoostActive } = require("./hogwartsShopBoostsService");
-
 const HOUSE_POINTS_DOC = SITE_DOCUMENT_TYPE.HOGWARTS_HOUSE_POINTS;
 const HOUSE_POINTS_OWNER_ID = "__event__";
 const PERSONAL_BOOSTS_PATH = "profile.events.hogwarts.consumableBoosts";
@@ -277,7 +271,7 @@ async function announceGlobalConsumableBoost(client, guildId, { item, buyerDispl
   const housePart = houseLabel ? ` (${houseLabel})` : "";
   const duration = formatDurationIt(item.durationMs);
   const content = `<a:VC_Events:1482706144953897223> **${buyer}**${housePart} ha attivato **${item.name}**!\n`
-    + `> Boost **×2 ${effectLabel}** globale per **${duration}** — vale per **tutte le case**.`;
+    + `> Boost **×2 ${effectLabel}** globale per **${duration}**.`;
   await channel.send({ content, allowedMentions: { parse: [] } }).catch((err) => {
     global.logger?.warn?.("[hogwarts-consumable-boost] announce:", err?.message || err);
   });
@@ -430,17 +424,4 @@ function publicConsumablesCatalogWithAvailability(catalog, activeBoosts, guildBo
   };
 }
 
-module.exports = {
-  activateConsumableBoost,
-  assertConsumableActivationAllowed,
-  economyConsumablesLockMessage,
-  getActiveConsumableBoosts,
-  isEconomyConsumablesUnlocked,
-  loadGuildConsumableBoosts,
-  publicActiveBoostsPayload,
-  publicConsumablesCatalogWithAvailability,
-  purchaseAndActivateConsumable,
-  resolveConsumablePurchaseBlock,
-  resolveExpConsumableMultiplier,
-  resolveHousePointsConsumableMultiplier,
-};
+module.exports = { activateConsumableBoost, assertConsumableActivationAllowed, economyConsumablesLockMessage, getActiveConsumableBoosts, isEconomyConsumablesUnlocked, loadGuildConsumableBoosts, publicActiveBoostsPayload, publicConsumablesCatalogWithAvailability, purchaseAndActivateConsumable, resolveConsumablePurchaseBlock, resolveExpConsumableMultiplier, resolveHousePointsConsumableMultiplier };

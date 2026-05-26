@@ -3,7 +3,7 @@ const DISCORD_TIMEOUT_MAX_MS = 28 * 24 * 60 * 60_000;
 const MOD_RULE_DETAIL = {
   "1.1": "**Rispettare** i [__ToS__](https://discord.com/terms) e le [__Linee Guida__](https://discord.com/guidelines) di Discord.",
   "1.2": "**Nessuna discriminazione.** Sono vietate forme di razzismo, incitamento al fascismo/nazismo, omofobia e altri comportamenti denigratori (comprese f-word e n-word).",
-  "1.3": "Il **rispetto** è alla base di tutto. I comportamenti considerati **tossici** saranno sanzionati (compresa la promozione di attività illecite o di raid/grief/nuke).",
+  "1.3": "Il **rispetto** è alla base di tutto. I comportamenti considerati **tossici** o **troll** saranno sanzionati (compresa la promozione di attività illecite o di raid/grief/nuke).",
   "1.4": "L'**autopromozione** è vietata (anche in **DM**). Se vuoi dare visibilità ai tuoi progetti, valuta le nostre offerte di **sponsor**.",
   "1.5": "Praticare **join-leave** per il solo scopo di **infastidire** è una pratica scorretta e non accettata.",
   "2.1": "Il **doxing** è un reato e una violazione delle informazioni personali altrui. È vietato insieme all'invio di materiale **NSFW** di qualsiasi tipo.",

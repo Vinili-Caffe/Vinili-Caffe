@@ -99,6 +99,19 @@ async function getGringottBalance(guildId, userId, eventKey = "") {
   return resolveGringottState(doc, eventKey);
 }
 
+function isMongoDuplicateKeyError(err) {
+  return err?.code === 11000 || String(err?.message || "").includes("E11000");
+}
+
+async function upsertActivityProfile(query, update, options = {}) {
+  try {
+    return await ActivityUserProfile.findOneAndUpdate(query, update, options);
+  } catch (err) {
+    if (!isMongoDuplicateKeyError(err) || !options.upsert) throw err;
+    return ActivityUserProfile.findOneAndUpdate(query, update, { ...options, upsert: false });
+  }
+}
+
 async function addGaleoni({ guildId, userId, amount, reason, actorId = null, source = "manual", eventKey = "", rewardKey = "" }) {
   const g = normalizeId(guildId);
   const u = normalizeId(userId);
@@ -121,7 +134,7 @@ async function addGaleoni({ guildId, userId, amount, reason, actorId = null, sou
 
   const query = { guildId: g, userId: u };
   if (entry.rewardKey) query[REWARD_KEYS_PATH] = { $ne: entry.rewardKey };
-  const doc = await ActivityUserProfile.findOneAndUpdate(query, update, {
+  const doc = await upsertActivityProfile(query, update, {
     new: true,
     upsert: true,
     setDefaultsOnInsert: true,

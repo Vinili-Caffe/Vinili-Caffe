@@ -123,6 +123,9 @@
   function showCinema() {
     var cinema = byId("vc-hw-cinema");
     if (!cinema) return false;
+    try {
+      if (typeof window.__vcHogwartsYoutubeHideHint === "function") window.__vcHogwartsYoutubeHideHint();
+    } catch (eH) {}
     cinema.hidden = false;
     cinema.removeAttribute("hidden");
     cinema.classList.add("vc-hw-cinema--open", "vc-hw-cinema--boot");
@@ -372,7 +375,7 @@
         return;
       }
     }
-    if (!introRunning) openIntro(null);
+    if (!introRunning) return;
     showCinema();
     startVideoPlayback();
   }

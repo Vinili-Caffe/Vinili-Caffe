@@ -14,7 +14,7 @@ const HELP_EMBED_COLOR = "#6f4e37";
 const ERROR_EMBED_COLOR = "Red";
 const PRIVATE_FLAG = 1 << 6;
 const NO_REPLY_MENTIONS = { repliedUser: false, parse: [] };
-const DEFAULT_ECONOMY_START_DATE = "2026-08-10T00:00:00";
+const { isGaleoniEconomyUnlocked } = require("../../Services/Community/galeoniEconomyService");
 const PAGE_ROLE_IDS = [IDs.roles.Member, IDs.roles.Staff, IDs.roles.HighStaff, IDs.roles.Founder,].filter(Boolean);
 const PAGE_TITLES = { [IDs.roles.Member]: "Comandi Utente", [IDs.roles.Staff]: "Comandi Staff", [IDs.roles.HighStaff]: "Comandi High Staff", [IDs.roles.Founder]: "Comandi Dev", all: "Comandi Disponibili", };
 const CATEGORY_LABELS = { utility: "Utility", music: "Musica", tts: "TTS", level: "Level", minigames: "Minigames", stats: "Stats", economy: "Economy", moderation: "Moderation", admin: "Admin", staff: "Staff", vip: "VIP", dev: "Dev", };
@@ -466,21 +466,13 @@ function shouldIncludeSlashCommandInHelp(command) {
   return true;
 }
 
-function shouldShowEconomyHelp(client) {
-  const cfg = client?.config?.galeoniEconomy || {};
-  if (cfg.enabled === false) return false;
-  const startDate = String(cfg.startDate || DEFAULT_ECONOMY_START_DATE).trim();
-  const startMs = new Date(startDate).getTime();
-  return Number.isFinite(startMs) ? Date.now() >= startMs : true;
-}
-
 function buildEntries(client, permissions) {
   const entries = [];
-  const showEconomyHelp = shouldShowEconomyHelp(client);
+  const showEconomyHelp = isGaleoniEconomyUnlocked(client);
 
   for (const command of client.pcommands.values()) {
     if (!command?.name) continue;
-    if (command.tenantOnly) continue;
+    if (command.tenantOnly || command.hideFromHelp) continue;
     if (OBSOLETE_PREFIX_HELP_NAMES.has(String(command.name).trim().toLowerCase())) continue;
     if (normalizeCategoryKey(command.folder || "misc") === "economy" && !showEconomyHelp) continue;
 

@@ -79,7 +79,44 @@ function cooldownStorageKey(userId, type) {
 const draftByStateKey = new Map();
 const candidatePexLocks = new Set();
 const applicationCounters = { helper: 0, partnermanager: 0, };
-const APPLICATIONS = { helper: { label: "Helper", questions: [{ id: "id_discord", text: "1. ID", modalLabel: "1. ID", placeholder: "Copia e incolla il tuo ID di Discord", style: TextInputStyle.Short, }, { id: "eta", text: "2. Età", modalLabel: "2. Età", placeholder: "Scrivi la tua età", style: TextInputStyle.Short, }, { id: "staff_server", text: "3. Nomina tutti i server dove sei stato staff, per quanto tempo e che ruolo avevi", modalLabel: "3. Esperienze staff", style: TextInputStyle.Paragraph, }, { id: "motivo_candidatura", text: "4. Come mai ti sei voluto candidare su Vinili & Caffè?", modalLabel: "4. Motivo candidatura", style: TextInputStyle.Paragraph, }, { id: "aiuto_economico", text: "5. Saresti disposto ad aiutare il server economicamente?", modalLabel: "5. Aiuto economico", placeholder: "Si / No", style: TextInputStyle.Paragraph, }, { id: "flame_testuale", text: "6. Se due utenti si flammano a vicenda su un determinato argomento, come ti comporti? (in testuale)", modalLabel: "6. Gestione flame", style: TextInputStyle.Paragraph, }, { id: "comandi_dyno", text: "7. Elenca i comandi di moderazioni più importanti di Dyno", modalLabel: "7. Comandi Dyno", style: TextInputStyle.Paragraph, }, { id: "critica_staff", text: "8. Se una persona critica il server o lo staff in maniera non idonea, come ti comporti?", modalLabel: "8. Gestione critica", style: TextInputStyle.Paragraph, }, { id: "vocale", text: "9. Potrai stare in vocale? In caso di risposta positiva, potrai parlare?", modalLabel: "9. Disponibilità vocale", style: TextInputStyle.Paragraph, }, { id: "definizione_flame", text: "10. Definizione di flame", modalLabel: "10. Definizione flame", style: TextInputStyle.Paragraph, }, { id: "troll_pubblico", text: "11. Se due utenti iniziassero a trollare in pubblico, come agiresti?", modalLabel: "11. Gestione troll", style: TextInputStyle.Paragraph, },], }, partnermanager: { label: "Partner Manager", questions: [{ id: "id_discord", text: "1. ID", modalLabel: "1. ID", placeholder: "Scrivi il tuo ID di Discord", style: TextInputStyle.Short, }, { id: "luminous_nova", text: "2. Conosci il bot Luminous Nova/SkyForce?", modalLabel: "2. Luminous Nova/SkyForce", placeholder: "Si / No", style: TextInputStyle.Short, }, { id: "partner_giorno", text: "3. Quante partner fai al giorno?", modalLabel: "3. Partner al giorno", placeholder: "<15 / 15+", style: TextInputStyle.Short, },], }, };
+const {
+  HELPER_QUESTIONS,
+  PARTNER_MANAGER_QUESTIONS,
+  choicePlaceholder,
+  findQuestionLabel,
+} = require("../../Utils/Community/candidatureApplicationsCatalog");
+
+function catalogToDiscordQuestion(q) {
+  const kind = String(q.kind || "paragraph").toLowerCase();
+  const base = {
+    id: q.id,
+    text: q.text,
+    modalLabel: q.modalLabel || q.text,
+    placeholder: q.placeholder || "",
+  };
+  if (kind === "short") {
+    return { ...base, style: TextInputStyle.Short };
+  }
+  if (kind === "choice" || kind === "multi_choice") {
+    return {
+      ...base,
+      style: kind === "choice" ? TextInputStyle.Short : TextInputStyle.Paragraph,
+      placeholder: choicePlaceholder(q),
+    };
+  }
+  return { ...base, style: TextInputStyle.Paragraph };
+}
+
+const APPLICATIONS = {
+  helper: {
+    label: "Helper",
+    questions: HELPER_QUESTIONS.map(catalogToDiscordQuestion),
+  },
+  partnermanager: {
+    label: "Partner Manager",
+    questions: PARTNER_MANAGER_QUESTIONS.map(catalogToDiscordQuestion),
+  },
+};
 
 async function loadCooldownMap() {
   if (cooldownLoaded) return;
@@ -1045,7 +1082,14 @@ async function submitCandidatureWebsite(client, payload) {
   for (const q of cfg.questions) {
     const v = String(mergedAnswers[q.id] || "").trim();
     if (!v) {
-      return { ok: false, status: 400, error: "incomplete", field: q.id, message: "Compila tutti i campi del modulo." };
+      const label = findQuestionLabel(type, q.id);
+      return {
+        ok: false,
+        status: 400,
+        error: "incomplete",
+        field: q.id,
+        message: `Compila tutti i campi del modulo. Manca: ${label}`,
+      };
     }
   }
 

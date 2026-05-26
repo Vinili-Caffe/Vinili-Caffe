@@ -5,6 +5,7 @@ const MUSIC_PREFIX_COMMANDS = new Set(["play", "pause", "resume", "skip", "stop"
 const TTS_PREFIX_COMMANDS = new Set(["join", "leave", "set", "voices"]);
 const UTILITY_PREFIX_COMMANDS = new Set(["help", "settings", "ping", "avatar", "banner", "afk", "snipe", "quote"]);
 const MINIGAMES_PREFIX_COMMANDS = new Set(["ship"]);
+const { MODERATION_PREFIX_COMMANDS } = require("./tenantModerationPermissions");
 
 function normalizeCommandName(commandName) {
   return String(commandName || "").trim().toLowerCase();
@@ -16,6 +17,7 @@ function resolveTenantPrefixFeatureCategory(commandName) {
   if (TTS_PREFIX_COMMANDS.has(cmd)) return "tts";
   if (UTILITY_PREFIX_COMMANDS.has(cmd)) return "utility";
   if (MINIGAMES_PREFIX_COMMANDS.has(cmd)) return "minigames";
+  if (MODERATION_PREFIX_COMMANDS.has(cmd)) return "moderation";
   return null;
 }
 
@@ -68,4 +70,4 @@ function resolveOpenMediaPrefixBypass(guildId, commandName, options = {}) {
   return resolveTenantFeaturePrefixBypass(guildId, commandName, options);
 }
 
-module.exports = { MUSIC_PREFIX_COMMANDS, TTS_PREFIX_COMMANDS, UTILITY_PREFIX_COMMANDS, MINIGAMES_PREFIX_COMMANDS, resolveTenantPrefixFeatureCategory, resolveOpenMediaCategory, isTenantFeaturePrefixCommand, isOpenMediaPrefixCommand, resolveTenantFeaturePrefixBypass, resolveOpenMediaPrefixBypass };
+module.exports = { MUSIC_PREFIX_COMMANDS, TTS_PREFIX_COMMANDS, UTILITY_PREFIX_COMMANDS, MINIGAMES_PREFIX_COMMANDS, MODERATION_PREFIX_COMMANDS, resolveTenantPrefixFeatureCategory, resolveOpenMediaCategory, isTenantFeaturePrefixCommand, isOpenMediaPrefixCommand, resolveTenantFeaturePrefixBypass, resolveOpenMediaPrefixBypass };

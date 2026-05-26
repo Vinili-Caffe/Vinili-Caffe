@@ -161,6 +161,21 @@ body {
   }
 }
 
+.vc-cursor-trail {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 9998;
+}
+
+@media (pointer: coarse), (prefers-reduced-motion: reduce) {
+  .vc-cursor-trail {
+    display: none !important;
+  }
+}
+
 /* Caffè su link / controlli; campi testo sotto con I-beam */
 a:any-link,
 button:not(:disabled),
@@ -3804,6 +3819,7 @@ body.vc-body header .vc-notif-summary.vc-icon-btn:hover {
 /* Homepage #stats: allineata alla palette sabbia/moka del sito. */
 #stats {
   max-width: min(98rem, calc(100% - 1rem));
+  overflow: visible;
 }
 
 #stats .vc-stat-strip {
@@ -3820,6 +3836,7 @@ body.vc-body header .vc-notif-summary.vc-icon-btn:hover {
     0 0 42px rgba(var(--vc-mocha-rgb), 0.12);
   padding-left: 2rem;
   padding-right: 2rem;
+  overflow: visible;
 }
 
 .vc-stat-label {
@@ -3883,7 +3900,7 @@ body.vc-body header .vc-notif-summary.vc-icon-btn:hover {
   width: min(90vw, 34rem);
   max-height: min(50vh, 20rem);
   overflow: hidden;
-  z-index: 20;
+  z-index: 10050;
   border-radius: 0.9rem;
   border: 1px solid rgba(var(--vc-sand-rgb), 0.46);
   background:
@@ -5888,12 +5905,27 @@ body.vc-body.vc-sponsor-page .vc-sponsor-embed--popular:hover {
   z-index: 2147483000;
   margin: 0;
   padding: 0.16em 0.22em;
+  min-width: 2.85rem;
+  min-height: 2.85rem;
   font-size: clamp(2.1rem, 5vw, 4.2rem);
   line-height: 1;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
   text-shadow: 0 0 14px rgba(255, 246, 200, 0.65);
   transform: translate(-50%, -50%) rotate(var(--vc-book-rotate, -6deg));
   transition: left 0.72s cubic-bezier(0.26, 1.42, 0.4, 1), top 0.72s cubic-bezier(0.26, 1.42, 0.4, 1), filter 0.16s ease, opacity 0.16s ease, transform 0.16s ease;
   animation: vc-forbidden-book-flap 0.42s ease-in-out infinite alternate;
+}
+
+@media (pointer: coarse) {
+  .vc-forbidden-book--flying {
+    padding: 0.34em 0.42em;
+    min-width: 3.35rem;
+    min-height: 3.35rem;
+    font-size: clamp(2.55rem, 11vw, 4.6rem);
+    transition-duration: 0.95s, 0.95s, 0.16s, 0.16s, 0.16s;
+  }
 }
 
 .vc-forbidden-book:hover,
@@ -5957,8 +5989,13 @@ body.vc-body.vc-sponsor-page .vc-sponsor-embed--popular:hover {
 
 @media (prefers-reduced-motion: reduce) {
   .vc-footer-heart,
-  .vc-forbidden-book {
+  .vc-forbidden-book,
+  .vc-forbidden-book--flying {
     animation: none;
+  }
+
+  .vc-forbidden-book--flying {
+    transition: filter 0.16s ease, opacity 0.16s ease, transform 0.16s ease;
   }
 }
 
@@ -7203,9 +7240,7 @@ a.vc-snav-item[href*="sponsor"] svg {
     position: fixed;
     inset: 0;
     z-index: 10180;
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-end;
+    display: block;
     width: 100%;
     max-width: 100%;
     height: 100dvh;
@@ -7214,16 +7249,22 @@ a.vc-snav-item[href*="sponsor"] svg {
     border: 0;
     background: transparent;
     box-shadow: none;
+    pointer-events: none;
   }
 
   .vc-notif-dropdown[open] .vc-notif-mobile-backdrop {
-    flex: 1 1 auto;
-    min-height: 22%;
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    flex: none;
+    min-height: 0;
     width: 100%;
+    height: 100%;
     cursor: pointer;
-    background: rgba(10, 8, 6, 0.9);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
+    pointer-events: auto;
+    background: transparent;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
     border: 0;
     padding: 0;
     margin: 0;
@@ -7236,13 +7277,16 @@ a.vc-snav-item[href*="sponsor"] svg {
   }
 
   body.vc-body .vc-notif-dropdown[open] .vc-notif-panel {
-    position: relative;
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
     top: auto;
-    right: auto;
-    left: auto;
+    z-index: 1;
     width: 100%;
     max-width: 100%;
     margin: 0;
+    pointer-events: auto;
     border-radius: 1.35rem 1.35rem 0 0;
     max-height: min(78vh, 36rem);
     border: 1px solid rgba(var(--vc-sand-rgb), 0.34);
@@ -16337,11 +16381,6 @@ body.vc-body:not(.vc-body--home) :where(
   .vc-faq-item,
   .vc-candidature-card,
   .vc-unban-rules-wrap,
-  #vc-forum-sidebar,
-  #vc-forum-chat-panel,
-  #vc-forum-thread-head,
-  #vc-forum-messages,
-  #vc-forum-create-modal > div,
   .vc-auth-required-card
 ) {
   border-color: rgba(var(--vc-sand-rgb), 0.22);
@@ -16897,28 +16936,6 @@ body.vc-body.vc-faq-page .vc-regole-card-ico {
   gap: 1.15rem !important;
 }
 
-@media (max-width: 800px) {
-  #vc-forum-layout {
-    grid-template-columns: 1fr !important;
-    gap: 0.8rem !important;
-  }
-
-  #vc-forum-sidebar,
-  #vc-forum-chat-panel {
-    border-radius: 1.05rem !important;
-    padding: 0.8rem !important;
-  }
-
-  #vc-forum-chat-panel {
-    display: flex !important;
-    flex-direction: column;
-  }
-
-  #vc-forum-messages {
-    max-height: 40vh !important;
-  }
-}
-
 /* Users/roles/notifiche: remove ugly rectangular blocks */
 body.vc-body.vc-users-page .vc-notify-hero,
 body.vc-body.vc-users-page .vc-notify-stat,
@@ -17302,122 +17319,6 @@ body.vc-body.vc-users-page .vc-rank-editor-tab.is-active {
     transform: scale(1.14);
     filter: brightness(1.25);
   }
-}
-
-@media (min-width: 1024px) {
-  #vc-forum-layout {
-    align-items: stretch;
-  }
-
-  #vc-forum-chat-panel {
-    align-self: stretch;
-    height: auto;
-    max-height: none;
-    min-height: 0;
-  }
-
-  #vc-forum-messages {
-    min-height: 0;
-    overflow-y: auto;
-    overflow-x: hidden;
-  }
-}
-
-/* Forum: palette moka/panna + controls */
-.vc-forum-hero-icon {
-  border-color: rgba(var(--vc-sand-rgb), 0.42) !important;
-  background: linear-gradient(145deg, rgba(111, 78, 55, 0.62), rgba(212, 168, 136, 0.26)) !important;
-  color: rgba(247, 236, 223, 0.98) !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    0 0 20px rgba(var(--vc-sand-rgb), 0.16);
-}
-
-.vc-forum-hero-icon i {
-  color: rgba(247, 236, 223, 0.98) !important;
-}
-
-body.vc-body .vc-support-page-hero__icon.vc-forum-hero-icon,
-body.vc-body .vc-support-page-hero__icon.vc-forum-hero-icon i {
-  border-color: rgba(var(--vc-sand-rgb), 0.42) !important;
-  background: linear-gradient(145deg, rgba(111, 78, 55, 0.62), rgba(212, 168, 136, 0.26)) !important;
-  color: rgba(247, 236, 223, 0.98) !important;
-}
-
-body.vc-body #vc-forum-sidebar,
-body.vc-body #vc-forum-chat-panel,
-body.vc-body #vc-forum-create-modal > div {
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.04),
-    0 14px 34px rgba(0, 0, 0, 0.24),
-    0 0 22px rgba(var(--vc-sand-rgb), 0.1) !important;
-}
-
-body.vc-body [data-forum-filter] {
-  border-color: rgba(var(--vc-sand-rgb), 0.3) !important;
-  background: rgba(var(--vc-mocha-rgb), 0.32) !important;
-  color: rgba(247, 236, 223, 0.96) !important;
-}
-
-body.vc-body [data-forum-filter].border-emerald-400\/70,
-body.vc-body [data-forum-filter].bg-emerald-400\/20 {
-  border-color: rgba(var(--vc-sand-rgb), 0.55) !important;
-  background: rgba(111, 78, 55, 0.44) !important;
-  color: rgba(247, 236, 223, 0.99) !important;
-}
-
-body.vc-body .vc-forum-thread-item.border-emerald-400\/70,
-body.vc-body .vc-forum-thread-item.bg-emerald-400\/12,
-body.vc-body .vc-forum-thread-item.hover\:border-emerald-400\/35:hover {
-  border-color: rgba(var(--vc-sand-rgb), 0.46) !important;
-  background: rgba(var(--vc-mocha-rgb), 0.36) !important;
-  box-shadow: 0 0 0 1px rgba(var(--vc-sand-rgb), 0.22) !important;
-}
-
-body.vc-body .vc-forum-thread-item--active {
-  border-color: rgba(var(--vc-sand-rgb), 0.46) !important;
-  background: rgba(var(--vc-mocha-rgb), 0.36) !important;
-  box-shadow: 0 0 0 1px rgba(var(--vc-sand-rgb), 0.22) !important;
-}
-
-body.vc-body .vc-forum-thread-item--idle:hover {
-  border-color: rgba(var(--vc-sand-rgb), 0.34) !important;
-}
-
-body.vc-body .vc-forum-unread-pill {
-  background: rgba(var(--vc-sand-rgb), 0.9) !important;
-  color: rgba(32, 22, 15, 0.96) !important;
-}
-
-body.vc-body .vc-forum-tag-pill {
-  border-color: rgba(var(--vc-sand-rgb), 0.35) !important;
-  background: rgba(var(--vc-mocha-rgb), 0.36) !important;
-  color: rgba(247, 236, 223, 0.96) !important;
-}
-
-body.vc-body.vc-forum-page .vc-support-page-hero {
-  border-color: rgba(var(--vc-sand-rgb), 0.24) !important;
-  background:
-    radial-gradient(120% 86% at 0% 0%, rgba(236, 205, 176, 0.13), transparent 58%),
-    linear-gradient(145deg, rgba(44, 31, 23, 0.52), rgba(20, 14, 10, 0.4)) !important;
-  box-shadow:
-    0 22px 55px rgba(0, 0, 0, 0.26),
-    inset 0 1px 0 rgba(255, 255, 255, 0.04),
-    0 0 20px rgba(var(--vc-sand-rgb), 0.1) !important;
-}
-
-body.vc-body.vc-forum-page #vc-forum-sidebar,
-body.vc-body.vc-forum-page #vc-forum-chat-panel {
-  border-color: rgba(var(--vc-sand-rgb), 0.24) !important;
-  background:
-    radial-gradient(120% 88% at 12% 0%, rgba(247, 236, 223, 0.08), transparent 62%),
-    linear-gradient(145deg, rgba(var(--vc-mocha-rgb), 0.5), rgba(25, 18, 14, 0.44)) !important;
-}
-
-body.vc-body.vc-forum-page #vc-forum-thread-head,
-body.vc-body.vc-forum-page #vc-forum-messages {
-  border-color: rgba(var(--vc-sand-rgb), 0.22) !important;
-  background: rgba(var(--vc-mocha-rgb), 0.3) !important;
 }
 
 body.vc-body.vc-unban-page .vc-support-page-hero,
@@ -17962,14 +17863,6 @@ body.vc-body.vc-sponsor-page .vc-sponsor-hero-copy > .mt-6 > a:nth-child(2):hove
 
 body.vc-body.vc-sponsor-page .vc-support-donate-refund-note {
   text-shadow: none !important;
-}
-
-body.vc-body #vc-forum-page-prev,
-body.vc-body #vc-forum-page-next {
-  border-color: rgba(var(--vc-sand-rgb), 0.34) !important;
-  background: rgba(var(--vc-mocha-rgb), 0.34) !important;
-  color: rgba(247, 236, 223, 0.98) !important;
-  min-width: 2rem;
 }
 
 /* /ruoli: hard override panna/moka trasparente */
@@ -18671,67 +18564,6 @@ body.vc-body.vc-users-page.vc-roles-page .vc-role-card-cta:hover {
     inset 0 1px 0 rgba(255, 255, 255, 0.07),
     0 12px 28px rgba(0, 0, 0, 0.28),
     0 0 18px rgba(var(--vc-sand-rgb), 0.15) !important;
-}
-
-body.vc-body.vc-forum-page #vc-forum-sidebar,
-body.vc-body.vc-forum-page #vc-forum-chat-panel {
-  border-color: rgba(var(--vc-sand-rgb), 0.28) !important;
-  background:
-    radial-gradient(120% 88% at 14% 0%, rgba(247, 236, 223, 0.09), transparent 62%),
-    linear-gradient(145deg, rgba(var(--vc-mocha-rgb), 0.52), rgba(23, 17, 13, 0.44)) !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.05),
-    0 16px 38px rgba(0, 0, 0, 0.26),
-    0 0 18px rgba(var(--vc-sand-rgb), 0.1) !important;
-}
-
-body.vc-body.vc-forum-page #vc-forum-thread-head,
-body.vc-body.vc-forum-page #vc-forum-messages {
-  border-color: rgba(var(--vc-sand-rgb), 0.22) !important;
-  background: rgba(var(--vc-mocha-rgb), 0.3) !important;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04) !important;
-}
-
-body.vc-body.vc-forum-page #vc-forum-sidebar :is(
-  #vc-forum-search,
-  #vc-forum-filter-tag
-) {
-  border-color: rgba(var(--vc-sand-rgb), 0.28) !important;
-  background: rgba(var(--vc-mocha-rgb), 0.36) !important;
-  color: rgba(247, 236, 223, 0.96) !important;
-}
-
-body.vc-body.vc-forum-page #vc-forum-sidebar :is(
-  #vc-forum-search,
-  #vc-forum-filter-tag
-)::placeholder {
-  color: rgba(240, 222, 201, 0.68) !important;
-}
-
-body.vc-body.vc-forum-page #vc-forum-sidebar :is(
-  #vc-forum-search,
-  #vc-forum-filter-tag
-):focus {
-  border-color: rgba(var(--vc-sand-rgb), 0.45) !important;
-}
-
-body.vc-body.vc-forum-page #vc-forum-open-create {
-  border: 1px solid rgba(var(--vc-sand-rgb), 0.4) !important;
-  background:
-    radial-gradient(120% 90% at 14% 0%, rgba(247, 236, 223, 0.12), transparent 62%),
-    linear-gradient(135deg, rgba(196, 160, 127, 0.92), rgba(154, 118, 88, 0.9)) !important;
-  color: rgba(31, 21, 15, 0.98) !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.2),
-    0 10px 24px rgba(0, 0, 0, 0.24),
-    0 0 16px rgba(var(--vc-sand-rgb), 0.16) !important;
-}
-
-body.vc-body.vc-forum-page #vc-forum-open-create:hover {
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.24),
-    0 12px 28px rgba(0, 0, 0, 0.28),
-    0 0 20px rgba(var(--vc-sand-rgb), 0.2) !important;
 }
 
 body.vc-body.vc-suggestions-page .vc-reviews-section.vc-reviews-section--split {
@@ -20621,7 +20453,7 @@ body:not(.vc-hw-app-revealed) #vc-hogwarts-app {
   position: fixed;
   right: 16px;
   bottom: 16px;
-  z-index: 100550;
+  z-index: 100480;
   display: flex;
   align-items: flex-start;
   gap: 0.65rem;
@@ -20675,12 +20507,12 @@ body:not(.vc-hw-app-revealed) #vc-hogwarts-app {
   display: none !important;
 }
 
-.vc-hw-cinema--open,
-.vc-hw-cinema--boot {
+.vc-hw-cinema--open:not([hidden]),
+.vc-hw-cinema--boot:not([hidden]) {
   display: flex !important;
 }
 
-body:not(.vc-hw-intro-finished) #vc-hw-cinema.vc-hw-cinema--boot {
+body:not(.vc-hw-intro-finished) #vc-hw-cinema.vc-hw-cinema--boot:not([hidden]) {
   display: flex !important;
   visibility: visible !important;
   opacity: 1 !important;

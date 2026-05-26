@@ -24,7 +24,7 @@ async function getBotState(key, fallback = null) {
 
 async function setBotState(key, value) {
   const k = String(key);
-  if (!isMongoReady()) return;
+  if (!isMongoReady()) return false;
   try {
     const compact = await BotState.findOne({ key: COMPACT_BOTSTATE_KEY }).lean();
     if (compact) {
@@ -32,15 +32,17 @@ async function setBotState(key, value) {
         { key: COMPACT_BOTSTATE_KEY },
         { $set: { [`value.${k}`]: value } },
       );
-      return;
+      return true;
     }
     await BotState.findOneAndUpdate(
       { key: k },
       { $set: { value } },
       { upsert: true },
     );
+    return true;
   } catch (err) {
     global.logger?.warn?.("[botState] set:", key, err?.message ?? err);
+    return false;
   }
 }
 

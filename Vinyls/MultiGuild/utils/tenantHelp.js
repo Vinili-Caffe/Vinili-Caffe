@@ -14,9 +14,10 @@ const CATEGORY_LABELS = {
   music: "Musica",
   tts: "TTS",
   minigames: "Minigiochi",
+  moderation: "Moderazione",
 };
 
-const CATEGORY_ORDER = ["utility", "music", "tts", "minigames"];
+const CATEGORY_ORDER = ["utility", "music", "tts", "minigames", "moderation"];
 
 const TENANT_COMMAND_CATALOG = {
   utility: [
@@ -60,6 +61,21 @@ const TENANT_COMMAND_CATALOG = {
   ],
   minigames: [
     { invoke: "+ship <utente1> <utente2>", description: "Calcola la compatibilità tra due utenti." },
+  ],
+  moderation: [
+    { invoke: "+ban <utente> [durata] <motivo>", description: "Banna un utente (motivo obbligatorio)." },
+    { invoke: "+kick <utente> <motivo>", description: "Espelle un utente dal server." },
+    { invoke: "+mute <utente> <durata> <motivo>", description: "Silenzia un utente per un periodo (es. 10m, 2h, 1d)." },
+    { invoke: "+unmute <utente> [motivo]", description: "Rimuove il silenzio da un utente." },
+    { invoke: "+unban <utente> [motivo]", description: "Revoca il ban di un utente." },
+    { invoke: "+warn <utente> <motivo>", description: "Aggiunge un warn con motivo." },
+    { invoke: "+warnings <utente>", description: "Elenco warn attivi di un utente." },
+    { invoke: "+purge <numero | all> [@utente]", description: "Elimina messaggi nel canale corrente." },
+    { invoke: "+modlogs <utente>", description: "Storico moderazione di un utente." },
+    { invoke: "+case <id>", description: "Dettaglio di un case moderazione." },
+    { invoke: "+lock [#canale]", description: "Blocca la scrittura in un canale." },
+    { invoke: "+unlock [#canale]", description: "Sblocca un canale." },
+    { invoke: "+settings modlogs #canale", description: "Imposta il canale per i log moderazione (Gestisci server)." },
   ],
 };
 

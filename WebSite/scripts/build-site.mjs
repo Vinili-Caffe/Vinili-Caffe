@@ -8,6 +8,7 @@ import { fileURLToPath } from "url";
 
 const require = createRequire(import.meta.url);
 import { buildWikiCommandPanesInnerHtml } from "./wiki-command-discovery.mjs";
+import { loadGaleoniEconomyUnlockMs } from "./wiki-help-visibility.mjs";
 import { minifyHtmlFilesInDist, obfuscateProjectJsInDist } from "./minify-obfuscate-dist.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -67,6 +68,25 @@ function copyRecursive(srcDir, dstDir) {
   }
 }
 
+function applyForbiddenBooksScheduleToDist(distDir) {
+  const vinylsConfigPath = path.join(ROOT, "..", "Vinyls", "config.json");
+  if (!fs.existsSync(vinylsConfigPath)) return;
+  let vinylsCfg;
+  try {
+    vinylsCfg = readJson(vinylsConfigPath);
+  } catch {
+    return;
+  }
+  const { resolveForbiddenBooksSchedule } = require(path.join(ROOT, "..", "Vinyls", "Utils", "Web", "hogwartsEventSchedule.js"));
+  const { startMs, endMs } = resolveForbiddenBooksSchedule(vinylsCfg);
+  const landingPath = path.join(distDir, "js", "vc-landing.js");
+  if (!fs.existsSync(landingPath) || !Number.isFinite(startMs) || !Number.isFinite(endMs)) return;
+  let js = fs.readFileSync(landingPath, "utf8");
+  js = js.replace(/var FORBIDDEN_BOOKS_START_MS = [^;]+;/g, `var FORBIDDEN_BOOKS_START_MS = ${startMs};`);
+  js = js.replace(/var FORBIDDEN_BOOKS_END_MS = [^;]+;/g, `var FORBIDDEN_BOOKS_END_MS = ${endMs};`);
+  fs.writeFileSync(landingPath, js, "utf8");
+}
+
 function readJson(p) {
   const raw = fs.readFileSync(p, "utf8");
   return JSON.parse(raw);
@@ -123,7 +143,6 @@ function buildPremiumFooterTemplate() {
                 <li><a href="{{SITE_URL}}">Home</a></li>
                 <li><a href="{{USER_PAGE_URL}}">Users</a></li>
                 <li><a href="{{RUOLI_PAGE_URL}}">Ruoli</a></li>
-                <li><a href="{{FORUM_URL}}">Forum</a></li>
               </ul>
             </nav>
             <nav class="vc-premium-footer__col" aria-label="Scopri">
@@ -608,9 +627,9 @@ function buildLiveStatsBootHtml(cfg, inviteCode, opts) {
       ? ""
       : String(ls.inviteProxyPath != null ? ls.inviteProxyPath : "/discord-invite.json");
   const extraStats =
-    ls.extraStatsPath === ""
-      ? ""
-      : String(ls.extraStatsPath != null ? ls.extraStatsPath : "/live-stats-extra.json");
+    ls.extraStatsPath === "" || ls.extraStatsPath == null
+      ? "/live-stats-extra.json"
+      : String(ls.extraStatsPath);
   const pollMs = Number.isFinite(Number(ls.pollIntervalMs)) ? Number(ls.pollIntervalMs) : 45000;
   const introFallbackMs = Number.isFinite(Number(ls.introFallbackMs)) ? Number(ls.introFallbackMs) : 45000;
   const liveEventApiUrl = String(cfg.liveEventApiUrl || "").trim();
@@ -630,6 +649,12 @@ function buildLiveStatsBootHtml(cfg, inviteCode, opts) {
     liveEventApiUrlLocal,
     liveEventPollMs,
   };
+  if (Array.isArray(opts.staffHoverGroups) && opts.staffHoverGroups.length) {
+    payload.staffHoverGroups = opts.staffHoverGroups;
+  }
+  if (opts.staffNoPm != null && Number.isFinite(Number(opts.staffNoPm))) {
+    payload.staffNoPm = Math.floor(Number(opts.staffNoPm));
+  }
   const json = JSON.stringify(payload).replace(/</g, "\\u003c");
   return (
     `    <script>window.__VC_LIVE=${json};</script>\n` +
@@ -886,6 +911,32 @@ function applyAvatarFallbackToDist(distDir, assetVersion = "") {
       if (html.includes("vc-avatar-fallback.js")) continue;
       const scriptPrefix = relativeScriptPrefixFromHtml(p);
       const boot = `  <script src="${scriptPrefix}js/vc-avatar-fallback.js${suffix}" defer></script>\n`;
+      let next = html;
+      if (next.includes("</body>")) next = next.replace("</body>", `${boot}  </body>`);
+      else if (next.includes("</head>")) next = next.replace("</head>", `${boot}  </head>`);
+      else next += `\n${boot}`;
+      if (next !== html) fs.writeFileSync(p, next, "utf8");
+    }
+  };
+  walk(distDir);
+}
+
+function applyCursorTrailToDist(distDir, assetVersion = "") {
+  const suffix = assetVersion ? `?v=${encodeURIComponent(String(assetVersion))}` : "";
+  const walk = (dir) => {
+    for (const name of fs.readdirSync(dir)) {
+      const p = path.join(dir, name);
+      const st = fs.statSync(p);
+      if (st.isDirectory()) {
+        walk(p);
+        continue;
+      }
+      if (!name.toLowerCase().endsWith(".html")) continue;
+      const html = fs.readFileSync(p, "utf8");
+      if (html.includes("vc-cursor-trail.js")) continue;
+      if (!html.includes("vc-landing.css")) continue;
+      const scriptPrefix = relativeScriptPrefixFromHtml(p);
+      const boot = `  <script src="${scriptPrefix}js/vc-cursor-trail.js${suffix}" defer></script>\n`;
       let next = html;
       if (next.includes("</body>")) next = next.replace("</body>", `${boot}  </body>`);
       else if (next.includes("</head>")) next = next.replace("</head>", `${boot}  </head>`);
@@ -1319,6 +1370,7 @@ async function main() {
   }
   rmrf(DIST);
   copyRecursive(ROOT, DIST);
+  applyForbiddenBooksScheduleToDist(DIST);
 
   const indexPath = path.join(DIST, "index.html");
   let html = fs.readFileSync(indexPath, "utf8");
@@ -1438,9 +1490,13 @@ async function main() {
       ? String(staffResult.staffCount)
       : String(cfg.statStaff ?? "0");
 
-  const liveStatsBoot = buildLiveStatsBootHtml(cfg, inviteCode);
-  const liveStatsBootWiki = buildLiveStatsBootHtml(cfg, inviteCode, { scriptPrefix: "../" });
-  const liveStatsBootUser = buildLiveStatsBootHtml(cfg, inviteCode, { scriptPrefix: "../" });
+  const liveStatsBootOpts = {
+    staffHoverGroups: staffResult.staffHoverGroups,
+    staffNoPm: staffResult.staffCount,
+  };
+  const liveStatsBoot = buildLiveStatsBootHtml(cfg, inviteCode, liveStatsBootOpts);
+  const liveStatsBootWiki = buildLiveStatsBootHtml(cfg, inviteCode, { scriptPrefix: "../", ...liveStatsBootOpts });
+  const liveStatsBootUser = buildLiveStatsBootHtml(cfg, inviteCode, { scriptPrefix: "../", ...liveStatsBootOpts });
   const maintenanceBoot = buildMaintenanceBootHtml(cfg, {
     guildStaffBypassIds: staffResult.maintenanceBypassUserIds || [],
   });
@@ -1585,6 +1641,7 @@ async function main() {
   const wikiViniliAvatarUrl = absUrlForMetadata(siteUrlForAbs, wikiViniliAvatarRaw);
   const wikiCaffeAvatarUrl = absUrlForMetadata(siteUrlForAbs, wikiCaffeAvatarRaw);
 
+  const wikiEconomyUnlockMs = loadGaleoniEconomyUnlockMs(path.join(ROOT, "..", "Vinyls"));
   const WIKI_CMD_PANES_HTML = buildWikiCommandPanesInnerHtml({
     avatarProdUrl: wikiViniliAvatarUrl,
     avatarTestUrl: wikiCaffeAvatarUrl,
@@ -1749,7 +1806,7 @@ async function main() {
   const hogwartsIntroVideo = "/images/evento-hogwarts/inizio.mp4";
   const hogwartsEventRaw = cfg.hogwartsEvent && typeof cfg.hogwartsEvent === "object" ? cfg.hogwartsEvent : {};
   const hogwartsPotionsRaw = cfg.hogwartsPotions && typeof cfg.hogwartsPotions === "object" ? cfg.hogwartsPotions : {};
-  const hogwartsPotionsStartDate = String(hogwartsPotionsRaw.startDate || "2026-08-24T00:00:00").trim() || "2026-08-24T00:00:00";
+  const hogwartsPotionsStartDate = String(hogwartsPotionsRaw.startDate || "2026-08-24T12:00:00").trim() || "2026-08-24T12:00:00";
   const hogwartsPotionsRedirectUrl = String(hogwartsPotionsRaw.redirectUrl || hogwartsShopPageUrl || "/evento/shop").trim() || "/evento/shop";
   const hogwartsIntroDurationSec = Math.max(
     1,
@@ -2113,7 +2170,6 @@ async function main() {
     TERMS_URL: escAttr(termsUrlResolved),
     PRIVACY_URL: escAttr(privacyUrlResolved),
     COOKIE_POLICY_URL: escAttr(cookiePolicyUrlResolved),
-    FORUM_URL: escAttr(defaultLegalPath("forum")),
     NOTIFICATIONS_URL: escAttr(defaultLegalPath("notifications")),
     USER_PERSONALIZZA_URL: escAttr(defaultLegalPath("user/personalizza")),
     VERIFY_URL: escAttr(defaultLegalPath("verify")),
@@ -2131,9 +2187,6 @@ async function main() {
     VERIFY_OG_TITLE: escAttr(`Verifica account — ${siteName}`),
     VERIFY_OG_DESCRIPTION: escAttr(`Completa la verifica account con login Discord e conferma backend.`),
     VERIFY_OG_URL: escAttr(siteBaseNoSlash ? `${siteBaseNoSlash}/verify` : ""),
-    FORUM_OG_TITLE: escAttr(`${siteName} | Forum`),
-    FORUM_OG_DESCRIPTION: escAttr(`Forum della community: discussioni sincronizzate con Discord.`),
-    FORUM_OG_URL: escAttr(siteBaseNoSlash ? `${siteBaseNoSlash}/forum` : ""),
     USER_RANK_CUSTOMIZE_OG_TITLE: escAttr(`${siteName} | Personalizza rank card`),
     USER_RANK_CUSTOMIZE_OG_DESCRIPTION: escAttr(`Personalizza la tua rank card direttamente dal sito.`),
     USER_PERSONALIZZA_OG_URL: escAttr(siteBaseNoSlash ? `${siteBaseNoSlash}/user/personalizza` : ""),
@@ -2330,6 +2383,10 @@ async function main() {
     WIKI_BOT_VINILI_AVATAR_URL: escAttr(wikiViniliAvatarUrl),
     WIKI_BOT_CAFFE_AVATAR_URL: escAttr(wikiCaffeAvatarUrl),
     WIKI_CMD_PANES_HTML,
+    WIKI_ECONOMY_UNLOCK_MS:
+      wikiEconomyUnlockMs != null && Number.isFinite(Number(wikiEconomyUnlockMs))
+        ? String(Math.floor(Number(wikiEconomyUnlockMs)))
+        : "null",
   };
 
   html = applyPlaceholderMap(html, map);
@@ -2588,16 +2645,6 @@ async function main() {
     console.warn("[build-site] Manca faq/index.html (saltato placeholder).");
   }
 
-  const forumIndexPath = path.join(DIST, "forum", "index.html");
-  if (fs.existsSync(forumIndexPath)) {
-    let forumHtml = fs.readFileSync(forumIndexPath, "utf8");
-    forumHtml = applyPlaceholderMap(forumHtml, map);
-    warnLeftoverPlaceholders(forumHtml, "forum/index.html");
-    fs.writeFileSync(forumIndexPath, forumHtml, "utf8");
-  } else {
-    console.warn("[build-site] Manca forum/index.html (saltato placeholder).");
-  }
-
   const sponsorIndexPath = path.join(DIST, "sponsor", "index.html");
   if (fs.existsSync(sponsorIndexPath)) {
     let sponsorHtml = fs.readFileSync(sponsorIndexPath, "utf8");
@@ -2635,6 +2682,7 @@ async function main() {
   }
 
   applyAvatarFallbackToDist(DIST, buildAssetVersion);
+  applyCursorTrailToDist(DIST, buildAssetVersion);
   applyLiveStatsBootToDist(DIST, cfg, inviteCode);
   applyMaintenanceGateToDist(DIST, maintenanceBoot);
   applySiteRouteGuardToDist(DIST, cfg);

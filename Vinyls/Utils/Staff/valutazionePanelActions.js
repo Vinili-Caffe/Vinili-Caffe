@@ -315,6 +315,42 @@ function actorFromMember(member) {
   return { user: member.user, member };
 }
 
+function memberIsHighStaffOrAbove(member) {
+  const cache = member?.roles?.cache;
+  if (!cache) return false;
+  const allowRoles = [IDs.roles?.Admin, IDs.roles?.Director, IDs.roles?.Founder, IDs.roles?.HighStaff].filter(Boolean);
+  return allowRoles.some((roleId) => cache.has(roleId));
+}
+
+async function removeOldestPositiveValutazioni(s, count, actor, staffUser, channel, guild, removalReason, finalPosLabel) {
+  const posEdits = [];
+  const n = Math.floor(Number(count || 0));
+  for (let i = 0; i < n; i += 1) {
+    const removedReason = s.positiveReasons[0];
+    const originalEntry = getValutazioneEntry(s, "positive", 0, removedReason);
+    s.positiveReasons.splice(0, 1);
+    removeValutazioneEntry(s, "positive", 0);
+    s.positiveCount = Math.max(0, s.positiveCount - 1);
+    s.valutazioniCount = Math.max(0, s.valutazioniCount - 1);
+    posEdits.push({ entry: originalEntry });
+  }
+  const finalPos = s.positiveCount;
+  for (const row of posEdits) {
+    const embed = makeRemovalEmbed(
+      actor,
+      staffUser,
+      "<:cancel:1461730653677551691> **__VALUTAZIONE POSITIVA RIMOSSA__** (scambio)",
+      `<:VC_reason:1478517122929004544> A __${accountUsername(staffUser)}__ è stata **rimossa** una _Valutazione Positiva_ (scambio).`,
+      removalReason,
+      "<:VC_update:1478721333096349817> __Valutazioni Positive Totali__",
+      finalPosLabel(finalPos),
+    );
+    const edited = await editOriginalValutazioneMessage(guild, row.entry, embed);
+    if (!edited) await sendChannelEmbed(channel, { embeds: [embed] });
+  }
+  return { removed: n, finalPos };
+}
+
 async function runValutazionePositiveAddForPanel(guild, actorMember, staffUser, reason) {
   try {
     const channel =
@@ -402,12 +438,10 @@ async function runValutazioneNegativeRemoveForPanel(guild, actorMember, staffUse
 }
 
 const SELF_NEG_TRADE_REASON = "Compensazione volontaria: 3 valutazioni positive scambiate per rimuovere 1 negativa";
+const HS_NEG_TRADE_REASON = "Compensazione: 3 valutazioni positive scambiate per rimuovere 1 negativa";
+const POS_PAUSE_TRADE_REASON = "Scambio valutazioni positive per giorni pausa extra";
 
-/**
- * Rimuove le **3 positive più vecchie** e **1 negativa** scelta (indice 1-based come in elenco −1, −2, …).
- * Solo per uso da pannello profilo staff (autorichiesta).
- */
-async function valutazioneSelfNegTradeThreePosOneNegCore(profileDoc, staffUser, negativeRemoveId1Based, actor, channel, guild) {
+async function valutazioneSelfNegTradeThreePosOneNegCore(profileDoc, staffUser, negativeRemoveId1Based, actor, channel, guild, tradeReason = SELF_NEG_TRADE_REASON) {
   const s = ensureStaff(profileDoc);
   const guildRef = guild || channel?.guild;
   if (!guildRef) return { ok: false, message: "<:VC_Attention:1482534443632558151> Server non valido." };
@@ -415,21 +449,21 @@ async function valutazioneSelfNegTradeThreePosOneNegCore(profileDoc, staffUser, 
     return { ok: false, message: "<:VC_Attention:1482534443632558151> **Numero negativa non valido.** Usa l’indice della lista (es. **1** per −1)." };
   }
   if (!Array.isArray(s.positiveReasons) || s.positiveReasons.length < 3) {
-    return { ok: false, message: "<:VC_Attention:1482534443632558151> Ti servono **almeno 3 valutazioni positive** per questa opzione." };
+    return { ok: false, message: "<:VC_Attention:1482534443632558151> Servono **almeno 3 valutazioni positive** per questa opzione." };
   }
   if (!Array.isArray(s.negativeReasons) || !s.negativeReasons[negativeRemoveId1Based - 1]) {
     return { ok: false, message: "<:VC_Attention:1482534443632558151> **Numero negativa non valido.** Controlla la lista ( −1, −2, … )." };
   }
-  const posEdits = [];
-  for (let i = 0; i < 3; i += 1) {
-    const removedReason = s.positiveReasons[0];
-    const originalEntry = getValutazioneEntry(s, "positive", 0, removedReason);
-    s.positiveReasons.splice(0, 1);
-    removeValutazioneEntry(s, "positive", 0);
-    s.positiveCount = Math.max(0, s.positiveCount - 1);
-    s.valutazioniCount = Math.max(0, s.valutazioniCount - 1);
-    posEdits.push({ entry: originalEntry });
-  }
+  const posResult = await removeOldestPositiveValutazioni(
+    s,
+    3,
+    actor,
+    staffUser,
+    channel,
+    guildRef,
+    tradeReason,
+    (finalPos) => `<:VC_OnlineStatus:1482527088912240650> Ora ${staffUser.id ? `<@${staffUser.id}>` : "lo staffer"} è a \`${finalPos}\` valutazioni positive!`,
+  );
   const negIdx = negativeRemoveId1Based - 1;
   const removedNegReason = s.negativeReasons[negIdx];
   const negEntry = getValutazioneEntry(s, "negative", negIdx, removedNegReason);
@@ -439,39 +473,26 @@ async function valutazioneSelfNegTradeThreePosOneNegCore(profileDoc, staffUser, 
   s.valutazioniCount = Math.max(0, s.valutazioniCount - 1);
   profileDoc.markModified("staff");
   await profileDoc.save();
-  const actorLike = actor.member || actor.user;
-  const finalPos = s.positiveCount;
+  const finalPos = posResult.finalPos;
   const finalNeg = s.negativeCount;
-  for (const row of posEdits) {
-    const embed = makeRemovalEmbed(
-      actor,
-      staffUser,
-      "<:cancel:1461730653677551691> **__VALUTAZIONE POSITIVA RIMOSSA__** (compenso)",
-      `<:VC_reason:1478517122929004544> A __${accountUsername(staffUser)}__ è stata **rimossa** una _Valutazione Positiva_ (scambio volontario).`,
-      SELF_NEG_TRADE_REASON,
-      "<:VC_update:1478721333096349817> __Valutazioni Positive Totali__",
-      `<:VC_OnlineStatus:1482527088912240650> Ora sei a \`${finalPos}\` valutazioni positive!`,
-    );
-    const edited = await editOriginalValutazioneMessage(guildRef, row.entry, embed);
-    if (!edited) await sendChannelEmbed(channel, { embeds: [embed] });
-  }
   const negEmbed = makeRemovalEmbed(
     actor,
     staffUser,
     "<:cancel:1461730653677551691> **__VALUTAZIONE NEGATIVA RIMOSSA__** (compenso)",
     `<:VC_reason:1478517122929004544> A __${accountUsername(staffUser)}__ è stata **rimossa** una _Valutazione Negativa!_`,
-    SELF_NEG_TRADE_REASON,
+    tradeReason,
     "<:VC_update:1478721333096349817> __Valutazioni Negative Totali__",
-    `<:VC_OnlineStatus:1482527088912240650> Ora sei a \`${finalNeg}\` valutazioni negative!`,
+    `<:VC_OnlineStatus:1482527088912240650> Ora ${staffUser.id ? `<@${staffUser.id}>` : "lo staffer"} è a \`${finalNeg}\` valutazioni negative!`,
   );
   const negEdited = await editOriginalValutazioneMessage(guildRef, negEntry, negEmbed);
   if (!negEdited) await sendChannelEmbed(channel, { embeds: [negEmbed] });
+  const actorLike = actor.member || actor.user;
   const summary = new EmbedBuilder()
     .setAuthor({
       name: `Compensazione valutazioni — ${accountUsername(actorLike)}`,
       iconURL: guildMemberDisplayAvatarUrlDynamic(actorLike) || undefined,
     })
-    .setTitle("<:thumbsup:1471292172145004768><:thumbsdown:1471292163957457013> **Scambio volontario 3 positive → 1 negativa**")
+    .setTitle("<:thumbsup:1471292172145004768><:thumbsdown:1471292163957457013> **Scambio 3 positive → 1 negativa**")
     .setThumbnail(guildMemberDisplayAvatarUrlDynamic((await getGuildMemberCached(guildRef, staffUser.id).catch(() => null)) || staffUser) || undefined)
     .setDescription(
       [
@@ -489,9 +510,62 @@ async function valutazioneSelfNegTradeThreePosOneNegCore(profileDoc, staffUser, 
   return { ok: true };
 }
 
-async function runValutazioneSelfNegTradeForPanel(guild, actorMember, staffUser, negativeRemoveId1Based) {
-  if (String(actorMember?.user?.id || "") !== String(staffUser?.id || "")) {
-    return { ok: false, message: "<:VC_Attention:1482534443632558151> Questa azione è solo sul **tuo** profilo." };
+async function valutazionePosForPauseTradeCore(profileDoc, staffUser, positiveCount, pauseDays, actor, channel, guild) {
+  const s = ensureStaff(profileDoc);
+  const guildRef = guild || channel?.guild;
+  if (!guildRef) return { ok: false, message: "<:VC_Attention:1482534443632558151> Server non valido." };
+  const posCount = Math.floor(Number(positiveCount || 0));
+  const days = Math.floor(Number(pauseDays || 0));
+  if (posCount < 1 || days < 1) {
+    return { ok: false, message: "<:VC_Attention:1482534443632558151> Inserisci **numeri validi** (almeno 1 positiva e 1 giorno pausa)." };
+  }
+  if (!Array.isArray(s.positiveReasons) || s.positiveReasons.length < posCount) {
+    return { ok: false, message: `<:VC_Attention:1482534443632558151> Servono **almeno ${posCount} valutazioni positive** disponibili.` };
+  }
+  const tradeReason = `${POS_PAUSE_TRADE_REASON}: ${posCount} positive → +${days} giorni pausa`;
+  const posResult = await removeOldestPositiveValutazioni(
+    s,
+    posCount,
+    actor,
+    staffUser,
+    channel,
+    guildRef,
+    tradeReason,
+    (finalPos) => `<:VC_OnlineStatus:1482527088912240650> Ora ${staffUser.id ? `<@${staffUser.id}>` : "lo staffer"} è a \`${finalPos}\` valutazioni positive!`,
+  );
+  const prevBonus = Math.max(0, Math.floor(Number(s.valPosTradedPauseBonusDays || 0)));
+  s.valPosTradedPauseBonusDays = prevBonus + days;
+  profileDoc.markModified("staff");
+  await profileDoc.save();
+  const actorLike = actor.member || actor.user;
+  const summary = new EmbedBuilder()
+    .setAuthor({
+      name: `Scambio pause — ${accountUsername(actorLike)}`,
+      iconURL: guildMemberDisplayAvatarUrlDynamic(actorLike) || undefined,
+    })
+    .setTitle("<:thumbsup:1471292172145004768> **Positive → giorni pausa extra**")
+    .setThumbnail(guildMemberDisplayAvatarUrlDynamic((await getGuildMemberCached(guildRef, staffUser.id).catch(() => null)) || staffUser) || undefined)
+    .setDescription(
+      [
+        `<:VC_Staff:1494286904089247754> ${staffUser}`,
+        "",
+        `**Rimosse** \`${posCount}\` valutazioni positive (FIFO).`,
+        `**Aggiunti** \`+${days}\` giorni pausa extra (totale scambio: \`${s.valPosTradedPauseBonusDays}\`).`,
+        "",
+        `**Positive rimaste:** \`${posResult.finalPos}\``,
+      ].join("\n"),
+    )
+    .setColor("#6f4e37");
+  await sendChannelEmbed(channel, { embeds: [summary] });
+  return { ok: true, pauseBonusTotal: s.valPosTradedPauseBonusDays };
+}
+
+async function runValutazioneNegTradeForPanel(guild, actorMember, staffUser, negativeRemoveId1Based) {
+  const actorId = String(actorMember?.user?.id || "");
+  const targetId = String(staffUser?.id || "");
+  const isSelf = actorId && targetId && actorId === targetId;
+  if (!isSelf && !memberIsHighStaffOrAbove(actorMember)) {
+    return { ok: false, message: "<:VC_Attention:1482534443632558151> Solo **High Staff** può eseguire questo scambio per un altro staffer." };
   }
   try {
     const channel =
@@ -502,6 +576,7 @@ async function runValutazioneSelfNegTradeForPanel(guild, actorMember, staffUser,
       guild.id,
       staffUser.id,
     );
+    const tradeReason = isSelf ? SELF_NEG_TRADE_REASON : HS_NEG_TRADE_REASON;
     return await valutazioneSelfNegTradeThreePosOneNegCore(
       profileDoc,
       staffUser,
@@ -509,6 +584,7 @@ async function runValutazioneSelfNegTradeForPanel(guild, actorMember, staffUser,
       actorFromMember(actorMember),
       channel,
       guild,
+      tradeReason,
     );
   } catch (err) {
     global.logger.error(err);
@@ -516,15 +592,36 @@ async function runValutazioneSelfNegTradeForPanel(guild, actorMember, staffUser,
   }
 }
 
-module.exports = {
-  buildAutoStaffWarnFromNegativesEmbed,
-  ensureStaffProfileDoc,
-  getStaffDoc,
-  valutazionePositiveAddCore,
-  valutazioneNegativeAddCore,
-  runValutazionePositiveAddForPanel,
-  runValutazioneNegativeAddForPanel,
-  runValutazionePositiveRemoveForPanel,
-  runValutazioneNegativeRemoveForPanel,
-  runValutazioneSelfNegTradeForPanel,
-};
+async function runValutazionePosPauseTradeForPanel(guild, actorMember, staffUser, positiveCount, pauseDays) {
+  if (!memberIsHighStaffOrAbove(actorMember)) {
+    return { ok: false, message: "<:VC_Attention:1482534443632558151> Solo **High Staff** può registrare questo scambio." };
+  }
+  try {
+    const channel =
+      guild.channels.cache.get(IDs.channels?.valutazioniStaff) ||
+      (await getGuildChannelCached(guild, IDs.channels?.valutazioniStaff));
+    const profileDoc = await ensureStaffProfileDoc(
+      await getStaffDoc(guild.id, staffUser.id),
+      guild.id,
+      staffUser.id,
+    );
+    return await valutazionePosForPauseTradeCore(
+      profileDoc,
+      staffUser,
+      positiveCount,
+      pauseDays,
+      actorFromMember(actorMember),
+      channel,
+      guild,
+    );
+  } catch (err) {
+    global.logger.error(err);
+    return { ok: false, message: "<:vegax:1443934876440068179> Errore durante lo scambio positive → pausa." };
+  }
+}
+
+async function runValutazioneSelfNegTradeForPanel(guild, actorMember, staffUser, negativeRemoveId1Based) {
+  return runValutazioneNegTradeForPanel(guild, actorMember, staffUser, negativeRemoveId1Based);
+}
+
+module.exports = { buildAutoStaffWarnFromNegativesEmbed, ensureStaffProfileDoc, getStaffDoc, valutazionePositiveAddCore, valutazioneNegativeAddCore, runValutazionePositiveAddForPanel, runValutazioneNegativeAddForPanel, runValutazionePositiveRemoveForPanel, runValutazioneNegativeRemoveForPanel, runValutazioneNegTradeForPanel, runValutazionePosPauseTradeForPanel, runValutazioneSelfNegTradeForPanel };

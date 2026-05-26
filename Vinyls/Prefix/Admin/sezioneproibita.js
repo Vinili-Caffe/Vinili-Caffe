@@ -46,7 +46,7 @@ function buildAuditEmbed(audit, targetUser, client) {
     .setDescription(
       [
         `Utente: ${targetUser} (\`${targetUser.id}\`)`,
-        sorted ? `Casata: **${houseLabel || audit.houseId}**` : "<:vegax:1443934876440068179> **Non smistato** (nessun libro valido sul sito).",
+        sorted ? `Casa: **${houseLabel || audit.houseId}**` : "<:vegax:1443934876440068179> **Non smistato** (nessun libro valido sul sito).",
         `Evento libri sul sito: **${eventOpen ? "aperto" : "chiuso"}**${progress.closed ? " · **chiuso** (vincitori assegnati)" : ""}`,
         "",
         statusLine,
