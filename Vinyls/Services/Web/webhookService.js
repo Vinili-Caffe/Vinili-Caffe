@@ -238,7 +238,7 @@ async function startWebhookServer(client) {
     const isSitePayments = pathStr.startsWith("/webhooks/site-payments");
     const isSiteSeratafilmAccess = pathStr.startsWith("/webhooks/site-seratafilm-access");
     const isSiteHogwartsSorting = pathStr.startsWith("/webhooks/site-hogwarts-sorting");
-    if (!isStatus && !isCandidature && !isUnban && !isSiteRules && !isSiteUsers && !isSiteVote && !isSiteLiveEvent && !isSiteRoles && !isSiteRankCard && !isSiteReviews && !isSiteSuggestions && !isSiteNotifications && !isSiteForum && !isSiteVerify && !isSitePayments && !isSiteSeratafilmAccess && !isSiteHogwartsSorting) return next();
+    if (!isStatus && !isCandidature && !isUnban && !isSiteRules && !isSiteUsers && !isSiteVote && !isSiteLiveEvent && !isSiteRoles && !isSiteRankCard && !isSiteReviews && !isSiteSuggestions && !isSiteNotifications && !isSiteVerify && !isSitePayments && !isSiteSeratafilmAccess && !isSiteHogwartsSorting) return next();
     const originRaw = String(req.headers.origin || "").trim();
     const originNorm = originRaw ? normalizeCorsOriginEntry(originRaw) || originRaw : "";
     let allowOrigin = "";
@@ -414,7 +414,7 @@ async function startWebhookServer(client) {
   const { submitSiteRoleRequest } = require("../../Utils/Web/siteRoleRequestApi");
   const { getRankCardCustomization, updateRankCardCustomization, getRankCardPreview, getPublicRankCardPreview } = require("../../Utils/Web/siteRankCardApi");
   const { getSiteReviews, submitSiteReview, deleteSiteReview, toggleSiteReviewLike, upsertServerReviewReply } = require("../../Utils/Web/siteReviewsApi");
-  const { getSiteSuggestions, createSiteSuggestion, updateOwnSiteSuggestion, deleteOwnSiteSuggestion, addSiteSuggestionComment, updateSiteSuggestionComment, deleteSiteSuggestionComment, setSiteSuggestionCommentVote, setSiteSuggestionVote, staffAcceptSiteSuggestion, staffRejectSiteSuggestion, staffDeleteSiteSuggestion } = require("../../Utils/Web/siteSuggestionsApi");
+  const { getSiteSuggestions, createSiteSuggestion, updateOwnSiteSuggestion, deleteOwnSiteSuggestion, addSiteSuggestionComment, updateSiteSuggestionComment, deleteSiteSuggestionComment, setSiteSuggestionCommentVote, setSiteSuggestionVote, staffAcceptSiteSuggestion, staffRejectSiteSuggestion, staffSetSiteSuggestionDecision, staffDeleteSiteSuggestion } = require("../../Utils/Web/siteSuggestionsApi");
   const { handleSiteNotificationsGet, handleSiteNotificationsMarkReadPost, handleSiteNotificationsClearPost, handleSiteNotificationsDeletePost } = require("../../Utils/Web/siteInAppNotificationsApi");
   const { completeSiteVerify } = require("../../Utils/Web/siteVerifyApi");
   const { handleSiteSeratafilmAccessGet } = require("../../Utils/Web/siteSeratafilmAccessApi");
@@ -1002,6 +1002,29 @@ async function startWebhookServer(client) {
       return res.status(Number(out.status) || 500).json(out);
     } catch (err) {
       global.logger?.error?.("[WEBHOOK] site-suggestions reject:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+  app.patch("/webhooks/site-suggestions/:suggestionId/decision", async (req, res) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      if (!accessToken) {
+        return res.status(401).json({
+          ok: false,
+          error: "missing_token",
+          message: "Header Authorization: Bearer <token> richiesto.",
+        });
+      }
+      const body = req.body && typeof req.body === "object" ? req.body : {};
+      const out = await staffSetSiteSuggestionDecision(client, {
+        accessToken,
+        suggestionId: req.params?.suggestionId,
+        status: body.status,
+        reason: body.reason,
+      });
+      return res.status(Number(out.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-suggestions decision:", err);
       return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
     }
   });

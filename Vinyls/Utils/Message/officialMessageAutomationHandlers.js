@@ -2,7 +2,9 @@ const { EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder } = require("
 const { recordDiscadiaBump, recordDiscadiaVote, recordBump, awardBumpVoteExp, getVoteCooldownMs } = require("../../Services/Bump/bumpService");
 const { addExpWithLevel, shouldIgnoreExpForMember } = require("../../Services/Community/expService");
 const { upsertVoteRole } = require("../../Services/Community/communityOpsService");
-const { PAUSE_REQUEST_ROLE_IDS, createPauseRequest, parsePauseChannelMessageContent, formatRuoloPausaRichiestoInMessage } = require("../Pause/pauseRequestRuntime");
+const { PAUSE_REQUEST_ROLE_IDS, parsePauseChannelMessageContent } = require("../Pause/pauseRequestRuntime");
+const { submitPauseRequestForMember } = require("../Pause/pauseRequestSubmitRuntime");
+const { maybeRepositionPauseSticky } = require("../Pause/pauseStickyPanelRuntime");
 const IDs = require("../Config/ids");
 const { getGuildChannelCached, getGuildMemberCached } = require("../Interaction/interactionEntityCache");
 const { EPHEMERAL_TTL_NORMAL_MS, scheduleMessageDeletion } = require("../Config/ephemeralMessageTtl");
@@ -26,12 +28,6 @@ const BUMP_DETECTION_LOG_COOLDOWN_MS = 10 * 60 * 1000;
 const BUMP_SKIP_DEBUG_LOG_TTL_MS = 30 * 60 * 1000;
 const MEMBER_FETCH_CACHE_TTL_MS = 15_000;
 const memberFetchCache = new Map();
-const PAUSE_ROLE_PICK_TIMEOUT_MS = 45_000;
-const PAUSE_ROLE_PICK_PREFIX = "pause_rolepick:";
-const PAUSE_ROLE_PICK_PM = `${PAUSE_ROLE_PICK_PREFIX}pm`;
-const PAUSE_ROLE_PICK_STAFF = `${PAUSE_ROLE_PICK_PREFIX}staff`;
-const PAUSE_ROLE_PICK_BOTH = `${PAUSE_ROLE_PICK_PREFIX}both`;
-
 function hasMediaPermission(member) {
   return MEDIA_BLOCK_ROLE_IDS.some((roleId) =>
     member?.roles?.cache?.has(roleId),
@@ -902,82 +898,56 @@ async function handlePauseChannelMessage(message) {
   if (message.author?.bot || message.webhookId || message.system) return false;
 
   const pauseChannelId = String(IDs.channels.pause || "");
-  if (!pauseChannelId || String(message.channelId) !== pauseChannelId) return false;
+  const isPauseChannel = Boolean(pauseChannelId && String(message.channelId) === pauseChannelId);
+  if (!isPauseChannel) return false;
+
+  const finish = () => {
+    void maybeRepositionPauseSticky(message.channel, message.client).catch(() => null);
+  };
 
   if (!message.member && message.guild?.id && message.author?.id) {
     message.member = await getGuildMemberCached(message.guild, message.author.id);
   }
   const allowedRoleIds = new Set(PAUSE_REQUEST_ROLE_IDS.map(String));
   const hasAllowedRole = Array.from(allowedRoleIds).some((roleId) => message.member?.roles?.cache?.has(roleId));
-  if (!hasAllowedRole) return false;
+  if (!hasAllowedRole) {
+    finish();
+    return false;
+  }
 
   const raw = String(message.content || "").trim();
-  if (!raw) return false;
+  if (!raw) {
+    finish();
+    return false;
+  }
   const parsed = parsePauseChannelMessageContent(raw);
   if (!parsed) {
-    const warning = await message.channel.send({ content: `${message.author} formato non valido. Mi servono almeno data inizio, data fine e motivo. Vanno bene anche formati tipo \`20/05 - 22/05 - viaggio\`, \`inizio: 20/05 fine: 22/05 motivo: viaggio\` o \`dal 20 maggio al 22 maggio per motivi personali\`.` }).catch(() => null);
+    const warning = await message.channel.send({ content: `${message.author} formato non valido. Usa il pulsante **Richiedi pausa** qui sotto oppure invia: data inizio, data fine e motivo (es. \`20/05 - 22/05 - viaggio\`).` }).catch(() => null);
     await message.delete().catch(() => { });
     if (warning) scheduleMessageDeletion(warning, EPHEMERAL_TTL_NORMAL_MS);
+    finish();
     return true;
   }
 
-  const rawStart = parsed.rawStart;
-  const rawEnd = parsed.rawEnd;
-  const reason = parsed.reason;
-  let requestedRole = null;
-  const hasStaff = Boolean(message.member?.roles?.cache?.has(IDs.roles.Staff));
-  const hasPm = Boolean(message.member?.roles?.cache?.has(IDs.roles.PartnerManager));
-  if (hasStaff && hasPm) {
-    const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(PAUSE_ROLE_PICK_PM).setLabel("PM").setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId(PAUSE_ROLE_PICK_STAFF).setLabel("Staff").setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId(PAUSE_ROLE_PICK_BOTH).setLabel("Entrambi").setStyle(ButtonStyle.Primary),
-    );
-    const prompt = await message.channel
-      .send({
-        content: `${message.author} scegli per quale ruolo vuoi chiedere la pausa:`,
-        components: [row],
-      })
-      .catch(() => null);
-    if (!prompt) {
-      const warning = await message.channel.send({ content: `${message.author} <:vegax:1443934876440068179> Non riesco a chiederti il ruolo pausa. Riprova.` }).catch(() => null);
-      await message.delete().catch(() => { });
-      if (warning) scheduleMessageDeletion(warning, EPHEMERAL_TTL_NORMAL_MS);
-      return true;
-    }
-    const picked = await prompt
-      .awaitMessageComponent({
-        time: PAUSE_ROLE_PICK_TIMEOUT_MS,
-        filter: (i) => i.user?.id === message.author.id,
-      })
-      .catch(() => null);
-    if (!picked) {
-      await prompt.edit({ content: `${message.author} selezione ruolo pausa scaduta. Riinvia la richiesta.`, components: [] }).catch(() => { });
-      await message.delete().catch(() => { });
-      scheduleMessageDeletion(prompt, EPHEMERAL_TTL_NORMAL_MS);
-      return true;
-    }
-    if (picked.customId === PAUSE_ROLE_PICK_PM) requestedRole = "PartnerManager";
-    else if (picked.customId === PAUSE_ROLE_PICK_BOTH) requestedRole = "Entrambi";
-    else requestedRole = "Staff";
-    await picked.deferUpdate().catch(() => { });
-    const ruoloSelLabel = formatRuoloPausaRichiestoInMessage(message.guild, requestedRole);
-    await prompt.edit({ content: `${message.author} ruolo pausa selezionato: **${ruoloSelLabel}**`, components: [] }).catch(() => { });
-    scheduleMessageDeletion(prompt, EPHEMERAL_TTL_NORMAL_MS);
-  } else if (hasPm && !hasStaff) {
-    requestedRole = "PartnerManager";
-  } else {
-    requestedRole = "Staff";
-  }
-  const result = await createPauseRequest({ guild: message.guild, userId: message.author.id, requesterMention: String(message.author), rawStart, rawEnd, reason, member: message.member, requestedRole });
+  const result = await submitPauseRequestForMember({
+    guild: message.guild,
+    member: message.member,
+    rawStart: parsed.rawStart,
+    rawEnd: parsed.rawEnd,
+    reason: parsed.reason,
+    replyChannel: message.channel,
+  });
   if (!result.ok) {
-    const warning = await message.channel.send({ content: `${message.author} <:vegax:1443934876440068179> ${result.error}` }).catch(() => null);
+    const errText = result.error === "Selezione ruolo scaduta." ? "Selezione ruolo pausa scaduta. Riinvia la richiesta." : result.error;
+    const warning = await message.channel.send({ content: `${message.author} <:vegax:1443934876440068179> ${errText}` }).catch(() => null);
     await message.delete().catch(() => { });
     if (warning) scheduleMessageDeletion(warning, EPHEMERAL_TTL_NORMAL_MS);
+    finish();
     return true;
   }
 
   await message.delete().catch(() => { });
+  finish();
   return true;
 }
 

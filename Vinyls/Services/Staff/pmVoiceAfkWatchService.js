@@ -15,11 +15,6 @@ function memberWatchKey(guildId, userId) {
   return `${String(guildId || "")}:${String(userId || "")}`;
 }
 
-function isPmAfkMuteMode(voiceState) {
-  if (!voiceState) return false;
-  return Boolean(voiceState.selfMute);
-}
-
 function isAloneHumanInChannel(member, channel) {
   if (!member?.id || !channel?.members) return false;
   const humans = channel.members.filter((m) => !m.user?.bot);
@@ -38,34 +33,63 @@ function qualifiesForWatch(voiceState, member) {
   if (!voiceState?.channelId || !member) return false;
   if (String(voiceState.guild?.id || member.guild?.id || "") !== MAIN_GUILD_ID) return false;
   if (member.user?.bot) return false;
-  if (!isPmAfkMuteMode(voiceState)) return false;
+  const micOff = Boolean(voiceState.selfMute || voiceState.serverMute);
+  const audioOff = Boolean(voiceState.selfDeaf || voiceState.serverDeaf);
+  if (micOff && audioOff) return false;
   const channel = voiceState.channel || voiceState.guild?.channels?.cache?.get(voiceState.channelId);
   if (!channel || !isPmAfkWatchVoiceChannel(channel)) return false;
   return isAloneHumanInChannel(member, channel);
+}
+
+function describeVoicePresence(voiceState) {
+  if (!voiceState) return "in vocale";
+  const micOff = Boolean(voiceState.selfMute || voiceState.serverMute);
+  const audioOff = Boolean(voiceState.selfDeaf || voiceState.serverDeaf);
+  if (!micOff && !audioOff) return "con microfono attivo";
+  if (micOff && audioOff) {
+    return voiceState.serverDeaf || voiceState.serverMute
+      ? "muto e silenziato dall'audio (staff)"
+      : "muto e audio disattivati";
+  }
+  if (audioOff) {
+    return voiceState.serverDeaf ? "silenziato dall'audio (staff)" : "audio disattivato";
+  }
+  if (voiceState.serverMute) return "muto (mute staff)";
+  if (voiceState.selfMute) return "muto (auto-mute)";
+  return "muto";
+}
+
+function memberQualifiedBefore(oldState, member) {
+  if (!oldState || !member?.id) return undefined;
+  if (String(oldState.member?.id || oldState.id || "") !== String(member.id)) return undefined;
+  return qualifiesForWatch(oldState, member);
 }
 
 function clearMemberWatch(guildId, userId) {
   watchByMemberKey.delete(memberWatchKey(guildId, userId));
 }
 
-function touchMemberWatch(guildId, userId, channelId) {
+function touchMemberWatch(guildId, userId, channelId, opts) {
   const key = memberWatchKey(guildId, userId);
   const channelKey = String(channelId || "");
+  const resetTimer = Boolean(opts && opts.resetTimer);
   const prev = watchByMemberKey.get(key);
-  if (prev && prev.channelId === channelKey && !prev.alertSent) return;
+  if (prev && prev.channelId === channelKey && !prev.alertSent && !resetTimer) return;
   watchByMemberKey.set(key, { channelId: channelKey, startedAt: Date.now(), alertSent: false });
 }
 
-function evaluateMemberVoiceWatch(member) {
+function evaluateMemberVoiceWatch(member, opts) {
   if (!member?.id || !MAIN_GUILD_ID) return;
   const guildId = String(member.guild?.id || "");
   if (guildId !== MAIN_GUILD_ID) return;
   const voice = member.voice;
-  if (!voice?.channelId || !qualifiesForWatch(voice, member)) {
+  const qualifiesNow = Boolean(voice?.channelId && qualifiesForWatch(voice, member));
+  if (!qualifiesNow) {
     clearMemberWatch(guildId, member.id);
     return;
   }
-  touchMemberWatch(guildId, member.id, voice.channelId);
+  const resetTimer = Boolean(opts && opts.resetTimer);
+  touchMemberWatch(guildId, member.id, voice.channelId, { resetTimer });
 }
 
 async function sendPmAfkCheckAlert(client, member, channelId, aloneMs) {
@@ -79,16 +103,14 @@ async function sendPmAfkCheckAlert(client, member, channelId, aloneMs) {
 
   const channelRef = channelId ? `<#${channelId}>` : "vocale";
   const minutes = Math.max(1, Math.round(aloneMs / 60_000));
-  const muteLabel = member.voice?.selfDeaf
-    ? "microfono e audio disattivati"
-    : "microfono disattivato";
+  const presenceLabel = describeVoicePresence(member.voice);
 
   const embed = new EmbedBuilder()
     .setColor("#E67E22")
     .setTitle("<:VC_Attention:1482534443632558151> Controllo AFK vocale")
     .setDescription(
       [
-        `${member} è da **${minutes} minuti** da solo in ${channelRef} con ${muteLabel}.`,
+        `${member} è da **${minutes} minuti** da solo in ${channelRef} (${presenceLabel}).`,
         "",
         "Verificate che **non sia AFK** (regola **3.6**): in caso di inattività oltre **10 minuti** senza risposta in testuale o alle chiamate, procedete con le sanzioni previste.",
       ].join("\n"),
@@ -103,10 +125,48 @@ async function sendPmAfkCheckAlert(client, member, channelId, aloneMs) {
   return true;
 }
 
+function discoverQualifyingWatchesInGuild(guild) {
+  if (!guild) return;
+  for (const channel of guild.channels.cache.values()) {
+    if (!isPmAfkWatchVoiceChannel(channel)) continue;
+    for (const member of channel.members.values()) {
+      if (member.user?.bot) continue;
+      if (!qualifiesForWatch(member.voice, member)) continue;
+      const key = memberWatchKey(guild.id, member.id);
+      if (!watchByMemberKey.has(key)) {
+        touchMemberWatch(guild.id, member.id, member.voice.channelId);
+      }
+    }
+  }
+}
+
+function rescanPmAfkWatchChannels(guild, channelIds, oldState) {
+  if (!guild || String(guild.id) !== MAIN_GUILD_ID) return;
+  const ids = channelIds instanceof Set ? channelIds : new Set(channelIds || []);
+  for (const channelId of ids) {
+    if (!channelId) continue;
+    const channel = guild.channels.cache.get(channelId);
+    if (!channel || !isPmAfkWatchVoiceChannel(channel)) continue;
+    for (const member of channel.members.values()) {
+      if (member.user?.bot) continue;
+      const qualifiedBefore = memberQualifiedBefore(oldState, member);
+      const qualifiesNow = qualifiesForWatch(member.voice, member);
+      if (!qualifiesNow) {
+        clearMemberWatch(guild.id, member.id);
+        continue;
+      }
+      const justBecameAlone = qualifiedBefore === false;
+      evaluateMemberVoiceWatch(member, { resetTimer: justBecameAlone });
+    }
+  }
+}
+
 async function sweepPmVoiceAfkAlerts(client) {
-  if (!MAIN_GUILD_ID || !watchByMemberKey.size) return;
+  if (!MAIN_GUILD_ID) return;
   const guild = await getClientGuildCached(client, MAIN_GUILD_ID).catch(() => null);
   if (!guild) return;
+  discoverQualifyingWatchesInGuild(guild);
+  if (!watchByMemberKey.size) return;
   const now = Date.now();
 
   for (const [key, entry] of [...watchByMemberKey.entries()]) {
@@ -129,7 +189,7 @@ async function sweepPmVoiceAfkAlerts(client) {
       continue;
     }
     if (String(member.voice.channelId) !== String(entry.channelId || "")) {
-      touchMemberWatch(guild.id, member.id, member.voice.channelId);
+      touchMemberWatch(guild.id, member.id, member.voice.channelId, { resetTimer: true });
       continue;
     }
 
@@ -155,9 +215,14 @@ async function syncPmVoiceAfkWatchFromGateway(client) {
 }
 
 function handlePmVoiceAfkVoiceState(oldState, newState) {
-  const member = newState?.member || oldState?.member;
-  if (!member || member.user?.bot) return;
-  evaluateMemberVoiceWatch(member);
+  const guild = newState?.guild || oldState?.guild;
+  if (!guild || String(guild.id) !== MAIN_GUILD_ID) return;
+
+  const channelIds = new Set();
+  if (oldState?.channelId) channelIds.add(String(oldState.channelId));
+  if (newState?.channelId) channelIds.add(String(newState.channelId));
+
+  rescanPmAfkWatchChannels(guild, channelIds, oldState);
 }
 
 function startPmVoiceAfkWatchLoop(client) {

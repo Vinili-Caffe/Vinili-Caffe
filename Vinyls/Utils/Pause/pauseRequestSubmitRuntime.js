@@ -1,0 +1,119 @@
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
+const IDs = require("../Config/ids");
+const { EPHEMERAL_TTL_NORMAL_MS, scheduleMessageDeletion } = require("../Config/ephemeralMessageTtl");
+const { createPauseRequest, PAUSE_REQUEST_ROLE_IDS, formatRuoloPausaRichiestoInMessage } = require("./pauseRequestRuntime");
+const { maybeRepositionPauseSticky } = require("./pauseStickyPanelRuntime");
+
+const PAUSE_ROLE_PICK_TIMEOUT_MS = 45_000;
+const PAUSE_ROLE_PICK_PREFIX = "pause_rolepick:";
+const PAUSE_ROLE_PICK_PM = `${PAUSE_ROLE_PICK_PREFIX}pm`;
+const PAUSE_ROLE_PICK_STAFF = `${PAUSE_ROLE_PICK_PREFIX}staff`;
+const PAUSE_ROLE_PICK_BOTH = `${PAUSE_ROLE_PICK_PREFIX}both`;
+
+const pendingPauseRolePick = new Map();
+
+function memberCanRequestPause(member) {
+  const allowedRoleIds = new Set(PAUSE_REQUEST_ROLE_IDS.map(String));
+  return Array.from(allowedRoleIds).some((roleId) => member?.roles?.cache?.has(roleId));
+}
+
+function storePendingPauseRolePick(userId, payload) {
+  pendingPauseRolePick.set(String(userId), { ...payload, at: Date.now() });
+}
+
+function takePendingPauseRolePick(userId) {
+  const key = String(userId || "");
+  const entry = pendingPauseRolePick.get(key);
+  pendingPauseRolePick.delete(key);
+  if (!entry) return null;
+  if (Date.now() - Number(entry.at || 0) > PAUSE_ROLE_PICK_TIMEOUT_MS) return null;
+  return entry;
+}
+
+async function resolveRequestedPauseRole(member, channel, authorMention) {
+  const hasStaff = Boolean(member?.roles?.cache?.has(IDs.roles.Staff));
+  const hasPm = Boolean(member?.roles?.cache?.has(IDs.roles.PartnerManager));
+  if (hasStaff && hasPm) {
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId(PAUSE_ROLE_PICK_PM).setLabel("PM").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId(PAUSE_ROLE_PICK_STAFF).setLabel("Staff").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId(PAUSE_ROLE_PICK_BOTH).setLabel("Entrambi").setStyle(ButtonStyle.Primary),
+    );
+    const prompt = await channel
+      .send({
+        content: `${authorMention} scegli per quale ruolo vuoi chiedere la pausa:`,
+        components: [row],
+      })
+      .catch(() => null);
+    if (!prompt) {
+      return { ok: false, error: "<:vegax:1443934876440068179> Non riesco a chiederti il ruolo pausa. Riprova." };
+    }
+    const picked = await prompt
+      .awaitMessageComponent({
+        time: PAUSE_ROLE_PICK_TIMEOUT_MS,
+        filter: (i) => i.user?.id === member?.id,
+      })
+      .catch(() => null);
+    if (!picked) {
+      await prompt.edit({ content: `${authorMention} selezione ruolo pausa scaduta. Riinvia la richiesta.`, components: [] }).catch(() => { });
+      scheduleMessageDeletion(prompt, EPHEMERAL_TTL_NORMAL_MS);
+      return { ok: false, error: "Selezione ruolo scaduta." };
+    }
+    let requestedRole = "Staff";
+    if (picked.customId === PAUSE_ROLE_PICK_PM) requestedRole = "PartnerManager";
+    else if (picked.customId === PAUSE_ROLE_PICK_BOTH) requestedRole = "Entrambi";
+    await picked.deferUpdate().catch(() => { });
+    const ruoloSelLabel = formatRuoloPausaRichiestoInMessage(member?.guild, requestedRole);
+    await prompt.edit({ content: `${authorMention} ruolo pausa selezionato: **${ruoloSelLabel}**`, components: [] }).catch(() => { });
+    scheduleMessageDeletion(prompt, EPHEMERAL_TTL_NORMAL_MS);
+    return { ok: true, requestedRole };
+  }
+  if (hasPm && !hasStaff) return { ok: true, requestedRole: "PartnerManager" };
+  return { ok: true, requestedRole: "Staff" };
+}
+
+async function submitPauseRequestForMember({ guild, member, rawStart, rawEnd, reason, requestedRole = null, replyChannel = null }) {
+  if (!guild || !member?.id) {
+    return { ok: false, error: "<a:VC_Alert:1482706673176150077> Richiesta non valida." };
+  }
+  if (!memberCanRequestPause(member)) {
+    return { ok: false, error: "<a:VC_Alert:1482706673176150077> Non hai i permessi per richiedere una pausa." };
+  }
+  const authorMention = String(member);
+  let role = requestedRole;
+  if (!role) {
+    const channel = replyChannel || guild.channels.cache.get(IDs.channels?.pause);
+    if (!channel?.isTextBased?.()) {
+      return { ok: false, error: "<a:VC_Alert:1482706673176150077> Canale pause non disponibile." };
+    }
+    const rolePick = await resolveRequestedPauseRole(member, channel, authorMention);
+    if (!rolePick.ok) return rolePick;
+    role = rolePick.requestedRole;
+  }
+  const result = await createPauseRequest({
+    guild,
+    userId: member.id,
+    requesterMention: authorMention,
+    rawStart,
+    rawEnd,
+    reason,
+    member,
+    requestedRole: role,
+  });
+  if (result.ok && replyChannel) {
+    void maybeRepositionPauseSticky(replyChannel, guild.client).catch(() => null);
+  }
+  return result;
+}
+
+module.exports = {
+  PAUSE_ROLE_PICK_PREFIX,
+  PAUSE_ROLE_PICK_PM,
+  PAUSE_ROLE_PICK_STAFF,
+  PAUSE_ROLE_PICK_BOTH,
+  PAUSE_ROLE_PICK_TIMEOUT_MS,
+  memberCanRequestPause,
+  storePendingPauseRolePick,
+  takePendingPauseRolePick,
+  submitPauseRequestForMember,
+};

@@ -18566,6 +18566,20 @@ body.vc-body.vc-users-page.vc-roles-page .vc-role-card-cta:hover {
     0 0 18px rgba(var(--vc-sand-rgb), 0.15) !important;
 }
 
+body.vc-body.vc-reviews-page.vc-suggestions-page .vc-suggestions-thread {
+  margin-top: 1rem;
+}
+
+body.vc-body.vc-reviews-page.vc-suggestions-page .vc-suggestions-thread > p.text-sm.text-slate-400,
+body.vc-body.vc-reviews-page.vc-suggestions-page .vc-suggestions-thread > p.text-sm.text-slate-500 {
+  color: rgba(240, 222, 201, 0.78) !important;
+}
+
+html body.vc-body.vc-reviews-page.vc-suggestions-page #vc-suggestions-pager,
+html body.vc-body.vc-reviews-page.vc-suggestions-page #vc-suggestions-pager.vc-reviews-pager {
+  margin-top: 1.25rem;
+}
+
 body.vc-body.vc-suggestions-page .vc-reviews-section.vc-reviews-section--split {
   border: 0 !important;
   background: transparent !important;

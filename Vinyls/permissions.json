@@ -1566,6 +1566,20 @@
             "roles.PartnerManager",
             "roles.HighStaff"
         ],
+        "pause_request:open": [
+            "roles.Staff",
+            "roles.PartnerManager",
+            "roles.SeniorModerator",
+            "roles.Director",
+            "roles.HighStaff"
+        ],
+        "pause_request:modal": [
+            "roles.Staff",
+            "roles.PartnerManager",
+            "roles.SeniorModerator",
+            "roles.Director",
+            "roles.HighStaff"
+        ],
         "ping": [
             "roles.Member"
         ],

@@ -100,6 +100,7 @@ const personalityPanelEntrySchema = new Schema(
     ticketPanelMessageId: { type: String, default: null },
     sponsorTicketPanelMessageId: { type: String, default: null },
     weeklyContestDisegniEventMessageId: { type: String, default: null },
+    pausePanelMessageId: { type: String, default: null },
   },
   { _id: false },
 );

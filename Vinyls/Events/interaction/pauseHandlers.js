@@ -1,6 +1,17 @@
-const { EmbedBuilder } = require("discord.js");
+const { EmbedBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const IDs = require("../../Utils/Config/ids");
 const { getGuildChannelCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
+const { PAUSE_REQUEST_OPEN_ID } = require("../../Utils/Pause/pauseStickyPanelRuntime");
+const {
+  PAUSE_ROLE_PICK_PM,
+  PAUSE_ROLE_PICK_STAFF,
+  PAUSE_ROLE_PICK_BOTH,
+  memberCanRequestPause,
+  storePendingPauseRolePick,
+  takePendingPauseRolePick,
+  submitPauseRequestForMember,
+} = require("../../Utils/Pause/pauseRequestSubmitRuntime");
+const PAUSE_REQUEST_MODAL_ID = "pause_request:modal";
 const { accountUsername } = require("../../Utils/Discord/guildDiscordIdentity");
 const { MS_PER_DAY, parseItalianDate, getPauseDaysBetween, getTodayUtc, getCurrentYearBoundsUtc, countOverlapDays, computeConsumedPauseDays, getMemberRoleLabel, getPauseStatusLabel, computePauseScaledDaysThisYear, getStaffPauseRecord, getStaffAndPauseByRequestMessageId, updatePauseInDb, buildRequestButtonsRow, buildAcceptedButtonsRow, schedulePauseButtonsRemoval, getBasePauseLimit, getPauseRoleLimit, getPauseTimingText, computeStaffersInPauseByRoleForRange, getPauseReasonFromMessage, normalizePauseRoleChoice, getPauseRoleTargets, roleChoiceAppliesTo, PAUSE_ROLE_STAFF, PAUSE_ROLE_PM, PAUSE_ROLE_BOTH, getBestStaffPauseBonusDays, getStaffPauseBonusDaysTotal, grantBestStaffPauseBonusYear } = require("../../Utils/Pause/pauseHandlersUtils");
 const { buildPauseListPayload, buildPauseListMonthRows } = require("../../Utils/Pause/pauseListRuntime");
@@ -432,4 +443,133 @@ async function handlePauseButton(interaction) {
   } finally { pauseActionLocks.delete(lockKey) }
   }
 
-module.exports = { handlePauseButton };
+async function handlePauseRequestOpen(interaction) {
+  if (!interaction.isButton() || interaction.customId !== PAUSE_REQUEST_OPEN_ID) return false;
+  if (!interaction.guild) {
+    await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Comando disponibile solo nel server.", flags: 1 << 6 }).catch(() => {});
+    return true;
+  }
+  const member = interaction.member || (await getGuildMemberCached(interaction.guild, interaction.user.id));
+  if (!memberCanRequestPause(member)) {
+    await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Non hai i permessi per richiedere una pausa.", flags: 1 << 6 }).catch(() => {});
+    return true;
+  }
+  const modal = new ModalBuilder().setCustomId(PAUSE_REQUEST_MODAL_ID).setTitle("Richiesta pausa");
+  modal.addComponents(
+    new ActionRowBuilder().addComponents(
+      new TextInputBuilder()
+        .setCustomId("pause_start")
+        .setLabel("Data inizio pausa")
+        .setPlaceholder("es. 20/05/2026 o 1 agosto")
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true)
+        .setMaxLength(40),
+    ),
+    new ActionRowBuilder().addComponents(
+      new TextInputBuilder()
+        .setCustomId("pause_end")
+        .setLabel("Data ritorno")
+        .setPlaceholder("es. 25/05/2026")
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true)
+        .setMaxLength(40),
+    ),
+    new ActionRowBuilder().addComponents(
+      new TextInputBuilder()
+        .setCustomId("pause_reason")
+        .setLabel("Motivo")
+        .setPlaceholder("Descrivi brevemente il motivo della pausa")
+        .setStyle(TextInputStyle.Paragraph)
+        .setRequired(true)
+        .setMaxLength(500),
+    ),
+  );
+  await interaction.showModal(modal).catch(() => null);
+  return true;
+}
+
+async function handlePauseRequestModal(interaction) {
+  if (!interaction.isModalSubmit() || interaction.customId !== PAUSE_REQUEST_MODAL_ID) return false;
+  if (!interaction.guild) {
+    await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Richiesta non valida.", flags: 1 << 6 }).catch(() => {});
+    return true;
+  }
+  const member = interaction.member || (await getGuildMemberCached(interaction.guild, interaction.user.id));
+  if (!memberCanRequestPause(member)) {
+    await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Non hai i permessi per richiedere una pausa.", flags: 1 << 6 }).catch(() => {});
+    return true;
+  }
+  const rawStart = interaction.fields.getTextInputValue("pause_start");
+  const rawEnd = interaction.fields.getTextInputValue("pause_end");
+  const reason = interaction.fields.getTextInputValue("pause_reason");
+  const hasStaff = Boolean(member?.roles?.cache?.has(IDs.roles.Staff));
+  const hasPm = Boolean(member?.roles?.cache?.has(IDs.roles.PartnerManager));
+  if (hasStaff && hasPm) {
+    storePendingPauseRolePick(interaction.user.id, {
+      guildId: interaction.guild.id,
+      rawStart,
+      rawEnd,
+      reason,
+    });
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId(PAUSE_ROLE_PICK_PM).setLabel("PM").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId(PAUSE_ROLE_PICK_STAFF).setLabel("Staff").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId(PAUSE_ROLE_PICK_BOTH).setLabel("Entrambi").setStyle(ButtonStyle.Primary),
+    );
+    await interaction.reply({
+      content: "Scegli per quale ruolo vuoi chiedere la pausa:",
+      components: [row],
+      flags: 1 << 6,
+    }).catch(() => null);
+    return true;
+  }
+  await interaction.deferReply({ flags: 1 << 6 }).catch(() => null);
+  const channel = interaction.channel || (await getGuildChannelCached(interaction.guild, IDs.channels?.pause));
+  const result = await submitPauseRequestForMember({
+    guild: interaction.guild,
+    member,
+    rawStart,
+    rawEnd,
+    reason,
+    replyChannel: channel,
+  });
+  const text = result.ok
+    ? "<:vegacheckmark:1443666279058772028> Richiesta pausa inviata nel canale."
+    : `<:vegax:1443934876440068179> ${result.error || "Errore invio richiesta."}`;
+  await interaction.editReply({ content: text }).catch(() => null);
+  return true;
+}
+
+async function handlePauseRolePickForPending(interaction) {
+  if (!interaction.isButton()) return false;
+  const id = String(interaction.customId || "");
+  if (id !== PAUSE_ROLE_PICK_PM && id !== PAUSE_ROLE_PICK_STAFF && id !== PAUSE_ROLE_PICK_BOTH) return false;
+  const pending = takePendingPauseRolePick(interaction.user.id);
+  if (!pending) return false;
+  if (!interaction.guild || String(interaction.guild.id) !== String(pending.guildId || "")) {
+    await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Sessione scaduta. Riapri il modulo pausa.", flags: 1 << 6 }).catch(() => {});
+    return true;
+  }
+  let requestedRole = "Staff";
+  if (id === PAUSE_ROLE_PICK_PM) requestedRole = "PartnerManager";
+  else if (id === PAUSE_ROLE_PICK_BOTH) requestedRole = "Entrambi";
+  const member = interaction.member || (await getGuildMemberCached(interaction.guild, interaction.user.id));
+  await interaction.deferUpdate().catch(() => null);
+  const channel = interaction.channel || (await getGuildChannelCached(interaction.guild, IDs.channels?.pause));
+  const result = await submitPauseRequestForMember({
+    guild: interaction.guild,
+    member,
+    rawStart: pending.rawStart,
+    rawEnd: pending.rawEnd,
+    reason: pending.reason,
+    requestedRole,
+    replyChannel: channel,
+  });
+  const text = result.ok
+    ? "<:vegacheckmark:1443666279058772028> Richiesta pausa inviata nel canale."
+    : `<:vegax:1443934876440068179> ${result.error || "Errore invio richiesta."}`;
+  await interaction.editReply({ content: text, components: [] }).catch(() => null);
+  return true;
+}
+
+module.exports = { handlePauseButton, handlePauseRequestOpen, handlePauseRequestModal, handlePauseRolePickForPending };

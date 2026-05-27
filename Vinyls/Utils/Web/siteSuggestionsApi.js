@@ -636,6 +636,98 @@ async function staffRejectSiteSuggestion(client, payload = {}) {
   };
 }
 
+async function staffSetSiteSuggestionDecision(client, payload = {}) {
+  const accessToken = String(payload.accessToken || "").trim();
+  const resolved = await resolveWebsiteGuildMember(client, accessToken);
+  if (!resolved.ok) return resolved;
+  if (!memberCanModerateSuggestions(resolved.member)) {
+    return {
+      ok: false,
+      status: 403,
+      error: "forbidden",
+      message: "Solo l'High Staff può modificare lo stato dei suggerimenti.",
+    };
+  }
+
+  const suggestionId = String(payload.suggestionId || "").trim();
+  if (!suggestionId || !mongoose.isValidObjectId(suggestionId)) {
+    return { ok: false, status: 400, error: "invalid_id", message: "ID suggerimento non valido." };
+  }
+
+  const nextStatusRaw = String(payload.status || "").trim().toLowerCase();
+  const nextStatus = nextStatusRaw === "accepted" || nextStatusRaw === "rejected" ? nextStatusRaw : "pending";
+  const reason = sanitizeStaffReason(payload.reason);
+
+  if ((nextStatus === "accepted" || nextStatus === "rejected") && reason.length < 3) {
+    return { ok: false, status: 400, error: "reason_required", message: "Inserisci un motivo di almeno 3 caratteri." };
+  }
+
+  const prev = await SiteDocument.findOne({ docType: SG, _id: suggestionId, guildId: resolved.guild.id })
+    .lean()
+    .catch(() => null);
+  if (!prev) {
+    return { ok: false, status: 404, error: "not_found", message: "Suggerimento non trovato." };
+  }
+
+  const set = { status: nextStatus, updatedAt: new Date() };
+  if (nextStatus === "pending") {
+    set.staffReason = "";
+    set.staffUserId = "";
+    set.decidedAt = null;
+  } else {
+    set.staffReason = reason;
+    set.staffUserId = resolved.userId;
+    set.decidedAt = new Date();
+  }
+
+  const updated = await SiteDocument.findOneAndUpdate(
+    { docType: SG, _id: suggestionId, guildId: resolved.guild.id },
+    { $set: set },
+    { new: true },
+  )
+    .lean()
+    .catch(() => null);
+
+  if (!updated) {
+    return { ok: false, status: 500, error: "update_failed", message: "Impossibile aggiornare il suggerimento." };
+  }
+
+  const authorId = String(updated.userId || "").trim();
+  const prevStatus = String(prev.status || "pending");
+  if (authorId) {
+    if (nextStatus === "accepted") {
+      await notifySuggestionAuthor(resolved.guild.id, authorId, {
+        title: "Suggerimento accettato",
+        body: `Lo staff ha accettato il tuo suggerimento sul sito. Motivo: ${clipNotifBody(reason, 380)}`,
+        kind: "success",
+        openUrl: suggestionNotifOpenUrl(suggestionId),
+      });
+    } else if (nextStatus === "rejected") {
+      await notifySuggestionAuthor(resolved.guild.id, authorId, {
+        title: "Suggerimento rifiutato",
+        body: `Lo staff ha rifiutato il tuo suggerimento sul sito. Motivo: ${clipNotifBody(reason, 380)}`,
+        kind: "suggestion",
+        openUrl: suggestionNotifOpenUrl(suggestionId),
+      });
+    } else if (prevStatus !== "pending") {
+      await notifySuggestionAuthor(resolved.guild.id, authorId, {
+        title: "Suggerimento riaperto",
+        body: "Lo staff ha rimesso il tuo suggerimento in valutazione sul sito.",
+        kind: "suggestion",
+        openUrl: suggestionNotifOpenUrl(suggestionId),
+      });
+    }
+  }
+
+  broadcastSiteSuggestionsChanged();
+  return {
+    ok: true,
+    status: 200,
+    suggestion: serializeSuggestion(updated, resolved.userId),
+    message: "Suggerimento aggiornato.",
+  };
+}
+
 async function staffDeleteSiteSuggestion(client, payload = {}) {
   const accessToken = String(payload.accessToken || "").trim();
   const resolved = await resolveWebsiteGuildMember(client, accessToken);
@@ -948,5 +1040,6 @@ module.exports = {
   setSiteSuggestionVote,
   staffAcceptSiteSuggestion,
   staffRejectSiteSuggestion,
+  staffSetSiteSuggestionDecision,
   staffDeleteSiteSuggestion,
 };

@@ -11,6 +11,13 @@
     livePollTimer: null,
     suggestionsWs: null,
     wsReconnectTimer: null,
+    suggestionsPager: {
+      page: 1,
+      perPage: 9,
+      totalPages: 1,
+      userControlled: false,
+    },
+    deepLinkAppliedId: "",
   };
 
   function byId(id) {
@@ -68,8 +75,17 @@
     state.editSuggestionId = null;
     state.pendingReply = null;
     state.editingComment = null;
+    state.suggestionsPager.page = 1;
+    state.suggestionsPager.totalPages = 1;
+    state.suggestionsPager.userControlled = false;
+    state.deepLinkAppliedId = "";
     var wrap = byId("vc-suggestions-list");
     if (wrap) wrap.innerHTML = "";
+    var pager = byId("vc-suggestions-pager");
+    if (pager) {
+      pager.innerHTML = "";
+      pager.hidden = true;
+    }
     closeModalDom();
   }
 
@@ -357,8 +373,8 @@
 
     var ordered = orderedSuggestionComments(s);
     var threadHtml =
-      '<div class="mt-4 space-y-3 border-t border-white/10 pt-4">' +
-      '<p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Discussione</p>';
+      '<div class="vc-reviews-card__reply vc-suggestions-thread mt-4 space-y-3">' +
+      '<span class="vc-reviews-card__reply-label">Discussione</span>';
     if (!ordered.length) {
       threadHtml += '<p class="text-sm text-slate-400">Nessun commento ancora.</p>';
     } else {
@@ -409,7 +425,7 @@
               esc(rawSid) +
               '" data-suggestion-comment-delete-id="' +
               esc(cid) +
-              '">Elimina (staff)</button>';
+              '">Elimina</button>';
           }
 
           var innerBody = "";
@@ -509,23 +525,29 @@
     threadHtml += "</div>";
 
     var staffActions = "";
-    if (pending && canMod) {
+    if (canMod) {
+      var reasonPrefill = String(s.staffReason || "");
       staffActions =
         '<div class="vc-suggestions-staff-card mt-4 rounded-xl border border-amber-500/25 bg-amber-500/5 p-4">' +
         '<p class="vc-suggestions-staff-card__title text-xs font-semibold uppercase tracking-wider text-amber-200/80">High Staff</p>' +
         '<label class="vc-suggestions-staff-card__label mt-2 mb-1 block text-xs text-slate-400" for="vc-sug-staff-reason-' +
         esc(rawSid) +
-        '">Motivo (obbligatorio, min. 3 caratteri)</label>' +
+        '">Risposta / motivo (min. 3 caratteri per Accetta o Rifiuta)</label>' +
         '<textarea id="vc-sug-staff-reason-' +
         esc(rawSid) +
-        '" class="vc-reviews-textarea" rows="2" placeholder="Motivazione visibile nella scheda..."></textarea>' +
+        '" class="vc-reviews-textarea" rows="2" placeholder="Motivazione visibile nella scheda...">' +
+        esc(reasonPrefill) +
+        "</textarea>" +
         '<div class="mt-3 flex flex-wrap gap-2">' +
-        '<button type="button" class="vc-reviews-submit" data-suggestion-accept="' +
+        '<button type="button" class="vc-reviews-submit" data-suggestion-decision-id="' +
         esc(rawSid) +
-        '">Accetta</button>' +
-        '<button type="button" class="vc-reviews-submit vc-suggestions-btn-danger" data-suggestion-reject="' +
+        '" data-suggestion-decision-status="accepted">Accetta</button>' +
+        '<button type="button" class="vc-reviews-submit vc-suggestions-btn-danger" data-suggestion-decision-id="' +
         esc(rawSid) +
-        '">Rifiuta</button>' +
+        '" data-suggestion-decision-status="rejected">Rifiuta</button>' +
+        '<button type="button" class="vc-reviews-submit vc-suggestions-btn-muted" data-suggestion-decision-id="' +
+        esc(rawSid) +
+        '" data-suggestion-decision-status="pending">In valutazione</button>' +
         "</div></div>";
     }
 
@@ -537,20 +559,21 @@
         '<button type="button" class="vc-reviews-submit vc-suggestions-btn-muted mt-2" data-suggestion-staff-delete="' +
         esc(rawSid) +
         '">Elimina definitivamente</button>' +
-        '<p class="vc-suggestions-staff-delete-card__note mt-1 text-xs text-slate-500">Rimuove il suggerimento dal database (irreversibile).</p>' +
+        '<p class="vc-suggestions-staff-delete-card__note mt-1 text-xs text-slate-500">Rimuove il suggerimento dal database.</p>' +
         "</div>";
     }
 
-    var authorTools = "";
+    var ownActions = "";
     if (pending && tokenOk && isOwnSuggestion) {
-      authorTools =
-        '<div class="mt-2 flex flex-wrap gap-2">' +
-        '<button type="button" class="vc-reviews-submit vc-suggestions-btn-muted" data-suggestion-author-edit="' +
+      ownActions =
+        '<div class="vc-reviews-card__own-actions">' +
+        '<button type="button" class="vc-reviews-card__icon-btn" data-suggestion-author-edit="' +
         esc(rawSid) +
-        '">Modifica suggerimento</button>' +
-        '<button type="button" class="vc-reviews-submit vc-suggestions-btn-danger" data-suggestion-author-delete="' +
+        '" aria-label="Modifica suggerimento"><i class="fa fa-pencil" aria-hidden="true"></i></button>' +
+        '<button type="button" class="vc-reviews-card__icon-btn vc-reviews-card__icon-btn--danger" data-suggestion-author-delete="' +
         esc(rawSid) +
-        '">Elimina il mio suggerimento</button></div>';
+        '" aria-label="Elimina suggerimento"><i class="fa fa-trash-o" aria-hidden="true"></i></button>' +
+        "</div>";
     }
 
     var statusWrap =
@@ -617,8 +640,9 @@
       statusWrap +
       '">' +
       esc(statusLabel(s.status)) +
-      "</span></div></div>" +
-      authorTools +
+      "</span>" +
+      ownActions +
+      "</div></div>" +
       '<p class="vc-reviews-card__text">' +
       esc(s.content) +
       "</p>" +
@@ -639,6 +663,107 @@
       "<p>Sii il primo a proporre un&apos;idea per la community.</p>" +
       "</article>"
     );
+  }
+
+  function mongoObjectIdToTimeMs(id) {
+    var s = String(id || "").trim();
+    if (!/^[a-f0-9]{24}$/i.test(s)) return 0;
+    return parseInt(s.slice(0, 8), 16) * 1000;
+  }
+
+  function dateValueMs(value) {
+    if (value == null || value === "") return 0;
+    if (typeof value === "number" && Number.isFinite(value)) return value > 100000000000 ? value : value * 1000;
+    var ms = new Date(value).getTime();
+    return Number.isFinite(ms) && ms > 0 ? ms : 0;
+  }
+
+  function suggestionCreatedTs(suggestion) {
+    if (!suggestion || typeof suggestion !== "object") return 0;
+    var created =
+      dateValueMs(suggestion.createdAt) ||
+      dateValueMs(suggestion.created_at) ||
+      dateValueMs(suggestion.submittedAt);
+    if (created > 0) return created;
+    return mongoObjectIdToTimeMs(suggestion.id);
+  }
+
+  function sortedSuggestionsNewestFirst(suggestions) {
+    var list = Array.isArray(suggestions) ? suggestions.slice() : [];
+    list.sort(function (a, b) {
+      var dt = suggestionCreatedTs(b) - suggestionCreatedTs(a);
+      if (dt !== 0) return dt;
+      return String(b && b.id ? b.id : "").localeCompare(String(a && a.id ? a.id : ""));
+    });
+    return list;
+  }
+
+  function extractDeepLinkSuggestionId() {
+    try {
+      var h = String(window.location.hash || "").trim();
+      if (!h || h.indexOf("#vc-suggestion-") !== 0) return "";
+      var raw = h.slice("#vc-suggestion-".length).trim();
+      return /^[a-f0-9]{24}$/i.test(raw) ? raw : "";
+    } catch (e) {
+      return "";
+    }
+  }
+
+  function ensurePageIncludesDeepLink(sortedSuggestions) {
+    if (state.suggestionsPager.userControlled) return;
+    var suggestionId = extractDeepLinkSuggestionId();
+    if (!suggestionId) return;
+    var idx = -1;
+    for (var i = 0; i < sortedSuggestions.length; i += 1) {
+      if (String(sortedSuggestions[i] && sortedSuggestions[i].id || "") === suggestionId) {
+        idx = i;
+        break;
+      }
+    }
+    if (idx < 0) return;
+    var perPage = Math.max(1, Number(state.suggestionsPager.perPage || 9));
+    state.suggestionsPager.page = Math.floor(idx / perPage) + 1;
+  }
+
+  function getPagedSuggestions(sortedSuggestions) {
+    var perPage = Math.max(1, Number(state.suggestionsPager.perPage || 9));
+    var total = sortedSuggestions.length;
+    var totalPages = Math.max(1, Math.ceil(total / perPage));
+    var currentPage = Math.max(1, Math.min(totalPages, Number(state.suggestionsPager.page || 1)));
+    state.suggestionsPager.page = currentPage;
+    state.suggestionsPager.totalPages = totalPages;
+    var start = (currentPage - 1) * perPage;
+    return sortedSuggestions.slice(start, start + perPage);
+  }
+
+  function renderSuggestionsPager(totalItems) {
+    var pager = byId("vc-suggestions-pager");
+    if (!pager) return;
+    var perPage = Math.max(1, Number(state.suggestionsPager.perPage || 9));
+    var total = Math.max(0, Number(totalItems || 0));
+    var totalPages = Math.max(1, Math.ceil(total / perPage));
+    var page = Math.max(1, Math.min(totalPages, Number(state.suggestionsPager.page || 1)));
+    state.suggestionsPager.page = page;
+    state.suggestionsPager.totalPages = totalPages;
+    if (!total || total <= perPage) {
+      pager.innerHTML = "";
+      pager.hidden = true;
+      return;
+    }
+    pager.hidden = false;
+    pager.innerHTML =
+      '<button type="button" class="vc-reviews-pager__btn vc-notify-home-btn" data-suggestions-page-prev' +
+      (page <= 1 ? " disabled" : "") +
+      ">Precedente</button>" +
+      '<span class="vc-reviews-pager__meta vc-reviews-pager__meta--stats vc-notify-filter-btn vc-notify-filter-btn--on" aria-live="polite">' +
+      "Pagina " +
+      esc(String(page)) +
+      " di " +
+      esc(String(totalPages)) +
+      "</span>" +
+      '<button type="button" class="vc-reviews-pager__btn vc-notify-home-btn" data-suggestions-page-next' +
+      (page >= totalPages ? " disabled" : "") +
+      ">Successiva</button>";
   }
 
   function ensureModalRoot() {
@@ -744,8 +869,10 @@
       if (!h || h.indexOf("#vc-suggestion-") !== 0) return;
       var raw = h.slice("#vc-suggestion-".length).trim();
       if (!raw || !/^[a-f0-9]{24}$/i.test(raw)) return;
+      if (state.deepLinkAppliedId === raw) return;
       var el = document.getElementById("vc-suggestion-" + raw);
       if (!el) return;
+      state.deepLinkAppliedId = raw;
       el.scrollIntoView({ behavior: "smooth", block: "center" });
       el.classList.add("vc-deep-link-flash");
       window.setTimeout(function () {
@@ -753,6 +880,11 @@
           el.classList.remove("vc-deep-link-flash");
         } catch (e0) {}
       }, 2200);
+      try {
+        if (window.history && typeof window.history.replaceState === "function") {
+          window.history.replaceState(null, document.title, window.location.pathname + window.location.search);
+        }
+      } catch (e2) {}
     } catch (e1) {}
   }
 
@@ -760,12 +892,49 @@
     var wrap = byId("vc-suggestions-list");
     if (!wrap) return;
     var list = (state.payload && state.payload.suggestions) || [];
-    wrap.innerHTML = list.length ? list.map(function (s) { return suggestionCardMarkup(s); }).join("") : emptyMarkup();
+    var ordered = sortedSuggestionsNewestFirst(list);
+    ensurePageIncludesDeepLink(ordered);
+    var pageItems = getPagedSuggestions(ordered);
+    wrap.innerHTML = ordered.length
+      ? pageItems.map(function (s) { return suggestionCardMarkup(s); }).join("")
+      : emptyMarkup();
+    renderSuggestionsPager(ordered.length);
     syncModal();
     syncHeadButton();
     bind();
     window.requestAnimationFrame(function () {
       applySuggestionDeepLink();
+    });
+  }
+
+  var suggestionsPagerClickBound = false;
+
+  function bindSuggestionsPagerOnce() {
+    if (suggestionsPagerClickBound) return;
+    var pager = byId("vc-suggestions-pager");
+    if (!pager) return;
+    suggestionsPagerClickBound = true;
+    pager.addEventListener("click", function (ev) {
+      var btn = ev.target && ev.target.closest ? ev.target.closest("[data-suggestions-page-prev],[data-suggestions-page-next]") : null;
+      if (!btn || btn.disabled) return;
+      state.suggestionsPager.userControlled = true;
+      if (btn.hasAttribute("data-suggestions-page-prev")) {
+        state.suggestionsPager.page = Math.max(1, Number(state.suggestionsPager.page || 1) - 1);
+      } else {
+        state.suggestionsPager.page = Math.min(
+          Math.max(1, Number(state.suggestionsPager.totalPages || 1)),
+          Number(state.suggestionsPager.page || 1) + 1,
+        );
+      }
+      render();
+      var list = byId("vc-suggestions-list");
+      if (list && typeof list.scrollIntoView === "function") {
+        window.requestAnimationFrame(function () {
+          try {
+            list.scrollIntoView({ behavior: "smooth", block: "start" });
+          } catch (eScroll) {}
+        });
+      }
     });
   }
 
@@ -1069,16 +1238,17 @@
       });
     });
 
-    Array.prototype.slice.call(document.querySelectorAll("[data-suggestion-accept]")).forEach(function (btn) {
-      btn.addEventListener("click", function () {
-        staffDecision(String(btn.getAttribute("data-suggestion-accept") || ""), "accept", btn);
+    Array.prototype.slice
+      .call(document.querySelectorAll("[data-suggestion-decision-id][data-suggestion-decision-status]"))
+      .forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          staffDecisionSet(
+            String(btn.getAttribute("data-suggestion-decision-id") || "").trim(),
+            String(btn.getAttribute("data-suggestion-decision-status") || "").trim(),
+            btn,
+          );
+        });
       });
-    });
-    Array.prototype.slice.call(document.querySelectorAll("[data-suggestion-reject]")).forEach(function (btn) {
-      btn.addEventListener("click", function () {
-        staffDecision(String(btn.getAttribute("data-suggestion-reject") || ""), "reject", btn);
-      });
-    });
 
     Array.prototype.slice.call(document.querySelectorAll("[data-suggestion-staff-delete]")).forEach(function (btn) {
       btn.addEventListener("click", function () {
@@ -1184,6 +1354,40 @@
       });
   }
 
+  function staffDecisionSet(id, status, btn) {
+    id = String(id || "").trim();
+    status = String(status || "").trim().toLowerCase();
+    if (!id) return;
+    if (status !== "accepted" && status !== "rejected" && status !== "pending") status = "pending";
+    var ta = byId("vc-sug-staff-reason-" + id);
+    var reason = ta ? String(ta.value || "").trim() : "";
+    var label =
+      status === "accepted"
+        ? "Salvataggio (Accetta)..."
+        : status === "rejected"
+          ? "Salvataggio (Rifiuta)..."
+          : "Riapertura in valutazione...";
+    setStatus(label, false);
+    if (btn) btn.disabled = true;
+    return fetch(apiUrl().replace(/\/$/, "") + "/" + encodeURIComponent(id) + "/decision", {
+      method: "PATCH",
+      headers: Object.assign({}, authHeaders(), { "Content-Type": "application/json" }),
+      body: JSON.stringify({ status: status, reason: reason }),
+    })
+      .then(parseSuggestionsApiJson)
+      .then(function (body) {
+        if (!body || body.ok !== true) throw new Error((body && body.message) || "Operazione fallita.");
+        setStatus(body.message || "Aggiornato.", false);
+        void refreshPayloadQuiet();
+      })
+      .catch(function (err) {
+        setStatus((err && err.message) || "Errore durante l'operazione.", true);
+      })
+      .finally(function () {
+        if (btn) btn.disabled = false;
+      });
+  }
+
   function authHeaders() {
     var token = getToken();
     return token ? { Authorization: "Bearer " + token } : {};
@@ -1254,6 +1458,7 @@
 
   function main() {
     wireGateLoginCta();
+    bindSuggestionsPagerOnce();
     if (shouldUnlockPage()) {
       hideGate();
       fetchPayload();
@@ -1298,7 +1503,11 @@
   });
 
   window.addEventListener("hashchange", function () {
-    if (byId("vc-suggestions-list")) {
+    if (!byId("vc-suggestions-list")) return;
+    state.deepLinkAppliedId = "";
+    state.suggestionsPager.userControlled = false;
+    if (state.payload) render();
+    else {
       window.requestAnimationFrame(function () {
         applySuggestionDeepLink();
       });
