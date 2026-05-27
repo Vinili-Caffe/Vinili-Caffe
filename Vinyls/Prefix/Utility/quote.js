@@ -3,32 +3,10 @@ const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const renderQuoteCanvas = require("../../Utils/Render/quoteCanvas");
 const { nextQuoteCount } = require("../../Utils/Quote/quoteCounter");
 const { resolveQuotePostChannel } = require("../../Utils/Quote/quotePostChannel");
+const { normalizeQuoteMessageText } = require("../../Utils/Quote/normalizeQuoteMessageText");
 const { QuotePrivacy } = require("../../Schemas/Community/communitySchemas");
 const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
-
-function normalizeQuoteText(targetMessage) {
-  const raw = String(targetMessage?.content || "");
-  const users = targetMessage?.mentions?.users;
-  const roles = targetMessage?.mentions?.roles;
-  const channels = targetMessage?.mentions?.channels;
-
-  return raw
-    .replace(/<@!?(\d+)>/g, (_, id) => {
-      const u = users?.get(id);
-      const name = u?.username;
-      return name ? `@${name}` : "@utente";
-    })
-    .replace(/<@&(\d+)>/g, (_, id) => {
-      const role = roles?.get(id);
-      return role?.name ? `@${role.name}` : "@ruolo";
-    })
-    .replace(/<#(\d+)>/g, (_, id) => {
-      const ch = channels?.get(id);
-      return ch?.name ? `#${ch.name}` : "#canale";
-    })
-    .replace(/\s{2,}/g, " ")
-    .trim();
-}
+const { isRepostDisabledInGuild } = require("../../Services/Community/repostService");
 
 function buildQuotePostEmbed({ messageAuthorId, creatorId, totalPosts }) {
   return new EmbedBuilder()
@@ -87,7 +65,7 @@ module.exports = {
       });
     }
 
-    const text = normalizeQuoteText(targetMessage);
+    const text = normalizeQuoteMessageText(targetMessage);
     const author = targetMessage.author;
     const displayName = targetMessage.member?.displayName || author?.username;
     if (!author || !text) {
@@ -194,18 +172,30 @@ module.exports = {
       const postEmbed=buildQuotePostEmbed({messageAuthorId:author.id,creatorId:message.author.id,totalPosts,});
       const originChannelId = message.channel.id;
       const originMessageId = replyMsg?.id || "0";
-      const row = new ActionRowBuilder().addComponents(
+      const sourceChannelId = targetMessage.channel.id;
+      const sourceMessageId = targetMessage.id;
+      const rowButtons = [
         new ButtonBuilder()
           .setCustomId(`quote_remove:${message.author.id}:${originChannelId}:${originMessageId}`)
           .setLabel("Rimuovi questa quote")
           .setEmoji("🗑️")
           .setStyle(ButtonStyle.Danger),
-      );
+      ];
+      if (!isRepostDisabledInGuild(message.guild.id)) {
+        rowButtons.unshift(
+          new ButtonBuilder()
+            .setCustomId(`repost_src:${sourceChannelId}:${sourceMessageId}`)
+            .setLabel("Reposta")
+            .setEmoji("1443652837346377841")
+            .setStyle(ButtonStyle.Secondary),
+        );
+      }
+      const removeRow = new ActionRowBuilder().addComponents(...rowButtons);
       await quoteChannel
         .send({
           files: [postAttachment],
           embeds: [postEmbed],
-          components: [row],
+          components: [removeRow],
         })
         .catch(() => {});
     }

@@ -2,6 +2,7 @@ const { drawTextWithSpecialFallback, fontStack } = require("./canvasFonts");
 const { safeLoadImage } = require("./safeLoadImage");
 
 const emojiImageCache = new Map();
+const emojiImagePending = new Map();
 const CUSTOM_EMOJI_START_RE = /^<(a)?:([a-zA-Z0-9_~]+):(\d{16,22})>/;
 
 function prepareVisibleText(value) {
@@ -198,8 +199,30 @@ function tokenizeEmojiText(text) {
   return tokens.length ? tokens : [{ type: "text", value: "" }];
 }
 
-function twemojiUrlFromCodepoints(codepoints) {
-  return `https://cdn.jsdelivr.net/gh/twitter/twemoji@15.1.0/assets/144x144/${codepoints.join("-")}.png`;
+/** CDN Twemoji funzionanti (15.1 jsdelivr 144x144 → 404). */
+const TWEMOJI_CDN_BASES = Object.freeze([
+  "https://unpkg.com/emoji-datasource-twitter@15.1.0/img/twitter/64",
+  "https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72",
+  "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72",
+]);
+
+function emojiStringToCodepoints(emoji) {
+  const raw = String(emoji || "");
+  if (!raw) return [];
+  const cps = [];
+  for (let i = 0; i < raw.length; ) {
+    const cp = raw.codePointAt(i);
+    if (!Number.isFinite(cp)) break;
+    cps.push(cp.toString(16).toLowerCase());
+    i += cp > 0xffff ? 2 : 1;
+  }
+  return cps;
+}
+
+function twemojiUrlsFromCodepointList(cps) {
+  if (!Array.isArray(cps) || !cps.length) return [];
+  const file = `${cps.join("-")}.png`;
+  return TWEMOJI_CDN_BASES.map((base) => `${base}/${file}`);
 }
 
 function emojiDrawSizeForFont(size) {
@@ -207,15 +230,14 @@ function emojiDrawSizeForFont(size) {
 }
 
 function emojiToTwemojiUrls(emoji) {
-  const cps = Array.from(String(emoji || "")).map((ch) =>
-    ch.codePointAt(0).toString(16).toLowerCase(),
-  );
+  const cps = emojiStringToCodepoints(emoji);
   if (!cps.length) return [];
   const urls = [];
   const pushByCps = (list) => {
     if (!Array.isArray(list) || !list.length) return;
-    const url = twemojiUrlFromCodepoints(list);
-    if (!urls.includes(url)) urls.push(url);
+    for (const url of twemojiUrlsFromCodepointList(list)) {
+      if (!urls.includes(url)) urls.push(url);
+    }
   };
 
   pushByCps(cps);
@@ -239,12 +261,38 @@ function customEmojiUrl(id, animated = false) {
   return `https://cdn.discordapp.com/emojis/${id}.${ext}?size=96&quality=lossless`;
 }
 
+function drawEmojiPlaceholder(ctx, x, y, drawSize) {
+  const r = Math.max(4, Math.round(drawSize * 0.22));
+  ctx.save();
+  ctx.fillStyle = "rgba(90, 78, 110, 0.55)";
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + drawSize - r, y);
+  ctx.quadraticCurveTo(x + drawSize, y, x + drawSize, y + r);
+  ctx.lineTo(x + drawSize, y + drawSize - r);
+  ctx.quadraticCurveTo(x + drawSize, y + drawSize, x + drawSize - r, y + drawSize);
+  ctx.lineTo(x + r, y + drawSize);
+  ctx.quadraticCurveTo(x, y + drawSize, x, y + drawSize - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = "#c9b89f";
+  ctx.font = `600 ${Math.max(12, Math.round(drawSize * 0.42))}px sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("?", x + drawSize / 2, y + drawSize / 2);
+  ctx.restore();
+}
+
 async function getEmojiImage(token) {
   const key =
     typeof token === "string"
       ? token
       : `custom:${token.id}:${token.animated ? 1 : 0}`;
   if (emojiImageCache.has(key)) return emojiImageCache.get(key);
+  if (emojiImagePending.has(key)) return emojiImagePending.get(key);
+
   const promise = (async () => {
     if (typeof token !== "string") {
       return safeLoadImage(customEmojiUrl(token.id, Boolean(token.animated)), {
@@ -254,15 +302,22 @@ async function getEmojiImage(token) {
     const sources = emojiToTwemojiUrls(token);
     for (const sourceUrl of sources) {
       const img = await safeLoadImage(sourceUrl, {
-        timeoutMs: 10000,
+        timeoutMs: 12000,
         suppressWarning: true,
       }).catch(() => null);
       if (img) return img;
     }
     return null;
   })();
-  emojiImageCache.set(key, promise);
-  return promise;
+
+  emojiImagePending.set(key, promise);
+  try {
+    const img = await promise;
+    if (img) emojiImageCache.set(key, img);
+    return img;
+  } finally {
+    emojiImagePending.delete(key);
+  }
 }
 
 function tokenWidth(ctx, token, size, weight) {
@@ -338,13 +393,16 @@ async function drawLabelWithEmoji(
       ctx.imageSmoothingQuality = "high";
       ctx.drawImage(img, cursorX, drawY, drawSize, drawSize);
       cursorX += drawSize + 1;
+    } else if (token.type === "custom_emoji" && token.raw) {
+      drawLabel(ctx, token.raw, cursorX, y, { ...labelOpts, align: "left" });
+      cursorX += textWidth(ctx, token.raw, size, weight);
     } else {
-      const fallback =
-        token.type === "custom_emoji"
-          ? token.raw || ""
-          : token.value || "";
-      drawLabel(ctx, fallback, cursorX, y, { ...labelOpts, align: "left" });
-      cursorX += textWidth(ctx, fallback, size, weight);
+      const drawSize = emojiDrawSizeForFont(size);
+      let drawY = y;
+      if (baseline === "middle") drawY = y - drawSize / 2;
+      else if (baseline === "bottom") drawY = y - drawSize;
+      drawEmojiPlaceholder(ctx, cursorX, drawY, drawSize);
+      cursorX += drawSize + 1;
     }
   }
 }

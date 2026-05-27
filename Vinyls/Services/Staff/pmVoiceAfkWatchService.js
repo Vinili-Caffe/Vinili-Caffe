@@ -6,6 +6,7 @@ const PM_AFK_VOICE_CATEGORY_ID = String( process.env.VC_PM_AFK_WATCH_CATEGORY_ID
 const PM_AFK_SKIP_CATEGORY_IDS = new Set( [IDs.categories?.categoryStanze, IDs.categories?.categoryPrivate ].filter(Boolean).map((id) => String(id)) );
 const STAFF_CHAT_CHANNEL_ID = String(IDs.channels?.staffChat || "").trim();
 const STAFF_PING_ROLE_ID = String(IDs.roles?.Staff || "").trim();
+const FOUNDER_ROLE_ID = String(IDs.roles?.Founder || "").trim();
 const ALONE_MIN_MS = Math.max( 60_000, Number(process.env.VC_PM_AFK_WATCH_MIN_MS || 10 * 60 * 1000) );
 const SWEEP_MS = Math.max(15_000, Number(process.env.VC_PM_AFK_WATCH_SWEEP_MS || 60_000));
 const watchByMemberKey = new Map();
@@ -29,10 +30,16 @@ function isPmAfkWatchVoiceChannel(channel) {
   return true;
 }
 
+function memberHasFounderRole(member) {
+  if (!member || !FOUNDER_ROLE_ID) return false;
+  return member.roles?.cache?.has(FOUNDER_ROLE_ID) === true;
+}
+
 function qualifiesForWatch(voiceState, member) {
   if (!voiceState?.channelId || !member) return false;
   if (String(voiceState.guild?.id || member.guild?.id || "") !== MAIN_GUILD_ID) return false;
   if (member.user?.bot) return false;
+  if (memberHasFounderRole(member)) return false;
   const micOff = Boolean(voiceState.selfMute || voiceState.serverMute);
   const audioOff = Boolean(voiceState.selfDeaf || voiceState.serverDeaf);
   if (micOff && audioOff) return false;

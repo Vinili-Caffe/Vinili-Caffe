@@ -33,6 +33,9 @@ const MUSIC_INACTIVITY_MS = Math.max(
   Number.isFinite(_musicIdleRawMs) && _musicIdleRawMs > 0 ? _musicIdleRawMs : 180_000,
 );
 
+const NOW_PLAYING_EMBED_TITLE = "Now playing";
+const NOW_PLAYING_VERIFIED = "<a:VC_Verified:1482532479637127188>";
+
 function getMusicSearchMode() {
   const m = String(process.env.MUSIC_SEARCH_MODE || "").trim().toLowerCase();
   if (m === "spotify") return "spotify";
@@ -2149,10 +2152,13 @@ async function playMusicRequest(ctx, query) {
   const spotifyUrl = await resolveSpotifyWebUrl(node, first);
   const linkMd = formatTrackTitleMarkdownLink(label, spotifyUrl);
   const tail = rest.length ? ` (+${rest.length} in coda)` : "";
-  const embedBody = `<a:VC_Verified:1482532479637127188> In riproduzione: ${linkMd}${tail}`;
+  const embedDescription = `${linkMd}${tail}`;
+  const embedBody = `${NOW_PLAYING_VERIFIED} **${NOW_PLAYING_EMBED_TITLE}:** ${embedDescription}`;
   return {
     ok: true,
-    message: `<a:VC_Verified:1482532479637127188> In riproduzione: **${label}**${tail}`,
+    message: `${NOW_PLAYING_VERIFIED} **${NOW_PLAYING_EMBED_TITLE}:** **${label}**${tail}`,
+    embedTitle: NOW_PLAYING_EMBED_TITLE,
+    embedDescription,
     embedBody,
   };
 }
@@ -2549,17 +2555,24 @@ async function previousGuildTrack(interaction) {
     session.nowPlaying = oldNowLabel;
     return { ok: false, message: err?.message || "<a:VC_Cross:1482532424570376253> Impossibile tornare al brano precedente." };
   }
-  let embedBody = `<a:VC_Verified:1482532479637127188> In riproduzione: **${safeDiscordLinkLabel(session.nowPlaying)}**`;
+  let embedDescription = `**${safeDiscordLinkLabel(session.nowPlaying)}**`;
   if (node?.rest?.decode) {
     try {
       const t = await node.rest.decode(prev.encoded);
       const label = describeTrack(t);
       session.nowPlaying = label;
       const url = await resolveSpotifyWebUrl(node, t);
-      embedBody = `<a:VC_Verified:1482532479637127188> In riproduzione: ${formatTrackTitleMarkdownLink(label, url)}`;
+      embedDescription = formatTrackTitleMarkdownLink(label, url);
     } catch (_) {}
   }
-  return { ok: true, message: `<a:VC_Verified:1482532479637127188> In riproduzione: ${session.nowPlaying}`, embedBody };
+  const embedBody = `${NOW_PLAYING_VERIFIED} **${NOW_PLAYING_EMBED_TITLE}:** ${embedDescription}`;
+  return {
+    ok: true,
+    message: `${NOW_PLAYING_VERIFIED} **${NOW_PLAYING_EMBED_TITLE}:** ${session.nowPlaying}`,
+    embedTitle: NOW_PLAYING_EMBED_TITLE,
+    embedDescription,
+    embedBody,
+  };
 }
 
 async function shuffleGuildQueue(interaction) {

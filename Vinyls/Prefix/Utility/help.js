@@ -91,6 +91,8 @@ const PREFIX_HELP_DESCRIPTIONS = {
   security: "Pannello gestione sicurezza.",
   level: "Pannello gestione livelli.",
   quote: "Genera una quote da un messaggio.",
+  repost: "Condivide un messaggio sulla bacheca quote (rispondi al messaggio).",
+  myrepost: "Elenco dei repost che hai pubblicato sulla bacheca.",
   pause: "Mette in pausa la traccia in riproduzione.",
   resume: "Riprende la traccia in pausa.",
   skip: "Salta la traccia in riproduzione e passa alla successiva in coda.",

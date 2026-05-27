@@ -355,6 +355,24 @@
     return list;
   }
 
+  function guildIconUrlFromInvitePayload(data) {
+    var guild = data && data.guild;
+    var gid = guild && guild.id != null ? String(guild.id).trim() : "";
+    var icon = guild && guild.icon != null ? String(guild.icon).trim() : "";
+    if (!gid || !icon) return "";
+    var ext = icon.indexOf("a_") === 0 ? "gif" : "png";
+    return "https://cdn.discordapp.com/icons/" + gid + "/" + icon + "." + ext + "?size=128";
+  }
+
+  function applyHeaderGuildIcon(url) {
+    var u = String(url || "").trim();
+    if (!u) return;
+    var imgs = document.querySelectorAll("img.vc-header-logo-img");
+    for (var i = 0; i < imgs.length; i += 1) {
+      if (imgs[i].getAttribute("src") !== u) imgs[i].setAttribute("src", u);
+    }
+  }
+
   function refreshInvite() {
     var urls = inviteUrls();
     if (!urls.length) return Promise.resolve();
@@ -362,6 +380,7 @@
     function tryOne(i) {
       if (i >= urls.length) return Promise.reject(new Error("invite_exhausted"));
       return fetchNoStore(urls[i]).then(function (data) {
+        applyHeaderGuildIcon(guildIconUrlFromInvitePayload(data));
         return data;
       }).catch(function () {
         return tryOne(i + 1);

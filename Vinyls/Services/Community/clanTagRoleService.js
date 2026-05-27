@@ -17,7 +17,7 @@ function normalizeForMatch(text) {
     .replace(/ʟ/g, "l").replace(/ᴜ/g, "u").replace(/ɴ/g, "n").replace(/ᴀ/g, "a")
     .replace(/ᴄ/g, "c").replace(/ꜱ/g, "s").replace(/ʜ/g, "h").replace(/ᴘ/g, "p")
     .replace(/ᴡ/g, "w").replace(/ᴇ/g, "e").replace(/ᴅ/g, "d").replace(/ꜰ/g, "f")
-    .replace(/ɪ/g, "i").replace(/ɢ/g, "g").replace(/ღ/g, "o")
+    .replace(/ɪ/g, "i").replace(/ɢ/g, "g").replace(/ღ/g, "o").replace(/ᴛ/g, "t").replace(/ʀ/g, "r")
     .replace(/𝟨/g, "6").replace(/𝟫/g, "9")
     .replace(/[^a-z0-9]/g, "");
 }

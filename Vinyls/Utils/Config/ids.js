@@ -485,8 +485,8 @@ ids.sponsorGuildTagConfig = {
   },
   [ids.guilds.cash]: {
     channelId: ids.sponsorChannels.cashTag,
-    tagName: "ᴄᴀꜱʜ",
-    emoji: "💸",
+    tagName: "ꜰɪʀᴇ",
+    emoji: "<a:VC_Flame:1482725674711126140>",
     boosterRoleId: ids.sponsorRoles.cashBooster,
   },
   [ids.guilds.porn]: {
@@ -497,8 +497,8 @@ ids.sponsorGuildTagConfig = {
   },
   [ids.guilds[69]]: {
     channelId: ids.sponsorChannels["69Tag"],
-    tagName: "𝟨𝟫",
-    emoji: "😈",
+    tagName: "ꜱᴛᴀʀ",
+    emoji: "<:VC_EXP:1482534670896730143>",
     boosterRoleId: ids.sponsorRoles["69Booster"],
   },
   [ids.guilds.weed]: {
@@ -525,8 +525,8 @@ ids.sponsorTicketConfig = {
   [ids.guilds.cash]: {
     ticketChannelId: ids.sponsorChannels.cashTicket,
     guildedRoleId: ids.sponsorRoles.cashGuilded,
-    tagName: "Cash",
-    emoji: "💸",
+    tagName: "Fire",
+    emoji: "<a:VC_Flame:1482725674711126140>",
   },
   [ids.guilds.porn]: {
     ticketChannelId: ids.sponsorChannels.pornTicket,
@@ -537,8 +537,8 @@ ids.sponsorTicketConfig = {
   [ids.guilds[69]]: {
     ticketChannelId: ids.sponsorChannels["69Ticket"],
     guildedRoleId: ids.sponsorRoles["69Guilded"],
-    tagName: "69",
-    emoji: "😈",
+    tagName: "Star",
+    emoji: "<:VC_EXP:1482534670896730143>",
   },
   [ids.guilds.weed]: {
     ticketChannelId: ids.sponsorChannels.weedTicket,

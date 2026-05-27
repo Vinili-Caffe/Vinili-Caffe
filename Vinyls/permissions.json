@@ -665,6 +665,62 @@
                 "channels.vocaleSquad3"
             ]
         },
+        "repost": {
+            "roles": [
+                "roles.ServerBooster",
+                "roles.donator",
+                "roles.VIP",
+                "roles.Level10"
+            ],
+            "channels": [
+                "channels.chat",
+                "channels.media",
+                "channels.commands",
+                "channels.forum",
+                "channels.selfieVerificati",
+                "channels.serataFilm",
+                "channels.vocaleLounge1",
+                "channels.vocaleLounge2",
+                "channels.vocaleLounge3",
+                "channels.vocaleDuo1",
+                "channels.vocaleDuo2",
+                "channels.vocaleduo3",
+                "channels.vocaleTrio1",
+                "channels.trio2",
+                "channels.vocaleTrio3",
+                "channels.vocaleSquad1",
+                "channels.vocaleSquad2",
+                "channels.vocaleSquad3"
+            ]
+        },
+        "myrepost": {
+            "roles": [
+                "roles.ServerBooster",
+                "roles.donator",
+                "roles.VIP",
+                "roles.Level10"
+            ],
+            "channels": [
+                "channels.chat",
+                "channels.media",
+                "channels.commands",
+                "channels.forum",
+                "channels.selfieVerificati",
+                "channels.serataFilm",
+                "channels.vocaleLounge1",
+                "channels.vocaleLounge2",
+                "channels.vocaleLounge3",
+                "channels.vocaleDuo1",
+                "channels.vocaleDuo2",
+                "channels.vocaleduo3",
+                "channels.vocaleTrio1",
+                "channels.trio2",
+                "channels.vocaleTrio3",
+                "channels.vocaleSquad1",
+                "channels.vocaleSquad2",
+                "channels.vocaleSquad3"
+            ]
+        },
         "rank": {
             "roles": [
                 "roles.Member"
@@ -1822,6 +1878,8 @@
         "quote_remove:*": {
             "ownerSegment": 1
         },
+        "repost_btn:*": {},
+        "repost_src:*": {},
         "server_refresh*": {
             "ownerSegment": 1
         },

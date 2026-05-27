@@ -210,12 +210,22 @@
     }
   }
 
+  function hasCompletedSorting() {
+    return Boolean(state.eligibility && state.eligibility.alreadySorted);
+  }
+
+  function markSortingCompleted(houseMeta) {
+    if (!state.eligibility) state.eligibility = { ok: true };
+    state.eligibility.alreadySorted = true;
+    if (houseMeta) state.eligibility.houseMeta = houseMeta;
+  }
+
   function renderGringott() {
     var box = byId("vc-hw-gringott");
     if (!box) return;
     var token = getToken();
     var data = state.gringott;
-    if (!token || !data) {
+    if (!token || !data || !hasCompletedSorting()) {
       setHidden(box, true);
       return;
     }
@@ -225,7 +235,10 @@
     var ledgerEl = byId("vc-hw-gringott-ledger");
     if (balanceEl) balanceEl.textContent = String(balance);
     if (hintEl) {
-      hintEl.textContent = balance > 0 ? "Il tuo forziere stagionale custodisce " + formatGaleoni(balance) + "." : "Completa lo smistamento per ricevere il tuo primo accredito.";
+      hintEl.textContent =
+        balance > 0
+          ? "Il tuo forziere stagionale custodisce " + formatGaleoni(balance) + "."
+          : "Il tuo forziere è pronto: i Galeoni compariranno qui dopo i premi dell'evento.";
     }
     if (ledgerEl) {
       var ledger = Array.isArray(data.ledger) ? data.ledger.slice(0, 3) : [];
@@ -747,10 +760,9 @@
       }
       if (resultShown) {
         if (localResultShown && fetchDone && fetchOut && fetchOut.res.ok && fetchOut.data && fetchOut.data.ok) {
-          if (fetchOut.data.gringott) {
-            state.gringott = fetchOut.data.gringott;
-            renderGringott();
-          }
+          markSortingCompleted(fetchOut.data.houseMeta);
+          if (fetchOut.data.gringott) state.gringott = fetchOut.data.gringott;
+          renderGringott();
           showResult(fetchOut.data.houseMeta, fetchOut.data.message, true);
           localResultShown = false;
         }
@@ -789,6 +801,7 @@
         schedulePendingSortingRetry(5000);
         if (out.data && out.data.gringott) {
           state.gringott = out.data.gringott;
+          markSortingCompleted(out.data.houseMeta);
           renderGringott();
         }
         if (showLocalFallbackResult(out.data && out.data.message)) {
@@ -800,10 +813,9 @@
         resultShown = true;
         return;
       }
-      if (out.data.gringott) {
-        state.gringott = out.data.gringott;
-        renderGringott();
-      }
+      markSortingCompleted(out.data.houseMeta);
+      if (out.data.gringott) state.gringott = out.data.gringott;
+      renderGringott();
       clearPendingSortingSubmit();
       showResult(out.data.houseMeta, out.data.message, true);
       resultShown = true;

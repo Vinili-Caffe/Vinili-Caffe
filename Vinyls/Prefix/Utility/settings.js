@@ -16,7 +16,7 @@ const DASHBOARD_COLOR = "#6f4e37";
 const ICON_OK = "<:vegacheckmark:1443666279058772028>";
 const ICON_WARN = "<:vegax:1443934876440068179>";
 const ICON_ARROW = "<a:VC_Arrow:1482706699365257397>";
-const SETTING_KEYS = [ { id: "quotes", label: "Quote", resolveId: resolveQuoteChannelId, hint: "Copia automatica di `+quote`" }, { id: "modlogs", label: "Log moderazione", resolveId: resolveModLogChannelId, hint: "Case ban, warn, mute, …" } ];
+const SETTING_KEYS = [ { id: "quotes", label: "Quote / Repost", resolveId: resolveQuoteChannelId, hint: "Bacheca per `+quote` e `+repost`" }, { id: "modlogs", label: "Log moderazione", resolveId: resolveModLogChannelId, hint: "Case ban, warn, mute, …" } ];
 const CLEAR_TOKENS = new Set(["off", "none", "reset", "disable", "disabled", "remove", "clear"]);
 const HERE_TOKENS = new Set(["here", "this", "current"]);
 

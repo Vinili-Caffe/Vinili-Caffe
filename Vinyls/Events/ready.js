@@ -578,6 +578,10 @@ function startPrimaryLoops(client, engagementTick) {
     ["[STAFF WARN RESET 6M] Failed to start loop", () => startStaffWarnResetLoop(client)],
     ["[STAFF AUTO VALUTAZIONI] Failed to start loop", () => startStaffAutoValutazioniLoop(client)],
     ["[PM AFK WATCH] Failed to start loop", () => startPmVoiceAfkWatchLoop(client)],
+    ["[REPOST ROULETTE] Failed to start cron", () => {
+      const { startRepostRouletteCron } = require("../Services/Community/repostRouletteService");
+      startRepostRouletteCron(client);
+    }],
     ["[MOVIE NIGHT ANNOUNCE] Failed to start loop", () => startMovieNightAnnouncementLoop(client)],
     ["[DB MAINTENANCE] Failed to start loop", () => startDbMaintenanceLoop(client)],
     ["[STAFF GRACE PURGE] Failed to start loop", () => startStaffGracePurgeLoop(client)],

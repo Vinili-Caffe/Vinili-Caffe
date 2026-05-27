@@ -246,3 +246,5 @@ module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
 module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
 module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
 module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
+module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
+module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };

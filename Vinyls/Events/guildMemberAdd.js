@@ -375,7 +375,7 @@ async function addBotRoles(member) {
 
 function buildWelcomeChannelContent(member) {
   const { word } = buildMemberWelcomePhrase(member);
-  return `Ciao ${member.user}, ${word}! <@&${IDs.roles.Staff}> <a:VC_HeartOrange:1448673443762405386>`;
+  return `Ciao ${member.user}, ${word}! <@&${IDs.roles.Staff}> <a:VC_heartfinger:1504513546782769332>`;
 }
 
 function buildWelcomeEmbed(member) {
@@ -388,7 +388,7 @@ function buildWelcomeEmbed(member) {
       iconURL: guildMemberDisplayAvatarUrlDynamic(member, { size: 128 }) || undefined,
     })
     .setTitle(
-      `<a:VC_HeartsPink:1468685897389052008> ${capitalized} su Vinili & Caffè <a:VC_heartfinger:1504513546782769332>`,
+      `<a:VC_HeartsPink:1468685897389052008> ${capitalized} su Vinili & Caffè <a:VC_HeartsPink:1468685897389052008>`,
     )
     .setDescription(
       `__${uname}__ ${word} nella nostra community <a:VC_Sparkles:1468546911936974889>\n` +
@@ -415,8 +415,8 @@ function buildDmWelcomeEmbed(member) {
         "<a:VC_Arrow:1482706699365257397> <https://discord.com/channels/1329080093599076474/1442569111119990887/1470102236527853661>",
         "------------------------------",
         "<:VC_Dot:1482532364222595303> Controlla le nostre GUILD TAGS",
-        "<a:VC_Moon:1482724651430838406>[⭑.ᐟ](<https://discord.gg/E6vrm5zE6B>)<:VC_Luna1:1482497618289496117><:VC_Luna2:1482497653387427902> & <a:VC_Money:1482724694699278487>[⭑.ᐟ](<https://discord.gg/QnTN5P578g>)<:VC_Cash1:1482460724302184450><:VC_Cash2:1482460763346960434>",
-        "<:VC_Firework:1470796227913322658>[⭑.ᐟ](<https://discord.gg/WMuZ4EMAkc>)<:VC_Porn1:1482497744513011944><:VC_Porn2:1482497774892089547> & <a:VC_PepeEggPlant:1331622686014570588>[⭑.ᐟ](<https://discord.gg/uqUNS9f5m5>)<:VC_SixNine1:1482497833578922065><:VC_SixNine2:1482497868328865813>",
+        "<a:VC_Moon:1482724651430838406>[⭑.ᐟ](<https://discord.gg/E6vrm5zE6B>)<:VC_Luna1:1482497618289496117><:VC_Luna2:1482497653387427902> & [⭑.ᐟ](<https://discord.gg/QnTN5P578g>)<:VC_Fire1:1509196285796814979><:VC_Fire2:1509196390843023475>",
+        "<:VC_Firework:1470796227913322658>[⭑.ᐟ](<https://discord.gg/WMuZ4EMAkc>)<:VC_Porn1:1482497744513011944><:VC_Porn2:1482497774892089547> & <a:VC_PepeEggPlant:1331622686014570588>[⭑.ᐟ](<https://discord.gg/uqUNS9f5m5>)<:VC_Star1:1509196523810980051><:VC_Star2:1509196760722182155>",
         "<a:VC_PepeSmoke:1331590685673132103>[⭑.ᐟ](<https://discord.gg/SzBwnxHXNv>)<:VC_Weed1:1482497951686201534><:VC_Weed2:1482497986910097592> & <a:VC_PepeExcited:1331621719093284956>[⭑.ᐟ](<https://discord.gg/z3EXtJwvQH>)<:VC_Figa1:1482495980275499169><:VC_Figa2:1482496046222544937>",
         "<a:VC_Arrow:1482706699365257397> <https://discord.com/channels/1329080093599076474/1442569111119990887/1470102239094767699>",
         //"------------------------------",
@@ -1167,7 +1167,14 @@ function isUserDmUnavailableError(err) {
   return false;
 }
 
+function isMainGuildJoin(guildId) {
+  const gid = String(guildId || "");
+  const mainId = String(IDs.guilds?.main || "");
+  return Boolean(gid && mainId && gid === mainId);
+}
+
 async function sendDmWelcome(member) {
+  if (!isMainGuildJoin(member?.guild?.id)) return;
   const dmEmbed = buildDmWelcomeEmbed(member);
   const payload = { embeds: [dmEmbed] };
 

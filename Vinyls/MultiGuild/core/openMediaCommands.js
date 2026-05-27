@@ -3,7 +3,7 @@ const { isViniliProtectedGuild } = require("./viniliProtectedGuilds");
 const { canInvokePrefixCommand, mapCategoryToFeature } = require("./accessPolicy");
 const MUSIC_PREFIX_COMMANDS = new Set(["play", "pause", "resume", "skip", "stop", "volume", "shuffle", "clear", "repeat", "previous", "rewind", "restart", "now", "next", "queue", "lyrics", "requested", "upcoming"]);
 const TTS_PREFIX_COMMANDS = new Set(["join", "leave", "set", "voices"]);
-const UTILITY_PREFIX_COMMANDS = new Set(["help", "settings", "ping", "avatar", "banner", "afk", "snipe", "quote"]);
+const UTILITY_PREFIX_COMMANDS = new Set(["help", "settings", "ping", "avatar", "banner", "afk", "snipe", "quote", "repost", "myrepost"]);
 const MINIGAMES_PREFIX_COMMANDS = new Set(["ship"]);
 const { MODERATION_PREFIX_COMMANDS } = require("./tenantModerationPermissions");
 

@@ -80,12 +80,11 @@ const HELPER_QUESTIONS = [
 const PARTNER_MANAGER_QUESTIONS = [
   { id: "id_discord", text: "1. ID Discord", modalLabel: "1. ID", placeholder: "Dal profilo OAuth", kind: "short" },
   {
-    id: "luminous_nova",
-    text: "2. Conosci il bot Luminous Nova/SkyForce?",
-    modalLabel: "2. Luminous Nova/SkyForce",
-    placeholder: "Sì / No",
-    kind: "choice",
-    options: [{ value: "Sì", label: "Sì" }, { value: "No", label: "No" }],
+    id: "partnership_tra_server",
+    text: "2. Descrivi brevemente come si effettua una partnership tra server",
+    modalLabel: "2. Partnership tra server",
+    placeholder: "Descrivi brevemente come si effettua una partnership tra server",
+    kind: "paragraph",
   },
   {
     id: "partner_giorno",
@@ -95,6 +94,13 @@ const PARTNER_MANAGER_QUESTIONS = [
     kind: "choice",
     options: [{ value: "-15", label: "15-" }, { value: "15+", label: "15+" }],
   },
+  {
+    id: "staff_altri_server",
+    text: "4. Attualmente ricopri questo ruolo anche in altri server? Se si, indica quali",
+    modalLabel: "4. Staff in altri server",
+    placeholder: "Indica quali server",
+    kind: "paragraph",
+  }
 ];
 
 function choicePlaceholder(q) {

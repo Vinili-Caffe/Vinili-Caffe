@@ -1052,6 +1052,14 @@ body.vc-body.vc-perks-page .vc-support-donate-role--perks-block {
   letter-spacing: 0.02em;
 }
 
+.vc-perks-tag-name .vc-perks-tag-emoji {
+  display: inline-block;
+  vertical-align: -0.2em;
+  width: 1.15em;
+  height: 1.15em;
+  margin: 0 0.12em;
+}
+
 .vc-perks-tag-arrow {
   display: inline-flex;
   align-items: center;
@@ -5162,6 +5170,12 @@ body.vc-body > footer p {
 }
 
 .vc-social-preview__ico--tiktok svg {
+  display: block;
+  width: 1.05rem;
+  height: 1.05rem;
+}
+
+.vc-social-preview__ico--discord svg {
   display: block;
   width: 1.05rem;
   height: 1.05rem;
