@@ -51,8 +51,7 @@ function isStaffBypassUserId(cfg, userId) {
 
 function hasHogwartsSortingPreviewAccess(cfg, member, userId) {
   if (!cfg?.previewMode) return true;
-  if (isStaffBypassUserId(cfg, userId)) return true;
-  return memberIsHogwartsExcludedStaff(member);
+  return isStaffBypassUserId(cfg, userId);
 }
 
 function hasHogwartsEventStaffBypassAccess(cfg, userId) {

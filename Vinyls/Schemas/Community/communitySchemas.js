@@ -519,6 +519,8 @@ const activityUserProfileSchema = new Schema(
       },
       events: {
         hogwarts: {
+          retainUntil: { type: Date, default: null },
+          retainEventKey: { type: String, default: "" },
           gringott: {
             eventKey: { type: String, default: "" },
             balance: { type: Number, default: 0 },

@@ -131,8 +131,7 @@
 
   function boot() {
     if (!previewMode()) {
-      setAllEventNavVisible(true);
-      if (!potionsPlayableNow()) setEventNavLinksVisible("potions", false);
+      if (potionsPlayableNow()) setEventNavLinksVisible("potions", true);
       return;
     }
     setAllEventNavVisible(false);

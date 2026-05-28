@@ -15,7 +15,7 @@ function buildPerkBlockLines(level) {
       "<:moon:1470064812615667827> Permesso di **cambiare nickname**",
       "<:pinkstar:1470064804835229768> Permesso di **allegare link e immagini** in chat",
       "<a:VC_Money:1482724694699278487> Permesso di inviare **messaggi vocali** in chat",
-      "<a:reddiamond:1443652837346377841> Sblocchi il comando **`+quote`**",
+      "<a:reddiamond:1443652837346377841> Sblocchi i comandi **`+quote`**, **`+repost`** e **`+myrepost`**",
       `<:VC_Color:1482532543273238569> Nuovo **colore gradiente** con \`+profile\` <@&${IDs.roles.colorUnlockLv10}>`,
     );
   } else if (L === 20) {

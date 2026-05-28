@@ -1,6 +1,5 @@
 const { AuditLogEvent, ChannelType, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, } = require("discord.js");
-const IDs = require("../Utils/Config/ids");
-const { ARROW, toDiscordTimestamp, yesNo, formatAuditActor, buildAuditExtraLines, resolveChannelRolesLogChannel, resolveResponsible, } = require("../Utils/Logging/channelRolesLogUtils");
+const { toDiscordTimestamp, yesNo, formatAuditActor, buildAuditExtraLines, resolveChannelRolesLogChannel, resolveResponsible, } = require("../Utils/Logging/channelRolesLogUtils");
 const { handleThreadCreationAction: antiNukeHandleThreadCreationAction } = require("../Services/Moderation/antiNukeService");
 const THREAD_CREATE_ACTION = AuditLogEvent?.ThreadCreate ?? 110;
 
@@ -27,30 +26,6 @@ function threadTypeLabel(threadType) {
   return `Sconosciuto (${Number(threadType || 0)})`;
 }
 
-async function resolveForumParent(thread) {
-  let t = thread;
-  if (t.partial) {
-    t = await t.fetch().catch(() => thread);
-  }
-  let parent = t.parent;
-  if (!parent && t.parentId) {
-    parent = await t.guild.channels.fetch(t.parentId).catch(() => null);
-  }
-  return { thread: t, parent };
-}
-
-async function pingForumRoleInNewThread(thread, forumRoleId) {
-  await thread.join().catch(() => {});
-  await thread
-    .send({
-      content: `<@&${forumRoleId}>`,
-      allowedMentions: { roles: [forumRoleId] },
-    })
-    .catch((error) => {
-      global.logger?.error?.("[threadCreate] forum role mention failed:", error);
-    });
-}
-
 module.exports = {
   name: "threadCreate",
   async execute(thread) {
@@ -59,15 +34,6 @@ module.exports = {
       const audit = await resolveResponsibleWithRetry(thread.guild, thread.id);
       const executorId = String(audit?.executor?.id || "");
       const responsible = formatAuditActor(audit.executor);
-
-      const forumChannelId = String(IDs.channels?.forum || "").trim();
-      const forumRoleId = String(IDs.roles.Forum || "").trim();
-      if (forumChannelId && forumRoleId) {
-        const { thread: resolvedThread, parent } = await resolveForumParent(thread);
-        if (parent?.type === ChannelType.GuildForum && String(parent.id) === forumChannelId) {
-          await pingForumRoleInNewThread(resolvedThread, forumRoleId);
-        }
-      }
 
       const logChannel = await resolveChannelRolesLogChannel(thread.guild);
       if (logChannel?.isTextBased?.()) {

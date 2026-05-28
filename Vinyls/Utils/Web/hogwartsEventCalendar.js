@@ -133,7 +133,7 @@ const DEFAULT_WEEKS = Object.freeze([
     start: "2026-08-10",
     end: "2026-08-16",
     activities: [
-      { title: "Inizio 6º anno", summary: "Lunedì 10 Agosto | Economia Galeoni attiva: +daily, +weekly, +monthly, +work, +bal, +rob, +pay, +roulette, +slots, +rps, +scratch, +coinflip, +tris.", pageId: "shop", icon: "fa-money" },
+      { title: "Inizio 6º anno", summary: "Lunedì 10 Agosto | Economia Galeoni attiva: +daily, +weekly, +monthly, +work, +bal, +rob, +pay, +duel, +roulette, +blackjack, +slots, +rps, +scratch, +coinflip, +tris.", pageId: "shop", icon: "fa-money" },
       { title: "Shop 6º anno", summary: "Boost exp e punti casa disponibili nell'Emporio Gringott.", pageId: "shop", icon: "fa-shopping-bag" },
       { title: "Fine Premi la reaction", summary: "Martedì 11 Agosto | Termine dell'evento: classifica top 3 vincitori pubblicata in #events.", pageId: "points", icon: "fa-trophy" },
       { title: "Giveaway", summary: "Dal 10 al 15 Agosto | Giveaway sostitutivo.", icon: "fa-gift" },
@@ -333,10 +333,11 @@ function escHtml(value) {
 
 function buildEventNavItemsHtml(pages, activeId, options = {}) {
   const previewMode = Boolean(options?.previewMode);
+  const potionsPlayable = Boolean(options?.potionsPlayable);
   return pages
     .map((p) => {
       const active = p.id === activeId ? " vc-snav-item--active" : "";
-      const locked = previewMode || p.id === "potions";
+      const locked = previewMode || (p.id === "potions" && !potionsPlayable);
       const lockAttr = locked ? ` data-vc-event-nav-id="${escHtml(p.id)}" hidden` : "";
       return `<a class="vc-snav-item vc-snav-item--event${active}"${lockAttr} href="${escHtml(p.href)}"><i class="fa ${escHtml(p.icon)}" aria-hidden="true"></i><span>${escHtml(p.label)}</span></a>`;
     })
@@ -360,7 +361,12 @@ function resolvePublicHeaderPromoMode(eventRaw = {}, nowMs = Date.now()) {
   return "event";
 }
 
+function resolveEventHeaderPromoMode(eventRaw = {}, nowMs = Date.now()) {
+  return resolvePublicHeaderPromoMode(eventRaw, nowMs) === "event" ? "event" : "";
+}
+
 function buildHeaderPromoButtonHtml({ mode, eventUrl, candidatureUrl }) {
+  if (!mode) return "";
   const isEvent = mode === "event";
   const href = isEvent ? eventUrl : candidatureUrl;
   const label = isEvent ? "Evento" : "Candidature";
@@ -389,6 +395,14 @@ function buildHeaderPromoBootHtml(clientConfig, scriptPrefix = "") {
   return `<script>window.__VC_HEADER_PROMO=${json};</script>\n<script src="${src}" defer></script>`;
 }
 
+function resolveEventHeaderIconSrc(guildIconUrl) {
+  const raw = String(guildIconUrl || "").trim();
+  if (!raw) return "/images/vc-header-logo.png";
+  if (/^https?:\/\//i.test(raw)) return raw;
+  if (raw.startsWith("/")) return raw;
+  return `/${raw.replace(/^\/+/, "")}`;
+}
+
 function buildEventHeaderHtml({
   siteName,
   siteUrl,
@@ -400,6 +414,7 @@ function buildEventHeaderHtml({
   notificationsUrl = "",
   promoButtonHtml = "",
 }) {
+  const headerIconSrc = escHtml(resolveEventHeaderIconSrc(guildIconUrl));
   const notifFoot = notificationsUrl
     ? `<div class="vc-notif-panel-foot" id="vc-notif-panel-foot">
                 <a href="${escHtml(notificationsUrl)}" class="vc-notif-see-all" id="vc-notif-see-all">Vedi tutte le notifiche
@@ -414,7 +429,7 @@ function buildEventHeaderHtml({
         <div class="flex min-w-0 items-center gap-2.5 justify-self-start sm:gap-3">
           <a class="vc-header-logo-link shrink-0 rounded-2xl ring-1 ring-[#d4a888]/35 transition hover:ring-[#d4a888]/55 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#d4a888]/60"
             href="${escHtml(discordInviteUrl)}" target="_blank" rel="noopener noreferrer" aria-label="Entra su Discord"><img
-              src="/images/vc-header-logo.png" width="40" height="40" class="vc-header-logo-img" alt="" loading="eager"
+              src="${headerIconSrc}" width="40" height="40" class="vc-header-logo-img" alt="" loading="eager"
               decoding="async" /></a>
           <a class="min-w-0 truncate text-[0.7rem] font-bold uppercase tracking-[0.18em] text-white underline-offset-4 transition hover:text-[#e8c9a8] hover:underline sm:text-xs"
             href="${escHtml(siteUrl)}" aria-label="Vai alla homepage"><span class="text-emerald-300">${escHtml(siteName)}</span></a>
@@ -513,7 +528,9 @@ module.exports = {
   buildHogwartsEventNavBootHtml,
   pickCurrentWeekKey,
   parseDateStartMs,
+  parseDateEndMs,
   resolveHogwartsEventCalendar,
   resolvePublicHeaderPromoMode,
+  resolveEventHeaderPromoMode,
   serializeCalendarForWeb,
 };

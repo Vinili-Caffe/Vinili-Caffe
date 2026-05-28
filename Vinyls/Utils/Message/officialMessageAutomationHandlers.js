@@ -463,6 +463,7 @@ function getVoteManagerBotIds(client) {
       IDs.bots?.DISBOARD,
       IDs.bots?.Discadia,
       IDs.bots?.VoteManager,
+      IDs.roles?.Discadia,
       client?.config?.disboard?.botId,
       discadiaCfg?.botId,
       ...extraDiscadiaIds,
@@ -784,6 +785,7 @@ async function handleDiscadiaBump(message, client) {
   const discadiaBotIds = new Set(
     [
       IDs.bots?.Discadia,
+      IDs.roles?.Discadia,
       discadia?.botId,
       ...(Array.isArray(discadia?.botIds) ? discadia.botIds : []),
     ]

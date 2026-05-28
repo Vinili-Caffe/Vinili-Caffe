@@ -9,7 +9,7 @@ const { addGaleoni, formatGaleoni, getGringottBalance, spendGaleoni } = require(
 const ECONOMY_PATH = "profile.events.hogwarts.economy";
 const DEFAULT_CONFIG = Object.freeze({
   enabled: true,
-  previewMode: true,
+  previewMode: false,
   startDate: "2026-08-10T12:00:00",
   minBet: 5,
   maxBet: 250,
@@ -18,7 +18,7 @@ const DEFAULT_CONFIG = Object.freeze({
   daily: { cooldownMs: 24 * 60 * 60 * 1000, reward: 50, streakStepPct: 3, streakMaxBonusPct: 30, streakGraceMs: 48 * 60 * 60 * 1000 },
   weekly: { cooldownMs: 7 * 24 * 60 * 60 * 1000, reward: 250, streakStepPct: 5, streakMaxBonusPct: 50, streakGraceMs: 14 * 24 * 60 * 60 * 1000 },
   monthly: { cooldownMs: 30 * 24 * 60 * 60 * 1000, reward: 500, streakStepPct: 10, streakMaxBonusPct: 100, streakGraceMs: 62 * 24 * 60 * 60 * 1000 },
-  rob: { cooldownMs: 5 * 60 * 1000, successChance: 35, minTargetBalance: 80, minSteal: 15, maxSteal: 120, failPenalty: 25, targetProtectionMs: 2 * 60 * 60 * 1000 },
+  rob: { cooldownMs: 3 * 60 * 60 * 1000, successChance: 35, minTargetBalance: 80, minSteal: 15, maxSteal: 120, failPenalty: 25, targetProtectionMs: 12 * 60 * 60 * 1000 },
   roulette: { cooldownMs: 5 * 1000, numberPayout: 36, simplePayout: 2 },
   rps: { cooldownMs: 5 * 1000, winPayout: 2 },
   slots: { cooldownMs: 5 * 1000, pairPayout: 1, triplePayout: 5, jackpotPayout: 10 },

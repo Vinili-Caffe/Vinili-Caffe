@@ -25,6 +25,7 @@ const TENANT_COMMAND_CATALOG = {
     { invoke: "+help <comando>", description: "Scheda rapida su un comando." },
     { invoke: "+settings", description: "Mostra le impostazioni del server (canale quote, ecc.)." },
     { invoke: "+settings quotes <#canale | here | off>", description: "Canale bacheca per quote e repost (+repost)." },
+    { invoke: "+settings roulette <#canale | here | off>", description: "Canale per la roulette dei repost passati." },
     { invoke: "+ping", description: "Mostra latenza bot, database e uptime." },
     { invoke: "+avatar [utente]", description: "Mostra l'avatar di un utente." },
     { invoke: "+banner [utente]", description: "Mostra il banner di un utente." },

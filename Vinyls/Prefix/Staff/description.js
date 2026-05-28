@@ -41,12 +41,14 @@ module.exports = {
       "　✨ Una community, **chill** e **non toxic**, per __divertirsi__ e __conoscere__ nuove persone!",
       "**⊹  | ** `🔈` **__Chat vocali & testuali attive!__** ୧",
       "　💬 Chat **attive** per parlare di __ciò che preferisci__, **minigames** e tante **funzionalità** grazie ai __nostri bot__!",
-      "**⊹  | ** `🎉` **__Eventi settimanali__** ୧",
-      "    🎁 __Ogni settimana__ un **Nitro Boost** e **decorazioni a scelta** in palio. Ogni **sabato sera** un film da guardare __tutti insieme__!",
       "**⊹  | ** `🛠️` **__Candidature STAFF aperte!__** ୧",
       "　💼 Ogni mese il __miglior__ staffer viene **ricompensato** con un **Nitro Boost**!",
       "**⊹  | ** `🤝` **__Candidature PARTNER MANAGER aperte!__** ୧",
       "　💎 Ricompensiamo i nostri **Partner Manager** con **Nitro Boost** e **ricompense**!",
+      "",
+      "**⊹  | ** `🎉` **__EVENTO STAGIONALE A TEMA HARRY POTTER__** ୧",
+      "🎁 __Ogni mese__ in palio **Nitro Boost**, **decorazione a scelta** (2°) e **VIP+** (3°). Ogni **sabato sera** un film da guardare __tutti insieme__!",
+ 
     ].join("\n");
     if (!message.inGuild?.() || !message.guild || !message.member) return;
 

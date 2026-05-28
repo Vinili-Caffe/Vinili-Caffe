@@ -1,14 +1,24 @@
-const { ChannelType, EmbedBuilder } = require("discord.js");
+const { ChannelType, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const IDs = require("../../Utils/Config/ids");
 const { getClientGuildCached, getGuildChannelCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
 const MAIN_GUILD_ID = String(IDs.guilds?.main || "").trim();
 const PM_AFK_VOICE_CATEGORY_ID = String( process.env.VC_PM_AFK_WATCH_CATEGORY_ID || IDs.categories?.categoryPublics || "1442569076902989844" ).trim();
 const PM_AFK_SKIP_CATEGORY_IDS = new Set( [IDs.categories?.categoryStanze, IDs.categories?.categoryPrivate ].filter(Boolean).map((id) => String(id)) );
-const STAFF_CHAT_CHANNEL_ID = String(IDs.channels?.staffChat || "").trim();
+const SANZIONI_CHANNEL_ID = String(IDs.channels?.sanzioniUtenti || "").trim();
 const STAFF_PING_ROLE_ID = String(IDs.roles?.Staff || "").trim();
 const FOUNDER_ROLE_ID = String(IDs.roles?.Founder || "").trim();
 const ALONE_MIN_MS = Math.max( 60_000, Number(process.env.VC_PM_AFK_WATCH_MIN_MS || 10 * 60 * 1000) );
 const SWEEP_MS = Math.max(15_000, Number(process.env.VC_PM_AFK_WATCH_SWEEP_MS || 60_000));
+const PM_AFK_EXEMPT_BOT_IDS = (() => {
+  const fromEnv = String(process.env.VC_PM_AFK_WATCH_EXEMPT_BOT_IDS || "")
+    .split(",")
+    .map((id) => String(id || "").trim())
+    .filter((id) => /^\d{16,20}$/.test(id));
+  if (fromEnv.length) return new Set(fromEnv);
+  return new Set(
+    [IDs.bots?.ViniliCaffeBot, IDs.bots?.ViniliCaffeBotTest].filter(Boolean).map(String),
+  );
+})();
 const watchByMemberKey = new Map();
 let sweepTimer = null;
 
@@ -16,8 +26,18 @@ function memberWatchKey(guildId, userId) {
   return `${String(guildId || "")}:${String(userId || "")}`;
 }
 
+function channelHasExemptOfficialBot(channel) {
+  if (!channel?.members || !PM_AFK_EXEMPT_BOT_IDS.size) return false;
+  for (const occupant of channel.members.values()) {
+    if (!occupant?.user?.bot) continue;
+    if (PM_AFK_EXEMPT_BOT_IDS.has(String(occupant.id))) return true;
+  }
+  return false;
+}
+
 function isAloneHumanInChannel(member, channel) {
   if (!member?.id || !channel?.members) return false;
+  if (channelHasExemptOfficialBot(channel)) return false;
   const humans = channel.members.filter((m) => !m.user?.bot);
   return humans.size === 1 && humans.has(member.id);
 }
@@ -85,6 +105,24 @@ function touchMemberWatch(guildId, userId, channelId, opts) {
   watchByMemberKey.set(key, { channelId: channelKey, startedAt: Date.now(), alertSent: false });
 }
 
+function resetPmVoiceAfkCountdown(guildId, userId, channelId) {
+  const gid = String(guildId || "");
+  const uid = String(userId || "");
+  const cid = String(channelId || "");
+  if (!gid || !uid || !cid) return false;
+  const key = memberWatchKey(gid, uid);
+  watchByMemberKey.set(key, { channelId: cid, startedAt: Date.now(), alertSent: false });
+  return true;
+}
+
+function clearPmVoiceAfkCountdown(guildId, userId) {
+  const gid = String(guildId || "");
+  const uid = String(userId || "");
+  if (!gid || !uid) return false;
+  clearMemberWatch(gid, uid);
+  return true;
+}
+
 function evaluateMemberVoiceWatch(member, opts) {
   if (!member?.id || !MAIN_GUILD_ID) return;
   const guildId = String(member.guild?.id || "");
@@ -100,12 +138,12 @@ function evaluateMemberVoiceWatch(member, opts) {
 }
 
 async function sendPmAfkCheckAlert(client, member, channelId, aloneMs) {
-  if (!STAFF_CHAT_CHANNEL_ID || !member?.id) return false;
+  if (!SANZIONI_CHANNEL_ID || !member?.id) return false;
   const guild =
     member.guild ||
     (await getClientGuildCached(client, MAIN_GUILD_ID).catch(() => null));
   if (!guild) return false;
-  const textChannel = await getGuildChannelCached(guild, STAFF_CHAT_CHANNEL_ID).catch(() => null);
+  const textChannel = await getGuildChannelCached(guild, SANZIONI_CHANNEL_ID).catch(() => null);
   if (!textChannel?.isTextBased?.()) return false;
 
   const channelRef = channelId ? `<#${channelId}>` : "vocale";
@@ -125,7 +163,17 @@ async function sendPmAfkCheckAlert(client, member, channelId, aloneMs) {
     .setFooter({ text: `ID utente: ${member.id}` });
 
   const ping = STAFF_PING_ROLE_ID ? `<@&${STAFF_PING_ROLE_ID}>` : "";
-  await textChannel.send({ embeds: [embed], ...(ping ? { content: ping } : {}) }).catch((err) => {
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`pm_afk_watch_confirm:${String(member.id)}:${String(channelId || "")}`)
+      .setLabel("Conferma AFK (sanziona)")
+      .setStyle(ButtonStyle.Danger),
+    new ButtonBuilder()
+      .setCustomId(`pm_afk_watch_deny:${String(member.id)}:${String(channelId || "")}`)
+      .setLabel("Non è AFK (reset)")
+      .setStyle(ButtonStyle.Secondary),
+  );
+  await textChannel.send({ embeds: [embed], components: [row], ...(ping ? { content: ping } : {}) }).catch((err) => {
     global.logger?.warn?.("[VOICE AFK WATCH] Invio avviso staff fallito:", err?.message || err);
     return null;
   });
@@ -242,4 +290,4 @@ function startPmVoiceAfkWatchLoop(client) {
   if (typeof sweepTimer.unref === "function") sweepTimer.unref();
 }
 
-module.exports = { PM_AFK_VOICE_CATEGORY_ID, isPmAfkWatchVoiceChannel, handlePmVoiceAfkVoiceState, syncPmVoiceAfkWatchFromGateway, startPmVoiceAfkWatchLoop, sweepPmVoiceAfkAlerts };
+module.exports = { PM_AFK_VOICE_CATEGORY_ID, isPmAfkWatchVoiceChannel, handlePmVoiceAfkVoiceState, syncPmVoiceAfkWatchFromGateway, startPmVoiceAfkWatchLoop, sweepPmVoiceAfkAlerts, resetPmVoiceAfkCountdown, clearPmVoiceAfkCountdown };

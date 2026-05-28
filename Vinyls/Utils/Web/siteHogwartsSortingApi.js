@@ -54,6 +54,7 @@ const {
   HOGWARTS_EXCLUDED_STAFF_ROLE_IDS,
   memberIsHogwartsExcludedStaff,
 } = require("./hogwartsEventParticipation");
+const { markHogwartsProfileRetainedUntil } = require("../../Services/Community/hogwartsLeaveRetention");
 
 async function gateHogwartsEventParticipation(client, resolved, cfg) {
   if (isHogwartsStaffPreviewViewer(cfg, resolved.member, resolved.userId)) {
@@ -184,6 +185,7 @@ async function commitHogwartsSortingSideEffects({ client, resolved, cfg, houseId
     throw err;
   });
   const gringottAward = await awardHogwartsSortingReward(client, resolved.guild.id, resolved.userId, "site");
+  await markHogwartsProfileRetainedUntil(resolved.guild.id, resolved.userId, client);
   void assignHouseRoles(resolved.member, cfg, houseId).catch((err) => {
     global.logger?.warn?.("[hogwarts-sorting] queued role assignment:", err?.message || err);
   });
@@ -1196,7 +1198,7 @@ function previewAccessDeniedPayload() {
     ok: false,
     status: 403,
     error: "preview_forbidden",
-    message: "In anteprima lo smistamento è riservato a Founder, Admin e High Staff del server.",
+    message: "In anteprima lo smistamento non è ancora disponibile.",
   };
 }
 
@@ -1234,11 +1236,11 @@ async function handleHogwartsSortingAccessGet(client, req, res) {
       });
     }
 
-    if (!memberIsHogwartsExcludedStaff(resolved.member)) {
+    if (!hasHogwartsSortingPreviewAccess(cfg, resolved.member, resolved.userId)) {
       return res.status(403).json({
         ok: false,
         error: "forbidden",
-        message: "In anteprima questa pagina è riservata all'High Staff del server.",
+        message: "In anteprima questa pagina non è ancora disponibile.",
       });
     }
 

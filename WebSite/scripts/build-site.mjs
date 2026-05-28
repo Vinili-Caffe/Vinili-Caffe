@@ -859,6 +859,7 @@ function applyHeaderPromoToDist(distDir, promoButtonHtml, headerPromoClientConfi
       }
       if (!name.toLowerCase().endsWith(".html")) continue;
       const html = fs.readFileSync(p, "utf8");
+      if (html.includes("vc-hw-page")) continue;
       const scriptPrefix = relativeScriptPrefixFromHtml(p);
       const promoBootHtml = buildHeaderPromoBootHtml(headerPromoClientConfig, scriptPrefix);
       const next = applyHeaderPromoToHtml(html, { promoButtonHtml, promoBootHtml });
@@ -1791,10 +1792,12 @@ async function main() {
     buildHeaderPromoClientConfig,
     buildHogwartsEventNavBootHtml,
     resolvePublicHeaderPromoMode,
+    resolveEventHeaderPromoMode,
     parseDateStartMs,
+    parseDateEndMs,
     serializeCalendarForWeb,
   } = require(path.join(ROOT, "..", "Vinyls", "Utils", "Web", "hogwartsEventCalendar.js"));
-  const { formatEventWindowIt: formatHogwartsEventWindowIt } = require(path.join(
+  const { formatEventWindowIt: formatHogwartsEventWindowIt, isEventWindowOpen: hogwartsIsEventWindowOpen } = require(path.join(
     ROOT,
     "..",
     "Vinyls",
@@ -1827,8 +1830,20 @@ async function main() {
     formatHogwartsEventWindowIt({
       timezone: hogwartsEventRaw.timezone || "Europe/Rome",
       startDate: hogwartsEventRaw.startDate || "2026-06-01T14:00:00",
-      endDate: hogwartsEventRaw.endDate || "2026-08-31T00:00:00",
+      endDate: hogwartsEventRaw.endDate || "2026-08-31T23:59:59",
     }) || "";
+  const hogwartsStaticWindowState = hogwartsIsEventWindowOpen(
+    {
+      enabled: hogwartsEventRaw.enabled !== false,
+      startMs: parseDateStartMs(hogwartsEventRaw.startDate || "2026-06-01T14:00:00"),
+      endMs: parseDateEndMs(hogwartsEventRaw.endDate || "2026-08-31T23:59:59"),
+      staffBypassUserIds: Array.isArray(hogwartsEventRaw.staffBypassUserIds)
+        ? hogwartsEventRaw.staffBypassUserIds.map((v) => String(v || "").trim()).filter(Boolean)
+        : [],
+    },
+    Date.now(),
+    null,
+  );
   const hogwartsEventCalendarResolved = resolveHogwartsEventCalendar(hogwartsEventRaw, siteBaseNoSlash);
   hogwartsEventCalendarResolved.windowLabel = hogwartsEventWindowLabel;
   hogwartsEventCalendarResolved.potions = {
@@ -1859,6 +1874,15 @@ async function main() {
     eventUrl: hogwartsHubPageUrl,
     candidatureUrl: richiesteCandidatureUrl,
   });
+  const eventHeaderPromoButtonHtml = buildHeaderPromoButtonHtml({
+    mode: resolveEventHeaderPromoMode(hogwartsEventRaw),
+    eventUrl: hogwartsHubPageUrl,
+    candidatureUrl: richiesteCandidatureUrl,
+  });
+  const hogwartsPotionsPlayable =
+    hogwartsPotionsRaw.enabled !== false &&
+    Number.isFinite(parseDateStartMs(hogwartsPotionsStartDate)) &&
+    Date.now() >= parseDateStartMs(hogwartsPotionsStartDate);
   const hogwartsEventHeaderFor = (activeId) =>
     buildEventHeaderHtml({
       siteName,
@@ -1867,11 +1891,12 @@ async function main() {
       guildIconUrl,
       navItemsHtml: buildEventNavItemsHtml(hogwartsEventCalendarResolved.pages, activeId, {
         previewMode: hogwartsEventRaw.previewMode === true,
+        potionsPlayable: hogwartsPotionsPlayable,
       }),
       eventNavBootHtml: hogwartsEventNavBoot,
       userPageUrl,
       notificationsUrl: notificationsPageUrl,
-      promoButtonHtml: headerPromoButtonHtml,
+      promoButtonHtml: eventHeaderPromoButtonHtml,
     });
   const hogwartsStaticBootstrap = {
     ok: true,
@@ -1880,7 +1905,7 @@ async function main() {
       previewMode: hogwartsEventRaw.previewMode === true,
       timezone: String(hogwartsEventRaw.timezone || "Europe/Rome"),
       startDate: String(hogwartsEventRaw.startDate || "2026-06-01T14:00:00"),
-      endDate: String(hogwartsEventRaw.endDate || "2026-08-31T00:00:00"),
+      endDate: String(hogwartsEventRaw.endDate || "2026-08-31T23:59:59"),
       eventKey: hogwartsEventKey,
       gringott: {
         bank: "Gringott",
@@ -1888,11 +1913,11 @@ async function main() {
         currencyPlural: "Galeoni d'Oro",
         sortingReward: Math.max(1, Math.floor(Number(hogwartsEventRaw.gringott?.sortingReward) || 25)),
       },
-      windowLabel: "",
-      phase: hogwartsEventRaw.previewMode === true ? "preview_forbidden" : "live",
-      open: hogwartsEventRaw.previewMode === true ? false : true,
-      startsAtMs: null,
-      endsAtMs: null,
+      windowLabel: hogwartsEventWindowLabel,
+      phase: hogwartsEventRaw.previewMode === true ? "preview_forbidden" : hogwartsStaticWindowState.phase,
+      open: hogwartsEventRaw.previewMode === true ? false : Boolean(hogwartsStaticWindowState.open),
+      startsAtMs: hogwartsStaticWindowState.startsAtMs ?? parseDateStartMs(hogwartsEventRaw.startDate || "2026-06-01T14:00:00"),
+      endsAtMs: hogwartsStaticWindowState.endsAtMs ?? parseDateEndMs(hogwartsEventRaw.endDate || "2026-08-31T23:59:59"),
     },
     questions: getHogwartsPublicQuestions(),
     scoringQuestions: hogwartsScoringQuestions.map((q) => ({

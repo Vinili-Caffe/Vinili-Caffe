@@ -20,7 +20,7 @@ function formatMaxAge(seconds) {
   const days = safe / 86400;
   if (Number.isInteger(days)) return `${days} giorno${days === 1 ? "" : "i"}`;
   const hours = safe / 3600;
-  if (Number.isInteger(hours)) return `${hours} ora${hours === 1 ? "" : "e"}`;
+  if (Number.isInteger(hours)) return hours === 1 ? "1 ora" : `${hours} ore`;
   const mins = Math.floor(safe / 60);
   return `${mins} minut${mins === 1 ? "o" : "i"}`;
 }

@@ -277,16 +277,44 @@
     renderGringott();
   }
 
+  function formatEventWindowLabelIt(startDate, endDate, timezone) {
+    var tz = String(timezone || "Europe/Rome").trim() || "Europe/Rome";
+    function fmt(value, endOfDay) {
+      var raw = String(value || "").trim();
+      if (!raw) return "";
+      var ms = Date.parse(raw);
+      if (!Number.isFinite(ms) && /^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+        ms = Date.parse(raw + (endOfDay ? "T23:59:59" : "T12:00:00"));
+      }
+      if (!Number.isFinite(ms)) return "";
+      return new Date(ms).toLocaleString("it-IT", {
+        timeZone: tz,
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    }
+    var start = fmt(startDate, false);
+    var end = fmt(endDate, true);
+    if (start && end) return "Evento attivo dal " + start + " al " + end;
+    if (start) return "Evento attivo dal " + start;
+    return "";
+  }
+
   function updateWindowLabel() {
     var el = byId("vc-hw-window");
     var ev = state.bootstrap && state.bootstrap.event;
     if (!el || !ev) return;
     var label = String(ev.windowLabel || "").trim();
+    if (!label && ev.startDate && ev.endDate) {
+      label = formatEventWindowLabelIt(ev.startDate, ev.endDate, ev.timezone);
+    } else if (label && /^dal\s/i.test(label)) {
+      label = "Evento attivo " + label;
+    }
     if (label) {
       el.textContent = label;
-      setHidden(el, false);
-    } else if (ev.startDate && ev.endDate) {
-      el.textContent = "Evento attivo dal " + ev.startDate + " al " + ev.endDate;
       setHidden(el, false);
     }
     if (ev.previewMode) {
@@ -346,12 +374,6 @@
       state.eligibility = { ok: false, needsLogin: true };
       return;
     }
-    var staticBootstrap = typeof window !== "undefined" && window.__VC_HOGWARTS_STATIC_BOOTSTRAP;
-    var staticEvent = staticBootstrap && staticBootstrap.event;
-    if (staticBootstrap && staticBootstrap.ok && staticEvent && !staticEvent.previewMode) {
-      useEligibilityFallback();
-      return;
-    }
     var out = await fetchJson(apiBase() + "/eligibility", {
       method: "GET",
       headers: { Authorization: "Bearer " + token },
@@ -368,7 +390,7 @@
         ok: false,
         previewForbidden: true,
         canSort: false,
-        message: out.data.message || "In anteprima lo smistamento è riservato all'High Staff del server.",
+        message: out.data.message || "In anteprima lo smistamento non è ancora disponibile.",
       };
       return;
     }
@@ -377,12 +399,28 @@
     }
   }
 
-  function useEligibilityFallback() {
+  function applyEligibilityFallbackFromBootstrap() {
     var token = getToken();
+    var ev = state.bootstrap && state.bootstrap.event;
     state.gringott = state.gringott || null;
-    state.eligibility = token
-      ? { ok: true, canSort: true, alreadySorted: false, message: "" }
-      : { ok: false, needsLogin: true };
+    if (!token) {
+      state.eligibility = { ok: false, needsLogin: true };
+      return;
+    }
+    var canSort = Boolean(ev && ev.open);
+    var msg = "";
+    if (!canSort && ev) {
+      if (ev.phase === "before_start") {
+        msg = ev.windowLabel
+          ? "Lo smistamento aprirà " + String(ev.windowLabel).replace(/^dal\s/i, "") + "."
+          : "Lo smistamento non è ancora aperto.";
+      } else if (ev.phase === "after_end") {
+        msg = "L'evento Hogwarts è terminato.";
+      } else {
+        msg = "Smistamento non disponibile al momento.";
+      }
+    }
+    state.eligibility = { ok: true, canSort: canSort, alreadySorted: false, message: msg };
   }
 
   function syncUiFromState() {
@@ -399,14 +437,14 @@
     if (!token || (elig && elig.needsLogin)) {
       showGate(
         ev && ev.previewMode
-          ? "Anteprima staff: accedi con Discord (account High Staff) per fare lo smistamento."
+          ? "Anteprima: accedi con Discord per provare lo smistamento quando sarà disponibile."
           : "Accedi con Discord per fare lo smistamento.",
       );
       return;
     }
 
     if (elig && elig.previewForbidden) {
-      showGate(elig.message || "In anteprima lo smistamento è riservato all'High Staff del server.");
+      showGate(elig.message || "In anteprima lo smistamento non è ancora disponibile.");
       return;
     }
 
@@ -922,7 +960,7 @@
         try {
           await loadEligibility();
         } catch (eEligibility) {
-          useEligibilityFallback();
+          applyEligibilityFallbackFromBootstrap();
         }
       } catch (e) {
         showGate("Non riesco a caricare il quiz. Ricarica la pagina o riprova più tardi.");
@@ -932,7 +970,7 @@
       try {
         await loadEligibility();
       } catch (e2) {
-        useEligibilityFallback();
+        applyEligibilityFallbackFromBootstrap();
       }
     }
     syncUiFromState();
@@ -961,14 +999,14 @@
     }
     if (!token || (elig && elig.needsLogin)) {
       if (ev && ev.previewMode) {
-        showGate("Anteprima staff: accedi con Discord (account High Staff) per avviare il quiz.");
+        showGate("Anteprima: accedi con Discord quando lo smistamento sarà disponibile.");
       } else {
         showGate("Accedi con Discord per fare lo smistamento.");
       }
       return;
     }
     if (elig && elig.previewForbidden) {
-      showGate(elig.message || "In anteprima lo smistamento è riservato all'High Staff del server.");
+      showGate(elig.message || "In anteprima lo smistamento non è ancora disponibile.");
       return;
     }
     if (elig && elig.alreadySorted && elig.houseMeta) {

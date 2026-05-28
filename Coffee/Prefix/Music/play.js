@@ -33,25 +33,22 @@ module.exports = {
       return;
     }
     const spotifyEmoji = "<:VC_Spotify:1482527369477492797>";
-    const verified = "<a:VC_Verified:1482532479637127188>";
     const embedDescRaw =
       typeof result.embedDescription === "string" && result.embedDescription.trim()
         ? result.embedDescription.trim()
         : typeof result.embedBody === "string" && result.embedBody.trim()
           ? result.embedBody.trim()
           : "";
-    const okDesc = result.ok
-      ? embedDescRaw
-        ? `${spotifyEmoji} ${verified} ${embedDescRaw}`
-        : `${spotifyEmoji} ${result.message}`
-      : null;
+    const okDesc = result.ok ? (embedDescRaw || String(result.message || "").trim()) : null;
     const embed = new EmbedBuilder().setColor(result.ok ? 0x6f4e37 : 0xe74c3c);
     if (result.ok && (result.embedTitle || embedDescRaw)) {
-      embed.setTitle(String(result.embedTitle || "Now playing").slice(0, 256));
-      embed.setDescription(okDesc);
+      const rawTitle = String(result.embedTitle || "").trim();
+      const safeTitle = rawTitle && rawTitle.toLowerCase() !== "now playing" ? rawTitle : "";
+      if (safeTitle) embed.setTitle(safeTitle.slice(0, 256));
+      embed.setDescription(okDesc ? `${spotifyEmoji} Now Playing: ${okDesc}` : `${spotifyEmoji} Now Playing`);
     } else {
       embed.setDescription(
-        result.ok ? okDesc : `<a:VC_Cross:1482532424570376253> ${result.message}`,
+        result.ok ? `${spotifyEmoji} Now Playing: ${okDesc || String(result.message || "").trim()}` : `<a:VC_Cross:1482532424570376253> ${result.message}`,
       );
     }
     await safeMessageReply(

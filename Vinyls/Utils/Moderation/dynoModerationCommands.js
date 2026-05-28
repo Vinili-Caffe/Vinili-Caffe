@@ -262,9 +262,9 @@ function formatRemainingWords(ms) {
   const seconds = total % 60;
   const parts = [];
   if (days > 0) parts.push(`${days} giorno${days === 1 ? "" : "i"}`);
-  if (hours > 0) parts.push(`${hours} ora${hours === 1 ? "" : "e"}`);
-  if (minutes > 0) parts.push(`${minutes} minuto${minutes === 1 ? "" : "i"}`);
-  if (seconds > 0 || !parts.length) parts.push(`${seconds} secondo${seconds === 1 ? "" : "i"}`);
+  if (hours > 0) parts.push(hours === 1 ? "1 ora" : `${hours} ore`);
+  if (minutes > 0) parts.push(minutes === 1 ? "1 minuto" : `${minutes} minuti`);
+  if (seconds > 0 || !parts.length) parts.push(seconds === 1 ? "1 secondo" : `${seconds} secondi`);
   return parts.join(", ");
 }
 
@@ -277,9 +277,9 @@ function formatDurationWords(ms) {
   const seconds = total % 60;
   const parts = [];
   if (days > 0) parts.push(`${days} giorno${days === 1 ? "" : "i"}`);
-  if (hours > 0) parts.push(`${hours} ora${hours === 1 ? "" : "e"}`);
-  if (minutes > 0) parts.push(`${minutes} minuto${minutes === 1 ? "" : "i"}`);
-  if (seconds > 0 && !parts.length) parts.push(`${seconds} secondo${seconds === 1 ? "" : "i"}`);
+  if (hours > 0) parts.push(hours === 1 ? "1 ora" : `${hours} ore`);
+  if (minutes > 0) parts.push(minutes === 1 ? "1 minuto" : `${minutes} minuti`);
+  if (seconds > 0 && !parts.length) parts.push(seconds === 1 ? "1 secondo" : `${seconds} secondi`);
   return parts.join(", ");
 }
 

@@ -992,10 +992,12 @@ async function handleTicketInteraction(interaction) {
                 msg = await interaction.channel.messages.fetch(panelMid).catch(() => null);
               }
               if (!msg) {
-                const fallback = new EmbedBuilder()
-                .setTitle("<:VC_Ticket:1482535175283019888> • **__TICKET APERTO__**")
-                .setDescription("<:VC_claim:1478517202016669887> Ticket non claimato")
-                .setColor("#6f4e37");
+                const panelByType = { supporto: "supporto", partnership: "partnership", high: "highstaff", perks: "perks" };
+                const panelKey = panelByType[unclaimedTicket.ticketType] || "supporto";
+                const panelConfig = getTicketPanelConfig(panelKey);
+                const fallback = panelConfig?.embed
+                  ? EmbedBuilder.from(panelConfig.embed)
+                  : new EmbedBuilder().setColor("#6f4e37");
                 await interaction.channel
                   .send({
                     embeds: [fallback],
@@ -1011,14 +1013,11 @@ async function handleTicketInteraction(interaction) {
                   })
                   .catch(() => { });
               } else {
-                const embedUsato = msg.embeds && msg.embeds[0] ? EmbedBuilder.from(msg.embeds[0]) : new EmbedBuilder();
-                embedUsato
-                  .setTitle("<:VC_Ticket:1482535175283019888> • **__TICKET APERTO__**")
-                  .setDescription("<:VC_claim:1478517202016669887> Ticket non claimato")
-                  .setColor("#6f4e37");
+                const rawEmbeds = Array.isArray(msg.embeds) ? msg.embeds : [];
+                const embedsToKeep = rawEmbeds.length ? rawEmbeds.map((e) => EmbedBuilder.from(e)) : undefined;
                 await msg
                   .edit({
-                    embeds: [embedUsato],
+                    ...(embedsToKeep ? { embeds: embedsToKeep } : {}),
                     components: [ticketButtonsOriginal],
                   })
                   .catch(() => { });

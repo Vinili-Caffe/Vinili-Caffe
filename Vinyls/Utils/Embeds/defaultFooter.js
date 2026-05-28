@@ -130,4 +130,9 @@ function installEmbedFooterPatch() {
   EmbedBuilder.prototype.__defaultFooterPatched = true;
 }
 
-module.exports = { applyDefaultFooter, applyDefaultFooterToEmbeds, installEmbedFooterPatch };
+module.exports = {
+  DEFAULT_FOOTER_TEXT,
+  applyDefaultFooter,
+  applyDefaultFooterToEmbeds,
+  installEmbedFooterPatch,
+};

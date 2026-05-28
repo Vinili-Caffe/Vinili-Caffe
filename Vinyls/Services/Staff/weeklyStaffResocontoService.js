@@ -228,20 +228,14 @@ function buildResocontoActivityScope(guild) {
   addText(IDs.channels?.chat);
   addText(IDs.channels?.media);
   addText(IDs.channels?.commands);
-  addText(IDs.channels?.forum);
   addText(IDs.channels?.selfieVerificati);
 
-  const forumId = String(IDs.channels?.forum || "");
   const publicsCategoryId = String(IDs.categories?.categoryPublics || "");
 
   for (const ch of guild?.channels?.cache?.values?.() || []) {
     const parentId = String(ch?.parentId || "");
     const channelId = String(ch?.id || "");
     if (!channelId) continue;
-    if (forumId && parentId === forumId && ch?.isThread?.()) {
-      includeTextChannelIds.add(channelId);
-      continue;
-    }
     if (publicsCategoryId && parentId === publicsCategoryId && ch?.isVoiceBased?.()) {
       includeVoiceChannelIds.add(channelId);
       includeTextChannelIds.add(channelId);

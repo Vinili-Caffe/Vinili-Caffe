@@ -3,10 +3,12 @@ const { GuildRepost } = require("../../Schemas/Community/repostSchema");
 const { QuotePrivacy } = require("../../Schemas/Community/communitySchemas");
 const { normalizeQuoteMessageText } = require("../../Utils/Quote/normalizeQuoteMessageText");
 const { resolveQuotePostChannel } = require("../../Utils/Quote/quotePostChannel");
+const { resolveRoulettePostChannel } = require("../../Utils/Quote/repostRoulettePostChannel");
 const { nextQuoteCount } = require("../../Utils/Quote/quoteCounter");
 const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
 const { isValidGuildUserId } = require("../../Utils/DB/validateWriteIds");
-const IDs = require("../../Utils/Config/ids");
+const { getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
+const { DEFAULT_FOOTER_TEXT } = require("../../Utils/Embeds/defaultFooter");
 
 const REPOST_COLOR = 0xeb6ea5;
 const REPOST_BTN_PREFIX = "repost_btn:";
@@ -15,10 +17,8 @@ const REPOST_EMOJI = "<a:reddiamond:1443652837346377841>";
 const MAX_EMBED_BODY_CHARS = 3600;
 const REPOST_DISABLED_MESSAGE = "I repost sono disattivati su questo server per ora.";
 
-function isRepostDisabledInGuild(guildId) {
-  const gid = String(guildId || "").trim();
-  const mainId = String(IDs.guilds?.main || "").trim();
-  return Boolean(gid && mainId && gid === mainId);
+function isRepostDisabledInGuild(_guildId) {
+  return false;
 }
 
 function messageJumpUrl(guildId, channelId, messageId) {
@@ -62,58 +62,73 @@ function extractRepostPayload(targetMessage) {
   return { text, imageUrl, hasContent: Boolean(text || imageUrl) };
 }
 
+function resolveQuotedAuthorIdFromQuoteMessage(targetMessage) {
+  const embeds = Array.isArray(targetMessage?.embeds) ? targetMessage.embeds : [];
+  for (const emb of embeds) {
+    const fields = Array.isArray(emb?.fields) ? emb.fields : [];
+    for (const field of fields) {
+      if (!/messaggio di/i.test(String(field?.name || ""))) continue;
+      const match = String(field?.value || "").match(/<@!?(\d{16,20})>/);
+      if (match?.[1]) return match[1];
+    }
+  }
+  return null;
+}
+
 function resolveReposterProfile(reposter) {
-  const user = reposter?.user || reposter;
-  const name =
-    reposter?.displayName ||
-    user?.globalName ||
-    user?.username ||
-    "Utente";
+  const name = accountUsername(reposter);
   let iconURL = null;
   try {
-    if (typeof reposter?.displayAvatarURL === "function") {
-      iconURL = reposter.displayAvatarURL({ size: 128, extension: "png" });
-    } else if (typeof user?.displayAvatarURL === "function") {
-      iconURL = user.displayAvatarURL({ size: 128, extension: "png" });
-    }
+    iconURL = guildMemberDisplayAvatarUrlDynamic(reposter, { size: 128 }) || null;
   } catch {
     iconURL = null;
   }
   return { name: String(name).slice(0, 256), iconURL };
 }
 
-function buildShareAckEmbed({ reposterId, boardUrl, rare }) {
-  const lines = rare
-    ? [
-        `${REPOST_EMOJI} * . ˊ <@${reposterId}> ha trovato un messaggio raro e l'ha ripubblicato per tutti!`,
-        `» [Clicca qui](${boardUrl}) per vedere il repost`,
-        `✧ * . ˊ +repost`,
-      ]
-    : [
-        `${REPOST_EMOJI} * . ˊ <@${reposterId}> ha condiviso questo messaggio`,
-        `» [Clicca qui per vedere il repost](${boardUrl})`,
-        `${REPOST_EMOJI} * . ˊ +repost`,
-      ];
-  return new EmbedBuilder().setColor(REPOST_COLOR).setDescription(lines.join("\n"));
+function buildShareAckEmbed({ reposterId, boardUrl, prefix }) {
+  const safePrefix = String(prefix || "").trim() || "+";
+  const linkLine = boardUrl ? `» [Clicca qui per vedere il repost](${boardUrl})` : "» Repost salvato.";
+  const lines = [
+    `${REPOST_EMOJI} * . ˊ <@${reposterId}> ha repostato questo messaggio.`,
+    "",
+    linkLine,
+  ];
+  const footerHint = `✧ * . ˊ ${safePrefix}repost`;
+  const footerText = DEFAULT_FOOTER_TEXT ? `${footerHint} · ${DEFAULT_FOOTER_TEXT}` : footerHint;
+  return new EmbedBuilder()
+    .setColor(REPOST_COLOR)
+    .setDescription(lines.join("\n"))
+    .setFooter({ text: footerText });
 }
 
-function buildBoardEmbed({ reposter, reposterId, sourceAuthorId, sourceUrl, totalPosts, text, imageUrl }) {
+function buildBoardEmbed({
+  reposter,
+  reposterId,
+  sourceAuthorId,
+  sourceUrl,
+  totalPosts,
+  text,
+  imageUrl,
+  commandPrefix,
+  imageOnly,
+}) {
   const profile = resolveReposterProfile(reposter);
-  const parts = [
-    `di 🍵 <@${reposterId}> 🎀`,
-    `• [Clicca qui per andare al messaggio](${sourceUrl})`,
-    `ɤ⌒➴ Autore del messaggio: 🍵 <@${sourceAuthorId}>`,
-  ];
-  const body = formatRepostBody(text);
-  if (body) parts.push(body);
+  const safePrefix = String(commandPrefix || "").trim() || "+";
+  const parts = [`di <@${reposterId}> 🎀`];
+  if (!imageOnly) {
+    const body = formatRepostBody(text);
+    if (body) parts.push("", body);
+  }
+  parts.push("", `• [Clicca qui per andare al messaggio](${sourceUrl})`, "", `ɤ⌒➴ Autore del messaggio: <@${sourceAuthorId}>`);
 
   const embed = new EmbedBuilder()
     .setColor(REPOST_COLOR)
     .setAuthor({ name: profile.name, iconURL: profile.iconURL || undefined })
-    .setTitle(`${REPOST_EMOJI} * . ˊ Nuovo repost!`)
+    .setTitle(`🆕 * . ˊ Nuovo repost!`)
     .setDescription(parts.join("\n"))
     .setFooter({
-      text: `† · ৎ Aggiungi un messaggio alla bacheca ⭐ usando il comando +repost · Post #${totalPosts}`,
+      text: `† · ৎ Aggiungi un messaggio alla bacheca ⭐ usando il comando ${safePrefix}repost · Post #${totalPosts}`,
     });
 
   if (imageUrl) embed.setImage(imageUrl);
@@ -155,15 +170,52 @@ async function checkQuotePrivacyBlocked(guildId, authorId) {
   }
 }
 
-async function resolveBoardChannel(guild, replyChannel) {
+async function resolveBoardChannel(guild, replyChannel, preferBoardChannel = true) {
+  const prefersBoard = preferBoardChannel !== false;
+  if (!prefersBoard && replyChannel?.isTextBased?.()) return replyChannel;
   const dedicated = await resolveQuotePostChannel(guild);
-  if (dedicated?.isTextBased?.()) return dedicated;
+  if (prefersBoard && dedicated?.isTextBased?.()) return dedicated;
   if (replyChannel?.isTextBased?.()) return replyChannel;
   return null;
 }
 
+async function findExistingBoardPost(guildId, sourceChannelId, sourceMessageId) {
+  const gid = String(guildId || "").trim();
+  const sc = String(sourceChannelId || "").trim();
+  const sm = String(sourceMessageId || "").trim();
+  if (!gid || !sc || !sm) return null;
+  return GuildRepost.findOne({
+    guildId: gid,
+    sourceChannelId: sc,
+    sourceMessageId: sm,
+    boardChannelId: { $ne: "" },
+    boardMessageId: { $ne: "" },
+  })
+    .sort({ createdAt: -1 })
+    .lean()
+    .catch(() => null);
+}
+
+async function hasUserAlreadySavedRepost(guildId, reposterUserId, sourceChannelId, sourceMessageId) {
+  const gid = String(guildId || "").trim();
+  const uid = String(reposterUserId || "").trim();
+  const sc = String(sourceChannelId || "").trim();
+  const sm = String(sourceMessageId || "").trim();
+  if (!gid || !uid || !sc || !sm) return false;
+  const found = await GuildRepost.findOne({
+    guildId: gid,
+    reposterUserId: uid,
+    sourceChannelId: sc,
+    sourceMessageId: sm,
+  })
+    .select("_id")
+    .lean()
+    .catch(() => null);
+  return Boolean(found?._id);
+}
+
 async function createRepostFromMessage(ctx) {
-  const { guild, reposter, targetMessage, replyChannel: replyChannelRaw } = ctx;
+  const { guild, reposter, targetMessage, replyChannel: replyChannelRaw, preferBoardChannel, quotedAuthorId } = ctx;
   const reposterId = String(reposter?.id || reposter?.user?.id || "");
   const guildId = String(guild?.id || "");
   if (isRepostDisabledInGuild(guildId)) {
@@ -173,21 +225,43 @@ async function createRepostFromMessage(ctx) {
     return { ok: false, message: "Contesto non valido." };
   }
 
-  const author = targetMessage.author;
-  if (!author || author.bot) {
+  let quoteAuthorId = String(quotedAuthorId || "").trim();
+  const author = targetMessage?.author;
+  if (!quoteAuthorId && author?.bot) {
+    quoteAuthorId = resolveQuotedAuthorIdFromQuoteMessage(targetMessage) || "";
+  }
+  const imageUrlFromMessage = pickImageUrlFromMessage(targetMessage);
+  const fromQuoteCanvas = Boolean(
+    quoteAuthorId && /^\d{16,20}$/.test(quoteAuthorId) && imageUrlFromMessage,
+  );
+  if (!fromQuoteCanvas && (!author || author.bot)) {
     return { ok: false, message: "Non puoi repostare messaggi di bot." };
   }
 
-  const payload = extractRepostPayload(targetMessage);
-  if (!payload.hasContent) {
-    return {
-      ok: false,
-      message: "Il messaggio deve avere testo o un'immagine da repostare.",
-    };
+  const sourceAuthorId = fromQuoteCanvas ? quoteAuthorId : String(author.id);
+  let payload;
+  if (fromQuoteCanvas) {
+    const imageUrl = imageUrlFromMessage;
+    if (!imageUrl) {
+      return {
+        ok: false,
+        message: "Impossibile trovare l'immagine della quote da repostare.",
+      };
+    }
+    payload = { text: "", imageUrl, hasContent: true };
+  } else {
+    payload = extractRepostPayload(targetMessage);
+    if (!payload.hasContent) {
+      return {
+        ok: false,
+        message: "Il messaggio deve avere testo o un'immagine da repostare.",
+      };
+    }
   }
 
-  if (await checkQuotePrivacyBlocked(guildId, author.id)) {
-    const authorLabel = accountUsername(author) || author.username;
+  if (await checkQuotePrivacyBlocked(guildId, sourceAuthorId)) {
+    const blockedMember = await getGuildMemberCached(guild, sourceAuthorId).catch(() => null);
+    const authorLabel = accountUsername(blockedMember) || accountUsername(author) || "Utente";
     return {
       ok: false,
       message: `**${authorLabel}** ha bloccato le quote dei propri messaggi.`,
@@ -204,37 +278,62 @@ async function createRepostFromMessage(ctx) {
 
   const replyChannel =
     replyChannelRaw?.isTextBased?.() ? replyChannelRaw : targetMessage.channel?.isTextBased?.() ? targetMessage.channel : null;
-  const boardChannel = await resolveBoardChannel(guild, replyChannel);
+  const boardChannel = await resolveBoardChannel(guild, replyChannel, preferBoardChannel);
   if (!boardChannel?.isTextBased?.()) {
     return { ok: false, message: "Impossibile pubblicare il repost in questo canale." };
   }
 
+  if (await hasUserAlreadySavedRepost(guildId, reposterId, targetMessage.channel.id, targetMessage.id)) {
+    const existingBoard = await findExistingBoardPost(guildId, targetMessage.channel.id, targetMessage.id);
+    const boardUrl = existingBoard?.boardChannelId && existingBoard?.boardMessageId
+      ? messageJumpUrl(guildId, existingBoard.boardChannelId, existingBoard.boardMessageId)
+      : "";
+    const prefix = String(guild?.client?.config?.prefix || "+").trim() || "+";
+    return { ok: true, ackEmbed: buildShareAckEmbed({ reposterId, boardUrl, prefix }), repostId: "", components: [] };
+  }
+
   const sourceUrl = messageJumpUrl(guildId, targetMessage.channel.id, targetMessage.id);
+  const commandPrefix = String(guild?.client?.config?.prefix || "+").trim() || "+";
   const boardEmbed = buildBoardEmbed({
     reposter,
     reposterId,
-    sourceAuthorId: author.id,
+    sourceAuthorId,
     sourceUrl,
     totalPosts,
     text: payload.text,
     imageUrl: payload.imageUrl,
+    commandPrefix,
+    imageOnly: fromQuoteCanvas,
   });
 
-  const authorLabel = accountUsername(author) || targetMessage.member?.displayName || author.username;
+  const sourceMember = fromQuoteCanvas
+    ? await getGuildMemberCached(guild, sourceAuthorId).catch(() => null)
+    : targetMessage.member;
+  const authorLabel =
+    accountUsername(sourceMember) ||
+    accountUsername(author) ||
+    targetMessage.member?.displayName ||
+    author?.username ||
+    "Utente";
+
+  const existingBoard = await findExistingBoardPost(guildId, targetMessage.channel.id, targetMessage.id);
+  const existingBoardChannelId = String(existingBoard?.boardChannelId || "").trim();
+  const existingBoardMessageId = String(existingBoard?.boardMessageId || "").trim();
 
   const doc = await GuildRepost.create({
     guildId,
     reposterUserId: reposterId,
-    sourceAuthorId: String(author.id),
+    sourceAuthorId,
     sourceChannelId: String(targetMessage.channel.id),
     sourceMessageId: String(targetMessage.id),
     content: payload.text,
     attachmentUrl: payload.imageUrl || "",
     authorUsername: authorLabel,
     authorAvatarUrl:
-      guildMemberDisplayAvatarUrlDynamic(targetMessage.member || author, { size: 512 }) || "",
-    boardChannelId: String(boardChannel.id),
+      guildMemberDisplayAvatarUrlDynamic(sourceMember || targetMessage.member || author, { size: 512 }) || "",
+    boardChannelId: existingBoardChannelId || String(boardChannel.id),
     totalPosts,
+    boardMessageId: existingBoardMessageId || "",
   }).catch(() => null);
 
   if (!doc?._id) {
@@ -242,31 +341,38 @@ async function createRepostFromMessage(ctx) {
   }
 
   const repostId = String(doc._id);
-  const boardMsg = await boardChannel
-    .send({
-      embeds: [boardEmbed],
-      components: [buildRepostaButtonRow(repostId)],
-    })
-    .catch(() => null);
+  let boardMessage = null;
+  let boardUrl = "";
+  if (existingBoardChannelId && existingBoardMessageId) {
+    boardUrl = messageJumpUrl(guildId, existingBoardChannelId, existingBoardMessageId);
+  } else {
+    const boardMsg = await boardChannel
+      .send({
+        embeds: [boardEmbed],
+        components: [buildRepostaButtonRow(repostId)],
+      })
+      .catch(() => null);
 
-  if (!boardMsg?.id) {
-    await GuildRepost.deleteOne({ _id: doc._id }).catch(() => {});
-    return { ok: false, message: "Impossibile pubblicare sulla bacheca." };
+    if (!boardMsg?.id) {
+      await GuildRepost.deleteOne({ _id: doc._id }).catch(() => {});
+      return { ok: false, message: "Impossibile pubblicare sulla bacheca." };
+    }
+
+    boardMessage = boardMsg;
+    await GuildRepost.updateOne(
+      { _id: doc._id },
+      { $set: { boardMessageId: String(boardMsg.id), boardChannelId: String(boardChannel.id) } },
+    ).catch(() => {});
+
+    boardUrl = messageJumpUrl(guildId, boardChannel.id, boardMsg.id);
   }
-
-  await GuildRepost.updateOne(
-    { _id: doc._id },
-    { $set: { boardMessageId: String(boardMsg.id) } },
-  ).catch(() => {});
-
-  const boardUrl = messageJumpUrl(guildId, boardChannel.id, boardMsg.id);
-  const rare = Math.random() < 0.08;
-  const ackEmbed = buildShareAckEmbed({ reposterId, boardUrl, rare });
+  const prefix = String(guild?.client?.config?.prefix || "+").trim() || "+";
+  const ackEmbed = buildShareAckEmbed({ reposterId, boardUrl, prefix });
 
   return {
     ok: true,
     ackEmbed,
-    boardMessage: boardMsg,
+    boardMessage,
     repostId,
     components: [buildRepostaButtonRow(repostId)],
   };
@@ -292,11 +398,13 @@ async function handleRepostaButton(interaction) {
 
   let sourceChannelId = "";
   let sourceMessageId = "";
+  let quotedAuthorId = "";
 
   if (raw.startsWith(REPOST_SRC_PREFIX)) {
     const parts = raw.slice(REPOST_SRC_PREFIX.length).split(":");
     sourceChannelId = String(parts[0] || "").trim();
     sourceMessageId = String(parts[1] || "").trim();
+    quotedAuthorId = String(parts[2] || "").trim();
   } else if (raw.startsWith(REPOST_BTN_PREFIX)) {
     const repostId = raw.slice(REPOST_BTN_PREFIX.length).trim();
     if (!repostId) {
@@ -335,6 +443,8 @@ async function handleRepostaButton(interaction) {
     targetMessage,
     client: interaction.client,
     replyChannel: interaction.channel?.isTextBased?.() ? interaction.channel : null,
+    preferBoardChannel: true,
+    quotedAuthorId,
   });
 
   if (!result.ok) {
@@ -371,8 +481,8 @@ async function sendRepostRoulette(client, guildId) {
   const doc = await pickRandomRepostForGuild(guildId);
   if (!doc) return false;
 
-  const boardChannel = await resolveQuotePostChannel(guild);
-  if (!boardChannel?.isTextBased?.()) return false;
+  const rouletteChannel = await resolveRoulettePostChannel(guild);
+  if (!rouletteChannel?.isTextBased?.()) return false;
 
   const sourceUrl = messageJumpUrl(guildId, doc.sourceChannelId, doc.sourceMessageId);
   const imageUrl = String(doc.attachmentUrl || "").trim();
@@ -381,7 +491,7 @@ async function sendRepostRoulette(client, guildId) {
   const embed = buildRouletteEmbed({ sourceUrl, text, imageUrl });
   const repostId = String(doc._id);
 
-  await boardChannel
+  await rouletteChannel
     .send({
       embeds: [embed],
       components: [buildRepostaButtonRow(repostId)],

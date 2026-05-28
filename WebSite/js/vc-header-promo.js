@@ -21,20 +21,37 @@
     return Number.isFinite(ms) ? ms : NaN;
   }
 
+  function isEventHeaderPage() {
+    try {
+      if (document.body && document.body.classList.contains("vc-hw-page")) return true;
+      var path = String(window.location.pathname || "").replace(/\/index\.html$/i, "").replace(/\/+$/, "") || "/";
+      return path === "/evento" || path.indexOf("/evento/") === 0;
+    } catch (e) {
+      return false;
+    }
+  }
+
   function resolveMode(cfg) {
     var event = cfg && cfg.event;
-    if (!event || event.enabled === false) return "candidature";
-    if (event.previewMode === true) return "candidature";
+    if (!event || event.enabled === false) return isEventHeaderPage() ? "" : "candidature";
+    if (event.previewMode === true) return isEventHeaderPage() ? "" : "candidature";
     var start = parseStartMs(event.startDate);
     var end = parseEndMs(event.endDate);
-    if (!Number.isFinite(start) || !Number.isFinite(end)) return "candidature";
+    if (!Number.isFinite(start) || !Number.isFinite(end)) return isEventHeaderPage() ? "" : "candidature";
     var now = Date.now();
-    if (now < start || now > end) return "candidature";
+    if (now < start || now > end) return isEventHeaderPage() ? "" : "candidature";
     return "event";
   }
 
   function applyMode(btn, cfg, mode) {
     if (!btn || !cfg) return;
+    if (!mode) {
+      btn.hidden = true;
+      btn.setAttribute("hidden", "");
+      return;
+    }
+    btn.hidden = false;
+    btn.removeAttribute("hidden");
     var isEvent = mode === "event";
     var href = isEvent ? cfg.eventUrl : cfg.candidatureUrl;
     var label = isEvent ? "Evento" : "Candidature";

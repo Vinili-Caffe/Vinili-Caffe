@@ -1,4 +1,5 @@
 const { ActivityUserProfile, ACTIVITY_MAIN_GUILD_ID } = require("../../Schemas/Community/communitySchemas");
+const { resolveHogwartsCleanupExcludeUserIds } = require("./hogwartsLeaveRetention");
 const { automodBadUser } = require("../../Utils/Community/activityUserProfilePaths");
 const guildScoped = [ [ActivityUserProfile, "ActivityUserProfile"] ];
 const SYSTEM_PROFILE_USERID_REGEX = /^__.*__$/;
@@ -103,15 +104,17 @@ async function unsetStaffForUsersNotInGuild(guildId, memberIds, dryRun) {
   return res?.modifiedCount ?? 0;
 }
 
-async function runCleanupUsersNotInServer(guildId, memberIds, { dryRun = false, includeUserScoped = true } = {}) {
+async function runCleanupUsersNotInServer(guildId, memberIds, { dryRun = false, includeUserScoped = true, client = null } = {}) {
   let total = 0;
   const details = [];
+  const keepUserIds = await resolveHogwartsCleanupExcludeUserIds(client, guildId);
+  const excludeUserIds = [...new Set([...(Array.isArray(memberIds) ? memberIds : []).map((id) => String(id).trim()).filter(Boolean), ...keepUserIds])];
 
   for (const [Model, name] of guildScoped) {
     if (!Model?.countDocuments) continue;
     const filterGuild = {
       guildId: String(guildId),
-      userId: { $nin: memberIds },
+      userId: { $nin: excludeUserIds },
       $expr: {
         $not: {
           $regexMatch: {
@@ -128,6 +131,12 @@ async function runCleanupUsersNotInServer(guildId, memberIds, { dryRun = false, 
         { "moderation.automodBadUser.totalTriggers": { $lte: 0 } },
         { "profile.privacy.avatar.views": { $not: { $gt: 0 } } },
         { "profile.privacy.banner.views": { $not: { $gt: 0 } } },
+        {
+          $or: [
+            { "profile.events.hogwarts.retainUntil": { $exists: false } },
+            { "profile.events.hogwarts.retainUntil": { $lte: new Date() } },
+          ],
+        },
       ];
     }
     
@@ -178,7 +187,7 @@ async function runFullCleanupUsersNotInServer(client) {
       return;
     }
     for (const memberId of memberIds) allMemberIds.add(memberId);
-    await runCleanupUsersNotInServer(guildId, memberIds, { dryRun: false, includeUserScoped: false });
+    await runCleanupUsersNotInServer(guildId, memberIds, { dryRun: false, includeUserScoped: false, client });
   }
   await runCleanupUserScopedNotInAnyServer(Array.from(allMemberIds), { dryRun: false });
 }
@@ -200,7 +209,7 @@ async function runCleanupAfterMemberLeave(client, guild) {
       global.logger?.warn?.("[CLEANUP USERS NOT IN SERVER] Leave cleanup skipped: incomplete member list.", guildId);
       return;
     }
-    await runCleanupUsersNotInServer(guildId, memberIds, { dryRun: false, includeUserScoped: false });
+    await runCleanupUsersNotInServer(guildId, memberIds, { dryRun: false, includeUserScoped: false, client });
     const allIds = [];
     for (const g of client.guilds.cache.values()) {
       const ids = String(g?.id || "") === guildId ? memberIds : await fetchCompleteGuildMemberIds(g);

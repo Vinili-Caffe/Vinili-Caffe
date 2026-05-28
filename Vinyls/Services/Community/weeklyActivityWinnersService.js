@@ -28,6 +28,8 @@ const MONTHLY_TOP_REWARD_ROLE_RANK_2 = IDs.roles.VIPplus || IDs.roles["VIP+"];
 const MONTHLY_TOP_REWARD_ROLE_RANK_3 = IDs.roles.VIP;
 const MONTHLY_TOP_REWARD_DURATION_MS = 30 * 24 * 60 * 60 * 1000;
 const MONTHLY_TOP_REWARD_PATH = "profile.totals.exp.monthlyTopReward";
+const MONTHLY_TOP_NEW_REWARDS_FIRST_RANKED = Object.freeze({ year: 2026, month: 6 });
+const MONTHLY_PRIZE_TICKET_CHANNEL_ID = String(IDs.channels?.ticket || "1442569095068254219");
 const REQUIRED_MEMBER_ROLE_ID = String(IDs.roles.Member || "");
 const WEEKLY_WINNERS_EXCLUDED_ROLE_IDS = new Set( [IDs.roles.Staff, IDs.roles.HighStaff, IDs.roles.Helper, IDs.roles.Mod, IDs.roles.SeniorModerator, IDs.roles.Director, IDs.roles.Admin, IDs.roles.Founder].filter(Boolean).map((id) => String(id)));
 const WEEKLY_WINNERS_PUBLISH_INTRO_MARK = "Annunciamo i vincitori di questa settimana";
@@ -1396,7 +1398,7 @@ async function publishMonthlyActivityWinners(client, options = {}) {
     await cleanupExpiredMonthlyVoterRewards(guild).catch(() => null);
     await cleanupExpiredMonthlyTopRewards(guild).catch(() => null);
     await assignMonthlyVoterRewards(guild, monthlyVotersTop).catch(() => null);
-    await assignMonthlyTopRewards(guild, displayTopCombined).catch(() => null);
+    await assignMonthlyTopRewards(guild, displayTopCombined, rankedYear, rankedMonth).catch(() => null);
   }
   const voterRows = monthlyVotersTop.length
     ? monthlyVotersTop.map((item, index) => {
@@ -1408,17 +1410,7 @@ async function publishMonthlyActivityWinners(client, options = {}) {
       return `${TROPHY_LABELS[index] || TROPHY_LABELS[2] || "<:VC_Podio3:1482694450806259744>"} <@${item.userId}> <a:VC_Arrow:1482706699365257397> **${item.value}** *voti* · \`${rewardLabel}\``;
     })
     : [buildEmptyLine("voti del mese scorso")];
-  const monthlyRewardRows = [
-    displayTopCombined[0]?.userId
-      ? `${TROPHY_LABELS[0] || "<:VC_Podio1:1482694399283433582>"} <@${displayTopCombined[0].userId}> <a:VC_Arrow:1482706699365257397> <@&${MONTHLY_MEMBER_ROLE_ID}> + **Nitro Boost**`
-      : `${TROPHY_LABELS[0] || "<:VC_Podio1:1482694399283433582>"} Nessun vincitore`,
-    displayTopCombined[1]?.userId
-      ? `${TROPHY_LABELS[1] || "<:VC_Podio2:1482694424411635712>"} <@${displayTopCombined[1].userId}> <a:VC_Arrow:1482706699365257397> **VIP+ (30 giorni) + Decorazione a scolta (max 15,99€)**`
-      : `${TROPHY_LABELS[1] || "<:VC_Podio2:1482694424411635712>"} Nessun vincitore`,
-    displayTopCombined[2]?.userId
-      ? `${TROPHY_LABELS[2] || "<:VC_Podio3:1482694450806259744>"} <@${displayTopCombined[2].userId}> <a:VC_Arrow:1482706699365257397> **VIP (30 giorni) + Nitro Basic**`
-      : `${TROPHY_LABELS[2] || "<:VC_Podio3:1482694450806259744>"} Nessun vincitore`,
-  ];
+  const monthlyRewardRows = buildMonthlyTopPrizeEmbedLines(displayTopCombined, rankedYear, rankedMonth);
   const embedDescLines = [
     `<:VC_Leaderboard:1482534806314287387> // **${monthNameLabel}** — I vantaggi che avete sbloccato sono sul [nostro sito](https://viniliecaffe.it/perks)`,
     "",
@@ -1435,12 +1427,7 @@ async function publishMonthlyActivityWinners(client, options = {}) {
     .setColor("#6f4e37")
     .setDescription(embedDescLines.join("\n"))
     .setThumbnail(guildIconUrl(guild, { size: 256 }) || null);
-  const winnerTotal = Number(awarded?.topMonthlyWinner?.value || 0);
-  const winnerMention = awarded?.topMonthlyWinner?.userId ? `<@${awarded.topMonthlyWinner.userId}>` : "Nessun vincitore";
-  const secondTotal = Number(awarded?.monthlyTopSecond?.value || 0);
-  const secondMention = awarded?.monthlyTopSecond?.userId ? `<@${awarded.monthlyTopSecond.userId}>` : null;
-  const thirdTotal = Number(awarded?.monthlyTopThird?.value || 0);
-  const thirdMention = awarded?.monthlyTopThird?.userId ? `<@${awarded.monthlyTopThird.userId}>` : null;
+  const monthlyAnnounce = buildMonthlyTopWinnerAnnounceLines(awarded, rankedYear, rankedMonth);
   const button = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setLabel("Chat")
@@ -1459,7 +1446,6 @@ async function publishMonthlyActivityWinners(client, options = {}) {
       .setURL("https://www.viniliecaffe.it/vote"),
   );
   if (!options.skipDiscordSends && channel) {
-    const roleMention = MONTHLY_MEMBER_ROLE_ID ? `<@&${MONTHLY_MEMBER_ROLE_ID}>` : "il ruolo Top Monthly";
     const introLine = `<a:VC_Winner:1482535294757507255> Ciao a tutti! Annunciamo i vincitori del mese.`;
     const votersRoleTextByIndex = ["VIP+", "VIP", "Donator"];
     const voter1 = monthlyVotersTop[0];
@@ -1479,25 +1465,15 @@ async function publishMonthlyActivityWinners(client, options = {}) {
           : null,
       ].filter(Boolean).join("\n")
       : "";
-    const roleLine =
-      awarded?.topMonthlyWinner?.userId && MONTHLY_MEMBER_ROLE_ID
-        ? `\n<a:VC_Arrow:1482706699365257397> Il primo in classifica riceve ${roleMention} e un **Nitro Boost** riscattabile tramite <#1442569095068254219> \`HIGH STAFF\`.`
-        : "";
-    const secondLine = secondMention
-      ? `\n<a:VC_Arrow:1482706699365257397> Con un totale di **${secondTotal} EXP**, ${secondMention} ottiene il secondo posto e riceve **VIP+ per 30 giorni** e una **Decorazione a scolta (max 15,99€)** riscattabile tramite <#1442569095068254219> \`HIGH STAFF\`..`
-      : "";
-    const thirdLine = thirdMention
-      ? `\n<a:VC_Arrow:1482706699365257397> Con un totale di **${thirdTotal} EXP**, ${thirdMention} ottiene il terzo posto e riceve **VIP per 30 giorni** e un **Nitro Basic** riscattabile tramite <#1442569095068254219> \`HIGH STAFF\`..`
-      : "";
     try {
       await channel.send({
         content: `<@&1442568949605597264>
 ${introLine}
 
-<a:VC_Arrow:1482706699365257397> Con un totale di **${winnerTotal} EXP**, ${winnerMention} ottiene il primo posto della **__classifica mensile__**.
-${roleLine}
-${secondLine}
-${thirdLine}
+<a:VC_Arrow:1482706699365257397> Con un totale di **${monthlyAnnounce.winnerTotal} EXP**, ${monthlyAnnounce.winnerMention} ottiene il primo posto della **__classifica mensile__**.
+${monthlyAnnounce.roleLine}
+${monthlyAnnounce.secondLine}
+${monthlyAnnounce.thirdLine}
 ${votersTextLine}
 _ _`,
         embeds: [embed],
@@ -1638,7 +1614,103 @@ async function assignMonthlyVoterRewards(guild, ranking) {
   }
 }
 
-function monthlyTopRewardRoleByRank(rankIndex) {
+function rankedMonthOrdinal(year, month) {
+  return Number(year) * 12 + Number(month);
+}
+
+function usesNewMonthlyTopActivityRewards(rankedYear, rankedMonth) {
+  const y = Number(rankedYear);
+  const m = Number(rankedMonth);
+  if (!Number.isFinite(y) || !Number.isFinite(m)) return true;
+  return rankedMonthOrdinal(y, m) >= rankedMonthOrdinal(
+    MONTHLY_TOP_NEW_REWARDS_FIRST_RANKED.year,
+    MONTHLY_TOP_NEW_REWARDS_FIRST_RANKED.month,
+  );
+}
+
+function monthlyTopVipPlusMention() {
+  const roleId = String(MONTHLY_TOP_REWARD_ROLE_RANK_2 || "");
+  return roleId ? `<@&${roleId}>` : "**VIP+**";
+}
+
+function monthlyPrizeTicketRef() {
+  return `<#${MONTHLY_PRIZE_TICKET_CHANNEL_ID}> \`HIGH STAFF\``;
+}
+
+function buildMonthlyTopPrizeEmbedLines(displayTopCombined, rankedYear, rankedMonth) {
+  const t0 = TROPHY_LABELS[0] || "<:VC_Podio1:1482694399283433582>";
+  const t1 = TROPHY_LABELS[1] || "<:VC_Podio2:1482694424411635712>";
+  const t2 = TROPHY_LABELS[2] || "<:VC_Podio3:1482694450806259744>";
+  const arrow = "<a:VC_Arrow:1482706699365257397>";
+  const first = displayTopCombined[0];
+  const second = displayTopCombined[1];
+  const third = displayTopCombined[2];
+  if (usesNewMonthlyTopActivityRewards(rankedYear, rankedMonth)) {
+    const vipPlus = monthlyTopVipPlusMention();
+    return [
+      first?.userId
+        ? `${t0} <@${first.userId}> ${arrow} <@&${MONTHLY_MEMBER_ROLE_ID}> + **Nitro Boost**`
+        : `${t0} Nessun vincitore`,
+      second?.userId
+        ? `${t1} <@${second.userId}> ${arrow} **Decorazione a scelta (max 15,99€)**`
+        : `${t1} Nessun vincitore`,
+      third?.userId
+        ? `${t2} <@${third.userId}> ${arrow} ${vipPlus} **per 30 giorni**`
+        : `${t2} Nessun vincitore`,
+    ];
+  }
+  return [
+    first?.userId
+      ? `${t0} <@${first.userId}> ${arrow} <@&${MONTHLY_MEMBER_ROLE_ID}> + **Nitro Boost**`
+      : `${t0} Nessun vincitore`,
+    second?.userId
+      ? `${t1} <@${second.userId}> ${arrow} **VIP+ (30 giorni) + Decorazione a scelta (max 15,99€)**`
+      : `${t1} Nessun vincitore`,
+    third?.userId
+      ? `${t2} <@${third.userId}> ${arrow} **VIP (30 giorni) + Nitro Basic**`
+      : `${t2} Nessun vincitore`,
+  ];
+}
+
+function buildMonthlyTopWinnerAnnounceLines(awarded, rankedYear, rankedMonth) {
+  const ticketRef = monthlyPrizeTicketRef();
+  const roleMention = MONTHLY_MEMBER_ROLE_ID ? `<@&${MONTHLY_MEMBER_ROLE_ID}>` : "il ruolo Top Monthly";
+  const winnerTotal = Number(awarded?.topMonthlyWinner?.value || 0);
+  const winnerMention = awarded?.topMonthlyWinner?.userId ? `<@${awarded.topMonthlyWinner.userId}>` : "Nessun vincitore";
+  const secondTotal = Number(awarded?.monthlyTopSecond?.value || 0);
+  const secondMention = awarded?.monthlyTopSecond?.userId ? `<@${awarded.monthlyTopSecond.userId}>` : null;
+  const thirdTotal = Number(awarded?.monthlyTopThird?.value || 0);
+  const thirdMention = awarded?.monthlyTopThird?.userId ? `<@${awarded.monthlyTopThird.userId}>` : null;
+  const roleLine =
+    awarded?.topMonthlyWinner?.userId && MONTHLY_MEMBER_ROLE_ID
+      ? `\n<a:VC_Arrow:1482706699365257397> Il primo in classifica riceve ${roleMention} e un **Nitro Boost** riscattabile tramite ${ticketRef}.`
+      : "";
+  let secondLine = "";
+  let thirdLine = "";
+  if (usesNewMonthlyTopActivityRewards(rankedYear, rankedMonth)) {
+    const vipPlus = monthlyTopVipPlusMention();
+    secondLine = secondMention
+      ? `\n<a:VC_Arrow:1482706699365257397> Con un totale di **${secondTotal} EXP**, ${secondMention} ottiene il secondo posto e riceve una **decorazione a scelta (max 15,99€)** riscattabile tramite ${ticketRef}.`
+      : "";
+    thirdLine = thirdMention
+      ? `\n<a:VC_Arrow:1482706699365257397> Con un totale di **${thirdTotal} EXP**, ${thirdMention} ottiene il terzo posto e riceve ${vipPlus} **per 30 giorni**.`
+      : "";
+  } else {
+    secondLine = secondMention
+      ? `\n<a:VC_Arrow:1482706699365257397> Con un totale di **${secondTotal} EXP**, ${secondMention} ottiene il secondo posto e riceve **VIP+ per 30 giorni** e una **decorazione a scelta (max 15,99€)** riscattabile tramite ${ticketRef}.`
+      : "";
+    thirdLine = thirdMention
+      ? `\n<a:VC_Arrow:1482706699365257397> Con un totale di **${thirdTotal} EXP**, ${thirdMention} ottiene il terzo posto e riceve **VIP per 30 giorni** e un **Nitro Basic** riscattabile tramite ${ticketRef}.`
+      : "";
+  }
+  return { winnerTotal, winnerMention, roleLine, secondLine, thirdLine };
+}
+
+function monthlyTopRewardRoleByRank(rankIndex, rankedYear, rankedMonth) {
+  if (usesNewMonthlyTopActivityRewards(rankedYear, rankedMonth)) {
+    if (rankIndex === 2) return MONTHLY_TOP_REWARD_ROLE_RANK_2;
+    return null;
+  }
   if (rankIndex === 1) return MONTHLY_TOP_REWARD_ROLE_RANK_2;
   if (rankIndex === 2) return MONTHLY_TOP_REWARD_ROLE_RANK_3;
   return null;
@@ -1691,12 +1763,13 @@ async function cleanupExpiredMonthlyTopRewards(guild) {
   }
 }
 
-async function assignMonthlyTopRewards(guild, ranking) {
+async function assignMonthlyTopRewards(guild, ranking, rankedYear, rankedMonth) {
   const now = Date.now();
-  for (let i = 1; i <= 2; i += 1) {
+  const rankIndexes = usesNewMonthlyTopActivityRewards(rankedYear, rankedMonth) ? [2] : [1, 2];
+  for (const i of rankIndexes) {
     const row = Array.isArray(ranking) ? ranking[i] : null;
     const userId = String(row?.userId || "");
-    const roleId = String(monthlyTopRewardRoleByRank(i) || "");
+    const roleId = String(monthlyTopRewardRoleByRank(i, rankedYear, rankedMonth) || "");
     if (!userId || !roleId) continue;
     const member = await getGuildMemberCached(guild, userId, { preferFresh: true }).catch(() => null);
     if (!member) continue;

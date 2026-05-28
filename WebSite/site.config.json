@@ -45,9 +45,9 @@
   "hogwartsSortingApiUrl": "/webhooks/site-hogwarts-sorting",
   "hogwartsSortingApiUrlLocal": "http://127.0.0.1:3042/webhooks/site-hogwarts-sorting",
   "hogwartsEvent": {
-    "previewMode": true,
+    "previewMode": false,
     "startDate": "2026-06-01T14:00:00",
-    "endDate": "2026-09-01T23:59:59",
+    "endDate": "2026-09-01T12:00:00",
     "introVideoDurationSec": 12.2,
     "introVideoTrimEndSec": 0,
     "calendar": {

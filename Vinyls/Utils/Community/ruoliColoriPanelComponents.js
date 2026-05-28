@@ -140,7 +140,6 @@ function buildMentionsRow() {
         { label: "༄ Polls", value: IDs.roles.Polls, emoji: "<:polls:1470541168860201072>", description: "Clicca qui per ottenere il ruolo" },
         { label: "༄ Bump", value: IDs.roles.Bump, emoji: "<:bumpstab:1470541167429947607>", description: "Clicca qui per ottenere il ruolo" },
         { label: "༄ Minigames", value: IDs.roles.Minigames, emoji: "<:health:1470541164363911313>", description: "Clicca qui per ottenere il ruolo" },
-        { label: "༄ Forum", value: IDs.roles.Forum, emoji: "<:forum:1470541157724328059>", description: "Clicca qui per ottenere il ruolo" },
       ),
   );
 }

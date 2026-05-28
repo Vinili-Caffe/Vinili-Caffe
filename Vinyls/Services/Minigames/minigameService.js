@@ -17,6 +17,7 @@ const IDs = require("../../Utils/Config/ids");
 const { getClientChannelCached, getGuildMemberCached, } = require("../../Utils/Interaction/interactionEntityCache");
 const { getGuessYearBank, getCompleteVerseBank, getGuessEmojiBank, getQuoteFilmBank, getProverbBank, getSynonymAntonymBank, getGuessCityBank, getCapitalQuizBank, getItalianRegionCapitalBank, getItalianGkBank, getDrivingTrueFalseBank, getDrivingMultipleChoiceBank, getDrivingSignQuestions, getFastTypingPhrases, getHangmanWords, getTreasureHuntEmojiPairs, getHogwartsQuizBank, getHogwartsCipherBank, getHogwartsMemoryEmojiBank, getMemoryEmojiBank, CAPITAL_ITALIAN, CAPITAL_COUNTRY_REGION, REGION_AREA, REGION_HINT_DATA, FAMOUS_CAPITAL_COUNTRIES, FLAG_WELL_KNOWN_COUNTRIES } = require("../../Data/Minigames/minigameBanks");
 const { resolveHogwartsEventConfig, isEventWindowOpen } = require("../../Utils/Web/hogwartsSortingConfig");
+const { getHouseMeta } = require("../../Utils/Web/hogwartsSortingBank");
 const { isUserHighStaffExcludedFromHogwartsEvent } = require("../../Utils/Web/hogwartsEventParticipation");
 const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
 const { isValidGuildUserId } = require("../../Utils/DB/validateWriteIds");
@@ -3643,9 +3644,46 @@ function buildHogwartsCipherEmbed(numbers, rewardExp, durationMs) {
     );
 }
 
+function emptyObservationTowerHouseBrickCounts() {
+  const out = {};
+  for (const id of HOGWARTS_HOUSE_IDS) out[id] = 0;
+  return out;
+}
+
+function serializeObservationTowerHouseBrickCounts(counts) {
+  const out = emptyObservationTowerHouseBrickCounts();
+  const source = counts && typeof counts === "object" ? counts : {};
+  for (const id of HOGWARTS_HOUSE_IDS) {
+    out[id] = Math.max(0, Math.floor(Number(source[id] || 0)));
+  }
+  return out;
+}
+
+function parseObservationTowerHouseBrickCounts(parsed) {
+  if (parsed?.houseBrickCounts && typeof parsed.houseBrickCounts === "object") {
+    return serializeObservationTowerHouseBrickCounts(parsed.houseBrickCounts);
+  }
+  return emptyObservationTowerHouseBrickCounts();
+}
+
+function allObservationTowerHousesComplete(houseBrickCounts, targetBricks) {
+  const target = Math.max(1, Math.floor(Number(targetBricks) || 1));
+  const counts = serializeObservationTowerHouseBrickCounts(houseBrickCounts);
+  return HOGWARTS_HOUSE_IDS.every((id) => Number(counts[id] || 0) >= target);
+}
+
+function formatObservationTowerHouseProgress(houseBrickCounts, targetBricks) {
+  const target = Math.max(1, Math.floor(Number(targetBricks) || 1));
+  const counts = serializeObservationTowerHouseBrickCounts(houseBrickCounts);
+  return HOGWARTS_HOUSE_IDS.map((id) => {
+    const label = getHouseMeta(id)?.label || id;
+    return `**${label}:** ${counts[id]}/${target}`;
+  }).join("\n");
+}
+
 function buildObservationTowerEmbed(targetBricks, durationMs, rewardExp, maxPerUser, minLetters, housePoints = 0, unsortedHousePoints = 0) {
   const seconds = Math.max(1, Math.round(durationMs / 1000));
-  const rewardLines = [`> Se la torre viene completata, tutti i partecipanti ricevono **${rewardExp} exp**.`];
+  const rewardLines = [`> Quando **ogni casata** completa la sua torre, i partecipanti ricevono **${rewardExp} exp**.`];
   if (Number(housePoints || 0) > 0) {
     rewardLines.push(`> La casa di ogni partecipante smistato riceve **${housePoints} punti**.`);
   }
@@ -3656,8 +3694,8 @@ function buildObservationTowerEmbed(targetBricks, durationMs, rewardExp, maxPerU
     .setColor("#6f4e37")
     .setTitle("Ristruttura la torre d'osservazione <a:VC_Exclamation:1482534702077444217>")
     .setDescription([
-      `<:VC_EXP:1482534670896730143> Ogni messaggio testuale valido vale **1 mattone**.`,
-      `Servono **${targetBricks} mattoni** in massimo **${seconds} secondi** per completare la torre.`,
+      `<:VC_EXP:1482534670896730143> Ogni messaggio valido vale **1 mattone** per la **tua casata** (serve lo smistamento).`,
+      `Ogni casata deve raggiungere **${targetBricks} mattoni** entro **${seconds} secondi**.`,
       "",
       `> Minimo **${minLetters} lettere** per messaggio.`,
       `> Massimo **${maxPerUser} mattoni** per utente.`,
@@ -3665,9 +3703,11 @@ function buildObservationTowerEmbed(targetBricks, durationMs, rewardExp, maxPerU
     ].join("\n"));
 }
 
-function buildObservationTowerSuccessEmbed(brickCount, participantCount, rewardExp, topLines = [], housePoints = 0, unsortedHousePoints = 0) {
+function buildObservationTowerSuccessEmbed(houseBrickCounts, targetBricks, participantCount, rewardExp, topLines = [], housePoints = 0, unsortedHousePoints = 0) {
   const lines = [
-    `<a:VC_Winner:1482535294757507255> Torre d'osservazione completata con **${brickCount} mattoni**!`,
+    `<a:VC_Winner:1482535294757507255> Tutte le case hanno completato la torre d'osservazione!`,
+    formatObservationTowerHouseProgress(houseBrickCounts, targetBricks),
+    "",
     `Hanno partecipato **${participantCount} utenti**: ognuno riceve **${rewardExp} exp**.`,
   ];
   if (Number(housePoints || 0) > 0) {
@@ -3685,11 +3725,14 @@ function buildObservationTowerSuccessEmbed(brickCount, participantCount, rewardE
     .setDescription(lines.join("\n"));
 }
 
-function buildObservationTowerTimeoutEmbed(brickCount, targetBricks) {
+function buildObservationTowerTimeoutEmbed(houseBrickCounts, targetBricks) {
   return new EmbedBuilder()
     .setColor("#6f4e37")
     .setDescription(
-      `<a:VC_pixeltime:1482535344103620771> Tempo scaduto! La torre si è fermata a **${brickCount}/${targetBricks} mattoni**.`,
+      [
+        `<a:VC_pixeltime:1482535344103620771> Tempo scaduto! Non tutte le case hanno finito la torre.`,
+        formatObservationTowerHouseProgress(houseBrickCounts, targetBricks),
+      ].join("\n\n"),
     );
 }
 
@@ -5947,7 +5990,7 @@ async function startHogwartsCipherGame(client, cfg) {
 function getObservationTowerCfg(cfg) {
   const raw = cfg?.hogwartsObservationTower && typeof cfg.hogwartsObservationTower === "object" ? cfg.hogwartsObservationTower : {};
   return {
-    targetBricks: Math.max(1, Number(raw.targetBricks || 100)),
+    targetBricks: Math.max(1, Number(raw.targetBricks || 5)),
     durationMs: Math.max(30000, Number(raw.durationMs || 60000)),
     rewardExp: normalizeRewardExp(raw.rewardExp ?? 150),
     maxPerUser: Math.max(1, Number(raw.maxPerUser || 15)),
@@ -5975,7 +6018,7 @@ async function persistObservationTowerState(client, cfg, game) {
     type: "hogwartsObservationTower",
     target: JSON.stringify({
       targetBricks: game.targetBricks,
-      brickCount: game.brickCount,
+      houseBrickCounts: serializeObservationTowerHouseBrickCounts(game.houseBrickCounts),
       participantCounts: serializeObservationTowerParticipants(game.participantCounts),
       maxPerUser: game.maxPerUser,
       minLetters: game.minLetters,
@@ -6030,7 +6073,8 @@ async function finishObservationTowerSuccess(client, cfg, channel, game) {
   await channel.send({
     embeds: [
       buildObservationTowerSuccessEmbed(
-        game.brickCount,
+        game.houseBrickCounts,
+        game.targetBricks,
         awarded.expAwarded.length || Object.keys(serializeObservationTowerParticipants(game.participantCounts)).length,
         game.rewardExp,
         topLines,
@@ -6073,7 +6117,7 @@ async function startObservationTowerGame(client, cfg) {
   const game = {
     type: "hogwartsObservationTower",
     targetBricks: towerCfg.targetBricks,
-    brickCount: 0,
+    houseBrickCounts: emptyObservationTowerHouseBrickCounts(),
     participantCounts: {},
     maxPerUser: towerCfg.maxPerUser,
     minLetters: towerCfg.minLetters,
@@ -6089,7 +6133,7 @@ async function startObservationTowerGame(client, cfg) {
     if (!current || current.type !== "hogwartsObservationTower" || current._finishing) return;
     recordNoParticipationIfNeeded(channelId, current);
     activeGames.delete(channelId);
-    await channel.send({ embeds: [buildObservationTowerTimeoutEmbed(current.brickCount, current.targetBricks)] }).catch(() => { });
+    await channel.send({ embeds: [buildObservationTowerTimeoutEmbed(current.houseBrickCounts, current.targetBricks)] }).catch(() => { });
     await clearActiveGame(client, cfg);
   }, towerCfg.durationMs);
   timeout.unref?.();
@@ -8435,17 +8479,28 @@ async function handleMinigameMessage(message, client) {
     const userId = String(message.author.id || "");
     const towerMember = message.member || (await getGuildMemberCached(message.guild, userId, { ttlMs: 20_000 }));
     if (await isUserHighStaffExcludedFromHogwartsEvent(message.client, userId, towerMember)) return false;
+    const houseId = await resolveHogwartsSortedHouse(message.guild.id, userId, hogwartsHousePointsDedupeKey(message.client));
+    if (!houseId) {
+      await message.react(MINIGAME_WRONG_EMOJI).catch(() => { });
+      return true;
+    }
     const participantCounts = serializeObservationTowerParticipants(game.participantCounts);
     const currentUserBricks = Number(participantCounts[userId] || 0);
     if (currentUserBricks >= Number(game.maxPerUser || 15)) {
       await message.react(MINIGAME_COOLDOWN_EMOJI).catch(() => { });
       return true;
     }
+    const houseBrickCounts = serializeObservationTowerHouseBrickCounts(game.houseBrickCounts);
+    if (Number(houseBrickCounts[houseId] || 0) >= Number(game.targetBricks || 5)) {
+      await message.react(MINIGAME_COOLDOWN_EMOJI).catch(() => { });
+      return true;
+    }
     participantCounts[userId] = currentUserBricks + 1;
     game.participantCounts = participantCounts;
-    game.brickCount = Math.min(Number(game.targetBricks || 100), Number(game.brickCount || 0) + 1);
+    houseBrickCounts[houseId] = Number(houseBrickCounts[houseId] || 0) + 1;
+    game.houseBrickCounts = houseBrickCounts;
     game.hadParticipation = true;
-    if (game.brickCount >= Number(game.targetBricks || 100)) {
+    if (allObservationTowerHousesComplete(game.houseBrickCounts, game.targetBricks)) {
       await message.react(MINIGAME_WIN_EMOJI).catch(() => { });
       await finishObservationTowerSuccess(client, cfg, message.channel, game);
       return true;
@@ -9403,17 +9458,17 @@ async function restoreActiveGames(client) {
         .send({ embeds: [buildTimeoutHogwartsCipherEmbed(displayAnswer)] })
         .catch(() => { });
     } else if (state.type === "hogwartsObservationTower") {
-      let brickCount = 0;
-      let targetBricks = 100;
+      let houseBrickCounts = emptyObservationTowerHouseBrickCounts();
+      let targetBricks = 5;
       try {
         const parsed = JSON.parse(state.target || "{}");
-        brickCount = Number(parsed?.brickCount || 0);
+        houseBrickCounts = parseObservationTowerHouseBrickCounts(parsed);
         targetBricks = Number(parsed?.targetBricks || targetBricks);
       } catch (err) {
       warnMinigame(err);
     }
       await channel
-        .send({ embeds: [buildObservationTowerTimeoutEmbed(brickCount, targetBricks)] })
+        .send({ embeds: [buildObservationTowerTimeoutEmbed(houseBrickCounts, targetBricks)] })
         .catch(() => { });
     } else if (state.type === "drivingQuiz") {
       let gamePayload = { answer: false };
@@ -9905,17 +9960,17 @@ async function restoreActiveGames(client) {
   }
   if (state.type === "hogwartsObservationTower") {
     const parsed = parseStateTarget(state.target);
-    const targetBricks = Math.max(1, Number(parsed?.targetBricks || 100));
-    const brickCount = Math.max(0, Number(parsed?.brickCount || 0));
+    const targetBricks = Math.max(1, Number(parsed?.targetBricks || 5));
+    const houseBrickCounts = parseObservationTowerHouseBrickCounts(parsed);
     const participantCounts = serializeObservationTowerParticipants(parsed?.participantCounts);
     const maxPerUser = Math.max(1, Number(parsed?.maxPerUser || 15));
     const minLetters = Math.max(1, Number(parsed?.minLetters || 5));
     const rewardExp = Number(state.rewardExp || 0);
-    const timeout = setTimeout(async () => { const game = activeGames.get(cfg.channelId); if (!game) return; recordNoParticipationIfNeeded(cfg.channelId, game); activeGames.delete(cfg.channelId); await channel.send({ embeds: [buildObservationTowerTimeoutEmbed(game.brickCount, game.targetBricks)] }).catch(() => { }); await clearActiveGame(client, cfg); }, remainingMs); timeout.unref?.();
+    const timeout = setTimeout(async () => { const game = activeGames.get(cfg.channelId); if (!game) return; recordNoParticipationIfNeeded(cfg.channelId, game); activeGames.delete(cfg.channelId); await channel.send({ embeds: [buildObservationTowerTimeoutEmbed(game.houseBrickCounts, game.targetBricks)] }).catch(() => { }); await clearActiveGame(client, cfg); }, remainingMs); timeout.unref?.();
     activeGames.set(cfg.channelId, {
       type: "hogwartsObservationTower",
       targetBricks,
-      brickCount,
+      houseBrickCounts,
       participantCounts,
       maxPerUser,
       minLetters,

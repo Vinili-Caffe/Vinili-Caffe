@@ -34,6 +34,9 @@ const MUSIC_INACTIVITY_MS = Math.max(
   Number.isFinite(_musicIdleRawMs) && _musicIdleRawMs > 0 ? _musicIdleRawMs : 180_000,
 );
 
+/** Titolo embed per scrobbler (es. fmbot). */
+const NOW_PLAYING_EMBED_TITLE = "Now playing";
+
 function getMusicSearchMode() {
   const m = String(process.env.MUSIC_SEARCH_MODE || "").trim().toLowerCase();
   if (m === "spotify") return "spotify";
@@ -2121,10 +2124,13 @@ async function playMusicRequest(ctx, query) {
   const spotifyUrl = await resolveSpotifyWebUrl(node, first);
   const linkMd = formatTrackTitleMarkdownLink(label, spotifyUrl);
   const tail = rest.length ? ` (+${rest.length} in coda)` : "";
-  const embedBody = `In riproduzione: ${linkMd}${tail}`;
+  const embedDescription = `${linkMd}${tail}`;
+  const embedBody = `**${NOW_PLAYING_EMBED_TITLE}:** ${embedDescription}`;
   return {
     ok: true,
-    message: `In riproduzione: **${label}**${tail}`,
+    message: `**${NOW_PLAYING_EMBED_TITLE}:** **${label}**${tail}`,
+    embedTitle: NOW_PLAYING_EMBED_TITLE,
+    embedDescription,
     embedBody,
   };
 }
@@ -2521,17 +2527,24 @@ async function previousGuildTrack(interaction) {
     session.nowPlaying = oldNowLabel;
     return { ok: false, message: err?.message || "Impossibile tornare al brano precedente." };
   }
-  let embedBody = `In riproduzione: **${safeDiscordLinkLabel(session.nowPlaying)}**`;
+  let embedDescription = `**${safeDiscordLinkLabel(session.nowPlaying)}**`;
   if (node?.rest?.decode) {
     try {
       const t = await node.rest.decode(prev.encoded);
       const label = describeTrack(t);
       session.nowPlaying = label;
       const url = await resolveSpotifyWebUrl(node, t);
-      embedBody = `In riproduzione: ${formatTrackTitleMarkdownLink(label, url)}`;
+      embedDescription = formatTrackTitleMarkdownLink(label, url);
     } catch (_) {}
   }
-  return { ok: true, message: `In riproduzione: ${session.nowPlaying}`, embedBody };
+  const embedBody = `**${NOW_PLAYING_EMBED_TITLE}:** ${embedDescription}`;
+  return {
+    ok: true,
+    message: `**${NOW_PLAYING_EMBED_TITLE}:** ${session.nowPlaying}`,
+    embedTitle: NOW_PLAYING_EMBED_TITLE,
+    embedDescription,
+    embedBody,
+  };
 }
 
 async function shuffleGuildQueue(interaction) {

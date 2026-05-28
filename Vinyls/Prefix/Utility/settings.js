@@ -4,10 +4,12 @@ const { isViniliFullFeatureGuild } = require("../../MultiGuild/core/guildFeature
 const {
   setTenantQuoteChannel,
   setTenantModLogChannel,
+  setTenantRouletteChannel,
   getTenantChannelMapSync,
   refreshTenantGuildSettingsCache,
 } = require("../../MultiGuild/core/tenantGuildSettings");
 const { resolveQuoteChannelId } = require("../../Utils/Quote/quotePostChannel");
+const { resolveRouletteChannelId } = require("../../Utils/Quote/repostRoulettePostChannel");
 const { resolveModLogChannelId } = require("../../Utils/Moderation/tenantModLogChannel");
 const { getGuildChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { guildIconUrl } = require("../../Utils/Discord/guildDiscordIdentity");
@@ -16,7 +18,12 @@ const DASHBOARD_COLOR = "#6f4e37";
 const ICON_OK = "<:vegacheckmark:1443666279058772028>";
 const ICON_WARN = "<:vegax:1443934876440068179>";
 const ICON_ARROW = "<a:VC_Arrow:1482706699365257397>";
-const SETTING_KEYS = [ { id: "quotes", label: "Quote / Repost", resolveId: resolveQuoteChannelId, hint: "Bacheca per `+quote` e `+repost`" }, { id: "modlogs", label: "Log moderazione", resolveId: resolveModLogChannelId, hint: "Case ban, warn, mute, …" } ];
+const SETTING_KEYS = [
+  { id: "quotes", label: "Quote / Repost", resolveId: resolveQuoteChannelId, hint: "Bacheca per `+quote` e `+repost`" },
+  { id: "roulette", label: "Roulette repost", resolveId: resolveRouletteChannelId, hint: "Revival casuale dei repost passati" },
+  { id: "modlogs", label: "Log moderazione", resolveId: resolveModLogChannelId, hint: "Case ban, warn, mute, …" },
+];
+const CHANNEL_SETTING_TOTAL = SETTING_KEYS.length;
 const CLEAR_TOKENS = new Set(["off", "none", "reset", "disable", "disabled", "remove", "clear"]);
 const HERE_TOKENS = new Set(["here", "this", "current"]);
 
@@ -141,6 +148,8 @@ function resolveDashboardChannelIds(guild, options = {}) {
   const tenantMap = getTenantChannelMapSync(guild.id);
   return {
     quoteId: options.quoteChannelId ?? tenantMap.quotes ?? resolveQuoteChannelId(guild.id) ?? null,
+    rouletteId:
+      options.rouletteChannelId ?? tenantMap.roulette ?? resolveRouletteChannelId(guild.id) ?? null,
     modLogId: options.modLogChannelId ?? tenantMap.modLogs ?? resolveModLogChannelId(guild.id) ?? null,
   };
 }
@@ -149,12 +158,14 @@ async function buildSettingsDashboard(guild, options = {}) {
   if (!options.skipCacheRefresh) {
     await refreshTenantGuildSettingsCache().catch(() => null);
   }
-  const { quoteId, modLogId } = resolveDashboardChannelIds(guild, options);
+  const { quoteId, rouletteId, modLogId } = resolveDashboardChannelIds(guild, options);
   const quoteCard = await resolveSettingCard(guild, quoteId);
+  const rouletteCard = await resolveSettingCard(guild, rouletteId);
   const modLogCard = await resolveSettingCard(guild, modLogId);
-  const readyCount = [quoteCard, modLogCard].filter((c) => c.configured && c.healthy).length;
-  const setCount = [quoteCard, modLogCard].filter((c) => c.configured).length;
-  const progress = buildProgressBar(readyCount, 2);
+  const cards = [quoteCard, rouletteCard, modLogCard];
+  const readyCount = cards.filter((c) => c.configured && c.healthy).length;
+  const setCount = cards.filter((c) => c.configured).length;
+  const progress = buildProgressBar(readyCount, CHANNEL_SETTING_TOTAL);
   const featureSummary = buildFeatureSummary(guild.id);
   const guildIcon = guildIconUrl(guild, { size: 256 });
   const nowSec = Math.floor(Date.now() / 1000);
@@ -166,7 +177,7 @@ async function buildSettingsDashboard(guild, options = {}) {
   const description = [
     headline,
     `Panoramica configurazione per **${guild.name}**.`,
-    `${ICON_ARROW} ${progress} canali operativi · **${setCount}/2** impostati`,
+    `${ICON_ARROW} ${progress} canali operativi · **${setCount}/${CHANNEL_SETTING_TOTAL}** impostati`,
     featureSummary ? `${ICON_ARROW} ${featureSummary} nel registry tenant` : null,
     `${ICON_ARROW} Ultimo aggiornamento <t:${nowSec}:R>`,
   ]
@@ -179,6 +190,8 @@ async function buildSettingsDashboard(guild, options = {}) {
     "+settings quotes #canale     → canale quote",
     "+settings quotes here        → canale corrente",
     "+settings quotes off         → disattiva",
+    "+settings roulette #canale   → roulette repost",
+    "+settings roulette here|off  → come sopra",
     "+settings modlogs #canale    → log moderazione",
     "+settings modlogs here|off   → come sopra",
     "```",
@@ -205,21 +218,22 @@ async function buildSettingsDashboard(guild, options = {}) {
         inline: true,
       },
       {
-        name: "Moderazione",
+        name: "Roulette",
         value: [
-          modLogCard.statusLine,
-          modLogCard.channelLine,
+          rouletteCard.statusLine,
+          rouletteCard.channelLine,
           "",
           `*${SETTING_KEYS[1].hint}*`,
         ].join("\n"),
         inline: true,
       },
       {
-        name: "\u200b",
+        name: "Moderazione",
         value: [
-          "**Stato rapido**",
-          quoteCard.configured ? "Quote · impostata" : "Quote · solo nel comando",
-          modLogCard.configured ? "Mod log · canale dedicato" : "Mod log · solo database",
+          modLogCard.statusLine,
+          modLogCard.channelLine,
+          "",
+          `*${SETTING_KEYS[2].hint}*`,
         ].join("\n"),
         inline: true,
       },
@@ -242,10 +256,11 @@ module.exports = {
   hideFromHelp: true,
   allowEmptyArgs: true,
   description: "Impostazioni bot per server tenant (canale quote, ecc.).",
-  usage: "+settings [show | quotes | modlogs <canale | here | off>]",
+  usage: "+settings [show | quotes | roulette | modlogs <canale | here | off>]",
   examples: [
     "+settings",
     "+settings quotes #quote",
+    "+settings roulette #chat",
     "+settings modlogs #mod-log",
     "+settings modlogs here",
     "+settings modlogs off",
@@ -282,8 +297,9 @@ module.exports = {
     }
 
     const isQuotes = sub === "quotes" || sub === "quote";
+    const isRoulette = sub === "roulette" || sub === "repost-roulette" || sub === "repostroulette";
     const isModLogs = sub === "modlogs" || sub === "modlog";
-    if (!isQuotes && !isModLogs) {
+    if (!isQuotes && !isRoulette && !isModLogs) {
       const embed = await buildSettingsDashboard(message.guild);
       return safeMessageReply(message, {
         embeds: [
@@ -291,7 +307,7 @@ module.exports = {
           new EmbedBuilder()
             .setColor(DASHBOARD_COLOR)
             .setDescription(
-              `${ICON_WARN} Sezione sconosciuta. Usa \`quotes\` o \`modlogs\` dopo \`+settings\`.`,
+              `${ICON_WARN} Sezione sconosciuta. Usa \`quotes\`, \`roulette\` o \`modlogs\` dopo \`+settings\`.`,
             ),
         ],
         allowedMentions: { repliedUser: false },
@@ -326,8 +342,12 @@ module.exports = {
       });
     }
 
-    const setChannel = isQuotes ? setTenantQuoteChannel : setTenantModLogChannel;
-    const sectionLabel = isQuotes ? "Quote" : "Log moderazione";
+    const setChannel = isQuotes
+      ? setTenantQuoteChannel
+      : isRoulette
+        ? setTenantRouletteChannel
+        : setTenantModLogChannel;
+    const sectionLabel = isQuotes ? "Quote" : isRoulette ? "Roulette repost" : "Log moderazione";
 
     if (resolved.clear) {
       const result = await setChannel(message.guild.id, null);
@@ -390,6 +410,7 @@ module.exports = {
       skipCacheRefresh: true,
     };
     if (isQuotes) dashOpts.quoteChannelId = channel.id;
+    if (isRoulette) dashOpts.rouletteChannelId = channel.id;
     if (isModLogs) dashOpts.modLogChannelId = channel.id;
     const embed = await buildSettingsDashboard(message.guild, dashOpts);
     return safeMessageReply(message, {

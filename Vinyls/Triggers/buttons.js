@@ -533,7 +533,7 @@ module.exports = {
     if (interaction.isStringSelectMenu()) {
       const menuId = interaction.customId;
       const values = Array.isArray(interaction.values) ? interaction.values : [];
-      const categories = { personality_pronouns: ["1442568997848743997", "1442568999043989565", "1442569000063074498", "1442569001367769210",], personality_age: ["1442568993197265021", "1442568994581381170", "1442568995348807691", "1442568996774871194",], personality_region: ["1442569021861007443", "1442569023303974922", "1442569024486506498", "1442569025790939167",], personality_dm: ["1442569004215697438", "1442569005071077417", "1442569006543274126",], personality_relationship: ["1442569028173299732", "1442569029263818906",], personality_zodiac: ZODIAC_ROLE_IDS, personality_mentions: [IDs.roles.ReviveChat, IDs.roles.Events, IDs.roles.News, IDs.roles.Polls, IDs.roles.Bump, IDs.roles.Minigames, IDs.roles.Forum,], personality_colors_1: PERSONALITY_NORMAL_COLOR_ROLE_IDS_ALL, personality_colors_plus: [IDs.roles.redPlus, IDs.roles.orangePlus, IDs.roles.yellowPlus, IDs.roles.greenPlus, IDs.roles.bluePlus, IDs.roles.purplePlus, IDs.roles.pinkPlus, IDs.roles.blackPlus, IDs.roles.grayPlus, IDs.roles.whitePlus, IDs.roles.orangeBlackPlus, IDs.roles.greenBlackPlus, IDs.roles.aquaBlackPlus,], };
+      const categories = { personality_pronouns: ["1442568997848743997", "1442568999043989565", "1442569000063074498", "1442569001367769210",], personality_age: ["1442568993197265021", "1442568994581381170", "1442568995348807691", "1442568996774871194",], personality_region: ["1442569021861007443", "1442569023303974922", "1442569024486506498", "1442569025790939167",], personality_dm: ["1442569004215697438", "1442569005071077417", "1442569006543274126",], personality_relationship: ["1442569028173299732", "1442569029263818906",], personality_zodiac: ZODIAC_ROLE_IDS, personality_mentions: [IDs.roles.ReviveChat, IDs.roles.Events, IDs.roles.News, IDs.roles.Polls, IDs.roles.Bump, IDs.roles.Minigames,], personality_colors_1: PERSONALITY_NORMAL_COLOR_ROLE_IDS_ALL, personality_colors_plus: [IDs.roles.redPlus, IDs.roles.orangePlus, IDs.roles.yellowPlus, IDs.roles.greenPlus, IDs.roles.bluePlus, IDs.roles.purplePlus, IDs.roles.pinkPlus, IDs.roles.blackPlus, IDs.roles.grayPlus, IDs.roles.whitePlus, IDs.roles.orangeBlackPlus, IDs.roles.greenBlackPlus, IDs.roles.aquaBlackPlus,], };
       const colorMenuIds = ["personality_colors_1", "personality_colors_plus"];
       const allColorRoleIds = colorMenuIds.flatMap((id) => categories[id] || []);
 
@@ -901,7 +901,7 @@ module.exports = {
         "<:VC_Dot:1482532364222595303> Bypass dei requisiti nei giveaway",
         "<:VC_Dot:1482532364222595303> Possibilità di cambiare il tuo nickname",
         "<:VC_Dot:1482532364222595303> Sblocchi i COLORI PLUS in \`+profile\` <:VC_New:1471891729471770819>",
-        "<:VC_Dot:1482532364222595303> Sblocchi il comando `+quote`",
+        "<:VC_Dot:1482532364222595303> Sblocchi i comandi `+quote`, `+repost` e `+myrepost`",
         "<:VC_Dot:1482532364222595303> X4 EXP boost",
       ].join("\n");
 
@@ -1025,7 +1025,7 @@ module.exports = {
           "<:sparkle:1470064801811140866> Permesso di usare le Soundboard del server",
           "<:blueflash:1470064803157643468> Sblocchi i COLORI PLUS in \`+profile\` <:VC_New:1471891729471770819>",
           "<a:VC_CrownYellow:1482706085440651428> Aggiungi reazioni al messaggio quando ti @menzionano in chat (max. 3)",
-          "<a:reddiamond:1443652837346377841> Sblocchi il comando `+quote`",
+          "<a:reddiamond:1443652837346377841> Sblocchi i comandi `+quote`, `+repost` e `+myrepost`",
           "<:exp:1470067108543987846> X2 EXP Boost",
           "",
           "<a:VC_Boost:1482706171386269830> **Inoltre boostando il server due volte sbloccherai altri vantaggi:**",
@@ -1077,7 +1077,7 @@ module.exports = {
               "<:VC_DoubleReply:1482532332509466797> Permesso di cambiare nickname",
               "<:VC_DoubleReply:1482532332509466797> Permesso di allegare link e immagini in chat",
               "<:VC_DoubleReply:1482532332509466797> Permesso di inviare messaggi vocali in chat",
-              "<:VC_DoubleReply:1482532332509466797> Sblocchi il comando \`+quote\`",
+              "<:VC_DoubleReply:1482532332509466797> Sblocchi i comandi \`+quote\`, \`+repost\` e \`+myrepost\`",
               `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo colore gradiente sbloccato con \`+profile\`<@&${IDs.roles.colorUnlockLv10}>`
             ].join("\n"),
             inline: true,

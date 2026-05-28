@@ -5,6 +5,7 @@ const IDs = require("../../Utils/Config/ids");
 const { isTicketCategoryName, isChannelInTicketCategory, isTicketChannelName } = require("../../Utils/Ticket/ticketCategoryUtils");
 const { ACTIVITY_MAIN_GUILD_ID } = require("../../Schemas/Community/communitySchemas");
 const RULE_PREFIX = "[VC] ";
+const AUTOMOD_ALERT_CHANNEL_ID = String(IDs.channels?.sanzioniUtenti || "1442569245878648924");
 const AUTOMOD_CONFIG_PATH = path.resolve(__dirname, "../../Utils/Config/automodConfig.json");
 const RACIST_WORDS_FILE = path.resolve(__dirname, "../../Utils/Config/automodRacistWords.json");
 const RACIST_WORDS_DIR = path.resolve(__dirname, "../../Utils/Config/automodRacistWords");
@@ -13,9 +14,6 @@ const KEYWORDS_PER_RULE = 1000;
 const KEYWORD_MAX_LEN = 60;
 const SYNC_DEBOUNCE_MS = 4000;
 const MAX_EXEMPT_CHANNELS = 50;
-const EXEMPT_CHANNEL_IDS = new Set([ IDs.channels?.staffChat, IDs.channels?.staffCmds, IDs.channels?.modLogs, IDs.channels?.activityLogs, IDs.channels?.midChat, IDs.channels?.partnerships, "1442569193470824448" ].filter(Boolean).map(String));
-const EXEMPT_CATEGORY_IDS = new Set(["1442569074310643845"]);
-const INVITE_WHITELIST_CHANNEL_IDS = new Set([ IDs.channels?.partnerships, "1442569193470824448" ].filter(Boolean).map(String));
 let syncTimer = null;
 let lastSyncSignature = "";
 
@@ -128,16 +126,9 @@ function filterGuildSnowflakeIds(guild, ids, kind = "channel") {
 }
 
 function collectExemptRoleIds(guild) {
-  const ids = new Set();
-  for (const roleId of [IDs.roles?.HighStaff, IDs.roles?.Staff, IDs.roles?.Owner].filter(Boolean).map(String)) {
-    if (guild?.roles?.cache?.has(roleId)) ids.add(roleId);
-  }
-  for (const role of guild.roles.cache.values()) {
-    if (role?.permissions?.has(PermissionsBitField.Flags.Administrator)) {
-      ids.add(String(role.id));
-    }
-  }
-  return [...ids];
+  const staffRoleId = String(IDs.roles?.Staff || "").trim();
+  if (!staffRoleId || !guild?.roles?.cache?.has(staffRoleId)) return [];
+  return [staffRoleId];
 }
 
 function collectTicketAutomodExemptChannelIds(guild) {
@@ -157,35 +148,22 @@ function collectTicketAutomodExemptChannelIds(guild) {
   return ids;
 }
 
-function prioritizeExemptChannelIds(guild, ids) {
+function prioritizeTicketExemptChannelIds(guild, ids) {
   const unique = [...new Set((Array.isArray(ids) ? ids : []).map(String).filter((id) => /^\d{16,20}$/.test(id)))];
   const existing = filterGuildSnowflakeIds(guild, unique, "channel");
   if (existing.length <= MAX_EXEMPT_CHANNELS) return existing;
-  const staff = [];
   const ticketCategories = [];
-  const staticCategories = [];
   const ticketChannels = [];
-  const other = [];
   for (const id of existing) {
     const channel = guild.channels.cache.get(id);
     if (!channel) continue;
-    if (EXEMPT_CHANNEL_IDS.has(id)) {
-      staff.push(id);
-      continue;
-    }
     if (channel.type === ChannelType.GuildCategory && isTicketCategoryName(channel.name)) {
       ticketCategories.push(id);
       continue;
     }
-    if (channel.type === ChannelType.GuildCategory && EXEMPT_CATEGORY_IDS.has(id)) {
-      staticCategories.push(id);
-      continue;
-    }
     if (isChannelInTicketCategory(channel) || isTicketChannelName(channel.name)) {
       ticketChannels.push(id);
-      continue;
     }
-    other.push(id);
   }
   const out = [];
   const push = (list) => {
@@ -194,31 +172,17 @@ function prioritizeExemptChannelIds(guild, ids) {
       out.push(id);
     }
   };
-  push(staff);
   push(ticketCategories);
-  push(staticCategories);
   push(ticketChannels);
-  push(other);
   global.logger?.warn?.(
-    `[discordAutomod] exempt channels trimmed ${existing.length} -> ${out.length}`,
+    `[discordAutomod] ticket exempt channels trimmed ${existing.length} -> ${out.length}`,
   );
   return out;
 }
 
 function collectExemptChannelIds(guild) {
-  const ids = new Set();
-  const addIfExists = (id) => {
-    const key = String(id || "").trim();
-    if (!key) return;
-    if (guild.channels.cache.has(key)) ids.add(key);
-  };
-  for (const id of EXEMPT_CHANNEL_IDS) addIfExists(id);
-  for (const id of INVITE_WHITELIST_CHANNEL_IDS) addIfExists(id);
-  addIfExists(IDs.channels?.ticket);
-  addIfExists(IDs.channels?.ticketLogs);
-  for (const catId of EXEMPT_CATEGORY_IDS) addIfExists(catId);
-  for (const ticketId of collectTicketAutomodExemptChannelIds(guild)) ids.add(ticketId);
-  return prioritizeExemptChannelIds(guild, [...ids]);
+  if (!guild?.channels?.cache) return [];
+  return prioritizeTicketExemptChannelIds(guild, [...collectTicketAutomodExemptChannelIds(guild)]);
 }
 
 function shouldResyncAutomodForChannel(channel) {
@@ -236,7 +200,7 @@ function buildBlockActions(alertChannelId, guild) {
       },
     },
   ];
-  const alertId = String(alertChannelId || IDs.channels?.modLogs || "").trim();
+  const alertId = String(alertChannelId || AUTOMOD_ALERT_CHANNEL_ID || "").trim();
   const alertChannel =
     alertId && guild?.channels?.cache?.get(alertId)
       ? guild.channels.cache.get(alertId)
@@ -257,7 +221,7 @@ function buildBlockActions(alertChannelId, guild) {
 
 function buildDesiredRuleSpecs(options = {}) {
   const guild = options.guild || null;
-  const alertChannelId = options.alertChannelId || IDs.channels?.modLogs;
+  const alertChannelId = options.alertChannelId || AUTOMOD_ALERT_CHANNEL_ID;
   const actions = buildBlockActions(alertChannelId, guild);
   const specs = [];
   if (readAutomodConfig()?.heatFilters?.inviteLinks !== false) {

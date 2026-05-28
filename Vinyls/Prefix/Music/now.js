@@ -62,7 +62,7 @@ module.exports = {
     const progressLines = `${data.progressBar}\n\`${data.positionClock}\` / \`${data.lengthClock}\``;
     const embed = new EmbedBuilder()
       .setColor(0x6f4e37)
-      .setAuthor({ name: "In riproduzione ♪" })
+      .setTitle("Now playing")
       .addFields(
         { name: "Brano", value: data.trackFieldValue, inline: false },
         { name: "Avanzamento", value: progressLines.slice(0, 1024), inline: false },

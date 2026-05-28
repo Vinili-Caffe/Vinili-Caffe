@@ -11,17 +11,24 @@ module.exports = {
   async execute(message) {
     const result = await previousGuildTrack(message);
     const spotifyEmoji = "<:VC_Spotify:1482527369477492797>";
-    const okDesc =
-      result.ok && typeof result.embedBody === "string" && result.embedBody.trim()
-        ? `${spotifyEmoji} ${result.embedBody.trim()}`
-        : result.ok
-          ? `${spotifyEmoji} ${result.message}`
-          : null;
-    const embed = new EmbedBuilder()
-      .setColor(result.ok ? 0x6f4e37 : 0xff0000)
-      .setDescription(
-        result.ok ? okDesc : `**${result.message}**`,
-      );
+    const embedDescRaw =
+      typeof result.embedDescription === "string" && result.embedDescription.trim()
+        ? result.embedDescription.trim()
+        : typeof result.embedBody === "string" && result.embedBody.trim()
+          ? result.embedBody.trim()
+          : "";
+    const okDesc = result.ok
+      ? embedDescRaw
+        ? `${spotifyEmoji} ${embedDescRaw}`
+        : `${spotifyEmoji} ${result.message}`
+      : null;
+    const embed = new EmbedBuilder().setColor(result.ok ? 0x6f4e37 : 0xff0000);
+    if (result.ok && (result.embedTitle || embedDescRaw)) {
+      embed.setTitle(String(result.embedTitle || "Now playing").slice(0, 256));
+      embed.setDescription(okDesc);
+    } else {
+      embed.setDescription(result.ok ? okDesc : `**${result.message}**`);
+    }
     await safeMessageReply(
       message,
       applyDefaultFooterToEmbeds(

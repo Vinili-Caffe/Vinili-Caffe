@@ -2,6 +2,7 @@ const { dispatchPrefixMessage } = require("../Utils/Prefix/prefixDispatcher");
 const { handleTtsMessage } = require("../Services/TTS/ttsService");
 const { recordReminderActivity } = require("../Services/Community/chatReminderService");
 const { handleStanzaPanelPromptMessageCreate } = require("../Services/Voice/stanzaVoiceRoomsService");
+const { handleVoiceTranscriptionMessage } = require("../Services/Voice/voiceTranscriptionService");
 const IDs = require("../Utils/Config/ids");
 const REMINDER_CHANNEL_ID = IDs.channels?.chat || null;
 
@@ -28,6 +29,13 @@ module.exports = {
       }
     } catch (error) {
       global.logger?.error?.("[TTS ERROR]", error);
+    }
+    try {
+      if (!isEditedPrefixExecution) {
+        await handleVoiceTranscriptionMessage(message, client);
+      }
+    } catch (error) {
+      global.logger?.error?.("[VOICE TRANSCRIBE ERROR]", error);
     }
     await dispatchPrefixMessage(message, client);
   },

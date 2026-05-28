@@ -293,7 +293,7 @@ function buildMovieNightStaffCommunicationMessage({ title, dateLabel }) {
 function buildFinalAnnouncementMonthlyActivityBlock() {
   return [
     "> # <a:VC_Exclamation:1482534702077444217> RICORDA L’EVENTO MENSILE!",
-    `Il membro che a fine mese risulterà il più attivo vincerà Nitro Boost per un mese, il secondo una decorazione da massimo 15,99€ e il terzo Nitro Basic! Ti aspettiamo in <#${CHAT_CHANNEL_ID}>!`,
+    `Il membro che a fine mese risulterà il più attivo vincerà Nitro Boost per un mese, il secondo una decorazione da massimo 15,99€ e il terzo il ruolo VIP+ per 30 giorni! Ti aspettiamo in <#${CHAT_CHANNEL_ID}>!`,
   ].join("\n");
 }
 

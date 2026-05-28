@@ -10,7 +10,7 @@ const { guildMemberDisplayAvatarUrlDynamic, accountUsername } = require("../Util
 const { resolveCanvasDiscordMarkup } = require("../Utils/Discord/resolveCanvasDiscordText");
 const SKULL_EMOJI = "\u{1F480}";
 const SKULLBOARD_CHANNEL_ID = IDs.channels.quotes;
-const SKULL_SOURCE_WHITELIST_CHANNEL_IDS=new Set([IDs.channels.chat,IDs.channels.media,IDs.channels.commands,IDs.channels.forum,IDs.channels.selfieVerificati].filter(Boolean).map((id) => String(id)));
+const SKULL_SOURCE_WHITELIST_CHANNEL_IDS=new Set([IDs.channels.chat,IDs.channels.media,IDs.channels.commands,IDs.channels.selfieVerificati].filter(Boolean).map((id) => String(id)));
 
 function isSkullboardSourceChannel(channel) {
   if (!channel) return false;

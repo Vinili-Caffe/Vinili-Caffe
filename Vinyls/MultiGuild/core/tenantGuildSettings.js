@@ -16,8 +16,10 @@ function rowToChannelMap(row) {
   const out = {};
   const quotes = normalizeChannelId(row.q ?? row.quotes ?? row?.cm?.quotes);
   const modLogs = normalizeChannelId(row.ml ?? row.modLogs ?? row?.cm?.modLogs);
+  const roulette = normalizeChannelId(row.r ?? row.roulette ?? row?.cm?.roulette);
   if (quotes) out.quotes = quotes;
   if (modLogs) out.modLogs = modLogs;
+  if (roulette) out.roulette = roulette;
   return out;
 }
 
@@ -65,7 +67,8 @@ async function setTenantChannelField(guildId, fieldKey, channelId) {
   const saved = await setBotState(BOT_STATE_KEY, map);
   if (!saved) return { ok: false, reason: "persist_failed" };
   await refreshTenantGuildSettingsCache();
-  const verifyKey = key === "q" ? "quotes" : key === "ml" ? "modLogs" : null;
+  const verifyKey =
+    key === "q" ? "quotes" : key === "ml" ? "modLogs" : key === "r" ? "roulette" : null;
   if (verifyKey) {
     const persisted = getTenantChannelMapSync(gid)[verifyKey] || null;
     if (nextId && persisted !== nextId) {
@@ -86,6 +89,10 @@ async function setTenantModLogChannel(guildId, channelId) {
   return setTenantChannelField(guildId, "ml", channelId);
 }
 
+async function setTenantRouletteChannel(guildId, channelId) {
+  return setTenantChannelField(guildId, "r", channelId);
+}
+
 module.exports = {
   BOT_STATE_KEY,
   getTenantChannelMapSync,
@@ -93,4 +100,5 @@ module.exports = {
   setTenantChannelField,
   setTenantQuoteChannel,
   setTenantModLogChannel,
+  setTenantRouletteChannel,
 };

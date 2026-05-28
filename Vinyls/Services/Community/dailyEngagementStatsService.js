@@ -65,7 +65,6 @@ function getTrackedTextChannelIds() {
       IDs.channels?.media,
       IDs.channels?.commands,
       IDs.channels?.selfieVerificati,
-      IDs.channels?.forum,
     ]
       .filter(Boolean)
       .map(String),
@@ -77,13 +76,7 @@ function isTrackedTextMessage(message) {
   if (message.system || message.webhookId || message.applicationId) return false;
   const tracked = getTrackedTextChannelIds();
   const channelId = String(message.channelId || message.channel?.id || "");
-  const parentId = String(message.channel?.parentId || "");
-  return tracked.has(channelId) || (IDs.channels?.forum && parentId === String(IDs.channels.forum));
-}
-
-function isForumTrackedChannelId(guild, channelId) {
-  const channel = guild?.channels?.cache?.get(String(channelId || ""));
-  return Boolean(channel && IDs.channels?.forum && String(channel.parentId || "") === String(IDs.channels.forum));
+  return tracked.has(channelId);
 }
 
 function hasTrackedTextInMap(guild, textChannels, trackedIds) {
@@ -91,7 +84,7 @@ function hasTrackedTextInMap(guild, textChannels, trackedIds) {
   for (const [channelId, value] of Object.entries(textChannels)) {
     const cid = String(channelId || "");
     if (Number(value || 0) <= 0) continue;
-    if (trackedIds.has(cid) || isForumTrackedChannelId(guild, cid)) return true;
+    if (trackedIds.has(cid)) return true;
   }
   return false;
 }

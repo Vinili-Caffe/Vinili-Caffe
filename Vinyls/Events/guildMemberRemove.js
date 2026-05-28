@@ -8,6 +8,12 @@ const { scheduleStaffListRefresh, memberHasStaffRole, } = require("../Utils/Comm
 const { getStaffRoleEmojiByRoleId } = require("../Utils/Community/staffRoleEmoji");
 const { queueIdsCatalogSync } = require("../Utils/Config/idsAutoSync");
 const { runCleanupAfterMemberLeave } = require("../Services/Community/cleanupUsersNotInServerService");
+const {
+  attachHogwartsRetentionMarkers,
+  extractHogwartsProfileSlice,
+  shouldRetainHogwartsProfileOnLeave,
+} = require("../Services/Community/hogwartsLeaveRetention");
+const { resolveHogwartsEventConfig } = require("../Utils/Web/hogwartsSortingConfig");
 const { backupUserOnLeave, recordLeaveDepexMessages } = require("../Services/Community/userLeaveBackupService");
 const { handleMuteMirrorOnMemberLeave } = require("../Services/Moderation/mutedMirrorRoleService");
 const { enqueueCustomPerksDiscordCleanupAfterLeave } = require("../Services/Community/customPerksDiscordCleanupQueueService");
@@ -321,7 +327,7 @@ async function sendMemberKickLog(member) {
   return true;
 }
 
-async function cleanupActivityUserProfileOnGuildLeave(guildId, userId) {
+async function cleanupActivityUserProfileOnGuildLeave(guildId, userId, client) {
   const gid = String(guildId);
   const uid = String(userId);
   const doc = await ActivityUserProfile.findOne({ guildId: gid, userId: uid })
@@ -339,44 +345,44 @@ async function cleanupActivityUserProfileOnGuildLeave(guildId, userId) {
     doc.moderation != null && typeof doc.moderation === "object";
   const keepEventWeekWinners =
     Array.isArray(doc?.profile?.totals?.exp?.event?.weekWinners) && doc.profile.totals.exp.event.weekWinners.length > 0;
+  const keepHogwarts = await shouldRetainHogwartsProfileOnLeave(client, doc, { guildId: gid, userId: uid });
 
-  if (keepModeration || keepEventWeekWinners) {
-    const payload = {
-      _id: doc._id,
-      guildId: gid,
-      userId: uid,
-      updatedAt: new Date(),
-    };
-    if (doc.createdAt) payload.createdAt = doc.createdAt;
-    if (keepModeration) payload.moderation = doc.moderation;
-    if (keepEventWeekWinners) payload.profile = { totals: { exp: { event: { weekWinners: doc.profile.totals.exp.event.weekWinners } } } };
-    if (keepStaffGrace && staffBlock) payload.staff = staffBlock;
-    if (staffPendingPurgeAt) payload.staffPendingPurgeAt = staffPendingPurgeAt;
-    await ActivityUserProfile.collection.replaceOne({ _id: doc._id }, payload).catch(() => { });
+  if (!keepModeration && !keepEventWeekWinners && !keepStaffGrace && !keepHogwarts) {
+    await ActivityUserProfile.deleteOne({ _id: doc._id }).catch(() => { });
     return;
   }
 
-  if (keepStaffGrace && (staffBlock || staffPendingPurgeAt)) {
-    const payload = {
-      _id: doc._id,
-      guildId: gid,
-      userId: uid,
-      updatedAt: new Date(),
-      ...(doc.createdAt ? { createdAt: doc.createdAt } : {}),
-      ...(staffBlock ? { staff: staffBlock } : {}),
-      ...(staffPendingPurgeAt ? { staffPendingPurgeAt: staffPendingPurgeAt } : {}),
-    };
-    await ActivityUserProfile.collection.replaceOne({ _id: doc._id }, payload).catch(() => { });
-    return;
-  }
+  const payload = {
+    _id: doc._id,
+    guildId: gid,
+    userId: uid,
+    updatedAt: new Date(),
+  };
+  if (doc.createdAt) payload.createdAt = doc.createdAt;
+  if (keepModeration) payload.moderation = doc.moderation;
+  if (keepStaffGrace && staffBlock) payload.staff = staffBlock;
+  if (staffPendingPurgeAt) payload.staffPendingPurgeAt = staffPendingPurgeAt;
 
-  await ActivityUserProfile.deleteOne({ _id: doc._id }).catch(() => { });
+  const profile = {};
+  if (keepEventWeekWinners) {
+    profile.totals = { exp: { event: { weekWinners: doc.profile.totals.exp.event.weekWinners } } };
+  }
+  if (keepHogwarts) {
+    const hogwartsSlice = extractHogwartsProfileSlice(doc);
+    if (hogwartsSlice) {
+      const cfg = client ? resolveHogwartsEventConfig(client) : null;
+      profile.events = { hogwarts: attachHogwartsRetentionMarkers(hogwartsSlice, cfg) };
+    }
+  }
+  if (Object.keys(profile).length) payload.profile = profile;
+
+  await ActivityUserProfile.collection.replaceOne({ _id: doc._id }, payload).catch(() => { });
 }
 
-async function cleanupUserData(guildId, userId) {
+async function cleanupUserData(guildId, userId, client) {
   const gid = String(guildId);
   const uid = String(userId);
-  await Promise.allSettled([cleanupActivityUserProfileOnGuildLeave(gid, uid)]);
+  await Promise.allSettled([cleanupActivityUserProfileOnGuildLeave(gid, uid, client)]);
 }
 
 module.exports = {
@@ -437,7 +443,7 @@ module.exports = {
       if (!member.user.bot && String(guild.id) === String(MAIN_GUILD_ID)) {
         await enqueueCustomPerksDiscordCleanupAfterLeave(guild.id, member.id).catch(() => {});
       }
-      await cleanupUserData(guild.id, member.id);
+      await cleanupUserData(guild.id, member.id, activeClient);
       void runCleanupAfterMemberLeave(activeClient, guild).catch((err) => {
         global.logger?.warn?.("[guildMemberRemove] cleanup not-in-server:", err?.message || err);
       });

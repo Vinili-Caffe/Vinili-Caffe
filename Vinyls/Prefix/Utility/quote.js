@@ -160,6 +160,16 @@ module.exports = {
       });
 
     const replyMsg=await safeMessageReply(message,{files:[attachment],embeds:[embed],allowedMentions:{repliedUser:false},});
+    if (replyMsg?.id && !isRepostDisabledInGuild(message.guild.id)) {
+      const repostRow = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`repost_src:${message.channel.id}:${replyMsg.id}:${author.id}`)
+          .setLabel("Reposta")
+          .setEmoji("1443652837346377841")
+          .setStyle(ButtonStyle.Secondary),
+      );
+      await replyMsg.edit({ components: [repostRow] }).catch(() => {});
+    }
 
     if (
       quoteChannel?.isTextBased?.() &&
@@ -172,8 +182,6 @@ module.exports = {
       const postEmbed=buildQuotePostEmbed({messageAuthorId:author.id,creatorId:message.author.id,totalPosts,});
       const originChannelId = message.channel.id;
       const originMessageId = replyMsg?.id || "0";
-      const sourceChannelId = targetMessage.channel.id;
-      const sourceMessageId = targetMessage.id;
       const rowButtons = [
         new ButtonBuilder()
           .setCustomId(`quote_remove:${message.author.id}:${originChannelId}:${originMessageId}`)
@@ -181,15 +189,6 @@ module.exports = {
           .setEmoji("🗑️")
           .setStyle(ButtonStyle.Danger),
       ];
-      if (!isRepostDisabledInGuild(message.guild.id)) {
-        rowButtons.unshift(
-          new ButtonBuilder()
-            .setCustomId(`repost_src:${sourceChannelId}:${sourceMessageId}`)
-            .setLabel("Reposta")
-            .setEmoji("1443652837346377841")
-            .setStyle(ButtonStyle.Secondary),
-        );
-      }
       const removeRow = new ActionRowBuilder().addComponents(...rowButtons);
       await quoteChannel
         .send({

@@ -12,6 +12,12 @@ const HOUSE_POINTS_OWNER_ID = "__event__";
 const PERSONAL_BOOSTS_PATH = "profile.events.hogwarts.consumableBoosts";
 const GUILD_BOOSTS_PATH = "rawWebhook.consumableBoosts";
 const SORTED_HOUSE_IDS = ["gryffindor", "hufflepuff", "ravenclaw", "slytherin"];
+const HOUSE_BOOST_ANNOUNCE_CHANNEL_BY_ID = {
+  gryffindor: () => IDs.channels?.hogwartsHouseGryffindor,
+  hufflepuff: () => IDs.channels?.hogwartsHouseHufflepuff,
+  ravenclaw: () => IDs.channels?.hogwartsHouseRavenclaw,
+  slytherin: () => IDs.channels?.hogwartsHouseSlytherin,
+};
 
 function normalizeId(value) {
   return String(value || "").trim();
@@ -259,6 +265,20 @@ function formatDurationIt(durationMs) {
   return `${mins}m`;
 }
 
+function resolveHouseBoostAnnounceChannelId(houseId) {
+  const house = normalizeHouseId(houseId);
+  if (!house) return "";
+  const pick = HOUSE_BOOST_ANNOUNCE_CHANNEL_BY_ID[house];
+  return pick ? normalizeId(pick()) : "";
+}
+
+function resolveHouseBoostAnnounceRoleId(client, houseId) {
+  const house = normalizeHouseId(houseId);
+  if (!house) return "";
+  const cfg = resolveHogwartsEventConfig(client);
+  return normalizeId(cfg?.houses?.[house]?.roleId);
+}
+
 async function announceGlobalConsumableBoost(client, guildId, { item, buyerDisplayName, houseLabel }) {
   const channelId = normalizeId(IDs.channels?.eventAnnouncements);
   if (!channelId) return;
@@ -340,6 +360,8 @@ async function activateConsumableBoost(client, { guildId, userId, houseId, item,
   }
   if (item.scope === CONSUMABLE_BOOST_SCOPES.GLOBAL) {
     void announceGlobalConsumableBoost(client, gid, { item, buyerDisplayName, houseLabel });
+  } else if (item.scope === CONSUMABLE_BOOST_SCOPES.HOUSE && house) {
+    void announceHouseConsumableBoost(client, gid, house, { item, buyerDisplayName, houseLabel });
   }
   const active = await getActiveConsumableBoosts(client, gid, uid, house);
   return {

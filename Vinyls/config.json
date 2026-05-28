@@ -52,6 +52,7 @@
     "httpVoteWebhookEnabled": true,
     "webhookPort": 3000,
     "webhookSecret": "",
+    "botIds": ["1468236145753067739"],
     "cooldownMinutes": 1440,
     "bumpSuccessPatterns": [
       "has been successfully bumped",
@@ -450,8 +451,8 @@
     },
     "hogwartsObservationTower": {
       "startDate": "2026-07-27T14:00:00",
-      "durationMs": 60000,
-      "targetBricks": 50,
+      "durationMs": 120000,
+      "targetBricks": 5,
       "maxPerUser": 10,
       "minLetters": 5,
       "rewardExp": 150,
@@ -542,7 +543,7 @@
   },
   "galeoniEconomy": {
     "enabled": true,
-    "previewMode": true,
+    "previewMode": false,
     "startDate": "2026-08-10T12:00:00",
     "minBet": 5,
     "maxBet": 250,
@@ -552,13 +553,13 @@
     "weekly": { "cooldownMs": 604800000, "reward": 250, "streakStepPct": 5, "streakMaxBonusPct": 50, "streakGraceMs": 1209600000 },
     "monthly": { "cooldownMs": 2592000000, "reward": 900, "streakStepPct": 10, "streakMaxBonusPct": 100, "streakGraceMs": 5356800000 },
     "rob": {
-      "cooldownMs": 300000,
+      "cooldownMs": 10800000,
       "successChance": 35,
       "minTargetBalance": 80,
       "minSteal": 15,
       "maxSteal": 120,
       "failPenalty": 25,
-      "targetProtectionMs": 7200000
+      "targetProtectionMs": 43200000
     },
     "roulette": { "cooldownMs": 5000, "numberPayout": 36, "simplePayout": 2 },
     "rps": { "cooldownMs": 5000, "winPayout": 2 },
@@ -610,10 +611,10 @@
   },
   "hogwartsEvent": {
     "enabled": true,
-    "previewMode": true,
+    "previewMode": false,
     "timezone": "Europe/Rome",
     "startDate": "2026-06-01T14:00:00",
-    "endDate": "2026-09-01T23:59:59",
+    "endDate": "2026-09-01T12:00:00",
     "eventKey": "hogwarts_summer_2026",
     "houses": {
       "gryffindor": { "roleId": "1504791825657888898", "label": "Gryffindor" },

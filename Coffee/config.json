@@ -42,6 +42,14 @@
     "stayConnected": false,
     "restoreVoiceOnRestart": true
   },
+  "voiceTranscription": {
+    "enabled": true,
+    "channelIds": [],
+    "maxDurationSec": 120,
+    "language": "it",
+    "invite": ".gg/viniliecaffe",
+    "provider": "auto"
+  },
   "music": {
     "restoreVoiceOnRestart": true,
     "restoreVoiceMaxSnapshotAgeMs": 86400000

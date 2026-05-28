@@ -2369,6 +2369,10 @@ body.vc-body header .vc-nav-shell.vc-glass.vc-nav-shell--scrolled {
   color: #451a03;
 }
 
+.vc-header-promo-btn[hidden] {
+  display: none !important;
+}
+
 @media (max-width: 639px) {
   .vc-header-promo-btn__label {
     display: none;
@@ -6400,35 +6404,27 @@ body.vc-body.vc-sponsor-page .vc-sponsor-embed--popular:hover {
 }
 
 .vc-header-logo-link {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  display: block;
   flex-shrink: 0;
   width: 2.7rem;
   height: 2.7rem;
+  padding: 0;
   overflow: hidden;
   border-radius: 0.9rem;
   background: rgba(10, 9, 8, 0.55);
   box-shadow: 0 0 0 1px rgba(212, 168, 136, 0.18);
-}
-
-
-@media (min-width: 640px) {
-  .vc-header-logo-link {
-    width: 2.7rem;
-    height: 2.7rem;
-    padding: 0.2rem;
-  }
+  line-height: 0;
 }
 
 .vc-header-logo-img {
   display: block;
   width: 100%;
   height: 100%;
-  object-fit: contain;
-  object-position: 30% 50%;
-  transform: scale(1.40);
-  transform-origin: center;
+  max-width: none;
+  max-height: none;
+  object-fit: cover;
+  object-position: center;
+  border-radius: inherit;
 }
 
 .vc-snav-sep {
@@ -6454,6 +6450,11 @@ body.vc-body.vc-sponsor-page .vc-sponsor-embed--popular:hover {
   position: relative;
   display: inline-flex;
   align-items: center;
+}
+
+.vc-header-snav > .vc-snav-item[hidden],
+.vc-header-snav .vc-snav-item[hidden] {
+  display: none !important;
 }
 
 @media (min-width: 640px) {
@@ -6533,25 +6534,6 @@ body.vc-body.vc-sponsor-page .vc-sponsor-embed--popular:hover {
 .vc-snav-item {
   display: inline-flex;
   align-items: center;
-}
-
-@media (min-width: 640px) {
-  .vc-header-logo-link {
-    width: 2.5rem;
-    height: 2.5rem;
-  }
-}
-
-.vc-header-logo-img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: 50% 50%;
-  border-radius: 9999px;
-  transform: translate(-7%, -4%) scale(1.48);
-  transform-origin: center;
-  /* Icona guild Discord = cerchio su PNG quadrato: zoom per coprire il clip senza “angoli vuoti” */
 }
 
 a.vc-header-logo-link+a[href] {

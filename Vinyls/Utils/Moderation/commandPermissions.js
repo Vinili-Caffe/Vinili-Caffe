@@ -57,6 +57,34 @@ function isAllowedGuildForComponents(guildId) {
   if (MAIN_GUILD_ID && s === String(MAIN_GUILD_ID)) return true;
   return ALLOWED_GUILD_IDS.has(s) || sponsorIdsForComponents.has(s);
 }
+
+const TENANT_UTILITY_COMPONENT_PREFIXES = [
+  "repost_btn:",
+  "repost_src:",
+  "quote_remove:",
+  "myrepost_page_",
+];
+
+function isTenantUtilityComponentInteraction(customId) {
+  const id = String(customId || "");
+  return TENANT_UTILITY_COMPONENT_PREFIXES.some((prefix) => id.startsWith(prefix));
+}
+
+function tryTenantUtilityComponentBypass(guildId, customId) {
+  if (!guildId || isAllowedGuildForComponents(guildId)) return null;
+  if (!isTenantUtilityComponentInteraction(customId)) return null;
+  try {
+    const { canInvokePrefixCommand } = require("../../MultiGuild/core/accessPolicy");
+    const gate = canInvokePrefixCommand(guildId, "utility");
+    if (gate.managed && gate.ok) {
+      return { allowed: true, reason: null, requiredRoles: null, ownerId: null };
+    }
+  } catch (err) {
+    global.logger?.warn?.("[commandPermissions] tenant utility component bypass:", err?.message || err);
+  }
+  return null;
+}
+
 function isMainGuild(guildId) {
   return Boolean(MAIN_GUILD_ID) && String(guildId || "") === String(MAIN_GUILD_ID);
 }
@@ -847,7 +875,25 @@ async function checkPrefixPermission(message, commandName, subcommandName = null
       !allowInPmThread &&
       TICKET_PREFIX_CHANNEL_BYPASS_COMMANDS.has(safeCommand) &&
       isChannelInTicketCategory(ch);
-    if (!allowed && !allowInPmThread && !allowInTicketChannel) {
+    const allowInVoiceChatForMusic = (() => {
+      if (allowed || allowInPmThread || allowInTicketChannel) return false;
+      try {
+        const { MUSIC_PREFIX_COMMANDS } = require("../../MultiGuild/core/openMediaCommands");
+        if (!MUSIC_PREFIX_COMMANDS?.has?.(safeCommand)) return false;
+      } catch {
+        return false;
+      }
+      const blockedVoiceChatIds = new Set(
+        [IDs.channels?.riunioneStaff, IDs.channels?.serataFilm].filter(Boolean).map(String),
+      );
+      const channelId = String(ch?.id || message?.channelId || "");
+      if (channelId && blockedVoiceChatIds.has(channelId)) return false;
+      if (!ch) return false;
+      const isVoiceChat = Boolean(ch?.isVoiceBased?.() && !ch?.isThread?.());
+      const isVoiceChatThread = Boolean(ch?.isThread?.() && ch?.parent?.isVoiceBased?.());
+      return isVoiceChat || isVoiceChatThread;
+    })();
+    if (!allowed && !allowInPmThread && !allowInTicketChannel && !allowInVoiceChatForMusic) {
       if (options.returnDetails) {
         return {
           allowed: false,
@@ -916,6 +962,8 @@ async function checkButtonPermission(interaction) {
         ownerId: null,
       };
     }
+    const tenantUtilityBypass = tryTenantUtilityComponentBypass(guildId, customId);
+    if (tenantUtilityBypass) return tenantUtilityBypass;
     return {
       allowed: false,
       reason: "mono_guild",
@@ -1118,6 +1166,8 @@ async function checkStringSelectPermission(interaction) {
         ownerId: null,
       };
     }
+    const tenantUtilityBypass = tryTenantUtilityComponentBypass(guildId, customId);
+    if (tenantUtilityBypass) return tenantUtilityBypass;
     return {
       allowed: false,
       reason: "mono_guild",
@@ -1285,6 +1335,8 @@ async function checkModalPermission(interaction) {
         ownerId: null,
       };
     }
+    const tenantUtilityBypass = tryTenantUtilityComponentBypass(guildId, customId);
+    if (tenantUtilityBypass) return tenantUtilityBypass;
     return {
       allowed: false,
       reason: "mono_guild",

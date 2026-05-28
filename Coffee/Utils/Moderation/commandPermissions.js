@@ -347,7 +347,45 @@ async function checkPrefixPermission(message, commandName, subcommandName = null
     const allowed = ch
       ? channelMatchesPolicyChannelList(ch, channelPolicy)
       : Boolean(message?.channelId) && channelPolicy.includes(String(message.channelId));
-    if (!allowed) {
+    const allowInVoiceChatForMusic = (() => {
+      if (allowed) return false;
+      const MUSIC_PREFIX_COMMANDS = new Set([
+        "play",
+        "pause",
+        "resume",
+        "skip",
+        "stop",
+        "volume",
+        "shuffle",
+        "clear",
+        "repeat",
+        "previous",
+        "rewind",
+        "restart",
+        "now",
+        "next",
+        "queue",
+        "lyrics",
+        "requested",
+        "upcoming",
+      ]);
+      if (!MUSIC_PREFIX_COMMANDS.has(safeCommand)) return false;
+      const blockedVoiceChatIds = new Set(
+        [
+          IDs.channels?.riunioneStaff || "1443958044802420798",
+          IDs.channels?.serataFilm || "1497535199813042306",
+        ]
+          .filter(Boolean)
+          .map(String),
+      );
+      const channelId = String(ch?.id || message?.channelId || "");
+      if (channelId && blockedVoiceChatIds.has(channelId)) return false;
+      if (!ch) return false;
+      const isVoiceChat = Boolean(ch?.isVoiceBased?.() && !ch?.isThread?.());
+      const isVoiceChatThread = Boolean(ch?.isThread?.() && ch?.parent?.isVoiceBased?.());
+      return isVoiceChat || isVoiceChatThread;
+    })();
+    if (!allowed && !allowInVoiceChatForMusic) {
       return returnDetails
         ? { allowed: false, reason: "channel", requiredRoles: null, channels: channelPolicy }
         : false;
