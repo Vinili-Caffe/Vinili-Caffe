@@ -55,7 +55,7 @@
       tag: "Giochi",
       icon: "fa-trophy",
       bodyHtml:
-        "Ci sono molti canali come Mudae, Pokétwo, Counting, Ship nei rispettivi canali oltre i minigames in chat col bot . Non tutti i giochi sono per tutti i gusti: se uno non ti piace, passa oltre.",
+        "Ci sono molti canali come Pokétwo, Counting, Ship nei rispettivi canali oltre i minigames in chat col bot. Non tutti i giochi sono per tutti i gusti: se uno non ti piace, passa oltre.",
     },
     {
       category: "eventi",

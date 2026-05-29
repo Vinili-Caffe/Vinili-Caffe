@@ -27,7 +27,8 @@
     "enabled": true,
     "mentionTrigger": 50,
     "mentionWindowMs": 3000,
-    "mentionHourCap": 20
+    "mentionHourCap": 20,
+    "mentionPerMessageLimit": 5
   },
   "heatFilters": {
     "regularMessage": true,
@@ -44,7 +45,8 @@
     "linkBlacklist": true,
     "mentions": true,
     "attachments": true,
-    "webhookMessages": true
+    "webhookMessages": true,
+    "slursPreset": false
   },
   "heatFactors": {
     "regularMessage": 1,
@@ -125,6 +127,19 @@
       "word_blacklist",
       "mention_everyone",
       "mention_hour_cap"
+    ],
+    "slursPresetAllowList": [
+      "spicy",
+      "spice",
+      "spices",
+      "spicier",
+      "spiciest",
+      "special",
+      "species",
+      "specific",
+      "specify",
+      "spinal",
+      "spinach"
     ]
   }
 }

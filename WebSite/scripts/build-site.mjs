@@ -1830,13 +1830,13 @@ async function main() {
     formatHogwartsEventWindowIt({
       timezone: hogwartsEventRaw.timezone || "Europe/Rome",
       startDate: hogwartsEventRaw.startDate || "2026-06-01T14:00:00",
-      endDate: hogwartsEventRaw.endDate || "2026-08-31T23:59:59",
+      endDate: hogwartsEventRaw.endDate || "2026-09-01T12:00:00",
     }) || "";
   const hogwartsStaticWindowState = hogwartsIsEventWindowOpen(
     {
       enabled: hogwartsEventRaw.enabled !== false,
       startMs: parseDateStartMs(hogwartsEventRaw.startDate || "2026-06-01T14:00:00"),
-      endMs: parseDateEndMs(hogwartsEventRaw.endDate || "2026-08-31T23:59:59"),
+      endMs: parseDateEndMs(hogwartsEventRaw.endDate || "2026-09-01T12:00:00"),
       staffBypassUserIds: Array.isArray(hogwartsEventRaw.staffBypassUserIds)
         ? hogwartsEventRaw.staffBypassUserIds.map((v) => String(v || "").trim()).filter(Boolean)
         : [],
@@ -1905,7 +1905,7 @@ async function main() {
       previewMode: hogwartsEventRaw.previewMode === true,
       timezone: String(hogwartsEventRaw.timezone || "Europe/Rome"),
       startDate: String(hogwartsEventRaw.startDate || "2026-06-01T14:00:00"),
-      endDate: String(hogwartsEventRaw.endDate || "2026-08-31T23:59:59"),
+      endDate: String(hogwartsEventRaw.endDate || "2026-09-01T12:00:00"),
       eventKey: hogwartsEventKey,
       gringott: {
         bank: "Gringott",
@@ -1917,7 +1917,7 @@ async function main() {
       phase: hogwartsEventRaw.previewMode === true ? "preview_forbidden" : hogwartsStaticWindowState.phase,
       open: hogwartsEventRaw.previewMode === true ? false : Boolean(hogwartsStaticWindowState.open),
       startsAtMs: hogwartsStaticWindowState.startsAtMs ?? parseDateStartMs(hogwartsEventRaw.startDate || "2026-06-01T14:00:00"),
-      endsAtMs: hogwartsStaticWindowState.endsAtMs ?? parseDateEndMs(hogwartsEventRaw.endDate || "2026-08-31T23:59:59"),
+      endsAtMs: hogwartsStaticWindowState.endsAtMs ?? parseDateEndMs(hogwartsEventRaw.endDate || "2026-09-01T12:00:00"),
     },
     questions: getHogwartsPublicQuestions(),
     scoringQuestions: hogwartsScoringQuestions.map((q) => ({
@@ -2373,7 +2373,7 @@ async function main() {
     SUGGESTIONS_OG_URL: escAttr(suggestionsPageUrl),
     FAQ_PAGE_TITLE: `${siteName} | FAQ`,
     FAQ_META_DESCRIPTION: escAttr(
-      `Domande frequenti su ${siteName}: EXP e livelli, vocali, giochi (Mudae, Poketwo, counting), eventi e come entrare nello staff.`,
+      `Domande frequenti su ${siteName}: EXP e livelli, vocali, giochi, eventi e come entrare nello staff.`,
     ),
     FAQ_OG_TITLE: escAttr(`${siteName} | FAQ`),
     FAQ_OG_URL: escAttr(siteBaseNoSlash ? `${siteBaseNoSlash}/faq` : ""),

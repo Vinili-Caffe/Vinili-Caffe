@@ -11,7 +11,6 @@ const DAILY_CHANNEL_MESSAGE_REPORT_CHANNEL_ID = "1502241464724361256";
 
 const TRACKED_CHANNELS = {
   counting: String(IDs.channels?.counting || "1442569179743125554"),
-  mudae: String(IDs.channels?.mudae || "1442569182825681077"),
   poketwo: String(IDs.channels?.poketwo || "1442569184281362552"),
   ship: String(IDs.channels?.ship || "1469685688814407726"),
 };
@@ -64,7 +63,6 @@ function addDaysToRomeKey(dateKey, deltaDays) {
 function resolveMetricForChannel(channelId) {
   const id = String(channelId || "");
   if (id === TRACKED_CHANNELS.counting) return "countingMessages";
-  if (id === TRACKED_CHANNELS.mudae) return "mudaeMessages";
   if (id === TRACKED_CHANNELS.poketwo) return "poketwoMessages";
   if (id === TRACKED_CHANNELS.ship) return "shipMessages";
   return null;
@@ -83,7 +81,6 @@ async function trackChannelMessage(message) {
 
   await incrementDailyStatsValue("channelMessagesDaily", guildId, dateKey, { [metric]: 1 }, {
     countingMessages: 0,
-    mudaeMessages: 0,
     poketwoMessages: 0,
     shipMessages: 0,
   });
@@ -92,7 +89,6 @@ async function trackChannelMessage(message) {
 function buildReportContent(stats) {
   return [
     `\u{1F522}**Messaggi in Counting**: ${Math.max(0, Number(stats?.countingMessages || 0))}`,
-    `\u{1F38E}**Messaggi in Mudae**: ${Math.max(0, Number(stats?.mudaeMessages || 0))}`,
     `\u26E9\uFE0F**Messaggi in Pok\u00e9Two**: ${Math.max(0, Number(stats?.poketwoMessages || 0))}`,
     `\u{1F49E}**Messaggi in Ship**: ${Math.max(0, Number(stats?.shipMessages || 0))}`,
   ].join("\n");
@@ -117,7 +113,6 @@ async function sendDailyChannelMessageReport(client, dateKey, opts = {}) {
     const doc = createIfMissing
       ? await getOrCreateDailyStats("channelMessagesDaily", guildId, dateKey, {
           countingMessages: 0,
-          mudaeMessages: 0,
           poketwoMessages: 0,
           shipMessages: 0,
         })

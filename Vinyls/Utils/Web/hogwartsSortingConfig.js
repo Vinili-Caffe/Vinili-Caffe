@@ -43,7 +43,7 @@ function resolveHogwartsEventConfig(client) {
   const previewMode = readBool(process.env.HOGWARTS_EVENT_PREVIEW ?? raw.previewMode, false);
   const timezone = String(process.env.HOGWARTS_EVENT_TZ || raw.timezone || "Europe/Rome").trim() || "Europe/Rome";
   const startDate = String(process.env.HOGWARTS_EVENT_START || raw.startDate || "2026-06-01T14:00:00").trim();
-  const endDate = String(process.env.HOGWARTS_EVENT_END || raw.endDate || "2026-08-31T23:59:59").trim();
+  const endDate = String(process.env.HOGWARTS_EVENT_END || raw.endDate || "2026-09-01T12:00:00").trim();
   const eventKey = String(process.env.HOGWARTS_EVENT_KEY || raw.eventKey || DEFAULT_EVENT_KEY).trim() || DEFAULT_EVENT_KEY;
   const housesRaw = raw.houses && typeof raw.houses === "object" ? raw.houses : {};
   const houses = {};

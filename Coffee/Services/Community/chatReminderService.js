@@ -6,6 +6,16 @@ const { registerShutdownFlush, armShutdownCheckpoint } = require("../../../share
 const { chatReminderRotationFindOneLean, chatReminderRotationFindOneAndUpdate, chatReminderScheduleCreate, chatReminderScheduleUpdateOne, chatReminderScheduleDeleteOne, chatReminderScheduleFindLatestFuture, chatReminderScheduleFindDueLean, chatReminderScheduleDeleteManyFuture } = require("../../../Vinyls/Utils/BotState/domainStatesStore");
 const { getClientChannelCached } = require("../../Utils/Interaction/entityCache");
 const IDs = require("../../Utils/Config/ids");
+const {
+  CHAT_HUB_SOURCES,
+  DEFAULT_CROSS_BOT_GAP_MS,
+  recordChatHubBotPost,
+  waitForChatHubBotGap,
+} = require("../../../shared/discord/chatHubBotPacing");
+const CHAT_HUB_CROSS_BOT_GAP_MS = Math.max(
+  60_000,
+  Number(process.env.VC_CHAT_HUB_CROSS_BOT_GAP_MS || DEFAULT_CROSS_BOT_GAP_MS),
+);
 const DEFAULT_TIME_ZONE = "Europe/Rome";
 const DEFAULT_START_HOUR = 9;
 const DEFAULT_END_HOUR = 21;
@@ -478,7 +488,9 @@ async function sendReminder(client, scheduleId, kind = "first") {
   const guildId = client.guilds?.cache?.first()?.id ?? null;
   const parts = getRomeParts(new Date(), client);
   const embed = await nextReminderEmbed(parts, guildId);
+  await waitForChatHubBotGap(channelId, CHAT_HUB_SOURCES.COFFEE, CHAT_HUB_CROSS_BOT_GAP_MS);
   await channel.send({ embeds: [embed] }).catch(() => { });
+  recordChatHubBotPost(channelId, CHAT_HUB_SOURCES.COFFEE);
   lastSentAt = Date.now();
   await saveRotationState();
   if (scheduleId) {
@@ -499,7 +511,9 @@ async function sendReminderAtFixedSlot(client, parts, slotKey) {
   if (!channel) return;
   const guildId = client.guilds?.cache?.first()?.id ?? null;
   const embed = await nextReminderEmbed(parts, guildId);
+  await waitForChatHubBotGap(channelId, CHAT_HUB_SOURCES.COFFEE, CHAT_HUB_CROSS_BOT_GAP_MS);
   await channel.send({ embeds: [embed] }).catch(() => { });
+  recordChatHubBotPost(channelId, CHAT_HUB_SOURCES.COFFEE);
   lastSentAt = Date.now();
   lastReminderSlotKey = slotKey;
   await saveRotationState();

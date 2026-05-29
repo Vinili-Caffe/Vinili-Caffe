@@ -722,6 +722,10 @@ function markSent(channelId) {
   if (!channelId) return;
   lastSentAtByChannel.set(channelId, Date.now());
   standbyChannels.delete(channelId);
+  try {
+    const { recordChatHubBotPost, CHAT_HUB_SOURCES } = require("../../../shared/discord/chatHubBotPacing");
+    recordChatHubBotPost(channelId, CHAT_HUB_SOURCES.VINILI);
+  } catch (_) {}
 }
 
 function isFailsafeDue(cfg) {
@@ -787,6 +791,14 @@ async function clearActiveGame(client, cfg) {
   }
   if (!guildId) return;
   await minigameStateDeleteOne({ guildId, channelId }).catch(() => { });
+  if (!activeGames.has(channelId) && !pendingGames.has(channelId)) {
+    try {
+      const { scheduleRepostRouletteAfterMinigame } = require("../Community/repostRouletteService");
+      scheduleRepostRouletteAfterMinigame(client, guildId, channelId);
+    } catch (err) {
+      warnMinigame(err);
+    }
+  }
 }
 
 function randomBetween(min, max) {
@@ -5847,7 +5859,7 @@ async function startHogwartsQuizGame(client, cfg) {
   if (!channelId || activeGames.has(channelId)) return false;
   if (!cfg?.hogwartsQuiz?.eventLive) return false;
 
-  const pick = pickQuestionAvoidRecent(channelId, "hogwartsQuiz", getHogwartsQuizBank(), (q) => q?.question, 28);
+  const pick = pickQuestionAvoidRecent(channelId, "hogwartsQuiz", getHogwartsQuizBank(), (q) => q?.question, 80);
   if (!pick?.question || !Array.isArray(pick?.answers) || !pick.answers.length) return false;
 
   const answers = buildAliases(pick.answers);

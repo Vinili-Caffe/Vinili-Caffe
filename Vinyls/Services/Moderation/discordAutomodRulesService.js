@@ -53,6 +53,40 @@ function parseWordArrayFile(filePath) {
   }
 }
 
+const DEFAULT_SLURS_PRESET_ALLOW_LIST = [
+  "spicy",
+  "spice",
+  "spices",
+  "spicier",
+  "spiciest",
+  "special",
+  "species",
+  "specific",
+  "specify",
+  "spinal",
+  "spinach",
+];
+
+function loadSlursPresetAllowList() {
+  const cfg = readAutomodConfig();
+  const fromCfg = cfg?.discordNative?.slursPresetAllowList;
+  const merged = new Set(DEFAULT_SLURS_PRESET_ALLOW_LIST);
+  if (Array.isArray(fromCfg)) {
+    for (const raw of fromCfg) {
+      const word = String(raw || "").trim().toLowerCase();
+      if (word.length >= 2 && word.length <= KEYWORD_MAX_LEN) merged.add(word);
+    }
+  }
+  return [...merged].map((w) => normalizeDiscordKeyword(w)).filter(Boolean);
+}
+
+function isSlursPresetEnabled() {
+  const cfg = readAutomodConfig();
+  if (cfg?.heatFilters?.slursPreset === false) return false;
+  if (cfg?.heatFilters?.wordBlacklist === false) return false;
+  return true;
+}
+
 function loadCustomWordsForDiscord() {
   const all = new Set(parseWordArrayFile(RACIST_WORDS_FILE));
   try {
@@ -269,13 +303,15 @@ function buildDesiredRuleSpecs(options = {}) {
       violationKey: "word_blacklist",
     });
   });
-  if (readAutomodConfig()?.heatFilters?.wordBlacklist !== false) {
+  if (isSlursPresetEnabled()) {
+    const allowList = loadSlursPresetAllowList();
     specs.push({
       name: `${RULE_PREFIX}slurs-preset`,
       eventType: AutoModerationRuleEventType.MessageSend,
       triggerType: AutoModerationRuleTriggerType.KeywordPreset,
       triggerMetadata: {
         presets: [AutoModerationRuleKeywordPresetType.Slurs],
+        ...(allowList.length ? { allowList } : {}),
       },
       actions,
       enabled: true,
@@ -283,13 +319,16 @@ function buildDesiredRuleSpecs(options = {}) {
     });
   }
   if (readAutomodConfig()?.heatFilters?.mentions !== false) {
-    const mentionCap = Number(readAutomodConfig()?.autoLockdown?.mentionHourCap || 20);
+    const lockdown = readAutomodConfig()?.autoLockdown || {};
+    const mentionPerMessage = Number(
+      lockdown.mentionPerMessageLimit ?? lockdown.mentionTotalLimit ?? 5,
+    );
     specs.push({
       name: `${RULE_PREFIX}mention-spam`,
       eventType: AutoModerationRuleEventType.MessageSend,
       triggerType: AutoModerationRuleTriggerType.MentionSpam,
       triggerMetadata: {
-        mentionTotalLimit: Math.max(5, Math.min(50, mentionCap)),
+        mentionTotalLimit: Math.max(1, Math.min(50, mentionPerMessage)),
         mentionRaidProtectionEnabled: true,
       },
       actions,
@@ -331,6 +370,9 @@ function normalizeTriggerMetadata(meta, triggerType) {
   }
   if (Array.isArray(raw.presets)) {
     out.presets = [...raw.presets].map((p) => Number(p)).filter(Number.isFinite).sort();
+  }
+  if (Array.isArray(raw.allowList)) {
+    out.allowList = [...raw.allowList].map(String).sort();
   }
   if (Number(triggerType) === Number(AutoModerationRuleTriggerType.MentionSpam)) {
     if (raw.mentionTotalLimit != null) {
