@@ -1,54 +1,19 @@
 const { ActivityUserProfile, UserLeaveBackup } = require("../../Schemas/Community/communitySchemas");
 const { addRolesAndGetMember, getClientGuildCached, getGuildChannelCached, getGuildMemberCached, getGuildRoleCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { isValidGuildUserId } = require("../../Utils/DB/validateWriteIds");
-const {
-  deleteStaffPauseRequestChannelMessages,
-  deleteStaffRelatedMessagesFromConfiguredChannels,
-} = require("../../Utils/Staff/staffDocUtils");
+const { deleteStaffPauseRequestChannelMessages, deleteStaffRelatedMessagesFromConfiguredChannels } = require("../../Utils/Staff/staffDocUtils");
 const IDs = require("../../Utils/Config/ids");
-const {
-  isCommunicationTimeoutActive,
-  hasPendingMuteMirrorSnapshot,
-  shouldDeferRoleRestoreForMuteMirror,
-} = require("../Moderation/mutedMirrorRoleService");
-
+const { isCommunicationTimeoutActive, hasPendingMuteMirrorSnapshot, shouldDeferRoleRestoreForMuteMirror } = require("../Moderation/mutedMirrorRoleService");
+const { filterRoleIdsEligibleForRejoinRestore, sanitizeConditionalRolesAfterRejoin, resetBoostSlotsIfNotBoosting } = require("../../Utils/Community/rejoinConditionalRoleEligibility");
 const MUTED_ROLE_ID = String(IDs.roles?.Muted || "").trim();
-
-const RESTORE_ON_REJOIN_ROLE_IDS = [
-  "1463248874725576879",
-  "1463248847768785038",
-  "1443252279477272647",
-];
-
+const RESTORE_ON_REJOIN_ROLE_IDS = ["1463248874725576879", "1463248847768785038", "1443252279477272647"];
 const DEFAULT_RETENTION_DAYS = 7;
 const DAY_MS = 24 * 60 * 60 * 1000;
-
-const NO_AUTO_RESTORE_STAFF_PM_ROLE_IDS = new Set(
-  [
-    IDs.roles?.PartnerManager,
-    IDs.roles?.Staff,
-    IDs.roles?.Helper,
-    IDs.roles?.Mod,
-    IDs.roles?.SeniorModerator,
-    IDs.roles?.HighStaff,
-    IDs.roles?.Director,
-    IDs.roles?.Admin,
-    IDs.roles?.Founder,
-  ]
-    .filter(Boolean)
-    .map((id) => String(id)),
-);
+const NO_AUTO_RESTORE_STAFF_PM_ROLE_IDS = new Set([IDs.roles?.PartnerManager, IDs.roles?.Staff, IDs.roles?.Helper, IDs.roles?.Mod, IDs.roles?.SeniorModerator, IDs.roles?.HighStaff, IDs.roles?.Director, IDs.roles?.Admin, IDs.roles?.Founder].filter(Boolean).map((id) => String(id)));
 
 function filterRestoreRoleIdsExcludingStaffPm(roleIds) {
-  return Array.from(
-    new Set(
-      (Array.isArray(roleIds) ? roleIds : [])
-        .map((id) => String(id || "").trim())
-        .filter((id) => id && !NO_AUTO_RESTORE_STAFF_PM_ROLE_IDS.has(id)),
-    ),
-  );
+  return Array.from(new Set((Array.isArray(roleIds) ? roleIds : []).map((id) => String(id || "").trim()).filter((id) => id && !NO_AUTO_RESTORE_STAFF_PM_ROLE_IDS.has(id))));
 }
-
 function filterRolesExcludedFromRejoinRestore(roleIds) {
   const withoutStaffPm = filterRestoreRoleIdsExcludingStaffPm(roleIds);
   if (!MUTED_ROLE_ID) return withoutStaffPm;
@@ -292,8 +257,13 @@ async function retryRestoreRolesFromBackup(guildId, userId, client) {
   );
   if (!restoreRoleIds.length) return false;
 
-  const outcome = await restoreRolesOnJoin(member, restoreRoleIds).catch(() => null);
+  await resetBoostSlotsIfNotBoosting(member).catch(() => null);
+  const eligibleRoleIds = await filterRoleIdsEligibleForRejoinRestore(member, restoreRoleIds);
+  if (!eligibleRoleIds.length) return false;
+
+  const outcome = await restoreRolesOnJoin(member, eligibleRoleIds).catch(() => null);
   if (!outcome?.ok) return false;
+  await sanitizeConditionalRolesAfterRejoin(member).catch(() => null);
   await UserLeaveBackup.deleteOne({ _id: backup._id }).catch(() => null);
   return true;
 }
@@ -339,10 +309,13 @@ async function restoreUserOnJoin(guildId, userId, member = null) {
       .catch(() => null);
     const nextProfile =
       payload?.profile && typeof payload.profile === "object"
-        ? payload.profile
+        ? { ...payload.profile }
         : current?.profile && typeof current.profile === "object"
-          ? current.profile
+          ? { ...current.profile }
           : null;
+    if (nextProfile && member && !member.premiumSinceTimestamp) {
+      delete nextProfile.serverBoostAnnouncedSlotCount;
+    }
     const nextModeration =
       payload?.moderation && typeof payload.moderation === "object"
         ? payload.moderation
@@ -372,17 +345,29 @@ async function restoreUserOnJoin(guildId, userId, member = null) {
     restoredProfile = true;
   }
 
+  if (member) {
+    await resetBoostSlotsIfNotBoosting(member).catch(() => null);
+  }
+
+  let filteredRestoreRoleIds = restoreRoleIds;
+  if (member && filteredRestoreRoleIds.length > 0) {
+    filteredRestoreRoleIds = await filterRoleIdsEligibleForRejoinRestore(member, filteredRestoreRoleIds);
+  }
+
   let restoredRoles = false;
   let roleOutcome = null;
-  if (member && restoreRoleIds.length > 0) {
-    roleOutcome = await restoreRolesOnJoin(member, restoreRoleIds).catch(() => null);
+  if (member && filteredRestoreRoleIds.length > 0) {
+    roleOutcome = await restoreRolesOnJoin(member, filteredRestoreRoleIds).catch(() => null);
     restoredRoles = Boolean(roleOutcome?.ok);
+  }
+  if (member) {
+    await sanitizeConditionalRolesAfterRejoin(member).catch(() => null);
   }
   if (member && leaveDepexMessages.length > 0) {
     await deleteLeaveDepexMessages(member.guild, leaveDepexMessages).catch(() => 0);
   }
 
-  const hasPendingRoleRestore = restoreRoleIds.length > 0 && !restoredRoles;
+  const hasPendingRoleRestore = filteredRestoreRoleIds.length > 0 && !restoredRoles;
   if (hasPendingRoleRestore && member?.client) {
     schedulePendingRoleRestoreRetry(gid, uid, member.client);
   }
@@ -444,7 +429,6 @@ async function purgeExpiredUserLeaveBackups() {
   return Number(result?.deletedCount || 0);
 }
 
-/** Data/ora di scadenza del backup leave corrente (o nuova finestra default) — allinea cleanup Discord alla TTL restore. */
 async function resolveNextLeaveBackupExpiryClock(guildId, userId) {
   const gid = String(guildId || "");
   const uid = String(userId || "");
@@ -454,13 +438,4 @@ async function resolveNextLeaveBackupExpiryClock(guildId, userId) {
   return resolveExpiryDate();
 }
 
-module.exports = {
-  backupUserOnLeave,
-  recordLeaveDepexMessages,
-  restoreUserOnJoin,
-  purgeExpiredUserLeaveBackups,
-  purgeDueStaffGraceProfiles,
-  startStaffGracePurgeLoop,
-  clearStaffPendingPurgeAt,
-  resolveNextLeaveBackupExpiryClock,
-};
+module.exports = { backupUserOnLeave, recordLeaveDepexMessages, restoreUserOnJoin, purgeExpiredUserLeaveBackups, purgeDueStaffGraceProfiles, startStaffGracePurgeLoop, clearStaffPendingPurgeAt, resolveNextLeaveBackupExpiryClock };

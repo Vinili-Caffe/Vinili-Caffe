@@ -419,10 +419,49 @@ async function fetchJson(url) {
 function buildMovieSearchQueries(title) {
   const rawTitle = String(title || "").trim();
   return [...new Set([
-    `${rawTitle} film`,
     rawTitle,
     `film ${rawTitle}`,
+    `${rawTitle} film`,
   ].filter(Boolean))];
+}
+
+function stripMovieTitleDecorations(title) {
+  return String(title || "")
+    .replace(/\s*\((film|film d'animazione|animazione|movie)[^)]*\)\s*$/i, "")
+    .trim();
+}
+
+function compactMovieTitle(title) {
+  return stripMovieTitleDecorations(title)
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .replace(/[^a-z0-9\u00c0-\u024f]/gi, "");
+}
+
+function scoreMovieTitleMatch(movieTitle, pageTitle) {
+  const movie = compactMovieTitle(movieTitle);
+  const page = compactMovieTitle(pageTitle);
+  if (!movie || !page) return 0;
+  if (page === movie) return 1000;
+  if (page.startsWith(movie) || movie.startsWith(page)) return 900;
+  if (page.includes(movie) || movie.includes(page)) return 800;
+  return 0;
+}
+
+function pickBestWikipediaSearchResult(movieTitle, results) {
+  let bestTitle = null;
+  let bestScore = 0;
+  for (const entry of results || []) {
+    const pageTitle = String(entry?.title || "").trim();
+    if (!pageTitle) continue;
+    const score = scoreMovieTitleMatch(movieTitle, pageTitle);
+    if (score > bestScore) {
+      bestScore = score;
+      bestTitle = pageTitle;
+    }
+  }
+  return bestScore >= 800 ? bestTitle : null;
 }
 
 async function searchWikipediaPageTitle(lang, title) {
@@ -432,10 +471,10 @@ async function searchWikipediaPageTitle(lang, title) {
     searchUrl.searchParams.set("action", "query");
     searchUrl.searchParams.set("list", "search");
     searchUrl.searchParams.set("format", "json");
-    searchUrl.searchParams.set("srlimit", "1");
+    searchUrl.searchParams.set("srlimit", "8");
     searchUrl.searchParams.set("srsearch", query);
     const search = await fetchJson(searchUrl.toString());
-    const pageTitle = search?.query?.search?.[0]?.title;
+    const pageTitle = pickBestWikipediaSearchResult(title, search?.query?.search);
     if (pageTitle) return pageTitle;
   }
   return null;
@@ -528,15 +567,15 @@ async function fetchItalianMovieDescription(title) {
   if (!rawTitle) return FALLBACK_MOVIE_DESCRIPTION;
 
   const italianPageTitle =
-    (await searchWikipediaPageTitle("it", rawTitle)) ||
-    (await searchWikidataMoviePageTitle(rawTitle, "it"));
-  const italianDescription = await fetchWikipediaExtract("it", italianPageTitle);
+    (await searchWikidataMoviePageTitle(rawTitle, "it")) ||
+    (await searchWikipediaPageTitle("it", rawTitle));
+  const italianDescription = italianPageTitle ? await fetchWikipediaExtract("it", italianPageTitle) : null;
   if (italianDescription) return truncateDescription(italianDescription);
 
   const englishPageTitle =
-    (await searchWikipediaPageTitle("en", rawTitle)) ||
-    (await searchWikidataMoviePageTitle(rawTitle, "en"));
-  const englishDescription = await fetchWikipediaExtract("en", englishPageTitle);
+    (await searchWikidataMoviePageTitle(rawTitle, "en")) ||
+    (await searchWikipediaPageTitle("en", rawTitle));
+  const englishDescription = englishPageTitle ? await fetchWikipediaExtract("en", englishPageTitle) : null;
   const translatedDescription = await translateEnglishToItalian(englishDescription);
   return translatedDescription || FALLBACK_MOVIE_DESCRIPTION;
 }
@@ -1590,6 +1629,49 @@ async function runMovieNightThreadCloseCheck(client, opts = {}) {
   }
 }
 
+function inferFinalAnnounceSlotFromMessage(content) {
+  return /\*\*Domani\*\*/.test(String(content || "")) ? "friday" : "saturday";
+}
+
+async function repairFinalMovieNightAnnouncementDescription(client) {
+  const state = await getBotState(STATE_KEY, null);
+  const messageId = String(state?.finalAnnouncementMessageId || "").trim();
+  const title = String(state?.finalMovieTitle || "").trim();
+  if (!messageId || !title) return { skipped: true, reason: "no_announcement" };
+
+  const description = await fetchItalianMovieDescription(title);
+  const previousDescription = String(state?.finalMovieDescription || "").trim();
+  if (!description || description === previousDescription) {
+    return { skipped: true, reason: "already_correct", title };
+  }
+
+  const channel = await fetchAnnouncementChannel(client);
+  if (!channel?.messages?.fetch) {
+    return { skipped: true, reason: "announcement_channel_unavailable", title };
+  }
+  const message = await channel.messages.fetch(messageId).catch(() => null);
+  if (!message?.edit) return { skipped: true, reason: "message_unavailable", title };
+
+  const content = buildFinalMovieNightAnnouncementMessage({
+    title,
+    description,
+    eventUrl: buildDiscordEventUrl(state?.guildId || IDs.guilds?.main, state?.eventId),
+    saturdayKey: String(state?.finalAnnouncedSaturdayKey || ""),
+    announceSlot: inferFinalAnnounceSlotFromMessage(message.content),
+  });
+  await message.edit({
+    content,
+    allowedMentions: { roles: [EVENTS_ROLE_ID, SERATA_FILM_ROLE_ID] },
+  });
+  await setBotState(STATE_KEY, {
+    ...state,
+    finalMovieDescription: description,
+    finalMovieDescriptionRepairedAt: new Date().toISOString(),
+  });
+  global.logger?.info?.("[MOVIE NIGHT FINAL] descrizione aggiornata:", title, `msg=${messageId}`);
+  return { ok: true, title, messageId, description };
+}
+
 function startMovieNightAnnouncementLoop(client) {
   if (!client || movieNightAnnouncementTasks) return movieNightAnnouncementTasks;
   const announceTask = cron.schedule(
@@ -1622,6 +1704,11 @@ function startMovieNightAnnouncementLoop(client) {
     });
   }, REVIEW_THREAD_SWEEP_MS);
   movieNightReviewCloseSweep.unref?.();
+  setTimeout(() => {
+    repairFinalMovieNightAnnouncementDescription(client).catch((err) => {
+      global.logger?.warn?.("[MOVIE NIGHT FINAL] repair descrizione fallito:", err?.message || err);
+    });
+  }, 15000).unref?.();
   movieNightAnnouncementTasks = {
     announceTask,
     closeTask,
@@ -1631,4 +1718,4 @@ function startMovieNightAnnouncementLoop(client) {
   return movieNightAnnouncementTasks;
 }
 
-module.exports = { buildMovieNightStaffCommunicationMessage, buildFinalMovieNightAnnouncementMessage, buildMovieNightEndAnnouncementMessage, buildMovieNightAnnouncementMessage, buildMovieNightStartAnnouncementMessage, buildTieBreakerAnnouncementMessage, collectMovieNightVoteResults, fetchItalianMovieDescription, findCurrentWeekMovieNightEvent, getFixedMovieTitleForWeek, getHarryPotterMovieNightScheduleForWeek, getRomeWeekKey, handleMovieNightEventStart, handleMovieNightStageClose, isTargetMovieNightEvent, closeMovieNightStagePermissions, closeMovieNightReviewThreadIfDue, runMovieNightAnnouncementCheck, runMovieNightFinalAnnouncementCheck, runMovieNightThreadCloseCheck, startMovieNightAnnouncementLoop };
+module.exports = { buildMovieNightStaffCommunicationMessage, buildFinalMovieNightAnnouncementMessage, buildMovieNightEndAnnouncementMessage, buildMovieNightAnnouncementMessage, buildMovieNightStartAnnouncementMessage, buildTieBreakerAnnouncementMessage, collectMovieNightVoteResults, fetchItalianMovieDescription, findCurrentWeekMovieNightEvent, getFixedMovieTitleForWeek, getHarryPotterMovieNightScheduleForWeek, getRomeWeekKey, handleMovieNightEventStart, handleMovieNightStageClose, isTargetMovieNightEvent, closeMovieNightStagePermissions, closeMovieNightReviewThreadIfDue, repairFinalMovieNightAnnouncementDescription, runMovieNightAnnouncementCheck, runMovieNightFinalAnnouncementCheck, runMovieNightThreadCloseCheck, startMovieNightAnnouncementLoop };

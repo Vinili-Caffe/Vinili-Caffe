@@ -2,21 +2,7 @@ import fs from "fs";
 import path from "path";
 import { createRequire } from "module";
 const require = createRequire(import.meta.url);
-
-/** Librerie già compresse o bundle di terze parti: non offuscare (rischio rotture / inutile). */
-const SKIP_JS_OBFUSCATION = new Set([
-  "jquery-2.1.3.min.js",
-  "pace.min.js",
-  "modernizr.js",
-  "plugins.js",
-  "hogwarts-intro-cinema.js",
-  "hogwarts-sorting-page.js",
-  "hogwarts-access-gate.js",
-  "hogwarts-bgm-youtube.js",
-  "vc-suppress-extension-errors.js",
-  "vc-youtube-iframe-api.js",
-]);
-
+const SKIP_JS_OBFUSCATION = new Set(["jquery-2.1.3.min.js", "pace.min.js", "modernizr.js", "plugins.js", "vc-suppress-extension-errors.js", "vc-youtube-iframe-api.js"]);
 const OBF_OPTIONS = {
   compact: true,
   controlFlowFlattening: false,
@@ -61,10 +47,6 @@ function walkFilesRecursive(dir, test, out) {
   return acc;
 }
 
-/**
- * Offusca gli script del sito in `dist/js` (non le librerie in SKIP_*).
- * Il sorgente in `WebSite/js` resta leggibile; solo l’output di build cambia.
- */
 export function obfuscateProjectJsInDist(distRoot) {
   let JavaScriptObfuscator;
   try {
@@ -90,9 +72,7 @@ export function obfuscateProjectJsInDist(distRoot) {
   if (n) console.log("[build-site] Offuscamento JS:", n, "file in dist/js");
 }
 
-/**
- * Minifica HTML in `dist` (spazi e commenti): ispezione mostra meno struttura leggibile.
- */
+
 export async function minifyHtmlFilesInDist(distRoot) {
   let minify;
   try {

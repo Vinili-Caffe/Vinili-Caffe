@@ -53,31 +53,30 @@ function parseWordArrayFile(filePath) {
   }
 }
 
-const DEFAULT_SLURS_PRESET_ALLOW_LIST = [
-  "spicy",
-  "spice",
-  "spices",
-  "spicier",
-  "spiciest",
-  "special",
-  "species",
-  "specific",
-  "specify",
-  "spinal",
-  "spinach",
-];
-
 function loadSlursPresetAllowList() {
   const cfg = readAutomodConfig();
   const fromCfg = cfg?.discordNative?.slursPresetAllowList;
-  const merged = new Set(DEFAULT_SLURS_PRESET_ALLOW_LIST);
+  const merged = new Set();
   if (Array.isArray(fromCfg)) {
     for (const raw of fromCfg) {
       const word = String(raw || "").trim().toLowerCase();
       if (word.length >= 2 && word.length <= KEYWORD_MAX_LEN) merged.add(word);
     }
   }
-  return [...merged].map((w) => normalizeDiscordKeyword(w)).filter(Boolean);
+  return [...merged].map((w) => normalizeDiscordKeyword(w, { allowWildcard: false })).filter(Boolean);
+}
+
+function loadCustomWordsAllowList() {
+  const cfg = readAutomodConfig();
+  const fromCfg = cfg?.discordNative?.customWordsAllowList;
+  const merged = new Set();
+  if (Array.isArray(fromCfg)) {
+    for (const raw of fromCfg) {
+      const word = String(raw || "").trim().toLowerCase();
+      if (word.length >= 2 && word.length <= KEYWORD_MAX_LEN) merged.add(word);
+    }
+  }
+  return [...merged].map((w) => normalizeDiscordKeyword(w, { allowWildcard: false })).filter(Boolean);
 }
 
 function isSlursPresetEnabled() {
@@ -108,13 +107,20 @@ function loadCustomWordsForDiscord() {
   return [...all];
 }
 
-function normalizeDiscordKeyword(raw) {
+function normalizeDiscordKeyword(raw, options = {}) {
   let term = String(raw || "").trim().toLowerCase();
   if (!term) return "";
   if (term.length > KEYWORD_MAX_LEN) term = term.slice(0, KEYWORD_MAX_LEN);
   if (term.includes(" ")) return term;
   if (term.startsWith("*") && term.endsWith("*")) return term;
-  return `*${term}*`;
+  const cfg = readAutomodConfig();
+  const wildcardTerms = new Set(
+    (Array.isArray(cfg?.discordNative?.keywordWildcardTerms) ? cfg.discordNative.keywordWildcardTerms : [])
+      .map((w) => String(w || "").trim().toLowerCase())
+      .filter(Boolean),
+  );
+  if (options.allowWildcard === true || wildcardTerms.has(term)) return `*${term}*`;
+  return term;
 }
 
 function chunkKeywords(words) {
@@ -290,6 +296,7 @@ function buildDesiredRuleSpecs(options = {}) {
   }
   const words = loadCustomWordsForDiscord();
   const wordChunks = chunkKeywords(words);
+  const customWordsAllowList = loadCustomWordsAllowList();
   wordChunks.forEach((keywords, index) => {
     if (!keywords.length) return;
     if (readAutomodConfig()?.heatFilters?.wordBlacklist === false) return;
@@ -297,7 +304,10 @@ function buildDesiredRuleSpecs(options = {}) {
       name: `${RULE_PREFIX}custom-words${wordChunks.length > 1 ? `-${index + 1}` : ""}`,
       eventType: AutoModerationRuleEventType.MessageSend,
       triggerType: AutoModerationRuleTriggerType.Keyword,
-      triggerMetadata: { keywordFilter: keywords },
+      triggerMetadata: {
+        keywordFilter: keywords,
+        ...(customWordsAllowList.length ? { allowList: customWordsAllowList } : {}),
+      },
       actions,
       enabled: true,
       violationKey: "word_blacklist",

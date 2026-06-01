@@ -591,14 +591,23 @@ function normalizePauseStatusPhrase(content, targetPhrase) {
     .replace(" è stato in pausa.", ` ${targetPhrase}.`);
 }
 
-function getPausePhase(startRaw, endRaw) {
+function getPausePhase(startRaw, endRaw, atDate) {
   const start = parseItalianDate(startRaw);
   const end = parseItalianDate(endRaw);
-  const today = getTodayUtc();
+  const today = atDate instanceof Date ? atDate : getTodayUtc();
   if (!start || !end) return "active";
   if (today < start) return "planned";
   if (today > end) return "ended";
   return "active";
+}
+
+function hasActiveAcceptedStaffPause(pauses, atDate) {
+  if (!Array.isArray(pauses)) return false;
+  const today = atDate instanceof Date ? atDate : getTodayUtc();
+  return pauses.some((pause) => {
+    if (!pause || pause.status !== "accepted") return false;
+    return getPausePhase(pause.dataRichiesta, pause.dataRitorno, today) === "active";
+  });
 }
 
 async function applyAcceptedPausePhaseToDiscordMessage(channel, messageId, userId, pauseId, phase, withControls) {
@@ -748,4 +757,4 @@ async function restorePauseMessageStatusSync(client) {
   }
 }
 
-module.exports = { MS_PER_DAY, parseItalianDate, getPauseDaysBetween, getTodayUtc, getCurrentYearBoundsUtc, getMonthBoundsUtc, filterPausesByMonth, countOverlapDays, countEffectiveOverlapDays, rangesOverlap, computeStaffersInPauseByRoleForRange, getStaffPauseRecord, getStaffAndPauseByRequestMessageId, updatePauseInDb, computeConsumedPauseDays, getMemberRoleLabel, getBasePauseLimit, getPauseRoleLimit, getPauseStatusLabel, getPauseTimingText, computePauseScaledDaysThisYear, buildRequestButtonsRow, buildAcceptedButtonsRow, schedulePauseButtonsRemoval, restorePauseMessageStatusSync, getRomeMonthKey, getOnePausePerMonthWarning, getOneWeekBetweenWarning, getPauseReasonFromMessage, PAUSE_ROLE_STAFF, PAUSE_ROLE_PM, PAUSE_ROLE_BOTH, normalizePauseRoleChoice, getMemberPauseRoleChoices, getPauseRoleTargets, roleChoiceAppliesTo, getBestStaffPauseBonusDays, getValPosTradedPauseBonusDays, getStaffPauseBonusDaysTotal, grantBestStaffPauseBonusYear };
+module.exports = { MS_PER_DAY, parseItalianDate, getPauseDaysBetween, getTodayUtc, getCurrentYearBoundsUtc, getMonthBoundsUtc, filterPausesByMonth, countOverlapDays, countEffectiveOverlapDays, rangesOverlap, computeStaffersInPauseByRoleForRange, getStaffPauseRecord, getStaffAndPauseByRequestMessageId, updatePauseInDb, computeConsumedPauseDays, getMemberRoleLabel, getBasePauseLimit, getPauseRoleLimit, getPauseStatusLabel, getPauseTimingText, computePauseScaledDaysThisYear, buildRequestButtonsRow, buildAcceptedButtonsRow, schedulePauseButtonsRemoval, restorePauseMessageStatusSync, getRomeMonthKey, getOnePausePerMonthWarning, getOneWeekBetweenWarning, getPauseReasonFromMessage, PAUSE_ROLE_STAFF, PAUSE_ROLE_PM, PAUSE_ROLE_BOTH, normalizePauseRoleChoice, getMemberPauseRoleChoices, getPauseRoleTargets, roleChoiceAppliesTo, getBestStaffPauseBonusDays, getValPosTradedPauseBonusDays, getStaffPauseBonusDaysTotal, grantBestStaffPauseBonusYear, getPausePhase, hasActiveAcceptedStaffPause };

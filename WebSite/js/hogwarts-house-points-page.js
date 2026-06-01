@@ -3,6 +3,7 @@
   var EXPIRES_AT_KEY = "vc_discord_expires_at";
   var HOUSE_ORDER = ["gryffindor", "ravenclaw", "hufflepuff", "slytherin"];
   var dynamicPoints = null;
+  var prevFillByBoard = {};
   var FALLBACK = {
     gryffindor: { label: "Grifondoro", points: 0, color: "#b9202a", accent: "#f5c542" },
     ravenclaw: { label: "Corvonero", points: 0, color: "#1f5fbf", accent: "#b98a4b" },
@@ -149,6 +150,16 @@
     return Math.ceil(target / 10000) * 10000;
   }
 
+  function fillPercent(points, scaleMax) {
+    var pts = numberOf(points);
+    if (pts <= 0 || scaleMax <= 0) return 0;
+    return Math.min(86, Math.max(4, Math.round((pts / scaleMax) * 94)));
+  }
+
+  function topFillPercent(bottomPct) {
+    return Math.max(8, 92 - Math.max(0, Math.floor(Number(bottomPct) || 0)));
+  }
+
   function esc(v) {
     return String(v == null ? "" : v)
       .replace(/&/g, "&amp;")
@@ -224,17 +235,39 @@
       });
     }
     var scaleMax = resolveScaleMax(items, boardCfg);
+    var prev = prevFillByBoard[key] || {};
     var sorted = items.slice().sort(function (a, b) {
       return b.points - a.points;
     });
     grid.innerHTML = items.map(function (house) {
-      var pct = house.points > 0 ? Math.min(86, Math.max(4, Math.round((house.points / scaleMax) * 94))) : 0;
+      var pct = fillPercent(house.points, scaleMax);
+      var topPct = topFillPercent(pct);
+      var prevPct = typeof prev[house.id] === "number" ? prev[house.id] : pct;
+      var startBottom = prevPct;
+      var startTop = topFillPercent(startBottom);
+      var pouring = pct > prevPct;
       var rank = sorted.findIndex(function (x) { return x.id === house.id; }) + 1;
       var crest = house.crestUrl
         ? '<img class="vc-hw-hourglass__crest" src="' + esc(house.crestUrl) + '" alt="" width="72" height="72" decoding="async">'
         : "";
       return (
-        '<article class="vc-hw-hourglass vc-hw-hourglass--' + esc(house.id) + '" data-fill="' + pct + '%" style="--house-color:' + esc(house.color) + ';--house-accent:' + esc(house.accent) + ';--fill:0%;--top-fill:92%">' +
+        '<article class="vc-hw-hourglass vc-hw-hourglass--' +
+          esc(house.id) +
+          '" data-fill-target="' +
+          pct +
+          '%" data-top-target="' +
+          topPct +
+          '%" data-pour="' +
+          (pouring ? "1" : "0") +
+          '" style="--house-color:' +
+          esc(house.color) +
+          ";--house-accent:" +
+          esc(house.accent) +
+          ";--fill:" +
+          startBottom +
+          "%;--top-fill:" +
+          startTop +
+          '%">' +
           '<div class="vc-hw-hourglass__rank">#' + rank + "</div>" +
           '<div class="vc-hw-hourglass__top">' +
             crest +
@@ -244,7 +277,7 @@
           '<div class="vc-hw-hourglass__glass" aria-hidden="true">' +
             '<div class="vc-hw-hourglass__cap vc-hw-hourglass__cap--top"></div>' +
             '<div class="vc-hw-hourglass__bulb vc-hw-hourglass__bulb--top"><span class="vc-hw-hourglass__sand vc-hw-hourglass__sand--top"></span></div>' +
-            (house.points > 0 ? '<div class="vc-hw-hourglass__stream"></div>' : "") +
+            (pct > 0 && pouring ? '<div class="vc-hw-hourglass__stream"></div>' : "") +
             '<div class="vc-hw-hourglass__neck"></div>' +
             '<div class="vc-hw-hourglass__bulb vc-hw-hourglass__bulb--bottom"><span class="vc-hw-hourglass__sand vc-hw-hourglass__sand--bottom"></span></div>' +
             '<div class="vc-hw-hourglass__cap vc-hw-hourglass__cap--bottom"></div>' +
@@ -257,8 +290,10 @@
     requestAnimationFrame(function () {
       var cards = grid.querySelectorAll(".vc-hw-hourglass");
       for (var i = 0; i < cards.length; i += 1) {
-        cards[i].style.setProperty("--fill", cards[i].getAttribute("data-fill") || "0%");
-        cards[i].classList.add("vc-hw-hourglass--pouring");
+        var card = cards[i];
+        card.style.setProperty("--fill", card.getAttribute("data-fill-target") || "0%");
+        card.style.setProperty("--top-fill", card.getAttribute("data-top-target") || "92%");
+        if (card.getAttribute("data-pour") === "1") card.classList.add("vc-hw-hourglass--pouring");
       }
       setTimeout(function () {
         for (var j = 0; j < cards.length; j += 1) {
@@ -266,6 +301,11 @@
         }
       }, 3800);
     });
+    var nextPrev = {};
+    for (var h = 0; h < items.length; h += 1) {
+      nextPrev[items[h].id] = fillPercent(items[h].points, scaleMax);
+    }
+    prevFillByBoard[key] = nextPrev;
   }
 
   function render() {

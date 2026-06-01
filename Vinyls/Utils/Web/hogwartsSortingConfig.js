@@ -1,5 +1,5 @@
 const { HOUSES } = require("./hogwartsSortingBank");
-const { hasHogwartsSortingPreviewAccess } = require("./hogwartsEventParticipation");
+const { hasHogwartsSortingPreviewAccess, memberHasHogwartsEventStaffAccess } = require("./hogwartsEventParticipation");
 const DEFAULT_EVENT_KEY = "hogwarts_summer_2026";
 
 function readBool(v, fallback) {
@@ -16,25 +16,96 @@ function readPositiveInt(v, fallback) {
   return fallback;
 }
 
-function parseEventDateMs(value, fallbackTime) {
+function getRomeOffsetMs(utcDate) {
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Europe/Rome",
+    timeZoneName: "shortOffset",
+    hour: "2-digit",
+  });
+  const zoneName = formatter.formatToParts(utcDate).find((part) => part.type === "timeZoneName")?.value;
+  const match = String(zoneName || "GMT+0").match(/^GMT([+-])(\d{1,2})(?::?(\d{2}))?$/i);
+  if (!match) return 0;
+  const sign = match[1] === "-" ? -1 : 1;
+  const hours = Number(match[2] || 0);
+  const minutes = Number(match[3] || 0);
+  return sign * (hours * 60 + minutes) * 60 * 1000;
+}
+
+function createUtcFromRomeLocal(year, month, day, hour, minute, second, ms = 0) {
+  const baseUtcMs = Date.UTC(year, month - 1, day, hour, minute, second, ms);
+  const firstOffsetMs = getRomeOffsetMs(new Date(baseUtcMs));
+  let utcMs = baseUtcMs - firstOffsetMs;
+  const secondOffsetMs = getRomeOffsetMs(new Date(utcMs));
+  if (secondOffsetMs !== firstOffsetMs) utcMs = baseUtcMs - secondOffsetMs;
+  return new Date(utcMs);
+}
+
+function parseEventLocalParts(value) {
   const d = String(value || "").trim();
-  if (!/^\d{4}-\d{2}-\d{2}(?:[T\s]\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?)?$/.test(d)) return null;
+  const m = d.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T\s](\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,3}))?)?)?$/);
+  if (!m) return null;
+  return {
+    year: Number(m[1]),
+    month: Number(m[2]),
+    day: Number(m[3]),
+    hour: m[4] !== undefined ? Number(m[4]) : null,
+    minute: m[5] !== undefined ? Number(m[5]) : 0,
+    second: m[6] !== undefined ? Number(m[6]) : 0,
+    ms: m[7] !== undefined ? Number(String(m[7]).padEnd(3, "0")) : 0,
+  };
+}
+
+function parseFallbackTimeParts(fallbackTime) {
+  const m = String(fallbackTime || "00:00:00").match(/(\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,3}))?)?/);
+  if (!m) return { hour: 0, minute: 0, second: 0, ms: 0 };
+  return {
+    hour: Number(m[1] || 0),
+    minute: Number(m[2] || 0),
+    second: Number(m[3] || 0),
+    ms: m[4] !== undefined ? Number(String(m[4]).padEnd(3, "0")) : 0,
+  };
+}
+
+function parseEventDateMs(value, timezone, fallbackTime) {
+  const parts = parseEventLocalParts(value);
+  if (!parts) return null;
+  const fb = parseFallbackTimeParts(fallbackTime);
+  const hour = parts.hour !== null ? parts.hour : fb.hour;
+  const minute = parts.hour !== null ? parts.minute : fb.minute;
+  const second = parts.hour !== null ? parts.second : fb.second;
+  const ms = parts.hour !== null ? parts.ms : fb.ms;
+  const tz = String(timezone || "Europe/Rome").trim() || "Europe/Rome";
   try {
-    const normalized = d.includes("T") || /\s\d{2}:\d{2}/.test(d) ? d.replace(/\s+/, "T") : `${d}T${fallbackTime}`;
-    const ms = new Date(normalized).getTime();
-    if (!Number.isFinite(ms)) return null;
-    return ms;
+    if (tz === "Europe/Rome") {
+      const utc = createUtcFromRomeLocal(parts.year, parts.month, parts.day, hour, minute, second, ms);
+      const out = utc.getTime();
+      return Number.isFinite(out) ? out : null;
+    }
+    const normalized =
+      parts.hour !== null
+        ? `${parts.year}-${String(parts.month).padStart(2, "0")}-${String(parts.day).padStart(2, "0")}T${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}:${String(second).padStart(2, "0")}.${String(ms).padStart(3, "0")}`
+        : `${parts.year}-${String(parts.month).padStart(2, "0")}-${String(parts.day).padStart(2, "0")}T${String(fb.hour).padStart(2, "0")}:${String(fb.minute).padStart(2, "0")}:${String(fb.second).padStart(2, "0")}.${String(fb.ms).padStart(3, "0")}`;
+    const out = new Date(normalized).getTime();
+    return Number.isFinite(out) ? out : null;
   } catch {
     return null;
   }
 }
 
-function parseDateStart(iso) {
-  return parseEventDateMs(iso, "00:00:00");
+function parseDateStart(iso, timezone) {
+  return parseEventDateMs(iso, timezone, "00:00:00");
 }
 
-function parseDateEnd(iso) {
-  return parseEventDateMs(iso, "23:59:59.999");
+function parseDateEnd(iso, timezone) {
+  return parseEventDateMs(iso, timezone, "23:59:59.999");
+}
+
+function parseDateStartMs(value, timezone) {
+  return parseDateStart(value, timezone);
+}
+
+function parseDateEndMs(value, timezone) {
+  return parseDateEnd(value, timezone);
 }
 
 function resolveHogwartsEventConfig(client) {
@@ -43,6 +114,9 @@ function resolveHogwartsEventConfig(client) {
   const previewMode = readBool(process.env.HOGWARTS_EVENT_PREVIEW ?? raw.previewMode, false);
   const timezone = String(process.env.HOGWARTS_EVENT_TZ || raw.timezone || "Europe/Rome").trim() || "Europe/Rome";
   const startDate = String(process.env.HOGWARTS_EVENT_START || raw.startDate || "2026-06-01T14:00:00").trim();
+  const sortingStartDate = String(
+    process.env.HOGWARTS_SORTING_START || raw.sortingStartDate || startDate,
+  ).trim();
   const endDate = String(process.env.HOGWARTS_EVENT_END || raw.endDate || "2026-09-01T12:00:00").trim();
   const eventKey = String(process.env.HOGWARTS_EVENT_KEY || raw.eventKey || DEFAULT_EVENT_KEY).trim() || DEFAULT_EVENT_KEY;
   const housesRaw = raw.houses && typeof raw.houses === "object" ? raw.houses : {};
@@ -63,15 +137,30 @@ function resolveHogwartsEventConfig(client) {
     sortingReward: readPositiveInt(process.env.HOGWARTS_GRINGOTT_SORTING_REWARD ?? gringottRaw.sortingReward, 250),
   };
   const completionRoleId = String(process.env.HOGWARTS_COMPLETION_ROLE_ID || raw.completionRoleId || "1507000390493798511").trim();
-  return { enabled, previewMode, timezone, startDate, endDate, startMs: parseDateStart(startDate), endMs: parseDateEnd(endDate), eventKey, houses, staffBypassUserIds, gringott, completionRoleId };
+  const sortingLogChannelId = String(process.env.HOGWARTS_SORTING_LOG_CHANNEL_ID || raw.sortingLogChannelId || "").trim();
+  return {
+    enabled,
+    previewMode,
+    timezone,
+    startDate,
+    sortingStartDate,
+    endDate,
+    startMs: parseDateStart(startDate, timezone),
+    sortingStartMs: parseDateStart(sortingStartDate, timezone),
+    endMs: parseDateEnd(endDate, timezone),
+    eventKey,
+    houses,
+    staffBypassUserIds,
+    gringott,
+    completionRoleId,
+    sortingLogChannelId,
+  };
 }
 
-function isEventWindowOpen(cfg, nowMs, userId) {
+function isEventWindowOpen(cfg, nowMs, userId, member = null) {
   if (!cfg?.enabled) return { open: false, phase: "disabled" };
   const now = Number(nowMs || Date.now());
-  const bypass =
-    userId && Array.isArray(cfg.staffBypassUserIds) && cfg.staffBypassUserIds.includes(String(userId));
-  if (bypass) return { open: true, phase: "staff_bypass" };
+  if (memberHasHogwartsEventStaffAccess(cfg, member, userId)) return { open: true, phase: "staff_bypass" };
   const start = Number(cfg.startMs);
   const end = Number(cfg.endMs);
   if (!Number.isFinite(start) || !Number.isFinite(end)) return { open: false, phase: "misconfigured" };
@@ -89,10 +178,67 @@ function resolveEventWindowForViewer(cfg, nowMs, member, userId) {
   return dateState;
 }
 
+function resolveHubStartMs(cfg) {
+  const ms = Number(cfg?.sortingStartMs ?? cfg?.startMs);
+  return Number.isFinite(ms) ? ms : null;
+}
+
+function isHubWindowOpen(cfg, nowMs, userId) {
+  return isSortingWindowOpen(cfg, nowMs, userId);
+}
+
+function isMinigameEventWindowOpen(cfg, nowMs, userId) {
+  return isEventWindowOpen(cfg, nowMs, userId);
+}
+
+function isSortingWindowOpen(cfg, nowMs, userId, member = null) {
+  if (!cfg?.enabled) return { open: false, phase: "disabled" };
+  const now = Number(nowMs || Date.now());
+  if (memberHasHogwartsEventStaffAccess(cfg, member, userId)) return { open: true, phase: "staff_bypass" };
+  const start = Number(cfg.sortingStartMs ?? cfg.startMs);
+  const end = Number(cfg.endMs);
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return { open: false, phase: "misconfigured" };
+  if (now < start) return { open: false, phase: "before_start", startsAtMs: start };
+  if (now > end) return { open: false, phase: "after_end", endsAtMs: end };
+  return { open: true, phase: "live" };
+}
+
+function resolveSortingWindowForViewer(cfg, nowMs, member, userId) {
+  const dateState = isSortingWindowOpen(cfg, nowMs, userId);
+  if (dateState.open) return dateState;
+  if (cfg?.previewMode && hasHogwartsSortingPreviewAccess(cfg, member, userId)) {
+    return { ...dateState, open: true, phase: "preview" };
+  }
+  return dateState;
+}
+
+function formatSortingWindowIt(cfg) {
+  try {
+    const format = (value) => {
+      const ms = parseEventDateMs(value, cfg.timezone, "12:00:00");
+      if (!Number.isFinite(ms)) return "";
+      return new Date(ms).toLocaleString("it-IT", {
+        timeZone: cfg.timezone || "Europe/Rome",
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    };
+    const start = cfg.sortingStartDate ? format(cfg.sortingStartDate) : "";
+    const end = cfg.endDate ? format(cfg.endDate) : "";
+    if (start && end) return `dal ${start} al ${end}`;
+    return "";
+  } catch {
+    return "";
+  }
+}
+
 function formatEventWindowIt(cfg) {
   try {
     const format = (value) => {
-      const ms = parseEventDateMs(value, "12:00:00");
+      const ms = parseEventDateMs(value, cfg.timezone, "12:00:00");
       if (!Number.isFinite(ms)) return "";
       return new Date(ms).toLocaleString("it-IT", {
         timeZone: cfg.timezone || "Europe/Rome",
@@ -116,4 +262,18 @@ function formatEventWindowIt(cfg) {
   }
 }
 
-module.exports = { resolveHogwartsEventConfig, isEventWindowOpen, resolveEventWindowForViewer, formatEventWindowIt };
+module.exports = {
+  resolveHogwartsEventConfig,
+  resolveHubStartMs,
+  parseEventDateMs,
+  parseDateStartMs,
+  parseDateEndMs,
+  isEventWindowOpen,
+  isHubWindowOpen,
+  isMinigameEventWindowOpen,
+  isSortingWindowOpen,
+  resolveEventWindowForViewer,
+  resolveSortingWindowForViewer,
+  formatEventWindowIt,
+  formatSortingWindowIt,
+};

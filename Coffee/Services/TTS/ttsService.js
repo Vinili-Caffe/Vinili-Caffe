@@ -1,5 +1,6 @@
 const { joinVoiceChannel, getVoiceConnection, createAudioPlayer, createAudioResource, AudioPlayerStatus, entersState, VoiceConnectionStatus, StreamType, } = require("@discordjs/voice");
 const { isVoiceTransportError, voiceTransportErrorMessage } = require("../../../shared/discord/voiceTransportErrors");
+const { notifyBotPresenceVoiceActivity } = require("../../../shared/discord/botPresenceActivity");
 const { Readable } = require("stream");
 const fs = require("fs");
 const path = require("path");
@@ -807,6 +808,7 @@ async function ensureConnection(state, voiceChannel) {
     try {
       await entersState(state.connection, VoiceConnectionStatus.Ready, 5_000);
       attachTtsVoiceConnectionDisconnectHandler(state.connection, voiceChannel);
+      notifyBotPresenceVoiceActivity(voiceChannel.client);
       return state.connection;
     } catch {
       destroyVoiceConnectionSafe(state.connection);
@@ -841,6 +843,7 @@ async function ensureConnection(state, voiceChannel) {
       await saveVoiceState(voiceChannel.guild.id, voiceChannel.id, String(voiceChannel.client?.user?.id || ""));
       markTtsVoiceJoinGrace(voiceChannel.guild.id);
       attachTtsVoiceConnectionDisconnectHandler(connection, voiceChannel);
+      notifyBotPresenceVoiceActivity(voiceChannel.client);
       return connection;
     } catch (err) {
       if (connection) {

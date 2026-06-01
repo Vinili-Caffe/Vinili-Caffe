@@ -16,8 +16,8 @@ const AFTER_MINIGAME_DELAY_MS = Math.max(
   Number(process.env.VC_REPOST_ROULETTE_AFTER_MINIGAME_MS || 12_000),
 );
 const MIN_GAP_BETWEEN_REPOSTS_MS = Math.max(
-  10 * 60 * 1000,
-  Number(process.env.VC_REPOST_ROULETTE_MIN_GAP_MS || 12 * 60 * 1000),
+  30 * 60 * 1000,
+  Number(process.env.VC_REPOST_ROULETTE_MIN_GAP_MS || 30 * 60 * 1000),
 );
 const CHAT_HUB_CROSS_BOT_GAP_MS = Math.max(
   60_000,

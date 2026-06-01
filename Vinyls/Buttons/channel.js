@@ -1,6 +1,6 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder } = require("discord.js");
 const { getChannelOverviewStats } = require("../Services/Community/activityService");
-const { renderChannelActivityCanvas } = require("../Utils/Render/activityCanvas");
+const { renderChannelActivityCanvas, formatCanvasChannelLabel } = require("../Utils/Render/activityCanvas");
 const { guildIconUrl } = require("../Utils/Discord/guildDiscordIdentity");
 const { resolveTopUserEntries } = require("../Prefix/Stats/top");
 const CHANNEL_REFRESH_CUSTOM_ID_PREFIX = "channel_refresh";
@@ -81,14 +81,21 @@ async function buildChannelOverviewPayload(guild, channel, lookbackDays, view, o
     resolveTopUserEntries(guild, stats.topUsersVoice || []),
   ]);
 
-  const channelName = channel?.name ? `#${channel.name}` : "#channel";
+  const channelName = channel?.name ? formatCanvasChannelLabel(channel.name) : "# channel";
   const channelIconUrl = channel?.isVoiceBased?.() ? guildIconUrl(guild, { size: 256 }) : null;
   const createdOn = channel?.createdAt ?? new Date(0);
+  const me = guild.members?.me;
+  const joinedOn =
+    (me?.joinedAt && me.joinedAt instanceof Date)
+      ? me.joinedAt
+      : me?.joinedTimestamp
+        ? new Date(me.joinedTimestamp)
+        : guild.createdAt ?? createdOn;
   const guildName = guild?.name || "Server";
 
   const isVoiceChannel = Boolean(channel?.isVoiceBased?.());
   const isTextChannel = isVoiceChannel ? false : Boolean(channel?.isTextBased?.());
-  const buffer = await renderChannelActivityCanvas({ channelName, channelIconUrl, createdOn, lookbackDays: safeLookback, windows: stats.windows, topUsersText: topUsersTextResolved, topUsersVoice: topUsersVoiceResolved, chart: stats.chart, isTextChannel, guildName });
+  const buffer = await renderChannelActivityCanvas({ channelName, channelIconUrl, createdOn, joinedOn, lookbackDays: safeLookback, windows: stats.windows, topUsersText: topUsersTextResolved, topUsersVoice: topUsersVoiceResolved, chart: stats.chart, isTextChannel, guildName });
 
   const components = buildChannelComponents(ownerId, channelId, safeLookback, view);
   const overviewExt =

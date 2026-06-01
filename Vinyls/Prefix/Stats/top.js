@@ -367,10 +367,11 @@ async function resolveTopChannelEntries(guild, entries = [], snapshotMap = new M
       upsertChannelSnapshot(channel).catch(() => {});
     }
     const snapshotName = String(snapshotMap.get(channelId) || "").trim();
-    const rawLabel=channel?`#${channel.name}`
+    const rawLabel = channel
+      ? `# ${channel.name}`
       : snapshotName
-        ? `#${snapshotName}`
-        : "#canale-eliminato";
+        ? `# ${snapshotName}`
+        : "# canale-eliminato";
     out.push({
       id: channelId,
       label: normalizeCanvasLabel(rawLabel, "#canale-eliminato"),

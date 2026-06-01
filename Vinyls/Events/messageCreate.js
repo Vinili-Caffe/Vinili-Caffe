@@ -3,6 +3,7 @@ const { handleTtsMessage } = require("../Services/TTS/ttsService");
 const { handleMinigameMessage } = require("../Services/Minigames/minigameService");
 const { recordReactPressCandidateMessage } = require("../Services/Community/hogwartsReactPressService");
 const { recordMessageActivity } = require("../Services/Community/activityService");
+const { handleMessageCommunityExpBonuses } = require("../Services/Community/messageCommunityExpBonusesService");
 const { trackMessageEngagement } = require("../Services/Community/dailyEngagementStatsService");
 const { trackChannelMessage } = require("../Services/Community/dailyChannelMessageStatsService");
 const { handleIdeaBugMessage } = require("../Services/Community/ideaBugThreadService");
@@ -61,7 +62,20 @@ async function executeTenantMediaOnlyMessageFlow(message, resolvedClient, defaul
 
 function isNativeBoostSystemMessage(message) {
   const t = Number(message?.type);
-  const boostTypes = new Set([MessageType?.UserPremiumGuildSubscription, MessageType?.UserPremiumGuildSubscriptionTier1, MessageType?.UserPremiumGuildSubscriptionTier2, MessageType?.UserPremiumGuildSubscriptionTier3, 8].filter((x) => typeof x === "number"));
+  const boostTypes = new Set([
+    MessageType?.GuildBoost,
+    MessageType?.GuildBoostTier1,
+    MessageType?.GuildBoostTier2,
+    MessageType?.GuildBoostTier3,
+    MessageType?.UserPremiumGuildSubscription,
+    MessageType?.UserPremiumGuildSubscriptionTier1,
+    MessageType?.UserPremiumGuildSubscriptionTier2,
+    MessageType?.UserPremiumGuildSubscriptionTier3,
+    8,
+    9,
+    10,
+    11,
+  ].filter((x) => typeof x === "number"));
   if (boostTypes.has(t)) return true;
   const txt = String(message?.content || "");
   return /(ha\s+appena\s+potenziato\s+il\s+server|just\s+boosted\s+the\s+server)/i.test(txt);
@@ -204,7 +218,8 @@ module.exports = {
           await guildMemberUpdateExtras
             .recoverMissingBoostEmbedsForUser(message.guild, nativeBoost.userId, {
               knownNativeSlots: nativeBoost.slots,
-              startedAt: Date.now() - 15_000,
+              startedAt: Date.now(),
+              skipNativeScan: true,
             })
             .catch(() => null);
         }
@@ -328,6 +343,9 @@ module.exports = {
       setImmediate(() => {
         recordMessageActivity(message).catch((err) =>
           logEventError(resolvedClient, "ACTIVITY MESSAGE ERROR", err),
+        );
+        handleMessageCommunityExpBonuses(message).catch((err) =>
+          logEventError(resolvedClient, "COMMUNITY EXP BONUS ERROR", err),
         );
         try {
           recordReactPressCandidateMessage(message);

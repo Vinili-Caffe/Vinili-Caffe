@@ -21,9 +21,9 @@ function houseLabel(houseId, eventCfg) {
 async function assignManualHousePoints(client, { guildId, houseId, points, actorId, reason = "" }) {
   const gid = String(guildId || "").trim();
   const hid = normalizeHouseInput(houseId);
-  const pts = Math.max(0, Math.floor(Number(points) || 0));
+  const pts = Math.floor(Number(points) || 0);
   const actor = String(actorId || "").trim();
-  if (!gid || !hid || pts <= 0 || !actor) return { ok: false, code: "bad_input" };
+  if (!gid || !hid || !pts || !actor) return { ok: false, code: "bad_input" };
   const eventCfg = resolveHogwartsEventConfig(client);
   const eventKey = String(eventCfg?.eventKey || "").trim() || "hogwarts";
   const period = housePointPeriodKey(Date.now());

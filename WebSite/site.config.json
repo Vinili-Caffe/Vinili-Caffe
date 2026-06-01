@@ -47,7 +47,9 @@
   "hogwartsEvent": {
     "previewMode": false,
     "startDate": "2026-06-01T14:00:00",
+    "sortingStartDate": "2026-06-01T12:00:00",
     "endDate": "2026-09-01T12:00:00",
+    "sortingLogChannelId": "1507685351102353448",
     "introVideoDurationSec": 12.2,
     "introVideoTrimEndSec": 0,
     "calendar": {
@@ -105,7 +107,7 @@
     "timezone": "Europe/Rome",
     "recurring": { "weekday": 6, "hour": 21, "minute": 30 },
     "overrideIso": "",
-    "linkFilm": "https://streamingcommunityz.associates/it/watch/7632"
+    "linkFilm": "https://streamingcommunityz.company/it/watch/3402"
   },
   "discordInviteCode": "viniliecaffe",
   "useDiscordGuildBanner": true,

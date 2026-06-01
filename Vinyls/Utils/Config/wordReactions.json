@@ -1,6 +1,6 @@
 [
   {
-    "words": ["wlc", "welcome", "wlc all", "welcome all", "benvenuto", "benvenuti", "benvenuta", "benvenutx", "benvenute", "benvenuti a tutti", "benvenutx a tutti", "benvenute a tutti"],
+    "words": ["wlc", "welcome", "wlc all", "welcome all", "benvenuto", "benvenuti", "benvenuta", "benvenutx", "benvenute", "benvenuti a tutti", "benvenutx a tutti", "benvenute a tutti", "benvenut*", "benvenuto/a", "benvenuta/o"],
     "reactions": ["<a:VC_PikaWave:1331622011004260354>", "<:VC_PepeWave:1331589315175907412>", "<a:VC_PepeWelcome:1448671757128175626>"],
     "onlyInWelcomeContext": true,
     "contextChannelIds": ["chat", "1442569209849843823", "1442569260059725844", "1442569268666568897", "1442569285909217301"],
@@ -34,6 +34,13 @@
     "loneWords": ["grazie", "grazie mille", "thx", "thanks", "grz", "thx u all", "grazie a tutti"],
     "matchAtStart": true,
     "reactions": ["<a:VC_ThankYou:1330186319673950401>", "<a:VC_Kiss:1448673021031223428>", "<a:VC_bimbakiss:1483092810663198850>"],
-    "channelIds": ["1442569123426074736"]
+    "channelIds": ["1442569123426074736", "chat", "1442569260059725844", "1442569268666568897", "1442569285909217301", "1442569209849843823", "1442569136067575809", "1442569138114662490", "1470029899740873029"]
+  },
+  {
+    "words": ["brava", "brave", "bravi", "brave a tutti", "brava a tutti", "bravi a tutti", "complimenti", "complimenti a tutti", "complimenti a te", "complimenti a te e a tutti", "gg", "gg a tutti", "gg a te", "gg a te e a tutti", "ggwp", "ggwp a tutti", "ggwp a te", "ggwp a te e a tutti"],
+    "loneWords": ["brava", "brave", "bravi", "brave a tutti", "brava a tutti", "bravi a tutti", "complimenti", "complimenti a tutti", "complimenti a te", "complimenti a te e a tutti", "gg", "gg a tutti", "gg a te", "gg a te e a tutti", "ggwp", "ggwp a tutti", "ggwp a te", "ggwp a te e a tutti"],
+    "matchAtStart": true,
+    "reactions": ["<a:VC_clap:1507868436095696976>"],
+    "channelIds": ["chat", "1442569260059725844", "1442569268666568897", "1442569285909217301", "1442569209849843823", "1442569136067575809", "1442569138114662490", "1470029899740873029"]
   }
 ]

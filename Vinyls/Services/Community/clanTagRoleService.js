@@ -392,9 +392,4 @@ async function syncAllMembersClanTags(client) {
   }
 }
 
-module.exports = {
-  syncClanTagRoles,
-  syncClanTagRolesForUserEverywhere,
-  syncClanTagRolesForUserEverywhereAfterMemberEvent,
-  syncAllMembersClanTags,
-};
+module.exports = { hasMatchingTag, syncClanTagRoles, syncClanTagRolesForUserEverywhere, syncClanTagRolesForUserEverywhereAfterMemberEvent, syncAllMembersClanTags };

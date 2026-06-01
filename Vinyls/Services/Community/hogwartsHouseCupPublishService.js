@@ -2,7 +2,7 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("
 const cron = require("node-cron");
 const { runCronDetached } = require("../../../shared/scheduling/cronDetached");
 const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Schemas/Community/communitySchemas");
-const { resolveHogwartsEventConfig, isEventWindowOpen } = require("../../Utils/Web/hogwartsSortingConfig");
+const { resolveHogwartsEventConfig, isHubWindowOpen, resolveHubStartMs } = require("../../Utils/Web/hogwartsSortingConfig");
 const { getHouseMeta } = require("../../Utils/Web/hogwartsSortingBank");
 const { periodEndingOnDate, nextPeriodAfter, rankHousesForPeriod } = require("../../Utils/Web/hogwartsHousePointPeriods");
 const IDs = require("../../Utils/Config/ids");
@@ -101,7 +101,7 @@ function getLastSunday12BoundaryMsAtOrBefore(date = new Date()) {
 function isHogwartsEventLive(client) {
   const cfg = resolveHogwartsEventConfig(client);
   if (!cfg?.enabled) return false;
-  return Boolean(isEventWindowOpen(cfg, Date.now())?.open);
+  return Boolean(isHubWindowOpen(cfg, Date.now())?.open);
 }
 
 function shouldPublishHogwartsBiweeklySunday(now = new Date(), eventStartMs) {
@@ -188,7 +188,7 @@ async function publishHogwartsHouseCupClose(client, options = {}) {
   }
   const eventCfg = resolveHogwartsEventConfig(client);
   const now = options.anchorDate instanceof Date && !Number.isNaN(options.anchorDate.getTime()) ? options.anchorDate : new Date();
-  if (!options.forcePublish && !shouldPublishHogwartsBiweeklySunday(now, eventCfg.startMs)) {
+  if (!options.forcePublish && !shouldPublishHogwartsBiweeklySunday(now, resolveHubStartMs(eventCfg))) {
     global.logger?.info?.("[HOGWARTS HOUSE CUP] Publish skipped: non è domenica bisettimanale.");
     return;
   }

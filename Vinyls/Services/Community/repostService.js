@@ -16,6 +16,13 @@ const REPOST_SRC_PREFIX = "repost_src:";
 const REPOST_EMOJI = "<a:reddiamond:1443652837346377841>";
 const MAX_EMBED_BODY_CHARS = 3600;
 const REPOST_DISABLED_MESSAGE = "I repost sono disattivati su questo server per ora.";
+const ROULETTE_RECENT_LIMIT = Math.max(
+  15,
+  Math.min(80, Number(process.env.VC_REPOST_ROULETTE_RECENT_LIMIT || 40)),
+);
+const ROULETTE_PICK_ATTEMPTS = 12;
+
+const recentRouletteSourceKeysByGuild = new Map();
 
 function isRepostDisabledInGuild(_guildId) {
   return false;
@@ -464,13 +471,79 @@ async function handleRepostaButton(interaction) {
   return { handled: true };
 }
 
+function repostSourceKey(doc) {
+  const sc = String(doc?.sourceChannelId || "").trim();
+  const sm = String(doc?.sourceMessageId || "").trim();
+  if (!sc || !sm) return "";
+  return `${sc}:${sm}`;
+}
+
+function pushRouletteSourceKey(guildId, sourceKey) {
+  const gid = String(guildId || "").trim();
+  const key = String(sourceKey || "").trim();
+  if (!gid || !key) return;
+  const prev = recentRouletteSourceKeysByGuild.get(gid) || [];
+  const next = prev.filter((entry) => entry !== key);
+  next.push(key);
+  while (next.length > ROULETTE_RECENT_LIMIT) next.shift();
+  recentRouletteSourceKeysByGuild.set(gid, next);
+}
+
+async function aggregateRandomUniqueRepost(guildId, excludeKeys = null) {
+  const gid = String(guildId || "").trim();
+  if (!gid) return null;
+
+  const pipeline = [
+    { $match: { guildId: gid } },
+    { $sort: { createdAt: -1 } },
+    {
+      $group: {
+        _id: { sc: "$sourceChannelId", sm: "$sourceMessageId" },
+        doc: { $first: "$$ROOT" },
+      },
+    },
+    { $replaceRoot: { newRoot: "$doc" } },
+  ];
+
+  if (excludeKeys instanceof Set && excludeKeys.size) {
+    pipeline.push({
+      $match: {
+        $expr: {
+          $not: {
+            $in: [{ $concat: ["$sourceChannelId", ":", "$sourceMessageId"] }, Array.from(excludeKeys)],
+          },
+        },
+      },
+    });
+  }
+
+  pipeline.push({ $sample: { size: 1 } });
+
+  const rows = await GuildRepost.aggregate(pipeline).catch(() => []);
+  return rows?.[0] || null;
+}
+
 async function pickRandomRepostForGuild(guildId) {
   const gid = String(guildId || "").trim();
   if (!gid) return null;
-  const count = await GuildRepost.countDocuments({ guildId: gid }).catch(() => 0);
-  if (!count) return null;
-  const skip = Math.floor(Math.random() * count);
-  return GuildRepost.findOne({ guildId: gid }).skip(skip).lean().catch(() => null);
+
+  const recent = new Set(recentRouletteSourceKeysByGuild.get(gid) || []);
+  let doc = null;
+
+  for (let attempt = 0; attempt < ROULETTE_PICK_ATTEMPTS; attempt += 1) {
+    doc = await aggregateRandomUniqueRepost(gid, recent);
+    if (!doc) break;
+    const sourceKey = repostSourceKey(doc);
+    if (!sourceKey || !recent.has(sourceKey)) break;
+  }
+
+  if (!doc) {
+    doc = await aggregateRandomUniqueRepost(gid);
+  }
+
+  const sourceKey = repostSourceKey(doc);
+  if (sourceKey) pushRouletteSourceKey(gid, sourceKey);
+  return doc;
 }
 
 async function sendRepostRoulette(client, guildId) {

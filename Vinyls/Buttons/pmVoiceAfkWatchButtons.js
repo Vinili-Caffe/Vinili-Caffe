@@ -3,7 +3,12 @@ const IDs = require("../Utils/Config/ids");
 const { getGuildMemberCached } = require("../Utils/Interaction/interactionEntityCache");
 const { createModCase, logModCase } = require("../Utils/Moderation/moderation");
 const { findModLogsPage } = require("../Utils/Moderation/modCaseStore");
-const { resetPmVoiceAfkCountdown, clearPmVoiceAfkCountdown } = require("../Services/Staff/pmVoiceAfkWatchService");
+const {
+  resetPmVoiceAfkCountdown,
+  clearPmVoiceAfkCountdown,
+  cancelPendingPmAfkAlert,
+  isStaffInVoiceWithTarget,
+} = require("../Services/Staff/pmVoiceAfkWatchService");
 
 const CUSTOM_ID_PREFIX_CONFIRM = "pm_afk_watch_confirm:";
 const CUSTOM_ID_PREFIX_DENY = "pm_afk_watch_deny:";
@@ -123,6 +128,22 @@ module.exports = {
     const target = await getGuildMemberCached(guild, parsed.userId, { preferFresh: true }).catch(() => null);
     const voiceOk = isTargetInAlertChannel(target, parsed.channelId);
     const stillAloneForCheck = isTargetAloneForStaffCheck(target);
+    const staffInVoiceWithTarget = isStaffInVoiceWithTarget(interaction.member, target);
+
+    if (!target?.voice?.channelId) {
+      await cancelPendingPmAfkAlert(client, guild.id, parsed.userId, { keepMessage: true });
+      await disableButtons(interaction, `ℹ️ L'utente non è più in vocale. Controllo annullato da <@${interaction.user.id}>.`);
+      return true;
+    }
+
+    if (!staffInVoiceWithTarget) {
+      await interaction.reply({
+        content:
+          "<a:VC_Alert:1482706673176150077> Devi essere nello **stesso canale vocale** dell'utente per confermare o negare il controllo AFK.",
+        flags: 1 << 6,
+      }).catch(() => null);
+      return true;
+    }
 
     if (rawId.startsWith(CUSTOM_ID_PREFIX_DENY)) {
       if (voiceOk) {
@@ -136,13 +157,13 @@ module.exports = {
 
     // CONFIRM
     if (!target?.id) {
-      clearPmVoiceAfkCountdown(guild.id, parsed.userId);
+      await cancelPendingPmAfkAlert(client, guild.id, parsed.userId, { keepMessage: true });
       await disableButtons(interaction, `⚠️ Utente non trovato. Controllo chiuso da <@${interaction.user.id}>.`);
       return true;
     }
     if (!voiceOk) {
-      clearPmVoiceAfkCountdown(guild.id, parsed.userId);
-      await disableButtons(interaction, `ℹ️ L’utente non è più nel canale vocale indicato. Controllo chiuso da <@${interaction.user.id}>.`);
+      await cancelPendingPmAfkAlert(client, guild.id, parsed.userId, { keepMessage: true });
+      await disableButtons(interaction, `ℹ️ L'utente non è più nel canale vocale indicato. Controllo chiuso da <@${interaction.user.id}>.`);
       return true;
     }
     if (!stillAloneForCheck) {

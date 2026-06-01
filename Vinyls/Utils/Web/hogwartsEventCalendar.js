@@ -1,3 +1,8 @@
+const {
+  parseDateStartMs: parseEventDateStartMs,
+  parseDateEndMs: parseEventDateEndMs,
+} = require("./hogwartsSortingConfig");
+
 const DEFAULT_PAGES = Object.freeze([
   { id: "hub", label: "Calendario", path: "/evento", icon: "fa-calendar" },
   { id: "sorting", label: "Smistamento", path: "/evento/smistamento", icon: "fa-magic" },
@@ -182,18 +187,12 @@ function normalizeId(value) {
   return String(value || "").trim();
 }
 
-function parseDateStartMs(value) {
-  const d = normalizeId(value);
-  if (!/^\d{4}-\d{2}-\d{2}/.test(d)) return null;
-  const ms = new Date(d.includes("T") ? d : `${d}T00:00:00`).getTime();
-  return Number.isFinite(ms) ? ms : null;
+function parseDateStartMs(value, timezone) {
+  return parseEventDateStartMs(value, timezone || "Europe/Rome");
 }
 
-function parseDateEndMs(value) {
-  const d = normalizeId(value);
-  if (!/^\d{4}-\d{2}-\d{2}/.test(d)) return null;
-  const ms = new Date(d.includes("T") ? d : `${d}T23:59:59.999`).getTime();
-  return Number.isFinite(ms) ? ms : null;
+function parseDateEndMs(value, timezone) {
+  return parseEventDateEndMs(value, timezone || "Europe/Rome");
 }
 
 function absPageHref(siteBaseNoSlash, path) {
@@ -226,15 +225,17 @@ function resolvePages(rawPages, siteBaseNoSlash) {
   }));
 }
 
-function resolveWeeks(rawWeeks) {
+function resolveWeeks(rawWeeks, timezone = "Europe/Rome") {
+  const parseStart = (v) => parseDateStartMs(v, timezone);
+  const parseEnd = (v) => parseDateEndMs(v, timezone);
   const source = Array.isArray(rawWeeks) && rawWeeks.length ? rawWeeks : DEFAULT_WEEKS;
   const weeks = [];
   for (const raw of source) {
     if (!raw || typeof raw !== "object") continue;
     const start = normalizeId(raw.start || raw.startDate);
     const end = normalizeId(raw.end || raw.endDate);
-    const startMs = parseDateStartMs(start);
-    const endMs = parseDateEndMs(end);
+    const startMs = parseStart(start);
+    const endMs = parseEnd(end);
     if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) continue;
     const activities = Array.isArray(raw.activities)
       ? raw.activities
@@ -266,16 +267,18 @@ function resolveWeeks(rawWeeks) {
     ? weeks.sort((a, b) => a.startMs - b.startMs)
     : DEFAULT_WEEKS.map((w) => ({
         ...w,
-        startMs: parseDateStartMs(w.start),
-        endMs: parseDateEndMs(w.end),
+        startMs: parseStart(w.start),
+        endMs: parseEnd(w.end),
       }));
 }
 
 function resolveHogwartsEventCalendar(eventRaw = {}, siteBaseNoSlash = "") {
   const raw = eventRaw?.calendar && typeof eventRaw.calendar === "object" ? eventRaw.calendar : {};
   const timezone = normalizeId(raw.timezone || eventRaw.timezone) || "Europe/Rome";
+  const parseStart = (v) => parseDateStartMs(v, timezone);
+  const parseEnd = (v) => parseDateEndMs(v, timezone);
   const pages = resolvePages(raw.pages, siteBaseNoSlash);
-  const weeks = resolveWeeks(raw.weeks);
+  const weeks = resolveWeeks(raw.weeks, timezone);
   const pageById = Object.fromEntries(pages.map((p) => [p.id, p]));
   const weeksForWeb = weeks.map((w) => ({
     key: w.key,
@@ -292,16 +295,18 @@ function resolveHogwartsEventCalendar(eventRaw = {}, siteBaseNoSlash = "") {
       href: a.pageId && pageById[a.pageId] ? pageById[a.pageId].href : "",
     })),
   }));
+  const hubStartDate = normalizeId(eventRaw.sortingStartDate || eventRaw.startDate);
+  const hubEndDate = normalizeId(eventRaw.endDate);
   return {
     timezone,
     pages,
     weeks: weeksForWeb,
     enabled: eventRaw.enabled !== false,
     previewMode: eventRaw.previewMode === true,
-    eventStart: normalizeId(eventRaw.startDate),
-    eventEnd: normalizeId(eventRaw.endDate),
-    eventStartMs: parseDateStartMs(eventRaw.startDate),
-    eventEndMs: parseDateEndMs(eventRaw.endDate),
+    eventStart: hubStartDate,
+    eventEnd: hubEndDate,
+    eventStartMs: parseStart(hubStartDate),
+    eventEndMs: parseEnd(hubEndDate),
   };
 }
 
@@ -314,7 +319,7 @@ function pickCurrentWeekKey(weeks, nowMs = Date.now(), timezone = "Europe/Rome")
   } catch {
     todayKey = new Date(nowMs).toISOString().slice(0, 10);
   }
-  const todayMs = parseDateStartMs(todayKey);
+  const todayMs = parseDateStartMs(todayKey, timezone);
   if (!Number.isFinite(todayMs)) return list[0].key;
   for (const w of list) {
     if (todayMs >= w.startMs && todayMs <= w.endMs) return w.key;
@@ -353,8 +358,9 @@ function resolvePublicHeaderPromoMode(eventRaw = {}, nowMs = Date.now()) {
   const enabled = eventRaw?.enabled !== false;
   if (!enabled) return "candidature";
   if (eventRaw?.previewMode === true) return "candidature";
-  const start = parseDateStartMs(eventRaw?.startDate);
-  const end = parseDateEndMs(eventRaw?.endDate);
+  const tz = normalizeId(eventRaw?.calendar?.timezone || eventRaw?.timezone) || "Europe/Rome";
+  const start = parseDateStartMs(eventRaw?.sortingStartDate || eventRaw?.startDate, tz);
+  const end = parseDateEndMs(eventRaw?.endDate, tz);
   if (!Number.isFinite(start) || !Number.isFinite(end)) return "candidature";
   const now = Number(nowMs);
   if (now < start || now > end) return "candidature";
@@ -377,14 +383,23 @@ function buildHeaderPromoButtonHtml({ mode, eventUrl, candidatureUrl }) {
 }
 
 function buildHeaderPromoClientConfig({ eventRaw = {}, eventUrl, candidatureUrl }) {
+  const tz = normalizeId(eventRaw?.calendar?.timezone || eventRaw?.timezone) || "Europe/Rome";
+  const hubStartDate = String(eventRaw?.sortingStartDate || eventRaw?.startDate || "").trim();
+  const endDate = String(eventRaw?.endDate || "").trim();
+  const startMs = parseDateStartMs(hubStartDate, tz);
+  const endMs = parseDateEndMs(endDate, tz);
   return {
     eventUrl: String(eventUrl || "/evento").trim() || "/evento",
     candidatureUrl: String(candidatureUrl || "/candidature").trim() || "/candidature",
     event: {
       enabled: eventRaw?.enabled !== false,
       previewMode: eventRaw?.previewMode === true,
-      startDate: String(eventRaw?.startDate || "").trim(),
-      endDate: String(eventRaw?.endDate || "").trim(),
+      startDate: hubStartDate,
+      sortingStartDate: hubStartDate,
+      endDate,
+      startMs: Number.isFinite(startMs) ? startMs : null,
+      endMs: Number.isFinite(endMs) ? endMs : null,
+      timezone: tz,
     },
   };
 }

@@ -15,8 +15,8 @@ async function isPartnershipGuildBlacklisted(guildId) {
   return isPartnershipGuildBlacklistedBucket(guildId);
 }
 
-async function addPartnershipBlacklistGuild(guildId, addedBy, note = "") {
-  return addPartnershipBlacklistGuildBucket(guildId, addedBy, note);
+async function addPartnershipBlacklistGuild(guildId, addedBy, note = "", meta = {}) {
+  return addPartnershipBlacklistGuildBucket(guildId, addedBy, note, meta);
 }
 
 async function removePartnershipBlacklistGuild(guildId) {

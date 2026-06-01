@@ -6,6 +6,7 @@ const { getGuildChannelCached, getGuildMemberCached } = require("../../Utils/Int
 const { ensureStaff } = require("../../Utils/Staff/staffDocUtils");
 const { ensureStaffProfileDoc, getStaffDoc, valutazionePositiveAddCore, valutazioneNegativeAddCore, } = require("../../Utils/Staff/valutazionePanelActions");
 const { resolveStaffRole } = require("./weeklyStaffResocontoService");
+const { hasActiveAcceptedStaffPause } = require("../../Utils/Pause/pauseHandlersUtils");
 const MAIN_GUILD_ID = String(IDs.guilds?.main || "");
 const SERATA_FILM_CHANNEL_ID = "1497535199813042306";
 const SERATA_FILM_MIN_MS = 30 * 60 * 1000;
@@ -433,6 +434,30 @@ async function startSerataFilmSession(event) {
   }
 }
 
+function serataFilmEvalDateUtc(session) {
+  const startedAt = Number(session?.startedAt || 0);
+  const base = startedAt > 0 ? new Date(startedAt) : new Date();
+  return new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth(), base.getUTCDate()));
+}
+
+async function loadStaffPausesByUserId(guildId, userIds) {
+  const ids = [...new Set(userIds.map((id) => String(id || "")).filter(Boolean))];
+  if (!ids.length) return new Map();
+  const docs = await ActivityUserProfile.find(
+    { guildId: String(guildId), userId: { $in: ids } },
+    { userId: 1, "staff.pauses": 1 },
+  )
+    .lean()
+    .catch(() => []);
+  const map = new Map();
+  for (const doc of docs) {
+    const uid = String(doc?.userId || "");
+    if (!uid) continue;
+    map.set(uid, Array.isArray(doc?.staff?.pauses) ? doc.staff.pauses : []);
+  }
+  return map;
+}
+
 async function finishSerataFilmSession(event) {
   if (!isSerataFilmEvent(event)) return;
   const key = serataSessionKey(event);
@@ -443,8 +468,12 @@ async function finishSerataFilmSession(event) {
   if (!guild) return;
   const now = Date.now();
   for (const uid of [...session.presentSince.keys()]) closeAttendance(session, uid, now);
+  const evalDateUtc = serataFilmEvalDateUtc(session);
   const staffMembers = await fetchMainGuildStaffMembers(guild.client, false);
+  const pausesByUserId = await loadStaffPausesByUserId(guild.id, staffMembers.map((member) => member.id));
   for (const member of staffMembers) {
+    const pauses = pausesByUserId.get(String(member.id)) || [];
+    if (hasActiveAcceptedStaffPause(pauses, evalDateUtc)) continue;
     const ms = Number(session.attendanceMs.get(String(member.id)) || 0);
     if (ms >= SERATA_FILM_MIN_MS) continue;
     await ensureAutoValutazione(guild, member, `serata_film:${session.eventId}`, "negative", "Non si presenta durante la serata film o rimane per meno di 30 minuti.").catch((err) => {

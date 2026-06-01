@@ -2,6 +2,7 @@
   var ACCESS_TOKEN_KEY = "vc_discord_access_token";
   var EXPIRES_AT_KEY = "vc_discord_expires_at";
   var PENDING_SORTING_KEY = "vc_hogwarts_pending_sorting_submit";
+  var SORTING_DONE_KEY = "vc_hogwarts_sorting_done";
   var retryTimer = null;
   var retryInFlight = false;
 
@@ -210,14 +211,89 @@
     }
   }
 
+  function readLocalSortingDone() {
+    try {
+      var raw = localStorage.getItem(SORTING_DONE_KEY);
+      if (!raw) return null;
+      var parsed = JSON.parse(raw);
+      if (!parsed || !String(parsed.houseId || "").trim()) return null;
+      return parsed;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function writeLocalSortingDone(houseId, houseMeta) {
+    try {
+      var ev = state.bootstrap && state.bootstrap.event;
+      localStorage.setItem(
+        SORTING_DONE_KEY,
+        JSON.stringify({
+          houseId: String(houseId || (houseMeta && houseMeta.id) || "").trim(),
+          houseMeta: houseMeta || null,
+          eventKey: String((ev && ev.eventKey) || "").trim(),
+          savedAt: Date.now(),
+        }),
+      );
+    } catch (_) {}
+  }
+
+  function clearLocalSortingDone() {
+    try {
+      localStorage.removeItem(SORTING_DONE_KEY);
+    } catch (_) {}
+  }
+
+  function sortingResultMeta(elig) {
+    if (elig && elig.houseMeta) return elig.houseMeta;
+    var house = elig && String(elig.house || "").trim();
+    if (house) return houseMetaFromBootstrap(house);
+    var local = readLocalSortingDone();
+    if (local && local.houseMeta) return local.houseMeta;
+    if (local && local.houseId) return houseMetaFromBootstrap(local.houseId);
+    return null;
+  }
+
+  function isAlreadySorted(elig) {
+    if (elig && elig.alreadySorted) return true;
+    if (elig && String(elig.house || "").trim()) return true;
+    var local = readLocalSortingDone();
+    if (!local || !local.houseId) return false;
+    var ev = state.bootstrap && state.bootstrap.event;
+    var eventKey = ev && String(ev.eventKey || "").trim();
+    if (eventKey && local.eventKey && local.eventKey !== eventKey) return false;
+    return true;
+  }
+
   function hasCompletedSorting() {
-    return Boolean(state.eligibility && state.eligibility.alreadySorted);
+    return isAlreadySorted(state.eligibility);
   }
 
   function markSortingCompleted(houseMeta) {
     if (!state.eligibility) state.eligibility = { ok: true };
     state.eligibility.alreadySorted = true;
-    if (houseMeta) state.eligibility.houseMeta = houseMeta;
+    state.eligibility.canSort = false;
+    if (houseMeta) {
+      state.eligibility.houseMeta = houseMeta;
+      state.eligibility.house = String(houseMeta.id || "").trim() || state.eligibility.house;
+    }
+    writeLocalSortingDone(state.eligibility.house, houseMeta);
+  }
+
+  function applyLocalSortingDoneToEligibility() {
+    if (!state.eligibility) state.eligibility = { ok: true };
+    if (isAlreadySorted(state.eligibility) && sortingResultMeta(state.eligibility)) return;
+    var local = readLocalSortingDone();
+    if (!local || !local.houseId) return;
+    var ev = state.bootstrap && state.bootstrap.event;
+    var eventKey = ev && String(ev.eventKey || "").trim();
+    if (eventKey && local.eventKey && local.eventKey !== eventKey) return;
+    state.eligibility.alreadySorted = true;
+    state.eligibility.canSort = false;
+    state.eligibility.house = local.houseId;
+    if (!state.eligibility.houseMeta) {
+      state.eligibility.houseMeta = local.houseMeta || houseMetaFromBootstrap(local.houseId);
+    }
   }
 
   function renderGringott() {
@@ -355,17 +431,28 @@
 
   async function loadBootstrap() {
     var staticBootstrap = typeof window !== "undefined" && window.__VC_HOGWARTS_STATIC_BOOTSTRAP;
+    var out = null;
+    try {
+      out = await fetchJson(apiBase() + "/bootstrap", { method: "GET" });
+    } catch (eBootstrap) {
+      out = null;
+    }
+    if (out && out.res.ok && out.data && out.data.ok) {
+      state.bootstrap = out.data;
+      if (staticBootstrap && Array.isArray(staticBootstrap.questions) && staticBootstrap.questions.length) {
+        state.bootstrap.questions = staticBootstrap.questions;
+      }
+      state.questions = Array.isArray(state.bootstrap.questions) ? state.bootstrap.questions : [];
+      updateWindowLabel();
+      return;
+    }
     if (staticBootstrap && staticBootstrap.ok && Array.isArray(staticBootstrap.questions)) {
       state.bootstrap = staticBootstrap;
       state.questions = staticBootstrap.questions;
       updateWindowLabel();
       return;
     }
-    var out = await fetchJson(apiBase() + "/bootstrap", { method: "GET" });
-    if (!out.res.ok || !out.data.ok) throw new Error(out.data.message || "bootstrap_failed");
-    state.bootstrap = out.data;
-    state.questions = Array.isArray(out.data.questions) ? out.data.questions : [];
-    updateWindowLabel();
+    throw new Error((out && out.data && out.data.message) || "bootstrap_failed");
   }
 
   async function loadEligibility() {
@@ -380,6 +467,11 @@
     });
     state.eligibility = out.data || {};
     state.gringott = out.data && out.data.gringott ? out.data.gringott : state.gringott;
+    if (out.data && (out.data.alreadySorted || out.data.house)) {
+      writeLocalSortingDone(out.data.house, out.data.houseMeta || sortingResultMeta(out.data));
+    } else if (out.data && out.data.canSort) {
+      clearLocalSortingDone();
+    }
     if (out.res.status === 401) {
       state.eligibility = { ok: false, needsLogin: true };
       state.gringott = null;
@@ -421,6 +513,7 @@
       }
     }
     state.eligibility = { ok: true, canSort: canSort, alreadySorted: false, message: msg };
+    applyLocalSortingDoneToEligibility();
   }
 
   function syncUiFromState() {
@@ -448,9 +541,12 @@
       return;
     }
 
-    if (elig && elig.alreadySorted && elig.houseMeta) {
-      showResult(elig.houseMeta, elig.message || "", false);
-      return;
+    if (isAlreadySorted(elig)) {
+      var sortedMeta = sortingResultMeta(elig);
+      if (sortedMeta) {
+        showResult(sortedMeta, (elig && elig.message) || "Hai già completato lo smistamento.", false);
+        return;
+      }
     }
 
     if (ev && ev.open === false && !(elig && elig.canSort)) {
@@ -464,7 +560,7 @@
       return;
     }
 
-    if (elig && elig.canSort === false && !elig.alreadySorted) {
+    if (elig && elig.canSort === false && !isAlreadySorted(elig)) {
       showGate(elig.message || "Smistamento non disponibile.");
       return;
     }
@@ -489,9 +585,9 @@
   function canShowQuizNow(ev, elig, token) {
     if (!token || (elig && elig.needsLogin)) return false;
     if (elig && elig.previewForbidden) return false;
-    if (elig && elig.alreadySorted && elig.houseMeta) return false;
+    if (isAlreadySorted(elig)) return false;
     if (ev && ev.open === false && !(elig && elig.canSort)) return false;
-    if (elig && elig.canSort === false && !elig.alreadySorted) return false;
+    if (elig && elig.canSort === false && !isAlreadySorted(elig)) return false;
     if (!state.questions.length) return false;
     return true;
   }
@@ -560,6 +656,13 @@
   }
 
   function startQuiz() {
+    if (isAlreadySorted(state.eligibility)) {
+      var doneMeta = sortingResultMeta(state.eligibility);
+      if (doneMeta) {
+        showResult(doneMeta, "Hai già completato lo smistamento.", false);
+        return;
+      }
+    }
     if (!state.questions.length) {
       showGate("Quiz non disponibile: riprova tra poco.");
       return;
@@ -670,8 +773,27 @@
     var pending = loadPendingSortingSubmit();
     var token = getToken();
     if (!pending || !token) return;
+    if (isAlreadySorted(state.eligibility)) {
+      clearPendingSortingSubmit();
+      return;
+    }
     retryInFlight = true;
     try {
+      try {
+        var eligOut = await fetchJson(apiBase() + "/eligibility", {
+          method: "GET",
+          headers: { Authorization: "Bearer " + token },
+        });
+        if (eligOut.res.ok && eligOut.data) {
+          state.eligibility = eligOut.data;
+          if (eligOut.data.alreadySorted || eligOut.data.house) {
+            markSortingCompleted(eligOut.data.houseMeta || sortingResultMeta(eligOut.data));
+            clearPendingSortingSubmit();
+            syncUiFromState();
+            return;
+          }
+        }
+      } catch (_) {}
       var out = await fetchJsonWithTimeout(apiBase(), {
         method: "POST",
         headers: {
@@ -681,6 +803,10 @@
         body: JSON.stringify({ answers: pending.answers }),
       }, 12000);
       if (out.res && out.res.ok && out.data && out.data.ok) {
+        if (out.data.alreadySorted || out.data.house) {
+          markSortingCompleted(out.data.houseMeta || sortingResultMeta(out.data));
+          syncUiFromState();
+        }
         clearPendingSortingSubmit();
         return;
       }
@@ -775,6 +901,13 @@
 
   async function submitSorting() {
     if (state.submitting) return;
+    if (isAlreadySorted(state.eligibility)) {
+      var lockedMeta = sortingResultMeta(state.eligibility);
+      if (lockedMeta) {
+        showResult(lockedMeta, "Hai già completato lo smistamento.", false);
+        return;
+      }
+    }
     var token = getToken();
     if (!token) {
       showGate("Sessione scaduta: effettua di nuovo il login.");
@@ -834,10 +967,23 @@
         resultShown = true;
         return;
       }
+      if (out.data && (out.data.alreadySorted || out.data.house)) {
+        markSortingCompleted(out.data.houseMeta || sortingResultMeta(out.data));
+        if (out.data.gringott) state.gringott = out.data.gringott;
+        clearPendingSortingSubmit();
+        renderGringott();
+        showResult(
+          sortingResultMeta(out.data) || out.data.houseMeta,
+          out.data.message || "Hai già completato lo smistamento.",
+          true,
+        );
+        resultShown = true;
+        return;
+      }
       if (!out.res.ok || !out.data || !out.data.ok) {
         savePendingSortingSubmit(answersPayload);
         schedulePendingSortingRetry(5000);
-        if (out.data && out.data.gringott) {
+        if (out.data && out.data.gringott && out.data.houseMeta) {
           state.gringott = out.data.gringott;
           markSortingCompleted(out.data.houseMeta);
           renderGringott();
@@ -1009,15 +1155,24 @@
       showGate(elig.message || "In anteprima lo smistamento non è ancora disponibile.");
       return;
     }
-    if (elig && elig.alreadySorted && elig.houseMeta) {
-      showResult(elig.houseMeta, elig.message || "", false);
+    if (isAlreadySorted(elig)) {
+      var doneMetaIntro = sortingResultMeta(elig);
+      if (doneMetaIntro) {
+        showResult(doneMetaIntro, (elig && elig.message) || "Hai già completato lo smistamento.", false);
+        return;
+      }
+    }
+    if (!canShowQuizNow(ev, elig, token)) {
+      showGate(
+        elig && elig.message
+          ? elig.message
+          : ev && ev.open === false && ev.phase === "before_start"
+            ? "Lo smistamento aprirà a breve. Torna tra poco!"
+            : "Smistamento non ancora disponibile.",
+      );
       return;
     }
-    if (ev && ev.open === false && !ev.previewMode) {
-      showGate(elig && elig.message ? elig.message : "Smistamento non ancora disponibile.");
-      return;
-    }
-    if (elig && elig.canSort === false && !elig.alreadySorted) {
+    if (elig && elig.canSort === false && !isAlreadySorted(elig)) {
       showGate(elig.message || "Smistamento non disponibile.");
       return;
     }

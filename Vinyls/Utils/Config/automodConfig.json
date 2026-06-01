@@ -46,6 +46,7 @@
     "mentions": true,
     "attachments": true,
     "webhookMessages": true,
+    "crossServerForwards": true,
     "slursPreset": false
   },
   "heatFactors": {
@@ -62,7 +63,8 @@
     "wordBlacklist": 1,
     "linkBlacklist": 1,
     "mentions": 1,
-    "attachments": 1
+    "attachments": 1,
+    "crossServerForward": 1
   },
   "heatCaps": {
     "maxPerMessage": 85,
@@ -128,18 +130,6 @@
       "mention_everyone",
       "mention_hour_cap"
     ],
-    "slursPresetAllowList": [
-      "spicy",
-      "spice",
-      "spices",
-      "spicier",
-      "spiciest",
-      "special",
-      "species",
-      "specific",
-      "specify",
-      "spinal",
-      "spinach"
-    ]
+    "keywordWildcardTerms": []
   }
 }

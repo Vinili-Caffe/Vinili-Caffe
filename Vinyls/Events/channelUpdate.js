@@ -1,5 +1,5 @@
 const { AuditLogEvent, EmbedBuilder, OverwriteType } = require("discord.js");
-const { queueCategoryRenumber, } = require("../Services/Community/communityOpsService");
+const { queueCategoryRenumber, isCategoryNumberingBotRename, } = require("../Services/Community/communityOpsService");
 const { queueIdsCatalogSync } = require("../Utils/Config/idsAutoSync");
 const { upsertChannelSnapshot, } = require("../Utils/Community/channelSnapshotUtils");
 const { ARROW, toDiscordTimestamp, channelDisplay, channelTypeLabel, formatAuditActor, permissionList, permissionDiff, buildAuditExtraLines, resolveChannelRolesLogChannel, resolveResponsible, } = require("../Utils/Logging/channelRolesLogUtils");
@@ -240,7 +240,11 @@ module.exports = {
 
     await upsertChannelSnapshot(newChannel || oldChannel).catch(() => { });
     if (client) {
-      queueCategoryRenumber(client, guildId);
+      const channelId = String(newChannel?.id || oldChannel?.id || "");
+      const botRenamed = nameChanged && isCategoryNumberingBotRename(channelId);
+      if (!botRenamed) {
+        queueCategoryRenumber(client, guildId);
+      }
       queueIdsCatalogSync(client, guildId, "channelUpdate");
     }
   },

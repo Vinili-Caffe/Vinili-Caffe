@@ -574,7 +574,10 @@
     "debounceMs": 1200,
     "intervalMs": 600000,
     "minDigits": 2,
-    "separator": " "
+    "separator": " ",
+    "channelCategoryIds": [
+      "1442569076902989844"
+    ]
   },
   "sponsorVerifyPanelsEnabled": false,
   "sponsorGuildIds": [
@@ -614,7 +617,9 @@
     "previewMode": false,
     "timezone": "Europe/Rome",
     "startDate": "2026-06-01T14:00:00",
+    "sortingStartDate": "2026-06-01T12:00:00",
     "endDate": "2026-09-01T12:00:00",
+    "sortingLogChannelId": "1507685351102353448",
     "eventKey": "hogwarts_summer_2026",
     "houses": {
       "gryffindor": { "roleId": "1504791825657888898", "label": "Gryffindor" },

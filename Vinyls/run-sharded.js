@@ -6,31 +6,69 @@ require("dotenv").config({ path: path.join(APP_ROOT, "..", ".env"), quiet: true 
 
 const enableSharding = process.env.ENABLE_SHARDING === "1" || process.env.SHARDING === "1";
 
-if (!enableSharding) {
-  require("./index.js");
-  return;
+function resolveToken() {
+  return (
+    process.env.DISCORD_TOKEN ||
+    process.env.DISCORD_TOKEN_OFFICIAL ||
+    (function () {
+      try {
+        return require("./config.json").token;
+      } catch {
+        return null;
+      }
+    })()
+  );
 }
 
-const { ShardingManager } = require("discord.js");
-const workerPath = path.join(APP_ROOT, "index.js");
-const token=process.env.DISCORD_TOKEN||process.env.DISCORD_TOKEN_OFFICIAL||(function(){try{return require("./config.json").token;}catch{return null;}})();
-
-if (!token) {
-  console.error("[SHARD] Missing token. Set DISCORD_TOKEN o DISCORD_TOKEN_OFFICIAL.");
-  process.exit(1);
-}
-
-const manager=new ShardingManager(workerPath,{totalShards:"auto",token,});
-
-manager.on("shardCreate", (shard) => {
+function logShard(message) {
   if (global.logger?.info) {
-    global.logger.info(`[SHARD] Shard ${shard.id} spawned`);
-  } else {
-    console.log(`[SHARD] Shard ${shard.id} spawned`);
+    global.logger.info(message);
+    return;
   }
-});
+  console.log(message);
+}
 
-manager.spawn().catch((err) => {
-  console.error("[SHARD] Failed to spawn shards:", err);
+async function start() {
+  if (!enableSharding) {
+    require("./index.js");
+    return;
+  }
+
+  const token = resolveToken();
+  if (!token) {
+    console.error("[SHARD] Missing token. Set DISCORD_TOKEN o DISCORD_TOKEN_OFFICIAL.");
+    process.exit(1);
+  }
+
+  let recommendedShards = 1;
+  try {
+    const { fetchRecommendedShardCount } = require("discord.js");
+    recommendedShards = await fetchRecommendedShardCount(token);
+  } catch (err) {
+    logShard(`[SHARD] recommended count failed, fallback 1 shard: ${err?.message || err}`);
+  }
+
+  if (!Number.isFinite(recommendedShards) || recommendedShards <= 1) {
+    logShard("[SHARD] 1 shard sufficiente: avvio diretto index.js (no ShardingManager)");
+    require("./index.js");
+    return;
+  }
+
+  const { ShardingManager } = require("discord.js");
+  const workerPath = path.join(APP_ROOT, "index.js");
+  const manager = new ShardingManager(workerPath, { totalShards: recommendedShards, token });
+
+  manager.on("shardCreate", (shard) => {
+    logShard(`[SHARD] Shard ${shard.id} spawned`);
+  });
+
+  await manager.spawn().catch((err) => {
+    console.error("[SHARD] Failed to spawn shards:", err);
+    process.exit(1);
+  });
+}
+
+start().catch((err) => {
+  console.error("[SHARD] Startup failed:", err?.message || err);
   process.exit(1);
 });

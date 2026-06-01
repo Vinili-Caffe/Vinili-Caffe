@@ -47,43 +47,57 @@ function discordCdnPathLooksAnimatedAsset(pathname) {
   return /\/a_[a-f0-9]+/i.test(String(pathname || ""));
 }
 
-function rewriteDiscordCdnUrl(url) {
+function buildDiscordCdnImageCandidates(url) {
   const raw = String(url || "");
-  if (!/^https?:\/\//i.test(raw)) return raw;
-  let next = raw;
+  if (!/^https?:\/\//i.test(raw)) return [raw];
+  let u;
   try {
-    const u = new URL(raw);
-    if (!isDiscordCdnRewritableHost(u.host)) return raw;
-    let path = String(u.pathname || "");
-    const animated = discordCdnPathLooksAnimatedAsset(path);
-    const isGifPath = /\.gif$/i.test(path);
-
-    if (path.endsWith(".webp")) {
-      u.pathname = animated ? path.replace(/\.webp$/i, ".gif") : path.replace(/\.webp$/i, ".png");
-      path = u.pathname;
-    } else if (animated && /\.png$/i.test(path)) {
-      u.pathname = path.replace(/\.png$/i, ".gif");
-      path = u.pathname;
-    } else {
-      const last = path.split("/").pop() || "";
-      if (last && !last.includes(".")) {
-        u.pathname = animated ? `${path}.gif` : isGifPath ? path : `${path}.png`;
-        path = u.pathname;
-      }
-    }
-
-    const gifFinal = /\.gif$/i.test(String(u.pathname || ""));
-    if (!gifFinal && !animated) {
-      if (u.searchParams.get("format")) u.searchParams.set("format", "png");
-      else u.searchParams.append("format", "png");
-    } else {
-      u.searchParams.delete("format");
-    }
-    if (!u.searchParams.get("size")) u.searchParams.append("size", "256");
-    next = u.toString();
+    u = new URL(raw);
   } catch {
+    return [raw];
   }
-  return next;
+  if (!isDiscordCdnRewritableHost(u.host)) return [raw];
+
+  const path = String(u.pathname || "");
+  const animated = discordCdnPathLooksAnimatedAsset(path);
+  const size = u.searchParams.get("size") || "256";
+  const seen = new Set();
+  const candidates = [];
+
+  const add = (pathname, { format = null } = {}) => {
+    const c = new URL(u.toString());
+    c.pathname = pathname;
+    c.searchParams.delete("format");
+    if (format) c.searchParams.set("format", format);
+    if (!c.searchParams.get("size")) c.searchParams.set("size", size);
+    const s = c.toString();
+    if (!seen.has(s)) {
+      seen.add(s);
+      candidates.push(s);
+    }
+  };
+
+  const extMatch = path.match(/^(.*)\.(gif|webp|png|jpe?g)$/i);
+  const basePath = extMatch ? extMatch[1] : path;
+  const ext = extMatch ? extMatch[2].toLowerCase() : "";
+
+  if (animated) {
+    add(`${basePath}.png`, { format: "png" });
+    add(`${basePath}.webp`);
+    if (ext && ext !== "gif") add(path);
+  } else {
+    if (ext === "webp") add(`${basePath}.png`, { format: "png" });
+    else if (!ext) add(`${path}.png`, { format: "png" });
+    add(path);
+  }
+
+  return candidates.length ? candidates : [raw];
+}
+
+function rewriteDiscordCdnUrl(url) {
+  const candidates = buildDiscordCdnImageCandidates(url);
+  const raw = String(url || "");
+  return candidates.find((candidate) => candidate !== raw) || raw;
 }
 
 function shouldWarnOnce(key) {
@@ -131,11 +145,7 @@ async function safeLoadImage(source, opts = {}) {
       });
 
     const host = safeHost(src);
-    const candidates = [src];
-    if (isDiscordCdnRewritableHost(host)) {
-      const rewritten = rewriteDiscordCdnUrl(src);
-      if (rewritten && rewritten !== src) candidates.push(rewritten);
-    }
+    const candidates = isDiscordCdnRewritableHost(host) ? buildDiscordCdnImageCandidates(src) : [src];
 
     let res = null;
     let lastErr = null;
@@ -212,11 +222,7 @@ async function fetchHttpImageBuffer(url, opts = {}) {
       maxRedirects: 3,
     });
   const host = safeHost(src);
-  const candidates = [src];
-  if (isDiscordCdnRewritableHost(host)) {
-    const rewritten = rewriteDiscordCdnUrl(src);
-    if (rewritten && rewritten !== src) candidates.push(rewritten);
-  }
+  const candidates = isDiscordCdnRewritableHost(host) ? buildDiscordCdnImageCandidates(src) : [src];
   let res = null;
   let lastErr = null;
   for (const u of candidates) {

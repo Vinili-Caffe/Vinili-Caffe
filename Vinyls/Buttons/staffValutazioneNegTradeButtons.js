@@ -180,7 +180,7 @@ async function execute(interaction) {
       await interaction
         .followUp({
           content:
-            "<:vegacheckmark:1443666279058772028> **Fatto:** rimosse **3 positive** (FIFO) e **1 negativa** scelta. Controlla il canale **valutazioni staff**.",
+            "<:vegacheckmark:1443666279058772028> **Fatto:** rimosse **3 positive** e **1 negativa** scelta. Controlla il canale **valutazioni staff**.",
           flags: PRIVATE_FLAG,
         })
         .catch(() => {});

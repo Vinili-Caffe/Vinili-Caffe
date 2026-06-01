@@ -63,7 +63,8 @@ function resolveBotWorkingDir(bot) {
 function splitStartPath(bot) {
     const workingDir = resolveBotWorkingDir(bot);
     const shardingFlag = String(process.env.ENABLE_SHARDING || process.env.SHARDING || '').trim().toLowerCase();
-    const useSharded=bot.key==='vinyls'&&shardingFlag!=='0'&&shardingFlag!=='false'&&fs.existsSync(path.join(workingDir,'run-sharded.js'));
+    const shardingEnabled = ['1', 'true', 'yes', 'on'].includes(shardingFlag);
+    const useSharded = false;
     console.log(
         `[Loader] ${bot.label} ENABLE_SHARDING=${String(process.env.ENABLE_SHARDING || process.env.SHARDING || '')} -> ${useSharded ? 'run-sharded.js' : 'index.js'}`
     );

@@ -7,6 +7,7 @@ const fs = require("fs");
 const path = require("path");
 const { readSnapshotWithMeta, writeSnapshotWithMeta } = require("../../../shared/recovery/snapshotStore");
 const { registerShutdownFlush, armShutdownCheckpoint } = require("../../../shared/recovery/shutdownCheckpoint");
+const { notifyBotPresenceVoiceActivity } = require("../../../shared/discord/botPresenceActivity");
 const MUSIC_LOGS = String(process.env.MUSIC_LOGS || "0").trim() === "1";
 const MUSIC_DEFAULT_LAVALINK_VOLUME = 20;
 
@@ -356,6 +357,7 @@ async function resumeRestoredMusicSessions(client) {
           channelId: voiceChannel.id,
           deaf: true,
         });
+        notifyBotPresenceVoiceActivity(client);
       }
       attachEndHandler(client, player, gid);
       await player.setGlobalVolume(resolveDefaultJoinGlobalVolume());
@@ -2004,6 +2006,7 @@ async function playMusicRequest(ctx, query) {
         channelId: voiceChannel.id,
         deaf: true,
       });
+      notifyBotPresenceVoiceActivity(client);
     } catch (err) {
       global.logger?.warn?.("[MUSIC] joinVoiceChannel:", err?.message || err);
       return { ok: false, message: musicJoinVoiceChannelErrorMessage(err) };

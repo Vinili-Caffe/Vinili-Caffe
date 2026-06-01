@@ -430,6 +430,8 @@ const activityUserProfileSchema = new Schema(
         lastSentAt: { type: Date, default: null },
         hasLink: { type: Boolean, default: false },
       },
+      countingRestoreLastDayKey: { type: String, default: null },
+      countingChannelBanUntil: { type: Date, default: null },
       serverBoostAnnouncedSlotCount: { type: Number, default: null, min: 0 },
       afk: {
         message: { type: String, default: null },
@@ -645,6 +647,8 @@ const SITE_DOCUMENT_TYPE = Object.freeze({
   HOGWARTS_REACT_PRESS: "hogwarts_react_press",
   HOGWARTS_EVENT_COMPLETION: "hogwarts_event_completion",
   HOGWARTS_SPELL_LIST_HUNT: "hogwarts_spell_list_hunt",
+  COMMUNITY_FIRST_MESSAGE_DAILY: "community_first_message_daily",
+  COMMUNITY_WELCOME_GREETING_EXP: "community_welcome_greeting_exp",
 });
 
 const siteSuggestionCommentSchema = new Schema(
@@ -812,6 +816,14 @@ siteDocumentSchema.index(
 siteDocumentSchema.index(
   { docType: 1, guildId: 1, dedupeKey: 1 },
   { unique: true, name: "hogwarts_spell_list_hunt_round_unique", partialFilterExpression: { docType: SITE_DOC.HOGWARTS_SPELL_LIST_HUNT } },
+);
+siteDocumentSchema.index(
+  { docType: 1, guildId: 1, dedupeKey: 1 },
+  { unique: true, name: "community_first_message_daily_unique", partialFilterExpression: { docType: SITE_DOC.COMMUNITY_FIRST_MESSAGE_DAILY } },
+);
+siteDocumentSchema.index(
+  { docType: 1, guildId: 1, userId: 1, dedupeKey: 1 },
+  { unique: true, name: "community_welcome_greeting_exp_unique", partialFilterExpression: { docType: SITE_DOC.COMMUNITY_WELCOME_GREETING_EXP } },
 );
 
 const MOD_CASE_COLLECTION = process.env.MOD_CASE_COLLECTION ? String(process.env.MOD_CASE_COLLECTION).trim() : "mod_case";

@@ -116,6 +116,7 @@ const ids = {
     bestStaff: "1442569253281730653",
     topWeeklyUser: "1470183921236049940",
     hogwartsHouseActivityReport: "1507685351102353448",
+    hogwartsSortingLog: "1507685351102353448",
     hogwartsHouseGryffindor: "1508574298556727306",
     hogwartsHouseHufflepuff: "1508574775323132046",
     hogwartsHouseRavenclaw: "1508574922270703765",

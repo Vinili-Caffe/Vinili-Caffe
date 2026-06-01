@@ -10,17 +10,7 @@ module.exports = {
   async execute(message, args = []) {
     await message.channel.sendTyping();
     const { lookbackDays } = serverButton.parseServerActivityArgs(args);
-    const loading = serverButton.buildServerLoadingPayload?.(lookbackDays, message.author?.id);
-    let sent = loading
-      ? await safeMessageReply(message, { ...loading, allowedMentions: { repliedUser: false } })
-      : null;
     const payload = await serverButton.buildServerOverviewPayload(message.guild, lookbackDays, message.author?.id);
-    if (sent?.edit) {
-      await sent.edit(serverButton.normalizeServerMessageEdit(payload, { repliedUser: false })).catch(async () => {
-        await safeMessageReply(message, serverButton.normalizeServerMessageEdit(payload, { repliedUser: false }));
-      });
-      return;
-    }
     await safeMessageReply(message, serverButton.normalizeServerMessageEdit(payload, { repliedUser: false }));
   },
 };

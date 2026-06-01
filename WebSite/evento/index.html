@@ -32,6 +32,8 @@
 
     {{HOGWARTS_EVENT_HEADER}}
 
+    <button type="button" class="vc-hw-music-fab vc-hw-music-btn" id="vc-hw-music-btn" hidden aria-label="Musica di sottofondo"><i class="fa fa-volume-up" aria-hidden="true"></i></button>
+
     <main class="relative z-10 mx-auto max-w-6xl px-4 pb-20 pt-28 sm:pt-32">
       <section class="vc-hw-hero text-center" aria-labelledby="vc-hw-hub-title">
         <p class="vc-hw-eyebrow">Evento Stagionale</p>
@@ -85,7 +87,11 @@
         apiUrlLocal: "{{SITE_NOTIFICATIONS_API_URL_LOCAL}}",
       };
       window.__VC_HOGWARTS_EVENT_CALENDAR = JSON.parse('{{HOGWARTS_EVENT_CALENDAR_JSON}}');
+      window.__VC_HOGWARTS_BGM = JSON.parse(decodeURIComponent("{{HOGWARTS_BGM_URI}}"));
     </script>
+    <script src="../js/vc-youtube-iframe-api.js"></script>
+    <script src="../js/hogwarts-bgm-youtube.js"></script>
+    <script>if(window.__vcHogwartsYoutubeSetupIfConfigured)window.__vcHogwartsYoutubeSetupIfConfigured();</script>
     <script src="../js/discord-auth.js" defer></script>
     <script src="../js/hogwarts-event-hub-page.js" defer></script>
   </body>

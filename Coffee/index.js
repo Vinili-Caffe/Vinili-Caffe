@@ -20,15 +20,17 @@ if (process.env.RUN_UNDER_LOADER !== "1") {
 }
 
 const installProcessHandlers = require("./Handlers/processHandler");
+const { buildInitialClientPresenceOptions, installBotPresenceHooks, patchClientPresenceGuard } = require("../shared/discord/botPresenceActivity");
 installProcessHandlers();
 
 const intentList = [...new Set(Object.values(GatewayIntentBits).filter((x) => typeof x === "number" && x > 0))];
 if (intentList.length === 0) intentList.push(1);
 const partialList = [...new Set(Object.values(Partials).filter((x) => typeof x === "number"))];
+const coffeeConfig = require("./config.json");
 const client = new Client({
   intents: intentList,
   partials: partialList,
-  presence: { status: "invisible" },
+  presence: buildInitialClientPresenceOptions(coffeeConfig),
   rest: { timeout: 30_000, offset: 50, retries: 3 },
 });
 
@@ -52,7 +54,8 @@ function applyListenerCeiling(clientRef, configLike) {
 }
 
 try {
-  client.config = require("./config.json");
+  client.config = coffeeConfig;
+  patchClientPresenceGuard(client);
 } catch (err) {
   global.logger.error(
     " config.json mancante o non valido:",
@@ -66,6 +69,7 @@ client.config.token = getToken(client.config, "DISCORD_TOKEN_TEST");
 client.config.mongoURL = getMongoUrl(client.config);
 ensureToken(client.config.token, "Bot Test (DISCORD_TOKEN_TEST)");
 applyListenerCeiling(client, client.config);
+installBotPresenceHooks(client);
 
 client.logs = require("./Utils/Moderation/logs");
 initializeCommandCollections(client);

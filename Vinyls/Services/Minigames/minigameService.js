@@ -18,10 +18,10 @@ const { getClientChannelCached, getGuildMemberCached, } = require("../../Utils/I
 const { getGuessYearBank, getCompleteVerseBank, getGuessEmojiBank, getQuoteFilmBank, getProverbBank, getSynonymAntonymBank, getGuessCityBank, getCapitalQuizBank, getItalianRegionCapitalBank, getItalianGkBank, getDrivingTrueFalseBank, getDrivingMultipleChoiceBank, getDrivingSignQuestions, getFastTypingPhrases, getHangmanWords, getTreasureHuntEmojiPairs, getHogwartsQuizBank, getHogwartsCipherBank, getHogwartsMemoryEmojiBank, getMemoryEmojiBank, CAPITAL_ITALIAN, CAPITAL_COUNTRY_REGION, REGION_AREA, REGION_HINT_DATA, FAMOUS_CAPITAL_COUNTRIES, FLAG_WELL_KNOWN_COUNTRIES } = require("../../Data/Minigames/minigameBanks");
 const { resolveHogwartsEventConfig, isEventWindowOpen } = require("../../Utils/Web/hogwartsSortingConfig");
 const { getHouseMeta } = require("../../Utils/Web/hogwartsSortingBank");
-const { isUserHighStaffExcludedFromHogwartsEvent } = require("../../Utils/Web/hogwartsEventParticipation");
 const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
 const { isValidGuildUserId } = require("../../Utils/DB/validateWriteIds");
 const activeGames = new Map();
+const channelWinClosing = new Set();
 const pendingGames = new Map();
 const loopState = new WeakSet();
 const loopIntervals = new WeakMap();
@@ -799,6 +799,35 @@ async function clearActiveGame(client, cfg) {
       warnMinigame(err);
     }
   }
+}
+
+function clearMinigameRoundTimers(game) {
+  if (!game || typeof game !== "object") return;
+  if (game.timeout) clearTimeout(game.timeout);
+  if (game.hintTimeout) clearTimeout(game.hintTimeout);
+  if (game.revealTimeout) clearTimeout(game.revealTimeout);
+  if (Array.isArray(game.censorRevealTimeouts)) game.censorRevealTimeouts.forEach((t) => clearTimeout(t));
+}
+
+async function beginMinigameWinClose(client, cfg, game = null) {
+  const channelId = String(cfg?.channelId || "").trim();
+  if (!channelId) return false;
+  if (channelWinClosing.has(channelId)) return false;
+  channelWinClosing.add(channelId);
+  const live = activeGames.get(channelId) || game;
+  clearMinigameRoundTimers(live);
+  activeGames.delete(channelId);
+  let guildId = String(cfg?.guildId || "").trim();
+  if (!guildId) {
+    const channel = await getChannelCached(client, channelId);
+    guildId = String(channel?.guild?.id || "").trim();
+  }
+  if (guildId) await clearActiveGame(client, { ...cfg, guildId, channelId });
+  return true;
+}
+
+function endMinigameWinClose(channelId) {
+  channelWinClosing.delete(String(channelId || "").trim());
 }
 
 function randomBetween(min, max) {
@@ -1665,6 +1694,99 @@ function buildAliases(values = []) {
     if (compact) out.add(compact);
   }
   return Array.from(out.values());
+}
+
+function normalizeQuizQuestionKey(questionText) {
+  return normalizeCountryName(polishItalianQuestionText(questionText) || questionText);
+}
+
+function findHogwartsQuizBankRow(questionText) {
+  const key = normalizeQuizQuestionKey(questionText);
+  if (!key) return null;
+  return findHogwartsQuizBankRowByKey(key);
+}
+
+function findHogwartsQuizBankRowByKey(questionKey) {
+  const key = String(questionKey || "").trim();
+  if (!key) return null;
+  for (const row of getHogwartsQuizBank()) {
+    const rowKey = normalizeQuizQuestionKey(row?.question);
+    if (rowKey && rowKey === key) return row;
+  }
+  return null;
+}
+
+function addValuesToHogwartsQuizPool(pool, values) {
+  if (!Array.isArray(values) || !values.length) return;
+  const cleaned = values.map((a) => String(a || "").trim()).filter(Boolean);
+  if (!cleaned.length) return;
+  for (const alias of buildAliases(cleaned)) {
+    if (alias) pool.add(alias);
+  }
+}
+
+function resolveHogwartsQuizAnswerPool(game) {
+  const pool = new Set();
+  const row =
+    findHogwartsQuizBankRow(game?.question) ||
+    findHogwartsQuizBankRowByKey(game?.questionKey);
+  if (row?.answers?.length) {
+    addValuesToHogwartsQuizPool(pool, row.answers);
+    if (game && typeof game === "object") {
+      game.sourceAnswers = row.answers.map((a) => String(a || "").trim()).filter(Boolean);
+      game.questionKey = normalizeQuizQuestionKey(row.question);
+      game.answers = [...pool];
+    }
+  }
+  addValuesToHogwartsQuizPool(pool, game?.sourceAnswers);
+  if (!pool.size) {
+    const legacy = Array.isArray(game?.answers)
+      ? game.answers.map((a) => String(a || "").trim()).filter(Boolean)
+      : [];
+    if (legacy.length) {
+      const looksNormalized = legacy.every((a) => /^[a-z0-9\s]+$/.test(a));
+      if (looksNormalized) legacy.forEach((a) => pool.add(a));
+      else addValuesToHogwartsQuizPool(pool, legacy);
+    }
+  }
+  return [...pool];
+}
+
+function isHogwartsQuizGuessCorrect(rawGuess, game, poolIn) {
+  const pool = Array.isArray(poolIn) && poolIn.length ? poolIn : resolveHogwartsQuizAnswerPool(game);
+  if (!pool.length) return false;
+  const guessNorm = normalizeCountryName(rawGuess);
+  const guessCompact = compactNoSpaces(guessNorm);
+  if (!guessNorm && !guessCompact) return false;
+  for (const answer of pool) {
+    if (!answer) continue;
+    if (guessNorm === answer) return true;
+    if (guessCompact && guessCompact === compactNoSpaces(answer)) return true;
+  }
+  const opts = { minGuessLength: 1, minTokenLength: 1, singleTokenMinLength: 1 };
+  if (isLooseAliasGuessCorrect(rawGuess, pool, normalizeCountryName, opts)) return true;
+  const guessTokens = toMeaningfulTokens(guessNorm, 1);
+  if (guessTokens.length === 1) {
+    const token = guessTokens[0];
+    for (const answer of pool) {
+      const answerTokens = toMeaningfulTokens(answer, 1);
+      if (answerTokens.includes(token)) return true;
+    }
+  }
+  return false;
+}
+
+async function reactMinigameWin(message) {
+  let reacted = false;
+  try {
+    await message.react(MINIGAME_WIN_EMOJI);
+    reacted = true;
+  } catch (err) {
+    warnMinigame(err);
+  }
+  if (!reacted) {
+    await message.react(MINIGAME_CORRECT_FALLBACK_EMOJI).catch(() => {});
+  }
 }
 
 function createMathQuestion() {
@@ -4061,10 +4183,10 @@ function buildWinEmbed(winnerId, effectiveExp, totalExp, details = null) {
     if (details.streakBonus > 0) extras.push(`<a:VC_Flame:1482725674711126140> Streak ${details.newStreak} **+${details.streakBonus} exp**`);
     if (details.housePoints > 0 && details.allHouses) {
       const petTag = details.petMultiplier > 1 ? ` (×${details.petMultiplier} ${details.petName || "animale"})` : "";
-      extras.push(`<a:VC_Star:1482706774372253788> Utente non smistato: **+${details.housePoints} punti** a tutte le case${petTag}`);
+      extras.push(`<:VC_Hogwarts:1508766773837693061> Utente non smistato: **+${details.housePoints} punti** a tutte le case${petTag}`);
     } else if (details.housePoints > 0) {
       const petTag = details.petMultiplier > 1 ? ` (×${details.petMultiplier} ${details.petName || "animale"})` : "";
-      extras.push(`<a:VC_Star:1482706774372253788> Casa **+${details.housePoints} punti**${petTag}`);
+      extras.push(`<:VC_Hogwarts:1508766773837693061> Casa **+${details.housePoints} punti**${petTag}`);
     }
     if (extras.length) lines.push("", ...extras);
   }
@@ -4633,9 +4755,6 @@ async function awardHogwartsHousePointsForWinner(client, guildId, userId, gameTy
   const gid = String(guildId || "").trim();
   const uid = String(userId || "").trim();
   if (!isValidGuildUserId(gid, uid)) return null;
-  const guild = client?.guilds?.cache?.get(gid) || (await client?.guilds?.fetch?.(gid).catch(() => null));
-  const member = guild ? await getGuildMemberCached(guild, uid).catch(() => null) : null;
-  if (await isUserHighStaffExcludedFromHogwartsEvent(client, uid, member)) return null;
   const { applyPetHousePointsBoost } = require("../Community/hogwartsShopBoostsService");
   const petBoostSorted = await applyPetHousePointsBoost(client, gid, uid, basePoints);
   const petBoostFallback = await applyPetHousePointsBoost(client, gid, uid, baseFallback);
@@ -5856,13 +5975,23 @@ async function startItalianGkGame(client, cfg) {
 
 async function startHogwartsQuizGame(client, cfg) {
   const channelId = cfg.channelId;
-  if (!channelId || activeGames.has(channelId)) return false;
+  if (!channelId) return false;
   if (!cfg?.hogwartsQuiz?.eventLive) return false;
+  if (activeGames.has(channelId)) {
+    const prev = activeGames.get(channelId);
+    if (prev && !isStaleOrInvalidActiveGame(prev)) return false;
+    if (prev?.timeout) clearTimeout(prev.timeout);
+    if (prev?.hintTimeout) clearTimeout(prev.hintTimeout);
+    activeGames.delete(channelId);
+    await clearActiveGame(client, cfg);
+  }
 
   const pick = pickQuestionAvoidRecent(channelId, "hogwartsQuiz", getHogwartsQuizBank(), (q) => q?.question, 80);
   if (!pick?.question || !Array.isArray(pick?.answers) || !pick.answers.length) return false;
 
-  const answers = buildAliases(pick.answers);
+  const questionKey = normalizeQuizQuestionKey(pick.question);
+  const sourceAnswers = pick.answers.map((a) => String(a || "").trim()).filter(Boolean);
+  const answers = buildAliases(sourceAnswers);
   if (!answers.length) return false;
 
   const rewardExp = normalizeRewardExp(cfg?.hogwartsQuiz?.rewardExp ?? 180);
@@ -5892,9 +6021,11 @@ async function startHogwartsQuizGame(client, cfg) {
   timeout.unref?.();
   const hintTimeout = await scheduleGenericHint(client, channelId, durationMs, `Risposta: ${buildRevealHint(displayAnswer)}`);
 
-  activeGames.set(channelId, {
+  const hogwartsGame = {
     type: "hogwartsQuiz",
     question,
+    questionKey,
+    sourceAnswers,
     answers,
     displayAnswer,
     rewardExp,
@@ -5903,13 +6034,17 @@ async function startHogwartsQuizGame(client, cfg) {
     timeout,
     hintTimeout,
     gameMessageId: gameMessage?.id || null,
-  });
+  };
+  hogwartsGame.answers = resolveHogwartsQuizAnswerPool(hogwartsGame);
+  activeGames.set(channelId, hogwartsGame);
 
   await saveActiveGame(client, cfg, {
     type: "hogwartsQuiz",
     target: JSON.stringify({
       question,
-      answers,
+      questionKey,
+      sourceAnswers: hogwartsGame.sourceAnswers,
+      answers: hogwartsGame.answers,
       displayAnswer,
     }),
     rewardExp,
@@ -6057,7 +6192,6 @@ async function awardObservationTowerParticipants(client, cfg, guild, participant
   for (const [userId, count] of Object.entries(serializeObservationTowerParticipants(participantCounts))) {
     if (!guildId || !userId || Number(count || 0) <= 0) continue;
     const member = await getGuildMemberCached(guild, userId, { ttlMs: 20_000 });
-    if (await isUserHighStaffExcludedFromHogwartsEvent(client, userId, member)) continue;
     const ignoreExp = await shouldIgnoreExpForMember({ guildId, member, channelId: cfg.channelId });
     if (ignoreExp) continue;
     const result = await addExpWithLevel(guild, userId, rewardExp, false, true).catch((err) => {
@@ -7417,6 +7551,71 @@ async function ensureTreasureHuntGame(client, cfg) {
   return mountTreasureHuntGame(client, { ...cfg, guildId }, channel, state, remainingMs);
 }
 
+async function mountHogwartsQuizGameFromState(client, cfg, channel, state, remainingMs) {
+  const parsed = parseStateTarget(state.target);
+  const question = parsed?.question || "Domanda";
+  const questionKey =
+    String(parsed?.questionKey || "").trim() || normalizeQuizQuestionKey(question);
+  let sourceAnswers = Array.isArray(parsed?.sourceAnswers)
+    ? parsed.sourceAnswers.map((a) => String(a || "").trim()).filter(Boolean)
+    : [];
+  const bankRow = findHogwartsQuizBankRow(question) || findHogwartsQuizBankRowByKey(questionKey);
+  if (bankRow?.answers?.length) {
+    sourceAnswers = bankRow.answers.map((a) => String(a || "").trim()).filter(Boolean);
+  }
+  const displayAnswer = parsed?.displayAnswer || sourceAnswers[0] || "sconosciuta";
+  const endsAt = new Date(state.endsAt).getTime();
+  const timeout = setTimeout(async () => {
+    const game = activeGames.get(cfg.channelId);
+    if (!game) return;
+    recordNoParticipationIfNeeded(cfg.channelId, game);
+    activeGames.delete(cfg.channelId);
+    if (game.hintTimeout) clearTimeout(game.hintTimeout);
+    await channel.send({ embeds: [buildTimeoutHogwartsQuizEmbed(game.displayAnswer)] }).catch(() => { });
+    await clearActiveGame(client, cfg);
+  }, remainingMs);
+  timeout.unref?.();
+  const hintTimeout = await scheduleGenericHint(client, cfg.channelId, remainingMs, `Risposta: ${buildRevealHint(displayAnswer)}`);
+  const game = {
+    type: "hogwartsQuiz",
+    question,
+    questionKey,
+    sourceAnswers,
+    answers: [],
+    displayAnswer,
+    rewardExp: Number(state.rewardExp || 0),
+    startedAt: new Date(state.startedAt).getTime(),
+    endsAt,
+    timeout,
+    hintTimeout,
+    gameMessageId: state.gameMessageId || null,
+  };
+  game.answers = resolveHogwartsQuizAnswerPool(game);
+  activeGames.set(cfg.channelId, game);
+  return game;
+}
+
+async function ensureHogwartsQuizGame(client, cfg) {
+  const channelId = cfg?.channelId;
+  if (!channelId) return null;
+  if (channelWinClosing.has(String(channelId))) return null;
+  const cached = activeGames.get(channelId);
+  if (cached?.type === "hogwartsQuiz") {
+    resolveHogwartsQuizAnswerPool(cached);
+    return cached;
+  }
+  let guildId = String(cfg?.guildId || "").trim();
+  const channel = await getChannelCached(client, channelId);
+  if (!channel?.guild) return null;
+  if (!guildId) guildId = String(channel.guild.id || "");
+  const state = await minigameStateFindOneLean({ guildId, channelId }).catch(() => null);
+  if (!state || state.type !== "hogwartsQuiz") return null;
+  const endsAt = new Date(state.endsAt).getTime();
+  const remainingMs = endsAt - Date.now();
+  if (remainingMs <= 0) return null;
+  return await mountHogwartsQuizGameFromState(client, { ...cfg, guildId }, channel, state, remainingMs);
+}
+
 async function treasureHuntDisplayTexts(guild, gameOrDecoy, winnerOrGame) {
   await ensureGuildEmojisForTreasure(guild);
   if (gameOrDecoy && typeof gameOrDecoy === "object") {
@@ -8061,14 +8260,13 @@ async function forceStartMinigame(client) {
 
 async function awardWinAndReply(message, rewardExp, game = null) {
   clearNoParticipationDelay(message.channelId);
-  const member = message.member || (await getGuildMemberCached(message.guild, message.author.id, { ttlMs: 20_000 }));
-  if (
-    isHogwartsMinigameType(game?.type) &&
-    (await isUserHighStaffExcludedFromHogwartsEvent(message.client, message.author.id, member))
-  ) {
-    return false;
-  }
   const cfg = getConfig(message.client);
+  const clearCfg = { ...cfg, guildId: message.guild.id };
+  const channelId = String(clearCfg.channelId || "");
+  const closed = await beginMinigameWinClose(message.client, clearCfg, game);
+  if (!closed) return;
+  try {
+  const member = message.member || (await getGuildMemberCached(message.guild, message.author.id, { ttlMs: 20_000 }));
   const baseExp = normalizeRewardExp(rewardExp || 0);
   const startedAt = game?.startedAt ?? 0;
   const elapsed = typeof startedAt === "number" ? Date.now() - startedAt : Infinity;
@@ -8117,16 +8315,7 @@ async function awardWinAndReply(message, rewardExp, game = null) {
     getHogwartsHousePointReward(cfg, game?.type),
     getHogwartsUnsortedHousePointReward(cfg, game?.type),
   );
-  let reacted = false;
-  try {
-    await message.react(MINIGAME_WIN_EMOJI);
-    reacted = true;
-  } catch (err) {
-    warnMinigame(err);
-  }
-  if (!reacted) {
-    await message.react(MINIGAME_CORRECT_FALLBACK_EMOJI).catch(() => { });
-  }
+  await reactMinigameWin(message);
   const hasDetails = fastBonus > 0 || streakBonus > 0 || Number(houseAward?.points || 0) > 0;
   const details = hasDetails
     ? {
@@ -8145,7 +8334,21 @@ async function awardWinAndReply(message, rewardExp, game = null) {
   if (member) {
     await handleExpReward(message.client, member, nextTotal);
   }
-  await clearActiveGame(message.client, { ...cfg, guildId: message.guild.id });
+  } catch (err) {
+    warnMinigame(err);
+    await reactMinigameWin(message).catch(() => {});
+    await message
+      .reply({
+        content:
+          "<:VC_Attention:1482534443632558151> Risposta registrata, ma non sono riuscito a completare i premi. Il round è comunque chiuso.",
+      })
+      .catch((replyErr) => warnMinigame(replyErr));
+  } finally {
+    if (channelId) {
+      await clearActiveGame(message.client, clearCfg).catch(() => { });
+      endMinigameWinClose(channelId);
+    }
+  }
 }
 
 async function handleMinigameMessage(message, client) {
@@ -8157,6 +8360,7 @@ async function handleMinigameMessage(message, client) {
   const chatId = String(cfg.channelId || "");
   const mediaId = String(IDs.channels.media || "").trim();
   const chId = String(message.channelId || "");
+  if (channelWinClosing.has(chatId)) return true;
   const gameBucket = activeGames.get(chatId);
   if (
     !gameBucket &&
@@ -8166,7 +8370,12 @@ async function handleMinigameMessage(message, client) {
     recordActivity(getActivityScopeKey(cfg), getActivityWindowMs(cfg), message.author?.id);
   }
   if (chId !== chatId) return false;
-  const game = gameBucket;
+  let game = gameBucket;
+  if (!game) {
+    game = await ensureHogwartsQuizGame(client, cfg);
+  } else if (game.type === "hogwartsQuiz") {
+    resolveHogwartsQuizAnswerPool(game);
+  }
   if (game && isStaleOrInvalidActiveGame(game)) {
     if (game.timeout) clearTimeout(game.timeout);
     if (game.hintTimeout) clearTimeout(game.hintTimeout);
@@ -8489,8 +8698,6 @@ async function handleMinigameMessage(message, client) {
   if (game.type === "hogwartsObservationTower") {
     if (getObservationTowerLetterCount(content) < Number(game.minLetters || 5)) return false;
     const userId = String(message.author.id || "");
-    const towerMember = message.member || (await getGuildMemberCached(message.guild, userId, { ttlMs: 20_000 }));
-    if (await isUserHighStaffExcludedFromHogwartsEvent(message.client, userId, towerMember)) return false;
     const houseId = await resolveHogwartsSortedHouse(message.guild.id, userId, hogwartsHousePointsDedupeKey(message.client));
     if (!houseId) {
       await message.react(MINIGAME_WRONG_EMOJI).catch(() => { });
@@ -8616,13 +8823,8 @@ async function handleMinigameMessage(message, client) {
 
   if (game.type === "hogwartsQuiz") {
     if (await rejectMinigameShotgunListingGuess(message, content, "multiline")) return false;
-    if (
-      isLooseAliasGuessCorrect(contentForGuess, game.answers, normalizeCountryName, {
-        minGuessLength: 2,
-        minTokenLength: 2,
-        singleTokenMinLength: 2,
-      })
-    ) {
+    const hogwartsAnswerPool = resolveHogwartsQuizAnswerPool(game);
+    if (isHogwartsQuizGuessCorrect(contentForGuess, game, hogwartsAnswerPool)) {
       clearTimeout(game.timeout);
       if (game.hintTimeout) clearTimeout(game.hintTimeout);
       activeGames.delete(cfg.channelId);
@@ -8630,7 +8832,7 @@ async function handleMinigameMessage(message, client) {
       return true;
     }
     if (
-      isNearTextGuess(contentForGuess, game.answers, {
+      isNearTextGuess(contentForGuess, hogwartsAnswerPool, {
         maxDistance: 2,
         maxRatio: 0.25,
         minGuessLength: 2,
@@ -9163,9 +9365,17 @@ ${game.previewUrl}`,
   }
 
   clearNoParticipationDelay(cfg.channelId);
-  clearTimeout(game.timeout);
-  if (game.hintTimeout) clearTimeout(game.hintTimeout);
-  activeGames.delete(cfg.channelId);
+  const winCfg = { ...cfg, guildId: interaction.guild.id };
+  const closed = await beginMinigameWinClose(interaction.client, winCfg, game);
+  if (!closed) {
+    await interaction
+      .reply({
+        content: "<:cancel:1461730653677551691> Partita già conclusa.",
+        flags: 1 << 6,
+      })
+      .catch(() => { });
+    return true;
+  }
 
   const baseExp = normalizeRewardExp(game.rewardExp || 0);
   const startedAt = game.startedAt ?? 0;
@@ -9248,7 +9458,6 @@ ${game.previewUrl}`,
   if (member) {
     await handleExpReward(interaction.client, member, nextTotal);
   }
-  await clearActiveGame(interaction.client, { ...cfg, guildId: interaction.guild.id });
 
   try {
     const channel = interaction.channel;
@@ -9258,6 +9467,9 @@ ${game.previewUrl}`,
     }
   } catch (err) {
     warnMinigame(err);
+  } finally {
+    await clearActiveGame(interaction.client, winCfg).catch(() => { });
+    endMinigameWinClose(cfg.channelId);
   }
 
   return true;
@@ -9929,24 +10141,7 @@ async function restoreActiveGames(client) {
     return;
   }
   if (state.type === "hogwartsQuiz") {
-    const parsed = parseStateTarget(state.target);
-    const question = parsed?.question || "Domanda";
-    const answers = Array.isArray(parsed?.answers) ? parsed.answers : [];
-    const displayAnswer = parsed?.displayAnswer || answers[0] || "sconosciuta";
-    const timeout = setTimeout(async () => { const game = activeGames.get(cfg.channelId); if (!game) return; recordNoParticipationIfNeeded(cfg.channelId, game); activeGames.delete(cfg.channelId); await channel.send({ embeds: [buildTimeoutHogwartsQuizEmbed(game.displayAnswer)] }).catch(() => { }); await clearActiveGame(client, cfg); }, remainingMs); timeout.unref?.();
-    const hintTimeout = await scheduleGenericHint(client, cfg.channelId, remainingMs, `Risposta: ${buildRevealHint(displayAnswer)}`);
-    activeGames.set(cfg.channelId, {
-      type: "hogwartsQuiz",
-      question,
-      answers,
-      displayAnswer,
-      rewardExp: Number(state.rewardExp || 0),
-      startedAt: new Date(state.startedAt).getTime(),
-      endsAt,
-      timeout,
-      hintTimeout,
-      gameMessageId: state.gameMessageId || null,
-    });
+    await mountHogwartsQuizGameFromState(client, cfg, channel, state, remainingMs);
     return;
   }
   if (state.type === "hogwartsCipher") {

@@ -1,6 +1,6 @@
 const { EmbedBuilder } = require("discord.js");
 const { SiteDocument } = require("../../Schemas/Community/communitySchemas");
-const { resolveHogwartsEventConfig } = require("../../Utils/Web/hogwartsSortingConfig");
+const { resolveHogwartsEventConfig, resolveHubStartMs } = require("../../Utils/Web/hogwartsSortingConfig");
 const { getHouseMeta, HOUSES } = require("../../Utils/Web/hogwartsSortingBank");
 const { periodEndingOnDate } = require("../../Utils/Web/hogwartsHousePointPeriods");
 const IDs = require("../../Utils/Config/ids");
@@ -226,7 +226,7 @@ async function publishHogwartsHouseActivityReport(client, options = {}) {
   }
   const eventCfg = resolveHogwartsEventConfig(client);
   const now = options.anchorDate instanceof Date && !Number.isNaN(options.anchorDate.getTime()) ? options.anchorDate : new Date();
-  if (!options.forcePublish && !shouldPublishHogwartsBiweeklyToday(now, eventCfg.startMs)) {
+  if (!options.forcePublish && !shouldPublishHogwartsBiweeklyToday(now, resolveHubStartMs(eventCfg))) {
     global.logger?.info?.("[HOGWARTS HOUSE ACTIVITY] Publish skipped: non è domenica bisettimanale.");
     return;
   }

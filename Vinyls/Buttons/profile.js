@@ -16,6 +16,7 @@ const { userAvatarUrlDynamic, guildMemberDisplayAvatarUrlDynamic, accountUsernam
 const { getCustomRoleSlotCapFromRoles, getCustomRoleSlotCapWithContest, memberHasCustomRolePanelAccess, memberHasCustomRoleSecondarySlot } = require("../Utils/Community/customRoleSlots");
 const { partnerManagerPerkDateActive, fetchPartnerManagerTimedPerkLean, partnerManagerCustomBundleActiveFromLean } = require("../Utils/Staff/partnerManagerTimedPerks");
 const { findCustomVoiceByRole } = require("../Utils/Interaction/customRoleUtils");
+const { buildHogwartsProfileHomeLines, fetchHogwartsProfileSection, isHogwartsProfileSectionEnabled } = require("../Services/Community/hogwartsProfileSectionService");
 const { ROLE_PANEL_DEFAULT_CATEGORY, buildRuoliColoriPersonalityMenuRow, buildRolePanelCategoryPickerRow, normalizeRolePanelCategory } = require("../Utils/Community/ruoliColoriPanelComponents");
 const path = require("path");
 const { readSnapshotWithMeta, writeSnapshotWithMeta } = require("../../shared/recovery/snapshotStore");
@@ -30,6 +31,7 @@ const SECTION_MENTIONRESPONSE = "mentionresponse";
 const SECTION_DMFILTERS = "dmfilters";
 const SECTION_PRIVACY = "privacy";
 const SECTION_ROLE_PANEL = "rolepanel";
+const SECTION_HOGWARTS = "hogwarts";
 const SECTION_COLORS = "colors";
 const CMD_COLORS_SEG = "cmd_colors_seg:";
 const PRIVATE_FLAG = 1 << 6;
@@ -362,6 +364,15 @@ async function fetchProfilePanelState(guild, userId, client) {
     guildId && userId ? hasEventWeekWinnerGrant(guildId, userId, 2).catch(() => false) : false,
     guildId && userId ? hasEventWeekWinnerGrant(guildId, userId, 3).catch(() => false) : false,
   ]);
+  const hogwarts =
+    client && guildId && userId
+      ? await fetchHogwartsProfileSection(client, guildId, userId, member, guild).catch((err) => {
+        global.logger?.warn?.("[profile] hogwarts section:", err?.message || err);
+        return isHogwartsProfileSectionEnabled(client) ? { visible: true, sorted: false, galeoniLabel: "0 Galeoni d'Oro", cupRankLabel: "—", houseCupPoints: 0 } : { visible: false };
+      })
+      : isHogwartsProfileSectionEnabled(client)
+        ? { visible: true, sorted: false, galeoniLabel: "0 Galeoni d'Oro", cupRankLabel: "—", houseCupPoints: 0 }
+        : { visible: false };
   const contestSecondUnlock = Boolean(contestPrizeLean?.profile?.contestPrizes?.disegniSecondPlaceUnlock) || Boolean(contestPrizeLean?.profile?.totals?.exp?.event?.contestDisegniSecondPlaceUnlock);
   const pmCustomBundleActive = partnerManagerPerkDateActive(contestPrizeLean?.staff?.partnerManagerCustomPerksUntil);
   const hasCustomRoleAccess = memberHasCustomRolePanelAccess(member, { hasContestSecondPlaceUnlock: contestSecondUnlock, hasEventWeek2Grant: Boolean(eventWeek2Grant), hasEventWeek3Grant: Boolean(eventWeek3Grant), hasPartnerManagerCustomBundle: pmCustomBundleActive });
@@ -407,6 +418,7 @@ async function fetchProfilePanelState(guild, userId, client) {
     privacy: { avatar: Boolean(avatarPrivacy?.blocked), banner: Boolean(bannerPrivacy?.blocked), quotes: Boolean(quotePrivacy?.blocked) },
     featureAccess: { customRole: hasCustomRoleAccess, customVoc: hasCustomVocAccess, customReaction: hasCustomReactionAccess, mentionResponse: hasMentionResponseAccess, customReactionMax, secondaryCustomRole: memberHasCustomRoleSecondarySlot(member) },
     colors: { level: colorLevel, canPickPlus: colorCanPickPlus },
+    hogwarts: hogwarts && typeof hogwarts === "object" ? hogwarts : { visible: false },
   };
 }
 
@@ -414,7 +426,7 @@ function isProfilePanelGuildMember(userOrMember) {
   return Boolean(userOrMember && typeof userOrMember === "object" && userOrMember.guild && userOrMember.user && typeof userOrMember.displayAvatarURL === "function");
 }
 
-function buildSectionEmbed(section, state, userOrMember, guild = null) {
+function buildSectionEmbed(section, state, userOrMember, guild = null, isSelfView = true) {
   const base = new EmbedBuilder().setColor("#6f4e37");
   if (userOrMember && typeof userOrMember === "object") {
     const thumb = isProfilePanelGuildMember(userOrMember)
@@ -584,6 +596,36 @@ function buildSectionEmbed(section, state, userOrMember, guild = null) {
     ].join("\n"));
   }
 
+  if (section === SECTION_HOGWARTS) {
+    const hw = state?.hogwarts && typeof state.hogwarts === "object" ? state.hogwarts : { visible: false };
+    if (!hw.visible) {
+      return base.setDescription("<:VC_Attention:1482534443632558151> La sezione **Evento Hogwarts** non è disponibile in questo momento.");
+    }
+    const houseLine = hw.sorted
+      ? `<:VC_Hogwarts:1508766773837693061> **Casata:** ${hw.houseLabel || hw.houseId}`
+      : "<:VC_Hogwarts:1508766773837693061> **Casata:** Non smistato — completa lo smistamento su `/evento`";
+    const rankLine = hw.sorted
+      ? `<a:VC_Diamon:1482706116873031680> **Classifica Coppa:** ${hw.cupRankLabel} (**${Number(hw.houseCupPoints || 0).toLocaleString("it-IT")}** punti casa)`
+      : "<a:VC_Diamon:1482706116873031680> **Classifica Coppa:** disponibile dopo lo smistamento";
+    return base
+      .setTitle("<:VC_Hogwarts:1508766773837693061> Evento Hogwarts")
+      .setDescription(
+        [
+          "<:VC_Info:1482526956703580372> **Il tuo progresso nell'evento:**",
+          "",
+          `🪙 **Galeoni:** ${hw.galeoniLabel || "0 Galeoni d'Oro"}`,
+          houseLine,
+          rankLine,
+          "",
+          "<:VC_Modifica:1478859646587633717> **Shop — oggetti acquistati:**",
+          "",
+          ...(Array.isArray(hw.shopLines) && hw.shopLines.length ? hw.shopLines : ["<:VC_Dot:1482532364222595303> Nessun oggetto acquistato."]),
+          "",
+          "<:VC_Modifica:1478859646587633717> Usa il menu a tendina per cambiare pagina. Shop e smistamento: `/evento` · Classifica case: `/evento/coppa`",
+        ].join("\n"),
+      );
+  }
+
   if (section === SECTION_ROLE_PANEL) {
     return base.setDescription(
       [
@@ -603,10 +645,16 @@ function buildSectionEmbed(section, state, userOrMember, guild = null) {
   }
   const homeBirthdaySummary =
     birthday?.showAge === false ? formatBirthday(birthday) : formatBirthdayWithOptionalYear(birthday);
+  const homeTitle = isSelfView
+    ? `<a:VC_Announce:1482534613568979007> Benvenuto ${profileDisplayName}.`
+    : `<:VC_Info:1482526956703580372> Profilo di ${profileDisplayName}.`;
+  const homeIntro = isSelfView
+    ? "<:VC_EXP:1482534670896730143> Qui trovi una mini guida per configurare il tuo profilo e le funzioni principali del bot."
+    : `<:VC_EXP:1482534670896730143> Panoramica del profilo di **${profileDisplayName}** nel server.`;
   return base
-    .setTitle(`<a:VC_Announce:1482534613568979007> Benvenuto ${profileDisplayName}.`)
+    .setTitle(homeTitle)
     .setDescription([
-      "<:VC_EXP:1482534670896730143> Qui trovi una mini guida per configurare il tuo profilo e le funzioni principali del bot.",
+      homeIntro,
       "",
       "<:VC_Info:1482526956703580372> **Configurazione attuale:**",
       "",
@@ -617,6 +665,7 @@ function buildSectionEmbed(section, state, userOrMember, guild = null) {
       `<:VC_Modifica:1478859646587633717> Vocale Privata: ${customVocLinked}`,
       `<:VC_emoji:1485419161168511036> Custom Reactions: ${reactionsText}`,
       ...(state?.featureAccess?.mentionResponse ? [`<a:VC_Ping:1482694298687246377> Mention Response: **${mentionResponseText ? "Impostata" : "Non impostata"}**`] : []),
+      ...buildHogwartsProfileHomeLines(state?.hogwarts),
       "",
       "<:VC_Modifica:1478859646587633717> Usa il menu a tendina per cambiare pagina e i pulsanti per agire.",
     ].join("\n"))
@@ -642,11 +691,21 @@ function buildRows(guild, ownerId, section, state = null, rolePanelCategory = nu
   const hasPrimaryCustomRole = Boolean(roleId || primaryRoleStored);
   const selectOptions = [
     { label: "Home", value: SECTION_HOME, emoji: "<:VC_addperson:1485419347068588073>", default: section === SECTION_HOME },
+  ];
+  if (state?.hogwarts?.visible) {
+    selectOptions.splice(1, 0, {
+      label: "Evento Hogwarts",
+      value: SECTION_HOGWARTS,
+      emoji: "<:VC_Hogwarts:1508766773837693061>",
+      default: section === SECTION_HOGWARTS,
+    });
+  }
+  selectOptions.push(
     { label: "Ruoli", value: SECTION_ROLE_PANEL, emoji: "<a:VC_Diamon:1482706116873031680>", default: section === SECTION_ROLE_PANEL },
     { label: "Birthday", value: SECTION_BIRTHDAY, emoji: "<a:VC_Events:1482706144953897223>", default: section === SECTION_BIRTHDAY },
     { label: "Notifiche DM", value: SECTION_DMFILTERS, emoji: "<a:VC_Ping:1482694298687246377>", default: section === SECTION_DMFILTERS },
     { label: "Privacy", value: SECTION_PRIVACY, emoji: "<:VC_Lock:1482526739044368476>", default: section === SECTION_PRIVACY },
-  ];
+  );
   if (canAccessCustomRole) {
     selectOptions.push(
       { label: "Ruolo Primario", value: SECTION_CUSTOMROLE, emoji: "<:VC_Vip:1482534921472835895>", default: section === SECTION_CUSTOMROLE },
@@ -840,7 +899,7 @@ function buildRows(guild, ownerId, section, state = null, rolePanelCategory = nu
   }
 }
 
-async function buildPanelPayload(guild, ownerId, client, section = SECTION_HOME, rolePanelCategory = null) {
+async function buildPanelPayload(guild, ownerId, client, section = SECTION_HOME, rolePanelCategory = null, viewerId = null) {
   const state = await fetchProfilePanelState(guild, ownerId, client);
   const canAccessCustomRole = Boolean(state?.featureAccess?.customRole);
   const canAccessSecondaryCustomRole = Boolean(state?.featureAccess?.secondaryCustomRole);
@@ -866,7 +925,8 @@ async function buildPanelPayload(guild, ownerId, client, section = SECTION_HOME,
     !canAccessCustomVoc && requestedSection === SECTION_CUSTOMVOC;
   const isDeniedCustomReaction = !canAccessCustomReaction && requestedSection === SECTION_CUSTOMREACTION;
   const isDeniedMentionResponse = !canAccessMentionResponse && requestedSection === SECTION_MENTIONRESPONSE;
-  const safeSection = (isDeniedCustomRole || isDeniedSecondaryCustomRole || isDeniedSecondaryNoPrimary || isDeniedCustomVoc || isDeniedCustomReaction || isDeniedMentionResponse)
+  const isDeniedHogwarts = !state?.hogwarts?.visible && requestedSection === SECTION_HOGWARTS;
+  const safeSection = (isDeniedCustomRole || isDeniedSecondaryCustomRole || isDeniedSecondaryNoPrimary || isDeniedCustomVoc || isDeniedCustomReaction || isDeniedMentionResponse || isDeniedHogwarts)
     ? SECTION_HOME
     : requestedSection;
   const draft = getBirthdayDraft(guild?.id, ownerId);
@@ -889,8 +949,9 @@ async function buildPanelPayload(guild, ownerId, client, section = SECTION_HOME,
         roleCatIn != null && String(roleCatIn).trim() !== "" ? roleCatIn : ROLE_PANEL_DEFAULT_CATEGORY,
       )
       : null;
+  const isSelfView = !viewerId || String(viewerId) === String(ownerId);
   return {
-    embeds: [buildSectionEmbed(safeSection, state, panelIdentity, guild)],
+    embeds: [buildSectionEmbed(safeSection, state, panelIdentity, guild, isSelfView)],
     components: buildRows(guild, ownerId, safeSection, state, rolePanelCatNormalized),
   };
 }

@@ -68,16 +68,22 @@ async function isPartnershipGuildBlacklistedBucket(guildId) {
   return arr.some((x) => String(x?.guildId) === g);
 }
 
-async function addPartnershipBlacklistGuildBucket(guildId, addedBy, note = "") {
+async function addPartnershipBlacklistGuildBucket(guildId, addedBy, note = "", meta = {}) {
   const g = String(guildId || "").trim();
   if (!/^\d{16,20}$/.test(g)) return { ok: false, reason: "invalid_id" };
   const arr = await getPartnershipBlacklistEntries();
   const next = arr.filter((x) => String(x?.guildId) !== g);
+  const invite = String(meta?.invite || "").trim();
+  const guildName = String(meta?.guildName || "").trim();
+  const iconUrl = String(meta?.iconUrl || "").trim();
   next.push({
     guildId: g,
     addedBy: String(addedBy || ""),
     note: String(note || "").slice(0, 500),
     addedAt: new Date(),
+    ...(invite ? { invite: invite.slice(0, 300) } : {}),
+    ...(guildName ? { guildName: guildName.slice(0, 100) } : {}),
+    ...(iconUrl ? { iconUrl: iconUrl.slice(0, 500) } : {}),
   });
   await setPartnershipBlacklistEntries(next);
   return { ok: true, guildId: g };

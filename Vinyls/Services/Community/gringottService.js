@@ -2,6 +2,7 @@ const { ActivityUserProfile } = require("../../Schemas/Community/communitySchema
 const { isValidGuildUserId } = require("../../Utils/DB/validateWriteIds");
 const { resolveHogwartsEventConfig } = require("../../Utils/Web/hogwartsSortingConfig");
 const GRINGOTT_PATH = "profile.events.hogwarts.gringott";
+const HOGWARTS_PATH = "profile.events.hogwarts";
 const LEDGER_PATH = `${GRINGOTT_PATH}.ledger`;
 const REWARD_KEYS_PATH = `${GRINGOTT_PATH}.rewardKeys`;
 const MAX_LEDGER_ENTRIES = 100;
@@ -34,8 +35,42 @@ function normalizeLedgerEntry(entry = {}) {
   };
 }
 
+function readHogwartsEvent(doc) {
+  const hw = doc?.profile?.events?.hogwarts;
+  return hw && typeof hw === "object" ? hw : {};
+}
+
+function pickGringottRaw(hogwarts) {
+  const hw = hogwarts && typeof hogwarts === "object" ? hogwarts : {};
+  const nested = hw.gringott && typeof hw.gringott === "object" ? hw.gringott : {};
+  const nestedBalance = Math.max(0, Math.floor(Number(nested.balance) || 0));
+  const nestedEarned = Math.max(0, Math.floor(Number(nested.earned) || 0));
+  const nestedHasData =
+    nestedBalance > 0 ||
+    nestedEarned > 0 ||
+    (Array.isArray(nested.ledger) && nested.ledger.length > 0) ||
+    (Array.isArray(nested.rewardKeys) && nested.rewardKeys.length > 0);
+  if (nestedHasData) return nested;
+  const flatBalance = Math.max(0, Math.floor(Number(hw.balance) || 0));
+  const flatEarned = Math.max(0, Math.floor(Number(hw.earned) || 0));
+  const flatHasData =
+    flatBalance > 0 ||
+    flatEarned > 0 ||
+    (Array.isArray(hw.ledger) && hw.ledger.length > 0) ||
+    (Array.isArray(hw.rewardKeys) && hw.rewardKeys.length > 0);
+  if (!flatHasData) return nested;
+  return {
+    eventKey: hw.eventKey,
+    balance: flatBalance,
+    earned: flatEarned || flatBalance,
+    spent: Math.max(0, Math.floor(Number(hw.spent) || 0)),
+    ledger: Array.isArray(hw.ledger) ? hw.ledger : [],
+    rewardKeys: Array.isArray(hw.rewardKeys) ? hw.rewardKeys : [],
+  };
+}
+
 function resolveGringottState(doc, eventKey = "") {
-  const raw = doc?.profile?.events?.hogwarts?.gringott || {};
+  const raw = pickGringottRaw(readHogwartsEvent(doc));
   const ledger = Array.isArray(raw.ledger) ? raw.ledger : [];
   return {
     eventKey: String(raw.eventKey || eventKey || "").trim(),
@@ -88,12 +123,46 @@ function resolveGringottConfig(client) {
   };
 }
 
+async function ensureGringottCanonicalFromLegacy(guildId, userId) {
+  const g = normalizeId(guildId);
+  const u = normalizeId(userId);
+  if (!isValidGuildUserId(g, u)) return;
+  const doc = await ActivityUserProfile.findOne({ guildId: g, userId: u })
+    .select(HOGWARTS_PATH)
+    .lean()
+    .catch(() => null);
+  const hw = readHogwartsEvent(doc);
+  const nested = hw.gringott && typeof hw.gringott === "object" ? hw.gringott : {};
+  const nestedBalance = Math.max(0, Math.floor(Number(nested.balance) || 0));
+  const flatBalance = Math.max(0, Math.floor(Number(hw.balance) || 0));
+  if (flatBalance <= 0 || nestedBalance >= flatBalance) return;
+  const $set = {
+    [`${GRINGOTT_PATH}.balance`]: flatBalance,
+    [`${GRINGOTT_PATH}.earned`]: Math.max(flatBalance, Math.max(0, Math.floor(Number(hw.earned) || 0))),
+    [`${GRINGOTT_PATH}.spent`]: Math.max(0, Math.floor(Number(hw.spent) || 0)),
+  };
+  const eventKey = String(hw.eventKey || nested.eventKey || "").trim();
+  if (eventKey) $set[`${GRINGOTT_PATH}.eventKey`] = eventKey;
+  if (Array.isArray(hw.ledger) && hw.ledger.length && !Array.isArray(nested.ledger)) {
+    $set[`${GRINGOTT_PATH}.ledger`] = hw.ledger;
+  }
+  if (Array.isArray(hw.rewardKeys) && hw.rewardKeys.length) {
+    await ActivityUserProfile.updateOne(
+      { guildId: g, userId: u },
+      { $set, $addToSet: { [REWARD_KEYS_PATH]: { $each: hw.rewardKeys } } },
+    ).catch(() => null);
+    return;
+  }
+  await ActivityUserProfile.updateOne({ guildId: g, userId: u }, { $set }).catch(() => null);
+}
+
 async function getGringottBalance(guildId, userId, eventKey = "") {
   const g = normalizeId(guildId);
   const u = normalizeId(userId);
   if (!isValidGuildUserId(g, u)) return null;
+  await ensureGringottCanonicalFromLegacy(g, u);
   const doc = await ActivityUserProfile.findOne({ guildId: g, userId: u })
-    .select("profile.events.hogwarts.gringott")
+    .select(HOGWARTS_PATH)
     .lean()
     .catch(() => null);
   return resolveGringottState(doc, eventKey);
@@ -112,15 +181,47 @@ async function upsertActivityProfile(query, update, options = {}) {
   }
 }
 
+async function hasGringottRewardKey(guildId, userId, rewardKey) {
+  const key = String(rewardKey || "").trim();
+  const g = normalizeId(guildId);
+  const u = normalizeId(userId);
+  if (!key || !isValidGuildUserId(g, u)) return false;
+  const doc = await ActivityUserProfile.findOne({ guildId: g, userId: u })
+    .select(HOGWARTS_PATH)
+    .lean()
+    .catch(() => null);
+  const hw = readHogwartsEvent(doc);
+  const keys = [
+    ...(Array.isArray(hw.gringott?.rewardKeys) ? hw.gringott.rewardKeys : []),
+    ...(Array.isArray(hw.rewardKeys) ? hw.rewardKeys : []),
+  ];
+  return keys.some((row) => String(row) === key);
+}
+
 async function addGaleoni({ guildId, userId, amount, reason, actorId = null, source = "manual", eventKey = "", rewardKey = "" }) {
   const g = normalizeId(guildId);
   const u = normalizeId(userId);
   const amt = normalizeAmount(amount);
   if (!isValidGuildUserId(g, u) || amt < 1) return { ok: false, code: "bad_input" };
 
+  const rewardKeyNorm = String(rewardKey || "").trim();
+  if (rewardKeyNorm && (await hasGringottRewardKey(g, u, rewardKeyNorm))) {
+    const current = await getGringottBalance(g, u, eventKey);
+    return { ok: false, code: "duplicate_reward", state: current };
+  }
+
+  await ensureGringottCanonicalFromLegacy(g, u);
   const before = await getGringottBalance(g, u, eventKey);
   const balanceAfter = (before?.balance || 0) + amt;
-  const entry = normalizeLedgerEntry({ type: rewardKey ? "reward" : "credit", amount: amt, balanceAfter, reason, actorId, source, rewardKey });
+  const entry = normalizeLedgerEntry({
+    type: rewardKeyNorm ? "reward" : "credit",
+    amount: amt,
+    balanceAfter,
+    reason,
+    actorId,
+    source,
+    rewardKey: rewardKeyNorm,
+  });
   const update = {
     $set: { [`${GRINGOTT_PATH}.eventKey`]: normalizeId(eventKey) },
     $inc: {
@@ -128,17 +229,12 @@ async function addGaleoni({ guildId, userId, amount, reason, actorId = null, sou
       [`${GRINGOTT_PATH}.earned`]: amt,
     },
     $push: { [LEDGER_PATH]: { $each: [entry], $slice: -MAX_LEDGER_ENTRIES } },
-    $setOnInsert: { guildId: g, userId: u },
   };
   if (entry.rewardKey) update.$addToSet = { [REWARD_KEYS_PATH]: entry.rewardKey };
 
-  const query = { guildId: g, userId: u };
-  if (entry.rewardKey) query[REWARD_KEYS_PATH] = { $ne: entry.rewardKey };
-  const doc = await upsertActivityProfile(query, update, {
-    new: true,
-    upsert: true,
-    setDefaultsOnInsert: true,
-  }).catch((err) => {
+  const filter = { guildId: g, userId: u };
+  if (entry.rewardKey) filter[REWARD_KEYS_PATH] = { $ne: entry.rewardKey };
+  let doc = await ActivityUserProfile.findOneAndUpdate(filter, update, { new: true }).catch((err) => {
     global.logger?.warn?.("[GRINGOTT] addGaleoni failed", {
       guildId: g,
       userId: u,
@@ -148,8 +244,28 @@ async function addGaleoni({ guildId, userId, amount, reason, actorId = null, sou
     return null;
   });
   if (!doc) {
+    doc = await ActivityUserProfile.findOneAndUpdate(
+      { guildId: g, userId: u },
+      { ...update, $setOnInsert: { guildId: g, userId: u } },
+      { new: true, upsert: true, setDefaultsOnInsert: false },
+    ).catch((err) => {
+      if (isMongoDuplicateKeyError(err) && entry.rewardKey) return null;
+      global.logger?.warn?.("[GRINGOTT] addGaleoni upsert failed", {
+        guildId: g,
+        userId: u,
+        rewardKey: entry.rewardKey || null,
+        error: err?.message || String(err),
+      });
+      return null;
+    });
+  }
+  if (!doc && entry.rewardKey) {
+    doc = await ActivityUserProfile.findOneAndUpdate(filter, update, { new: true }).catch(() => null);
+  }
+  if (!doc) {
     const current = await getGringottBalance(g, u, eventKey);
-    return { ok: false, code: entry.rewardKey ? "duplicate_reward" : "save_failed", state: current };
+    const duplicate = entry.rewardKey && (await hasGringottRewardKey(g, u, entry.rewardKey));
+    return { ok: false, code: duplicate ? "duplicate_reward" : "save_failed", state: current };
   }
   return { ok: true, before, state: resolveGringottState(doc, eventKey), entry };
 }
@@ -186,7 +302,42 @@ async function spendGaleoni({ guildId, userId, amount, reason, actorId = null, s
 async function awardHogwartsSortingReward(client, guildId, userId, actorId = "site") {
   const cfg = resolveGringottConfig(client);
   const rewardKey = `${cfg.eventKey}:sorting_complete`;
-  return addGaleoni({ guildId, userId, amount: cfg.sortingReward, reason: "Smistamento Hogwarts completato", actorId, source: "hogwarts_sorting", eventKey: cfg.eventKey, rewardKey });
+  return addGaleoni({
+    guildId,
+    userId,
+    amount: cfg.sortingReward,
+    reason: "Smistamento Hogwarts completato",
+    actorId,
+    source: "hogwarts_sorting",
+    eventKey: cfg.eventKey,
+    rewardKey,
+  });
+}
+
+async function ensureHogwartsSortingReward(client, guildId, userId, actorId = "site") {
+  const cfg = resolveGringottConfig(client);
+  const rewardKey = `${cfg.eventKey}:sorting_complete`;
+  const state = await getGringottBalance(guildId, userId, cfg.eventKey);
+  const balance = Math.max(0, Math.floor(Number(state?.balance) || 0));
+  if (await hasGringottRewardKey(guildId, userId, rewardKey)) {
+    if (balance >= cfg.sortingReward) {
+      return { ok: true, code: "duplicate_reward", state };
+    }
+    const missing = Math.max(0, cfg.sortingReward - balance);
+    if (missing < 1) return { ok: true, code: "duplicate_reward", state };
+    const repair = await addGaleoni({
+      guildId,
+      userId,
+      amount: missing,
+      reason: "Smistamento Hogwarts completato (riparazione saldo)",
+      actorId,
+      source: "hogwarts_sorting_repair",
+      eventKey: cfg.eventKey,
+    });
+    if (repair?.ok) return repair;
+    return { ok: true, code: "duplicate_reward", state };
+  }
+  return awardHogwartsSortingReward(client, guildId, userId, actorId);
 }
 
 function formatGaleoni(amount) {
@@ -194,4 +345,16 @@ function formatGaleoni(amount) {
   return `${n} ${n === 1 ? "Galeone d'Oro" : "Galeoni d'Oro"}`;
 }
 
-module.exports = { DEFAULT_SORTING_REWARD, MAX_LEDGER_ENTRIES, addGaleoni, awardHogwartsSortingReward, formatGaleoni, getGringottBalance, resolveGringottConfig, spendGaleoni, toPublicGringottPayload };
+module.exports = {
+  DEFAULT_SORTING_REWARD,
+  MAX_LEDGER_ENTRIES,
+  addGaleoni,
+  awardHogwartsSortingReward,
+  ensureHogwartsSortingReward,
+  formatGaleoni,
+  getGringottBalance,
+  hasGringottRewardKey,
+  resolveGringottConfig,
+  spendGaleoni,
+  toPublicGringottPayload,
+};

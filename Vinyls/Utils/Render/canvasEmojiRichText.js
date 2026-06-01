@@ -199,8 +199,9 @@ function tokenizeEmojiText(text) {
   return tokens.length ? tokens : [{ type: "text", value: "" }];
 }
 
-/** CDN Twemoji funzionanti (15.1 jsdelivr 144x144 → 404). */
+/** CDN Twemoji (ordine: più recente prima). */
 const TWEMOJI_CDN_BASES = Object.freeze([
+  "https://cdn.jsdelivr.net/gh/twitter/twemoji@15.1.0/assets/72x72",
   "https://unpkg.com/emoji-datasource-twitter@15.1.0/img/twitter/64",
   "https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72",
   "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72",
@@ -396,12 +397,20 @@ async function drawLabelWithEmoji(
     } else if (token.type === "custom_emoji" && token.raw) {
       drawLabel(ctx, token.raw, cursorX, y, { ...labelOpts, align: "left" });
       cursorX += textWidth(ctx, token.raw, size, weight);
+    } else if (token.type === "emoji" && token.value) {
+      const drawSize = emojiDrawSizeForFont(size);
+      drawTextWithSpecialFallback(ctx, token.value, cursorX + drawSize / 2, y, {
+        size,
+        weight,
+        color,
+        align: "center",
+        baseline,
+        normalizeCompatibility: false,
+        forcePrimaryFont: false,
+      });
+      cursorX += drawSize + 1;
     } else {
       const drawSize = emojiDrawSizeForFont(size);
-      let drawY = y;
-      if (baseline === "middle") drawY = y - drawSize / 2;
-      else if (baseline === "bottom") drawY = y - drawSize;
-      drawEmojiPlaceholder(ctx, cursorX, drawY, drawSize);
       cursorX += drawSize + 1;
     }
   }

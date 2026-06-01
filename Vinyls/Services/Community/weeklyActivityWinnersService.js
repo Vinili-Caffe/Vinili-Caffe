@@ -4,7 +4,7 @@ const { runCronDetached } = require("../../../shared/scheduling/cronDetached");
 const { ActivityUserProfile, SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Schemas/Community/communitySchemas");
 const { VOICE_EXP_PER_MINUTE, MESSAGE_EXP } = require("./expService");
 const { addGaleoni } = require("./gringottService");
-const { resolveHogwartsEventConfig, isEventWindowOpen } = require("../../Utils/Web/hogwartsSortingConfig");
+const { resolveHogwartsEventConfig, isEventWindowOpen, resolveHubStartMs } = require("../../Utils/Web/hogwartsSortingConfig");
 const { HOUSES } = require("../../Utils/Web/hogwartsSortingBank");
 const IDs = require("../../Utils/Config/ids");
 const { voteCountMonthKeyRome } = require("../../Utils/romeVoteMonthKey");
@@ -1839,7 +1839,7 @@ async function publishHogwartsBiweeklyActivityWinners(client, options = {}) {
   }
   const now =
     options.anchorDate instanceof Date && !Number.isNaN(options.anchorDate.getTime()) ? options.anchorDate : new Date();
-  if (!options.forcePublish && !shouldPublishHogwartsBiweeklyToday(now, eventCfg.startMs)) {
+  if (!options.forcePublish && !shouldPublishHogwartsBiweeklyToday(now, resolveHubStartMs(eventCfg))) {
     global.logger?.info?.("[HOGWARTS BIWEEKLY TOP] Publish skipped: non è domenica di chiusura bisettimanale.");
     return;
   }

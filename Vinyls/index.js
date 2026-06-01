@@ -22,6 +22,7 @@ if (process.env.RUN_UNDER_LOADER !== "1") {
 }
 
 const { installEmbedFooterPatch } = require("./Utils/Embeds/defaultFooter");
+const { buildInitialClientPresenceOptions, installBotPresenceHooks, patchClientPresenceGuard } = require("../shared/discord/botPresenceActivity");
 
 const pcommandFolders = listFoldersIfExists(path.join(APP_ROOT, "Prefix"));
 const commandFolders = listFoldersIfExists(path.join(APP_ROOT, "Commands"));
@@ -49,6 +50,7 @@ function applyListenerCeiling(clientRef, configLike) {
 
 try {
   installEmbedFooterPatch();
+  const vinylsConfig = require("./config.json");
   const baseIntents = [
     ...new Set(
       Object.values(GatewayIntentBits).filter(
@@ -66,19 +68,21 @@ try {
   client = new Client({
     intents: baseIntents,
     partials: basePartials,
+    presence: buildInitialClientPresenceOptions(vinylsConfig),
     rest: {
       timeout: 30_000,
       offset: 50,
       retries: 3,
     },
   });
+  client.config = vinylsConfig;
+  patchClientPresenceGuard(client);
 } catch (error) {
   global.logger.error("[ERROR] Error while creating the client.", error);
   process.exit(1);
 }
 
 client.logs = require("./Utils/Moderation/logs");
-client.config = require("./config.json");
 
 const envToken = process.env.DISCORD_TOKEN || process.env.DISCORD_TOKEN_OFFICIAL;
 const envMongoUrl =
@@ -89,6 +93,7 @@ const envMongoUrl =
 client.config.token = envToken || client.config.token;
 client.config.mongoURL = envMongoUrl || client.config.mongoURL;
 applyListenerCeiling(client, client.config);
+installBotPresenceHooks(client);
 
 if (!client.config.token) {
   global.logger.error(

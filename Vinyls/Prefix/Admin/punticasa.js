@@ -14,12 +14,12 @@ function parseArgs(args = []) {
 module.exports = {
   name: "punticasa",
   allowEmptyArgs: false,
-  description: "Assegna punti Coppa a una casa.",
+  description: "Aggiunge o toglie punti Coppa a una casa.",
   usage: "+punticasa <casa> <punti> [motivo]",
   examples: [
     "+punticasa grifondoro 50 Premio staff",
+    "+punticasa tassorosso -30 Correzione",
     "+punticasa gryffindor 100",
-    "+punticasa tassorosso 25",
   ],
   async execute(message, args = []) {
     if (!message.inGuild?.() || !message.guild) return;
@@ -30,15 +30,15 @@ module.exports = {
         allowedMentions: { repliedUser: false },
       });
     }
-    if (!Number.isFinite(parsed.points) || parsed.points <= 0) {
+    if (!Number.isFinite(parsed.points) || parsed.points === 0) {
       return safeMessageReply(message, {
-        content: "<:vegax:1443934876440068179> Indica un numero di punti valido.",
+        content: "<:vegax:1443934876440068179> Indica un numero di punti valido (positivo o negativo).",
         allowedMentions: { repliedUser: false },
       });
     }
-    if (parsed.points > 5000) {
+    if (Math.abs(parsed.points) > 5000) {
       return safeMessageReply(message, {
-        content: "<:vegax:1443934876440068179> Massimo **5000** punti per assegnazione manuale.",
+        content: "<:vegax:1443934876440068179> Massimo **5000** punti per modifica manuale (in valore assoluto).",
         allowedMentions: { repliedUser: false },
       });
     }
@@ -55,15 +55,16 @@ module.exports = {
         allowedMentions: { repliedUser: false },
       });
     }
+    const deltaLabel = result.points > 0 ? `+**${result.points}**` : `**${result.points}**`;
     const embed = new EmbedBuilder()
-      .setColor("#2d6a4f")
-      .setTitle("Punti casa assegnati")
+      .setColor(result.points > 0 ? "#2d6a4f" : "#8b3a3a")
+      .setTitle(result.points > 0 ? "Punti casa assegnati" : "Punti casa rimossi")
       .setDescription(
         [
-          `**${result.houseLabel}** +**${result.points}** punti Coppa.`,
+          `**${result.houseLabel}** ${deltaLabel} punti Coppa.`,
           result.periodLabel ? `Periodo scolastico: **${result.periodLabel}**` : "",
           result.reason ? `Motivo: ${result.reason}` : "",
-          `Assegnati da ${message.author}.`,
+          `Modificati da ${message.author}.`,
         ]
           .filter(Boolean)
           .join("\n"),

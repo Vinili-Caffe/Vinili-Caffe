@@ -9,7 +9,7 @@ function isHogwartsShopBoostActive(client, nowMs = Date.now()) {
   const eventCfg = resolveHogwartsEventConfig(client);
   if (!eventCfg?.enabled) return false;
   const now = Number(nowMs || Date.now());
-  const start = Number(eventCfg.startMs);
+  const start = Number(eventCfg.sortingStartMs ?? eventCfg.startMs);
   const end = Number(eventCfg.endMs);
   return Number.isFinite(start) && Number.isFinite(end) && now >= start && now <= end;
 }

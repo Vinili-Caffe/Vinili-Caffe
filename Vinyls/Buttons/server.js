@@ -132,7 +132,6 @@ async function execute(interaction) {
     await interaction.deferUpdate().catch(() => {});
     const safeLookback = normalizeLookback(parsed.lookbackDays);
     const authorId = parsed.ownerId || interaction.user?.id;
-    await editServerPanel(interaction, buildServerLoadingPayload(safeLookback, authorId));
     const payload = await buildServerOverviewPayload(guild, safeLookback, authorId);
     await editServerPanel(interaction, payload);
     return true;

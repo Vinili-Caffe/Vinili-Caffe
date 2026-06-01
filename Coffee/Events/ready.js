@@ -4,19 +4,6 @@ const { restoreTtsConnections } = require("../Services/TTS/ttsService");
 const { startHourlyReminderLoop } = require("../Services/Community/chatReminderService");
 const { restoreStanzaRoomsFromSnapshot } = require("../Services/Voice/stanzaVoiceRoomsService");
 const { printRecoveryHealthOnce } = require("../../shared/recovery/recoveryHealth");
-const { buildBotPresenceActivities } = require("../../shared/discord/botPresenceActivity");
-
-async function setPresence(client) {
-  try {
-    client.user.setPresence({
-      status: client.config?.status || "idle",
-      activities: buildBotPresenceActivities(client),
-    });
-  } catch (err) {
-    global.logger?.error?.("[STATUS] Errore impostazione presenza:", err?.message || err);
-  }
-}
-
 async function connectMongo(client) {
   const mongodbURL = process.env.MONGO_URL_LOCAL || process.env.MONGODB_URI_LOCAL || process.env.MONGO_URL || process.env.MONGODB_URI || client.config.mongoURL;
   if (!mongodbURL) {
@@ -42,9 +29,12 @@ module.exports = {
     const activeClient = client || _readyClient;
     logBotReady(activeClient);
 
-    await setPresence(activeClient);
     await connectMongo(activeClient);
     await restoreTtsState(activeClient);
+    const { applyBotPresence, schedulePresenceStabilization, installBotPresenceKeeper } = require("../../shared/discord/botPresenceActivity");
+    await applyBotPresence(activeClient);
+    installBotPresenceKeeper(activeClient);
+    schedulePresenceStabilization(activeClient);
     void restoreStanzaRoomsFromSnapshot(activeClient).catch((err) => {
       global.logger?.warn?.("[stanza] snapshot restore failed:", err?.message || err);
     });

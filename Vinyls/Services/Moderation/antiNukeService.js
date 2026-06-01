@@ -1260,15 +1260,13 @@ async function runAutoBackupSyncAfterPanic(guild, state) {
   }
 
   if (enabled && cfg.deleteNewWebhooks && me?.permissions?.has(PermissionsBitField.Flags.ManageWebhooks)) {
-    for (const channel of guild.channels.cache.values()) {
-      if (!channel?.isTextBased?.()) continue;
-      const webhooks = await channel.fetchWebhooks().catch(() => null);
-      if (!webhooks?.size) continue;
-      for (const webhook of webhooks.values()) {
-        if (!state.createdWebhookIds.has(String(webhook.id))) continue;
-        const deleted = await webhook.delete("<a:VC_Unlock:1482532082466029608> AntiNuke panic cleanup: delete new webhook").then(() => true).catch(() => false);
-        if (deleted) webhooksDeleted += 1;
-      }
+    const webhooks = typeof guild.fetchWebhooks === "function"
+      ? await guild.fetchWebhooks().catch(() => null)
+      : null;
+    for (const webhook of webhooks?.values?.() || []) {
+      if (!state.createdWebhookIds.has(String(webhook.id))) continue;
+      const deleted = await webhook.delete("<a:VC_Unlock:1482532082466029608> AntiNuke panic cleanup: delete new webhook").then(() => true).catch(() => false);
+      if (deleted) webhooksDeleted += 1;
     }
   }
 
@@ -1587,35 +1585,16 @@ async function quarantineExecutor(guild, executorId, reason) {
   return { applied: false, method: "timeout_failed" };
 }
 
-async function deleteWebhookById(guild, webhookId, preferredChannelId = "") {
+async function deleteWebhookById(guild, webhookId, _preferredChannelId = "") {
   const id = String(webhookId || "");
   if (!guild?.id || !id) return false;
   const me = guild.members?.me;
   if (!me?.permissions?.has?.(PermissionsBitField.Flags.ManageWebhooks)) return false;
-
-  const preferredId = String(preferredChannelId || "");
-  if (preferredId) {
-    const preferredChannel = await getGuildChannelCached(guild, preferredId, { ttlMs: 30_000, });
-    if (preferredChannel?.isTextBased?.()) {
-      const wh = await preferredChannel.fetchWebhooks().catch(() => null);
-      const target = wh?.get?.(id) || null;
-      if (target) {
-        const deleted = await target.delete("<:VC_Lock:1482526739044368476> AntiNuke panic: delete webhook created during active panic").then(() => true).catch(() => false);
-        if (deleted) return true;
-      }
-    }
-  }
-
-  for (const channel of guild.channels.cache.values()) {
-    if (!channel?.isTextBased?.()) continue;
-    const webhooks = await channel.fetchWebhooks().catch(() => null);
-    if (!webhooks?.size) continue;
-    const target = webhooks.get(id);
-    if (!target) continue;
-    const deleted = await target.delete("<:VC_Lock:1482526739044368476> AntiNuke panic: delete webhook created during active panic").then(() => true).catch(() => false);
-    if (deleted) return true;
-  }
-  return false;
+  if (typeof guild.fetchWebhooks !== "function") return false;
+  const webhooks = await guild.fetchWebhooks().catch(() => null);
+  const target = webhooks?.get?.(id) || null;
+  if (!target) return false;
+  return target.delete("<:VC_Lock:1482526739044368476> AntiNuke panic: delete webhook created during active panic").then(() => true).catch(() => false);
 }
 
 function cleanupTrackerMap(map, now = Date.now()) {

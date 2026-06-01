@@ -35,8 +35,14 @@
     var event = cfg && cfg.event;
     if (!event || event.enabled === false) return isEventHeaderPage() ? "" : "candidature";
     if (event.previewMode === true) return isEventHeaderPage() ? "" : "candidature";
-    var start = parseStartMs(event.startDate);
-    var end = parseEndMs(event.endDate);
+    var start = Number(event.startMs);
+    var end = Number(event.endMs);
+    if (!Number.isFinite(start)) {
+      start = parseStartMs(event.sortingStartDate || event.startDate);
+    }
+    if (!Number.isFinite(end)) {
+      end = parseEndMs(event.endDate);
+    }
     if (!Number.isFinite(start) || !Number.isFinite(end)) return isEventHeaderPage() ? "" : "candidature";
     var now = Date.now();
     if (now < start || now > end) return isEventHeaderPage() ? "" : "candidature";

@@ -1,6 +1,7 @@
 const { AuditLogEvent, ChannelType, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, } = require("discord.js");
 const { toDiscordTimestamp, yesNo, formatAuditActor, buildAuditExtraLines, resolveChannelRolesLogChannel, resolveResponsible, } = require("../Utils/Logging/channelRolesLogUtils");
 const { handleThreadCreationAction: antiNukeHandleThreadCreationAction } = require("../Services/Moderation/antiNukeService");
+const { handleIdeaBugCategoryThreadCreate } = require("../Services/Community/ideaBugThreadService");
 const THREAD_CREATE_ACTION = AuditLogEvent?.ThreadCreate ?? 110;
 
 function sleep(ms) {
@@ -31,6 +32,9 @@ module.exports = {
   async execute(thread) {
     try {
       if (!thread?.guild || !thread?.id) return;
+      await handleIdeaBugCategoryThreadCreate(thread).catch((err) => {
+        global.logger?.warn?.("[threadCreate] idea bug category ping failed:", err?.message || err);
+      });
       const audit = await resolveResponsibleWithRetry(thread.guild, thread.id);
       const executorId = String(audit?.executor?.id || "");
       const responsible = formatAuditActor(audit.executor);

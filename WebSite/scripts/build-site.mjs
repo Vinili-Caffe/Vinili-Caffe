@@ -1797,7 +1797,12 @@ async function main() {
     parseDateEndMs,
     serializeCalendarForWeb,
   } = require(path.join(ROOT, "..", "Vinyls", "Utils", "Web", "hogwartsEventCalendar.js"));
-  const { formatEventWindowIt: formatHogwartsEventWindowIt, isEventWindowOpen: hogwartsIsEventWindowOpen } = require(path.join(
+  const {
+    formatEventWindowIt: formatHogwartsEventWindowIt,
+    formatSortingWindowIt: formatHogwartsSortingWindowIt,
+    isEventWindowOpen: hogwartsIsEventWindowOpen,
+    isSortingWindowOpen: hogwartsIsSortingWindowOpen,
+  } = require(path.join(
     ROOT,
     "..",
     "Vinyls",
@@ -1826,17 +1831,39 @@ async function main() {
     getPublicQuestions: getHogwartsPublicQuestions,
   } = require(path.join(ROOT, "..", "Vinyls", "Utils", "Web", "hogwartsSortingBank.js"));
   const hogwartsEventKey = String(hogwartsEventRaw.eventKey || "hogwarts_summer_2026").trim() || "hogwarts_summer_2026";
+  const hogwartsEventTimezone = String(hogwartsEventRaw.timezone || "Europe/Rome").trim() || "Europe/Rome";
+  const hogwartsSortingStartDate =
+    String(hogwartsEventRaw.sortingStartDate || hogwartsEventRaw.startDate || "2026-06-01T12:00:00").trim() ||
+    "2026-06-01T12:00:00";
   const hogwartsEventWindowLabel =
     formatHogwartsEventWindowIt({
       timezone: hogwartsEventRaw.timezone || "Europe/Rome",
       startDate: hogwartsEventRaw.startDate || "2026-06-01T14:00:00",
       endDate: hogwartsEventRaw.endDate || "2026-09-01T12:00:00",
     }) || "";
+  const hogwartsSortingWindowLabel =
+    formatHogwartsSortingWindowIt({
+      timezone: hogwartsEventRaw.timezone || "Europe/Rome",
+      sortingStartDate: hogwartsSortingStartDate,
+      endDate: hogwartsEventRaw.endDate || "2026-09-01T12:00:00",
+    }) || hogwartsEventWindowLabel;
   const hogwartsStaticWindowState = hogwartsIsEventWindowOpen(
     {
       enabled: hogwartsEventRaw.enabled !== false,
-      startMs: parseDateStartMs(hogwartsEventRaw.startDate || "2026-06-01T14:00:00"),
-      endMs: parseDateEndMs(hogwartsEventRaw.endDate || "2026-09-01T12:00:00"),
+      startMs: parseDateStartMs(hogwartsEventRaw.startDate || "2026-06-01T14:00:00", hogwartsEventTimezone),
+      endMs: parseDateEndMs(hogwartsEventRaw.endDate || "2026-09-01T12:00:00", hogwartsEventTimezone),
+      staffBypassUserIds: Array.isArray(hogwartsEventRaw.staffBypassUserIds)
+        ? hogwartsEventRaw.staffBypassUserIds.map((v) => String(v || "").trim()).filter(Boolean)
+        : [],
+    },
+    Date.now(),
+    null,
+  );
+  const hogwartsSortingStaticWindowState = hogwartsIsSortingWindowOpen(
+    {
+      enabled: hogwartsEventRaw.enabled !== false,
+      sortingStartMs: parseDateStartMs(hogwartsSortingStartDate, hogwartsEventTimezone),
+      endMs: parseDateEndMs(hogwartsEventRaw.endDate || "2026-09-01T12:00:00", hogwartsEventTimezone),
       staffBypassUserIds: Array.isArray(hogwartsEventRaw.staffBypassUserIds)
         ? hogwartsEventRaw.staffBypassUserIds.map((v) => String(v || "").trim()).filter(Boolean)
         : [],
@@ -1845,10 +1872,10 @@ async function main() {
     null,
   );
   const hogwartsEventCalendarResolved = resolveHogwartsEventCalendar(hogwartsEventRaw, siteBaseNoSlash);
-  hogwartsEventCalendarResolved.windowLabel = hogwartsEventWindowLabel;
+  hogwartsEventCalendarResolved.windowLabel = hogwartsSortingWindowLabel;
   hogwartsEventCalendarResolved.potions = {
     enabled: hogwartsPotionsRaw.enabled !== false,
-    startMs: parseDateStartMs(hogwartsPotionsStartDate),
+    startMs: parseDateStartMs(hogwartsPotionsStartDate, hogwartsEventTimezone),
     startDate: hogwartsPotionsStartDate,
   };
   const hogwartsEventCalendarWeb = serializeCalendarForWeb(hogwartsEventCalendarResolved);
@@ -1904,7 +1931,7 @@ async function main() {
       enabled: hogwartsEventRaw.enabled !== false,
       previewMode: hogwartsEventRaw.previewMode === true,
       timezone: String(hogwartsEventRaw.timezone || "Europe/Rome"),
-      startDate: String(hogwartsEventRaw.startDate || "2026-06-01T14:00:00"),
+      startDate: hogwartsSortingStartDate,
       endDate: String(hogwartsEventRaw.endDate || "2026-09-01T12:00:00"),
       eventKey: hogwartsEventKey,
       gringott: {
@@ -1913,11 +1940,11 @@ async function main() {
         currencyPlural: "Galeoni d'Oro",
         sortingReward: Math.max(1, Math.floor(Number(hogwartsEventRaw.gringott?.sortingReward) || 25)),
       },
-      windowLabel: hogwartsEventWindowLabel,
-      phase: hogwartsEventRaw.previewMode === true ? "preview_forbidden" : hogwartsStaticWindowState.phase,
-      open: hogwartsEventRaw.previewMode === true ? false : Boolean(hogwartsStaticWindowState.open),
-      startsAtMs: hogwartsStaticWindowState.startsAtMs ?? parseDateStartMs(hogwartsEventRaw.startDate || "2026-06-01T14:00:00"),
-      endsAtMs: hogwartsStaticWindowState.endsAtMs ?? parseDateEndMs(hogwartsEventRaw.endDate || "2026-09-01T12:00:00"),
+      windowLabel: hogwartsSortingWindowLabel,
+      phase: hogwartsEventRaw.previewMode === true ? "preview_forbidden" : hogwartsSortingStaticWindowState.phase,
+      open: hogwartsEventRaw.previewMode === true ? false : Boolean(hogwartsSortingStaticWindowState.open),
+      startsAtMs: hogwartsSortingStaticWindowState.startsAtMs ?? parseDateStartMs(hogwartsSortingStartDate, hogwartsEventTimezone),
+      endsAtMs: hogwartsSortingStaticWindowState.endsAtMs ?? parseDateEndMs(hogwartsEventRaw.endDate || "2026-09-01T12:00:00", hogwartsEventTimezone),
     },
     questions: getHogwartsPublicQuestions(),
     scoringQuestions: hogwartsScoringQuestions.map((q) => ({

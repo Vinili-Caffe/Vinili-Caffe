@@ -2,16 +2,27 @@ const IDs = require("../Config/ids");
 const { ActivityUserProfile, SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Schemas/Community/communitySchemas");
 const { resolveWebsiteCandidatureMember } = require("../../Events/interaction/candidatureApplicationHandlers");
 const { getPublicQuestions, normalizeAnswers, computeHouseFromAnswers, getHouseMeta, HOUSES } = require("./hogwartsSortingBank");
-const { resolveHogwartsEventConfig, isEventWindowOpen, resolveEventWindowForViewer, formatEventWindowIt } = require("./hogwartsSortingConfig");
+const { findExistingSort, shouldEnsureSortingGringott } = require("./hogwartsSortingResolve");
+const {
+  resolveHogwartsEventConfig,
+  resolveHubStartMs,
+  isEventWindowOpen,
+  isSortingWindowOpen,
+  resolveEventWindowForViewer,
+  resolveSortingWindowForViewer,
+  formatSortingWindowIt,
+} = require("./hogwartsSortingConfig");
+const { logHogwartsSortingCompleted } = require("../../Services/Community/hogwartsSortingLogService");
+const { logHogwartsShopPurchase } = require("../../Services/Community/hogwartsShopLogService");
 const {
   addGaleoni,
-  awardHogwartsSortingReward,
+  ensureHogwartsSortingReward,
   getGringottBalance,
   spendGaleoni,
   toPublicGringottPayload,
 } = require("../../Services/Community/gringottService");
-const { getShopItemById, normalizeShopCategory, publicShopCatalog, resolveShopPurchaseOffer } = require("./hogwartsShopCatalog");
-const { getConsumableById, normalizeConsumableCategory, publicConsumablesCatalog } = require("./hogwartsShopConsumablesCatalog");
+const { getShopItemById, normalizeShopCategory, publicShopCatalog, resolveShopPurchaseOffer, SHOP_CATEGORY_LABELS } = require("./hogwartsShopCatalog");
+const { getConsumableById, normalizeConsumableCategory, publicConsumablesCatalog, CONSUMABLE_CATEGORY_LABELS } = require("./hogwartsShopConsumablesCatalog");
 const {
   economyConsumablesLockMessage,
   getActiveConsumableBoosts,
@@ -23,6 +34,31 @@ const {
 } = require("../../Services/Community/hogwartsConsumableBoostsService");
 const { buildPotionsRound, normalizePotionId } = require("./hogwartsPotionsCatalog");
 const DOC = SITE_DOCUMENT_TYPE.HOGWARTS_SORTING;
+
+function setHogwartsMutationNoStore(res) {
+  res.setHeader("Cache-Control", "private, no-store, no-cache, must-revalidate");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("CDN-Cache-Control", "no-store");
+  res.setHeader("Surrogate-Control", "no-store");
+}
+
+function resolveMainGuildId(client) {
+  return String(client?.config?.mainGuildId || IDs.guilds?.main || "").trim();
+}
+
+async function resolvePublicGringottForUser(client, guildId, userId, eventKey, ensureSortingReward = false) {
+  if (ensureSortingReward) {
+    await ensureHogwartsSortingReward(client, guildId, userId, "site").catch((err) => {
+      global.logger?.warn?.("[GRINGOTT] ensure sorting reward:", err?.message || err);
+    });
+  }
+  const gringott = await getGringottBalance(guildId, userId, eventKey);
+  return toPublicGringottPayload(gringott || { eventKey });
+}
+
+async function resolveGringottAfterSorting(client, guildId, userId, eventKey) {
+  return resolvePublicGringottForUser(client, guildId, userId, eventKey, true);
+}
 const HOUSE_POINTS_DOC = SITE_DOCUMENT_TYPE.HOGWARTS_HOUSE_POINTS;
 const HOUSE_POINTS_OWNER_ID = "__event__";
 const {
@@ -51,8 +87,7 @@ const {
   assertHogwartsEventParticipationForUser,
   hasHogwartsSortingPreviewAccess,
   isHogwartsStaffPreviewViewer,
-  HOGWARTS_EXCLUDED_STAFF_ROLE_IDS,
-  memberIsHogwartsExcludedStaff,
+  HOGWARTS_PREVIEW_STAFF_ROLE_IDS,
 } = require("./hogwartsEventParticipation");
 const { markHogwartsProfileRetainedUntil } = require("../../Services/Community/hogwartsLeaveRetention");
 
@@ -70,7 +105,39 @@ async function gateHogwartsEventParticipation(client, resolved, cfg) {
     resolved.userId,
   );
   if (!participation.ok) return participation;
-  const windowState = isEventWindowOpen(cfg, Date.now(), resolved.userId);
+  const windowState = isEventWindowOpen(cfg, Date.now(), resolved.userId, resolved.member);
+  if (windowState.open) return { ok: true, windowState };
+  if (!cfg.previewMode) {
+    return {
+      ok: false,
+      status: 403,
+      error: "event_closed",
+      message: "Questa sezione dell'evento Hogwarts non è disponibile.",
+    };
+  }
+  return {
+    ok: false,
+    status: 403,
+    error: "preview_forbidden",
+    message: "In anteprima questa sezione è riservata all'High Staff del server.",
+  };
+}
+
+async function gateHogwartsHubParticipation(client, resolved, cfg) {
+  if (isHogwartsStaffPreviewViewer(cfg, resolved.member, resolved.userId)) {
+    return {
+      ok: true,
+      windowState: resolveSortingWindowForViewer(cfg, Date.now(), resolved.member, resolved.userId),
+      previewStaff: true,
+    };
+  }
+  const participation = await assertHogwartsEventParticipationForUser(
+    client,
+    resolved.member,
+    resolved.userId,
+  );
+  if (!participation.ok) return participation;
+  const windowState = resolveSortingWindowForViewer(cfg, Date.now(), resolved.member, resolved.userId);
   if (windowState.open) return { ok: true, windowState };
   if (!cfg.previewMode) {
     return {
@@ -108,7 +175,7 @@ function buildEventPayload(cfg, windowState) {
     enabled: Boolean(cfg.enabled),
     previewMode: Boolean(cfg.previewMode),
     timezone: cfg.timezone,
-    startDate: cfg.startDate,
+    startDate: cfg.sortingStartDate || cfg.startDate,
     endDate: cfg.endDate,
     eventKey: cfg.eventKey,
     gringott: {
@@ -117,7 +184,7 @@ function buildEventPayload(cfg, windowState) {
       currencyPlural: "Galeoni d'Oro",
       sortingReward: Number(cfg.gringott?.sortingReward || 0),
     },
-    windowLabel: formatEventWindowIt(cfg),
+    windowLabel: formatSortingWindowIt(cfg),
     phase: windowState.phase,
     open: Boolean(windowState.open),
     startsAtMs: windowState.startsAtMs || null,
@@ -125,15 +192,37 @@ function buildEventPayload(cfg, windowState) {
   };
 }
 
-async function findExistingSort(guildId, userId, eventKey) {
-  return SiteDocument.findOne({
+function isMongoDuplicateKeyError(err) {
+  return err?.code === 11000 || String(err?.message || "").includes("E11000");
+}
+
+async function claimHogwartsSortingRecord({ resolved, cfg, houseId, computed, answerCount }) {
+  const filter = {
     docType: DOC,
-    guildId: String(guildId || ""),
-    userId: String(userId || ""),
-    dedupeKey: String(eventKey || ""),
-  })
-    .lean()
-    .catch(() => null);
+    guildId: String(resolved.guild.id || ""),
+    userId: String(resolved.userId || ""),
+    dedupeKey: String(cfg.eventKey || ""),
+  };
+  const payload = {
+    status: houseId,
+    planKey: houseId,
+    createdBy: "site",
+    rawWebhook: {
+      totals: computed.totals,
+      decisive: computed.decisive,
+      answerCount,
+      roleResult: { roleAssigned: false, roleQueued: true },
+    },
+  };
+  try {
+    await SiteDocument.create({ ...filter, ...payload });
+    return { claimed: true };
+  } catch (err) {
+    if (!isMongoDuplicateKeyError(err)) throw err;
+    const existing = await findExistingSort(resolved.guild.id, resolved.userId, cfg.eventKey);
+    if (existing?.status) return { claimed: false, existingHouse: existing.status, existing };
+    throw err;
+  }
 }
 
 async function assignHouseRoles(member, cfg, houseId) {
@@ -164,38 +253,38 @@ async function assignHouseRoles(member, cfg, houseId) {
   }
 }
 
-async function commitHogwartsSortingSideEffects({ client, resolved, cfg, houseId, computed, answerCount }) {
-  const roleResult = { roleAssigned: false, roleQueued: true };
-  await SiteDocument.create({
-    docType: DOC,
-    guildId: resolved.guild.id,
-    userId: resolved.userId,
-    dedupeKey: cfg.eventKey,
-    status: houseId,
-    planKey: houseId,
-    createdBy: "site",
-    rawWebhook: {
-      totals: computed.totals,
-      decisive: computed.decisive,
-      answerCount,
-      roleResult,
-    },
-  }).catch((err) => {
-    if (String(err?.code) === "11000") return null;
-    throw err;
-  });
-  const gringottAward = await awardHogwartsSortingReward(client, resolved.guild.id, resolved.userId, "site");
+async function commitHogwartsSortingSideEffects({ client, resolved, cfg, houseId, houseMeta, computed, answerCount }) {
+  const claim = await claimHogwartsSortingRecord({ resolved, cfg, houseId, computed, answerCount });
+  if (!claim.claimed) {
+    return {
+      duplicate: true,
+      existingHouse: String(claim.existingHouse || "").trim(),
+      existing: claim.existing || null,
+    };
+  }
+  const gringottAward = await ensureHogwartsSortingReward(client, resolved.guild.id, resolved.userId, "site");
   await markHogwartsProfileRetainedUntil(resolved.guild.id, resolved.userId, client);
+  void logHogwartsSortingCompleted({
+    client,
+    guild: resolved.guild,
+    cfg,
+    member: resolved.member,
+    userId: resolved.userId,
+    houseId,
+    houseLabel: houseMeta?.label || houseId,
+  }).catch((err) => {
+    global.logger?.warn?.("[hogwarts-sorting] log:", err?.message || err);
+  });
   void assignHouseRoles(resolved.member, cfg, houseId).catch((err) => {
     global.logger?.warn?.("[hogwarts-sorting] queued role assignment:", err?.message || err);
   });
-  return { gringottAward };
+  return { duplicate: false, gringottAward };
 }
 
 async function handleHogwartsSortingBootstrap(client, req, res) {
   try {
     const cfg = resolveHogwartsEventConfig(client);
-    const windowState = isEventWindowOpen(cfg, Date.now(), null);
+    const windowState = isSortingWindowOpen(cfg, Date.now(), null);
     res.setHeader("Cache-Control", "public, max-age=60");
     return res.status(200).json({
       ok: true,
@@ -228,11 +317,24 @@ async function handleHogwartsSortingEligibility(client, req, res) {
       const denied = previewAccessDeniedPayload();
       return res.status(denied.status).json(denied);
     }
-  const windowState = resolveEventWindowForViewer(cfg, Date.now(), resolved.member, resolved.userId);
-    const existing = await findExistingSort(resolved.guild.id, resolved.userId, cfg.eventKey);
+  const windowState = resolveSortingWindowForViewer(cfg, Date.now(), resolved.member, resolved.userId);
+    const existing = await findExistingSort(resolved.guild.id, resolved.userId, cfg.eventKey, {
+      member: resolved.member,
+      cfg,
+    });
     const houseId = existing?.status ? String(existing.status).trim() : "";
     const meta = houseId ? houseMetaFromCfg(cfg, houseId) : null;
-    const gringott = await getGringottBalance(resolved.guild.id, resolved.userId, cfg.eventKey);
+    const ensureGringott = await shouldEnsureSortingGringott(resolved.guild.id, resolved.userId, cfg.eventKey, {
+      member: resolved.member,
+      cfg,
+    });
+    const gringott = await resolvePublicGringottForUser(
+      client,
+      resolved.guild.id,
+      resolved.userId,
+      cfg.eventKey,
+      ensureGringott,
+    );
     res.setHeader("Cache-Control", "private, no-store");
     return res.status(200).json({
       ok: true,
@@ -241,10 +343,10 @@ async function handleHogwartsSortingEligibility(client, req, res) {
       alreadySorted: Boolean(houseId),
       house: houseId || null,
       houseMeta: meta,
-      gringott: toPublicGringottPayload(gringott || { eventKey: cfg.eventKey }),
+      gringott,
       message: !windowState.open
         ? windowState.phase === "before_start"
-          ? `Lo smistamento aprirà ${formatEventWindowIt(cfg) || "a breve"}.`
+          ? `Lo smistamento aprirà ${formatSortingWindowIt(cfg) || "a breve"}.`
           : windowState.phase === "after_end"
             ? "L'evento Hogwarts è terminato."
             : "Smistamento non disponibile al momento."
@@ -259,6 +361,7 @@ async function handleHogwartsSortingEligibility(client, req, res) {
 }
 
 async function handleHogwartsSortingSubmit(client, req, res) {
+  setHogwartsMutationNoStore(res);
   try {
     const accessToken = normalizeHeaderSecret(req.headers.authorization);
     if (!accessToken) {
@@ -288,30 +391,34 @@ async function handleHogwartsSortingSubmit(client, req, res) {
       const denied = previewAccessDeniedPayload();
       return res.status(denied.status).json(denied);
     }
-    const windowState = resolveEventWindowForViewer(cfg, Date.now(), resolved.member, resolved.userId);
+    const windowState = resolveSortingWindowForViewer(cfg, Date.now(), resolved.member, resolved.userId);
     if (!windowState.open) {
       return res.status(403).json({
         ok: false,
         error: "event_closed",
         message:
           windowState.phase === "before_start"
-            ? `Lo smistamento non è ancora aperto. ${formatEventWindowIt(cfg) || ""}`.trim()
+            ? `Lo smistamento non è ancora aperto. ${formatSortingWindowIt(cfg) || ""}`.trim()
             : "Lo smistamento non è disponibile in questo momento.",
         event: buildEventPayload(cfg, windowState),
       });
     }
 
-    const existing = await findExistingSort(resolved.guild.id, resolved.userId, cfg.eventKey);
-    if (existing?.status) {
-      const meta = houseMetaFromCfg(cfg, existing.status);
-      const gringott = await getGringottBalance(resolved.guild.id, resolved.userId, cfg.eventKey);
+    const existing = await findExistingSort(resolved.guild.id, resolved.userId, cfg.eventKey, {
+      member: resolved.member,
+      cfg,
+    });
+    const existingHouse = String(existing?.status || "").trim();
+    if (existingHouse) {
+      const meta = houseMetaFromCfg(cfg, existingHouse);
+      const gringott = await resolveGringottAfterSorting(client, resolved.guild.id, resolved.userId, cfg.eventKey);
       return res.status(200).json({
         ok: true,
         alreadySorted: true,
-        message: `Hai già completato lo smistamento (${meta?.label || existing.status}).`,
-        house: String(existing.status),
+        message: `Hai già completato lo smistamento (${meta?.label || existingHouse}).`,
+        house: existingHouse,
         houseMeta: meta,
-        gringott: toPublicGringottPayload(gringott || { eventKey: cfg.eventKey }),
+        gringott,
       });
     }
 
@@ -331,9 +438,23 @@ async function handleHogwartsSortingSubmit(client, req, res) {
       resolved,
       cfg,
       houseId,
+      houseMeta: meta,
       computed,
       answerCount: answers.length,
     });
+    if (sideEffects?.duplicate) {
+      const lockedHouse = String(sideEffects.existingHouse || "").trim() || houseId;
+      const lockedMeta = houseMetaFromCfg(cfg, lockedHouse);
+      const gringott = await resolveGringottAfterSorting(client, resolved.guild.id, resolved.userId, cfg.eventKey);
+      return res.status(200).json({
+        ok: true,
+        alreadySorted: true,
+        message: `Hai già completato lo smistamento (${lockedMeta?.label || lockedHouse}).`,
+        house: lockedHouse,
+        houseMeta: lockedMeta,
+        gringott,
+      });
+    }
     const gringottState =
       sideEffects?.gringottAward?.state ||
       (await getGringottBalance(resolved.guild.id, resolved.userId, cfg.eventKey));
@@ -371,13 +492,28 @@ async function handleHogwartsGringottGet(client, req, res) {
       return res.status(Number(resolved.status) || 500).json(resolved);
     }
     const cfg = resolveHogwartsEventConfig(client);
-    const gate = await gateHogwartsEventParticipation(client, resolved, cfg);
+    const gate = await gateHogwartsHubParticipation(client, resolved, cfg);
     if (!gate.ok) return res.status(gate.status || 403).json(gate);
-    const gringott = await getGringottBalance(resolved.guild.id, resolved.userId, cfg.eventKey);
+    const existing = await findExistingSort(resolved.guild.id, resolved.userId, cfg.eventKey, {
+      member: resolved.member,
+      cfg,
+    });
+    const houseId = existing?.status ? String(existing.status).trim() : "";
+    const ensureGringott = await shouldEnsureSortingGringott(resolved.guild.id, resolved.userId, cfg.eventKey, {
+      member: resolved.member,
+      cfg,
+    });
+    const gringott = await resolvePublicGringottForUser(
+      client,
+      resolved.guild.id,
+      resolved.userId,
+      cfg.eventKey,
+      ensureGringott,
+    );
     res.setHeader("Cache-Control", "private, no-store");
     return res.status(200).json({
       ok: true,
-      gringott: toPublicGringottPayload(gringott || { eventKey: cfg.eventKey }),
+      gringott,
     });
   } catch (err) {
     global.logger?.error?.("[WEBHOOK] hogwarts-gringott:", err);
@@ -422,9 +558,12 @@ async function resolveShopParticipant(client, req) {
   const resolved = await resolveWebsiteCandidatureMember(client, accessToken);
   if (!resolved.ok) return { ok: false, status: Number(resolved.status) || 500, ...resolved };
   const cfg = resolveHogwartsEventConfig(client);
-  const gate = await gateHogwartsEventParticipation(client, resolved, cfg);
+  const gate = await gateHogwartsHubParticipation(client, resolved, cfg);
   if (!gate.ok) return gate;
-  const sorting = await findExistingSort(resolved.guild.id, resolved.userId, cfg.eventKey);
+  const sorting = await findExistingSort(resolved.guild.id, resolved.userId, cfg.eventKey, {
+    member: resolved.member,
+    cfg,
+  });
   const houseId = String(sorting?.status || "").trim();
   const previewViewer = isHogwartsStaffPreviewViewer(cfg, resolved.member, resolved.userId) && !houseId;
   if (!houseId && !previewViewer) {
@@ -473,6 +612,7 @@ async function handleHogwartsShopGet(client, req, res) {
 }
 
 async function handleHogwartsShopPurchasePost(client, req, res) {
+  setHogwartsMutationNoStore(res);
   try {
     const participant = await resolveShopParticipant(client, req);
     if (!participant.ok) return res.status(participant.status || 500).json(participant);
@@ -535,6 +675,26 @@ async function handleHogwartsShopPurchasePost(client, req, res) {
             consumables: publicConsumablesCatalogWithAvailability(publicConsumablesCatalog(), result.activeBoosts, guildBoosts),
           }
         : await buildConsumablesPayload();
+      const purchasedAtMs = Date.now();
+      void logHogwartsShopPurchase({
+        client,
+        guild: resolved.guild,
+        cfg,
+        member: resolved.member,
+        userId: resolved.userId,
+        itemId: consumable.id,
+        itemName: consumable.name,
+        category: consumable.category,
+        categoryLabel: CONSUMABLE_CATEGORY_LABELS[consumable.category] || consumable.category,
+        galeoniPaid: Math.max(0, Math.floor(Number(result.spent) || consumable.price || 0)),
+        mode: "consumable",
+        houseId,
+        houseLabel: houseMeta?.label || houseMeta?.name || "",
+        purchasedAtMs,
+        source: "site",
+      }).catch((err) => {
+        global.logger?.warn?.("[hogwarts-shop] log consumable:", err?.message || err);
+      });
       res.setHeader("Cache-Control", "private, no-store");
       return res.status(200).json({
         ok: true,
@@ -650,6 +810,25 @@ async function handleHogwartsShopPurchasePost(client, req, res) {
     }
     const state = await getShopProfileState(resolved.guild.id, resolved.userId, cfg.eventKey);
     const prevName = previousPurchase ? getShopItemById(previousPurchase.id)?.name : "";
+    void logHogwartsShopPurchase({
+      client,
+      guild: resolved.guild,
+      cfg,
+      member: resolved.member,
+      userId: resolved.userId,
+      itemId: item.id,
+      itemName: item.name,
+      category,
+      categoryLabel: SHOP_CATEGORY_LABELS[category] || category,
+      galeoniPaid: amountToPay,
+      mode: isUpgrade ? "upgrade" : "purchase",
+      houseId,
+      houseLabel: houseMeta?.label || houseMeta?.name || "",
+      purchasedAtMs: now.getTime(),
+      source: "site",
+    }).catch((err) => {
+      global.logger?.warn?.("[hogwarts-shop] log catalog:", err?.message || err);
+    });
     res.setHeader("Cache-Control", "private, no-store");
     return res.status(200).json({
       ok: true,
@@ -738,7 +917,10 @@ async function resolvePotionsParticipant(client, req) {
       };
     }
   }
-  const sorting = await findExistingSort(resolved.guild.id, resolved.userId, cfg.eventKey);
+  const sorting = await findExistingSort(resolved.guild.id, resolved.userId, cfg.eventKey, {
+    member: resolved.member,
+    cfg,
+  });
   const houseId = String(sorting?.status || "").trim();
   if (!houseId && previewViewer) {
     return { ok: true, resolved, cfg, potionsCfg, houseId: "", houseMeta: null, previewViewer: true };
@@ -876,6 +1058,7 @@ async function handleHogwartsPotionsGet(client, req, res) {
 }
 
 async function handleHogwartsPotionsPost(client, req, res) {
+  setHogwartsMutationNoStore(res);
   try {
     const participant = await resolvePotionsParticipant(client, req);
     if (!participant.ok) return res.status(participant.status || 500).json(participant);
@@ -1066,15 +1249,16 @@ async function handleHogwartsHousePointsGet(client, req, res) {
         return res.status(403).json({ ok: false, error: "forbidden", message: "In anteprima questa pagina è riservata all'High Staff del server." });
       }
     }
-    if (Number.isFinite(Number(cfg.startMs)) && Date.now() < Number(cfg.startMs)) {
+    const hubStart = resolveHubStartMs(cfg);
+    if (Number.isFinite(hubStart) && Date.now() < hubStart) {
       res.setHeader("Cache-Control", cfg.previewMode ? "private, no-store" : "public, max-age=30");
       return res.status(200).json({ ok: true, eventKey: cfg.eventKey, points: publicHousePointsPayload(null) });
     }
-    const guildId = String(resolveGuild(client)?.id || "").trim();
+    const guildId = resolveMainGuildId(client);
     const doc = guildId
       ? await SiteDocument.findOne({ docType: HOUSE_POINTS_DOC, guildId, userId: HOUSE_POINTS_OWNER_ID, dedupeKey: String(cfg.eventKey || "hogwarts") }).lean().catch(() => null)
       : null;
-    res.setHeader("Cache-Control", cfg.previewMode ? "private, no-store" : "public, max-age=30");
+    res.setHeader("Cache-Control", "private, no-store");
     return res.status(200).json({ ok: true, eventKey: cfg.eventKey, points: publicHousePointsPayload(doc) });
   } catch (err) {
     global.logger?.error?.("[WEBHOOK] hogwarts-house-points:", err);
@@ -1115,7 +1299,10 @@ async function resolveForbiddenBookParticipant(client, req, options = {}) {
       message: "La caccia ai libri proibiti inizia il 20 giugno 2026.",
     };
   }
-  const sorting = await findExistingSort(resolved.guild.id, resolved.userId, cfg.eventKey);
+  const sorting = await findExistingSort(resolved.guild.id, resolved.userId, cfg.eventKey, {
+    member: resolved.member,
+    cfg,
+  });
   const houseId = String(sorting?.status || "").trim();
   if (!houseId && options.allowPreviewViewer && previewViewer) {
     return { ok: true, resolved, cfg, houseId: "", dedupeKey: forbiddenEventDedupeKey(cfg), previewViewer: true };
@@ -1144,6 +1331,7 @@ async function handleHogwartsForbiddenBooksGet(client, req, res) {
 }
 
 async function handleHogwartsForbiddenBooksClaim(client, req, res) {
+  setHogwartsMutationNoStore(res);
   try {
     const participant = await resolveForbiddenBookParticipant(client, req, { allowPreviewViewer: true });
     if (!participant.ok) return res.status(participant.status || 500).json(participant);
@@ -1228,11 +1416,11 @@ async function handleHogwartsSortingAccessGet(client, req, res) {
       });
     }
 
-    if (!HOGWARTS_EXCLUDED_STAFF_ROLE_IDS.length) {
+    if (!HOGWARTS_PREVIEW_STAFF_ROLE_IDS.length) {
       return res.status(503).json({
         ok: false,
         error: "misconfigured",
-        message: "Ruoli staff dirigenziale non configurati sul bot.",
+        message: "Ruoli staff anteprima evento non configurati sul bot.",
       });
     }
 
@@ -1252,4 +1440,4 @@ async function handleHogwartsSortingAccessGet(client, req, res) {
   }
 }
 
-module.exports = { handleHogwartsForbiddenBooksClaim, handleHogwartsForbiddenBooksGet, handleHogwartsHousePointsGet, handleHogwartsPotionsGet, handleHogwartsPotionsPost, handleHogwartsShopGet, handleHogwartsShopPurchasePost, handleHogwartsSortingBootstrap, handleHogwartsSortingEligibility, handleHogwartsSortingSubmit, handleHogwartsSortingAccessGet, handleHogwartsGringottGet };
+module.exports = { handleHogwartsForbiddenBooksClaim, handleHogwartsForbiddenBooksGet, handleHogwartsHousePointsGet, handleHogwartsPotionsGet, handleHogwartsPotionsPost, handleHogwartsShopGet, handleHogwartsShopPurchasePost, handleHogwartsSortingBootstrap, handleHogwartsSortingEligibility, handleHogwartsSortingSubmit, handleHogwartsSortingAccessGet, handleHogwartsGringottGet, setHogwartsMutationNoStore };

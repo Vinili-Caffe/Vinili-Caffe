@@ -129,10 +129,6 @@ async function buildMyRepostPanel({ guild, targetUserId, requesterId, page = 1, 
     });
   }
 
-  const quotesChannelId = resolveQuoteChannelId(gid);
-  const boardLabel = quotesChannelId ? await resolveBoardChannelLabel(guild, quotesChannelId) : null;
-  const boardLine = boardLabel ? `» Bacheca: **${boardLabel}**` : "";
-
   const lines = rows.map((row, idx) => {
     const n = safeSkip + idx + 1;
     const boardUrl =
@@ -147,7 +143,7 @@ async function buildMyRepostPanel({ guild, targetUserId, requesterId, page = 1, 
     return `**${n}.** ${when} · ${boardLink} · ${srcLink}\n> ${preview || "—"}`;
   });
 
-  const description = [boardLine, lines.join("\n\n")].filter(Boolean).join("\n\n").slice(0, 3900);
+  const description = [lines.join("\n\n")].filter(Boolean).join("\n\n").slice(0, 3900);
   const embed = new EmbedBuilder()
     .setColor(0xeb6ea5)
     .setTitle(`<a:reddiamond:1443652837346377841> Repost di ${titleSuffix}`)

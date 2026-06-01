@@ -1254,6 +1254,18 @@
             ],
             "ownerSegment": 2
         },
+        "security_panel:toggle:*": {
+            "roles": [
+                "roles.Founder"
+            ],
+            "ownerSegment": 2
+        },
+        "security_panel:bulk:*": {
+            "roles": [
+                "roles.Founder"
+            ],
+            "ownerSegment": 2
+        },
         "security_panel:status:*": {
             "ownerSegment": 2
         },
@@ -2010,6 +2022,18 @@
         "security_panel:pick:*": {
             "roles": [
                 "roles.HighStaff"
+            ],
+            "ownerSegment": 2
+        },
+        "security_panel:toggle:*": {
+            "roles": [
+                "roles.Founder"
+            ],
+            "ownerSegment": 2
+        },
+        "security_panel:bulk:*": {
+            "roles": [
+                "roles.Founder"
             ],
             "ownerSegment": 2
         },

@@ -7,6 +7,7 @@ const { restorePendingVoteReminders, restorePendingDiscadiaReminders, restorePen
 const { shouldRunDiscadiaVoteMonthRepairOnStartup, repairDiscadiaVoteMonthRowsForMainGuild, startDiscadiaVoteMonthRolloverCron } = require("../Services/Bump/discadiaVoteMonthRepairOnStartupService");
 const { processAllRecentAutomationMessages } = require("../Utils/Message/officialMessageAutomationHandlers");
 const { processPendingCountingMessages } = require("../Utils/Message/officialMessageCommunityHandlers");
+const { rehydrateCountingChannelBans } = require("../Utils/Community/countingChannelBanService");
 const { bootstrapSupporter } = require("./presenceUpdate");
 const { restoreTtsConnections } = require("../Services/TTS/ttsService");
 const { runDueOneTimeReminders, } = require("../Services/Reminders/oneTimeReminderService");
@@ -39,6 +40,8 @@ const { startModCaseLifecycleLoop } = require("../Services/Moderation/modCaseLif
 const { startWeeklyStaffResocontoLoop } = require("../Services/Staff/weeklyStaffResocontoService");
 const { startWeeklyActivityWinnersLoop } = require("../Services/Community/weeklyActivityWinnersService");
 const { startHogwartsHouseCupLoop } = require("../Services/Community/hogwartsHouseCupPublishService");
+const { syncHogwartsShopLogsOnStartup } = require("../Services/Community/hogwartsShopLogService");
+const { syncHouseSortingAnnouncesOnStartup } = require("../Services/Community/hogwartsSortingLogService");
 const { startContestPrizeMaintenanceCron } = require("../Services/Community/contestPrizeMaintenanceService");
 const { startStaffWarnResetLoop } = require("../Services/Staff/staffWarnService");
 const { startStaffAutoValutazioniLoop, syncAllStaffAutoValutazioni, restoreActiveSerataFilmSessions, cleanupMalformedAutoValutazioni } = require("../Services/Staff/staffAutoValutazioniService");
@@ -65,7 +68,6 @@ const { postTopggStatsDigestIfConfigured } = require("../Services/Web/topggDiges
 const { restorePauseMessageStatusSync } = require("../Utils/Pause/pauseHandlersUtils");
 const { formatDurationMs, runPhasedStartupTasks, } = require("../Utils/Startup/readyStartupRuntime");
 const { logBotReady } = require("../../shared/discord/readyLog");
-const { buildBotPresenceActivities } = require("../../shared/discord/botPresenceActivity");
 const { sweepExpiredPartnerManagerTimedPerks } = require("../Utils/Staff/partnerManagerTimedPerks");
 const STARTUP_PANELS_RETRY_MS = 15000;
 const ENGAGEMENT_INTERVAL_MS = Number(process.env.ENGAGEMENT_INTERVAL_MS) || 60 * 1000;
@@ -278,8 +280,8 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
       enabled: primaryScheduler,
       run: () =>
         guildMemberUpdateExtras.recoverRecentBoostEmbedsOnStartup(client, {
-          limit: 20,
-          lookbackMs: 24 * 60 * 60 * 1000,
+          limit: 3,
+          lookbackMs: 30 * 60 * 1000,
         }),
     },
     {
@@ -300,8 +302,8 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
       enabled: primaryScheduler,
       run: () =>
         guildMemberUpdateExtras.recoverLastGlobalNativeBoostEmbedsOnStartup(client, {
-          messageLimit: 2,
-          lookbackMs: 7 * 24 * 60 * 60 * 1000,
+          messageLimit: 1,
+          lookbackMs: 15 * 60 * 1000,
         }),
     },
     {
@@ -357,6 +359,18 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
       weight: 85,
       enabled: primaryScheduler && shouldRunVerificationTenureBackfill(client),
       run: () => backfillVerificationTenure(client),
+    },
+    {
+      label: "hogwarts shop purchase log backfill",
+      weight: 86,
+      enabled: primaryScheduler,
+      run: () => syncHogwartsShopLogsOnStartup(client),
+    },
+    {
+      label: "hogwarts house sorting announce backfill",
+      weight: 87,
+      enabled: primaryScheduler,
+      run: () => syncHouseSortingAnnouncesOnStartup(client),
     },
     {
       label: "renumber categories",
@@ -503,6 +517,10 @@ async function restoreCoreStartupState(client) {
     rehydrateAntiNukePanicForGuild(guild);
   }
   printRecoveryHealthOnce("VINYLS_RECOVERY_HEALTH");
+  const { applyBotPresence, schedulePresenceStabilization, installBotPresenceKeeper } = require("../../shared/discord/botPresenceActivity");
+  await applyBotPresence(client);
+  installBotPresenceKeeper(client);
+  schedulePresenceStabilization(client);
 }
 
 async function runStartupPanels(client, label = "immediate") {
@@ -681,17 +699,6 @@ function scheduleMonthlyGif(client) {
   }
 }
 
-function setClientPresence(client) {
-  try {
-    client.user?.setPresence?.({
-      status: client.config?.status || "idle",
-      activities: buildBotPresenceActivities(client),
-    });
-  } catch (err) {
-    logError(client, "[STATUS] Errore impostazione presence:", err?.message || err);
-  }
-}
-
 function maybeCheckPackagesOnReady(client) {
   if (typeof checkAndInstallPackages !== "function") return;
   if (String(process.env.CHECK_PACKAGES_ON_READY || "").trim() !== "1") return;
@@ -796,7 +803,6 @@ module.exports = {
         logError(client, "[DISCADIA_VOTE_MONTH_CRON] schedule failed:", err);
       }
     }
-    setClientPresence(client);
     maybeCheckPackagesOnReady(client);
     try {
       startAutoPollLoop(client);
@@ -815,6 +821,15 @@ module.exports = {
 
     void processPendingPrefixCommands(client).catch((err) => global.logger?.warn?.("[READY] pending commands:", err?.message || err));
     void processPendingCountingMessages(client).catch((err) => global.logger?.warn?.("[READY] counting catch-up:", err?.message || err));
+    void rehydrateCountingChannelBans(client).catch((err) =>
+      global.logger?.warn?.("[READY] counting channel bans rehydrate:", err?.message || err),
+    );
+    const countingCatchUpRetry = setTimeout(() => {
+      void processPendingCountingMessages(client).catch((err) =>
+        global.logger?.warn?.("[READY] counting catch-up retry:", err?.message || err),
+      );
+    }, STARTUP_PANELS_RETRY_MS);
+    countingCatchUpRetry.unref?.();
 
     if (primaryScheduler) {
       void restorePauseMessageStatusSync(client).catch((err) => {
@@ -853,5 +868,9 @@ module.exports = {
         global.logger?.warn?.("[STAFF ACCESS MIRROR] startup sweep failed:", err);
       });
     }, 30_000).unref?.();
+
+    const { applyBotPresence, installBotPresenceKeeper } = require("../../shared/discord/botPresenceActivity");
+    await applyBotPresence(client);
+    installBotPresenceKeeper(client);
   },
 };

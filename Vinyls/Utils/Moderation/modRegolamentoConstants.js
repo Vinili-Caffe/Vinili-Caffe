@@ -35,6 +35,7 @@ const BUCKET_VIOLATION_KEYS = {
     "attachment_link",
     "attachment_sticker",
     "unwhitelisted_webhook",
+    "cross_server_forward",
   ]),
 };
 
@@ -86,6 +87,7 @@ const VIOLATION_KEY_LABEL_IT = {
   attachment_link: "Troppi link nel testo (reg. 2.3)",
   attachment_sticker: "Troppi sticker (reg. 2.3)",
   unwhitelisted_webhook: "Webhook non autorizzato (reg. 2.3)",
+  cross_server_forward: "Messaggio inoltrato da un altro server (reg. 2.3)",
   panic_mode: "Panic mode / raid (severità elevata)",
 };
 

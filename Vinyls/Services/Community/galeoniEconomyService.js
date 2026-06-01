@@ -4,7 +4,7 @@ const { isValidGuildUserId } = require("../../Utils/DB/validateWriteIds");
 const IDs = require("../../Utils/Config/ids");
 const { getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { resolveHogwartsEventConfig } = require("../../Utils/Web/hogwartsSortingConfig");
-const { isUserHighStaffExcludedFromHogwartsEvent, memberIsHogwartsExcludedStaff, resolveMainGuildMember, HOGWARTS_HIGH_STAFF_EXCLUDED_MESSAGE, hasHogwartsSortingPreviewAccess, isStaffBypassUserId } = require("../../Utils/Web/hogwartsEventParticipation");
+const { resolveMainGuildMember, hasHogwartsSortingPreviewAccess, isStaffBypassUserId } = require("../../Utils/Web/hogwartsEventParticipation");
 const { addGaleoni, formatGaleoni, getGringottBalance, spendGaleoni } = require("./gringottService");
 const ECONOMY_PATH = "profile.events.hogwarts.economy";
 const DEFAULT_CONFIG = Object.freeze({
@@ -132,14 +132,22 @@ function hasAnyRole(member, roleIds = []) {
   return roleIds.some((roleId) => hasRole(member, roleId));
 }
 
+const GALEONI_BAL_STAFF_ROLE_IDS = [
+  IDs.roles?.HighStaff,
+  IDs.roles?.Founder,
+  IDs.roles?.Admin,
+  IDs.roles?.Director,
+]
+  .map((id) => normalizeId(id))
+  .filter(Boolean);
+
 async function isHighStaff(member, client, userId) {
-  if (memberIsHogwartsExcludedStaff(member)) return true;
+  if (hasAnyRole(member, GALEONI_BAL_STAFF_ROLE_IDS)) return true;
   const mainMember = await resolveMainGuildMember(client, userId, member);
-  return memberIsHogwartsExcludedStaff(mainMember);
+  return hasAnyRole(mainMember, GALEONI_BAL_STAFF_ROLE_IDS);
 }
 
 async function isMember(member, client, userId) {
-  if (await isUserHighStaffExcludedFromHogwartsEvent(client, userId, member)) return false;
   return hasRole(member, IDs.roles?.Member);
 }
 
@@ -152,9 +160,6 @@ async function assertEconomyAccess(message, client) {
   const live = isEconomyLive(cfg);
   if (!live && !previewAccess) {
     return { ok: false, message: "L'economia Galeoni si sblocca lunedì 10 agosto." };
-  }
-  if (!previewAccess && await isUserHighStaffExcludedFromHogwartsEvent(client, userId, message.member)) {
-    return { ok: false, message: HOGWARTS_HIGH_STAFF_EXCLUDED_MESSAGE };
   }
   if (!previewAccess && !await isMember(message.member, client, userId)) {
     return { ok: false, message: "Devi essere Member per usare l'economia Galeoni." };

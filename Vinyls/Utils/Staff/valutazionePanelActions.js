@@ -478,7 +478,7 @@ async function valutazioneSelfNegTradeThreePosOneNegCore(profileDoc, staffUser, 
   const negEmbed = makeRemovalEmbed(
     actor,
     staffUser,
-    "<:cancel:1461730653677551691> **__VALUTAZIONE NEGATIVA RIMOSSA__** (compenso)",
+    "<:cancel:1461730653677551691> **__VALUTAZIONE NEGATIVA RIMOSSA__**",
     `<:VC_reason:1478517122929004544> A __${accountUsername(staffUser)}__ è stata **rimossa** una _Valutazione Negativa!_`,
     tradeReason,
     "<:VC_update:1478721333096349817> __Valutazioni Negative Totali__",
@@ -489,7 +489,7 @@ async function valutazioneSelfNegTradeThreePosOneNegCore(profileDoc, staffUser, 
   const actorLike = actor.member || actor.user;
   const summary = new EmbedBuilder()
     .setAuthor({
-      name: `Compensazione valutazioni — ${accountUsername(actorLike)}`,
+      name: `Valutazione negativa rimossa — ${accountUsername(actorLike)}`,
       iconURL: guildMemberDisplayAvatarUrlDynamic(actorLike) || undefined,
     })
     .setTitle("<:thumbsup:1471292172145004768><:thumbsdown:1471292163957457013> **Scambio 3 positive → 1 negativa**")
@@ -500,7 +500,7 @@ async function valutazioneSelfNegTradeThreePosOneNegCore(profileDoc, staffUser, 
         "",
         `**Rimossa negativa n°** \`${negativeRemoveId1Based}\` — _${String(removedNegReason || "—").slice(0, 400)}_`,
         "",
-        "**Rimosse le 3 positive più vecchie** (FIFO) come contropartita.",
+        "**Rimosse le 3 positive più vecchie** come contropartita.",
         "",
         `**Conteggi attuali:** <:thumbsup:1471292172145004768> \`${finalPos}\` · <:thumbsdown:1471292163957457013> \`${finalNeg}\``,
       ].join("\n"),
@@ -549,7 +549,7 @@ async function valutazionePosForPauseTradeCore(profileDoc, staffUser, positiveCo
       [
         `<:VC_Staff:1494286904089247754> ${staffUser}`,
         "",
-        `**Rimosse** \`${posCount}\` valutazioni positive (FIFO).`,
+        `**Rimosse** \`${posCount}\` valutazioni positive.`,
         `**Aggiunti** \`+${days}\` giorni pausa extra (totale scambio: \`${s.valPosTradedPauseBonusDays}\`).`,
         "",
         `**Positive rimaste:** \`${posResult.finalPos}\``,

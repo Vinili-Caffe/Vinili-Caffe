@@ -19712,8 +19712,38 @@ html body.vc-body > footer.vc-premium-footer .vc-premium-footer__glass {
 }
 
 .vc-hw-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
   background: radial-gradient(ellipse 120% 80% at 50% -20%, rgba(56, 32, 18, 0.55), transparent 55%),
     linear-gradient(180deg, #0a0706 0%, #120d0a 45%, #0a0706 100%);
+}
+
+body.vc-hw-page > main,
+body.vc-hw-page #vc-hw-shop-app,
+body.vc-hw-page #vc-hw-points-app,
+body.vc-hw-page #vc-hw-potions-app {
+  flex: 1 0 auto;
+  width: 100%;
+}
+
+body.vc-hw-page #vc-hogwarts-app {
+  display: flex;
+  flex-direction: column;
+  flex: 1 0 auto;
+  width: 100%;
+}
+
+body.vc-hw-page #vc-hogwarts-app > main {
+  flex: 1 0 auto;
+  width: 100%;
+}
+
+body.vc-hw-page > footer,
+body.vc-hw-page #vc-hogwarts-app > footer {
+  flex-shrink: 0;
+  margin-top: auto;
 }
 
 .vc-hw-stars {
@@ -20288,7 +20318,7 @@ html body.vc-body > footer.vc-premium-footer .vc-premium-footer__glass {
 .vc-hw-hourglass__sand--top {
   height: var(--top-fill);
   opacity: 0.82;
-  transition: none;
+  transition: height 3.4s cubic-bezier(0.18, 0.72, 0.22, 1);
 }
 
 .vc-hw-hourglass__sand--bottom {

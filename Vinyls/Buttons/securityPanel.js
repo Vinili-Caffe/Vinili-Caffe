@@ -1,16 +1,8 @@
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, MessageFlags } = require("discord.js");
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } = require("discord.js");
 const sec = require("../Prefix/Admin/security");
 const { getGuildMemberCached } = require("../Utils/Interaction/interactionEntityCache");
 const PRIVATE_FLAG = MessageFlags.Ephemeral;
 const STATICS_LAST = 2;
-const MODULE_OPTIONS = [
-  { label: "AntiNuke", value: "antinuke", description: "Panic manuale e modulo" },
-  { label: "AutoMod", value: "automod", description: "Panic heat / moduli" },
-  { label: "JoinGate", value: "joingate", description: "Filtri ingresso" },
-  { label: "JoinRaid", value: "joinraid", description: "Rilevamento raid" },
-  { label: "Lock commands", value: "lockcommands", description: "Lock comandi raid/panic" },
-  { label: "Tutti (all)", value: "all", description: "Tutti i moduli" },
-];
 
 function match(interaction) {
   const id = String(interaction?.customId || "");
@@ -25,7 +17,7 @@ function notYourPanelReply() {
 function extractOwnerIdFromCustomId(customId) {
   const parts = String(customId || "").split(":");
   const kind = String(parts[1] || "");
-  if (kind === "hub" || kind === "pick" || kind === "back") {
+  if (kind === "hub" || kind === "pick" || kind === "back" || kind === "toggle" || kind === "bulk") {
     return String(parts[2] || "").trim();
   }
   if (kind === "status" || kind === "panic" || kind === "statics") {
@@ -96,20 +88,20 @@ function buildPagerRow(kind, ownerId, page, lastIdx) {
   );
 }
 
-function buildPickRows(ownerId, action) {
-  const rowPick = new ActionRowBuilder().addComponents(
-    new StringSelectMenuBuilder()
-      .setCustomId(`security_panel:pick:${ownerId}:${action}`)
-      .setPlaceholder("Scegli un target…")
-      .addOptions(MODULE_OPTIONS),
-  );
-  const rowBack = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId(`security_panel:back:${ownerId}`)
-      .setEmoji("<:VC_page2:1482459724657201387>")
-      .setStyle(ButtonStyle.Secondary),
-  );
-  return [rowPick, rowBack];
+async function logModuleAction(interaction, guild, action, target, results) {
+  const okCount = results.filter((r) => r.ok).length;
+  const changedCount = results.filter((r) => r.changed).length;
+  await sec
+    .sendSecurityAuditLog(guild, {
+      actorId: interaction.user.id,
+      action: action === "enable" ? "security.enable" : "security.disable",
+      details: [
+        `Target: \`${target}\``,
+        `Risultati: ${okCount}/${results.length} ok, modificati ${changedCount}`,
+      ],
+      color: okCount === results.length ? "#57F287" : "#FEE75C",
+    })
+    .catch(() => null);
 }
 
 async function execute(interaction) {
@@ -149,9 +141,9 @@ async function execute(interaction) {
 
   if (interaction.isStringSelectMenu() && parts[1] === "hub") {
     const v = String(interaction.values?.[0] || "");
-    if (v === "pick_enable" || v === "pick_disable") {
+    if (v === "view_modules") {
       if (!sec.hasPanicControlAccess(member, guild)) {
-        await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Solo Founder può abilitare o disabilitare i moduli.");
+        await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Solo Founder può gestire i moduli.");
         return true;
       }
     }
@@ -188,13 +180,14 @@ async function execute(interaction) {
       });
       return true;
     }
+    if (v === "view_modules") {
+      const payload = await sec.buildSecurityModulesPanelPayload(guild, ownerId, member);
+      await respondPayload(interaction, payload);
+      return true;
+    }
     if (v === "pick_enable" || v === "pick_disable") {
-      const action = v === "pick_enable" ? "enable" : "disable";
-      const embed = new EmbedBuilder()
-        .setColor("#6f4e37")
-        .setTitle(action === "enable" ? "Abilita moduli" : "Disabilita moduli")
-        .setDescription("Scegli il **target** da applicare.");
-      await respondPayload(interaction, { embeds: [embed], components: buildPickRows(ownerId, action) });
+      const payload = await sec.buildSecurityModulesPanelPayload(guild, ownerId, member);
+      await respondPayload(interaction, payload);
       return true;
     }
     await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Selezione non valida.");
@@ -202,13 +195,8 @@ async function execute(interaction) {
   }
 
   if (interaction.isStringSelectMenu() && parts[1] === "pick") {
-    const action = String(parts[3] || "").toLowerCase();
-    if (!["enable", "disable"].includes(action)) {
-      await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Azione non valida.");
-      return true;
-    }
     if (!sec.hasPanicControlAccess(member, guild)) {
-      await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Solo Founder può abilitare o disabilitare i moduli.");
+      await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Solo Founder può gestire i moduli.");
       return true;
     }
     const target = sec.parsePanicTarget(interaction.values?.[0]);
@@ -216,49 +204,61 @@ async function execute(interaction) {
       await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Target non valido.");
       return true;
     }
+    const action = String(parts[3] || "").toLowerCase() === "enable" ? "enable" : "disable";
     if (!(await ensureDeferred(interaction))) {
       await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Impossibile aggiornare il pannello. Riprova.");
       return true;
     }
     const results = await sec.runSecurityAction(action, target, guild, interaction.user.id);
-    const okCount = results.filter((r) => r.ok).length;
-    const changedCount = results.filter((r) => r.changed).length;
-    const lines = results.map((r) => {
-      const status = r.ok ? "OK" : "ERR";
-      const changed = r.changed ? "changed" : "no-change";
-      return `- **${r.system}**: ${status} (${changed}) - ${r.note}`;
-    });
-    await sec
-      .sendSecurityAuditLog(guild, {
-        actorId: interaction.user.id,
-        action: action === "enable" ? "security.enable" : "security.disable",
-        details: [
-          `Target: \`${target}\``,
-          `Risultati: ${okCount}/${results.length} ok, modificati ${changedCount}`,
-        ],
-        color: okCount === results.length ? "#57F287" : "#FEE75C",
-      })
-      .catch(() => null);
+    await logModuleAction(interaction, guild, action, target, results);
+    const payload = await sec.buildSecurityModulesPanelPayload(guild, ownerId, member);
+    await respondPayload(interaction, payload);
+    return true;
+  }
 
-    const resultEmbed = new EmbedBuilder()
-      .setColor(okCount === results.length ? "#57F287" : "#FEE75C")
-      .setTitle(action === "enable" ? "Sicurezza Abilitata" : "Sicurezza Disabilitata")
-      .setDescription(
-        [
-          `Target: **${target}**`,
-          `Risultati: **${okCount}/${results.length}**`,
-          `Modificati: **${changedCount}**`,
-          "",
-          ...lines,
-        ].join("\n"),
-      );
-    const rowBack = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId(`security_panel:back:${ownerId}`)
-        .setEmoji("<:VC_page2:1482459724657201387>")
-        .setStyle(ButtonStyle.Primary),
-    );
-    await respondPayload(interaction, { embeds: [resultEmbed], components: [rowBack] });
+  if (interaction.isButton() && parts[1] === "toggle") {
+    if (!sec.hasPanicControlAccess(member, guild)) {
+      await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Solo Founder può gestire i moduli.");
+      return true;
+    }
+    const moduleId = sec.parsePanicTarget(parts[3]);
+    if (!moduleId || moduleId === "all") {
+      await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Modulo non valido.");
+      return true;
+    }
+    if (!(await ensureDeferred(interaction))) {
+      await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Impossibile aggiornare il pannello. Riprova.");
+      return true;
+    }
+    const modules = await sec.fetchSecurityModulesState(guild);
+    const mod = modules.find((m) => m.id === moduleId);
+    const action = mod?.enabled ? "disable" : "enable";
+    const results = await sec.runSecurityAction(action, moduleId, guild, interaction.user.id);
+    await logModuleAction(interaction, guild, action, moduleId, results);
+    const payload = await sec.buildSecurityModulesPanelPayload(guild, ownerId, member);
+    await respondPayload(interaction, payload);
+    return true;
+  }
+
+  if (interaction.isButton() && parts[1] === "bulk") {
+    if (!sec.hasPanicControlAccess(member, guild)) {
+      await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Solo Founder può gestire i moduli.");
+      return true;
+    }
+    const bulkAction = String(parts[3] || "").toLowerCase();
+    const action = bulkAction === "enable_all" ? "enable" : bulkAction === "disable_all" ? "disable" : "";
+    if (!action) {
+      await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Azione non valida.");
+      return true;
+    }
+    if (!(await ensureDeferred(interaction))) {
+      await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Impossibile aggiornare il pannello. Riprova.");
+      return true;
+    }
+    const results = await sec.runSecurityAction(action, "all", guild, interaction.user.id);
+    await logModuleAction(interaction, guild, action, "all", results);
+    const payload = await sec.buildSecurityModulesPanelPayload(guild, ownerId, member);
+    await respondPayload(interaction, payload);
     return true;
   }
 

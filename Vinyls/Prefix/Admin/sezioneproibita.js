@@ -89,7 +89,7 @@ function winnerErrorMessage(code, result) {
     case "event_closed":
       return "<:vegax:1443934876440068179> L'evento è **già chiuso**.";
     case "high_staff_excluded":
-      return "<:vegax:1443934876440068179> Founder, Admin e High Staff **non partecipano** all'evento Hogwarts e non possono essere vincitori.";
+      return "<:vegax:1443934876440068179> Impossibile assegnare il vincitore.";
     default:
       return "<:vegax:1443934876440068179> Impossibile assegnare il vincitore.";
   }

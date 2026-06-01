@@ -1,4 +1,4 @@
-const { EmbedBuilder, PermissionsBitField, UserFlagsBitField } = require("discord.js");
+const { EmbedBuilder, PermissionsBitField, UserFlagsBitField, MessageReferenceType } = require("discord.js");
 const fs = require("fs");
 const path = require("path");
 const mongoose = require("mongoose");
@@ -69,14 +69,14 @@ const MENTION_RULES = {
   enabled: true,
   timeoutMs: 45 * 60_000,
   hourCap: 20,
-  userMentions: { enabled: true, heat: 15, minUserMentions: 3 },
+  userMentions: { enabled: true, heat: 15, minUserMentions: 5 },
   roleMentions: { enabled: true, heat: 20 },
   everyoneMentions: { enabled: true, heat: 100 },
 };
 const ATTACHMENT_RULES = { enabled: true, timeoutMs: 0, embeds: { enabled: true, heat: 15 }, images: { enabled: true, heat: 10 }, files: { enabled: true, heat: 15 }, links: { enabled: true, heat: 10 }, stickers: { enabled: true, heat: 15 }, };
 const AUTOMOD_IMAGE_ONLY_MAX_COUNT = 10;
 const AUTOMOD_IMAGE_ONLY_HEAT_MULTIPLIER = 0.45;
-const TEXT_RULES = { regularMessage: { enabled: true, heat: 15, timeoutMs: 15 * 60_000, }, suspiciousAccount: { enabled: true, heat: 7, timeoutMs: 15 * 60_000, }, similarMessage: { enabled: true, heat: 22, ratio: 0.8, timeoutMs: 15 * 60_000, }, emojis: { enabled: true, heat: 9, minCount: 8, timeoutMs: 15 * 60_000, }, newLines: { enabled: true, heat: 5, minCount: 6, timeoutMs: 15 * 60_000, }, zalgo: { enabled: true, heat: 1.5, minCount: 6, timeoutMs: 15 * 60_000, }, characters: { enabled: true, lowercaseHeat: 0.08, uppercaseHeat: 0.12, minChars: 40, timeoutMs: 15 * 60_000, }, inviteLinks: { enabled: true, heat: 100, timeoutMs: 60 * 60_000, }, maliciousLinks: { enabled: true, heat: 100, timeoutMs: 60 * 60_000, }, nsfwLinks: { enabled: true, crawlShorteners: true, heat: 100, timeoutMs: 30 * 60_000, }, wordBlacklist: { enabled: true, useProfaneList: false, useVulgarList: false, useRacistList: true, heat: 100, timeoutMs: 45 * 60_000, }, linkBlacklist: { enabled: true, heat: 100, timeoutMs: 45 * 60_000, domains: ["dsc.gg"], }, };
+const TEXT_RULES = { regularMessage: { enabled: true, heat: 15, timeoutMs: 15 * 60_000, }, suspiciousAccount: { enabled: true, heat: 7, timeoutMs: 15 * 60_000, }, similarMessage: { enabled: true, heat: 22, ratio: 0.8, timeoutMs: 15 * 60_000, }, emojis: { enabled: true, heat: 9, minCount: 8, timeoutMs: 15 * 60_000, }, newLines: { enabled: true, heat: 5, minCount: 6, timeoutMs: 15 * 60_000, }, zalgo: { enabled: true, heat: 1.5, minCount: 6, timeoutMs: 15 * 60_000, }, characters: { enabled: true, lowercaseHeat: 0.08, uppercaseHeat: 0.12, minChars: 40, timeoutMs: 15 * 60_000, }, inviteLinks: { enabled: true, heat: 100, timeoutMs: 60 * 60_000, }, maliciousLinks: { enabled: true, heat: 100, timeoutMs: 60 * 60_000, }, nsfwLinks: { enabled: true, crawlShorteners: true, heat: 100, timeoutMs: 30 * 60_000, }, wordBlacklist: { enabled: true, useProfaneList: false, useVulgarList: false, useRacistList: true, heat: 100, timeoutMs: 45 * 60_000, }, linkBlacklist: { enabled: true, heat: 100, timeoutMs: 45 * 60_000, domains: ["dsc.gg"], }, crossServerForward: { enabled: true, heat: 100, timeoutMs: 0, }, };
 const AUTOMOD_CONFIG_PATH = path.resolve(__dirname, "../../Utils/Config/automodConfig.json",);
 const AUTOMOD_METRICS_PATH = path.resolve(__dirname, "../../Utils/Config/automodMetrics.json",);
 const AUTOMOD_HOT_SNAPSHOT_PATH = path.resolve(__dirname, "..", "..", "Data", "automodHotSnapshot.json");
@@ -84,7 +84,7 @@ const AUTOMOD_HOT_SNAPSHOT_DEBOUNCE_MS = 2000;
 let automodHotSnapshotLoaded = false;
 let automodHotSnapshotTimer = null;
 const SHORTENER_HOSTS = new Set(["bit.ly", "tinyurl.com", "t.co", "cutt.ly", "is.gd", "rebrand.ly", "tiny.cc", "shorturl.at", "goo.gl", "ow.ly", "buff.ly",]);
-const DEFAULT_AUTOMOD_RUNTIME = { status: { enabled: true, antiSpamEnabled: true, monitorUnwhitelistedWebhooks: true, }, thresholds: { warn: 35, delete: 65, timeout: 100, }, heatSystem: { maxHeat: 100, decayPerSec: 2, resetOnPunishment: true, }, autoTimeouts: { enabled: true, regularStrikeDurationMs: 60_000, capStrikeDurationMs: 11 * 60_000, capStrike: 3, multiplierEnabled: true, multiplierPercent: 200, profileResetMs: 6 * 60 * 60_000, }, autoLockdown: { enabled: true, mentionTrigger: 50, mentionWindowMs: 3_000, mentionHourCap: 20, }, heatFilters: { regularMessage: true, suspiciousAccount: true, similarMessage: true, emojis: true, newLines: true, zalgo: true, characters: true, inviteLinks: true, maliciousLinks: true, nsfwLinks: true, wordBlacklist: true, linkBlacklist: true, mentions: true, attachments: true, webhookMessages: true, }, heatFactors: { regularMessage: 1, suspiciousAccount: 1, similarMessage: 1, emojis: 1, newLines: 1, zalgo: 1, characters: 1, inviteLinks: 1, maliciousLinks: 1, nsfwLinks: 1, wordBlacklist: 1, linkBlacklist: 1, mentions: 1, attachments: 1, }, heatCaps: { maxPerMessage: 85, charactersMax: 40, textClusterMax: 35, attachmentClusterMax: 45, mentionClusterMax: 70, }, panic: { enabled: true, considerActivityHistory: true, useGlobalBadUsersDb: true, triggerCount: 3, triggerWindowMs: 10 * 60_000, durationMs: 10 * 60_000, raidWindowMs: 120_000, raidUserThreshold: 6, raidYoungThreshold: 4, lockCommands: false, }, shorteners: { crawl: true, timeoutMs: 2200, maxHops: 3, }, profiles: { default: { exempt: false, heatMultiplier: 1, mentionsEnabled: true, attachmentsEnabled: true, inviteLinksEnabled: true, }, media: { exempt: false, heatMultiplier: 0.85, mentionsEnabled: true, attachmentsEnabled: true, inviteLinksEnabled: true, }, ticket: { exempt: true, heatMultiplier: 0.6, mentionsEnabled: false, attachmentsEnabled: false, inviteLinksEnabled: false, }, staff: { exempt: true, heatMultiplier: 0.25, mentionsEnabled: false, attachmentsEnabled: false, inviteLinksEnabled: false, }, }, discordNative: { enabled: true, syncOnStartup: true, skipBotDetectionFor: ["invite", "link_blacklist", "word_blacklist", "mention_everyone", "mention_hour_cap"], }, };
+const DEFAULT_AUTOMOD_RUNTIME = { status: { enabled: true, antiSpamEnabled: true, monitorUnwhitelistedWebhooks: true, }, thresholds: { warn: 35, delete: 65, timeout: 100, }, heatSystem: { maxHeat: 100, decayPerSec: 2, resetOnPunishment: true, }, autoTimeouts: { enabled: true, regularStrikeDurationMs: 60_000, capStrikeDurationMs: 11 * 60_000, capStrike: 3, multiplierEnabled: true, multiplierPercent: 200, profileResetMs: 6 * 60 * 60_000, }, autoLockdown: { enabled: true, mentionTrigger: 50, mentionWindowMs: 3_000, mentionHourCap: 20, }, heatFilters: { regularMessage: true, suspiciousAccount: true, similarMessage: true, emojis: true, newLines: true, zalgo: true, characters: true, inviteLinks: true, maliciousLinks: true, nsfwLinks: true, wordBlacklist: true, linkBlacklist: true, mentions: true, attachments: true, webhookMessages: true, crossServerForwards: true, }, heatFactors: { regularMessage: 1, suspiciousAccount: 1, similarMessage: 1, emojis: 1, newLines: 1, zalgo: 1, characters: 1, inviteLinks: 1, maliciousLinks: 1, nsfwLinks: 1, wordBlacklist: 1, linkBlacklist: 1, mentions: 1, attachments: 1, crossServerForward: 1, }, heatCaps: { maxPerMessage: 85, charactersMax: 40, textClusterMax: 35, attachmentClusterMax: 45, mentionClusterMax: 70, }, panic: { enabled: true, considerActivityHistory: true, useGlobalBadUsersDb: true, triggerCount: 3, triggerWindowMs: 10 * 60_000, durationMs: 10 * 60_000, raidWindowMs: 120_000, raidUserThreshold: 6, raidYoungThreshold: 4, lockCommands: false, }, shorteners: { crawl: true, timeoutMs: 2200, maxHops: 3, }, profiles: { default: { exempt: false, heatMultiplier: 1, mentionsEnabled: true, attachmentsEnabled: true, inviteLinksEnabled: true, }, media: { exempt: false, heatMultiplier: 0.85, mentionsEnabled: true, attachmentsEnabled: true, inviteLinksEnabled: true, }, ticket: { exempt: true, heatMultiplier: 0.6, mentionsEnabled: false, attachmentsEnabled: false, inviteLinksEnabled: false, }, staff: { exempt: true, heatMultiplier: 0.25, mentionsEnabled: false, attachmentsEnabled: false, inviteLinksEnabled: false, }, }, discordNative: { enabled: true, syncOnStartup: true, skipBotDetectionFor: ["invite", "link_blacklist", "word_blacklist", "mention_everyone", "mention_hour_cap"], }, };
 
 function deepMerge(base, override) {
   if (!override || typeof override !== "object") return base;
@@ -520,6 +520,9 @@ function applyAutomodRuntime() {
   MENTION_RULES.hourCap = Number.isFinite(Number(al.mentionHourCap))
     ? Number(al.mentionHourCap)
     : DEFAULT_AUTOMOD_RUNTIME.autoLockdown.mentionHourCap;
+  MENTION_RULES.userMentions.minUserMentions = Number.isFinite(Number(al.mentionPerMessageLimit))
+    ? Math.max(1, Math.floor(Number(al.mentionPerMessageLimit)))
+    : MENTION_RULES.userMentions.minUserMentions;
 
   const hf = automodRuntimeConfig?.heatFilters || {};
   MENTION_RULES.enabled =
@@ -578,6 +581,10 @@ function applyAutomodRuntime() {
     hf.linkBlacklist !== undefined
       ? Boolean(hf.linkBlacklist)
       : DEFAULT_AUTOMOD_RUNTIME.heatFilters.linkBlacklist;
+  TEXT_RULES.crossServerForward.enabled =
+    hf.crossServerForwards !== undefined
+      ? Boolean(hf.crossServerForwards)
+      : DEFAULT_AUTOMOD_RUNTIME.heatFilters.crossServerForwards;
 
   const p = automodRuntimeConfig?.panic || {};
   const d = DEFAULT_AUTOMOD_RUNTIME.panic;
@@ -605,12 +612,16 @@ function applyAutomodRuntime() {
 }
 applyAutomodRuntime();
 
-function isDiscordNativeAutomodEnabled(guildId) {
-  if (!DISCORD_NATIVE_AUTOMOD_ENABLED) return false;
+function isAutomodMainGuild(guildId) {
   const gid = String(guildId || "").trim();
   if (!gid) return false;
   const mainId = String(ACTIVITY_MAIN_GUILD_ID || IDs.guilds?.main || "").trim();
-  return !mainId || gid === mainId;
+  return Boolean(mainId && gid === mainId);
+}
+
+function isDiscordNativeAutomodEnabled(guildId) {
+  if (!DISCORD_NATIVE_AUTOMOD_ENABLED) return false;
+  return isAutomodMainGuild(guildId);
 }
 
 function getDiscordNativeViolationSkipKeys() {
@@ -1971,6 +1982,25 @@ async function isVerifiedBotMessage(message) {
   return false;
 }
 
+function isCrossServerForwardedMessage(message) {
+  const currentGuildId = String(message?.guildId || message?.guild?.id || "").trim();
+  if (!currentGuildId) return false;
+  const ref = message?.reference;
+  const refType = Number(ref?.type);
+  if (ref && refType === MessageReferenceType?.Default) return false;
+  if (ref && Number.isFinite(refType) && refType === 0) return false;
+  const isDiscordForward =
+    refType === MessageReferenceType?.Forward ||
+    (Number.isFinite(refType) && refType === 1);
+  const hasForwardSnapshots = Number(message?.messageSnapshots?.size || 0) > 0;
+  if (!isDiscordForward && !hasForwardSnapshots) return false;
+  const sourceGuildId = String(ref?.guildId || "").trim();
+  if (sourceGuildId && sourceGuildId === currentGuildId) return false;
+  if (sourceGuildId && sourceGuildId !== currentGuildId) return true;
+  if (hasForwardSnapshots) return true;
+  return false;
+}
+
 async function isVerifiedBotUserId(client, userId) {
   const id = String(userId || "").trim();
   if (!id) return false;
@@ -2092,6 +2122,21 @@ async function detectViolations(message, state, profile) {
   const imageAttachmentCountForCharRule = attachmentListForCharRule.filter((att) => isImageAttachment(att)).length;
   const profileHeat = (value, factorKey = "regularMessage") => applyProfileHeat(applyHeatFactor(factorKey, value), profile);
   const legitConversation = looksLikeLegitConversation(moderationContent || content);
+  if (
+    TEXT_RULES.crossServerForward.enabled &&
+    isAutomodMainGuild(String(message.guildId || message.guild?.id || "")) &&
+    isCrossServerForwardedMessage(message)
+  ) {
+    violations.push({
+      key: "cross_server_forward",
+      heat: profileHeat(
+        percentToHeat(TEXT_RULES.crossServerForward.heat),
+        "crossServerForward",
+      ),
+      info: String(message.reference?.guildId || "forward"),
+    });
+    return violations;
+  }
   let suspiciousMessageAuthor = false;
   try {
     const badProfile = await getBadUserProfile(message.author?.id, message.guildId);
@@ -2187,7 +2232,7 @@ async function detectViolations(message, state, profile) {
 
     const minUserMentions = Math.max(
       1,
-      Math.floor(Number(MENTION_RULES.userMentions?.minUserMentions ?? 3)),
+      Math.floor(Number(MENTION_RULES.userMentions?.minUserMentions ?? 5)),
     );
     if (
       !mentionWhitelisted &&
@@ -3693,4 +3738,4 @@ function updateAutoModConfig(pathExpr, value) {
   return { ok: true, config: getAutoModConfigSnapshot() };
 }
 
-module.exports = { runAutoModMessage, runDiscordNativeAutomodExecution, isDiscordNativeAutomodEnabled, getDiscordNativeViolationSkipKeys, getAutoModMemberSnapshot, isAutoModRoleExemptMember, getAutoModConfigSnapshot, getAutoModRulesSnapshot, updateAutoModConfig, isPanicModeActiveForGuild: isPanicModeActive, getAutoModPanicSnapshot, triggerAutoModPanicExternal, clearAutoModPanicState, __test: { isLikelyCommandMessage, buildAutoModDecisionExplain, isAutomodMediaEmbedUrl } };
+module.exports = { runAutoModMessage, runDiscordNativeAutomodExecution, isDiscordNativeAutomodEnabled, getDiscordNativeViolationSkipKeys, getAutoModMemberSnapshot, isAutoModRoleExemptMember, getAutoModConfigSnapshot, getAutoModRulesSnapshot, updateAutoModConfig, isPanicModeActiveForGuild: isPanicModeActive, getAutoModPanicSnapshot, triggerAutoModPanicExternal, clearAutoModPanicState, __test: { isLikelyCommandMessage, buildAutoModDecisionExplain, isAutomodMediaEmbedUrl, isCrossServerForwardedMessage } };

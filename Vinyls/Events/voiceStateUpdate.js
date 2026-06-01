@@ -334,7 +334,7 @@ module.exports = {
     }
     try {
       const { handlePmVoiceAfkVoiceState } = require("../Services/Staff/pmVoiceAfkWatchService");
-      handlePmVoiceAfkVoiceState(oldState, newState);
+      await handlePmVoiceAfkVoiceState(oldState, newState, client);
     } catch (error) {
       global.logger?.error?.("[PM AFK WATCH] voiceStateUpdate failed:", error);
     }
