@@ -3,10 +3,12 @@ const { isValidGuildUserId } = require("../../Utils/DB/validateWriteIds");
 const { addExpWithLevel, shouldIgnoreExpForMember, isLevelExpGuild } = require("./expService");
 const { isExcludedActivityChannel } = require("./activityService");
 const { isViniliFullFeatureGuild } = require("../../MultiGuild/core/guildFeatureScope");
-const { matchesWelcomeGreetingMessage, getWelcomeSessionId } = require("../../Utils/Message/officialMessageCommunityHandlers");
+const { matchesWelcomeGreetingExpMessage, resolveWelcomeGreetingSessionId } = require("../../Utils/Message/officialMessageCommunityHandlers");
+const { scheduleMessageDeletion } = require("../../Utils/Config/ephemeralMessageTtl");
 const TIME_ZONE = "Europe/Rome";
 const FIRST_MESSAGE_DAILY_EXP = 150;
 const WELCOME_GREETING_EXP = 30;
+const WELCOME_GREETING_EXP_NOTICE_TTL_MS = 10 * 1000;
 const FIRST_MESSAGE_DOC_TYPE = SITE_DOCUMENT_TYPE.COMMUNITY_FIRST_MESSAGE_DAILY;
 const WELCOME_GREETING_DOC_TYPE = SITE_DOCUMENT_TYPE.COMMUNITY_WELCOME_GREETING_EXP;
 const EXP_EMOJI = "<:VC_EXP:1482534670896730143>";
@@ -33,13 +35,17 @@ async function sendExpBonusChatNotice(message, amount, variant) {
   if (!channel?.isTextBased?.() || typeof channel.send !== "function") return;
   const content = buildExpBonusChatContent(message, amount, variant).trim();
   if (!content) return;
+  let sent = null;
   try {
-    await channel.send({
+    sent = await channel.send({
       content,
       reply: { messageReference: message.id, failIfNotExists: false },
     });
   } catch {
-    await channel.send({ content }).catch(() => { });
+    sent = await channel.send({ content }).catch(() => null);
+  }
+  if (sent && variant === "welcome_greeting") {
+    scheduleMessageDeletion(sent, WELCOME_GREETING_EXP_NOTICE_TTL_MS);
   }
 }
 
@@ -83,6 +89,17 @@ async function findServerFirstMessageWinner(guildId, dateKey) {
     .catch(() => null);
   const winnerId = String(doc?.userId || "").trim();
   return winnerId || null;
+}
+
+async function releaseServerFirstMessageOfDayClaim(guildId, dateKey) {
+  const g = String(guildId || "").trim();
+  const dk = String(dateKey || "").trim();
+  if (!g || !dk) return;
+  await SiteDocument.deleteOne({
+    docType: FIRST_MESSAGE_DOC_TYPE,
+    guildId: g,
+    dedupeKey: dk,
+  }).catch(() => null);
 }
 
 async function tryClaimServerFirstMessageOfDayExp(guildId, userId, dateKey) {
@@ -148,10 +165,22 @@ async function handleMessageCommunityExpBonuses(message) {
   const dateKey = getRomeDateKey(new Date());
   if (await tryClaimServerFirstMessageOfDayExp(message.guild.id, message.author.id, dateKey)) {
     const awarded = await awardCommunityExp(message, FIRST_MESSAGE_DAILY_EXP, "first_message_server_daily");
-    if (awarded) await sendExpBonusChatNotice(message, FIRST_MESSAGE_DAILY_EXP, "first_message_server_daily");
+    if (!awarded) {
+      await releaseServerFirstMessageOfDayClaim(message.guild.id, dateKey);
+    } else {
+      await sendExpBonusChatNotice(message, FIRST_MESSAGE_DAILY_EXP, "first_message_server_daily");
+    }
   }
-  if (matchesWelcomeGreetingMessage(message)) {
-    const sessionId = getWelcomeSessionId(message.guild.id);
+  if (matchesWelcomeGreetingExpMessage(message)) {
+    const sessionId = resolveWelcomeGreetingSessionId(message);
+    if (sessionId < 1) {
+      global.logger?.warn?.("[community-exp-bonus] welcome greeting exp match without active session:", {
+        guildId: String(message.guild?.id || ""),
+        channelId: String(message.channelId || ""),
+        userId: String(message.author?.id || ""),
+      });
+      return;
+    }
     if (await tryClaimWelcomeGreetingExp(message.guild.id, message.author.id, sessionId)) {
       const awarded = await awardCommunityExp(message, WELCOME_GREETING_EXP, "welcome_greeting");
       if (awarded) await sendExpBonusChatNotice(message, WELCOME_GREETING_EXP, "welcome_greeting");

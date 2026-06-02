@@ -2,6 +2,7 @@ const { ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, EmbedBuilder,
 const fs = require("fs");
 const path = require("path");
 const IDs = require("../../Utils/Config/ids");
+const { sendUserDirectMessage } = require("../../../shared/discord/dmPrivacyNotice");
 const { accountUsername } = require("../../Utils/Discord/guildDiscordIdentity");
 const { StanzaUserVoiceTotal } = require("../../Schemas/stanzaUserVoiceTotal");
 const { CustomRole } = require("../../../Vinyls/Schemas/Community/communitySchemas");
@@ -346,8 +347,9 @@ async function notifyStanzaVisitorJoin(member, voiceChannel, meta) {
     });
     return;
   }
-  await member.send({ embeds: [embed] }).catch((err) => {
-    global.logger?.warn?.("[stanza] ingresso DM fallita:", err?.code || err?.message || err);
+  await sendUserDirectMessage(member.user, { embeds: [embed] }, {
+    guildId: member.guild.id,
+    commandsChannelId: IDs.channels.commands,
   });
 }
 

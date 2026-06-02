@@ -6,7 +6,7 @@ const { scheduleStaffListRefresh } = require("../Utils/Community/staffListUtils"
 const { restorePendingVoteReminders, restorePendingDiscadiaReminders, restorePendingReminders, startBumpDueReminderSweepLoop, startDiscadiaVoteReminderLoop, } = require("../Services/Bump/bumpService");
 const { shouldRunDiscadiaVoteMonthRepairOnStartup, repairDiscadiaVoteMonthRowsForMainGuild, startDiscadiaVoteMonthRolloverCron } = require("../Services/Bump/discadiaVoteMonthRepairOnStartupService");
 const { processAllRecentAutomationMessages } = require("../Utils/Message/officialMessageAutomationHandlers");
-const { processPendingCountingMessages } = require("../Utils/Message/officialMessageCommunityHandlers");
+const { processPendingCountingMessages, restoreWelcomeSessionsFromDb } = require("../Utils/Message/officialMessageCommunityHandlers");
 const { rehydrateCountingChannelBans } = require("../Utils/Community/countingChannelBanService");
 const { bootstrapSupporter } = require("./presenceUpdate");
 const { restoreTtsConnections } = require("../Services/TTS/ttsService");
@@ -728,6 +728,11 @@ module.exports = {
       const t = setTimeout(() => process.exit(1), 5000);
       t.unref?.();
       return;
+    }
+    try {
+      await restoreWelcomeSessionsFromDb();
+    } catch (err) {
+      global.logger?.warn?.("[welcome-context] restore sessions:", err?.message || err);
     }
     const primaryScheduler = isPrimaryScheduler(client);
     if (primaryScheduler) {

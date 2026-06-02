@@ -1,9 +1,10 @@
 const { ActivityUserProfile, GlobalSettings, LEVEL_HISTORY_MAX_ENTRIES, ACTIVITY_MAIN_GUILD_ID } = require("../../Schemas/Community/communitySchemas");
 const { isValidGuildUserId } = require("../../Utils/DB/validateWriteIds");
 const IDs = require("../../Utils/Config/ids");
+const { shouldBlockDm } = require("../../Utils/noDmList");
+const { sendUserDirectMessage } = require("../../../shared/discord/dmPrivacyNotice");
 const botConfig = require("../../config.json");
 const { getGuildChannelCached, getGuildMemberCached, getGuildRoleCached, getClientGuildCached, getClientChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
-const { shouldBlockDm } = require("../../Utils/noDmList");
 const { sendLevelMilestoneSupportersAnnouncement } = require("../../Utils/Community/levelMilestoneSupportersAnnounceEmbeds");
 const { guildMemberDisplayAvatarUrlDynamic, accountUsername } = require("../../Utils/Discord/guildDiscordIdentity");
 const { parseScheduleMs, parseScheduleEndMs } = require("../../Utils/Web/hogwartsEventSchedule");
@@ -661,7 +662,11 @@ async function maybeSendPerkNearReminder(guild, member, result) {
   const roleLabel = role?.name || `ID ${roleId}`;
   const payload = buildPerkNearDmEmbed(member, nextPerkLevel, roleLabel, missingExp,);
 
-  const sent = await member.user.send(payload).then(() => true).catch(() => false);
+  const sent = await sendUserDirectMessage(member.user, payload, {
+    guildId: guild.id,
+    commandsChannelId: IDs.channels.commands,
+    shouldNotifyForDiscordPrivacyBlock: async () => !(await shouldBlockDm(guild.id, member.id, "perks").catch(() => false)),
+  });
   if (!sent) return;
 
   const nextReminded = Array.from(new Set([...reminded.filter((level) => level > currentLevel), nextPerkLevel]),);

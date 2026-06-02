@@ -723,9 +723,21 @@ function markSent(channelId) {
   lastSentAtByChannel.set(channelId, Date.now());
   standbyChannels.delete(channelId);
   try {
-    const { recordChatHubBotPost, CHAT_HUB_SOURCES } = require("../../../shared/discord/chatHubBotPacing");
+    const { recordChatHubBotPost, extendChatHubQuietForMs, CHAT_HUB_SOURCES } = require("../../../shared/discord/chatHubBotPacing");
     recordChatHubBotPost(channelId, CHAT_HUB_SOURCES.VINILI);
+    extendChatHubQuietForMs(channelId, 45_000);
   } catch (_) {}
+}
+
+function isMinigameChannelBusy(channelId) {
+  const id = String(channelId || "").trim();
+  if (!id) return false;
+  return (
+    activeGames.has(id) ||
+    pendingGames.has(id) ||
+    channelWinClosing.has(id) ||
+    startingChannels.has(id)
+  );
 }
 
 function isFailsafeDue(cfg) {
@@ -779,6 +791,13 @@ async function saveActiveGame(client, cfg, payload) {
     { $set: { guildId, channelId, ...payload } },
     { upsert: true, new: true, setDefaultsOnInsert: true },
   ).catch(() => { });
+  const endsAt = Number(payload?.endsAt || 0);
+  if (Number.isFinite(endsAt) && endsAt > Date.now()) {
+    try {
+      const { extendChatHubQuietUntil } = require("../../../shared/discord/chatHubBotPacing");
+      extendChatHubQuietUntil(channelId, endsAt + 90_000);
+    } catch (_) {}
+  }
 }
 
 async function clearActiveGame(client, cfg) {
@@ -10560,4 +10579,4 @@ function isMinigameFloodExemptChannel(message) {
   return false;
 }
 
-module.exports = { startMinigameLoop, forceStartMinigame, restoreActiveGames, bootstrapMinigameScheduler, handleMinigameMessage, handleMinigameButton, handleMinigameReaction, clearGameForChannel, isMinigameFloodExemptChannel };
+module.exports = { startMinigameLoop, forceStartMinigame, restoreActiveGames, bootstrapMinigameScheduler, handleMinigameMessage, handleMinigameButton, handleMinigameReaction, clearGameForChannel, isMinigameFloodExemptChannel, isMinigameChannelBusy };

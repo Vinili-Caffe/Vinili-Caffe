@@ -3,6 +3,7 @@ const { DIVIDER_URL } = require("../../shared/discord/constants");
 const { ActivityUserProfile, InviteReminderState, CustomRole, } = require("../Schemas/Community/communitySchemas");
 const IDs = require("../Utils/Config/ids");
 const { shouldBlockDm } = require("../Utils/noDmList");
+const { notifyDmPrivacyBlockedInCommands } = require("../../shared/discord/dmPrivacyNotice");
 const { queueIdsCatalogSync } = require("../Utils/Config/idsAutoSync");
 const { scheduleStaffListRefresh, memberHasStaffRole } = require("../Utils/Community/staffListUtils");
 const { processJoinRaidForMember, registerJoinRaidSecuritySignal, } = require("../Services/Moderation/joinRaidService");
@@ -1173,6 +1174,18 @@ function isMainGuildJoin(guildId) {
   return Boolean(gid && mainId && gid === mainId);
 }
 
+async function maybeNotifyDiscordPrivacyBlockForMember(member) {
+  if (!member?.guild?.id || !member?.id) return;
+  const optedOut = await shouldBlockDm(member.guild.id, member.id, null).catch(() => false);
+  if (optedOut) return;
+  await notifyDmPrivacyBlockedInCommands({
+    guildId: member.guild.id,
+    userId: member.id,
+    commandsChannelId: IDs.channels.commands,
+    client: member.client,
+  }).catch(() => false);
+}
+
 async function sendDmWelcome(member) {
   if (!isMainGuildJoin(member?.guild?.id)) return;
   const dmEmbed = buildDmWelcomeEmbed(member);
@@ -1182,7 +1195,10 @@ async function sendDmWelcome(member) {
     await member.send(payload);
     return;
   } catch (err) {
-    if (isUserDmUnavailableError(err)) return;
+    if (isUserDmUnavailableError(err)) {
+      await maybeNotifyDiscordPrivacyBlockForMember(member);
+      return;
+    }
   }
 
   await new Promise((resolve) => {
@@ -1193,7 +1209,10 @@ async function sendDmWelcome(member) {
   try {
     await member.send(payload);
   } catch (err) {
-    if (isUserDmUnavailableError(err)) return;
+    if (isUserDmUnavailableError(err)) {
+      await maybeNotifyDiscordPrivacyBlockForMember(member);
+      return;
+    }
     global.logger.warn(
       `[guildMemberAdd] Could not send DM to ${member.user.tag}: ${err?.message || err}${err?.code != null ? ` [${err.code}]` : ""}`,
     );
@@ -1409,7 +1428,7 @@ async function runDeferredJoinAnnouncements(member) {
       }, fresh.guild))
       .catch(() => { });
 
-    if (fresh.client) setWelcomeContextActive(fresh.guild.id, fresh.client);
+    if (fresh.client) setWelcomeContextActive(fresh.guild.id);
     await announceInviteInfo(fresh, welcomeChannel, info);
   }
 
@@ -1673,7 +1692,7 @@ module.exports = { name: "guildMemberAdd", kickForJoinGate, runDeferredJoinAnnou
             }, memberAfterVerifyJoin.guild))
             .catch(() => { });
 
-          if (memberAfterVerifyJoin.client) setWelcomeContextActive(memberAfterVerifyJoin.guild.id, memberAfterVerifyJoin.client);
+          if (memberAfterVerifyJoin.client) setWelcomeContextActive(memberAfterVerifyJoin.guild.id);
 
           info = await resolveInviteInfo(memberAfterVerifyJoin).catch(() => null);
           await announceInviteInfo(memberAfterVerifyJoin, welcomeChannel, info);

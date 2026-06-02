@@ -4,6 +4,10 @@ const fs = require("node:fs");
 const IDs = require("../Config/ids");
 const { getGuildChannelCached } = require("../Interaction/interactionEntityCache");
 const { shouldSendPublicMemberAnnouncement } = require("./memberPublicAnnouncementGate");
+const {
+  wasRoleRestoredByMuteMirror,
+  memberIsInMuteMirrorState,
+} = require("../../Services/Moderation/mutedMirrorRoleService");
 const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
 const MAIN_GUILD_ID = String(IDs.guilds?.main || "");
 const SUPPORTERS_CHANNEL_ID = IDs.channels?.supporters;
@@ -188,7 +192,11 @@ function rolesCacheChanged(oldMember, newMember) {
 function roleWasAdded(oldMember, newMember, roleId) {
   const id = String(roleId || "").trim();
   if (!id) return false;
-  return !oldMember.roles.cache.has(id) && newMember.roles.cache.has(id);
+  if (!oldMember.roles.cache.has(id) && newMember.roles.cache.has(id)) {
+    if (wasRoleRestoredByMuteMirror(newMember.guild.id, newMember.id, id)) return false;
+    return true;
+  }
+  return false;
 }
 
 function hasManageRolesPermission(member) {
@@ -310,8 +318,10 @@ async function maybeAnnounceManualSocialRolesAndGrantPicPermsBundle(oldMember, n
     }
   }
 
-  await tryGrantPicPermsIfBundleComplete(newMember);
-  await tryGrantPicPermsIfAnyAutoTrigger(newMember);
+  if (!memberIsInMuteMirrorState(newMember)) {
+    await tryGrantPicPermsIfBundleComplete(newMember);
+    await tryGrantPicPermsIfAnyAutoTrigger(newMember);
+  }
 }
 
 module.exports = { maybeAnnounceManualSocialRolesAndGrantPicPermsBundle };

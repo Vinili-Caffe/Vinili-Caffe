@@ -3,6 +3,12 @@ const path = require("path");
 const mongoose = require("mongoose");
 const { ActivityUserProfile } = require("../Schemas/Community/communitySchemas");
 const { getNoDmPreference, setNoDmPreference, listNoDmPreferences, clearNoDmPreference } = require("../Services/Community/profileStore");
+const IDs = require("./Config/ids");
+const {
+  notifyDmPrivacyBlockedInCommands,
+  sendUserDirectMessage,
+  isUserDmPrivacyBlockedError,
+} = require("../../shared/discord/dmPrivacyNotice");
 const DATA_PATH = path.join(__dirname, "..", "Data", "noDmList.json");
 const BACKUP_PATH = `${DATA_PATH}.bak`;
 const TMP_PATH = `${DATA_PATH}.tmp`;
@@ -296,20 +302,60 @@ async function removeNoDm(guildId, userId) {
   await mirrorRemoveFromFile(key, uid);
 }
 
+async function shouldNotifyDiscordPrivacyBlockForUser(user, options = {}) {
+  const guildId = String(options.guildId || "").trim();
+  if (!guildId || options.notifyOnPrivacyBlock === false) return false;
+  if (options.bypassNoDm) {
+    const prefs = await getNoDmPreferences(guildId, user.id).catch(() => ({ blockAll: false, disabled: new Set() }));
+    return !prefs.blockAll;
+  }
+  if (options.category) {
+    return !(await shouldBlockDm(guildId, user.id, options.category).catch(() => false));
+  }
+  const set = await getNoDmSet(guildId).catch(() => new Set());
+  return !set.has(String(user.id));
+}
+
+async function deliverUserDm(user, payload, options = {}) {
+  const guildId = String(options.guildId || "").trim();
+  const commandsChannelId = String(options.commandsChannelId || IDs.channels?.commands || "").trim();
+  if (!guildId) {
+    try {
+      return await user.send(payload);
+    } catch {
+      return null;
+    }
+  }
+  return sendUserDirectMessage(user, payload, {
+    guildId,
+    commandsChannelId,
+    client: options.client,
+    botLabel: options.botLabel,
+    notifyOnPrivacyBlock: options.notifyOnPrivacyBlock !== false,
+    shouldNotifyForDiscordPrivacyBlock: () => shouldNotifyDiscordPrivacyBlockForUser(user, options),
+  });
+}
+
 /**
  * Invia un DM all'utente. Con bypassNoDm: true non applica il filtro no-dm (per moderazione, ticket, security, ecc.).
  * @param {import("discord.js").User} user
  * @param {import("discord.js").MessageCreateOptions} payload
- * @param {{ guildId?: string, bypassNoDm?: boolean, category?: string }} options - category: chiave categoria (bump, broadcast, invites, perks)
+ * @param {{ guildId?: string, bypassNoDm?: boolean, category?: string, client?: import("discord.js").Client, notifyOnPrivacyBlock?: boolean }} options - category: chiave categoria (bump, broadcast, invites, perks)
  * @returns {Promise<import("discord.js").Message|null>} Il messaggio inviato o null
  */
 async function sendDm(user, payload, options = {}) {
   const { guildId, bypassNoDm = false, category = null } = options;
   if (!user?.send) return null;
   if (bypassNoDm) {
-    return user.send(payload).catch(() => null);
+    return deliverUserDm(user, payload, options);
   }
-  if (!guildId) return user.send(payload).catch(() => null);
+  if (!guildId) {
+    try {
+      return await user.send(payload);
+    } catch {
+      return null;
+    }
+  }
   if (category) {
     const block = await shouldBlockDm(guildId, user.id, category).catch(() => false);
     if (block) return null;
@@ -317,7 +363,7 @@ async function sendDm(user, payload, options = {}) {
     const set = await getNoDmSet(guildId).catch(() => new Set());
     if (set.has(String(user.id))) return null;
   }
-  return user.send(payload).catch(() => null);
+  return deliverUserDm(user, payload, options);
 }
 
-module.exports = { getNoDmSet, addNoDm, removeNoDm, sendDm, getNoDmPreferences, setNoDmCategories, shouldBlockDm, getAllNoDmPreferences, DM_CATEGORIES, DM_CATEGORY_ALL, DM_CATEGORY_LABELS };
+module.exports = { getNoDmSet, addNoDm, removeNoDm, sendDm, getNoDmPreferences, setNoDmCategories, shouldBlockDm, getAllNoDmPreferences, DM_CATEGORIES, DM_CATEGORY_ALL, DM_CATEGORY_LABELS, isUserDmPrivacyBlockedError, notifyDmPrivacyBlockedInCommands };

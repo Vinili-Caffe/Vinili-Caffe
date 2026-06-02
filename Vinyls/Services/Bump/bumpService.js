@@ -2,6 +2,7 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const IDs = require("../../Utils/Config/ids");
 const { shouldBlockDm } = require("../../Utils/noDmList");
+const { isUserDmPrivacyBlockedError, notifyDmPrivacyBlockedInCommands } = require("../../../shared/discord/dmPrivacyNotice");
 const { enqueueSiteInAppNotification } = require("../../Utils/Web/siteInAppNotificationsService");
 const { getClientChannelCached, getClientGuildCached, getGuildMemberCached, getUserCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { addExpWithLevel, shouldIgnoreExpForMember } = require("../Community/expService");
@@ -876,7 +877,19 @@ async function dispatchVoteReminder(client, { guildId, userId, voteListing, last
   try {
     await user.send({ embeds: [embed], ...(components.length ? { components } : {}) });
     delivered = true;
-  } catch {
+  } catch (err) {
+    if (isUserDmPrivacyBlockedError(err)) {
+      const voteCategory = listing === "topgg" ? "vote_topgg" : "bump";
+      const optedOut = await shouldBlockDm(gid, uid, voteCategory).catch(() => false);
+      if (!optedOut) {
+        await notifyDmPrivacyBlockedInCommands({
+          guildId: gid,
+          userId: uid,
+          commandsChannelId: IDs.channels.commands,
+          client,
+        }).catch(() => false);
+      }
+    }
     delivered = await sendVoteFallbackChannelReminder(client, gid, uid, listing);
   }
 

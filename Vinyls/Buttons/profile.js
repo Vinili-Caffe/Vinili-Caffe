@@ -588,7 +588,7 @@ function buildSectionEmbed(section, state, userOrMember, guild = null, isSelfVie
       `<:VC_Dot:1482532364222595303> **DM reminder voto Top.gg**: ${voteTopggDmOff ? "<:VC_OfflineStatus:1482527117051957380> Disattivato" : "<:VC_OnlineStatus:1482527088912240650> Attivo"}`,
     ];
     return base.setDescription([
-      "<:VC_PinkQuestionMark:1471892611026391306> Gestisci **privacy** (avatar, banner, quote) e i **promemoria DM** per i voti su Discadia e Top.gg (impostazioni separate).",
+      "<:VC_PinkQuestionMark:1471892611026391306> Gestisci **privacy** e i **promemoria DM** per i voti su Discadia e Top.gg.",
       "",
       ...privacyLines,
       "",
@@ -603,7 +603,7 @@ function buildSectionEmbed(section, state, userOrMember, guild = null, isSelfVie
     }
     const houseLine = hw.sorted
       ? `<:VC_Hogwarts:1508766773837693061> **Casata:** ${hw.houseLabel || hw.houseId}`
-      : "<:VC_Hogwarts:1508766773837693061> **Casata:** Non smistato — completa lo smistamento su `/evento`";
+      : "<:VC_Hogwarts:1508766773837693061> **Casata:** Non smistato — completa lo smistamento su https://viniliecaffe.it/evento/smistamento";
     const rankLine = hw.sorted
       ? `<a:VC_Diamon:1482706116873031680> **Classifica Coppa:** ${hw.cupRankLabel} (**${Number(hw.houseCupPoints || 0).toLocaleString("it-IT")}** punti casa)`
       : "<a:VC_Diamon:1482706116873031680> **Classifica Coppa:** disponibile dopo lo smistamento";
@@ -621,7 +621,7 @@ function buildSectionEmbed(section, state, userOrMember, guild = null, isSelfVie
           "",
           ...(Array.isArray(hw.shopLines) && hw.shopLines.length ? hw.shopLines : ["<:VC_Dot:1482532364222595303> Nessun oggetto acquistato."]),
           "",
-          "<:VC_Modifica:1478859646587633717> Usa il menu a tendina per cambiare pagina. Shop e smistamento: `/evento` · Classifica case: `/evento/coppa`",
+          "<:VC_Modifica:1478859646587633717> Usa il menu a tendina per cambiare pagina. Pagine evento: htts://viniliecaffe.it/evento",
         ].join("\n"),
       );
   }

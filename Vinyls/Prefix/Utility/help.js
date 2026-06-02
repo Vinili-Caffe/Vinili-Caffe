@@ -455,7 +455,6 @@ const OBSOLETE_SLASH_HELP_NAMES = new Set(
 const OBSOLETE_PREFIX_HELP_NAMES = new Set([
   "staff",
   "colors",
-  "evento",
   "no-dm-list",
   "recensione",
 ]);

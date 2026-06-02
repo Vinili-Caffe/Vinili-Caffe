@@ -16,6 +16,7 @@ const { logHogwartsSortingCompleted } = require("../../Services/Community/hogwar
 const { logHogwartsShopPurchase } = require("../../Services/Community/hogwartsShopLogService");
 const {
   addGaleoni,
+  ensureGringottStoredBalance,
   ensureHogwartsSortingReward,
   getGringottBalance,
   spendGaleoni,
@@ -728,6 +729,7 @@ async function handleHogwartsShopPurchasePost(client, req, res) {
       });
     }
     const amountToPay = Math.max(0, Math.floor(Number(offer.amount) || 0));
+    await ensureGringottStoredBalance(resolved.guild.id, resolved.userId, cfg.eventKey);
     const current = stateBefore.gringott || (await getGringottBalance(resolved.guild.id, resolved.userId, cfg.eventKey));
     const balance = Math.max(0, Math.floor(Number(current?.balance) || 0));
     if (balance < amountToPay) {
@@ -766,7 +768,7 @@ async function handleHogwartsShopPurchasePost(client, req, res) {
         },
         $setOnInsert: { guildId: resolved.guild.id, userId: resolved.userId },
       },
-      { new: true, upsert: !isUpgrade, setDefaultsOnInsert: true },
+      { new: true, upsert: !isUpgrade, setDefaultsOnInsert: false },
     ).catch(() => null);
     if (!reserved) {
       const state = await getShopProfileState(resolved.guild.id, resolved.userId, cfg.eventKey);

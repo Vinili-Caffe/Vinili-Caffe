@@ -2,6 +2,7 @@ const { EmbedBuilder } = require("discord.js");
 const IDs = require("../../Utils/Config/ids");
 const { getGuildMemberCached, getGuildChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
+const { wasRoleRestoredByMuteMirror } = require("../Moderation/mutedMirrorRoleService");
 const GLOBAL_GUILDED_ROLE_ID = IDs.roles.Guilded;
 const MAIN_GUILD_ID = IDs.guilds.main;
 const ANNOUNCE_CHANNEL_ID = IDs.channels.supporters;
@@ -298,6 +299,8 @@ async function syncClanTagRolesForUserEverywhere(client, user, options = {}) {
 async function announceNewGuildedMember(member, tag, roleIdAssigned = null) {
   const uid = String(member?.id || "");
   if (!uid) return;
+  const mentionRoleId = roleIdAssigned || GLOBAL_GUILDED_ROLE_ID;
+  if (wasRoleRestoredByMuteMirror(member.guild?.id, member.id, mentionRoleId)) return;
 
   const prev = guildedAnnounceTailByUserId.get(uid) || Promise.resolve();
   const mine = prev.catch(() => {}).then(async () => {
@@ -311,7 +314,6 @@ async function announceNewGuildedMember(member, tag, roleIdAssigned = null) {
       : null;
     if (!channel?.isTextBased?.()) return;
 
-    const mentionRoleId = roleIdAssigned || GLOBAL_GUILDED_ROLE_ID;
     const avatarUrl = guildMemberDisplayAvatarUrlDynamic(member, { size: 256 });
     const embed = new EmbedBuilder()
       .setColor("#6f4e37")

@@ -1,5 +1,6 @@
 const { EmbedBuilder, PermissionsBitField } = require("discord.js");
 const IDs = require("../../Utils/Config/ids");
+const { sendUserDirectMessage } = require("../../../shared/discord/dmPrivacyNotice");
 const { getClientGuildCached } = require("../../Utils/Interaction/interactionEntityCache");
 
 const MAIN_GUILD_ID = String(IDs.guilds?.main || "").trim();
@@ -113,7 +114,10 @@ async function kickNoRoleMember(member) {
     global.logger?.warn?.("[NO ROLE KICK] Member not kickable", member.guild.id, member.id);
     return false;
   }
-  await member.send(buildNoRoleKickDm(member.guild)).catch(() => null);
+  await sendUserDirectMessage(member.user, buildNoRoleKickDm(member.guild), {
+    guildId: member.guild.id,
+    commandsChannelId: IDs.channels.commands,
+  });
   const fresh = await member.guild.members.fetch(member.id).catch(() => member);
   if (!isNoRoleKickCandidate(fresh)) return false;
   await fresh.kick(NO_ROLE_KICK_REASON);

@@ -1,6 +1,7 @@
 const { EmbedBuilder } = require("discord.js");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const IDs = require("../Config/ids");
+const { sendUserDirectMessage } = require("../../../shared/discord/dmPrivacyNotice");
 const { getGuildMemberCached } = require("../Interaction/interactionEntityCache");
 const PARTNER_MILESTONE_POINT_TIERS = Object.freeze([50, 100, 150, 200, 250]);
 const PARTNER_MILESTONE_REWARD_LABELS = Object.freeze({ 50: "Custom Role e Custom Voc per 30 giorni", 100: "Ruolo VIP per 30 giorni", 150: "Decorazione a scelta (max 15,99 €)", 200: "Nitro Boost", 250: "5 € PayPal" });
@@ -59,11 +60,11 @@ async function maybeSendPartnerManagerRewardMilestoneDms(client, guild, userId, 
         ].join("\n"),
       );
 
-    try {
-      await user.send({ embeds: [embed] });
-    } catch {
-      continue;
-    }
+    const sent = await sendUserDirectMessage(user, { embeds: [embed] }, {
+      guildId: gid,
+      commandsChannelId: IDs.channels.commands,
+    });
+    if (!sent) continue;
 
     await ActivityUserProfile.updateOne(
       { guildId: gid, userId: uid },

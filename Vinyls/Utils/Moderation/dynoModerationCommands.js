@@ -173,22 +173,22 @@ async function sendModerationDm({ user, guildId, guildName, action, reason = "",
   const withReason = safeReason ? ` | ${safeReason}` : "";
   let baseText = "";
   if (actionKey === "warn") {
-    baseText = `<:VC_Alert:1468544520673007626> Sei stato warnato in ${guildName}.${withReason}`;
+    baseText = `<a:VC_Alert:1482706673176150077> Sei stato warnato in ${guildName}.${withReason}`;
   } else if (actionKey === "ban") {
-    baseText = `<:VC_Alert:1468544520673007626> Sei stato bannato da ${guildName}.${withReason}`;
+    baseText = `<a:VC_Alert:1482706673176150077> Sei stato bannato da ${guildName}.${withReason}`;
   } else if (actionKey === "kick") {
-    baseText = `<:VC_Alert:1468544520673007626> Sei stato kickato da ${guildName}.${withReason}`;
+    baseText = `<a:VC_Alert:1482706673176150077> Sei stato kickato da ${guildName}.${withReason}`;
   } else if (actionKey === "mute") {
     const durationPart = safeDuration ? ` per ${safeDuration}` : "";
-    baseText = `<:VC_Alert:1468544520673007626> Sei stato mutato in ${guildName}${durationPart}.${withReason}`;
+    baseText = `<a:VC_Alert:1482706673176150077> Sei stato mutato in ${guildName}${durationPart}.${withReason}`;
   } else if (actionKey === "unban") {
-    baseText = `<:VC_Alert:1468544520673007626> Il tuo ban in ${guildName} è stato revocato.${withReason}`;
+    baseText = `<a:VC_Alert:1482706673176150077> Il tuo ban in ${guildName} è stato revocato.${withReason}`;
   } else if (actionKey === "unmute") {
-    baseText = `<:VC_Alert:1468544520673007626> Il tuo mute in ${guildName} è stato revocato.${withReason}`;
+    baseText = `<a:VC_Alert:1482706673176150077> Il tuo mute in ${guildName} è stato revocato.${withReason}`;
   } else if (actionKey === "delwarn") {
-    baseText = `<:VC_Alert:1468544520673007626> Un warn ti è stato rimosso in ${guildName}.${withReason}`;
+    baseText = `<a:VC_Alert:1482706673176150077> Un warn ti è stato rimosso in ${guildName}.${withReason}`;
   } else if (actionKey === "clearwarn") {
-    baseText = `<:VC_Alert:1468544520673007626> Tutti i tuoi warn sono stati rimossi in ${guildName}.${withReason}`;
+    baseText = `<a:VC_Alert:1482706673176150077> Tutti i tuoi warn sono stati rimossi in ${guildName}.${withReason}`;
   } else {
     return false;
   }

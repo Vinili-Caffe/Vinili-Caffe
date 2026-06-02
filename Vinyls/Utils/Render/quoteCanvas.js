@@ -19,6 +19,7 @@ const QUOTE_HEIGHT = 512;
 const QUOTE_LEFT = 512;
 const QUOTE_GIF_FRAMES = 18;
 const QUOTE_GIF_FPS = 10;
+const QUOTE_INVITE_WATERMARK = "discord.gg/viniliecaffe";
 const CUSTOM_EMOJI_TOKEN_RE = /<a?:[a-zA-Z0-9_]{2,32}:\d+>/g;
 const DISCORD_EMOJI_HEAD_RE = /^<a?:[a-zA-Z0-9_]{2,32}:\d+>/;
 
@@ -285,6 +286,20 @@ function measureQuoteLayout(message, username, footerText) {
   };
 }
 
+function drawQuoteInviteWatermark(ctx, width, height) {
+  const padX = 14;
+  const padY = 10;
+  ctx.textAlign = "right";
+  ctx.textBaseline = "bottom";
+  ctx.font = fontStack(13, "400");
+  drawTextWithSpecialFallback(ctx, QUOTE_INVITE_WATERMARK, width - padX, height - padY, {
+    size: 13,
+    weight: "400",
+    color: "rgba(255,255,255,0.38)",
+    forcePrimaryFont: true,
+  });
+}
+
 function drawQuoteFrame(ctx, leftImage, layout) {
   const {
     width,
@@ -345,6 +360,8 @@ function drawQuoteFrame(ctx, leftImage, layout) {
       forcePrimaryFont: true,
     });
   }
+
+  drawQuoteInviteWatermark(ctx, width, height);
 }
 
 async function renderSingleQuotePng(leftImage, layout) {

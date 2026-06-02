@@ -24,9 +24,11 @@ const AFK_RETURN_TTL_MS = 3000;
 const WORD_REACTIONS_CONFIG_PATH = path.join(__dirname, "..", "Config", "wordReactions.json");
 const WORD_REACTIONS_MAX_REACTIONS = 20;
 const WORD_REACTIONS_TIMEZONE = "Europe/Rome";
-const WELCOME_CONTEXT_DURATION_MS = 10 * 60 * 1000;
+const WELCOME_CONTEXT_DURATION_MS = 60 * 1000;
+const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Schemas/Community/communitySchemas");
+const WELCOME_SESSION_DOC_TYPE = SITE_DOCUMENT_TYPE.COMMUNITY_WELCOME_SESSION;
 let wordReactionsConfigCache = null;
-const welcomeContextUntilByChannelId = new Map();
+const welcomeContextByChannelId = new Map();
 const welcomeSessionIdByGuildId = new Map();
 
 function getWelcomeContextChannelIds() {
@@ -42,25 +44,89 @@ function getWelcomeContextChannelIds() {
   return Array.from(ids);
 }
 
-function setWelcomeContextActive(guildId, client) {
-  if (!guildId || !client?.channels?.cache) return;
-  const gid = String(guildId);
-  welcomeSessionIdByGuildId.set(gid, (welcomeSessionIdByGuildId.get(gid) || 0) + 1);
+function applyWelcomeContext(guildId, sessionId, untilMs, channelIds) {
+  const gid = String(guildId || "").trim();
+  const sid = Math.floor(Number(sessionId) || 0);
+  const until = Math.floor(Number(untilMs) || 0);
+  if (!gid || sid < 1 || until <= Date.now()) return;
+  welcomeSessionIdByGuildId.set(gid, Math.max(welcomeSessionIdByGuildId.get(gid) || 0, sid));
+  for (const channelId of channelIds) {
+    const cid = String(channelId || "").trim();
+    if (!cid) continue;
+    welcomeContextByChannelId.set(cid, { until, sessionId: sid, guildId: gid });
+  }
+}
+
+function persistWelcomeSession(guildId, sessionId, untilMs) {
+  const gid = String(guildId || "").trim();
+  const sid = Math.floor(Number(sessionId) || 0);
+  if (!gid || sid < 1) return;
+  SiteDocument.findOneAndUpdate(
+    { docType: WELCOME_SESSION_DOC_TYPE, guildId: gid, dedupeKey: String(sid) },
+    { $set: { status: "active", cooldownUntil: new Date(untilMs) } },
+    { upsert: true },
+  ).catch((err) => {
+    global.logger?.warn?.("[welcome-context] persist session:", err?.message || err);
+  });
+}
+
+function setWelcomeContextActive(guildId) {
+  const gid = String(guildId || "").trim();
+  if (!gid) return;
+  const sessionId = (welcomeSessionIdByGuildId.get(gid) || 0) + 1;
   const channelIds = getWelcomeContextChannelIds();
   const until = Date.now() + WELCOME_CONTEXT_DURATION_MS;
-  for (const channelId of channelIds) {
-    const ch = client.channels.cache.get(channelId);
-    if (ch?.guild?.id === guildId) welcomeContextUntilByChannelId.set(channelId, until);
+  applyWelcomeContext(gid, sessionId, until, channelIds);
+  persistWelcomeSession(gid, sessionId, until);
+}
+
+async function restoreWelcomeSessionsFromDb() {
+  const now = new Date();
+  const docs = await SiteDocument.find({
+    docType: WELCOME_SESSION_DOC_TYPE,
+    cooldownUntil: { $gt: now },
+  })
+    .select("guildId dedupeKey cooldownUntil")
+    .sort({ cooldownUntil: -1, dedupeKey: -1 })
+    .lean()
+    .catch(() => []);
+  if (!Array.isArray(docs) || !docs.length) return;
+  const channelIds = getWelcomeContextChannelIds();
+  const latestByGuildId = new Map();
+  for (const doc of docs) {
+    const guildId = String(doc?.guildId || "").trim();
+    if (!guildId || latestByGuildId.has(guildId)) continue;
+    latestByGuildId.set(guildId, doc);
   }
+  for (const doc of latestByGuildId.values()) {
+    const guildId = String(doc?.guildId || "").trim();
+    const sessionId = Math.floor(Number(doc?.dedupeKey) || 0);
+    const untilMs = doc?.cooldownUntil instanceof Date ? doc.cooldownUntil.getTime() : 0;
+    if (!guildId || sessionId < 1 || untilMs <= Date.now()) continue;
+    applyWelcomeContext(guildId, sessionId, untilMs, channelIds);
+  }
+}
+
+function getWelcomeChannelContext(channelId) {
+  const ctx = welcomeContextByChannelId.get(String(channelId || ""));
+  if (!ctx || typeof ctx.until !== "number" || Date.now() >= ctx.until) {
+    if (ctx) welcomeContextByChannelId.delete(String(channelId || ""));
+    return null;
+  }
+  return ctx;
 }
 
 function getWelcomeSessionId(guildId) {
   return welcomeSessionIdByGuildId.get(String(guildId || "")) || 0;
 }
 
+function getWelcomeSessionIdForChannel(channelId) {
+  const ctx = getWelcomeChannelContext(channelId);
+  return ctx?.sessionId || 0;
+}
+
 function isWelcomeContextActive(channelId) {
-  const until = welcomeContextUntilByChannelId.get(String(channelId || ""));
-  return typeof until === "number" && Date.now() < until;
+  return getWelcomeChannelContext(channelId) != null;
 }
 
 function getWordReactionsRomeHour(now = new Date()) {
@@ -134,6 +200,28 @@ function isLoneWordMessage(normalized, word) {
   const lastChar = w.slice(-1);
   const repeatedNeedle = lastChar ? `${escapeRegex(w)}${escapeRegex(lastChar)}*` : escapeRegex(w);
   return new RegExp(`^${repeatedNeedle}$`, "u").test(s);
+}
+
+function matchesWelcomeGreetingTerm(normalized, term) {
+  const t = String(term || "").trim().toLowerCase();
+  if (!t) return false;
+  if (t.endsWith("*")) {
+    const prefix = t.slice(0, -1);
+    if (prefix.length < 4) return false;
+    const stripped = stripLeadingNoiseForGreeting(normalized);
+    const tokens = stripped.split(/\s+/u).filter(Boolean);
+    if (
+      tokens.some((tok) => {
+        const bare = tok.replace(/^[\p{P}]+|[\p{P}]+$/gu, "").toLowerCase();
+        return bare.startsWith(prefix);
+      })
+    ) {
+      return true;
+    }
+    return stripped.includes(prefix);
+  }
+  if (containsWholeWord(normalized, t)) return true;
+  return matchesAtMessageStart(normalized, t);
 }
 
 function getWordReactionsConfig() {
@@ -427,11 +515,14 @@ function messageMatchesWordReactionRule(message, rule, now = new Date()) {
   const words = Array.isArray(rule.words) ? rule.words : [];
   const loneWords = Array.isArray(rule.loneWords) ? rule.loneWords : [];
   const matchAtStart = rule.matchAtStart === true;
+  const welcomeTerms = rule.onlyInWelcomeContext === true;
   for (const w of words) {
     const term = String(w || "").trim();
     if (!term) continue;
     if (matchAtStart) {
       if (matchesAtMessageStart(normalized, term)) return true;
+    } else if (welcomeTerms) {
+      if (matchesWelcomeGreetingTerm(normalized, term)) return true;
     } else if (containsWholeWord(normalized, term)) {
       return true;
     }
@@ -442,11 +533,46 @@ function messageMatchesWordReactionRule(message, rule, now = new Date()) {
   return false;
 }
 
+function resolveWordReactionChannelIds(channelIdKeys) {
+  if (!Array.isArray(channelIdKeys)) return [];
+  return channelIdKeys
+    .map((idOrKey) => IDs.channels?.[String(idOrKey)] ?? String(idOrKey || "").trim())
+    .filter(Boolean);
+}
+
+function getWelcomeGreetingRule() {
+  const rules = getWordReactionsConfig();
+  if (!Array.isArray(rules)) return null;
+  return rules.find((rule) => rule?.onlyInWelcomeContext) || null;
+}
+
 function matchesWelcomeGreetingMessage(message) {
   const rules = getWordReactionsConfig();
   if (!Array.isArray(rules) || !rules.length) return false;
   const now = new Date();
   return rules.some((rule) => rule?.onlyInWelcomeContext && messageMatchesWordReactionRule(message, rule, now));
+}
+
+function messageChannelIdsForWelcomeExp(message) {
+  const ids = new Set();
+  const cid = String(message?.channelId || "").trim();
+  if (cid) ids.add(cid);
+  const parentId = String(message?.channel?.parentId || "").trim();
+  if (message?.channel?.isThread?.() && parentId) ids.add(parentId);
+  return ids;
+}
+
+function matchesWelcomeGreetingExpMessage(message) {
+  return matchesWelcomeGreetingMessage(message);
+}
+
+function resolveWelcomeGreetingSessionId(message) {
+  const channelId = String(message?.channelId || "").trim();
+  const guildId = String(message?.guild?.id || "").trim();
+  const fromChannel = getWelcomeSessionIdForChannel(channelId);
+  if (fromChannel > 0) return fromChannel;
+  if (guildId && isWelcomeContextActive(channelId)) return getWelcomeSessionId(guildId);
+  return 0;
 }
 
 async function handleWordReactions(message) {
@@ -910,4 +1036,4 @@ async function processPendingCountingMessages(client) {
   }
 }
 
-module.exports = { handleAfk, handleCounting, handleMentionAutoReactions, handleMentionAutoResponses, handleWordReactions, logEventError, processPendingCountingMessages, setWelcomeContextActive, isWelcomeContextActive, getWelcomeSessionId, matchesWelcomeGreetingMessage, maybePunishCountingOnDelete, maybePunishCountingOnEdit, maybePunishCountingOnBulkDelete, invalidateCountingConfig };
+module.exports = { handleAfk, handleCounting, handleMentionAutoReactions, handleMentionAutoResponses, handleWordReactions, logEventError, processPendingCountingMessages, setWelcomeContextActive, restoreWelcomeSessionsFromDb, isWelcomeContextActive, getWelcomeSessionId, getWelcomeSessionIdForChannel, resolveWelcomeGreetingSessionId, matchesWelcomeGreetingMessage, matchesWelcomeGreetingExpMessage, maybePunishCountingOnDelete, maybePunishCountingOnEdit, maybePunishCountingOnBulkDelete, invalidateCountingConfig };

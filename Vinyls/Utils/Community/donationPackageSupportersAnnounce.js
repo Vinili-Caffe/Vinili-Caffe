@@ -2,6 +2,7 @@ const { EmbedBuilder } = require("discord.js");
 const IDs = require("../Config/ids");
 const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
 const { getGuildChannelCached, getGuildMemberCached } = require("../Interaction/interactionEntityCache");
+const { wasRoleRestoredByMuteMirror } = require("../../Services/Moderation/mutedMirrorRoleService");
 
 const TIER_RANK = { donator: 1, vip: 2, vipPlus: 3 };
 const DONATION_ANNOUNCE_DEBOUNCE_MS = 5000;
@@ -20,7 +21,12 @@ function pickHighestNewPurchasedTier(oldMember, newMember) {
   for (const [tier, rank] of Object.entries(TIER_RANK)) {
     const rid = ROLE_ID_BY_TIER[tier];
     if (!rid) continue;
-    if (newMember.roles.cache.has(rid) && !oldMember.roles.cache.has(rid) && rank > bestRank) {
+    if (
+      newMember.roles.cache.has(rid) &&
+      !oldMember.roles.cache.has(rid) &&
+      !wasRoleRestoredByMuteMirror(newMember.guild.id, newMember.id, rid) &&
+      rank > bestRank
+    ) {
       bestRank = rank;
       best = tier;
     }

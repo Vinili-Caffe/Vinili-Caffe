@@ -156,15 +156,79 @@ async function ensureGringottCanonicalFromLegacy(guildId, userId) {
   await ActivityUserProfile.updateOne({ guildId: g, userId: u }, { $set }).catch(() => null);
 }
 
-async function getGringottBalance(guildId, userId, eventKey = "") {
+async function readGringottDoc(guildId, userId) {
   const g = normalizeId(guildId);
   const u = normalizeId(userId);
   if (!isValidGuildUserId(g, u)) return null;
   await ensureGringottCanonicalFromLegacy(g, u);
-  const doc = await ActivityUserProfile.findOne({ guildId: g, userId: u })
+  return ActivityUserProfile.findOne({ guildId: g, userId: u })
     .select(HOGWARTS_PATH)
     .lean()
     .catch(() => null);
+}
+
+async function repairGringottZeroBalance(guildId, userId) {
+  const g = normalizeId(guildId);
+  const u = normalizeId(userId);
+  if (!isValidGuildUserId(g, u)) return;
+  const doc = await readGringottDoc(g, u);
+  const nested = readHogwartsEvent(doc).gringott && typeof readHogwartsEvent(doc).gringott === "object"
+    ? readHogwartsEvent(doc).gringott
+    : {};
+  const storedBalance = Math.max(0, Math.floor(Number(nested.balance) || 0));
+  if (storedBalance > 0) return;
+  const state = resolveGringottState(doc);
+  const ledger = Array.isArray(state.ledger) ? state.ledger : [];
+  if (!ledger.length) return;
+  const sorted = [...ledger].sort((a, b) => {
+    const ta = new Date(a.createdAt || 0).getTime();
+    const tb = new Date(b.createdAt || 0).getTime();
+    return ta - tb;
+  });
+  const lastAfter = Math.max(0, Math.floor(Number(sorted[sorted.length - 1]?.balanceAfter) || 0));
+  if (lastAfter < 1) return;
+  await ActivityUserProfile.updateOne(
+    { guildId: g, userId: u },
+    {
+      $set: {
+        [`${GRINGOTT_PATH}.balance`]: lastAfter,
+        [`${GRINGOTT_PATH}.earned`]: Math.max(lastAfter, Math.max(0, Math.floor(Number(state.earned) || 0))),
+      },
+    },
+  ).catch(() => null);
+}
+
+async function ensureGringottStoredBalance(guildId, userId, eventKey = "") {
+  const g = normalizeId(guildId);
+  const u = normalizeId(userId);
+  if (!isValidGuildUserId(g, u)) return null;
+  const doc = await readGringottDoc(g, u);
+  const resolved = resolveGringottState(doc, eventKey);
+  const nested = readHogwartsEvent(doc).gringott && typeof readHogwartsEvent(doc).gringott === "object"
+    ? readHogwartsEvent(doc).gringott
+    : {};
+  const storedBalance = Math.max(0, Math.floor(Number(nested.balance) || 0));
+  const targetBalance = Math.max(0, Math.floor(Number(resolved.balance) || 0));
+  if (targetBalance === storedBalance) return resolved;
+  await ActivityUserProfile.updateOne(
+    { guildId: g, userId: u },
+    {
+      $set: {
+        [`${GRINGOTT_PATH}.balance`]: targetBalance,
+        [`${GRINGOTT_PATH}.earned`]: Math.max(targetBalance, Math.max(0, Math.floor(Number(resolved.earned) || 0))),
+        [`${GRINGOTT_PATH}.spent`]: Math.max(0, Math.floor(Number(resolved.spent) || 0)),
+        [`${GRINGOTT_PATH}.eventKey`]: String(resolved.eventKey || eventKey || nested.eventKey || "").trim(),
+      },
+    },
+  ).catch(() => null);
+  return resolved;
+}
+
+async function getGringottBalance(guildId, userId, eventKey = "") {
+  const g = normalizeId(guildId);
+  const u = normalizeId(userId);
+  if (!isValidGuildUserId(g, u)) return null;
+  const doc = await readGringottDoc(g, u);
   return resolveGringottState(doc, eventKey);
 }
 
@@ -201,21 +265,22 @@ async function hasGringottRewardKey(guildId, userId, rewardKey) {
 async function addGaleoni({ guildId, userId, amount, reason, actorId = null, source = "manual", eventKey = "", rewardKey = "" }) {
   const g = normalizeId(guildId);
   const u = normalizeId(userId);
-  const amt = normalizeAmount(amount);
-  if (!isValidGuildUserId(g, u) || amt < 1) return { ok: false, code: "bad_input" };
+  let creditAmt = normalizeAmount(amount);
+  if (!isValidGuildUserId(g, u) || creditAmt < 1) return { ok: false, code: "bad_input" };
 
-  const rewardKeyNorm = String(rewardKey || "").trim();
+  let rewardKeyNorm = String(rewardKey || "").trim();
   if (rewardKeyNorm && (await hasGringottRewardKey(g, u, rewardKeyNorm))) {
+    await repairGringottZeroBalance(g, u);
     const current = await getGringottBalance(g, u, eventKey);
     return { ok: false, code: "duplicate_reward", state: current };
   }
 
-  await ensureGringottCanonicalFromLegacy(g, u);
+  await ensureGringottStoredBalance(g, u, eventKey);
   const before = await getGringottBalance(g, u, eventKey);
-  const balanceAfter = (before?.balance || 0) + amt;
+  const balanceAfter = (before?.balance || 0) + creditAmt;
   const entry = normalizeLedgerEntry({
     type: rewardKeyNorm ? "reward" : "credit",
-    amount: amt,
+    amount: creditAmt,
     balanceAfter,
     reason,
     actorId,
@@ -225,8 +290,8 @@ async function addGaleoni({ guildId, userId, amount, reason, actorId = null, sou
   const update = {
     $set: { [`${GRINGOTT_PATH}.eventKey`]: normalizeId(eventKey) },
     $inc: {
-      [`${GRINGOTT_PATH}.balance`]: amt,
-      [`${GRINGOTT_PATH}.earned`]: amt,
+      [`${GRINGOTT_PATH}.balance`]: creditAmt,
+      [`${GRINGOTT_PATH}.earned`]: creditAmt,
     },
     $push: { [LEDGER_PATH]: { $each: [entry], $slice: -MAX_LEDGER_ENTRIES } },
   };
@@ -276,7 +341,7 @@ async function spendGaleoni({ guildId, userId, amount, reason, actorId = null, s
   const amt = normalizeAmount(amount);
   if (!isValidGuildUserId(g, u) || amt < 1) return { ok: false, code: "bad_input" };
 
-  const before = await getGringottBalance(g, u, eventKey);
+  const before = await ensureGringottStoredBalance(g, u, eventKey);
   if (!before || before.balance < amt) return { ok: false, code: "insufficient_funds", state: before };
   const balanceAfter = Math.max(0, before.balance - amt);
   const entry = normalizeLedgerEntry({ type: "debit", amount: amt, balanceAfter, reason, actorId, source });
@@ -293,6 +358,22 @@ async function spendGaleoni({ guildId, userId, amount, reason, actorId = null, s
     { new: true },
   ).catch(() => null);
   if (!doc) {
+    await ensureGringottStoredBalance(g, u, eventKey);
+    const docRetry = await ActivityUserProfile.findOneAndUpdate(
+      { guildId: g, userId: u, [`${GRINGOTT_PATH}.balance`]: { $gte: amt } },
+      {
+        $set: { [`${GRINGOTT_PATH}.eventKey`]: normalizeId(eventKey) },
+        $inc: {
+          [`${GRINGOTT_PATH}.balance`]: -amt,
+          [`${GRINGOTT_PATH}.spent`]: amt,
+        },
+        $push: { [LEDGER_PATH]: { $each: [entry], $slice: -MAX_LEDGER_ENTRIES } },
+      },
+      { new: true },
+    ).catch(() => null);
+    if (docRetry) {
+      return { ok: true, before, state: resolveGringottState(docRetry, eventKey), entry };
+    }
     const current = await getGringottBalance(g, u, eventKey);
     return { ok: false, code: current?.balance >= amt ? "save_failed" : "insufficient_funds", state: current };
   }
@@ -317,24 +398,9 @@ async function awardHogwartsSortingReward(client, guildId, userId, actorId = "si
 async function ensureHogwartsSortingReward(client, guildId, userId, actorId = "site") {
   const cfg = resolveGringottConfig(client);
   const rewardKey = `${cfg.eventKey}:sorting_complete`;
-  const state = await getGringottBalance(guildId, userId, cfg.eventKey);
-  const balance = Math.max(0, Math.floor(Number(state?.balance) || 0));
+  await repairGringottZeroBalance(guildId, userId);
   if (await hasGringottRewardKey(guildId, userId, rewardKey)) {
-    if (balance >= cfg.sortingReward) {
-      return { ok: true, code: "duplicate_reward", state };
-    }
-    const missing = Math.max(0, cfg.sortingReward - balance);
-    if (missing < 1) return { ok: true, code: "duplicate_reward", state };
-    const repair = await addGaleoni({
-      guildId,
-      userId,
-      amount: missing,
-      reason: "Smistamento Hogwarts completato (riparazione saldo)",
-      actorId,
-      source: "hogwarts_sorting_repair",
-      eventKey: cfg.eventKey,
-    });
-    if (repair?.ok) return repair;
+    const state = await getGringottBalance(guildId, userId, cfg.eventKey);
     return { ok: true, code: "duplicate_reward", state };
   }
   return awardHogwartsSortingReward(client, guildId, userId, actorId);
@@ -351,6 +417,7 @@ module.exports = {
   addGaleoni,
   awardHogwartsSortingReward,
   ensureHogwartsSortingReward,
+  ensureGringottStoredBalance,
   formatGaleoni,
   getGringottBalance,
   hasGringottRewardKey,

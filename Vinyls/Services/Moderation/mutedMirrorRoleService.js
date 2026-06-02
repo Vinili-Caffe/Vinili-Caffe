@@ -3,9 +3,52 @@ const mongoose = require("mongoose");
 const IDs = require("../../Utils/Config/ids");
 const { CommunicationTimeoutRoleSnapshot } = require("../../Schemas/Community/communitySchemas");
 const { isValidGuildUserId } = require("../../Utils/DB/validateWriteIds");
-const { getClientGuildCached } = require("../../Utils/Interaction/interactionEntityCache");
+const { getClientGuildCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
 
 const SWEEP_DEFAULT_LIMIT = 50;
+const MUTE_RESTORE_ANNOUNCE_SUPPRESS_MS = 90_000;
+const muteRestoreAnnounceSuppressByMember = new Map();
+
+function memberSuppressKey(guildId, userId) {
+  return `${String(guildId || "").trim()}:${String(userId || "").trim()}`;
+}
+
+function cleanupMuteRestoreAnnounceSuppress(now = Date.now()) {
+  for (const [key, entry] of muteRestoreAnnounceSuppressByMember.entries()) {
+    if (!entry || now >= Number(entry.until || 0)) muteRestoreAnnounceSuppressByMember.delete(key);
+  }
+}
+
+/** Ruoli reintrodotti da +unmute / fine timeout: non annunciare come nuovi acquisti. */
+function registerMuteMirrorRestoreRoleSuppress(guildId, userId, roleIds) {
+  const gid = String(guildId || "").trim();
+  const uid = String(userId || "").trim();
+  if (!gid || !uid) return;
+  const ids = (Array.isArray(roleIds) ? roleIds : [])
+    .map((x) => String(x || "").trim())
+    .filter(Boolean);
+  if (!ids.length) return;
+  const now = Date.now();
+  cleanupMuteRestoreAnnounceSuppress(now);
+  const key = memberSuppressKey(gid, uid);
+  const prev = muteRestoreAnnounceSuppressByMember.get(key);
+  const merged = new Set(prev?.roleIds instanceof Set ? [...prev.roleIds] : []);
+  for (const id of ids) merged.add(id);
+  muteRestoreAnnounceSuppressByMember.set(key, {
+    until: now + MUTE_RESTORE_ANNOUNCE_SUPPRESS_MS,
+    roleIds: merged,
+  });
+}
+
+function wasRoleRestoredByMuteMirror(guildId, userId, roleId) {
+  const rid = String(roleId || "").trim();
+  if (!rid) return false;
+  const now = Date.now();
+  cleanupMuteRestoreAnnounceSuppress(now);
+  const entry = muteRestoreAnnounceSuppressByMember.get(memberSuppressKey(guildId, userId));
+  if (!entry || now >= Number(entry.until || 0)) return false;
+  return entry.roleIds instanceof Set && entry.roleIds.has(rid);
+}
 
 function dbReady() {
   return mongoose.connection?.readyState === 1;
@@ -36,6 +79,23 @@ function collectSnapshotRoleIds(member, mutedRoleId) {
     out.push(rid);
   }
   return [...new Set(out)];
+}
+
+/** Ruoli che Discord non lascia togliere al bot (sopra il ruolo del bot o managed). */
+function buildRolesWhileMuted(member, me, mutedRoleId) {
+  const guildId = String(member?.guild?.id || "");
+  const muted = String(mutedRoleId || "").trim();
+  const highest = Number(me?.roles?.highest?.position || 0);
+  const out = new Set();
+  if (muted) out.add(muted);
+  const cache = member?.roles?.cache;
+  if (!cache) return [...out];
+  for (const [id, role] of cache) {
+    const rid = String(id || "").trim();
+    if (!rid || rid === guildId || rid === muted) continue;
+    if (role?.managed || Number(role?.position || 0) >= highest) out.add(rid);
+  }
+  return [...out];
 }
 
 async function upsertSnapshot(guildId, userId, roleIds) {
@@ -120,6 +180,10 @@ async function restoreRolesAfterCommunicationTimeoutEnd(member, options = {}) {
   const allowed = await filterRestorableRoleIds(guild, me, saved, ctx.mutedRoleId);
   let restored = false;
 
+  if (allowed.length > 0) {
+    registerMuteMirrorRestoreRoleSuppress(guild.id, member.id, allowed);
+  }
+
   try {
     if (saved.length > 0) {
       await member.roles.set(allowed, reasonOut);
@@ -171,9 +235,24 @@ async function syncMutedMirrorRoleFromMemberUpdate(oldMember, newMember) {
   const reasonOut = "Fine timeout / +unmute";
 
   if (nowActive && !wasActive) {
-    const snapshotIds = collectSnapshotRoleIds(oldMember, ctx.mutedRoleId);
+    const fresh =
+      (await getGuildMemberCached(guild, newMember.id, { preferFresh: true }).catch(() => null)) ||
+      oldMember ||
+      newMember;
+    let snapshotIds = collectSnapshotRoleIds(fresh, ctx.mutedRoleId);
+    if (!snapshotIds.length) {
+      snapshotIds = collectSnapshotRoleIds(oldMember, ctx.mutedRoleId);
+    }
+    if (!snapshotIds.length) {
+      global.logger?.warn?.(
+        "[mutedMirrorRole] snapshot vuoto al mute (ruoli non ripristinabili allo smute):",
+        guild.id,
+        newMember.id,
+      );
+    }
     await upsertSnapshot(guild.id, newMember.id, snapshotIds);
-    await newMember.roles.set([ctx.mutedRoleId], reasonIn).catch((err) => {
+    const stripTarget = buildRolesWhileMuted(fresh, me, ctx.mutedRoleId);
+    await newMember.roles.set(stripTarget, reasonIn).catch((err) => {
       global.logger?.warn?.("[mutedMirrorRole] strip+mirror failed:", guild.id, newMember.id, err?.message || err);
       clearSnapshot(guild.id, newMember.id).catch(() => {});
     });
@@ -309,7 +388,10 @@ async function syncMutedMirrorOnMemberJoin(member) {
     const snapshotIds = collectSnapshotRoleIds(member, ctx.mutedRoleId);
     if (snapshotIds.length) await upsertSnapshot(guild.id, member.id, snapshotIds);
   }
-  await member.roles.set([ctx.mutedRoleId], reasonIn).catch((err) => {
+  const stripTarget = me
+    ? buildRolesWhileMuted(member, me, ctx.mutedRoleId)
+    : [ctx.mutedRoleId];
+  await member.roles.set(stripTarget, reasonIn).catch((err) => {
     global.logger?.warn?.("[mutedMirrorRole] rejoin strip+mirror failed:", guild.id, member.id, err?.message || err);
     if (!timeoutActive) clearSnapshot(guild.id, member.id).catch(() => {});
   });
@@ -322,7 +404,14 @@ module.exports = {
   hasPendingMuteMirrorSnapshot,
   shouldDeferRoleRestoreForMuteMirror,
   restoreRolesAfterCommunicationTimeoutEnd,
+  registerMuteMirrorRestoreRoleSuppress,
+  wasRoleRestoredByMuteMirror,
   sweepExpiredCommunicationTimeoutMirrors,
   isCommunicationTimeoutActive,
   didCommunicationTimeoutChange,
+  memberIsInMuteMirrorState: (member) => {
+    const mutedId = String(IDs.roles?.Muted || "").trim();
+    if (mutedId && member?.roles?.cache?.has(mutedId)) return true;
+    return isCommunicationTimeoutActive(member);
+  },
 };

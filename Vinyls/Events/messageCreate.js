@@ -21,7 +21,7 @@ const guildMemberUpdateExtras = require("./guildMemberUpdate");
 const STAFF_BYPASS_PERMISSIONS = [PermissionFlagsBits.Administrator, PermissionFlagsBits.ManageGuild, PermissionFlagsBits.ManageChannels, PermissionFlagsBits.ManageRoles, PermissionFlagsBits.ManageMessages, PermissionFlagsBits.KickMembers, PermissionFlagsBits.BanMembers, PermissionFlagsBits.ModerateMembers,];
 const FORCE_DELETE_CHANNEL_IDS = new Set([IDs.channels.messagesAutoDelete].filter(Boolean).map((id) => String(id)));
 const MEDIA_BLOCK_EXEMPT_CATEGORY_ID = IDs.categories.categorChat;
-const MEDIA_BLOCK_EXEMPT_CHANNEL_IDS = new Set([IDs.channels.media, IDs.channels.contestSfondiMobile, IDs.channels.contestSfondiPc, IDs.channels.contestDisegni, IDs.channels.contestOutfitSubmission].filter(Boolean).map((id) => String(id)));
+const MEDIA_BLOCK_EXEMPT_CHANNEL_IDS = new Set([IDs.channels.media].filter(Boolean).map((id) => String(id)));
 const WRONG_PREFIX_HINT_CHANNEL_IDS = new Set([IDs.channels.commands, IDs.channels.staffCmds].filter(Boolean).map((id) => String(id)),);
 const AUTOMATION_RECHECK_DELAY_MS = 8000;
 const automationRecheckJobs = new Map();

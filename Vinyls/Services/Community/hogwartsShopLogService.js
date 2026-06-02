@@ -194,7 +194,26 @@ async function sendShopLogDiscord(client, guild, cfg, entry) {
   return { ok: true };
 }
 
-async function logHogwartsShopPurchase(client, guild, cfg, member, userId, itemId, itemName, category, categoryLabel, galeoniPaid, mode, houseId, houseLabel, purchasedAtMs, source, skipDiscord, skipDm, knownDedupeKeys) {
+async function logHogwartsShopPurchase({
+  client,
+  guild,
+  cfg,
+  member,
+  userId,
+  itemId,
+  itemName,
+  category,
+  categoryLabel,
+  galeoniPaid,
+  mode,
+  houseId,
+  houseLabel,
+  purchasedAtMs,
+  source,
+  skipDiscord = false,
+  skipDm = false,
+  knownDedupeKeys,
+} = {}) {
   const uid = String(userId || member?.id || "").trim();
   if (!uid) return { ok: false, reason: "no_user" };
   const ms = Number(purchasedAtMs || Date.now());

@@ -117,6 +117,8 @@ const commandFolders = listFoldersIfExists(commandsDir);
     client.logBootTables();
   }
 
+  global.__coffeeDiscordClient = client;
+
   client.login(client.config.token).catch((err) => {
     global.logger.error("Login fallito:", err);
     process.exit(1);

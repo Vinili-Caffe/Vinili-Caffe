@@ -99,7 +99,6 @@ const personalityPanelEntrySchema = new Schema(
     ticketInfoMessageId: { type: String, default: null },
     ticketPanelMessageId: { type: String, default: null },
     sponsorTicketPanelMessageId: { type: String, default: null },
-    weeklyContestDisegniEventMessageId: { type: String, default: null },
     pausePanelMessageId: { type: String, default: null },
   },
   { _id: false },
@@ -649,6 +648,7 @@ const SITE_DOCUMENT_TYPE = Object.freeze({
   HOGWARTS_SPELL_LIST_HUNT: "hogwarts_spell_list_hunt",
   COMMUNITY_FIRST_MESSAGE_DAILY: "community_first_message_daily",
   COMMUNITY_WELCOME_GREETING_EXP: "community_welcome_greeting_exp",
+  COMMUNITY_WELCOME_SESSION: "community_welcome_session",
 });
 
 const siteSuggestionCommentSchema = new Schema(
@@ -824,6 +824,10 @@ siteDocumentSchema.index(
 siteDocumentSchema.index(
   { docType: 1, guildId: 1, userId: 1, dedupeKey: 1 },
   { unique: true, name: "community_welcome_greeting_exp_unique", partialFilterExpression: { docType: SITE_DOC.COMMUNITY_WELCOME_GREETING_EXP } },
+);
+siteDocumentSchema.index(
+  { docType: 1, guildId: 1, dedupeKey: 1 },
+  { unique: true, name: "community_welcome_session_unique", partialFilterExpression: { docType: SITE_DOC.COMMUNITY_WELCOME_SESSION } },
 );
 
 const MOD_CASE_COLLECTION = process.env.MOD_CASE_COLLECTION ? String(process.env.MOD_CASE_COLLECTION).trim() : "mod_case";

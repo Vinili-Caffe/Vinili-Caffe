@@ -6,15 +6,21 @@ const { registerShutdownFlush, armShutdownCheckpoint } = require("../../../share
 const { chatReminderRotationFindOneLean, chatReminderRotationFindOneAndUpdate, chatReminderScheduleCreate, chatReminderScheduleUpdateOne, chatReminderScheduleDeleteOne, chatReminderScheduleFindLatestFuture, chatReminderScheduleFindDueLean, chatReminderScheduleDeleteManyFuture } = require("../../../Vinyls/Utils/BotState/domainStatesStore");
 const { getClientChannelCached } = require("../../Utils/Interaction/entityCache");
 const IDs = require("../../Utils/Config/ids");
+const { isChatHubMinigameActive } = require("../../../shared/discord/chatHubMinigameGate");
 const {
   CHAT_HUB_SOURCES,
   DEFAULT_CROSS_BOT_GAP_MS,
   recordChatHubBotPost,
-  waitForChatHubBotGap,
+  extendChatHubQuietForMs,
+  waitForChatHubSlot,
 } = require("../../../shared/discord/chatHubBotPacing");
 const CHAT_HUB_CROSS_BOT_GAP_MS = Math.max(
-  60_000,
+  3 * 60 * 1000,
   Number(process.env.VC_CHAT_HUB_CROSS_BOT_GAP_MS || DEFAULT_CROSS_BOT_GAP_MS),
+);
+const REMINDER_CHAT_DEFER_MS = Math.max(
+  5 * 60 * 1000,
+  Number(process.env.VC_CHAT_REMINDER_DEFER_MS || 10 * 60 * 1000),
 );
 const DEFAULT_TIME_ZONE = "Europe/Rome";
 const DEFAULT_START_HOUR = 9;
@@ -440,6 +446,35 @@ async function getActivityCounts(client) {
   };
 }
 
+async function canPostReminderNow(client, channelId) {
+  const cid = String(channelId || "").trim();
+  if (!cid) return false;
+  const guildId = client.guilds?.cache?.first()?.id ?? null;
+  if (guildId && (await isChatHubMinigameActive(guildId, cid))) return false;
+  return waitForChatHubSlot(cid, CHAT_HUB_SOURCES.COFFEE, {
+    crossBotGapMs: CHAT_HUB_CROSS_BOT_GAP_MS,
+    sameBotGapMs: Math.max(DEFAULT_MIN_GAP_MS, getMinGapMs(client)),
+    maxWaitMs: 8 * 60 * 1000,
+    pollMs: 15_000,
+  });
+}
+
+function deferScheduledReminder(client, scheduleId, kind) {
+  if (!scheduleId) return;
+  const nextAt = new Date(Date.now() + REMINDER_CHAT_DEFER_MS);
+  void chatReminderScheduleUpdateOne(
+    { scheduleId },
+    { $set: { fireAt: nextAt, kind } },
+  ).catch(() => { });
+  const delay = Math.max(1, nextAt.getTime() - Date.now());
+  const timeout = setTimeout(() => {
+    scheduledTimeouts.delete(String(scheduleId));
+    sendReminder(client, scheduleId, kind).catch(() => { });
+  }, delay);
+  timeout.unref?.();
+  attachScheduleTimeout(scheduleId, timeout);
+}
+
 async function sendReminder(client, scheduleId, kind = "first") {
   clearScheduleTimeout(scheduleId);
   const hasActivity = await hasMinimumChatActivity45m(client);
@@ -486,11 +521,16 @@ async function sendReminder(client, scheduleId, kind = "first") {
     (await client.channels.fetch(channelId).catch(() => null));
   if (!channel) return;
   const guildId = client.guilds?.cache?.first()?.id ?? null;
+  const ready = await canPostReminderNow(client, channelId);
+  if (!ready) {
+    deferScheduledReminder(client, scheduleId, kind);
+    return;
+  }
   const parts = getRomeParts(new Date(), client);
   const embed = await nextReminderEmbed(parts, guildId);
-  await waitForChatHubBotGap(channelId, CHAT_HUB_SOURCES.COFFEE, CHAT_HUB_CROSS_BOT_GAP_MS);
   await channel.send({ embeds: [embed] }).catch(() => { });
   recordChatHubBotPost(channelId, CHAT_HUB_SOURCES.COFFEE);
+  extendChatHubQuietForMs(channelId, 45_000);
   lastSentAt = Date.now();
   await saveRotationState();
   if (scheduleId) {
@@ -510,10 +550,12 @@ async function sendReminderAtFixedSlot(client, parts, slotKey) {
   const channel = await getClientChannelCached(client, channelId);
   if (!channel) return;
   const guildId = client.guilds?.cache?.first()?.id ?? null;
+  const ready = await canPostReminderNow(client, channelId);
+  if (!ready) return;
   const embed = await nextReminderEmbed(parts, guildId);
-  await waitForChatHubBotGap(channelId, CHAT_HUB_SOURCES.COFFEE, CHAT_HUB_CROSS_BOT_GAP_MS);
   await channel.send({ embeds: [embed] }).catch(() => { });
   recordChatHubBotPost(channelId, CHAT_HUB_SOURCES.COFFEE);
+  extendChatHubQuietForMs(channelId, 45_000);
   lastSentAt = Date.now();
   lastReminderSlotKey = slotKey;
   await saveRotationState();

@@ -372,6 +372,8 @@
       consumables: (data && data.consumables) || base.consumables,
       activeBoosts: (data && data.activeBoosts) || base.activeBoosts,
     });
+    if (data && data.gringott) state.data.gringott = data.gringott;
+    if (data && data.inventory) state.data.inventory = data.inventory;
     if (err && (err.inventory || err.gringott || err.activeBoosts || err.consumables)) {
       state.data = Object.assign({}, state.data, {
         inventory: err.inventory || state.data.inventory,

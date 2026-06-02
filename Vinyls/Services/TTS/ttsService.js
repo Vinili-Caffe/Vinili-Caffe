@@ -154,6 +154,21 @@ function shouldHandleMessage(message, config, prefix) {
   return isVoiceChannel || isVoiceChannelThread || isExtraText;
 }
 
+/** Canale vocale per leggere il messaggio: se sei in duo ma scrivi nella chat di lounge, usa duo. */
+function resolveTtsVoiceChannel(message) {
+  const memberVoice = message.member?.voice?.channel ?? null;
+  if (message.channel.isVoiceBased?.() && !message.channel.isThread?.()) {
+    if (memberVoice && String(memberVoice.id) !== String(message.channel.id)) return memberVoice;
+    return message.channel;
+  }
+  if (message.channel.isThread?.() && message.channel.parent?.isVoiceBased?.()) {
+    const parent = message.channel.parent;
+    if (memberVoice && String(memberVoice.id) !== String(parent.id)) return memberVoice;
+    return parent;
+  }
+  return memberVoice;
+}
+
 function sanitizeText(text) {
   if (!text) return "";
   let cleaned = text
@@ -1079,17 +1094,7 @@ async function handleTtsMessage(message, client, prefix) {
       global.logger?.warn?.("[TTS] member fetch:", err?.message || err);
     }
   }
-  let voiceChannel = null;
-  if (message.channel.isVoiceBased?.() && !message.channel.isThread?.()) {
-    voiceChannel = message.channel;
-  } else if (
-    message.channel.isThread?.() &&
-    message.channel.parent?.isVoiceBased?.()
-  ) {
-    voiceChannel = message.channel.parent;
-  } else {
-    voiceChannel = message.member?.voice?.channel;
-  }
+  const voiceChannel = resolveTtsVoiceChannel(message);
   const lockedChannelId = guildId ? getLockedChannelId(guildId) : null;
   const autojoin = booleanFromConfig(config?.tts?.autojoin, false);
   if (!autojoin && !lockedChannelId) return;
@@ -1098,13 +1103,6 @@ async function handleTtsMessage(message, client, prefix) {
   if (!voiceChannel) {
     if (!canWarnMissingVoice) return;
     const warn = await message.reply("<a:VC_Alert:1482706673176150077> Devi essere in un canale vocale per usare il TTS.",);
-    if (warn) scheduleMessageDeletion(warn, EPHEMERAL_TTL_SHORT_MS);
-    return;
-  }
-  const authorVoiceId = message.member?.voice?.channelId ?? null;
-  if (!authorVoiceId || String(authorVoiceId) !== String(voiceChannel.id)) {
-    if (!canWarnMissingVoice) return;
-    const warn = await message.reply("<a:VC_Alert:1482706673176150077> Devi essere nel canale vocale per usare il TTS.",);
     if (warn) scheduleMessageDeletion(warn, EPHEMERAL_TTL_SHORT_MS);
     return;
   }
