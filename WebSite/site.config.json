@@ -109,9 +109,9 @@
     "timezone": "Europe/Rome",
     "recurring": { "weekday": 6, "hour": 21, "minute": 0 },
     "overrideIso": "",
-    "linkFilm": "/images/evento-hogwarts/harry-potter-camera-dei-segreti.mp4",
+    "linkFilm": "/images/evento-hogwarts/harry-potter-prigioniero-di-azkaban.mp4",
     "hogwartsThemeVideoUrl": "https://www.youtube.com/watch?v=YrAA02NlyNE",
-    "filmTitle": "Harry Potter e la camera dei segreti",
+    "filmTitle": "Harry Potter e il prigioniero di Azkaban",
     "adBreak": {
       "enabled": true,
       "videoUrl": "/images/evento-hogwarts/pubblicità.mp4",

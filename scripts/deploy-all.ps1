@@ -55,6 +55,9 @@ function Get-SiteLargeAssetRemotePaths {
   if ($Rel -match '(?i)Harry Potter e la camera dei segreti\.mp4$') {
     [void]$paths.Add("$RemotePath/images/evento-hogwarts/harry-potter-camera-dei-segreti.mp4")
   }
+  if ($Rel -match '(?i)Watch Harry Potter e il prigioniero di Azkaban\.mp4$') {
+    [void]$paths.Add("$RemotePath/images/evento-hogwarts/harry-potter-prigioniero-di-azkaban.mp4")
+  }
   [void]$paths.Add("$RemotePath/$Rel")
   return @($paths | Select-Object -Unique)
 }
@@ -63,6 +66,9 @@ function Resolve-SiteLargeAssetUploadPath {
   param([string]$RemotePath, [string]$Rel)
   if ($Rel -match '(?i)Harry Potter e la camera dei segreti\.mp4$') {
     return "$RemotePath/images/evento-hogwarts/harry-potter-camera-dei-segreti.mp4"
+  }
+  if ($Rel -match '(?i)Watch Harry Potter e il prigioniero di Azkaban\.mp4$') {
+    return "$RemotePath/images/evento-hogwarts/harry-potter-prigioniero-di-azkaban.mp4"
   }
   return "$RemotePath/$Rel"
 }
@@ -221,6 +227,7 @@ function Write-DeployPhase([string]$Message) {
 function Get-BackendTarStaticExcludes {
   return @(
     "WebSite/images/evento-hogwarts/harry-potter-camera-dei-segreti.mp4",
+    "WebSite/images/evento-hogwarts/Watch Harry Potter e il prigioniero di Azkaban.mp4",
     "WebSite/images/evento-hogwarts/inizio.mp4",
     "WebSite/images/evento-hogwarts/smistamento.mp4"
   )
@@ -446,6 +453,10 @@ function Invoke-SiteDeploy {
         if ($remoteSize -gt 0) {
           Write-Host "Asset grande già presente ($([math]::Round($remoteSize / 1MB, 1)) MB), skip upload: $rel"
           if ($rel -match '(?i)Harry Potter e la camera dei segreti\.mp4$') {
+            $wrongRemote = "$RemotePath/$rel"
+            Invoke-RemoteSsh "${User}@${Server}" "if [ -f '$wrongRemote' ]; then rm -f '$wrongRemote'; fi"
+          }
+          if ($rel -match '(?i)Watch Harry Potter e il prigioniero di Azkaban\.mp4$') {
             $wrongRemote = "$RemotePath/$rel"
             Invoke-RemoteSsh "${User}@${Server}" "if [ -f '$wrongRemote' ]; then rm -f '$wrongRemote'; fi"
           }

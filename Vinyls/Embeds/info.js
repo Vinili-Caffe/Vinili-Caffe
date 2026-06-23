@@ -19,6 +19,14 @@ async function run(client) {
     "",
     `Dubbi o problemi? <#${IDs.channels.ticket}> sarà la vostra bussola, lo staff vi risponderà il prima possibile!`,
   ].join("\n");
+  const infoGuildTagsText = [
+    "<:VC_Luna1:1482497618289496117><:VC_Luna2:1482497653387427902> <a:VC_Arrow:1482706699365257397> <https://discord.com/invite/E6vrm5zE6B>",
+    "<:VC_Fire1:1509196285796814979><:VC_Fire2:1509196390843023475> <a:VC_Arrow:1482706699365257397> <https://discord.com/invite/QnTN5P578g>",
+    "<:VC_Porn1:1482497744513011944><:VC_Porn2:1482497774892089547> <a:VC_Arrow:1482706699365257397> <https://discord.com/invite/WMuZ4EMAkc>",
+    "<:VC_Star1:1509196523810980051><:VC_Star2:1509196760722182155> <a:VC_Arrow:1482706699365257397> <https://discord.com/invite/uqUNS9f5m5>",
+    "<:VC_Weed1:1482497951686201534><:VC_Weed2:1482497986910097592> <a:VC_Arrow:1482706699365257397> <https://discord.com/invite/SzBwnxHXNv>",
+    "<:VC_Figa1:1482495980275499169><:VC_Figa2:1482496046222544937> <a:VC_Arrow:1482706699365257397> <https://discord.com/invite/z3EXtJwvQH>",
+  ].join("\n");
   const infoLinksText = [
     "<:VC_Instagram:1482526710426767360> [Seguici su Instagram](https://www.instagram.com/viniliecaffe/)",
     "<:VC_TikTok:1498017166060949525> [Seguici su TikTok](https://www.tiktok.com/@viniliecaffe)",
@@ -63,6 +71,7 @@ async function run(client) {
     .setTitle("Ti diamo il benvenuto nella nostra community!")
     .setDescription(infoIntroText)
     .addFields(
+      { name: "<:VC_Firework:1470796227913322658> LE NOSTRE GUILD TAGS", value: infoGuildTagsText, inline: false },
       { name: "<:VC_Link:1482460590894088222> Links", value: infoLinksText, inline: true },
       { name: "<:VC_Info:1482526956703580372> Informazioni", value: infoMetaText, inline: true },
     )
