@@ -65,6 +65,7 @@ try {
 }
 
 const { getToken, getMongoUrl, ensureToken } = require("../shared/config/env");
+const { connectMongo, isMongoReady } = require("../Vinyls/Utils/Database/mongoConnect");
 client.config.token = getToken(client.config, "DISCORD_TOKEN_TEST");
 client.config.mongoURL = getMongoUrl(client.config);
 ensureToken(client.config.token, "Bot Test (DISCORD_TOKEN_TEST)");
@@ -115,6 +116,12 @@ const commandFolders = listFoldersIfExists(commandsDir);
 
   if (typeof client.logBootTables === "function") {
     client.logBootTables();
+  }
+
+  const mongoConnected = await connectMongo(client);
+  if (!mongoConnected || !isMongoReady()) {
+    global.logger.error("[DATABASE] Startup aborted: MongoDB is required before login.");
+    process.exit(1);
   }
 
   global.__coffeeDiscordClient = client;

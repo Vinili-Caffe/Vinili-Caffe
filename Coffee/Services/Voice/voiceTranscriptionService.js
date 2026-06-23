@@ -7,11 +7,21 @@ const FormData = require("form-data");
 const ffmpegStatic = require("ffmpeg-static");
 const { EmbedBuilder } = require("discord.js");
 const { accountUsername, userAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
+const { reportRecoveryHealth } = require("../../../shared/recovery/recoveryHealth");
+const {
+  getVoiceTranscriptionCheckpoint,
+  saveVoiceTranscriptionCheckpoint,
+  isMessageAfterTranscriptionCheckpoint,
+} = require("./voiceTranscriptionCheckpoint");
 const TRANSCRIBE_COLOR = 0x57f287;
 const DEFAULT_INVITE = ".gg/viniliecaffe";
 const processingMessageIds = new Set();
 const userCooldownUntil = new Map();
 const USER_COOLDOWN_MS = 8000;
+const DEFAULT_RESTORE_LOOKBACK_MS = 2 * 60 * 60 * 1000;
+const DEFAULT_RESTORE_FETCH_LIMIT = 50;
+const RESTORE_CHANNEL_CONCURRENCY = 4;
+const RESTORE_MESSAGE_GAP_MS = 350;
 
 function resolveTranscriptionConfig(client) {
   const cfg = client?.config?.voiceTranscription;
@@ -25,6 +35,12 @@ function resolveTranscriptionConfig(client) {
     language: String(cfg.language || "it").trim().toLowerCase().split("-")[0] || "it",
     invite: String(cfg.invite || DEFAULT_INVITE).trim() || DEFAULT_INVITE,
     provider: String(cfg.provider || "auto").trim().toLowerCase(),
+    restoreOnRestart: cfg.restoreOnRestart !== false,
+    restoreLookbackMs: Math.min(
+      24 * 60 * 60 * 1000,
+      Math.max(60_000, Number(cfg.restoreLookbackMs) || DEFAULT_RESTORE_LOOKBACK_MS),
+    ),
+    restoreFetchLimit: Math.min(100, Math.max(10, Math.floor(Number(cfg.restoreFetchLimit) || DEFAULT_RESTORE_FETCH_LIMIT))),
   };
 }
 
@@ -42,29 +58,43 @@ function touchUserCooldown(userId) {
   userCooldownUntil.set(String(userId), Date.now() + USER_COOLDOWN_MS);
 }
 
+function isVideoAttachment(att) {
+  const ct = String(att?.contentType || "").toLowerCase();
+  const name = String(att?.name || "").toLowerCase();
+  if (ct.startsWith("video/")) return true;
+  return [".mp4", ".mov", ".webm", ".mkv", ".avi", ".m4v"].some((ext) => name.endsWith(ext));
+}
+
 function pickVoiceAttachment(message) {
   const attachments = [...(message?.attachments?.values?.() || [])];
   if (!attachments.length) return null;
   for (const att of attachments) {
+    if (isVideoAttachment(att)) continue;
     const ct = String(att.contentType || "").toLowerCase();
     const name = String(att.name || "").toLowerCase();
     if (ct.startsWith("audio/")) return att;
     if (name.endsWith(".ogg") || name.endsWith(".oga") || name.includes("voice-message")) return att;
   }
-  if (attachments.length === 1 && !String(message.content || "").trim()) return attachments[0];
+  if (attachments.length === 1 && !String(message.content || "").trim()) {
+    const only = attachments[0];
+    if (!isVideoAttachment(only)) return only;
+  }
   return null;
 }
 
 function looksLikeVoiceMessage(message) {
   if (!message?.guild || message.author?.bot) return false;
   const att = pickVoiceAttachment(message);
-  if (!att?.url) return false;
-  const duration = Number(att.duration);
-  if (Number.isFinite(duration) && duration > 0) return true;
+  if (!att?.url || isVideoAttachment(att)) return false;
   const ct = String(att.contentType || "").toLowerCase();
   if (ct.startsWith("audio/")) return true;
   const name = String(att.name || "").toLowerCase();
-  return name.endsWith(".ogg") || name.includes("voice-message");
+  if (name.endsWith(".ogg") || name.endsWith(".oga") || name.includes("voice-message")) return true;
+  const duration = Number(att.duration);
+  if (Number.isFinite(duration) && duration > 0) {
+    return ct.startsWith("audio/") || name.endsWith(".ogg") || name.endsWith(".oga") || name.includes("voice-message");
+  }
+  return false;
 }
 
 async function downloadAttachmentToTemp(attachment) {
@@ -184,12 +214,11 @@ function buildTranscriptionEmbed(message, text, invite) {
     .setTimestamp(message.createdAt || new Date());
 }
 
-async function handleVoiceTranscriptionMessage(message, client) {
-  const cfg = resolveTranscriptionConfig(client);
-  if (!cfg) return false;
+async function processVoiceTranscriptionMessage(message, client, cfg, options = {}) {
+  const catchup = options.catchup === true;
   if (!looksLikeVoiceMessage(message)) return false;
   if (!isChannelAllowed(message.channelId, cfg)) return false;
-  if (isOnUserCooldown(message.author.id)) return false;
+  if (!catchup && isOnUserCooldown(message.author.id)) return false;
 
   const attachment = pickVoiceAttachment(message);
   if (!attachment?.url) return false;
@@ -200,7 +229,7 @@ async function handleVoiceTranscriptionMessage(message, client) {
   const messageId = String(message.id || "");
   if (!messageId || processingMessageIds.has(messageId)) return false;
   processingMessageIds.add(messageId);
-  touchUserCooldown(message.author.id);
+  if (!catchup) touchUserCooldown(message.author.id);
 
   const tempFiles = [];
   try {
@@ -212,6 +241,7 @@ async function handleVoiceTranscriptionMessage(message, client) {
     const text = await transcribeAudioFile(prepared, cfg.language, cfg.provider);
     const embed = buildTranscriptionEmbed(message, text, cfg.invite);
     await message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } }).catch(() => null);
+    saveVoiceTranscriptionCheckpoint(message.channelId, message.id, message.createdTimestamp);
     return true;
   } catch (err) {
     const code = String(err?.message || err || "");
@@ -229,4 +259,98 @@ async function handleVoiceTranscriptionMessage(message, client) {
   }
 }
 
-module.exports = { handleVoiceTranscriptionMessage, buildTranscriptionEmbed };
+async function handleVoiceTranscriptionMessage(message, client) {
+  const cfg = resolveTranscriptionConfig(client);
+  if (!cfg) return false;
+  return processVoiceTranscriptionMessage(message, client, cfg, { catchup: false });
+}
+
+function listTranscriptionChannels(client, cfg) {
+  const rows = [];
+  for (const guild of client.guilds.cache.values()) {
+    for (const channel of guild.channels.cache.values()) {
+      if (!channel?.isTextBased?.() || channel.isDMBased?.()) continue;
+      if (!isChannelAllowed(channel.id, cfg)) continue;
+      rows.push(channel);
+    }
+  }
+  return rows;
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function catchupVoiceTranscriptionsForChannel(channel, client, cfg) {
+  if (!channel?.messages?.fetch || !looksLikeVoiceMessage) return { scanned: 0, transcribed: 0 };
+  const checkpoint = getVoiceTranscriptionCheckpoint(channel.id);
+  const nowMs = Date.now();
+  const fallbackCutoffMs = nowMs - cfg.restoreLookbackMs;
+  const checkpointCutoffMs = checkpoint?.lastProcessedAt
+    ? Number(checkpoint.lastProcessedAt) - 1500
+    : fallbackCutoffMs;
+  const cutoffMs = Math.max(fallbackCutoffMs, checkpointCutoffMs);
+
+  const messages = await channel.messages.fetch({ limit: cfg.restoreFetchLimit }).catch(() => null);
+  if (!messages?.size) return { scanned: 0, transcribed: 0 };
+
+  const sorted = Array.from(messages.values()).sort((a, b) => a.createdTimestamp - b.createdTimestamp);
+  let scanned = 0;
+  let transcribed = 0;
+
+  for (const message of sorted) {
+    if (!looksLikeVoiceMessage(message)) continue;
+    scanned += 1;
+    if (!isMessageAfterTranscriptionCheckpoint(message, checkpoint, cutoffMs)) continue;
+    const ok = await processVoiceTranscriptionMessage(message, client, cfg, { catchup: true });
+    if (ok) transcribed += 1;
+    if (transcribed > 0 || ok) await sleep(RESTORE_MESSAGE_GAP_MS);
+  }
+
+  return { scanned, transcribed };
+}
+
+async function restorePendingVoiceTranscriptions(client) {
+  const cfg = resolveTranscriptionConfig(client);
+  if (!cfg || !cfg.restoreOnRestart) {
+    reportRecoveryHealth("coffee_voice_transcription_restore", "skip", "disabled");
+    return { channels: 0, transcribed: 0 };
+  }
+  if (!resolveTranscriptionProvider(cfg.provider)) {
+    reportRecoveryHealth("coffee_voice_transcription_restore", "skip", "api_not_configured");
+    return { channels: 0, transcribed: 0 };
+  }
+
+  const channels = listTranscriptionChannels(client, cfg);
+  let transcribed = 0;
+  let channelsTouched = 0;
+
+  for (let i = 0; i < channels.length; i += RESTORE_CHANNEL_CONCURRENCY) {
+    const batch = channels.slice(i, i + RESTORE_CHANNEL_CONCURRENCY);
+    const results = await Promise.all(
+      batch.map((channel) => catchupVoiceTranscriptionsForChannel(channel, client, cfg).catch(() => ({ scanned: 0, transcribed: 0 }))),
+    );
+    for (const row of results) {
+      if (row.transcribed > 0) channelsTouched += 1;
+      transcribed += Number(row.transcribed) || 0;
+    }
+  }
+
+  reportRecoveryHealth(
+    "coffee_voice_transcription_restore",
+    "ok",
+    `channels=${channels.length};transcribed=${transcribed}`,
+  );
+  if (transcribed > 0) {
+    global.logger?.info?.(
+      `[VOICE TRANSCRIBE] Recupero riavvio: ${transcribed} vocali trascritti su ${channelsTouched} canali`,
+    );
+  }
+  return { channels: channels.length, transcribed };
+}
+
+module.exports = {
+  handleVoiceTranscriptionMessage,
+  buildTranscriptionEmbed,
+  restorePendingVoiceTranscriptions,
+};

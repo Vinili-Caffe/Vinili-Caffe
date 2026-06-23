@@ -2,9 +2,9 @@
   var ACCESS_TOKEN_KEY = "vc_discord_access_token";
   var EXPIRES_AT_KEY = "vc_discord_expires_at";
   var CATEGORY_BOOST_HINTS = {
-    wand: "Boost duello: più chance di vincere i duelli.",
+    wand: "Boost duello: più chance di vincere.",
     broom: "Boost economia: più chance di furto riuscito.",
-    pet: "Boost minigiochi: moltiplica i punti casa nei minigame.",
+    pet: "Boost minigiochi: moltiplica i punti casa.",
   };
   var CONSUMABLE_CATEGORY_HINTS = {
     "consumable-house-points": "Boost ×2 sui punti casa guadagnati. Attivazione immediata.",
@@ -70,6 +70,37 @@
   function numberOf(value) {
     var n = Math.floor(Number(value) || 0);
     return Number.isFinite(n) && n > 0 ? n : 0;
+  }
+
+  function boostUsageBadgeText(category, boostUsage) {
+    if (!boostUsage || !boostUsage.categories) return "";
+    var row = boostUsage.categories[category];
+    if (!row) return "";
+    var used = Number(row.used);
+    var max = Number(row.max || boostUsage.maxUses || 750);
+    if (!Number.isFinite(used) || !Number.isFinite(max) || max <= 0) return "";
+    return String(Math.max(0, Math.floor(used))) + "/" + String(Math.floor(max));
+  }
+
+  function renderCardPills(item, options) {
+    options = options || {};
+    var multi = String(item.boostMultiplier || "").trim();
+    var uses = options.usageText || String(item[options.usesField || ""] || "").trim();
+    if (!multi && !uses) return "";
+    var parts = [];
+    if (multi) {
+      parts.push('<span class="vc-hw-shop-card__pill vc-hw-shop-card__pill--multi" title="Multi">' + esc(multi) + "</span>");
+    }
+    if (uses) {
+      parts.push(
+        '<span class="vc-hw-shop-card__pill vc-hw-shop-card__pill--uses" title="' +
+          esc(options.usesTitle || "Utilizzi") +
+          '">' +
+          esc(uses) +
+          "</span>"
+      );
+    }
+    return '<div class="vc-hw-shop-card__pills">' + parts.join("") + "</div>";
   }
 
   function showLoading(show) {
@@ -160,11 +191,12 @@
     return row;
   }
 
-  function renderEquipmentCategory(cat, inventory, balance) {
+  function renderEquipmentCategory(cat, inventory, balance, boostUsage) {
     var category = String(cat.id || "");
     var owned = inventory[category] || null;
     var items = Array.isArray(cat.items) ? cat.items : [];
     var boostHint = String(cat.boostHint || CATEGORY_BOOST_HINTS[category] || "").trim();
+    var usageBadge = boostUsageBadgeText(category, boostUsage);
     var ownedNote = owned && owned.name
       ? '<p class="vc-hw-shop-category__owned">In uso: <strong>' + esc(owned.name) + "</strong></p>"
       : "";
@@ -202,7 +234,13 @@
               : numberOf(item.price).toLocaleString("it-IT") + " Galeoni";
             return (
               '<article class="vc-hw-shop-card' + (isOwned ? " vc-hw-shop-card--owned" : "") + (isBelow ? " vc-hw-shop-card--locked" : "") + (isUpgrade ? " vc-hw-shop-card--upgrade" : "") + '" style="--shop-accent:' + esc(item.accent || "#d4af37") + '">' +
-                '<div class="vc-hw-shop-card__art">' + itemVisual(item) + '<span class="vc-hw-shop-card__glow"></span></div>' +
+                '<div class="vc-hw-shop-card__art">' +
+                  renderCardPills(item, {
+                    usageText: usageBadge || (item.boostMaxUses ? "0/" + item.boostMaxUses : ""),
+                    usesTitle: "Utilizzi boost",
+                  }) +
+                  itemVisual(item) +
+                  '<span class="vc-hw-shop-card__glow"></span></div>' +
                 '<div class="vc-hw-shop-card__body">' +
                   '<p class="vc-hw-shop-card__rarity">' + esc(item.rarity || "") + "</p>" +
                   '<h3>' + esc(item.name || "") + "</h3>" +
@@ -270,7 +308,10 @@
                 : "";
             return (
               '<article class="vc-hw-shop-card vc-hw-shop-card--consumable' + (ownActive || blocked ? " vc-hw-shop-card--owned" : "") + '" style="--shop-accent:' + esc(item.accent || "#d4af37") + '">' +
-                '<div class="vc-hw-shop-card__art">' + consumableVisual(item) + '<span class="vc-hw-shop-card__glow"></span></div>' +
+                '<div class="vc-hw-shop-card__art">' +
+                  renderCardPills(item, { usesField: "boostDuration", usesTitle: "Durata" }) +
+                  consumableVisual(item) +
+                  '<span class="vc-hw-shop-card__glow"></span></div>' +
                 '<div class="vc-hw-shop-card__body">' +
                   '<p class="vc-hw-shop-card__rarity">' + esc(item.rarity || "") + "</p>" +
                   '<h3>' + esc(item.name || "") + "</h3>" +
@@ -329,7 +370,7 @@
     var equipmentCategories = data.catalog && Array.isArray(data.catalog.categories) ? data.catalog.categories : [];
     var consumableCategories = data.consumables && Array.isArray(data.consumables.categories) ? data.consumables.categories : [];
     var html = equipmentCategories.map(function (cat) {
-      return renderEquipmentCategory(cat, inventory, balance);
+      return renderEquipmentCategory(cat, inventory, balance, data.boostUsage || null);
     }).join("");
     if (showConsumables && consumableCategories.length) {
       html +=

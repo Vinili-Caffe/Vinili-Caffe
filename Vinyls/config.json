@@ -254,13 +254,104 @@
     "stayConnected": false,
     "restoreVoiceOnRestart": true
   },
-  "ai": {
-    "enabled": false
+  "voiceClip": {
+    "maxDurationSec": 60,
+    "defaultDurationSec": 30,
+    "language": "it",
+    "provider": "auto"
   },
   "minigames": {
     "enabled": true,
     "hogwartsExclusiveDuringEvent": true,
+    "hogwartsUnsortedHousePointsPerWin": 25,
+    "hogwartsEventSpawn": {
+      "targetIntervalMs": 600000,
+      "minDistinctHouses": 3,
+      "minDistinctHousesWithSorted": 2,
+      "requirementMaxWaitMs": 600000,
+      "retryAfterRequirementMissMs": 120000,
+      "failsafeMs": 5400000
+    },
+    "hogwartsHouseChannelMinigames": {
+      "enabled": true,
+      "durationMs": 60000,
+      "quizDurationMs": 120000,
+      "hourlyHousePoints": 20,
+      "towerMaxPerUser": 10,
+      "towerMinLetters": 5,
+      "towerDurationMs": 120000,
+      "hourStart": 12,
+      "hourEnd": 23,
+      "hourlyMinuteOffsets": {
+        "gryffindor": 3,
+        "hufflepuff": 18,
+        "ravenclaw": 33,
+        "slytherin": 48
+      },
+      "towerIntervalHours": 2,
+      "towerFirstHour": 12,
+      "towerMinuteOffsets": {
+        "gryffindor": 8,
+        "hufflepuff": 23,
+        "ravenclaw": 38,
+        "slytherin": 53
+      },
+      "themedGameTypes": ["hogwartsQuiz", "hogwartsMemoryEmoji", "hogwartsCipher"]
+    },
+    "hogwartsBasilisk": {
+      "enabled": true,
+      "chancePercent": 5,
+      "wholeHouseChancePercent": 1,
+      "persistentPlayersChancePercent": 7,
+      "persistentMinigamesMin": 2,
+      "persistentMinigamesMax": 4,
+      "blockedPlayerCount": 3,
+      "announceDelayMs": 5000,
+      "avoidRepeatStrikeHouses": 2,
+      "minGapBetweenStrikesMs": 900000,
+      "onlyDuringHogwartsEvent": true
+    },
+    "hogwartsHouseBasilisk": {
+      "enabled": true,
+      "chancePercent": 5,
+      "wholeHouseChancePercent": 1,
+      "persistentPlayersChancePercent": 5,
+      "persistentMinigamesMin": 2,
+      "persistentMinigamesMax": 4,
+      "blockedPlayerCount": 3,
+      "announceDelayMs": 5000,
+      "avoidRepeatStrikeHouses": 2,
+      "minGapBetweenStrikesMs": 900000,
+      "onlyDuringHogwartsEvent": true
+    },
+    "hogwartsEventBonusMinigames": true,
+    "hogwartsEventBonusHousePointsMultiplier": 0.5,
+    "burrobirraEffect": {
+      "enabled": true,
+      "onlyDuringHogwartsEvent": true,
+      "windowStartHour": 12,
+      "windowStartMinute": 0,
+      "windowEndHour": 23,
+      "windowEndMinute": 59,
+      "durationMs": 3600000,
+      "maxOccurrencesPerDay": 4,
+      "minGapBetweenMs": 1800000
+    },
+    "hogwartsHouseBurrobirraEffect": {
+      "enabled": true,
+      "onlyDuringHogwartsEvent": true,
+      "spawnChancePercent": 5,
+      "durationMs": 2700000,
+      "minGapBetweenMs": 7200000,
+      "avoidRepeatHouses": 2,
+      "mainChannelId": "1442569130573303898"
+    },
     "translateApiToItalian": true,
+    "spawnFreshActivity": {
+      "enabled": true,
+      "windowMs": 300000,
+      "minMessages": 5
+    },
     "intervalMs": 900000,
     "noParticipationIntervalMs": 900000,
     "activityWindowMs": 1800000,
@@ -269,12 +360,12 @@
       "enabled": true,
       "hardMin": 15,
       "hardMax": 100,
-      "memberReference": 400,
-      "memberFactorMin": 0.78,
-      "memberFactorMax": 1.38,
-      "memberExponent": 0.28,
-      "nightHourStart": 20,
-      "nightHourEnd": 24,
+      "memberReference": 200,
+      "memberFactorMin": 0.58,
+      "memberFactorMax": 1.18,
+      "memberExponent": 0.18,
+      "nightHourStart": 24,
+      "nightHourEnd": 7,
       "nightFactor": 0.72,
       "peakHourStart": 18,
       "peakHourEnd": 22,
@@ -326,6 +417,10 @@
       "rewardExp": 150,
       "onlyFamous": true,
       "apiUrl": "https://www.thesportsdb.com/api/v1/json/3/searchplayers.php?p="
+    },
+    "hogwartsGuessCharacter": {
+      "durationMs": 180000,
+      "rewardExp": 150
     },
     "guessSong": {
       "durationMs": 180000,
@@ -407,7 +502,7 @@
       "durationMs": 180000,
       "rewardExp": 200,
       "housePoints": 10,
-      "unsortedHousePoints": 2
+      "unsortedHousePoints": 25
     },
     "drivingQuiz": {
       "durationMs": 180000,
@@ -427,7 +522,7 @@
       "durationMs": 300000,
       "rewardExp": 200,
       "housePoints": 10,
-      "unsortedHousePoints": 2
+      "unsortedHousePoints": 25
     },
     "memoryEmoji": {
       "displayMs": 8000,
@@ -440,24 +535,27 @@
       "durationMs": 180000,
       "rewardExp": 250,
       "housePoints": 10,
-      "unsortedHousePoints": 2
+      "unsortedHousePoints": 25
     },
     "hogwartsCipher": {
       "startDate": "2026-07-13T14:00:00",
       "durationMs": 180000,
       "rewardExp": 250,
       "housePoints": 10,
-      "unsortedHousePoints": 2
+      "unsortedHousePoints": 25
     },
     "hogwartsObservationTower": {
       "startDate": "2026-07-27T14:00:00",
       "durationMs": 120000,
-      "targetBricks": 5,
       "maxPerUser": 10,
       "minLetters": 5,
       "rewardExp": 150,
-      "housePoints": 10,
-      "unsortedHousePoints": 2
+      "unsortedHousePoints": 25,
+      "tiers": [
+        { "weight": 1, "targetBricks": 30, "minPlayers": 3, "housePoints": 50 },
+        { "weight": 1, "targetBricks": 40, "minPlayers": 4, "housePoints": 100 },
+        { "weight": 1, "targetBricks": 50, "minPlayers": 5, "housePoints": 150 }
+      ]
     },
     "guessYear": {
       "durationMs": 180000,
@@ -489,7 +587,9 @@
     },
     "treasureHunt": {
       "emojiPairs": [
-        { "decoy": "<:VC_Logo:1498073401317916803>", "winner": "💎" }
+        { "decoy": "⚓", "winner": "💎" },
+        { "decoy": "🪄", "winner": "💎" },
+        { "decoy": "✨", "winner": "🏆" }
       ],
       "buckets": [
         { "weight": 1, "minMessages": 20, "maxMessages": 30, "minDurationMs": 60000,  "maxDurationMs": 120000, "rewardExp": 100 },
@@ -500,7 +600,34 @@
   },
   "hogwartsForbiddenBooks": {
     "startDate": "2026-06-20T12:00:00",
-    "endDate": "2026-09-01T10:00:00"
+    "endDate": "2026-09-01T10:00:00",
+    "rewardHousePoints": 250,
+    "rewardGaleoni": 100,
+    "channelDecor": {
+      "enabled": true,
+      "nameChannelCount": 2,
+      "bookEmoji": "📖"
+    },
+    "rounds": [
+      {
+        "id": "r1",
+        "label": "Round 1",
+        "start": "2026-06-20T12:00:00",
+        "bookIds": ["home", "faq", "wiki", "regole", "donazioni", "vote", "ruoli", "sponsor"]
+      },
+      {
+        "id": "r2",
+        "label": "Round 2",
+        "start": "2026-06-20T17:00:00",
+        "bookIds": ["candidature", "evento_shop", "evento_smistamento", "recensioni", "suggerimenti", "user", "perks", "notifications"]
+      },
+      {
+        "id": "r3",
+        "label": "Round 3",
+        "start": "2026-06-20T21:00:00",
+        "bookIds": ["donazioni", "evento_coppa", "privacy", "terms", "cookie", "unban", "faq", "wiki"]
+      }
+    ]
   },
   "premiLaReact": {
     "enabled": true,
@@ -640,6 +767,12 @@
       "vsBot": { "galeoni": 10, "housePoints": 15, "minPlayerWinChance": 22, "maxPlayerWinChance": 62 },
       "vsUser": { "galeoni": 10, "housePoints": 15 }
     },
-    "staffBypassUserIds": []
+    "staffBypassUserIds": [],
+    "punticasaPrefectHouses": {
+      "295500038401163264": "hufflepuff",
+      "700814270069342339": "slytherin",
+      "610531025470095390": "ravenclaw",
+      "470373387609571339": "gryffindor"
+    }
   }
 }

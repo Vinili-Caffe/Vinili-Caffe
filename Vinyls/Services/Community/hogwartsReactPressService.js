@@ -5,6 +5,7 @@ const { resolveHogwartsEventConfig } = require("../../Utils/Web/hogwartsSortingC
 const { isValidGuildUserId } = require("../../Utils/DB/validateWriteIds");
 const { getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { isUserHighStaffExcludedFromHogwartsEvent } = require("../../Utils/Web/hogwartsEventParticipation");
+const { housePointPeriodKey: resolveHousePointPeriod } = require("../../Utils/Web/hogwartsHousePointPeriods");
 const IDs = require("../../Utils/Config/ids");
 const DOC = SITE_DOCUMENT_TYPE.HOGWARTS_REACT_PRESS;
 const HOUSE_POINTS_DOC = SITE_DOCUMENT_TYPE.HOGWARTS_HOUSE_POINTS;
@@ -26,15 +27,6 @@ const DEFAULT_CONFIG = {
   maxCandidateAgeMs: 6 * 60 * 60 * 1000,
   candidatePoolSize: 220,
 };
-const PERIODS = [
-  { key: "2026-06-01_2026-06-14", start: "2026-06-01", end: "2026-06-14" },
-  { key: "2026-06-15_2026-06-28", start: "2026-06-15", end: "2026-06-28" },
-  { key: "2026-06-29_2026-07-12", start: "2026-06-29", end: "2026-07-12" },
-  { key: "2026-07-13_2026-07-26", start: "2026-07-13", end: "2026-07-26" },
-  { key: "2026-07-27_2026-08-09", start: "2026-07-27", end: "2026-08-09" },
-  { key: "2026-08-10_2026-08-23", start: "2026-08-10", end: "2026-08-23" },
-  { key: "2026-08-24_2026-08-31", start: "2026-08-24", end: "2026-08-31" },
-];
 
 const candidatesByGuild = new Map();
 const loopState = new WeakSet();
@@ -102,23 +94,6 @@ function normalizeHouseId(value) {
   return HOUSE_IDS.includes(house) ? house : "";
 }
 
-function dateOnlyMs(value, endOfDay = false) {
-  const s = normalizeId(value);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
-  const ms = new Date(`${s}T${endOfDay ? "23:59:59.999" : "00:00:00"}`).getTime();
-  return Number.isFinite(ms) ? ms : null;
-}
-
-function housePointPeriodKey(nowMs = Date.now()) {
-  const now = Number(nowMs || Date.now());
-  for (const period of PERIODS) {
-    const start = dateOnlyMs(period.start, false);
-    const end = dateOnlyMs(period.end, true);
-    if (Number.isFinite(start) && Number.isFinite(end) && now >= start && now <= end) return period.key;
-  }
-  return "";
-}
-
 async function resolveSortedHouse(guildId, userId, eventKey) {
   const gid = normalizeId(guildId);
   const uid = normalizeId(userId);
@@ -150,7 +125,7 @@ async function awardHousePoints(client, guildId, userId, amount) {
   const houseId = await resolveSortedHouse(gid, uid, eventKey);
   if (!houseId) return null;
   const now = new Date();
-  const periodKey = housePointPeriodKey(now.getTime());
+  const periodKey = String(resolveHousePointPeriod(now.getTime())?.key || "").trim();
   const inc = {
     "rawWebhook.byGame.premiLaReact": points,
     "rawWebhook.total": points,

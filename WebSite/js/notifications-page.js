@@ -5,6 +5,7 @@
   var DISCORD_ACCESS_TOKEN_KEY = "vc_discord_access_token";
   var filterMode = "all";
   var currentUserId = "";
+  var lastNotifyListRenderSig = "";
 
   function byId(id) {
     return document.getElementById(id);
@@ -535,8 +536,32 @@
       openUrl: openUrl,
     };
   }
+  function buildNotifyPageSignature(items, shownCount) {
+    var parts = [];
+    for (var si = 0; si < items.length; si += 1) {
+      var n = items[si];
+      if (!n) continue;
+      parts.push(
+        String(n.id || "") +
+          "\x1e" +
+          (n.read ? "1" : "0") +
+          "\x1e" +
+          String(n.at || 0) +
+          "\x1e" +
+          String(n.kind || "") +
+          "\x1e" +
+          String(n.title || "") +
+          "\x1e" +
+          String(n.body || ""),
+      );
+    }
+    return parts.join("\x1f") + "|f:" + filterMode + "|s:" + shownCount;
+  }
+
   function mergePageStoredWithServerList(list, uid) {
     var oldItems = loadStored();
+    var beforeSig = buildNotifyPageSignature(oldItems, filteredRows(oldItems).length);
+    var dismissed = loadDismissedSet(uid);
     var serverIdMap = {};
     var fromServer = [];
     for (var i = 0; i < list.length; i += 1) {
@@ -550,7 +575,6 @@
       serverIdMap[sid] = true;
       fromServer.unshift(mapped);
     }
-    var dismissed = loadDismissedSet(uid);
     var keepLocal = [];
     for (var li = 0; li < oldItems.length; li += 1) {
       var it = oldItems[li];
@@ -563,7 +587,9 @@
       if (dismissed.has(lid) || dismissed.has(fpId)) continue;
       keepLocal.push(it);
     }
-    saveStored(keepLocal.concat(fromServer));
+    var merged = keepLocal.concat(fromServer);
+    saveStored(merged);
+    return beforeSig !== buildNotifyPageSignature(merged, filteredRows(merged).length);
   }
   function syncSiteNotificationsFromServer() {
     var token = getDiscordAccessToken();
@@ -578,8 +604,7 @@
       .then(function (j) {
         if (!j || j.ok !== true || !Array.isArray(j.items)) return;
         var list = j.items.slice().reverse();
-        mergePageStoredWithServerList(list, uid);
-        renderList();
+        if (mergePageStoredWithServerList(list, uid)) renderList();
       })
       .catch(function () {});
   }
@@ -634,6 +659,9 @@
     var shown = filteredRows(all);
     setFilterButtons();
     renderStats(all, shown);
+    var sig = buildNotifyPageSignature(all, shown.length);
+    if (sig === lastNotifyListRenderSig) return;
+    lastNotifyListRenderSig = sig;
 
     list.innerHTML = "";
     if (shown.length === 0) {

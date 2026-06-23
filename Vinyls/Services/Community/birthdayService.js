@@ -48,7 +48,7 @@ function buildBirthdayAnnouncement(docs, currentYear) {
   const visibleAges = docs.filter((doc) => doc.showAge && Number.isFinite(Number(doc.birthYear))).map((doc) => Math.max(1, currentYear - Number(doc.birthYear)));
 
   if (!visibleAges.length) {
-    return `${intro}\n<a:VC_Events:1482706144953897223> Fate gli auguri.`;
+    return `${intro}\n<a:VC_Events:1482706144953897223> Fate gli auguri!`;
   }
   if (visibleAges.length === 1) {
     return `${intro}\n<a:VC_Events:1482706144953897223> Oggi compie ${visibleAges[0]} anni. Tantissimi auguri.`;

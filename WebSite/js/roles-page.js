@@ -77,7 +77,11 @@
     var c = authCfg();
     var clientId = String(c.clientId || "").trim();
     if (!clientId) return "";
-    var redirect = String(c.redirectUri || "").trim() || (window.location.origin + window.location.pathname);
+    var redirect = String(c.redirectUri || "").trim();
+    if (!redirect) {
+      var home = String(c.homeUrl || "").trim();
+      redirect = /^https?:\/\//i.test(home) ? (home.endsWith("/") ? home : home + "/") : window.location.origin + "/";
+    }
     var here = String(window.location.pathname || "/") + String(window.location.search || "");
     var q = new URLSearchParams({
       client_id: clientId,

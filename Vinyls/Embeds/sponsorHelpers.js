@@ -190,9 +190,8 @@ async function processOneVerifyPanel(client, guildId, verifyChannelIds) {
     "SPONSOR VERIFY",
   );
   if (verifyAttachment) verifyEmbed.setImage(`attachment://${verifyAttachment.name}`);
-  const baseRaw = String(process.env.WEBSITE_PUBLIC_URL || "https://www.viniliecaffe.it").trim();
-  const base = baseRaw.replace(/\/+$/, "");
-  const verifyUrl = `${base}/verify/?guildId=${encodeURIComponent(String(guildId || ""))}`;
+  const { buildSiteVerifyOAuthStartUrl } = require("../Utils/Web/verifyOauthPublicUrl");
+  const verifyUrl = buildSiteVerifyOAuthStartUrl(guildId);
   const verifyRow = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setStyle(ButtonStyle.Link)

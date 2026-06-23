@@ -6,7 +6,6 @@ const { getTicketPanelConfig } = require("./ticketPanelConfig");
 const { resolveTicketRenamePrefix, sanitizeTicketChannelTail } = require("./ticketNamingRuntime");
 const {
   hasStaffTicketRole,
-  buildRemoveMemberOptions,
   buildTicketReopenOutsidePanelPayload,
   fetchClosedTicketsOrdered,
 } = require("./ticketStaffPanelBuild");
@@ -24,6 +23,7 @@ const {
   TICKET_PANEL_SWITCH_CATEGORY_PREFIX,
   TICKET_PANEL_TRANSFER_USER_PREFIX,
 } = require("./ticketInteractionRuntime");
+const { registerTicketMemberPrompt } = require("./ticketMemberPrompt");
 const HIGHSTAFF_ROLE_ID = IDs.roles.HighStaff;
 const TICKET_READ_PROJECTION = { _id: 1, channelId: 1, open: 1, userId: 1, claimedBy: 1, guildId: 1, ticketNumber: 1, ticketType: 1 };
 
@@ -188,20 +188,9 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
       });
       return true;
     }
-    const addEmbed = new EmbedBuilder()
-      .setColor("#6f4e37")
-      .setTitle("➕ Aggiungi")
-      .setDescription("Cerca e seleziona un membro.");
-    const addRow = new ActionRowBuilder().addComponents(
-      new UserSelectMenuBuilder()
-        .setCustomId(withTicketPanelMessageCustomId(TICKET_PANEL_ADD_MEMBER_PREFIX, interaction.message?.id))
-        .setPlaceholder("➕ Scegli un utente…")
-        .setMinValues(1)
-        .setMaxValues(1),
-    );
+    registerTicketMemberPrompt(interaction, { type: "ticket_add" });
     await interaction.reply({
-      embeds: [addEmbed],
-      components: [addRow],
+      content: "✏️ Menziona l'utente da aggiungere al ticket.",
       flags: MessageFlags.Ephemeral,
     });
     return true;
@@ -216,34 +205,9 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
       });
       return true;
     }
-    const remOpts = buildRemoveMemberOptions(interaction.channel);
-    if (!remOpts.length) {
-      await safeReply(interaction, {
-        embeds: [
-          makeErrorEmbed(
-            "<a:VC_Alert:1482706673176150077> Errore",
-            "<:vegax:1443934876440068179> Non c’è nessun utente da rimuovere dai permessi del canale.",
-          ),
-        ],
-        flags: 1 << 6,
-      });
-      return true;
-    }
-    const removeEmbed = new EmbedBuilder()
-      .setColor("#6f4e37")
-      .setTitle("➖ Rimuovi")
-      .setDescription("Scegli un membro.");
-    const removeRow = new ActionRowBuilder().addComponents(
-      new StringSelectMenuBuilder()
-        .setCustomId(withTicketPanelMessageCustomId(TICKET_PANEL_REMOVE_MEMBER_PREFIX, interaction.message?.id))
-        .setPlaceholder("➖ Scegli un utente…")
-        .setMinValues(1)
-        .setMaxValues(1)
-        .addOptions(remOpts),
-    );
+    registerTicketMemberPrompt(interaction, { type: "ticket_remove" });
     await interaction.reply({
-      embeds: [removeEmbed],
-      components: [removeRow],
+      content: "✏️ Menziona l'utente da rimuovere dal ticket.",
       flags: MessageFlags.Ephemeral,
     });
     return true;
@@ -495,6 +459,7 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
       });
       return true;
     }
+    await interaction.deferReply().catch(() => null);
     const oldClaimerId = xferClaimer;
     const transferResult = await Ticket.updateOne(
       {
@@ -531,7 +496,7 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
       );
       await msg.edit({ embeds: [updatedEmbed], components: [updatedButtons] }).catch(() => {});
     }
-    await interaction.reply({
+    await safeReply(interaction, {
       embeds: [
         makeError(
           "Claim trasferito",

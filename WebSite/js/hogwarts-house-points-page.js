@@ -4,6 +4,9 @@
   var HOUSE_ORDER = ["gryffindor", "ravenclaw", "hufflepuff", "slytherin"];
   var dynamicPoints = null;
   var prevFillByBoard = {};
+  var pollTimer = null;
+  var pollHeaders = null;
+  var boardVisible = false;
   var FALLBACK = {
     gryffindor: { label: "Grifondoro", points: 0, color: "#b9202a", accent: "#f5c542" },
     ravenclaw: { label: "Corvonero", points: 0, color: "#1f5fbf", accent: "#b98a4b" },
@@ -76,7 +79,35 @@
     hideLoading();
   }
 
+  function readPollIntervalMs() {
+    var cfg = window.__VC_HOGWARTS_POINTS || {};
+    var ms = Number(cfg.pollIntervalMs) || 15000;
+    return ms >= 5000 ? ms : 15000;
+  }
+
+  function stopPointsPolling() {
+    if (pollTimer) {
+      clearInterval(pollTimer);
+      pollTimer = null;
+    }
+    boardVisible = false;
+    pollHeaders = null;
+  }
+
+  function startPointsPolling(headers) {
+    stopPointsPolling();
+    pollHeaders = headers || {};
+    boardVisible = true;
+    var ms = readPollIntervalMs();
+    pollTimer = setInterval(function () {
+      if (boardVisible && !document.hidden) {
+        refreshDynamicPoints(pollHeaders).catch(function () {});
+      }
+    }, ms);
+  }
+
   function showGate(message, showLogin) {
+    stopPointsPolling();
     revealShell();
     setHidden(byId("vc-hw-points-school-board"), true);
     setHidden(byId("vc-hw-points-event-board"), true);
@@ -333,6 +364,7 @@
     if (res.ok && data && data.ok) {
       showBoard();
       refreshDynamicPoints(headers).catch(function () {});
+      startPointsPolling(headers);
       return;
     }
     if (res.status === 401) {
@@ -354,6 +386,11 @@
 
   function boot() {
     revealShell();
+    document.addEventListener("visibilitychange", function () {
+      if (!document.hidden && boardVisible && pollHeaders) {
+        refreshDynamicPoints(pollHeaders).catch(function () {});
+      }
+    });
     checkAccess().catch(function () {
       showGate("Impossibile verificare l'accesso. Riprova tra poco.", false);
     });

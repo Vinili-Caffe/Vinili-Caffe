@@ -6,6 +6,17 @@ const { shouldSendPublicMemberAnnouncement } = require("./memberPublicAnnounceme
 const MAIN_GUILD_ID = String(IDs.guilds?.main || "");
 const SUPPORTERS_CHANNEL_ID = IDs.channels?.supporters;
 const PERKS_PAGE_URL = "https://viniliecaffe.it/perks/";
+const LEVEL_MILESTONE_MAP = new Map([
+  [10, IDs.roles.Level10],
+  [20, IDs.roles.Level20],
+  [30, IDs.roles.Level30],
+  [50, IDs.roles.Level50],
+  [70, IDs.roles.Level70],
+  [100, IDs.roles.Level100],
+  [125, IDs.roles.Level120],
+  [150, IDs.roles.Level150],
+  [200, IDs.roles.Level200],
+]);
 
 function buildPerkBlockLines(level) {
   const L = Number(level);
@@ -126,8 +137,76 @@ async function sendLevelMilestoneSupportersAnnouncement(guild, member, level, ro
     .catch(() => null);
 }
 
+async function recoverLevelMilestoneSupportersAnnouncesOnStartup(client, opts = {}) {
+  const {
+    isRecoveryPrimaryShard,
+    DEFAULT_RECOVERY_LOOKBACK_MS,
+    EMBED_DEDUPE_LOOKBACK_MS,
+    botSupportersEmbedExistsForUser,
+    recoverySleep,
+  } = require("./supportersChannelEmbedRecoveryUtils");
+  const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
+  const { getGuildMemberCached } = require("../Interaction/interactionEntityCache");
+  if (!isRecoveryPrimaryShard(client)) return { ok: false, reason: "not_primary_shard" };
+  if (!MAIN_GUILD_ID) return { ok: false, reason: "no_main_guild" };
+  const guild = client.guilds.cache.get(MAIN_GUILD_ID) || (await client.guilds.fetch(MAIN_GUILD_ID).catch(() => null));
+  if (!guild) return { ok: false, reason: "guild_not_found" };
+  const lookbackMs = Math.max(60 * 60 * 1000, Math.min(7 * 24 * 60 * 60 * 1000, Number(opts.lookbackMs || DEFAULT_RECOVERY_LOOKBACK_MS)));
+  const limit = Math.max(1, Math.min(50, Number(opts.limit || 25)));
+  const minTs = Date.now() - lookbackMs;
+  const embedSinceMs = Date.now() - EMBED_DEDUPE_LOOKBACK_MS;
+  const channel =
+    guild.channels.cache.get(SUPPORTERS_CHANNEL_ID) || (await getGuildChannelCached(guild, SUPPORTERS_CHANNEL_ID));
+  if (!channel?.isTextBased?.()) return { ok: false, reason: "no_channel" };
+  const botId = String(client.user?.id || "");
+  const milestoneLevels = [...LEVEL_MILESTONE_MAP.keys()];
+  const docs = await ActivityUserProfile.find({ guildId: MAIN_GUILD_ID, "profile.totals.exp.level": { $gte: 10 } })
+    .select("userId profile.totals.exp.levelHistory")
+    .limit(500)
+    .lean()
+    .catch(() => []);
+  const pending = [];
+  for (const doc of docs) {
+    const uid = String(doc?.userId || "");
+    if (!uid) continue;
+    const history = Array.isArray(doc?.profile?.totals?.exp?.levelHistory) ? doc.profile.totals.exp.levelHistory : [];
+    for (const entry of history) {
+      const at = new Date(entry?.createdAt || 0).getTime();
+      if (!Number.isFinite(at) || at < minTs) continue;
+      const afterLevel = Math.floor(Number(entry?.afterLevel || 0));
+      const beforeLevel = Math.floor(Number(entry?.beforeLevel || 0));
+      if (!milestoneLevels.includes(afterLevel) || afterLevel <= beforeLevel) continue;
+      pending.push({ userId: uid, level: afterLevel, at });
+    }
+  }
+  pending.sort((a, b) => Number(b.at || 0) - Number(a.at || 0));
+  const seen = new Set();
+  let recovered = 0;
+  for (const row of pending) {
+    if (recovered >= limit) break;
+    const key = `${row.userId}:${row.level}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const roleId = LEVEL_MILESTONE_MAP.get(row.level);
+    if (!roleId) continue;
+    const exists = await botSupportersEmbedExistsForUser(channel, row.userId, botId, embedSinceMs, (blob) =>
+      new RegExp(`livello\\s*[\`']?${row.level}[\`']?|leveled up|<@&${roleId}>`, "i").test(blob),
+    );
+    if (exists) continue;
+    const member = await getGuildMemberCached(guild, row.userId, { preferFresh: true }).catch(() => null);
+    if (!member) continue;
+    await sendLevelMilestoneSupportersAnnouncement(guild, member, row.level, roleId);
+    recovered += 1;
+    global.logger?.info?.("[level-milestone-recovery] announce:", row.userId, row.level);
+    await recoverySleep(450);
+  }
+  if (recovered > 0) global.logger?.info?.("[level-milestone-recovery] done:", recovered);
+  return { ok: true, recovered };
+}
+
 module.exports = {
   buildLevelMilestoneSupportersEmbed,
   buildLevelMilestoneSupportersAnnounceContent,
   sendLevelMilestoneSupportersAnnouncement,
+  recoverLevelMilestoneSupportersAnnouncesOnStartup,
 };

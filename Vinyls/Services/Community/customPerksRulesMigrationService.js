@@ -85,7 +85,33 @@ async function migrateGuildCustomPerks(guild, client) {
       const channel =
         guild.channels.cache.get(customVocChannelId) ||
         (await guild.channels.fetch(customVocChannelId).catch(() => null));
-      if (channel?.type === ChannelType.GuildVoice) {
+      const me = guild.members.me;
+      if (channel?.type === ChannelType.GuildVoice && me?.permissions?.has(PermissionsBitField.Flags.ManageChannels)) {
+        await channel.permissionOverwrites
+          .edit(
+            guild.roles.everyone.id,
+            { ViewChannel: false, Connect: false, Speak: false },
+            { reason: "Custom voc rules migration: sync @everyone" },
+          )
+          .catch(() => {});
+        if (roleId) {
+          await channel.permissionOverwrites
+            .edit(
+              roleId,
+              { ViewChannel: true, Connect: true, Speak: true, UseVAD: true, Stream: true },
+              { reason: "Custom voc rules migration: sync custom role access" },
+            )
+            .catch(() => {});
+        }
+        if (secondaryRoleId) {
+          await channel.permissionOverwrites
+            .edit(
+              secondaryRoleId,
+              { ViewChannel: true, Connect: true, Speak: true, UseVAD: true, Stream: true },
+              { reason: "Custom voc rules migration: sync secondary role access" },
+            )
+            .catch(() => {});
+        }
         await channel.permissionOverwrites
           .edit(
             userId,
@@ -101,12 +127,6 @@ async function migrateGuildCustomPerks(guild, client) {
             { reason: "Custom voc rules migration: owner overwrite sync" },
           )
           .catch(() => {});
-        if (roleId) {
-          await channel.permissionOverwrites.delete(roleId, "Custom voc rules migration: detach from custom role").catch(() => {});
-        }
-        if (secondaryRoleId) {
-          await channel.permissionOverwrites.delete(secondaryRoleId, "Custom voc rules migration: detach from secondary role").catch(() => {});
-        }
       }
     }
 

@@ -165,6 +165,97 @@ async function flushDonationPackageAnnounce(key) {
   lastDonationAnnounceByMember.set(key, { tier, at: now });
 }
 
+function tierForMemberRoles(member) {
+  if (member?.roles?.cache?.has?.(ROLE_ID_BY_TIER.vipPlus)) return "vipPlus";
+  if (member?.roles?.cache?.has?.(ROLE_ID_BY_TIER.vip)) return "vip";
+  if (member?.roles?.cache?.has?.(ROLE_ID_BY_TIER.donator)) return "donator";
+  return null;
+}
+
+async function sendDonationPackageAnnounceNow(member, tier) {
+  const rank = TIER_RANK[tier] || 0;
+  if (!tier || !rank || !member?.guild) return { ok: false, reason: "invalid_input" };
+  const mainId = String(IDs.guilds?.main || "");
+  if (String(member.guild.id) !== mainId) return { ok: false, reason: "wrong_guild" };
+  const channelId = IDs.channels?.supporters;
+  if (!channelId) return { ok: false, reason: "no_channel" };
+  const channel =
+    member.guild.channels.cache.get(channelId) || (await getGuildChannelCached(member.guild, channelId));
+  if (!channel?.isTextBased?.()) return { ok: false, reason: "channel_not_text" };
+  const staffPing = String(IDs.roles?.Staff || "").trim();
+  const content = staffPing
+    ? `<a:ThankYou:1329504268369002507> \`|\`  ${member.user} \`|\` <@&${staffPing}>`
+    : `<a:ThankYou:1329504268369002507> \`|\`  ${member.user}`;
+  const sent = await channel
+    .send({
+      content,
+      embeds: [buildDonationPackageEmbed(tier, member)],
+    })
+    .catch(() => null);
+  if (!sent?.id) return { ok: false, reason: "send_failed" };
+  lastDonationAnnounceByMember.set(memberAnnounceKey(member.guild.id, member.id), { tier, at: Date.now() });
+  return { ok: true, messageId: String(sent.id) };
+}
+
+async function recoverDonationPackageAnnouncesOnStartup(client, opts = {}) {
+  const {
+    isRecoveryPrimaryShard,
+    DEFAULT_RECOVERY_LOOKBACK_MS,
+    EMBED_DEDUPE_LOOKBACK_MS,
+    collectRecentRoleAddsFromAudit,
+    botSupportersEmbedExistsForUser,
+    recoverySleep,
+  } = require("./supportersChannelEmbedRecoveryUtils");
+  if (!isRecoveryPrimaryShard(client)) return { ok: false, reason: "not_primary_shard" };
+  const guildId = String(IDs.guilds?.main || "");
+  if (!guildId) return { ok: false, reason: "no_main_guild" };
+  const guild = client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
+  if (!guild) return { ok: false, reason: "guild_not_found" };
+  const lookbackMs = Math.max(60 * 60 * 1000, Math.min(7 * 24 * 60 * 60 * 1000, Number(opts.lookbackMs || DEFAULT_RECOVERY_LOOKBACK_MS)));
+  const limit = Math.max(1, Math.min(40, Number(opts.limit || 20)));
+  const channelId = IDs.channels?.supporters;
+  if (!channelId) return { ok: false, reason: "no_channel" };
+  const channel = guild.channels.cache.get(channelId) || (await getGuildChannelCached(guild, channelId));
+  if (!channel?.isTextBased?.()) return { ok: false, reason: "channel_not_text" };
+  const botId = String(client.user?.id || "");
+  const embedSinceMs = Date.now() - EMBED_DEDUPE_LOOKBACK_MS;
+  const roleIds = Object.values(ROLE_ID_BY_TIER).filter(Boolean);
+  const adds = await collectRecentRoleAddsFromAudit(guild, roleIds, lookbackMs);
+  const seen = new Set();
+  let recovered = 0;
+  for (const row of adds) {
+    if (recovered >= limit) break;
+    const uid = String(row.userId || "");
+    const rid = String(row.roleId || "");
+    const dedupe = `${uid}:${rid}`;
+    if (!uid || seen.has(dedupe)) continue;
+    seen.add(dedupe);
+    let tier = null;
+    for (const [t, id] of Object.entries(ROLE_ID_BY_TIER)) {
+      if (String(id) === rid) {
+        tier = t;
+        break;
+      }
+    }
+    if (!tier) continue;
+    const exists = await botSupportersEmbedExistsForUser(channel, uid, botId, embedSinceMs, (blob) =>
+      /PACCHETTO\s+(DONATOR|VIP)/i.test(blob),
+    );
+    if (exists) continue;
+    const member = await getGuildMemberCached(guild, uid, { preferFresh: true }).catch(() => null);
+    if (!member?.roles?.cache?.has(rid)) continue;
+    const bestTier = tierForMemberRoles(member) || tier;
+    const result = await sendDonationPackageAnnounceNow(member, bestTier);
+    if (result?.ok) {
+      recovered += 1;
+      global.logger?.info?.("[donation-recovery] announce:", uid, bestTier);
+      await recoverySleep(450);
+    }
+  }
+  if (recovered > 0) global.logger?.info?.("[donation-recovery] done:", recovered);
+  return { ok: true, recovered };
+}
+
 async function maybeAnnounceDonationPackageInSupporters(oldMember, newMember) {
   const mainId = String(IDs.guilds?.main || "");
   if (!mainId || String(newMember.guild.id) !== mainId) return;
@@ -176,4 +267,4 @@ async function maybeAnnounceDonationPackageInSupporters(oldMember, newMember) {
   mergePendingDonationAnnounce(memberAnnounceKey(newMember.guild.id, newMember.id), tier, newMember);
 }
 
-module.exports = { maybeAnnounceDonationPackageInSupporters };
+module.exports = { maybeAnnounceDonationPackageInSupporters, sendDonationPackageAnnounceNow, recoverDonationPackageAnnouncesOnStartup };

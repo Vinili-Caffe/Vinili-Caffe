@@ -7,7 +7,9 @@ const {
   resetPmVoiceAfkCountdown,
   clearPmVoiceAfkCountdown,
   cancelPendingPmAfkAlert,
+  deletePmAfkUserAlertMessage,
   isStaffInVoiceWithTarget,
+  sendPmAfkSanctionNotice,
 } = require("../Services/Staff/pmVoiceAfkWatchService");
 
 const CUSTOM_ID_PREFIX_CONFIRM = "pm_afk_watch_confirm:";
@@ -131,7 +133,7 @@ module.exports = {
     const staffInVoiceWithTarget = isStaffInVoiceWithTarget(interaction.member, target);
 
     if (!target?.voice?.channelId) {
-      await cancelPendingPmAfkAlert(client, guild.id, parsed.userId, { keepMessage: true });
+      await cancelPendingPmAfkAlert(client, guild.id, parsed.userId);
       await disableButtons(interaction, `ℹ️ L'utente non è più in vocale. Controllo annullato da <@${interaction.user.id}>.`);
       return true;
     }
@@ -146,6 +148,7 @@ module.exports = {
     }
 
     if (rawId.startsWith(CUSTOM_ID_PREFIX_DENY)) {
+      await deletePmAfkUserAlertMessage(client, guild.id, parsed.userId);
       if (voiceOk) {
         resetPmVoiceAfkCountdown(guild.id, parsed.userId, String(target.voice.channelId));
       } else {
@@ -157,16 +160,17 @@ module.exports = {
 
     // CONFIRM
     if (!target?.id) {
-      await cancelPendingPmAfkAlert(client, guild.id, parsed.userId, { keepMessage: true });
+      await cancelPendingPmAfkAlert(client, guild.id, parsed.userId);
       await disableButtons(interaction, `⚠️ Utente non trovato. Controllo chiuso da <@${interaction.user.id}>.`);
       return true;
     }
     if (!voiceOk) {
-      await cancelPendingPmAfkAlert(client, guild.id, parsed.userId, { keepMessage: true });
+      await cancelPendingPmAfkAlert(client, guild.id, parsed.userId);
       await disableButtons(interaction, `ℹ️ L'utente non è più nel canale vocale indicato. Controllo chiuso da <@${interaction.user.id}>.`);
       return true;
     }
     if (!stillAloneForCheck) {
+      await deletePmAfkUserAlertMessage(client, guild.id, parsed.userId);
       clearPmVoiceAfkCountdown(guild.id, parsed.userId);
       await disableButtons(interaction, `ℹ️ Nel canale c’è un altro utente oltre al target (non conta lo staff). Controllo chiuso da <@${interaction.user.id}>.`);
       return true;
@@ -199,6 +203,16 @@ module.exports = {
       })
       .catch(() => null);
 
+    await sendPmAfkSanctionNotice(client, guild, {
+      target,
+      staffMember: interaction.member,
+      stepLabel: step.label,
+      reason,
+      voiceChannelId: parsed.channelId || target.voice?.channelId || null,
+      durationMs,
+    }).catch(() => null);
+
+    await deletePmAfkUserAlertMessage(client, guild.id, target.id);
     clearPmVoiceAfkCountdown(guild.id, target.id);
     await disableButtons(
       interaction,

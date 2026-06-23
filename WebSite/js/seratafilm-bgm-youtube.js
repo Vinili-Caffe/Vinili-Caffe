@@ -7,6 +7,38 @@
   var player = null;
   var playerReady = false;
 
+  function isHogwartsEventBgmActive() {
+    try {
+      var c = window.__VC_SERATAFILM_BGM || {};
+      var w = c.hogwartsEventWindow;
+      if (!w || w.enabled === false) return false;
+      var now = Date.now();
+      var start = Number(w.startMs);
+      var end = Number(w.endMs);
+      if (!Number.isFinite(start) || !Number.isFinite(end)) return false;
+      return now >= start && now < end;
+    } catch (eW) {
+      return false;
+    }
+  }
+
+  function sanitizeVideoIds(raw) {
+    var clean = [];
+    var list = Array.isArray(raw) ? raw : [];
+    for (var i = 0; i < list.length; i += 1) {
+      var id = String(list[i] || "").trim();
+      if (/^[a-zA-Z0-9_-]{11}$/.test(id)) clean.push(id);
+    }
+    var uniq = [];
+    var seen = {};
+    for (var k = 0; k < clean.length; k += 1) {
+      if (seen[clean[k]]) continue;
+      seen[clean[k]] = 1;
+      uniq.push(clean[k]);
+    }
+    return uniq;
+  }
+
   function youtubePublicCfg() {
     try {
       var bgm = window.__VC_SERATAFILM_BGM || {};
@@ -26,34 +58,23 @@
           playlistId = pu;
         }
       }
-      var ids = Array.isArray(y.videoIds) ? y.videoIds : [];
-      var clean = [];
-      for (var i = 0; i < ids.length; i += 1) {
-        var id = String(ids[i] || "").trim();
-        if (/^[a-zA-Z0-9_-]{11}$/.test(id)) clean.push(id);
+      var useEvent = isHogwartsEventBgmActive();
+      var eventIds = sanitizeVideoIds(y.eventVideoIds);
+      var defaultIds = sanitizeVideoIds(y.defaultVideoIds);
+      var legacyIds = sanitizeVideoIds(y.videoIds);
+      var activeIds = [];
+      var startSeconds = 0;
+      if (useEvent && eventIds.length) {
+        activeIds = eventIds;
+        startSeconds = Math.max(0, Number(y.eventStartSeconds) || 0);
+      } else if (defaultIds.length) {
+        activeIds = defaultIds;
+        startSeconds = Math.max(0, Number(y.defaultStartSeconds) || 0);
+      } else {
+        activeIds = legacyIds;
       }
-      if (Array.isArray(y.videoUrls)) {
-        for (var u = 0; u < y.videoUrls.length; u += 1) {
-          var s = String(y.videoUrls[u] || "").trim();
-          if (!s) continue;
-          var m =
-            s.match(/[?&]v=([a-zA-Z0-9_-]{11})(?:[&]|$|#)/) ||
-            s.match(/youtu\.be\/([a-zA-Z0-9_-]{11})(?:[?]|$|\/|#)/) ||
-            s.match(/youtube\.com\/embed\/([a-zA-Z0-9_-]{11})(?:[?]|$|#)/) ||
-            s.match(/youtube-nocookie\.com\/embed\/([a-zA-Z0-9_-]{11})(?:[?]|$|#)/);
-          if (m && m[1]) clean.push(m[1]);
-        }
-      }
-      if (!playlistId && !clean.length) return null;
-      var uniq = [];
-      var seen = {};
-      for (var k = 0; k < clean.length; k += 1) {
-        var vid = clean[k];
-        if (seen[vid]) continue;
-        seen[vid] = 1;
-        uniq.push(vid);
-      }
-      return { playlistId: playlistId, videoIds: uniq };
+      if (!playlistId && !activeIds.length) return null;
+      return { playlistId: playlistId, videoIds: activeIds, startSeconds: startSeconds };
     } catch (e) {
       return null;
     }
@@ -98,6 +119,19 @@
     wrap.appendChild(inner);
   }
 
+  function youtubeApiScriptSrc() {
+    try {
+      var scripts = document.getElementsByTagName("script");
+      for (var i = 0; i < scripts.length; i += 1) {
+        var src = String(scripts[i].src || "");
+        if (/seratafilm-bgm-youtube\.js/.test(src)) {
+          return src.replace(/seratafilm-bgm-youtube\.js.*$/, "vc-youtube-iframe-api.js");
+        }
+      }
+    } catch (eS) {}
+    return "../js/vc-youtube-iframe-api.js";
+  }
+
   function loadYoutubeIframeApi() {
     if (typeof window.__vcLoadYoutubeIframeApi === "function") {
       return window.__vcLoadYoutubeIframeApi();
@@ -121,7 +155,7 @@
         return;
       }
       var s = document.createElement("script");
-      s.src = "../js/vc-youtube-iframe-api.js";
+      s.src = youtubeApiScriptSrc();
       s.async = true;
       s.dataset.vcYtApi = "seratafilm";
       s.onload = function () {
@@ -176,6 +210,8 @@
               player.cuePlaylist(pub.playlistId, 0, 0);
             } else if (pub.videoIds.length > 1) {
               player.cuePlaylist(pub.videoIds, 0, 0);
+            } else if (pub.videoIds.length === 1) {
+              player.cueVideoById(pub.videoIds[0], pub.startSeconds || 0);
             }
           } catch (e5) {
             ensureHint("YouTube: impossibile caricare la playlist o i video.");

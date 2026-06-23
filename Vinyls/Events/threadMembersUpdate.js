@@ -1,31 +1,24 @@
 const { ghostPingUserIfHuman } = require("../Utils/Message/ghostPingOnChannelEnter");
 
-function resolveThread(oldMembers, newMembers) {
-  return newMembers?.thread || oldMembers?.thread || newMembers?.first?.()?.thread || oldMembers?.first?.()?.thread || null;
-}
-
-function resolveAddedThreadMembers(oldMembers, newMembers) {
-  const added = [];
-  if (!newMembers?.forEach) return added;
-
-  newMembers.forEach((threadMember, userId) => {
-    const id = String(threadMember?.id || userId || "").trim();
-    if (!id || oldMembers?.has?.(id)) return;
-    added.push(threadMember);
-  });
-
-  return added;
+function resolveThread(thread, addedMembers, removedMembers) {
+  if (thread?.isThread?.()) return thread;
+  return (
+    addedMembers?.first?.()?.thread ||
+    removedMembers?.first?.()?.thread ||
+    null
+  );
 }
 
 module.exports = {
   name: "threadMembersUpdate",
-  async execute(oldMembers, newMembers) {
+  async execute(addedMembers, removedMembers, thread) {
     try {
-      const thread = resolveThread(oldMembers, newMembers);
-      if (!thread?.isThread?.()) return;
+      const resolvedThread = resolveThread(thread, addedMembers, removedMembers);
+      if (!resolvedThread?.isThread?.()) return;
+      if (!addedMembers?.forEach) return;
 
-      for (const threadMember of resolveAddedThreadMembers(oldMembers, newMembers)) {
-        await ghostPingUserIfHuman(thread, threadMember);
+      for (const threadMember of addedMembers.values()) {
+        await ghostPingUserIfHuman(resolvedThread, threadMember);
       }
     } catch (error) {
       global.logger?.error?.("[threadMembersUpdate] failed:", error);

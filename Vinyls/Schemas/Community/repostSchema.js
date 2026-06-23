@@ -9,6 +9,10 @@ const repostSchema = new mongoose.Schema(
     sourceMessageId: { type: String, required: true },
     content: { type: String, default: "" },
     attachmentUrl: { type: String, default: "" },
+    mediaFiles: {
+      type: [{ url: { type: String, default: "" }, name: { type: String, default: "" } }],
+      default: undefined,
+    },
     authorUsername: { type: String, default: "" },
     authorAvatarUrl: { type: String, default: "" },
     boardChannelId: { type: String, default: "" },

@@ -1,17 +1,18 @@
 const config = require("../config.json");
-const { connectMongo } = require("../Utils/Database/mongoConnect");
+const { connectMongo, isMongoReady } = require("../Utils/Database/mongoConnect");
 const cron = require("node-cron");
 const { runCronDetached } = require("../../shared/scheduling/cronDetached");
-const { scheduleStaffListRefresh } = require("../Utils/Community/staffListUtils");
 const { restorePendingVoteReminders, restorePendingDiscadiaReminders, restorePendingReminders, startBumpDueReminderSweepLoop, startDiscadiaVoteReminderLoop, } = require("../Services/Bump/bumpService");
 const { shouldRunDiscadiaVoteMonthRepairOnStartup, repairDiscadiaVoteMonthRowsForMainGuild, startDiscadiaVoteMonthRolloverCron } = require("../Services/Bump/discadiaVoteMonthRepairOnStartupService");
 const { processAllRecentAutomationMessages } = require("../Utils/Message/officialMessageAutomationHandlers");
 const { processPendingCountingMessages, restoreWelcomeSessionsFromDb } = require("../Utils/Message/officialMessageCommunityHandlers");
 const { rehydrateCountingChannelBans } = require("../Utils/Community/countingChannelBanService");
-const { bootstrapSupporter } = require("./presenceUpdate");
+const { bootstrapSupporter, recoverSupporterStatusAnnouncesOnStartup } = require("./presenceUpdate");
 const { restoreTtsConnections } = require("../Services/TTS/ttsService");
 const { runDueOneTimeReminders, } = require("../Services/Reminders/oneTimeReminderService");
 const { bootstrapMinigameScheduler } = require("../Services/Minigames/minigameService");
+const { startBurrobirraEffectLoop } = require("../Services/Minigames/burrobirraEffectService");
+const { startHouseBurrobirraEffectLoop } = require("../Services/Minigames/hogwartsHouseBurrobirraEffectService");
 const { startVerificationTenureLoop, backfillVerificationTenure, startVoteRoleCleanupLoop, runAllGuilds: renumberAllCategories, startCategoryNumberingLoop, startSponsorKickLoop, startSponsorGuildNicknameSweepLoop, } = require("../Services/Community/communityOpsService");
 const { startBirthdayLoop } = require("../Services/Community/birthdayService");
 const { startDailyMemberStatsLoop } = require("../Services/Community/dailyMemberStatsService");
@@ -41,6 +42,8 @@ const { startWeeklyStaffResocontoLoop } = require("../Services/Staff/weeklyStaff
 const { startWeeklyActivityWinnersLoop } = require("../Services/Community/weeklyActivityWinnersService");
 const { startHogwartsHouseCupLoop } = require("../Services/Community/hogwartsHouseCupPublishService");
 const { syncHogwartsShopLogsOnStartup } = require("../Services/Community/hogwartsShopLogService");
+const { syncShopBoostMinigameUsageBackfillOnStartup } = require("../Services/Community/hogwartsShopBoostsService");
+const { syncHogwartsMinigameHousePointsBackfillOnStartup } = require("../Services/Community/hogwartsMinigameHousePointsBackfillService");
 const { syncHouseSortingAnnouncesOnStartup } = require("../Services/Community/hogwartsSortingLogService");
 const { startContestPrizeMaintenanceCron } = require("../Services/Community/contestPrizeMaintenanceService");
 const { startStaffWarnResetLoop } = require("../Services/Staff/staffWarnService");
@@ -55,17 +58,21 @@ const { startVoteQueueLoop } = require("../Services/Web/discadiaVoteQueueService
 const { startWebhookServer, shouldStartBotHttpServer } = require("../Services/Web/webhookService");
 const { checkAndInstallPackages } = require("../Utils/Moderation/checkPackages");
 const { startAutoPollLoop } = require("../Services/Community/autoPollService");
-const { startMovieNightAnnouncementLoop } = require("../Services/Community/movieNightAnnouncementService");
+const { startMovieNightAnnouncementLoop, recoverMovieNightAnnouncementsOnStartup, ensureMovieNightStaffCommunicationOnStartup } = require("../Services/Community/movieNightAnnouncementService");
 const { printRecoveryHealthOnce } = require("../../shared/recovery/recoveryHealth");
 const IDs = require("../Utils/Config/ids");
 const guildMemberUpdateExtras = require("./guildMemberUpdate");
+const guildMemberAddExtras = require("./guildMemberAdd");
+const { recoverDonationPackageAnnouncesOnStartup } = require("../Utils/Community/donationPackageSupportersAnnounce");
+const { recoverManualSocialRoleAnnouncesOnStartup } = require("../Utils/Community/manualSocialRoleAnnounceAndPicPerms");
+const { recoverLevelMilestoneSupportersAnnouncesOnStartup } = require("../Utils/Community/levelMilestoneSupportersAnnounceEmbeds");
 const startupPanelsTrigger = require("../Triggers/embeds");
 const { queueIdsCatalogSync } = require("../Utils/Config/idsAutoSync");
 const { syncAllMembersClanTags } = require("../Services/Community/clanTagRoleService");
 const { syncZodiacRolesFromStoredBirthdays } = require("../Utils/Community/zodiacRoles");
 const { syncAgeBracketRolesFromStoredBirthdays } = require("../Utils/Community/ageBracketRoles");
 const { postTopggStatsDigestIfConfigured } = require("../Services/Web/topggDigestService");
-const { restorePauseMessageStatusSync } = require("../Utils/Pause/pauseHandlersUtils");
+const { restorePauseMessageStatusSync, startPauseMessageStatusMaintenance } = require("../Utils/Pause/pauseHandlersUtils");
 const { formatDurationMs, runPhasedStartupTasks, } = require("../Utils/Startup/readyStartupRuntime");
 const { logBotReady } = require("../../shared/discord/readyLog");
 const { sweepExpiredPartnerManagerTimedPerks } = require("../Utils/Staff/partnerManagerTimedPerks");
@@ -174,7 +181,11 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
       label: "expired mute role restore sweep",
       weight: 5,
       enabled: primaryScheduler,
-      run: () => sweepExpiredCommunicationTimeoutMirrors(client, { limit: 100 }),
+      run: () =>
+        sweepExpiredCommunicationTimeoutMirrors(client, {
+          limit: 100,
+          includeRecentUnmuteRecovery: true,
+        }),
     },
     {
       label: "run due one-time reminders",
@@ -187,6 +198,15 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
       weight: 10,
       enabled: true,
       run: () => restoreCoreStartupState(client),
+    },
+    {
+      label: "reconcile orphan ticket channels",
+      weight: 11,
+      enabled: primaryScheduler,
+      run: async () => {
+        const { reconcileOrphanTicketsOnStartup } = require("../Services/Ticket/ticketOrphanReconcileService");
+        return reconcileOrphanTicketsOnStartup(client);
+      },
     },
     {
       label: "startup sync queue",
@@ -205,6 +225,12 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
       weight: 18,
       enabled: primaryScheduler,
       run: () => processAllRecentAutomationMessages(client),
+    },
+    {
+      label: "sync staff pause message status (accepted)",
+      weight: 19,
+      enabled: primaryScheduler,
+      run: () => restorePauseMessageStatusSync(client),
     },
     {
       label: "engagement tick",
@@ -277,33 +303,104 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
     {
       label: "recover missed boost embeds (audit vs ultimo embed bot)",
       weight: 42,
-      enabled: primaryScheduler,
+      enabled: false,
       run: () =>
         guildMemberUpdateExtras.recoverRecentBoostEmbedsOnStartup(client, {
-          limit: 3,
-          lookbackMs: 30 * 60 * 1000,
+          limit: 5,
+          lookbackMs: 24 * 60 * 60 * 1000,
         }),
     },
     {
-      label: "restore active Serata Film staff tracking",
+      label: "recover missed join welcome announcements",
+      weight: 43,
+      enabled: primaryScheduler,
+      run: () =>
+        guildMemberAddExtras.recoverJoinAnnouncementsOnStartup(client, {
+          limit: 25,
+          lookbackMs: 24 * 60 * 60 * 1000,
+        }),
+    },
+    {
+      label: "recover missed donation package supporter announces",
+      weight: 44,
+      enabled: primaryScheduler,
+      run: () =>
+        recoverDonationPackageAnnouncesOnStartup(client, {
+          limit: 20,
+          lookbackMs: 24 * 60 * 60 * 1000,
+        }),
+    },
+    {
+      label: "recover missed social role supporter announces",
       weight: 45,
+      enabled: primaryScheduler,
+      run: () =>
+        recoverManualSocialRoleAnnouncesOnStartup(client, {
+          limit: 20,
+          lookbackMs: 24 * 60 * 60 * 1000,
+        }),
+    },
+    {
+      label: "recover missed level milestone supporter announces",
+      weight: 46,
+      enabled: primaryScheduler,
+      run: () =>
+        recoverLevelMilestoneSupportersAnnouncesOnStartup(client, {
+          limit: 25,
+          lookbackMs: 24 * 60 * 60 * 1000,
+        }),
+    },
+    {
+      label: "recover missed supporter status embeds",
+      weight: 47,
+      enabled: primaryScheduler,
+      run: () =>
+        recoverSupporterStatusAnnouncesOnStartup(client, {
+          limit: 15,
+        }),
+    },
+    {
+      label: "ensure Serata Film staff news communication",
+      weight: 47,
+      enabled: primaryScheduler,
+      run: () => ensureMovieNightStaffCommunicationOnStartup(client),
+    },
+    {
+      label: "recover missed Serata Film cron announcements",
+      weight: 48,
+      enabled: primaryScheduler,
+      run: () => recoverMovieNightAnnouncementsOnStartup(client),
+    },
+    {
+      label: "restore active Serata Film staff tracking",
+      weight: 49,
       enabled: primaryScheduler,
       run: () => restoreActiveSerataFilmSessions(client),
     },
     {
       label: "backfill boost announce slot counts from supporters history",
-      weight: 48,
+      weight: 50,
       enabled: primaryScheduler,
       run: () => guildMemberUpdateExtras.backfillAnnouncedBoostSlotsFromSupportersHistory(client),
     },
     {
+      label: "recover missing second boost embeds (native vs supporters)",
+      weight: 51,
+      enabled: false,
+      run: () =>
+        guildMemberUpdateExtras.recoverMissingSecondBoostEmbedsOnStartup(client, {
+          lookbackMs: 30 * 24 * 60 * 60 * 1000,
+          maxRecover: 20,
+        }),
+    },
+    {
       label: "recover last 2 native boost system messages (multi-channel scan)",
-      weight: 50,
-      enabled: primaryScheduler,
+      weight: 51,
+      enabled: false,
       run: () =>
         guildMemberUpdateExtras.recoverLastGlobalNativeBoostEmbedsOnStartup(client, {
-          messageLimit: 1,
-          lookbackMs: 15 * 60 * 1000,
+          messageLimit: 5,
+          lookbackMs: 24 * 60 * 60 * 1000,
         }),
     },
     {
@@ -365,6 +462,18 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
       weight: 86,
       enabled: primaryScheduler,
       run: () => syncHogwartsShopLogsOnStartup(client),
+    },
+    {
+      label: "hogwarts shop boost minigame usage backfill",
+      weight: 86,
+      enabled: primaryScheduler,
+      run: () => syncShopBoostMinigameUsageBackfillOnStartup(client),
+    },
+    {
+      label: "hogwarts minigame house points backfill",
+      weight: 86,
+      enabled: primaryScheduler,
+      run: () => syncHogwartsMinigameHousePointsBackfillOnStartup(client),
     },
     {
       label: "hogwarts house sorting announce backfill",
@@ -570,6 +679,8 @@ function startPrimaryLoops(client, engagementTick) {
   const loopStarters = [
     ["[LIVE VOICE EXP] Failed to start loop", () => startLiveVoiceExpLoop(client)],
     ["[MINIGAMES] Failed to start loop", () => void bootstrapMinigameScheduler(client).catch((err) => global.logger?.error?.("[MINIGAMES] bootstrap failed:", err?.message || err))],
+    ["[BURROBIRRA] Failed to start loop", () => startBurrobirraEffectLoop(client)],
+    ["[HOUSE BURROBIRRA] Failed to start loop", () => startHouseBurrobirraEffectLoop(client)],
     ["[VOTE ROLE] Failed to start cleanup loop", () => startVoteRoleCleanupLoop(client)],
     ["[VERIFY TENURE] Failed to start loop", () => startVerificationTenureLoop(client)],
     ["[CATEGORY NUMBERING] Failed to start loop", () => startCategoryNumberingLoop(client)],
@@ -581,6 +692,10 @@ function startPrimaryLoops(client, engagementTick) {
     ["[DAILY CHANNEL MESSAGE STATS] Failed to start loop", () => startDailyChannelMessageStatsLoop(client)],
     ["[PREMI LA REACT] Failed to start loop", () => startReactPressEventLoop(client)],
     ["[PREMI LA REACT END] Failed to start leaderboard loop", () => startPremiLaReactEndLoop(client)],
+    ["[HOGWARTS FORBIDDEN CHANNELS] Failed to start loop", () => {
+      const { startForbiddenSectionChannelDecorLoop } = require("../Services/Community/hogwartsForbiddenSectionChannelService");
+      startForbiddenSectionChannelDecorLoop(client);
+    }],
     ["[HOGWARTS SPELL LIST HUNT] Failed to start loop", () => startHogwartsSpellListHuntLoop(client)],
     ["[HOGWARTS SPELL LIST HUNT END] Failed to start leaderboard loop", () => startHogwartsSpellListHuntEndLoop(client)],
     ["[HOGWARTS POTIONS] Failed to start reminder loop", () => startPotionReminderLoop(client)],
@@ -721,9 +836,13 @@ module.exports = {
     const maxListeners = resolveMaxListeners(client);
     client.setMaxListeners(maxListeners);
     require("events").EventEmitter.defaultMaxListeners = maxListeners;
+    try {
+      require("../Utils/Community/pronounGenderUtils").registerPronounGenderReplyHook();
+    } catch (err) {
+      global.logger?.warn?.("[PRONOUN-GENDER] hook init:", err?.message || err);
+    }
 
-    const mongoConnected = await connectMongo(client);
-    if (!mongoConnected) {
+    if (!isMongoReady()) {
       logError(client, "[DATABASE] Startup aborted: MongoDB is required for ready services.");
       const t = setTimeout(() => process.exit(1), 5000);
       t.unref?.();
@@ -736,9 +855,6 @@ module.exports = {
     }
     const primaryScheduler = isPrimaryScheduler(client);
     if (primaryScheduler) {
-      void sweepExpiredCommunicationTimeoutMirrors(client, { limit: 100 }).catch((err) => {
-        global.logger?.warn?.("[mutedMirrorRole] early startup sweep:", err?.message || err);
-      });
       try {
         const result = await migrateLegacyDailyStatsCollections();
         if (!result?.skipped) global.logger?.info?.("[DAILY STATS MIGRATION] completed into dailystats.");
@@ -754,11 +870,7 @@ module.exports = {
         global.logger?.error?.("[BUMP DUE REMINDER SWEEP] early start failed:", err?.message || err);
       }
     }
-    try {
-      scheduleStaffListRefresh(client, IDs.guilds.main, 2000, { force: false });
-    } catch (err) {
-      global.logger?.error?.("[STAFF LIST] startup refresh schedule failed:", err?.message || err);
-    }
+
     if (primaryScheduler) {
       try {
         startDailyPartnerAuditLoop(client);
@@ -840,6 +952,7 @@ module.exports = {
       void restorePauseMessageStatusSync(client).catch((err) => {
         global.logger?.warn?.("[PAUSE] restore pause message status sync failed:", err);
       });
+      startPauseMessageStatusMaintenance(client);
     }
     if (primaryScheduler) {
       void runStartupPanels(client, "ready").catch(() => { });

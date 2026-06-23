@@ -9,7 +9,11 @@ const { buildTicketChannelName } = require("../../Utils/Ticket/ticketNamingRunti
 const { canUserHandleCloseRequest: runtimeCanUserHandleCloseRequest, ensureClosableTicketOrReply: runtimeEnsureClosableTicketOrReply, findOpenTicketByUser: runtimeFindOpenTicketByUser, findTicketByChannel: runtimeFindTicketByChannel, getClientGuildCached: runtimeGetClientGuildCached, getGuildChannelCached: runtimeGetGuildChannelCached, getSelectedTicketAction: runtimeGetSelectedTicketAction, hasActiveTicketClaimer: runtimeHasActiveTicketClaimer, isHandledTicketInteraction: runtimeIsHandledTicketInteraction, isTicketRatingButton: runtimeIsTicketRatingButton, isTicketTranscriptButton: runtimeIsTicketTranscriptButton, loadTicketForChannelOrReply: runtimeLoadTicketForChannelOrReply, } = require("../../Utils/Ticket/ticketInteractionRuntime");
 const { buildTicketClosedEmbed: runtimeBuildTicketClosedEmbed, buildTicketRatingRows: runtimeBuildTicketRatingRows, closeTicket: runtimeCloseTicket, } = require("../../Utils/Ticket/ticketCloseRuntime");
 const { createTicketsCategory: runtimeCreateTicketsCategory } = require("../../Utils/Ticket/ticketOpenRuntime");
-const { createTicketDocWithGlobalId } = require("../../Utils/Ticket/ticketIdUtils");
+const {
+  createTicketDocWithGlobalId,
+  isCounterUnavailableError,
+} = require("../../Utils/Ticket/ticketIdUtils");
+const { ensureMongoReady } = require("../../Utils/Database/mongoConnect");
 const { handleTicketStaffPanelInteraction } = require("../../Utils/Ticket/ticketStaffPanelHandlers");
 const { resetTicketOpenPanelAfterInteraction } = require("../../Utils/Ticket/ticketOpenMenuComponents");
 const { buildTicketTranscriptViewUrl, transcriptViewExpired, } = require("../../Utils/Ticket/ticketTranscriptSecure");
@@ -462,36 +466,59 @@ async function handleTicketInteraction(interaction) {
             await pinFirstTicketMessage(channel, mainMsg);
           }
           let ticketCreated = false;
-          try {
-            await createTicketDocWithGlobalId(Ticket, {
-              guildId: interaction.guild.id,
-              userId: interaction.user.id,
-              channelId: channel.id,
-              ticketType: config.type,
-              open: true,
-              messageId: mainMsg?.id || null,
-              descriptionPromptMessageId: null,
-              descriptionSubmitted: false,
-            });
-            ticketCreated = true;
-          } catch (err) {
-            const isDuplicate = err?.code === 11000 || (err?.message && String(err.message).includes("E11000"));
-            if (isDuplicate) {
-              await channel.delete().catch(() => { });
-              const other = await runtimeFindOpenTicketByUser(interaction.guild.id, interaction.user.id, interaction.guild);
-              await safeEditReply(interaction, {
-                embeds: [
-                  new EmbedBuilder()
-                    .setTitle("<:VC_open:1478517277279129712> • **__TICKET APERTO__**")
-                    .setDescription( `<a:VC_Alert:1482706673176150077> Hai già un ticket aperto ${other?.channelId ? ": <#" + other.channelId + ">" : "."}`)
-                    .setColor("#6f4e37"),
-                ],
-                flags: 1 << 6,
+          let lastCreateError = null;
+          await ensureMongoReady({ maxWaitMs: 20_000 }).catch(() => null);
+          for (let attempt = 0; attempt < 6; attempt += 1) {
+            try {
+              await createTicketDocWithGlobalId(Ticket, {
+                guildId: interaction.guild.id,
+                userId: interaction.user.id,
+                channelId: channel.id,
+                ticketType: config.type,
+                open: true,
+                messageId: mainMsg?.id || null,
+                descriptionPromptMessageId: null,
+                descriptionSubmitted: false,
               });
-              await refreshTicketOpenPanelSelect();
-              return true;
+              ticketCreated = true;
+              break;
+            } catch (err) {
+              lastCreateError = err;
+              const isDuplicate = err?.code === 11000 || (err?.message && String(err.message).includes("E11000"));
+              if (isDuplicate) {
+                await channel.delete().catch(() => { });
+                const other = await runtimeFindOpenTicketByUser(interaction.guild.id, interaction.user.id, interaction.guild);
+                await safeEditReply(interaction, {
+                  embeds: [
+                    new EmbedBuilder()
+                      .setTitle("<:VC_open:1478517277279129712> • **__TICKET APERTO__**")
+                      .setDescription( `<a:VC_Alert:1482706673176150077> Hai già un ticket aperto ${other?.channelId ? ": <#" + other.channelId + ">" : "."}`)
+                      .setColor("#6f4e37"),
+                  ],
+                  flags: 1 << 6,
+                });
+                await refreshTicketOpenPanelSelect();
+                return true;
+              }
+              if (isCounterUnavailableError(err) && attempt < 5) {
+                await new Promise((r) => setTimeout(r, 800 * (attempt + 1)));
+                await ensureMongoReady({ maxWaitMs: 8000 }).catch(() => null);
+                continue;
+              }
+              global.logger.error(err);
+              break;
             }
-            global.logger.error(err);
+          }
+          if (!ticketCreated && lastCreateError) {
+            const { reconcileSingleTicketChannel } = require("../../Services/Ticket/ticketOrphanReconcileService");
+            const repaired = await reconcileSingleTicketChannel(
+              channel,
+              interaction.guild,
+              interaction.client?.user?.id,
+            ).catch(() => null);
+            if (repaired?.status === "created" || repaired?.status === "reopened") {
+              ticketCreated = true;
+            }
           }
           if (!ticketCreated) {
             await channel.delete().catch(() => { });
@@ -1245,7 +1272,7 @@ async function handleTicketInteraction(interaction) {
                 closeReason: null,
                 closeRequestedBy: null,
                 closeRequestedAt: null,
-                autoClosePromptSentAt: null,
+                autoClosePromptSentAt: new Date(),
               },
             },
           ).catch(() => { });

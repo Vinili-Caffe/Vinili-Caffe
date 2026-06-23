@@ -1,10 +1,12 @@
 const { EmbedBuilder, PermissionsBitField, ActivityType } = require("discord.js");
 const mongoose = require("mongoose");
 const { ActivityUserProfile } = require("../Schemas/Community/communitySchemas");
+const { ensureMongoReady, isMongoTransientError } = require("../Utils/Database/mongoConnect");
 const IDs = require("../Utils/Config/ids");
 const { shouldSendPublicMemberAnnouncement } = require("../Utils/Community/memberPublicAnnouncementGate");
 const { getGuildChannelCached, getGuildMemberCached } = require("../Utils/Interaction/interactionEntityCache");
 const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../Utils/Discord/guildDiscordIdentity");
+const { applyPronounGenderToEmbedForMember } = require("../Utils/Community/pronounGenderUtils");
 const { syncPersistentAutoValutazioniForMember } = require("../Services/Staff/staffAutoValutazioniService");
 const MAIN_GUILD_ID = String(IDs.guilds?.main || "");
 const ROLE_ID = IDs.roles.Fan;
@@ -394,43 +396,63 @@ function scheduleRemovalConfirm(member, channel) {
 
 async function persistStatus(guildId, userId, payload) {
   if (!isDbReady()) return;
-  try {
-    await ActivityUserProfile.updateOne(
-      { guildId, userId },
-      {
-        $setOnInsert: { guildId, userId },
-        $set: {
-          "profile.supporterStatus.hasLink": Boolean(payload?.hasLink),
-          "profile.supporterStatus.lastMessageId": payload?.lastMessageId || null,
-          ...(payload?.lastSentAt ? { "profile.supporterStatus.lastSentAt": payload.lastSentAt } : {}),
-        },
+  const update = () => ActivityUserProfile.updateOne(
+    { guildId, userId },
+    {
+      $setOnInsert: { guildId, userId },
+      $set: {
+        "profile.supporterStatus.hasLink": Boolean(payload?.hasLink),
+        "profile.supporterStatus.lastMessageId": payload?.lastMessageId || null,
+        ...(payload?.lastSentAt ? { "profile.supporterStatus.lastSentAt": payload.lastSentAt } : {}),
       },
-      { upsert: true },
-    );
+    },
+    { upsert: true },
+  );
+  try {
+    await update();
   } catch (error) {
-    const isMongoNetwork = error?.name === "MongoNetworkTimeoutError" || error?.name === "MongoServerSelectionError";
-    if (isMongoNetwork) {
+    if (isMongoTransientError(error)) {
+      await ensureMongoReady({ maxWaitMs: 3000 }).catch(() => false);
+      try {
+        await update();
+        return;
+      } catch (retryErr) {
+        if (!isMongoTransientError(retryErr)) {
+          global.logger?.error?.("[SUPPORTER STATUS] Persist failed:", retryErr?.message || retryErr);
+          return;
+        }
+      }
       global.logger?.warn?.("[SUPPORTER STATUS] Persist skipped (MongoDB timeout), will retry on next update.");
-    } else {
-      global.logger?.error?.("[SUPPORTER STATUS] Persist failed:", error);
+      return;
     }
+    global.logger?.error?.("[SUPPORTER STATUS] Persist failed:", error?.message || error);
   }
 }
 
 async function clearPersistedStatus(guildId, userId) {
   if (!isDbReady()) return;
+  const update = () => ActivityUserProfile.updateOne(
+    { guildId, userId },
+    { $set: { "profile.supporterStatus.hasLink": false, "profile.supporterStatus.lastMessageId": null, "profile.supporterStatus.lastSentAt": null } },
+  );
   try {
-    await ActivityUserProfile.updateOne(
-      { guildId, userId },
-      { $set: { "profile.supporterStatus.hasLink": false, "profile.supporterStatus.lastMessageId": null, "profile.supporterStatus.lastSentAt": null } },
-    );
+    await update();
   } catch (error) {
-    const isMongoNetwork = error?.name === "MongoNetworkTimeoutError" || error?.name === "MongoServerSelectionError";
-    if (isMongoNetwork) {
+    if (isMongoTransientError(error)) {
+      await ensureMongoReady({ maxWaitMs: 3000 }).catch(() => false);
+      try {
+        await update();
+        return;
+      } catch (retryErr) {
+        if (!isMongoTransientError(retryErr)) {
+          global.logger?.error?.("[SUPPORTER STATUS] Delete failed:", retryErr?.message || retryErr);
+          return;
+        }
+      }
       global.logger?.warn?.("[SUPPORTER STATUS] Delete skipped (MongoDB timeout).");
-    } else {
-      global.logger?.error?.("[SUPPORTER STATUS] Delete failed:", error);
+      return;
     }
+    global.logger?.error?.("[SUPPORTER STATUS] Delete failed:", error?.message || error);
   }
 }
 
@@ -453,7 +475,7 @@ async function getPersistedStatus(guildId, userId) {
 
 function buildPendingEmbed(member) {
   const thumb = guildMemberDisplayAvatarUrlDynamic(member, { size: 256 });
-  return new EmbedBuilder()
+  const embed = new EmbedBuilder()
     .setColor("#6f4e37")
     .setAuthor({
       name: accountUsername(member),
@@ -471,7 +493,8 @@ function buildPendingEmbed(member) {
         "<a:VC_Arrow:1482706699365257397> Metti `.gg/viniliecaffe` o `discord.gg/viniliecaffe` nel tuo status.",
       ].join("\n"),
     )
-    .setFooter({ text: "Grazie per il tuo supporto!" })
+    .setFooter({ text: "Grazie per il tuo supporto!" });
+  return applyPronounGenderToEmbedForMember(embed, member);
 }
 
 async function scheduleSupporterRoleGrantWithoutChannelEmbed(member) {
@@ -590,6 +613,86 @@ async function startPendingFlow(member, channel) {
   const current = getCachedState(guildId, userId);
   setCachedState(guildId, userId, { hasLink: true, lastAnnounced: Date.now(), lastMessageId: sent?.id || null, lastSeenOnlineAt: current?.lastSeenOnlineAt || Date.now(), inviteMissSince: null });
   await persistStatus(guildId, userId, { hasLink: true, lastMessageId: sent?.id || null, lastSentAt: new Date() });
+}
+
+async function recoverSupporterStatusAnnouncesOnStartup(client, opts = {}) {
+  const { isRecoveryPrimaryShard, recoverySleep } = require("../Utils/Community/supportersChannelEmbedRecoveryUtils");
+  if (!isRecoveryPrimaryShard(client)) return { ok: false, reason: "not_primary_shard" };
+  if (!MAIN_GUILD_ID) return { ok: false, reason: "no_main_guild" };
+  const guild = client.guilds.cache.get(MAIN_GUILD_ID) || (await client.guilds.fetch(MAIN_GUILD_ID).catch(() => null));
+  if (!guild) return { ok: false, reason: "guild_not_found" };
+  const channel = await resolveSupportersChannel(guild);
+  if (!channel?.isTextBased?.()) return { ok: false, reason: "no_channel" };
+  const limit = Math.max(1, Math.min(30, Number(opts.limit || 15)));
+  const botId = String(client.user?.id || "");
+  let docs = [];
+  if (isDbReady()) {
+    docs = await ActivityUserProfile.find({
+      guildId: MAIN_GUILD_ID,
+      "profile.supporterStatus.hasLink": true,
+    })
+      .select("userId profile.supporterStatus")
+      .limit(250)
+      .lean()
+      .catch(() => []);
+  }
+  let recovered = 0;
+  for (const doc of docs) {
+    if (recovered >= limit) break;
+    const uid = String(doc?.userId || "");
+    if (!uid) continue;
+    const lastMessageId = doc?.profile?.supporterStatus?.lastMessageId || null;
+    let needsRecovery = !lastMessageId;
+    if (lastMessageId) {
+      try {
+        const msg = await channel.messages.fetch(lastMessageId);
+        if (!msg || String(msg.author?.id) !== botId) needsRecovery = true;
+      } catch {
+        needsRecovery = true;
+      }
+    }
+    if (!needsRecovery) continue;
+    const { botSupportersEmbedExistsForUser, EMBED_DEDUPE_LOOKBACK_MS } = require("../Utils/Community/supportersChannelEmbedRecoveryUtils");
+    const fanEmbedExists = await botSupportersEmbedExistsForUser(
+      channel,
+      uid,
+      botId,
+      Date.now() - EMBED_DEDUPE_LOOKBACK_MS,
+      (blob) => /Nuov\w* Fan/i.test(blob),
+    );
+    if (fanEmbedExists) {
+      setCachedState(guild.id, uid, {
+        hasLink: true,
+        lastAnnounced: doc?.profile?.supporterStatus?.lastSentAt ? new Date(doc.profile.supporterStatus.lastSentAt).getTime() : Date.now(),
+        lastMessageId: lastMessageId || null,
+        lastSeenOnlineAt: Date.now(),
+        inviteMissSince: null,
+      });
+      continue;
+    }
+    const member = await getGuildMemberCached(guild, uid, { preferFresh: true }).catch(() => null);
+    if (!member || member.user?.bot) continue;
+    if (isOfflinePresence(member.presence)) continue;
+    if (!hasInvite(member.presence)) continue;
+    if (hasPendingState(guild.id, uid)) continue;
+    setCachedState(guild.id, uid, {
+      hasLink: true,
+      lastAnnounced: doc?.profile?.supporterStatus?.lastSentAt ? new Date(doc.profile.supporterStatus.lastSentAt).getTime() : 0,
+      lastMessageId: needsRecovery && lastMessageId ? null : lastMessageId,
+      lastSeenOnlineAt: Date.now(),
+      inviteMissSince: null,
+    });
+    if (await shouldSendPublicMemberAnnouncement(member)) {
+      await startPendingFlow(member, channel);
+      recovered += 1;
+      global.logger?.info?.("[supporter-status-recovery] pending flow:", uid);
+      await recoverySleep(450);
+    } else {
+      await scheduleSupporterRoleGrantWithoutChannelEmbed(member);
+    }
+  }
+  if (recovered > 0) global.logger?.info?.("[supporter-status-recovery] done:", recovered);
+  return { ok: true, recovered };
 }
 
 async function bootstrapSupporter(client) {
@@ -803,5 +906,6 @@ module.exports = {
     }
   },
   bootstrapSupporter,
+  recoverSupporterStatusAnnouncesOnStartup,
   resolveInviteState,
 };

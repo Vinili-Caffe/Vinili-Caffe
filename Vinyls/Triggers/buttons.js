@@ -646,6 +646,8 @@ module.exports = {
           return null;
         });
         if (isRemoveAction) {
+          const { persistPersonalityRoleDelta } = require("../Utils/Community/personalityRolePersistence");
+          await persistPersonalityRoleDelta(guild.id, interaction.user.id, { removed: removedRoleIds }).catch((err) => logButtonErr(err, { warn: true }));
           return;
         }
         const appliedAll = valuesExisting.length ? valuesExisting.every((roleId) => m?.roles?.cache?.has?.(roleId)) : true;
@@ -664,6 +666,11 @@ module.exports = {
           logButtonErr(new Error(`ruoli pannello non applicati del tutto (menu=${menuId})`), { warn: true });
           return;
         }
+        const { persistPersonalityRoleDelta } = require("../Utils/Community/personalityRolePersistence");
+        await persistPersonalityRoleDelta(guild.id, interaction.user.id, {
+          added: addedRoleIds,
+          removed: removedRoleIds,
+        }).catch((err) => logButtonErr(err, { warn: true }));
         return;
       } catch (err) {
         logButtonErr(err);

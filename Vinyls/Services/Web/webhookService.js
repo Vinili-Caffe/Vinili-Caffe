@@ -418,7 +418,7 @@ async function startWebhookServer(client) {
   const { handleSiteNotificationsGet, handleSiteNotificationsMarkReadPost, handleSiteNotificationsClearPost, handleSiteNotificationsDeletePost } = require("../../Utils/Web/siteInAppNotificationsApi");
   const { completeSiteVerify } = require("../../Utils/Web/siteVerifyApi");
   const { handleSiteSeratafilmAccessGet } = require("../../Utils/Web/siteSeratafilmAccessApi");
-  const { handleHogwartsForbiddenBooksClaim, handleHogwartsForbiddenBooksGet, handleHogwartsHousePointsGet, handleHogwartsPotionsGet, handleHogwartsPotionsPost, handleHogwartsShopGet, handleHogwartsShopPurchasePost, handleHogwartsSortingBootstrap, handleHogwartsSortingEligibility, handleHogwartsSortingSubmit, handleHogwartsSortingAccessGet, handleHogwartsGringottGet, setHogwartsMutationNoStore } = require("../../Utils/Web/siteHogwartsSortingApi");
+  const { handleHogwartsForbiddenBooksClaim, handleHogwartsForbiddenBooksGet, handleHogwartsForbiddenBooksPublicStatus, handleHogwartsHousePointsGet, handleHogwartsPotionsGet, handleHogwartsPotionsPost, handleHogwartsShopGet, handleHogwartsShopPurchasePost, handleHogwartsSortingBootstrap, handleHogwartsSortingEligibility, handleHogwartsSortingSubmit, handleHogwartsSortingAccessGet, handleHogwartsGringottGet, setHogwartsMutationNoStore } = require("../../Utils/Web/siteHogwartsSortingApi");
   const hogwartsMutationNoStore = (req, res, next) => {
     if (req.method === "POST" || req.method === "PATCH") setHogwartsMutationNoStore(res);
     next();
@@ -461,6 +461,7 @@ async function startWebhookServer(client) {
   app.post("/webhooks/site-hogwarts-sorting/potions", (req, res) => handleHogwartsPotionsPost(client, req, res));
   app.get("/webhooks/site-hogwarts-sorting/shop", (req, res) => handleHogwartsShopGet(client, req, res));
   app.post("/webhooks/site-hogwarts-sorting/shop/purchase", (req, res) => handleHogwartsShopPurchasePost(client, req, res));
+  app.get("/webhooks/site-hogwarts-sorting/forbidden-books/status", (req, res) => handleHogwartsForbiddenBooksPublicStatus(client, req, res));
   app.get("/webhooks/site-hogwarts-sorting/forbidden-books", (req, res) => handleHogwartsForbiddenBooksGet(client, req, res));
   app.post("/webhooks/site-hogwarts-sorting/forbidden-books", (req, res) => handleHogwartsForbiddenBooksClaim(client, req, res));
   app.get("/webhooks/site-hogwarts-sorting/eligibility", (req, res) =>
@@ -555,7 +556,7 @@ async function startWebhookServer(client) {
     const gid = String(req.query?.guildId || req.query?.guild || "").trim();
     const returnPath =
       fromR ||
-      (/^\d{17,22}$/.test(gid) ? `/verify/?guildId=${encodeURIComponent(gid)}` : "/verify/");
+      (/^\d{17,22}$/.test(gid) ? `/?siteVerifyGuild=${encodeURIComponent(gid)}` : "/");
     const nonce = crypto.randomBytes(16).toString("hex");
     const state = encodeURIComponent(JSON.stringify({ r: returnPath, n: nonce, t: Date.now() }));
     const q = new URLSearchParams({

@@ -1,6 +1,16 @@
 const { EmbedBuilder } = require("discord.js");
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const { assignManualHousePoints, normalizeHouseInput } = require("../../Services/Community/hogwartsManualHousePointsService");
+const { expelSortedMemberFromHouse } = require("../../Services/Community/hogwartsHouseAdminService");
+const { buildHouseDashboardPayload, buildHousePickerPayload, formatExpelOutcomeNote } = require("../../Buttons/punticasaPanel");
+const {
+  resolveHouseForUser,
+  canAccessHouse,
+  buildPrefectDeniedMessage,
+  resolvePrefectHouseForUser,
+  parseDiscordUserRef,
+  findExpelArgIndex,
+} = require("../../Utils/Community/punticasaPrefectAccess");
 
 function parseArgs(args = []) {
   const houseRaw = String(args[0] || "").trim();
@@ -8,22 +18,125 @@ function parseArgs(args = []) {
   const reason = args.slice(2).join(" ").trim();
   const houseId = normalizeHouseInput(houseRaw);
   const points = Math.floor(Number(pointsRaw));
-  return { houseId, points, reason, houseRaw, pointsRaw };
+  return { houseId, points, reason, houseRaw, pointsRaw, hasPointsArg: pointsRaw.length > 0 };
 }
 
 module.exports = {
   name: "punticasa",
-  allowEmptyArgs: false,
-  description: "Aggiunge o toglie punti Coppa a una casa.",
-  usage: "+punticasa <casa> <punti> [motivo]",
+  aliases: ["puntcasa"],
+  hideFromHelp: true,
+  allowEmptyArgs: true,
+  description: "Dashboard Coppa delle Case: punti, classifica ed espulsioni casata.",
+  usage: "+punticasa [casa] [punti] [motivo] · +punticasa [casa] espelli @utente",
   examples: [
+    "+punticasa",
+    "+punticasa grifondoro",
     "+punticasa grifondoro 50 Premio staff",
     "+punticasa tassorosso -30 Correzione",
-    "+punticasa gryffindor 100",
+    "+punticasa espelli @Lore",
+    "+punticasa tassorosso espelli @Lore",
   ],
   async execute(message, args = []) {
     if (!message.inGuild?.() || !message.guild) return;
+    const ownerId = String(message.author.id || "");
+    const expelIdx = findExpelArgIndex(args);
+    if (expelIdx >= 0) {
+      const before = args.slice(0, expelIdx);
+      const after = args.slice(expelIdx + 1);
+      let houseId = "";
+      for (const token of before) {
+        const hid = normalizeHouseInput(token);
+        if (hid) {
+          houseId = hid;
+          break;
+        }
+      }
+      if (!houseId) {
+        houseId = resolveHouseForUser(ownerId, "", message.client) || "";
+      }
+      if (!houseId) {
+        return safeMessageReply(message, {
+          content: "<:vegax:1443934876440068179> Indica la casata oppure apri il pannello con `+punticasa <casa>`.",
+          allowedMentions: { repliedUser: false },
+        });
+      }
+      if (!canAccessHouse(ownerId, houseId, message.client)) {
+        return safeMessageReply(message, {
+          content: buildPrefectDeniedMessage(ownerId, message.client),
+          allowedMentions: { repliedUser: false },
+        });
+      }
+      const targetId = parseDiscordUserRef(after.join(" "), message.mentions.users.first());
+      if (!targetId) {
+        return safeMessageReply(message, {
+          content: "<:vegax:1443934876440068179> Tagga l'utente da espellere, es. `+punticasa espelli @utente`.",
+          allowedMentions: { repliedUser: false },
+        });
+      }
+      const expelled = await expelSortedMemberFromHouse(
+        message.client,
+        message.guild,
+        targetId,
+        houseId,
+        ownerId,
+      );
+      const payload = await buildHouseDashboardPayload(
+        message.client,
+        message.guild,
+        houseId,
+        ownerId,
+        { footerNote: formatExpelOutcomeNote(expelled, targetId) },
+      );
+      return safeMessageReply(message, {
+        ...payload,
+        allowedMentions: { repliedUser: false },
+      });
+    }
     const parsed = parseArgs(args);
+
+    if (!parsed.hasPointsArg) {
+      await message.channel.sendTyping().catch(() => {});
+      const requestedHouse = normalizeHouseInput(parsed.houseId);
+      const houseForPanel =
+        requestedHouse ||
+        resolvePrefectHouseForUser(ownerId, message.client) ||
+        null;
+      if (!houseForPanel) {
+        const payload = buildHousePickerPayload(ownerId, message.client);
+        return safeMessageReply(message, {
+          ...payload,
+          allowedMentions: { repliedUser: false },
+        });
+      }
+      if (!canAccessHouse(ownerId, houseForPanel, message.client)) {
+        return safeMessageReply(message, {
+          content: buildPrefectDeniedMessage(ownerId, message.client),
+          allowedMentions: { repliedUser: false },
+        });
+      }
+      const payload = await buildHouseDashboardPayload(
+        message.client,
+        message.guild,
+        houseForPanel,
+        ownerId,
+      );
+      return safeMessageReply(message, {
+        ...payload,
+        allowedMentions: { repliedUser: false },
+      });
+    }
+
+    const houseForPoints = resolveHouseForUser(ownerId, parsed.houseId, message.client);
+    if (parsed.houseId && !canAccessHouse(ownerId, parsed.houseId, message.client)) {
+      return safeMessageReply(message, {
+        content: buildPrefectDeniedMessage(ownerId, message.client),
+        allowedMentions: { repliedUser: false },
+      });
+    }
+    if (!parsed.houseId && houseForPoints) {
+      parsed.houseId = houseForPoints;
+    }
+
     if (!parsed.houseId) {
       return safeMessageReply(message, {
         content: `<:vegax:1443934876440068179> Casa non valida. Usa: \`grifondoro\`, \`corvonero\`, \`tassorosso\`, \`serpeverde\` (o id inglese).`,

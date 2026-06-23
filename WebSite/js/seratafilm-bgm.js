@@ -111,6 +111,7 @@
   }
 
   window.__vcSeratafilmBgmSetup = function () {
+    if (document.body && document.body.classList.contains("vc-seratafilm-thanks-page")) return;
     if (
       typeof window.__vcSeratafilmYoutubeSetupIfConfigured === "function" &&
       window.__vcSeratafilmYoutubeSetupIfConfigured()

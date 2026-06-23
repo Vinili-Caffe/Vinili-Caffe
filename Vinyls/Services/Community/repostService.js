@@ -1,19 +1,22 @@
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder } = require("discord.js");
 const { GuildRepost } = require("../../Schemas/Community/repostSchema");
-const { QuotePrivacy } = require("../../Schemas/Community/communitySchemas");
+const { RepostPrivacy } = require("../../Schemas/Community/communitySchemas");
 const { normalizeQuoteMessageText } = require("../../Utils/Quote/normalizeQuoteMessageText");
 const { resolveQuotePostChannel } = require("../../Utils/Quote/quotePostChannel");
 const { resolveRoulettePostChannel } = require("../../Utils/Quote/repostRoulettePostChannel");
-const { nextQuoteCount } = require("../../Utils/Quote/quoteCounter");
+const { nextRepostCount } = require("../../Utils/Quote/quoteCounter");
 const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
 const { isValidGuildUserId } = require("../../Utils/DB/validateWriteIds");
+const { ensureMongoReady, withMongoTimeout } = require("../../Utils/Database/mongoConnect");
 const { getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { DEFAULT_FOOTER_TEXT } = require("../../Utils/Embeds/defaultFooter");
+const { pickRepostAckPhrase } = require("../../Data/Community/repostAckPhrases");
 
 const REPOST_COLOR = 0xeb6ea5;
 const REPOST_BTN_PREFIX = "repost_btn:";
 const REPOST_SRC_PREFIX = "repost_src:";
 const REPOST_EMOJI = "<a:reddiamond:1443652837346377841>";
+const EPHEMERAL_FLAG = 1 << 6;
 const MAX_EMBED_BODY_CHARS = 3600;
 const REPOST_DISABLED_MESSAGE = "I repost sono disattivati su questo server per ora.";
 const ROULETTE_RECENT_LIMIT = Math.max(
@@ -21,6 +24,18 @@ const ROULETTE_RECENT_LIMIT = Math.max(
   Math.min(80, Number(process.env.VC_REPOST_ROULETTE_RECENT_LIMIT || 40)),
 );
 const ROULETTE_PICK_ATTEMPTS = 12;
+const REPOST_DB_MS = 7000;
+const REPOST_DB_READY_MS = 2500;
+const MIN_AUDIO_ATTACHMENT_BYTES = 4096;
+
+async function ensureRepostDbReady() {
+  return ensureMongoReady({ maxWaitMs: REPOST_DB_READY_MS });
+}
+
+function timedRepostQuery(queryPromise, label) {
+  const q = queryPromise?.maxTimeMS?.(REPOST_DB_MS) || queryPromise;
+  return withMongoTimeout(q, REPOST_DB_MS + 500, label);
+}
 
 const recentRouletteSourceKeysByGuild = new Map();
 
@@ -47,13 +62,17 @@ function formatRepostBody(text) {
   return `» *${escapeItalicMarkdown(clipped)}*`;
 }
 
+function isImageAttachment(att) {
+  const ct = String(att?.contentType || "").toLowerCase();
+  if (ct.startsWith("image/") || ct === "image/gif") return true;
+  return /\.(png|jpe?g|gif|webp|bmp)$/i.test(String(att?.name || ""));
+}
+
 function pickImageUrlFromMessage(targetMessage) {
   if (!targetMessage) return "";
   for (const att of targetMessage.attachments.values()) {
-    const ct = String(att.contentType || "").toLowerCase();
-    if (ct.startsWith("image/") || ct === "image/gif") return String(att.url || "");
-    const name = String(att.name || "").toLowerCase();
-    if (/\.(png|jpe?g|gif|webp|bmp)$/i.test(name)) return String(att.url || "");
+    if (!isImageAttachment(att)) continue;
+    return String(att.url || "");
   }
   const embeds = Array.isArray(targetMessage.embeds) ? targetMessage.embeds : [];
   for (const emb of embeds) {
@@ -63,10 +82,172 @@ function pickImageUrlFromMessage(targetMessage) {
   return "";
 }
 
+function extractRepostMediaFiles(targetMessage, embedImageUrl = "") {
+  const files = [];
+  const embedUrl = String(embedImageUrl || "").trim();
+  for (const att of targetMessage.attachments?.values() || []) {
+    const url = String(att?.url || "").trim();
+    if (!url) continue;
+    if (embedUrl && url === embedUrl) continue;
+    files.push({
+      attachment: url,
+      name: String(att.name || "").trim() || `file-${files.length + 1}`,
+    });
+    if (files.length >= 10) break;
+  }
+  return files;
+}
+
+function serializableMediaFiles(files) {
+  return (files || [])
+    .slice(0, 10)
+    .map((entry) => ({
+      url: String(entry?.attachment || entry?.url || "").trim(),
+      name: String(entry?.name || "").trim(),
+    }))
+    .filter((entry) => entry.url);
+}
+
+function discordFilesFromStored(stored) {
+  return serializableMediaFiles(stored).map((entry, index) => ({
+    attachment: entry.url,
+    name: entry.name || `file-${index + 1}`,
+  }));
+}
+
+function isAudioAttachmentMeta(name, contentType = "") {
+  const n = String(name || "").toLowerCase();
+  const ct = String(contentType || "").toLowerCase();
+  if (n === "clip.mp3" || ct.startsWith("audio/")) return true;
+  return /\.(mp3|ogg|wav|m4a|opus|webm|flac)$/i.test(n);
+}
+
+function isImageAttachmentMeta(name, contentType = "") {
+  const ct = String(contentType || "").toLowerCase();
+  if (ct.startsWith("image/") || ct === "image/gif") return true;
+  return /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(String(name || ""));
+}
+
+function attachmentBuilderName(file) {
+  return String(file?.name || "").trim();
+}
+
+function prepareRepostSendMedia({ imageUrl, files }) {
+  const url = String(imageUrl || "").trim();
+  const allFiles = Array.isArray(files) ? files : [];
+  const imageFiles = allFiles.filter((file) => isImageAttachmentMeta(attachmentBuilderName(file)));
+  const otherFiles = allFiles.filter((file) => !isImageAttachmentMeta(attachmentBuilderName(file)));
+  if (imageFiles.length > 0) {
+    const primary = imageFiles[0];
+    const name = attachmentBuilderName(primary) || "image.png";
+    if (!primary.name) primary.name = name;
+    return {
+      embedImageUrl: `attachment://${name}`,
+      files: [...otherFiles, primary],
+    };
+  }
+  return {
+    embedImageUrl: url,
+    files: otherFiles,
+  };
+}
+
+async function fetchAttachmentBuilderFromUrl(url, name, minBytes = 0) {
+  const trimmed = String(url || "").trim();
+  if (!trimmed) return null;
+  try {
+    const res = await fetch(trimmed, { redirect: "follow" });
+    if (!res.ok) return null;
+    const buf = Buffer.from(await res.arrayBuffer());
+    if (!buf.length || (minBytes > 0 && buf.length < minBytes)) return null;
+    const safeName = String(name || "clip.mp3").trim() || "clip.mp3";
+    return new AttachmentBuilder(buf, { name: safeName });
+  } catch {
+    return null;
+  }
+}
+
+async function collectAttachmentBuildersFromMessage(message) {
+  const out = [];
+  for (const att of message?.attachments?.values() || []) {
+    const url = String(att?.url || "").trim();
+    if (!url) continue;
+    const name = String(att?.name || "").trim() || "file";
+    const ct = String(att?.contentType || "").toLowerCase();
+    const minBytes = isAudioAttachmentMeta(name, ct) ? MIN_AUDIO_ATTACHMENT_BYTES : 0;
+    const built = await fetchAttachmentBuilderFromUrl(url, name, minBytes);
+    if (built) out.push(built);
+    if (out.length >= 10) break;
+  }
+  return out;
+}
+
+async function resolveRepostMediaFilesForSend(guild, doc) {
+  if (!guild || !doc) return [];
+  const candidates = [
+    [doc.boardChannelId, doc.boardMessageId],
+    [doc.sourceChannelId, doc.sourceMessageId],
+  ];
+  for (const [channelId, messageId] of candidates) {
+    const cid = String(channelId || "").trim();
+    const mid = String(messageId || "").trim();
+    if (!cid || !mid) continue;
+    const channel = guild.channels.cache.get(cid) || (await guild.channels.fetch(cid).catch(() => null));
+    if (!channel?.messages?.fetch) continue;
+    const message = await channel.messages.fetch(mid).catch(() => null);
+    if (!message) continue;
+    const files = await collectAttachmentBuildersFromMessage(message);
+    if (files.length) return files;
+  }
+  const out = [];
+  for (const entry of serializableMediaFiles(doc.mediaFiles)) {
+    const minBytes = isAudioAttachmentMeta(entry.name) ? MIN_AUDIO_ATTACHMENT_BYTES : 0;
+    const built = await fetchAttachmentBuilderFromUrl(entry.url, entry.name, minBytes);
+    if (built) out.push(built);
+    if (out.length >= 10) break;
+  }
+  return out;
+}
+
+async function resolvePayloadFilesForSend(targetMessage, storedMediaFiles) {
+  const fromMessage = await collectAttachmentBuildersFromMessage(targetMessage);
+  if (fromMessage.length) return fromMessage;
+  const out = [];
+  for (const entry of serializableMediaFiles(storedMediaFiles)) {
+    const minBytes = isAudioAttachmentMeta(entry.name) ? MIN_AUDIO_ATTACHMENT_BYTES : 0;
+    const built = await fetchAttachmentBuilderFromUrl(entry.url, entry.name, minBytes);
+    if (built) out.push(built);
+    if (out.length >= 10) break;
+  }
+  return out;
+}
+
+function extractStickerMediaFiles(targetMessage) {
+  const files = [];
+  for (const sticker of targetMessage?.stickers?.values() || []) {
+    const url = String(sticker?.url || "").trim();
+    if (!url) continue;
+    const safeName = String(sticker?.name || "sticker")
+      .replace(/[^\w.-]+/g, "_")
+      .slice(0, 80);
+    files.push({
+      attachment: url,
+      name: `${safeName || "sticker"}.png`,
+    });
+    if (files.length >= 10) break;
+  }
+  return files;
+}
+
 function extractRepostPayload(targetMessage) {
   const text = normalizeQuoteMessageText(targetMessage).trim();
   const imageUrl = pickImageUrlFromMessage(targetMessage);
-  return { text, imageUrl, hasContent: Boolean(text || imageUrl) };
+  const files = extractRepostMediaFiles(targetMessage, imageUrl);
+  for (const stickerFile of extractStickerMediaFiles(targetMessage)) {
+    if (files.length >= 10) break;
+    files.push(stickerFile);
+  }
+  return { text, imageUrl, files, hasContent: Boolean(text || imageUrl || files.length) };
 }
 
 function resolveQuotedAuthorIdFromQuoteMessage(targetMessage) {
@@ -80,6 +261,53 @@ function resolveQuotedAuthorIdFromQuoteMessage(targetMessage) {
     }
   }
   return null;
+}
+
+function isClipBoardMessage(targetMessage) {
+  const title = String(targetMessage?.embeds?.[0]?.title || "");
+  return title.includes("Clip vocale");
+}
+
+function resolveClipAuthorIdFromMessage(targetMessage) {
+  const embeds = Array.isArray(targetMessage?.embeds) ? targetMessage.embeds : [];
+  for (const emb of embeds) {
+    const fields = Array.isArray(emb?.fields) ? emb.fields : [];
+    for (const field of fields) {
+      if (!/clip di/i.test(String(field?.name || ""))) continue;
+      const match = String(field?.value || "").match(/<@!?(\d{16,20})>/);
+      if (match?.[1]) return match[1];
+    }
+  }
+  if (targetMessage?.mentions?.users?.size === 1) {
+    return String(targetMessage.mentions.users.first()?.id || "");
+  }
+  return null;
+}
+
+function extractClipRepostPayload(targetMessage) {
+  const embed = targetMessage?.embeds?.[0];
+  let text = "";
+  const desc = String(embed?.description || "");
+  const transMatch = desc.match(/\*\*Trascrizione\*\*\s*\n([\s\S]*)/i);
+  if (transMatch) {
+    text = String(transMatch[1] || "")
+      .replace(/^»\s*/, "")
+      .replace(/^\*|\*$/g, "")
+      .replace(/^_|_$/g, "")
+      .trim();
+  }
+  const files = [];
+  for (const att of targetMessage.attachments?.values() || []) {
+    const url = String(att?.url || "").trim();
+    if (!url) continue;
+    const name = String(att?.name || "").trim();
+    const ct = String(att?.contentType || "").toLowerCase();
+    if (name.toLowerCase() === "clip.mp3" || ct.startsWith("audio/")) {
+      files.push({ attachment: url, name: name || "clip.mp3" });
+      break;
+    }
+  }
+  return { text, imageUrl: "", files, hasContent: files.length > 0 };
 }
 
 function resolveReposterProfile(reposter) {
@@ -96,8 +324,9 @@ function resolveReposterProfile(reposter) {
 function buildShareAckEmbed({ reposterId, boardUrl, prefix }) {
   const safePrefix = String(prefix || "").trim() || "+";
   const linkLine = boardUrl ? `» [Clicca qui per vedere il repost](${boardUrl})` : "» Repost salvato.";
+  const ackPhrase = pickRepostAckPhrase();
   const lines = [
-    `${REPOST_EMOJI} * . ˊ <@${reposterId}> ha repostato questo messaggio.`,
+    `${REPOST_EMOJI} * . ˊ <@${reposterId}> ${ackPhrase}`,
     "",
     linkLine,
   ];
@@ -158,6 +387,36 @@ function buildRouletteEmbed({ sourceUrl, text, imageUrl }) {
   return embed;
 }
 
+function buildRepostaSourceButtonRow(sourceChannelId, sourceMessageId, quotedAuthorId = "") {
+  const sc = String(sourceChannelId || "").trim();
+  const sm = String(sourceMessageId || "").trim();
+  if (!sc || !sm) return null;
+  const qa = String(quotedAuthorId || "").trim();
+  const customId = `${REPOST_SRC_PREFIX}${sc}:${sm}${qa ? `:${qa}` : ""}`;
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(customId)
+      .setLabel("Reposta")
+      .setEmoji("1443652837346377841")
+      .setStyle(ButtonStyle.Secondary),
+  );
+}
+
+function buildAckRepostaComponents({ repostId, targetMessage, sourceAuthorId = "" }) {
+  const rid = String(repostId || "").trim();
+  if (rid) return [buildRepostaButtonRow(rid)];
+  if (!targetMessage?.channel?.id || !targetMessage?.id) return [];
+  let authorId = String(sourceAuthorId || "").trim();
+  if (!authorId && targetMessage.author?.bot) {
+    authorId = resolveQuotedAuthorIdFromQuoteMessage(targetMessage) || "";
+  }
+  if (!authorId && targetMessage.author && !targetMessage.author.bot) {
+    authorId = String(targetMessage.author.id || "");
+  }
+  const row = buildRepostaSourceButtonRow(targetMessage.channel.id, targetMessage.id, authorId);
+  return row ? [row] : [];
+}
+
 function buildRepostaButtonRow(repostId) {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -168,9 +427,30 @@ function buildRepostaButtonRow(repostId) {
   );
 }
 
-async function checkQuotePrivacyBlocked(guildId, authorId) {
+async function ensureBoardRepostaButton(guild, boardChannelId, boardMessageId, repostId) {
+  const cid = String(boardChannelId || "").trim();
+  const mid = String(boardMessageId || "").trim();
+  const rid = String(repostId || "").trim();
+  if (!guild || !cid || !mid || !rid) return;
+  const channel =
+    guild.channels.cache.get(cid) ||
+    (await guild.channels.fetch(cid).catch(() => null));
+  if (!channel?.isTextBased?.()) return;
+  const boardMsg = await channel.messages.fetch(mid).catch(() => null);
+  if (!boardMsg) return;
+  const hasButton = boardMsg.components?.some((row) =>
+    row.components?.some((comp) => String(comp.customId || "").startsWith(REPOST_BTN_PREFIX)),
+  );
+  if (hasButton) return;
+  await boardMsg.edit({ components: [buildRepostaButtonRow(rid)] }).catch(() => {});
+}
+
+async function checkRepostPrivacyBlocked(guildId, authorId) {
   try {
-    const privacy = await QuotePrivacy.findOne({ guildId, userId: authorId }).lean();
+    const privacy = await timedRepostQuery(
+      RepostPrivacy.findOne({ guildId, userId: authorId }).lean(),
+      "repost privacy",
+    );
     return Boolean(privacy?.blocked);
   } catch {
     return false;
@@ -191,16 +471,18 @@ async function findExistingBoardPost(guildId, sourceChannelId, sourceMessageId) 
   const sc = String(sourceChannelId || "").trim();
   const sm = String(sourceMessageId || "").trim();
   if (!gid || !sc || !sm) return null;
-  return GuildRepost.findOne({
-    guildId: gid,
-    sourceChannelId: sc,
-    sourceMessageId: sm,
-    boardChannelId: { $ne: "" },
-    boardMessageId: { $ne: "" },
-  })
-    .sort({ createdAt: -1 })
-    .lean()
-    .catch(() => null);
+  return timedRepostQuery(
+    GuildRepost.findOne({
+      guildId: gid,
+      sourceChannelId: sc,
+      sourceMessageId: sm,
+      boardChannelId: { $ne: "" },
+      boardMessageId: { $ne: "" },
+    })
+      .sort({ createdAt: -1 })
+      .lean(),
+    "repost find board",
+  ).catch(() => null);
 }
 
 async function hasUserAlreadySavedRepost(guildId, reposterUserId, sourceChannelId, sourceMessageId) {
@@ -209,15 +491,17 @@ async function hasUserAlreadySavedRepost(guildId, reposterUserId, sourceChannelI
   const sc = String(sourceChannelId || "").trim();
   const sm = String(sourceMessageId || "").trim();
   if (!gid || !uid || !sc || !sm) return false;
-  const found = await GuildRepost.findOne({
-    guildId: gid,
-    reposterUserId: uid,
-    sourceChannelId: sc,
-    sourceMessageId: sm,
-  })
-    .select("_id")
-    .lean()
-    .catch(() => null);
+  const found = await timedRepostQuery(
+    GuildRepost.findOne({
+      guildId: gid,
+      reposterUserId: uid,
+      sourceChannelId: sc,
+      sourceMessageId: sm,
+    })
+      .select("_id")
+      .lean(),
+    "repost duplicate check",
+  ).catch(() => null);
   return Boolean(found?._id);
 }
 
@@ -228,12 +512,22 @@ async function createRepostFromMessage(ctx) {
   if (isRepostDisabledInGuild(guildId)) {
     return { ok: false, message: REPOST_DISABLED_MESSAGE };
   }
+  if (!(await ensureRepostDbReady())) {
+    return {
+      ok: false,
+      message: "Database temporaneamente non disponibile. Riprova tra qualche secondo.",
+    };
+  }
   if (!isValidGuildUserId(guildId, reposterId)) {
     return { ok: false, message: "Contesto non valido." };
   }
 
   let quoteAuthorId = String(quotedAuthorId || "").trim();
   const author = targetMessage?.author;
+  const fromClipBoard = isClipBoardMessage(targetMessage);
+  if (!quoteAuthorId && fromClipBoard) {
+    quoteAuthorId = resolveClipAuthorIdFromMessage(targetMessage) || "";
+  }
   if (!quoteAuthorId && author?.bot) {
     quoteAuthorId = resolveQuotedAuthorIdFromQuoteMessage(targetMessage) || "";
   }
@@ -241,13 +535,22 @@ async function createRepostFromMessage(ctx) {
   const fromQuoteCanvas = Boolean(
     quoteAuthorId && /^\d{16,20}$/.test(quoteAuthorId) && imageUrlFromMessage,
   );
-  if (!fromQuoteCanvas && (!author || author.bot)) {
+  if (fromClipBoard) {
+    if (!quoteAuthorId || !/^\d{16,20}$/.test(quoteAuthorId)) {
+      return { ok: false, message: "Impossibile identificare l'autore del clip." };
+    }
+  } else if (!fromQuoteCanvas && (!author || author.bot)) {
     return { ok: false, message: "Non puoi repostare messaggi di bot." };
   }
 
-  const sourceAuthorId = fromQuoteCanvas ? quoteAuthorId : String(author.id);
+  const sourceAuthorId = fromClipBoard || fromQuoteCanvas ? quoteAuthorId : String(author.id);
   let payload;
-  if (fromQuoteCanvas) {
+  if (fromClipBoard) {
+    payload = extractClipRepostPayload(targetMessage);
+    if (!payload.hasContent) {
+      return { ok: false, message: "Impossibile repostare questo clip vocale." };
+    }
+  } else if (fromQuoteCanvas) {
     const imageUrl = imageUrlFromMessage;
     if (!imageUrl) {
       return {
@@ -255,32 +558,33 @@ async function createRepostFromMessage(ctx) {
         message: "Impossibile trovare l'immagine della quote da repostare.",
       };
     }
-    payload = { text: "", imageUrl, hasContent: true };
+    payload = { text: "", imageUrl, files: [], hasContent: true };
   } else {
     payload = extractRepostPayload(targetMessage);
     if (!payload.hasContent) {
       return {
         ok: false,
-        message: "Il messaggio deve avere testo o un'immagine da repostare.",
+        message: "Il messaggio deve avere testo, un'immagine o un allegato multimediale da repostare.",
       };
     }
   }
 
-  if (await checkQuotePrivacyBlocked(guildId, sourceAuthorId)) {
+  if (await checkRepostPrivacyBlocked(guildId, sourceAuthorId)) {
     const blockedMember = await getGuildMemberCached(guild, sourceAuthorId).catch(() => null);
     const authorLabel = accountUsername(blockedMember) || accountUsername(author) || "Utente";
     return {
       ok: false,
-      message: `**${authorLabel}** ha bloccato le quote dei propri messaggi.`,
+      message: `**${authorLabel}** ha bloccato i repost dei propri messaggi.`,
       privacyBlocked: true,
     };
   }
 
-  let totalPosts = 1;
+  let totalPosts;
   try {
-    totalPosts = await nextQuoteCount(guildId);
-  } catch {
-    totalPosts = 1;
+    totalPosts = await withMongoTimeout(nextRepostCount(guildId), REPOST_DB_MS, "repost count");
+  } catch (err) {
+    global.logger?.warn?.("[repost] counter failed:", err?.message || err);
+    return { ok: false, message: "Contatore repost non disponibile. Riprova tra poco." };
   }
 
   const replyChannel =
@@ -296,11 +600,25 @@ async function createRepostFromMessage(ctx) {
       ? messageJumpUrl(guildId, existingBoard.boardChannelId, existingBoard.boardMessageId)
       : "";
     const prefix = String(guild?.client?.config?.prefix || "+").trim() || "+";
-    return { ok: true, ackEmbed: buildShareAckEmbed({ reposterId, boardUrl, prefix }), repostId: "", components: [] };
+    return {
+      ok: true,
+      alreadySaved: true,
+      fromQuoteCanvas,
+      ackEmbed: buildShareAckEmbed({ reposterId, boardUrl, prefix }),
+      repostId: existingBoard?._id ? String(existingBoard._id) : "",
+      ackComponents: buildAckRepostaComponents({
+        repostId: existingBoard?._id ? String(existingBoard._id) : "",
+        targetMessage,
+        sourceAuthorId: existingBoard?.sourceAuthorId || "",
+      }),
+      components: [],
+    };
   }
 
   const sourceUrl = messageJumpUrl(guildId, targetMessage.channel.id, targetMessage.id);
   const commandPrefix = String(guild?.client?.config?.prefix || "+").trim() || "+";
+  const boardFiles = await resolvePayloadFilesForSend(targetMessage, serializableMediaFiles(payload.files));
+  const boardSendMedia = prepareRepostSendMedia({ imageUrl: payload.imageUrl, files: boardFiles });
   const boardEmbed = buildBoardEmbed({
     reposter,
     reposterId,
@@ -308,7 +626,7 @@ async function createRepostFromMessage(ctx) {
     sourceUrl,
     totalPosts,
     text: payload.text,
-    imageUrl: payload.imageUrl,
+    imageUrl: boardSendMedia.embedImageUrl,
     commandPrefix,
     imageOnly: fromQuoteCanvas,
   });
@@ -327,7 +645,8 @@ async function createRepostFromMessage(ctx) {
   const existingBoardChannelId = String(existingBoard?.boardChannelId || "").trim();
   const existingBoardMessageId = String(existingBoard?.boardMessageId || "").trim();
 
-  const doc = await GuildRepost.create({
+  const storedMediaFiles = serializableMediaFiles(payload.files);
+  const docPayload = {
     guildId,
     reposterUserId: reposterId,
     sourceAuthorId,
@@ -341,10 +660,13 @@ async function createRepostFromMessage(ctx) {
     boardChannelId: existingBoardChannelId || String(boardChannel.id),
     totalPosts,
     boardMessageId: existingBoardMessageId || "",
-  }).catch(() => null);
+  };
+  if (storedMediaFiles.length) docPayload.mediaFiles = storedMediaFiles;
+
+  const doc = await timedRepostQuery(GuildRepost.create(docPayload), "repost create").catch(() => null);
 
   if (!doc?._id) {
-    return { ok: false, message: "Impossibile salvare il repost." };
+    return { ok: false, message: "Impossibile salvare il repost (database lento o non disponibile)." };
   }
 
   const repostId = String(doc._id);
@@ -352,13 +674,20 @@ async function createRepostFromMessage(ctx) {
   let boardUrl = "";
   if (existingBoardChannelId && existingBoardMessageId) {
     boardUrl = messageJumpUrl(guildId, existingBoardChannelId, existingBoardMessageId);
+    await ensureBoardRepostaButton(
+      guild,
+      existingBoardChannelId,
+      existingBoardMessageId,
+      existingBoard?._id ? String(existingBoard._id) : repostId,
+    );
   } else {
-    const boardMsg = await boardChannel
-      .send({
-        embeds: [boardEmbed],
-        components: [buildRepostaButtonRow(repostId)],
-      })
-      .catch(() => null);
+    const boardSendPayload = {
+      embeds: [boardEmbed],
+      components: [buildRepostaButtonRow(repostId)],
+    };
+    if (boardSendMedia.files.length) boardSendPayload.files = boardSendMedia.files;
+
+    const boardMsg = await boardChannel.send(boardSendPayload).catch(() => null);
 
     if (!boardMsg?.id) {
       await GuildRepost.deleteOne({ _id: doc._id }).catch(() => {});
@@ -366,9 +695,12 @@ async function createRepostFromMessage(ctx) {
     }
 
     boardMessage = boardMsg;
-    await GuildRepost.updateOne(
-      { _id: doc._id },
-      { $set: { boardMessageId: String(boardMsg.id), boardChannelId: String(boardChannel.id) } },
+    await timedRepostQuery(
+      GuildRepost.updateOne(
+        { _id: doc._id },
+        { $set: { boardMessageId: String(boardMsg.id), boardChannelId: String(boardChannel.id) } },
+      ),
+      "repost board update",
     ).catch(() => {});
 
     boardUrl = messageJumpUrl(guildId, boardChannel.id, boardMsg.id);
@@ -378,10 +710,13 @@ async function createRepostFromMessage(ctx) {
 
   return {
     ok: true,
+    alreadySaved: false,
+    fromQuoteCanvas,
     ackEmbed,
     boardMessage,
     repostId,
-    components: [buildRepostaButtonRow(repostId)],
+    ackComponents: buildAckRepostaComponents({ repostId, targetMessage, sourceAuthorId }),
+    components: [],
   };
 }
 
@@ -398,7 +733,7 @@ async function handleRepostaButton(interaction) {
   if (!interaction.guild) return { handled: false };
   if (isRepostDisabledInGuild(interaction.guild.id)) {
     await interaction
-      .reply({ content: REPOST_DISABLED_MESSAGE, flags: 1 << 6 })
+      .reply({ content: REPOST_DISABLED_MESSAGE, flags: EPHEMERAL_FLAG })
       .catch(() => {});
     return { handled: true };
   }
@@ -415,12 +750,12 @@ async function handleRepostaButton(interaction) {
   } else if (raw.startsWith(REPOST_BTN_PREFIX)) {
     const repostId = raw.slice(REPOST_BTN_PREFIX.length).trim();
     if (!repostId) {
-      await interaction.reply({ content: "Repost non valido.", flags: 1 << 6 }).catch(() => {});
+      await interaction.reply({ content: "Repost non valido.", flags: EPHEMERAL_FLAG }).catch(() => {});
       return { handled: true };
     }
     const doc = await GuildRepost.findById(repostId).lean().catch(() => null);
     if (!doc || String(doc.guildId) !== String(interaction.guild.id)) {
-      await interaction.reply({ content: "Repost non trovato.", flags: 1 << 6 }).catch(() => {});
+      await interaction.reply({ content: "Repost non trovato.", flags: EPHEMERAL_FLAG }).catch(() => {});
       return { handled: true };
     }
     sourceChannelId = String(doc.sourceChannelId || "");
@@ -437,12 +772,25 @@ async function handleRepostaButton(interaction) {
   if (!targetMessage) {
     await interaction.reply({
       content: "Il messaggio originale non esiste più: non posso ripostarlo.",
-      flags: 1 << 6,
+      flags: EPHEMERAL_FLAG,
     }).catch(() => {});
     return { handled: true };
   }
 
-  await interaction.deferReply({ flags: 1 << 6 }).catch(() => {});
+  const isQuoteRepost = raw.startsWith(REPOST_SRC_PREFIX);
+  const reposterId = String(interaction.user?.id || interaction.member?.id || "");
+  let quoteAlreadySaved = false;
+  if (isQuoteRepost && reposterId) {
+    quoteAlreadySaved = await hasUserAlreadySavedRepost(
+      interaction.guild.id,
+      reposterId,
+      sourceChannelId,
+      sourceMessageId,
+    );
+  }
+  const usePublicAck = isQuoteRepost && !quoteAlreadySaved;
+
+  await interaction.deferReply({ flags: usePublicAck ? undefined : EPHEMERAL_FLAG }).catch(() => {});
 
   const result = await createRepostFromMessage({
     guild: interaction.guild,
@@ -464,7 +812,8 @@ async function handleRepostaButton(interaction) {
   await interaction
     .editReply({
       embeds: [result.ackEmbed],
-      components: result.components || [],
+      components: usePublicAck && Array.isArray(result.ackComponents) ? result.ackComponents : [],
+      allowedMentions: usePublicAck && reposterId ? { users: [reposterId] } : { parse: [] },
     })
     .catch(() => {});
 
@@ -560,16 +909,19 @@ async function sendRepostRoulette(client, guildId) {
   const sourceUrl = messageJumpUrl(guildId, doc.sourceChannelId, doc.sourceMessageId);
   const imageUrl = String(doc.attachmentUrl || "").trim();
   const text = String(doc.content || "").trim();
+  const rouletteFiles = await resolveRepostMediaFilesForSend(guild, doc);
+  const rouletteSendMedia = prepareRepostSendMedia({ imageUrl, files: rouletteFiles });
 
-  const embed = buildRouletteEmbed({ sourceUrl, text, imageUrl });
+  const embed = buildRouletteEmbed({ sourceUrl, text, imageUrl: rouletteSendMedia.embedImageUrl });
   const repostId = String(doc._id);
 
-  await rouletteChannel
-    .send({
-      embeds: [embed],
-      components: [buildRepostaButtonRow(repostId)],
-    })
-    .catch(() => null);
+  const roulettePayload = {
+    embeds: [embed],
+    components: [buildRepostaButtonRow(repostId)],
+  };
+  if (rouletteSendMedia.files.length) roulettePayload.files = rouletteSendMedia.files;
+
+  await rouletteChannel.send(roulettePayload).catch(() => null);
 
   return true;
 }
@@ -585,6 +937,63 @@ async function listRepostsByUser(guildId, userId, opts = {}) {
   return { rows: rows || [], total: Number(total) || 0 };
 }
 
+async function registerClipBoardPost(ctx) {
+  const {
+    guild,
+    guildId,
+    requesterId,
+    requester,
+    boardChannelId,
+    boardMessage,
+    transcription,
+    totalPosts,
+  } = ctx;
+  const gid = String(guildId || guild?.id || "").trim();
+  const uid = String(requesterId || "").trim();
+  const cid = String(boardChannelId || "").trim();
+  const mid = String(boardMessage?.id || "").trim();
+  if (isRepostDisabledInGuild(gid) || !gid || !uid || !cid || !mid || !boardMessage) {
+    return { ok: false };
+  }
+
+  let mp3Url = "";
+  let mp3Name = "clip.mp3";
+  for (const att of boardMessage.attachments?.values() || []) {
+    const url = String(att?.url || "").trim();
+    if (!url) continue;
+    const name = String(att?.name || "").trim();
+    const ct = String(att?.contentType || "").toLowerCase();
+    if (name.toLowerCase() === "clip.mp3" || ct.startsWith("audio/")) {
+      mp3Url = url;
+      mp3Name = name || "clip.mp3";
+      break;
+    }
+  }
+  if (!mp3Url) return { ok: false };
+
+  const authorLabel = accountUsername(requester) || "Utente";
+  const doc = await GuildRepost.create({
+    guildId: gid,
+    reposterUserId: uid,
+    sourceAuthorId: uid,
+    sourceChannelId: cid,
+    sourceMessageId: mid,
+    content: String(transcription || "").trim(),
+    attachmentUrl: "",
+    mediaFiles: [{ url: mp3Url, name: mp3Name }],
+    authorUsername: authorLabel,
+    authorAvatarUrl: guildMemberDisplayAvatarUrlDynamic(requester, { size: 512 }) || "",
+    boardChannelId: cid,
+    boardMessageId: mid,
+    totalPosts: Number(totalPosts) || 0,
+  }).catch(() => null);
+
+  if (!doc?._id) return { ok: false };
+  const repostId = String(doc._id);
+  await boardMessage.edit({ components: [buildRepostaButtonRow(repostId)] }).catch(() => null);
+  return { ok: true, repostId };
+}
+
 module.exports = {
   REPOST_BTN_PREFIX,
   REPOST_SRC_PREFIX,
@@ -597,4 +1006,14 @@ module.exports = {
   listRepostsByUser,
   messageJumpUrl,
   buildRepostaButtonRow,
+  buildRepostaSourceButtonRow,
+  buildAckRepostaComponents,
+  extractRepostPayload,
+  registerClipBoardPost,
+  serializableMediaFiles,
+  discordFilesFromStored,
+  resolveRepostMediaFilesForSend,
+  prepareRepostSendMedia,
+  fetchAttachmentBuilderFromUrl,
+  MIN_AUDIO_ATTACHMENT_BYTES,
 };

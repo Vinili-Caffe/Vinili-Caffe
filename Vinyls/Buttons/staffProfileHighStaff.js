@@ -414,13 +414,24 @@ function buildPpmRemoveModal(customId, title) {
     .setStyle(TextInputStyle.Paragraph)
     .setRequired(true)
     .setMaxLength(500);
+  const amt = new TextInputBuilder()
+    .setCustomId(IN_PPM_AMOUNT)
+    .setLabel("Quantità")
+    .setStyle(TextInputStyle.Short)
+    .setRequired(false)
+    .setPlaceholder("Default: 1")
+    .setMaxLength(5);
   const linkInput = new TextInputBuilder()
     .setCustomId(IN_PPM_LINK)
     .setLabel("Link messaggio")
     .setStyle(TextInputStyle.Short)
-    .setRequired(true)
+    .setRequired(false)
     .setMaxLength(200);
-  modal.addComponents(new ActionRowBuilder().addComponents(reasonInput), new ActionRowBuilder().addComponents(linkInput));
+  modal.addComponents(
+    new ActionRowBuilder().addComponents(reasonInput),
+    new ActionRowBuilder().addComponents(amt),
+    new ActionRowBuilder().addComponents(linkInput),
+  );
   return modal;
 }
 
@@ -671,15 +682,23 @@ async function execute(interaction) {
       return true;
     }
     if (parsed.action === "ppm_remove") {
-      const amount = 1;
+      const rawAmt = getModalTextInputTrimmed(interaction, IN_PPM_AMOUNT);
+      let amount = 1;
+      if (rawAmt) {
+        amount = parseInt(rawAmt, 10);
+        if (!Number.isInteger(amount) || amount < 1) {
+          await sendModalReply({ content: "<a:VC_Cross:1482532424570376253> Quantità non valida." });
+          return true;
+        }
+        if (amount > MAX_PPM_AMOUNT) {
+          await sendModalReply({ content: `<a:VC_Cross:1482532424570376253> Massimo \`${MAX_PPM_AMOUNT}\` punti per azione.` });
+          return true;
+        }
+      }
       const motivo = reason;
       const messageLink = getModalTextInputTrimmed(interaction, IN_PPM_LINK);
       if (!motivo) {
         await sendModalReply({ content: "<a:VC_Cross:1482532424570376253> Motivo obbligatorio." });
-        return true;
-      }
-      if (!messageLink) {
-        await sendModalReply({ content: "<a:VC_Cross:1482532424570376253> Link messaggio obbligatorio." });
         return true;
       }
       const targetMember = await guild.members.fetch(parsed.targetId).catch(() => null);
@@ -691,13 +710,15 @@ async function execute(interaction) {
       const changeLabel = formatPartnerPointsChange("remove", amount);
       const removedPointsChannel = guild.channels.cache.get(IDs.channels?.puntiTolti);
       if (removedPointsChannel) {
+        const logLines = [
+          `<:VC_PartnerManager:1494286911286808576> ${targetUser}`,
+          `<:VC_reason:1478517122929004544> ${motivo}`,
+        ];
+        if (messageLink) {
+          logLines.push(`<:VC_Link:1482460590894088222> ${messageLink}`);
+        }
         await removedPointsChannel
-          .send({
-            content: `
-<:VC_PartnerManager:1494286911286808576> ${targetUser}
-<:VC_reason:1478517122929004544> ${motivo}
-<:VC_Link:1482460590894088222> ${messageLink}`,
-          })
+          .send({ content: logLines.join("\n") })
           .catch(() => null);
       }
       await tryRefreshStaffPanelMessage(interaction, parsed, interaction.client);

@@ -63,9 +63,7 @@
     return Number.isFinite(startMs) && Date.now() >= startMs;
   }
 
-  function setEventNavLinksVisible(navId, visible) {
-    var selector = '[data-vc-event-nav-id="' + navId + '"]';
-    var nodes = document.querySelectorAll(selector);
+  function setNodesVisible(nodes, visible) {
     for (var i = 0; i < nodes.length; i++) {
       var el = nodes[i];
       if (visible) {
@@ -79,19 +77,16 @@
     }
   }
 
+  function setEventNavLinksVisible(navId, visible) {
+    setNodesVisible(document.querySelectorAll('[data-vc-event-nav-id="' + navId + '"]'), visible);
+  }
+
   function setAllEventNavVisible(visible) {
-    var nodes = document.querySelectorAll("[data-vc-event-nav-id]");
-    for (var i = 0; i < nodes.length; i++) {
-      var el = nodes[i];
-      if (visible) {
-        el.hidden = false;
-        el.removeAttribute("hidden");
-        el.style.removeProperty("display");
-      } else {
-        el.hidden = true;
-        el.setAttribute("hidden", "");
-      }
-    }
+    setNodesVisible(document.querySelectorAll("[data-vc-event-nav-id]"), visible);
+  }
+
+  function syncPotionsLinksVisible() {
+    setEventNavLinksVisible("potions", potionsPlayableNow());
   }
 
   function markStaffPreviewReady() {
@@ -103,7 +98,20 @@
   }
 
   function setStaffPreviewNavVisible(visible) {
-    setAllEventNavVisible(visible);
+    var nodes = document.querySelectorAll("[data-vc-event-nav-id]");
+    for (var i = 0; i < nodes.length; i++) {
+      var el = nodes[i];
+      var navId = el.getAttribute("data-vc-event-nav-id");
+      var show = visible && (navId !== "potions" || potionsPlayableNow());
+      if (show) {
+        el.hidden = false;
+        el.removeAttribute("hidden");
+        el.style.removeProperty("display");
+      } else {
+        el.hidden = true;
+        el.setAttribute("hidden", "");
+      }
+    }
     if (visible) markStaffPreviewReady();
   }
 
@@ -130,14 +138,19 @@
   }
 
   function boot() {
-    if (!previewMode()) {
-      if (potionsPlayableNow()) setEventNavLinksVisible("potions", true);
-      return;
+    syncPotionsLinksVisible();
+    if (!previewMode()) return;
+    var nodes = document.querySelectorAll("[data-vc-event-nav-id]");
+    for (var i = 0; i < nodes.length; i++) {
+      var el = nodes[i];
+      if (el.getAttribute("data-vc-event-nav-id") === "potions") continue;
+      el.hidden = true;
+      el.setAttribute("hidden", "");
     }
-    setAllEventNavVisible(false);
     tryStaffPreviewUnlock();
   }
 
-  boot();
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
+  else boot();
   window.addEventListener("vc-discord-profile", tryStaffPreviewUnlock);
 })();

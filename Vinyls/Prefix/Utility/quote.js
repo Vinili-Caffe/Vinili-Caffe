@@ -139,11 +139,21 @@ module.exports = {
       });
     }
 
-    let totalPosts = 1;
+    let totalPosts;
     try {
       totalPosts = await nextQuoteCount(message.guild.id);
-    } catch {
-      totalPosts = 1;
+    } catch (err) {
+      global.logger?.warn?.("[quote] counter failed:", err?.message || err);
+      return safeMessageReply(message, {
+        embeds: [
+          new EmbedBuilder()
+            .setColor("Red")
+            .setDescription(
+              "<:vegax:1443934876440068179> Contatore quote non disponibile. Riprova tra poco.",
+            ),
+        ],
+        allowedMentions: { repliedUser: false },
+      });
     }
 
     const attachment = new AttachmentBuilder(buffer, { name: quoteFormat === "gif" ? "quote.gif" : "quote.png" });

@@ -138,6 +138,15 @@ function resolveHogwartsEventConfig(client) {
   };
   const completionRoleId = String(process.env.HOGWARTS_COMPLETION_ROLE_ID || raw.completionRoleId || "1507000390493798511").trim();
   const sortingLogChannelId = String(process.env.HOGWARTS_SORTING_LOG_CHANNEL_ID || raw.sortingLogChannelId || "").trim();
+  const punticasaPrefectHousesRaw = raw.punticasaPrefectHouses && typeof raw.punticasaPrefectHouses === "object"
+    ? raw.punticasaPrefectHouses
+    : {};
+  const punticasaPrefectHouses = {};
+  for (const [uid, house] of Object.entries(punticasaPrefectHousesRaw)) {
+    const userId = String(uid || "").trim();
+    const houseId = String(house || "").trim();
+    if (userId && houseId) punticasaPrefectHouses[userId] = houseId;
+  }
   return {
     enabled,
     previewMode,
@@ -154,6 +163,7 @@ function resolveHogwartsEventConfig(client) {
     gringott,
     completionRoleId,
     sortingLogChannelId,
+    punticasaPrefectHouses,
   };
 }
 

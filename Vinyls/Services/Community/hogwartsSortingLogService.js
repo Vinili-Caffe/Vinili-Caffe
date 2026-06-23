@@ -48,18 +48,16 @@ function buildHouseAnnounceDedupeKey({ guildId, userId, eventKey }) {
   return `${g}:${u}:${e}`;
 }
 
-function loadHouseAnnounceDedupeKeys() {
-  const keys = new Set();
+function loadHouseAnnounceLogRows() {
+  const rows = [];
   try {
-    if (!fs.existsSync(HOUSE_ANNOUNCE_LOG_FILE)) return keys;
+    if (!fs.existsSync(HOUSE_ANNOUNCE_LOG_FILE)) return rows;
     const raw = fs.readFileSync(HOUSE_ANNOUNCE_LOG_FILE, "utf8");
     for (const line of raw.split("\n")) {
       const trimmed = line.trim();
       if (!trimmed) continue;
       try {
-        const row = JSON.parse(trimmed);
-        const key = String(row?.dedupeKey || buildHouseAnnounceDedupeKey(row) || "").trim();
-        if (key) keys.add(key);
+        rows.push(JSON.parse(trimmed));
       } catch {
         /* skip bad line */
       }
@@ -67,7 +65,71 @@ function loadHouseAnnounceDedupeKeys() {
   } catch (err) {
     global.logger?.warn?.("[hogwarts-sorting-log] house announce read:", err?.message || err);
   }
+  return rows;
+}
+
+function loadHouseAnnounceDedupeKeys() {
+  const keys = new Set();
+  for (const row of loadHouseAnnounceLogRows()) {
+    const key = String(row?.dedupeKey || buildHouseAnnounceDedupeKey(row) || "").trim();
+    if (key) keys.add(key);
+  }
   return keys;
+}
+
+function rewriteHouseAnnounceLogFile(shouldRemoveRow) {
+  try {
+    if (!fs.existsSync(HOUSE_ANNOUNCE_LOG_FILE)) return { ok: true, removed: 0 };
+    const raw = fs.readFileSync(HOUSE_ANNOUNCE_LOG_FILE, "utf8");
+    const kept = [];
+    let removed = 0;
+    for (const line of raw.split("\n")) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      try {
+        const row = JSON.parse(trimmed);
+        if (shouldRemoveRow(row)) {
+          removed += 1;
+          continue;
+        }
+      } catch {
+        kept.push(trimmed);
+        continue;
+      }
+      kept.push(trimmed);
+    }
+    if (!removed) return { ok: true, removed: 0 };
+    fs.mkdirSync(LOG_DIR, { recursive: true });
+    fs.writeFileSync(HOUSE_ANNOUNCE_LOG_FILE, kept.length ? `${kept.join("\n")}\n` : "", "utf8");
+    return { ok: true, removed };
+  } catch (err) {
+    global.logger?.warn?.("[hogwarts-sorting-log] house announce rewrite:", err?.message || err);
+    return { ok: false, reason: "write_failed" };
+  }
+}
+
+function revokeHouseSortingAnnouncesForMember({ guildId, userId }) {
+  const g = String(guildId || "").trim();
+  const u = String(userId || "").trim();
+  if (!g || !u) return { ok: false, reason: "invalid_member" };
+  return rewriteHouseAnnounceLogFile((row) => {
+    const rowGuild = String(row?.guildId || "").trim();
+    const rowUser = String(row?.userId || "").trim();
+    return rowGuild === g && rowUser === u;
+  });
+}
+
+function findStoredAnnounceHouseForMember(guildId, userId) {
+  const g = String(guildId || "").trim();
+  const u = String(userId || "").trim();
+  if (!g || !u) return "";
+  for (const row of loadHouseAnnounceLogRows()) {
+    if (String(row?.guildId || "").trim() !== g) continue;
+    if (String(row?.userId || "").trim() !== u) continue;
+    const houseId = normalizeHouseId(row?.houseId);
+    if (houseId) return houseId;
+  }
+  return "";
 }
 
 function appendHouseAnnounceLogFile(entry) {
@@ -79,6 +141,18 @@ function appendHouseAnnounceLogFile(entry) {
     global.logger?.warn?.("[hogwarts-sorting-log] house announce file:", err?.message || err);
     return false;
   }
+}
+
+function revokeHouseSortingAnnounce({ guildId, userId, eventKey }) {
+  const dedupeKey = buildHouseAnnounceDedupeKey({ guildId, userId, eventKey });
+  if (dedupeKey) {
+    const exact = rewriteHouseAnnounceLogFile((row) => {
+      const key = String(row?.dedupeKey || buildHouseAnnounceDedupeKey(row) || "").trim();
+      return key === dedupeKey;
+    });
+    if (exact.removed > 0) return exact;
+  }
+  return revokeHouseSortingAnnouncesForMember({ guildId, userId });
 }
 
 function hogwartsImageDirs() {
@@ -267,7 +341,14 @@ async function announceHouseSorting({
   const dedupeKey = buildHouseAnnounceDedupeKey({ guildId: guild.id, userId: uid, eventKey });
   if (!dedupeKey) return { ok: false, reason: "invalid_dedupe" };
   const keys = knownDedupeKeys || loadHouseAnnounceDedupeKeys();
-  if (keys.has(dedupeKey)) return { ok: false, reason: "duplicate", dedupeKey };
+  if (keys.has(dedupeKey)) {
+    const storedHouse = findStoredAnnounceHouseForMember(guild.id, uid);
+    if (!storedHouse || storedHouse === sortedHouse) {
+      return { ok: false, reason: "duplicate", dedupeKey };
+    }
+    revokeHouseSortingAnnouncesForMember({ guildId: guild.id, userId: uid });
+    keys.delete(dedupeKey);
+  }
   const ms = Number(sortedAtMs || Date.now());
   const sortedAt = Number.isFinite(ms) ? ms : Date.now();
   const username = accountUsername(member?.user || member) || String(member?.user?.username || uid);
@@ -312,6 +393,7 @@ async function logHogwartsSortingCompleted({ client, guild, cfg, member, userId,
   };
   appendSortingLogFile(entry);
   if (client && guild) {
+    revokeHouseSortingAnnouncesForMember({ guildId: guild.id, userId: uid });
     await announceHouseSorting({
       client,
       guild,
@@ -384,6 +466,8 @@ module.exports = {
   logHogwartsSortingCompleted,
   syncHouseSortingAnnouncesOnStartup,
   announceHouseSorting,
+  revokeHouseSortingAnnounce,
+  revokeHouseSortingAnnouncesForMember,
   LOG_FILE,
   HOUSE_ANNOUNCE_LOG_FILE,
 };

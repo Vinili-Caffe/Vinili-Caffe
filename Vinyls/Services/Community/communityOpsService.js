@@ -27,6 +27,7 @@ const guildTimers = new Map();
 const guildRenumberInflight = new Map();
 const guildRenumberPending = new Set();
 const categoryNumberingBotRenames = new Map();
+const categoryRenameBackoffUntil = new Map();
 let numberingLoopHandle = null;
 let voteCleanupLoopHandle = null;
 let verificationTenureLoopHandle = null;
@@ -379,6 +380,8 @@ const PUBLIC_VOICE_SEPARATOR_NAME = "〝";
 const PUBLIC_VOICE_NUMBERING_GROUPS = ["Lounge", "Duo", "Trio", "Squad"];
 const PUBLIC_VOICE_DECORATIVE_PREFIX = "༄";
 const VOICE_RENAME_GAP_MS = 1500;
+const CATEGORY_RENAME_GAP_MS = 2500;
+const CATEGORY_RENAME_BACKOFF_MS = 10 * 60 * 1000;
 
 function buildPublicVoiceSeparatorChannelIds() {
   const ids = new Set();
@@ -515,23 +518,32 @@ function pauseMs(ms) {
 
 async function renameChannelNameForNumbering(channel, expectedName, context = "") {
   if (!channel?.setName || !expectedName || channel.name === expectedName) return true;
+  const channelId = String(channel.id || "");
+  const backoffUntil = categoryRenameBackoffUntil.get(channelId) || 0;
+  if (backoffUntil > Date.now()) return false;
+
   markCategoryNumberingBotRename(channel.id);
+  const gapAfterSuccessMs = context === "category" ? CATEGORY_RENAME_GAP_MS : VOICE_RENAME_GAP_MS;
   for (let attempt = 0; attempt < 4; attempt += 1) {
     const ok = await channel.setName(expectedName).then(() => true).catch((err) => {
       const retryAfterMs = readDiscordRetryAfterMs(err);
       if (retryAfterMs > 0 && attempt < 3) return retryAfterMs;
+      categoryRenameBackoffUntil.set(channelId, Date.now() + CATEGORY_RENAME_BACKOFF_MS);
       global.logger?.warn?.(
         "[CATEGORY NUMBERING] rename failed:",
         channel.id,
         channel.name,
         "->",
         expectedName,
-        context || err?.message || err,
+        context,
+        err?.code ?? err?.status ?? "",
+        err?.message || err,
       );
       return false;
     });
     if (ok === true) {
-      await pauseMs(VOICE_RENAME_GAP_MS);
+      categoryRenameBackoffUntil.delete(channelId);
+      await pauseMs(gapAfterSuccessMs);
       return true;
     }
     if (typeof ok === "number") {
@@ -659,10 +671,11 @@ async function renumberGuildCategories(guild, options, client = null) {
     if (!channelCategoryIds.length) return { pending: 0 };
 
     let pending = 0;
+    await renumberGuildCategoryNames(guild, options);
+    await pauseMs(CATEGORY_RENAME_GAP_MS);
     for (const categoryId of channelCategoryIds) {
       pending += await renumberCategoryVoiceChannels(guild, categoryId, options);
     }
-    await renumberGuildCategoryNames(guild, options);
     if (pending > 0) {
       global.logger?.info?.(
         "[CATEGORY NUMBERING] voice renumber pending:",

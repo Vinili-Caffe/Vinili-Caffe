@@ -36,10 +36,18 @@ const PREFIX_HELP_DESCRIPTIONS = {
   previous: "Torna al brano riprodotto prima di quello attuale.",
   rewind: "Riporta il brano in riproduzione all'inizio.",
   restart: "Ricomincia dall'inizio la sequenza del brano in riproduzione + della coda.",
+  now: "Mostra il brano in riproduzione.",
+  next: "Mostra il prossimo brano in coda.",
+  queue: "Mostra la coda di riproduzione.",
 };
 const PREFIX_SUBCOMMAND_HELP_DESCRIPTIONS = {
   "set.autojoin": "Attiva o disattiva l'autojoin TTS del bot.",
   "set.voice": "Imposta la lingua/voce TTS personale.",
+  "now.playing": "Mostra il brano in riproduzione.",
+  "next.up": "Mostra il prossimo brano in coda.",
+  "repeat.disable": "Disattiva la ripetizione della traccia o della coda.",
+  "repeat.enable": "Attiva la ripetizione della traccia in corso.",
+  "repeat.queue": "Attiva la ripetizione dell'intera coda.",
   "play.queue": "Riproduce la coda dei brani in attesa.",
   "play.now": "Riproduce il brano in riproduzione.",
   "play.next": "Salta il brano in riproduzione e passa alla successiva in coda.",
@@ -124,15 +132,21 @@ function getPrefixDescription(command) {
 function getPrefixSubcommandDescription(command, subcommandName) {
   const commandName = String(command?.name || "").toLowerCase();
   const key = `${String(commandName || "").toLowerCase()}.${String(subcommandName || "").toLowerCase()}`;
+  const withOwnerNote = (text) =>
+    PREFIX_MUSIC_SESSION_OWNER_COMMANDS.has(commandName)
+      ? `${String(text || "").trim()}${PREFIX_MUSIC_SESSION_OWNER_NOTE}`
+      : String(text || "").trim();
   if (PREFIX_SUBCOMMAND_HELP_DESCRIPTIONS[key]) {
-    return PREFIX_SUBCOMMAND_HELP_DESCRIPTIONS[key];
+    return withOwnerNote(PREFIX_SUBCOMMAND_HELP_DESCRIPTIONS[key]);
   }
   const commandSubDesc=command?.subcommandDescriptions||command?.subcommandsDescriptions||command?.subcommandHelp||command?.subcommandsHelp||null;
   if (commandSubDesc && typeof commandSubDesc === "object") {
     const fromCommand=commandSubDesc[String(subcommandName||"").toLowerCase()]||commandSubDesc[String(subcommandName||"").trim()];
     if (String(fromCommand || "").trim())
-      return normalizeDescription(fromCommand);
+      return withOwnerNote(normalizeDescription(fromCommand, ""));
   }
+  const parentDescription = String(command?.description || command?.desc || command?.help || "").trim();
+  if (parentDescription) return withOwnerNote(parentDescription);
   return "<a:VC_Cross:1482532424570376253> Descrizione non disponibile.";
 }
 

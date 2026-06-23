@@ -23,8 +23,7 @@ Per candidarsi, è necessario **soddisfare** i seguenti __requisiti__:
 <:1_:1444099163116535930> Avere almeno **__14 anni__**
 <:2_:1444099161673826368> Rispettare i **[ToS](https://discord.com/terms)** e le **[Linee Guida](https://discord.com/guidelines)** di **Discord**
 <:3_:1444099160294031471> Essere **maturi** e **attivi**
-<:4_:1444099158859321435> Non essere mai stato **sanzionato** nel server.
-<:5_:1444099157194440884> **Solo per Helper:** livello **10** nel server e almeno **2 settimane** di permanenza nel server *(non richiesto per Partner Manager)*.`,
+<:4_:1444099158859321435> Non essere mai stato **sanzionato** nel server.`,
     )
   const candidatureAttachment = new AttachmentBuilder(CANDIDATURE_MEDIA_PATH, { name: CANDIDATURE_MEDIA_NAME });
   const rowCandidature = new ActionRowBuilder().addComponents(

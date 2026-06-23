@@ -64,15 +64,15 @@ const HOUSE_POINTS_DOC = SITE_DOCUMENT_TYPE.HOGWARTS_HOUSE_POINTS;
 const HOUSE_POINTS_OWNER_ID = "__event__";
 const {
   FORBIDDEN_DOC,
-  FORBIDDEN_BOOK_IDS,
   normalizeForbiddenBookId,
-  forbiddenEventDedupeKey,
   forbiddenEventOpen,
   canPreviewForbiddenBooks,
   forbiddenProgressPayload,
   getForbiddenClosure,
   getForbiddenUserDoc,
   resolveForbiddenBooksSchedule,
+  resolveForbiddenRoundRuntime,
+  buildForbiddenPublicStatusPayload,
 } = require("../../Services/Community/hogwartsForbiddenBooksService");
 const POTIONS_PROFILE_PATH = "profile.events.hogwarts.potions";
 const POTIONS_DEFAULT_CONFIG = Object.freeze({
@@ -582,6 +582,10 @@ async function handleHogwartsShopGet(client, req, res) {
     if (!participant.ok) return res.status(participant.status || 500).json(participant);
     const { resolved, cfg, houseId, houseMeta, previewViewer } = participant;
     const state = await getShopProfileState(resolved.guild.id, resolved.userId, cfg.eventKey);
+    const { getShopDurableBoostUsage } = require("../../Services/Community/hogwartsShopBoostsService");
+    const boostUsage = houseId
+      ? await getShopDurableBoostUsage(client, resolved.guild.id, resolved.userId)
+      : null;
     const consumablesUnlocked = isEconomyConsumablesUnlocked(client);
     const consumablesPreviewVisible = !consumablesUnlocked && Boolean(cfg.previewMode && hasHogwartsSortingPreviewAccess(cfg, resolved.member, resolved.userId));
     const activeBoostsRaw = houseId
@@ -604,6 +608,7 @@ async function handleHogwartsShopGet(client, req, res) {
       activeBoosts,
       inventory: state.inventory,
       gringott: state.gringott,
+      boostUsage,
       previewDisabled: Boolean(previewViewer),
     });
   } catch (err) {
@@ -1275,6 +1280,7 @@ async function resolveForbiddenBookParticipant(client, req, options = {}) {
   if (!resolved.ok) return { ...resolved, status: Number(resolved.status) || 500 };
   const cfg = resolveHogwartsEventConfig(client);
   const previewViewer = canPreviewForbiddenBooks(client, resolved.member, resolved.userId);
+  const runtime = await resolveForbiddenRoundRuntime(client);
   if (!previewViewer) {
     const participation = await assertHogwartsEventParticipationForUser(
       client,
@@ -1283,10 +1289,9 @@ async function resolveForbiddenBookParticipant(client, req, options = {}) {
     );
     if (!participation.ok) return participation;
   }
-  if (!forbiddenEventOpen(client) && !previewViewer) {
-    const now = Date.now();
+  if (!previewViewer) {
     const { endMs } = resolveForbiddenBooksSchedule(client);
-    if (Number.isFinite(endMs) && now > endMs) {
+    if (Number.isFinite(endMs) && Date.now() > endMs) {
       return {
         ok: false,
         status: 403,
@@ -1294,12 +1299,24 @@ async function resolveForbiddenBookParticipant(client, req, options = {}) {
         message: "La caccia ai libri proibiti è conclusa.",
       };
     }
-    return {
-      ok: false,
-      status: 403,
-      error: "event_not_started",
-      message: "La caccia ai libri proibiti inizia il 20 giugno 2026.",
-    };
+    if (!runtime.roundActive) {
+      if (runtime.nextRoundStartMs) {
+        return {
+          ok: false,
+          status: 403,
+          error: "round_inactive",
+          message: "Nessun round attivo al momento. Attendi il prossimo orario.",
+          nextRoundId: runtime.nextRoundId,
+          nextRoundStartMs: runtime.nextRoundStartMs,
+        };
+      }
+      return {
+        ok: false,
+        status: 403,
+        error: "event_closed",
+        message: "La caccia ai libri proibiti è conclusa.",
+      };
+    }
   }
   const sorting = await findExistingSort(resolved.guild.id, resolved.userId, cfg.eventKey, {
     member: resolved.member,
@@ -1307,25 +1324,69 @@ async function resolveForbiddenBookParticipant(client, req, options = {}) {
   });
   const houseId = String(sorting?.status || "").trim();
   if (!houseId && options.allowPreviewViewer && previewViewer) {
-    return { ok: true, resolved, cfg, houseId: "", dedupeKey: forbiddenEventDedupeKey(cfg), previewViewer: true };
+    return {
+      ok: true,
+      resolved,
+      cfg,
+      houseId: "",
+      dedupeKey: runtime.dedupeKey || "",
+      bookIds: runtime.bookIds || [],
+      runtime,
+      previewViewer: true,
+    };
   }
   if (!houseId) {
     return { ok: false, status: 403, error: "not_sorted", message: "Completa prima lo smistamento per raccogliere i libri proibiti." };
   }
-  return { ok: true, resolved, cfg, houseId, dedupeKey: forbiddenEventDedupeKey(cfg), previewViewer: Boolean(previewViewer) };
+  return {
+    ok: true,
+    resolved,
+    cfg,
+    houseId,
+    dedupeKey: runtime.dedupeKey || "",
+    bookIds: runtime.bookIds || [],
+    runtime,
+    previewViewer: Boolean(previewViewer),
+  };
+}
+
+async function handleHogwartsForbiddenBooksPublicStatus(client, req, res) {
+  try {
+    const runtime = await resolveForbiddenRoundRuntime(client);
+    res.setHeader("Cache-Control", "public, max-age=0, must-revalidate");
+    return res.status(200).json(buildForbiddenPublicStatusPayload(runtime));
+  } catch (err) {
+    global.logger?.error?.("[WEBHOOK] hogwarts-forbidden-books status:", err);
+    return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+  }
 }
 
 async function handleHogwartsForbiddenBooksGet(client, req, res) {
   try {
     const participant = await resolveForbiddenBookParticipant(client, req, { allowPreviewViewer: true });
     if (!participant.ok) return res.status(participant.status || 500).json(participant);
-    const { resolved, dedupeKey } = participant;
+    const { resolved, dedupeKey, runtime } = participant;
+    const progressOpts = {
+      roundId: runtime?.roundId,
+      roundLabel: runtime?.roundLabel,
+      roundActive: runtime?.roundActive === true,
+      roundStartMs: runtime?.roundStartMs,
+      roundEndMs: runtime?.roundEndMs,
+      nextRoundId: runtime?.nextRoundId,
+      nextRoundStartMs: runtime?.nextRoundStartMs,
+      bookIds: runtime?.bookIds || [],
+    };
     const [doc, closure] = await Promise.all([
-      getForbiddenUserDoc(resolved.guild.id, resolved.userId, dedupeKey),
-      getForbiddenClosure(resolved.guild.id, dedupeKey),
+      dedupeKey ? getForbiddenUserDoc(resolved.guild.id, resolved.userId, dedupeKey) : null,
+      dedupeKey ? getForbiddenClosure(resolved.guild.id, dedupeKey, runtime?.round) : null,
     ]);
     res.setHeader("Cache-Control", "private, no-store");
-    return res.status(200).json({ ok: true, house: participant.houseId, previewViewer: Boolean(participant.previewViewer), ...forbiddenProgressPayload(doc, closure) });
+    return res.status(200).json({
+      ok: true,
+      house: participant.houseId,
+      previewViewer: Boolean(participant.previewViewer),
+      ...forbiddenProgressPayload(doc, closure, progressOpts),
+    });
   } catch (err) {
     global.logger?.error?.("[WEBHOOK] hogwarts-forbidden-books get:", err);
     return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
@@ -1337,12 +1398,32 @@ async function handleHogwartsForbiddenBooksClaim(client, req, res) {
   try {
     const participant = await resolveForbiddenBookParticipant(client, req, { allowPreviewViewer: true });
     if (!participant.ok) return res.status(participant.status || 500).json(participant);
-    const bookId = normalizeForbiddenBookId(req.body?.bookId);
+    const bookIds = Array.isArray(participant.bookIds) ? participant.bookIds : [];
+    const bookId = normalizeForbiddenBookId(req.body?.bookId, bookIds);
     if (!bookId) return res.status(400).json({ ok: false, error: "invalid_book", message: "Libro non valido." });
-    const { resolved, cfg, houseId, dedupeKey } = participant;
-    const closedBefore = await getForbiddenClosure(resolved.guild.id, dedupeKey);
-    if (String(closedBefore?.status || "") === "closed") {
-      return res.status(409).json({ ok: false, error: "event_closed", message: "La caccia ai libri proibiti è già conclusa.", ...forbiddenProgressPayload(null, closedBefore) });
+    const { resolved, houseId, dedupeKey, runtime } = participant;
+    if (!dedupeKey) {
+      return res.status(409).json({ ok: false, error: "round_inactive", message: "Nessun round attivo al momento." });
+    }
+    const progressOpts = {
+      roundId: runtime?.roundId,
+      roundLabel: runtime?.roundLabel,
+      roundActive: runtime?.roundActive === true,
+      roundStartMs: runtime?.roundStartMs,
+      roundEndMs: runtime?.roundEndMs,
+      nextRoundId: runtime?.nextRoundId,
+      nextRoundStartMs: runtime?.nextRoundStartMs,
+      bookIds,
+    };
+    const closedBefore = await getForbiddenClosure(resolved.guild.id, dedupeKey, runtime?.round);
+    const closedProgress = forbiddenProgressPayload(null, closedBefore, progressOpts);
+    if (closedProgress.closed) {
+      return res.status(409).json({
+        ok: false,
+        error: "event_closed",
+        message: "La caccia ai libri proibiti è già conclusa.",
+        ...closedProgress,
+      });
     }
     const query = { docType: FORBIDDEN_DOC, guildId: resolved.guild.id, userId: resolved.userId, dedupeKey };
     await SiteDocument.findOneAndUpdate(
@@ -1356,17 +1437,23 @@ async function handleHogwartsForbiddenBooksClaim(client, req, res) {
           createdBy: "site",
           status: "active",
           planKey: houseId,
-          rawWebhook: { houseId, collectedBookIds: [], bookIds: FORBIDDEN_BOOK_IDS },
+          rawWebhook: { houseId, collectedBookIds: [], bookIds, roundId: runtime?.roundId || null },
         },
       },
       { upsert: true, new: true, setDefaultsOnInsert: true },
     ).catch(() => null);
     await SiteDocument.updateOne(query, {
       $addToSet: { "rawWebhook.collectedBookIds": bookId },
-      $set: { planKey: houseId, "rawWebhook.houseId": houseId, "rawWebhook.lastCollectedAt": new Date(), "rawWebhook.bookIds": FORBIDDEN_BOOK_IDS },
+      $set: {
+        planKey: houseId,
+        "rawWebhook.houseId": houseId,
+        "rawWebhook.lastCollectedAt": new Date(),
+        "rawWebhook.bookIds": bookIds,
+        "rawWebhook.roundId": runtime?.roundId || null,
+      },
     }).catch(() => null);
     let doc = await getForbiddenUserDoc(resolved.guild.id, resolved.userId, dedupeKey);
-    const progress = forbiddenProgressPayload(doc, null);
+    const progress = forbiddenProgressPayload(doc, null, progressOpts);
     if (progress.completed && String(doc?.status || "") !== "completed") {
       doc = await SiteDocument.findOneAndUpdate(
         query,
@@ -1374,9 +1461,14 @@ async function handleHogwartsForbiddenBooksClaim(client, req, res) {
         { new: true },
       ).lean().catch(() => doc);
     }
-    const closure = await getForbiddenClosure(resolved.guild.id, dedupeKey);
+    const closure = await getForbiddenClosure(resolved.guild.id, dedupeKey, runtime?.round);
     res.setHeader("Cache-Control", "private, no-store");
-    return res.status(200).json({ ok: true, claimedBookId: bookId, house: houseId, ...forbiddenProgressPayload(doc, closure) });
+    return res.status(200).json({
+      ok: true,
+      claimedBookId: bookId,
+      house: houseId,
+      ...forbiddenProgressPayload(doc, closure, progressOpts),
+    });
   } catch (err) {
     global.logger?.error?.("[WEBHOOK] hogwarts-forbidden-books claim:", err);
     return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
@@ -1442,4 +1534,4 @@ async function handleHogwartsSortingAccessGet(client, req, res) {
   }
 }
 
-module.exports = { handleHogwartsForbiddenBooksClaim, handleHogwartsForbiddenBooksGet, handleHogwartsHousePointsGet, handleHogwartsPotionsGet, handleHogwartsPotionsPost, handleHogwartsShopGet, handleHogwartsShopPurchasePost, handleHogwartsSortingBootstrap, handleHogwartsSortingEligibility, handleHogwartsSortingSubmit, handleHogwartsSortingAccessGet, handleHogwartsGringottGet, setHogwartsMutationNoStore };
+module.exports = { handleHogwartsForbiddenBooksClaim, handleHogwartsForbiddenBooksGet, handleHogwartsForbiddenBooksPublicStatus, handleHogwartsHousePointsGet, handleHogwartsPotionsGet, handleHogwartsPotionsPost, handleHogwartsShopGet, handleHogwartsShopPurchasePost, handleHogwartsSortingBootstrap, handleHogwartsSortingEligibility, handleHogwartsSortingSubmit, handleHogwartsSortingAccessGet, handleHogwartsGringottGet, setHogwartsMutationNoStore };

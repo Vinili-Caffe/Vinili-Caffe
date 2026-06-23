@@ -13,8 +13,11 @@ const { ActivityUserProfile, ACTIVITY_MAIN_GUILD_ID } = require("../../Schemas/C
 const { automodBadUser } = require("../../Utils/Community/activityUserProfilePaths");
 const { isValidGuildUserId } = require("../../Utils/DB/validateWriteIds");
 const { pickPrimaryAutomodRegolaBucket, getAutomodRegolaSanction, formatRegolaDotFromBucket, buildAutomodRegolaSummaryLine, violationKeyLabelIt, MOD_RULE_DETAIL, } = require("../../Utils/Moderation/modRegolamentoConstants");
+const { formatItalianMinutesPlain } = require("../../Utils/Text/italianDurationLabels");
 const { isChannelInTicketCategory } = require("../../Utils/Ticket/ticketCategoryUtils");
 const { isMinigameFloodExemptChannel } = require("../Minigames/minigameService");
+const { isHogwartsHouseChannelId } = require("../Community/hogwartsHouseChannelMinigameService");
+const { loadAutomodScamConfig } = require("../../Utils/Moderation/automodScamConfig");
 const { createModCase, getModConfig, logModCase, formatDuration } = require("../../Utils/Moderation/moderation");
 const { getGuildChannelCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { accountUsername } = require("../../Utils/Discord/guildDiscordIdentity");
@@ -64,7 +67,7 @@ let DISCORD_NATIVE_SKIP_KEYS = new Set([
 const NATIVE_HANDLED_MESSAGES = new Map();
 const NATIVE_HANDLED_TTL_MS = 30_000;
 const PANIC_MODE = { enabled: true, considerActivityHistory: true, useGlobalBadUsersDb: true, triggerCount: 3, triggerWindowMs: 10 * 60_000, durationMs: 10 * 60_000, raidWindowMs: 120_000, raidUserThreshold: 6, raidYoungThreshold: 4, lockCommands: false, };
-const PANIC_TRIGGER_KEYS = new Set(["invite", "scam_pattern", "nsfw_link", "word_blacklist", "link_blacklist", "mention_everyone", "mentions_lockdown", "mention_hour_cap", "unwhitelisted_webhook",]);
+const PANIC_TRIGGER_KEYS = new Set(["invite", "scam_pattern", "scam_image_bait", "nsfw_link", "word_blacklist", "link_blacklist", "mention_everyone", "mentions_lockdown", "mention_hour_cap", "unwhitelisted_webhook",]);
 const MENTION_RULES = {
   enabled: true,
   timeoutMs: 45 * 60_000,
@@ -77,6 +80,8 @@ const ATTACHMENT_RULES = { enabled: true, timeoutMs: 0, embeds: { enabled: true,
 const AUTOMOD_IMAGE_ONLY_MAX_COUNT = 10;
 const AUTOMOD_IMAGE_ONLY_HEAT_MULTIPLIER = 0.45;
 const TEXT_RULES = { regularMessage: { enabled: true, heat: 15, timeoutMs: 15 * 60_000, }, suspiciousAccount: { enabled: true, heat: 7, timeoutMs: 15 * 60_000, }, similarMessage: { enabled: true, heat: 22, ratio: 0.8, timeoutMs: 15 * 60_000, }, emojis: { enabled: true, heat: 9, minCount: 8, timeoutMs: 15 * 60_000, }, newLines: { enabled: true, heat: 5, minCount: 6, timeoutMs: 15 * 60_000, }, zalgo: { enabled: true, heat: 1.5, minCount: 6, timeoutMs: 15 * 60_000, }, characters: { enabled: true, lowercaseHeat: 0.08, uppercaseHeat: 0.12, minChars: 40, timeoutMs: 15 * 60_000, }, inviteLinks: { enabled: true, heat: 100, timeoutMs: 60 * 60_000, }, maliciousLinks: { enabled: true, heat: 100, timeoutMs: 60 * 60_000, }, nsfwLinks: { enabled: true, crawlShorteners: true, heat: 100, timeoutMs: 30 * 60_000, }, wordBlacklist: { enabled: true, useProfaneList: false, useVulgarList: false, useRacistList: true, heat: 100, timeoutMs: 45 * 60_000, }, linkBlacklist: { enabled: true, heat: 100, timeoutMs: 45 * 60_000, domains: ["dsc.gg"], }, crossServerForward: { enabled: true, heat: 100, timeoutMs: 0, }, };
+const AUTOMOD_SCAM_CONFIG = loadAutomodScamConfig();
+TEXT_RULES.linkBlacklist.domains = [...new Set([...(TEXT_RULES.linkBlacklist.domains || []), ...(AUTOMOD_SCAM_CONFIG.domains || [])])];
 const AUTOMOD_CONFIG_PATH = path.resolve(__dirname, "../../Utils/Config/automodConfig.json",);
 const AUTOMOD_METRICS_PATH = path.resolve(__dirname, "../../Utils/Config/automodMetrics.json",);
 const AUTOMOD_HOT_SNAPSHOT_PATH = path.resolve(__dirname, "..", "..", "Data", "automodHotSnapshot.json");
@@ -670,7 +675,7 @@ function clearAutoModPanicState(guildId) {
 
 const WICK_EQUIV = { textClusterMultiplier: 1.1875, upperCharMultiplier: 9.90575, lowerCharMultiplier: 14.866, };
 
-const INSTANT_LINK_KEYS = new Set(["invite", "scam_pattern", "nsfw_link", "word_blacklist", "link_blacklist", "mention_everyone", "mention_hour_cap", "mentions_lockdown",]);
+const INSTANT_LINK_KEYS = new Set(["invite", "scam_pattern", "scam_image_bait", "nsfw_link", "word_blacklist", "link_blacklist", "mention_everyone", "mention_hour_cap", "mentions_lockdown",]);
 const SUSPICIOUS_ACCOUNT_STRONG_KEYS = new Set([
   "mention_user",
   "mention_role",
@@ -679,6 +684,7 @@ const SUSPICIOUS_ACCOUNT_STRONG_KEYS = new Set([
   "mentions_lockdown",
   "invite",
   "scam_pattern",
+  "scam_image_bait",
   "nsfw_link",
   "link_blacklist",
   "attachment_embed",
@@ -1655,16 +1661,65 @@ function stripTrustedMediaUrlsFromText(content) {
   return out;
 }
 
+function buildModerationScanText(message, moderationContent) {
+  let text = String(moderationContent || "");
+  for (const embed of message?.embeds || []) {
+    text += ` ${embed.title || ""} ${embed.description || ""} ${embed.author?.name || ""}`;
+    for (const field of embed.fields || []) {
+      text += ` ${field.name || ""} ${field.value || ""}`;
+    }
+  }
+  for (const att of message?.attachments?.values?.() || []) {
+    text += ` ${att.name || ""}`;
+  }
+  return text.trim();
+}
+
+const SCAM_CRYPTO_PATTERNS = [
+  /(discord|steam|epic)[a-z0-9-]*\.(gift|nitro|airdrop|drop|claim|free)\b/,
+  /(free|claim).{0,24}(nitro|steam\s*gift|gift(?:card)?|airdrop)\b/,
+  /@everyone.{0,40}(nitro|gift|claim|airdrop)/,
+  /(verify|login).{0,30}(discord|steam|epic).{0,30}(gift|nitro|reward|airdrop)/,
+  /\b(crypto\s+casino|casino\s+crypto)\b/,
+  /\b(mr\s*beast|mrbeast)\b.{0,60}\b(crypto|casino|giveaway|promo|usdt|\$\d)/,
+  /\b(give(?:away|ing)\s+(?:away\s+)?\$?\d[\d,.]*\b)/,
+  /\b(promo\s+code|special\s+promo)\b/,
+  /\b(withdraw(?:al)?\s+success(?:ful)?)\b/,
+  /\b(usdt|btc|eth)\b.{0,40}\b(withdraw|bonus|giveaway|promo|register)\b/,
+  /\b(register|sign\s*up).{0,40}\b(withdraw|bonus|instant)\b/,
+  /\bcelebrat(?:e|ing)\b.{0,40}\b(launch|crypto|casino)\b/,
+];
+
+const SCAM_IMAGE_BAIT_PATTERNS = [
+  /^omg\b/i,
+  /\b(wow|look at this|check this|free money|guadagn|soldi)\b/i,
+  /[\u{1F4B0}\u{1F911}\u{1F633}\u{1F4B5}]/u,
+];
+
 function detectScam(content) {
   const text = stripTrustedMediaUrlsFromText(content).toLowerCase();
   if (!text) return false;
-  const patterns = [
-    /(discord|steam|epic)[a-z0-9-]*\.(gift|nitro|airdrop|drop|claim|free)\b/,
-    /(free|claim).{0,24}(nitro|steam\s*gift|gift(?:card)?|airdrop)\b/,
-    /@everyone.{0,40}(nitro|gift|claim|airdrop)/,
-    /(verify|login).{0,30}(discord|steam|epic).{0,30}(gift|nitro|reward|airdrop)/,
-  ];
-  return patterns.some((re) => re.test(text));
+  if (SCAM_CRYPTO_PATTERNS.some((re) => re.test(text))) return true;
+  const domains = AUTOMOD_SCAM_CONFIG.domains || [];
+  return domains.some((domain) => domain && text.includes(String(domain).toLowerCase()));
+}
+
+function detectScamImageBait(message, moderationContent, options = {}) {
+  const attachmentList = [...(message?.attachments?.values?.() || [])];
+  const imageCount = attachmentList.filter((att) => isImageAttachment(att)).length;
+  if (imageCount < 1) return false;
+  const text = String(moderationContent || "").trim();
+  const maxLen = Number(AUTOMOD_SCAM_CONFIG.imageBaitMaxTextLength || 48);
+  if (!text || text.length > maxLen) return false;
+  const hasBait = SCAM_IMAGE_BAIT_PATTERNS.some((re) => re.test(text));
+  if (!hasBait) return false;
+  if (options.suspicious) return true;
+  const youngDays = Number(AUTOMOD_SCAM_CONFIG.youngAccountMaxDays || 14);
+  if (options.youngAccount && text.length <= 32) return true;
+  const accountAgeMs = Number(options.accountAgeMs || 0);
+  const youngMs = youngDays * 24 * 60 * 60_000;
+  if (accountAgeMs > 0 && accountAgeMs < youngMs && text.length <= 32) return true;
+  return text.length <= 24;
 }
 
 /** Esclude host tipo `do...lo` (puntini sospensivi) che `URL` accetta ma non sono domini reali. */
@@ -2098,8 +2153,9 @@ async function detectViolations(message, state, profile) {
   trimRecentMessageHistory(state.recentMessageHistory, 20_000, at);
   const content = String(message.content || "");
   const moderationContent = stripQuotedAndCodeText(content);
+  const moderationScanText = buildModerationScanText(message, moderationContent);
   const normalized = normalizeContent(content);
-  const extractedUrls = extractUrls(moderationContent);
+  const extractedUrls = extractUrls(moderationScanText);
   const violations = [];
   const channelId = String(message.channelId || "");
   const parentChannelId = String(message.channel?.parentId || "");
@@ -2110,6 +2166,8 @@ async function detectViolations(message, state, profile) {
   const everyoneWhitelistSet = new Set([...EVERYONE_WHITELIST_CHANNEL_IDS, ...dynamicPartneringChannels,]);
   const spamWhitelisted = isWhitelistedByCategory(message.channel, SPAM_WHITELIST_CATEGORY_IDS);
   const minigameFloodExempt = isMinigameFloodExemptChannel(message);
+  const houseChannelFloodExempt = isHogwartsHouseChannelId(channelId);
+  const antiSpamFloodExempt = spamWhitelisted || minigameFloodExempt || houseChannelFloodExempt;
   const inviteWhitelisted = isWhitelistedByChannel(channelId, parentChannelId, inviteWhitelistSet,);
   const mentionWhitelisted = isWhitelistedByChannel(channelId, parentChannelId, mentionWhitelistSet,);
   const everyoneWhitelisted = isWhitelistedByChannel(channelId, parentChannelId, everyoneWhitelistSet,);
@@ -2146,8 +2204,7 @@ async function detectViolations(message, state, profile) {
   }
 
   if (
-    !spamWhitelisted &&
-    !minigameFloodExempt &&
+    !antiSpamFloodExempt &&
     AUTOMOD_ANTISPAM_ENABLED &&
     TEXT_RULES.regularMessage.enabled
   ) {
@@ -2171,8 +2228,7 @@ async function detectViolations(message, state, profile) {
   }
 
   if (
-    !spamWhitelisted &&
-    !minigameFloodExempt &&
+    !antiSpamFloodExempt &&
     AUTOMOD_ANTISPAM_ENABLED &&
     TEXT_RULES.similarMessage.enabled &&
     normalized.length >= 8 &&
@@ -2325,7 +2381,7 @@ async function detectViolations(message, state, profile) {
     }
   }
 
-  if (TEXT_RULES.maliciousLinks.enabled && detectScam(moderationContent)) {
+  if (TEXT_RULES.maliciousLinks.enabled && detectScam(moderationScanText)) {
     violations.push({
       key: "scam_pattern",
       heat: profileHeat(
@@ -2336,7 +2392,29 @@ async function detectViolations(message, state, profile) {
     });
   }
 
-  if (await isNsfwUrl(moderationContent, extractedUrls)) {
+  const accountCreatedAt = Number(new Date(message?.author?.createdAt || 0).getTime() || 0);
+  const accountAgeMs = accountCreatedAt > 0 ? at - accountCreatedAt : 0;
+  const youngAccountMaxMs = Number(AUTOMOD_SCAM_CONFIG.youngAccountMaxDays || 14) * 24 * 60 * 60_000;
+  const youngAccount = accountAgeMs > 0 && accountAgeMs < youngAccountMaxMs;
+  if (
+    TEXT_RULES.maliciousLinks.enabled &&
+    detectScamImageBait(message, moderationContent, {
+      suspicious: suspiciousMessageAuthor,
+      youngAccount,
+      accountAgeMs,
+    })
+  ) {
+    violations.push({
+      key: "scam_image_bait",
+      heat: profileHeat(
+        percentToHeat(TEXT_RULES.maliciousLinks.heat),
+        "maliciousLinks",
+      ),
+      info: "bait text + image scam",
+    });
+  }
+
+  if (await isNsfwUrl(moderationScanText, extractedUrls)) {
     violations.push({
       key: "nsfw_link",
       heat: profileHeat(
@@ -2367,7 +2445,7 @@ async function detectViolations(message, state, profile) {
 
   if (
     !shouldSkipViolationForDiscordNative("link_blacklist") &&
-    (await hasBlacklistedDomain(moderationContent, extractedUrls))
+    (await hasBlacklistedDomain(moderationScanText, extractedUrls))
   ) {
     violations.push({
       key: "link_blacklist",
@@ -2923,7 +3001,7 @@ async function sendPanicModeLog(message, event, count, activeUntil) {
       triggerAccountIds.length
         ? `<a:VC_Alert:1482706673176150077> **Trigger IDs:** ${triggerAccountIds.map((id) => `\`${id}\``).join(", ")}`
         : null,
-      `<a:VC_Alert:1482706673176150077> **Duration:** ${Math.round(PANIC_MODE.durationMs / 60_000)} minuti`,
+      `<a:VC_Alert:1482706673176150077> **Duration:** ${formatItalianMinutesPlain(Math.round(PANIC_MODE.durationMs / 60_000))}`,
       `<a:VC_Alert:1482706673176150077> **Active Until:** <t:${when}:F>`,
     ].join("\n"),
     )
@@ -3174,7 +3252,7 @@ function resolveInstantTimeoutOverrideMs(violations = []) {
       maxMs = Math.max(maxMs, Number(MENTION_RULES.timeoutMs || 0));
     } else if (key === "invite") {
       maxMs = Math.max(maxMs, Number(TEXT_RULES.inviteLinks.timeoutMs || 0));
-    } else if (key === "scam_pattern") {
+    } else if (key === "scam_pattern" || key === "scam_image_bait") {
       maxMs = Math.max(maxMs, Number(TEXT_RULES.maliciousLinks.timeoutMs || 0));
     } else if (key === "nsfw_link") {
       maxMs = Math.max(maxMs, Number(TEXT_RULES.nsfwLinks.timeoutMs || 0));
@@ -3738,4 +3816,4 @@ function updateAutoModConfig(pathExpr, value) {
   return { ok: true, config: getAutoModConfigSnapshot() };
 }
 
-module.exports = { runAutoModMessage, runDiscordNativeAutomodExecution, isDiscordNativeAutomodEnabled, getDiscordNativeViolationSkipKeys, getAutoModMemberSnapshot, isAutoModRoleExemptMember, getAutoModConfigSnapshot, getAutoModRulesSnapshot, updateAutoModConfig, isPanicModeActiveForGuild: isPanicModeActive, getAutoModPanicSnapshot, triggerAutoModPanicExternal, clearAutoModPanicState, __test: { isLikelyCommandMessage, buildAutoModDecisionExplain, isAutomodMediaEmbedUrl, isCrossServerForwardedMessage } };
+module.exports = { runAutoModMessage, runDiscordNativeAutomodExecution, isDiscordNativeAutomodEnabled, getDiscordNativeViolationSkipKeys, getAutoModMemberSnapshot, isAutoModRoleExemptMember, getAutoModConfigSnapshot, getAutoModRulesSnapshot, updateAutoModConfig, isPanicModeActiveForGuild: isPanicModeActive, getAutoModPanicSnapshot, triggerAutoModPanicExternal, clearAutoModPanicState, __test: { isLikelyCommandMessage, buildAutoModDecisionExplain, isAutomodMediaEmbedUrl, isCrossServerForwardedMessage, detectScam, detectScamImageBait, buildModerationScanText } };

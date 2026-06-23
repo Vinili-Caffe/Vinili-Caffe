@@ -70,13 +70,13 @@ const COMPLETE_VERSE_BANK = [
   { verse: "I want it that ___", answer: "way", song: "I Want It That Way", artist: "Backstreet Boys" },
   { verse: "Hello from the ___", answer: "other side", song: "Hello", artist: "Adele" },
   { verse: "Cause baby you're a ___", answer: "firework", song: "Firework", artist: "Katy Perry" },
-  { verse: "Let it go, let it ___", answer: "go", song: "Let It Go", artist: "Idina Menzel" },
+  { verse: "Can't hold it back ___", answer: "anymore", song: "Let It Go", artist: "Idina Menzel" },
   { verse: "Don't stop ___", answer: "believin'", song: "Don't Stop Believin'", artist: "Journey" },
   { verse: "Somebody that I used to ___", answer: "know", song: "Somebody That I Used to Know", artist: "Gotye" },
   { verse: "Voglio una vita ___", answer: "da cani", song: "Voglio una vita da cani", artist: "Ligabue" },
   { verse: "E dimmi che non ___", answer: "passa", song: "E dimmi che non passi mai", artist: "Tiziano Ferro" },
-  { verse: "Bella ciao, bella ___", answer: "ciao", song: "Bella ciao", artist: "Tradizionale" },
-  { verse: "Volare, oh oh, cantare ___", answer: "oh oh oh oh", song: "Volare", artist: "Domenico Modugno" },
+  { verse: "O partigiano, ___", answer: "portami via", song: "Bella ciao", artist: "Tradizionale" },
+  { verse: "Volare oh oh, ___ oh oh oh oh", answer: "cantare", song: "Volare", artist: "Domenico Modugno" },
   { verse: "L'italiano vero si vede dal ___", answer: "caffè", song: "L'italiano", artist: "Toto Cutugno" },
   { verse: "We are the ___", answer: "champions", song: "We Are the Champions", artist: "Queen" },
   { verse: "Sweet ___", answer: "child o' mine", song: "Sweet Child O' Mine", artist: "Guns N' Roses" },
@@ -88,8 +88,8 @@ const COMPLETE_VERSE_BANK = [
   { verse: "Eye of the ___", answer: "tiger", song: "Eye of the Tiger", artist: "Survivor" },
   { verse: "Another one bites the ___", answer: "dust", song: "Another One Bites the Dust", artist: "Queen" },
   { verse: "Like a ___", answer: "virgin", song: "Like a Virgin", artist: "Madonna" },
-  { verse: "Nel blu dipinto di ___", answer: "blu", song: "Volare", artist: "Domenico Modugno" },
-  { verse: "Con te partirò ___", answer: "sarò con te", song: "Con te partirò", artist: "Andrea Bocelli" },
+  { verse: "Nel blu dipinto di blu, felice te ___ lì", answer: "pare", song: "Volare", artist: "Domenico Modugno" },
+  { verse: "Con te partirò su navi per ___", answer: "mari", song: "Con te partirò", artist: "Andrea Bocelli" },
   { verse: "L'amore è ___", answer: "un'altra cosa", song: "L'amore è", artist: "Tiziano Ferro" },
 ];
 
@@ -527,15 +527,15 @@ const HOGWARTS_CIPHER_BANK = [
   { word: "Amortentia", answers: ["Amortentia"] },
   { word: "Felix", answers: ["Felix", "Felix Felicis"] },
   { word: "Antidoto", answers: ["Antidoto"] },
-  { word: "Bacchetta", answer: ["Bacchetta"]},
-  { word: "Gufo", answer: ["Gufo"]},
-  { word: "Libro", answer: ["Libro"]},
-  { word: "Incantesimo", answer: ["Incantesimo"]},
-  { word: "Pozione", answer: ["Pozione"]},
-  { word: "Boccetta", answer: ["Boccetta"]},
-  { word: "Occhiali", answer: ["Occhiali"]},
-  { word: "Cicatrice", answer: ["Cicatrice"]},
-  { word: "Naso", answer: ["Naso"]},
+  { word: "Bacchetta", answers: ["Bacchetta"] },
+  { word: "Gufo", answers: ["Gufo"] },
+  { word: "Libro", answers: ["Libro"] },
+  { word: "Incantesimo", answers: ["Incantesimo"] },
+  { word: "Pozione", answers: ["Pozione"] },
+  { word: "Boccetta", answers: ["Boccetta"] },
+  { word: "Occhiali", answers: ["Occhiali"] },
+  { word: "Cicatrice", answers: ["Cicatrice"] },
+  { word: "Naso", answers: ["Naso"] },
 ];
 
 const HOGWARTS_MEMORY_EMOJI_BANK = [
@@ -729,8 +729,36 @@ function getGuessYearBank() {
   return GUESS_YEAR_BANK;
 }
 
+function normalizeCompleteVerseText(value) {
+  return String(value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9'\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isCompleteVerseTooEasy(verse, answer) {
+  const visible = String(verse || "").split("___")[0] || "";
+  const visibleNorm = normalizeCompleteVerseText(visible);
+  const answerNorm = normalizeCompleteVerseText(answer);
+  if (!answerNorm || !visibleNorm) return false;
+  if (visibleNorm.includes(answerNorm)) return true;
+  const answerTokens = answerNorm.split(" ").filter((token) => token.length >= 2);
+  const visibleWords = visibleNorm.split(" ").filter(Boolean);
+  const visibleSet = new Set(visibleWords);
+  if (answerTokens.length === 1) {
+    const token = answerTokens[0];
+    if (visibleSet.has(token)) return true;
+    if (visibleWords.some((word) => word.length >= 3 && word.includes(token))) return true;
+  }
+  if (answerTokens.length > 0 && answerTokens.every((token) => visibleSet.has(token))) return true;
+  return false;
+}
+
 function getCompleteVerseBank() {
-  return COMPLETE_VERSE_BANK;
+  return COMPLETE_VERSE_BANK.filter((row) => !isCompleteVerseTooEasy(row.verse, row.answer));
 }
 
 function getGuessEmojiBank() {

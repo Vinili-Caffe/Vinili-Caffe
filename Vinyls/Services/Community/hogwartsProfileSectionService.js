@@ -8,6 +8,8 @@ const { findSortingDoc, resolveHouseIdFromMemberRoles, resolveSortedHouseId } = 
 const { normalizeShopInventory } = require("./hogwartsShopBoostsService");
 const { getGringottBalance, formatGaleoni } = require("./gringottService");
 const { SHOP_CATEGORY_LABELS } = require("../../Utils/Web/hogwartsShopCatalog");
+const { housePointPeriodKey, findHousePointPeriod } = require("../../Utils/Web/hogwartsHousePointPeriods");
+const { readMemberHousePoints, formatMemberPointsProfileLabel } = require("./hogwartsMemberHousePointsService");
 const HOUSE_POINTS_DOC = SITE_DOCUMENT_TYPE.HOGWARTS_HOUSE_POINTS;
 const HOUSE_POINTS_OWNER_ID = "__event__";
 
@@ -26,6 +28,17 @@ function readHouseTotals(pointsDoc) {
     out[houseId] = Math.max(0, Math.floor(Number(totals[houseId]) || 0));
   }
   return out;
+}
+
+function readHousePeriodPoints(pointsDoc, houseId, periodKey) {
+  const hid = String(houseId || "").trim();
+  const pk = String(periodKey || "").trim();
+  if (!hid || !pk || !HOUSES.includes(hid)) return 0;
+  const byPeriod = pointsDoc?.rawWebhook?.byPeriod && typeof pointsDoc.rawWebhook.byPeriod === "object"
+    ? pointsDoc.rawWebhook.byPeriod
+    : {};
+  const row = byPeriod[pk] && typeof byPeriod[pk] === "object" ? byPeriod[pk] : {};
+  return Math.max(0, Math.floor(Number(row[hid]) || 0));
 }
 
 function computeHouseCupRank(totals, houseId) {
@@ -62,12 +75,13 @@ function buildHogwartsProfileHomeLines(hw) {
     ? `🏠 **Casata:** ${hw.houseLabel || hw.houseId}`
     : "🏠 **Casata:** non smistato";
   const rankLine = hw.sorted
-    ? `🏆 **Coppa:** ${hw.cupRankLabel} (${Number(hw.houseCupPoints || 0).toLocaleString("it-IT")} pt.)`
+    ? `🏆 **Coppa:** ${hw.cupRankLabel} — ${hw.houseCupPointsLabel || "0 pt"}`
     : "🏆 **Coppa:** dopo lo smistamento";
   return [
     "",
     "<:VC_Hogwarts:1508766773837693061> **Evento Hogwarts**",
     `🪙 **Galeoni:** ${hw.galeoniLabel || formatGaleoni(0)}`,
+    `<:VC_Leaderboard:1482534806314287387> **Punti personali:** ${hw.memberPointsLabel || "0 pt"}`,
     houseLine,
     rankLine,
     "<:VC_Modifica:1478859646587633717> Dettagli shop e altro nel menu **Evento Hogwarts**.",
@@ -101,6 +115,11 @@ async function fetchHogwartsProfileSection(client, guildId, userId, member = nul
     cupRank: null,
     cupRankLabel: "—",
     houseCupPoints: 0,
+    houseCupPeriodPoints: 0,
+    houseCupPointsLabel: formatMemberPointsProfileLabel({ periodPoints: 0, totalPoints: 0 }, null),
+    memberPeriodPoints: 0,
+    memberTotalPoints: 0,
+    memberPointsLabel: formatMemberPointsProfileLabel({ periodPoints: 0, totalPoints: 0 }, null),
   };
   if (!isValidGuildUserId(g, u)) return base;
 
@@ -117,7 +136,7 @@ async function fetchHogwartsProfileSection(client, guildId, userId, member = nul
       userId: HOUSE_POINTS_OWNER_ID,
       dedupeKey: eventKey,
     })
-      .select("rawWebhook.totals")
+      .select("rawWebhook.totals rawWebhook.byMember rawWebhook.byPeriod")
       .lean()
       .catch(() => null),
   ]);
@@ -129,6 +148,16 @@ async function fetchHogwartsProfileSection(client, guildId, userId, member = nul
   const houseMeta = houseId ? getHouseMeta(houseId, crestUrl || undefined) : null;
   const totals = readHouseTotals(pointsDoc);
   const cupRank = houseId ? computeHouseCupRank(totals, houseId) : null;
+  const period = housePointPeriodKey();
+  const periodKey = String(period?.key || "").trim();
+  const periodMeta = findHousePointPeriod(periodKey);
+  const memberPts = readMemberHousePoints(pointsDoc, u, periodKey);
+  const houseTotalPoints = houseId ? (cupRank?.points ?? totals[houseId] ?? 0) : 0;
+  const housePeriodPoints = houseId && periodKey ? readHousePeriodPoints(pointsDoc, houseId, periodKey) : 0;
+  const houseCupPointsLabel = formatMemberPointsProfileLabel(
+    { periodPoints: housePeriodPoints, totalPoints: houseTotalPoints },
+    periodMeta,
+  );
 
   return {
     ...base,
@@ -140,7 +169,12 @@ async function fetchHogwartsProfileSection(client, guildId, userId, member = nul
     shopLines: formatShopInventoryLines(inventory),
     cupRank,
     cupRankLabel: cupRank ? `#${cupRank.rank} su ${cupRank.of}` : "—",
-    houseCupPoints: cupRank?.points || 0,
+    houseCupPoints: houseTotalPoints,
+    houseCupPeriodPoints: housePeriodPoints,
+    houseCupPointsLabel,
+    memberPeriodPoints: memberPts.periodPoints,
+    memberTotalPoints: memberPts.totalPoints,
+    memberPointsLabel: formatMemberPointsProfileLabel(memberPts, periodMeta),
   };
 }
 

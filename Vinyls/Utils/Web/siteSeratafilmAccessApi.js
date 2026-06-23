@@ -1,8 +1,6 @@
 const crypto = require("crypto");
-const IDs = require("../Config/ids");
 const { resolveWebsiteCandidatureMember } = require("../../Events/interaction/candidatureApplicationHandlers");
-
-const HIGH_STAFF_ROLE_ID = String(IDs?.roles?.HighStaff || "").trim();
+const { memberHasHogwartsPreviewStaffRole } = require("./hogwartsEventParticipation");
 const ACCESS_CACHE_TTL_MS = 90_000;
 const ACCESS_CACHE_MAX = 400;
 const accessCache = new Map();
@@ -51,7 +49,7 @@ function writeCachedAccess(token, payload) {
 }
 
 /**
- * GET Bearer: verifica che l'utente sia nel guild principale e abbia il ruolo High Staff (sito serata film).
+ * GET Bearer: verifica login Discord, appartenenza al server e ruolo staff anteprima (High Staff+).
  * @param {import("discord.js").Client} client
  * @param {import("express").Request} req
  * @param {import("express").Response} res
@@ -94,15 +92,8 @@ async function handleSiteSeratafilmAccessGet(client, req, res) {
         message: resolved.message,
       });
     }
-    if (!HIGH_STAFF_ROLE_ID) {
-      return res.status(503).json({
-        ok: false,
-        error: "misconfigured",
-        message: "Ruolo High Staff non configurato sul bot.",
-      });
-    }
     const member = resolved.member;
-    if (!member?.roles?.cache?.has(HIGH_STAFF_ROLE_ID)) {
+    if (!memberHasHogwartsPreviewStaffRole(member)) {
       writeCachedAccess(accessToken, {
         ok: false,
         status: 403,

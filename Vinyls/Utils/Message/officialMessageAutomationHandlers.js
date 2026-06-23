@@ -309,12 +309,27 @@ function logBumpSkipDebug(tag, message, reason, details = "") {
   } catch (_) { }
 }
 
-/** True se il bot ha già inviato un messaggio di ringraziamento bump in risposta a questo messaggio (evita duplicati dopo riavvio). */
-function hasExistingBumpThanksReply(channel, bumpMessageId, botUserId) {
-  if (!channel?.messages?.cache || !bumpMessageId || !botUserId) return false;
-  return channel.messages.cache.some(
-    (m) => m.author?.id === botUserId && String(m.reference?.messageId) === String(bumpMessageId),
-  );
+/** True se il bot ha già risposto al bump (reply o messaggio di ringraziamento nelle vicinanze). */
+async function hasExistingBumpThanksReply(channel, bumpMessageId, botUserId) {
+  if (!channel?.messages?.fetch || !bumpMessageId || !botUserId) return false;
+  const bumpId = String(bumpMessageId);
+  const thanksRe = /Grazie per aver [`']?bumpato[`']?|grazie per aver bumpato/i;
+  if (channel.messages?.cache?.some?.(
+    (m) => String(m.author?.id || "") === String(botUserId) && String(m.reference?.messageId || "") === bumpId,
+  )) {
+    return true;
+  }
+  const bumpMsg = channel.messages.cache.get(bumpId) || (await channel.messages.fetch(bumpId).catch(() => null));
+  const bumpTs = Number(bumpMsg?.createdTimestamp || 0);
+  const recent = await channel.messages.fetch({ limit: 100, ...(bumpMsg?.id ? { around: bumpMsg.id } : {}) }).catch(() => null);
+  if (!recent) return false;
+  for (const m of recent.values()) {
+    if (String(m.author?.id || "") !== String(botUserId)) continue;
+    if (String(m.reference?.messageId || "") === bumpId) return true;
+    const ts = Number(m.createdTimestamp || 0);
+    if (bumpTs && ts >= bumpTs && ts <= bumpTs + 10 * 60 * 1000 && thanksRe.test(String(m.content || ""))) return true;
+  }
+  return false;
 }
 
 async function getCachedOrFetchMember(guild, userId) {
@@ -715,6 +730,11 @@ async function handleDisboardBump(message, client) {
     logBumpSkipDebug("[DISBOARD BUMP DETECT]", message, "duplicate_message_dedupe");
     return true;
   }
+  const channel = message.channel || (await getGuildChannelCached(message.guild, message.channelId));
+  if (channel?.isTextBased?.() && (await hasExistingBumpThanksReply(channel, message.id, client.user?.id))) {
+    logBumpSkipDebug("[DISBOARD BUMP DETECT]", message, "already_thanked");
+    return true;
+  }
   let bumpUserId =
     message.interaction?.user?.id ||
     message.interactionMetadata?.user?.id ||
@@ -762,9 +782,7 @@ async function handleDisboardBump(message, client) {
       thanksMessage = parts.join("\n");
     }
   }
-  const channel = message.channel || (await getGuildChannelCached(message.guild, message.channelId));
   if (channel?.isTextBased?.()) {
-    if (hasExistingBumpThanksReply(channel, message.id, client.user?.id)) return true;
     try {
       await channel.send({
         content: thanksMessage.trim(),
@@ -858,6 +876,11 @@ async function handleDiscadiaBump(message, client) {
     logBumpSkipDebug("[DISCADIA BUMP DETECT]", message, "duplicate_message_dedupe");
     return true;
   }
+  const channel = message.channel || (message.channelId ? await getGuildChannelCached(message.guild, message.channelId) : null);
+  if (channel?.isTextBased?.() && (await hasExistingBumpThanksReply(channel, message.id, client.user?.id))) {
+    logBumpSkipDebug("[DISCADIA BUMP DETECT]", message, "already_thanked");
+    return true;
+  }
   let bumpUserId = message.interaction?.user?.id || message.interactionMetadata?.user?.id || extractUserIdFromText(message.content) || extractUserIdFromText(joined) || null;
   if (!bumpUserId) {
     const resolvedUser = await resolveUserFromMessage(message);
@@ -880,9 +903,7 @@ async function handleDiscadiaBump(message, client) {
   let thanksMessage = "<a:VC_ThankYou:1330186319673950401> **__Grazie per aver `bumpato` il server!__**\n" +
     "<:VC_HelloKittyGun:1329447880150220883> Ci __vediamo__ nuovamente tra **24 ore!**\n" +
     bumpMention;
-  const channel = message.channel || (message.channelId ? await getGuildChannelCached(message.guild, message.channelId) : null);
   if (channel?.isTextBased?.()) {
-    if (hasExistingBumpThanksReply(channel, message.id, client.user?.id)) return true;
     try {
       await channel.send({
         content: thanksMessage.trim(),
@@ -953,8 +974,10 @@ async function handlePauseChannelMessage(message) {
   return true;
 }
 
-const RECENT_VOTE_LOOKBACK_MS = 2 * 60 * 60 * 1000;
-const RECENT_VOTE_FETCH_LIMIT = 25;
+const RECENT_VOTE_LOOKBACK_MS = 24 * 60 * 60 * 1000;
+const RECENT_VOTE_FETCH_LIMIT = 80;
+
+const RECENT_BUMP_LOOKBACK_MS = 24 * 60 * 60 * 1000;
 
 async function processRecentVoteChannelMessages(client) {
   if (!client || !VOTE_CHANNEL_ID) return;
@@ -981,8 +1004,6 @@ async function processRecentVoteChannelMessages(client) {
     }
   }
 }
-
-const RECENT_BUMP_LOOKBACK_MS = 2 * 60 * 60 * 1000;
 
 async function processRecentCommandsChannelMessages(client) {
   if (!client || !COMMANDS_CHANNEL_ID) return;
@@ -1039,7 +1060,6 @@ async function processRecentPauseChannelMessages(client) {
 async function processAllRecentAutomationMessages(client) {
   await processRecentVoteChannelMessages(client);
   await processRecentCommandsChannelMessages(client);
-  await processRecentPauseChannelMessages(client);
 }
 
 module.exports = { channelAllowsMedia, getCachedOrFetchMember, handleDisboardBump, handleDiscadiaBump, handlePauseChannelMessage, handleThreadVoteMessage, handleMovieNightVoteMessage, handleVoteManagerMessage, hasMediaPermission, isDiscordInviteLinkMessage, isMediaMessage, processRecentVoteChannelMessages, processRecentCommandsChannelMessages, processRecentPauseChannelMessages, processAllRecentAutomationMessages, processDiscadiaVote };

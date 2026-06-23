@@ -7,6 +7,15 @@
   var FORBIDDEN_BOOKS_START_MS = new Date("2026-06-20T12:00:00").getTime();
   var FORBIDDEN_BOOKS_END_MS = new Date("2026-09-01T10:00:00").getTime();
   var FORBIDDEN_SITE_BOOKS_TOTAL = 8;
+  var PAGE_REVEAL_SESSION_KEY = "vc_site_session_reveal_v1";
+
+  try {
+    if (sessionStorage.getItem(PAGE_REVEAL_SESSION_KEY)) {
+      document.documentElement.classList.add("vc-skip-page-reveal");
+    } else {
+      sessionStorage.setItem(PAGE_REVEAL_SESSION_KEY, "1");
+    }
+  } catch (eReveal) {}
 
   function normalizeLegalPath(pathname) {
     var path = String(pathname || "/").replace(/\/+$/, "") || "/";
@@ -599,6 +608,40 @@
     return "Vinili & Caffè";
   }
 
+  function discordInvitePathNorm(cleanPath) {
+    return String(cleanPath || "").trim().toLowerCase();
+  }
+
+  function isSiteDiscordInvite(cleanPath) {
+    var path = discordInvitePathNorm(cleanPath);
+    if (!path) return false;
+    if (path.indexOf("viniliecaffe") !== -1) return true;
+    var siteInvite = "";
+    try {
+      var live = window.__VC_LIVE;
+      if (live && live.inviteCode) siteInvite = String(live.inviteCode).trim().toLowerCase();
+    } catch (e) {}
+    return Boolean(siteInvite && (path === siteInvite || path.indexOf(siteInvite + "-") === 0));
+  }
+
+  function discordPreviewSubtitle(anchor, cleanPath) {
+    var custom = anchor && anchor.getAttribute("data-vc-preview-subtitle");
+    if (custom && String(custom).trim()) return String(custom).trim();
+    var sponsorCfg = typeof window !== "undefined" ? window.__VC_SITE_SPONSOR_AD : null;
+    if (sponsorCfg && sponsorCfg.buttonUrl) {
+      try {
+        var sponsorUrl = new URL(String(sponsorCfg.buttonUrl), window.location.href);
+        var sponsorPath = String(sponsorUrl.pathname || "").replace(/^\/+/, "");
+        if (discordInvitePathNorm(sponsorPath) === discordInvitePathNorm(cleanPath)) {
+          var sponsorTitle = String(sponsorCfg.title || "").trim();
+          if (sponsorTitle) return "Entra su " + sponsorTitle;
+        }
+      } catch (e) {}
+    }
+    if (isSiteDiscordInvite(cleanPath)) return "Entra su " + siteDisplayNameForPreview();
+    return "Server Discord";
+  }
+
   function socialPreviewHandleFromCleanPath(cleanPath) {
     var seg = String(cleanPath || "").split("/")[0] || "";
     if (!seg) return "";
@@ -640,7 +683,7 @@
         iconHtml: DISCORD_PREVIEW_SVG,
         icoExtraClass: "vc-social-preview__ico--discord",
         title: "Discord",
-        subtitle: "Entra su " + siteDisplayNameForPreview(),
+        subtitle: discordPreviewSubtitle(anchor, cleanPath),
         urlText: host + "/" + (cleanPath || ""),
       };
     }
@@ -717,6 +760,8 @@
     });
     anchor.addEventListener("blur", hidePreview);
   }
+
+  window.__vcBindSocialPreview = bindSocialPreview;
 
   function initSocialPreviews() {
     var links = document.querySelectorAll(
@@ -970,6 +1015,8 @@
   var siteRealtimeWs = null;
   var siteRealtimeWsReconnectTimer = null;
   var SITE_NOTIFS_POLL_MS = 60000;
+  var siteNotifsVisibilityTimer = null;
+  var lastNotifRenderSig = "";
   /** Milliseconds the toast stays visible before flying to the bell. */
   var NOTIF_FLY_READ_MS = 4000;
   /** Fly animation duration (ms); match .vc-notif-fly-card--run in vc-landing.css. */
@@ -1147,6 +1194,30 @@
     }
   }
 
+  function buildNotifStoreSignature(items) {
+    var parts = [];
+    for (var si = 0; si < items.length; si += 1) {
+      var n = items[si];
+      if (!n) continue;
+      parts.push(
+        String(n.id || "") +
+          "\x1e" +
+          (n.read ? "1" : "0") +
+          "\x1e" +
+          String(n.at || 0) +
+          "\x1e" +
+          String(n.kind || "") +
+          "\x1e" +
+          String(n.title || "") +
+          "\x1e" +
+          String(n.body || "") +
+          "\x1e" +
+          String(n.openUrl || ""),
+      );
+    }
+    return parts.join("\x1f");
+  }
+
   function timeAgoIt(atMs) {
     var s = Math.floor((Date.now() - atMs) / 1000);
     if (s < 45) return "Ora";
@@ -1158,7 +1229,7 @@
     if (d < 7) return d === 1 ? "1 giorno fa" : d + " giorni fa";
     return "Più di una settimana fa";
   }
-  function render() {
+  function render(options) {
     var root = document.getElementById("vc-notif-dropdown");
     var listEl = document.getElementById("vc-notif-list");
     var badge = document.getElementById("vc-notif-badge");
@@ -1168,6 +1239,8 @@
     var unread = all.filter(function (n) {
       return !n.read;
     }).length;
+    var sig = buildNotifStoreSignature(all) + "|u:" + unread;
+    var force = options && options.force === true;
     if (unread > 0) {
       badge.hidden = false;
       badge.textContent = unread > 99 ? "99+" : String(unread);
@@ -1177,6 +1250,8 @@
     sub.textContent = unread + " non lette";
     if (all.length > 0) root.classList.add("vc-notif-dropdown--has-items");
     else root.classList.remove("vc-notif-dropdown--has-items");
+    if (!force && sig === lastNotifRenderSig) return;
+    lastNotifRenderSig = sig;
     listEl.innerHTML = "";
     all.forEach(function (n) {
       var li = document.createElement("li");
@@ -1667,7 +1742,7 @@
       ws.onmessage = function (ev) {
         try {
           var data = JSON.parse(String(ev.data || "{}"));
-          if (data.type === "notifications_changed" || data.type === "realtime_hello") {
+          if (data.type === "notifications_changed") {
             syncSiteNotificationsFromServer();
           }
         } catch (e3) {}
@@ -1790,6 +1865,8 @@
   }
   function mergeStoredWithServerNotificationList(list, uid) {
     var oldItems = loadStored();
+    var beforeSig = buildNotifStoreSignature(oldItems);
+    var dismissed = loadDismissedSet(uid);
     var oldIdMap = {};
     for (var oi = 0; oi < oldItems.length; oi += 1) {
       var oix = oldItems[oi];
@@ -1809,7 +1886,6 @@
       serverIdMap[sid] = true;
       fromServer.unshift(mapped);
     }
-    var dismissed = loadDismissedSet(uid);
     var keepLocal = [];
     for (var li = 0; li < oldItems.length; li += 1) {
       var it = oldItems[li];
@@ -1822,7 +1898,9 @@
       if (dismissed.has(lid) || dismissed.has(fpId)) continue;
       keepLocal.push(it);
     }
-    saveStored(keepLocal.concat(fromServer));
+    var merged = keepLocal.concat(fromServer);
+    saveStored(merged);
+    var changed = beforeSig !== buildNotifStoreSignature(merged);
     var freshMs = 600000;
     var toastRow = null;
     for (var ti = 0; ti < fromServer.length; ti += 1) {
@@ -1844,7 +1922,7 @@
         break;
       }
     }
-    return toastRow;
+    return { toastRow: toastRow, changed: changed };
   }
   function syncSiteNotificationsFromServer() {
     var token = getDiscordAccessToken();
@@ -1876,12 +1954,12 @@
       .then(function (j) {
         if (!j || j.ok !== true || !Array.isArray(j.items)) return;
         var list = j.items.slice().reverse();
-        var toastRow = mergeStoredWithServerNotificationList(list, uid);
-        render();
-        if (toastRow) {
+        var mergeResult = mergeStoredWithServerNotificationList(list, uid);
+        if (mergeResult.changed) render();
+        if (mergeResult.toastRow) {
           playNotifSound();
           window.requestAnimationFrame(function () {
-            showNotifFlyToast(toastRow);
+            showNotifFlyToast(mergeResult.toastRow);
           });
         }
       })
@@ -1979,7 +2057,8 @@
   }
   window.addEventListener("vc-discord-profile", function (ev) {
     setCurrentUser(ev && ev.detail ? ev.detail.user : null);
-    render();
+    lastNotifRenderSig = "";
+    render({ force: true });
     syncGlobalNotifOverlayClass();
     flushPendingLoginNotification();
     if (normalizeUserId(currentUserId) && getDiscordAccessToken()) {
@@ -1994,9 +2073,13 @@
     disconnectSiteRealtimeWs();
   });
   document.addEventListener("visibilitychange", function () {
-    if (document.visibilityState === "visible" && normalizeUserId(currentUserId) && getDiscordAccessToken()) {
+    if (document.visibilityState !== "visible") return;
+    if (!normalizeUserId(currentUserId) || !getDiscordAccessToken()) return;
+    if (siteNotifsVisibilityTimer) clearTimeout(siteNotifsVisibilityTimer);
+    siteNotifsVisibilityTimer = setTimeout(function () {
+      siteNotifsVisibilityTimer = null;
       syncSiteNotificationsFromServer();
-    }
+    }, 400);
   });
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", init);
@@ -2017,6 +2100,7 @@
   var revealForbiddenBooksTimer = null;
   var forbiddenBooksSyncGen = 0;
   var forbiddenBooksPreviewViewer = false;
+  var forbiddenBooksRoundState = null;
   var mq = null;
   var drawer = null;
   var toggle = null;
@@ -2393,6 +2477,7 @@
 
   function init() {
     revealForbiddenSectionBooks();
+    window.setInterval(revealForbiddenSectionBooks, 30000);
     ensure();
     var m = getMq();
     if (m.addEventListener) m.addEventListener("change", onMqChange);
@@ -2417,10 +2502,16 @@
 
   function applyForbiddenBooksVisibility(books, collected, options) {
     var list = mergeForbiddenCollected(collected);
-    var now = Date.now();
-    var canShow = now >= FORBIDDEN_BOOKS_START_MS || Boolean(options && options.previewViewer);
+    var status = forbiddenBooksRoundState || {};
+    var activeIds = Array.isArray(status.bookIds) ? status.bookIds.map(String) : [];
+    var canShow = status.roundActive === true || Boolean(options && options.previewViewer);
     for (var i = 0; i < books.length; i += 1) {
       var id = forbiddenBookId(books[i]);
+      if (activeIds.length && activeIds.indexOf(id) === -1) {
+        if (books[i].__vcFlyTimer) window.clearInterval(books[i].__vcFlyTimer);
+        books[i].remove();
+        continue;
+      }
       if (list.indexOf(id) !== -1) {
         if (books[i].__vcFlyTimer) window.clearInterval(books[i].__vcFlyTimer);
         books[i].__vcFlyTimer = null;
@@ -2443,22 +2534,37 @@
   function revealForbiddenSectionBooksImpl() {
     revealForbiddenBooksTimer = null;
     var now = Date.now();
-    ensureForbiddenBookForCurrentPage();
-    var books = document.querySelectorAll("[data-vc-forbidden-book]");
-    if (!books.length) return;
-    if (!Number.isFinite(FORBIDDEN_BOOKS_START_MS) || (Number.isFinite(FORBIDDEN_BOOKS_END_MS) && now > FORBIDDEN_BOOKS_END_MS)) {
-      removeForbiddenBooks(books);
-      return;
+
+    function proceed() {
+      ensureForbiddenBookForCurrentPage();
+      var books = document.querySelectorAll("[data-vc-forbidden-book]");
+      if (!books.length) return;
+      if (!Number.isFinite(FORBIDDEN_BOOKS_START_MS) || (Number.isFinite(FORBIDDEN_BOOKS_END_MS) && now > FORBIDDEN_BOOKS_END_MS)) {
+        removeForbiddenBooks(books);
+        return;
+      }
+      if (getDiscordAccessTokenForForbiddenBooks()) {
+        syncForbiddenBooksFromServer(books);
+        return;
+      }
+      if (now < FORBIDDEN_BOOKS_START_MS) {
+        hideForbiddenBooks(books);
+        return;
+      }
+      applyForbiddenBooksVisibility(books, readForbiddenBooks(), {});
     }
-    if (getDiscordAccessTokenForForbiddenBooks()) {
-      syncForbiddenBooksFromServer(books);
-      return;
-    }
-    if (now < FORBIDDEN_BOOKS_START_MS) {
-      hideForbiddenBooks(books);
-      return;
-    }
-    applyForbiddenBooksVisibility(books, readForbiddenBooks(), {});
+
+    fetchForbiddenBooksPublicStatus().then(function (status) {
+      forbiddenBooksRoundState = status && status.ok === true ? status : null;
+      if (status && status.ok && forbiddenHuntEnded(status)) {
+        removeAllForbiddenBooks();
+        return;
+      }
+      proceed();
+    }).catch(function () {
+      forbiddenBooksRoundState = null;
+      proceed();
+    });
   }
 
   function currentForbiddenBookPageId() {
@@ -2472,6 +2578,20 @@
       "/vote": "vote",
       "/ruoli": "ruoli",
       "/sponsor": "sponsor",
+      "/candidature": "candidature",
+      "/evento/shop": "evento_shop",
+      "/evento/pozioni": "evento_pozioni",
+      "/evento/smistamento": "evento_smistamento",
+      "/evento/coppa": "evento_coppa",
+      "/recensioni": "recensioni",
+      "/suggerimenti": "suggerimenti",
+      "/user": "user",
+      "/perks": "perks",
+      "/notifications": "notifications",
+      "/unban": "unban",
+      "/privacy": "privacy",
+      "/terms": "terms",
+      "/cookie": "cookie",
     };
     return map[path] || "";
   }
@@ -2480,6 +2600,10 @@
     if (document.querySelector("[data-vc-forbidden-book]")) return;
     var id = currentForbiddenBookPageId();
     if (!id || !document.body) return;
+    var status = forbiddenBooksRoundState || {};
+    if (status.roundActive !== true) return;
+    var activeIds = Array.isArray(status.bookIds) ? status.bookIds.map(String) : [];
+    if (activeIds.length && activeIds.indexOf(id) === -1) return;
     var el = document.createElement("span");
     el.className = "vc-forbidden-book";
     el.setAttribute("data-vc-forbidden-book", id);
@@ -2497,9 +2621,14 @@
     }
   }
 
+  function forbiddenBooksStorageKey() {
+    var roundId = forbiddenBooksRoundState && forbiddenBooksRoundState.roundId;
+    return FORBIDDEN_BOOKS_KEY + (roundId ? "_" + String(roundId) : "");
+  }
+
   function readForbiddenBooks() {
     try {
-      var raw = window.localStorage ? window.localStorage.getItem(FORBIDDEN_BOOKS_KEY) : "";
+      var raw = window.localStorage ? window.localStorage.getItem(forbiddenBooksStorageKey()) : "";
       var parsed = raw ? JSON.parse(raw) : [];
       return Array.isArray(parsed) ? parsed.map(String) : [];
     } catch (_) {
@@ -2509,7 +2638,7 @@
 
   function saveForbiddenBooks(ids) {
     try {
-      if (window.localStorage) window.localStorage.setItem(FORBIDDEN_BOOKS_KEY, JSON.stringify(ids));
+      if (window.localStorage) window.localStorage.setItem(forbiddenBooksStorageKey(), JSON.stringify(ids));
     } catch (_) {}
   }
 
@@ -2554,11 +2683,11 @@
         el.classList.add("vc-forbidden-book--caught");
         el.setAttribute("title", "Libro raccolto");
         el.setAttribute("aria-label", "Libro proibito raccolto");
-        showForbiddenBookToast(current.length, data.closed ? "Libro raccolto. La caccia ai libri proibiti è conclusa!" : "");
+        showForbiddenBookToast(current.length, forbiddenHuntEnded(data) ? "Libro raccolto. La caccia ai libri proibiti è conclusa!" : "");
         window.setTimeout(function () {
           el.remove();
         }, 220);
-        if (data.closed) removeAllForbiddenBooks();
+        if (forbiddenHuntEnded(data)) removeAllForbiddenBooks();
       }).catch(function (err) {
         el.__vcClaiming = false;
         showForbiddenBookToast(readForbiddenBooks().length, err && err.message ? err.message : "Per raccoglierlo devi accedere e aver completato lo smistamento.");
@@ -2577,6 +2706,28 @@
 
   function forbiddenBooksApiUrl() {
     return String(window.__VC_HOGWARTS_FORBIDDEN_BOOKS_API || "/webhooks/site-hogwarts-sorting/forbidden-books").trim() || "/webhooks/site-hogwarts-sorting/forbidden-books";
+  }
+
+  function forbiddenBooksPublicStatusUrl() {
+    return String(window.__VC_HOGWARTS_FORBIDDEN_BOOKS_STATUS_API || "/webhooks/site-hogwarts-sorting/forbidden-books/status").trim() || "/webhooks/site-hogwarts-sorting/forbidden-books/status";
+  }
+
+  function forbiddenHuntEnded(data) {
+    if (!data || data.ok !== true) return false;
+    if (data.roundActive !== true) return true;
+    return data.closed === true;
+  }
+
+  function fetchForbiddenBooksPublicStatus() {
+    return fetch(forbiddenBooksPublicStatusUrl(), { cache: "no-store" })
+      .then(function (res) {
+        return res.json().catch(function () {
+          return {};
+        });
+      })
+      .catch(function () {
+        return {};
+      });
   }
 
   function getDiscordAccessTokenForForbiddenBooks() {
@@ -2627,9 +2778,10 @@
     forbiddenBooksRequest("GET").then(function (data) {
       if (gen !== forbiddenBooksSyncGen) return;
       forbiddenBooksPreviewViewer = data.previewViewer === true;
+      forbiddenBooksRoundState = data;
       var collected = Array.isArray(data.collectedBookIds) ? data.collectedBookIds.map(String) : [];
       saveForbiddenBooks(collected);
-      if (data.closed) {
+      if (forbiddenHuntEnded(data)) {
         removeAllForbiddenBooks();
         return;
       }

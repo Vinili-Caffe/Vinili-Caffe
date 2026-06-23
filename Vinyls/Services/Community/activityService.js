@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const { ensureMongoReady } = require("../../Utils/Database/mongoConnect");
 const { ActivityUserProfile, ActivityGuildHourly } = require("../../Schemas/Community/communitySchemas");
 const { isValidGuildUserId, isValidGuildUserIdChannelId } = require("../../Utils/DB/validateWriteIds");
 const { addExpWithLevel, MESSAGE_EXP, VOICE_EXP_PER_MINUTE, shouldIgnoreExpForMember, isLevelExpGuild, } = require("./expService");
@@ -721,7 +722,8 @@ async function getOrCreateActivityUser(guildId, userId) {
 
 async function recordMessageActivity(message) {
   if (!isViniliFullFeatureGuild(message?.guild?.id)) return;
-  if (mongoose.connection?.readyState !== 1) {
+  const mongoOk = await ensureMongoReady({ maxWaitMs: 4000 });
+  if (!mongoOk) {
     if (process.env.ACTIVITY_DEBUG === "1") {
       console.error("[ACTIVITY] recordMessageActivity skip: mongoose non connesso", mongoose.connection?.readyState);
     }

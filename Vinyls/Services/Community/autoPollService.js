@@ -1,4 +1,4 @@
-const cron = require("node-cron");
+﻿const cron = require("node-cron");
 const axios = require("axios");
 const Poll = require("../../Schemas/Poll/pollSchema");
 const IDs = require("../../Utils/Config/ids");
@@ -28,15 +28,6 @@ const MIN_MAX_CANDIDATE_ATTEMPTS = 5;
 const ABS_MAX_CANDIDATE_ATTEMPTS = 250;
 const GENERIC_OPENROUTER_MODEL_ALIASES = new Set(["openrouter/free", "openrouter/auto"]);
 let openRouterCooldownUntil = 0;
-const WARN_POLL_OPENROUTER_INTERVAL_MS = 60 * 1000;
-let lastWarnPollOpenRouterAt = 0;
-
-function warnPollOpenRouter(...args) {
-  const now = Date.now();
-  if (now - lastWarnPollOpenRouterAt < WARN_POLL_OPENROUTER_INTERVAL_MS) return;
-  lastWarnPollOpenRouterAt = now;
-  global.logger?.warn?.("[poll.auto]", ...args);
-}
 
 const LOCAL_POLLS_BANK = [
   { question: "Qual è il momento migliore della giornata?", answers: ["Mattina presto", "Tarda mattinata", "Pomeriggio", "Prima serata", "Notte"] },
@@ -327,7 +318,7 @@ function isRomeTimeOnOrAfterDailyTrigger(now = new Date(), cfg = {}) {
   return rh * 60 + rm >= triggerTotal;
 }
 
-/** Finestra “stretta” oppure stesso giorno Roma dopo l’inizio finestra (per retry/recovery fino a mezzanotte). */
+/** Finestra "stretta" oppure stesso giorno Roma dopo l'inizio finestra (per retry/recovery fino a mezzanotte). */
 function canRunAutoPollNow(now = new Date(), cfg = {}, catchUp = false) {
   if (isWithinAutoPollWindow(now, cfg)) return true;
   if (!catchUp) return false;
@@ -572,9 +563,6 @@ async function fetchPollFromOpenRouter(cfg = {}, forcedTargetOptions = null) {
     }
   }
 
-  if (lastError && !had429) {
-    warnPollOpenRouter("all OpenRouter model attempts failed:", lastError?.message || lastError);
-  }
   return null;
 }
 
@@ -592,7 +580,7 @@ async function fetchPollFromOpenRouterWithRetry(cfg = {}, forcedTargetOptions = 
   while (msUntilRomeLocalHourDeadline(deadlineHour) > 0) {
     for (let round = 0; round < maxRounds; round += 1) {
       if (isOpenRouterCoolingDown()) break;
-      const payload = await fetchPollFromOpenRouter(cfg, forcedTargetOptions).catch((error) => { global.logger?.warn?.("[poll.auto] OpenRouter round failed:", error?.message || error); return null; });
+      const payload = await fetchPollFromOpenRouter(cfg, forcedTargetOptions).catch(() => null);
       if (payload?.question && Array.isArray(payload?.answers) && payload.answers.length >= 4) {
         return payload;
       }
@@ -617,11 +605,6 @@ async function fetchPollFromOpenRouterWithRetry(cfg = {}, forcedTargetOptions = 
     if (stagger > 0) await sleep(stagger);
   }
 
-  if (isOpenRouterCoolingDown()) {
-    warnPollOpenRouter("OpenRouter in cooldown (rate limit): nessun poll entro le 22:00 Roma, fallback locale.");
-  } else {
-    warnPollOpenRouter("OpenRouter: tentativi fino alle 22:00 Roma senza poll valido, fallback locale.");
-  }
   return null;
 }
 
@@ -633,10 +616,7 @@ async function pickPollCandidate(cfg = {}, forcedTargetOptions = null) {
     let candidate = null;
 
     if (source === "openrouter") {
-      candidate = await fetchPollFromOpenRouterWithRetry(cfg, forcedTargetOptions).catch((error) => {
-        global.logger?.warn?.("[poll.auto] openrouter generation failed:", error?.message || error);
-        return null;
-      });
+      candidate = await fetchPollFromOpenRouterWithRetry(cfg, forcedTargetOptions).catch(() => null);
       if (!candidate) candidate = buildLocalAttualitaPoll(cfg, forcedTargetOptions);
     }
 
@@ -696,7 +676,7 @@ async function runRecoveryAutoPollIfNeeded(client) {
   const now = new Date();
   if (!isRomeTimeOnOrAfterDailyTrigger(now, cfg)) return;
   if (!canRunAutoPollNow(now, cfg, true)) return;
-  global.logger?.info?.("[poll.auto] recovery: oggi non risulta un poll automatico dopo l’orario programmato, tento la pubblicazione.");
+  global.logger?.info?.("[poll.auto] recovery: oggi non risulta un poll automatico dopo l'orario programmato, tento la pubblicazione.");
   await runAutoPollAndMaybeScheduleRetry(client, { catchUp: true });
 }
 

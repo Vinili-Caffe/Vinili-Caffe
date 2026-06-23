@@ -1,9 +1,9 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType } = require("discord.js");
-const { AvatarPrivacy, BannerPrivacy, QuotePrivacy } = require("../Schemas/Community/communitySchemas");
+const { PRIVACY_CONTENT_KINDS, PRIVACY_CONTENT_LABELS, privacyContentModel } = require("./privacyContentKinds");
 
 const PREFIX = "privacy_panel_";
-const KINDS = ["avatar", "banner", "quotes"];
-const LABELS = { avatar: "Avatar", banner: "Banner", quotes: "Quote" };
+const KINDS = PRIVACY_CONTENT_KINDS;
+const LABELS = PRIVACY_CONTENT_LABELS;
 const EMOJI_OFF = "<:VC_OfflineStatus:1482527117051957380>";
 const EMOJI_ON = "<:VC_OnlineStatus:1482527088912240650>";
 const BTN_EMOJI_OFF = "<:VC_OfflineStatus:1482527117051957380>";
@@ -52,20 +52,19 @@ async function _reply(message, payload) {
 }
 
 async function loadStates(guildId, userId) {
-  const [av, bn, qu] = await Promise.all([
-    AvatarPrivacy.findOne({ guildId, userId }).lean().catch(() => null),
-    BannerPrivacy.findOne({ guildId, userId }).lean().catch(() => null),
-    QuotePrivacy.findOne({ guildId, userId }).lean().catch(() => null),
-  ]);
-  return {
-    avatar: Boolean(av?.blocked),
-    banner: Boolean(bn?.blocked),
-    quotes: Boolean(qu?.blocked),
-  };
+  const entries = await Promise.all(
+    KINDS.map(async (kind) => {
+      const Model = privacyContentModel(kind);
+      const doc = Model ? await Model.findOne({ guildId, userId }).lean().catch(() => null) : null;
+      return [kind, Boolean(doc?.blocked)];
+    }),
+  );
+  return Object.fromEntries(entries);
 }
 
 async function setKindBlocked(guildId, userId, kind, blocked) {
-  const Model = kind === "avatar" ? AvatarPrivacy : kind === "banner" ? BannerPrivacy : QuotePrivacy;
+  const Model = privacyContentModel(kind);
+  if (!Model) return;
   await Model.findOneAndUpdate(
     { guildId, userId },
     { $set: { blocked: Boolean(blocked) }, $setOnInsert: { guildId, userId } },
@@ -83,13 +82,13 @@ function buildPanelEmbed(states) {
     return `• **${LABELS[key]}**: ${hidden ? `${EMOJI_OFF} Nascosto / bloccato` : `${EMOJI_ON} Visibile`}`;
   });
   const desc = [
-    "<:VC_PinkQuestionMark:1471892611026391306> Gestisci **privacy** di avatar, banner e quote in questo server.",
+    "<:VC_PinkQuestionMark:1471892611026391306> Gestisci **privacy** di avatar, banner, quote e repost in questo server.",
     "",
     ...lines,
     "",
-    "Clicca un pulsante per alternare. **Blocca tutto** / **Sblocca tutto** applica alle tre voci.",
+    "Clicca un pulsante per alternare. **Blocca tutto** / **Sblocca tutto** applica alle quattro voci.",
     "",
-    "<a:VC_Exclamation:1482534702077444217> In canale: gli altri non vedono avatar o banner se bloccati; le **quote** dei tuoi messaggi non si possono creare se bloccate.",
+    "<a:VC_Exclamation:1482534702077444217> In canale: avatar e banner nascosti se bloccati; **quote** e **repost** dei tuoi messaggi non si possono creare se bloccati.",
   ].join("\n");
 
   return new EmbedBuilder()

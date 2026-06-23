@@ -127,13 +127,13 @@
             ]
         },
         "punticasa": {
-            "roles": [
-                "roles.Founder",
-                "roles.Admin",
-                "roles.HighStaff"
-            ],
+            "punticasaPrefectOnly": true,
             "channels": [
-                "channels.highCmds"
+                "channels.highCmds",
+                "channels.hogwartsHouseGryffindor",
+                "channels.hogwartsHouseHufflepuff",
+                "channels.hogwartsHouseRavenclaw",
+                "channels.hogwartsHouseSlytherin"
             ]
         },
         "me": {
@@ -674,7 +674,7 @@
                 "channels.vocaleSquad3"
             ]
         },
-        "myrepost": {
+        "clip": {
             "roles": [
                 "roles.ServerBooster",
                 "roles.donator",
@@ -699,6 +699,19 @@
                 "channels.vocaleSquad1",
                 "channels.vocaleSquad2",
                 "channels.vocaleSquad3"
+            ]
+        },
+        "myrepost": {
+            "roles": [
+                "roles.ServerBooster",
+                "roles.donator",
+                "roles.VIP",
+                "roles.Level10"
+            ],
+            "channels": [
+                "channels.commands",
+                "channels.staffCmds",
+                "channels.highCmds"
             ]
         },
         "rank": {
@@ -732,25 +745,14 @@
         },
         "blacklist": {
             "roles": [
-                "roles.HighStaff",
+                "roles.Staff",
                 "roles.PartnerManager"
             ],
             "channels": [
                 "channels.highCmds",
+                "channels.staffCmds",
                 "channels.partnersChat"
-            ],
-            "subcommands": {
-                "add": [
-                    "roles.HighStaff"
-                ],
-                "remove": [
-                    "roles.HighStaff"
-                ],
-                "list": [
-                    "roles.HighStaff",
-                    "roles.PartnerManager"
-                ]
-            }
+            ]
         },
         "server": {
             "roles": [
@@ -1628,6 +1630,50 @@
             "roles.Director",
             "roles.HighStaff"
         ],
+        "punticasa_panel:pick:*": {
+            "punticasaPrefectOnly": true,
+            "channels": [
+                "channels.highCmds",
+                "channels.hogwartsHouseGryffindor",
+                "channels.hogwartsHouseHufflepuff",
+                "channels.hogwartsHouseRavenclaw",
+                "channels.hogwartsHouseSlytherin"
+            ],
+            "ownerSegment": 2
+        },
+        "punticasa_panel:switch:*": {
+            "punticasaPrefectOnly": true,
+            "channels": [
+                "channels.highCmds",
+                "channels.hogwartsHouseGryffindor",
+                "channels.hogwartsHouseHufflepuff",
+                "channels.hogwartsHouseRavenclaw",
+                "channels.hogwartsHouseSlytherin"
+            ],
+            "ownerSegment": 2
+        },
+        "punticasa_panel:btn:*": {
+            "punticasaPrefectOnly": true,
+            "channels": [
+                "channels.highCmds",
+                "channels.hogwartsHouseGryffindor",
+                "channels.hogwartsHouseHufflepuff",
+                "channels.hogwartsHouseRavenclaw",
+                "channels.hogwartsHouseSlytherin"
+            ],
+            "ownerSegment": 4
+        },
+        "punticasa_panel_modal:*": {
+            "punticasaPrefectOnly": true,
+            "channels": [
+                "channels.highCmds",
+                "channels.hogwartsHouseGryffindor",
+                "channels.hogwartsHouseHufflepuff",
+                "channels.hogwartsHouseRavenclaw",
+                "channels.hogwartsHouseSlytherin"
+            ],
+            "ownerSegment": 3
+        },
         "ping": [
             "roles.Member"
         ],

@@ -3,7 +3,7 @@ const fs = require("fs");
 const path = require("path");
 
 const PERMISSIONS_CANDIDATES=[path.resolve(__dirname,"../permissions.json"),path.join(process.cwd(),"permissions.json"),];
-const REMOVED_PREFIX_COMMANDS = new Set(["colors", "staff", "verify"]);
+const REMOVED_PREFIX_COMMANDS = new Set(["colors", "staff", "verify", "ai"]);
 let prefixPermissionsCache = { filePath: null, mtimeMs: 0, data: {} };
 
 function loadPrefixPermissions() {

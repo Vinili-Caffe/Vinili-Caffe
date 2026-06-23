@@ -91,7 +91,7 @@ const PREFIX_HELP_DESCRIPTIONS = {
   security: "Pannello sicurezza con toggle moduli istantanei (Founder).",
   level: "Pannello gestione livelli.",
   quote: "Genera una quote da un messaggio.",
-  repost: "Condivide un messaggio sulla bacheca quote (rispondi al messaggio).",
+  repost: "Condivide un messaggio sulla bacheca (testo, immagini, vocali, audio, video e allegati).",
   myrepost: "Elenco dei repost che hai pubblicato sulla bacheca.",
   pause: "Mette in pausa la traccia in riproduzione.",
   resume: "Riprende la traccia in pausa.",
@@ -102,6 +102,7 @@ const PREFIX_HELP_DESCRIPTIONS = {
   clear: "Svuota la coda dei brani in attesa.",
   repeat: "Ripetizione traccia, ripetizione della coda, disattiva tutto.",
   previous: "Torna al brano riprodotto prima di quello attuale.",
+  sezioneproibita: "Verifica libri proibiti sul sito o assegna vincitori evento."
 };
 
 const PREFIX_SUBCOMMAND_HELP_DESCRIPTIONS = {
@@ -317,6 +318,8 @@ function getPrefixSubcommandDescription(command, subcommandName) {
   if (PREFIX_SUBCOMMAND_HELP_DESCRIPTIONS[key]) {
     return withOwnerNote(PREFIX_SUBCOMMAND_HELP_DESCRIPTIONS[key]);
   }
+  const fromCommand = String(command?.description || "").trim();
+  if (fromCommand) return withOwnerNote(fromCommand);
   return withOwnerNote("Descrizione non disponibile.");
 }
 
@@ -444,14 +447,12 @@ function getSubcommandEntries(commandName, dataJson, permissionConfig, commandTy
   return entries;
 }
 
-/** Slash rimossi dal codice: nascosti dall'help (stessi nomi della purge REST). */
 const OBSOLETE_SLASH_HELP_NAMES = new Set(
   (Array.isArray(DEFAULT_OBSOLETE_SLASH_NAMES) ? DEFAULT_OBSOLETE_SLASH_NAMES : [])
     .map((s) => String(s || "").trim().toLowerCase())
     .filter(Boolean),
 );
 
-/** Prefix rimossi dal progetto: non elencati in +help (copre deploy parziali o file residui). */
 const OBSOLETE_PREFIX_HELP_NAMES = new Set([
   "staff",
   "colors",

@@ -2,7 +2,8 @@ const { EmbedBuilder } = require("discord.js");
 const IDs = require("../../Utils/Config/ids");
 const { getGuildMemberCached, getGuildChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
-const { wasRoleRestoredByMuteMirror } = require("../Moderation/mutedMirrorRoleService");
+const { wasRoleRestoredByMuteMirror } = require("../../Utils/Moderation/muteRestoreAnnounceSuppress");
+const { applyPronounGenderToEmbedForMember } = require("../../Utils/Community/pronounGenderUtils");
 const GLOBAL_GUILDED_ROLE_ID = IDs.roles.Guilded;
 const MAIN_GUILD_ID = IDs.guilds.main;
 const ANNOUNCE_CHANNEL_ID = IDs.channels.supporters;
@@ -145,7 +146,7 @@ async function deleteGuildedAnnouncementForUser(member) {
     if (String(msg.author?.id || "") !== String(member.client?.user?.id || "")) continue;
     const embeds = Array.isArray(msg.embeds) ? msg.embeds : [];
     const hasGuildedTitle = embeds.some((e) =>
-      String(e?.title || e?.data?.title || "").toLowerCase().includes("Nuovx guilded"),
+      /nuov\w* guilded/i.test(String(e?.title || e?.data?.title || "")),
     );
     const mentionsUser = String(msg.content || "").includes(`<@${uid}>`) || String(msg.content || "").includes(`<@!${uid}>`);
     if (!hasGuildedTitle && !mentionsUser) continue;
@@ -334,6 +335,7 @@ async function announceNewGuildedMember(member, tag, roleIdAssigned = null) {
         ].join("\n"),
       )
       .setFooter({ text: "Grazie per il tuo supporto!" });
+    applyPronounGenderToEmbedForMember(embed, member);
 
     const sent = await channel
       .send({

@@ -722,12 +722,15 @@ function scheduleEventLevelUpMessage(clientOrGuild, guildId, userId, level, prev
 
 async function sendLevelUpPayload(channel, member, payload) {
   if (!channel || !member || !payload) return;
-  await channel
-    .send({
+  const { applyPronounGenderToPayload } = require("../../Utils/Community/pronounGenderUtils");
+  const outgoing = applyPronounGenderToPayload(
+    {
       content: `<a:VC_LevelUp:1482527020641419415> ${member} sei salito/a di livello!`,
       ...payload,
-    })
-    .catch(() => { });
+    },
+    member,
+  );
+  await channel.send(outgoing).catch(() => { });
 }
 
 async function incrementMinigameWinCounters(guildId, userId, effectiveExp, newStreak, bestStreak) {
@@ -1066,7 +1069,7 @@ async function isChannelEligibleForMemberExp(guild, channelId) {
   return false;
 }
 
-async function shouldIgnoreExpForMember({ guildId, member, channelId = null }) {
+async function shouldIgnoreExpForMember({ guildId, member, channelId = null, skipIgnoredRoleIds = false }) {
   const settings = await getGuildExpSettings(guildId);
   const chId = channelId != null ? String(channelId) : "";
   if (chId) {
@@ -1086,7 +1089,7 @@ async function shouldIgnoreExpForMember({ guildId, member, channelId = null }) {
     const allowed = await isChannelEligibleForMemberExp(guild, chId);
     if (!allowed) return true;
   }
-  if (member?.roles?.cache && settings.ignoredRoleIds.length > 0) {
+  if (!skipIgnoredRoleIds && member?.roles?.cache && settings.ignoredRoleIds.length > 0) {
     for (const roleId of settings.ignoredRoleIds) {
       if (member.roles.cache.has(roleId)) return true;
     }

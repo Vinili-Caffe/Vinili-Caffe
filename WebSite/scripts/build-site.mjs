@@ -53,7 +53,46 @@ const EXCLUDE = new Set([
 ]);
 
 function rmrf(dir) {
-  if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true, force: true });
+  if (!fs.existsSync(dir)) return;
+  try {
+    fs.rmSync(dir, { recursive: true, force: true });
+    return;
+  } catch {
+    rmrfContentsExceptLockedLarge(dir);
+    try {
+      if (fs.existsSync(dir) && fs.readdirSync(dir).length === 0) fs.rmdirSync(dir);
+    } catch { /* */ }
+  }
+}
+
+const LARGE_ASSET_MIN_BYTES = 40 * 1024 * 1024;
+
+function rmrfContentsExceptLockedLarge(dir) {
+  for (const name of fs.readdirSync(dir)) {
+    const p = path.join(dir, name);
+    let st;
+    try {
+      st = fs.statSync(p);
+    } catch {
+      continue;
+    }
+    if (st.isDirectory()) {
+      rmrfContentsExceptLockedLarge(p);
+      try {
+        if (fs.readdirSync(p).length === 0) fs.rmdirSync(p);
+      } catch { /* */ }
+    } else {
+      try {
+        fs.unlinkSync(p);
+      } catch (err) {
+        if (st.size >= LARGE_ASSET_MIN_BYTES) {
+          console.warn(`[build-site] File grande in uso, mantengo: ${path.relative(ROOT, p)}`);
+        } else {
+          throw err;
+        }
+      }
+    }
+  }
 }
 
 function copyRecursive(srcDir, dstDir) {
@@ -64,7 +103,15 @@ function copyRecursive(srcDir, dstDir) {
     const dst = path.join(dstDir, name);
     const st = fs.statSync(src);
     if (st.isDirectory()) copyRecursive(src, dst);
-    else fs.copyFileSync(src, dst);
+    else {
+      if (st.size >= LARGE_ASSET_MIN_BYTES && fs.existsSync(dst)) {
+        try {
+          const dstSt = fs.statSync(dst);
+          if (dstSt.size === st.size) continue;
+        } catch { /* ricopia */ }
+      }
+      fs.copyFileSync(src, dst);
+    }
   }
 }
 
@@ -105,6 +152,15 @@ function escHtml(s) {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+}
+
+function formatSponsorPromoUntilLabel(iso) {
+  const raw = String(iso || "").trim();
+  if (!raw) return "";
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return "";
+  const day = d.toLocaleDateString("it-IT", { day: "numeric", month: "long", timeZone: "Europe/Rome" });
+  return `fino al ${day}`;
 }
 
 function buildPremiumFooterTemplate() {
@@ -615,6 +671,73 @@ function isGenericStaffRoleLabel(label) {
 
 function staffListFallback() {
   return { html: STAFF_LIST_FALLBACK_HTML, staffCount: null };
+}
+
+function parseSiteSponsorAdMs(value, endOfDay) {
+  let d = String(value || "").trim();
+  if (!d) return NaN;
+  d = d.replace(/T(\d{2}):(\d{2}):(\d{2}):(\d{2})$/, "T$1:$2:$3");
+  if (d.indexOf("T") < 0 && endOfDay) return new Date(`${d}T23:59:59.999`).getTime();
+  if (d.indexOf("T") < 0) return new Date(`${d}T00:00:00`).getTime();
+  const ms = new Date(d).getTime();
+  return Number.isFinite(ms) ? ms : NaN;
+}
+
+function buildSiteSponsorAdBootHtml(cfg, opts) {
+  const ad = cfg.siteSponsorAd && typeof cfg.siteSponsorAd === "object" ? cfg.siteSponsorAd : null;
+  if (!ad || ad.enabled === false) return "";
+  const scriptPrefix = opts && typeof opts.scriptPrefix === "string" ? opts.scriptPrefix : "";
+  const scriptSrc = scriptPrefix ? `${scriptPrefix}js/vc-site-sponsor-ad.js` : "/js/vc-site-sponsor-ad.js";
+  let startMs = Number(ad.startMs);
+  let untilMs = Number(ad.untilMs);
+  if (!Number.isFinite(startMs)) startMs = parseSiteSponsorAdMs(ad.startAt, false);
+  if (!Number.isFinite(untilMs)) untilMs = parseSiteSponsorAdMs(ad.until, true);
+  const payload = {
+    enabled: true,
+    id: String(ad.id || "site-sponsor").trim() || "site-sponsor",
+    title: String(ad.title || "").trim(),
+    badge: String(ad.badge || "Sponsor").trim() || "Sponsor",
+    description: String(ad.description || "").trim(),
+    buttonUrl: String(ad.buttonUrl || "").trim(),
+    buttonLabel: String(ad.buttonLabel || "Entra nel server").trim() || "Entra nel server",
+    startAt: String(ad.startAt || "").trim(),
+    until: String(ad.until || "").trim(),
+    startMs: Number.isFinite(startMs) ? startMs : null,
+    untilMs: Number.isFinite(untilMs) ? untilMs : null,
+  };
+  const json = JSON.stringify(payload).replace(/</g, "\\u003c");
+  return (
+    `    <script>window.__VC_SITE_SPONSOR_AD=${json};</script>\n` +
+    `    <script src="${scriptSrc}" defer></script>\n`
+  );
+}
+
+function applySiteSponsorAdToDist(distDir, cfg) {
+  const ad = cfg.siteSponsorAd && typeof cfg.siteSponsorAd === "object" ? cfg.siteSponsorAd : null;
+  if (!ad || ad.enabled === false) return;
+  const walk = (dir) => {
+    for (const name of fs.readdirSync(dir)) {
+      const p = path.join(dir, name);
+      const st = fs.statSync(p);
+      if (st.isDirectory()) {
+        walk(p);
+        continue;
+      }
+      if (!name.toLowerCase().endsWith(".html")) continue;
+      const html = fs.readFileSync(p, "utf8");
+      if (html.includes("window.__VC_SITE_SPONSOR_AD") || html.includes("js/vc-site-sponsor-ad.js")) continue;
+      if (html.includes("vc-seratafilm-page")) continue;
+      const scriptPrefix = relativeScriptPrefixFromHtml(p);
+      const boot = buildSiteSponsorAdBootHtml(cfg, { scriptPrefix });
+      if (!boot) continue;
+      let next = html;
+      if (next.includes("</body>")) next = next.replace("</body>", `${boot}  </body>`);
+      else if (next.includes("</head>")) next = next.replace("</head>", `${boot}  </head>`);
+      else next += `\n${boot}`;
+      if (next !== html) fs.writeFileSync(p, next, "utf8");
+    }
+  };
+  walk(distDir);
 }
 
 function buildLiveStatsBootHtml(cfg, inviteCode, opts) {
@@ -1442,6 +1565,15 @@ async function main() {
   if (String(process.env.VC_SITE_URL ?? "").trim()) {
     buildInfoLog("[build-site] VC_SITE_URL (override solo per questo build):", siteUrlTrim);
   }
+  const prodSiteBuild = (() => {
+    try {
+      const h = new URL(siteUrlTrim).hostname.toLowerCase();
+      return h !== "localhost" && h !== "127.0.0.1" && h !== "[::1]";
+    } catch {
+      return true;
+    }
+  })();
+  const distApiLocal = (value) => (prodSiteBuild ? "" : value);
 
   const defaultInstagramUrl = "https://www.instagram.com/viniliecaffe/";
   const defaultTiktokUrl = "https://www.tiktok.com/@viniliecaffe";
@@ -1495,9 +1627,15 @@ async function main() {
     staffHoverGroups: staffResult.staffHoverGroups,
     staffNoPm: staffResult.staffCount,
   };
-  const liveStatsBoot = buildLiveStatsBootHtml(cfg, inviteCode, liveStatsBootOpts);
-  const liveStatsBootWiki = buildLiveStatsBootHtml(cfg, inviteCode, { scriptPrefix: "../", ...liveStatsBootOpts });
-  const liveStatsBootUser = buildLiveStatsBootHtml(cfg, inviteCode, { scriptPrefix: "../", ...liveStatsBootOpts });
+  const liveStatsBoot =
+    buildLiveStatsBootHtml(cfg, inviteCode, liveStatsBootOpts) +
+    buildSiteSponsorAdBootHtml(cfg, { scriptPrefix: "" });
+  const liveStatsBootWiki =
+    buildLiveStatsBootHtml(cfg, inviteCode, { scriptPrefix: "../", ...liveStatsBootOpts }) +
+    buildSiteSponsorAdBootHtml(cfg, { scriptPrefix: "../" });
+  const liveStatsBootUser =
+    buildLiveStatsBootHtml(cfg, inviteCode, { scriptPrefix: "../", ...liveStatsBootOpts }) +
+    buildSiteSponsorAdBootHtml(cfg, { scriptPrefix: "../" });
   const maintenanceBoot = buildMaintenanceBootHtml(cfg, {
     guildStaffBypassIds: staffResult.maintenanceBypassUserIds || [],
   });
@@ -1649,9 +1787,6 @@ async function main() {
   });
 
   let discordOauthRedirectRaw = String(cfg.discordOauth?.redirectUri || "").trim();
-  if (String(process.env.VC_SITE_URL ?? "").trim()) {
-    discordOauthRedirectRaw = "";
-  }
   if (discordOauthRedirectRaw.includes("discord.com/oauth2/authorize")) {
     console.warn(
       "[build-site] discordOauth.redirectUri sembra l’URL di invito del bot, non la callback del sito. Uso siteUrl.",
@@ -1882,7 +2017,11 @@ async function main() {
   const hogwartsEventNav = {
     previewMode: hogwartsEventRaw.previewMode === true,
     accessApiUrl: `${String(hogwartsSortingApiResolved || "/webhooks/site-hogwarts-sorting").replace(/\/+$/, "")}/access`,
-    accessApiUrlLocal: `${String(hogwartsSortingApiLocalResolved || "http://127.0.0.1:3042/webhooks/site-hogwarts-sorting").replace(/\/+$/, "")}/access`,
+    accessApiUrlLocal: distApiLocal(
+      hogwartsSortingApiLocalResolved
+        ? `${String(hogwartsSortingApiLocalResolved).replace(/\/+$/, "")}/access`
+        : "",
+    ),
     potions: hogwartsEventCalendarResolved.potions,
   };
   const hogwartsEventNavBoot = buildHogwartsEventNavBootHtml(hogwartsEventNav);
@@ -2007,7 +2146,13 @@ async function main() {
   };
   const schoolYearPointsRaw = hogwartsHousePointsRaw.schoolYear && typeof hogwartsHousePointsRaw.schoolYear === "object" ? hogwartsHousePointsRaw.schoolYear : hogwartsHousePointsRaw;
   const eventTotalPointsRaw = hogwartsHousePointsRaw.eventTotal && typeof hogwartsHousePointsRaw.eventTotal === "object" ? hogwartsHousePointsRaw.eventTotal : hogwartsHousePointsRaw;
+  const hogwartsPointsPollMs = Number.isFinite(Number(hogwartsHousePointsRaw.pollIntervalMs))
+    ? Number(hogwartsHousePointsRaw.pollIntervalMs)
+    : Number.isFinite(Number(cfg.liveStats?.pollIntervalMs))
+      ? Number(cfg.liveStats.pollIntervalMs)
+      : 15000;
   const hogwartsPointsPayload = {
+    pollIntervalMs: hogwartsPointsPollMs >= 5000 ? hogwartsPointsPollMs : 15000,
     boards: {
       schoolYear: buildHogwartsPointsBoardPayload(schoolYearPointsRaw, hogwartsHousePointsRaw),
       eventTotal: buildHogwartsPointsBoardPayload(eventTotalPointsRaw, hogwartsHousePointsRaw),
@@ -2045,6 +2190,23 @@ async function main() {
       return "";
     }
   }
+  function seratafilmParseYoutubeStartSec(input) {
+    const s = String(input || "").trim();
+    const m = s.match(/[?&](?:t|start)=(\d+)/);
+    return m ? Math.max(0, parseInt(m[1], 10)) : 0;
+  }
+  function seratafilmCollectYoutubeFromUrls(urls) {
+    const list = Array.isArray(urls) ? urls : [];
+    const ids = [];
+    let startSeconds = 0;
+    for (const raw of list) {
+      const id = seratafilmParseYoutubeVideoId(raw);
+      if (!id) continue;
+      ids.push(id);
+      if (!startSeconds) startSeconds = seratafilmParseYoutubeStartSec(raw);
+    }
+    return { videoIds: [...new Set(ids)], startSeconds };
+  }
   const hogwartsBgmRaw = cfg.hogwartsBgm && typeof cfg.hogwartsBgm === "object" ? cfg.hogwartsBgm : {};
   const hogwartsYtRaw =
     hogwartsBgmRaw.youtube && typeof hogwartsBgmRaw.youtube === "object" ? hogwartsBgmRaw.youtube : {};
@@ -2080,39 +2242,57 @@ async function main() {
   const seratafilmBgmYtPlaylistId = seratafilmParseYoutubePlaylistId(
     String(seratafilmYtRaw.playlistId || seratafilmYtRaw.playlistUrl || "").trim(),
   );
-  const seratafilmBgmYtVideoIdsFromUrls = Array.isArray(seratafilmYtRaw.videoUrls)
-    ? [...new Set(seratafilmYtRaw.videoUrls.map((u) => seratafilmParseYoutubeVideoId(u)).filter(Boolean))]
-    : [];
+  const seratafilmDefaultYt = seratafilmCollectYoutubeFromUrls(seratafilmYtRaw.videoUrls);
+  const seratafilmEventYtUrls =
+    Array.isArray(seratafilmYtRaw.eventVideoUrls) && seratafilmYtRaw.eventVideoUrls.length
+      ? seratafilmYtRaw.eventVideoUrls
+      : hogwartsYtRaw.videoUrls;
+  const seratafilmEventYt = seratafilmCollectYoutubeFromUrls(seratafilmEventYtUrls);
   const seratafilmBgmYtVideoIdsDirect = Array.isArray(seratafilmYtRaw.videoIds)
     ? [...new Set(seratafilmYtRaw.videoIds.map((x) => seratafilmParseYoutubeVideoId(x)).filter(Boolean))]
     : [];
-  const seratafilmBgmYtVideoIds = [
-    ...new Set([...seratafilmBgmYtVideoIdsDirect, ...seratafilmBgmYtVideoIdsFromUrls]),
-  ];
-  if (hogwartsBgmPayload.youtube && Array.isArray(hogwartsBgmPayload.youtube.videoIds) && seratafilmBgmYtVideoIds.length) {
-    const seratafilmVidSet = new Set(seratafilmBgmYtVideoIds);
-    hogwartsBgmPayload.youtube.videoIds = hogwartsBgmPayload.youtube.videoIds.filter((id) => !seratafilmVidSet.has(id));
-    if (!hogwartsBgmPayload.youtube.videoIds.length && !hogwartsBgmPayload.youtube.playlistId) {
-      delete hogwartsBgmPayload.youtube;
-    }
-    hogwartsBgmUri = encodeURIComponent(JSON.stringify(hogwartsBgmPayload)).replace(/'/g, "%27");
-    hogwartsBgmJson = JSON.stringify(hogwartsBgmPayload);
+  if (seratafilmBgmYtVideoIdsDirect.length && !seratafilmDefaultYt.videoIds.length) {
+    seratafilmDefaultYt.videoIds = seratafilmBgmYtVideoIdsDirect;
   }
   let seratafilmBgmYoutubePublic = null;
   if (seratafilmBgmYtPlaylistId) {
     seratafilmBgmYoutubePublic = { playlistId: seratafilmBgmYtPlaylistId, videoIds: [] };
-  } else if (seratafilmBgmYtVideoIds.length) {
-    seratafilmBgmYoutubePublic = { playlistId: "", videoIds: seratafilmBgmYtVideoIds };
+  } else if (seratafilmDefaultYt.videoIds.length || seratafilmEventYt.videoIds.length) {
+    seratafilmBgmYoutubePublic = {
+      playlistId: "",
+      videoIds: seratafilmDefaultYt.videoIds,
+      defaultVideoIds: seratafilmDefaultYt.videoIds,
+      defaultStartSeconds: seratafilmDefaultYt.startSeconds,
+      eventVideoIds: seratafilmEventYt.videoIds,
+      eventStartSeconds: seratafilmEventYt.startSeconds,
+    };
   }
   const seratafilmBgmPayload = {
     trackUrls: seratafilmBgmTrackUrls,
     fadeStartSeconds: Math.max(5, Math.min(3600, Number(seratafilmBgmRaw.fadeStartSeconds) || 120)),
     baseVolume: Math.min(1, Math.max(0.02, Number(seratafilmBgmRaw.baseVolume) || 0.34)),
+    hogwartsEventWindow: {
+      enabled: hogwartsEventRaw.enabled !== false,
+      startMs: parseDateStartMs(hogwartsEventRaw.startDate || "2026-06-01T14:00:00", hogwartsEventTimezone),
+      endMs: parseDateEndMs(hogwartsEventRaw.endDate || "2026-09-01T12:00:00", hogwartsEventTimezone),
+    },
   };
   if (seratafilmBgmYoutubePublic) seratafilmBgmPayload.youtube = seratafilmBgmYoutubePublic;
   const seratafilmBgmUri = encodeURIComponent(JSON.stringify(seratafilmBgmPayload)).replace(/'/g, "%27");
   const seratafilmEventRaw = cfg.seratafilmEvent && typeof cfg.seratafilmEvent === "object" ? cfg.seratafilmEvent : {};
   const seratafilmRec = seratafilmEventRaw.recurring || seratafilmEventRaw.weekly || {};
+  const seratafilmScheduleRaw = Array.isArray(seratafilmEventRaw.schedule) ? seratafilmEventRaw.schedule : [];
+  const seratafilmSchedule = seratafilmScheduleRaw
+    .map((row) => {
+      if (!row || typeof row !== "object") return null;
+      const date = String(row.date || "").trim();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+      if (row.skip) return { date, skip: true };
+      const title = String(row.title || "").trim();
+      if (!title) return null;
+      return { date, title };
+    })
+    .filter(Boolean);
   const seratafilmEventPayload = {
     timezone: String(seratafilmEventRaw.timezone || "Europe/Rome").trim() || "Europe/Rome",
     recurring: {
@@ -2124,10 +2304,39 @@ async function main() {
         : 21,
       minute: Number.isFinite(Number(seratafilmRec.minute))
         ? Math.max(0, Math.min(59, Math.floor(Number(seratafilmRec.minute))))
-        : 30,
+        : 0,
     },
     overrideIso: String(seratafilmEventRaw.overrideIso || seratafilmEventRaw.fixedIso || "").trim(),
     linkFilm: String(seratafilmEventRaw.linkFilm || "").trim(),
+    hogwartsThemeVideoUrl: String(seratafilmEventRaw.hogwartsThemeVideoUrl || hogwartsIntroVideo).trim(),
+    filmTitle: String(seratafilmEventRaw.filmTitle || "").trim(),
+    nextFilmTitle: String(seratafilmEventRaw.nextFilmTitle || "").trim(),
+    adBreak: (() => {
+      const raw = seratafilmEventRaw.adBreak && typeof seratafilmEventRaw.adBreak === "object" ? seratafilmEventRaw.adBreak : {};
+      const videoUrl = String(raw.videoUrl || "").trim();
+      if (raw.enabled === false || !videoUrl) return { enabled: false };
+      return {
+        enabled: true,
+        videoUrl,
+        atPercent: Number.isFinite(Number(raw.atPercent))
+          ? Math.max(1, Math.min(99, Math.floor(Number(raw.atPercent))))
+          : 50,
+        totalMs: Number.isFinite(Number(raw.totalMs))
+          ? Math.max(30000, Math.min(180000, Math.floor(Number(raw.totalMs))))
+          : 60000,
+        introMs: Number.isFinite(Number(raw.introMs))
+          ? Math.max(5000, Math.min(45000, Math.floor(Number(raw.introMs))))
+          : 15000,
+        outroMs: Number.isFinite(Number(raw.outroMs))
+          ? Math.max(5000, Math.min(45000, Math.floor(Number(raw.outroMs))))
+          : 15000,
+        introTitle: String(raw.introTitle || "Pausa pubblicitaria").trim() || "Pausa pubblicitaria",
+        introText: String(raw.introText || "Tra poco riprenderemo la proiezione. Resta con noi!").trim(),
+        outroTitle: String(raw.outroTitle || "La proiezione riprende").trim() || "La proiezione riprende",
+        outroText: String(raw.outroText || "Grazie per la pazienza. Buona visione!").trim(),
+      };
+    })(),
+    schedule: seratafilmSchedule,
   };
   const seratafilmEventUri = encodeURIComponent(JSON.stringify(seratafilmEventPayload)).replace(/'/g, "%27");
   const reviewsApiFromEnv = String(process.env.VC_REVIEWS_API_URL ?? "").trim();
@@ -2224,7 +2433,6 @@ async function main() {
     COOKIE_POLICY_URL: escAttr(cookiePolicyUrlResolved),
     NOTIFICATIONS_URL: escAttr(defaultLegalPath("notifications")),
     USER_PERSONALIZZA_URL: escAttr(defaultLegalPath("user/personalizza")),
-    VERIFY_URL: escAttr(defaultLegalPath("verify")),
     LEGAL_TERMS_UPDATED: escHtml(legalTermsDate),
     LEGAL_PRIVACY_UPDATED: escHtml(legalPrivacyDate),
     LEGAL_COOKIE_UPDATED: escHtml(legalCookieDate),
@@ -2236,9 +2444,6 @@ async function main() {
     TERMS_OG_DESCRIPTION: escAttr(`Termini di Servizio del sito e del server Discord ${siteName}.`),
     PRIVACY_OG_TITLE: escAttr(`Privacy Policy | ${siteName}`),
     PRIVACY_OG_DESCRIPTION: escAttr(`Informativa sulla privacy per il sito e la community ${siteName}.`),
-    VERIFY_OG_TITLE: escAttr(`Verifica account — ${siteName}`),
-    VERIFY_OG_DESCRIPTION: escAttr(`Completa la verifica account con login Discord e conferma backend.`),
-    VERIFY_OG_URL: escAttr(siteBaseNoSlash ? `${siteBaseNoSlash}/verify` : ""),
     USER_RANK_CUSTOMIZE_OG_TITLE: escAttr(`${siteName} | Personalizza rank card`),
     USER_RANK_CUSTOMIZE_OG_DESCRIPTION: escAttr(`Personalizza la tua rank card direttamente dal sito.`),
     USER_PERSONALIZZA_OG_URL: escAttr(siteBaseNoSlash ? `${siteBaseNoSlash}/user/personalizza` : ""),
@@ -2270,27 +2475,27 @@ async function main() {
     CANDIDATURE_OG_TITLE: escAttr(`${siteName} | Candidature`),
     CANDIDATURE_OG_URL: escAttr(siteBaseNoSlash ? `${siteBaseNoSlash}/candidature` : ""),
     CANDIDATURE_SUBMIT_API_URL: escAttr(candidatureSubmitApiResolved),
-    CANDIDATURE_SUBMIT_API_URL_LOCAL: escAttr(candidatureSubmitApiLocalResolved),
+    CANDIDATURE_SUBMIT_API_URL_LOCAL: escAttr(distApiLocal(candidatureSubmitApiLocalResolved)),
     UNBAN_SUBMIT_API_URL: escAttr(unbanSubmitApiResolved),
-    UNBAN_SUBMIT_API_URL_LOCAL: escAttr(unbanSubmitApiLocalResolved),
+    UNBAN_SUBMIT_API_URL_LOCAL: escAttr(distApiLocal(unbanSubmitApiLocalResolved)),
     COMMUNITY_RULES_API_URL: escAttr(communityRulesApiResolved),
-    COMMUNITY_RULES_API_URL_LOCAL: escAttr(communityRulesApiLocalResolved),
+    COMMUNITY_RULES_API_URL_LOCAL: escAttr(distApiLocal(communityRulesApiLocalResolved)),
     USER_PAGE_URL: escAttr(userPageUrl),
     RUOLI_PAGE_URL: escAttr(ruoliPageUrl),
     USERS_LEADERBOARD_API_URL: escAttr(usersLeaderboardApiResolved),
-    USERS_LEADERBOARD_API_URL_LOCAL: escAttr(usersLeaderboardApiLocalResolved),
+    USERS_LEADERBOARD_API_URL_LOCAL: escAttr(distApiLocal(usersLeaderboardApiLocalResolved)),
     VOTE_API_URL: escAttr(voteApiResolved),
-    VOTE_API_URL_LOCAL: escAttr(voteApiLocalResolved),
+    VOTE_API_URL_LOCAL: escAttr(distApiLocal(voteApiLocalResolved)),
     SITE_NOTIFICATIONS_API_URL: escAttr(siteNotifsApiResolved),
-    SITE_NOTIFICATIONS_API_URL_LOCAL: escAttr(siteNotifsApiLocalResolved),
+    SITE_NOTIFICATIONS_API_URL_LOCAL: escAttr(distApiLocal(siteNotifsApiLocalResolved)),
     SERATAFILM_ACCESS_API_URL: escAttr(seratafilmAccessApiResolved),
-    SERATAFILM_ACCESS_API_URL_LOCAL: escAttr(seratafilmAccessApiLocalResolved),
+    SERATAFILM_ACCESS_API_URL_LOCAL: escAttr(distApiLocal(seratafilmAccessApiLocalResolved)),
     HOGWARTS_SORTING_API_URL: escAttr(hogwartsSortingApiResolved),
-    HOGWARTS_SORTING_API_URL_LOCAL: escAttr(hogwartsSortingApiLocalResolved),
+    HOGWARTS_SORTING_API_URL_LOCAL: escAttr(distApiLocal(hogwartsSortingApiLocalResolved)),
     HOGWARTS_SHOP_API_URL: escAttr(`${hogwartsSortingApiResolved.replace(/\/+$/, "")}/shop`),
-    HOGWARTS_SHOP_API_URL_LOCAL: escAttr(hogwartsSortingApiLocalResolved ? `${hogwartsSortingApiLocalResolved.replace(/\/+$/, "")}/shop` : ""),
+    HOGWARTS_SHOP_API_URL_LOCAL: escAttr(distApiLocal(hogwartsSortingApiLocalResolved ? `${hogwartsSortingApiLocalResolved.replace(/\/+$/, "")}/shop` : "")),
     HOGWARTS_POTIONS_API_URL: escAttr(`${hogwartsSortingApiResolved.replace(/\/+$/, "")}/potions`),
-    HOGWARTS_POTIONS_API_URL_LOCAL: escAttr(hogwartsSortingApiLocalResolved ? `${hogwartsSortingApiLocalResolved.replace(/\/+$/, "")}/potions` : ""),
+    HOGWARTS_POTIONS_API_URL_LOCAL: escAttr(distApiLocal(hogwartsSortingApiLocalResolved ? `${hogwartsSortingApiLocalResolved.replace(/\/+$/, "")}/potions` : "")),
     HOGWARTS_POTIONS_START_DATE: escAttr(hogwartsPotionsStartDate),
     HOGWARTS_POTIONS_REDIRECT_URL: escAttr(hogwartsPotionsRedirectUrl),
     HOGWARTS_CRESTS_PATH: escAttr(hogwartsCrestsPath),
@@ -2344,14 +2549,14 @@ async function main() {
     SERATAFILM_EVENT_URI: seratafilmEventUri,
     REVIEWS_PAGE_URL: escAttr(reviewsPageUrl),
     REVIEWS_API_URL: escAttr(reviewsApiResolved),
-    REVIEWS_API_URL_LOCAL: escAttr(reviewsApiLocalResolved),
+    REVIEWS_API_URL_LOCAL: escAttr(distApiLocal(reviewsApiLocalResolved)),
     SUGGESTIONS_PAGE_URL: escAttr(suggestionsPageUrl),
     SUGGESTIONS_API_URL: escAttr(suggestionsApiResolved),
-    SUGGESTIONS_API_URL_LOCAL: escAttr(suggestionsApiLocalResolved),
+    SUGGESTIONS_API_URL_LOCAL: escAttr(distApiLocal(suggestionsApiLocalResolved)),
     ROLES_API_URL: escAttr(rolesApiResolved),
-    ROLES_API_URL_LOCAL: escAttr(rolesApiLocalResolved),
+    ROLES_API_URL_LOCAL: escAttr(distApiLocal(rolesApiLocalResolved)),
     RANK_CARD_API_URL: escAttr(rankCardApiResolved),
-    RANK_CARD_API_URL_LOCAL: escAttr(rankCardApiLocalResolved),
+    RANK_CARD_API_URL_LOCAL: escAttr(distApiLocal(rankCardApiLocalResolved)),
     USER_PAGE_TITLE: `${siteName} | Community · Classifica`,
     USER_META_DESCRIPTION: escAttr(
       `Classifica livelli ed EXP del server Discord ${siteName}: utenti ordinati per esperienza totale.`,
@@ -2410,6 +2615,8 @@ async function main() {
     ),
     SPONSOR_OG_TITLE: escAttr(`${siteName} | Sponsor`),
     SPONSOR_OG_URL: escAttr(siteBaseNoSlash ? `${siteBaseNoSlash}/sponsor` : ""),
+    SPONSOR_PROMO_UNTIL: escAttr(String(cfg.sponsorPromoUntil || "").trim()),
+    SPONSOR_PROMO_UNTIL_LABEL: escHtml(formatSponsorPromoUntilLabel(cfg.sponsorPromoUntil)),
     META_DESCRIPTION: cfg.metaDescription || "",
     META_KEYWORDS: cfg.metaKeywords || "",
     SUPPORT_EMAIL: cfg.supportEmail || "",
@@ -2495,16 +2702,6 @@ async function main() {
     warnLeftoverPlaceholders(nHtml, "notifications/index.html");
     fs.writeFileSync(notificationsIndexPath, nHtml, "utf8");
   }
-  const verifyIndexPath = path.join(DIST, "verify", "index.html");
-  if (fs.existsSync(verifyIndexPath)) {
-    let verifyHtml = fs.readFileSync(verifyIndexPath, "utf8");
-    verifyHtml = applyPlaceholderMap(verifyHtml, map);
-    warnLeftoverPlaceholders(verifyHtml, "verify/index.html");
-    fs.writeFileSync(verifyIndexPath, verifyHtml, "utf8");
-  } else {
-    console.warn("[build-site] Manca verify/index.html (saltato placeholder).");
-  }
-
   const userIndexPath = path.join(DIST, "user", "index.html");
   if (fs.existsSync(userIndexPath)) {
     let userHtml = fs.readFileSync(userIndexPath, "utf8");
@@ -2679,6 +2876,15 @@ async function main() {
   } else {
     console.warn("[build-site] Manca seratafilm/index.html (saltato placeholder).");
   }
+  const seratafilmGraziePath = path.join(DIST, "seratafilm", "grazie", "index.html");
+  if (fs.existsSync(seratafilmGraziePath)) {
+    let seratafilmGrazieHtml = fs.readFileSync(seratafilmGraziePath, "utf8");
+    seratafilmGrazieHtml = applyPlaceholderMap(seratafilmGrazieHtml, map);
+    warnLeftoverPlaceholders(seratafilmGrazieHtml, "seratafilm/grazie/index.html");
+    fs.writeFileSync(seratafilmGraziePath, seratafilmGrazieHtml, "utf8");
+  } else {
+    console.warn("[build-site] Manca seratafilm/grazie/index.html (saltato placeholder).");
+  }
   const seratafilmAccessoPath = path.join(DIST, "seratafilm", "accesso-richiesto", "index.html");
   if (fs.existsSync(seratafilmAccessoPath)) {
     let seratafilmAccessoHtml = fs.readFileSync(seratafilmAccessoPath, "utf8");
@@ -2736,6 +2942,7 @@ async function main() {
   applyAvatarFallbackToDist(DIST, buildAssetVersion);
   applyCursorTrailToDist(DIST, buildAssetVersion);
   applyLiveStatsBootToDist(DIST, cfg, inviteCode);
+  applySiteSponsorAdToDist(DIST, cfg);
   applyMaintenanceGateToDist(DIST, maintenanceBoot);
   applySiteRouteGuardToDist(DIST, cfg);
   applyHeaderPromoToDist(DIST, headerPromoButtonHtml, headerPromoClientConfig);
@@ -2743,7 +2950,7 @@ async function main() {
   const siteBuild = cfg.siteBuild && typeof cfg.siteBuild === "object" ? cfg.siteBuild : null;
   const skipClientObfuscation = siteBuild?.obfuscateClientAssets === false;
   if (!skipClientObfuscation) {
-    obfuscateProjectJsInDist(DIST);
+    await obfuscateProjectJsInDist(DIST);
     await minifyHtmlFilesInDist(DIST);
   } else {
     console.log("[build-site] Offuscamento/minify client disattivato (siteBuild.obfuscateClientAssets: false).");

@@ -295,7 +295,7 @@ async function finalizeHouseWin(client, guild, c, doc, houseId, claimA, claimB) 
         `• <@${claimA.userId}>`,
         `• <@${claimB.userId}>`,
         "",
-        pts > 0 ? `<a:VC_Star:1482706774372253788> **+${pts} punti casa** alla ${label}.` : "",
+        pts > 0 ? `<a:VC_Winner:1482535294757507255> **+${pts} punti casa** alla ${label}.` : "",
       ].join("\n"),
     )
     .setTimestamp();

@@ -1,13 +1,11 @@
-const IDs = require("../Config/ids");
+const {
+  applyPronounGenderToTextForMember,
+  resolveMemberPronounGender,
+  applyPronounGenderToText,
+} = require("./pronounGenderUtils");
 
 function resolveMemberWelcomeWord(member) {
-  const cache = member?.roles?.cache;
-  if (!cache) return "benvenuto/a";
-  const roles = IDs.roles || {};
-  if (roles.sheHer && cache.has(roles.sheHer)) return "benvenuta";
-  if (roles.heHim && cache.has(roles.heHim)) return "benvenuto";
-  if (roles.theyThem && cache.has(roles.theyThem)) return "benvenutə";
-  return "benvenuto/a";
+  return applyPronounGenderToTextForMember("benvenuto/a", member);
 }
 
 function capitalizeWelcomeWord(word) {
@@ -24,4 +22,11 @@ function buildMemberWelcomePhrase(member) {
   };
 }
 
-module.exports = { resolveMemberWelcomeWord, capitalizeWelcomeWord, buildMemberWelcomePhrase };
+module.exports = {
+  resolveMemberWelcomeWord,
+  capitalizeWelcomeWord,
+  buildMemberWelcomePhrase,
+  resolveMemberPronounGender,
+  applyPronounGenderToText,
+  applyPronounGenderToTextForMember,
+};

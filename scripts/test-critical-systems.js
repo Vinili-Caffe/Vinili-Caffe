@@ -145,6 +145,37 @@ function run(root) {
     assert(isMediaEmbed(new URL("https://media.tenor.com/abc/tenor.gif")) === true, "URL Tenor deve contare come media embed");
     assert(isMediaEmbed(new URL("https://cdn.discordapp.com/attachments/1/2/x.webp")) === true, "CDN Discord deve contare come media embed");
     assert(isMediaEmbed(new URL("https://example.com/scam")) === false, "host generico non è media embed");
+    const detectScam = automodService?.__test?.detectScam;
+    assert(typeof detectScam === "function", "automod __test detectScam mancante");
+    assert(detectScam("visit depxbit.com for bonus") === true, "detectScam crypto domain");
+    assert(detectScam("I'm excited to announce my crypto casino launch") === true, "detectScam crypto casino phrase");
+    assert(detectScam("ciao come stai oggi") === false, "detectScam conversazione normale");
+    const detectScamImageBait = automodService?.__test?.detectScamImageBait;
+    assert(typeof detectScamImageBait === "function", "automod __test detectScamImageBait mancante");
+    assert(
+      detectScamImageBait(
+        {
+          attachments: new Map([
+            ["1", { contentType: "image/png", name: "scam.png" }],
+          ]),
+        },
+        "Omg 😳💰",
+        { accountAgeMs: 2 * 24 * 60 * 60_000 },
+      ) === true,
+      "detectScamImageBait omg + image",
+    );
+    assert(
+      detectScamImageBait(
+        {
+          attachments: new Map([
+            ["1", { contentType: "image/png", name: "cat.png" }],
+          ]),
+        },
+        "my cat",
+        { accountAgeMs: 2 * 24 * 60 * 60_000 },
+      ) === false,
+      "detectScamImageBait immagine innocua",
+    );
     const isCrossForward = automodService?.__test?.isCrossServerForwardedMessage;
     const { MessageReferenceType } = require("discord.js");
     assert(typeof isCrossForward === "function", "automod __test isCrossServerForwardedMessage mancante");
@@ -199,6 +230,128 @@ function run(root) {
       assert(typeof ttsService.joinTtsChannel === "function", "ttsService.joinTtsChannel mancante");
       assert(typeof ttsService.leaveTtsGuild === "function", "ttsService.leaveTtsGuild mancante");
     }
+  }
+
+  const pronounGenderPath = path.join(root, "Utils", "Community", "pronounGenderUtils.js");
+  if (fs.existsSync(pronounGenderPath)) {
+    const {
+      applyPronounGenderToText,
+      resolveMemberPronounGender,
+    } = require(pronounGenderPath);
+    assert(applyPronounGenderToText("sei salito/a di livello!", "m") === "sei salito di livello!", "pronoun o/a maschile");
+    assert(applyPronounGenderToText("sei salito/a di livello!", "f") === "sei salita di livello!", "pronoun o/a femminile");
+    assert(applyPronounGenderToText("sei salito/a di livello!", "x") === "sei salitə di livello!", "pronoun o/a neutro");
+    assert(applyPronounGenderToText("bloccato/a", "m") === "bloccato", "pronoun bloccato/a maschile");
+    assert(applyPronounGenderToText("benvenutx", "f") === "benvenuta", "pronoun x femminile");
+    assert(applyPronounGenderToText("Nuovx Guilded", "f") === "Nuova Guilded", "Nuovx she/her");
+    assert(applyPronounGenderToText("Nuovx Guilded", "u") === "Nuovx Guilded", "Nuovx senza pronome");
+    assert(applyPronounGenderToText("Benvenuto/a", "m") === "Benvenuto", "pronoun maiuscolo maschile");
+    const sheMember = {
+      roles: {
+        cache: {
+          has: (id) => String(id) === "1442568999043989565",
+        },
+      },
+    };
+    assert(resolveMemberPronounGender(sheMember) === "f", "resolveMemberPronounGender she/her");
+  }
+
+  const repostAckPhrasesPath = path.join(root, "Data", "Community", "repostAckPhrases.js");
+  if (fs.existsSync(repostAckPhrasesPath)) {
+    const {
+      REPOST_ACK_PHRASES,
+      pickRepostAckPhrase,
+      resetRepostAckPhraseBag,
+    } = require(repostAckPhrasesPath);
+    assert(Array.isArray(REPOST_ACK_PHRASES) && REPOST_ACK_PHRASES.length >= 100, "repost ack phrases");
+    resetRepostAckPhraseBag();
+    const picked = pickRepostAckPhrase();
+    assert(REPOST_ACK_PHRASES.includes(picked), "pickRepostAckPhrase");
+    if (REPOST_ACK_PHRASES.length > 1) {
+      const pickedAgain = pickRepostAckPhrase();
+      assert(pickedAgain !== picked, "pickRepostAckPhrase no repeat consecutivo");
+    }
+  }
+
+  const repostServicePath = path.join(root, "Services", "Community", "repostService.js");
+  if (fs.existsSync(repostServicePath)) {
+    const { extractRepostPayload } = require(repostServicePath);
+    const audioMsg = {
+      content: "",
+      attachments: new Map([
+        ["1", { url: "https://cdn.discordapp.com/attachments/a/b/voice.ogg", name: "voice-message.ogg", contentType: "audio/ogg" }],
+      ]),
+      stickers: { values: () => [] },
+      embeds: [],
+      mentions: {},
+    };
+    const audioPayload = extractRepostPayload(audioMsg);
+    assert(audioPayload.hasContent, "repost audio/vocale");
+    assert(audioPayload.files.length === 1, "repost file audio");
+    const imageMsg = {
+      content: "ciao",
+      attachments: new Map([
+        ["1", { url: "https://cdn.discordapp.com/attachments/a/b/pic.png", name: "pic.png", contentType: "image/png" }],
+        ["2", { url: "https://cdn.discordapp.com/attachments/a/b/song.mp3", name: "song.mp3", contentType: "audio/mpeg" }],
+      ]),
+      stickers: { values: () => [] },
+      embeds: [],
+      mentions: {},
+    };
+    const mixedPayload = extractRepostPayload(imageMsg);
+    assert(mixedPayload.imageUrl.includes("pic.png"), "repost immagine embed");
+    assert(mixedPayload.files.length === 1 && mixedPayload.files[0].name === "song.mp3", "repost allegato non-immagine");
+    const { MIN_AUDIO_ATTACHMENT_BYTES, prepareRepostSendMedia } = require(repostServicePath);
+    assert(MIN_AUDIO_ATTACHMENT_BYTES >= 1024, "repost min audio bytes");
+    const { AttachmentBuilder } = require("discord.js");
+    const imageFile = new AttachmentBuilder(Buffer.from("img"), { name: "pic.png" });
+    const audioFile = new AttachmentBuilder(Buffer.from("audio"), { name: "clip.mp3" });
+    const imageOnlySend = prepareRepostSendMedia({
+      imageUrl: "https://cdn.discordapp.com/attachments/a/b/pic.png",
+      files: [imageFile],
+    });
+    assert(imageOnlySend.embedImageUrl === "attachment://pic.png", "repost immagine solo embed");
+    assert(imageOnlySend.files.length === 1 && imageOnlySend.files[0].name === "pic.png", "repost immagine file unico");
+    const mixedSend = prepareRepostSendMedia({
+      imageUrl: "https://cdn.discordapp.com/attachments/a/b/pic.png",
+      files: [imageFile, audioFile],
+    });
+    assert(mixedSend.embedImageUrl === "attachment://pic.png", "repost mixed embed image");
+    assert(mixedSend.files.length === 2, "repost mixed allegati");
+    assert(mixedSend.files.some((file) => file.name === "clip.mp3"), "repost mixed audio fuori");
+  }
+
+  const voiceCapturePath = path.join(root, "Services", "Voice", "voiceContinuousCaptureService.js");
+  if (fs.existsSync(voiceCapturePath)) {
+    const { mixPcmBuffers } = require(voiceCapturePath);
+    const loud = Buffer.alloc(4);
+    loud.writeInt16LE(8000, 0);
+    loud.writeInt16LE(8000, 2);
+    const silent = Buffer.alloc(4);
+    const mixed = mixPcmBuffers([loud, silent]);
+    assert(mixed.readInt16LE(0) === 4000, "clip mix keeps stable level with silent track");
+    assert(mixed.readInt16LE(2) === 4000, "clip mix stereo channel");
+  }
+
+  const mongoConnectPath = path.join(root, "Utils", "Database", "mongoConnect.js");
+  if (fs.existsSync(mongoConnectPath)) {
+    const { waitForMongoReachable } = require(mongoConnectPath);
+    assert(typeof waitForMongoReachable === "function", "waitForMongoReachable mancante");
+  }
+
+  const forbiddenRoundsTestPath = path.join(path.resolve(__dirname, ".."), "scripts", "test-forbidden-section-rounds.js");
+  if (fs.existsSync(forbiddenRoundsTestPath)) {
+    require(forbiddenRoundsTestPath)();
+  }
+
+  const markovTestPath = path.join(path.resolve(__dirname, ".."), "scripts", "test-markov-channel-access.js");
+  if (fs.existsSync(markovTestPath)) {
+    require(markovTestPath);
+  }
+
+  const shopBoostRolloverTestPath = path.join(path.resolve(__dirname, ".."), "scripts", "test-shop-boost-period-rollover.js");
+  if (fs.existsSync(shopBoostRolloverTestPath)) {
+    require(shopBoostRolloverTestPath);
   }
 
   console.log("CRITICAL_SYSTEMS_TEST_OK");

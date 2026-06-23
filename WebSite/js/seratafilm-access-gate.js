@@ -1,7 +1,8 @@
 (function () {
-  var ACCESS_CACHE_KEY = "vc_seratafilm_access_ok_v1";
-  var ACCESS_CACHE_TTL_MS = 180000;
-  var FETCH_TIMEOUT_MS = 8000;
+  var ACCESS_CACHE_KEY = "vc_seratafilm_access_ok_v4";
+  var ACCESS_CACHE_TTL_MS = 300000;
+  var FETCH_TIMEOUT_MS = 5000;
+  var FAILSAFE_MS = 7000;
 
   function isLocalOrigin() {
     try {
@@ -34,6 +35,25 @@
     return full;
   }
 
+  function homeUrl() {
+    var raw = "";
+    try {
+      raw = String((window.__VC_SITE_HOME_URL || "").trim());
+    } catch (e) {}
+    if (!raw || /\{\{/.test(raw)) {
+      try {
+        return new URL("/", window.location.origin).href;
+      } catch (e2) {
+        return "/";
+      }
+    }
+    try {
+      return new URL(raw).href;
+    } catch (e3) {
+      return raw;
+    }
+  }
+
   function getToken() {
     try {
       var t = localStorage.getItem("vc_discord_access_token");
@@ -59,7 +79,7 @@
       var raw = sessionStorage.getItem(ACCESS_CACHE_KEY);
       if (!raw) return null;
       var o = JSON.parse(raw);
-      if (!o || o.v !== 1 || o.ok !== true) return null;
+      if (!o || o.v !== 4 || o.ok !== true) return null;
       if (String(o.fp || "") !== tokenFingerprint(token)) return null;
       if (Number(o.exp || 0) <= Date.now()) {
         sessionStorage.removeItem(ACCESS_CACHE_KEY);
@@ -77,7 +97,7 @@
       sessionStorage.setItem(
         ACCESS_CACHE_KEY,
         JSON.stringify({
-          v: 1,
+          v: 4,
           ok: true,
           fp: tokenFingerprint(token),
           exp: Date.now() + ACCESS_CACHE_TTL_MS,
@@ -86,9 +106,11 @@
     } catch (eW) {}
   }
 
-  function clearAccessCache() {
+  function clearStaleAccessCaches() {
     try {
-      sessionStorage.removeItem(ACCESS_CACHE_KEY);
+      sessionStorage.removeItem("vc_seratafilm_access_ok_v1");
+      sessionStorage.removeItem("vc_seratafilm_access_ok_v2");
+      sessionStorage.removeItem("vc_seratafilm_access_ok_v3");
     } catch (eC) {}
   }
 
@@ -99,35 +121,16 @@
     if (el) el.textContent = String(text || "");
   }
 
-  function showDenied(message) {
-    try {
-      document.body.classList.remove("vc-seratafilm-app-revealed");
-    } catch (eR0) {}
-    hideLoading();
-    var denied = document.getElementById("vc-seratafilm-denied");
-    if (!denied) return;
-    var msgEl = document.getElementById("vc-seratafilm-denied-msg");
-    if (msgEl) {
-      msgEl.textContent = message || "Accesso negato.";
-    }
-    denied.style.display = "flex";
-  }
-
   function redirectHome() {
     hideLoading();
-    var raw = "";
+    var target = homeUrl();
     try {
-      raw = String((window.__VC_SITE_HOME_URL || "").trim());
-    } catch (e) {}
-    if (/\{\{/.test(raw)) raw = "";
+      window.location.replace(target);
+      return;
+    } catch (e0) {}
     try {
-      var u = raw ? new URL(raw) : new URL("/", window.location.origin);
-      window.location.replace(u.href);
-    } catch (e2) {
-      try {
-        window.location.replace("/");
-      } catch (e3) {}
-    }
+      window.location.href = target;
+    } catch (e1) {}
   }
 
   function bindDeniedRetryOnce() {
@@ -137,7 +140,10 @@
       var t = e.target && e.target.closest && e.target.closest("#vc-seratafilm-denied-retry");
       if (!t) return;
       e.preventDefault();
-      clearAccessCache();
+      clearStaleAccessCaches();
+      try {
+        sessionStorage.removeItem(ACCESS_CACHE_KEY);
+      } catch (eRm) {}
       try {
         localStorage.removeItem("vc_discord_access_token");
         localStorage.removeItem("vc_discord_expires_at");
@@ -167,7 +173,7 @@
   }
 
   function fetchWithTimeout(url, options, timeoutMs) {
-    var ms = Math.max(4000, Math.min(12000, Number(timeoutMs) || FETCH_TIMEOUT_MS));
+    var ms = Math.max(2500, Math.min(8000, Number(timeoutMs) || FETCH_TIMEOUT_MS));
     var base = {
       method: (options && options.method) || "GET",
       headers: (options && options.headers) || {},
@@ -191,13 +197,13 @@
             } catch (eClr) {}
             resolve(res);
           },
-          function (e) {
+          function (err) {
             if (settled) return;
             settled = true;
             try {
               clearTimeout(tid);
             } catch (eClr2) {}
-            reject(e);
+            reject(err);
           },
         );
       });
@@ -214,15 +220,16 @@
   }
 
   function requestAccess(api, token) {
-    return fetchWithTimeout(api, { headers: { Authorization: "Bearer " + token } }, FETCH_TIMEOUT_MS).then(
-      function (res) {
-        return res.json().catch(function () {
+    return fetchWithTimeout(api, { headers: { Authorization: "Bearer " + token } }, FETCH_TIMEOUT_MS).then(function (res) {
+      return res
+        .json()
+        .catch(function () {
           return {};
-        }).then(function (data) {
+        })
+        .then(function (data) {
           return { res: res, data: data };
         });
-      },
-    );
+    });
   }
 
   function startAccessPrefetch() {
@@ -250,6 +257,58 @@
     return window.__vcSeratafilmAccessPrefetch;
   }
 
+  function armLoadingFailsafe(ms) {
+    var timeoutMs = Math.max(4000, Math.min(12000, Number(ms) || FAILSAFE_MS));
+    setTimeout(function () {
+      try {
+        if (document.body.classList.contains("vc-seratafilm-app-revealed")) return;
+      } catch (eFs) {}
+      redirectHome();
+    }, timeoutMs);
+  }
+
+  armLoadingFailsafe(FAILSAFE_MS);
+
+  function seratafilmJsBase() {
+    try {
+      var p = String(window.location.pathname || "");
+      if (/\/grazie\/?$/i.test(p) || /\/grazie\//i.test(p)) return "../../js/";
+    } catch (eB) {}
+    return "../js/";
+  }
+
+  function loadHogwartsThemeScript() {
+    if (window.__vcSeratafilmHogwartsThemeLoading || window.__vcSeratafilmApplyHogwartsTheme) return;
+    window.__vcSeratafilmHogwartsThemeLoading = true;
+    var v = String(window.__vcSeratafilmAssetVersion || "").trim();
+    var src = seratafilmJsBase() + "seratafilm-hogwarts-theme.js";
+    if (v) src += "?v=" + encodeURIComponent(v);
+    var s = document.createElement("script");
+    s.src = src;
+    s.async = true;
+    s.onload = function () {
+      try {
+        if (typeof window.__vcSeratafilmApplyHogwartsTheme === "function") {
+          window.__vcSeratafilmApplyHogwartsTheme();
+        }
+      } catch (eTh) {}
+    };
+    document.head.appendChild(s);
+  }
+
+  function scheduleHogwartsTheme() {
+    var run = function () {
+      loadHogwartsThemeScript();
+    };
+    try {
+      if (typeof requestIdleCallback === "function") {
+        requestIdleCallback(run, { timeout: 2500 });
+        return;
+      }
+    } catch (eId) {}
+    setTimeout(run, 400);
+  }
+
   function revealApp(app) {
     try {
       document.body.classList.add("vc-seratafilm-app-revealed");
@@ -259,28 +318,65 @@
     try {
       if (typeof window.__vcSeratafilmInit === "function") window.__vcSeratafilmInit();
     } catch (e3) {}
+    scheduleHogwartsTheme();
     try {
       if (typeof queueMicrotask === "function") queueMicrotask(hideLoading);
       else setTimeout(hideLoading, 0);
     } catch (e4) {}
   }
 
-  async function run() {
+  function handleAccessResult(out, app, token) {
+    if (out && out.cached && out.ok) {
+      revealApp(app);
+      return;
+    }
+    if (out && out.res) {
+      if (out.res.ok && out.data && out.data.ok) {
+        writeAccessCache(token);
+        revealApp(app);
+        return;
+      }
+      if (out.res.status === 401) {
+        try {
+          sessionStorage.removeItem(ACCESS_CACHE_KEY);
+        } catch (e401c) {}
+        try {
+          localStorage.removeItem("vc_discord_access_token");
+          localStorage.removeItem("vc_discord_expires_at");
+        } catch (e401) {}
+      } else if (out.res.status === 403) {
+        try {
+          sessionStorage.removeItem(ACCESS_CACHE_KEY);
+        } catch (e403c) {}
+      }
+      redirectHome();
+      return;
+    }
+    if (out && out.skipped) {
+      redirectHome();
+      return;
+    }
+    if (out && out.error) {
+      requestAccess(resolvedApiUrl(), token)
+        .then(function (fresh) {
+          handleAccessResult(fresh, app, token);
+        })
+        .catch(function () {
+          redirectHome();
+        });
+      return;
+    }
+    redirectHome();
+  }
+
+  function run() {
     try {
       document.body.classList.remove("vc-seratafilm-app-revealed");
     } catch (eR1) {}
     var api = resolvedApiUrl();
     var app = document.getElementById("vc-seratafilm-app");
     if (!api) {
-      var rawCfg = "";
-      try {
-        rawCfg = String((window.__VC_SERATAFILM_ACCESS && window.__VC_SERATAFILM_ACCESS.apiUrl) || "").trim();
-      } catch (eCfg) {}
-      showDenied(
-        /\{\{/.test(rawCfg)
-          ? "Questa pagina è la sorgente non compilata (placeholder {{...}} nel sito). Sul server servi WebSite/dist dopo `node WebSite/scripts/build-site.mjs`, non la cartella WebSite grezza."
-          : "Configurazione incompleta: imposta seratafilmAccessApiUrl in site.config.json e rifai il build.",
-      );
+      redirectHome();
       return;
     }
     var token = getToken();
@@ -288,62 +384,30 @@
       redirectHome();
       return;
     }
-    try {
-      var prefetch = window.__vcSeratafilmAccessPrefetch || startAccessPrefetch();
-      var out = await prefetch;
-      if (out && out.cached && out.ok) {
-        revealApp(app);
-        return;
-      }
-      if (out && out.res) {
-        if (out.res.ok && out.data && out.data.ok) {
-          revealApp(app);
-          return;
-        }
-        redirectHome();
-        return;
-      }
-      if (out && out.error) {
-        throw out.error;
-      }
-      if (out && out.skipped) {
-        redirectHome();
-        return;
-      }
-      var fresh = await requestAccess(api, token);
-      if (fresh.res.ok && fresh.data && fresh.data.ok) {
-        writeAccessCache(token);
-        revealApp(app);
-        return;
-      }
-      redirectHome();
-    } catch (err) {
-      var name = err && err.name ? String(err.name) : "";
-      var msg = err && err.message ? String(err.message) : "";
-      var isAbort = name === "AbortError" || /aborted/i.test(msg);
-      var isTimeout = /timeout/i.test(msg);
-      showDenied(
-        isAbort || isTimeout
-          ? "Timeout: il server non ha risposto in tempo. Controlla la connessione o riprova tra poco."
-          : "Impossibile verificare l'accesso. Riprova tra qualche istante.",
-      );
+    var cached = readAccessCache(token);
+    if (cached) {
+      revealApp(app);
+      return;
     }
+    var prefetch = window.__vcSeratafilmAccessPrefetch || startAccessPrefetch();
+    prefetch
+      .then(function (out) {
+        handleAccessResult(out, app, token);
+      })
+      .catch(function () {
+        redirectHome();
+      });
   }
 
   startAccessPrefetch();
 
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", run);
-  } else {
+  function scheduleRun() {
     run();
   }
-  try {
-    var titleStr = String(typeof document !== "undefined" ? document.title || "" : "");
-    var apiStr = String((window.__VC_SERATAFILM_ACCESS && window.__VC_SERATAFILM_ACCESS.apiUrl) || "");
-    if (/\{\{/.test(titleStr) || /\{\{/.test(apiStr)) {
-      console.warn(
-        "[VC Serata film] Pagina senza build ({{ }} in titolo o apiUrl). Esegui `node WebSite/scripts/build-site.mjs` e servi `WebSite/dist`, non `WebSite/` grezza.",
-      );
-    }
-  } catch (eUnb) {}
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", scheduleRun);
+  } else {
+    scheduleRun();
+  }
 })();

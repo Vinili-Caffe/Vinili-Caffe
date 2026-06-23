@@ -2,7 +2,7 @@ const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Schemas/Community/co
 const { isValidGuildUserId } = require("../../Utils/DB/validateWriteIds");
 const { HOUSES } = require("./hogwartsSortingBank");
 const SORTING_DOC = SITE_DOCUMENT_TYPE.HOGWARTS_SORTING;
-const HOUSE_ID_ALIASES = Object.freeze({ gryffindor: "gryffindor", grifondoro: "gryffindor", ravenclaw: "ravenclaw", corvonero: "ravenclaw", hufflepuff: "hufflepuff", tassorosso: "hufflepuff", slytherin: "slytherin", serpeverde: "slytherin" });
+const HOUSE_ID_ALIASES = Object.freeze({ gryffindor: "gryffindor", grifondoro: "gryffindor", ravenclaw: "ravenclaw", corvonero: "ravenclaw", hufflepuff: "hufflepuff", tassorosso: "hufflepuff", slytherin: "slytherin", serpeverde: "slytherin", slythrerin: "slytherin" });
 
 function normalizeHogwartsHouseId(value) {
   const raw = String(value || "").trim().toLowerCase();

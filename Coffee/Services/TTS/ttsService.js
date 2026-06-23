@@ -159,16 +159,28 @@ function shouldHandleMessage(message, config, prefix) {
 /** Canale vocale per leggere il messaggio: se sei in duo ma scrivi nella chat di lounge, usa duo. */
 function resolveTtsVoiceChannel(message) {
   const memberVoice = message.member?.voice?.channel ?? null;
+  if (!memberVoice) return null;
   if (message.channel.isVoiceBased?.() && !message.channel.isThread?.()) {
-    if (memberVoice && String(memberVoice.id) !== String(message.channel.id)) return memberVoice;
+    if (String(memberVoice.id) !== String(message.channel.id)) return memberVoice;
     return message.channel;
   }
   if (message.channel.isThread?.() && message.channel.parent?.isVoiceBased?.()) {
     const parent = message.channel.parent;
-    if (memberVoice && String(memberVoice.id) !== String(parent.id)) return memberVoice;
+    if (String(memberVoice.id) !== String(parent.id)) return memberVoice;
     return parent;
   }
   return memberVoice;
+}
+
+async function authorIsInVoiceChannel(message, voiceChannel) {
+  if (!message?.author?.id || !voiceChannel?.id) return false;
+  let member = message.member;
+  if (!member?.voice && message.guild) {
+    member = await getGuildMemberCached(message.guild, message.author.id).catch(() => null);
+  }
+  const authorVoiceId = member?.voice?.channel?.id ?? member?.voice?.channelId ?? null;
+  if (!authorVoiceId) return false;
+  return String(authorVoiceId) === String(voiceChannel.id);
 }
 
 function sanitizeText(text) {
@@ -1180,6 +1192,7 @@ async function enqueueTtsMessageFromHistory(message, client, voiceChannel, state
   const config = client?.config;
   if (!message || !client || !voiceChannel || !state) return;
   if (!shouldHandleMessage(message, config, prefix)) return;
+  if (!(await authorIsInVoiceChannel(message, voiceChannel))) return;
   const includeUsername = booleanFromConfig(config?.tts?.includeUsername, false);
   await hydrateUserTtsLangForUser(message.author?.id);
   const lang = getUserTtsLang(message.author?.id) || config?.tts?.lang || "it";

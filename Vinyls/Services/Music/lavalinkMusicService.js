@@ -358,6 +358,15 @@ async function resumeRestoredMusicSessions(client) {
           deaf: true,
         });
         notifyBotPresenceVoiceActivity(client);
+        const { startVoiceContinuousCapture } = require("../Voice/voiceContinuousCaptureService");
+        await startVoiceContinuousCapture({
+          guildId: gid,
+          voiceChannel,
+          client,
+          botUserId: client?.user?.id,
+        }).catch((err) => {
+          global.logger?.warn?.("[MUSIC] voice capture start:", err?.message || err);
+        });
       }
       attachEndHandler(client, player, gid);
       await player.setGlobalVolume(resolveDefaultJoinGlobalVolume());
@@ -1533,6 +1542,11 @@ async function tickMusicInactivity(client) {
   for (const [guildId, conn] of sh.connections) {
     const gid = String(guildId || "").trim();
     if (!gid || !conn?.channelId) continue;
+    const { isGuildClipRecording } = require("../Voice/voiceClipService");
+    if (isGuildClipRecording(gid)) {
+      musicIdleSince.delete(gid);
+      continue;
+    }
     const guild = client.guilds.cache.get(gid) || (await client.guilds.fetch(gid).catch(() => null));
     if (!guild) continue;
     const vc =
@@ -1608,6 +1622,8 @@ function markMusicVoiceLeaveIntentional(client, guildId) {
 async function leaveMusicVoiceChannelMarked(client, guildId) {
   const gid = String(guildId || "").trim();
   if (!gid || !client) return;
+  const { stopVoiceContinuousCapture } = require("../Voice/voiceContinuousCaptureService");
+  await stopVoiceContinuousCapture(gid, client).catch(() => null);
   musicIdleSince.delete(gid);
   lastMusicEndHandledByGuild.delete(gid);
   markMusicVoiceLeaveIntentional(client, gid);
@@ -1890,6 +1906,16 @@ async function playMusicRequest(ctx, query) {
   }
 
   const guildId = guild.id;
+  const { isGuildClipRecording } = require("../Voice/voiceClipService");
+  if (isGuildClipRecording(guildId)) {
+    const musicDuringClip = guildMusicSessionBlocksOtherVoiceChannels(client, guildId);
+    if (!musicDuringClip.blocked) {
+      return {
+        ok: false,
+        message: "Registrazione clip in corso. Ferma la clip o attendi la fine, poi riprova.",
+      };
+    }
+  }
   if (guildHasBlockingNativeVoiceConnection(guildId)) {
     return {
       ok: false,
@@ -2007,6 +2033,15 @@ async function playMusicRequest(ctx, query) {
         deaf: true,
       });
       notifyBotPresenceVoiceActivity(client);
+      const { startVoiceContinuousCapture } = require("../Voice/voiceContinuousCaptureService");
+      await startVoiceContinuousCapture({
+        guildId,
+        voiceChannel,
+        client,
+        botUserId: client?.user?.id,
+      }).catch((err) => {
+        global.logger?.warn?.("[MUSIC] voice capture start:", err?.message || err);
+      });
     } catch (err) {
       global.logger?.warn?.("[MUSIC] joinVoiceChannel:", err?.message || err);
       return { ok: false, message: musicJoinVoiceChannelErrorMessage(err) };
@@ -2014,6 +2049,18 @@ async function playMusicRequest(ctx, query) {
     attachEndHandler(client, player, guildId);
     const volume = resolveDefaultJoinGlobalVolume();
     await player.setGlobalVolume(volume);
+  } else {
+    const { isVoiceCaptureActive, startVoiceContinuousCapture } = require("../Voice/voiceContinuousCaptureService");
+    if (!isVoiceCaptureActive(guildId)) {
+      await startVoiceContinuousCapture({
+        guildId,
+        voiceChannel,
+        client,
+        botUserId: client?.user?.id,
+      }).catch((err) => {
+        global.logger?.warn?.("[MUSIC] voice capture resume:", err?.message || err);
+      });
+    }
   }
 
   const playing = isMusicPlayingNow(player, session);
@@ -2691,6 +2738,102 @@ async function clearGuildQueue(interaction) {
   return { ok: true };
 }
 
+async function resumeMusicVoiceAfterAfkProbe(client, guildId) {
+  const gid = String(guildId || "").trim();
+  const sh = client?.shoukaku;
+  if (!sh || !gid) return false;
+  const session = guildQueues.get(gid);
+  const encoded = String(session?.playingEncoded || "").trim();
+  const vcId = String(session?.voiceChannelId || "").trim();
+  if (!encoded || !vcId || !/^\d{17,22}$/.test(vcId)) return false;
+  if (guildHasBlockingNativeVoiceConnection(gid)) {
+    global.logger?.warn?.("[MUSIC] afk probe resume blocked by native voice session", gid);
+    return false;
+  }
+
+  const guild = client.guilds.cache.get(gid) || (await client.guilds.fetch(gid).catch(() => null));
+  if (!guild) return false;
+  const voiceChannel =
+    guild.channels.cache.get(vcId) || (await guild.channels.fetch(vcId).catch(() => null));
+  if (!voiceChannel?.isVoiceBased?.()) return false;
+
+  const me = guild.members.me;
+  if (!voiceChannel.permissionsFor?.(me)?.has?.(["Connect", "Speak", "ViewChannel"])) return false;
+
+  try {
+    const { purgeTtsVoicePersistence } = require("../TTS/ttsService");
+    await purgeTtsVoicePersistence(gid, client).catch(() => {});
+    let player = sh.players.get(gid);
+    if (!player) {
+      player = await sh.joinVoiceChannel({
+        guildId: gid,
+        shardId: getShardIdForGuild(guild),
+        channelId: voiceChannel.id,
+        deaf: true,
+      });
+      notifyBotPresenceVoiceActivity(client);
+      const { startVoiceContinuousCapture } = require("../Voice/voiceContinuousCaptureService");
+      await startVoiceContinuousCapture({
+        guildId: gid,
+        voiceChannel,
+        client,
+        botUserId: client?.user?.id,
+      }).catch(() => null);
+    } else if (!sh.connections?.get(gid)?.channelId) {
+      await sh.joinVoiceChannel({
+        guildId: gid,
+        shardId: getShardIdForGuild(guild),
+        channelId: voiceChannel.id,
+        deaf: true,
+      });
+      notifyBotPresenceVoiceActivity(client);
+      const { startVoiceContinuousCapture } = require("../Voice/voiceContinuousCaptureService");
+      await startVoiceContinuousCapture({
+        guildId: gid,
+        voiceChannel,
+        client,
+        botUserId: client?.user?.id,
+      }).catch(() => null);
+    }
+    attachEndHandler(client, player, gid);
+    await player.setGlobalVolume(resolveDefaultJoinGlobalVolume());
+    if (!player.track) {
+      await playEncodedFromStart(player, encoded);
+    } else {
+      await player.setPaused(false).catch(() => null);
+    }
+    persistMusicQueueSnapshotNow(client);
+    return true;
+  } catch (err) {
+    global.logger?.warn?.("[MUSIC] afk probe resume failed", gid, err?.message || err);
+    return false;
+  }
+}
+
+async function suspendMusicVoiceForAfkProbe(client, guildId) {
+  const gid = String(guildId || "").trim();
+  if (!gid || !client) return { active: false };
+  const session = guildQueues.get(gid);
+  const sh = client.shoukaku;
+  const conn = sh?.connections?.get(gid);
+  const player = sh?.players?.get(gid);
+  if (!session && !conn?.channelId && !player?.track) return { active: false };
+
+  const merged = mergeSessionSnapshotFromLivePlayer(client, gid, session || {});
+  if (session) Object.assign(session, merged);
+  else guildQueues.set(gid, merged);
+  persistMusicQueueSnapshotNow(client);
+
+  if (player && player.paused === false) {
+    await player.setPaused(true).catch(() => null);
+  }
+  if (conn?.channelId) {
+    await leaveMusicVoiceChannelMarked(client, gid);
+    return { active: true, channelId: String(merged.voiceChannelId || conn.channelId) };
+  }
+  return { active: Boolean(merged.voiceChannelId), channelId: merged.voiceChannelId || null };
+}
+
 module.exports = {
   initLavalinkMusicIfEnabled,
   isLavalinkUsable,
@@ -2720,4 +2863,6 @@ module.exports = {
   getGuildMusicVoiceChannelId,
   guildHasMusicVoiceResumeHint,
   guildMusicSessionBlocksOtherVoiceChannels,
+  suspendMusicVoiceForAfkProbe,
+  resumeMusicVoiceAfterAfkProbe,
 };

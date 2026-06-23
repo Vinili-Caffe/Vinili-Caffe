@@ -10,9 +10,9 @@ const { handleIdeaBugMessage } = require("../Services/Community/ideaBugThreadSer
 const { handleOfficialPrefixMessage } = require("../Utils/Prefix/officialPrefixDispatcher");
 const { channelAllowsMedia, getCachedOrFetchMember, handleDisboardBump, handleDiscadiaBump, handleMovieNightVoteMessage, handlePauseChannelMessage, handleThreadVoteMessage, handleVoteManagerMessage, hasMediaPermission, isDiscordInviteLinkMessage, isMediaMessage, } = require("../Utils/Message/officialMessageAutomationHandlers");
 const { handleAfk, handleCounting, handleMentionAutoReactions, handleMentionAutoResponses, handleWordReactions, logEventError, } = require("../Utils/Message/officialMessageCommunityHandlers");
-const { handleAmbientOllamaMessage } = require("../Services/AI/ollamaChatRuntime");
 const { runAutoModMessage } = require("../Services/Moderation/automodService");
 const { handleCustomProfilePromptMessage } = require("./interaction/customRoleHandlers");
+const { handleTicketMemberPromptMessage } = require("../Utils/Ticket/ticketMemberPrompt");
 const { handleProfileMentionResponsePromptMessage } = require("../Buttons/profile");
 const IDs = require("../Utils/Config/ids");
 const { EPHEMERAL_TTL_SHORT_MS, scheduleMessageDeletion } = require("../Utils/Config/ephemeralMessageTtl");
@@ -218,6 +218,7 @@ module.exports = {
           await guildMemberUpdateExtras
             .recoverMissingBoostEmbedsForUser(message.guild, nativeBoost.userId, {
               knownNativeSlots: nativeBoost.slots,
+              expectedSlots: nativeBoost.slots,
               startedAt: Date.now(),
               skipNativeScan: true,
             })
@@ -307,6 +308,7 @@ module.exports = {
       try {
         if (await handleProfileMentionResponsePromptMessage(message)) return;
         if (await handleCustomProfilePromptMessage(message)) return;
+        if (await handleTicketMemberPromptMessage(message)) return;
       } catch (error) {
         logEventError(resolvedClient, "CUSTOM PROFILE PROMPT ERROR", error);
       }
@@ -357,12 +359,26 @@ module.exports = {
         );
       });
 
-      const [minigameResult, afkResult, mentionsResult, mentionResponsesResult, countingResult, wordReactionsResult] = await Promise.allSettled([handleMinigameMessage(message, resolvedClient), handleAfk(message), handleMentionAutoReactions(message), handleMentionAutoResponses(message), handleCounting(message, resolvedClient), handleWordReactions(message),]);
+      const [minigameResult, afkResult, pmAfkChatResult, mentionsResult, mentionResponsesResult, countingResult, wordReactionsResult] = await Promise.allSettled([
+        handleMinigameMessage(message, resolvedClient),
+        handleAfk(message),
+        (async () => {
+          const { handlePmVoiceAfkChatMessage } = require("../Services/Staff/pmVoiceAfkWatchService");
+          return handlePmVoiceAfkChatMessage(message, resolvedClient);
+        })(),
+        handleMentionAutoReactions(message),
+        handleMentionAutoResponses(message),
+        handleCounting(message, resolvedClient),
+        handleWordReactions(message),
+      ]);
       if (minigameResult.status === "rejected") {
         logEventError(resolvedClient, "MINIGAME ERROR", minigameResult.reason);
       }
       if (afkResult.status === "rejected") {
         logEventError(resolvedClient, "AFK ERROR", afkResult.reason);
+      }
+      if (pmAfkChatResult.status === "rejected") {
+        logEventError(resolvedClient, "PM AFK CHAT ERROR", pmAfkChatResult.reason);
       }
       if (mentionsResult.status === "rejected") {
         logEventError(resolvedClient, "MENTION REACTION ERROR", mentionsResult.reason);
@@ -384,11 +400,6 @@ module.exports = {
         await handleTtsMessage(message, resolvedClient, defaultPrefix);
       } catch (error) {
         logEventError(resolvedClient, "TTS ERROR", error);
-      }
-      try {
-        if (await handleAmbientOllamaMessage(message, resolvedClient)) return;
-      } catch (error) {
-        logEventError(resolvedClient, "OLLAMA AMBIENT ERROR", error);
       }
     }
 

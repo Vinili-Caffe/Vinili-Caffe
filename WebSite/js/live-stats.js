@@ -193,6 +193,7 @@
       })
       .finally(function () {
         staffLoadPending = false;
+        updateStaffHoverUi();
       });
   }
 
@@ -549,8 +550,8 @@
       applyExtraStats({ staffHoverGroups: cfg.staffHoverGroups, staffNoPm: cfg.staffNoPm });
     } else {
       updateStaffHoverUi();
-      prefetchStaffData();
     }
+    prefetchStaffData();
   }
 
   wireIntroObserver();
@@ -661,11 +662,29 @@
 
   var pollMs = Math.max(20000, Math.min(600000, Number(cfg.liveEventPollMs) || 90000));
   var lastEventPayload = null;
+  var lastShownEventId = "";
 
   function showStrip(data) {
     var ev = data && data.event ? data.event : null;
     var eid = ev && ev.id != null ? String(ev.id).trim() : "";
     if (!ev || !eid) return;
+    var dismissed = getDismissedEventId() === eid;
+    var wasVisible = !root.hidden && reopenBtn.hidden;
+    if (wasVisible && eid === lastShownEventId && !dismissed) {
+      titleEl.textContent = ev.name || "Evento in corso";
+      descEl.textContent =
+        "In questo momento sul server Discord c’è un evento attivo. Unisciti dalla app o dal browser.";
+      if (ev.description && String(ev.description).trim()) {
+        descEl.textContent = String(ev.description).trim();
+      }
+      var inviteFast = String(data.inviteUrl || prim.getAttribute("href") || cfg.inviteUrl || "").trim();
+      var urlFast = String(ev.buttonUrl || ev.eventUrl || inviteFast).trim();
+      var labelFast = String(ev.buttonLabel || "Partecipa").trim() || "Partecipa";
+      prim.setAttribute("href", urlFast || inviteFast);
+      prim.textContent = labelFast;
+      lastEventPayload = data;
+      return;
+    }
 
     titleEl.textContent = ev.name || "Evento in corso";
     descEl.textContent =
@@ -680,7 +699,8 @@
     prim.textContent = label;
 
     lastEventPayload = data;
-    if (getDismissedEventId() === eid) {
+    lastShownEventId = eid;
+    if (dismissed) {
       root.hidden = true;
       reopenBtn.hidden = false;
       return;
@@ -730,6 +750,7 @@
           showStrip(j);
         } else {
           lastEventPayload = null;
+          lastShownEventId = "";
           clearDismissedEventId();
           root.hidden = true;
           reopenBtn.hidden = true;

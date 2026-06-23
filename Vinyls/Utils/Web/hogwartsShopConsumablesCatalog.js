@@ -144,13 +144,45 @@ function consumablePrice(item) {
   return Math.max(0, Math.floor(Number(item?.price) || 0));
 }
 
+function formatConsumableDurationMs(durationMs) {
+  const hours = Math.max(1, Math.round(Number(durationMs) / (60 * 60 * 1000)));
+  return `${hours}h`;
+}
+
+function resolveConsumableBoostPublic(item) {
+  const boostType = item?.boostType === CONSUMABLE_BOOST_TYPES.EXP ? "EXP" : "Punti casa";
+  const mult = Math.max(1, Math.floor(Number(item?.multiplier) || 0));
+  return {
+    boostType,
+    boostMultiplier: mult > 1 ? `×${mult}` : "",
+    boostDuration: formatConsumableDurationMs(item?.durationMs),
+  };
+}
+
+function publicConsumableItem(item) {
+  const boost = resolveConsumableBoostPublic(item);
+  return {
+    id: item.id,
+    category: item.category,
+    name: item.name,
+    price: item.price,
+    rarity: item.rarity,
+    accent: item.accent,
+    icon: item.icon,
+    scope: item.scope,
+    description: item.description,
+    detail: item.detail,
+    ...boost,
+  };
+}
+
 function publicConsumablesCatalog() {
   return {
     categories: Object.values(CONSUMABLE_CATEGORIES).map((id) => ({
       id,
       label: CONSUMABLE_CATEGORY_LABELS[id] || id,
       boostHint: CONSUMABLE_CATEGORY_HINTS[id] || "",
-      items: HOGWARTS_SHOP_CONSUMABLES.filter((item) => item.category === id).map((item) => ({ ...item })),
+      items: HOGWARTS_SHOP_CONSUMABLES.filter((item) => item.category === id).map((item) => publicConsumableItem(item)),
     })),
   };
 }

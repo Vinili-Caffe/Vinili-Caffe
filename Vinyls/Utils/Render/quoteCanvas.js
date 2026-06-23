@@ -287,15 +287,27 @@ function measureQuoteLayout(message, username, footerText) {
 }
 
 function drawQuoteInviteWatermark(ctx, width, height) {
-  const padX = 14;
-  const padY = 10;
+  const padX = 20;
+  const padY = 16;
+  const fontSize = 17;
+  const x = width - padX;
+  const y = height - padY;
   ctx.textAlign = "right";
   ctx.textBaseline = "bottom";
-  ctx.font = fontStack(13, "400");
-  drawTextWithSpecialFallback(ctx, QUOTE_INVITE_WATERMARK, width - padX, height - padY, {
-    size: 13,
-    weight: "400",
-    color: "rgba(255,255,255,0.38)",
+  ctx.font = fontStack(fontSize, "600");
+  const textW = ctx.measureText(QUOTE_INVITE_WATERMARK).width;
+  const bgPadX = 12;
+  const bgPadY = 7;
+  const boxH = Math.round(fontSize * 1.35) + bgPadY * 2;
+  const boxW = Math.ceil(textW) + bgPadX * 2;
+  const boxLeft = x - boxW;
+  const boxTop = y - boxH + 4;
+  ctx.fillStyle = "rgba(0,0,0,0.62)";
+  ctx.fillRect(boxLeft, boxTop, boxW, boxH);
+  drawTextWithSpecialFallback(ctx, QUOTE_INVITE_WATERMARK, x, y, {
+    size: fontSize,
+    weight: "600",
+    color: "rgba(255,255,255,0.96)",
     forcePrimaryFont: true,
   });
 }

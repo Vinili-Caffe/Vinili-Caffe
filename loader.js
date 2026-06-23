@@ -416,6 +416,27 @@ process.on("exit", () => {
     }
 });
 
-BOTS.forEach((bot) =>
-  runfile(bot, { skipGitPull: !ENABLE_LOADER_GIT_PULL }),
-);
+async function bootBots() {
+  try {
+    const { buildMongoUrl, waitForMongoReachable } = require("./Vinyls/Utils/Database/mongoConnect");
+    const mongoUrl = buildMongoUrl(null);
+    if (mongoUrl) {
+      console.log("[Loader] Attesa MongoDB...");
+      const ready = await waitForMongoReachable(mongoUrl, 30_000);
+      if (!ready) {
+        console.warn("[Loader] MongoDB non raggiungibile entro 30s, avvio bot comunque.");
+      }
+    }
+  } catch (err) {
+    console.warn("[Loader] Probe MongoDB non disponibile:", err?.message || err);
+  }
+
+  for (const bot of BOTS) {
+    runfile(bot, { skipGitPull: !ENABLE_LOADER_GIT_PULL });
+  }
+}
+
+bootBots().catch((err) => {
+  console.error("[Loader] Boot fallito:", err?.message || err);
+  process.exit(1);
+});

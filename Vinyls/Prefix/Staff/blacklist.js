@@ -20,10 +20,12 @@ function hasBlacklistManageRole(member) {
 function hasBlacklistViewRole(member) {
   const roles = member?.roles?.cache;
   if (!roles) return false;
+  const staffRoleId = IDs?.roles?.Staff;
   const highStaffRoleId = IDs?.roles?.HighStaff;
   const partnerManagerRoleId = IDs?.roles?.PartnerManager;
   return Boolean(
-    (highStaffRoleId && roles.has(highStaffRoleId)) ||
+    (staffRoleId && roles.has(staffRoleId)) ||
+      (highStaffRoleId && roles.has(highStaffRoleId)) ||
       (partnerManagerRoleId && roles.has(partnerManagerRoleId)),
   );
 }

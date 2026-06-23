@@ -233,11 +233,24 @@
     } catch (eCt) {}
   }
 
+  function resolveOAuthRedirectUri() {
+    var c = cfg();
+    var fromCfg = String(c.redirectUri || "").trim();
+    if (fromCfg) return fromCfg;
+    var home = String(c.homeUrl || "").trim();
+    if (/^https?:\/\//i.test(home)) return home.endsWith("/") ? home : home + "/";
+    try {
+      return new URL("/", window.location.origin).href;
+    } catch (e) {
+      return window.location.origin + "/";
+    }
+  }
+
   function authUrl() {
     var c = cfg();
     var clientId = String(c.clientId || "").trim();
     if (!clientId) return "";
-    var redirect = String(c.redirectUri || "").trim() || window.location.origin + window.location.pathname;
+    var redirect = resolveOAuthRedirectUri();
     var q = new URLSearchParams({
       client_id: clientId,
       redirect_uri: redirect,
@@ -259,7 +272,6 @@
     var isLocal = /^(localhost|127\.0\.0\.1)$/i.test(String(window.location.hostname || ""));
     var raw = String((isLocal && cfgRank.apiUrlLocal) ? cfgRank.apiUrlLocal : (cfgRank.apiUrl || "")).trim();
     if (raw) return raw;
-    if (isLocal) return "http://127.0.0.1:3042/webhooks/site-rank-card";
     return "/webhooks/site-rank-card";
   }
 
@@ -639,6 +651,69 @@
       });
   }
 
+  var SITE_VERIFY_DONE_PREFIX = "vc_site_verify_done_v1_";
+
+  function readSiteVerifyGuildFromQuery() {
+    try {
+      var p = new URLSearchParams(window.location.search || "");
+      var gid = String(p.get("siteVerifyGuild") || p.get("guildId") || "").trim();
+      if (/^\d{17,22}$/.test(gid)) return gid;
+    } catch (e) {}
+    return "";
+  }
+
+  function clearSiteVerifyGuildQuery() {
+    try {
+      var u = new URL(window.location.href);
+      u.searchParams.delete("siteVerifyGuild");
+      u.searchParams.delete("guildId");
+      history.replaceState({}, document.title, u.pathname + (u.search || "") + u.hash);
+    } catch (e) {}
+  }
+
+  function maybeCompleteSiteVerify(token) {
+    var gid = readSiteVerifyGuildFromQuery();
+    if (!gid || !token) return Promise.resolve(null);
+    var doneKey = SITE_VERIFY_DONE_PREFIX + gid;
+    try {
+      if (sessionStorage.getItem(doneKey) === "1") {
+        clearSiteVerifyGuildQuery();
+        return Promise.resolve(null);
+      }
+    } catch (e0) {}
+    return fetch("/webhooks/site-verify/complete", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + token,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ guildId: gid }),
+      cache: "no-store",
+    })
+      .then(function (res) {
+        return res.json().catch(function () { return {}; }).then(function (data) {
+          if (!res.ok || !data || data.ok !== true) return null;
+          try {
+            sessionStorage.setItem(doneKey, "1");
+          } catch (e1) {}
+          clearSiteVerifyGuildQuery();
+          if (window.vcNotify && typeof window.vcNotify.add === "function") {
+            window.vcNotify.add({
+              id: "sys:site_verify_" + gid,
+              title: data.alreadyVerified ? "Già verificato" : "Verifica completata",
+              body: String(data.message || "Verifica completata con successo."),
+              kind: "success",
+              at: Date.now(),
+            });
+          }
+          return data;
+        });
+      })
+      .catch(function () {
+        return null;
+      });
+  }
+
   function main() {
     var parsed = parseHashToken();
     if (parsed && parsed.stateMismatch) {
@@ -713,6 +788,11 @@
       renderLoggedIn(cached);
       fetchMe(t)
         .then(function (user) {
+          return maybeCompleteSiteVerify(t).then(function () {
+            return user;
+          });
+        })
+        .then(function (user) {
           writeCachedDiscordMe(t, user);
           if (freshLogin) queueLoginWelcomeNotification(user);
           try {
@@ -737,6 +817,11 @@
     }
     showSessionVerifyOverlay();
     fetchMe(t)
+      .then(function (user) {
+        return maybeCompleteSiteVerify(t).then(function () {
+          return user;
+        });
+      })
       .then(function (user) {
         writeCachedDiscordMe(t, user);
         renderLoggedIn(user);

@@ -57,6 +57,11 @@ async function notifyDmPrivacyBlockedInCommands(options = {}) {
     (await client.guilds.fetch(guildId).catch(() => null));
   if (!guild) return false;
 
+  const member =
+    guild.members.cache.get(userId) ||
+    (await guild.members.fetch(userId).catch(() => null));
+  if (!member) return false;
+
   const channel =
     guild.channels.cache.get(commandsChannelId) ||
     (await guild.channels.fetch(commandsChannelId).catch(() => null));

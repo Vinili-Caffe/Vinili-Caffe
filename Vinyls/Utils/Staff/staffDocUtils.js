@@ -32,6 +32,43 @@ async function getOrCreateStaffDoc(guildId, userId) {
   return doc;
 }
 
+/**
+ * Incremento atomico contatori valutazione (evita ID duplicati con sync auto + manuale in parallelo).
+ * @param {string} guildId
+ * @param {string} userId
+ * @param {"positive"|"negative"} kind
+ * @param {string} [reason]
+ * @returns {Promise<{ valutazioniCount: number, sectionCount: number }|null>}
+ */
+async function incrementStaffValutazioneCounters(guildId, userId, kind, reason = "") {
+  const g = String(guildId ?? "").trim();
+  const u = String(userId ?? "").trim();
+  if (!isValidGuildUserId(g, u)) return null;
+  const negative = kind === "negative";
+  const inc = negative
+    ? { "staff.valutazioniCount": 1, "staff.negativeCount": 1 }
+    : { "staff.valutazioniCount": 1, "staff.positiveCount": 1 };
+  const reasonsKey = negative ? "staff.negativeReasons" : "staff.positiveReasons";
+  const reasonText = String(reason || "");
+  const update = { $inc: inc };
+  if (reasonText) update.$push = { [reasonsKey]: reasonText };
+  const doc = await ActivityUserProfile.findOneAndUpdate({ guildId: g, userId: u }, update, {
+    new: true,
+    projection: { "staff.valutazioniCount": 1, "staff.positiveCount": 1, "staff.negativeCount": 1 },
+  })
+    .lean()
+    .catch(() => null);
+  if (!doc?.staff) return null;
+  const s = doc.staff;
+  return {
+    valutazioniCount: Math.max(0, Math.floor(Number(s.valutazioniCount) || 0)),
+    sectionCount: Math.max(
+      0,
+      Math.floor(Number(negative ? s.negativeCount : s.positiveCount) || 0),
+    ),
+  };
+}
+
 async function deleteThreadForMessage(guild, messageIdOrMessage) {
   const id = typeof messageIdOrMessage === "object" && messageIdOrMessage != null
     ? String(messageIdOrMessage?.id || "")
@@ -171,6 +208,7 @@ async function deleteStaffRelatedMessagesFromConfiguredChannels(guild, userId) {
 
 module.exports = {
   getOrCreateStaffDoc,
+  incrementStaffValutazioneCounters,
   deleteThreadForMessage,
   deleteStaffPauseRequestChannelMessages,
   deleteStaffRelatedMessagesFromConfiguredChannels,

@@ -213,7 +213,12 @@ async function sendModerationDm({ user, guildId, guildName, action, reason = "",
       ];
     }
   }
-  const sent = await sendDm(user, { embeds: [embed], components }, { guildId, bypassNoDm: true },);
+  const suppressPrivacyChannelNotice = actionKey === "ban" || actionKey === "kick";
+  const sent = await sendDm(user, { embeds: [embed], components }, {
+    guildId,
+    bypassNoDm: true,
+    notifyOnPrivacyBlock: !suppressPrivacyChannelNotice,
+  });
   return Boolean(sent);
 }
 
@@ -452,17 +457,18 @@ async function runNamed(name, message, args, client) {
       return reply(message, client, "Ban", "<:VC_Lock:1482526739044368476> Il motivo è obbligatorio per il ban. Uso: `+ban [utente] [durata] [motivo]`", "Red");
     }
     const deleteSeconds = mode === "save" ? 0 : 604800;
-    const banOut = await executeGuildBan(message.guild, userId, { reason, deleteMessageSeconds: deleteSeconds });
-    if (!banOut.ok) {
-      return reply(message, client, "Ban", `<:VC_Lock:1482526739044368476> ${banOut.error}`, "Red");
-    }
+    const dmUser = user || (await message.client.users.fetch(userId).catch(() => null));
     await sendModerationDm({
-      user,
+      user: dmUser,
       guildId: message.guild.id,
       guildName: message.guild.name,
       action: "ban",
       reason,
     });
+    const banOut = await executeGuildBan(message.guild, userId, { reason, deleteMessageSeconds: deleteSeconds });
+    if (!banOut.ok) {
+      return reply(message, client, "Ban", `<:VC_Lock:1482526739044368476> ${banOut.error}`, "Red");
+    }
     await makeCase(client, message, "BAN", userId, reason, duration);
     return successReply(message, formatTargetLabel(user || { id: userId }), "was banned", reason);
   }
@@ -483,15 +489,16 @@ async function runNamed(name, message, args, client) {
     if (!reason || !reason.trim()) {
       return reply(message, client, "Kick", "<:VC_Lock:1482526739044368476> Il motivo è obbligatorio per il kick. Uso: `+kick [utente] [motivo]`", "Red");
     }
-    const ok = await member.kick(reason).then(() => true).catch(() => false);
-    if (!ok) return reply(message, client, "Kick", "Operazione fallita.", "Red");
+    const dmUser = user || member.user || (await message.client.users.fetch(userId).catch(() => null));
     await sendModerationDm({
-      user,
+      user: dmUser,
       guildId: message.guild.id,
       guildName: message.guild.name,
       action: "kick",
       reason,
     });
+    const ok = await member.kick(reason).then(() => true).catch(() => false);
+    if (!ok) return reply(message, client, "Kick", "Operazione fallita.", "Red");
     await makeCase(client, message, "KICK", userId, reason);
     return successReply(message, formatTargetLabel(member.user || { id: userId }), "was kicked", reason);
   }

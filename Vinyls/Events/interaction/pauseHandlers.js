@@ -13,7 +13,7 @@ const {
 } = require("../../Utils/Pause/pauseRequestSubmitRuntime");
 const PAUSE_REQUEST_MODAL_ID = "pause_request:modal";
 const { accountUsername } = require("../../Utils/Discord/guildDiscordIdentity");
-const { MS_PER_DAY, parseItalianDate, getPauseDaysBetween, getTodayUtc, getCurrentYearBoundsUtc, countOverlapDays, computeConsumedPauseDays, getMemberRoleLabel, getPauseStatusLabel, computePauseScaledDaysThisYear, getStaffPauseRecord, getStaffAndPauseByRequestMessageId, updatePauseInDb, buildRequestButtonsRow, buildAcceptedButtonsRow, schedulePauseButtonsRemoval, getBasePauseLimit, getPauseRoleLimit, getPauseTimingText, computeStaffersInPauseByRoleForRange, getPauseReasonFromMessage, normalizePauseRoleChoice, getPauseRoleTargets, roleChoiceAppliesTo, PAUSE_ROLE_STAFF, PAUSE_ROLE_PM, PAUSE_ROLE_BOTH, getBestStaffPauseBonusDays, getStaffPauseBonusDaysTotal, grantBestStaffPauseBonusYear } = require("../../Utils/Pause/pauseHandlersUtils");
+const { MS_PER_DAY, parseItalianDate, getPauseDaysBetween, getTodayUtc, getCurrentYearBoundsUtc, countOverlapDays, computeConsumedPauseDays, getMemberRoleLabel, getPauseStatusLabel, computePauseScaledDaysThisYear, getStaffPauseRecord, getStaffAndPauseByRequestMessageId, updatePauseInDb, buildRequestButtonsRow, buildAcceptedButtonsRow, schedulePauseButtonsRemoval, syncSingleAcceptedPauseMessage, getPausePhase, getBasePauseLimit, getPauseRoleLimit, getPauseTimingText, computeStaffersInPauseByRoleForRange, getPauseReasonFromMessage, normalizePauseRoleChoice, getPauseRoleTargets, roleChoiceAppliesTo, PAUSE_ROLE_STAFF, PAUSE_ROLE_PM, PAUSE_ROLE_BOTH, getBestStaffPauseBonusDays, getStaffPauseBonusDaysTotal, grantBestStaffPauseBonusYear } = require("../../Utils/Pause/pauseHandlersUtils");
 const { buildPauseListPayload, buildPauseListMonthRows } = require("../../Utils/Pause/pauseListRuntime");
 const pauseActionLocks = new Set();
 
@@ -243,16 +243,18 @@ async function handlePauseButton(interaction) {
   }
 
   if (action === "pause_cancel") {
-    if (targetPause.status !== "accepted") {
-      await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Questa pausa non è annullabile.", flags: 1 << 6 }).catch(() => {});
+    const pausePhase = getPausePhase(targetPause.dataRichiesta, targetPause.dataRitorno);
+    if (pausePhase === "ended") {
+      if (targetPause.status === "accepted") {
+        await syncSingleAcceptedPauseMessage(interaction.guild, effectiveUserId, targetPause);
+      }
+      await interaction.update({ components: [] }).catch(() => {});
+      await interaction.followUp({ content: "<a:VC_Alert:1482706673176150077> La pausa è scaduta: il pulsante annulla non è più disponibile.", flags: 1 << 6 }).catch(() => {});
       return true;
     }
 
-    const end = parseItalianDate(targetPause.dataRitorno);
-    const todayForExpiry = getTodayUtc();
-    if (end && todayForExpiry > end) {
-      await interaction.update({ components: [] });
-      await interaction.followUp({ content: "<a:VC_Alert:1482706673176150077> La pausa è scaduta: il pulsante annulla non è più disponibile.", flags: 1 << 6 }).catch(() => {});
+    if (targetPause.status !== "accepted") {
+      await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Questa pausa non è annullabile.", flags: 1 << 6 }).catch(() => {});
       return true;
     }
 

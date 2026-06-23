@@ -347,6 +347,7 @@ const activityUserProfileSchema = new Schema(
       },
       /** Storico case compact. */
       modCases: { type: [modCaseEntrySchema], default: [] },
+      postUnmuteRolesReconciledAt: { type: Date, default: null },
     },
     profile: {
       totals: {
@@ -456,6 +457,9 @@ const activityUserProfileSchema = new Schema(
         quote: {
           blocked: { type: Boolean, default: false },
         },
+        repost: {
+          blocked: { type: Boolean, default: false },
+        },
       },
       birthday: {
         day: { type: Number, default: null },
@@ -499,6 +503,7 @@ const activityUserProfileSchema = new Schema(
         lastLeftAt: { type: Date, default: null },
       },
       joinAnnouncePending: { type: Boolean, default: null },
+      joinAnnounceSentAt: { type: Date, default: null },
       inviteReminderState: {
         inviteNearTargets: { type: [Number], default: [] },
       },
@@ -534,6 +539,10 @@ const activityUserProfileSchema = new Schema(
             eventKey: { type: String, default: "" },
             updatedAt: { type: Date, default: null },
             items: { type: Schema.Types.Mixed, default: () => ({}) },
+          },
+          shopBoostUsage: {
+            type: Schema.Types.Mixed,
+            default: () => ({}),
           },
           potions: {
             type: Schema.Types.Mixed,
@@ -649,6 +658,9 @@ const SITE_DOCUMENT_TYPE = Object.freeze({
   COMMUNITY_FIRST_MESSAGE_DAILY: "community_first_message_daily",
   COMMUNITY_WELCOME_GREETING_EXP: "community_welcome_greeting_exp",
   COMMUNITY_WELCOME_SESSION: "community_welcome_session",
+  HOGWARTS_MINIGAME_SPAWN_WINDOW: "hogwarts_minigame_spawn_window",
+  HOGWARTS_HOUSE_CHANNEL_MINIGAME_SCHEDULER: "hogwarts_house_channel_minigame_scheduler",
+  HOGWARTS_SERATA_FILM_LB_PUBLISH: "hogwarts_serata_film_lb_publish",
 });
 
 const siteSuggestionCommentSchema = new Schema(
@@ -828,6 +840,18 @@ siteDocumentSchema.index(
 siteDocumentSchema.index(
   { docType: 1, guildId: 1, dedupeKey: 1 },
   { unique: true, name: "community_welcome_session_unique", partialFilterExpression: { docType: SITE_DOC.COMMUNITY_WELCOME_SESSION } },
+);
+siteDocumentSchema.index(
+  { docType: 1, guildId: 1, dedupeKey: 1 },
+  { unique: true, name: "hogwarts_minigame_spawn_window_unique", partialFilterExpression: { docType: SITE_DOC.HOGWARTS_MINIGAME_SPAWN_WINDOW } },
+);
+siteDocumentSchema.index(
+  { docType: 1, guildId: 1, dedupeKey: 1 },
+  { unique: true, name: "hogwarts_house_channel_minigame_scheduler_unique", partialFilterExpression: { docType: SITE_DOC.HOGWARTS_HOUSE_CHANNEL_MINIGAME_SCHEDULER } },
+);
+siteDocumentSchema.index(
+  { docType: 1, guildId: 1, userId: 1, dedupeKey: 1 },
+  { unique: true, name: "hogwarts_serata_film_lb_publish_unique", partialFilterExpression: { docType: SITE_DOC.HOGWARTS_SERATA_FILM_LB_PUBLISH } },
 );
 
 const MOD_CASE_COLLECTION = process.env.MOD_CASE_COLLECTION ? String(process.env.MOD_CASE_COLLECTION).trim() : "mod_case";
@@ -1292,6 +1316,14 @@ const QuotePrivacy = buildProfileSubdocModel({
   }),
   clearSet: { "profile.privacy.quote.blocked": false },
 });
+const RepostPrivacy = buildProfileSubdocModel({
+  selectPath: "guildId userId profile.privacy.repost",
+  mapDoc: (doc, filter) => ({ guildId: String(doc?.guildId || filter?.guildId || ""), userId: String(doc?.userId || filter?.userId || ""), blocked: Boolean(doc?.profile?.privacy?.repost?.blocked) }),
+  buildSet: (setPayload) => ({
+    ...(setPayload?.blocked != null ? { "profile.privacy.repost.blocked": Boolean(setPayload.blocked) } : {}),
+  }),
+  clearSet: { "profile.privacy.repost.blocked": false },
+});
 
 const ActivityUserProfile = models.ActivityUserProfile || model("ActivityUserProfile", activityUserProfileSchema, "activityuserprofiles");
 const ActivityGuildHourly = models.ActivityGuildHourly || model("ActivityGuildHourly", activityGuildHourlySchema, "activityguildhourlys");
@@ -1326,6 +1358,7 @@ module.exports = {
   AvatarPrivacy,
   BannerPrivacy,
   QuotePrivacy,
+  RepostPrivacy,
   UserLeaveBackup,
   CommunicationTimeoutRoleSnapshot,
   CustomPerksDiscordCleanupQueue,

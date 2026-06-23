@@ -9,7 +9,9 @@ const AUTOMOD_ALERT_CHANNEL_ID = String(IDs.channels?.sanzioniUtenti || "1442569
 const AUTOMOD_CONFIG_PATH = path.resolve(__dirname, "../../Utils/Config/automodConfig.json");
 const RACIST_WORDS_FILE = path.resolve(__dirname, "../../Utils/Config/automodRacistWords.json");
 const RACIST_WORDS_DIR = path.resolve(__dirname, "../../Utils/Config/automodRacistWords");
-const LINK_BLACKLIST_DOMAINS = ["dsc.gg"];
+const { loadAutomodScamConfig } = require("../../Utils/Moderation/automodScamConfig");
+const AUTOMOD_SCAM_CONFIG = loadAutomodScamConfig();
+const LINK_BLACKLIST_DOMAINS = AUTOMOD_SCAM_CONFIG.domains?.length ? AUTOMOD_SCAM_CONFIG.domains : ["dsc.gg"];
 const KEYWORDS_PER_RULE = 1000;
 const KEYWORD_MAX_LEN = 60;
 const SYNC_DEBOUNCE_MS = 4000;
@@ -292,6 +294,20 @@ function buildDesiredRuleSpecs(options = {}) {
       actions,
       enabled: true,
       violationKey: "link_blacklist",
+    });
+  }
+  const scamKeywords = (AUTOMOD_SCAM_CONFIG.discordKeywords || [])
+    .map((raw) => normalizeDiscordKeyword(raw, { allowWildcard: String(raw || "").includes("*") }))
+    .filter(Boolean);
+  if (scamKeywords.length && readAutomodConfig()?.heatFilters?.maliciousLinks !== false) {
+    specs.push({
+      name: `${RULE_PREFIX}scam-crypto-keywords`,
+      eventType: AutoModerationRuleEventType.MessageSend,
+      triggerType: AutoModerationRuleTriggerType.Keyword,
+      triggerMetadata: { keywordFilter: scamKeywords },
+      actions,
+      enabled: true,
+      violationKey: "scam_pattern",
     });
   }
   const words = loadCustomWordsForDiscord();

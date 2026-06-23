@@ -1889,9 +1889,10 @@ html.vc-session-verify-pending::before {
 .vc-page-transition--login .vc-page-transition-sub {
   display: block;
   margin: 0;
-  color: rgba(247, 236, 223, 0.9);
+  color: rgba(248, 236, 223, 0.98);
   font-size: 1.05rem;
   font-weight: 800;
+  letter-spacing: 0.01em;
 }
 
 .vc-page-transition--login .vc-page-transition-vote-iconwrap,
@@ -1996,7 +1997,7 @@ html.vc-session-verify-pending::before {
   font-size: 0.95rem;
   font-weight: 500;
   line-height: 1.45;
-  color: #a7f3d0;
+  color: rgba(248, 236, 223, 0.98);
   letter-spacing: 0.02em;
 }
 
@@ -4580,6 +4581,7 @@ html.vc-notif-dropdown-open .discord-account-menu:focus-within .discord-account-
 .vc-auth-required-login.discord-login-btn--loading {
   pointer-events: none;
   opacity: 0.9;
+  color: rgba(248, 236, 223, 0.98);
 }
 
 .discord-login-btn--loading .fa,
@@ -5512,6 +5514,146 @@ body.vc-body > footer p {
   font-weight: 600;
   font-size: 0.88em;
   box-shadow: 0 1px 0 rgba(0, 0, 0, 0.2);
+}
+
+.vc-sponsor-promo-strip {
+  display: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem;
+  margin-top: 0.75rem;
+  padding: 0.55rem 0.68rem;
+  border-radius: 0.6rem;
+  border: 1px solid rgba(251, 191, 36, 0.38);
+  background: linear-gradient(90deg, rgba(251, 191, 36, 0.14), rgba(16, 185, 129, 0.08) 72%);
+  font-size: 0.84rem;
+  color: rgba(254, 243, 199, 0.95);
+  box-shadow: 0 0 22px rgba(251, 191, 36, 0.12);
+}
+
+.vc-sponsor-page--promo-active .vc-sponsor-promo-strip {
+  display: flex;
+}
+
+.vc-sponsor-promo-strip__badge {
+  flex-shrink: 0;
+  padding: 0.28rem 0.55rem;
+  border-radius: 9999px;
+  font-size: 0.62rem;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #1a0f06;
+  background: linear-gradient(135deg, #fef9c3, #fbbf24 42%, #ea580c);
+  border: 1px solid rgba(253, 230, 138, 0.95);
+  box-shadow: 0 4px 14px rgba(251, 191, 36, 0.35);
+  animation: vc-sponsor-promo-badge-pulse 1.8s ease-in-out infinite;
+}
+
+.vc-sponsor-promo-strip__text strong {
+  color: #fff;
+  font-weight: 800;
+}
+
+.vc-sponsor-tier--promo {
+  position: relative;
+  overflow: visible;
+  border-color: rgba(251, 191, 36, 0.32);
+  background: linear-gradient(145deg, rgba(251, 191, 36, 0.1), rgba(0, 0, 0, 0.24) 48%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 0 0 1px rgba(251, 191, 36, 0.08),
+    0 10px 28px rgba(251, 191, 36, 0.1);
+}
+
+.vc-sponsor-page--promo-active .vc-sponsor-tier--promo {
+  animation: vc-sponsor-tier-promo-glow 2.4s ease-in-out infinite alternate;
+}
+
+.vc-sponsor-tier__promo-badge {
+  display: none;
+  position: absolute;
+  top: -0.5rem;
+  right: 0.55rem;
+  z-index: 2;
+  padding: 0.3rem 0.58rem;
+  border-radius: 9999px;
+  font-size: 0.6rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #1a0f06;
+  background: linear-gradient(135deg, #fef9c3, #fbbf24 40%, #f97316);
+  border: 1px solid rgba(253, 230, 138, 0.95);
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.35),
+    0 0 18px rgba(251, 191, 36, 0.35);
+  pointer-events: none;
+  animation: vc-sponsor-promo-badge-pulse 1.8s ease-in-out infinite;
+}
+
+.vc-sponsor-page--promo-active .vc-sponsor-tier__promo-badge {
+  display: inline-block;
+}
+
+.vc-sponsor-price-block {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.1rem;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.vc-sponsor-price--sale {
+  display: none;
+}
+
+.vc-sponsor-page--promo-active .vc-sponsor-tier--promo .vc-sponsor-price--sale {
+  display: inline-block;
+  border-color: rgba(52, 211, 153, 0.55);
+  background: linear-gradient(135deg, rgba(52, 211, 153, 0.32), rgba(6, 78, 59, 0.55));
+  color: #ecfdf5;
+  box-shadow: 0 0 16px rgba(52, 211, 153, 0.22);
+}
+
+.vc-sponsor-page--promo-active .vc-sponsor-tier--promo .vc-sponsor-price--list {
+  border: none;
+  background: transparent;
+  color: rgba(148, 163, 184, 0.92);
+  font-weight: 600;
+  font-size: 0.74em;
+  text-decoration: line-through;
+  text-decoration-thickness: 1.5px;
+  opacity: 0.88;
+  box-shadow: none;
+}
+
+@keyframes vc-sponsor-promo-badge-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+  50% {
+    transform: scale(1.04);
+    filter: brightness(1.08);
+  }
+}
+
+@keyframes vc-sponsor-tier-promo-glow {
+  0% {
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.05),
+      0 0 0 1px rgba(251, 191, 36, 0.1),
+      0 8px 22px rgba(251, 191, 36, 0.08);
+  }
+  100% {
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.06),
+      0 0 0 1px rgba(251, 191, 36, 0.22),
+      0 12px 32px rgba(251, 191, 36, 0.18);
+  }
 }
 
 .vc-sponsor-tier {
@@ -13988,9 +14130,17 @@ body.vc-body--home a.vc-header-logo-link + a[href]:focus-visible {
   filter: brightness(1.06);
 }
 
-html.vc-notif-overlay-active .vc-live-event-home:not([hidden]),
-html.vc-notif-overlay-active .vc-live-event-reopen:not([hidden]) {
+html.vc-notif-overlay-active #vc-live-event-home:not([hidden]),
+html.vc-notif-overlay-active #vc-live-event-reopen:not([hidden]) {
   display: none !important;
+}
+
+html.vc-skip-page-reveal .vc-body main,
+html.vc-skip-page-reveal .vc-body > footer,
+html.vc-skip-page-reveal .vc-body > header {
+  animation: none;
+  opacity: 1;
+  transform: none;
 }
 
 @keyframes vc-live-event-pop-in {
@@ -17382,8 +17532,9 @@ html.vc-session-verify-pending::before,
 
 .vc-ul-loading-sub,
 .vc-rank-customize-loading__sub,
-.vc-user-profile-loader__sub {
-  color: rgba(240, 222, 201, 0.86) !important;
+.vc-user-profile-loader__sub,
+.vc-page-transition--login .vc-page-transition-sub {
+  color: rgba(248, 236, 223, 0.98) !important;
 }
 
 .vc-reviews-status,
@@ -19894,6 +20045,11 @@ body.vc-hw-page #vc-hogwarts-app > footer {
   transition: filter 0.2s, opacity 0.2s;
 }
 
+.vc-hw-btn[hidden],
+[data-vc-potions-link][hidden] {
+  display: none !important;
+}
+
 .vc-hw-btn:disabled {
   opacity: 0.45;
   cursor: not-allowed;
@@ -20872,6 +21028,86 @@ body.vc-hw-page #vc-live-event-reopen {
   display: none !important;
 }
 
+.vc-live-event-inline--sponsor {
+  border-color: rgba(168, 85, 247, 0.28);
+  box-shadow:
+    0 20px 52px rgba(0, 0, 0, 0.48),
+    0 0 28px rgba(147, 51, 234, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.vc-live-event-inline--sponsor .vc-live-event-inline__badge {
+  color: #e9d5ff;
+  background: rgba(147, 51, 234, 0.16);
+  border-color: rgba(192, 132, 252, 0.28);
+}
+
+.vc-live-event-inline__btn--sponsor {
+  background: linear-gradient(135deg, #7c3aed, #9333ea);
+  border-color: rgba(216, 180, 254, 0.35);
+}
+
+.vc-live-event-inline__btn--sponsor:hover {
+  background: linear-gradient(135deg, #6d28d9, #7e22ce);
+}
+
+.vc-site-sponsor-ad__desc {
+  white-space: pre-line;
+}
+
+.vc-site-sponsor-reopen {
+  border-color: rgba(168, 85, 247, 0.35);
+  background: linear-gradient(155deg, rgba(46, 16, 72, 0.94), rgba(18, 10, 28, 0.96));
+}
+
+.vc-site-sponsor-ad-home:not([hidden]) {
+  right: auto;
+  left: 0.75rem;
+  transform-origin: bottom left;
+}
+
+.vc-site-sponsor-reopen:not([hidden]) {
+  right: auto;
+  left: 0.75rem;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .vc-site-sponsor-ad-home:not([hidden]) {
+    animation: vc-site-sponsor-incoming 0.78s cubic-bezier(0.22, 1, 0.38, 1) both;
+  }
+}
+
+@keyframes vc-site-sponsor-incoming {
+  0% {
+    opacity: 0;
+    transform: translate(-10px, 12px) scale(0.94);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+  }
+}
+
+@media (max-width: 24.99rem) {
+  .vc-site-sponsor-ad-home:not([hidden]) {
+    left: 0.5rem;
+    width: min(18.5rem, calc(100vw - 1rem));
+  }
+
+  .vc-site-sponsor-reopen:not([hidden]) {
+    left: 0.5rem;
+  }
+}
+
+body.vc-site-sponsor-ad-visible #vc-live-event-home:not([hidden]) {
+  bottom: calc(max(0.85rem, env(safe-area-inset-bottom, 0px)) + 11.5rem);
+}
+
+body.vc-site-sponsor-ad-visible #vc-live-event-reopen:not([hidden]) {
+  bottom: calc(max(0.85rem, env(safe-area-inset-bottom, 0px)) + 11.5rem);
+}
+
 .vc-hw-cinema__magic {
   position: absolute;
   inset: 0;
@@ -21319,6 +21555,39 @@ body.vc-hw-main-reveal #vc-hogwarts-app {
   font-family: "Cinzel", serif;
   font-size: 1.12rem;
   line-height: 1.15;
+}
+
+.vc-hw-shop-card__pills {
+  position: absolute;
+  top: 0.55rem;
+  right: 0.55rem;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.28rem;
+  pointer-events: none;
+}
+
+.vc-hw-shop-card__pill {
+  display: inline-block;
+  padding: 0.05rem 0.38rem;
+  border-radius: 0.25rem;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  line-height: 1.35;
+  color: #0f172a;
+  background: linear-gradient(135deg, #fde047, #facc15);
+  border: 1px solid rgba(250, 204, 21, 0.65);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.28);
+}
+
+.vc-hw-shop-card__pill--uses {
+  color: #fff7ed;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--shop-accent) 72%, #f59e0b), color-mix(in srgb, var(--shop-accent) 48%, #b45309));
+  border-color: color-mix(in srgb, var(--shop-accent) 58%, rgba(255, 255, 255, 0.24));
 }
 
 .vc-hw-shop-card__desc,

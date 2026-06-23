@@ -351,7 +351,7 @@ function buildEventNavItemsHtml(pages, activeId, options = {}) {
 
 function buildHogwartsEventNavBootHtml(eventNav) {
   const json = JSON.stringify(eventNav || {}).replace(/</g, "\\u003c");
-  return `<script>window.__VC_HOGWARTS_EVENT_NAV=${json};</script>\n<script src="/js/hogwarts-event-nav.js"></script>\n<script src="/js/hogwarts-event-preview-gate.js"></script>\n`;
+  return `<script>window.__VC_HOGWARTS_EVENT_NAV=${json};</script>\n<script src="/js/vc-mobile-nav.js"></script>\n<script src="/js/hogwarts-event-nav.js"></script>\n<script src="/js/hogwarts-event-preview-gate.js"></script>\n`;
 }
 
 function resolvePublicHeaderPromoMode(eventRaw = {}, nowMs = Date.now()) {

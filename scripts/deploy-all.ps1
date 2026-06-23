@@ -10,12 +10,14 @@ param(
   [string]$Pm2AppName = "bots",
   [switch]$SkipSiteBuild,
   [switch]$SkipSiteChown,
+  [switch]$SiteFullClean,
   [switch]$SlowSiteScpRecursive,
   [switch]$SkipBackend,
   [switch]$SkipBackendRestart
 )
 
 $ErrorActionPreference = "Stop"
+$ConfirmPreference = "None"
 
 $sshArgs = @(
   "-o", "BatchMode=yes",
@@ -38,10 +40,160 @@ function Invoke-RemoteSsh([string]$Target, [string]$Command) {
   }
 }
 
+function Get-RemoteFileSize {
+  param([string]$Target, [string]$RemoteFilePath)
+  $raw = & ssh @sshArgs $Target "if [ -f '$RemoteFilePath' ]; then stat -c '%s' '$RemoteFilePath'; else echo 0; fi"
+  if ($LASTEXITCODE -ne 0) { return 0L }
+  $parsed = 0L
+  [void][long]::TryParse((($raw | Out-String).Trim()), [ref]$parsed)
+  return $parsed
+}
+
+function Get-SiteLargeAssetRemotePaths {
+  param([string]$RemotePath, [string]$Rel)
+  $paths = New-Object System.Collections.Generic.List[string]
+  if ($Rel -match '(?i)Harry Potter e la camera dei segreti\.mp4$') {
+    [void]$paths.Add("$RemotePath/images/evento-hogwarts/harry-potter-camera-dei-segreti.mp4")
+  }
+  [void]$paths.Add("$RemotePath/$Rel")
+  return @($paths | Select-Object -Unique)
+}
+
+function Resolve-SiteLargeAssetUploadPath {
+  param([string]$RemotePath, [string]$Rel)
+  if ($Rel -match '(?i)Harry Potter e la camera dei segreti\.mp4$') {
+    return "$RemotePath/images/evento-hogwarts/harry-potter-camera-dei-segreti.mp4"
+  }
+  return "$RemotePath/$Rel"
+}
+
+function Get-RemoteFileSizeAny {
+  param([string]$Target, [string[]]$RemoteFilePaths)
+  foreach ($remotePath in $RemoteFilePaths) {
+    $size = Get-RemoteFileSize $Target $remotePath
+    if ($size -gt 0) { return $size }
+  }
+  return 0L
+}
+
+function Get-RemoteLargeAssetMatchingSize {
+  param([string]$Target, [string[]]$RemoteFilePaths, [long]$LocalSize)
+  foreach ($remotePath in $RemoteFilePaths) {
+    $size = Get-RemoteFileSize $Target $remotePath
+    if (Test-RemoteLargeAssetMatchesLocal $size $LocalSize) { return $size }
+  }
+  return 0L
+}
+
+function Test-RemoteLargeAssetMatchesLocal {
+  param([long]$RemoteSize, [long]$LocalSize)
+  if ($RemoteSize -le 0 -or $LocalSize -le 0) { return $false }
+  if ($RemoteSize -eq $LocalSize) { return $true }
+  $diff = [math]::Abs($RemoteSize - $LocalSize)
+  $maxDiff = [math]::Max(5242880L, [long]($LocalSize * 0.01))
+  return $diff -le $maxDiff
+}
+
+function Get-ProcessArgumentString([string[]]$Parts) {
+  ($Parts | ForEach-Object {
+    if ($_ -match '[\s"]') {
+      '"' + ($_.Replace('"', '\"')) + '"'
+    } else {
+      $_
+    }
+  }) -join ' '
+}
+
 function Invoke-RemoteBashScript([string]$Target, [string]$Script) {
-  $Script | & ssh @sshArgs $Target "bash -s"
-  if ($LASTEXITCODE -ne 0) {
-    throw "ssh terminato con exit code $LASTEXITCODE"
+  $normalized = ($Script -replace "`r`n", "`n" -replace "`r", "`n").TrimEnd() + "`n"
+  $bytes = [System.Text.Encoding]::UTF8.GetBytes($normalized)
+  $argParts = @($sshArgs) + @($Target, "bash -s")
+  $psi = New-Object System.Diagnostics.ProcessStartInfo
+  $psi.FileName = "ssh"
+  $psi.UseShellExecute = $false
+  $psi.RedirectStandardInput = $true
+  $psi.RedirectStandardOutput = $true
+  $psi.RedirectStandardError = $true
+  $psi.CreateNoWindow = $true
+  if ($psi.PSObject.Properties.Name -contains "ArgumentList") {
+    $psi.ArgumentList = [System.Collections.ObjectModel.Collection[string]]::new([string[]]$argParts)
+  } else {
+    $psi.Arguments = Get-ProcessArgumentString $argParts
+  }
+  $proc = [System.Diagnostics.Process]::Start($psi)
+  try {
+    $stdin = $proc.StandardInput.BaseStream
+    $stdin.Write($bytes, 0, $bytes.Length)
+    $stdin.Flush()
+  } finally {
+    $proc.StandardInput.Close()
+  }
+  $proc.WaitForExit()
+  $utf8 = [System.Text.UTF8Encoding]::new($false)
+  $stdoutMs = New-Object System.IO.MemoryStream
+  $stderrMs = New-Object System.IO.MemoryStream
+  try {
+    $proc.StandardOutput.BaseStream.CopyTo($stdoutMs)
+    $proc.StandardError.BaseStream.CopyTo($stderrMs)
+  } catch {}
+  $stdout = $utf8.GetString($stdoutMs.ToArray()).TrimEnd()
+  $stderr = $utf8.GetString($stderrMs.ToArray()).TrimEnd()
+  if ($stdout) { Write-Host $stdout }
+  if ($stderr -and $proc.ExitCode -ne 0) { Write-Host $stderr }
+  if ($proc.ExitCode -ne 0) {
+    throw "ssh terminato con exit code $($proc.ExitCode)"
+  }
+}
+
+function Clear-DistDirectory {
+  param([string]$DistPath)
+  if (-not (Test-Path $DistPath)) { return }
+  $largeMinBytes = 40MB
+  $lockedLargeFiles = @(Get-ChildItem -Recurse -Force -File $DistPath -ErrorAction SilentlyContinue | Where-Object { $_.Length -gt $largeMinBytes })
+  if ($lockedLargeFiles.Count -gt 0) {
+    Write-Host "Pulizia dist/ conservativa: preservo $($lockedLargeFiles.Count) asset >40MB (es. video Hogwarts)."
+    $files = @(Get-ChildItem -Recurse -Force -File $DistPath | Sort-Object { $_.FullName.Length } -Descending)
+    foreach ($file in $files) {
+      if ($file.Length -gt $largeMinBytes) { continue }
+      try {
+        Remove-Item -LiteralPath $file.FullName -Force -Confirm:$false -ErrorAction Stop
+      } catch {
+        throw "Impossibile rimuovere $($file.FullName): $_"
+      }
+    }
+    $dirs = @(Get-ChildItem -Recurse -Force -Directory $DistPath | Sort-Object { $_.FullName.Length } -Descending)
+    foreach ($dir in $dirs) {
+      if ((Get-ChildItem -LiteralPath $dir.FullName -Force -ErrorAction SilentlyContinue | Measure-Object).Count -gt 0) {
+        continue
+      }
+      Remove-Item -LiteralPath $dir.FullName -Force -Confirm:$false -ErrorAction SilentlyContinue
+    }
+    return
+  }
+  try {
+    Remove-Item -Recurse -Force -Confirm:$false -LiteralPath $DistPath -ErrorAction Stop
+  } catch {
+    Write-Warning "dist/ bloccato (file in uso): pulizia selettiva..."
+    $files = @(Get-ChildItem -Recurse -Force -File $DistPath | Sort-Object { $_.FullName.Length } -Descending)
+    foreach ($file in $files) {
+      if ($file.Length -gt $largeMinBytes) {
+        Write-Warning "Preservo asset grande: $($file.FullName)"
+        continue
+      }
+      try {
+        Remove-Item -LiteralPath $file.FullName -Force -Confirm:$false -ErrorAction Stop
+      } catch {
+        throw "Impossibile rimuovere $($file.FullName): $_"
+      }
+    }
+    $dirs = @(Get-ChildItem -Recurse -Force -Directory $DistPath | Sort-Object { $_.FullName.Length } -Descending)
+    foreach ($dir in $dirs) {
+      if ((Get-ChildItem -LiteralPath $dir.FullName -Force -ErrorAction SilentlyContinue | Measure-Object).Count -gt 0) {
+        Write-Warning "Mantengo cartella non vuota: $($dir.FullName)"
+        continue
+      }
+      Remove-Item -LiteralPath $dir.FullName -Force -Confirm:$false -ErrorAction SilentlyContinue
+    }
   }
 }
 
@@ -59,6 +211,138 @@ function Invoke-BackendConfigValidation([string]$Root) {
   }
 }
 
+function Write-DeployPhase([string]$Message) {
+  if (-not $script:DeployStopwatch) {
+    $script:DeployStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+  }
+  Write-Host ("[{0:mm\:ss}] {1}" -f $script:DeployStopwatch.Elapsed, $Message)
+}
+
+function Get-BackendTarStaticExcludes {
+  return @(
+    "WebSite/images/evento-hogwarts/harry-potter-camera-dei-segreti.mp4",
+    "WebSite/images/evento-hogwarts/inizio.mp4",
+    "WebSite/images/evento-hogwarts/smistamento.mp4"
+  )
+}
+
+function Get-BackendTarLargeExcludes {
+  param(
+    [string]$Root,
+    [long]$MinBytes = 41943040
+  )
+  $scanPaths = @(
+    (Join-Path $Root "Vinyls"),
+    (Join-Path $Root "WebSite\images\evento-hogwarts"),
+    (Join-Path $Root "shared"),
+    (Join-Path $Root "Coffee"),
+    (Join-Path $Root "scripts"),
+    (Join-Path $Root "Lavalink")
+  )
+  $excludes = New-Object System.Collections.Generic.HashSet[string]
+  foreach ($rel in Get-BackendTarStaticExcludes) { [void]$excludes.Add($rel) }
+  foreach ($scanPath in $scanPaths) {
+    if (-not (Test-Path $scanPath)) { continue }
+    foreach ($file in @(Get-ChildItem -Recurse -Force -File $scanPath -ErrorAction SilentlyContinue)) {
+      if ($file.Length -le $MinBytes) { continue }
+      $rel = $file.FullName.Substring($Root.Length).TrimStart("\", "/") -replace "\\", "/"
+      if ($rel) { [void]$excludes.Add($rel) }
+    }
+  }
+  return @($excludes) | Sort-Object
+}
+
+function New-BackendTarArchive {
+  param(
+    [string]$Root,
+    [string]$OutPath
+  )
+  $backendLargeExcludes = @(Get-BackendTarLargeExcludes $Root) + @(Get-BackendTarStaticExcludes)
+  $backendLargeExcludes = @($backendLargeExcludes | Select-Object -Unique | Sort-Object)
+  if ($backendLargeExcludes.Count -gt 0) {
+    Write-DeployPhase "Backend tar: esclusi $($backendLargeExcludes.Count) file pesanti / solo-sito:"
+    foreach ($rel in $backendLargeExcludes) {
+      Write-Host "  - $rel"
+    }
+  }
+  $backendTarArgs = @(
+    "-czf", $OutPath,
+    "--exclude", ".git",
+    "--exclude", "node_modules",
+    "--exclude", ".cursor",
+    "--exclude", "WebSite/dist",
+    "--exclude", "Lavalink/plugins",
+    "--exclude", "Lavalink/Lavalink.jar",
+    "--exclude", "Lavalink/.env.lavalink"
+  )
+  foreach ($rel in $backendLargeExcludes) {
+    $backendTarArgs += "--exclude=$rel"
+  }
+  $backendTarArgs += @(
+    "Vinyls", "WebSite/images/evento-hogwarts", "shared", "Coffee", "scripts", "package.json", "package-lock.json",
+    "wait-for-lavalink.js", "loader.js", "ecosystem.config.cjs", "Lavalink"
+  )
+  Push-Location $Root
+  try {
+    & tar @backendTarArgs
+    if ($LASTEXITCODE -ne 0) { throw "tar backend terminato con exit code $LASTEXITCODE" }
+  } finally {
+    Pop-Location
+  }
+  $backendTgzMb = [math]::Round((Get-Item $OutPath).Length / 1MB, 1)
+  Write-DeployPhase "Archivio backend pronto: ${backendTgzMb} MB"
+  if ($backendTgzMb -gt 200) {
+    Write-Warning "Archivio backend anormalmente grande (${backendTgzMb} MB): verifica che i video del sito non siano inclusi."
+  }
+  return $OutPath
+}
+
+function Invoke-ParallelScp {
+  param(
+    [string[]]$LeftArgs,
+    [string[]]$RightArgs
+  )
+  Invoke-RemoteScp $LeftArgs
+  Invoke-RemoteScp $RightArgs
+}
+
+function Get-DistTarPlan {
+  param(
+    [string]$DistPath,
+    [long]$LargeMinBytes = 41943040
+  )
+  $distRoot = (Resolve-Path $DistPath).Path
+  $largeFiles = @()
+  $relativePaths = New-Object System.Collections.Generic.List[string]
+  foreach ($item in @(Get-ChildItem -Recurse -Force $DistPath)) {
+    $rel = $item.FullName.Substring($distRoot.Length).TrimStart("\", "/") -replace "\\", "/"
+    if (-not $rel) { continue }
+    if ($item.PSIsContainer) {
+      [void]$relativePaths.Add($rel)
+      continue
+    }
+    if ($item.Length -gt $LargeMinBytes) {
+      $largeFiles += $item
+      continue
+    }
+    [void]$relativePaths.Add($rel)
+  }
+  return @{
+    DistRoot = $distRoot
+    LargeFiles = $largeFiles
+    RelativePaths = @($relativePaths | Sort-Object -Unique)
+  }
+}
+
+function Test-DistHasLocalhost {
+  param([string]$DistPath)
+  $checker = Join-Path $PSScriptRoot "check-dist-no-localhost.js"
+  if (-not (Test-Path $checker)) { throw "Script mancante: $checker" }
+  $absDist = (Resolve-Path $DistPath).Path
+  & node $checker $absDist
+  return $LASTEXITCODE -eq 0
+}
+
 function Invoke-SiteDeploy {
   param(
     [string]$Server,
@@ -66,6 +350,7 @@ function Invoke-SiteDeploy {
     [string]$RemotePath,
     [switch]$SkipBuild,
     [switch]$SkipRemoteChown,
+    [switch]$FullClean,
     [switch]$SlowScpRecursive
   )
 
@@ -80,8 +365,10 @@ function Invoke-SiteDeploy {
 
   try {
     if (-not $SkipBuild) {
-      if (Test-Path ".\dist") { Remove-Item -Recurse -Force ".\dist" }
+      Clear-DistDirectory ".\dist"
+      Write-DeployPhase "Build sito (tailwind + copy + offuscamento)..."
       npm run build
+      Write-DeployPhase "Build sito completata."
     } else {
       if (-not (Test-Path ".\dist\index.html")) {
         Write-Error "dist/ non pronto (manca index.html). Esegui la build senza -SkipBuild oppure crea dist prima."
@@ -96,12 +383,12 @@ function Invoke-SiteDeploy {
     }
   }
 
-  $hits = Get-ChildItem -Recurse -File ".\dist" | Select-String -Pattern "http://localhost:3000"
-  if ($hits) {
+  if (-not (Test-DistHasLocalhost ".\dist")) {
     Write-Error "Build contiene ancora localhost. Deploy annullato."
   }
 
   $hasTar = $null -ne (Get-Command tar -ErrorAction SilentlyContinue)
+  $remoteFileList = ""
 
   if ($SlowScpRecursive) {
     Write-Host "Upload ricorsivo file-per-file (lento)..."
@@ -109,17 +396,68 @@ function Invoke-SiteDeploy {
   } elseif ($hasTar) {
     $localTgz = Join-Path ([System.IO.Path]::GetTempPath()) ("vc-site-dist-" + [guid]::NewGuid().ToString("N") + ".tar.gz")
     $remoteTgz = "/tmp/vc-site-dist-" + [guid]::NewGuid().ToString("N") + ".tar.gz"
+    $remoteFileList = "/tmp/vc-site-files-" + [guid]::NewGuid().ToString("N") + ".list"
+    $localFileList = Join-Path ([System.IO.Path]::GetTempPath()) ("vc-site-files-" + [guid]::NewGuid().ToString("N") + ".list")
     try {
-      Write-Host "Archivio tar.gz + un solo upload (di solito molto più veloce di centinaia di scp)..."
-      & tar -czf $localTgz -C dist .
-      Write-Host "Upload archivio sito su ${User}@${Server}:${remoteTgz}"
-      Invoke-RemoteScp @($localTgz, "${User}@${Server}:${remoteTgz}")
-      $extract = "mkdir -p '$RemotePath' && find '$RemotePath' -mindepth 1 -maxdepth 1 -exec rm -rf -- {} + && tar -xzf '$remoteTgz' -C '$RemotePath' && rm -f '$remoteTgz'"
-      Write-Host "Estrazione archivio sito in $RemotePath sul server..."
+      Write-DeployPhase "Archivio tar.gz sito..."
+      $tarPlan = Get-DistTarPlan ".\dist"
+      $distRoot = $tarPlan.DistRoot
+      $largeFiles = @($tarPlan.LargeFiles)
+      $tarArgs = @("-czf", $localTgz)
+      foreach ($lf in $largeFiles) {
+        $rel = $lf.FullName.Substring($distRoot.Length).TrimStart("\", "/") -replace "\\", "/"
+        $tarArgs += "--exclude=$rel"
+      }
+      $tarArgs += "-C", "dist", "."
+      & tar @tarArgs
+      if ($LASTEXITCODE -ne 0) { throw "tar terminato con exit code $LASTEXITCODE" }
+      $tgzMb = [math]::Round((Get-Item $localTgz).Length / 1MB, 1)
+      Write-DeployPhase "Upload archivio sito (${tgzMb} MB, esclusi $($largeFiles.Count) file >40MB)..."
+      if (-not $SkipRemoteChown) {
+        $listBody = ($tarPlan.RelativePaths | ForEach-Object { [string]$_ }) -join "`n"
+        [System.IO.File]::WriteAllText($localFileList, $listBody, [System.Text.UTF8Encoding]::new($false))
+        Invoke-ParallelScp @($localTgz, "${User}@${Server}:${remoteTgz}") @($localFileList, "${User}@${Server}:${remoteFileList}")
+      } else {
+        Invoke-RemoteScp @($localTgz, "${User}@${Server}:${remoteTgz}")
+      }
+      $largeMinBytesBash = 41943040
+      $extractParts = @(
+        "REMOTE='$RemotePath'"
+        "LARGE=$largeMinBytesBash"
+        "mkdir -p `"`$REMOTE`""
+      )
+      if ($FullClean) {
+        $extractParts += "find `"`$REMOTE`" -depth \( -type f -size +`${LARGE}c \) -prune -o \( -type f \) -delete -o \( -type d \) -empty -delete"
+      }
+      $extractParts += @(
+        "tar -xzf '$remoteTgz' -C `"`$REMOTE`""
+        "rm -f '$remoteTgz'"
+      )
+      $extract = ($extractParts -join " && ")
+      Write-DeployPhase "Estrazione archivio sito in $RemotePath..."
       Invoke-RemoteSsh "${User}@${Server}" $extract
-      Write-Host "Estrazione sito completata."
+      Write-DeployPhase "Estrazione sito completata."
+      foreach ($lf in $largeFiles) {
+        $rel = $lf.FullName.Substring($distRoot.Length).TrimStart("\", "/") -replace "\\", "/"
+        $remoteCandidates = @(Get-SiteLargeAssetRemotePaths $RemotePath $rel)
+        $remoteFile = Resolve-SiteLargeAssetUploadPath $RemotePath $rel
+        $remoteDir = ($remoteFile -replace "/[^/]+$", "")
+        $remoteSize = Get-RemoteLargeAssetMatchingSize "${User}@${Server}" $remoteCandidates $lf.Length
+        if ($remoteSize -gt 0) {
+          Write-Host "Asset grande già presente ($([math]::Round($remoteSize / 1MB, 1)) MB), skip upload: $rel"
+          if ($rel -match '(?i)Harry Potter e la camera dei segreti\.mp4$') {
+            $wrongRemote = "$RemotePath/$rel"
+            Invoke-RemoteSsh "${User}@${Server}" "if [ -f '$wrongRemote' ]; then rm -f '$wrongRemote'; fi"
+          }
+          continue
+        }
+        Write-Host "Upload asset grande: $rel ($([math]::Round($lf.Length / 1MB, 1)) MB)..."
+        Invoke-RemoteSsh "${User}@${Server}" "mkdir -p '$remoteDir'"
+        Invoke-RemoteScp @($lf.FullName, "${User}@${Server}:${remoteFile}")
+      }
     } finally {
       if (Test-Path $localTgz) { Remove-Item $localTgz -Force }
+      if (Test-Path $localFileList) { Remove-Item $localFileList -Force }
     }
   } else {
     Write-Warning "Comando tar non trovato: fallback a scp ricorsivo (lento)."
@@ -128,15 +466,47 @@ function Invoke-SiteDeploy {
   }
 
   if (-not $SkipRemoteChown) {
-    $remoteShell = "chown -R www-data:www-data '$RemotePath' && find '$RemotePath' -type d -exec chmod 755 {} + && find '$RemotePath' -type f -exec chmod 644 {} +"
-    Write-Host "Aggiornamento permessi docroot..."
-    Invoke-RemoteSsh "${User}@${Server}" $remoteShell
-    Write-Host "Permessi docroot aggiornati (www-data, 755/644)."
+    if ($remoteFileList) {
+      $largeMinBytesBash = 41943040
+      $remoteShell = @(
+        "set -eu"
+        "REMOTE='$RemotePath'"
+        "LIST='$remoteFileList'"
+        "LARGE=$largeMinBytesBash"
+        'if [ -f "$LIST" ]; then'
+        '  while IFS= read -r rel || [ -n "$rel" ]; do'
+        '    [ -z "$rel" ] && continue'
+        '    target="$REMOTE/$rel"'
+        '    if [ -f "$target" ]; then'
+        '      sz=$(stat -c %s "$target" 2>/dev/null || echo 0)'
+        '      if [ "$sz" -gt "$LARGE" ]; then continue; fi'
+        '      chown www-data:www-data "$target" && chmod 644 "$target"'
+        '    elif [ -d "$target" ]; then'
+        '      chown www-data:www-data "$target" && chmod 755 "$target"'
+        '    fi'
+        '  done < "$LIST"'
+        '  rm -f "$LIST"'
+        'fi'
+      ) -join "`n"
+      Write-DeployPhase "Permessi docroot (solo file nel tarball, skip >40MB)..."
+      Invoke-RemoteBashScript "${User}@${Server}" $remoteShell
+    } else {
+      $largeMinBytesBash = 41943040
+      $remoteShell = @(
+        "REMOTE='$RemotePath'"
+        "LARGE=$largeMinBytesBash"
+        "find `"`$REMOTE`" -xdev -type d -exec chown www-data:www-data {} + -exec chmod 755 {} +"
+        "find `"`$REMOTE`" -xdev -type f ! -size +`${LARGE}c -exec chown www-data:www-data {} + -exec chmod 644 {} +"
+      ) -join " && "
+      Write-DeployPhase "Permessi docroot (fallback find, skip file >40MB)..."
+      Invoke-RemoteSsh "${User}@${Server}" $remoteShell
+    }
+    Write-DeployPhase "Permessi docroot aggiornati (www-data, 755/644)."
   } else {
     Write-Host "Saltato chown/chmod remoto (-SkipRemoteChown)."
   }
 
-  Write-Host "Deploy completato su ${User}@${Server}:${RemotePath}"
+  Write-DeployPhase "Deploy sito completato su ${User}@${Server}:${RemotePath}"
   Set-Location $repoRoot
 }
 
@@ -147,43 +517,108 @@ Require-Command "npm"
 Require-Command "node"
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+$script:DeployStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
 
-Write-Host "==> [1/2] Deploy sito statico"
+Write-DeployPhase "==> [1/2] Deploy sito statico"
 $siteArgs = @{
   Server = $Server
   User = $User
   RemotePath = $SiteRemotePath
   SkipBuild = $SkipSiteBuild
   SkipRemoteChown = $SkipSiteChown
+  FullClean = $SiteFullClean
   SlowScpRecursive = $SlowSiteScpRecursive
 }
+
+$localTgz = $null
+$remoteTgz = $null
+$backendTarJob = $null
+if (-not $SkipBackend) {
+  Write-DeployPhase "Validazione config backend..."
+  Invoke-BackendConfigValidation $repoRoot
+  $localTgz = Join-Path ([System.IO.Path]::GetTempPath()) ("vc-bot-src-" + [guid]::NewGuid().ToString("N") + ".tar.gz")
+  $remoteTgz = "/tmp/vc-bot-src-" + [guid]::NewGuid().ToString("N") + ".tar.gz"
+  $backendTarJob = Start-Job -ArgumentList $repoRoot, $localTgz -ScriptBlock {
+    param($Root, $OutPath)
+    Set-Location $Root
+    $staticExcludes = @(
+      "WebSite/images/evento-hogwarts/harry-potter-pietra-filosofale.mp4",
+      "WebSite/images/evento-hogwarts/inizio.mp4",
+      "WebSite/images/evento-hogwarts/smistamento.mp4"
+    )
+    $minBytes = 41943040
+    $scanPaths = @("Vinyls", "WebSite/images/evento-hogwarts", "shared", "Coffee", "scripts", "Lavalink")
+    $excludes = New-Object System.Collections.Generic.HashSet[string]
+    foreach ($rel in $staticExcludes) { [void]$excludes.Add($rel) }
+    foreach ($scanPath in $scanPaths) {
+      $full = Join-Path $Root ($scanPath -replace "/", [IO.Path]::DirectorySeparatorChar)
+      if (-not (Test-Path $full)) { continue }
+      foreach ($file in @(Get-ChildItem -Recurse -Force -File $full -ErrorAction SilentlyContinue)) {
+        if ($file.Length -le $minBytes) { continue }
+        $rel = $file.FullName.Substring($Root.Length).TrimStart("\", "/") -replace "\\", "/"
+        if ($rel) { [void]$excludes.Add($rel) }
+      }
+    }
+    $backendTarArgs = @(
+      "-czf", $OutPath,
+      "--exclude", ".git", "--exclude", "node_modules", "--exclude", ".cursor",
+      "--exclude", "WebSite/dist", "--exclude", "Lavalink/plugins",
+      "--exclude", "Lavalink/Lavalink.jar", "--exclude", "Lavalink/.env.lavalink"
+    )
+    foreach ($rel in @($excludes)) { $backendTarArgs += "--exclude=$rel" }
+    $backendTarArgs += @(
+      "Vinyls", "WebSite/images/evento-hogwarts", "shared", "Coffee", "scripts",
+      "package.json", "package-lock.json", "wait-for-lavalink.js", "loader.js",
+      "ecosystem.config.cjs", "Lavalink"
+    )
+    & tar @backendTarArgs
+    if ($LASTEXITCODE -ne 0) { throw "tar backend terminato con exit code $LASTEXITCODE" }
+    $mb = [math]::Round((Get-Item $OutPath).Length / 1MB, 1)
+    Write-Output $mb
+  }
+  Write-DeployPhase "Archivio backend in background (in parallelo con build/upload sito)..."
+}
+
 Invoke-SiteDeploy @siteArgs
 
 if ($SkipBackend) {
-  Write-Host "==> [2/2] Deploy backend saltato (-SkipBackend)"
-  Write-Host "Deploy completato (solo sito)."
+  if ($backendTarJob) {
+    Stop-Job $backendTarJob -ErrorAction SilentlyContinue
+    Remove-Job $backendTarJob -Force -ErrorAction SilentlyContinue
+    if ($localTgz -and (Test-Path $localTgz)) { Remove-Item $localTgz -Force }
+  }
+  Write-DeployPhase "==> [2/2] Deploy backend saltato (-SkipBackend)"
+  Write-DeployPhase "Deploy completato (solo sito)."
   exit 0
 }
 
-Write-Host "==> [2/2] Deploy backend bot"
-$localTgz = Join-Path ([System.IO.Path]::GetTempPath()) ("vc-bot-src-" + [guid]::NewGuid().ToString("N") + ".tar.gz")
-$remoteTgz = "/tmp/vc-bot-src-" + [guid]::NewGuid().ToString("N") + ".tar.gz"
-
+Write-DeployPhase "==> [2/2] Deploy backend bot"
 try {
   Set-Location $repoRoot
-  Invoke-BackendConfigValidation $repoRoot
-  & tar -czf $localTgz `
-    --exclude ".git" `
-    --exclude "node_modules" `
-    --exclude ".cursor" `
-    --exclude "WebSite/dist" `
-    --exclude "Lavalink/plugins" `
-    --exclude "Lavalink/Lavalink.jar" `
-    --exclude "Lavalink/.env.lavalink" `
-    "Vinyls" "WebSite/images/evento-hogwarts" "shared" "Coffee" "scripts" "package.json" "package-lock.json" `
-    "wait-for-lavalink.js" "loader.js" "ecosystem.config.cjs" "Lavalink"
+  if ($backendTarJob) {
+    Write-DeployPhase "Attendo completamento archivio backend..."
+    Wait-Job $backendTarJob | Out-Null
+    if ($backendTarJob.State -eq "Failed") {
+      Receive-Job $backendTarJob 2>&1 | ForEach-Object { Write-Host $_ }
+      throw "Creazione archivio backend fallita"
+    }
+    $backendTgzMb = Receive-Job $backendTarJob
+    Remove-Job $backendTarJob -Force
+    $backendTarJob = $null
+    if (-not (Test-Path $localTgz)) { throw "Archivio backend mancante: $localTgz" }
+    if (-not $backendTgzMb) {
+      $backendTgzMb = [math]::Round((Get-Item $localTgz).Length / 1MB, 1)
+    }
+    Write-DeployPhase "Archivio backend: ${backendTgzMb} MB"
+    if ([double]$backendTgzMb -gt 200) {
+      Write-Warning "Archivio backend anormalmente grande (${backendTgzMb} MB): verifica che i video del sito non siano inclusi."
+    }
+  } else {
+    Invoke-BackendConfigValidation $repoRoot
+    New-BackendTarArchive $repoRoot $localTgz | Out-Null
+  }
 
-  Write-Host "Upload archivio backend su ${User}@${Server}:${remoteTgz}"
+  Write-DeployPhase "Upload archivio backend su ${User}@${Server}:${remoteTgz}"
   Invoke-RemoteScp @($localTgz, "${User}@${Server}:${remoteTgz}")
 
   $lavalinkEnvLocal = Join-Path $repoRoot "Lavalink\.env.lavalink"
@@ -244,15 +679,29 @@ try {
   if (-not $SkipBackendRestart) {
     $reloadEcosystem = "cd '$BotRemotePath' && if [ -f ecosystem.config.cjs ]; then if ! pm2 describe lavalink >/dev/null 2>&1 || ! pm2 describe '$Pm2AppName' >/dev/null 2>&1; then pm2 start ecosystem.config.cjs --update-env; elif [ ""`$LAVALINK_CONFIG_CHANGED"" = ""1"" ]; then pm2 reload ecosystem.config.cjs --update-env; else pm2 reload '$Pm2AppName' --update-env; fi; else pm2 restart '$Pm2AppName' --update-env || true; fi"
     $remoteCmd += $reloadEcosystem
-    $remoteCmd += "pm2 list"
-    $remoteCmd += "pm2 pid '$Pm2AppName'"
+    $remoteCmd += 'printf "[deploy] PM2 status:\n"'
+    $remoteCmd += 'if command -v pm2 >/dev/null 2>&1; then'
+    $remoteCmd += "  for pm2_name in lavalink '$Pm2AppName'; do"
+    $remoteCmd += '    pm2_pid=$(pm2 pid "$pm2_name" 2>/dev/null | head -n 1 | tr -d "[:space:]")'
+    $remoteCmd += '    if [ -n "$pm2_pid" ] && [ "$pm2_pid" != "0" ]; then'
+    $remoteCmd += '      echo "  $pm2_name: online pid=$pm2_pid"'
+    $remoteCmd += '    else'
+    $remoteCmd += '      echo "  $pm2_name: offline"'
+    $remoteCmd += '    fi'
+    $remoteCmd += '  done'
+    $remoteCmd += 'fi'
   } else {
     $remoteCmd += "echo 'Restart PM2 saltato (-SkipBackendRestart)'"
   }
-  Write-Host "Esecuzione deploy backend remoto..."
+  Write-DeployPhase "Esecuzione deploy backend remoto..."
   Invoke-RemoteBashScript "${User}@${Server}" ($remoteCmd -join "`n")
 } finally {
-  if (Test-Path $localTgz) { Remove-Item $localTgz -Force }
+  if ($backendTarJob) {
+    Stop-Job $backendTarJob -ErrorAction SilentlyContinue
+    Remove-Job $backendTarJob -Force -ErrorAction SilentlyContinue
+  }
+  if ($localTgz -and (Test-Path $localTgz)) { Remove-Item $localTgz -Force }
 }
 
-Write-Host "Deploy completato su ${User}@${Server} (site + backend)."
+Write-DeployPhase "Deploy completato su ${User}@${Server} (site + backend)."
+Write-Host "Suggerimenti: solo bot -> -SkipSiteBuild ; solo sito -> -SkipBackend ; salta chown -> -SkipSiteChown ; pulizia completa docroot -> -SiteFullClean"

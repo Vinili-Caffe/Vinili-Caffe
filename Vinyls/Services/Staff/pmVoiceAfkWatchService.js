@@ -1,4 +1,5 @@
-const { ChannelType, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionsBitField } = require("discord.js");
+const { ChannelType, EmbedBuilder, PermissionsBitField } = require("discord.js");
+const { formatItalianMinutesBold } = require("../../Utils/Text/italianDurationLabels");
 const IDs = require("../../Utils/Config/ids");
 const { getClientGuildCached, getGuildChannelCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
 const MAIN_GUILD_ID = String(IDs.guilds?.main || "").trim();
@@ -173,10 +174,24 @@ function evaluateMemberVoiceWatch(member, opts) {
   touchMemberWatch(guildId, member.id, voice.channelId, { resetTimer });
 }
 
+async function deletePmAfkUserAlertMessage(client, guildId, userId) {
+  const entry = getMemberWatchEntry(guildId, userId);
+  if (!entry) return false;
+  const alertChannelId = String(entry.alertChannelId || entry.channelId || "");
+  const alertMessageId = String(entry.alertMessageId || "");
+  if (!client || !alertChannelId || !alertMessageId) return false;
+  const { deleteProbeAlertMessage } = require("../Voice/pmVoiceAfkProbeService");
+  return deleteProbeAlertMessage(client, guildId, alertChannelId, alertMessageId);
+}
+
 async function cancelPendingPmAfkAlert(client, guildId, userId, opts) {
   const gid = String(guildId || "");
   const uid = String(userId || "");
   if (!gid || !uid) return false;
+  try {
+    const { abortPmVoiceAfkProbe } = require("../Voice/pmVoiceAfkProbeService");
+    abortPmVoiceAfkProbe(gid);
+  } catch (_) {}
   const key = memberWatchKey(gid, uid);
   const entry = watchByMemberKey.get(key);
   if (!entry || !isPendingAlert(entry)) {
@@ -184,15 +199,11 @@ async function cancelPendingPmAfkAlert(client, guildId, userId, opts) {
     return false;
   }
   const keepMessage = Boolean(opts && opts.keepMessage);
-  const alertChannelId = String(entry.alertChannelId || SANZIONI_CHANNEL_ID || "");
+  const alertChannelId = String(entry.alertChannelId || entry.channelId || "");
   const alertMessageId = String(entry.alertMessageId || "");
   if (!keepMessage && client && alertChannelId && alertMessageId) {
-    const guild = await getClientGuildCached(client, MAIN_GUILD_ID).catch(() => null);
-    const textChannel = guild ? await getGuildChannelCached(guild, alertChannelId).catch(() => null) : null;
-    const msg = textChannel?.messages?.fetch
-      ? await textChannel.messages.fetch(alertMessageId).catch(() => null)
-      : null;
-    if (msg?.deletable) await msg.delete().catch(() => null);
+    const { deleteProbeAlertMessage } = require("../Voice/pmVoiceAfkProbeService");
+    await deleteProbeAlertMessage(client, gid, alertChannelId, alertMessageId);
   }
   clearMemberWatch(gid, uid);
   return true;
@@ -215,56 +226,82 @@ async function maybeCancelPendingAlertOnVoiceLeave(client, oldState, newState) {
       newChannelId !== watchedChannelId,
   );
   if (leftVoice || leftWatchedChannel) {
+    try {
+      const { abortPmVoiceAfkProbe } = require("../Voice/pmVoiceAfkProbeService");
+      abortPmVoiceAfkProbe(guild.id);
+    } catch (_) {}
     await cancelPendingPmAfkAlert(client, guild.id, userId);
   }
 }
 
 async function sendPmAfkCheckAlert(client, member, channelId, aloneMs) {
-  if (!SANZIONI_CHANNEL_ID || !member?.id) return false;
+  if (!member?.id || !channelId) return false;
   const guild =
     member.guild ||
     (await getClientGuildCached(client, MAIN_GUILD_ID).catch(() => null));
   if (!guild) return false;
-  const textChannel = await getGuildChannelCached(guild, SANZIONI_CHANNEL_ID).catch(() => null);
-  if (!textChannel?.isTextBased?.()) return false;
 
-  const channelRef = channelId ? `<#${channelId}>` : "vocale";
+  const existingEntry = getMemberWatchEntry(guild.id, member.id);
+  if (existingEntry?.alertMessageId) {
+    const { deleteProbeAlertMessage } = require("../Voice/pmVoiceAfkProbeService");
+    await deleteProbeAlertMessage(
+      client,
+      guild.id,
+      String(existingEntry.alertChannelId || existingEntry.channelId || channelId),
+      String(existingEntry.alertMessageId),
+    ).catch(() => null);
+  }
+
+  const voiceChannel = guild.channels.cache.get(String(channelId))
+    || (await getGuildChannelCached(guild, channelId).catch(() => null));
+  if (!voiceChannel?.isTextBased?.()) {
+    global.logger?.warn?.("[VOICE AFK WATCH] Canale vocale senza chat testuale:", channelId);
+    return false;
+  }
+
   const minutes = Math.max(1, Math.round(aloneMs / 60_000));
-  const presenceLabel = describeVoicePresence(member.voice);
+  const listenSec = Math.max(30, Math.round(
+    Number(process.env.VC_PM_AFK_PROBE_LISTEN_MS || 90_000) / 1000,
+  ));
 
   const embed = new EmbedBuilder()
     .setColor("#E67E22")
-    .setTitle("<:VC_Attention:1482534443632558151> Controllo AFK vocale")
+    .setTitle("<:VC_Attention:1482534443632558151> Controllo anti-AFK")
     .setDescription(
       [
-        `${member} è da **${minutes} minuti** da solo in ${channelRef} (${presenceLabel}).`,
+        `Sei in questo canale da ${formatItalianMinutesBold(minutes)} **da solo**.`,
         "",
-        "Verificate che **non sia AFK** (regola **3.6**): in caso di inattività oltre **10 minuti** senza risposta in testuale o alle chiamate, procedete con le sanzioni previste.",
+        "Per confermare che **non sei AFK**:",
+        `> 🎙️ **Parla nel microfono** entro **${listenSec} secondi** mentre il bot è in ascolto.`,
         "",
-        "Per usare i pulsanti serve essere **nello stesso canale vocale** dell'utente. Se esce dal vocale prima di conferma/rifiuto, il controllo viene **annullato** automaticamente.",
+        "Puoi anche **scrivere in chat** o **uscire dal vocale** per annullare il controllo.",
       ].join("\n"),
     )
-    .setFooter({ text: `ID utente: ${member.id}` });
 
-  const ping = STAFF_PING_ROLE_ID ? `<@&${STAFF_PING_ROLE_ID}>` : "";
-  const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId(`pm_afk_watch_confirm:${String(member.id)}:${String(channelId || "")}`)
-      .setLabel("Conferma AFK (sanziona)")
-      .setStyle(ButtonStyle.Danger),
-    new ButtonBuilder()
-      .setCustomId(`pm_afk_watch_deny:${String(member.id)}:${String(channelId || "")}`)
-      .setLabel("Non è AFK (reset)")
-      .setStyle(ButtonStyle.Secondary),
-  );
-  const sent = await textChannel
-    .send({ embeds: [embed], components: [row], ...(ping ? { content: ping } : {}) })
+  const sent = await voiceChannel
+    .send({
+      content: `${member}`,
+      embeds: [embed],
+      allowedMentions: { users: [String(member.id)] },
+    })
     .catch((err) => {
-      global.logger?.warn?.("[VOICE AFK WATCH] Invio avviso staff fallito:", err?.message || err);
+      global.logger?.warn?.("[VOICE AFK WATCH] Invio avviso utente fallito:", err?.message || err);
       return null;
     });
   if (!sent?.id) return null;
-  return { channelId: String(textChannel.id), messageId: String(sent.id) };
+
+  const { startPmVoiceAfkProbe } = require("../Voice/pmVoiceAfkProbeService");
+  void startPmVoiceAfkProbe(client, {
+    guildId: guild.id,
+    targetUserId: member.id,
+    voiceChannelId: String(channelId),
+    alertMessageId: String(sent.id),
+    aloneMs,
+  }).catch((err) => {
+    global.logger?.warn?.("[VOICE AFK WATCH] Probe vocale fallita:", err?.message || err);
+  });
+
+  return { channelId: String(voiceChannel.id), messageId: String(sent.id) };
 }
 
 function discoverQualifyingWatchesInGuild(guild) {
@@ -282,7 +319,7 @@ function discoverQualifyingWatchesInGuild(guild) {
   }
 }
 
-function rescanPmAfkWatchChannels(guild, channelIds, oldState) {
+function rescanPmAfkWatchChannels(guild, channelIds, oldState, client) {
   if (!guild || String(guild.id) !== MAIN_GUILD_ID) return;
   const ids = channelIds instanceof Set ? channelIds : new Set(channelIds || []);
   for (const channelId of ids) {
@@ -294,7 +331,12 @@ function rescanPmAfkWatchChannels(guild, channelIds, oldState) {
       const qualifiedBefore = memberQualifiedBefore(oldState, member);
       const qualifiesNow = qualifiesForWatch(member.voice, member);
       if (!qualifiesNow) {
-        clearMemberWatch(guild.id, member.id);
+        const entry = getMemberWatchEntry(guild.id, member.id);
+        if (isPendingAlert(entry) && client) {
+          void cancelPendingPmAfkAlert(client, guild.id, member.id).catch(() => null);
+        } else {
+          clearMemberWatch(guild.id, member.id);
+        }
         continue;
       }
       const justBecameAlone = qualifiedBefore === false;
@@ -323,11 +365,19 @@ async function sweepPmVoiceAfkAlerts(client) {
     const userId = key.slice(sep + 1);
     const member = await getGuildMemberCached(guild, userId).catch(() => null);
     if (!member?.voice?.channelId) {
-      watchByMemberKey.delete(key);
+      if (isPendingAlert(entry)) {
+        await cancelPendingPmAfkAlert(client, guild.id, userId).catch(() => null);
+      } else {
+        watchByMemberKey.delete(key);
+      }
       continue;
     }
     if (!qualifiesForWatch(member.voice, member)) {
-      if (!isPendingAlert(entry)) watchByMemberKey.delete(key);
+      if (isPendingAlert(entry)) {
+        await cancelPendingPmAfkAlert(client, guild.id, userId).catch(() => null);
+      } else {
+        watchByMemberKey.delete(key);
+      }
       continue;
     }
     if (String(member.voice.channelId) !== String(entry.channelId || "")) {
@@ -362,9 +412,39 @@ async function syncPmVoiceAfkWatchFromGateway(client) {
   }
 }
 
+async function handlePmVoiceAfkChatMessage(message, client) {
+  if (!message?.guild || message.author?.bot || message.system) return false;
+  if (String(message.guild.id) !== MAIN_GUILD_ID) return false;
+  const entry = getMemberWatchEntry(message.guild.id, message.author.id);
+  if (!isPendingAlert(entry)) return false;
+  try {
+    const { abortPmVoiceAfkProbe } = require("../Voice/pmVoiceAfkProbeService");
+    abortPmVoiceAfkProbe(message.guild.id);
+  } catch (_) {}
+  await cancelPendingPmAfkAlert(client, message.guild.id, message.author.id);
+  return true;
+}
+
+function handlePmVoiceAfkSpeakingProbe(client, oldState, newState) {
+  if (!newState?.guild || String(newState.guild.id) !== MAIN_GUILD_ID) return;
+  if (!newState?.speaking) return;
+  const userId = String(newState.id || newState.member?.id || "");
+  if (!userId || newState.member?.user?.bot) return;
+  try {
+    const { notifyProbeSpeechHeard } = require("../Voice/pmVoiceAfkProbeService");
+    notifyProbeSpeechHeard(newState.guild.id, userId);
+  } catch (_) {}
+  const entry = getMemberWatchEntry(newState.guild.id, userId);
+  if (isPendingAlert(entry) && client) {
+    void cancelPendingPmAfkAlert(client, newState.guild.id, userId).catch(() => null);
+  }
+}
+
 async function handlePmVoiceAfkVoiceState(oldState, newState, client) {
   const guild = newState?.guild || oldState?.guild;
   if (!guild || String(guild.id) !== MAIN_GUILD_ID) return;
+
+  handlePmVoiceAfkSpeakingProbe(client, oldState, newState);
 
   await maybeCancelPendingAlertOnVoiceLeave(client, oldState, newState);
 
@@ -372,7 +452,7 @@ async function handlePmVoiceAfkVoiceState(oldState, newState, client) {
   if (oldState?.channelId) channelIds.add(String(oldState.channelId));
   if (newState?.channelId) channelIds.add(String(newState.channelId));
 
-  rescanPmAfkWatchChannels(guild, channelIds, oldState);
+  rescanPmAfkWatchChannels(guild, channelIds, oldState, client);
 }
 
 function startPmVoiceAfkWatchLoop(client) {
@@ -385,18 +465,44 @@ function startPmVoiceAfkWatchLoop(client) {
   if (typeof sweepTimer.unref === "function") sweepTimer.unref();
 }
 
-module.exports = {
-  PM_AFK_VOICE_CATEGORY_ID,
-  isPmAfkWatchVoiceChannel,
-  handlePmVoiceAfkVoiceState,
-  syncPmVoiceAfkWatchFromGateway,
-  startPmVoiceAfkWatchLoop,
-  sweepPmVoiceAfkAlerts,
-  resetPmVoiceAfkCountdown,
-  clearPmVoiceAfkCountdown,
-  cancelPendingPmAfkAlert,
-  isStaffInVoiceWithTarget,
-  isStaffMember,
-  isPendingAlert,
-  getMemberWatchEntry,
-};
+async function sendPmAfkSanctionNotice(client, guild, opts = {}) {
+  if (!SANZIONI_CHANNEL_ID || !guild?.id) return false;
+  const target = opts.target;
+  const staffMember = opts.staffMember;
+  const stepLabel = String(opts.stepLabel || "").trim();
+  const reason = String(opts.reason || "").trim();
+  const voiceChannelId = String(opts.voiceChannelId || "").trim();
+  const durationMs = Number(opts.durationMs || 0);
+  if (!target?.id || !staffMember?.id) return false;
+
+  const textChannel = await getGuildChannelCached(guild, SANZIONI_CHANNEL_ID).catch(() => null);
+  if (!textChannel?.isTextBased?.()) return false;
+
+  const { formatDuration } = require("../../Utils/Moderation/moderation");
+  const channelRef = voiceChannelId ? `<#${voiceChannelId}>` : "vocale";
+  const durationLabel = durationMs > 0 ? formatDuration(durationMs) : "N/A";
+
+  const embed = new EmbedBuilder()
+    .setColor("#C0392B")
+    .setTitle("<:banhammer:1443651875441217639> Sanzione AFK vocale applicata")
+    .setDescription(
+      [
+        `${target} è stato **mutato** per AFK in vocale (regola **3.6**).`,
+        `Canale: ${channelRef}`,
+        `Sanzione: **${stepLabel || "Mute"}** (${durationLabel})`,
+        reason ? `Motivo: ${reason}` : null,
+        `Confermato da ${staffMember}.`,
+      ].filter(Boolean).join("\n"),
+    )
+    .setFooter({ text: `ID utente: ${target.id}` });
+
+  await textChannel
+    .send({ embeds: [embed] })
+    .catch((err) => {
+      global.logger?.warn?.("[VOICE AFK WATCH] Invio sanzione in sanzioni fallito:", err?.message || err);
+      return null;
+    });
+  return true;
+}
+
+module.exports = { PM_AFK_VOICE_CATEGORY_ID, isPmAfkWatchVoiceChannel, handlePmVoiceAfkVoiceState, syncPmVoiceAfkWatchFromGateway, startPmVoiceAfkWatchLoop, sweepPmVoiceAfkAlerts, resetPmVoiceAfkCountdown, clearPmVoiceAfkCountdown, cancelPendingPmAfkAlert, deletePmAfkUserAlertMessage, sendPmAfkSanctionNotice, handlePmVoiceAfkChatMessage, isStaffInVoiceWithTarget, isStaffMember, isPendingAlert, getMemberWatchEntry };

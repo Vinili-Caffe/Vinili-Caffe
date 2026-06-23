@@ -1,6 +1,6 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, PermissionsBitField, ChannelType, InteractionWebhook } = require("discord.js");
 const { MentionReaction } = require("../Schemas/Community/autoInteractionSchemas");
-const { ActivityUserProfile, CustomRole, AvatarPrivacy, BannerPrivacy, QuotePrivacy } = require("../Schemas/Community/communitySchemas");
+const { ActivityUserProfile, CustomRole, AvatarPrivacy, BannerPrivacy, QuotePrivacy, RepostPrivacy } = require("../Schemas/Community/communitySchemas");
 const { getBirthdayProfile, setBirthdayProfile, clearBirthdayProfile, getMentionResponse, setMentionResponse, clearMentionResponse } = require("../Services/Community/profileStore");
 const { applyZodiacRoleFromBirthday, stripAllZodiacRoles } = require("../Utils/Community/zodiacRoles");
 const { applyAgeBracketRoleFromBirthday, stripAllAgeBracketRoles } = require("../Utils/Community/ageBracketRoles");
@@ -11,6 +11,7 @@ const { hasEventWeekWinnerGrant } = require("../Services/Community/weekWinnerGra
 const colorUnlocks = require("../Utils/Community/personalityColorUnlocks");
 const { MAX_REACTIONS, memberHasCustomReactionRoleAccess, getCustomReactionMax, parseReactionTokens, resolveStoredCustomEmojiFromClient, toDisplay, buildCustomReactionPanelRows } = require("../Utils/Community/mentionReactionPanelUtils");
 const { getNoDmPreferences, setNoDmCategories, DM_CATEGORIES, DM_CATEGORY_ALL, DM_CATEGORY_LABELS } = require("../Utils/noDmList");
+const { privacyContentModel, PRIVACY_CONTENT_KINDS } = require("../Utils/privacyContentKinds");
 const IDs = require("../Utils/Config/ids");
 const { userAvatarUrlDynamic, guildMemberDisplayAvatarUrlDynamic, accountUsername } = require("../Utils/Discord/guildDiscordIdentity");
 const { getCustomRoleSlotCapFromRoles, getCustomRoleSlotCapWithContest, memberHasCustomRolePanelAccess, memberHasCustomRoleSecondarySlot } = require("../Utils/Community/customRoleSlots");
@@ -343,7 +344,7 @@ function parsePanelCustomId(customId) {
 
 async function fetchProfilePanelState(guild, userId, client) {
   const guildId = guild?.id;
-  const [birthday, reactionDoc, mentionResponse, customState, customDocLean, noDmPrefs, avatarPrivacy, bannerPrivacy, quotePrivacy, member, contestPrizeLean, eventWeek2Grant, eventWeek3Grant] = await Promise.all([
+  const [birthday, reactionDoc, mentionResponse, customState, customDocLean, noDmPrefs, avatarPrivacy, bannerPrivacy, quotePrivacy, repostPrivacy, member, contestPrizeLean, eventWeek2Grant, eventWeek3Grant] = await Promise.all([
     getBirthdayProfile(guildId, userId),
     MentionReaction.findOne({ guildId, userId }).lean().catch(() => null),
     getMentionResponse(guildId, userId).catch(() => null),
@@ -356,6 +357,7 @@ async function fetchProfilePanelState(guild, userId, client) {
     AvatarPrivacy.findOne({ guildId, userId }).lean().catch(() => null),
     BannerPrivacy.findOne({ guildId, userId }).lean().catch(() => null),
     QuotePrivacy.findOne({ guildId, userId }).lean().catch(() => null),
+    RepostPrivacy.findOne({ guildId, userId }).lean().catch(() => null),
     guild?.members?.fetch?.(userId).catch(() => guild?.members?.cache?.get?.(userId) || null),
     ActivityUserProfile.findOne({ guildId, userId })
       .select("profile.contestPrizes profile.totals.exp.event staff.partnerManagerCustomPerksUntil staff.partnerManagerVipUntil")
@@ -415,7 +417,7 @@ async function fetchProfilePanelState(guild, userId, client) {
     custom: mergedCustomState,
     panelMember: member && member.guild ? member : null,
     noDm: noDmPrefs || { blockAll: false, disabled: new Set() },
-    privacy: { avatar: Boolean(avatarPrivacy?.blocked), banner: Boolean(bannerPrivacy?.blocked), quotes: Boolean(quotePrivacy?.blocked) },
+    privacy: { avatar: Boolean(avatarPrivacy?.blocked), banner: Boolean(bannerPrivacy?.blocked), quotes: Boolean(quotePrivacy?.blocked), reposts: Boolean(repostPrivacy?.blocked) },
     featureAccess: { customRole: hasCustomRoleAccess, customVoc: hasCustomVocAccess, customReaction: hasCustomReactionAccess, mentionResponse: hasMentionResponseAccess, customReactionMax, secondaryCustomRole: memberHasCustomRoleSecondarySlot(member) },
     colors: { level: colorLevel, canPickPlus: colorCanPickPlus },
     hogwarts: hogwarts && typeof hogwarts === "object" ? hogwarts : { visible: false },
@@ -468,8 +470,8 @@ function buildSectionEmbed(section, state, userOrMember, guild = null, isSelfVie
   const noDm = state?.noDm || { blockAll: false, disabled: new Set() };
   const disabledDmSet = noDm?.disabled instanceof Set ? noDm.disabled : new Set(Array.isArray(noDm?.disabled) ? noDm.disabled : []);
   const noDmSummary = noDm?.blockAll ? "Tutti disattivati" : disabledDmSet.size === 0 ? "Tutti attivi" : `${disabledDmSet.size} categoria/e disattivate`;
-  const privacy = state?.privacy || { avatar: false, banner: false, quotes: false };
-  const privacySummary = [privacy.avatar ? "Avatar: Nascosto" : "Avatar: Visibile", privacy.banner ? "Banner: Nascosto" : "Banner: Visibile", privacy.quotes ? "Quote: Bloccate" : "Quote: Attive"].join("-");
+  const privacy = state?.privacy || { avatar: false, banner: false, quotes: false, reposts: false };
+  const privacySummary = [privacy.avatar ? "Avatar: Nascosto" : "Avatar: Visibile", privacy.banner ? "Banner: Nascosto" : "Banner: Visibile", privacy.quotes ? "Quote: Bloccate" : "Quote: Attive", privacy.reposts ? "Repost: Bloccati" : "Repost: Attivi"].join("-");
   const user = userOrMember?.user || userOrMember;
   const profileDisplayName = isProfilePanelGuildMember(userOrMember) ? String(userOrMember.displayName || user?.username || user?.globalName || "").trim() || "Utente" : user && typeof user === "object" ? String(user.globalName || user.username || user.tag || "").trim() || "Utente" : "Utente";
   if (section === SECTION_BIRTHDAY) {
@@ -553,6 +555,7 @@ function buildSectionEmbed(section, state, userOrMember, guild = null, isSelfVie
         "<:VC_Info:1482526956703580372> **Mention Response**",
         "",
         "Quando qualcuno ti menziona esplicitamente in chat, il bot invia questa risposta automatica.",
+        "Solo testo ed emoji: niente ping, link o parole vietate.",
         "",
         `<:VC_Modifica:1478859646587633717> Risposta attuale: ${mentionResponseText ? `\n> ${mentionResponsePreview}` : "**Non impostata**"}`,
         "",
@@ -584,6 +587,7 @@ function buildSectionEmbed(section, state, userOrMember, guild = null, isSelfVie
       `<:VC_Dot:1482532364222595303> **Avatar**: ${privacy.avatar ? "<:VC_OfflineStatus:1482527117051957380> Nascosto / bloccato" : "<:VC_OnlineStatus:1482527088912240650> Visibile"}`,
       `<:VC_Dot:1482532364222595303> **Banner**: ${privacy.banner ? "<:VC_OfflineStatus:1482527117051957380> Nascosto / bloccato" : "<:VC_OnlineStatus:1482527088912240650> Visibile"}`,
       `<:VC_Dot:1482532364222595303> **Quote**: ${privacy.quotes ? "<:VC_OfflineStatus:1482527117051957380> Nascosto / bloccato" : "<:VC_OnlineStatus:1482527088912240650> Visibile"}`,
+      `<:VC_Dot:1482532364222595303> **Repost**: ${privacy.reposts ? "<:VC_OfflineStatus:1482527117051957380> Nascosto / bloccato" : "<:VC_OnlineStatus:1482527088912240650> Visibile"}`,
       `<:VC_Dot:1482532364222595303> **DM reminder voto Discadia**: ${voteDiscDmOff ? "<:VC_OfflineStatus:1482527117051957380> Disattivato" : "<:VC_OnlineStatus:1482527088912240650> Attivo"}`,
       `<:VC_Dot:1482532364222595303> **DM reminder voto Top.gg**: ${voteTopggDmOff ? "<:VC_OfflineStatus:1482527117051957380> Disattivato" : "<:VC_OnlineStatus:1482527088912240650> Attivo"}`,
     ];
@@ -592,7 +596,7 @@ function buildSectionEmbed(section, state, userOrMember, guild = null, isSelfVie
       "",
       ...privacyLines,
       "",
-      "<a:VC_Alert:1482706673176150077> Per tutte le altre categorie DM usa la sezione **Notifiche DM**. Avatar/Banner/Quote: **Blocca tutto** / **Sblocca tutto**.",
+      "<a:VC_Alert:1482706673176150077> Per tutte le altre categorie DM usa la sezione **Notifiche DM**. Avatar/Banner/Quote/Repost: **Blocca tutto** / **Sblocca tutto**.",
     ].join("\n"));
   }
 
@@ -605,7 +609,7 @@ function buildSectionEmbed(section, state, userOrMember, guild = null, isSelfVie
       ? `<:VC_Hogwarts:1508766773837693061> **Casata:** ${hw.houseLabel || hw.houseId}`
       : "<:VC_Hogwarts:1508766773837693061> **Casata:** Non smistato — completa lo smistamento su https://viniliecaffe.it/evento/smistamento";
     const rankLine = hw.sorted
-      ? `<a:VC_Diamon:1482706116873031680> **Classifica Coppa:** ${hw.cupRankLabel} (**${Number(hw.houseCupPoints || 0).toLocaleString("it-IT")}** punti casa)`
+      ? `<a:VC_Diamon:1482706116873031680> **Classifica Coppa:** ${hw.cupRankLabel} — ${hw.houseCupPointsLabel || "0 pt"}`
       : "<a:VC_Diamon:1482706116873031680> **Classifica Coppa:** disponibile dopo lo smistamento";
     return base
       .setTitle("<:VC_Hogwarts:1508766773837693061> Evento Hogwarts")
@@ -614,6 +618,7 @@ function buildSectionEmbed(section, state, userOrMember, guild = null, isSelfVie
           "<:VC_Info:1482526956703580372> **Il tuo progresso nell'evento:**",
           "",
           `🪙 **Galeoni:** ${hw.galeoniLabel || "0 Galeoni d'Oro"}`,
+          `<:VC_Leaderboard:1482534806314287387> **Punti personali:** ${hw.memberPointsLabel || "0 pt"}`,
           houseLine,
           rankLine,
           "",
@@ -833,7 +838,7 @@ function buildRows(guild, ownerId, section, state = null, rolePanelCategory = nu
     );
     return [row1, ...dmRows, rowLast, closeRow()];
   } else if (section === SECTION_PRIVACY) {
-    const privacy = state?.privacy || { avatar: false, banner: false, quotes: false };
+    const privacy = state?.privacy || { avatar: false, banner: false, quotes: false, reposts: false };
     const noDm = state?.noDm || { blockAll: false, disabled: new Set() };
     const voteDiscDmOff = isDmCategoryOff(noDm, "bump");
     const voteTopggDmOff = isDmCategoryOff(noDm, "vote_topgg");
@@ -841,6 +846,7 @@ function buildRows(guild, ownerId, section, state = null, rolePanelCategory = nu
       new ButtonBuilder().setCustomId(`${PANEL_PREFIX}:action:${ownerId}:privacy_toggle_avatar`).setLabel("Avatar").setStyle(privacy.avatar ? ButtonStyle.Secondary : ButtonStyle.Success).setEmoji(privacy.avatar ? "<:VC_OfflineStatus:1482527117051957380>" : "<:VC_OnlineStatus:1482527088912240650>"),
       new ButtonBuilder().setCustomId(`${PANEL_PREFIX}:action:${ownerId}:privacy_toggle_banner`).setLabel("Banner").setStyle(privacy.banner ? ButtonStyle.Secondary : ButtonStyle.Success).setEmoji(privacy.banner ? "<:VC_OfflineStatus:1482527117051957380>" : "<:VC_OnlineStatus:1482527088912240650>"),
       new ButtonBuilder().setCustomId(`${PANEL_PREFIX}:action:${ownerId}:privacy_toggle_quotes`).setLabel("Quote").setStyle(privacy.quotes ? ButtonStyle.Secondary : ButtonStyle.Success).setEmoji(privacy.quotes ? "<:VC_OfflineStatus:1482527117051957380>" : "<:VC_OnlineStatus:1482527088912240650>"),
+      new ButtonBuilder().setCustomId(`${PANEL_PREFIX}:action:${ownerId}:privacy_toggle_reposts`).setLabel("Repost").setStyle(privacy.reposts ? ButtonStyle.Secondary : ButtonStyle.Success).setEmoji(privacy.reposts ? "<:VC_OfflineStatus:1482527117051957380>" : "<:VC_OnlineStatus:1482527088912240650>"),
     );
     const rowVoteDm = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
@@ -854,8 +860,8 @@ function buildRows(guild, ownerId, section, state = null, rolePanelCategory = nu
         .setStyle(voteTopggDmOff ? ButtonStyle.Secondary : ButtonStyle.Success)
         .setEmoji(voteTopggDmOff ? "<:VC_OfflineStatus:1482527117051957380>" : "<:VC_OnlineStatus:1482527088912240650>"),
     );
-    const allBlocked = privacy.avatar && privacy.banner && privacy.quotes;
-    const allVisible = !privacy.avatar && !privacy.banner && !privacy.quotes;
+    const allBlocked = privacy.avatar && privacy.banner && privacy.quotes && privacy.reposts;
+    const allVisible = !privacy.avatar && !privacy.banner && !privacy.quotes && !privacy.reposts;
     const row3 = new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId(`${PANEL_PREFIX}:action:${ownerId}:privacy_all`).setLabel("Blocca tutto").setStyle(allBlocked ? ButtonStyle.Danger : ButtonStyle.Secondary).setEmoji("<:cancel:1461730653677551691>"),
       new ButtonBuilder().setCustomId(`${PANEL_PREFIX}:action:${ownerId}:privacy_none`).setLabel("Sblocca tutto").setStyle(allVisible ? ButtonStyle.Success : ButtonStyle.Secondary).setEmoji("<:success:1461731530333229226>"),
@@ -1323,9 +1329,18 @@ async function handleProfileMentionResponsePromptMessage(message) {
     await editMentionResponsePromptReply(message.client, pending, "<:cancel:1461730653677551691> Operazione annullata.");
     return true;
   }
-  const text = raw.replace(/\s+/g, " ").slice(0, 500).trim();
-  if (!text) return false;
-  await setMentionResponse(message.guild.id, ownerId, text).catch(() => { });
+  const { validateMentionResponseText } = require("../Utils/Community/mentionResponseValidation");
+  const validation = validateMentionResponseText(raw);
+  if (!validation.ok) {
+    await message.delete().catch(() => { });
+    await editMentionResponsePromptReply(message.client, pending, validation.userMessage);
+    return true;
+  }
+  const saved = await setMentionResponse(message.guild.id, ownerId, validation.text).catch(() => ({ ok: false }));
+  if (!saved?.ok) {
+    await editMentionResponsePromptReply(message.client, pending, saved.userMessage || validation.userMessage);
+    return true;
+  }
   clearMentionResponsePrompt(message.guild.id, message.author.id);
   await message.delete().catch(() => { });
   if (pending.panelMessageId && message.channel?.messages?.fetch) {
@@ -1551,7 +1566,7 @@ async function execute(interaction, client) {
 
     if (action.startsWith("privacy_toggle_")) {
       const kind = action.slice("privacy_toggle_".length);
-      const model = kind === "avatar" ? AvatarPrivacy : kind === "banner" ? BannerPrivacy : kind === "quotes" ? QuotePrivacy : null;
+      const model = privacyContentModel(kind);
       if (!model) return true;
       const current = await model.findOne({ guildId: interaction.guild.id, userId: ownerId }).lean().catch(() => null);
       const nextBlocked = !Boolean(current?.blocked);
@@ -1567,23 +1582,17 @@ async function execute(interaction, client) {
 
     if (action === "privacy_all" || action === "privacy_none") {
       const blocked = action === "privacy_all";
-      await Promise.all([
-        AvatarPrivacy.findOneAndUpdate(
-          { guildId: interaction.guild.id, userId: ownerId },
-          { $set: { blocked }, $setOnInsert: { guildId: interaction.guild.id, userId: ownerId } },
-          { upsert: true, new: true, setDefaultsOnInsert: true },
-        ).catch(() => { }),
-        BannerPrivacy.findOneAndUpdate(
-          { guildId: interaction.guild.id, userId: ownerId },
-          { $set: { blocked }, $setOnInsert: { guildId: interaction.guild.id, userId: ownerId } },
-          { upsert: true, new: true, setDefaultsOnInsert: true },
-        ).catch(() => { }),
-        QuotePrivacy.findOneAndUpdate(
-          { guildId: interaction.guild.id, userId: ownerId },
-          { $set: { blocked }, $setOnInsert: { guildId: interaction.guild.id, userId: ownerId } },
-          { upsert: true, new: true, setDefaultsOnInsert: true },
-        ).catch(() => { }),
-      ]);
+      await Promise.all(
+        PRIVACY_CONTENT_KINDS.map((kind) => {
+          const model = privacyContentModel(kind);
+          if (!model) return Promise.resolve();
+          return model.findOneAndUpdate(
+            { guildId: interaction.guild.id, userId: ownerId },
+            { $set: { blocked }, $setOnInsert: { guildId: interaction.guild.id, userId: ownerId } },
+            { upsert: true, new: true, setDefaultsOnInsert: true },
+          ).catch(() => { });
+        }),
+      );
       const payload = await buildPanelPayload(interaction.guild, ownerId, client, SECTION_PRIVACY);
       await safeUpdatePanelInteraction(interaction, payload);
       return true;
@@ -1746,7 +1755,8 @@ async function execute(interaction, client) {
       const allowed = await ensureMentionResponseEnabled(interaction, ownerId);
       if (!allowed) return true;
       await interaction.reply({
-        content: "✏️ Invia in chat la risposta automatica da usare quando qualcuno ti menziona.\nScrivi `annulla` per annullare.",
+        content:
+          "✏️ Invia in chat la risposta automatica quando qualcuno ti menziona.\nSolo **testo ed emoji** (niente ping, link o parole vietate). Scrivi `annulla` per annullare.",
         flags: PRIVATE_FLAG,
       }).catch(() => { });
       const filter = (msg) =>
@@ -1768,12 +1778,17 @@ async function execute(interaction, client) {
           await interaction.editReply({ content: "<:cancel:1461730653677551691> Operazione annullata." }).catch(() => { });
           return;
         }
-        const text = raw.replace(/\s+/g, " ").slice(0, 500).trim();
-        if (!text) {
-          await interaction.editReply({ content: "<:vegax:1443934876440068179> Risposta non valida. Clicca di nuovo il bottone per riprovare." }).catch(() => { });
+        const { validateMentionResponseText } = require("../Utils/Community/mentionResponseValidation");
+        const validation = validateMentionResponseText(raw);
+        if (!validation.ok) {
+          await interaction.editReply({ content: validation.userMessage }).catch(() => { });
           return;
         }
-        await setMentionResponse(interaction.guild.id, ownerId, text).catch(() => { });
+        const saved = await setMentionResponse(interaction.guild.id, ownerId, validation.text).catch(() => ({ ok: false }));
+        if (!saved?.ok) {
+          await interaction.editReply({ content: saved.userMessage || validation.userMessage }).catch(() => { });
+          return;
+        }
         const payload = await buildPanelPayload(interaction.guild, ownerId, interaction.client, SECTION_MENTIONRESPONSE);
         await interaction.message?.edit?.(payload).catch(() => { });
         await interaction.editReply({ content: "<:vegacheckmark:1443666279058772028> Mention Response salvata." }).catch(() => { });

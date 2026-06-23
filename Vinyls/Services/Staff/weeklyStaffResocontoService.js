@@ -12,7 +12,7 @@ const { addAllRoleMembersToThread } = require("../../Utils/Discord/threadRoleMem
 const { getDevIds } = require("../../Utils/Moderation/commandPermissions");
 const { STAFF_NEW_EMOJI } = require("../../Utils/Community/staffListUtils");
 const { getStaffRoleEmojiByRoleId } = require("../../Utils/Community/staffRoleEmoji");
-const { ensureStaff } = require("../../Utils/Staff/staffDocUtils");
+const { ensureStaff, getOrCreateStaffDoc } = require("../../Utils/Staff/staffDocUtils");
 const { ensureStaffProfileDoc, getStaffDoc, valutazionePositiveAddCore, valutazioneNegativeAddCore, } = require("../../Utils/Staff/valutazionePanelActions");
 const TIME_ZONE = "Europe/Rome";
 const RESOCONTO_CLOSE_HOUR_ROME = 18;
@@ -936,7 +936,7 @@ async function ensureWeeklyLimitAutoValutazione({ guild, member, key, type, reas
     (await getClientChannelCached(guild.client, IDs.channels?.valutazioniStaff).catch(() => null));
   if (!channel?.isTextBased?.()) return { ok: false, skipped: "no_channel" };
 
-  const profileDoc = await ensureStaffProfileDoc(
+  let profileDoc = await ensureStaffProfileDoc(
     await getStaffDoc(guild.id, member.id),
     guild.id,
     member.id,
@@ -976,6 +976,8 @@ async function ensureWeeklyLimitAutoValutazione({ guild, member, key, type, reas
     ? await valutazioneNegativeAddCore(guild, profileDoc, member.user, reason, actor, channel)
     : await valutazionePositiveAddCore(profileDoc, member.user, reason, actor, channel);
 
+  profileDoc = await getOrCreateStaffDoc(guild.id, member.id);
+  if (!profileDoc) return { ok: false, skipped: "no_profile" };
   const freshStaff = ensureStaff(profileDoc);
   if (!Array.isArray(freshStaff.autoValutazioni)) freshStaff.autoValutazioni = [];
   freshStaff.autoValutazioni.push({
@@ -1229,11 +1231,6 @@ async function createResocontoThread(message, userId, userLabel = null, staffDoc
     await addAllRoleMembersToThread(thread, guild, highStaffRoleId, { logTag: "[WEEKLY STAFF RESOCONTO thread]" });
   }
 
-  const mentionMsg = await thread.send({ content: `<@&${IDs.roles.HighStaff}>` })
-    .catch(() => null);
-  if (mentionMsg) {
-    await mentionMsg.delete().catch(() => null);
-  }
   await sendResocontoThreadSummary(thread, message?.guild, staffDoc);
 }
 
@@ -1835,7 +1832,7 @@ async function runPreResocontoReminders(client) {
   );
   const overviewByUserId = new Map(staffOnlyIds.map((id, i) => [String(id), overviewResults[i] || null]));
   const resocontoTime =
-    "**domenica (ora italiana):** Partner Manager **15:00**, Helper **16:00**, Mod **17:00**, Senior Moderator **17:30**, Director **17:45**";
+    "**domenica:** Partner Manager **15:00**, Helper **16:00**, Mod **17:00**, Senior Moderator **17:30**, Director **17:45**";
   const reminderWindow = getPmResocontoWindow(new Date());
   const skipDmUserIds = new Set(getDevIds(client).map((id) => String(id)).filter((id) => /^\d{16,20}$/.test(id)));
 

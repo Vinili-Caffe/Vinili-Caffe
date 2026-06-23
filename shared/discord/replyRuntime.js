@@ -110,23 +110,24 @@ function logReplyError(scope, err) {
 
 async function safeReply(interaction, payload) {
   if (!interaction) return null;
+  const resolvedPayload = maybeApplyPronounGender(payload, resolveInteractionMember(interaction));
 
   if (interaction.deferred && !interaction.replied) {
     try {
-      return await interaction.editReply(sanitizeEditPayload(payload));
+      return await interaction.editReply(sanitizeEditPayload(resolvedPayload));
     } catch (err) {
       if (isUnknownInteractionError(err)) return null;
       logReplyError("editReply(primary)", err);
       if (interaction.deferred || interaction.replied) {
         try {
-          return await interaction.followUp(payload);
+          return await interaction.followUp(resolvedPayload);
         } catch (followUpErr) {
           if (isUnknownInteractionError(followUpErr) || isAlreadyAcknowledgedError(followUpErr)) return null;
           logReplyError("followUp(fallback)", followUpErr);
         }
       }
       try {
-        return await interaction.reply(payload);
+        return await interaction.reply(resolvedPayload);
       } catch (replyErr) {
         if (isUnknownInteractionError(replyErr) || isAlreadyAcknowledgedError(replyErr)) return null;
         logReplyError("reply(final-fallback)", replyErr);
@@ -137,7 +138,7 @@ async function safeReply(interaction, payload) {
 
   if (interaction.replied) {
     try {
-      return await interaction.followUp(payload);
+      return await interaction.followUp(resolvedPayload);
     } catch (err) {
       if (isUnknownInteractionError(err) || isAlreadyAcknowledgedError(err)) return null;
       logReplyError("followUp(primary)", err);
@@ -146,7 +147,7 @@ async function safeReply(interaction, payload) {
   }
 
   try {
-    return await interaction.reply(payload);
+    return await interaction.reply(resolvedPayload);
   } catch (err) {
     if (isUnknownInteractionError(err) || isAlreadyAcknowledgedError(err)) return null;
     logReplyError("reply(primary)", err);
@@ -156,25 +157,26 @@ async function safeReply(interaction, payload) {
 
 async function safeEditReply(interaction, payload) {
   if (!interaction) return null;
-  if (!interaction.deferred && !interaction.replied) return safeReply(interaction, payload);
+  const resolvedPayload = maybeApplyPronounGender(payload, resolveInteractionMember(interaction));
+  if (!interaction.deferred && !interaction.replied) return safeReply(interaction, resolvedPayload);
 
   if (interaction.deferred || interaction.replied) {
     try {
-      return await interaction.editReply(sanitizeEditPayload(payload));
+      return await interaction.editReply(sanitizeEditPayload(resolvedPayload));
     } catch (err) {
       if (isUnknownInteractionError(err) || isAlreadyAcknowledgedError(err)) return null;
-      if (isInteractionNotRepliedError(err)) return safeReply(interaction, payload);
+      if (isInteractionNotRepliedError(err)) return safeReply(interaction, resolvedPayload);
       logReplyError("editReply(primary)", err);
       if (interaction.deferred || interaction.replied) {
         try {
-          return await interaction.followUp(payload);
+          return await interaction.followUp(resolvedPayload);
         } catch (followUpErr) {
           if (isUnknownInteractionError(followUpErr) || isAlreadyAcknowledgedError(followUpErr)) return null;
           logReplyError("followUp(fallback)", followUpErr);
         }
       }
       try {
-        return await interaction.reply(payload);
+        return await interaction.reply(resolvedPayload);
       } catch (replyErr) {
         if (isUnknownInteractionError(replyErr) || isAlreadyAcknowledgedError(replyErr)) return null;
         logReplyError("reply(final-fallback)", replyErr);
@@ -184,7 +186,7 @@ async function safeEditReply(interaction, payload) {
   }
 
   try {
-    return await interaction.reply(payload);
+    return await interaction.reply(resolvedPayload);
   } catch (err) {
     if (isUnknownInteractionError(err) || isAlreadyAcknowledgedError(err)) return null;
     logReplyError("reply(fallback)", err);
@@ -200,13 +202,55 @@ function payloadWithReplyReference(payload, message) {
   };
 }
 
+let pronounGenderApplier = null;
+
+function setPronounGenderApplier(fn) {
+  pronounGenderApplier = typeof fn === "function" ? fn : null;
+}
+
+function resolveMessageMember(message) {
+  if (!message) return null;
+  const direct = message.member;
+  if (direct?.roles?.cache) return direct;
+  const userId = message.author?.id;
+  const guild = message.guild;
+  if (userId && guild?.members?.cache) {
+    return guild.members.cache.get(String(userId)) || direct || null;
+  }
+  return direct || null;
+}
+
+function resolveInteractionMember(interaction) {
+  if (!interaction) return null;
+  const direct = interaction.member;
+  if (direct?.roles?.cache) return direct;
+  const userId = interaction.user?.id;
+  const guild = interaction.guild;
+  if (userId && guild?.members?.cache) {
+    return guild.members.cache.get(String(userId)) || direct || null;
+  }
+  return direct || null;
+}
+
+function maybeApplyPronounGender(payload, member) {
+  if (!pronounGenderApplier || !member || !payload || typeof payload !== "object" || Array.isArray(payload)) {
+    return payload;
+  }
+  try {
+    return pronounGenderApplier(payload, member) || payload;
+  } catch {
+    return payload;
+  }
+}
+
 async function safeMessageReply(message, payload) {
   if (!message) return null;
+  const resolvedPayload = maybeApplyPronounGender(payload, resolveMessageMember(message));
   if (typeof message.reply !== "function") {
     if (message.channel?.send) {
       try {
-        const sent = await message.channel.send(payloadWithReplyReference(stripMessageReference(payload), message));
-        maybeAutoCleanupErrorReply(message, sent, payload);
+        const sent = await message.channel.send(payloadWithReplyReference(stripMessageReference(resolvedPayload), message));
+        maybeAutoCleanupErrorReply(message, sent, resolvedPayload);
         return sent;
       } catch (err) {
         if (err?.code === 10008) return null;
@@ -217,15 +261,15 @@ async function safeMessageReply(message, payload) {
     return null;
   }
   try {
-    const sent = await message.reply(payload);
-    maybeAutoCleanupErrorReply(message, sent, payload);
+    const sent = await message.reply(resolvedPayload);
+    maybeAutoCleanupErrorReply(message, sent, resolvedPayload);
     return sent;
   } catch (err) {
     if (err?.code === 10008) return null;
     if (isUnknownMessageReferenceError(err)) {
       try {
-        const sent = await message.channel.send(payloadWithReplyReference(stripMessageReference(payload), message));
-        maybeAutoCleanupErrorReply(message, sent, payload);
+        const sent = await message.channel.send(payloadWithReplyReference(stripMessageReference(resolvedPayload), message));
+        maybeAutoCleanupErrorReply(message, sent, resolvedPayload);
         return sent;
       } catch (fallbackErr) {
         if (fallbackErr?.code === 10008) return null;
@@ -271,4 +315,11 @@ async function safeChannelSend(channel, payload) {
   return null;
 }
 
-module.exports = { safeReply, safeEditReply, safeDeferReply, safeMessageReply, safeChannelSend };
+module.exports = {
+  safeReply,
+  safeEditReply,
+  safeDeferReply,
+  safeMessageReply,
+  safeChannelSend,
+  setPronounGenderApplier,
+};

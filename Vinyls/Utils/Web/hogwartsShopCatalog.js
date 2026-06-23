@@ -1,10 +1,11 @@
 const SHOP_CATEGORIES = Object.freeze({ WAND: "wand", BROOM: "broom", PET: "pet" });
+const SHOP_DURABLE_BOOST_MAX_USES = 750;
+const WAND_WIN_CHANCE = Object.freeze({ "willow-spark-wand": 58, "ash-moon-wand": 72, "elder-ember-wand": 86, "phoenix-legacy-wand": 100 });
+const BROOM_ROB_SUCCESS_BONUS = Object.freeze({ "school-sweeper-broom": 10, "comet-copper-broom": 18, "stormchaser-broom": 26, "aurora-3000-broom": 35 });
+const PET_HOUSE_POINTS_MULTIPLIER = Object.freeze({ "tabby-cat-pet": 2, "snowy-owl-pet": 3, "moon-toad-pet": 4, "mini-phoenix-pet": 5 });
+const SHOP_BOOST_TYPE_LABELS = Object.freeze({ [SHOP_CATEGORIES.WAND]: "Duello", [SHOP_CATEGORIES.BROOM]: "Rubare", [SHOP_CATEGORIES.PET]: "Minigiochi" });
 const SHOP_CATEGORY_LABELS = Object.freeze({ [SHOP_CATEGORIES.WAND]: "Bacchette", [SHOP_CATEGORIES.BROOM]: "Scope", [SHOP_CATEGORIES.PET]: "Animali" });
-const SHOP_CATEGORY_BOOST_HINTS = Object.freeze({
-  [SHOP_CATEGORIES.WAND]: "Boost duello: più chance di vincere i duelli.",
-  [SHOP_CATEGORIES.BROOM]: "Boost economia: più chance di furto riuscito.",
-  [SHOP_CATEGORIES.PET]: "Boost minigiochi: moltiplica i punti casa nei minigame.",
-});
+const SHOP_CATEGORY_BOOST_HINTS = Object.freeze({ [SHOP_CATEGORIES.WAND]: "Boost duello: più chance di vincere.", [SHOP_CATEGORIES.BROOM]: "Boost economia: più chance di furto riuscito.", [SHOP_CATEGORIES.PET]: "Boost minigiochi: moltiplica i punti casa." });
 const HOGWARTS_SHOP_CATALOG = Object.freeze([
   {
     id: "willow-spark-wand",
@@ -205,13 +206,51 @@ function resolveShopPurchaseOffer(ownedRow, item) {
   return { ok: true, mode: "upgrade", amount: newPrice - ownedPrice, replacesId: ownedRow.id };
 }
 
+function resolveShopItemBoostPublic(item) {
+  const category = normalizeShopCategory(item?.category);
+  const boostType = SHOP_BOOST_TYPE_LABELS[category] || "";
+  let boostMultiplier = "";
+  if (category === SHOP_CATEGORIES.WAND) {
+    const chance = WAND_WIN_CHANCE[item?.id];
+    if (Number.isFinite(chance)) boostMultiplier = `${chance}%`;
+  } else if (category === SHOP_CATEGORIES.BROOM) {
+    const bonus = BROOM_ROB_SUCCESS_BONUS[item?.id];
+    if (Number.isFinite(bonus)) boostMultiplier = `+${bonus}%`;
+  } else if (category === SHOP_CATEGORIES.PET) {
+    const mult = PET_HOUSE_POINTS_MULTIPLIER[item?.id];
+    if (Number.isFinite(mult)) boostMultiplier = `×${mult}`;
+  }
+  return {
+    boostType,
+    boostMultiplier,
+    boostMaxUses: SHOP_DURABLE_BOOST_MAX_USES,
+  };
+}
+
+function publicShopItem(item) {
+  const boost = resolveShopItemBoostPublic(item);
+  return {
+    id: item.id,
+    category: item.category,
+    name: item.name,
+    price: item.price,
+    rarity: item.rarity,
+    imageKey: item.imageKey,
+    imageFile: item.imageFile,
+    accent: item.accent,
+    description: item.description,
+    detail: item.detail,
+    ...boost,
+  };
+}
+
 function publicShopCatalog() {
   return {
     categories: Object.values(SHOP_CATEGORIES).map((id) => ({
       id,
       label: SHOP_CATEGORY_LABELS[id] || id,
       boostHint: SHOP_CATEGORY_BOOST_HINTS[id] || "",
-      items: HOGWARTS_SHOP_CATALOG.filter((item) => item.category === id).map((item) => ({ ...item })),
+      items: HOGWARTS_SHOP_CATALOG.filter((item) => item.category === id).map((item) => publicShopItem(item)),
     })),
   };
 }

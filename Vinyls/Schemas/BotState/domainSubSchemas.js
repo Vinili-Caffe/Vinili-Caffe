@@ -58,6 +58,8 @@ const minigameStateEmbedSchema = new Schema(
     targetChannelId: { type: String, default: null },
     customId: { type: String, default: null },
     mainMessageId: { type: String, default: null },
+    hogwartsPodium: { type: String, default: null },
+    hogwartsUnsortedWinners: { type: String, default: null },
   },
   { timestamps: true },
 );

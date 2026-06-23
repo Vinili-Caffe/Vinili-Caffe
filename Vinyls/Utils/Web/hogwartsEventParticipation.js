@@ -83,6 +83,7 @@ module.exports = {
   HOGWARTS_HIGH_STAFF_EXCLUDED_MESSAGE,
   memberIsHogwartsExcludedStaff,
   memberHasHighStaffRole,
+  memberHasHogwartsPreviewStaffRole,
   resolveMainGuildMember,
   isUserHighStaffExcludedFromHogwartsEvent,
   hogwartsHighStaffExcludedPayload,

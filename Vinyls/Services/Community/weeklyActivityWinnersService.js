@@ -6,6 +6,7 @@ const { VOICE_EXP_PER_MINUTE, MESSAGE_EXP } = require("./expService");
 const { addGaleoni } = require("./gringottService");
 const { resolveHogwartsEventConfig, isEventWindowOpen, resolveHubStartMs } = require("../../Utils/Web/hogwartsSortingConfig");
 const { HOUSES } = require("../../Utils/Web/hogwartsSortingBank");
+const { housePointPeriodKey } = require("../../Utils/Web/hogwartsHousePointPeriods");
 const IDs = require("../../Utils/Config/ids");
 const { voteCountMonthKeyRome } = require("../../Utils/romeVoteMonthKey");
 const { isChannelInTicketCategory } = require("../../Utils/Ticket/ticketCategoryUtils");
@@ -32,6 +33,7 @@ const MONTHLY_TOP_NEW_REWARDS_FIRST_RANKED = Object.freeze({ year: 2026, month: 
 const MONTHLY_PRIZE_TICKET_CHANNEL_ID = String(IDs.channels?.ticket || "1442569095068254219");
 const REQUIRED_MEMBER_ROLE_ID = String(IDs.roles.Member || "");
 const WEEKLY_WINNERS_EXCLUDED_ROLE_IDS = new Set( [IDs.roles.Staff, IDs.roles.HighStaff, IDs.roles.Helper, IDs.roles.Mod, IDs.roles.SeniorModerator, IDs.roles.Director, IDs.roles.Admin, IDs.roles.Founder].filter(Boolean).map((id) => String(id)));
+const HOGWARTS_EVENT_TOP_EXCLUDED_ROLE_IDS = new Set();
 const WEEKLY_WINNERS_PUBLISH_INTRO_MARK = "Annunciamo i vincitori di questa settimana";
 const HOGWARTS_BIWEEKLY_PUBLISH_DOC = "hogwarts_biweekly_top_publish";
 const HOGWARTS_BIWEEKLY_PUBLISH_OWNER_ID = "__event__";
@@ -307,14 +309,25 @@ async function hasGringottRewardKey(guildId, userId, rewardKey) {
   return Array.isArray(keys) && keys.includes(key);
 }
 
-async function awardHogwartsBiweeklyHousePoints(guildId, houseId, eventKey, points, gameKey) {
+async function awardHogwartsBiweeklyHousePoints(guildId, houseId, eventKey, points, gameKey, userId = "") {
   const gid = String(guildId || "").trim();
   const hid = normalizeHogwartsHouseId(houseId);
   const pts = Math.max(0, Math.floor(Number(points) || 0));
   const ek = String(eventKey || "").trim();
   const gk = String(gameKey || "").trim();
+  const uid = String(userId || "").trim();
   if (!gid || !hid || pts <= 0 || !ek || !gk) return false;
   const now = new Date();
+  const periodKey = String(housePointPeriodKey(now.getTime())?.key || "").trim();
+  const inc = {
+    [`rawWebhook.byGame.${gk}`]: pts,
+    "rawWebhook.total": pts,
+    [`rawWebhook.totals.${hid}`]: pts,
+  };
+  if (periodKey) inc[`rawWebhook.byPeriod.${periodKey}.${hid}`] = pts;
+  const { appendMemberHousePointsInc } = require("./hogwartsMemberHousePointsService");
+  const memberSet = {};
+  if (uid) appendMemberHousePointsInc(inc, memberSet, { userId: uid, houseId: hid, periodKey, points: pts });
   await SiteDocument.findOneAndUpdate(
     {
       docType: HOGWARTS_HOUSE_POINTS_DOC,
@@ -335,12 +348,9 @@ async function awardHogwartsBiweeklyHousePoints(guildId, houseId, eventKey, poin
         planKey: "hogwarts_house_points",
         "rawWebhook.eventKey": ek,
         "rawWebhook.updatedAt": now,
+        ...memberSet,
       },
-      $inc: {
-        [`rawWebhook.byGame.${gk}`]: pts,
-        "rawWebhook.total": pts,
-        [`rawWebhook.totals.${hid}`]: pts,
-      },
+      $inc: inc,
     },
     { upsert: true, new: true, setDefaultsOnInsert: true },
   ).catch(() => null);
@@ -367,7 +377,7 @@ async function awardHogwartsBiweeklyCategoryWinners(client, guild, category, top
       continue;
     }
     if (housePoints > 0) {
-      await awardHogwartsBiweeklyHousePoints(gid, houseId, ek, housePoints, rewardKey);
+      await awardHogwartsBiweeklyHousePoints(gid, houseId, ek, housePoints, rewardKey, userId);
     }
     if (galeoni > 0) {
       await addGaleoni({
@@ -435,29 +445,6 @@ async function collectHogwartsBiweeklyActivityRows(guild, anchorDate = new Date(
     rowsSource.filter((row) => Number(row?.voiceExp || 0) > 0).sort((a, b) => Number(b.voiceExp || 0) - Number(a.voiceExp || 0)),
     sortedHouseByUserId,
   );
-  const mvIds = [...new Set([...messageDocs.map((r) => String(r.userId)), ...voiceDocs.map((r) => String(r.userId))].filter(Boolean))];
-  const staffByUserId = new Map();
-  if (mvIds.length) {
-    const profs = await ActivityUserProfile.find({ guildId: guild.id, userId: { $in: mvIds } })
-      .select("userId staff.rolesHistory staffRolesHistoryRetention")
-      .lean()
-      .catch(() => []);
-    for (const p of profs) {
-      staffByUserId.set(String(p.userId), { staff: p.staff, staffRolesHistoryRetention: p.staffRolesHistoryRetention });
-    }
-  }
-  const notStaffInWindow = (uid) => {
-    const row = staffByUserId.get(String(uid)) || {};
-    return !wasStaffDuringWeeklyActivityWindow(
-      row.staff,
-      periodStartMs,
-      periodEndMs,
-      WEEKLY_WINNERS_EXCLUDED_ROLE_IDS,
-      row.staffRolesHistoryRetention,
-    );
-  };
-  messageDocs = messageDocs.filter((row) => notStaffInWindow(row.userId));
-  voiceDocs = voiceDocs.filter((row) => notStaffInWindow(row.userId));
   const minigameWeekKeys = getIsoWeekKeysInBiweeklyWindow(periodEndMs);
   let minigameDocsRaw = [];
   if (minigameWeekKeys.length) {
@@ -468,15 +455,13 @@ async function collectHogwartsBiweeklyActivityRows(guild, anchorDate = new Date(
         { "profile.totals.exp.minigame.prevWeekKey": k, "profile.totals.exp.minigame.prevWeekExp": { $gt: 0 } },
       ]),
     })
-      .select("userId profile.totals.exp.minigame staff.rolesHistory staffRolesHistoryRetention")
+      .select("userId profile.totals.exp.minigame")
       .limit(1200)
       .lean()
       .catch(() => []);
   }
   const minigameDocs = filterDocsToSortedUsers(
-    minigameDocsRaw
-      .filter((d) => effectiveMinigameBiweeklyScore(d, minigameWeekKeys) > 0)
-      .filter((d) => notStaffInWindow(d.userId)),
+    minigameDocsRaw.filter((d) => effectiveMinigameBiweeklyScore(d, minigameWeekKeys) > 0),
     sortedHouseByUserId,
   );
   const mgScore = (doc) => effectiveMinigameBiweeklyScore(doc, minigameWeekKeys);
@@ -697,6 +682,36 @@ function buildLastHoursHourKeys(endMs, hours) {
   return keys;
 }
 
+function buildHourKeysBetweenMs(startMs, endMs) {
+  const from = Number(startMs);
+  const to = Number(endMs);
+  if (!Number.isFinite(from) || !Number.isFinite(to) || to <= from) return [];
+  const keys = [];
+  let cursor = from;
+  let guard = 0;
+  while (cursor <= to && guard < 72) {
+    const parts = getTimeParts(new Date(cursor));
+    keys.push(`${parts.year}-${pad2(parts.month)}-${pad2(parts.day)}T${pad2(parts.hour)}`);
+    cursor += 60 * 60 * 1000;
+    guard += 1;
+  }
+  const endParts = getTimeParts(new Date(to));
+  keys.push(`${endParts.year}-${pad2(endParts.month)}-${pad2(endParts.day)}T${pad2(endParts.hour)}`);
+  return [...new Set(keys)];
+}
+
+function hourKeyToBoundsMs(hourKey) {
+  const m = String(hourKey || "").match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2})$/);
+  if (!m) return { startMs: 0, endMs: 0 };
+  const start = createUtcFromRomeLocal(Number(m[1]), Number(m[2]), Number(m[3]), Number(m[4]), 0, 0);
+  const startMs = start.getTime();
+  return { startMs, endMs: startMs + 60 * 60 * 1000 };
+}
+
+function overlapRangeMs(rangeStart, rangeEnd, clipStart, clipEnd) {
+  return Math.max(0, Math.min(rangeEnd, clipEnd) - Math.max(rangeStart, clipStart));
+}
+
 function buildAnchorDateFromWeekKey(weekKey) {
   const keys = getDateKeysForWeekKey(weekKey);
   const lastDay = String(keys[keys.length - 1] || "");
@@ -763,8 +778,11 @@ async function loadBiweeklyRowsFromHourlyWindow(guild, anchorDate = new Date()) 
   return loadRowsFromHourlyWindowByHourKeys(guild, eligible, hourKeys);
 }
 
-async function loadRowsFromHourlyWindowByHourKeys(guild, eligible, hourKeys) {
+async function loadRowsFromHourlyWindowByHourKeys(guild, eligible, hourKeys, clipRange = null) {
   const rows = [];
+  const clipStart = Number(clipRange?.startMs);
+  const clipEnd = Number(clipRange?.endMs);
+  const hasClip = Number.isFinite(clipStart) && Number.isFinite(clipEnd) && clipEnd > clipStart;
   const profileDocs = await ActivityUserProfile.find({ guildId: guild.id }).select("userId profile.totals.hourly").lean().catch(() => []);
   if (profileDocs.length) {
     const wanted = new Set(hourKeys.map(String));
@@ -775,8 +793,16 @@ async function loadRowsFromHourlyWindowByHourKeys(guild, eligible, hourKeys) {
       for (const [hourKey, value] of Object.entries(hourly)) {
         if (!wanted.has(String(hourKey))) continue;
         if (shouldSkipBackfillRow(String(hourKey), wanted)) continue;
+        let scale = 1;
+        if (hasClip) {
+          const { startMs, endMs } = hourKeyToBoundsMs(hourKey);
+          const overlap = overlapRangeMs(startMs, endMs, clipStart, clipEnd);
+          if (overlap <= 0) continue;
+          scale = overlap / (60 * 60 * 1000);
+        }
         rows.push({
           userId,
+          scale,
           textChannels: toObjectMap(value?.textChannels || {}),
           voiceChannels: toObjectMap(value?.voiceChannels || {}),
         });
@@ -787,15 +813,16 @@ async function loadRowsFromHourlyWindowByHourKeys(guild, eligible, hourKeys) {
   for (const row of rows) {
     const userId = String(row?.userId || "");
     if (!userId) continue;
+    const scale = Math.max(0, Math.min(1, Number(row?.scale) || 1));
     let messageCount = 0;
     let voiceSeconds = 0;
     for (const [channelId, value] of extractMapEntries(row?.textChannels)) {
       if (!eligible.text.has(String(channelId))) continue;
-      messageCount += Math.max(0, Number(value || 0));
+      messageCount += Math.max(0, Number(value || 0)) * scale;
     }
     for (const [channelId, value] of extractMapEntries(row?.voiceChannels)) {
       if (!eligible.voice.has(String(channelId))) continue;
-      voiceSeconds += Math.max(0, Number(value || 0));
+      voiceSeconds += Math.max(0, Number(value || 0)) * scale;
     }
     if (messageCount <= 0 && voiceSeconds <= 0) continue;
     const current = perUser.get(userId) || { userId, messageCount: 0, voiceSeconds: 0 };
@@ -852,9 +879,9 @@ async function resolveTopThreeUsers(client, guild, docs, valueGetter, limit = 3,
 }
 
 /** Minigame: se la top “pulita” è vuota ma ci sono punti in DB, garantisce almeno una classifica (annuncio / MVP). */
-async function resolveMinigameTopForced(client, guild, docs, valueGetter, limit = 10) {
+async function resolveMinigameTopForced(client, guild, docs, valueGetter, limit = 10, excludedRoleIdsFirst = WEEKLY_WINNERS_EXCLUDED_ROLE_IDS) {
   const cap = Math.max(1, Math.min(25, Number(limit) || 10));
-  let rows = await resolveTopThreeUsers(client, guild, docs, valueGetter, cap, WEEKLY_WINNERS_EXCLUDED_ROLE_IDS);
+  let rows = await resolveTopThreeUsers(client, guild, docs, valueGetter, cap, excludedRoleIdsFirst);
   if (rows.length) return rows;
   rows = await resolveTopThreeUsers(client, guild, docs, valueGetter, cap, new Set());
   if (rows.length) return rows;
@@ -1867,31 +1894,8 @@ async function publishHogwartsBiweeklyActivityWinners(client, options = {}) {
     rowsSource.filter((row) => Number(row?.voiceExp || 0) > 0).sort((a, b) => Number(b.voiceExp || 0) - Number(a.voiceExp || 0)).slice(0, 300),
     sortedHouseByUserId,
   );
-  const mvIds = [...new Set([...messageDocs.map((r) => String(r.userId)), ...voiceDocs.map((r) => String(r.userId))].filter(Boolean))];
-  const staffByUserId = new Map();
-  if (mvIds.length) {
-    const profs = await ActivityUserProfile.find({ guildId: guild.id, userId: { $in: mvIds } })
-      .select("userId staff.rolesHistory staffRolesHistoryRetention")
-      .lean()
-      .catch(() => []);
-    for (const p of profs) {
-      staffByUserId.set(String(p.userId), { staff: p.staff, staffRolesHistoryRetention: p.staffRolesHistoryRetention });
-    }
-  }
-  const notStaffInWindow = (uid) => {
-    const row = staffByUserId.get(String(uid)) || {};
-    return !wasStaffDuringWeeklyActivityWindow(
-      row.staff,
-      periodStartMs,
-      periodEndMs,
-      WEEKLY_WINNERS_EXCLUDED_ROLE_IDS,
-      row.staffRolesHistoryRetention,
-    );
-  };
-  messageDocs = messageDocs.filter((row) => notStaffInWindow(row.userId));
-  voiceDocs = voiceDocs.filter((row) => notStaffInWindow(row.userId));
-  const topMessagesPool = await resolveTopThreeUsers(client, guild, messageDocs, (doc) => Number(doc?.messageCount || 0), 40);
-  const topVoicePool = await resolveTopThreeUsers(client, guild, voiceDocs, (doc) => Number(doc?.voiceExp || 0), 40);
+  const topMessagesPool = await resolveTopThreeUsers(client, guild, messageDocs, (doc) => Number(doc?.messageCount || 0), 40, HOGWARTS_EVENT_TOP_EXCLUDED_ROLE_IDS);
+  const topVoicePool = await resolveTopThreeUsers(client, guild, voiceDocs, (doc) => Number(doc?.voiceExp || 0), 40, HOGWARTS_EVENT_TOP_EXCLUDED_ROLE_IDS);
   const minigameWeekKeys = getIsoWeekKeysInBiweeklyWindow(periodEndMs);
   let minigameDocsRaw = [];
   if (minigameWeekKeys.length) {
@@ -1902,7 +1906,7 @@ async function publishHogwartsBiweeklyActivityWinners(client, options = {}) {
         { "profile.totals.exp.minigame.prevWeekKey": k, "profile.totals.exp.minigame.prevWeekExp": { $gt: 0 } },
       ]),
     })
-      .select("userId profile.totals.exp.minigame staff.rolesHistory staffRolesHistoryRetention")
+      .select("userId profile.totals.exp.minigame")
       .limit(1200)
       .lean()
       .catch(() => []);
@@ -1910,15 +1914,14 @@ async function publishHogwartsBiweeklyActivityWinners(client, options = {}) {
   const minigameDocs = filterDocsToSortedUsers(
     minigameDocsRaw
       .filter((d) => effectiveMinigameBiweeklyScore(d, minigameWeekKeys) > 0)
-      .filter((d) => notStaffInWindow(d.userId))
       .sort((a, b) => effectiveMinigameBiweeklyScore(b, minigameWeekKeys) - effectiveMinigameBiweeklyScore(a, minigameWeekKeys))
       .slice(0, 450),
     sortedHouseByUserId,
   );
   const mgScore = (doc) => effectiveMinigameBiweeklyScore(doc, minigameWeekKeys);
-  let topMinigamePool = await resolveTopThreeUsers(client, guild, minigameDocs, mgScore, 40);
+  let topMinigamePool = await resolveTopThreeUsers(client, guild, minigameDocs, mgScore, 40, HOGWARTS_EVENT_TOP_EXCLUDED_ROLE_IDS);
   if (!topMinigamePool.length && minigameDocs.some((d) => mgScore(d) > 0)) {
-    topMinigamePool = await resolveMinigameTopForced(client, guild, minigameDocs, mgScore, 40);
+    topMinigamePool = await resolveMinigameTopForced(client, guild, minigameDocs, mgScore, 40, HOGWARTS_EVENT_TOP_EXCLUDED_ROLE_IDS);
   }
   const dedupedTops = buildHogwartsBiweeklyTopsDeduped(topMessagesPool, topVoicePool, topMinigamePool, sortedHouseByUserId, 3);
   const displayTopMessages = dedupedTops.messages;
@@ -2131,4 +2134,4 @@ function startWeeklyActivityWinnersLoop(client) {
   }, 20_000);
 }
 
-module.exports = { startWeeklyActivityWinnersLoop, publishWeeklyActivityWinners, publishHogwartsBiweeklyActivityWinners, publishMonthlyActivityWinners, resetWeeklyActivityCounters, getLastCompletedWeekKey, getDateKeysForWeekKey, getWeekKey, isHogwartsWeeklyTopReplaced, shouldPublishHogwartsBiweeklyToday, collectHogwartsBiweeklyActivityRows };
+module.exports = { startWeeklyActivityWinnersLoop, publishWeeklyActivityWinners, publishHogwartsBiweeklyActivityWinners, publishMonthlyActivityWinners, resetWeeklyActivityCounters, getLastCompletedWeekKey, getDateKeysForWeekKey, getWeekKey, isHogwartsWeeklyTopReplaced, shouldPublishHogwartsBiweeklyToday, collectHogwartsBiweeklyActivityRows, loadSortedHouseByUserId, loadRowsFromHourlyWindowByHourKeys, awardHogwartsBiweeklyHousePoints, buildHourKeysBetweenMs, createUtcFromRomeLocal };

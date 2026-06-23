@@ -72,7 +72,7 @@ function buildTicketStaffPanelPayload(member, channel, ticketDoc) {
     buttons.push(
       new ButtonBuilder()
         .setCustomId("ticket_panel_nav_add")
-        .setLabel("Aggiungi")
+        .setLabel("Aggiungi Utenti")
         .setStyle(ButtonStyle.Success)
         .setEmoji("<:VC_addperson:1485419347068588073>"),
     );
@@ -81,7 +81,7 @@ function buildTicketStaffPanelPayload(member, channel, ticketDoc) {
     buttons.push(
       new ButtonBuilder()
         .setCustomId("ticket_panel_nav_remove")
-        .setLabel("Rimuovi")
+        .setLabel("Rimuovi Utenti")
         .setStyle(ButtonStyle.Danger)
         .setEmoji("<:VC_addperson:1485419347068588073>"),
     );
@@ -130,8 +130,8 @@ function buildTicketStaffPanelPayload(member, channel, ticketDoc) {
   ];
   if (staffTicket) {
     desc.push(
-      "**Aggiungi** — Aggiungi un utente al ticket.",
-      "**Rimuovi** — Rimuovi un utente dal ticket."
+      "**Aggiungi Utenti** — Menziona l'utente da aggiungere al ticket.",
+      "**Rimuovi Utenti** — Menziona l'utente da rimuovere dal ticket."
     );
   }
   if (isHighStaff) {

@@ -1,5 +1,6 @@
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const { isValidGuildUserId } = require("../../Utils/DB/validateWriteIds");
+const { validateMentionResponseText } = require("../../Utils/Community/mentionResponseValidation");
 
 function asStrings(values = []) {
   return Array.isArray(values) ? values.map((v) => String(v || "").trim()).filter(Boolean) : [];
@@ -88,15 +89,21 @@ async function getMentionResponse(guildId, userId) {
 }
 
 async function setMentionResponse(guildId, userId, text) {
-  if (!isValidGuildUserId(guildId, userId)) return null;
-  const clean = String(text || "").replace(/\s+/g, " ").trim().slice(0, 500);
-  if (!clean) return clearMentionResponse(guildId, userId);
-  return upsertProfile(guildId, userId, {
+  if (!isValidGuildUserId(guildId, userId)) {
+    return { ok: false, userMessage: "<:VC_Attention:1482534443632558151> Impossibile salvare la risposta." };
+  }
+  const validation = validateMentionResponseText(text);
+  if (!validation.ok) {
+    return { ok: false, reason: validation.reason, userMessage: validation.userMessage };
+  }
+  if (!validation.text) return clearMentionResponse(guildId, userId).then(() => ({ ok: true, text: "" }));
+  const doc = await upsertProfile(guildId, userId, {
     $set: {
-      "profile.mentionResponse.text": clean,
+      "profile.mentionResponse.text": validation.text,
       "profile.mentionResponse.updatedAt": new Date(),
     },
   });
+  return { ok: true, text: validation.text, doc };
 }
 
 async function clearMentionResponse(guildId, userId) {

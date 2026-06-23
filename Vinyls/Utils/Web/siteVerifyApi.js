@@ -9,6 +9,7 @@ const {
 } = require("../Interaction/verifyUtils");
 const { addRolesAndGetMember } = require("../Interaction/interactionEntityCache");
 const { upsertVerifiedMember, applyTenureForMember } = require("../../Services/Community/communityOpsService");
+const { removePreMemberRoleIfPresent } = require("../Community/preMemberRoleService");
 
 function discordInviteUrlForSite() {
   const raw = String(IDs?.links?.invite || "").trim();
@@ -75,6 +76,7 @@ async function completeSiteVerify(client, { accessToken, guildId }) {
   }
 
   if (isAlreadyVerifiedInThisGuild(member, guild.id)) {
+    await removePreMemberRoleIfPresent(member).catch(() => {});
     return {
       ok: true,
       status: 200,
@@ -142,6 +144,10 @@ async function completeSiteVerify(client, { accessToken, guildId }) {
   } catch (err) {
     global.logger?.warn?.("[siteVerifyApi] upsert/applyTenure:", err?.message || err);
   }
+
+  await removePreMemberRoleIfPresent(memberAfterAdd).catch((err) => {
+    global.logger?.warn?.("[siteVerifyApi] preMember role remove:", userId, err?.message || err);
+  });
 
   return {
     ok: true,

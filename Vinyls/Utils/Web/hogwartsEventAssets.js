@@ -109,4 +109,13 @@ function resolveHouseCrestPublicUrl(client, houseId, customCrestUrl) {
   return `${base}/images/evento-hogwarts/crests/${encodeURIComponent(file)}`;
 }
 
-module.exports = { findHogwartsAssetPath, buildShopItemImageAttachment, buildHouseCrestAttachment, resolveShopItemPublicImageUrl, resolveHouseCrestPublicUrl, resolveSitePublicUrl };
+function resolveHouseCrestEmbedAssets(client, houseId, customCrestUrl) {
+  const crestAttach = buildHouseCrestAttachment(houseId);
+  if (crestAttach) {
+    return { thumbnail: crestAttach.url, files: [crestAttach.attachment] };
+  }
+  const thumbnail = resolveHouseCrestPublicUrl(client, houseId, customCrestUrl);
+  return { thumbnail, files: [] };
+}
+
+module.exports = { findHogwartsAssetPath, buildImageAttachmentFromRelativePath, buildShopItemImageAttachment, buildHouseCrestAttachment, resolveShopItemPublicImageUrl, resolveHouseCrestPublicUrl, resolveHouseCrestEmbedAssets, resolveSitePublicUrl };

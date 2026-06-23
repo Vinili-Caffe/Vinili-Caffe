@@ -32,15 +32,6 @@
     }
   }
 
-  function isVerifyPage() {
-    try {
-      var path = normalizeLegalPath(window.location.pathname);
-      return path === "/verify";
-    } catch (e) {
-      return false;
-    }
-  }
-
   function allowedIds() {
     var ids = cfg().allowedUserIds;
     if (!Array.isArray(ids)) return [];
@@ -108,7 +99,11 @@
     var c = cfg();
     var clientId = String(c.clientId || "").trim();
     if (!clientId) return "";
-    var redirectUri = String(c.redirectUri || "").trim() || window.location.origin + "/";
+    var redirectUri = String(c.redirectUri || "").trim();
+    if (!redirectUri) {
+      var home = String(c.homeUrl || "").trim();
+      redirectUri = /^https?:\/\//i.test(home) ? (home.endsWith("/") ? home : home + "/") : window.location.origin + "/";
+    }
     var q = new URLSearchParams({
       client_id: clientId,
       redirect_uri: redirectUri,
@@ -236,7 +231,6 @@
   }
 
   async function verify() {
-    if (isVerifyPage()) return allowSite();
     if (isPublicLegalPage()) return allowSite();
     if (!enabled()) return allowSite();
     installStyle();

@@ -437,11 +437,7 @@
       c === "already_role" ||
       c === "helper_blocked" ||
       c === "no_moduli" ||
-      c === "no_member_role" ||
-      c === "helper_level" ||
-      c === "helper_tenure" ||
-      c === "helper_join_unknown" ||
-      c === "helper_requirements"
+      c === "no_member_role"
     ) {
       return true;
     }

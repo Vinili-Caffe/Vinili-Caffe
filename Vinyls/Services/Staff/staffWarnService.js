@@ -63,29 +63,41 @@ function resetStaffWarnsIfSixMonths(profileDoc) {
 }
 
 async function addStaffWarnFromNegatives(guildId, userId, negativeCountAfterAdd, reason) {
-  const profileDoc = await getOrCreateStaffDoc(guildId, userId);
+  const gid = String(guildId || "").trim();
+  const uid = String(userId || "").trim();
+  if (!gid || !uid) return { added: false };
+  const profileDoc = await getOrCreateStaffDoc(gid, uid);
   if (!profileDoc) return { added: false };
   const s = ensureStaff(profileDoc);
 
   const reset = resetStaffWarnsIfSixMonths(profileDoc);
   if (reset) await profileDoc.save().catch(() => null);
 
-  if (negativeCountAfterAdd % NEGATIVES_PER_STAFF_WARN !== 0) return { added: false };
+  const negatives = Math.max(0, Math.floor(Number(negativeCountAfterAdd) || 0));
+  if (negatives % NEGATIVES_PER_STAFF_WARN !== 0) return { added: false };
 
-  s.warnCount = Math.max(0, Number(s.warnCount || 0)) + 1;
-  if (!Array.isArray(s.warnReasons)) s.warnReasons = [];
-  s.warnReasons.push(String(reason || "3 valutazioni negative").slice(0, 500));
-  if (!s.firstWarnStaffAt) s.firstWarnStaffAt = new Date();
-  profileDoc.markModified("staff");
-  await profileDoc.save().catch(() => null);
+  const warnReason = String(reason || STAFF_WARN_THREE_NEGATIVES_REASON).slice(0, 500);
+  const now = new Date();
+  const update = {
+    $setOnInsert: { guildId: gid, userId: uid },
+    $inc: { "staff.warnCount": 1 },
+    $push: { "staff.warnReasons": warnReason },
+  };
+  if (!s.firstWarnStaffAt) update.$set = { "staff.firstWarnStaffAt": now };
+  const updated = await ActivityUserProfile.findOneAndUpdate(
+    { guildId: gid, userId: uid },
+    update,
+    { upsert: true, new: true, setDefaultsOnInsert: true, projection: { staff: 1 } },
+  ).catch(() => null);
+  if (!updated?.staff) return { added: false };
 
-  const warnCount = s.warnCount;
+  const warnCount = Math.max(0, Math.floor(Number(updated.staff.warnCount) || 0));
   return {
     added: true,
     warnCount,
     shouldAskDepex: warnCount === 2,
     shouldFullDepex: warnCount === 3,
-    staffDoc: profileDoc,
+    staffDoc: updated,
   };
 }
 

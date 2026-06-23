@@ -4,14 +4,16 @@ const IDs = require("../../Utils/Config/ids");
 const { ActivityUserProfile, SiteDocument } = require("../../Schemas/Community/communitySchemas");
 const { getGuildChannelCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { ensureStaff } = require("../../Utils/Staff/staffDocUtils");
-const { ensureStaffProfileDoc, getStaffDoc, valutazionePositiveAddCore, valutazioneNegativeAddCore, } = require("../../Utils/Staff/valutazionePanelActions");
+const { ensureStaffProfileDoc, getStaffDoc, valutazionePositiveAddCore, valutazioneNegativeAddCore } = require("../../Utils/Staff/valutazionePanelActions");
+const { getOrCreateStaffDoc } = require("../../Utils/Staff/staffDocUtils");
 const { resolveStaffRole } = require("./weeklyStaffResocontoService");
 const { hasActiveAcceptedStaffPause } = require("../../Utils/Pause/pauseHandlersUtils");
 const MAIN_GUILD_ID = String(IDs.guilds?.main || "");
 const SERATA_FILM_CHANNEL_ID = "1497535199813042306";
 const SERATA_FILM_MIN_MS = 30 * 60 * 1000;
 const AUTO_SYNC_CRON = "*/5 * * * *";
-const INVITE_REGEX = /(?:discord\.gg|dsc\.gg|\.gg|discord\.com\/invite|discord\.me)\s*(?:\/|\\)?\s*viniliecaff[eèé]/i;
+const STABLE_NO_INVITE_MS = 75 * 1000;
+const SUPPORT_AUTO_REMOVE_STABLE_MS = 5 * 60 * 1000;
 const STAFF_BOOST_AUTO_KEY = "staff_boost_server";
 const BOOST_NATURAL_EXPIRY_MIN_AGE_MS = 27 * 24 * 60 * 60 * 1000;
 const autoWeeklyLoops = new WeakSet();
@@ -19,6 +21,8 @@ const serataFilmSessions = new Map();
 let autoValutazioniCleanupStarted = false;
 let autoValutazioniSyncRunning = false;
 const autoValutazioniLocksByKey = new Map();
+const supportVanityDebounceByKey = new Map();
+const supportAutoRemoveMissByKey = new Map();
 
 function autoValutazioniLockKey(guildId, userId, key) {
   return `${String(guildId || "")}:${String(userId || "")}:${String(key || "")}`;
@@ -62,30 +66,73 @@ function getGuildedRoleIds(client) {
   return [...new Set([IDs.roles?.Guilded, ...sponsorIds, ...configuredIds].map((x) => String(x || "")).filter(Boolean))];
 }
 
-function resolveInviteState(presence) {
-  if (!presence || ["offline", "invisible"].includes(String(presence.status || ""))) return false;
-  const activities = Array.isArray(presence.activities) ? presence.activities : [];
-  const parts = [];
-  for (const activity of activities) {
-    if (!activity || typeof activity !== "object") continue;
-    for (const value of [activity.state, activity.name, activity.details, activity.url, activity.assets?.largeText, activity.assets?.smallText]) {
-      if (typeof value === "string" && value.trim()) parts.push(value);
-    }
-    if (Array.isArray(activity.buttons)) {
-      for (const button of activity.buttons) {
-        if (typeof button === "string") parts.push(button);
-        else if (button && typeof button === "object") parts.push(button.label || "", button.url || "");
-      }
-    }
-  }
-  return INVITE_REGEX.test(parts.join(" ").toLowerCase());
+function supportVanityDebounceKey(guildId, userId) {
+  return `${String(guildId || "")}:${String(userId || "")}`;
 }
 
-function hasVanitySupporterOrClanTag(member) {
-  const hasVanity = resolveInviteState(member.presence, false) || member.roles?.cache?.has(String(IDs.roles?.Fan));
-  const hasSupporter = member.roles?.cache?.has(String(IDs.roles?.SocialSupporter));
-  const hasClanTag = hasAnyRole(member, getGuildedRoleIds(member.client));
-  return Boolean(hasVanity || hasSupporter || hasClanTag);
+function resolvePresenceInviteState(presence, fallback = false) {
+  const mod = require("../../Events/presenceUpdate");
+  return mod.resolveInviteState(presence, fallback);
+}
+
+function getDebouncedVanityInStatus(member) {
+  if (!member?.guild?.id || !member.id) return false;
+  const presence = member.presence;
+  const status = String(presence?.status || "");
+  const key = supportVanityDebounceKey(member.guild.id, member.id);
+  const prev = supportVanityDebounceByKey.get(key) || { hadVanity: false, missSince: null };
+
+  if (!presence || ["offline", "invisible"].includes(status)) {
+    return prev.hadVanity;
+  }
+
+  const rawHas = resolvePresenceInviteState(presence, prev.hadVanity);
+  if (rawHas) {
+    supportVanityDebounceByKey.set(key, { hadVanity: true, missSince: null });
+    return true;
+  }
+
+  if (prev.hadVanity) {
+    const missSince = prev.missSince != null ? prev.missSince : Date.now();
+    if (Date.now() - missSince < STABLE_NO_INVITE_MS) {
+      supportVanityDebounceByKey.set(key, { hadVanity: true, missSince });
+      return true;
+    }
+    supportVanityDebounceByKey.set(key, { hadVanity: false, missSince: null });
+    return false;
+  }
+
+  supportVanityDebounceByKey.set(key, { hadVanity: false, missSince: null });
+  return false;
+}
+
+function findPositiveLogEntryForReason(staff, reason) {
+  const target = String(reason || "");
+  const reasons = Array.isArray(staff?.positiveReasons) ? staff.positiveReasons : [];
+  const logs = Array.isArray(staff?.positiveValutazioni) ? staff.positiveValutazioni : [];
+  const idx = reasons.lastIndexOf(target);
+  if (idx < 0) return null;
+  const log = logs[idx];
+  if (!log?.messageId || !log?.channelId) return null;
+  return log;
+}
+
+async function relinkExistingPositiveAutoValutazione(profileDoc, staff, key, reason) {
+  const log = findPositiveLogEntryForReason(staff, reason);
+  if (!log) return null;
+  if (!Array.isArray(staff.autoValutazioni)) staff.autoValutazioni = [];
+  staff.autoValutazioni.push({
+    key: String(key),
+    type: "positive",
+    reason: String(reason || ""),
+    channelId: String(log.channelId || ""),
+    messageId: String(log.messageId || ""),
+    createdAt: log.createdAt || new Date(),
+    updatedAt: new Date(),
+  });
+  profileDoc.markModified("staff");
+  await profileDoc.save();
+  return { ok: true, skipped: "relinked" };
 }
 
 function memberHasActiveServerBoost(member) {
@@ -183,12 +230,32 @@ async function ensureAutoValutazione(guild, member, key, type, reason) {
     let staff = ensureStaff(profileDoc);
     if (!Array.isArray(staff.autoValutazioni)) staff.autoValutazioni = [];
     const existing = staff.autoValutazioni.find((entry) => String(entry?.key || "") === String(key));
-    if (existing && existing.type === type) return { ok: true, skipped: "exists" };
+    if (existing && existing.type === type) {
+      if (String(existing.reason || "") !== String(reason || "")) {
+        existing.reason = String(reason || "");
+        existing.updatedAt = new Date();
+        profileDoc.markModified("staff");
+        await profileDoc.save();
+      }
+      return { ok: true, skipped: "exists" };
+    }
     if (existing) {
       await removeAutoValutazioneInternal(guild, member.id, key);
       profileDoc = await ensureStaffProfileDoc(await getStaffDoc(guild.id, member.id), guild.id, member.id);
       staff = ensureStaff(profileDoc);
       if (!Array.isArray(staff.autoValutazioni)) staff.autoValutazioni = [];
+    }
+
+    if (!existing && type === "positive") {
+      const reasonStr = String(reason || "");
+      const reasons = Array.isArray(staff.positiveReasons) ? staff.positiveReasons : [];
+      if (reasons.includes(reasonStr)) {
+        const relinked = await relinkExistingPositiveAutoValutazione(profileDoc, staff, key, reason);
+        if (relinked) return relinked;
+        return { ok: true, skipped: "reason_exists" };
+      }
+      const relinked = await relinkExistingPositiveAutoValutazione(profileDoc, staff, key, reason);
+      if (relinked) return relinked;
     }
 
     const channel = await resolveValutazioniChannel(guild);
@@ -197,7 +264,9 @@ async function ensureAutoValutazione(guild, member, key, type, reason) {
     const result = type === "negative"
       ? await valutazioneNegativeAddCore(guild, profileDoc, member.user, reason, autoActor(guild), channel)
       : await valutazionePositiveAddCore(profileDoc, member.user, reason, autoActor(guild), channel);
+    if (!result?.message) return { ok: false, skipped: "log_failed" };
 
+    profileDoc = await getOrCreateStaffDoc(guild.id, member.id);
     staff = ensureStaff(profileDoc);
     staff.autoValutazioni.push({
       key: String(key),
@@ -283,8 +352,13 @@ async function hasFourStarSiteReview(guildId, userId) {
   return Boolean(doc);
 }
 
+function isMemberOnlineForSupportCheck(member) {
+  const status = String(member.presence?.status || "");
+  return Boolean(status) && !["offline", "invisible"].includes(status);
+}
+
 function getSupportAutoValutazioneReason(member) {
-  if (resolveInviteState(member.presence)) {
+  if (getDebouncedVanityInStatus(member)) {
     return "Mette il link vanity nello status.";
   }
 
@@ -297,6 +371,25 @@ function getSupportAutoValutazioneReason(member) {
   }
 
   return null;
+}
+
+function shouldRemoveSupportAutoValutazione(member) {
+  if (!member?.guild?.id || !member.id) return false;
+  const key = supportVanityDebounceKey(member.guild.id, member.id);
+  const reason = getSupportAutoValutazioneReason(member);
+  if (reason) {
+    supportAutoRemoveMissByKey.delete(key);
+    return false;
+  }
+  if (!isMemberOnlineForSupportCheck(member)) return false;
+  const prev = supportAutoRemoveMissByKey.get(key) || { since: null };
+  if (prev.since == null) {
+    supportAutoRemoveMissByKey.set(key, { since: Date.now() });
+    return false;
+  }
+  if (Date.now() - prev.since < SUPPORT_AUTO_REMOVE_STABLE_MS) return false;
+  supportAutoRemoveMissByKey.delete(key);
+  return true;
 }
 
 
@@ -316,7 +409,7 @@ async function syncPersistentAutoValutazioniForMember(member) {
       "positive",
       supportReason,
     );
-  } else {
+  } else if (shouldRemoveSupportAutoValutazione(member)) {
     await removeAutoValutazione(member.guild, member.id, supportKey);
   }
 

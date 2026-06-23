@@ -4,6 +4,8 @@
   var TRAIL_COLOR = "rgba(234, 212, 192, 0.82)";
   var TRAIL_FADE = "rgba(234, 212, 192, 0.08)";
   var LINE_WIDTH = 1.35;
+  var MOVE_SQ = 4;
+  var IDLE_MS = 16;
 
   function canRun() {
     try {
@@ -30,6 +32,8 @@
     var height = 0;
     var points = [];
     var mouse = { x: -9999, y: -9999, active: false };
+    var lastMoveAt = 0;
+    var idle = false;
     var rafId = 0;
     var running = false;
 
@@ -51,12 +55,28 @@
       }
     }
 
+    function clearTrail() {
+      idle = true;
+      running = false;
+      ctx.clearRect(0, 0, width, height);
+    }
+
+    function isIdle() {
+      return performance.now() - lastMoveAt > IDLE_MS;
+    }
+
     function onMove(ev) {
       var x = ev.clientX;
       var y = ev.clientY;
-      if (!mouse.active) {
+      var dx = x - mouse.x;
+      var dy = y - mouse.y;
+      if (mouse.active && dx * dx + dy * dy < MOVE_SQ) return;
+
+      lastMoveAt = performance.now();
+      if (!mouse.active || idle) {
         seedPoints(x, y);
         mouse.active = true;
+        idle = false;
       }
       mouse.x = x;
       mouse.y = y;
@@ -70,6 +90,7 @@
 
     function onLeave() {
       mouse.active = false;
+      clearTrail();
     }
 
     function onEnter(ev) {
@@ -92,7 +113,7 @@
 
     function draw() {
       ctx.clearRect(0, 0, width, height);
-      if (!mouse.active || points.length < 2) return;
+      if (!mouse.active || points.length < 2 || isIdle()) return;
 
       ctx.lineCap = "round";
       ctx.lineJoin = "round";
@@ -119,8 +140,11 @@
 
     function tick() {
       if (!mouse.active) {
-        running = false;
-        ctx.clearRect(0, 0, width, height);
+        clearTrail();
+        return;
+      }
+      if (isIdle()) {
+        clearTrail();
         return;
       }
       simulate();

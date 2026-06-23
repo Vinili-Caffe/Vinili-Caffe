@@ -10,11 +10,11 @@
  */
 function guildIconUrl(guild, { size = 256 } = {}) {
   if (!guild?.icon) return null;
-  const animated = String(guild.icon).startsWith("a_");
+    const animated = String(guild.icon).startsWith("a_");
   return (
     guild.iconURL({
       size,
-      extension: animated ? "gif" : "png",
+      extension: animated ? "webp" : "png",
       forceStatic: animated ? false : true,
     }) || null
   );
@@ -34,7 +34,7 @@ function userAvatarUrlDynamic(userLike, { size = 256 } = {}) {
     return (
       userLike.displayAvatarURL({
         size,
-        extension: animated ? "gif" : "png",
+        extension: animated ? "webp" : "png",
         forceStatic: false,
       }) || null
     );
@@ -44,7 +44,7 @@ function userAvatarUrlDynamic(userLike, { size = 256 } = {}) {
   const animated = Boolean(user.avatar && String(user.avatar).startsWith("a_"));
   return user.displayAvatarURL({
     size,
-    extension: animated ? "gif" : "png",
+    extension: animated ? "webp" : "png",
     forceStatic: false,
   });
 }
@@ -65,7 +65,7 @@ function guildMemberDisplayAvatarUrlDynamic(memberLike, { size = 256 } = {}) {
     return (
       memberLike.displayAvatarURL({
         size,
-        extension: animated ? "gif" : "png",
+        extension: animated ? "webp" : "png",
         forceStatic: false,
       }) || null
     );

@@ -1,3 +1,4 @@
+const { formatItalianMinutesPlain } = require("../Utils/Text/italianDurationLabels");
 const { AuditLogEvent, EmbedBuilder } = require("discord.js");
 const { ARROW, toDiscordTimestamp, yesNo, formatAuditActor, buildAuditExtraLines, resolveChannelRolesLogChannel, resolveResponsible, } = require("../Utils/Logging/channelRolesLogUtils");
 const { handleThreadDeletionAction: antiNukeHandleThreadDeletionAction } = require("../Services/Moderation/antiNukeService");
@@ -49,7 +50,7 @@ module.exports = {
           `<:VC_Modifica:1478859646587633717> **Tipo:** ${threadTypeLabel(thread?.type)}`,
           `<:VC_Modifica:1478859646587633717> **Archivio:** ${yesNo(Boolean(thread?.archived))}`,
           `<:VC_Modifica:1478859646587633717> **Bloccato:** ${yesNo(Boolean(thread?.locked))}`,
-          `<:VC_Modifica:1478859646587633717> **Durata auto-archiviazione:** ${Number(thread?.autoArchiveDuration || 0) ? `${thread.autoArchiveDuration} minuti` : "Nessuna"}`,
+          `<:VC_Modifica:1478859646587633717> **Durata auto-archiviazione:** ${Number(thread?.autoArchiveDuration || 0) ? formatItalianMinutesPlain(thread.autoArchiveDuration) : "Nessuna"}`,
           `<:VC_Modifica:1478859646587633717> **Slowmode per utente:** ${Number(thread?.rateLimitPerUser || 0) || "Nessuna"}`,
         ];
 

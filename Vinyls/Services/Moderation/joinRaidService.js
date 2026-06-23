@@ -11,6 +11,7 @@ const { isSecurityProfileImmune, hasAdminsProfileCapability, } = require("./secu
 const { isJoinGateSuspiciousAccount, } = require("./joinGateSuspiciousService");
 const { CORE_EXEMPT_USER_IDS } = require("./joinGateExemptUtils");
 const { getGuildChannelCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
+const { formatItalianMinutesPlain } = require("../../Utils/Text/italianDurationLabels");
 const { createModCase, getModConfig, logModCase } = require("../../Utils/Moderation/moderation");
 const ARROW = "<:VC_right_arrow:1482459908245815296>";
 const HIGH_STAFF_ROLE_ID = String(IDs.roles?.HighStaff || "");
@@ -358,7 +359,7 @@ async function doFinalizeJoinRaidReportLocked(guild, reason = "elapsed") {
     [
       `<:VC_Mention:1482526855289634997> **${caughtCount} utenti** sono stati catturati dalla protezione raid.`,
       `<:VC_reason:1478517122929004544> **Codice:** \`${code}\``,
-      `<:VC_Clock:1473359204189474886> **Durata:** ${Math.round(Number(JOIN_RAID_CONFIG.raidDurationMs || 0) / 60_000)} minuti`,
+      `<:VC_Clock:1473359204189474886> **Durata:** ${formatItalianMinutesPlain(Math.round(Number(JOIN_RAID_CONFIG.raidDurationMs || 0) / 60_000))}`,
     ],
     "#57F287",
   );

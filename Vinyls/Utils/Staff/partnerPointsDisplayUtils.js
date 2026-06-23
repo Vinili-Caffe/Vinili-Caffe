@@ -6,6 +6,7 @@ function countPartnerCreateActions(actions) {
   if (!Array.isArray(actions)) return 0;
   return actions.reduce((total, action) => {
     if (String(action?.action || "").toLowerCase() !== "create") return total;
+    if (Array.isArray(action.auditPenaltyDates) && action.auditPenaltyDates.length > 0) return total;
     return total + 1;
   }, 0);
 }

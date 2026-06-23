@@ -13,7 +13,8 @@ const { EPHEMERAL_TTL_SHORT_MS } = require("../Config/ephemeralMessageTtl");
 const PREFIX_COOLDOWN_BYPASS_ROLE_ID = IDs.roles.Staff;
 const PREFIX_PRECHECK_TIMEOUT_MS = 4000;
 const PREFIX_EXECUTION_TIMEOUT_MS = Math.max(15_000, Number(process.env.PREFIX_EXECUTION_TIMEOUT_MS || 120_000),);
-const REMOVED_PREFIX_COMMANDS = new Set(["colors", "staff"]);
+const REMOVED_PREFIX_COMMANDS = new Set(["colors", "staff", "ai"]);
+const FIRE_AND_FORGET_PREFIX_COMMANDS = new Set([]);
 
 function hasSendablePayload(data) {
   if (typeof data === "string") return data.trim().length > 0;
@@ -258,6 +259,22 @@ async function executePrefixCommandRuntime({
 
   if (commandChannel) {
     commandMessage.channel = commandChannel;
+  }
+
+  const cmdName = String(execCommand?.name || "").toLowerCase();
+  const fireAndForget =
+    FIRE_AND_FORGET_PREFIX_COMMANDS.has(cmdName) || execCommand?.fireAndForget === true;
+  if (fireAndForget) {
+    void Promise.resolve(execCommand.execute(commandMessage, execArgs, resolvedClient)).catch((err) => {
+      global.logger?.error?.(
+        `[PREFIX] fire-and-forget command=${cmdName} guild=${String(execMessage?.guild?.id || "dm")} user=${String(execMessage?.author?.id || "unknown")}`,
+        err?.stack || err?.message || err,
+      );
+    });
+    commandFinished = true;
+    if (typingStartTimer) clearTimeout(typingStartTimer);
+    if (typingPulseTimer) clearInterval(typingPulseTimer);
+    return null;
   }
 
   try {
@@ -634,7 +651,7 @@ async function handleOfficialPrefixMessage({ message, resolvedClient, defaultPre
     );
   }
 
-  if (!hasPrefixCooldownBypass && !isEditedPrefixExecution) {
+  if (!hasPrefixCooldownBypass && !isEditedPrefixExecution && !command.skipCommandCooldown) {
     const cooldownSeconds = await resolveWithTimeout(() => getUserCommandCooldownSeconds({ guildId: message.guild.id, userId: message.author.id, member: message.member, }), 0, `cooldown lookup for ${command.name}`,
     );
     const cooldownResult = consumeUserCooldown({ client: resolvedClient, guildId: message.guild.id, userId: message.author.id, cooldownSeconds, });

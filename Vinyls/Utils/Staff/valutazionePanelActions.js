@@ -1,6 +1,6 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
-const { getOrCreateStaffDoc, ensureStaff } = require("../../Utils/Staff/staffDocUtils");
+const { getOrCreateStaffDoc, ensureStaff, incrementStaffValutazioneCounters } = require("../../Utils/Staff/staffDocUtils");
 const IDs = require("../../Utils/Config/ids");
 const { getGuildChannelCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
 const {
@@ -170,15 +170,34 @@ async function editOriginalValutazioneMessage(guild, entry, embed) {
   return message.edit({ content: "", embeds: [embed], components: [] }).then(() => true).catch(() => false);
 }
 
+async function syncProfileStaffFromDb(profileDoc, guildId, userId) {
+  const g = String(guildId ?? "").trim();
+  const u = String(userId ?? "").trim();
+  if (!profileDoc || !g || !u) return ensureStaff(profileDoc);
+  const fresh = await ActivityUserProfile.findOne({ guildId: g, userId: u }).catch(() => null);
+  if (fresh?.staff) profileDoc.staff = fresh.staff;
+  return ensureStaff(profileDoc);
+}
+
 async function valutazionePositiveAddCore(profileDoc, staffUser, reason, actor, channel) {
-  const s = ensureStaff(profileDoc);
-  s.valutazioniCount += 1;
-  s.positiveCount += 1;
-  if (!Array.isArray(s.positiveReasons)) s.positiveReasons = [];
-  s.positiveReasons.push(reason);
-  profileDoc.markModified("staff");
-  await profileDoc.save();
-  const embed = makeLogEmbed(actor, staffUser, `<:thumbsup:1471292172145004768> **__VALUTAZIONE POSITIVA__** #${s.positiveCount}`, reason, s.valutazioniCount, "#6f4e37", channel.guild);
+  const guildId = String(profileDoc?.guildId || channel?.guild?.id || "");
+  const userId = String(staffUser?.id || "");
+  let counts = await incrementStaffValutazioneCounters(guildId, userId, "positive", reason);
+  if (!counts) {
+    await getOrCreateStaffDoc(guildId, userId);
+    counts = await incrementStaffValutazioneCounters(guildId, userId, "positive", reason);
+  }
+  if (!counts) return { message: null };
+  const s = await syncProfileStaffFromDb(profileDoc, guildId, userId);
+  const embed = makeLogEmbed(
+    actor,
+    staffUser,
+    `<:thumbsup:1471292172145004768> **__VALUTAZIONE POSITIVA__** #${counts.sectionCount}`,
+    reason,
+    counts.valutazioniCount,
+    "#6f4e37",
+    channel.guild,
+  );
   const message = await sendChannelEmbed(channel, { content: `${staffUser}`, embeds: [embed] });
   pushValutazioneEntry(s, "positive", reason, message);
   profileDoc.markModified("staff");
@@ -220,14 +239,24 @@ async function valutazionePositiveRemoveCore(profileDoc, staffUser, removeId, re
 }
 
 async function valutazioneNegativeAddCore(guild, profileDoc, staffUser, reason, actor, channel) {
-  const s = ensureStaff(profileDoc);
-  s.valutazioniCount += 1;
-  s.negativeCount += 1;
-  if (!Array.isArray(s.negativeReasons)) s.negativeReasons = [];
-  s.negativeReasons.push(reason);
-  profileDoc.markModified("staff");
-  await profileDoc.save();
-  const embed = makeLogEmbed(actor, staffUser, `<:thumbsdown:1471292163957457013> **__VALUTAZIONE NEGATIVA__** #${s.negativeCount}`, reason, s.valutazioniCount, "#6f4e37", guild);
+  const guildId = String(profileDoc?.guildId || guild?.id || "");
+  const userId = String(staffUser?.id || "");
+  let counts = await incrementStaffValutazioneCounters(guildId, userId, "negative", reason);
+  if (!counts) {
+    await getOrCreateStaffDoc(guildId, userId);
+    counts = await incrementStaffValutazioneCounters(guildId, userId, "negative", reason);
+  }
+  if (!counts) return { message: null };
+  const s = await syncProfileStaffFromDb(profileDoc, guildId, userId);
+  const embed = makeLogEmbed(
+    actor,
+    staffUser,
+    `<:thumbsdown:1471292163957457013> **__VALUTAZIONE NEGATIVA__** #${counts.sectionCount}`,
+    reason,
+    counts.valutazioniCount,
+    "#6f4e37",
+    guild,
+  );
   const message = await sendChannelEmbed(channel, { content: `${staffUser}`, embeds: [embed] });
   pushValutazioneEntry(s, "negative", reason, message);
   profileDoc.markModified("staff");

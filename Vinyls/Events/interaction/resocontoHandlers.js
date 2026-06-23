@@ -223,9 +223,7 @@ async function applyPexSideEffects(guild, member, roleId) {
   if (roleId === ROLE_MODERATOR) return ensureRoleRemoved(guild, member, ROLE_HELPER);
   if (roleId === ROLE_SENIOR_MODERATOR) return ensureRoleRemoved(guild, member, ROLE_MODERATOR);
   if (roleId === ROLE_DIRECTOR) {
-    const seniorRemoved = await ensureRoleRemoved(guild, member, ROLE_SENIOR_MODERATOR);
-    const highStaffAdded = await ensureRoleAdded(guild, member, ROLE_HIGH_STAFF);
-    return seniorRemoved && highStaffAdded;
+    return ensureRoleRemoved(guild, member, ROLE_SENIOR_MODERATOR);
   }
   if (roleId === ROLE_ADMIN) {
     const modRemoved = await ensureRoleRemoved(guild, member, ROLE_DIRECTOR);
@@ -265,7 +263,15 @@ async function applyDepexSideEffects(guild, member, roleId) {
     if (ok && member?.id) await bumpCandidatureCooldownAfterStaffRemoval(member.id);
     return ok;
   }
-  if (roleId === ROLE_DIRECTOR || roleId === ROLE_ADMIN || roleId === ROLE_CO_OWNER) {
+  if (roleId === ROLE_DIRECTOR) {
+    const roleRemoved = await ensureRoleRemoved(guild, member, roleId);
+    const staffRemoved = await ensureRoleRemoved(guild, member, ROLE_STAFF);
+    const memberAdded = ROLE_MEMBER ? await ensureRoleAdded(guild, member, ROLE_MEMBER) : true;
+    const ok = roleRemoved && staffRemoved && memberAdded;
+    if (ok && member?.id) await bumpCandidatureCooldownAfterStaffRemoval(member.id);
+    return ok;
+  }
+  if (roleId === ROLE_ADMIN || roleId === ROLE_CO_OWNER) {
     const roleRemoved = await ensureRoleRemoved(guild, member, roleId);
     const staffRemoved = await ensureRoleRemoved(guild, member, ROLE_STAFF);
     const highStaffRemoved = await ensureRoleRemoved(guild, member, ROLE_HIGH_STAFF);
@@ -348,64 +354,23 @@ async function applyStaffAction(guild, actor, payload, reasonOverride = null) {
   const targetUser = member.user;
   if (payload.actionKey === "vp") {
     const profileDoc = await getOrCreateStaffDoc(guild.id, payload.userId);
-    const s = ensureStaff(profileDoc);
     const reason = String(reasonOverride || "").trim() || "<:success:1461731530333229226> Limiti settimanali rispettati";
-    s.valutazioniCount = Math.max(0, Number(s.valutazioniCount || 0)) + 1;
-    s.positiveCount = Math.max(0, Number(s.positiveCount || 0)) + 1;
-    if (!Array.isArray(s.positiveReasons)) s.positiveReasons = [];
-    s.positiveReasons.push(reason);
-    profileDoc.markModified("staff");
-    await profileDoc.save();
-    await sendValutazioneLogEmbed(guild, actor, targetUser, reason, true, s.valutazioniCount, s.positiveCount);
+    const channel = await getGuildChannelCached(guild, IDs.channels.valutazioniStaff);
+    if (!channel?.isTextBased?.()) return "<a:VC_Alert:1482706673176150077> Canale valutazioni non disponibile.";
+    const { valutazionePositiveAddCore } = require("../../Utils/Staff/valutazionePanelActions");
+    const result = await valutazionePositiveAddCore(profileDoc, targetUser, reason, actor, channel);
+    if (!result?.message) return "<a:VC_Alert:1482706673176150077> Errore registrazione valutazione positiva.";
     return "<:thumbsup:1471292172145004768> Registrata Valutazione Positiva.";
   }
 
   if (payload.actionKey === "vn") {
     const profileDoc = await getOrCreateStaffDoc(guild.id, payload.userId);
-    const s = ensureStaff(profileDoc);
     const reason = String(reasonOverride || "").trim() || "<:cancel:1461730653677551691> Limiti settimanali non rispettati";
-    s.valutazioniCount = Math.max(0, Number(s.valutazioniCount || 0)) + 1;
-    s.negativeCount = Math.max(0, Number(s.negativeCount || 0)) + 1;
-    if (!Array.isArray(s.negativeReasons)) s.negativeReasons = [];
-    s.negativeReasons.push(reason);
-    profileDoc.markModified("staff");
-    await profileDoc.save();
-    await sendValutazioneLogEmbed(guild, actor, targetUser, reason, false, s.valutazioniCount, s.negativeCount);
-
-    const warnResult = await addStaffWarnFromNegatives(guild.id, payload.userId, s.negativeCount, reason);
-    if (warnResult.added) {
-      const warnChannel = await getGuildChannelCached(guild, IDs.channels?.warnStaff);
-      if (warnChannel?.isTextBased?.()) {
-        const warnLogEmbed = buildAutoStaffWarnFromNegativesEmbed(actor, targetUser, warnResult.warnCount);
-        await warnChannel.send({ content: `<@${payload.userId}>`, embeds: [warnLogEmbed] }).catch(() => null);
-        if (warnResult.shouldAskDepex) {
-          const embed = new EmbedBuilder()
-            .setColor("#E74C3C")
-            .setTitle("<a:VC_Alert:1482706673176150077> 2 warn staff — Decidi azione")
-            .setDescription(
-              `<@${payload.userId}> ha raggiunto **2 warn staff** (da valutazioni negative).\n\n` +
-              "**Depex ora** = un livello in basso .\n" +
-              "**No** = nessuna azione ora; al **3° warn** scatterà il **depex completo**.",
-            )
-            .setThumbnail(userAvatarUrlDynamic(targetUser) || undefined);
-          const row = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId(`staff_warn_depex:${payload.userId}:yes`).setLabel("Depex ora").setStyle(ButtonStyle.Danger),
-            new ButtonBuilder().setCustomId(`staff_warn_depex:${payload.userId}:no`).setLabel("No (al 3° warn depex completo)").setStyle(ButtonStyle.Secondary),
-          );
-          await warnChannel.send({ content: `<@${payload.userId}>`, embeds: [embed], components: [row] }).catch(() => null);
-        }
-      }
-    }
-    if (warnResult.added && warnResult.shouldFullDepex) {
-      const roleId = String(payload.roleId || "");
-      const fullResult = await applyFullDepex(guild, member, roleId || null);
-      if (fullResult.ok) {
-        const memberAfterFull = await getGuildMemberCached(guild, payload.userId, { preferFresh: true }).catch(() => member);
-        await syncStaffDbAndPauseChannelAfterDepex(guild, payload.userId, memberAfterFull);
-        const roleAfterId = resolvePexDepexLogRoleAfterId(memberAfterFull);
-        await sendPexDepexLog(guild, "depex", targetUser, roleId, roleAfterId, `Depex automatico: 3 warn staff (valutazioni negative).`);
-      }
-    }
+    const channel = await getGuildChannelCached(guild, IDs.channels.valutazioniStaff);
+    if (!channel?.isTextBased?.()) return "<a:VC_Alert:1482706673176150077> Canale valutazioni non disponibile.";
+    const { valutazioneNegativeAddCore } = require("../../Utils/Staff/valutazionePanelActions");
+    const result = await valutazioneNegativeAddCore(guild, profileDoc, targetUser, reason, actor, channel);
+    if (!result?.message) return "<a:VC_Alert:1482706673176150077> Errore registrazione valutazione negativa.";
     return "<:thumbsdown:1471292163957457013> Registrata Valutazione Negativa.";
   }
 

@@ -20,7 +20,7 @@ const MOD_RULE_DETAIL = {
 const BUCKET_PRIORITY = ["2_3", "2_1", "1_2", "1_4", "2_4"];
 
 const BUCKET_VIOLATION_KEYS = {
-  "2_3": new Set(["scam_pattern", "panic_mode"]),
+  "2_3": new Set(["scam_pattern", "scam_image_bait", "panic_mode"]),
   "2_1": new Set(["nsfw_link"]),
   "1_2": new Set(["word_blacklist"]),
   "1_4": new Set(["link_blacklist"]),
@@ -73,6 +73,7 @@ const VIOLATION_KEY_LABEL_IT = {
   characters: "Densità caratteri / non conversazione normale (reg. 2.3)",
   invite: "Invito Discord non autorizzato",
   scam_pattern: "Link malevoli / scam / file pericolosi (reg. 2.2)",
+  scam_image_bait: "Immagine scam con testo esca (reg. 2.2)",
   nsfw_link: "Contenuto NSFW o link non consentito (reg. 2.1)",
   word_blacklist: "Linguaggio discriminatorio / blacklist (reg. 1.2)",
   link_blacklist: "Link / dominio in blacklist / autopromozione (reg. 1.4)",

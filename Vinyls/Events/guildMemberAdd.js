@@ -19,7 +19,7 @@ const { hasEventWeekWinnerGrant } = require("../Services/Community/weekWinnerGra
 const { hasExtraCustomPerksUnlock } = require("../Utils/Community/customPerksUnlock");
 const { addRolesAndGetMember, getClientGuildCached, getGuildChannelCached, getGuildMemberCached, getGuildRoleCached } = require("../Utils/Interaction/interactionEntityCache");
 const { applyDefaultFooterToEmbeds } = require("../Utils/Embeds/defaultFooter");
-const { setWelcomeContextActive } = require("../Utils/Message/officialMessageCommunityHandlers");
+const { activateWelcomeContextForGuild, refreshWelcomeContextForGuild } = require("../Utils/Message/officialMessageCommunityHandlers");
 const { restoreUserOnJoin } = require("../Services/Community/userLeaveBackupService");
 const { syncMutedMirrorOnMemberJoin } = require("../Services/Moderation/mutedMirrorRoleService");
 const { cancelCustomPerksDiscordCleanupQueue } = require("../Services/Community/customPerksDiscordCleanupQueueService");
@@ -28,6 +28,8 @@ const sponsorVerifiedRequiresMain = require("../Services/Community/sponsorVerifi
 const { handleAccessGuildMemberAdd } = require("../Services/Staff/staffAccessMirrorService");
 const { guildIconUrl, guildMemberDisplayAvatarUrlDynamic, accountUsername } = require("../Utils/Discord/guildDiscordIdentity");
 const { isAlreadyVerifiedInThisGuild, isSponsorGuildVerify } = require("../Utils/Interaction/verifyUtils");
+const { syncPreMemberRoleForMember } = require("../Utils/Community/preMemberRoleService");
+const { applyPronounGenderToEmbedForMember } = require("../Utils/Community/pronounGenderUtils");
 const { upsertVerifiedMember, applyTenureForMember, applySponsorGuildAutoVerificato } = require("../Services/Community/communityOpsService");
 const path = require("path");
 const { readSnapshotWithMeta, writeSnapshotWithMeta } = require("../../shared/recovery/snapshotStore");
@@ -35,6 +37,7 @@ const { ghostPingNewMemberOnJoin } = require("../Utils/Message/ghostPingOnChanne
 const { trackMemberJoin } = require("../Services/Community/dailyMemberStatsService");
 const { maybeAssignHogwartsCompletionRoleOnJoin } = require("../Services/Community/hogwartsEventEndService");
 const { buildMemberWelcomePhrase } = require("../Utils/Community/pronounWelcomeUtils");
+const { isMongoReady } = require("../Utils/Database/mongoConnect");
 const INVITE_LOG_CHANNEL_ID = IDs.channels.chat;
 const THANKS_CHANNEL_ID = IDs.channels.supporters;
 const INFO_PERKS_CHANNEL_ID = IDs.channels.info;
@@ -116,13 +119,14 @@ function buildInviteMilestoneEmbeds(inviterMember, totalInvites, tierChunks) {
       `Ora hai **${formatInviteCountIt(safeTotal)}** registrat${safeTotal === 1 ? "o" : "i"}.`,
       INFO_PERKS_CHANNEL_ID ? `\n<a:VC_Arrow:1482706699365257397> Dettagli perk: <#${INFO_PERKS_CHANNEL_ID}>` : "",
     ].join("\n");
-    return new EmbedBuilder()
+    const embed = new EmbedBuilder()
       .setColor(INVITE_MILESTONE_EMBED_COLOR)
       .setTitle(getInviteMilestoneTitle(target))
       .setThumbnail(guildMemberDisplayAvatarUrlDynamic(inviterMember, { size: 256 }) || undefined)
       .setDescription(body)
       .setFooter({ text: `${shortInviteLinkForFooter()} • Grazie! 💞` })
       .setTimestamp();
+    return applyPronounGenderToEmbedForMember(embed, inviterMember);
   });
 }
 const JOIN_LEAVE_LOG_CHANNEL_ID = IDs.channels.joinLeaveLogs;
@@ -379,6 +383,26 @@ function buildWelcomeChannelContent(member) {
   return `Ciao ${member.user}, ${word}! <@&${IDs.roles.Staff}> <a:VC_heartfinger:1504513546782769332>`;
 }
 
+async function sendWelcomeChannelAnnouncement(channel, member) {
+  if (!channel?.send || !member) return null;
+  const sent = await channel
+    .send(
+      applyDefaultFooterToEmbeds(
+        {
+          content: buildWelcomeChannelContent(member),
+          embeds: [buildWelcomeEmbed(member)],
+        },
+        member.guild,
+      ),
+    )
+    .catch(() => null);
+  if (sent && member.guild?.id) {
+    refreshWelcomeContextForGuild(member.guild.id, member.id);
+    await markJoinAnnounceSent(member);
+  }
+  return sent;
+}
+
 function buildWelcomeEmbed(member) {
   const visibleCount = getVerifiedPlusBotsCount(member.guild);
   const uname = accountUsername(member);
@@ -435,14 +459,21 @@ function buildDmWelcomeEmbed(member) {
 function getVerifiedPlusBotsCount(guild) {
   if (!guild?.members?.cache) return Number(guild?.memberCount || 0);
   const memberRoleId = String(IDs.roles?.Member || "").trim();
-  if (!memberRoleId) return Number(guild.memberCount || 0);
+  const unverifiedRoleId = String(IDs.roles?.preMember || "").trim();
+  if (!memberRoleId && !unverifiedRoleId) return Number(guild.memberCount || 0);
   let total = 0;
   for (const m of guild.members.cache.values()) {
     if (m?.user?.bot) {
       total += 1;
       continue;
     }
-    if (m?.roles?.cache?.has(memberRoleId)) total += 1;
+    const roles = m?.roles?.cache;
+    if (!roles) continue;
+    if (memberRoleId && roles.has(memberRoleId)) {
+      total += 1;
+      continue;
+    }
+    if (unverifiedRoleId && roles.has(unverifiedRoleId)) total += 1;
   }
   return total;
 }
@@ -494,12 +525,7 @@ async function handleBotJoin(member, joinGateConfig) {
     }
     const welcomeChannelSponsor = await resolveGuildChannel(member.guild, IDs.channels.chat,);
     if (welcomeChannelSponsor) {
-      await welcomeChannelSponsor
-        .send(applyDefaultFooterToEmbeds({
-          content: buildWelcomeChannelContent(member),
-          embeds: [buildWelcomeEmbed(member)],
-        }, member.guild))
-        .catch(() => { });
+      await sendWelcomeChannelAnnouncement(welcomeChannelSponsor, member);
     }
     return;
   }
@@ -565,12 +591,7 @@ async function handleBotJoin(member, joinGateConfig) {
 
   const welcomeChannel = await resolveGuildChannel(member.guild, IDs.channels.chat,);
   if (welcomeChannel) {
-    await welcomeChannel
-      .send(applyDefaultFooterToEmbeds({
-        content: buildWelcomeChannelContent(member),
-        embeds: [buildWelcomeEmbed(member)],
-      }, member.guild))
-      .catch(() => { });
+    await sendWelcomeChannelAnnouncement(welcomeChannel, member);
   }
 
   const inviteChannel = await resolveGuildChannel(member.guild, INVITE_LOG_CHANNEL_ID,);
@@ -1383,6 +1404,14 @@ async function markJoinAnnouncePending(member) {
   ).catch(() => null);
 }
 
+async function markJoinAnnounceSent(member) {
+  if (!member?.guild?.id || !member?.id) return;
+  await ActivityUserProfile.updateOne(
+    { guildId: String(member.guild.id), userId: String(member.id) },
+    { $set: { "profile.joinAnnounceSentAt": new Date() }, $unset: { "profile.joinAnnouncePending": "" } },
+  ).catch(() => null);
+}
+
 async function clearJoinAnnouncePending(member) {
   if (!member?.guild?.id || !member?.id) return;
   await ActivityUserProfile.updateOne(
@@ -1391,45 +1420,109 @@ async function clearJoinAnnouncePending(member) {
   ).catch(() => null);
 }
 
-async function runDeferredJoinAnnouncements(member) {
-  if (!member?.guild?.id || String(member.guild.id) !== String(IDs.guilds?.main || "")) return;
-  const guildId = String(member.guild.id);
-  const userId = String(member.id);
-  const cleared = await ActivityUserProfile.updateOne(
-    { guildId, userId, "profile.joinAnnouncePending": true },
-    { $unset: { "profile.joinAnnouncePending": "" } },
-  ).catch(() => ({ modifiedCount: 0 }));
-  const clearedCount = Number(cleared?.modifiedCount ?? cleared?.nModified ?? 0);
-  if (!clearedCount) return;
-
-  const fresh = await getGuildMemberCached(member.guild, member.id, { preferFresh: true }).catch(() => member);
-  if (!fresh?.user) return;
-
+async function resolveWelcomeChannelForMember(member) {
   const welcomeChannelId = IDs.channels.chat;
-  let welcomeChannel = await resolveGuildChannel(fresh.guild, welcomeChannelId);
-  if (!welcomeChannel && fresh.client) {
-    const mainGuild = await getClientGuildCached(fresh.client, IDs.guilds.main);
+  let welcomeChannel = await resolveGuildChannel(member.guild, welcomeChannelId);
+  if (!welcomeChannel && member.client) {
+    const mainGuild = await getClientGuildCached(member.client, IDs.guilds.main);
     welcomeChannel = mainGuild ? await getGuildChannelCached(mainGuild, welcomeChannelId) : null;
   }
   if (!welcomeChannel) {
     try {
-      const fetched = await fresh.guild.channels.fetch(String(welcomeChannelId)).catch(() => null);
+      const fetched = await member.guild.channels.fetch(String(welcomeChannelId)).catch(() => null);
       if (fetched?.isTextBased?.()) welcomeChannel = fetched;
     } catch (_) {}
   }
+  return welcomeChannel;
+}
 
+async function welcomeAnnounceExistsForUser(channel, memberOrUserId, botId, sinceMs) {
+  if (!channel?.messages?.fetch) return false;
+  const userId = String(typeof memberOrUserId === "object" ? memberOrUserId?.id : memberOrUserId || "");
+  if (!userId) return false;
+  const uname = typeof memberOrUserId === "object" ? accountUsername(memberOrUserId) : "";
+  const needle = `<@${userId}>`;
+  const minTs = Math.max(0, Number(sinceMs || 0) - 60_000);
+  const welcomeRe = /Vinili & Caff[eèé]|Benvento|Benvenuto|nella nostra community/i;
+  let before = undefined;
+  for (let page = 0; page < 4; page += 1) {
+    const recent = await channel.messages.fetch({ limit: 100, ...(before ? { before } : {}) }).catch(() => null);
+    if (!recent?.size) break;
+    let oldestTs = Infinity;
+    for (const m of recent.values()) {
+      const ts = Number(m.createdTimestamp || 0);
+      if (ts && ts < oldestTs) oldestTs = ts;
+      if (ts && ts < minTs) continue;
+      if (botId && String(m.author?.id || "") !== botId) continue;
+      const embeds = Array.isArray(m.embeds) ? m.embeds : [];
+      const parts = [String(m.content || "")];
+      for (const e of embeds) {
+        parts.push(String(e?.title || ""), String(e?.description || ""), String(e?.author?.name || ""));
+      }
+      const blob = parts.join("\n");
+      const mentionsUser = blob.includes(needle) || blob.includes(`<@!${userId}>`);
+      const authorMatches = uname && embeds.some((e) => String(e?.author?.name || "").trim() === uname);
+      if (!mentionsUser && !authorMatches) continue;
+      if (welcomeRe.test(blob)) return true;
+    }
+    if (oldestTs <= minTs) break;
+    const oldest = [...recent.values()].sort((a, b) => Number(a.createdTimestamp || 0) - Number(b.createdTimestamp || 0))[0];
+    if (!oldest?.id) break;
+    before = oldest.id;
+  }
+  return false;
+}
+
+async function joinWelcomeAlreadySent(channel, member, botId) {
+  if (!member?.id) return false;
+  const guildId = String(member.guild?.id || "");
+  const userId = String(member.id);
+  if (isMongoReady()) {
+    const doc = await ActivityUserProfile.findOne({ guildId, userId })
+      .select("profile.joinAnnounceSentAt")
+      .lean()
+      .catch(() => null);
+    if (doc?.profile?.joinAnnounceSentAt) return true;
+  }
+  const joined = Number(member.joinedTimestamp || 0);
+  const sinceMs = joined || Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const inChannel = await welcomeAnnounceExistsForUser(channel, member, botId, sinceMs);
+  if (inChannel) {
+    await markJoinAnnounceSent(member);
+    return true;
+  }
+  return false;
+}
+
+function joinRecoverySleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isJoinRecoveryPrimaryShard(client) {
+  return !client?.shard || client.shard.ids?.[0] === 0;
+}
+
+async function dispatchPublicJoinAnnouncements(member) {
+  if (!member?.guild?.id || String(member.guild.id) !== String(IDs.guilds?.main || "")) {
+    return { ok: false, reason: "wrong_guild" };
+  }
+  const fresh = await getGuildMemberCached(member.guild, member.id, { preferFresh: true }).catch(() => member);
+  if (!fresh?.user) return { ok: false, reason: "no_member" };
+  if (!(await shouldSendPublicMemberAnnouncement(fresh))) {
+    return { ok: false, reason: "gate_blocked" };
+  }
+
+  const welcomeChannel = await resolveWelcomeChannelForMember(fresh);
   const info = await resolveInviteInfo(fresh).catch(() => null);
+  const botId = String(fresh.client?.user?.id || "");
+  const welcomeAlreadySent = welcomeChannel ? await joinWelcomeAlreadySent(welcomeChannel, fresh, botId) : false;
 
-  if (welcomeChannel) {
-    await welcomeChannel
-      .send(applyDefaultFooterToEmbeds({
-        content: buildWelcomeChannelContent(fresh),
-        embeds: [buildWelcomeEmbed(fresh)],
-      }, fresh.guild))
-      .catch(() => { });
-
-    if (fresh.client) setWelcomeContextActive(fresh.guild.id);
+  if (fresh.client) await activateWelcomeContextForGuild(fresh.guild.id, fresh.id);
+  if (welcomeChannel && !welcomeAlreadySent) {
+    await sendWelcomeChannelAnnouncement(welcomeChannel, fresh);
     await announceInviteInfo(fresh, welcomeChannel, info);
+  } else if (welcomeAlreadySent) {
+    await clearJoinAnnouncePending(fresh);
   }
 
   if (info && !info.isVanity && info.inviterId) {
@@ -1437,12 +1530,80 @@ async function runDeferredJoinAnnouncements(member) {
   }
   await maybeSendInviteNearRewardReminder(fresh, info);
   await maybeSendInviteReward(fresh, info);
-
   await sendJoinLog(fresh).catch(() => { });
 
   if (fresh.guild?.id === IDs.guilds.main && fresh.client && memberHasStaffRole(fresh)) {
     scheduleStaffListRefresh(fresh.client, fresh.guild.id);
   }
+  return { ok: true, announced: Boolean(welcomeChannel) };
+}
+
+async function recoverJoinAnnouncementsOnStartup(client, opts = {}) {
+  if (!isJoinRecoveryPrimaryShard(client)) return { ok: false, reason: "not_primary_shard" };
+  const guildId = String(IDs.guilds.main || "");
+  if (!guildId) return { ok: false, reason: "no_main_guild" };
+  const guild = client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
+  if (!guild) return { ok: false, reason: "guild_not_found" };
+
+  const limit = Math.max(1, Math.min(50, Number(opts.limit || 25)));
+  const botId = String(client.user?.id || "");
+  const welcomeChannel = await resolveGuildChannel(guild, IDs.channels.chat);
+  if (!welcomeChannel?.isTextBased?.()) return { ok: false, reason: "no_welcome_channel" };
+
+  let recovered = 0;
+  let pendingProcessed = 0;
+
+  const pendingRows = await ActivityUserProfile.find({
+    guildId,
+    "profile.joinAnnouncePending": true,
+  })
+    .select("userId")
+    .limit(limit)
+    .lean()
+    .catch(() => []);
+
+  for (const row of pendingRows) {
+    const userId = String(row?.userId || "");
+    if (!userId) continue;
+    pendingProcessed += 1;
+    const member = await getGuildMemberCached(guild, userId, { preferFresh: true }).catch(() => null);
+    if (!member || member.user?.bot) {
+      await ActivityUserProfile.updateOne(
+        { guildId, userId },
+        { $unset: { "profile.joinAnnouncePending": "" } },
+      ).catch(() => null);
+      continue;
+    }
+    if (!(await shouldSendPublicMemberAnnouncement(member))) continue;
+    if (await joinWelcomeAlreadySent(welcomeChannel, member, botId)) {
+      await clearJoinAnnouncePending(member);
+      continue;
+    }
+    await runDeferredJoinAnnouncements(member);
+    recovered += 1;
+    await joinRecoverySleep(450);
+  }
+
+  return { ok: true, recovered, pendingProcessed };
+}
+
+async function runDeferredJoinAnnouncements(member) {
+  if (!member?.guild?.id || String(member.guild.id) !== String(IDs.guilds?.main || "")) return;
+  const guildId = String(member.guild.id);
+  const userId = String(member.id);
+  const welcomeChannel = await resolveWelcomeChannelForMember(member);
+  const botId = String(member.client?.user?.id || "");
+  if (welcomeChannel && (await joinWelcomeAlreadySent(welcomeChannel, member, botId))) {
+    await clearJoinAnnouncePending(member);
+    return;
+  }
+  const cleared = await ActivityUserProfile.updateOne(
+    { guildId, userId, "profile.joinAnnouncePending": true },
+    { $unset: { "profile.joinAnnouncePending": "" } },
+  ).catch(() => ({ modifiedCount: 0 }));
+  const clearedCount = Number(cleared?.modifiedCount ?? cleared?.nModified ?? 0);
+  if (!clearedCount) return;
+  await dispatchPublicJoinAnnouncements(member);
 }
 
 async function maybeApplyVerificationTenureOnJoin(member) {
@@ -1457,7 +1618,7 @@ async function maybeApplyVerificationTenureOnJoin(member) {
   }
 }
 
-module.exports = { name: "guildMemberAdd", kickForJoinGate, runDeferredJoinAnnouncements, matchUsernameFilters, getJoinGateNameCandidate,
+module.exports = { name: "guildMemberAdd", kickForJoinGate, runDeferredJoinAnnouncements, recoverJoinAnnouncementsOnStartup, matchUsernameFilters, getJoinGateNameCandidate,
   async execute(member) {
     try {
       if (!member?.guild || !member?.user) return;
@@ -1593,6 +1754,9 @@ module.exports = { name: "guildMemberAdd", kickForJoinGate, runDeferredJoinAnnou
 
       if (String(member.guild?.id || "") === String(IDs.guilds?.main || "")) {
         void ghostPingNewMemberOnJoin(member.client, member).catch(() => {});
+        if (member.client) {
+          await activateWelcomeContextForGuild(member.guild.id, member.id).catch(() => {});
+        }
       }
 
       await sendDmWelcome(member).catch(() => {});
@@ -1629,9 +1793,19 @@ module.exports = { name: "guildMemberAdd", kickForJoinGate, runDeferredJoinAnnou
       await maybeApplyVerificationTenureOnJoin(memberForTenure).catch((err) => {
         global.logger?.warn?.("[guildMemberAdd] verificationTenureOnJoin:", err?.message || err);
       });
-      const memberAfterVerifyJoin = hadVerifyRole
-        ? await getGuildMemberCached(member.guild, member.id, { preferFresh: true }).catch(() => memberForTenure)
-        : memberForTenure;
+      const memberAfterVerifyJoin =
+        (hadVerifyRole
+          ? await getGuildMemberCached(member.guild, member.id, { preferFresh: true }).catch(() => null)
+          : null) ||
+        memberForTenure ||
+        member;
+      if (!memberAfterVerifyJoin?.guild) return;
+
+      if (String(member.guild?.id || "") === String(IDs.guilds?.main || "")) {
+        await syncPreMemberRoleForMember(memberAfterVerifyJoin).catch((err) => {
+          global.logger?.warn?.("[guildMemberAdd] preMember role:", member.id, err?.message || err);
+        });
+      }
 
       if (isCoreExempt) {
         await updateMemberCounterNow(member.guild).catch(() => { });
@@ -1684,16 +1858,11 @@ module.exports = { name: "guildMemberAdd", kickForJoinGate, runDeferredJoinAnnou
           }
         }
 
+        if (canAnnounce && memberAfterVerifyJoin.client) {
+          await refreshWelcomeContextForGuild(memberAfterVerifyJoin.guild.id, memberAfterVerifyJoin.id);
+        }
         if (welcomeChannel && canAnnounce) {
-          await welcomeChannel
-            .send(applyDefaultFooterToEmbeds({
-              content: buildWelcomeChannelContent(memberAfterVerifyJoin),
-              embeds: [buildWelcomeEmbed(memberAfterVerifyJoin)],
-            }, memberAfterVerifyJoin.guild))
-            .catch(() => { });
-
-          if (memberAfterVerifyJoin.client) setWelcomeContextActive(memberAfterVerifyJoin.guild.id);
-
+          await sendWelcomeChannelAnnouncement(welcomeChannel, memberAfterVerifyJoin);
           info = await resolveInviteInfo(memberAfterVerifyJoin).catch(() => null);
           await announceInviteInfo(memberAfterVerifyJoin, welcomeChannel, info);
         }

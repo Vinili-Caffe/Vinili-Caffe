@@ -152,7 +152,7 @@ function buildHouseCupEmbed(period, ranked, eventCfg, guild) {
   const winner = ranked[0];
   const winnerMeta = winner ? getHouseMeta(winner.houseId, eventCfg?.houses?.[winner.houseId]?.crestUrl) : null;
   const winnerLine = winner?.points > 0 && winnerMeta?.label
-    ? `\n<a:VC_Star:1482706774372253788> In testa: **${winnerMeta.label}** con **${winner.points}** punti.`
+    ? `\n<a:VC_Winner:1482535294757507255> In testa: **${winnerMeta.label}** con **${winner.points}** punti.`
     : "";
   return new EmbedBuilder()
     .setColor("#6f4e37")

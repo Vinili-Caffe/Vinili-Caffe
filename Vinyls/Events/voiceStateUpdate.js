@@ -4,6 +4,7 @@ const { leaveTtsGuild, handleTtsBotVoiceMove, isTtsPostJoinVoiceGraceActive } = 
 const { handleVoiceActivity, } = require("../Services/Community/activityService");
 const { trackVoiceEngagement } = require("../Services/Community/dailyEngagementStatsService");
 const { handleSerataFilmVoiceState } = require("../Services/Staff/staffAutoValutazioniService");
+const { handleSerataFilmHouseAttendanceVoiceState } = require("../Services/Community/hogwartsSerataFilmHouseLeaderboardService");
 const IDs = require("../Utils/Config/ids");
 const AUDIT_FETCH_LIMIT = 20;
 const AUDIT_LOOKBACK_MS = 120 * 1000;
@@ -319,6 +320,12 @@ module.exports = {
     }
 
     try {
+      await handleSerataFilmHouseAttendanceVoiceState(oldState, newState);
+    } catch (error) {
+      global.logger?.error?.("[SERATA FILM HOUSE LB ERROR]", error);
+    }
+
+    try {
       await handleVoiceActivity(oldState, newState);
     } catch (error) {
       if (client?.logs?.error) {
@@ -337,6 +344,14 @@ module.exports = {
       await handlePmVoiceAfkVoiceState(oldState, newState, client);
     } catch (error) {
       global.logger?.error?.("[PM AFK WATCH] voiceStateUpdate failed:", error);
+    }
+    try {
+      const { syncCaptureVoiceChannelMember } = require("../Services/Voice/voiceContinuousCaptureService");
+      if (newState?.channelId && newState.member && !newState.member.user?.bot) {
+        syncCaptureVoiceChannelMember(newState.guild?.id, newState.member);
+      }
+    } catch (error) {
+      global.logger?.warn?.("[voiceStateUpdate] clip capture sync failed:", error?.message || error);
     }
 
     if (!client?.user?.id) return;

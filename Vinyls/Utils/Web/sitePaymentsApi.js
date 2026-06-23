@@ -33,9 +33,9 @@ function normalizeMoneyAmount(value) {
 function buildPlanCatalog() {
   return {
     sponsor_news_forever: { key: "sponsor_news_forever", label: "Sponsor canale news", amount: "6.00", currency: "EUR" },
-    sponsor_site_7: { key: "sponsor_site_7", label: "Sponsor sul sito 7 giorni", amount: "10.00", currency: "EUR" },
-    sponsor_site_14: { key: "sponsor_site_14", label: "Sponsor sul sito 14 giorni", amount: "20.00", currency: "EUR" },
-    sponsor_site_30: { key: "sponsor_site_30", label: "Sponsor sul sito 30 giorni", amount: "30.00", currency: "EUR" },
+    sponsor_site_7: { key: "sponsor_site_7", label: "Sponsor sul sito 7 giorni", amount: "7.00", currency: "EUR" },
+    sponsor_site_14: { key: "sponsor_site_14", label: "Sponsor sul sito 14 giorni", amount: "12.00", currency: "EUR" },
+    sponsor_site_30: { key: "sponsor_site_30", label: "Sponsor sul sito 30 giorni", amount: "18.00", currency: "EUR" },
     sponsor_film_night: { key: "sponsor_film_night", label: "Sponsor durante serata film", amount: "2.50", currency: "EUR" },
     donation_5: { key: "donation_5", label: "Donazione supporto 5 euro", amount: "5.00", currency: "EUR" },
     donation_10: { key: "donation_10", label: "Donazione supporto 10 euro", amount: "10.00", currency: "EUR" },

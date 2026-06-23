@@ -50,7 +50,7 @@ async function maybeSendPartnerManagerRewardMilestoneDms(client, guild, userId, 
       .setTitle(`<:VC_PartnerManager:1494286911286808576> Soglia ${tier} partner`)
       .setDescription(
         [
-          `Hai raggiunto **${tier}** punti partner validi (ora **${a}**).`,
+          `Hai raggiunto **${tier}** punti partner validi.`,
           "",
           `Puoi riscattare: **${reward}**.`,
           "",

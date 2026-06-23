@@ -2,25 +2,18 @@ const { randomInt } = require("crypto");
 const { ActivityUserProfile, SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Schemas/Community/communitySchemas");
 const { getHouseMeta, HOUSES } = require("../../Utils/Web/hogwartsSortingBank");
 const { getShopItemById } = require("../../Utils/Web/hogwartsShopCatalog");
-const { applyPetHousePointsBoost, isHogwartsShopBoostActive, normalizeShopInventory } = require("./hogwartsShopBoostsService");
+const { applyPetHousePointsBoost, isHogwartsShopBoostActive, normalizeShopInventory, resolveDuelWandBoost } = require("./hogwartsShopBoostsService");
 const { addGaleoni, formatGaleoni } = require("./gringottService");
 const { resolveHogwartsEventConfig } = require("../../Utils/Web/hogwartsSortingConfig");
 const { isUserHighStaffExcludedFromHogwartsEvent } = require("../../Utils/Web/hogwartsEventParticipation");
 const { getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { isValidGuildUserId } = require("../../Utils/DB/validateWriteIds");
+const { housePointPeriodKey } = require("../../Utils/Web/hogwartsHousePointPeriods");
 const SORTING_DOC = SITE_DOCUMENT_TYPE.HOGWARTS_SORTING;
 const HOUSE_POINTS_DOC = SITE_DOCUMENT_TYPE.HOGWARTS_HOUSE_POINTS;
 const HOUSE_POINTS_OWNER_ID = "__event__";
 const DUEL_PROFILE_PATH = "profile.events.hogwarts.duel";
 const DEFAULT_DUEL_REWARDS = Object.freeze({ cooldownMs: 3 * 60 * 1000, vsBot: { galeoni: 10, housePoints: 15 }, vsUser: { galeoni: 10, housePoints: 15 } });
-const HOUSE_POINT_PERIODS = [
-  { key: "2026-06-01_2026-06-14", start: "2026-06-01", end: "2026-06-14" },
-  { key: "2026-06-15_2026-06-28", start: "2026-06-15", end: "2026-06-28" },
-  { key: "2026-06-29_2026-07-12", start: "2026-06-29", end: "2026-07-12" },
-  { key: "2026-07-13_2026-07-26", start: "2026-07-13", end: "2026-07-26" },
-  { key: "2026-07-27_2026-08-09", start: "2026-07-27", end: "2026-08-09" },
-  { key: "2026-08-10_2026-08-31", start: "2026-08-10", end: "2026-08-31" },
-];
 const WAND_WIN_CHANCE = Object.freeze({ "willow-spark-wand": 58, "ash-moon-wand": 72, "elder-ember-wand": 86, "phoenix-legacy-wand": 100});
 const HOUSE_BONUS = Object.freeze({"gryffindor": 5, "ravenclaw": 4, "hufflepuff": 4, "slytherin": 5});
 const VOLDEMORT = Object.freeze({"userId": "voldemort", "displayName": "Voldemort", "houseId": "slytherin", "wand": getShopItemById("elder-ember-wand"), "power": 94, "winChance": 94, "isBot": true});
@@ -64,8 +57,8 @@ function computeVsBotWinChance(playerWinChance, vsBotCfg = {}) {
   return Math.round(min + t * (max - min));
 }
 
-function buildFighterFromProfile({ userId, displayName, username, houseId, wand }) {
-  const wandId = wand?.id || "";
+function buildFighterFromProfile({ userId, displayName, username, houseId, wand, useWandBoost = true }) {
+  const wandId = useWandBoost ? (wand?.id || "") : "";
   const base = computeWandWinChance(wandId);
   const bonus = computeHouseBonus(houseId);
   const winChance = Math.min(100, base + bonus);
@@ -107,15 +100,20 @@ async function loadDuelFighter(client, guildId, userId, displayName, username = 
       message: "Acquista una **bacchetta** nello shop dell'evento Hogwarts prima di duellare.",
     };
   }
+  const wandBoost = await resolveDuelWandBoost(client, guildId, userId, inventory.wand);
+  const fighter = buildFighterFromProfile({
+    userId,
+    displayName,
+    username: username || displayName,
+    houseId,
+    wand: inventory.wand,
+    useWandBoost: wandBoost.useWandBoost,
+  });
+  if (wandBoost.boostExhausted) fighter.wandBoostExhausted = true;
+  if (Number.isFinite(wandBoost.boostUsesRemaining)) fighter.wandBoostUsesRemaining = wandBoost.boostUsesRemaining;
   return {
     ok: true,
-    fighter: buildFighterFromProfile({
-      userId,
-      displayName,
-      username: username || displayName,
-      houseId,
-      wand: inventory.wand,
-    }),
+    fighter,
   };
 }
 
@@ -272,23 +270,6 @@ function resolveDuelRewards(client) {
   };
 }
 
-function dateOnlyMs(value, endOfDay = false) {
-  const s = String(value || "").trim();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
-  const ms = new Date(`${s}T${endOfDay ? "23:59:59.999" : "00:00:00"}`).getTime();
-  return Number.isFinite(ms) ? ms : null;
-}
-
-function housePointPeriodKey(nowMs = Date.now()) {
-  const now = Number(nowMs || Date.now());
-  for (const period of HOUSE_POINT_PERIODS) {
-    const start = dateOnlyMs(period.start, false);
-    const end = dateOnlyMs(period.end, true);
-    if (Number.isFinite(start) && Number.isFinite(end) && now >= start && now <= end) return period.key;
-  }
-  return "";
-}
-
 function normalizeHouseId(value) {
   const h = String(value || "").trim().toLowerCase();
   return HOUSES.includes(h) ? h : "";
@@ -307,7 +288,7 @@ async function awardDuelHousePoints(client, guildId, userId, basePoints, gameKey
   const houseId = normalizeHouseId(sorting?.status);
   if (!houseId) return null;
   const now = new Date();
-  const periodKey = housePointPeriodKey(now.getTime());
+  const periodKey = String(housePointPeriodKey(now.getTime())?.key || "").trim();
   const gk = String(gameKey || "hogwartsDuel").trim();
   const inc = {
     [`rawWebhook.byGame.${gk}`]: points,
@@ -315,6 +296,9 @@ async function awardDuelHousePoints(client, guildId, userId, basePoints, gameKey
     [`rawWebhook.totals.${houseId}`]: points,
   };
   if (periodKey) inc[`rawWebhook.byPeriod.${periodKey}.${houseId}`] = points;
+  const { appendMemberHousePointsInc } = require("./hogwartsMemberHousePointsService");
+  const memberSet = {};
+  appendMemberHousePointsInc(inc, memberSet, { userId: uid, houseId, periodKey, points });
   await SiteDocument.findOneAndUpdate(
     {
       docType: HOUSE_POINTS_DOC,
@@ -335,6 +319,7 @@ async function awardDuelHousePoints(client, guildId, userId, basePoints, gameKey
         planKey: "hogwarts_house_points",
         "rawWebhook.eventKey": eventKey,
         "rawWebhook.updatedAt": now,
+        ...memberSet,
       },
       $inc: inc,
     },

@@ -3,6 +3,7 @@ const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const IDs = require("../../Utils/Config/ids");
 const { resolveHogwartsEventConfig } = require("../../Utils/Web/hogwartsSortingConfig");
 const { auditForbiddenBooksForUser, assignForbiddenSectionWinner, formatForbiddenBookList, formatForbiddenWinnersList, FORBIDDEN_MAX_WINNERS } = require("../../Services/Community/hogwartsForbiddenBooksService");
+const { formatGaleoni } = require("../../Services/Community/gringottService");
 const STAFF_ROLE_IDS = [ IDs.roles.Founder, IDs.roles.Admin ].filter(Boolean);
 const WINNER_SUBS = new Set(["vincitore", "assegna", "winner"]);
 const CHECK_SUBS = new Set(["check", "verifica"]);
@@ -15,7 +16,7 @@ function hasStaffAccess(member, guild) {
 
 function resolveSubcommand(args = []) {
   const raw = String(args[0] || "").toLowerCase();
-  if (WINNER_SUBS.has(raw)) return { mode: "vincitore", userArgs: args.slice(1) };
+  if (WINNER_SUBS.has(raw)) return { mode: "winner", userArgs: args.slice(1) };
   if (CHECK_SUBS.has(raw)) return { mode: "check", userArgs: args.slice(1) };
   return { mode: "check", userArgs: args };
 }
@@ -30,7 +31,7 @@ async function resolveTargetUser(message, args = []) {
 }
 
 function buildAuditEmbed(audit, targetUser, client) {
-  const { progress, sorted, houseLabel, eventOpen } = audit;
+  const { progress, sorted, houseLabel, eventOpen, roundId, roundLabel, roundActive } = audit;
   const completed = Boolean(progress?.completed);
   const color = completed ? "#2d6a4f" : progress?.collectedCount > 0 ? "#6f4e37" : "#8b4513";
   const statusLine = completed
@@ -38,8 +39,13 @@ function buildAuditEmbed(audit, targetUser, client) {
     : `<:VC_Attention:1482534443632558151> Mancano **${progress.missingBookIds.length}** libro/i su **${progress.requiredCount}**.`;
   const winnersLine =
     progress.winners?.length > 0
-      ? `\nVincitori evento (**${progress.winners.length}/${FORBIDDEN_MAX_WINNERS}**):\n${formatForbiddenWinnersList(progress.winners, resolveHogwartsEventConfig(client))}`
+      ? `\nVincitori round (**${progress.winners.length}/${FORBIDDEN_MAX_WINNERS}**):\n${formatForbiddenWinnersList(progress.winners, resolveHogwartsEventConfig(client))}`
       : "";
+  const roundLine = roundId
+    ? `Round: **${roundLabel || roundId}** · **${roundActive ? "attivo" : progress.closed ? "chiuso" : "in pausa"}**`
+    : progress.nextRoundId
+      ? `Nessun round attivo · prossimo: **${progress.nextRoundId}**`
+      : "Nessun round attivo.";
   const embed = new EmbedBuilder()
     .setColor(color)
     .setTitle("Sezione proibita")
@@ -47,7 +53,8 @@ function buildAuditEmbed(audit, targetUser, client) {
       [
         `Utente: ${targetUser} (\`${targetUser.id}\`)`,
         sorted ? `Casa: **${houseLabel || audit.houseId}**` : "<:vegax:1443934876440068179> **Non smistato** (nessun libro valido sul sito).",
-        `Evento libri sul sito: **${eventOpen ? "aperto" : "chiuso"}**${progress.closed ? " · **chiuso** (vincitori assegnati)" : ""}`,
+        roundLine,
+        `Evento libri sul sito: **${eventOpen ? "aperto" : "chiuso"}**${progress.closed ? " · round **chiuso** (vincitori assegnati)" : ""}`,
         "",
         statusLine,
         `Progresso: **${progress.collectedCount}/${progress.requiredCount}**`,
@@ -81,13 +88,18 @@ function winnerErrorMessage(code, result) {
     case "books_incomplete":
       return "<:vegax:1443934876440068179> L'utente **non ha raccolto tutti i libri** sul sito.";
     case "already_winner":
-      return "<:vegax:1443934876440068179> Questo utente è **già** tra i vincitori dell'evento.";
+      return "<:vegax:1443934876440068179> Questa casa ha **già** un vincitore in questo round.";
     case "house_already_winner":
       return `<:vegax:1443934876440068179> C'è già un vincitore per la casa **${result?.houseLabel || result?.houseId || "?"}**. Non puoi assegnare due vincitori della stessa casa.`;
     case "max_winners":
       return `<:vegax:1443934876440068179> Sono già stati assegnati **${FORBIDDEN_MAX_WINNERS}** vincitori.`;
     case "event_closed":
-      return "<:vegax:1443934876440068179> L'evento è **già chiuso**.";
+      return "<:vegax:1443934876440068179> Il round è **già chiuso**.";
+    case "round_inactive":
+      return "<:vegax:1443934876440068179> Nessun round attivo al momento. Attendi il prossimo orario.";
+    case "db_write_failed":
+    case "db_write_mismatch":
+      return "<:vegax:1443934876440068179> Errore salvataggio vincitore — **riprova** o controlla i log.";
     case "high_staff_excluded":
       return "<:vegax:1443934876440068179> Impossibile assegnare il vincitore.";
     default:
@@ -95,19 +107,42 @@ function winnerErrorMessage(code, result) {
   }
 }
 
+function formatWinnerRewardsLine(result) {
+  const rewards = result?.rewards;
+  if (!rewards) return "";
+  const lines = [];
+  const housePts = Number(rewards.housePointsAmount || 0);
+  const galeoniAmt = Number(rewards.galeoniAmount || 0);
+  if (housePts > 0 && rewards.housePoints?.ok) {
+    lines.push(`<a:VC_Winner:1482535294757507255> **+${housePts} punti casa** alla **${result.houseLabel || result.houseId}**`);
+  } else if (housePts > 0) {
+    lines.push("<:VC_Attention:1482534443632558151> Punti casa non assegnati — controlla i log.");
+  }
+  if (galeoniAmt > 0 && rewards.galeoni?.ok) {
+    lines.push(`<a:VC_Winner:1482535294757507255> **${formatGaleoni(galeoniAmt)}** accreditati al vincitore`);
+  } else if (galeoniAmt > 0 && rewards.galeoni?.code === "duplicate_reward") {
+    lines.push(`<a:VC_Winner:1482535294757507255> **${formatGaleoni(galeoniAmt)}** già accreditati in precedenza`);
+  } else if (galeoniAmt > 0) {
+    lines.push("<:VC_Attention:1482534443632558151> Galeoni non accreditati — controlla i log.");
+  }
+  return lines.length ? `\n${lines.join("\n")}` : "";
+}
+
 function buildWinnerSuccessEmbed(result, targetUser, client) {
   const cfg = resolveHogwartsEventConfig(client);
+  const roundLine = result.roundLabel || result.roundId ? `Round: **${result.roundLabel || result.roundId}**\n` : "";
   return new EmbedBuilder()
     .setColor("#2d6a4f")
     .setTitle("Sezione proibita")
     .setDescription(
       [
-        `${targetUser} (\`${targetUser.id}\`) è ora vincitore per **${result.houseLabel || result.houseId}**.`,
+        roundLine + `${targetUser} (\`${targetUser.id}\`) è ora vincitore per **${result.houseLabel || result.houseId}**.`,
+        formatWinnerRewardsLine(result),
         "",
-        `Vincitori (**${result.winners.length}/${FORBIDDEN_MAX_WINNERS}**):`,
+        `Vincitori round (**${result.winners.length}/${FORBIDDEN_MAX_WINNERS}**):`,
         formatForbiddenWinnersList(result.winners, cfg),
         result.closed
-          ? "\n<:vegacheckmark:1443666279058772028> Evento **chiuso** (entrambi i vincitori assegnati)."
+          ? "\n<:vegacheckmark:1443666279058772028> Round **chiuso** (entrambi i vincitori assegnati)."
           : "\nPuoi assegnare ancora **un** vincitore di un'altra casa.",
       ].join("\n"),
     );

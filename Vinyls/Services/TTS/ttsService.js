@@ -157,16 +157,28 @@ function shouldHandleMessage(message, config, prefix) {
 /** Canale vocale per leggere il messaggio: se sei in duo ma scrivi nella chat di lounge, usa duo. */
 function resolveTtsVoiceChannel(message) {
   const memberVoice = message.member?.voice?.channel ?? null;
+  if (!memberVoice) return null;
   if (message.channel.isVoiceBased?.() && !message.channel.isThread?.()) {
-    if (memberVoice && String(memberVoice.id) !== String(message.channel.id)) return memberVoice;
+    if (String(memberVoice.id) !== String(message.channel.id)) return memberVoice;
     return message.channel;
   }
   if (message.channel.isThread?.() && message.channel.parent?.isVoiceBased?.()) {
     const parent = message.channel.parent;
-    if (memberVoice && String(memberVoice.id) !== String(parent.id)) return memberVoice;
+    if (String(memberVoice.id) !== String(parent.id)) return memberVoice;
     return parent;
   }
   return memberVoice;
+}
+
+async function authorIsInVoiceChannel(message, voiceChannel) {
+  if (!message?.author?.id || !voiceChannel?.id) return false;
+  let member = message.member;
+  if (!member?.voice && message.guild) {
+    member = await getGuildMemberCached(message.guild, message.author.id).catch(() => null);
+  }
+  const authorVoiceId = member?.voice?.channel?.id ?? member?.voice?.channelId ?? null;
+  if (!authorVoiceId) return false;
+  return String(authorVoiceId) === String(voiceChannel.id);
 }
 
 function sanitizeText(text) {
@@ -890,6 +902,15 @@ async function handleTtsBotVoiceMove({ voiceChannel, oldChannelId }) {
   clearLockedChannel(guildId, oldId);
   setLockedChannel(guildId, newId);
   await saveVoiceState(guildId, newId, String(voiceChannel.client?.user?.id || ""));
+  const { startVoiceContinuousCapture } = require("../Voice/voiceContinuousCaptureService");
+  await startVoiceContinuousCapture({
+    guildId,
+    voiceChannel,
+    client: voiceChannel.client,
+    botUserId: voiceChannel.client?.user?.id,
+  }).catch((err) => {
+    global.logger?.warn?.("[TTS] voice capture move restart:", err?.message || err);
+  });
   return { ok: true };
 }
 function sleep(ms) {
@@ -1154,6 +1175,15 @@ async function joinTtsChannel(voiceChannel) {
     return null;
   });
   if (!connection) return { ok: false, reason: "join_failed" };
+  const { startVoiceContinuousCapture } = require("../Voice/voiceContinuousCaptureService");
+  await startVoiceContinuousCapture({
+    guildId: voiceChannel.guild.id,
+    voiceChannel,
+    client: voiceChannel.client,
+    botUserId: voiceChannel.client?.user?.id,
+  }).catch((err) => {
+    global.logger?.warn?.("[TTS] voice capture start:", err?.message || err);
+  });
   return { ok: true };
 }
 
@@ -1207,6 +1237,8 @@ function cleanupAllTtsStateForGuild(guildId) {
 }
 
 async function leaveTtsGuild(guildId, client) {
+  const { stopVoiceContinuousCapture } = require("../Voice/voiceContinuousCaptureService");
+  await stopVoiceContinuousCapture(guildId, client).catch(() => null);
   markTtsVoiceDisconnectSuppress(guildId);
   clearTtsPostJoinVoiceGrace(guildId);
   let lockedChannelId = getLockedChannelId(guildId);
@@ -1326,6 +1358,7 @@ async function enqueueTtsMessageFromHistory(message, client, voiceChannel, state
   const config = client?.config;
   if (!message || !client || !voiceChannel || !state) return;
   if (!shouldHandleMessage(message, config, prefix)) return;
+  if (!(await authorIsInVoiceChannel(message, voiceChannel))) return;
   const includeUsername = booleanFromConfig(config?.tts?.includeUsername, false);
   await hydrateUserTtsLangForUser(message.author?.id);
   const lang = getUserTtsLang(message.author?.id) || config?.tts?.lang || "it";
@@ -1434,18 +1467,125 @@ function clearGuildTtsLock(guildId) {
   guildLocks.delete(String(guildId));
 }
 
-module.exports = {
-  handleTtsMessage,
-  armTtsChannel,
-  joinTtsChannel,
-  leaveTtsGuild,
-  setTtsLockedChannel,
-  clearGuildTtsLock,
-  setUserTtsLang,
-  getUserTtsLang,
-  hydrateUserTtsLangForUser,
-  restoreTtsConnections,
-  handleTtsBotVoiceMove,
-  isTtsPostJoinVoiceGraceActive,
-  purgeTtsVoicePersistence,
-};
+function getTtsReturnChannelIdForGuild(guildId) {
+  if (guildId == null) return null;
+  const gid = String(guildId);
+  return getLockedChannelId(gid) || findLockedChannelIdByGuild(gid) || null;
+}
+
+function snapshotTtsQueueForGuild(guildId, channelId) {
+  const cid = String(channelId || getTtsReturnChannelIdForGuild(guildId) || "").trim();
+  if (!cid) return [];
+  const state = ttsStates.get(cid);
+  if (!state?.queue?.length) return [];
+  return state.queue
+    .map((item) => ({
+      text: String(item?.text || "").trim(),
+      lang: String(item?.lang || "it").trim() || "it",
+    }))
+    .filter((item) => item.text);
+}
+
+async function suspendTtsVoiceForAfkProbe(client, guildId) {
+  const gid = String(guildId || "").trim();
+  if (!gid) return { active: false };
+  const channelId = getTtsReturnChannelIdForGuild(gid);
+  const conn = getVoiceConnection(gid);
+  const activeChannelId = String(channelId || conn?.joinConfig?.channelId || "").trim();
+  if (!activeChannelId && !conn) return { active: false };
+
+  const { stopVoiceContinuousCapture } = require("../Voice/voiceContinuousCaptureService");
+  await stopVoiceContinuousCapture(gid, client).catch(() => null);
+
+  const state = ttsStates.get(activeChannelId);
+  if (state?.connection) {
+    markTtsVoiceDisconnectSuppress(gid);
+    destroyVoiceConnectionSafe(state.connection);
+    state.connection = null;
+  }
+  if (state) state.playing = false;
+  return { active: true, channelId: activeChannelId };
+}
+
+async function resumeTtsVoiceAfterAfkProbe(client, guildId, channelId, queueSnapshot) {
+  const gid = String(guildId || "").trim();
+  const cid = String(channelId || "").trim();
+  if (!gid || !cid || !client) return false;
+  const channel = await getClientChannelCached(client, cid).catch(() => null);
+  if (!channel?.isVoiceBased?.()) return false;
+  const joined = await joinTtsChannel(channel);
+  if (!joined?.ok) return false;
+  const state = getState(channel);
+  const items = Array.isArray(queueSnapshot) ? queueSnapshot : [];
+  for (const item of items) {
+    const text = String(item?.text || "").trim();
+    if (!text) continue;
+    const lang = String(item?.lang || "it").trim() || "it";
+    state.queue.push({ voiceChannel: channel, text, lang });
+  }
+  if (!state.playing && state.queue.length) playNext(state);
+  return true;
+}
+
+function resolveDefaultTtsLang(client) {
+  const raw = String(client?.config?.tts?.lang || client?.config?.voiceClip?.language || "it").trim().toLowerCase();
+  return raw.split("-")[0] || "it";
+}
+
+async function playOneShotTtsOnConnection(connection, text, lang = "it") {
+  const phrase = String(text || "").trim();
+  if (!connection || !phrase) return false;
+
+  const tmpPath = path.resolve(
+    os.tmpdir(),
+    `tts_oneshot_${Date.now()}_${Math.random().toString(36).slice(2)}.mp3`,
+  );
+  const player = createAudioPlayer();
+  let subscribed = false;
+  try {
+    const buffer = await createTtsBuffer(phrase, lang);
+    if (!buffer || buffer.length === 0) return false;
+    fs.writeFileSync(tmpPath, buffer);
+    connection.subscribe(player);
+    subscribed = true;
+    const ffmpegArgs = [
+      "-analyzeduration", "0", "-loglevel", "0", "-i", tmpPath,
+      "-f", "s16le", "-ar", "48000", "-ac", "2",
+    ];
+    const transcoder = new prism.FFmpeg({
+      args: ffmpegArgs,
+      shell: false,
+      command: ffmpegStatic || "ffmpeg",
+    });
+    const resource = createAudioResource(transcoder, {
+      inputType: StreamType.Raw,
+      inlineVolume: false,
+    });
+    await new Promise((resolve, reject) => {
+      const done = (err) => {
+        player.removeListener(AudioPlayerStatus.Idle, onIdle);
+        player.removeListener("error", onError);
+        if (err) reject(err);
+        else resolve();
+      };
+      const onIdle = () => done(null);
+      const onError = (err) => done(err);
+      player.once(AudioPlayerStatus.Idle, onIdle);
+      player.once("error", onError);
+      player.play(resource);
+    });
+    return true;
+  } catch (err) {
+    logTtsPlayFailure(err);
+    return false;
+  } finally {
+    if (subscribed) {
+      try {
+        player.stop();
+      } catch (_) {}
+    }
+    safeUnlinkTtsFile(tmpPath);
+  }
+}
+
+module.exports = { handleTtsMessage, armTtsChannel, joinTtsChannel, leaveTtsGuild, setTtsLockedChannel, clearGuildTtsLock, setUserTtsLang, getUserTtsLang, hydrateUserTtsLangForUser, restoreTtsConnections, handleTtsBotVoiceMove, isTtsPostJoinVoiceGraceActive, purgeTtsVoicePersistence, getTtsReturnChannelIdForGuild, snapshotTtsQueueForGuild, suspendTtsVoiceForAfkProbe, resumeTtsVoiceAfterAfkProbe, resolveDefaultTtsLang, playOneShotTtsOnConnection };
