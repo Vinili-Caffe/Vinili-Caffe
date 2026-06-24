@@ -352,6 +352,24 @@ async function hasFourStarSiteReview(guildId, userId) {
   return Boolean(doc);
 }
 
+async function loadFourStarSiteReviewUserIds(guildId, userIds) {
+  const ids = [...new Set((Array.isArray(userIds) ? userIds : []).map((uid) => String(uid || "").trim()).filter(Boolean))];
+  if (!ids.length) return new Set();
+  const docs = await SiteDocument.find({
+    docType: "review",
+    guildId: String(guildId),
+    reviewKind: "server",
+    createdBy: "site",
+    provider: { $in: ["", null] },
+    userId: { $in: ids },
+    rating: { $gte: 4 },
+  })
+    .select("userId")
+    .lean()
+    .catch(() => []);
+  return new Set(docs.map((doc) => String(doc?.userId || "").trim()).filter(Boolean));
+}
+
 function isMemberOnlineForSupportCheck(member) {
   const status = String(member.presence?.status || "");
   return Boolean(status) && !["offline", "invisible"].includes(status);
@@ -393,7 +411,7 @@ function shouldRemoveSupportAutoValutazione(member) {
 }
 
 
-async function syncPersistentAutoValutazioniForMember(member) {
+async function syncPersistentAutoValutazioniForMember(member, context = {}) {
   if (!member?.guild || member.user?.bot) return;
   if (MAIN_GUILD_ID && String(member.guild.id) !== MAIN_GUILD_ID) return;
   if (!isStaffMember(member)) return;
@@ -422,7 +440,10 @@ async function syncPersistentAutoValutazioniForMember(member) {
   }
 
   const reviewKey = "recensione_sito_4_stelle";
-  if (await hasFourStarSiteReview(member.guild.id, member.id)) {
+  const hasReview = context.reviewUserIds instanceof Set
+    ? context.reviewUserIds.has(String(member.id))
+    : await hasFourStarSiteReview(member.guild.id, member.id);
+  if (hasReview) {
     await ensureAutoValutazione(member.guild, member, reviewKey, "positive", "Mette una recensione sul nostro sito.");
   } else {
     await removeAutoValutazione(member.guild, member.id, reviewKey);
@@ -436,23 +457,36 @@ async function syncWeeklyAutoValutazioniForMember(member, now = new Date()) {
   void now;
 }
 
-async function fetchMainGuildStaffMembers(client, withPresences = false) {
+async function fetchMainGuildStaffMembers(client, options = {}) {
+  const withPresences = options.withPresences === true;
+  const preferCache = options.preferCache === true;
   const guild = client?.guilds?.cache?.get(MAIN_GUILD_ID) || (await client?.guilds?.fetch?.(MAIN_GUILD_ID).catch(() => null));
   if (!guild) return [];
-  const members = await guild.members.fetch({ withPresences, force: false }).catch(() => guild.members.cache);
+  if (preferCache) {
+    return [...guild.members.cache.values()].filter(isStaffMember);
+  }
+  const members = withPresences
+    ? await guild.members.fetch({ withPresences: true, force: false }).catch(() => guild.members.cache)
+    : await guild.members.fetch({ force: false }).catch(() => guild.members.cache);
   return [...members.values()].filter(isStaffMember);
 }
 
-async function syncAllStaffAutoValutazioni(client) {
-  const members = await fetchMainGuildStaffMembers(client, true);
+async function syncAllStaffAutoValutazioni(client, options = {}) {
+  const members = await fetchMainGuildStaffMembers(client, {
+    withPresences: false,
+    preferCache: options.preferCache === true,
+  });
+  const reviewUserIds = await loadFourStarSiteReviewUserIds(MAIN_GUILD_ID, members.map((member) => member.id));
+  const context = { reviewUserIds };
   for (const member of members) {
-    await syncPersistentAutoValutazioniForMember(member).catch((err) => {
+    await syncPersistentAutoValutazioniForMember(member, context).catch((err) => {
       global.logger?.warn?.("[STAFF AUTO VALUTAZIONI] persistent sync failed:", member.id, err?.message || err);
     });
     await syncWeeklyAutoValutazioniForMember(member).catch((err) => {
       global.logger?.warn?.("[STAFF AUTO VALUTAZIONI] weekly sync failed:", member.id, err?.message || err);
     });
   }
+  return members.length;
 }
 
 async function runStaffAutoValutazioniSyncLocked(client, source = "loop") {
@@ -462,15 +496,16 @@ async function runStaffAutoValutazioniSyncLocked(client, source = "loop") {
   }
   autoValutazioniSyncRunning = true;
   const startedAt = Date.now();
+  let memberCount = 0;
   try {
-    await syncAllStaffAutoValutazioni(client);
+    memberCount = await syncAllStaffAutoValutazioni(client, { preferCache: source === "loop" });
   } catch (err) {
     global.logger?.warn?.(`[STAFF AUTO VALUTAZIONI] ${source} failed:`, err?.message || err);
   } finally {
     const elapsedMs = Date.now() - startedAt;
     autoValutazioniSyncRunning = false;
     if (elapsedMs > 60_000) {
-      global.logger?.warn?.(`[STAFF AUTO VALUTAZIONI] ${source} slow sync: ${elapsedMs}ms.`);
+      global.logger?.warn?.(`[STAFF AUTO VALUTAZIONI] ${source} slow sync: ${elapsedMs}ms (${memberCount} staff).`);
     }
   }
 }
@@ -562,7 +597,7 @@ async function finishSerataFilmSession(event) {
   const now = Date.now();
   for (const uid of [...session.presentSince.keys()]) closeAttendance(session, uid, now);
   const evalDateUtc = serataFilmEvalDateUtc(session);
-  const staffMembers = await fetchMainGuildStaffMembers(guild.client, false);
+  const staffMembers = await fetchMainGuildStaffMembers(guild.client, { preferCache: true });
   const pausesByUserId = await loadStaffPausesByUserId(guild.id, staffMembers.map((member) => member.id));
   for (const member of staffMembers) {
     const pauses = pausesByUserId.get(String(member.id)) || [];

@@ -1,4 +1,6 @@
 const Ticket = require("../../Schemas/Ticket/ticketSchema");
+const IDs = require("../../Utils/Config/ids");
+const { getPartnerDescriptionTextOrSync } = require("../../Services/Partner/partnerDescriptionSyncService");
 
 function _stripRef(p) {
   if (!p || typeof p !== "object") return p;
@@ -35,21 +37,6 @@ module.exports = {
 
   async execute(message, args = []) {
     await message.channel.sendTyping();
-    const descriptionText = [
-      "## 𓂃 [Benvenuti su ⟢ ``📀`` Vinili  & Caffè! ``☕``](<https://discord.gg/viniliecaffe>)",
-      "**⊹  | ** `🫂` **__Community attiva e accogliente__** ୧",
-      "　✨ Una community, **chill** e **non toxic**, per __divertirsi__ e __conoscere__ nuove persone!",
-      "**⊹  | ** `🔈` **__Chat vocali & testuali attive!__** ୧",
-      "　💬 Chat **attive** per parlare di __ciò che preferisci__, **minigames** e tante **funzionalità** grazie ai __nostri bot__!",
-      "**⊹  | ** `🛠️` **__Candidature STAFF aperte!__** ୧",
-      "　💼 Ogni mese il __miglior__ staffer viene **ricompensato** con un **Nitro Boost**!",
-      "**⊹  | ** `🤝` **__Candidature PARTNER MANAGER aperte!__** ୧",
-      "　💎 Ricompensiamo i nostri **Partner Manager** con **Nitro Boost** e **ricompense**!",
-      "",
-      "**⊹  | ** `🎉` **__EVENTO STAGIONALE A TEMA HARRY POTTER__** ୧",
-      "🎁 __Ogni mese__ in palio **Nitro Boost**, **decorazione a scelta** (2°) e **VIP+** (3°). Ogni **sabato sera** un film da guardare __tutti insieme__!",
- 
-    ].join("\n");
     if (!message.inGuild?.() || !message.guild || !message.member) return;
 
     const ticketDoc=await Ticket.findOne({channelId:message.channel.id,open:true,}).lean().catch(() => null);
@@ -57,6 +44,15 @@ module.exports = {
       return _reply(
         message,
         "<:vegax:1443934876440068179> Questo comando può essere usato **solo in un canale ticket aperto**.",
+      );
+    }
+
+    const descriptionText = await getPartnerDescriptionTextOrSync(message.client);
+    if (!descriptionText) {
+      const channelHint = IDs.channels?.descriptionPartner ? `<#${IDs.channels.descriptionPartner}>` : "descrizione partner";
+      return _reply(
+        message,
+        `<:vegax:1443934876440068179> Nessuna descrizione disponibile in ${channelHint}. Aggiungi o aggiorna il messaggio nel canale.`,
       );
     }
 

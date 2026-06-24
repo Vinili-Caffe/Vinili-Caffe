@@ -2,6 +2,7 @@ const { InteractionType } = require("discord.js");
 const{handleAutocomplete,handleSlashCommand,}=require("./interaction/commandHandlers");
 const { handleButtonInteraction } = require("./interaction/buttonHandlers");
 const { handlePartnerModal } = require("./interaction/partnerModal");
+const { handlePartnerPointContextModal } = require("./interaction/partnerPointContextHandlers");
 const { handleCustomRoleInteraction } = require("./interaction/customRoleHandlers");
 const{acquireButtonSpamGuard,runPermissionGate,}=require("../Utils/Interaction/interactionRuntimeGuards");
 const{logInteractionError,}=require("../Utils/Interaction/interactionErrorHandler");
@@ -91,6 +92,7 @@ module.exports = {
       const allowedByGate = await runPermissionGate(interaction);
       if (!allowedByGate) return;
 
+      if (await handlePartnerPointContextModal(interaction)) return;
       if (await handlePartnerModal(interaction)) return;
       if (await handleCustomRoleInteraction(interaction)) {
         await refreshProfilePanelIfPresent(interaction, resolvedClient);

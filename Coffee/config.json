@@ -87,18 +87,18 @@
     "maxStickersPerChannel": 200,
     "stickerChance": 0.25,
     "collectPrefixMessages": true,
-    "commandStyleEnabled": true,
-    "commandStyleChance": 0.2,
+    "commandStyleEnabled": false,
+    "commandStyleChance": 0,
     "vinylsStylePrefix": "+",
     "autoSend": {
       "enabled": true,
       "outputChannelId": "1442569130573303898",
-      "minMessagesBetween": 1,
-      "maxMessagesBetween": 20,
+      "minMessagesBetween": 12,
+      "maxMessagesBetween": 28,
       "minCorpusLines": 30,
       "minCorpusImages": 5,
       "minCorpusStickers": 3,
-      "minSendGapMs": 10000,
+      "minSendGapMs": 45000,
       "channelCooldownMs": 45000,
       "imageChance": 0.35,
       "stickerChance": 0.25,
@@ -109,8 +109,8 @@
       "allowImageOnly": false,
       "allowStickerOnly": false,
       "preventBackToBackImages": true,
-      "commandStyleEnabled": true,
-      "commandStyleChance": 0.2
+      "commandStyleEnabled": false,
+      "commandStyleChance": 0
     }
   }
 }

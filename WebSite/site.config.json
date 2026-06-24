@@ -34,6 +34,7 @@
   "voteApiUrlLocal": "http://127.0.0.1:3042/webhooks/site-vote",
   "siteNotificationsApiUrl": "/webhooks/site-notifications",
   "siteNotificationsApiUrlLocal": "http://127.0.0.1:3042/webhooks/site-notifications",
+  "siteNotificationsWsEnabled": true,
   "suggestionsApiUrl": "/webhooks/site-suggestions",
   "suggestionsApiUrlLocal": "http://127.0.0.1:3042/webhooks/site-suggestions",
   "rolesApiUrl": "/webhooks/site-roles",

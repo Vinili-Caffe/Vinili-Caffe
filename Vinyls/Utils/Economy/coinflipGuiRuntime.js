@@ -1,7 +1,7 @@
 const { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const { buildImageButtonPayload } = require("./guiPanelPayload");
-const { formatGaleoni } = require("../../Services/Community/gringottService");
-const { economyConfig, playCoinflip } = require("../../Services/Community/galeoniEconomyService");
+const { formatCurrency } = require("../../Services/Community/serverWalletService");
+const { economyConfig, playCoinflip } = require("../../Services/Community/serverEconomyService");
 const { normalizeCoinChoice, sideLabel } = require("./coinflipEngine");
 const PREFIX = "coinflip_gui";
 const SESSION_TTL_MS = 10 * 60 * 1000;
@@ -194,7 +194,7 @@ function scheduleCoinflipIdlePanel(message, session, cfg, notice = "", disabled 
 
 function formatCoinflipNotice(result) {
   if (!result?.ok) return "";
-  if (result.win) return `🏆 **${sideLabel(result.result.player)}** — esce **${sideLabel(result.result.flip)}**. Hai vinto **${formatGaleoni(result.payout)}**.`;
+  if (result.win) return `🏆 **${sideLabel(result.result.player)}** — esce **${sideLabel(result.result.flip)}**. Hai vinto **${formatCurrency("caffe",result.payout)}**.`;
   return `<a:VC_Cross:1482532424570376253> **${sideLabel(result.result.player)}** — esce **${sideLabel(result.result.flip)}**. Hai perso.\n<a:VC_pixeltime:1482535344103620771> Puoi rigiocare quando il cooldown lo permette.`;
 }
 

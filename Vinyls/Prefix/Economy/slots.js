@@ -1,5 +1,5 @@
 const { formatGaleoni } = require("../../Services/Community/gringottService");
-const { assertEconomyGamblingAccess, flushSlotsGuiPendingBank } = require("../../Services/Community/galeoniEconomyService");
+const { assertEconomyGamblingAccess, flushSlotsGuiPendingBank } = require("../../Services/Community/serverEconomyService");
 const { buildSlotsGuiPayload, clampBet, formatSlotsSpinNotice, getSession, makeSession, scheduleSlotsIdlePanel, setSession, spinSession, warmupSlotsPanel } = require("../../Utils/Economy/slotsGuiRuntime");
 const { postGuiPanel, replyDeny, runEconomyPanelCommand } = require("../../Utils/Economy/economyCommandHelpers");
 

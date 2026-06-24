@@ -5,6 +5,23 @@
                 "roles.PartnerManager"
             ]
         },
+        "segnala": {
+            "roles": [
+                "roles.SeniorModerator",
+                "roles.Director"
+            ],
+            "channels": [
+                "channels.partnerships"
+            ]
+        },
+        "rimuovi": {
+            "roles": [
+                "roles.HighStaff"
+            ],
+            "channels": [
+                "channels.partnerships"
+            ]
+        },
         "giveaway": {
             "roles": [
                 "roles.HighStaff"
@@ -749,9 +766,7 @@
                 "roles.PartnerManager"
             ],
             "channels": [
-                "channels.highCmds",
-                "channels.staffCmds",
-                "channels.partnersChat"
+                "channels.staffCmdsPmThread"
             ]
         },
         "server": {
@@ -1532,8 +1547,21 @@
         "error_unsolved": {
             "permissions": "Administrator"
         },
+        "comandi": [
+            "roles.Staff"
+        ],
         "generalimoderazione": [
             "roles.Staff"
+        ],
+        "guidamiddle": [
+            "roles.SeniorModerator",
+            "roles.Director",
+            "roles.HighStaff"
+        ],
+        "guidapartners": [
+            "roles.PartnerManager",
+            "roles.Director",
+            "roles.HighStaff"
         ],
         "help_next_*": [
             "roles.Member"
@@ -1580,8 +1608,19 @@
         "limiti": [
             "roles.Staff"
         ],
+        "lineeguida": [
+            "roles.Staff"
+        ],
         "metodi": [
             "roles.Member"
+        ],
+        "middle_*": [
+            "roles.SeniorModerator",
+            "roles.Director",
+            "roles.HighStaff"
+        ],
+        "moderazione_staff": [
+            "roles.Staff"
         ],
         "minigame_*": [
             "roles.Member"

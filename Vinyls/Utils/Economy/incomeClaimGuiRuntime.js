@@ -1,7 +1,7 @@
 const { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const { buildImageButtonPayload } = require("./guiPanelPayload");
-const { formatGaleoni } = require("../../Services/Community/gringottService");
-const { claimFixed, claimWork, formatDuration, peekFixedClaim, peekWorkClaim } = require("../../Services/Community/galeoniEconomyService");
+const { formatEconomyAmount } = require("./economyDisplayHelpers");
+const { claimFixed, claimWork, formatDuration, peekFixedClaim, peekWorkClaim } = require("../../Services/Community/serverEconomyService");
 
 const PREFIX = "income_gui";
 const SESSION_TTL_MS = 8 * 60 * 1000;
@@ -11,7 +11,7 @@ const TYPE_LABELS = {
   daily: { title: "Ricompensa giornaliera", cmd: "+daily", emoji: "☀️", claimLabel: "Riscuoti" },
   weekly: { title: "Ricompensa settimanale", cmd: "+weekly", emoji: "📅", claimLabel: "Riscuoti" },
   monthly: { title: "Ricompensa mensile", cmd: "+monthly", emoji: "🌙", claimLabel: "Riscuoti" },
-  work: { title: "Turno di lavoro", cmd: "+work", emoji: "⚗️", claimLabel: "Lavora" },
+  work: { title: "Turno di lavoro", cmd: "+work", emoji: "💼", claimLabel: "Lavora" },
 };
 
 function now() {
@@ -216,12 +216,12 @@ function formatClaimNotice(result, incomeType) {
   if (!result?.ok) return "";
   const meta = TYPE_LABELS[incomeType] || TYPE_LABELS.daily;
   const bonus = result.bonusAmount > 0
-    ? ` (base ${formatGaleoni(result.baseAmount)} + bonus ${formatGaleoni(result.bonusAmount)})`
+    ? ` (base ${formatEconomyAmount(result.baseAmount)} + bonus ${formatEconomyAmount(result.bonusAmount)})`
     : "";
   if (incomeType === "work") {
-    return `<a:VC_Verified:1482532479637127188> Turno completato: **${formatGaleoni(result.amount)}**${bonus} — streak **x${result.streak?.count || 1}**.`;
+    return `<a:VC_Verified:1482532479637127188> Turno completato: **${formatEconomyAmount(result.amount)}**${bonus} — streak **x${result.streak?.count || 1}**.`;
   }
-  return `<a:VC_Verified:1482532479637127188> **${meta.title}** riscossa: **${formatGaleoni(result.amount)}**${bonus} — streak **x${result.streak?.count || 1}**.`;
+  return `<a:VC_Verified:1482532479637127188> **${meta.title}** riscossa: **${formatEconomyAmount(result.amount)}**${bonus} — streak **x${result.streak?.count || 1}**.`;
 }
 
 module.exports = {

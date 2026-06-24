@@ -1,7 +1,7 @@
 const { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const { buildImageButtonPayload } = require("./guiPanelPayload");
-const { formatGaleoni } = require("../../Services/Community/gringottService");
-const { economyConfig, payBlackjackWin, playBlackjackBet } = require("../../Services/Community/galeoniEconomyService");
+const { formatCurrency } = require("../../Services/Community/serverWalletService");
+const { economyConfig, payBlackjackWin, playBlackjackBet } = require("../../Services/Community/serverEconomyService");
 const { compareOutcome, dealerShouldHit, drawCard, freshShoe, handLabel, handValue, isNaturalBlackjack, payoutMultiplier } = require("./blackjackEngine");
 const PREFIX = "blackjack_gui";
 const SESSION_TTL_MS = 10 * 60 * 1000;
@@ -112,9 +112,9 @@ async function renderPanel(session, cfg) {
   const hideDealerHole = session.hideDealerHole && session.phase !== "done";
   let resultLabel = "";
   if (session.phase === "done" && last) {
-    if (last.outcome === "blackjack") resultLabel = `Blackjack! +${formatGaleoni(last.payout)}`;
-    else if (last.outcome === "win") resultLabel = `Vittoria +${formatGaleoni(last.payout)}`;
-    else if (last.outcome === "push") resultLabel = `Pareggio ${formatGaleoni(last.payout)}`;
+    if (last.outcome === "blackjack") resultLabel = `Blackjack! +${formatCurrency("caffe",last.payout)}`;
+    else if (last.outcome === "win") resultLabel = `Vittoria +${formatCurrency("caffe",last.payout)}`;
+    else if (last.outcome === "push") resultLabel = `Pareggio ${formatCurrency("caffe",last.payout)}`;
     else resultLabel = "Sconfitta";
   }
   try {
@@ -298,10 +298,10 @@ async function doubleHand(client, messageLike, session, cfg) {
 
 function formatRoundNotice(result) {
   if (!result?.ok) return "";
-  if (result.outcome === "blackjack") return `🃏 **Blackjack!** Hai vinto **${formatGaleoni(result.payout)}**.`;
-  if (result.outcome === "win") return `🏆 Hai vinto **${formatGaleoni(result.payout)}**.`;
-  if (result.outcome === "push") return `🤝 Pareggio: ti tornano **${formatGaleoni(result.payout)}**.`;
-  return `<a:VC_Cross:1482532424570376253> Hai perso **${formatGaleoni(result.wager)}**.\n<a:VC_pixeltime:1482535344103620771> Puoi rigiocare quando il cooldown lo permette.`;
+  if (result.outcome === "blackjack") return `🃏 **Blackjack!** Hai vinto **${formatCurrency("caffe",result.payout)}**.`;
+  if (result.outcome === "win") return `🏆 Hai vinto **${formatCurrency("caffe",result.payout)}**.`;
+  if (result.outcome === "push") return `🤝 Pareggio: ti tornano **${formatCurrency("caffe",result.payout)}**.`;
+  return `<a:VC_Cross:1482532424570376253> Hai perso **${formatCurrency("caffe",result.wager)}**.\n<a:VC_pixeltime:1482535344103620771> Puoi rigiocare quando il cooldown lo permette.`;
 }
 
 function resetSessionForNewRound(session) {

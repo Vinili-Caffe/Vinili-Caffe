@@ -1,6 +1,6 @@
 const canvasModule = require("canvas");
 const GIFEncoder = require("gif-encoder-2");
-const { formatGaleoni } = require("../../Services/Community/gringottService");
+const { formatEconomyAmountShort } = require("../Economy/economyDisplayHelpers");
 const { registerCanvasFonts, drawTextWithSpecialFallback } = require("./canvasFonts");
 const { createCanvas } = canvasModule;
 const USE_PNG = String(process.env.VC_ROB_CANVAS_PNG ?? "0").trim() === "1";
@@ -197,14 +197,14 @@ function drawBankBadge(ctx, x, y) {
   drawGaleone(ctx, x + 48, y + 22, 11);
   drawGaleone(ctx, x + 48, y + 36, 10);
   drawPlainText(ctx, "CASSAFORTE", x + 118, y + 16, { size: 10, color: "#a8a29e", weight: "800" });
-  drawPlainText(ctx, "Gringott", x + 118, y + 34, { size: 14, color: "#fef3c7", weight: "800" });
+  drawPlainText(ctx, "Server", x + 118, y + 34, { size: 14, color: "#fef3c7", weight: "800" });
 }
 
 function drawBankVaultMeter(ctx, x, y, w) {
   fillRoundRect(ctx, x - w / 2, y, w, 52, 12, "rgba(15,10,6,0.72)");
   strokeRoundRect(ctx, x - w / 2, y, w, 52, 12, "rgba(212,175,55,0.55)", 2);
   drawPlainText(ctx, "RISERVA", x, y + 14, { size: 10, color: "#a8a29e", weight: "800" });
-  drawPlainText(ctx, "∞ Galeoni", x, y + 34, { size: 16, color: "#f8d875", weight: "900" });
+  drawPlainText(ctx, "Riserva", x, y + 34, { size: 16, color: "#f8d875", weight: "900" });
 }
 
 function drawChanceMeter(ctx, x, y, w, pct) {
@@ -372,8 +372,8 @@ function buildStatus(params) {
   if (params.statusLine) return { right: params.statusLine, color: "#f8d875" };
   if (params.animating) return { right: "Infiltrazione in corso…", color: "#f8d875" };
   if (params.phase === "done" && params.hasResult) {
-    if (params.success) return { right: `Bottino ${formatGaleoni(params.amount)}`, color: "#4ade80" };
-    return { right: `Multa ${formatGaleoni(params.penalty)}`, color: "#f87171" };
+    if (params.success) return { right: `Bottino ${formatEconomyAmountShort(params.amount)}`, color: "#4ade80" };
+    return { right: `Multa ${formatEconomyAmountShort(params.penalty)}`, color: "#f87171" };
   }
   if (params.isBank) return { right: "Cassaforte · premi Colpo", color: "#f8d875" };
   return { right: "Premi Colpo per tentare", color: "#e2e8f0" };
@@ -432,7 +432,7 @@ function drawArena(ctx, params) {
   if (!success) drawThief(ctx, thiefX, vaultCy + 42, progress, params.frameIndex || 0);
   drawCoinScatter(ctx, width, height, success ? "success" : "idle", params.frameIndex || 0);
   const status = buildStatus(params);
-  const leftInfo = params.isBank ? "Furto · Gringott" : `Furto · ${truncateName(params.targetName, 12)}`;
+  const leftInfo = params.isBank ? "Furto · Cassaforte" : `Furto · ${truncateName(params.targetName, 12)}`;
   drawInfoRow(ctx, width, height - 42, leftInfo, status.right, status.color);
 }
 

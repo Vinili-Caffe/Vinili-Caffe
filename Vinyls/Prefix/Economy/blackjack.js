@@ -1,4 +1,4 @@
-const { assertEconomyGamblingAccess } = require("../../Services/Community/galeoniEconomyService");
+const { assertEconomyGamblingAccess } = require("../../Services/Community/serverEconomyService");
 const { buildBlackjackGuiPayload, clampBet, formatRoundNotice, makeSession, setSession, startHand, warmupBlackjackPanel } = require("../../Utils/Economy/blackjackGuiRuntime");
 const { postGuiPanel, replyDeny, runEconomyPanelCommand } = require("../../Utils/Economy/economyCommandHelpers");
 

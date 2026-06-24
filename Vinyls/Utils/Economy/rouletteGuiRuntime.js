@@ -1,7 +1,7 @@
 const { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } = require("discord.js");
 const { buildImageButtonPayload } = require("./guiPanelPayload");
-const { formatGaleoni } = require("../../Services/Community/gringottService");
-const { economyConfig, normalizeRouletteChoice, playRoulette } = require("../../Services/Community/galeoniEconomyService");
+const { formatCurrency } = require("../../Services/Community/serverWalletService");
+const { economyConfig, normalizeRouletteChoice, playRoulette } = require("../../Services/Community/serverEconomyService");
 const PREFIX = "roulette_gui";
 const SESSION_TTL_MS = 10 * 60 * 1000;
 const RENDER_CACHE_MAX = 64;
@@ -31,11 +31,12 @@ function betStep(cfg) {
   return Math.max(1, Math.floor(Number(cfg?.minBet) || 5));
 }
 
-function makeSession({ ownerId, guildId, bet, cfg, choice, isNumber }) {
+function makeSession({ ownerId, guildId, bet, cfg, choice, isNumber, currency }) {
   return {
     ownerId: String(ownerId || ""),
     guildId: String(guildId || ""),
     bet: clampBet(bet, cfg),
+    currency: currency === "vinili" ? "vinili" : "caffe",
     choice: String(choice || "").trim().toLowerCase(),
     isNumber: Boolean(isNumber),
     lastResult: null,
@@ -297,7 +298,7 @@ async function pushRouletteSpinGif(message, session, cfg, spinNotice, finalNotic
 function formatRouletteSpinNotice(result) {
   if (!result?.ok) return "";
   const spin = result.result || {};
-  if (result.win) return `🏆 È uscito **${spin.number} ${spin.color}** — hai vinto **${formatGaleoni(result.payout)}**.`;
+  if (result.win) return `🏆 È uscito **${spin.number} ${spin.color}** — hai vinto **${formatCurrency(result.currency || "caffe", result.payout)}**.`;
   return `<a:VC_Cross:1482532424570376253> È uscito **${spin.number} ${spin.color} (${spin.evenOdd})**.\n<a:VC_pixeltime:1482535344103620771> Puoi rigiocare quando il cooldown lo permette.`;
 }
 
@@ -327,7 +328,7 @@ function interactionMessageAdapter(interaction) {
 
 async function spinRouletteSession(client, messageLike, session) {
   if (!session.choice) return { ok: false, message: "Scegli prima una puntata (rosso, nero, pari, dispari o numero)." };
-  const result = await playRoulette(client, messageLike, String(session.bet), session.choice);
+  const result = await playRoulette(client, messageLike, String(session.bet), session.choice, session.currency || "caffe");
   if (!result.ok) return { ok: false, message: result.message };
   session.lastResult = result;
   session.updatedAt = now();

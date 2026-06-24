@@ -2,11 +2,10 @@ const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const profileButton = require("../../Buttons/profile");
 const IDs = require("../../Utils/Config/ids");
 const { buildStaffProfilePayload, SECTION_HOME } = require("../../Utils/Staff/staffProfilePanelRuntime");
-
-const PROFILE_STAFF_PM_ONLY_CHANNEL_ID = "1495544523848286340";
-const PROFILE_STAFF_PROFILE_CHANNEL_IDS = new Set(
-  [IDs.channels?.staffCmds, IDs.channels?.highCmds].filter(Boolean).map(String),
-);
+const {
+  isChannelOrThreadUnderStaffCmds,
+  isStaffCmdsPmCommandsThread,
+} = require("../../Utils/Staff/staffCmdsChannelUtils");
 
 async function resolveTargetUser(message, args = []) {
   const mentioned = message?.mentions?.users?.first?.();
@@ -60,11 +59,10 @@ module.exports = {
       });
       return;
     }
-    const channelId = String(message.channel?.id || "");
     const targetMember = await message.guild.members.fetch(targetUser.id).catch(() => null);
     const targetHasPm = Boolean(IDs.roles?.PartnerManager && targetMember?.roles?.cache?.has(IDs.roles.PartnerManager));
 
-    if (channelId === PROFILE_STAFF_PM_ONLY_CHANNEL_ID) {
+    if (await isStaffCmdsPmCommandsThread(message.channel)) {
       if (!targetHasPm) {
         await upsertProfileReply(message, {
           content: "<:VC_Attention:1482534443632558151> Qui `+profile` mostra solo profili **Partner Manager**.",
@@ -83,7 +81,7 @@ module.exports = {
       return;
     }
 
-    if (PROFILE_STAFF_PROFILE_CHANNEL_IDS.has(channelId)) {
+    if (isChannelOrThreadUnderStaffCmds(message.channel)) {
       const staffPayload = await buildStaffProfilePayload(
         message.guild,
         targetUser.id,

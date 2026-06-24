@@ -25,7 +25,8 @@ const { isValidGuildUserId } = require("../Utils/DB/validateWriteIds");
 const { shouldSendPublicMemberAnnouncement, normalVerificationCompletedBetween } = require("../Utils/Community/memberPublicAnnouncementGate");
 const { runDeferredJoinAnnouncements } = require("./guildMemberAdd");
 const { handlePreMemberRoleOnMemberUpdate } = require("../Utils/Community/preMemberRoleService");
-const { syncPartnerPmThreadForMemberChange } = require("../Services/Partner/partnerPmDailyThreadService");
+const { syncStaffChatThreadsForMemberChange } = require("../Services/Staff/staffChatThreadsService");
+const { syncStaffCmdsThreadsForMemberChange } = require("../Services/Staff/staffCmdsThreadsService");
 const { autoUnclaimOpenTicketsClaimedByUser } = require("../Utils/Ticket/ticketAutoUnclaimOnStaffLoss");
 const sponsorVerifiedRequiresMain = require("../Services/Community/sponsorVerifiedRequiresMainService");
 const { syncMutedMirrorRoleFromMemberUpdate, memberIsInMuteMirrorState } = require("../Services/Moderation/mutedMirrorRoleService");
@@ -2321,7 +2322,8 @@ module.exports = {
           });
         }
       }
-      await syncPartnerPmThreadForMemberChange(oldMember, newMember).catch(() => { });
+      await syncStaffCmdsThreadsForMemberChange(oldMember, newMember).catch(() => { });
+      await syncStaffChatThreadsForMemberChange(oldMember, newMember).catch(() => { });
       await sponsorVerifiedRequiresMain
         .handleGuildMemberUpdate(oldMember, newMember, client)
         .catch((err) => {

@@ -59,6 +59,13 @@ async function run(client) {
       .setStyle(ButtonStyle.Link)
       .setURL("https://viniliecaffe.it/perks"),
   );
+  const row2 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+    .setLabel("︲CANDIDATURE")
+    .setEmoji("<:VC_Collab:1482534540089098260>")
+    .setStyle(ButtonStyle.Link)
+    .setURL("https://viniliecaffe.it/candidature"),
+  );
 
   const infoSecondText = [
     "## <:VC_PurpleFlower:1469463879149944943> **Sblocca dei vantaggi, permessi e ruoli:**",
@@ -140,7 +147,7 @@ async function run(client) {
     staleIds.push(mid);
   }
   for (const staleId of staleIds) {
-    await channel.messages.fetch(staleId).then((m) => m.delete()).catch(() => {});
+    await channel.messages.fetch(staleId).then((m) => m.delete()).catch(() => { });
   }
 
   const msgGif = normalizedGifId
@@ -163,12 +170,12 @@ async function run(client) {
       messageId: normalizedPrimaryId,
       content: "",
       embeds: [infoEmbedPrimary],
-      components: [row1],
+      components: [row1, row2],
     })
     : await channel.send({
       content: "",
       embeds: [infoEmbedPrimary],
-      components: [row1],
+      components: [row1, row2],
     }).catch(() => null);
 
   if (msgGif?.id || msgPanel?.id) {
@@ -181,7 +188,7 @@ async function run(client) {
           infoMessageId2: null,
         },
       },
-    ).catch(() => {});
+    ).catch(() => { });
   }
 }
 

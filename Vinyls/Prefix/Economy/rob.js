@@ -1,9 +1,7 @@
-const { assertEconomyAccess } = require("../../Services/Community/galeoniEconomyService");
-const { assertRobberHasBroom } = require("../../Services/Community/hogwartsShopBoostsService");
+const { assertServerEconomyAccess, economyConfig, parseCurrencyArg, defaultBetCurrency } = require("../../Services/Community/serverEconomyService");
 const {
   attemptRob,
   buildRobGuiPayload,
-  economyConfig,
   extractUserId,
   getSession,
   makeSession,
@@ -18,28 +16,27 @@ module.exports = {
   name: "rob",
   aliases: ["ruba"],
   allowEmptyArgs: true,
-  description: "Furto a Gringott (serve smistamento e scopa dallo shop Hogwarts).",
-  usage: "+rob [@utente]",
-  examples: ["+rob", "+rob @utente", "+ruba"],
+  description: "Tenta un furto contro la cassaforte o un altro utente.",
+  usage: "+rob [@utente] [vinili|caffe]",
+  examples: ["+rob", "+rob @utente", "+rob caffe", "+ruba vinili"],
   async execute(message, args, client) {
     await runEconomyPanelCommand(message, client, "ROB", async ({ message: msg, client: c, replyDeny: deny, postGuiPanel: post }) => {
-      const access = await assertEconomyAccess(msg, c);
+      const access = await assertServerEconomyAccess(msg, c);
       if (!access.ok) {
         await deny(msg, access.message);
         return;
       }
-      const broom = await assertRobberHasBroom(c, msg.guild.id, msg.author.id);
-      if (!broom.ok) {
-        await deny(msg, broom.message);
-        return;
-      }
       const cfg = economyConfig(c);
-      const targetId = msg.mentions.users.first()?.id || extractUserId(args?.[0]);
-      const resolved = await resolveTargetUser(c, msg, targetId, cfg);
+      const rawArgs = Array.isArray(args) ? args.map((v) => String(v || "").trim()).filter(Boolean) : [];
+      const lastCur = rawArgs.length ? parseCurrencyArg(rawArgs[rawArgs.length - 1]) : null;
+      const currency = lastCur?.ok && lastCur.currency ? lastCur.currency : defaultBetCurrency();
+      const targetArgs = lastCur?.ok && lastCur.currency && rawArgs.length ? rawArgs.slice(0, -1) : rawArgs;
+      const targetId = msg.mentions.users.first()?.id || extractUserId(targetArgs?.[0]);
+      const resolved = await resolveTargetUser(c, msg, targetId, cfg, currency);
       if (!resolved || resolved.error) {
         await deny(
           msg,
-          resolved?.error || "Nessun bersaglio idoneo: smistamento Hogwarts completato e almeno il saldo minimo Galeoni.",
+          resolved?.error || "Nessun bersaglio idoneo: serve un utente con saldo sufficiente in Vinili o Caffè.",
         );
         return;
       }
@@ -51,6 +48,7 @@ module.exports = {
         isBank: resolved.isBank,
         cfg,
         client: c,
+        currency,
       });
       warmupRobPanel({ wait: false });
       await warmupRobPanel({ maxMs: 3500 });

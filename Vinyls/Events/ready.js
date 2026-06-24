@@ -34,7 +34,9 @@ const { syncPmVoiceAfkWatchFromGateway, startPmVoiceAfkWatchLoop, } = require(".
 const { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop, } = require("../Services/Community/customRoleExpiryService");
 const { startDailyPartnerAuditLoop, } = require("../Services/Partner/partnerAuditService");
 const { startPartnershipChannelCleanupLoop } = require("../Services/Partner/partnershipChannelCleanupService");
-const { startPartnerPmDailyThreadLoop } = require("../Services/Partner/partnerPmDailyThreadService");
+const { syncPartnerDescription } = require("../Services/Partner/partnerDescriptionSyncService");
+const { startStaffChatThreadsLoop } = require("../Services/Staff/staffChatThreadsService");
+const { startStaffCmdsThreadsLoop } = require("../Services/Staff/staffCmdsThreadsService");
 const { startTicketAutoClosePromptLoop, startTranscriptCleanupLoop, } = require("../Services/Ticket/ticketMaintenanceService");
 const { startAutoBackupLoop } = require("../Services/Backup/autoBackupService");
 const { startModCaseLifecycleLoop } = require("../Services/Moderation/modCaseLifecycleService");
@@ -79,7 +81,7 @@ const { sweepExpiredPartnerManagerTimedPerks } = require("../Utils/Staff/partner
 const STARTUP_PANELS_RETRY_MS = 15000;
 const ENGAGEMENT_INTERVAL_MS = Number(process.env.ENGAGEMENT_INTERVAL_MS) || 60 * 1000;
 const JOIN_RAID_RESTORE_INTERVAL_MS = Number(process.env.JOIN_RAID_RESTORE_INTERVAL_MS) || 10 * 60 * 1000;
-const CLEANUP_USERS_NOT_IN_SERVER_DELAY_MS = Number(process.env.CLEANUP_USERS_NOT_IN_SERVER_DELAY_MS) || 90 * 1000;
+const CLEANUP_USERS_NOT_IN_SERVER_DELAY_MS = Number(process.env.CLEANUP_USERS_NOT_IN_SERVER_DELAY_MS) || 3 * 60 * 1000;
 const CLEANUP_USERS_NOT_IN_SERVER_INTERVAL_MS = (() => { const v = process.env.CLEANUP_USERS_NOT_IN_SERVER_INTERVAL_MS; if (v === undefined || v === "") return 24 * 60 * 60 * 1000; const n = Number(v); return Number.isFinite(n) ? n : 24 * 60 * 60 * 1000;})();
 
 function shouldRunVerificationTenureBackfill(client) {
@@ -213,6 +215,12 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
       weight: 12,
       enabled: true,
       run: () => queueStartupSync(client),
+    },
+    {
+      label: "sync partner description cache",
+      weight: 16,
+      enabled: true,
+      run: () => syncPartnerDescription(client),
     },
     {
       label: "restore bump reminders",
@@ -883,9 +891,14 @@ module.exports = {
         global.logger?.error?.("[PARTNERSHIP CHANNEL CLEANUP ERROR]", err);
       }
       try {
-        startPartnerPmDailyThreadLoop(client);
+        startStaffCmdsThreadsLoop(client);
       } catch (err) {
-        global.logger?.error?.("[PARTNER PM THREAD INIT ERROR]", err);
+        global.logger?.error?.("[STAFF CMDS THREAD INIT ERROR]", err);
+      }
+      try {
+        startStaffChatThreadsLoop(client);
+      } catch (err) {
+        global.logger?.error?.("[STAFF CHAT THREAD INIT ERROR]", err);
       }
     }
 

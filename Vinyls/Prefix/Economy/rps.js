@@ -1,4 +1,4 @@
-const { assertEconomyGamblingAccess, assertEconomyGamblingAccessForUser, economyConfig } = require("../../Services/Community/galeoniEconomyService");
+const { assertEconomyGamblingAccess, assertEconomyGamblingAccessForUser, economyConfig } = require("../../Services/Community/serverEconomyService");
 const { formatGaleoni } = require("../../Services/Community/gringottService");
 const { buildRpsGuiPayload, clampBet, findActivePvpMessageId, formatRpsRoundNotice, getSession, makeSession, playRpsSession, schedulePvpInviteExpiry, scheduleRpsIdlePanel, setSession, warmupRpsPanel } = require("../../Utils/Economy/rpsGuiRuntime");
 const { postGuiPanel, replyDeny, runEconomyPanelCommand } = require("../../Utils/Economy/economyCommandHelpers");
@@ -27,7 +27,7 @@ module.exports = {
   name: "rps",
   aliases: ["morra"],
   allowEmptyArgs: true,
-  description: "Gioca a sasso carta forbici con pannello animato e Galeoni.",
+  description: "Gioca a sasso carta forbici con pannello animato (puntata in Vinili o Caffè).",
   usage: "+rps [puntata] [sasso|carta|forbici] · +rps @utente [puntata]",
   examples: ["+rps", "+rps 10", "+rps 20 carta", "+rps @utente 25"],
   async execute(message, args, client) {

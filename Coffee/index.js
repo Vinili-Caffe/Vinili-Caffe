@@ -21,6 +21,7 @@ if (process.env.RUN_UNDER_LOADER !== "1") {
 
 const installProcessHandlers = require("./Handlers/processHandler");
 const { buildInitialClientPresenceOptions, installBotPresenceHooks, patchClientPresenceGuard } = require("../shared/discord/botPresenceActivity");
+const { installGatewayShardListenerCeiling } = require("../shared/discord/gatewayListenerCeiling");
 installProcessHandlers();
 
 const intentList = [...new Set(Object.values(GatewayIntentBits).filter((x) => typeof x === "number" && x > 0))];
@@ -70,6 +71,7 @@ client.config.token = getToken(client.config, "DISCORD_TOKEN_TEST");
 client.config.mongoURL = getMongoUrl(client.config);
 ensureToken(client.config.token, "Bot Test (DISCORD_TOKEN_TEST)");
 applyListenerCeiling(client, client.config);
+installGatewayShardListenerCeiling(client);
 installBotPresenceHooks(client);
 
 client.logs = require("./Utils/Moderation/logs");

@@ -668,6 +668,42 @@
     "pageUrl": "/evento/pozioni",
     "redirectUrl": "/evento/shop"
   },
+  "serverEconomy": {
+    "enabled": true,
+    "earnSplitMinPct": 30,
+    "earnSplitMaxPct": 70,
+    "minBet": 2,
+    "maxBet": 50,
+    "dailyBetCap": 200,
+    "work": { "cooldownMs": 3600000, "minReward": 3, "maxReward": 8, "streakStepPct": 1, "streakMaxBonusPct": 8, "streakGraceMs": 10800000 },
+    "daily": { "cooldownMs": 86400000, "reward": 15, "streakStepPct": 2, "streakMaxBonusPct": 20, "streakGraceMs": 172800000 },
+    "weekly": { "cooldownMs": 604800000, "reward": 70, "streakStepPct": 4, "streakMaxBonusPct": 40, "streakGraceMs": 1209600000 },
+    "monthly": { "cooldownMs": 2592000000, "reward": 200, "streakStepPct": 8, "streakMaxBonusPct": 80, "streakGraceMs": 5356800000 },
+    "rob": {
+      "cooldownMs": 10800000,
+      "successChance": 30,
+      "minTargetBalance": 25,
+      "minSteal": 5,
+      "maxSteal": 35,
+      "failPenalty": 10,
+      "targetProtectionMs": 43200000
+    },
+    "roulette": { "cooldownMs": 5000, "numberPayout": 36, "simplePayout": 2 },
+    "rps": { "cooldownMs": 5000, "winPayout": 2 },
+    "slots": { "cooldownMs": 5000, "pairPayout": 2, "triplePayout": 5, "jackpotPayout": 10 },
+    "blackjack": { "cooldownMs": 5000, "winPayout": 2, "blackjackPayout": 2.5 },
+    "coinflip": { "cooldownMs": 5000, "winPayout": 2 },
+    "tris": { "cooldownMs": 5000, "winPayout": 2, "botRandomPct": 35 },
+    "scratch": { "cooldownMs": 5000, "pairPayout": 2, "triplePayout": 8, "jackpotPayout": 15 },
+    "shop": { "enabled": true, "purchaseCooldownMs": 3000 },
+    "bridge": {
+      "enabled": true,
+      "caffePerGaleone": 4,
+      "minCaffeConvert": 8,
+      "maxCaffeConvert": 120,
+      "dailyGaleoniCap": 40
+    }
+  },
   "galeoniEconomy": {
     "enabled": true,
     "previewMode": false,
@@ -704,6 +740,14 @@
     "separator": " ",
     "channelCategoryIds": [
       "1442569076902989844"
+    ]
+  },
+  "publicVoiceHubs": {
+    "enabled": true,
+    "channelIds": [
+      "1442569113108218058",
+      "1442569121350025306",
+      "1442569134532726855"
     ]
   },
   "sponsorVerifyPanelsEnabled": false,

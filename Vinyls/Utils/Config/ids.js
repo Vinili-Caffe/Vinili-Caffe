@@ -165,6 +165,7 @@ const ids = {
     sponsor4: "1461369145860816947",
     midChat: "1442569268666568897",
     vocaleTrio1: "1442569121350025306",
+    vocaleQuad1: "1442569134532726855",
     supporters: "1442569123426074736",
     moderazioneStaff: "1442569243626307634",
     modLogs: "1442569294796820541",
@@ -586,5 +587,11 @@ ids.websiteMaintenanceBypassRoleIds = [
   ids.roles.CommunityManager,
   ids.roles.PartnerManager,
 ];
+
+ids.publicVoiceHubChannelIds = [
+  ids.channels.vocaleDuo1,
+  ids.channels.vocaleTrio1,
+  ids.channels.vocaleQuad1,
+].map((id) => String(id || "").trim()).filter(Boolean);
 
 module.exports = ids;

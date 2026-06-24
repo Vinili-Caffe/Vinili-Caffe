@@ -1,5 +1,5 @@
 const { MessageFlags } = require("discord.js");
-const { attemptRob, buildRobGuiPayload, deleteSession, economyConfig, getSession, interactionMessageAdapter, isRobGuiCustomId, makeGringottTarget, parseRobGuiCustomId, pickRandomTarget, resetForNewAttempt, pushRobHitAnimation, setSession } = require("../Utils/Economy/robGuiRuntime");
+const { attemptRob, buildRobGuiPayload, deleteSession, economyConfig, getSession, interactionMessageAdapter, isRobGuiCustomId, makeBankTarget, parseRobGuiCustomId, pickRandomTarget, resetForNewAttempt, pushRobHitAnimation, setSession } = require("../Utils/Economy/robGuiRuntime");
 const PRIVATE_FLAG = MessageFlags.Ephemeral;
 
 function match(interaction) {
@@ -29,16 +29,16 @@ async function execute(interaction, client) {
     if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate().catch(() => {});
     const cfg = economyConfig(client);
     if (session.isBank) {
-      const pick = await pickRandomTarget(client, interaction.message, interaction.user.id, cfg);
+      const pick = await pickRandomTarget(client, interaction.message, interaction.user.id, cfg, session.currency);
       if (!pick) {
-        await interaction.followUp({ content: "<:vegax:1443934876440068179> Nessun giocatore idoneo. Resta su Gringott o usa `+rob @utente`.", flags: PRIVATE_FLAG }).catch(() => {});
+        await interaction.followUp({ content: "<:vegax:1443934876440068179> Nessun giocatore idoneo. Resta sulla cassaforte o usa `+rob @utente`.", flags: PRIVATE_FLAG }).catch(() => {});
         return true;
       }
       session.targetId = pick.id;
       session.targetName = pick.name;
       session.isBank = false;
     } else {
-      const bank = makeGringottTarget();
+      const bank = makeBankTarget(client);
       session.targetId = bank.id;
       session.targetName = bank.name;
       session.isBank = true;

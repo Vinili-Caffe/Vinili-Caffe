@@ -1,7 +1,8 @@
 const { MessageFlags } = require("discord.js");
-const { isHighStaff } = require("../Services/Community/galeoniEconomyService");
-const { formatGaleoni } = require("../Services/Community/gringottService");
-const { applyStaffCredit, applyStaffDebit, buildAmountModal, buildBalPayload, cycleStep, deleteSession, getSession, isBalGuiCustomId, isStaffAction, normalizeAmountStep, parseBalGuiCustomId, reloadBalance, setSession } = require("../Utils/Economy/balGuiRuntime");
+const { CURRENCY_CAFFE, CURRENCY_VINILI } = require("../Services/Community/serverWalletService");
+const { isHighStaff } = require("../Services/Community/serverEconomyService");
+const { applyStaffCredit, applyStaffDebit, buildAmountModal, buildBalPayload, buildConvertModal, cycleStep, deleteSession, formatCurrency, getSession, isBalGuiCustomId, isStaffAction, normalizeAmountStep, parseBalGuiCustomId, reloadBalance, setSession, staffCurrencyLabel } = require("../Utils/Economy/balGuiRuntime");
+const { convertCaffeToGaleoni } = require("../Services/Community/serverEconomyBridgeService");
 const PRIVATE_FLAG = MessageFlags.Ephemeral;
 
 function match(interaction) {
@@ -21,13 +22,48 @@ async function followPrivate(interaction, content) {
 async function ensureStaff(interaction, client) {
   const ok = await isHighStaff(interaction.member, client, interaction.user?.id);
   if (ok) return true;
-  await replyPrivate(interaction, "<a:VC_Cross:1482532424570376253> Solo **High Staff** può gestire i Galeoni da questo pannello.");
+  await replyPrivate(interaction, "<a:VC_Cross:1482532424570376253> Solo **High Staff** può gestire il saldo da questo pannello.");
   return false;
+}
+
+function currencyBalance(session, currency) {
+  const bucket = currency === CURRENCY_CAFFE ? session.state?.caffe : session.state?.vinili;
+  return Math.max(0, Math.floor(Number(bucket?.balance) || 0));
 }
 
 async function execute(interaction, client) {
   const parsed = parseBalGuiCustomId(interaction.customId);
   if (!parsed) return false;
+
+  if (parsed.kind === "convert_modal") {
+    if (parsed.ownerId !== String(interaction.user?.id || "")) {
+      await replyPrivate(interaction, "<a:VC_Cross:1482532424570376253> Questo modulo non è tuo.");
+      return true;
+    }
+    const session = getSession(interaction.message?.id);
+    if (!session || session.ownerId !== parsed.ownerId || session.targetId !== parsed.targetId) {
+      await replyPrivate(interaction, "<a:VC_Cross:1482532424570376253> Sessione scaduta. Usa di nuovo `+bal`.");
+      return true;
+    }
+    const raw = interaction.fields?.getTextInputValue?.("caffe_amount") || "";
+    const amount = Math.floor(Number(String(raw).replace(/[^\d]/g, "")));
+    const msg = { guild: interaction.guild, member: interaction.member, author: interaction.user };
+    const out = await convertCaffeToGaleoni(client, msg, amount);
+    if (!out.ok) {
+      await replyPrivate(interaction, `<:vegax:1443934876440068179> ${out.message}`);
+      return true;
+    }
+    session.state = out.wallet || session.state;
+    session.galeoni = out.gringott
+      ? { balance: out.gringott.balance, earned: out.gringott.earned, spent: out.gringott.spent }
+      : session.galeoni;
+    await reloadBalance(client, session, msg);
+    session.lastNotice = out.message;
+    setSession(interaction.message.id, session);
+    const payload = await buildBalPayload(session, session.lastNotice, false);
+    await interaction.update(payload).catch(() => {});
+    return true;
+  }
 
   if (parsed.kind === "modal") {
     if (!(await ensureStaff(interaction, client))) return true;
@@ -44,7 +80,7 @@ async function execute(interaction, client) {
     }
     session.adjustAmount = amt;
     setSession(interaction.message.id, session);
-    const payload = await buildBalPayload(session, `<a:VC_Verified:1482532479637127188> Importo impostato a **${formatGaleoni(amt)}**.`, false);
+    const payload = await buildBalPayload(session, `<a:VC_Verified:1482532479637127188> Importo impostato a **${formatCurrency(session.staffCurrency, amt)}**.`, false);
     await interaction.update(payload).catch(() => {});
     return true;
   }
@@ -81,8 +117,25 @@ async function execute(interaction, client) {
     }
   }
 
+  if (action === "convert") {
+    if (!session.canConvert) {
+      await replyPrivate(interaction, "<a:VC_Cross:1482532424570376253> Conversione non disponibile su questo pannello.");
+      return true;
+    }
+    await interaction.showModal(buildConvertModal(session)).catch(() => {});
+    return true;
+  }
+
   if (action === "amount_modal") {
     await interaction.showModal(buildAmountModal(session)).catch(() => {});
+    return true;
+  }
+
+  if (action === "pick_vinili" || action === "pick_caffe") {
+    session.staffCurrency = action === "pick_caffe" ? CURRENCY_CAFFE : CURRENCY_VINILI;
+    setSession(interaction.message.id, session);
+    const payload = await buildBalPayload(session, `Valuta: **${staffCurrencyLabel(session.staffCurrency)}**.`, false);
+    await interaction.update(payload).catch(() => {});
     return true;
   }
 
@@ -91,7 +144,7 @@ async function execute(interaction, client) {
   if (action === "step_down") {
     session.adjustAmount = cycleStep(session.adjustAmount, -1);
     setSession(interaction.message.id, session);
-    const payload = await buildBalPayload(session, `Importo: **${formatGaleoni(session.adjustAmount)}**.`, false);
+    const payload = await buildBalPayload(session, `Importo: **${formatCurrency(session.staffCurrency, session.adjustAmount)}**.`, false);
     await interaction.message?.edit?.(payload).catch(() => {});
     return true;
   }
@@ -99,7 +152,7 @@ async function execute(interaction, client) {
   if (action === "step_up") {
     session.adjustAmount = cycleStep(session.adjustAmount, 1);
     setSession(interaction.message.id, session);
-    const payload = await buildBalPayload(session, `Importo: **${formatGaleoni(session.adjustAmount)}**.`, false);
+    const payload = await buildBalPayload(session, `Importo: **${formatCurrency(session.staffCurrency, session.adjustAmount)}**.`, false);
     await interaction.message?.edit?.(payload).catch(() => {});
     return true;
   }
@@ -111,7 +164,8 @@ async function execute(interaction, client) {
       return true;
     }
     session.state = result.state;
-    session.lastNotice = `<a:VC_Verified:1482532479637127188> Aggiunti **${formatGaleoni(result.entry?.amount || session.adjustAmount)}** — nuovo saldo **${formatGaleoni(result.state?.balance || 0)}**.`;
+    const cur = result.currency || session.staffCurrency;
+    session.lastNotice = `<a:VC_Verified:1482532479637127188> Aggiunti **${formatCurrency(cur, result.entry?.amount || session.adjustAmount)}** — nuovo saldo **${formatCurrency(cur, currencyBalance(session, cur))}**.`;
     setSession(interaction.message.id, session);
     const payload = await buildBalPayload(session, session.lastNotice, false);
     await interaction.message?.edit?.(payload).catch(() => {});
@@ -122,13 +176,14 @@ async function execute(interaction, client) {
     const result = await applyStaffDebit(client, session, userId);
     if (!result.ok) {
       const msg = result.code === "insufficient_funds"
-        ? "Saldo insufficiente per la rimozione richiesta."
+        ? `Saldo ${staffCurrencyLabel(result.currency || session.staffCurrency)} insufficiente.`
         : `Impossibile rimuovere: \`${result.code || "errore"}\`.`;
       await followPrivate(interaction, `<:vegax:1443934876440068179> ${msg}`);
       return true;
     }
     session.state = result.state;
-    session.lastNotice = `<a:VC_Verified:1482532479637127188> Rimossi **${formatGaleoni(result.entry?.amount || session.adjustAmount)}** — nuovo saldo **${formatGaleoni(result.state?.balance || 0)}**.`;
+    const cur = result.currency || session.staffCurrency;
+    session.lastNotice = `<a:VC_Verified:1482532479637127188> Rimossi **${formatCurrency(cur, result.entry?.amount || session.adjustAmount)}** — nuovo saldo **${formatCurrency(cur, currencyBalance(session, cur))}**.`;
     setSession(interaction.message.id, session);
     const payload = await buildBalPayload(session, session.lastNotice, false);
     await interaction.message?.edit?.(payload).catch(() => {});
@@ -136,7 +191,8 @@ async function execute(interaction, client) {
   }
 
   if (action === "refresh") {
-    await reloadBalance(client, session);
+    const msg = { guild: interaction.guild, member: interaction.member, author: interaction.user };
+    await reloadBalance(client, session, msg);
     setSession(interaction.message.id, session);
     const payload = await buildBalPayload(session, "<a:VC_Verified:1482532479637127188> Saldo aggiornato.", false);
     await interaction.message?.edit?.(payload).catch(() => {});

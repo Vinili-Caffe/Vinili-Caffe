@@ -89,6 +89,15 @@ async function setMemberRolesBulk(member, roleIdsToRemove, roleIdsToAdd = []) {
   await m.edit({ roles: [...new Set(next)] }).catch((err) => { logButtonErr(err); });
 }
 
+function buildMiddleGuideNavRow() {
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId("middle_ticket").setLabel("︲GESTIONE TICKET").setEmoji("<:VC_Ticket:1482535175283019888>").setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId("middle_selfie").setLabel("︲VERIFICA SELFIE").setEmoji("<a:VC_Verified:1482532479637127188>").setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId("middle_follower").setLabel("︲FOLLOWER & SUPPORTER").setEmoji("<a:VC_Verified:1482532479637127188>").setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId("middle_partnership").setLabel("︲GESTIONE PARTNER").setEmoji("<:VC_Collab:1482534540089098260>").setStyle(ButtonStyle.Secondary),
+  );
+}
+
 async function handleStaffButtons(interaction) {
   if (!interaction.isButton()) return false;
 
@@ -287,6 +296,140 @@ async function handleStaffButtons(interaction) {
       "<:VC_Dot:1482532364222595303> Ogni <@&" + IDs.roles.Director + "> dovrà __eseguire__ almeno: **`1 sanzione`**\n" +
       "",
       "> Chi __rispetterà__ questi limiti riceverà **una valutazione positiva**.",
+    );
+    await interaction.reply({ embeds: [embed], flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
+    return true;
+  }
+
+  if (interaction.customId == "lineeguida") {
+    const embed = new EmbedBuilder().setColor("#6f4e37").setDescription(
+      "Per avere un server attivo bisogna prima di tutto avere un legame con la community. Ecco alcuni consigli per instaurare dei discorsi con i nuovi utenti ma anche con quelli anziani.\n\n" +
+      "> ### Presentarsi è sempre una buona base!\n" +
+      "Nel momento in cui un utente approda nel server, è buona prassi far capire cosa può fare qui con noi. Quando si unisce sa già che come topic abbiamo il chatting quindi si deve puntare a quella che si chiama **profilazione** ovvero la raccolta di dati dell'utente. Per farlo, abbiamo realizzato diversi ruoli che l'utente può prendere. Tutto questo è già possibile con l'inserimento ma, nel caso volesse cambiarli o aggiungerli (cosa su cui dovreste spingere), invece di usare il semplice \"wlc\" potete tranquillamente dire:\n" +
+      `benvenutx @tag_utente! passa in <#${IDs.channels.commands}> e fai il comando +profile per prenderti i colori e tanti altri ruoli <3\n\n` +
+      "> ### Cerca di capire chi hai davanti!\n" +
+      "Per avere attività alla base, come abbiamo detto, c'è un rapporto di fiducia con l'utente. Per creare e rafforzare quest'ultimo, nel momento in cui una persona joina nel server può essere utile:\n" +
+      "- guardare la foto profilo e il banner;\n" +
+      "- guardare la descrizione e lo status;\n" +
+      "- controllare i ruoli presi con l'inserimento.\n" +
+      "Questo può servire per trovare degli interessi dell'utente poiché può avere immagini di un determinato film o una descrizione o attività dove è indicato un gioco o un brano in riproduzione utile per ingaggiare il dialogo. Non abbiate paura di dire cosa pensate ma fatelo con leggerezza e divertimento. Se, per esempio, sta ascoltando un brano che non vi piace e questo è l'unico dato che avete in vostro possesso, invece di non fare niente si può dire \"oddio ma ascolti X, a me non piace\" oppure ancora \"oddio X, meglio Y\".\n\n" +
+      "> ### La costanza è fondamentale!\n" +
+      "Un semplice dialogo che dura poco, non porta a niente. Cercate, anche nei giorni seguenti, di ricordarvi di quell'utente e di cosa avete trattato. Se avete parlato di musica potete condividere il giorno dopo lo screen della vostra riproduzione e taggarlo dicendo \"meglio questa!!\" oppure un semplice \"conosci?\" o nel caso di un gioco potere dire \"come va su gta?\" o robe del genere.\n\n" +
+      "> ### Sii preparato a qualsiasi domanda.\n" +
+      `Spesso e sicuramente un nuovo utente, specialmente di discord, non sa che ci sono determinati requisiti per fare determinate azioni. Un esempio può essere il <@&${IDs.roles.PicPerms}>. L'utente medio non lo sa e invia sempre a sua insaputa un media. Quest'ultimo, nel caso non si trovasse in possesso del ruolo, il bot <@${IDs.bots.ViniliCaffeBot}> elimina subito il messaggio e scrive che serve questo requisito MA ribaditelo anche voi. In questa maniera il dialogo continua ad esserci e non si interromperà davanti a un messaggio di un bot programmato per farlo!\n\n` +
+      "Per portare avanti un progetto, renderlo bello e arricchirlo personalmente sono necessari davvero pochi e piccoli passi. Seguiteli e vedrete che andrà tutto bene! **E ricordati di divertirti!**",
+    );
+    await interaction.reply({ embeds: [embed], flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
+    return true;
+  }
+
+  if (interaction.customId == "comandi") {
+    const embed = new EmbedBuilder().setColor("#6f4e37").setDescription(
+      "<a:VC_StarPink:1330194976440848500> Visto l'alto flusso di utenti che entrano solo per trollare o flammare, abbiamo deciso di creare una guida dedicata ai comandi sulla moderazione, ulteriore a quella già presente in <#" + IDs.channels.guidaStaff + ">.\n" +
+      "> <:VC_Quest:1482534879257165865> Per i tempi e le regole è necessario seguire sempre <#" + IDs.channels.guidaStaff + "> sezione `MODERAZIONE`. Inoltre, esclusi gli <@&" + IDs.roles.Helper + ">, avete tutti un limite di sanzioni che dovrete fare ogni settimana per ricevere una valutazione positiva. Non è un obbligo ma aiuta noi a capire chi è più attivo nello staff e a tenere pulito il server.\n\n" +
+      "<:VC_BanHammer:1482534474502897795> **LISTA DEI COMANDI**\n\n" +
+      "`+purge` <a:VC_Arrow:1482706699365257397> Serve per cancellare i messaggi di un determinato canale o utente, utilizzabile solo dall'<@&" + IDs.roles.HighStaff + ">\n\n" +
+      "`+warn` <a:VC_Arrow:1482706699365257397> Serve per dare un avviso a un utente, esso è eseguibile da tutti. I warn vengono dati anche a chi apre un ticket e non risponde nell'arco delle 24 ore oppure trolla all'interno.\n\n" +
+      "`+mute` <a:VC_Arrow:1482706699365257397> Questo comando si può utilizzare solo da <@&" + IDs.roles.Mod + "> in sù e serve per silenziare un membro che commette un infrazione delle regole. Questo comando oltre a mutare mettere in \"quarantena\" l'utente, ovvero toglie completamente i ruoli all'utente e ne mette uno con cui non può fare nulla.\n\n" +
+      "`+kick` <a:VC_Arrow:1482706699365257397> Serve per buttare fuori, in modo temporaneo, un utente dal server. Utilizzabile solo dall'<@&" + IDs.roles.HighStaff + ">.\n\n" +
+      "`+ban` <a:VC_Arrow:1482706699365257397> Questo è il comando più estremo, ovvero quello da usare veramente poco ma quando si è passato un certo limite o le regole lo impongono. Naturalmente quello che fa è bannare permanentemente un utente ed è utilizzabile solo dal <@&" + IDs.roles.Director + "> in sù.\n\n" +
+      "`+modlogs` <a:VC_Arrow:1482706699365257397> Esso serve per controllare quante sanzioni ha un utente e vi è molto utile a capire se un utente ha già infranto una determinata regola e quindi quale tempistica applicare.\n\n" +
+      "`+duration` e `+reason` <a:VC_Arrow:1482706699365257397> Servono rispettivamente per cambiare la durata e la reason di una sanzione, utilizzabile solo dal <@&" + IDs.roles.Director + "> in sù.\n\n" +
+      "`+case` <a:VC_Arrow:1482706699365257397> Con questo si può controllare dettagliatamente un caso di moderazione e capire quando, da chi e perchè è stato fatto.\n\n" +
+      "`+moderations` <a:VC_Arrow:1482706699365257397> Serve per mostrare le sanzioni **temporanee** attive su un utente.\n\n" +
+      "`+warnings` <a:VC_Arrow:1482706699365257397> Mostra tutti i **warn** ottenuti da un utente.\n\n" +
+      "`+clearwarn`, `+delwarn`, `+unmute` e `+unban` <a:VC_Arrow:1482706699365257397> Usati solo per rimuovere rispettivamente un warn (o tutti i warn col primo), un mute e un ban. Utilizzabili solo da <@&" + IDs.roles.Director + "> in sù.\n\n" +
+      "## <a:VC_Alert:1482706673176150077> Prendi tempo per sanzionare!\n" +
+      "È meglio una sanzione legittima con una motivazione corretta e una tempistica giusta rispetto a un utente che si lamenta dello staff del server!\n\n" +
+      "<a:VC_Exclamation:1482534702077444217> Ricordo naturalmente di seguire anche le altre linee guida su come sanzionare in modo corretto un utente in <#" + IDs.channels.guidaStaff + ">.",
+    );
+    await interaction.reply({ embeds: [embed], flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
+    return true;
+  }
+
+  if (interaction.customId == "guidapartners") {
+    const pmCmdChannelId = "1495544523848286340";
+    const embed = new EmbedBuilder().setColor("#6f4e37").setDescription(
+      "<:VC_PartnerManager:1494286911286808576> **__GUIDA PARTNERS__**\n\n" +
+      "> <:VC_Attention:1482534443632558151> In caso di **infrazione** del _regolamento_ verrà **rimosso** il `punto` della __partner__. Ogni **__`Partner Manager`__** ha _diritto_ a `1` mese e `15` giorni di **pausa** __ogni__ anno.\n" +
+      "> <a:VC_Alert:1482706673176150077> Per richiedere una pausa bisogna andare nel canale <#" + IDs.channels.pause + "> e compilare quel semplice modulo all'interno del canale.\n" +
+      "<:VC_DoubleReply:1482532332509466797> **Non** fare la stessa __partnership__ più di una volta al **giorno**;\n" +
+      "<:VC_DoubleReply:1482532332509466797> **Non** fare __partnership__ con se stessi più di una volta al **giorno**;\n" +
+      "<:VC_DoubleReply:1482532332509466797> **Non** mettere più di __`5` partnership__ con lo stesso **utente**;\n" +
+      "<:VC_DoubleReply:1482532332509466797> **Non** mettere partner con link **scaduti**;\n" +
+      "<:VC_DoubleReply:1482532332509466797> Il **numero minimo** di __partnership__ da __fare__ in una settimana è __`30`__;\n" +
+      "<:VC_Reply:1482532158080942191> È **vietato** fare __partnership__ con qualsiasi tipo di __server__ `NSFW` o che violi i `ToS` di **Discord**.\n\n" +
+      "<a:VC_Exclamation:1482534702077444217> **Comandi utili: (da usare con <@" + IDs.bots.ViniliCaffeBot + "> nei ticket o nel thread dei comandi)**\n" +
+      "> `/partnership` - Utilizzabile direttamente in <#" + pmCmdChannelId + "> o nei <#" + IDs.channels.ticket + ">\n" +
+      "> `+desc` - Utilizzabile solo nei <#" + IDs.channels.ticket + "> `partnership`, manda velocemente la descrizione del server\n" +
+      "> `+ticket` - Comando unico per la gestione del ticket\n" +
+      "> `+classifica` - Per vedere la classifica punti partner settimanale e totale\n" +
+      "> `+blacklist` - Per vedere i server in blacklist\n" +
+      "> `+profile` - Per vedere il vostro profilo partner manager\n\n" +
+      "<a:VC_Exclamation:1482534702077444217> **Info utili:**\n" +
+      "> <a:VC_Cross:1482532424570376253> **Non ci sono requisiti per le partner**\n" +
+      "> <a:VC_Verified:1482532479637127188> **Il manager deve aver completato l'inserimento o non si può fare la partner.**\n" +
+      "> <a:VC_PepeExit:1446190735937245415> **Il manager non deve uscire dal server o la partner verrà cancellata.**\n" +
+      "> <:VC_Collab:1482534540089098260> **Quando viene aperto un ticket cercate di completare tutto lì facendovi inviare la descrizione e facendo i comandi direttamente lì.**",
+    );
+    await interaction.reply({ embeds: [embed], flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
+    return true;
+  }
+
+  if (interaction.customId == "guidamiddle") {
+    const embed = new EmbedBuilder().setColor("#6f4e37").setDescription(
+      `<:discordstaff:1443651872258003005> La **__guida middle__** di __Vinili & Caffè__ è dedicata a <@&${IDs.roles.SeniorModerator}> e <@&${IDs.roles.Director}>: qui trovate le procedure per i compiti di livello superiore che richiedono coordinamento e supervisione del low staff.
+
+> La guida si divide in **__\`4\` sezioni__** accessibili **schiacciando** i \`bottoni\` sottostanti:
+<:VC_1:1482706338021642333> **Gestione Ticket**
+<:VC_2:1482706376525611090> **Gestione Verifica Selfie**
+<:VC_3:1482706404773990460> **Gestione Follower & Supporter**
+<:VC_4:1482706432347344916> **Gestione Partnership**`,
+    );
+    const rowMiddle = buildMiddleGuideNavRow();
+    await interaction.reply({ embeds: [embed], components: [rowMiddle], flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
+    return true;
+  }
+
+  if (interaction.customId == "middle_ticket") {
+    const embed = new EmbedBuilder().setColor("#6f4e37").setDescription(
+      "<:VC_Ticket:1482535175283019888> Naturalmente, essendo voi un ruolo superiore non vi è richiesto di rispondere prontamente ai ticket. Anzi, dovrete cercare di dare supporto ai low staff e intervenire solo facendovi aggiungere.\n\n" +
+      "<a:VC_pixeltime:1482535344103620771> Se un ticket rimarrà non claimato per più di 5 minuti allora **dovete** claimarlo e gestirlo voi.",
+    );
+    await interaction.reply({ embeds: [embed], flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
+    return true;
+  }
+
+  if (interaction.customId == "middle_selfie") {
+    const embed = new EmbedBuilder().setColor("#6f4e37").setDescription(
+      "<:VC_Ticket:1482535175283019888> Con l'aggiunta dei ticket `PERKS` tutti voi avrete accesso ad esso per gestire i ruoli e <@&" + IDs.roles.Verificato + "> / <@&" + IDs.roles.VerifiedNeo + "> / <@&" + IDs.roles.Verificata + ">.\n\n" +
+      "<a:VC_Alert:1482706673176150077> Quando un utente aprirà il ticket per chiedere la verifica selfie sarà necessario da parte vostra controllare facendo seguire i passaggi in foto e una volta accertatovi, se siete <@&" + IDs.roles.SeniorModerator + "> dovrete taggare un <@&" + IDs.roles.Director + "> oppure da <@&" + IDs.roles.Director + "> potrete direttamente mettere il ruolo\n" +
+      "> PS: Occhio a dare ruoli sbagliati, il bot potrebbe bannarvi <:VC_Eye:1331619214410383381>",
+    );
+    await interaction.reply({ embeds: [embed], flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
+    return true;
+  }
+
+  if (interaction.customId == "middle_follower") {
+    const embed = new EmbedBuilder().setColor("#6f4e37").setDescription(
+      "<a:VC_Calendar:1482706208149475358> Ogni settimana vi dovrete organizzare per decidere chi deve controllare queste due liste.\n\n" +
+      "<a:VC_Verified:1482532479637127188> Per controllare le liste dovrete usare [questo documento](<https://docs.google.com/spreadsheets/d/1rsyOqlveEraSv2YeSCY9Qg_xF3Rn6bqLj6G3-FI4Zu0/edit?usp=sharing>) chiedendo l'accesso a <@295500038401163264>.\n\n" +
+      "<:VC_Quest:1482534879257165865> Ognuno di voi può controllare al **massimo 1 lista** a settimana. Ogni Sabato in questo post uno di voi compilerà un modulo come questo:\n\n" +
+      "```\n@staffer -> lista che controlla\n@staff -> lista che controlla\n```\n\n" +
+      "<:VC_Ticket:1482535175283019888> Con l'aggiunta dei ticket `PERKS` tutti voi avrete accesso ad esso per gestire i ruoli <@&" + IDs.roles.Follower + "> & <@&" + IDs.roles.SocialSupporter + ">, quando un utente aprirà un ticket per chiedere uno di questi due ruoli accertatevi con delle prove e, se siete <@&" + IDs.roles.SeniorModerator + "> chiamate un <@&" + IDs.roles.Director + "> per assegnare il ruolo.\n" +
+      "> PS: Gentilmente, ogni volta che viene dato anche questo ruolo aggiornate le liste <a:VC_Alarm:1482706641618079816>\n\n" +
+      "<a:VC_Alert:1482706673176150077> Naturalmente, fare questo compito vi garantirà una **valutazione positiva**, non presentare la lista dei compiti il sabato o non fare il compito che vi siete assegnati comporterà a una **valutazione negativa**.",
+    );
+    await interaction.reply({ embeds: [embed], flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
+    return true;
+  }
+
+  if (interaction.customId == "middle_partnership") {
+    const embed = new EmbedBuilder().setColor("#6f4e37").setDescription(
+      "<a:VC_Calendar:1482706208149475358> Ogni settimana un <@&" + IDs.roles.Director + "> dovrà controllare tutte le <#" + IDs.channels.partnerships + "> e assicurarsi che rispettino la guida partners\n\n" +
+      "<:VC_Quest:1482534879257165865> Qualsiasi partner che non rispetta quelle regole dovrà essere reportata qua settimanalmente tramite un semplice modulo\n\n" +
+      "```\nlink messaggio -> regola infranta -> @partner manager\n```\n\n" +
+      "<:VC_Attention:1482534443632558151> Molte regole sono già coperte da <@" + IDs.bots.ViniliCaffeBot + "> e prima di segnalare una partner dovrete controllare <#" + IDs.channels.puntiTolti + "> per capire se il bot ha già tolto il punto o meno.",
     );
     await interaction.reply({ embeds: [embed], flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
     return true;

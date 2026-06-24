@@ -1,6 +1,6 @@
 const { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const { buildImageButtonPayload, canvasStatusLine } = require("./guiPanelPayload");
-const { formatGaleoni } = require("../../Services/Community/gringottService");
+const { formatCurrency } = require("../../Services/Community/serverWalletService");
 const {
   economyConfig,
   lockTrisPvpStakes,
@@ -8,7 +8,7 @@ const {
   playTrisBet,
   refundTrisPvpStake,
   settleTrisPvp,
-} = require("../../Services/Community/galeoniEconomyService");
+} = require("../../Services/Community/serverEconomyService");
 const {
   BOT,
   PLAYER,
@@ -249,10 +249,10 @@ async function renderPanel(session, notice = "") {
   let resultLabel = "";
   if (session.phase === "done" && last) {
     if (last.game === "tris_pvp") {
-      if (last.draw) resultLabel = `Pareggio ${formatGaleoni(last.payout)}`;
-      else resultLabel = `Vittoria ${formatGaleoni(last.payout)}`;
-    } else if (last.outcome === "win") resultLabel = `Vittoria +${formatGaleoni(last.payout)}`;
-    else if (last.outcome === "draw") resultLabel = `Pareggio ${formatGaleoni(last.payout)}`;
+      if (last.draw) resultLabel = `Pareggio ${formatCurrency("caffe",last.payout)}`;
+      else resultLabel = `Vittoria ${formatCurrency("caffe",last.payout)}`;
+    } else if (last.outcome === "win") resultLabel = `Vittoria +${formatCurrency("caffe",last.payout)}`;
+    else if (last.outcome === "draw") resultLabel = `Pareggio ${formatCurrency("caffe",last.payout)}`;
     else resultLabel = "Sconfitta";
   }
   try {
@@ -473,19 +473,19 @@ async function playCell(client, messageLike, session, cellIndex, cfg, actorUserI
 function formatTrisPvpNotice(result, session, viewerId) {
   if (!result?.ok) return result?.message || "";
   const youWon = String(result.winnerId) === String(viewerId);
-  if (result.draw) return `🤝 **Pareggio** — ti tornano **${formatGaleoni(result.payout)}**.`;
-  if (youWon) return `🏆 **Vittoria!** Hai vinto **${formatGaleoni(result.payout)}**.`;
+  if (result.draw) return `🤝 **Pareggio** — ti tornano **${formatCurrency("caffe",result.payout)}**.`;
+  if (youWon) return `🏆 **Vittoria!** Hai vinto **${formatCurrency("caffe",result.payout)}**.`;
   const winnerName = String(result.winnerId) === String(session.ownerId) ? session.playerName : session.opponentName;
-  return `<a:VC_Cross:1482532424570376253> **Sconfitta.** Vince **${winnerName}** (**${formatGaleoni(result.payout)}**).`;
+  return `<a:VC_Cross:1482532424570376253> **Sconfitta.** Vince **${winnerName}** (**${formatCurrency("caffe",result.payout)}**).`;
 }
 
 function formatRoundNotice(result, session, viewerId) {
   if (!result?.ok) return "";
   if (result.game === "tris_pvp") return formatTrisPvpNotice(result, session, viewerId);
   const label = outcomeLabel(result.outcome);
-  if (result.outcome === "win") return `🏆 **${label}!** Hai vinto **${formatGaleoni(result.payout)}**.`;
-  if (result.outcome === "draw") return `🤝 **${label}** — ti tornano **${formatGaleoni(result.payout)}**.`;
-  return `<a:VC_Cross:1482532424570376253> **${label}**. Hai perso **${formatGaleoni(result.wager)}**.\n<a:VC_pixeltime:1482535344103620771> Puoi rigiocare quando il cooldown lo permette.`;
+  if (result.outcome === "win") return `🏆 **${label}!** Hai vinto **${formatCurrency("caffe",result.payout)}**.`;
+  if (result.outcome === "draw") return `🤝 **${label}** — ti tornano **${formatCurrency("caffe",result.payout)}**.`;
+  return `<a:VC_Cross:1482532424570376253> **${label}**. Hai perso **${formatCurrency("caffe",result.wager)}**.\n<a:VC_pixeltime:1482535344103620771> Puoi rigiocare quando il cooldown lo permette.`;
 }
 
 module.exports = {

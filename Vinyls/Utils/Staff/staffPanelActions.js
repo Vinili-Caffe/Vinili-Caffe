@@ -115,7 +115,7 @@ const ROLES_REQUIRING_HIGH_STAFF = [ROLE_ADMIN, ROLE_CO_OWNER, ROLE_OWNER].filte
 async function applyPexSideEffects(
   member,
   roleId,
-  pmChannel,
+  client,
   staffChannel,
   user,
   hadStaffRolesBeforePex,
@@ -123,7 +123,7 @@ async function applyPexSideEffects(
   const hadAnyStaffRoleBefore =
     typeof hadStaffRolesBeforePex === "boolean" ? hadStaffRolesBeforePex : memberHasStaffRole(member);
   if (roleId === ROLE_PARTNER_MANAGER) {
-    await sendPartnerManagerWelcome(pmChannel, member);
+    await sendPartnerManagerWelcome(client || member?.client, member);
   }
 
   if (STAFF_LADDER_ROLES.includes(roleId)) {
@@ -293,9 +293,6 @@ async function runProspectStaffPex(guild, client, targetUser, actorUser, reason,
     };
   }
   const roleBeforeForHistory = ROLE_MEMBER || "";
-  const pmChannel =
-    guild.channels.cache.get(IDs.channels?.partnersChat) ||
-    (await getGuildChannelCached(guild, IDs.channels?.partnersChat));
   const staffChat =
     guild.channels.cache.get(IDs.channels?.staffChat) ||
     (await getGuildChannelCached(guild, IDs.channels?.staffChat));
@@ -313,7 +310,7 @@ async function runProspectStaffPex(guild, client, targetUser, actorUser, reason,
     await applyPexSideEffects(
       baseRoleVerification.member,
       roleAfter,
-      pmChannel,
+      client || guild.client,
       staffChat,
       targetUser,
       hadStaffRolesBeforePex,
@@ -367,9 +364,6 @@ async function runProspectStaffPexToPartnerManager(guild, client, targetUser, ac
   }
   const roleBeforeForHistory = getHighestLadderRole(member) || (ROLE_MEMBER || "");
   const roleAfter = ROLE_PARTNER_MANAGER;
-  const pmChannel =
-    guild.channels.cache.get(IDs.channels?.partnersChat) ||
-    (await getGuildChannelCached(guild, IDs.channels?.partnersChat));
   const staffChat =
     guild.channels.cache.get(IDs.channels?.staffChat) ||
     (await getGuildChannelCached(guild, IDs.channels?.staffChat));
@@ -387,7 +381,7 @@ async function runProspectStaffPexToPartnerManager(guild, client, targetUser, ac
     await applyPexSideEffects(
       baseRoleVerification.member,
       roleAfter,
-      pmChannel,
+      client || guild.client,
       staffChat,
       targetUser,
       hadStaffRolesBeforePex,
@@ -442,9 +436,6 @@ async function runProfileStaffPex(guild, client, targetUser, actorUser, reason) 
   if (member.roles.cache.has(roleAfter)) {
     return { ok: false, message: `<:VC_Attention:1482534443632558151> ${targetUser} ha già il ruolo successivo.` };
   }
-  const pmChannel =
-    guild.channels.cache.get(IDs.channels?.partnersChat) ||
-    (await getGuildChannelCached(guild, IDs.channels?.partnersChat));
   const staffChat =
     guild.channels.cache.get(IDs.channels?.staffChat) ||
     (await getGuildChannelCached(guild, IDs.channels?.staffChat));
@@ -462,7 +453,7 @@ async function runProfileStaffPex(guild, client, targetUser, actorUser, reason) 
     await applyPexSideEffects(
       baseRoleVerification.member,
       roleAfter,
-      pmChannel,
+      client || guild.client,
       staffChat,
       targetUser,
       hadStaffRolesBeforePex,

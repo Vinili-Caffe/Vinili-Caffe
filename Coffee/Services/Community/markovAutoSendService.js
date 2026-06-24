@@ -2,11 +2,33 @@ const { getMarkovConfig, isMarkovEnabled, readGuildCorpus, readGuildImages, read
 const { isMarkovEligibleChannel, resolveMarkovOutputChannel, resolveMarkovOutputChannelId } = require("./markovChannelAccess");
 const { generateMarkovLines } = require("./markovGeneratorService");
 const { buildAllowedMentionsForText, pickRandomItem, clampMarkovOutput, resolveMarkovImageEmbed } = require("./markovMediaUtils");
-const { maybeApplyCommandStyle } = require("./markovCommandStyleService");
+const { maybeApplyCommandStyle, sanitizeCommandLikeText } = require("./markovCommandStyleService");
 
 const guildState = new Map();
 const markovMessageIdsByGuild = new Map();
 const replyCooldownByUser = new Map();
+const autoSendLocksByGuild = new Map();
+
+async function withAutoSendGuildLock(guildId, fn) {
+  const key = String(guildId || "").trim();
+  if (!key) return undefined;
+  const prev = autoSendLocksByGuild.get(key) || Promise.resolve();
+  let release = () => {};
+  const gate = new Promise((resolve) => {
+    release = resolve;
+  });
+  const chain = prev.finally(() => gate);
+  autoSendLocksByGuild.set(key, chain);
+  await prev.catch(() => {});
+  try {
+    return await fn();
+  } finally {
+    release();
+    if (autoSendLocksByGuild.get(key) === chain) {
+      autoSendLocksByGuild.delete(key);
+    }
+  }
+}
 
 function getAutoSendConfig(client) {
   const markov = getMarkovConfig(client);
@@ -27,8 +49,8 @@ function getAutoSendConfig(client) {
   const maxWords = Number.isFinite(maxWordsRaw) ? Math.min(80, Math.max(4, maxWordsRaw)) : 22;
   return {
     enabled: auto.enabled !== false && markov.enabled !== false,
-    minMessagesBetween: Math.max(1, Number(auto.minMessagesBetween ?? 40)),
-    maxMessagesBetween: Math.max(1, Number(auto.maxMessagesBetween ?? 120)),
+    minMessagesBetween: Math.max(5, Number(auto.minMessagesBetween ?? 15)),
+    maxMessagesBetween: Math.max(5, Number(auto.maxMessagesBetween ?? 40)),
     minCorpusLines: Math.max(5, Number(auto.minCorpusLines ?? 30)),
     minCorpusImages: Math.max(0, Number(auto.minCorpusImages ?? 5)),
     minCorpusStickers: Math.max(0, Number(auto.minCorpusStickers ?? 3)),
@@ -43,7 +65,7 @@ function getAutoSendConfig(client) {
     allowStickerOnly: auto.allowStickerOnly === true,
     preventBackToBackImages: auto.preventBackToBackImages !== false,
     commandStyleChance: Math.min(1, Math.max(0, Number(auto.commandStyleChance ?? markov.commandStyleChance ?? 0.2))),
-    commandStyleEnabled: auto.commandStyleEnabled !== false && markov.commandStyleEnabled !== false,
+    commandStyleEnabled: auto.commandStyleEnabled === true && markov.commandStyleEnabled === true,
   };
 }
 
@@ -142,6 +164,12 @@ async function resolveReferencedMessage(message) {
   const refId = getReplyReferenceId(message);
   if (!refId || !message.channel?.messages?.fetch) return null;
   return message.channel.messages.fetch(refId).catch(() => null);
+}
+
+function isAutoSendTriggerChannel(message, client) {
+  const outputId = resolveMarkovOutputChannelId(client);
+  if (!outputId) return false;
+  return String(message?.channelId || "") === String(outputId);
 }
 
 function tryBeginAutoSend(guildId, client) {
@@ -256,7 +284,7 @@ async function composeMarkovText(client, channel, corpus, autoCfg) {
       maxWords: autoCfg.maxWords + 6,
     });
   }
-  return text;
+  return sanitizeCommandLikeText(client, text);
 }
 
 async function buildMarkovSendPayload(client, channel, opts = {}) {
@@ -293,40 +321,43 @@ async function tryAutoSendMarkovMessage(message, client) {
   if (!isMarkovEnabled(client)) return false;
   const autoCfg = getAutoSendConfig(client);
   if (!autoCfg.enabled) return false;
+  if (!isAutoSendTriggerChannel(message, client)) return false;
   if (!isMarkovEligibleChannel(message.channel, message.guild, client.config || {})) return false;
 
   const guildId = String(message.guild.id);
-  const begun = tryBeginAutoSend(guildId, client);
-  if (!begun) return false;
-  const { state } = begun;
+  return withAutoSendGuildLock(guildId, async () => {
+    const begun = tryBeginAutoSend(guildId, client);
+    if (!begun) return false;
+    const { state } = begun;
 
-  try {
-    const outputChannel = await resolveMarkovOutputChannel(message.guild, client);
-    if (!outputChannel) {
-      global.logger?.warn?.("[MARKOV] auto-send output channel unavailable");
-      return false;
+    try {
+      const outputChannel = await resolveMarkovOutputChannel(message.guild, client);
+      if (!outputChannel) {
+        global.logger?.warn?.("[MARKOV] auto-send output channel unavailable");
+        return false;
+      }
+
+      const payload = await materializeMarkovPayload(
+        await buildMarkovSendPayload(client, outputChannel, { state, autoCfg, requireMinimums: true }),
+      );
+      if (!payload) return false;
+
+      const sent = await outputChannel.send(payload).catch((err) => {
+        global.logger?.warn?.("[MARKOV] auto-send failed:", err?.message || err);
+        return null;
+      });
+
+      if (!sent) return false;
+
+      recordMarkovSentMessage(guildId, sent.id, client);
+      state.lastAutoSendAt = Date.now();
+      state.lastSendHadImage = Boolean(payload.embeds?.length || payload.files?.length || payload.stickers?.length);
+      resetGuildState(guildId, client);
+      return true;
+    } finally {
+      state.inFlight = false;
     }
-
-    const payload = await materializeMarkovPayload(
-      await buildMarkovSendPayload(client, outputChannel, { state, autoCfg, requireMinimums: true }),
-    );
-    if (!payload) return false;
-
-    const sent = await outputChannel.send(payload).catch((err) => {
-      global.logger?.warn?.("[MARKOV] auto-send failed:", err?.message || err);
-      return null;
-    });
-
-    if (!sent) return false;
-
-    recordMarkovSentMessage(guildId, sent.id, client);
-    state.lastAutoSendAt = Date.now();
-    state.lastSendHadImage = Boolean(payload.embeds?.length || payload.files?.length || payload.stickers?.length);
-    resetGuildState(guildId, client);
-    return true;
-  } finally {
-    state.inFlight = false;
-  }
+  });
 }
 
 async function tryReplyToMarkovMessage(message, client) {
@@ -410,6 +441,7 @@ module.exports = {
   buildAutoSendPayload,
   tryBeginAutoSend,
   getReplyReferenceId,
+  isAutoSendTriggerChannel,
   isTrackedMarkovMessage,
   recordMarkovSentMessage,
   isMarkovReplyTarget,

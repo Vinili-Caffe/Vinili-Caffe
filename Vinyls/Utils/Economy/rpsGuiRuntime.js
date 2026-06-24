@@ -1,7 +1,7 @@
 const { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const { buildImageButtonPayload, canvasStatusLine } = require("./guiPanelPayload");
-const { formatGaleoni } = require("../../Services/Community/gringottService");
-const { economyConfig, lockRpsPvpStakes, normalizeRps, playRps, refundRpsPvpStake, settleRpsPvp } = require("../../Services/Community/galeoniEconomyService");
+const { formatCurrency } = require("../../Services/Community/serverWalletService");
+const { economyConfig, lockRpsPvpStakes, normalizeRps, playRps, refundRpsPvpStake, settleRpsPvp } = require("../../Services/Community/serverEconomyService");
 
 const PREFIX = "rps_gui";
 const SESSION_TTL_MS = 10 * 60 * 1000;
@@ -343,15 +343,15 @@ function scheduleRpsIdlePanel(message, session, cfg, notice = "", disabled = fal
 function formatRpsRoundNotice(result) {
   if (!result?.ok) return "";
   if (result.game === "rps_pvp") return formatRpsPvpNotice(result);
-  if (result.draw) return `🤝 Pareggio: ti tornano **${formatGaleoni(result.payout)}**.`;
-  if (result.win) return `🏆 Hai vinto **${formatGaleoni(result.payout)}**.`;
+  if (result.draw) return `🤝 Pareggio: ti tornano **${formatCurrency("caffe",result.payout)}**.`;
+  if (result.win) return `🏆 Hai vinto **${formatCurrency("caffe",result.payout)}**.`;
   return `<a:VC_Cross:1482532424570376253> Hai perso.\n<a:VC_pixeltime:1482535344103620771> Puoi rigiocare quando il cooldown lo permette.`;
 }
 
 function formatRpsPvpNotice(result) {
   if (result.draw) return `🤝 **Pareggio!** Le puntate tornano a entrambi i giocatori.`;
   const winnerName = result.winnerId === result.challengerId ? result.challengerName : result.opponentName;
-  return `🏆 **${winnerName}** vince il montepremi: **${formatGaleoni(result.payout)}**.`;
+  return `🏆 **${winnerName}** vince il montepremi: **${formatCurrency("caffe",result.payout)}**.`;
 }
 
 async function buildRpsGuiPayload(session, cfg, notice = "", disabled = false, animating = false) {

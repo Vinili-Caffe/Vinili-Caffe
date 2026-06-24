@@ -14,7 +14,8 @@ const HELP_EMBED_COLOR = "#6f4e37";
 const ERROR_EMBED_COLOR = "Red";
 const PRIVATE_FLAG = 1 << 6;
 const NO_REPLY_MENTIONS = { repliedUser: false, parse: [] };
-const { isGaleoniEconomyUnlocked } = require("../../Services/Community/galeoniEconomyService");
+const { isServerEconomyEnabled } = require("../../Services/Community/serverEconomyService");
+const { resolveEconomyPresentation } = require("../../Utils/Economy/economyPresentation");
 const PAGE_ROLE_IDS = [IDs.roles.Member, IDs.roles.Staff, IDs.roles.HighStaff, IDs.roles.Founder,].filter(Boolean);
 const PAGE_TITLES = { [IDs.roles.Member]: "Comandi Utente", [IDs.roles.Staff]: "Comandi Staff", [IDs.roles.HighStaff]: "Comandi High Staff", [IDs.roles.Founder]: "Comandi Dev", all: "Comandi Disponibili", };
 const CATEGORY_LABELS = { utility: "Utility", music: "Musica", tts: "TTS", level: "Level", minigames: "Minigames", stats: "Stats", economy: "Economy", moderation: "Moderation", admin: "Admin", staff: "Staff", vip: "VIP", dev: "Dev", };
@@ -41,7 +42,7 @@ const PREFIX_HELP_DESCRIPTIONS = {
   ping: "Mostra latenza bot, database e informazioni di uptime.",
   profile: "Hub profilo interattivo.",
   ship: "Calcola la compatibilità tra due utenti.",
-  duel: "Duello magico vs Voldemort o PvP.",
+  duel: "Riservato all'evento Hogwarts (non disponibile).",
   snipe: "Recupera l'ultimo messaggio eliminato nel canale.",
   join: "Fa entrare il bot nel tuo canale vocale.",
   leave: "Fa uscire il bot dal canale vocale.",
@@ -53,13 +54,14 @@ const PREFIX_HELP_DESCRIPTIONS = {
   channel: "Mostra le statistiche attività di un canale.",
   top: "Mostra la top completa utenti/canali.",
   rank: "Mostra il tuo livello e posizione in classifica.",
-  bal: "Mostra il saldo.",
-  work: "Turno di lavoro magico: pannello con bottino variabile e streak.",
-  daily: "Ricompensa giornaliera.",
-  weekly: "Ricompensa settimanale.",
-  monthly: "Ricompensa mensile.",
-  pay: "Invia Galeoni a un altro utente.",
-  rob: "Furto vs banca o utente.",
+  bal: "Mostra Vinili, Caffè e Galeoni (evento) con pannello interattivo.",
+  work: "Turno di lavoro: guadagni Vinili e Caffè con streak.",
+  daily: "Ricompensa giornaliera in Vinili e Caffè.",
+  weekly: "Ricompensa settimanale in Vinili e Caffè.",
+  monthly: "Ricompensa mensile in Vinili e Caffè.",
+  pay: "Non disponibile nell'economia server.",
+  rob: "Furto contro cassaforte o utente (valuta: vinili/caffe).",
+  shop: "Shop Vinili e Caffè con boost per economia server.",
   roulette: "Roulette interattiva.",
   rps: "Morra cinese vs bot o PvP.",
   slots: "Slots interattive.",
@@ -470,7 +472,7 @@ function shouldIncludeSlashCommandInHelp(command) {
 
 function buildEntries(client, permissions) {
   const entries = [];
-  const showEconomyHelp = isGaleoniEconomyUnlocked(client);
+  const showEconomyHelp = isServerEconomyEnabled(client);
 
   for (const command of client.pcommands.values()) {
     if (!command?.name) continue;

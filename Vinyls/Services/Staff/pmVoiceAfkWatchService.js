@@ -1,10 +1,10 @@
 const { ChannelType, EmbedBuilder, PermissionsBitField } = require("discord.js");
-const { formatItalianMinutesBold } = require("../../Utils/Text/italianDurationLabels");
 const IDs = require("../../Utils/Config/ids");
 const { getClientGuildCached, getGuildChannelCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
 const MAIN_GUILD_ID = String(IDs.guilds?.main || "").trim();
 const PM_AFK_VOICE_CATEGORY_ID = String( process.env.VC_PM_AFK_WATCH_CATEGORY_ID || IDs.categories?.categoryPublics || "1442569076902989844" ).trim();
 const PM_AFK_SKIP_CATEGORY_IDS = new Set( [IDs.categories?.categoryStanze, IDs.categories?.categoryPrivate ].filter(Boolean).map((id) => String(id)) );
+const PM_AFK_LOUNGE_VOICE_CHANNEL_IDS = new Set( [IDs.channels?.vocaleLounge1, IDs.channels?.vocaleLounge2, IDs.channels?.vocaleLounge3].filter(Boolean).map((id) => String(id)) );
 const SANZIONI_CHANNEL_ID = String(IDs.channels?.sanzioniUtenti || "").trim();
 const STAFF_PING_ROLE_ID = String(IDs.roles?.Staff || "").trim();
 const FOUNDER_ROLE_ID = String(IDs.roles?.Founder || "").trim();
@@ -43,12 +43,22 @@ function isAloneHumanInChannel(member, channel) {
   return humans.size === 1 && humans.has(member.id);
 }
 
-function isPmAfkWatchVoiceChannel(channel) {
+function isPublicAfkWatchTargetChannel(channel, client) {
+  if (!channel) return false;
+  if (PM_AFK_LOUNGE_VOICE_CHANNEL_IDS.has(String(channel.id || ""))) return true;
+  const { isPublicVoiceHubId, isSpawnedHubChannel } = require("../Voice/publicVoiceHubService");
+  const resolvedClient = client || channel.client || channel.guild?.client || null;
+  if (isPublicVoiceHubId(channel.id, resolvedClient)) return true;
+  if (isSpawnedHubChannel(channel, resolvedClient)) return true;
+  return /\b(Lounge|Duo|Trio|Quad|Squad)\b/i.test(String(channel.name || ""));
+}
+
+function isPmAfkWatchVoiceChannel(channel, client = null) {
   if (!channel || channel.type !== ChannelType.GuildVoice) return false;
   const parentId = String(channel.parentId || "");
   if (!parentId || PM_AFK_SKIP_CATEGORY_IDS.has(parentId)) return false;
   if (!PM_AFK_VOICE_CATEGORY_ID || parentId !== PM_AFK_VOICE_CATEGORY_ID) return false;
-  return true;
+  return isPublicAfkWatchTargetChannel(channel, client);
 }
 
 function memberHasFounderRole(member) {
@@ -76,7 +86,7 @@ function getMemberWatchEntry(guildId, userId) {
   return watchByMemberKey.get(memberWatchKey(guildId, userId)) || null;
 }
 
-function qualifiesForWatch(voiceState, member) {
+function qualifiesForWatch(voiceState, member, client = null) {
   if (!voiceState?.channelId || !member) return false;
   if (String(voiceState.guild?.id || member.guild?.id || "") !== MAIN_GUILD_ID) return false;
   if (member.user?.bot) return false;
@@ -85,7 +95,7 @@ function qualifiesForWatch(voiceState, member) {
   const audioOff = Boolean(voiceState.selfDeaf || voiceState.serverDeaf);
   if (micOff && audioOff) return false;
   const channel = voiceState.channel || voiceState.guild?.channels?.cache?.get(voiceState.channelId);
-  if (!channel || !isPmAfkWatchVoiceChannel(channel)) return false;
+  if (!channel || !isPmAfkWatchVoiceChannel(channel, client)) return false;
   return isAloneHumanInChannel(member, channel);
 }
 
@@ -107,10 +117,10 @@ function describeVoicePresence(voiceState) {
   return "muto";
 }
 
-function memberQualifiedBefore(oldState, member) {
+function memberQualifiedBefore(oldState, member, client = null) {
   if (!oldState || !member?.id) return undefined;
   if (String(oldState.member?.id || oldState.id || "") !== String(member.id)) return undefined;
-  return qualifiesForWatch(oldState, member);
+  return qualifiesForWatch(oldState, member, client);
 }
 
 function clearMemberWatch(guildId, userId) {
@@ -159,13 +169,29 @@ function clearPmVoiceAfkCountdown(guildId, userId) {
   return true;
 }
 
-function evaluateMemberVoiceWatch(member, opts) {
+function markPmAfkAlertSent(guildId, userId, channelId, messageId) {
+  const gid = String(guildId || "");
+  const uid = String(userId || "");
+  const key = memberWatchKey(gid, uid);
+  const entry = watchByMemberKey.get(key);
+  if (!entry) return false;
+  watchByMemberKey.set(key, {
+    ...entry,
+    alertSent: true,
+    resolved: false,
+    alertChannelId: String(channelId || entry.channelId || ""),
+    alertMessageId: String(messageId || ""),
+  });
+  return true;
+}
+
+function evaluateMemberVoiceWatch(member, opts, client = null) {
   if (!member?.id || !MAIN_GUILD_ID) return;
   const guildId = String(member.guild?.id || "");
   if (guildId !== MAIN_GUILD_ID) return;
   const voice = member.voice;
   const entry = getMemberWatchEntry(guildId, member.id);
-  const qualifiesNow = Boolean(voice?.channelId && qualifiesForWatch(voice, member));
+  const qualifiesNow = Boolean(voice?.channelId && qualifiesForWatch(voice, member, client));
   if (!qualifiesNow) {
     if (!isPendingAlert(entry)) clearMemberWatch(guildId, member.id);
     return;
@@ -235,11 +261,11 @@ async function maybeCancelPendingAlertOnVoiceLeave(client, oldState, newState) {
 }
 
 async function sendPmAfkCheckAlert(client, member, channelId, aloneMs) {
-  if (!member?.id || !channelId) return false;
+  if (!member?.id || !channelId) return null;
   const guild =
     member.guild ||
     (await getClientGuildCached(client, MAIN_GUILD_ID).catch(() => null));
-  if (!guild) return false;
+  if (!guild) return null;
 
   const existingEntry = getMemberWatchEntry(guild.id, member.id);
   if (existingEntry?.alertMessageId) {
@@ -252,65 +278,27 @@ async function sendPmAfkCheckAlert(client, member, channelId, aloneMs) {
     ).catch(() => null);
   }
 
-  const voiceChannel = guild.channels.cache.get(String(channelId))
-    || (await getGuildChannelCached(guild, channelId).catch(() => null));
-  if (!voiceChannel?.isTextBased?.()) {
-    global.logger?.warn?.("[VOICE AFK WATCH] Canale vocale senza chat testuale:", channelId);
-    return false;
-  }
-
-  const minutes = Math.max(1, Math.round(aloneMs / 60_000));
-  const listenSec = Math.max(30, Math.round(
-    Number(process.env.VC_PM_AFK_PROBE_LISTEN_MS || 90_000) / 1000,
-  ));
-
-  const embed = new EmbedBuilder()
-    .setColor("#E67E22")
-    .setTitle("<:VC_Attention:1482534443632558151> Controllo anti-AFK")
-    .setDescription(
-      [
-        `Sei in questo canale da ${formatItalianMinutesBold(minutes)} **da solo**.`,
-        "",
-        "Per confermare che **non sei AFK**:",
-        `> 🎙️ **Parla nel microfono** entro **${listenSec} secondi** mentre il bot è in ascolto.`,
-        "",
-        "Puoi anche **scrivere in chat** o **uscire dal vocale** per annullare il controllo.",
-      ].join("\n"),
-    )
-
-  const sent = await voiceChannel
-    .send({
-      content: `${member}`,
-      embeds: [embed],
-      allowedMentions: { users: [String(member.id)] },
-    })
-    .catch((err) => {
-      global.logger?.warn?.("[VOICE AFK WATCH] Invio avviso utente fallito:", err?.message || err);
-      return null;
-    });
-  if (!sent?.id) return null;
-
   const { startPmVoiceAfkProbe } = require("../Voice/pmVoiceAfkProbeService");
-  void startPmVoiceAfkProbe(client, {
+  return startPmVoiceAfkProbe(client, {
     guildId: guild.id,
     targetUserId: member.id,
     voiceChannelId: String(channelId),
-    alertMessageId: String(sent.id),
     aloneMs,
+    member,
+    composeAlert: true,
   }).catch((err) => {
     global.logger?.warn?.("[VOICE AFK WATCH] Probe vocale fallita:", err?.message || err);
+    return null;
   });
-
-  return { channelId: String(voiceChannel.id), messageId: String(sent.id) };
 }
 
-function discoverQualifyingWatchesInGuild(guild) {
+function discoverQualifyingWatchesInGuild(guild, client = null) {
   if (!guild) return;
   for (const channel of guild.channels.cache.values()) {
-    if (!isPmAfkWatchVoiceChannel(channel)) continue;
+    if (!isPmAfkWatchVoiceChannel(channel, client)) continue;
     for (const member of channel.members.values()) {
       if (member.user?.bot) continue;
-      if (!qualifiesForWatch(member.voice, member)) continue;
+      if (!qualifiesForWatch(member.voice, member, client)) continue;
       const key = memberWatchKey(guild.id, member.id);
       if (!watchByMemberKey.has(key)) {
         touchMemberWatch(guild.id, member.id, member.voice.channelId);
@@ -325,11 +313,11 @@ function rescanPmAfkWatchChannels(guild, channelIds, oldState, client) {
   for (const channelId of ids) {
     if (!channelId) continue;
     const channel = guild.channels.cache.get(channelId);
-    if (!channel || !isPmAfkWatchVoiceChannel(channel)) continue;
+    if (!channel || !isPmAfkWatchVoiceChannel(channel, client)) continue;
     for (const member of channel.members.values()) {
       if (member.user?.bot) continue;
-      const qualifiedBefore = memberQualifiedBefore(oldState, member);
-      const qualifiesNow = qualifiesForWatch(member.voice, member);
+      const qualifiedBefore = memberQualifiedBefore(oldState, member, client);
+      const qualifiesNow = qualifiesForWatch(member.voice, member, client);
       if (!qualifiesNow) {
         const entry = getMemberWatchEntry(guild.id, member.id);
         if (isPendingAlert(entry) && client) {
@@ -340,7 +328,7 @@ function rescanPmAfkWatchChannels(guild, channelIds, oldState, client) {
         continue;
       }
       const justBecameAlone = qualifiedBefore === false;
-      evaluateMemberVoiceWatch(member, { resetTimer: justBecameAlone });
+      evaluateMemberVoiceWatch(member, { resetTimer: justBecameAlone }, client);
     }
   }
 }
@@ -349,7 +337,7 @@ async function sweepPmVoiceAfkAlerts(client) {
   if (!MAIN_GUILD_ID) return;
   const guild = await getClientGuildCached(client, MAIN_GUILD_ID).catch(() => null);
   if (!guild) return;
-  discoverQualifyingWatchesInGuild(guild);
+  discoverQualifyingWatchesInGuild(guild, client);
   if (!watchByMemberKey.size) return;
   const now = Date.now();
 
@@ -372,7 +360,7 @@ async function sweepPmVoiceAfkAlerts(client) {
       }
       continue;
     }
-    if (!qualifiesForWatch(member.voice, member)) {
+    if (!qualifiesForWatch(member.voice, member, client)) {
       if (isPendingAlert(entry)) {
         await cancelPendingPmAfkAlert(client, guild.id, userId).catch(() => null);
       } else {
@@ -405,7 +393,7 @@ async function syncPmVoiceAfkWatchFromGateway(client) {
   const guild = await getClientGuildCached(client, MAIN_GUILD_ID).catch(() => null);
   if (!guild) return;
   for (const channel of guild.channels.cache.values()) {
-    if (!isPmAfkWatchVoiceChannel(channel)) continue;
+    if (!isPmAfkWatchVoiceChannel(channel, client)) continue;
     for (const member of channel.members.values()) {
       evaluateMemberVoiceWatch(member);
     }
@@ -434,10 +422,6 @@ function handlePmVoiceAfkSpeakingProbe(client, oldState, newState) {
     const { notifyProbeSpeechHeard } = require("../Voice/pmVoiceAfkProbeService");
     notifyProbeSpeechHeard(newState.guild.id, userId);
   } catch (_) {}
-  const entry = getMemberWatchEntry(newState.guild.id, userId);
-  if (isPendingAlert(entry) && client) {
-    void cancelPendingPmAfkAlert(client, newState.guild.id, userId).catch(() => null);
-  }
 }
 
 async function handlePmVoiceAfkVoiceState(oldState, newState, client) {
@@ -505,4 +489,4 @@ async function sendPmAfkSanctionNotice(client, guild, opts = {}) {
   return true;
 }
 
-module.exports = { PM_AFK_VOICE_CATEGORY_ID, isPmAfkWatchVoiceChannel, handlePmVoiceAfkVoiceState, syncPmVoiceAfkWatchFromGateway, startPmVoiceAfkWatchLoop, sweepPmVoiceAfkAlerts, resetPmVoiceAfkCountdown, clearPmVoiceAfkCountdown, cancelPendingPmAfkAlert, deletePmAfkUserAlertMessage, sendPmAfkSanctionNotice, handlePmVoiceAfkChatMessage, isStaffInVoiceWithTarget, isStaffMember, isPendingAlert, getMemberWatchEntry };
+module.exports = { PM_AFK_VOICE_CATEGORY_ID, isPmAfkWatchVoiceChannel, handlePmVoiceAfkVoiceState, syncPmVoiceAfkWatchFromGateway, startPmVoiceAfkWatchLoop, sweepPmVoiceAfkAlerts, resetPmVoiceAfkCountdown, clearPmVoiceAfkCountdown, markPmAfkAlertSent, cancelPendingPmAfkAlert, deletePmAfkUserAlertMessage, sendPmAfkSanctionNotice, handlePmVoiceAfkChatMessage, isStaffInVoiceWithTarget, isStaffMember, isPendingAlert, getMemberWatchEntry };

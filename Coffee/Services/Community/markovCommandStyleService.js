@@ -1,18 +1,11 @@
-const { COFFEE_PREFIX_COMMAND_NAMES } = require("../../../shared/discord/coffeePrefixCommandTokens");
-
-const VINYLS_STYLE_COMMANDS = [
-  "profile",
-  "avatar",
-  "banner",
-  "afk",
-  "quote",
-  "rank",
-  "snipe",
-  "myrepost",
-  "classifica",
-  "repost",
-  "clip",
-];
+const {
+  COFFEE_PREFIX_COMMAND_NAMES,
+  isCoffeePrefixCommandToken,
+} = require("../../../shared/discord/coffeePrefixCommandTokens");
+const {
+  VINYLS_PREFIX_COMMAND_NAMES,
+  isVinylsPrefixCommandToken,
+} = require("../../../shared/discord/vinylsPrefixCommandTokens");
 
 const COFFEE_ARG_COMMANDS = new Set([
   "play",
@@ -24,17 +17,37 @@ const COFFEE_ARG_COMMANDS = new Set([
   "requested",
 ]);
 
+const VINYLS_ARG_COMMANDS = new Set([
+  "quote",
+  "profile",
+  "avatar",
+  "banner",
+  "afk",
+  "repost",
+  "help",
+  "ping",
+  "settings",
+]);
+
 const COMMAND_LINE_RE = /^([+,./])([a-zA-Z0-9_-]+)(?:\s+(.*))?$/;
+
+function getPrefixConfig(client) {
+  const markov = client?.config?.markov || {};
+  return {
+    coffeePrefix: String(client?.config?.prefix || ",").trim() || ",",
+    vinylsPrefix: String(markov.vinylsStylePrefix || "+").trim() || "+",
+  };
+}
 
 function getCommandStyleConfig(client) {
   const markov = client?.config?.markov || {};
   const auto = markov.autoSend && typeof markov.autoSend === "object" ? markov.autoSend : {};
-  const chanceRaw = Number(auto.commandStyleChance ?? markov.commandStyleChance ?? 0.2);
+  const chanceRaw = Number(auto.commandStyleChance ?? markov.commandStyleChance ?? 0);
+  const prefixes = getPrefixConfig(client);
   return {
-    enabled: auto.commandStyleEnabled !== false && markov.commandStyleEnabled !== false,
-    chance: Number.isFinite(chanceRaw) ? Math.min(1, Math.max(0, chanceRaw)) : 0.2,
-    coffeePrefix: String(client?.config?.prefix || ",").trim() || ",",
-    vinylsPrefix: String(markov.vinylsStylePrefix || "+").trim() || "+",
+    enabled: auto.commandStyleEnabled === true && markov.commandStyleEnabled === true,
+    chance: Number.isFinite(chanceRaw) ? Math.min(1, Math.max(0, chanceRaw)) : 0,
+    ...prefixes,
   };
 }
 
@@ -52,12 +65,20 @@ function parseCommandLine(text) {
   };
 }
 
-function extractCommandExamplesFromCorpus(corpus) {
+function isKnownPrefixCommand(prefix, command, cfg = {}) {
+  const cmd = String(command || "").toLowerCase();
+  if (!cmd) return false;
+  if (prefix === cfg.coffeePrefix) return isCoffeePrefixCommandToken(cmd);
+  if (prefix === cfg.vinylsPrefix) return isVinylsPrefixCommandToken(cmd);
+  return false;
+}
+
+function extractCommandExamplesFromCorpus(corpus, cfg) {
   const out = [];
   const seen = new Set();
   for (const line of Array.isArray(corpus) ? corpus : []) {
     const parsed = parseCommandLine(line);
-    if (!parsed) continue;
+    if (!parsed || !isKnownPrefixCommand(parsed.prefix, parsed.command, cfg)) continue;
     const key = `${parsed.prefix}${parsed.command}`;
     if (seen.has(key)) continue;
     seen.add(key);
@@ -74,8 +95,8 @@ function pickRandom(items) {
 function commandAcceptsArgs(prefix, command, cfg) {
   const cmd = String(command || "").toLowerCase();
   if (prefix === cfg.coffeePrefix) return COFFEE_ARG_COMMANDS.has(cmd);
-  if (prefix === cfg.vinylsPrefix) return new Set(["quote", "profile", "avatar", "banner", "afk", "repost"]).has(cmd);
-  return cmd === "play" || cmd === "help";
+  if (prefix === cfg.vinylsPrefix) return VINYLS_ARG_COMMANDS.has(cmd);
+  return false;
 }
 
 function pickCommandName(prefix, cfg, corpusExamples) {
@@ -87,16 +108,13 @@ function pickCommandName(prefix, cfg, corpusExamples) {
     return pickRandom([...COFFEE_PREFIX_COMMAND_NAMES]);
   }
   if (prefix === cfg.vinylsPrefix) {
-    return pickRandom(VINYLS_STYLE_COMMANDS);
+    return pickRandom([...VINYLS_PREFIX_COMMAND_NAMES]);
   }
-  return pickRandom(["help", "play", "ping", "profile", "settings"]);
+  return null;
 }
 
 function pickCommandPrefix(cfg) {
-  const roll = Math.random();
-  if (roll < 0.58) return cfg.coffeePrefix;
-  if (roll < 0.9) return cfg.vinylsPrefix;
-  return "/";
+  return Math.random() < 0.5 ? cfg.coffeePrefix : cfg.vinylsPrefix;
 }
 
 function stripCommandPrefixFromArgs(text) {
@@ -113,16 +131,37 @@ function buildFakeCommandLine(prefix, command, args) {
   return `${prefix}${cmd} ${body}`;
 }
 
+function sanitizeCommandLikeText(client, text) {
+  const trimmed = String(text || "").trim();
+  if (!trimmed) return "";
+  const parsed = parseCommandLine(trimmed);
+  if (!parsed) return trimmed;
+  const cfg = getPrefixConfig(client);
+  if (isKnownPrefixCommand(parsed.prefix, parsed.command, cfg)) return trimmed;
+  return parsed.args || "";
+}
+
+function sanitizeMarkovCollectLine(client, content) {
+  const trimmed = String(content || "").trim();
+  if (!trimmed) return "";
+  const parsed = parseCommandLine(trimmed);
+  if (!parsed) return trimmed;
+  const cfg = getPrefixConfig(client);
+  if (isKnownPrefixCommand(parsed.prefix, parsed.command, cfg)) return trimmed;
+  return parsed.args || "";
+}
+
 function maybeApplyCommandStyle(client, text, corpus = []) {
   const cfg = getCommandStyleConfig(client);
   const trimmed = String(text || "").trim();
-  if (!trimmed || !cfg.enabled) return trimmed;
-  if (looksLikeWrittenCommand(trimmed)) return trimmed;
+  if (!trimmed || !cfg.enabled) return sanitizeCommandLikeText(client, trimmed);
+  if (looksLikeWrittenCommand(trimmed)) return sanitizeCommandLikeText(client, trimmed);
   if (cfg.chance <= 0 || Math.random() >= cfg.chance) return trimmed;
 
-  const corpusExamples = extractCommandExamplesFromCorpus(corpus);
+  const corpusExamples = extractCommandExamplesFromCorpus(corpus, cfg);
   const prefix = pickCommandPrefix(cfg);
   const command = pickCommandName(prefix, cfg, corpusExamples);
+  if (!command) return trimmed;
   const argsSource = stripCommandPrefixFromArgs(trimmed);
   const withArgs = commandAcceptsArgs(prefix, command, cfg) && argsSource;
   return buildFakeCommandLine(prefix, command, withArgs ? argsSource : "");
@@ -130,9 +169,13 @@ function maybeApplyCommandStyle(client, text, corpus = []) {
 
 module.exports = {
   getCommandStyleConfig,
+  getPrefixConfig,
   looksLikeWrittenCommand,
   parseCommandLine,
+  isKnownPrefixCommand,
   extractCommandExamplesFromCorpus,
+  sanitizeCommandLikeText,
+  sanitizeMarkovCollectLine,
   maybeApplyCommandStyle,
   buildFakeCommandLine,
 };

@@ -118,6 +118,116 @@ async function setPartnerPmDailyThreadId(threadId) {
   );
 }
 
+const STAFF_CHAT_THREAD_DB_FIELDS = {
+  pm: "staffChatPmThreadId",
+  senior: "staffChatSeniorThreadId",
+  highStaff: "staffChatHighStaffThreadId",
+};
+
+async function getStaffChatThreadIds() {
+  const coll = getCollection();
+  if (!coll || mongoose.connection?.readyState !== 1) {
+    return { pm: null, senior: null, highStaff: null };
+  }
+  await ensureBucketArrays();
+  const doc = await coll.findOne(
+    { _counterKey: TICKET_COUNTER_KEY },
+    { projection: { staffChatPmThreadId: 1, staffChatSeniorThreadId: 1, staffChatHighStaffThreadId: 1 } },
+  );
+  const pick = (v) => (v != null && String(v).trim() !== "" ? String(v).trim() : null);
+  return {
+    pm: pick(doc?.staffChatPmThreadId),
+    senior: pick(doc?.staffChatSeniorThreadId),
+    highStaff: pick(doc?.staffChatHighStaffThreadId),
+  };
+}
+
+async function setStaffChatThreadId(key, threadId) {
+  const coll = getCollection();
+  const field = STAFF_CHAT_THREAD_DB_FIELDS[String(key || "").trim()];
+  if (!coll || !field) return;
+  await ensureBucketArrays();
+  const id = threadId != null && String(threadId).trim() !== "" ? String(threadId).trim() : null;
+  await coll.updateOne(
+    { _counterKey: TICKET_COUNTER_KEY },
+    id ? { $set: { [field]: id } } : { $unset: { [field]: "" } },
+  );
+}
+
+async function getStaffChatHubMessageId() {
+  const coll = getCollection();
+  if (!coll || mongoose.connection?.readyState !== 1) return null;
+  await ensureBucketArrays();
+  const doc = await coll.findOne({ _counterKey: TICKET_COUNTER_KEY }, { projection: { staffChatHubMessageId: 1 } });
+  const id = doc?.staffChatHubMessageId;
+  return id != null && String(id).trim() !== "" ? String(id).trim() : null;
+}
+
+async function setStaffChatHubMessageId(messageId) {
+  const coll = getCollection();
+  if (!coll) return;
+  await ensureBucketArrays();
+  const id = messageId != null && String(messageId).trim() !== "" ? String(messageId).trim() : null;
+  await coll.updateOne(
+    { _counterKey: TICKET_COUNTER_KEY },
+    id ? { $set: { staffChatHubMessageId: id } } : { $unset: { staffChatHubMessageId: "" } },
+  );
+}
+
+const STAFF_CMDS_THREAD_DB_FIELDS = {
+  pm: "staffCmdsPmThreadId",
+  high: "staffCmdsHighThreadId",
+};
+
+async function getStaffCmdsThreadIds() {
+  const coll = getCollection();
+  if (!coll || mongoose.connection?.readyState !== 1) {
+    return { pm: null, high: null };
+  }
+  await ensureBucketArrays();
+  const doc = await coll.findOne(
+    { _counterKey: TICKET_COUNTER_KEY },
+    { projection: { staffCmdsPmThreadId: 1, staffCmdsHighThreadId: 1 } },
+  );
+  const pick = (v) => (v != null && String(v).trim() !== "" ? String(v).trim() : null);
+  return {
+    pm: pick(doc?.staffCmdsPmThreadId),
+    high: pick(doc?.staffCmdsHighThreadId),
+  };
+}
+
+async function setStaffCmdsThreadId(key, threadId) {
+  const coll = getCollection();
+  const field = STAFF_CMDS_THREAD_DB_FIELDS[String(key || "").trim()];
+  if (!coll || !field) return;
+  await ensureBucketArrays();
+  const id = threadId != null && String(threadId).trim() !== "" ? String(threadId).trim() : null;
+  await coll.updateOne(
+    { _counterKey: TICKET_COUNTER_KEY },
+    id ? { $set: { [field]: id } } : { $unset: { [field]: "" } },
+  );
+}
+
+async function getStaffCmdsHubMessageId() {
+  const coll = getCollection();
+  if (!coll || mongoose.connection?.readyState !== 1) return null;
+  await ensureBucketArrays();
+  const doc = await coll.findOne({ _counterKey: TICKET_COUNTER_KEY }, { projection: { staffCmdsHubMessageId: 1 } });
+  const id = doc?.staffCmdsHubMessageId;
+  return id != null && String(id).trim() !== "" ? String(id).trim() : null;
+}
+
+async function setStaffCmdsHubMessageId(messageId) {
+  const coll = getCollection();
+  if (!coll) return;
+  await ensureBucketArrays();
+  const id = messageId != null && String(messageId).trim() !== "" ? String(messageId).trim() : null;
+  await coll.updateOne(
+    { _counterKey: TICKET_COUNTER_KEY },
+    id ? { $set: { staffCmdsHubMessageId: id } } : { $unset: { staffCmdsHubMessageId: "" } },
+  );
+}
+
 async function listPartnershipBlacklistGuildsBucket(limit = 50) {
   const safe = Math.max(1, Math.min(100, Number(limit) || 50));
   const arr = await getPartnershipBlacklistEntries();
@@ -341,4 +451,4 @@ async function setGuildPostCounter(guildId, arrayKey, count) {
   return c;
 }
 
-module.exports = { TICKET_COUNTER_KEY, COUNTER_COLLECTION, LEGACY_QUOTECOUNTS_COLLECTION, LEGACY_COUNTSCHEMAS_COLLECTION, ensureBucketArrays, getCountingConfigFromBucket, nextQuoteCount, nextRepostCount, nextClipCount, decrementQuoteCount, setGuildPostCounter, readGuildCounterFromDoc, pingDbLatencyMs, getPartnershipBlacklistEntries, setPartnershipBlacklistEntries, isPartnershipGuildBlacklistedBucket, addPartnershipBlacklistGuildBucket, removePartnershipBlacklistGuildBucket, listPartnershipBlacklistGuildsBucket, getPartnerPmDailyThreadId, setPartnerPmDailyThreadId };
+module.exports = { TICKET_COUNTER_KEY, COUNTER_COLLECTION, LEGACY_QUOTECOUNTS_COLLECTION, LEGACY_COUNTSCHEMAS_COLLECTION, ensureBucketArrays, getCountingConfigFromBucket, nextQuoteCount, nextRepostCount, nextClipCount, decrementQuoteCount, setGuildPostCounter, readGuildCounterFromDoc, pingDbLatencyMs, getPartnershipBlacklistEntries, setPartnershipBlacklistEntries, isPartnershipGuildBlacklistedBucket, addPartnershipBlacklistGuildBucket, removePartnershipBlacklistGuildBucket, listPartnershipBlacklistGuildsBucket, getPartnerPmDailyThreadId, setPartnerPmDailyThreadId, getStaffChatThreadIds, setStaffChatThreadId, getStaffChatHubMessageId, setStaffChatHubMessageId, getStaffCmdsThreadIds, setStaffCmdsThreadId, getStaffCmdsHubMessageId, setStaffCmdsHubMessageId };

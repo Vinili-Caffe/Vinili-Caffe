@@ -23,6 +23,7 @@ if (process.env.RUN_UNDER_LOADER !== "1") {
 
 const { installEmbedFooterPatch } = require("./Utils/Embeds/defaultFooter");
 const { buildInitialClientPresenceOptions, installBotPresenceHooks, patchClientPresenceGuard } = require("../shared/discord/botPresenceActivity");
+const { installGatewayShardListenerCeiling } = require("../shared/discord/gatewayListenerCeiling");
 
 const pcommandFolders = listFoldersIfExists(path.join(APP_ROOT, "Prefix"));
 const commandFolders = listFoldersIfExists(path.join(APP_ROOT, "Commands"));
@@ -93,6 +94,7 @@ const envMongoUrl =
 client.config.token = envToken || client.config.token;
 client.config.mongoURL = envMongoUrl || client.config.mongoURL;
 applyListenerCeiling(client, client.config);
+installGatewayShardListenerCeiling(client);
 installBotPresenceHooks(client);
 
 if (!client.config.token) {

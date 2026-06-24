@@ -1014,7 +1014,9 @@
   var siteNotifsTimer = null;
   var siteRealtimeWs = null;
   var siteRealtimeWsReconnectTimer = null;
-  var SITE_NOTIFS_POLL_MS = 60000;
+  var SITE_NOTIFS_POLL_MS = 20000;
+  var SITE_NOTIFS_TOAST_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+  var siteNotifsAuthWarned = false;
   var siteNotifsVisibilityTimer = null;
   var lastNotifRenderSig = "";
   /** Milliseconds the toast stays visible before flying to the bell. */
@@ -1670,9 +1672,14 @@
     if (!base) return "/webhooks/site-notifications/clear";
     return String(base).replace(/\/+$/, "") + "/clear";
   }
+  function siteNotificationsWsEnabled() {
+    var c = typeof window !== "undefined" && window.__VC_SITE_NOTIFS ? window.__VC_SITE_NOTIFS : {};
+    if (c.wsEnabled === false || c.wsEnabled === "false") return false;
+    return true;
+  }
   function siteRealtimeWsUrl() {
     var c = typeof window !== "undefined" && window.__VC_SITE_NOTIFS ? window.__VC_SITE_NOTIFS : {};
-    if (c.wsEnabled !== true && c.wsEnabled !== "true" && !String(c.wsUrl || "").trim()) return "";
+    if (!siteNotificationsWsEnabled()) return "";
     var explicit = String(c.wsUrl || "").trim();
     if (explicit) return explicit;
     var http = resolvedSiteNotificationsUrl();
@@ -1738,6 +1745,7 @@
       ws.onopen = function () {
         stopSiteNotifsPoll();
         syncSiteNotificationsFromServer();
+        siteNotifsTimer = setInterval(syncSiteNotificationsFromServer, SITE_NOTIFS_POLL_MS * 3);
       };
       ws.onmessage = function (ev) {
         try {
@@ -1766,10 +1774,45 @@
   }
   function getDiscordAccessToken() {
     try {
-      return String(localStorage.getItem(DISCORD_ACCESS_TOKEN_KEY) || "").trim();
+      if (typeof window.__vcDiscordGetAccessToken === "function") {
+        return String(window.__vcDiscordGetAccessToken() || "").trim();
+      }
+    } catch (eFn) {}
+    try {
+      var t = String(localStorage.getItem(DISCORD_ACCESS_TOKEN_KEY) || "").trim();
+      var exp = Number(localStorage.getItem("vc_discord_expires_at") || "0");
+      if (!t || !exp || Date.now() >= exp) return "";
+      return t;
     } catch (e) {
       return "";
     }
+  }
+  function handleSiteNotifsAuthFailure(status) {
+    if (Number(status) !== 401) return;
+    stopSiteNotifsPoll();
+    disconnectSiteRealtimeWs();
+    try {
+      if (typeof window.__vcDiscordClearSession === "function") window.__vcDiscordClearSession();
+      else {
+        localStorage.removeItem(DISCORD_ACCESS_TOKEN_KEY);
+        localStorage.removeItem("vc_discord_expires_at");
+      }
+    } catch (eClr) {}
+    try {
+      window.dispatchEvent(new CustomEvent("vc-discord-session-expired", { detail: { source: "site_notifications" } }));
+    } catch (eEv) {}
+    if (siteNotifsAuthWarned) return;
+    siteNotifsAuthWarned = true;
+    try {
+      if (window.vcNotify && typeof window.vcNotify.add === "function") {
+        window.vcNotify.add({
+          title: "Sessione scaduta",
+          body: "Accedi di nuovo con Discord per sincronizzare le notifiche.",
+          kind: "info",
+          at: Date.now(),
+        });
+      }
+    } catch (eN) {}
   }
   function markSiteNotificationReadOnServer(id) {
     var token = getDiscordAccessToken();
@@ -1901,7 +1944,6 @@
     var merged = keepLocal.concat(fromServer);
     saveStored(merged);
     var changed = beforeSig !== buildNotifStoreSignature(merged);
-    var freshMs = 600000;
     var toastRow = null;
     for (var ti = 0; ti < fromServer.length; ti += 1) {
       var fr = fromServer[ti];
@@ -1909,18 +1951,18 @@
       var frid = String(fr.id || "").trim();
       if (!frid || oldIdMap[frid]) continue;
       if (isNotifDismissed(fr, uid, dismissed)) continue;
-      if (Date.now() - (fr.at || 0) < freshMs) {
-        toastRow = {
-          id: fr.id,
-          title: fr.title,
-          body: fr.body,
-          kind: fr.kind,
-          at: fr.at,
-          read: fr.read,
-          openUrl: fr.openUrl,
-        };
-        break;
-      }
+      if (fr.read) continue;
+      if (Date.now() - (fr.at || 0) > SITE_NOTIFS_TOAST_MAX_AGE_MS) continue;
+      toastRow = {
+        id: fr.id,
+        title: fr.title,
+        body: fr.body,
+        kind: fr.kind,
+        at: fr.at,
+        read: fr.read,
+        openUrl: fr.openUrl,
+      };
+      break;
     }
     return { toastRow: toastRow, changed: changed };
   }
@@ -1949,7 +1991,13 @@
     if (ctrl) opts.signal = ctrl.signal;
     fetch(url, opts)
       .then(function (r) {
-        return r.json();
+        if (r.status === 401) {
+          handleSiteNotifsAuthFailure(401);
+          return null;
+        }
+        return r.json().catch(function () {
+          return null;
+        });
       })
       .then(function (j) {
         if (!j || j.ok !== true || !Array.isArray(j.items)) return;
@@ -2057,6 +2105,7 @@
   }
   window.addEventListener("vc-discord-profile", function (ev) {
     setCurrentUser(ev && ev.detail ? ev.detail.user : null);
+    siteNotifsAuthWarned = false;
     lastNotifRenderSig = "";
     render({ force: true });
     syncGlobalNotifOverlayClass();

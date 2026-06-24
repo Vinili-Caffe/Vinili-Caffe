@@ -180,6 +180,32 @@ function shuffle(list) {
   return out;
 }
 
+async function resolveGuild(client, guildId) {
+  const gid = String(guildId || "").trim();
+  if (!gid || !client?.guilds) return null;
+  return client.guilds.cache.get(gid) || client.guilds.fetch(gid).catch(() => null);
+}
+
+async function filterUserIdsInGuild(client, guildId, userIds) {
+  const ids = [...new Set((Array.isArray(userIds) ? userIds : [])
+    .map((uid) => String(uid || "").trim())
+    .filter(Boolean))];
+  if (!ids.length) return [];
+  const guild = await resolveGuild(client, guildId);
+  if (!guild) return [];
+  const present = [];
+  const missing = [];
+  for (const uid of ids) {
+    if (guild.members.cache.has(uid)) present.push(uid);
+    else missing.push(uid);
+  }
+  for (const uid of missing) {
+    const member = await guild.members.fetch(uid).catch(() => null);
+    if (member) present.push(uid);
+  }
+  return present;
+}
+
 function pickTopRanked(rows, count) {
   const sorted = rows.slice().sort((a, b) => b.score - a.score || String(a.id).localeCompare(String(b.id)));
   if (!sorted.length) return [];
@@ -263,8 +289,10 @@ async function resolveTopMinigamePlayersInHouse(client, guildId, houseId, count,
     .catch(() => []);
   const userIds = sortingRows.map((row) => String(row?.userId || "").trim()).filter(Boolean);
   if (!userIds.length) return [];
+  const guildMemberIds = await filterUserIdsInGuild(client, gid, userIds);
+  if (!guildMemberIds.length) return [];
   const winsPath = periodKey ? `profile.events.hogwarts.shopBoostUsage.byPeriod.${periodKey}.minigameWins` : "";
-  const profiles = await ActivityUserProfile.find({ guildId: gid, userId: { $in: userIds } })
+  const profiles = await ActivityUserProfile.find({ guildId: gid, userId: { $in: guildMemberIds } })
     .select(winsPath ? `userId ${winsPath}` : "userId")
     .lean()
     .catch(() => []);
@@ -402,6 +430,21 @@ function buildBasiliskEmbed(plan, cfg, imageUrl = "") {
   return embed;
 }
 
+async function prunePersistentCurseGuildMembers(client, guildId, scope = SCOPE_GLOBAL) {
+  const state = getScopeState(client, scope);
+  const row = state.persistentCurse;
+  if (!row) return null;
+  const blockedUserIds = await filterUserIdsInGuild(client, guildId, row.blockedUserIds || []);
+  if (!blockedUserIds.length) {
+    state.persistentCurse = null;
+    return null;
+  }
+  if (blockedUserIds.length !== (row.blockedUserIds || []).length) {
+    row.blockedUserIds = blockedUserIds;
+  }
+  return row;
+}
+
 function readActivePersistentCurse(client, scope = SCOPE_GLOBAL) {
   const row = getScopeState(client, scope).persistentCurse;
   if (!row) return null;
@@ -497,6 +540,7 @@ async function planBasiliskStrike(client, cfg, options = {}) {
   const fixedHouseId = resolveStrikeHouseIdForMinigame(cfg);
   const inHouseChannel = scope === SCOPE_HOUSE;
   const locationLabel = resolveMinigameLocationLabel(cfg);
+  await prunePersistentCurseGuildMembers(client, guildId, scope);
   const activePersistent = readActivePersistentCurse(client, scope);
   if (activePersistent) {
     return buildPlanFromPersistentCurse(activePersistent, cfg, scope);
@@ -736,4 +780,4 @@ async function runMinigameStartWithBasilisk(client, cfg, gameType, startFn, opti
   return result;
 }
 
-module.exports = { attachBasiliskToGame, isBasiliskBlockedForUser, planBasiliskStrike, announceBasiliskStrike, runMinigameStartWithBasilisk, resolveHouseChannelId };
+module.exports = { attachBasiliskToGame, filterUserIdsInGuild, isBasiliskBlockedForUser, planBasiliskStrike, announceBasiliskStrike, runMinigameStartWithBasilisk, resolveHouseChannelId };

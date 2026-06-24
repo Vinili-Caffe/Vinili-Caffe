@@ -24,7 +24,7 @@ function walkJsFiles(dir, out = []) {
   return out;
 }
 
-function run(root) {
+async function run(root) {
   const cwdOrig = process.cwd();
   try {
     process.chdir(root);
@@ -349,9 +349,49 @@ function run(root) {
     require(markovTestPath);
   }
 
+  const markovAutoSendTestPath = path.join(path.resolve(__dirname, ".."), "scripts", "test-markov-auto-send-trigger.js");
+  if (fs.existsSync(markovAutoSendTestPath)) {
+    require(markovAutoSendTestPath)();
+  }
+
+  const markovCommandStyleTestPath = path.join(path.resolve(__dirname, ".."), "scripts", "test-markov-command-style.js");
+  if (fs.existsSync(markovCommandStyleTestPath)) {
+    require(markovCommandStyleTestPath)();
+  }
+
   const shopBoostRolloverTestPath = path.join(path.resolve(__dirname, ".."), "scripts", "test-shop-boost-period-rollover.js");
   if (fs.existsSync(shopBoostRolloverTestPath)) {
     require(shopBoostRolloverTestPath);
+  }
+
+  const basiliskGuildTestPath = path.join(path.resolve(__dirname, ".."), "scripts", "test-basilisk-guild-members.js");
+  if (fs.existsSync(basiliskGuildTestPath)) {
+    await require(basiliskGuildTestPath)();
+  }
+
+  const serverWalletTestPath = path.join(path.resolve(__dirname, ".."), "scripts", "test-server-wallet.js");
+  if (fs.existsSync(serverWalletTestPath)) {
+    require(serverWalletTestPath)();
+  }
+
+  const serverEconomyPhase3TestPath = path.join(path.resolve(__dirname, ".."), "scripts", "test-server-economy-phase3.js");
+  if (fs.existsSync(serverEconomyPhase3TestPath)) {
+    require(serverEconomyPhase3TestPath)();
+  }
+
+  const serverShopTestPath = path.join(path.resolve(__dirname, ".."), "scripts", "test-server-shop.js");
+  if (fs.existsSync(serverShopTestPath)) {
+    require(serverShopTestPath)();
+  }
+
+  const serverBridgeTestPath = path.join(path.resolve(__dirname, ".."), "scripts", "test-server-economy-bridge.js");
+  if (fs.existsSync(serverBridgeTestPath)) {
+    require(serverBridgeTestPath)();
+  }
+
+  const publicVoiceHubTestPath = path.join(path.resolve(__dirname, ".."), "scripts", "test-public-voice-hub.js");
+  if (fs.existsSync(publicVoiceHubTestPath)) {
+    require(publicVoiceHubTestPath)();
   }
 
   console.log("CRITICAL_SYSTEMS_TEST_OK");
@@ -363,12 +403,10 @@ function run(root) {
 }
 
 if (require.main === module) {
-  try {
-    run(getBotRoot());
-  } catch (err) {
+  run(getBotRoot()).catch((err) => {
     console.error(err);
     process.exit(1);
-  }
+  });
 } else {
   module.exports = run;
 }

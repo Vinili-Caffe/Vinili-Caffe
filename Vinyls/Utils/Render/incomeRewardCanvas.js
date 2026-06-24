@@ -1,12 +1,12 @@
 const canvasModule = require("canvas");
-const { formatDuration } = require("../../Services/Community/galeoniEconomyService");
+const { formatDuration } = require("../../Services/Community/serverEconomyService");
 const { registerCanvasFonts } = require("./canvasFonts");
 const { createCanvas } = canvasModule;
 const TYPE_META = {
   daily: { title: "GIORNALIERA", sub: "Ricompensa giornaliera", accent: "#fbbf24", glow: "rgba(251,191,36,0.4)", label: "Giornaliera" },
   weekly: { title: "SETTIMANALE", sub: "Ricompensa settimanale", accent: "#60a5fa", glow: "rgba(96,165,250,0.4)", label: "Settimanale" },
   monthly: { title: "MENSILE", sub: "Ricompensa mensile", accent: "#c084fc", glow: "rgba(192,132,252,0.4)", label: "Mensile" },
-  work: { title: "LAVORO", sub: "Turno al calderone", accent: "#34d399", glow: "rgba(52,211,153,0.35)", label: "Lavoro", titleOnHeader: "#ecfdf5", subOnHeader: "#bbf7d0" },
+  work: { title: "LAVORO", sub: "Turno di lavoro", accent: "#34d399", glow: "rgba(52,211,153,0.35)", label: "Lavoro", titleOnHeader: "#ecfdf5", subOnHeader: "#bbf7d0" },
 };
 let fontsReady = false;
 
@@ -16,9 +16,9 @@ function ensureFonts() {
   fontsReady = true;
 }
 
-function formatGaleoniShort(amount) {
+function formatRewardShort(amount) {
   const n = Math.max(0, Math.floor(Number(amount) || 0));
-  return `${n} ${n === 1 ? "Galeone" : "Galeoni"}`;
+  return `${n} V&C`;
 }
 
 function roundRect(ctx, x, y, w, h, r) {
@@ -220,11 +220,11 @@ function formatRewardAmount(params, claimed, meta) {
   if (params.incomeType === "work" && !claimed && params.canClaim) {
     const min = Math.max(0, Math.floor(Number(params.totalPreviewMin ?? params.rewardMin) || 0));
     const max = Math.max(min, Math.floor(Number(params.totalPreviewMax ?? params.rewardMax) || 0));
-    if (min > 0 && max > min) return `${min}–${max} Galeoni`;
-    return formatGaleoniShort(params.totalPreview);
+    if (min > 0 && max > min) return `${min}–${max} V&C`;
+    return formatRewardShort(params.totalPreview);
   }
   const amount = claimed ? params.claimedAmount : params.totalPreview;
-  return formatGaleoniShort(amount);
+  return formatRewardShort(amount);
 }
 
 function drawArena(ctx, params) {
@@ -264,9 +264,9 @@ function drawArena(ctx, params) {
   } else if (isWork && canClaim && !claimed) {
     drawPlainText(ctx, "Importo casuale", cx, subY, { size: 11, color: "#94a3b8", weight: "600" });
   } else if (params.bonusAmount > 0) {
-    drawPlainText(ctx, `Base ${formatGaleoniShort(params.baseReward)} + ${formatGaleoniShort(params.bonusAmount)} bonus`, cx, subY, { size: 12, color: "#94a3b8" });
+    drawPlainText(ctx, `Base ${formatRewardShort(params.baseReward)} + ${formatRewardShort(params.bonusAmount)} bonus`, cx, subY, { size: 12, color: "#94a3b8" });
   } else if (!isWork) {
-    drawPlainText(ctx, `Ricompensa base ${formatGaleoniShort(params.baseReward)}`, cx, subY, { size: 12, color: "#94a3b8" });
+    drawPlainText(ctx, `Ricompensa base ${formatRewardShort(params.baseReward)}`, cx, subY, { size: 12, color: "#94a3b8" });
   }
   const maxStreak = incomeType === "monthly" ? 8 : incomeType === "weekly" ? 7 : isWork ? 6 : 5;
   const streakY = isWork ? fy + 218 : fy + 198;
@@ -274,7 +274,7 @@ function drawArena(ctx, params) {
   let statusRight = "Pronto";
   let statusColor = "#4ade80";
   if (claimed) {
-    statusRight = `+${formatGaleoniShort(params.claimedAmount)}`;
+    statusRight = `+${formatRewardShort(params.claimedAmount)}`;
     statusColor = "#4ade80";
   } else if (!canClaim) {
     statusRight = isWork ? `Riposo ${formatDuration(params.remainingMs)}` : `Tra ${formatDuration(params.remainingMs)}`;

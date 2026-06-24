@@ -1,8 +1,8 @@
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const { isValidGuildUserId } = require("../../Utils/DB/validateWriteIds");
 
-const ECONOMY_PATH = "profile.events.hogwarts.economy";
-const SLOTS_GUI_PATH = `${ECONOMY_PATH}.slotsGui`;
+const SERVER_ECONOMY_PATH = "profile.economy.server";
+const SLOTS_GUI_PATH = `${SERVER_ECONOMY_PATH}.slotsGui`;
 const SESSION_DB_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 function normalizeId(value) {
@@ -77,7 +77,7 @@ async function readUserSlotsGui(guildId, userId) {
     .select(SLOTS_GUI_PATH)
     .lean()
     .catch(() => null);
-  const raw = doc?.profile?.events?.hogwarts?.economy?.slotsGui;
+  const raw = doc?.profile?.economy?.server?.slotsGui;
   return raw && typeof raw === "object" ? raw : null;
 }
 
@@ -98,7 +98,7 @@ async function persistSlotsGuiSession(messageId, session) {
       $setOnInsert: { guildId: g, userId: u },
       $set: {
         [SLOTS_GUI_PATH]: compactForDb(mid, session),
-        [`${ECONOMY_PATH}.updatedAt`]: new Date(),
+        [`${SERVER_ECONOMY_PATH}.updatedAt`]: new Date(),
       },
     },
     { upsert: true, setDefaultsOnInsert: true },
@@ -114,7 +114,7 @@ async function clearSlotsGuiSession(guildId, userId, messageId) {
   if (mid) filter[`${SLOTS_GUI_PATH}.messageId`] = mid;
   await ActivityUserProfile.updateOne(filter, {
     $unset: { [SLOTS_GUI_PATH]: "" },
-    $set: { [`${ECONOMY_PATH}.updatedAt`]: new Date() },
+    $set: { [`${SERVER_ECONOMY_PATH}.updatedAt`]: new Date() },
   }).catch(() => null);
 }
 
@@ -129,7 +129,7 @@ async function loadSlotsGuiSessionByMessage(guildId, messageId) {
     .select(`${SLOTS_GUI_PATH} userId`)
     .lean()
     .catch(() => null);
-  const raw = doc?.profile?.events?.hogwarts?.economy?.slotsGui;
+  const raw = doc?.profile?.economy?.server?.slotsGui;
   if (!raw || normalizeId(raw.messageId) !== mid) return null;
   if (dbExpired(raw)) {
     await clearSlotsGuiSession(g, doc.userId, mid);

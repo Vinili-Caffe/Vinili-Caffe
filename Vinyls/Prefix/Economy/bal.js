@@ -1,4 +1,4 @@
-const { assertEconomyAccess, isHighStaff } = require("../../Services/Community/galeoniEconomyService");
+const { assertServerEconomyAccess, isHighStaff } = require("../../Services/Community/serverEconomyService");
 const { openBalPanel, setSession } = require("../../Utils/Economy/balGuiRuntime");
 const { postGuiPanel, replyDeny, runEconomyPanelCommand } = require("../../Utils/Economy/economyCommandHelpers");
 
@@ -9,14 +9,14 @@ function extractUserId(value) {
 
 module.exports = {
   name: "bal",
-  aliases: ["balance", "saldo", "galeoni"],
+  aliases: ["balance", "saldo", "vinili", "caffe", "caffè"],
   allowEmptyArgs: true,
-  description: "Mostra il saldo Galeoni con pannello interattivo.",
+  description: "Mostra il saldo Vinili e Caffè con pannello interattivo.",
   usage: "+bal [@utente]",
   examples: ["+bal", "+bal @utente"],
   async execute(message, args, client) {
     await runEconomyPanelCommand(message, client, "BAL", async ({ message: msg, client: c, replyDeny: deny, postGuiPanel: post }) => {
-      const access = await assertEconomyAccess(msg, c);
+      const access = await assertServerEconomyAccess(msg, c);
       if (!access.ok) {
         await deny(msg, access.message);
         return;
@@ -28,7 +28,7 @@ module.exports = {
         targetName = targetUser?.displayName || targetUser?.username || `Utente ${targetId.slice(-4)}`;
       }
       const showStaffControls = await isHighStaff(msg.member, c, msg.author.id);
-      const opened = await openBalPanel(c, msg, { targetId, targetName, showStaffControls, preview: access.preview });
+      const opened = await openBalPanel(c, msg, { targetId, targetName, showStaffControls });
       if (!opened.ok) {
         await deny(msg, opened.message);
         return;

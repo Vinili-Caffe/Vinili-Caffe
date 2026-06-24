@@ -1,4 +1,4 @@
-const { assertEconomyGamblingAccess, economyConfig } = require("../../Services/Community/galeoniEconomyService");
+const { assertEconomyGamblingAccess, economyConfig } = require("../../Services/Community/serverEconomyService");
 const { buildRouletteGuiPayload, clampBet, formatRouletteSpinNotice, getSession, makeSession, normalizeQuickChoice, pushRouletteSpinGif, setChoice, setSession, spinRouletteSession, warmupRoulettePanel } = require("../../Utils/Economy/rouletteGuiRuntime");
 const { postGuiPanel, replyDeny, runEconomyPanelCommand } = require("../../Utils/Economy/economyCommandHelpers");
 

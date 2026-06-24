@@ -340,6 +340,16 @@ module.exports = {
       global.logger?.error?.("[DAILY ENGAGEMENT VOICE ERROR]", error);
     }
     try {
+      const { handlePublicVoiceHubJoin, handlePublicVoiceHubEmpty } = require("../Services/Voice/publicVoiceHubService");
+      if (client?.config?.publicVoiceHubs?.enabled !== false) {
+        await handlePublicVoiceHubJoin(oldState, newState, client);
+        await handlePublicVoiceHubEmpty(oldState, newState, client);
+      }
+    } catch (error) {
+      global.logger?.error?.("[PUBLIC VOICE HUB ERROR]", error);
+    }
+
+    try {
       const { handlePmVoiceAfkVoiceState } = require("../Services/Staff/pmVoiceAfkWatchService");
       await handlePmVoiceAfkVoiceState(oldState, newState, client);
     } catch (error) {

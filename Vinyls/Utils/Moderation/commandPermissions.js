@@ -4,6 +4,7 @@ const { EmbedBuilder, PermissionsBitField, PermissionFlagsBits, } = require("dis
 const IDs = require("../Config/ids");
 const { hasAdminsProfileCapability } = require("../../Services/Moderation/securityProfilesService");
 const { isPartnerPmDailyCommandsThread } = require("../Partner/partnersChatChannelUtils");
+const { getStaffCmdsThreadIdsCache } = require("../Staff/staffCmdsChannelUtils");
 const { isChannelInTicketCategory } = require("../Ticket/ticketCategoryUtils");
 const { buildPrefixLookupKeys, buildSlashLookupKeys } = require("./temporaryCommandPermissions");
 const { getGuildMemberCached } = require("../Interaction/interactionEntityCache");
@@ -17,6 +18,59 @@ const LIVE_MEMBER_CACHE_TTL_MS = 15_000;
 const liveMemberCache = new Map();
 const PM_THREAD_PREFIX_CHANNEL_BYPASS_COMMANDS = new Set(["help", "profile"]);
 const TICKET_PREFIX_CHANNEL_BYPASS_COMMANDS = new Set(["sezioneproibita", "libriproibiti", "forbiddenbooks"]);
+const STAFF_GUIDE_BUTTON_IDS = new Set([
+  "regolamento",
+  "limiti",
+  "pause",
+  "valutazioni",
+  "moderazione_staff",
+  "warnstaff",
+  "pex",
+  "lineeguida",
+  "comandi",
+  "generalimoderazione",
+  "testualimoderazione",
+  "vocalimoderazione",
+  "sanzioni",
+]);
+
+function getStaffGuideAccessRoleIds() {
+  return [
+    IDs.roles?.Staff,
+    IDs.roles?.Helper,
+    IDs.roles?.Mod,
+    IDs.roles?.SeniorModerator,
+    IDs.roles?.Director,
+    IDs.roles?.HighStaff,
+    IDs.roles?.Admin,
+    IDs.roles?.Founder,
+  ]
+    .map((id) => String(id || "").trim())
+    .filter(Boolean);
+}
+
+function isPartnerManagerOnlyMember(member) {
+  const pmId = String(IDs.roles?.PartnerManager || "").trim();
+  if (!pmId || !member?.roles?.cache?.has(pmId)) return false;
+  const access = getStaffGuideAccessRoleIds();
+  return !access.some((id) => member.roles.cache.has(id));
+}
+
+async function checkStaffGuideButtonGate(interaction, customId) {
+  if (!STAFF_GUIDE_BUTTON_IDS.has(String(customId || ""))) return null;
+  const requiredRoles = getStaffGuideAccessRoleIds();
+  if (!interaction?.inGuild?.()) {
+    return { allowed: false, reason: "missing_role", requiredRoles, ownerId: null };
+  }
+  if (isPartnerManagerOnlyMember(interaction.member)) {
+    return { allowed: false, reason: "missing_role", requiredRoles, ownerId: null };
+  }
+  const rolePass = await hasAnyRoleWithLiveFallback(interaction, requiredRoles);
+  if (!rolePass) {
+    return { allowed: false, reason: "missing_role", requiredRoles, ownerId: null };
+  }
+  return { allowed: true, reason: null, requiredRoles: null, ownerId: null };
+}
 
 function getMainGuildIdFallback() {
   try {
@@ -347,6 +401,16 @@ function resolveChannelReference(value) {
   else if (key.startsWith("channels.")) key = key.slice("channels.".length);
 
   const idsCfg = typeof IDs !== "undefined" && IDs ? IDs : getIdsConfig();
+  if (key === "staffCmdsPmThread") {
+    return getStaffCmdsThreadIdsCache().pm || null;
+  }
+  if (key === "staffCmdsHighThread") {
+    return getStaffCmdsThreadIdsCache().high || null;
+  }
+  if (key === "highCmds") {
+    const cachedHigh = getStaffCmdsThreadIdsCache().high;
+    if (cachedHigh) return String(cachedHigh);
+  }
   const resolved = idsCfg?.channels?.[key];
   if (!resolved) return null;
   return String(resolved);
@@ -1009,6 +1073,9 @@ async function checkButtonPermission(interaction) {
   if (!customId) {
     return { allowed: true, reason: null, requiredRoles: null, ownerId: null };
   }
+
+  const staffGuideGate = await checkStaffGuideButtonGate(interaction, customId);
+  if (staffGuideGate) return staffGuideGate;
 
   const data = loadPermissions();
   const rawPolicy = resolveComponentPolicy(data?.buttons, customId);

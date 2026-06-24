@@ -1,7 +1,7 @@
 const { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const { buildImageButtonPayload } = require("./guiPanelPayload");
-const { formatGaleoni } = require("../../Services/Community/gringottService");
-const { cashoutSlotsBank, economyConfig, playSlotsBanked } = require("../../Services/Community/galeoniEconomyService");
+const { formatCurrency } = require("../../Services/Community/serverWalletService");
+const { cashoutSlotsBank, economyConfig, playSlotsBanked } = require("../../Services/Community/serverEconomyService");
 const { clearSlotsGuiSession, loadSlotsGuiSessionByMessage, persistSlotsGuiSession } = require("../../Services/Community/slotsGuiSessionStore");
 const PREFIX = "slots_gui";
 const SESSION_TTL_MS = 15 * 60 * 1000;
@@ -243,7 +243,7 @@ function scheduleSlotsIdlePanel(message, session, cfg, notice = "", disabled = f
 function formatSlotsSpinNotice(spinResult, session) {
   const bank = Math.max(0, Math.floor(Number(session?.bank) || 0));
   if (spinResult?.win) {
-    return `💸 Vincita aggiunta al banco: **${formatGaleoni(spinResult.payout)}**.\n💰 Clicca su **Riscuoti** per incassare.`;
+    return `💸 Vincita aggiunta al banco: **${formatCurrency("caffe",spinResult.payout)}**.\n💰 Clicca su **Riscuoti** per incassare.`;
   }
   if (bank > 0) {
     return `<a:VC_Cross:1482532424570376253> Ultimo giro perso.\n<a:VC_pixeltime:1482535344103620771> Puoi rigirare quando il cooldown lo permette.`;

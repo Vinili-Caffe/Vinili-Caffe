@@ -5,6 +5,7 @@ const { runAutoModMessage } = require("../Services/Moderation/automodService");
 const { handleDisboardBump, handleDiscadiaBump, handleVoteManagerMessage } = require("../Utils/Message/officialMessageAutomationHandlers");
 const { handleMentionAutoReactions, handleWordReactions, maybePunishCountingOnEdit } = require("../Utils/Message/officialMessageCommunityHandlers");
 const { toDiscordTimestamp } = require("../Utils/Logging/channelRolesLogUtils");
+const { handlePartnerDescriptionMessageUpsert, isPartnerDescriptionChannel } = require("../Services/Partner/partnerDescriptionSyncService");
 const MAX_EMBED_DIFF_LENGTH = 900;
 const VERIFICATION_EXCLUDED_CHANNEL_IDS = new Set(
   [IDs.channels.verify, IDs.channels.clickMe, IDs.channels.activityLogs].filter(Boolean).map((id) => String(id)),
@@ -230,6 +231,10 @@ module.exports = {
       }
 
       await sendMessageEditLog(previous, updated);
+
+      if (contentChanged && isPartnerDescriptionChannel(updated.channelId || updated.channel?.id)) {
+        void handlePartnerDescriptionMessageUpsert(resolvedClient, updated).catch(() => null);
+      }
 
       if (updated.author.bot || updated.system || updated.webhookId || updated.applicationId) {
         try {

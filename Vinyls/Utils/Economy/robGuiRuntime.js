@@ -1,7 +1,8 @@
 const { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const { buildImageButtonPayload, canvasStatusLine } = require("./guiPanelPayload");
-const { formatGaleoni } = require("../../Services/Community/gringottService");
-const { ROB_BANK_TARGET_ID, economyConfig, evaluateRobTarget, isRobBankTarget, rob, robBank } = require("../../Services/Community/galeoniEconomyService");
+const { formatCurrency } = require("../../Services/Community/serverWalletService");
+const { ROB_BANK_TARGET_ID, economyConfig, evaluateRobTarget, isRobBankTarget, rob, robBank } = require("../../Services/Community/serverEconomyService");
+const { resolveEconomyPresentation } = require("./economyPresentation");
 const PREFIX = "rob_gui";
 const SESSION_TTL_MS = 10 * 60 * 1000;
 const RENDER_CACHE_MAX = 32;
@@ -20,40 +21,34 @@ function sessionKey(messageId) {
   return String(messageId || "").trim();
 }
 
-function makeGringottTarget() {
+function makeBankTarget(client) {
+  const label = client ? resolveEconomyPresentation(client).robBankLabel : "Cassaforte";
   return {
     id: ROB_BANK_TARGET_ID,
-    name: "Gringott",
+    name: label,
     user: null,
     isBank: true,
   };
 }
 
-async function makeSession({ ownerId, guildId, targetId, targetName, cfg, isBank, client }) {
+async function makeSession({ ownerId, guildId, targetId, targetName, cfg, isBank, client, currency }) {
   const bank = Boolean(isBank) || isRobBankTarget(targetId);
+  const bankLabel = client ? resolveEconomyPresentation(client).robBankLabel : "Cassaforte";
   const baseChance = Math.max(1, Math.min(99, Math.floor(Number(cfg?.rob?.successChance) || 35)));
-  let successChance = baseChance;
-  let robBroomBonus = 0;
-  let robBroomName = "";
-  if (client) {
-    const { resolveRobSuccessChance } = require("../../Services/Community/hogwartsShopBoostsService");
-    const resolved = await resolveRobSuccessChance(client, guildId, ownerId, baseChance);
-    successChance = resolved.chance;
-    robBroomBonus = resolved.bonus;
-    robBroomName = resolved.broomName || "";
-  }
   return {
     ownerId: String(ownerId || ""),
     guildId: String(guildId || ""),
     targetId: bank ? ROB_BANK_TARGET_ID : String(targetId || ""),
-    targetName: bank ? "Gringott" : String(targetName || "").trim() || "Bersaglio",
+    targetName: bank ? bankLabel : String(targetName || "").trim() || "Bersaglio",
     isBank: bank,
+    currency: currency === "vinili" ? "vinili" : "caffe",
+    robBankLabel: bankLabel,
     phase: "idle",
     lastResult: null,
     panelAnimating: false,
-    successChance,
-    robBroomBonus,
-    robBroomName,
+    successChance: baseChance,
+    robBroomBonus: 0,
+    robBroomName: "",
     createdAt: now(),
     updatedAt: now(),
   };
@@ -96,7 +91,7 @@ function buildRows(session, panelClosed = false) {
   const ownerId = session.ownerId;
   const locked = Boolean(panelClosed) || Boolean(session.panelAnimating);
   const done = session.phase === "done";
-  const rerollLabel = session.isBank ? "Rubare a utente" : "alla Gringott";
+  const rerollLabel = session.isBank ? "Rubare a utente" : `alla ${session.robBankLabel || "Cassaforte"}`;
   const rerollEmoji = session.isBank ? "👤" : "🏦";
   return [
     new ActionRowBuilder().addComponents(
@@ -235,7 +230,7 @@ async function warmupSpinPreviews() {
     if (renderCache.has(key)) continue;
     const stub = {
       isBank,
-      targetName: isBank ? "Gringott" : "Bersaglio",
+      targetName: isBank ? "Cassaforte" : "Bersaglio",
       successChance: 35,
       phase: "idle",
       panelAnimating: false,
@@ -262,7 +257,7 @@ async function warmupRobPanel(opts = {}) {
       try {
         const renderRobCanvas = require("../Render/robCanvas");
         if (typeof renderRobCanvas.warmup === "function") renderRobCanvas.warmup();
-        const idle = await renderRobCanvas({ phase: "idle", targetName: "Gringott", isBank: true, successChance: 35 });
+        const idle = await renderRobCanvas({ phase: "idle", targetName: "Cassaforte", isBank: true, successChance: 35 });
         const idleName = "rob-heist.png";
         defaultIdleCache = { buffer: idle.buffer, fileName: idleName, image: `attachment://${idleName}`, isGif: false };
         rememberRenderCache(IDLE_CACHE_KEY, idle.buffer, idleName);
@@ -337,7 +332,7 @@ function memberDisplayName(member, user) {
   return String(member?.displayName || user?.globalName || user?.username || "Utente").trim();
 }
 
-async function pickRandomTarget(client, message, excludeId, cfg) {
+async function pickRandomTarget(client, message, excludeId, cfg, currency = "caffe") {
   const guild = message?.guild;
   if (!guild) return null;
   if (guild.members?.fetch) await guild.members.fetch().catch(() => null);
@@ -348,7 +343,7 @@ async function pickRandomTarget(client, message, excludeId, cfg) {
   const tries = Math.min(40, shuffled.length);
   for (let i = 0; i < tries; i += 1) {
     const pick = shuffled[i];
-    const check = await evaluateRobTarget(client, guild, pick.user.id, cfg, excludeId);
+    const check = await evaluateRobTarget(client, guild, pick.user.id, cfg, excludeId, currency);
     if (!check.ok) continue;
     return {
       id: pick.user.id,
@@ -360,14 +355,14 @@ async function pickRandomTarget(client, message, excludeId, cfg) {
   return null;
 }
 
-async function resolveTargetUser(client, message, targetId, cfg) {
+async function resolveTargetUser(client, message, targetId, cfg, currency) {
   const id = String(targetId || "").trim();
-  if (!id) return makeGringottTarget();
-  if (isRobBankTarget(id)) return makeGringottTarget();
+  if (!id) return makeBankTarget(client);
+  if (isRobBankTarget(id)) return makeBankTarget(client);
   const user = await client.users.fetch(id).catch(() => null);
   if (!user || user.bot) return { error: "Scegli un utente valido da derubare." };
   const member = message.guild?.members?.cache?.get(id);
-  const check = await evaluateRobTarget(client, message.guild, user.id, cfg, message.author.id);
+  const check = await evaluateRobTarget(client, message.guild, user.id, cfg, message.author.id, currency);
   if (!check.ok) return { error: check.message };
   return {
     id: user.id,
@@ -385,34 +380,36 @@ function resetForNewAttempt(session) {
 }
 
 function formatRobNotice(result, targetName) {
+  const cur = result?.currency === "vinili" ? "vinili" : "caffe";
   if (!result?.ok) return result?.message || "";
   if (result.success) {
     return result.bank
-      ? `🏆 Cassaforte di Gringott svaligiata: **+${formatGaleoni(result.amount)}**.`
-      : `🏆 Colpo riuscito su **${targetName}**: **+${formatGaleoni(result.amount)}**.`;
+      ? `🏆 ${targetName} svaligiata: **+${formatCurrency(cur, result.amount)}**.`
+      : `🏆 Colpo riuscito su **${targetName}**: **+${formatCurrency(cur, result.amount)}**.`;
   }
   return result.bank
-    ? `<a:VC_Cross:1482532424570376253> Allarme alla banca! Multa: **${formatGaleoni(result.penalty || 0)}**.`
-    : `<a:VC_Cross:1482532424570376253> Beccato su **${targetName}**! Multa: **${formatGaleoni(result.penalty || 0)}**.`;
+    ? `<a:VC_Cross:1482532424570376253> Allarme alla ${targetName}! Multa: **${formatCurrency(cur, result.penalty || 0)}**.`
+    : `<a:VC_Cross:1482532424570376253> Beccato su **${targetName}**! Multa: **${formatCurrency(cur, result.penalty || 0)}**.`;
 }
 
 async function attemptRob(client, messageLike, session, cfg) {
+  const currency = session.currency === "vinili" ? "vinili" : "caffe";
   if (session.isBank || isRobBankTarget(session.targetId)) {
-    const result = await robBank(client, messageLike);
+    const result = await robBank(client, messageLike, currency);
     if (!result.ok) return result;
     session.updatedAt = now();
     return { ok: true, result };
   }
-  const target = await resolveTargetUser(client, messageLike, session.targetId, cfg || economyConfig(client));
+  const target = await resolveTargetUser(client, messageLike, session.targetId, cfg || economyConfig(client), currency);
   if (target?.error) return { ok: false, message: target.error };
-  if (!target?.user) return { ok: false, message: "Nessun bersaglio idoneo: serve smistamento Hogwarts e saldo Galeoni sufficiente." };
+  if (!target?.user) return { ok: false, message: "Nessun bersaglio idoneo: serve un utente con saldo sufficiente in Vinili o Caffè." };
   session.targetId = target.id;
   session.targetName = target.name;
   session.isBank = false;
-  const result = await rob(client, messageLike, target.user);
+  const result = await rob(client, messageLike, target.user, currency);
   if (!result.ok) return result;
   session.updatedAt = now();
   return { ok: true, result };
 }
 
-module.exports = { ROB_BANK_TARGET_ID, attemptRob, buildRobGuiPayload, deleteSession, economyConfig, extractUserId, formatRobNotice, getSession, interactionMessageAdapter, isRobBankTarget, isRobGuiCustomId, makeGringottTarget, makeSession, parseRobGuiCustomId, pickRandomTarget, pushRobHitAnimation, resetForNewAttempt, resolveTargetUser, scheduleRobIdlePanel, setSession, spinAnimationDurationMs, warmupRobPanel };
+module.exports = { ROB_BANK_TARGET_ID, attemptRob, buildRobGuiPayload, deleteSession, economyConfig, extractUserId, formatRobNotice, getSession, interactionMessageAdapter, isRobBankTarget, isRobGuiCustomId, makeBankTarget, makeSession, parseRobGuiCustomId, pickRandomTarget, pushRobHitAnimation, resetForNewAttempt, resolveTargetUser, scheduleRobIdlePanel, setSession, spinAnimationDurationMs, warmupRobPanel };

@@ -1060,8 +1060,7 @@ async function applyCandidatePex(guild, actor, type, userId, reason, sourceMessa
     await sendHelperWelcome(staffChat, member);
   }
   if (String(targetRoleId) === String(PARTNER_MANAGER_ROLE_ID)) {
-    const pmChannel = guild.channels.cache.get(IDs.channels.partnersChat) || (await getGuildChannelCached(guild, IDs.channels.partnersChat));
-    await sendPartnerManagerWelcome(pmChannel, member);
+    await sendPartnerManagerWelcome(guild.client, member);
   }
 
   const profileDoc = await getOrCreateStaffDoc(guild.id, member.id);

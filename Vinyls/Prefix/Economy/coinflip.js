@@ -1,4 +1,4 @@
-const { assertEconomyGamblingAccess, economyConfig } = require("../../Services/Community/galeoniEconomyService");
+const { assertEconomyGamblingAccess, economyConfig } = require("../../Services/Community/serverEconomyService");
 const { buildCoinflipGuiPayload, clampBet, formatCoinflipNotice, getSession, makeSession, normalizeQuickChoice, playCoinflipSession, scheduleCoinflipIdlePanel, setSession, warmupCoinflipPanel } = require("../../Utils/Economy/coinflipGuiRuntime");
 const { postGuiPanel, replyDeny, runEconomyPanelCommand } = require("../../Utils/Economy/economyCommandHelpers");
 

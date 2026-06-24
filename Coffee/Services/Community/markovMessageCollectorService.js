@@ -3,7 +3,7 @@ const fsp = require("fs/promises");
 const path = require("path");
 const { isMarkovEligibleChannel, listMarkovEligibleChannels, listMarkovEligibleThreads } = require("./markovChannelAccess");
 const { extractMessageImageUrls, extractMessageStickerIds } = require("./markovMediaUtils");
-const { looksLikeWrittenCommand } = require("./markovCommandStyleService");
+const { looksLikeWrittenCommand, sanitizeMarkovCollectLine } = require("./markovCommandStyleService");
 
 const COFFEE_ROOT = path.join(__dirname, "..", "..");
 const trimTimers = new Map();
@@ -96,7 +96,7 @@ function hasCollectibleText(message, client) {
   const content = String(message?.content || "").trim();
   if (!content) return false;
   if (getMarkovConfig(client).collectPrefixMessages !== false && looksLikeWrittenCommand(content)) {
-    return true;
+    return Boolean(sanitizeMarkovCollectLine(client, content));
   }
   if (shouldSkipPrefixMessage(content, client)) return false;
   const minWords = Number(getMarkovConfig(client).minStoredWords ?? 2);
@@ -332,7 +332,8 @@ function scheduleTrimChannelStickers(client, channelId) {
 }
 
 async function appendMarkovLine(client, channelId, line) {
-  const normalized = normalizeMarkovLine(line);
+  const sanitized = sanitizeMarkovCollectLine(client, line);
+  const normalized = normalizeMarkovLine(sanitized);
   if (!normalized) return false;
   await ensureMessagesDir(client);
   const filePath = channelFilePath(client, channelId);

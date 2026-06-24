@@ -3,6 +3,9 @@
   var DISMISSED_PREFIX = "vc_notifications_dismissed_v1:";
   var PENDING_LOGIN_NOTIF_KEY = "vc_pending_login_notification_v1";
   var DISCORD_ACCESS_TOKEN_KEY = "vc_discord_access_token";
+  var DISCORD_EXPIRES_AT_KEY = "vc_discord_expires_at";
+  var NOTIFY_PAGE_POLL_MS = 20000;
+  var notifyPagePollTimer = null;
   var filterMode = "all";
   var currentUserId = "";
   var lastNotifyListRenderSig = "";
@@ -96,10 +99,43 @@
   }
   function getDiscordAccessToken() {
     try {
-      return String(localStorage.getItem(DISCORD_ACCESS_TOKEN_KEY) || "").trim();
+      if (typeof window.__vcDiscordGetAccessToken === "function") {
+        return String(window.__vcDiscordGetAccessToken() || "").trim();
+      }
+    } catch (eFn) {}
+    try {
+      var t = String(localStorage.getItem(DISCORD_ACCESS_TOKEN_KEY) || "").trim();
+      var exp = Number(localStorage.getItem(DISCORD_EXPIRES_AT_KEY) || "0");
+      if (!t || !exp || Date.now() >= exp) return "";
+      return t;
     } catch (e) {
       return "";
     }
+  }
+  function stopNotifyPagePoll() {
+    if (notifyPagePollTimer) {
+      clearInterval(notifyPagePollTimer);
+      notifyPagePollTimer = null;
+    }
+  }
+  function scheduleNotifyPagePoll() {
+    stopNotifyPagePoll();
+    if (!normalizeUserId(currentUserId) || !getDiscordAccessToken()) return;
+    notifyPagePollTimer = setInterval(syncSiteNotificationsFromServer, NOTIFY_PAGE_POLL_MS);
+  }
+  function handleNotifyPageAuthFailure(status) {
+    if (Number(status) !== 401) return;
+    stopNotifyPagePoll();
+    try {
+      if (typeof window.__vcDiscordClearSession === "function") window.__vcDiscordClearSession();
+      else {
+        localStorage.removeItem(DISCORD_ACCESS_TOKEN_KEY);
+        localStorage.removeItem(DISCORD_EXPIRES_AT_KEY);
+      }
+    } catch (eClr) {}
+    try {
+      window.dispatchEvent(new CustomEvent("vc-discord-session-expired", { detail: { source: "notifications_page" } }));
+    } catch (eEv) {}
   }
 
   function loadDismissedSet(userId) {
@@ -599,7 +635,13 @@
     if (!url) return;
     fetch(url, { headers: { Authorization: "Bearer " + token }, credentials: "omit" })
       .then(function (r) {
-        return r.json();
+        if (r.status === 401) {
+          handleNotifyPageAuthFailure(401);
+          return null;
+        }
+        return r.json().catch(function () {
+          return null;
+        });
       })
       .then(function (j) {
         if (!j || j.ok !== true || !Array.isArray(j.items)) return;
@@ -791,6 +833,7 @@
 
     flushPendingLoginNotification();
     syncSiteNotificationsFromServer();
+    scheduleNotifyPagePoll();
     renderList();
   }
 
@@ -798,8 +841,17 @@
     setCurrentUser(ev && ev.detail ? ev.detail.user : null);
     flushPendingLoginNotification();
     syncSiteNotificationsFromServer();
+    scheduleNotifyPagePoll();
     renderList();
   });
+
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState !== "visible") return;
+    if (!normalizeUserId(currentUserId) || !getDiscordAccessToken()) return;
+    syncSiteNotificationsFromServer();
+  });
+
+  window.addEventListener("beforeunload", stopNotifyPagePoll);
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", init);

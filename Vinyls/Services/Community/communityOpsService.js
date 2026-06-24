@@ -377,7 +377,12 @@ function replaceNumberSuffixOnly(name, nextNumber) {
 }
 
 const PUBLIC_VOICE_SEPARATOR_NAME = "〝";
-const PUBLIC_VOICE_NUMBERING_GROUPS = ["Lounge", "Duo", "Trio", "Squad"];
+const PUBLIC_VOICE_NUMBERING_GROUPS = ["Lounge", "Duo", "Trio", "Quad", "Squad"];
+const PUBLIC_VOICE_HUB_CHANNEL_IDS = new Set(
+  (Array.isArray(IDs.publicVoiceHubChannelIds) ? IDs.publicVoiceHubChannelIds : [])
+    .map((id) => String(id || "").trim())
+    .filter(Boolean),
+);
 const PUBLIC_VOICE_DECORATIVE_PREFIX = "༄";
 const VOICE_RENAME_GAP_MS = 1500;
 const CATEGORY_RENAME_GAP_MS = 2500;
@@ -413,7 +418,7 @@ function looksLikeCorruptedPublicVoiceSeparatorName(stripped) {
   if (/^[⁰¹²³⁴⁵⁶⁷⁸⁹0-9]+$/.test(value)) return true;
   if (
     value.startsWith(PUBLIC_VOICE_DECORATIVE_PREFIX) &&
-    !/(Lounge|Duo|Trio|Squad)/i.test(value) &&
+    !/(Lounge|Duo|Trio|Quad|Squad)/i.test(value) &&
     !/[\p{Extended_Pictographic}]/u.test(value.slice(PUBLIC_VOICE_DECORATIVE_PREFIX.length))
   ) {
     return true;
@@ -439,11 +444,13 @@ function resolvePublicVoiceNumberingGroup(channel) {
   if (/\bLounge\b/i.test(name)) return "Lounge";
   if (/\bDuo\b/i.test(name)) return "Duo";
   if (/\bTrio\b/i.test(name)) return "Trio";
+  if (/\bQuad\b/i.test(name)) return "Quad";
   if (/\bSquad\b/i.test(name)) return "Squad";
   return "";
 }
 
 function isPublicVoiceNumberingTarget(channel) {
+  if (PUBLIC_VOICE_HUB_CHANNEL_IDS.has(String(channel?.id || ""))) return false;
   return Boolean(resolvePublicVoiceNumberingGroup(channel));
 }
 
@@ -576,7 +583,7 @@ async function normalizePublicVoiceSeparatorName(channel) {
   if (!channel?.manageable || !isPublicVoiceNumberingSeparator(channel)) return;
   const raw = String(channel.name || "").trim();
   const stripped = stripPublicVoiceNumberingMarks(raw);
-  if (/(Lounge|Duo|Trio|Squad)/i.test(stripped)) return;
+  if (/(Lounge|Duo|Trio|Quad|Squad)/i.test(stripped)) return;
   if (raw === PUBLIC_VOICE_SEPARATOR_NAME) return;
   await renameVoiceChannelWithGap(channel, PUBLIC_VOICE_SEPARATOR_NAME, "separator");
 }
