@@ -3,6 +3,7 @@ const { ensureMongoReady } = require("../../Utils/Database/mongoConnect");
 const { ActivityUserProfile, ActivityGuildHourly } = require("../../Schemas/Community/communitySchemas");
 const { isValidGuildUserId, isValidGuildUserIdChannelId } = require("../../Utils/DB/validateWriteIds");
 const { addExpWithLevel, MESSAGE_EXP, VOICE_EXP_PER_MINUTE, shouldIgnoreExpForMember, isLevelExpGuild, } = require("./expService");
+const { resolveVoiceExpMultiplier, computeVoiceExpFromSeconds } = require("../../Utils/Community/voiceExpChannelUtils");
 const { isViniliFullFeatureGuild } = require("../../MultiGuild/core/guildFeatureScope");
 const IDs = require("../../Utils/Config/ids");
 const { isChannelInTicketCategory } = require("../../Utils/Ticket/ticketCategoryUtils");
@@ -32,7 +33,7 @@ const EXCLUDED_ACTIVITY_CHANNEL_IDS = new Set(
     .map((id) => String(id)),
 );
 const EXCLUDED_ACTIVITY_CATEGORY_IDS = new Set(
-  [IDs.categories?.categoryPrivate]
+  []
     .filter(Boolean)
     .map((id) => String(id)),
 );
@@ -768,11 +769,12 @@ async function recordMessageActivity(message) {
   }
 }
 
-async function recordVoiceSessionEnd(doc, now, guild, skipExp = false) {
+async function recordVoiceSessionEnd(doc, now, guild, skipExp = false, channelIdOverride = null) {
   if (!doc.profile) doc.profile = {};
   if (!doc.profile.totals) doc.profile.totals = {};
   const startedAt = doc.profile.totals.sessionStartedAt;
   if (!startedAt) return 0;
+  const channelId = String(channelIdOverride || doc.profile.totals.sessionChannelId || "");
   const elapsedSeconds = Math.max(0, Math.floor((now.getTime() - new Date(startedAt).getTime()) / 1000),);
   ensureVoiceKeys(doc, now);
   doc.profile.totals.voiceTotalSeconds = Number(doc.profile.totals.voiceTotalSeconds || 0) + elapsedSeconds;
@@ -782,8 +784,9 @@ async function recordVoiceSessionEnd(doc, now, guild, skipExp = false) {
   doc.profile.totals.sessionStartedAt = null;
   doc.profile.totals.sessionChannelId = null;
   const alreadyAwardedSeconds = Math.max(0, Number(doc.profile.totals.expAwardedSeconds || 0),);
-  const totalAwardableExp = Math.floor((elapsedSeconds * VOICE_EXP_PER_MINUTE) / 60,);
-  const alreadyAwardedExp = Math.floor((alreadyAwardedSeconds * VOICE_EXP_PER_MINUTE) / 60,);
+  const voiceMult = skipExp ? 0 : await resolveVoiceExpMultiplier({ id: channelId }, guild, guild?.client);
+  const totalAwardableExp = computeVoiceExpFromSeconds(elapsedSeconds, voiceMult, VOICE_EXP_PER_MINUTE);
+  const alreadyAwardedExp = computeVoiceExpFromSeconds(alreadyAwardedSeconds, voiceMult, VOICE_EXP_PER_MINUTE);
   const remainingExp = Math.max(0, totalAwardableExp - alreadyAwardedExp);
   doc.profile.totals.expAwardedSeconds = 0;
   if (!skipExp && remainingExp > 0 && isLevelExpGuild(guild?.id)) {
@@ -1839,11 +1842,12 @@ async function runLiveVoiceExpTick(client) {
     }
 
     const alreadyAwardedSeconds = Math.max(0, Number(row?.profile?.totals?.expAwardedSeconds || 0),);
-    const totalAwardableExp = Math.floor((elapsedSeconds * VOICE_EXP_PER_MINUTE) / 60,);
-    const alreadyAwardedExp = Math.floor((alreadyAwardedSeconds * VOICE_EXP_PER_MINUTE) / 60,);
+    const ignored = await shouldIgnoreExpForMember({ guildId, member, channelId, });
+    const voiceMult = ignored ? 0 : await resolveVoiceExpMultiplier({ id: channelId }, guild, client);
+    const totalAwardableExp = computeVoiceExpFromSeconds(elapsedSeconds, voiceMult, VOICE_EXP_PER_MINUTE);
+    const alreadyAwardedExp = computeVoiceExpFromSeconds(alreadyAwardedSeconds, voiceMult, VOICE_EXP_PER_MINUTE);
     const grantableExp = Math.max(0, totalAwardableExp - alreadyAwardedExp);
     if (grantableExp <= 0) continue;
-    const ignored = await shouldIgnoreExpForMember({ guildId, member, channelId, });
 
     if (!ignored) {
       await addExpWithLevel(guild, userId, grantableExp, true, true, { source: "activity" }).catch(() => { });

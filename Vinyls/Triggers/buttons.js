@@ -16,6 +16,7 @@ const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../Util
 const PRIVATE_FLAG = 1 << 6;
 const MONO_GUILD_DENIED_TEXT = "Questo bot è utilizzabile solo sul server principale di Vinili & Caffè.";
 const { MOD_RULE_DETAIL } = require("../Utils/Moderation/modRegolamentoConstants");
+const { MENTION_RESPONSE_PERK_BODY, MENTION_RESPONSE_PERK_LINE_DISCORD } = require("../Utils/Community/mentionResponseAccessUtils");
 
 function staffSanctionRuleIntro(ruleKey) {
   const body = MOD_RULE_DETAIL[ruleKey];
@@ -1068,6 +1069,7 @@ module.exports = {
         "<:VC_Dot:1482532364222595303> Bypass dei requisiti nei giveaway",
         "<:VC_Dot:1482532364222595303> Possibilità di creare una vocale privata per te e i tuoi amici",
         "<:VC_Dot:1482532364222595303> Reazioni al messaggio quando vieni @menzionato in chat (max. 3 reazioni).",
+        `<:VC_Dot:1482532364222595303> ${MENTION_RESPONSE_PERK_BODY}`,
         "<:VC_Dot:1482532364222595303> Potrai crearti un ruolo personalizzato con colore GRADIENTE scelto da te.",
         "<:VC_Dot:1482532364222595303> X5 EXP boost",
         "",
@@ -1175,6 +1177,7 @@ module.exports = {
           "<:sparkle:1470064801811140866> Permesso di usare le Soundboard del server",
           "<:blueflash:1470064803157643468> Sblocchi i COLORI PLUS in \`+profile\` <:VC_New:1471891729471770819>",
           "<a:VC_CrownYellow:1482706085440651428> Aggiungi reazioni al messaggio quando ti @menzionano in chat (max. 3)",
+          MENTION_RESPONSE_PERK_LINE_DISCORD,
           "<a:reddiamond:1443652837346377841> Sblocchi i comandi `+quote`, `+repost` e `+myrepost`",
           "<:exp:1470067108543987846> X2 EXP Boost",
           "",
@@ -1184,6 +1187,7 @@ module.exports = {
           "<:sparkle:1470064801811140866> Permesso di usare le Soundboard esterne",
           "<:blueflash:1470064803157643468> Possibilità di creare un ruolo **custom** e un canale **vocale privato custom**",
           "<a:VC_CrownYellow:1482706085440651428> Cooldown sui comandi del nostro bot ridotto (da 30 secondi a 5 secondi).",
+          MENTION_RESPONSE_PERK_LINE_DISCORD,
           "<a:reddiamond:1443652837346377841> Bypass requisiti dei giveaway",
           "<:exp:1470067108543987846> X3 EXP Boost",
         ].join("\n"))
@@ -1194,7 +1198,7 @@ module.exports = {
         .setColor("#6f4e37")
         .setTitle("<:nitroboost:1470064881674883326> **__Come creare ruolo personalizzato e vocale privata__**")
         .setDescription([
-          `Usa \`+profile\` in <#${IDs.channels.commands}> per creare e configurare il ruolo, la vocale e le reaction.`,
+          `Usa \`+profile\` in <#${IDs.channels.commands}> per creare e configurare il ruolo, la vocale, le reaction e la Mention Response.`,
           `Usa \`+profile\` in <#${IDs.channels.commands}> per scegliere il colore gradiente del tuo ruolo.`,
           "Digita \`+help\` per la lista completa dei comandi.",
         ].join("\n"));
@@ -1283,6 +1287,7 @@ module.exports = {
               "<:VC_DoubleReply:1482532332509466797> Cooldown sui comandi del nostro bot ridotto (da 30 secondi a 1 secondo).",
               "<:VC_DoubleReply:1482532332509466797> Bypass requisiti per le candidature",
               "<:VC_DoubleReply:1482532332509466797> Bonus EXP permanente +15%",
+              `<:VC_DoubleReply:1482532332509466797> ${MENTION_RESPONSE_PERK_BODY}`,
               `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo colore gradiente sbloccato con \`+profile\`<@&${IDs.roles.colorUnlockLv100}>`
             ].join("\n"),
             inline: true,
@@ -1325,7 +1330,7 @@ module.exports = {
         .setFooter({ text: "Se esci dal server o cambi account, i livelli ti verranno tolti e NON rimessi." });
 
       const howtoEmbed = new EmbedBuilder().setColor("#6f4e37").setTitle("<:nitroboost:1470064881674883326> **__Come creare ruolo personalizzato e vocale privata__**").setDescription([
-        `Usa \`+profile\` in <#${IDs.channels.commands}> per creare e configurare il ruolo, la vocale e le reaction.`,
+        `Usa \`+profile\` in <#${IDs.channels.commands}> per creare e configurare il ruolo, la vocale, le reaction e la Mention Response.`,
         `Usa \`+profile\` in <#${IDs.channels.commands}> per scegliere il colore gradiente del tuo ruolo.`,
         "Digita \`+help\` per la lista completa dei comandi.",
       ].join("\n"));

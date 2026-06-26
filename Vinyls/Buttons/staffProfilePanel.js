@@ -1,6 +1,7 @@
 const IDs = require("../Utils/Config/ids");
 const { isPartnerPmDailyCommandsThread } = require("../Utils/Partner/partnersChatChannelUtils");
 const { PANEL_PREFIX, parseStaffProfileSelectCustomId, parseStaffProfileCloseCustomId, parseStaffProfileNextCustomId, buildStaffProfilePayload, SECTION_HOME, resolveNextStaffPanelTargetId } = require("../Utils/Staff/staffProfilePanelRuntime");
+const { parseSerataFilmAttendanceCustomId, setSerataFilmWillAttend } = require("../Utils/Staff/serataFilmAttendanceUtils");
 const PRIVATE_FLAG = 1 << 6;
 
 async function safeUpdatePanelInteraction(interaction, payload) {
@@ -29,11 +30,43 @@ function match(interaction) {
   if (interaction?.isStringSelectMenu?.() && id.startsWith(`${PANEL_PREFIX}:select:`)) return true;
   if (interaction?.isButton?.() && id.startsWith(`${PANEL_PREFIX}:close:`)) return true;
   if (interaction?.isButton?.() && id.startsWith(`${PANEL_PREFIX}:next:`)) return true;
+  if (interaction?.isButton?.() && id.startsWith(`${PANEL_PREFIX}:sf_att:`)) return true;
   return false;
 }
 
 async function execute(interaction) {
   if (interaction.isButton()) {
+    if (String(interaction.customId || "").startsWith(`${PANEL_PREFIX}:sf_att:`)) {
+      const parsed = parseSerataFilmAttendanceCustomId(interaction.customId);
+      if (!parsed) return false;
+      if (String(interaction.user.id) !== String(parsed.viewerId)) {
+        await interaction.reply({ content: "<a:VC_Cross:1482532424570376253> Solo chi ha aperto il pannello può modificarlo.", flags: PRIVATE_FLAG }).catch(() => {});
+        return true;
+      }
+      if (String(parsed.viewerId) !== String(parsed.targetId)) {
+        await interaction.reply({ content: "<a:VC_Cross:1482532424570376253> Puoi segnalare l'assenza solo sul tuo profilo.", flags: PRIVATE_FLAG }).catch(() => {});
+        return true;
+      }
+      const result = await setSerataFilmWillAttend(interaction.guild.id, parsed.targetId, parsed.willAttend);
+      if (!result?.ok) {
+        const msg = result?.code === "closed"
+          ? "<a:VC_Cross:1482532424570376253> Il termine per segnalare l'assenza è scaduto (sabato 00:00, ora di Roma)."
+          : "<a:VC_Cross:1482532424570376253> Impossibile aggiornare la presenza.";
+        await interaction.reply({ content: msg, flags: PRIVATE_FLAG }).catch(() => {});
+        return true;
+      }
+      const partnersChatPanel = await isPartnerPmDailyCommandsThread(interaction.channel);
+      const payload = await buildStaffProfilePayload(
+        interaction.guild,
+        parsed.targetId,
+        parsed.viewerId,
+        interaction.client,
+        SECTION_HOME,
+        { sourceMessageId: parsed.sourceMessageId, partnersChatPanel },
+      );
+      await safeUpdatePanelInteraction(interaction, payload);
+      return true;
+    }
     if (String(interaction.customId || "").startsWith(`${PANEL_PREFIX}:next:`)) {
       const nextParsed = parseStaffProfileNextCustomId(interaction.customId);
       if (!nextParsed) return false;

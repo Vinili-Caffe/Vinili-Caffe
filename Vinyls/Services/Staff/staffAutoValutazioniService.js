@@ -8,6 +8,11 @@ const { ensureStaffProfileDoc, getStaffDoc, valutazionePositiveAddCore, valutazi
 const { getOrCreateStaffDoc } = require("../../Utils/Staff/staffDocUtils");
 const { resolveStaffRole } = require("./weeklyStaffResocontoService");
 const { hasActiveAcceptedStaffPause } = require("../../Utils/Pause/pauseHandlersUtils");
+const {
+  getSerataFilmSaturdayKeyForSession,
+  isSerataFilmAbsentExcused,
+  loadSerataFilmStaffAttendanceByUserId,
+} = require("../../Utils/Staff/serataFilmAttendanceUtils");
 const MAIN_GUILD_ID = String(IDs.guilds?.main || "");
 const SERATA_FILM_CHANNEL_ID = "1497535199813042306";
 const SERATA_FILM_MIN_MS = 30 * 60 * 1000;
@@ -597,13 +602,26 @@ async function finishSerataFilmSession(event) {
   const now = Date.now();
   for (const uid of [...session.presentSince.keys()]) closeAttendance(session, uid, now);
   const evalDateUtc = serataFilmEvalDateUtc(session);
+  const saturdayKey = getSerataFilmSaturdayKeyForSession(session);
   const staffMembers = await fetchMainGuildStaffMembers(guild.client, { preferCache: true });
-  const pausesByUserId = await loadStaffPausesByUserId(guild.id, staffMembers.map((member) => member.id));
+  const memberIds = staffMembers.map((member) => member.id);
+  const [pausesByUserId, attendanceByUserId] = await Promise.all([
+    loadStaffPausesByUserId(guild.id, memberIds),
+    loadSerataFilmStaffAttendanceByUserId(guild.id, memberIds),
+  ]);
   for (const member of staffMembers) {
-    const pauses = pausesByUserId.get(String(member.id)) || [];
+    const uid = String(member.id);
+    const pauses = pausesByUserId.get(uid) || [];
     if (hasActiveAcceptedStaffPause(pauses, evalDateUtc)) continue;
-    const ms = Number(session.attendanceMs.get(String(member.id)) || 0);
-    if (ms >= SERATA_FILM_MIN_MS) continue;
+    const ms = Number(session.attendanceMs.get(uid) || 0);
+    const staffAttendance = attendanceByUserId.get(uid);
+    if (ms >= SERATA_FILM_MIN_MS) {
+      await ensureAutoValutazione(guild, member, `serata_film:${session.eventId}`, "positive", "Si presenta durante la serata film per almeno 30 minuti.").catch((err) => {
+        global.logger?.warn?.("[STAFF AUTO VALUTAZIONI] serata film positive failed:", member.id, err?.message || err);
+      });
+      continue;
+    }
+    if (isSerataFilmAbsentExcused(staffAttendance, saturdayKey)) continue;
     await ensureAutoValutazione(guild, member, `serata_film:${session.eventId}`, "negative", "Non si presenta durante la serata film o rimane per meno di 30 minuti.").catch((err) => {
       global.logger?.warn?.("[STAFF AUTO VALUTAZIONI] serata film negative failed:", member.id, err?.message || err);
     });

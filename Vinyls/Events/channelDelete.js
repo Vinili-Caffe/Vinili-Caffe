@@ -7,6 +7,7 @@ const { handleChannelDeletionAction: antiNukeHandleChannelDeletionAction } = req
 const { clearGameForChannel } = require("../Services/Minigames/minigameService");
 const { finishSerataFilmSessionsForChannel } = require("../Services/Staff/staffAutoValutazioniService");
 const { isTicketCategoryName } = require("../Utils/Ticket/ticketCategoryUtils");
+const { tryDeleteEmptyCustomPrivateCategory } = require("../Utils/Community/customPrivateCategoryUtils");
 const { shouldResyncAutomodForChannel, scheduleDiscordAutomodRulesResync } = require("../Services/Moderation/discordAutomodRulesService");
 const { ChannelType } = require("discord.js");
 const CHANNEL_DELETE_ACTION = AuditLogEvent?.ChannelDelete ?? 12;
@@ -102,6 +103,18 @@ module.exports = {
       }
     } catch (error) {
       global.logger?.error?.("[channelDelete] tickets-category cleanup failed:", error);
+    }
+
+    try {
+      const isVoiceDelete = channel.type === ChannelType.GuildVoice;
+      if (isVoiceDelete || channel.parentId) {
+        await tryDeleteEmptyCustomPrivateCategory(guild, {
+          excludeChannelId: channel.id,
+          reason: "Auto cleanup empty custom private category",
+        });
+      }
+    } catch (error) {
+      global.logger?.error?.("[channelDelete] custom-private-category cleanup failed:", error);
     }
 
     if (client) {

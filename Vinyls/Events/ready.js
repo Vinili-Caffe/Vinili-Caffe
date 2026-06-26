@@ -33,10 +33,10 @@ const { syncLiveVoiceSessionsFromGateway, startLiveVoiceExpLoop, } = require("..
 const { syncPmVoiceAfkWatchFromGateway, startPmVoiceAfkWatchLoop, } = require("../Services/Staff/pmVoiceAfkWatchService");
 const { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop, } = require("../Services/Community/customRoleExpiryService");
 const { startDailyPartnerAuditLoop, } = require("../Services/Partner/partnerAuditService");
-const { startPartnershipChannelCleanupLoop } = require("../Services/Partner/partnershipChannelCleanupService");
 const { syncPartnerDescription } = require("../Services/Partner/partnerDescriptionSyncService");
 const { startStaffChatThreadsLoop } = require("../Services/Staff/staffChatThreadsService");
 const { startStaffCmdsThreadsLoop } = require("../Services/Staff/staffCmdsThreadsService");
+const { startPublicVoiceHubSetup } = require("../Services/Voice/publicVoiceHubService");
 const { startTicketAutoClosePromptLoop, startTranscriptCleanupLoop, } = require("../Services/Ticket/ticketMaintenanceService");
 const { startAutoBackupLoop } = require("../Services/Backup/autoBackupService");
 const { startModCaseLifecycleLoop } = require("../Services/Moderation/modCaseLifecycleService");
@@ -49,6 +49,7 @@ const { syncHogwartsMinigameHousePointsBackfillOnStartup } = require("../Service
 const { syncHouseSortingAnnouncesOnStartup } = require("../Services/Community/hogwartsSortingLogService");
 const { startContestPrizeMaintenanceCron } = require("../Services/Community/contestPrizeMaintenanceService");
 const { startStaffWarnResetLoop } = require("../Services/Staff/staffWarnService");
+const { runStaffWarnChannelMigrationOnStartup } = require("../Services/Staff/staffWarnChannelMigrationService");
 const { startStaffAutoValutazioniLoop, syncAllStaffAutoValutazioni, restoreActiveSerataFilmSessions, cleanupMalformedAutoValutazioni } = require("../Services/Staff/staffAutoValutazioniService");
 const { runScheduledEnds, syncActiveGiveawayButtons } = require("../Services/Giveaway/giveawayService");
 const { retroSyncGuildLevels } = require("../Services/Community/expService");
@@ -394,7 +395,7 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
     {
       label: "recover missing second boost embeds (native vs supporters)",
       weight: 51,
-      enabled: false,
+      enabled: primaryScheduler,
       run: () =>
         guildMemberUpdateExtras.recoverMissingSecondBoostEmbedsOnStartup(client, {
           lookbackMs: 30 * 24 * 60 * 60 * 1000,
@@ -433,10 +434,30 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
       },
     },
     {
+      label: "staff warn channel migration",
+      weight: 74,
+      enabled: primaryScheduler,
+      run: () => runStaffWarnChannelMigrationOnStartup(client),
+    },
+    {
       label: "custom perks rules migration",
       weight: 75,
       enabled: primaryScheduler,
       run: () => runCustomPerksRulesMigration(client),
+    },
+    {
+      label: "custom private category empty cleanup",
+      weight: 54,
+      enabled: primaryScheduler,
+      run: async () => {
+        const guildId = String(IDs?.guilds?.main || "").trim();
+        if (!guildId) return;
+        const guild = client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
+        if (!guild) return;
+        const { tryDeleteEmptyCustomPrivateCategory } = require("../Utils/Community/customPrivateCategoryUtils");
+        const deleted = await tryDeleteEmptyCustomPrivateCategory(guild).catch(() => false);
+        if (deleted) global.logger?.info?.("[CUSTOM PRIVATE CATEGORY] Startup removed empty private category");
+      },
     },
     {
       label: "startup sync zodiac roles from birthday profiles",
@@ -886,11 +907,6 @@ module.exports = {
         global.logger?.error?.("[DAILY PARTNER AUDIT ERROR]", err);
       }
       try {
-        startPartnershipChannelCleanupLoop(client);
-      } catch (err) {
-        global.logger?.error?.("[PARTNERSHIP CHANNEL CLEANUP ERROR]", err);
-      }
-      try {
         startStaffCmdsThreadsLoop(client);
       } catch (err) {
         global.logger?.error?.("[STAFF CMDS THREAD INIT ERROR]", err);
@@ -899,6 +915,11 @@ module.exports = {
         startStaffChatThreadsLoop(client);
       } catch (err) {
         global.logger?.error?.("[STAFF CHAT THREAD INIT ERROR]", err);
+      }
+      try {
+        startPublicVoiceHubSetup(client);
+      } catch (err) {
+        global.logger?.error?.("[PUBLIC VOICE HUB INIT ERROR]", err);
       }
     }
 

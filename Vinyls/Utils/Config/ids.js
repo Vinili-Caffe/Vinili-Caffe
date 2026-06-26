@@ -66,6 +66,7 @@ const ids = {
     categoryGames: "1442569074310643845",
     categoryPublics: "1442569076902989844",
     categoryPrivate: "1442569078379118755",
+    categoryPrivateAnchor: "1519315215102120147",
     categorySponsor: "1442569081214599223",
     categoryPartner: "1442569079931146240",
     categoryStaff: "1442569084414853232",

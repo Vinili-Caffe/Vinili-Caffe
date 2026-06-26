@@ -1,8 +1,7 @@
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
-const { archiveStaffRolesHistoryThenUnsetStaff } = require("./staffDocUtils");
 const IDs = require("../Config/ids");
 const { memberHasStaffRole, queueStaffListRefreshAfterRoleMutation } = require("../Community/staffListUtils");
-const { deleteStaffPauseRequestChannelMessages, deleteStaffRelatedMessagesFromConfiguredChannels } = require("./staffDocUtils");
+const { deleteStaffPauseRequestChannelMessages, deleteStaffRelatedMessagesFromConfiguredChannels, archiveStaffRolesHistoryThenUnsetStaff } = require("./staffDocUtils");
 
 const ROLE_PM = IDs.roles.PartnerManager;
 const ROLE_STAFF_GENERIC = IDs.roles.Staff;
@@ -74,8 +73,9 @@ async function syncStaffDbAndPauseChannelAfterDepex(guild, userId, member) {
   if (!gid || !uid) return;
   if (!member) return;
   if (!memberHasAnyStaffPresenceForDepexSync(member)) {
+    const doc = await ActivityUserProfile.findOne({ guildId: gid, userId: uid }, { staff: 1 }).lean().catch(() => null);
     await deleteStaffPauseRequestChannelMessages(guild, uid);
-    await deleteStaffRelatedMessagesFromConfiguredChannels(guild, uid);
+    await deleteStaffRelatedMessagesFromConfiguredChannels(guild, uid, doc?.staff);
   }
   await applyStaffDatabaseAfterDepex(gid, uid, member);
   queueStaffListRefreshAfterRoleMutation(guild.client, gid);

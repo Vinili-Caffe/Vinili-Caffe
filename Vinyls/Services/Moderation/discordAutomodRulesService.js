@@ -190,15 +190,49 @@ function collectTicketAutomodExemptChannelIds(guild) {
   return ids;
 }
 
-function prioritizeTicketExemptChannelIds(guild, ids) {
+function isStaffAutomodExemptChannel(channel, staffChatId, staffCmdsId) {
+  if (!channel) return false;
+  const id = String(channel.id || "");
+  if (staffChatId && id === staffChatId) return true;
+  if (staffCmdsId && id === staffCmdsId) return true;
+  if (typeof channel.isThread === "function" && channel.isThread()) {
+    const parent = String(channel.parentId || "");
+    if (staffChatId && parent === staffChatId) return true;
+    if (staffCmdsId && parent === staffCmdsId) return true;
+  }
+  return false;
+}
+
+function collectStaffAutomodExemptChannelIds(guild) {
+  const staffChatId = String(IDs.channels?.staffChat || "").trim();
+  const staffCmdsId = String(IDs.channels?.staffCmds || "").trim();
+  const ids = new Set();
+  if (staffChatId) ids.add(staffChatId);
+  if (staffCmdsId) ids.add(staffCmdsId);
+  if (!guild?.channels?.cache) return [...ids];
+  for (const channel of guild.channels.cache.values()) {
+    if (isStaffAutomodExemptChannel(channel, staffChatId, staffCmdsId)) {
+      ids.add(String(channel.id));
+    }
+  }
+  return [...ids];
+}
+
+function prioritizeAutomodExemptChannelIds(guild, ids) {
   const unique = [...new Set((Array.isArray(ids) ? ids : []).map(String).filter((id) => /^\d{16,20}$/.test(id)))];
   const existing = filterGuildSnowflakeIds(guild, unique, "channel");
   if (existing.length <= MAX_EXEMPT_CHANNELS) return existing;
+  const staffChatId = String(IDs.channels?.staffChat || "").trim();
+  const staffCmdsId = String(IDs.channels?.staffCmds || "").trim();
+  const staffZone = [];
   const ticketCategories = [];
   const ticketChannels = [];
   for (const id of existing) {
     const channel = guild.channels.cache.get(id);
-    if (!channel) continue;
+    if (isStaffAutomodExemptChannel(channel, staffChatId, staffCmdsId)) {
+      staffZone.push(id);
+      continue;
+    }
     if (channel.type === ChannelType.GuildCategory && isTicketCategoryName(channel.name)) {
       ticketCategories.push(id);
       continue;
@@ -214,21 +248,28 @@ function prioritizeTicketExemptChannelIds(guild, ids) {
       out.push(id);
     }
   };
+  push(staffZone);
   push(ticketCategories);
   push(ticketChannels);
   global.logger?.warn?.(
-    `[discordAutomod] ticket exempt channels trimmed ${existing.length} -> ${out.length}`,
+    `[discordAutomod] exempt channels trimmed ${existing.length} -> ${out.length}`,
   );
   return out;
 }
 
 function collectExemptChannelIds(guild) {
   if (!guild?.channels?.cache) return [];
-  return prioritizeTicketExemptChannelIds(guild, [...collectTicketAutomodExemptChannelIds(guild)]);
+  return prioritizeAutomodExemptChannelIds(guild, [
+    ...collectTicketAutomodExemptChannelIds(guild),
+    ...collectStaffAutomodExemptChannelIds(guild),
+  ]);
 }
 
 function shouldResyncAutomodForChannel(channel) {
   if (!channel?.guild) return false;
+  const staffChatId = String(IDs.channels?.staffChat || "").trim();
+  const staffCmdsId = String(IDs.channels?.staffCmds || "").trim();
+  if (isStaffAutomodExemptChannel(channel, staffChatId, staffCmdsId)) return true;
   if (channel.type === ChannelType.GuildCategory) return isTicketCategoryName(channel.name);
   return isChannelInTicketCategory(channel) || isTicketChannelName(channel.name);
 }

@@ -1,5 +1,6 @@
 const { EmbedBuilder } = require("discord.js");
 const IDs = require("../Config/ids");
+const { MENTION_RESPONSE_PERK_LINE_DISCORD } = require("./mentionResponseAccessUtils");
 const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
 const BOOST_ANNOUNCE_STAFF_PING_ROLE_ID = "1442568910070349985";
 
@@ -19,6 +20,7 @@ function buildBoostEmbed(member, boostCount) {
       "<a:VC_Winner:1482535294757507255> Possibilità di creare un ruolo **custom** con colore **GRADIENTE** scelto da te\n" +
       "<:blueflash:1470064803157643468> Sblocchi i COLORI PLUS in `+profile`\n" +
       "<a:VC_CrownYellow:1482706085440651428> Aggiungi reazioni al messaggio quando ti @menzionano in chat (max. 3)\n" +
+      `${MENTION_RESPONSE_PERK_LINE_DISCORD}\n` +
       "<a:VC_Money:1482724694699278487> Cooldown sui comandi del nostro bot ridotto (da 30 secondi a 15 secondi)\n" +
       "<a:reddiamond:1443652837346377841> Sblocchi i comandi `+quote`, `+repost` e `+myrepost`\n" +
       "<:exp:1470067108543987846> X2 EXP Boost\n" +
@@ -47,6 +49,7 @@ function buildBoostEmbedSecond(member, boostCount) {
       "<a:VC_Flame:1482725674711126140> Possibilità di aggiungere reazioni ai messaggi in chat\n" +
       "<:blueflash:1470064803157643468> Possibilità di creare un secondo ruolo **custom** e un canale **vocale privato custom**\n" +
       "<a:VC_CrownYellow:1482706085440651428> Aggiungi reazioni al messaggio quando ti @menzionano in chat (max. 5)\n" +
+      `${MENTION_RESPONSE_PERK_LINE_DISCORD}\n` +
       "<a:VC_Money:1482724694699278487> Cooldown sui comandi del nostro bot ridotto (da 30 secondi a 5 secondi)\n" +
       "<a:reddiamond:1443652837346377841> Bypass requisiti dei giveaway\n" +
       "<:exp:1470067108543987846> X3 EXP Boost\n" +

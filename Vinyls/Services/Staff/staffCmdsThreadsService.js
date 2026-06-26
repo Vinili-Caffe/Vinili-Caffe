@@ -50,21 +50,25 @@ function memberQualifiesForSpec(member, spec) {
   return memberHasAnyRole(member, specRoleIds(spec));
 }
 
+function buildStaffCmdsParentRoleOverwrite(roleId) {
+  return {
+    ViewChannel: true,
+    ReadMessageHistory: true,
+    SendMessages: false,
+    SendMessagesInThreads: true,
+    AttachFiles: true,
+    EmbedLinks: true,
+    AddReactions: true,
+    UseExternalEmojis: true,
+  };
+}
+
 async function ensureStaffCmdsParentRoleOverwrite(parent, roleId) {
   if (!parent?.permissionOverwrites?.edit || !roleId) return;
   await parent.permissionOverwrites
     .edit(
       String(roleId),
-      {
-        ViewChannel: true,
-        ReadMessageHistory: true,
-        SendMessages: false,
-        SendMessagesInThreads: true,
-        AttachFiles: true,
-        EmbedLinks: true,
-        AddReactions: true,
-        UseExternalEmojis: true,
-      },
+      buildStaffCmdsParentRoleOverwrite(roleId),
       { reason: "Accesso thread comandi staff (solo thread, non canale padre)" },
     )
     .catch((err) => {
@@ -175,37 +179,22 @@ async function ensureStaffCmdsThread(client, guild, parent, spec, savedId) {
   return thread;
 }
 
-function buildHubMessageContent(threadIds) {
-  const pm = threadIds.pm ? `<#${threadIds.pm}>` : "—";
-  const high = threadIds.high ? `<#${threadIds.high}>` : "—";
-  return (
-    "<:VC_Staff:1494286904089247754> **Hub comandi staff**\n\n" +
-    "• **Comandi generali staff** — questo canale\n" +
-    `• ${pm} — Partner Manager\n` +
-    `• ${high} — High Staff\n\n` +
-    "_I thread sono privati: ogni livello ha i propri comandi. PM e High Staff vedono il canale ma scrivono solo nel proprio thread. Founder e Admin hanno accesso a tutti i thread._"
-  );
-}
-
-async function ensureStaffCmdsHubMessage(parent, threadIds) {
-  if (!parent?.send) return;
-  const content = buildHubMessageContent(threadIds);
+async function retireStaffCmdsHubMessage(parent) {
+  if (!parent?.messages?.fetch) return;
   const existingId = await getStaffCmdsHubMessageId();
   if (existingId) {
     const msg = await parent.messages.fetch(existingId).catch(() => null);
-    if (msg?.editable) {
-      await msg.edit({ content, allowedMentions: { parse: [] } }).catch(() => null);
-      return;
-    }
+    if (msg?.deletable) await msg.delete().catch(() => null);
+    else if (msg?.pinned) await msg.unpin().catch(() => null);
     await setStaffCmdsHubMessageId(null);
   }
-  const sent = await parent.send({ content, allowedMentions: { parse: [] } }).catch((err) => {
-    global.logger?.warn?.("[STAFF CMDS THREAD] Hub message fallito:", err?.message || err);
-    return null;
-  });
-  if (!sent?.id) return;
-  await setStaffCmdsHubMessageId(sent.id);
-  await sent.pin().catch(() => null);
+  const recent = await parent.messages.fetch({ limit: 25 }).catch(() => null);
+  if (!recent?.size) return;
+  for (const message of recent.values()) {
+    if (Number(message.type) === MessageType.ChannelPinnedMessage) {
+      await message.delete().catch(() => null);
+    }
+  }
 }
 
 async function ensureStaffCmdsThreadsOnReady(client) {
@@ -241,7 +230,7 @@ async function ensureStaffCmdsThreadsOnReady(client) {
       await populateThreadMembers(thread, guild, spec, { hydrate: false });
     }
   }
-  await ensureStaffCmdsHubMessage(parent, threadIds);
+  await retireStaffCmdsHubMessage(parent);
   await retireLegacyPartnerPmCommandsThread(client);
 }
 

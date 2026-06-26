@@ -8,7 +8,7 @@ const { getGuildChannelCached, getGuildMemberCached, getGuildRoleCached, getClie
 const { sendLevelMilestoneSupportersAnnouncement } = require("../../Utils/Community/levelMilestoneSupportersAnnounceEmbeds");
 const { guildMemberDisplayAvatarUrlDynamic, accountUsername } = require("../../Utils/Discord/guildDiscordIdentity");
 const { parseScheduleMs, parseScheduleEndMs } = require("../../Utils/Web/hogwartsEventSchedule");
-const EXP_EXCLUDED_CATEGORY_IDS = new Set([IDs.categories.categoryPrivate].filter(Boolean).map((id) => String(id)),);
+const EXP_EXCLUDED_CATEGORY_IDS = new Set([].filter(Boolean).map((id) => String(id)),);
 const TIME_ZONE = "Europe/Rome";
 const MESSAGE_EXP = 2;
 const VOICE_EXP_PER_MINUTE = 5;

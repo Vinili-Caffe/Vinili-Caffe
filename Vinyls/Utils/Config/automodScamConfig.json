@@ -9,23 +9,42 @@
     "steamcommunlty.com",
     "steamcommunity.ru",
     "free-nitro.com",
-    "discordapp-gifts.com"
+    "discordapp-gifts.com",
+    "riftroll.com",
+    "betchoco.com",
+    "nozawin.com",
+    "serowin.com"
   ],
   "discordKeywords": [
     "depxbit.com",
     "depxbit",
     "depixbit",
+    "riftroll.com",
+    "riftroll",
+    "betchoco.com",
+    "betchoco",
+    "nozawin.com",
+    "nozawin",
+    "serowin.com",
+    "serowin",
     "crypto casino",
     "promo code",
+    "promocode",
     "withdrawal success",
     "giving away $",
     "celebrate the launch",
     "mrbeast casino",
+    "mr beast casino",
     "usdt bonus",
     "instant withdraw",
     "register and withdraw",
-    "special promo code"
+    "special promo code",
+    "activate code for bonus",
+    "your reward has been",
+    "congratulations your reward",
+    "vyro project"
   ],
   "imageBaitMaxTextLength": 48,
-  "youngAccountMaxDays": 14
+  "youngAccountMaxDays": 14,
+  "imageOnlyBaitMaxImages": 3
 }

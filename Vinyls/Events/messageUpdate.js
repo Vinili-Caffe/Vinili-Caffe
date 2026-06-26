@@ -6,6 +6,7 @@ const { handleDisboardBump, handleDiscadiaBump, handleVoteManagerMessage } = req
 const { handleMentionAutoReactions, handleWordReactions, maybePunishCountingOnEdit } = require("../Utils/Message/officialMessageCommunityHandlers");
 const { toDiscordTimestamp } = require("../Utils/Logging/channelRolesLogUtils");
 const { handlePartnerDescriptionMessageUpsert, isPartnerDescriptionChannel } = require("../Services/Partner/partnerDescriptionSyncService");
+const { shouldDeleteHumanPartnershipsChannelMessage } = require("../Utils/Partner/partnerPointContextUtils");
 const MAX_EMBED_DIFF_LENGTH = 900;
 const VERIFICATION_EXCLUDED_CHANNEL_IDS = new Set(
   [IDs.channels.verify, IDs.channels.clickMe, IDs.channels.activityLogs].filter(Boolean).map((id) => String(id)),
@@ -206,6 +207,11 @@ module.exports = {
         updated = await updated.fetch().catch(() => updated);
       }
       if (!updated?.guild || !updated?.author) return;
+
+      if (shouldDeleteHumanPartnershipsChannelMessage(updated)) {
+        await updated.delete().catch(() => null);
+        return;
+      }
 
       if (!updated.author.bot && !updated.system && !updated.webhookId) {
         await maybePunishCountingOnEdit(previous, updated, resolvedClient);

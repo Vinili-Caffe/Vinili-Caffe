@@ -28,8 +28,8 @@ async function isStaffChatManagedThread(channel) {
 }
 
 async function resolveStaffChatPmThread(client) {
-  const cached = getStaffChatThreadIdsCache().pm;
-  const threadId = cached || (await getStaffChatThreadIds()).pm;
+  const ids = await getStaffChatThreadIds();
+  const threadId = String(ids?.pm || "").trim();
   if (!threadId) return null;
   const resolved =
     client?.channels?.cache?.get(threadId) || (await client?.channels?.fetch(threadId).catch(() => null));

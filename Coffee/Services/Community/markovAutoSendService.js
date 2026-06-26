@@ -322,7 +322,7 @@ async function tryAutoSendMarkovMessage(message, client) {
   const autoCfg = getAutoSendConfig(client);
   if (!autoCfg.enabled) return false;
   if (!isAutoSendTriggerChannel(message, client)) return false;
-  if (!isMarkovEligibleChannel(message.channel, message.guild, client.config || {})) return false;
+  if (!isMarkovEligibleChannel(message.channel, message.guild, client.config || {}, client)) return false;
 
   const guildId = String(message.guild.id);
   return withAutoSendGuildLock(guildId, async () => {
@@ -367,7 +367,7 @@ async function tryReplyToMarkovMessage(message, client) {
   const replyCfg = getMarkovReplyConfig(client);
   if (!replyCfg.enabled) return false;
   if (!getReplyReferenceId(message)) return false;
-  if (!isMarkovEligibleChannel(message.channel, message.guild, client.config || {})) return false;
+  if (!isMarkovEligibleChannel(message.channel, message.guild, client.config || {}, client)) return false;
 
   const guildId = String(message.guild.id);
   const state = getGuildState(guildId, client);

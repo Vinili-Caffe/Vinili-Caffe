@@ -1022,15 +1022,102 @@ async function submitCandidatureWebsite(client, payload) {
   };
 }
 
+async function sendCandidatePexWelcome(guild, member, targetRoleId) {
+  try {
+    if (String(targetRoleId) === String(HELPER_ROLE_ID)) {
+      const staffChat =
+        guild.channels.cache.get(IDs.channels.staffChat) ||
+        (await getGuildChannelCached(guild, IDs.channels.staffChat));
+      await sendHelperWelcome(staffChat, member);
+      return;
+    }
+    if (String(targetRoleId) === String(PARTNER_MANAGER_ROLE_ID)) {
+      await sendPartnerManagerWelcome(guild.client, member);
+    }
+  } catch (err) {
+    global.logger?.warn?.("[candidature] welcome failed:", err?.message || err);
+  }
+}
+
+async function sendCandidatePexLog(guild, member, targetRoleId, roleBeforeId, reason) {
+  const pexDepexChannel =
+    guild.channels.cache.get(IDs.channels.pexDepex) ||
+    (await getGuildChannelCached(guild, IDs.channels.pexDepex));
+  if (!pexDepexChannel?.isTextBased?.()) return;
+  const oldRole = guild.roles.cache.get(roleBeforeId);
+  const newRole = guild.roles.cache.get(String(targetRoleId));
+  const actionEmoji = getStaffRoleEmojiByRoleId(targetRoleId);
+  await pexDepexChannel
+    .send({
+      content: `**<a:VC_Verified:1482532479637127188> PEX** <@${member.id}>
+${actionEmoji} \`${oldRole?.name || roleBeforeId || "N/A"}\` <a:VC_Arrow:1482706699365257397> \`${newRole?.name || targetRoleId}\`
+<:VC_reason:1478517122929004544> __${reason}__`,
+    })
+    .catch((err) => {
+      global.logger?.warn?.("[candidature] pex log failed:", err?.message || err);
+    });
+}
+
+async function completeCandidatePexAfterRole(guild, member, type, reason, sourceMessage, opts = {}) {
+  const targetRoleId = type === "partnermanager" ? PARTNER_MANAGER_ROLE_ID : HELPER_ROLE_ID;
+  const roleBeforeId = String(IDs.roles.Member || "");
+  const recovery = Boolean(opts.recovery);
+
+  if (!recovery) {
+    const profileDoc = await getOrCreateStaffDoc(guild.id, member.id);
+    const s = ensureStaff(profileDoc);
+    if (!Array.isArray(s.rolesHistory)) s.rolesHistory = [];
+    s.rolesHistory.push({
+      oldRole: roleBeforeId,
+      newRole: String(targetRoleId),
+      reason: String(reason || "").trim(),
+      date: new Date(),
+    });
+    profileDoc.markModified("staff");
+    await profileDoc.save();
+    await clearStaffPendingPurgeAt(guild.id, member.id);
+    if (guild.client && guild.id === IDs.guilds?.main) {
+      scheduleStaffListRefresh(guild.client, guild.id, 800);
+      const t = setTimeout(() => scheduleStaffListRefresh(guild.client, guild.id, 500), 2500);
+      if (t?.unref) t.unref();
+    }
+  }
+
+  await sendCandidatePexLog(guild, member, targetRoleId, roleBeforeId, reason);
+  await sendCandidatePexWelcome(guild, member, targetRoleId);
+
+  if (sourceMessage) {
+    await setApplicationMessageStatusColor(sourceMessage, APPLICATION_ACCEPTED_COLOR);
+    await deleteThreadForMessage(guild, sourceMessage);
+  }
+
+  try {
+    const { enqueueSiteInAppNotification } = require("../../Utils/Web/siteInAppNotificationsService");
+    const label = type === "partnermanager" ? "Partner Manager" : "Helper";
+    await enqueueSiteInAppNotification({
+      guildId: guild.id,
+      userId: member.id,
+      title: recovery ? "Candidatura accettata (recupero)" : "Candidatura accettata",
+      body: `La tua candidatura è stata accettata: ora hai accesso come ${label}. Controlla i messaggi di benvenuto inviati nello staff.`,
+      kind: "mod",
+      openUrl: "/candidature",
+      dedupeKey: `cand-pex-${type}-${member.id}-${String(sourceMessage?.id || "")}${recovery ? "-recovery" : ""}`,
+      dedupeWindowMs: 86_400_000,
+    });
+  } catch (_) {}
+}
+
 async function applyCandidatePex(guild, actor, type, userId, reason, sourceMessage) {
   const targetRoleId = type === "partnermanager" ? PARTNER_MANAGER_ROLE_ID : HELPER_ROLE_ID;
   if (!targetRoleId) return "Ruolo target non configurato.";
 
   const member = guild.members.cache.get(String(userId)) || (await getGuildMemberCached(guild, String(userId)));
   if (!member) return "Utente non trovato nel server.";
-  if (member.roles.cache.has(String(targetRoleId))) return "Utente già pexato su quel ruolo.";
+  if (member.roles.cache.has(String(targetRoleId))) {
+    await completeCandidatePexAfterRole(guild, member, type, reason, sourceMessage, { recovery: true });
+    return `Utente già pexato su quel ruolo: ho reinviato pex e benvenuto.`;
+  }
 
-  const roleBeforeId = String(IDs.roles.Member || "");
   const roleApplied = await member.roles
     .add(String(targetRoleId))
     .then(() => true)
@@ -1056,63 +1143,9 @@ async function applyCandidatePex(guild, actor, type, userId, reason, sourceMessa
         return "Ruolo Helper assegnato, ma non sono riuscito ad aggiungere il ruolo Staff.";
       }
     }
-    const staffChat = guild.channels.cache.get(IDs.channels.staffChat) || (await getGuildChannelCached(guild, IDs.channels.staffChat));
-    await sendHelperWelcome(staffChat, member);
-  }
-  if (String(targetRoleId) === String(PARTNER_MANAGER_ROLE_ID)) {
-    await sendPartnerManagerWelcome(guild.client, member);
   }
 
-  const profileDoc = await getOrCreateStaffDoc(guild.id, member.id);
-  const s = ensureStaff(profileDoc);
-  if (!Array.isArray(s.rolesHistory)) s.rolesHistory = [];
-  s.rolesHistory.push({
-    oldRole: roleBeforeId,
-    newRole: String(targetRoleId),
-    reason: String(reason || "").trim(),
-    date: new Date(),
-  });
-  profileDoc.markModified("staff");
-  await profileDoc.save();
-  await clearStaffPendingPurgeAt(guild.id, member.id);
-  if (guild.client && guild.id === IDs.guilds?.main) {
-    scheduleStaffListRefresh(guild.client, guild.id, 800);
-    const t = setTimeout(() => scheduleStaffListRefresh(guild.client, guild.id, 500), 2500);
-    if (t?.unref) t.unref();
-  }
-
-  const pexDepexChannel = guild.channels.cache.get(IDs.channels.pexDepex) || (await getGuildChannelCached(guild, IDs.channels.pexDepex));
-  if (pexDepexChannel?.isTextBased?.()) {
-    const oldRole = guild.roles.cache.get(roleBeforeId);
-    const newRole = guild.roles.cache.get(String(targetRoleId));
-    const actionEmoji = getStaffRoleEmojiByRoleId(targetRoleId);
-    await pexDepexChannel.send({
-      content: `**<a:VC_Verified:1482532479637127188> PEX** <@${member.id}>
-${actionEmoji} \`${oldRole?.name || roleBeforeId || "N/A"}\` <a:VC_Arrow:1482706699365257397> \`${newRole?.name || targetRoleId}\`
-<:VC_reason:1478517122929004544> __${reason}__`,
-    }).catch(() => null);
-  }
-
-  if (sourceMessage) {
-    await setApplicationMessageStatusColor(sourceMessage, APPLICATION_ACCEPTED_COLOR);
-    await deleteThreadForMessage(guild, sourceMessage);
-  }
-
-  try {
-    const { enqueueSiteInAppNotification } = require("../../Utils/Web/siteInAppNotificationsService");
-    const label = type === "partnermanager" ? "Partner Manager" : "Helper";
-    await enqueueSiteInAppNotification({
-      guildId: guild.id,
-      userId: member.id,
-      title: "Candidatura accettata",
-      body: `La tua candidatura è stata accettata: ora hai accesso come ${label}. Controlla i messaggi di benvenuto inviati nello staff.`,
-      kind: "mod",
-      openUrl: "/candidature",
-      dedupeKey: `cand-pex-${type}-${member.id}-${String(sourceMessage?.id || "")}`,
-      dedupeWindowMs: 86_400_000,
-    });
-  } catch (_) {}
-
+  await completeCandidatePexAfterRole(guild, member, type, reason, sourceMessage);
   return `Pex completato per <@${member.id}>.`;
 }
 

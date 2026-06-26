@@ -30,7 +30,15 @@ async function deleteCustomVocIfPossible(guild, channelId, reason) {
   const channel = guild.channels.cache.get(cid) || (await guild.channels.fetch(cid).catch(() => null));
   if (!channel) return true;
   if (channel.type !== ChannelType.GuildVoice) return false;
-  return channel.delete(reason).then(() => true).catch(() => false);
+  const deleted = await channel.delete(reason).then(() => true).catch(() => false);
+  if (deleted) {
+    const { tryDeleteEmptyCustomPrivateCategory } = require("../../Utils/Community/customPrivateCategoryUtils");
+    await tryDeleteEmptyCustomPrivateCategory(guild, {
+      excludeChannelId: cid,
+      reason: "Auto cleanup empty custom private category",
+    }).catch(() => { });
+  }
+  return deleted;
 }
 
 async function migrateGuildCustomPerks(guild, client) {
@@ -173,4 +181,5 @@ async function runCustomPerksRulesMigration(client) {
 
 module.exports = {
   runCustomPerksRulesMigration,
+  deleteCustomVocIfPossible,
 };

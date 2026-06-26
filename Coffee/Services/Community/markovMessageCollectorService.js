@@ -89,7 +89,7 @@ function passesEligibility(message, client, options = {}) {
   if (message.author?.bot || message.webhookId) return false;
   if (message.system) return false;
   if (options.skipEligibilityCheck) return true;
-  return isMarkovEligibleChannel(message.channel, message.guild, client.config || {});
+  return isMarkovEligibleChannel(message.channel, message.guild, client.config || {}, client);
 }
 
 function hasCollectibleText(message, client) {
@@ -442,8 +442,8 @@ async function backfillMarkovCorpus(client) {
   await ensureImagesDir(client);
   await ensureStickersDir(client);
   const perChannel = Number(cfg.backfillMessagesPerChannel ?? 100);
-  const channels = await listMarkovEligibleChannels(guild, client.config || {});
-  const threads = await listMarkovEligibleThreads(guild, client.config || {});
+  const channels = await listMarkovEligibleChannels(guild, client.config || {}, client);
+  const threads = await listMarkovEligibleThreads(guild, client.config || {}, client);
   let lines = 0;
   for (const channel of channels) {
     lines += await backfillChannelHistory(channel, client, perChannel);

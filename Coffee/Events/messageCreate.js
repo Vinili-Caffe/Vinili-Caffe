@@ -19,7 +19,12 @@ module.exports = {
       }
     }
     try {
-      if (await handleStanzaPanelPromptMessageCreate(message)) return;
+      const safePrefix = String(client?.config?.prefix || "-").trim() || "-";
+      const content = String(message.content || "").trim();
+      const isPrefixCommand = content.startsWith(safePrefix);
+      if (!isPrefixCommand && !message.author?.bot && message.guild) {
+        if (await handleStanzaPanelPromptMessageCreate(message)) return;
+      }
     } catch (error) {
       global.logger?.error?.("[STANZA PANEL MESSAGE ERROR]", error);
     }

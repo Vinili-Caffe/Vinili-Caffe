@@ -121,7 +121,7 @@ async function generateMarkovLines(client, channel, options = {}) {
   const guild = channel.guild;
   if (!guild) return { ok: false, reason: "missing_guild", lines: [] };
   const useGuildCorpus = options.corpusScope === "guild";
-  if (!useGuildCorpus && !isMarkovEligibleChannel(channel, guild, client.config || {})) {
+  if (!useGuildCorpus && !isMarkovEligibleChannel(channel, guild, client.config || {}, client)) {
     return { ok: false, reason: "channel_not_eligible", lines: [] };
   }
   const cfg = getMarkovConfig(client);

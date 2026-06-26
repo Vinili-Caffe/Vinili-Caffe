@@ -16,6 +16,7 @@ const DEFAULT_SCAM_CONFIG = {
   ],
   imageBaitMaxTextLength: 48,
   youngAccountMaxDays: 14,
+  imageOnlyBaitMaxImages: 3,
 };
 
 function loadAutomodScamConfig() {
@@ -30,6 +31,7 @@ function loadAutomodScamConfig() {
       : DEFAULT_SCAM_CONFIG.discordKeywords;
     const imageBaitMaxTextLength = Number(parsed?.imageBaitMaxTextLength);
     const youngAccountMaxDays = Number(parsed?.youngAccountMaxDays);
+    const imageOnlyBaitMaxImages = Number(parsed?.imageOnlyBaitMaxImages);
     return {
       domains: domains.length ? domains : DEFAULT_SCAM_CONFIG.domains,
       discordKeywords: discordKeywords.length ? discordKeywords : DEFAULT_SCAM_CONFIG.discordKeywords,
@@ -41,6 +43,10 @@ function loadAutomodScamConfig() {
         Number.isFinite(youngAccountMaxDays) && youngAccountMaxDays > 0
           ? youngAccountMaxDays
           : DEFAULT_SCAM_CONFIG.youngAccountMaxDays,
+      imageOnlyBaitMaxImages:
+        Number.isFinite(imageOnlyBaitMaxImages) && imageOnlyBaitMaxImages > 0
+          ? imageOnlyBaitMaxImages
+          : DEFAULT_SCAM_CONFIG.imageOnlyBaitMaxImages,
     };
   } catch {
     return { ...DEFAULT_SCAM_CONFIG };

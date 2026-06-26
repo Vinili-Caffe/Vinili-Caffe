@@ -812,6 +812,7 @@ function resolveProfileKey(message) {
   if (
     EXEMPT_CHANNEL_IDS.has(channelId) ||
     EXEMPT_CHANNEL_IDS.has(parentId) ||
+    isStaffZoneExemptChannel(message?.channel) ||
     isUnderExemptCategory(message?.channel)
   ) {
     return "staff";
@@ -1681,7 +1682,12 @@ const SCAM_CRYPTO_PATTERNS = [
   /@everyone.{0,40}(nitro|gift|claim|airdrop)/,
   /(verify|login).{0,30}(discord|steam|epic).{0,30}(gift|nitro|reward|airdrop)/,
   /\b(crypto\s+casino|casino\s+crypto)\b/,
-  /\b(mr\s*beast|mrbeast)\b.{0,60}\b(crypto|casino|giveaway|promo|usdt|\$\d)/,
+  /\b(mr\s*beast|mrbeast)\b.{0,80}\b(crypto|casino|giveaway|promo|usdt|\$\d|register|withdraw)/,
+  /\b(mr\s*beast|mrbeast)\b.{0,40}\b(launch|celebrat)/,
+  /\b(vyro\s+project|linked to our)\b/i,
+  /\b(riftroll|betchoco|nozawin|serowin)\b/i,
+  /\b(activate\s+code|special\s+promocode|promocode)\b/i,
+  /\b(congratulations|your reward has been|reward has been successfully)\b/i,
   /\b(give(?:away|ing)\s+(?:away\s+)?\$?\d[\d,.]*\b)/,
   /\b(promo\s+code|special\s+promo)\b/,
   /\b(withdraw(?:al)?\s+success(?:ful)?)\b/,
@@ -1694,6 +1700,13 @@ const SCAM_IMAGE_BAIT_PATTERNS = [
   /^omg\b/i,
   /\b(wow|look at this|check this|free money|guadagn|soldi)\b/i,
   /[\u{1F4B0}\u{1F911}\u{1F633}\u{1F4B5}]/u,
+  /\b(bro|guys|y'all|yall|wtf|insane|crazy|no way|real|fr)\b/i,
+  /\b(mrbeast|mr\s*beast)\b/i,
+  /\b(bonus|promocode|promo\s*code|activate\s+code)\b/i,
+  /\b(withdraw(?:al)?|casino|crypto)\b/i,
+  /\b(guarda|incredibile|assurdo|soldi|gratis)\b/i,
+  /\$\d{2,5}\b/,
+  /\b(riftroll|betchoco|nozawin|serowin)\b/i,
 ];
 
 function detectScam(content) {
@@ -1711,13 +1724,14 @@ function detectScamImageBait(message, moderationContent, options = {}) {
   const text = String(moderationContent || "").trim();
   const maxLen = Number(AUTOMOD_SCAM_CONFIG.imageBaitMaxTextLength || 48);
   if (!text || text.length > maxLen) return false;
+  if (detectScam(text)) return true;
   const hasBait = SCAM_IMAGE_BAIT_PATTERNS.some((re) => re.test(text));
   if (!hasBait) return false;
   if (options.suspicious) return true;
   const youngDays = Number(AUTOMOD_SCAM_CONFIG.youngAccountMaxDays || 14);
-  if (options.youngAccount && text.length <= 32) return true;
   const accountAgeMs = Number(options.accountAgeMs || 0);
   const youngMs = youngDays * 24 * 60 * 60_000;
+  if (options.youngAccount && text.length <= 32) return true;
   if (accountAgeMs > 0 && accountAgeMs < youngMs && text.length <= 32) return true;
   return text.length <= 24;
 }
@@ -1985,6 +1999,17 @@ function stripUrlsForCharacterRule(content) {
   return s;
 }
 
+function isStaffZoneExemptChannel(channel) {
+  if (!channel) return false;
+  try {
+    const { isChannelOrThreadUnderStaffChat } = require("../../Utils/Staff/staffChatChannelUtils");
+    const { isChannelOrThreadUnderStaffCmds } = require("../../Utils/Staff/staffCmdsChannelUtils");
+    return isChannelOrThreadUnderStaffChat(channel) || isChannelOrThreadUnderStaffCmds(channel);
+  } catch {
+    return false;
+  }
+}
+
 function isExempt(message) {
   if (!message.guild) return true;
   const guildId = String(message.guild?.id || "");
@@ -1993,6 +2018,7 @@ function isExempt(message) {
   if (userId && String(message.guild.ownerId || "") === userId) return true;
   if (guildId && userId && isSecurityProfileImmune(guildId, userId)) return true;
   if (EXEMPT_CHANNEL_IDS.has(String(message.channelId))) return true;
+  if (isStaffZoneExemptChannel(message.channel)) return true;
   if (isUnderExemptCategory(message.channel)) return true;
   const profile = getProfileConfig(message);
   if (profile?.exempt) return true;
@@ -3816,4 +3842,4 @@ function updateAutoModConfig(pathExpr, value) {
   return { ok: true, config: getAutoModConfigSnapshot() };
 }
 
-module.exports = { runAutoModMessage, runDiscordNativeAutomodExecution, isDiscordNativeAutomodEnabled, getDiscordNativeViolationSkipKeys, getAutoModMemberSnapshot, isAutoModRoleExemptMember, getAutoModConfigSnapshot, getAutoModRulesSnapshot, updateAutoModConfig, isPanicModeActiveForGuild: isPanicModeActive, getAutoModPanicSnapshot, triggerAutoModPanicExternal, clearAutoModPanicState, __test: { isLikelyCommandMessage, buildAutoModDecisionExplain, isAutomodMediaEmbedUrl, isCrossServerForwardedMessage, detectScam, detectScamImageBait, buildModerationScanText } };
+module.exports = { runAutoModMessage, runDiscordNativeAutomodExecution, isDiscordNativeAutomodEnabled, getDiscordNativeViolationSkipKeys, getAutoModMemberSnapshot, isAutoModRoleExemptMember, getAutoModConfigSnapshot, getAutoModRulesSnapshot, updateAutoModConfig, isPanicModeActiveForGuild: isPanicModeActive, getAutoModPanicSnapshot, triggerAutoModPanicExternal, clearAutoModPanicState, __test: { isLikelyCommandMessage, buildAutoModDecisionExplain, isAutomodMediaEmbedUrl, isCrossServerForwardedMessage, detectScam, detectScamImageBait, buildModerationScanText, isStaffZoneExemptChannel } };

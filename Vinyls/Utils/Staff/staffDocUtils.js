@@ -110,6 +110,20 @@ async function deleteStaffPauseRequestChannelMessages(guild, userId) {
 const DEPEX_SCAN_FETCH_LIMIT = 100;
 const DEPEX_SCAN_MAX_MESSAGES_PER_CHANNEL = 1500;
 
+function embedTextBlob(embed) {
+  const parts = [
+    embed?.title,
+    embed?.description,
+    embed?.footer?.text,
+    embed?.author?.name,
+  ];
+  const fields = Array.isArray(embed?.fields) ? embed.fields : [];
+  for (const field of fields) {
+    parts.push(field?.name, field?.value);
+  }
+  return parts.map((x) => String(x || "")).join("\n");
+}
+
 function messageLooksRelatedToUser(msg, userId) {
   if (!msg || !userId) return false;
   const uid = String(userId);
@@ -120,19 +134,45 @@ function messageLooksRelatedToUser(msg, userId) {
   }
   const embeds = Array.isArray(msg.embeds) ? msg.embeds : [];
   return embeds.some((e) => {
-    const title = String(e?.title || e?.data?.title || "");
-    const desc = String(e?.description || e?.data?.description || "");
-    const footer = String(e?.footer?.text || e?.data?.footer?.text || "");
-    return (
-      title.includes(uid) ||
-      desc.includes(uid) ||
-      footer.includes(uid) ||
-      title.includes(`<@${uid}>`) ||
-      desc.includes(`<@${uid}>`) ||
-      title.includes(`<@!${uid}>`) ||
-      desc.includes(`<@!${uid}>`)
-    );
+    const blob = embedTextBlob(e?.data || e);
+    return blob.includes(uid) || blob.includes(`<@${uid}>`) || blob.includes(`<@!${uid}>`);
   });
+}
+
+function collectStaffMessageRefs(staff) {
+  const seen = new Set();
+  const out = [];
+  const lists = [
+    staff?.positiveValutazioni,
+    staff?.negativeValutazioni,
+    staff?.autoValutazioni,
+  ];
+  for (const list of lists) {
+    for (const entry of Array.isArray(list) ? list : []) {
+      const channelId = String(entry?.channelId || "").trim();
+      const messageId = String(entry?.messageId || "").trim();
+      const key = `${channelId}:${messageId}`;
+      if (!channelId || !messageId || seen.has(key)) continue;
+      seen.add(key);
+      out.push({ channelId, messageId });
+    }
+  }
+  return out;
+}
+
+async function deleteStaffMessagesByKnownIds(guild, staff) {
+  const refs = collectStaffMessageRefs(staff);
+  if (!refs.length || !guild) return 0;
+  let deleted = 0;
+  for (const { channelId, messageId } of refs) {
+    const channel = guild.channels.cache.get(channelId) || (await getGuildChannelCached(guild, channelId));
+    if (!channel?.messages?.fetch) continue;
+    const msg = await channel.messages.fetch(messageId).catch(() => null);
+    if (!msg) continue;
+    const ok = await msg.delete().then(() => true).catch(() => false);
+    if (ok) deleted += 1;
+  }
+  return deleted;
 }
 
 async function deleteUserRelatedMessagesInChannel(guild, channelId, userId) {
@@ -188,9 +228,18 @@ async function archiveStaffRolesHistoryThenUnsetStaff(guildId, userId) {
   ).catch(() => null);
 }
 
-async function deleteStaffRelatedMessagesFromConfiguredChannels(guild, userId) {
+async function deleteStaffRelatedMessagesFromConfiguredChannels(guild, userId, staffObj = null) {
   const uid = String(userId || "").trim();
   if (!guild || !uid) return { deleted: 0 };
+  let staff = staffObj;
+  if (!staff) {
+    const doc = await ActivityUserProfile.findOne({ guildId: String(guild.id), userId: uid }, { staff: 1 })
+      .lean()
+      .catch(() => null);
+    staff = doc?.staff;
+  }
+  let deleted = 0;
+  if (staff) deleted += await deleteStaffMessagesByKnownIds(guild, staff);
   const channelIds = [
     IDs.channels?.pause,
     IDs.channels?.valutazioniStaff,
@@ -199,11 +248,14 @@ async function deleteStaffRelatedMessagesFromConfiguredChannels(guild, userId) {
   ]
     .map((x) => String(x || "").trim())
     .filter(Boolean);
-  let deleted = 0;
   for (const channelId of channelIds) {
     deleted += await deleteUserRelatedMessagesInChannel(guild, channelId, uid);
   }
   return { deleted };
+}
+
+async function purgeStaffChannelMessagesForUser(guild, userId) {
+  return deleteStaffRelatedMessagesFromConfiguredChannels(guild, userId);
 }
 
 module.exports = {
@@ -212,6 +264,7 @@ module.exports = {
   deleteThreadForMessage,
   deleteStaffPauseRequestChannelMessages,
   deleteStaffRelatedMessagesFromConfiguredChannels,
+  purgeStaffChannelMessagesForUser,
   ensureStaff,
   archiveStaffRolesHistoryThenUnsetStaff,
 };

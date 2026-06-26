@@ -15,6 +15,7 @@ const STANZA_MEMBER_ROLE_ID = String(IDs.roles?.Member || "").trim();
 const STANZA_TEARDOWN_MOVE_TARGET_VOICE_IDS = [IDs.channels?.vocaleLounge1, IDs.channels?.vocaleLounge2, IDs.channels?.vocaleLounge3].map((id) => String(id || "").trim()).filter((id) => /^\d{5,30}$/.test(id));
 const STANZA_SUPPORT_CHANNEL_ID = String(IDs.channels?.ticket || "").trim();
 const STANZA_DISCOVERY_EXCLUDE_PARENT_IDS = new Set((Array.isArray(IDs.stanzaDiscoveryExcludeParentIds) ? IDs.stanzaDiscoveryExcludeParentIds : []).map((x) => String(x || "").trim()).filter((x) => /^\d{5,30}$/.test(x)));
+const STANZA_CATEGORY_ID = "1499754323431788736";
 
 function getStanzaMemberRoleId() {
   return STANZA_MEMBER_ROLE_ID || "";
@@ -29,6 +30,7 @@ function isStanzaGuildAllowed(guildId) {
 
 const stanzaChannelMeta = new Map();
 const stanzaOwnerToChannel = new Map();
+const stanzaVoiceStatusByChannelId = new Map();
 const stanzaCreateLocks = new Set();
 const stanzaPendingOwnerVoiceId = new Map();
 
@@ -244,10 +246,30 @@ function sanitizeStanzaVoiceStatus(raw) {
 }
 
 async function setStanzaVoiceChannelStatus(client, channelId, status, reason) {
-  await client.rest.put(`/channels/${channelId}/voice-status`, {
-    body: { status },
+  const cid = String(channelId || "").trim();
+  if (!cid) return;
+  const normalized = status == null || status === "" ? null : String(status).trim();
+  await client.rest.put(`/channels/${cid}/voice-status`, {
+    body: { status: normalized },
     reason,
   });
+  if (normalized) stanzaVoiceStatusByChannelId.set(cid, normalized);
+  else stanzaVoiceStatusByChannelId.delete(cid);
+  const meta = stanzaChannelMeta.get(cid);
+  if (meta) {
+    meta.voiceStatus = normalized;
+    persistStanzaSnapshotNow();
+  }
+}
+
+function rememberStanzaVoiceChannelStatus(channelId, status) {
+  const cid = String(channelId || "").trim();
+  if (!cid) return;
+  const normalized = status == null || status === "" ? null : String(status).trim();
+  if (normalized) stanzaVoiceStatusByChannelId.set(cid, normalized);
+  else stanzaVoiceStatusByChannelId.delete(cid);
+  const meta = stanzaChannelMeta.get(cid);
+  if (meta) meta.voiceStatus = normalized;
 }
 
 function escapeStanzaEmbedPlainText(s) {
@@ -293,16 +315,26 @@ async function getStanzaVisitorVoiceTotalSeconds(guildId, userId) {
   return Math.max(0, Math.floor(Number(doc?.totalSeconds) || 0));
 }
 
-async function fetchVoiceChannelStatusText(client, channelId) {
+async function fetchVoiceChannelStatusText(client, channelId, meta = null) {
   const id = String(channelId || "").trim();
-  if (!id || !client?.rest) return null;
+  if (!id) return null;
+  const cached =
+    (meta && typeof meta.voiceStatus === "string" ? meta.voiceStatus.trim() : "") ||
+    stanzaVoiceStatusByChannelId.get(id) ||
+    (typeof stanzaChannelMeta.get(id)?.voiceStatus === "string" ? stanzaChannelMeta.get(id).voiceStatus.trim() : "");
+  if (cached) return cached;
+  if (!client?.rest) return null;
   try {
-    const raw = await client.rest.get(`/channels/${id}`);
+    const raw = await client.rest.get(`/channels/${id}/voice-status`);
     const s = raw && typeof raw.status === "string" ? raw.status.trim() : "";
-    return s || null;
+    if (s) {
+      rememberStanzaVoiceChannelStatus(id, s);
+      return s;
+    }
   } catch {
-    return null;
+    // voice status non è sul channel object standard; cache locale dopo PUT
   }
+  return null;
 }
 
 function buildStanzaJoinVisitorDmEmbed(member, voiceChannel, roomNamePlain, ownerId, statusText, totalFormatted) {
@@ -334,7 +366,7 @@ function buildStanzaJoinVisitorDmEmbed(member, voiceChannel, roomNamePlain, owne
 async function notifyStanzaVisitorJoin(member, voiceChannel, meta) {
   const ownerId = String(meta?.ownerId || "").trim();
   if (!ownerId) return;
-  const statusText = await fetchVoiceChannelStatusText(member.client, voiceChannel.id);
+  const statusText = await fetchVoiceChannelStatusText(member.client, voiceChannel.id, meta);
   const totalSec = await getStanzaVisitorVoiceTotalSeconds(member.guild.id, member.id);
   const totalFormatted = formatStanzaPersonalVoiceDuration(totalSec);
   const embed = buildStanzaJoinVisitorDmEmbed(member, voiceChannel, String(voiceChannel.name || "Stanza"), ownerId, statusText, totalFormatted);
@@ -1225,6 +1257,7 @@ async function teardownStanza(guild, channelId, opts = {}) {
   }
   await flushStanzaVisitorVoiceSessionsForChannel(guild.id, id);
   clearStanzaEmptyTeardownTimer(id);
+  stanzaVoiceStatusByChannelId.delete(id);
   stanzaChannelMeta.delete(id);
   stanzaOwnerToChannel.delete(ownerKey(meta.guildId, meta.ownerId));
   clearStanzaRenamePending(meta.guildId, meta.ownerId);
@@ -1331,7 +1364,7 @@ async function handleStanzaVoiceLobbyJoin(oldState, newState, client) {
       return;
     }
     const lobbyCh = newState.channel;
-    const parentId = lobbyCh?.parentId || IDs.categories?.categoryPrivate || null;
+    const parentId = lobbyCh?.parentId || STANZA_CATEGORY_ID || null;
     const name = buildStanzaChannelName(member);
     const voiceChannel = await guild.channels
       .create({
@@ -1603,6 +1636,7 @@ function persistStanzaSnapshotNow() {
         textChannelId: meta.textChannelId ?? null,
         guildId: meta.guildId,
         startedAt: meta.startedAt,
+        voiceStatus: typeof meta.voiceStatus === "string" ? meta.voiceStatus : null,
       };
     }
     for (const [key, row] of stanzaRenamePending.entries()) {
@@ -1730,6 +1764,7 @@ function normalizeStanzaRecordFromSnapshot(rec, guildId) {
   const viceUserId = normalizeStanzaDiscordUserId(rec?.viceUserId) || null;
   let textChannelId = String(rec?.textChannelId || "").trim();
   if (!textChannelId || !/^\d{5,30}$/.test(textChannelId)) textChannelId = null;
+  const voiceStatus = typeof rec?.voiceStatus === "string" && rec.voiceStatus.trim() ? rec.voiceStatus.trim() : null;
   return {
     ownerId,
     viceUserId,
@@ -1737,6 +1772,7 @@ function normalizeStanzaRecordFromSnapshot(rec, guildId) {
     textChannelId,
     guildId: gid,
     startedAt: Number(rec?.startedAt) || Date.now(),
+    voiceStatus,
   };
 }
 
@@ -1752,6 +1788,7 @@ async function tryRehydrateStanzaRoomFromSnapshotRecord(guild, channelId, rec) {
   const ownerOw = voiceCh.permissionOverwrites.cache.get(meta.ownerId);
   if (!ownerOw?.allow?.has(PermissionsBitField.Flags.ManageChannels)) return false;
   stanzaChannelMeta.set(id, meta);
+  if (meta.voiceStatus) rememberStanzaVoiceChannelStatus(id, meta.voiceStatus);
   stanzaOwnerToChannel.set(ownerKey(guild.id, meta.ownerId), id);
   const humans = voiceCh.members.filter((m) => !m.user.bot);
   if (humans.size === 0) {
@@ -2797,4 +2834,32 @@ async function handleStanzaPanelPromptMessageCreate(message) {
   return false;
 }
 
-module.exports = { isStanzaButtonActorAllowed, restoreStanzaRoomsFromSnapshot, finalizeStanzaVisitorVoiceSessionIfLeft, handleStanzaVoiceLobbyJoin, handleStanzaVoiceOccupied, handleStanzaVoiceEmpty, handleStanzaButton, handleStanzaRenameMessageCreate, handleStanzaEmojiMessageCreate, handleStanzaLimitMessageCreate, handleStanzaDescMessageCreate, handleStanzaViceMessageCreate, handleStanzaPanelPromptMessageCreate, buildStanzaChannelName };
+function isStanzaVoiceChannelCached(guild, channelId) {
+  const cid = String(channelId || "").trim();
+  const gid = String(guild?.id || "").trim();
+  if (!cid || !gid) return false;
+  if (stanzaChannelMeta.has(cid)) return true;
+  for (const meta of stanzaChannelMeta.values()) {
+    if (String(meta?.guildId || "") !== gid) continue;
+    if (String(meta?.textChannelId || "") === cid) return true;
+  }
+  return false;
+}
+
+async function isStanzaCommandChannel(guild, channel) {
+  if (!guild || !channel) return false;
+  const cid = String(channel.id || "").trim();
+  if (!cid) return false;
+  if (isStanzaVoiceChannelCached(guild, cid)) return true;
+  const isVoice =
+    channel.type === ChannelType.GuildVoice ||
+    (typeof channel.isVoiceBased === "function" && channel.isVoiceBased() && !channel.isThread?.());
+  if (isVoice) {
+    const meta = await getStanzaMetaOrRehydrate(guild, cid);
+    if (meta) return true;
+    if (STANZA_CATEGORY_ID && String(channel.parentId || "") === STANZA_CATEGORY_ID) return true;
+  }
+  return false;
+}
+
+module.exports = { isStanzaButtonActorAllowed, isStanzaCommandChannel, restoreStanzaRoomsFromSnapshot, finalizeStanzaVisitorVoiceSessionIfLeft, handleStanzaVoiceLobbyJoin, handleStanzaVoiceOccupied, handleStanzaVoiceEmpty, handleStanzaButton, handleStanzaRenameMessageCreate, handleStanzaEmojiMessageCreate, handleStanzaLimitMessageCreate, handleStanzaDescMessageCreate, handleStanzaViceMessageCreate, handleStanzaPanelPromptMessageCreate, buildStanzaChannelName };

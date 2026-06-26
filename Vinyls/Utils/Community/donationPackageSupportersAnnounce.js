@@ -3,6 +3,7 @@ const IDs = require("../Config/ids");
 const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
 const { getGuildChannelCached, getGuildMemberCached } = require("../Interaction/interactionEntityCache");
 const { wasRoleRestoredByMuteMirror } = require("../../Services/Moderation/mutedMirrorRoleService");
+const { MENTION_RESPONSE_PERK_LINE_DISCORD } = require("./mentionResponseAccessUtils");
 
 const TIER_RANK = { donator: 1, vip: 2, vipPlus: 3 };
 const DONATION_ANNOUNCE_DEBOUNCE_MS = 5000;
@@ -68,6 +69,7 @@ function buildDonationPackageEmbed(tier, member) {
       "<a:VC_Flame:1482725674711126140> Possibilità di aggiungere reazioni ai messaggi in chat\n" +
       "<a:VC_Winner:1482535294757507255> Possibilità di creare una vocale privata per te e i tuoi amici\n" +
       "<a:VC_CrownYellow:1482706085440651428> Aggiungi reazioni al messaggio quando ti @menzionano in chat (max. 3)\n" +
+      `${MENTION_RESPONSE_PERK_LINE_DISCORD}\n` +
       "<:VC_Color:1482532543273238569> Possibilità di creare un ruolo **custom** con colore **GRADIENTE** scelto da te\n" +
       "<:exp:1470067108543987846> X5 EXP boost\n" +
       "\n" +
@@ -86,6 +88,7 @@ function buildDonationPackageEmbed(tier, member) {
       "<:VC_Color:1482532543273238569> Sfondo personalizzato per la tua card del comando \`+rank\` sul sito\n" +
       "<a:VC_Winner:1482535294757507255> Possibilità di creare un secondo ruolo **custom** con colore **GRADIENTE** scelto da te\n" +
       "<a:VC_CrownYellow:1482706085440651428> Aggiungi reazioni al messaggio quando ti @menzionano in chat (max. 5)\n" +
+      `${MENTION_RESPONSE_PERK_LINE_DISCORD}\n` +
       "<:exp:1470067108543987846> X6 EXP boost\n" +
       "\n" +
       `<a:flyingnitroboost:1443652205705170986> Tutto lo **staff** ti _ringrazia_ per averci __supportato__.\n` +

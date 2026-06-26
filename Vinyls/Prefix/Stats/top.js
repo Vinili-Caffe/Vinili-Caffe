@@ -633,8 +633,13 @@ async function buildTopChannelPayload(
 }
 
 async function sendTopPayload(message, payload) {
-  const channelId = String(message.channel.id || "");
-  if (TOP_CHANNEL_DIRECT_CHANNEL_IDS.has(channelId)) {
+  const channel = message.channel;
+  const channelId = String(channel?.id || "");
+  const parentId = String(channel?.parentId || "");
+  const isDirectTopChannel =
+    TOP_CHANNEL_DIRECT_CHANNEL_IDS.has(channelId) ||
+    (channel?.isThread?.() && TOP_CHANNEL_DIRECT_CHANNEL_IDS.has(parentId));
+  if (isDirectTopChannel) {
     await safeMessageReply(message, {
       ...payload,
       allowedMentions: { repliedUser: false },

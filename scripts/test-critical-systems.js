@@ -145,10 +145,25 @@ async function run(root) {
     assert(isMediaEmbed(new URL("https://media.tenor.com/abc/tenor.gif")) === true, "URL Tenor deve contare come media embed");
     assert(isMediaEmbed(new URL("https://cdn.discordapp.com/attachments/1/2/x.webp")) === true, "CDN Discord deve contare come media embed");
     assert(isMediaEmbed(new URL("https://example.com/scam")) === false, "host generico non è media embed");
+    const isStaffZoneExempt = automodService?.__test?.isStaffZoneExemptChannel;
+    assert(typeof isStaffZoneExempt === "function", "automod __test isStaffZoneExemptChannel mancante");
+    const staffChatId = String(require("../Vinyls/Utils/Config/ids").channels?.staffChat || "");
+    const staffCmdsId = String(require("../Vinyls/Utils/Config/ids").channels?.staffCmds || "");
+    assert(staffChatId && staffCmdsId, "staffChat/staffCmds ids mancanti");
+    assert(
+      isStaffZoneExempt({ id: "thread-pm", isThread: () => true, parentId: staffChatId }) === true,
+      "thread staff chat deve essere exempt automod",
+    );
+    assert(
+      isStaffZoneExempt({ id: "thread-high", isThread: () => true, parentId: staffCmdsId }) === true,
+      "thread staff cmds deve essere exempt automod",
+    );
     const detectScam = automodService?.__test?.detectScam;
     assert(typeof detectScam === "function", "automod __test detectScam mancante");
     assert(detectScam("visit depxbit.com for bonus") === true, "detectScam crypto domain");
     assert(detectScam("I'm excited to announce my crypto casino launch") === true, "detectScam crypto casino phrase");
+    assert(detectScam("visit betchoco.com BONUS") === true, "detectScam betchoco domain");
+    assert(detectScam("register at serowin.com promo BET") === true, "detectScam serowin domain");
     assert(detectScam("ciao come stai oggi") === false, "detectScam conversazione normale");
     const detectScamImageBait = automodService?.__test?.detectScamImageBait;
     assert(typeof detectScamImageBait === "function", "automod __test detectScamImageBait mancante");
@@ -168,6 +183,30 @@ async function run(root) {
       detectScamImageBait(
         {
           attachments: new Map([
+            ["1", { contentType: "image/png", name: "mrbeast.png" }],
+          ]),
+        },
+        "bro mrbeast casino",
+        { accountAgeMs: 2 * 24 * 60 * 60_000 },
+      ) === true,
+      "detectScamImageBait mrbeast + image",
+    );
+    assert(
+      detectScamImageBait(
+        {
+          attachments: new Map([
+            ["1", { contentType: "image/png", name: "withdraw.png" }],
+          ]),
+        },
+        "betchoco.com",
+        { accountAgeMs: 2 * 24 * 60 * 60_000 },
+      ) === true,
+      "detectScamImageBait scam domain + image",
+    );
+    assert(
+      detectScamImageBait(
+        {
+          attachments: new Map([
             ["1", { contentType: "image/png", name: "cat.png" }],
           ]),
         },
@@ -175,6 +214,85 @@ async function run(root) {
         { accountAgeMs: 2 * 24 * 60 * 60_000 },
       ) === false,
       "detectScamImageBait immagine innocua",
+    );
+    assert(
+      detectScamImageBait(
+        {
+          attachments: new Map([
+            ["1", { contentType: "image/png", name: "scam.png" }],
+          ]),
+        },
+        "",
+        { accountAgeMs: 2 * 24 * 60 * 60_000 },
+      ) === false,
+      "detectScamImageBait solo immagine senza testo non banna",
+    );
+    assert(
+      detectScamImageBait(
+        {
+          attachments: new Map([
+            ["1", { contentType: "image/png", name: "scam.png" }],
+          ]),
+        },
+        "",
+        { accountAgeMs: 60 * 24 * 60 * 60_000, suspicious: true },
+      ) === false,
+      "detectScamImageBait solo immagine profilo sospetto senza testo",
+    );
+    const guildMemberUpdate = require("../Vinyls/Events/guildMemberUpdate");
+    const resolveBoostSlotTarget = guildMemberUpdate?.__test?.resolveBoostSlotTarget;
+    const noteNativeBoostSeen = guildMemberUpdate?.__test?.noteNativeBoostSeen;
+    const nativeBoostSeenSince = guildMemberUpdate?.__test?.nativeBoostSeenSince;
+    assert(typeof resolveBoostSlotTarget === "function", "resolveBoostSlotTarget export");
+    assert(
+      resolveBoostSlotTarget({ premiumSinceTimestamp: Date.now() }, 1, 2, 1, { nativeSeenSlots: 2 }) === 2,
+      "resolveBoostSlotTarget secondo boost",
+    );
+    assert(
+      resolveBoostSlotTarget({ premiumSinceTimestamp: Date.now() }, 0, 1, 0, {}) === 1,
+      "resolveBoostSlotTarget primo boost",
+    );
+    assert(typeof noteNativeBoostSeen === "function", "noteNativeBoostSeen export");
+    noteNativeBoostSeen("g1", "u1", 1);
+    noteNativeBoostSeen("g1", "u1", 1);
+    assert(
+      nativeBoostSeenSince("g1", "u1", Date.now() - 60_000) === 2,
+      "noteNativeBoostSeen accumula doppio boost",
+    );
+    const pokeNameBlock = require("../Vinyls/Services/Moderation/pokeNameChannelBlockService");
+    assert(pokeNameBlock.isPokeNameBotMessage({ author: { id: pokeNameBlock.POKE_NAME_BOT_ID } }) === true, "Poke-Name author id");
+    assert(pokeNameBlock.isPokeNameBotMessage({ applicationId: pokeNameBlock.POKE_NAME_BOT_ID }) === true, "Poke-Name application id");
+    assert(pokeNameBlock.isPokeNameAllowedChannel({ channelId: pokeNameBlock.POKE_NAME_ALLOWED_CHANNEL_ID }) === true, "Poke-Name canale pokétwo");
+    assert(
+      pokeNameBlock.isPokeNameAllowedChannel({ channelId: "999", channel: { parentId: pokeNameBlock.POKE_NAME_ALLOWED_CHANNEL_ID } }) === true,
+      "Poke-Name thread sotto pokétwo",
+    );
+    assert(pokeNameBlock.isPokeNameAllowedChannel({ channelId: "999", channel: { parentId: "888" } }) === false, "Poke-Name canale generico");
+    const cmdPerms = require("../Vinyls/Utils/Moderation/commandPermissions");
+    const matchChannel = cmdPerms?.__test?.channelMatchesPolicyChannelList;
+    const normalizeChannels = cmdPerms?.__test?.normalizeChannelList;
+    const highZone = cmdPerms?.__test?.HIGH_STAFF_COMMANDS_ZONE_TOKEN;
+    assert(typeof matchChannel === "function", "commandPermissions __test channelMatchesPolicyChannelList mancante");
+    assert(
+      normalizeChannels(["channels.highCmds"]).includes(highZone),
+      "highCmds espande zona thread High Staff",
+    );
+    const staffCmds = String(require("../Vinyls/Utils/Config/ids").channels?.staffCmds || "");
+    const commands = String(require("../Vinyls/Utils/Config/ids").channels?.commands || "");
+    assert(
+      matchChannel({ id: "thread1", isThread: () => true, parentId: staffCmds }, [staffCmds]) === true,
+      "thread staff-cmds match parent policy",
+    );
+    assert(
+      matchChannel({ id: "thread2", isThread: () => true, parentId: commands }, [commands]) === true,
+      "thread comandi match parent policy",
+    );
+    assert(
+      matchChannel(
+        { id: "high-thread", isThread: () => true, parentId: staffCmds, name: "Comandi High Staff" },
+        [highZone],
+      ) === true,
+      "thread high staff match highCmds zone",
     );
     const isCrossForward = automodService?.__test?.isCrossServerForwardedMessage;
     const { MessageReferenceType } = require("discord.js");
@@ -344,9 +462,19 @@ async function run(root) {
     require(forbiddenRoundsTestPath)();
   }
 
+  const observationTowerRaceTestPath = path.join(path.resolve(__dirname, ".."), "scripts", "test-observation-tower-race.js");
+  if (fs.existsSync(observationTowerRaceTestPath)) {
+    require(observationTowerRaceTestPath);
+  }
+
   const markovTestPath = path.join(path.resolve(__dirname, ".."), "scripts", "test-markov-channel-access.js");
   if (fs.existsSync(markovTestPath)) {
     require(markovTestPath);
+  }
+
+  const voiceCommandAccessTestPath = path.join(path.resolve(__dirname, ".."), "scripts", "test-voice-command-channel-access.js");
+  if (fs.existsSync(voiceCommandAccessTestPath)) {
+    require(voiceCommandAccessTestPath);
   }
 
   const markovAutoSendTestPath = path.join(path.resolve(__dirname, ".."), "scripts", "test-markov-auto-send-trigger.js");
@@ -393,6 +521,40 @@ async function run(root) {
   if (fs.existsSync(publicVoiceHubTestPath)) {
     require(publicVoiceHubTestPath)();
   }
+
+  const serataFilmAttendanceTestPath = path.join(path.resolve(__dirname, ".."), "scripts", "test-serata-film-attendance.js");
+  if (fs.existsSync(serataFilmAttendanceTestPath)) {
+    require(serataFilmAttendanceTestPath)();
+  }
+
+  const staffWarnMigrationTestPath = path.join(path.resolve(__dirname, ".."), "scripts", "test-staff-warn-channel-migration.js");
+  if (fs.existsSync(staffWarnMigrationTestPath)) {
+    require(staffWarnMigrationTestPath)();
+  }
+
+  const staffDepexCleanupTestPath = path.join(path.resolve(__dirname, ".."), "scripts", "test-staff-depex-channel-cleanup.js");
+  if (fs.existsSync(staffDepexCleanupTestPath)) {
+    require(staffDepexCleanupTestPath)();
+  }
+
+  const voiceExpChannelTestPath = path.join(path.resolve(__dirname, ".."), "scripts", "test-voice-exp-channel-utils.js");
+  if (fs.existsSync(voiceExpChannelTestPath)) {
+    require(voiceExpChannelTestPath)();
+  }
+
+  const mentionResponseAccess = require(path.join(root, "Utils", "Community", "mentionResponseAccessUtils"));
+  const { MENTION_RESPONSE_ROLE_IDS } = mentionResponseAccess;
+  assert(Array.isArray(MENTION_RESPONSE_ROLE_IDS) && MENTION_RESPONSE_ROLE_IDS.length >= 5, "mentionResponse role ids");
+  const fakeMember = (roleIds) => ({
+    roles: { cache: { has: (id) => roleIds.includes(id) } },
+  });
+  assert(!mentionResponseAccess.memberHasMentionResponseAccess(fakeMember([])), "mentionResponse deny senza ruoli");
+  assert(mentionResponseAccess.memberHasMentionResponseAccess(fakeMember([MENTION_RESPONSE_ROLE_IDS[0]])), "mentionResponse allow VIP");
+  assert(mentionResponseAccess.memberHasMentionResponseAccess(fakeMember([MENTION_RESPONSE_ROLE_IDS.at(-1)])), "mentionResponse allow Level100");
+
+  const staffChatUtils = require(path.join(root, "Utils", "Staff", "staffChatChannelUtils"));
+  const pmThread = await staffChatUtils.resolveStaffChatPmThread(null);
+  assert(pmThread === null, "resolveStaffChatPmThread senza client non lancia");
 
   console.log("CRITICAL_SYSTEMS_TEST_OK");
   try {

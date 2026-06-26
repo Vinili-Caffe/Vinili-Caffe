@@ -1,5 +1,62 @@
 const { ChannelType, PermissionsBitField } = require("discord.js");
 const IDs = require("../../Utils/Config/ids");
+
+let VinylsIDs = null;
+function getVinylsIds() {
+  if (VinylsIDs) return VinylsIDs;
+  try {
+    VinylsIDs = require("../../../Vinyls/Utils/Config/ids");
+  } catch {
+    VinylsIDs = {};
+  }
+  return VinylsIDs;
+}
+
+const INDEX_SUFFIX_RE = /[⁰¹²³⁴⁵⁶⁷⁸⁹]+$/;
+
+function stripVoiceSuffix(name) {
+  return String(name || "").replace(INDEX_SUFFIX_RE, "").trimEnd();
+}
+
+function getPublicVoiceHubChannelIds(client) {
+  const fromConfig = client?.config?.publicVoiceHubs?.channelIds;
+  if (Array.isArray(fromConfig) && fromConfig.length) {
+    return fromConfig.map((id) => String(id || "").trim()).filter(Boolean);
+  }
+  const vinyls = getVinylsIds();
+  const fromIds = Array.isArray(vinyls.publicVoiceHubChannelIds) ? vinyls.publicVoiceHubChannelIds : [];
+  return fromIds.map((id) => String(id || "").trim()).filter(Boolean);
+}
+
+function resolveMarkovVoiceParentChannel(channel) {
+  if (!channel) return null;
+  if (typeof channel.isThread === "function" && channel.isThread() && channel.parent?.isVoiceBased?.()) {
+    return channel.parent;
+  }
+  if (channel.type === ChannelType.GuildVoice || channel.isVoiceBased?.()) return channel;
+  return null;
+}
+
+function isSpawnedPublicVoiceHubChannel(channel, client = null) {
+  const target = resolveMarkovVoiceParentChannel(channel);
+  const id = String(target?.id || "");
+  if (!id) return false;
+  const hubIds = getPublicVoiceHubChannelIds(client || target?.guild?.client || channel?.guild?.client);
+  if (hubIds.includes(id)) return false;
+  if (!target || target.type !== ChannelType.GuildVoice) return false;
+  if (!INDEX_SUFFIX_RE.test(String(target.name || ""))) return false;
+  const parentId = String(target.parentId || "");
+  const base = stripVoiceSuffix(target.name);
+  const guild = target.guild || channel?.guild;
+  if (!guild) return false;
+  for (const hubId of hubIds) {
+    const hub = guild.channels?.cache?.get(hubId);
+    if (!hub || String(hub.parentId || "") !== parentId) continue;
+    if (stripVoiceSuffix(hub.name) === base) return true;
+  }
+  return false;
+}
+
 const COLLECTIBLE_CHANNEL_TYPES = new Set([
   ChannelType.GuildText,
   ChannelType.GuildAnnouncement,
@@ -13,7 +70,9 @@ function getMarkovExcludedCategoryIds(config = {}) {
   const markov = config?.markov || {};
   const fromConfig = Array.isArray(markov.excludedCategoryIds) ? markov.excludedCategoryIds : [];
   const stanza = Array.isArray(IDs.stanzaDiscoveryExcludeParentIds) ? IDs.stanzaDiscoveryExcludeParentIds : [];
-  return new Set([...fromConfig, ...stanza].map(String).filter(Boolean));
+  const categoryStanze = String(getVinylsIds()?.categories?.categoryStanze || "").trim();
+  const extraCategories = categoryStanze ? [categoryStanze] : [];
+  return new Set([...fromConfig, ...stanza, ...extraCategories].map(String).filter(Boolean));
 }
 
 function getMarkovExcludedChannelIds(config = {}) {
@@ -74,36 +133,39 @@ function isChannelCategoryExcluded(channel, config = {}) {
   return false;
 }
 
-function isMarkovEligibleChannel(channel, guild, config = {}) {
+function isMarkovEligibleChannel(channel, guild, config = {}, client = null) {
   if (!channel || !guild) return false;
   if (!isMarkovCollectibleChannelType(channel)) return false;
   if (isChannelCategoryExcluded(channel, config)) return false;
+  if (isSpawnedPublicVoiceHubChannel(channel, client || guild.client || channel.client)) return false;
   if (!channel.viewable) return false;
   if (!hasBotReadWrite(channel, guild)) return false;
   return hasMemberReadWrite(channel, guild);
 }
 
-async function listMarkovEligibleChannels(guild, config = {}) {
+async function listMarkovEligibleChannels(guild, config = {}, client = null) {
   if (!guild) return [];
+  const resolvedClient = client || guild.client;
   await guild.channels.fetch().catch(() => null);
   const out = [];
   for (const channel of guild.channels.cache.values()) {
-    if (!isMarkovEligibleChannel(channel, guild, config)) continue;
+    if (!isMarkovEligibleChannel(channel, guild, config, resolvedClient)) continue;
     out.push(channel);
   }
   return out;
 }
 
-async function listMarkovEligibleThreads(guild, config = {}) {
+async function listMarkovEligibleThreads(guild, config = {}, client = null) {
   if (!guild) return [];
+  const resolvedClient = client || guild.client;
   const threads = [];
-  const parents = await listMarkovEligibleChannels(guild, config);
+  const parents = await listMarkovEligibleChannels(guild, config, resolvedClient);
   for (const parent of parents) {
     if (typeof parent.threads?.fetchActive !== "function") continue;
     const active = await parent.threads.fetchActive().catch(() => null);
     const list = active?.threads ? [...active.threads.values()] : [];
     for (const thread of list) {
-      if (!isMarkovEligibleChannel(thread, guild, config)) continue;
+      if (!isMarkovEligibleChannel(thread, guild, config, resolvedClient)) continue;
       threads.push(thread);
     }
   }
@@ -145,6 +207,7 @@ module.exports = {
   hasBotReadWrite,
   isMarkovCollectibleChannelType,
   isChannelCategoryExcluded,
+  isSpawnedPublicVoiceHubChannel,
   isMarkovEligibleChannel,
   listMarkovEligibleChannels,
   listMarkovEligibleThreads,

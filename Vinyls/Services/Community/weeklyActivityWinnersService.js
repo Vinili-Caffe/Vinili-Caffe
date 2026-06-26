@@ -2085,6 +2085,8 @@ function startWeeklyActivityWinnersLoop(client) {
       if (!isHogwartsWeeklyTopReplaced(client)) {
         await publishWeeklyActivityWinners(client);
       }
+      const { runCustomVocWeeklyEnforcement } = require("./customVocWeeklyActivityService");
+      await runCustomVocWeeklyEnforcement(client, { mode: "weekly" });
       await resetWeeklyActivityCounters(client);
     }),
     { timezone: TIME_ZONE, noOverlap: true },
@@ -2134,4 +2136,4 @@ function startWeeklyActivityWinnersLoop(client) {
   }, 20_000);
 }
 
-module.exports = { startWeeklyActivityWinnersLoop, publishWeeklyActivityWinners, publishHogwartsBiweeklyActivityWinners, publishMonthlyActivityWinners, resetWeeklyActivityCounters, getLastCompletedWeekKey, getDateKeysForWeekKey, getWeekKey, isHogwartsWeeklyTopReplaced, shouldPublishHogwartsBiweeklyToday, collectHogwartsBiweeklyActivityRows, loadSortedHouseByUserId, loadRowsFromHourlyWindowByHourKeys, awardHogwartsBiweeklyHousePoints, buildHourKeysBetweenMs, createUtcFromRomeLocal };
+module.exports = { startWeeklyActivityWinnersLoop, publishWeeklyActivityWinners, publishHogwartsBiweeklyActivityWinners, publishMonthlyActivityWinners, resetWeeklyActivityCounters, getLastCompletedWeekKey, getDateKeysForWeekKey, getWeekKey, isHogwartsWeeklyTopReplaced, shouldPublishHogwartsBiweeklyToday, collectHogwartsBiweeklyActivityRows, loadSortedHouseByUserId, loadRowsFromHourlyWindowByHourKeys, awardHogwartsBiweeklyHousePoints, buildHourKeysBetweenMs, buildLast7DaysHourKeys, createUtcFromRomeLocal, getLastSunday21BoundaryMsAtOrBefore };

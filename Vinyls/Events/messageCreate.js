@@ -19,6 +19,7 @@ const { EPHEMERAL_TTL_SHORT_MS, scheduleMessageDeletion } = require("../Utils/Co
 const { isCoffeePrefixCommandToken } = require("../../shared/discord/coffeePrefixCommandTokens");
 const guildMemberUpdateExtras = require("./guildMemberUpdate");
 const { handlePartnerDescriptionMessageUpsert, isPartnerDescriptionChannel } = require("../Services/Partner/partnerDescriptionSyncService");
+const { shouldDeleteHumanPartnershipsChannelMessage } = require("../Utils/Partner/partnerPointContextUtils");
 const STAFF_BYPASS_PERMISSIONS = [PermissionFlagsBits.Administrator, PermissionFlagsBits.ManageGuild, PermissionFlagsBits.ManageChannels, PermissionFlagsBits.ManageRoles, PermissionFlagsBits.ManageMessages, PermissionFlagsBits.KickMembers, PermissionFlagsBits.BanMembers, PermissionFlagsBits.ModerateMembers,];
 const FORCE_DELETE_CHANNEL_IDS = new Set([IDs.channels.messagesAutoDelete].filter(Boolean).map((id) => String(id)));
 const MEDIA_BLOCK_EXEMPT_CATEGORY_ID = IDs.categories.categorChat;
@@ -221,11 +222,16 @@ module.exports = {
               knownNativeSlots: nativeBoost.slots,
               expectedSlots: nativeBoost.slots,
               startedAt: Date.now(),
-              skipNativeScan: true,
             })
             .catch(() => null);
         }
         if (message.author?.bot || message.webhookId || message.applicationId) {
+          try {
+            const { maybeDeletePokeNameOutsideAllowedChannel } = require("../Services/Moderation/pokeNameChannelBlockService");
+            if (await maybeDeletePokeNameOutsideAllowedChannel(message)) return;
+          } catch (error) {
+            logEventError(resolvedClient, "POKE-NAME CHANNEL BLOCK ERROR", error);
+          }
           if (await handleDisboardBump(message, resolvedClient)) return;
           if (await handleDiscadiaBump(message, resolvedClient)) return;
           scheduleAutomationMessageRecheck(message, resolvedClient);
@@ -258,6 +264,19 @@ module.exports = {
         await message.delete().catch(() => { });
         return;
       }
+    }
+
+    if (shouldDeleteHumanPartnershipsChannelMessage(message)) {
+      if (!isEditedPrefixExecution) {
+        try {
+          const automodResult = await runAutomodOnce();
+          if (automodResult?.blocked) return;
+        } catch (error) {
+          logEventError(resolvedClient, "AUTOMOD ERROR", error);
+        }
+      }
+      await message.delete().catch(() => { });
+      return;
     }
 
     if (!isEditedPrefixExecution) {

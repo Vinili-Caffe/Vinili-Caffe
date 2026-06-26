@@ -4,7 +4,7 @@ const { EmbedBuilder, PermissionsBitField, PermissionFlagsBits, } = require("dis
 const IDs = require("../Config/ids");
 const { hasAdminsProfileCapability } = require("../../Services/Moderation/securityProfilesService");
 const { isPartnerPmDailyCommandsThread } = require("../Partner/partnersChatChannelUtils");
-const { getStaffCmdsThreadIdsCache } = require("../Staff/staffCmdsChannelUtils");
+const { getStaffCmdsThreadIdsCache, ensureStaffCmdsThreadIdsHydrated, isHighStaffCommandsThread, isStaffCmdsPmCommandsThreadSync } = require("../Staff/staffCmdsChannelUtils");
 const { isChannelInTicketCategory } = require("../Ticket/ticketCategoryUtils");
 const { buildPrefixLookupKeys, buildSlashLookupKeys } = require("./temporaryCommandPermissions");
 const { getGuildMemberCached } = require("../Interaction/interactionEntityCache");
@@ -18,6 +18,8 @@ const LIVE_MEMBER_CACHE_TTL_MS = 15_000;
 const liveMemberCache = new Map();
 const PM_THREAD_PREFIX_CHANNEL_BYPASS_COMMANDS = new Set(["help", "profile"]);
 const TICKET_PREFIX_CHANNEL_BYPASS_COMMANDS = new Set(["sezioneproibita", "libriproibiti", "forbiddenbooks"]);
+const HIGH_STAFF_COMMANDS_ZONE_TOKEN = "__zone:highStaffCommands";
+const PM_COMMANDS_THREAD_ZONE_TOKEN = "__zone:pmCommandsThread";
 const STAFF_GUIDE_BUTTON_IDS = new Set([
   "regolamento",
   "limiti",
@@ -141,19 +143,6 @@ function tryTenantUtilityComponentBypass(guildId, customId) {
 
 function isMainGuild(guildId) {
   return Boolean(MAIN_GUILD_ID) && String(guildId || "") === String(MAIN_GUILD_ID);
-}
-
-function channelMatchesPolicyChannelList(channel, policyIds) {
-  const ids = (Array.isArray(policyIds) ? policyIds : []).map(String).filter(Boolean);
-  if (!ids.length) return false;
-  const ch = channel;
-  if (!ch?.id) return false;
-  if (ids.includes(String(ch.id))) return true;
-  if (typeof ch.isThread === "function" && ch.isThread()) {
-    const parent = String(ch.parentId || "");
-    return Boolean(parent && ids.includes(parent));
-  }
-  return false;
 }
 
 const TICKET_INTERACTION_IDS = new Set([
@@ -390,36 +379,65 @@ function normalizePermissionList(permissionFlags) {
   return Array.from(dedup, (value) => BigInt(value));
 }
 
+function parseChannelReferenceKey(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  let key = raw;
+  if (key.startsWith("ids.channels.")) key = key.slice("ids.channels.".length);
+  else if (key.startsWith("channels.")) key = key.slice("channels.".length);
+  return key;
+}
+
 function resolveChannelReference(value) {
   if (value == null) return null;
   const raw = String(value).trim();
   if (!raw) return null;
   if (/^\d{16,20}$/.test(raw)) return raw;
 
-  let key = raw;
-  if (key.startsWith("ids.channels.")) key = key.slice("ids.channels.".length);
-  else if (key.startsWith("channels.")) key = key.slice("channels.".length);
-
+  const key = parseChannelReferenceKey(raw);
   const idsCfg = typeof IDs !== "undefined" && IDs ? IDs : getIdsConfig();
   if (key === "staffCmdsPmThread") {
     return getStaffCmdsThreadIdsCache().pm || null;
   }
-  if (key === "staffCmdsHighThread") {
+  if (key === "staffCmdsHighThread" || key === "highCmds") {
     return getStaffCmdsThreadIdsCache().high || null;
-  }
-  if (key === "highCmds") {
-    const cachedHigh = getStaffCmdsThreadIdsCache().high;
-    if (cachedHigh) return String(cachedHigh);
   }
   const resolved = idsCfg?.channels?.[key];
   if (!resolved) return null;
   return String(resolved);
 }
 
+function expandResolvedChannelReference(rawValue, resolvedId) {
+  const key = parseChannelReferenceKey(rawValue);
+  const idsCfg = typeof IDs !== "undefined" && IDs ? IDs : getIdsConfig();
+  const cache = getStaffCmdsThreadIdsCache();
+  const out = new Set();
+  if (resolvedId) out.add(String(resolvedId));
+  if (key === "highCmds" || key === "staffCmdsHighThread") {
+    out.add(HIGH_STAFF_COMMANDS_ZONE_TOKEN);
+    if (cache.high) out.add(String(cache.high));
+  } else if (key === "staffCmdsPmThread") {
+    out.add(PM_COMMANDS_THREAD_ZONE_TOKEN);
+    if (cache.pm) out.add(String(cache.pm));
+  } else if (key === "staffCmdsHighThread") {
+    if (cache.high) out.add(String(cache.high));
+  } else if (key === "staffCmds") {
+    const staffCmds = idsCfg?.channels?.staffCmds;
+    if (staffCmds) out.add(String(staffCmds));
+  }
+  return [...out];
+}
+
 function normalizeChannelList(channelIds) {
   if (!Array.isArray(channelIds)) return channelIds;
-  const resolved = channelIds.map((value) => resolveChannelReference(value));
-  const filtered = resolved.filter(Boolean);
+  const expanded = new Set();
+  for (const value of channelIds) {
+    const resolved = resolveChannelReference(value);
+    for (const id of expandResolvedChannelReference(value, resolved)) {
+      expanded.add(id);
+    }
+  }
+  const filtered = [...expanded];
   if (filtered.length === 0 && channelIds.length > 0) {
     global.logger?.warn?.(
       "[commandPermissions] Lista canali risolta vuota (verifica ids / permissions):",
@@ -427,6 +445,35 @@ function normalizeChannelList(channelIds) {
     );
   }
   return filtered;
+}
+
+function policyWantsHighStaffCommandsZone(policyIds) {
+  const ids = (Array.isArray(policyIds) ? policyIds : []).map(String).filter(Boolean);
+  if (ids.includes(HIGH_STAFF_COMMANDS_ZONE_TOKEN)) return true;
+  const cache = getStaffCmdsThreadIdsCache();
+  return Boolean(cache.high && ids.includes(String(cache.high)));
+}
+
+function policyWantsPmCommandsThread(policyIds) {
+  const ids = (Array.isArray(policyIds) ? policyIds : []).map(String).filter(Boolean);
+  if (ids.includes(PM_COMMANDS_THREAD_ZONE_TOKEN)) return true;
+  const cache = getStaffCmdsThreadIdsCache();
+  return Boolean(cache.pm && ids.includes(String(cache.pm)));
+}
+
+function channelMatchesPolicyChannelList(channel, policyIds) {
+  const ids = (Array.isArray(policyIds) ? policyIds : []).map(String).filter(Boolean);
+  if (!ids.length) return false;
+  const ch = channel;
+  if (!ch?.id) return false;
+  if (ids.includes(String(ch.id))) return true;
+  if (typeof ch.isThread === "function" && ch.isThread()) {
+    const parent = String(ch.parentId || "");
+    if (parent && ids.includes(parent)) return true;
+    if (policyWantsHighStaffCommandsZone(ids) && isHighStaffCommandsThread(ch)) return true;
+    if (policyWantsPmCommandsThread(ids) && isStaffCmdsPmCommandsThreadSync(ch)) return true;
+  }
+  return false;
 }
 
 function resolveCommandChannelPolicy(data, keys) {
@@ -819,6 +866,7 @@ async function checkSlashPermission(interaction, options = {}) {
   }
 
   const data = loadPermissions();
+  await ensureStaffCmdsThreadIdsHydrated().catch(() => {});
   const group = interaction.options?.getSubcommandGroup?.(false) || null;
   const sub = interaction.options?.getSubcommand?.(false) || null;
   const channelPolicy = resolveSlashCommandChannels(data, String(interaction.commandName || "").toLowerCase(), group, sub) ?? resolveCommandChannelPolicy(data, buildSlashLookupKeys(interaction.commandName, group, sub));
@@ -936,6 +984,7 @@ async function checkPrefixPermission(message, commandName, subcommandName = null
   }
 
   const data = loadPermissions();
+  await ensureStaffCmdsThreadIdsHydrated().catch(() => {});
   const channelPolicy = resolvePrefixCommandChannels(data, safeCommand, subcommandName) ?? resolveCommandChannelPolicy(data, buildPrefixLookupKeys(commandName, subcommandName));
   const bypassChannelPolicyForAntiNuke = safeCommand === "antinuke";
   if (Array.isArray(channelPolicy) && channelPolicy.length > 0 && !bypassChannelPolicyForAntiNuke) {
@@ -952,25 +1001,19 @@ async function checkPrefixPermission(message, commandName, subcommandName = null
       !allowInPmThread &&
       TICKET_PREFIX_CHANNEL_BYPASS_COMMANDS.has(safeCommand) &&
       isChannelInTicketCategory(ch);
-    const allowInVoiceChatForMusic = (() => {
+    const allowInVoiceOrStanzaChat = await (async () => {
       if (allowed || allowInPmThread || allowInTicketChannel) return false;
+      if (!ch) return false;
       try {
-        const { MUSIC_PREFIX_COMMANDS } = require("../../MultiGuild/core/openMediaCommands");
-        if (!MUSIC_PREFIX_COMMANDS?.has?.(safeCommand)) return false;
-      } catch {
+        const { isAllowedVoiceCommandChannel } = require("../../../shared/voice/voiceCommandChannelAccess");
+        return await isAllowedVoiceCommandChannel(message.guild, ch, {
+          blockedChannelIds: [IDs.channels?.riunioneStaff, IDs.channels?.serataFilm].filter(Boolean),
+        });
+      } catch (_) {
         return false;
       }
-      const blockedVoiceChatIds = new Set(
-        [IDs.channels?.riunioneStaff, IDs.channels?.serataFilm].filter(Boolean).map(String),
-      );
-      const channelId = String(ch?.id || message?.channelId || "");
-      if (channelId && blockedVoiceChatIds.has(channelId)) return false;
-      if (!ch) return false;
-      const isVoiceChat = Boolean(ch?.isVoiceBased?.() && !ch?.isThread?.());
-      const isVoiceChatThread = Boolean(ch?.isThread?.() && ch?.parent?.isVoiceBased?.());
-      return isVoiceChat || isVoiceChatThread;
     })();
-    if (!allowed && !allowInPmThread && !allowInTicketChannel && !allowInVoiceChatForMusic) {
+    if (!allowed && !allowInPmThread && !allowInTicketChannel && !allowInVoiceOrStanzaChat) {
       if (options.returnDetails) {
         return {
           allowed: false,
@@ -1078,6 +1121,7 @@ async function checkButtonPermission(interaction) {
   if (staffGuideGate) return staffGuideGate;
 
   const data = loadPermissions();
+  await ensureStaffCmdsThreadIdsHydrated().catch(() => {});
   const rawPolicy = resolveComponentPolicy(data?.buttons, customId);
   const policy = normalizeButtonPolicy(rawPolicy);
   if (!policy) {
@@ -1278,6 +1322,7 @@ async function checkStringSelectPermission(interaction) {
     return { allowed: true, reason: null, requiredRoles: null, ownerId: null };
   }
   const data = loadPermissions();
+  await ensureStaffCmdsThreadIdsHydrated().catch(() => {});
   const rawPolicy = resolveComponentPolicy(data?.selectMenus, customId) || resolveComponentPolicy(data?.buttons, customId);
   const policy = normalizeButtonPolicy(rawPolicy);
   if (!policy) {
@@ -1465,6 +1510,7 @@ async function checkModalPermission(interaction) {
   }
 
   const data = loadPermissions();
+  await ensureStaffCmdsThreadIdsHydrated().catch(() => {});
   const rawPolicy = resolveComponentPolicy(data?.modals, customId) || resolveComponentPolicy(data?.buttons, customId);
   const policy = normalizeButtonPolicy(rawPolicy);
   if (!policy) {
@@ -1640,7 +1686,9 @@ function buildGlobalPermissionDeniedEmbed(requiredRoleIds = [], entityLabel = "c
 }
 
 function buildGlobalChannelDeniedEmbed(allowedChannelIds = [], entityLabel = "comando") {
-  const channels = Array.isArray(allowedChannelIds) ? allowedChannelIds.filter(Boolean).map(String) : [];
+  const channels = Array.isArray(allowedChannelIds)
+    ? allowedChannelIds.filter(Boolean).map(String).filter((id) => !id.startsWith("__zone:"))
+    : [];
   const channelsText = channels.length ? channels.map((id) => `<#${id}>`).join(", ")
     : "<:VC_Attention:1482534443632558151> Nessun canale configurato.";
 
@@ -1652,6 +1700,16 @@ function buildGlobalChannelDeniedEmbed(allowedChannelIds = [], entityLabel = "co
     embed.addFields({
       name: "<a:VC_Rocket:1468544312475123753> **Per sbloccarlo:**",
       value: `<a:VC_Arrow:1482706699365257397> Usa il comando in uno dei seguenti canali: ${channelsText}`,
+    });
+  } else if (Array.isArray(allowedChannelIds) && allowedChannelIds.some((id) => String(id) === HIGH_STAFF_COMMANDS_ZONE_TOKEN)) {
+    embed.addFields({
+      name: "<a:VC_Rocket:1468544312475123753> **Per sbloccarlo:**",
+      value: "<a:VC_Arrow:1482706699365257397> Usa il comando nel thread **Comandi High Staff** sotto #staff-cmds.",
+    });
+  } else if (Array.isArray(allowedChannelIds) && allowedChannelIds.some((id) => String(id) === PM_COMMANDS_THREAD_ZONE_TOKEN)) {
+    embed.addFields({
+      name: "<a:VC_Rocket:1468544312475123753> **Per sbloccarlo:**",
+      value: "<a:VC_Arrow:1482706699365257397> Usa il comando nel thread **Comandi Partner Manager** sotto #staff-cmds.",
     });
   }
   return embed;
@@ -1677,4 +1735,11 @@ module.exports = {
   buildGlobalNotYourControlEmbed,
   hasAnyRole,
   getDevIds,
+  __test: {
+    channelMatchesPolicyChannelList,
+    normalizeChannelList,
+    expandResolvedChannelReference,
+    HIGH_STAFF_COMMANDS_ZONE_TOKEN,
+    PM_COMMANDS_THREAD_ZONE_TOKEN,
+  },
 };

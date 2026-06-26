@@ -77,6 +77,7 @@ const recentQuestionKeysByChannel = new Map();
 const hogwartsQuizDeckByChannel = new Map();
 const hogwartsPodiumByChannel = new Map();
 const hogwartsPodiumRegisterQueues = new Map();
+const minigameChannelExclusiveQueues = new Map();
 const hogwartsUnsortedWinnersByChannel = new Map();
 const REWARD_CHANNEL_ID = IDs.channels.commands;
 const MINIGAME_WIN_EMOJI = "<a:VC_Events:1482706144953897223>";
@@ -1986,7 +1987,12 @@ async function purgeExpiredMinigameDbState(client, cfg) {
   if (!state) return;
   const endsAt = new Date(state.endsAt).getTime();
   if (endsAt <= Date.now()) {
-    await clearActiveGame(client, { ...cfg, guildId, channelId });
+    const channel = await getChannelCached(client, channelId);
+    if (channel) {
+      await closeExpiredMinigameState(client, { ...cfg, guildId }, channel, state);
+    } else {
+      await clearActiveGame(client, { ...cfg, guildId, channelId });
+    }
     return;
   }
   const snapshot = { type: state.type };
@@ -2029,8 +2035,7 @@ function clearMinigameRoundTimers(game) {
 async function beginMinigameWinClose(client, cfg, game = null) {
   const channelId = String(cfg?.channelId || "").trim();
   if (!channelId) return false;
-  if (channelWinClosing.has(channelId)) return false;
-  channelWinClosing.add(channelId);
+  if (!tryClaimMinigameChannelClose(channelId)) return false;
   const live = activeGames.get(channelId) || game;
   clearMinigameRoundTimers(live);
   activeGames.delete(channelId);
@@ -6332,6 +6337,33 @@ function hogwartsPodiumDistinctHouseCount(game, channelId = "") {
   return houses.size;
 }
 
+function tryClaimMinigameChannelClose(channelId) {
+  const chId = String(channelId || "").trim();
+  if (!chId) return false;
+  if (channelWinClosing.has(chId)) return false;
+  channelWinClosing.add(chId);
+  return true;
+}
+
+async function runMinigameChannelExclusive(channelId, task) {
+  const key = String(channelId || "_");
+  const previous = minigameChannelExclusiveQueues.get(key) || Promise.resolve();
+  let release = () => { };
+  const gate = new Promise((resolve) => {
+    release = resolve;
+  });
+  minigameChannelExclusiveQueues.set(key, previous.then(() => gate));
+  await previous;
+  try {
+    return await task();
+  } finally {
+    release();
+    if (minigameChannelExclusiveQueues.get(key) === gate) {
+      minigameChannelExclusiveQueues.delete(key);
+    }
+  }
+}
+
 async function runHogwartsPodiumRegisterExclusive(channelId, task) {
   const key = String(channelId || "_");
   const previous = hogwartsPodiumRegisterQueues.get(key) || Promise.resolve();
@@ -7177,20 +7209,32 @@ function buildGameSnapshotFromPersistedState(state) {
   }
 }
 
-async function disableExpiredFindMinigameButton(guild, state) {
-  const targetChannelId = String(state?.targetChannelId || "").trim();
-  const messageId = String(state?.gameMessageId || "").trim();
-  const customId = String(state?.customId || "").trim();
-  if (!guild || !targetChannelId || !messageId || !customId) return;
+async function deleteFindMinigameRemoteMessage(guild, gameOrState) {
+  const targetChannelId = String(gameOrState?.channelId || gameOrState?.targetChannelId || "").trim();
+  const messageId = String(gameOrState?.messageId || gameOrState?.gameMessageId || "").trim();
+  if (!guild || !targetChannelId || !messageId) return false;
   const targetChannel = guild.channels.cache.get(targetChannelId) || (await guild.channels.fetch(targetChannelId).catch(() => null));
-  if (!targetChannel?.messages?.fetch) return;
+  if (!targetChannel?.messages?.fetch) return false;
   const msg = await targetChannel.messages.fetch(messageId).catch(() => null);
-  if (!msg) return;
-  const label = state?.type === "findScroll" ? "Raccogli la pergamena!" : "trova il bot";
-  const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId(customId).setLabel(label).setStyle(ButtonStyle.Primary).setDisabled(true),
-  );
-  await msg.edit({ components: [row] }).catch(() => { });
+  if (!msg) return false;
+  await msg.delete().catch(() => {});
+  return true;
+}
+
+async function finalizeFindMinigameTimeout(client, cfg, mainChannelId, mainChannel, game, buildTimeoutEmbed) {
+  if (!game) return;
+  await deleteFindMinigameRemoteMessage(mainChannel?.guild, game);
+  await sendMinigameTimeoutAndClose(client, cfg, mainChannelId, mainChannel, game, buildTimeoutEmbed());
+}
+
+function scheduleFindMinigameTimeout(client, cfg, mainChannelId, mainChannel, customId, durationMs, buildTimeoutEmbed) {
+  const timer = setTimeout(async () => {
+    const game = activeGames.get(mainChannelId);
+    if (!game || game.customId !== customId) return;
+    await finalizeFindMinigameTimeout(client, cfg, mainChannelId, mainChannel, game, buildTimeoutEmbed);
+  }, durationMs);
+  timer.unref?.();
+  return timer;
 }
 
 async function closeExpiredMinigameState(client, cfg, channel, state) {
@@ -7244,16 +7288,22 @@ async function closeExpiredMinigameState(client, cfg, channel, state) {
   restoreHogwartsPodiumFromState(channelId, state, game);
   await sendMinigameTimeoutAndClose(client, cfg, channelId, channel, game, buildMinigameTimeoutEmbedForGame(game));
   if (type === "findBot" || type === "findScroll") {
-    await disableExpiredFindMinigameButton(channel.guild, state);
+    await deleteFindMinigameRemoteMessage(channel.guild, state);
   }
 }
 
 function scheduleMinigameRoundTimeout(client, cfg, channelId, channel, durationMs) {
   const timer = setTimeout(async () => {
-    const game = activeGames.get(channelId);
+    const chId = String(channelId || "").trim();
+    if (channelWinClosing.has(chId)) return;
+    const game = activeGames.get(chId);
     if (!game) return;
-    if (game.type === "hogwartsObservationTower" && game._finishing) return;
-    await sendMinigameTimeoutAndClose(client, cfg, channelId, channel, game, buildMinigameTimeoutEmbedForGame(game));
+    if (game.type === "hogwartsObservationTower") {
+      if (game._finishClaimed || game._finishEmbedSent) return;
+      await finishObservationTowerTimeout(client, cfg, chId, channel, game);
+      return;
+    }
+    await sendMinigameTimeoutAndClose(client, cfg, chId, channel, game, buildMinigameTimeoutEmbedForGame(game));
   }, durationMs);
   timer.unref?.();
   return timer;
@@ -7261,21 +7311,27 @@ function scheduleMinigameRoundTimeout(client, cfg, channelId, channel, durationM
 
 async function sendMinigameTimeoutAndClose(client, cfg, channelId, channel, game, timeoutEmbed) {
   if (!game) return;
-  recordNoParticipationIfNeeded(channelId, game);
-  clearMinigameRoundTimers(game);
-  const embeds = [];
-  const podium = isHogwartsPodiumWinMode(cfg, game?.type, game) ? ensureHogwartsPodium(game, channelId) : [];
-  if (podium.length > 0) {
-    embeds.push(buildHogwartsPodiumSummaryEmbed(cfg, game.type, podium, { timedOut: true }));
-  } else if (timeoutEmbed) {
-    embeds.push(timeoutEmbed);
+  const chId = String(channelId || "").trim();
+  if (!tryClaimMinigameChannelClose(chId)) return;
+  try {
+    recordNoParticipationIfNeeded(chId, game);
+    clearMinigameRoundTimers(game);
+    const embeds = [];
+    const podium = isHogwartsPodiumWinMode(cfg, game?.type, game) ? ensureHogwartsPodium(game, chId) : [];
+    if (podium.length > 0) {
+      embeds.push(buildHogwartsPodiumSummaryEmbed(cfg, game.type, podium, { timedOut: true }));
+    } else if (timeoutEmbed) {
+      embeds.push(timeoutEmbed);
+    }
+    activeGames.delete(chId);
+    clearHogwartsPodiumChannel(chId);
+    if (embeds.length && channel) await sendMinigameMessage(channel, { embeds }).catch(() => { });
+    let guildId = String(cfg?.guildId || "").trim();
+    if (!guildId) guildId = String(channel?.guild?.id || "").trim();
+    await clearActiveGame(client, { ...cfg, channelId: chId, guildId });
+  } finally {
+    endMinigameWinClose(chId);
   }
-  activeGames.delete(channelId);
-  clearHogwartsPodiumChannel(channelId);
-  if (embeds.length && channel) await sendMinigameMessage(channel, { embeds }).catch(() => { });
-  let guildId = String(cfg?.guildId || "").trim();
-  if (!guildId) guildId = String(channel?.guild?.id || "").trim();
-  await clearActiveGame(client, { ...cfg, channelId, guildId });
 }
 
 async function loadRotationState(client, cfg, guildIdOverride = null) {
@@ -8865,68 +8921,161 @@ async function awardObservationTowerParticipants(client, cfg, guild, participant
   return { expAwarded: awarded, houseAwarded, allHousesAwardCount };
 }
 
+function tryClaimObservationTowerFinish(game, channelId) {
+  if (!game || game._finishEmbedSent || game._finishClaimed) return false;
+  const chId = String(channelId || "").trim();
+  if (!tryClaimMinigameChannelClose(chId)) return false;
+  game._finishClaimed = true;
+  clearMinigameRoundTimers(game);
+  if (chId) {
+    activeGames.delete(chId);
+    clearNoParticipationDelay(chId);
+  }
+  return true;
+}
+
+function tryClaimObservationTowerEmbed(game) {
+  if (!game || game._finishEmbedSent) return false;
+  game._finishEmbedSent = true;
+  return true;
+}
+
+async function finishObservationTowerTimeout(client, cfg, channelId, channel, game) {
+  if (!game || game._finishClaimed || game._finishEmbedSent) return;
+  const chId = String(channelId || "").trim();
+  if (!tryClaimObservationTowerFinish(game, chId)) return;
+  try {
+    recordNoParticipationIfNeeded(chId, game);
+    const timeoutEmbed = buildMinigameTimeoutEmbedForGame(game);
+    if (timeoutEmbed && !tryClaimObservationTowerEmbed(game)) return;
+    if (timeoutEmbed && channel) {
+      await sendMinigameMessage(channel, { embeds: [timeoutEmbed] }).catch(() => { });
+    }
+    let guildId = String(cfg?.guildId || "").trim();
+    if (!guildId) guildId = String(channel?.guild?.id || "").trim();
+    await clearActiveGame(client, { ...cfg, channelId: chId, guildId });
+  } finally {
+    endMinigameWinClose(chId);
+  }
+}
+
 async function finishObservationTowerSuccess(client, cfg, channel, game) {
-  if (!channel?.guild || game?._finishing) return;
-  game._finishing = true;
-  if (game.timeout) clearTimeout(game.timeout);
-  activeGames.delete(cfg.channelId);
-  clearNoParticipationDelay(cfg.channelId);
-  const soloHouseId = String(game.soloHouseId || game.hogwartsHouseChannel?.soloHouseId || "").trim();
-  const housePoints = Math.max(0, Math.floor(Number(game.housePoints) || 0));
-  const unsortedHousePoints = soloHouseId ? 0 : getHogwartsUnsortedHousePointReward(cfg, "hogwartsObservationTower");
-  const awarded = await awardObservationTowerParticipants(
-    client,
-    cfg,
-    channel.guild,
-    game.participantCounts,
-    game.rewardExp,
-    0,
-    unsortedHousePoints,
-    soloHouseId,
-  );
-  let soloHouseAward = null;
-  let housesAwarded = 0;
-  if (soloHouseId && housePoints > 0) {
-    soloHouseAward = await awardHogwartsHousePointsToHouse(
+  if (!channel?.guild || !game || game._finishEmbedSent) return;
+  const channelId = String(cfg?.channelId || "").trim();
+  if (!game._finishClaimed && !tryClaimObservationTowerFinish(game, channelId)) return;
+  try {
+    const soloHouseId = String(game.soloHouseId || game.hogwartsHouseChannel?.soloHouseId || "").trim();
+    const housePoints = Math.max(0, Math.floor(Number(game.housePoints) || 0));
+    const unsortedHousePoints = soloHouseId ? 0 : getHogwartsUnsortedHousePointReward(cfg, "hogwartsObservationTower");
+    const awarded = await awardObservationTowerParticipants(
       client,
-      channel.guild.id,
+      cfg,
+      channel.guild,
+      game.participantCounts,
+      game.rewardExp,
+      0,
+      unsortedHousePoints,
       soloHouseId,
-      "hogwartsObservationTower",
-      housePoints,
     );
-    housesAwarded = soloHouseAward ? 1 : 0;
-  } else if (!soloHouseId && housePoints > 0) {
-    for (const houseId of HOGWARTS_HOUSE_IDS) {
-      if (!isObservationTowerHouseComplete(houseId, game)) continue;
-      const houseAward = await awardHogwartsHousePointsToHouse(
+    let soloHouseAward = null;
+    let housesAwarded = 0;
+    if (soloHouseId && housePoints > 0) {
+      soloHouseAward = await awardHogwartsHousePointsToHouse(
         client,
         channel.guild.id,
-        houseId,
+        soloHouseId,
         "hogwartsObservationTower",
         housePoints,
       );
-      if (houseAward) housesAwarded += 1;
+      housesAwarded = soloHouseAward ? 1 : 0;
+    } else if (!soloHouseId && housePoints > 0) {
+      for (const houseId of HOGWARTS_HOUSE_IDS) {
+        if (!isObservationTowerHouseComplete(houseId, game)) continue;
+        const houseAward = await awardHogwartsHousePointsToHouse(
+          client,
+          channel.guild.id,
+          houseId,
+          "hogwartsObservationTower",
+          housePoints,
+        );
+        if (houseAward) housesAwarded += 1;
+      }
     }
+    const topLines = getObservationTowerTopBuilders(game.participantCounts, 5);
+    const displayHousePoints = soloHouseId
+      ? (soloHouseAward ? housePoints : 0)
+      : (housesAwarded > 0 ? housePoints : 0);
+    if (!tryClaimObservationTowerEmbed(game)) return;
+    await sendMinigameMessage(channel, {
+      embeds: [
+        buildObservationTowerSuccessEmbed(
+          game.houseBrickCounts,
+          game.targetBricks,
+          awarded.expAwarded.length || Object.keys(serializeObservationTowerParticipants(game.participantCounts)).length,
+          game.rewardExp,
+          topLines,
+          displayHousePoints,
+          awarded.allHousesAwardCount ? unsortedHousePoints : 0,
+          soloHouseId,
+        ),
+      ],
+    }).catch(() => { });
+    await clearActiveGame(client, { ...cfg, guildId: channel.guild.id });
+  } finally {
+    endMinigameWinClose(channelId);
   }
-  const topLines = getObservationTowerTopBuilders(game.participantCounts, 5);
-  const displayHousePoints = soloHouseId
-    ? (soloHouseAward ? housePoints : 0)
-    : (housesAwarded > 0 ? housePoints : 0);
-  await sendMinigameMessage(channel, {
-    embeds: [
-      buildObservationTowerSuccessEmbed(
-        game.houseBrickCounts,
-        game.targetBricks,
-        awarded.expAwarded.length || Object.keys(serializeObservationTowerParticipants(game.participantCounts)).length,
-        game.rewardExp,
-        topLines,
-        displayHousePoints,
-        awarded.allHousesAwardCount ? unsortedHousePoints : 0,
-        soloHouseId,
-      ),
-    ],
-  }).catch(() => { });
-  await clearActiveGame(client, { ...cfg, guildId: channel.guild.id });
+}
+
+async function processObservationTowerMessage(message, client, cfg, game) {
+  if (await rejectIfBasiliskBlockedMessage(message, game)) return true;
+  const content = String(message.content || "");
+  if (getObservationTowerLetterCount(content) < Number(game.minLetters || 5)) {
+    await message.react(MINIGAME_WRONG_EMOJI).catch(() => { });
+    return true;
+  }
+  const userId = String(message.author.id || "");
+  const towerMember =
+    message.member ||
+    (await message.guild.members.fetch(message.author.id).catch(() => null));
+  const houseId = await resolveHogwartsSortedHouse(message.guild.id, userId, hogwartsHousePointsDedupeKey(message.client), {
+    client: message.client,
+    member: towerMember,
+  });
+  if (!houseId) {
+    await message.react(MINIGAME_WRONG_EMOJI).catch(() => { });
+    return true;
+  }
+  const participantCounts = serializeObservationTowerParticipants(game.participantCounts);
+  const currentUserBricks = Number(participantCounts[userId] || 0);
+  if (currentUserBricks >= Number(game.maxPerUser || OBSERVATION_TOWER_DEFAULT_MAX_PER_USER)) {
+    await message.react(MINIGAME_COOLDOWN_EMOJI).catch(() => { });
+    return true;
+  }
+  const houseBrickCounts = serializeObservationTowerHouseBrickCounts(game.houseBrickCounts);
+  if (Number(houseBrickCounts[houseId] || 0) >= Number(game.targetBricks || OBSERVATION_TOWER_DEFAULT_TARGET_BRICKS)) {
+    await message.react(MINIGAME_COOLDOWN_EMOJI).catch(() => { });
+    return true;
+  }
+  participantCounts[userId] = currentUserBricks + 1;
+  game.participantCounts = participantCounts;
+  const participantHouses = serializeObservationTowerParticipantHouses(game.participantHouses);
+  participantHouses[userId] = houseId;
+  game.participantHouses = participantHouses;
+  houseBrickCounts[houseId] = Number(houseBrickCounts[houseId] || 0) + 1;
+  game.houseBrickCounts = houseBrickCounts;
+  game.hadParticipation = true;
+  if (isObservationTowerComplete(game)) {
+    if (!tryClaimObservationTowerFinish(game, cfg.channelId)) {
+      await message.react(MINIGAME_COOLDOWN_EMOJI).catch(() => { });
+      return true;
+    }
+    await message.react(MINIGAME_WIN_EMOJI).catch(() => { });
+    await finishObservationTowerSuccess(client, cfg, message.channel, game);
+    return true;
+  }
+  await message.react(OBSERVATION_TOWER_BRICK_EMOJI).catch(() => { });
+  await persistObservationTowerState(client, cfg, game);
+  return true;
 }
 
 async function startObservationTowerGame(client, cfg) {
@@ -9374,7 +9523,8 @@ async function startFindBotGame(client, cfg) {
   });
   if (!gameMessage) return false;
 
-  const timeout = setTimeout(async () => { const game = activeGames.get(channelId); if (!game || game.customId !== customId) return; if (game.channelId && game.messageId) { const ch = mainChannel.guild.channels.cache.get(game.channelId) || (await mainChannel.guild.channels.fetch(game.channelId).catch(() => null)); if (ch) { const msg = await ch.messages.fetch(game.messageId).catch(() => null); if (msg) { await msg.delete().catch(() => { }); } } } await sendMinigameTimeoutAndClose(client, cfg, channelId, mainChannel, game, buildTimeoutFindBotEmbed()); }, durationMs); timeout.unref?.(); const hintTimeout = await scheduleMinuteHint(client, targetChannel.id, durationMs, channelId,);
+  const timeout = scheduleFindMinigameTimeout(client, cfg, channelId, mainChannel, customId, durationMs, buildTimeoutFindBotEmbed);
+  const hintTimeout = await scheduleMinuteHint(client, targetChannel.id, durationMs, channelId,);
 
   activeGames.set(channelId, {
     type: "findBot",
@@ -9442,7 +9592,7 @@ async function startFindScrollGame(client, cfg) {
   });
   if (!gameMessage) return false;
 
-  const timeout = setTimeout(async () => { const game = activeGames.get(channelId); if (!game || game.customId !== customId) return; if (game.channelId && game.messageId) { const ch = mainChannel.guild.channels.cache.get(game.channelId) || (await mainChannel.guild.channels.fetch(game.channelId).catch(() => null)); if (ch) { const msg = await ch.messages.fetch(game.messageId).catch(() => null); if (msg) { await msg.delete().catch(() => { }); } } } await sendMinigameTimeoutAndClose(client, cfg, channelId, mainChannel, game, buildTimeoutFindScrollEmbed()); }, durationMs); timeout.unref?.();
+  const timeout = scheduleFindMinigameTimeout(client, cfg, channelId, mainChannel, customId, durationMs, buildTimeoutFindScrollEmbed);
   const hintTimeout = await scheduleMinuteHint(client, targetChannel.id, durationMs, channelId);
 
   activeGames.set(channelId, {
@@ -12022,50 +12172,13 @@ async function handleMinigameMessage(message, client) {
   }
 
   if (game.type === "hogwartsObservationTower") {
-    if (await rejectIfBasiliskBlockedMessage(message, game)) return true;
-    if (getObservationTowerLetterCount(content) < Number(game.minLetters || 5)) {
-      await message.react(MINIGAME_WRONG_EMOJI).catch(() => { });
-      return true;
-    }
-    const userId = String(message.author.id || "");
-    const towerMember =
-      message.member ||
-      (await message.guild.members.fetch(message.author.id).catch(() => null));
-    const houseId = await resolveHogwartsSortedHouse(message.guild.id, userId, hogwartsHousePointsDedupeKey(message.client), {
-      client: message.client,
-      member: towerMember,
+    return runMinigameChannelExclusive(chId, async () => {
+      if (channelWinClosing.has(chId)) return true;
+      const liveGame = activeGames.get(chId);
+      if (!liveGame || liveGame.type !== "hogwartsObservationTower") return false;
+      if (liveGame._finishClaimed || liveGame._finishEmbedSent) return true;
+      return processObservationTowerMessage(message, client, cfg, liveGame);
     });
-    if (!houseId) {
-      await message.react(MINIGAME_WRONG_EMOJI).catch(() => { });
-      return true;
-    }
-    const participantCounts = serializeObservationTowerParticipants(game.participantCounts);
-    const currentUserBricks = Number(participantCounts[userId] || 0);
-    if (currentUserBricks >= Number(game.maxPerUser || OBSERVATION_TOWER_DEFAULT_MAX_PER_USER)) {
-      await message.react(MINIGAME_COOLDOWN_EMOJI).catch(() => { });
-      return true;
-    }
-    const houseBrickCounts = serializeObservationTowerHouseBrickCounts(game.houseBrickCounts);
-    if (Number(houseBrickCounts[houseId] || 0) >= Number(game.targetBricks || OBSERVATION_TOWER_DEFAULT_TARGET_BRICKS)) {
-      await message.react(MINIGAME_COOLDOWN_EMOJI).catch(() => { });
-      return true;
-    }
-    participantCounts[userId] = currentUserBricks + 1;
-    game.participantCounts = participantCounts;
-    const participantHouses = serializeObservationTowerParticipantHouses(game.participantHouses);
-    participantHouses[userId] = houseId;
-    game.participantHouses = participantHouses;
-    houseBrickCounts[houseId] = Number(houseBrickCounts[houseId] || 0) + 1;
-    game.houseBrickCounts = houseBrickCounts;
-    game.hadParticipation = true;
-    if (isObservationTowerComplete(game)) {
-      await message.react(MINIGAME_WIN_EMOJI).catch(() => { });
-      await finishObservationTowerSuccess(client, cfg, message.channel, game);
-      return true;
-    }
-    await message.react(OBSERVATION_TOWER_BRICK_EMOJI).catch(() => { });
-    await persistObservationTowerState(client, cfg, game);
-    return true;
   }
 
   if (game.type === "guessTeam") {
@@ -13446,8 +13559,8 @@ async function restoreActiveGames(client) {
     return;
   }
   if (state.type === "findBot") {
-    const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(state.customId).setLabel("trova il bot").setStyle(ButtonStyle.Primary),);
-    const timeout = setTimeout(async () => { const game = activeGames.get(cfg.channelId); if (!game || game.customId !== state.customId) return; if (game.channelId && game.messageId) { const ch = channel.guild.channels.cache.get(game.channelId) || (await channel.guild.channels.fetch(game.channelId).catch(() => null)); if (ch) { const msg = await ch.messages.fetch(game.messageId).catch(() => null); if (msg) { const disabledRow = new ActionRowBuilder().addComponents(ButtonBuilder.from(row.components[0]).setDisabled(true),); await msg.edit({ components: [disabledRow] }).catch(() => { }); } } } await sendMinigameTimeoutAndClose(client, cfg, cfg.channelId, channel, game, buildTimeoutFindBotEmbed()); }, remainingMs); timeout.unref?.(); const hintTimeout = await scheduleMinuteHint(client, state.targetChannelId, remainingMs, cfg.channelId,);
+    const timeout = scheduleFindMinigameTimeout(client, cfg, cfg.channelId, channel, state.customId, remainingMs, buildTimeoutFindBotEmbed);
+    const hintTimeout = await scheduleMinuteHint(client, state.targetChannelId, remainingMs, cfg.channelId,);
     activeGames.set(cfg.channelId, {
       type: "findBot",
       rewardExp: Number(state.rewardExp || 0),
@@ -13463,8 +13576,7 @@ async function restoreActiveGames(client) {
     return;
   }
   if (state.type === "findScroll") {
-    const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(state.customId).setLabel("Raccogli la pergamena!").setStyle(ButtonStyle.Primary));
-    const timeout = setTimeout(async () => { const game = activeGames.get(cfg.channelId); if (!game || game.customId !== state.customId) return; if (game.channelId && game.messageId) { const ch = channel.guild.channels.cache.get(game.channelId) || (await channel.guild.channels.fetch(game.channelId).catch(() => null)); if (ch) { const msg = await ch.messages.fetch(game.messageId).catch(() => null); if (msg) { const disabledRow = new ActionRowBuilder().addComponents(ButtonBuilder.from(row.components[0]).setDisabled(true)); await msg.edit({ components: [disabledRow] }).catch(() => { }); } } } await sendMinigameTimeoutAndClose(client, cfg, cfg.channelId, channel, game, buildTimeoutFindScrollEmbed()); }, remainingMs); timeout.unref?.();
+    const timeout = scheduleFindMinigameTimeout(client, cfg, cfg.channelId, channel, state.customId, remainingMs, buildTimeoutFindScrollEmbed);
     const hintTimeout = await scheduleMinuteHint(client, state.targetChannelId, remainingMs, cfg.channelId);
     activeGames.set(cfg.channelId, {
       type: "findScroll",

@@ -3,6 +3,7 @@ const IDs = require("../Config/ids");
 const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
 const { getGuildChannelCached } = require("../Interaction/interactionEntityCache");
 const { shouldSendPublicMemberAnnouncement } = require("./memberPublicAnnouncementGate");
+const { MENTION_RESPONSE_PERK_LINE_DISCORD } = require("./mentionResponseAccessUtils");
 const MAIN_GUILD_ID = String(IDs.guilds?.main || "");
 const SUPPORTERS_CHANNEL_ID = IDs.channels?.supporters;
 const PERKS_PAGE_URL = "https://viniliecaffe.it/perks/";
@@ -63,6 +64,7 @@ function buildPerkBlockLines(level) {
       "<a:VC_Money:1482724694699278487> Cooldown comandi del bot **30s → 1s**",
       "<:blueflash:1470064803157643468> **Bypass requisiti** delle candidature",
       "<:exp:1470067108543987846> Bonus **EXP permanente +15%**",
+      MENTION_RESPONSE_PERK_LINE_DISCORD,
       `<:VC_Color:1482532543273238569> Nuovo **colore gradiente** con \`+profile\` <@&${IDs.roles.colorUnlockLv100}>`,
     );
   } else if (L === 125) {

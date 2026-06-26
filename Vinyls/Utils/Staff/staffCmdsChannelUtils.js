@@ -37,6 +37,26 @@ function isStaffCmdsMainChannel(channel) {
   return String(channel.id) === cmds;
 }
 
+function isStaffCmdsPmCommandsThreadSync(channel) {
+  if (!channel || typeof channel.isThread !== "function" || !channel.isThread()) return false;
+  const parentId = staffCmdsChannelId();
+  if (!parentId || String(channel.parentId || "") !== parentId) return false;
+  const cached = getStaffCmdsThreadIdsCache().pm;
+  if (cached && String(channel.id) === String(cached)) return true;
+  const name = String(channel.name || "").trim().toLowerCase();
+  return name.includes("partner manager") || name.includes("comandi partner");
+}
+
+function isHighStaffCommandsThread(channel) {
+  if (!channel || typeof channel.isThread !== "function" || !channel.isThread()) return false;
+  const parentId = staffCmdsChannelId();
+  if (!parentId || String(channel.parentId || "") !== parentId) return false;
+  const cached = getStaffCmdsThreadIdsCache().high;
+  if (cached && String(channel.id) === String(cached)) return true;
+  const name = String(channel.name || "").trim().toLowerCase();
+  return name.includes("high staff") || name.includes("comandi high");
+}
+
 async function isStaffCmdsPmCommandsThread(channel) {
   if (!channel || typeof channel.isThread !== "function" || !channel.isThread()) return false;
   const parentId = staffCmdsChannelId();
@@ -70,14 +90,38 @@ async function resolveStaffCmdsPmThread(client) {
   return resolved?.isThread?.() ? resolved : null;
 }
 
+let staffCmdsThreadIdsHydratePromise = null;
+
+async function ensureStaffCmdsThreadIdsHydrated() {
+  const cache = getStaffCmdsThreadIdsCache();
+  if (cache.pm && cache.high) return cache;
+  if (!staffCmdsThreadIdsHydratePromise) {
+    staffCmdsThreadIdsHydratePromise = (async () => {
+      try {
+        const ids = await getStaffCmdsThreadIds();
+        setStaffCmdsThreadIdsCache(ids);
+      } catch (err) {
+        global.logger?.warn?.("[staffCmdsChannelUtils] hydrate thread ids:", err?.message || err);
+      } finally {
+        staffCmdsThreadIdsHydratePromise = null;
+      }
+    })();
+  }
+  await staffCmdsThreadIdsHydratePromise;
+  return getStaffCmdsThreadIdsCache();
+}
+
 module.exports = {
   staffCmdsChannelId,
   setStaffCmdsThreadIdsCache,
   getStaffCmdsThreadIdsCache,
   isChannelOrThreadUnderStaffCmds,
   isStaffCmdsMainChannel,
+  isStaffCmdsPmCommandsThreadSync,
+  isHighStaffCommandsThread,
   isStaffCmdsPmCommandsThread,
   isStaffCmdsHighCommandsThread,
   isStaffCmdsManagedCommandsThread,
   resolveStaffCmdsPmThread,
+  ensureStaffCmdsThreadIdsHydrated,
 };

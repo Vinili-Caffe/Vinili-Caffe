@@ -262,8 +262,8 @@ async function valutazioneNegativeAddCore(guild, profileDoc, staffUser, reason, 
   profileDoc.markModified("staff");
   await profileDoc.save();
   const warnResult = await addStaffWarnFromNegatives(guild.id, staffUser.id, s.negativeCount, reason);
-  const warnChannel = guild.channels.cache.get(IDs.channels?.warnStaff) || (await getGuildChannelCached(guild, IDs.channels?.warnStaff));
-  if (warnResult.added && warnChannel?.isTextBased?.()) {
+  const warnChannel = channel?.isTextBased?.() ? channel : null;
+  if (warnResult.added && warnChannel) {
     const warnEmbed = buildAutoStaffWarnFromNegativesEmbed(actor, staffUser, warnResult.warnCount, guild);
     await warnChannel.send({ content: `${staffUser}`, embeds: [warnEmbed] }).catch(() => null);
     if (warnResult.shouldAskDepex) {

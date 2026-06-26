@@ -9,6 +9,7 @@ const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const IDs = require("../Config/ids");
 const { EPHEMERAL_TTL_NORMAL_MS, PROFILE_CUSTOM_RESPONSE_TTL_MS, scheduleMessageDeletion } = require("../Config/ephemeralMessageTtl");
 const { validateMentionResponseText } = require("../Community/mentionResponseValidation");
+const { memberHasMentionResponseAccess } = require("../Community/mentionResponseAccessUtils");
 const { revokeCountingChannelSend, applyObviousWrongDayBan, formatBanUntilRomeTime } = require("../Community/countingChannelBanService");
 const COUNTING_CHANNEL_ID = IDs.channels.counting;
 const COUNTING_ALLOWED_REGEX = /^[0-9+\-*/x:() ]+$/;
@@ -770,15 +771,13 @@ async function handleMentionAutoResponses(message) {
     const docs = await listMentionResponses(message.guild.id, targetIds).catch(() => []);
     if (!Array.isArray(docs) || !docs.length) return;
 
-    const highStaffRoleId = String(IDs.roles?.HighStaff || "").trim();
-    if (!highStaffRoleId) return;
     let sent = 0;
     for (const doc of docs) {
       if (sent >= 3) break;
       const member =
         message.guild.members.cache.get(String(doc?.userId || "")) ||
         (await message.guild.members.fetch(String(doc?.userId || "")).catch(() => null));
-      if (!member?.roles?.cache?.has(highStaffRoleId)) continue;
+      if (!memberHasMentionResponseAccess(member)) continue;
       const text = String(doc?.text || "").trim();
       if (!text) continue;
       const validation = validateMentionResponseText(text);

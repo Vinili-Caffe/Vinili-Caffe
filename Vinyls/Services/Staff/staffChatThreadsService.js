@@ -56,21 +56,25 @@ function memberQualifiesForSpec(member, spec) {
   return memberHasAnyRole(member, specRoleIds(spec));
 }
 
+function buildStaffChatParentRoleOverwrite(roleId) {
+  return {
+    ViewChannel: true,
+    ReadMessageHistory: true,
+    SendMessages: false,
+    SendMessagesInThreads: true,
+    AttachFiles: true,
+    EmbedLinks: true,
+    AddReactions: true,
+    UseExternalEmojis: true,
+  };
+}
+
 async function ensureStaffChatParentRoleOverwrite(parent, roleId) {
   if (!parent?.permissionOverwrites?.edit || !roleId) return;
   await parent.permissionOverwrites
     .edit(
       String(roleId),
-      {
-        ViewChannel: true,
-        ReadMessageHistory: true,
-        SendMessages: false,
-        SendMessagesInThreads: true,
-        AttachFiles: true,
-        EmbedLinks: true,
-        AddReactions: true,
-        UseExternalEmojis: true,
-      },
+      buildStaffChatParentRoleOverwrite(roleId),
       { reason: "Accesso thread chat staff (solo thread, non canale padre)" },
     )
     .catch((err) => {
@@ -186,39 +190,22 @@ async function ensureStaffChatThread(client, guild, parent, spec, savedId) {
   return thread;
 }
 
-function buildHubMessageContent(threadIds) {
-  const pm = threadIds.pm ? `<#${threadIds.pm}>` : "—";
-  const senior = threadIds.senior ? `<#${threadIds.senior}>` : "—";
-  const highStaff = threadIds.highStaff ? `<#${threadIds.highStaff}>` : "—";
-  return (
-    "<:VC_Staff:1494286904089247754> **Hub chat staff**\n\n" +
-    "• **Chat generale** — questo canale, per tutto lo staff\n" +
-    `• ${pm} — Partner Manager\n` +
-    `• ${senior} — Senior Moderator e Director\n` +
-    `• ${highStaff} — High Staff\n\n` +
-    "_I thread sono privati: ogni livello ha il proprio spazio. PM, Senior/Director e High Staff vedono il canale ma scrivono solo nel proprio thread. Founder e Admin hanno accesso a tutti i thread._"
-  );
-}
-
-async function ensureStaffChatHubMessage(parent, threadIds) {
-  if (!parent?.send) return;
-  const content = buildHubMessageContent(threadIds);
+async function retireStaffChatHubMessage(parent) {
+  if (!parent?.messages?.fetch) return;
   const existingId = await getStaffChatHubMessageId();
   if (existingId) {
     const msg = await parent.messages.fetch(existingId).catch(() => null);
-    if (msg?.editable) {
-      await msg.edit({ content, allowedMentions: { parse: [] } }).catch(() => null);
-      return;
-    }
+    if (msg?.deletable) await msg.delete().catch(() => null);
+    else if (msg?.pinned) await msg.unpin().catch(() => null);
     await setStaffChatHubMessageId(null);
   }
-  const sent = await parent.send({ content, allowedMentions: { parse: [] } }).catch((err) => {
-    global.logger?.warn?.("[STAFF CHAT THREAD] Hub message fallito:", err?.message || err);
-    return null;
-  });
-  if (!sent?.id) return;
-  await setStaffChatHubMessageId(sent.id);
-  await sent.pin().catch(() => null);
+  const recent = await parent.messages.fetch({ limit: 25 }).catch(() => null);
+  if (!recent?.size) return;
+  for (const message of recent.values()) {
+    if (Number(message.type) === MessageType.ChannelPinnedMessage) {
+      await message.delete().catch(() => null);
+    }
+  }
 }
 
 async function ensureStaffChatThreadsOnReady(client) {
@@ -252,7 +239,7 @@ async function ensureStaffChatThreadsOnReady(client) {
       await populateThreadMembers(thread, guild, spec, { hydrate: false });
     }
   }
-  await ensureStaffChatHubMessage(parent, threadIds);
+  await retireStaffChatHubMessage(parent);
 }
 
 async function syncStaffChatThreadsForMemberChange(oldMember, newMember) {

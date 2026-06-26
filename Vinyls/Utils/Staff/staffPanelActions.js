@@ -11,6 +11,7 @@ const { applyDepexOneLevel } = require("../../Services/Staff/staffWarnService");
 const { applyDepexSideEffects: applyResocontoStaffDepexSideEffects } = require("../../Events/interaction/resocontoHandlers");
 const { clearStaffPendingPurgeAt } = require("../../Services/Community/userLeaveBackupService");
 const { sendPartnerManagerWelcome, sendHelperWelcome } = require("./staffWelcomeMessages");
+const { resolveStaffValutazioniChannel } = require("./staffChannelUtils");
 const ROLE_MEMBER = IDs.roles.Member;
 const ROLE_PARTNER_MANAGER = IDs.roles.PartnerManager;
 const ROLE_STAFF = IDs.roles.Staff;
@@ -596,10 +597,7 @@ async function runProfileStaffWarnAdd(guild, client, targetUser, actorUser, reas
   if (String(targetUser.id) === String(actorUser.id)) {
     return { ok: false, message: "<:VC_Attention:1482534443632558151> Non puoi usare questa azione su te stesso." };
   }
-  const warnChannel =
-    guild.channels.cache.get(IDs.channels?.warnStaff) ||
-    (await getGuildChannelCached(guild, IDs.channels?.warnStaff)) ||
-    (await getClientChannelCached(client, IDs.channels?.warnStaff));
+  const warnChannel = await resolveStaffValutazioniChannel(guild, client);
   await ActivityUserProfile.findOneAndUpdate(
     { guildId: guild.id, userId: targetUser.id },
     {
@@ -642,10 +640,7 @@ async function runProfileStaffWarnRemove(guild, client, targetUser, actorUser, r
   s.warnCount = Math.max(0, Number(s.warnCount || 0) - 1);
   profileDoc.markModified("staff");
   await profileDoc.save();
-  const warnChannel =
-    guild.channels.cache.get(IDs.channels?.warnStaff) ||
-    (await getGuildChannelCached(guild, IDs.channels?.warnStaff)) ||
-    (await getClientChannelCached(client, IDs.channels?.warnStaff));
+  const warnChannel = await resolveStaffValutazioniChannel(guild, client);
   if (warnChannel?.isTextBased?.()) {
     const embed = new EmbedBuilder()
       .setAuthor({

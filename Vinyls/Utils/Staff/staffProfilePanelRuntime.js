@@ -12,6 +12,11 @@ const { resolvePartnerPointsShown } = require("./partnerPointsDisplayUtils");
 const { PARTNER_MANAGER_REDEEM_TIERS, partnerManagerRedeemButtonLabel } = require("./partnerPointsUtils");
 const { PARTNER_MILESTONE_REWARD_LABELS } = require("./partnerManagerMilestoneDm");
 const { accountUsername, userAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
+const {
+  resolveSerataFilmAttendanceForWeek,
+  buildSerataFilmAttendanceDescriptionLine,
+  buildSerataFilmAttendanceButtonRow,
+} = require("./serataFilmAttendanceUtils");
 const PANEL_PREFIX = "staff_profile_panel";
 const STAFF_HP_PREFIX = "staff_hp";
 const STAFF_HP_SELECT_PREFIX = "staff_hp_select";
@@ -1059,12 +1064,23 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
   }
 
   const puntiPartner = resolveStaffPartnerPointsDisplay(s);
+  const sfAttState =
+    profileKind === PROFILE_FULL && !usePartnersChatPmPanel
+      ? resolveSerataFilmAttendanceForWeek(s)
+      : null;
+  const sfAttRow =
+    sfAttState && String(viewerId) === tid && sfAttState.editable
+      ? buildSerataFilmAttendanceButtonRow(viewerId, tid, sfAttState, sourceMessageId)
+      : null;
   const homeDescParts = [
     `${displayRoleEmoji} **Ruolo:** ${roleLabel}`,
     "",
     `<a:VC_Calendar:1482706208149475358> **Pause:**`,
     `${pauseShort}`,
   ];
+  if (sfAttState) {
+    homeDescParts.push("", buildSerataFilmAttendanceDescriptionLine(sfAttState, String(viewerId) === tid));
+  }
   if (!hideValutazioniWarnForTarget) {
     homeDescParts.push(
       "",
@@ -1088,7 +1104,13 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
         .setDescription(homeDesc)
         .setThumbnail(userAvatarUrlDynamic(targetUser, { size: 128 }) || null),
     ],
-    components: withCloseProfileComponents(mergeProfileComponents(selectRow, hsRows, homeBottomRows), viewerId, tid, sourceMessageId, { enableNextTargetButton }),
+    components: withCloseProfileComponents(
+      mergeProfileComponents(selectRow, hsRows, sfAttRow ? [...homeBottomRows, sfAttRow] : homeBottomRows),
+      viewerId,
+      tid,
+      sourceMessageId,
+      { enableNextTargetButton },
+    ),
   };
 }
 

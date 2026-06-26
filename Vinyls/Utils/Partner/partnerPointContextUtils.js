@@ -43,6 +43,17 @@ async function resolvePartnerManagerUserIdFromMessage(guildId, messageId) {
   return /^\d{16,20}$/.test(uid) ? uid : null;
 }
 
+function buildPartnerPointHighStaffPingLine() {
+  const roleId = String(IDs.roles?.HighStaff || "").trim();
+  if (!/^\d{16,20}$/.test(roleId)) return "";
+  return `<@&${roleId}>`;
+}
+
+function getPartnerPointHighStaffPingRoleIds() {
+  const roleId = String(IDs.roles?.HighStaff || "").trim();
+  return /^\d{16,20}$/.test(roleId) ? [roleId] : [];
+}
+
 function buildPartnerPointLogContent({
   pmUserId,
   rule,
@@ -50,11 +61,17 @@ function buildPartnerPointLogContent({
   reporterUserId = null,
   actorUserId = null,
   statusLine = null,
+  pingHighStaff = false,
 }) {
-  const lines = [
+  const lines = [];
+  if (pingHighStaff) {
+    const ping = buildPartnerPointHighStaffPingLine();
+    if (ping) lines.push(ping);
+  }
+  lines.push(
     `<:VC_PartnerManager:1494286911286808576> <@${String(pmUserId || "").trim()}>`,
     `<:VC_reason:1478517122929004544> ${String(rule || "").trim()}`,
-  ];
+  );
   if (messageLink) lines.push(`<:VC_Chat:1482532573002465413> Messaggio: ${messageLink}`);
   if (reporterUserId) lines.push(`<:VC_Staff:1494286904089247754> Segnalato da: <@${String(reporterUserId).trim()}>`);
   if (actorUserId) lines.push(`<:VC_Staff:1494286904089247754> Rimosso da: <@${String(actorUserId).trim()}>`);
@@ -84,12 +101,24 @@ function memberIsHighStaffForPointReview(member) {
   return ids.some((rid) => member.roles.cache.has(rid));
 }
 
+function shouldDeleteHumanPartnershipsChannelMessage(message) {
+  if (!PARTNERSHIP_CHANNEL_ID) return false;
+  const channelId = String(message?.channelId || message?.channel?.id || "");
+  if (channelId !== PARTNERSHIP_CHANNEL_ID) return false;
+  if (!message || message.system) return false;
+  if (message.author?.bot || message.webhookId || message.applicationId) return false;
+  return true;
+}
+
 module.exports = {
   PARTNERSHIP_CHANNEL_ID,
   buildPartnershipMessageLink,
   isPartnershipDescriptionMessage,
   resolvePartnerManagerUserIdFromMessage,
   buildPartnerPointLogContent,
+  buildPartnerPointHighStaffPingLine,
+  getPartnerPointHighStaffPingRoleIds,
   parsePartnerPointModalId,
   memberIsHighStaffForPointReview,
+  shouldDeleteHumanPartnershipsChannelMessage,
 };

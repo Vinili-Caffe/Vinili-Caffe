@@ -153,7 +153,7 @@ async function handlePartnerModal(interaction) {
         new EmbedBuilder()
           .setColor("Red")
           .setDescription(
-            "<a:VC_Alert:1482706673176150077> Questo utente non ha compleato l'inserimento, fagli effettuare prima la verifica e poi riprova!",
+            "<a:VC_Alert:1482706673176150077> Questo utente non ha completato l'inserimento, farglielo completare prima di riprovare!",
           ),
       ],
     });

@@ -2,7 +2,7 @@ const { ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } = require("
 const IDs = require("../../Utils/Config/ids");
 const { getGuildChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { removePartnerPoints, formatPartnerPointsChange } = require("../../Utils/Staff/partnerPointsUtils");
-const { buildPartnershipMessageLink, buildPartnerPointLogContent, parsePartnerPointModalId } = require("../../Utils/Partner/partnerPointContextUtils");
+const { buildPartnershipMessageLink, buildPartnerPointLogContent, getPartnerPointHighStaffPingRoleIds, parsePartnerPointModalId } = require("../../Utils/Partner/partnerPointContextUtils");
 
 const IN_RULE = "regolaViolata";
 const EPHEMERAL = MessageFlags.Ephemeral;
@@ -52,6 +52,7 @@ async function handlePartnerSegnalaModal(interaction) {
     rule,
     messageLink,
     reporterUserId: parsed.actorId,
+    pingHighStaff: true,
     statusLine: "<:VC_Attention:1482534443632558151> In attesa di conferma High Staff.",
   });
   const row = new ActionRowBuilder().addComponents(
@@ -64,7 +65,13 @@ async function handlePartnerSegnalaModal(interaction) {
       .setLabel("Nega segnalazione")
       .setStyle(ButtonStyle.Secondary),
   );
-  await logChannel.send({ content, components: [row] }).catch(() => null);
+  await logChannel
+    .send({
+      content,
+      components: [row],
+      allowedMentions: { roles: getPartnerPointHighStaffPingRoleIds() },
+    })
+    .catch(() => null);
   await interaction.reply({
     content: "<:success:1461731530333229226> Segnalazione inviata in <#" + String(IDs.channels?.puntiTolti || "") + ">.",
     flags: EPHEMERAL,

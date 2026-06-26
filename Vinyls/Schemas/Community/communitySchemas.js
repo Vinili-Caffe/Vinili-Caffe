@@ -280,6 +280,16 @@ const staffAutoValutazioneSchema = new Schema(
   { _id: false },
 );
 
+const staffValutazioneLogEntrySchema = new Schema(
+  {
+    reason: { type: String, default: "" },
+    channelId: { type: String, default: null },
+    messageId: { type: String, default: null },
+    createdAt: { type: Date, default: Date.now },
+  },
+  { _id: false },
+);
+
 const staffEmbeddedSchema = new Schema(
   {
     rolesHistory: { type: [staffRolesHistoryEntrySchema], default: [] },
@@ -291,6 +301,8 @@ const staffEmbeddedSchema = new Schema(
     negativeCount: { type: Number, default: 0 },
     positiveReasons: { type: [String], default: [] },
     negativeReasons: { type: [String], default: [] },
+    positiveValutazioni: { type: [staffValutazioneLogEntrySchema], default: [] },
+    negativeValutazioni: { type: [staffValutazioneLogEntrySchema], default: [] },
     valutazioniCount: { type: Number, default: 0 },
     autoValutazioni: { type: [staffAutoValutazioneSchema], default: [] },
     partnerCount: { type: Number },
@@ -303,6 +315,8 @@ const staffEmbeddedSchema = new Schema(
     bestStaffPauseBonusYears: { type: [Number], default: [] },
     valPosTradedPauseBonusDays: { type: Number, default: 0 },
     pauses: { type: [staffPauseEntrySchema], default: [] },
+    serataFilmAttendanceSaturdayKey: { type: String, default: null },
+    serataFilmWillAttend: { type: Boolean, default: null },
   },
   { _id: false },
 );
@@ -476,6 +490,9 @@ const activityUserProfileSchema = new Schema(
         customVocEmoji: { type: String, default: null },
         customVocChannelId: { type: String, default: null },
         customVocEligibilityLostAt: { type: Date, default: null },
+        customVocFailedWeekStreak: { type: Number, default: 0 },
+        customVocLastEvaluatedWeekEndMs: { type: Number, default: null },
+        customVocRecreationBlockedUntil: { type: Date, default: null },
         customRoleEligibilityLostAt: { type: Date, default: null },
         expiresAt: { type: Date, default: null },
       },
@@ -1125,6 +1142,9 @@ const CustomRole = {
       customVocEmoji: "profile.customRole.customVocEmoji",
       customVocChannelId: "profile.customRole.customVocChannelId",
       customVocEligibilityLostAt: "profile.customRole.customVocEligibilityLostAt",
+      customVocFailedWeekStreak: "profile.customRole.customVocFailedWeekStreak",
+      customVocLastEvaluatedWeekEndMs: "profile.customRole.customVocLastEvaluatedWeekEndMs",
+      customVocRecreationBlockedUntil: "profile.customRole.customVocRecreationBlockedUntil",
       customRoleEligibilityLostAt: "profile.customRole.customRoleEligibilityLostAt",
       expiresAt: "profile.customRole.expiresAt",
     };
@@ -1162,7 +1182,7 @@ const CustomRole = {
     const run = async () => {
       const doc = await ActivityUserProfile.findOne(this._mapFilter(filter)).select("_id guildId userId profile.customRole").lean().catch(() => null);
       const s = doc?.profile?.customRole;
-      if (!s?.roleId && !s?.secondaryRoleId && !s?.customVocChannelId && !s?.expiresAt) return null;
+      if (!s?.roleId && !s?.secondaryRoleId && !s?.customVocChannelId && !s?.expiresAt && !s?.customVocRecreationBlockedUntil) return null;
       const out = { _id: doc?._id || null, guildId: doc.guildId, userId: doc.userId, ...s };
       const keys = this._pickProjectionKeys(projection);
       if (!keys.length) return out;
@@ -1193,7 +1213,7 @@ const CustomRole = {
       const docs = await q.lean().catch(() => []);
       const mapped = docs
         .map((doc) => ({ _id: doc?._id || null, guildId: doc.guildId, userId: doc.userId, ...(doc?.profile?.customRole || {}) }))
-        .filter((x) => x.roleId || x.secondaryRoleId || x.customVocChannelId || x.expiresAt);
+        .filter((x) => x.roleId || x.secondaryRoleId || x.customVocChannelId || x.expiresAt || x.customVocRecreationBlockedUntil);
       const keys = this._pickProjectionKeys(projection);
       if (!keys.length) return mapped;
       return mapped.map((row) => {
@@ -1236,6 +1256,9 @@ const CustomRole = {
           ...(setPayload?.customVocEmoji !== undefined ? { "profile.customRole.customVocEmoji": setPayload.customVocEmoji } : {}),
           ...(setPayload?.customVocChannelId !== undefined ? { "profile.customRole.customVocChannelId": setPayload.customVocChannelId } : {}),
           ...(setPayload?.customVocEligibilityLostAt !== undefined ? { "profile.customRole.customVocEligibilityLostAt": setPayload.customVocEligibilityLostAt } : {}),
+          ...(setPayload?.customVocFailedWeekStreak !== undefined ? { "profile.customRole.customVocFailedWeekStreak": setPayload.customVocFailedWeekStreak } : {}),
+          ...(setPayload?.customVocLastEvaluatedWeekEndMs !== undefined ? { "profile.customRole.customVocLastEvaluatedWeekEndMs": setPayload.customVocLastEvaluatedWeekEndMs } : {}),
+          ...(setPayload?.customVocRecreationBlockedUntil !== undefined ? { "profile.customRole.customVocRecreationBlockedUntil": setPayload.customVocRecreationBlockedUntil } : {}),
           ...(setPayload?.customRoleEligibilityLostAt !== undefined ? { "profile.customRole.customRoleEligibilityLostAt": setPayload.customRoleEligibilityLostAt } : {}),
           ...(setPayload?.expiresAt !== undefined ? { "profile.customRole.expiresAt": setPayload.expiresAt } : {}),
         },
@@ -1257,6 +1280,9 @@ const CustomRole = {
           ...(setPayload?.customVocEmoji !== undefined ? { "profile.customRole.customVocEmoji": setPayload.customVocEmoji } : {}),
           ...(setPayload?.customVocChannelId !== undefined ? { "profile.customRole.customVocChannelId": setPayload.customVocChannelId } : {}),
           ...(setPayload?.customVocEligibilityLostAt !== undefined ? { "profile.customRole.customVocEligibilityLostAt": setPayload.customVocEligibilityLostAt } : {}),
+          ...(setPayload?.customVocFailedWeekStreak !== undefined ? { "profile.customRole.customVocFailedWeekStreak": setPayload.customVocFailedWeekStreak } : {}),
+          ...(setPayload?.customVocLastEvaluatedWeekEndMs !== undefined ? { "profile.customRole.customVocLastEvaluatedWeekEndMs": setPayload.customVocLastEvaluatedWeekEndMs } : {}),
+          ...(setPayload?.customVocRecreationBlockedUntil !== undefined ? { "profile.customRole.customVocRecreationBlockedUntil": setPayload.customVocRecreationBlockedUntil } : {}),
           ...(setPayload?.customRoleEligibilityLostAt !== undefined ? { "profile.customRole.customRoleEligibilityLostAt": setPayload.customRoleEligibilityLostAt } : {}),
           ...(setPayload?.expiresAt !== undefined ? { "profile.customRole.expiresAt": setPayload.expiresAt } : {}),
         },
@@ -1272,6 +1298,9 @@ const CustomRole = {
         "profile.customRole.customVocEmoji": null,
         "profile.customRole.customVocChannelId": null,
         "profile.customRole.customVocEligibilityLostAt": null,
+        "profile.customRole.customVocFailedWeekStreak": 0,
+        "profile.customRole.customVocLastEvaluatedWeekEndMs": null,
+        "profile.customRole.customVocRecreationBlockedUntil": null,
         "profile.customRole.customRoleEligibilityLostAt": null,
         "profile.customRole.expiresAt": null,
       },
