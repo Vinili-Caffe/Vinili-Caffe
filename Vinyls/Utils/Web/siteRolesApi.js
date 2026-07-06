@@ -47,37 +47,43 @@ async function fetchDiscordUser(client, guild, userId) {
 }
 
 async function fetchUserIdentity(client, guild, userId) {
-  const user = await fetchDiscordUser(client, guild, userId);
+  const id = String(userId || "").trim();
   const out = {
-    ownerId: String(userId || ""),
+    ownerId: id,
     ownerUsername: "",
     ownerDisplayName: "",
     ownerAvatar: "",
     ownerAvatarUrl: "",
   };
+  if (!id) return out;
+  let member = guild?.members?.cache?.get(id) || null;
+  if (!member && guild?.members?.fetch) {
+    member = await guild.members.fetch({ user: id, force: true }).catch(() => null);
+  }
+  const user = member?.user || (await fetchDiscordUser(client, guild, userId));
   if (!user) return out;
   out.ownerUsername = String(user.username || "").trim();
   out.ownerDisplayName = String(user.username || "").trim();
   out.ownerAvatar = user.avatar ? String(user.avatar) : "";
-  out.ownerAvatarUrl = userAvatarUrlDynamic(user, { size: 256 }) || "";
+  out.ownerAvatarUrl = userAvatarUrlDynamic(member || user, { size: 256 }) || "";
   return out;
 }
 
 /** Ordine badge (dall'alto della scaletta). Allineato a discordStaffListBuild.staffRoleIds principale. */
-const COMMUNITY_MANAGER_ROLE_ID = "1494089487863644330";
-
 function staffBadgeRoleOrder(ids) {
   const R = ids.roles;
   return [
     R.Founder,
+    R.Manager,
     R.Admin,
+    R.Director,
     R.HighStaff,
+    R.SeniorModerator,
     R.Mod,
     R.Helper,
     R.PartnerManager,
     R.Staff,
     R.StafferDelMese,
-    COMMUNITY_MANAGER_ROLE_ID,
   ]
     .map((x) => String(x || "").trim())
     .filter(Boolean);
@@ -114,8 +120,10 @@ function memberIdentityFromGuildMember(member, ownerId, guild) {
   const userId = String(user?.id || member?.id || "").trim();
   const username = String(user?.username || "").trim();
   const displayName = String(username || "Utente").trim();
-  const avatar = user?.avatar ? String(user.avatar) : "";
-  const avatarUrl = userAvatarUrlDynamic(user, { size: 128 }) || "";
+  const avatarGuild = member?.avatar != null ? String(member.avatar) : "";
+  const avatarUser = user?.avatar ? String(user.avatar) : "";
+  const avatar = avatarGuild || avatarUser;
+  const avatarUrl = userAvatarUrlDynamic(member, { size: 128 }) || "";
   return {
     userId,
     username,
@@ -217,7 +225,7 @@ async function handleSiteRolesGet(client, req, res) {
     rows.sort((a, b) => {
       const ta = new Date(a.createdAt || 0).getTime() || 0;
       const tb = new Date(b.createdAt || 0).getTime() || 0;
-      if (ta !== tb) return ta - tb;
+      if (ta !== tb) return tb - ta;
       return String(a.roleName || "").localeCompare(String(b.roleName || ""), "it", { sensitivity: "base" });
     });
 

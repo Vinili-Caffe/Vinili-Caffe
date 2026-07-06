@@ -1,7 +1,7 @@
 const { EmbedBuilder } = require("discord.js");
 const IDs = require("../Config/ids");
 const { getClientChannelCached, getClientGuildCached, getGuildChannelCached } = require("../Interaction/interactionEntityCache");
-const { userAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
+const { embedThumbnailAvatarUrl } = require("../Discord/guildDiscordIdentity");
 const RESOLUTION_CACHE_TTL_MS = 30_000;
 const resolutionCache = new Map();
 
@@ -48,13 +48,13 @@ async function getCentralChannel(client, channelId) {
   return getChannelSafe(client, channelId);
 }
 
-async function logCommandUsage(client, { channelId, serverName, user, userId, content, userAvatarUrl }) {
+async function logCommandUsage(client, { channelId, serverName, user, userId, content, userLike }) {
   if (!channelId) return;
   const channel = await getCentralChannel(client, channelId);
   if (!channel) return;
   const embed = new EmbedBuilder().setColor("#6f4e37").setAuthor({
     name: `${user} ha usato un comando.`,
-    iconURL: userAvatarUrl || userAvatarUrlDynamic(client?.user, { size: 64 }) || undefined,
+    iconURL: embedThumbnailAvatarUrl(userLike || { id: userId }, { size: 64 }),
   })
     .setTitle(`${client.user.username} - Log Comandi`)
     .addFields(

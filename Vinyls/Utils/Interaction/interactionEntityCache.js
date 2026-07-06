@@ -141,7 +141,6 @@ async function addRolesAndGetMember(guild, userId, roleIds) {
       role = await getGuildRoleCached(guild, rid).catch(() => null);
     }
     if (!role || role.managed) continue;
-    if (role.editable === false) continue;
     await member.roles.add(rid).catch(() => {});
   }
   return getGuildMemberCached(guild, userId, { preferFresh: true }).catch(() => member);

@@ -1,10 +1,14 @@
-const { ActivityUserProfile, GlobalSettings, LEVEL_HISTORY_MAX_ENTRIES } = require("../../Schemas/Community/communitySchemas");
+const { ActivityUserProfile, GlobalSettings, LEVEL_HISTORY_MAX_ENTRIES, ACTIVITY_MAIN_GUILD_ID } = require("../../Schemas/Community/communitySchemas");
 const { isValidGuildUserId } = require("../../Utils/DB/validateWriteIds");
 const IDs = require("../../Utils/Config/ids");
-const { getGuildChannelCached, getGuildMemberCached, getGuildRoleCached, getClientGuildCached, getClientChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { shouldBlockDm } = require("../../Utils/noDmList");
-const { guildMemberDisplayAvatarUrlDynamic, accountUsername } = require("../../Utils/Discord/guildDiscordIdentity");
-const EXP_EXCLUDED_CATEGORY_IDS = new Set([IDs.categories.categoryGames].filter(Boolean).map((id) => String(id)),);
+const { sendUserDirectMessage } = require("../../../shared/discord/dmPrivacyNotice");
+const botConfig = require("../../config.json");
+const { getGuildChannelCached, getGuildMemberCached, getGuildRoleCached, getClientGuildCached, getClientChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
+const { sendLevelMilestoneSupportersAnnouncement } = require("../../Utils/Community/levelMilestoneSupportersAnnounceEmbeds");
+const { guildMemberDisplayAvatarUrlDynamic, accountUsername, resolveEmbedUserAvatarUrl } = require("../../Utils/Discord/guildDiscordIdentity");
+const { parseScheduleMs, parseScheduleEndMs } = require("../../Utils/Web/hogwartsEventSchedule");
+const EXP_EXCLUDED_CATEGORY_IDS = new Set([].filter(Boolean).map((id) => String(id)),);
 const TIME_ZONE = "Europe/Rome";
 const MESSAGE_EXP = 2;
 const VOICE_EXP_PER_MINUTE = 5;
@@ -13,11 +17,23 @@ const MAX_COMBINED_MULTIPLIER = 8;
 const MULTIPLIER_CACHE_TTL_MS = 60 * 1000;
 const settingsCache = new Map();
 const LEVEL_UP_CHANNEL_ID = IDs.channels.commands;
-const PERKS_CHANNEL_ID = IDs.channels.info;
+const PERKS_CHANNEL_ID = IDs.channels.supporters;
 const PERK_ROLE_ID = IDs.roles.PicPerms;
-const LEVEL_ROLE_MAP = new Map([[10, IDs.roles.Level10], [20, IDs.roles.Level20], [30, IDs.roles.Level30], [50, IDs.roles.Level50], [70, IDs.roles.Level70], [100, IDs.roles.Level100],]);
+const LEVEL_ROLE_MAP = new Map([[10, IDs.roles.Level10], [20, IDs.roles.Level20], [30, IDs.roles.Level30], [50, IDs.roles.Level50], [70, IDs.roles.Level70], [100, IDs.roles.Level100], [125, IDs.roles.Level120], [150, IDs.roles.Level150], [200, IDs.roles.Level200],]);
 const PERK_NEAR_LEVEL_DISTANCE = 2;
-const ROLE_MULTIPLIERS = new Map([[IDs.roles.ServerBooster, 2], [IDs.roles.DoubleBooster, 3], [IDs.roles.Donator, 4], [IDs.roles.VIP, 5], [IDs.roles.VIPplus, 6], [IDs.roles.Level100, 1,25],]);
+const ROLE_MULTIPLIERS = new Map([ [IDs.roles.ServerBooster, 2], [IDs.roles.MVP, 2], [IDs.roles.DoubleBooster, 3], [IDs.roles.Donator, 4], [IDs.roles.VIP, 5], [IDs.roles.VIPplus, 6], [IDs.roles.Level100, 1.15], [IDs.roles.Level120, 1.2], [IDs.roles.Level150, 1.25], [IDs.roles.Level200, 1.3], [IDs.roles.Level250, 1.35], [IDs.roles.Level300, 1.4], [IDs.roles.Level350, 1.45], [IDs.roles.Level400, 1.5], [IDs.roles.Level450, 1.55], [IDs.roles.Level500, 1.6], [IDs.roles.Level550, 1.65], [IDs.roles.Level600, 1.7], [IDs.roles.Level650, 1.75], [IDs.roles.Level700, 1.8], [IDs.roles.Level750, 1.85], [IDs.roles.Level800, 1.9], [IDs.roles.Level850, 1.95], [IDs.roles.Level900, 2], [IDs.roles.Level950, 2.05], [IDs.roles.Level1000, 2.1], ]);
+
+function normalizeExpGuildId(guildOrId) {
+  if (guildOrId && typeof guildOrId === "object" && guildOrId.id) return String(guildOrId.id).trim();
+  return String(guildOrId || "").trim();
+}
+
+function isLevelExpGuild(guildOrId) {
+  const gid = normalizeExpGuildId(guildOrId);
+  const mainId = String(ACTIVITY_MAIN_GUILD_ID || IDs.guilds?.main || "").trim();
+  return Boolean(gid && mainId && gid === mainId);
+}
+
 function pad2(value) {
   return String(value).padStart(2, "0");
 }
@@ -102,6 +118,43 @@ function getTotalExpForLevel(level) {
   return threshold;
 }
 
+function repairExpTotals(exp = {}) {
+  let totalExp = Math.max(0, Math.floor(Number(exp?.totalExp || 0)));
+  const storedLevel = Math.max(0, Math.floor(Number(exp?.level || 0)));
+  const minExpForStoredLevel = getTotalExpForLevel(storedLevel);
+  if (storedLevel > 0 && totalExp < minExpForStoredLevel) {
+    totalExp = minExpForStoredLevel;
+  }
+  const levelFromExp = getLevelInfo(totalExp).level;
+  const level = Math.max(storedLevel, levelFromExp);
+  return { totalExp, level, levelFromExp };
+}
+
+function resolveLevelUpAnnounceLevel(prevLevel, candidateLevel, snapshot) {
+  const prev = Math.max(0, Math.floor(Number(prevLevel || 0)));
+  const candidate = Math.max(0, Math.floor(Number(candidateLevel || 0)));
+  if (!snapshot || candidate < 1) return null;
+  const authoritative = Math.max(0, Math.floor(Number(snapshot.level || 0)));
+  const totalExp = Math.max(0, Math.floor(Number(snapshot.totalExp || 0)));
+  if (candidate <= prev) return null;
+  if (authoritative <= prev) return null;
+  if (totalExp >= getTotalExpForLevel(2) && candidate < 2) return null;
+  if (authoritative > candidate + 1) return null;
+  return Math.min(candidate, authoritative);
+}
+
+async function fetchUserExpSnapshot(guildId, userId) {
+  if (!isValidGuildUserId(guildId, userId)) return null;
+  const doc = await ActivityUserProfile.findOne({ guildId: String(guildId), userId: String(userId) })
+    .select("profile.totals.exp.totalExp profile.totals.exp.level")
+    .lean()
+    .catch(() => null);
+  const exp = doc?.profile?.totals?.exp;
+  if (!exp) return { totalExp: 0, level: 0, levelFromExp: 0, exists: false };
+  const repaired = repairExpTotals(exp);
+  return { ...repaired, exists: true };
+}
+
 function getNextPerkLevel(currentLevel) {
   const safeLevel = Math.max(0, Math.floor(Number(currentLevel || 0)));
   return (
@@ -136,12 +189,46 @@ function buildRoleMultipliersMerged(doc) {
   return merged;
 }
 
+function parseExpEventStartMs(value) {
+  return parseScheduleMs(value, "12:00:00");
+}
+
+function parseExpEventEndMs(value) {
+  const explicit = parseScheduleMs(value, "12:00:00");
+  if (explicit != null && /T\d{2}:\d{2}/.test(String(value || ""))) return explicit;
+  return parseScheduleEndMs(value, { endHour: 12 }) ?? parseScheduleMs(value, "23:59:59.999");
+}
+
+function getScheduledExpEvent(nowMs = Date.now()) {
+  const events = Array.isArray(botConfig?.globalExpEvents) ? botConfig.globalExpEvents : [];
+  let best = null;
+  for (const event of events) {
+    if (!event || event.enabled === false) continue;
+    const multiplier = Number(event.multiplier || 1);
+    if (!Number.isFinite(multiplier) || multiplier <= 1) continue;
+    const startMs = parseExpEventStartMs(event.startDate);
+    const endMs = parseExpEventEndMs(event.endDate);
+    if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) continue;
+    if (nowMs < startMs || nowMs > endMs) continue;
+    if (!best || multiplier > best.multiplier) {
+      best = { multiplier, expiresAt: new Date(endMs), key: String(event.key || "").trim() || null };
+    }
+  }
+  return best;
+}
+
 function normalizeSettingsDoc(doc) {
   const now = Date.now();
   const expiresAtValue = doc?.expEventMultiplierExpiresAt ? new Date(doc.expEventMultiplierExpiresAt).getTime() : null;
   const tempBoostActive = Number.isFinite(expiresAtValue) && expiresAtValue > now;
   const baseMultiplier = Number(doc?.expMultiplier || DEFAULT_MULTIPLIER);
-  const eventMultiplier = tempBoostActive ? Number(doc?.expEventMultiplier || 1) : 1;
+  const tempEventMultiplier = tempBoostActive ? Number(doc?.expEventMultiplier || 1) : 1;
+  const scheduledEvent = getScheduledExpEvent(now);
+  const scheduledEventMultiplier = Number(scheduledEvent?.multiplier || 1);
+  const eventMultiplier = Math.max(tempEventMultiplier, scheduledEventMultiplier);
+  const eventExpiresAt = scheduledEventMultiplier >= tempEventMultiplier
+    ? scheduledEvent?.expiresAt || null
+    : new Date(expiresAtValue);
   return {
     baseMultiplier:
       Number.isFinite(baseMultiplier) && baseMultiplier > 0
@@ -151,7 +238,7 @@ function normalizeSettingsDoc(doc) {
       Number.isFinite(eventMultiplier) && eventMultiplier > 0
         ? eventMultiplier
         : 1,
-    eventExpiresAt: tempBoostActive ? new Date(expiresAtValue) : null,
+    eventExpiresAt: eventMultiplier > 1 ? eventExpiresAt : null,
     lockedChannelIds: Array.isArray(doc?.expLockedChannelIds)
       ? doc.expLockedChannelIds.filter(Boolean)
       : [],
@@ -274,18 +361,35 @@ async function recordLevelHistory(guildId, userId, actorId = null, action = "upd
 }
 
 async function addExp(guildId, userId, amount, applyMultiplier = false, weeklyAmountOverride = null, options = {}) {
+  if (!isLevelExpGuild(guildId)) return null;
   if (!isValidGuildUserId(guildId, userId) || !Number.isFinite(amount)) return null;
   const now = new Date();
   const weekKey = getIsoWeekKey(now);
   const multiplier = applyMultiplier ? await getGlobalMultiplier(guildId) : 1;
-  const effective = Math.max(0, Math.floor(Number(amount))) * multiplier;
+  let effective = Math.max(0, Math.floor(Number(amount))) * multiplier;
+  const gid = String(guildId);
+  const uid = String(userId);
+  if (effective > 0) {
+    const client = options?.client || options?.guild?.client || null;
+    if (client) {
+      try {
+        const { isHogwartsShopBoostActive } = require("./hogwartsShopBoostsService");
+        const { resolveExpConsumableMultiplier } = require("./hogwartsConsumableBoostsService");
+        const { resolveSortedHouseForUser } = require("./galeoniEconomyService");
+        if (isHogwartsShopBoostActive(client)) {
+          const houseId = await resolveSortedHouseForUser(gid, uid, client).catch(() => "");
+          const consumable = await resolveExpConsumableMultiplier(client, gid, uid, houseId);
+          const consumableMult = Math.max(1, Number(consumable?.multiplier) || 1);
+          if (consumableMult > 1) effective = Math.max(0, Math.floor(effective * consumableMult));
+        }
+      } catch (_) {}
+    }
+  }
   const weeklyEffective =
     weeklyAmountOverride !== null
       ? Math.max(0, Math.floor(Number(weeklyAmountOverride)))
       : effective;
   if (effective === 0 && weeklyEffective === 0) return null;
-  const gid = String(guildId);
-  const uid = String(userId);
   const beforeRow = await ActivityUserProfile.findOne({ guildId: gid, userId: uid })
     .select("profile.totals.exp.totalExp profile.totals.exp.level")
     .lean()
@@ -300,7 +404,7 @@ async function addExp(guildId, userId, amount, applyMultiplier = false, weeklyAm
       { $max: { "profile.totals.exp.totalExp": beforeExp }, $set: { "profile.totals.exp.level": storedLevel } },
     ).catch(() => null);
   }
-  const prevLevel = getLevelInfo(beforeExp).level;
+  const prevLevel = Math.max(storedLevel, getLevelInfo(beforeExp).level);
   const eff = Math.floor(effective);
   const wk = Math.floor(weeklyEffective);
   const activityDelta = Math.max(0, Math.floor(Number(options?.activityAmount || 0)));
@@ -348,22 +452,29 @@ async function addExp(guildId, userId, amount, applyMultiplier = false, weeklyAm
     }
     fallback.profile.totals.exp.weeklyExp = Number(fallback.profile.totals.exp.weeklyExp || 0) + wk;
     const li = getLevelInfo(fallback.profile.totals.exp.totalExp);
-    fallback.profile.totals.exp.level = li.level;
+    const fallbackStoredLevel = Math.max(0, Math.floor(Number(fallback.profile.totals.exp.level || 0)));
+    const fallbackLevel = Math.max(fallbackStoredLevel, li.level);
+    fallback.profile.totals.exp.level = fallbackLevel;
+    li.level = fallbackLevel;
     await fallback.save();
     doc = fallback;
   }
   if (!doc) return null;
   const afterExp = Math.max(0, Math.floor(Number(doc.profile?.totals?.exp?.totalExp || 0)));
   const levelInfo = getLevelInfo(afterExp);
-  if (levelInfo.level !== Number(doc.profile?.totals?.exp?.level || 0)) {
+  const persistedLevel = Math.max(storedLevel, levelInfo.level);
+  if (persistedLevel !== Number(doc.profile?.totals?.exp?.level || 0)) {
     if (!doc.profile) doc.profile = {};
     if (!doc.profile.totals) doc.profile.totals = {};
     if (!doc.profile.totals.exp) doc.profile.totals.exp = {};
-    doc.profile.totals.exp.level = levelInfo.level;
+    doc.profile.totals.exp.level = persistedLevel;
+    levelInfo.level = persistedLevel;
     await ActivityUserProfile.updateOne(
       { guildId: gid, userId: uid },
-      { $set: { "profile.totals.exp.level": levelInfo.level } },
+      { $set: { "profile.totals.exp.level": persistedLevel } },
     ).catch(() => null);
+  } else if (persistedLevel > levelInfo.level) {
+    levelInfo.level = persistedLevel;
   }
   recordLevelHistory(guildId, userId, null, "update", beforeExp, afterExp, null).catch(() => null);
   return {
@@ -398,7 +509,6 @@ function getRoleMultiplier(member, settings = null) {
   return multi;
 }
 
-/** Stessa formula della classifica web / riga weekly (server + bonus ruolo oltre 1, cap 8). */
 function combineWeeklyExpMultiplier(globalExpMultiplier, roleMultiplier) {
   const globalMulti = Number(globalExpMultiplier);
   const roleMulti = Number(roleMultiplier);
@@ -437,15 +547,16 @@ async function getResolvedWeeklyExpMultiplier(guild, userId, guildSettings = nul
   return combineWeeklyExpMultiplier(globalMulti, getRoleMultiplier(member, settings));
 }
 
-function buildLevelUpEmbed(member, level) {
-  const avatarUrl = guildMemberDisplayAvatarUrlDynamic(member, { size: 256 });
+async function buildLevelUpEmbed(member, level) {
+  const avatarUrl = await resolveEmbedUserAvatarUrl(member, { size: 256 });
   const name = accountUsername(member);
   return {
     embeds: [
       {
         color: 0x6f4e37,
         title: `${name} leveled up!`,
-        ...(avatarUrl ? { thumbnail: { url: avatarUrl } } : {}),
+        thumbnail: { url: avatarUrl },
+        author: { name, icon_url: avatarUrl },
         description: [
           `<a:VC_PandaClap:1331620157398712330> **Complimenti ${member}!**`,
           `<:VC_LevelUp2:1482527047871107143> Hai appena __raggiunto__ il **livello** \`${level}\``,
@@ -460,27 +571,31 @@ async function sendLevelUpMessage(guild, member, level) {
   if (!guild || !member) return;
   const channel = await getLevelUpChannel(guild);
   if (!channel) return;
-  const payload = buildLevelUpEmbed(member, level);
+  const payload = await buildLevelUpEmbed(member, level);
   await sendLevelUpPayload(channel, member, payload);
 }
 
 async function sendLevelUpAnnouncement(guild, member, level) {
   if (!guild || !member || !Number.isFinite(level) || level < 1) return;
+  if (!isLevelExpGuild(guild.id)) return;
   if (LEVEL_ROLE_MAP.has(level)) {
+    const roleId = LEVEL_ROLE_MAP.get(level);
     await sendPerksLevelMessage(guild, member, level);
+    await sendLevelMilestoneSupportersAnnouncement(guild, member, level, roleId).catch(() => null);
   } else {
     await sendLevelUpMessage(guild, member, level);
   }
 }
 
-function buildPerksLevelEmbed(member, level, roleId) {
-  const avatarUrl = guildMemberDisplayAvatarUrlDynamic(member, { size: 256 });
+async function buildPerksLevelEmbed(member, level, roleId) {
+  const avatarUrl = await resolveEmbedUserAvatarUrl(member, { size: 256 });
   return {
     embeds: [
       {
         color: 0x6f4e37,
         title: `${accountUsername(member)} leveled up!`,
-        ...(avatarUrl ? { thumbnail: { url: avatarUrl } } : {}),
+        thumbnail: { url: avatarUrl },
+        author: { name: accountUsername(member), icon_url: avatarUrl },
         description: [
           `<a:VC_PandaClap:1331620157398712330> **Complimenti ${member}!**`,
           `<:VC_LevelUp2:1482527047871107143> Hai appena __raggiunto__ il <@&${roleId}>`,
@@ -496,19 +611,19 @@ async function sendPerksLevelMessage(guild, member, level) {
   if (!guild || !member || !roleId) return;
   const channel = await getLevelUpChannel(guild);
   if (!channel) return;
-  const payload = buildPerksLevelEmbed(member, level, roleId);
+  const payload = await buildPerksLevelEmbed(member, level, roleId);
   await sendLevelUpPayload(channel, member, payload);
 }
 
-function buildPerkNearDmEmbed(member, targetLevel, roleLabel, missingExp) {
+async function buildPerkNearDmEmbed(member, targetLevel, roleLabel, missingExp) {
   const safeRoleLabel = String(roleLabel || "<:VC_Mention:1482526855289634997> Ruolo sconosciuto").trim();
-  const perkThumb = guildMemberDisplayAvatarUrlDynamic(member, { size: 256 });
+  const perkThumb = await resolveEmbedUserAvatarUrl(member, { size: 256 });
   return {
     embeds: [
       {
         color: 0x6f4e37,
         title: "<:VC_InactiveStatus:1482526984234860574> Sei vicino a un nuovo perk!",
-        ...(perkThumb ? { thumbnail: { url: perkThumb } } : {}),
+        thumbnail: { url: perkThumb },
         description: [
           `<a:VC_PandaClap:1331620157398712330> ${member}, ci sei quasi!`,
           `<:VC_Mention:1482526855289634997> Sei vicino al ruolo **${safeRoleLabel}** (livello \`${targetLevel}\`).`,
@@ -547,9 +662,13 @@ async function maybeSendPerkNearReminder(guild, member, result) {
   const missingExp = Math.max(0, targetExp - Number(result.afterExp || 0));
   const role = guild.roles.cache.get(roleId) || (await getGuildRoleCached(guild, roleId));
   const roleLabel = role?.name || `ID ${roleId}`;
-  const payload = buildPerkNearDmEmbed(member, nextPerkLevel, roleLabel, missingExp,);
+  const payload = await buildPerkNearDmEmbed(member, nextPerkLevel, roleLabel, missingExp);
 
-  const sent = await member.user.send(payload).then(() => true).catch(() => false);
+  const sent = await sendUserDirectMessage(member.user, payload, {
+    guildId: guild.id,
+    commandsChannelId: IDs.channels.commands,
+    shouldNotifyForDiscordPrivacyBlock: async () => !(await shouldBlockDm(guild.id, member.id, "perks").catch(() => false)),
+  });
   if (!sent) return;
 
   const nextReminded = Array.from(new Set([...reminded.filter((level) => level > currentLevel), nextPerkLevel]),);
@@ -568,17 +687,22 @@ async function getLevelUpChannel(guild) {
 const EVENT_LEVEL_UP_DEBOUNCE_MS = 1800;
 const eventLevelUpPending = new Map();
 
-function scheduleEventLevelUpMessage(clientOrGuild, guildId, userId, level) {
+function scheduleEventLevelUpMessage(clientOrGuild, guildId, userId, level, prevLevel = 0) {
   if (!guildId || !userId || !Number.isFinite(level) || level < 1) return;
   const client = clientOrGuild?.client ?? clientOrGuild;
   if (!client) return;
   const key = `${String(guildId)}:${String(userId)}`;
+  const safePrev = Math.max(0, Math.floor(Number(prevLevel || 0)));
   const existing = eventLevelUpPending.get(key);
   if (existing) {
     clearTimeout(existing.timeoutId);
     level = Math.max(Number(level), Number(existing.level) || 0);
+    prevLevel = Math.min(safePrev, Math.max(0, Math.floor(Number(existing.prevLevel || 0))));
+  } else {
+    prevLevel = safePrev;
   }
   const flushLevel = Math.floor(Number(level));
+  const flushPrevLevel = Math.max(0, Math.floor(Number(prevLevel || 0)));
   const timeoutId = setTimeout(async () => {
     eventLevelUpPending.delete(key);
     try {
@@ -586,23 +710,72 @@ function scheduleEventLevelUpMessage(clientOrGuild, guildId, userId, level) {
       if (!g) return;
       const mem = await getGuildMemberCached(g, userId);
       if (!mem) return;
-      await sendLevelUpAnnouncement(g, mem, flushLevel);
+      const snapshot = await fetchUserExpSnapshot(guildId, userId).catch(() => null);
+      const announceLevel = resolveLevelUpAnnounceLevel(flushPrevLevel, flushLevel, snapshot);
+      if (!announceLevel) return;
+      await sendLevelUpAnnouncement(g, mem, announceLevel);
     } catch (err) {
       global.logger?.error?.("[expService] scheduleEventLevelUpMessage flush error:", err);
     }
   }, EVENT_LEVEL_UP_DEBOUNCE_MS);
   timeoutId.unref?.();
-  eventLevelUpPending.set(key, { timeoutId, level: flushLevel, guildId, client });
+  eventLevelUpPending.set(key, { timeoutId, level: flushLevel, prevLevel: flushPrevLevel, guildId, client });
 }
 
 async function sendLevelUpPayload(channel, member, payload) {
   if (!channel || !member || !payload) return;
-  await channel
-    .send({
+  const { applyPronounGenderToPayload } = require("../../Utils/Community/pronounGenderUtils");
+  const outgoing = applyPronounGenderToPayload(
+    {
       content: `<a:VC_LevelUp:1482527020641419415> ${member} sei salito/a di livello!`,
       ...payload,
-    })
-    .catch(() => { });
+    },
+    member,
+  );
+  await channel.send(outgoing).catch(() => { });
+}
+
+async function incrementMinigameWinCounters(guildId, userId, effectiveExp, newStreak, bestStreak) {
+  if (!isLevelExpGuild(guildId)) return null;
+  if (!isValidGuildUserId(guildId, userId)) return null;
+  const gid = String(guildId);
+  const uid = String(userId);
+  const eff = Math.max(0, Math.floor(Number(effectiveExp)));
+  if (!Number.isFinite(eff)) return null;
+  const weekKey = getIsoWeekKey(new Date());
+  const ns = Math.max(0, Math.floor(Number(newStreak)));
+  const bs = Math.max(0, Math.floor(Number(bestStreak)));
+  try {
+    const doc = await ActivityUserProfile.findOneAndUpdate(
+      { guildId: gid, userId: uid },
+      [
+        {
+          $set: {
+            guildId: { $ifNull: ["$guildId", gid] },
+            userId: { $ifNull: ["$userId", uid] },
+            "profile.totals.exp.minigame.totalExp": {
+              $add: [{ $ifNull: ["$profile.totals.exp.minigame.totalExp", 0] }, eff],
+            },
+            "profile.totals.exp.minigame.weeklyKey": weekKey,
+            "profile.totals.exp.minigame.weeklyExp": {
+              $cond: [
+                { $eq: [{ $ifNull: ["$profile.totals.exp.minigame.weeklyKey", ""] }, weekKey] },
+                { $add: [{ $ifNull: ["$profile.totals.exp.minigame.weeklyExp", 0] }, eff] },
+                eff,
+              ],
+            },
+            "profile.totals.exp.minigame.currentStreak": ns,
+            "profile.totals.exp.minigame.bestStreak": bs,
+          },
+        },
+      ],
+      { upsert: true, new: true, setDefaultsOnInsert: true },
+    );
+    return doc;
+  } catch (err) {
+    global.logger?.warn?.("[expService] incrementMinigameWinCounters failed:", err?.message || err);
+    return null;
+  }
 }
 
 async function fetchGuildMember(guild, userId) {
@@ -712,6 +885,7 @@ async function syncLevelRolesForMember(guild, userId, level) {
 
 async function addExpWithLevel(guild, userId, amount, applyMultiplier = false, includeWeekly = true, options = {}) {
   if (!guild || !userId) return null;
+  if (!isLevelExpGuild(guild.id)) return null;
   const member = await fetchGuildMember(guild, userId);
   if (member?.user?.bot) return null;
   let effectiveAmount = amount;
@@ -737,7 +911,7 @@ async function addExpWithLevel(guild, userId, amount, applyMultiplier = false, i
     effectiveAmount,
     false,
     weeklyAmount,
-    { activityAmount },
+    { activityAmount, client: guild.client, guild },
   );
   if (!result || !result.levelInfo) return result;
   if (result.levelInfo.level > (result.prevLevel ?? 0)) {
@@ -749,7 +923,18 @@ async function addExpWithLevel(guild, userId, amount, applyMultiplier = false, i
         if (!roleId) continue;
         await addLevelRoleIfPossible(member, roleId);
       }
-      scheduleEventLevelUpMessage(guild, guild.id, userId, level);
+      const inlineSnapshot = repairExpTotals({
+        totalExp: result.afterExp,
+        level: result.levelInfo.level,
+      });
+      const announceLevel = resolveLevelUpAnnounceLevel(
+        result.prevLevel ?? 0,
+        level,
+        inlineSnapshot,
+      );
+      if (announceLevel) {
+        scheduleEventLevelUpMessage(guild, guild.id, userId, announceLevel, result.prevLevel ?? 0);
+      }
       if (result.levelInfo.level >= 10) {
         await addPerkRoleIfPossible(member);
       }
@@ -886,7 +1071,7 @@ async function isChannelEligibleForMemberExp(guild, channelId) {
   return false;
 }
 
-async function shouldIgnoreExpForMember({ guildId, member, channelId = null }) {
+async function shouldIgnoreExpForMember({ guildId, member, channelId = null, skipIgnoredRoleIds = false }) {
   const settings = await getGuildExpSettings(guildId);
   const chId = channelId != null ? String(channelId) : "";
   if (chId) {
@@ -906,7 +1091,7 @@ async function shouldIgnoreExpForMember({ guildId, member, channelId = null }) {
     const allowed = await isChannelEligibleForMemberExp(guild, chId);
     if (!allowed) return true;
   }
-  if (member?.roles?.cache && settings.ignoredRoleIds.length > 0) {
+  if (!skipIgnoredRoleIds && member?.roles?.cache && settings.ignoredRoleIds.length > 0) {
     for (const roleId of settings.ignoredRoleIds) {
       if (member.roles.cache.has(roleId)) return true;
     }
@@ -970,11 +1155,7 @@ async function getUserExpStats(guildId, userId) {
     };
   }
   const now = new Date();
-  let doc = await ActivityUserProfile.findOneAndUpdate(
-    { guildId: String(guildId), userId: String(userId) },
-    { $setOnInsert: { guildId: String(guildId), userId: String(userId) } },
-    { upsert: true, new: true, setDefaultsOnInsert: true },
-  ).catch(() => null);
+  let doc = await ActivityUserProfile.findOne({ guildId: String(guildId), userId: String(userId) }).catch(() => null);
   if (!doc) {
     return {
       totalExp: 0,
@@ -990,20 +1171,21 @@ async function getUserExpStats(guildId, userId) {
   if (!doc.profile.totals) doc.profile.totals = {};
   if (!doc.profile.totals.exp) doc.profile.totals.exp = {};
   ensureWeeklyExp(doc.profile.totals.exp, now);
-  let safeTotalExp = Math.max(0, Math.floor(Number(doc.profile.totals.exp.totalExp || 0)));
-  const storedLevel = Math.max(0, Math.floor(Number(doc.profile.totals.exp.level || 0)));
-  const minExpForStoredLevel = getTotalExpForLevel(storedLevel);
-  if (storedLevel > 0 && safeTotalExp < minExpForStoredLevel) {
-    safeTotalExp = minExpForStoredLevel;
-    doc.profile.totals.exp.totalExp = safeTotalExp;
+  const repaired = repairExpTotals(doc.profile.totals.exp);
+  const levelInfo = getLevelInfo(repaired.totalExp);
+  const resolvedLevel = repaired.level;
+  const needsSave =
+    Number(doc.profile.totals.exp.totalExp || 0) !== repaired.totalExp ||
+    Number(doc.profile.totals.exp.level || 0) !== resolvedLevel;
+  if (needsSave) {
+    doc.profile.totals.exp.totalExp = repaired.totalExp;
+    doc.profile.totals.exp.level = resolvedLevel;
+    await doc.save().catch(() => null);
   }
-  const levelInfo = getLevelInfo(safeTotalExp);
-  doc.profile.totals.exp.level = Math.max(storedLevel, levelInfo.level);
-  await doc.save();
   return {
-    totalExp: Number(safeTotalExp || 0),
+    totalExp: Number(repaired.totalExp || 0),
     weeklyExp: Number(doc.profile.totals.exp.weeklyExp || 0),
-    level: Number(doc.profile.totals.exp.level || 0),
+    level: Number(resolvedLevel || 0),
     currentLevelExp: levelInfo.currentLevelExp,
     nextLevelExp: levelInfo.nextLevelExp,
     remainingToNext: levelInfo.remainingToNext,
@@ -1172,7 +1354,6 @@ function getRomeDayUtcBoundsFromContestDayKey(dayKey) {
   return { start, end };
 }
 
-/** Mezzanotte–21:00 (escluso) Europe/Rome sul `dayKey` (stesso giorno del cron bonus). */
 function getRomeActivityWindowUntil21UtcBounds(dayKey) {
   const m = String(dayKey || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (!m) return null;
@@ -1192,7 +1373,6 @@ function levelHistoryEntryTimeMs(entry) {
   return Number.isFinite(t) ? t : NaN;
 }
 
-/** Somma `deltaExp` nello storico livelli nel periodo indicato (Rome day o 00–21). */
 async function sumExpDeltaFromLevelHistoryForRomeDay(guildId, dayKey, userIds, options = {}) {
   const safeGuildId = String(guildId || "").trim();
   const bounds = options?.until21
@@ -1224,40 +1404,4 @@ async function sumExpDeltaFromLevelHistoryForRomeDay(guildId, dayKey, userIds, o
   return out;
 }
 
-module.exports = {
-  MESSAGE_EXP,
-  VOICE_EXP_PER_MINUTE,
-  addExp,
-  addExpWithLevel,
-  getUserExpStats,
-  getUserRanks,
-  getLevelInfo,
-  getTotalExpForLevel,
-  getGlobalMultiplier,
-  setGlobalMultiplier,
-  setTemporaryEventMultiplier,
-  getGuildExpSettings,
-  invalidateSettingsCache,
-  setLevelChannelLocked,
-  setRoleIgnored,
-  setRoleExpMultiplier,
-  shouldIgnoreExpForMember,
-  recordLevelHistory,
-  getRecentLevelHistory,
-  getLevelHistoryPage,
-  syncLevelRolesForMember,
-  retroSyncGuildLevels,
-  getRoleMultiplier,
-  combineWeeklyExpMultiplier,
-  getResolvedWeeklyExpMultiplier,
-  getCurrentWeekKey,
-  getIsoWeekKey,
-  ROLE_MULTIPLIERS,
-  scheduleEventLevelUpMessage,
-  sendLevelUpMessage,
-  sendLevelUpAnnouncement,
-  getTopExpGainsInPeriod,
-  getTopLevelGainsInPeriod,
-  PERIOD_LOOKBACK_DAYS,
-  sumExpDeltaFromLevelHistoryForRomeDay,
-};
+module.exports = { MESSAGE_EXP, VOICE_EXP_PER_MINUTE, isLevelExpGuild, ACTIVITY_MAIN_GUILD_ID, addExp, addExpWithLevel, getUserExpStats, getUserRanks, getLevelInfo, getTotalExpForLevel, getGlobalMultiplier, setGlobalMultiplier, setTemporaryEventMultiplier, getGuildExpSettings, invalidateSettingsCache, setLevelChannelLocked, setRoleIgnored, setRoleExpMultiplier, shouldIgnoreExpForMember, recordLevelHistory, getRecentLevelHistory, getLevelHistoryPage, syncLevelRolesForMember, retroSyncGuildLevels, getRoleMultiplier, combineWeeklyExpMultiplier, getResolvedWeeklyExpMultiplier, getCurrentWeekKey, getIsoWeekKey, incrementMinigameWinCounters, ROLE_MULTIPLIERS, scheduleEventLevelUpMessage, sendLevelUpMessage, sendLevelUpAnnouncement, getTopExpGainsInPeriod, getTopLevelGainsInPeriod, PERIOD_LOOKBACK_DAYS, sumExpDeltaFromLevelHistoryForRomeDay };

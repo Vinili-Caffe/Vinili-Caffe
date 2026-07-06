@@ -1,53 +1,70 @@
 (function () {
-  /** Allineato a Vinyls/Events/interaction/candidatureApplicationHandlers.js (APPLICATIONS). */
   var APPLICATIONS = {
     helper: {
       label: "Helper",
       questions: [
-        { id: "id_discord", text: "1. ID Discord", modalLabel: "1. ID", placeholder: "Dal profilo OAuth", kind: "short" },
-        { id: "eta", text: "2. Età", modalLabel: "2. Età", placeholder: "Scrivi la tua età", kind: "short" },
+        { 
+          id: "id_discord", 
+          text: "1. ID Discord", 
+          modalLabel: "1. ID", 
+          placeholder: "Copia e incolla il tuo ID di Discord", 
+          kind: "short" 
+        },
+        { 
+          id: "eta", 
+          text: "2. Età", 
+          modalLabel: "2. Età", 
+          placeholder: "Scrivi la tua età", 
+          kind: "short" 
+        },
         {
-          id: "staff_server",
-          text: "3. Nomina tutti i server dove sei stato staff, per quanto tempo e che ruolo avevi",
-          modalLabel: "3. Esperienze staff",
+          id: "tos_linee_guida",
+          text: "3. Cosa sono i ToS e le Linee Guida di Discord?",
+          modalLabel: "3. ToS e Linee Guida di Discord",
           placeholder: "",
           kind: "paragraph",
         },
         {
           id: "motivo_candidatura",
-          text: "4. Come mai ti sei voluto candidare su Vinili & Caffè?",
-          modalLabel: "4. Motivo candidatura",
+          text: "4. Seleziona una o più opzioni che sei disposto a intraprendere per sostenere il server",
+          modalLabel: "4. Opzioni di supporto",
+          placeholder: "Le risposte verranno prese in considerazione per determinare i ruoli nello staff.",
+          kind: "multi_choice",
+          hint: "Puoi selezionare più di un’opzione.",
+          options: [
+            { value: "Facendo attività vocale", label: "Facendo attività vocale" },
+            { value: "Scrivendo nei canali", label: "Scrivendo nei canali" },
+            { value: "Pensando a eventi per il server", label: "Pensando a eventi per il server" },
+            { value: "Giveaway di nitro, decorazioni o altro", label: "Giveaway di nitro, decorazioni o altro" },
+            { value: "Boostando il server", label: "Boostando il server" },
+            { value: "Aiutando economicamente il server", label: "Aiutando economicamente il server" },
+          ],
+        },
+        {
+          id: "gestione_community",
+          text: "5. Se hai già gestito delle community Discord, su quale tema si basavano (esempio: anime, giochi, musica, sport, ecc.)?",
+          modalLabel: "5. Gestione community",
           placeholder: "",
           kind: "paragraph",
         },
         {
-          id: "aiuto_economico",
-          text: "5. Saresti disposto ad aiutare il server economicamente?",
-          modalLabel: "5. Aiuto economico",
-          kind: "choice",
-          options: [
-            { value: "Sì", label: "Sì" },
-            { value: "No", label: "No" },
-          ],
-        },
-        {
-          id: "flame_testuale",
-          text: "6. Se due utenti si flammano a vicenda su un determinato argomento, come ti comporti? (in testuale)",
-          modalLabel: "6. Gestione flame",
+          id: "staff_altri_server",
+          text: "6. Attualmente ricopri qualche carica da staffer in altri server? Se si, indica quali",
+          modalLabel: "6. Staff in altri server",
           placeholder: "",
           kind: "paragraph",
         },
         {
           id: "comandi_dyno",
-          text: "7. Elenca i comandi di moderazioni più importanti di Dyno",
+          text: "7. Elenca i comandi di moderazioni più importanti",
           modalLabel: "7. Comandi Dyno",
           placeholder: "",
           kind: "paragraph",
         },
         {
-          id: "critica_staff",
-          text: "8. Se una persona critica il server o lo staff in maniera non idonea, come ti comporti?",
-          modalLabel: "8. Gestione critica",
+          id: "gestione_discussione",
+          text: "8. Che comportamento assumi nel caso due utenti discutessero in un canale testuale o vocale?",
+          modalLabel: "8. Gestione discussione",
           placeholder: "",
           kind: "paragraph",
         },
@@ -61,13 +78,77 @@
             { value: "No", label: "No" },
           ],
         },
-        { id: "definizione_flame", text: "10. Definizione di flame", modalLabel: "10. Definizione flame", placeholder: "", kind: "paragraph" },
-        {
-          id: "troll_pubblico",
-          text: "11. Se due utenti iniziassero a trollare in pubblico, come agiresti?",
-          modalLabel: "11. Gestione troll",
+        { id: "definizione_caps_wall_of_text", 
+          text: "10. Definisci 'caps' e 'wall of text'.",
+          modalLabel: "10. Definizione 'caps' e 'wall of text'",
           placeholder: "",
           kind: "paragraph",
+        },
+        {
+          id: "definizione_flood_spam",
+          text: "11. Definisci e scrivi la differenza sostanziale tra flood e spam.",
+          modalLabel: "11. Definizione flood e spam",
+          placeholder: "",
+          kind: "paragraph",
+        },
+        {
+          id: "compito_staffer",
+          text: "12. Secondo te, qual è il compito di uno Staffer?",
+          modalLabel: "12. Compito di uno Staffer",
+          placeholder: "",
+          kind: "paragraph",
+        },
+        {
+          id: "caratteristiche_vinili_caffe",
+          text: "13. Su cosa si basa Vinili & Caffè e quali sono le sue caratteristiche principali e punti di forza?",
+          modalLabel: "13. Caratteristiche di Vinili & Caffè",
+          placeholder: "",
+          kind: "paragraph",
+        },
+        {
+          id: "valutazione_abilita_staffer",
+          text: "14. Quanto valuti le tue abilità da Staffer?",
+          modalLabel: "14. Valutazione abilità da Staffer",
+          kind: "choice",
+          options: [
+            { value: "Pessime", label: "Pessime" },
+            { value: "Scarse", label: "Scarse" },
+            { value: "Buone", label: "Buone" },
+            { value: "Eccellenti", label: "Eccellenti" },
+          ],
+        },
+        {
+          id: "motivi_candidatura",
+          text: "15. Perchè dovremmo scegliere te? Indica due motivi per il quale la tua candidatura dovrebbe essere presa in considerazione più delle altre.",
+          modalLabel: "15. Punti di forza",
+          placeholder: "",
+          kind: "paragraph",
+        },
+        {
+          id: "fascia_oraria_disponibilita",
+          text: "16. In quale fascia oraria sei solitamente disponibile su discord?",
+          modalLabel: "16. Fascia oraria disponibile",
+          placeholder: "",
+          kind: "multi_choice",
+          hint: "Puoi selezionare più di un’opzione.",
+          options: [
+            { value: "Mattino (07:00 - 12:30)", label: "Mattino (07:00 - 12:30)" },
+            { value: "Pomeriggio (12:30 - 18:30)", label: "Pomeriggio (12:30 - 18:30)" },
+            { value: "Sera (18:30 - 00:00)", label: "Sera (18:30 - 00:00)" },
+            { value: "Notte (00:00 - 07:00)", label: "Notte (00:00 - 07:00)" },
+          ],
+        },
+        {
+          id: "tempo_dedicato_server",
+          text: "17. Quanto tempo riesci a dedicare giornalmente al server?",
+          modalLabel: "17. Tempo dedicato al server",
+          kind: "choice",
+          options: [
+            { value: "Da 1 a 3 ore", label: "Da 1 a 3 ore" },
+            { value: "Da 3 a 5 ore", label: "Da 3 a 5 ore" },
+            { value: "Da 5 a 8 ore", label: "Da 5 a 8 ore" },
+            { value: "8+ ore", label: "8+ ore" },
+          ],
         },
       ],
     },
@@ -76,24 +157,29 @@
       questions: [
         { id: "id_discord", text: "1. ID Discord", modalLabel: "1. ID", placeholder: "Dal profilo OAuth", kind: "short" },
         {
-          id: "luminous_nova",
-          text: "2. Conosci il bot Luminous Nova/SkyForce?",
-          modalLabel: "2. Luminous Nova/SkyForce",
-          kind: "choice",
-          options: [
-            { value: "Sì", label: "Sì" },
-            { value: "No", label: "No" },
-          ],
+          id: "partnership_tra_server",
+          text: "2. Descrivi brevemente come si effettua una partnership tra server",
+          modalLabel: "2. Partnership tra server",
+          placeholder: "Descrivi brevemente come si effettua una partnership tra server",
+          kind: "paragraph",
         },
         {
           id: "partner_giorno",
           text: "3. Quante partner fai al giorno?",
           modalLabel: "3. Partner al giorno",
+          placeholder: "15- / 15+",
           kind: "choice",
           options: [
             { value: "-15", label: "15-" },
             { value: "15+", label: "15+" },
           ],
+        },
+        {
+          id: "staff_altri_server",
+          text: "4. Attualmente ricopri questo ruolo anche in altri server? Se si, indica quali",
+          modalLabel: "4. Staff in altri server",
+          placeholder: "Indica quali server",
+          kind: "paragraph",
         },
       ],
     },
@@ -102,23 +188,30 @@
   var ACCESS_TOKEN_KEY = "vc_discord_access_token";
   var ACCESS_EXPIRES_KEY = "vc_discord_expires_at";
   var ACCESS_REQUIRED_PATH = "/candidature/accesso-richiesto/";
-  var ROLE_INTRO = {
-    helper:
-      '<div class="rounded-[1.2rem] border border-emerald-300/20 bg-emerald-950/20 p-4 text-sm leading-relaxed text-emerald-50/90">' +
-      '<p class="mt-0 mb-0">È vietato essere staffer in altri server.</p>' +
-      '<p class="mt-2 mb-0 font-semibold text-emerald-100">Ogni mese viene premiato uno staffer con un Nitro Boost.</p>' +
-      "</div>",
-    partnermanager:
-      '<div class="rounded-[1.2rem] border border-amber-300/20 bg-amber-950/20 p-4 text-sm leading-relaxed text-amber-50/95">' +
-      '<p class="m-0 font-semibold"><i class="fa fa-money mr-1" aria-hidden="true"></i> STAFF PAGATO</p>' +
-      '<p class="mt-2 mb-0">50 partner -> 2.50€ </p>' +
-      '<p class="mt-1 mb-0">75 partner -> 5€ o <strong>Nitro Basic</strong></p>' +
-      '<p class="mt-1 mb-0">150 partner -> <strong>Nitro Boost</strong></p>' +
-      "</div>",
-  };
-
   function byId(id) {
     return document.getElementById(id);
+  }
+
+  function hydratePartnerManagerRewardIntro(root) {
+    if (!root || !window.VCPartnerManagerRewards) return;
+    var tiers = root.querySelector("#vc-pm-reward-tiers");
+    if (!tiers) return;
+    tiers.innerHTML = window.VCPartnerManagerRewards.buildWebsiteTierHtml();
+  }
+
+  /** Contenuto markup in <template> in candidature/index.html (evita HTML in stringhe JS). */
+  function setRoleIntroFromTemplate(kind) {
+    var intro = byId("vc-candidature-role-intro");
+    if (!intro) return;
+    intro.replaceChildren();
+    var tid =
+      kind === "partnermanager"
+        ? "vc-candidature-role-intro-partnermanager"
+        : "vc-candidature-role-intro-helper";
+    var tpl = byId(tid);
+    if (!tpl || !tpl.content) return;
+    intro.appendChild(document.importNode(tpl.content, true));
+    if (kind === "partnermanager") hydratePartnerManagerRewardIntro(intro);
   }
 
   function setShuffleText(el, finalText) {
@@ -159,10 +252,22 @@
   }
 
   function getToken() {
-    var t = localStorage.getItem(ACCESS_TOKEN_KEY);
-    var exp = Number(localStorage.getItem(ACCESS_EXPIRES_KEY) || "0");
-    if (!t || !exp || Date.now() >= exp) return "";
-    return t;
+    try {
+      var t = localStorage.getItem(ACCESS_TOKEN_KEY);
+      var exp = Number(localStorage.getItem(ACCESS_EXPIRES_KEY) || "0");
+      if (!t || !exp || Date.now() >= exp) return "";
+      return t;
+    } catch (e) {
+      return "";
+    }
+  }
+
+  function oauthHashPending() {
+    try {
+      return String(window.location.hash || "").indexOf("access_token=") !== -1;
+    } catch (e2) {
+      return false;
+    }
   }
 
   function fetchMe(token) {
@@ -192,8 +297,13 @@
     } catch (e) {
       path = "";
     }
-    if (path.indexOf(ACCESS_REQUIRED_PATH) !== -1) return;
-    window.location.href = accessRequiredUrl();
+    if (path.indexOf("/candidature/accesso-richiesto") !== -1) return;
+    var dest = accessRequiredUrl();
+    try {
+      window.location.replace(dest);
+    } catch (e2) {
+      window.location.href = dest;
+    }
   }
 
   var currentUser = null;
@@ -323,14 +433,29 @@
     return Boolean(row && row.eligible === true);
   }
 
-  /** Tab ancora utilizzabile: candidatura possibile oppure messaggio cooldown su quel tipo. */
+  /** Tab selezionabile: invio possibile, oppure solo lettura (cooldown, già ruolo, blocco Helper con altri ruoli, ecc.). */
   function isKindInteractive(d, kind) {
     if (!d || d.ok !== true) return false;
     var row = kind === "partnermanager" ? d.partnermanager : d.helper;
     if (!row) return false;
     if (row.eligible === true) return true;
     var c = String(row.code || "").trim().toLowerCase();
-    return c === "cooldown";
+    if (
+      c === "cooldown" ||
+      c === "already_role" ||
+      c === "helper_blocked" ||
+      c === "no_moduli" ||
+      c === "no_member_role" ||
+      c === "helper_level" ||
+      c === "helper_tenure" ||
+      c === "helper_join_unknown" ||
+      c === "helper_requirements"
+    ) {
+      return true;
+    }
+    /* Code sconosciuto ma messaggio da API: mostra comunque tab + campi (sola lettura + avviso). */
+    if (String((row && row.message) || "").trim()) return true;
+    return false;
   }
 
   function candidatureRowCode(row) {
@@ -359,23 +484,15 @@
     return "Non puoi inviare candidature con questo account.";
   }
 
-  function syncTabDisabledState(d) {
+  function syncTabDisabledState() {
     var b1 = byId("vc-candidature-tab-helper");
     var b2 = byId("vc-candidature-tab-pm");
     if (!b1 || !b2) return;
-    if (!d || d.ok !== true) {
-      b1.disabled = false;
-      b2.disabled = false;
-      b1.removeAttribute("aria-disabled");
-      b2.removeAttribute("aria-disabled");
-      return;
-    }
-    var hOn = isKindInteractive(d, "helper");
-    var pOn = isKindInteractive(d, "partnermanager");
-    b1.disabled = !hOn;
-    b2.disabled = !pOn;
-    b1.setAttribute("aria-disabled", hOn ? "false" : "true");
-    b2.setAttribute("aria-disabled", pOn ? "false" : "true");
+    // Sempre entrambi i tab cliccabili: così si vedono i due moduli (anche già Helper/PM o con altri blocchi). L’invio resta disattivato dal bottone e dall’API.
+    b1.disabled = false;
+    b2.disabled = false;
+    b1.setAttribute("aria-disabled", "false");
+    b2.setAttribute("aria-disabled", "false");
   }
 
   function setFormInnerAndModuloTitleHidden(innerEl, hidden) {
@@ -431,7 +548,7 @@
     if (!currentUser) {
       clearGate();
       setFormInnerAndModuloTitleHidden(inner, false);
-      syncTabDisabledState(null);
+      syncTabDisabledState();
       setFieldsDisabled(false);
       if (sub) sub.disabled = false;
       return;
@@ -440,7 +557,7 @@
     if (!eligibilityApiUrl()) {
       clearGate();
       setFormInnerAndModuloTitleHidden(inner, false);
-      syncTabDisabledState(null);
+      syncTabDisabledState();
       setFieldsDisabled(false);
       if (sub) sub.disabled = false;
       return;
@@ -449,7 +566,7 @@
     if (eligibilityState.loading) {
       clearGate();
       setFormInnerAndModuloTitleHidden(inner, false);
-      syncTabDisabledState(null);
+      syncTabDisabledState();
       setFieldsDisabled(false);
       if (sub) sub.disabled = false;
       return;
@@ -457,9 +574,20 @@
 
     var d = eligibilityState.data;
     if (!d || d.ok !== true) {
+      if (currentUser && eligibilityApiUrl()) {
+        showGateMessage(
+          "amber",
+          "Non è stato possibile verificare se puoi inviare la candidatura (API non raggiungibile). Ricarica la pagina o riprova tra poco.",
+        );
+        setFormInnerAndModuloTitleHidden(inner, false);
+        syncTabDisabledState();
+        setFieldsDisabled(false);
+        if (sub) sub.disabled = true;
+        return;
+      }
       clearGate();
       setFormInnerAndModuloTitleHidden(inner, false);
-      syncTabDisabledState(null);
+      syncTabDisabledState();
       setFieldsDisabled(false);
       if (sub) sub.disabled = false;
       return;
@@ -470,8 +598,8 @@
         "amber",
         globalBlockMessage(d) || "Non puoi usare il modulo candidature con questo account.",
       );
-      setFormInnerAndModuloTitleHidden(inner, true);
-      syncTabDisabledState(d);
+      setFormInnerAndModuloTitleHidden(inner, false);
+      syncTabDisabledState();
       setFieldsDisabled(true);
       if (sub) sub.disabled = true;
       return;
@@ -480,16 +608,17 @@
     var hInteractive = isKindInteractive(d, "helper");
     var pInteractive = isKindInteractive(d, "partnermanager");
     if (!hInteractive && !pInteractive) {
-      showGateMessage("amber", buildNoApplicableMessage(d));
-      setFormInnerAndModuloTitleHidden(inner, true);
-      syncTabDisabledState(d);
+      showGateMessage("slate", buildNoApplicableMessage(d));
+      setFormInnerAndModuloTitleHidden(inner, false);
+      syncTabDisabledState();
       setFieldsDisabled(true);
       if (sub) sub.disabled = true;
+      renderFields();
       return;
     }
 
     setFormInnerAndModuloTitleHidden(inner, false);
-    syncTabDisabledState(d);
+    syncTabDisabledState();
     if (!isKindInteractive(d, activeKind)) {
       if (pInteractive) activeKind = "partnermanager";
       else if (hInteractive) activeKind = "helper";
@@ -511,6 +640,7 @@
           "Per il ruolo selezionato non puoi inviare una candidatura con questo account.",
         );
       }
+      renderFields();
       setFieldsDisabled(true);
       if (sub) sub.disabled = true;
       return;
@@ -581,20 +711,60 @@
     if (w) w.hidden = !show;
   }
 
+  function isSingleChoiceQuestion(q) {
+    return Boolean(q && q.kind === "choice" && q.options && q.options.length);
+  }
+
+  function isMultiChoiceQuestion(q) {
+    return Boolean(q && q.kind === "multi_choice" && q.options && q.options.length);
+  }
+
   function renderFields() {
     var root = byId("vc-candidature-fields");
     if (!root) return;
-    root.innerHTML = "";
-    var intro = byId("vc-candidature-role-intro");
-    if (intro) intro.innerHTML = "";
     var cfg = APPLICATIONS[activeKind];
     if (!cfg || !currentUser) return;
-    if (intro && ROLE_INTRO[activeKind]) intro.innerHTML = ROLE_INTRO[activeKind];
+    root.innerHTML = "";
+    setRoleIntroFromTemplate(activeKind);
     var uid = String(currentUser.id || "");
     cfg.questions.forEach(function (q) {
       var wrap = document.createElement("div");
       wrap.className = "vc-candidature-field";
-      if (q.kind === "choice" && q.options && q.options.length) {
+      if (isMultiChoiceQuestion(q)) {
+        var mTitle = document.createElement("div");
+        mTitle.className = "vc-candidature-label";
+        mTitle.textContent = q.text;
+        wrap.appendChild(mTitle);
+        if (q.hint) {
+          var mHint = document.createElement("p");
+          mHint.className = "vc-candidature-field-hint";
+          mHint.textContent = String(q.hint);
+          wrap.appendChild(mHint);
+        }
+        var mGroup = document.createElement("div");
+        mGroup.className = "vc-candidature-choice-group";
+        mGroup.setAttribute("role", "group");
+        mGroup.setAttribute("aria-label", q.text);
+        for (var mi = 0; mi < q.options.length; mi++) {
+          var mOpt = q.options[mi];
+          var mRow = document.createElement("label");
+          mRow.className = "vc-candidature-choice";
+          var mChk = document.createElement("input");
+          mChk.type = "checkbox";
+          mChk.id = "vc-cf-" + q.id + "-" + mi;
+          mChk.className = "vc-candidature-choice-input";
+          mChk.setAttribute("data-qid", q.id);
+          mChk.value = String(mOpt.value != null ? mOpt.value : "");
+          var mCap = document.createElement("span");
+          mCap.className = "vc-candidature-choice-label";
+          mCap.textContent = String(mOpt.label != null ? mOpt.label : mOpt.value || "");
+          mRow.appendChild(mChk);
+          mRow.appendChild(mCap);
+          mGroup.appendChild(mRow);
+        }
+        wrap.appendChild(mGroup);
+        root.appendChild(wrap);
+      } else if (isSingleChoiceQuestion(q)) {
         var title = document.createElement("div");
         title.className = "vc-candidature-label";
         title.textContent = q.text;
@@ -670,7 +840,21 @@
     var fieldsRoot = byId("vc-candidature-fields");
     var out = {};
     cfg.questions.forEach(function (q) {
-      if (q.kind === "choice" && q.options && q.options.length) {
+      if (isMultiChoiceQuestion(q)) {
+        var pickedMulti = fieldsRoot
+          ? fieldsRoot.querySelectorAll(
+              'input[type="checkbox"][data-qid="' + q.id + '"]:checked',
+            )
+          : [];
+        var multiVals = [];
+        for (var mvi = 0; mvi < pickedMulti.length; mvi++) {
+          var mv = String(pickedMulti[mvi].value || "").trim();
+          if (mv) multiVals.push(mv);
+        }
+        out[q.id] = multiVals.length ? multiVals.map(function (v) { return "• " + v; }).join("\n") : "";
+        return;
+      }
+      if (isSingleChoiceQuestion(q)) {
         var picked = fieldsRoot
           ? fieldsRoot.querySelector('input[type="radio"][name="vc-cf-' + q.id + '"]:checked')
           : null;
@@ -695,17 +879,23 @@
       }
     }
     if (!q) return byId("vc-cf-" + qid);
-    if (q.kind === "choice" && q.options && q.options.length) return byId("vc-cf-" + qid + "-0");
+    if (isMultiChoiceQuestion(q)) {
+      return (
+        document.querySelector('input[type="checkbox"][data-qid="' + qid + '"]') ||
+        byId("vc-cf-" + qid + "-0")
+      );
+    }
+    if (isSingleChoiceQuestion(q)) return byId("vc-cf-" + qid + "-0");
     return byId("vc-cf-" + qid);
   }
 
-  function firstMissingQuestionId(ans) {
+  function firstMissingQuestion(ans) {
     var cfg = APPLICATIONS[activeKind];
     for (var i = 0; i < cfg.questions.length; i++) {
       var q = cfg.questions[i];
-      if (!ans[q.id]) return q.id;
+      if (!ans[q.id]) return q;
     }
-    return "";
+    return null;
   }
 
   function setSubmitLoading(loading) {
@@ -754,7 +944,7 @@
     var untilText = formatCooldownUntil(untilMs);
     var msg = untilText
       ? "Hai già inviato una candidatura di questo tipo: attendi fino al " + untilText + "."
-      : "Hai già inviato una candidatura di questo tipo di recente: attendi il cooldown.";
+      : "Hai già inviato una candidatura di questo tipo di recente: attendi il cooldown di 15 giorni.";
     var base =
       eligibilityState && eligibilityState.data && eligibilityState.data.ok === true
         ? eligibilityState.data
@@ -798,11 +988,11 @@
       return;
     }
     var ans = collectAnswers();
-    var missingId = firstMissingQuestionId(ans);
-    if (missingId) {
-      var fieldEl = validationFocusControlForQuestion(missingId);
+    var missingQ = firstMissingQuestion(ans);
+    if (missingQ) {
+      var fieldEl = validationFocusControlForQuestion(missingQ.id);
       if (window.vcFieldValidationTip) window.vcFieldValidationTip.show(fieldEl);
-      else alert("Compila tutti i campi obbligatori.");
+      else alert("Compila tutti i campi obbligatori.\n\nManca: " + (missingQ.text || missingQ.id));
       return;
     }
     setSubmitSuccessVisible(false);
@@ -828,6 +1018,17 @@
           return;
         }
         var baseMsg = data.message || data.error || "Invio non riuscito (" + res.status + ").";
+        if (data.field) {
+          var cfgErr = APPLICATIONS[activeKind];
+          if (cfgErr && cfgErr.questions) {
+            for (var ei = 0; ei < cfgErr.questions.length; ei++) {
+              if (cfgErr.questions[ei].id === data.field) {
+                baseMsg += "\n\nCampo: " + cfgErr.questions[ei].text;
+                break;
+              }
+            }
+          }
+        }
         var hint404 = "";
         if (res.status === 404) {
           var origin = "";
@@ -916,6 +1117,10 @@
       var u = ev.detail && ev.detail.user;
       applyUser(u || null);
     });
+
+    if (oauthHashPending()) {
+      return;
+    }
 
     var t = getToken();
     if (t) {

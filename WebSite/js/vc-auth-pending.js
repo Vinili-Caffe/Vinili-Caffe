@@ -36,9 +36,21 @@
 
   if (!isBlockingSessionVerifyPage()) return;
 
+  function injectDiscordApiPreconnect() {
+    try {
+      if (document.getElementById("vc-discord-api-preconnect")) return;
+      var link = document.createElement("link");
+      link.id = "vc-discord-api-preconnect";
+      link.rel = "preconnect";
+      link.href = "https://discord.com";
+      document.head.appendChild(link);
+    } catch (ePc) {}
+  }
+
   try {
     var h = window.location.hash || "";
     if (h.indexOf("access_token=") !== -1) {
+      injectDiscordApiPreconnect();
       document.documentElement.classList.add("vc-session-verify-pending");
       return;
     }
@@ -47,6 +59,7 @@
     var t = localStorage.getItem("vc_discord_access_token");
     var exp = Number(localStorage.getItem("vc_discord_expires_at") || "0");
     if (t && exp && Date.now() < exp) {
+      injectDiscordApiPreconnect();
       document.documentElement.classList.add("vc-session-verify-pending");
     }
   } catch (e) {}

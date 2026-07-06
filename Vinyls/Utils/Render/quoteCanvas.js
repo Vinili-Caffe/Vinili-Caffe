@@ -5,7 +5,12 @@ const os = require("os");
 const { spawnSync } = require("child_process");
 const axios = require("axios");
 const ffmpegPath = require("ffmpeg-static");
-const { registerCanvasFonts, fontStack, drawTextWithSpecialFallback } = require("./canvasFonts");
+const {
+  registerCanvasFonts,
+  fontStack,
+  fontStackPrimaryOnly,
+  drawTextWithSpecialFallback,
+} = require("./canvasFonts");
 const { createCanvas } = canvasModule;
 const { safeLoadImage } = require("./safeLoadImage");
 
@@ -14,7 +19,128 @@ const QUOTE_HEIGHT = 512;
 const QUOTE_LEFT = 512;
 const QUOTE_GIF_FRAMES = 18;
 const QUOTE_GIF_FPS = 10;
+const QUOTE_INVITE_WATERMARK = "discord.gg/viniliecaffe";
 const CUSTOM_EMOJI_TOKEN_RE = /<a?:[a-zA-Z0-9_]{2,32}:\d+>/g;
+const DISCORD_EMOJI_HEAD_RE = /^<a?:[a-zA-Z0-9_]{2,32}:\d+>/;
+
+function stripFormattingForQuoteCanvas(text) {
+  let s = String(text || "");
+  s = s.replace(/```[\s\S]*?```/g, " ");
+  s = s.replace(/`([^`]*)`/g, "$1");
+  s = s.replace(/\|\|([\s\S]*?)\|\|/g, "$1");
+  s = s.replace(/\*\*([\s\S]*?)\*\*/g, "$1");
+  s = s.replace(/\*([^*\n]+)\*/g, "$1");
+  s = s.replace(/__([^\n_]+)__/g, "$1");
+  s = s.replace(/_([^_\n]+)_/g, "$1");
+  s = s.replace(/~~([^~]+)~~/g, "$1");
+  s = s.replace(/<\/?[su]>/gi, "");
+  s = s.replace(/\*\*/g, "");
+  s = s.replace(/\*/g, "");
+  s = s.replace(/__/g, "");
+  s = s.replace(/~~/g, "");
+  s = s.replace(/\|/g, "");
+  return s.replace(/\s+/g, " ").trim();
+}
+
+/** Ordine testo / emoji con spazi espliciti solo dove c’erano whitespace nel messaggio. */
+function tokenizeQuoteForWrap(raw) {
+  const tokens = [];
+  const str = String(raw || "");
+  let i = 0;
+  const n = str.length;
+  while (i < n) {
+    let hadSpace = false;
+    while (i < n && /\s/.test(str[i])) {
+      hadSpace = true;
+      i += 1;
+    }
+    if (i >= n) break;
+    if (tokens.length && hadSpace) tokens.push({ type: "text", value: " " });
+    if (str[i] === "<") {
+      const sub = str.slice(i);
+      const m = sub.match(DISCORD_EMOJI_HEAD_RE);
+      if (m) {
+        tokens.push({ type: "emoji", value: m[0] });
+        i += m[0].length;
+        continue;
+      }
+    }
+    let j = i;
+    while (j < n) {
+      if (/\s/.test(str[j])) break;
+      if (str[j] === "<") {
+        const sub = str.slice(j);
+        const m = sub.match(DISCORD_EMOJI_HEAD_RE);
+        if (m) break;
+      }
+      j += 1;
+    }
+    const chunk = str.slice(i, j);
+    if (chunk) tokens.push({ type: "text", value: chunk });
+    i = j;
+  }
+  return tokens;
+}
+
+function measureQuoteToken(ctx, token, fontSize) {
+  if (token.type === "emoji") return Math.round(fontSize * 1.05);
+  return ctx.measureText(token.value).width;
+}
+
+function expandOversizedTextTokens(ctx, tokens, maxWidth, fontSize) {
+  const out = [];
+  for (const t of tokens) {
+    if (t.type !== "text") {
+      out.push(t);
+      continue;
+    }
+    if (measureQuoteToken(ctx, t, fontSize) <= maxWidth) {
+      out.push(t);
+      continue;
+    }
+    let rest = t.value;
+    while (rest.length) {
+      let sub = "";
+      for (const c of Array.from(rest)) {
+        const test = sub + c;
+        if (ctx.measureText(test).width <= maxWidth) sub = test;
+        else break;
+      }
+      if (!sub) sub = rest.slice(0, 1);
+      out.push({ type: "text", value: sub });
+      rest = rest.slice(sub.length);
+    }
+  }
+  return out;
+}
+
+function wrapQuoteTokenLines(ctx, tokens, maxWidth, maxLines, fontSize) {
+  const expanded = expandOversizedTextTokens(ctx, tokens, maxWidth, fontSize);
+  const lines = [];
+  let line = [];
+  let lineW = 0;
+
+  const flush = () => {
+    if (line.length) {
+      lines.push(line);
+      line = [];
+      lineW = 0;
+    }
+  };
+
+  for (const t of expanded) {
+    if (t.type === "text" && t.value === "") continue;
+    const w = measureQuoteToken(ctx, t, fontSize);
+    if (line.length && lineW + w > maxWidth) {
+      flush();
+      if (lines.length >= maxLines) break;
+    }
+    line.push(t);
+    lineW += w;
+  }
+  flush();
+  return lines.slice(0, maxLines);
+}
 
 function runFfmpeg(args) {
   if (!ffmpegPath) return false;
@@ -25,47 +151,6 @@ function runFfmpeg(args) {
   return Number(out?.status) === 0;
 }
 
-function wrapLines(ctx, text, maxWidth, maxLines = Infinity) {
-  const lines = [];
-  const words = String(text || "").split(/\s+/).filter(Boolean);
-  let line = "";
-
-  const flushLine = (l) => {
-    if (l) lines.push(l);
-    return "";
-  };
-
-  for (const word of words) {
-    if (ctx.measureText(word).width > maxWidth) {
-      if (line) line = flushLine(line);
-
-      let subline = "";
-      for (const char of Array.from(word)) {
-        const test = subline + char;
-        if (ctx.measureText(test).width <= maxWidth) {
-          subline = test;
-        } else {
-          lines.push(subline);
-          subline = char;
-        }
-        if (lines.length >= maxLines) break;
-      }
-      line = subline;
-    } else {
-      const test = line ? `${line} ${word}` : word;
-      if (ctx.measureText(test).width <= maxWidth) {
-        line = test;
-      } else {
-        if (line) lines.push(line);
-        line = word;
-      }
-    }
-    if (lines.length >= maxLines) break;
-  }
-  if (line && lines.length < maxLines) lines.push(line);
-  return lines.slice(0, maxLines);
-}
-
 function emojiUrlFromToken(token) {
   const m = /^<(a?):([a-zA-Z0-9_]{2,32}):(\d+)>$/.exec(String(token || ""));
   if (!m) return null;
@@ -74,32 +159,19 @@ function emojiUrlFromToken(token) {
   return `https://cdn.discordapp.com/emojis/${id}.${animated ? "gif" : "png"}?size=64&quality=lossless`;
 }
 
-function parseLineParts(line) {
-  const parts = [];
-  const src = String(line || "");
-  let last = 0;
-  let m = null;
-  const re = new RegExp(CUSTOM_EMOJI_TOKEN_RE.source, "g");
-  while ((m = re.exec(src)) !== null) {
-    if (m.index > last) parts.push({ type: "text", value: src.slice(last, m.index) });
-    parts.push({ type: "emoji", value: m[0] });
-    last = re.lastIndex;
-  }
-  if (last < src.length) parts.push({ type: "text", value: src.slice(last) });
-  return parts;
-}
-
 function measureLineParts(ctx, parts, fontSize) {
+  ctx.font = fontStackPrimaryOnly(fontSize, "600");
   return parts.reduce((acc, part) => {
     if (part.type === "emoji") return acc + Math.round(fontSize * 1.05);
     return acc + ctx.measureText(part.value).width;
   }, 0);
 }
 
-function drawLineWithCustomEmoji(ctx, line, centerX, y, fontSize, emojiAssets) {
-  const parts = parseLineParts(line);
+function drawQuoteLineParts(ctx, parts, centerX, y, fontSize, emojiAssets) {
+  if (!parts?.length) return;
   const totalWidth = measureLineParts(ctx, parts, fontSize);
   let x = centerX - totalWidth / 2;
+  ctx.font = fontStackPrimaryOnly(fontSize, "600");
   for (const part of parts) {
     if (part.type === "emoji") {
       const img = emojiAssets?.get(part.value);
@@ -181,28 +253,29 @@ function measureQuoteLayout(message, username, footerText) {
   ctx.textAlign = "center";
   ctx.textBaseline = "top";
 
-  const mainText = String(message || "").trim();
+  const mainText = stripFormattingForQuoteCanvas(String(message || "").trim());
+  const wrapTokens = tokenizeQuoteForWrap(mainText);
   let fontSize = 34;
-  let lines = [];
+  let lineParts = [];
   let lineHeight = 40;
 
   while (fontSize >= 10) {
-    ctx.font = fontStack(fontSize, "600");
-    lines = wrapLines(ctx, mainText, maxTextWidth);
+    ctx.font = fontStackPrimaryOnly(fontSize, "600");
+    lineParts = wrapQuoteTokenLines(ctx, wrapTokens, maxTextWidth, Infinity, fontSize);
     lineHeight = Math.round(fontSize * 1.25);
-    const blockHeight = lines.length * lineHeight;
+    const blockHeight = lineParts.length * lineHeight;
     if (blockHeight <= maxBlockHeight) break;
     fontSize -= 2;
   }
 
-  const blockHeight = lines.length * lineHeight;
+  const blockHeight = lineParts.length * lineHeight;
   const lineStartY = Math.max(topMargin, (height - blockHeight) / 2);
 
   return {
     width,
     height,
     leftWidth,
-    lines,
+    lineParts,
     fontSize,
     lineHeight,
     textX,
@@ -213,12 +286,38 @@ function measureQuoteLayout(message, username, footerText) {
   };
 }
 
+function drawQuoteInviteWatermark(ctx, width, height) {
+  const padX = 20;
+  const padY = 16;
+  const fontSize = 17;
+  const x = width - padX;
+  const y = height - padY;
+  ctx.textAlign = "right";
+  ctx.textBaseline = "bottom";
+  ctx.font = fontStack(fontSize, "600");
+  const textW = ctx.measureText(QUOTE_INVITE_WATERMARK).width;
+  const bgPadX = 12;
+  const bgPadY = 7;
+  const boxH = Math.round(fontSize * 1.35) + bgPadY * 2;
+  const boxW = Math.ceil(textW) + bgPadX * 2;
+  const boxLeft = x - boxW;
+  const boxTop = y - boxH + 4;
+  ctx.fillStyle = "rgba(0,0,0,0.62)";
+  ctx.fillRect(boxLeft, boxTop, boxW, boxH);
+  drawTextWithSpecialFallback(ctx, QUOTE_INVITE_WATERMARK, x, y, {
+    size: fontSize,
+    weight: "600",
+    color: "rgba(255,255,255,0.96)",
+    forcePrimaryFont: true,
+  });
+}
+
 function drawQuoteFrame(ctx, leftImage, layout) {
   const {
     width,
     height,
     leftWidth,
-    lines,
+    lineParts,
     fontSize,
     lineHeight,
     textX,
@@ -255,11 +354,11 @@ function drawQuoteFrame(ctx, leftImage, layout) {
     forcePrimaryFont: true,
   });
 
-  ctx.font = fontStack(fontSize, "600");
+  ctx.font = fontStackPrimaryOnly(fontSize, "600");
   let y = lineStartY;
-  for (const line of lines) {
+  for (const parts of lineParts) {
     if (y + lineHeight > height - 36) break;
-    drawLineWithCustomEmoji(ctx, line, textX, y, fontSize, layout.emojiAssets);
+    drawQuoteLineParts(ctx, parts, textX, y, fontSize, layout.emojiAssets);
     y += lineHeight;
   }
 
@@ -273,6 +372,8 @@ function drawQuoteFrame(ctx, leftImage, layout) {
       forcePrimaryFont: true,
     });
   }
+
+  drawQuoteInviteWatermark(ctx, width, height);
 }
 
 async function renderSingleQuotePng(leftImage, layout) {

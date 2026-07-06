@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Slytherin">
+  <defs>
+    <linearGradient id="s" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#2d6b45"/>
+      <stop offset="100%" stop-color="#1a472a"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#s)" stroke="#aaaaaa" stroke-width="3" d="M64 8 L108 28 V72 C108 98 88 116 64 120 C40 116 20 98 20 72 V28 Z"/>
+  <text x="64" y="78" text-anchor="middle" font-family="Georgia,serif" font-size="42" font-weight="700" fill="#c0c0c0">S</text>
+</svg>

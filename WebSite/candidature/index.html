@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="it">
   <head>
 {{COOKIEYES_BLOCK}}{{GA_BLOCK}}
@@ -8,6 +8,21 @@
     <meta name="author" content="{{SITE_NAME}}" />
     <meta name="robots" content="index, follow" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+    <script>
+      (function () {
+        try {
+          if (String(location.hash || "").indexOf("access_token=") !== -1) return;
+          var p = String(location.pathname || "").replace(/\/+$/, "") || "/";
+          if (p !== "/candidature" && p !== "/candidature/index.html") return;
+          var t = localStorage.getItem("vc_discord_access_token");
+          var exp = Number(localStorage.getItem("vc_discord_expires_at") || "0");
+          if (t && exp && Date.now() < exp) return;
+          var u = new URL("/candidature/accesso-richiesto/", location.origin);
+          u.searchParams.set("from", String(location.pathname || "") + String(location.search || ""));
+          location.replace(u.href);
+        } catch (e) {}
+      })();
+    </script>
     <meta property="og:type" content="website" />
     <meta property="og:title" content="{{CANDIDATURE_OG_TITLE}}" />
     <meta property="og:description" content="{{CANDIDATURE_META_DESCRIPTION}}" />
@@ -40,7 +55,7 @@
               rel="noopener noreferrer"
               aria-label="Entra su Discord"
               ><img
-                src="../images/vc-header-logo.png"
+                src="{{GUILD_ICON_URL}}"
                 width="40"
                 height="40"
                 class="vc-header-logo-img"
@@ -72,9 +87,9 @@
                   ><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-star-o"></i></span><span>Recensioni</span></a>
                 <a class="vc-snav-row" href="{{DONATIONS_URL}}"
                   ><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-heart-o"></i></span><span>Donazioni</span></a>
+                <a class="vc-snav-row" href="{{PERKS_URL}}"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-diamond"></i></span><span>Perks</span></a>
               </div>
             </details>
-            <span class="vc-snav-sep mx-0.5 hidden h-5 w-px shrink-0 bg-white/15 sm:inline-block" aria-hidden="true"></span>
             <details class="vc-snav-details">
               <summary class="vc-snav-summary"><span>Community</span><i class="fa fa-chevron-down vc-snav-chev text-[0.65rem] opacity-80" aria-hidden="true"></i></summary>
               <div class="vc-snav-panel">
@@ -88,7 +103,6 @@
                   ><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-question-circle"></i></span><span>FAQ</span></a>
               </div>
             </details>
-            <span class="vc-snav-sep mx-0.5 hidden h-5 w-px shrink-0 bg-white/15 sm:inline-block" aria-hidden="true"></span>
             <details class="vc-snav-details vc-snav-details--current">
               <summary class="vc-snav-summary"><span>Richieste</span><i class="fa fa-chevron-down vc-snav-chev text-[0.65rem] opacity-80" aria-hidden="true"></i></summary>
               <div class="vc-snav-panel">
@@ -154,9 +168,9 @@
             <div class="vc-support-page-hero__icon vc-support-page-hero__icon--start vc-candidature-hero-users mb-5" aria-hidden="true">
               <i class="fa fa-users"></i>
             </div>
-            <p class="text-xs font-semibold uppercase tracking-[0.28em] text-emerald-200/70">Richieste allo staff</p>
+            <p class="text-xs font-semibold uppercase tracking-[0.28em] text-[#c9a88e]/90">Richieste allo staff</p>
             <h1 id="vc-candidature-hero-heading" class="mt-4 text-4xl font-extrabold tracking-tight text-white sm:text-5xl lg:text-6xl">
-              Candidatura <span class="text-emerald-300">staff</span>
+              Candidatura <span class="text-[#e8c9a8]">staff</span>
             </h1>
             <p id="candidature-welcome" class="mt-5 max-w-2xl text-lg leading-8 text-slate-200/88 sm:text-xl">
               Accedi con Discord per compilare il modulo.
@@ -173,27 +187,10 @@
             </div>
           </div>
           <div class="grid gap-4">
-            <div class="vc-candidature-available-roles rounded-[1.6rem] border border-white/10 bg-slate-950/25 px-5 py-5 backdrop-blur">
-              <p class="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-200/70">Ruoli disponibili</p>
-              <ul class="mt-4 grid gap-2 text-sm leading-snug text-slate-100/90" role="list">
-                <li class="flex min-h-[2.75rem] items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.025] px-3 py-2 sm:px-3.5 sm:py-2.5">
-                  <span class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-500/[0.12] text-[0.95rem] text-emerald-300/95" aria-hidden="true">
-                    <i class="fa fa-life-ring"></i>
-                  </span>
-                  <span class="min-w-0 font-semibold tracking-tight text-white">Helper</span>
-                </li>
-                <li class="flex min-h-[2.75rem] items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.025] px-3 py-2 sm:px-3.5 sm:py-2.5">
-                  <span class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-500/[0.12] text-[0.95rem] text-emerald-300/95" aria-hidden="true">
-                    <i class="fa fa-handshake-o"></i>
-                  </span>
-                  <span class="min-w-0 font-semibold tracking-tight text-white">Partner Manager</span>
-                </li>
-              </ul>
-            </div>
             <div class="rounded-[1.6rem] border border-white/10 bg-white/[0.04] px-5 py-5 backdrop-blur">
               <p class="text-xs font-semibold uppercase tracking-[0.22em] text-slate-300/70">Esito</p>
               <p class="mt-4 text-sm leading-relaxed text-slate-200/85">
-                Saprai se sei stato selezionato tramite il canale nel server: se non ricevi risposta entro <strong class="text-white">7 giorni</strong>, potrai rifare la candidatura.
+                L’esito della tua candidatura sarà disponibile direttamente sul server. In caso di mancata comunicazione entro <strong class="text-white">15 giorni</strong>, potrai ritentare la candidatura.
               </p>
             </div>
           </div>
@@ -202,7 +199,7 @@
 
       <section class="vc-candidature-req-shell rounded-[1.5rem] border border-white/10 bg-white/[0.05] p-5 shadow-[0_18px_48px_rgba(0,0,0,0.18)] backdrop-blur sm:p-6" aria-labelledby="candidature-requisiti-title">
         <h2 id="candidature-requisiti-title" class="flex items-center gap-2 text-lg font-bold text-white">
-          <i class="fa fa-bookmark text-emerald-300/90" aria-hidden="true"></i> Requisiti
+          <i class="fa fa-bookmark text-[#d4a888]" aria-hidden="true"></i> Requisiti
         </h2>
         <p class="mt-3 text-sm leading-relaxed text-slate-300">
           Su <strong class="text-slate-200">{{SITE_NAME}}</strong> puoi candidarti a <strong class="text-slate-200">due</strong> ruoli:
@@ -215,9 +212,9 @@
           </li>
           <li>
             <span class="vc-candidature-req-body">Rispettare i
-              <a class="font-semibold text-emerald-300/95 underline decoration-emerald-500/40 underline-offset-2 hover:text-emerald-200" href="https://discord.com/terms" target="_blank" rel="noopener noreferrer">ToS</a>
+              <a class="font-semibold text-[#e8c9a8] underline decoration-[#d4a888]/45 underline-offset-2 hover:text-[#f5e6d6]" href="https://discord.com/terms" target="_blank" rel="noopener noreferrer">ToS</a>
               e le
-              <a class="font-semibold text-emerald-300/95 underline decoration-emerald-500/40 underline-offset-2 hover:text-emerald-200" href="https://discord.com/guidelines" target="_blank" rel="noopener noreferrer">Linee Guida</a>
+              <a class="font-semibold text-[#e8c9a8] underline decoration-[#d4a888]/45 underline-offset-2 hover:text-[#f5e6d6]" href="https://discord.com/guidelines" target="_blank" rel="noopener noreferrer">Linee Guida</a>
               di Discord</span>
           </li>
           <li>
@@ -225,6 +222,10 @@
           </li>
           <li>
             <span class="vc-candidature-req-body">Non essere mai stato <strong class="text-white">sanzionato</strong> nel server</span>
+          </li>
+          <li>
+            <span class="vc-candidature-req-body">Aver raggiunto almeno il <strong class="text-white">livello 10</strong> ed essere nel server da almeno <strong class="text-white">2 settimane</strong> (solo per Helper)</span>
+          </li>
         </ol>
       </section>
 
@@ -235,7 +236,7 @@
           <i class="fa fa-check-circle-o vc-candidature-success-ico" aria-hidden="true"></i>
           <div>
             <p class="vc-candidature-success-title">Candidatura inviata con successo!</p>
-            <p class="vc-candidature-success-text">Il nostro staff esaminerà attentamente la tua candidatura. Se non ricevi risposta entro 7 giorni, potrai riprovare la candidatura.</p>
+            <p class="vc-candidature-success-text">Il nostro staff esaminerà attentamente la tua candidatura. Se non ricevi risposta entro 15 giorni, potrai riprovare la candidatura.</p>
           </div>
         </div>
 
@@ -265,11 +266,11 @@
           <i class="fa fa-paper-plane-o" aria-hidden="true"></i> Invia candidatura
         </button>
 
-        <div class="mt-6 rounded-[1.6rem] border border-amber-300/20 bg-amber-950/25 p-4 text-sm text-amber-50/95">
-          <p class="m-0 flex gap-2 font-semibold">
+        <div class="mt-6 rounded-[1.6rem] border border-[#d4a888]/22 bg-[#1a120d]/72 p-4 text-sm text-slate-100">
+          <p class="m-0 flex gap-2 font-semibold text-[#e8c9a8]">
             <i class="fa fa-exclamation-circle mt-0.5 shrink-0" aria-hidden="true"></i> Informazioni importanti
           </p>
-          <p class="mb-0 mt-2 leading-relaxed text-amber-50/88">
+          <p class="mb-0 mt-2 leading-relaxed text-slate-200/90">
             Non aprire ticket e non pingare lo staff per chiedere l’esito della candidatura.
           </p>
         </div>
@@ -278,7 +279,7 @@
 
       <div class="mt-10 flex justify-center">
         <a
-          class="inline-flex min-h-[3.4rem] items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-6 py-3 text-sm font-bold text-white shadow-[0_8px_30px_rgba(0,0,0,0.35)] transition hover:border-emerald-400/35 hover:bg-white/[0.08] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400/50"
+          class="inline-flex min-h-[3.4rem] items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-6 py-3 text-sm font-bold text-white shadow-[0_8px_30px_rgba(0,0,0,0.35)] transition hover:border-[#d4a888]/40 hover:bg-white/[0.08] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#d4a888]/55"
           href="{{SITE_URL}}"
           ><i class="fa fa-home" aria-hidden="true"></i> Torna alla home</a>
       </div>
@@ -304,6 +305,24 @@
       </div>
     </footer>
 {{LIVE_STATS_BOOT_WIKI}}
+    <template id="vc-candidature-role-intro-helper">
+      <div class="rounded-[1.2rem] border border-[#d4a888]/22 bg-[#1a120d]/78 p-4 text-sm leading-relaxed text-slate-100">
+        <p class="mt-2 mb-0">Candidandoti come Helper effettuerai una prova di 1-2 settimane. È richiesta la massima priorità per essere staffer.</p>
+        <p class="mt-2 mb-0 font-semibold text-[#e8c9a8]">Ogni mese viene premiato uno staffer con un Nitro Boost.</p>
+      </div>
+    </template>
+    <template id="vc-candidature-role-intro-partnermanager">
+      <div class="rounded-[1.2rem] border border-[#d4a888]/22 bg-[#1a120d]/78 p-4 text-sm leading-relaxed text-slate-100">
+        <p class="m-0 font-semibold text-[#e8c9a8]"><i class="fa fa-money mr-1" aria-hidden="true"></i> STAFF PAGATO</p>
+        <div id="vc-pm-reward-tiers">
+        <p class="mt-2 mb-0">50 partner → Custom Role &amp; Custom Voc per 30 giorni</p>
+        <p class="mt-1 mb-0">100 partner → Ruolo <span class="vc-sponsor-mention">༄ VIP</span> per 30 giorni</p>
+        <p class="mt-1 mb-0">150 partner → <strong>Decorazione a scelta (max 15,99 €)</strong></p>
+        <p class="mt-1 mb-0">200 partner → <strong>Nitro Boost</strong></p>
+        <p class="mt-1 mb-0">250 partner → <strong>5€ PayPal</strong></p>
+        </div>
+      </div>
+    </template>
     <script>
       window.__VC_AUTH = {
         clientId: "{{DISCORD_OAUTH_CLIENT_ID}}",
@@ -319,9 +338,11 @@
         submitApiUrlLocal: "{{CANDIDATURE_SUBMIT_API_URL_LOCAL}}",
       };
     </script>
+    <script src="../js/partner-manager-reward-tiers.js" defer></script>
     <script src="../js/form-field-validation-tip.js" defer></script>
     <script src="../js/candidature-page.js" defer></script>
-    <script src="../js/discord-auth.js" defer></script>
+    <script src="../js/discord-auth.js" defer></script>  <script src="../js/vc-cursor-trail.js" defer></script>
+
     <script src="../js/vc-landing.js" defer></script>
   </body>
 </html>

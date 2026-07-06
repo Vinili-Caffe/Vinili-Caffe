@@ -166,3 +166,16 @@ Lavalink/plugins/
 
 # Deploy
 .deploy/tools/
+deploy/tools/
+
+# Bot runtime state (rigenerato a ogni avvio / sul VPS)
+**/Data/*Snapshot*.json
+**/*.wal
+Coffee/Data/markov/
+Coffee/Data/voiceTranscriptionCheckpoint.json
+Vinyls/Data/Backups/**
+!Vinyls/Data/Backups/.gitkeep
+Vinyls/Data/Hogwarts/*.jsonl
+Vinyls/Data/noDmList.json*
+Vinyls/Data/ticketReopenOutsideSessions.json*
+shared/discord/chatHubPacing.snapshot.json

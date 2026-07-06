@@ -1,26 +1,19 @@
-/**
- * JSON per il sito (/regole): allineato a MOD_RULE_DETAIL e a info_rules nei bottoni staff.
- */
 const { MOD_RULE_DETAIL } = require("../Moderation/modRegolamentoConstants");
-
 const MOD_RULE_TITLE_IT = {
-  "1.1": "Discord ToS e linee guida",
-  "1.2": "Discriminazione e linguaggio",
+  "1.1": "ToS e Linee Guida di Discord",
+  "1.2": "Discriminazione e linguaggio offensivo",
   "1.3": "Rispetto verso utenti e staff",
-  "1.4": "Auto-promozione",
+  "1.4": "Spam nel server o in DM",
   "1.5": "Uscire e rientrare dal server",
-  "2.1": "Contenuti vietati in chat",
-  "2.2": "Toxicity e troll",
-  "2.3": "Link, virus e sponsor",
-  "2.4": "Flood e wall of text",
-  "2.5": "Parolacce e bestemmie",
-  "3.1": "Contenuti sensibili in vocale",
-  "3.2": "Toxicity in vocale",
-  "3.3": "Musica e bot in vocale",
-  "3.4": "Soundboard e voice changer",
-  "3.5": "Microfono disturbante",
-  "3.6": "Parolacce in vocale",
-  "3.7": "Uscire e rientrare dalle vocali",
+  "2.1": "Doxing e contenuti NSFW o dati sensibili",
+  "2.2": "Link, file eseguibili e materiale illecito",
+  "2.3": "Flood e Wall of Text",
+  "2.4": "Parolacce, bestemmie e insulti",
+  "3.1": "Contenuti NSFW o dati sensibili in vocale",
+  "3.2": "Comportamenti scorretti in vocale",
+  "3.3": "Errape, SoundBoard e VoiceChanger",
+  "3.4": "Uscire e rientrare dalle vocali",
+  "3.6": "AFK in vocale",
 };
 
 const ICON_BY_ID = {
@@ -30,17 +23,14 @@ const ICON_BY_ID = {
   "1.4": "bullhorn",
   "1.5": "refresh",
   "2.1": "ban",
-  "2.2": "comments",
-  "2.3": "link",
-  "2.4": "align-left",
-  "2.5": "warning",
+  "2.2": "link",
+  "2.3": "align-left",
+  "2.4": "warning",
   "3.1": "eye-slash",
-  "3.2": "comments",
-  "3.3": "music",
-  "3.4": "volume-off",
-  "3.5": "microphone",
-  "3.6": "warning",
-  "3.7": "refresh",
+  "3.2": "music",
+  "3.3": "volume-off",
+  "3.4": "refresh",
+  "3.6": "microphone",
 };
 
 function stripDiscordMarkup(s) {
@@ -75,26 +65,9 @@ function sortRuleIds(ids) {
   });
 }
 
-/** Anteprima chiusa: prima frase o troncamento; corpo = testo completo. */
-function defaultSummaryFromBody(body) {
-  const d = String(body || "").trim();
-  if (!d) return { summary: "", body: "" };
-  const max = 130;
-  const dot = d.indexOf(". ");
-  if (dot > 8 && dot < max + 40) {
-    return { summary: d.slice(0, dot + 1).trim(), body: d };
-  }
-  if (d.length <= max) return { summary: d, body: d };
-  const cut = d.slice(0, max - 1).trim();
-  const sp = cut.lastIndexOf(" ");
-  const head = sp > 40 ? cut.slice(0, sp) : cut;
-  return { summary: `${head}…`, body: d };
-}
-
 const SITE_RULE_OVERRIDES = {
   "1.1": {
     title: "Discord ToS",
-    summary: "Rispetta i Termini di Servizio di Discord.",
     body:
       "Rispetta i Termini di Servizio di Discord, dove vengono elencate tutte le regole che vanno rispettate all'interno della piattaforma. La violazione dei ToS di Discord comporta sanzioni anche sul nostro server.",
     links: [
@@ -111,8 +84,6 @@ function buildCommunityRulesSitePayload() {
     const raw = stripDiscordMarkup(MOD_RULE_DETAIL[id]);
     const ov = SITE_RULE_OVERRIDES[id] || {};
     const body = String(ov.body != null ? ov.body : raw).trim();
-    const summaryRaw = ov.summary != null ? String(ov.summary).trim() : defaultSummaryFromBody(raw).summary;
-    const summary = summaryRaw || body;
     const title = String(ov.title || "").trim() || MOD_RULE_TITLE_IT[id] || `Regola ${id}`;
     const links = Array.isArray(ov.links) ? ov.links : [];
     const out = {
@@ -120,7 +91,6 @@ function buildCommunityRulesSitePayload() {
       category,
       tag: tagLabelForCategory(category),
       title,
-      summary,
       body,
       icon: ICON_BY_ID[id] || "file-text-o",
     };
@@ -130,7 +100,7 @@ function buildCommunityRulesSitePayload() {
   return {
     ok: true,
     disclaimer:
-      "Lo staff si riserva il diritto di cambiare sanzioni e regole in base alla situazione.",
+      "Lo staff si riserva il diritto di cambiare le sanzioni e le regole in base alla situazione. Entrando nel server, accetti di rispettare le regole e le sanzioni.",
     categories: [
       { id: "generale", label: "Generali", icon: "shield" },
       { id: "testuali", label: "Chat testuali", icon: "comments" },

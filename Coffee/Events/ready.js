@@ -1,52 +1,10 @@
-const mongoose = require("mongoose");
 const { logBotReady } = require("../../shared/discord/readyLog");
 const { restoreTtsConnections } = require("../Services/TTS/ttsService");
 const { startHourlyReminderLoop } = require("../Services/Community/chatReminderService");
-
-const PRESENCE_STATE = "☕📀 discord.gg/viniliecaffe";
-const PRESENCE_TYPE_CUSTOM = 4;
-
-async function setPresence(client) {
-  try {
-    client.user.setPresence({
-      status: client.config?.status || "idle",
-      activities: [
-        {
-          type: PRESENCE_TYPE_CUSTOM,
-          name: "idle",
-          state: PRESENCE_STATE,
-        },
-      ],
-    });
-  } catch (err) {
-    client.logs.error(
-      "[STATUS] Errore impostazione presence:",
-      err?.message || err,
-    );
-  }
-}
-
-async function connectMongo(client) {
-  const mongodbURL =
-    process.env.MONGO_URL_LOCAL ||
-    process.env.MONGODB_URI_LOCAL ||
-    process.env.MONGO_URL ||
-    process.env.MONGODB_URI ||
-    client.config.mongoURL;
-  if (!mongodbURL) {
-    global.logger.warn(" MONGO_URL o MONGO_URL_LOCAL non impostato.");
-    return;
-  }
-
-  try {
-    await mongoose.connect(mongodbURL, {
-      serverSelectionTimeoutMS: 15000,
-      connectTimeoutMS: 15000,
-    });
-  } catch (err) {
-    global.logger.error(" MongoDB:", err.message);
-  }
-}
+const { restoreStanzaRoomsFromSnapshot } = require("../Services/Voice/stanzaVoiceRoomsService");
+const { restorePendingVoiceTranscriptions } = require("../Services/Voice/voiceTranscriptionService");
+const { printRecoveryHealthOnce } = require("../../shared/recovery/recoveryHealth");
+const { isMongoReady } = require("../../Vinyls/Utils/Database/mongoConnect");
 
 async function restoreTtsState(client) {
   await restoreTtsConnections(client);
@@ -59,13 +17,49 @@ module.exports = {
     const activeClient = client || _readyClient;
     logBotReady(activeClient);
 
-    await setPresence(activeClient);
-    await connectMongo(activeClient);
+    if (!isMongoReady()) {
+      global.logger?.error?.("[DATABASE] Startup aborted: MongoDB not connected.");
+      return;
+    }
     await restoreTtsState(activeClient);
+    void restorePendingVoiceTranscriptions(activeClient).catch((err) => {
+      global.logger?.warn?.("[VOICE TRANSCRIBE] restore failed:", err?.message || err);
+    });
+    const { applyBotPresence, schedulePresenceStabilization, installBotPresenceKeeper } = require("../../shared/discord/botPresenceActivity");
+    const { syncForbiddenSectionPresence, startForbiddenSectionPresenceLoop } = require("../../Vinyls/Services/Community/hogwartsForbiddenSectionChannelService");
+    await syncForbiddenSectionPresence(activeClient).catch((err) => {
+      global.logger?.warn?.("[FORBIDDEN CHANNELS] presence sync failed:", err?.message || err);
+    });
+    await applyBotPresence(activeClient);
+    installBotPresenceKeeper(activeClient);
+    schedulePresenceStabilization(activeClient);
+    void restoreStanzaRoomsFromSnapshot(activeClient).catch((err) => {
+      global.logger?.warn?.("[stanza] snapshot restore failed:", err?.message || err);
+    });
     try {
       startHourlyReminderLoop(activeClient);
     } catch (err) {
       global.logger?.error?.("[CHAT REMINDER] Failed to start hourly loop:", err?.message || err);
     }
+    try {
+      startForbiddenSectionPresenceLoop(activeClient);
+    } catch (err) {
+      global.logger?.error?.("[FORBIDDEN CHANNELS] Failed to start presence loop:", err?.message || err);
+    }
+    try {
+      const { initLavalinkMusicIfEnabled } = require("../Services/Music/lavalinkMusicService");
+      initLavalinkMusicIfEnabled(activeClient);
+    } catch (err) {
+      global.logger?.warn?.("[MUSIC] init:", err?.message || err);
+    }
+    try {
+      const { startMarkovKeeperHttpServer } = require("../Services/Community/markovKeeperHttpService");
+      const { startMarkovBackfill } = require("../Services/Community/markovMessageCollectorService");
+      startMarkovKeeperHttpServer(activeClient);
+      startMarkovBackfill(activeClient);
+    } catch (err) {
+      global.logger?.warn?.("[MARKOV] init:", err?.message || err);
+    }
+    printRecoveryHealthOnce("COFFEE_RECOVERY_HEALTH");
   },
 };

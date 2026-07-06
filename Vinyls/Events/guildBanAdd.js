@@ -1,9 +1,8 @@
 const { AuditLogEvent, EmbedBuilder } = require("discord.js");
-const { ARROW, buildAuditExtraLines } = require("../Utils/Logging/channelRolesLogUtils");
+const { buildAuditExtraLines } = require("../Utils/Logging/channelRolesLogUtils");
 const { resolveModLogChannel, fetchRecentAuditEntry, formatResponsible, nowDiscordTs, } = require("../Utils/Logging/modAuditLogUtils");
 const { handleKickBanAction: antiNukeHandleKickBanAction } = require("../Services/Moderation/antiNukeService");
-const Ticket = require("../Schemas/Ticket/ticketSchema");
-const { getClientChannelCached } = require("../Utils/Interaction/interactionEntityCache");
+const { closeOpenTicketsForGuildUser } = require("../Utils/Ticket/ticketCloseRuntime");
 
 function sleep(ms) {
   return new Promise((resolve) => {
@@ -29,42 +28,11 @@ function normalizeReason(value) {
 }
 
 async function closeOpenTicketsForBannedUser(guild, userId, reason = null) {
-  if (!guild || !userId) return { closed: 0 };
-  const openTickets = await Ticket.find({
-    guildId: String(guild.id),
-    userId: String(userId),
-    open: true,
-  }).limit(30).lean().catch(() => []);
-  if (!Array.isArray(openTickets) || openTickets.length === 0) return { closed: 0 };
-
-  let closed = 0;
-  for (const ticket of openTickets) {
-    try {
-      const channelId = String(ticket?.channelId || "");
-      const channel = channelId
-        ? (guild.channels.cache.get(channelId) || (await getClientChannelCached(guild.client, channelId)))
-        : null;
-
-      await Ticket.updateOne(
-        { _id: ticket._id, guildId: String(guild.id), open: true },
-        {
-          $set: {
-            open: false,
-            closedAt: new Date(),
-            closeReason: reason || "Ticket chiuso automaticamente: utente bannato.",
-            closedBy: "system:ban",
-          },
-        },
-      ).catch(() => ({ modifiedCount: 0 }));
-
-      if (channel?.deletable) {
-        await channel.delete(`Ticket auto-chiuso: utente bannato (${userId})`).catch(() => { });
-      }
-      closed += 1;
-    } catch {
-    }
-  }
-  return { closed };
+  return closeOpenTicketsForGuildUser(guild, userId, {
+    closeReason: reason || "Ticket chiuso automaticamente: utente bannato.",
+    closedBy: "system:ban",
+    deleteReason: `Ticket chiuso automaticamente: utente bannato (${userId})`,
+  });
 }
 
 module.exports = {
@@ -90,12 +58,12 @@ module.exports = {
 
         const embed = new EmbedBuilder()
         .setColor("#ED4245")
-        .setTitle("Member Banned")
-        .setDescription([`${ARROW} **Responsible:** ${responsible}`,
-              `${ARROW} **Target:** ${ban.user || "sconosciuto"}\`${targetId}\``,
-              `${ARROW} ${nowDiscordTs()}`,
-              reason ? `${ARROW} **Reason:** ${reason}` : null,
-              ticketClose?.closed ? `${ARROW} **Ticket chiusi automaticamente:** ${ticketClose.closed}` : null,
+        .setTitle("<:VC_User:1482527453586002103> Member Banned")
+        .setDescription([`<:VC_Staff:1494286904089247754> **Responsabile:** ${responsible}`,
+              `<:VC_User:1482527453586002103> **Utente:** ${ban.user || "sconosciuto"}\`${targetId}\``,
+              `<:VC_Clock:1473359204189474886> ${nowDiscordTs()}`,
+              reason ? `<:VC_reason:1478517122929004544> **Motivo:** ${reason}` : null,
+              ticketClose?.closed ? `<:VC_Info:1482526956703580372> **Ticket chiuso:** ${ticketClose.closed}` : null,
               ...buildAuditExtraLines(auditEntry, ["reason"]),
             ]
               .filter(Boolean)
@@ -104,11 +72,7 @@ module.exports = {
         await logChannel.send({ embeds: [embed] }).catch(() => {});
       }
       await antiNukeHandleKickBanAction({
-        guild,
-        executorId,
-        action: "ban",
-        targetId,
-      });
+        guild: guild, executorId: executorId, action: "ban", targetId: targetId });
     } catch (error) {
       global.logger?.error?.("[guildBanAdd] failed:", error);
     }

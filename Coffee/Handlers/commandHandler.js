@@ -5,7 +5,7 @@ const path = require("path");
 const ascii = require("ascii-table");
 const IDs = require("../Utils/Config/ids");
 const { clearCommandDeployCache, isCommandDeployRequired, markCommandDeployComplete } = require("../../shared/runtime/commandDeployCache");
-
+const { purgeObsoleteApplicationCommands } = require("../../shared/discord/purgeObsoleteApplicationCommands");
 const LOG_COMMANDS = String(process.env.LOG_COMMANDS || "0") === "1";
 
 function toArrayUnique(values = []) {
@@ -75,6 +75,7 @@ module.exports = (client) => {
       for (const [key, status] of Array.from(statusMap.entries()).sort((a, b) =>
         a[0].localeCompare(b[0]),
       )) {
+        if (status === "Skipped") continue;
         const [folder, file] = key.split("/");
         table.addRow(folder, file, status);
       }
@@ -104,50 +105,68 @@ module.exports = (client) => {
     if (!clientId) return;
 
     const allowedGuildIds = toArrayUnique([IDs?.guilds?.main, IDs?.guilds?.test]);
+
     const forceDeployEmpty = client.commandArray.length === 0;
     if (forceDeployEmpty) {
       clearCommandDeployCache(BOT_DEPLOY_CACHE_KEY);
-      if (LOG_COMMANDS) global.logger?.info?.("[COMMANDS] Lista slash vuota: cache deploy azzerata per forzare invio lista vuota a Discord (rimozione comandi fantasma).");
+      if (LOG_COMMANDS) global.logger?.info?.("[COMMANDS] Lista slash vuota: cache deploy azzerata per forzare invio lista vuota a Discord.");
       try {
         await rest.put(Routes.applicationCommands(clientId), { body: [] });
         const globalCheck = isCommandDeployRequired(BOT_DEPLOY_CACHE_KEY, { clientId }, []);
         markCommandDeployComplete(BOT_DEPLOY_CACHE_KEY, { clientId }, globalCheck.hash);
-        if (LOG_COMMANDS) global.logger?.info?.("[COMMANDS] Comandi globali azzerati (rimozione /backup e altri fantasmi a livello app).");
+        if (LOG_COMMANDS) global.logger?.info?.("[COMMANDS] Comandi globali azzerati.");
       } catch (err) {
         if (Number(err?.code) === 50001 || Number(err?.status) === 403) {
-          if (LOG_COMMANDS) global.logger?.warn?.("[COMMANDS] Skip azzeramento comandi globali: Missing Access.");
+          if (LOG_COMMANDS) global.logger?.warn?.("[COMMANDS] Skip clearing global commands: Missing Access.");
         } else {
-          global.logger?.error?.("[COMMANDS] Errore azzeramento comandi globali:", err);
+          global.logger?.error?.("[COMMANDS] Failed to clear global commands:", err);
         }
       }
     }
-    for (const guildId of allowedGuildIds) {
-      const deployCheck = isCommandDeployRequired(BOT_DEPLOY_CACHE_KEY,{clientId,guildId},client.commandArray,);
-      const forceDeploy = shouldForceSlashDeploy() || forceDeployEmpty;
-      if (!deployCheck.required && !forceDeploy) {
-        if (LOG_COMMANDS) global.logger?.info?.(`[COMMANDS] Nessuna modifica ai comandi per guild ${guildId}, deploy REST saltato. scope=${deployCheck.scopeKey} hash=${deployCheck.hash}`);
-        continue;
-      }
-      if (LOG_COMMANDS) global.logger?.info?.(`[COMMANDS] Deploy slash richiesto. scope=${deployCheck.scopeKey} prev=${deployCheck.previousHash || "none"} next=${deployCheck.hash}${forceDeploy ? " force=true" : ""}`);
+
+    const globalDeployCheck = isCommandDeployRequired(
+      BOT_DEPLOY_CACHE_KEY,
+      { clientId, guildId: "global" },
+      client.commandArray,
+    );
+    const forceGlobalDeploy = shouldForceSlashDeploy();
+    if (globalDeployCheck.required || forceGlobalDeploy) {
       try {
-        await rest.put(Routes.applicationGuildCommands(clientId, guildId), {
+        await rest.put(Routes.applicationCommands(clientId), {
           body: client.commandArray,
         });
         markCommandDeployComplete(
           BOT_DEPLOY_CACHE_KEY,
-          { clientId, guildId },
-          deployCheck.hash,
+          { clientId, guildId: "global" },
+          globalDeployCheck.hash,
         );
+        if (LOG_COMMANDS) global.logger?.info?.(`[COMMANDS] Global slash commands deployed. scope=${globalDeployCheck.scopeKey} hash=${globalDeployCheck.hash}${forceGlobalDeploy ? " force=true" : ""}`);
       } catch (error) {
         if (Number(error?.code) === 50001 || Number(error?.status) === 403) {
-          if (LOG_COMMANDS) global.logger?.warn?.(`[COMMANDS] Skip deploy guild ${guildId}: Missing Access (bot non presente o senza scope applications.commands).`);
+          if (LOG_COMMANDS) global.logger?.warn?.("[COMMANDS] Skip deploying global slash commands: Missing Access.");
+        } else {
+          global.logger?.error?.("[COMMANDS] Failed to deploy global slash commands:", error);
+        }
+      }
+    }
+
+    for (const guildId of allowedGuildIds) {
+      try {
+        await rest.put(Routes.applicationGuildCommands(clientId, guildId), { body: [] });
+        if (LOG_COMMANDS) global.logger?.info?.(`[COMMANDS] Guild slash commands cleared for ${guildId} (solo globali).`);
+      } catch (error) {
+        if (Number(error?.code) === 50001 || Number(error?.status) === 403) {
+          if (LOG_COMMANDS) global.logger?.warn?.(`[COMMANDS] Skip clearing guild ${guildId} slash commands: Missing Access.`);
           continue;
         }
-        global.logger?.error?.(
-          `[COMMANDS] Failed to deploy to guild ${guildId}:`,
-          error,
-        );
+        global.logger?.error?.(`[COMMANDS] Failed to clear guild slash commands for ${guildId}:`, error);
       }
+    }
+
+    try {
+      await purgeObsoleteApplicationCommands(rest, clientId, allowedGuildIds);
+    } catch (e) {
+      global.logger?.warn?.("[COMMANDS] Purge obsolete slash commands:", e?.message || e);
     }
   };
 };

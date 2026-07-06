@@ -2,6 +2,8 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("
 const Giveaway = require("../../Schemas/Giveaway/giveawaySchema");
 const { getClientChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
 const GIVEAWAY_ENTER_PREFIX = "giveaway_enter:";
+const GIVEAWAY_LEAVE_PREFIX = "giveaway_leave:";
+const GIVEAWAY_COUNT_PREFIX = "giveaway_count:";
 const GIVEAWAY_REROLL_PREFIX = "giveaway_reroll:";
 
 function parseDuration(input) {
@@ -14,21 +16,10 @@ function parseDuration(input) {
   return value * (multipliers[unit] || 0);
 }
 
-function formatTimeRemaining(endAt) {
-  const now = Date.now();
-  const end = new Date(endAt).getTime();
-  const ms = Math.max(0, end - now);
-  const days = Math.floor(ms / (24 * 60 * 60 * 1000));
-  const hours = Math.floor((ms % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
-  const minutes = Math.floor((ms % (60 * 60 * 1000)) / (60 * 1000));
-  const seconds = Math.floor((ms % (60 * 1000)) / 1000);
-  const parts = [];
-  if (days > 0) parts.push(`${days} ${days === 1 ? "giorno" : "giorni"}`);
-  if (hours > 0) parts.push(`${hours} ${hours === 1 ? "ora" : "ore"}`);
-  if (minutes > 0) parts.push(`${minutes} ${minutes === 1 ? "minuto" : "minuti"}`);
-  if (seconds > 0 && parts.length === 0) parts.push(`${seconds} ${seconds === 1 ? "secondo" : "secondi"}`);
-  if (parts.length === 0) parts.push("meno di 1 minuto");
-  return parts.join(" ");
+function discordRelativeEndTimestamp(endAt) {
+  const sec = Math.floor(new Date(endAt).getTime() / 1000);
+  if (!Number.isFinite(sec)) return "—";
+  return `<t:${sec}:R>`;
 }
 
 function buildGiveawayEmbed(giveaway, options = {}) {
@@ -43,7 +34,7 @@ function buildGiveawayEmbed(giveaway, options = {}) {
     .addFields(
       {
         name: "<a:VC_Calendar:1482706208149475358> Tempo rimanente",
-        value: ended ? "Terminato" : `tra ${formatTimeRemaining(endAt)}`,
+        value: ended ? "Terminato" : discordRelativeEndTimestamp(endAt),
         inline: true,
       },
       {
@@ -68,11 +59,26 @@ function buildEnterButton(giveawayId) {
       .setLabel("Entra")
       .setStyle(ButtonStyle.Success)
       .setEmoji("<a:VC_Events:1482706144953897223>"),
+    new ButtonBuilder()
+      .setCustomId(`${GIVEAWAY_LEAVE_PREFIX}${giveawayId}`)
+      .setLabel("Esci")
+      .setStyle(ButtonStyle.Danger)
+      .setEmoji("<:cancel:1461730653677551691>"),
+    new ButtonBuilder()
+      .setCustomId(`${GIVEAWAY_COUNT_PREFIX}${giveawayId}`)
+      .setLabel("Partecipanti")
+      .setStyle(ButtonStyle.Secondary)
+      .setEmoji("<:VC_Stats:1482527532682055780>"),
   );
 }
 
 function buildRerollButton(giveawayId) {
   return new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`${GIVEAWAY_COUNT_PREFIX}${giveawayId}`)
+      .setLabel("Partecipanti")
+      .setStyle(ButtonStyle.Secondary)
+      .setEmoji("<:VC_Stats:1482527532682055780>"),
     new ButtonBuilder()
       .setCustomId(`${GIVEAWAY_REROLL_PREFIX}${giveawayId}`)
       .setLabel("Re-Roll")
@@ -150,6 +156,65 @@ async function enterGiveaway(interaction, client) {
     flags: 1 << 6,
   }).catch(() => { });
 
+  return true;
+}
+
+async function leaveGiveaway(interaction, client) {
+  void client;
+  const customId = String(interaction?.customId || "");
+  if (!customId.startsWith(GIVEAWAY_LEAVE_PREFIX)) return false;
+  const giveawayId = customId.slice(GIVEAWAY_LEAVE_PREFIX.length).trim();
+  if (!giveawayId) return false;
+
+  const giveaway = await Giveaway.findOne({ _id: giveawayId }).lean();
+  if (!giveaway) {
+    await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Giveaway non trovato o già terminato.", flags: 1 << 6 }).catch(() => { });
+    return true;
+  }
+  if (giveaway.ended) {
+    await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Questo giveaway è già terminato.", flags: 1 << 6 }).catch(() => { });
+    return true;
+  }
+  if (new Date(giveaway.endAt).getTime() <= Date.now()) {
+    await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Il tempo per modificare la partecipazione è scaduto.", flags: 1 << 6 }).catch(() => { });
+    return true;
+  }
+
+  const userId = String(interaction.user?.id || "");
+  const wasIn = Array.isArray(giveaway.participants) && giveaway.participants.includes(userId);
+  if (!wasIn) {
+    await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Non eri iscritto a questo giveaway.", flags: 1 << 6 }).catch(() => { });
+    return true;
+  }
+
+  await Giveaway.updateOne(
+    { _id: giveawayId, ended: false },
+    { $pull: { participants: userId } },
+  );
+  await interaction.reply({
+    content: "<:cancel:1461730653677551691> Sei uscito dal giveaway.",
+    flags: 1 << 6,
+  }).catch(() => { });
+  return true;
+}
+
+async function showGiveawayJoinCount(interaction, client) {
+  void client;
+  const customId = String(interaction?.customId || "");
+  if (!customId.startsWith(GIVEAWAY_COUNT_PREFIX)) return false;
+  const giveawayId = customId.slice(GIVEAWAY_COUNT_PREFIX.length).trim();
+  if (!giveawayId) return false;
+
+  const giveaway = await Giveaway.findOne({ _id: giveawayId }, { participants: 1, ended: 1 }).lean();
+  if (!giveaway) {
+    await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Giveaway non trovato.", flags: 1 << 6 }).catch(() => { });
+    return true;
+  }
+  const count = Array.isArray(giveaway.participants) ? giveaway.participants.length : 0;
+  await interaction.reply({
+    content: `<:VC_Stats:1482527532682055780> Partecipanti attuali: **${count}**.`,
+    flags: 1 << 6,
+  }).catch(() => { });
   return true;
 }
 
@@ -262,7 +327,7 @@ async function rerollGiveaway(interaction, client) {
     }).catch(() => { });
   } else {
     await interaction.reply({
-      content: "<a:VC_Alert:1482706673176150077> Nessun altro partecipante disponibile per il re - roll.",
+      content: "<a:VC_Alert:1482706673176150077> Nessun altro partecipante disponibile per il reroll.",
       flags: 1 << 6,
     }).catch(() => { });
   }
@@ -308,7 +373,7 @@ async function rerollGiveawayByMessageId(messageId, client) {
   }
 
   if (newWinnerId) return { ok: true, newWinnerId };
-  return { ok: false, error: "<a:VC_Alert:1482706673176150077> Nessun altro partecipante disponibile per il re - roll." };
+  return { ok: false, error: "<a:VC_Alert:1482706673176150077> Nessun altro partecipante disponibile per il reroll." };
 }
 
 async function runScheduledEnds(client) {
@@ -321,4 +386,31 @@ async function runScheduledEnds(client) {
   }
 }
 
-module.exports = { GIVEAWAY_ENTER_PREFIX, GIVEAWAY_REROLL_PREFIX, formatTimeRemaining, parseDuration, buildGiveawayEmbed, buildEnterButton, buildRerollButton, createGiveaway, setGiveawayMessageId, getGiveawayByMessageId, getGiveawayById, enterGiveaway, endGiveaway, rerollGiveaway, rerollGiveawayByMessageId, runScheduledEnds };
+async function syncActiveGiveawayButtons(client) {
+  const now = new Date();
+  const activeGiveaways = await Giveaway.find({ ended: false, endAt: { $gt: now } }, GIVEAWAY_READ_PROJECTION).lean();
+  let updated = 0;
+  let failed = 0;
+  for (const giveaway of activeGiveaways) {
+    const channelId = String(giveaway?.channelId || "");
+    const messageId = String(giveaway?.messageId || "");
+    const giveawayId = String(giveaway?._id || "");
+    if (!channelId || !messageId || !giveawayId) continue;
+    const channel = await getClientChannelCached(client, channelId).catch(() => null);
+    if (!channel?.isTextBased?.()) {
+      failed += 1;
+      continue;
+    }
+    const message = await channel.messages.fetch(messageId).catch(() => null);
+    if (!message?.editable) {
+      failed += 1;
+      continue;
+    }
+    await message.edit({ components: [buildEnterButton(giveawayId)] })
+      .then(() => { updated += 1; })
+      .catch(() => { failed += 1; });
+  }
+  return { scanned: activeGiveaways.length, updated, failed };
+}
+
+module.exports = { GIVEAWAY_ENTER_PREFIX, GIVEAWAY_LEAVE_PREFIX, GIVEAWAY_COUNT_PREFIX, GIVEAWAY_REROLL_PREFIX, parseDuration, buildGiveawayEmbed, buildEnterButton, buildRerollButton, createGiveaway, setGiveawayMessageId, getGiveawayByMessageId, getGiveawayById, enterGiveaway, leaveGiveaway, showGiveawayJoinCount, endGiveaway, rerollGiveaway, rerollGiveawayByMessageId, runScheduledEnds, syncActiveGiveawayButtons };

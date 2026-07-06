@@ -1,7 +1,10 @@
 const mongoose = require("mongoose");
+const { ensureMongoReady } = require("../../Utils/Database/mongoConnect");
 const { ActivityUserProfile, ActivityGuildHourly } = require("../../Schemas/Community/communitySchemas");
 const { isValidGuildUserId, isValidGuildUserIdChannelId } = require("../../Utils/DB/validateWriteIds");
-const { addExpWithLevel, MESSAGE_EXP, VOICE_EXP_PER_MINUTE, shouldIgnoreExpForMember, } = require("./expService");
+const { addExpWithLevel, MESSAGE_EXP, VOICE_EXP_PER_MINUTE, shouldIgnoreExpForMember, isLevelExpGuild, } = require("./expService");
+const { resolveVoiceExpMultiplier, computeVoiceExpFromSeconds } = require("../../Utils/Community/voiceExpChannelUtils");
+const { isViniliFullFeatureGuild } = require("../../MultiGuild/core/guildFeatureScope");
 const IDs = require("../../Utils/Config/ids");
 const { isChannelInTicketCategory } = require("../../Utils/Ticket/ticketCategoryUtils");
 const TIME_ZONE = "Europe/Rome";
@@ -10,12 +13,39 @@ const BACKFILL_HOUR_SUFFIX = "T12";
 const HOURLY_BACKFILL_BATCH = 500;
 const HOURLY_BACKFILL_PREFIX_MAX_WAIT_MS = Math.max(
   0,
-  Math.min(120_000, Number(process.env.HOURLY_BACKFILL_PREFIX_MAX_WAIT_MS ?? 12_000)),
+  Math.min(120_000, Number(process.env.HOURLY_BACKFILL_PREFIX_MAX_WAIT_MS ?? 2_500)),
 );
 const ACTIVITY_GUILD_HOURLY_QUERY_MAX_MS = Math.max(
   0,
   Math.min(120_000, Number(process.env.ACTIVITY_GUILD_HOURLY_QUERY_MAX_MS ?? 45_000)),
 );
+const OVERVIEW_STATS_CACHE_TTL_MS = Math.max(
+  0,
+  Math.min(120_000, Number(process.env.OVERVIEW_STATS_CACHE_TTL_MS ?? 45_000)),
+);
+const overviewStatsCache = new Map();
+const guildHourlyRowsCache = new Map();
+
+function buildHourlyRowsCacheKey(guildId, hourKeys) {
+  const gid = String(guildId || "");
+  if (!Array.isArray(hourKeys) || !hourKeys.length) return `${gid}:all`;
+  return `${gid}:h:${hourKeys.length}:${hourKeys[0]}:${hourKeys[hourKeys.length - 1]}`;
+}
+
+function getOverviewStatsCache(key) {
+  if (!OVERVIEW_STATS_CACHE_TTL_MS) return null;
+  const entry = overviewStatsCache.get(key);
+  if (!entry || entry.expiresAt <= Date.now()) {
+    if (entry) overviewStatsCache.delete(key);
+    return null;
+  }
+  return entry.value;
+}
+
+function setOverviewStatsCache(key, value) {
+  if (!OVERVIEW_STATS_CACHE_TTL_MS) return;
+  overviewStatsCache.set(key, { value, expiresAt: Date.now() + OVERVIEW_STATS_CACHE_TTL_MS });
+}
 
 function shouldSkipBackfillRow(hourKey, hourSet) {
   if (!hourKey || typeof hourKey !== "string") return false;
@@ -29,11 +59,37 @@ const EXCLUDED_ACTIVITY_CHANNEL_IDS = new Set(
     .filter(Boolean)
     .map((id) => String(id)),
 );
+const EXCLUDED_ACTIVITY_CATEGORY_IDS = new Set(
+  []
+    .filter(Boolean)
+    .map((id) => String(id)),
+);
+
+function resolveChannelFromLike(channelLike) {
+  if (!channelLike) return null;
+  if (channelLike.parentId !== undefined || channelLike.type !== undefined) return channelLike;
+  const guild = channelLike.guild || null;
+  const id = String(channelLike.id || channelLike.channelId || "");
+  if (!id) return null;
+  return guild?.channels?.cache?.get(id) || null;
+}
+
+function isChannelInExcludedActivityCategory(channelLike) {
+  if (EXCLUDED_ACTIVITY_CATEGORY_IDS.size === 0) return false;
+  const channel = resolveChannelFromLike(channelLike);
+  if (!channel) return false;
+  if (EXCLUDED_ACTIVITY_CATEGORY_IDS.has(String(channel.id || ""))) return true;
+  const parentId = String(channel.parentId || "");
+  if (parentId && EXCLUDED_ACTIVITY_CATEGORY_IDS.has(parentId)) return true;
+  return false;
+}
 
 function isExcludedActivityChannel(channelLike) {
   const channelId = String(channelLike?.id || channelLike?.channelId || "");
   if (channelId && EXCLUDED_ACTIVITY_CHANNEL_IDS.has(channelId)) return true;
-  return isChannelInTicketCategory(channelLike);
+  if (isChannelInTicketCategory(channelLike)) return true;
+  if (isChannelInExcludedActivityCategory(channelLike)) return true;
+  return false;
 }
 
 function pad2(value) {
@@ -358,11 +414,23 @@ async function loadGuildHourlyRows(guildId, hourKeys = null) {
 
 async function loadHourlyRows(guildId, hourKeys = null, userId = null) {
   if (userId) return loadHourlyRowsFromProfile(guildId, hourKeys, userId);
+  const cacheKey = buildHourlyRowsCacheKey(guildId, hourKeys);
+  if (OVERVIEW_STATS_CACHE_TTL_MS > 0) {
+    const cached = guildHourlyRowsCache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) return cached.value;
+  }
   const [profileRows, guildRows] = await Promise.all([
     loadHourlyRowsFromProfile(guildId, hourKeys, null),
     loadGuildHourlyRows(guildId, hourKeys),
   ]);
-  return mergeGuildPreferHourlyRows(profileRows, guildRows);
+  const merged = mergeGuildPreferHourlyRows(profileRows, guildRows);
+  if (OVERVIEW_STATS_CACHE_TTL_MS > 0) {
+    guildHourlyRowsCache.set(cacheKey, {
+      value: merged,
+      expiresAt: Date.now() + OVERVIEW_STATS_CACHE_TTL_MS,
+    });
+  }
+  return merged;
 }
 
 async function ensureHourlyBackfillForGuild(guildId) {
@@ -693,7 +761,9 @@ async function getOrCreateActivityUser(guildId, userId) {
 }
 
 async function recordMessageActivity(message) {
-  if (mongoose.connection?.readyState !== 1) {
+  if (!isViniliFullFeatureGuild(message?.guild?.id)) return;
+  const mongoOk = await ensureMongoReady({ maxWaitMs: 4000 });
+  if (!mongoOk) {
     if (process.env.ACTIVITY_DEBUG === "1") {
       console.error("[ACTIVITY] recordMessageActivity skip: mongoose non connesso", mongoose.connection?.readyState);
     }
@@ -730,17 +800,20 @@ async function recordMessageActivity(message) {
     1,
   );
   const member = message.member || (await message.guild.members.fetch(message.author.id).catch(() => null));
-  const ignored = await shouldIgnoreExpForMember({ guildId: message.guild.id, member, channelId: message.channel?.id || message.channelId || null, });
-  if (!ignored) {
-    await addExpWithLevel(message.guild, message.author.id, MESSAGE_EXP, true, true, { source: "activity" });
+  if (isLevelExpGuild(message.guild.id)) {
+    const ignored = await shouldIgnoreExpForMember({ guildId: message.guild.id, member, channelId: message.channel?.id || message.channelId || null, });
+    if (!ignored) {
+      await addExpWithLevel(message.guild, message.author.id, MESSAGE_EXP, true, true, { source: "activity" });
+    }
   }
 }
 
-async function recordVoiceSessionEnd(doc, now, guild, skipExp = false) {
+async function recordVoiceSessionEnd(doc, now, guild, skipExp = false, channelIdOverride = null) {
   if (!doc.profile) doc.profile = {};
   if (!doc.profile.totals) doc.profile.totals = {};
   const startedAt = doc.profile.totals.sessionStartedAt;
   if (!startedAt) return 0;
+  const channelId = String(channelIdOverride || doc.profile.totals.sessionChannelId || "");
   const elapsedSeconds = Math.max(0, Math.floor((now.getTime() - new Date(startedAt).getTime()) / 1000),);
   ensureVoiceKeys(doc, now);
   doc.profile.totals.voiceTotalSeconds = Number(doc.profile.totals.voiceTotalSeconds || 0) + elapsedSeconds;
@@ -750,11 +823,12 @@ async function recordVoiceSessionEnd(doc, now, guild, skipExp = false) {
   doc.profile.totals.sessionStartedAt = null;
   doc.profile.totals.sessionChannelId = null;
   const alreadyAwardedSeconds = Math.max(0, Number(doc.profile.totals.expAwardedSeconds || 0),);
-  const totalAwardableExp = Math.floor((elapsedSeconds * VOICE_EXP_PER_MINUTE) / 60,);
-  const alreadyAwardedExp = Math.floor((alreadyAwardedSeconds * VOICE_EXP_PER_MINUTE) / 60,);
+  const voiceMult = skipExp ? 0 : await resolveVoiceExpMultiplier({ id: channelId }, guild, guild?.client);
+  const totalAwardableExp = computeVoiceExpFromSeconds(elapsedSeconds, voiceMult, VOICE_EXP_PER_MINUTE);
+  const alreadyAwardedExp = computeVoiceExpFromSeconds(alreadyAwardedSeconds, voiceMult, VOICE_EXP_PER_MINUTE);
   const remainingExp = Math.max(0, totalAwardableExp - alreadyAwardedExp);
   doc.profile.totals.expAwardedSeconds = 0;
-  if (!skipExp && remainingExp > 0) {
+  if (!skipExp && remainingExp > 0 && isLevelExpGuild(guild?.id)) {
     await addExpWithLevel(guild, doc.userId, remainingExp, true, true, { source: "activity" });
   }
   return elapsedSeconds;
@@ -775,6 +849,7 @@ async function handleVoiceActivity(oldState, newState) {
   const guildId = newState?.guild?.id || oldState?.guild?.id;
   const userId = member.id;
   if (!guildId || !userId) return;
+  if (!isViniliFullFeatureGuild(guildId)) return;
 
   const now = new Date();
   const wasInVoice = Boolean(oldState?.channelId);
@@ -1350,7 +1425,23 @@ async function getServerActivityStats(guildId, days = 7) {
 async function getServerOverviewStats(guildId, lookbackDays = 14, topLimit = 3) {
   const safeTopLimit = Math.max(1, Math.min(500, Number(topLimit || 3)));
   const safeLookback = [1, 7, 14, 21, 30].includes(Number(lookbackDays)) ? Number(lookbackDays) : 14;
-  await ensureHourlyBackfillForGuild(guildId);
+  const cacheKey = `server:${guildId}:${safeLookback}:${safeTopLimit}`;
+  const cached = getOverviewStatsCache(cacheKey);
+  if (cached) return cached;
+  if (HOURLY_BACKFILL_PREFIX_MAX_WAIT_MS > 0) {
+    let timer;
+    try {
+      const timeoutP = new Promise((resolve) => {
+        timer = setTimeout(() => resolve(null), HOURLY_BACKFILL_PREFIX_MAX_WAIT_MS);
+        timer.unref?.();
+      });
+      await Promise.race([ensureHourlyBackfillForGuild(guildId), timeoutP]);
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  } else {
+    await ensureHourlyBackfillForGuild(guildId);
+  }
   const hourKeys1 = getLastNHourKeys(24);
   const hourKeys7 = getLastNHourKeys(24 * 7);
   const hourKeys14 = getLastNHourKeys(24 * 14);
@@ -1466,7 +1557,7 @@ async function getServerOverviewStats(guildId, lookbackDays = 14, topLimit = 3) 
       d30: { text: totalText30, voiceSeconds: totalVoice30, contributors: 0 },
     };
 
-    return {
+    const fallbackResult = {
       approximate: true,
       lookbackDays: safeLookback,
       windows: fallbackWindows,
@@ -1476,9 +1567,11 @@ async function getServerOverviewStats(guildId, lookbackDays = 14, topLimit = 3) 
       topChannelsVoice: [],
       chart: chartPoints,
     };
+    setOverviewStatsCache(cacheKey, fallbackResult);
+    return fallbackResult;
   }
 
-  return {
+  const result = {
     approximate: false,
     lookbackDays: safeLookback,
     windows: {
@@ -1514,6 +1607,8 @@ async function getServerOverviewStats(guildId, lookbackDays = 14, topLimit = 3) 
     topChannelsVoice: aggLookback.topChannelsVoice,
     chart: chartPoints,
   };
+  setOverviewStatsCache(cacheKey, result);
+  return result;
 }
 
 async function getUserOverviewStats(guildId, userId, lookbackDays = 14, excludeVoiceChannelIds = null, options = null) {
@@ -1528,6 +1623,9 @@ async function getUserOverviewStats(guildId, userId, lookbackDays = 14, excludeV
       ? options.includeVoiceChannelIds
       : null;
   const safeLookback = [1, 7, 14, 21, 30].includes(Number(lookbackDays)) ? Number(lookbackDays) : 14;
+  const cacheKey = `user:${guildId}:${userId}:${safeLookback}`;
+  const cached = getOverviewStatsCache(cacheKey);
+  if (cached) return cached;
   if (HOURLY_BACKFILL_PREFIX_MAX_WAIT_MS > 0) {
     let timer;
     try {
@@ -1552,7 +1650,15 @@ async function getUserOverviewStats(guildId, userId, lookbackDays = 14, excludeV
   const allHourKeys = Array.from(new Set([...hourKeys1, ...hourKeys7, ...hourKeys14, ...hourKeys21, ...hourKeys30, ...hourKeysLookback,]),);
   const dayKeysLookback = getLastNDaysKeys(safeLookback);
 
-  const userRows = await loadHourlyRows(guildId, allHourKeys, userId);
+  const [userRows, guildRows14, liveDoc, liveGuildSessions] = await Promise.all([
+    loadHourlyRows(guildId, allHourKeys, userId),
+    loadHourlyRows(guildId, hourKeysLookback),
+    ActivityUserProfile.findOne({ guildId, userId, "profile.totals.sessionStartedAt": { $ne: null } })
+      .select("profile.totals.sessionStartedAt profile.totals.sessionChannelId")
+      .lean()
+      .catch(() => null),
+    loadLiveVoiceSessions(guildId),
+  ]);
 
   const agg1 = aggregateUserHourlyRows(userRows, hourKeys1, exclude, includeText, includeVoice);
   const agg7 = aggregateUserHourlyRows(userRows, hourKeys7, exclude, includeText, includeVoice);
@@ -1566,10 +1672,6 @@ async function getUserOverviewStats(guildId, userId, lookbackDays = 14, excludeV
     const point = userChartByDay.get(dayKey) || { text: 0, voiceSeconds: 0 };
     return { dayKey, text: Number(point.text || 0), voiceSeconds: Number(point.voiceSeconds || 0) };
   });
-  const liveDoc = await ActivityUserProfile.findOne({ guildId, userId, "profile.totals.sessionStartedAt": { $ne: null } })
-    .select("profile.totals.sessionStartedAt profile.totals.sessionChannelId")
-    .lean()
-    .catch(() => null);
 
   if (liveDoc?.profile?.totals?.sessionStartedAt) {
     const nowMs = Date.now();
@@ -1603,8 +1705,6 @@ async function getUserOverviewStats(guildId, userId, lookbackDays = 14, excludeV
     }
   }
 
-  const guildRows14 = await loadHourlyRows(guildId, hourKeysLookback);
-
   const rankTextMap = new Map();
   const rankVoiceMap = new Map();
   for (const row of guildRows14) {
@@ -1625,10 +1725,10 @@ async function getUserOverviewStats(guildId, userId, lookbackDays = 14, excludeV
     }
   }
 
-  const liveGuildSessions = await loadLiveVoiceSessions(guildId);
-  if (liveGuildSessions.length) {
+  const liveGuildSessionsList = liveGuildSessions || [];
+  if (liveGuildSessionsList.length) {
     const nowMs = Date.now();
-    for (const row of liveGuildSessions) {
+    for (const row of liveGuildSessionsList) {
       const id = String(row?.userId || "");
       const startedAt = row?.voice?.sessionStartedAt;
       if (!id || !startedAt) continue;
@@ -1654,7 +1754,7 @@ async function getUserOverviewStats(guildId, userId, lookbackDays = 14, excludeV
       d21: { text: Number(t.messagesTotal || 0), voiceSeconds: Number(t.voiceTotalSeconds || 0) },
       d30: { text: Number(t.messagesTotal || 0), voiceSeconds: Number(t.voiceTotalSeconds || 0) },
     };
-    return {
+    const fallbackResult = {
       approximate: true,
       lookbackDays: safeLookback,
       windows: fallback,
@@ -1663,9 +1763,11 @@ async function getUserOverviewStats(guildId, userId, lookbackDays = 14, excludeV
       topChannelsVoice: [],
       chart,
     };
+    setOverviewStatsCache(cacheKey, fallbackResult);
+    return fallbackResult;
   }
 
-  return {
+  const result = {
     approximate: false,
     lookbackDays: safeLookback,
     windows: {
@@ -1683,6 +1785,8 @@ async function getUserOverviewStats(guildId, userId, lookbackDays = 14, excludeV
     topChannelsVoice: aggLookback.topChannelsVoice,
     chart,
   };
+  setOverviewStatsCache(cacheKey, result);
+  return result;
 }
 
 async function syncLiveVoiceSessionsFromGateway(client) {
@@ -1769,6 +1873,7 @@ async function runLiveVoiceExpTick(client) {
     const startedAt = row?.profile?.totals?.sessionStartedAt;
     const channelId = String(row?.profile?.totals?.sessionChannelId || "");
     if (!guildId || !userId || !startedAt || !channelId) continue;
+    if (!isLevelExpGuild(guildId)) continue;
 
     const guild = client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
     if (!guild) continue;
@@ -1792,11 +1897,12 @@ async function runLiveVoiceExpTick(client) {
     }
 
     const alreadyAwardedSeconds = Math.max(0, Number(row?.profile?.totals?.expAwardedSeconds || 0),);
-    const totalAwardableExp = Math.floor((elapsedSeconds * VOICE_EXP_PER_MINUTE) / 60,);
-    const alreadyAwardedExp = Math.floor((alreadyAwardedSeconds * VOICE_EXP_PER_MINUTE) / 60,);
+    const ignored = await shouldIgnoreExpForMember({ guildId, member, channelId, });
+    const voiceMult = ignored ? 0 : await resolveVoiceExpMultiplier({ id: channelId }, guild, client);
+    const totalAwardableExp = computeVoiceExpFromSeconds(elapsedSeconds, voiceMult, VOICE_EXP_PER_MINUTE);
+    const alreadyAwardedExp = computeVoiceExpFromSeconds(alreadyAwardedSeconds, voiceMult, VOICE_EXP_PER_MINUTE);
     const grantableExp = Math.max(0, totalAwardableExp - alreadyAwardedExp);
     if (grantableExp <= 0) continue;
-    const ignored = await shouldIgnoreExpForMember({ guildId, member, channelId, });
 
     if (!ignored) {
       await addExpWithLevel(guild, userId, grantableExp, true, true, { source: "activity" }).catch(() => { });
@@ -1838,6 +1944,9 @@ async function getChannelOverviewStats(guildId, channelId, lookbackDays = 14) {
       chart: [],
     };
   }
+  const cacheKey = `channel:${guildId}:${channelIdStr}:${safeLookback}`;
+  const cached = getOverviewStatsCache(cacheKey);
+  if (cached) return cached;
   const dayKeys1 = getLastNDaysKeys(1);
   const dayKeys7 = getLastNDaysKeys(7);
   const dayKeys14 = getLastNDaysKeys(14);
@@ -1924,7 +2033,7 @@ async function getChannelOverviewStats(guildId, channelId, lookbackDays = 14) {
     };
   });
 
-  return {
+  const result = {
     lookbackDays: safeLookback,
     windows: {
       d1: { ...d1, contributors: contrib1.size },
@@ -1937,6 +2046,8 @@ async function getChannelOverviewStats(guildId, channelId, lookbackDays = 14) {
     topUsersVoice: topNFromMap(userVoiceAll, 3),
     chart,
   };
+  setOverviewStatsCache(cacheKey, result);
+  return result;
 }
 
 module.exports = {
@@ -1955,4 +2066,6 @@ module.exports = {
   syncLiveVoiceSessionsFromGateway,
   runLiveVoiceExpTick,
   startLiveVoiceExpLoop,
+  isExcludedActivityChannel,
+  isChannelInExcludedActivityCategory,
 };

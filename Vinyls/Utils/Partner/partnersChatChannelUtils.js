@@ -1,13 +1,19 @@
 const IDs = require("../Config/ids");
-const { getPartnerPmDailyThreadId } = require("../Global/globalSettingsBucket");
 const Ticket = require("../../Schemas/Ticket/ticketSchema");
 const { scheduleMessageDeletion, EPHEMERAL_TTL_SHORT_MS } = require("../Config/ephemeralMessageTtl");
+const {
+  isChannelOrThreadUnderStaffCmds,
+  isStaffCmdsPmCommandsThread,
+  getStaffCmdsThreadIdsCache,
+} = require("../Staff/staffCmdsChannelUtils");
+const { isChannelOrThreadUnderStaffChat } = require("../Staff/staffChatChannelUtils");
+const { getStaffCmdsThreadIds } = require("../Global/globalSettingsBucket");
 
 function partnersChatChannelId() {
   return String(IDs.channels?.partnersChat || "").trim();
 }
 
-/** #partners-chat o thread sotto quel canale (comandi PM / thread comandi PM persistito). */
+/** #partners-chat o thread sotto quel canale. */
 function isChannelOrThreadUnderPartnersChat(channel) {
   const chat = partnersChatChannelId();
   if (!channel) return false;
@@ -20,14 +26,9 @@ function isChannelOrThreadUnderPartnersChat(channel) {
   return false;
 }
 
-/** Thread «Comandi PM» sotto #partners-chat (id persistito in globalsettings). */
+/** Thread comandi PM sotto #staff-cmds. */
 async function isPartnerPmDailyCommandsThread(channel) {
-  if (!channel || typeof channel.isThread !== "function" || !channel.isThread()) return false;
-  const chatId = partnersChatChannelId();
-  if (!chatId || String(channel.parentId || "") !== chatId) return false;
-  const threadId = await getPartnerPmDailyThreadId();
-  if (!threadId) return false;
-  return String(channel.id) === String(threadId);
+  return isStaffCmdsPmCommandsThread(channel);
 }
 
 async function isOpenPartnershipTicketChannel(channel) {
@@ -37,20 +38,38 @@ async function isOpenPartnershipTicketChannel(channel) {
   return String(doc?.ticketType || "").toLowerCase() === "partnership";
 }
 
+async function resolvePmCommandsThreadId() {
+  const cached = getStaffCmdsThreadIdsCache().pm;
+  if (cached && /^\d{16,22}$/.test(String(cached))) return String(cached);
+  const ids = await getStaffCmdsThreadIds();
+  return ids?.pm && /^\d{16,22}$/.test(String(ids.pm)) ? String(ids.pm) : "";
+}
+
 /**
- * Se il comando è in #partners-chat o in un suo thread che non è il thread comandi PM,
- * restituisce il testo di rifiuto; altrimenti null (canali fuori da partners-chat: nessun blocco).
- * Con `allowPartnership: true`, un ticket partnership aperto sul canale corrente non viene bloccato (slash/modal partnership).
+ * Se il comando PM è fuori dal thread dedicato (partners-chat, #staff-chat, #staff-cmds o thread High),
+ * restituisce il testo di rifiuto; altrimenti null.
  */
 async function partnersChatPartnerCommandDeniedReplyContent(channel, options = {}) {
   if (options.allowPartnership === true && (await isOpenPartnershipTicketChannel(channel))) return null;
-  if (!isChannelOrThreadUnderPartnersChat(channel)) return null;
-  if (await isPartnerPmDailyCommandsThread(channel)) return null;
-  const tid = await getPartnerPmDailyThreadId();
-  const safe = tid && /^\d{16,22}$/.test(String(tid).trim()) ? String(tid).trim() : "";
-  const hint = safe ? ` Spostati in <#${safe}>.` : " Apri il thread **Comandi PM** (sotto #partners-chat).";
+  if (await isStaffCmdsPmCommandsThread(channel)) return null;
+  const inPartnersChat = isChannelOrThreadUnderPartnersChat(channel);
+  const inStaffCmdsZone = isChannelOrThreadUnderStaffCmds(channel);
+  const inStaffChatZone = isChannelOrThreadUnderStaffChat(channel);
+  if (!inPartnersChat && !inStaffCmdsZone && !inStaffChatZone) return null;
+  const tid = await resolvePmCommandsThreadId();
+  const staffCmdsId = String(IDs.channels?.staffCmds || "").trim();
+  const staffChatId = String(IDs.channels?.staffChat || "").trim();
+  const hint = tid
+    ? ` Spostati in <#${tid}> (sotto <#${staffCmdsId}>).`
+    : staffCmdsId
+      ? ` Apri il thread **Comandi Partner Manager** sotto <#${staffCmdsId}>.`
+      : " Apri il thread **Comandi Partner Manager** sotto #staff-cmds.";
+  const chatWarn = inStaffChatZone && staffChatId
+    ? ` Non usare i comandi PM nel thread **Chat** sotto <#${staffChatId}>.`
+    : "";
   return (
-    "<:vegax:1443934876440068179> Partnership, classifica PM, blacklist e `+staff` in vista PM vanno usati solo nel **thread Comandi PM**, non qui." +
+    "<:vegax:1443934876440068179> Partnership, classifica PM, blacklist e pannello profilo staff/PM vanno usati solo nel **thread Comandi Partner Manager**, non qui." +
+    chatWarn +
     hint
   );
 }

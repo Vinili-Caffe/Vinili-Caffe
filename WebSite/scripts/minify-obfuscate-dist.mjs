@@ -1,16 +1,10 @@
 import fs from "fs";
+import os from "os";
 import path from "path";
+import { Worker } from "worker_threads";
 import { createRequire } from "module";
 const require = createRequire(import.meta.url);
-
-/** Librerie già compresse o bundle di terze parti: non offuscare (rischio rotture / inutile). */
-const SKIP_JS_OBFUSCATION = new Set([
-  "jquery-2.1.3.min.js",
-  "pace.min.js",
-  "modernizr.js",
-  "plugins.js",
-]);
-
+const SKIP_JS_OBFUSCATION = new Set(["jquery-2.1.3.min.js", "pace.min.js", "modernizr.js", "plugins.js", "vc-suppress-extension-errors.js", "vc-youtube-iframe-api.js", "seratafilm-access-gate.js", "seratafilm-countdown.js", "seratafilm-event-utils.js", "discord-auth.js", "site-maintenance.js", "roles-page.js"]);
 const OBF_OPTIONS = {
   compact: true,
   controlFlowFlattening: false,
@@ -22,11 +16,11 @@ const OBF_OPTIONS = {
   simplify: true,
   splitStrings: false,
   stringArray: true,
-  stringArrayEncoding: ["base64"],
+  stringArrayEncoding: [],
   stringArrayIndexShift: true,
   stringArrayRotate: true,
   stringArrayShuffle: true,
-  stringArrayThreshold: 0.75,
+  stringArrayThreshold: 0.6,
   stringArrayWrappersCount: 1,
   stringArrayWrappersChainedCalls: true,
   stringArrayWrappersParametersMaxCount: 2,
@@ -55,14 +49,100 @@ function walkFilesRecursive(dir, test, out) {
   return acc;
 }
 
-/**
- * Offusca gli script del sito in `dist/js` (non le librerie in SKIP_*).
- * Il sorgente in `WebSite/js` resta leggibile; solo l’output di build cambia.
- */
-export function obfuscateProjectJsInDist(distRoot) {
-  let JavaScriptObfuscator;
+async function mapWithConcurrency(items, concurrency, fn) {
+  if (!items.length) return;
+  const limit = Math.max(1, Math.min(concurrency, items.length));
+  let next = 0;
+  async function runWorker() {
+    while (next < items.length) {
+      const idx = next;
+      next += 1;
+      await fn(items[idx], idx);
+    }
+  }
+  await Promise.all(Array.from({ length: limit }, () => runWorker()));
+}
+
+function createObfuscatorPool(size) {
+  const workerUrl = new URL("./obfuscate-pool-worker.mjs", import.meta.url);
+  const workers = [];
+  const waiters = [];
+  let readyCount = 0;
+  let closed = false;
+  function dispatch() {
+    while (waiters.length && workers.some((w) => w.ready && !w.busy)) {
+      const slot = workers.find((w) => w.ready && !w.busy);
+      const job = waiters.shift();
+      if (!slot || !job) break;
+      slot.busy = true;
+      slot.worker.postMessage({ type: "file", file: job.file });
+      slot.job = job;
+    }
+  }
+  return new Promise((resolve, reject) => {
+    const bootTimeout = setTimeout(() => reject(new Error("obfuscator pool boot timeout")), 120_000);
+    for (let i = 0; i < size; i += 1) {
+      const slot = { worker: null, ready: false, busy: false, job: null };
+      const worker = new Worker(workerUrl);
+      slot.worker = worker;
+      worker.on("message", (msg) => {
+        if (msg?.type === "ready") {
+          slot.ready = true;
+          readyCount += 1;
+          if (readyCount === size) {
+            clearTimeout(bootTimeout);
+            resolve({
+              run(file) {
+                return new Promise((res, rej) => {
+                  if (closed) {
+                    rej(new Error("obfuscator pool closed"));
+                    return;
+                  }
+                  waiters.push({ file, resolve: res, reject: rej });
+                  dispatch();
+                });
+              },
+              async close() {
+                closed = true;
+                await Promise.all(workers.map((s) => {
+                  s.worker.postMessage({ type: "stop" });
+                  return s.worker.terminate().catch(() => {});
+                }));
+              },
+            });
+          }
+          dispatch();
+          return;
+        }
+        if (msg?.type === "done") {
+          slot.busy = false;
+          const job = slot.job;
+          slot.job = null;
+          job?.resolve();
+          dispatch();
+          return;
+        }
+        if (msg?.type === "error") {
+          slot.busy = false;
+          const job = slot.job;
+          slot.job = null;
+          job?.reject(new Error(msg.message || "obfuscator worker error"));
+          dispatch();
+        }
+      });
+      worker.on("error", (err) => {
+        clearTimeout(bootTimeout);
+        reject(err);
+      });
+      worker.postMessage({ type: "init", options: OBF_OPTIONS });
+      workers.push(slot);
+    }
+  });
+}
+
+export async function obfuscateProjectJsInDist(distRoot) {
   try {
-    JavaScriptObfuscator = require("javascript-obfuscator");
+    require("javascript-obfuscator");
   } catch {
     console.warn("[build-site] javascript-obfuscator non installato: salto offuscamento JS.");
     return;
@@ -73,20 +153,20 @@ export function obfuscateProjectJsInDist(distRoot) {
     (name) => name.endsWith(".js") && !SKIP_JS_OBFUSCATION.has(name),
     [],
   );
-  let n = 0;
-  for (const file of files) {
-    const src = fs.readFileSync(file, "utf8");
-    const ob = JavaScriptObfuscator.obfuscate(src, OBF_OPTIONS);
-    const out = ob.getObfuscatedCode();
-    fs.writeFileSync(file, out, "utf8");
-    n += 1;
+  if (!files.length) return;
+  const started = Date.now();
+  const workers = Math.min(8, Math.max(4, os.cpus()?.length || 4));
+  const pool = await createObfuscatorPool(workers);
+  try {
+    await Promise.all(files.map((file) => pool.run(file)));
+  } finally {
+    await pool.close();
   }
-  if (n) console.log("[build-site] Offuscamento JS:", n, "file in dist/js");
+  const sec = ((Date.now() - started) / 1000).toFixed(1);
+  console.log(`[build-site] Offuscamento JS: ${files.length} file in dist/js (${sec}s, ${workers} worker)`);
 }
 
-/**
- * Minifica HTML in `dist` (spazi e commenti): ispezione mostra meno struttura leggibile.
- */
+
 export async function minifyHtmlFilesInDist(distRoot) {
   let minify;
   try {
@@ -104,13 +184,13 @@ export async function minifyHtmlFilesInDist(distRoot) {
     (name, p) => name.endsWith(".html") && !p.includes(`${path.sep}node_modules${path.sep}`),
   );
   let n = 0;
-  for (const file of htmlFiles) {
+  await mapWithConcurrency(htmlFiles, 4, async (file) => {
     const raw = fs.readFileSync(file, "utf8");
     const next = await minify(raw, HTML_MINIFY_OPTIONS);
     if (next && next !== raw) {
       fs.writeFileSync(file, next, "utf8");
       n += 1;
     }
-  }
+  });
   if (n) console.log("[build-site] Minify HTML:", n, "file in dist");
 }

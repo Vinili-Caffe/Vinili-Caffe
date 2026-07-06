@@ -37,7 +37,7 @@ function panelRowFromDoc(row) {
     ticketInfoMessageId: o.ticketInfoMessageId ?? null,
     ticketPanelMessageId: o.ticketPanelMessageId ?? null,
     sponsorTicketPanelMessageId: o.sponsorTicketPanelMessageId ?? null,
-    weeklyContestDisegniEventMessageId: o.weeklyContestDisegniEventMessageId ?? null,
+    pausePanelMessageId: o.pausePanelMessageId ?? null,
   };
 }
 

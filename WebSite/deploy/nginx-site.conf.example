@@ -29,4 +29,12 @@ server {
     }
     add_header X-Content-Type-Options nosniff;
     add_header Referrer-Policy strict-origin-when-cross-origin;
+
+    # MP4 Serata Film: faststart in upload + cache breve (il file cambia a ogni film).
+    location ~* ^/images/evento-hogwarts/.+\.mp4$ {
+        types { }
+        default_type video/mp4;
+        add_header Accept-Ranges bytes always;
+        add_header Cache-Control "public, max-age=3600";
+    }
 }

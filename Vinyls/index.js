@@ -1,12 +1,19 @@
+/*!
+ * Copyright (c) 2024–2026 Vinili & Caffè. Tutti i diritti riservati.
+ * Uso, copia, modifica e distribuzione vietati senza autorizzazione scritta.
+ * SPDX-License-Identifier: LicenseRef-Proprietary-ViniliCaffe — vedi LICENSE.
+ */
 const discord = require("discord.js");
 const { Client, IntentsBitField } = discord;
 const GatewayIntentBits = discord.GatewayIntentBits || IntentsBitField?.Flags || {};
 const Partials = discord.Partials || {};
 const fs = require("fs");
 const path = require("path");
+const { EventEmitter } = require("events");
 const APP_ROOT = __dirname;
 const { acquireSingleInstanceLock, installHandlers, listFoldersIfExists, loadEnvFiles, } = require("../shared/runtime/fsRuntime");
 const { initializeCommandCollections } = require("../shared/runtime/clientRuntime");
+const { connectMongo, isMongoReady } = require("./Utils/Database/mongoConnect");
 
 loadEnvFiles(APP_ROOT);
 global.logger = require("./Utils/Moderation/logger");
@@ -15,14 +22,36 @@ if (process.env.RUN_UNDER_LOADER !== "1") {
 }
 
 const { installEmbedFooterPatch } = require("./Utils/Embeds/defaultFooter");
+const { buildInitialClientPresenceOptions, installBotPresenceHooks, patchClientPresenceGuard } = require("../shared/discord/botPresenceActivity");
+const { installGatewayShardListenerCeiling } = require("../shared/discord/gatewayListenerCeiling");
 
 const pcommandFolders = listFoldersIfExists(path.join(APP_ROOT, "Prefix"));
 const commandFolders = listFoldersIfExists(path.join(APP_ROOT, "Commands"));
 
 let client;
 
+function resolveEventListenersCeiling(configLike) {
+  const raw = Number(configLike?.eventListeners ?? 50);
+  if (!Number.isFinite(raw) || raw <= 0) return 50;
+  return Math.max(10, Math.floor(raw));
+}
+
+function applyListenerCeiling(clientRef, configLike) {
+  if (!clientRef) return;
+  const maxListeners = resolveEventListenersCeiling(configLike);
+  try {
+    clientRef.setMaxListeners(maxListeners);
+  } catch (_) {}
+  try {
+    if (Number(EventEmitter.defaultMaxListeners || 0) < maxListeners) {
+      EventEmitter.defaultMaxListeners = maxListeners;
+    }
+  } catch (_) {}
+}
+
 try {
   installEmbedFooterPatch();
+  const vinylsConfig = require("./config.json");
   const baseIntents = [
     ...new Set(
       Object.values(GatewayIntentBits).filter(
@@ -40,19 +69,21 @@ try {
   client = new Client({
     intents: baseIntents,
     partials: basePartials,
+    presence: buildInitialClientPresenceOptions(vinylsConfig),
     rest: {
       timeout: 30_000,
       offset: 50,
       retries: 3,
     },
   });
+  client.config = vinylsConfig;
+  patchClientPresenceGuard(client);
 } catch (error) {
   global.logger.error("[ERROR] Error while creating the client.", error);
   process.exit(1);
 }
 
 client.logs = require("./Utils/Moderation/logs");
-client.config = require("./config.json");
 
 const envToken = process.env.DISCORD_TOKEN || process.env.DISCORD_TOKEN_OFFICIAL;
 const envMongoUrl =
@@ -62,6 +93,9 @@ const envMongoUrl =
   process.env.MONGODB_URI;
 client.config.token = envToken || client.config.token;
 client.config.mongoURL = envMongoUrl || client.config.mongoURL;
+applyListenerCeiling(client, client.config);
+installGatewayShardListenerCeiling(client);
+installBotPresenceHooks(client);
 
 if (!client.config.token) {
   global.logger.error(
@@ -128,12 +162,23 @@ initializeCommandCollections(client, { includeSnipes: true });
     await client.prefixCommands(pcommandFolders, path.join(APP_ROOT, "Prefix"));
     await client.loadButtonHandlers(path.join(APP_ROOT, "Buttons"));
 
+    try {
+      require("./MultiGuild").attachToClient(client);
+    } catch (err) {
+      global.logger?.warn?.("[MultiGuild] attach failed:", err?.message || err);
+    }
+
     if (typeof client.logBootTables === "function") {
       client.logBootTables();
     }
 
-    // HTTP vote webhook Discadia: si avvia da Events/ready.js (dopo login) se discadia.httpVoteWebhookEnabled o DISCADIA_VOTE_HTTP_WEBHOOK=1
+    const mongoConnected = await connectMongo(client);
+    if (!mongoConnected || !isMongoReady()) {
+      global.logger.error("[DATABASE] Startup aborted: MongoDB is required before login.");
+      process.exit(1);
+    }
 
+    global.__vinylsDiscordClient = client;
     client.login(client.config.token).catch((error) => {
       global.logger.error(
         "[LOGIN] Error while logging in. Check if your token is correct or double check your also using the correct intents.",

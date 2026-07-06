@@ -1,9 +1,8 @@
-const { ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder, MessageFlags } = require("discord.js");
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder } = require("discord.js");
 const { getChannelOverviewStats } = require("../Services/Community/activityService");
-const { renderChannelActivityCanvas } = require("../Utils/Render/activityCanvas");
+const { renderChannelActivityCanvas, formatCanvasChannelLabel } = require("../Utils/Render/activityCanvas");
 const { guildIconUrl } = require("../Utils/Discord/guildDiscordIdentity");
 const { resolveTopUserEntries } = require("../Prefix/Stats/top");
-
 const CHANNEL_REFRESH_CUSTOM_ID_PREFIX = "channel_refresh";
 const CHANNEL_PERIOD_OPEN_CUSTOM_ID_PREFIX = "channel_period_open";
 const CHANNEL_PERIOD_SET_CUSTOM_ID_PREFIX = "channel_period_set";
@@ -19,12 +18,7 @@ function normalizeLookbackDays(x) {
 function match(interaction) {
   if (!interaction.isButton()) return false;
   const id = interaction.customId || "";
-  const prefixes = [
-    CHANNEL_REFRESH_CUSTOM_ID_PREFIX,
-    CHANNEL_PERIOD_OPEN_CUSTOM_ID_PREFIX,
-    CHANNEL_PERIOD_SET_CUSTOM_ID_PREFIX,
-    CHANNEL_PERIOD_BACK_CUSTOM_ID_PREFIX,
-  ];
+  const prefixes = [CHANNEL_REFRESH_CUSTOM_ID_PREFIX, CHANNEL_PERIOD_OPEN_CUSTOM_ID_PREFIX, CHANNEL_PERIOD_SET_CUSTOM_ID_PREFIX, CHANNEL_PERIOD_BACK_CUSTOM_ID_PREFIX];
   return prefixes.some((p) => id === p || id.startsWith(`${p}:`));
 }
 
@@ -42,7 +36,7 @@ async function execute(interaction) {
   }
   const channel = guild.channels?.cache?.get(parsed.channelId) || (await guild.channels.fetch(parsed.channelId).catch(() => null));
   if (!channel) {
-    await interaction.reply({ content: "<:vegax:1443934876440068179> Canale non trovato.", flags: 1 << 6 }).catch(() => {});
+    await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Canale non trovato.", flags: 1 << 6 }).catch(() => {});
     return true;
   }
 
@@ -87,28 +81,26 @@ async function buildChannelOverviewPayload(guild, channel, lookbackDays, view, o
     resolveTopUserEntries(guild, stats.topUsersVoice || []),
   ]);
 
-  const channelName = channel?.name ? `# ${channel.name}` : "# channel";
+  const channelName = channel?.name ? formatCanvasChannelLabel(channel.name) : "# channel";
   const channelIconUrl = channel?.isVoiceBased?.() ? guildIconUrl(guild, { size: 256 }) : null;
   const createdOn = channel?.createdAt ?? new Date(0);
+  const me = guild.members?.me;
+  const joinedOn =
+    (me?.joinedAt && me.joinedAt instanceof Date)
+      ? me.joinedAt
+      : me?.joinedTimestamp
+        ? new Date(me.joinedTimestamp)
+        : guild.createdAt ?? createdOn;
   const guildName = guild?.name || "Server";
 
   const isVoiceChannel = Boolean(channel?.isVoiceBased?.());
   const isTextChannel = isVoiceChannel ? false : Boolean(channel?.isTextBased?.());
-  const buffer = await renderChannelActivityCanvas({
-    channelName,
-    channelIconUrl,
-    createdOn,
-    lookbackDays: safeLookback,
-    windows: stats.windows,
-    topUsersText: topUsersTextResolved,
-    topUsersVoice: topUsersVoiceResolved,
-    chart: stats.chart,
-    isTextChannel,
-    guildName,
-  });
+  const buffer = await renderChannelActivityCanvas({ channelName, channelIconUrl, createdOn, joinedOn, lookbackDays: safeLookback, windows: stats.windows, topUsersText: topUsersTextResolved, topUsersVoice: topUsersVoiceResolved, chart: stats.chart, isTextChannel, guildName });
 
   const components = buildChannelComponents(ownerId, channelId, safeLookback, view);
-  const file = new AttachmentBuilder(buffer, { name: `channel-${channelId}-${safeLookback}d.png` });
+  const overviewExt =
+    buffer.length >= 6 && buffer[0] === 0x47 && buffer[1] === 0x49 && buffer[2] === 0x46 ? "gif" : "png";
+  const file = new AttachmentBuilder(buffer, { name: `channel-${channelId}-${safeLookback}d.${overviewExt}` });
   return { files: [file], components };
 }
 
@@ -125,20 +117,11 @@ function buildChannelComponents(ownerId, channelId, lookbackDays, view) {
 
   if (view === "period") {
     const periodBack = `${CHANNEL_PERIOD_BACK_CUSTOM_ID_PREFIX}:${o}${channelId}:${safeLookback}`;
-    const rowPeriod1 = new ActionRowBuilder().addComponents(
-      ...ALLOWED_LOOKBACK.map((d) =>
-        new ButtonBuilder()
-          .setCustomId(`${CHANNEL_PERIOD_SET_CUSTOM_ID_PREFIX}:${o}${channelId}:${d}`)
-          .setStyle(safeLookback === d ? ButtonStyle.Primary : ButtonStyle.Secondary)
-          .setLabel(`${d}d`)
-      )
-    );
-    const rowPeriod2 = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(periodBack).setStyle(ButtonStyle.Secondary).setLabel("Indietro")
-    );
-    return [row1, rowPeriod1, rowPeriod2];
+    const rowPeriod1 = new ActionRowBuilder().addComponents(...ALLOWED_LOOKBACK.map((d) => new ButtonBuilder().setCustomId(`${CHANNEL_PERIOD_SET_CUSTOM_ID_PREFIX}:${o}${channelId}:${d}`).setStyle(safeLookback === d ? ButtonStyle.Primary : ButtonStyle.Secondary).setLabel(`${d}d`)));
+    const rowPeriod2 = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(periodBack).setStyle(ButtonStyle.Secondary).setEmoji("<a:vegaleftarrow:1462914743416131816>"));
+    return [row1, rowPeriod1, rowPeriod2].slice(0, 5);
   }
-  return [row1];
+  return [row1].slice(0, 5);
 }
 
 function parseChannelActivityArgs(args) {
@@ -182,18 +165,4 @@ async function resolveChannelAndLookback(message, args = []) {
   return { channel: message.channel, lookbackDays };
 }
 
-module.exports = {
-  name: "channel",
-  order: 8,
-  match,
-  execute,
-  CHANNEL_REFRESH_CUSTOM_ID_PREFIX,
-  CHANNEL_PERIOD_OPEN_CUSTOM_ID_PREFIX,
-  CHANNEL_PERIOD_SET_CUSTOM_ID_PREFIX,
-  CHANNEL_PERIOD_BACK_CUSTOM_ID_PREFIX,
-  buildChannelOverviewPayload,
-  buildChannelComponents,
-  parseChannelActivityArgs,
-  resolveChannelAndLookback,
-  normalizeLookbackDays,
-};
+module.exports = { name: "channel", order: 8, match, execute, buildChannelOverviewPayload, buildChannelComponents, parseChannelActivityArgs, resolveChannelAndLookback, normalizeLookbackDays };

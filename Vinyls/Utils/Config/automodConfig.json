@@ -27,7 +27,8 @@
     "enabled": true,
     "mentionTrigger": 50,
     "mentionWindowMs": 3000,
-    "mentionHourCap": 20
+    "mentionHourCap": 20,
+    "mentionPerMessageLimit": 5
   },
   "heatFilters": {
     "regularMessage": true,
@@ -44,7 +45,9 @@
     "linkBlacklist": true,
     "mentions": true,
     "attachments": true,
-    "webhookMessages": true
+    "webhookMessages": true,
+    "crossServerForwards": true,
+    "slursPreset": false
   },
   "heatFactors": {
     "regularMessage": 1,
@@ -60,7 +63,8 @@
     "wordBlacklist": 1,
     "linkBlacklist": 1,
     "mentions": 1,
-    "attachments": 1
+    "attachments": 1,
+    "crossServerForward": 1
   },
   "heatCaps": {
     "maxPerMessage": 85,
@@ -115,5 +119,17 @@
       "attachmentsEnabled": false,
       "inviteLinksEnabled": false
     }
+  },
+  "discordNative": {
+    "enabled": true,
+    "syncOnStartup": true,
+    "skipBotDetectionFor": [
+      "invite",
+      "link_blacklist",
+      "word_blacklist",
+      "mention_everyone",
+      "mention_hour_cap"
+    ],
+    "keywordWildcardTerms": []
   }
 }

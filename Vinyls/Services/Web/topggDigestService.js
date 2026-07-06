@@ -57,18 +57,27 @@ function pickTopggStatsFields(data) {
   return rows.slice(0, 25);
 }
 
-function resolveTopggBotUrl(client) {
-  const fromCfg = String(client?.config?.topgg?.votePageUrl || "").trim();
-  if (fromCfg) return fromCfg.replace(/\/+$/, "");
-  const bid = String(client?.user?.id || "").trim();
+/** Scheda Top.gg per digest statistiche: non usare votePageUrl (hub sul sito). */
+function resolveTopggStatsDigestSchedaUrl(client, botId) {
+  const explicit = String(client?.config?.topgg?.statsDigestListingUrl || "").trim();
+  if (explicit) return explicit.replace(/\/+$/, "");
+  const bid = String(botId || client?.user?.id || "").trim();
   return bid ? `https://top.gg/bot/${bid}` : "";
 }
 
-/** URL tab recensioni: override `topgg.reviewsPageUrl`, altrimenti `/reviews` sulla scheda bot/server. */
+function resolveTopggBotUrl(client) {
+  return resolveTopggStatsDigestSchedaUrl(client, client?.user?.id);
+}
+
+/** URL tab recensioni: override `topgg.reviewsPageUrl`, altrimenti `/reviews` sulla scheda digest. */
 function resolveTopggReviewsUrl(client, botId) {
   const explicit = String(client?.config?.topgg?.reviewsPageUrl || "").trim();
   if (explicit) return explicit.replace(/\/+$/, "");
-  const base = resolveTopggBotUrl(client) || (botId ? `https://top.gg/bot/${botId}` : "");
+  const base =
+    resolveTopggStatsDigestSchedaUrl(client, botId) ||
+    (String(botId || client?.user?.id || "").trim()
+      ? `https://top.gg/bot/${String(botId || client?.user?.id || "").trim()}`
+      : "");
   if (!base) return "";
   return `${base.replace(/\/+$/, "")}/reviews`;
 }
@@ -108,7 +117,7 @@ async function postTopggStatsDigestIfConfigured(client) {
     return { skipped: true };
   }
 
-  const baseUrl = resolveTopggBotUrl(client) || `https://top.gg/bot/${botId}`;
+  const baseUrl = resolveTopggStatsDigestSchedaUrl(client, botId) || `https://top.gg/bot/${botId}`;
   const reviewsUrl = resolveTopggReviewsUrl(client, botId);
   const { count: reviewCount, score: reviewScore } = extractReviewAggregate(data);
   const prevSnap = await getBotState(TOPGG_REVIEW_SNAPSHOT_KEY);

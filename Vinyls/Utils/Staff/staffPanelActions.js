@@ -1,22 +1,27 @@
 const { EmbedBuilder } = require("discord.js");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
-const { getOrCreateStaffDoc, ensureStaff } = require("../../Utils/Staff/staffDocUtils");
+const { getOrCreateStaffDoc, ensureStaff, applyStaffLadderTrackResetToObject } = require("../../Utils/Staff/staffDocUtils");
 const { initPartnerManagerFieldsIfMissing, syncStaffDbAndPauseChannelAfterDepex } = require("../../Utils/Staff/staffPmUtils");
 const IDs = require("../../Utils/Config/ids");
 const { getStaffRoleEmojiByRoleId } = require("../../Utils/Community/staffRoleEmoji");
 const { getClientChannelCached, getGuildChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { guildMemberDisplayAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
-const { memberHasStaffRole } = require("../../Utils/Community/staffListUtils");
+const { memberHasStaffRole, queueStaffListRefreshAfterRoleMutation } = require("../../Utils/Community/staffListUtils");
 const { applyDepexOneLevel } = require("../../Services/Staff/staffWarnService");
 const { applyDepexSideEffects: applyResocontoStaffDepexSideEffects } = require("../../Events/interaction/resocontoHandlers");
 const { clearStaffPendingPurgeAt } = require("../../Services/Community/userLeaveBackupService");
+const { sendPartnerManagerWelcome, sendHelperWelcome } = require("./staffWelcomeMessages");
+const { resolveStaffValutazioniChannel } = require("./staffChannelUtils");
 const ROLE_MEMBER = IDs.roles.Member;
 const ROLE_PARTNER_MANAGER = IDs.roles.PartnerManager;
 const ROLE_STAFF = IDs.roles.Staff;
 const ROLE_HIGH_STAFF = IDs.roles.HighStaff;
 const ROLE_HELPER = IDs.roles.Helper;
 const ROLE_MODERATOR = IDs.roles.Mod;
+const ROLE_SENIOR_MODERATOR = IDs.roles.SeniorModerator;
+const ROLE_DIRECTOR = IDs.roles.Director;
 const ROLE_ADMIN = IDs.roles.Admin;
+const ROLE_MANAGER = IDs.roles.Manager;
 const ROLE_CO_OWNER = "";
 const ROLE_OWNER = IDs.roles.Founder;
 const SUCCESS_COLOR = "#6f4e37";
@@ -98,39 +103,22 @@ async function ensureNotSelf(interaction, targetUser) {
   return false;
 }
 
-async function sendPartnerManagerWelcome(pmChannel, user) {
-  await pmChannel.send({
-    content: `${user}
-# Benvenutx nei Partner Manager <:VC_PartnerManager:1494286911286808576>
-
-> **Per iniziare al meglio controlla:** <:VC_id:1478517313618575419>
-<:VC_Reply:1482532158080942191> <#1442569199229730836>
-
-__Per qualsiasi cosa l'High Staff è disponibile__ <:VC_Staff:1494286904089247754>`,
-  }).catch(() => null);
-}
-
-async function sendHelperWelcome(staffChannel, user) {
-  await staffChannel.send({
-    content: `${user}
-# Benvenutx nello staff <:VC_Staff:1494286904089247754>
-
-> **Per iniziare al meglio controlla:** <:VC_id:1478517313618575419>
-<:VC_DoubleReply:1482532332509466797> <#1442569237142044773>
-<:VC_DoubleReply:1482532332509466797> <#1442569239063167139>
-<:VC_Reply:1482532158080942191> <#1442569243626307634>
-
-__Per qualsiasi cosa l'High Staff è disponibile__ <:VC_Staff:1494286904089247754>`,
-  }).catch(() => null);
-}
-
-const STAFF_LADDER_ROLES = [ROLE_HELPER, ROLE_MODERATOR, ROLE_ADMIN, ROLE_CO_OWNER, ROLE_OWNER];
-const ROLES_REQUIRING_HIGH_STAFF = [ROLE_ADMIN, ROLE_CO_OWNER, ROLE_OWNER];
+const STAFF_LADDER_ROLES = [
+  ROLE_HELPER,
+  ROLE_MODERATOR,
+  ROLE_SENIOR_MODERATOR,
+  ROLE_DIRECTOR,
+  ROLE_ADMIN,
+  ROLE_MANAGER,
+  ROLE_CO_OWNER,
+  ROLE_OWNER,
+].filter(Boolean);
+const ROLES_REQUIRING_HIGH_STAFF = [ROLE_ADMIN, ROLE_MANAGER, ROLE_CO_OWNER, ROLE_OWNER].filter(Boolean);
 
 async function applyPexSideEffects(
   member,
   roleId,
-  pmChannel,
+  client,
   staffChannel,
   user,
   hadStaffRolesBeforePex,
@@ -138,7 +126,7 @@ async function applyPexSideEffects(
   const hadAnyStaffRoleBefore =
     typeof hadStaffRolesBeforePex === "boolean" ? hadStaffRolesBeforePex : memberHasStaffRole(member);
   if (roleId === ROLE_PARTNER_MANAGER) {
-    await sendPartnerManagerWelcome(pmChannel, user);
+    await sendPartnerManagerWelcome(client || member?.client, member);
   }
 
   if (STAFF_LADDER_ROLES.includes(roleId)) {
@@ -164,14 +152,39 @@ async function applyPexSideEffects(
     member = verification.member;
   }
 
-  if (roleId === ROLE_ADMIN) {
+  if (roleId === ROLE_SENIOR_MODERATOR) {
     await member.roles.remove(ROLE_MODERATOR);
+    const verification = await ensureRoleState(member, ROLE_MODERATOR, false);
+    if (!verification.ok) throw new Error("Pex side effect failed: moderator role still present after senior moderator promotion.");
+    member = verification.member;
+  }
+
+  if (roleId === ROLE_DIRECTOR) {
+    await member.roles.remove(ROLE_SENIOR_MODERATOR);
+    const verification = await ensureRoleState(member, ROLE_SENIOR_MODERATOR, false);
+    if (!verification.ok) throw new Error("Pex side effect failed: senior moderator role still present after director promotion.");
+    member = verification.member;
+  }
+
+  if (roleId === ROLE_ADMIN) {
+    await member.roles.remove(ROLE_DIRECTOR || ROLE_MODERATOR);
     await member.roles.add(ROLE_HIGH_STAFF);
     const verification = await ensureMultipleRoleStates(member, [
-      { roleId: ROLE_MODERATOR, shouldHaveRole: false },
+      { roleId: ROLE_DIRECTOR || ROLE_MODERATOR, shouldHaveRole: false },
       { roleId: ROLE_HIGH_STAFF, shouldHaveRole: true },
     ]);
     if (!verification.ok) throw new Error("Pex side effect failed: admin side effects not applied.");
+    member = verification.member;
+  }
+
+  if (roleId === ROLE_MANAGER) {
+    await member.roles.remove(ROLE_ADMIN);
+    await member.roles.add(ROLE_HIGH_STAFF);
+    const verification = await ensureMultipleRoleStates(member, [
+      { roleId: ROLE_ADMIN, shouldHaveRole: false },
+      { roleId: ROLE_HIGH_STAFF, shouldHaveRole: true },
+    ]);
+    if (!verification.ok) throw new Error("Pex side effect failed: manager side effects not applied.");
     member = verification.member;
   }
 
@@ -183,14 +196,17 @@ async function applyPexSideEffects(
   }
 
   if (roleId === ROLE_OWNER) {
-    await member.roles.remove(ROLE_CO_OWNER);
-    const verification = await ensureRoleState(member, ROLE_CO_OWNER, false);
-    if (!verification.ok) throw new Error("Pex side effect failed: co-owner role still present after owner promotion.");
+    await member.roles.remove([ROLE_MANAGER, ROLE_CO_OWNER].filter(Boolean));
+    const verification = await ensureMultipleRoleStates(member, [
+      ...(ROLE_MANAGER ? [{ roleId: ROLE_MANAGER, shouldHaveRole: false }] : []),
+      ...(ROLE_CO_OWNER ? [{ roleId: ROLE_CO_OWNER, shouldHaveRole: false }] : []),
+    ]);
+    if (!verification.ok) throw new Error("Pex side effect failed: manager/co-owner role still present after owner promotion.");
   }
 
-  const hasAnyStaffRoleNow = memberHasStaffRole(member);
-  if (!hadAnyStaffRoleBefore && hasAnyStaffRoleNow) {
-    await sendHelperWelcome(staffChannel, user);
+  const hasLadderRoleNow = Boolean(getHighestLadderRole(member));
+  if (!hadAnyStaffRoleBefore && hasLadderRoleNow) {
+    await sendHelperWelcome(staffChannel, member);
   }
 }
 
@@ -210,11 +226,22 @@ async function applyDepexSideEffects(member, roleId) {
     member = verification.member;
   }
 
-  if (roleId === ROLE_MODERATOR) {
+  if (roleId === ROLE_MODERATOR || roleId === ROLE_SENIOR_MODERATOR) {
     await member.roles.remove(roleId);
     await member.roles.remove(ROLE_STAFF);
     const verification = await ensureMultipleRoleStates(member, [{ roleId, shouldHaveRole: false }, { roleId: ROLE_STAFF, shouldHaveRole: false }]);
     if (!verification.ok) throw new Error("Depex side effect failed: moderator/staff roles still present.");
+    member = verification.member;
+  }
+
+  if (roleId === ROLE_DIRECTOR) {
+    await member.roles.remove(roleId);
+    await member.roles.remove(ROLE_STAFF);
+    const verification = await ensureMultipleRoleStates(member, [
+      { roleId, shouldHaveRole: false },
+      { roleId: ROLE_STAFF, shouldHaveRole: false },
+    ]);
+    if (!verification.ok) throw new Error("Depex side effect failed: director/staff roles still present.");
     member = verification.member;
   }
 
@@ -224,6 +251,15 @@ async function applyDepexSideEffects(member, roleId) {
     await member.roles.remove(ROLE_HIGH_STAFF);
     const verification = await ensureMultipleRoleStates(member, [{ roleId, shouldHaveRole: false }, { roleId: ROLE_STAFF, shouldHaveRole: false }, { roleId: ROLE_HIGH_STAFF, shouldHaveRole: false }]);
     if (!verification.ok) throw new Error("Depex side effect failed: admin/high staff/staff roles still present.");
+    member = verification.member;
+  }
+
+  if (roleId === ROLE_MANAGER) {
+    await member.roles.remove(roleId);
+    await member.roles.remove(ROLE_STAFF);
+    await member.roles.remove(ROLE_HIGH_STAFF);
+    const verification = await ensureMultipleRoleStates(member, [{ roleId, shouldHaveRole: false }, { roleId: ROLE_STAFF, shouldHaveRole: false }, { roleId: ROLE_HIGH_STAFF, shouldHaveRole: false }]);
+    if (!verification.ok) throw new Error("Depex side effect failed: manager/high staff/staff roles still present.");
     member = verification.member;
   }
 
@@ -260,11 +296,11 @@ async function runProspectStaffPex(guild, client, targetUser, actorUser, reason,
   if (!member) {
     return { ok: false, message: "<:VC_Attention:1482534443632558151> Utente non trovato nel server." };
   }
-  if (memberHasStaffRole(member)) {
+  if (getHighestLadderRole(member)) {
     return {
       ok: false,
       message:
-        "<:VC_Attention:1482534443632558151> L'utente ha già un ruolo staff/PM. Usa **Pex** dal pannello completo (`+staff`).",
+        "<:VC_Attention:1482534443632558151> L'utente ha già un ruolo nella scala staff. Usa **Pex** dal pannello completo (`+profile`).",
     };
   }
   const roleAfter = String(targetRoleId || "");
@@ -282,10 +318,11 @@ async function runProspectStaffPex(guild, client, targetUser, actorUser, reason,
         "<:VC_Attention:1482534443632558151> Per la prima promozione serve il ruolo **Member** sull'utente.",
     };
   }
-  const roleBeforeForHistory = ROLE_MEMBER || "";
-  const pmChannel =
-    guild.channels.cache.get(IDs.channels?.partnersChat) ||
-    (await getGuildChannelCached(guild, IDs.channels?.partnersChat));
+  const roleBeforeForHistory =
+    getHighestLadderRole(member) ||
+    (ROLE_PARTNER_MANAGER && member.roles.cache.has(ROLE_PARTNER_MANAGER) ? ROLE_PARTNER_MANAGER : "") ||
+    ROLE_MEMBER ||
+    "";
   const staffChat =
     guild.channels.cache.get(IDs.channels?.staffChat) ||
     (await getGuildChannelCached(guild, IDs.channels?.staffChat));
@@ -293,7 +330,13 @@ async function runProspectStaffPex(guild, client, targetUser, actorUser, reason,
     guild.channels.cache.get(IDs.channels?.pexDepex) ||
     (await getGuildChannelCached(guild, IDs.channels?.pexDepex));
   const staffDoc = await getOrCreateStaffDoc(guild.id, targetUser.id);
-  const hadStaffRolesBeforePex = false;
+  const hadLadderRoleBeforePex = Boolean(getHighestLadderRole(member));
+  const wasPmOnlyBeforePex = Boolean(
+    ROLE_PARTNER_MANAGER && member.roles.cache.has(ROLE_PARTNER_MANAGER) && !hadLadderRoleBeforePex,
+  );
+  if (wasPmOnlyBeforePex) {
+    applyStaffLadderTrackResetToObject(ensureStaff(staffDoc));
+  }
   await member.roles.add(roleAfter);
   const baseRoleVerification = await ensureRoleState(member, roleAfter, true);
   if (!baseRoleVerification.ok) {
@@ -303,10 +346,10 @@ async function runProspectStaffPex(guild, client, targetUser, actorUser, reason,
     await applyPexSideEffects(
       baseRoleVerification.member,
       roleAfter,
-      pmChannel,
+      client || guild.client,
       staffChat,
       targetUser,
-      hadStaffRolesBeforePex,
+      hadLadderRoleBeforePex,
     );
   } catch (err) {
     global.logger.error(err);
@@ -319,6 +362,7 @@ async function runProspectStaffPex(guild, client, targetUser, actorUser, reason,
   profileDoc.markModified("staff");
   await profileDoc.save();
   await clearStaffPendingPurgeAt(guild.id, targetUser.id);
+  queueStaffListRefreshAfterRoleMutation(client || guild.client, guild.id);
   const rb = roleBeforeForHistory ? guild.roles.cache.get(roleBeforeForHistory) : null;
   const ra = guild.roles.cache.get(roleAfter);
   const actionEmoji = getStaffRoleEmojiByRoleId(roleAfter);
@@ -356,9 +400,6 @@ async function runProspectStaffPexToPartnerManager(guild, client, targetUser, ac
   }
   const roleBeforeForHistory = getHighestLadderRole(member) || (ROLE_MEMBER || "");
   const roleAfter = ROLE_PARTNER_MANAGER;
-  const pmChannel =
-    guild.channels.cache.get(IDs.channels?.partnersChat) ||
-    (await getGuildChannelCached(guild, IDs.channels?.partnersChat));
   const staffChat =
     guild.channels.cache.get(IDs.channels?.staffChat) ||
     (await getGuildChannelCached(guild, IDs.channels?.staffChat));
@@ -376,7 +417,7 @@ async function runProspectStaffPexToPartnerManager(guild, client, targetUser, ac
     await applyPexSideEffects(
       baseRoleVerification.member,
       roleAfter,
-      pmChannel,
+      client || guild.client,
       staffChat,
       targetUser,
       hadStaffRolesBeforePex,
@@ -393,6 +434,7 @@ async function runProspectStaffPexToPartnerManager(guild, client, targetUser, ac
   profileDoc.markModified("staff");
   await profileDoc.save();
   await clearStaffPendingPurgeAt(guild.id, targetUser.id);
+  queueStaffListRefreshAfterRoleMutation(client || guild.client, guild.id);
   const rb = roleBeforeForHistory ? guild.roles.cache.get(roleBeforeForHistory) : null;
   const ra = guild.roles.cache.get(roleAfter);
   const actionEmoji = getStaffRoleEmojiByRoleId(roleAfter);
@@ -420,7 +462,7 @@ async function runProfileStaffPex(guild, client, targetUser, actorUser, reason) 
     return {
       ok: false,
       message:
-        "<:VC_Attention:1482534443632558151> Nessun ruolo nella scala staff (Helper→Founder) rilevato. Per casi speciali (ruoli manuali) usa il pannello High Staff (`+staff`).",
+        "<:VC_Attention:1482534443632558151> Nessun ruolo nella scala staff (Helper→Founder) rilevato. Per casi speciali (ruoli manuali) usa il pannello High Staff (`+profile`).",
     };
   }
   const roleAfter = getNextLadderRoleId(roleBefore);
@@ -430,9 +472,6 @@ async function runProfileStaffPex(guild, client, targetUser, actorUser, reason) 
   if (member.roles.cache.has(roleAfter)) {
     return { ok: false, message: `<:VC_Attention:1482534443632558151> ${targetUser} ha già il ruolo successivo.` };
   }
-  const pmChannel =
-    guild.channels.cache.get(IDs.channels?.partnersChat) ||
-    (await getGuildChannelCached(guild, IDs.channels?.partnersChat));
   const staffChat =
     guild.channels.cache.get(IDs.channels?.staffChat) ||
     (await getGuildChannelCached(guild, IDs.channels?.staffChat));
@@ -440,7 +479,7 @@ async function runProfileStaffPex(guild, client, targetUser, actorUser, reason) 
     guild.channels.cache.get(IDs.channels?.pexDepex) ||
     (await getGuildChannelCached(guild, IDs.channels?.pexDepex));
   const staffDoc = await getOrCreateStaffDoc(guild.id, targetUser.id);
-  const hadStaffRolesBeforePex = memberHasStaffRole(member);
+  const hadLadderRoleBeforePex = Boolean(getHighestLadderRole(member));
   await member.roles.add(roleAfter);
   const baseRoleVerification = await ensureRoleState(member, roleAfter, true);
   if (!baseRoleVerification.ok) {
@@ -450,10 +489,10 @@ async function runProfileStaffPex(guild, client, targetUser, actorUser, reason) 
     await applyPexSideEffects(
       baseRoleVerification.member,
       roleAfter,
-      pmChannel,
+      client || guild.client,
       staffChat,
       targetUser,
-      hadStaffRolesBeforePex,
+      hadLadderRoleBeforePex,
     );
   } catch (err) {
     global.logger.error(err);
@@ -467,6 +506,7 @@ async function runProfileStaffPex(guild, client, targetUser, actorUser, reason) 
   profileDoc.markModified("staff");
   await profileDoc.save();
   await clearStaffPendingPurgeAt(guild.id, targetUser.id);
+  queueStaffListRefreshAfterRoleMutation(client || guild.client, guild.id);
   const rb = guild.roles.cache.get(roleBefore);
   const ra = guild.roles.cache.get(roleAfter);
   const actionEmoji = getStaffRoleEmojiByRoleId(roleAfter);
@@ -555,7 +595,7 @@ async function runProfileStaffDepex(guild, client, targetUser, actorUser, reason
     return {
       ok: false,
       message:
-        "<:VC_Attention:1482534443632558151> Nessun ruolo staff rilevato per il depex. Per depex manuale sui ruoli usa il pannello High Staff (`+staff`).",
+        "<:VC_Attention:1482534443632558151> Nessun ruolo staff rilevato per il depex. Per depex manuale sui ruoli usa il pannello High Staff (`+profile`).",
     };
   }
 
@@ -592,10 +632,7 @@ async function runProfileStaffWarnAdd(guild, client, targetUser, actorUser, reas
   if (String(targetUser.id) === String(actorUser.id)) {
     return { ok: false, message: "<:VC_Attention:1482534443632558151> Non puoi usare questa azione su te stesso." };
   }
-  const warnChannel =
-    guild.channels.cache.get(IDs.channels?.warnStaff) ||
-    (await getGuildChannelCached(guild, IDs.channels?.warnStaff)) ||
-    (await getClientChannelCached(client, IDs.channels?.warnStaff));
+  const warnChannel = await resolveStaffValutazioniChannel(guild, client);
   await ActivityUserProfile.findOneAndUpdate(
     { guildId: guild.id, userId: targetUser.id },
     {
@@ -638,10 +675,7 @@ async function runProfileStaffWarnRemove(guild, client, targetUser, actorUser, r
   s.warnCount = Math.max(0, Number(s.warnCount || 0) - 1);
   profileDoc.markModified("staff");
   await profileDoc.save();
-  const warnChannel =
-    guild.channels.cache.get(IDs.channels?.warnStaff) ||
-    (await getGuildChannelCached(guild, IDs.channels?.warnStaff)) ||
-    (await getClientChannelCached(client, IDs.channels?.warnStaff));
+  const warnChannel = await resolveStaffValutazioniChannel(guild, client);
   if (warnChannel?.isTextBased?.()) {
     const embed = new EmbedBuilder()
       .setAuthor({
@@ -663,8 +697,10 @@ function actorIsHighStaffOrAbove(member) {
   const cache = member?.roles?.cache;
   if (!cache) return false;
   const allowRoles = [
-    IDs.roles.Admin,
     IDs.roles.Founder,
+    IDs.roles.Manager,
+    IDs.roles.Admin,
+    IDs.roles.Director,
     IDs.roles.HighStaff,
   ].filter(Boolean);
   return allowRoles.some((roleId) => cache.has(roleId));
@@ -683,7 +719,16 @@ async function runProfileStaffCompleteDepex(guild, client, targetUser, actorMemb
   if (!member) {
     return { ok: false, message: "<:VC_Attention:1482534443632558151> Utente non trovato nel server." };
   }
-  const completeDepexRoleChain = [ROLE_ADMIN, ROLE_CO_OWNER, ROLE_OWNER].filter(Boolean);
+  const completeDepexRoleChain = [
+    ROLE_HELPER,
+    ROLE_MODERATOR,
+    ROLE_SENIOR_MODERATOR,
+    ROLE_DIRECTOR,
+    ROLE_ADMIN,
+    ROLE_MANAGER,
+    ROLE_CO_OWNER,
+    ROLE_OWNER,
+  ].filter(Boolean);
   let roleToRemove = null;
   for (let i = completeDepexRoleChain.length - 1; i >= 0; i--) {
     const roleId = completeDepexRoleChain[i];
@@ -693,14 +738,18 @@ async function runProfileStaffCompleteDepex(guild, client, targetUser, actorMemb
     }
   }
   if (!roleToRemove) {
-    return { ok: false, message: "<:VC_Attention:1482534443632558151> L'utente non ha un ruolo da **Admin** in su da depexare." };
+    return { ok: false, message: "<:VC_Attention:1482534443632558151> L'utente non ha un ruolo staff da depexare." };
   }
-  const isAdminOrAbove = [ROLE_ADMIN, ROLE_CO_OWNER, ROLE_OWNER].filter(Boolean).includes(roleToRemove);
+  const isAdminOrAbove = [ROLE_ADMIN, ROLE_MANAGER, ROLE_CO_OWNER, ROLE_OWNER].filter(Boolean).includes(roleToRemove);
   const roleIdsToRemove = [ROLE_STAFF, roleToRemove, ...(isAdminOrAbove ? [ROLE_HIGH_STAFF] : [])].filter(Boolean);
   await member.roles.remove(roleIdsToRemove).catch(() => null);
+  if (ROLE_MEMBER) await member.roles.add(ROLE_MEMBER).catch(() => null);
   const verification = await ensureMultipleRoleStates(
     member,
-    roleIdsToRemove.map((roleId) => ({ roleId, shouldHaveRole: false })),
+    [
+      ...roleIdsToRemove.map((roleId) => ({ roleId, shouldHaveRole: false })),
+      ...(ROLE_MEMBER ? [{ roleId: ROLE_MEMBER, shouldHaveRole: true }] : []),
+    ],
   );
   if (!verification.ok) {
     return { ok: false, message: "<:vegax:1443934876440068179> Depex completo non applicato correttamente." };
@@ -732,4 +781,5 @@ module.exports = {
   runProfileStaffCompleteDepex,
   runProfileStaffWarnAdd,
   runProfileStaffWarnRemove,
+  getHighestLadderRole,
 };

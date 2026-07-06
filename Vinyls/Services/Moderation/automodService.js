@@ -1,8 +1,10 @@
-const { EmbedBuilder, PermissionsBitField, UserFlagsBitField } = require("discord.js");
+const { EmbedBuilder, PermissionsBitField, UserFlagsBitField, MessageReferenceType } = require("discord.js");
 const fs = require("fs");
 const path = require("path");
 const mongoose = require("mongoose");
 const axios = require("axios");
+const { readSnapshotWithMeta, writeSnapshotWithMeta } = require("../../../shared/recovery/snapshotStore");
+const { registerShutdownFlush, armShutdownCheckpoint } = require("../../../shared/recovery/shutdownCheckpoint");
 const IDs = require("../../Utils/Config/ids");
 const { isSecurityProfileImmune, hasAdminsProfileCapability, hasModeratorsProfileCapability, getSecurityStaticsSnapshot, isExtraOwner, } = require("./securityProfilesService");
 const { isJoinGateSuspiciousAccount, } = require("./joinGateSuspiciousService");
@@ -10,18 +12,15 @@ const { CORE_EXEMPT_USER_IDS } = require("./joinGateExemptUtils");
 const { ActivityUserProfile, ACTIVITY_MAIN_GUILD_ID } = require("../../Schemas/Community/communitySchemas");
 const { automodBadUser } = require("../../Utils/Community/activityUserProfilePaths");
 const { isValidGuildUserId } = require("../../Utils/DB/validateWriteIds");
-const {
-  pickPrimaryAutomodRegolaBucket,
-  getAutomodRegolaSanction,
-  formatRegolaDotFromBucket,
-  buildAutomodRegolaSummaryLine,
-  violationKeyLabelIt,
-} = require("../../Utils/Moderation/modRegolamentoConstants");
+const { pickPrimaryAutomodRegolaBucket, getAutomodRegolaSanction, formatRegolaDotFromBucket, buildAutomodRegolaSummaryLine, violationKeyLabelIt, MOD_RULE_DETAIL, } = require("../../Utils/Moderation/modRegolamentoConstants");
+const { formatItalianMinutesPlain } = require("../../Utils/Text/italianDurationLabels");
 const { isChannelInTicketCategory } = require("../../Utils/Ticket/ticketCategoryUtils");
 const { isMinigameFloodExemptChannel } = require("../Minigames/minigameService");
+const { isHogwartsHouseChannelId } = require("../Community/hogwartsHouseChannelMinigameService");
+const { loadAutomodScamConfig } = require("../../Utils/Moderation/automodScamConfig");
 const { createModCase, getModConfig, logModCase, formatDuration } = require("../../Utils/Moderation/moderation");
 const { getGuildChannelCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
-const ARROW = "<:VC_right_arrow:1482459908245815296>";
+const { accountUsername } = require("../../Utils/Discord/guildDiscordIdentity");
 const USER_STATE = new Map();
 const ACTION_COOLDOWN = new Map();
 const ACTION_CHANNEL_LOG_COOLDOWN = new Map();
@@ -57,24 +56,40 @@ let MENTION_LOCKDOWN_WINDOW_MS = 3_000;
 let AUTOMOD_ENABLED = true;
 let AUTOMOD_ANTISPAM_ENABLED = true;
 let AUTOMOD_MONITOR_UNWHITELISTED_WEBHOOKS = true;
+let DISCORD_NATIVE_AUTOMOD_ENABLED = true;
+let DISCORD_NATIVE_SKIP_KEYS = new Set([
+  "invite",
+  "link_blacklist",
+  "word_blacklist",
+  "mention_everyone",
+  "mention_hour_cap",
+]);
+const NATIVE_HANDLED_MESSAGES = new Map();
+const NATIVE_HANDLED_TTL_MS = 30_000;
 const PANIC_MODE = { enabled: true, considerActivityHistory: true, useGlobalBadUsersDb: true, triggerCount: 3, triggerWindowMs: 10 * 60_000, durationMs: 10 * 60_000, raidWindowMs: 120_000, raidUserThreshold: 6, raidYoungThreshold: 4, lockCommands: false, };
-const PANIC_TRIGGER_KEYS = new Set(["invite", "scam_pattern", "nsfw_link", "word_blacklist", "link_blacklist", "mention_everyone", "mentions_lockdown", "mention_hour_cap", "unwhitelisted_webhook",]);
+const PANIC_TRIGGER_KEYS = new Set(["invite", "scam_pattern", "scam_image_bait", "nsfw_link", "word_blacklist", "link_blacklist", "mention_everyone", "mentions_lockdown", "mention_hour_cap", "unwhitelisted_webhook",]);
 const MENTION_RULES = {
   enabled: true,
   timeoutMs: 45 * 60_000,
   hourCap: 20,
-  userMentions: { enabled: true, heat: 15, minUserMentions: 3 },
+  userMentions: { enabled: true, heat: 15, minUserMentions: 5 },
   roleMentions: { enabled: true, heat: 20 },
   everyoneMentions: { enabled: true, heat: 100 },
 };
 const ATTACHMENT_RULES = { enabled: true, timeoutMs: 0, embeds: { enabled: true, heat: 15 }, images: { enabled: true, heat: 10 }, files: { enabled: true, heat: 15 }, links: { enabled: true, heat: 10 }, stickers: { enabled: true, heat: 15 }, };
 const AUTOMOD_IMAGE_ONLY_MAX_COUNT = 10;
 const AUTOMOD_IMAGE_ONLY_HEAT_MULTIPLIER = 0.45;
-const TEXT_RULES = { regularMessage: { enabled: true, heat: 15, timeoutMs: 15 * 60_000, }, suspiciousAccount: { enabled: true, heat: 7, timeoutMs: 15 * 60_000, }, similarMessage: { enabled: true, heat: 22, ratio: 0.8, timeoutMs: 15 * 60_000, }, emojis: { enabled: true, heat: 9, minCount: 8, timeoutMs: 15 * 60_000, }, newLines: { enabled: true, heat: 5, minCount: 6, timeoutMs: 15 * 60_000, }, zalgo: { enabled: true, heat: 1.5, minCount: 6, timeoutMs: 15 * 60_000, }, characters: { enabled: true, lowercaseHeat: 0.08, uppercaseHeat: 0.12, minChars: 40, timeoutMs: 15 * 60_000, }, inviteLinks: { enabled: true, heat: 100, timeoutMs: 60 * 60_000, }, maliciousLinks: { enabled: true, heat: 100, timeoutMs: 60 * 60_000, }, nsfwLinks: { enabled: true, crawlShorteners: true, heat: 100, timeoutMs: 30 * 60_000, }, wordBlacklist: { enabled: true, useProfaneList: false, useVulgarList: false, useRacistList: true, heat: 100, timeoutMs: 45 * 60_000, }, linkBlacklist: { enabled: true, heat: 100, timeoutMs: 45 * 60_000, domains: ["dsc.gg"], }, };
+const TEXT_RULES = { regularMessage: { enabled: true, heat: 15, timeoutMs: 15 * 60_000, }, suspiciousAccount: { enabled: true, heat: 7, timeoutMs: 15 * 60_000, }, similarMessage: { enabled: true, heat: 22, ratio: 0.8, timeoutMs: 15 * 60_000, }, emojis: { enabled: true, heat: 9, minCount: 8, timeoutMs: 15 * 60_000, }, newLines: { enabled: true, heat: 5, minCount: 6, timeoutMs: 15 * 60_000, }, zalgo: { enabled: true, heat: 1.5, minCount: 6, timeoutMs: 15 * 60_000, }, characters: { enabled: true, lowercaseHeat: 0.08, uppercaseHeat: 0.12, minChars: 40, timeoutMs: 15 * 60_000, }, inviteLinks: { enabled: true, heat: 100, timeoutMs: 60 * 60_000, }, maliciousLinks: { enabled: true, heat: 100, timeoutMs: 60 * 60_000, }, nsfwLinks: { enabled: true, crawlShorteners: true, heat: 100, timeoutMs: 30 * 60_000, }, wordBlacklist: { enabled: true, useProfaneList: false, useVulgarList: false, useRacistList: true, heat: 100, timeoutMs: 45 * 60_000, }, linkBlacklist: { enabled: true, heat: 100, timeoutMs: 45 * 60_000, domains: ["dsc.gg"], }, crossServerForward: { enabled: true, heat: 100, timeoutMs: 0, }, };
+const AUTOMOD_SCAM_CONFIG = loadAutomodScamConfig();
+TEXT_RULES.linkBlacklist.domains = [...new Set([...(TEXT_RULES.linkBlacklist.domains || []), ...(AUTOMOD_SCAM_CONFIG.domains || [])])];
 const AUTOMOD_CONFIG_PATH = path.resolve(__dirname, "../../Utils/Config/automodConfig.json",);
 const AUTOMOD_METRICS_PATH = path.resolve(__dirname, "../../Utils/Config/automodMetrics.json",);
+const AUTOMOD_HOT_SNAPSHOT_PATH = path.resolve(__dirname, "..", "..", "Data", "automodHotSnapshot.json");
+const AUTOMOD_HOT_SNAPSHOT_DEBOUNCE_MS = 2000;
+let automodHotSnapshotLoaded = false;
+let automodHotSnapshotTimer = null;
 const SHORTENER_HOSTS = new Set(["bit.ly", "tinyurl.com", "t.co", "cutt.ly", "is.gd", "rebrand.ly", "tiny.cc", "shorturl.at", "goo.gl", "ow.ly", "buff.ly",]);
-const DEFAULT_AUTOMOD_RUNTIME = { status: { enabled: true, antiSpamEnabled: true, monitorUnwhitelistedWebhooks: true, }, thresholds: { warn: 35, delete: 65, timeout: 100, }, heatSystem: { maxHeat: 100, decayPerSec: 2, resetOnPunishment: true, }, autoTimeouts: { enabled: true, regularStrikeDurationMs: 60_000, capStrikeDurationMs: 11 * 60_000, capStrike: 3, multiplierEnabled: true, multiplierPercent: 200, profileResetMs: 6 * 60 * 60_000, }, autoLockdown: { enabled: true, mentionTrigger: 50, mentionWindowMs: 3_000, mentionHourCap: 20, }, heatFilters: { regularMessage: true, suspiciousAccount: true, similarMessage: true, emojis: true, newLines: true, zalgo: true, characters: true, inviteLinks: true, maliciousLinks: true, nsfwLinks: true, wordBlacklist: true, linkBlacklist: true, mentions: true, attachments: true, webhookMessages: true, }, heatFactors: { regularMessage: 1, suspiciousAccount: 1, similarMessage: 1, emojis: 1, newLines: 1, zalgo: 1, characters: 1, inviteLinks: 1, maliciousLinks: 1, nsfwLinks: 1, wordBlacklist: 1, linkBlacklist: 1, mentions: 1, attachments: 1, }, heatCaps: { maxPerMessage: 85, charactersMax: 40, textClusterMax: 35, attachmentClusterMax: 45, mentionClusterMax: 70, }, panic: { enabled: true, considerActivityHistory: true, useGlobalBadUsersDb: true, triggerCount: 3, triggerWindowMs: 10 * 60_000, durationMs: 10 * 60_000, raidWindowMs: 120_000, raidUserThreshold: 6, raidYoungThreshold: 4, lockCommands: false, }, shorteners: { crawl: true, timeoutMs: 2200, maxHops: 3, }, profiles: { default: { exempt: false, heatMultiplier: 1, mentionsEnabled: true, attachmentsEnabled: true, inviteLinksEnabled: true, }, media: { exempt: false, heatMultiplier: 0.85, mentionsEnabled: true, attachmentsEnabled: true, inviteLinksEnabled: true, }, ticket: { exempt: true, heatMultiplier: 0.6, mentionsEnabled: false, attachmentsEnabled: false, inviteLinksEnabled: false, }, staff: { exempt: true, heatMultiplier: 0.25, mentionsEnabled: false, attachmentsEnabled: false, inviteLinksEnabled: false, }, }, };
+const DEFAULT_AUTOMOD_RUNTIME = { status: { enabled: true, antiSpamEnabled: true, monitorUnwhitelistedWebhooks: true, }, thresholds: { warn: 35, delete: 65, timeout: 100, }, heatSystem: { maxHeat: 100, decayPerSec: 2, resetOnPunishment: true, }, autoTimeouts: { enabled: true, regularStrikeDurationMs: 60_000, capStrikeDurationMs: 11 * 60_000, capStrike: 3, multiplierEnabled: true, multiplierPercent: 200, profileResetMs: 6 * 60 * 60_000, }, autoLockdown: { enabled: true, mentionTrigger: 50, mentionWindowMs: 3_000, mentionHourCap: 20, }, heatFilters: { regularMessage: true, suspiciousAccount: true, similarMessage: true, emojis: true, newLines: true, zalgo: true, characters: true, inviteLinks: true, maliciousLinks: true, nsfwLinks: true, wordBlacklist: true, linkBlacklist: true, mentions: true, attachments: true, webhookMessages: true, crossServerForwards: true, }, heatFactors: { regularMessage: 1, suspiciousAccount: 1, similarMessage: 1, emojis: 1, newLines: 1, zalgo: 1, characters: 1, inviteLinks: 1, maliciousLinks: 1, nsfwLinks: 1, wordBlacklist: 1, linkBlacklist: 1, mentions: 1, attachments: 1, crossServerForward: 1, }, heatCaps: { maxPerMessage: 85, charactersMax: 40, textClusterMax: 35, attachmentClusterMax: 45, mentionClusterMax: 70, }, panic: { enabled: true, considerActivityHistory: true, useGlobalBadUsersDb: true, triggerCount: 3, triggerWindowMs: 10 * 60_000, durationMs: 10 * 60_000, raidWindowMs: 120_000, raidUserThreshold: 6, raidYoungThreshold: 4, lockCommands: false, }, shorteners: { crawl: true, timeoutMs: 2200, maxHops: 3, }, profiles: { default: { exempt: false, heatMultiplier: 1, mentionsEnabled: true, attachmentsEnabled: true, inviteLinksEnabled: true, }, media: { exempt: false, heatMultiplier: 0.85, mentionsEnabled: true, attachmentsEnabled: true, inviteLinksEnabled: true, }, ticket: { exempt: true, heatMultiplier: 0.6, mentionsEnabled: false, attachmentsEnabled: false, inviteLinksEnabled: false, }, staff: { exempt: true, heatMultiplier: 0.25, mentionsEnabled: false, attachmentsEnabled: false, inviteLinksEnabled: false, }, }, discordNative: { enabled: true, syncOnStartup: true, skipBotDetectionFor: ["invite", "link_blacklist", "word_blacklist", "mention_everyone", "mention_hour_cap"], }, };
 
 function deepMerge(base, override) {
   if (!override || typeof override !== "object") return base;
@@ -112,6 +127,66 @@ function writeJsonSafe(filePath, value) {
     return true;
   } catch {
     return false;
+  }
+}
+
+function readAutomodHotSnapshotRaw() {
+  return readSnapshotWithMeta({
+    filePath: AUTOMOD_HOT_SNAPSHOT_PATH,
+    walPath: `${AUTOMOD_HOT_SNAPSHOT_PATH}.wal`,
+    key: "vinyls_automod_hot",
+    version: 1,
+    fallback: {},
+  });
+}
+
+function flushAutomodHotSnapshotNow() {
+  try {
+    const actionCooldown = {};
+    for (const [key, ts] of ACTION_COOLDOWN.entries()) {
+      if (!key) continue;
+      const at = Number(ts || 0);
+      if (!Number.isFinite(at) || at <= 0) continue;
+      actionCooldown[String(key)] = at;
+    }
+    writeSnapshotWithMeta({
+      filePath: AUTOMOD_HOT_SNAPSHOT_PATH,
+      walPath: `${AUTOMOD_HOT_SNAPSHOT_PATH}.wal`,
+      key: "vinyls_automod_hot",
+      version: 1,
+      payload: { actionCooldown },
+    });
+  } catch { }
+}
+
+function scheduleAutomodHotSnapshotPersist() {
+  if (automodHotSnapshotTimer) return;
+  automodHotSnapshotTimer = setTimeout(() => {
+    automodHotSnapshotTimer = null;
+    flushAutomodHotSnapshotNow();
+  }, AUTOMOD_HOT_SNAPSHOT_DEBOUNCE_MS);
+  automodHotSnapshotTimer.unref?.();
+}
+
+function ensureAutomodHotSnapshotLoaded() {
+  if (automodHotSnapshotLoaded) return;
+  armShutdownCheckpoint();
+  automodHotSnapshotLoaded = true;
+  const raw = readAutomodHotSnapshotRaw();
+  const rows = raw?.actionCooldown && typeof raw.actionCooldown === "object"
+    ? raw.actionCooldown
+    : {};
+  const now = nowMs();
+  const maxAge = ACTION_COOLDOWN_MS * 4;
+  for (const [key, ts] of Object.entries(rows)) {
+    const at = Number(ts || 0);
+    if (!key || !Number.isFinite(at) || at <= 0) continue;
+    if (now - at > maxAge) continue;
+    ACTION_COOLDOWN.set(String(key), at);
+  }
+  if (!global.__vinylsAutomodHotFlushRegistered) {
+    global.__vinylsAutomodHotFlushRegistered = true;
+    registerShutdownFlush("vinyls_automod_hot", () => flushAutomodHotSnapshotNow());
   }
 }
 
@@ -333,6 +408,27 @@ function sanitizeAutoModRuntimeConfig(rawCfg) {
     typeof merged.panic.lockCommands === "boolean"
       ? merged.panic.lockCommands
       : DEFAULT_AUTOMOD_RUNTIME.panic.lockCommands;
+  merged.discordNative = merged.discordNative || {};
+  merged.discordNative.enabled =
+    typeof merged.discordNative.enabled === "boolean"
+      ? merged.discordNative.enabled
+      : DEFAULT_AUTOMOD_RUNTIME.discordNative.enabled;
+  merged.discordNative.syncOnStartup =
+    typeof merged.discordNative.syncOnStartup === "boolean"
+      ? merged.discordNative.syncOnStartup
+      : DEFAULT_AUTOMOD_RUNTIME.discordNative.syncOnStartup;
+  const skipDefault = DEFAULT_AUTOMOD_RUNTIME.discordNative.skipBotDetectionFor || [];
+  const skipRaw = Array.isArray(merged.discordNative.skipBotDetectionFor)
+    ? merged.discordNative.skipBotDetectionFor
+    : skipDefault;
+  merged.discordNative.skipBotDetectionFor = [
+    ...new Set(
+      skipRaw.map((x) => String(x || "").trim()).filter(Boolean),
+    ),
+  ];
+  if (!merged.discordNative.skipBotDetectionFor.length) {
+    merged.discordNative.skipBotDetectionFor = [...skipDefault];
+  }
   return merged;
 }
 
@@ -429,6 +525,9 @@ function applyAutomodRuntime() {
   MENTION_RULES.hourCap = Number.isFinite(Number(al.mentionHourCap))
     ? Number(al.mentionHourCap)
     : DEFAULT_AUTOMOD_RUNTIME.autoLockdown.mentionHourCap;
+  MENTION_RULES.userMentions.minUserMentions = Number.isFinite(Number(al.mentionPerMessageLimit))
+    ? Math.max(1, Math.floor(Number(al.mentionPerMessageLimit)))
+    : MENTION_RULES.userMentions.minUserMentions;
 
   const hf = automodRuntimeConfig?.heatFilters || {};
   MENTION_RULES.enabled =
@@ -487,6 +586,10 @@ function applyAutomodRuntime() {
     hf.linkBlacklist !== undefined
       ? Boolean(hf.linkBlacklist)
       : DEFAULT_AUTOMOD_RUNTIME.heatFilters.linkBlacklist;
+  TEXT_RULES.crossServerForward.enabled =
+    hf.crossServerForwards !== undefined
+      ? Boolean(hf.crossServerForwards)
+      : DEFAULT_AUTOMOD_RUNTIME.heatFilters.crossServerForwards;
 
   const p = automodRuntimeConfig?.panic || {};
   const d = DEFAULT_AUTOMOD_RUNTIME.panic;
@@ -500,8 +603,66 @@ function applyAutomodRuntime() {
   PANIC_MODE.raidUserThreshold = clampNumber(p.raidUserThreshold, 1, 100, d.raidUserThreshold);
   PANIC_MODE.raidYoungThreshold = clampNumber(p.raidYoungThreshold, 1, 100, d.raidYoungThreshold);
   PANIC_MODE.lockCommands = typeof p.lockCommands === "boolean" ? p.lockCommands : d.lockCommands;
+
+  const dn = automodRuntimeConfig?.discordNative || {};
+  const dnDefault = DEFAULT_AUTOMOD_RUNTIME.discordNative || {};
+  DISCORD_NATIVE_AUTOMOD_ENABLED =
+    typeof dn.enabled === "boolean" ? dn.enabled : dnDefault.enabled !== false;
+  const skipList = Array.isArray(dn.skipBotDetectionFor)
+    ? dn.skipBotDetectionFor
+    : dnDefault.skipBotDetectionFor || [];
+  DISCORD_NATIVE_SKIP_KEYS = new Set(
+    skipList.map((x) => String(x || "").trim()).filter(Boolean),
+  );
 }
 applyAutomodRuntime();
+
+function isAutomodMainGuild(guildId) {
+  const gid = String(guildId || "").trim();
+  if (!gid) return false;
+  const mainId = String(ACTIVITY_MAIN_GUILD_ID || IDs.guilds?.main || "").trim();
+  return Boolean(mainId && gid === mainId);
+}
+
+function isDiscordNativeAutomodEnabled(guildId) {
+  if (!DISCORD_NATIVE_AUTOMOD_ENABLED) return false;
+  return isAutomodMainGuild(guildId);
+}
+
+function getDiscordNativeViolationSkipKeys() {
+  return new Set(DISCORD_NATIVE_SKIP_KEYS);
+}
+
+function markDiscordNativeHandled(messageId) {
+  const id = String(messageId || "").trim();
+  if (!id) return;
+  const at = nowMs();
+  NATIVE_HANDLED_MESSAGES.set(id, at);
+  if (NATIVE_HANDLED_MESSAGES.size > 5000) {
+    for (const [key, ts] of NATIVE_HANDLED_MESSAGES.entries()) {
+      if (at - Number(ts || 0) > NATIVE_HANDLED_TTL_MS) {
+        NATIVE_HANDLED_MESSAGES.delete(key);
+      }
+    }
+  }
+}
+
+function wasDiscordNativeHandled(messageId) {
+  const id = String(messageId || "").trim();
+  if (!id) return false;
+  const ts = Number(NATIVE_HANDLED_MESSAGES.get(id) || 0);
+  if (!ts) return false;
+  if (nowMs() - ts > NATIVE_HANDLED_TTL_MS) {
+    NATIVE_HANDLED_MESSAGES.delete(id);
+    return false;
+  }
+  return true;
+}
+
+function shouldSkipViolationForDiscordNative(key) {
+  if (!DISCORD_NATIVE_AUTOMOD_ENABLED) return false;
+  return DISCORD_NATIVE_SKIP_KEYS.has(String(key || ""));
+}
 
 function clearAutoModPanicState(guildId) {
   const key = String(guildId || "").trim();
@@ -514,7 +675,7 @@ function clearAutoModPanicState(guildId) {
 
 const WICK_EQUIV = { textClusterMultiplier: 1.1875, upperCharMultiplier: 9.90575, lowerCharMultiplier: 14.866, };
 
-const INSTANT_LINK_KEYS = new Set(["invite", "scam_pattern", "nsfw_link", "word_blacklist", "link_blacklist", "mention_everyone", "mention_hour_cap", "mentions_lockdown",]);
+const INSTANT_LINK_KEYS = new Set(["invite", "scam_pattern", "scam_image_bait", "nsfw_link", "word_blacklist", "link_blacklist", "mention_everyone", "mention_hour_cap", "mentions_lockdown",]);
 const SUSPICIOUS_ACCOUNT_STRONG_KEYS = new Set([
   "mention_user",
   "mention_role",
@@ -523,6 +684,7 @@ const SUSPICIOUS_ACCOUNT_STRONG_KEYS = new Set([
   "mentions_lockdown",
   "invite",
   "scam_pattern",
+  "scam_image_bait",
   "nsfw_link",
   "link_blacklist",
   "attachment_embed",
@@ -650,6 +812,7 @@ function resolveProfileKey(message) {
   if (
     EXEMPT_CHANNEL_IDS.has(channelId) ||
     EXEMPT_CHANNEL_IDS.has(parentId) ||
+    isStaffZoneExemptChannel(message?.channel) ||
     isUnderExemptCategory(message?.channel)
   ) {
     return "staff";
@@ -1478,11 +1641,107 @@ function getAllowedInviteCodes(message) {
   return codes;
 }
 
+function stripTrustedMediaUrlsFromText(content) {
+  const text = String(content || "");
+  if (!text) return "";
+  const urlMatches = text.match(/(?:https?:\/\/)?(?:www\.)?[^\s/$.?#]+\.[^\s]+/gi) || [];
+  if (!urlMatches.length) return text;
+
+  let out = text;
+  for (const rawUrl of urlMatches) {
+    const normalized = /^https?:\/\//i.test(rawUrl) ? rawUrl : `https://${rawUrl}`;
+    let parsed = null;
+    try {
+      parsed = new URL(normalized);
+    } catch {
+      parsed = null;
+    }
+    if (!parsed || !isAutomodMediaEmbedUrl(parsed)) continue;
+    out = out.replace(rawUrl, " ");
+  }
+  return out;
+}
+
+function buildModerationScanText(message, moderationContent) {
+  let text = String(moderationContent || "");
+  for (const embed of message?.embeds || []) {
+    text += ` ${embed.title || ""} ${embed.description || ""} ${embed.author?.name || ""}`;
+    for (const field of embed.fields || []) {
+      text += ` ${field.name || ""} ${field.value || ""}`;
+    }
+  }
+  for (const att of message?.attachments?.values?.() || []) {
+    text += ` ${att.name || ""}`;
+  }
+  return text.trim();
+}
+
+const SCAM_CRYPTO_PATTERNS = [
+  /(discord|steam|epic)[a-z0-9-]*\.(gift|nitro|airdrop|drop|claim|free)\b/,
+  /(free|claim).{0,24}(nitro|steam\s*gift|gift(?:card)?|airdrop)\b/,
+  /@everyone.{0,40}(nitro|gift|claim|airdrop)/,
+  /(verify|login).{0,30}(discord|steam|epic).{0,30}(gift|nitro|reward|airdrop)/,
+  /\b(crypto\s+casino|casino\s+crypto)\b/,
+  /\b(mr\s*beast|mrbeast)\b.{0,80}\b(crypto|casino|giveaway|promo|usdt|\$\d|register|withdraw)/,
+  /\b(mr\s*beast|mrbeast)\b.{0,40}\b(launch|celebrat)/,
+  /\b(vyro\s+project|linked to our)\b/i,
+  /\b(riftroll|betchoco|nozawin|serowin)\b/i,
+  /\b(activate\s+code|special\s+promocode|promocode)\b/i,
+  /\b(congratulations|your reward has been|reward has been successfully)\b/i,
+  /\b(give(?:away|ing)\s+(?:away\s+)?\$?\d[\d,.]*\b)/,
+  /\b(promo\s+code|special\s+promo)\b/,
+  /\b(withdraw(?:al)?\s+success(?:ful)?)\b/,
+  /\b(usdt|btc|eth)\b.{0,40}\b(withdraw|bonus|giveaway|promo|register)\b/,
+  /\b(register|sign\s*up).{0,40}\b(withdraw|bonus|instant)\b/,
+  /\bcelebrat(?:e|ing)\b.{0,40}\b(launch|crypto|casino)\b/,
+  /\blost\s+your\s+crypto\s+to\s+a\s+scam\b/i,
+  /\bkate\s+expert\s+services\b/i,
+  /\bkateexpertsservices\b/i,
+  /\bno\s+upfront\s+payment\b/i,
+  /\bcrypto\s+asset\s+tracing\b/i,
+  /\brecovery\s+assessment\b/i,
+  /\b(funds?\s+(?:have\s+been\s+)?successfully\s+recovered)\b/i,
+  /\b7884\s*893\s*099\b/,
+];
+
+const SCAM_IMAGE_BAIT_PATTERNS = [
+  /^omg\b/i,
+  /\b(wow|look at this|check this|free money|guadagn)\b/i,
+  /[\u{1F4B0}\u{1F911}\u{1F633}\u{1F4B5}]/u,
+  /\b(mrbeast|mr\s*beast)\b/i,
+  /\b(bonus|promocode|promo\s*code|activate\s+code)\b/i,
+  /\b(withdraw(?:al)?|casino|crypto)\b/i,
+  /\b(guarda questo|clicca qui|claim|redeem|vinci)\b/i,
+  /\b(soldi facili|soldi gratis|guadagna)\b/i,
+  /\$\d{2,5}\b/,
+  /\b(riftroll|betchoco|nozawin|serowin)\b/i,
+];
+
 function detectScam(content) {
-  const text = String(content || "").toLowerCase();
+  const text = stripTrustedMediaUrlsFromText(content).toLowerCase();
   if (!text) return false;
-  const patterns = [/(discord|steam|epic)[a-z0-9-]*\.(gift|nitro|airdrop|drop|claim|free)/, /(free|claim).{0,18}(nitro|steam|gift)/, /free\s*nitro/, /steam\s*gift/, /airdrop/, /@everyone.{0,40}(nitro|gift|claim)/, /(verify|login).{0,20}(discord|steam|epic).{0,20}(gift|nitro|reward)/,];
-  return patterns.some((re) => re.test(text));
+  if (SCAM_CRYPTO_PATTERNS.some((re) => re.test(text))) return true;
+  const domains = AUTOMOD_SCAM_CONFIG.domains || [];
+  return domains.some((domain) => domain && text.includes(String(domain).toLowerCase()));
+}
+
+function detectScamImageBait(message, moderationContent, options = {}) {
+  const attachmentList = [...(message?.attachments?.values?.() || [])];
+  const imageCount = attachmentList.filter((att) => isImageAttachment(att)).length;
+  if (imageCount < 1) return false;
+  const text = String(moderationContent || "").trim();
+  const maxLen = Number(AUTOMOD_SCAM_CONFIG.imageBaitMaxTextLength || 48);
+  if (!text || text.length > maxLen) return false;
+  if (detectScam(text)) return true;
+  const hasBait = SCAM_IMAGE_BAIT_PATTERNS.some((re) => re.test(text));
+  if (!hasBait) return false;
+  if (options.suspicious) return true;
+  const youngDays = Number(AUTOMOD_SCAM_CONFIG.youngAccountMaxDays || 14);
+  const accountAgeMs = Number(options.accountAgeMs || 0);
+  const youngMs = youngDays * 24 * 60 * 60_000;
+  if (options.youngAccount && text.length <= 28) return true;
+  if (accountAgeMs > 0 && accountAgeMs < youngMs && text.length <= 28) return true;
+  return text.length <= 16;
 }
 
 /** Esclude host tipo `do...lo` (puntini sospensivi) che `URL` accetta ma non sono domini reali. */
@@ -1523,9 +1782,37 @@ function isAutomodMediaEmbedUrl(url) {
   return false;
 }
 
+/**
+ * La regex di extractUrls interpreta "1.30", "2.30min", "8=1.30min" come host finti.
+ * Per la sola regola 2.4 (attachment_link) non devono contare come link.
+ */
+function isAutomodNumericDecimalFalsePositiveUrl(url) {
+  if (!url) return false;
+  const host = String(url.hostname || "").toLowerCase().trim();
+  if (!host) return false;
+  const path = String(url.pathname || "");
+  const search = String(url.search || "");
+  if (path !== "/" && path !== "") return false;
+  if (search) return false;
+  const labels = host.split(".").filter(Boolean);
+  if (!labels.length) return false;
+  if (labels.every((lab) => /^\d+$/.test(lab))) return true;
+  if (labels.length === 2 && /^\d+$/.test(labels[0])) {
+    const tail = labels[1];
+    if (
+      /^\d+(min|mins|minuti|sec|secs|secondi|ore|h|ms|rpm|kg|serie|rep|reps)s?$/i.test(tail)
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function filterUrlsForAttachmentLinkRule(urls) {
   if (!Array.isArray(urls) || !urls.length) return [];
-  return urls.filter((u) => !isAutomodMediaEmbedUrl(u));
+  return urls.filter(
+    (u) => !isAutomodMediaEmbedUrl(u) && !isAutomodNumericDecimalFalsePositiveUrl(u),
+  );
 }
 
 function toAbsoluteUrl(location, base) {
@@ -1720,6 +2007,17 @@ function stripUrlsForCharacterRule(content) {
   return s;
 }
 
+function isStaffZoneExemptChannel(channel) {
+  if (!channel) return false;
+  try {
+    const { isChannelOrThreadUnderStaffChat } = require("../../Utils/Staff/staffChatChannelUtils");
+    const { isChannelOrThreadUnderStaffCmds } = require("../../Utils/Staff/staffCmdsChannelUtils");
+    return isChannelOrThreadUnderStaffChat(channel) || isChannelOrThreadUnderStaffCmds(channel);
+  } catch {
+    return false;
+  }
+}
+
 function isExempt(message) {
   if (!message.guild) return true;
   const guildId = String(message.guild?.id || "");
@@ -1728,6 +2026,7 @@ function isExempt(message) {
   if (userId && String(message.guild.ownerId || "") === userId) return true;
   if (guildId && userId && isSecurityProfileImmune(guildId, userId)) return true;
   if (EXEMPT_CHANNEL_IDS.has(String(message.channelId))) return true;
+  if (isStaffZoneExemptChannel(message.channel)) return true;
   if (isUnderExemptCategory(message.channel)) return true;
   const profile = getProfileConfig(message);
   if (profile?.exempt) return true;
@@ -1769,6 +2068,25 @@ async function isVerifiedBotMessage(message) {
       global.logger?.warn?.("[automod] ", err?.message || err);
     }
   }
+  return false;
+}
+
+function isCrossServerForwardedMessage(message) {
+  const currentGuildId = String(message?.guildId || message?.guild?.id || "").trim();
+  if (!currentGuildId) return false;
+  const ref = message?.reference;
+  const refType = Number(ref?.type);
+  if (ref && refType === MessageReferenceType?.Default) return false;
+  if (ref && Number.isFinite(refType) && refType === 0) return false;
+  const isDiscordForward =
+    refType === MessageReferenceType?.Forward ||
+    (Number.isFinite(refType) && refType === 1);
+  const hasForwardSnapshots = Number(message?.messageSnapshots?.size || 0) > 0;
+  if (!isDiscordForward && !hasForwardSnapshots) return false;
+  const sourceGuildId = String(ref?.guildId || "").trim();
+  if (sourceGuildId && sourceGuildId === currentGuildId) return false;
+  if (sourceGuildId && sourceGuildId !== currentGuildId) return true;
+  if (hasForwardSnapshots) return true;
   return false;
 }
 
@@ -1869,8 +2187,9 @@ async function detectViolations(message, state, profile) {
   trimRecentMessageHistory(state.recentMessageHistory, 20_000, at);
   const content = String(message.content || "");
   const moderationContent = stripQuotedAndCodeText(content);
+  const moderationScanText = buildModerationScanText(message, moderationContent);
   const normalized = normalizeContent(content);
-  const extractedUrls = extractUrls(moderationContent);
+  const extractedUrls = extractUrls(moderationScanText);
   const violations = [];
   const channelId = String(message.channelId || "");
   const parentChannelId = String(message.channel?.parentId || "");
@@ -1881,6 +2200,8 @@ async function detectViolations(message, state, profile) {
   const everyoneWhitelistSet = new Set([...EVERYONE_WHITELIST_CHANNEL_IDS, ...dynamicPartneringChannels,]);
   const spamWhitelisted = isWhitelistedByCategory(message.channel, SPAM_WHITELIST_CATEGORY_IDS);
   const minigameFloodExempt = isMinigameFloodExemptChannel(message);
+  const houseChannelFloodExempt = isHogwartsHouseChannelId(channelId);
+  const antiSpamFloodExempt = spamWhitelisted || minigameFloodExempt || houseChannelFloodExempt;
   const inviteWhitelisted = isWhitelistedByChannel(channelId, parentChannelId, inviteWhitelistSet,);
   const mentionWhitelisted = isWhitelistedByChannel(channelId, parentChannelId, mentionWhitelistSet,);
   const everyoneWhitelisted = isWhitelistedByChannel(channelId, parentChannelId, everyoneWhitelistSet,);
@@ -1893,6 +2214,21 @@ async function detectViolations(message, state, profile) {
   const imageAttachmentCountForCharRule = attachmentListForCharRule.filter((att) => isImageAttachment(att)).length;
   const profileHeat = (value, factorKey = "regularMessage") => applyProfileHeat(applyHeatFactor(factorKey, value), profile);
   const legitConversation = looksLikeLegitConversation(moderationContent || content);
+  if (
+    TEXT_RULES.crossServerForward.enabled &&
+    isAutomodMainGuild(String(message.guildId || message.guild?.id || "")) &&
+    isCrossServerForwardedMessage(message)
+  ) {
+    violations.push({
+      key: "cross_server_forward",
+      heat: profileHeat(
+        percentToHeat(TEXT_RULES.crossServerForward.heat),
+        "crossServerForward",
+      ),
+      info: String(message.reference?.guildId || "forward"),
+    });
+    return violations;
+  }
   let suspiciousMessageAuthor = false;
   try {
     const badProfile = await getBadUserProfile(message.author?.id, message.guildId);
@@ -1902,8 +2238,7 @@ async function detectViolations(message, state, profile) {
   }
 
   if (
-    !spamWhitelisted &&
-    !minigameFloodExempt &&
+    !antiSpamFloodExempt &&
     AUTOMOD_ANTISPAM_ENABLED &&
     TEXT_RULES.regularMessage.enabled
   ) {
@@ -1927,8 +2262,7 @@ async function detectViolations(message, state, profile) {
   }
 
   if (
-    !spamWhitelisted &&
-    !minigameFloodExempt &&
+    !antiSpamFloodExempt &&
     AUTOMOD_ANTISPAM_ENABLED &&
     TEXT_RULES.similarMessage.enabled &&
     normalized.length >= 8 &&
@@ -1988,7 +2322,7 @@ async function detectViolations(message, state, profile) {
 
     const minUserMentions = Math.max(
       1,
-      Math.floor(Number(MENTION_RULES.userMentions?.minUserMentions ?? 3)),
+      Math.floor(Number(MENTION_RULES.userMentions?.minUserMentions ?? 5)),
     );
     if (
       !mentionWhitelisted &&
@@ -2022,6 +2356,7 @@ async function detectViolations(message, state, profile) {
 
     if (
       !everyoneWhitelisted &&
+      !shouldSkipViolationForDiscordNative("mention_everyone") &&
       MENTION_RULES.everyoneMentions.enabled &&
       everyoneMentionCount > 0
     ) {
@@ -2036,7 +2371,11 @@ async function detectViolations(message, state, profile) {
       });
     }
 
-    if (autoLockdownEnabled && state.mentionHourTimes.length >= MENTION_RULES.hourCap) {
+    if (
+      autoLockdownEnabled &&
+      !shouldSkipViolationForDiscordNative("mention_hour_cap") &&
+      state.mentionHourTimes.length >= MENTION_RULES.hourCap
+    ) {
       violations.push({
         key: "mention_hour_cap",
         heat: profileHeat(percentToHeat(100), "mentions"),
@@ -2054,7 +2393,11 @@ async function detectViolations(message, state, profile) {
   }
 
   const inviteCode = detectInvite(moderationContent);
-  if (inviteCode && !inviteWhitelisted) {
+  if (
+    inviteCode &&
+    !inviteWhitelisted &&
+    !shouldSkipViolationForDiscordNative("invite")
+  ) {
     const allowedCodes = getAllowedInviteCodes(message);
     if (
       inviteLinksEnabled &&
@@ -2072,7 +2415,7 @@ async function detectViolations(message, state, profile) {
     }
   }
 
-  if (TEXT_RULES.maliciousLinks.enabled && detectScam(moderationContent)) {
+  if (TEXT_RULES.maliciousLinks.enabled && detectScam(moderationScanText)) {
     violations.push({
       key: "scam_pattern",
       heat: profileHeat(
@@ -2083,7 +2426,29 @@ async function detectViolations(message, state, profile) {
     });
   }
 
-  if (await isNsfwUrl(moderationContent, extractedUrls)) {
+  const accountCreatedAt = Number(new Date(message?.author?.createdAt || 0).getTime() || 0);
+  const accountAgeMs = accountCreatedAt > 0 ? at - accountCreatedAt : 0;
+  const youngAccountMaxMs = Number(AUTOMOD_SCAM_CONFIG.youngAccountMaxDays || 14) * 24 * 60 * 60_000;
+  const youngAccount = accountAgeMs > 0 && accountAgeMs < youngAccountMaxMs;
+  if (
+    TEXT_RULES.maliciousLinks.enabled &&
+    detectScamImageBait(message, moderationContent, {
+      suspicious: suspiciousMessageAuthor,
+      youngAccount,
+      accountAgeMs,
+    })
+  ) {
+    violations.push({
+      key: "scam_image_bait",
+      heat: profileHeat(
+        percentToHeat(TEXT_RULES.maliciousLinks.heat),
+        "maliciousLinks",
+      ),
+      info: "bait text + image scam",
+    });
+  }
+
+  if (await isNsfwUrl(moderationScanText, extractedUrls)) {
     violations.push({
       key: "nsfw_link",
       heat: profileHeat(
@@ -2094,7 +2459,10 @@ async function detectViolations(message, state, profile) {
     });
   }
 
-  const wordBlacklistMatch = findBlacklistedWordMatch(moderationContent);
+  const wordBlacklistMatch =
+    shouldSkipViolationForDiscordNative("word_blacklist")
+      ? null
+      : findBlacklistedWordMatch(moderationContent);
   if (wordBlacklistMatch) {
     violations.push({
       key: "word_blacklist",
@@ -2109,7 +2477,10 @@ async function detectViolations(message, state, profile) {
     });
   }
 
-  if (await hasBlacklistedDomain(moderationContent, extractedUrls)) {
+  if (
+    !shouldSkipViolationForDiscordNative("link_blacklist") &&
+    (await hasBlacklistedDomain(moderationScanText, extractedUrls))
+  ) {
     violations.push({
       key: "link_blacklist",
       heat: profileHeat(
@@ -2327,6 +2698,7 @@ function isAutomodPublicNoticeCooldownClear(message) {
 
 function touchAutomodPublicNoticeCooldown(message) {
   ACTION_COOLDOWN.set(getCooldownKey(message), nowMs());
+  scheduleAutomodHotSnapshotPersist();
 }
 
 async function resolveLogChannel(guild) {
@@ -2363,12 +2735,198 @@ function buildAutomodAttachmentLinkEvidenceLine(message, violations = []) {
   return `🔗 **Link conteggiati (2.4):**\n${truncateText(joined, 900)}`;
 }
 
+function pickSortedViolations(violations = []) {
+  return [...(Array.isArray(violations) ? violations : [])]
+    .map((v) => ({
+      key: String(v?.key || "unknown").trim(),
+      heat: Number(v?.heat || 0),
+      info: v?.info ? String(v.info).trim() : "",
+    }))
+    .filter((v) => v.key && v.key !== "unknown")
+    .sort((a, b) => b.heat - a.heat);
+}
+
+function automodEmbedColor(action) {
+  const a = String(action || "").toLowerCase();
+  if (a === "ban") return 0x992f22;
+  if (a === "timeout") return 0xe67e22;
+  if (a === "delete" || a === "delete_webhook") return 0xf59e0b;
+  return 0x5865f2;
+}
+
+function automodActionLabelIt(action) {
+  const a = String(action || "").toLowerCase();
+  if (a === "timeout") return "Timeout";
+  if (a === "ban") return "Ban";
+  if (a === "delete" || a === "delete_webhook") return "Messaggio rimosso";
+  return "Avviso";
+}
+
+function formatAutomodViolationTechnical(info, { publicSafe = false } = {}) {
+  const raw = String(info || "").trim();
+  if (!raw) return null;
+  if (publicSafe) {
+    if (/racist list|word_blacklist|blacklist|custom_token|profane|vulgar/i.test(raw)) {
+      return "Corrispondenza in lista parole vietate.";
+    }
+    const invite = raw.match(/discord\.gg\/(\S+)/i);
+    if (invite) return `Invito rilevato: \`discord.gg/${truncateText(invite[1], 32)}\``;
+    return truncateText(raw, 100);
+  }
+  const racist = raw.match(/racist list\s*\(([^:]+):\s*.+\)/i);
+  if (racist) {
+    const src =
+      String(racist[1] || "").trim() === "custom_token"
+        ? "lista personalizzata server"
+        : String(racist[1] || "").replace(/_/g, " ");
+    return `Blacklist (${src}) · termine non mostrato nel log`;
+  }
+  return truncateText(raw, 180);
+}
+
+function buildAutomodRegolaFieldValue(violations = []) {
+  const bucket = pickPrimaryAutomodRegolaBucket(violations);
+  const dot = formatRegolaDotFromBucket(bucket);
+  if (!dot) return "Nessun riferimento regolamento automatico.";
+  const detail = MOD_RULE_DETAIL[dot];
+  if (!detail) return `Regola **${dot}**`;
+  const plain = detail
+    .replace(/\*\*/g, "")
+    .replace(/__/g, "")
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1");
+  return `**${dot}** — ${truncateText(plain, 220)}`;
+}
+
 function firstViolationLabel(violations = []) {
-  const v0 = violations?.[0];
-  const key = String(v0?.key || "unknown");
-  const base = violationKeyLabelIt(key);
-  const info = v0?.info ? ` (${v0.info})` : "";
-  return `${base}${info}`;
+  const sorted = pickSortedViolations(violations);
+  if (!sorted.length) return "Violazione regolamento";
+  return violationKeyLabelIt(sorted[0].key);
+}
+
+function buildAutomodChannelEmbed(message, action, violations, context = {}) {
+  const who = accountUsername(message.member || message.author);
+  const sorted = pickSortedViolations(violations);
+  const primary = sorted[0];
+  const durationLabel = context.timeoutMs ? formatDurationShort(context.timeoutMs) : null;
+  const actionIt = automodActionLabelIt(action);
+  const title =
+    action === "timeout"
+      ? `${actionIt}${durationLabel ? ` · ${durationLabel}` : ""}`
+      : actionIt;
+  const fields = [
+    {
+      name: "Utente",
+      value: `${message.author}\n\`${message.author.id}\``,
+      inline: true,
+    },
+    {
+      name: "Violazione",
+      value: primary ? violationKeyLabelIt(primary.key) : "Violazione regolamento",
+      inline: true,
+    },
+  ];
+  if (durationLabel) {
+    fields.push({ name: "Durata", value: durationLabel, inline: true });
+  }
+  fields.push({
+    name: "Regolamento",
+    value: buildAutomodRegolaFieldValue(violations),
+    inline: false,
+  });
+  const tech = primary ? formatAutomodViolationTechnical(primary.info, { publicSafe: true }) : null;
+  if (tech) {
+    fields.push({ name: "Dettaglio", value: tech, inline: false });
+  }
+  return new EmbedBuilder()
+    .setColor(automodEmbedColor(action))
+    .setTitle(`${title} · ${who}`)
+    .addFields(fields)
+    .setFooter({ text: "AutoMod · Vinili & Caffè" });
+}
+
+function buildAutomodStaffLogEmbed(message, action, violations, heatValue, context = {}) {
+  const whoLog = accountUsername(message.member || message.author);
+  const sorted = pickSortedViolations(violations);
+  const violationDetail = sorted
+    .slice(0, 6)
+    .map((v) => {
+      const label = violationKeyLabelIt(v.key);
+      const tech = formatAutomodViolationTechnical(v.info, { publicSafe: false });
+      const heatBit = Number.isFinite(v.heat) && v.heat > 0 ? ` · heat ${v.heat.toFixed(1)}` : "";
+      return tech ? `• **${label}**${heatBit}\n　↳ ${tech}` : `• **${label}**${heatBit}`;
+    })
+    .join("\n");
+  const timeoutLabel = context.timeoutMs ? formatDurationShort(context.timeoutMs) : null;
+  const title =
+    action === "timeout"
+      ? `AutoMod · timeout${timeoutLabel ? ` (${timeoutLabel})` : ""}`
+      : action === "ban"
+        ? "AutoMod · ban"
+        : action === "delete" || action === "delete_webhook"
+          ? "AutoMod · messaggio rimosso"
+          : "AutoMod · avviso";
+  const fields = [
+    {
+      name: "Utente",
+      value: `${message.author}\n\`${message.author.id}\``,
+      inline: true,
+    },
+    {
+      name: "Canale",
+      value: `${message.channel}\n\`${message.channelId}\``,
+      inline: true,
+    },
+    {
+      name: "Heat / azione",
+      value: `**${Number(heatValue || 0).toFixed(1)}** · ${automodActionLabelIt(action)}${timeoutLabel ? `\nDurata: **${timeoutLabel}**` : ""}`,
+      inline: true,
+    },
+    {
+      name: "Regolamento",
+      value: buildAutomodRegolaFieldValue(violations),
+      inline: false,
+    },
+  ];
+  if (violationDetail) {
+    fields.push({
+      name: "Filtri attivati",
+      value: truncateText(violationDetail, 1020),
+      inline: false,
+    });
+  }
+  fields.push({
+    name: "Decisione automatica",
+    value: truncateText(buildAutoModDecisionExplain(action, heatValue, violations, context), 1020),
+    inline: false,
+  });
+  const linkEvidenceLine = buildAutomodAttachmentLinkEvidenceLine(message, violations);
+  if (linkEvidenceLine) {
+    const linksBody = linkEvidenceLine
+      .replace(/^🔗\s*\*\*Link conteggiati \(2\.4\):\*\*\s*/i, "")
+      .replace(/^🔗[^\n]*\n?/, "")
+      .trim();
+    if (linksBody) {
+      fields.push({
+        name: "Link nel messaggio (2.4)",
+        value: truncateText(linksBody, 1020),
+        inline: false,
+      });
+    }
+  }
+  const embed = new EmbedBuilder()
+    .setColor(automodEmbedColor(action))
+    .setTitle(`${title} · ${whoLog}`)
+    .addFields(fields)
+    .setTimestamp();
+  const rawMsg = String(message?.content || "").trim();
+  if (rawMsg) {
+    embed.addFields({
+      name: "Testo del messaggio",
+      value: `\`\`\`\n${escapeDiscordTripleBackticks(truncateText(rawMsg, 980))}\n\`\`\``,
+      inline: false,
+    });
+  }
+  return embed;
 }
 
 function formatDurationShort(ms) {
@@ -2443,18 +3001,7 @@ async function sendAutomodActionInChannel(message, action, violations, context =
   const lastSentAt = ACTION_CHANNEL_LOG_COOLDOWN.get(cooldownKey) || 0;
   if (nowMs() - lastSentAt < ACTION_CHANNEL_LOG_COOLDOWN_MS) return;
   ACTION_CHANNEL_LOG_COOLDOWN.set(cooldownKey, nowMs());
-  const durationLabel = context.timeoutMs ? ` (${formatDurationShort(context.timeoutMs)})`
-    : "";
-  const title = action === "timeout" ? `${message.author.username}: timeout${durationLabel}`
-    : action === "ban" ? `${message.author.username}: ban dal server (AutoMod)`
-    : action === "delete" || action === "delete_webhook"
-      ? `${message.author.username}: messaggio rimosso dall’AutoMod` : `${message.author.username}: avviso AutoMod`;
-
-  const embed = new EmbedBuilder()
-    .setColor(action === "ban" ? "#992f22" : action === "timeout" ? "#f4d35e" : action === "delete" || action === "delete_webhook" ? "#f59e0b" : "#5865f2",)
-    .setTitle(title)
-    .setDescription([`${ARROW} **Motivo:** ${reason}`].join("\n"))
-    .setFooter({ text: `${message.author.username} | ${message.author.id}` });
+  const embed = buildAutomodChannelEmbed(message, action, violations, context);
 
   const sent = await message.channel.send({ embeds: [embed] }).catch(() => null);
   if (sent) {
@@ -2469,49 +3016,7 @@ async function sendAutomodActionInChannel(message, action, violations, context =
 async function sendAutomodLog(message, action, violations, heatValue, context = {}) {
   const channel = await resolveLogChannel(message.guild);
   if (!channel?.isTextBased?.()) return;
-  const primaryFilter = firstViolationLabel(violations);
-  const timeoutLabel = context.timeoutMs ? ` (${formatDurationShort(context.timeoutMs)})`
-    : "";
-  const actionHeadline = action === "timeout" ? `${message.author.username}: timeout AutoMod${timeoutLabel}`
-    : action === "ban" ? `${message.author.username}: ban dal server (AutoMod)`
-    : action === "delete" || action === "delete_webhook"
-      ? `${message.author.username}: messaggio rimosso (AutoMod)` : `${message.author.username}: avviso AutoMod`;
-
-  const regolaSummary = truncateText(buildAutomodRegolaSummaryLine(violations), 400);
-  const linkEvidenceLine = buildAutomodAttachmentLinkEvidenceLine(message, violations);
-  const descBody = [
-    `<a:VC_Alert:1482706673176150077> **Filtro:** ${primaryFilter}`,
-    regolaSummary ? `<:VC_reason:1478517122929004544> **Regolamento (riferimento):** ${regolaSummary}` : null,
-    `<:channeltext:1443247596922470551> **Canale:** ${message.channel} [\`${message.channelId}\`]`,
-    linkEvidenceLine,
-    "",
-    `<:member_role_icon:1330530086792728618> **Utente:** ${message.author} [\`${message.author.id}\`]`,
-    `<a:VC_Alarm:1482706641618079816> **Heat:** ${Number(heatValue || 0).toFixed(1)}`,
-    context.timeoutMs
-      ? `<:VC_Clock:1473359204189474886> **Timeout:** ${formatDurationShort(context.timeoutMs,)}`
-      : null,
-    `<:VC_BanHammer:1482534474502897795> **Decisione:** ${buildAutoModDecisionExplain(action, heatValue, violations, context,)}`,
-    violations?.length
-      ? `<:VC_reason:1478517122929004544> **Violazioni tecniche:** ${violations.map((v) => `\`${v.key}\`${v.info ? ` (${v.info})` : ""}`).join(", ")}`
-      : null,
-  ]
-    .filter(Boolean)
-    .join("\n");
-
-  const embed = new EmbedBuilder()
-    .setColor(action === "ban" ? "#992f22" : action === "timeout" ? "#ED4245" : action === "delete" || action === "delete_webhook" ? "#F59E0B" : "#5865F2",)
-    .setTitle(actionHeadline)
-    .setDescription(descBody)
-    .setTimestamp();
-
-  const rawMsg = String(message?.content || "").trim();
-  if (rawMsg) {
-    embed.addFields({
-      name: "Messaggio (testo inviato)",
-      value: escapeDiscordTripleBackticks(truncateText(rawMsg, 1020)),
-    });
-  }
-
+  const embed = buildAutomodStaffLogEmbed(message, action, violations, heatValue, context);
   await channel.send({ embeds: [embed] }).catch(() => { });
 }
 
@@ -2530,7 +3035,7 @@ async function sendPanicModeLog(message, event, count, activeUntil) {
       triggerAccountIds.length
         ? `<a:VC_Alert:1482706673176150077> **Trigger IDs:** ${triggerAccountIds.map((id) => `\`${id}\``).join(", ")}`
         : null,
-      `<a:VC_Alert:1482706673176150077> **Duration:** ${Math.round(PANIC_MODE.durationMs / 60_000)} minuti`,
+      `<a:VC_Alert:1482706673176150077> **Duration:** ${formatItalianMinutesPlain(Math.round(PANIC_MODE.durationMs / 60_000))}`,
       `<a:VC_Alert:1482706673176150077> **Active Until:** <t:${when}:F>`,
     ].join("\n"),
     )
@@ -2572,9 +3077,11 @@ async function deleteRelatedViolationMessages(message, violations) {
   return removed;
 }
 
-async function warnUser(message, state, violations) {
-  const deleted = await message.delete().then(() => true).catch(() => false);
-  if (!deleted) return false;
+async function warnUser(message, state, violations, options = {}) {
+  if (!options?.alreadyBlocked) {
+    const deleted = await message.delete().then(() => true).catch(() => false);
+    if (!deleted) return false;
+  }
   await deleteRelatedViolationMessages(message, violations);
   await markBadUserAction(message, "warn", violations);
   await registerAutoModCase(message, "warn", violations);
@@ -2587,9 +3094,11 @@ async function warnUser(message, state, violations) {
   return true;
 }
 
-async function deleteMessage(message, state, violations) {
-  const deleted = await message.delete().then(() => true).catch(() => false);
-  if (!deleted) return false;
+async function deleteMessage(message, state, violations, options = {}) {
+  if (!options?.alreadyBlocked) {
+    const deleted = await message.delete().then(() => true).catch(() => false);
+    if (!deleted) return false;
+  }
   await deleteRelatedViolationMessages(message, violations);
   await markBadUserAction(message, "delete", violations);
   await registerAutoModCase(message, "delete", violations);
@@ -2712,7 +3221,9 @@ async function timeoutMember(message, state, violations, options = {}) {
     durationMs = Math.max(durationMs, regolaLadderMs);
   }
   durationMs = Math.max(60_000, Math.min(DISCORD_TIMEOUT_MAX_MS, durationMs));
-  await message.delete().catch(() => { });
+  if (!options?.alreadyBlocked) {
+    await message.delete().catch(() => { });
+  }
   const regolaDot = formatRegolaDotFromBucket(primaryBucket);
   const timeoutReason = regolaDot
     ? `AutoMod: reg. ${regolaDot} (heat ${Number(state.heat || 0).toFixed(1)})`
@@ -2775,7 +3286,7 @@ function resolveInstantTimeoutOverrideMs(violations = []) {
       maxMs = Math.max(maxMs, Number(MENTION_RULES.timeoutMs || 0));
     } else if (key === "invite") {
       maxMs = Math.max(maxMs, Number(TEXT_RULES.inviteLinks.timeoutMs || 0));
-    } else if (key === "scam_pattern") {
+    } else if (key === "scam_pattern" || key === "scam_image_bait") {
       maxMs = Math.max(maxMs, Number(TEXT_RULES.maliciousLinks.timeoutMs || 0));
     } else if (key === "nsfw_link") {
       maxMs = Math.max(maxMs, Number(TEXT_RULES.nsfwLinks.timeoutMs || 0));
@@ -2805,12 +3316,16 @@ function resolveInstantTimeoutOverrideMs(violations = []) {
 }
 
 async function runAutoModMessage(message) {
+  ensureAutomodHotSnapshotLoaded();
   const now = nowMs();
   if (now - Number(lastRuntimeCleanupAt || 0) >= RUNTIME_CLEANUP_INTERVAL_MS) {
     cleanupRuntimeMaps(now);
     lastRuntimeCleanupAt = now;
   }
   if (!message?.guild) return { blocked: false };
+  if (message?.id && wasDiscordNativeHandled(message.id)) {
+    return { blocked: true, action: "discord_native" };
+  }
   if (!AUTOMOD_ENABLED) return { blocked: false, action: "automod_disabled" };
   if (await isVerifiedBotMessage(message)) return { blocked: false };
   if (message.webhookId) {
@@ -3013,6 +3528,175 @@ async function runAutoModMessage(message) {
   return { blocked: false, action: "heat", heat: state.heat };
 }
 
+function buildViolationHeatForNativeKey(key, profile) {
+  const withProfile = (value, factorKey) =>
+    applyProfileHeat(applyHeatFactor(factorKey, value), profile);
+  const k = String(key || "");
+  if (k === "invite") {
+    return withProfile(percentToHeat(TEXT_RULES.inviteLinks.heat), "inviteLinks");
+  }
+  if (k === "link_blacklist") {
+    return withProfile(percentToHeat(TEXT_RULES.linkBlacklist.heat), "linkBlacklist");
+  }
+  if (k === "word_blacklist") {
+    return withProfile(percentToHeat(TEXT_RULES.wordBlacklist.heat), "wordBlacklist");
+  }
+  if (k === "mention_everyone") {
+    return withProfile(
+      percentToHeat(MENTION_RULES.everyoneMentions.heat),
+      "mentions",
+    );
+  }
+  if (k === "mention_hour_cap") {
+    return withProfile(percentToHeat(100), "mentions");
+  }
+  return MAX_HEAT;
+}
+
+async function buildMessageFromAutomodExecution(execution) {
+  const guild = execution?.guild;
+  const client = execution?.client;
+  if (!guild || !client) return null;
+  const channelId = String(execution?.channelId || "");
+  const userId = String(execution?.userId || "");
+  if (!channelId || !userId) return null;
+  const channel =
+    execution?.channel ||
+    (await getGuildChannelCached(guild, channelId).catch(() => null));
+  const member = await getGuildMemberCached(guild, userId).catch(() => null);
+  const author = member?.user || (await client.users.fetch(userId).catch(() => null));
+  if (!author) return null;
+  return {
+    guild,
+    guildId: String(guild.id),
+    channel,
+    channelId,
+    author,
+    member: member || null,
+    id: String(execution?.messageId || ""),
+    content: String(execution?.content || execution?.matchedContent || ""),
+    client,
+  };
+}
+
+async function runDiscordNativeAutomodExecution(execution, ruleHint = null) {
+  ensureAutomodHotSnapshotLoaded();
+  if (!isDiscordNativeAutomodEnabled(execution?.guildId)) return { handled: false };
+  const { resolveAutomodExecutionRule, mapRuleNameToViolationKey } = require("./discordAutomodRulesService");
+  const rule = ruleHint || (await resolveAutomodExecutionRule(execution));
+  const ruleName = String(rule?.name || "");
+  if (!ruleName.startsWith("[VC] ")) return { handled: false, reason: "rule_not_vc" };
+  const messageId = String(execution?.messageId || "");
+  if (messageId && wasDiscordNativeHandled(messageId)) {
+    return { handled: true, action: "discord_native_dedupe" };
+  }
+  const message = await buildMessageFromAutomodExecution(execution);
+  if (!message) return { handled: false, reason: "message_stub_failed" };
+  if (messageId) markDiscordNativeHandled(messageId);
+  if (!AUTOMOD_ENABLED) return { handled: false, action: "automod_disabled" };
+  if (await isVerifiedBotMessage(message)) return { handled: false };
+  if (!message.member) {
+    const fetchedMember = await getGuildMemberCached(message.guild, message.author.id);
+    if (fetchedMember) {
+      try {
+        message.member = fetchedMember;
+      } catch (_) {}
+    }
+  }
+  if (!message.member) return { handled: false, reason: "no_member" };
+  if (message.author?.bot || message.system) return { handled: false };
+  if (isExempt(message)) return { handled: false, action: "exempt" };
+
+  const mapped = mapRuleNameToViolationKey(
+    ruleName,
+    execution?.matchedKeyword || execution?.matchedContent || "",
+  );
+  const profile = getProfileConfig(message);
+  const violations = [
+    {
+      key: mapped.key,
+      heat: buildViolationHeatForNativeKey(mapped.key, profile),
+      info: mapped.info,
+    },
+  ];
+  const state = getState(message);
+  decayHeat(state);
+  const at = nowMs();
+  const shouldCountForPanic = violations.some((v) =>
+    PANIC_TRIGGER_KEYS.has(String(v?.key || "")),
+  );
+  if (shouldCountForPanic) {
+    state.automodHits.push(at);
+    trimWindow(state.automodHits, PANIC_MODE.triggerWindowMs, at);
+    let activityBoost = 0;
+    if (PANIC_MODE.considerActivityHistory) {
+      const priorRecentHits = Math.max(0, state.automodHits.length - 1);
+      if (priorRecentHits >= 2) activityBoost = 1;
+    }
+    let dbBoost = 0;
+    if (PANIC_MODE.useGlobalBadUsersDb) {
+      const badProfile = await getBadUserProfile(message.author.id, message.guildId);
+      const lastActionTs = badProfile?.lastActionAt
+        ? new Date(badProfile.lastActionAt).getTime()
+        : 0;
+      const recentEnough =
+        lastActionTs > 0 && at - lastActionTs <= AUTO_TIMEOUT_PROFILE_RESET_MS;
+      const activeStrikes = Number(badProfile?.activeStrikes || 0);
+      if (recentEnough && activeStrikes >= 2) dbBoost = 1;
+    }
+    const signal = registerGuildInstantSignal(message, at);
+    let raidBoost = 0;
+    if (signal.uniqueUsers >= Number(PANIC_MODE.raidUserThreshold || 3)) {
+      raidBoost += 1;
+    }
+    if (signal.youngUsers >= Number(PANIC_MODE.raidYoungThreshold || 2)) {
+      raidBoost += 1;
+    }
+    const panic = registerPanicTrigger(message.guildId, message.author.id, {
+      activityBoost,
+      dbBoost,
+      raidBoost,
+    }, at);
+    if (panic.activated) {
+      const activeUntil = getPanicState(message.guildId).activeUntil;
+      await sendPanicModeLog(message, "panic_enabled", panic.count, activeUntil);
+    }
+  }
+
+  state.heat = MAX_HEAT;
+  await markBadUserTrigger(message, violations, state.heat);
+  const instantOverrideMs = resolveInstantTimeoutOverrideMs(violations);
+  const nativeOpts = { ignoreCooldown: true, forceDurationMs: instantOverrideMs, alreadyBlocked: true };
+  const panicActive = isPanicModeActive(message.guildId);
+  const isRaider = isRaiderInPanic(message.guildId, message.author?.id, at);
+  if (panicActive && isRaider) {
+    const done = await timeoutMember(
+      message,
+      state,
+      [...violations, { key: "panic_mode", heat: 0, info: "raider during panic" }],
+      nativeOpts,
+    );
+    if (done) return { handled: true, action: "timeout", heat: state.heat };
+    await registerAutoModCase(message, "delete", violations);
+    await markBadUserAction(message, "delete", violations);
+    await sendAutomodLog(message, "delete", violations, state.heat);
+    recordAutomodMetric(message, "delete", violations);
+    return { handled: true, action: "delete", heat: state.heat };
+  }
+
+  const done = await timeoutMember(message, state, violations, nativeOpts);
+  if (done) return { handled: true, action: "timeout", heat: state.heat };
+  await registerAutoModCase(message, "delete", violations);
+  await markBadUserAction(message, "delete", violations);
+  await sendAutomodLog(message, "delete", violations, state.heat);
+  recordAutomodMetric(message, "delete", violations);
+  if (isAutomodPublicNoticeCooldownClear(message)) {
+    touchAutomodPublicNoticeCooldown(message);
+    await sendAutomodActionInChannel(message, "delete", violations);
+  }
+  return { handled: true, action: "delete", heat: state.heat };
+}
+
 function getAutoModConfigSnapshot() {
   return JSON.parse(JSON.stringify(automodRuntimeConfig || DEFAULT_AUTOMOD_RUNTIME));
 }
@@ -3149,7 +3833,21 @@ function updateAutoModConfig(pathExpr, value) {
   if (!saved) return { ok: false, reason: "save_failed" };
   automodRuntimeConfig = merged;
   applyAutomodRuntime();
+  try {
+    const pathKey = String(pathExpr || "");
+    if (
+      pathKey.startsWith("discordNative") ||
+      pathKey.startsWith("heatFilters") ||
+      pathKey.startsWith("autoLockdown")
+    ) {
+      const {
+        scheduleDiscordAutomodRulesResync,
+      } = require("./discordAutomodRulesService");
+      const client = global.__vinylsDiscordClient || null;
+      if (client) scheduleDiscordAutomodRulesResync(client);
+    }
+  } catch (_) {}
   return { ok: true, config: getAutoModConfigSnapshot() };
 }
 
-module.exports = { runAutoModMessage, getAutoModMemberSnapshot, isAutoModRoleExemptMember, getAutoModConfigSnapshot, getAutoModRulesSnapshot, updateAutoModConfig, isPanicModeActiveForGuild: isPanicModeActive, getAutoModPanicSnapshot, triggerAutoModPanicExternal, clearAutoModPanicState, __test: { isLikelyCommandMessage, buildAutoModDecisionExplain, isAutomodMediaEmbedUrl } };
+module.exports = { runAutoModMessage, runDiscordNativeAutomodExecution, isDiscordNativeAutomodEnabled, getDiscordNativeViolationSkipKeys, getAutoModMemberSnapshot, isAutoModRoleExemptMember, getAutoModConfigSnapshot, getAutoModRulesSnapshot, updateAutoModConfig, isPanicModeActiveForGuild: isPanicModeActive, getAutoModPanicSnapshot, triggerAutoModPanicExternal, clearAutoModPanicState, __test: { isLikelyCommandMessage, buildAutoModDecisionExplain, isAutomodMediaEmbedUrl, isCrossServerForwardedMessage, detectScam, detectScamImageBait, buildModerationScanText, isStaffZoneExemptChannel } };

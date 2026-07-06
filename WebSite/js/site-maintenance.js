@@ -1,6 +1,7 @@
 (function () {
   var ACCESS_TOKEN_KEY = "vc_discord_access_token";
   var EXPIRES_AT_KEY = "vc_discord_expires_at";
+  var SITE_SESSION_TTL_MS = 90 * 24 * 60 * 60 * 1000;
   var ROOT_CLASS = "vc-maintenance-pending";
   var BYPASS_CLASS = "vc-maintenance-bypass";
   var PAGE_CLASS = "vc-maintenance-page";
@@ -73,11 +74,36 @@
     }
   }
 
+  function normalizeOAuthReturnPath(stateRaw) {
+    var s = String(stateRaw == null ? "" : stateRaw).trim();
+    if (!s) return "";
+    try {
+      s = decodeURIComponent(s);
+    } catch (e0) {
+      return "";
+    }
+    try {
+      var obj = JSON.parse(s);
+      if (obj && typeof obj === "object" && obj.r != null) {
+        s = String(obj.r || "").trim();
+      }
+    } catch (e1) {}
+    if (!s.startsWith("/")) return "";
+    if (s.startsWith("//")) return "";
+    if (s.indexOf("://") !== -1) return "";
+    if (s.indexOf("\0") !== -1) return "";
+    return s;
+  }
+
   function authUrl() {
     var c = cfg();
     var clientId = String(c.clientId || "").trim();
     if (!clientId) return "";
-    var redirectUri = String(c.redirectUri || "").trim() || window.location.origin + "/";
+    var redirectUri = String(c.redirectUri || "").trim();
+    if (!redirectUri) {
+      var home = String(c.homeUrl || "").trim();
+      redirectUri = /^https?:\/\//i.test(home) ? (home.endsWith("/") ? home : home + "/") : window.location.origin + "/";
+    }
     var q = new URLSearchParams({
       client_id: clientId,
       redirect_uri: redirectUri,
@@ -185,19 +211,23 @@
   }
 
   function parseHashToken() {
+    var out = { token: "", returnPath: "" };
     try {
       var h = String(window.location.hash || "");
-      if (h.indexOf("access_token=") === -1) return;
+      if (h.indexOf("access_token=") === -1) return out;
       var p = new URLSearchParams(h.slice(1));
       var token = p.get("access_token");
-      var sec = Number(p.get("expires_in") || "0");
-      if (!token) return;
+      var returnPath = normalizeOAuthReturnPath(p.get("state"));
+      out.returnPath = returnPath;
+      if (!token) return out;
       localStorage.setItem(ACCESS_TOKEN_KEY, token);
-      localStorage.setItem(EXPIRES_AT_KEY, String(Date.now() + Math.max(60, sec) * 1000));
+      localStorage.setItem(EXPIRES_AT_KEY, String(Date.now() + SITE_SESSION_TTL_MS));
+      out.token = String(token || "");
       if (history && history.replaceState) {
         history.replaceState({}, document.title, window.location.pathname + window.location.search);
       }
     } catch (e) {}
+    return out;
   }
 
   async function verify() {
@@ -205,7 +235,16 @@
     if (!enabled()) return allowSite();
     installStyle();
     document.documentElement.classList.add(ROOT_CLASS);
-    parseHashToken();
+    var parsed = parseHashToken();
+    var here = normalizeReturnPath();
+    if (parsed && parsed.returnPath && parsed.returnPath !== here) {
+      try {
+        window.location.replace(window.location.origin + parsed.returnPath);
+      } catch (eR) {
+        window.location.href = window.location.origin + parsed.returnPath;
+      }
+      return;
+    }
 
     var token = getToken();
     if (!token) {

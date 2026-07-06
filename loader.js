@@ -1,3 +1,8 @@
+/*!
+ * Copyright (c) 2024–2026 Vinili & Caffè. Tutti i diritti riservati.
+ * Uso, copia, modifica e distribuzione vietati senza autorizzazione scritta.
+ * SPDX-License-Identifier: LicenseRef-Proprietary-ViniliCaffe — vedi LICENSE.
+ */
 const child_process = require('child_process');
 const fs = require('fs');
 const path = require('path');
@@ -58,7 +63,8 @@ function resolveBotWorkingDir(bot) {
 function splitStartPath(bot) {
     const workingDir = resolveBotWorkingDir(bot);
     const shardingFlag = String(process.env.ENABLE_SHARDING || process.env.SHARDING || '').trim().toLowerCase();
-    const useSharded=bot.key==='vinyls'&&shardingFlag!=='0'&&shardingFlag!=='false'&&fs.existsSync(path.join(workingDir,'run-sharded.js'));
+    const shardingEnabled = ['1', 'true', 'yes', 'on'].includes(shardingFlag);
+    const useSharded = false;
     console.log(
         `[Loader] ${bot.label} ENABLE_SHARDING=${String(process.env.ENABLE_SHARDING || process.env.SHARDING || '')} -> ${useSharded ? 'run-sharded.js' : 'index.js'}`
     );
@@ -410,6 +416,27 @@ process.on("exit", () => {
     }
 });
 
-BOTS.forEach((bot) =>
-  runfile(bot, { skipGitPull: !ENABLE_LOADER_GIT_PULL }),
-);
+async function bootBots() {
+  try {
+    const { buildMongoUrl, waitForMongoReachable } = require("./Vinyls/Utils/Database/mongoConnect");
+    const mongoUrl = buildMongoUrl(null);
+    if (mongoUrl) {
+      console.log("[Loader] Attesa MongoDB...");
+      const ready = await waitForMongoReachable(mongoUrl, 30_000);
+      if (!ready) {
+        console.warn("[Loader] MongoDB non raggiungibile entro 30s, avvio bot comunque.");
+      }
+    }
+  } catch (err) {
+    console.warn("[Loader] Probe MongoDB non disponibile:", err?.message || err);
+  }
+
+  for (const bot of BOTS) {
+    runfile(bot, { skipGitPull: !ENABLE_LOADER_GIT_PULL });
+  }
+}
+
+bootBots().catch((err) => {
+  console.error("[Loader] Boot fallito:", err?.message || err);
+  process.exit(1);
+});

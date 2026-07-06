@@ -31,6 +31,15 @@ module.exports = {
     }
 
     const ttsResult = await joinTtsChannel(voiceChannel);
+    if (!ttsResult.ok && ttsResult.reason === "music_active") {
+      const { buildMusicBlocksTtsUserMessage } = require("../../../shared/discord/musicTtsVoiceGuard");
+      const musicEmbed = new EmbedBuilder()
+        .setColor("#ED4245")
+        .setDescription(buildMusicBlocksTtsUserMessage(ttsResult.musicChannelId, "+"));
+      const w = await safeMessageReply(message, { embeds: [musicEmbed] });
+      if (w) scheduleMessageDeletion(w, EPHEMERAL_TTL_SHORT_MS);
+      return;
+    }
     if (!ttsResult.ok && ttsResult.reason === "locked") {
       const lockedEmbed = new EmbedBuilder()
         .setColor("#ED4245")
@@ -38,6 +47,14 @@ module.exports = {
           "Il TTS è già attivo in un altro canale vocale. Usa `+leave` lì o nel canale attuale, poi `+join` qui.",
         );
       const w = await safeMessageReply(message, { embeds: [lockedEmbed] });
+      if (w) scheduleMessageDeletion(w, EPHEMERAL_TTL_SHORT_MS);
+      return;
+    }
+    if (!ttsResult.ok) {
+      const failedEmbed = new EmbedBuilder()
+        .setColor("#ED4245")
+        .setDescription("Non riesco a connettermi al canale vocale in questo momento. Riprova tra qualche secondo.");
+      const w = await safeMessageReply(message, { embeds: [failedEmbed] });
       if (w) scheduleMessageDeletion(w, EPHEMERAL_TTL_SHORT_MS);
       return;
     }

@@ -7,6 +7,17 @@
     <meta name="description" content="Cookie Policy del sito {{SITE_NAME}}: cookie tecnici, sicurezza, durata e gestione." />
     <meta name="robots" content="index, follow" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="{{OG_SITE_NAME}}" />
+    <meta property="og:locale" content="it_IT" />
+    <meta property="og:title" content="{{COOKIE_OG_TITLE}}" />
+    <meta property="og:description" content="{{COOKIE_OG_DESCRIPTION}}" />
+    <meta property="og:url" content="{{COOKIE_POLICY_URL}}" />
+    <meta property="og:image" content="{{OG_IMAGE_URL}}" />
+    <meta property="og:image:width" content="{{OG_IMAGE_WIDTH}}" />
+    <meta property="og:image:height" content="{{OG_IMAGE_HEIGHT}}" />
+    <meta property="og:image:alt" content="{{OG_IMAGE_ALT}}" />
+    <meta name="twitter:card" content="summary_large_image" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600&amp;family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet" />
@@ -15,7 +26,7 @@
     <link rel="stylesheet" href="/css/vc-landing.css" />
     <link rel="icon" href="{{GUILD_ICON_URL}}" />
   </head>
-  <body id="top" class="vc-body relative min-h-screen overflow-x-hidden font-sans text-slate-100 antialiased">
+  <body id="top" class="vc-body vc-cookie-page relative min-h-screen overflow-x-hidden font-sans text-slate-100 antialiased">
     <div class="vc-blob vc-blob-a" aria-hidden="true"></div>
     <div class="vc-blob vc-blob-b" aria-hidden="true"></div>
     <div class="vc-blob vc-blob-c" aria-hidden="true"></div>
@@ -24,7 +35,7 @@
       <div class="vc-nav-shell vc-glass mx-auto flex max-w-6xl flex-col gap-0 overflow-visible rounded-2xl border border-white/[0.08] bg-[#140f0c]/78 shadow-[0_8px_40px_rgba(0,0,0,0.48),0_0_48px_rgba(212,168,136,0.07)]">
         <div class="vc-header-bar grid w-full grid-cols-1 items-center gap-y-2.5 gap-x-2 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:gap-x-3 sm:px-5">
           <div class="flex min-w-0 items-center gap-2.5 justify-self-start sm:gap-3">
-            <a class="vc-header-logo-link shrink-0 rounded-2xl ring-1 ring-[#d4a888]/35 transition hover:ring-[#d4a888]/55 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#d4a888]/60" href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer" aria-label="Entra su Discord"><img src="/images/vc-header-logo.png" width="40" height="40" class="vc-header-logo-img" alt="" loading="eager" decoding="async" /></a>
+            <a class="vc-header-logo-link shrink-0 rounded-2xl ring-1 ring-[#d4a888]/35 transition hover:ring-[#d4a888]/55 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#d4a888]/60" href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer" aria-label="Entra su Discord"><img src="{{GUILD_ICON_URL}}" width="40" height="40" class="vc-header-logo-img" alt="" loading="eager" decoding="async" /></a>
             <a class="min-w-0 truncate text-[0.7rem] font-bold uppercase tracking-[0.18em] text-white underline-offset-4 transition hover:text-[#e8c9a8] hover:underline sm:text-xs" href="{{SITE_URL}}" aria-label="Vai alla homepage">{{SITE_NAME}}</a>
           </div>
           <nav class="vc-header-snav vc-glass flex max-w-full flex-wrap items-center justify-center justify-self-center gap-0.5 px-1.5 py-1 sm:min-w-0 sm:gap-1 sm:px-2" aria-label="Collegamenti rapidi">
@@ -37,9 +48,9 @@
                 <a class="vc-snav-row" href="{{VOTE_URL}}" data-vc-loading="vote"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-thumbs-o-up"></i></span><span>Vota il server</span></a>
                 <a class="vc-snav-row" href="{{REVIEWS_PAGE_URL}}"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-star-o"></i></span><span>Recensioni</span></a>
                 <a class="vc-snav-row" href="{{DONATIONS_URL}}"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-heart-o"></i></span><span>Donazioni</span></a>
+                <a class="vc-snav-row" href="{{PERKS_URL}}"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-diamond"></i></span><span>Perks</span></a>
               </div>
             </details>
-            <span class="vc-snav-sep mx-0.5 hidden h-5 w-px shrink-0 bg-white/15 sm:inline-block" aria-hidden="true"></span>
             <details class="vc-snav-details">
               <summary class="vc-snav-summary"><span>Community</span><i class="fa fa-chevron-down vc-snav-chev text-[0.65rem] opacity-80" aria-hidden="true"></i></summary>
               <div class="vc-snav-panel">
@@ -49,7 +60,6 @@
                 <a class="vc-snav-row" href="{{FAQ_URL}}"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-question-circle"></i></span><span>FAQ</span></a>
               </div>
             </details>
-            <span class="vc-snav-sep mx-0.5 hidden h-5 w-px shrink-0 bg-white/15 sm:inline-block" aria-hidden="true"></span>
             <details class="vc-snav-details">
               <summary class="vc-snav-summary"><span>Richieste</span><i class="fa fa-chevron-down vc-snav-chev text-[0.65rem] opacity-80" aria-hidden="true"></i></summary>
               <div class="vc-snav-panel">
@@ -122,18 +132,18 @@
           </div>
 
           <h3 class="vc-cookie-section-title"><i class="fa fa-check-circle-o" aria-hidden="true"></i> Cookie essenziali</h3>
-          <p>Utilizziamo solo cookie strettamente necessari per il funzionamento del sito. Questi cookie non possono essere disabilitati senza compromettere l'accesso al sito.</p>
+          <p>Utilizziamo cookie tecnici strettamente necessari e, dove richiesto dal login Discord, token tecnici di sessione salvati nel browser. La sessione locale del sito può durare fino a 90 giorni. Disabilitare questi elementi può impedire accesso e funzioni riservate.</p>
 
           <div class="vc-cookie-mini-stack">
             <div class="vc-cookie-mini-card">
               <div class="vc-cookie-mini-card__head">
-                <h4 class="vc-cookie-mini-card__title">Cookie di sessione</h4>
+                <h4 class="vc-cookie-mini-card__title">Sessione autenticata sito</h4>
                 <span class="vc-cookie-mini-card__badge">Essenziale</span>
               </div>
               <ul class="vc-legal-kvlist">
-                <li><span class="vc-legal-kvlist__k">Scopo</span> — mantiene il login attivo e gestisce l'autenticazione.</li>
-                <li><span class="vc-legal-kvlist__k">Durata</span> — 90 giorni o fino al logout.</li>
-                <li><span class="vc-legal-kvlist__k">Tipo</span> — HttpOnly, Secure, SameSite.</li>
+                <li><span class="vc-legal-kvlist__k">Scopo</span> — mantiene il login attivo e gestisce autenticazione OAuth.</li>
+                <li><span class="vc-legal-kvlist__k">Durata</span> — fino a 90 giorni come sessione locale del sito, oppure fino al logout o alla scadenza/invalida del token Discord.</li>
+                <li><span class="vc-legal-kvlist__k">Tipo</span> — dati tecnici locali del browser (non cookie di marketing).</li>
               </ul>
             </div>
 
@@ -143,9 +153,9 @@
                 <span class="vc-cookie-mini-card__badge">Essenziale</span>
               </div>
               <ul class="vc-legal-kvlist">
-                <li><span class="vc-legal-kvlist__k">Scopo</span> — proteggono da attacchi informatici come CSRF, XSS e accessi automatizzati.</li>
+                <li><span class="vc-legal-kvlist__k">Scopo</span> — proteggono da attacchi informatici come CSRF e accessi automatizzati.</li>
                 <li><span class="vc-legal-kvlist__k">Durata</span> — sessione o temporanea.</li>
-                <li><span class="vc-legal-kvlist__k">Tipo</span> — HttpOnly, Secure.</li>
+                <li><span class="vc-legal-kvlist__k">Tipo</span> — token temporanei tecnici.</li>
               </ul>
             </div>
 
@@ -182,10 +192,10 @@
           </div>
           <p>I nostri cookie utilizzano protezioni avanzate:</p>
           <ul class="vc-legal-list">
-            <li><span class="vc-legal-card__label">HttpOnly</span> — non accessibili da JavaScript.</li>
-            <li><span class="vc-legal-card__label">Secure</span> — trasmessi solo via HTTPS.</li>
-            <li><span class="vc-legal-card__label">SameSite</span> — protezione contro attacchi cross-site.</li>
-            <li><span class="vc-legal-card__label">Crittografati</span> — i dati sensibili sono protetti lato server.</li>
+            <li><span class="vc-legal-card__label">HTTPS/TLS</span> — comunicazioni cifrate con i servizi API.</li>
+            <li><span class="vc-legal-card__label">State OAuth anti-CSRF</span> — verifica dello stato nelle callback di login.</li>
+            <li><span class="vc-legal-card__label">Scadenza sessione</span> — la sessione locale termina dopo massimo 90 giorni, logout o invalida/scadenza del token Discord.</li>
+            <li><span class="vc-legal-card__label">Dati minimizzati</span> — solo dati tecnici strettamente necessari al funzionamento.</li>
           </ul>
         </article>
 
@@ -258,8 +268,8 @@
             </thead>
             <tbody>
               <tr>
-                <td>Sessione autenticazione</td>
-                <td>90 giorni o logout</td>
+                <td>Sessione autenticazione sito</td>
+                <td>Fino a 90 giorni, logout o invalida/scadenza token Discord</td>
               </tr>
               <tr>
                 <td>Token sicurezza</td>
@@ -271,7 +281,7 @@
               </tr>
               <tr>
                 <td>OAuth Discord</td>
-                <td>15 minuti</td>
+                <td>Gestita da Discord secondo la loro policy tecnica corrente</td>
               </tr>
               <tr>
                 <td>Redirect callback</td>
@@ -324,7 +334,8 @@
         apiUrlLocal: "{{SITE_NOTIFICATIONS_API_URL_LOCAL}}",
       };
     </script>
-    <script src="/js/discord-auth.js" defer></script>
+    <script src="/js/discord-auth.js" defer></script>  <script src="../js/vc-cursor-trail.js" defer></script>
+
     <script src="/js/vc-landing.js" defer></script>
   </body>
 </html>

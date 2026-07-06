@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="it">
   <head>
 {{COOKIEYES_BLOCK}}{{GA_BLOCK}}
@@ -31,7 +31,7 @@
       <div class="vc-nav-shell vc-glass mx-auto flex max-w-6xl flex-col gap-0 overflow-visible rounded-2xl border border-white/[0.08] bg-[#140f0c]/78 shadow-[0_8px_40px_rgba(0,0,0,0.48),0_0_48px_rgba(212,168,136,0.07)]">
         <div class="vc-header-bar grid w-full grid-cols-1 items-center gap-y-2.5 gap-x-2 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:gap-x-3 sm:px-5">
           <div class="flex min-w-0 items-center gap-2.5 justify-self-start sm:gap-3">
-            <a class="vc-header-logo-link shrink-0 rounded-2xl ring-1 ring-[#d4a888]/35 transition hover:ring-[#d4a888]/55 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#d4a888]/60" href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer" aria-label="Entra su Discord"><img src="../images/vc-header-logo.png" width="40" height="40" class="vc-header-logo-img" alt="" loading="eager" decoding="async" /></a>
+            <a class="vc-header-logo-link shrink-0 rounded-2xl ring-1 ring-[#d4a888]/35 transition hover:ring-[#d4a888]/55 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#d4a888]/60" href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer" aria-label="Entra su Discord"><img src="{{GUILD_ICON_URL}}" width="40" height="40" class="vc-header-logo-img" alt="" loading="eager" decoding="async" /></a>
             <a class="min-w-0 truncate text-[0.7rem] font-bold uppercase tracking-[0.18em] text-white underline-offset-4 transition hover:text-[#e8c9a8] hover:underline sm:text-xs" href="{{SITE_URL}}" aria-label="Vai alla homepage">{{SITE_NAME}}</a>
           </div>
           <nav class="vc-header-snav vc-glass flex max-w-full flex-wrap items-center justify-center justify-self-center gap-0.5 px-1.5 py-1 sm:min-w-0 sm:gap-1 sm:px-2" aria-label="Collegamenti rapidi">
@@ -44,9 +44,9 @@
                 <a class="vc-snav-row" href="{{VOTE_URL}}" data-vc-loading="vote"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-thumbs-o-up"></i></span><span>Vota il server</span></a>
                 <a class="vc-snav-row" href="{{REVIEWS_PAGE_URL}}"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-star-o"></i></span><span>Recensioni</span></a>
                 <a class="vc-snav-row" href="{{DONATIONS_URL}}"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-heart-o"></i></span><span>Donazioni</span></a>
+                <a class="vc-snav-row" href="{{PERKS_URL}}"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-diamond"></i></span><span>Perks</span></a>
               </div>
             </details>
-            <span class="vc-snav-sep mx-0.5 hidden h-5 w-px shrink-0 bg-white/15 sm:inline-block" aria-hidden="true"></span>
             <details class="vc-snav-details vc-snav-details--current">
               <summary class="vc-snav-summary"><span>Community</span><i class="fa fa-chevron-down vc-snav-chev text-[0.65rem] opacity-80" aria-hidden="true"></i></summary>
               <div class="vc-snav-panel">
@@ -56,7 +56,6 @@
                 <a class="vc-snav-row" href="{{FAQ_URL}}"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-question-circle"></i></span><span>FAQ</span></a>
               </div>
             </details>
-            <span class="vc-snav-sep mx-0.5 hidden h-5 w-px shrink-0 bg-white/15 sm:inline-block" aria-hidden="true"></span>
             <details class="vc-snav-details">
               <summary class="vc-snav-summary"><span>Richieste</span><i class="fa fa-chevron-down vc-snav-chev text-[0.65rem] opacity-80" aria-hidden="true"></i></summary>
               <div class="vc-snav-panel">
@@ -108,7 +107,7 @@
     </header>
 
     <main class="relative z-10 mx-auto max-w-6xl px-4 pb-24 pt-28 sm:pt-32">
-      <section class="vc-support-page-hero mb-8 sm:mb-10" aria-labelledby="vc-regole-hero-heading">
+      <section class="vc-support-page-hero vc-regole-hero-card mb-8 sm:mb-10" aria-labelledby="vc-regole-hero-heading">
         <div class="grid gap-10 lg:grid-cols-[minmax(0,1.2fr)_20rem] lg:items-center">
           <div class="max-w-3xl">
             <div class="vc-support-page-hero__icon vc-support-page-hero__icon--start vc-regole-hero-book mb-5" aria-hidden="true">
@@ -116,7 +115,7 @@
             </div>
             <p class="text-xs font-semibold uppercase tracking-[0.28em] text-emerald-200/70">Community &amp; moderazione</p>
             <h1 id="vc-regole-hero-heading" class="mt-4 text-4xl font-extrabold tracking-tight text-white sm:text-5xl lg:text-6xl">
-              Regole di <span class="text-emerald-300">{{SITE_NAME}}</span>
+              Regole di <span class="text-emerald-300">{{SITE_NAME}}</span><span class="vc-forbidden-book" data-vc-forbidden-book="regole" hidden role="img" aria-label="libro proibito">📖</span>
             </h1>
             <p class="mt-5 max-w-2xl text-lg leading-8 text-slate-200/88 sm:text-xl">
               Linee guida e sanzioni per mantenere il server sicuro, chiaro e piacevole per tutti.
@@ -129,12 +128,12 @@
             <div class="rounded-[1.6rem] border border-white/10 bg-slate-950/25 p-5 backdrop-blur">
               <p class="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-200/70">Come usarle</p>
               <ul class="mt-4 space-y-3 text-sm leading-6 text-slate-100/90">
-                <li class="flex gap-3">
-                  <i class="fa fa-list-alt mt-0.5 text-emerald-300" aria-hidden="true"></i>
+                <li class="flex items-center gap-3">
+                  <i class="fa fa-list-alt shrink-0 text-emerald-300" aria-hidden="true"></i>
                   <span>Scegli una categoria qui sotto per filtrare le regole.</span>
                 </li>
-                <li class="flex gap-3">
-                  <i class="fa fa-chevron-down mt-0.5 text-emerald-300" aria-hidden="true"></i>
+                <li class="flex items-center gap-3">
+                  <i class="fa fa-chevron-down shrink-0 text-emerald-300" aria-hidden="true"></i>
                   <span>Apri ogni voce per leggere il testo completo e i link utili.</span>
                 </li>
               </ul>
@@ -189,7 +188,8 @@
         apiUrlLocal: "{{COMMUNITY_RULES_API_URL_LOCAL}}",
       };
     </script>
-    <script src="../js/discord-auth.js" defer></script>
+    <script src="../js/discord-auth.js" defer></script>  <script src="../js/vc-cursor-trail.js" defer></script>
+
     <script src="../js/vc-landing.js" defer></script>
     <script src="../js/regole-page.js" defer></script>
   </body>

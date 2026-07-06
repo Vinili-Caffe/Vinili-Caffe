@@ -6,7 +6,17 @@ const { spawnSync } = require("child_process");
 const ffmpegPath = require("ffmpeg-static");
 const { createCanvas } = canvasModule;
 const { registerCanvasFonts, drawTextWithSpecialFallback } = require("./canvasFonts");
-const { safeLoadImage, fetchHttpImageBuffer } = require("./safeLoadImage");
+const {
+  safeLoadImage,
+  fetchHttpImageBuffer,
+  fetchHttpImageBufferAnimatedFirst,
+  fetchHttpImageBufferStaticFirst,
+  discordCdnPathLooksAnimatedAsset,
+  discordCdnStaticAvatarUrl,
+} = require("./safeLoadImage");
+
+/** `VC_SHIP_CANVAS_PNG=1` → niente GIF/ffmpeg (molto più veloce). */
+const SHIP_CANVAS_USE_PNG = String(process.env.VC_SHIP_CANVAS_PNG ?? "0").trim() === "1";
 
 function hashSeed(source) {
   let h = 2166136261;
@@ -173,13 +183,93 @@ function runFfmpeg(args) {
   return Number(out?.status) === 0;
 }
 
-const SHIP_AVATAR_GIF_DECODE_FPS = 12;
-const SHIP_AVATAR_GIF_MAX_FRAMES = 36;
+const SHIP_AVATAR_GIF_DECODE_FPS = Math.max(6, Math.min(18, Math.floor(Number(process.env.VC_SHIP_AVATAR_GIF_FPS ?? 12))));
+const SHIP_AVATAR_GIF_MAX_FRAMES = Math.max(12, Math.min(48, Math.floor(Number(process.env.VC_SHIP_AVATAR_GIF_MAX_FRAMES ?? 28))));
 
 function isGifImageBuffer(buf) {
   if (!buf || buf.length < 6) return false;
   const sig = buf.subarray(0, 6).toString("ascii");
   return sig === "GIF87a" || sig === "GIF89a";
+}
+
+function isWebpImageBuffer(buf) {
+  if (!buf || buf.length < 12) return false;
+  return buf.subarray(0, 4).toString("ascii") === "RIFF" && buf.subarray(8, 12).toString("ascii") === "WEBP";
+}
+
+function isApngImageBuffer(buf) {
+  if (!buf || buf.length < 33) return false;
+  if (buf.subarray(0, 8).toString("ascii") !== "\x89PNG\r\n\x1a\n") return false;
+  let offset = 8;
+  while (offset + 12 <= buf.length) {
+    const len = buf.readUInt32BE(offset);
+    const type = buf.subarray(offset + 4, offset + 8).toString("ascii");
+    if (type === "acTL") return true;
+    if (type === "IEND") break;
+    offset += 12 + len;
+  }
+  return false;
+}
+
+function detectShipAvatarContainer(buf) {
+  if (isGifImageBuffer(buf)) return "gif";
+  if (isWebpImageBuffer(buf)) return "webp";
+  if (isApngImageBuffer(buf)) return "png";
+  return "";
+}
+
+function bufferNeedsFfmpegFrames(buf) {
+  const container = detectShipAvatarContainer(buf);
+  return container === "gif" || container === "webp";
+}
+
+function shipAvatarUrlLooksAnimated(url) {
+  const raw = String(url || "").trim();
+  if (!/^https?:\/\//i.test(raw)) return false;
+  try {
+    return discordCdnPathLooksAnimatedAsset(new URL(raw).pathname);
+  } catch {
+    return false;
+  }
+}
+
+async function loadShipAvatarSingleFrame(loadImage, sources) {
+  const list = Array.isArray(sources) ? sources : [];
+  for (const entry of list) {
+    if (!entry) continue;
+    if (Buffer.isBuffer(entry) && entry.length) {
+      const fromBuf = await loadImage(entry).catch(() => null);
+      if (fromBuf?.width > 0 && fromBuf?.height > 0) return fromBuf;
+      continue;
+    }
+    const url = String(entry || "").trim();
+    if (!url) continue;
+    const img = await safeLoadImage(url, { suppressWarning: true });
+    if (img?.width > 0 && img?.height > 0) return img;
+    const buf = await fetchHttpImageBufferStaticFirst(url, { timeoutMs: 12_000 }).catch(() => null);
+    if (buf?.length) {
+      const fromFetch = await loadImage(buf).catch(() => null);
+      if (fromFetch?.width > 0 && fromFetch?.height > 0) return fromFetch;
+    }
+    const bufAny = await fetchHttpImageBuffer(url, { timeoutMs: 12_000 }).catch(() => null);
+    if (bufAny?.length) {
+      const fromAny = await loadImage(bufAny).catch(() => null);
+      if (fromAny?.width > 0 && fromAny?.height > 0) return fromAny;
+    }
+  }
+  return null;
+}
+
+async function loadShipAvatarGuaranteedStatic(loadImage, dynamicUrl, staticUrl) {
+  const u = String(dynamicUrl || "").trim();
+  const staticHint = String(staticUrl || "").trim();
+  const pngUrl = discordCdnStaticAvatarUrl(staticHint || u);
+  const sources = [];
+  if (staticHint) sources.push(staticHint);
+  if (pngUrl) sources.push(pngUrl);
+  if (u) sources.push(u);
+  const img = await loadShipAvatarSingleFrame(loadImage, sources);
+  return img ? [img] : [];
 }
 
 function pickShipAvatarFrame(frames, frameIndex) {
@@ -196,54 +286,65 @@ function pickShipAvatarFrame(frames, frameIndex) {
  * @param {string|null} ffmpegBin
  * @returns {Promise<any[]>}
  */
-async function loadShipSideAvatarFrames(tmpDir, url, prefix, ffmpegBin) {
+async function loadShipSideAvatarFrames(tmpDir, url, prefix, ffmpegBin, staticUrl = "") {
   const loadImage = canvasModule.loadImage;
   const u = String(url || "").trim();
-  if (!u) return [];
+  const staticHint = String(staticUrl || "").trim();
+  if (!u && !staticHint) return [];
+  const guaranteed = await loadShipAvatarGuaranteedStatic(loadImage, u, staticHint);
+  const wantsAnimated = shipAvatarUrlLooksAnimated(u) || shipAvatarUrlLooksAnimated(staticHint);
+  if (!wantsAnimated || !ffmpegBin) return guaranteed;
+  let sideDir = "";
   try {
-    const buf = await fetchHttpImageBuffer(u, { timeoutMs: 12_000 });
-    if (!buf?.length) {
-      const img = await safeLoadImage(u, { suppressWarning: true });
-      return img ? [img] : [];
-    }
-    if (!isGifImageBuffer(buf) || !ffmpegBin) {
+    sideDir = fs.mkdtempSync(path.join(tmpDir, `${prefix}-`));
+    const buf = await fetchHttpImageBufferAnimatedFirst(u || staticHint, { timeoutMs: 12_000 });
+    if (!buf?.length) return guaranteed;
+    if (!bufferNeedsFfmpegFrames(buf)) {
       const img = await loadImage(buf).catch(() => null);
-      return img ? [img] : [];
+      if (img?.width > 0 && img?.height > 0) return [img];
+      return guaranteed;
     }
-    const inPath = path.join(tmpDir, `${prefix}_src.gif`);
+    const ext = detectShipAvatarContainer(buf) || "webp";
+    const inPath = path.join(sideDir, `src.${ext}`);
     fs.writeFileSync(inPath, buf);
-    const outPattern = path.join(tmpDir, `${prefix}_%03d.png`);
+    const outPattern = path.join(sideDir, "f_%03d.png");
     const vf = `fps=${SHIP_AVATAR_GIF_DECODE_FPS}`;
     const out = spawnSync(
       ffmpegBin,
       ["-y", "-i", inPath, "-vf", vf, "-frames:v", String(SHIP_AVATAR_GIF_MAX_FRAMES), outPattern],
       { stdio: "ignore", windowsHide: true },
     );
-    if (Number(out?.status) !== 0) {
-      const img = await safeLoadImage(u, { suppressWarning: true });
-      return img ? [img] : [];
-    }
-    const frameRe = new RegExp(`^${prefix}_\\d+\\.png$`, "i");
-    const names = fs
-      .readdirSync(tmpDir)
-      .filter((f) => frameRe.test(f))
-      .sort((a, b) => {
-        const ma = a.match(/_(\d+)\.png$/i);
-        const mb = b.match(/_(\d+)\.png$/i);
-        return (Number(ma?.[1]) || 0) - (Number(mb?.[1]) || 0);
-      });
+    const frameRe = /^f_\d+\.png$/i;
     const frames = [];
-    for (const name of names) {
-      const p = path.join(tmpDir, name);
-      const img = await loadImage(fs.readFileSync(p)).catch(() => null);
-      if (img) frames.push(img);
+    if (Number(out?.status) === 0) {
+      const names = fs
+        .readdirSync(sideDir)
+        .filter((f) => frameRe.test(f))
+        .sort((a, b) => {
+          const ma = a.match(/_(\d+)\.png$/i);
+          const mb = b.match(/_(\d+)\.png$/i);
+          return (Number(ma?.[1]) || 0) - (Number(mb?.[1]) || 0);
+        });
+      for (const name of names) {
+        const p = path.join(sideDir, name);
+        const img = await loadImage(fs.readFileSync(p)).catch(() => null);
+        if (img?.width > 0 && img?.height > 0) frames.push(img);
+      }
     }
     if (frames.length) return frames;
-    const img = await safeLoadImage(u, { suppressWarning: true });
-    return img ? [img] : [];
+    const single = await loadImage(buf).catch(() => null);
+    if (single?.width > 0 && single?.height > 0) return [single];
+    return guaranteed;
   } catch {
-    const img = await safeLoadImage(u, { suppressWarning: true }).catch(() => null);
-    return img ? [img] : [];
+    return guaranteed;
+  } finally {
+    if (sideDir) {
+      try {
+        fs.rmSync(sideDir, { recursive: true, force: true });
+      } catch {
+        /* ignore */
+      }
+    }
   }
 }
 
@@ -369,7 +470,7 @@ function easeOutCubic(t) {
 function shipMeterFillEndFrame(totalFrames) {
   if (totalFrames <= 1) return 0;
   const last = totalFrames - 1;
-  return Math.max(1, Math.floor(last * 0.56));
+  return Math.max(1, Math.floor(last * 0.32));
 }
 
 /** Progresso riempimento barra (0→1), completo entro `shipMeterFillEndFrame`. */
@@ -379,13 +480,15 @@ function shipMeterFillProgress(frameIndex, totalFrames) {
   return easeOutCubic(Math.min(1, frameIndex / end));
 }
 
-/** Testo percentuale: emerge dal basso solo dopo che la barra è piena. */
+/** Testo percentuale: compare dopo la barra e resta visibile fino alla fine del GIF. */
 function shipPercentTextReveal(frameIndex, totalFrames) {
   if (totalFrames <= 1) return 1;
   const last = totalFrames - 1;
   const textStart = shipMeterFillEndFrame(totalFrames) + 1;
+  const revealEnd = Math.max(textStart + 1, Math.floor(last * 0.42));
   if (frameIndex < textStart) return 0;
-  const span = Math.max(1, last - textStart);
+  if (frameIndex >= revealEnd) return 1;
+  const span = Math.max(1, revealEnd - textStart);
   return easeOutCubic(Math.min(1, (frameIndex - textStart + 1) / span));
 }
 
@@ -544,6 +647,8 @@ async function renderSinglePngBuffer(params) {
   const {
     leftAvatarUrl,
     rightAvatarUrl,
+    leftAvatarStaticUrl,
+    rightAvatarStaticUrl,
     leftName,
     rightName,
     leftId,
@@ -562,17 +667,21 @@ async function renderSinglePngBuffer(params) {
   let rightAvatarFrames = [];
   try {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "vc-ship-png-"));
+    const loadImage = canvasModule.loadImage;
     [leftAvatarFrames, rightAvatarFrames] = await Promise.all([
-      loadShipSideAvatarFrames(tmpDir, leftAvatarUrl, "L", ffmpegPath),
-      loadShipSideAvatarFrames(tmpDir, rightAvatarUrl, "R", ffmpegPath),
+      loadShipSideAvatarFrames(tmpDir, leftAvatarUrl, "L", ffmpegPath, leftAvatarStaticUrl),
+      loadShipSideAvatarFrames(tmpDir, rightAvatarUrl, "R", ffmpegPath, rightAvatarStaticUrl),
     ]);
+    if (!leftAvatarFrames.length) {
+      leftAvatarFrames = await loadShipAvatarGuaranteedStatic(loadImage, leftAvatarUrl, leftAvatarStaticUrl);
+    }
+    if (!rightAvatarFrames.length) {
+      rightAvatarFrames = await loadShipAvatarGuaranteedStatic(loadImage, rightAvatarUrl, rightAvatarStaticUrl);
+    }
   } catch {
-    const [a, b] = await Promise.all([
-      safeLoadImage(leftAvatarUrl, { suppressWarning: true }),
-      safeLoadImage(rightAvatarUrl, { suppressWarning: true }),
-    ]);
-    leftAvatarFrames = a ? [a] : [];
-    rightAvatarFrames = b ? [b] : [];
+    const loadImage = canvasModule.loadImage;
+    leftAvatarFrames = await loadShipAvatarGuaranteedStatic(loadImage, leftAvatarUrl, leftAvatarStaticUrl);
+    rightAvatarFrames = await loadShipAvatarGuaranteedStatic(loadImage, rightAvatarUrl, rightAvatarStaticUrl);
   } finally {
     if (tmpDir) {
       try {
@@ -593,8 +702,8 @@ async function renderSinglePngBuffer(params) {
     rightId,
     percent: finalPercent,
     topText,
-    frameIndex: 17,
-    totalFrames: 18,
+    frameIndex: 99,
+    totalFrames: 100,
   });
   return canvas.toBuffer("image/png");
 }
@@ -606,9 +715,16 @@ module.exports = async function renderShipCanvas(params) {
   if (!canvasModule) throw new Error("Canvas module not available");
   registerCanvasFonts(canvasModule);
 
+  if (SHIP_CANVAS_USE_PNG) {
+    const buf = await renderSinglePngBuffer(params);
+    return { buffer: buf, format: "png" };
+  }
+
   const {
     leftAvatarUrl,
     rightAvatarUrl,
+    leftAvatarStaticUrl,
+    rightAvatarStaticUrl,
     leftName,
     rightName,
     leftId,
@@ -626,6 +742,8 @@ module.exports = async function renderShipCanvas(params) {
     const buf = await renderSinglePngBuffer({
       leftAvatarUrl,
       rightAvatarUrl,
+      leftAvatarStaticUrl,
+      rightAvatarStaticUrl,
       leftName,
       rightName,
       leftId,
@@ -636,15 +754,24 @@ module.exports = async function renderShipCanvas(params) {
     return { buffer: buf, format: "png" };
   }
 
-  const FRAME_COUNT = 18;
-  const FRAMERATE = 12;
+  const FRAME_COUNT = Math.max(12, Math.min(36, Math.floor(Number(process.env.VC_SHIP_GIF_FRAMES ?? 28))));
+  const FRAMERATE = Math.max(8, Math.min(18, Math.floor(Number(process.env.VC_SHIP_GIF_FPS ?? 12))));
   let tmpDir = "";
   try {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "vc-ship-gif-"));
-    const [leftAvatarFrames, rightAvatarFrames] = await Promise.all([
-      loadShipSideAvatarFrames(tmpDir, leftAvatarUrl, "L", ffmpegPath),
-      loadShipSideAvatarFrames(tmpDir, rightAvatarUrl, "R", ffmpegPath),
+    const loadImage = canvasModule.loadImage;
+    let leftAvatarFrames = [];
+    let rightAvatarFrames = [];
+    [leftAvatarFrames, rightAvatarFrames] = await Promise.all([
+      loadShipSideAvatarFrames(tmpDir, leftAvatarUrl, "L", ffmpegPath, leftAvatarStaticUrl),
+      loadShipSideAvatarFrames(tmpDir, rightAvatarUrl, "R", ffmpegPath, rightAvatarStaticUrl),
     ]);
+    if (!leftAvatarFrames.length) {
+      leftAvatarFrames = await loadShipAvatarGuaranteedStatic(loadImage, leftAvatarUrl, leftAvatarStaticUrl);
+    }
+    if (!rightAvatarFrames.length) {
+      rightAvatarFrames = await loadShipAvatarGuaranteedStatic(loadImage, rightAvatarUrl, rightAvatarStaticUrl);
+    }
     const framePattern = path.join(tmpDir, "ship_%03d.png");
     const palettePath = path.join(tmpDir, "palette.png");
     const outGifPath = path.join(tmpDir, "ship.gif");
@@ -682,6 +809,8 @@ module.exports = async function renderShipCanvas(params) {
       const buf = await renderSinglePngBuffer({
         leftAvatarUrl,
         rightAvatarUrl,
+        leftAvatarStaticUrl,
+        rightAvatarStaticUrl,
         leftName,
         rightName,
         leftId,
@@ -710,6 +839,8 @@ module.exports = async function renderShipCanvas(params) {
       const buf = await renderSinglePngBuffer({
         leftAvatarUrl,
         rightAvatarUrl,
+        leftAvatarStaticUrl,
+        rightAvatarStaticUrl,
         leftName,
         rightName,
         leftId,
@@ -724,6 +855,8 @@ module.exports = async function renderShipCanvas(params) {
       const buf = await renderSinglePngBuffer({
         leftAvatarUrl,
         rightAvatarUrl,
+        leftAvatarStaticUrl,
+        rightAvatarStaticUrl,
         leftName,
         rightName,
         leftId,
@@ -738,6 +871,8 @@ module.exports = async function renderShipCanvas(params) {
     const buf = await renderSinglePngBuffer({
       leftAvatarUrl,
       rightAvatarUrl,
+      leftAvatarStaticUrl,
+      rightAvatarStaticUrl,
       leftName,
       rightName,
       leftId,

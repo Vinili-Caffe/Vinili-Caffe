@@ -2,7 +2,8 @@ const { ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder, Message
 const { getUserOverviewStats } = require("../Services/Community/activityService");
 const { resolveTopChannelEntries } = require("../Prefix/Stats/top");
 const { renderUserActivityCanvas } = require("../Utils/Render/activityCanvas");
-const { accountUsername, userAvatarUrlDynamic } = require("../Utils/Discord/guildDiscordIdentity");
+const { accountUsername, guildMemberDisplayAvatarUrlStatic, userAvatarUrlStatic } = require("../Utils/Discord/guildDiscordIdentity");
+const { getEffectiveJoinedAt } = require("../Services/Community/effectiveMemberJoinService");
 const ME_REFRESH_CUSTOM_ID_PREFIX = "me_refresh";
 const ME_PERIOD_OPEN_CUSTOM_ID_PREFIX = "me_period_open";
 const ME_PERIOD_SET_CUSTOM_ID_PREFIX = "me_period_set";
@@ -76,9 +77,13 @@ async function buildMeOverviewPayload(guild, author, member, lookbackDays, view)
   const guildName = guild.name || "Server";
   const userTag = author?.tag || author?.username || "User";
   const displayName = accountUsername(member || author);
-  const avatarUrl = userAvatarUrlDynamic(author, { size: 256 });
+  const avatarUrl =
+    guildMemberDisplayAvatarUrlStatic(member || author, { size: 512 }) || userAvatarUrlStatic(author, { size: 512 });
   const createdOn = author?.createdAt ?? new Date(0);
-  const joinedOn = (member?.joinedAt && member.joinedAt instanceof Date) ? member.joinedAt : (member?.joinedTimestamp ? new Date(member.joinedTimestamp) : createdOn);
+  const effectiveJoined = member ? await getEffectiveJoinedAt(member).catch(() => null) : null;
+  const joinedOn =
+    effectiveJoined ||
+    (member?.joinedAt && member.joinedAt instanceof Date ? member.joinedAt : member?.joinedTimestamp ? new Date(member.joinedTimestamp) : createdOn);
   const emptySnapshot = new Map();
   const [topChannelsText, topChannelsVoice] = await Promise.all([
     resolveTopChannelEntries(guild, stats.topChannelsText || [], emptySnapshot),
@@ -86,7 +91,9 @@ async function buildMeOverviewPayload(guild, author, member, lookbackDays, view)
   ]);
   const buffer = await renderUserActivityCanvas({ guildName, userTag, displayName, avatarUrl, createdOn, joinedOn, lookbackDays: safeLookback, windows: stats.windows, ranks: stats.ranks, topChannelsText, topChannelsVoice, chart: stats.chart });
   const components = buildMeComponents(userId, safeLookback, view);
-  const file = new AttachmentBuilder(buffer, { name: "me-activity.png" });
+  const activityExt =
+    buffer.length >= 6 && buffer[0] === 0x47 && buffer[1] === 0x49 && buffer[2] === 0x46 ? "gif" : "png";
+  const file = new AttachmentBuilder(buffer, { name: `me-activity.${activityExt}` });
   return { files: [file], components };
 }
 

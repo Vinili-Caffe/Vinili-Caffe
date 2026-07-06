@@ -1,60 +1,98 @@
 const config = require("../config.json");
-const mongoose = require("mongoose");
+const { connectMongo, isMongoReady } = require("../Utils/Database/mongoConnect");
 const cron = require("node-cron");
-const { startStaffListPeriodicRefreshLoop } = require("../Utils/Community/staffListUtils");
+const { runCronDetached } = require("../../shared/scheduling/cronDetached");
 const { restorePendingVoteReminders, restorePendingDiscadiaReminders, restorePendingReminders, startBumpDueReminderSweepLoop, startDiscadiaVoteReminderLoop, } = require("../Services/Bump/bumpService");
+const { shouldRunDiscadiaVoteMonthRepairOnStartup, repairDiscadiaVoteMonthRowsForMainGuild, startDiscadiaVoteMonthRolloverCron } = require("../Services/Bump/discadiaVoteMonthRepairOnStartupService");
 const { processAllRecentAutomationMessages } = require("../Utils/Message/officialMessageAutomationHandlers");
-const { processPendingCountingMessages } = require("../Utils/Message/officialMessageCommunityHandlers");
-const { bootstrapSupporter } = require("./presenceUpdate");
+const { processPendingCountingMessages, restoreWelcomeSessionsFromDb } = require("../Utils/Message/officialMessageCommunityHandlers");
+const { rehydrateCountingChannelBans } = require("../Utils/Community/countingChannelBanService");
+const {
+  hydrateCountingRestoreTokens,
+  startCountingRestoreMaintenance,
+} = require("../Utils/Community/countingRestoreService");
+const { bootstrapSupporter, recoverSupporterStatusAnnouncesOnStartup } = require("./presenceUpdate");
 const { restoreTtsConnections } = require("../Services/TTS/ttsService");
 const { runDueOneTimeReminders, } = require("../Services/Reminders/oneTimeReminderService");
-const { startMinigameLoop, restoreActiveGames, } = require("../Services/Minigames/minigameService");
-const { startWeeklyDmReminderLoop, } = require("../Services/Community/weeklyDmReminderService");
-const { startVerificationTenureLoop, backfillVerificationTenure, startVoteRoleCleanupLoop, runAllGuilds: renumberAllCategories, startCategoryNumberingLoop, startSponsorKickLoop, } = require("../Services/Community/communityOpsService");
+const { bootstrapMinigameScheduler } = require("../Services/Minigames/minigameService");
+const { startBurrobirraEffectLoop } = require("../Services/Minigames/burrobirraEffectService");
+const { startHouseBurrobirraEffectLoop } = require("../Services/Minigames/hogwartsHouseBurrobirraEffectService");
+const { startVerificationTenureLoop, backfillVerificationTenure, startVoteRoleCleanupLoop, runAllGuilds: renumberAllCategories, startCategoryNumberingLoop, startSponsorKickLoop, startSponsorGuildNicknameSweepLoop, } = require("../Services/Community/communityOpsService");
 const { startBirthdayLoop } = require("../Services/Community/birthdayService");
+const { startDailyMemberStatsLoop } = require("../Services/Community/dailyMemberStatsService");
+const { startDailyEngagementStatsLoop } = require("../Services/Community/dailyEngagementStatsService");
+const { startDailyChannelMessageStatsLoop } = require("../Services/Community/dailyChannelMessageStatsService");
+const { startReactPressEventLoop } = require("../Services/Community/hogwartsReactPressService");
+const { startPremiLaReactEndLoop } = require("../Services/Community/hogwartsReactPressEndService");
+const { startHogwartsSpellListHuntLoop } = require("../Services/Community/hogwartsSpellListHuntService");
+const { startHogwartsSpellListHuntEndLoop } = require("../Services/Community/hogwartsSpellListHuntEndService");
+const { startPotionReminderLoop } = require("../Services/Community/hogwartsPotionReminderService");
+const { startHogwartsEventEndLoop } = require("../Services/Community/hogwartsEventEndService");
+const { migrateLegacyDailyStatsCollections } = require("../Services/Community/dailyStatsStore");
 const { restoreTempBans } = require("../Services/Moderation/joinRaidService");
+const { sweepExpiredCommunicationTimeoutMirrors } = require("../Services/Moderation/mutedMirrorRoleService");
+const { sendBannedUnbanLinkDms, shouldRunBannedUnbanDmOnStartup } = require("../Services/Moderation/bannedUnbanDmService");
+const { rehydrateAntiNukePanicForGuild } = require("../Services/Moderation/antiNukeService");
 const { syncLiveVoiceSessionsFromGateway, startLiveVoiceExpLoop, } = require("../Services/Community/activityService");
+const { syncPmVoiceAfkWatchFromGateway, startPmVoiceAfkWatchLoop, } = require("../Services/Staff/pmVoiceAfkWatchService");
 const { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop, } = require("../Services/Community/customRoleExpiryService");
 const { startDailyPartnerAuditLoop, } = require("../Services/Partner/partnerAuditService");
-const { startPartnershipChannelCleanupLoop } = require("../Services/Partner/partnershipChannelCleanupService");
-const { startPartnerPmDailyThreadLoop } = require("../Services/Partner/partnerPmDailyThreadService");
+const { syncPartnerDescription } = require("../Services/Partner/partnerDescriptionSyncService");
+const { startStaffChatThreadsLoop } = require("../Services/Staff/staffChatThreadsService");
+const { startStaffCmdsThreadsLoop } = require("../Services/Staff/staffCmdsThreadsService");
+const { startResocontoStaffChannelAccessLoop } = require("../Services/Staff/resocontoStaffChannelAccessService");
+const { startPublicVoiceHubSetup } = require("../Services/Voice/publicVoiceHubService");
 const { startTicketAutoClosePromptLoop, startTranscriptCleanupLoop, } = require("../Services/Ticket/ticketMaintenanceService");
 const { startAutoBackupLoop } = require("../Services/Backup/autoBackupService");
 const { startModCaseLifecycleLoop } = require("../Services/Moderation/modCaseLifecycleService");
 const { startWeeklyStaffResocontoLoop } = require("../Services/Staff/weeklyStaffResocontoService");
 const { startWeeklyActivityWinnersLoop } = require("../Services/Community/weeklyActivityWinnersService");
-const { startWeeklyContestCron } = require("../Services/Community/weeklyContestService");
+const { startTwitchLiveAlertLoop } = require("../Services/Community/twitchLiveAlertService");
+const { startHogwartsHouseCupLoop } = require("../Services/Community/hogwartsHouseCupPublishService");
+const { syncHogwartsShopLogsOnStartup } = require("../Services/Community/hogwartsShopLogService");
+const { syncShopBoostMinigameUsageBackfillOnStartup } = require("../Services/Community/hogwartsShopBoostsService");
+const { syncHogwartsMinigameHousePointsBackfillOnStartup } = require("../Services/Community/hogwartsMinigameHousePointsBackfillService");
+const { syncHouseSortingAnnouncesOnStartup } = require("../Services/Community/hogwartsSortingLogService");
+const { startContestPrizeMaintenanceCron } = require("../Services/Community/contestPrizeMaintenanceService");
 const { startStaffWarnResetLoop } = require("../Services/Staff/staffWarnService");
-const { runScheduledEnds } = require("../Services/Giveaway/giveawayService");
+const { runStaffWarnChannelMigrationOnStartup } = require("../Services/Staff/staffWarnChannelMigrationService");
+const { startStaffAutoValutazioniLoop, syncAllStaffAutoValutazioni, restoreActiveSerataFilmSessions, cleanupMalformedAutoValutazioni } = require("../Services/Staff/staffAutoValutazioniService");
+const { reconcileResocontoReviewerRewardAutoValutazioni } = require("../Services/Staff/resocontoReviewerRewardService");
+const { purgeDuplicateCompitoSettimanaleValutazioni } = require("../Services/Staff/compitoSettimanaleDuplicatePurgeService");
+const { runScheduledEnds, syncActiveGiveawayButtons } = require("../Services/Giveaway/giveawayService");
 const { retroSyncGuildLevels } = require("../Services/Community/expService");
 const { runFullCleanupUsersNotInServer } = require("../Services/Community/cleanupUsersNotInServerService");
+const { runCustomPerksRulesMigration } = require("../Services/Community/customPerksRulesMigrationService");
 const { startStaffGracePurgeLoop } = require("../Services/Community/userLeaveBackupService");
 const { startDbMaintenanceLoop } = require("../Services/Community/dbMaintenanceService");
 const { startVoteQueueLoop } = require("../Services/Web/discadiaVoteQueueService");
 const { startWebhookServer, shouldStartBotHttpServer } = require("../Services/Web/webhookService");
 const { checkAndInstallPackages } = require("../Utils/Moderation/checkPackages");
 const { startAutoPollLoop } = require("../Services/Community/autoPollService");
+const { startMovieNightAnnouncementLoop, recoverMovieNightAnnouncementsOnStartup, ensureMovieNightStaffCommunicationOnStartup } = require("../Services/Community/movieNightAnnouncementService");
+const { printRecoveryHealthOnce } = require("../../shared/recovery/recoveryHealth");
 const IDs = require("../Utils/Config/ids");
+const guildMemberUpdateExtras = require("./guildMemberUpdate");
+const guildMemberAddExtras = require("./guildMemberAdd");
+const { recoverDonationPackageAnnouncesOnStartup } = require("../Utils/Community/donationPackageSupportersAnnounce");
+const { recoverManualSocialRoleAnnouncesOnStartup } = require("../Utils/Community/manualSocialRoleAnnounceAndPicPerms");
+const { reconcilePatronRolesOnStartup, recoverPatronAnnouncesOnStartup } = require("../Utils/Community/patronRoleService");
+const { recoverLevelMilestoneSupportersAnnouncesOnStartup } = require("../Utils/Community/levelMilestoneSupportersAnnounceEmbeds");
 const startupPanelsTrigger = require("../Triggers/embeds");
 const { queueIdsCatalogSync } = require("../Utils/Config/idsAutoSync");
 const { syncAllMembersClanTags } = require("../Services/Community/clanTagRoleService");
 const { syncZodiacRolesFromStoredBirthdays } = require("../Utils/Community/zodiacRoles");
 const { syncAgeBracketRolesFromStoredBirthdays } = require("../Utils/Community/ageBracketRoles");
 const { postTopggStatsDigestIfConfigured } = require("../Services/Web/topggDigestService");
-const { restorePauseMessageStatusSync } = require("../Utils/Pause/pauseHandlersUtils");
-const { formatDurationMs, runTaskGroup, runTaskSequence, } = require("../Utils/Startup/readyStartupRuntime");
+const { restorePauseMessageStatusSync, startPauseMessageStatusMaintenance } = require("../Utils/Pause/pauseHandlersUtils");
+const { formatDurationMs, runPhasedStartupTasks, } = require("../Utils/Startup/readyStartupRuntime");
 const { logBotReady } = require("../../shared/discord/readyLog");
-
+const { sweepExpiredPartnerManagerTimedPerks } = require("../Utils/Staff/partnerManagerTimedPerks");
 const STARTUP_PANELS_RETRY_MS = 15000;
 const ENGAGEMENT_INTERVAL_MS = Number(process.env.ENGAGEMENT_INTERVAL_MS) || 60 * 1000;
 const JOIN_RAID_RESTORE_INTERVAL_MS = Number(process.env.JOIN_RAID_RESTORE_INTERVAL_MS) || 10 * 60 * 1000;
-const CLEANUP_USERS_NOT_IN_SERVER_DELAY_MS = Number(process.env.CLEANUP_USERS_NOT_IN_SERVER_DELAY_MS) || 90 * 1000;
-const CLEANUP_USERS_NOT_IN_SERVER_INTERVAL_MS = (() => {
-  const v = process.env.CLEANUP_USERS_NOT_IN_SERVER_INTERVAL_MS;
-  if (v === undefined || v === "") return 24 * 60 * 60 * 1000;
-  const n = Number(v);
-  return Number.isFinite(n) ? n : 24 * 60 * 60 * 1000;
-})();
+const CLEANUP_USERS_NOT_IN_SERVER_DELAY_MS = Number(process.env.CLEANUP_USERS_NOT_IN_SERVER_DELAY_MS) || 3 * 60 * 1000;
+const CLEANUP_USERS_NOT_IN_SERVER_INTERVAL_MS = (() => { const v = process.env.CLEANUP_USERS_NOT_IN_SERVER_INTERVAL_MS; if (v === undefined || v === "") return 24 * 60 * 60 * 1000; const n = Number(v); return Number.isFinite(n) ? n : 24 * 60 * 60 * 1000;})();
 
 function shouldRunVerificationTenureBackfill(client) {
   const envValue = String(process.env.VERIFICATION_TENURE_BACKFILL_ON_STARTUP || "").trim().toLowerCase();
@@ -144,88 +182,427 @@ function createStartupHooks(client) {
   };
 }
 
-function buildPrimaryHeavyTasks(client, mainGuild, engagementTick) {
-  return [
-    {
-      label: "heavy task: retro sync guild levels",
-      run: () =>
-        mainGuild
-          ? retroSyncGuildLevels(mainGuild, { syncRoles: false })
-          : Promise.resolve(),
-    },
-    {
-      label: "heavy task: engagement tick",
-      run: () => engagementTick(),
-    },
-    {
-      label: "heavy task: verification tenure backfill",
-      run: () =>
-        shouldRunVerificationTenureBackfill(client)
-          ? backfillVerificationTenure(client)
-          : Promise.resolve(),
-    },
-    {
-      label: "heavy task: renumber categories",
-      run: () => renumberAllCategories(client),
-    },
-    {
-      label: "heavy task: custom role expiry sweep",
-      run: () => runExpiredCustomRolesSweep(client),
-    },
-  ];
-}
-
 function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
+  const mainGuildId = IDs.guilds.main || null;
+  const resolveMainGuild = async () => {
+    if (!mainGuildId) return client.guilds.cache.first() || null;
+    return client.guilds.cache.get(mainGuildId) || (await client.guilds.fetch(mainGuildId).catch(() => null));
+  };
   return [
     {
-      label: "restore bump reminders",
+      label: "expired mute role restore sweep",
+      weight: 5,
       enabled: primaryScheduler,
-      run: () => restoreBumpReminders(client),
-    },
-    {
-      label: "process recent automation messages (vote, bump)",
-      enabled: primaryScheduler,
-      run: () => processAllRecentAutomationMessages(client),
+      run: () =>
+        sweepExpiredCommunicationTimeoutMirrors(client, {
+          limit: 100,
+          includeRecentUnmuteRecovery: true,
+        }),
     },
     {
       label: "run due one-time reminders",
+      weight: 8,
       enabled: true,
       run: () => runDueOneTimeReminders(client),
     },
     {
       label: "restore core startup state",
+      weight: 10,
       enabled: true,
       run: () => restoreCoreStartupState(client),
     },
     {
-      label: "primary heavy tasks",
+      label: "reconcile orphan ticket channels",
+      weight: 11,
       enabled: primaryScheduler,
-      run: () => runPrimaryHeavyTasks(client, engagementTick),
+      run: async () => {
+        const { reconcileOrphanTicketsOnStartup } = require("../Services/Ticket/ticketOrphanReconcileService");
+        return reconcileOrphanTicketsOnStartup(client);
+      },
     },
     {
-      label: "startup sync clan tag roles",
+      label: "startup sync queue",
+      weight: 12,
+      enabled: true,
+      run: () => queueStartupSync(client),
+    },
+    {
+      label: "sync partner description cache",
+      weight: 16,
+      enabled: true,
+      run: () => syncPartnerDescription(client),
+    },
+    {
+      label: "restore bump reminders",
+      weight: 15,
       enabled: primaryScheduler,
-      run: () => syncAllMembersClanTags(client),
+      run: () => restoreBumpReminders(client),
+    },
+    {
+      label: "process recent automation messages (vote, bump)",
+      weight: 18,
+      enabled: primaryScheduler,
+      run: () => processAllRecentAutomationMessages(client),
+    },
+    {
+      label: "sync staff pause message status (accepted)",
+      weight: 19,
+      enabled: primaryScheduler,
+      run: () => restorePauseMessageStatusSync(client),
+    },
+    {
+      label: "engagement tick",
+      weight: 20,
+      enabled: primaryScheduler,
+      run: () => engagementTick(),
+    },
+    {
+      label: "discadia vote month DB repair (solo 1° mese Roma, stale month key)",
+      weight: 25,
+      enabled: primaryScheduler && shouldRunDiscadiaVoteMonthRepairOnStartup(client),
+      run: () => repairDiscadiaVoteMonthRowsForMainGuild(client),
+    },
+    {
+      label: "sync Discord AutoMod rules (Vinili)",
+      weight: 28,
+      enabled: primaryScheduler,
+      run: async () => {
+        global.__vinylsDiscordClient = client;
+        const {
+          syncDiscordAutomodRulesForClient,
+          shouldSyncOnStartup,
+        } = require("../Services/Moderation/discordAutomodRulesService");
+        if (!shouldSyncOnStartup()) return;
+        const result = await syncDiscordAutomodRulesForClient(client);
+        const rows = Array.isArray(result?.results) ? result.results : [];
+        for (const row of rows) {
+          if (!row?.ok) {
+            global.logger?.warn?.(
+              "[discordAutomod] startup sync:",
+              row?.guildId || "?",
+              row?.reason || "failed",
+            );
+            continue;
+          }
+          const failedN = Array.isArray(row.failed) ? row.failed.length : 0;
+          global.logger?.info?.(
+            `[discordAutomod] guild ${row.guildId || "?"}: ${row.satisfied ?? row.managed ?? "?"}/${row.total ?? "?"} regole ok (${row.managed ?? "?"} [VC]), +${row.created || 0} ~${row.updated || 0} -${row.removed || 0}${failedN ? ` errori=${failedN}` : ""}`,
+          );
+          if (!row.ok) {
+            global.logger?.warn?.(
+              "[discordAutomod] sync incompleta:",
+              row.reason || "unknown",
+            );
+          }
+        }
+      },
+    },
+    {
+      label: "reconcile double booster roles from stored boost slots",
+      weight: 35,
+      enabled: primaryScheduler,
+      run: () =>
+        guildMemberUpdateExtras.reconcileDoubleBoosterRolesOnStartup(client, {
+          maxUsers: 400,
+        }),
+    },
+    {
+      label: "correct misleading single boost embeds (double booster)",
+      weight: 38,
+      enabled: false,
+      run: () => guildMemberUpdateExtras.correctMisleadingSingleBoostEmbedsOnStartup(client),
+    },
+    {
+      label: "optional Top.gg stats digest",
+      weight: 40,
+      enabled: primaryScheduler && shouldRunTopggStatsDigestOnStartup(client),
+      run: () => postTopggStatsDigestIfConfigured(client),
+    },
+    {
+      label: "recover missed boost embeds (audit vs ultimo embed bot)",
+      weight: 42,
+      enabled: false,
+      run: () =>
+        guildMemberUpdateExtras.recoverRecentBoostEmbedsOnStartup(client, {
+          limit: 5,
+          lookbackMs: 24 * 60 * 60 * 1000,
+        }),
+    },
+    {
+      label: "recover missed join welcome announcements",
+      weight: 43,
+      enabled: primaryScheduler,
+      run: () =>
+        guildMemberAddExtras.recoverJoinAnnouncementsOnStartup(client, {
+          limit: 25,
+          lookbackMs: 24 * 60 * 60 * 1000,
+        }),
+    },
+    {
+      label: "recover missed donation package supporter announces",
+      weight: 44,
+      enabled: primaryScheduler,
+      run: () =>
+        recoverDonationPackageAnnouncesOnStartup(client, {
+          limit: 20,
+          lookbackMs: 24 * 60 * 60 * 1000,
+        }),
+    },
+    {
+      label: "recover missed social role supporter announces",
+      weight: 45,
+      enabled: primaryScheduler,
+      run: () =>
+        recoverManualSocialRoleAnnouncesOnStartup(client, {
+          limit: 20,
+          lookbackMs: 24 * 60 * 60 * 1000,
+        }),
+    },
+    {
+      label: "reconcile patron roles from social prerequisites",
+      weight: 45.2,
+      enabled: primaryScheduler,
+      run: () => reconcilePatronRolesOnStartup(client, { limit: 300 }),
+    },
+    {
+      label: "recover missed patron role announces",
+      weight: 45.4,
+      enabled: primaryScheduler,
+      run: () =>
+        recoverPatronAnnouncesOnStartup(client, {
+          limit: 15,
+          lookbackMs: 24 * 60 * 60 * 1000,
+        }),
+    },
+    {
+      label: "recover missed level milestone supporter announces",
+      weight: 46,
+      enabled: primaryScheduler,
+      run: () =>
+        recoverLevelMilestoneSupportersAnnouncesOnStartup(client, {
+          limit: 25,
+          lookbackMs: 24 * 60 * 60 * 1000,
+        }),
+    },
+    {
+      label: "recover missed supporter status embeds",
+      weight: 47,
+      enabled: primaryScheduler,
+      run: () =>
+        recoverSupporterStatusAnnouncesOnStartup(client, {
+          limit: 15,
+        }),
+    },
+    {
+      label: "ensure Serata Film staff news communication",
+      weight: 47,
+      enabled: primaryScheduler,
+      run: () => ensureMovieNightStaffCommunicationOnStartup(client),
+    },
+    {
+      label: "recover missed Serata Film cron announcements",
+      weight: 48,
+      enabled: primaryScheduler,
+      run: () => recoverMovieNightAnnouncementsOnStartup(client),
+    },
+    {
+      label: "restore active Serata Film staff tracking",
+      weight: 49,
+      enabled: primaryScheduler,
+      run: () => restoreActiveSerataFilmSessions(client),
+    },
+    {
+      label: "backfill boost announce slot counts from supporters history",
+      weight: 50,
+      enabled: primaryScheduler,
+      run: () => guildMemberUpdateExtras.backfillAnnouncedBoostSlotsFromSupportersHistory(client),
+    },
+    {
+      label: "recover unannounced boosters (member + native scan)",
+      weight: 50.5,
+      enabled: primaryScheduler,
+      run: () =>
+        guildMemberUpdateExtras.recoverUnannouncedBoostersOnStartup(client, {
+          lookbackMs: 48 * 60 * 60 * 1000,
+          maxRecover: 25,
+        }),
+    },
+    {
+      label: "recover missing second boost embeds (native vs supporters)",
+      weight: 51,
+      enabled: primaryScheduler,
+      run: () =>
+        guildMemberUpdateExtras.recoverMissingSecondBoostEmbedsOnStartup(client, {
+          lookbackMs: 7 * 24 * 60 * 60 * 1000,
+          maxRecover: 10,
+        }),
+    },
+    {
+      label: "recover last 2 native boost system messages (multi-channel scan)",
+      weight: 51,
+      enabled: false,
+      run: () =>
+        guildMemberUpdateExtras.recoverLastGlobalNativeBoostEmbedsOnStartup(client, {
+          messageLimit: 5,
+          lookbackMs: 24 * 60 * 60 * 1000,
+        }),
+    },
+    {
+      label: "custom role expiry sweep",
+      weight: 52,
+      enabled: primaryScheduler,
+      run: () => runExpiredCustomRolesSweep(client),
+    },
+    {
+      label: "DM banned users unban link (run once)",
+      weight: 55,
+      enabled: primaryScheduler && shouldRunBannedUnbanDmOnStartup(client),
+      run: async () => {
+        const result = await sendBannedUnbanLinkDms(client, { dryRun: false, once: true });
+        if (result?.skipped) {
+          global.logger?.info?.(`[dm-banned-unban] skipped: ${result.reason || "unknown"}`);
+        } else {
+          global.logger?.info?.(
+            `[dm-banned-unban] completed: sent=${result.sent} failed=${result.failed} target=${result.target}`,
+          );
+        }
+      },
+    },
+    {
+      label: "staff warn channel migration",
+      weight: 74,
+      enabled: primaryScheduler,
+      run: () => runStaffWarnChannelMigrationOnStartup(client),
+    },
+    {
+      label: "custom perks rules migration",
+      weight: 75,
+      enabled: primaryScheduler,
+      run: () => runCustomPerksRulesMigration(client),
+    },
+    {
+      label: "repair custom voc channel permissions",
+      weight: 75.2,
+      enabled: primaryScheduler,
+      run: () => {
+        const { repairCustomVocPermissionsOnStartup } = require("../Services/Community/customVocPermissionsService");
+        return repairCustomVocPermissionsOnStartup(client);
+      },
+    },
+    {
+      label: "custom private category empty cleanup",
+      weight: 54,
+      enabled: primaryScheduler,
+      run: async () => {
+        const guildId = String(IDs?.guilds?.main || "").trim();
+        if (!guildId) return;
+        const guild = client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
+        if (!guild) return;
+        const {
+          tryDeleteEmptyCustomPrivateCategory,
+          listCustomPrivateCategories,
+          syncCustomPrivateCategoryLayout,
+        } = require("../Utils/Community/customPrivateCategoryUtils");
+        for (const cat of listCustomPrivateCategories(guild)) {
+          await syncCustomPrivateCategoryLayout(guild, cat).catch(() => null);
+        }
+        const deleted = await tryDeleteEmptyCustomPrivateCategory(guild).catch(() => false);
+        if (deleted) global.logger?.info?.("[CUSTOM PRIVATE CATEGORY] Startup removed empty private category");
+      },
     },
     {
       label: "startup sync zodiac roles from birthday profiles",
+      weight: 78,
       enabled: primaryScheduler,
       run: () => syncZodiacRolesFromStoredBirthdays(client),
     },
     {
       label: "startup sync age bracket roles from birthday profiles",
+      weight: 78,
       enabled: primaryScheduler,
       run: () => syncAgeBracketRolesFromStoredBirthdays(client),
     },
     {
-      label: "optional Top.gg stats digest",
-      enabled: primaryScheduler && shouldRunTopggStatsDigestOnStartup(client),
-      run: () => postTopggStatsDigestIfConfigured(client),
+      label: "startup sync staff auto valutazioni",
+      weight: 80,
+      enabled: primaryScheduler,
+      run: async () => {
+        await cleanupMalformedAutoValutazioni();
+        await syncAllStaffAutoValutazioni(client);
+      },
     },
     {
-      label: "startup sync queue",
-      enabled: true,
-      run: () => queueStartupSync(client),
+      label: "reconcile resoconto reviewer compito settimanale",
+      weight: 81,
+      enabled: primaryScheduler,
+      run: () => reconcileResocontoReviewerRewardAutoValutazioni(client),
+    },
+    {
+      label: "purge duplicate compito settimanale valutazioni",
+      weight: 82,
+      enabled: primaryScheduler,
+      run: () => purgeDuplicateCompitoSettimanaleValutazioni(client, { dryRun: false }),
+    },
+    {
+      label: "verification tenure backfill",
+      weight: 85,
+      enabled: primaryScheduler && shouldRunVerificationTenureBackfill(client),
+      run: () => backfillVerificationTenure(client),
+    },
+    {
+      label: "hogwarts shop purchase log backfill",
+      weight: 86,
+      enabled: primaryScheduler,
+      run: () => syncHogwartsShopLogsOnStartup(client),
+    },
+    {
+      label: "hogwarts shop boost minigame usage backfill",
+      weight: 86,
+      enabled: primaryScheduler,
+      run: () => syncShopBoostMinigameUsageBackfillOnStartup(client),
+    },
+    {
+      label: "hogwarts minigame house points backfill",
+      weight: 86,
+      enabled: primaryScheduler,
+      run: () => syncHogwartsMinigameHousePointsBackfillOnStartup(client),
+    },
+    {
+      label: "hogwarts house sorting announce backfill",
+      weight: 87,
+      enabled: primaryScheduler,
+      run: () => syncHouseSortingAnnouncesOnStartup(client),
+    },
+    {
+      label: "hogwarts basilisk curse state hydrate",
+      weight: 87,
+      enabled: primaryScheduler,
+      run: async () => {
+        const { hydrateBasiliskScopeState } = require("../Services/Community/hogwartsBasiliskService");
+        await hydrateBasiliskScopeState(client);
+      },
+    },
+    {
+      label: "renumber categories",
+      weight: 88,
+      enabled: primaryScheduler,
+      run: () => renumberAllCategories(client),
+    },
+    {
+      label: "retro sync guild levels",
+      weight: 90,
+      enabled: primaryScheduler,
+      run: async () => {
+        const mainGuild = await resolveMainGuild();
+        if (!mainGuild) return;
+        return retroSyncGuildLevels(mainGuild, { syncRoles: false });
+      },
+    },
+    {
+      label: "startup sync clan tag roles",
+      weight: 92,
+      enabled: primaryScheduler,
+      run: () => syncAllMembersClanTags(client),
     },
   ];
 }
@@ -235,6 +612,22 @@ const getChannelSafe = async (client, channelId) => { if (!channelId) return nul
 
 const PENDING_COMMANDS_LOOKBACK_MS = 5 * 60 * 1000;
 const PENDING_COMMANDS_FETCH_LIMIT = 25;
+
+function messageHasBotLoadingReaction(message, client) {
+  const botId = String(client?.user?.id || "");
+  if (!botId || !message?.reactions?.cache?.size) return false;
+  const loadingId = String(IDs.emojis?.loadingAnimatedId || "");
+  const fallbackId = String(IDs.emojis?.loadingFallbackId || "");
+  for (const reaction of message.reactions.cache.values()) {
+    if (!reaction?.users?.cache?.has(botId)) continue;
+    const emojiId = String(reaction.emoji?.id || "");
+    if (loadingId && emojiId === loadingId) return true;
+    if (fallbackId && emojiId === fallbackId) return true;
+    if (reaction.emoji?.name === "\u23F3" || reaction.emoji?.name === "⏳") return true;
+    if (reaction.emoji?.name === "VC_Loading") return true;
+  }
+  return false;
+}
 
 async function processPendingPrefixCommands(client) {
   const envValue = String(process.env.PROCESS_PENDING_COMMANDS_ON_STARTUP || "").trim().toLowerCase();
@@ -266,6 +659,7 @@ async function processPendingPrefixCommands(client) {
         for (const msg of messages.values()) {
           if (msg.author?.bot || !msg.content?.trim().startsWith(prefix)) continue;
           if (msg.createdTimestamp < cutoff) continue;
+          if (!messageHasBotLoadingReaction(msg, client)) continue;
           collected.push({ message: msg, ts: msg.createdTimestamp });
         }
       } catch (err) {
@@ -274,6 +668,9 @@ async function processPendingPrefixCommands(client) {
     }
   }
   collected.sort((a, b) => a.ts - b.ts);
+  if (collected.length) {
+    global.logger?.info?.(`[READY] Recupero ${collected.length} prefix command in sospeso (reazione loading attiva).`);
+  }
   for (const { message } of collected) {
     try {
       try {
@@ -284,133 +681,11 @@ async function processPendingPrefixCommands(client) {
         else if (fallbackEmojiId) await message.react(fallbackEmojiId).catch(() => { });
         else await message.react("\u23F3").catch(() => { });
       } catch (_) { }
-      await handleOfficialPrefixMessage({
-        message,
-        resolvedClient: client,
-        defaultPrefix: prefix,
-        overrideCommand: null,
-        maybeSendWrongPrefixHint: noopWrongPrefixHint,
-        getCachedOrFetchMember,
-        hasAnyStaffBypassPermission,
-      });
+      await handleOfficialPrefixMessage({ message, resolvedClient: client, defaultPrefix: prefix, overrideCommand: null, maybeSendWrongPrefixHint: noopWrongPrefixHint, getCachedOrFetchMember, hasAnyStaffBypassPermission });
     } catch (err) {
       global.logger?.warn?.("[READY] pending command execution failed:", message?.id, err?.message || err);
     }
   }
-}
-
-function buildMongoUrl(client) {
-  return (
-    process.env.MONGO_URL_LOCAL ||
-    process.env.MONGODB_URI_LOCAL ||
-    process.env.MONGO_URL ||
-    process.env.MONGODB_URI ||
-    client.config.mongoURL
-  );
-}
-
-function getMongoUrlSource() {
-  if (process.env.MONGO_URL_LOCAL) return "MONGO_URL_LOCAL (env)";
-  if (process.env.MONGODB_URI_LOCAL) return "MONGODB_URI_LOCAL (env)";
-  if (process.env.MONGO_URL) return "MONGO_URL (env)";
-  if (process.env.MONGODB_URI) return "MONGODB_URI (env)";
-  return "client.config.mongoURL";
-}
-
-/** Ritorna URL con host sostituito da 127.0.0.1 solo per mongodb:// (non srv). Null se già 127.0.0.1 o srv. */
-function mongoUrlWith127(url) {
-  if (!url || typeof url !== "string" || url.startsWith("mongodb+srv://")) return null;
-  try {
-    const parsed = new URL(url.replace(/^mongodb:/, "https:"));
-    const host = (parsed.hostname || "").toLowerCase();
-    if (host === "127.0.0.1") return null;
-    parsed.hostname = "127.0.0.1";
-    return parsed.toString().replace(/^https:/, "mongodb:");
-  } catch {
-    return null;
-  }
-}
-
-const MONGO_CONNECT_OPTIONS = {
-  serverSelectionTimeoutMS: 5000,
-  connectTimeoutMS: 5000,
-  socketTimeoutMS: 20000,
-  maxPoolSize: 25,
-  minPoolSize: 2,
-  maxIdleTimeMS: 60_000,
-};
-
-const MONGO_RETRY_ATTEMPTS = 4;
-const MONGO_RETRY_DELAY_MS = 3000;
-
-function maskMongoUrlForLog(url) {
-  if (!url || typeof url !== "string") return "***";
-  try {
-    const u = url.replace(/^mongodb(\+srv)?:/, "https:");
-    const parsed = new URL(u);
-    const host = (parsed.hostname || "").toLowerCase();
-    const path = (parsed.pathname || "/").replace(/^\//, "") || "(default)";
-    const protocol = url.startsWith("mongodb+srv") ? "mongodb+srv" : "mongodb";
-    return `${protocol}://***@${host}${parsed.port && parsed.port !== "443" && parsed.port !== "80" ? ":" + parsed.port : ""}/${path}`;
-  } catch {
-    return "***";
-  }
-}
-
-async function connectMongo(client) {
-  const mongoUrl = buildMongoUrl(client);
-  if (!mongoUrl) {
-    logError(
-      client,
-      "[DATABASE] No MongoDB URL. Set MONGO_URL or MONGO_URL_LOCAL (or MONGODB_URI) in .env.",
-    );
-    return false;
-  }
-
-  logAlways(client, "[DATABASE] Connecting to: " + maskMongoUrlForLog(mongoUrl) + " (source: " + getMongoUrlSource() + ")");
-
-  mongoose.set("strictQuery", false);
-  mongoose.set("bufferCommands", false);
-
-  if (mongoose.connection.readyState === 1) {
-    logInfo(client, "[DATABASE] Already connected to MongoDB.");
-    return true;
-  }
-
-  const fallbackUrl = mongoUrlWith127(mongoUrl);
-  const urlsToTry = [mongoUrl];
-  if (fallbackUrl && fallbackUrl !== mongoUrl) urlsToTry.push(fallbackUrl);
-
-  for (let attempt = 1; attempt <= MONGO_RETRY_ATTEMPTS; attempt++) {
-    for (const url of urlsToTry) {
-      try {
-        await mongoose.connect(url, MONGO_CONNECT_OPTIONS);
-        logInfo(client, "[DATABASE] Connected to MongoDB successfully.");
-        return true;
-      } catch (err) {
-        const isLast = attempt === MONGO_RETRY_ATTEMPTS && url === urlsToTry[urlsToTry.length - 1];
-        if (isLast) {
-          logError(
-            client,
-            `[DATABASE] Error connecting to the database (continuo comunque il bootstrap): ${err}`,
-          );
-          return false;
-        }
-        if (attempt === 1 && url === mongoUrl) {
-          logInfo(client, `[DATABASE] First connection failed, retrying up to ${MONGO_RETRY_ATTEMPTS - 1} times (${err?.message || err}).`);
-        }
-      }
-    }
-    if (attempt < MONGO_RETRY_ATTEMPTS) {
-      await new Promise((r) => setTimeout(r, MONGO_RETRY_DELAY_MS));
-    }
-  }
-
-  logError(
-    client,
-    "[DATABASE] All connection attempts failed (continuo comunque il bootstrap).",
-  );
-  return false;
 }
 
 function isPrimaryScheduler(client) {
@@ -446,10 +721,11 @@ async function restoreBumpReminders(client) {
 }
 
 async function restoreCoreStartupState(client) {
-  const [bootstrap, inviteCache, liveVoiceSync, joinRaidRestore] = await Promise.allSettled([
+  const [bootstrap, inviteCache, liveVoiceSync, pmAfkWatchSync, joinRaidRestore] = await Promise.allSettled([
     bootstrapSupporter(client),
     primeInviteCache(client),
     syncLiveVoiceSessionsFromGateway(client),
+    syncPmVoiceAfkWatchFromGateway(client),
     Promise.allSettled(
       [...client.guilds.cache.values()].map((guild) => restoreTempBans(guild, { force: true })),
     ),
@@ -461,10 +737,20 @@ async function restoreCoreStartupState(client) {
     global.logger?.error?.("[INVITE CACHE] Failed to prime:", inviteCache.reason);
   if (liveVoiceSync.status === "rejected")
     global.logger?.error?.("[VOICE LIVE SYNC ERROR]", liveVoiceSync.reason);
+  if (pmAfkWatchSync.status === "rejected")
+    global.logger?.error?.("[PM AFK WATCH] Sync fallita:", pmAfkWatchSync.reason);
   if (joinRaidRestore.status === "rejected")
     global.logger?.error?.("[JOIN RAID RESTORE ERROR]", joinRaidRestore.reason);
 
   await restoreTtsConnections(client);
+  for (const guild of client.guilds.cache.values()) {
+    rehydrateAntiNukePanicForGuild(guild);
+  }
+  printRecoveryHealthOnce("VINYLS_RECOVERY_HEALTH");
+  const { applyBotPresence, schedulePresenceStabilization, installBotPresenceKeeper } = require("../../shared/discord/botPresenceActivity");
+  await applyBotPresence(client);
+  installBotPresenceKeeper(client);
+  schedulePresenceStabilization(client);
 }
 
 async function runStartupPanels(client, label = "immediate") {
@@ -487,25 +773,15 @@ async function runStartupPanels(client, label = "immediate") {
   }
 }
 
-async function runPrimaryHeavyTasks(client, engagementTick) {
-  const mainGuildId = IDs.guilds.main || null;
-  const mainGuild = mainGuildId ? client.guilds.cache.get(mainGuildId) || (await client.guilds.fetch(mainGuildId).catch(() => null)) : client.guilds.cache.first() || null;
-
-  const heavyTasks = buildPrimaryHeavyTasks(client, mainGuild, engagementTick);
+async function runDeferredStartup(client, primaryScheduler, engagementTick) {
+  const startupTasks = buildDeferredStartupTasks(client, primaryScheduler, engagementTick);
   const hooks = createStartupHooks(client);
-
   const startedAt = Date.now();
-  const results = await runTaskGroup(heavyTasks, hooks);
-  const failed = results.filter((result) => result.status === "rejected").length;
+  const summary = await runPhasedStartupTasks(startupTasks, hooks);
   logInfo(
     client,
-    `[STARTUP] primary heavy tasks finished in ${formatDurationMs(Date.now() - startedAt)}. failed=${failed}/${heavyTasks.length}.`,
+    `[STARTUP] phased startup queued: fast=${summary.fastResults.length} medium=${summary.mediumResults.length} heavy=${summary.heavyCount} in ${formatDurationMs(Date.now() - startedAt)}.`,
   );
-}
-
-async function runDeferredStartup(client, primaryScheduler, engagementTick) {
-  const startupTasks = buildDeferredStartupTasks(client, primaryScheduler, engagementTick,);
-  await runTaskSequence(startupTasks, createStartupHooks(client));
 }
 
 function startPrimaryLoops(client, engagementTick) {
@@ -523,21 +799,45 @@ function startPrimaryLoops(client, engagementTick) {
 
   const loopStarters = [
     ["[LIVE VOICE EXP] Failed to start loop", () => startLiveVoiceExpLoop(client)],
-    ["[MINIGAMES] Failed to start loop", () => restoreActiveGames(client).then(() => startMinigameLoop(client), () => startMinigameLoop(client))],
+    ["[MINIGAMES] Failed to start loop", () => void bootstrapMinigameScheduler(client).catch((err) => global.logger?.error?.("[MINIGAMES] bootstrap failed:", err?.message || err))],
+    ["[BURROBIRRA] Failed to start loop", () => startBurrobirraEffectLoop(client)],
+    ["[HOUSE BURROBIRRA] Failed to start loop", () => startHouseBurrobirraEffectLoop(client)],
     ["[VOTE ROLE] Failed to start cleanup loop", () => startVoteRoleCleanupLoop(client)],
-    ["[WEEKLY DM REMINDER] Failed to start loop", () => startWeeklyDmReminderLoop(client)],
     ["[VERIFY TENURE] Failed to start loop", () => startVerificationTenureLoop(client)],
     ["[CATEGORY NUMBERING] Failed to start loop", () => startCategoryNumberingLoop(client)],
     ["[SPONSOR 24H KICK] Failed to start loop", () => startSponsorKickLoop(client)],
+    ["[SPONSOR NICK SWEEP] Failed to start loop", () => startSponsorGuildNicknameSweepLoop(client)],
     ["[BIRTHDAY] Failed to start loop", () => startBirthdayLoop(client)],
+    ["[DAILY MEMBER STATS] Failed to start loop", () => startDailyMemberStatsLoop(client)],
+    ["[DAILY ENGAGEMENT STATS] Failed to start loop", () => startDailyEngagementStatsLoop(client)],
+    ["[DAILY CHANNEL MESSAGE STATS] Failed to start loop", () => startDailyChannelMessageStatsLoop(client)],
+    ["[PREMI LA REACT] Failed to start loop", () => startReactPressEventLoop(client)],
+    ["[PREMI LA REACT END] Failed to start leaderboard loop", () => startPremiLaReactEndLoop(client)],
+    ["[HOGWARTS FORBIDDEN CHANNELS] Failed to start loop", () => {
+      const { startForbiddenSectionChannelDecorLoop } = require("../Services/Community/hogwartsForbiddenSectionChannelService");
+      startForbiddenSectionChannelDecorLoop(client);
+    }],
+    ["[HOGWARTS SPELL LIST HUNT] Failed to start loop", () => startHogwartsSpellListHuntLoop(client)],
+    ["[HOGWARTS SPELL LIST HUNT END] Failed to start leaderboard loop", () => startHogwartsSpellListHuntEndLoop(client)],
+    ["[HOGWARTS POTIONS] Failed to start reminder loop", () => startPotionReminderLoop(client)],
+    ["[HOGWARTS EVENT END] Failed to start completion loop", () => startHogwartsEventEndLoop(client)],
     ["[CUSTOM ROLE EXPIRY] Failed to start cleanup loop", () => startCustomRoleExpiryLoop(client)],
     ["[MOD CASE LIFECYCLE] Failed to start loop", () => startModCaseLifecycleLoop(client)],
     ["[TICKET AUTO CLOSE PROMPT] Failed to start loop", () => startTicketAutoClosePromptLoop(client)],
     ["[TRANSCRIPT CLEANUP] Failed to start loop", () => startTranscriptCleanupLoop()],
     ["[WEEKLY ACTIVITY WINNERS] Failed to start loop", () => startWeeklyActivityWinnersLoop(client)],
-    ["[WEEKLY CONTEST SFONDI] Failed to start cron", () => startWeeklyContestCron(client)],
+    ["[HOGWARTS HOUSE CUP] Failed to start loop", () => startHogwartsHouseCupLoop(client)],
+    ["[CONTEST PRIZE] Failed to start cron", () => startContestPrizeMaintenanceCron(client)],
     ["[WEEKLY STAFF RESOCONTO] Failed to start loop", () => startWeeklyStaffResocontoLoop(client)],
     ["[STAFF WARN RESET 6M] Failed to start loop", () => startStaffWarnResetLoop(client)],
+    ["[STAFF AUTO VALUTAZIONI] Failed to start loop", () => startStaffAutoValutazioniLoop(client)],
+    ["[PM AFK WATCH] Failed to start loop", () => startPmVoiceAfkWatchLoop(client)],
+    ["[REPOST ROULETTE] Failed to start cron", () => {
+      const { startRepostRouletteCron } = require("../Services/Community/repostRouletteService");
+      startRepostRouletteCron(client);
+    }],
+    ["[MOVIE NIGHT ANNOUNCE] Failed to start loop", () => startMovieNightAnnouncementLoop(client)],
+    ["[TWITCH LIVE] Failed to start loop", () => startTwitchLiveAlertLoop(client)],
     ["[DB MAINTENANCE] Failed to start loop", () => startDbMaintenanceLoop(client)],
     ["[STAFF GRACE PURGE] Failed to start loop", () => startStaffGracePurgeLoop(client)],
     ["[JOIN RAID RESTORE] Failed to start loop", () => {
@@ -556,11 +856,30 @@ function startPrimaryLoops(client, engagementTick) {
           const isMongoNetwork = e?.name === "MongoNetworkTimeoutError" || e?.name === "MongoServerSelectionError";
           global.logger?.warn?.("[GIVEAWAY] runScheduledEnds", isMongoNetwork ? "MongoDB timeout, will retry next run." : (e?.message || e));
         });
+      syncActiveGiveawayButtons(client)
+        .then((result) => {
+          if (!result?.scanned) return;
+          global.logger?.info?.(`[GIVEAWAY] active button sync: scanned=${result.scanned} updated=${result.updated} failed=${result.failed}`);
+        })
+        .catch((e) => {
+          const isMongoNetwork = e?.name === "MongoNetworkTimeoutError" || e?.name === "MongoServerSelectionError";
+          global.logger?.warn?.("[GIVEAWAY] syncActiveGiveawayButtons", isMongoNetwork ? "MongoDB timeout, will retry next run." : (e?.message || e));
+        });
       tick();
       const timer = setInterval(tick, 60 * 1000);
       if (typeof timer.unref === "function") timer.unref();
       client._giveawayScheduledEndInterval = timer;
     }],
+    [
+      "[PARTNER MANAGER TIMED PERKS] Failed to start loop",
+      () => {
+        const tick = () => sweepExpiredPartnerManagerTimedPerks(client).catch(() => { });
+        tick();
+        const timer = setInterval(tick, 5 * 60 * 1000);
+        if (typeof timer.unref === "function") timer.unref();
+        client._partnerManagerTimedPerksInterval = timer;
+      },
+    ],
     ["[DISCADIA VOTE QUEUE] Failed to start loop", () => startVoteQueueLoop(client)],
     [
       "[BOT HTTP WEBHOOK] Failed to start",
@@ -594,55 +913,26 @@ function scheduleMonthlyGif(client) {
     if (client._monthlyGifTask) return;
     client._monthlyGifTask = cron.schedule(
       "0 0 1 * *",
-      async () => {
+      runCronDetached("[MONTHLY GIF]", async () => {
         const channelId = IDs.channels.chat;
         const channel = await getChannelSafe(client, channelId);
         if (!channel?.isTextBased?.()) return;
 
-        await channel
-          .send({
-            content: "@everyone",
-            allowedMentions: { parse: ["everyone"] },
-            files: [
-              {
-                attachment:
-                  "https://media.tenor.com/crZirRXKLuQAAAAC/manhdz2k9.gif",
-                name: "monthly.gif",
-              },
-            ],
-          })
-          .catch((err) => {
-            global.logger?.error?.(
-              "[MONTHLY GIF] Invio fallito:",
-              err?.message || err,
-            );
-          });
-      },
-      { timezone: "Europe/Rome" },
+        await channel.send({
+          content: "@everyone",
+          allowedMentions: { parse: ["everyone"] },
+          files: [
+            {
+              attachment: "https://media.tenor.com/crZirRXKLuQAAAAC/manhdz2k9.gif",
+              name: "monthly.gif",
+            },
+          ],
+        });
+      }),
+      { timezone: "Europe/Rome", noOverlap: true },
     );
   } catch (err) {
     global.logger?.error?.("[MONTHLY GIF] Failed to schedule", err);
-  }
-}
-
-function setClientPresence(client) {
-  try {
-    client.user?.setPresence?.({
-      status: client.config?.status || "idle",
-      activities: [
-        {
-          type: 4,
-          name: "irrelevant",
-          state: "☕📀 discord.gg/viniliecaffe",
-        },
-      ],
-    });
-  } catch (err) {
-    logError(
-      client,
-      "[STATUS] Errore impostazione presence:",
-      err?.message || err,
-    );
   }
 }
 
@@ -650,7 +940,7 @@ function maybeCheckPackagesOnReady(client) {
   if (typeof checkAndInstallPackages !== "function") return;
   if (String(process.env.CHECK_PACKAGES_ON_READY || "").trim() !== "1") return;
   Promise.resolve(checkAndInstallPackages(client)).catch((err) => {
-    logError(client, "[PACKAGES] Check failed:", err?.stack || err?.message || err);
+    logError(client, "[PACKAGES] Check failed:", err?.message || err);
   });
 }
 
@@ -662,15 +952,39 @@ module.exports = {
       return;
     }
     client._readyBootstrapDone = true;
+    global.__vinylsDiscordClient = client;
 
     const readyStartedAt = Date.now();
     const maxListeners = resolveMaxListeners(client);
     client.setMaxListeners(maxListeners);
     require("events").EventEmitter.defaultMaxListeners = maxListeners;
+    try {
+      require("../Utils/Community/pronounGenderUtils").registerPronounGenderReplyHook();
+    } catch (err) {
+      global.logger?.warn?.("[PRONOUN-GENDER] hook init:", err?.message || err);
+    }
 
-    await connectMongo(client);
-
+    if (!isMongoReady()) {
+      logError(client, "[DATABASE] Startup aborted: MongoDB is required for ready services.");
+      const t = setTimeout(() => process.exit(1), 5000);
+      t.unref?.();
+      return;
+    }
+    try {
+      await restoreWelcomeSessionsFromDb();
+    } catch (err) {
+      global.logger?.warn?.("[welcome-context] restore sessions:", err?.message || err);
+    }
     const primaryScheduler = isPrimaryScheduler(client);
+    if (primaryScheduler) {
+      try {
+        const result = await migrateLegacyDailyStatsCollections();
+        if (!result?.skipped) global.logger?.info?.("[DAILY STATS MIGRATION] completed into dailystats.");
+      } catch (err) {
+        global.logger?.warn?.("[DAILY STATS MIGRATION] failed:", err?.message || err);
+      }
+    }
+
     if (primaryScheduler) {
       try {
         startBumpDueReminderSweepLoop(client);
@@ -678,11 +992,7 @@ module.exports = {
         global.logger?.error?.("[BUMP DUE REMINDER SWEEP] early start failed:", err?.message || err);
       }
     }
-    try {
-      startStaffListPeriodicRefreshLoop(client);
-    } catch (err) {
-      global.logger?.error?.("[STAFF LIST] periodic loop start failed:", err?.message || err);
-    }
+
     if (primaryScheduler) {
       try {
         startDailyPartnerAuditLoop(client);
@@ -690,14 +1000,30 @@ module.exports = {
         global.logger?.error?.("[DAILY PARTNER AUDIT ERROR]", err);
       }
       try {
-        startPartnershipChannelCleanupLoop(client);
+        startStaffCmdsThreadsLoop(client);
       } catch (err) {
-        global.logger?.error?.("[PARTNERSHIP CHANNEL CLEANUP ERROR]", err);
+        global.logger?.error?.("[STAFF CMDS THREAD INIT ERROR]", err);
       }
       try {
-        startPartnerPmDailyThreadLoop(client);
+        startResocontoStaffChannelAccessLoop(client);
       } catch (err) {
-        global.logger?.error?.("[PARTNER PM THREAD INIT ERROR]", err);
+        global.logger?.error?.("[RESOCONTO STAFF CHANNEL INIT ERROR]", err);
+      }
+      try {
+        startStaffChatThreadsLoop(client);
+      } catch (err) {
+        global.logger?.error?.("[STAFF CHAT THREAD INIT ERROR]", err);
+      }
+      try {
+        startPublicVoiceHubSetup(client);
+      } catch (err) {
+        global.logger?.error?.("[PUBLIC VOICE HUB INIT ERROR]", err);
+      }
+      try {
+        const { startStanzaVoiceRecovery } = require("../Services/Voice/stanzaVoiceRoomsService");
+        startStanzaVoiceRecovery(client);
+      } catch (err) {
+        global.logger?.error?.("[STANZA VOICE INIT ERROR]", err);
       }
     }
 
@@ -712,41 +1038,77 @@ module.exports = {
     if (primaryScheduler) {
       let engagementTickRunning = false;
       const engagementTick = async () => { if (engagementTickRunning) return; engagementTickRunning = true; try { await runDueOneTimeReminders(client); } catch (err) { global.logger?.error?.(err); } finally { engagementTickRunning = false; } };
+      client._engagementTick = engagementTick;
+
+      void (async () => {
+        try {
+          const { repairCustomVocPermissionsOnStartup } = require("../Services/Community/customVocPermissionsService");
+          await repairCustomVocPermissionsOnStartup(client);
+        } catch (err) {
+          global.logger?.warn?.("[CUSTOM VOC PERMS] early repair failed:", err?.message || err);
+        }
+      })();
+
+      if (!client._deferredStartupRunning) {
+        client._deferredStartupRunning = true;
+        void runDeferredStartup(client, primaryScheduler, engagementTick).finally(() => {
+          client._deferredStartupRunning = false;
+        });
+      }
 
       startPrimaryLoops(client, engagementTick);
-      client._engagementTick = engagementTick;
     }
 
-    if (primaryScheduler) scheduleMonthlyGif(client);
-    setClientPresence(client);
+    if (primaryScheduler) {
+      scheduleMonthlyGif(client);
+      try {
+        startDiscadiaVoteMonthRolloverCron(client);
+      } catch (err) {
+        logError(client, "[DISCADIA_VOTE_MONTH_CRON] schedule failed:", err);
+      }
+    }
     maybeCheckPackagesOnReady(client);
     try {
       startAutoPollLoop(client);
     } catch (error) {
-      logError(client, "[STATUS] Error while loading bot status (auto poll):", error?.stack || error?.message || error);
+      logError(client, "[STATUS] Error while loading bot status (auto poll):", error);
     }
 
     logBotReady(client, readyStartedAt);
 
+    try {
+      const { initLavalinkMusicIfEnabled } = require("../Services/Music/lavalinkMusicService");
+      initLavalinkMusicIfEnabled(client);
+    } catch (err) {
+      global.logger?.warn?.("[MUSIC] init:", err?.message || err);
+    }
+
     void processPendingPrefixCommands(client).catch((err) => global.logger?.warn?.("[READY] pending commands:", err?.message || err));
     void processPendingCountingMessages(client).catch((err) => global.logger?.warn?.("[READY] counting catch-up:", err?.message || err));
+    void rehydrateCountingChannelBans(client).catch((err) =>
+      global.logger?.warn?.("[READY] counting channel bans rehydrate:", err?.message || err),
+    );
+    void hydrateCountingRestoreTokens(client).catch((err) =>
+      global.logger?.warn?.("[READY] counting restore tokens hydrate:", err?.message || err),
+    );
+    startCountingRestoreMaintenance(client);
+    const countingCatchUpRetry = setTimeout(() => {
+      void processPendingCountingMessages(client).catch((err) =>
+        global.logger?.warn?.("[READY] counting catch-up retry:", err?.message || err),
+      );
+    }, STARTUP_PANELS_RETRY_MS);
+    countingCatchUpRetry.unref?.();
 
-    if (!client._deferredStartupRunning) {
-      client._deferredStartupRunning = true;
-      const engagementTick = client._engagementTick || (async () => { });
-      void runDeferredStartup(client, primaryScheduler, engagementTick).finally(() => {
-        client._deferredStartupRunning = false;
-      });
-    }
     if (primaryScheduler) {
       void restorePauseMessageStatusSync(client).catch((err) => {
-        global.logger?.warn?.("[PAUSE] restore pause message status sync failed:", err?.message || err);
+        global.logger?.warn?.("[PAUSE] restore pause message status sync failed:", err);
       });
+      startPauseMessageStatusMaintenance(client);
     }
     if (primaryScheduler) {
-      void runStartupPanels(client, "ready").catch(() => {});
+      void runStartupPanels(client, "ready").catch(() => { });
       const retryPanels = setTimeout(() => {
-        void runStartupPanels(client, "ready-retry").catch(() => {});
+        void runStartupPanels(client, "ready-retry").catch(() => { });
       }, STARTUP_PANELS_RETRY_MS);
       retryPanels.unref?.();
     }
@@ -755,7 +1117,7 @@ module.exports = {
     if (!cleanupDisabled) {
       const t = setTimeout(() => {
         runFullCleanupUsersNotInServer(client).catch((err) => {
-          global.logger?.warn?.("[CLEANUP USERS NOT IN SERVER] Startup cleanup failed:", err?.message || err);
+          global.logger?.warn?.("[CLEANUP USERS NOT IN SERVER] Startup cleanup failed:", err);
         });
       }, CLEANUP_USERS_NOT_IN_SERVER_DELAY_MS);
       if (t?.unref) t.unref();
@@ -763,11 +1125,21 @@ module.exports = {
     if (CLEANUP_USERS_NOT_IN_SERVER_INTERVAL_MS > 0) {
       const iv = setInterval(() => {
         runFullCleanupUsersNotInServer(client).catch((err) => {
-          global.logger?.warn?.("[CLEANUP USERS NOT IN SERVER] Periodic cleanup failed:", err?.message || err);
+          global.logger?.warn?.("[CLEANUP USERS NOT IN SERVER] Periodic cleanup failed:", err);
         });
       }, CLEANUP_USERS_NOT_IN_SERVER_INTERVAL_MS);
       if (iv?.unref) iv.unref();
     }
 
+    setTimeout(() => {
+      const { sweepAccessGuild } = require("../Services/Staff/staffAccessMirrorService");
+      sweepAccessGuild(client).catch((err) => {
+        global.logger?.warn?.("[STAFF ACCESS MIRROR] startup sweep failed:", err);
+      });
+    }, 30_000).unref?.();
+
+    const { applyBotPresence, installBotPresenceKeeper } = require("../../shared/discord/botPresenceActivity");
+    await applyBotPresence(client);
+    installBotPresenceKeeper(client);
   },
 };

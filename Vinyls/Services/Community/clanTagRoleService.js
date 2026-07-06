@@ -1,7 +1,9 @@
 const { EmbedBuilder } = require("discord.js");
 const IDs = require("../../Utils/Config/ids");
 const { getGuildMemberCached, getGuildChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
-const { guildMemberDisplayAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
+const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
+const { wasRoleRestoredByMuteMirror } = require("../../Utils/Moderation/muteRestoreAnnounceSuppress");
+const { applyPronounGenderToEmbedForMember } = require("../../Utils/Community/pronounGenderUtils");
 const GLOBAL_GUILDED_ROLE_ID = IDs.roles.Guilded;
 const MAIN_GUILD_ID = IDs.guilds.main;
 const ANNOUNCE_CHANNEL_ID = IDs.channels.supporters;
@@ -17,7 +19,7 @@ function normalizeForMatch(text) {
     .replace(/ʟ/g, "l").replace(/ᴜ/g, "u").replace(/ɴ/g, "n").replace(/ᴀ/g, "a")
     .replace(/ᴄ/g, "c").replace(/ꜱ/g, "s").replace(/ʜ/g, "h").replace(/ᴘ/g, "p")
     .replace(/ᴡ/g, "w").replace(/ᴇ/g, "e").replace(/ᴅ/g, "d").replace(/ꜰ/g, "f")
-    .replace(/ɪ/g, "i").replace(/ɢ/g, "g").replace(/ღ/g, "o")
+    .replace(/ɪ/g, "i").replace(/ɢ/g, "g").replace(/ღ/g, "o").replace(/ᴛ/g, "t").replace(/ʀ/g, "r")
     .replace(/𝟨/g, "6").replace(/𝟫/g, "9")
     .replace(/[^a-z0-9]/g, "");
 }
@@ -144,7 +146,7 @@ async function deleteGuildedAnnouncementForUser(member) {
     if (String(msg.author?.id || "") !== String(member.client?.user?.id || "")) continue;
     const embeds = Array.isArray(msg.embeds) ? msg.embeds : [];
     const hasGuildedTitle = embeds.some((e) =>
-      String(e?.title || e?.data?.title || "").toLowerCase().includes("nuovx guilded"),
+      /nuov\w* guilded/i.test(String(e?.title || e?.data?.title || "")),
     );
     const mentionsUser = String(msg.content || "").includes(`<@${uid}>`) || String(msg.content || "").includes(`<@!${uid}>`);
     if (!hasGuildedTitle && !mentionsUser) continue;
@@ -298,6 +300,8 @@ async function syncClanTagRolesForUserEverywhere(client, user, options = {}) {
 async function announceNewGuildedMember(member, tag, roleIdAssigned = null) {
   const uid = String(member?.id || "");
   if (!uid) return;
+  const mentionRoleId = roleIdAssigned || GLOBAL_GUILDED_ROLE_ID;
+  if (wasRoleRestoredByMuteMirror(member.guild?.id, member.id, mentionRoleId)) return;
 
   const prev = guildedAnnounceTailByUserId.get(uid) || Promise.resolve();
   const mine = prev.catch(() => {}).then(async () => {
@@ -311,36 +315,27 @@ async function announceNewGuildedMember(member, tag, roleIdAssigned = null) {
       : null;
     if (!channel?.isTextBased?.()) return;
 
-    const mentionRoleId = roleIdAssigned || GLOBAL_GUILDED_ROLE_ID;
     const avatarUrl = guildMemberDisplayAvatarUrlDynamic(member, { size: 256 });
-    const roleLine = mentionRoleId
-      ? `<:VC_Reply:1482532158080942191> Ti è stato assegnato il ruolo <@&${mentionRoleId}>!`
-      : `<:VC_Reply:1482532158080942191> Ti è stato assegnato un ruolo Guilded!`;
     const embed = new EmbedBuilder()
       .setColor("#6f4e37")
       .setAuthor({
-        name: member.user.username,
+        name: accountUsername(member),
         iconURL: avatarUrl,
       })
       .setTitle("Nuovx Guilded <a:VC_StarPink:1330194976440848500>")
       .setThumbnail(avatarUrl)
       .setDescription(
         [
-          `<a:VC_Arrow:1482706699365257397><@${member.id}>`,
+          `<@${member.id}>, \`hai sbloccato:\``,
+          `<:VC_Reply:1482532158080942191> Ti è stato assegnato il ruolo <@&${mentionRoleId}>!`,
+          "<a:VC_Infinity:1448687797266288832> - Permesso di allegare immagini e link in chat",
+          "<a:VC_HeartWhite:1448673535253024860> - Permesso di cambiare il nickname",
           "",
-          roleLine,
-          `Mettendo una delle nostre **Guild-TAGs**`,
-          "<:VC_Luna1:1482497618289496117><:VC_Luna2:1482497653387427902><a:VC_Arrow:1482706699365257397> <https://discord.gg/E6vrm5zE6B>",
-          "<:VC_Cash1:1482460724302184450><:VC_Cash2:1482460763346960434><a:VC_Arrow:1482706699365257397> <https://discord.gg/QnTN5P578g>",
-          "<:VC_Porn1:1482497744513011944><:VC_Porn2:1482497774892089547><a:VC_Arrow:1482706699365257397> <https://discord.gg/WMuZ4EMAkc>",
-          "<:VC_SixNine1:1482497833578922065><:VC_SixNine2:1482497868328865813><a:VC_Arrow:1482706699365257397> <https://discord.gg/uqUNS9f5m5>",
-          "<:VC_Weed1:1482497951686201534><:VC_Weed2:1482497986910097592><a:VC_Arrow:1482706699365257397> <https://discord.gg/SzBwnxHXNv>",
-          "<:VC_Figa1:1482495980275499169><:VC_Figa2:1482496046222544937><a:VC_Arrow:1482706699365257397> <https://discord.gg/z3EXtJwvQH>",
-          "",
-          "<a:VC_Arrow:1482706699365257397> Grazie per aver scelto la nostra tag!",
+          "<a:VC_Arrow:1482706699365257397> Grazie per aver scelto la nostra tag! Scopri tutte le nostre tags [qui](https://viniliecaffe.it/perks)",
         ].join("\n"),
       )
       .setFooter({ text: "Grazie per il tuo supporto!" });
+    applyPronounGenderToEmbedForMember(embed, member);
 
     const sent = await channel
       .send({
@@ -401,9 +396,4 @@ async function syncAllMembersClanTags(client) {
   }
 }
 
-module.exports = {
-  syncClanTagRoles,
-  syncClanTagRolesForUserEverywhere,
-  syncClanTagRolesForUserEverywhereAfterMemberEvent,
-  syncAllMembersClanTags,
-};
+module.exports = { hasMatchingTag, syncClanTagRoles, syncClanTagRolesForUserEverywhere, syncClanTagRolesForUserEverywhereAfterMemberEvent, syncAllMembersClanTags };

@@ -4,18 +4,12 @@ const IDs = require("../Utils/Config/ids");
 const { getGuildChannelCached, getGuildMemberCached, getClientChannelCached } = require("../Utils/Interaction/interactionEntityCache");
 const { getJoinGateConfigSnapshot } = require("../Services/Moderation/joinGateService");
 const { resolveJoinGateConfiguredExempt } = require("../Services/Moderation/joinGateExemptUtils");
-const {
-  kickForJoinGate,
-  matchUsernameFilters,
-  getJoinGateNameCandidate,
-} = require("./guildMemberAdd");
+const { kickForJoinGate, matchUsernameFilters, getJoinGateNameCandidate } = require("./guildMemberAdd");
 const { syncClanTagRolesForUserEverywhere } = require("../Services/Community/clanTagRoleService");
+const { syncPersistentAutoValutazioniForMember } = require("../Services/Staff/staffAutoValutazioniService");
 const { guildMemberDisplayAvatarUrlDynamic } = require("../Utils/Discord/guildDiscordIdentity");
-
-const ARROW = "<:VC_right_arrow:1482459908245815296>";
 const USER_UPDATE_DEDUPE_MS = 15_000;
 const recentUserUpdateActions = new Map();
-/** USER_UPDATE spesso non include `clan`: sync via REST quando il payload non mostra cambiamenti. */
 const CLAN_TAG_USER_UPDATE_THROTTLE_MS = 10_000;
 const clanTagUserUpdateLastSync = new Map();
 
@@ -32,11 +26,11 @@ async function maybeThrottledClanTagSyncFromUserUpdate(newUser, resolvedClient) 
 function buildJoinGateTriggeredEmbed(member, reason) {
   return new EmbedBuilder()
     .setColor("#F59E0B")
-    .setTitle(`${member.user.username} has triggered the joingate!`)
+    .setTitle(`<:VC_User:1482527453586002103> ${member.user.username} ha attivato il join gate!`)
     .setDescription(
       [
-        `${ARROW} **Member:** ${member.user.username} [\`${member.user.id}\`]`,
-        `${ARROW} **Reason:** ${reason}`,
+        `<:VC_Modifica:1478859646587633717> **Membro:** ${member.user.username} [\`${member.user.id}\`]`,
+        `<:VC_Modifica:1478859646587633717> **Motivo:** ${reason}`,
       ].join("\n"),
     )
     .setThumbnail(guildMemberDisplayAvatarUrlDynamic(member, { size: 256 }) || null);
@@ -56,11 +50,11 @@ function shouldSkipRecentUserUpdateAction(guildId, userId, match) {
 }
 
 async function punishUsernameMatchPostJoin(member, match, cfg) {
-  const reason = "Username matches blocked pattern (post-join filter).";
+  const reason = "Username matchato con il filtro post-join.";
   const extraLines = [
-    `${ARROW} **Rule:** Username Filter (post-join)`,
-    `${ARROW} **Match Type:** ${match.type}`,
-    `${ARROW} **Match:** ${match.value}`,
+    `<:VC_Modifica:1478859646587633717> **Regola:** Filtro username`,
+    `<:VC_Modifica:1478859646587633717> **Tipo di match:** ${match.type}`,
+    `<:VC_Modifica:1478859646587633717> **Match:** ${match.value}`,
   ];
   const action = String(cfg?.usernameFilter?.action || "kick").toLowerCase();
   if (action === "log") {
@@ -100,6 +94,15 @@ module.exports = {
         const clanChanged = clanTagChanged || clanGuildChanged || clanPresenceChanged;
         if (!usernameChanged && !globalNameChanged && !clanChanged) {
           await maybeThrottledClanTagSyncFromUserUpdate(newUser, resolvedClient);
+          const guild = resolvedClient.guilds.cache.get(String(IDs.guilds?.main || ""));
+          const member = guild
+            ? guild.members.cache.get(newUser.id) || (await getGuildMemberCached(guild, newUser.id))
+            : null;
+          if (member) {
+            await syncPersistentAutoValutazioniForMember(member).catch((err) => {
+              global.logger?.warn?.("[userUpdate] staff auto valutazioni sync:", newUser.id, err?.message || err);
+            });
+          }
           return;
         }
 
@@ -108,6 +111,15 @@ module.exports = {
             userForClan: newUser,
             previousUserForClan: oldUser,
           });
+          const guild = resolvedClient.guilds.cache.get(String(IDs.guilds?.main || ""));
+          const member = guild
+            ? guild.members.cache.get(newUser.id) || (await getGuildMemberCached(guild, newUser.id))
+            : null;
+          if (member) {
+            await syncPersistentAutoValutazioniForMember(member).catch((err) => {
+              global.logger?.warn?.("[userUpdate] staff auto valutazioni sync:", newUser.id, err?.message || err);
+            });
+          }
         }
 
         const cfg = getJoinGateConfigSnapshot();

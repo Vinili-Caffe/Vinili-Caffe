@@ -4,6 +4,7 @@ const { ActivityUserProfile } = require("../../Schemas/Community/communitySchema
 const IDs = require("../../Utils/Config/ids");
 const { getOrCreateStaffDoc, ensureStaff } = require("../../Utils/Staff/staffDocUtils");
 const { getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
+const { getHighestStaffLadderRoleId, STAFF_LADDER_KEYS_HIGH_TO_LOW } = require("../../Utils/Staff/staffRoleHierarchy");
 
 const NEGATIVES_PER_STAFF_WARN = 3;
 /** Testo salvato su `warnReasons` e mostrato nell'embed warn automatico (3 negative). */
@@ -16,22 +17,27 @@ const ROLE_HIGH_STAFF = String(IDs.roles.HighStaff);
 const ROLE_MEMBER = String(IDs.roles.Member || "");
 const ROLE_HELPER = String(IDs.roles.Helper);
 const ROLE_MODERATOR = String(IDs.roles.Mod);
+const ROLE_SENIOR_MODERATOR = String(IDs.roles.SeniorModerator);
+const ROLE_DIRECTOR = String(IDs.roles.Director);
 const ROLE_ADMIN = String(IDs.roles.Admin);
+const ROLE_MANAGER = String(IDs.roles.Manager || "");
 const ROLE_OWNER = String(IDs.roles.Founder || "");
 
-const STAFF_ROLES_HIGH_TO_LOW = [
-  ROLE_OWNER,
-  ROLE_ADMIN,
-  ROLE_MODERATOR,
-  ROLE_HELPER,
-].filter(Boolean);
+const STAFF_ROLES_HIGH_TO_LOW = require("../../Utils/Staff/staffRoleHierarchy").staffLadderRoleIds(STAFF_LADDER_KEYS_HIGH_TO_LOW);
 
 function getHighestStaffRoleId(member) {
-  if (!member?.roles?.cache) return null;
-  for (const roleId of STAFF_ROLES_HIGH_TO_LOW) {
-    if (member.roles.cache.has(roleId)) return roleId;
-  }
-  return null;
+  return getHighestStaffLadderRoleId(member, STAFF_LADDER_KEYS_HIGH_TO_LOW);
+}
+
+async function bumpCandidatureCooldownAfterDepexOneLevel(userId) {
+  const id = String(userId || "").trim();
+  if (!/^\d{16,20}$/.test(id)) return;
+  try {
+    const { bumpApplicationCooldownAfterStaffDepex } = require("../../Events/interaction/candidatureApplicationHandlers");
+    if (typeof bumpApplicationCooldownAfterStaffDepex === "function") {
+      await bumpApplicationCooldownAfterStaffDepex(id);
+    }
+  } catch (_) {}
 }
 
 function resetStaffWarnsIfSixMonths(profileDoc) {
@@ -48,29 +54,41 @@ function resetStaffWarnsIfSixMonths(profileDoc) {
 }
 
 async function addStaffWarnFromNegatives(guildId, userId, negativeCountAfterAdd, reason) {
-  const profileDoc = await getOrCreateStaffDoc(guildId, userId);
+  const gid = String(guildId || "").trim();
+  const uid = String(userId || "").trim();
+  if (!gid || !uid) return { added: false };
+  const profileDoc = await getOrCreateStaffDoc(gid, uid);
   if (!profileDoc) return { added: false };
   const s = ensureStaff(profileDoc);
 
   const reset = resetStaffWarnsIfSixMonths(profileDoc);
   if (reset) await profileDoc.save().catch(() => null);
 
-  if (negativeCountAfterAdd % NEGATIVES_PER_STAFF_WARN !== 0) return { added: false };
+  const negatives = Math.max(0, Math.floor(Number(negativeCountAfterAdd) || 0));
+  if (negatives % NEGATIVES_PER_STAFF_WARN !== 0) return { added: false };
 
-  s.warnCount = Math.max(0, Number(s.warnCount || 0)) + 1;
-  if (!Array.isArray(s.warnReasons)) s.warnReasons = [];
-  s.warnReasons.push(String(reason || "3 valutazioni negative").slice(0, 500));
-  if (!s.firstWarnStaffAt) s.firstWarnStaffAt = new Date();
-  profileDoc.markModified("staff");
-  await profileDoc.save().catch(() => null);
+  const warnReason = String(reason || STAFF_WARN_THREE_NEGATIVES_REASON).slice(0, 500);
+  const now = new Date();
+  const update = {
+    $setOnInsert: { guildId: gid, userId: uid },
+    $inc: { "staff.warnCount": 1 },
+    $push: { "staff.warnReasons": warnReason },
+  };
+  if (!s.firstWarnStaffAt) update.$set = { "staff.firstWarnStaffAt": now };
+  const updated = await ActivityUserProfile.findOneAndUpdate(
+    { guildId: gid, userId: uid },
+    update,
+    { upsert: true, new: true, setDefaultsOnInsert: true, projection: { staff: 1 } },
+  ).catch(() => null);
+  if (!updated?.staff) return { added: false };
 
-  const warnCount = s.warnCount;
+  const warnCount = Math.max(0, Math.floor(Number(updated.staff.warnCount) || 0));
   return {
     added: true,
     warnCount,
     shouldAskDepex: warnCount === 2,
     shouldFullDepex: warnCount === 3,
-    staffDoc: profileDoc,
+    staffDoc: updated,
   };
 }
 
@@ -83,22 +101,46 @@ async function applyDepexOneLevel(guild, member, forcedLadderRoleId = null) {
 
   if (ROLE_OWNER && roleId === ROLE_OWNER) {
     await member.roles.remove(ROLE_OWNER).catch(() => null);
-    await member.roles.add(ROLE_ADMIN).catch(() => null);
+    if (ROLE_MANAGER) await member.roles.add(ROLE_MANAGER).catch(() => null);
     await member.roles.add(ROLE_STAFF).catch(() => null);
     await member.roles.add(ROLE_HIGH_STAFF).catch(() => null);
+    await bumpCandidatureCooldownAfterDepexOneLevel(member.id);
+    return { ok: true, roleRemoved: roleId, newRole: ROLE_MANAGER || ROLE_ADMIN };
+  }
+  if (ROLE_MANAGER && roleId === ROLE_MANAGER) {
+    await member.roles.remove([ROLE_MANAGER, ROLE_HIGH_STAFF].filter(Boolean)).catch(() => null);
+    await member.roles.add([ROLE_ADMIN, ROLE_STAFF].filter(Boolean)).catch(() => null);
+    await bumpCandidatureCooldownAfterDepexOneLevel(member.id);
     return { ok: true, roleRemoved: roleId, newRole: ROLE_ADMIN };
   }
   if (roleId === ROLE_ADMIN) {
-    await member.roles.remove(ROLE_ADMIN).catch(() => null);
+    await member.roles.remove([ROLE_ADMIN, ROLE_HIGH_STAFF].filter(Boolean)).catch(() => null);
+    await member.roles.add([ROLE_DIRECTOR, ROLE_STAFF].filter(Boolean)).catch(() => null);
+    await bumpCandidatureCooldownAfterDepexOneLevel(member.id);
+    return { ok: true, roleRemoved: roleId, newRole: ROLE_DIRECTOR };
+  }
+  if (roleId === ROLE_DIRECTOR) {
+    await member.roles.remove(ROLE_DIRECTOR).catch(() => null);
+    await member.roles.remove(ROLE_HIGH_STAFF).catch(() => null);
+    await member.roles.add(ROLE_SENIOR_MODERATOR).catch(() => null);
+    await member.roles.add(ROLE_STAFF).catch(() => null);
+    await bumpCandidatureCooldownAfterDepexOneLevel(member.id);
+    return { ok: true, roleRemoved: roleId, newRole: ROLE_SENIOR_MODERATOR };
+  }
+  if (roleId === ROLE_SENIOR_MODERATOR) {
+    await member.roles.remove(ROLE_SENIOR_MODERATOR).catch(() => null);
     await member.roles.remove(ROLE_HIGH_STAFF).catch(() => null);
     await member.roles.add(ROLE_MODERATOR).catch(() => null);
     await member.roles.add(ROLE_STAFF).catch(() => null);
+    await bumpCandidatureCooldownAfterDepexOneLevel(member.id);
     return { ok: true, roleRemoved: roleId, newRole: ROLE_MODERATOR };
   }
   if (roleId === ROLE_MODERATOR || roleId === ROLE_HELPER) {
     await member.roles.remove(roleId).catch(() => null);
     await member.roles.remove(ROLE_STAFF).catch(() => null);
+    await member.roles.remove(ROLE_HIGH_STAFF).catch(() => null);
     if (ROLE_MEMBER) await member.roles.add(ROLE_MEMBER).catch(() => null);
+    await bumpCandidatureCooldownAfterDepexOneLevel(member.id);
     return { ok: true, roleRemoved: roleId, fullDepex: true, newRole: ROLE_MEMBER || "" };
   }
   return { ok: false, reason: "Ruolo non gestito per depex un livello." };

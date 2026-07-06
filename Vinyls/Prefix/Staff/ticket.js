@@ -4,6 +4,8 @@ const Ticket = require("../../Schemas/Ticket/ticketSchema");
 const { TICKETS_CATEGORY_NAME, isChannelInTicketCategory } = require("../../Utils/Ticket/ticketCategoryUtils");
 const { buildTicketChannelName, resolveTicketRenamePrefix, sanitizeTicketChannelTail } = require("../../Utils/Ticket/ticketNamingRuntime");
 const { getTicketPanelConfig } = require("../../Utils/Ticket/ticketPanelConfig");
+const { PERKS_STAFF_ROLE_IDS, PERKS_PING_ROLE_IDS, memberCanAccessPerksTicket, buildPerksPingMention } = require("../../Utils/Ticket/ticketPerksStaffRoles");
+const { PARTNERSHIP_TICKET_STAFF_ROLE_IDS, memberCanAccessPartnershipTicket, buildPartnershipTicketReviewerCreateOverwrites } = require("../../Utils/Ticket/ticketPartnershipStaffRoles");
 const IDs = require("../../Utils/Config/ids");
 const { getClientGuildCached, getGuildChannelCached, getGuildMemberCached, } = require("../../Utils/Interaction/interactionEntityCache");
 const STAFF_ROLE_ID = IDs.roles.Staff;
@@ -11,6 +13,8 @@ const HIGHSTAFF_ROLE_ID = IDs.roles.HighStaff;
 const PARTNERMANAGER_ROLE_ID = IDs.roles.PartnerManager;
 const STAFF_ROLE_IDS = [STAFF_ROLE_ID, HIGHSTAFF_ROLE_ID].filter(Boolean);
 const NO_REPLY_MENTIONS = { repliedUser: false };
+const TICKET_SPECTATE_STAFF_ALLOW = [ PermissionFlagsBits.ViewChannel, PermissionFlagsBits.EmbedLinks, PermissionFlagsBits.AttachFiles, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.AddReactions ];
+const TICKET_SPECTATE_STAFF_DENY = [PermissionFlagsBits.SendMessages];
 
 function hasAnyRole(member, roleIds = []) {
   return roleIds.some((roleId) => member?.roles?.cache?.has(roleId));
@@ -19,9 +23,10 @@ function hasAnyRole(member, roleIds = []) {
 function canClaimTicket(member, ticketType, _guildId = null) {
   if (!member) return false;
   const isSupport = ticketType === "supporto" && hasAnyRole(member, STAFF_ROLE_IDS);
-  const isPartnership = ticketType === "partnership" && (member.roles.cache.has(PARTNERMANAGER_ROLE_ID) || member.roles.cache.has(HIGHSTAFF_ROLE_ID));
+  const isPartnership = ticketType === "partnership" && memberCanAccessPartnershipTicket(member);
   const isHigh = ticketType === "high" && member.roles.cache.has(HIGHSTAFF_ROLE_ID);
-  return isSupport || isPartnership || isHigh;
+  const isPerks = ticketType === "perks" && memberCanAccessPerksTicket(member);
+  return isSupport || isPartnership || isHigh || isPerks;
 }
 
 function makeErrorEmbed(title, description) {
@@ -58,25 +63,13 @@ function getTicketChannelPermissionOverwrites(guild, userId, ticketType) {
     base.push(
       {
         id: STAFF_ROLE_ID,
-        allow: [
-          PermissionFlagsBits.ViewChannel,
-          PermissionFlagsBits.SendMessages,
-          PermissionFlagsBits.EmbedLinks,
-          PermissionFlagsBits.AttachFiles,
-          PermissionFlagsBits.ReadMessageHistory,
-          PermissionFlagsBits.AddReactions,
-        ],
+        allow: TICKET_SPECTATE_STAFF_ALLOW,
+        deny: TICKET_SPECTATE_STAFF_DENY,
       },
       {
         id: HIGHSTAFF_ROLE_ID,
-        allow: [
-          PermissionFlagsBits.ViewChannel,
-          PermissionFlagsBits.SendMessages,
-          PermissionFlagsBits.EmbedLinks,
-          PermissionFlagsBits.AttachFiles,
-          PermissionFlagsBits.ReadMessageHistory,
-          PermissionFlagsBits.AddReactions,
-        ],
+        allow: TICKET_SPECTATE_STAFF_ALLOW,
+        deny: TICKET_SPECTATE_STAFF_DENY,
       },
       {
         id: PARTNERMANAGER_ROLE_ID,
@@ -84,26 +77,15 @@ function getTicketChannelPermissionOverwrites(guild, userId, ticketType) {
       },
     );
   } else if (ticketType === "partnership") {
+    for (const roleId of PARTNERSHIP_TICKET_STAFF_ROLE_IDS) {
+      base.push({
+        id: roleId,
+        allow: TICKET_SPECTATE_STAFF_ALLOW,
+        deny: TICKET_SPECTATE_STAFF_DENY,
+      });
+    }
+    base.push(...buildPartnershipTicketReviewerCreateOverwrites());
     base.push(
-      {
-        id: PARTNERMANAGER_ROLE_ID,
-        allow: [
-          PermissionFlagsBits.ViewChannel,
-          PermissionFlagsBits.SendMessages,
-          PermissionFlagsBits.EmbedLinks,
-          PermissionFlagsBits.AttachFiles,
-          PermissionFlagsBits.ReadMessageHistory,
-          PermissionFlagsBits.AddReactions,
-        ],
-      },
-      {
-        id: HIGHSTAFF_ROLE_ID,
-        allow: [
-          PermissionFlagsBits.ViewChannel,
-          PermissionFlagsBits.SendMessages,
-          PermissionFlagsBits.ReadMessageHistory,
-        ],
-      },
       {
         id: STAFF_ROLE_ID,
         deny: [PermissionFlagsBits.ViewChannel],
@@ -113,15 +95,27 @@ function getTicketChannelPermissionOverwrites(guild, userId, ticketType) {
     base.push(
       {
         id: HIGHSTAFF_ROLE_ID,
-        allow: [
-          PermissionFlagsBits.ViewChannel,
-          PermissionFlagsBits.SendMessages,
-          PermissionFlagsBits.EmbedLinks,
-          PermissionFlagsBits.AttachFiles,
-          PermissionFlagsBits.ReadMessageHistory,
-          PermissionFlagsBits.AddReactions,
-        ],
+        allow: TICKET_SPECTATE_STAFF_ALLOW,
+        deny: TICKET_SPECTATE_STAFF_DENY,
       },
+      {
+        id: STAFF_ROLE_ID,
+        deny: [PermissionFlagsBits.ViewChannel],
+      },
+      {
+        id: PARTNERMANAGER_ROLE_ID,
+        deny: [PermissionFlagsBits.ViewChannel],
+      },
+    );
+  } else if (ticketType === "perks") {
+    for (const roleId of PERKS_STAFF_ROLE_IDS) {
+      base.push({
+        id: roleId,
+        allow: TICKET_SPECTATE_STAFF_ALLOW,
+        deny: TICKET_SPECTATE_STAFF_DENY,
+      });
+    }
+    base.push(
       {
         id: STAFF_ROLE_ID,
         deny: [PermissionFlagsBits.ViewChannel],
@@ -145,7 +139,16 @@ async function ensureTicketsCategory(guild) {
     return exact || categories.first();
   }
 
-  const created = await guild.channels.create({ name: TICKETS_CATEGORY_NAME, type: 4, permissionOverwrites: [{ id: guild.roles.everyone.id, deny: [PermissionFlagsBits.SendMessages], },], }).catch(() => null);
+  const created = await guild.channels.create({
+    name: TICKETS_CATEGORY_NAME,
+    type: 4,
+    permissionOverwrites: [
+      {
+        id: guild.roles.everyone.id,
+        deny: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages],
+      },
+    ],
+  }).catch(() => null);
 
   if (created) {
     await created.setPosition(0).catch(() => { });
@@ -175,7 +178,7 @@ async function ticketSwitchPanelExecute(message, categoryToken) {
           embeds: [
             makeErrorEmbed(
               "Errore",
-              "<:vegax:1443934876440068179> Categoria non valida. Usa: `supporto`, `partnership`, `highstaff`.",
+              "<:vegax:1443934876440068179> Categoria non valida. Usa: `supporto`, `partnership`, `highstaff`, `perks`.",
             ),
           ],
           allowedMentions: { repliedUser: false },
@@ -242,9 +245,6 @@ async function ticketSwitchPanelExecute(message, categoryToken) {
         }
 
         await targetChannel.permissionOverwrites
-          .edit(message.guild.roles.everyone.id, { ViewChannel: false })
-          .catch(() => { });
-        await targetChannel.permissionOverwrites
           .edit(ticketDoc.userId, {
             ViewChannel: true,
             SendMessages: true,
@@ -255,6 +255,7 @@ async function ticketSwitchPanelExecute(message, categoryToken) {
           })
           .catch(() => { });
 
+        const previousClaimedBy = String(ticketDoc.claimedBy || "").trim();
         if (ticketDoc.claimedBy) {
           const claimerMember = await getGuildMemberCached(message.guild, ticketDoc.claimedBy);
           if (!canClaimTicket(claimerMember, panelConfig.type, message.guild?.id)) {
@@ -262,9 +263,16 @@ async function ticketSwitchPanelExecute(message, categoryToken) {
           }
         }
 
-        const applyReadOnly = { ViewChannel: true, SendMessages: false, ReadMessageHistory: true, };
+        const applyReadOnly = {
+          ViewChannel: true,
+          SendMessages: false,
+          ReadMessageHistory: true,
+          EmbedLinks: true,
+          AttachFiles: true,
+          AddReactions: true,
+        };
         const applyFull = { ViewChannel: true, SendMessages: true, EmbedLinks: true, AttachFiles: true, ReadMessageHistory: true, AddReactions: true, };
-        const denyView = { ViewChannel: false };
+        const roleHideFromTicket = { ViewChannel: false };
 
         if (panelConfig.type === "supporto") {
           if (ticketDoc.claimedBy) {
@@ -276,35 +284,27 @@ async function ticketSwitchPanelExecute(message, categoryToken) {
               .catch(() => { });
           } else {
             await targetChannel.permissionOverwrites
-              .edit(STAFF_ROLE_ID, applyFull)
+              .edit(STAFF_ROLE_ID, applyReadOnly)
               .catch(() => { });
             await targetChannel.permissionOverwrites
-              .edit(HIGHSTAFF_ROLE_ID, applyFull)
+              .edit(HIGHSTAFF_ROLE_ID, applyReadOnly)
               .catch(() => { });
           }
           await targetChannel.permissionOverwrites
-            .edit(PARTNERMANAGER_ROLE_ID, denyView)
+            .edit(PARTNERMANAGER_ROLE_ID, roleHideFromTicket)
             .catch(() => { });
         }
 
         if (panelConfig.type === "partnership") {
-          if (ticketDoc.claimedBy) {
+          for (const roleId of PARTNERSHIP_TICKET_STAFF_ROLE_IDS) {
             await targetChannel.permissionOverwrites
-              .edit(PARTNERMANAGER_ROLE_ID, applyReadOnly)
-              .catch(() => { });
-            await targetChannel.permissionOverwrites
-              .edit(HIGHSTAFF_ROLE_ID, applyReadOnly)
-              .catch(() => { });
-          } else {
-            await targetChannel.permissionOverwrites
-              .edit(PARTNERMANAGER_ROLE_ID, applyFull)
-              .catch(() => { });
-            await targetChannel.permissionOverwrites
-              .edit(HIGHSTAFF_ROLE_ID, applyReadOnly)
+              .edit(roleId, applyReadOnly)
               .catch(() => { });
           }
+          const { applyPartnershipTicketReviewerOverwrites } = require("../../Utils/Ticket/ticketPartnershipStaffRoles");
+          await applyPartnershipTicketReviewerOverwrites(targetChannel);
           await targetChannel.permissionOverwrites
-            .edit(STAFF_ROLE_ID, denyView)
+            .edit(STAFF_ROLE_ID, roleHideFromTicket)
             .catch(() => { });
         }
 
@@ -315,15 +315,39 @@ async function ticketSwitchPanelExecute(message, categoryToken) {
               .catch(() => { });
           } else {
             await targetChannel.permissionOverwrites
-              .edit(HIGHSTAFF_ROLE_ID, applyFull)
+              .edit(HIGHSTAFF_ROLE_ID, applyReadOnly)
               .catch(() => { });
           }
           await targetChannel.permissionOverwrites
-            .edit(STAFF_ROLE_ID, denyView)
+            .edit(STAFF_ROLE_ID, roleHideFromTicket)
             .catch(() => { });
           await targetChannel.permissionOverwrites
-            .edit(PARTNERMANAGER_ROLE_ID, denyView)
+            .edit(PARTNERMANAGER_ROLE_ID, roleHideFromTicket)
             .catch(() => { });
+        }
+
+        if (panelConfig.type === "perks") {
+          for (const roleId of PERKS_STAFF_ROLE_IDS) {
+            await targetChannel.permissionOverwrites
+              .edit(roleId, applyReadOnly)
+              .catch(() => { });
+          }
+          await targetChannel.permissionOverwrites
+            .edit(STAFF_ROLE_ID, roleHideFromTicket)
+            .catch(() => { });
+          await targetChannel.permissionOverwrites
+            .edit(PARTNERMANAGER_ROLE_ID, roleHideFromTicket)
+            .catch(() => { });
+        }
+
+        if (previousTicketType === "perks" && panelConfig.type !== "perks") {
+          for (const roleId of PERKS_PING_ROLE_IDS) {
+            if (roleId && roleId !== HIGHSTAFF_ROLE_ID) {
+              await targetChannel.permissionOverwrites
+                .edit(roleId, roleHideFromTicket)
+                .catch(() => { });
+            }
+          }
         }
 
         if (ticketDoc.claimedBy) {
@@ -336,6 +360,10 @@ async function ticketSwitchPanelExecute(message, categoryToken) {
               ReadMessageHistory: true,
               AddReactions: true,
             })
+            .catch(() => { });
+        } else if (previousClaimedBy) {
+          await targetChannel.permissionOverwrites
+            .delete(previousClaimedBy)
             .catch(() => { });
         }
 
@@ -498,6 +526,11 @@ async function ticketReopenByNumber(ctx, ticketNumber) {
     return false;
   }
 
+  try {
+    const { scheduleDiscordAutomodRulesResync } = require("../../Services/Moderation/discordAutomodRulesService");
+    scheduleDiscordAutomodRulesResync(message.client);
+  } catch (_) {}
+
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId("close_ticket").setEmoji("<:VC_Lock:1482526739044368476>").setLabel("Chiudi").setStyle(ButtonStyle.Danger),
     new ButtonBuilder().setCustomId("close_ticket_motivo").setEmoji("<:VC_reason:1478517122929004544>").setLabel("Chiudi Con Motivo").setStyle(ButtonStyle.Danger),
@@ -519,6 +552,9 @@ async function ticketReopenByNumber(ctx, ticketNumber) {
         descriptionPromptMessageId: null,
         transcript: "",
         transcriptHtmlPath: null,
+        transcriptViewToken: null,
+        transcriptHtmlInline: null,
+        transcriptViewExpiresAt: null,
         closeReason: null,
         closeRequestedBy: null,
         closeRequestedAt: null,
@@ -534,8 +570,17 @@ async function ticketReopenByNumber(ctx, ticketNumber) {
     },
   ).catch(() => { });
 
-  const tagRole = config.type === "partnership" ? PARTNERMANAGER_ROLE_ID : STAFF_ROLE_ID;
-  const mentionMsg = await channel.send(`<@${ticketDoc.userId}>${tagRole ? `<@&${tagRole}>` : ""}`).catch(() => null);
+  const pingSuffix =
+    config.type === "partnership"
+      ? (PARTNERMANAGER_ROLE_ID ? `<@&${PARTNERMANAGER_ROLE_ID}>` : "")
+      : config.type === "high"
+        ? (HIGHSTAFF_ROLE_ID ? `<@&${HIGHSTAFF_ROLE_ID}>` : "")
+        : config.type === "perks"
+          ? buildPerksPingMention()
+          : STAFF_ROLE_ID
+            ? `<@&${STAFF_ROLE_ID}>`
+            : "";
+  const mentionMsg = await channel.send(`<@${ticketDoc.userId}>${pingSuffix}`).catch(() => null);
   if (mentionMsg) {
     const timer = setTimeout(() => mentionMsg.delete().catch(() => { }), 1);
     timer.unref?.();
@@ -589,32 +634,30 @@ module.exports = {
       const canReopenOutside =
         HIGHSTAFF_ROLE_ID && message.member.roles.cache.has(HIGHSTAFF_ROLE_ID);
       if (canReopenOutside) {
-        const closedRaw = await Ticket.find(
-          { guildId: message.guild.id, open: false },
-          { ticketNumber: 1, userId: 1, closedAt: 1, updatedAt: 1 },
-        )
-          .limit(300)
-          .lean()
-          .catch(() => []);
-        const list = Array.isArray(closedRaw) ? closedRaw : [];
-        const sorted = list.sort((a, b) => {
-          const ta = a.closedAt ? new Date(a.closedAt).getTime() : a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
-          const tb = b.closedAt ? new Date(b.closedAt).getTime() : b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
-          return tb - ta;
+        const {
+          buildTicketReopenOutsidePanelPayload,
+          fetchClosedTicketsOrdered,
+        } = require("../../Utils/Ticket/ticketStaffPanelBuild");
+        const { rememberTicketReopenOutsideSession } = require("../../Utils/Ticket/ticketReopenOutsideSession");
+        const closedRaw = await fetchClosedTicketsOrdered(message.guild.id);
+        const panel = await buildTicketReopenOutsidePanelPayload(message.guild, closedRaw, {
+          page: 0,
+          filterQuery: "",
         });
-        const reopenable = [];
-        for (const t of sorted) {
-          if (reopenable.length >= 25) break;
-          if (message.guild.members.cache.has(t.userId)) reopenable.push(t);
-        }
-        const { buildTicketReopenOutsidePanelPayload } = require("../../Utils/Ticket/ticketStaffPanelBuild");
-        const panel = buildTicketReopenOutsidePanelPayload(message.guild, reopenable);
-        if (panel) {
-          await safeMessageReply(message, {
-            embeds: [panel.embed],
-            components: panel.components,
+        const sent = await safeMessageReply(message, {
+          embeds: [panel.embed],
+          components: panel.components,
           allowedMentions: { repliedUser: false },
         });
+        if (sent?.id) {
+          rememberTicketReopenOutsideSession(message.client, sent.id, {
+            authorId: message.author.id,
+            guildId: message.guild.id,
+            commandMessageId: message.id,
+            filterQuery: "",
+            page: 0,
+          });
+        }
         return;
       }
       await safeMessageReply(message, {
@@ -622,23 +665,11 @@ module.exports = {
           new EmbedBuilder()
             .setColor("#6f4e37")
             .setDescription(
-                "<:VC_Attention:1482534443632558151> Nessun ticket chiuso **riapribile** in lista (serve che l’apertore sia ancora nel server).",
+              "<:VC_Attention:1482534443632558151> Usa `+ticket` **dentro un ticket aperto** per il pannello. Solo **High Staff** può usare `+ticket` fuori dal ticket per il menu di riapertura.",
             ),
         ],
         allowedMentions: { repliedUser: false },
       });
-      return;
-    }
-    await safeMessageReply(message, {
-      embeds: [
-        new EmbedBuilder()
-          .setColor("Red")
-          .setDescription(
-              "<:vegax:1443934876440068179> Usa `+ticket` **dentro un ticket aperto** per il pannello. Se sei **High Staff**, puoi usare `+ticket` **fuori** dal ticket per il menu di riapertura.",
-          ),
-      ],
-      allowedMentions: { repliedUser: false },
-    });
       return;
     }
     const ticketDocFull = await Ticket.findOne(

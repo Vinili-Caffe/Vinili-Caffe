@@ -34,7 +34,7 @@
       <div class="vc-nav-shell vc-glass mx-auto flex max-w-6xl flex-col gap-0 overflow-visible rounded-2xl border border-white/[0.08] bg-[#140f0c]/78 shadow-[0_8px_40px_rgba(0,0,0,0.48),0_0_48px_rgba(212,168,136,0.07)]">
         <div class="vc-header-bar grid w-full grid-cols-1 items-center gap-y-2.5 gap-x-2 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:gap-x-3 sm:px-5">
           <div class="flex min-w-0 items-center gap-2.5 justify-self-start sm:gap-3">
-            <a class="vc-header-logo-link shrink-0 rounded-2xl ring-1 ring-[#d4a888]/35 transition hover:ring-[#d4a888]/55 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#d4a888]/60" href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer" aria-label="Entra su Discord"><img src="../../images/vc-header-logo.png" width="40" height="40" class="vc-header-logo-img" alt="" loading="eager" decoding="async" /></a>
+            <a class="vc-header-logo-link shrink-0 rounded-2xl ring-1 ring-[#d4a888]/35 transition hover:ring-[#d4a888]/55 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#d4a888]/60" href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer" aria-label="Entra su Discord"><img src="{{GUILD_ICON_URL}}" width="40" height="40" class="vc-header-logo-img" alt="" loading="eager" decoding="async" /></a>
             <a class="min-w-0 truncate text-[0.7rem] font-bold uppercase tracking-[0.18em] text-white underline-offset-4 transition hover:text-[#e8c9a8] hover:underline sm:text-xs" href="{{SITE_URL}}" aria-label="Vai alla homepage">{{SITE_NAME}}</a>
           </div>
           <nav class="vc-header-snav vc-glass flex max-w-full flex-wrap items-center justify-center justify-self-center gap-0.5 px-1.5 py-1 sm:min-w-0 sm:gap-1 sm:px-2" aria-label="Collegamenti rapidi">
@@ -47,9 +47,9 @@
                 <a class="vc-snav-row" href="{{VOTE_URL}}" data-vc-loading="vote"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-thumbs-o-up"></i></span><span>Vota il server</span></a>
                 <a class="vc-snav-row" href="{{REVIEWS_PAGE_URL}}"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-star-o"></i></span><span>Recensioni</span></a>
                 <a class="vc-snav-row" href="{{DONATIONS_URL}}"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-heart-o"></i></span><span>Donazioni</span></a>
+                <a class="vc-snav-row" href="{{PERKS_URL}}"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-diamond"></i></span><span>Perks</span></a>
               </div>
             </details>
-            <span class="vc-snav-sep mx-0.5 hidden h-5 w-px shrink-0 bg-white/15 sm:inline-block" aria-hidden="true"></span>
             <details class="vc-snav-details">
               <summary class="vc-snav-summary"><span>Community</span><i class="fa fa-chevron-down vc-snav-chev text-[0.65rem] opacity-80" aria-hidden="true"></i></summary>
               <div class="vc-snav-panel">
@@ -59,7 +59,6 @@
                 <a class="vc-snav-row" href="{{FAQ_URL}}"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-question-circle"></i></span><span>FAQ</span></a>
               </div>
             </details>
-            <span class="vc-snav-sep mx-0.5 hidden h-5 w-px shrink-0 bg-white/15 sm:inline-block" aria-hidden="true"></span>
             <details class="vc-snav-details vc-snav-details--current">
               <summary class="vc-snav-summary"><span>Richieste</span><i class="fa fa-chevron-down vc-snav-chev text-[0.65rem] opacity-80" aria-hidden="true"></i></summary>
               <div class="vc-snav-panel">
@@ -103,7 +102,7 @@
                 </div>
               </div>
             </details>
-            <button class="vc-header-pill" id="discord-login-btn" type="button">Login</button>
+            <button class="vc-header-pill" type="button" data-vc-discord-login>Login</button>
             <div class="header-login-state" id="discord-login-state" hidden></div>
           </div>
         </div>
@@ -120,14 +119,13 @@
         </h1>
         <p class="mt-3 text-center text-sm text-slate-300">Accedi con Discord per continuare</p>
 
-        <div class="mt-6 rounded-xl border border-rose-300/15 bg-rose-900/20 p-3 text-sm text-rose-100/90">
-          <p class="m-0 flex items-center gap-2"><i class="fa fa-lock" aria-hidden="true"></i> Devi effettuare il login con Discord</p>
+        <div class="mt-6 rounded-xl border border-[#d4a888]/22 bg-[#1a120d]/72 p-3 text-sm text-slate-100">
+          <p class="m-0 flex items-center gap-2"><i class="fa fa-lock text-[#d4a888]" aria-hidden="true"></i> Devi effettuare il login con Discord</p>
         </div>
 
-        <button id="discord-login-btn" type="button" class="vc-auth-required-login mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-base font-bold text-white">
+        <button id="discord-login-btn" type="button" data-vc-discord-login class="vc-auth-required-login mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-base font-bold text-white">
           <i class="fa fa-sign-in" aria-hidden="true"></i> Accedi con Discord
         </button>
-        <div id="discord-login-state" class="hidden" hidden aria-hidden="true"></div>
 
         <a class="vc-auth-required-secondary mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold text-slate-100" href="{{SITE_URL}}">
           <i class="fa fa-chevron-left" aria-hidden="true"></i> Torna alla Home
@@ -167,7 +165,8 @@
         apiUrlLocal: "{{SITE_NOTIFICATIONS_API_URL_LOCAL}}",
       };
     </script>
-    <script src="../../js/discord-auth.js" defer></script>
+    <script src="../../js/discord-auth.js" defer></script>  <script src="../../js/vc-cursor-trail.js" defer></script>
+
     <script src="../../js/vc-landing.js" defer></script>
   </body>
 </html>

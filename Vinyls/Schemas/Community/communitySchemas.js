@@ -99,7 +99,7 @@ const personalityPanelEntrySchema = new Schema(
     ticketInfoMessageId: { type: String, default: null },
     ticketPanelMessageId: { type: String, default: null },
     sponsorTicketPanelMessageId: { type: String, default: null },
-    weeklyContestDisegniEventMessageId: { type: String, default: null },
+    pausePanelMessageId: { type: String, default: null },
   },
   { _id: false },
 );
@@ -186,6 +186,30 @@ const activityUserProfileLevelHistoryEntrySchema = new Schema(
   { _id: false },
 );
 
+const contestFinalePendingRoleRemovalEntrySchema = new Schema(
+  {
+    roleId: { type: String, required: true },
+    removeAt: { type: Date, required: true },
+    hadRoleBefore: { type: Boolean, default: false },
+    eventKey: { type: String, default: "" },
+  },
+  { _id: false },
+);
+
+const gringottLedgerEntrySchema = new Schema(
+  {
+    type: { type: String, enum: ["credit", "debit", "reward"], required: true },
+    amount: { type: Number, required: true },
+    balanceAfter: { type: Number, default: 0 },
+    reason: { type: String, default: "" },
+    actorId: { type: String, default: null },
+    source: { type: String, default: "manual" },
+    rewardKey: { type: String, default: "" },
+    createdAt: { type: Date, default: Date.now },
+  },
+  { _id: false },
+);
+
 const staffRolesHistoryEntrySchema = new Schema(
   {
     oldRole: String,
@@ -200,10 +224,25 @@ const staffPartnerActionSchema = new Schema(
     action: String,
     partner: String,
     invite: String,
+    partnerGuildId: { type: String, default: null },
     managerId: String,
     partnershipChannelId: String,
     partnerMessageIds: { type: [String], default: [] },
     auditPenaltyDates: { type: [String], default: [] },
+    auditPenaltyLogs: {
+      type: [
+        new Schema(
+          {
+            dateKey: String,
+            reason: String,
+            channelId: String,
+            messageId: String,
+          },
+          { _id: false },
+        ),
+      ],
+      default: [],
+    },
     date: { type: Date, default: Date.now },
   },
   { _id: true },
@@ -228,7 +267,29 @@ const staffPauseEntrySchema = new Schema(
   },
   { _id: true },
 );
-/** Ex-dedicated `Staff` collection: dati staff/PM/pause/event incastonati nel profilo activity. */
+const staffAutoValutazioneSchema = new Schema(
+  {
+    key: { type: String, default: "" },
+    type: { type: String, enum: ["positive", "negative", ""], default: "" },
+    reason: { type: String, default: "" },
+    channelId: { type: String, default: null },
+    messageId: { type: String, default: null },
+    createdAt: { type: Date, default: Date.now },
+    updatedAt: { type: Date, default: Date.now },
+  },
+  { _id: false },
+);
+
+const staffValutazioneLogEntrySchema = new Schema(
+  {
+    reason: { type: String, default: "" },
+    channelId: { type: String, default: null },
+    messageId: { type: String, default: null },
+    createdAt: { type: Date, default: Date.now },
+  },
+  { _id: false },
+);
+
 const staffEmbeddedSchema = new Schema(
   {
     rolesHistory: { type: [staffRolesHistoryEntrySchema], default: [] },
@@ -240,17 +301,22 @@ const staffEmbeddedSchema = new Schema(
     negativeCount: { type: Number, default: 0 },
     positiveReasons: { type: [String], default: [] },
     negativeReasons: { type: [String], default: [] },
+    positiveValutazioni: { type: [staffValutazioneLogEntrySchema], default: [] },
+    negativeValutazioni: { type: [staffValutazioneLogEntrySchema], default: [] },
     valutazioniCount: { type: Number, default: 0 },
+    autoValutazioni: { type: [staffAutoValutazioneSchema], default: [] },
     partnerCount: { type: Number },
-    /** Somma punti tolti con riscatto premi PM (non modifica lo storico partnership). */
     partnerRedeemSpend: { type: Number, default: 0 },
     managerId: { type: String },
     partnerActions: { type: [staffPartnerActionSchema] },
-    /** Soglie premio PM (50/75/150) per cui è già stato inviato il promemoria in DM. */
     partnerMilestoneDmSent: { type: [Number], default: [] },
-    /** Anni (UTC) in cui vale +5 giorni pausa Staff del mese, anche dopo rimozione del ruolo. */
+    partnerManagerCustomPerksUntil: { type: Date, default: null },
+    partnerManagerVipUntil: { type: Date, default: null },
     bestStaffPauseBonusYears: { type: [Number], default: [] },
+    valPosTradedPauseBonusDays: { type: Number, default: 0 },
     pauses: { type: [staffPauseEntrySchema], default: [] },
+    serataFilmAttendanceSaturdayKey: { type: String, default: null },
+    serataFilmWillAttend: { type: Boolean, default: null },
   },
   { _id: false },
 );
@@ -295,6 +361,7 @@ const activityUserProfileSchema = new Schema(
       },
       /** Storico case compact. */
       modCases: { type: [modCaseEntrySchema], default: [] },
+      postUnmuteRolesReconciledAt: { type: Date, default: null },
     },
     profile: {
       totals: {
@@ -345,6 +412,9 @@ const activityUserProfileSchema = new Schema(
                 voteCountMonthKey: "",
                 voteCountTopgg: 0,
                 voteCountDiscadia: 0,
+                prevVoteCountMonthKey: "",
+                prevVoteCountTopgg: 0,
+                prevVoteCountDiscadia: 0,
                 pendingVotes: [],
                 voteRole: {
                   expiresAt: null,
@@ -359,6 +429,11 @@ const activityUserProfileSchema = new Schema(
           },
           minigame: {
             totalExp: { type: Number, default: 0 },
+            weeklyExp: { type: Number, default: 0 },
+            weeklyKey: { type: String, default: "" },
+            /** Copia alla domenica 21 (reset): punteggio della settimana appena chiusa, per embed/refresh dopo azzeramento. */
+            prevWeekExp: { type: Number, default: 0 },
+            prevWeekKey: { type: String, default: "" },
             currentStreak: { type: Number, default: 0 },
             bestStreak: { type: Number, default: 0 },
           },
@@ -369,6 +444,9 @@ const activityUserProfileSchema = new Schema(
         lastSentAt: { type: Date, default: null },
         hasLink: { type: Boolean, default: false },
       },
+      countingRestoreLastDayKey: { type: String, default: null },
+      countingChannelBanUntil: { type: Date, default: null },
+      serverBoostAnnouncedSlotCount: { type: Number, default: null, min: 0 },
       afk: {
         message: { type: String, default: null },
         timestamp: { type: Date, default: null },
@@ -376,6 +454,10 @@ const activityUserProfileSchema = new Schema(
       },
       mentionReaction: {
         reactions: { type: [String], default: [] },
+      },
+      mentionResponse: {
+        text: { type: String, default: "" },
+        updatedAt: { type: Date, default: null },
       },
       privacy: {
         avatar: {
@@ -387,6 +469,9 @@ const activityUserProfileSchema = new Schema(
           views: { type: Number, default: 0 },
         },
         quote: {
+          blocked: { type: Boolean, default: false },
+        },
+        repost: {
           blocked: { type: Boolean, default: false },
         },
       },
@@ -405,6 +490,9 @@ const activityUserProfileSchema = new Schema(
         customVocEmoji: { type: String, default: null },
         customVocChannelId: { type: String, default: null },
         customVocEligibilityLostAt: { type: Date, default: null },
+        customVocFailedWeekStreak: { type: Number, default: 0 },
+        customVocLastEvaluatedWeekEndMs: { type: Number, default: null },
+        customVocRecreationBlockedUntil: { type: Date, default: null },
         customRoleEligibilityLostAt: { type: Date, default: null },
         expiresAt: { type: Date, default: null },
       },
@@ -413,6 +501,8 @@ const activityUserProfileSchema = new Schema(
         disegniSecondPlaceUnlock: { type: Boolean, default: false },
         disegniSecondPlaceEventKey: { type: String, default: null },
         disegniSecondPlaceAt: { type: Date, default: null },
+        /** VIP contest: rimozioni programmate (prima in `weeklycontestmetas.finalePrizeRoleRemovals`). */
+        finalePendingRoleRemovals: { type: [contestFinalePendingRoleRemovalEntrySchema], default: [] },
       },
       rankCard: {
         type: Schema.Types.Mixed,
@@ -424,8 +514,13 @@ const activityUserProfileSchema = new Schema(
         joinedAt: { type: Date, default: null },
         leftAt: { type: Date, default: null },
       },
-      /** true: welcome in chat / join log / inviti differiti finché non Member+separatore; DM join inviato subito all'ingresso; consumato da runDeferredJoinAnnouncements */
+      effectiveJoin: {
+        firstJoinedAt: { type: Date, default: null },
+        lastJoinedAt: { type: Date, default: null },
+        lastLeftAt: { type: Date, default: null },
+      },
       joinAnnouncePending: { type: Boolean, default: null },
+      joinAnnounceSentAt: { type: Date, default: null },
       inviteReminderState: {
         inviteNearTargets: { type: [Number], default: [] },
       },
@@ -445,8 +540,41 @@ const activityUserProfileSchema = new Schema(
         dmSent: { type: Boolean, default: false },
         dmFailed: { type: Boolean, default: false },
       },
+      events: {
+        hogwarts: {
+          retainUntil: { type: Date, default: null },
+          retainEventKey: { type: String, default: "" },
+          gringott: {
+            eventKey: { type: String, default: "" },
+            balance: { type: Number, default: 0 },
+            earned: { type: Number, default: 0 },
+            spent: { type: Number, default: 0 },
+            ledger: { type: [gringottLedgerEntrySchema], default: [] },
+            rewardKeys: { type: [String], default: [] },
+          },
+          shop: {
+            eventKey: { type: String, default: "" },
+            updatedAt: { type: Date, default: null },
+            items: { type: Schema.Types.Mixed, default: () => ({}) },
+          },
+          shopBoostUsage: {
+            type: Schema.Types.Mixed,
+            default: () => ({}),
+          },
+          potions: {
+            type: Schema.Types.Mixed,
+            default: () => ({}),
+          },
+          economy: {
+            type: Schema.Types.Mixed,
+            default: () => ({}),
+          },
+        },
+      },
     },
     staff: { type: staffEmbeddedSchema },
+    /** Append-only: `staff.rolesHistory` viene fuso qui prima di `$unset staff` al depex, per regole (es. top weekly) che devono vedere lo storico ruoli. */
+    staffRolesHistoryRetention: { type: [staffRolesHistoryEntrySchema], default: [] },
     /** Dopo leave con ruolo staff/PM: fino a questa data `staff` resta nel DB; poi purge automatico se non rippexato. */
     staffPendingPurgeAt: { type: Date, default: null },
   },
@@ -464,6 +592,7 @@ activityUserProfileSchema.index({ guildId: 1, "moderation.modCases.caseId": 1 })
 activityUserProfileSchema.index({ guildId: 1, "staff.firstWarnStaffAt": 1 });
 activityUserProfileSchema.index({ guildId: 1, "staff.pauses.requestMessageId": 1 });
 activityUserProfileSchema.index({ guildId: 1, staffPendingPurgeAt: 1 }, { sparse: true });
+activityUserProfileSchema.index({ guildId: 1, "profile.contestPrizes.finalePendingRoleRemovals": 1 }, { sparse: true });
 
 const userLeaveBackupSchema = new Schema(
   {
@@ -471,6 +600,20 @@ const userLeaveBackupSchema = new Schema(
     userId: { type: String, required: true, index: true },
     backupDoc: { type: Schema.Types.Mixed, default: null },
     restoreRoleIds: { type: [String], default: [] },
+    /** Ruoli RESTORE_ON_REJOIN (stessa TTL del backup). */
+    rejoinTrackedRoleIds: { type: [String], default: [] },
+    leaveDepexMessages: {
+      type: [
+        new Schema(
+          {
+            channelId: { type: String, required: true },
+            messageId: { type: String, required: true },
+          },
+          { _id: false },
+        ),
+      ],
+      default: [],
+    },
     leftAt: { type: Date, default: Date.now },
     expiresAt: { type: Date, required: true },
   },
@@ -478,6 +621,33 @@ const userLeaveBackupSchema = new Schema(
 );
 userLeaveBackupSchema.index({ guildId: 1, userId: 1 }, { unique: true });
 userLeaveBackupSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+
+const communicationTimeoutRoleSnapshotSchema = new Schema(
+  {
+    guildId: { type: String, required: true, index: true },
+    userId: { type: String, required: true, index: true },
+    roleIds: { type: [String], default: [] },
+  },
+  { timestamps: true },
+);
+communicationTimeoutRoleSnapshotSchema.index({ guildId: 1, userId: 1 }, { unique: true });
+
+/** Dopo leave: snapshot ID Discord da ripulire quando scade la finestra di restore (stessa TTL di `UserLeaveBackup`). */
+const customPerksDiscordCleanupQueueSchema = new Schema(
+  {
+    guildId: { type: String, required: true },
+    userId: { type: String, required: true },
+    runAt: { type: Date, required: true },
+    roleId: { type: String, default: null },
+    secondaryRoleId: { type: String, default: null },
+    customVocChannelId: { type: String, default: null },
+    customVocEmoji: { type: String, default: null },
+    clearMentionReactions: { type: Boolean, default: false },
+  },
+  { timestamps: true },
+);
+customPerksDiscordCleanupQueueSchema.index({ guildId: 1, userId: 1 }, { unique: true });
+customPerksDiscordCleanupQueueSchema.index({ runAt: 1 });
 
 /** Aggregati orari per guild (+server / contest): un solo documento per guildId, ore in `hours`. */
 const activityGuildHourlySchema = new Schema(
@@ -489,66 +659,26 @@ const activityGuildHourlySchema = new Schema(
 );
 activityGuildHourlySchema.index({ guildId: 1 }, { unique: true });
 
-const rejoinRoleMemorySchema = new Schema(
-  {
-    guildId: { type: String, required: true, index: true },
-    userId: { type: String, required: true, index: true },
-    roleIds: { type: [String], default: [] },
-  },
-  { timestamps: true },
-);
-rejoinRoleMemorySchema.index({ guildId: 1, userId: 1 }, { unique: true });
-
-const siteRoleRequestCooldownSchema = new Schema(
-  {
-    guildId: { type: String, required: true, index: true },
-    requesterId: { type: String, required: true, index: true },
-    roleId: { type: String, required: true, index: true },
-    ownerId: { type: String, default: null, index: true },
-    lastRequestedAt: { type: Date, default: Date.now, required: true },
-    cooldownUntil: { type: Date, default: Date.now, required: true, index: true },
-  },
-  { timestamps: true },
-);
-siteRoleRequestCooldownSchema.index({ guildId: 1, requesterId: 1, roleId: 1 }, { unique: true });
-
-const siteInAppNotificationSchema = new Schema(
-  {
-    guildId: { type: String, required: true, index: true },
-    userId: { type: String, required: true, index: true },
-    title: { type: String, required: true, trim: true, maxlength: 120 },
-    body: { type: String, required: true, trim: true, maxlength: 500 },
-    kind: { type: String, default: "info", trim: true, maxlength: 24 },
-    openUrl: { type: String, default: "", trim: true, maxlength: 400 },
-    dedupeKey: { type: String, default: null, trim: true, maxlength: 120 },
-  },
-  { timestamps: true },
-);
-siteInAppNotificationSchema.index({ userId: 1, createdAt: -1 });
-siteInAppNotificationSchema.index({ userId: 1, dedupeKey: 1, createdAt: -1 });
-
-const siteReviewSchema = new Schema(
-  {
-    guildId: { type: String, required: true, index: true },
-    kind: { type: String, required: true, enum: ["server", "staff"], index: true },
-    userId: { type: String, required: true, index: true },
-    staffUserId: { type: String, default: null, index: true },
-    rating: { type: Number, required: true, min: 1, max: 5 },
-    content: { type: String, required: true, trim: true, maxlength: 1200 },
-    authorName: { type: String, default: "" },
-    authorAvatarUrl: { type: String, default: "" },
-    staffName: { type: String, default: "" },
-    staffAvatarUrl: { type: String, default: "" },
-    likedUserIds: { type: [String], default: [] },
-    serverReplyContent: { type: String, default: "" },
-    serverReplyAt: { type: Date, default: null },
-    serverReplyAuthorId: { type: String, default: "" },
-  },
-  { timestamps: true },
-);
-siteReviewSchema.index({ guildId: 1, kind: 1, userId: 1, staffUserId: 1 }, { unique: true });
-siteReviewSchema.index({ guildId: 1, kind: 1, createdAt: -1 });
-siteReviewSchema.index({ guildId: 1, staffUserId: 1, createdAt: -1 });
+/** Unifica le vecchie collection site* (notifiche, cooldown ruoli, recensioni, suggerimenti, pagamenti). */
+const SITE_DOCUMENT_TYPE = Object.freeze({
+  IN_APP_NOTIFICATION: "in_app_notification",
+  ROLE_REQUEST_COOLDOWN: "role_request_cooldown",
+  REVIEW: "review",
+  SUGGESTION: "suggestion",
+  PAYMENT: "payment",
+  HOGWARTS_SORTING: "hogwarts_sorting",
+  HOGWARTS_FORBIDDEN_BOOKS: "hogwarts_forbidden_books",
+  HOGWARTS_HOUSE_POINTS: "hogwarts_house_points",
+  HOGWARTS_REACT_PRESS: "hogwarts_react_press",
+  HOGWARTS_EVENT_COMPLETION: "hogwarts_event_completion",
+  HOGWARTS_SPELL_LIST_HUNT: "hogwarts_spell_list_hunt",
+  COMMUNITY_FIRST_MESSAGE_DAILY: "community_first_message_daily",
+  COMMUNITY_WELCOME_GREETING_EXP: "community_welcome_greeting_exp",
+  COMMUNITY_WELCOME_SESSION: "community_welcome_session",
+  HOGWARTS_MINIGAME_SPAWN_WINDOW: "hogwarts_minigame_spawn_window",
+  HOGWARTS_HOUSE_CHANNEL_MINIGAME_SCHEDULER: "hogwarts_house_channel_minigame_scheduler",
+  HOGWARTS_SERATA_FILM_LB_PUBLISH: "hogwarts_serata_film_lb_publish",
+});
 
 const siteSuggestionCommentSchema = new Schema(
   {
@@ -563,44 +693,76 @@ const siteSuggestionCommentSchema = new Schema(
   { timestamps: true },
 );
 
-const siteSuggestionSchema = new Schema(
+const inAppNotifItemSchema = new Schema(
   {
-    guildId: { type: String, required: true, index: true },
-    userId: { type: String, required: true, index: true },
-    authorName: { type: String, default: "" },
-    authorAvatarUrl: { type: String, default: "" },
-    content: { type: String, required: true, trim: true, maxlength: 2000 },
-    status: {
+    guildId: { type: String, default: "" },
+    title: { type: String, required: true, trim: true, maxlength: 120 },
+    body: { type: String, required: true, trim: true, maxlength: 500 },
+    notifKind: { type: String, default: "info", trim: true, maxlength: 24 },
+    openUrl: { type: String, default: "", trim: true, maxlength: 400 },
+    dedupeKey: { type: String, default: null, trim: true, maxlength: 120 },
+    readAt: { type: Date, default: null },
+  },
+  { timestamps: true },
+);
+
+const siteDocumentSchema = new Schema(
+  {
+    docType: {
       type: String,
-      enum: ["pending", "accepted", "rejected"],
-      default: "pending",
+      required: true,
+      enum: Object.values(SITE_DOCUMENT_TYPE),
       index: true,
     },
-    staffReason: { type: String, default: "", trim: true, maxlength: 1000 },
+    guildId: { type: String, default: "", index: true },
+    userId: { type: String, default: "", index: true },
+
+    /** Un solo documento per userId: inbox notifiche in-app (array `inAppNotifItems`). */
+    inAppNotifAggregate: { type: Boolean, default: false, index: true },
+    inAppNotifItems: { type: [inAppNotifItemSchema], default: undefined },
+
+    title: { type: String, trim: true, maxlength: 120 },
+    body: { type: String, trim: true, maxlength: 500 },
+    notifKind: { type: String, default: "info", trim: true, maxlength: 24 },
+    openUrl: { type: String, default: "", trim: true, maxlength: 400 },
+    dedupeKey: { type: String, default: null, trim: true, maxlength: 120 },
+    readAt: { type: Date, default: null, index: true },
+
+    requesterId: { type: String, default: "", index: true },
+    roleId: { type: String, default: "", index: true },
+    ownerId: { type: String, default: null, index: true },
+    lastRequestedAt: { type: Date, default: null },
+    cooldownUntil: { type: Date, default: null, index: true },
+
+    reviewKind: { type: String, default: null, trim: true, maxlength: 16 },
     staffUserId: { type: String, default: null, index: true },
+    rating: { type: Number, min: 1, max: 5 },
+    content: { type: String, trim: true, maxlength: 2000 },
+    authorName: { type: String, default: "" },
+    authorAvatarUrl: { type: String, default: "" },
+    staffName: { type: String, default: "" },
+    staffAvatarUrl: { type: String, default: "" },
+    likedUserIds: { type: [String], default: [] },
+    serverReplyContent: { type: String, default: "" },
+    serverReplyAt: { type: Date, default: null },
+    serverReplyAuthorId: { type: String, default: "" },
+
+    status: { type: String, default: null, trim: true, maxlength: 24 },
+    staffReason: { type: String, default: "", trim: true, maxlength: 1000 },
     decidedAt: { type: Date, default: null },
     comments: { type: [siteSuggestionCommentSchema], default: [] },
     upvoterUserIds: { type: [String], default: [] },
     downvoterUserIds: { type: [String], default: [] },
-  },
-  { timestamps: true },
-);
-siteSuggestionSchema.index({ guildId: 1, createdAt: -1 });
-siteSuggestionSchema.index({ guildId: 1, status: 1, updatedAt: -1 });
 
-const sitePaymentSchema = new Schema(
-  {
-    guildId: { type: String, required: true, index: true },
-    userId: { type: String, default: "", index: true },
-    provider: { type: String, required: true, default: "paypal", index: true },
+    provider: { type: String, default: "", trim: true, maxlength: 32, index: true },
     createdBy: { type: String, default: "site", trim: true, maxlength: 32 },
     planKey: { type: String, default: "", trim: true, maxlength: 80 },
     description: { type: String, default: "", trim: true, maxlength: 180 },
     amount: { type: String, default: "0.00", trim: true, maxlength: 24 },
     currency: { type: String, default: "EUR", trim: true, maxlength: 12 },
-    status: { type: String, default: "CREATED", trim: true, maxlength: 48, index: true },
-    orderId: { type: String, default: "", trim: true, maxlength: 128, index: true },
-    captureId: { type: String, default: "", trim: true, maxlength: 128, index: true },
+    paymentStatus: { type: String, default: "", trim: true, maxlength: 48, index: true },
+    orderId: { type: String, default: "", trim: true, maxlength: 128 },
+    captureId: { type: String, default: "", trim: true, maxlength: 128 },
     approveUrl: { type: String, default: "", trim: true, maxlength: 500 },
     webhookEventType: { type: String, default: "", trim: true, maxlength: 96 },
     webhookEventId: { type: String, default: "", trim: true, maxlength: 128 },
@@ -610,9 +772,104 @@ const sitePaymentSchema = new Schema(
   },
   { timestamps: true },
 );
-sitePaymentSchema.index({ provider: 1, orderId: 1 }, { unique: true, sparse: true });
-sitePaymentSchema.index({ provider: 1, captureId: 1 }, { unique: true, sparse: true });
-sitePaymentSchema.index({ guildId: 1, userId: 1, createdAt: -1 });
+const SITE_DOC = SITE_DOCUMENT_TYPE;
+siteDocumentSchema.index({ docType: 1, userId: 1, createdAt: -1 });
+siteDocumentSchema.index({ docType: 1, userId: 1, dedupeKey: 1, createdAt: -1 });
+siteDocumentSchema.index(
+  { docType: 1, userId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      docType: SITE_DOC.IN_APP_NOTIFICATION,
+      inAppNotifAggregate: true,
+    },
+  },
+);
+siteDocumentSchema.index(
+  { docType: 1, guildId: 1, requesterId: 1, roleId: 1 },
+  { unique: true, partialFilterExpression: { docType: SITE_DOC.ROLE_REQUEST_COOLDOWN } },
+);
+siteDocumentSchema.index(
+  { docType: 1, guildId: 1, reviewKind: 1, userId: 1, staffUserId: 1 },
+  { unique: true, partialFilterExpression: { docType: SITE_DOC.REVIEW } },
+);
+siteDocumentSchema.index(
+  { docType: 1, guildId: 1, reviewKind: 1, updatedAt: -1, createdAt: -1 },
+  { partialFilterExpression: { docType: SITE_DOC.REVIEW } },
+);
+siteDocumentSchema.index(
+  { docType: 1, guildId: 1, staffUserId: 1, createdAt: -1 },
+  { partialFilterExpression: { docType: SITE_DOC.REVIEW, reviewKind: "staff" } },
+);
+siteDocumentSchema.index({ docType: 1, guildId: 1, createdAt: -1 }, { partialFilterExpression: { docType: SITE_DOC.SUGGESTION } });
+siteDocumentSchema.index(
+  { docType: 1, guildId: 1, status: 1, updatedAt: -1 },
+  { partialFilterExpression: { docType: SITE_DOC.SUGGESTION } },
+);
+siteDocumentSchema.index(
+  { docType: 1, provider: 1, orderId: 1 },
+  { unique: true, partialFilterExpression: { docType: SITE_DOC.PAYMENT, orderId: { $type: "string", $gt: "" } } },
+);
+siteDocumentSchema.index(
+  { docType: 1, provider: 1, captureId: 1 },
+  { unique: true, partialFilterExpression: { docType: SITE_DOC.PAYMENT, captureId: { $type: "string", $gt: "" } } },
+);
+siteDocumentSchema.index(
+  { docType: 1, guildId: 1, userId: 1, createdAt: -1 },
+  { partialFilterExpression: { docType: SITE_DOC.PAYMENT } },
+);
+siteDocumentSchema.index(
+  { docType: 1, guildId: 1, userId: 1, dedupeKey: 1 },
+  { unique: true, partialFilterExpression: { docType: SITE_DOC.HOGWARTS_SORTING } },
+);
+siteDocumentSchema.index(
+  { docType: 1, guildId: 1, userId: 1, dedupeKey: 1 },
+  { unique: true, name: "hogwarts_forbidden_books_user_event_unique", partialFilterExpression: { docType: SITE_DOC.HOGWARTS_FORBIDDEN_BOOKS } },
+);
+siteDocumentSchema.index(
+  { docType: 1, guildId: 1, dedupeKey: 1 },
+  { unique: true, name: "hogwarts_house_points_event_unique", partialFilterExpression: { docType: SITE_DOC.HOGWARTS_HOUSE_POINTS } },
+);
+siteDocumentSchema.index(
+  { docType: 1, guildId: 1, dedupeKey: 1 },
+  { unique: true, name: "hogwarts_react_press_message_unique", partialFilterExpression: { docType: SITE_DOC.HOGWARTS_REACT_PRESS } },
+);
+siteDocumentSchema.index(
+  { docType: 1, guildId: 1, status: 1, createdAt: -1 },
+  { name: "hogwarts_react_press_status_created", partialFilterExpression: { docType: SITE_DOC.HOGWARTS_REACT_PRESS } },
+);
+siteDocumentSchema.index(
+  { docType: 1, guildId: 1, dedupeKey: 1 },
+  { unique: true, name: "hogwarts_event_completion_unique", partialFilterExpression: { docType: SITE_DOC.HOGWARTS_EVENT_COMPLETION } },
+);
+siteDocumentSchema.index(
+  { docType: 1, guildId: 1, dedupeKey: 1 },
+  { unique: true, name: "hogwarts_spell_list_hunt_round_unique", partialFilterExpression: { docType: SITE_DOC.HOGWARTS_SPELL_LIST_HUNT } },
+);
+siteDocumentSchema.index(
+  { docType: 1, guildId: 1, dedupeKey: 1 },
+  { unique: true, name: "community_first_message_daily_unique", partialFilterExpression: { docType: SITE_DOC.COMMUNITY_FIRST_MESSAGE_DAILY } },
+);
+siteDocumentSchema.index(
+  { docType: 1, guildId: 1, userId: 1, dedupeKey: 1 },
+  { unique: true, name: "community_welcome_greeting_exp_unique", partialFilterExpression: { docType: SITE_DOC.COMMUNITY_WELCOME_GREETING_EXP } },
+);
+siteDocumentSchema.index(
+  { docType: 1, guildId: 1, dedupeKey: 1 },
+  { unique: true, name: "community_welcome_session_unique", partialFilterExpression: { docType: SITE_DOC.COMMUNITY_WELCOME_SESSION } },
+);
+siteDocumentSchema.index(
+  { docType: 1, guildId: 1, dedupeKey: 1 },
+  { unique: true, name: "hogwarts_minigame_spawn_window_unique", partialFilterExpression: { docType: SITE_DOC.HOGWARTS_MINIGAME_SPAWN_WINDOW } },
+);
+siteDocumentSchema.index(
+  { docType: 1, guildId: 1, dedupeKey: 1 },
+  { unique: true, name: "hogwarts_house_channel_minigame_scheduler_unique", partialFilterExpression: { docType: SITE_DOC.HOGWARTS_HOUSE_CHANNEL_MINIGAME_SCHEDULER } },
+);
+siteDocumentSchema.index(
+  { docType: 1, guildId: 1, userId: 1, dedupeKey: 1 },
+  { unique: true, name: "hogwarts_serata_film_lb_publish_unique", partialFilterExpression: { docType: SITE_DOC.HOGWARTS_SERATA_FILM_LB_PUBLISH } },
+);
 
 const MOD_CASE_COLLECTION = process.env.MOD_CASE_COLLECTION ? String(process.env.MOD_CASE_COLLECTION).trim() : "mod_case";
 const MOD_CASE_STORAGE_MODE = String(process.env.MOD_CASE_STORAGE_MODE || "compact").trim().toLowerCase();
@@ -885,6 +1142,9 @@ const CustomRole = {
       customVocEmoji: "profile.customRole.customVocEmoji",
       customVocChannelId: "profile.customRole.customVocChannelId",
       customVocEligibilityLostAt: "profile.customRole.customVocEligibilityLostAt",
+      customVocFailedWeekStreak: "profile.customRole.customVocFailedWeekStreak",
+      customVocLastEvaluatedWeekEndMs: "profile.customRole.customVocLastEvaluatedWeekEndMs",
+      customVocRecreationBlockedUntil: "profile.customRole.customVocRecreationBlockedUntil",
       customRoleEligibilityLostAt: "profile.customRole.customRoleEligibilityLostAt",
       expiresAt: "profile.customRole.expiresAt",
     };
@@ -904,14 +1164,27 @@ const CustomRole = {
     };
     return walk(filter);
   },
+  _pickProjectionKeys(projection) {
+    if (!projection) return [];
+    if (typeof projection === "string") {
+      return projection
+        .split(/\s+/)
+        .map((x) => String(x || "").trim())
+        .filter(Boolean)
+        .filter((x) => !x.startsWith("-"));
+    }
+    if (typeof projection === "object") {
+      return Object.keys(projection).filter((k) => Number(projection[k]) === 1);
+    }
+    return [];
+  },
   findOne(filter = {}, projection = null) {
     const run = async () => {
       const doc = await ActivityUserProfile.findOne(this._mapFilter(filter)).select("_id guildId userId profile.customRole").lean().catch(() => null);
       const s = doc?.profile?.customRole;
-      if (!s?.roleId && !s?.secondaryRoleId && !s?.customVocChannelId && !s?.expiresAt) return null;
+      if (!s?.roleId && !s?.secondaryRoleId && !s?.customVocChannelId && !s?.expiresAt && !s?.customVocRecreationBlockedUntil) return null;
       const out = { _id: doc?._id || null, guildId: doc.guildId, userId: doc.userId, ...s };
-      if (!projection || typeof projection !== "object") return out;
-      const keys = Object.keys(projection).filter((k) => Number(projection[k]) === 1);
+      const keys = this._pickProjectionKeys(projection);
       if (!keys.length) return out;
       const picked = {};
       for (const key of keys) picked[key] = out[key];
@@ -940,9 +1213,8 @@ const CustomRole = {
       const docs = await q.lean().catch(() => []);
       const mapped = docs
         .map((doc) => ({ _id: doc?._id || null, guildId: doc.guildId, userId: doc.userId, ...(doc?.profile?.customRole || {}) }))
-        .filter((x) => x.roleId || x.secondaryRoleId || x.customVocChannelId || x.expiresAt);
-      if (!projection || typeof projection !== "object") return mapped;
-      const keys = Object.keys(projection).filter((k) => Number(projection[k]) === 1);
+        .filter((x) => x.roleId || x.secondaryRoleId || x.customVocChannelId || x.expiresAt || x.customVocRecreationBlockedUntil);
+      const keys = this._pickProjectionKeys(projection);
       if (!keys.length) return mapped;
       return mapped.map((row) => {
         const out = {};
@@ -984,6 +1256,9 @@ const CustomRole = {
           ...(setPayload?.customVocEmoji !== undefined ? { "profile.customRole.customVocEmoji": setPayload.customVocEmoji } : {}),
           ...(setPayload?.customVocChannelId !== undefined ? { "profile.customRole.customVocChannelId": setPayload.customVocChannelId } : {}),
           ...(setPayload?.customVocEligibilityLostAt !== undefined ? { "profile.customRole.customVocEligibilityLostAt": setPayload.customVocEligibilityLostAt } : {}),
+          ...(setPayload?.customVocFailedWeekStreak !== undefined ? { "profile.customRole.customVocFailedWeekStreak": setPayload.customVocFailedWeekStreak } : {}),
+          ...(setPayload?.customVocLastEvaluatedWeekEndMs !== undefined ? { "profile.customRole.customVocLastEvaluatedWeekEndMs": setPayload.customVocLastEvaluatedWeekEndMs } : {}),
+          ...(setPayload?.customVocRecreationBlockedUntil !== undefined ? { "profile.customRole.customVocRecreationBlockedUntil": setPayload.customVocRecreationBlockedUntil } : {}),
           ...(setPayload?.customRoleEligibilityLostAt !== undefined ? { "profile.customRole.customRoleEligibilityLostAt": setPayload.customRoleEligibilityLostAt } : {}),
           ...(setPayload?.expiresAt !== undefined ? { "profile.customRole.expiresAt": setPayload.expiresAt } : {}),
         },
@@ -1005,6 +1280,9 @@ const CustomRole = {
           ...(setPayload?.customVocEmoji !== undefined ? { "profile.customRole.customVocEmoji": setPayload.customVocEmoji } : {}),
           ...(setPayload?.customVocChannelId !== undefined ? { "profile.customRole.customVocChannelId": setPayload.customVocChannelId } : {}),
           ...(setPayload?.customVocEligibilityLostAt !== undefined ? { "profile.customRole.customVocEligibilityLostAt": setPayload.customVocEligibilityLostAt } : {}),
+          ...(setPayload?.customVocFailedWeekStreak !== undefined ? { "profile.customRole.customVocFailedWeekStreak": setPayload.customVocFailedWeekStreak } : {}),
+          ...(setPayload?.customVocLastEvaluatedWeekEndMs !== undefined ? { "profile.customRole.customVocLastEvaluatedWeekEndMs": setPayload.customVocLastEvaluatedWeekEndMs } : {}),
+          ...(setPayload?.customVocRecreationBlockedUntil !== undefined ? { "profile.customRole.customVocRecreationBlockedUntil": setPayload.customVocRecreationBlockedUntil } : {}),
           ...(setPayload?.customRoleEligibilityLostAt !== undefined ? { "profile.customRole.customRoleEligibilityLostAt": setPayload.customRoleEligibilityLostAt } : {}),
           ...(setPayload?.expiresAt !== undefined ? { "profile.customRole.expiresAt": setPayload.expiresAt } : {}),
         },
@@ -1020,6 +1298,9 @@ const CustomRole = {
         "profile.customRole.customVocEmoji": null,
         "profile.customRole.customVocChannelId": null,
         "profile.customRole.customVocEligibilityLostAt": null,
+        "profile.customRole.customVocFailedWeekStreak": 0,
+        "profile.customRole.customVocLastEvaluatedWeekEndMs": null,
+        "profile.customRole.customVocRecreationBlockedUntil": null,
         "profile.customRole.customRoleEligibilityLostAt": null,
         "profile.customRole.expiresAt": null,
       },
@@ -1064,17 +1345,49 @@ const QuotePrivacy = buildProfileSubdocModel({
   }),
   clearSet: { "profile.privacy.quote.blocked": false },
 });
+const RepostPrivacy = buildProfileSubdocModel({
+  selectPath: "guildId userId profile.privacy.repost",
+  mapDoc: (doc, filter) => ({ guildId: String(doc?.guildId || filter?.guildId || ""), userId: String(doc?.userId || filter?.userId || ""), blocked: Boolean(doc?.profile?.privacy?.repost?.blocked) }),
+  buildSet: (setPayload) => ({
+    ...(setPayload?.blocked != null ? { "profile.privacy.repost.blocked": Boolean(setPayload.blocked) } : {}),
+  }),
+  clearSet: { "profile.privacy.repost.blocked": false },
+});
+
+const countingRestoreTokenSchema = new Schema(
+  {
+    token: { type: String, required: true, unique: true, index: true },
+    guildId: { type: String, required: true, index: true },
+    lostCount: { type: Number, default: 0 },
+    lostLastUser: { type: String, default: " " },
+    channelId: { type: String, default: "" },
+    messageId: { type: String, default: "" },
+    used: { type: Boolean, default: false, index: true },
+    expiresAt: { type: Date, required: true, index: true },
+    buttonDisabled: { type: Boolean, default: false },
+  },
+  { timestamps: true },
+);
+countingRestoreTokenSchema.index({ used: 1, expiresAt: 1 });
+countingRestoreTokenSchema.index({ used: 1, buttonDisabled: 1, expiresAt: 1 });
 
 const ActivityUserProfile = models.ActivityUserProfile || model("ActivityUserProfile", activityUserProfileSchema, "activityuserprofiles");
 const ActivityGuildHourly = models.ActivityGuildHourly || model("ActivityGuildHourly", activityGuildHourlySchema, "activityguildhourlys");
 const UserLeaveBackup = models.UserLeaveBackup || model("UserLeaveBackup", userLeaveBackupSchema, "userleavebackups");
-const RejoinRoleMemory = models.RejoinRoleMemory || model("RejoinRoleMemory", rejoinRoleMemorySchema, "rejoinrolememories");
-const SiteRoleRequestCooldown = models.SiteRoleRequestCooldown || model("SiteRoleRequestCooldown", siteRoleRequestCooldownSchema, "siterolerequestcooldowns");
-const SiteInAppNotification =
-  models.SiteInAppNotification || model("SiteInAppNotification", siteInAppNotificationSchema, "siteinappnotifications");
-const SiteReview = models.SiteReview || model("SiteReview", siteReviewSchema, "sitereviews");
-const SiteSuggestion = models.SiteSuggestion || model("SiteSuggestion", siteSuggestionSchema, "sitesuggestions");
-const SitePayment = models.SitePayment || model("SitePayment", sitePaymentSchema, "sitepayments");
+const CommunicationTimeoutRoleSnapshot =
+  models.CommunicationTimeoutRoleSnapshot ||
+  model(
+    "CommunicationTimeoutRoleSnapshot",
+    communicationTimeoutRoleSnapshotSchema,
+    "comtimeoutrolesnapshots",
+  );
+const CustomPerksDiscordCleanupQueue =
+  models.CustomPerksDiscordCleanupQueue ||
+  model("CustomPerksDiscordCleanupQueue", customPerksDiscordCleanupQueueSchema, "customperksdiscordcleanupqueues");
+const SiteDocument = models.SiteDocument || model("SiteDocument", siteDocumentSchema, "sitedocuments");
+const CountingRestoreToken =
+  models.CountingRestoreToken ||
+  model("CountingRestoreToken", countingRestoreTokenSchema, "countingrestoretokens");
 const ModCase = USE_LEGACY_MOD_CASE_MODEL ? (models.mod_case || model("mod_case", modCaseSchema, MOD_CASE_COLLECTION)) : null;
 
 module.exports = {
@@ -1094,11 +1407,11 @@ module.exports = {
   AvatarPrivacy,
   BannerPrivacy,
   QuotePrivacy,
+  RepostPrivacy,
   UserLeaveBackup,
-  RejoinRoleMemory,
-  SiteRoleRequestCooldown,
-  SiteInAppNotification,
-  SiteReview,
-  SiteSuggestion,
-  SitePayment,
+  CommunicationTimeoutRoleSnapshot,
+  CustomPerksDiscordCleanupQueue,
+  SiteDocument,
+  CountingRestoreToken,
+  SITE_DOCUMENT_TYPE,
 };

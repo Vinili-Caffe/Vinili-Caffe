@@ -1,9 +1,6 @@
-const { EmbedBuilder } = require("discord.js");
 const { AVATAR_MODE_PREFIX, buildAvatarPayload } = require("../Prefix/Utility/avatar");
 const { BANNER_MODE_PREFIX, buildBannerPayload } = require("../Prefix/Utility/banner");
 const { getGuildMemberCached } = require("../Utils/Interaction/interactionEntityCache");
-
-const PRIVATE_FLAG = 1 << 6;
 
 function match(interaction) {
   if (!interaction?.isButton?.()) return false;
@@ -30,15 +27,7 @@ async function execute(interaction) {
   if (!guild) return false;
 
   if (ownerId && interaction.user?.id && String(ownerId) !== String(interaction.user.id)) {
-    const denied = {
-      embeds: [new EmbedBuilder().setColor("#e74c3c").setDescription("<:vegax:1443934876440068179> Questo controllo non è tuo.")],
-      flags: PRIVATE_FLAG,
-    };
-    if (interaction.deferred || interaction.replied) {
-      await interaction.followUp(denied).catch(() => { });
-    } else {
-      await interaction.reply(denied).catch(() => { });
-    }
+    await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Questo controllo non è tuo.", flags: 1 << 6 }).catch(() => { });
     return true;
   }
 
@@ -52,9 +41,7 @@ async function execute(interaction) {
   if (interaction.deferred || interaction.replied) {
     await interaction.editReply(payload).catch(() => interaction.followUp(payload).catch(() => { }));
   } else {
-    await interaction.update(payload).catch(async () => {
-      await interaction.reply(payload).catch(() => { });
-    });
+    await interaction.update(payload).catch(() => interaction.reply(payload).catch(() => { }));
   }
   return true;
 }

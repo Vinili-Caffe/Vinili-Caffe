@@ -1,7 +1,6 @@
 const { AuditLogEvent, EmbedBuilder, PermissionsBitField } = require("discord.js");
 const IDs = require("../Utils/Config/ids");
 const { getGuildChannelCached } = require("../Utils/Interaction/interactionEntityCache");
-
 const EMOJI_CREATE_ACTION = AuditLogEvent?.EmojiCreate ?? 60;
 const AUDIT_FETCH_LIMIT = 20;
 const AUDIT_LOOKBACK_MS = 120 * 1000;
@@ -72,16 +71,16 @@ module.exports = {
 
       const embed = new EmbedBuilder()
         .setColor("#57F287")
-        .setTitle("Emoji Create")
+        .setTitle("<:VC_Color:1482532543273238569> Emoji Create")
         .setDescription(
           [
-            `<:VC_right_arrow:1482459908245815296> **Responsible:** ${responsibleText}`,
-            `<:VC_right_arrow:1482459908245815296> **Target:** ${emoji.name || "emoji"} \`${emojiId}\``,
-            `<:VC_right_arrow:1482459908245815296> ${toDiscordTimestamp(new Date(), "F")}`,
+            `<:VC_Staff:1494286904089247754> **Responsabile:** ${responsibleText}`,
+            `<:VC_User:1482527453586002103> **Utente:** ${emoji.name || "emoji"} \`${emojiId}\``,
+            `<:VC_Clock:1473359204189474886> ${toDiscordTimestamp(new Date(), "F")}`,
             "",
-            "**Settings**",
-            `<:VC_right_arrow:1482459908245815296> **Name:** ${emoji.name || "sconosciuto"}`,
-            `<:VC_right_arrow:1482459908245815296> **Animated:** ${emoji?.animated ? "Yes" : "No"}`,
+            "**<:VC_tools:1478862265305272364> Impostazioni**",
+            `<:VC_Modifica:1478859646587633717> **Nome:** ${emoji.name || "sconosciuto"}`,
+            `<a:VC_Countdown:1482706760476131539> **Animato:** ${emoji?.animated ? "Si" : "No"}`,
           ].join("\n"),
         );
 

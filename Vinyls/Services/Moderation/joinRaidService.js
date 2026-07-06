@@ -11,21 +11,25 @@ const { isSecurityProfileImmune, hasAdminsProfileCapability, } = require("./secu
 const { isJoinGateSuspiciousAccount, } = require("./joinGateSuspiciousService");
 const { CORE_EXEMPT_USER_IDS } = require("./joinGateExemptUtils");
 const { getGuildChannelCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
+const { formatItalianMinutesPlain } = require("../../Utils/Text/italianDurationLabels");
 const { createModCase, getModConfig, logModCase } = require("../../Utils/Moderation/moderation");
 const ARROW = "<:VC_right_arrow:1482459908245815296>";
 const HIGH_STAFF_ROLE_ID = String(IDs.roles?.HighStaff || "");
 const HIGH_STAFF_MENTION = HIGH_STAFF_ROLE_ID ? `<@&${HIGH_STAFF_ROLE_ID}>` : null;
 const VERIFIED_BOT_IDS = new Set(Object.values(IDs?.bots || {}).filter(Boolean).map(String),);
-const JOIN_RAID_CONFIG = { enabled: true, lockCommands: true, triggerAction: "quarantine", triggerType: "unique", accountType: "young_or_no_pfp", punishOnActiveRaid: true, triggerCount: 10, triggerWindowMs: 3 * 60 * 60_000, raidDurationMs: 30 * 60_000, warnedRoleIds: [
+const JOIN_RAID_CONFIG = { enabled: true, lockCommands: true, triggerAction: "quarantine", triggerType: "unique", accountType: "young_or_no_pfp", punishOnActiveRaid: true, triggerCount: 18, triggerWindowMs: 3 * 60 * 60_000, raidDurationMs: 30 * 60_000, warnedRoleIds: [
       IDs.roles.Founder,
+      IDs.roles.Manager,
       IDs.roles.Admin,
+      IDs.roles.Director,
       IDs.roles.HighStaff,
+      IDs.roles.SeniorModerator,
       IDs.roles.Mod,
       IDs.roles.Helper,
     ]
       .filter(Boolean)
       .map(String), idFlag: { enabled: true, categorization: "adaptive", minimumMatches: 4, compareWindowMs: 3 * 60 * 60_000, createdAtDeltaMs: 20 * 60_000, }, noPfpFlag: { enabled: true, }, ageFlag: { enabled: true, minimumAgeMs: 3 * 24 * 60 * 60_000, }, };
-const JOIN_RAID_PRESETS = { safe: { lockCommands: false, triggerAction: "kick", triggerType: "unique", accountType: "young_or_no_pfp", punishOnActiveRaid: true, triggerCount: 12, triggerWindowMs: 3 * 60 * 60_000, raidDurationMs: 20 * 60_000, idFlag: { minimumMatches: 5, compareWindowMs: 3 * 60 * 60_000, createdAtDeltaMs: 20 * 60_000, }, ageFlag: { minimumAgeMs: 2 * 24 * 60 * 60_000 }, }, balanced: { lockCommands: true, triggerAction: "quarantine", triggerType: "unique", accountType: "young_or_no_pfp", punishOnActiveRaid: true, triggerCount: 10, triggerWindowMs: 3 * 60 * 60_000, raidDurationMs: 30 * 60_000, idFlag: { minimumMatches: 4, compareWindowMs: 3 * 60 * 60_000, createdAtDeltaMs: 20 * 60_000, }, ageFlag: { minimumAgeMs: 3 * 24 * 60 * 60_000 }, }, strict: { lockCommands: true, triggerAction: "ban", triggerType: "events", accountType: "any", punishOnActiveRaid: true, triggerCount: 8, triggerWindowMs: 2 * 60 * 60_000, raidDurationMs: 45 * 60_000, idFlag: { minimumMatches: 3, compareWindowMs: 2 * 60 * 60_000, createdAtDeltaMs: 25 * 60_000, }, ageFlag: { minimumAgeMs: 5 * 24 * 60 * 60_000 }, }, };
+const JOIN_RAID_PRESETS = { safe: { lockCommands: false, triggerAction: "kick", triggerType: "unique", accountType: "young_or_no_pfp", punishOnActiveRaid: true, triggerCount: 12, triggerWindowMs: 3 * 60 * 60_000, raidDurationMs: 20 * 60_000, idFlag: { minimumMatches: 5, compareWindowMs: 3 * 60 * 60_000, createdAtDeltaMs: 20 * 60_000, }, ageFlag: { minimumAgeMs: 2 * 24 * 60 * 60_000 }, }, balanced: { lockCommands: true, triggerAction: "quarantine", triggerType: "unique", accountType: "young_or_no_pfp", punishOnActiveRaid: true, triggerCount: 18, triggerWindowMs: 3 * 60 * 60_000, raidDurationMs: 30 * 60_000, idFlag: { minimumMatches: 4, compareWindowMs: 3 * 60 * 60_000, createdAtDeltaMs: 20 * 60_000, }, ageFlag: { minimumAgeMs: 3 * 24 * 60 * 60_000 }, }, strict: { lockCommands: true, triggerAction: "ban", triggerType: "events", accountType: "any", punishOnActiveRaid: true, triggerCount: 8, triggerWindowMs: 2 * 60 * 60_000, raidDurationMs: 45 * 60_000, idFlag: { minimumMatches: 3, compareWindowMs: 2 * 60 * 60_000, createdAtDeltaMs: 25 * 60_000, }, ageFlag: { minimumAgeMs: 5 * 24 * 60 * 60_000 }, }, };
 const GUILD_STATE = new Map();
 const TEMP_BAN_TIMERS = new Map();
 const RAID_REPORT_TIMERS = new Map();
@@ -356,7 +360,7 @@ async function doFinalizeJoinRaidReportLocked(guild, reason = "elapsed") {
     [
       `<:VC_Mention:1482526855289634997> **${caughtCount} utenti** sono stati catturati dalla protezione raid.`,
       `<:VC_reason:1478517122929004544> **Codice:** \`${code}\``,
-      `<:VC_Clock:1473359204189474886> **Durata:** ${Math.round(Number(JOIN_RAID_CONFIG.raidDurationMs || 0) / 60_000)} minuti`,
+      `<:VC_Clock:1473359204189474886> **Durata:** ${formatItalianMinutesPlain(Math.round(Number(JOIN_RAID_CONFIG.raidDurationMs || 0) / 60_000))}`,
     ],
     "#57F287",
   );
@@ -487,8 +491,9 @@ async function getFlagReasons(state, member, at = nowMs()) {
 function matchJoinRaidAccountType(member, reasons = []) {
   const accountType = String(JOIN_RAID_CONFIG.accountType || "any").toLowerCase();
   const keys = new Set((Array.isArray(reasons) ? reasons : []).map((x) => String(x?.key || "")));
-  if (keys.has("join_gate_suspicious")) return true;
-  if (accountType === "any") return keys.size > 0;
+  keys.delete("join_gate_suspicious");
+  if (!keys.size) return false;
+  if (accountType === "any") return true;
   if (accountType === "young") return keys.has("age_flag");
   if (accountType === "no_pfp") return keys.has("no_pfp");
   if (accountType === "young_or_no_pfp") {
@@ -501,7 +506,8 @@ function matchJoinRaidAccountType(member, reasons = []) {
 function isHighRiskJoinRaidReasons(reasons = []) {
   const keys = new Set((Array.isArray(reasons) ? reasons : []).map((x) => String(x?.key || "")));
   if (!keys.size) return false;
-  return keys.has("id_flag") || keys.has("join_gate_suspicious");
+  if (keys.has("id_flag")) return true;
+  return keys.has("age_flag") && keys.has("no_pfp");
 }
 
 async function resolveModLogChannel(guild) {
@@ -650,6 +656,9 @@ async function restoreTempBans(guild, options = {}) {
   pruneState(state, at);
   if (beforeTempBans !== state.tempBans.length || expiredRows.length) {
     scheduleStateSave(guild.id);
+  }
+  if (Number(state.raidUntil || 0) > at) {
+    scheduleJoinRaidReport(guild);
   }
   if (!state.tempBans.length) return;
 

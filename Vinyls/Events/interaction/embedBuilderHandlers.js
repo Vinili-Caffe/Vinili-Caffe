@@ -1,11 +1,54 @@
 const { PermissionsBitField } = require("discord.js");
 const { getClientChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { getSession, buildPreviewEmbed, buildEditModal, buildSendModal, isValidUrl, updatePreview } = require("../../Utils/Interaction/embedBuilderUtils");
+const path = require("path");
+const { readSnapshotWithMeta, writeSnapshotWithMeta } = require("../../../shared/recovery/snapshotStore");
+const SNAPSHOT_PATH = path.join(__dirname, "..", "..", "Data", "embedBuilderSessionsSnapshot.json");
+const SESSION_TTL_MS = 60 * 60 * 1000;
+
+function ensureEmbedBuilderSessionsLoaded(client) {
+  if (!client || client._embedBuilderSessionsLoaded) return;
+  client._embedBuilderSessionsLoaded = true;
+  if (!client.embedBuilderSessions) client.embedBuilderSessions = new Map();
+  const raw = readSnapshotWithMeta({
+    filePath: SNAPSHOT_PATH,
+    walPath: `${SNAPSHOT_PATH}.wal`,
+    key: "vinyls_embed_builder_sessions",
+    version: 1,
+    fallback: {},
+  });
+  const now = Date.now();
+  for (const [messageId, session] of Object.entries(raw || {})) {
+    if (!messageId || !session) continue;
+    const updatedAt = Number(session?.updatedAt || 0);
+    if (!updatedAt || now - updatedAt > SESSION_TTL_MS) continue;
+    client.embedBuilderSessions.set(String(messageId), session);
+  }
+}
+
+function persistEmbedBuilderSessionsNow(client) {
+  if (!client?.embedBuilderSessions) return;
+  const now = Date.now();
+  const payload = {};
+  for (const [messageId, session] of client.embedBuilderSessions.entries()) {
+    const updatedAt = Number(session?.updatedAt || 0);
+    if (!updatedAt || now - updatedAt > SESSION_TTL_MS) continue;
+    payload[String(messageId)] = session;
+  }
+  writeSnapshotWithMeta({
+    filePath: SNAPSHOT_PATH,
+    walPath: `${SNAPSHOT_PATH}.wal`,
+    key: "vinyls_embed_builder_sessions",
+    version: 1,
+    payload,
+  });
+}
 
 async function handleEmbedBuilderInteraction(interaction, client) {
   const cid = String(interaction?.customId || "");
   if (!cid.startsWith("eb:") && !cid.startsWith("ebm:")) return false;
 
+  ensureEmbedBuilderSessionsLoaded(client);
   if (!client.embedBuilderSessions) client.embedBuilderSessions = new Map();
 
   if (interaction.isButton && interaction.isButton()) {
@@ -175,7 +218,9 @@ async function handleEmbedBuilderInteraction(interaction, client) {
       session.embed[kind] = value.slice(0, maxLen);
     }
 
+    session.updatedAt = Date.now();
     client.embedBuilderSessions.set(messageId, session);
+    persistEmbedBuilderSessionsNow(client);
 
     await updatePreview(interaction, session);
 

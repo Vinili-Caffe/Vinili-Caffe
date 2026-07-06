@@ -1,14 +1,33 @@
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const { resolvePartnerPointsShown } = require("./partnerPointsDisplayUtils");
-const { PARTNER_MILESTONE_POINT_TIERS } = require("./partnerManagerMilestoneDm");
+const {
+  PARTNER_REWARD_CANONICAL_TIERS,
+  PARTNER_REWARD_LABELS,
+  isPartnerRewardCanonicalTier,
+  getPartnerRewardPointCost,
+  partnerManagerRedeemButtonLabel: buildPartnerManagerRedeemButtonLabel,
+} = require("../../../shared/partner/partnerManagerRewardTiers");
 
-const PARTNER_MANAGER_REDEEM_TIERS = [...PARTNER_MILESTONE_POINT_TIERS];
+const PARTNER_MANAGER_REDEEM_TIERS = [...PARTNER_REWARD_CANONICAL_TIERS];
+const PARTNER_MILESTONE_POINT_TIERS = PARTNER_MANAGER_REDEEM_TIERS;
+const PARTNER_MILESTONE_REWARD_LABELS = PARTNER_REWARD_LABELS;
+
+function partnerManagerRedeemButtonLabel(tier, now) {
+  return buildPartnerManagerRedeemButtonLabel(tier, now);
+}
 
 function partnerManagerRedeemTierFromAction(action) {
   const m = String(action || "").match(/^ppm_r(\d+)$/);
   if (!m) return null;
   const n = Number(m[1]);
-  return PARTNER_MANAGER_REDEEM_TIERS.includes(n) ? n : null;
+  return isPartnerRewardCanonicalTier(n) ? n : null;
+}
+
+function partnerManagerApplyPerkTierFromAction(action) {
+  const m = String(action || "").match(/^ppm_a(\d+)$/);
+  if (!m) return null;
+  const n = Number(m[1]);
+  return n === 50 || n === 100 ? n : null;
 }
 
 function formatPartnerPointsChange(action, amount) {
@@ -28,66 +47,41 @@ async function addPartnerPoints(guildId, userId, amount, milestoneNotify = null)
   const beforePoints = resolvePartnerPointsShown(beforeLean?.staff);
   const updated = await ActivityUserProfile.findOneAndUpdate(
     { guildId: g, userId: u },
-    {
-      $inc: { "staff.partnerCount": amount },
-      $setOnInsert: { guildId: g, userId: u },
-    },
-    {
-      new: true,
-      upsert: true,
-      setDefaultsOnInsert: true,
-    },
+    { $inc: { "staff.partnerCount": amount }, $setOnInsert: { guildId: g, userId: u } },
+    { new: true, upsert: true, setDefaultsOnInsert: true },
   ).catch(() => null);
-  if (updated && milestoneNotify?.client && milestoneNotify?.guild) {
-    const afterPoints = resolvePartnerPointsShown(updated.staff);
-    const { maybeSendPartnerManagerRewardMilestoneDms } = require("./partnerManagerMilestoneDm");
-    void maybeSendPartnerManagerRewardMilestoneDms(
-      milestoneNotify.client,
-      milestoneNotify.guild,
-      u,
-      beforePoints,
-      afterPoints,
-    ).catch(() => null);
-  }
+  if (!updated) return null;
+  const afterPoints = resolvePartnerPointsShown(updated.staff);
+  if (afterPoints <= beforePoints) return updated;
+  if (!milestoneNotify?.client || !milestoneNotify?.guild) return updated;
+  const { maybeSendPartnerManagerRewardMilestoneDms } = require("./partnerManagerMilestoneDm");
+  void maybeSendPartnerManagerRewardMilestoneDms(milestoneNotify.client, milestoneNotify.guild, u, beforePoints, afterPoints).catch(() => null);
   return updated;
 }
 
 async function removePartnerPoints(guildId, userId, amount) {
   const g = String(guildId ?? "").trim();
   const u = String(userId ?? "").trim();
-  if (!g || !u) return null;
-  return ActivityUserProfile.findOneAndUpdate(
+  const dec = Math.floor(Number(amount) || 0);
+  if (!g || !u || dec < 1) return null;
+
+  const lean = await ActivityUserProfile.findOne({ guildId: g, userId: u }).select("staff").lean().catch(() => null);
+  const before = resolvePartnerPointsShown(lean?.staff);
+  const actualDec = Math.min(dec, before);
+  if (actualDec < 1) return null;
+
+  const updated = await ActivityUserProfile.findOneAndUpdate(
     { guildId: g, userId: u },
-    [
-      {
-        $set: {
-          guildId: g,
-          userId: u,
-          "staff.partnerCount": {
-            $max: [
-              0,
-              {
-                $subtract: [
-                  { $ifNull: ["$staff.partnerCount", 0] },
-                  Number(amount || 0),
-                ],
-              },
-            ],
-          },
-        },
-      },
-    ],
-    {
-      new: true,
-      upsert: true,
-    },
-  );
+    { $inc: { "staff.partnerRedeemSpend": actualDec } },
+    { new: true, upsert: true, setDefaultsOnInsert: true },
+  ).catch(() => null);
+  if (!updated) return null;
+
+  updated._partnerPointsRemoved = actualDec;
+  return updated;
 }
 
-/**
- * Riscatto premi PM: incrementa `staff.partnerRedeemSpend` così il saldo mostrato
- * (resolvePartnerPointsShown) scende senza essere bloccato dallo storico partnership.
- */
+
 async function redeemPartnerManagerPointsForDisplay(guildId, userId, amount) {
   const g = String(guildId ?? "").trim();
   const u = String(userId ?? "").trim();
@@ -108,9 +102,21 @@ async function redeemPartnerManagerPointsForDisplay(guildId, userId, amount) {
   return { ok: true, doc: updated, before, after };
 }
 
+function partnerManagerCanAffordReward(balance, canonicalTier, now) {
+  const pts = Math.max(0, Math.floor(Number(balance) || 0));
+  const cost = getPartnerRewardPointCost(canonicalTier, now);
+  return pts >= cost;
+}
+
 module.exports = {
   PARTNER_MANAGER_REDEEM_TIERS,
+  PARTNER_MILESTONE_POINT_TIERS,
+  PARTNER_MILESTONE_REWARD_LABELS,
+  partnerManagerRedeemButtonLabel,
   partnerManagerRedeemTierFromAction,
+  partnerManagerApplyPerkTierFromAction,
+  partnerManagerCanAffordReward,
+  getPartnerRewardPointCost,
   addPartnerPoints,
   removePartnerPoints,
   redeemPartnerManagerPointsForDisplay,

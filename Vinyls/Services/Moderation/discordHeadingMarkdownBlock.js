@@ -1,9 +1,11 @@
 const { PermissionFlagsBits } = require("discord.js");
+const IDs = require("../../Utils/Config/ids");
 const { getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { isChannelInTicketCategory } = require("../../Utils/Ticket/ticketCategoryUtils");
 
 /** Titoli Discord: inizio riga con 1–6 `#` seguiti da spazio (testo ingrandito). */
 const DISCORD_HEADING_LINE_RE = /^#{1,6}\s+/m;
+const PATRON_ROLE_ID = String(IDs.roles?.Patron || "").trim();
 
 function stripTripleBacktickFences(text) {
   return String(text || "").replace(/```[\s\S]*?```/g, "");
@@ -20,8 +22,12 @@ function memberHasDiscordAdministrator(member) {
   return member.permissions.has(PermissionFlagsBits.Administrator);
 }
 
+function memberHasPatronRole(member) {
+  return Boolean(PATRON_ROLE_ID && member?.roles?.cache?.has(PATRON_ROLE_ID));
+}
+
 /**
- * Elimina silenziosamente messaggi che usano titoli Markdown (# …) in chat: consentito solo con permesso **Amministratore** (Discord).
+ * Elimina silenziosamente messaggi che usano titoli Markdown (# …) in chat: consentito solo con permesso **Amministratore** (Discord) o ruolo **Patron**.
  * @returns {Promise<boolean>} true se il messaggio è stato rimosso (o tentato).
  */
 async function maybeBlockDiscordHeadingMarkdown(message) {
@@ -38,6 +44,7 @@ async function maybeBlockDiscordHeadingMarkdown(message) {
   }
   if (!member) return false;
   if (memberHasDiscordAdministrator(member)) return false;
+  if (memberHasPatronRole(member)) return false;
 
   await message.delete().catch(() => {});
   return true;

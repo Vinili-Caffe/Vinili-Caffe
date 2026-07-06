@@ -1,5 +1,7 @@
 const IDs = require("../Config/ids");
-const { CustomRole, SiteRoleRequestCooldown } = require("../../Schemas/Community/communitySchemas");
+const { CustomRole, SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Schemas/Community/communitySchemas");
+
+const COOLDOWN = SITE_DOCUMENT_TYPE.ROLE_REQUEST_COOLDOWN;
 const { createSiteRoleJoinRequest } = require("../../Events/interaction/customRoleHandlers");
 
 const ROLE_REQUEST_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
@@ -125,7 +127,8 @@ async function submitSiteRoleRequest(client, payload) {
     return { ok: false, status: 404, error: "owner_not_found", message: "Il proprietario del ruolo non è disponibile nel server." };
   }
 
-  const cooldownDoc = await SiteRoleRequestCooldown.findOne({
+  const cooldownDoc = await SiteDocument.findOne({
+    docType: COOLDOWN,
     guildId: resolved.guild.id,
     requesterId: resolved.userId,
     roleId: role.id,
@@ -224,8 +227,9 @@ async function submitSiteRoleRequest(client, payload) {
 
   const now = new Date();
   const nextAllowedAt = new Date(now.getTime() + ROLE_REQUEST_COOLDOWN_MS);
-  await SiteRoleRequestCooldown.findOneAndUpdate(
+  await SiteDocument.findOneAndUpdate(
     {
+      docType: COOLDOWN,
       guildId: resolved.guild.id,
       requesterId: resolved.userId,
       roleId: role.id,
@@ -237,6 +241,7 @@ async function submitSiteRoleRequest(client, payload) {
         cooldownUntil: nextAllowedAt,
       },
       $setOnInsert: {
+        docType: COOLDOWN,
         guildId: resolved.guild.id,
         requesterId: resolved.userId,
         roleId: role.id,

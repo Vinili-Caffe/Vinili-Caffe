@@ -5,8 +5,15 @@
     payload: null,
     replyOpenId: null,
     editModalOpen: false,
+    deepLinkAppliedId: "",
     reviewsWs: null,
     reviewsWsReconnectTimer: null,
+    reviewsPager: {
+      page: 1,
+      perPage: 9,
+      totalPages: 1,
+      userControlled: false,
+    },
     draft: {
       server: { rating: 5, content: "" },
     },
@@ -70,8 +77,16 @@
     state.payload = null;
     state.replyOpenId = null;
     state.editModalOpen = false;
+    state.reviewsPager.page = 1;
+    state.reviewsPager.totalPages = 1;
+    state.reviewsPager.userControlled = false;
     var serverWrap = byId("vc-reviews-server-list");
     if (serverWrap) serverWrap.innerHTML = "";
+    var pager = byId("vc-reviews-pager");
+    if (pager) {
+      pager.innerHTML = "";
+      pager.hidden = true;
+    }
     closeEditModalDom();
   }
 
@@ -231,6 +246,8 @@
         day: "2-digit",
         month: "short",
         year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
       });
     } catch (e) {
       return date.toISOString().slice(0, 10);
@@ -277,7 +294,7 @@
       esc(review.authorName || "Utente") +
       "</strong>" +
       '<span>' +
-      esc(formatDateIt(review.updatedAt || review.createdAt)) +
+      esc(formatDateIt(review.createdAt || review.updatedAt)) +
       "</span></div></div>" +
       '<div class="vc-reviews-card__head-meta">' +
       '<span class="vc-reviews-card__stars">' +
@@ -344,6 +361,150 @@
     }
     out += "</article>";
     return out;
+  }
+
+  function mongoObjectIdToTimeMs(id) {
+    var s = String(id || "").trim();
+    if (!/^[a-f0-9]{24}$/i.test(s)) return 0;
+    return parseInt(s.slice(0, 8), 16) * 1000;
+  }
+
+  /** Solo creazione: modificare il testo non deve far “saltare” la card in cima. */
+  function dateValueMs(value) {
+    if (value == null || value === "") return 0;
+    if (typeof value === "number" && Number.isFinite(value)) return value > 100000000000 ? value : value * 1000;
+    var ms = new Date(value).getTime();
+    return Number.isFinite(ms) && ms > 0 ? ms : 0;
+  }
+
+  function reviewCreatedTs(review) {
+    if (!review || typeof review !== "object") return 0;
+    var created =
+      dateValueMs(review.createdAt) ||
+      dateValueMs(review.created_at) ||
+      dateValueMs(review.creationDate) ||
+      dateValueMs(review.submittedAt) ||
+      dateValueMs(review.createdTimestamp);
+    if (created > 0) return created;
+    return mongoObjectIdToTimeMs(review.id);
+  }
+
+  function sortedReviewsNewestFirst(reviews) {
+    var list = Array.isArray(reviews) ? reviews.slice() : [];
+    list.sort(function (a, b) {
+      var dt = reviewCreatedTs(b) - reviewCreatedTs(a);
+      if (dt !== 0) return dt;
+      return String(b && b.id ? b.id : "").localeCompare(String(a && a.id ? a.id : ""));
+    });
+    return list;
+  }
+
+  function extractDeepLinkReviewId() {
+    try {
+      var h = String(window.location.hash || "").trim();
+      if (!h || h.indexOf("#vc-review-") !== 0) return "";
+      var raw = h.slice("#vc-review-".length).trim();
+      return /^[a-f0-9]{24}$/i.test(raw) ? raw : "";
+    } catch (e) {
+      return "";
+    }
+  }
+
+  function ensurePageIncludesDeepLink(sortedReviews) {
+    if (state.reviewsPager.userControlled) return;
+    var reviewId = extractDeepLinkReviewId();
+    if (!reviewId) return;
+    var idx = -1;
+    for (var i = 0; i < sortedReviews.length; i += 1) {
+      if (String(sortedReviews[i] && sortedReviews[i].id || "") === reviewId) {
+        idx = i;
+        break;
+      }
+    }
+    if (idx < 0) return;
+    var perPage = Math.max(1, Number(state.reviewsPager.perPage || 8));
+    state.reviewsPager.page = Math.floor(idx / perPage) + 1;
+  }
+
+  function getPagedReviews(sortedReviews) {
+    var perPage = Math.max(1, Number(state.reviewsPager.perPage || 8));
+    var total = sortedReviews.length;
+    var totalPages = Math.max(1, Math.ceil(total / perPage));
+    var currentPage = Math.max(1, Math.min(totalPages, Number(state.reviewsPager.page || 1)));
+    state.reviewsPager.page = currentPage;
+    state.reviewsPager.totalPages = totalPages;
+    var start = (currentPage - 1) * perPage;
+    var end = start + perPage;
+    return sortedReviews.slice(start, end);
+  }
+
+  function renderReviewsPager(totalItems) {
+    var pager = byId("vc-reviews-pager");
+    if (!pager) return;
+    var perPage = Math.max(1, Number(state.reviewsPager.perPage || 8));
+    var total = Math.max(0, Number(totalItems || 0));
+    var totalPages = Math.max(1, Math.ceil(total / perPage));
+    var page = Math.max(1, Math.min(totalPages, Number(state.reviewsPager.page || 1)));
+    state.reviewsPager.page = page;
+    state.reviewsPager.totalPages = totalPages;
+    if (!total || total <= perPage) {
+      pager.innerHTML = "";
+      pager.hidden = true;
+      return;
+    }
+    var start = (page - 1) * perPage + 1;
+    var end = Math.min(total, page * perPage);
+    pager.hidden = false;
+    pager.innerHTML =
+      '<div class="vc-reviews-pager__bar" role="navigation" aria-label="Paginazione recensioni">' +
+      '<button type="button" class="vc-reviews-pager__btn vc-reviews-submit vc-suggestions-btn-muted" data-reviews-page-prev' +
+      (page <= 1 ? " disabled" : "") +
+      ">Precedente</button>" +
+      '<span class="vc-reviews-pager__meta vc-reviews-pager__meta--stats" aria-live="polite">' +
+      esc(String(start)) +
+      "–" +
+      esc(String(end)) +
+      " di " +
+      esc(String(total)) +
+      " · " +
+      esc(String(page)) +
+      "/" +
+      esc(String(totalPages)) +
+      "</span>" +
+      '<button type="button" class="vc-reviews-pager__btn vc-reviews-submit vc-suggestions-btn-muted" data-reviews-page-next' +
+      (page >= totalPages ? " disabled" : "") +
+      ">Successiva</button>" +
+      "</div>";
+  }
+
+  function renderReviewsPagerUserStyle(totalItems) {
+    var pager = byId("vc-reviews-pager");
+    if (!pager) return;
+    var perPage = Math.max(1, Number(state.reviewsPager.perPage || 8));
+    var total = Math.max(0, Number(totalItems || 0));
+    var totalPages = Math.max(1, Math.ceil(total / perPage));
+    var page = Math.max(1, Math.min(totalPages, Number(state.reviewsPager.page || 1)));
+    state.reviewsPager.page = page;
+    state.reviewsPager.totalPages = totalPages;
+    if (!total || total <= perPage) {
+      pager.innerHTML = "";
+      pager.hidden = true;
+      return;
+    }
+    pager.hidden = false;
+    pager.innerHTML =
+      '<button type="button" class="vc-reviews-pager__btn vc-notify-home-btn" data-reviews-page-prev' +
+      (page <= 1 ? " disabled" : "") +
+      ">Precedente</button>" +
+      '<span class="vc-reviews-pager__meta vc-reviews-pager__meta--stats vc-notify-filter-btn vc-notify-filter-btn--on" aria-live="polite">' +
+      "Pagina " +
+      esc(String(page)) +
+      " di " +
+      esc(String(totalPages)) +
+      "</span>" +
+      '<button type="button" class="vc-reviews-pager__btn vc-notify-home-btn" data-reviews-page-next' +
+      (page >= totalPages ? " disabled" : "") +
+      ">Successiva</button>";
   }
 
   function emptyMarkup(icon, title, text) {
@@ -506,8 +667,10 @@
       if (!h || h.indexOf("#vc-review-") !== 0) return;
       var raw = h.slice("#vc-review-".length).trim();
       if (!raw || !/^[a-f0-9]{24}$/i.test(raw)) return;
+      if (state.deepLinkAppliedId === raw) return;
       var el = document.getElementById("vc-review-" + raw);
       if (!el) return;
+      state.deepLinkAppliedId = raw;
       el.scrollIntoView({ behavior: "smooth", block: "center" });
       el.classList.add("vc-deep-link-flash");
       window.setTimeout(function () {
@@ -515,6 +678,11 @@
           el.classList.remove("vc-deep-link-flash");
         } catch (e0) {}
       }, 2200);
+      try {
+        if (window.history && typeof window.history.replaceState === "function") {
+          window.history.replaceState(null, document.title, window.location.pathname + window.location.search);
+        }
+      } catch (e2) {}
     } catch (e1) {}
   }
 
@@ -524,14 +692,49 @@
     if (!serverWrap) return;
 
     var serverReviews = Array.isArray(payload.reviews && payload.reviews.server) ? payload.reviews.server : [];
-    serverWrap.innerHTML = serverReviews.length
-      ? serverReviews.map(function (review) { return reviewCardMarkup(review); }).join("")
+    var orderedReviews = sortedReviewsNewestFirst(serverReviews);
+    ensurePageIncludesDeepLink(orderedReviews);
+    var pageReviews = getPagedReviews(orderedReviews);
+    serverWrap.innerHTML = orderedReviews.length
+      ? pageReviews.map(function (review) { return reviewCardMarkup(review); }).join("")
       : emptyMarkup("fa-commenting-o", "Ancora nessuna recensione", "Sarai tu a inaugurare questa sezione.");
+    renderReviewsPagerUserStyle(orderedReviews.length);
     syncReviewFormModal();
     syncReviewHeadButton();
     bind();
     window.requestAnimationFrame(function () {
       applyReviewDeepLink();
+    });
+  }
+
+  var reviewsPagerClickBound = false;
+
+  function bindReviewsPagerOnce() {
+    if (reviewsPagerClickBound) return;
+    var pager = byId("vc-reviews-pager");
+    if (!pager) return;
+    reviewsPagerClickBound = true;
+    pager.addEventListener("click", function (ev) {
+      var btn = ev.target && ev.target.closest ? ev.target.closest("[data-reviews-page-prev],[data-reviews-page-next]") : null;
+      if (!btn || btn.disabled) return;
+      state.reviewsPager.userControlled = true;
+      if (btn.hasAttribute("data-reviews-page-prev")) {
+        state.reviewsPager.page = Math.max(1, Number(state.reviewsPager.page || 1) - 1);
+      } else {
+        state.reviewsPager.page = Math.min(
+          Math.max(1, Number(state.reviewsPager.totalPages || 1)),
+          Number(state.reviewsPager.page || 1) + 1,
+        );
+      }
+      render();
+      var list = byId("vc-reviews-server-list");
+      if (list && typeof list.scrollIntoView === "function") {
+        window.requestAnimationFrame(function () {
+          try {
+            list.scrollIntoView({ behavior: "smooth", block: "start" });
+          } catch (eScroll) {}
+        });
+      }
     });
   }
 
@@ -782,6 +985,7 @@
 
   function main() {
     wireGateLoginCta();
+    bindReviewsPagerOnce();
     if (shouldUnlockReviewsPage()) {
       hideReviewsGate();
       fetchPayload();
@@ -821,7 +1025,9 @@
 
   window.addEventListener("hashchange", function () {
     if (byId("vc-reviews-server-list")) {
+      state.reviewsPager.userControlled = false;
       window.requestAnimationFrame(function () {
+        if (state.payload) render();
         applyReviewDeepLink();
       });
     }

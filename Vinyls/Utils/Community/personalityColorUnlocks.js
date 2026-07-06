@@ -34,21 +34,41 @@ function naturalPersonalityColorEmoji(roleId) {
   return NATURAL_PERSONALITY_COLOR_EMOJI_BY_ROLE_ID[id] || null;
 }
 
-function getPlusColorRoleIds() {
+const BASE_PLUS_COLOR_ROLE_IDS_ORDERED = [
+  IDs.roles.redPlus,
+  IDs.roles.orangePlus,
+  IDs.roles.yellowPlus,
+  IDs.roles.greenPlus,
+  IDs.roles.bluePlus,
+  IDs.roles.purplePlus,
+  IDs.roles.pinkPlus,
+  IDs.roles.blackPlus,
+  IDs.roles.grayPlus,
+  IDs.roles.whitePlus,
+]
+  .map((id) => String(id || "").trim())
+  .filter(Boolean);
+
+function getLevelGatedPlusColorDefs() {
   return [
-    IDs.roles.redPlus,
-    IDs.roles.orangePlus,
-    IDs.roles.yellowPlus,
-    IDs.roles.greenPlus,
-    IDs.roles.bluePlus,
-    IDs.roles.purplePlus,
-    IDs.roles.pinkPlus,
-    IDs.roles.blackPlus,
-    IDs.roles.grayPlus,
-    IDs.roles.whitePlus,
-  ]
-    .map((id) => String(id || "").trim())
+    { roleId: String(IDs.roles.orangeBlackPlus || "").trim(), minLevel: 125 },
+    { roleId: String(IDs.roles.greenBlackPlus || "").trim(), minLevel: 150 },
+    { roleId: String(IDs.roles.aquaBlackPlus || "").trim(), minLevel: 200 },
+  ].filter((row) => row.roleId);
+}
+
+function getPlusColorRoleIds() {
+  return [...BASE_PLUS_COLOR_ROLE_IDS_ORDERED, ...getLevelGatedPlusColorDefs().map((d) => d.roleId)].filter(Boolean);
+}
+
+function getTierExclusiveRoleIds() {
+  const tier = getTierExclusiveColorDefs()
+    .map((row) => String(row?.roleId || "").trim())
     .filter(Boolean);
+  const gated = getLevelGatedPlusColorDefs()
+    .map((row) => String(row?.roleId || "").trim())
+    .filter(Boolean);
+  return [...new Set([...tier, ...gated])];
 }
 
 function getTierExclusiveColorDefs() {
@@ -91,7 +111,7 @@ function memberHasPlusColorEligibility(member, numericLevel) {
     IDs.roles.Donator,
   ].filter(Boolean);
   if (gateRoles.some((rid) => member.roles.cache.has(rid))) return true;
-  const legacyLevelRoles = [IDs.roles.Level50, IDs.roles.Level70, IDs.roles.Level100].filter(Boolean);
+  const legacyLevelRoles = [IDs.roles.Level50, IDs.roles.Level70, IDs.roles.Level100, IDs.roles.Level120, IDs.roles.Level150, IDs.roles.Level200].filter(Boolean);
   if (legacyLevelRoles.some((rid) => member.roles.cache.has(rid))) return true;
   return false;
 }
@@ -108,14 +128,38 @@ async function memberHasPlusColorFullEligibilityAsync(member) {
   return Boolean(w2 || w3);
 }
 
-function listUnlockedPlusRoleIds(guild, canPickPlus) {
-  if (!canPickPlus) return [];
-  return getPlusColorRoleIds().filter((rid) => guild?.roles?.cache?.has?.(rid));
+function listUnlockedPlusRoleIds(guild, canPickPlus, numericLevel = 0) {
+  if (!canPickPlus || !guild?.roles?.cache) return [];
+  const lv = Number(numericLevel) || 0;
+  const out = [];
+  for (const rid of BASE_PLUS_COLOR_ROLE_IDS_ORDERED) {
+    if (guild.roles.cache.has(rid)) out.push(rid);
+  }
+  for (const { roleId, minLevel } of getLevelGatedPlusColorDefs()) {
+    if (!roleId || !guild.roles.cache.has(roleId)) continue;
+    if (lv >= minLevel) out.push(roleId);
+  }
+  return out;
 }
 
 function listUnlockedTierRoleIds(numericLevel) {
   const lv = Number(numericLevel) || 0;
-  return getTierExclusiveColorDefs().filter((row) => lv >= row.minLevel).map((row) => row.roleId);
+  const fromTier = getTierExclusiveColorDefs()
+    .filter((row) => lv >= row.minLevel && row.roleId)
+    .map((row) => row.roleId);
+  const fromGated = getLevelGatedPlusColorDefs()
+    .filter((row) => lv >= row.minLevel && row.roleId)
+    .map((row) => row.roleId);
+  return [...new Set([...fromTier, ...fromGated])];
+}
+
+function tierColorDefForRoleId(roleId) {
+  const id = String(roleId || "").trim();
+  return (
+    getTierExclusiveColorDefs().find((d) => d.roleId === id) ||
+    getLevelGatedPlusColorDefs().find((d) => d.roleId === id) ||
+    null
+  );
 }
 
 function listUnlockedNaturalRoleIds() {
@@ -131,19 +175,20 @@ function roleLabel(guild, roleId) {
 function buildSelectOptionsForSegment(guild, segment, member, numericLevel, canPickPlus) {
   const removeOpt = { label: "Rimuovi colore", value: "remove", description: "Toglie tutti i colori chat", emoji: "<:vegax:1443934876440068179>" };
   if (segment === "pt") {
-    const plus = listUnlockedPlusRoleIds(guild, canPickPlus);
+    const plus = listUnlockedPlusRoleIds(guild, canPickPlus, numericLevel);
     const tierIds = listUnlockedTierRoleIds(numericLevel).filter((rid) => guild?.roles?.cache?.has?.(rid));
     const opts = [removeOpt];
     for (const rid of plus) {
+      const gated = getLevelGatedPlusColorDefs().find((d) => d.roleId === rid);
       opts.push({
         label: `Plus · ${roleLabel(guild, rid)}`.slice(0, 100),
         value: rid,
-        description: "Gradiente Plus",
+        description: gated ? `Da livello ${gated.minLevel}` : "Gradiente Plus",
         emoji: EMOJI_COLOR_PLUS,
       });
     }
     for (const rid of tierIds) {
-      const def = getTierExclusiveColorDefs().find((d) => d.roleId === rid);
+      const def = tierColorDefForRoleId(rid);
       opts.push({
         label: `Esclusivo · ${roleLabel(guild, rid)}`.slice(0, 100),
         value: rid,
@@ -175,7 +220,7 @@ function isAllowedColorValue(value, member, numericLevel, canPickPlus) {
   const v = String(value || "").trim();
   if (!v || v === "remove") return false;
   if (listUnlockedNaturalRoleIds().includes(v)) return true;
-  if (listUnlockedPlusRoleIds(member.guild, canPickPlus).includes(v)) return true;
+  if (listUnlockedPlusRoleIds(member.guild, canPickPlus, numericLevel).includes(v)) return true;
   if (listUnlockedTierRoleIds(numericLevel).includes(v)) return true;
   return false;
 }
@@ -183,8 +228,14 @@ function isAllowedColorValue(value, member, numericLevel, canPickPlus) {
 function isValueAllowedForCmdColors(segment, value, member, numericLevel, canPickPlus) {
   if (value === "remove") return true;
   if (segment === "all") return isAllowedColorValue(value, member, numericLevel, canPickPlus);
+  if (segment === "tier") {
+    return listUnlockedTierRoleIds(numericLevel).includes(String(value || "").trim());
+  }
+  if (segment === "plus") {
+    return listUnlockedPlusRoleIds(member.guild, canPickPlus, numericLevel).includes(String(value || "").trim());
+  }
   if (segment === "pt") {
-    const okPlus = listUnlockedPlusRoleIds(member.guild, canPickPlus).includes(value);
+    const okPlus = listUnlockedPlusRoleIds(member.guild, canPickPlus, numericLevel).includes(value);
     const okTier = listUnlockedTierRoleIds(numericLevel).includes(value);
     return okPlus || okTier;
   }
@@ -194,26 +245,73 @@ function isValueAllowedForCmdColors(segment, value, member, numericLevel, canPic
   return false;
 }
 
+function buildProfileTierColorSelectOptionsWithRemove(guild, numericLevel) {
+  const removeOpt = {
+    label: "Rimuovi colore",
+    value: "remove",
+    description: "Rimuovi i colori esclusivi di livello",
+    emoji: "<:vegax:1443934876440068179>",
+  };
+  const tierIds = listUnlockedTierRoleIds(numericLevel).filter((rid) => guild?.roles?.cache?.has?.(rid));
+  const opts = [removeOpt];
+  for (const rid of tierIds) {
+    const def = tierColorDefForRoleId(rid);
+    opts.push({
+      label: `Lv${def?.minLevel || "?"} · ${roleLabel(guild, rid)}`.slice(0, 100),
+      value: rid,
+      emoji: EMOJI_COLOR_TIER,
+      description: `Da livello ${def?.minLevel || "?"}`,
+    });
+  }
+  return opts.slice(0, 25);
+}
+
+function buildProfilePlusColorSelectOptionsWithRemove(guild, numericLevel, canPickPlus) {
+  const removeOpt = {
+    label: "Rimuovi colore",
+    value: "remove",
+    description: "Rimuovi i colori Plus",
+    emoji: "<:vegax:1443934876440068179>",
+  };
+  const plus = listUnlockedPlusRoleIds(guild, canPickPlus, numericLevel);
+  const opts = [removeOpt];
+  for (const rid of plus) {
+    const gated = getLevelGatedPlusColorDefs().find((d) => d.roleId === rid);
+    opts.push({
+      label: `Plus · ${roleLabel(guild, rid)}`.slice(0, 100),
+      value: rid,
+      emoji: EMOJI_COLOR_PLUS,
+      description: gated ? `Da livello ${gated.minLevel}` : "Gradiente Plus",
+    });
+  }
+  return opts.slice(0, 25);
+}
+
 const MERGED_SELECT_MAX = 25;
 
 function buildMergedColorSelectOptions(guild, member, numericLevel, canPickPlus) {
   const opts = [];
-  const pushOpt = (rid, prefix, kind) => {
+  const pushOpt = (rid, prefix, kind, description) => {
     if (opts.length >= MERGED_SELECT_MAX) return;
     if (!guild?.roles?.cache?.has?.(rid)) return;
     const label = `${prefix}${roleLabel(guild, rid)}`.slice(0, 100);
     const row = { label, value: rid };
-    if (kind === "plus") row.emoji = EMOJI_COLOR_PLUS;
-    else if (kind === "tier") row.emoji = EMOJI_COLOR_TIER;
+    if (kind === "plus") {
+      row.emoji = EMOJI_COLOR_PLUS;
+      row.description = String(description || "Gradiente Plus").slice(0, 100);
+    } else if (kind === "tier") row.emoji = EMOJI_COLOR_TIER;
     else if (kind === "natural") {
       const em = naturalPersonalityColorEmoji(rid);
       if (em) row.emoji = em;
     }
     opts.push(row);
   };
-  for (const rid of listUnlockedPlusRoleIds(guild, canPickPlus)) pushOpt(rid, "Plus · ", "plus");
+  for (const rid of listUnlockedPlusRoleIds(guild, canPickPlus, numericLevel)) {
+    const gated = getLevelGatedPlusColorDefs().find((d) => d.roleId === rid);
+    pushOpt(rid, "Plus · ", "plus", gated ? `Da livello ${gated.minLevel}` : "Gradiente Plus");
+  }
   for (const rid of listUnlockedTierRoleIds(numericLevel).filter((id) => guild?.roles?.cache?.has?.(id))) {
-    const def = getTierExclusiveColorDefs().find((d) => d.roleId === rid);
+    const def = tierColorDefForRoleId(rid);
     pushOpt(rid, def ? `Lv${def.minLevel} · ` : " · ", "tier");
   }
   for (const rid of listUnlockedNaturalRoleIds().filter((id) => guild?.roles?.cache?.has?.(id))) pushOpt(rid, "", "natural");
@@ -239,13 +337,18 @@ function listRoleIdsForColorsEmbedMentions(guild) {
     IDs.roles.Level50,
     IDs.roles.Level70,
     IDs.roles.Level100,
+    IDs.roles.Level120,
+    IDs.roles.Level150,
+    IDs.roles.Level200,
+    IDs.roles.orangeBlackPlus,
+    IDs.roles.greenBlackPlus,
+    IDs.roles.aquaBlackPlus,
   ];
   const uniq = [...new Set(raw.map((id) => String(id || "").trim()).filter(Boolean))];
   return uniq.filter((id) => guild?.roles?.cache?.has?.(id));
 }
 
 function buildColorsMainEmbedDescription(guild, numericLevel, canPickPlus) {
-  const sep = "୨୧ — · · · — ୨୧";
   const nat = listUnlockedNaturalRoleIds().filter((id) => guild?.roles?.cache?.has?.(id));
   const natLine = nat.length ? nat.map((id) => `· <@&${id}>`).join("\n") : "_Nessun ruolo colore classico sul server._";
   const plusReq = mentionRoles([
@@ -257,41 +360,46 @@ function buildColorsMainEmbedDescription(guild, numericLevel, canPickPlus) {
     IDs.roles.Level50,
     IDs.roles.Level70,
     IDs.roles.Level100,
+    IDs.roles.Level120,
+    IDs.roles.Level150,
+    IDs.roles.Level200,
   ]);
-  const plusUnlocked = listUnlockedPlusRoleIds(guild, canPickPlus);
+  const plusUnlocked = listUnlockedPlusRoleIds(guild, canPickPlus, numericLevel);
   const plusBlock = canPickPlus
     ? plusUnlocked.length
       ? `**Sbloccati per te** · scegli dal menu sotto.\n${plusUnlocked.map((id) => `· <@&${id}>`).join("\n")}`
       : "**Sbloccati**, ma i ruoli Plus non risultano sul server."
     : `**Non sbloccati.** Serve **livello 50+** oppure uno tra: ${plusReq || "VIP / Booster / Donator"}\n`;
-  const tierDefs = getTierExclusiveColorDefs().filter((d) => guild?.roles?.cache?.has?.(d.roleId));
+  const tierRows = [
+    ...getTierExclusiveColorDefs()
+      .filter((d) => guild?.roles?.cache?.has?.(d.roleId))
+      .map((d) => ({ roleId: d.roleId, minLevel: d.minLevel, needsPlus: false })),
+    ...getLevelGatedPlusColorDefs()
+      .filter((d) => guild?.roles?.cache?.has?.(d.roleId))
+      .map((d) => ({ roleId: d.roleId, minLevel: d.minLevel, needsPlus: true })),
+  ];
   const tierBlock =
-    tierDefs.length === 0
+    tierRows.length === 0
       ? "_Nessun ruolo esclusivo livello configurato._"
       : `Il tuo livello: **${numericLevel || 0}**\n` +
-        tierDefs
+        tierRows
           .map((d) => {
-            const ok = Number(numericLevel) >= d.minLevel;
+            const ok = Number(numericLevel) >= d.minLevel && (!d.needsPlus || canPickPlus);
             return `· <@&${d.roleId}> — da livello **${d.minLevel}**${ok ? " <a:VC_Verified:1482532479637127188>" : "<a:VC_Cross:1482532424570376253>"}`;
           })
           .join("\n");
   const lines = [
-    "### <:VC_Color:1482532543273238569> Classici",
-    natLine,
-    "",
     "### <:VC_Vip:1482534921472835895> Plus",
     plusBlock,
     "",
     "### <:VC_EXP:1482534670896730143> Esclusivi di livello",
     tierBlock,
     "",
-    sep,
-    "",
     "**Menu** · scegli un colore qui sotto. **Rimuovi** con il pulsante rosso.",
   ];
   let body = lines.join("\n");
   if (body.length > 4000) {
-    body = `${lines.slice(0, 8).join("\n")}\n\n… *Usa il menu per i classici.*\n\n${sep}`;
+    body = `${lines.slice(0, 8).join("\n")}\n\n… *Usa il menu per i classici.*`;
   }
   return body;
 }
@@ -304,22 +412,16 @@ function buildColorsHowToUnlockEmbedDescription() {
     IDs.roles.Donator,
   ]);
   const tiers = getTierExclusiveColorDefs();
+  const plusLevelGated = getLevelGatedPlusColorDefs();
   return [
-    "## <:VC_PinkQuestionMark:1471892611026391306> Come ottenere i colori",
-    "",
-    "### <:VC_Color:1482532543273238569> Classici",
-    "Disponibili per tutti i membri: nessun requisito. ",
-    "",
     "### <:VC_Vip:1482534921472835895> Plus",
-    "Serve almeno una di queste condizioni:",
-    `· **Livello 50+** sul server`,
-    `· Ruoli: ${plusReq || "VIP, Booster, Donator, Level50"}`,
+    "Serve almeno uno di questi ruoli:",
+    `${plusReq || "VIP, Booster, Donator, Level50"}`,
     "",
     "### <:VC_EXP:1482534670896730143> Esclusivi",
     "Solo in base al **livello** salvato sul profilo:",
     ...tiers.map((t) => `· <@&${t.roleId}> — da livello **${t.minLevel}**`),
-    "",
-    "୨୧ — · · · — ୨୧",
+    ...plusLevelGated.map((t) => `· <@&${t.roleId}> — da livello **${t.minLevel}**`),
   ]
     .filter(Boolean)
     .join("\n");
@@ -330,7 +432,9 @@ module.exports = {
   NATURAL_PERSONALITY_COLOR_EMOJI_BY_ROLE_ID,
   naturalPersonalityColorEmoji,
   getPlusColorRoleIds,
+  getLevelGatedPlusColorDefs,
   getTierExclusiveColorDefs,
+  getTierExclusiveRoleIds,
   getAllPersonalityChatColorRoleIds,
   fetchNumericProfileLevel,
   memberHasPlusColorEligibility,
@@ -346,4 +450,6 @@ module.exports = {
   isValueAllowedForCmdColors,
   isAllowedColorValue,
   roleLabel,
+  buildProfileTierColorSelectOptionsWithRemove,
+  buildProfilePlusColorSelectOptionsWithRemove,
 };

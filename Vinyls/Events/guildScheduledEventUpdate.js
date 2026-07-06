@@ -1,9 +1,10 @@
 const { AuditLogEvent, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionsBitField, } = require("discord.js");
 const IDs = require("../Utils/Config/ids");
 const { getGuildChannelCached } = require("../Utils/Interaction/interactionEntityCache");
+const { handleSerataFilmScheduledEventUpdate } = require("../Services/Staff/staffAutoValutazioniService");
+const { handleMovieNightEventStart } = require("../Services/Community/movieNightAnnouncementService");
 const AUDIT_FETCH_LIMIT = 20;
 const AUDIT_LOOKBACK_MS = 120 * 1000;
-
 const CHANGE_LABELS=new Map([["name","Name"],["description","Description"],["scheduled_start_time","Start Time"],["scheduled_end_time","End Time"],["privacy_level","Privacy Level"],["status","Status"],["entity_type","Entity Type"],["channel_id","Channel"],["location","Location"],["entity_metadata.location","Location"],]);
 
 function toDiscordTimestamp(value = new Date(), style = "F") {
@@ -151,6 +152,14 @@ module.exports = {
   name: "guildScheduledEventUpdate",
   async execute(oldEvent, newEvent) {
     try {
+      await handleSerataFilmScheduledEventUpdate(oldEvent, newEvent).catch((err) => {
+        global.logger?.warn?.("[guildScheduledEventUpdate] serata film auto:", err?.message || err);
+      });
+      if (Number(newEvent?.status || 0) === 2 && Number(oldEvent?.status || 0) === 1) {
+        await handleMovieNightEventStart(newEvent).catch((err) => {
+          global.logger?.warn?.("[guildScheduledEventUpdate] movie night start:", err?.message || err);
+        });
+      }
       const guild = newEvent?.guild || oldEvent?.guild;
       const eventId = String(newEvent?.id || oldEvent?.id || "");
       if (!guild || !eventId) return;
@@ -171,24 +180,24 @@ module.exports = {
       if (!tracked.length) return;
 
       const lines = [
-        `<:VC_right_arrow:1482459908245815296> **Responsible:** ${responsibleText}`,
-        `<:VC_right_arrow:1482459908245815296> ${toDiscordTimestamp(new Date(), "F")}`,
+        `<:VC_Staff:1494286904089247754> **Responsabile:** ${responsibleText}`,
+        `<:VC_Clock:1473359204189474886> ${toDiscordTimestamp(new Date(), "F")}`,
         "",
-        "**Changes**",
+        "**Modifiche**",
       ];
 
       for (const change of tracked) {
         const key = String(change?.key || "");
         const label = CHANGE_LABELS.get(key) || key;
-        lines.push(`<:VC_right_arrow:1482459908245815296> **${label}**`);
+        lines.push(`<:VC_Modifica:1478859646587633717> **${label}**`);
         lines.push(
-          `  ${formatValue(key, change?.old)} <:VC_right_arrow:1482459908245815296> ${formatValue(key, change?.new)}`,
+          `  ${formatValue(key, change?.old)} <:VC_Modifica:1478859646587633717> ${formatValue(key, change?.new)}`,
         );
       }
 
       const embed = new EmbedBuilder()
         .setColor("#F59E0B")
-        .setTitle("Guild Scheduled Event Update")
+        .setTitle("<a:VC_Verified:1482532479637127188> Evento programmato modificato")
         .setDescription(lines.join("\n"));
 
       const payload = { embeds: [embed] };
@@ -197,7 +206,7 @@ module.exports = {
           new ActionRowBuilder().addComponents(
             new ButtonBuilder()
               .setStyle(ButtonStyle.Link)
-              .setLabel("Go to Event")
+              .setLabel("Vai all'evento")
               .setURL(eventUrl),
           ),
         ];

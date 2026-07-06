@@ -70,7 +70,11 @@ async function runGuildAutoBackup(guild) {
 
   const previousAutoId = String(marker?.backupId || "").trim().toUpperCase();
 
-  const created = await createGuildBackup(guild, { source: "automatic" });
+  const created = await createGuildBackup(guild, {
+    source: "automatic",
+    maxMessagesPerChannel: 0,
+    includeAssetData: false,
+  });
 
   if (previousAutoId && previousAutoId !== created.backupId) {
     await deleteGuildBackup(guild.id, previousAutoId).catch(() => null);
@@ -105,7 +109,7 @@ function startAutoBackupLoop(client) {
   client._autoBackupCron = cron.schedule(
     "0 0 * * *",
     () => {
-      runTick().catch(() => { });
+      void runTick().catch(() => { });
     },
     {
       timezone: AUTO_BACKUP_TIMEZONE,

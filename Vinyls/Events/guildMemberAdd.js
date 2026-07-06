@@ -1,8 +1,9 @@
-const { EmbedBuilder, PermissionsBitField, AuditLogEvent, UserFlagsBitField, } = require("discord.js");
+const { EmbedBuilder, PermissionsBitField, AuditLogEvent, UserFlagsBitField, MessageFlags, } = require("discord.js");
 const { DIVIDER_URL } = require("../../shared/discord/constants");
 const { ActivityUserProfile, InviteReminderState, CustomRole, } = require("../Schemas/Community/communitySchemas");
 const IDs = require("../Utils/Config/ids");
 const { shouldBlockDm } = require("../Utils/noDmList");
+const { notifyDmPrivacyBlockedInCommands } = require("../../shared/discord/dmPrivacyNotice");
 const { queueIdsCatalogSync } = require("../Utils/Config/idsAutoSync");
 const { scheduleStaffListRefresh, memberHasStaffRole } = require("../Utils/Community/staffListUtils");
 const { processJoinRaidForMember, registerJoinRaidSecuritySignal, } = require("../Services/Moderation/joinRaidService");
@@ -12,19 +13,31 @@ const { shouldSendPublicMemberAnnouncement } = require("../Utils/Community/membe
 const { getSecurityLockState } = require("../Services/Moderation/securityOrchestratorService");
 const { markJoinGateKick } = require("../Utils/Moderation/joinGateKickCache");
 const { createModCase, getModConfig, logModCase } = require("../Utils/Moderation/moderation");
+const { buildUnbanRequestRow } = require("../Utils/Moderation/unbanRequestButton");
 const { markJoinGateSuspiciousAccount, } = require("../Services/Moderation/joinGateSuspiciousService");
 const { hasEventWeekWinnerGrant } = require("../Services/Community/weekWinnerGrantsService");
+const { hasExtraCustomPerksUnlock } = require("../Utils/Community/customPerksUnlock");
 const { addRolesAndGetMember, getClientGuildCached, getGuildChannelCached, getGuildMemberCached, getGuildRoleCached } = require("../Utils/Interaction/interactionEntityCache");
 const { applyDefaultFooterToEmbeds } = require("../Utils/Embeds/defaultFooter");
-const { setWelcomeContextActive } = require("../Utils/Message/officialMessageCommunityHandlers");
+const { activateWelcomeContextForGuild, refreshWelcomeContextForGuild } = require("../Utils/Message/officialMessageCommunityHandlers");
 const { restoreUserOnJoin } = require("../Services/Community/userLeaveBackupService");
+const { syncMutedMirrorOnMemberJoin } = require("../Services/Moderation/mutedMirrorRoleService");
+const { cancelCustomPerksDiscordCleanupQueue } = require("../Services/Community/customPerksDiscordCleanupQueueService");
+const { restoreManagerLeftServerPartnerPointsOnRejoin } = require("../Services/Partner/partnerAuditService");
 const sponsorVerifiedRequiresMain = require("../Services/Community/sponsorVerifiedRequiresMainService");
-const {
-  guildIconUrl,
-  guildMemberDisplayAvatarUrlDynamic,
-  accountUsername,
-} = require("../Utils/Discord/guildDiscordIdentity");
-
+const { handleAccessGuildMemberAdd } = require("../Services/Staff/staffAccessMirrorService");
+const { guildIconUrl, guildMemberDisplayAvatarUrlDynamic, accountUsername } = require("../Utils/Discord/guildDiscordIdentity");
+const { isAlreadyVerifiedInThisGuild, isSponsorGuildVerify } = require("../Utils/Interaction/verifyUtils");
+const { syncPreMemberRoleForMember } = require("../Utils/Community/preMemberRoleService");
+const { applyPronounGenderToEmbedForMember } = require("../Utils/Community/pronounGenderUtils");
+const { upsertVerifiedMember, applyTenureForMember, applySponsorGuildAutoVerificato } = require("../Services/Community/communityOpsService");
+const path = require("path");
+const { readSnapshotWithMeta, writeSnapshotWithMeta } = require("../../shared/recovery/snapshotStore");
+const { ghostPingNewMemberOnJoin } = require("../Utils/Message/ghostPingOnChannelEnter");
+const { trackMemberJoin } = require("../Services/Community/dailyMemberStatsService");
+const { maybeAssignHogwartsCompletionRoleOnJoin } = require("../Services/Community/hogwartsEventEndService");
+const { buildMemberWelcomePhrase } = require("../Utils/Community/pronounWelcomeUtils");
+const { isMongoReady } = require("../Utils/Database/mongoConnect");
 const INVITE_LOG_CHANNEL_ID = IDs.channels.chat;
 const THANKS_CHANNEL_ID = IDs.channels.supporters;
 const INFO_PERKS_CHANNEL_ID = IDs.channels.info;
@@ -32,11 +45,7 @@ const VOTE_ROLE_ID = IDs.roles.Voter;
 const DISCADIA_VOTE_ROOT = "profile.totals.exp.bumpVoteRewards.discadia_vote";
 const VOTE_ROLE_EXPIRES_AT_PATH = `${DISCADIA_VOTE_ROOT}.voteRole.expiresAt`;
 const VOTE_RESTORE_WINDOW_MS = 24 * 60 * 60 * 1000;
-const CUSTOM_ROLE_REQUIRED_ROLE_IDS = [
-  IDs.roles.VIP,
-  IDs.roles.DoubleBooster,
-  IDs.roles.Level50,
-].filter(Boolean);
+const CUSTOM_ROLE_REQUIRED_ROLE_IDS = [IDs.roles.VIP, IDs.roles.ServerBooster, IDs.roles.DoubleBooster, IDs.roles.Level50].filter(Boolean);
 const INVITE_REWARD_TIERS = [{ target: 5, roleIds: [IDs.roles.Promoter, IDs.roles.PicPerms || "1468938195348754515",].filter(Boolean), }, { target: 25, roleIds: [IDs.roles.Propulsor].filter(Boolean), }, { target: 100, roleIds: [IDs.roles.Catalyst].filter(Boolean), },];
 const INVITE_MILESTONE_EMBED_COLOR = 0x9b59b6;
 
@@ -51,6 +60,26 @@ function shortInviteLinkForFooter() {
   } catch {
     return raw.replace(/^https?:\/\//, "").replace(/\/$/, "");
   }
+}
+
+function formatInviteCountIt(count) {
+  const n = Math.max(0, Number(count || 0));
+  return n === 1 ? "1 invito" : `${n} inviti`;
+}
+
+function extractInviteCodeFromLink(link) {
+  const raw = String(link || "").trim();
+  if (!raw || /^link non disponibile/i.test(raw)) return null;
+  const m = raw.match(/(?:discord\.gg|discord(?:app)?\.com\/invite)\/([A-Za-z0-9-]+)/i);
+  if (m?.[1]) return m[1];
+  const tail = raw.split("/").pop();
+  return tail && /^[A-Za-z0-9-]+$/.test(tail) ? tail : null;
+}
+
+/** Solo codice in backtick: evita l'anteprima embed Discord sugli inviti (anche con SuppressEmbeds). */
+function formatInviteLinkForJoinMessage(link) {
+  const code = extractInviteCodeFromLink(link);
+  return code ? `\`${code}\`` : "`—`";
 }
 
 function getInviteMilestoneTitle(target) {
@@ -102,25 +131,46 @@ function buildInviteMilestoneEmbeds(inviterMember, totalInvites, tierChunks) {
         ? `Per il prossimo ruolo raggiungi **${nextT} inviti** con il tuo link personalizzato 🌙`
         : "Hai raggiunto la soglia massima degli inviti reward! 💞",
       "",
-      `Ora hai **${safeTotal} inviti** registrati.`,
+      `Ora hai **${formatInviteCountIt(safeTotal)}** registrat${safeTotal === 1 ? "o" : "i"}.`,
       INFO_PERKS_CHANNEL_ID ? `\n<a:VC_Arrow:1482706699365257397> Dettagli perk: <#${INFO_PERKS_CHANNEL_ID}>` : "",
     ].join("\n");
-    return new EmbedBuilder()
+    const embed = new EmbedBuilder()
       .setColor(INVITE_MILESTONE_EMBED_COLOR)
       .setTitle(getInviteMilestoneTitle(target))
       .setThumbnail(guildMemberDisplayAvatarUrlDynamic(inviterMember, { size: 256 }) || undefined)
       .setDescription(body)
       .setFooter({ text: `${shortInviteLinkForFooter()} • Grazie! 💞` })
       .setTimestamp();
+    return applyPronounGenderToEmbedForMember(embed, inviterMember);
   });
 }
 const JOIN_LEAVE_LOG_CHANNEL_ID = IDs.channels.joinLeaveLogs;
-const ARROW = "<:VC_right_arrow:1482459908245815296>";
 const JOIN_GATE_WHITELIST_ROLE_IDS = new Set([IDs.roles.Founder].filter(Boolean).map(String),);
 const AUDIT_FETCH_LIMIT = 20;
 const AUDIT_LOOKBACK_MS = 120 * 1000;
 const SUSPICIOUS_JOIN_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 const recentJoinSignalsByGuild = new Map();
+const JOIN_SIGNALS_SNAPSHOT_PATH = path.join(__dirname, "..", "Data", "joinSignalsSnapshot.json");
+let joinSignalsLoaded = false;
+
+function persistJoinSignalsNow() {
+  const payload = {};
+  for (const [guildId, rows] of recentJoinSignalsByGuild.entries()) {
+    if (!guildId || !Array.isArray(rows) || !rows.length) continue;
+    payload[guildId] = rows.slice(-120);
+  }
+  writeSnapshotWithMeta({ filePath: JOIN_SIGNALS_SNAPSHOT_PATH, walPath: `${JOIN_SIGNALS_SNAPSHOT_PATH}.wal`, key: "vinyls_join_signals", version: 1, payload });
+}
+
+function ensureJoinSignalsLoaded() {
+  if (joinSignalsLoaded) return;
+  joinSignalsLoaded = true;
+  const raw = readSnapshotWithMeta({ filePath: JOIN_SIGNALS_SNAPSHOT_PATH, walPath: `${JOIN_SIGNALS_SNAPSHOT_PATH}.wal`, key: "vinyls_join_signals", version: 1, fallback: {} });
+  for (const [guildId, rows] of Object.entries(raw || {})) {
+    if (!guildId || !Array.isArray(rows)) continue;
+    recentJoinSignalsByGuild.set(guildId, rows.slice(-120));
+  }
+}
 
 function formatActor(actor) {
   if (!actor) return "sconosciuto";
@@ -343,22 +393,46 @@ async function addBotRoles(member) {
   }
 }
 
+function buildWelcomeChannelContent(member) {
+  const { word } = buildMemberWelcomePhrase(member);
+  return `Ciao ${member.user}, ${word}! <@&${IDs.roles.Staff}> <a:VC_heartfinger:1504513546782769332>`;
+}
+
+async function sendWelcomeChannelAnnouncement(channel, member) {
+  if (!channel?.send || !member) return null;
+  const sent = await channel
+    .send(
+      applyDefaultFooterToEmbeds(
+        {
+          content: buildWelcomeChannelContent(member),
+          embeds: [buildWelcomeEmbed(member)],
+        },
+        member.guild,
+      ),
+    )
+    .catch(() => null);
+  if (sent && member.guild?.id) {
+    refreshWelcomeContextForGuild(member.guild.id, member.id);
+    await markJoinAnnounceSent(member);
+  }
+  return sent;
+}
+
 function buildWelcomeEmbed(member) {
   const visibleCount = getVerifiedPlusBotsCount(member.guild);
   const uname = accountUsername(member);
+  const { word, capitalized } = buildMemberWelcomePhrase(member);
   return new EmbedBuilder()
     .setAuthor({
       name: uname,
       iconURL: guildMemberDisplayAvatarUrlDynamic(member, { size: 128 }) || undefined,
     })
     .setTitle(
-      "<a:VC_HeartsPink:1468685897389052008> Benvenuto/a su Vinili & Caffè <a:VC_HeartsPink:1468685897389052008>",
+      `<a:VC_HeartsPink:1468685897389052008> ${capitalized} su Vinili & Caffè <a:VC_HeartsPink:1468685897389052008>`,
     )
     .setDescription(
-      `__${uname}__ benvenuto/a nella nostra community <a:VC_Sparkles:1468546911936974889>\n` +
-      "<:VC_emoji:1485419161168511036> Passa su <id:customize> per **abbellire il tuo profilo** con i ruoli\n" +
-      "<:VC_Color:1482532543273238569> Usa il comando \`+colors\` per **cambiare il tuo colore**\n" +
-      "<:VC_addperson:1485419347068588073> Usa il comando \`+profile\` per **personalizzare il tuo profilo**\n",
+      `__${uname}__ ${word} nella nostra community <a:VC_Sparkles:1468546911936974889>\n` +
+      "<:VC_addperson:1485419347068588073> Usa il comando \`+profile\` in <#1442569138114662490> per **personalizzare il tuo profilo**\n",
     )
     .setThumbnail(guildMemberDisplayAvatarUrlDynamic(member, { size: 256 }) || undefined)
     .setImage(DIVIDER_URL)
@@ -372,22 +446,21 @@ function buildDmWelcomeEmbed(member) {
   const dmFooterIcon = guildIconUrl(member.guild, { size: 64 });
   return new EmbedBuilder()
     .setColor("#6f4e37")
-    .setTitle("<a:VC_RightWing:1448672889845973214> Welcome to Vinili & Caffè!")
+    .setTitle("<a:VC_RightWing:1448672889845973214> Benvento in Vinili & Caffè!")
     .setDescription(
       [
-        `Ei **${accountUsername(member)}** welcome, glad to have you here!`,
+        `Ciao **${accountUsername(member)}**, grazie per esserti unito a noi!`,
         "",
-        "Joining the server you automatically accept the rules.",
         "Entrando nel server accetti automaticamente le nostre regole.",
         "<a:VC_Arrow:1482706699365257397> <https://discord.com/channels/1329080093599076474/1442569111119990887/1470102236527853661>",
         "------------------------------",
-        "<:VC_Dot:1482532364222595303> Check out our GUILD TAGS",
-        "<a:VC_Moon:1482724651430838406>[⭑.ᐟ](<https://discord.gg/E6vrm5zE6B>)<:VC_Luna1:1482497618289496117><:VC_Luna2:1482497653387427902> & <a:VC_Money:1482724694699278487>[⭑.ᐟ](<https://discord.gg/QnTN5P578g>)<:VC_Cash1:1482460724302184450><:VC_Cash2:1482460763346960434>",
-        "<:VC_Firework:1470796227913322658>[⭑.ᐟ](<https://discord.gg/WMuZ4EMAkc>)<:VC_Porn1:1482497744513011944><:VC_Porn2:1482497774892089547> & <a:VC_PepeEggPlant:1331622686014570588>[⭑.ᐟ](<https://discord.gg/uqUNS9f5m5>)<:VC_SixNine1:1482497833578922065><:VC_SixNine2:1482497868328865813>",
+        "<:VC_Dot:1482532364222595303> Controlla le nostre GUILD TAGS",
+        "<a:VC_Moon:1482724651430838406>[⭑.ᐟ](<https://discord.gg/E6vrm5zE6B>)<:VC_Luna1:1482497618289496117><:VC_Luna2:1482497653387427902> & [⭑.ᐟ](<https://discord.gg/QnTN5P578g>)<:VC_Fire1:1509196285796814979><:VC_Fire2:1509196390843023475>",
+        "<:VC_Firework:1470796227913322658>[⭑.ᐟ](<https://discord.gg/WMuZ4EMAkc>)<:VC_Porn1:1482497744513011944><:VC_Porn2:1482497774892089547> & <a:VC_PepeEggPlant:1331622686014570588>[⭑.ᐟ](<https://discord.gg/uqUNS9f5m5>)<:VC_Star1:1509196523810980051><:VC_Star2:1509196760722182155>",
         "<a:VC_PepeSmoke:1331590685673132103>[⭑.ᐟ](<https://discord.gg/SzBwnxHXNv>)<:VC_Weed1:1482497951686201534><:VC_Weed2:1482497986910097592> & <a:VC_PepeExcited:1331621719093284956>[⭑.ᐟ](<https://discord.gg/z3EXtJwvQH>)<:VC_Figa1:1482495980275499169><:VC_Figa2:1482496046222544937>",
         "<a:VC_Arrow:1482706699365257397> <https://discord.com/channels/1329080093599076474/1442569111119990887/1470102239094767699>",
-        "------------------------------",
-        "<a:VC_Exclamation:1482534702077444217> Verify Yourself: <https://discord.com/channels/1329080093599076474/1442569059983163403>",
+        //"------------------------------",
+        //"<a:VC_Exclamation:1482534702077444217> Verify Yourself: <https://discord.com/channels/1329080093599076474/1442569059983163403>",
       ].join("\n"),
     )
     .setThumbnail(dmGuildIcon || undefined)
@@ -401,14 +474,21 @@ function buildDmWelcomeEmbed(member) {
 function getVerifiedPlusBotsCount(guild) {
   if (!guild?.members?.cache) return Number(guild?.memberCount || 0);
   const memberRoleId = String(IDs.roles?.Member || "").trim();
-  if (!memberRoleId) return Number(guild.memberCount || 0);
+  const unverifiedRoleId = String(IDs.roles?.preMember || "").trim();
+  if (!memberRoleId && !unverifiedRoleId) return Number(guild.memberCount || 0);
   let total = 0;
   for (const m of guild.members.cache.values()) {
     if (m?.user?.bot) {
       total += 1;
       continue;
     }
-    if (m?.roles?.cache?.has(memberRoleId)) total += 1;
+    const roles = m?.roles?.cache;
+    if (!roles) continue;
+    if (memberRoleId && roles.has(memberRoleId)) {
+      total += 1;
+      continue;
+    }
+    if (unverifiedRoleId && roles.has(unverifiedRoleId)) total += 1;
   }
   return total;
 }
@@ -433,17 +513,17 @@ async function sendBotAddLog(member) {
 
   const embed = new EmbedBuilder()
     .setColor("#57F287")
-    .setTitle("Bot Add")
+    .setTitle("<:VC_User:1482527453586002103> Bot Add")
     .setDescription(
       [
-        `${ARROW} **Responsible:** ${responsible}`,
-        `${ARROW} **Target:** ${member.user} \`${member.user.id}\``,
-        `${ARROW} <t:${nowTs}:F>`,
+        `<:VC_Staff:1494286904089247754> **Responsabile:** ${responsible}`,
+        `<:VC_User:1482527453586002103> **Target:** ${member.user} \`${member.user.id}\``,
+        `<:VC_Clock:1473359204189474886> <t:${nowTs}:F>`,
         "",
-        "**Additional Information**",
-        `${ARROW} **Id:** \`${member.user.id}\``,
-        `${ARROW} **Username:** ${member.user.username}`,
-        `${ARROW} **Creation:** <t:${createdTs}:R>`,
+        "**<:VC_tools:1478862265305272364> Informazioni aggiuntive**",
+        `<:VC_Id:1482527453586002103> **Id:** \`${member.user.id}\``,
+        `<:VC_Modifica:1478859646587633717> **Username:** ${member.user.username}`,
+        `<:VC_Clock:1473359204189474886> **Creation:** <t:${createdTs}:R>`,
       ].join("\n"),
     );
 
@@ -460,12 +540,7 @@ async function handleBotJoin(member, joinGateConfig) {
     }
     const welcomeChannelSponsor = await resolveGuildChannel(member.guild, IDs.channels.chat,);
     if (welcomeChannelSponsor) {
-      await welcomeChannelSponsor
-        .send(applyDefaultFooterToEmbeds({
-          content: `Ciao ${member.user}, benvenuto/a! <@&${IDs.roles.Staff}> <a:VC_HeartOrange:1448673443762405386>`,
-          embeds: [buildWelcomeEmbed(member)],
-        }, member.guild))
-        .catch(() => { });
+      await sendWelcomeChannelAnnouncement(welcomeChannelSponsor, member);
     }
     return;
   }
@@ -484,14 +559,10 @@ async function handleBotJoin(member, joinGateConfig) {
       : "sconosciuto";
   const verifiedBot = await isVerifiedBot(member.user);
 
-  if (
-    joinGateConfig?.enabled &&
-    joinGateConfig?.unverifiedBotAdditions?.enabled &&
-    !verifiedBot
-  ) {
-    const result = await kickForJoinGate(member, "Unverified bot addition.", [
-      `${ARROW} **Rule:** Unverified Bot Additions`,
-      `${ARROW} **Responsible:** ${executorText}`,
+  if ( joinGateConfig?.enabled && joinGateConfig?.unverifiedBotAdditions?.enabled && !verifiedBot) {
+    const result = await kickForJoinGate(member, "Aggiunta di bot non verificato.", [
+      `<:VC_Rules:1482527309868040393> **Regola:** Aggiunta di bot non verificato`,
+      `<:VC_Staff:1494286904089247754> **Responsabile:** ${executorText}`,
     ], joinGateConfig?.unverifiedBotAdditions?.action || "kick");
     if (result?.blocked) return;
   }
@@ -499,18 +570,18 @@ async function handleBotJoin(member, joinGateConfig) {
   if (joinGateConfig?.enabled && joinGateConfig?.botAdditions?.enabled) {
     if (noAuditPerm) {
       global.logger?.warn?.(
-        `[JoinGate] botAdditions skipped (no ViewAuditLog) target=${member.user?.id || "unknown"}`,
+        `[JoinGate] botAdditions skipped (no ViewAuditLog) target=${member.user?.id || "sconosciuto"}`,
       );
     } else if (!executorId && auditNotFound) {
       global.logger?.warn?.(
-        `[JoinGate] botAdditions: no BotAdd row after retries — fail-closed kick target=${member.user?.id || "unknown"}`,
+        `[JoinGate] botAdditions: no BotAdd row after retries — kick fallito target=${member.user?.id || "sconosciuto"}`,
       );
       const result = await kickForJoinGate(
         member,
-        "Bot added by unauthorized member (no audit match — fail-closed).",
+        "Aggiunta di bot da membro non autorizzato (no audit match — kick fallito).",
         [
-          `${ARROW} **Rule:** Bot Additions`,
-          `${ARROW} **Responsible:** unknown`,
+          `<:VC_Rules:1482527309868040393> **Regola:** Aggiunta di bot`,
+          `<:VC_Staff:1494286904089247754> **Responsabile:** ${executorText}`,
         ],
         joinGateConfig?.botAdditions?.action || "kick",
       );
@@ -518,9 +589,9 @@ async function handleBotJoin(member, joinGateConfig) {
     } else if (executorId) {
       const authorized = await isAuthorizedBotAdder(member.guild, executorId);
       if (!authorized) {
-        const result = await kickForJoinGate(member, "Bot added by unauthorized member.", [
-          `${ARROW} **Rule:** Bot Additions`,
-          `${ARROW} **Responsible:** ${executorText}`,
+        const result = await kickForJoinGate(member, "Aggiunta di bot da membro non autorizzato.", [
+          `<:VC_Rules:1482527309868040393> **Regola:** Aggiunta di bot`,
+          `<:VC_Staff:1494286904089247754> **Responsabile:** ${executorText}`,
         ], joinGateConfig?.botAdditions?.action || "kick");
         if (result?.blocked) return;
       }
@@ -535,12 +606,7 @@ async function handleBotJoin(member, joinGateConfig) {
 
   const welcomeChannel = await resolveGuildChannel(member.guild, IDs.channels.chat,);
   if (welcomeChannel) {
-    await welcomeChannel
-      .send(applyDefaultFooterToEmbeds({
-        content: `Ciao ${member.user}, benvenuto/a! <@&${IDs.roles.Staff}> <a:VC_HeartOrange:1448673443762405386>`,
-        embeds: [buildWelcomeEmbed(member)],
-      }, member.guild))
-      .catch(() => { });
+    await sendWelcomeChannelAnnouncement(welcomeChannel, member);
   }
 
   const inviteChannel = await resolveGuildChannel(member.guild, INVITE_LOG_CHANNEL_ID,);
@@ -558,7 +624,8 @@ async function handleBotJoin(member, joinGateConfig) {
     } else {
       await inviteChannel
         .send({
-          content: `<:VC_Reply:1482532158080942191> Bot entrato con il link <${info.link}>,\n-# -> invitato da ${info.inviterTag} che ora ha **${info.totalInvites} inviti**.`,
+          content: `<:VC_Reply:1482532158080942191> Bot entrato con il link ${formatInviteLinkForJoinMessage(info.link)},\n-# -> invitato da ${info.inviterTag} che ora ha **${formatInviteCountIt(info.totalInvites)}**.`,
+          flags: MessageFlags.SuppressEmbeds,
         })
         .catch(() => { });
     }
@@ -580,13 +647,7 @@ function hasNoAvatar(member) {
 }
 
 function getJoinGateNameCandidate(member) {
-  return String(
-    member?.user?.globalName ||
-    member?.displayName ||
-    member?.nickname ||
-    member?.user?.username ||
-    "",
-  );
+  return String(member?.user?.globalName || member?.displayName || member?.nickname || member?.user?.username || "");
 }
 
 function normalizeText(value) {
@@ -696,6 +757,7 @@ function trackRecentJoinSignal(member) {
   const avatarHash = String(member?.user?.avatar || "");
   const nameSkeleton = toAccountNameSkeleton(`${member?.user?.username || ""}${member?.user?.globalName || ""}`.trim(),
   );
+  ensureJoinSignalsLoaded();
   const existing = pruneJoinSignals(recentJoinSignalsByGuild.get(guildId) || []);
   existing.push({
     userId,
@@ -707,6 +769,7 @@ function trackRecentJoinSignal(member) {
     existing.splice(0, existing.length - 2500);
   }
   recentJoinSignalsByGuild.set(guildId, existing);
+  persistJoinSignalsNow();
 }
 
 function getJoinSignalStats(member) {
@@ -717,8 +780,10 @@ function getJoinSignalStats(member) {
     return { reusedAvatarCount: 0, similarNameCount: 0 };
   }
 
+  ensureJoinSignalsLoaded();
   const records = pruneJoinSignals(recentJoinSignalsByGuild.get(guildId) || []);
   recentJoinSignalsByGuild.set(guildId, records);
+  persistJoinSignalsNow();
   const normalizedName = toAccountNameSkeleton(`${member?.user?.username || ""}${member?.user?.globalName || ""}`.trim(),
   );
 
@@ -739,7 +804,8 @@ function detectSuspiciousAccount(member) {
   const ageHours = accountAgeMs / (60 * 60 * 1000);
   const ageDays = ageHours / 24;
 
-  const suspiciousKeywords = ["support", "moderator", "admin", "staff", "official", "nitro", "airdrop", "crypto", "steam", "gift", "discord", "giveaway",];
+  const scamKeywords = ["nitro", "airdrop", "crypto", "steam", "gift", "giveaway", "freegift", "steamgift"];
+  const impersonationKeywords = ["support", "moderator", "admin", "staff", "discordstaff", "discordsupport"];
 
   const signalLabels = [];
   let score = 0;
@@ -751,24 +817,30 @@ function detectSuspiciousAccount(member) {
     signalLabels.push("invite-link");
   }
 
-  const keywordHits = suspiciousKeywords.filter((kw) => combinedSkeleton.includes(kw),);
-  if (keywordHits.length > 0) {
-    const keywordScore = Math.min(45, 18 + keywordHits.length * 9);
-    score += keywordScore;
-    if (keywordHits.some((kw) => ["nitro", "airdrop", "crypto", "gift", "giveaway"].includes(kw))) {
-      strongSignals += 1;
-    }
-    signalLabels.push(`keywords:${keywordHits.slice(0, 3).join(",")}`);
+  const scamHits = scamKeywords.filter((kw) => combinedSkeleton.includes(kw));
+  if (scamHits.length > 0) {
+    score += Math.min(50, 22 + scamHits.length * 10);
+    strongSignals += 1;
+    signalLabels.push(`scam:${scamHits.slice(0, 3).join(",")}`);
+  }
+  const impersonationHits = impersonationKeywords.filter((kw) => combinedSkeleton.includes(kw));
+  if (impersonationHits.length >= 2) {
+    score += 28;
+    strongSignals += 1;
+    signalLabels.push(`impersonation:${impersonationHits.slice(0, 3).join(",")}`);
+  } else if (impersonationHits.length === 1) {
+    score += 10;
+    signalLabels.push(`impersonation:${impersonationHits[0]}`);
   }
 
   const digitCount = (combinedRaw.match(/\d/g) || []).length;
   const separatorCount = (combinedRaw.match(/[._-]/g) || []).length;
-  if (digitCount >= 6) {
-    score += 20;
+  if (digitCount >= 8) {
+    score += 16;
     signalLabels.push(`digits:${digitCount}`);
   }
-  if (separatorCount >= 4) {
-    score += 12;
+  if (separatorCount >= 5) {
+    score += 10;
     signalLabels.push(`separators:${separatorCount}`);
   }
   if (/(.)\1{4,}/i.test(combinedRaw)) {
@@ -788,39 +860,36 @@ function detectSuspiciousAccount(member) {
   }
 
   if (ageHours <= 24) {
-    score += 32;
+    score += 28;
     signalLabels.push("age<=24h");
   } else if (ageHours <= 72) {
-    score += 24;
+    score += 18;
     signalLabels.push("age<=72h");
   } else if (ageDays <= 7) {
-    score += 12;
+    score += 8;
     signalLabels.push("age<=7d");
-  } else if (ageDays <= 30) {
-    score += 6;
-    signalLabels.push("age<=30d");
   }
 
-  if (hasNoAvatar(member) && ageDays <= 30) {
-    score += 24;
+  if (hasNoAvatar(member) && ageDays <= 7) {
+    score += 22;
     signalLabels.push("no-avatar+young");
   }
 
   const { reusedAvatarCount, similarNameCount } = getJoinSignalStats(member);
-  if (reusedAvatarCount >= 2) {
+  if (reusedAvatarCount >= 3) {
     score += 36;
     strongSignals += 1;
     signalLabels.push(`avatar-reused:${reusedAvatarCount + 1}`);
-  } else if (reusedAvatarCount === 1) {
-    score += 16;
-    signalLabels.push("avatar-reused:2");
+  } else if (reusedAvatarCount === 2) {
+    score += 14;
+    signalLabels.push("avatar-reused:3");
   }
-  if (similarNameCount >= 2) {
+  if (similarNameCount >= 3) {
     score += 18;
     signalLabels.push(`name-clone:${similarNameCount + 1}`);
   }
 
-  const suspicious = score >= 75 || (strongSignals >= 2 && score >= 58);
+  const suspicious = score >= 90 || (strongSignals >= 2 && score >= 78);
   if (suspicious) {
     return `score ${Math.min(100, score)}/100 | segnali: ${signalLabels.slice(0, 5).join(" | ")}`;
   }
@@ -885,21 +954,22 @@ async function isAuthorizedBotAdder(guild, executorId) {
   );
 }
 
-async function sendJoinGatePunishDm(member, reason, extraLines = []) {
+async function sendJoinGatePunishDm(member, reason, extraLines = [], action = "") {
   const embed = new EmbedBuilder()
     .setColor("#6f4e37")
-    .setTitle(`JoinGate action in ${member.guild.name}`)
+    .setTitle(`Azione JoinGate in ${member.guild.name}`)
     .setDescription(
       [
-        `${ARROW} **Member:** ${member.user} [\`${member.user.id}\`]`,
-        `${ARROW} **Reason:** ${reason}`,
+        `<:VC_User:1482527453586002103> **Membro:** ${member.user} [\`${member.user.id}\`]`,
+        `<:VC_Reason:1478517122929004544> **Motivo:** ${reason}`,
         ...extraLines.filter(Boolean),
       ].join("\n"),
     );
   try {
     const dmChannel = member.user.dmChannel || (await member.user.createDM().catch(() => null));
     if (!dmChannel) return false;
-    await dmChannel.send({ embeds: [embed], allowedMentions: { parse: [] } });
+    const components = String(action || "").toLowerCase() === "ban" ? [buildUnbanRequestRow()] : [];
+    await dmChannel.send({ embeds: [embed], components, allowedMentions: { parse: [] } });
     return true;
   } catch {
     return false;
@@ -909,11 +979,11 @@ async function sendJoinGatePunishDm(member, reason, extraLines = []) {
 function buildJoinGateTriggeredEmbed(member, reason) {
   return new EmbedBuilder()
     .setColor("#F59E0B")
-    .setTitle(`${member.user.username} has triggered the joingate!`)
+    .setTitle(`${member.user.username} ha attivato il join gate!`)
     .setDescription(
       [
-        `${ARROW} **Member:** ${member.user.username} [\`${member.user.id}\`]`,
-        `${ARROW} **Reason:** ${reason}`,
+        `<:VC_User:1482527453586002103> **Membro:** ${member.user.username} [\`${member.user.id}\`]`,
+        `<:VC_Reason:1478517122929004544> **Motivo:** ${reason}`,
       ].join("\n"),
     )
     .setThumbnail(guildMemberDisplayAvatarUrlDynamic(member, { size: 256 }) || undefined);
@@ -929,7 +999,7 @@ async function kickForJoinGate(member, reason, extraLines = [], action = "kick")
   const dmPunishedMembers = typeof joinGateCfg?.dmPunishedMembers === "boolean" ? joinGateCfg.dmPunishedMembers : true;
   let dmSent = false;
   if (normalizedAction !== "log" && dmPunishedMembers) {
-    dmSent = await sendJoinGatePunishDm(member, reason, extraLines);
+    dmSent = await sendJoinGatePunishDm(member, reason, extraLines, normalizedAction);
   }
 
   let punished = false;
@@ -1025,16 +1095,16 @@ async function kickForJoinGate(member, reason, extraLines = [], action = "kick")
     const embed = punished
       ? new EmbedBuilder()
         .setColor("#A97142")
-        .setTitle(`${member.user.username} has been ${actionLabel}!!`)
+        .setTitle(`${member.user.username} è stato ${actionLabel}!!`)
         .setDescription(
           [
-            `${ARROW} **Member:** ${member.user.username} [\`${member.user.id}\`]`,
-            `${ARROW} **Reason:** ${reason}`,
+            `<:VC_User:1482527453586002103> **Membro:** ${member.user.username} [\`${member.user.id}\`]`,
+            `<:VC_Reason:1478517122929004544> **Motivo:** ${reason}`,
             ...extraLines.filter(Boolean),
             "",
-            "**More Details:**",
-            `${ARROW} **Member Direct Messaged?** ${dmSent ? "✅" : "❌"}`,
-            `${ARROW} **Member Punished?** ${punished ? "✅" : "❌"}`,
+            "**<:VC_tools:1478862265305272364> Informazioni aggiuntive**",
+            `<:VC_Info:1482526956703580372> **Membro messaggio diretto?** ${dmSent ? "<a:VC_Verified:1482532479637127188>" : "<a:VC_Cross:1482532424570376253>"}`,
+            `<:VC_Info:1482526956703580372> **Membro punito?** ${punished ? "<a:VC_Verified:1482532479637127188>" : "<a:VC_Cross:1482532424570376253>"}`,
           ].join("\n"),
         )
         .setFooter({ text: "© 2026 Vinili & Caffè. Tutti i diritti riservati." })
@@ -1089,10 +1159,10 @@ async function handleTooYoungAccount(member, joinGateConfig = null) {
   const createdTs = toUnix(member.user.createdAt);
   const cfg = joinGateConfig || getJoinGateConfigSnapshot();
   const minAgeDays = Number(cfg?.newAccounts?.minAgeDays || 3);
-  await kickForJoinGate(member, "Account is too young to be allowed.", [
-    `${ARROW} **Rule:** Minimum Account Age`,
-    `${ARROW} **Account Age:** <t:${createdTs}:R>`,
-    `${ARROW} **Minimum Age:** ${minAgeDays} days`,
+  await kickForJoinGate(member, "Account troppo giovane per essere permesso.", [
+    `<:VC_Rules:1482527309868040393> **Regola:** Account troppo giovane`,
+    `<:VC_Clock:1473359204189474886> **Età account:** <t:${createdTs}:R>`,
+    `<:VC_Info:1482526956703580372> **Età minima:** ${minAgeDays} giorni`,
   ], cfg?.newAccounts?.action || "kick");
 }
 
@@ -1100,15 +1170,19 @@ async function sendJoinLog(member) {
   const joinLeaveLogChannel = await resolveGuildChannel(member.guild, JOIN_LEAVE_LOG_CHANNEL_ID,);
   if (!joinLeaveLogChannel) return;
 
+  const createdTs = toUnix(member.user.createdAt);
   const accountAge = formatAccountAge(member.user.createdAt);
   const joinLogEmbed = new EmbedBuilder()
     .setColor("#57F287")
-    .setTitle("Member Joined")
+    .setTitle("<:VC_User:1482527453586002103> Membro Entrato")
     .setDescription(
       [
-        `${member.user} ${member.user.tag}.`,
+        `<:VC_User:1482527453586002103> **Membro:** ${member.user} ${member.user.tag}.`,
         "",
-        "**Account Age**",
+        "**<:VC_tools:1478862265305272364> Informazioni aggiuntive**",
+        `<:VC_Id:1482527453586002103> **Id:** \`${member.user.id}\``,
+        `<:VC_Modifica:1478859646587633717> **Username:** ${member.user.username}`,
+        `<:VC_Clock:1473359204189474886> **Creation:** <t:${createdTs}:R>`,
         accountAge,
       ].join("\n"),
     )
@@ -1131,7 +1205,26 @@ function isUserDmUnavailableError(err) {
   return false;
 }
 
+function isMainGuildJoin(guildId) {
+  const gid = String(guildId || "");
+  const mainId = String(IDs.guilds?.main || "");
+  return Boolean(gid && mainId && gid === mainId);
+}
+
+async function maybeNotifyDiscordPrivacyBlockForMember(member) {
+  if (!member?.guild?.id || !member?.id) return;
+  const optedOut = await shouldBlockDm(member.guild.id, member.id, null).catch(() => false);
+  if (optedOut) return;
+  await notifyDmPrivacyBlockedInCommands({
+    guildId: member.guild.id,
+    userId: member.id,
+    commandsChannelId: IDs.channels.commands,
+    client: member.client,
+  }).catch(() => false);
+}
+
 async function sendDmWelcome(member) {
+  if (!isMainGuildJoin(member?.guild?.id)) return;
   const dmEmbed = buildDmWelcomeEmbed(member);
   const payload = { embeds: [dmEmbed] };
 
@@ -1139,7 +1232,10 @@ async function sendDmWelcome(member) {
     await member.send(payload);
     return;
   } catch (err) {
-    if (isUserDmUnavailableError(err)) return;
+    if (isUserDmUnavailableError(err)) {
+      await maybeNotifyDiscordPrivacyBlockForMember(member);
+      return;
+    }
   }
 
   await new Promise((resolve) => {
@@ -1150,7 +1246,10 @@ async function sendDmWelcome(member) {
   try {
     await member.send(payload);
   } catch (err) {
-    if (isUserDmUnavailableError(err)) return;
+    if (isUserDmUnavailableError(err)) {
+      await maybeNotifyDiscordPrivacyBlockForMember(member);
+      return;
+    }
     global.logger.warn(
       `[guildMemberAdd] Could not send DM to ${member.user.tag}: ${err?.message || err}${err?.code != null ? ` [${err.code}]` : ""}`,
     );
@@ -1212,7 +1311,8 @@ async function restoreCustomRoleOnRejoin(member) {
   const hasRequiredRole = CUSTOM_ROLE_REQUIRED_ROLE_IDS.some((requiredRoleId) => member.roles.cache.has(requiredRoleId));
   const hasEventWeek2Grant = await hasEventWeekWinnerGrant(guildId, userId, 2).catch(() => false);
   const hasEventWeek3Grant = await hasEventWeekWinnerGrant(guildId, userId, 3).catch(() => false);
-  if (!hasRequiredRole && !hasEventWeek2Grant && !hasEventWeek3Grant) return;
+  const hasContestExtraUnlock = await hasExtraCustomPerksUnlock(guildId, userId).catch(() => false);
+  if (!hasRequiredRole && !hasEventWeek2Grant && !hasEventWeek3Grant && !hasContestExtraUnlock) return;
 
   const refreshed = await addRolesAndGetMember(member.guild, member.id, [roleId]).catch(() => null);
   if (!refreshed?.roles?.cache?.has?.(roleId)) return;
@@ -1239,7 +1339,8 @@ async function announceInviteInfo(member, channel, info) {
 
   await channel
     .send({
-      content: `<:VC_Reply:1482532158080942191> È entratx con il link <${info.link}>,\n-# -> invitato da ${info.inviterTag} che ora ha **${info.totalInvites} inviti**.`,
+      content: `<:VC_Reply:1482532158080942191> È entratx con il link ${formatInviteLinkForJoinMessage(info.link)},\n-# -> invitato da ${info.inviterTag} che ora ha **${formatInviteCountIt(info.totalInvites)}**.`,
+      flags: MessageFlags.SuppressEmbeds,
     })
     .catch(() => { });
 }
@@ -1320,6 +1421,14 @@ async function markJoinAnnouncePending(member) {
   ).catch(() => null);
 }
 
+async function markJoinAnnounceSent(member) {
+  if (!member?.guild?.id || !member?.id) return;
+  await ActivityUserProfile.updateOne(
+    { guildId: String(member.guild.id), userId: String(member.id) },
+    { $set: { "profile.joinAnnounceSentAt": new Date() }, $unset: { "profile.joinAnnouncePending": "" } },
+  ).catch(() => null);
+}
+
 async function clearJoinAnnouncePending(member) {
   if (!member?.guild?.id || !member?.id) return;
   await ActivityUserProfile.updateOne(
@@ -1328,45 +1437,109 @@ async function clearJoinAnnouncePending(member) {
   ).catch(() => null);
 }
 
-async function runDeferredJoinAnnouncements(member) {
-  if (!member?.guild?.id || String(member.guild.id) !== String(IDs.guilds?.main || "")) return;
-  const guildId = String(member.guild.id);
-  const userId = String(member.id);
-  const cleared = await ActivityUserProfile.updateOne(
-    { guildId, userId, "profile.joinAnnouncePending": true },
-    { $unset: { "profile.joinAnnouncePending": "" } },
-  ).catch(() => ({ modifiedCount: 0 }));
-  const clearedCount = Number(cleared?.modifiedCount ?? cleared?.nModified ?? 0);
-  if (!clearedCount) return;
-
-  const fresh = await getGuildMemberCached(member.guild, member.id, { preferFresh: true }).catch(() => member);
-  if (!fresh?.user) return;
-
+async function resolveWelcomeChannelForMember(member) {
   const welcomeChannelId = IDs.channels.chat;
-  let welcomeChannel = await resolveGuildChannel(fresh.guild, welcomeChannelId);
-  if (!welcomeChannel && fresh.client) {
-    const mainGuild = await getClientGuildCached(fresh.client, IDs.guilds.main);
+  let welcomeChannel = await resolveGuildChannel(member.guild, welcomeChannelId);
+  if (!welcomeChannel && member.client) {
+    const mainGuild = await getClientGuildCached(member.client, IDs.guilds.main);
     welcomeChannel = mainGuild ? await getGuildChannelCached(mainGuild, welcomeChannelId) : null;
   }
   if (!welcomeChannel) {
     try {
-      const fetched = await fresh.guild.channels.fetch(String(welcomeChannelId)).catch(() => null);
+      const fetched = await member.guild.channels.fetch(String(welcomeChannelId)).catch(() => null);
       if (fetched?.isTextBased?.()) welcomeChannel = fetched;
     } catch (_) {}
   }
+  return welcomeChannel;
+}
 
+async function welcomeAnnounceExistsForUser(channel, memberOrUserId, botId, sinceMs) {
+  if (!channel?.messages?.fetch) return false;
+  const userId = String(typeof memberOrUserId === "object" ? memberOrUserId?.id : memberOrUserId || "");
+  if (!userId) return false;
+  const uname = typeof memberOrUserId === "object" ? accountUsername(memberOrUserId) : "";
+  const needle = `<@${userId}>`;
+  const minTs = Math.max(0, Number(sinceMs || 0) - 60_000);
+  const welcomeRe = /Vinili & Caff[eèé]|Benvento|Benvenuto|nella nostra community/i;
+  let before = undefined;
+  for (let page = 0; page < 4; page += 1) {
+    const recent = await channel.messages.fetch({ limit: 100, ...(before ? { before } : {}) }).catch(() => null);
+    if (!recent?.size) break;
+    let oldestTs = Infinity;
+    for (const m of recent.values()) {
+      const ts = Number(m.createdTimestamp || 0);
+      if (ts && ts < oldestTs) oldestTs = ts;
+      if (ts && ts < minTs) continue;
+      if (botId && String(m.author?.id || "") !== botId) continue;
+      const embeds = Array.isArray(m.embeds) ? m.embeds : [];
+      const parts = [String(m.content || "")];
+      for (const e of embeds) {
+        parts.push(String(e?.title || ""), String(e?.description || ""), String(e?.author?.name || ""));
+      }
+      const blob = parts.join("\n");
+      const mentionsUser = blob.includes(needle) || blob.includes(`<@!${userId}>`);
+      const authorMatches = uname && embeds.some((e) => String(e?.author?.name || "").trim() === uname);
+      if (!mentionsUser && !authorMatches) continue;
+      if (welcomeRe.test(blob)) return true;
+    }
+    if (oldestTs <= minTs) break;
+    const oldest = [...recent.values()].sort((a, b) => Number(a.createdTimestamp || 0) - Number(b.createdTimestamp || 0))[0];
+    if (!oldest?.id) break;
+    before = oldest.id;
+  }
+  return false;
+}
+
+async function joinWelcomeAlreadySent(channel, member, botId) {
+  if (!member?.id) return false;
+  const guildId = String(member.guild?.id || "");
+  const userId = String(member.id);
+  if (isMongoReady()) {
+    const doc = await ActivityUserProfile.findOne({ guildId, userId })
+      .select("profile.joinAnnounceSentAt")
+      .lean()
+      .catch(() => null);
+    if (doc?.profile?.joinAnnounceSentAt) return true;
+  }
+  const joined = Number(member.joinedTimestamp || 0);
+  const sinceMs = joined || Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const inChannel = await welcomeAnnounceExistsForUser(channel, member, botId, sinceMs);
+  if (inChannel) {
+    await markJoinAnnounceSent(member);
+    return true;
+  }
+  return false;
+}
+
+function joinRecoverySleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isJoinRecoveryPrimaryShard(client) {
+  return !client?.shard || client.shard.ids?.[0] === 0;
+}
+
+async function dispatchPublicJoinAnnouncements(member) {
+  if (!member?.guild?.id || String(member.guild.id) !== String(IDs.guilds?.main || "")) {
+    return { ok: false, reason: "wrong_guild" };
+  }
+  const fresh = await getGuildMemberCached(member.guild, member.id, { preferFresh: true }).catch(() => member);
+  if (!fresh?.user) return { ok: false, reason: "no_member" };
+  if (!(await shouldSendPublicMemberAnnouncement(fresh))) {
+    return { ok: false, reason: "gate_blocked" };
+  }
+
+  const welcomeChannel = await resolveWelcomeChannelForMember(fresh);
   const info = await resolveInviteInfo(fresh).catch(() => null);
+  const botId = String(fresh.client?.user?.id || "");
+  const welcomeAlreadySent = welcomeChannel ? await joinWelcomeAlreadySent(welcomeChannel, fresh, botId) : false;
 
-  if (welcomeChannel) {
-    await welcomeChannel
-      .send(applyDefaultFooterToEmbeds({
-        content: `Ciao ${fresh.user}, benvenuto/a! <@&${IDs.roles.Staff}> <a:VC_HeartOrange:1448673443762405386>`,
-        embeds: [buildWelcomeEmbed(fresh)],
-      }, fresh.guild))
-      .catch(() => { });
-
-    if (fresh.client) setWelcomeContextActive(fresh.guild.id, fresh.client);
+  if (fresh.client) await activateWelcomeContextForGuild(fresh.guild.id, fresh.id);
+  if (welcomeChannel && !welcomeAlreadySent) {
+    await sendWelcomeChannelAnnouncement(welcomeChannel, fresh);
     await announceInviteInfo(fresh, welcomeChannel, info);
+  } else if (welcomeAlreadySent) {
+    await clearJoinAnnouncePending(fresh);
   }
 
   if (info && !info.isVanity && info.inviterId) {
@@ -1375,22 +1548,105 @@ async function runDeferredJoinAnnouncements(member) {
   await maybeSendInviteNearRewardReminder(fresh, info);
   await maybeSendInviteReward(fresh, info);
 
-  await sendJoinLog(fresh).catch(() => { });
-
   if (fresh.guild?.id === IDs.guilds.main && fresh.client && memberHasStaffRole(fresh)) {
     scheduleStaffListRefresh(fresh.client, fresh.guild.id);
   }
+  return { ok: true, announced: Boolean(welcomeChannel) };
 }
 
-module.exports = {
-  name: "guildMemberAdd",
-  kickForJoinGate,
-  runDeferredJoinAnnouncements,
-  matchUsernameFilters,
-  getJoinGateNameCandidate,
+async function recoverJoinAnnouncementsOnStartup(client, opts = {}) {
+  if (!isJoinRecoveryPrimaryShard(client)) return { ok: false, reason: "not_primary_shard" };
+  const guildId = String(IDs.guilds.main || "");
+  if (!guildId) return { ok: false, reason: "no_main_guild" };
+  const guild = client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
+  if (!guild) return { ok: false, reason: "guild_not_found" };
+
+  const limit = Math.max(1, Math.min(50, Number(opts.limit || 25)));
+  const botId = String(client.user?.id || "");
+  const welcomeChannel = await resolveGuildChannel(guild, IDs.channels.chat);
+  if (!welcomeChannel?.isTextBased?.()) return { ok: false, reason: "no_welcome_channel" };
+
+  let recovered = 0;
+  let pendingProcessed = 0;
+
+  const pendingRows = await ActivityUserProfile.find({
+    guildId,
+    "profile.joinAnnouncePending": true,
+  })
+    .select("userId")
+    .limit(limit)
+    .lean()
+    .catch(() => []);
+
+  for (const row of pendingRows) {
+    const userId = String(row?.userId || "");
+    if (!userId) continue;
+    pendingProcessed += 1;
+    const member = await getGuildMemberCached(guild, userId, { preferFresh: true }).catch(() => null);
+    if (!member || member.user?.bot) {
+      await ActivityUserProfile.updateOne(
+        { guildId, userId },
+        { $unset: { "profile.joinAnnouncePending": "" } },
+      ).catch(() => null);
+      continue;
+    }
+    if (!(await shouldSendPublicMemberAnnouncement(member))) continue;
+    if (await joinWelcomeAlreadySent(welcomeChannel, member, botId)) {
+      await clearJoinAnnouncePending(member);
+      continue;
+    }
+    await runDeferredJoinAnnouncements(member);
+    recovered += 1;
+    await joinRecoverySleep(450);
+  }
+
+  return { ok: true, recovered, pendingProcessed };
+}
+
+async function runDeferredJoinAnnouncements(member) {
+  if (!member?.guild?.id || String(member.guild.id) !== String(IDs.guilds?.main || "")) return;
+  const guildId = String(member.guild.id);
+  const userId = String(member.id);
+  const welcomeChannel = await resolveWelcomeChannelForMember(member);
+  const botId = String(member.client?.user?.id || "");
+  if (welcomeChannel && (await joinWelcomeAlreadySent(welcomeChannel, member, botId))) {
+    await clearJoinAnnouncePending(member);
+    return;
+  }
+  const cleared = await ActivityUserProfile.updateOne(
+    { guildId, userId, "profile.joinAnnouncePending": true },
+    { $unset: { "profile.joinAnnouncePending": "" } },
+  ).catch(() => ({ modifiedCount: 0 }));
+  const clearedCount = Number(cleared?.modifiedCount ?? cleared?.nModified ?? 0);
+  if (!clearedCount) return;
+  await dispatchPublicJoinAnnouncements(member);
+}
+
+async function maybeApplyVerificationTenureOnJoin(member) {
+  if (!member?.guild || member.user?.bot) return;
+  const guild = member.guild;
+  if (!isAlreadyVerifiedInThisGuild(member, guild.id)) return;
+  try {
+    const record = await upsertVerifiedMember(guild.id, member.id, new Date());
+    await applyTenureForMember(member, record);
+  } catch (err) {
+    global.logger?.warn?.("[guildMemberAdd] verification tenure on join:", err?.message || err);
+  }
+}
+
+module.exports = { name: "guildMemberAdd", kickForJoinGate, runDeferredJoinAnnouncements, recoverJoinAnnouncementsOnStartup, matchUsernameFilters, getJoinGateNameCandidate,
   async execute(member) {
     try {
       if (!member?.guild || !member?.user) return;
+      if (await handleAccessGuildMemberAdd(member).catch((err) => {
+        global.logger?.warn?.("[guildMemberAdd] staff access mirror:", member.guild?.id, member.id, err?.message || err);
+        return false;
+      })) {
+        return;
+      }
+      await trackMemberJoin(member).catch((err) => {
+        global.logger?.warn?.("[guildMemberAdd] daily member stats:", err?.message || err);
+      });
       const joinGateConfig = getJoinGateConfigSnapshot();
       const isCoreExempt = await resolveJoinGateConfiguredExempt(member?.guild, member?.id, member);
       const sponsorNoJoinGate = isSponsorJoinGateGuildId(member.guild.id);
@@ -1401,8 +1657,8 @@ module.exports = {
             member,
             "Ingresso bloccato: lockdown di sicurezza attivo.",
             [
-              `${ARROW} **Rule:** Security Join Lock`,
-              `${ARROW} **Sources:** ${lockState.sources.join(", ")}`,
+              `<:VC_Rules:1482527309868040393> **Regola:** Blocco di sicurezza di ingresso`,
+              `<:VC_Info:1482526956703580372> **Fonti:** ${lockState.sources.join(", ")}`,
             ],
             "kick",
           );
@@ -1436,8 +1692,10 @@ module.exports = {
         if (!joinGateMatch && joinGateConfig?.enabled && joinGateConfig?.noAvatar?.enabled && hasNoAvatar(member)) {
           joinGateMatch = {
             rule: "noAvatar",
-            reason: "Account has no avatar.",
-            extraLines: [`${ARROW} **Rule:** No Avatar`],
+            reason: "Account senza avatar.",
+            extraLines: [
+              `<:VC_Rules:1482527309868040393> **Regola:** Account senza avatar`,
+            ],
             action: joinGateConfig?.noAvatar?.action || "log",
           };
         }
@@ -1450,10 +1708,10 @@ module.exports = {
         ) {
           joinGateMatch = {
             rule: "advertising",
-            reason: "Advertising invite link in username.",
+            reason: "Nome pubblicitario nel username.",
             extraLines: [
-              `${ARROW} **Rule:** Advertising Name`,
-              `${ARROW} **Name:** ${nameCandidate || "N/A"}`,
+              `<:VC_Rules:1482527309868040393> **Regola:** Nome pubblicitario`,
+              `<:VC_Modifica:1478859646587633717> **Nome:** ${nameCandidate || "N/A"}`,
             ],
             action: joinGateConfig?.advertisingName?.action || "kick",
           };
@@ -1462,12 +1720,12 @@ module.exports = {
         if (!joinGateMatch && usernameMatch) {
           joinGateMatch = {
             rule: "usernameFilter",
-            reason: "Username matches blocked pattern.",
+            reason: "Username corrisponde al pattern bloccato.",
             extraLines: [
-              `${ARROW} **Rule:** Username Filter`,
-              `${ARROW} **Match Type:** ${usernameMatch.type}`,
-              `${ARROW} **Match:** ${usernameMatch.value}`,
-              `${ARROW} **Name:** ${nameCandidate || "N/A"}`,
+              `<:VC_Rules:1482527309868040393> **Regola:** Filtro username`,
+              `<:VC_Info:1482526956703580372> **Tipo di match:** ${usernameMatch.type}`,
+              `<:VC_Modifica:1478859646587633717> **Match:** ${usernameMatch.value}`,
+              `<:VC_Modifica:1478859646587633717> **Nome:** ${nameCandidate || "N/A"}`,
             ],
             action: joinGateConfig?.usernameFilter?.action || "kick",
           };
@@ -1482,10 +1740,10 @@ module.exports = {
         if (!joinGateMatch && suspiciousReason) {
           joinGateMatch = {
             rule: "suspicious",
-            reason: `Suspicious account: ${suspiciousReason}`,
+            reason: `Account sospetto: ${suspiciousReason}`,
             extraLines: [
-              `${ARROW} **Rule:** Suspicious Account`,
-              `${ARROW} **Reason:** ${suspiciousReason}`,
+              `<:VC_Rules:1482527309868040393> **Regola:** Account sospetto`,
+              `<:VC_Reason:1478517122929004544> **Motivo:** ${suspiciousReason}`,
             ],
             action: joinGateConfig?.suspiciousAccount?.action || "log",
           };
@@ -1510,11 +1768,60 @@ module.exports = {
         }
       }
 
-      await restoreUserOnJoin(member.guild.id, member.id, member).catch(() => false);
+      if (String(member.guild?.id || "") === String(IDs.guilds?.main || "")) {
+        void ghostPingNewMemberOnJoin(member.client, member).catch(() => {});
+        if (member.client) {
+          await activateWelcomeContextForGuild(member.guild.id, member.id).catch(() => {});
+        }
+      }
 
-      await sponsorVerifiedRequiresMain.handleGuildMemberAdd(member).catch((err) => {
+      await sendDmWelcome(member).catch(() => {});
+
+      if (String(member.guild?.id || "") === String(IDs.guilds?.main || "")) {
+        await restoreManagerLeftServerPartnerPointsOnRejoin(member.client, member.id).catch((err) => {
+          global.logger?.warn?.("[guildMemberAdd] restoreManagerLeftServerPartnerPointsOnRejoin:", err?.message || err);
+        });
+      }
+
+      await syncMutedMirrorOnMemberJoin(member).catch((err) => {
+        global.logger?.warn?.("[guildMemberAdd] muted mirror rejoin:", member.id, err?.message || err);
+      });
+      await restoreUserOnJoin(member.guild.id, member.id, member).catch(() => false);
+      if (String(member.guild?.id || "") === String(IDs.guilds?.main || "")) {
+        await cancelCustomPerksDiscordCleanupQueue(member.guild.id, member.id).catch(() => {});
+      }
+
+      await applySponsorGuildAutoVerificato(member).catch((err) => {
+        global.logger?.warn?.("[guildMemberAdd] applySponsorGuildAutoVerificato:", err?.message || err);
+      });
+
+      const sponsorJoinGid = String(member.guild?.id || "");
+      const memberForTenure =
+        isSponsorGuildVerify(sponsorJoinGid)
+          ? (await getGuildMemberCached(member.guild, member.id, { preferFresh: true }).catch(() => null)) || member
+          : member;
+
+      await sponsorVerifiedRequiresMain.handleGuildMemberAdd(memberForTenure).catch((err) => {
         global.logger?.warn?.("[guildMemberAdd] sponsorVerifiedRequiresMain:", err?.message || err);
       });
+
+      const hadVerifyRole = isAlreadyVerifiedInThisGuild(memberForTenure, member.guild.id);
+      await maybeApplyVerificationTenureOnJoin(memberForTenure).catch((err) => {
+        global.logger?.warn?.("[guildMemberAdd] verificationTenureOnJoin:", err?.message || err);
+      });
+      const memberAfterVerifyJoin =
+        (hadVerifyRole
+          ? await getGuildMemberCached(member.guild, member.id, { preferFresh: true }).catch(() => null)
+          : null) ||
+        memberForTenure ||
+        member;
+      if (!memberAfterVerifyJoin?.guild) return;
+
+      if (String(member.guild?.id || "") === String(IDs.guilds?.main || "")) {
+        await syncPreMemberRoleForMember(memberAfterVerifyJoin).catch((err) => {
+          global.logger?.warn?.("[guildMemberAdd] preMember role:", member.id, err?.message || err);
+        });
+      }
 
       if (isCoreExempt) {
         await updateMemberCounterNow(member.guild).catch(() => { });
@@ -1529,24 +1836,24 @@ module.exports = {
       let info = null;
       let canAnnounce = true;
       if (String(member.guild?.id || "") === String(IDs.guilds?.main || "")) {
-        canAnnounce = await shouldSendPublicMemberAnnouncement(member);
-        if (!canAnnounce) await markJoinAnnouncePending(member);
-        else await clearJoinAnnouncePending(member);
+        canAnnounce = await shouldSendPublicMemberAnnouncement(memberAfterVerifyJoin);
+        if (!canAnnounce) await markJoinAnnouncePending(memberAfterVerifyJoin);
+        else await clearJoinAnnouncePending(memberAfterVerifyJoin);
 
         const welcomeChannelId = IDs.channels.chat;
-        let welcomeChannel = await resolveGuildChannel(member.guild, welcomeChannelId);
-        if (!welcomeChannel && member.client) {
-          const mainGuild = await getClientGuildCached(member.client, IDs.guilds.main);
+        let welcomeChannel = await resolveGuildChannel(memberAfterVerifyJoin.guild, welcomeChannelId);
+        if (!welcomeChannel && memberAfterVerifyJoin.client) {
+          const mainGuild = await getClientGuildCached(memberAfterVerifyJoin.client, IDs.guilds.main);
           welcomeChannel = mainGuild ? await getGuildChannelCached(mainGuild, welcomeChannelId) : null;
         }
         if (!welcomeChannel) {
           const detail = {
-            guildId: String(member.guild?.id || ""),
+            guildId: String(memberAfterVerifyJoin.guild?.id || ""),
             channelId: String(welcomeChannelId || ""),
-            cached: Boolean(member.guild?.channels?.cache?.has?.(String(welcomeChannelId || ""))),
+            cached: Boolean(memberAfterVerifyJoin.guild?.channels?.cache?.has?.(String(welcomeChannelId || ""))),
           };
           try {
-            const fetched = await member.guild.channels.fetch(String(welcomeChannelId)).catch((err) => {
+            const fetched = await memberAfterVerifyJoin.guild.channels.fetch(String(welcomeChannelId)).catch((err) => {
               const code = err?.code || err?.rawError?.code || null;
               global.logger?.warn?.("[guildMemberAdd] Welcome channel fetch failed:", {
                 ...detail,
@@ -1567,32 +1874,25 @@ module.exports = {
           }
         }
 
+        if (canAnnounce && memberAfterVerifyJoin.client) {
+          await refreshWelcomeContextForGuild(memberAfterVerifyJoin.guild.id, memberAfterVerifyJoin.id);
+        }
         if (welcomeChannel && canAnnounce) {
-          await welcomeChannel
-            .send(applyDefaultFooterToEmbeds({
-              content: `Ciao ${member.user}, benvenuto/a! <@&${IDs.roles.Staff}> <a:VC_HeartOrange:1448673443762405386>`,
-              embeds: [buildWelcomeEmbed(member)],
-            }, member.guild))
-            .catch(() => { });
-
-          if (member.client) setWelcomeContextActive(member.guild.id, member.client);
-
-          info = await resolveInviteInfo(member).catch(() => null);
-          await announceInviteInfo(member, welcomeChannel, info);
+          await sendWelcomeChannelAnnouncement(welcomeChannel, memberAfterVerifyJoin);
+          info = await resolveInviteInfo(memberAfterVerifyJoin).catch(() => null);
+          await announceInviteInfo(memberAfterVerifyJoin, welcomeChannel, info);
         }
       }
 
       setImmediate(() => {
         (async () => {
           try {
-            if (!member.user?.bot) {
-              await sendDmWelcome(member).catch(() => {});
-            }
             await restoreDiscadiaVoteRoleOnRejoin(member).catch(() => {});
             await restoreCustomRoleOnRejoin(member).catch(() => {});
-            if (canAnnounce) {
-              await sendJoinLog(member);
+            await maybeAssignHogwartsCompletionRoleOnJoin(member.client, member).catch(() => {});
+            await sendJoinLog(memberAfterVerifyJoin).catch(() => {});
 
+            if (canAnnounce) {
               if (info && !info.isVanity && info.inviterId) {
                 await trackInviteJoin(member, info.inviterId).catch(() => { });
               }

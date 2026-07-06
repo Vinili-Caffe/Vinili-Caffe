@@ -5,7 +5,7 @@ const { getUserCached } = require("../../Utils/Interaction/interactionEntityCach
 const { splitMessage, chunkLines } = require("../../Utils/Message/messageChunkUtils");
 const { checkModalPermission } = require("../../Utils/Moderation/commandPermissions");
 
-const getStaffRoleIds = (client) => { void client; return [IDs.roles.Staff, IDs.roles.PartnerManager, IDs.roles.HighStaff].map((id) => String(id || "").trim()).filter(Boolean); };
+const getStaffRoleIds = (client) => { void client; return [IDs.roles.Staff, IDs.roles.PartnerManager, IDs.roles.SeniorModerator, IDs.roles.Director, IDs.roles.HighStaff].map((id) => String(id || "").trim()).filter(Boolean); };
 
 function collectOpenDmRecipientIds(client) {
   const ids = new Set();

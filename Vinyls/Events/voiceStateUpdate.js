@@ -1,6 +1,10 @@
 const { EmbedBuilder, AuditLogEvent, PermissionsBitField, } = require("discord.js");
+const { handleMusicBotVoiceDisconnect } = require("../Services/Music/lavalinkMusicService");
 const { leaveTtsGuild, handleTtsBotVoiceMove, isTtsPostJoinVoiceGraceActive } = require("../Services/TTS/ttsService");
-const{handleVoiceActivity,}=require("../Services/Community/activityService");
+const { handleVoiceActivity, } = require("../Services/Community/activityService");
+const { trackVoiceEngagement } = require("../Services/Community/dailyEngagementStatsService");
+const { handleSerataFilmVoiceState } = require("../Services/Staff/staffAutoValutazioniService");
+const { handleSerataFilmHouseAttendanceVoiceState } = require("../Services/Community/hogwartsSerataFilmHouseLeaderboardService");
 const IDs = require("../Utils/Config/ids");
 const AUDIT_FETCH_LIMIT = 20;
 const AUDIT_LOOKBACK_MS = 120 * 1000;
@@ -24,8 +28,12 @@ function toDiscordTimestamp(value = new Date(), style = "F") {
 }
 
 function isTransientSendError(err) {
+  const status = Number(err?.status ?? err?.statusCode ?? err?.httpStatus ?? 0);
+  if (status === 500 || status === 502 || status === 503 || status === 504) return true;
   const msg = err?.message || String(err);
-  return /service unavailable|503|502|504|ECONNRESET|ETIMEDOUT/i.test(msg);
+  return /service unavailable|internal server error|503|502|504|500|ECONNRESET|ETIMEDOUT|rate.?limit/i.test(
+    msg,
+  );
 }
 
 async function sendLogWithRetry(logChannel, payload, logTag) {
@@ -33,7 +41,7 @@ async function sendLogWithRetry(logChannel, payload, logTag) {
   return send().catch(async (err) => {
     if (isTransientSendError(err)) {
       await sleep(1500);
-      await send().catch(() => {});
+      await send().catch(() => { });
     } else {
       global.logger?.warn?.(logTag, err?.message || err);
     }
@@ -59,10 +67,10 @@ async function resolveMemberUpdateAuditInfo(guild, targetUserId) {
   }
 
   for (let attempt = 0; attempt < 3; attempt += 1) {
-    const logs=await guild.fetchAuditLogs({type:AuditLogEvent.MemberUpdate,limit:AUDIT_FETCH_LIMIT,}).catch(() => null);
+    const logs = await guild.fetchAuditLogs({ type: AuditLogEvent.MemberUpdate, limit: AUDIT_FETCH_LIMIT, }).catch(() => null);
     if (logs?.entries?.size) {
       const nowMs = Date.now();
-      const entry=logs.entries.find((item) => {const createdMs=Number(item?.createdTimestamp||0);const targetId=String(item?.target?.id||"");const withinWindow=createdMs>0&&nowMs-createdMs<=AUDIT_LOOKBACK_MS;return withinWindow&&targetId===String(targetUserId||"");});
+      const entry = logs.entries.find((item) => { const createdMs = Number(item?.createdTimestamp || 0); const targetId = String(item?.target?.id || ""); const withinWindow = createdMs > 0 && nowMs - createdMs <= AUDIT_LOOKBACK_MS; return withinWindow && targetId === String(targetUserId || ""); });
       if (entry) {
         return {
           executor: entry.executor || null,
@@ -86,10 +94,10 @@ async function resolveMemberMoveAuditInfo(guild, targetUserId) {
   }
 
   for (let attempt = 0; attempt < 3; attempt += 1) {
-    const logs=await guild.fetchAuditLogs({type:AuditLogEvent.MemberMove,limit:AUDIT_FETCH_LIMIT,}).catch(() => null);
+    const logs = await guild.fetchAuditLogs({ type: AuditLogEvent.MemberMove, limit: AUDIT_FETCH_LIMIT, }).catch(() => null);
     if (logs?.entries?.size) {
       const nowMs = Date.now();
-      const entry=logs.entries.find((item) => {const createdMs=Number(item?.createdTimestamp||0);const targetId=String(item?.target?.id||"");const withinWindow=createdMs>0&&nowMs-createdMs<=AUDIT_LOOKBACK_MS;return withinWindow&&targetId===String(targetUserId||"");});
+      const entry = logs.entries.find((item) => { const createdMs = Number(item?.createdTimestamp || 0); const targetId = String(item?.target?.id || ""); const withinWindow = createdMs > 0 && nowMs - createdMs <= AUDIT_LOOKBACK_MS; return withinWindow && targetId === String(targetUserId || ""); });
       if (entry) {
         return {
           executor: entry.executor || null,
@@ -118,10 +126,10 @@ async function resolveMemberDisconnectAuditInfo(guild, targetUserId) {
   }
 
   for (let attempt = 0; attempt < 3; attempt += 1) {
-    const logs=await guild.fetchAuditLogs({type:actionType,limit:AUDIT_FETCH_LIMIT,}).catch(() => null);
+    const logs = await guild.fetchAuditLogs({ type: actionType, limit: AUDIT_FETCH_LIMIT, }).catch(() => null);
     if (logs?.entries?.size) {
       const nowMs = Date.now();
-      const entry=logs.entries.find((item) => {const createdMs=Number(item?.createdTimestamp||0);const targetId=String(item?.target?.id||"");const withinWindow=createdMs>0&&nowMs-createdMs<=AUDIT_LOOKBACK_MS;return withinWindow&&targetId===String(targetUserId||"");});
+      const entry = logs.entries.find((item) => { const createdMs = Number(item?.createdTimestamp || 0); const targetId = String(item?.target?.id || ""); const withinWindow = createdMs > 0 && nowMs - createdMs <= AUDIT_LOOKBACK_MS; return withinWindow && targetId === String(targetUserId || ""); });
       if (entry) {
         return {
           executor: entry.executor || null,
@@ -152,15 +160,15 @@ async function sendMemberDisconnectLog(oldState, newState) {
 
   const embed = new EmbedBuilder()
     .setColor("#ED4245")
-    .setTitle("Member Disconnect")
-    .setDescription([`<:VC_right_arrow:1482459908245815296> **Responsible:** ${formatActor(audit.executor)}`,
-        `<:VC_right_arrow:1482459908245815296> **Target:** ${user}\`${user.id}\``,
-        `<:VC_right_arrow:1482459908245815296> ${toDiscordTimestamp(new Date(), "F")}`,
-        "",
-        "**Additional Information**",
-        `<:VC_right_arrow:1482459908245815296> **Channel:** ${fromChannel}\`${oldChannelId || "sconosciuto"}\``,
-        `<:VC_right_arrow:1482459908245815296> **Count:** ${Math.max(1, Number(audit?.count || 1))}`,
-      ].join("\n"));
+    .setTitle("<:VC_User:1482527453586002103> Membro Disconnesso")
+    .setDescription([`<:VC_Staff:1494286904089247754> **Responsabile:** ${formatActor(audit.executor)}`,
+    `<:VC_User:1482527453586002103> **Target:** ${user}\`${user.id}\``,
+    `<:VC_Clock:1473359204189474886> ${toDiscordTimestamp(new Date(), "F")}`,
+      "",
+      "**<:VC_tools:1478862265305272364> Informazioni aggiuntive**",
+    `<:VC_Modifica:1478859646587633717> **Canale:** ${fromChannel}\`${oldChannelId || "sconosciuto"}\``,
+    `<:VC_Modifica:1478859646587633717> **Conteggio:** ${Math.max(1, Number(audit?.count || 1))}`,
+    ].join("\n"));
 
   await sendLogWithRetry(logChannel, { embeds: [embed] }, "[voiceStateUpdate] sendMemberDisconnectLog failed:");
 }
@@ -181,13 +189,13 @@ async function sendMemberJoinLog(oldState, newState) {
 
   const embed = new EmbedBuilder()
     .setColor("#57F287")
-    .setTitle("Member Join")
+    .setTitle("<:VC_User:1482527453586002103> Membro Entrato")
     .setDescription([
-      `<:VC_right_arrow:1482459908245815296> **Target:** ${user}\`${user.id}\``,
-      `<:VC_right_arrow:1482459908245815296> ${toDiscordTimestamp(new Date(), "F")}`,
+      `<:VC_User:1482527453586002103> **Target:** ${user}\`${user.id}\``,
+      `<:VC_Clock:1473359204189474886> ${toDiscordTimestamp(new Date(), "F")}`,
       "",
-      "**Additional Information**",
-      `<:VC_right_arrow:1482459908245815296> **Channel:** ${destination}\`${newChannelId || "sconosciuto"}\``,
+      "**<:VC_tools:1478862265305272364> Informazioni aggiuntive**",
+      `<:VC_Modifica:1478859646587633717> **Canale:** ${destination}\`${newChannelId || "sconosciuto"}\``,
     ].join("\n"));
 
   await sendLogWithRetry(logChannel, { embeds: [embed] }, "[voiceStateUpdate] sendMemberJoinLog failed:");
@@ -212,20 +220,20 @@ async function sendMemberMoveLog(oldState, newState) {
 
   const embed = new EmbedBuilder()
     .setColor("#F59E0B")
-    .setTitle("Member Move")
-    .setDescription([`<:VC_right_arrow:1482459908245815296> **Responsible:** ${responsibleText}`,
-        `<:VC_right_arrow:1482459908245815296> ${toDiscordTimestamp(new Date(), "F")}`,
-        "",
-        "**Additional Information**",
-        `<:VC_right_arrow:1482459908245815296> **Channel:** ${destination}\`${newChannelId}\``,
-        `<:VC_right_arrow:1482459908245815296> **Count:** ${Math.max(1, Number(audit.count || 1))}`,
-      ].join("\n"));
+    .setTitle("<:VC_User:1482527453586002103> Membro Spostato")
+    .setDescription([`<:VC_Staff:1494286904089247754> **Responsabile:** ${responsibleText}`,
+    `<:VC_Clock:1473359204189474886> ${toDiscordTimestamp(new Date(), "F")}`,
+      "",
+    "**<:VC_tools:1478862265305272364> Informazioni aggiuntive**",
+    `<:VC_Modifica:1478859646587633717> **Canale:** ${destination}\`${newChannelId}\``,
+    `<:VC_Modifica:1478859646587633717> **Conteggio:** ${Math.max(1, Number(audit.count || 1))}`,
+    ].join("\n"));
 
   await sendLogWithRetry(logChannel, { embeds: [embed] }, "[voiceStateUpdate] sendMemberMoveLog failed:");
 }
 
 function yesNo(value) {
-  return value ? "Yes" : "No";
+  return value ? "Si" : "No";
 }
 
 async function sendMemberVoiceFlagsUpdateLog(oldState, newState) {
@@ -247,35 +255,35 @@ async function sendMemberVoiceFlagsUpdateLog(oldState, newState) {
   const audit = auditNeeded ? await resolveMemberUpdateAuditInfo(guild, user.id) : { executor: null, reason: null };
   const responsibleText = auditNeeded ? formatActor(audit.executor) : `${user} \`${user.id}\``;
 
-  const lines = [`<:VC_right_arrow:1482459908245815296> **Responsible:** ${responsibleText}`,
-    `<:VC_right_arrow:1482459908245815296> **Target:** ${user}\`${user.id}\``,
-    `<:VC_right_arrow:1482459908245815296> ${toDiscordTimestamp(new Date(), "F")}`,
+  const lines = [`<:VC_Staff:1494286904089247754> **Responsabile:** ${responsibleText}`,
+  `<:VC_User:1482527453586002103> **Target:** ${user}\`${user.id}\``,
+  `<:VC_Clock:1473359204189474886> ${toDiscordTimestamp(new Date(), "F")}`,
   ];
   if (auditNeeded && audit.reason) {
-    lines.push(`<:VC_right_arrow:1482459908245815296> **Reason:** ${audit.reason}`);
+    lines.push(`<:VC_Modifica:1478859646587633717> **Motivo:** ${audit.reason}`);
   }
-  lines.push("", "**Changes**");
+  lines.push("", "**<:VC_tools:1478862265305272364> Cambiamenti**");
 
   if (muteChanged) {
-    lines.push("<:VC_right_arrow:1482459908245815296> **Mute**");
-    lines.push(`  ${yesNo(Boolean(oldState?.serverMute))} <:VC_right_arrow:1482459908245815296> ${yesNo(Boolean(newState?.serverMute))}`);
+    lines.push("<:VC_Modifica:1478859646587633717> **Mute**");
+    lines.push(`${yesNo(Boolean(oldState?.serverMute))} <a:VC_Arrow:1482706699365257397> ${yesNo(Boolean(newState?.serverMute))}`);
   }
   if (deafChanged) {
-    lines.push("<:VC_right_arrow:1482459908245815296> **Deaf**");
-    lines.push(`  ${yesNo(Boolean(oldState?.serverDeaf))} <:VC_right_arrow:1482459908245815296> ${yesNo(Boolean(newState?.serverDeaf))}`);
+    lines.push("<:VC_Modifica:1478859646587633717> **Deaf**");
+    lines.push(`${yesNo(Boolean(oldState?.serverDeaf))} <a:VC_Arrow:1482706699365257397> ${yesNo(Boolean(newState?.serverDeaf))}`);
   }
   if (selfMuteChanged) {
-    lines.push("<:VC_right_arrow:1482459908245815296> **Self Mute**");
-    lines.push(`  ${yesNo(Boolean(oldState?.selfMute))} <:VC_right_arrow:1482459908245815296> ${yesNo(Boolean(newState?.selfMute))}`);
+    lines.push("<:VC_Modifica:1478859646587633717> **Self Mute**");
+    lines.push(`${yesNo(Boolean(oldState?.selfMute))} <a:VC_Arrow:1482706699365257397> ${yesNo(Boolean(newState?.selfMute))}`);
   }
   if (selfDeafChanged) {
-    lines.push("<:VC_right_arrow:1482459908245815296> **Self Deaf**");
-    lines.push(`  ${yesNo(Boolean(oldState?.selfDeaf))} <:VC_right_arrow:1482459908245815296> ${yesNo(Boolean(newState?.selfDeaf))}`);
+    lines.push("<:VC_Modifica:1478859646587633717> **Self Deaf**");
+    lines.push(`${yesNo(Boolean(oldState?.selfDeaf))} <a:VC_Arrow:1482706699365257397> ${yesNo(Boolean(newState?.selfDeaf))}`);
   }
 
   const embed = new EmbedBuilder()
     .setColor("#F59E0B")
-    .setTitle("Member Update")
+    .setTitle("<:VC_User:1482527453586002103> Membro Aggiornato")
     .setDescription(lines.join("\n"));
 
   await sendLogWithRetry(logChannel, { embeds: [embed] }, "[voiceStateUpdate] sendMemberVoiceFlagsUpdateLog failed:");
@@ -306,6 +314,25 @@ module.exports = {
     }
 
     try {
+      await handleSerataFilmVoiceState(oldState, newState);
+    } catch (error) {
+      global.logger?.error?.("[SERATA FILM STAFF AUTO ERROR]", error);
+    }
+
+    try {
+      await handleSerataFilmHouseAttendanceVoiceState(oldState, newState);
+    } catch (error) {
+      global.logger?.error?.("[SERATA FILM HOUSE LB ERROR]", error);
+    }
+
+    try {
+      const { handleCustomVocVoiceStateUpdate } = require("../Services/Community/customVocPermissionsService");
+      await handleCustomVocVoiceStateUpdate(oldState, newState);
+    } catch (error) {
+      global.logger?.error?.("[CUSTOM VOC PERMS] voiceStateUpdate failed:", error);
+    }
+
+    try {
       await handleVoiceActivity(oldState, newState);
     } catch (error) {
       if (client?.logs?.error) {
@@ -313,6 +340,54 @@ module.exports = {
       } else {
         global.logger?.error?.("[ACTIVITY VOICE ERROR]", error);
       }
+    }
+    try {
+      await trackVoiceEngagement(oldState, newState);
+    } catch (error) {
+      global.logger?.error?.("[DAILY ENGAGEMENT VOICE ERROR]", error);
+    }
+    try {
+      const { handleMinigameVoiceState } = require("../Services/Minigames/minigameService");
+      await handleMinigameVoiceState(oldState, newState, client);
+    } catch (error) {
+      global.logger?.error?.("[MINIGAMES] voiceStateUpdate failed:", error);
+    }
+    try {
+      const { handlePublicVoiceHubJoin, handlePublicVoiceHubEmpty } = require("../Services/Voice/publicVoiceHubService");
+      if (client?.config?.publicVoiceHubs?.enabled !== false) {
+        await handlePublicVoiceHubJoin(oldState, newState, client);
+        await handlePublicVoiceHubEmpty(oldState, newState, client);
+      }
+    } catch (error) {
+      global.logger?.error?.("[PUBLIC VOICE HUB ERROR]", error);
+    }
+
+    try {
+      const {
+        handleStanzaVoiceLobbyJoin,
+        handleStanzaVoiceOccupied,
+        handleStanzaVoiceEmpty,
+      } = require("../Services/Voice/stanzaVoiceRoomsService");
+      await handleStanzaVoiceLobbyJoin(oldState, newState, client);
+      await handleStanzaVoiceOccupied(oldState, newState);
+      await handleStanzaVoiceEmpty(oldState, newState);
+    } catch (error) {
+      global.logger?.error?.("[STANZA VOICE ERROR]", error);
+    }
+
+    try {
+      const { handlePmVoiceAfkVoiceState } = require("../Services/Staff/pmVoiceAfkWatchService");
+      await handlePmVoiceAfkVoiceState(oldState, newState, client);
+    } catch (error) {
+      global.logger?.error?.("[PM AFK WATCH] voiceStateUpdate failed:", error);
+    }
+    try {
+      const { syncCaptureVoiceChannelMember } = require("../Services/Voice/voiceContinuousCaptureService");
+      if (newState?.channelId && newState.member && !newState.member.user?.bot) {
+        syncCaptureVoiceChannelMember(newState.guild?.id, newState.member);
+      }
+    } catch (error) {
+      global.logger?.warn?.("[voiceStateUpdate] clip capture sync failed:", error?.message || error);
     }
 
     if (!client?.user?.id) return;
@@ -341,6 +416,10 @@ module.exports = {
       oldState.channelId &&
       !newState.channelId
     ) {
+      await handleMusicBotVoiceDisconnect(client, guild).catch((err) => {
+        global.logger?.warn?.("[voiceStateUpdate] handleMusicBotVoiceDisconnect failed:", err?.message || err);
+      });
+      await guild.members.fetch({ user: client.user.id, force: true }).catch(() => null);
       await leaveTtsGuild(guild.id, client).catch((err) => {
         global.logger?.warn?.("[voiceStateUpdate] leaveTtsGuild failed:", err?.message || err);
       });
@@ -354,9 +433,15 @@ module.exports = {
 
     const humans = botChannel.members.filter((m) => !m.user.bot);
     if (humans.size === 0) {
-      await leaveTtsGuild(guild.id, client).catch((err) => {
-        global.logger?.warn?.("[voiceStateUpdate] leaveTtsGuild failed:", err?.message || err);
-      });
+      const { shouldDeferTtsLeaveForFindBotVoiceMinigame } = require("../Services/Minigames/minigameService");
+      const { shouldDeferTtsLeaveForMusicEmptyVc } = require("../Services/Music/lavalinkMusicService");
+      if (shouldDeferTtsLeaveForFindBotVoiceMinigame(client, guild.id, botChannel.id)) {
+      } else if (shouldDeferTtsLeaveForMusicEmptyVc(client, guild.id)) {
+      } else {
+        await leaveTtsGuild(guild.id, client).catch((err) => {
+          global.logger?.warn?.("[voiceStateUpdate] leaveTtsGuild failed:", err?.message || err);
+        });
+      }
     }
   },
 };

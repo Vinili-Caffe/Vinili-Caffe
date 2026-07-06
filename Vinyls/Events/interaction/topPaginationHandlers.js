@@ -34,7 +34,7 @@ module.exports = {
       String(parsed.ownerId) !== String(interaction.user?.id || "")
     ) {
       await interaction.reply({
-        content: "<:vegax:1443934876440068179> Questo controllo non appartiene a te.",
+        content: "<:vegax:1443934876440068179> Non puoi modificare questo controllo.",
         flags: 1 << 6,
       }).catch(() => { });
       return true;
@@ -46,38 +46,22 @@ module.exports = {
       const requestedPage = Math.min(Math.max(1, inputPage), parsed.totalPages);
 
       if (!interaction.message) {
-        await interaction.reply({
-          content:
-            "<:vegax:1443934876440068179> Non trovo il messaggio da aggiornare.",
-          flags: 1 << 6,
-        });
+        await interaction.reply({ content: "<:vegax:1443934876440068179> Non trovo il messaggio da aggiornare." }).catch(() => { });
         return true;
       }
 
       await interaction.deferUpdate();
       const payload = await buildTopChannelPayload({ guild: interaction.guild }, parsed.lookbackDays, parsed.controlsView, parsed.selectedView, requestedPage, parsed.ownerId || interaction.user?.id,);
 
-      await interaction.message.edit({
-        ...payload,
-        content: payload.content || null,
-      });
+      await interaction.message.edit({ ...payload, content: payload.content || null }).catch(() => { });
     } catch (error) {
       global.logger?.error?.("[TOP CHANNEL PAGE MODAL] Failed:", error);
       if (interaction.deferred || interaction.replied) {
-        await interaction.followUp({
-          content:
-            "<:vegax:1443934876440068179> Errore durante il cambio pagina.",
-          flags: 1 << 6,
-        }).catch(() => { });
+        await interaction.followUp({ content: "<:vegax:1443934876440068179> Errore durante il cambio pagina." }).catch(() => { });
       } else {
-        await interaction.reply({
-          content:
-            "<:vegax:1443934876440068179> Errore durante il cambio pagina.",
-          flags: 1 << 6,
-        }).catch(() => { });
+        await interaction.reply({ content: "<:vegax:1443934876440068179> Errore durante il cambio pagina." }).catch(() => { });
       }
     }
-
     return true;
   },
 };

@@ -1,10 +1,118 @@
 let _canvasModule = null;
 function getCanvasModule() { if (!_canvasModule) _canvasModule = require("canvas"); return _canvasModule; }
-const { registerCanvasFonts, drawTextWithSpecialFallback, fontStack, } = require("./canvasFonts");
-const { safeLoadImage } = require("./safeLoadImage");
-const emojiImageCache = new Map();
-const CUSTOM_EMOJI_START_RE = /^<(a)?:([a-zA-Z0-9_~]+):(\d{16,22})>/;
+const { registerCanvasFonts, drawTextWithSpecialFallback } = require("./canvasFonts");
+const decodeGif = require("decode-gif");
+const { safeLoadImage, fetchHttpImageBuffer } = require("./safeLoadImage");
+const { drawActivityGlyph } = require("./canvasIconGlyphs");
+const {
+  prepareVisibleText,
+  drawLabelWithEmoji,
+  textWidth,
+  wrapRichTextToLines,
+} = require("./canvasEmojiRichText");
+const STATS_GAP = 22;
+const STATS_HEADER_BADGE_W = 340;
 const ROME_TIME_ZONE = "Europe/Rome";
+
+/** GIF attività (+me / +server / +channel): `VC_ACTIVITY_CANVAS_GIF=1` per animazione (default: PNG statico). */
+const ACTIVITY_CANVAS_GIF = String(process.env.VC_ACTIVITY_CANVAS_GIF ?? "0").trim() === "1";
+const ACTIVITY_CANVAS_ANIM_FRAMES = Math.max(
+  2,
+  Math.min(30, Math.floor(Number(process.env.VC_ACTIVITY_CANVAS_ANIM_FRAMES ?? 12))),
+);
+/** Un solo frame “fermo” in coda con delay lungo (prima: 20 frame identici ridisegnati). */
+const ACTIVITY_CANVAS_STATIC_TAIL_DELAY_MS = Math.max(
+  100,
+  Math.min(20000, Math.floor(Number(process.env.VC_ACTIVITY_CANVAS_STATIC_TAIL_DELAY_MS ?? 2800))),
+);
+const ACTIVITY_CHANNEL_ANIM_FRAMES = Math.max(
+  2,
+  Math.min(30, Math.floor(Number(process.env.VC_ACTIVITY_CHANNEL_ANIM_FRAMES ?? 12))),
+);
+const STATS_AVATAR_CACHE_TTL_MS = Math.max(
+  0,
+  Math.min(600_000, Number(process.env.STATS_AVATAR_CACHE_TTL_MS ?? 300_000)),
+);
+const statsAvatarCache = new Map();
+
+function getStatsAvatarCache(url) {
+  if (!STATS_AVATAR_CACHE_TTL_MS) return null;
+  const key = String(url || "");
+  if (!key) return null;
+  const entry = statsAvatarCache.get(key);
+  if (!entry || entry.expiresAt <= Date.now()) {
+    if (entry) statsAvatarCache.delete(key);
+    return null;
+  }
+  return entry.value;
+}
+
+function setStatsAvatarCache(url, value) {
+  if (!STATS_AVATAR_CACHE_TTL_MS || !value) return;
+  const key = String(url || "");
+  if (!key) return;
+  statsAvatarCache.set(key, { value, expiresAt: Date.now() + STATS_AVATAR_CACHE_TTL_MS });
+  if (statsAvatarCache.size > 250) {
+    const oldest = statsAvatarCache.keys().next().value;
+    if (oldest) statsAvatarCache.delete(oldest);
+  }
+}
+
+const STATS_TITLE = "#e8edf2";
+const STATS_BODY = "#c5d0db";
+const STATS_MUTED = "#97a6b6";
+const STATS_VALUE = "#dce6ef";
+const STATS_PANEL_GLYPH = "#c6d4e8";
+const CHART_LINE_MSG = "#7ab89a";
+const CHART_LINE_VOICE = "#a894c4";
+
+function stripBrokenReplacementChars(input) {
+  return String(input || "").replace(/\uFFFD/g, "").replace(/\s{2,}/g, " ").trim();
+}
+
+/** Rimuove spazi invisibili / ZW e comprime spazi che rompono nomi tipo `i.4m.cris` su canvas. */
+function sanitizeDisplayLabel(input) {
+  return String(input || "")
+    .replace(/[\u00AD\u034F\u200B-\u200D\uFEFF]/g, "")
+    .replace(/[\u00A0\u2000-\u200A\u202F\u205F\u3000]/g, " ")
+    .replace(/ {2,}/g, " ")
+    .trim();
+}
+
+function drawSolidStatTitle(ctx, text, x, y, maxWidth, maxSize, minSize, color = STATS_TITLE) {
+  const value = prepareVisibleText(String(text || "").trim() || "—");
+  const size = getFittedFontSize(ctx, value, maxWidth, maxSize, minSize, "700");
+  drawLabel(ctx, value, x, y, { size, weight: "700", color, forcePrimaryFont: true });
+}
+
+function formatCanvasDisplayText(input, maxLen = 0) {
+  let text = stripBrokenReplacementChars(sanitizeDisplayLabel(String(input || "").trim()));
+  if (!text) return "—";
+  if (maxLen > 0 && text.length > maxLen) text = `${text.slice(0, Math.max(1, maxLen - 1))}…`;
+  return text;
+}
+
+function prepareCanvasHeaderText(input, fallback = "—") {
+  const text = stripBrokenReplacementChars(sanitizeDisplayLabel(String(input || "").trim()));
+  return text || fallback;
+}
+
+function formatCanvasChannelLabel(rawName) {
+  const cleaned = formatCanvasDisplayText(String(rawName || "").replace(/^#+\s*/, "").trim());
+  return cleaned === "—" ? "# —" : `# ${cleaned}`;
+}
+
+function dateTextCompact(value) {
+  if (!value) return "—";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("it-IT", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    timeZone: ROME_TIME_ZONE,
+  });
+}
 
 function roundRectPath(ctx, x, y, w, h, r = 16) {
   const radius = Math.max(0, Math.min(r, w / 2, h / 2));
@@ -41,14 +149,6 @@ function compactNumber(value) {
   return `${n}`;
 }
 
-function textWidth(ctx, text, size = 16, weight = "600") {
-  ctx.save();
-  ctx.font = fontStack(size, weight);
-  const width = ctx.measureText(String(text || "")).width;
-  ctx.restore();
-  return width;
-}
-
 function fitText(ctx, text, maxWidth, size = 16, weight = "600") {
   const value = String(text || "").trim();
   if (!value) return "-";
@@ -73,38 +173,40 @@ function getFittedFontSize(ctx, text, maxWidth, maxSize = 52, minSize = 14, weig
   return minSize;
 }
 
+/** Una sola riga, larghezza misurata con emoji (Twemoji token width) come in wrapRichTextToLines. */
+function getFittedFontSizeOneLineEmoji(ctx, text, maxWidth, maxSize, minSize, weight) {
+  const prep = prepareVisibleText(String(text || "").trim());
+  if (!prep) return maxSize;
+  for (let s = maxSize; s >= minSize; s -= 1) {
+    const lines = wrapRichTextToLines(ctx, prep, maxWidth, s, weight);
+    if (lines.length <= 1) return s;
+  }
+  return minSize;
+}
+
+/** Titolo su più righe (Twemoji-aware via wrapRichTextToLines) per header stats. */
+function computeWrappedTitleLines(ctx, rawText, nameMaxW, options = {}) {
+  const weight = options.weight ?? "700";
+  const fallback = options.fallback ?? "—";
+  const line = stripBrokenReplacementChars(String(rawText || "").trim()) || fallback;
+  let size = options.startSize ?? 40;
+  const minSize = options.minSize ?? 12;
+  const maxLines = options.maxLines ?? 2;
+  const prep = prepareVisibleText(line);
+  let lines = wrapRichTextToLines(ctx, prep, nameMaxW, size, weight);
+  for (; size >= minSize; size -= 1) {
+    lines = wrapRichTextToLines(ctx, prep, nameMaxW, size, weight);
+    if (lines.length <= maxLines) break;
+  }
+  if (lines.length > maxLines) lines = lines.slice(0, maxLines);
+  const lineHeight = Math.max(22, Math.round(size * 1.28));
+  return { source: line, lines, size, lineHeight };
+}
+
 function drawLabelFull(ctx, text, x, y, maxWidth, maxSize = 52, options = {}) {
   const value = String(text || "").trim() || "—";
   const size = getFittedFontSize(ctx, value, maxWidth, maxSize, options.minSize ?? 14, options.weight ?? "700");
   drawLabel(ctx, value, x, y, { ...options, size });
-}
-
-function prepareVisibleText(value) {
-  const raw = String(value || "");
-  const protectedMap = new Map([["\u00B9", "__VC_KEEP_SUP_1__"], ["\u00B2", "__VC_KEEP_SUP_2__"], ["\u00B3", "__VC_KEEP_SUP_3__"],]);
-  const compatibilityMap = new Map([["\u0F04", "\u2736"], ["\uFE32", "\u2502"], ["\u1CBC", "\u00B7"],]);
-
-  let out = raw;
-  for (const [char, token] of protectedMap.entries()) {
-    out = out.split(char).join(token);
-  }
-  for (const [char, replacement] of compatibilityMap.entries()) {
-    out = out.split(char).join(replacement);
-  }
-
-  out = out
-    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "")
-    .replace(/\uFFFD/g, "")
-    .normalize("NFC")
-    .trim();
-
-  out = out.replace(/[\u{1D400}-\u{1D7FF}]/gu, (ch) => ch.normalize("NFKC"));
-
-  for (const [char, token] of protectedMap.entries()) {
-    out = out.split(token).join(char);
-  }
-
-  return out || "-";
 }
 
 function drawLabel(
@@ -134,181 +236,21 @@ function drawLabel(
   });
 }
 
-function isEmojiCodePoint(cp) {
-  if (!Number.isFinite(cp)) return false;
-  if (cp >= 0x1f000 && cp <= 0x1faff) return true;
-  if (cp >= 0x2600 && cp <= 0x27bf) return true;
-  if (cp >= 0x2300 && cp <= 0x23ff) return true;
-  if (cp >= 0x2b00 && cp <= 0x2bff) return true;
-  if (
-    cp === 0x00a9 ||
-    cp === 0x00ae ||
-    cp === 0x2122 ||
-    cp === 0x3030 ||
-    cp === 0x303d
-  )
-    return true;
-  return false;
-}
-
-function tokenizeEmojiText(text) {
-  const chars = Array.from(prepareVisibleText(text));
-  const tokens = [];
-  let buffer = "";
-  let emoji = "";
-
-  const flushText = () => { if (!buffer) return; tokens.push({ type: "text", value: buffer }); buffer = ""; };
-  const flushEmoji = () => { if (!emoji) return; tokens.push({ type: "emoji", value: emoji }); emoji = ""; };
-
-  for (let i = 0; i < chars.length; i += 1) {
-    const rest = chars.slice(i).join("");
-    const customMatch = rest.match(CUSTOM_EMOJI_START_RE);
-    if (customMatch) {
-      flushEmoji();
-      flushText();
-      tokens.push({
-        type: "custom_emoji",
-        id: customMatch[3],
-        animated: customMatch[1] === "a",
-        raw: customMatch[0],
-      });
-      i += customMatch[0].length - 1;
-      continue;
-    }
-
-    const ch = chars[i];
-    const cp = ch.codePointAt(0);
-    const next = chars[i + 1];
-    const nextCp = next ? next.codePointAt(0) : null;
-    const isJoiner = cp === 0x200d;
-    const isVariation = cp === 0xfe0f;
-    const isEmoji = isEmojiCodePoint(cp);
-
-    if (isEmoji || (emoji && (isJoiner || isVariation))) {
-      flushText();
-      emoji += ch;
-      const nextIsEmoji = isEmojiCodePoint(nextCp);
-      const nextIsJoiner = nextCp === 0x200d;
-      const nextIsVariation = nextCp === 0xfe0f;
-
-      if (isJoiner || nextIsJoiner || nextIsVariation) {
-        continue;
-      }
-      if (isEmoji && nextIsEmoji) {
-        flushEmoji();
-        continue;
-      }
-      flushEmoji();
-      continue;
-    }
-
-    flushEmoji();
-    buffer += ch;
-  }
-
-  flushEmoji();
-  flushText();
-  return tokens.length ? tokens : [{ type: "text", value: "" }];
-}
-
-function twemojiUrlFromCodepoints(codepoints) {
-  return `https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/${codepoints.join("-")}.png`;
-}
-
-function emojiToTwemojiUrls(emoji) {
-  const cps = Array.from(String(emoji || "")).map((ch) => ch.codePointAt(0).toString(16).toLowerCase());
-  if (!cps.length) return [];
-  const urls = [];
-  const pushByCps = (list) => {
-    if (!Array.isArray(list) || !list.length) return;
-    const url = twemojiUrlFromCodepoints(list);
-    if (!urls.includes(url)) urls.push(url);
-  };
-
-  // First try exact codepoints (keeps FE0F when present).
-  pushByCps(cps);
-
-  // Fallback: some sequences are also served without FE0F.
-  const withoutVariation = cps.filter((cp) => cp !== "fe0f");
-  pushByCps(withoutVariation);
-
-  // Extra fallback: single symbol emojis in dingbats often need FE0F on CDN.
-  const hasVariation = cps.includes("fe0f");
-  if (!hasVariation && cps.length === 1) {
-    const cpNum = Number.parseInt(cps[0], 16);
-    if (Number.isFinite(cpNum) && cpNum >= 0x2600 && cpNum <= 0x27bf) {
-      pushByCps([cps[0], "fe0f"]);
-    }
-  }
-
-  return urls;
-}
-
-function customEmojiUrl(id, animated = false) {
-  const ext = animated ? "gif" : "png";
-  return `https://cdn.discordapp.com/emojis/${id}.${ext}?size=96&quality=lossless`;
-}
-
-async function getEmojiImage(token) {
-  const key = typeof token === "string" ? token : `custom:${token.id}:${token.animated ? 1 : 0}`;
-  if (emojiImageCache.has(key)) return emojiImageCache.get(key);
-  const promise = (async () => {
-    if (typeof token !== "string") {
-      return safeLoadImage(customEmojiUrl(token.id, false), { timeoutMs: 10000 }).catch(() => null);
-    }
-    const sources = emojiToTwemojiUrls(token);
-    for (const sourceUrl of sources) {
-      const img = await safeLoadImage(sourceUrl, {
-        timeoutMs: 10000,
-        suppressWarning: true,
-      }).catch(() => null);
-      if (img) return img;
-    }
-    return null;
-  })();
-  emojiImageCache.set(key, promise);
-  return promise;
-}
-
-function tokenWidth(ctx, token, size, weight) {
-  if (token.type === "emoji" || token.type === "custom_emoji") return size + 2;
-  return textWidth(ctx, token.value, size, weight);
-}
-
-async function drawLabelWithEmoji(ctx, text, x, y, { size = 16, weight = "600", color = "#d7dbe3", align = "left", baseline = "middle", forcePrimaryFont = false, useNumericFont = false } = {}) {
-  const labelOpts = { size, weight, color, align, baseline, forcePrimaryFont, useNumericFont };
-  const tokens = tokenizeEmojiText(text);
-  const hasEmoji = tokens.some((t) => t.type === "emoji" || t.type === "custom_emoji",);
-  if (!hasEmoji) {
-    drawLabel(ctx, text, x, y, labelOpts);
-    return;
-  }
-
-  const total = tokens.reduce((sum, token) => sum + tokenWidth(ctx, token, size, weight), 0,);
-  let cursorX = x;
-  if (align === "center") cursorX = x - total / 2;
-  else if (align === "right") cursorX = x - total;
-
-  for (const token of tokens) {
-    if (token.type === "text") {
-      if (token.value) {
-        drawLabel(ctx, token.value, cursorX, y, { ...labelOpts, align: "left" });
-        cursorX += textWidth(ctx, token.value, size, weight);
-      }
-      continue;
-    }
-
-    const img = token.type === "custom_emoji" ? await getEmojiImage(token) : await getEmojiImage(token.value);
-    if (img) {
-      const drawSize = size + 1;
-      const topY = y - drawSize / 2;
-      ctx.drawImage(img, cursorX, topY, drawSize, drawSize);
-      cursorX += drawSize + 1;
-    } else {
-      drawLabel(ctx, token.value, cursorX, y, { ...labelOpts, align: "left" });
-      cursorX += textWidth(ctx, token.value, size, weight);
-    }
-  }
+function drawPanelHeaderGlyph(ctx, glyphKind, rightX, centerY, pixel = 30, color = STATS_PANEL_GLYPH) {
+  if (!glyphKind) return;
+  const cx = rightX - pixel / 2;
+  const haloR = pixel * 0.58;
+  ctx.save();
+  const glow = ctx.createRadialGradient(cx, centerY, 0, cx, centerY, haloR);
+  glow.addColorStop(0, "rgba(160, 188, 220, 0.22)");
+  glow.addColorStop(0.55, "rgba(120, 150, 190, 0.08)");
+  glow.addColorStop(1, "rgba(120, 150, 190, 0)");
+  ctx.fillStyle = glow;
+  ctx.beginPath();
+  ctx.arc(cx, centerY, haloR, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+  drawActivityGlyph(ctx, glyphKind, cx, centerY, pixel, color);
 }
 
 function drawBackground(ctx, width, height) {
@@ -332,24 +274,116 @@ function drawBackground(ctx, width, height) {
   ctx.fillRect(0, 0, width, height);
 }
 
-async function drawAvatarCircle(ctx, avatarUrl, x, y, size) {
-  if (!avatarUrl) return;
-  const image = await safeLoadImage(avatarUrl, { timeoutMs: 10000 });
-  if (!image) return;
+async function loadAvatarForStatsCanvas(url) {
+  if (!url) return null;
+  const cached = getStatsAvatarCache(url);
+  if (cached) return cached;
+  const buf = await fetchHttpImageBuffer(url, { timeoutMs: 10000 }).catch(() => null);
+  if (!buf?.length) return null;
+  const isGif = buf[0] === 0x47 && buf[1] === 0x49 && buf[2] === 0x46;
+  let resolved = null;
+  if (isGif) {
+    try {
+      const decoded = decodeGif(buf);
+      if (decoded?.frames?.length) {
+        resolved = { kind: "gif", width: decoded.width, height: decoded.height, frames: decoded.frames };
+      }
+    } catch {
+    }
+    if (!resolved) {
+      try {
+        const image = await getCanvasModule().loadImage(buf);
+        resolved = { kind: "static", image };
+      } catch {
+        const image = await safeLoadImage(url, { timeoutMs: 10000 }).catch(() => null);
+        resolved = image ? { kind: "static", image } : null;
+      }
+    }
+  } else {
+    try {
+      const image = await getCanvasModule().loadImage(buf);
+      resolved = { kind: "static", image };
+    } catch {
+      const image = await safeLoadImage(url, { timeoutMs: 10000 }).catch(() => null);
+      resolved = image ? { kind: "static", image } : null;
+    }
+  }
+  if (resolved) setStatsAvatarCache(url, resolved);
+  return resolved;
+}
 
-  ctx.save();
-  ctx.beginPath();
-  ctx.arc(x + size / 2, y + size / 2, size / 2, 0, Math.PI * 2);
-  ctx.closePath();
-  ctx.clip();
-  ctx.drawImage(image, x, y, size, size);
-  ctx.restore();
-
+function strokeAvatarRing(ctx, x, y, size, animationPhase) {
   ctx.beginPath();
   ctx.arc(x + size / 2, y + size / 2, size / 2, 0, Math.PI * 2);
   ctx.lineWidth = 2;
   ctx.strokeStyle = "rgba(255,255,255,0.78)";
   ctx.stroke();
+  if (typeof animationPhase === "number" && Number.isFinite(animationPhase)) {
+    const pulse = 0.4 + 0.55 * Math.sin(animationPhase * Math.PI * 2);
+    ctx.beginPath();
+    ctx.arc(x + size / 2, y + size / 2, size / 2 + 2.5, 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(120, 170, 230, ${0.2 + pulse * 0.45})`;
+    ctx.lineWidth = 2.2;
+    ctx.stroke();
+  }
+}
+
+function drawImageCover(ctx, img, dx, dy, dSize) {
+  const iw = img.width || img.naturalWidth;
+  const ih = img.height || img.naturalHeight;
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  if (!iw || !ih) {
+    ctx.drawImage(img, dx, dy, dSize, dSize);
+    return;
+  }
+  const scale = Math.max(dSize / iw, dSize / ih);
+  const sw = dSize / scale;
+  const sh = dSize / scale;
+  const sx = Math.max(0, (iw - sw) / 2);
+  const sy = Math.max(0, (ih - sh) / 2);
+  ctx.drawImage(img, sx, sy, sw, sh, dx, dy, dSize, dSize);
+}
+
+async function drawAvatarCircle(ctx, avatarUrl, x, y, size, animationPhase = null, resolved = null) {
+  let r = resolved;
+  if (!r && avatarUrl) r = await loadAvatarForStatsCanvas(avatarUrl);
+  if (!r) return;
+
+  if (r.kind === "gif") {
+    const { width: fw, height: fh, frames } = r;
+    const fi = 0;
+    const frame = frames[fi];
+    if (!frame?.data?.length) return;
+    if (!r._scratch) {
+      r._scratch = getCanvasModule().createCanvas(fw, fh);
+      r._frameImgData = r._scratch.getContext("2d").createImageData(fw, fh);
+    }
+    const sctx = r._scratch.getContext("2d");
+    sctx.clearRect(0, 0, fw, fh);
+    r._frameImgData.data.set(frame.data);
+    sctx.putImageData(r._frameImgData, 0, 0);
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(x + size / 2, y + size / 2, size / 2, 0, Math.PI * 2);
+    ctx.closePath();
+    ctx.clip();
+    drawImageCover(ctx, r._scratch, x, y, size);
+    ctx.restore();
+    strokeAvatarRing(ctx, x, y, size, animationPhase);
+    return;
+  }
+
+  const image = r.image;
+  if (!image) return;
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(x + size / 2, y + size / 2, size / 2, 0, Math.PI * 2);
+  ctx.closePath();
+  ctx.clip();
+  drawImageCover(ctx, image, x, y, size);
+  ctx.restore();
+  strokeAvatarRing(ctx, x, y, size, animationPhase);
 }
 
 function drawDateBadge(ctx, title, value, x, y, w = 280, h = 80) {
@@ -369,45 +403,114 @@ function drawDateBadge(ctx, title, value, x, y, w = 280, h = 80) {
   });
 }
 
+function drawDateBadgeCompact(ctx, title, value, x, y, w) {
+  const h = 36;
+  fillRoundRect(ctx, x, y, w, h, 11, "rgba(43, 52, 67, 0.95)");
+  fillRoundRect(ctx, x + 8, y + 5, w - 16, 15, 6, "rgba(88, 99, 120, 0.62)");
+  drawLabel(ctx, title, x + 12, y + 14, {
+    size: 11,
+    weight: "700",
+    color: "#e8ecf4",
+    forcePrimaryFont: true,
+  });
+  drawLabel(ctx, fitText(ctx, value, w - 24, 16, "700"), x + 12, y + 27, {
+    size: 15,
+    weight: "700",
+    color: "#f6f8fc",
+    useNumericFont: true,
+  });
+}
+
+function drawDateBadgeStat(ctx, title, value, x, y, w, options = {}) {
+  const h = options.h ?? 54;
+  const pillH = options.pillH ?? 20;
+  const padX = options.padX ?? 10;
+  const padY = options.padY ?? 8;
+  const pillRx = options.pillRx ?? 8;
+  const outerRx = options.outerRx ?? 13;
+  const titleSize = options.titleSize ?? 14;
+  const valueSize = options.valueSize ?? 20;
+  const titleY = options.titleY ?? 20;
+  const valueY = options.valueY ?? 40;
+  const labelPadX = options.labelPadX ?? 16;
+  fillRoundRect(ctx, x, y, w, h, outerRx, "rgba(43, 52, 67, 0.95)");
+  fillRoundRect(ctx, x + padX, y + padY, w - padX * 2, pillH, pillRx, "rgba(88, 99, 120, 0.55)");
+  drawLabel(ctx, title, x + labelPadX, y + titleY, {
+    size: titleSize,
+    weight: "700",
+    color: STATS_BODY,
+    forcePrimaryFont: true,
+  });
+  drawLabel(ctx, fitText(ctx, value, w - labelPadX * 2, valueSize, "700"), x + labelPadX, y + valueY, {
+    size: valueSize,
+    weight: "700",
+    color: STATS_VALUE,
+    useNumericFont: true,
+  });
+}
+
 function drawMetricPanel(ctx, title, rows, x, y, w, h, options = {}) {
   fillRoundRect(ctx, x, y, w, h, 18, "rgba(46, 55, 70, 0.94)");
   strokeRoundRect(ctx, x, y, w, h, 18, "rgba(255,255,255,0.05)", 1);
-  drawLabel(ctx, title, x + 16, y + 24, {
-    size: 27,
+  drawLabel(ctx, title, x + 14, y + 22, {
+    size: 24,
     weight: "700",
-    color: "#e2e7ef",
+    color: STATS_TITLE,
     forcePrimaryFont: true,
   });
-  if (options.icon) {
+  if (options.glyph) {
+    drawPanelHeaderGlyph(ctx, options.glyph, x + w - 18, y + 24);
+  } else if (options.icon) {
     drawLabel(ctx, options.icon, x + w - 32, y + 26, {
       size: 20,
       weight: "700",
-      color: "#8b95a5",
+      color: STATS_MUTED,
       align: "right",
       baseline: "middle",
     });
   }
 
-  const rowHeight = 56;
-  const startY = y + 44;
-  for (let i = 0; i < rows.length; i += 1) {
-    const rowY = startY + i * rowHeight;
-    fillRoundRect(ctx, x + 14, rowY, w - 28, 50, 11, "rgba(19, 26, 37, 0.92)");
-    fillRoundRect(ctx, x + 14, rowY, 98, 50, 11, "rgba(10, 16, 27, 0.95)");
-
-    drawLabel(ctx, rows[i].label, x + 63, rowY + 25, {
-      size: 24,
+  const startY = y + 40;
+  const bottomPad = options.denseRows ? 6 : 10;
+  const innerPad = options.denseRows ? 4 : 8;
+  const periodBoxW = options.denseRows ? 62 : 80;
+  const rowGap = options.denseRows ? 5 : 8;
+  const n = rows.length;
+  const rowsAreaH = Math.max(0, h - (startY - y) - bottomPad);
+  const gapsTotal = n > 1 ? (n - 1) * rowGap : 0;
+  const totalForRows = Math.max(0, rowsAreaH - gapsTotal);
+  const baseRowH = n > 0 ? Math.floor(totalForRows / n) : 50;
+  const remPx = n > 0 ? totalForRows - baseRowH * n : 0;
+  const labelFont = Math.min(
+    24,
+    Math.max(18, Math.round((baseRowH + (remPx > 0 ? 1 : 0)) * 0.4)),
+  );
+  let rowCursor = startY;
+  for (let i = 0; i < n; i += 1) {
+    const rowH = baseRowH + (i < remPx ? 1 : 0);
+    const rowY = rowCursor;
+    rowCursor += rowH + (i < n - 1 ? rowGap : 0);
+    const rowInnerLeft = x + innerPad;
+    const rowInnerW = w - innerPad * 2;
+    const rowRx = rowH >= 52 ? 12 : 11;
+    fillRoundRect(ctx, rowInnerLeft, rowY, rowInnerW, rowH, rowRx, "rgba(19, 26, 37, 0.92)");
+    fillRoundRect(ctx, rowInnerLeft, rowY, periodBoxW, rowH, rowRx, "rgba(10, 16, 27, 0.95)");
+    const midY = rowY + rowH / 2;
+    drawLabel(ctx, rows[i].label, rowInnerLeft + periodBoxW / 2, midY, {
+      size: labelFont,
       weight: "700",
       align: "center",
-      color: "#dbe1eb",
+      color: STATS_BODY,
       useNumericFont: true,
     });
+    const valueMaxW = rowInnerW - periodBoxW - rowGap - 10;
+    const valueRightX = rowInnerLeft + rowInnerW - 6;
     drawLabel(
       ctx,
-      fitText(ctx, rows[i].value, w - 170, 24, "700"),
-      x + w - 26,
-      rowY + 25,
-      { size: 24, weight: "700", align: "right", color: "#d2d9e5", useNumericFont: true },
+      fitText(ctx, rows[i].value, valueMaxW, labelFont, "700"),
+      valueRightX,
+      midY,
+      { size: labelFont, weight: "700", align: "right", color: STATS_VALUE, useNumericFont: true },
     );
   }
 }
@@ -415,24 +518,18 @@ function drawMetricPanel(ctx, title, rows, x, y, w, h, options = {}) {
 function drawBigLookbackPanel(ctx, title, bigValue, subtitle, x, y, w, h) {
   fillRoundRect(ctx, x, y, w, h, 18, "rgba(46, 55, 70, 0.94)");
   strokeRoundRect(ctx, x, y, w, h, 18, "rgba(255,255,255,0.05)", 1);
-  drawLabel(ctx, title, x + 16, y + 24, {
-    size: 22,
+  drawLabel(ctx, title, x + 14, y + 22, {
+    size: 21,
     weight: "700",
     color: "#e2e7ef",
     forcePrimaryFont: true,
   });
-  drawLabel(ctx, "\u21BB", x + w - 36, y + 26, {
-    size: 20,
-    weight: "700",
-    color: "#8b95a5",
-    align: "right",
-    baseline: "middle",
-  });
-  const innerPad = 16;
+  drawPanelHeaderGlyph(ctx, "bolt", x + w - 18, y + 24);
+  const innerPad = 14;
   const innerX = x + innerPad;
-  const innerY = y + 50;
+  const innerY = y + 46;
   const innerW = w - innerPad * 2;
-  const innerH = h - 50 - innerPad;
+  const innerH = h - 46 - innerPad;
   fillRoundRect(ctx, innerX, innerY, innerW, innerH, 14, "rgba(28, 36, 50, 0.95)");
   strokeRoundRect(ctx, innerX, innerY, innerW, innerH, 14, "rgba(255,255,255,0.04)", 1);
   const centerX = x + w / 2;
@@ -455,42 +552,51 @@ function drawBigLookbackPanel(ctx, title, bigValue, subtitle, x, y, w, h) {
 }
 
 function drawMetricPanelStatbotRows(ctx, title, rows, x, y, w, h, options = {}) {
-  const icon = options.icon || "";
   fillRoundRect(ctx, x, y, w, h, 18, "rgba(46, 55, 70, 0.94)");
   strokeRoundRect(ctx, x, y, w, h, 18, "rgba(255,255,255,0.05)", 1);
-  drawLabel(ctx, title, x + 16, y + 24, {
-    size: 22,
+  drawLabel(ctx, title, x + 14, y + 22, {
+    size: 21,
     weight: "700",
-    color: "#e2e7ef",
+    color: STATS_TITLE,
     forcePrimaryFont: true,
   });
-  if (icon) {
-    drawLabel(ctx, icon, x + w - 32, y + 26, {
+  if (options.glyph) {
+    drawPanelHeaderGlyph(ctx, options.glyph, x + w - 18, y + 24);
+  } else if (options.icon) {
+    drawLabel(ctx, options.icon, x + w - 32, y + 26, {
       size: 18,
       weight: "700",
-      color: "#8b95a5",
+      color: STATS_MUTED,
       align: "right",
       baseline: "middle",
     });
   }
-  const rowHeight = 56;
-  const startY = y + 48;
+  const rowHeight = 50;
+  const startY = y + 42;
+  const innerPad = 8;
+  const periodBoxW = 80;
+  const rowGap = 8;
   for (let i = 0; i < rows.length; i += 1) {
     const row = rows[i] || { period: "-", value: "-" };
     const rowY = startY + i * rowHeight;
-    fillRoundRect(ctx, x + 14, rowY, w - 28, 50, 12, "rgba(28, 36, 50, 0.95)");
-    strokeRoundRect(ctx, x + 14, rowY, w - 28, 50, 12, "rgba(255,255,255,0.04)", 1);
-    drawLabel(ctx, row.period, x + 20, rowY + 25, {
+    const rowInnerLeft = x + innerPad;
+    const rowInnerW = w - innerPad * 2;
+    fillRoundRect(ctx, rowInnerLeft, rowY, rowInnerW, 50, 11, "rgba(19, 26, 37, 0.92)");
+    fillRoundRect(ctx, rowInnerLeft, rowY, periodBoxW, 50, 11, "rgba(10, 16, 27, 0.95)");
+    drawLabel(ctx, row.period, rowInnerLeft + periodBoxW / 2, rowY + 25, {
       size: 22,
       weight: "700",
-      color: "#e2e7ef",
+      align: "center",
+      color: STATS_BODY,
       useNumericFont: true,
     });
-    drawLabel(ctx, fitText(ctx, row.value, w - 140, 20, "700"), x + w - 24, rowY + 25, {
+    const valueMaxW = rowInnerW - periodBoxW - rowGap - 10;
+    const valueRightX = rowInnerLeft + rowInnerW - 6;
+    drawLabel(ctx, fitText(ctx, row.value, valueMaxW, 20, "700"), valueRightX, rowY + 25, {
       size: 20,
       weight: "600",
       align: "right",
-      color: "#b8c0ce",
+      color: STATS_VALUE,
       useNumericFont: true,
     });
   }
@@ -498,42 +604,47 @@ function drawMetricPanelStatbotRows(ctx, title, rows, x, y, w, h, options = {}) 
 
 async function drawTopListCardStatbotStyle(ctx, title, rows, x, y, w, h, options = {}) {
   const unit = String(options.unit || "");
-  const icon = options.icon || "";
   fillRoundRect(ctx, x, y, w, h, 18, "rgba(46, 55, 70, 0.94)");
   strokeRoundRect(ctx, x, y, w, h, 18, "rgba(255,255,255,0.05)", 1);
-  drawLabel(ctx, title, x + 16, y + 24, {
-    size: 22,
+  drawLabel(ctx, title, x + 14, y + 22, {
+    size: 21,
     weight: "700",
-    color: "#e2e7ef",
+    color: STATS_TITLE,
     forcePrimaryFont: true,
   });
-  if (icon) {
-    drawLabel(ctx, icon, x + w - 32, y + 26, {
+  if (options.glyph) {
+    drawPanelHeaderGlyph(ctx, options.glyph, x + w - 18, y + 24);
+  } else if (options.icon) {
+    drawLabel(ctx, options.icon, x + w - 32, y + 26, {
       size: 18,
       weight: "700",
-      color: "#8b95a5",
+      color: STATS_MUTED,
       align: "right",
       baseline: "middle",
     });
   }
-  const rowHeight = 64;
-  const startY = y + 48;
+  const rowHeight = 56;
+  const startY = y + 44;
+  const rp = 10;
   for (let i = 0; i < 3; i += 1) {
     const row = rows?.[i] || { label: "—", value: "0" };
     const rowY = startY + i * rowHeight;
     const valueText = unit ? `${row.value} ${unit}` : String(row.value ?? "0");
+    const labelClean = sanitizeDisplayLabel(prepareVisibleText(row.label || "—"));
+    const vw = textWidth(ctx, valueText, 22, "700");
+    const labelMax = Math.max(100, w - rp * 2 - Math.min(200, vw + 28));
     await drawLabelWithEmoji(
       ctx,
-      fitText(ctx, prepareVisibleText(row.label || "—"), w - 220, 22, "700"),
-      x + 20,
+      fitText(ctx, labelClean, labelMax, 22, "700"),
+      x + rp,
       rowY + rowHeight / 2,
-      { size: 22, weight: "700", color: "#e0e5ed", align: "left" },
+      { size: 22, weight: "700", color: STATS_BODY, align: "left" },
     );
-    drawLabel(ctx, valueText, x + w - 24, rowY + rowHeight / 2, {
+    drawLabel(ctx, valueText, x + w - rp, rowY + rowHeight / 2, {
       size: 22,
       weight: "700",
       align: "right",
-      color: "#b8c0ce",
+      color: STATS_VALUE,
       useNumericFont: true,
     });
   }
@@ -543,115 +654,179 @@ async function drawTopCard(ctx, title, first, second, x, y, w, h, options = {}) 
   const showRank = options.showRank !== false;
   fillRoundRect(ctx, x, y, w, h, 18, "rgba(46, 55, 70, 0.94)");
   strokeRoundRect(ctx, x, y, w, h, 18, "rgba(255,255,255,0.05)", 1);
-  drawLabel(ctx, title, x + 14, y + 24, {
-    size: 27,
+  drawLabel(ctx, title, x + 12, y + 22, {
+    size: 24,
     weight: "700",
-    color: "#e2e7ef",
+    color: STATS_TITLE,
     forcePrimaryFont: true,
   });
-  if (options.icon) {
+  if (options.glyph) {
+    drawPanelHeaderGlyph(ctx, options.glyph, x + w - 18, y + 24);
+  } else if (options.icon) {
     drawLabel(ctx, options.icon, x + w - 32, y + 26, {
       size: 20,
       weight: "700",
-      color: "#8b95a5",
+      color: STATS_MUTED,
       align: "right",
       baseline: "middle",
     });
   }
 
+  const edge = options.dense ? 6 : 8;
+  const titleBand = 40;
+  const bottomPad = options.dense ? 6 : 10;
+  const rowGap = options.dense ? 8 : 10;
+  const rowsAreaH = Math.max(0, h - titleBand - bottomPad);
+  const gapsTotal = rowGap;
+  const totalForRows = Math.max(0, rowsAreaH - gapsTotal);
+  const baseRowH = Math.floor(totalForRows / 2);
+  const remPx = totalForRows - baseRowH * 2;
+  const row1H = baseRowH + (remPx > 0 ? 1 : 0);
+  const row2H = baseRowH + (remPx > 1 ? 1 : 0);
+  const chipW = w - edge * 2;
+  let chipY = y + titleBand;
   await drawTopChip(
     ctx,
     first?.label || "-",
     first?.value || "-",
     first?.unit || "",
     1,
-    x + 14,
-    y + 44,
-    w - 28,
-    72,
+    x + edge,
+    chipY,
+    chipW,
+    row1H,
     { showRank },
   );
+  chipY += row1H + rowGap;
   await drawTopChip(
     ctx,
     second?.label || "-",
     second?.value || "-",
     second?.unit || "",
     2,
-    x + 14,
-    y + 126,
-    w - 28,
-    72,
+    x + edge,
+    chipY,
+    chipW,
+    row2H,
     { showRank },
   );
 }
 
-async function drawTopChip(ctx, label, value, unit, position, x, y, w, h, options = {},) {
+async function drawTopChip(ctx, label, value, unit, position, x, y, w, h, options = {}) {
   const showRank = options.showRank !== false;
-  fillRoundRect(ctx, x, y, w, h, 12, "rgba(12, 18, 28, 0.95)");
-  const safeLabel = prepareVisibleText(label);
-  const labelMax = showRank ? w - 360 : w - 260;
-  const valueRight = showRank ? x + w - 112 : x + w - 14;
-  await drawLabelWithEmoji(
-    ctx,
-    fitText(ctx, safeLabel, labelMax, 24, "700"),
-    x + 14,
-    y + h / 2,
-    { size: 24, weight: "700", color: "#e0e5ed", align: "left" },
-  );
-  drawLabel(ctx, `${value}${unit ? ` ${unit}` : ""}`, valueRight, y + h / 2, {
-    size: 30,
+  const rowRx = h >= 58 ? 14 : 12;
+  fillRoundRect(ctx, x, y, w, h, rowRx, "rgba(12, 18, 28, 0.95)");
+  const safeLabel = sanitizeDisplayLabel(prepareVisibleText(label));
+  const valueStr = `${String(value ?? "")}${unit ? ` ${unit}` : ""}`;
+  const labelSize = Math.min(26, Math.max(18, Math.round(h * 0.34)));
+  const valueSize = Math.min(34, Math.max(20, Math.round(h * 0.4)));
+  const rankSize = Math.min(48, Math.max(30, Math.round(h * 0.58)));
+  const vw = textWidth(ctx, valueStr, valueSize, "800");
+  const labelMax = showRank
+    ? w - 360
+    : Math.max(
+        Math.floor(w * 0.5),
+        w - Math.min(Math.floor(w * 0.46), vw + 24),
+      );
+  const valueRight = showRank ? x + w - 112 : x + w - 10;
+  const labelX = x + 14;
+  const hashMatch = safeLabel.match(/^#+\s*(.*)$/s);
+  if (hashMatch) {
+    const channelName = sanitizeDisplayLabel(prepareVisibleText(hashMatch[1] || "—"));
+    const hashW = textWidth(ctx, "#", labelSize, "800");
+    drawLabel(ctx, "#", labelX, y + h / 2, {
+      size: labelSize,
+      weight: "800",
+      color: STATS_MUTED,
+      align: "left",
+      forcePrimaryFont: true,
+    });
+    await drawLabelWithEmoji(
+      ctx,
+      fitText(ctx, channelName, Math.max(80, labelMax - hashW - 8), labelSize, "700"),
+      labelX + hashW + 8,
+      y + h / 2,
+      { size: labelSize, weight: "700", color: STATS_BODY, align: "left" },
+    );
+  } else {
+    await drawLabelWithEmoji(
+      ctx,
+      fitText(ctx, safeLabel, labelMax, labelSize, "700"),
+      labelX,
+      y + h / 2,
+      { size: labelSize, weight: "700", color: STATS_BODY, align: "left" },
+    );
+  }
+  drawLabel(ctx, valueStr, valueRight, y + h / 2, {
+    size: valueSize,
     weight: "800",
     align: "right",
-    color: "#d5dbe5",
+    color: STATS_VALUE,
     useNumericFont: true,
   });
   if (showRank) {
-    drawLabel(ctx, `#${Number(position || 0) || "-"}`, x + w - 14, y + h / 2, {
-      size: 54,
+    drawLabel(ctx, `#${Number(position || 0) || "-"}`, x + w - 10, y + h / 2, {
+      size: rankSize,
       weight: "900",
       align: "right",
-      color: "#e8edf7",
+      color: STATS_TITLE,
       useNumericFont: true,
     });
   }
 }
 
 function drawChart(ctx, chart, x, y, w, h, options = {}) {
+  const animPhase =
+    typeof options.animationPhase === "number" && Number.isFinite(options.animationPhase)
+      ? options.animationPhase
+      : null;
+  const pulse = animPhase == null ? 0 : Math.sin(animPhase * Math.PI * 2);
+  const rawReveal = animPhase == null ? 1 : Math.min(1, Math.max(0, animPhase));
+  const lineReveal = rawReveal >= 0.998 ? 1 : rawReveal;
+
   fillRoundRect(ctx, x, y, w, h, 18, "rgba(46, 55, 70, 0.94)");
   strokeRoundRect(ctx, x, y, w, h, 18, "rgba(255,255,255,0.05)", 1);
 
-  drawLabel(ctx, "Charts", x + 16, y + 24, {
-    size: 27,
-    weight: "700",
-    color: "#e2e7ef",
-    forcePrimaryFont: true,
-  });
-  if (options.icon) {
+  drawSolidStatTitle(ctx, "Charts", x + 14, y + 24, w - 200, 24, 14, STATS_TITLE);
+  if (options.glyph) {
+    drawPanelHeaderGlyph(ctx, options.glyph, x + w - 18, y + 24);
+  } else if (options.icon) {
     drawLabel(ctx, options.icon, x + w - 32, y + 26, {
       size: 20,
       weight: "700",
-      color: "#8b95a5",
+      color: STATS_MUTED,
       align: "right",
       baseline: "middle",
     });
   }
-  drawLabel(ctx, "Message", x + w - 220, y + 24, {
-    size: 20,
+  ctx.fillStyle = CHART_LINE_MSG;
+  ctx.beginPath();
+  ctx.arc(x + w - 218, y + 24, 4, 0, Math.PI * 2);
+  ctx.fill();
+  drawLabel(ctx, "Msg", x + w - 206, y + 24, {
+    size: 16,
     weight: "700",
-    color: "#3ec455",
+    color: STATS_MUTED,
     forcePrimaryFont: true,
   });
-  drawLabel(ctx, "Voice", x + w - 90, y + 24, {
-    size: 20,
+  ctx.fillStyle = CHART_LINE_VOICE;
+  ctx.beginPath();
+  ctx.arc(x + w - 108, y + 24, 4, 0, Math.PI * 2);
+  ctx.fill();
+  drawLabel(ctx, "Voice", x + w - 96, y + 24, {
+    size: 16,
     weight: "700",
-    color: "#d95095",
+    color: STATS_MUTED,
     forcePrimaryFont: true,
   });
 
-  const px = x + 16;
-  const py = y + 44;
-  const pw = w - 32;
-  const ph = h - 60;
+  const px = x + 14;
+  const py = y + 42;
+  const pw = w - 28;
+  const ph = h - 56;
+  const plotPadX = 8;
+  const innerLeft = px + plotPadX;
+  const innerW = pw - plotPadX * 2;
   fillRoundRect(ctx, px, py, pw, ph, 12, "rgba(25, 34, 49, 0.98)");
   const points = Array.isArray(chart) ? chart : [];
   if (points.length < 2) return;
@@ -660,173 +835,377 @@ function drawChart(ctx, chart, x, y, w, h, options = {}) {
   const maxMsg = Math.max(1, ...msgValues);
   const maxVoice = Math.max(1, ...voiceValues);
 
-  ctx.strokeStyle = "rgba(255,255,255,0.08)";
+  ctx.strokeStyle = "rgba(255,255,255,0.07)";
   ctx.lineWidth = 1;
   for (let i = 1; i <= 3; i += 1) {
     const yy = py + ((ph - 10) * i) / 4;
     ctx.beginPath();
-    ctx.moveTo(px + 8, yy);
-    ctx.lineTo(px + pw - 8, yy);
+    ctx.moveTo(innerLeft, yy);
+    ctx.lineTo(innerLeft + innerW, yy);
     ctx.stroke();
   }
 
-  const projectX = (idx) => px + idx * (pw / (points.length - 1));
+  const nPt = points.length;
+  const projectX = (idx) =>
+    nPt < 2 ? innerLeft : innerLeft + (idx / (nPt - 1)) * innerW;
   const projectY = (value, seriesMax) => py + ph - (value / Math.max(1, seriesMax)) * (ph - 16) - 8;
+  const baseY = py + ph - 6;
+  const clipRight = innerLeft + innerW * lineReveal;
 
-  ctx.lineWidth = 2.5;
-  ctx.strokeStyle = "#3ec455";
-  ctx.beginPath();
-  msgValues.forEach((v, i) => {
-    const cx = projectX(i);
-    const cy = projectY(v, maxMsg);
-    if (i === 0) ctx.moveTo(cx, cy);
-    else ctx.lineTo(cx, cy);
-  });
-  ctx.stroke();
+  function fillUnderLine(strokeHex, fillTopRgba, values, maxV) {
+    const pts = values.map((v, i) => ({
+      x: projectX(i),
+      y: projectY(v, maxV),
+    }));
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(innerLeft, py, innerW * lineReveal, ph);
+    ctx.clip();
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x, baseY);
+    pts.forEach((p) => ctx.lineTo(p.x, p.y));
+    ctx.lineTo(pts[pts.length - 1].x, baseY);
+    ctx.closePath();
+    const g = ctx.createLinearGradient(0, py, 0, baseY);
+    g.addColorStop(0, fillTopRgba);
+    g.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = g;
+    ctx.fill();
+    ctx.restore();
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(innerLeft, py, innerW * lineReveal, ph);
+    ctx.clip();
+    ctx.shadowColor = strokeHex;
+    ctx.shadowBlur = 8 + (animPhase == null ? 0 : pulse * 3);
+    ctx.strokeStyle = strokeHex;
+    ctx.lineWidth = 2.6;
+    ctx.lineJoin = "round";
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    pts.forEach((p, i) => {
+      if (i === 0) ctx.moveTo(p.x, p.y);
+      else ctx.lineTo(p.x, p.y);
+    });
+    ctx.stroke();
+    ctx.restore();
+  }
 
-  ctx.strokeStyle = "#d95095";
-  ctx.beginPath();
-  voiceValues.forEach((v, i) => {
-    const cx = projectX(i);
-    const cy = projectY(v, maxVoice);
-    if (i === 0) ctx.moveTo(cx, cy);
-    else ctx.lineTo(cx, cy);
+  fillUnderLine(CHART_LINE_MSG, "rgba(122, 184, 154, 0.18)", msgValues, maxMsg);
+  fillUnderLine(CHART_LINE_VOICE, "rgba(168, 148, 196, 0.16)", voiceValues, maxVoice);
+
+  const ptsMsg = msgValues.map((v, i) => ({
+    x: projectX(i),
+    y: projectY(v, maxMsg),
+  }));
+  const ptsVoice = voiceValues.map((v, i) => ({
+    x: projectX(i),
+    y: projectY(v, maxVoice),
+  }));
+  const dotR = 3 + (animPhase == null ? 0 : pulse * 0.5);
+  [...ptsMsg, ...ptsVoice].forEach((p, idx) => {
+    if (p.x > clipRight + 0.5) return;
+    const col = idx < ptsMsg.length ? CHART_LINE_MSG : CHART_LINE_VOICE;
+    ctx.fillStyle = "#f0f4f8";
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, dotR, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = col;
+    ctx.lineWidth = 1.35;
+    ctx.stroke();
   });
-  ctx.stroke();
 }
 
-function drawVoiceOnlyChart(ctx, chart, x, y, w, h) {
+function drawVoiceOnlyChart(ctx, chart, x, y, w, h, options = {}) {
+  const animPhase =
+    typeof options.animationPhase === "number" && Number.isFinite(options.animationPhase)
+      ? options.animationPhase
+      : null;
+  const pulse = animPhase == null ? 0 : Math.sin(animPhase * Math.PI * 2);
+  const rawReveal = animPhase == null ? 1 : Math.min(1, Math.max(0, animPhase));
+  const lineReveal = rawReveal >= 0.998 ? 1 : rawReveal;
+
   fillRoundRect(ctx, x, y, w, h, 18, "rgba(46, 55, 70, 0.94)");
   strokeRoundRect(ctx, x, y, w, h, 18, "rgba(255,255,255,0.05)", 1);
-  drawLabel(ctx, "Voice Graph", x + 16, y + 24, {
-    size: 27,
-    weight: "700",
-    color: "#e2e7ef",
-    forcePrimaryFont: true,
-  });
-  const px = x + 16;
-  const py = y + 44;
-  const pw = w - 32;
-  const ph = h - 60;
+  drawSolidStatTitle(ctx, "Voice", x + 14, y + 24, w - 60, 24, 14, STATS_TITLE);
+  drawPanelHeaderGlyph(ctx, "voice", x + w - 18, y + 24);
+  const px = x + 14;
+  const py = y + 42;
+  const pw = w - 28;
+  const ph = h - 56;
+  const plotPadX = 8;
+  const innerLeft = px + plotPadX;
+  const innerW = pw - plotPadX * 2;
   fillRoundRect(ctx, px, py, pw, ph, 12, "rgba(25, 34, 49, 0.98)");
   const points = Array.isArray(chart) ? chart : [];
   if (points.length < 2) return;
+  const nPt = points.length;
   const voiceValues = points.map((p) => Number(p?.voiceSeconds || 0) / 3600);
   const maxVoice = Math.max(0.01, ...voiceValues);
-  ctx.strokeStyle = "rgba(255,255,255,0.08)";
+  ctx.strokeStyle = "rgba(255,255,255,0.07)";
   ctx.lineWidth = 1;
   for (let i = 1; i <= 3; i += 1) {
     const yy = py + ((ph - 10) * i) / 4;
     ctx.beginPath();
-    ctx.moveTo(px + 8, yy);
-    ctx.lineTo(px + pw - 8, yy);
+    ctx.moveTo(innerLeft, yy);
+    ctx.lineTo(innerLeft + innerW, yy);
     ctx.stroke();
   }
-  const projectX = (idx) => px + idx * (pw / (points.length - 1));
+  const projectX = (idx) =>
+    nPt < 2 ? innerLeft : innerLeft + (idx / (nPt - 1)) * innerW;
   const projectY = (value) => py + ph - (value / maxVoice) * (ph - 16) - 8;
-  ctx.lineWidth = 2.5;
-  ctx.strokeStyle = "#3ec455";
+  const baseY = py + ph - 6;
+  const pts = voiceValues.map((v, i) => ({ x: projectX(i), y: projectY(v) }));
+  const clipRight = innerLeft + innerW * lineReveal;
+  ctx.save();
   ctx.beginPath();
-  voiceValues.forEach((v, i) => {
-    const cx = projectX(i);
-    const cy = projectY(v);
-    if (i === 0) ctx.moveTo(cx, cy);
-    else ctx.lineTo(cx, cy);
+  ctx.rect(innerLeft, py, innerW * lineReveal, ph);
+  ctx.clip();
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, baseY);
+  pts.forEach((p) => ctx.lineTo(p.x, p.y));
+  ctx.lineTo(pts[pts.length - 1].x, baseY);
+  ctx.closePath();
+  const g = ctx.createLinearGradient(0, py, 0, baseY);
+  g.addColorStop(0, "rgba(168, 148, 196, 0.22)");
+  g.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = g;
+  ctx.fill();
+  ctx.restore();
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(innerLeft, py, innerW * lineReveal, ph);
+  ctx.clip();
+  ctx.shadowColor = CHART_LINE_VOICE;
+  ctx.shadowBlur = 8 + (animPhase == null ? 0 : pulse * 3);
+  ctx.strokeStyle = CHART_LINE_VOICE;
+  ctx.lineWidth = 2.6;
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  pts.forEach((p, i) => {
+    if (i === 0) ctx.moveTo(p.x, p.y);
+    else ctx.lineTo(p.x, p.y);
   });
   ctx.stroke();
+  ctx.restore();
+  const dotR = 3 + (animPhase == null ? 0 : pulse * 0.5);
+  ctx.fillStyle = "#f0f4f8";
+  pts.forEach((p) => {
+    if (p.x > clipRight + 0.5) return;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, dotR, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = CHART_LINE_VOICE;
+    ctx.lineWidth = 1.35;
+    ctx.stroke();
+  });
 }
 
-function drawMessageOnlyChart(ctx, chart, x, y, w, h) {
+function drawMessageOnlyChart(ctx, chart, x, y, w, h, options = {}) {
+  const animPhase =
+    typeof options.animationPhase === "number" && Number.isFinite(options.animationPhase)
+      ? options.animationPhase
+      : null;
+  const pulse = animPhase == null ? 0 : Math.sin(animPhase * Math.PI * 2);
+  const lineReveal = animPhase == null ? 1 : Math.min(1, Math.max(0, animPhase));
+
   fillRoundRect(ctx, x, y, w, h, 18, "rgba(46, 55, 70, 0.94)");
   strokeRoundRect(ctx, x, y, w, h, 18, "rgba(255,255,255,0.05)", 1);
-  drawLabel(ctx, "Message Graph", x + 16, y + 24, {
-    size: 27,
-    weight: "700",
-    color: "#e2e7ef",
-    forcePrimaryFont: true,
-  });
-  const px = x + 16;
-  const py = y + 44;
-  const pw = w - 32;
-  const ph = h - 60;
+  drawSolidStatTitle(ctx, "Messaggi", x + 14, y + 24, w - 60, 24, 14, STATS_TITLE);
+  drawPanelHeaderGlyph(ctx, "message", x + w - 18, y + 24);
+  const px = x + 14;
+  const py = y + 42;
+  const pw = w - 28;
+  const ph = h - 56;
+  const plotPadX = 8;
+  const innerLeft = px + plotPadX;
+  const innerW = pw - plotPadX * 2;
   fillRoundRect(ctx, px, py, pw, ph, 12, "rgba(25, 34, 49, 0.98)");
   const points = Array.isArray(chart) ? chart : [];
   if (points.length < 2) return;
+  const nPt = points.length;
   const textValues = points.map((p) => Number(p?.text || 0));
   const maxText = Math.max(0.01, ...textValues);
-  ctx.strokeStyle = "rgba(255,255,255,0.08)";
+  ctx.strokeStyle = "rgba(255,255,255,0.07)";
   ctx.lineWidth = 1;
   for (let i = 1; i <= 3; i += 1) {
     const yy = py + ((ph - 10) * i) / 4;
     ctx.beginPath();
-    ctx.moveTo(px + 8, yy);
-    ctx.lineTo(px + pw - 8, yy);
+    ctx.moveTo(innerLeft, yy);
+    ctx.lineTo(innerLeft + innerW, yy);
     ctx.stroke();
   }
-  const projectX = (idx) => px + idx * (pw / (points.length - 1));
+  const projectX = (idx) =>
+    nPt < 2 ? innerLeft : innerLeft + (idx / (nPt - 1)) * innerW;
   const projectY = (value) => py + ph - (value / maxText) * (ph - 16) - 8;
-  ctx.lineWidth = 2.5;
-  ctx.strokeStyle = "#3ec455";
+  const baseY = py + ph - 6;
+  const pts = textValues.map((v, i) => ({ x: projectX(i), y: projectY(v) }));
+  const clipRight = innerLeft + innerW * lineReveal;
+  ctx.save();
   ctx.beginPath();
-  textValues.forEach((v, i) => {
-    const cx = projectX(i);
-    const cy = projectY(v);
-    if (i === 0) ctx.moveTo(cx, cy);
-    else ctx.lineTo(cx, cy);
+  ctx.rect(innerLeft, py, innerW * lineReveal, ph);
+  ctx.clip();
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, baseY);
+  pts.forEach((p) => ctx.lineTo(p.x, p.y));
+  ctx.lineTo(pts[pts.length - 1].x, baseY);
+  ctx.closePath();
+  const g = ctx.createLinearGradient(0, py, 0, baseY);
+  g.addColorStop(0, "rgba(122, 184, 154, 0.22)");
+  g.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = g;
+  ctx.fill();
+  ctx.restore();
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(innerLeft, py, innerW * lineReveal, ph);
+  ctx.clip();
+  ctx.shadowColor = CHART_LINE_MSG;
+  ctx.shadowBlur = 8 + (animPhase == null ? 0 : pulse * 3);
+  ctx.strokeStyle = CHART_LINE_MSG;
+  ctx.lineWidth = 2.6;
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  pts.forEach((p, i) => {
+    if (i === 0) ctx.moveTo(p.x, p.y);
+    else ctx.lineTo(p.x, p.y);
   });
   ctx.stroke();
+  ctx.restore();
+  const dotR = 3 + (animPhase == null ? 0 : pulse * 0.5);
+  ctx.fillStyle = "#f0f4f8";
+  pts.forEach((p) => {
+    if (p.x > clipRight + 0.5) return;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, dotR, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = CHART_LINE_MSG;
+    ctx.lineWidth = 1.35;
+    ctx.stroke();
+  });
 }
 
-async function renderChannelActivityCanvas({ channelName, channelIconUrl, createdOn, lookbackDays, windows, topUsersText, topUsersVoice, chart, isTextChannel, guildName }) {
-  registerCanvasFonts(getCanvasModule());
+async function paintChannelActivityCanvas(
+  ctx,
+  {
+    channelName,
+    channelIconUrl,
+    createdOn,
+    joinedOn,
+    lookbackDays,
+    windows,
+    topUsersText,
+    topUsersVoice,
+    chart,
+    isTextChannel,
+    guildName,
+  },
+  animationPhase = 0,
+  channelIconResolved = null,
+) {
   const safeLookback = [1, 7, 14, 21, 30].includes(Number(lookbackDays)) ? Number(lookbackDays) : 14;
   const lookbackWindow = windows?.[`d${safeLookback}`] || windows?.d14 || {};
   const width = 1280;
   const height = 900;
-  const canvas = getCanvasModule().createCanvas(width, height);
-  const ctx = canvas.getContext("2d");
 
   const M = 20;
-  const GAP = 36;
-  const headerH = 96;
-  const contentTop = 16 + headerH + 20;
+  const GAP = STATS_GAP;
   const topRowH = 248;
-  const bottomTop = contentTop + topRowH + GAP;
-  const bottomH = height - bottomTop - 72;
   const contentW = width - M * 2;
   const topPanelW = Math.floor((contentW - GAP * 2) / 3);
   const topX2 = M + topPanelW + GAP;
   const topX3 = topX2 + topPanelW + GAP;
   const bottomPanelW = Math.floor((contentW - GAP) / 2);
   const bottomX2 = M + bottomPanelW + GAP;
-  const headerTextMaxWidth = contentW - 124 - 278 - 24;
 
   drawBackground(ctx, width, height);
 
-  fillRoundRect(ctx, M, 16, contentW, headerH, 22, "rgba(32, 42, 57, 0.9)");
-  strokeRoundRect(ctx, M, 16, contentW, headerH, 22, "rgba(255,255,255,0.06)", 1);
-
-  const headerIconX = M + 28;
-  if (channelIconUrl && !isTextChannel) {
-    await drawAvatarCircle(ctx, channelIconUrl, headerIconX, 24, 80);
-  } else {
-    fillRoundRect(ctx, headerIconX, 24, 80, 80, 40, "rgba(50, 60, 75, 0.95)");
-    drawLabel(ctx, "#", headerIconX + 40, 64, { size: 36, weight: "700", color: "#8b95a5", align: "center", baseline: "middle" });
-  }
-  drawLabelFull(ctx, channelName || "# channel", M + 124, 52, headerTextMaxWidth, 56, {
-    weight: "700",
-    color: "#eef3fb",
+  const avatarSize = 96;
+  const avatarX = M + 8;
+  const textLeft = avatarX + avatarSize + 20;
+  const statBadgeW = STATS_HEADER_BADGE_W;
+  const badgeX = width - M - statBadgeW;
+  const nameMaxW = Math.max(320, badgeX - textLeft - 16);
+  const chTitleRaw = sanitizeDisplayLabel(
+    prepareVisibleText(String(channelName || "").replace(/^#+\s*/, "").trim() || "channel"),
+  );
+  const chLayout = computeWrappedTitleLines(ctx, chTitleRaw, nameMaxW, {
+    startSize: 54,
     minSize: 20,
-    forcePrimaryFont: true,
+    weight: "700",
+    maxLines: 2,
+    fallback: "channel",
   });
-  const subtitle = `${guildName || "Server"} / Channel Overview`;
-  drawLabelFull(ctx, subtitle, M + 124, 88, headerTextMaxWidth, 28, {
+  const guildPrepared = prepareVisibleText(prepareCanvasHeaderText(guildName, "Server"));
+  const guildLayout = computeWrappedTitleLines(ctx, guildPrepared, nameMaxW, {
+    startSize: 24,
+    minSize: 14,
     weight: "600",
-    color: "#bfc8d6",
-    minSize: 16,
-    forcePrimaryFont: true,
+    maxLines: 3,
+    fallback: "Server",
   });
-  drawDateBadge(ctx, "Created On", dateText(createdOn), width - M - 278, 24, 270, 80);
+  const chLineH = Math.max(22, Math.round(chLayout.size * 1.08));
+  const chBlockH = chLayout.lines.length * chLineH;
+  const guildGap = 4;
+  const guildLineH = Math.max(18, Math.round(guildLayout.size * 1.06));
+  const guildBlockH = guildLayout.lines.length * guildLineH;
+  const textBlockH = chBlockH + guildGap + guildBlockH;
+  const badgeH = 58;
+  const badgeGap = 8;
+  const badgeStackH = badgeH + badgeGap + badgeH;
+  const headerPadY = 10;
+  const headerBandH = Math.max(textBlockH + headerPadY * 2, badgeStackH + headerPadY * 2, avatarSize + headerPadY * 2);
+  const textBlockTop = 16 + headerPadY;
+  const avatarY = 16 + Math.max(0, (headerBandH - avatarSize) / 2);
+  const badgeColY = 16 + headerPadY;
+  const contentTop = 16 + headerBandH + 14;
+  const bottomRowH = 220;
+  const bottomTop = contentTop + topRowH + GAP;
+  const channelDateBadgeOpts = {
+    h: badgeH,
+    pillH: 22,
+    padX: 10,
+    padY: 8,
+    pillRx: 8,
+    outerRx: 12,
+    titleSize: 14,
+    valueSize: 22,
+    titleY: 19,
+    valueY: 42,
+    labelPadX: 14,
+  };
+
+  fillRoundRect(ctx, M, 16, contentW, headerBandH, 22, "rgba(32, 42, 57, 0.9)");
+  strokeRoundRect(ctx, M, 16, contentW, headerBandH, 22, "rgba(255,255,255,0.06)", 1);
+
+  if (channelIconUrl && !isTextChannel) {
+    await drawAvatarCircle(ctx, channelIconUrl, avatarX, avatarY, avatarSize, animationPhase, channelIconResolved);
+  } else {
+    fillRoundRect(ctx, avatarX, avatarY, avatarSize, avatarSize, avatarSize / 2, "rgba(50, 60, 75, 0.95)");
+    drawActivityGlyph(ctx, "hash", avatarX + avatarSize / 2, avatarY + avatarSize / 2, 38, STATS_PANEL_GLYPH);
+  }
+  for (let li = 0; li < chLayout.lines.length; li += 1) {
+    const y = textBlockTop + chLineH / 2 + li * chLineH;
+    await drawLabelWithEmoji(ctx, chLayout.lines[li], textLeft, y, {
+      size: chLayout.size,
+      weight: "700",
+      color: STATS_TITLE,
+      forcePrimaryFont: true,
+    });
+  }
+  for (let li = 0; li < guildLayout.lines.length; li += 1) {
+    const y = textBlockTop + chBlockH + guildGap + guildLineH / 2 + li * guildLineH;
+    await drawLabelWithEmoji(ctx, guildLayout.lines[li], textLeft, y, {
+      size: guildLayout.size,
+      weight: "600",
+      color: "#d2dce8",
+      forcePrimaryFont: true,
+    });
+  }
+  drawDateBadgeStat(ctx, "Created", dateTextCompact(createdOn), badgeX, badgeColY, statBadgeW, channelDateBadgeOpts);
+  drawDateBadgeStat(ctx, "Joined", dateTextCompact(joinedOn), badgeX, badgeColY + badgeH + badgeGap, statBadgeW, channelDateBadgeOpts);
 
   if (isTextChannel) {
     drawMetricPanel(
@@ -841,7 +1220,7 @@ async function renderChannelActivityCanvas({ channelName, channelIconUrl, create
       contentTop,
       topPanelW,
       topRowH,
-      { icon: "#" },
+      { glyph: "message" },
     );
     drawMetricPanel(
       ctx,
@@ -855,7 +1234,7 @@ async function renderChannelActivityCanvas({ channelName, channelIconUrl, create
       contentTop,
       topPanelW,
       topRowH,
-      { icon: "\uD83D\uDC64" },
+      { glyph: "users" },
     );
     drawMetricPanel(
       ctx,
@@ -869,11 +1248,29 @@ async function renderChannelActivityCanvas({ channelName, channelIconUrl, create
       contentTop,
       topPanelW,
       topRowH,
-      { icon: "#" },
+      { glyph: "message" },
     );
-    const messageRows = (topUsersText || []).slice(0, 3).map((r) => ({ label: r?.label || "-", value: compactNumber(r?.value || 0) }));
-    await drawTopListCardStatbotStyle(ctx, "Top Message Members", messageRows, M, bottomTop, bottomPanelW, bottomH, { unit: "messages", icon: "#" });
-    drawMessageOnlyChart(ctx, chart, bottomX2, bottomTop, bottomPanelW, bottomH);
+    const topText = topUsersText || [];
+    await drawTopCard(
+      ctx,
+      "Top Members",
+      {
+        label: topText[0]?.label || "-",
+        value: compactNumber(topText[0]?.value || 0),
+        unit: "msg",
+      },
+      {
+        label: topText[1]?.label || "-",
+        value: compactNumber(topText[1]?.value || 0),
+        unit: "msg",
+      },
+      M,
+      bottomTop,
+      bottomPanelW,
+      bottomRowH,
+      { showRank: false, dense: true, glyph: "message" },
+    );
+    drawChart(ctx, chart, bottomX2, bottomTop, bottomPanelW, bottomRowH, { animationPhase, glyph: "chart" });
   } else {
     drawMetricPanel(
       ctx,
@@ -887,7 +1284,7 @@ async function renderChannelActivityCanvas({ channelName, channelIconUrl, create
       contentTop,
       topPanelW,
       topRowH,
-      { icon: "\uD83D\uDD0A" },
+      { glyph: "voice" },
     );
     drawMetricPanel(
       ctx,
@@ -901,7 +1298,7 @@ async function renderChannelActivityCanvas({ channelName, channelIconUrl, create
       contentTop,
       topPanelW,
       topRowH,
-      { icon: "\uD83D\uDC64" },
+      { glyph: "users" },
     );
     drawMetricPanel(
       ctx,
@@ -915,91 +1312,141 @@ async function renderChannelActivityCanvas({ channelName, channelIconUrl, create
       contentTop,
       topPanelW,
       topRowH,
-      { icon: "\uD83D\uDD0A" },
+      { glyph: "voice" },
     );
-    const voiceRows = (topUsersVoice || []).slice(0, 3).map((r) => ({ label: r?.label || "-", value: formatHours(r?.value || 0) }));
-    await drawTopListCardStatbotStyle(ctx, "Top Voice Members", voiceRows, M, bottomTop, bottomPanelW, bottomH, { unit: "hours", icon: "\uD83D\uDD0A" });
-    drawVoiceOnlyChart(ctx, chart, bottomX2, bottomTop, bottomPanelW, bottomH);
+    const topVoice = topUsersVoice || [];
+    await drawTopCard(
+      ctx,
+      "Top Members",
+      {
+        label: topVoice[0]?.label || "-",
+        value: formatHours(topVoice[0]?.value || 0),
+        unit: "h",
+      },
+      {
+        label: topVoice[1]?.label || "-",
+        value: formatHours(topVoice[1]?.value || 0),
+        unit: "h",
+      },
+      M,
+      bottomTop,
+      bottomPanelW,
+      bottomRowH,
+      { showRank: false, dense: true, glyph: "voice" },
+    );
+    drawChart(ctx, chart, bottomX2, bottomTop, bottomPanelW, bottomRowH, { animationPhase, glyph: "chart" });
   }
 
-  drawLabel(ctx, `Lookback: Last ${safeLookback} days — Timezone: ${ROME_TIME_ZONE}`, M, height - 28, {
-    size: 20,
-    weight: "700",
-    color: "#cfd6e2",
-    forcePrimaryFont: true,
-  });
-  drawLabel(ctx, "Vinili & Caffè", width - M, height - 28, {
+  drawLabel(ctx, `Lookback: Last ${safeLookback} days`, M, height - 20, {
     size: 18,
     weight: "700",
-    color: "#3ec455",
-    align: "right",
+    color: STATS_MUTED,
     forcePrimaryFont: true,
   });
+}
 
-  return canvas.toBuffer("image/png");
+async function renderChannelActivityCanvas(props) {
+  registerCanvasFonts(getCanvasModule());
+  const width = 1280;
+  const height = 900;
+  const channelIconResolved = props.channelIconUrl ? await loadAvatarForStatsCanvas(props.channelIconUrl) : null;
+  let GIFEncoder = null;
+  try {
+    GIFEncoder = require("gif-encoder-2");
+  } catch {
+    GIFEncoder = null;
+  }
+
+  if (!GIFEncoder || !ACTIVITY_CANVAS_GIF) {
+    const canvas = getCanvasModule().createCanvas(width, height);
+    const ctx = canvas.getContext("2d");
+    await paintChannelActivityCanvas(ctx, props, null, channelIconResolved);
+    return canvas.toBuffer("image/png");
+  }
+
+  const frameCount = ACTIVITY_CHANNEL_ANIM_FRAMES;
+  const encoder = new GIFEncoder(width, height);
+  encoder.start();
+  encoder.setRepeat(0);
+  encoder.setDelay(72);
+  encoder.setQuality(12);
+  const canvas = getCanvasModule().createCanvas(width, height);
+  const ctx = canvas.getContext("2d");
+  for (let f = 0; f < frameCount; f += 1) {
+    await paintChannelActivityCanvas(ctx, props, frameCount > 1 ? f / (frameCount - 1) : 1, channelIconResolved);
+    encoder.addFrame(ctx.getImageData(0, 0, width, height).data);
+  }
+  encoder.finish();
+  return Buffer.from(encoder.out.getData());
 }
 
 async function drawTopListCard(ctx, title, rows, x, y, w, h, options = {}) {
   const unit = String(options.unit || "");
   fillRoundRect(ctx, x, y, w, h, 18, "rgba(46, 55, 70, 0.94)");
   strokeRoundRect(ctx, x, y, w, h, 18, "rgba(255,255,255,0.05)", 1);
-  drawLabel(ctx, title, x + 14, y + 24, {
-    size: 22,
+  drawLabel(ctx, title, x + 12, y + 22, {
+    size: 21,
     weight: "700",
-    color: "#e2e7ef",
+    color: STATS_TITLE,
     forcePrimaryFont: true,
   });
-  if (options.icon) {
+  if (options.glyph) {
+    drawPanelHeaderGlyph(ctx, options.glyph, x + w - 18, y + 24);
+  } else if (options.icon) {
     drawLabel(ctx, options.icon, x + w - 32, y + 26, {
       size: 20,
       weight: "700",
-      color: "#8b95a5",
+      color: STATS_MUTED,
       align: "right",
       baseline: "middle",
     });
   }
 
-  const rowHeight = 70;
-  const gap = 8;
-  const startY = y + 44;
+  const rowHeight = 62;
+  const gap = 6;
+  const startY = y + 42;
 
+  const rowPad = 8;
   for (let i = 0; i < 3; i += 1) {
     const row = rows?.[i] || { label: "N/A", value: 0 };
     const rowY = startY + i * (rowHeight + gap);
-    fillRoundRect(ctx, x + 14, rowY, w - 28, rowHeight, 12, "rgba(12, 18, 28, 0.95)");
-    fillRoundRect(ctx, x + 14, rowY, 74, rowHeight, 12, "rgba(10, 16, 27, 0.95)");
+    fillRoundRect(ctx, x + rowPad, rowY, w - rowPad * 2, rowHeight, 12, "rgba(12, 18, 28, 0.95)");
+    fillRoundRect(ctx, x + rowPad, rowY, 74, rowHeight, 12, "rgba(10, 16, 27, 0.95)");
 
-    drawLabel(ctx, String(i + 1), x + 51, rowY + rowHeight / 2, {
+    drawLabel(ctx, String(i + 1), x + rowPad + 37, rowY + rowHeight / 2, {
       size: 22,
       weight: "800",
-      color: "#e0e5ed",
+      color: STATS_BODY,
       align: "center",
       useNumericFont: true,
     });
 
+    const valueText = unit ? `${row.value} ${unit}` : String(row.value ?? 0);
+    const vw = textWidth(ctx, valueText, 24, "800");
+    const labelMax = Math.max(120, w - rowPad * 2 - 74 - Math.min(200, vw + 36));
+    const labelClean = sanitizeDisplayLabel(prepareVisibleText(row.label || "N/A"));
     await drawLabelWithEmoji(
       ctx,
-      fitText(ctx, prepareVisibleText(row.label || "N/A"), w - 280, 24, "700"),
-      x + 96,
+      fitText(ctx, labelClean, labelMax, 24, "700"),
+      x + rowPad + 74 + 10,
       rowY + rowHeight / 2,
-      { size: 24, weight: "700", color: "#e0e5ed", align: "left" },
+      { size: 24, weight: "700", color: STATS_BODY, align: "left" },
     );
 
-    const valueText = unit ? `${row.value} ${unit}` : String(row.value ?? 0);
-    const valueWidth = Math.min(w - 260, Math.max(110, textWidth(ctx, valueText, 24, "800") + 26),);
+    const valueWidth = Math.min(w - rowPad * 2 - 74, Math.max(110, vw + 26),);
     fillRoundRect(
       ctx,
-      x + w - 14 - valueWidth,
+      x + w - rowPad - valueWidth,
       rowY + 10,
       valueWidth,
       rowHeight - 20,
       10,
       "rgba(30, 39, 54, 0.95)",
     );
-    drawLabel(ctx, valueText, x + w - 26, rowY + rowHeight / 2, {
+    drawLabel(ctx, valueText, x + w - rowPad - 10, rowY + rowHeight / 2, {
       size: 24,
       weight: "800",
-      color: "#d5dbe5",
+      color: STATS_VALUE,
       align: "right",
       useNumericFont: true,
     });
@@ -1018,41 +1465,111 @@ function dateText(value) {
   });
 }
 
-async function renderUserActivityCanvas({ guildName, userTag, displayName, avatarUrl, createdOn, joinedOn, lookbackDays, windows, ranks, topChannelsText, topChannelsVoice, chart }) {
-  registerCanvasFonts(getCanvasModule());
+async function paintUserActivityCanvas(
+  ctx,
+  {
+    guildName,
+    userTag,
+    displayName,
+    avatarUrl,
+    createdOn,
+    joinedOn,
+    lookbackDays,
+    windows,
+    ranks,
+    topChannelsText,
+    topChannelsVoice,
+    chart,
+  },
+  animationPhase = 0,
+  avatarResolved = null,
+) {
   const safeLookback = [1, 7, 14, 21, 30].includes(Number(lookbackDays)) ? Number(lookbackDays) : 14;
   const lookbackKey = `d${safeLookback}`;
   const lookbackWindow = windows?.[lookbackKey] || windows?.d14 || {};
   const width = 1280;
-  const height = 700;
-  const canvas = getCanvasModule().createCanvas(width, height);
-  const ctx = canvas.getContext("2d");
+  const height = 740;
+  const rightColW = STATS_HEADER_BADGE_W;
+  const rightColX = width - 20 - rightColW;
+  const avatarSize = 96;
+  const avatarX = 28;
+  const textLeft = avatarX + avatarSize + 20;
+  const guildTitleMax = Math.max(320, rightColX - textLeft - 16);
 
   drawBackground(ctx, width, height);
 
-  fillRoundRect(ctx, 20, 16, 1240, 96, 22, "rgba(32, 42, 57, 0.9)");
-  strokeRoundRect(ctx, 20, 16, 1240, 96, 22, "rgba(255,255,255,0.06)", 1);
-
-  await drawAvatarCircle(ctx, avatarUrl, 28, 24, 80);
-  const displayFull = String(displayName || userTag || "").trim() || "—";
-  const displaySize = getFittedFontSize(ctx, displayFull, 560, 52, 14, "700");
-  await drawLabelWithEmoji(
-    ctx,
-    displayFull,
-    124,
-    52,
-    { size: displaySize, weight: "700", color: "#eef3fb", forcePrimaryFont: true },
-  );
-  const guildLine = `${guildName || "Server"} / My Activity`;
-  drawLabelFull(ctx, guildLine, 124, 88, 560, 28, {
-    weight: "600",
-    color: "#bfc8d6",
-    minSize: 16,
-    forcePrimaryFont: true,
+  const displayFull = sanitizeDisplayLabel(String(displayName || userTag || "").trim()) || "—";
+  const displayLayout = computeWrappedTitleLines(ctx, displayFull, guildTitleMax, {
+    startSize: 58,
+    minSize: 20,
+    weight: "700",
+    maxLines: 2,
+    fallback: "—",
   });
+  const guildPrepared = prepareVisibleText(prepareCanvasHeaderText(guildName, "Server"));
+  const guildLayout = computeWrappedTitleLines(ctx, guildPrepared, guildTitleMax, {
+    startSize: 26,
+    minSize: 14,
+    weight: "600",
+    maxLines: 3,
+    fallback: "Server",
+  });
+  const displayLineH = Math.max(22, Math.round(displayLayout.size * 1.06));
+  const guildGap = 3;
+  const guildLineH = Math.max(18, Math.round(guildLayout.size * 1.06));
+  const displayBlockH = displayLayout.lines.length * displayLineH;
+  const guildBlockH = guildLayout.lines.length * guildLineH;
+  const textBlockH = displayBlockH + guildGap + guildBlockH;
+  const badgeH = 58;
+  const badgeGap = 8;
+  const badgeStackH = badgeH + badgeGap + badgeH;
+  const headerPadY = 10;
+  const headerBarH = Math.max(textBlockH + headerPadY * 2, badgeStackH + headerPadY * 2, avatarSize + headerPadY * 2);
+  const textBlockTop = 16 + headerPadY;
+  const avatarY = 16 + Math.max(0, (headerBarH - avatarSize) / 2);
+  const userDateBadgeOpts = {
+    h: badgeH,
+    pillH: 22,
+    padX: 10,
+    padY: 8,
+    pillRx: 8,
+    outerRx: 12,
+    titleSize: 14,
+    valueSize: 22,
+    titleY: 19,
+    valueY: 42,
+    labelPadX: 14,
+  };
 
-  drawDateBadge(ctx, "Created On", dateText(createdOn), 700, 24, 250, 80);
-  drawDateBadge(ctx, "Joined On", dateText(joinedOn), 960, 24, 290, 80);
+  fillRoundRect(ctx, 20, 16, 1240, headerBarH, 22, "rgba(32, 42, 57, 0.9)");
+  strokeRoundRect(ctx, 20, 16, 1240, headerBarH, 22, "rgba(255,255,255,0.06)", 1);
+
+  await drawAvatarCircle(ctx, avatarUrl, avatarX, avatarY, avatarSize, animationPhase, avatarResolved);
+  for (let li = 0; li < displayLayout.lines.length; li += 1) {
+    const y = textBlockTop + displayLineH / 2 + li * displayLineH;
+    await drawLabelWithEmoji(ctx, displayLayout.lines[li], textLeft, y, {
+      size: displayLayout.size,
+      weight: "700",
+      color: STATS_TITLE,
+      forcePrimaryFont: true,
+    });
+  }
+  for (let li = 0; li < guildLayout.lines.length; li += 1) {
+    const y = textBlockTop + displayBlockH + guildGap + guildLineH / 2 + li * guildLineH;
+    await drawLabelWithEmoji(ctx, guildLayout.lines[li], textLeft, y, {
+      size: guildLayout.size,
+      weight: "600",
+      color: "#d2dce8",
+      forcePrimaryFont: true,
+    });
+  }
+
+  const badgeColY = 16 + Math.max(4, (headerBarH - badgeStackH) / 2);
+  drawDateBadgeStat(ctx, "Created", dateTextCompact(createdOn), rightColX, badgeColY, rightColW, userDateBadgeOpts);
+  drawDateBadgeStat(ctx, "Joined", dateTextCompact(joinedOn), rightColX, badgeColY + badgeH + badgeGap, rightColW, userDateBadgeOpts);
+
+  const userMetricsTop = 16 + headerBarH + 14;
+  const userTopRowY = userMetricsTop + 236 + STATS_GAP;
 
   drawMetricPanel(
     ctx,
@@ -1062,46 +1579,46 @@ async function renderUserActivityCanvas({ guildName, userTag, displayName, avata
       { label: "Voice", value: `#${ranks?.voice || "-"}` },
     ],
     20,
-    132,
+    userMetricsTop,
     400,
     236,
-    { icon: "\uD83C\uDFC6" },
+    { glyph: "trophy", denseRows: true },
   );
 
   drawMetricPanel(
     ctx,
     "Messaggi",
     [
-      { label: "1d", value: `${compactNumber(windows?.d1?.text)} messages` },
-      { label: "7d", value: `${compactNumber(windows?.d7?.text)} messages` },
+      { label: "1d", value: `${compactNumber(windows?.d1?.text)} msg` },
+      { label: "7d", value: `${compactNumber(windows?.d7?.text)} msg` },
       {
         label: `${safeLookback}d`,
-        value: `${compactNumber(lookbackWindow?.text)} messages`,
+        value: `${compactNumber(lookbackWindow?.text)} msg`,
       },
     ],
     440,
-    132,
+    userMetricsTop,
     400,
     236,
-    { icon: "#" },
+    { glyph: "message", denseRows: true },
   );
 
   drawMetricPanel(
     ctx,
     "Voice Activity",
     [
-      { label: "1d", value: `${formatHours(windows?.d1?.voiceSeconds)} hours` },
-      { label: "7d", value: `${formatHours(windows?.d7?.voiceSeconds)} hours` },
+      { label: "1d", value: `${formatHours(windows?.d1?.voiceSeconds)} h` },
+      { label: "7d", value: `${formatHours(windows?.d7?.voiceSeconds)} h` },
       {
         label: `${safeLookback}d`,
-        value: `${formatHours(lookbackWindow?.voiceSeconds)} hours`,
+        value: `${formatHours(lookbackWindow?.voiceSeconds)} h`,
       },
     ],
     860,
-    132,
+    userMetricsTop,
     400,
     236,
-    { icon: "\uD83D\uDD0A" },
+    { glyph: "voice", denseRows: true },
   );
 
   await drawTopCard(
@@ -1110,69 +1627,165 @@ async function renderUserActivityCanvas({ guildName, userTag, displayName, avata
     {
       label: topChannelsText?.[0]?.label || "#-",
       value: compactNumber(topChannelsText?.[0]?.value || 0),
-      unit: "messages",
+      unit: "msg",
     },
     {
       label: topChannelsVoice?.[0]?.label || "#-",
       value: formatHours(topChannelsVoice?.[0]?.value || 0),
-      unit: "hours",
+      unit: "h",
     },
     20,
-    392,
+    userTopRowY,
     610,
     242,
-    { showRank: false, icon: "\uD83D\uDCCA" },
+    { showRank: false, glyph: "chart", dense: true },
   );
 
-  drawChart(ctx, chart, 650, 392, 610, 242, { icon: "\uD83D\uDCCA" });
-  drawLabel(ctx, `Lookback: Last ${safeLookback} days`, 24, 670, {
-    size: 20,
+  drawChart(ctx, chart, 650, userTopRowY, 610, 242, {
+    glyph: "chart",
+    animationPhase,
+  });
+  drawLabel(ctx, `Lookback: Last ${safeLookback} days`, 32, height - 22, {
+    size: 22,
     weight: "700",
-    color: "#cfd6e2",
+    color: "#b9c7d9",
     forcePrimaryFont: true,
   });
-
-  return canvas.toBuffer("image/png");
 }
 
-async function renderServerActivityCanvas({ guildName, guildIconUrl, createdOn, invitedBotOn, lookbackDays, windows, topUsersText, topUsersVoice, topChannelsText, topChannelsVoice, chart }) {
+async function renderUserActivityCanvas(props) {
   registerCanvasFonts(getCanvasModule());
+  const width = 1280;
+  const height = 740;
+  const avatarResolved = props.avatarUrl ? await loadAvatarForStatsCanvas(props.avatarUrl) : null;
+  let GIFEncoder = null;
+  try {
+    GIFEncoder = require("gif-encoder-2");
+  } catch {
+    GIFEncoder = null;
+  }
+
+  if (!GIFEncoder || !ACTIVITY_CANVAS_GIF) {
+    const canvas = getCanvasModule().createCanvas(width, height);
+    const ctx = canvas.getContext("2d");
+    await paintUserActivityCanvas(ctx, props, null, avatarResolved);
+    return canvas.toBuffer("image/png");
+  }
+
+  const animFrames = ACTIVITY_CANVAS_ANIM_FRAMES;
+  const encoder = new GIFEncoder(width, height);
+  encoder.start();
+  encoder.setRepeat(0);
+  encoder.setDelay(72);
+  encoder.setQuality(12);
+  const canvas = getCanvasModule().createCanvas(width, height);
+  const ctx = canvas.getContext("2d");
+  for (let f = 0; f < animFrames; f += 1) {
+    const phase = animFrames > 1 ? f / (animFrames - 1) : 1;
+    await paintUserActivityCanvas(ctx, props, phase, avatarResolved);
+    encoder.addFrame(ctx.getImageData(0, 0, width, height).data);
+  }
+  encoder.setDelay(ACTIVITY_CANVAS_STATIC_TAIL_DELAY_MS);
+  await paintUserActivityCanvas(ctx, props, 1, avatarResolved);
+  encoder.addFrame(ctx.getImageData(0, 0, width, height).data);
+  encoder.finish();
+  return Buffer.from(encoder.out.getData());
+}
+
+async function paintServerActivityCanvas(
+  ctx,
+  {
+    guildName,
+    guildIconUrl,
+    createdOn,
+    invitedBotOn,
+    lookbackDays,
+    windows,
+    topUsersText,
+    topUsersVoice,
+    topChannelsText,
+    topChannelsVoice,
+    chart,
+  },
+  animationPhase = 0,
+  guildIconResolved = null,
+) {
   const safeLookback = [1, 7, 14, 21, 30].includes(Number(lookbackDays)) ? Number(lookbackDays) : 14;
   const lookbackKey = `d${safeLookback}`;
   const lookbackWindow = windows?.[lookbackKey] || windows?.d14 || {};
   const width = 1280;
-  const height = 910;
-  const canvas = getCanvasModule().createCanvas(width, height);
-  const ctx = canvas.getContext("2d");
+  const height = 940;
 
   drawBackground(ctx, width, height);
 
-  fillRoundRect(ctx, 20, 16, 1240, 96, 22, "rgba(32, 42, 57, 0.9)");
-  strokeRoundRect(ctx, 20, 16, 1240, 96, 22, "rgba(255,255,255,0.06)", 1);
-
-  await drawAvatarCircle(ctx, guildIconUrl, 28, 24, 80);
-  drawLabelFull(ctx, guildName || "Server", 124, 52, 500, 60, {
+  const avatarSize = 96;
+  const avatarX = 28;
+  const textLeft = avatarX + avatarSize + 20;
+  const statBadgeW = STATS_HEADER_BADGE_W;
+  const badgeX = width - 20 - statBadgeW;
+  const nameMaxW = Math.max(320, badgeX - textLeft - 16);
+  const guildPrepared = prepareVisibleText(prepareCanvasHeaderText(guildName, "Server"));
+  const guildLayout = computeWrappedTitleLines(ctx, guildPrepared, nameMaxW, {
+    startSize: 50,
+    minSize: 16,
     weight: "700",
-    color: "#eef3fb",
-    minSize: 20,
+    maxLines: 3,
+    fallback: "Server",
+  });
+  const subtitleStr = "Server Overview";
+  const subSize = getFittedFontSize(ctx, subtitleStr, nameMaxW, 22, 14, "600");
+  const guildLineH = Math.max(20, Math.round(guildLayout.size * 1.06));
+  const guildBlockH = guildLayout.lines.length * guildLineH;
+  const titleSubGap = 3;
+  const subLineH = Math.max(16, Math.round(subSize * 1.04));
+  const textBlockH = guildBlockH + titleSubGap + subLineH;
+  const badgeH = 58;
+  const badgeGap = 8;
+  const badgeStackH = badgeH + badgeGap + badgeH;
+  const headerPadY = 10;
+  const headerBandH = Math.max(textBlockH + headerPadY * 2, badgeStackH + headerPadY * 2, avatarSize + headerPadY * 2);
+  const textBlockTop = 16 + headerPadY;
+  const subtitleY = textBlockTop + guildBlockH + titleSubGap + subLineH / 2;
+  const avatarY = 16 + Math.max(0, (headerBandH - avatarSize) / 2);
+  const badgeColY = 16 + headerPadY;
+  const serverDateBadgeOpts = {
+    h: badgeH,
+    pillH: 22,
+    padX: 10,
+    padY: 8,
+    pillRx: 8,
+    outerRx: 12,
+    titleSize: 14,
+    valueSize: 22,
+    titleY: 19,
+    valueY: 42,
+    labelPadX: 14,
+  };
+
+  fillRoundRect(ctx, 20, 16, 1240, headerBandH, 22, "rgba(32, 42, 57, 0.9)");
+  strokeRoundRect(ctx, 20, 16, 1240, headerBandH, 22, "rgba(255,255,255,0.06)", 1);
+
+  await drawAvatarCircle(ctx, guildIconUrl, avatarX, avatarY, avatarSize, animationPhase, guildIconResolved);
+  for (let li = 0; li < guildLayout.lines.length; li += 1) {
+    const y = textBlockTop + guildLineH / 2 + li * guildLineH;
+    await drawLabelWithEmoji(ctx, guildLayout.lines[li], textLeft, y, {
+      size: guildLayout.size,
+      weight: "700",
+      color: "#e8eef5",
+      forcePrimaryFont: true,
+    });
+  }
+  drawLabel(ctx, subtitleStr, textLeft, subtitleY, {
+    size: subSize,
+    weight: "600",
+    color: "#a8b6c8",
     forcePrimaryFont: true,
   });
-  drawLabel(ctx, "Server Overview", 124, 88, {
-    size: 28,
-    weight: "600",
-    color: "#bfc8d6",
-  });
 
-  drawDateBadge(ctx, "Created On", dateText(createdOn), 650, 24, 270, 80);
-  drawDateBadge(
-    ctx,
-    "Invited Bot On",
-    dateText(invitedBotOn),
-    940,
-    24,
-    300,
-    80,
-  );
+  drawDateBadgeStat(ctx, "Created", dateTextCompact(createdOn), badgeX, badgeColY, statBadgeW, serverDateBadgeOpts);
+  drawDateBadgeStat(ctx, "Joined", dateTextCompact(invitedBotOn), badgeX, badgeColY + badgeH + badgeGap, statBadgeW, serverDateBadgeOpts);
+
+  const metricsTop = 16 + headerBandH + 14;
 
   drawMetricPanel(
     ctx,
@@ -1186,10 +1799,10 @@ async function renderServerActivityCanvas({ guildName, guildIconUrl, createdOn, 
       },
     ],
     20,
-    132,
+    metricsTop,
     400,
     220,
-    { icon: "#" },
+    { denseRows: true, glyph: "message" },
   );
 
   drawMetricPanel(
@@ -1204,10 +1817,10 @@ async function renderServerActivityCanvas({ guildName, guildIconUrl, createdOn, 
       },
     ],
     440,
-    132,
+    metricsTop,
     400,
     220,
-    { icon: "\uD83D\uDD0A" },
+    { denseRows: true, glyph: "voice" },
   );
 
   drawMetricPanel(
@@ -1228,11 +1841,13 @@ async function renderServerActivityCanvas({ guildName, guildIconUrl, createdOn, 
       },
     ],
     860,
-    132,
+    metricsTop,
     400,
     220,
-    { icon: "\uD83D\uDC64" },
+    { denseRows: true, glyph: "users" },
   );
+
+  const topRowY = metricsTop + 220 + 22;
 
   await drawTopCard(
     ctx,
@@ -1248,10 +1863,10 @@ async function renderServerActivityCanvas({ guildName, guildIconUrl, createdOn, 
       unit: "hours",
     },
     20,
-    370,
+    topRowY,
     600,
     220,
-    { showRank: false, icon: "#" },
+    { showRank: false, dense: true, glyph: "trophy" },
   );
 
   await drawTopCard(
@@ -1268,56 +1883,106 @@ async function renderServerActivityCanvas({ guildName, guildIconUrl, createdOn, 
       unit: "hours",
     },
     640,
-    370,
+    topRowY,
     620,
     220,
-    { showRank: false, icon: "\uD83D\uDCCA" },
+    { showRank: false, dense: true, glyph: "chart" },
   );
 
-  drawChart(ctx, chart, 20, 610, 1240, 240, { icon: "\uD83D\uDCCA" });
-  drawLabel(ctx, `Lookback: Last ${safeLookback} days`, 28, 878, {
-    size: 20,
+  const chartY = topRowY + 220 + 18;
+  drawChart(ctx, chart, 20, chartY, 1240, 240, { animationPhase, glyph: "chart" });
+  drawLabel(ctx, `Lookback: Last ${safeLookback} days`, 32, height - 22, {
+    size: 22,
     weight: "700",
-    color: "#cfd6e2",
+    color: "#b9c7d9",
     forcePrimaryFont: true,
   });
+}
 
-  return canvas.toBuffer("image/png");
+async function renderServerActivityCanvas(props) {
+  registerCanvasFonts(getCanvasModule());
+  const width = 1280;
+  const height = 940;
+  const forceStatic = Boolean(props?.forceStatic);
+  const guildIconResolved = props.guildIconUrl ? await loadAvatarForStatsCanvas(props.guildIconUrl) : null;
+  let GIFEncoder = null;
+  try {
+    GIFEncoder = require("gif-encoder-2");
+  } catch {
+    GIFEncoder = null;
+  }
+
+  if (!GIFEncoder || !ACTIVITY_CANVAS_GIF || forceStatic) {
+    const canvas = getCanvasModule().createCanvas(width, height);
+    const ctx = canvas.getContext("2d");
+    await paintServerActivityCanvas(ctx, props, null, guildIconResolved);
+    return canvas.toBuffer("image/png");
+  }
+
+  const animFrames = ACTIVITY_CANVAS_ANIM_FRAMES;
+  const encoder = new GIFEncoder(width, height);
+  encoder.start();
+  encoder.setRepeat(0);
+  encoder.setDelay(72);
+  encoder.setQuality(10);
+  const canvas = getCanvasModule().createCanvas(width, height);
+  const ctx = canvas.getContext("2d");
+  for (let f = 0; f < animFrames; f += 1) {
+    const phase = animFrames > 1 ? f / (animFrames - 1) : 1;
+    await paintServerActivityCanvas(ctx, props, phase, guildIconResolved);
+    encoder.addFrame(ctx);
+  }
+  encoder.setDelay(ACTIVITY_CANVAS_STATIC_TAIL_DELAY_MS);
+  await paintServerActivityCanvas(ctx, props, 1, guildIconResolved);
+  encoder.addFrame(ctx);
+  encoder.finish();
+  return Buffer.from(encoder.out.getData());
 }
 
 async function renderTopStatisticsCanvas({ guildName, guildIconUrl, lookbackDays = 14, topUsersText = [], topChannelsText = [], topUsersVoice = [], topChannelsVoice = [] }) {
   registerCanvasFonts(getCanvasModule());
   const safeLookback = [1, 7, 14, 21, 30].includes(Number(lookbackDays)) ? Number(lookbackDays) : 14;
   const width = 1280;
-  const height = 860;
+  const height = 900;
   const canvas = getCanvasModule().createCanvas(width, height);
   const ctx = canvas.getContext("2d");
 
   drawBackground(ctx, width, height);
 
-  fillRoundRect(ctx, 20, 16, 1240, 96, 22, "rgba(32, 42, 57, 0.9)");
-  strokeRoundRect(ctx, 20, 16, 1240, 96, 22, "rgba(255,255,255,0.06)", 1);
-
-  await drawAvatarCircle(ctx, guildIconUrl, 28, 24, 80);
-  drawLabelFull(ctx, guildName || "Server", 124, 52, 820, 46, {
+  const topGuildLine = stripBrokenReplacementChars(guildName || "Server") || "Server";
+  const topLayout = computeWrappedTitleLines(ctx, topGuildLine, 820, {
+    startSize: 42,
+    minSize: 18,
     weight: "700",
-    color: "#eef3fb",
-    minSize: 20,
-    forcePrimaryFont: true,
+    maxLines: 2,
+    fallback: "Server",
   });
-  drawLabel(ctx, "Top Statistics", 124, 88, {
-    size: 28,
+  const nameLine1Y = 38;
+  const topSubtitleY = nameLine1Y + topLayout.lines.length * topLayout.lineHeight + 12;
+  const headerBandH = Math.max(96, Math.min(130, topSubtitleY + 22 - 16));
+  const headerDelta = headerBandH - 96;
+
+  fillRoundRect(ctx, 20, 16, 1240, headerBandH, 22, "rgba(32, 42, 57, 0.9)");
+  strokeRoundRect(ctx, 20, 16, 1240, headerBandH, 22, "rgba(255,255,255,0.06)", 1);
+
+  const topGuildIconResolved = guildIconUrl ? await loadAvatarForStatsCanvas(guildIconUrl) : null;
+  await drawAvatarCircle(ctx, guildIconUrl, 28, 24, 80, null, topGuildIconResolved);
+  for (let li = 0; li < topLayout.lines.length; li += 1) {
+    await drawLabelWithEmoji(ctx, topLayout.lines[li], 124, nameLine1Y + li * topLayout.lineHeight, {
+      size: topLayout.size,
+      weight: "700",
+      color: STATS_TITLE,
+      forcePrimaryFont: true,
+    });
+  }
+  drawLabel(ctx, "Top Statistics", 124, topSubtitleY, {
+    size: 24,
     weight: "600",
-    color: "#bfc8d6",
+    color: STATS_MUTED,
     forcePrimaryFont: true,
   });
 
-  drawLabel(ctx, "# Messages", 24, 150, {
-    size: 44,
-    weight: "700",
-    color: "#e2e7ef",
-    forcePrimaryFont: true,
-  });
+  drawSolidStatTitle(ctx, "Messaggi", 24, 146 + headerDelta, 900, 26, 15, STATS_MUTED);
 
   await drawTopListCard(
     ctx,
@@ -1327,10 +1992,10 @@ async function renderTopStatisticsCanvas({ guildName, guildIconUrl, lookbackDays
       value: compactNumber(x?.value || 0),
     })),
     20,
-    176,
+    168 + headerDelta,
     610,
-    288,
-    { unit: "msg", icon: "#" },
+    296,
+    { unit: "msg", glyph: "message" },
   );
 
   await drawTopListCard(
@@ -1341,18 +2006,13 @@ async function renderTopStatisticsCanvas({ guildName, guildIconUrl, lookbackDays
       value: compactNumber(x?.value || 0),
     })),
     650,
-    176,
+    168 + headerDelta,
     610,
-    288,
-    { unit: "msg", icon: "\uD83D\uDCCA" },
+    296,
+    { unit: "msg", glyph: "chart" },
   );
 
-  drawLabel(ctx, "Voice Activity", 24, 510, {
-    size: 44,
-    weight: "700",
-    color: "#e2e7ef",
-    forcePrimaryFont: true,
-  });
+  drawSolidStatTitle(ctx, "Voice Activity", 24, 478 + headerDelta, 900, 26, 15, STATS_MUTED);
 
   await drawTopListCard(
     ctx,
@@ -1362,10 +2022,10 @@ async function renderTopStatisticsCanvas({ guildName, guildIconUrl, lookbackDays
       value: formatHours(x?.value || 0),
     })),
     20,
-    536,
+    500 + headerDelta,
     610,
-    288,
-    { unit: "h", icon: "\uD83D\uDD0A" },
+    296,
+    { unit: "h", glyph: "voice" },
   );
 
   await drawTopListCard(
@@ -1376,21 +2036,21 @@ async function renderTopStatisticsCanvas({ guildName, guildIconUrl, lookbackDays
       value: formatHours(x?.value || 0),
     })),
     650,
-    536,
+    500 + headerDelta,
     610,
-    288,
-    { unit: "h", icon: "\uD83D\uDD0A" },
+    296,
+    { unit: "h", glyph: "voice" },
   );
 
   drawLabel(
     ctx,
     `Lookback: Last ${safeLookback} days | Timezone: Europe/Rome`,
     24,
-    844,
+    844 + headerDelta,
     {
       size: 20,
       weight: "700",
-      color: "#cfd6e2",
+      color: STATS_MUTED,
       forcePrimaryFont: true,
     },
   );
@@ -1402,35 +2062,46 @@ async function renderTopStatisticsSingleCanvas({ guildName, guildIconUrl, lookba
   registerCanvasFonts(getCanvasModule());
   const safeLookback = [1, 7, 14, 21, 30].includes(Number(lookbackDays)) ? Number(lookbackDays) : 14;
   const width = 1280;
-  const height = 860;
+  const height = 900;
   const canvas = getCanvasModule().createCanvas(width, height);
   const ctx = canvas.getContext("2d");
 
   drawBackground(ctx, width, height);
 
-  fillRoundRect(ctx, 20, 16, 1240, 96, 22, "rgba(32, 42, 57, 0.9)");
-  strokeRoundRect(ctx, 20, 16, 1240, 96, 22, "rgba(255,255,255,0.06)", 1);
-
-  await drawAvatarCircle(ctx, guildIconUrl, 28, 24, 80);
-  drawLabelFull(ctx, guildName || "Server", 124, 52, 820, 46, {
+  const singleGuildLine = stripBrokenReplacementChars(guildName || "Server") || "Server";
+  const singleLayout = computeWrappedTitleLines(ctx, singleGuildLine, 820, {
+    startSize: 42,
+    minSize: 18,
     weight: "700",
-    color: "#eef3fb",
-    minSize: 20,
-    forcePrimaryFont: true,
+    maxLines: 2,
+    fallback: "Server",
   });
-  drawLabel(ctx, "Top Statistics", 124, 88, {
-    size: 28,
+  const nameLine1Y = 38;
+  const singleSubtitleY = nameLine1Y + singleLayout.lines.length * singleLayout.lineHeight + 12;
+  const headerBandH = Math.max(96, Math.min(130, singleSubtitleY + 22 - 16));
+  const headerDelta = headerBandH - 96;
+
+  fillRoundRect(ctx, 20, 16, 1240, headerBandH, 22, "rgba(32, 42, 57, 0.9)");
+  strokeRoundRect(ctx, 20, 16, 1240, headerBandH, 22, "rgba(255,255,255,0.06)", 1);
+
+  const singleGuildIconResolved = guildIconUrl ? await loadAvatarForStatsCanvas(guildIconUrl) : null;
+  await drawAvatarCircle(ctx, guildIconUrl, 28, 24, 80, null, singleGuildIconResolved);
+  for (let li = 0; li < singleLayout.lines.length; li += 1) {
+    await drawLabelWithEmoji(ctx, singleLayout.lines[li], 124, nameLine1Y + li * singleLayout.lineHeight, {
+      size: singleLayout.size,
+      weight: "700",
+      color: STATS_TITLE,
+      forcePrimaryFont: true,
+    });
+  }
+  drawLabel(ctx, "Top Statistics", 124, singleSubtitleY, {
+    size: 24,
     weight: "600",
-    color: "#bfc8d6",
+    color: STATS_MUTED,
     forcePrimaryFont: true,
   });
 
-  drawLabelFull(ctx, title, 24, 172, 1220, 62, {
-    weight: "700",
-    color: "#e2e7ef",
-    minSize: 24,
-    forcePrimaryFont: true,
-  });
+  drawSolidStatTitle(ctx, title, 24, 168 + headerDelta, 1220, 32, 18, STATS_MUTED);
 
   const normalizedRows = Array.isArray(rows) ? rows.map((x) => ({ label: x?.label || "N/A", value: mode === "voice" ? formatHours(x?.value || 0) : compactNumber(x?.value || 0), })) : [];
 
@@ -1439,21 +2110,21 @@ async function renderTopStatisticsSingleCanvas({ guildName, guildIconUrl, lookba
     "Top 3",
     normalizedRows,
     20,
-    240,
+    232 + headerDelta,
     1240,
-    520,
-    { unit, icon: mode === "voice" ? "\uD83D\uDD0A" : "#" },
+    528,
+    { unit, glyph: mode === "voice" ? "voice" : "message" },
   );
 
   drawLabel(
     ctx,
     `Lookback: Last ${safeLookback} days | Timezone: Europe/Rome`,
     24,
-    824,
+    824 + headerDelta,
     {
       size: 20,
       weight: "700",
-      color: "#cfd6e2",
+      color: STATS_MUTED,
       forcePrimaryFont: true,
     },
   );
@@ -1474,7 +2145,7 @@ async function drawTopRowsColumn(ctx, rows, { x, y, w, rankStart = 1, unit = "ms
     drawLabel(ctx, String(rank), x + 36, rowY + rowHeight / 2, {
       size: 22,
       weight: "800",
-      color: "#e0e5ed",
+      color: STATS_BODY,
       align: "center",
       useNumericFont: true,
     });
@@ -1482,10 +2153,10 @@ async function drawTopRowsColumn(ctx, rows, { x, y, w, rankStart = 1, unit = "ms
     const labelMaxWidth = w - 260;
     await drawLabelWithEmoji(
       ctx,
-      fitText(ctx, prepareVisibleText(row.label || "N/A"), labelMaxWidth, 24, "700"),
+      fitText(ctx, sanitizeDisplayLabel(prepareVisibleText(row.label || "N/A")), labelMaxWidth, 24, "700"),
       x + 90,
       rowY + rowHeight / 2,
-      { size: 24, weight: "700", color: "#e0e5ed", align: "left" },
+      { size: 24, weight: "700", color: STATS_BODY, align: "left" },
     );
 
     const valueText = `${row.value} ${unit}`;
@@ -1502,14 +2173,26 @@ async function drawTopRowsColumn(ctx, rows, { x, y, w, rankStart = 1, unit = "ms
     drawLabel(ctx, valueText, x + w - 18, rowY + rowHeight / 2, {
       size: 24,
       weight: "800",
-      color: "#d5dbe5",
+      color: STATS_VALUE,
       align: "right",
       useNumericFont: true,
     });
   }
 }
 
-async function renderTopLeaderboardPageCanvas({ guildName, guildIconUrl, lookbackDays = 14, title = "Top Statistics", page = 1, totalPages = 1, rows = [], unit = "msg", mode = "messages", allTime = false }) {
+async function renderTopLeaderboardPageCanvas({
+  guildName,
+  guildIconUrl,
+  lookbackDays = 14,
+  title = "Top Statistics",
+  page = 1,
+  totalPages = 1,
+  rows = [],
+  unit = "msg",
+  mode = "messages",
+  allTime = false,
+  customFooterLine = null,
+}) {
   registerCanvasFonts(getCanvasModule());
   const safeLookback = [1, 7, 14, 21, 30].includes(Number(lookbackDays)) ? Number(lookbackDays) : 14;
   const safePage = Math.max(1, Number(page || 1));
@@ -1521,46 +2204,57 @@ async function renderTopLeaderboardPageCanvas({ guildName, guildIconUrl, lookbac
   const leftRows = forceSingleWideColumn ? mappedRows : mappedRows.slice(0, splitAt);
   const rightRows = forceSingleWideColumn ? [] : mappedRows.slice(splitAt, 10);
   const panelHeight = 560;
-  const panelY = 216;
-  const footerY = 824;
   const width = 1280;
-  const height = 860;
+  const height = 900;
   const canvas = getCanvasModule().createCanvas(width, height);
   const ctx = canvas.getContext("2d");
 
   drawBackground(ctx, width, height);
 
-  fillRoundRect(ctx, 20, 16, 1240, 96, 22, "rgba(32, 42, 57, 0.9)");
-  strokeRoundRect(ctx, 20, 16, 1240, 96, 22, "rgba(255,255,255,0.06)", 1);
-
-  await drawAvatarCircle(ctx, guildIconUrl, 28, 24, 80);
-  drawLabelFull(ctx, guildName || "Server", 124, 52, 820, 46, {
+  const lbGuildLine = stripBrokenReplacementChars(guildName || "Server") || "Server";
+  const lbLayout = computeWrappedTitleLines(ctx, lbGuildLine, 820, {
+    startSize: 42,
+    minSize: 18,
     weight: "700",
-    color: "#eef3fb",
-    minSize: 20,
-    forcePrimaryFont: true,
+    maxLines: 2,
+    fallback: "Server",
   });
-  drawLabel(ctx, "Top Statistics", 124, 88, {
-    size: 28,
+  const nameLine1Y = 38;
+  const lbSubtitleY = nameLine1Y + lbLayout.lines.length * lbLayout.lineHeight + 12;
+  const headerBandH = Math.max(96, Math.min(130, lbSubtitleY + 22 - 16));
+  const headerDelta = headerBandH - 96;
+  const panelY = 216 + headerDelta;
+  const footerY = 824 + headerDelta;
+
+  fillRoundRect(ctx, 20, 16, 1240, headerBandH, 22, "rgba(32, 42, 57, 0.9)");
+  strokeRoundRect(ctx, 20, 16, 1240, headerBandH, 22, "rgba(255,255,255,0.06)", 1);
+
+  const lbGuildIconResolved = guildIconUrl ? await loadAvatarForStatsCanvas(guildIconUrl) : null;
+  await drawAvatarCircle(ctx, guildIconUrl, 28, 24, 80, null, lbGuildIconResolved);
+  for (let li = 0; li < lbLayout.lines.length; li += 1) {
+    await drawLabelWithEmoji(ctx, lbLayout.lines[li], 124, nameLine1Y + li * lbLayout.lineHeight, {
+      size: lbLayout.size,
+      weight: "700",
+      color: STATS_TITLE,
+      forcePrimaryFont: true,
+    });
+  }
+  drawLabel(ctx, "Top Statistics", 124, lbSubtitleY, {
+    size: 24,
     weight: "600",
-    color: "#bfc8d6",
+    color: STATS_MUTED,
     forcePrimaryFont: true,
   });
 
-  drawLabelFull(ctx, title, 24, 164, 1220, 56, {
-    weight: "700",
-    color: "#e2e7ef",
-    minSize: 24,
-    forcePrimaryFont: true,
-  });
+  drawSolidStatTitle(ctx, title, 24, 160 + headerDelta, 1220, 32, 18, STATS_MUTED);
 
   fillRoundRect(ctx, 20, panelY, 1240, panelHeight, 18, "rgba(46, 55, 70, 0.92)");
   strokeRoundRect(ctx, 20, panelY, 1240, panelHeight, 18, "rgba(255,255,255,0.05)", 1);
 
-  const panelInnerTop = 236;
+  const panelInnerTop = panelY + 20;
   const panelInnerBottom = panelY + panelHeight - 20;
   const panelInnerHeight = panelInnerBottom - panelInnerTop;
-  const computeColumnLayout = (count) => { const safeCount = Math.max(1, Number(count || 0)); const rowGap = safeCount > 1 ? 10 : 0; const rowHeight = Math.max(48, Math.floor((panelInnerHeight - rowGap * (safeCount - 1)) / safeCount),); return { rowHeight, rowGap }; }; if (forceSingleWideColumn) {
+  const computeColumnLayout = (count) => { const safeCount = Math.max(1, Number(count || 0)); const rowGap = safeCount > 1 ? 7 : 0; const rowHeight = Math.max(46, Math.floor((panelInnerHeight - rowGap * (safeCount - 1)) / safeCount),); return { rowHeight, rowGap }; }; if (forceSingleWideColumn) {
     const singleLayout = computeColumnLayout(leftRows.length);
     await drawTopRowsColumn(ctx, leftRows, {
       x: 34,
@@ -1599,22 +2293,26 @@ async function renderTopLeaderboardPageCanvas({ guildName, guildIconUrl, lookbac
     drawLabel(ctx, "Nessun dato disponibile", width / 2, panelY + panelHeight / 2, {
       size: 34,
       weight: "700",
-      color: "#cfd6e2",
+      color: STATS_MUTED,
       align: "center",
       forcePrimaryFont: true,
     });
   }
 
-  drawLabel(ctx, allTime
-    ? `Page ${safePage}/${safeTotalPages} | All-time | Timezone: Europe/Rome`
-    : `Page ${safePage}/${safeTotalPages} | Lookback: Last ${safeLookback} days | Timezone: Europe/Rome`, 24, footerY, {
+  const footerText =
+    typeof customFooterLine === "string" && customFooterLine.trim()
+      ? customFooterLine.trim()
+      : allTime
+        ? `Page ${safePage}/${safeTotalPages} | All-time | Timezone: Europe/Rome`
+        : `Page ${safePage}/${safeTotalPages} | Lookback: Last ${safeLookback} days | Timezone: Europe/Rome`;
+  drawLabel(ctx, footerText, 24, footerY, {
     size: 20,
     weight: "700",
-    color: "#cfd6e2",
+    color: STATS_MUTED,
     forcePrimaryFont: true,
   });
 
   return canvas.toBuffer("image/png");
 }
 
-module.exports = { renderUserActivityCanvas, renderServerActivityCanvas, renderChannelActivityCanvas, renderTopStatisticsCanvas, renderTopStatisticsSingleCanvas, renderTopLeaderboardPageCanvas };
+module.exports = { renderUserActivityCanvas, renderServerActivityCanvas, renderChannelActivityCanvas, renderTopStatisticsCanvas, renderTopStatisticsSingleCanvas, renderTopLeaderboardPageCanvas, formatCanvasChannelLabel };

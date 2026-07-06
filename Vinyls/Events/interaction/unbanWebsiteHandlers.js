@@ -3,11 +3,9 @@ const IDs = require("../../Utils/Config/ids");
 const { getBotState, setBotState } = require("../../Utils/BotState/botStateStore");
 const { EPHEMERAL_TTL_PING_ONLY_MS, scheduleMessageDeletion } = require("../../Utils/Config/ephemeralMessageTtl");
 const { resolveSubmissionChannel } = require("./candidatureApplicationHandlers");
-
-/** Stesse reazioni del post candidature in #visioneModuli (voto rapido staff). */
 const UNBAN_VISIONE_REACTIONS = ["<:thumbsup:1471292172145004768>", "<:thumbsdown:1471292163957457013>",];
-
-const UNBAN_COOLDOWN_MS = 24 * 60 * 60 * 1000;
+const UNBAN_PENDING_COLOR = "#6f4e37";
+const UNBAN_COOLDOWN_MS = 15 * 24 * 60 * 60 * 1000;
 const cooldownByUser = new Map();
 let cooldownLoaded = false;
 
@@ -129,7 +127,7 @@ async function getWebsiteUnbanEligibility(client, accessToken) {
     cooldown_until_ms: until || 0,
     message: resolved.isBanned
       ? until
-        ? "Hai già inviato una richiesta unban di recente: attendi il cooldown di 24 ore."
+        ? "Hai già inviato una richiesta unban di recente: attendi il cooldown di 15 giorni."
         : "Puoi inviare una richiesta unban."
       : "Non risulti bannato.",
   };
@@ -154,7 +152,7 @@ async function submitWebsiteUnban(client, payload) {
       status: 429,
       error: "cooldown",
       cooldown_until_ms: cooldownUntil,
-      message: "Hai già inviato una richiesta unban: puoi inviarne una ogni 24 ore.",
+      message: "Hai già inviato una richiesta unban: puoi inviarne una ogni 15 giorni.",
     };
   }
 
@@ -177,13 +175,13 @@ async function submitWebsiteUnban(client, payload) {
       ok: false,
       status: 500,
       error: "no_channel",
-      message: "Canale visioneModuli non disponibile: le richieste unban usano lo stesso canale delle candidature dal sito.",
+      message: "Impossibile trovare il canale di invio delle richieste unban.",
     };
   }
 
   const embed = new EmbedBuilder()
-    .setColor("#ef4444")
-    .setTitle("Richiesta Unban (sito)")
+    .setColor(UNBAN_PENDING_COLOR)
+    .setTitle("Richiesta Unban")
     .setDescription(
       [
         `Utente: <@${resolved.userId}> (\`${resolved.userId}\`)`,
@@ -228,7 +226,7 @@ async function submitWebsiteUnban(client, payload) {
       ok: false,
       status: 500,
       error: "send_failed",
-      message: "Impossibile pubblicare la richiesta nel canale staff. Riprova più tardi.",
+      message: "Impossibile pubblicare la richiesta nel canale di invio. Riprova più tardi.",
     };
   }
 
@@ -242,9 +240,9 @@ async function submitWebsiteUnban(client, payload) {
         .slice(0, 70) || resolved.userId;
     const thread = await sent
       .startThread({
-        name: `Unban ${threadUserLabel}`,
+        name: `Richiesta unban ${threadUserLabel}`,
         autoArchiveDuration: 1440,
-        reason: `Richiesta unban dal sito (${resolved.userId})`,
+        reason: `Richiesta unban (${resolved.userId})`,
       })
       .catch(() => null);
     if (thread?.isTextBased?.() && highStaffRoleId) {
@@ -267,7 +265,4 @@ async function submitWebsiteUnban(client, payload) {
   };
 }
 
-module.exports = {
-  getWebsiteUnbanEligibility,
-  submitWebsiteUnban,
-};
+module.exports = { getWebsiteUnbanEligibility, submitWebsiteUnban };

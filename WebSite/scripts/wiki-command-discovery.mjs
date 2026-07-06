@@ -5,6 +5,7 @@
  * Categorie admin e dev: omesse dalla wiki pubblica.
  * Visibilità comandi (prefix/slash/context): come +help per un utente con solo ruolo Member
  * (permissions.json + canMemberSeeEntry). Cartella Prefix "misc" esclusa come in help.
+ * Comandi tenantOnly / hideFromHelp (es. +settings multi-guild): esclusi dalla wiki pubblica.
  */
 import fs from "fs";
 import path from "path";
@@ -16,6 +17,8 @@ import {
   getPrefixPermissionConfig,
   isPrefixCommandVisibleOnWiki,
   isSlashOrContextVisibleOnWiki,
+  isWikiEconomyCategoryVisible,
+  WIKI_ECONOMY_CATEGORY_ID,
 } from "./wiki-help-visibility.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -28,6 +31,7 @@ const PREFIX_FOLDER_LABELS = {
   minigames: "Minigiochi",
   stats: "Statistiche",
   moderation: "Moderazione",
+  economy: "Economia Galeoni",
   admin: "Admin",
   staff: "Staff",
   event: "Eventi",
@@ -40,6 +44,7 @@ const CATEGORY_ORDER = [
   "level",
   "minigames",
   "stats",
+  "economy",
   "staff",
   "moderation",
   "event",
@@ -68,6 +73,20 @@ function escHtml(s) {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+}
+
+function escPre(s) {
+  return String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+function truncateBlurb(s, max = 140) {
+  const t = String(s || "").trim();
+  if (!t) return "—";
+  if (t.length <= max) return t;
+  return `${t.slice(0, max - 1).trim()}…`;
 }
 
 function extractBracedBlock(src, openBraceIndex) {
@@ -168,6 +187,7 @@ function parsePrefixCommandFile(filePath, src) {
   const block = extractModuleExportsBlock(src);
   if (!block) return null;
   if (/\bskipLoad:\s*true/.test(block) || /\bskipPrefix:\s*true/.test(block)) return null;
+  if (/\btenantOnly:\s*true/.test(block) || /\bhideFromHelp:\s*true/.test(block)) return null;
   let name = null;
   const literalM = block.match(/\bname:\s*["']([a-zA-Z0-9_-]+)["']/);
   if (literalM) name = literalM[1];
@@ -282,6 +302,7 @@ function hintForPrefixCommand(name, meta, prefixMap, subMap) {
 
 function collectVinili() {
   const vinylsRoot = path.join(REPO_ROOT, "Vinyls");
+  const economyWikiVisible = isWikiEconomyCategoryVisible(vinylsRoot);
   const helpPath = path.join(vinylsRoot, "Prefix", "Utility", "help.js");
   const helpSrc = read(helpPath);
   const prefixDesc = parseConstStringMap(helpSrc, "PREFIX_HELP_DESCRIPTIONS");
@@ -331,19 +352,31 @@ function collectVinili() {
       cat.title = PREFIX_FOLDER_LABELS[folderKey] || folder;
     }
     if (parsed.kind === "slash") {
+      const titleText = `/${parsed.name}`;
+      const desc = String(parsed.description || "").trim() || "Comando slash Discord.";
       cat.commands.push({
-        search: `/${parsed.name} ${parsed.description}`,
-        invokeHtml: `<span class="vc-cmd-name">/${escHtml(parsed.name)}</span>`,
-        hint: parsed.description,
+        search: `${titleText} ${desc} ${cat.title} slash`.toLowerCase(),
+        titleText,
+        blurb: truncateBlurb(desc, 160),
+        description: desc,
+        usage: titleText,
+        example: titleText,
+        categoryTitle: cat.title,
       });
     } else {
       const hint =
         ctxDesc[parsed.name] ||
         "Menu contestuale (tasto destro sul messaggio o sull’utente).";
+      const titleText = parsed.name;
+      const usage = `Discord: tasto destro sul messaggio o sull’utente → App → «${parsed.name}»`;
       cat.commands.push({
-        search: `${parsed.name} ${hint}`,
-        invokeHtml: `<span class="vc-cmd-name">${escHtml(parsed.name)}</span><span class="vc-cmd-invoke-kind"> · menu</span>`,
-        hint,
+        search: `${titleText} ${hint} ${cat.title} menu`.toLowerCase(),
+        titleText,
+        blurb: truncateBlurb(hint, 160),
+        description: hint,
+        usage,
+        example: "Dal menu contestuale (tasto destro).",
+        categoryTitle: cat.title,
       });
     }
   }
@@ -355,6 +388,7 @@ function collectVinili() {
     const folderKey = String(folder).toLowerCase();
     if (folderKey === "misc") continue;
     if (!wikiPublicCategory(folderKey)) continue;
+    if (folderKey === WIKI_ECONOMY_CATEGORY_ID && !economyWikiVisible) continue;
     if (permFilter) {
       const nameKey = String(meta.name || "").trim().toLowerCase();
       const permCfg = getPrefixPermissionConfig(permFilter.permissions, nameKey);
@@ -374,10 +408,20 @@ function collectVinili() {
       cat.title = PREFIX_FOLDER_LABELS[folderKey] || folder;
     }
     const hint = hintForPrefixCommand(meta.name, meta, prefixDesc, subDesc);
+    const titleText = `${prefix}${meta.name}`;
+    const desc = String(hint || "").trim() || "Comando con prefisso.";
+    const usage =
+      meta.canonicalSubs && meta.canonicalSubs.length
+        ? `${titleText} <sottocomando>`
+        : titleText;
     cat.commands.push({
-      search: `${prefix}${meta.name} ${hint}`,
-      invokeHtml: `<span class="vc-cmd-name">${escHtml(prefix)}${escHtml(meta.name)}</span>`,
-      hint,
+      search: `${titleText} ${desc} ${cat.title} prefix`.toLowerCase(),
+      titleText,
+      blurb: truncateBlurb(desc, 160),
+      description: desc,
+      usage,
+      example: titleText,
+      categoryTitle: cat.title,
     });
   }
 
@@ -452,10 +496,20 @@ function collectCaffe() {
     const cat = ensureCat(folderKey);
     cat.title = PREFIX_FOLDER_LABELS[folderKey] || folder;
     const hint = hintForPrefixCommand(meta.name, meta, prefixDesc, subDesc);
+    const titleText = `${prefix}${meta.name}`;
+    const desc = String(hint || "").trim() || "Comando con prefisso.";
+    const usage =
+      meta.canonicalSubs && meta.canonicalSubs.length
+        ? `${titleText} <sottocomando>`
+        : titleText;
     cat.commands.push({
-      search: `${prefix}${meta.name} ${hint}`,
-      invokeHtml: `<span class="vc-cmd-name">${escHtml(prefix)}${escHtml(meta.name)}</span>`,
-      hint,
+      search: `${titleText} ${desc} ${cat.title} prefix`.toLowerCase(),
+      titleText,
+      blurb: truncateBlurb(desc, 160),
+      description: desc,
+      usage,
+      example: titleText,
+      categoryTitle: cat.title,
     });
   }
 
@@ -482,29 +536,63 @@ function comandoMetaLabel(n) {
 
 function buildPaneInnerHtml(botAttrName, avatarUrlAttr, categories) {
   const srcEsc = escAttr(avatarUrlAttr);
+  const grpName = escAttr(`wiki-grp-${botAttrName}`);
+  const itemName = escAttr(`wiki-item-${botAttrName}`);
   let html = "";
-  categories.forEach((cat, idx) => {
+  categories.forEach((cat) => {
     const n = cat.commands.length;
-    const open = idx === 0 ? " open" : "";
-    const title = escHtml(cat.title);
+    const ctitle = escHtml(cat.title);
+    const cid = escAttr(String(cat.id || ""));
     const meta = comandoMetaLabel(n);
-    html += `          <details class="vc-cmd-acc" name="vc-cmd-${botAttrName}"${open}>
+    html += `          <details class="vc-cmd-acc vc-cmd-grp" name="${grpName}" data-vc-cmd-cat="${cid}">
             <summary class="vc-cmd-acc-sum">
               <img class="vc-cmd-acc-avatar" src="${srcEsc}" alt="" width="32" height="32" decoding="async" />
               <span class="vc-cmd-acc-text">
-                <span class="vc-cmd-acc-title">${title}</span>
-                <span class="vc-cmd-acc-meta">${meta}</span>
+                <span class="vc-cmd-acc-title vc-cmd-grp-title">${ctitle}</span>
+                <span class="vc-cmd-acc-meta" data-vc-cmd-grp-meta>${meta}</span>
               </span>
               <i class="fa fa-chevron-down vc-cmd-acc-chev" aria-hidden="true"></i>
             </summary>
-            <div class="vc-cmd-acc-body">
-              <ul class="vc-cmd-list">
+            <div class="vc-cmd-acc-body vc-cmd-grp-list">
 `;
     for (const cmd of cat.commands) {
-      html += `                <li>${cmd.invokeHtml}<span class="vc-cmd-hint">${escHtml(cmd.hint)}</span></li>\n`;
+      const searchAttr = escAttr(String(cmd.search || "").toLowerCase());
+      const titleLine = escHtml(cmd.titleText);
+      const blurb = escHtml(cmd.blurb);
+      const desc = escHtml(cmd.description);
+      const usage = escPre(cmd.usage);
+      const example = escPre(cmd.example);
+      const catPill = escHtml(cmd.categoryTitle);
+      html += `              <details class="vc-cmd-item" name="${itemName}" data-vc-cmd-search="${searchAttr}">
+                <summary class="vc-cmd-item-sum">
+                  <div class="vc-cmd-item-sum-text">
+                    <span class="vc-cmd-item-name">${titleLine}</span>
+                    <span class="vc-cmd-item-blurb">${blurb}</span>
+                  </div>
+                  <i class="fa fa-chevron-down vc-cmd-item-chev" aria-hidden="true"></i>
+                </summary>
+                <div class="vc-cmd-item-body">
+                  <div class="vc-cmd-field">
+                    <div class="vc-cmd-field-label">Descrizione</div>
+                    <div class="vc-cmd-field-text">${desc}</div>
+                  </div>
+                  <div class="vc-cmd-field">
+                    <div class="vc-cmd-field-label">Utilizzo</div>
+                    <pre class="vc-cmd-code vc-cmd-code--usage" translate="no">${usage}</pre>
+                  </div>
+                  <div class="vc-cmd-field">
+                    <div class="vc-cmd-field-label">Esempio</div>
+                    <pre class="vc-cmd-code vc-cmd-code--example" translate="no">${example}</pre>
+                  </div>
+                  <div class="vc-cmd-field vc-cmd-field--category">
+                    <div class="vc-cmd-field-label">Categoria</div>
+                    <span class="vc-cmd-cat-pill"><i class="fa fa-diamond" aria-hidden="true"></i><span>${catPill}</span></span>
+                  </div>
+                </div>
+              </details>
+`;
     }
-    html += `              </ul>
-            </div>
+    html += `            </div>
           </details>
 `;
   });

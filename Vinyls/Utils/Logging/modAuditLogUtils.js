@@ -1,13 +1,51 @@
 const { PermissionsBitField, EmbedBuilder } = require("discord.js");
-const IDs = require("../Config/ids");
 const { getGuildChannelCached } = require("../Interaction/interactionEntityCache");
-const { userAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
+const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
+const { resolveModLogChannelId } = require("../Moderation/tenantModLogChannel");
+const IDs = require("../Config/ids");
+
+function logModLogSendFailure(guild, channel, err, context) {
+  global.logger?.warn?.("[modLogs] invio fallito:", {
+    guildId: guild?.id,
+    channelId: channel?.id || null,
+    context: String(context || ""),
+    message: err?.message || err,
+  });
+}
+
+async function resolveTextChannelInGuildOrMain(guild, channelId) {
+  const cid = String(channelId || "").trim();
+  if (!guild || !cid) return null;
+  let channel = guild.channels.cache.get(cid) || (await getGuildChannelCached(guild, cid));
+  if (channel?.isTextBased?.()) return channel;
+  const mainId = String(IDs.guilds?.main || "").trim();
+  if (!mainId || String(guild.id) === mainId) return null;
+  const client = guild.client;
+  if (!client) return null;
+  const mainGuild = client.guilds.cache.get(mainId) || (await client.guilds.fetch(mainId).catch(() => null));
+  if (!mainGuild) return null;
+  channel = mainGuild.channels.cache.get(cid) || (await getGuildChannelCached(mainGuild, cid));
+  if (channel?.isTextBased?.()) return channel;
+  return null;
+}
 
 async function resolveModLogChannel(guild) {
-  const channelId = IDs.channels?.modLogs;
+  const channelId = resolveModLogChannelId(guild?.id);
   if (!guild || !channelId) return null;
-  const channel = guild.channels.cache.get(channelId) || (await getGuildChannelCached(guild, channelId));
-  if (!channel?.isTextBased?.()) return null;
+  const channel = await resolveTextChannelInGuildOrMain(guild, channelId);
+  if (!channel?.isTextBased?.()) {
+    global.logger?.warn?.("[modLogs] canale non valido o non testuale:", { guildId: guild.id, channelId });
+    return null;
+  }
+  const me = channel.guild?.members?.me;
+  const perms = channel.permissionsFor(me);
+  if (
+    !perms?.has(PermissionsBitField.Flags.ViewChannel) ||
+    !perms?.has(PermissionsBitField.Flags.SendMessages)
+  ) {
+    global.logger?.warn?.("[modLogs] bot senza permessi nel canale:", { guildId: guild.id, logGuildId: channel.guild?.id, channelId: channel.id });
+    return null;
+  }
   return channel;
 }
 
@@ -119,14 +157,20 @@ function buildStaffActionModLogEmbed(modCase, options = {}) {
  */
 async function sendStaffActionToModLogs(guild, modCase, options = {}) {
   const channel = await resolveModLogChannel(guild);
-  if (!channel?.isTextBased?.()) return;
+  if (!channel?.isTextBased?.()) {
+    const configuredId = resolveModLogChannelId(guild?.id);
+    if (!configuredId) {
+      global.logger?.warn?.("[modLogs] canale non configurato per guild:", guild?.id);
+    }
+    return;
+  }
   let targetUsername = options.targetUsername;
   if (targetUsername == null && guild?.client?.users && modCase.userId) {
     const user = await guild.client.users.fetch(String(modCase.userId)).catch(() => null);
     targetUsername = user?.username || modCase.userId;
   }
   const embed = buildStaffActionModLogEmbed(modCase, { ...options, targetUsername: targetUsername ?? modCase.userId, });
-  await channel.send({ embeds: [embed] }).catch(() => null);
+  await channel.send({ embeds: [embed] }).catch((err) => logModLogSendFailure(guild, channel, err, "staff_action"));
 }
 
 /**
@@ -137,7 +181,12 @@ async function sendStaffActionToModLogs(guild, modCase, options = {}) {
  */
 async function sendModCommandUsageToModLogs(guild, message, commandName) {
   const channel = await resolveModLogChannel(guild);
-  if (!channel?.isTextBased?.() || !message?.author) return;
+  if (!channel?.isTextBased?.() || !message?.author) {
+    if (message?.author && !resolveModLogChannelId(guild?.id)) {
+      global.logger?.warn?.("[modLogs] uso comando senza canale log:", guild?.id, commandName);
+    }
+    return;
+  }
   const auditCh = message.invokeChannel || message.channel;
   const channelLabel = auditCh?.name ? `# ${auditCh.name}` : "# canale";
   const fullCommand = String(message.content || "").trim() || `+${commandName}`;
@@ -151,12 +200,12 @@ async function sendModCommandUsageToModLogs(guild, message, commandName) {
   const embed = new EmbedBuilder()
     .setColor(0x3498db)
     .setAuthor({
-      name: message.author.username,
-      iconURL: userAvatarUrlDynamic(message.member || message.author, { size: 32 }) || undefined,
+      name: accountUsername(message.member || message.author),
+      iconURL: guildMemberDisplayAvatarUrlDynamic(message.member || message.author, { size: 32 }) || undefined,
     })
     .setDescription(`Used \`${commandName}\` command in ${channelLabel}\n\n\`${fullCommand}\``)
     .setFooter({ text: timestamp });
-  await channel.send({ embeds: [embed] }).catch(() => null);
+  await channel.send({ embeds: [embed] }).catch((err) => logModLogSendFailure(guild, channel, err, "command_usage"));
 }
 
-module.exports = { resolveModLogChannel, fetchRecentAuditEntry, formatResponsible, nowDiscordTs, formatDurationForModLog, buildStaffActionModLogEmbed, sendStaffActionToModLogs, sendModCommandUsageToModLogs };
+module.exports = { resolveModLogChannel, logModLogSendFailure, fetchRecentAuditEntry, formatResponsible, nowDiscordTs, formatDurationForModLog, buildStaffActionModLogEmbed, sendStaffActionToModLogs, sendModCommandUsageToModLogs };

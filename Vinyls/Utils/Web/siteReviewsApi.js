@@ -1,11 +1,14 @@
 const { EmbedBuilder, PermissionFlagsBits } = require("discord.js");
 const mongoose = require("mongoose");
 const IDs = require("../Config/ids");
-const { SiteReview, ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
+const { SiteDocument, ActivityUserProfile, SITE_DOCUMENT_TYPE } = require("../../Schemas/Community/communitySchemas");
+
+const RV = SITE_DOCUMENT_TYPE.REVIEW;
 const { enqueueSiteInAppNotification } = require("./siteInAppNotificationsService");
 const { broadcastSiteReviewsChanged } = require("./siteSuggestionsBroadcast");
 const { resolveWebsiteGuildMember } = require("./siteRoleRequestApi");
 const { getLevelInfo, getTotalExpForLevel, addExpWithLevel } = require("../../Services/Community/expService");
+const { syncPersistentAutoValutazioniForMember } = require("../../Services/Staff/staffAutoValutazioniService");
 const { userAvatarUrlDynamic, guildMemberDisplayAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
 
 const STAFF_ROLE_ID = String(IDs?.roles?.Staff || "").trim();
@@ -169,12 +172,13 @@ async function cleanupOrphanStaffReviews(client, guild) {
   const staff = await getStaffTargets(client, guild);
   const activeIds = Array.from(staff.ids);
   if (!activeIds.length) {
-    await SiteReview.deleteMany({ guildId: guild.id, kind: "staff" }).catch(() => null);
+    await SiteDocument.deleteMany({ docType: RV, guildId: guild.id, reviewKind: "staff" }).catch(() => null);
     return staff;
   }
-  await SiteReview.deleteMany({
+  await SiteDocument.deleteMany({
+    docType: RV,
     guildId: guild.id,
-    kind: "staff",
+    reviewKind: "staff",
     staffUserId: { $nin: activeIds },
   }).catch(() => null);
   return staff;
@@ -182,10 +186,19 @@ async function cleanupOrphanStaffReviews(client, guild) {
 
 function serializeReview(doc, staffMap) {
   const raw = doc && typeof doc === "object" ? doc : {};
-  const target = raw.kind === "staff" ? staffMap.get(String(raw.staffUserId || "")) || null : null;
+  const rk = String(raw.reviewKind || raw.kind || "server");
+  const target = rk === "staff" ? staffMap.get(String(raw.staffUserId || "")) || null : null;
+  const createdAt = raw.createdAt ? new Date(raw.createdAt) : null;
+  const updatedAt = raw.updatedAt ? new Date(raw.updatedAt) : null;
+  let objectCreatedMs = 0;
+  if (mongoose.isValidObjectId(raw._id)) {
+    const objectId = typeof raw._id?.getTimestamp === "function" ? raw._id : new mongoose.Types.ObjectId(String(raw._id));
+    objectCreatedMs = Number(objectId.getTimestamp?.().getTime?.() || 0);
+  }
+  const createdAtMs = createdAt && Number.isFinite(createdAt.getTime()) ? createdAt.getTime() : objectCreatedMs;
   return {
     id: String(raw._id || ""),
-    kind: String(raw.kind || "server"),
+    kind: rk,
     userId: String(raw.userId || ""),
     staffUserId: raw.staffUserId ? String(raw.staffUserId) : null,
     rating: normalizeRating(raw.rating),
@@ -194,9 +207,19 @@ function serializeReview(doc, staffMap) {
     authorAvatarUrl: String(raw.authorAvatarUrl || ""),
     staffName: target?.name || String(raw.staffName || ""),
     staffAvatarUrl: target?.avatarUrl || String(raw.staffAvatarUrl || ""),
-    createdAt: raw.createdAt ? new Date(raw.createdAt).toISOString() : null,
-    updatedAt: raw.updatedAt ? new Date(raw.updatedAt).toISOString() : null,
+    createdAt: createdAt && Number.isFinite(createdAt.getTime()) ? createdAt.toISOString() : (createdAtMs ? new Date(createdAtMs).toISOString() : null),
+    createdAtMs,
+    updatedAt: updatedAt && Number.isFinite(updatedAt.getTime()) ? updatedAt.toISOString() : null,
   };
+}
+
+function sortSerializedReviewsNewestFirst(list) {
+  return (Array.isArray(list) ? list.slice() : []).sort((a, b) => {
+    const ta = Number(a?.createdAtMs || 0);
+    const tb = Number(b?.createdAtMs || 0);
+    if (tb !== ta) return tb - ta;
+    return String(b?.id || "").localeCompare(String(a?.id || ""));
+  });
 }
 
 function enrichServerReviewDoc(doc, staffMap, viewerUserId) {
@@ -338,8 +361,8 @@ async function getSiteReviews(client, payload = {}) {
   const staff = await cleanupOrphanStaffReviews(client, guild);
   const staffMap = new Map(staff.list.map((entry) => [entry.id, entry]));
   const [serverDocs, staffDocs] = await Promise.all([
-    SiteReview.find({ guildId: guild.id, kind: "server" }).sort({ updatedAt: -1, createdAt: -1 }).limit(80).lean().catch(() => []),
-    SiteReview.find({ guildId: guild.id, kind: "staff" }).sort({ updatedAt: -1, createdAt: -1 }).limit(80).lean().catch(() => []),
+    SiteDocument.find({ docType: RV, guildId: guild.id, reviewKind: "server" }).sort({ createdAt: -1, _id: -1 }).limit(80).lean().catch(() => []),
+    SiteDocument.find({ docType: RV, guildId: guild.id, reviewKind: "staff" }).sort({ createdAt: -1, _id: -1 }).limit(80).lean().catch(() => []),
   ]);
 
   let viewer = null;
@@ -349,7 +372,8 @@ async function getSiteReviews(client, payload = {}) {
     const resolved = await resolveWebsiteGuildMember(client, accessToken);
     if (resolved.ok) {
       viewerUserId = String(resolved.userId || "");
-      const viewerDocs = await SiteReview.find({
+      const viewerDocs = await SiteDocument.find({
+        docType: RV,
         guildId: guild.id,
         userId: resolved.userId,
       }).lean().catch(() => []);
@@ -361,10 +385,9 @@ async function getSiteReviews(client, payload = {}) {
         staffReviews: [],
       };
       viewerDocs.forEach((doc) => {
+        const rk = doc.reviewKind || doc.kind;
         const entry =
-          doc.kind === "server"
-            ? enrichServerReviewDoc(doc, staffMap, viewerUserId)
-            : serializeReview(doc, staffMap);
+          rk === "server" ? enrichServerReviewDoc(doc, staffMap, viewerUserId) : serializeReview(doc, staffMap);
         if (entry.kind === "server") viewer.serverReview = entry;
         else viewer.staffReviews.push(entry);
       });
@@ -393,8 +416,8 @@ async function getSiteReviews(client, payload = {}) {
     externalReviewsUrl: String(client?.config?.disboardReviews?.reviewUrl || client?.config?.reviewsUrl || "").trim(),
     staffers: staff.list,
     reviews: {
-      server: serverDocs.map((doc) => enrichServerReview(doc)),
-      staff: staffDocs.map((doc) => serializeReview(doc, staffMap)),
+      server: sortSerializedReviewsNewestFirst(serverDocs.map((doc) => enrichServerReview(doc))),
+      staff: sortSerializedReviewsNewestFirst(staffDocs.map((doc) => serializeReview(doc, staffMap))),
     },
     viewer,
   };
@@ -405,8 +428,8 @@ async function submitSiteReview(client, payload = {}) {
   const resolved = await resolveWebsiteGuildMember(client, accessToken);
   if (!resolved.ok) return resolved;
 
-  const kind = String(payload.kind || "server").trim().toLowerCase();
-  if (kind !== "server" && kind !== "staff") {
+  const reviewKind = String(payload.kind || "server").trim().toLowerCase();
+  if (reviewKind !== "server" && reviewKind !== "staff") {
     return { ok: false, status: 400, error: "invalid_kind", message: "Tipo recensione non valido." };
   }
 
@@ -419,7 +442,7 @@ async function submitSiteReview(client, payload = {}) {
   let staffUserId = null;
   let staffName = "";
   let staffAvatarUrl = "";
-  if (kind === "staff") {
+  if (reviewKind === "staff") {
     const staff = await cleanupOrphanStaffReviews(client, resolved.guild);
     staffUserId = String(payload.staffUserId || "").trim();
     if (!staff.ids.has(staffUserId)) {
@@ -434,21 +457,23 @@ async function submitSiteReview(client, payload = {}) {
   }
 
   const query = {
+    docType: RV,
     guildId: resolved.guild.id,
-    kind,
+    reviewKind,
     userId: resolved.userId,
-    staffUserId: kind === "staff" ? staffUserId : null,
+    staffUserId: reviewKind === "staff" ? staffUserId : null,
   };
-  const existing = await SiteReview.findOne(query).lean().catch(() => null);
+  const existing = await SiteDocument.findOne(query).lean().catch(() => null);
 
-  const nextDoc = await SiteReview.findOneAndUpdate(
+  const nextDoc = await SiteDocument.findOneAndUpdate(
     query,
     {
       $setOnInsert: {
+        docType: RV,
         guildId: resolved.guild.id,
-        kind,
+        reviewKind,
         userId: resolved.userId,
-        staffUserId: kind === "staff" ? staffUserId : null,
+        staffUserId: reviewKind === "staff" ? staffUserId : null,
       },
       $set: {
         rating,
@@ -466,9 +491,14 @@ async function submitSiteReview(client, payload = {}) {
     return { ok: false, status: 500, error: "save_failed", message: "Non sono riuscito a salvare la recensione." };
   }
 
-  if (kind === "server" && !existing) {
+  if (reviewKind === "server" && !existing) {
     const rewardInfo = await awardServerReviewLevels(client, resolved.guild, resolved.member);
     await announceServerReview(client, resolved.guild, resolved.member, nextDoc, rewardInfo);
+  }
+  if (reviewKind === "server") {
+    await syncPersistentAutoValutazioniForMember(resolved.member).catch((err) => {
+      global.logger?.warn?.("[siteReviewsApi] staff auto valutazioni sync:", resolved.userId, err?.message || err);
+    });
   }
   if (!existing) {
     await notifyHighStaffNewReview(resolved.guild, nextDoc, displayNameForMember(resolved.member));
@@ -477,6 +507,10 @@ async function submitSiteReview(client, payload = {}) {
   try {
     broadcastSiteReviewsChanged();
   } catch (_) {}
+
+  await syncPersistentAutoValutazioniForMember(resolved.member).catch((err) => {
+    global.logger?.warn?.("[siteReviewsApi] staff auto valutazioni delete sync:", resolved.userId, err?.message || err);
+  });
 
   return {
     ok: true,
@@ -497,12 +531,13 @@ async function deleteSiteReview(client, payload = {}) {
   }
 
   const query = {
+    docType: RV,
     _id: reviewId,
     guildId: resolved.guild.id,
     userId: resolved.userId,
-    kind: "server",
+    reviewKind: "server",
   };
-  const deleted = await SiteReview.findOneAndDelete(query).lean().catch(() => null);
+  const deleted = await SiteDocument.findOneAndDelete(query).lean().catch(() => null);
   if (!deleted) {
     return { ok: false, status: 404, error: "review_not_found", message: "Recensione non trovata o non eliminabile." };
   }
@@ -528,10 +563,11 @@ async function toggleSiteReviewLike(client, payload = {}) {
     return { ok: false, status: 400, error: "invalid_review_id", message: "ID recensione non valido." };
   }
 
-  const review = await SiteReview.findOne({
+  const review = await SiteDocument.findOne({
+    docType: RV,
     _id: reviewId,
     guildId: resolved.guild.id,
-    kind: "server",
+    reviewKind: "server",
   })
     .select("likedUserIds userId")
     .lean()
@@ -546,8 +582,8 @@ async function toggleSiteReviewLike(client, payload = {}) {
   const uid = String(resolved.userId);
   const likes = Array.isArray(review.likedUserIds) ? review.likedUserIds.map((x) => String(x)) : [];
   const has = likes.includes(uid);
-  const updated = await SiteReview.findOneAndUpdate(
-    { _id: reviewId, guildId: resolved.guild.id, kind: "server" },
+  const updated = await SiteDocument.findOneAndUpdate(
+    { docType: RV, _id: reviewId, guildId: resolved.guild.id, reviewKind: "server" },
     has ? { $pull: { likedUserIds: uid } } : { $addToSet: { likedUserIds: uid } },
     { new: true },
   )
@@ -606,10 +642,11 @@ async function upsertServerReviewReply(client, payload = {}) {
     return { ok: false, status: 400, error: "reply_too_short", message: "La risposta deve avere almeno 8 caratteri." };
   }
 
-  const existing = await SiteReview.findOne({
+  const existing = await SiteDocument.findOne({
+    docType: RV,
     _id: reviewId,
     guildId: resolved.guild.id,
-    kind: "server",
+    reviewKind: "server",
   })
     .select("_id")
     .lean()
@@ -618,8 +655,8 @@ async function upsertServerReviewReply(client, payload = {}) {
     return { ok: false, status: 404, error: "review_not_found", message: "Recensione non trovata." };
   }
 
-  const nextDoc = await SiteReview.findOneAndUpdate(
-    { _id: reviewId, guildId: resolved.guild.id, kind: "server" },
+  const nextDoc = await SiteDocument.findOneAndUpdate(
+    { docType: RV, _id: reviewId, guildId: resolved.guild.id, reviewKind: "server" },
     {
       $set: {
         serverReplyContent: content,

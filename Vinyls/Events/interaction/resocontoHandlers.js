@@ -3,12 +3,16 @@ const IDs = require("../../Utils/Config/ids");
 const { getGuildChannelCached, getGuildMemberCached, getClientChannelCached, } = require("../../Utils/Interaction/interactionEntityCache");
 const { getOrCreateStaffDoc, deleteThreadForMessage, ensureStaff } = require("../../Utils/Staff/staffDocUtils");
 const { initPartnerManagerFieldsIfMissing, syncStaffDbAndPauseChannelAfterDepex } = require("../../Utils/Staff/staffPmUtils");
-const { addStaffWarnFromNegatives, applyFullDepex, getHighestStaffRoleId } = require("../../Services/Staff/staffWarnService");
+const { addStaffWarnFromNegatives, applyFullDepex, applyDepexOneLevel, getHighestStaffRoleId } = require("../../Services/Staff/staffWarnService");
 const { buildAutoStaffWarnFromNegativesEmbed } = require("../../Utils/Staff/valutazionePanelActions");
-const { memberHasStaffRole } = require("../../Utils/Community/staffListUtils");
+const { memberHasStaffRole, queueStaffListRefreshAfterRoleMutation } = require("../../Utils/Community/staffListUtils");
 const { getStaffRoleEmojiByRoleId } = require("../../Utils/Community/staffRoleEmoji");
 const { clearStaffPendingPurgeAt } = require("../../Services/Community/userLeaveBackupService");
 const { userAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
+const {
+  memberHasResocontoButtonAccess,
+} = require("../../Utils/Staff/resocontoAccess");
+const { onResocontoOutcomeRecorded } = require("../../Services/Staff/resocontoReviewerRewardService");
 const RESOCONTO_APPLY_PREFIX = "resoconto_apply";
 const RESOCONTO_REJECT_PREFIX = "resoconto_reject";
 const RESOCONTO_OVERRIDE_PREFIX = "resoconto_override";
@@ -18,15 +22,20 @@ const STAFF_ACTIONS = new Set(["px", "dp", "vp", "vn", "nl"]);
 const PM_ACTIONS = new Set(["dp", "rc", "nl"]);
 const ROLE_UP = {
   [String(IDs.roles.Helper)]: String(IDs.roles.Mod),
-  [String(IDs.roles.Mod)]: String(IDs.roles.Admin),
+  [String(IDs.roles.Mod)]: String(IDs.roles.SeniorModerator),
+  [String(IDs.roles.SeniorModerator)]: String(IDs.roles.Director),
+  [String(IDs.roles.Director)]: String(IDs.roles.Admin),
+  [String(IDs.roles.Admin)]: String(IDs.roles.Manager),
 };
 const ROLE_PARTNER_MANAGER = String(IDs.roles.PartnerManager);
 const ROLE_MEMBER = String(IDs.roles.Member || "");
 const ROLE_STAFF = String(IDs.roles.Staff);
-const ROLE_HIGH_STAFF = String(IDs.roles.HighStaff);
 const ROLE_HELPER = String(IDs.roles.Helper);
 const ROLE_MODERATOR = String(IDs.roles.Mod);
+const ROLE_SENIOR_MODERATOR = String(IDs.roles.SeniorModerator);
+const ROLE_DIRECTOR = String(IDs.roles.Director);
 const ROLE_ADMIN = String(IDs.roles.Admin);
+const ROLE_MANAGER = String(IDs.roles.Manager || "");
 const ROLE_CO_OWNER = "";
 const ROLE_OWNER = String(IDs.roles.Founder);
 
@@ -91,18 +100,18 @@ function parseResocontoOverrideCustomId(customId) {
   return null;
 }
 
-function hasResocontoHighStaffAccess(interaction) {
-  return Boolean(
-    interaction?.member?.roles?.cache?.has?.(ROLE_HIGH_STAFF),
-  );
+function hasResocontoButtonAccess(interaction, payload) {
+  return memberHasResocontoButtonAccess(interaction?.member, payload);
 }
 
 function isModOrAboveRoleId(roleId) {
   const normalized = String(roleId || "");
   const modOrAbove = [
     ROLE_MODERATOR,
-    ROLE_HIGH_STAFF,
+    ROLE_SENIOR_MODERATOR,
+    ROLE_DIRECTOR,
     ROLE_ADMIN,
+    ROLE_MANAGER,
     ROLE_CO_OWNER,
     ROLE_OWNER,
   ].filter(Boolean);
@@ -110,6 +119,9 @@ function isModOrAboveRoleId(roleId) {
 }
 
 function resolveAutoReasonForResocontoAction(payload) {
+  if (String(payload?.actionKey || "") === "vp" && String(payload?.kind || "") === "s") {
+    return "Limiti settimanali rispettati";
+  }
   if (String(payload?.actionKey || "") === "px" && String(payload?.kind || "") === "s") {
     const roleId = String(payload?.roleId || "");
     if (roleId === ROLE_HELPER) return "Prova superata";
@@ -128,7 +140,9 @@ function shouldOpenReasonModalForResocontoApply(payload) {
   if (payload.actionKey === "px") {
     return resolveAutoReasonForResocontoAction(payload) === "";
   }
-  if (["vp", "vn"].includes(payload.actionKey)) return true;
+  if (["vp", "vn"].includes(payload.actionKey)) {
+    return resolveAutoReasonForResocontoAction(payload) === "";
+  }
   if (payload.actionKey !== "dp") return false;
   return isModOrAboveRoleId(payload.roleId);
 }
@@ -209,42 +223,84 @@ async function applyPexSideEffects(guild, member, roleId) {
     return ensureRoleAdded(guild, member, ROLE_STAFF);
   }
   if (roleId === ROLE_MODERATOR) return ensureRoleRemoved(guild, member, ROLE_HELPER);
+  if (roleId === ROLE_SENIOR_MODERATOR) return ensureRoleRemoved(guild, member, ROLE_MODERATOR);
+  if (roleId === ROLE_DIRECTOR) {
+    return ensureRoleRemoved(guild, member, ROLE_SENIOR_MODERATOR);
+  }
   if (roleId === ROLE_ADMIN) {
-    const modRemoved = await ensureRoleRemoved(guild, member, ROLE_MODERATOR);
+    const modRemoved = await ensureRoleRemoved(guild, member, ROLE_DIRECTOR);
     const highStaffAdded = await ensureRoleAdded(guild, member, ROLE_HIGH_STAFF);
     return modRemoved && highStaffAdded;
   }
+  if (roleId === ROLE_MANAGER) {
+    const adminRemoved = await ensureRoleRemoved(guild, member, ROLE_ADMIN);
+    const highStaffAdded = await ensureRoleAdded(guild, member, ROLE_HIGH_STAFF);
+    return adminRemoved && highStaffAdded;
+  }
   if (roleId === ROLE_CO_OWNER) return ensureRoleRemoved(guild, member, ROLE_ADMIN);
-  if (roleId === ROLE_OWNER) return ensureRoleRemoved(guild, member, ROLE_CO_OWNER);
+  if (roleId === ROLE_OWNER) {
+    const managerRemoved = ROLE_MANAGER ? await ensureRoleRemoved(guild, member, ROLE_MANAGER) : true;
+    const coOwnerRemoved = ROLE_CO_OWNER ? await ensureRoleRemoved(guild, member, ROLE_CO_OWNER) : true;
+    return managerRemoved && coOwnerRemoved;
+  }
   return true;
+}
+
+async function bumpCandidatureCooldownAfterStaffRemoval(userId) {
+  const uid = String(userId || "").trim();
+  if (!/^\d{16,20}$/.test(uid)) return;
+  try {
+    const { bumpApplicationCooldownAfterStaffDepex } = require("./candidatureApplicationHandlers");
+    if (typeof bumpApplicationCooldownAfterStaffDepex === "function") {
+      await bumpApplicationCooldownAfterStaffDepex(uid);
+    }
+  } catch (_) {}
 }
 
 async function applyDepexSideEffects(guild, member, roleId) {
   if (roleId === ROLE_PARTNER_MANAGER) {
     const roleRemoved = await ensureRoleRemoved(guild, member, roleId);
     const memberAdded = ROLE_MEMBER ? await ensureRoleAdded(guild, member, ROLE_MEMBER) : true;
-    return roleRemoved && memberAdded;
+    const ok = roleRemoved && memberAdded;
+    if (ok && member?.id) await bumpCandidatureCooldownAfterStaffRemoval(member.id);
+    return ok;
   }
-  if (roleId === ROLE_HELPER || roleId === ROLE_MODERATOR) {
-    const roleRemoved = await ensureRoleRemoved(guild, member, roleId);
-    const staffRemoved = await ensureRoleRemoved(guild, member, ROLE_STAFF);
-    const memberAdded = ROLE_MEMBER ? await ensureRoleAdded(guild, member, ROLE_MEMBER) : true;
-    return roleRemoved && staffRemoved && memberAdded;
-  }
-  if (roleId === ROLE_ADMIN || roleId === ROLE_CO_OWNER) {
+  if (roleId === ROLE_HELPER || roleId === ROLE_MODERATOR || roleId === ROLE_SENIOR_MODERATOR) {
     const roleRemoved = await ensureRoleRemoved(guild, member, roleId);
     const staffRemoved = await ensureRoleRemoved(guild, member, ROLE_STAFF);
     const highStaffRemoved = await ensureRoleRemoved(guild, member, ROLE_HIGH_STAFF);
     const memberAdded = ROLE_MEMBER ? await ensureRoleAdded(guild, member, ROLE_MEMBER) : true;
-    return roleRemoved && staffRemoved && highStaffRemoved && memberAdded;
+    const ok = roleRemoved && staffRemoved && highStaffRemoved && memberAdded;
+    if (ok && member?.id) await bumpCandidatureCooldownAfterStaffRemoval(member.id);
+    return ok;
+  }
+  if (roleId === ROLE_DIRECTOR) {
+    const roleRemoved = await ensureRoleRemoved(guild, member, roleId);
+    const staffRemoved = await ensureRoleRemoved(guild, member, ROLE_STAFF);
+    const memberAdded = ROLE_MEMBER ? await ensureRoleAdded(guild, member, ROLE_MEMBER) : true;
+    const ok = roleRemoved && staffRemoved && memberAdded;
+    if (ok && member?.id) await bumpCandidatureCooldownAfterStaffRemoval(member.id);
+    return ok;
+  }
+  if (roleId === ROLE_ADMIN || roleId === ROLE_MANAGER || roleId === ROLE_CO_OWNER) {
+    const roleRemoved = await ensureRoleRemoved(guild, member, roleId);
+    const staffRemoved = await ensureRoleRemoved(guild, member, ROLE_STAFF);
+    const highStaffRemoved = await ensureRoleRemoved(guild, member, ROLE_HIGH_STAFF);
+    const memberAdded = ROLE_MEMBER ? await ensureRoleAdded(guild, member, ROLE_MEMBER) : true;
+    const ok = roleRemoved && staffRemoved && highStaffRemoved && memberAdded;
+    if (ok && member?.id) await bumpCandidatureCooldownAfterStaffRemoval(member.id);
+    return ok;
   }
   if (roleId === ROLE_OWNER) {
     const roleRemoved = await ensureRoleRemoved(guild, member, ROLE_OWNER);
-    const coOwnerRemoved = await ensureRoleRemoved(guild, member, ROLE_CO_OWNER);
+    const managerRemoved = ROLE_MANAGER ? await ensureRoleRemoved(guild, member, ROLE_MANAGER) : true;
+    const coOwnerRemoved = ROLE_CO_OWNER ? await ensureRoleRemoved(guild, member, ROLE_CO_OWNER) : true;
     const staffRemoved = await ensureRoleRemoved(guild, member, ROLE_STAFF);
     const highStaffRemoved = await ensureRoleRemoved(guild, member, ROLE_HIGH_STAFF);
     const memberAdded = ROLE_MEMBER ? await ensureRoleAdded(guild, member, ROLE_MEMBER) : true;
-    return roleRemoved && coOwnerRemoved && staffRemoved && highStaffRemoved && memberAdded;
+    const ok = roleRemoved && managerRemoved && coOwnerRemoved && staffRemoved && highStaffRemoved && memberAdded;
+    if (ok && member?.id) await bumpCandidatureCooldownAfterStaffRemoval(member.id);
+    return ok;
   }
   return true;
 }
@@ -310,64 +366,23 @@ async function applyStaffAction(guild, actor, payload, reasonOverride = null) {
   const targetUser = member.user;
   if (payload.actionKey === "vp") {
     const profileDoc = await getOrCreateStaffDoc(guild.id, payload.userId);
-    const s = ensureStaff(profileDoc);
     const reason = String(reasonOverride || "").trim() || "<:success:1461731530333229226> Limiti settimanali rispettati";
-    s.valutazioniCount = Math.max(0, Number(s.valutazioniCount || 0)) + 1;
-    s.positiveCount = Math.max(0, Number(s.positiveCount || 0)) + 1;
-    if (!Array.isArray(s.positiveReasons)) s.positiveReasons = [];
-    s.positiveReasons.push(reason);
-    profileDoc.markModified("staff");
-    await profileDoc.save();
-    await sendValutazioneLogEmbed(guild, actor, targetUser, reason, true, s.valutazioniCount, s.positiveCount);
+    const channel = await getGuildChannelCached(guild, IDs.channels.valutazioniStaff);
+    if (!channel?.isTextBased?.()) return "<a:VC_Alert:1482706673176150077> Canale valutazioni non disponibile.";
+    const { valutazionePositiveAddCore } = require("../../Utils/Staff/valutazionePanelActions");
+    const result = await valutazionePositiveAddCore(profileDoc, targetUser, reason, actor, channel);
+    if (!result?.message) return "<a:VC_Alert:1482706673176150077> Errore registrazione valutazione positiva.";
     return "<:thumbsup:1471292172145004768> Registrata Valutazione Positiva.";
   }
 
   if (payload.actionKey === "vn") {
     const profileDoc = await getOrCreateStaffDoc(guild.id, payload.userId);
-    const s = ensureStaff(profileDoc);
     const reason = String(reasonOverride || "").trim() || "<:cancel:1461730653677551691> Limiti settimanali non rispettati";
-    s.valutazioniCount = Math.max(0, Number(s.valutazioniCount || 0)) + 1;
-    s.negativeCount = Math.max(0, Number(s.negativeCount || 0)) + 1;
-    if (!Array.isArray(s.negativeReasons)) s.negativeReasons = [];
-    s.negativeReasons.push(reason);
-    profileDoc.markModified("staff");
-    await profileDoc.save();
-    await sendValutazioneLogEmbed(guild, actor, targetUser, reason, false, s.valutazioniCount, s.negativeCount);
-
-    const warnResult = await addStaffWarnFromNegatives(guild.id, payload.userId, s.negativeCount, reason);
-    if (warnResult.added) {
-      const warnChannel = await getGuildChannelCached(guild, IDs.channels?.warnStaff);
-      if (warnChannel?.isTextBased?.()) {
-        const warnLogEmbed = buildAutoStaffWarnFromNegativesEmbed(actor, targetUser, warnResult.warnCount);
-        await warnChannel.send({ content: `<@${payload.userId}>`, embeds: [warnLogEmbed] }).catch(() => null);
-        if (warnResult.shouldAskDepex) {
-          const embed = new EmbedBuilder()
-            .setColor("#E74C3C")
-            .setTitle("<a:VC_Alert:1482706673176150077> 2 warn staff — Decidi azione")
-            .setDescription(
-              `<@${payload.userId}> ha raggiunto **2 warn staff** (da valutazioni negative).\n\n` +
-              "**Depex ora** = un livello in basso .\n" +
-              "**No** = nessuna azione ora; al **3° warn** scatterà il **depex completo**.",
-            )
-            .setThumbnail(userAvatarUrlDynamic(targetUser) || undefined);
-          const row = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId(`staff_warn_depex:${payload.userId}:yes`).setLabel("Depex ora").setStyle(ButtonStyle.Danger),
-            new ButtonBuilder().setCustomId(`staff_warn_depex:${payload.userId}:no`).setLabel("No (al 3° warn depex completo)").setStyle(ButtonStyle.Secondary),
-          );
-          await warnChannel.send({ content: `<@${payload.userId}>`, embeds: [embed], components: [row] }).catch(() => null);
-        }
-      }
-    }
-    if (warnResult.added && warnResult.shouldFullDepex) {
-      const roleId = String(payload.roleId || "");
-      const fullResult = await applyFullDepex(guild, member, roleId || null);
-      if (fullResult.ok) {
-        const memberAfterFull = await getGuildMemberCached(guild, payload.userId, { preferFresh: true }).catch(() => member);
-        await syncStaffDbAndPauseChannelAfterDepex(guild, payload.userId, memberAfterFull);
-        const roleAfterId = resolvePexDepexLogRoleAfterId(memberAfterFull);
-        await sendPexDepexLog(guild, "depex", targetUser, roleId, roleAfterId, `Depex automatico: 3 warn staff (valutazioni negative).`);
-      }
-    }
+    const channel = await getGuildChannelCached(guild, IDs.channels.valutazioniStaff);
+    if (!channel?.isTextBased?.()) return "<a:VC_Alert:1482706673176150077> Canale valutazioni non disponibile.";
+    const { valutazioneNegativeAddCore } = require("../../Utils/Staff/valutazionePanelActions");
+    const result = await valutazioneNegativeAddCore(guild, profileDoc, targetUser, reason, actor, channel);
+    if (!result?.message) return "<a:VC_Alert:1482706673176150077> Errore registrazione valutazione negativa.";
     return "<:thumbsdown:1471292163957457013> Registrata Valutazione Negativa.";
   }
 
@@ -400,20 +415,43 @@ async function applyStaffAction(guild, actor, payload, reasonOverride = null) {
     await profileDoc.save();
     await clearStaffPendingPurgeAt(guild.id, payload.userId);
     await sendPexDepexLog(guild, "pex", targetUser, roleBeforeId, roleAfterId, reason);
+    queueStaffListRefreshAfterRoleMutation(guild.client, guild.id);
     return "<:success:1461731530333229226> Pex applicato.";
   }
 
   if (payload.actionKey === "dp") {
     if (!member.roles.cache.has(roleBeforeId)) return "<a:VC_Alert:1482706673176150077> Depex non applicato: ruolo corrente non presente.";
 
-    const roleRemoved = await ensureRoleRemoved(guild, member, roleBeforeId);
-    if (!roleRemoved) return "<a:VC_Alert:1482706673176150077> Depex non applicato: impossibile rimuovere il ruolo corrente.";
-    const sideEffectsApplied = await applyDepexSideEffects(guild, member, roleBeforeId);
-    if (!sideEffectsApplied) return "<a:VC_Alert:1482706673176150077> Depex applicato parzialmente: side-effect ruoli non completati.";
+    let roleAfterId = "";
+    if (String(roleBeforeId) === String(ROLE_PARTNER_MANAGER)) {
+      const roleRemoved = await ensureRoleRemoved(guild, member, roleBeforeId);
+      if (!roleRemoved) return "<a:VC_Alert:1482706673176150077> Depex non applicato: impossibile rimuovere il ruolo corrente.";
+      const sideEffectsApplied = await applyDepexSideEffects(guild, member, roleBeforeId);
+      if (!sideEffectsApplied) return "<a:VC_Alert:1482706673176150077> Depex applicato parzialmente: side-effect ruoli non completati.";
+    } else {
+      const step = await applyDepexOneLevel(guild, member, roleBeforeId);
+      if (!step?.ok) {
+        return `<a:VC_Alert:1482706673176150077> Depex non applicato: ${String(step?.reason || "errore sconosciuto")}`;
+      }
+      roleAfterId = step.newRole != null && step.newRole !== "" ? String(step.newRole) : "";
+    }
+
     const memberAfterDepex = await getGuildMemberCached(guild, payload.userId, { preferFresh: true }).catch(() => member);
     await syncStaffDbAndPauseChannelAfterDepex(guild, payload.userId, memberAfterDepex);
-    const roleAfterId = resolvePexDepexLogRoleAfterId(memberAfterDepex);
+    if (!roleAfterId) roleAfterId = resolvePexDepexLogRoleAfterId(memberAfterDepex);
+    const profileDoc = await getOrCreateStaffDoc(guild.id, payload.userId);
+    const s = ensureStaff(profileDoc);
+    if (!Array.isArray(s.rolesHistory)) s.rolesHistory = [];
+    s.rolesHistory.push({
+      oldRole: roleBeforeId,
+      newRole: roleAfterId || "",
+      reason,
+      date: new Date(),
+    });
+    profileDoc.markModified("staff");
+    await profileDoc.save().catch(() => null);
     await sendPexDepexLog(guild, "depex", targetUser, roleBeforeId, roleAfterId, reason);
+    queueStaffListRefreshAfterRoleMutation(guild.client, guild.id);
     return "<:success:1461731530333229226> Depex applicato.";
   }
 
@@ -432,6 +470,8 @@ async function applyPmAction(guild, payload, reasonOverride = null) {
   if (!partnerRoleRemoved) return "<a:VC_Alert:1482706673176150077> Depex PM non applicato: impossibile rimuovere il ruolo Partner Manager.";
   await member.roles.remove(ROLE_HELPER).catch(() => null);
   await member.roles.remove(ROLE_MODERATOR).catch(() => null);
+  await member.roles.remove(ROLE_SENIOR_MODERATOR).catch(() => null);
+  await member.roles.remove(ROLE_DIRECTOR).catch(() => null);
   await member.roles.remove(ROLE_STAFF).catch(() => null);
   await member.roles.remove(ROLE_HIGH_STAFF).catch(() => null);
   if (ROLE_MEMBER) {
@@ -448,6 +488,7 @@ async function applyPmAction(guild, payload, reasonOverride = null) {
     ROLE_MEMBER || "",
     String(reasonOverride || "").trim() || "Limiti settimanali non raggiunti",
   );
+  await bumpCandidatureCooldownAfterStaffRemoval(payload.userId);
   return "<:success:1461731530333229226> Depex PM applicato e dati partner rimossi.";
 }
 
@@ -510,10 +551,10 @@ async function handleResocontoButton(interaction) {
   const payload = parsed || parsedOverride;
   if (!payload) return false;
   if (!interaction.guild) return true;
-  if (!hasResocontoHighStaffAccess(interaction)) {
+  if (!hasResocontoButtonAccess(interaction, payload)) {
     await interaction
       .reply({
-        content: "<a:VC_Alert:1482706673176150077> Questo controllo è riservato all'High Staff.",
+        content: "<a:VC_Alert:1482706673176150077> Questo controllo non è disponibile per il tuo ruolo.",
         flags: 1 << 6,
       })
       .catch(() => null);
@@ -563,7 +604,7 @@ async function handleResocontoButton(interaction) {
   await interaction.deferUpdate().catch(() => null);
 
   const statusText = payload.kind === "s"
-    ? await applyStaffAction(interaction.guild, interaction.user, payload, autoReason || null)
+    ? await applyStaffAction(interaction.guild, interaction.member || interaction.user, payload, autoReason || null)
     : await applyPmAction(interaction.guild, payload, autoReason || null);
 
   await appendOutcomeToMessage(
@@ -573,6 +614,12 @@ async function handleResocontoButton(interaction) {
     interaction.user.id,
     true,
     statusText,
+  );
+  await onResocontoOutcomeRecorded(
+    interaction.guild,
+    interaction.channel,
+    interaction.user.id,
+    payload,
   );
   if (parsedOverride) {
     await interaction
@@ -589,10 +636,10 @@ async function handleResocontoModal(interaction) {
   const parsed = parseResocontoModalCustomId(interaction.customId);
   if (!parsed) return false;
   if (!interaction.guild) return true;
-  if (!hasResocontoHighStaffAccess(interaction)) {
+  if (!hasResocontoButtonAccess(interaction, { kind: parsed.kind, roleId: parsed.roleId })) {
     await interaction
       .reply({
-        content: "<a:VC_Alert:1482706673176150077> Questo modulo è riservato all'High Staff.",
+        content: "<a:VC_Alert:1482706673176150077> Questo modulo non è disponibile per il tuo ruolo.",
         flags: 1 << 6,
       })
       .catch(() => null);
@@ -624,7 +671,7 @@ async function handleResocontoModal(interaction) {
   }
   await interaction.deferReply({ flags: 1 << 6 }).catch(() => null);
 
-  const statusText = await applyStaffAction(interaction.guild, interaction.user, parsed, reason);
+  const statusText = await applyStaffAction(interaction.guild, interaction.member || interaction.user, parsed, reason);
   await appendOutcomeToMessage(
     interaction.guild,
     interaction.channelId,
@@ -632,6 +679,12 @@ async function handleResocontoModal(interaction) {
     interaction.user.id,
     true,
     statusText,
+  );
+  await onResocontoOutcomeRecorded(
+    interaction.guild,
+    interaction.channel,
+    interaction.user.id,
+    parsed,
   );
   await interaction
     .editReply({

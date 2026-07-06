@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+{{COOKIEYES_BLOCK}}{{GA_BLOCK}}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Serata Film | {{SITE_NAME}}</title>
+    <link rel="icon" href="{{GUILD_ICON_URL}}" />
+    <link rel="stylesheet" href="../css/seratafilm-page.css?v={{BUILD_ASSET_VERSION}}" />
+    <script src="../js/vc-suppress-extension-errors.js"></script>
+    <script defer src="../js/seratafilm-event-utils.js?v={{BUILD_ASSET_VERSION}}"></script>
+    <script defer src="../js/seratafilm-countdown.js?v={{BUILD_ASSET_VERSION}}"></script>
+</head>
+<body id="top" class="vc-seratafilm-page">
+<div id="vc-seratafilm-hogwarts-bg" class="vc-seratafilm-hogwarts-bg" hidden aria-hidden="true">
+  <video id="vc-seratafilm-hogwarts-bg-video" class="vc-seratafilm-hogwarts-bg__video" muted loop playsinline preload="none"></video>
+  <div class="vc-seratafilm-hogwarts-bg__veil"></div>
+  <div class="vc-seratafilm-hogwarts-bg__stars" aria-hidden="true"></div>
+</div>
+<div id="vc-seratafilm-loading" class="vc-seratafilm-loading" role="status" aria-live="polite">
+  <div class="vc-seratafilm-loading__card">
+    <p class="vc-seratafilm-loading__text">Verifica accesso…</p>
+    <p class="vc-seratafilm-loading__hint">Controllo permessi in corso…</p>
+  </div>
+</div>
+<div id="vc-seratafilm-denied" role="alert" aria-modal="true" aria-labelledby="vc-seratafilm-denied-title">
+  <div class="vc-seratafilm-denied__card">
+    <div class="vc-seratafilm-denied__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
+    <h2 id="vc-seratafilm-denied-title" class="vc-seratafilm-denied__title">Accesso non consentito</h2>
+    <p class="vc-seratafilm-denied__lead">Serata film · High Staff</p>
+    <p id="vc-seratafilm-denied-msg" class="vc-seratafilm-denied__msg"></p>
+    <div class="vc-seratafilm-denied__actions">
+      <button type="button" id="vc-seratafilm-denied-retry" class="vc-seratafilm-denied__btn vc-seratafilm-denied__btn--secondary">
+        <svg class="vc-sf-ico-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>Cambia account Discord
+      </button>
+      <a class="vc-seratafilm-denied__btn vc-seratafilm-denied__btn--primary" href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer">
+        <svg class="vc-sf-ico-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Entra nel server
+      </a>
+      <a class="vc-seratafilm-denied__btn vc-seratafilm-denied__btn--ghost" href="{{SITE_URL}}">
+        <svg class="vc-sf-ico-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>Torna alla home
+      </a>
+    </div>
+  </div>
+</div>
+<script>
+      window.__VC_DISABLE_LIVE_EVENT_UI = true;
+      window.__VC_SITE_HOME_URL = "{{SITE_URL}}";
+      window.__VC_SERATAFILM_ACCESS = {
+        apiUrl: "{{SERATAFILM_ACCESS_API_URL}}",
+        apiUrlLocal: "{{SERATAFILM_ACCESS_API_URL_LOCAL}}",
+      };
+      try {
+        window.__VC_SERATAFILM_BGM = JSON.parse(decodeURIComponent("{{SERATAFILM_BGM_URI}}"));
+      } catch (eBgm) {
+        window.__VC_SERATAFILM_BGM = { trackUrls: [], fadeStartSeconds: 120, baseVolume: 0.34 };
+      }
+      try {
+        window.__VC_SERATAFILM_EVENT = JSON.parse(decodeURIComponent("{{SERATAFILM_EVENT_URI}}"));
+      } catch (eEv) {
+        window.__VC_SERATAFILM_EVENT = {
+          timezone: "Europe/Rome",
+          recurring: { weekday: 6, hour: 21, minute: 0 },
+          overrideIso: "",
+          linkFilm: "",
+        };
+      }
+      (function () {
+        try {
+          var t = localStorage.getItem("vc_discord_access_token");
+          var exp = Number(localStorage.getItem("vc_discord_expires_at") || "0");
+          if (!t || !exp || Date.now() >= exp) {
+            var home = String(window.__VC_SITE_HOME_URL || "").trim();
+            if (!home || /\{\{/.test(home)) home = window.location.origin + "/";
+            window.location.replace(home);
+            return;
+          }
+          var api = String((window.__VC_SERATAFILM_ACCESS && window.__VC_SERATAFILM_ACCESS.apiUrl) || "").trim();
+          if (api && !/\{\{/.test(api)) {
+            window.__vcSeratafilmAccessPrefetch = fetch(api, {
+              method: "GET",
+              headers: { Authorization: "Bearer " + t },
+              mode: "cors",
+              credentials: "omit",
+            }).then(function (res) {
+              return res.json().catch(function () { return {}; }).then(function (data) {
+                return { res: res, data: data };
+              });
+            }).catch(function (err) {
+              return { error: err };
+            });
+          }
+        } catch (eEarly) {}
+      })();
+    </script>
+<div id="vc-seratafilm-app" style="display: none">
+    <div class="seratafilm-canvas">
+
+<div class="dashboard">
+    <div class="row-main">
+        <aside class="banner-vertical">
+            <div class="sponsor-vertical">
+                <div class="sponsor-logo">
+                    <img src="evento_mensile.png?v={{BUILD_ASSET_VERSION}}" alt="" width="130" height="130" loading="lazy" decoding="async" fetchpriority="low" style="width: 100%; max-width: 130px; border-radius: 30px;">
+                </div>
+                <div class="sponsor-text"><strong>EVENTO STAGIONALE</strong></div>
+                <p>Hogwarts ti aspetta! Completa lo smistamento in una casata, partecipa agli eventi e vinci Nitro Boost, una Decorazione o un VIP!</p>
+            </div>
+        </aside>
+
+        <div class="center-stage">
+            <main class="wrap">
+                <section class="card">
+                    <h1>🍿 MANCA POCO ALLA PROIEZIONE DEL FILM!</h1>
+                    <p class="subtitle">Prepara snack e bevande: appena scatta lo zero inizierà la streaming!</p>
+
+                    <div id="timer" aria-live="polite">Caricamento...</div>
+
+                    <div class="hint">
+                        <span class="pill">⏳ Conto alla rovescia in tempo reale</span>
+                        <button class="btn secondary" id="openNow" type="button">Apri subito</button>
+                    </div>
+                </section>
+            </main>
+        </div>
+
+        <aside class="banner-vertical">
+            <div class="sponsor-vertical">
+                <div class="sponsor-logo">
+                    <img src="serata_film.gif" alt="" width="130" height="130" loading="lazy" decoding="async" fetchpriority="low" style="width: 100%; max-width: 130px; border-radius: 30px;">
+                </div>
+                <div class="sponsor-text"><strong>LASCIA UNA RECENSIONE ALLA SERATA</strong></div>
+                <p>Al termine della proiezione potrai dare una tua opinione su questo evento direttamente nel canale eventi!</p>
+            </div>
+        </aside>
+    </div>
+
+    <!--<div class="banner-horizontal-2">
+        <div class="sponsor-horiz-content-2">
+            <div class="horiz-logo-2">
+                <img src="vinylmusics_logo_hd.png" style="width: 100%; max-width: 130px; border-radius: 30px;">
+            </div>
+            <div class="horiz-text-2">
+                <strong>VinylMusics.com</strong><br>Un blog dedicato a chi vive la musica con passione e curiosità. Recensioni, analisi e approfondimenti.<br>Uno spazio dove ascoltare, scoprire e raccontare la musica, traccia dopo traccia.
+            </div>
+        </div>
+        <a class="horiz-cta-2" target="_blank">La miglior musica è su VinylMusics.com</a>
+    </div>
+-->
+    <div class="banner-horizontal">
+        <div class="sponsor-horiz-content">
+            <div class="horiz-logo">
+                <img src="{{GUILD_ICON_URL}}" alt="Vinili & Caffè" width="130" height="130" class="vc-header-logo-img" loading="lazy" decoding="async" fetchpriority="low" style="width: 100%; max-width: 130px; border-radius: 30px;">
+            </div>
+            <div class="horiz-text">
+                <strong>Hai un progetto in mente?</strong> È giunta l’ora di renderlo pubblico e farlo scoprire a tutti!<br>Con il nuovo aggiornamento al server, puoi finalmente dare la giusta visibilità alle tue idee!<br> Speciali pacchetti sponsorizzazioni personalizzabili anche durante eventi con la community!
+            </div>
+        </div>
+        <a class="horiz-cta" href="{{SITE_URL}}" target="_blank" rel="noopener noreferrer">Scopri di più su viniliecaffe.it</a>
+    </div>
+
+    <div class="footer">
+        © 2026 Vinili & Caffè. All rights reserved.
+    </div>
+</div>
+
+    </div>
+
+</div>
+
+<div id="vc-seratafilm-fs-countdown" class="vc-seratafilm-fs-countdown" aria-hidden="true">
+  <p id="vc-seratafilm-fs-number" class="vc-seratafilm-fs-number">10</p>
+</div>
+
+<div id="vc-seratafilm-film" class="vc-seratafilm-film" hidden aria-hidden="true">
+  <div id="vc-seratafilm-film-loading" class="vc-seratafilm-film__loading" hidden aria-live="polite">
+    <p class="vc-seratafilm-film__loading-text">Avvio proiezione…</p>
+  </div>
+  <video id="vc-seratafilm-film-video" class="vc-seratafilm-film__video" playsinline preload="none" controls></video>
+  <div id="vc-seratafilm-ad-break" class="vc-seratafilm-ad-break" hidden aria-hidden="true">
+    <div class="vc-seratafilm-ad-break__veil" aria-hidden="true"></div>
+    <div id="vc-seratafilm-ad-card" class="vc-seratafilm-ad-break__card" hidden>
+      <p class="vc-seratafilm-ad-break__kicker">Serata Film</p>
+      <h2 id="vc-seratafilm-ad-title" class="vc-seratafilm-ad-break__title">Pausa pubblicitaria</h2>
+      <p id="vc-seratafilm-ad-text" class="vc-seratafilm-ad-break__text">Tra poco riprenderemo la proiezione. Resta con noi!</p>
+      <p class="vc-seratafilm-ad-break__countdown"><span id="vc-seratafilm-ad-countdown">15</span></p>
+    </div>
+    <video id="vc-seratafilm-ad-video" class="vc-seratafilm-ad-break__video" hidden playsinline preload="none"></video>
+  </div>
+</div>
+
+<script>
+        window.__vcSeratafilmAssetVersion = "{{BUILD_ASSET_VERSION}}";
+        window.__vcSeratafilmInit = function () {
+        var v = String(window.__vcSeratafilmAssetVersion || "");
+        var base = "../js/";
+        function loadScript(name) {
+          return new Promise(function (resolve) {
+            var s = document.createElement("script");
+            var scriptSrc = base + name + "?v=" + v;
+            s.src =
+              typeof window.__vcTrustedScriptURL === "function"
+                ? window.__vcTrustedScriptURL(scriptSrc)
+                : scriptSrc;
+            s.async = true;
+            s.onload = resolve;
+            s.onerror = resolve;
+            document.body.appendChild(s);
+          });
+        }
+        function startCountdownWhenReady() {
+          if (typeof window.__vcSeratafilmStartCountdown === "function") {
+            window.__vcSeratafilmStartCountdown();
+            return;
+          }
+          setTimeout(startCountdownWhenReady, 16);
+        }
+        startCountdownWhenReady();
+        setTimeout(function () {
+          Promise.all([
+            loadScript("seratafilm-bgm-youtube.js"),
+            loadScript("seratafilm-bgm.js"),
+          ]).then(function () {
+            if (typeof window.__vcSeratafilmBgmSetup === "function") {
+              window.__vcSeratafilmBgmSetup();
+            }
+          });
+        }, 0);
+        };
+    </script>
+    <script src="../js/seratafilm-access-gate.js?v={{BUILD_ASSET_VERSION}}"></script>
+</body>
+</html>

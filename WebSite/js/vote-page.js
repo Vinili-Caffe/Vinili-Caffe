@@ -145,7 +145,7 @@
 
     var top3 = allRows.slice(0, 3);
     var remaining = allRows.slice(3);
-    byId("vc-vote-top-chip").textContent = "Top " + String(allRows.length || 0) + (remaining.length ? " (+" + remaining.length + ")" : "");
+    byId("vc-vote-top-chip").textContent = "Top " + String(allRows.length || 0);
     byId("vc-vote-top3").innerHTML = top3
       .map(function (row, idx) {
         return podiumRowHtml(row, idx + 1);
@@ -154,13 +154,26 @@
     renderMore();
   }
 
+  function renderVoteError(message) {
+    var top3 = byId("vc-vote-top3");
+    var chip = byId("vc-vote-top-chip");
+    if (chip) chip.textContent = "Non disponibile";
+    if (top3) {
+      top3.innerHTML =
+        '<div class="vc-vote-empty-state">' +
+        '<i class="fa fa-exclamation-triangle" aria-hidden="true"></i>' +
+        '<span>' +
+        esc(message || "Statistiche voti temporaneamente non disponibili.") +
+        "</span></div>";
+    }
+  }
+
   function renderMore() {
     var remaining = allRows.slice(3);
     var visible = remaining.slice(0, loadedExtra);
     var moreWrap = byId("vc-vote-more");
     var actions = byId("vc-vote-more-actions");
     var pager = byId("vc-vote-pager");
-    var badge = byId("vc-vote-more-badge");
     var loadBtn = byId("vc-vote-load-more");
     var minimizeBtn = byId("vc-vote-minimize");
     var pagerFill = byId("vc-vote-pager-fill");
@@ -168,16 +181,38 @@
 
     moreWrap.hidden = visible.length === 0;
     moreWrap.innerHTML = visible.map(topRowHtml).join("");
-    actions.hidden = remaining.length === 0;
-    pager.hidden = remaining.length === 0 || visible.length === 0;
+    var noExtraRows = remaining.length === 0;
+    actions.hidden = noExtraRows;
+    pager.hidden = noExtraRows || visible.length === 0;
 
     if (remaining.length > 0) {
       var left = Math.max(0, remaining.length - loadedExtra);
-      badge.textContent = "+" + String(Math.min(EXTRA_STEP, left || EXTRA_STEP));
-      loadBtn.hidden = loadedExtra >= remaining.length;
-      minimizeBtn.hidden = loadedExtra === 0;
+      var nextChunk = Math.min(EXTRA_STEP, left);
+      var allExtraLoaded = left === 0;
+      if (loadBtn) {
+        loadBtn.hidden = allExtraLoaded;
+        loadBtn.disabled = allExtraLoaded;
+        loadBtn.setAttribute("aria-hidden", allExtraLoaded ? "true" : "false");
+      }
+      if (minimizeBtn) {
+        minimizeBtn.hidden = loadedExtra === 0;
+        minimizeBtn.setAttribute("aria-hidden", loadedExtra === 0 ? "true" : "false");
+      }
+      if (!allExtraLoaded) {
+        loadBtn.innerHTML =
+          '<i class="fa fa-angle-down" aria-hidden="true"></i> Carica altri ' +
+          String(nextChunk) +
+          ' <span class="vc-vote-more-badge" id="vc-vote-more-badge">+' +
+          String(nextChunk) +
+          "</span>";
+      }
       pagerFill.style.width = (remaining.length ? (visible.length / remaining.length) * 100 : 0).toFixed(2) + "%";
       pagerLabel.textContent = String(visible.length) + " / " + String(remaining.length);
+    } else if (loadBtn && minimizeBtn && pagerFill && pagerLabel) {
+      loadBtn.hidden = true;
+      minimizeBtn.hidden = true;
+      pagerFill.style.width = "0%";
+      pagerLabel.textContent = "0 / 0";
     }
   }
 
@@ -204,14 +239,23 @@
     if (!url) return;
     fetch(url, { credentials: "omit", cache: "no-store" })
       .then(function (r) {
-        return r.json();
+        return r.json().then(function (body) {
+          return { ok: r.ok, status: r.status, body: body };
+        });
       })
-      .then(function (body) {
+      .then(function (out) {
+        var body = out && out.body;
+        if (!out || !out.ok) {
+          renderVoteError("Non riesco a caricare i voti in questo momento.");
+          return;
+        }
         if (!body || body.ok !== true) return;
         renderStats(body.stats || {}, body.personal || {});
         renderTop(Array.isArray(body.rows) ? body.rows : []);
       })
-      .catch(function () {});
+      .catch(function () {
+        renderVoteError("Non riesco a caricare i voti in questo momento.");
+      });
   }
 
   function stopLiveVotesPolling() {

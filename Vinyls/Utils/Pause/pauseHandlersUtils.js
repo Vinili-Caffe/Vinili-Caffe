@@ -5,11 +5,17 @@ const { isValidGuildUserId } = require("../DB/validateWriteIds");
 const IDs = require("../Config/ids");
 const { getGuildChannelCached } = require("../Interaction/interactionEntityCache");
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
+const MAX_SET_TIMEOUT_MS = 2147483647;
+const PAUSE_MESSAGE_SYNC_INTERVAL_MS = 15 * 60 * 1000;
+const pauseStatusRefreshScheduled = new Map();
 const PAUSE_FESTIVI_TIMEZONE = "Europe/Rome";
 const STAFF_ROLE_PRIORITY = [
   IDs.roles.Founder,
+  IDs.roles.Manager,
   IDs.roles.Admin,
+  IDs.roles.Director,
   IDs.roles.HighStaff,
+  IDs.roles.SeniorModerator,
   IDs.roles.Mod,
   IDs.roles.Helper,
   IDs.roles.Staff,
@@ -85,10 +91,13 @@ function countFestiviInRange(start, end) {
 }
 
 const PAUSE_ROLE_LIMITS = {
-  Helper: null,
-  Mod: 3,
+  Helper: 2,
+  Mod: 2,
+  "Senior Moderator": 2,
+  SeniorModerator: 2,
+  Director: 1,
   HighStaff: 1,
-  Admin: 2,
+  Admin: 1,
   Founder: 1,
   Staff: null,
   PartnerManager: null,
@@ -133,10 +142,13 @@ function getPauseDaysBetween(startRaw, endRaw) {
 }
 
 function getTodayUtc() {
+  const key = getRomeDateKey(new Date());
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(key || ""));
+  if (match) {
+    return new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+  }
   const now = new Date();
-  return new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
-  );
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
 }
 
 function getCurrentYearBoundsUtc() {
@@ -465,8 +477,8 @@ function getPauseTimingText(startRaw, endRaw) {
   const end = parseItalianDate(endRaw);
   const today = getTodayUtc();
   if (!start || !end) return "è in pausa";
-  if (today < start) return "sarà in pausa";
-  if (today > end) return "è stato in pausa";
+  if (today < start) return "andrà in pausa";
+  if (today > end) return "era in pausa";
   return "è in pausa";
 }
 
@@ -578,80 +590,129 @@ function schedulePauseButtonsRemoval(guild, channelId, messageId, pauseStartRaw,
 function normalizePauseStatusPhrase(content, targetPhrase) {
   const raw = String(content || "");
   if (!raw) return raw;
+  const target = String(targetPhrase || "");
+  const esc = (value) => String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   return raw
-    .replace(" sarà in pausa.", ` ${targetPhrase}.`)
-    .replace(" è in pausa.", ` ${targetPhrase}.`)
-    .replace(" era in pausa.", ` ${targetPhrase}.`)
-    .replace(" è stato in pausa.", ` ${targetPhrase}.`);
+    .replace(new RegExp(esc("è stata in pausa"), "gi"), target)
+    .replace(new RegExp(esc("è stato in pausa"), "gi"), target)
+    .replace(new RegExp(esc("sarà in pausa"), "gi"), target)
+    .replace(new RegExp(esc("andrà in pausa"), "gi"), target)
+    .replace(new RegExp(esc("avrà pausa"), "gi"), target)
+    .replace(new RegExp(esc("era in pausa"), "gi"), target)
+    .replace(new RegExp(esc("è in pausa"), "gi"), target);
 }
 
-function getPausePhase(startRaw, endRaw) {
+function getPausePhase(startRaw, endRaw, atDate) {
   const start = parseItalianDate(startRaw);
   const end = parseItalianDate(endRaw);
-  const today = getTodayUtc();
+  const today = atDate instanceof Date ? atDate : getTodayUtc();
   if (!start || !end) return "active";
   if (today < start) return "planned";
   if (today > end) return "ended";
   return "active";
 }
 
+function hasActiveAcceptedStaffPause(pauses, atDate) {
+  if (!Array.isArray(pauses)) return false;
+  const today = atDate instanceof Date ? atDate : getTodayUtc();
+  return pauses.some((pause) => {
+    if (!pause || pause.status !== "accepted") return false;
+    return getPausePhase(pause.dataRichiesta, pause.dataRitorno, today) === "active";
+  });
+}
+
 async function applyAcceptedPausePhaseToDiscordMessage(channel, messageId, userId, pauseId, phase, withControls) {
   const msg = await channel.messages.fetch(messageId).catch(() => null);
-  if (!msg) return;
+  if (!msg) return false;
   const currentContent = String(msg.content || "");
   let nextContent = currentContent;
   let nextComponents = [];
+  const phrase =
+    phase === "planned" ? "andrà in pausa" : phase === "active" ? "è in pausa" : "era in pausa";
   if (withControls) {
-    if (phase === "planned") {
-      nextContent = normalizePauseStatusPhrase(currentContent, "sarà in pausa");
-      nextComponents = [buildAcceptedButtonsRow(userId, pauseId, { hideCancel: false, disableCancel: false })];
-    } else if (phase === "active") {
-      nextContent = normalizePauseStatusPhrase(currentContent, "è in pausa");
-      nextComponents = [buildAcceptedButtonsRow(userId, pauseId, { hideCancel: false, disableCancel: false })];
-    } else {
-      nextContent = normalizePauseStatusPhrase(currentContent, "è stato in pausa");
-      nextComponents = [];
-    }
+    nextContent = normalizePauseStatusPhrase(currentContent, phrase);
+    if (phase === "ended") nextComponents = [];
+    else nextComponents = [buildAcceptedButtonsRow(userId, pauseId, { hideCancel: false, disableCancel: phase === "ended" })];
   } else {
-    if (phase === "planned") nextContent = normalizePauseStatusPhrase(currentContent, "sarà in pausa");
-    else if (phase === "active") nextContent = normalizePauseStatusPhrase(currentContent, "è in pausa");
-    else nextContent = normalizePauseStatusPhrase(currentContent, "è stato in pausa");
+    nextContent = normalizePauseStatusPhrase(currentContent, phrase);
     nextComponents = [];
   }
   const sameContent = nextContent === currentContent;
   const hasComponentsNow = Array.isArray(msg.components) && msg.components.length > 0;
   const hasComponentsNext = Array.isArray(nextComponents) && nextComponents.length > 0;
-  if (sameContent && hasComponentsNow === hasComponentsNext) return;
-  await msg.edit({ content: nextContent, components: nextComponents }).catch(() => null);
+  if (sameContent && hasComponentsNow === hasComponentsNext) return true;
+  const edited = await msg.edit({ content: nextContent, components: nextComponents }).catch((err) => {
+    global.logger?.warn?.("[PAUSE] sync edit failed:", String(messageId || ""), err?.message || err);
+    return null;
+  });
+  return Boolean(edited);
 }
 
 async function syncSingleAcceptedPauseMessage(guild, userId, pause) {
-  const channelId = String(pause?.requestChannelId || "").trim();
+  const channelId = String(pause?.requestChannelId || IDs.channels?.pause || "").trim();
   const messageId = String(pause?.requestMessageId || "").trim();
   const messageIdPm = String(pause?.requestMessageIdPm || "").trim();
   const pauseId = String(pause?._id || "").trim();
-  if (!guild || !channelId || !messageId || !pauseId) return;
+  if (!guild || !channelId || !messageId || !pauseId) {
+    if (!channelId || !messageId) {
+      global.logger?.warn?.("[PAUSE] sync skip: missing refs", { userId, channelId: channelId || null, messageId: messageId || null, pauseId: pauseId || null });
+    }
+    return false;
+  }
   const phase = getPausePhase(pause?.dataRichiesta, pause?.dataRitorno);
   const channel = await getGuildChannelCached(guild, channelId);
-  if (!channel?.isTextBased?.()) return;
-  await applyAcceptedPausePhaseToDiscordMessage(channel, messageId, userId, pauseId, phase, true);
-  if (messageIdPm)
-    await applyAcceptedPausePhaseToDiscordMessage(channel, messageIdPm, userId, pauseId, phase, false);
+  if (!channel?.isTextBased?.()) {
+    global.logger?.warn?.("[PAUSE] sync skip: channel unavailable", channelId);
+    return false;
+  }
+  let ok = false;
+  ok = (await applyAcceptedPausePhaseToDiscordMessage(channel, messageId, userId, pauseId, phase, true)) || ok;
+  if (messageIdPm) {
+    ok = (await applyAcceptedPausePhaseToDiscordMessage(channel, messageIdPm, userId, pauseId, phase, true)) || ok;
+  }
+  return ok;
+}
+
+function scheduleDelayedCallback(runAtMs, callback) {
+  const delayMs = runAtMs - Date.now();
+  if (delayMs <= 0) {
+    callback();
+    return;
+  }
+  const waitMs = Math.min(delayMs, MAX_SET_TIMEOUT_MS);
+  const timer = setTimeout(() => {
+    if (Date.now() < runAtMs) {
+      scheduleDelayedCallback(runAtMs, callback);
+      return;
+    }
+    callback();
+  }, waitMs);
+  if (typeof timer?.unref === "function") timer.unref();
+}
+
+function pauseStatusRefreshKey(guildId, userId, pauseId) {
+  return `${String(guildId || "").trim()}:${String(userId || "").trim()}:${String(pauseId || "").trim()}`;
 }
 
 function schedulePauseStatusRefresh(guild, userId, pause) {
   const start = parseItalianDate(pause?.dataRichiesta);
   const end = parseItalianDate(pause?.dataRitorno);
-  if (!guild || !pause || !start || !end) return;
-  const checkpoints = [start.getTime(), end.getTime() + MS_PER_DAY];
-  for (const at of checkpoints) {
-    const delayMs = at - Date.now();
-    if (delayMs <= 0) continue;
-    const timer = setTimeout(() => {
-      syncSingleAcceptedPauseMessage(guild, userId, pause).catch(() => null);
-    }, delayMs);
-    if (typeof timer?.unref === "function") timer.unref();
+  const pauseId = String(pause?._id || "").trim();
+  if (!guild || !pause || !start || !end || !pauseId) return;
+  const key = pauseStatusRefreshKey(guild.id, userId, pauseId);
+  const flags = pauseStatusRefreshScheduled.get(key) || { start: false, end: false };
+  const runSync = () => {
+    syncSingleAcceptedPauseMessage(guild, userId, pause).catch(() => null);
+  };
+  if (!flags.start) {
+    flags.start = true;
+    scheduleDelayedCallback(start.getTime(), runSync);
   }
+  if (!flags.end) {
+    flags.end = true;
+    scheduleDelayedCallback(end.getTime() + MS_PER_DAY, runSync);
+  }
+  pauseStatusRefreshScheduled.set(key, flags);
 }
 
 function pauseHistoryImpliesBestStaffBonusForYear(pauses, year) {
@@ -682,6 +743,15 @@ function getBestStaffPauseBonusDays(member, staffDoc) {
   return pauseHistoryImpliesBestStaffBonusForYear(pauses, y) ? 5 : 0;
 }
 
+function getValPosTradedPauseBonusDays(staffDoc) {
+  const n = Number(staffDoc?.staff?.valPosTradedPauseBonusDays ?? staffDoc?.valPosTradedPauseBonusDays ?? 0);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
+}
+
+function getStaffPauseBonusDaysTotal(member, staffDoc) {
+  return getBestStaffPauseBonusDays(member, staffDoc) + getValPosTradedPauseBonusDays(staffDoc);
+}
+
 async function grantBestStaffPauseBonusYear(guildId, userId, year = null) {
   const g = String(guildId ?? "").trim();
   const u = String(userId ?? "").trim();
@@ -697,25 +767,41 @@ async function grantBestStaffPauseBonusYear(guildId, userId, year = null) {
 
 async function restorePauseMessageStatusSync(client) {
   const guildId = String(IDs.guilds?.main || client?.guilds?.cache?.first?.()?.id || "").trim();
-  if (!guildId) return;
+  if (!guildId) return { ok: false, reason: "no_guild" };
   const guild = client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
-  if (!guild) return;
+  if (!guild) return { ok: false, reason: "guild_not_found" };
   const docs = await ActivityUserProfile.find(
     { guildId, "staff.pauses.status": "accepted" },
     { userId: 1, "staff.pauses": 1 },
   )
     .lean()
     .catch(() => []);
+  let synced = 0;
+  let examined = 0;
   for (const doc of docs) {
     const userId = String(doc?.userId || "").trim();
     if (!userId) continue;
     const pauses = Array.isArray(doc?.staff?.pauses) ? doc.staff.pauses : [];
     for (const pause of pauses) {
       if (!pause || pause.status !== "accepted") continue;
-      await syncSingleAcceptedPauseMessage(guild, userId, pause);
+      examined += 1;
+      if (await syncSingleAcceptedPauseMessage(guild, userId, pause)) synced += 1;
       schedulePauseStatusRefresh(guild, userId, pause);
     }
   }
+  return { ok: true, examined, synced };
 }
 
-module.exports = { MS_PER_DAY, parseItalianDate, getPauseDaysBetween, getTodayUtc, getCurrentYearBoundsUtc, getMonthBoundsUtc, filterPausesByMonth, countOverlapDays, countEffectiveOverlapDays, rangesOverlap, computeStaffersInPauseByRoleForRange, getStaffPauseRecord, getStaffAndPauseByRequestMessageId, updatePauseInDb, computeConsumedPauseDays, getMemberRoleLabel, getBasePauseLimit, getPauseRoleLimit, getPauseStatusLabel, getPauseTimingText, computePauseScaledDaysThisYear, buildRequestButtonsRow, buildAcceptedButtonsRow, schedulePauseButtonsRemoval, restorePauseMessageStatusSync, getRomeMonthKey, getOnePausePerMonthWarning, getOneWeekBetweenWarning, getPauseReasonFromMessage, PAUSE_ROLE_STAFF, PAUSE_ROLE_PM, PAUSE_ROLE_BOTH, normalizePauseRoleChoice, getMemberPauseRoleChoices, getPauseRoleTargets, roleChoiceAppliesTo, getBestStaffPauseBonusDays, grantBestStaffPauseBonusYear };
+function startPauseMessageStatusMaintenance(client) {
+  if (!client || client.__vcPauseMessageStatusMaintenanceStarted) return;
+  client.__vcPauseMessageStatusMaintenanceStarted = true;
+  const run = () => {
+    restorePauseMessageStatusSync(client).catch((err) => {
+      global.logger?.warn?.("[PAUSE] periodic pause message status sync failed:", err?.message || err);
+    });
+  };
+  const interval = setInterval(run, PAUSE_MESSAGE_SYNC_INTERVAL_MS);
+  if (typeof interval?.unref === "function") interval.unref();
+}
+
+module.exports = { MS_PER_DAY, parseItalianDate, getPauseDaysBetween, getTodayUtc, getCurrentYearBoundsUtc, getMonthBoundsUtc, filterPausesByMonth, countOverlapDays, countEffectiveOverlapDays, rangesOverlap, computeStaffersInPauseByRoleForRange, getStaffPauseRecord, getStaffAndPauseByRequestMessageId, updatePauseInDb, computeConsumedPauseDays, getMemberRoleLabel, getBasePauseLimit, getPauseRoleLimit, getPauseStatusLabel, getPauseTimingText, computePauseScaledDaysThisYear, buildRequestButtonsRow, buildAcceptedButtonsRow, schedulePauseButtonsRemoval, restorePauseMessageStatusSync, startPauseMessageStatusMaintenance, syncSingleAcceptedPauseMessage, getRomeMonthKey, getOnePausePerMonthWarning, getOneWeekBetweenWarning, getPauseReasonFromMessage, PAUSE_ROLE_STAFF, PAUSE_ROLE_PM, PAUSE_ROLE_BOTH, normalizePauseRoleChoice, getMemberPauseRoleChoices, getPauseRoleTargets, roleChoiceAppliesTo, getBestStaffPauseBonusDays, getValPosTradedPauseBonusDays, getStaffPauseBonusDaysTotal, grantBestStaffPauseBonusYear, getPausePhase, hasActiveAcceptedStaffPause };

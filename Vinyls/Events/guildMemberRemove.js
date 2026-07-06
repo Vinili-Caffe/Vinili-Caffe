@@ -1,41 +1,33 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, AuditLogEvent, PermissionsBitField, } = require("discord.js");
-const Ticket = require("../Schemas/Ticket/ticketSchema");
-const { createTranscript, createTranscriptHtml, saveTranscriptHtml, } = require("../Utils/Ticket/transcriptUtils");
-const { buildTicketClosedEmbed, sendTranscriptWithBrowserLink } = require("../Utils/Ticket/ticketCloseRuntime");
-const { getNextTicketId } = require("../Utils/Ticket/ticketIdUtils");
-const {
-  ActivityUserProfile,
-  ACTIVITY_MAIN_GUILD_ID,
-} = require("../Schemas/Community/communitySchemas");
+const { closeOpenTicketsForGuildUser } = require("../Utils/Ticket/ticketCloseRuntime");
+const { ActivityUserProfile, ACTIVITY_MAIN_GUILD_ID } = require("../Schemas/Community/communitySchemas");
 const { sponsorMainLeave } = require("../Utils/Community/activityUserProfilePaths");
 const IDs = require("../Utils/Config/ids");
 const { getGuildChannelCached, getClientGuildCached, getClientChannelCached } = require("../Utils/Interaction/interactionEntityCache");
 const { scheduleStaffListRefresh, memberHasStaffRole, } = require("../Utils/Community/staffListUtils");
-const { memberHasAnyStaffPresenceForDepexSync } = require("../Utils/Staff/staffPmUtils");
-const { deleteStaffPauseRequestChannelMessages, deleteStaffRelatedMessagesFromConfiguredChannels, } = require("../Utils/Staff/staffDocUtils");
 const { getStaffRoleEmojiByRoleId } = require("../Utils/Community/staffRoleEmoji");
 const { queueIdsCatalogSync } = require("../Utils/Config/idsAutoSync");
 const { runCleanupAfterMemberLeave } = require("../Services/Community/cleanupUsersNotInServerService");
-const { removeContestSfondiSubmissionsOnMemberLeave } = require("../Services/Community/weeklyContestService");
-const { backupUserOnLeave } = require("../Services/Community/userLeaveBackupService");
+const {
+  attachHogwartsRetentionMarkers,
+  extractHogwartsProfileSlice,
+  shouldRetainHogwartsProfileOnLeave,
+} = require("../Services/Community/hogwartsLeaveRetention");
+const { resolveHogwartsEventConfig } = require("../Utils/Web/hogwartsSortingConfig");
+const { backupUserOnLeave, recordLeaveDepexMessages } = require("../Services/Community/userLeaveBackupService");
+const { handleMuteMirrorOnMemberLeave } = require("../Services/Moderation/mutedMirrorRoleService");
+const { enqueueCustomPerksDiscordCleanupAfterLeave } = require("../Services/Community/customPerksDiscordCleanupQueueService");
 const sponsorVerifiedRequiresMain = require("../Services/Community/sponsorVerifiedRequiresMainService");
 const { buildAuditExtraLines } = require("../Utils/Logging/channelRolesLogUtils");
 const { handleKickBanAction: antiNukeHandleKickBanAction } = require("../Services/Moderation/antiNukeService");
 const { consumeRecentJoinGateKick } = require("../Utils/Moderation/joinGateKickCache");
 const { guildMemberDisplayAvatarUrlDynamic } = require("../Utils/Discord/guildDiscordIdentity");
+const { trackMemberLeave } = require("../Services/Community/dailyMemberStatsService");
+const { handleMainGuildMemberRemove } = require("../Services/Staff/staffAccessMirrorService");
 const AUDIT_FETCH_LIMIT = 20;
 const AUDIT_LOOKBACK_MS = 120 * 1000;
-const STAFF_TRACKED_ROLE_IDS = new Set([
-  IDs.roles.PartnerManager,
-  IDs.roles.Staff,
-  IDs.roles.Helper,
-  IDs.roles.Mod,
-  IDs.roles.HighStaff,
-  IDs.roles.Admin,
-  IDs.roles.Founder,
-]);
+const STAFF_TRACKED_ROLE_IDS = new Set([IDs.roles.PartnerManager, IDs.roles.Staff, IDs.roles.Helper, IDs.roles.Mod, IDs.roles.SeniorModerator, IDs.roles.HighStaff, IDs.roles.Director, IDs.roles.Admin, IDs.roles.Manager, IDs.roles.Founder,]);
 const JOIN_LEAVE_LOG_CHANNEL_ID = IDs.channels.joinLeaveLogs;
-const ARROW = "<:VC_right_arrow:1482459908245815296>";
 const MAIN_GUILD_ID = IDs.guilds?.main || "1329080093599076474";
 const SPONSOR_GUILD_IDS = IDs.guilds?.sponsorGuildIds || [];
 const OFFICIAL_INVITE_URL = "https://discord.gg/viniliecaffe";
@@ -121,8 +113,8 @@ async function sendLeaveLog(member) {
 
   const embed = new EmbedBuilder()
     .setColor("#ED4245")
-    .setTitle("Member Left")
-    .setDescription([`${member.user} ${member.user.tag}.`, ""].join("\n"))
+    .setTitle("<:VC_User:1482527453586002103> Membro Uscito")
+    .setDescription([`<:VC_User:1482527453586002103> **Membro:** ${member.user} ${member.user.tag}.`, ""].join("\n"))
     .setFooter({ text: `ID: ${member.user.id}` })
     .setTimestamp()
     .setThumbnail(guildMemberDisplayAvatarUrlDynamic(member, { size: 256 }) || null);
@@ -149,77 +141,11 @@ async function markInviteInactive(member) {
 }
 
 async function closeOpenTicketsForMember(member, closeReason = "Utente uscito dal server") {
-  const guild = member.guild;
-  const client = member.client;
-  const openTickets = await Ticket.find({ userId: member.id, open: true, guildId: guild.id }).catch(() => []);
-  if (!openTickets.length) return;
-
-  const centralTicketLogChannelId = IDs.channels.ticketLogs || "1442569290682208296";
-  let logChannel = client.channels.cache.get(centralTicketLogChannelId) ||
-    (await getClientChannelCached(client, centralTicketLogChannelId)) ||
-    (await client.channels.fetch(centralTicketLogChannelId).catch(() => null));
-  if (!logChannel?.isTextBased?.()) logChannel = null;
-
-  for (const ticket of openTickets) {
-    const ticketGuild = String(ticket.guildId || "") === String(guild.id) ? guild : await client.guilds.fetch(ticket.guildId).catch(() => null);
-    let channel = ticketGuild ? ticketGuild.channels.cache.get(ticket.channelId) || (await ticketGuild.channels.fetch(ticket.channelId).catch(() => null)) : null;
-    if (!channel) channel = client.channels.cache.get(ticket.channelId) || (await client.channels.fetch(ticket.channelId).catch(() => null));
-
-    let transcriptTXT = "";
-    let transcriptHtmlPath = null;
-    if (channel) {
-      transcriptTXT = await createTranscript(channel).catch(() => "");
-      const transcriptHTML = await createTranscriptHtml(channel).catch(() => "");
-      transcriptHtmlPath = transcriptHTML ? await saveTranscriptHtml(channel, transcriptHTML).catch(() => null) : null;
-    }
-
-    let ticketNumber = Number(ticket.ticketNumber || 0);
-    if (!ticketNumber) ticketNumber = await getNextTicketId();
-
-    await Ticket.updateOne(
-      { _id: ticket._id },
-      {
-        $set: {
-          open: false,
-          ticketNumber,
-          transcript: transcriptTXT,
-          transcriptHtmlPath: transcriptHtmlPath || null,
-          closeReason,
-          closedAt: new Date(),
-          closedBy: member.client.user?.id || null,
-        },
-      },
-    ).catch(() => { });
-
-    const ticketAfter = await Ticket.findById(ticket._id).lean().catch(() => null);
-    if (logChannel?.isTextBased?.()) {
-      const closeEmbedData = {
-        ...(ticketAfter || ticket.toObject?.() || {}),
-        ticketNumber,
-        closeReason,
-        closedBy: member.client.user?.id || null,
-        closedAt: new Date(),
-        guildName: ticketGuild?.name || guild?.name || "Ticket System",
-        guildIconURL: ticketGuild?.iconURL?.({ size: 128 }) || guild?.iconURL?.({ size: 128 }) || null,
-      };
-      const closeEmbed = buildTicketClosedEmbed(closeEmbedData);
-      const transcriptRows = transcriptHtmlPath
-        ? [new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`ticket_transcript:${ticket._id}`).setLabel("Visualizza Trascrizione").setStyle(ButtonStyle.Secondary).setEmoji("<:VC_file:1478515880722698300>"))]
-        : [];
-      const logSentMessage = await sendTranscriptWithBrowserLink(logChannel, { embeds: [closeEmbed] }, false, transcriptRows).catch(() => null);
-      if (logSentMessage?.id && logChannel?.id) {
-        await Ticket.updateOne(
-          { _id: ticket._id },
-          { $set: { closeLogChannelId: logChannel.id, closeLogMessageId: logSentMessage.id } },
-        ).catch(() => { });
-      }
-    }
-
-    if (channel) {
-      const channelDeleteTimer = setTimeout(() => channel.delete().catch(() => { }), 1500);
-      channelDeleteTimer.unref?.();
-    }
-  }
+  await closeOpenTicketsForGuildUser(member.guild, member.id, {
+    closeReason,
+    closedBy: member.client.user?.id || null,
+    deleteReason: `Ticket chiuso automaticamente: ${closeReason} (${member.id})`,
+  });
 }
 
 const PARTNER_MANAGER_ROLE_ID = String(IDs.roles?.PartnerManager || "").trim();
@@ -233,7 +159,7 @@ function getHighestStaffTrackedRoleExcludingPm(member) {
     .first();
 }
 
-const STAFF_LEAVE_FALLBACK_ROLE_EMOJI = "<:member_role_icon:1330530086792728618>";
+const STAFF_LEAVE_FALLBACK_ROLE_EMOJI = "<:VC_Staff:1494286904089247754>";
 
 function formatStaffRoleLeadingEmoji(role) {
   return getStaffRoleEmojiByRoleId(role?.id, STAFF_LEAVE_FALLBACK_ROLE_EMOJI);
@@ -243,7 +169,7 @@ function buildStaffLeaveResignationContent(member, staffRole, userRoleLabel) {
   const label = String(staffRole?.name || "Staff/PM").trim() || "Staff/PM";
   const dest = String(userRoleLabel || "User").trim() || "User";
   const lead = formatStaffRoleLeadingEmoji(staffRole);
-  return `**<:cancel:1461730653677551691> DEPEX** ${member.user}
+  return `**<a:VC_Cross:1482532424570376253> DEPEX** ${member.user}
 ${lead}\`${label}\` <a:VC_Arrow:1482706699365257397> \`${dest}\`
 <:VC_reason:1478517122929004544> __Dimissioni (Esce dal server)__`;
 }
@@ -268,10 +194,12 @@ async function handleTrackedStaffLeave(member) {
 
   const pmRole = hasPm ? guild.roles.cache.get(PARTNER_MANAGER_ROLE_ID) : null;
   const pmLabel = pmRole?.name || "Partner Manager";
+  const leaveDepexMessages = [];
 
   if (highestStaffExPm) {
     const content = buildStaffLeaveResignationContent(member, highestStaffExPm, userRoleLabel);
-    await resignChannel.send({ content }).catch(() => { });
+    const sent = await resignChannel.send({ content }).catch(() => null);
+    if (sent?.id) leaveDepexMessages.push({ channelId: String(resignChannel.id), messageId: String(sent.id) });
   }
   if (hasPm) {
     const contentPm = buildStaffLeaveResignationContent(
@@ -279,7 +207,13 @@ async function handleTrackedStaffLeave(member) {
       pmRole || { id: PARTNER_MANAGER_ROLE_ID, name: pmLabel },
       userRoleLabel,
     );
-    await resignChannel.send({ content: contentPm }).catch(() => { });
+    const sentPm = await resignChannel.send({ content: contentPm }).catch(() => null);
+    if (sentPm?.id) leaveDepexMessages.push({ channelId: String(resignChannel.id), messageId: String(sentPm.id) });
+  }
+  if (leaveDepexMessages.length > 0) {
+    await recordLeaveDepexMessages(guild.id, member.id, leaveDepexMessages).catch((err) => {
+      global.logger?.warn?.("[guildMemberRemove] leave depex message backup:", member.id, err?.message || err);
+    });
   }
 }
 
@@ -304,7 +238,6 @@ async function sendRejoinDm(member) {
 
 async function handlePartnershipOnLeave(member, client) {
   const mainGuildId = IDs.guilds.main;
-  // In Vinyls la collezione Staff dedicata è stata rimossa: i dati PM/partnership stanno dentro `ActivityUserProfile.staff`.
   const partnerships = await ActivityUserProfile.find({
     guildId: mainGuildId,
     $or: [
@@ -372,17 +305,19 @@ async function sendMemberKickLog(member) {
   const nowTs = Math.floor(Date.now() / 1000);
   const embed = new EmbedBuilder()
     .setColor("#ED4245")
-    .setTitle("Member Kick")
-    .setDescription([`${ARROW} **Responsible:** ${responsible}`,
-    `${ARROW} **Target:** ${member.user}\`${member.user.id}\``,
-    `${ARROW} <t:${nowTs}:F>`,
-    entry.reason ? `${ARROW} **Reason:** ${entry.reason}` : null,
+    .setTitle("<:VC_User:1482527453586002103> Membro Kickato")
+    .setDescription([`<:VC_Staff:1494286904089247754> **Responsabile:** ${responsible}`,
+    `<:VC_User:1482527453586002103> **Utente:** ${member.user}\`${member.user.id}\``,
+    `<:VC_Clock:1473359204189474886> <t:${nowTs}:F>`,
+    entry.reason ? `<:VC_reason:1478517122929004544> **Motivo:** ${entry.reason}` : null,
     ...buildAuditExtraLines(entry, ["reason"]),
     ]
       .filter(Boolean)
       .join("\n"));
 
-  await logChannel.send({ embeds: [embed] }).catch(() => { });
+  await logChannel.send({ embeds: [embed] }).catch((err) => {
+    global.logger.error("[guildMemberRemove] Failed to send kick log:", err);
+  });
   await antiNukeHandleKickBanAction({
     guild,
     executorId,
@@ -392,12 +327,7 @@ async function sendMemberKickLog(member) {
   return true;
 }
 
-/**
- * In uscita dal server: se esiste `moderation` (non null) e/o `profile.totals.exp.event.weekWinners` con almeno una
- * settimana, il documento viene sostituito con uno minimale che conserva solo quei campi
- * (+ guildId/userId/timestamp), incluso `moderation.modCases` (storico case). Altrimenti il documento viene eliminato.
- */
-async function cleanupActivityUserProfileOnGuildLeave(guildId, userId) {
+async function cleanupActivityUserProfileOnGuildLeave(guildId, userId, client) {
   const gid = String(guildId);
   const uid = String(userId);
   const doc = await ActivityUserProfile.findOne({ guildId: gid, userId: uid })
@@ -415,44 +345,44 @@ async function cleanupActivityUserProfileOnGuildLeave(guildId, userId) {
     doc.moderation != null && typeof doc.moderation === "object";
   const keepEventWeekWinners =
     Array.isArray(doc?.profile?.totals?.exp?.event?.weekWinners) && doc.profile.totals.exp.event.weekWinners.length > 0;
+  const keepHogwarts = await shouldRetainHogwartsProfileOnLeave(client, doc, { guildId: gid, userId: uid });
 
-  if (keepModeration || keepEventWeekWinners) {
-    const payload = {
-      _id: doc._id,
-      guildId: gid,
-      userId: uid,
-      updatedAt: new Date(),
-    };
-    if (doc.createdAt) payload.createdAt = doc.createdAt;
-    if (keepModeration) payload.moderation = doc.moderation;
-    if (keepEventWeekWinners) payload.profile = { totals: { exp: { event: { weekWinners: doc.profile.totals.exp.event.weekWinners } } } };
-    if (keepStaffGrace && staffBlock) payload.staff = staffBlock;
-    if (staffPendingPurgeAt) payload.staffPendingPurgeAt = staffPendingPurgeAt;
-    await ActivityUserProfile.collection.replaceOne({ _id: doc._id }, payload).catch(() => { });
+  if (!keepModeration && !keepEventWeekWinners && !keepStaffGrace && !keepHogwarts) {
+    await ActivityUserProfile.deleteOne({ _id: doc._id }).catch(() => { });
     return;
   }
 
-  if (keepStaffGrace && (staffBlock || staffPendingPurgeAt)) {
-    const payload = {
-      _id: doc._id,
-      guildId: gid,
-      userId: uid,
-      updatedAt: new Date(),
-      ...(doc.createdAt ? { createdAt: doc.createdAt } : {}),
-      ...(staffBlock ? { staff: staffBlock } : {}),
-      ...(staffPendingPurgeAt ? { staffPendingPurgeAt: staffPendingPurgeAt } : {}),
-    };
-    await ActivityUserProfile.collection.replaceOne({ _id: doc._id }, payload).catch(() => { });
-    return;
-  }
+  const payload = {
+    _id: doc._id,
+    guildId: gid,
+    userId: uid,
+    updatedAt: new Date(),
+  };
+  if (doc.createdAt) payload.createdAt = doc.createdAt;
+  if (keepModeration) payload.moderation = doc.moderation;
+  if (keepStaffGrace && staffBlock) payload.staff = staffBlock;
+  if (staffPendingPurgeAt) payload.staffPendingPurgeAt = staffPendingPurgeAt;
 
-  await ActivityUserProfile.deleteOne({ _id: doc._id }).catch(() => { });
+  const profile = {};
+  if (keepEventWeekWinners) {
+    profile.totals = { exp: { event: { weekWinners: doc.profile.totals.exp.event.weekWinners } } };
+  }
+  if (keepHogwarts) {
+    const hogwartsSlice = extractHogwartsProfileSlice(doc);
+    if (hogwartsSlice) {
+      const cfg = client ? resolveHogwartsEventConfig(client) : null;
+      profile.events = { hogwarts: attachHogwartsRetentionMarkers(hogwartsSlice, cfg) };
+    }
+  }
+  if (Object.keys(profile).length) payload.profile = profile;
+
+  await ActivityUserProfile.collection.replaceOne({ _id: doc._id }, payload).catch(() => { });
 }
 
-async function cleanupUserData(guildId, userId) {
+async function cleanupUserData(guildId, userId, client) {
   const gid = String(guildId);
   const uid = String(userId);
-  await Promise.allSettled([cleanupActivityUserProfileOnGuildLeave(gid, uid)]);
+  await Promise.allSettled([cleanupActivityUserProfileOnGuildLeave(gid, uid, client)]);
 }
 
 module.exports = {
@@ -460,6 +390,12 @@ module.exports = {
   async execute(member, client) {
     try {
       if (!member?.guild || !member?.user) return;
+      await handleMainGuildMemberRemove(member).catch((err) => {
+        global.logger?.warn?.("[guildMemberRemove] staff access mirror:", member.id, err?.message || err);
+      });
+      await trackMemberLeave(member).catch((err) => {
+        global.logger?.warn?.("[guildMemberRemove] daily member stats:", err?.message || err);
+      });
       if (member?.user && !member.user.bot) {
         sponsorVerifiedRequiresMain.handleGuildMemberRemoveFromSponsor(member);
       }
@@ -500,27 +436,14 @@ module.exports = {
         wasKicked ? "Utente kickato dal server" : "Utente uscito dal server",
       );
       await handleTrackedStaffLeave(member);
-      if (!member.user.bot && String(guild.id) === String(MAIN_GUILD_ID) && memberHasAnyStaffPresenceForDepexSync(member)) {
-        await deleteStaffPauseRequestChannelMessages(guild, member.id).catch((err) => {
-          global.logger?.warn?.("[guildMemberRemove] pause doc cleanup:", member.id, err?.message || err);
-        });
-        await deleteStaffRelatedMessagesFromConfiguredChannels(guild, member.id).catch((err) => {
-          global.logger?.warn?.("[guildMemberRemove] staff channels scan delete:", member.id, err?.message || err);
-        });
-        await ActivityUserProfile.updateOne(
-          { guildId: guild.id, userId: member.id },
-          { $unset: { "staff.pauses": "" } },
-        ).catch(() => {});
-      }
       await handlePartnershipOnLeave(member, client);
       const activeClient = client || member.client;
-      if (!member.user.bot && String(guild.id) === String(MAIN_GUILD_ID)) {
-        await removeContestSfondiSubmissionsOnMemberLeave(activeClient, guild.id, member.id).catch((err) => {
-          global.logger?.warn?.("[guildMemberRemove] contest sfondi leave:", err?.message || err);
-        });
-      }
+      await handleMuteMirrorOnMemberLeave(member).catch(() => null);
       await backupUserOnLeave(guild.id, member.id, member);
-      await cleanupUserData(guild.id, member.id);
+      if (!member.user.bot && String(guild.id) === String(MAIN_GUILD_ID)) {
+        await enqueueCustomPerksDiscordCleanupAfterLeave(guild.id, member.id).catch(() => {});
+      }
+      await cleanupUserData(guild.id, member.id, activeClient);
       void runCleanupAfterMemberLeave(activeClient, guild).catch((err) => {
         global.logger?.warn?.("[guildMemberRemove] cleanup not-in-server:", err?.message || err);
       });

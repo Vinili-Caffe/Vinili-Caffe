@@ -1,11 +1,19 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType } = require("discord.js");
 const { getOrCreateStaffDoc } = require("../Staff/staffDocUtils");
 const IDs = require("../Config/ids");
-const { getOnePausePerMonthWarning, getOneWeekBetweenWarning, normalizePauseRoleChoice, PAUSE_ROLE_STAFF } = require("./pauseHandlersUtils");
+const { getOnePausePerMonthWarning, getOneWeekBetweenWarning, normalizePauseRoleChoice, PAUSE_ROLE_STAFF, PAUSE_ROLE_PM, PAUSE_ROLE_BOTH } = require("./pauseHandlersUtils");
 const { getGuildChannelCached, getClientChannelCached } = require("../Interaction/interactionEntityCache");
+const { hydrateGuildMembersForRolePings } = require("../Discord/threadRoleMembers");
+const { maybeRepositionPauseSticky } = require("./pauseStickyPanelRuntime");
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const IT_MONTHS = { gennaio: 1, feb: 2, febbraio: 2, mar: 3, marzo: 3, apr: 4, aprile: 4, mag: 5, maggio: 5, giu: 6, giugno: 6, lug: 7, luglio: 7, ago: 8, agosto: 8, set: 9, sett: 9, settembre: 9, ott: 10, ottobre: 10, nov: 11, novembre: 11, dic: 12, dicembre: 12 };
-const PAUSE_REQUEST_ROLE_IDS = [IDs.roles.PartnerManager, IDs.roles.Staff, IDs.roles.HighStaff].filter(Boolean);
+const PAUSE_REQUEST_ROLE_IDS = [
+  IDs.roles.PartnerManager,
+  IDs.roles.Staff,
+  IDs.roles.SeniorModerator,
+  IDs.roles.Director,
+  IDs.roles.HighStaff,
+].filter(Boolean);
 
 function getTodayUtc() {
   const now = new Date();
@@ -54,12 +62,59 @@ function tryParseDateFromTokens(tokens, startIndex) {
   return null;
 }
 
+const USER_DATE_SCAN_PATTERN = /\b(?:oggi|today|domani|tomorrow|\d{1,2}[\/\-.]\d{1,2}(?:[\/\-.]\d{2,4})?|\d{1,2}\s+(?:gennaio|feb|febbraio|mar|marzo|apr|aprile|mag|maggio|giu|giugno|lug|luglio|ago|agosto|set|sett|settembre|ott|ottobre|nov|novembre|dic|dicembre)(?:\s+\d{2,4})?)\b/gi;
+
+function scanUserDates(raw) {
+  const dates = [];
+  const text = String(raw || "");
+  for (const match of text.matchAll(USER_DATE_SCAN_PATTERN)) {
+    const value = String(match[0] || "").trim();
+    if (!value || !parseUserDateInput(value)) continue;
+    dates.push({ raw: value, index: match.index || 0, end: (match.index || 0) + value.length });
+  }
+  return dates;
+}
+
+function cleanPauseReasonCandidate(value) {
+  return String(value || "")
+    .replace(/\b(?:data\s+)?(?:inizio|richiesta|ritorno|fine|start|end)\b\s*[:=\-–—]*/gi, " ")
+    .replace(/\b(?:dal|da|al|a)\b\s*[:=\-–—]*/gi, " ")
+    .replace(/\b(?:motivo|motivazione|reason|perche|perché)\b\s*[:=\-–—]*/gi, " ")
+    .replace(/[|•·]+/g, " ")
+    .replace(/\s*[-–—]{1,3}\s*/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function extractLabelledPauseReason(raw) {
+  const text = String(raw || "");
+  const match = text.match(/\b(?:motivo|motivazione|reason|perche|perché)\b\s*[:=\-–—]?\s*([\s\S]+)$/i);
+  if (!match) return "";
+  const afterLabel = String(match[1] || "");
+  const nextDateLabel = afterLabel.search(/\b(?:data\s+)?(?:inizio|richiesta|ritorno|fine|start|end)\b\s*[:=\-–—]?|\b(?:dal|da|al)\b\s*[:=\-–—]?/i);
+  const candidate = nextDateLabel >= 0 ? afterLabel.slice(0, nextDateLabel) : afterLabel;
+  return cleanPauseReasonCandidate(candidate);
+}
+
+function parsePauseContentByDateScan(trimmed) {
+  const dates = scanUserDates(trimmed);
+  if (dates.length < 2) return null;
+  const rawStart = dates[0].raw;
+  const rawEnd = dates[1].raw;
+  const withoutDates = `${trimmed.slice(0, dates[0].index)} ${trimmed.slice(dates[0].end, dates[1].index)} ${trimmed.slice(dates[1].end)}`;
+  const reason = extractLabelledPauseReason(trimmed) || cleanPauseReasonCandidate(withoutDates);
+  if (!reason) return null;
+  return { rawStart, rawEnd, reason };
+}
+
 /**
- * Messaggio canale pause: `<data> - <data> - <motivo>` oppure `<data> <data> <motivo>` (stesso ordine, senza trattini).
+ * Messaggio canale pause: accetta date e motivo anche con etichette/separatori liberi.
  */
 function parsePauseChannelMessageContent(raw) {
   const trimmed = String(raw || "").trim();
   if (!trimmed) return null;
+  const scanned = parsePauseContentByDateScan(trimmed);
+  if (scanned) return scanned;
   const hyphen = trimmed.match(/^(.+?)\s-\s(.+?)\s-\s(.+)$/);
   if (hyphen) {
     const rawStart = String(hyphen[1] || "").trim();
@@ -123,7 +178,7 @@ function normalizePauseDates(startRaw, endRaw) {
     if (!startDate) return null;
   }
   if (endDate < startDate) return null;
-  return { dataRichiesta: formatDateDDMMYYYY(startDate), dataRitorno: formatDateDDMMYYYY(endDate) };
+  return { dataRichiesta: formatDateDDMMYYYY(startDate), dataRitorno: formatDateDDMMYYYY(endDate), startDate };
 }
 
 function buildPauseRequestButtonsRow(userId, pauseId) {
@@ -133,11 +188,24 @@ function buildPauseRequestButtonsRow(userId, pauseId) {
   );
 }
 
+function formatRuoloPausaRichiestoInMessage(guild, normalizedOrRawRole) {
+  const n = normalizePauseRoleChoice(normalizedOrRawRole);
+  const staffRole = guild?.roles?.cache?.get(String(IDs.roles?.Staff || ""));
+  const pmRole = guild?.roles?.cache?.get(String(IDs.roles?.PartnerManager || ""));
+  const staffName = staffRole?.name || "Staff";
+  const pmName = pmRole?.name || "Partner Manager";
+  if (n === PAUSE_ROLE_BOTH) return `${staffName} e ${pmName}`;
+  if (n === PAUSE_ROLE_PM) return pmName;
+  if (n === PAUSE_ROLE_STAFF) return staffName;
+  return String(normalizedOrRawRole || "").trim() || staffName;
+}
+
 async function createPauseRequest({ guild, userId, requesterMention, rawStart, rawEnd, reason, member = null, requestedRole = null }) {
   const memberHasStaff = Boolean(member?.roles?.cache?.has(IDs.roles.Staff));
   const memberHasPm = Boolean(member?.roles?.cache?.has(IDs.roles.PartnerManager));
   const fallbackRole = memberHasPm && !memberHasStaff ? "PartnerManager" : PAUSE_ROLE_STAFF;
   const normalizedRequestedRole = normalizePauseRoleChoice(requestedRole) || fallbackRole;
+  const ruoloRichiestoDisplay = formatRuoloPausaRichiestoInMessage(guild, normalizedRequestedRole);
   const guildId = String(guild?.id ?? "").trim();
   const uid = String(userId ?? "").trim();
   if (!guild || !guildId || !uid) return { ok: false, error: "<a:VC_Alert:1482706673176150077> Dati pausa non validi." };
@@ -145,7 +213,10 @@ async function createPauseRequest({ guild, userId, requesterMention, rawStart, r
   const pauseChannel = guild.channels.cache.get(IDs.channels?.pause) || (await getGuildChannelCached(guild, IDs.channels?.pause)) || (await getClientChannelCached(client, IDs.channels?.pause));
   const normalized = normalizePauseDates(rawStart, rawEnd);
   if (!normalized) {
-    return { ok: false, error: "<a:VC_Alert:1482706673176150077> Date non valide. Formati supportati: `oggi`, `domani`, `GG/MM`, `GG/MM/AAAA`, `1 agosto`, `1 agosto 2027`." };
+    return { ok: false, error: "<a:VC_Alert:1482706673176150077> Date non valide. Formati supportati: `domani`, `GG/MM`, `GG/MM/AAAA`, `1 agosto`, `1 agosto 2027`." };
+  }
+  if (normalized.startDate <= getTodayUtc()) {
+    return { ok: false, error: "<a:VC_Alert:1482706673176150077> La pausa deve iniziare almeno da domani. Non puoi richiederla per oggi o per una data già passata." };
   }
   if (!String(reason || "").trim()) {
     return { ok: false, error: "<a:VC_Alert:1482706673176150077> Devi specificare una motivazione valida." };
@@ -189,7 +260,7 @@ async function createPauseRequest({ guild, userId, requesterMention, rawStart, r
     ? "\n\n<a:VC_Alert:1482706673176150077> **Requisiti non rispettati:**\n" + requisitiNonRispettati.map((r) => `• ${r}`).join("\n") + "\n\n_L'High Staff può accettare comunque._"
     : "";
 
-  const content = `<:VC_Staff:1494286904089247754> <@&${IDs.roles.HighStaff}> ${requesterMention} ha richiesto una pausa.\n<:VC_Mention:1482526855289634997> Ruolo pausa richiesto: \`${normalizedRequestedRole}\`\n<a:VC_Calendar:1482706208149475358> Data richiesta: ${normalized.dataRichiesta}\n<a:VC_Calendar:1482706208149475358> Data ritorno: ${normalized.dataRitorno}\n<:VC_reason:1478517122929004544> Motivo: ${reason}`;
+  const content = `<:VC_Staff:1494286904089247754> <@&${IDs.roles.HighStaff}> ${requesterMention} ha richiesto una pausa.\n<:VC_Mention:1482526855289634997> Ruolo pausa richiesto: **${ruoloRichiestoDisplay}**\n<a:VC_Calendar:1482706208149475358> Data richiesta: ${normalized.dataRichiesta}\n<a:VC_Calendar:1482706208149475358> Data ritorno: ${normalized.dataRitorno}\n<:VC_reason:1478517122929004544> Motivo: ${reason}`;
   const posted = await pauseChannel.send({
     content,
     components: [buildPauseRequestButtonsRow(uid, pauseId)],
@@ -217,13 +288,16 @@ async function createPauseRequest({ guild, userId, requesterMention, rawStart, r
       reason: "Richiesta pausa staff",
     });
   } catch (e) {
+    void maybeRepositionPauseSticky(pauseChannel, client).catch(() => null);
     return { ok: true, pauseId };
   }
   await thread.members.add(uid).catch(() => null);
   const highStaffRoleId = String(IDs.roles.HighStaff || "");
   if (highStaffRoleId) {
+    await hydrateGuildMembersForRolePings(guild, "[pause thread HighStaff]");
     const membersWithHighStaff = guild.members.cache.filter((m) => m.roles.cache.has(highStaffRoleId));
     for (const m of membersWithHighStaff.values()) {
+      if (m.user?.bot) continue;
       await thread.members.add(m.id).catch(() => null);
     }
   }
@@ -240,7 +314,8 @@ async function createPauseRequest({ guild, userId, requesterMention, rawStart, r
   } catch (err) {
     global.logger?.error?.("[createPauseRequest] save (threadId) failed", err);
   }
+  void maybeRepositionPauseSticky(pauseChannel, client).catch(() => null);
   return { ok: true, pauseId };
 }
 
-module.exports = { PAUSE_REQUEST_ROLE_IDS, createPauseRequest, parsePauseChannelMessageContent };
+module.exports = { PAUSE_REQUEST_ROLE_IDS, createPauseRequest, parsePauseChannelMessageContent, formatRuoloPausaRichiestoInMessage };

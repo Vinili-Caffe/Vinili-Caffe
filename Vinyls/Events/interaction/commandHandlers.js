@@ -1,4 +1,5 @@
-const { EmbedBuilder, ButtonBuilder, ActionRowBuilder, ButtonStyle, PermissionFlagsBits, } = require("discord.js");
+const { EmbedBuilder, ButtonBuilder, ActionRowBuilder, ButtonStyle, PermissionFlagsBits, MessageFlags, } = require("discord.js");
+const { DEFAULT_OBSOLETE_SLASH_NAMES } = require("../../../shared/discord/purgeObsoleteApplicationCommands");
 const { safeReply: safeReplyHelper } = require("../../../shared/discord/replyRuntime");
 const{applyDefaultFooterToEmbeds,}=require("../../Utils/Embeds/defaultFooter");
 const { checkSlashPermission, getSlashRequiredRoles, buildGlobalPermissionDeniedEmbed, buildGlobalChannelDeniedEmbed, } = require("../../Utils/Moderation/commandPermissions");
@@ -9,10 +10,32 @@ const { getCentralChannel } = require("../../Utils/Logging/commandUsageLogger");
 const IDs = require("../../Utils/Config/ids");
 const { shouldBlockModerationCommands } = require("../../Services/Moderation/antiNukeService");
 const { getSecurityLockState } = require("../../Services/Moderation/securityOrchestratorService");
+const {
+  registerInteractionShutdownGuard,
+  trackInteractionStart,
+  markInteractionDeferred,
+  markInteractionReplied,
+  releaseInteraction,
+  isShuttingDown,
+  SHUTDOWN_MESSAGE,
+} = require("../../../shared/discord/interactionShutdownGuard");
+
+registerInteractionShutdownGuard();
 const SLASH_COOLDOWN_BYPASS_ROLE_ID = IDs.roles?.Staff || null;
 const STAFF_BYPASS_PERMISSIONS=[PermissionFlagsBits.Administrator,PermissionFlagsBits.ManageGuild,PermissionFlagsBits.ManageChannels,PermissionFlagsBits.ManageRoles,PermissionFlagsBits.ManageMessages,PermissionFlagsBits.KickMembers,PermissionFlagsBits.BanMembers,PermissionFlagsBits.ModerateMembers,];
 const SLASH_EXECUTION_TIMEOUT_MS=Math.max(15_000,Number(process.env.SLASH_EXECUTION_TIMEOUT_MS||120_000),);
 const getCommandKey = (name, type) => `${name}:${type || 1}`;
+const OBSOLETE_SLASH_NAMES = new Set((Array.isArray(DEFAULT_OBSOLETE_SLASH_NAMES) ? DEFAULT_OBSOLETE_SLASH_NAMES : []).map((s) => String(s || "").toLowerCase()).filter(Boolean),);
+
+function logCommandRuntimeError(interaction, error) {
+  const commandName = String(interaction?.commandName || "unknown");
+  const userId = String(interaction?.user?.id || "unknown");
+  const guildId = String(interaction?.guildId || "dm");
+  global.logger?.error?.(
+    `[SLASH COMMAND ERROR] command=${commandName} guild=${guildId} user=${userId}`,
+    error?.stack || error?.message || error,
+  );
+}
 
 function sanitizeEditPayload(payload) {
   if (!payload || typeof payload !== "object" || Array.isArray(payload))
@@ -29,6 +52,9 @@ function hasAnyStaffBypassPermission(permissions) {
 }
 
 async function handleAutocomplete(interaction, client) {
+  if (OBSOLETE_SLASH_NAMES.has(String(interaction.commandName || "").toLowerCase())) {
+    return interaction.respond([]).catch(() => null);
+  }
   const cmd=client.commands.get(getCommandKey(interaction.commandName,interaction.commandType),);
   if (!cmd?.autocomplete) return;
   const isAntiNukeRecoveryCommand=["antinuke","security"].includes(String(cmd?.name||interaction.commandName||"").toLowerCase(),);
@@ -55,22 +81,25 @@ async function handleAutocomplete(interaction, client) {
 }
 
 async function handleSlashCommand(interaction, client) {
+  if (isShuttingDown()) {
+    return interaction.reply({ content: SHUTDOWN_MESSAGE, flags: MessageFlags.Ephemeral }).catch(() => null);
+  }
+
   const command=client.commands.get(getCommandKey(interaction.commandName,interaction.commandType),);
-  if (!command) return;
+  if (!command) {
+    if (OBSOLETE_SLASH_NAMES.has(String(interaction.commandName || "").toLowerCase())) {
+      const obsoleteContent = "Questo comando **non è più disponibile**.";
+      return interaction.reply({ content: obsoleteContent, flags: MessageFlags.Ephemeral }).catch(() => null);
+    }
+    return;
+  }
   const isAntiNukeRecoveryCommand=["antinuke","security"].includes(String(command?.name||"").toLowerCase(),);
   const securityLockState = await getSecurityLockState(interaction.guild);
   if (
     !isAntiNukeRecoveryCommand &&
     securityLockState.commandLockActive
   ) {
-    const cmdLockSources = Array.isArray(securityLockState.commandSources)
-      ? securityLockState.commandSources
-      : [];
-    return interaction.reply({
-      content:
-        `<:VC_Attention:1482534443632558151> Server in lockdown di sicurezza: comandi temporaneamente bloccati.${cmdLockSources.length ? ` (${cmdLockSources.join(", ")})` : ""}`,
-      flags: 1 << 6,
-    });
+    return interaction.reply({ content: `<a:VC_Lock:1482526739044368476> Server in lockdown di sicurezza: comandi temporaneamente bloccati.`, flags: 1 << 6 });
   }
   const isModerationSlashCommand=["staff","admin"].includes(String(command?.category||"").toLowerCase(),);
   if (
@@ -81,43 +110,24 @@ async function handleSlashCommand(interaction, client) {
       String(interaction.user?.id || ""),
     ))
   ) {
-    return interaction.reply({
-      content:
-        "<a:VC_Alert:1482706673176150077> Comandi di moderazione temporaneamente bloccati.",
-      flags: 1 << 6,
-    });
+    return interaction.reply({ content: "<a:VC_Lock:1482526739044368476> Comandi di moderazione temporaneamente bloccati.", flags: 1 << 6 });
+  }
+  if (isModerationSlashCommand && interaction.channel) {
+    const { staffChatCommandsDeniedReplyContent } = require("../../Utils/Staff/staffChatChannelUtils");
+    const deniedStaffChat = await staffChatCommandsDeniedReplyContent(interaction.channel).catch(() => null);
+    if (deniedStaffChat) {
+      return interaction.reply({ content: deniedStaffChat, flags: 1 << 6 });
+    }
   }
   const expectsModal = command?.expectsModal === true;
   const isAdminCommand=String(command?.category||"").toLowerCase()==="admin";
-  if (!client.interactionCommandLocks)
-    client.interactionCommandLocks = new Set();
+  if (!client.interactionCommandLocks) client.interactionCommandLocks = new Set();
   const interactionLockId = `${interaction.guildId || "dm"}:${interaction.user.id}`;
-
   const slashPermission=await checkSlashPermission(interaction,{returnDetails:true,});
   if (!slashPermission?.allowed) {
-    if (
-      slashPermission?.reason === "channel" &&
-      Array.isArray(slashPermission.channels)
-    ) {
-      const embed=buildGlobalChannelDeniedEmbed(slashPermission.channels,"comando",);
-      return interaction.reply({
-        embeds: [embed],
-        flags: 1 << 6,
-      });
-    }
+    if (slashPermission?.reason === "channel" && Array.isArray(slashPermission.channels)) return interaction.reply({ embeds: [buildGlobalChannelDeniedEmbed(slashPermission.channels,"comando")], flags: 1 << 6 });
     const requiredRoles = getSlashRequiredRoles(interaction);
-    const embed =
-      interaction.commandName === "dmbroadcast"
-        ? buildGlobalPermissionDeniedEmbed(
-            [],
-            "comando",
-            "<:VC_Attention:1482534443632558151> Solo i developer del bot possono usare questo comando.",
-          )
-        : buildGlobalPermissionDeniedEmbed(requiredRoles);
-    return interaction.reply({
-      embeds: [embed],
-      flags: 1 << 6,
-    });
+    return interaction.reply({ embeds: [buildGlobalPermissionDeniedEmbed(requiredRoles)], flags: 1 << 6 });
   }
   const memberRoleCache = interaction.member?.roles?.cache;
   const memberRoleArray = interaction.member?.roles;
@@ -131,19 +141,19 @@ async function handleSlashCommand(interaction, client) {
     const cooldownResult=consumeUserCooldown({client,guildId:interaction.guildId,userId:interaction.user.id,cooldownSeconds,});
     if (!cooldownResult.ok) {
       const remaining=Math.max(1,Math.ceil(cooldownResult.remainingMs/1000),);
-      return interaction.reply({
-        embeds: [buildCooldownErrorEmbed(remaining)],
-        flags: 1 << 6,
-      });
+      return interaction.reply({ embeds: [buildCooldownErrorEmbed(remaining)], flags: 1 << 6 });
     }
   }
   if (client.interactionCommandLocks.has(interactionLockId)) {
-    return interaction.reply({
-      embeds: [buildBusyCommandErrorEmbed()],
-      flags: 1 << 6,
-    });
+    return interaction.reply({ embeds: [buildBusyCommandErrorEmbed()], flags: 1 << 6 });
   }
   client.interactionCommandLocks.add(interactionLockId);
+
+  const track = trackInteractionStart(interaction, { commandName: command.name });
+  if (!track.ok) {
+    client.interactionCommandLocks.delete(interactionLockId);
+    return interaction.reply({ content: SHUTDOWN_MESSAGE, flags: MessageFlags.Ephemeral }).catch(() => null);
+  }
 
   const originalReply = interaction.reply.bind(interaction);
   const originalFollowUp = interaction.followUp?.bind(interaction);
@@ -151,29 +161,35 @@ async function handleSlashCommand(interaction, client) {
   const originalChannelSend=interaction.channel?.send?.bind(interaction.channel,);
   const wrappedInteraction = Object.create(interaction);
   wrappedInteraction.deferReply = (...args) => {
-    if (isAdminCommand) return interaction.deferReply(...args);
-    const first = args?.[0];
-    if (!first || typeof first !== "object" || Array.isArray(first)) {
-      return interaction.deferReply({ flags: 1 << 6 });
-    }
-    if (!Object.prototype.hasOwnProperty.call(first, "flags")) {
-      return interaction.deferReply({ ...first, flags: 1 << 6 });
-    }
-    return interaction.deferReply(...args);
+    const runDefer = isAdminCommand
+      ? interaction.deferReply(...args)
+      : (() => {
+          const first = args?.[0];
+          if (!first || typeof first !== "object" || Array.isArray(first)) {
+            return interaction.deferReply({ flags: 1 << 6 });
+          }
+          if (!Object.prototype.hasOwnProperty.call(first, "flags")) {
+            return interaction.deferReply({ ...first, flags: 1 << 6 });
+          }
+          return interaction.deferReply(...args);
+        })();
+    return Promise.resolve(runDefer).then((result) => {
+      markInteractionDeferred(interaction);
+      return result;
+    });
   };
   wrappedInteraction.showModal = (...args) => interaction.showModal(...args);
-  wrappedInteraction.deferUpdate = (...args) =>
-    interaction.deferUpdate(...args);
+  wrappedInteraction.deferUpdate = (...args) => interaction.deferUpdate(...args);
   wrappedInteraction.update = (...args) => interaction.update(...args);
   wrappedInteraction.fetchReply = (...args) => interaction.fetchReply(...args);
-  wrappedInteraction.deleteReply = (...args) =>
-    interaction.deleteReply(...args);
+  wrappedInteraction.deleteReply = (...args) => interaction.deleteReply(...args);
   wrappedInteraction.reply = async (payload) => {
     payload = applyDefaultFooterToEmbeds(payload, interaction.guild);
-    if (interaction.deferred) {
-      return interaction.editReply(sanitizeEditPayload(payload));
-    }
-    return originalReply(payload);
+    const result = interaction.deferred
+      ? await interaction.editReply(sanitizeEditPayload(payload))
+      : await originalReply(payload);
+    markInteractionReplied(interaction);
+    return result;
   };
 
   if (originalFollowUp) {
@@ -187,7 +203,9 @@ async function handleSlashCommand(interaction, client) {
         }
       }
       try {
-        return await originalFollowUp(payload);
+        const result = await originalFollowUp(payload);
+        markInteractionReplied(interaction);
+        return result;
       } catch (err) {
         if (err?.code === "InteractionNotReplied") {
           return originalReply(payload);
@@ -199,7 +217,9 @@ async function handleSlashCommand(interaction, client) {
 
   wrappedInteraction.editReply = async (payload) => {
     const withFooter = applyDefaultFooterToEmbeds(payload, interaction.guild);
-    return originalEditReply(sanitizeEditPayload(withFooter));
+    const result = await originalEditReply(sanitizeEditPayload(withFooter));
+    markInteractionReplied(interaction);
+    return result;
   };
   if (originalChannelSend) {
     const wrappedChannel = Object.create(interaction.channel);
@@ -221,7 +241,10 @@ async function handleSlashCommand(interaction, client) {
       deferTimer = setTimeout(() => {
         if (!interaction.replied && !interaction.deferred) {
           const deferPayload = isAdminCommand ? {} : { flags: 1 << 6 };
-          interaction.deferReply(deferPayload).catch(() => {});
+          interaction
+            .deferReply(deferPayload)
+            .then(() => markInteractionDeferred(interaction))
+            .catch(() => {});
         }
       }, 1500);
       if (typeof deferTimer?.unref === "function") deferTimer.unref();
@@ -243,6 +266,7 @@ async function handleSlashCommand(interaction, client) {
     ]);
   } catch (error) {
     commandFailed = true;
+    logCommandRuntimeError(interaction, error);
     const errorChannelId=IDs.channels.errorLogChannel||IDs.channels.serverBotLogs;
     const errorChannel=errorChannelId?await getCentralChannel(client,errorChannelId):null;
     const staffEmbed=buildErrorLogEmbed({contextLabel:"Comando",contextValue:interaction.commandName||"unknown",userTag:interaction.user?.tag||interaction.user?.id||"-",error,serverName:interaction.guild?`${interaction.guild.name}[${interaction.guild.id}]`
@@ -269,11 +293,7 @@ async function handleSlashCommand(interaction, client) {
       collector.on("collect", async (btn) => {
         try {
           if (!btn.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
-            return await btn.reply({
-              content:
-                "<:vegax:1443934876440068179> Non hai i permessi per fare questo comando.",
-              flags: 1 << 6,
-            }).catch(() => null);
+            return btn.reply({ content: "<:vegax:1443934876440068179> Non hai i permessi per fare questo comando.", flags: 1 << 6 }).catch(() => null);
           }
           await btn.deferUpdate();
           const data = staffEmbed.toJSON ? staffEmbed.toJSON() : staffEmbed.data;
@@ -294,43 +314,26 @@ async function handleSlashCommand(interaction, client) {
           if (statusText) updatedEmbed.setFooter({ text: `Stato: ${statusText}` });
           await msg.edit({ embeds: [updatedEmbed], components: [row] }).catch(() => null);
         } catch (collectorErr) {
-          global.logger?.error?.(
-            "[commandHandlers] error collector failure",
-            collectorErr,
-          );
+          global.logger?.error?.("[commandHandlers] error collector failure", collectorErr);
         }
       });
       collector.on("end", async () => {
-        try {
-          row.components.forEach((b) => b.setDisabled(true));
-          await msg.edit({ components: [row] }).catch(() => null);
-        } catch (err) {
-          global.logger?.warn?.("[commandHandlers] ", err?.message || err);
-        }
+        row.components.forEach((b) => b.setDisabled(true));
+        await msg.edit({ components: [row] }).catch(() => null);
       });
     }
     const userEmbed = buildInternalCommandErrorEmbed(errorText);
-    await safeReply({
-      embeds: [userEmbed],
-      flags: 1 << 6,
-    });
+    await safeReply({ embeds: [userEmbed], flags: 1 << 6 });
     userErrorResponseSent = true;
   } finally {
     if (!expectsModal && interaction.deferred && !interaction.replied) {
-      if (commandFailed && !userErrorResponseSent) {
-        await interaction
-          .editReply({
-            content:
-              "<:vegax:1443934876440068179> Comando terminato con errore.",
-          })
-          .catch(() => {});
-      } else {
-        await interaction.deleteReply().catch(() => {});
-      }
+      if (commandFailed && !userErrorResponseSent) await interaction.editReply({ content: "<:vegax:1443934876440068179> Comando terminato con errore." }).catch(() => {});
+      else await interaction.deleteReply().catch(() => {});
     }
     if (deferTimer) clearTimeout(deferTimer);
     if (executionTimeoutTimer) clearTimeout(executionTimeoutTimer);
     client.interactionCommandLocks.delete(interactionLockId);
+    releaseInteraction(interaction);
   }
 }
 

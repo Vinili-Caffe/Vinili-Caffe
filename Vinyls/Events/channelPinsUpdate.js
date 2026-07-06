@@ -1,7 +1,6 @@
 const { AuditLogEvent, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionsBitField, } = require("discord.js");
 const IDs = require("../Utils/Config/ids");
 const { getGuildChannelCached, getClientChannelCached } = require("../Utils/Interaction/interactionEntityCache");
-
 const DEDUPE_TTL_MS = 15 * 1000;
 const AUDIT_LOOKBACK_MS = 120 * 1000;
 const AUDIT_FETCH_LIMIT = 10;
@@ -115,18 +114,18 @@ module.exports = {
       const messageUrl=messageId?buildMessageUrl(guild.id,channel.id,messageId):null;
 
       const lines = [
-        `<:VC_right_arrow:1482459908245815296> **Responsible:** ${responsible}`,
-        `<:VC_right_arrow:1482459908245815296> **Target:** ${channel} \`${channel.id}\``,
-        `<:VC_right_arrow:1482459908245815296> ${toDiscordTimestamp(new Date(), "F")}`,
+        `<:VC_Staff:1494286904089247754> **Responsabile:** ${responsible}`,
+        `<:VC_User:1482527453586002103> **Utente:** ${channel} \`${channel.id}\``,
+        `<:VC_Clock:1473359204189474886> ${toDiscordTimestamp(new Date(), "F")}`,
         "",
-        "**Additional Information**",
-        `<:VC_right_arrow:1482459908245815296> **Channel:** ${channel} \`${channel.id}\``,
-        `<:VC_right_arrow:1482459908245815296> **Message Id:** \`${messageId || "sconosciuto"}\``,
+        "**<:VC_tools:1478862265305272364> Informazioni aggiuntive**",
+        `<a:VC_Channel:1482534583944871996> **Canale:** ${channel} \`${channel.id}\``,
+        `<:VC_Info:1482526956703580372> **ID messaggio:** \`${messageId || "sconosciuto"}\``,
       ];
 
       const embed = new EmbedBuilder()
         .setColor(isPin ? "#57F287" : "#ED4245")
-        .setTitle(isPin ? "Message Pin" : "Message Unpin")
+        .setTitle(isPin ? "<:VC_BlackPin:1482534513400610948> Message Pin" : "<:VC_BlackPin:1482534513400610948> Message Unpin")
         .setDescription(lines.join("\n"));
 
       const payload = { embeds: [embed] };

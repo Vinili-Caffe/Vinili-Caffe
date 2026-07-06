@@ -4,6 +4,7 @@ const IDs = require("../../Utils/Config/ids");
 const { getServerOverviewStats } = require("../../Services/Community/activityService");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const { getLevelInfo, getTopExpGainsInPeriod, PERIOD_LOOKBACK_DAYS } = require("../../Services/Community/expService");
+const { voteCountMonthKeyRome } = require("../../Utils/romeVoteMonthKey");
 const { renderTopStatisticsCanvas, renderTopLeaderboardPageCanvas } = require("../../Utils/Render/activityCanvas");
 const { upsertChannelSnapshot, syncGuildChannelSnapshots, getChannelSnapshotMap } = require("../../Utils/Community/channelSnapshotUtils");
 const { getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
@@ -38,6 +39,8 @@ const SNAPSHOT_SYNC_INTERVAL_MS = 10 * 60 * 1000;
 const topSourceCache = new Map();
 const snapshotSyncByGuild = new Map();
 const ALL_TIME_TOP_VIEWS = new Set(["invites_users", "level_users"]);
+/** Viste senza periodo 7d/14d: inviti e livelli all-time, voti solo mese calendario Roma (come contatori sito). */
+const PERIOD_UI_LOCKED_VIEWS = new Set([...ALL_TIME_TOP_VIEWS, "votes_users"]);
 
 function normalizeCanvasLabel(value, fallback) {
   const text=String(value||"").replace(/\s+/g," ").trim();
@@ -53,6 +56,27 @@ async function resolveDisplayName(guild, userId) {
   const fetchedMember = await getGuildMemberCached(guild, userId);
   if (fetchedMember) return fetchedMember.displayName;
   return `utente_${String(userId).slice(-6)}`;
+}
+
+/** Username (handle Discord), coerente con le canvas stats — mai nickname server. */
+async function resolveStatsUsernameLabel(guild, userId) {
+  const uid = String(userId || "").trim();
+  if (!uid) return "—";
+  const cachedMember = guild.members.cache.get(uid);
+  const fetchedMember = cachedMember || (await getGuildMemberCached(guild, uid).catch(() => null));
+  let userObj = fetchedMember?.user || null;
+  if (!userObj && guild.client?.users?.fetch) {
+    try {
+      userObj = await guild.client.users.fetch(uid);
+    } catch (_) {
+      userObj = null;
+    }
+  }
+  if (userObj) {
+    const raw = String(userObj.username || "").trim();
+    return normalizeCanvasLabel(raw, `utente_${uid.slice(-6)}`);
+  }
+  return `utente_${uid.slice(-6)}`;
 }
 
 async function resolveActiveHumanMember(guild, userId) {
@@ -99,10 +123,10 @@ async function resolveTopUserEntries(guild, entries = []) {
     const userId = String(item?.id || "");
     const member = await resolveActiveHumanMember(guild, userId);
     if (!member) continue;
-    const rawDisplayName = await resolveDisplayName(guild, userId);
+    const label = await resolveStatsUsernameLabel(guild, userId);
     out.push({
       id: userId,
-      label: normalizeCanvasLabel(rawDisplayName, `utente_${userId.slice(-6)}`),
+      label,
       value: Number(item?.value || 0),
     });
   }
@@ -110,28 +134,69 @@ async function resolveTopUserEntries(guild, entries = []) {
 }
 
 async function resolveTopUserEntriesForCanvas(guild, entries = []) {
-  const out = [];
-  for (const item of entries) {
-    const userId = String(item?.id || "").trim();
-    if (!userId) continue;
-    let raw = "";
-    const cachedMember = guild.members.cache.get(userId);
-    const fetchedMember =
-      cachedMember || (await getGuildMemberCached(guild, userId).catch(() => null));
-    let userObj = fetchedMember?.user || null;
-    if (!userObj && guild.client?.users?.fetch) {
-      try {
-        userObj = await guild.client.users.fetch(userId);
-      } catch (_) {
-        userObj = null;
-      }
-    }
-    if (userObj) raw = String(userObj.username || "").trim();
-    const label = normalizeCanvasLabel(raw, `utente_${userId.slice(-6)}`);
-    out.push({
-      id: userId,
-      label,
+  const items = (entries || [])
+    .map((item) => ({
+      userId: String(item?.id || "").trim(),
       value: Number(item?.value || 0),
+    }))
+    .filter((item) => item.userId);
+  if (!items.length) return [];
+  const labels = await Promise.all(items.map((item) => resolveStatsUsernameLabel(guild, item.userId)));
+  return items.map((item, index) => ({
+    id: item.userId,
+    label: labels[index],
+    value: item.value,
+  }));
+}
+
+function voteCountInt(v) {
+  if (v == null || v === "") return 0;
+  const x = Number(String(v).trim().replace(/[,\s]/g, ""));
+  return Number.isFinite(x) ? Math.max(0, Math.floor(x)) : 0;
+}
+
+function combinedRomeMonthVotesFromLeaf(leaf) {
+  const currentMonthKey = voteCountMonthKeyRome(new Date());
+  const storedMonthKey = String(leaf?.voteCountMonthKey || "").trim();
+  if (!storedMonthKey || storedMonthKey !== currentMonthKey) return 0;
+  return voteCountInt(leaf?.voteCountTopgg) + voteCountInt(leaf?.voteCountDiscadia);
+}
+
+async function resolveTopVoteMonthEntries(guild, guildId, limit = TOP_PAGE_DATA_LIMIT) {
+  const safeGuildId = String(guildId || "").trim();
+  if (!safeGuildId) return [];
+  const monthKey = voteCountMonthKeyRome(new Date());
+  const safeLimit = Math.max(1, Math.min(TOP_PAGE_DATA_LIMIT, Number(limit || TOP_PAGE_DATA_LIMIT)));
+  const docs = await ActivityUserProfile.find({
+    guildId: safeGuildId,
+    "profile.totals.exp.bumpVoteRewards.discadia_vote.voteCountMonthKey": monthKey,
+    $or: [
+      { "profile.totals.exp.bumpVoteRewards.discadia_vote.voteCountTopgg": { $gt: 0 } },
+      { "profile.totals.exp.bumpVoteRewards.discadia_vote.voteCountDiscadia": { $gt: 0 } },
+    ],
+  })
+    .select("userId profile.totals.exp.bumpVoteRewards.discadia_vote")
+    .limit(Math.max(200, safeLimit * 6))
+    .lean()
+    .catch(() => []);
+  const leafPath = (d) => d?.profile?.totals?.exp?.bumpVoteRewards?.discadia_vote || {};
+  const scored = docs
+    .map((d) => ({
+      userId: String(d?.userId || "").trim(),
+      value: combinedRomeMonthVotesFromLeaf(leafPath(d)),
+    }))
+    .filter((x) => x.userId && x.value > 0)
+    .sort((a, b) => b.value - a.value || a.userId.localeCompare(b.userId));
+  const out = [];
+  for (const row of scored) {
+    if (out.length >= safeLimit) break;
+    const member = await resolveActiveHumanMember(guild, row.userId);
+    if (!member) continue;
+    const label = await resolveStatsUsernameLabel(guild, row.userId);
+    out.push({
+      id: row.userId,
+      label,
+      value: row.value,
     });
   }
   return out;
@@ -196,10 +261,10 @@ async function resolveTopInviteEntries(
     const effectiveValue = Math.max(trackedTotal, liveUses);
     if (effectiveValue <= 0) continue;
 
-    const rawDisplayName = await resolveDisplayName(guild, userId);
+    const label = await resolveStatsUsernameLabel(guild, userId);
     out.push({
       id: userId,
-      label: normalizeCanvasLabel(rawDisplayName, `utente_${userId.slice(-6)}`),
+      label,
       value: effectiveValue,
     });
   }
@@ -222,10 +287,10 @@ async function resolveTopExpEntries(guild, guildId, lookbackDays, limit = TOP_PA
       if (!userId) continue;
       const member = await resolveActiveHumanMember(guild, userId);
       if (!member) continue;
-      const rawDisplayName = await resolveDisplayName(guild, userId);
+      const label = await resolveStatsUsernameLabel(guild, userId);
       out.push({
         id: userId,
-        label: normalizeCanvasLabel(rawDisplayName, `utente_${userId.slice(-6)}`),
+        label,
         value: Math.max(0, Number(item?.expGain || 0)),
       });
       if (out.length >= safeLimit) break;
@@ -246,10 +311,10 @@ async function resolveTopExpEntries(guild, guildId, lookbackDays, limit = TOP_PA
     if (!userId) continue;
     const member = await resolveActiveHumanMember(guild, userId);
     if (!member) continue;
-    const rawDisplayName = await resolveDisplayName(guild, userId);
+    const label = await resolveStatsUsernameLabel(guild, userId);
     out.push({
       id: userId,
-      label: normalizeCanvasLabel(rawDisplayName, `utente_${userId.slice(-6)}`),
+      label,
       value: Math.max(0, Math.floor(Number(doc?.totalExp || 0))),
     });
     if (out.length >= safeLimit) break;
@@ -280,10 +345,10 @@ async function resolveTopLevelEntries(guild, guildId, _lookbackDays, limit = TOP
     const userId = item.userId;
     const member = await resolveActiveHumanMember(guild, userId);
     if (!member) continue;
-    const rawDisplayName = await resolveDisplayName(guild, userId);
+    const label = await resolveStatsUsernameLabel(guild, userId);
     out.push({
       id: userId,
-      label: normalizeCanvasLabel(rawDisplayName, `utente_${userId.slice(-6)}`),
+      label,
       value: item.level,
     });
   }
@@ -303,10 +368,11 @@ async function resolveTopChannelEntries(guild, entries = [], snapshotMap = new M
       upsertChannelSnapshot(channel).catch(() => {});
     }
     const snapshotName = String(snapshotMap.get(channelId) || "").trim();
-    const rawLabel=channel?`#${channel.name}`
+    const rawLabel = channel
+      ? `# ${channel.name}`
       : snapshotName
-        ? `#${snapshotName}`
-        : "#canale-eliminato";
+        ? `# ${snapshotName}`
+        : "# canale-eliminato";
     out.push({
       id: channelId,
       label: normalizeCanvasLabel(rawLabel, "#canale-eliminato"),
@@ -364,17 +430,27 @@ async function getTopSource(guild, lookbackDays) {
   const channelIds=Array.from(new Set([...(stats.topChannelsText||[]),...(stats.topChannelsVoice||[])].map((item) => String(item?.id||"").trim()).filter(Boolean),),);
   const snapshotMap = await getChannelSnapshotMap(guild.id, channelIds);
 
-  const [topUsersText, topChannelsText, topUsersVoice, topUsersInvites, topChannelsVoice, topUsersExp, topUsersLevel] = await Promise.all([
+  const [topUsersText, topChannelsText, topUsersVoice, topUsersInvites, topUsersVoteMonth, topChannelsVoice, topUsersExp, topUsersLevel] = await Promise.all([
     resolveTopUserEntriesForCanvas(guild, stats.topUsersText || []),
     resolveTopTextChannelEntries(guild, stats.topChannelsText || [], snapshotMap),
     resolveTopUserEntriesForCanvas(guild, stats.topUsersVoice || []),
     resolveTopInviteEntries(guild, guild.id, TOP_PAGE_DATA_LIMIT),
+    resolveTopVoteMonthEntries(guild, guild.id, TOP_PAGE_DATA_LIMIT),
     resolveTopChannelEntries(guild, stats.topChannelsVoice || [], snapshotMap),
     resolveTopExpEntries(guild, guild.id, safeLookback, TOP_PAGE_DATA_LIMIT),
     resolveTopLevelEntries(guild, guild.id, safeLookback, TOP_PAGE_DATA_LIMIT),
   ]);
 
-  const value={topUsersText,topChannelsText,topUsersVoice,topUsersInvites,topChannelsVoice,topUsersExp,topUsersLevel,};
+  const value = {
+    topUsersText,
+    topChannelsText,
+    topUsersVoice,
+    topUsersInvites,
+    topUsersVoteMonth,
+    topChannelsVoice,
+    topUsersExp,
+    topUsersLevel,
+  };
   topSourceCache.set(cacheKey, { expiresAt: now + TOP_SOURCE_CACHE_TTL_MS, value });
   return value;
 }
@@ -411,6 +487,14 @@ function resolveViewConfig(selectedView, source, lookbackDays = 14) {
       title: "Invites User (all-time)",
       rows: source.topUsersInvites,
       unit: "invites",
+      mode: "messages",
+    };
+  }
+  if (safeView === "votes_users") {
+    return {
+      title: `Top voti (${voteCountMonthKeyRome(new Date())})`,
+      rows: source.topUsersVoteMonth || [],
+      unit: "voti",
       mode: "messages",
     };
   }
@@ -460,8 +544,8 @@ async function buildTopChannelPayload(
   const safeLookback = normalizeLookbackDays(lookbackDays);
   const safeView = normalizeTopView(selectedView);
   const safeControls = normalizeControlsView(controlsView);
-  const effectiveLookback = ALL_TIME_TOP_VIEWS.has(safeView) ? 14 : safeLookback;
-  const effectiveControls = ALL_TIME_TOP_VIEWS.has(safeView) ? "main" : safeControls;
+  const effectiveLookback = PERIOD_UI_LOCKED_VIEWS.has(safeView) ? 14 : safeLookback;
+  const effectiveControls = PERIOD_UI_LOCKED_VIEWS.has(safeView) ? "main" : safeControls;
   const source = await getTopSource(message.guild, effectiveLookback);
 
   const isOverview = safeView === "overview";
@@ -484,6 +568,11 @@ async function buildTopChannelPayload(
         ...source,
       });
     } else {
+      const monthKey = voteCountMonthKeyRome(new Date());
+      const votesFooter =
+        safeView === "votes_users"
+          ? `Page ${safePage}/${totalPages} | Voti: mese corrente (${monthKey}) · Europe/Rome`
+          : null;
       buffer = await renderTopLeaderboardPageCanvas({
         guildName: message.guild?.name || "Server",
         guildIconUrl: message.guild?.iconURL?.({ extension: "png", size: 256 }),
@@ -495,6 +584,7 @@ async function buildTopChannelPayload(
         unit: viewConfig.unit,
         mode: viewConfig.mode,
         allTime: ALL_TIME_TOP_VIEWS.has(safeView),
+        customFooterLine: votesFooter,
       });
     }
 
@@ -544,8 +634,13 @@ async function buildTopChannelPayload(
 }
 
 async function sendTopPayload(message, payload) {
-  const channelId = String(message.channel.id || "");
-  if (TOP_CHANNEL_DIRECT_CHANNEL_IDS.has(channelId)) {
+  const channel = message.channel;
+  const channelId = String(channel?.id || "");
+  const parentId = String(channel?.parentId || "");
+  const isDirectTopChannel =
+    TOP_CHANNEL_DIRECT_CHANNEL_IDS.has(channelId) ||
+    (channel?.isThread?.() && TOP_CHANNEL_DIRECT_CHANNEL_IDS.has(parentId));
+  if (isDirectTopChannel) {
     await safeMessageReply(message, {
       ...payload,
       allowedMentions: { repliedUser: false },
@@ -610,8 +705,8 @@ module.exports = {
   async execute(message, args = []) {
     await message.channel.sendTyping().catch(() => {});
     const dayToken=Array.isArray(args)?args.find((x) => /^\d+d?$/i.test(String(x||"").trim())):null;
-
-    const payload=await buildTopChannelPayload(message,dayToken||"14","main","overview",1,message.author?.id,);
+    const lookbackDays = normalizeLookbackDays(dayToken || "14");
+    const payload=await buildTopChannelPayload(message,lookbackDays,"main","overview",1,message.author?.id,);
     await sendTopPayload(message, payload);
   },
 };

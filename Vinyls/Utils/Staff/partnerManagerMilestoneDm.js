@@ -1,22 +1,17 @@
 const { EmbedBuilder } = require("discord.js");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const IDs = require("../Config/ids");
+const { sendUserDirectMessage } = require("../../../shared/discord/dmPrivacyNotice");
 const { getGuildMemberCached } = require("../Interaction/interactionEntityCache");
+const {
+  PARTNER_REWARD_CANONICAL_TIERS,
+  PARTNER_REWARD_LABELS,
+  getPartnerRewardPointCost,
+} = require("../../../shared/partner/partnerManagerRewardTiers");
 
-/** Stesse soglie di `PARTNER_MANAGER_REDEEM_TIERS` in `partnerPointsUtils.js`. */
-const PARTNER_MILESTONE_POINT_TIERS = Object.freeze([50, 75, 150]);
+const PARTNER_MILESTONE_POINT_TIERS = PARTNER_REWARD_CANONICAL_TIERS;
+const PARTNER_MILESTONE_REWARD_LABELS = PARTNER_REWARD_LABELS;
 
-/** Premi PM per soglia (stesso ordine di `PARTNER_MANAGER_REDEEM_TIERS`). */
-const PARTNER_MILESTONE_REWARD_LABELS = Object.freeze({
-  50: "2,50 €",
-  75: "5 €",
-  150: "Discord Nitro Basic oppure Nitro Boost",
-});
-
-/**
- * Invia in DM i promemoria riscatto premi quando i punti partner mostrati superano 50, 75 o 150.
- * Usa `staff.partnerMilestoneDmSent` per non duplicare lo stesso avviso.
- */
 async function maybeSendPartnerManagerRewardMilestoneDms(client, guild, userId, beforePoints, afterPoints) {
   const gid = String(guild?.id || "").trim();
   const uid = String(userId || "").trim();
@@ -29,7 +24,11 @@ async function maybeSendPartnerManagerRewardMilestoneDms(client, guild, userId, 
   const a = Math.max(0, Math.floor(Number(afterPoints || 0)));
   if (a <= b) return;
 
-  const crossed = PARTNER_MILESTONE_POINT_TIERS.filter((tier) => a >= tier && b < tier);
+  const now = new Date();
+  const crossed = PARTNER_REWARD_CANONICAL_TIERS.filter((tier) => {
+    const cost = getPartnerRewardPointCost(tier, now);
+    return a >= cost && b < cost;
+  });
   if (!crossed.length) return;
 
   const member =
@@ -52,16 +51,17 @@ async function maybeSendPartnerManagerRewardMilestoneDms(client, guild, userId, 
   const user = member.user;
   for (const tier of crossed) {
     if (already.has(tier)) continue;
-    const reward = PARTNER_MILESTONE_REWARD_LABELS[tier];
+    const reward = PARTNER_REWARD_LABELS[tier];
     if (!reward) continue;
+    const cost = getPartnerRewardPointCost(tier, now);
 
-    const howTo = ticketLine.replace(/\{tier\}/g, String(tier));
+    const howTo = ticketLine.replace(/\{tier\}/g, String(cost));
     const embed = new EmbedBuilder()
       .setColor("#6f4e37")
-      .setTitle(`<:VC_PartnerManager:1494286911286808576> Soglia ${tier} partner`)
+      .setTitle(`<:VC_PartnerManager:1494286911286808576> Soglia ${cost} partner`)
       .setDescription(
         [
-          `Hai raggiunto **${tier}** punti partner validi (ora **${a}**).`,
+          `Hai raggiunto **${cost}** punti partner validi.`,
           "",
           `Puoi riscattare: **${reward}**.`,
           "",
@@ -71,11 +71,11 @@ async function maybeSendPartnerManagerRewardMilestoneDms(client, guild, userId, 
         ].join("\n"),
       );
 
-    try {
-      await user.send({ embeds: [embed] });
-    } catch {
-      continue;
-    }
+    const sent = await sendUserDirectMessage(user, { embeds: [embed] }, {
+      guildId: gid,
+      commandsChannelId: IDs.channels.commands,
+    });
+    if (!sent) continue;
 
     await ActivityUserProfile.updateOne(
       { guildId: gid, userId: uid },
@@ -85,8 +85,4 @@ async function maybeSendPartnerManagerRewardMilestoneDms(client, guild, userId, 
   }
 }
 
-module.exports = {
-  maybeSendPartnerManagerRewardMilestoneDms,
-  PARTNER_MILESTONE_REWARD_LABELS,
-  PARTNER_MILESTONE_POINT_TIERS,
-};
+module.exports = { maybeSendPartnerManagerRewardMilestoneDms, PARTNER_MILESTONE_REWARD_LABELS, PARTNER_MILESTONE_POINT_TIERS };

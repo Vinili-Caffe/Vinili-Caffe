@@ -1,6 +1,9 @@
 const { randomInt } = require("crypto");
 const { EmbedBuilder } = require("discord.js");
 const IDs = require("../../Utils/Config/ids");
+const { resolvePublicSiteBase } = require("../../Utils/Web/verifyOauthPublicUrl");
+const publicSiteBase = resolvePublicSiteBase();
+const suggestionSiteUrl = `${publicSiteBase}/suggerimenti`;
 const { shouldBlockDm } = require("../../Utils/noDmList");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const { getClientGuildCached, getUserCached, } = require("../../Utils/Interaction/interactionEntityCache");
@@ -18,7 +21,10 @@ const STAFF_ROLE_IDS = [
   IDs.roles.StafferDelMese,
   IDs.roles.PartnerManager,
   IDs.roles.HighStaff,
+  IDs.roles.Manager,
   IDs.roles.Admin,
+  IDs.roles.Director,
+  IDs.roles.SeniorModerator,
   IDs.roles.Mod,
   IDs.roles.Helper,
   IDs.roles.Founder,
@@ -64,8 +70,8 @@ const defaultPool = [
       "Tra quote, livelli, classifiche e comandi utility c'è molto da usare: prova una funzione nuova questa settimana.",
   },
   {
-    title: "Canale suggerimenti",
-    description: `Hai un'idea per migliorare il server? Scrivila in ${channelMention(IDs.channels.suggestions, "canale suggerimenti")}.`,
+    title: "Suggerimenti",
+    description: `Hai un'idea per migliorare il server? Inviala dalla pagina suggerimenti del sito: ${suggestionSiteUrl}`,
   },
   {
     title: "News e aggiornamenti",
@@ -80,8 +86,8 @@ const defaultPool = [
     description: `Se trovi un messaggio memorabile, usa i comandi quote: poi lo trovi in ${channelMention(IDs.channels.quotes, "canale quotes")}.`,
   },
   {
-    title: "Verifica e onboarding",
-    description: `Se inviti amici, ricordagli di completare la verifica in ${channelMention(IDs.channels.verify, "canale verify")}.`,
+    title: "Onboarding nuovi membri",
+    description: `Se inviti amici, indica loro regole, canali utili e ticket in ${channelMention(IDs.channels.ticket, "ticket")} se serve aiuto.`,
   },
   {
     title: "Eventi e sondaggi",
@@ -112,7 +118,7 @@ const defaultPool = [
     description: `Se ti interessano le collaborazioni, tieni d'occhio ${channelMention(IDs.channels.partnerships, "canale partnerships")} e le regole dedicate.`,
   },
   {
-    title: "Supporter e badge",
+    title: "Fan e badge",
     description: `Molti badge e ruoli speciali hanno vantaggi concreti: scopri i requisiti e punta a sbloccarne almeno uno.`,
   },
   {
@@ -136,8 +142,8 @@ const defaultPool = [
     description: `Le quote migliori finiscono in ${channelMention(IDs.channels.quotes, "canale quotes")}: ottimo per salvare momenti top della community.`,
   },
   {
-    title: "Canale suggestions",
-    description: `Quando proponi un'idea in ${channelMention(IDs.channels.suggestions, "suggestions")}, spiega sempre anche il motivo e il vantaggio.`,
+    title: "Suggerimenti sul sito",
+    description: `Quando invii un'idea da ${suggestionSiteUrl}, spiega sempre anche il motivo e il vantaggio.`,
   },
   {
     title: "Canale polls",
@@ -165,7 +171,7 @@ const defaultPool = [
   },
   {
     title: "Onboarding amici",
-    description: "Quando inviti qualcuno, accompagnalo nei primi passaggi: verifica, regole, canali utili e comandi base.",
+    description: "Quando inviti qualcuno, accompagnalo nei primi passaggi: regolamento, canali utili e comandi base (+help).",
   },
   {
     title: "Canali vocali",
@@ -283,7 +289,7 @@ const MASSIVE_REMINDER_TOPICS = [
   },
   {
     title: "Suggerimenti utili",
-    line: `Le idee più chiare in ${channelMention(IDs.channels.suggestions, "canale suggerimenti")} vengono valutate meglio.`,
+    line: `Le idee più chiare inviate da ${suggestionSiteUrl} vengono valutate meglio.`,
   },
   {
     title: "Ticket supporto",

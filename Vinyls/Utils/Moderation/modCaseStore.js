@@ -175,6 +175,49 @@ async function resolveCaseByGuildCaseId(guildId, caseId) {
   return null;
 }
 
+async function resolveCaseByContextMessageId(guildId, messageId) {
+  const gid = String(guildId || "");
+  const mid = String(messageId || "").trim();
+  if (!gid || !mid) return null;
+  if (useCompactModCase()) {
+    const parent = await ActivityUserProfile.findOne({
+      guildId: gid,
+      [MOD_CASES_PATH]: { $elemMatch: { "context.messageId": mid } },
+    })
+      .select(`userId ${MOD_CASES_PATH}`)
+      .lean()
+      .catch(() => null);
+    if (parent) {
+      const list = parent.moderation?.modCases || [];
+      const c = list.find((x) => String(x?.context?.messageId || "") === mid);
+      if (c) {
+        return {
+          source: "compact",
+          guildId: gid,
+          userId: String(parent.userId),
+          legacyDoc: null,
+          row: plainFromCompactCase(gid, parent.userId, c),
+        };
+      }
+    }
+  }
+  if (useLegacyModCase()) {
+    const legacyDoc = await ModCase.findOne({ guildId: gid, "context.messageId": mid })
+      .sort({ createdAt: -1 })
+      .catch(() => null);
+    if (legacyDoc) {
+      return {
+        source: "legacy",
+        guildId: gid,
+        userId: String(legacyDoc.userId),
+        legacyDoc,
+        row: plainFromLegacyDoc(legacyDoc),
+      };
+    }
+  }
+  return null;
+}
+
 async function createModCaseStore({
   guildId,
   action,
@@ -788,6 +831,7 @@ module.exports = {
   useCompactModCase,
   createModCaseStore,
   resolveCaseByGuildCaseId,
+  resolveCaseByContextMessageId,
   closeCaseByRef,
   findOpenCases,
   findActiveWarns,

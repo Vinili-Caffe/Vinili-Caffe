@@ -1,15 +1,15 @@
 const path = require("path");
 const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, EmbedBuilder, ButtonBuilder, ButtonStyle, } = require("discord.js");
 const IDs = require("../../Utils/Config/ids");
-const { EPHEMERAL_TTL_PING_ONLY_MS, scheduleMessageDeletion } = require("../../Utils/Config/ephemeralMessageTtl");
 const { getGuildChannelCached, getGuildMemberCached, } = require("../../Utils/Interaction/interactionEntityCache");
 const { getOrCreateStaffDoc, deleteThreadForMessage, ensureStaff } = require("../../Utils/Staff/staffDocUtils");
 const { scheduleStaffListRefresh } = require("../../Utils/Community/staffListUtils");
 const { getStaffRoleEmojiByRoleId } = require("../../Utils/Community/staffRoleEmoji");
 const { clearStaffPendingPurgeAt } = require("../../Services/Community/userLeaveBackupService");
 const { applyDefaultFooterToEmbeds } = require("../../Utils/Embeds/defaultFooter");
-const { userAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
+const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
 const { getBotState, setBotState } = require("../../Utils/BotState/botStateStore");
+const { sendPartnerManagerWelcome, sendHelperWelcome } = require("../../Utils/Staff/staffWelcomeMessages");
 const BOT_ROOT = path.resolve(__dirname, "..", "..");
 const APPLY_HELPER_BUTTON = "apply_helper";
 const APPLY_PM_BUTTON = "apply_partnermanager";
@@ -24,25 +24,48 @@ const APPLY_PEX_REASON_INPUT_ID = "apply_pex_reason";
 const VISIONE_MODULI_AUTO_PEX_REASON = "Candidatura accettata";
 const STATE_TTL_MS = 30 * 60 * 1000;
 const DRAFT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
-const APPLICATION_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
+const APPLICATION_COOLDOWN_MS = 15 * 24 * 60 * 60 * 1000;
 const APPLICATION_REACTIONS = ["<:thumbsup:1471292172145004768>", "<:thumbsdown:1471292163957457013>",];
+const APPLICATION_PENDING_COLOR = "#6f4e37";
+const APPLICATION_ACCEPTED_COLOR = "#2ECC71";
+const APPLICATION_REJECTED_COLOR = "#ED4245";
 const NOMODULI_ROLE_ID = IDs.roles.blacklistModuli;
 const MEMBER_ROLE_ID = IDs.roles.Member;
 const HELPER_ROLE_ID = IDs.roles.Helper;
 const PARTNER_MANAGER_ROLE_ID = IDs.roles.PartnerManager;
-const HELPER_REAPPLY_BLOCK_ROLE_IDS = [
-  IDs.roles.Staff,
-  IDs.roles.Helper,
-  IDs.roles.Mod,
-  IDs.roles.HighStaff,
-  IDs.roles.Admin,
-  IDs.roles.Founder,
-].filter(Boolean);
+const HELPER_REAPPLY_BLOCK_ROLE_IDS = [IDs.roles.Staff, IDs.roles.Helper, IDs.roles.Mod, IDs.roles.SeniorModerator, IDs.roles.HighStaff, IDs.roles.Director, IDs.roles.Admin, IDs.roles.Manager, IDs.roles.Founder].filter(Boolean);
 const pendingApplications = new Map();
 const cooldownByUserAndType = new Map();
 let cooldownLoaded = false;
 let countersLoaded = false;
 let draftsLoaded = false;
+const WEBSITE_AUTH_TIMEOUT_MS = 7000;
+
+function withTimeout(promise, timeoutMs, label) {
+  let timer = null;
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error(`${label || "operation"}_timeout`)), timeoutMs);
+    }),
+  ]).finally(() => {
+    if (timer) clearTimeout(timer);
+  });
+}
+
+async function fetchDiscordMe(accessToken) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), WEBSITE_AUTH_TIMEOUT_MS);
+  try {
+    return await fetch("https://discord.com/api/v10/users/@me", {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      signal: ctrl.signal,
+    });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 function cooldownTypeKey(type) {
   return type === "partnermanager" ? "partnermanager" : "helper";
 }
@@ -52,7 +75,44 @@ function cooldownStorageKey(userId, type) {
 const draftByStateKey = new Map();
 const candidatePexLocks = new Set();
 const applicationCounters = { helper: 0, partnermanager: 0, };
-const APPLICATIONS = { helper: { label: "Helper", questions: [{ id: "id_discord", text: "1. ID", modalLabel: "1. ID", placeholder: "Copia e incolla il tuo ID di Discord", style: TextInputStyle.Short, }, { id: "eta", text: "2. Età", modalLabel: "2. Età", placeholder: "Scrivi la tua età", style: TextInputStyle.Short, }, { id: "staff_server", text: "3. Nomina tutti i server dove sei stato staff, per quanto tempo e che ruolo avevi", modalLabel: "3. Esperienze staff", style: TextInputStyle.Paragraph, }, { id: "motivo_candidatura", text: "4. Come mai ti sei voluto candidare su Vinili & Caffè?", modalLabel: "4. Motivo candidatura", style: TextInputStyle.Paragraph, }, { id: "aiuto_economico", text: "5. Saresti disposto ad aiutare il server economicamente?", modalLabel: "5. Aiuto economico", placeholder: "Si / No", style: TextInputStyle.Paragraph, }, { id: "flame_testuale", text: "6. Se due utenti si flammano a vicenda su un determinato argomento, come ti comporti? (in testuale)", modalLabel: "6. Gestione flame", style: TextInputStyle.Paragraph, }, { id: "comandi_dyno", text: "7. Elenca i comandi di moderazioni più importanti di Dyno", modalLabel: "7. Comandi Dyno", style: TextInputStyle.Paragraph, }, { id: "critica_staff", text: "8. Se una persona critica il server o lo staff in maniera non idonea, come ti comporti?", modalLabel: "8. Gestione critica", style: TextInputStyle.Paragraph, }, { id: "vocale", text: "9. Potrai stare in vocale? In caso di risposta positiva, potrai parlare?", modalLabel: "9. Disponibilità vocale", style: TextInputStyle.Paragraph, }, { id: "definizione_flame", text: "10. Definizione di flame", modalLabel: "10. Definizione flame", style: TextInputStyle.Paragraph, }, { id: "troll_pubblico", text: "11. Se due utenti iniziassero a trollare in pubblico, come agiresti?", modalLabel: "11. Gestione troll", style: TextInputStyle.Paragraph, },], }, partnermanager: { label: "Partner Manager", questions: [{ id: "id_discord", text: "1. ID", modalLabel: "1. ID", placeholder: "Scrivi il tuo ID di Discord", style: TextInputStyle.Short, }, { id: "luminous_nova", text: "2. Conosci il bot Luminous Nova/SkyForce?", modalLabel: "2. Luminous Nova/SkyForce", placeholder: "Si / No", style: TextInputStyle.Short, }, { id: "partner_giorno", text: "3. Quante partner fai al giorno?", modalLabel: "3. Partner al giorno", placeholder: "<15 / 15+", style: TextInputStyle.Short, },], }, };
+const {
+  HELPER_QUESTIONS,
+  PARTNER_MANAGER_QUESTIONS,
+  choicePlaceholder,
+  findQuestionLabel,
+} = require("../../Utils/Community/candidatureApplicationsCatalog");
+
+function catalogToDiscordQuestion(q) {
+  const kind = String(q.kind || "paragraph").toLowerCase();
+  const base = {
+    id: q.id,
+    text: q.text,
+    modalLabel: q.modalLabel || q.text,
+    placeholder: q.placeholder || "",
+  };
+  if (kind === "short") {
+    return { ...base, style: TextInputStyle.Short };
+  }
+  if (kind === "choice" || kind === "multi_choice") {
+    return {
+      ...base,
+      style: kind === "choice" ? TextInputStyle.Short : TextInputStyle.Paragraph,
+      placeholder: choicePlaceholder(q),
+    };
+  }
+  return { ...base, style: TextInputStyle.Paragraph };
+}
+
+const APPLICATIONS = {
+  helper: {
+    label: "Helper",
+    questions: HELPER_QUESTIONS.map(catalogToDiscordQuestion),
+  },
+  partnermanager: {
+    label: "Partner Manager",
+    questions: PARTNER_MANAGER_QUESTIONS.map(catalogToDiscordQuestion),
+  },
+};
 
 async function loadCooldownMap() {
   if (cooldownLoaded) return;
@@ -268,11 +328,7 @@ function hasNoModuliRole(interaction) {
   return hasAnyRole(interaction, [NOMODULI_ROLE_ID]);
 }
 
-function hasHighStaffRole(interaction) {
-  const highStaffRoleId = IDs?.roles?.HighStaff ? String(IDs.roles.HighStaff) : null;
-  if (!highStaffRoleId) return false;
-  return Boolean(interaction?.member?.roles?.cache?.has(highStaffRoleId));
-}
+const { hasCandidatureReviewAccess } = require("../../Utils/Staff/resocontoAccess");
 
 async function getCooldownUntil(userId, type) {
   await loadCooldownMap();
@@ -289,6 +345,20 @@ async function getCooldownUntil(userId, type) {
 async function setCooldown(userId, untilTs, type) {
   await loadCooldownMap();
   cooldownByUserAndType.set(cooldownStorageKey(userId, type), Number(untilTs));
+  await persistCooldownMap();
+}
+
+async function bumpApplicationCooldownAfterStaffDepex(userId) {
+  const uid = String(userId || "").trim();
+  if (!/^\d{16,20}$/.test(uid)) return;
+  await loadCooldownMap();
+  const floor = Date.now() + APPLICATION_COOLDOWN_MS;
+  for (const type of ["helper", "partnermanager"]) {
+    const key = cooldownStorageKey(uid, type);
+    const cur = Number(cooldownByUserAndType.get(key) || 0);
+    const active = Number.isFinite(cur) && cur > Date.now() ? cur : 0;
+    cooldownByUserAndType.set(key, Math.max(floor, active));
+  }
   await persistCooldownMap();
 }
 
@@ -338,7 +408,7 @@ function buildCooldownDeniedEmbed(untilTs, type) {
         `<:VC_update:1478721333096349817> Potrai reinviare **solo quella** (${label}) dopo: <t:${unix}:F> (<t:${unix}:R>).`,
         "",
         "<:VC_InactiveStatus:1482526984234860574> Le candidature **Helper** e **Partner Manager** hanno cooldown **separati**: puoi comunque candidarti all’altra se non è in cooldown.",
-        "<a:VC_Timer:1482527426557775954> Tra una candidatura e la successiva **dello stesso tipo** passano 7 giorni.",
+        "<a:VC_Timer:1482527426557775954> Tra una candidatura e la successiva **dello stesso tipo** passano 15 giorni.",
       ].join("\n"),
     );
 }
@@ -349,20 +419,25 @@ function buildIntroEmbed(type) {
       .setColor("#6f4e37")
       .setTitle("<:VC_PartnerManager:1494286911286808576> Candidatura Partner Manager")
       .setDescription(
-        "<:VC_Poll:1482535102436216832> Compilando questo modulo potrai candidarti come Partner Manager del server.",
-        "<:VC_Ticket:1482535175283019888> Se hai dei dubbi apri un ticket `HIGH STAFF`.",
-        "",
-        "<a:VC_Alert:1482706673176150077> **__LEGGI BENE ALL'INTERNO DEI RIQUADRI LA DOMANDA E POI RISPONDI__**",);
+        [
+          "<:VC_Poll:1482535102436216832> Compilando questo modulo potrai candidarti come Partner Manager del server.",
+          "<:VC_Ticket:1482535175283019888> Se hai dei dubbi apri un ticket `HIGH STAFF`.",
+          "",
+          "<a:VC_Alert:1482706673176150077> **__LEGGI BENE ALL'INTERNO DEI RIQUADRI LA DOMANDA E POI RISPONDI__**",
+        ].join("\n"),
+      );
   }
   return new EmbedBuilder()
     .setColor("#6f4e37")
-    .setTitle("<:VC_Helper:1494287597952958514> Candidatura Helper")
+    .setTitle("<:VC_Helper:1502328751638450426> Candidatura Helper")
     .setDescription(
-      "<:VC_Poll:1482535102436216832> Compilando questo modulo potrai candidarti come Helper del server.",
-      "<a:VC_Timer:1482527426557775954> Il **double staff** su altri server è assolutamente vietato: se, dopo essere stato accettato, un membro dello staff risulta ancora staff su altri server, verrà immediatamente depexato.",
-      "<:VC_Ticket:1482535175283019888> Se hai dei dubbi apri un ticket `HIGH STAFF`.",
-      "",
-      "<a:VC_Alert:1482706673176150077> **__LEGGI BENE ALL'INTERNO DEI RIQUADRI LA DOMANDA E POI RISPONDI__**",
+      [
+        "<:VC_Poll:1482535102436216832> Compilando questo modulo potrai candidarti come Helper del server.",
+        "<a:VC_Timer:1482527426557775954> Il **double staff** su altri server è assolutamente vietato: se, dopo essere stato accettato, un membro dello staff risulta ancora staff su altri server, verrà immediatamente depexato.",
+        "<:VC_Ticket:1482535175283019888> Se hai dei dubbi apri un ticket `HIGH STAFF`.",
+        "",
+        "<a:VC_Alert:1482706673176150077> **__LEGGI BENE ALL'INTERNO DEI RIQUADRI LA DOMANDA E POI RISPONDI__**",
+      ].join("\n"),
     );
 }
 
@@ -420,6 +495,17 @@ function buildCandidateActionRow(type, userId) {
       .setEmoji("<:cancel:1461730653677551691>")
       .setStyle(ButtonStyle.Danger),
   );
+}
+
+function recolorEmbeds(embeds, color) {
+  return (Array.isArray(embeds) ? embeds : [])
+    .map((embed) => EmbedBuilder.from(embed).setColor(color));
+}
+
+async function setApplicationMessageStatusColor(message, color) {
+  if (!message?.editable) return;
+  const embeds = recolorEmbeds(message.embeds, color);
+  await message.edit({ embeds, components: [] }).catch(() => null);
 }
 
 function getTargetRoleIdByType(type) {
@@ -648,13 +734,21 @@ async function postCandidatureToVisioneModuli(client, guild, user, type, answers
     return { ok: false, code: "no_channel" };
   }
 
+  const member =
+    guild?.members?.cache?.get(user.id) ||
+    (await guild.members.fetch(user.id).catch(() => null));
+  const authorLike = member || user;
+
   const applicationNumber = await nextApplicationNumber(type);
   const fullText = formatApplicationDescription(type, answers);
   const descChunks = capChunksToMaxEmbeds(chunkStringForEmbedDescriptions(fullText));
   const embeds = descChunks.map((chunk, idx) => {
-    const e = new EmbedBuilder().setColor("#3498DB");
+    const e = new EmbedBuilder().setColor(APPLICATION_PENDING_COLOR);
     if (idx === 0) {
-      e.setAuthor({ name: user.username, iconURL: userAvatarUrlDynamic(user, { size: 128 }) || undefined })
+      e.setAuthor({
+        name: accountUsername(authorLike),
+        iconURL: guildMemberDisplayAvatarUrlDynamic(authorLike, { size: 128 }) || undefined,
+      })
         .setTitle(`<:VC_Poll:1482535102436216832> CANDIDATURA ${cfg.label.toUpperCase()} (#${applicationNumber})`)
         .setDescription(chunk)
         .setFooter({
@@ -680,16 +774,12 @@ async function postCandidatureToVisioneModuli(client, guild, user, type, answers
       .replace(/\s+/g, " ")
       .trim()
       .slice(0, 70) || user.id;
-    const thread = await sent.startThread({
+    await sent.startThread({
       name: `Candidatura ${threadUserLabel}`,
       autoArchiveDuration: 1440,
       reason: `Thread candidatura ${cfg.label}per ${user.tag}`,
     })
       .catch(() => null);
-    if (thread?.isTextBased?.() && highStaffRoleId) {
-      const pingMsg = await thread.send({ content: `<@&${highStaffRoleId}>` }).catch(() => null);
-      if (pingMsg) scheduleMessageDeletion(pingMsg, EPHEMERAL_TTL_PING_ONLY_MS);
-    }
   }
 
   for (const emoji of APPLICATION_REACTIONS) {
@@ -705,19 +795,12 @@ async function postCandidatureToVisioneModuli(client, guild, user, type, answers
 
 async function finalizeApplication(interaction, type, state, stateKey = null) {
   const sk = stateKey || getStateKey(interaction, type);
-  const result = await postCandidatureToVisioneModuli(
-    interaction.client,
-    interaction.guild,
-    interaction.user,
-    type,
-    state.answers,
-    sk,
-  );
+  const result = await postCandidatureToVisioneModuli(interaction.client, interaction.guild, interaction.user, type, state.answers, sk);
   if (!result.ok) {
     const content =
       result.code === "no_channel"
-        ? "<a:VC_Alert:1482706673176150077> Non trovo il canale `visioneModuli` per inviare la candidatura."
-        : "<a:VC_Alert:1482706673176150077> Non sono riuscito a inviare la candidatura. Riprova più tardi.";
+        ?  "<a:VC_Cross:1482532424570376253> Non sono riuscito a inviare la candidatura. Riprova più tardi."
+        : null ;
     await interaction.reply({
       content,
       flags: 1 << 6,
@@ -779,14 +862,13 @@ async function resolveWebsiteCandidatureMember(client, accessToken) {
 
   let meJson;
   try {
-    const meRes = await fetch("https://discord.com/api/v10/users/@me", {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    const meRes = await fetchDiscordMe(token);
     if (!meRes.ok) {
       return { ok: false, status: 401, error: "invalid_token", message: "Sessione Discord non valida o scaduta: effettua di nuovo il login." };
     }
     meJson = await meRes.json();
-  } catch {
+  } catch (err) {
+    global.logger?.warn?.("[candidature-site] Discord /users/@me timeout/unreachable:", err?.message || err);
     return { ok: false, status: 502, error: "discord_unreachable", message: "Impossibile contattare Discord." };
   }
 
@@ -800,12 +882,15 @@ async function resolveWebsiteCandidatureMember(client, accessToken) {
     return { ok: false, status: 503, error: "misconfigured", message: "Guild principale non configurata." };
   }
 
-  const guild = client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
+  const guild = client.guilds.cache.get(guildId) || (await withTimeout(client.guilds.fetch(guildId), WEBSITE_AUTH_TIMEOUT_MS, "guild_fetch").catch(() => null));
   if (!guild) {
     return { ok: false, status: 503, error: "guild_unavailable", message: "Server Discord temporaneamente non disponibile." };
   }
 
-  const member = await guild.members.fetch(userId).catch(() => null);
+  let member = guild.members.cache.get(userId) || null;
+  if (!member) {
+    member = await withTimeout(guild.members.fetch(userId), WEBSITE_AUTH_TIMEOUT_MS, "member_fetch").catch(() => null);
+  }
   if (!member) {
     return {
       ok: false,
@@ -899,7 +984,14 @@ async function submitCandidatureWebsite(client, payload) {
   for (const q of cfg.questions) {
     const v = String(mergedAnswers[q.id] || "").trim();
     if (!v) {
-      return { ok: false, status: 400, error: "incomplete", field: q.id, message: "Compila tutti i campi del modulo." };
+      const label = findQuestionLabel(type, q.id);
+      return {
+        ok: false,
+        status: 400,
+        error: "incomplete",
+        field: q.id,
+        message: `Compila tutti i campi del modulo. Manca: ${label}`,
+      };
     }
   }
 
@@ -926,32 +1018,89 @@ async function submitCandidatureWebsite(client, payload) {
   };
 }
 
-async function sendPartnerManagerWelcome(pmChannel, user) {
-  if (!pmChannel?.isTextBased?.()) return;
-  await pmChannel.send({
-    content: `${user}
-# Benvenutx nei Partner Manager <:VC_PartnerManager:1494286911286808576>
-
-> **Per iniziare al meglio controlla:** <:VC_id:1478517313618575419>
-<:VC_Reply:1482532158080942191> <#1442569199229730836>
-
-__Per qualsiasi cosa l'High Staff è disponibile__ <:VC_Staff:1494286904089247754>`,
-  }).catch(() => null);
+async function sendCandidatePexWelcome(guild, member, targetRoleId) {
+  try {
+    if (String(targetRoleId) === String(HELPER_ROLE_ID)) {
+      const staffChat =
+        guild.channels.cache.get(IDs.channels.staffChat) ||
+        (await getGuildChannelCached(guild, IDs.channels.staffChat));
+      await sendHelperWelcome(staffChat, member);
+      return;
+    }
+    if (String(targetRoleId) === String(PARTNER_MANAGER_ROLE_ID)) {
+      await sendPartnerManagerWelcome(guild.client, member);
+    }
+  } catch (err) {
+    global.logger?.warn?.("[candidature] welcome failed:", err?.message || err);
+  }
 }
 
-async function sendHelperWelcome(staffChannel, user) {
-  if (!staffChannel?.isTextBased?.()) return;
-  await staffChannel.send({
-    content: `${user}
-# Benvenutx nello staff <:VC_Staff:1494286904089247754>
+async function sendCandidatePexLog(guild, member, targetRoleId, roleBeforeId, reason) {
+  const pexDepexChannel =
+    guild.channels.cache.get(IDs.channels.pexDepex) ||
+    (await getGuildChannelCached(guild, IDs.channels.pexDepex));
+  if (!pexDepexChannel?.isTextBased?.()) return;
+  const oldRole = guild.roles.cache.get(roleBeforeId);
+  const newRole = guild.roles.cache.get(String(targetRoleId));
+  const actionEmoji = getStaffRoleEmojiByRoleId(targetRoleId);
+  await pexDepexChannel
+    .send({
+      content: `**<a:VC_Verified:1482532479637127188> PEX** <@${member.id}>
+${actionEmoji} \`${oldRole?.name || roleBeforeId || "N/A"}\` <a:VC_Arrow:1482706699365257397> \`${newRole?.name || targetRoleId}\`
+<:VC_reason:1478517122929004544> __${reason}__`,
+    })
+    .catch((err) => {
+      global.logger?.warn?.("[candidature] pex log failed:", err?.message || err);
+    });
+}
 
-> **Per iniziare al meglio controlla:** <:VC_id:1478517313618575419>
-<:VC_DoubleReply:1482532332509466797> <#1442569237142044773>
-<:VC_DoubleReply:1482532332509466797> <#1442569239063167139>
-<:VC_Reply:1482532158080942191> <#1442569243626307634>
+async function completeCandidatePexAfterRole(guild, member, type, reason, sourceMessage, opts = {}) {
+  const targetRoleId = type === "partnermanager" ? PARTNER_MANAGER_ROLE_ID : HELPER_ROLE_ID;
+  const roleBeforeId = String(IDs.roles.Member || "");
+  const recovery = Boolean(opts.recovery);
 
-__Per qualsiasi cosa l'High Staff è disponibile__ <:VC_Staff:1494286904089247754>`,
-  }).catch(() => null);
+  if (!recovery) {
+    const profileDoc = await getOrCreateStaffDoc(guild.id, member.id);
+    const s = ensureStaff(profileDoc);
+    if (!Array.isArray(s.rolesHistory)) s.rolesHistory = [];
+    s.rolesHistory.push({
+      oldRole: roleBeforeId,
+      newRole: String(targetRoleId),
+      reason: String(reason || "").trim(),
+      date: new Date(),
+    });
+    profileDoc.markModified("staff");
+    await profileDoc.save();
+    await clearStaffPendingPurgeAt(guild.id, member.id);
+    if (guild.client && guild.id === IDs.guilds?.main) {
+      scheduleStaffListRefresh(guild.client, guild.id, 800);
+      const t = setTimeout(() => scheduleStaffListRefresh(guild.client, guild.id, 500), 2500);
+      if (t?.unref) t.unref();
+    }
+  }
+
+  await sendCandidatePexLog(guild, member, targetRoleId, roleBeforeId, reason);
+  await sendCandidatePexWelcome(guild, member, targetRoleId);
+
+  if (sourceMessage) {
+    await setApplicationMessageStatusColor(sourceMessage, APPLICATION_ACCEPTED_COLOR);
+    await deleteThreadForMessage(guild, sourceMessage);
+  }
+
+  try {
+    const { enqueueSiteInAppNotification } = require("../../Utils/Web/siteInAppNotificationsService");
+    const label = type === "partnermanager" ? "Partner Manager" : "Helper";
+    await enqueueSiteInAppNotification({
+      guildId: guild.id,
+      userId: member.id,
+      title: recovery ? "Candidatura accettata (recupero)" : "Candidatura accettata",
+      body: `La tua candidatura è stata accettata: ora hai accesso come ${label}. Controlla i messaggi di benvenuto inviati nello staff.`,
+      kind: "mod",
+      openUrl: "/candidature",
+      dedupeKey: `cand-pex-${type}-${member.id}-${String(sourceMessage?.id || "")}${recovery ? "-recovery" : ""}`,
+      dedupeWindowMs: 86_400_000,
+    });
+  } catch (_) {}
 }
 
 async function applyCandidatePex(guild, actor, type, userId, reason, sourceMessage) {
@@ -960,9 +1109,11 @@ async function applyCandidatePex(guild, actor, type, userId, reason, sourceMessa
 
   const member = guild.members.cache.get(String(userId)) || (await getGuildMemberCached(guild, String(userId)));
   if (!member) return "Utente non trovato nel server.";
-  if (member.roles.cache.has(String(targetRoleId))) return "Utente già pexato su quel ruolo.";
+  if (member.roles.cache.has(String(targetRoleId))) {
+    await completeCandidatePexAfterRole(guild, member, type, reason, sourceMessage, { recovery: true });
+    return `Utente già pexato su quel ruolo: ho reinviato pex e benvenuto.`;
+  }
 
-  const roleBeforeId = String(IDs.roles.Member || "");
   const roleApplied = await member.roles
     .add(String(targetRoleId))
     .then(() => true)
@@ -988,64 +1139,9 @@ async function applyCandidatePex(guild, actor, type, userId, reason, sourceMessa
         return "Ruolo Helper assegnato, ma non sono riuscito ad aggiungere il ruolo Staff.";
       }
     }
-    const staffChat = guild.channels.cache.get(IDs.channels.staffChat) || (await getGuildChannelCached(guild, IDs.channels.staffChat));
-    await sendHelperWelcome(staffChat, member.user);
-  }
-  if (String(targetRoleId) === String(PARTNER_MANAGER_ROLE_ID)) {
-    const pmChannel = guild.channels.cache.get(IDs.channels.partnersChat) || (await getGuildChannelCached(guild, IDs.channels.partnersChat));
-    await sendPartnerManagerWelcome(pmChannel, member.user);
   }
 
-  const profileDoc = await getOrCreateStaffDoc(guild.id, member.id);
-  const s = ensureStaff(profileDoc);
-  if (!Array.isArray(s.rolesHistory)) s.rolesHistory = [];
-  s.rolesHistory.push({
-    oldRole: roleBeforeId,
-    newRole: String(targetRoleId),
-    reason: String(reason || "").trim(),
-    date: new Date(),
-  });
-  profileDoc.markModified("staff");
-  await profileDoc.save();
-  await clearStaffPendingPurgeAt(guild.id, member.id);
-  if (guild.client && guild.id === IDs.guilds?.main) {
-    scheduleStaffListRefresh(guild.client, guild.id, 800);
-    const t = setTimeout(() => scheduleStaffListRefresh(guild.client, guild.id, 500), 2500);
-    if (t?.unref) t.unref();
-  }
-
-  const pexDepexChannel = guild.channels.cache.get(IDs.channels.pexDepex) || (await getGuildChannelCached(guild, IDs.channels.pexDepex));
-  if (pexDepexChannel?.isTextBased?.()) {
-    const oldRole = guild.roles.cache.get(roleBeforeId);
-    const newRole = guild.roles.cache.get(String(targetRoleId));
-    const actionEmoji = getStaffRoleEmojiByRoleId(targetRoleId);
-    await pexDepexChannel.send({
-      content: `**<:success:1461731530333229226> PEX** <@${member.id}>
-${actionEmoji} \`${oldRole?.name || roleBeforeId || "N/A"}\` <a:VC_Arrow:1482706699365257397> \`${newRole?.name || targetRoleId}\`
-<:VC_reason:1478517122929004544> __${reason}__`,
-    }).catch(() => null);
-  }
-
-  if (sourceMessage) {
-    await sourceMessage.edit({ components: [] }).catch(() => null);
-    await deleteThreadForMessage(guild, sourceMessage);
-  }
-
-  try {
-    const { enqueueSiteInAppNotification } = require("../../Utils/Web/siteInAppNotificationsService");
-    const label = type === "partnermanager" ? "Partner Manager" : "Helper";
-    await enqueueSiteInAppNotification({
-      guildId: guild.id,
-      userId: member.id,
-      title: "Candidatura accettata",
-      body: `La tua candidatura è stata accettata: ora hai accesso come ${label}. Controlla i messaggi di benvenuto inviati nello staff.`,
-      kind: "mod",
-      openUrl: "/candidature",
-      dedupeKey: `cand-pex-${type}-${member.id}-${String(sourceMessage?.id || "")}`,
-      dedupeWindowMs: 86_400_000,
-    });
-  } catch (_) {}
-
+  await completeCandidatePexAfterRole(guild, member, type, reason, sourceMessage);
   return `Pex completato per <@${member.id}>.`;
 }
 
@@ -1082,7 +1178,7 @@ async function executeCandidatePexInteraction(interaction, parsed, reason) {
   if (candidatePexLocks.has(pexLockKey)) {
     await interaction.reply({
       content:
-        "<a:VC_Alert:1482706673176150077> Questa candidatura è già in elaborazione.",
+        "<a:VC_Cross:1482532424570376253> Questa candidatura è già in elaborazione.",
       flags: 1 << 6,
     }).catch(() => null);
     return true;
@@ -1105,7 +1201,7 @@ async function executeCandidatePexInteraction(interaction, parsed, reason) {
     const trimmedReason = String(reason || "").trim();
     if (!trimmedReason) {
       await sendPexModalReply({
-        content: "<a:VC_Alert:1482706673176150077> Devi inserire un motivo valido.",
+        content: "<a:VC_Cross:1482532424570376253> Devi inserire un motivo valido.",
       });
       return true;
     }
@@ -1247,16 +1343,16 @@ async function handleCandidatureApplicationInteraction(interaction) {
     if (String(interaction.customId || "").startsWith(`${APPLY_PEX_PREFIX}:`)) {
       const parsed = parseCandidatePexCustomId(interaction.customId);
       if (!parsed) return false;
-      if (!hasHighStaffRole(interaction)) {
+      if (!hasCandidatureReviewAccess(interaction)) {
         await interaction.reply({
-          content: "<a:VC_Alert:1482706673176150077> Questo bottone è riservato all'High Staff.",
+          content: "<a:VC_Cross:1482532424570376253> Questo bottone è riservato ad Admin, Manager e Founder.",
           flags: 1 << 6,
         }).catch(() => null);
         return true;
       }
       if (!interaction.message?.id) {
         await interaction.reply({
-          content: "<a:VC_Alert:1482706673176150077> Messaggio candidatura non disponibile.",
+          content: "<a:VC_Cross:1482532424570376253> Messaggio candidatura non disponibile.",
           flags: 1 << 6,
         }).catch(() => null);
         return true;
@@ -1268,17 +1364,16 @@ async function handleCandidatureApplicationInteraction(interaction) {
           messageId: String(interaction.message.id),
         }, VISIONE_MODULI_AUTO_PEX_REASON);
       }
-      const modal = new ModalBuilder().setCustomId(`${APPLY_PEX_MODAL_PREFIX}:${parsed.type}:${parsed.userId}:${interaction.message.id}`)
-        .setTitle("Motivo Pex Candidatura");
+      const modal = new ModalBuilder().setCustomId(`${APPLY_PEX_MODAL_PREFIX}:${parsed.type}:${parsed.userId}:${interaction.message.id}`).setTitle("Motivo Pex Candidatura");
       const reasonInput = new TextInputBuilder().setCustomId(APPLY_PEX_REASON_INPUT_ID).setLabel("Motivo").setStyle(TextInputStyle.Paragraph).setRequired(true).setMinLength(3).setMaxLength(500);
       modal.addComponents(new ActionRowBuilder().addComponents(reasonInput));
       await interaction.showModal(modal).catch(() => null);
       return true;
     }
     if (String(interaction.customId || "").startsWith(`${APPLY_REJECT_PREFIX}:`)) {
-      if (!hasHighStaffRole(interaction)) {
+      if (!hasCandidatureReviewAccess(interaction)) {
         await interaction.reply({
-          content: "<a:VC_Alert:1482706673176150077> Questo bottone è riservato all'High Staff.",
+          content: "<a:VC_Cross:1482532424570376253> Questo bottone è riservato ad Admin, Manager e Founder.",
           flags: 1 << 6,
         }).catch(() => null);
         return true;
@@ -1288,7 +1383,7 @@ async function handleCandidatureApplicationInteraction(interaction) {
       const rejUid = String(rejParts[2] || "").trim();
       const rejMessageId = String(interaction.message?.id || "").trim();
       if (interaction.message) {
-        await interaction.message.edit({ components: [] }).catch(() => null);
+        await setApplicationMessageStatusColor(interaction.message, APPLICATION_REJECTED_COLOR);
         await deleteThreadForMessage(interaction.guild, interaction.message);
       }
       if (rejUid && ["helper", "partnermanager"].includes(rejType)) {
@@ -1307,7 +1402,7 @@ async function handleCandidatureApplicationInteraction(interaction) {
           });
         } catch (_) {}
       }
-      await interaction.reply({ content: "<:cancel:1461730653677551691> Candidatura rifiutata.", flags: 1 << 6 }).catch(() => null);
+      await interaction.reply({ content: "<a:VC_Cross:1482532424570376253> Candidatura rifiutata.", flags: 1 << 6 }).catch(() => null);
       return true;
     }
 
@@ -1331,7 +1426,7 @@ async function handleCandidatureApplicationInteraction(interaction) {
       if (String(ownerId) !== String(interaction.user?.id || "")) {
         await interaction.reply({
           content:
-            "<a:VC_Alert:1482706673176150077> Questo modulo non è associato al tuo click iniziale.",
+            "<a:VC_Cross:1482532424570376253> Questo modulo non è associato al tuo click iniziale.",
           flags: 1 << 6,
         }).catch(() => null);
         return true;
@@ -1348,7 +1443,7 @@ async function handleCandidatureApplicationInteraction(interaction) {
       if (String(ownerId) !== String(interaction.user?.id || "")) {
         await interaction.reply({
           content:
-            "<a:VC_Alert:1482706673176150077> Questo modulo non è associato al tuo click iniziale.",
+            "<a:VC_Cross:1482532424570376253> Questo modulo non è associato al tuo click iniziale.",
           flags: 1 << 6,
         }).catch(() => null);
         return true;
@@ -1365,7 +1460,7 @@ async function handleCandidatureApplicationInteraction(interaction) {
       if (String(ownerId) !== String(interaction.user?.id || "")) {
         await interaction.reply({
           content:
-            "<a:VC_Alert:1482706673176150077> Questo modulo non è associato al tuo click iniziale.",
+            "<a:VC_Cross:1482532424570376253> Questo modulo non è associato al tuo click iniziale.",
           flags: 1 << 6,
         }).catch(() => null);
         return true;
@@ -1382,9 +1477,9 @@ async function handleCandidatureApplicationInteraction(interaction) {
   if (String(interaction.customId || "").startsWith(`${APPLY_PEX_MODAL_PREFIX}:`)) {
     const parsed = parseCandidatePexModalId(interaction.customId);
     if (!parsed) return false;
-    if (!hasHighStaffRole(interaction)) {
+    if (!hasCandidatureReviewAccess(interaction)) {
       await interaction.reply({
-        content: "<a:VC_Alert:1482706673176150077> Questo modulo è riservato all'High Staff.",
+        content: "<a:VC_Cross:1482532424570376253> Questo modulo è riservato ad Admin, Manager e Founder.",
         flags: 1 << 6,
       }).catch(() => null);
       return true;
@@ -1405,5 +1500,7 @@ module.exports = {
   handleCandidatureApplicationInteraction,
   submitCandidatureWebsite,
   getCandidatureEligibilitySummary,
+  resolveWebsiteCandidatureMember,
   resolveSubmissionChannel,
+  bumpApplicationCooldownAfterStaffDepex,
 };

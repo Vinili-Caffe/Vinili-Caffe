@@ -1,4 +1,6 @@
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
+const { isValidGuildUserId } = require("../../Utils/DB/validateWriteIds");
+const { validateMentionResponseText } = require("../../Utils/Community/mentionResponseValidation");
 
 function asStrings(values = []) {
   return Array.isArray(values) ? values.map((v) => String(v || "").trim()).filter(Boolean) : [];
@@ -71,6 +73,66 @@ async function listMentionReactions(guildId, userIds = []) {
       ? doc.profile.mentionReaction.reactions.map((x) => String(x))
       : [],
   }));
+}
+
+async function getMentionResponse(guildId, userId) {
+  if (!guildId || !userId) return null;
+  const doc = await getProfile(guildId, userId, "profile.mentionResponse");
+  const text = String(doc?.profile?.mentionResponse?.text || "").trim();
+  if (!text) return null;
+  return {
+    guildId: String(guildId),
+    userId: String(userId),
+    text,
+    updatedAt: doc?.profile?.mentionResponse?.updatedAt || null,
+  };
+}
+
+async function setMentionResponse(guildId, userId, text) {
+  if (!isValidGuildUserId(guildId, userId)) {
+    return { ok: false, userMessage: "<:VC_Attention:1482534443632558151> Impossibile salvare la risposta." };
+  }
+  const validation = validateMentionResponseText(text);
+  if (!validation.ok) {
+    return { ok: false, reason: validation.reason, userMessage: validation.userMessage };
+  }
+  if (!validation.text) return clearMentionResponse(guildId, userId).then(() => ({ ok: true, text: "" }));
+  const doc = await upsertProfile(guildId, userId, {
+    $set: {
+      "profile.mentionResponse.text": validation.text,
+      "profile.mentionResponse.updatedAt": new Date(),
+    },
+  });
+  return { ok: true, text: validation.text, doc };
+}
+
+async function clearMentionResponse(guildId, userId) {
+  if (!isValidGuildUserId(guildId, userId)) return null;
+  return upsertProfile(guildId, userId, {
+    $set: {
+      "profile.mentionResponse.text": "",
+      "profile.mentionResponse.updatedAt": null,
+    },
+  });
+}
+
+async function listMentionResponses(guildId, userIds = []) {
+  const ids = asStrings(userIds);
+  if (!guildId || !ids.length) return [];
+  const docs = await ActivityUserProfile.find({
+    guildId: String(guildId),
+    userId: { $in: ids },
+    "profile.mentionResponse.text": { $type: "string", $ne: "" },
+  })
+    .select("userId profile.mentionResponse.text")
+    .lean()
+    .catch(() => []);
+  return docs
+    .map((doc) => ({
+      userId: String(doc?.userId || ""),
+      text: String(doc?.profile?.mentionResponse?.text || "").trim(),
+    }))
+    .filter((doc) => doc.userId && doc.text);
 }
 
 async function getBirthdayProfile(guildId, userId) {
@@ -236,6 +298,10 @@ module.exports = {
   getAfk,
   clearAfk,
   listMentionReactions,
+  getMentionResponse,
+  setMentionResponse,
+  clearMentionResponse,
+  listMentionResponses,
   getBirthdayProfile,
   setBirthdayProfile,
   clearBirthdayProfile,

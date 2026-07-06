@@ -2,11 +2,13 @@ const { EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder } = require("
 const { recordDiscadiaBump, recordDiscadiaVote, recordBump, awardBumpVoteExp, getVoteCooldownMs } = require("../../Services/Bump/bumpService");
 const { addExpWithLevel, shouldIgnoreExpForMember } = require("../../Services/Community/expService");
 const { upsertVoteRole } = require("../../Services/Community/communityOpsService");
-const { PAUSE_REQUEST_ROLE_IDS, createPauseRequest, parsePauseChannelMessageContent } = require("../Pause/pauseRequestRuntime");
+const { PAUSE_REQUEST_ROLE_IDS, parsePauseChannelMessageContent } = require("../Pause/pauseRequestRuntime");
+const { submitPauseRequestForMember } = require("../Pause/pauseRequestSubmitRuntime");
+const { maybeRepositionPauseSticky } = require("../Pause/pauseStickyPanelRuntime");
 const IDs = require("../Config/ids");
 const { getGuildChannelCached, getGuildMemberCached } = require("../Interaction/interactionEntityCache");
 const { EPHEMERAL_TTL_NORMAL_MS, scheduleMessageDeletion } = require("../Config/ephemeralMessageTtl");
-const SuggestionCount = require("../../Schemas/Suggestion/suggestionSchema");
+const { normalizeMovieNightProposalForCompare } = require("../Community/movieNightProposal");
 const VOTE_CHANNEL_ID = IDs.channels.supporters;
 const COMMANDS_CHANNEL_ID = IDs.channels.commands;
 const PAUSE_CHANNEL_ID = IDs.channels.pause;
@@ -14,9 +16,10 @@ const VOTE_ROLE_ID = IDs.roles.Voter;
 const VOTE_URL = IDs.links.vote;
 const DEFAULT_THREAD_VOTE_REACTION = "👍";
 const DEFAULT_THREAD_VOTE_LOOKBACK_LIMIT = 100;
-const MOVIE_NIGHT_THREAD_PARENT_ID = "1481660281032675510";
+const MOVIE_NIGHT_THREAD_PARENT_ID = String(IDs.channels?.eventAnnouncements || "1481660281032675510");
 const MOVIE_NIGHT_THREAD_NAME = "SERATA FILM";
 const MOVIE_NIGHT_THREAD_REACTION = "<a:VC_Vote:1482535223001485473>";
+const MOVIE_NIGHT_THREAD_DUPLICATE_LOOKBACK_MAX = 500;
 const MEDIA_BLOCK_ROLE_IDS = [IDs.roles.PicPerms].filter(Boolean);
 const processedBumpMessages = new Map();
 const bumpDetectionLogAtByGuild = new Map();
@@ -25,12 +28,6 @@ const BUMP_DETECTION_LOG_COOLDOWN_MS = 10 * 60 * 1000;
 const BUMP_SKIP_DEBUG_LOG_TTL_MS = 30 * 60 * 1000;
 const MEMBER_FETCH_CACHE_TTL_MS = 15_000;
 const memberFetchCache = new Map();
-const PAUSE_ROLE_PICK_TIMEOUT_MS = 45_000;
-const PAUSE_ROLE_PICK_PREFIX = "pause_rolepick:";
-const PAUSE_ROLE_PICK_PM = `${PAUSE_ROLE_PICK_PREFIX}pm`;
-const PAUSE_ROLE_PICK_STAFF = `${PAUSE_ROLE_PICK_PREFIX}staff`;
-const PAUSE_ROLE_PICK_BOTH = `${PAUSE_ROLE_PICK_PREFIX}both`;
-
 function hasMediaPermission(member) {
   return MEDIA_BLOCK_ROLE_IDS.some((roleId) =>
     member?.roles?.cache?.has(roleId),
@@ -120,13 +117,70 @@ function isMovieNightVoteThread(message) {
   const parentId = String(message.channel?.parentId || "");
   if (parentId !== MOVIE_NIGHT_THREAD_PARENT_ID) return false;
   const threadName = normalizeMovieNightThreadName(message.channel?.name || "");
-  return threadName === MOVIE_NIGHT_THREAD_NAME;
+  return threadName === MOVIE_NIGHT_THREAD_NAME || threadName.includes(MOVIE_NIGHT_THREAD_NAME);
+}
+
+function movieNightProposalTextsMatch(leftRaw, rightRaw) {
+  const leftTitle = normalizeMovieNightProposalForCompare(leftRaw);
+  const rightTitle = normalizeMovieNightProposalForCompare(rightRaw);
+  if (leftTitle && rightTitle && leftTitle === rightTitle) return true;
+  const leftText = normalizeThreadVoteText(leftRaw);
+  const rightText = normalizeThreadVoteText(rightRaw);
+  return Boolean(leftText && rightText && leftText === rightText);
+}
+
+function messageHasMovieNightProposalContent(raw) {
+  return Boolean(normalizeMovieNightProposalForCompare(raw) || normalizeThreadVoteText(raw));
+}
+
+async function fetchMovieNightThreadMessages(thread, max = MOVIE_NIGHT_THREAD_DUPLICATE_LOOKBACK_MAX) {
+  if (!thread?.messages?.fetch) return [];
+  const cap = Math.max(20, Math.min(500, Number(max) || MOVIE_NIGHT_THREAD_DUPLICATE_LOOKBACK_MAX));
+  const collected = [];
+  let before;
+  while (collected.length < cap) {
+    const limit = Math.min(100, cap - collected.length);
+    const batch = await thread.messages.fetch({ limit, ...(before ? { before } : {}) }).catch(() => null);
+    if (!batch?.size) break;
+    const rows = [...batch.values()];
+    collected.push(...rows);
+    if (rows.length < limit) break;
+    before = rows[rows.length - 1]?.id;
+  }
+  return collected;
+}
+
+async function findDuplicateMovieNightProposal(thread, message) {
+  if (!thread || !message || !messageHasMovieNightProposalContent(message.content)) return null;
+  const rows = await fetchMovieNightThreadMessages(thread);
+  return (
+    rows.find((msg) => {
+      if (!msg || String(msg.id) === String(message.id)) return false;
+      if (msg.author?.bot || msg.webhookId || msg.system) return false;
+      return movieNightProposalTextsMatch(message.content, msg.content);
+    }) || null
+  );
 }
 
 async function handleMovieNightVoteMessage(message) {
   if (!message?.guild) return false;
   if (message.author?.bot || message.webhookId || message.system) return false;
   if (!isMovieNightVoteThread(message)) return false;
+
+  const duplicate = await findDuplicateMovieNightProposal(message.channel, message);
+  if (duplicate) {
+    await message.delete().catch((err) => {
+      global.logger?.warn?.("[MOVIE NIGHT VOTE] duplicate delete failed:", err?.message || err);
+    });
+    const warning = await message.channel
+      .send({ content: `${message.author} questo film è già stato suggerito nel thread.` })
+      .catch(() => null);
+    if (warning) scheduleMessageDeletion(warning, EPHEMERAL_TTL_NORMAL_MS);
+    return true;
+  }
+
+  if (!messageHasMovieNightProposalContent(message.content)) return false;
+
   const reacted = await message.react(MOVIE_NIGHT_THREAD_REACTION).then(() => true).catch(() => false);
   if (!reacted && MOVIE_NIGHT_THREAD_REACTION !== DEFAULT_THREAD_VOTE_REACTION) {
     await message.react(DEFAULT_THREAD_VOTE_REACTION).catch(() => {});
@@ -255,12 +309,27 @@ function logBumpSkipDebug(tag, message, reason, details = "") {
   } catch (_) { }
 }
 
-/** True se il bot ha già inviato un messaggio di ringraziamento bump in risposta a questo messaggio (evita duplicati dopo riavvio). */
-function hasExistingBumpThanksReply(channel, bumpMessageId, botUserId) {
-  if (!channel?.messages?.cache || !bumpMessageId || !botUserId) return false;
-  return channel.messages.cache.some(
-    (m) => m.author?.id === botUserId && String(m.reference?.messageId) === String(bumpMessageId),
-  );
+/** True se il bot ha già risposto al bump (reply o messaggio di ringraziamento nelle vicinanze). */
+async function hasExistingBumpThanksReply(channel, bumpMessageId, botUserId) {
+  if (!channel?.messages?.fetch || !bumpMessageId || !botUserId) return false;
+  const bumpId = String(bumpMessageId);
+  const thanksRe = /Grazie per aver [`']?bumpato[`']?|grazie per aver bumpato/i;
+  if (channel.messages?.cache?.some?.(
+    (m) => String(m.author?.id || "") === String(botUserId) && String(m.reference?.messageId || "") === bumpId,
+  )) {
+    return true;
+  }
+  const bumpMsg = channel.messages.cache.get(bumpId) || (await channel.messages.fetch(bumpId).catch(() => null));
+  const bumpTs = Number(bumpMsg?.createdTimestamp || 0);
+  const recent = await channel.messages.fetch({ limit: 100, ...(bumpMsg?.id ? { around: bumpMsg.id } : {}) }).catch(() => null);
+  if (!recent) return false;
+  for (const m of recent.values()) {
+    if (String(m.author?.id || "") !== String(botUserId)) continue;
+    if (String(m.reference?.messageId || "") === bumpId) return true;
+    const ts = Number(m.createdTimestamp || 0);
+    if (bumpTs && ts >= bumpTs && ts <= bumpTs + 10 * 60 * 1000 && thanksRe.test(String(m.content || ""))) return true;
+  }
+  return false;
 }
 
 async function getCachedOrFetchMember(guild, userId) {
@@ -346,6 +415,24 @@ function getMessageTextParts(message) {
   };
 }
 
+async function hydrateAutomationMessage(message) {
+  if (!message?.channel?.messages?.fetch) return message;
+  try {
+    if (message.partial) {
+      return (await message.fetch().catch(() => null)) || message;
+    }
+    const { content, embedText } = getMessageTextParts(message);
+    const hasEmbedsArray = Array.isArray(message.embeds) && message.embeds.length > 0;
+    if (!content && !embedText && !hasEmbedsArray) {
+      const fresh = await message.channel.messages.fetch(message.id).catch(() => null);
+      if (fresh) return fresh;
+    }
+    return message;
+  } catch {
+    return message;
+  }
+}
+
 async function resolveUserFromMessage(message) {
   const mentioned = message.mentions?.users?.first();
   if (mentioned) return mentioned;
@@ -409,6 +496,7 @@ function getVoteManagerBotIds(client) {
       IDs.bots?.DISBOARD,
       IDs.bots?.Discadia,
       IDs.bots?.VoteManager,
+      IDs.roles?.Discadia,
       client?.config?.disboard?.botId,
       discadiaCfg?.botId,
       ...extraDiscadiaIds,
@@ -434,6 +522,8 @@ async function handleVoteManagerMessage(message, client) {
     return false;
   }
 
+  message = await hydrateAutomationMessage(message);
+
   const { content, embedText, embedTitle, fieldsText } = getMessageTextParts(message);
   const voteText = `${content}${embedText}${embedTitle}${fieldsText}`.toLowerCase();
   const looksLikeVote =
@@ -456,11 +546,11 @@ async function handleVoteManagerMessage(message, client) {
   return true;
 }
 
-function resolveTopggVotePageUrl(client) {
-  const fromCfg = String(client?.config?.topgg?.votePageUrl || "").trim();
-  if (fromCfg) return fromCfg;
-  const bid = String(client?.user?.id || "").trim();
-  return bid ? `https://top.gg/bot/${bid}` : "https://top.gg/";
+function resolvePublicVoteHubUrl(client) {
+  const fromTopgg = String(client?.config?.topgg?.votePageUrl || "").trim();
+  const fromDiscadia = String(client?.config?.discadiaVoteReminder?.voteUrl || "").trim();
+  const fromIds = String(IDs.links?.vote || "").trim();
+  return fromTopgg || fromDiscadia || fromIds;
 }
 
 async function processDiscadiaVote(guild, user, client, options = {}) {
@@ -486,17 +576,6 @@ async function processDiscadiaVote(guild, user, client, options = {}) {
     global.logger?.warn?.("[officialMessageAutomation] record vote error: ", err?.message || err);
   }
 
-  try {
-    const expiresAt = new Date(Date.now() + voteCooldownMs);
-    await upsertVoteRole(guild.id, user.id, expiresAt);
-    const member = await getCachedOrFetchMember(guild, user.id);
-    if (member && !member.roles.cache.has(VOTE_ROLE_ID)) {
-      await member.roles.add(VOTE_ROLE_ID).catch(() => { });
-    }
-  } catch (err) {
-    global.logger?.warn?.("[officialMessageAutomation] role/event error: ", err?.message || err);
-  }
-
   const { DIVIDER_URL: dividerUrl } = require("../../../shared/discord/constants");
   const voteCooldownHours = Math.max(1, Math.round(voteCooldownMs / (60 * 60 * 1000)));
   const voteAgainHoursLabel = voteCooldownHours === 1 ? "1 ora" : `${voteCooldownHours} ore`;
@@ -505,11 +584,10 @@ async function processDiscadiaVote(guild, user, client, options = {}) {
   const voteRoleText = VOTE_ROLE_ID
     ? `<a:VC_Money:1482724694699278487> <a:VC_Arrow:1482706699365257397> Il ruolo <@&${VOTE_ROLE_ID}> per ${voteAgainHoursLabel}`
     : `<a:VC_Money:1482724694699278487> <a:VC_Arrow:1482706699365257397> Reward voto assegnata per ${voteAgainHoursLabel}`;
-  const topggVoteUrl = resolveTopggVotePageUrl(client);
   const thankLine =
     voteListing === "topgg"
-      ? `<a:VC_ThankYou:1330186319673950401> Grazie ${user} per aver votato il bot su [Top.gg](<${topggVoteUrl}>)!`
-      : `<a:VC_ThankYou:1330186319673950401> Grazie ${user} per aver votato su [Discadia](<https://discadia.com/server/viniliecaffe/>) il server!`;
+      ? `<a:VC_ThankYou:1330186319673950401> Grazie ${user} per aver votato su **Top.gg**!`
+      : `<a:VC_ThankYou:1330186319673950401> Grazie ${user} per aver votato su **Discadia**!`;
   const descriptionLines = [
     thankLine,
     "",
@@ -527,7 +605,7 @@ async function processDiscadiaVote(guild, user, client, options = {}) {
     .setFooter({ text: "Ogni volta che voterai il valore dell'exp guadagnata varierà: a volte sarà più alto, altre volte più basso, mentre altre ancora uguale al precedente", }).setImage(dividerUrl);
 
   const components = [];
-  const linkVoteUrl = voteListing === "topgg" ? topggVoteUrl : VOTE_URL;
+  const linkVoteUrl = resolvePublicVoteHubUrl(client) || VOTE_URL;
   if (linkVoteUrl) {
     components.push(
       new ActionRowBuilder().addComponents(
@@ -545,22 +623,37 @@ async function processDiscadiaVote(guild, user, client, options = {}) {
     await channel.send({ content: `${user}`, embeds: [embed], components, }).catch(() => { });
   }
 
-  try {
-    const { enqueueSiteInAppNotification } = require("../Web/siteInAppNotificationsService");
-    const platformLabel = voteListing === "topgg" ? "Top.gg" : "Discadia";
-    await enqueueSiteInAppNotification({
-      guildId: guild.id,
-      userId: user.id,
-      title: voteListing === "topgg" ? "Voto su Top.gg registrato" : "Voto su Discadia registrato",
-      body: `Il voto su ${platformLabel} è stato registrato: hai ricevuto EXP e ricompense sul server. Grazie per il supporto!`,
-      kind: "vote",
-      openUrl: "/vote",
-      dedupeKey: `vote:${voteListing}:${user.id}`,
-      dedupeWindowMs: 120_000,
-    });
-  } catch (eN) {
-    global.logger?.warn?.("[officialMessageAutomation] site notification vote:", eN?.message || eN);
-  }
+  void (async () => {
+    try {
+      const expiresAt = new Date(Date.now() + voteCooldownMs);
+      await upsertVoteRole(guild.id, user.id, expiresAt);
+      const member = await getCachedOrFetchMember(guild, user.id);
+      if (member && !member.roles.cache.has(VOTE_ROLE_ID)) {
+        await member.roles.add(VOTE_ROLE_ID).catch(() => { });
+      }
+    } catch (err) {
+      global.logger?.warn?.("[officialMessageAutomation] role/event error: ", err?.message || err);
+    }
+  })();
+
+  void (async () => {
+    try {
+      const { enqueueSiteInAppNotification } = require("../Web/siteInAppNotificationsService");
+      const platformLabel = voteListing === "topgg" ? "Top.gg" : "Discadia";
+      await enqueueSiteInAppNotification({
+        guildId: guild.id,
+        userId: user.id,
+        title: voteListing === "topgg" ? "Voto su Top.gg registrato" : "Voto su Discadia registrato",
+        body: `Il voto su ${platformLabel} è stato registrato: hai ricevuto EXP e ricompense sul server. Grazie per il supporto!`,
+        kind: "vote",
+        openUrl: "/vote",
+        dedupeKey: `vote:${voteListing}:${user.id}`,
+        dedupeWindowMs: 120_000,
+      });
+    } catch (eN) {
+      global.logger?.warn?.("[officialMessageAutomation] site notification vote:", eN?.message || eN);
+    }
+  })();
 
   return true;
 }
@@ -661,6 +754,11 @@ async function handleDisboardBump(message, client) {
     logBumpSkipDebug("[DISBOARD BUMP DETECT]", message, "duplicate_message_dedupe");
     return true;
   }
+  const channel = message.channel || (await getGuildChannelCached(message.guild, message.channelId));
+  if (channel?.isTextBased?.() && (await hasExistingBumpThanksReply(channel, message.id, client.user?.id))) {
+    logBumpSkipDebug("[DISBOARD BUMP DETECT]", message, "already_thanked");
+    return true;
+  }
   let bumpUserId =
     message.interaction?.user?.id ||
     message.interactionMetadata?.user?.id ||
@@ -708,9 +806,7 @@ async function handleDisboardBump(message, client) {
       thanksMessage = parts.join("\n");
     }
   }
-  const channel = message.channel || (await getGuildChannelCached(message.guild, message.channelId));
   if (channel?.isTextBased?.()) {
-    if (hasExistingBumpThanksReply(channel, message.id, client.user?.id)) return true;
     try {
       await channel.send({
         content: thanksMessage.trim(),
@@ -731,6 +827,7 @@ async function handleDiscadiaBump(message, client) {
   const discadiaBotIds = new Set(
     [
       IDs.bots?.Discadia,
+      IDs.roles?.Discadia,
       discadia?.botId,
       ...(Array.isArray(discadia?.botIds) ? discadia.botIds : []),
     ]
@@ -803,6 +900,11 @@ async function handleDiscadiaBump(message, client) {
     logBumpSkipDebug("[DISCADIA BUMP DETECT]", message, "duplicate_message_dedupe");
     return true;
   }
+  const channel = message.channel || (message.channelId ? await getGuildChannelCached(message.guild, message.channelId) : null);
+  if (channel?.isTextBased?.() && (await hasExistingBumpThanksReply(channel, message.id, client.user?.id))) {
+    logBumpSkipDebug("[DISCADIA BUMP DETECT]", message, "already_thanked");
+    return true;
+  }
   let bumpUserId = message.interaction?.user?.id || message.interactionMetadata?.user?.id || extractUserIdFromText(message.content) || extractUserIdFromText(joined) || null;
   if (!bumpUserId) {
     const resolvedUser = await resolveUserFromMessage(message);
@@ -825,9 +927,7 @@ async function handleDiscadiaBump(message, client) {
   let thanksMessage = "<a:VC_ThankYou:1330186319673950401> **__Grazie per aver `bumpato` il server!__**\n" +
     "<:VC_HelloKittyGun:1329447880150220883> Ci __vediamo__ nuovamente tra **24 ore!**\n" +
     bumpMention;
-  const channel = message.channel || (message.channelId ? await getGuildChannelCached(message.guild, message.channelId) : null);
   if (channel?.isTextBased?.()) {
-    if (hasExistingBumpThanksReply(channel, message.id, client.user?.id)) return true;
     try {
       await channel.send({
         content: thanksMessage.trim(),
@@ -840,179 +940,68 @@ async function handleDiscadiaBump(message, client) {
   return true;
 }
 
-async function handleSuggestionChannelMessage(message) {
-  if (!message?.guild) return false;
-  if (message.author?.bot || message.webhookId || message.system) return false;
-
-  const suggestionsChannelId = String(IDs.channels.suggestions || "1442569147559973094",);
-  if (String(message.channelId) !== suggestionsChannelId) return false;
-
-  const suggestionText = String(message.content || "").trim();
-  if (!suggestionText) return false;
-
-  const counterFilter = { GuildID: message.guild.id, ChannelID: "__counter__", Msg: "__counter__", AuthorID: "__system__", };
-  const counter = await SuggestionCount.findOneAndUpdate(counterFilter, { $inc: { count: 1 }, $setOnInsert: { Upmembers: [], Downmembers: [], upvotes: 0, downvotes: 0, sID: "__counter__", }, }, { new: true, upsert: true, setDefaultsOnInsert: true },);
-  const suggestionId = String(counter?.count || 1);
-
-  const suggestionEmbed =
-    new EmbedBuilder()
-      .setColor("#6f4e37")
-      .setDescription(`**<:VC_Mention:1482526855289634997> Mandato da:**\n${message.author.username}
-    
-    **<:VC_PinkQuestionMark:1471892611026391306> Suggerimento:**
-    ${suggestionText}
-    
-    **<a:VC_Vote:1482535223001485473> Numero voti:**\n\n`,
-      )
-      .setFields(
-        { name: "<:thumbsup:1471292172145004768>", value: "0", inline: true },
-        { name: "<:thumbsdown:1471292163957457013>", value: "0", inline: true },
-      )
-      .setTimestamp()
-      .setFooter({
-        text: `User ID: ${message.author.id} · sID: ${suggestionId}`,
-      });
-
-  const voteRow = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId("upv").setEmoji("<:thumbsup:1471292172145004768>").setStyle(ButtonStyle.Secondary), new ButtonBuilder().setCustomId("downv").setEmoji("<:thumbsdown:1471292163957457013>").setStyle(ButtonStyle.Secondary),);
-  const staffRow = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId("suggestion_staff_accept").setLabel("Accetta").setEmoji("<:success:1461731530333229226>").setStyle(ButtonStyle.Success), new ButtonBuilder().setCustomId("suggestion_staff_reject").setLabel("Rifiuta").setEmoji("<:cancel:1461730653677551691>").setStyle(ButtonStyle.Danger),);
-
-  const posted = await message.channel
-    .send({
-      content: "<@&1442568894349840435>",
-      embeds: [suggestionEmbed],
-      components: [voteRow, staffRow],
-    })
-    .catch(() => null);
-  if (!posted) {
-    await SuggestionCount.findOneAndUpdate(counterFilter, {
-      $inc: { count: -1 },
-    }).catch(() => { });
-    return false;
-  }
-
-  try {
-    await SuggestionCount.create({
-      GuildID: message.guild.id,
-      ChannelID: message.channel.id,
-      Msg: posted.id,
-      AuthorID: message.author.id,
-      upvotes: 0,
-      downvotes: 0,
-      Upmembers: [],
-      Downmembers: [],
-      sID: suggestionId,
-    });
-  } catch (err) {
-    global.logger?.error?.("[suggestion] create doc failed:", err?.message || err);
-    await posted.delete().catch(() => { });
-    await SuggestionCount.findOneAndUpdate(counterFilter, {
-      $inc: { count: -1 },
-    }).catch(() => { });
-    return false;
-  }
-
-  const thread = await posted.startThread({
-    name: `Thread per il suggerimento ${suggestionId}`,
-    autoArchiveDuration: 10080,
-  })
-    .catch(() => null);
-  if (thread) {
-    await thread
-      .send(
-        `Ho creato questo thread per discutere del suggerimento di <@${message.author.id}>`,
-      )
-      .catch(() => { });
-  }
-
-  await message.delete().catch(() => { });
-  return true;
-}
-
 async function handlePauseChannelMessage(message) {
   if (!message?.guild) return false;
   if (message.author?.bot || message.webhookId || message.system) return false;
 
   const pauseChannelId = String(IDs.channels.pause || "");
-  if (!pauseChannelId || String(message.channelId) !== pauseChannelId) return false;
+  const isPauseChannel = Boolean(pauseChannelId && String(message.channelId) === pauseChannelId);
+  if (!isPauseChannel) return false;
+
+  const finish = () => {
+    void maybeRepositionPauseSticky(message.channel, message.client).catch(() => null);
+  };
 
   if (!message.member && message.guild?.id && message.author?.id) {
     message.member = await getGuildMemberCached(message.guild, message.author.id);
   }
   const allowedRoleIds = new Set(PAUSE_REQUEST_ROLE_IDS.map(String));
   const hasAllowedRole = Array.from(allowedRoleIds).some((roleId) => message.member?.roles?.cache?.has(roleId));
-  if (!hasAllowedRole) return false;
+  if (!hasAllowedRole) {
+    finish();
+    return false;
+  }
 
   const raw = String(message.content || "").trim();
-  if (!raw) return false;
+  if (!raw) {
+    finish();
+    return false;
+  }
   const parsed = parsePauseChannelMessageContent(raw);
   if (!parsed) {
-    const warning = await message.channel.send({ content: `${message.author} formato non valido. Usa: \`<data richiesta> - <data ritorno> - <motivazione>\` oppure \`<data richiesta> <data ritorno> <motivazione>\` (stesso ordine, anche senza trattini).` }).catch(() => null);
+    const warning = await message.channel.send({ content: `${message.author} formato non valido. Usa il pulsante **Richiedi pausa** qui sotto oppure invia: data inizio, data fine e motivo (es. \`20/05 - 22/05 - viaggio\`).` }).catch(() => null);
     await message.delete().catch(() => { });
     if (warning) scheduleMessageDeletion(warning, EPHEMERAL_TTL_NORMAL_MS);
+    finish();
     return true;
   }
 
-  const rawStart = parsed.rawStart;
-  const rawEnd = parsed.rawEnd;
-  const reason = parsed.reason;
-  let requestedRole = null;
-  const hasStaff = Boolean(message.member?.roles?.cache?.has(IDs.roles.Staff));
-  const hasPm = Boolean(message.member?.roles?.cache?.has(IDs.roles.PartnerManager));
-  if (hasStaff && hasPm) {
-    const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(PAUSE_ROLE_PICK_PM).setLabel("PM").setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId(PAUSE_ROLE_PICK_STAFF).setLabel("Staff").setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId(PAUSE_ROLE_PICK_BOTH).setLabel("Entrambi").setStyle(ButtonStyle.Primary),
-    );
-    const prompt = await message.channel
-      .send({
-        content: `${message.author} scegli per quale ruolo vuoi chiedere la pausa:`,
-        components: [row],
-      })
-      .catch(() => null);
-    if (!prompt) {
-      const warning = await message.channel.send({ content: `${message.author} <:vegax:1443934876440068179> Non riesco a chiederti il ruolo pausa. Riprova.` }).catch(() => null);
-      await message.delete().catch(() => { });
-      if (warning) scheduleMessageDeletion(warning, EPHEMERAL_TTL_NORMAL_MS);
-      return true;
-    }
-    const picked = await prompt
-      .awaitMessageComponent({
-        time: PAUSE_ROLE_PICK_TIMEOUT_MS,
-        filter: (i) => i.user?.id === message.author.id,
-      })
-      .catch(() => null);
-    if (!picked) {
-      await prompt.edit({ content: `${message.author} selezione ruolo pausa scaduta. Riinvia la richiesta.`, components: [] }).catch(() => { });
-      await message.delete().catch(() => { });
-      scheduleMessageDeletion(prompt, EPHEMERAL_TTL_NORMAL_MS);
-      return true;
-    }
-    if (picked.customId === PAUSE_ROLE_PICK_PM) requestedRole = "PartnerManager";
-    else if (picked.customId === PAUSE_ROLE_PICK_BOTH) requestedRole = "Entrambi";
-    else requestedRole = "Staff";
-    await picked.deferUpdate().catch(() => { });
-    await prompt.edit({ content: `${message.author} ruolo pausa selezionato: \`${requestedRole}\``, components: [] }).catch(() => { });
-    scheduleMessageDeletion(prompt, EPHEMERAL_TTL_NORMAL_MS);
-  } else if (hasPm && !hasStaff) {
-    requestedRole = "PartnerManager";
-  } else {
-    requestedRole = "Staff";
-  }
-  const result = await createPauseRequest({ guild: message.guild, userId: message.author.id, requesterMention: String(message.author), rawStart, rawEnd, reason, member: message.member, requestedRole });
+  const result = await submitPauseRequestForMember({
+    guild: message.guild,
+    member: message.member,
+    rawStart: parsed.rawStart,
+    rawEnd: parsed.rawEnd,
+    reason: parsed.reason,
+    replyChannel: message.channel,
+  });
   if (!result.ok) {
-    const warning = await message.channel.send({ content: `${message.author} <:vegax:1443934876440068179> ${result.error}` }).catch(() => null);
+    const errText = result.error === "Selezione ruolo scaduta." ? "Selezione ruolo pausa scaduta. Riinvia la richiesta." : result.error;
+    const warning = await message.channel.send({ content: `${message.author} <:vegax:1443934876440068179> ${errText}` }).catch(() => null);
     await message.delete().catch(() => { });
     if (warning) scheduleMessageDeletion(warning, EPHEMERAL_TTL_NORMAL_MS);
+    finish();
     return true;
   }
 
   await message.delete().catch(() => { });
+  finish();
   return true;
 }
 
-const RECENT_VOTE_LOOKBACK_MS = 2 * 60 * 60 * 1000;
-const RECENT_VOTE_FETCH_LIMIT = 25;
+const RECENT_VOTE_LOOKBACK_MS = 24 * 60 * 60 * 1000;
+const RECENT_VOTE_FETCH_LIMIT = 80;
+
+const RECENT_BUMP_LOOKBACK_MS = 24 * 60 * 60 * 1000;
 
 async function processRecentVoteChannelMessages(client) {
   if (!client || !VOTE_CHANNEL_ID) return;
@@ -1039,8 +1028,6 @@ async function processRecentVoteChannelMessages(client) {
     }
   }
 }
-
-const RECENT_BUMP_LOOKBACK_MS = 2 * 60 * 60 * 1000;
 
 async function processRecentCommandsChannelMessages(client) {
   if (!client || !COMMANDS_CHANNEL_ID) return;
@@ -1097,7 +1084,6 @@ async function processRecentPauseChannelMessages(client) {
 async function processAllRecentAutomationMessages(client) {
   await processRecentVoteChannelMessages(client);
   await processRecentCommandsChannelMessages(client);
-  await processRecentPauseChannelMessages(client);
 }
 
-module.exports = { channelAllowsMedia, getCachedOrFetchMember, handleDisboardBump, handleDiscadiaBump, handlePauseChannelMessage, handleSuggestionChannelMessage, handleThreadVoteMessage, handleMovieNightVoteMessage, handleVoteManagerMessage, hasMediaPermission, isDiscordInviteLinkMessage, isMediaMessage, processRecentVoteChannelMessages, processRecentCommandsChannelMessages, processRecentPauseChannelMessages, processAllRecentAutomationMessages, processDiscadiaVote };
+module.exports = { channelAllowsMedia, getCachedOrFetchMember, handleDisboardBump, handleDiscadiaBump, handlePauseChannelMessage, handleThreadVoteMessage, handleMovieNightVoteMessage, handleVoteManagerMessage, hasMediaPermission, isDiscordInviteLinkMessage, isMediaMessage, processRecentVoteChannelMessages, processRecentCommandsChannelMessages, processRecentPauseChannelMessages, processAllRecentAutomationMessages, processDiscadiaVote };

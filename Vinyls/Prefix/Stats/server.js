@@ -11,6 +11,6 @@ module.exports = {
     await message.channel.sendTyping();
     const { lookbackDays } = serverButton.parseServerActivityArgs(args);
     const payload = await serverButton.buildServerOverviewPayload(message.guild, lookbackDays, message.author?.id);
-    await safeMessageReply(message, { ...payload, allowedMentions: { repliedUser: false } });
+    await safeMessageReply(message, serverButton.normalizeServerMessageEdit(payload, { repliedUser: false }));
   },
 };

@@ -1,7 +1,21 @@
-const { EmbedBuilder } = require("discord.js");
+const { EmbedBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const IDs = require("../../Utils/Config/ids");
 const { getGuildChannelCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
+const { PAUSE_REQUEST_OPEN_ID } = require("../../Utils/Pause/pauseStickyPanelRuntime");
+const {
+  PAUSE_ROLE_PICK_PM,
+  PAUSE_ROLE_PICK_STAFF,
+  PAUSE_ROLE_PICK_BOTH,
+  memberCanRequestPause,
+  storePendingPauseRolePick,
+  takePendingPauseRolePick,
+  submitPauseRequestForMember,
+} = require("../../Utils/Pause/pauseRequestSubmitRuntime");
+const PAUSE_REQUEST_MODAL_ID = "pause_request:modal";
 const { accountUsername } = require("../../Utils/Discord/guildDiscordIdentity");
+const { MS_PER_DAY, parseItalianDate, getPauseDaysBetween, getTodayUtc, getCurrentYearBoundsUtc, countOverlapDays, computeConsumedPauseDays, getMemberRoleLabel, getPauseStatusLabel, computePauseScaledDaysThisYear, getStaffPauseRecord, getStaffAndPauseByRequestMessageId, updatePauseInDb, buildRequestButtonsRow, buildAcceptedButtonsRow, schedulePauseButtonsRemoval, syncSingleAcceptedPauseMessage, getPausePhase, getBasePauseLimit, getPauseRoleLimit, getPauseTimingText, computeStaffersInPauseByRoleForRange, getPauseReasonFromMessage, normalizePauseRoleChoice, getPauseRoleTargets, roleChoiceAppliesTo, PAUSE_ROLE_STAFF, PAUSE_ROLE_PM, PAUSE_ROLE_BOTH, getBestStaffPauseBonusDays, getStaffPauseBonusDaysTotal, grantBestStaffPauseBonusYear } = require("../../Utils/Pause/pauseHandlersUtils");
+const { buildPauseListPayload, buildPauseListMonthRows } = require("../../Utils/Pause/pauseListRuntime");
+const pauseActionLocks = new Set();
 
 function pauseListMemberLabel(guild, client, userId) {
   const mem = guild?.members?.cache?.get(userId);
@@ -11,13 +25,17 @@ function pauseListMemberLabel(guild, client, userId) {
 }
 
 async function deletePauseThreadIfAny(guild, requestThreadId) {
-  if (!guild || !requestThreadId) return;
-  const thread = await guild.channels.fetch(requestThreadId).catch(() => null);
-  if (thread?.isThread?.()) await thread.delete().catch(() => null);
+  const tid = String(requestThreadId || "").trim();
+  if (!guild || !tid) return;
+  let ch = await guild.channels.fetch(tid).catch(() => null);
+  if (!ch && guild.client) ch = await guild.client.channels.fetch(tid).catch(() => null);
+  if (!ch?.isThread?.()) return;
+  try {
+    await ch.delete();
+  } catch (err) {
+    global.logger?.warn?.("[pause] delete thread failed:", tid, err?.message || err);
+  }
 }
-const { MS_PER_DAY, parseItalianDate, getPauseDaysBetween, getTodayUtc, getCurrentYearBoundsUtc, countOverlapDays, computeConsumedPauseDays, getMemberRoleLabel, getPauseStatusLabel, computePauseScaledDaysThisYear, getStaffPauseRecord, getStaffAndPauseByRequestMessageId, updatePauseInDb, buildRequestButtonsRow, buildAcceptedButtonsRow, schedulePauseButtonsRemoval, getBasePauseLimit, getPauseRoleLimit, getPauseTimingText, computeStaffersInPauseByRoleForRange, getPauseReasonFromMessage, normalizePauseRoleChoice, getPauseRoleTargets, roleChoiceAppliesTo, PAUSE_ROLE_STAFF, PAUSE_ROLE_PM, PAUSE_ROLE_BOTH, getBestStaffPauseBonusDays, grantBestStaffPauseBonusYear } = require("../../Utils/Pause/pauseHandlersUtils");
-const { buildPauseListPayload, buildPauseListMonthRows } = require("../../Utils/Pause/pauseListRuntime");
-const pauseActionLocks = new Set();
 
 function resolveAcceptedPauseRoleChoice(member, targetPause) {
   const requested = normalizePauseRoleChoice(targetPause?.ruoloRichiesto);
@@ -39,41 +57,18 @@ function formatPauseRoleLabelForMessage(guild, roleChoice, member) {
   return staffFallback;
 }
 
-function buildAcceptedPauseLogContent({
-  roleLabel,
-  effectiveUserId,
-  pauseTimingText,
-  dataRichiesta,
-  dataRitorno,
-  giorniUsati,
-  maxGiorni,
-  giorniRimanenti,
-  sameRoleActiveCount,
-  roleLimitWarning,
-}) {
+function buildAcceptedPauseLogContent({ roleLabel, effectiveUserId, pauseTimingText, dataRichiesta, dataRitorno, giorniUsati, maxGiorni, giorniRimanenti, sameRoleActiveCount, roleLimitWarning }) {
   return `<a:VC_Calendar:1482706208149475358> **\`${roleLabel}\`** - **<@${effectiveUserId}>** ${pauseTimingText}.\n<:VC_Clock:1473359204189474886> Dal **\`${dataRichiesta}\`** al **\`${dataRitorno}\`**\n<:VC_update:1478721333096349817> __\`${giorniUsati}/${maxGiorni}\`__ giorni utilizzati (\`${giorniRimanenti}\` rimanenti) - <:VC_Staff:1494286904089247754> __\`${sameRoleActiveCount}\`__ staffer in pausa in quel ruolo${roleLimitWarning}`;
 }
 
 async function handlePauseButton(interaction) {
   if (!interaction.isButton()) return false;
-  if (
-    !interaction.customId.startsWith("pause_accept:") &&
-    !interaction.customId.startsWith("pause_reject:") &&
-    !interaction.customId.startsWith("pause_cancel:") &&
-    !interaction.customId.startsWith("pause_list:") &&
-    !interaction.customId.startsWith("pause_list_month:")
-  )
-    return false;
+  if (!interaction.customId.startsWith("pause_accept:") && !interaction.customId.startsWith("pause_reject:") && !interaction.customId.startsWith("pause_cancel:") && !interaction.customId.startsWith("pause_list:") && !interaction.customId.startsWith("pause_list_month:")) return false;
 
   const parts = interaction.customId.split(":");
   const [action, userId, pauseId] = parts;
   if (!userId) {
-    await interaction
-      .reply({
-        content: "<a:VC_Alert:1482706673176150077> Dati pausa non validi.",
-        flags: 1 << 6,
-      })
-      .catch(() => {});
+    await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> ID pausa non valido.", flags: 1 << 6 }).catch(() => {});
     return true;
   }
   if (
@@ -82,12 +77,7 @@ async function handlePauseButton(interaction) {
       action === "pause_cancel") &&
     parts.length !== 3
   ) {
-    await interaction
-      .reply({
-        content: "<a:VC_Alert:1482706673176150077> Dati pausa non validi.",
-        flags: 1 << 6,
-      })
-      .catch(() => {});
+    await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> ID pausa non valido.", flags: 1 << 6 }).catch(() => {});
     return true;
   }
 
@@ -99,13 +89,7 @@ async function handlePauseButton(interaction) {
       action === "pause_cancel") &&
     !isHighStaff
   ) {
-    await interaction
-      .reply({
-        content:
-          "<a:VC_Alert:1482706673176150077> Solo High Staff può usare questi pulsanti.",
-        flags: 1 << 6,
-      })
-      .catch(() => {});
+    await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Solo High Staff può usare questi pulsanti.", flags: 1 << 6 }).catch(() => {});
     return true;
   }
 
@@ -121,12 +105,7 @@ async function handlePauseButton(interaction) {
     }
   }
   if (!stafferRecord) {
-    await interaction
-      .reply({
-        content: "<a:VC_Alert:1482706673176150077> Record pausa non trovato.",
-        flags: 1 << 6,
-      })
-      .catch(() => {});
+    await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Pausa non trovata.", flags: 1 << 6 }).catch(() => {});
     return true;
   }
   if (
@@ -135,12 +114,7 @@ async function handlePauseButton(interaction) {
     !isStaff &&
     interaction.user.id !== effectiveUserId
   ) {
-    await interaction
-      .reply({
-        content: "<a:VC_Alert:1482706673176150077> Puoi vedere solo le tue pause.",
-        flags: 1 << 6,
-      })
-      .catch(() => {});
+    await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Puoi vedere solo le tue pause.", flags: 1 << 6 }).catch(() => {});
     return true;
   }
 
@@ -203,38 +177,20 @@ async function handlePauseButton(interaction) {
       return true;
     }
     const prfMonth = String(parts[4] || "").toLowerCase();
-    const pauseRoleFilterForList =
-      prfMonth === "pm" || prfMonth === "staff" ? prfMonth : undefined;
+    const pauseRoleFilterForList = prfMonth === "pm" || prfMonth === "staff" ? prfMonth : undefined;
     const memberLabel = pauseListMemberLabel(interaction.guild, interaction.client, effectiveUserId);
     const targetUser = { id: effectiveUserId, username: memberLabel };
-    const listPayload = await buildPauseListPayload({
-      guildId: interaction.guildId,
-      requesterId: interaction.user.id,
-      targetUser,
-      isHighStaff,
-      client: interaction.client,
-      filterMonth: Number(month),
-      pauseRoleFilter: pauseRoleFilterForList,
-    });
+    const listPayload = await buildPauseListPayload({ guildId: interaction.guildId, requesterId: interaction.user.id, targetUser, isHighStaff, client: interaction.client, filterMonth: Number(month), pauseRoleFilter: pauseRoleFilterForList });
     if (!listPayload.ok) {
       await interaction.reply({ content: listPayload.error || "<a:VC_Alert:1482706673176150077> Errore.", flags: 1 << 6 }).catch(() => {});
       return true;
     }
-    await interaction.reply({
-      embeds: listPayload.embeds,
-      components: listPayload.components || [],
-      flags: 1 << 6,
-    }).catch(() => {});
+    await interaction.reply({ embeds: listPayload.embeds, components: listPayload.components || [], flags: 1 << 6 }).catch(() => {});
     return true;
   }
 
   if (!pauseId) {
-    await interaction
-      .reply({
-        content: "<a:VC_Alert:1482706673176150077> Dati pausa non validi.",
-        flags: 1 << 6,
-      })
-      .catch(() => {});
+    await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> ID pausa non valido.", flags: 1 << 6 }).catch(() => {});
     return true;
   }
 
@@ -256,13 +212,7 @@ async function handlePauseButton(interaction) {
 
   const lockKey = `${String(interaction.guildId || "dm")}:${String(effectiveUserId)}:${String(effectivePauseId)}`;
   if (pauseActionLocks.has(lockKey)) {
-    await interaction
-      .reply({
-        content:
-          "<a:VC_Alert:1482706673176150077> Questa richiesta pausa è già in elaborazione.",
-        flags: 1 << 6,
-      })
-      .catch(() => {});
+    await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Questa richiesta pausa è già in elaborazione.", flags: 1 << 6 }).catch(() => {});
     return true;
   }
   pauseActionLocks.add(lockKey);
@@ -270,85 +220,54 @@ async function handlePauseButton(interaction) {
   try {
 
   if (!targetPause) {
-    await interaction
-      .reply({
-        content: "<a:VC_Alert:1482706673176150077> Richiesta pausa non trovata.",
-        flags: 1 << 6,
-      })
-      .catch(() => {});
+    await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Richiesta pausa non trovata.", flags: 1 << 6 }).catch(() => {});
     return true;
   }
 
   if (action === "pause_reject") {
     if (targetPause.status !== "pending") {
-      await interaction
-        .reply({
-          content:
-            "<a:VC_Alert:1482706673176150077> Questa richiesta è già stata gestita.",
-          flags: 1 << 6,
-        })
-        .catch(() => {});
+      await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Questa richiesta è già stata gestita.", flags: 1 << 6 }).catch(() => {});
       return true;
     }
-    await updatePauseInDb(guildId, effectiveUserId, effectivePauseId, { status: "rejected" });
+    const threadIdToDelete = String(targetPause.requestThreadId || "").trim();
+    await updatePauseInDb(guildId, effectiveUserId, effectivePauseId, { status: "rejected", requestThreadId: null });
     targetPause.status = "rejected";
-    await deletePauseThreadIfAny(interaction.guild, targetPause.requestThreadId);
-    await interaction.deferUpdate().catch(() => {});
+    targetPause.requestThreadId = null;
+    await deletePauseThreadIfAny(interaction.guild, threadIdToDelete);
+    await interaction.deferUpdate();
     const currentContent = interaction.message?.content || "";
     const rejectedSuffix = currentContent.includes("<:cancel:1461730653677551691>") ? "" : `\n\n<:cancel:1461730653677551691> **Richiesta pausa rifiutata** per <@${effectiveUserId}>.`;
     const updatedContent = currentContent + rejectedSuffix;
-    await interaction.message?.edit({
-      content: updatedContent,
-      components: [],
-    }).catch(() => {});
+    await interaction.message?.edit({ content: updatedContent, components: [] });
     return true;
   }
 
   if (action === "pause_cancel") {
-    if (targetPause.status !== "accepted") {
-      await interaction
-        .reply({
-          content:
-            "<a:VC_Alert:1482706673176150077> Questa pausa non è annullabile.",
-          flags: 1 << 6,
-        })
-        .catch(() => {});
+    const pausePhase = getPausePhase(targetPause.dataRichiesta, targetPause.dataRitorno);
+    if (pausePhase === "ended") {
+      if (targetPause.status === "accepted") {
+        await syncSingleAcceptedPauseMessage(interaction.guild, effectiveUserId, targetPause);
+      }
+      await interaction.update({ components: [] }).catch(() => {});
+      await interaction.followUp({ content: "<a:VC_Alert:1482706673176150077> La pausa è scaduta: il pulsante annulla non è più disponibile.", flags: 1 << 6 }).catch(() => {});
       return true;
     }
 
-    const end = parseItalianDate(targetPause.dataRitorno);
-    const todayForExpiry = getTodayUtc();
-    if (end && todayForExpiry > end) {
-      await interaction
-        .update({
-          components: [],
-        })
-        .catch(() => {});
-      await interaction
-        .followUp({
-          content:
-            "<a:VC_Alert:1482706673176150077> La pausa è scaduta: il pulsante annulla non è più disponibile.",
-          flags: 1 << 6,
-        })
-        .catch(() => {});
+    if (targetPause.status !== "accepted") {
+      await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Questa pausa non è annullabile.", flags: 1 << 6 }).catch(() => {});
       return true;
     }
 
     const member = await getGuildMemberCached(interaction.guild, effectiveUserId);
     if (!member) {
-      await interaction
-        .reply({
-          content:
-            "<a:VC_Alert:1482706673176150077> Staffer non trovato nel server.",
-          flags: 1 << 6,
-        })
-        .catch(() => {});
+      await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Staffer non trovato nel server.", flags: 1 << 6 }).catch(() => {});
       return true;
     }
 
     const todayUtc = getTodayUtc();
     const start = parseItalianDate(targetPause.dataRichiesta);
-    const totalScheduledDays=getPauseDaysBetween(targetPause.dataRichiesta,targetPause.dataRitorno)||0;
+    const end = parseItalianDate(targetPause.dataRitorno);
+    const totalScheduledDays = getPauseDaysBetween(targetPause.dataRichiesta, targetPause.dataRitorno) || 0;
     let consumedForCancelledPause = 0;
     if (start && end) {
       if (todayUtc < start) consumedForCancelledPause = 0;
@@ -360,19 +279,15 @@ async function handlePauseButton(interaction) {
         );
     }
 
-    await updatePauseInDb(guildId, effectiveUserId, effectivePauseId, {
-      status: "cancelled",
-      giorniUsati: consumedForCancelledPause,
-      cancelledAt: new Date(),
-    });
+    await updatePauseInDb(guildId, effectiveUserId, effectivePauseId, { status: "cancelled", giorniUsati: consumedForCancelledPause, cancelledAt: new Date() });
     targetPause.status = "cancelled";
     targetPause.giorniUsati = consumedForCancelledPause;
     targetPause.cancelledAt = new Date();
 
     const roleChoiceForPause = normalizePauseRoleChoice(targetPause?.ruolo || targetPause?.ruoloRichiesto) || PAUSE_ROLE_STAFF;
     const baseLimit = getBasePauseLimit(member, roleChoiceForPause);
-    const bonusBestStaff = getBestStaffPauseBonusDays(member, stafferRecord);
-    const maxGiorni = baseLimit + bonusBestStaff;
+    const bonusPause = getStaffPauseBonusDaysTotal(member, stafferRecord);
+    const maxGiorni = baseLimit + bonusPause;
     const giorniTotaliUsati = computeConsumedPauseDays(stafferRecord.staff?.pauses);
     const giorniRimanenti = Math.max(0, maxGiorni - giorniTotaliUsati);
 
@@ -380,80 +295,62 @@ async function handlePauseButton(interaction) {
     const annullataTag = "<:cancel:1461730653677551691> **__\`ANNULLATA\`__**";
     const updatedContent=currentContent.includes(annullataTag)?currentContent:`${currentContent}\n\n${annullataTag}`;
 
-    await interaction
-      .update({
-        content: updatedContent,
-        components: [
-          buildAcceptedButtonsRow(effectiveUserId, effectivePauseId, { hideCancel: true }),
-        ],
-      })
-      .catch(() => {});
+    await interaction.update({ content: updatedContent, components: [buildAcceptedButtonsRow(effectiveUserId, effectivePauseId, { hideCancel: true })] });
 
-    const pmSiblingId = String(targetPause.requestMessageIdPm || "").trim();
-    if (pmSiblingId && interaction.channel?.messages?.fetch) {
-      const pmMsg = await interaction.channel.messages.fetch(pmSiblingId).catch(() => null);
-      if (pmMsg) {
-        const pmContent = String(pmMsg.content || "");
-        const pmUpdated = pmContent.includes(annullataTag) ? pmContent : `${pmContent}\n\n${annullataTag}`;
-        await pmMsg.edit({ content: pmUpdated }).catch(() => {});
+    const staffMsgId = String(targetPause.requestMessageId || "").trim();
+    const pmMsgId = String(targetPause.requestMessageIdPm || "").trim();
+    const currentMsgId = String(interaction.message?.id || "").trim();
+    const siblingId =
+      currentMsgId && pmMsgId && currentMsgId === pmMsgId && staffMsgId
+        ? staffMsgId
+        : currentMsgId && staffMsgId && currentMsgId === staffMsgId && pmMsgId
+          ? pmMsgId
+          : "";
+    if (siblingId && interaction.channel?.messages?.fetch) {
+      const siblingMsg = await interaction.channel.messages.fetch(siblingId).catch(() => null);
+      if (siblingMsg) {
+        const sibContent = String(siblingMsg.content || "");
+        const sibUpdated = sibContent.includes(annullataTag) ? sibContent : `${sibContent}\n\n${annullataTag}`;
+        await siblingMsg
+          .edit({
+            content: sibUpdated,
+            components: [buildAcceptedButtonsRow(effectiveUserId, effectivePauseId, { hideCancel: true })],
+          })
+          .catch(() => {});
       }
     }
 
-    await interaction.channel
-      ?.send({
-        content: `<:cancel:1461730653677551691> Pausa annullata per <@${effectiveUserId}>. <a:VC_Calendar:1482706208149475358> Giorni scalati: \`${consumedForCancelledPause}\`. <:VC_Clock:1473359204189474886> Totale usati: \`${giorniTotaliUsati}/${maxGiorni}\` (\`${giorniRimanenti}\` rimanenti).`,
-      })
-      .catch(() => {});
+    await interaction.channel?.send({ content: `<:cancel:1461730653677551691> Pausa annullata per <@${effectiveUserId}>. <a:VC_Calendar:1482706208149475358> Giorni scalati: \`${consumedForCancelledPause}\`. <:VC_Clock:1473359204189474886> Totale usati: \`${giorniTotaliUsati}/${maxGiorni}\` (\`${giorniRimanenti}\` rimanenti).` });
     return true;
   }
 
   if (targetPause.status !== "pending") {
-    await interaction
-      .reply({
-        content:
-          "<a:VC_Alert:1482706673176150077> Questa richiesta è già stata gestita.",
-        flags: 1 << 6,
-      })
-      .catch(() => {});
+    await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Questa richiesta è già stata gestita.", flags: 1 << 6 }).catch(() => {});
     return true;
   }
 
   const member = await getGuildMemberCached(interaction.guild, effectiveUserId);
   if (!member) {
-    await interaction
-      .reply({
-        content: "<a:VC_Alert:1482706673176150077> Staffer non trovato nel server.",
-        flags: 1 << 6,
-      })
-      .catch(() => {});
+    await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Staffer non trovato nel server.", flags: 1 << 6 }).catch(() => {});
     return true;
   }
 
   const giorniRichiesti=getPauseDaysBetween(targetPause.dataRichiesta,targetPause.dataRitorno,);
   if (!giorniRichiesti) {
-    await interaction
-      .reply({
-        content: "<a:VC_Alert:1482706673176150077> Date pausa non valide.",
-        flags: 1 << 6,
-      })
-      .catch(() => {});
+    await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Date pausa non valide.", flags: 1 << 6 }).catch(() => {});
     return true;
   }
 
   const roleChoice = resolveAcceptedPauseRoleChoice(member, targetPause);
   const baseLimit = getBasePauseLimit(member, roleChoice);
   const bonusBestStaff = getBestStaffPauseBonusDays(member, stafferRecord);
-  const maxGiorni = baseLimit + bonusBestStaff;
+  const bonusPause = getStaffPauseBonusDaysTotal(member, stafferRecord);
+  const maxGiorni = baseLimit + bonusPause;
   const usedBefore = computeConsumedPauseDays(stafferRecord.staff?.pauses);
   const giorniUsati = usedBefore + giorniRichiesti;
   const giorniRimanenti = maxGiorni - giorniUsati;
   if (giorniRimanenti < 0) {
-    await interaction
-      .reply({
-        content: `<a:VC_Alert:1482706673176150077> Limite pause superato: disponibili \`${Math.max(0, maxGiorni - usedBefore)}\` su \`${maxGiorni}\`.`,
-        flags: 1 << 6,
-      })
-      .catch(() => {});
+    await interaction.reply({ content: `<a:VC_Alert:1482706673176150077> Limite pause superato: disponibili \`${Math.max(0, maxGiorni - usedBefore)}\` su \`${maxGiorni}\`.`, flags: 1 << 6 }).catch(() => {});
     return true;
   }
 
@@ -471,18 +368,17 @@ async function handlePauseButton(interaction) {
     sameRoleActiveCount = overlappingSameRole + 1;
   }
 
+  const threadIdToDelete = String(targetPause.requestThreadId || "").trim();
   const updateResult = await updatePauseInDb(guildId, effectiveUserId, effectivePauseId, {
     status: "accepted",
     ruolo: roleChoice,
     giorniUsati,
     giorniAggiuntivi: bonusBestStaff,
     stafferInPausa: sameRoleActiveCount,
+    requestThreadId: null,
   });
   if (!updateResult.ok) {
-    await interaction.reply({
-      content: "<a:VC_Alert:1482706673176150077> Impossibile salvare l'accettazione della pausa nel database. Riprova.",
-      flags: 1 << 6,
-    }).catch(() => {});
+    await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Impossibile salvare l'accettazione della pausa nel database. Riprova.", flags: 1 << 6 }).catch(() => {});
     return true;
   }
   targetPause.status = "accepted";
@@ -490,9 +386,10 @@ async function handlePauseButton(interaction) {
   targetPause.giorniUsati = giorniUsati;
   targetPause.giorniAggiuntivi = bonusBestStaff;
   targetPause.stafferInPausa = sameRoleActiveCount;
+  targetPause.requestThreadId = null;
 
   if (bonusBestStaff >= 5) {
-    await grantBestStaffPauseBonusYear(guildId, effectiveUserId).catch(() => {});
+    await grantBestStaffPauseBonusYear(guildId, effectiveUserId);
   }
 
   const roleLimit = roleChoice === PAUSE_ROLE_BOTH ? null : getPauseRoleLimit(roleChoice);
@@ -516,94 +413,166 @@ async function handlePauseButton(interaction) {
   const pauseAlreadyEnded = Boolean(pauseEnd && now > pauseEnd);
   const pauseTimingText = getPauseTimingText(targetPause.dataRichiesta, targetPause.dataRitorno);
 
-  await deletePauseThreadIfAny(interaction.guild, targetPause.requestThreadId);
-  await interaction.deferUpdate().catch(() => {});
+  await deletePauseThreadIfAny(interaction.guild, threadIdToDelete);
+  await interaction.deferUpdate();
 
   if (roleChoice === PAUSE_ROLE_BOTH) {
     const pmRole = interaction.guild?.roles?.cache?.get(String(IDs.roles?.PartnerManager || ""));
     const pmLabel = pmRole?.name || "Partner Manager";
     const staffLabel = getMemberRoleLabel(member);
-    const acceptanceStaff = buildAcceptedPauseLogContent({
-      roleLabel: staffLabel,
-      effectiveUserId,
-      pauseTimingText,
-      dataRichiesta: targetPause.dataRichiesta,
-      dataRitorno: targetPause.dataRitorno,
-      giorniUsati,
-      maxGiorni,
-      giorniRimanenti,
-      sameRoleActiveCount: sameRoleActiveCountStaff,
-      roleLimitWarning: roleLimitWarningStaff,
-    });
-    const acceptancePm = buildAcceptedPauseLogContent({
-      roleLabel: pmLabel,
-      effectiveUserId,
-      pauseTimingText,
-      dataRichiesta: targetPause.dataRichiesta,
-      dataRitorno: targetPause.dataRitorno,
-      giorniUsati,
-      maxGiorni,
-      giorniRimanenti,
-      sameRoleActiveCount: sameRoleActiveCountPm,
-      roleLimitWarning: roleLimitWarningPm,
-    });
-    await interaction.message?.edit({
-      content: acceptanceStaff,
-      components: [buildAcceptedButtonsRow(effectiveUserId, effectivePauseId, { hideCancel: false, disableCancel: pauseAlreadyEnded })],
-    }).catch(() => {});
+    const acceptanceStaff = buildAcceptedPauseLogContent({ roleLabel: staffLabel, effectiveUserId, pauseTimingText, dataRichiesta: targetPause.dataRichiesta, dataRitorno: targetPause.dataRitorno, giorniUsati, maxGiorni, giorniRimanenti, sameRoleActiveCount: sameRoleActiveCountStaff, roleLimitWarning: roleLimitWarningStaff });
+    const acceptancePm = buildAcceptedPauseLogContent({ roleLabel: pmLabel, effectiveUserId, pauseTimingText, dataRichiesta: targetPause.dataRichiesta, dataRitorno: targetPause.dataRitorno, giorniUsati, maxGiorni, giorniRimanenti, sameRoleActiveCount: sameRoleActiveCountPm, roleLimitWarning: roleLimitWarningPm });
+    await interaction.message?.edit({ content: acceptanceStaff, components: [buildAcceptedButtonsRow(effectiveUserId, effectivePauseId, { hideCancel: false, disableCancel: pauseAlreadyEnded })] });
     let pmMessageId = null;
-    const sentPm = await interaction.channel?.send({ content: acceptancePm }).catch(() => null);
+    const sentPm = await interaction.channel
+      ?.send({
+        content: acceptancePm,
+        components: [buildAcceptedButtonsRow(effectiveUserId, effectivePauseId, { hideCancel: false, disableCancel: pauseAlreadyEnded })],
+      })
+      .catch(() => null);
     if (sentPm?.id) {
       pmMessageId = String(sentPm.id);
       await updatePauseInDb(guildId, effectiveUserId, effectivePauseId, { requestMessageIdPm: pmMessageId });
       targetPause.requestMessageIdPm = pmMessageId;
     }
-    if (pauseEnd && interaction.message?.id && interaction.channel?.id) {
-      schedulePauseButtonsRemoval(
-        interaction.guild,
-        interaction.channel.id,
-        interaction.message.id,
-        targetPause.dataRichiesta,
-        targetPause.dataRitorno,
-        effectiveUserId,
-        effectivePauseId,
-        pmMessageId,
-      );
-    }
+    if (pauseEnd && interaction.message?.id && interaction.channel?.id) { schedulePauseButtonsRemoval(interaction.guild, interaction.channel.id, interaction.message.id, targetPause.dataRichiesta, targetPause.dataRitorno, effectiveUserId, effectivePauseId, pmMessageId) }
   } else {
     const pauseRoleLabel = formatPauseRoleLabelForMessage(interaction.guild, targetPause.ruolo, member);
-    const acceptanceContent = buildAcceptedPauseLogContent({
-      roleLabel: pauseRoleLabel,
-      effectiveUserId,
-      pauseTimingText,
-      dataRichiesta: targetPause.dataRichiesta,
-      dataRitorno: targetPause.dataRitorno,
-      giorniUsati,
-      maxGiorni,
-      giorniRimanenti,
-      sameRoleActiveCount,
-      roleLimitWarning,
-    });
-    await interaction.message?.edit({
-      content: acceptanceContent,
-      components: [buildAcceptedButtonsRow(effectiveUserId, effectivePauseId, { hideCancel: false, disableCancel: pauseAlreadyEnded })],
-    }).catch(() => {});
-    if (pauseEnd && interaction.message?.id && interaction.channel?.id) {
-      schedulePauseButtonsRemoval(
-        interaction.guild,
-        interaction.channel.id,
-        interaction.message.id,
-        targetPause.dataRichiesta,
-        targetPause.dataRitorno,
-        effectiveUserId,
-        effectivePauseId,
-      );
-    }
+    const acceptanceContent = buildAcceptedPauseLogContent({ roleLabel: pauseRoleLabel, effectiveUserId, pauseTimingText, dataRichiesta: targetPause.dataRichiesta, dataRitorno: targetPause.dataRitorno, giorniUsati, maxGiorni, giorniRimanenti, sameRoleActiveCount, roleLimitWarning });
+    await interaction.message?.edit({ content: acceptanceContent, components: [buildAcceptedButtonsRow(effectiveUserId, effectivePauseId, { hideCancel: false, disableCancel: pauseAlreadyEnded })] });
+    if (pauseEnd && interaction.message?.id && interaction.channel?.id) { schedulePauseButtonsRemoval(interaction.guild, interaction.channel.id, interaction.message.id, targetPause.dataRichiesta, targetPause.dataRitorno, effectiveUserId, effectivePauseId) }
   }
   return true;
-  } finally {
-    pauseActionLocks.delete(lockKey);
+  } finally { pauseActionLocks.delete(lockKey) }
   }
+
+async function handlePauseRequestOpen(interaction) {
+  if (!interaction.isButton() || interaction.customId !== PAUSE_REQUEST_OPEN_ID) return false;
+  if (!interaction.guild) {
+    await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Comando disponibile solo nel server.", flags: 1 << 6 }).catch(() => {});
+    return true;
+  }
+  const member = interaction.member || (await getGuildMemberCached(interaction.guild, interaction.user.id));
+  if (!memberCanRequestPause(member)) {
+    await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Non hai i permessi per richiedere una pausa.", flags: 1 << 6 }).catch(() => {});
+    return true;
+  }
+  const modal = new ModalBuilder().setCustomId(PAUSE_REQUEST_MODAL_ID).setTitle("Richiesta pausa");
+  modal.addComponents(
+    new ActionRowBuilder().addComponents(
+      new TextInputBuilder()
+        .setCustomId("pause_start")
+        .setLabel("Data inizio pausa")
+        .setPlaceholder("es. 20/05/2026 o 1 agosto")
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true)
+        .setMaxLength(40),
+    ),
+    new ActionRowBuilder().addComponents(
+      new TextInputBuilder()
+        .setCustomId("pause_end")
+        .setLabel("Data ritorno")
+        .setPlaceholder("es. 25/05/2026")
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true)
+        .setMaxLength(40),
+    ),
+    new ActionRowBuilder().addComponents(
+      new TextInputBuilder()
+        .setCustomId("pause_reason")
+        .setLabel("Motivo")
+        .setPlaceholder("Descrivi brevemente il motivo della pausa")
+        .setStyle(TextInputStyle.Paragraph)
+        .setRequired(true)
+        .setMaxLength(500),
+    ),
+  );
+  await interaction.showModal(modal).catch(() => null);
+  return true;
 }
 
-module.exports = { handlePauseButton };
+async function handlePauseRequestModal(interaction) {
+  if (!interaction.isModalSubmit() || interaction.customId !== PAUSE_REQUEST_MODAL_ID) return false;
+  if (!interaction.guild) {
+    await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Richiesta non valida.", flags: 1 << 6 }).catch(() => {});
+    return true;
+  }
+  const member = interaction.member || (await getGuildMemberCached(interaction.guild, interaction.user.id));
+  if (!memberCanRequestPause(member)) {
+    await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Non hai i permessi per richiedere una pausa.", flags: 1 << 6 }).catch(() => {});
+    return true;
+  }
+  const rawStart = interaction.fields.getTextInputValue("pause_start");
+  const rawEnd = interaction.fields.getTextInputValue("pause_end");
+  const reason = interaction.fields.getTextInputValue("pause_reason");
+  const hasStaff = Boolean(member?.roles?.cache?.has(IDs.roles.Staff));
+  const hasPm = Boolean(member?.roles?.cache?.has(IDs.roles.PartnerManager));
+  if (hasStaff && hasPm) {
+    storePendingPauseRolePick(interaction.user.id, {
+      guildId: interaction.guild.id,
+      rawStart,
+      rawEnd,
+      reason,
+    });
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId(PAUSE_ROLE_PICK_PM).setLabel("PM").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId(PAUSE_ROLE_PICK_STAFF).setLabel("Staff").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId(PAUSE_ROLE_PICK_BOTH).setLabel("Entrambi").setStyle(ButtonStyle.Primary),
+    );
+    await interaction.reply({
+      content: "Scegli per quale ruolo vuoi chiedere la pausa:",
+      components: [row],
+      flags: 1 << 6,
+    }).catch(() => null);
+    return true;
+  }
+  await interaction.deferReply({ flags: 1 << 6 }).catch(() => null);
+  const channel = interaction.channel || (await getGuildChannelCached(interaction.guild, IDs.channels?.pause));
+  const result = await submitPauseRequestForMember({
+    guild: interaction.guild,
+    member,
+    rawStart,
+    rawEnd,
+    reason,
+    replyChannel: channel,
+  });
+  const text = result.ok
+    ? "<:vegacheckmark:1443666279058772028> Richiesta pausa inviata nel canale."
+    : `<:vegax:1443934876440068179> ${result.error || "Errore invio richiesta."}`;
+  await interaction.editReply({ content: text }).catch(() => null);
+  return true;
+}
+
+async function handlePauseRolePickForPending(interaction) {
+  if (!interaction.isButton()) return false;
+  const id = String(interaction.customId || "");
+  if (id !== PAUSE_ROLE_PICK_PM && id !== PAUSE_ROLE_PICK_STAFF && id !== PAUSE_ROLE_PICK_BOTH) return false;
+  const pending = takePendingPauseRolePick(interaction.user.id);
+  if (!pending) return false;
+  if (!interaction.guild || String(interaction.guild.id) !== String(pending.guildId || "")) {
+    await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Sessione scaduta. Riapri il modulo pausa.", flags: 1 << 6 }).catch(() => {});
+    return true;
+  }
+  let requestedRole = "Staff";
+  if (id === PAUSE_ROLE_PICK_PM) requestedRole = "PartnerManager";
+  else if (id === PAUSE_ROLE_PICK_BOTH) requestedRole = "Entrambi";
+  const member = interaction.member || (await getGuildMemberCached(interaction.guild, interaction.user.id));
+  await interaction.deferUpdate().catch(() => null);
+  const channel = interaction.channel || (await getGuildChannelCached(interaction.guild, IDs.channels?.pause));
+  const result = await submitPauseRequestForMember({
+    guild: interaction.guild,
+    member,
+    rawStart: pending.rawStart,
+    rawEnd: pending.rawEnd,
+    reason: pending.reason,
+    requestedRole,
+    replyChannel: channel,
+  });
+  const text = result.ok
+    ? "<:vegacheckmark:1443666279058772028> Richiesta pausa inviata nel canale."
+    : `<:vegax:1443934876440068179> ${result.error || "Errore invio richiesta."}`;
+  await interaction.editReply({ content: text, components: [] }).catch(() => null);
+  return true;
+}
+
+module.exports = { handlePauseButton, handlePauseRequestOpen, handlePauseRequestModal, handlePauseRolePickForPending };

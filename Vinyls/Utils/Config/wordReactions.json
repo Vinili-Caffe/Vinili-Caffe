@@ -1,39 +1,47 @@
 [
   {
-    "words": ["wlc", "welcome", "wlc all", "welcome all", "benvenuto", "benvenuti", "benvenuta", "benvenutx", "benvenute", "benvenuti a tutti", "benvenutx a tutti", "benvenute a tutti"],
+    "words": ["wlc", "welcome", "wlc all", "welcome all", "benvenutə", "benvenuto", "benvenuto/a", "benvenuti", "benvenuta", "benvenutx", "benvenute", "benvenuti a tutti", "benvenutx a tutti", "benvenute a tutti", "benvenut*", "benvenuti/e"],
     "reactions": ["<a:VC_PikaWave:1331622011004260354>", "<:VC_PepeWave:1331589315175907412>", "<a:VC_PepeWelcome:1448671757128175626>"],
     "onlyInWelcomeContext": true,
-    "contextChannelIds": ["chat", "1442569209849843823", "1442569260059725844", "1442569268666568897", "1442569285909217301"],
+    "expChannelIds": ["chat"],
+    "contextChannelIds": ["chat"],
     "channelIds": ["chat", "1442569209849843823", "1442569260059725844", "1442569268666568897", "1442569285909217301"]
   },
   {
     "words": ["buongiorno", "gm", "gm a tutti", "bg", "giorno a tutti", "buongiorno a tutti", "bg a tutti", "buon giorno", "buon giorno a tutti"],
-    "loneWords": ["giorno"],
-    "matchAtStart": true,
     "reactions": ["<:VC_PepeCoffee:1331589584831643699>", "<:VC_PepeCoffe:1331591342744277022>", "<:VC_PepeCryCoffe:1331591489477939200>"],
     "timeWindow": { "startHour": 5, "endHour": 12 },
     "channelIds": ["chat", "1442569260059725844", "1442569268666568897", "1442569285909217301", "1442569209849843823", "1442569136067575809", "1442569138114662490", "1470029899740873029"]
   },
   {
     "words": ["buonanotte", "gn", "gn a tutti", "bn", "notte a tutti", "buonanotte a tutti", "bn a tutti", "buona notte", "buona notte a tutti"],
-    "loneWords": ["notte"],
-    "matchAtStart": true,
     "reactions": ["<:VC_PepeSleep:1331591537070440478>", "<a:VC_PepeSleep:1331590644506034247>", "<:VC_PepeWideAwake:1331589268648497201>"],
     "timeWindow": { "startHour": 20, "endHour": 6 },
     "channelIds": ["chat", "1442569260059725844", "1442569268666568897", "1442569285909217301", "1442569209849843823", "1442569136067575809", "1442569138114662490", "1470029899740873029"]
   },
   {
     "words": ["ciao"],
-    "loneWords": ["ciao"],
-    "matchAtStart": true,
     "reactions": ["<a:VC_PikaWave:1331622011004260354>"],
     "channelIds": ["chat", "1442569260059725844", "1442569268666568897", "1442569285909217301", "1442569209849843823", "1442569136067575809", "1442569138114662490", "1470029899740873029"]
   },
   {
     "words": ["grazie", "grazie mille", "thx", "thanks", "grz", "thx u all", "grazie a tutti"],
-    "loneWords": ["grazie", "grazie mille", "thx", "thanks", "grz", "thx u all", "grazie a tutti"],
-    "matchAtStart": true,
     "reactions": ["<a:VC_ThankYou:1330186319673950401>", "<a:VC_Kiss:1448673021031223428>", "<a:VC_bimbakiss:1483092810663198850>"],
-    "channelIds": ["1442569123426074736"]
+    "channelIds": ["1442569123426074736", "chat", "1442569260059725844", "1442569268666568897", "1442569285909217301", "1442569209849843823", "1442569136067575809", "1442569138114662490", "1470029899740873029"]
+  },
+  {
+    "words": ["brava", "brave", "bravi", "bravo", "brave a tutte", "bravi a tutti", "complimenti", "complimenti a tutti", "complimenti a te", "complimenti a te e a tutti", "gg", "gg a tutti", "gg a te", "gg a te e a tutti", "ggwp", "ggwp a tutti", "ggwp a te", "ggwp a te e a tutti", "complimenti a tutte"],
+    "reactions": ["<a:VC_clap:1507868436095696976>"],
+    "channelIds": ["chat", "1442569260059725844", "1442569268666568897", "1442569285909217301", "1442569209849843823", "1442569136067575809", "1442569138114662490", "1470029899740873029"]
+  },
+  {
+    "words": ["no", "non penso", "non credo"],
+    "reactions": ["<a:VC_no:1522004036633755708>"],
+    "channelIds": ["chat", "1442569260059725844", "1442569268666568897", "1442569285909217301", "1442569209849843823", "1442569136067575809", "1442569138114662490", "1470029899740873029"]
+  },
+  {
+    "words": ["lol", "haha", "ahah"],
+    "reactions": ["<a:VC_risata:1483909391689449532>"],
+    "channelIds": ["chat", "1442569260059725844", "1442569268666568897", "1442569285909217301", "1442569209849843823", "1442569136067575809", "1442569138114662490", "1470029899740873029"]
   }
 ]

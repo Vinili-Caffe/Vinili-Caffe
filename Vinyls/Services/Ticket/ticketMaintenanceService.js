@@ -42,10 +42,6 @@ async function processTickets(client) {
     {
       open: true,
       createdAt: { $lte: openBefore },
-      $or: [
-        { autoClosePromptSentAt: { $exists: false } },
-        { autoClosePromptSentAt: null },
-      ],
     },
     {
       _id: 1,
@@ -68,6 +64,9 @@ async function processTickets(client) {
 
       const lastActiveAt = await getLatestHumanMessageTimestamp(channel, ticket.createdAt,);
       if (!lastActiveAt || now - lastActiveAt < INACTIVE_FOR_MS) continue;
+
+      const promptAt = ticket.autoClosePromptSentAt ? new Date(ticket.autoClosePromptSentAt).getTime() : 0;
+      if (Number.isFinite(promptAt) && promptAt > 0 && lastActiveAt <= promptAt) continue;
 
       const mentions = new Set([ticket.userId, ticket.claimedBy].filter(Boolean),);
       const mentionText = Array.from(mentions).map((id) => `<@${id}>`)

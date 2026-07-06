@@ -15,6 +15,8 @@
     requestAuthRequired: false,
     submittingRequest: false,
     lastSnapshot: "",
+    lastAppliedSummarySig: "",
+    lastProfileViewerForGrid: "\u0000",
     lastFocusEl: null
   };
   var liveRolesPollTimer = null;
@@ -75,7 +77,11 @@
     var c = authCfg();
     var clientId = String(c.clientId || "").trim();
     if (!clientId) return "";
-    var redirect = String(c.redirectUri || "").trim() || (window.location.origin + window.location.pathname);
+    var redirect = String(c.redirectUri || "").trim();
+    if (!redirect) {
+      var home = String(c.homeUrl || "").trim();
+      redirect = /^https?:\/\//i.test(home) ? (home.endsWith("/") ? home : home + "/") : window.location.origin + "/";
+    }
     var here = String(window.location.pathname || "/") + String(window.location.search || "");
     var q = new URLSearchParams({
       client_id: clientId,
@@ -279,6 +285,9 @@
     var totalValue = Number(summary && summary.totalRoles) || 0;
     var permValue = Number(summary && summary.permanentRoles) || 0;
     var memberValue = Number(summary && summary.totalAssignments) || 0;
+    var summarySig = totalValue + "|" + permValue + "|" + memberValue;
+    if (state.lastAppliedSummarySig === summarySig) return;
+    state.lastAppliedSummarySig = summarySig;
     if (total) {
       if (countApi && typeof countApi.set === "function") countApi.set(total, totalValue, "int");
       else total.textContent = formatIntIt(totalValue);
@@ -326,6 +335,54 @@
     return '<i class="fa fa-paint-brush" aria-hidden="true"></i>';
   }
 
+  function viewerDiscordUserId() {
+    try {
+      var u = typeof window !== "undefined" ? window.__VC_DISCORD_PROFILE : null;
+      return String(u && u.id ? u.id : "").trim();
+    } catch (e) {
+      return "";
+    }
+  }
+
+  function viewerIsRoleOwner(row) {
+    var vid = viewerDiscordUserId();
+    var oid = String(row && row.ownerId ? row.ownerId : "").trim();
+    return Boolean(vid && oid && vid === oid);
+  }
+
+  function viewerHasRole(row) {
+    var vid = viewerDiscordUserId();
+    var members = Array.isArray(row && row.members) ? row.members : [];
+    if (!vid || !members.length) return false;
+    for (var i = 0; i < members.length; i += 1) {
+      if (String(members[i] && members[i].userId ? members[i].userId : "").trim() === vid) return true;
+    }
+    return false;
+  }
+
+  function roleRequestCtaHtml(row) {
+    var rid = esc(String(row.roleId || ""));
+    if (viewerIsRoleOwner(row)) {
+      return (
+        '<button type="button" class="vc-role-card-cta vc-role-card-cta--owner-self" disabled title="Ruolo che hai creato con +profile: non puoi richiederlo a te stesso">' +
+        '<i class="fa fa-user" aria-hidden="true"></i> Il tuo ruolo</button>'
+      );
+    }
+    if (viewerHasRole(row)) {
+      return (
+        '<button type="button" class="vc-role-card-cta vc-role-card-cta--already-member" disabled title="Hai già questo ruolo">' +
+        '<i class="fa fa-check" aria-hidden="true"></i> Già tuo</button>'
+      );
+    }
+    return (
+      '<button type="button" class="vc-role-card-cta" data-request-role-id="' +
+      rid +
+      '" data-role-id="' +
+      rid +
+      '"><i class="fa fa-shield" aria-hidden="true"></i> Richiedi Ruolo</button>'
+    );
+  }
+
   function renderCard(row) {
     var ownerName = String(row.ownerUsername || row.ownerDisplayName || "Utente").trim() || "Utente";
     var expiryChip = row.isPermanent
@@ -354,7 +411,7 @@
       '<div class="vc-role-card-sep"></div>' +
       '<div class="vc-role-card-actions">' +
       '<button type="button" class="vc-role-card-open" data-role-id="' + esc(row.roleId) + '"><i class="fa fa-users" aria-hidden="true"></i> Vedi membri</button>' +
-      '<button type="button" class="vc-role-card-cta" data-request-role-id="' + esc(row.roleId) + '" data-role-id="' + esc(row.roleId) + '"><i class="fa fa-shield" aria-hidden="true"></i> Richiedi Ruolo</button>' +
+      roleRequestCtaHtml(row) +
       "</div>" +
       "</article>"
     );
@@ -482,6 +539,10 @@
 
   function getToken() {
     try {
+      if (typeof window.__vcDiscordGetAccessToken === "function") {
+        var fromAuth = window.__vcDiscordGetAccessToken();
+        if (fromAuth) return String(fromAuth).trim();
+      }
       var token = localStorage.getItem(ACCESS_TOKEN_KEY);
       var exp = Number(localStorage.getItem(EXPIRES_AT_KEY) || "0");
       if (!token || !exp || Date.now() >= exp) return "";
@@ -557,6 +618,14 @@
     var sub = byId("vc-role-request-sub");
     var textarea = byId("vc-role-request-reason");
     if (!row || !modal || !title || !sub || !textarea) return;
+    if (viewerIsRoleOwner(row)) {
+      setState("Non puoi inviare una richiesta per un ruolo che hai creato tu.", true);
+      return;
+    }
+    if (viewerHasRole(row)) {
+      setState("Hai già questo ruolo: non serve inviare una richiesta.", true);
+      return;
+    }
     state.activeRequestRoleId = String(row.roleId || "");
     state.requestAuthRequired = false;
     state.submittingRequest = false;
@@ -572,7 +641,9 @@
     modal.removeAttribute("inert");
     document.body.classList.add("vc-role-modal-open");
     setTimeout(function () {
-      textarea.focus();
+      if (!state.requestAuthRequired && textarea && typeof textarea.focus === "function") {
+        textarea.focus();
+      }
     }, 0);
   }
 
@@ -609,6 +680,17 @@
     var textarea = byId("vc-role-request-reason");
     var api = resolvedRequestApiUrl();
     var reason = textarea ? String(textarea.value || "").trim() : "";
+    var activeRow = findRow(state.activeRequestRoleId);
+    if (activeRow && viewerIsRoleOwner(activeRow)) {
+      setRequestState("Sei già il creatore di questo ruolo: non serve inviare una richiesta.", true);
+      syncRequestModalState();
+      return;
+    }
+    if (activeRow && viewerHasRole(activeRow)) {
+      setRequestState("Hai già questo ruolo: non serve inviare una richiesta.", true);
+      syncRequestModalState();
+      return;
+    }
     if (!token) {
       syncRequestAuthUi();
       syncRequestModalState();
@@ -683,11 +765,41 @@
     renderPager();
   }
 
+  function stableRowsFingerprint(rows) {
+    var list = Array.isArray(rows) ? rows : [];
+    return list
+      .map(function (r) {
+        return [
+          r.roleId,
+          r.roleSlot,
+          r.roleName,
+          r.roleColor,
+          r.roleEmoji,
+          r.roleIconUrl,
+          r.createdAt,
+          r.expiresAt,
+          String(r.isPermanent),
+          String(r.memberCount || 0),
+          r.ownerId,
+          r.ownerUsername,
+          r.ownerDisplayName,
+          r.ownerAvatar,
+          r.customVocChannelId
+        ].join("\t");
+      })
+      .sort()
+      .join("\n");
+  }
+
   function buildDataSnapshot(rows, summary) {
     try {
+      var s = summary || {};
       return JSON.stringify({
-        rows: Array.isArray(rows) ? rows : [],
-        summary: summary || {}
+        rowsFp: stableRowsFingerprint(rows),
+        totalRoles: Number(s.totalRoles) || 0,
+        permanentRoles: Number(s.permanentRoles) || 0,
+        temporaryRoles: Number(s.temporaryRoles) || 0,
+        totalAssignments: Number(s.totalAssignments) || 0
       });
     } catch (e) {
       return String(Date.now());
@@ -868,6 +980,7 @@
     }
 
     if (!silent) {
+      state.lastAppliedSummarySig = "";
       setLoading(true, "Caricamento ruoli", "Sto recuperando tutti i ruoli personalizzati della community…");
       setState("", false);
     }
@@ -937,6 +1050,22 @@
     bindModal();
     load();
     startLiveRolesPolling();
+    window.addEventListener("vc-discord-profile", function () {
+      if (state.activeRequestRoleId) {
+        syncRequestAuthUi();
+        syncRequestModalState();
+      }
+      var uid = viewerDiscordUserId();
+      if (state.lastProfileViewerForGrid === uid) return;
+      state.lastProfileViewerForGrid = uid;
+      if (state.filtered.length) renderGrid();
+    });
+    document.addEventListener("visibilitychange", function () {
+      if (document.visibilityState !== "visible") return;
+      if (!state.activeRequestRoleId) return;
+      syncRequestAuthUi();
+      syncRequestModalState();
+    });
   }
 
   window.addEventListener("pageshow", function (ev) {

@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="it">
+  <head>
+    <script>(function(){function s(x,d){try{d=d||0;if(x&&typeof x==="object"){var p=[];if(x.message!=null)p.push(String(x.message));if(x.stack!=null)p.push(String(x.stack));if(x.name!=null)p.push(String(x.name));if(d<2&&x.reason!=null)p.push(s(x.reason,d+1));if(d<2&&x.error!=null)p.push(s(x.error,d+1));if(p.length)return p.join(" ")}return String(x||"")}catch(e){return""}}function n(x){var m=s(x);return /listener indicated an asynchronous response/i.test(m)||/asynchronous response by returning true/i.test(m)||/message channel closed before a response was received/i.test(m)||/closed before a response was received/i.test(m)||/message port closed before a response was received/i.test(m)||/extension context invalidated/i.test(m)||/unchecked runtime\.lasterror/i.test(m)}function h(e){if(!n(e&&e.reason)&&!n(e&&e.message)&&!n(e&&e.error))return;try{e.preventDefault();e.stopImmediatePropagation()}catch(_e){}}window.addEventListener("unhandledrejection",h,true);window.addEventListener("error",h,true);["error","warn"].forEach(function(l){var o=console[l];if(typeof o!=="function")return;console[l]=function(){var a="";for(var i=0;i<arguments.length;i++)a+=" "+s(arguments[i]);if(n(a))return;return o.apply(console,arguments)}})})();</script>
+    <script>(function(){try{if(window.trustedTypes){window.trustedTypes.createPolicy("default",{createHTML:function(s){return String(s)},createScript:function(s){return String(s)},createScriptURL:function(s){return String(s)}})}}catch(e){}})();</script>
+    <script src="../js/vc-suppress-extension-errors.js"></script>
+{{COOKIEYES_BLOCK}}{{GA_BLOCK}}
+    <meta charset="utf-8" />
+    <title>{{HOGWARTS_HUB_PAGE_TITLE}}</title>
+    <meta name="description" content="{{HOGWARTS_HUB_META_DESCRIPTION}}" />
+    <meta name="author" content="{{SITE_NAME}}" />
+    <meta name="robots" content="index, follow" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="{{HOGWARTS_HUB_OG_TITLE}}" />
+    <meta property="og:description" content="{{HOGWARTS_HUB_META_DESCRIPTION}}" />
+    <meta property="og:url" content="{{HOGWARTS_HUB_OG_URL}}" />
+    <meta property="og:image" content="{{OG_IMAGE_URL}}" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&amp;family=Cormorant+Garamond:wght@600&amp;family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="stylesheet" href="../css/tw-build.css" />
+    <link rel="stylesheet" href="../css/vc-landing.css" />
+    <script src="../js/vc-auth-pending.js"></script>
+    <link rel="icon" href="{{GUILD_ICON_URL}}" />
+  </head>
+  <body id="top" class="vc-body vc-hw-page vc-hw-hub-page relative min-h-screen overflow-x-hidden font-sans text-slate-100 antialiased">
+    <div class="vc-hw-stars" aria-hidden="true"></div>
+    <div class="vc-blob vc-blob-a" aria-hidden="true"></div>
+    <div class="vc-blob vc-blob-b" aria-hidden="true"></div>
+
+    {{HOGWARTS_EVENT_HEADER}}
+
+    <button type="button" class="vc-hw-music-fab vc-hw-music-btn" id="vc-hw-music-btn" hidden aria-label="Musica di sottofondo"><i class="fa fa-volume-up" aria-hidden="true"></i></button>
+
+    <main class="relative z-10 mx-auto max-w-6xl px-4 pb-20 pt-28 sm:pt-32">
+      <section class="vc-hw-hero text-center" aria-labelledby="vc-hw-hub-title">
+        <p class="vc-hw-eyebrow">Evento Stagionale</p>
+        <h1 id="vc-hw-hub-title" class="vc-hw-title">Hogwarts</h1>
+        <p class="vc-hw-subtitle">Calendario settimanale delle attività: si aggiorna automaticamente in base alla data.</p>
+        <p id="vc-hw-hub-window" class="vc-hw-window mt-3">{{HOGWARTS_EVENT_WINDOW_LABEL}}</p>
+      </section>
+
+      <section id="vc-hw-hub-gate" class="vc-hw-notice mt-8" hidden role="alert">
+        <i class="fa fa-info-circle" aria-hidden="true"></i>
+        <div class="vc-hw-gate-body">
+          <p id="vc-hw-hub-gate-msg"></p>
+        </div>
+      </section>
+
+      <div id="vc-hw-hub-app" hidden>
+      <section class="vc-hw-hub-current mt-10" aria-labelledby="vc-hw-hub-current-title">
+        <div class="vc-hw-hub-current__head">
+          <h2 id="vc-hw-hub-current-title" class="vc-hw-hub-section-title">Questa settimana</h2>
+          <p id="vc-hw-hub-current-range" class="vc-hw-hub-current__range"></p>
+        </div>
+        <div id="vc-hw-hub-current-activities" class="vc-hw-hub-activity-grid mt-6"></div>
+      </section>
+
+      <div id="vc-hw-hub-preview-tools" class="vc-hw-hub-preview-tools mt-8 text-center" hidden>
+        <p class="vc-hw-hub-preview-tools__label"><i class="fa fa-eye" aria-hidden="true"></i> Anteprima staff</p>
+        <button type="button" id="vc-hw-hub-toggle-all" class="vc-hw-btn vc-hw-btn--ghost mt-3">
+          <i class="fa fa-calendar" aria-hidden="true"></i> Mostra tutte le settimane
+        </button>
+      </div>
+
+      <section id="vc-hw-hub-all-weeks" class="vc-hw-hub-all mt-10" hidden aria-label="Calendario completo anteprima"></section>
+      </div>
+    </main>
+
+    <footer class="relative z-10 border-t border-white/8 bg-slate-950/20">
+      <div class="mx-auto max-w-6xl px-4 py-8 text-center text-sm text-slate-400">
+        <p>© {{YEAR}} {{SITE_NAME}}. All rights reserved.</p>
+      </div>
+    </footer>
+
+    <script>
+      window.__VC_SITE_HOME_URL = "{{SITE_URL}}";
+      window.__VC_AUTH = {
+        clientId: "{{DISCORD_OAUTH_CLIENT_ID}}",
+        redirectUri: "{{DISCORD_OAUTH_REDIRECT_URI}}",
+        homeUrl: "{{SITE_URL}}",
+      };
+      window.__VC_SITE_NOTIFS = {
+        apiUrl: "{{SITE_NOTIFICATIONS_API_URL}}",
+        apiUrlLocal: "{{SITE_NOTIFICATIONS_API_URL_LOCAL}}",
+      };
+      window.__VC_HOGWARTS_EVENT_CALENDAR = JSON.parse('{{HOGWARTS_EVENT_CALENDAR_JSON}}');
+      window.__VC_HOGWARTS_BGM = JSON.parse(decodeURIComponent("{{HOGWARTS_BGM_URI}}"));
+    </script>
+    <script src="../js/vc-youtube-iframe-api.js"></script>
+    <script src="../js/hogwarts-bgm-youtube.js"></script>
+    <script>if(window.__vcHogwartsYoutubeSetupIfConfigured)window.__vcHogwartsYoutubeSetupIfConfigured();</script>
+    <script src="../js/discord-auth.js" defer></script>
+    <script src="../js/hogwarts-event-hub-page.js?v={{BUILD_ASSET_VERSION}}" defer></script>
+  </body>
+</html>

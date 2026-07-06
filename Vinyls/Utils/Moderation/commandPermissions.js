@@ -3,9 +3,19 @@ const path = require("path");
 const { EmbedBuilder, PermissionsBitField, PermissionFlagsBits, } = require("discord.js");
 const IDs = require("../Config/ids");
 const { hasAdminsProfileCapability } = require("../../Services/Moderation/securityProfilesService");
+const { isPartnerPmDailyCommandsThread } = require("../Partner/partnersChatChannelUtils");
+const { getStaffCmdsThreadIdsCache, ensureStaffCmdsThreadIdsHydrated, isHighStaffCommandsThread, isStaffCmdsPmCommandsThreadSync } = require("../Staff/staffCmdsChannelUtils");
+const { isChannelInTicketCategory } = require("../Ticket/ticketCategoryUtils");
 const { buildPrefixLookupKeys, buildSlashLookupKeys } = require("./temporaryCommandPermissions");
 const { getGuildMemberCached } = require("../Interaction/interactionEntityCache");
 const { hasEventWeekWinnerGrant } = require("../../Services/Community/weekWinnerGrantsService");
+const { parseProfilePanelOwnerIdFromCustomId, resolveProfilePanelControl } = require("../Community/profilePanelControl");
+const {
+  interactionHasResocontoButtonAccess,
+  hasCandidatureReviewAccess,
+  isResocontoInteraction,
+  isCandidatureStaffReviewInteraction,
+} = require("../Staff/resocontoAccess");
 const PERMISSIONS_CANDIDATES = [path.resolve(__dirname, "../../permissions.json"), path.join(process.cwd(), "permissions.json"),];
 const EMPTY_PERMISSIONS = { slash: {}, prefix: {}, channels: {}, buttons: {}, selectMenus: {}, modals: {}, };
 const PERMISSIONS_CACHE_TTL_MS = 3000;
@@ -13,6 +23,64 @@ let cache = { filePath: null, mtimeMs: 0, data: EMPTY_PERMISSIONS, expiresAt: 0 
 let idsFallbackCache = null;
 const LIVE_MEMBER_CACHE_TTL_MS = 15_000;
 const liveMemberCache = new Map();
+const PM_THREAD_PREFIX_CHANNEL_BYPASS_COMMANDS = new Set(["help", "profile"]);
+const TICKET_PREFIX_CHANNEL_BYPASS_COMMANDS = new Set(["sezioneproibita", "libriproibiti", "forbiddenbooks"]);
+const HIGH_STAFF_COMMANDS_ZONE_TOKEN = "__zone:highStaffCommands";
+const PM_COMMANDS_THREAD_ZONE_TOKEN = "__zone:pmCommandsThread";
+const STAFF_GUIDE_BUTTON_IDS = new Set([
+  "regolamento",
+  "limiti",
+  "pause",
+  "valutazioni",
+  "moderazione_staff",
+  "warnstaff",
+  "pex",
+  "lineeguida",
+  "comandi",
+  "generalimoderazione",
+  "testualimoderazione",
+  "vocalimoderazione",
+  "sanzioni",
+]);
+
+function getStaffGuideAccessRoleIds() {
+  return [
+    IDs.roles?.Staff,
+    IDs.roles?.Helper,
+    IDs.roles?.Mod,
+    IDs.roles?.SeniorModerator,
+    IDs.roles?.Director,
+    IDs.roles?.HighStaff,
+    IDs.roles?.Manager,
+    IDs.roles?.Admin,
+    IDs.roles?.Founder,
+  ]
+    .map((id) => String(id || "").trim())
+    .filter(Boolean);
+}
+
+function isPartnerManagerOnlyMember(member) {
+  const pmId = String(IDs.roles?.PartnerManager || "").trim();
+  if (!pmId || !member?.roles?.cache?.has(pmId)) return false;
+  const access = getStaffGuideAccessRoleIds();
+  return !access.some((id) => member.roles.cache.has(id));
+}
+
+async function checkStaffGuideButtonGate(interaction, customId) {
+  if (!STAFF_GUIDE_BUTTON_IDS.has(String(customId || ""))) return null;
+  const requiredRoles = getStaffGuideAccessRoleIds();
+  if (!interaction?.inGuild?.()) {
+    return { allowed: false, reason: "missing_role", requiredRoles, ownerId: null };
+  }
+  if (isPartnerManagerOnlyMember(interaction.member)) {
+    return { allowed: false, reason: "missing_role", requiredRoles, ownerId: null };
+  }
+  const rolePass = await hasAnyRoleWithLiveFallback(interaction, requiredRoles);
+  if (!rolePass) {
+    return { allowed: false, reason: "missing_role", requiredRoles, ownerId: null };
+  }
+  return { allowed: true, reason: null, requiredRoles: null, ownerId: null };
+}
 
 function getMainGuildIdFallback() {
   try {
@@ -53,24 +121,67 @@ function isAllowedGuildForComponents(guildId) {
   if (MAIN_GUILD_ID && s === String(MAIN_GUILD_ID)) return true;
   return ALLOWED_GUILD_IDS.has(s) || sponsorIdsForComponents.has(s);
 }
+
+const TENANT_UTILITY_COMPONENT_PREFIXES = [
+  "repost_btn:",
+  "repost_src:",
+  "quote_remove:",
+  "myrepost_page_",
+];
+
+function isTenantUtilityComponentInteraction(customId) {
+  const id = String(customId || "");
+  return TENANT_UTILITY_COMPONENT_PREFIXES.some((prefix) => id.startsWith(prefix));
+}
+
+function tryTenantUtilityComponentBypass(guildId, customId) {
+  if (!guildId || isAllowedGuildForComponents(guildId)) return null;
+  if (!isTenantUtilityComponentInteraction(customId)) return null;
+  try {
+    const { canInvokePrefixCommand } = require("../../MultiGuild/core/accessPolicy");
+    const gate = canInvokePrefixCommand(guildId, "utility");
+    if (gate.managed && gate.ok) {
+      return { allowed: true, reason: null, requiredRoles: null, ownerId: null };
+    }
+  } catch (err) {
+    global.logger?.warn?.("[commandPermissions] tenant utility component bypass:", err?.message || err);
+  }
+  return null;
+}
+
 function isMainGuild(guildId) {
   return Boolean(MAIN_GUILD_ID) && String(guildId || "") === String(MAIN_GUILD_ID);
 }
 
-function channelMatchesPolicyChannelList(channel, policyIds) {
-  const ids = (Array.isArray(policyIds) ? policyIds : []).map(String).filter(Boolean);
-  if (!ids.length) return false;
-  const ch = channel;
-  if (!ch?.id) return false;
-  if (ids.includes(String(ch.id))) return true;
-  if (typeof ch.isThread === "function" && ch.isThread()) {
-    const parent = String(ch.parentId || "");
-    return Boolean(parent && ids.includes(parent));
-  }
-  return false;
-}
-
-const VERIFY_OR_TICKET_IDS = new Set(["verify_start", "verify_enter", "ticket_partnership", "ticket_highstaff", "ticket_supporto", "claim_ticket", "unclaim", "close_ticket", "close_ticket_motivo", "ticket_open_menu","ticket_panel_add_member","ticket_panel_remove_member","ticket_panel_transfer_user","ticket_panel_switch_category","ticket_panel_nav_add","ticket_panel_nav_remove","ticket_panel_nav_switch","ticket_panel_nav_rename","ticket_panel_nav_closerequest","ticket_panel_nav_transfer","ticket_panel_reopen_pick","modal_ticket_panel_rename","modal_ticket_panel_closerequest",]);
+const TICKET_INTERACTION_IDS = new Set([
+  "ticket_partnership",
+  "ticket_highstaff",
+  "ticket_perks",
+  "ticket_supporto",
+  "claim_ticket",
+  "unclaim",
+  "close_ticket",
+  "close_ticket_motivo",
+  "ticket_open_menu",
+  "ticket_panel_add_member",
+  "ticket_panel_remove_member",
+  "ticket_panel_transfer_user",
+  "ticket_panel_switch_category",
+  "ticket_panel_nav_add",
+  "ticket_panel_nav_remove",
+  "ticket_panel_nav_switch",
+  "ticket_panel_nav_rename",
+  "ticket_panel_nav_closerequest",
+  "ticket_panel_nav_transfer",
+  "ticket_panel_reopen_pick",
+  "ticket_panel_reopen_search",
+  "ticket_panel_reopen_prev",
+  "ticket_panel_reopen_next",
+  "ticket_panel_reopen_close",
+  "modal_ticket_panel_rename",
+  "modal_ticket_panel_closerequest",
+  "modal_ticket_panel_reopen_search",
+]);
 function isBackupInteraction(customId) {
   const id = String(customId || "").trim();
   if (!id) return false;
@@ -80,14 +191,12 @@ function isBackupInteraction(customId) {
     id.startsWith("backup_list_")
   );
 }
-function isVerifyOrTicketInteraction(customId) {
+function isTicketInteraction(customId) {
   if (!customId || typeof customId !== "string") return false;
   const id = String(customId).trim();
-  if (VERIFY_OR_TICKET_IDS.has(id)) return true;
-  if (
-    id.startsWith("verify_code:") ||
-    id.startsWith("modal_close_ticket")
-  )
+  if (id.startsWith("pm_shop_ack:")) return true;
+  if (TICKET_INTERACTION_IDS.has(id)) return true;
+  if (id.startsWith("modal_close_ticket"))
     return true;
   if (
     id.startsWith("ticket_panel_add_member:") ||
@@ -101,7 +210,22 @@ function isVerifyOrTicketInteraction(customId) {
 
 function isProfilePanelInteraction(customId) {
   if (!customId || typeof customId !== "string") return false;
-  return String(customId).trim().startsWith("profile_panel:");
+  return String(customId).trim().startsWith("profile_panel:") || String(customId).trim().startsWith("staff_profile_panel:") || String(customId).trim().startsWith("staff_pm_shop:") || String(customId).trim().startsWith("staff_val_neg_trade:");
+}
+
+async function checkProfilePanelControlPermission(interaction, customId) {
+  const id = String(customId || "");
+  if (!id.startsWith("profile_panel:")) return null;
+  const control = await resolveProfilePanelControl(interaction);
+  if (control.ok) {
+    return { allowed: true, reason: null, requiredRoles: null, ownerId: null };
+  }
+  return {
+    allowed: false,
+    reason: "not_owner",
+    requiredRoles: null,
+    ownerId: control.ownerId || parseProfilePanelOwnerIdFromCustomId(id) || null,
+  };
 }
 
 function isCustomRoleSystemInteraction(customId) {
@@ -121,7 +245,7 @@ function isApplyOrCandidatureInteraction(customId) {
   const id = String(customId).trim();
   if (id === "apply_helper" || id === "apply_partnermanager") return true;
   if (id.startsWith("apply_start:") || id.startsWith("apply_back:") || id.startsWith("apply_page:")) return true;
-  if (id.startsWith("apply_pex:") || id.startsWith("apply_form:") || id.startsWith("apply_pex_modal:")) return true;
+  if (id.startsWith("apply_form:")) return true;
   if (id === "candidature_premi_partner") return true;
   return false;
 }
@@ -278,26 +402,65 @@ function normalizePermissionList(permissionFlags) {
   return Array.from(dedup, (value) => BigInt(value));
 }
 
+function parseChannelReferenceKey(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  let key = raw;
+  if (key.startsWith("ids.channels.")) key = key.slice("ids.channels.".length);
+  else if (key.startsWith("channels.")) key = key.slice("channels.".length);
+  return key;
+}
+
 function resolveChannelReference(value) {
   if (value == null) return null;
   const raw = String(value).trim();
   if (!raw) return null;
   if (/^\d{16,20}$/.test(raw)) return raw;
 
-  let key = raw;
-  if (key.startsWith("ids.channels.")) key = key.slice("ids.channels.".length);
-  else if (key.startsWith("channels.")) key = key.slice("channels.".length);
-
+  const key = parseChannelReferenceKey(raw);
   const idsCfg = typeof IDs !== "undefined" && IDs ? IDs : getIdsConfig();
+  if (key === "staffCmdsPmThread") {
+    return getStaffCmdsThreadIdsCache().pm || null;
+  }
+  if (key === "staffCmdsHighThread" || key === "highCmds") {
+    return getStaffCmdsThreadIdsCache().high || null;
+  }
   const resolved = idsCfg?.channels?.[key];
   if (!resolved) return null;
   return String(resolved);
 }
 
+function expandResolvedChannelReference(rawValue, resolvedId) {
+  const key = parseChannelReferenceKey(rawValue);
+  const idsCfg = typeof IDs !== "undefined" && IDs ? IDs : getIdsConfig();
+  const cache = getStaffCmdsThreadIdsCache();
+  const out = new Set();
+  if (resolvedId) out.add(String(resolvedId));
+  if (key === "highCmds" || key === "staffCmdsHighThread") {
+    out.add(HIGH_STAFF_COMMANDS_ZONE_TOKEN);
+    if (cache.high) out.add(String(cache.high));
+  } else if (key === "staffCmdsPmThread") {
+    out.add(PM_COMMANDS_THREAD_ZONE_TOKEN);
+    if (cache.pm) out.add(String(cache.pm));
+  } else if (key === "staffCmdsHighThread") {
+    if (cache.high) out.add(String(cache.high));
+  } else if (key === "staffCmds") {
+    const staffCmds = idsCfg?.channels?.staffCmds;
+    if (staffCmds) out.add(String(staffCmds));
+  }
+  return [...out];
+}
+
 function normalizeChannelList(channelIds) {
   if (!Array.isArray(channelIds)) return channelIds;
-  const resolved = channelIds.map((value) => resolveChannelReference(value));
-  const filtered = resolved.filter(Boolean);
+  const expanded = new Set();
+  for (const value of channelIds) {
+    const resolved = resolveChannelReference(value);
+    for (const id of expandResolvedChannelReference(value, resolved)) {
+      expanded.add(id);
+    }
+  }
+  const filtered = [...expanded];
   if (filtered.length === 0 && channelIds.length > 0) {
     global.logger?.warn?.(
       "[commandPermissions] Lista canali risolta vuota (verifica ids / permissions):",
@@ -305,6 +468,35 @@ function normalizeChannelList(channelIds) {
     );
   }
   return filtered;
+}
+
+function policyWantsHighStaffCommandsZone(policyIds) {
+  const ids = (Array.isArray(policyIds) ? policyIds : []).map(String).filter(Boolean);
+  if (ids.includes(HIGH_STAFF_COMMANDS_ZONE_TOKEN)) return true;
+  const cache = getStaffCmdsThreadIdsCache();
+  return Boolean(cache.high && ids.includes(String(cache.high)));
+}
+
+function policyWantsPmCommandsThread(policyIds) {
+  const ids = (Array.isArray(policyIds) ? policyIds : []).map(String).filter(Boolean);
+  if (ids.includes(PM_COMMANDS_THREAD_ZONE_TOKEN)) return true;
+  const cache = getStaffCmdsThreadIdsCache();
+  return Boolean(cache.pm && ids.includes(String(cache.pm)));
+}
+
+function channelMatchesPolicyChannelList(channel, policyIds) {
+  const ids = (Array.isArray(policyIds) ? policyIds : []).map(String).filter(Boolean);
+  if (!ids.length) return false;
+  const ch = channel;
+  if (!ch?.id) return false;
+  if (ids.includes(String(ch.id))) return true;
+  if (typeof ch.isThread === "function" && ch.isThread()) {
+    const parent = String(ch.parentId || "");
+    if (parent && ids.includes(parent)) return true;
+    if (policyWantsHighStaffCommandsZone(ids) && isHighStaffCommandsThread(ch)) return true;
+    if (policyWantsPmCommandsThread(ids) && isStaffCmdsPmCommandsThreadSync(ch)) return true;
+  }
+  return false;
 }
 
 function resolveCommandChannelPolicy(data, keys) {
@@ -395,7 +587,11 @@ function hasAllPermissions(member, permissionFlags) {
 }
 
 async function fetchLiveMember(entity) {
-  const guild = entity?.guild || entity?.member?.guild || null;
+  const guild =
+    entity?.guild ||
+    entity?.member?.guild ||
+    (entity?.guildId && entity?.client?.guilds?.cache?.get(String(entity.guildId))) ||
+    null;
   const userId = entity?.user?.id || entity?.author?.id || entity?.member?.id || entity?.member?.user?.id || null;
   if (!guild || !userId || typeof guild.members?.fetch !== "function")
     return null;
@@ -601,7 +797,7 @@ function normalizeButtonPolicy(policy) {
     const ownerFromMessageMention = Boolean(policy.ownerFromMessageMention);
     const ownerOrRole = Boolean(policy.ownerOrRole);
     const grantRecipientOnly = Boolean(policy.grantRecipientOnly);
-    const verifyStartRequired = Boolean(policy.verifyStartRequired);
+    const punticasaPrefectOnly = Boolean(policy.punticasaPrefectOnly);
     let channelPolicy = null;
     if (Array.isArray(policy.channels)) {
       channelPolicy = normalizeChannelList(policy.channels);
@@ -615,7 +811,7 @@ function normalizeButtonPolicy(policy) {
       ownerFromMessageMention,
       ownerOrRole,
       grantRecipientOnly,
-      verifyStartRequired,
+      punticasaPrefectOnly,
       channels: channelPolicy,
     };
   }
@@ -630,16 +826,6 @@ function getPendingCustomRoleGrant(token) {
     return mod.getPendingRoleGrantByToken(token);
   } catch {
     return null;
-  }
-}
-
-function hasActiveVerifySession(userId, guildId = null) {
-  try {
-    const mod = require("../../Events/interaction/verifyHandlers");
-    if (typeof mod?.hasActiveVerifySession !== "function") return false;
-    return Boolean(mod.hasActiveVerifySession(userId, guildId));
-  } catch {
-    return false;
   }
 }
 
@@ -677,25 +863,21 @@ function getDevIds(client) {
   return Array.from(new Set([...fromIds, ...fromConfig]));
 }
 
+function denyIfPunticasaPrefectOnlyBlocked(userId, client, enabled) {
+  if (!enabled) return null;
+  try {
+    const { isPunticasaAllowedUser } = require("../Community/punticasaPrefectAccess");
+    if (isPunticasaAllowedUser(userId, client)) return null;
+  } catch {
+    return { allowed: false, reason: "missing_role", requiredRoles: null, ownerId: null, channels: null };
+  }
+  return { allowed: false, reason: "missing_role", requiredRoles: null, ownerId: null, channels: null };
+}
+
 async function checkSlashPermission(interaction, options = {}) {
   const userId = interaction?.user?.id || null;
   const guildId = interaction?.guildId || interaction?.guild?.id || null;
   const onMainGuild = isMainGuild(guildId);
-
-  if (interaction.commandName === "dmbroadcast" && onMainGuild) {
-    const client = interaction.client;
-    const devIds = getDevIds(client);
-    const allowed = devIds.length > 0 && devIds.includes(userId);
-    if (options.returnDetails) {
-      return {
-        allowed,
-        reason: allowed ? null : "missing_role",
-        requiredRoles: null,
-        channels: null,
-      };
-    }
-    return allowed;
-  }
 
   if (guildId && !onMainGuild) {
     const allowed = await hasAllPermissionsWithLiveFallback(interaction, [PermissionFlagsBits.Administrator,]);
@@ -711,6 +893,7 @@ async function checkSlashPermission(interaction, options = {}) {
   }
 
   const data = loadPermissions();
+  await ensureStaffCmdsThreadIdsHydrated().catch(() => {});
   const group = interaction.options?.getSubcommandGroup?.(false) || null;
   const sub = interaction.options?.getSubcommand?.(false) || null;
   const channelPolicy = resolveSlashCommandChannels(data, String(interaction.commandName || "").toLowerCase(), group, sub) ?? resolveCommandChannelPolicy(data, buildSlashLookupKeys(interaction.commandName, group, sub));
@@ -766,37 +949,69 @@ async function checkSlashPermission(interaction, options = {}) {
   return allowed;
 }
 
+function tryResolveMultiGuildOpenMediaBypass(guildId, commandName, options) {
+  try {
+    const { resolveOpenMediaPrefixBypass } = require("../../MultiGuild/core/openMediaCommands");
+    return resolveOpenMediaPrefixBypass(guildId, commandName, options);
+  } catch (err) {
+    global.logger?.warn?.("[commandPermissions] MultiGuild open media bypass:", err?.message || err);
+    return null;
+  }
+}
+
+function tryResolveMultiGuildTenantPrefixRestriction(guildId, commandName, options) {
+  try {
+    const { resolveTenantPrefixRestriction } = require("../../MultiGuild/core/tenantPrefixGate");
+    return resolveTenantPrefixRestriction(guildId, commandName, options);
+  } catch (err) {
+    global.logger?.warn?.("[commandPermissions] MultiGuild tenant prefix gate:", err?.message || err);
+    return null;
+  }
+}
+
 async function checkPrefixPermission(message, commandName, subcommandName = null, options = {}) {
   const guildId = message?.guild?.id || null;
   const userId = message?.author?.id || null;
   const safeCommand = String(commandName || "").toLowerCase();
   const onMainGuild = isMainGuild(guildId);
 
-  if (
-    safeCommand === "verify" &&
-    message?.member &&
-    hasAdminsProfileCapability(message.member, "verifyCommand")
-  ) {
-    if (options.returnDetails) {
-      return { allowed: true, reason: null, requiredRoles: null, channels: null };
+  const openMediaBypass = tryResolveMultiGuildOpenMediaBypass(guildId, safeCommand, options);
+  if (openMediaBypass !== null) {
+    if (openMediaBypass.allowed !== false && message?.member) {
+      try {
+        const { resolveTenantModerationMemberCheck } = require("../../MultiGuild/core/tenantModerationPermissions");
+        const modCheck = resolveTenantModerationMemberCheck(message.member, safeCommand, options);
+        if (modCheck !== null) return modCheck;
+      } catch (err) {
+        global.logger?.warn?.("[commandPermissions] MultiGuild tenant mod check:", err?.message || err);
+      }
     }
-    return true;
+    return openMediaBypass;
+  }
+
+  const tenantRestriction = tryResolveMultiGuildTenantPrefixRestriction(guildId, safeCommand, options);
+  if (tenantRestriction !== null) {
+    return tenantRestriction;
   }
 
   if (guildId && !onMainGuild) {
-    const allowed = await hasAllPermissionsWithLiveFallback(message, [PermissionFlagsBits.Administrator,]);
-    if (options.returnDetails) {
-      return {
-        allowed,
-        reason: allowed ? null : "missing_permission",
-        requiredRoles: null,
-        channels: null,
-      };
+    const playOnSponsor = safeCommand === "play" && isAllowedGuildUfficiale(guildId);
+    if (!playOnSponsor) {
+      const allowed = await hasAllPermissionsWithLiveFallback(message, [PermissionFlagsBits.Administrator,]);
+      if (options.returnDetails) {
+        return {
+          allowed,
+          reason: allowed ? null : "missing_permission",
+          requiredRoles: null,
+          channels: null,
+        };
+      }
+      return allowed;
     }
-    return allowed;
   }
 
   const data = loadPermissions();
+  await ensureStaffCmdsThreadIdsHydrated().catch(() => {});
   const channelPolicy = resolvePrefixCommandChannels(data, safeCommand, subcommandName) ?? resolveCommandChannelPolicy(data, buildPrefixLookupKeys(commandName, subcommandName));
   const bypassChannelPolicyForAntiNuke = safeCommand === "antinuke";
   if (Array.isArray(channelPolicy) && channelPolicy.length > 0 && !bypassChannelPolicyForAntiNuke) {
@@ -804,7 +1019,28 @@ async function checkPrefixPermission(message, commandName, subcommandName = null
     const allowed = ch
       ? channelMatchesPolicyChannelList(ch, channelPolicy)
       : Boolean(message?.channelId) && channelPolicy.includes(String(message.channelId));
-    if (!allowed) {
+    const allowInPmThread =
+      !allowed &&
+      PM_THREAD_PREFIX_CHANNEL_BYPASS_COMMANDS.has(safeCommand) &&
+      (await isPartnerPmDailyCommandsThread(ch).catch(() => false));
+    const allowInTicketChannel =
+      !allowed &&
+      !allowInPmThread &&
+      TICKET_PREFIX_CHANNEL_BYPASS_COMMANDS.has(safeCommand) &&
+      isChannelInTicketCategory(ch);
+    const allowInVoiceOrStanzaChat = await (async () => {
+      if (allowed || allowInPmThread || allowInTicketChannel) return false;
+      if (!ch) return false;
+      try {
+        const { isAllowedVoiceCommandChannel } = require("../../../shared/voice/voiceCommandChannelAccess");
+        return await isAllowedVoiceCommandChannel(message.guild, ch, {
+          blockedChannelIds: [IDs.channels?.riunioneStaff, IDs.channels?.serataFilm].filter(Boolean),
+        });
+      } catch (_) {
+        return false;
+      }
+    })();
+    if (!allowed && !allowInPmThread && !allowInTicketChannel && !allowInVoiceOrStanzaChat) {
       if (options.returnDetails) {
         return {
           allowed: false,
@@ -815,6 +1051,18 @@ async function checkPrefixPermission(message, commandName, subcommandName = null
       }
       return false;
     }
+  }
+  const cmdCfg = data?.prefix?.[safeCommand];
+  const prefectGate = denyIfPunticasaPrefectOnlyBlocked(
+    userId,
+    message?.client,
+    cmdCfg && typeof cmdCfg === "object" && cmdCfg.punticasaPrefectOnly,
+  );
+  if (prefectGate) {
+    if (options.returnDetails) {
+      return { ...prefectGate, channels: channelPolicy || null };
+    }
+    return false;
   }
   const roles = resolvePrefixRoles(data, commandName, subcommandName);
   const permissions = resolvePrefixPermissions(data, commandName, subcommandName);
@@ -865,7 +1113,7 @@ async function checkButtonPermission(interaction) {
     };
   }
   if (guildId && !isAllowedGuildForComponents(guildId)) {
-    if (isVerifyOrTicketInteraction(customId) || isProfilePanelInteraction(customId)) {
+    if (isTicketInteraction(customId) || isProfilePanelInteraction(customId)) {
       return {
         allowed: true,
         reason: null,
@@ -873,6 +1121,8 @@ async function checkButtonPermission(interaction) {
         ownerId: null,
       };
     }
+    const tenantUtilityBypass = tryTenantUtilityComponentBypass(guildId, customId);
+    if (tenantUtilityBypass) return tenantUtilityBypass;
     return {
       allowed: false,
       reason: "mono_guild",
@@ -890,28 +1140,50 @@ async function checkButtonPermission(interaction) {
     };
   }
 
+  if (isMainGuild(guildId) && isCandidatureStaffReviewInteraction(customId)) {
+    const allowed = hasCandidatureReviewAccess(interaction);
+    return {
+      allowed,
+      reason: allowed ? null : "missing_role",
+      requiredRoles: ["roles.Admin", "roles.Manager", "roles.Founder"],
+      ownerId: null,
+    };
+  }
+
+  if (isMainGuild(guildId) && isResocontoInteraction(customId)) {
+    const allowed = interactionHasResocontoButtonAccess(interaction);
+    return {
+      allowed,
+      reason: allowed ? null : "missing_role",
+      requiredRoles: null,
+      ownerId: null,
+    };
+  }
+
   if (!customId) {
     return { allowed: true, reason: null, requiredRoles: null, ownerId: null };
   }
 
+  const profilePanelGate = await checkProfilePanelControlPermission(interaction, customId);
+  if (profilePanelGate) return profilePanelGate;
+
+  const staffGuideGate = await checkStaffGuideButtonGate(interaction, customId);
+  if (staffGuideGate) return staffGuideGate;
+
   const data = loadPermissions();
+  await ensureStaffCmdsThreadIdsHydrated().catch(() => {});
   const rawPolicy = resolveComponentPolicy(data?.buttons, customId);
   const policy = normalizeButtonPolicy(rawPolicy);
   if (!policy) {
     return { allowed: true, reason: null, requiredRoles: null, ownerId: null };
   }
 
-  if (policy.verifyStartRequired) {
-    const hasSession = hasActiveVerifySession(interaction?.user?.id || null, interaction?.guildId || null);
-    if (!hasSession) {
-      return {
-        allowed: false,
-        reason: "verify_session_required",
-        requiredRoles: policy.roles || null,
-        ownerId: interaction?.user?.id || null,
-      };
-    }
-  }
+  const prefectGate = denyIfPunticasaPrefectOnlyBlocked(
+    interaction?.user?.id,
+    interaction?.client,
+    policy.punticasaPrefectOnly,
+  );
+  if (prefectGate) return prefectGate;
 
   let grantRecipientMatched = false;
   if (policy.grantRecipientOnly) {
@@ -1079,7 +1351,7 @@ async function checkStringSelectPermission(interaction) {
     };
   }
   if (guildId && !isAllowedGuildForComponents(guildId)) {
-    if (isVerifyOrTicketInteraction(customId) || isProfilePanelInteraction(customId)) {
+    if (isTicketInteraction(customId) || isProfilePanelInteraction(customId)) {
       return {
         allowed: true,
         reason: null,
@@ -1087,6 +1359,8 @@ async function checkStringSelectPermission(interaction) {
         ownerId: null,
       };
     }
+    const tenantUtilityBypass = tryTenantUtilityComponentBypass(guildId, customId);
+    if (tenantUtilityBypass) return tenantUtilityBypass;
     return {
       allowed: false,
       reason: "mono_guild",
@@ -1097,12 +1371,28 @@ async function checkStringSelectPermission(interaction) {
   if (!customId) {
     return { allowed: true, reason: null, requiredRoles: null, ownerId: null };
   }
+
+  const profilePanelGate = await checkProfilePanelControlPermission(interaction, customId);
+  if (profilePanelGate) return profilePanelGate;
+
+  if (customId === "staff_guide_menu") {
+    return { allowed: true, reason: null, requiredRoles: null, ownerId: null };
+  }
+
   const data = loadPermissions();
+  await ensureStaffCmdsThreadIdsHydrated().catch(() => {});
   const rawPolicy = resolveComponentPolicy(data?.selectMenus, customId) || resolveComponentPolicy(data?.buttons, customId);
   const policy = normalizeButtonPolicy(rawPolicy);
   if (!policy) {
     return { allowed: true, reason: null, requiredRoles: null, ownerId: null };
   }
+
+  const prefectGate = denyIfPunticasaPrefectOnlyBlocked(
+    interaction?.user?.id,
+    interaction?.client,
+    policy.punticasaPrefectOnly,
+  );
+  if (prefectGate) return prefectGate;
 
   const hasOwnerConstraint = (Number.isInteger(policy.ownerSegment) && policy.ownerSegment >= 0) || policy.ownerFromMessageMention;
   let ownerId = null;
@@ -1246,7 +1536,7 @@ async function checkModalPermission(interaction) {
     };
   }
   if (guildId && !isAllowedGuildForComponents(guildId)) {
-    if (isVerifyOrTicketInteraction(customId) || isProfilePanelInteraction(customId)) {
+    if (isTicketInteraction(customId) || isProfilePanelInteraction(customId)) {
       return {
         allowed: true,
         reason: null,
@@ -1254,6 +1544,8 @@ async function checkModalPermission(interaction) {
         ownerId: null,
       };
     }
+    const tenantUtilityBypass = tryTenantUtilityComponentBypass(guildId, customId);
+    if (tenantUtilityBypass) return tenantUtilityBypass;
     return {
       allowed: false,
       reason: "mono_guild",
@@ -1271,16 +1563,47 @@ async function checkModalPermission(interaction) {
     };
   }
 
+  if (isMainGuild(guildId) && isCandidatureStaffReviewInteraction(customId)) {
+    const allowed = hasCandidatureReviewAccess(interaction);
+    return {
+      allowed,
+      reason: allowed ? null : "missing_role",
+      requiredRoles: ["roles.Admin", "roles.Manager", "roles.Founder"],
+      ownerId: null,
+    };
+  }
+
+  if (isMainGuild(guildId) && isResocontoInteraction(customId)) {
+    const allowed = interactionHasResocontoButtonAccess(interaction);
+    return {
+      allowed,
+      reason: allowed ? null : "missing_role",
+      requiredRoles: null,
+      ownerId: null,
+    };
+  }
+
   if (!customId) {
     return { allowed: true, reason: null, requiredRoles: null, ownerId: null };
   }
 
+  const profilePanelGate = await checkProfilePanelControlPermission(interaction, customId);
+  if (profilePanelGate) return profilePanelGate;
+
   const data = loadPermissions();
+  await ensureStaffCmdsThreadIdsHydrated().catch(() => {});
   const rawPolicy = resolveComponentPolicy(data?.modals, customId) || resolveComponentPolicy(data?.buttons, customId);
   const policy = normalizeButtonPolicy(rawPolicy);
   if (!policy) {
     return { allowed: true, reason: null, requiredRoles: null, ownerId: null };
   }
+
+  const prefectGate = denyIfPunticasaPrefectOnlyBlocked(
+    interaction?.user?.id,
+    interaction?.client,
+    policy.punticasaPrefectOnly,
+  );
+  if (prefectGate) return prefectGate;
 
   const hasOwnerConstraint = (Number.isInteger(policy.ownerSegment) && policy.ownerSegment >= 0) || policy.ownerFromMessageMention;
   let ownerId = null;
@@ -1410,9 +1733,6 @@ async function checkModalPermission(interaction) {
 }
 
 function getSlashRequiredRoles(interaction) {
-  if (interaction.commandName === "dmbroadcast") {
-    return [];
-  }
   const data = loadPermissions();
   const group = interaction.options?.getSubcommandGroup?.(false) || null;
   const sub = interaction.options?.getSubcommand?.(false) || null;
@@ -1447,7 +1767,9 @@ function buildGlobalPermissionDeniedEmbed(requiredRoleIds = [], entityLabel = "c
 }
 
 function buildGlobalChannelDeniedEmbed(allowedChannelIds = [], entityLabel = "comando") {
-  const channels = Array.isArray(allowedChannelIds) ? allowedChannelIds.filter(Boolean).map(String) : [];
+  const channels = Array.isArray(allowedChannelIds)
+    ? allowedChannelIds.filter(Boolean).map(String).filter((id) => !id.startsWith("__zone:"))
+    : [];
   const channelsText = channels.length ? channels.map((id) => `<#${id}>`).join(", ")
     : "<:VC_Attention:1482534443632558151> Nessun canale configurato.";
 
@@ -1459,6 +1781,16 @@ function buildGlobalChannelDeniedEmbed(allowedChannelIds = [], entityLabel = "co
     embed.addFields({
       name: "<a:VC_Rocket:1468544312475123753> **Per sbloccarlo:**",
       value: `<a:VC_Arrow:1482706699365257397> Usa il comando in uno dei seguenti canali: ${channelsText}`,
+    });
+  } else if (Array.isArray(allowedChannelIds) && allowedChannelIds.some((id) => String(id) === HIGH_STAFF_COMMANDS_ZONE_TOKEN)) {
+    embed.addFields({
+      name: "<a:VC_Rocket:1468544312475123753> **Per sbloccarlo:**",
+      value: "<a:VC_Arrow:1482706699365257397> Usa il comando nel thread **Comandi High Staff** sotto #staff-cmds.",
+    });
+  } else if (Array.isArray(allowedChannelIds) && allowedChannelIds.some((id) => String(id) === PM_COMMANDS_THREAD_ZONE_TOKEN)) {
+    embed.addFields({
+      name: "<a:VC_Rocket:1468544312475123753> **Per sbloccarlo:**",
+      value: "<a:VC_Arrow:1482706699365257397> Usa il comando nel thread **Comandi Partner Manager** sotto #staff-cmds.",
     });
   }
   return embed;
@@ -1484,4 +1816,11 @@ module.exports = {
   buildGlobalNotYourControlEmbed,
   hasAnyRole,
   getDevIds,
+  __test: {
+    channelMatchesPolicyChannelList,
+    normalizeChannelList,
+    expandResolvedChannelReference,
+    HIGH_STAFF_COMMANDS_ZONE_TOKEN,
+    PM_COMMANDS_THREAD_ZONE_TOKEN,
+  },
 };

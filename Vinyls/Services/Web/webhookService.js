@@ -1,8 +1,7 @@
 const crypto = require("node:crypto");
 const IDs = require("../../Utils/Config/ids");
+const { resolveDiscordOauthClientIdForSite, resolveDiscordOauthRedirectUriForSite, normalizeSiteOAuthReturnPath } = require("../../Utils/Web/verifyOauthPublicUrl");
 const { processDiscadiaVote } = require("../../Utils/Message/officialMessageAutomationHandlers");
-
-/** Allineato a @top-gg/sdk (structs/Webhook.ts): finestra anti-replay in ms. */
 const TOPGG_V1_SIGNATURE_TIMESTAMP_WINDOW_MS = 30_000;
 
 function tryRequireExpress() {
@@ -38,12 +37,7 @@ function shouldStartPublicSiteReadonlyHttp() {
 }
 
 function shouldStartBotHttpServer(client) {
-  return (
-    shouldStartDiscadiaVoteHttpWebhook(client) ||
-    shouldStartTopggVoteHttpWebhook(client) ||
-    isCandidatureWebsiteApiEnabled() ||
-    shouldStartPublicSiteReadonlyHttp()
-  );
+  return shouldStartDiscadiaVoteHttpWebhook(client) || shouldStartTopggVoteHttpWebhook(client) || isCandidatureWebsiteApiEnabled() || shouldStartPublicSiteReadonlyHttp();
 }
 
 function normalizeHeaderSecret(raw) {
@@ -55,7 +49,6 @@ function normalizeHeaderSecret(raw) {
   return s;
 }
 
-/** Normalizza una voce .env (virgolette, spazi, slash finale) → stringa `origin` come la manda il browser. */
 function normalizeCorsOriginEntry(entry) {
   const stripped = String(entry || "")
     .trim()
@@ -71,7 +64,6 @@ function normalizeCorsOriginEntry(entry) {
   }
 }
 
-/** Es. `https://sito.it,http://localhost:3000` → il browser richiede `Access-Control-Allow-Origin` uguale all'Origin della pagina. */
 function parseCorsOriginAllowlist(raw) {
   return String(raw || "")
     .split(",")
@@ -79,7 +71,6 @@ function parseCorsOriginAllowlist(raw) {
     .filter(Boolean);
 }
 
-/** `localhost` e `127.0.0.1` sono origini diverse per il browser: se ne elenchi una, accettiamo anche l’altra (stessa porta). */
 function expandCorsOriginAllowlist(origins) {
   const set = new Set(origins);
   for (const o of origins) {
@@ -95,7 +86,7 @@ function expandCorsOriginAllowlist(origins) {
         set.add(alt.origin);
       }
     } catch {
-      /* ignore */
+      continue;
     }
   }
   return [...set];
@@ -110,7 +101,6 @@ function isLoopbackBrowserOriginUrl(origin) {
   }
 }
 
-/** Se in allowlist c’è almeno un http(s)://localhost… (qualsiasi porta), accetta qualsiasi porta loopback in richiesta (evita 5173 vs 3000 in dev). */
 function corsAllowlistPermitsAnyLoopbackDevOrigin(allowlist) {
   return allowlist.some((o) => isLoopbackBrowserOriginUrl(o));
 }
@@ -121,18 +111,7 @@ function extractVoteWebhookUserId(body) {
     const u = String(body.user).trim();
     if (/^\d{17,22}$/.test(u)) return u;
   }
-  const candidates = [
-    body.user_id,
-    body.userId,
-    body.id,
-    body.voter_id,
-    body.voterId,
-    body.discord_id,
-    body.discordId,
-    body.user?.id,
-    body.voter?.id,
-    body.member?.id,
-  ];
+  const candidates = [body.user_id, body.userId, body.id, body.voter_id, body.voterId, body.discord_id, body.discordId, body.user?.id, body.voter?.id, body.member?.id];
   for (const c of candidates) {
     if (c == null) continue;
     const id = String(c).trim();
@@ -141,7 +120,6 @@ function extractVoteWebhookUserId(body) {
   return null;
 }
 
-/** Top.gg API v1: `vote.create` / `webhook.test` → Discord ID in `data.user.platform_id`. */
 function extractTopggVoteDiscordUserId(body) {
   if (!body || typeof body !== "object") return null;
   const type = String(body.type || "").toLowerCase();
@@ -171,7 +149,6 @@ function parseTopggV1SignatureHeader(raw) {
   return { t, v1 };
 }
 
-/** Stesso algoritmo di @top-gg/sdk Webhook._parseRequest: messaggio `${t}.${rawBodyUtf8}`. */
 function verifyTopggV1Signature(secret, timestampSec, rawBodyBuffer, signatureHex) {
   const t = String(timestampSec);
   const bodyStr = Buffer.isBuffer(rawBodyBuffer) ? rawBodyBuffer.toString("utf8") : String(rawBodyBuffer);
@@ -193,21 +170,18 @@ function isTopggWebhookAuthorized(req, topggSecret) {
     if (Math.abs(Date.now() - tsMs) > TOPGG_V1_SIGNATURE_TIMESTAMP_WINDOW_MS) return false;
     return verifyTopggV1Signature(topggSecret, parsed.t, rawBuf, parsed.v1);
   }
-  const receivedSecret = normalizeHeaderSecret(
-    req.headers["authorization"] || req.headers["x-topgg-secret"] || req.headers["x-topgg-authorization"],
-  );
+  const receivedSecret = normalizeHeaderSecret(req.headers["authorization"] || req.headers["x-topgg-secret"] || req.headers["x-topgg-authorization"]);
   return receivedSecret === topggSecret;
 }
 
 async function startWebhookServer(client) {
+  if (client._botHttpWebhookServer?.listening) return;
   if (client._discadiaVoteHttpServerStarted) return;
   if (!shouldStartBotHttpServer(client)) return;
 
   const express = tryRequireExpress();
   if (!express) {
-    global.logger?.error?.(
-      "[WEBHOOK] Modulo `express` non trovato. Installa le dipendenze del bot (es. `npm install` in Vinyls). HTTP disabilitato.",
-    );
+    global.logger?.error?.( "[WEBHOOK] Modulo `express` non trovato. Installa le dipendenze del bot. HTTP disabilitato.");
     return;
   }
 
@@ -219,6 +193,7 @@ async function startWebhookServer(client) {
   const topggSecret = String(process.env.TOPGG_WEBHOOK_SECRET || client?.config?.topgg?.webhookSecret || "").trim();
 
   const app = express();
+  app.set("trust proxy", true);
   app.use(
     express.json({
       limit: "12mb",
@@ -231,6 +206,13 @@ async function startWebhookServer(client) {
     }),
   );
 
+  try {
+    const { mountTicketTranscriptRoutes } = require("./ticketTranscriptHttp");
+    mountTicketTranscriptRoutes(app, client);
+  } catch (err) {
+    global.logger?.warn?.("[WEBHOOK] ticket-transcript routes:", err?.message || err);
+  }
+
   const candidatureCorsAllowlist = expandCorsOriginAllowlist(
     parseCorsOriginAllowlist(
       String(process.env.WEBSITE_CANDIDATURE_CORS_ORIGIN || process.env.WEBSITE_PUBLIC_ORIGIN || "").trim(),
@@ -240,6 +222,7 @@ async function startWebhookServer(client) {
   const siteCandidatureCorsMiddleware = (req, res, next) => {
     const rawPath = String(req.originalUrl || req.url || req.path || "");
     const pathStr = rawPath.split("?")[0];
+    const isStatus = pathStr === "/webhooks/status";
     const isCandidature = pathStr.startsWith("/webhooks/site-candidature");
     const isUnban = pathStr.startsWith("/webhooks/site-unban");
     const isSiteRules = pathStr.startsWith("/webhooks/site-rules");
@@ -251,27 +234,11 @@ async function startWebhookServer(client) {
     const isSiteReviews = pathStr.startsWith("/webhooks/site-reviews");
     const isSiteSuggestions = pathStr.startsWith("/webhooks/site-suggestions");
     const isSiteNotifications = pathStr.startsWith("/webhooks/site-notifications");
-    const isSiteForum = pathStr.startsWith("/webhooks/site-forum");
     const isSiteVerify = pathStr.startsWith("/webhooks/site-verify");
     const isSitePayments = pathStr.startsWith("/webhooks/site-payments");
-    if (
-      !isCandidature &&
-      !isUnban &&
-      !isSiteRules &&
-      !isSiteUsers &&
-      !isSiteVote &&
-      !isSiteLiveEvent &&
-      !isSiteRoles &&
-      !isSiteRankCard &&
-      !isSiteReviews &&
-      !isSiteSuggestions &&
-      !isSiteNotifications &&
-      !isSiteForum &&
-      !isSiteVerify &&
-      !isSitePayments
-    ) {
-      return next();
-    }
+    const isSiteSeratafilmAccess = pathStr.startsWith("/webhooks/site-seratafilm-access");
+    const isSiteHogwartsSorting = pathStr.startsWith("/webhooks/site-hogwarts-sorting");
+    if (!isStatus && !isCandidature && !isUnban && !isSiteRules && !isSiteUsers && !isSiteVote && !isSiteLiveEvent && !isSiteRoles && !isSiteRankCard && !isSiteReviews && !isSiteSuggestions && !isSiteNotifications && !isSiteVerify && !isSitePayments && !isSiteSeratafilmAccess && !isSiteHogwartsSorting) return next();
     const originRaw = String(req.headers.origin || "").trim();
     const originNorm = originRaw ? normalizeCorsOriginEntry(originRaw) || originRaw : "";
     let allowOrigin = "";
@@ -290,28 +257,12 @@ async function startWebhookServer(client) {
     if (allowOrigin) {
       res.setHeader("Access-Control-Allow-Origin", allowOrigin);
       res.append("Vary", "Origin");
-    } else if (
-      isSiteRules ||
-      isSiteUsers ||
-      isSiteVote ||
-      isSiteLiveEvent ||
-      isSiteRoles ||
-      isSiteRankCard ||
-      isSiteReviews ||
-      isSiteSuggestions ||
-      isSiteNotifications ||
-      isSitePayments
-    ) {
+    } else if (isStatus || isSiteRules || isSiteUsers || isSiteVote || isSiteLiveEvent || isSiteRoles || isSiteRankCard || isSiteReviews || isSiteSuggestions || isSiteNotifications || isSitePayments || isSiteSeratafilmAccess || isSiteHogwartsSorting) {
       res.setHeader("Access-Control-Allow-Origin", "*");
     }
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS");
-    res.setHeader(
-      "Access-Control-Allow-Headers",
-      "Content-Type, Authorization, Access-Control-Request-Private-Network",
-    );
-    if (allowOrigin) {
-      res.setHeader("Access-Control-Allow-Private-Network", "true");
-    }
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Access-Control-Request-Private-Network");
+    if (allowOrigin) res.setHeader("Access-Control-Allow-Private-Network", "true");
     if (req.method === "OPTIONS") {
       res.status(204).end();
       return;
@@ -321,14 +272,8 @@ async function startWebhookServer(client) {
 
   if (isCandidatureWebsiteApiEnabled()) {
     app.use(siteCandidatureCorsMiddleware);
-    const {
-      submitCandidatureWebsite,
-      getCandidatureEligibilitySummary,
-    } = require("../../Events/interaction/candidatureApplicationHandlers");
-    const {
-      getWebsiteUnbanEligibility,
-      submitWebsiteUnban,
-    } = require("../../Events/interaction/unbanWebsiteHandlers");
+    const { submitCandidatureWebsite, getCandidatureEligibilitySummary } = require("../../Events/interaction/candidatureApplicationHandlers");
+    const { getWebsiteUnbanEligibility, submitWebsiteUnban } = require("../../Events/interaction/unbanWebsiteHandlers");
     app.get("/webhooks/site-candidature/eligibility", async (req, res) => {
       try {
         const accessToken = normalizeHeaderSecret(req.headers.authorization);
@@ -408,9 +353,7 @@ async function startWebhookServer(client) {
 
   if (shouldStartTopggVoteHttpWebhook(client)) {
     if (!topggSecret) {
-      global.logger?.error?.(
-        "[WEBHOOK] Top.gg: webhook abilitato ma manca TOPGG_WEBHOOK_SECRET (o topgg.webhookSecret in config). Imposta lo stesso valore del campo Authorization nel pannello Top.gg.",
-      );
+      global.logger?.error?.( "[WEBHOOK] Top.gg: webhook abilitato ma manca TOPGG_WEBHOOK_SECRET. Imposta lo stesso valore del campo Authorization nel pannello Top.gg.");
     } else {
       app.post("/webhooks/topgg", async (req, res) => {
         try {
@@ -470,43 +413,18 @@ async function startWebhookServer(client) {
   const { handleSiteRolesGet } = require("../../Utils/Web/siteRolesApi");
   const { submitSiteRoleRequest } = require("../../Utils/Web/siteRoleRequestApi");
   const { getRankCardCustomization, updateRankCardCustomization, getRankCardPreview, getPublicRankCardPreview } = require("../../Utils/Web/siteRankCardApi");
-  const {
-    getSiteReviews,
-    submitSiteReview,
-    deleteSiteReview,
-    toggleSiteReviewLike,
-    upsertServerReviewReply,
-  } = require("../../Utils/Web/siteReviewsApi");
-  const {
-    getSiteSuggestions,
-    createSiteSuggestion,
-    updateOwnSiteSuggestion,
-    deleteOwnSiteSuggestion,
-    addSiteSuggestionComment,
-    updateSiteSuggestionComment,
-    deleteSiteSuggestionComment,
-    setSiteSuggestionCommentVote,
-    setSiteSuggestionVote,
-    staffAcceptSiteSuggestion,
-    staffRejectSiteSuggestion,
-    staffDeleteSiteSuggestion,
-  } = require("../../Utils/Web/siteSuggestionsApi");
-  const { handleSiteNotificationsGet } = require("../../Utils/Web/siteInAppNotificationsApi");
-  const {
-    listSitePaymentPlans,
-    createSitePaymentOrder,
-    captureSitePaymentOrder,
-    handleSitePayPalWebhook,
-  } = require("../../Utils/Web/sitePaymentsApi");
-  const {
-    getSiteForumThreads,
-    getSiteForumThreadMessages,
-    getSiteForumThreadMessagesAuthed,
-    createSiteForumThread,
-    createSiteForumMessage,
-    updateSiteForumThread,
-  } = require("../../Utils/Web/siteForumApi");
+  const { getSiteReviews, submitSiteReview, deleteSiteReview, toggleSiteReviewLike, upsertServerReviewReply } = require("../../Utils/Web/siteReviewsApi");
+  const { getSiteSuggestions, createSiteSuggestion, updateOwnSiteSuggestion, deleteOwnSiteSuggestion, addSiteSuggestionComment, updateSiteSuggestionComment, deleteSiteSuggestionComment, setSiteSuggestionCommentVote, setSiteSuggestionVote, staffAcceptSiteSuggestion, staffRejectSiteSuggestion, staffSetSiteSuggestionDecision, staffDeleteSiteSuggestion } = require("../../Utils/Web/siteSuggestionsApi");
+  const { handleSiteNotificationsGet, handleSiteNotificationsMarkReadPost, handleSiteNotificationsClearPost, handleSiteNotificationsDeletePost } = require("../../Utils/Web/siteInAppNotificationsApi");
   const { completeSiteVerify } = require("../../Utils/Web/siteVerifyApi");
+  const { handleSiteSeratafilmAccessGet } = require("../../Utils/Web/siteSeratafilmAccessApi");
+  const { handleHogwartsForbiddenBooksClaim, handleHogwartsForbiddenBooksGet, handleHogwartsForbiddenBooksPublicStatus, handleHogwartsHousePointsGet, handleHogwartsPotionsGet, handleHogwartsPotionsPost, handleHogwartsShopGet, handleHogwartsShopPurchasePost, handleHogwartsSortingBootstrap, handleHogwartsSortingEligibility, handleHogwartsSortingSubmit, handleHogwartsSortingAccessGet, handleHogwartsGringottGet, setHogwartsMutationNoStore } = require("../../Utils/Web/siteHogwartsSortingApi");
+  const hogwartsMutationNoStore = (req, res, next) => {
+    if (req.method === "POST" || req.method === "PATCH") setHogwartsMutationNoStore(res);
+    next();
+  };
+  app.use("/webhooks/site-hogwarts-sorting", hogwartsMutationNoStore);
+
   app.get("/webhooks/site-rules", (req, res) => {
     try {
       res.setHeader("Cache-Control", "public, max-age=120");
@@ -525,6 +443,31 @@ async function startWebhookServer(client) {
   app.get("/webhooks/site-notifications", (req, res) => {
     return handleSiteNotificationsGet(client, req, res);
   });
+  app.post("/webhooks/site-notifications/read", (req, res) => {
+    return handleSiteNotificationsMarkReadPost(client, req, res);
+  });
+  app.post("/webhooks/site-notifications/clear", (req, res) => {
+    return handleSiteNotificationsClearPost(client, req, res);
+  });
+  app.post("/webhooks/site-notifications/delete", (req, res) => {
+    return handleSiteNotificationsDeletePost(client, req, res);
+  });
+  app.get("/webhooks/site-seratafilm-access", (req, res) => handleSiteSeratafilmAccessGet(client, req, res));
+  app.get("/webhooks/site-hogwarts-sorting/bootstrap", (req, res) => handleHogwartsSortingBootstrap(client, req, res));
+  app.get("/webhooks/site-hogwarts-sorting/access", (req, res) => handleHogwartsSortingAccessGet(client, req, res));
+  app.get("/webhooks/site-hogwarts-sorting/gringott", (req, res) => handleHogwartsGringottGet(client, req, res));
+  app.get("/webhooks/site-hogwarts-sorting/points", (req, res) => handleHogwartsHousePointsGet(client, req, res));
+  app.get("/webhooks/site-hogwarts-sorting/potions", (req, res) => handleHogwartsPotionsGet(client, req, res));
+  app.post("/webhooks/site-hogwarts-sorting/potions", (req, res) => handleHogwartsPotionsPost(client, req, res));
+  app.get("/webhooks/site-hogwarts-sorting/shop", (req, res) => handleHogwartsShopGet(client, req, res));
+  app.post("/webhooks/site-hogwarts-sorting/shop/purchase", (req, res) => handleHogwartsShopPurchasePost(client, req, res));
+  app.get("/webhooks/site-hogwarts-sorting/forbidden-books/status", (req, res) => handleHogwartsForbiddenBooksPublicStatus(client, req, res));
+  app.get("/webhooks/site-hogwarts-sorting/forbidden-books", (req, res) => handleHogwartsForbiddenBooksGet(client, req, res));
+  app.post("/webhooks/site-hogwarts-sorting/forbidden-books", (req, res) => handleHogwartsForbiddenBooksClaim(client, req, res));
+  app.get("/webhooks/site-hogwarts-sorting/eligibility", (req, res) =>
+    handleHogwartsSortingEligibility(client, req, res),
+  );
+  app.post("/webhooks/site-hogwarts-sorting", (req, res) => handleHogwartsSortingSubmit(client, req, res));
   app.get("/webhooks/site-payments/plans", (req, res) => {
     try {
       return res.status(200).json({ ok: true, items: listSitePaymentPlans() });
@@ -599,107 +542,41 @@ async function startWebhookServer(client) {
       return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
     }
   });
-  app.get("/webhooks/site-forum", async (req, res) => {
-    try {
-      const out = await getSiteForumThreads(client, { limit: req.query?.limit });
-      return res.status(Number(out.status) || 500).json(out);
-    } catch (err) {
-      global.logger?.error?.("[WEBHOOK] site-forum get:", err);
-      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+  app.get("/webhooks/site-verify/oauth-start", (req, res) => {
+    const clientId = resolveDiscordOauthClientIdForSite();
+    const redirectUri = resolveDiscordOauthRedirectUriForSite();
+    if (!clientId || !redirectUri) {
+      res
+        .status(503)
+        .type("text/plain; charset=utf-8")
+        .send("OAuth sito non configurato sul bot. Imposta DISCORD_OAUTH_CLIENT_ID e DISCORD_OAUTH_REDIRECT_URI (o WEBSITE_*).");
+      return;
     }
-  });
-  app.get("/webhooks/site-forum/:threadId/messages", async (req, res) => {
-    try {
-      const accessToken = normalizeHeaderSecret(req.headers.authorization);
-      const load = accessToken ? getSiteForumThreadMessagesAuthed : getSiteForumThreadMessages;
-      const out = await load(client, {
-        accessToken,
-        threadId: req.params?.threadId,
-        limit: req.query?.limit,
-        before: req.query?.before,
-      });
-      return res.status(Number(out.status) || 500).json(out);
-    } catch (err) {
-      global.logger?.error?.("[WEBHOOK] site-forum messages get:", err);
-      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
-    }
-  });
-  app.post("/webhooks/site-forum", async (req, res) => {
-    try {
-      const accessToken = normalizeHeaderSecret(req.headers.authorization);
-      if (!accessToken) {
-        return res.status(401).json({
-          ok: false,
-          error: "missing_token",
-          message: "Header Authorization: Bearer <token> richiesto.",
-        });
-      }
-      const body = req.body && typeof req.body === "object" ? req.body : {};
-      const tagIds = Array.isArray(body.tagIds)
-        ? body.tagIds
-        : typeof body.tagIds === "string"
-          ? body.tagIds.split(",")
-          : [];
-      const out = await createSiteForumThread(client, {
-        accessToken,
-        title: body.title,
-        content: body.content,
-        media: body.media,
-        tagIds,
-      });
-      return res.status(Number(out.status) || 500).json(out);
-    } catch (err) {
-      global.logger?.error?.("[WEBHOOK] site-forum post:", err);
-      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
-    }
-  });
-  app.post("/webhooks/site-forum/:threadId/messages", async (req, res) => {
-    try {
-      const accessToken = normalizeHeaderSecret(req.headers.authorization);
-      if (!accessToken) {
-        return res.status(401).json({
-          ok: false,
-          error: "missing_token",
-          message: "Header Authorization: Bearer <token> richiesto.",
-        });
-      }
-      const body = req.body && typeof req.body === "object" ? req.body : {};
-      const out = await createSiteForumMessage(client, {
-        accessToken,
-        threadId: req.params?.threadId,
-        content: body.content,
-        media: body.media,
-      });
-      return res.status(Number(out.status) || 500).json(out);
-    } catch (err) {
-      global.logger?.error?.("[WEBHOOK] site-forum message post:", err);
-      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
-    }
-  });
-  app.patch("/webhooks/site-forum/:threadId", async (req, res) => {
-    try {
-      const accessToken = normalizeHeaderSecret(req.headers.authorization);
-      if (!accessToken) {
-        return res.status(401).json({
-          ok: false,
-          error: "missing_token",
-          message: "Header Authorization: Bearer <token> richiesto.",
-        });
-      }
-      const body = req.body && typeof req.body === "object" ? req.body : {};
-      const out = await updateSiteForumThread(client, {
-        accessToken,
-        threadId: req.params?.threadId,
-        title: body.title,
-        content: body.content,
-        archived: body.archived,
-        locked: body.locked,
-      });
-      return res.status(Number(out.status) || 500).json(out);
-    } catch (err) {
-      global.logger?.error?.("[WEBHOOK] site-forum thread patch:", err);
-      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
-    }
+    const fromR = normalizeSiteOAuthReturnPath(req.query?.r);
+    const gid = String(req.query?.guildId || req.query?.guild || "").trim();
+    const returnPath =
+      fromR ||
+      (/^\d{17,22}$/.test(gid) ? `/?siteVerifyGuild=${encodeURIComponent(gid)}` : "/");
+    const nonce = crypto.randomBytes(16).toString("hex");
+    const state = encodeURIComponent(JSON.stringify({ r: returnPath, n: nonce, t: Date.now() }));
+    const q = new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      response_type: "token",
+      scope: "identify",
+      state,
+    });
+    const authorizeUrl = `https://discord.com/oauth2/authorize?${q.toString()}`;
+    const nonceJson = JSON.stringify(nonce);
+    const urlJson = JSON.stringify(authorizeUrl);
+    const html =
+      "<!DOCTYPE html><html lang=\"it\"><head><meta charset=\"utf-8\"><meta name=\"robots\" content=\"noindex\"><title>Discord</title></head><body>" +
+      "<script>(function(){var n=" +
+      nonceJson +
+      ";try{sessionStorage.setItem(\"vc_oauth_state_nonce_v1\",n);}catch(e){}location.replace(" +
+      urlJson +
+      ");})();<\/script></body></html>";
+    res.status(200).type("text/html; charset=utf-8").send(html);
   });
   app.get("/webhooks/site-live-event", (req, res) => {
     return handleSiteLiveEventGet(client, req, res);
@@ -1134,6 +1011,29 @@ async function startWebhookServer(client) {
       return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
     }
   });
+  app.patch("/webhooks/site-suggestions/:suggestionId/decision", async (req, res) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      if (!accessToken) {
+        return res.status(401).json({
+          ok: false,
+          error: "missing_token",
+          message: "Header Authorization: Bearer <token> richiesto.",
+        });
+      }
+      const body = req.body && typeof req.body === "object" ? req.body : {};
+      const out = await staffSetSiteSuggestionDecision(client, {
+        accessToken,
+        suggestionId: req.params?.suggestionId,
+        status: body.status,
+        reason: body.reason,
+      });
+      return res.status(Number(out.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-suggestions decision:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
   app.post("/webhooks/site-suggestions/:suggestionId/delete", async (req, res) => {
     try {
       const accessToken = normalizeHeaderSecret(req.headers.authorization);
@@ -1216,14 +1116,26 @@ async function startWebhookServer(client) {
     global.logger?.warn?.("[WEBHOOK] WebSocket suggerimenti (init):", err?.message || err);
   }
 
-  server.listen(port, "0.0.0.0", () => {});
+  client._botHttpWebhookServer = server;
+
+  server.once("error", (err) => {
+    client._discadiaVoteHttpServerStarted = false;
+    if (client._botHttpWebhookServer === server) client._botHttpWebhookServer = null;
+
+    if (err?.code === "EADDRINUSE") {
+      global.logger?.error?.(
+        `[WEBHOOK] porta ${port} già in uso: il server HTTP del bot non e stato avviato. ` +
+          "Chiudi l'altro processo sulla stessa porta oppure cambia `discadia.webhookPort`.",
+      );
+      return;
+    }
+
+    global.logger?.error?.("[WEBHOOK] listen failed:", err);
+  });
+
+  server.listen(port, "0.0.0.0", () => {
+    global.logger?.info?.(`[WEBHOOK] HTTP server online on 0.0.0.0:${port}`);
+  });
 }
 
-module.exports = {
-  startWebhookServer,
-  shouldStartDiscadiaVoteHttpWebhook,
-  shouldStartTopggVoteHttpWebhook,
-  shouldStartBotHttpServer,
-  shouldStartPublicSiteReadonlyHttp,
-  isCandidatureWebsiteApiEnabled,
-};
+module.exports = { startWebhookServer, shouldStartDiscadiaVoteHttpWebhook, shouldStartTopggVoteHttpWebhook, shouldStartBotHttpServer, shouldStartPublicSiteReadonlyHttp, isCandidatureWebsiteApiEnabled };

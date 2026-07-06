@@ -2,7 +2,6 @@ const { SlashCommandBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, Act
 const { safeReply } = require("../../../shared/discord/replyRuntime");
 const {
   partnersChatPartnerCommandDeniedReplyContent,
-  schedulePartnersDeniedDeleteReply,
 } = require("../../Utils/Partner/partnersChatChannelUtils");
 const EPHEMERAL_FLAG = 1 << 6;
 
@@ -25,7 +24,6 @@ module.exports = {
         content: denied,
         flags: EPHEMERAL_FLAG,
       });
-      schedulePartnersDeniedDeleteReply(interaction);
       return;
     }
     const manager = interaction.options.getUser("manager");

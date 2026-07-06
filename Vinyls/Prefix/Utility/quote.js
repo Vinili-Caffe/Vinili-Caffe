@@ -2,35 +2,11 @@ const { AttachmentBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, Button
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const renderQuoteCanvas = require("../../Utils/Render/quoteCanvas");
 const { nextQuoteCount } = require("../../Utils/Quote/quoteCounter");
+const { resolveQuotePostChannel } = require("../../Utils/Quote/quotePostChannel");
+const { normalizeQuoteMessageText } = require("../../Utils/Quote/normalizeQuoteMessageText");
 const { QuotePrivacy } = require("../../Schemas/Community/communitySchemas");
-const IDs = require("../../Utils/Config/ids");
 const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
-
-const QUOTE_CHANNEL_ID = IDs.channels.quotes;
-
-function normalizeQuoteText(targetMessage) {
-  const raw = String(targetMessage?.content || "");
-  const users = targetMessage?.mentions?.users;
-  const roles = targetMessage?.mentions?.roles;
-  const channels = targetMessage?.mentions?.channels;
-
-  return raw
-    .replace(/<@!?(\d+)>/g, (_, id) => {
-      const u = users?.get(id);
-      const name = u?.username;
-      return name ? `@${name}` : "@utente";
-    })
-    .replace(/<@&(\d+)>/g, (_, id) => {
-      const role = roles?.get(id);
-      return role?.name ? `@${role.name}` : "@ruolo";
-    })
-    .replace(/<#(\d+)>/g, (_, id) => {
-      const ch = channels?.get(id);
-      return ch?.name ? `#${ch.name}` : "#canale";
-    })
-    .replace(/\s{2,}/g, " ")
-    .trim();
-}
+const { isRepostDisabledInGuild } = require("../../Services/Community/repostService");
 
 function buildQuotePostEmbed({ messageAuthorId, creatorId, totalPosts }) {
   return new EmbedBuilder()
@@ -89,7 +65,7 @@ module.exports = {
       });
     }
 
-    const text = normalizeQuoteText(targetMessage);
+    const text = normalizeQuoteMessageText(targetMessage);
     const author = targetMessage.author;
     const displayName = targetMessage.member?.displayName || author?.username;
     if (!author || !text) {
@@ -163,46 +139,72 @@ module.exports = {
       });
     }
 
-    let totalPosts = 1;
+    let totalPosts;
     try {
       totalPosts = await nextQuoteCount(message.guild.id);
-    } catch {
-      totalPosts = 1;
+    } catch (err) {
+      global.logger?.warn?.("[quote] counter failed:", err?.message || err);
+      return safeMessageReply(message, {
+        embeds: [
+          new EmbedBuilder()
+            .setColor("Red")
+            .setDescription(
+              "<:vegax:1443934876440068179> Contatore quote non disponibile. Riprova tra poco.",
+            ),
+        ],
+        allowedMentions: { repliedUser: false },
+      });
     }
 
     const attachment = new AttachmentBuilder(buffer, { name: quoteFormat === "gif" ? "quote.gif" : "quote.png" });
+    const quoteChannel = await resolveQuotePostChannel(message.guild);
+    const embedDescription = quoteChannel
+      ? `<a:VC_Sparkles:1468546911936974889> Puoi trovare il post creato nel canale: <#${quoteChannel.id}>!`
+      : "<a:VC_Sparkles:1468546911936974889> Quote pubblicata in questo canale.";
     const embed = new EmbedBuilder()
       .setColor("#6f4e37")
-      .setDescription(
-        `<a:VC_Sparkles:1468546911936974889> Puoi trovare il post creato nel canale: <#${QUOTE_CHANNEL_ID}>!`,
-      )
+      .setDescription(embedDescription)
       .addFields({
         name: "📸 Totale immagini generate:",
         value: String(totalPosts),
       });
 
     const replyMsg=await safeMessageReply(message,{files:[attachment],embeds:[embed],allowedMentions:{repliedUser:false},});
+    if (replyMsg?.id && !isRepostDisabledInGuild(message.guild.id)) {
+      const repostRow = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`repost_src:${message.channel.id}:${replyMsg.id}:${author.id}`)
+          .setLabel("Reposta")
+          .setEmoji("1443652837346377841")
+          .setStyle(ButtonStyle.Secondary),
+      );
+      await replyMsg.edit({ components: [repostRow] }).catch(() => {});
+    }
 
-    const quoteChannel = message.guild.channels.cache.get(QUOTE_CHANNEL_ID);
-    if (quoteChannel) {
+    if (
+      quoteChannel?.isTextBased?.() &&
+      typeof quoteChannel.send === "function" &&
+      quoteChannel.id !== message.channel.id
+    ) {
       const postAttachment = new AttachmentBuilder(buffer, {
         name: quoteFormat === "gif" ? "quote.gif" : "quote.png",
       });
       const postEmbed=buildQuotePostEmbed({messageAuthorId:author.id,creatorId:message.author.id,totalPosts,});
       const originChannelId = message.channel.id;
       const originMessageId = replyMsg?.id || "0";
-      const row = new ActionRowBuilder().addComponents(
+      const rowButtons = [
         new ButtonBuilder()
           .setCustomId(`quote_remove:${message.author.id}:${originChannelId}:${originMessageId}`)
           .setLabel("Rimuovi questa quote")
           .setEmoji("🗑️")
           .setStyle(ButtonStyle.Danger),
-      );
+      ];
+      const removeRow = new ActionRowBuilder().addComponents(...rowButtons);
       await quoteChannel
         .send({
           files: [postAttachment],
           embeds: [postEmbed],
-          components: [row],
+          components: [removeRow],
         })
         .catch(() => {});
     }

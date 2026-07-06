@@ -1,9 +1,29 @@
 {
   "prefix": "+",
+  "processPendingCommands": true,
   "mainGuildId": "1329080093599076474",
   "status": "idle",
+  "presence": {
+    "activityName": "viniliecaffe.it | .gg/viniliecaffe | +help",
+    "streamUrl": "",
+    "forbiddenSectionEvent": {
+      "enabled": true,
+      "startDate": "2026-06-20T12:00:00",
+      "endDate": "2026-09-01T10:00:00",
+      "bookEmoji": "📖"
+    }
+  },
   "logLevel": "debug",
   "eventListeners": 50,
+  "globalExpEvents": [
+    {
+      "key": "august_double_exp_2026",
+      "enabled": true,
+      "startDate": "2026-08-01",
+      "endDate": "2026-08-31",
+      "multiplier": 2
+    }
+  ],
   "developers": [
     "295500038401163264"
   ],
@@ -33,6 +53,7 @@
     "httpVoteWebhookEnabled": true,
     "webhookPort": 3000,
     "webhookSecret": "",
+    "botIds": ["1468236145753067739"],
     "cooldownMinutes": 1440,
     "bumpSuccessPatterns": [
       "has been successfully bumped",
@@ -47,7 +68,9 @@
     "httpVoteWebhookEnabled": true,
     "voteReminderCooldownHours": 12,
     "webhookSecret": "whs_2ac9ba9449fc5d049d5efef575a420c0c80523d056e0179e0c98ad4c1630f0fe",
-    "votePageUrl": "https://top.gg/discord/servers/832911595289169920",
+    "votePageUrl": "https://www.viniliecaffe.it/vote",
+    "statsDigestListingUrl": "https://top.gg/discord/servers/832911595289169920",
+    "reviewsPageUrl": "https://top.gg/discord/servers/832911595289169920/reviews",
     "reminderMessage": null,
     "statsDigestChannelId": null,
     "statsDigestOnStartup": false
@@ -57,7 +80,7 @@
     "cooldownHours": 24,
     "checkIntervalMinutes": 30,
     "fallbackChannelId": null,
-    "voteUrl": "https://discadia.com/vote/viniliecaffe/",
+    "voteUrl": "https://www.viniliecaffe.it/vote",
     "message": [
       "<:discadia:1498023529055260682> Hey! Sono passate 24 ore: puoi votare di nuovo su Discadia.",
       "<a:VC_ThankYou:1330186319673950401> **Grazie per il supporto!**",
@@ -229,14 +252,110 @@
     "lang": "it",
     "autojoin": false,
     "includeUsername": false,
-    "stayConnected": false
+    "stayConnected": false,
+    "restoreVoiceOnRestart": true
   },
-  "ai": {
-    "enabled": false
+  "voiceClip": {
+    "maxDurationSec": 60,
+    "defaultDurationSec": 30,
+    "language": "it",
+    "provider": "auto"
   },
   "minigames": {
     "enabled": true,
+    "hogwartsExclusiveDuringEvent": true,
+    "hogwartsUnsortedHousePointsPerWin": 25,
+    "hogwartsEventSpawn": {
+      "targetIntervalMs": 600000,
+      "minDistinctHouses": 3,
+      "minDistinctHousesWithSorted": 2,
+      "requirementMaxWaitMs": 600000,
+      "retryAfterRequirementMissMs": 120000,
+      "failsafeMs": 5400000
+    },
+    "hogwartsHouseChannelMinigames": {
+      "enabled": true,
+      "durationMs": 60000,
+      "quizDurationMs": 120000,
+      "hourlyHousePoints": 20,
+      "towerMaxPerUser": 10,
+      "towerMinLetters": 5,
+      "towerDurationMs": 120000,
+      "hourStart": 12,
+      "hourEnd": 23,
+      "hourlyMinuteOffsets": {
+        "gryffindor": 3,
+        "hufflepuff": 18,
+        "ravenclaw": 33,
+        "slytherin": 48
+      },
+      "towerIntervalHours": 2,
+      "towerFirstHour": 12,
+      "towerMinuteOffsets": {
+        "gryffindor": 8,
+        "hufflepuff": 23,
+        "ravenclaw": 38,
+        "slytherin": 53
+      },
+      "themedGameTypes": ["hogwartsQuiz", "hogwartsMemoryEmoji", "hogwartsCipher"]
+    },
+    "hogwartsBasilisk": {
+      "enabled": true,
+      "chancePercent": 2,
+      "wholeHouseChancePercent": 0.35,
+      "persistentPlayersChancePercent": 2.5,
+      "persistentMinigamesMin": 2,
+      "persistentMinigamesMax": 4,
+      "blockedPlayerCount": 3,
+      "announceDelayMs": 5000,
+      "phoenixCureChancePercent": 6,
+      "avoidRepeatStrikeHouses": 2,
+      "minGapBetweenStrikesMs": 1200000,
+      "onlyDuringHogwartsEvent": true
+    },
+    "hogwartsHouseBasilisk": {
+      "enabled": true,
+      "chancePercent": 2,
+      "wholeHouseChancePercent": 0.35,
+      "persistentPlayersChancePercent": 2,
+      "persistentMinigamesMin": 2,
+      "persistentMinigamesMax": 4,
+      "blockedPlayerCount": 3,
+      "announceDelayMs": 5000,
+      "phoenixCureChancePercent": 6,
+      "avoidRepeatStrikeHouses": 2,
+      "minGapBetweenStrikesMs": 1200000,
+      "onlyDuringHogwartsEvent": true
+    },
+    "hogwartsEventBonusMinigames": true,
+    "hogwartsEventBonusHousePointsMultiplier": 0.5,
+    "burrobirraEffect": {
+      "enabled": true,
+      "onlyDuringHogwartsEvent": true,
+      "windowStartHour": 12,
+      "windowStartMinute": 0,
+      "windowEndHour": 23,
+      "windowEndMinute": 59,
+      "durationMs": 3600000,
+      "maxOccurrencesPerDay": 3,
+      "minGapBetweenMs": 7200000
+    },
+    "hogwartsHouseBurrobirraEffect": {
+      "enabled": true,
+      "onlyDuringHogwartsEvent": true,
+      "spawnChancePercent": 2.5,
+      "durationMs": 2700000,
+      "minGapBetweenMs": 7200000,
+      "rollJitterMaxMs": 5400000,
+      "avoidRepeatHouses": 2,
+      "mainChannelId": "1442569130573303898"
+    },
     "translateApiToItalian": true,
+    "spawnFreshActivity": {
+      "enabled": true,
+      "windowMs": 300000,
+      "minMessages": 5
+    },
     "intervalMs": 900000,
     "noParticipationIntervalMs": 900000,
     "activityWindowMs": 1800000,
@@ -245,12 +364,12 @@
       "enabled": true,
       "hardMin": 15,
       "hardMax": 100,
-      "memberReference": 400,
-      "memberFactorMin": 0.78,
-      "memberFactorMax": 1.38,
-      "memberExponent": 0.28,
-      "nightHourStart": 20,
-      "nightHourEnd": 24,
+      "memberReference": 200,
+      "memberFactorMin": 0.58,
+      "memberFactorMax": 1.18,
+      "memberExponent": 0.18,
+      "nightHourStart": 24,
+      "nightHourEnd": 7,
       "nightFactor": 0.72,
       "peakHourStart": 18,
       "peakHourEnd": 22,
@@ -273,12 +392,12 @@
     },
     "timeWindow": {
       "start": {
-        "hour": 9,
+        "hour": 8,
         "minute": 0
       },
       "end": {
-        "hour": 23,
-        "minute": 45
+        "hour": 24,
+        "minute": 0
       }
     },
     "guessNumber": {
@@ -302,6 +421,10 @@
       "rewardExp": 150,
       "onlyFamous": true,
       "apiUrl": "https://www.thesportsdb.com/api/v1/json/3/searchplayers.php?p="
+    },
+    "hogwartsGuessCharacter": {
+      "durationMs": 180000,
+      "rewardExp": 150
     },
     "guessSong": {
       "durationMs": 180000,
@@ -371,7 +494,7 @@
     "hangman": {
       "durationMs": 240000,
       "rewardExp": 200,
-      "maxMisses": 7
+      "maxMisses": 10
     },
     "italianGK": {
       "durationMs": 180000,
@@ -379,9 +502,16 @@
       "apiUrl": "https://opentdb.com/api.php?amount=5",
       "requireItalian": false
     },
+    "hogwartsQuiz": {
+      "durationMs": 180000,
+      "rewardExp": 200,
+      "housePoints": 10,
+      "unsortedHousePoints": 25
+    },
     "drivingQuiz": {
       "durationMs": 180000,
-      "rewardExp": 150
+      "rewardExp": 150,
+      "userAnswerCooldownMs": 5000
     },
     "mathExpression": {
       "durationMs": 180000,
@@ -389,9 +519,50 @@
     },
     "findBot": {
       "durationMs": 300000,
+      "rewardExp": 200
+    },
+    "findBotVoice": {
+      "durationMs": 300000,
+      "rewardExp": 200
+    },
+    "findScroll": {
+      "startDate": "2026-06-15T14:00:00",
+      "durationMs": 300000,
       "rewardExp": 200,
-      "excludedChannelIds": [
-        "1470775925426618468"
+      "housePoints": 10,
+      "unsortedHousePoints": 25
+    },
+    "memoryEmoji": {
+      "displayMs": 8000,
+      "durationMs": 180000,
+      "rewardExp": 250
+    },
+    "hogwartsMemoryEmoji": {
+      "startDate": "2026-06-29T14:00:00",
+      "displayMs": 8000,
+      "durationMs": 180000,
+      "rewardExp": 250,
+      "housePoints": 10,
+      "unsortedHousePoints": 25
+    },
+    "hogwartsCipher": {
+      "startDate": "2026-07-13T14:00:00",
+      "durationMs": 180000,
+      "rewardExp": 250,
+      "housePoints": 10,
+      "unsortedHousePoints": 25
+    },
+    "hogwartsObservationTower": {
+      "startDate": "2026-07-27T14:00:00",
+      "durationMs": 120000,
+      "maxPerUser": 10,
+      "minLetters": 5,
+      "rewardExp": 150,
+      "unsortedHousePoints": 25,
+      "tiers": [
+        { "weight": 1, "targetBricks": 30, "minPlayers": 3, "housePoints": 50 },
+        { "weight": 1, "targetBricks": 40, "minPlayers": 4, "housePoints": 100 },
+        { "weight": 1, "targetBricks": 50, "minPlayers": 5, "housePoints": 150 }
       ]
     },
     "guessYear": {
@@ -416,29 +587,200 @@
     },
     "synonymAntonym": {
       "durationMs": 180000,
-      "rewardExp": 120
+      "rewardExp": 150
     },
     "guessCity": {
       "durationMs": 180000,
       "rewardExp": 150
+    },
+    "treasureHunt": {
+      "emojiPairs": [
+        { "decoy": "⚓", "winner": "💎" },
+        { "decoy": "🪄", "winner": "💎" },
+        { "decoy": "✨", "winner": "🏆" }
+      ],
+      "buckets": [
+        { "weight": 1, "minMessages": 20, "maxMessages": 30, "minDurationMs": 60000,  "maxDurationMs": 120000, "rewardExp": 100 },
+        { "weight": 1, "minMessages": 30, "maxMessages": 50, "minDurationMs": 90000,  "maxDurationMs": 180000, "rewardExp": 150 },
+        { "weight": 1, "minMessages": 40, "maxMessages": 70, "minDurationMs": 120000, "maxDurationMs": 240000, "rewardExp": 200 }
+      ]
     }
+  },
+  "hogwartsForbiddenBooks": {
+    "startDate": "2026-06-20T12:00:00",
+    "endDate": "2026-09-01T10:00:00",
+    "rewardHousePoints": 250,
+    "rewardGaleoni": 100,
+    "channelDecor": {
+      "enabled": true,
+      "nameChannelCount": 2,
+      "bookEmoji": "📖"
+    },
+    "rounds": [
+      {
+        "id": "r1",
+        "label": "Round 1",
+        "start": "2026-06-20T12:00:00",
+        "bookIds": ["home", "faq", "wiki", "regole", "donazioni", "vote", "ruoli", "sponsor"]
+      },
+      {
+        "id": "r2",
+        "label": "Round 2",
+        "start": "2026-06-20T17:00:00",
+        "bookIds": ["candidature", "evento_shop", "evento_smistamento", "recensioni", "suggerimenti", "user", "perks", "notifications"]
+      },
+      {
+        "id": "r3",
+        "label": "Round 3",
+        "start": "2026-06-20T21:00:00",
+        "bookIds": ["donazioni", "evento_coppa", "privacy", "terms", "cookie", "unban", "faq", "wiki"]
+      }
+    ]
+  },
+  "premiLaReact": {
+    "enabled": true,
+    "eventKey": "premi_la_react_2026",
+    "startDate": "2026-07-11T12:00:00",
+    "endDate": "2026-08-11T10:00:00",
+    "emoji": "⚡",
+    "rewardGaleoni": 3,
+    "rewardHousePoints": 10,
+    "minIntervalMs": 3600000,
+    "maxIntervalMs": 3600000,
+    "activeDurationMs": 600000,
+    "maxPerDay": 24,
+    "minCandidateAgeMs": 120000,
+    "maxCandidateAgeMs": 21600000
+  },
+  "hogwartsSpellListHunt": {
+    "enabled": true,
+    "eventKey": "hogwarts_spell_list_hunt_2026",
+    "eventDate": "2026-08-22",
+    "eventEndDate": "2026-08-23",
+    "startHour": 12,
+    "endHour": 10,
+    "roundDurationMs": 3300000,
+    "rewardHousePoints": 25,
+    "eventsRoleId": "1507000390493798511",
+    "leaderboardChannelId": "1507685351102353448"
+  },
+  "hogwartsPotions": {
+    "enabled": true,
+    "startDate": "2026-08-24T12:00:00",
+    "cooldownMs": 43200000,
+    "rewardGaleoni": 10,
+    "rewardHousePoints": 10,
+    "roundSize": 4,
+    "reminderSweepMs": 1800000,
+    "reminderDmCategory": "perks",
+    "pageUrl": "/evento/pozioni",
+    "redirectUrl": "/evento/shop"
+  },
+  "twitchLiveAlerts": {
+    "enabled": true,
+    "pollIntervalSec": 90,
+    "streamVoiceChannelId": "1522558362288521226",
+    "streamers": [
+      {
+        "login": "d1unkk",
+        "displayName": "d1unkk",
+        "discordUserId": "610531025470095390",
+        "voiceNameOn": "༄🟢︲Streaming D1unkk: ON",
+        "voiceNameOff": "༄🔴︲Streaming D1unkk: OFF",
+        "voiceStatusOn": "Sono in live su https://www.twitch.tv/d1unkk"
+      }
+    ]
+  },
+  "serverEconomy": {
+    "enabled": false,
+    "earnSplitMinPct": 30,
+    "earnSplitMaxPct": 70,
+    "minBet": 2,
+    "maxBet": 50,
+    "dailyBetCap": 200,
+    "work": { "cooldownMs": 3600000, "minReward": 3, "maxReward": 8, "streakStepPct": 1, "streakMaxBonusPct": 8, "streakGraceMs": 10800000 },
+    "daily": { "cooldownMs": 86400000, "reward": 15, "streakStepPct": 2, "streakMaxBonusPct": 20, "streakGraceMs": 172800000 },
+    "weekly": { "cooldownMs": 604800000, "reward": 70, "streakStepPct": 4, "streakMaxBonusPct": 40, "streakGraceMs": 1209600000 },
+    "monthly": { "cooldownMs": 2592000000, "reward": 200, "streakStepPct": 8, "streakMaxBonusPct": 80, "streakGraceMs": 5356800000 },
+    "rob": {
+      "cooldownMs": 10800000,
+      "successChance": 30,
+      "minTargetBalance": 25,
+      "minSteal": 5,
+      "maxSteal": 35,
+      "failPenalty": 10,
+      "targetProtectionMs": 43200000
+    },
+    "roulette": { "cooldownMs": 5000, "numberPayout": 36, "simplePayout": 2 },
+    "rps": { "cooldownMs": 5000, "winPayout": 2 },
+    "slots": { "cooldownMs": 5000, "pairPayout": 2, "triplePayout": 5, "jackpotPayout": 10 },
+    "blackjack": { "cooldownMs": 5000, "winPayout": 2, "blackjackPayout": 2.5 },
+    "coinflip": { "cooldownMs": 5000, "winPayout": 2 },
+    "tris": { "cooldownMs": 5000, "winPayout": 2, "botRandomPct": 35 },
+    "scratch": { "cooldownMs": 5000, "pairPayout": 2, "triplePayout": 8, "jackpotPayout": 15 },
+    "shop": { "enabled": false, "purchaseCooldownMs": 3000 },
+    "bridge": {
+      "enabled": false,
+      "caffePerGaleone": 4,
+      "minCaffeConvert": 8,
+      "maxCaffeConvert": 120,
+      "dailyGaleoniCap": 40
+    }
+  },
+  "galeoniEconomy": {
+    "enabled": true,
+    "previewMode": false,
+    "startDate": "2026-08-10T12:00:00",
+    "minBet": 5,
+    "maxBet": 250,
+    "dailyBetCap": 1000,
+    "work": { "cooldownMs": 3600000, "minReward": 8, "maxReward": 24, "streakStepPct": 1, "streakMaxBonusPct": 10, "streakGraceMs": 10800000 },
+    "daily": { "cooldownMs": 86400000, "reward": 50, "streakStepPct": 3, "streakMaxBonusPct": 30, "streakGraceMs": 172800000 },
+    "weekly": { "cooldownMs": 604800000, "reward": 250, "streakStepPct": 5, "streakMaxBonusPct": 50, "streakGraceMs": 1209600000 },
+    "monthly": { "cooldownMs": 2592000000, "reward": 900, "streakStepPct": 10, "streakMaxBonusPct": 100, "streakGraceMs": 5356800000 },
+    "rob": {
+      "cooldownMs": 10800000,
+      "successChance": 35,
+      "minTargetBalance": 80,
+      "minSteal": 15,
+      "maxSteal": 120,
+      "failPenalty": 25,
+      "targetProtectionMs": 43200000
+    },
+    "roulette": { "cooldownMs": 5000, "numberPayout": 36, "simplePayout": 2 },
+    "rps": { "cooldownMs": 5000, "winPayout": 2 },
+    "slots": { "cooldownMs": 5000, "pairPayout": 2, "triplePayout": 5, "jackpotPayout": 10 },
+    "blackjack": { "cooldownMs": 5000, "winPayout": 2, "blackjackPayout": 2.5 },
+    "coinflip": { "cooldownMs": 5000, "winPayout": 2 },
+    "tris": { "cooldownMs": 5000, "winPayout": 2, "botRandomPct": 35 },
+    "scratch": { "cooldownMs": 5000, "pairPayout": 2, "triplePayout": 8, "jackpotPayout": 15 }
   },
   "categoryNumbering": {
     "enabled": true,
     "debounceMs": 1200,
     "intervalMs": 600000,
     "minDigits": 2,
-    "separator": " "
+    "separator": " ",
+    "channelCategoryIds": [
+      "1442569076902989844"
+    ]
   },
+  "publicVoiceHubs": {
+    "enabled": true,
+    "channelIds": [
+      "1442569113108218058",
+      "1442569121350025306",
+      "1442569134532726855"
+    ]
+  },
+  "sponsorVerifyPanelsEnabled": false,
   "sponsorGuildIds": [
     "1471511676019933354",
     "1471511928739201047",
     "1471512183547498579",
     "1471512555762483330",
     "1471512797140484230",
-    "1471512808448458958",
-    "1488858326824653023",
-    "1488858581175505023"
+    "1471512808448458958"
   ],
   "sponsorVerifyChannelIds": {
     "1471511676019933354": "1471520139345137778",
@@ -446,9 +788,7 @@
     "1471512183547498579": "1471521065368027279",
     "1471512555762483330": "1471521125484986470",
     "1471512797140484230": "1471521191876362446",
-    "1471512808448458958": "1471521259543068694",
-    "1488858326824653023": "1488859928994254938",
-    "1488858581175505023": "1488859830507798558"
+    "1471512808448458958": "1471521259543068694"
   },
   "verificatoRoleIds": {
     "1471511676019933354": "1471522935188623435",
@@ -456,9 +796,7 @@
     "1471512183547498579": "1471522479867433073",
     "1471512555762483330": "1471522093484081300",
     "1471512797140484230": "1471521864898838689",
-    "1471512808448458958": "1471521694698176726",
-    "1488858326824653023": "1488865376015220947",
-    "1488858581175505023": "1488865689035997347"
+    "1471512808448458958": "1471521694698176726"
   },
   "guildedRoleIds": {
     "1471511676019933354": "1471627231637012572",
@@ -466,8 +804,42 @@
     "1471512183547498579": "1471628136172097638",
     "1471512555762483330": "1471628002050838790",
     "1471512797140484230": "1471627880575275008",
-    "1471512808448458958": "1471627711901470781",
-    "1488858326824653023": "1488865444663394374",
-    "1488858581175505023": "1488865717087637604"
+    "1471512808448458958": "1471627711901470781"
+  },
+  "hogwartsEvent": {
+    "enabled": true,
+    "previewMode": false,
+    "timezone": "Europe/Rome",
+    "startDate": "2026-06-01T14:00:00",
+    "sortingStartDate": "2026-06-01T12:00:00",
+    "endDate": "2026-09-01T12:00:00",
+    "sortingLogChannelId": "1507685351102353448",
+    "eventKey": "hogwarts_summer_2026",
+    "houses": {
+      "gryffindor": { "roleId": "1504791825657888898", "label": "Gryffindor" },
+      "ravenclaw": { "roleId": "1504791921246339072", "label": "Ravenclaw" },
+      "hufflepuff": { "roleId": "1504791899100155987", "label": "Hufflepuff" },
+      "slytherin": { "roleId": "1504791872671973537", "label": "Slytherin" }
+    },
+    "gringott": {
+      "sortingReward": 250
+    },
+    "completionRoleId": "1507000390493798511",
+    "calendar": {
+      "timezone": "Europe/Rome"
+    },
+    "duel": {
+      "cooldownMs": 180000,
+      "voldemortPortraitFile": "voldemort.png",
+      "vsBot": { "galeoni": 10, "housePoints": 15, "minPlayerWinChance": 22, "maxPlayerWinChance": 62 },
+      "vsUser": { "galeoni": 10, "housePoints": 15 }
+    },
+    "staffBypassUserIds": [],
+    "punticasaPrefectHouses": {
+      "295500038401163264": "hufflepuff",
+      "700814270069342339": "slytherin",
+      "610531025470095390": "ravenclaw",
+      "470373387609571339": "gryffindor"
+    }
   }
 }

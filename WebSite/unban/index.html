@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="it">
   <head>
 {{COOKIEYES_BLOCK}}{{GA_BLOCK}}
@@ -8,6 +8,21 @@
     <meta name="author" content="{{SITE_NAME}}" />
     <meta name="robots" content="index, follow" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+    <script>
+      (function () {
+        try {
+          if (String(location.hash || "").indexOf("access_token=") !== -1) return;
+          var p = String(location.pathname || "").replace(/\/+$/, "") || "/";
+          if (p !== "/unban" && p !== "/unban/index.html") return;
+          var t = localStorage.getItem("vc_discord_access_token");
+          var exp = Number(localStorage.getItem("vc_discord_expires_at") || "0");
+          if (t && exp && Date.now() < exp) return;
+          var u = new URL("/unban/accesso-richiesto/", location.origin);
+          u.searchParams.set("from", String(location.pathname || "") + String(location.search || ""));
+          location.replace(u.href);
+        } catch (e) {}
+      })();
+    </script>
     <meta property="og:type" content="website" />
     <meta property="og:title" content="{{SITE_NAME}} | Richiesta unban" />
     <meta property="og:description" content="Invia una richiesta unban allo staff di {{SITE_NAME}}." />
@@ -31,7 +46,7 @@
       <div class="vc-nav-shell vc-glass mx-auto flex max-w-6xl flex-col gap-0 overflow-visible rounded-2xl border border-white/[0.08] bg-[#140f0c]/78 shadow-[0_8px_40px_rgba(0,0,0,0.48),0_0_48px_rgba(212,168,136,0.07)]">
         <div class="vc-header-bar grid w-full grid-cols-1 items-center gap-y-2.5 gap-x-2 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:gap-x-3 sm:px-5">
           <div class="flex min-w-0 items-center gap-2.5 justify-self-start sm:gap-3">
-            <a class="vc-header-logo-link shrink-0 rounded-2xl ring-1 ring-[#d4a888]/35 transition hover:ring-[#d4a888]/55 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#d4a888]/60" href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer" aria-label="Entra su Discord"><img src="../images/vc-header-logo.png" width="40" height="40" class="vc-header-logo-img" alt="" loading="eager" decoding="async" /></a>
+            <a class="vc-header-logo-link shrink-0 rounded-2xl ring-1 ring-[#d4a888]/35 transition hover:ring-[#d4a888]/55 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#d4a888]/60" href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer" aria-label="Entra su Discord"><img src="{{GUILD_ICON_URL}}" width="40" height="40" class="vc-header-logo-img" alt="" loading="eager" decoding="async" /></a>
             <a class="min-w-0 truncate text-[0.7rem] font-bold uppercase tracking-[0.18em] text-white underline-offset-4 transition hover:text-[#e8c9a8] hover:underline sm:text-xs" href="{{SITE_URL}}" aria-label="Vai alla homepage">{{SITE_NAME}}</a>
           </div>
           <nav class="vc-header-snav vc-glass flex max-w-full flex-wrap items-center justify-center justify-self-center gap-0.5 px-1.5 py-1 sm:min-w-0 sm:gap-1 sm:px-2" aria-label="Collegamenti rapidi">
@@ -44,9 +59,9 @@
                 <a class="vc-snav-row" href="{{VOTE_URL}}" data-vc-loading="vote"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-thumbs-o-up"></i></span><span>Vota il server</span></a>
                 <a class="vc-snav-row" href="{{REVIEWS_PAGE_URL}}"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-star-o"></i></span><span>Recensioni</span></a>
                 <a class="vc-snav-row" href="{{DONATIONS_URL}}"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-heart-o"></i></span><span>Donazioni</span></a>
+                <a class="vc-snav-row" href="{{PERKS_URL}}"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-diamond"></i></span><span>Perks</span></a>
               </div>
             </details>
-            <span class="vc-snav-sep mx-0.5 hidden h-5 w-px shrink-0 bg-white/15 sm:inline-block" aria-hidden="true"></span>
             <details class="vc-snav-details">
               <summary class="vc-snav-summary"><span>Community</span><i class="fa fa-chevron-down vc-snav-chev text-[0.65rem] opacity-80" aria-hidden="true"></i></summary>
               <div class="vc-snav-panel">
@@ -56,7 +71,6 @@
                 <a class="vc-snav-row" href="{{FAQ_URL}}"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-question-circle"></i></span><span>FAQ</span></a>
               </div>
             </details>
-            <span class="vc-snav-sep mx-0.5 hidden h-5 w-px shrink-0 bg-white/15 sm:inline-block" aria-hidden="true"></span>
             <details class="vc-snav-details vc-snav-details--current">
               <summary class="vc-snav-summary"><span>Richieste</span><i class="fa fa-chevron-down vc-snav-chev text-[0.65rem] opacity-80" aria-hidden="true"></i></summary>
               <div class="vc-snav-panel">
@@ -142,14 +156,14 @@
                 </li>
                 <li class="flex gap-3">
                   <i class="fa fa-clock-o mt-0.5 text-emerald-300" aria-hidden="true"></i>
-                  <span>Saprai se vieni sbannato entro <strong class="text-white">7 giorni</strong> tramite un messaggio in DM dal bot.</span>
+                  <span>Ti sarà inviato l'esisto entro <strong class="text-white">15 giorni</strong> tramite il nostro bot.</span>
                 </li>
               </ul>
             </div>
             <div class="rounded-[1.6rem] border border-[rgba(212,168,136,0.2)] bg-[rgba(36,26,18,0.4)] p-5 backdrop-blur">
               <p class="text-xs font-semibold uppercase tracking-[0.22em] text-[#c9a88c]/90">Suggerimento</p>
               <p class="mt-3 text-sm leading-6 text-slate-200/85">
-                Spiega con calma cosa è successo e perché meriteresti un’altra possibilità: richieste vaghe o copy-paste vengono scartate più spesso.
+                Spiega con calma la dinamica dell’accaduto e il motivo per il quale sarebbe corretto concerti un’altra possibilità.
               </p>
             </div>
           </div>
@@ -199,7 +213,7 @@
             <i class="fa fa-check-circle-o vc-candidature-success-ico" aria-hidden="true"></i>
             <div>
               <p class="vc-candidature-success-title">Richiesta inviata con successo!</p>
-              <p class="vc-candidature-success-text">Riceverai aggiornamenti tramite DM dal bot. Se non ricevi risposta entro 7-14 giorni, considera la richiesta rifiutata.</p>
+              <p class="vc-candidature-success-text">Riceverai aggiornamenti tramite DM dal bot. Se non ricevi risposta entro <strong class="text-white">15 giorni</strong>, considera la richiesta rifiutata.</p>
             </div>
           </div>
         </div>
@@ -209,10 +223,10 @@
             <i class="fa fa-exclamation-circle mt-0.5 shrink-0" aria-hidden="true"></i> Informazioni importanti
           </p>
           <ul class="mb-0 mt-2 space-y-1 leading-relaxed text-amber-50/88">
-            <li>Riceverai risposta entro 7-14 giorni tramite i DM dal bot</li>
+            <li>Riceverai risposta entro <strong class="text-white">15 giorni</strong> tramite i DM dal bot</li>
             <li>Assicurati di avere i DM attivi per ricevere la notifica</li>
             <li>Le richieste false o spam comporteranno un ban permanente</li>
-            <li>Puoi inviare solo una richiesta ogni 24 ore</li>
+            <li>Puoi inviare una nuova richiesta ogni <strong class="text-white">15 giorni</strong> (cooldown)</li>
           </ul>
         </div>
       </section>
@@ -255,7 +269,8 @@
       };
     </script>
     <script src="../js/form-field-validation-tip.js" defer></script>
-    <script src="../js/discord-auth.js" defer></script>
+    <script src="../js/discord-auth.js" defer></script>  <script src="../js/vc-cursor-trail.js" defer></script>
+
     <script src="../js/vc-landing.js" defer></script>
     <script src="../js/unban-page.js" defer></script>
   </body>

@@ -1,10 +1,7 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, } = require("discord.js");
 const IDs = require("../../Utils/Config/ids");
 const { upsertVerifiedMember, applyTenureForMember, } = require("../../Services/Community/communityOpsService");
-const {
-  resolveValidVerifyRoleIds,
-  isResolvedMainGuildId,
-} = require("../../Utils/Interaction/verifyUtils");
+const { resolveValidVerifyRoleIds, resolveRequiredVerifyRoleIds, isResolvedMainGuildId } = require("../../Utils/Interaction/verifyUtils");
 const { addRolesAndGetMember, getGuildChannelCached, getClientChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { userAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
 
@@ -148,6 +145,7 @@ async function resolveTargetsFlexible(message, args) {
 }
 
 module.exports = {
+  skipPrefix: true,
   name: "verify",
   async execute(message, args) {
     const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
@@ -198,6 +196,7 @@ module.exports = {
     const yesId = `verify_yes:${message.id}:${message.author.id}`;
     const noId = `verify_no:${message.id}:${message.author.id}`;
     const validVerifyRoleIds = await resolveValidVerifyRoleIds(message.guild);
+    const requiredVerifyRoleIds = resolveRequiredVerifyRoleIds(message.guild);
     if (!validVerifyRoleIds.length) {
       const sent=await message.channel.send({embeds:[new EmbedBuilder().setColor("Red").setTitle("Unsuccessful Operation!").setDescription("Nessun ruolo verifica valido configurato (IDs.roles).",),],}).catch(() => null);
       await message.delete().catch(() => {});
@@ -236,9 +235,13 @@ module.exports = {
             if (!resolvedMember) {
               throw new Error("Failed to add roles or fetch member");
             }
-            const missingRoleIds = rolesToAdd.filter((id) => !resolvedMember.roles.cache.has(id));
+            const missingRoleIds = requiredVerifyRoleIds.filter((id) => !resolvedMember.roles.cache.has(id));
             if (missingRoleIds.length > 0) {
               throw new Error(`Verify roles not applied: ${missingRoleIds.join(",")}`);
+            }
+            const missingOptional = rolesToAdd.filter((id) => !resolvedMember.roles.cache.has(id));
+            if (missingOptional.length > 0) {
+              global.logger?.warn?.("[+verify] optional layout roles not assigned", guildId, missingOptional.join(","));
             }
             success.push(displayName);
             try {

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Ravenclaw">
+  <defs>
+    <linearGradient id="r" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1a2a5e"/>
+      <stop offset="100%" stop-color="#0e1a40"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#r)" stroke="#946b2d" stroke-width="3" d="M64 8 L108 28 V72 C108 98 88 116 64 120 C40 116 20 98 20 72 V28 Z"/>
+  <text x="64" y="78" text-anchor="middle" font-family="Georgia,serif" font-size="42" font-weight="700" fill="#946b2d">R</text>
+</svg>

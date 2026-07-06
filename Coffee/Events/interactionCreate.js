@@ -2,14 +2,15 @@ const { InteractionType, EmbedBuilder } = require("discord.js");
 const IDs = require("../Utils/Config/ids");
 const { buildErrorLogEmbed } = require("../../shared/discord/errorLogEmbed");
 const { checkButtonPermission, checkStringSelectPermission, checkModalPermission, checkSlashPermission, buildGlobalPermissionDeniedEmbed, buildGlobalNotYourControlEmbed, } = require("../Utils/Moderation/commandPermissions");
+const { handleButtonInteraction } = require("./interaction/buttonHandlers");
 const { safeReply } = require("../../shared/discord/replyRuntime");
-const { getClientChannelCached } = require("../Utils/Interaction/entityCache");
+const { getCentralChannel } = require("../Utils/Logging/commandUsageLogger");
 const PRIVATE_FLAG = 1 << 6;
 const BUTTON_SPAM_COOLDOWN_MS = 1200;
 const BUTTON_INFLIGHT_TTL_MS = 15000;
 const MONO_GUILD_DENIED = "Questo bot è utilizzabile solo nei server autorizzati.";
+const STANZA_BUTTON_DENIED ="<:VC_Attention:1482534443632558151> Solo il **creatore della stanza** e il **vice** possono usare questi pulsanti.";
 const INTERACTION_DEDUPE_TTL_MS = 30 * 1000;
-const ALLOWED_GUILD_IDS = new Set([IDs.guilds?.main, IDs.guilds?.test].filter(Boolean).map((id) => String(id)),);
 
 function markInteractionSeen(client, interactionId) {
   if (!interactionId) return false;
@@ -79,17 +80,20 @@ function acquireButtonSpamGuard(interaction, client) {
   };
 }
 
-function buildDeniedEmbed(gate, controlLabel) {
+function buildDeniedEmbed(gate, controlLabel, guild = null) {
+  if (gate.reason === "stanza_actor") {
+    return buildGlobalPermissionDeniedEmbed([], controlLabel, STANZA_BUTTON_DENIED, guild);
+  }
   if (gate.reason === "not_owner") return buildGlobalNotYourControlEmbed();
   if (gate.reason === "mono_guild") {
-    return buildGlobalPermissionDeniedEmbed([], controlLabel, MONO_GUILD_DENIED);
+    return buildGlobalPermissionDeniedEmbed([], controlLabel, MONO_GUILD_DENIED, guild);
   }
-  return buildGlobalPermissionDeniedEmbed(gate.requiredRoles || [], controlLabel);
+  return buildGlobalPermissionDeniedEmbed(gate.requiredRoles || [], controlLabel, null, guild);
 }
 
 async function sendPrivateInteractionResponse(interaction, payload) {
   if (!interaction?.isRepliable?.()) return;
-  await safeReply(interaction, payload).catch(() => { });
+  await safeReply(interaction, payload).catch(() => {});
 }
 
 async function runPermissionGate(interaction) {
@@ -108,7 +112,7 @@ async function runPermissionGate(interaction) {
     const gate = await checkStringSelectPermission(interaction);
     if (!gate.allowed) {
       await sendPrivateInteractionResponse(interaction, {
-        embeds: [buildDeniedEmbed(gate, "menu")],
+        embeds: [buildDeniedEmbed(gate, "menu", interaction.guild)],
         flags: PRIVATE_FLAG,
       });
       return false;
@@ -119,7 +123,7 @@ async function runPermissionGate(interaction) {
     const gate = await checkModalPermission(interaction);
     if (!gate.allowed) {
       await sendPrivateInteractionResponse(interaction, {
-        embeds: [buildDeniedEmbed(gate, "modulo")],
+        embeds: [buildDeniedEmbed(gate, "modulo", interaction.guild)],
         flags: PRIVATE_FLAG,
       });
       return false;
@@ -131,8 +135,12 @@ async function runPermissionGate(interaction) {
 
 async function logInteractionError(interaction, client, err) {
   try {
+    global.logger?.error?.(
+      `[INTERACTION ERROR] context=${String(interaction?.commandName || interaction?.customId || "unknown")} guild=${String(interaction?.guildId || "dm")} user=${String(interaction?.user?.id || "unknown")}`,
+      err?.stack || err?.message || err,
+    );
     const errorChannelId = IDs.channels.errorLogChannel || IDs.channels.serverBotLogs;
-    const errorChannel = errorChannelId ? await getClientChannelCached(client, errorChannelId, { ttlMs: 30_000 }) : null;
+    const errorChannel = errorChannelId ? await getCentralChannel(client, errorChannelId) : null;
 
     if (errorChannel?.isTextBased?.()) {
       const contextValue = interaction?.commandName || interaction?.customId || "unknown";
@@ -151,7 +159,7 @@ async function logInteractionError(interaction, client, err) {
         new EmbedBuilder()
           .setColor("Red")
           .setDescription(
-            "<:vegax:1472992044140990526> Errore durante l'esecuzione dell'interazione.",
+            "<a:VC_Cross:1482532424570376253> Errore durante l'esecuzione dell'interazione.",
           ),
       ],
       flags: PRIVATE_FLAG,
@@ -167,11 +175,21 @@ module.exports = {
     if (!interaction || interaction.replied || interaction.deferred) return;
     if (markInteractionSeen(client, interaction.id)) return;
 
-    if (
-      interaction.guildId &&
-      ALLOWED_GUILD_IDS.size &&
-      !ALLOWED_GUILD_IDS.has(String(interaction.guildId))
-    ) {
+    if (false) {
+      const isComponentFlow =
+        interaction.isButton?.() ||
+        interaction.isStringSelectMenu?.() ||
+        interaction.isModalSubmit?.();
+      if (isComponentFlow) {
+        if (
+          (interaction.isButton?.() || interaction.isStringSelectMenu?.()) &&
+          !interaction.replied &&
+          !interaction.deferred
+        ) {
+          await interaction.deferUpdate().catch(() => { });
+        }
+        return;
+      }
       if (interaction.isRepliable?.() && !interaction.replied && !interaction.deferred) {
         await interaction
           .reply({
@@ -221,7 +239,7 @@ module.exports = {
         if (!allowed) {
           await interaction
             .reply({
-              embeds: [buildGlobalPermissionDeniedEmbed([], "comando")],
+              embeds: [buildGlobalPermissionDeniedEmbed([], "comando", null, interaction.guild)],
               flags: PRIVATE_FLAG,
             })
             .catch(() => { });
@@ -246,9 +264,10 @@ module.exports = {
           const handled = await gw.rerollGiveaway(interaction, client);
           if (handled) return;
         }
+        if (await handleButtonInteraction(interaction, client)) return;
       }
     } catch (err) {
-      global.logger.error("[interactionCreate] error", err);
+      global.logger.error("[interactionCreate] error", err?.stack || err?.message || err);
       await logInteractionError(interaction, client, err);
     } finally {
       if (typeof releaseButtonGuard === "function") releaseButtonGuard();

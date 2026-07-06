@@ -1,7 +1,7 @@
+const { formatItalianMinutesPlain } = require("../Utils/Text/italianDurationLabels");
 const { AuditLogEvent, EmbedBuilder } = require("discord.js");
 const { ARROW, toDiscordTimestamp, yesNo, formatAuditActor, buildAuditExtraLines, resolveChannelRolesLogChannel, resolveResponsible, } = require("../Utils/Logging/channelRolesLogUtils");
 const { handleThreadDeletionAction: antiNukeHandleThreadDeletionAction } = require("../Services/Moderation/antiNukeService");
-
 const THREAD_DELETE_ACTION = AuditLogEvent?.ThreadDelete ?? 112;
 
 function sleep(ms) {
@@ -42,37 +42,31 @@ module.exports = {
       const logChannel = await resolveChannelRolesLogChannel(guild);
       if (logChannel?.isTextBased?.()) {
         const lines = [
-          `${ARROW} **Responsible:** ${responsible}`,
-          `${ARROW} ${toDiscordTimestamp(new Date(), "F")}`,
+          `<:VC_Staff:1494286904089247754> **Responsabile:** ${responsible}`,
+          `<:VC_Clock:1473359204189474886> ${toDiscordTimestamp(new Date(), "F")}`,
           "",
-          "**Previous Settings**",
-          `${ARROW} **Name:** ${thread?.name || "sconosciuto"} \`[${threadId}]\``,
-          `${ARROW} **Type:** ${threadTypeLabel(thread?.type)}`,
-          `${ARROW} **Archived:** ${yesNo(Boolean(thread?.archived))}`,
-          `${ARROW} **Bloccato:** ${yesNo(Boolean(thread?.locked))}`,
-          `${ARROW} **Durata auto-archiviazione:** ${Number(thread?.autoArchiveDuration || 0) ? `${thread.autoArchiveDuration} minuti` : "Nessuna"}`,
-          `${ARROW} **Slowmode per utente:** ${Number(thread?.rateLimitPerUser || 0) || "Nessuna"}`,
+          "**<:VC_tools:1478862265305272364> Impostazioni precedenti**",
+          `<:VC_Modifica:1478859646587633717> **Nome:** ${thread?.name || "sconosciuto"} \`[${threadId}]\``,
+          `<:VC_Modifica:1478859646587633717> **Tipo:** ${threadTypeLabel(thread?.type)}`,
+          `<:VC_Modifica:1478859646587633717> **Archivio:** ${yesNo(Boolean(thread?.archived))}`,
+          `<:VC_Modifica:1478859646587633717> **Bloccato:** ${yesNo(Boolean(thread?.locked))}`,
+          `<:VC_Modifica:1478859646587633717> **Durata auto-archiviazione:** ${Number(thread?.autoArchiveDuration || 0) ? formatItalianMinutesPlain(thread.autoArchiveDuration) : "Nessuna"}`,
+          `<:VC_Modifica:1478859646587633717> **Slowmode per utente:** ${Number(thread?.rateLimitPerUser || 0) || "Nessuna"}`,
         ];
 
         if (Array.isArray(thread?.appliedTags) && thread.appliedTags.length) {
-          lines.push(`${ARROW} **Tag applicati:** \`${thread.appliedTags.map((id) => String(id)).join(", ")}\``);
+          lines.push(`<:VC_Modifica:1478859646587633717> **Tag applicati:** \`${thread.appliedTags.map((id) => String(id)).join(", ")}\``);
         }
         lines.push(...buildAuditExtraLines(audit.entry, ["name", "type", "archived", "locked", "auto_archive_duration", "rate_limit_per_user", "applied_tags"]));
 
         const embed = new EmbedBuilder()
           .setColor("#ED4245")
-          .setTitle("Eliminazione thread")
+          .setTitle("<:VC_threads:1478515497569095760> Thread Eliminato")
           .setDescription(lines.join("\n"));
 
         await logChannel.send({ embeds: [embed] }).catch(() => {});
       }
-      await antiNukeHandleThreadDeletionAction({
-        guild,
-        executorId,
-        threadName: String(thread?.name || ""),
-        threadId,
-        thread,
-      });
+      await antiNukeHandleThreadDeletionAction({ guild, executorId, threadName: String(thread?.name || ""), threadId, thread });
     } catch (error) {
       global.logger?.error?.("[threadDelete] failed:", error);
     }

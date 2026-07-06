@@ -1,7 +1,6 @@
 const { AuditLogEvent, EmbedBuilder, PermissionsBitField } = require("discord.js");
 const IDs = require("../Utils/Config/ids");
 const { getGuildChannelCached } = require("../Utils/Interaction/interactionEntityCache");
-
 const EMOJI_UPDATE_ACTION = AuditLogEvent?.EmojiUpdate ?? 61;
 const AUDIT_FETCH_LIMIT = 20;
 const AUDIT_LOOKBACK_MS = 120 * 1000;
@@ -100,12 +99,12 @@ module.exports = {
 
       const changeLines = [];
       if (hasNameChange) {
-        changeLines.push(`<:VC_right_arrow:1482459908245815296> **Name**`);
-        changeLines.push(`  ${fromName} <:VC_right_arrow:1482459908245815296> ${toName}`);
+        changeLines.push(`<:VC_Modifica:1478859646587633717> **Nome**`);
+        changeLines.push(`  ${fromName} <a:VC_Arrow:1482706699365257397> ${toName}`);
       }
 
       if (hasRolesChange) {
-        changeLines.push(`<:VC_right_arrow:1482459908245815296> **Roles**`);
+        changeLines.push(`<:VC_Mention:1482526855289634997> **Ruoli**`);
         if (addedRoles.length) {
           changeLines.push(`  + ${addedRoles.map((id) => `<@&${id}>`).join(", ")}`);
         }
@@ -116,18 +115,18 @@ module.exports = {
 
       const embed = new EmbedBuilder()
         .setColor("#F59E0B")
-        .setTitle("Emoji Update")
+        .setTitle("<:VC_Color:1482532543273238569> Emoji Update")
         .setDescription(
           [
-            `<:VC_right_arrow:1482459908245815296> **Responsible:** ${responsibleText}`,
-            `<:VC_right_arrow:1482459908245815296> **Target:** ${newEmoji?.name || oldEmoji?.name || "emoji"} \`${emojiId}\``,
-            `<:VC_right_arrow:1482459908245815296> ${toDiscordTimestamp(new Date(), "F")}`,
+            `<:VC_Staff:1494286904089247754> **Responsabile:** ${responsibleText}`,
+            `<:VC_User:1482527453586002103> **Utente:** ${newEmoji?.name || oldEmoji?.name || "emoji"} \`${emojiId}\``,
+            `<:VC_Clock:1473359204189474886> ${toDiscordTimestamp(new Date(), "F")}`,
             "",
-            "**Changes**",
+            "**<:VC_tools:1478862265305272364> Cambiamenti**",
             ...changeLines,
           ].join("\n"),
         )
-        .addFields({ name: "Animated", value: newEmoji?.animated ? "Yes" : "No", inline: true });
+        .addFields({ name: "<a:VC_Countdown:1482706760476131539> Animato", value: newEmoji?.animated ? "Si" : "No", inline: true });
 
       const imageUrl = newEmoji?.imageURL?.({ extension: "png", size: 256 }) || newEmoji?.url || null;
       if (imageUrl) embed.setThumbnail(imageUrl);

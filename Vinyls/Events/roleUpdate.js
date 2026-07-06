@@ -1,8 +1,7 @@
 const { AuditLogEvent, EmbedBuilder } = require("discord.js");
 const { queueIdsCatalogSync } = require("../Utils/Config/idsAutoSync");
-const { ARROW, toDiscordTimestamp, formatAuditActor, permissionDiff, buildAuditExtraLines, resolveChannelRolesLogChannel, resolveResponsible, } = require("../Utils/Logging/channelRolesLogUtils");
+const { toDiscordTimestamp, formatAuditActor, permissionDiff, buildAuditExtraLines, resolveChannelRolesLogChannel, resolveResponsible, } = require("../Utils/Logging/channelRolesLogUtils");
 const { handleRoleUpdate: antiNukeHandleRoleUpdate } = require("../Services/Moderation/antiNukeService");
-
 const ROLE_UPDATE_ACTION = AuditLogEvent?.RoleUpdate ?? 31;
 
 module.exports = {
@@ -24,46 +23,43 @@ module.exports = {
 
         const logChannel = await resolveChannelRolesLogChannel(newRole.guild);
         if (logChannel?.isTextBased?.()) {
-          const lines=[`${ARROW} **Responsible:** ${responsible}`,
-            `${ARROW} **Target:** ${newRole} \`${newRole.id}\``,`${ARROW} ${toDiscordTimestamp(new Date(),"F")}`,
+          const lines=[`<:VC_Staff:1494286904089247754> **Responsabile:** ${responsible}`,
+            `<:VC_User:1482527453586002103> **Utente:** ${newRole} \`${newRole.id}\``,
+            `<:VC_Clock:1473359204189474886> ${toDiscordTimestamp(new Date(),"F")}`,
             "",
-            "**Changes**",
+            "**<:VC_tools:1478862265305272364> Cambiamenti**",
           ];
 
           if (nameChanged) {
-            lines.push(`${ARROW} **Name:** ${oldRole.name} ${ARROW} ${newRole.name}`);
+            lines.push(`<:VC_Modifica:1478859646587633717> **Nome:** ${oldRole.name} <a:VC_Arrow:1482706699365257397> ${newRole.name}`);
           }
           if (colorChanged) {
             lines.push(
-              `${ARROW} **Color:** ${oldRole.hexColor || "#000000"} ${ARROW} ${newRole.hexColor || "#000000"}`,
+              `<:VC_Color:1482532543273238569> **Color:** ${oldRole.hexColor || "#000000"} <a:VC_Arrow:1482706699365257397> ${newRole.hexColor || "#000000"}`,
             );
           }
           if (hoistChanged) {
             lines.push(
-              `${ARROW} **Hoist:** ${oldRole.hoist ? "Yes" : "No"} ${ARROW} ${newRole.hoist ? "Yes" : "No"}`,
+              `<:VC_Color:1482532543273238569> **Hoist:** ${oldRole.hoist ? "Si" : "No"} <a:VC_Arrow:1482706699365257397> ${newRole.hoist ? "Si" : "No"}`,
             );
           }
           if (permsChanged) {
             const perms=permissionDiff(oldRole.permissions.bitfield,newRole.permissions.bitfield,);
-            lines.push(`${ARROW} **Permissions:**`);
+            lines.push(`<:VC_Info:1482526956703580372> **Permessi:**`);
             lines.push(
-              `  ${ARROW} **Removals:** ${perms.removals}`,
+              `<a:VC_Cross:1482532424570376253> **Rimossi:** ${perms.removals}`,
             );
             lines.push(
-              `  ${ARROW} **Additions:** ${perms.additions}`,
+              `<a:VC_Verified:1482532479637127188> **Aggiunti:** ${perms.additions}`,
             );
           }
           lines.push(...buildAuditExtraLines(audit.entry, ["name", "color", "hoist", "permissions"]));
 
-          const embed=new EmbedBuilder().setColor("#F59E0B").setTitle("Role Update").setDescription(lines.join("\n"));
+          const embed=new EmbedBuilder().setColor("#F59E0B").setTitle("<:VC_Color:1482532543273238569> Ruolo Aggiornato").setDescription(lines.join("\n"));
 
           await logChannel.send({ embeds: [embed] }).catch(() => {});
         }
-        await antiNukeHandleRoleUpdate({
-          oldRole,
-          newRole,
-          executorId,
-        }).catch(() => {});
+        await antiNukeHandleRoleUpdate({ oldRole, newRole, executorId }).catch(() => {});
       }
     } catch (error) {
       global.logger?.error?.("[roleUpdate] failed:", error);

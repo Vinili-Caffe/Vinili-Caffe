@@ -1,30 +1,43 @@
+const { flushAllRecoverySnapshots } = require("../../shared/recovery/shutdownCheckpoint");
+const { isVoiceTransportError } = require("../../shared/discord/voiceTransportErrors");
+
+let shutdownRunning = false;
+
+async function exitAfterFlush(signal) {
+  if (shutdownRunning) return;
+  shutdownRunning = true;
+  global.logger?.error?.(`[PROCESS] ${signal}: Flushing recovery snapshots and exiting...`);
+  await flushAllRecoverySnapshots(signal).catch((err) => {
+    global.logger?.error?.("[PROCESS] Recovery flush failed: " + (err?.stack || err));
+  });
+  setTimeout(() => process.exit(0), 200).unref?.();
+}
+
 module.exports = function installProcessHandlers() {
   if (process.__viniliTestProcessHandlersInstalled) return;
   process.__viniliTestProcessHandlersInstalled = true;
 
-  const logs = require("../Utils/Moderation/logs");
-
-  const error =(msg)=>{try{logs.error(`[ERROR] ${msg}`);}catch(err){global.logger?.warn?.("[processHandler] logs.error:",err?.message||err);}};
-
   process.on("SIGINT", () => {
-    error("SIGINT: Exiting...");
-    process.exit();
+    void exitAfterFlush("SIGINT");
   });
 
   process.on("uncaughtException", (err) => {
-    error("UNCAUGHT EXCEPTION: " + (err?.stack || err));
+    global.logger?.error?.("[PROCESS] UNCAUGHT EXCEPTION: " + (err?.stack || err));
   });
 
   process.on("SIGTERM", () => {
-    error("SIGTERM: Exiting...");
-    process.exit();
+    void exitAfterFlush("SIGTERM");
   });
 
   process.on("unhandledRejection", (err) => {
-    error("UNHANDLED REJECTION: " + (err?.stack || err));
+    if (isVoiceTransportError(err)) {
+      global.logger?.warn?.("[PROCESS] Voice transport (recovered): " + (err?.message || err));
+      return;
+    }
+    global.logger?.error?.("[PROCESS] UNHANDLED REJECTION: " + (err?.stack || err));
   });
 
   process.on("warning", () => {});
 
-  logs.success("[PROCESS] Process handlers loaded.");
+  global.logger?.info?.("[PROCESS] Process handlers loaded.");
 };

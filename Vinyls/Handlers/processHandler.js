@@ -1,7 +1,21 @@
 const logs = require("../Utils/Moderation/logs");
+const { flushAllRecoverySnapshots } = require("../../shared/recovery/shutdownCheckpoint");
+const { isVoiceTransportError } = require("../../shared/discord/voiceTransportErrors");
+
+let shutdownRunning = false;
 
 function error(message) {
   logs.error(`[ERROR] ${message}`);
+}
+
+async function exitAfterFlush(signal) {
+  if (shutdownRunning) return;
+  shutdownRunning = true;
+  error(`${signal}: Flushing recovery snapshots and exiting...`);
+  await flushAllRecoverySnapshots(signal).catch((err) => {
+    error(`Recovery flush failed: ${err?.stack || err}`);
+  });
+  setTimeout(() => process.exit(0), 200).unref?.();
 }
 
 module.exports = () => {
@@ -9,8 +23,7 @@ module.exports = () => {
   process.__viniliProcessHandlersInstalled = true;
 
   process.on("SIGINT", () => {
-    error("SIGINT: Exiting...");
-    process.exit();
+    void exitAfterFlush("SIGINT");
   });
 
   process.on("uncaughtException", (err) => {
@@ -18,11 +31,14 @@ module.exports = () => {
   });
 
   process.on("SIGTERM", () => {
-    error("SIGTERM: Closing database and exiting...");
-    process.exit();
+    void exitAfterFlush("SIGTERM");
   });
 
   process.on("unhandledRejection", (err) => {
+    if (isVoiceTransportError(err)) {
+      logs.warn(`[PROCESS] Voice transport (recovered): ${err?.message || err}`);
+      return;
+    }
     error(`UNHANDLED REJECTION: ${err?.stack || err}`);
   });
 

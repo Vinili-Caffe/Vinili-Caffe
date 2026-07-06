@@ -3,6 +3,10 @@
  * nome account (`username`) senza nickname server.
  */
 
+function resolveUserFromLike(userLike) {
+  return userLike?.user || userLike || null;
+}
+
 /**
  * @param {import("discord.js").Guild|null|undefined} guild
  * @param {{ size?: number }} [opts]
@@ -14,50 +18,207 @@ function guildIconUrl(guild, { size = 256 } = {}) {
   return (
     guild.iconURL({
       size,
-      extension: animated ? "gif" : "png",
+      extension: animated ? "webp" : "png",
       forceStatic: animated ? false : true,
     }) || null
   );
 }
 
 /**
+ * Avatar Discord predefinito (come sul client / sito).
  * @param {import("discord.js").User|import("discord.js").GuildMember|null|undefined} userLike
  * @param {{ size?: number }} [opts]
- * @returns {string|null}
+ * @returns {string}
  */
-function userAvatarUrlDynamic(userLike, { size = 256 } = {}) {
-  const user = userLike?.user || userLike;
-  if (!user || typeof user.displayAvatarURL !== "function") return null;
-  const animated = Boolean(user.avatar && String(user.avatar).startsWith("a_"));
-  return user.displayAvatarURL({
-    size,
-    extension: animated ? "gif" : "png",
-    forceStatic: false,
-  });
+function discordDefaultAvatarUrl(userLike, { size = 256 } = {}) {
+  const user = resolveUserFromLike(userLike);
+  if (user?.defaultAvatarURL && typeof user.defaultAvatarURL === "function") {
+    return (
+      user.defaultAvatarURL({ size, extension: "png", forceStatic: true }) ||
+      `https://cdn.discordapp.com/embed/avatars/0.png?size=${size}`
+    );
+  }
+  const uid = String(user?.id || "").trim();
+  let index = 0;
+  if (/^\d{16,22}$/.test(uid)) {
+    try {
+      index = Number((BigInt(uid) >> 22n) % 6n);
+    } catch {
+      index = 0;
+    }
+  }
+  return `https://cdn.discordapp.com/embed/avatars/${index}.png?size=${size}`;
 }
 
 /**
- * Avatar del membro **nel server**: avatar di guild se impostato, altrimenti globale (GIF se animato).
- * Con solo `User` (senza `guild` su `GuildMember`) equivale a {@link userAvatarUrlDynamic}.
+ * Solo avatar per-server (null se il membro non ne ha uno dedicato).
  * @param {import("discord.js").GuildMember|import("discord.js").User|null|undefined} memberLike
  * @param {{ size?: number }} [opts]
  * @returns {string|null}
  */
-function guildMemberDisplayAvatarUrlDynamic(memberLike, { size = 256 } = {}) {
-  if (memberLike?.guild && typeof memberLike.displayAvatarURL === "function") {
-    const guildHash = memberLike.avatar;
-    const userHash = memberLike.user?.avatar ?? null;
-    const hash = guildHash != null ? guildHash : userHash;
-    const animated = Boolean(hash && String(hash).startsWith("a_"));
+function guildMemberServerAvatarUrlDynamic(memberLike, { size = 256 } = {}) {
+  if (!memberLike?.guild || memberLike.avatar == null || memberLike.avatar === "") return null;
+  const animated = String(memberLike.avatar).startsWith("a_");
+  if (typeof memberLike.avatarURL === "function") {
     return (
-      memberLike.displayAvatarURL({
+      memberLike.avatarURL({
         size,
         extension: animated ? "gif" : "png",
         forceStatic: false,
       }) || null
     );
   }
-  return userAvatarUrlDynamic(memberLike, { size });
+  if (typeof memberLike.displayAvatarURL === "function") {
+    return (
+      memberLike.displayAvatarURL({
+        size,
+        extension: animated ? "webp" : "png",
+        forceStatic: false,
+      }) || null
+    );
+  }
+  return null;
+}
+
+/**
+ * Solo avatar globale dell'account (null se assente).
+ * @param {import("discord.js").User|import("discord.js").GuildMember|null|undefined} userLike
+ * @param {{ size?: number }} [opts]
+ * @returns {string|null}
+ */
+function userGlobalAvatarUrlDynamic(userLike, { size = 256 } = {}) {
+  const user = resolveUserFromLike(userLike);
+  if (!user?.avatar || typeof user.displayAvatarURL !== "function") return null;
+  const animated = String(user.avatar).startsWith("a_");
+  return (
+    user.displayAvatarURL({
+      size,
+      extension: animated ? "gif" : "webp",
+      forceStatic: false,
+    }) || null
+  );
+}
+
+/**
+ * URL avatar per embed: server → globale → predefinito Discord.
+ * @param {import("discord.js").User|import("discord.js").GuildMember|null|undefined} userLike
+ * @param {{ size?: number }} [opts]
+ * @returns {string}
+ */
+function embedUserAvatarUrlDynamic(userLike, { size = 256 } = {}) {
+  const server = guildMemberServerAvatarUrlDynamic(userLike, { size });
+  if (server) return server;
+  const global = userGlobalAvatarUrlDynamic(userLike, { size });
+  if (global) return global;
+  return discordDefaultAvatarUrl(userLike, { size });
+}
+
+async function remoteImageUrlLoads(url) {
+  const u = String(url || "").trim();
+  if (!/^https:\/\//i.test(u)) return false;
+  try {
+    let res = await fetch(u, { method: "HEAD", signal: AbortSignal.timeout(4000) });
+    if (res.status === 405 || res.status === 501 || res.status === 403) {
+      res = await fetch(u, {
+        method: "GET",
+        signal: AbortSignal.timeout(4000),
+        headers: { Range: "bytes=0-0" },
+      });
+    }
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Come {@link embedUserAvatarUrlDynamic}, ma verifica che l'URL risponda prima di usarlo.
+ * @param {import("discord.js").User|import("discord.js").GuildMember|null|undefined} userLike
+ * @param {{ size?: number }} [opts]
+ * @returns {Promise<string>}
+ */
+function embedThumbnailAvatarUrl(userLike, { size = 256 } = {}) {
+  const staticUrl = guildMemberDisplayAvatarUrlStatic(userLike, { size });
+  if (staticUrl) return staticUrl;
+  const user = resolveUserFromLike(userLike);
+  if (user?.displayAvatarURL) {
+    const forced = user.displayAvatarURL({ size, extension: "png", forceStatic: true });
+    if (forced) return forced;
+  }
+  return discordDefaultAvatarUrl(userLike, { size });
+}
+
+async function resolveEmbedUserAvatarUrl(userLike, { size = 256 } = {}) {
+  const candidates = [];
+  const staticUrl = guildMemberDisplayAvatarUrlStatic(userLike, { size });
+  if (staticUrl) candidates.push(staticUrl);
+  const user = resolveUserFromLike(userLike);
+  if (user?.displayAvatarURL) {
+    const forcedPng = user.displayAvatarURL({ size, extension: "png", forceStatic: true });
+    if (forcedPng) candidates.push(forcedPng);
+  }
+  const server = guildMemberServerAvatarUrlDynamic(userLike, { size });
+  const global = userGlobalAvatarUrlDynamic(userLike, { size });
+  const fallback = discordDefaultAvatarUrl(userLike, { size });
+  if (server) candidates.push(server);
+  if (global && global !== server) candidates.push(global);
+  candidates.push(fallback);
+  const seen = new Set();
+  for (const url of candidates) {
+    const u = String(url || "").trim();
+    if (!u || seen.has(u)) continue;
+    seen.add(u);
+    if (await remoteImageUrlLoads(u)) return u;
+  }
+  return fallback;
+}
+
+/**
+ * @param {import("discord.js").User|import("discord.js").GuildMember|null|undefined} userLike
+ * @param {{ size?: number }} [opts]
+ * @returns {string}
+ */
+function userAvatarUrlDynamic(userLike, { size = 256 } = {}) {
+  return embedUserAvatarUrlDynamic(userLike, { size });
+}
+
+/**
+ * Avatar del membro nel server, con fallback globale e predefinito Discord.
+ * @param {import("discord.js").GuildMember|import("discord.js").User|null|undefined} memberLike
+ * @param {{ size?: number }} [opts]
+ * @returns {string}
+ */
+function guildMemberDisplayAvatarUrlDynamic(memberLike, { size = 256 } = {}) {
+  return embedUserAvatarUrlDynamic(memberLike, { size });
+}
+
+/**
+ * PNG statico (CDN): per canvas/GIF senza decodifica GIF frame-by-frame.
+ * @param {import("discord.js").User|import("discord.js").GuildMember|null|undefined} userLike
+ * @param {{ size?: number }} [opts]
+ * @returns {string|null}
+ */
+function userAvatarUrlStatic(userLike, { size = 256 } = {}) {
+  const user = resolveUserFromLike(userLike);
+  if (!user || typeof user.displayAvatarURL !== "function") return null;
+  return user.displayAvatarURL({ size, extension: "png", forceStatic: true }) || null;
+}
+
+/**
+ * @param {import("discord.js").GuildMember|import("discord.js").User|null|undefined} memberLike
+ * @param {{ size?: number }} [opts]
+ * @returns {string|null}
+ */
+function guildMemberDisplayAvatarUrlStatic(memberLike, { size = 256 } = {}) {
+  if (memberLike?.guild && memberLike.avatar != null && memberLike.avatar !== "") {
+    if (typeof memberLike.avatarURL === "function") {
+      return memberLike.avatarURL({ size, extension: "png", forceStatic: true }) || null;
+    }
+    if (typeof memberLike.displayAvatarURL === "function") {
+      return memberLike.displayAvatarURL({ size, extension: "png", forceStatic: true }) || null;
+    }
+  }
+  return userAvatarUrlStatic(memberLike, { size });
 }
 
 /**
@@ -66,7 +227,7 @@ function guildMemberDisplayAvatarUrlDynamic(memberLike, { size = 256 } = {}) {
  * @returns {string}
  */
 function accountUsername(userLike) {
-  const user = userLike?.user || userLike;
+  const user = resolveUserFromLike(userLike);
   return String(user?.username || "Utente").trim() || "Utente";
 }
 
@@ -75,16 +236,24 @@ function accountUsername(userLike) {
  * @param {import("discord.js").Guild|null|undefined} guild
  * @param {import("discord.js").User|import("discord.js").GuildMember|null|undefined} userLike
  * @param {{ size?: number }} [opts]
- * @returns {string|null}
+ * @returns {string}
  */
 function guildFirstThumbnailUrl(guild, userLike, { size = 256 } = {}) {
-  return guildIconUrl(guild, { size }) || userAvatarUrlDynamic(userLike, { size });
+  return guildIconUrl(guild, { size }) || embedUserAvatarUrlDynamic(userLike, { size });
 }
 
 module.exports = {
   guildIconUrl,
+  discordDefaultAvatarUrl,
+  guildMemberServerAvatarUrlDynamic,
+  userGlobalAvatarUrlDynamic,
+  embedUserAvatarUrlDynamic,
+  embedThumbnailAvatarUrl,
+  resolveEmbedUserAvatarUrl,
   userAvatarUrlDynamic,
+  userAvatarUrlStatic,
   guildMemberDisplayAvatarUrlDynamic,
+  guildMemberDisplayAvatarUrlStatic,
   accountUsername,
   guildFirstThumbnailUrl,
 };

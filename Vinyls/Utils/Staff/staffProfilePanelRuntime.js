@@ -1,40 +1,23 @@
-const { EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
+const { EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const IDs = require("../Config/ids");
 const { getGuildMemberCached } = require("../Interaction/interactionEntityCache");
-const { STAFF_WARN_RESET_MS } = require("../../Services/Staff/staffWarnService");
+const { STAFF_WARN_RESET_MS, STAFF_WARN_THREE_NEGATIVES_REASON } = require("../../Services/Staff/staffWarnService");
 const { countModActionsByMod } = require("../Moderation/modCaseStore");
 const { buildPauseListPayload } = require("../Pause/pauseListRuntime");
-const { roleChoiceAppliesTo, PAUSE_ROLE_PM } = require("../Pause/pauseHandlersUtils");
+const { roleChoiceAppliesTo, PAUSE_ROLE_PM, getValPosTradedPauseBonusDays } = require("../Pause/pauseHandlersUtils");
 const { memberHasStaffRole } = require("../Community/staffListUtils");
+const { getStaffRoleEmojiByRoleId } = require("../Community/staffRoleEmoji");
 const { resolvePartnerPointsShown } = require("./partnerPointsDisplayUtils");
-const { PARTNER_MANAGER_REDEEM_TIERS } = require("./partnerPointsUtils");
+const { PARTNER_MANAGER_REDEEM_TIERS, partnerManagerRedeemButtonLabel, partnerManagerCanAffordReward, getPartnerRewardPointCost } = require("./partnerPointsUtils");
+const { PARTNER_MILESTONE_REWARD_LABELS } = require("./partnerManagerMilestoneDm");
+const { buildPartnerRewardDiscountBanner } = require("../../../shared/partner/partnerManagerRewardTiers");
 const { accountUsername, userAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
-
-function resolveStaffPartnerPointsDisplay(staffObj) {
-  return resolvePartnerPointsShown(staffObj);
-}
-
-/** Riscatto premi PM: solo chi apre il pannello (High Staff / Founder) sul profilo **di un altro** PM. Mostra solo tier con saldo ≥ soglia. */
-function buildPartnerManagerRedeemRows(viewerId, targetId, section = SECTION_HOME, sourceMessageId = null, partnerPointsShown = 0) {
-  const v = String(viewerId);
-  const t = String(targetId);
-  const sec = String(section || SECTION_HOME).toLowerCase();
-  const pts = Math.max(0, Math.floor(Number(partnerPointsShown || 0)));
-  const tiers = PARTNER_MANAGER_REDEEM_TIERS.filter((n) => pts >= n);
-  if (!tiers.length) return [];
-  const buttons = tiers.map((tier) =>
-    new ButtonBuilder()
-      .setCustomId(formatStaffHpButtonCustomId(`ppm_r${tier}`, v, t, sec, sourceMessageId))
-      .setLabel(`Riscatto ${tier} pt`)
-      .setStyle(ButtonStyle.Primary),
-  );
-  const rows = [];
-  for (let i = 0; i < buttons.length; i += 5) {
-    rows.push(new ActionRowBuilder().addComponents(...buttons.slice(i, i + 5)));
-  }
-  return rows;
-}
+const {
+  resolveSerataFilmAttendanceForWeek,
+  buildSerataFilmAttendanceDescriptionLine,
+  buildSerataFilmAttendanceButtonRow,
+} = require("./serataFilmAttendanceUtils");
 const PANEL_PREFIX = "staff_profile_panel";
 const STAFF_HP_PREFIX = "staff_hp";
 const STAFF_HP_SELECT_PREFIX = "staff_hp_select";
@@ -43,44 +26,109 @@ const SECTION_VALUTAZIONI = "valutazioni";
 const SECTION_WARN = "warn";
 const SECTION_PAUSE = "pause";
 const SECTION_MODSTATS = "modstats";
-const STAFF_HP_BUTTON_SECTION_IDS = new Set([SECTION_HOME, SECTION_VALUTAZIONI, SECTION_WARN, SECTION_PAUSE, SECTION_MODSTATS]);
-const STAFF_HP_SECTION_CHAR_MAP = {
-  [SECTION_HOME]: "h",
-  [SECTION_VALUTAZIONI]: "v",
-  [SECTION_WARN]: "w",
-  [SECTION_PAUSE]: "p",
-  [SECTION_MODSTATS]: "m",
-};
-const STAFF_HP_SECTION_CHAR_REVERSE = Object.fromEntries(
-  Object.entries(STAFF_HP_SECTION_CHAR_MAP).map(([sec, ch]) => [ch, sec]),
-);
-const STAFF_HP_BUTTON_ACTION_FULL_TO_SHORT = {
-  pex_menu: "pxm",
-  depex_menu: "dxm",
-  val_add_menu: "vam",
-  val_remove_menu: "vrm",
-  pex: "pex",
-  pex_helper: "phl",
-  pex_mod: "pmo",
-  pex_admin: "pxa",
-  pex_founder: "pfn",
-  pex_pm: "ppm",
-  depex: "dpx",
-  depex_full: "dff",
-  depex_staff: "dst",
-  depex_pm_only: "dpo",
-  valpos: "vps",
-  valneg: "vng",
-  warn: "wrn",
-  valpos_rm: "vpr",
-  valneg_rm: "vnr",
-  warn_rm: "wrr",
-  ppm_add: "pma",
-  ppm_remove: "pmr",
-};
-const STAFF_HP_BUTTON_ACTION_SHORT_TO_FULL = Object.fromEntries(
-  Object.entries(STAFF_HP_BUTTON_ACTION_FULL_TO_SHORT).map(([full, short]) => [short, full]),
-);
+const SECTION_SHOP = "shop";
+const STAFF_HP_BUTTON_SECTION_IDS = new Set([SECTION_HOME, SECTION_VALUTAZIONI, SECTION_WARN, SECTION_PAUSE, SECTION_MODSTATS, SECTION_SHOP]);
+const STAFF_HP_SECTION_CHAR_MAP = { [SECTION_HOME]: "h", [SECTION_VALUTAZIONI]: "v", [SECTION_WARN]: "w", [SECTION_PAUSE]: "p", [SECTION_MODSTATS]: "m", [SECTION_SHOP]: "q" };
+const STAFF_HP_SECTION_CHAR_REVERSE = Object.fromEntries(Object.entries(STAFF_HP_SECTION_CHAR_MAP).map(([sec, ch]) => [ch, sec]));
+const STAFF_HP_BUTTON_ACTION_FULL_TO_SHORT = { pex_menu: "pxm", depex_menu: "dxm", val_add_menu: "vam", val_remove_menu: "vrm", pex: "pex", pex_helper: "phl", pex_mod: "pmo", pex_senior_moderator: "psm", pex_director: "pdr", pex_admin: "pxa", pex_manager: "pmg", pex_founder: "pfn", pex_pm: "ppm", depex: "dpx", depex_full: "dff", depex_staff: "dst", depex_pm_only: "dpo", valpos: "vps", valneg: "vng", warn: "wrn", valpos_rm: "vpr", valneg_rm: "vnr", warn_rm: "wrr", ppm_add: "pma", ppm_remove: "pmr" };
+const STAFF_HP_BUTTON_ACTION_SHORT_TO_FULL = Object.fromEntries(Object.entries(STAFF_HP_BUTTON_ACTION_FULL_TO_SHORT).map(([full, short]) => [short, full]));
+const LEGACY_PARTNER_LB_SECTION = "partner_lb";
+const PROFILE_FULL = "full";
+const PROFILE_PM_ONLY = "pm_only";
+const PROFILE_PROSPECT = "prospect";
+const STAFF_ROLE_PRIORITY = [String(IDs.roles.Director), String(IDs.roles.SeniorModerator), String(IDs.roles.Mod), String(IDs.roles.Helper), String(IDs.roles.Staff)].filter(Boolean);
+const STAFF_PROFILE_DISPLAY_ROLE_PRIORITY = [IDs.roles.Founder, IDs.roles.Manager, IDs.roles.Admin, IDs.roles.Director, IDs.roles.HighStaff, String(IDs.roles.SeniorModerator), String(IDs.roles.Mod), String(IDs.roles.Helper), IDs.roles.PartnerManager, String(IDs.roles.Staff)].filter(Boolean);
+const STAFF_LADDER_ROLE_IDS_FOR_PANEL = [String(IDs.roles.Helper), String(IDs.roles.Mod), String(IDs.roles.SeniorModerator), String(IDs.roles.Director), String(IDs.roles.Admin), String(IDs.roles.Manager), String(IDs.roles.Founder)].filter(Boolean).map((id) => String(id));
+const STAFF_PANEL_NON_PM_ROLE_IDS = [String(IDs.roles?.Founder), String(IDs.roles?.Manager), String(IDs.roles?.Admin), String(IDs.roles?.Director), String(IDs.roles?.HighStaff), String(IDs.roles?.SeniorModerator), String(IDs.roles?.Mod), String(IDs.roles?.Helper), String(IDs.roles?.Staff)].filter(Boolean).map((id) => String(id));
+const STAFF_PANEL_NAV_ROLE_PRIORITY = [String(IDs.roles?.Founder), String(IDs.roles?.Manager), String(IDs.roles?.Admin), String(IDs.roles?.Director), String(IDs.roles?.HighStaff), String(IDs.roles?.SeniorModerator), String(IDs.roles?.Mod), String(IDs.roles?.Helper), String(IDs.roles?.Staff)].filter(Boolean).map((id) => String(id));
+
+function resolveStaffPartnerPointsDisplay(staffObj) {
+  return resolvePartnerPointsShown(staffObj);
+}
+
+function buildPartnerManagerHubSelectRow(viewerId, targetId, section = SECTION_HOME, sourceMessageId = null, hubOptions = []) {
+  const opts = (Array.isArray(hubOptions) ? hubOptions : []).slice(0, 25);
+  if (!opts.length) return null;
+  const menu = new StringSelectMenuBuilder()
+    .setCustomId(formatStaffHpSelectCustomId("pm_hub", viewerId, targetId, section, sourceMessageId))
+    .setPlaceholder("Azioni Partner Manager")
+    .setMinValues(1)
+    .setMaxValues(1);
+  for (let i = 0; i < opts.length; i += 1) {
+    const o = opts[i];
+    const act = String(o.action || "");
+    const val = encodeStaffHpButtonAction(act);
+    const ob = new StringSelectMenuOptionBuilder()
+      .setLabel(String(o.label || act).slice(0, 100))
+      .setValue(String(val || act).slice(0, 100));
+    if (o.description) ob.setDescription(String(o.description).slice(0, 100));
+    menu.addOptions(ob);
+  }
+  return new ActionRowBuilder().addComponents(menu);
+}
+
+function buildPmPartnerShopDescription(balance, opts = {}) {
+  const pts = Math.max(0, Math.floor(Number(balance || 0)));
+  const ticketCh = String(IDs.channels?.ticket || "").trim();
+  const ticketLine = ticketCh
+    ? `Per **consumare i punti** e ottenere il premio serve un **High Staff**.`
+    : "Per **consumare i punti** e ottenere il premio serve un **High Staff**.";
+  const lines = [];
+  const discountBanner = buildPartnerRewardDiscountBanner();
+  if (discountBanner) {
+    lines.push(discountBanner, "");
+  }
+  if (opts.selfShop) {
+    lines.push(
+      "**Riscatto:** usa i pulsanti qui sotto.",
+      "",
+    );
+  }
+  lines.push(`<:VC_Partner:1482527213780729896> **Saldo:** **${pts}** punti`, "");
+  for (const tier of PARTNER_MANAGER_REDEEM_TIERS) {
+    const cost = getPartnerRewardPointCost(tier);
+    const reward = PARTNER_MILESTONE_REWARD_LABELS[tier] || partnerManagerRedeemButtonLabel(tier);
+    const costLabel = cost < tier ? `\`${cost}\` (era \`${tier}\`)` : `\`${cost}\``;
+    lines.push(`**Soglia ${costLabel}**: ${reward}`);
+    if (partnerManagerCanAffordReward(pts, tier)) {
+      lines.push(`<a:VC_Verified:1482532479637127188> Con questo saldo il premio è **riscattabile**.`);
+    } else {
+      const miss = cost - pts;
+      lines.push(`<a:VC_Cross:1482532424570376253> Mancano **${miss}** punti per raggiungere **${cost}**.`);
+    }
+    lines.push("");
+  }
+  lines.push("—", "", ticketLine);
+  return lines.join("\n").slice(0, 4090);
+}
+
+const STAFF_PM_SHOP_PREFIX = "staff_pm_shop";
+const STAFF_VAL_NEG_TRADE_PREFIX = "staff_val_neg_trade";
+const STAFF_VAL_PAUSE_TRADE_PREFIX = "staff_val_pause_trade";
+
+function buildPmShopSelfRedeemRows(viewerId, targetId, partnerPtsForRedeem) {
+  const v = String(viewerId || "");
+  const t = String(targetId || "");
+  if (!v || v !== t) return [];
+  const pts = Math.max(0, Math.floor(Number(partnerPtsForRedeem || 0)));
+  const rowA = [];
+  const rowB = [];
+  for (const tier of PARTNER_MANAGER_REDEEM_TIERS) {
+    const cost = getPartnerRewardPointCost(tier);
+    const can = partnerManagerCanAffordReward(pts, tier);
+    const short = tier === 50 || tier === 100 ? `r${tier}` : `t${tier}`;
+    const b = new ButtonBuilder()
+      .setCustomId(`${STAFF_PM_SHOP_PREFIX}:${short}:${v}:${t}`)
+      .setLabel(`${cost} pt`)
+      .setStyle(tier <= 100 ? ButtonStyle.Success : ButtonStyle.Primary)
+      .setDisabled(!can);
+    if (tier <= 150) rowA.push(b);
+    else rowB.push(b);
+  }
+  const out = [new ActionRowBuilder().addComponents(...rowA)];
+  if (rowB.length) out.push(new ActionRowBuilder().addComponents(...rowB));
+  return out;
+}
 
 function encodeStaffHpButtonAction(action) {
   const a = String(action || "");
@@ -89,6 +137,11 @@ function encodeStaffHpButtonAction(action) {
   if (m) {
     const n = Number(m[1]);
     if (PARTNER_MANAGER_REDEEM_TIERS.includes(n)) return `r${m[1]}`;
+  }
+  const ma = /^ppm_a(\d+)$/.exec(a);
+  if (ma) {
+    const n = Number(ma[1]);
+    if (n === 50 || n === 100) return `a${ma[1]}`;
   }
   return a;
 }
@@ -115,21 +168,6 @@ function parseStaffHpButtonSectionToken(raw) {
   if (STAFF_HP_BUTTON_SECTION_IDS.has(x)) return x;
   return SECTION_HOME;
 }
-
-const LEGACY_PARTNER_LB_SECTION = "partner_lb";
-const PROFILE_FULL = "full";
-const PROFILE_PM_ONLY = "pm_only";
-const PROFILE_PROSPECT = "prospect";
-const STAFF_ROLE_PRIORITY = [String(IDs.roles.Mod), String(IDs.roles.Helper), String(IDs.roles.Staff)].filter(Boolean);
-const STAFF_PROFILE_DISPLAY_ROLE_PRIORITY = [
-  IDs.roles.Founder,
-  IDs.roles.Admin,
-  IDs.roles.HighStaff,
-  IDs.roles.Mod,
-  IDs.roles.Helper,
-  IDs.roles.PartnerManager,
-  IDs.roles.Staff,
-].filter(Boolean);
 
 function resolveStaffRole(member) {
   if (!member?.roles?.cache) return null;
@@ -182,7 +220,8 @@ function viewerCanUsePartnerPointsPanel(member) {
   const c = member.roles.cache;
   return Boolean(
     (IDs.roles.HighStaff && c.has(IDs.roles.HighStaff)) ||
-      (IDs.roles.Founder && c.has(IDs.roles.Founder)),
+    (IDs.roles.Director && c.has(IDs.roles.Director)) ||
+    (IDs.roles.Founder && c.has(IDs.roles.Founder)),
   );
 }
 
@@ -198,15 +237,10 @@ function targetIsFounder(member) {
   return Boolean(IDs.roles.Founder && c.has(IDs.roles.Founder));
 }
 
-/** Depex completo su Admin+: High Staff (senza scala Mod), Admin, Founder. */
 function viewerIsCoordinatorOrAbove(member) {
   if (!member?.roles?.cache) return false;
   const c = member.roles.cache;
-  return Boolean(
-    (IDs.roles.Admin && c.has(IDs.roles.Admin)) ||
-      (IDs.roles.Founder && c.has(IDs.roles.Founder)) ||
-      (IDs.roles.HighStaff && c.has(IDs.roles.HighStaff)),
-  );
+  return Boolean((IDs.roles.Admin && c.has(IDs.roles.Admin)) || (IDs.roles.Manager && c.has(IDs.roles.Manager)) || (IDs.roles.Director && c.has(IDs.roles.Director)) || (IDs.roles.Founder && c.has(IDs.roles.Founder)) || (IDs.roles.HighStaff && c.has(IDs.roles.HighStaff)));
 }
 
 function resolveStaffProfileKind(member) {
@@ -219,13 +253,6 @@ function resolveStaffProfileKind(member) {
   if (hasPm && !hasLadder && !hasHigherThanPm) return PROFILE_PM_ONLY;
   return PROFILE_FULL;
 }
-
-const STAFF_LADDER_ROLE_IDS_FOR_PANEL = [
-  IDs.roles.Helper,
-  IDs.roles.Mod,
-  IDs.roles.Admin,
-  IDs.roles.Founder,
-].filter(Boolean);
 
 function getHighestStaffLadderRoleIdForPanel(member) {
   if (!member?.roles?.cache) return null;
@@ -242,30 +269,41 @@ function memberHasPmAndStaffLadderForDualDepex(member) {
   return Boolean(getHighestStaffLadderRoleIdForPanel(member));
 }
 
-function buildProspectPexRows(viewerId, targetId, sourceMessageId = null, includeFounderOnlyAdvanceSelect = false) {
+function buildProspectPexRows(viewerId, targetId, sourceMessageId = null, includeFounderOnlyAdvanceSelect = false, options = {}) {
   const v = String(viewerId);
   const t = String(targetId);
-  const rows = [
-    new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId(formatStaffHpButtonCustomId("pex_helper", v, t, SECTION_HOME, sourceMessageId))
-        .setLabel("Member → Helper")
-        .setStyle(ButtonStyle.Success),
+  const hidePartnerManagerPex = options?.hidePartnerManagerPex === true;
+  const fromLabel = options?.staffPexFromPartnerManager ? "Partner Manager" : "Member";
+  const firstRowButtons = [
+    new ButtonBuilder()
+      .setCustomId(formatStaffHpButtonCustomId("pex_helper", v, t, SECTION_HOME, sourceMessageId))
+      .setLabel(`${fromLabel} → Helper`)
+      .setEmoji("<:VC_Helper:1502328751638450426>")
+      .setStyle(ButtonStyle.Success),
+  ];
+  if (!hidePartnerManagerPex) {
+    firstRowButtons.push(
       new ButtonBuilder()
         .setCustomId(formatStaffHpButtonCustomId("pex_pm", v, t, SECTION_HOME, sourceMessageId))
         .setLabel("Member → Partner Manager")
+        .setEmoji("<:VC_PartnerManager:1494286911286808576>")
         .setStyle(ButtonStyle.Secondary),
-    ),
-  ];
+    );
+  }
+  const rows = [new ActionRowBuilder().addComponents(...firstRowButtons)];
   if (includeFounderOnlyAdvanceSelect) {
+    const advanceFromLabel = options?.staffPexFromPartnerManager ? "Partner Manager" : "Member";
     rows.push(
       new ActionRowBuilder().addComponents(
         new StringSelectMenuBuilder()
           .setCustomId(formatStaffHpSelectCustomId("prospect_pex", v, t, SECTION_HOME, sourceMessageId))
-          .setPlaceholder("Promuovi a ruolo staff avanzato (solo Founder)")
+          .setPlaceholder("Promuovi a ruolo staff avanzato")
           .addOptions(
-            { label: "Member → Mod", value: "pex_mod", emoji: "<:VC_Staff:1494286904089247754>" },
-            { label: "Member → Admin", value: "pex_admin", emoji: "<:VC_Staff:1494286904089247754>" },
+            { label: `${advanceFromLabel} → Mod`, value: "pex_mod", emoji: "<:VC_Mod:1494287597952958514>" },
+            { label: `${advanceFromLabel} → Senior Moderator`, value: "pex_senior_moderator", emoji: "<:VC_SeniorModerator:1494286913744539648>" },
+            { label: `${advanceFromLabel} → Director`, value: "pex_director", emoji: "<:VC_Director:1494286915778641941>" },
+            { label: `${advanceFromLabel} → Admin`, value: "pex_admin", emoji: "<:VC_Admin:1494286848686686209>" },
+            { label: `${advanceFromLabel} → Manager`, value: "pex_manager", emoji: "<:VC_Manager:1521629610876338307>" },
           ),
       ),
     );
@@ -326,6 +364,10 @@ function formatStaffProfileCloseCustomId(viewerId, targetId, sourceMessageId = n
   return withSourceSuffix(`${PANEL_PREFIX}:close:${viewerId}:${targetId}`, sourceMessageId);
 }
 
+function formatStaffProfileNextCustomId(viewerId, targetId, sourceMessageId = null) {
+  return withSourceSuffix(`${PANEL_PREFIX}:next:${viewerId}:${targetId}`, sourceMessageId);
+}
+
 function parseStaffProfileSelectCustomId(customId) {
   const parts = String(customId || "").split(":");
   if (parts.length < 4 || parts[0] !== PANEL_PREFIX || parts[1] !== "select") return null;
@@ -338,6 +380,12 @@ function parseStaffProfileCloseCustomId(customId) {
   return { viewerId: parts[2], targetId: parts[3], sourceMessageId: normalizeSourceMessageId(parts[4]) };
 }
 
+function parseStaffProfileNextCustomId(customId) {
+  const parts = String(customId || "").split(":");
+  if (parts.length < 4 || parts[0] !== PANEL_PREFIX || parts[1] !== "next") return null;
+  return { viewerId: parts[2], targetId: parts[3], sourceMessageId: normalizeSourceMessageId(parts[4]) };
+}
+
 function normalizeSourceMessageId(raw) {
   const id = String(raw || "").trim();
   return /^\d{16,20}$/.test(id) ? id : null;
@@ -346,6 +394,146 @@ function normalizeSourceMessageId(raw) {
 function withSourceSuffix(baseCustomId, sourceMessageId) {
   const sid = normalizeSourceMessageId(sourceMessageId);
   return sid ? `${baseCustomId}:${sid}` : baseCustomId;
+}
+
+function formatStaffValNegTradeOpenCustomId(viewerId, targetId, sourceMessageId = null) {
+  const v = String(viewerId || "");
+  const t = String(targetId || "");
+  return withSourceSuffix(`${STAFF_VAL_NEG_TRADE_PREFIX}:open:${v}:${t}`, sourceMessageId);
+}
+
+function parseStaffValNegTradeOpenCustomId(customId) {
+  const parts = String(customId || "").split(":");
+  if (parts.length < 4 || parts[0] !== STAFF_VAL_NEG_TRADE_PREFIX || parts[1] !== "open") return null;
+  const viewerId = String(parts[2] || "");
+  const targetId = String(parts[3] || "");
+  if (!/^\d{16,20}$/.test(viewerId) || !/^\d{16,20}$/.test(targetId)) return null;
+  const sourceMessageId = normalizeSourceMessageId(parts[4]);
+  return { viewerId, targetId, sourceMessageId };
+}
+
+function formatStaffValNegTradeModalCustomId(viewerId, targetId, sourceMessageId = null) {
+  const v = String(viewerId || "");
+  const t = String(targetId || "");
+  return withSourceSuffix(`${STAFF_VAL_NEG_TRADE_PREFIX}:md:${v}:${t}`, sourceMessageId);
+}
+
+function parseStaffValNegTradeModalCustomId(customId) {
+  const parts = String(customId || "").split(":");
+  if (parts.length < 4 || parts[0] !== STAFF_VAL_NEG_TRADE_PREFIX || parts[1] !== "md") return null;
+  const viewerId = String(parts[2] || "");
+  const targetId = String(parts[3] || "");
+  if (!/^\d{16,20}$/.test(viewerId) || !/^\d{16,20}$/.test(targetId)) return null;
+  const sourceMessageId = normalizeSourceMessageId(parts[4]);
+  return { viewerId, targetId, sourceMessageId };
+}
+
+function formatStaffValPauseTradeOpenCustomId(viewerId, targetId, sourceMessageId = null) {
+  const v = String(viewerId || "");
+  const t = String(targetId || "");
+  return withSourceSuffix(`${STAFF_VAL_PAUSE_TRADE_PREFIX}:open:${v}:${t}`, sourceMessageId);
+}
+
+function parseStaffValPauseTradeOpenCustomId(customId) {
+  const parts = String(customId || "").split(":");
+  if (parts.length < 4 || parts[0] !== STAFF_VAL_PAUSE_TRADE_PREFIX || parts[1] !== "open") return null;
+  const viewerId = String(parts[2] || "");
+  const targetId = String(parts[3] || "");
+  if (!/^\d{16,20}$/.test(viewerId) || !/^\d{16,20}$/.test(targetId)) return null;
+  const sourceMessageId = normalizeSourceMessageId(parts[4]);
+  return { viewerId, targetId, sourceMessageId };
+}
+
+function formatStaffValPauseTradeModalCustomId(viewerId, targetId, sourceMessageId = null) {
+  const v = String(viewerId || "");
+  const t = String(targetId || "");
+  return withSourceSuffix(`${STAFF_VAL_PAUSE_TRADE_PREFIX}:md:${v}:${t}`, sourceMessageId);
+}
+
+function parseStaffValPauseTradeModalCustomId(customId) {
+  const parts = String(customId || "").split(":");
+  if (parts.length < 4 || parts[0] !== STAFF_VAL_PAUSE_TRADE_PREFIX || parts[1] !== "md") return null;
+  const viewerId = String(parts[2] || "");
+  const targetId = String(parts[3] || "");
+  if (!/^\d{16,20}$/.test(viewerId) || !/^\d{16,20}$/.test(targetId)) return null;
+  const sourceMessageId = normalizeSourceMessageId(parts[4]);
+  return { viewerId, targetId, sourceMessageId };
+}
+
+function buildHsValutazioniTradeButtonRows(viewerId, targetId, sourceMessageId, { pos, neg }) {
+  const row = new ActionRowBuilder();
+  if (Math.max(0, Number(pos || 0)) >= 1) {
+    row.addComponents(
+      new ButtonBuilder()
+        .setCustomId(formatStaffValPauseTradeOpenCustomId(viewerId, targetId, sourceMessageId))
+        .setLabel("Positive → giorni pausa")
+        .setStyle(ButtonStyle.Secondary)
+        .setEmoji("<a:VC_Calendar:1482706208149475358>"),
+    );
+  }
+  if (Math.max(0, Number(pos || 0)) >= 3 && Math.max(0, Number(neg || 0)) >= 1) {
+    row.addComponents(
+      new ButtonBuilder()
+        .setCustomId(formatStaffValNegTradeOpenCustomId(viewerId, targetId, sourceMessageId))
+        .setLabel("Compensa 1 negativa (3 positive)")
+        .setStyle(ButtonStyle.Secondary)
+        .setEmoji("⚖️"),
+    );
+  }
+  return row.components.length ? [row] : [];
+}
+
+function resolveStaffPanelRoleOrder(member) {
+  if (!member?.roles?.cache) return Number.MAX_SAFE_INTEGER;
+  for (let i = 0; i < STAFF_PANEL_NAV_ROLE_PRIORITY.length; i++) {
+    if (member.roles.cache.has(STAFF_PANEL_NAV_ROLE_PRIORITY[i])) return i;
+  }
+  return Number.MAX_SAFE_INTEGER;
+}
+
+function listEligibleStaffPanelMemberIds(guild, options = {}) {
+  if (!guild?.members?.cache) return [];
+  const partnersChatPanel = options.partnersChatPanel === true;
+  const pmRoleId = String(IDs.roles?.PartnerManager || "");
+  const entries = [];
+  for (const member of guild.members.cache.values()) {
+    if (member.user?.bot) continue;
+    if (!member?.roles?.cache) continue;
+    if (partnersChatPanel) {
+      if (pmRoleId && member.roles.cache.has(pmRoleId)) {
+        entries.push({
+          id: String(member.id),
+          roleOrder: Number.MAX_SAFE_INTEGER,
+          name: String(member.displayName || member.user?.username || member.id).toLowerCase(),
+        });
+      }
+      continue;
+    }
+    const hasNonPmStaff = STAFF_PANEL_NON_PM_ROLE_IDS.some((roleId) => member.roles.cache.has(roleId));
+    if (hasNonPmStaff) {
+      entries.push({
+        id: String(member.id),
+        roleOrder: resolveStaffPanelRoleOrder(member),
+        name: String(member.displayName || member.user?.username || member.id).toLowerCase(),
+      });
+    }
+  }
+  entries.sort((a, b) => {
+    if (a.roleOrder !== b.roleOrder) return a.roleOrder - b.roleOrder;
+    const byName = a.name.localeCompare(b.name, "it", { sensitivity: "base" });
+    if (byName !== 0) return byName;
+    return a.id.localeCompare(b.id);
+  });
+  return entries.map((row) => row.id);
+}
+
+function resolveNextStaffPanelTargetId(guild, currentTargetId, options = {}) {
+  const list = listEligibleStaffPanelMemberIds(guild, options);
+  if (list.length < 2) return null;
+  const current = String(currentTargetId || "");
+  const idx = list.indexOf(current);
+  if (idx < 0) return list[0] || null;
+  return list[(idx + 1) % list.length] || null;
 }
 
 function formatStaffHpButtonCustomId(action, viewerId, targetId, section = SECTION_HOME, sourceMessageId = null) {
@@ -366,15 +554,7 @@ function shouldOmitPexDepexHomeRow(viewerId, targetUserId, targetMember) {
   return false;
 }
 
-function buildHighStaffActionRows(
-  viewerId,
-  targetId,
-  section,
-  dualPmStaffDepex = false,
-  targetHasPartnerManager = false,
-  sourceMessageId = null,
-  omitPexDepexHome = false,
-) {
+function buildHighStaffActionRows(viewerId, targetId, section, dualPmStaffDepex = false, targetHasPartnerManager = false, sourceMessageId = null, omitPexDepexHome = false) {
   const v = String(viewerId);
   const t = String(targetId);
   let sec = String(section || "").toLowerCase();
@@ -430,65 +610,36 @@ function buildHighStaffActionRows(
   return [];
 }
 
-function buildPmOnlyPartnerRows(viewerId, targetId, section = SECTION_HOME, sourceMessageId = null) {
-  const v = String(viewerId);
-  const t = String(targetId);
-  const sec = String(section || SECTION_HOME).toLowerCase();
-  return [
-    new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId(formatStaffHpButtonCustomId("depex", v, t, sec, sourceMessageId))
-        .setLabel("Depex")
-        .setEmoji("<a:VC_Cross:1482532424570376253>")
-        .setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder()
-        .setCustomId(formatStaffHpButtonCustomId("ppm_add", v, t, sec, sourceMessageId))
-        .setLabel("Aggiungi punti")
-        .setEmoji("<:thumbsup:1471292172145004768>")
-        .setStyle(ButtonStyle.Success),
-      new ButtonBuilder()
-        .setCustomId(formatStaffHpButtonCustomId("ppm_remove", v, t, sec, sourceMessageId))
-        .setLabel("Rimuovi punti")
-        .setEmoji("<:thumbsdown:1471292163957457013>")
-        .setStyle(ButtonStyle.Danger),
-    ),
-  ];
+function buildPartnerManagerHubOptions(sec, canHsPartnerPoints, usePartnersChatPmPanel, omitPexDepexHome, showHsPexDepexOnHome, profileKind, hasPm, viewerId, targetId, viewerCanPartnerPointsPanel, partnerPtsForRedeem) {
+  const hubOpts = [];
+  const tid = String(targetId || "");
+  const vid = String(viewerId || "");
+  if (sec === SECTION_HOME && canHsPartnerPoints) {
+    if (usePartnersChatPmPanel) {
+      if (!omitPexDepexHome) hubOpts.push({ action: "depex_pm_only", label: "Depex" });
+      hubOpts.push({ action: "ppm_add", label: "Aggiungi punti" }, { action: "ppm_remove", label: "Rimuovi punti" });
+    } else if (profileKind === PROFILE_FULL && hasPm) {
+      hubOpts.push({ action: "ppm_add", label: "Aggiungi punti" }, { action: "ppm_remove", label: "Rimuovi punti" });
+    } else if (profileKind === PROFILE_PM_ONLY) {
+      if (!(omitPexDepexHome || showHsPexDepexOnHome)) hubOpts.push({ action: "depex_pm_only", label: "Depex" });
+      hubOpts.push({ action: "ppm_add", label: "Aggiungi punti" }, { action: "ppm_remove", label: "Rimuovi punti" });
+    }
+  }
+  const pmStaffEconomy =
+    sec === SECTION_HOME && hasPm && vid !== tid && viewerCanPartnerPointsPanel;
+  if (pmStaffEconomy) {
+    const pts = Math.max(0, Math.floor(Number(partnerPtsForRedeem || 0)));
+    for (const tier of PARTNER_MANAGER_REDEEM_TIERS.filter((n) => partnerManagerCanAffordReward(pts, n))) {
+      hubOpts.push({ action: `ppm_r${tier}`, label: partnerManagerRedeemButtonLabel(tier) });
+    }
+  }
+  return hubOpts;
 }
 
-function buildPartnerPointsOnlyRow(viewerId, targetId, section = SECTION_HOME, sourceMessageId = null) {
-  const v = String(viewerId);
-  const t = String(targetId);
-  const sec = String(section || SECTION_HOME).toLowerCase();
-  return [
-    new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId(formatStaffHpButtonCustomId("ppm_add", v, t, sec, sourceMessageId))
-        .setLabel("Aggiungi punti")
-        .setEmoji("<:thumbsup:1471292172145004768>")
-        .setStyle(ButtonStyle.Success),
-      new ButtonBuilder()
-        .setCustomId(formatStaffHpButtonCustomId("ppm_remove", v, t, sec, sourceMessageId))
-        .setLabel("Rimuovi punti")
-        .setEmoji("<:thumbsdown:1471292163957457013>")
-        .setStyle(ButtonStyle.Danger),
-    ),
-  ];
-}
-
-function shouldAttachHighStaffActions(
-  section,
-  viewerId,
-  targetUserId,
-  viewerIsHighStaff,
-  profileKind,
-  viewerMember,
-  suppressPexDepex = false,
-  targetMember = null,
-) {
+function shouldAttachHighStaffActions(section, viewerId, targetUserId, viewerIsHighStaff, profileKind, viewerMember, suppressPexDepex = false, targetMember = null) {
   if (suppressPexDepex) return false;
   const sec = String(section || "").toLowerCase();
-  const pmHome = profileKind === PROFILE_PM_ONLY && sec === SECTION_HOME;
-  if (profileKind !== PROFILE_FULL && !pmHome) return false;
+  if (profileKind !== PROFILE_FULL) return false;
   const self = String(viewerId) === String(targetUserId);
   if (self) {
     if (!viewerIsFounder(viewerMember)) return false;
@@ -513,17 +664,27 @@ function mergeProfileComponents(selectRow, highStaffRows, extraRows) {
   return base;
 }
 
-function buildProfileCloseRow(viewerId, targetId, sourceMessageId = null) {
-  return new ActionRowBuilder().addComponents(
+function buildProfileCloseRow(viewerId, targetId, sourceMessageId = null, options = {}) {
+  const components = [];
+  if (options.enableNextTargetButton) {
+    components.push(
+      new ButtonBuilder()
+        .setCustomId(formatStaffProfileNextCustomId(String(viewerId), String(targetId), sourceMessageId))
+        .setEmoji("➡️")
+        .setStyle(ButtonStyle.Secondary),
+    );
+  }
+  components.push(
     new ButtonBuilder()
       .setCustomId(formatStaffProfileCloseCustomId(String(viewerId), String(targetId), sourceMessageId))
       .setEmoji("<:cancel:1461730653677551691>")
       .setStyle(ButtonStyle.Danger),
   );
+  return new ActionRowBuilder().addComponents(...components);
 }
 
-function withCloseProfileComponents(components, viewerId, targetId, sourceMessageId = null) {
-  return [...(Array.isArray(components) ? components : []), buildProfileCloseRow(viewerId, targetId, sourceMessageId)];
+function withCloseProfileComponents(components, viewerId, targetId, sourceMessageId = null, options = {}) {
+  return [...(Array.isArray(components) ? components : []), buildProfileCloseRow(viewerId, targetId, sourceMessageId, options)];
 }
 
 function limitExtraRowsForProfilePanel(extraRows = [], maxRows = 3) {
@@ -545,6 +706,7 @@ function buildProfileSelectRow(viewerId, targetId, section, profileKind, sourceM
     const opts = [
       { label: homeLabel, value: SECTION_HOME, emoji: "<:VC_PartnerManager:1494286911286808576>", default: sec === SECTION_HOME },
       { label: "Pause", value: SECTION_PAUSE, emoji: "<a:VC_Calendar:1482706208149475358>", default: sec === SECTION_PAUSE },
+      { label: "Shop", value: SECTION_SHOP, emoji: "<a:VC_Money:1482724694699278487>", default: sec === SECTION_SHOP },
     ];
     return new ActionRowBuilder().addComponents(
       new StringSelectMenuBuilder()
@@ -587,6 +749,19 @@ function chunkString(text, maxLen = 3800) {
   return chunks;
 }
 
+/** Emoji riga warn in +profile: diverso per warn automatico da 3 negative vs altri warn. */
+function staffWarnProfileLineEmoji(reasonText) {
+  const raw = String(reasonText || "").trim();
+  if (!raw) return "<:banhammer:1443651875441217639>";
+  const n = raw.toLowerCase();
+  const canonical = String(STAFF_WARN_THREE_NEGATIVES_REASON || "").trim().toLowerCase();
+  if (n === canonical) return "<a:VC_Alert:1482706673176150077>";
+  if (n === "3 valutazioni negative") return "<a:VC_Alert:1482706673176150077>";
+  if (n === "assegna per aver raggiunto le 3 valutazioni negative") return "<a:VC_Alert:1482706673176150077>";
+  if (n.includes("3 valutazioni negative") && (n.includes("warn assegnato") || n.includes("assegn"))) return "<a:VC_Alert:1482706673176150077>";
+  return "<:banhammer:1443651875441217639>";
+}
+
 function warnResetLine(firstWarnStaffAt) {
   if (!firstWarnStaffAt) return "";
   const first = firstWarnStaffAt instanceof Date ? firstWarnStaffAt : new Date(firstWarnStaffAt);
@@ -608,15 +783,11 @@ async function fetchStaffLean(guildId, userId) {
 async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, section = SECTION_HOME, options = {}) {
   const gid = String(guild?.id || "");
   const tid = String(targetUserId || "");
-  const member =
-    (await getGuildMemberCached(guild, tid, { preferFresh: true }).catch(() => null)) ||
-    (await guild.members.fetch({ user: tid, force: true }).catch(() => null));
+  const member = (await getGuildMemberCached(guild, tid, { preferFresh: true }).catch(() => null)) || (await guild.members.fetch({ user: tid, force: true }).catch(() => null));
   const targetUser = member?.user || (await client.users.fetch(tid).catch(() => null));
   const name = (member ? accountUsername(member) : accountUsername(targetUser)) || tid;
-  const viewerMemForPanel =
-    (await getGuildMemberCached(guild, String(viewerId), { preferFresh: true }).catch(() => null)) ||
-    (await guild.members.fetch({ user: String(viewerId), force: true }).catch(() => null));
-  const viewerIsHighStaff = Boolean(viewerMemForPanel?.roles?.cache?.has(IDs.roles.HighStaff));
+  const viewerMemForPanel = (await getGuildMemberCached(guild, String(viewerId), { preferFresh: true }).catch(() => null)) || (await guild.members.fetch({ user: String(viewerId), force: true }).catch(() => null));
+  const viewerIsHighStaff = Boolean(viewerMemForPanel?.roles?.cache?.has(IDs.roles.HighStaff) || viewerMemForPanel?.roles?.cache?.has(IDs.roles.Director));
   const viewerCanFullDepex = viewerIsCoordinatorOrAbove(viewerMemForPanel);
   const viewerCanPartnerPointsPanel = viewerCanUsePartnerPointsPanel(viewerMemForPanel);
   const profileKind = resolveStaffProfileKind(member);
@@ -625,6 +796,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
   const hasPm = Boolean(pmRoleId && member?.roles?.cache?.has(pmRoleId));
   const partnersChatPanelMode = options?.partnersChatPanel === true;
   const usePartnersChatPmPanel = partnersChatPanelMode && hasPm;
+  const enableNextTargetButton = Boolean(resolveNextStaffPanelTargetId(guild, tid, { partnersChatPanel: partnersChatPanelMode }));
 
   if (partnersChatPanelMode && !hasPm) {
     return {
@@ -632,10 +804,10 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
         new EmbedBuilder()
           .setColor("#992d22")
           .setDescription(
-            "<:VC_Attention:1482534443632558151> In **#partners-chat** puoi consultare solo utenti con ruolo **Partner Manager**.",
+            "<:VC_Attention:1482534443632558151> In <#1495544523848286340> puoi consultare solo utenti con ruolo Partner Manager.",
           ),
       ],
-      components: withCloseProfileComponents([], viewerId, tid, sourceMessageId),
+      components: withCloseProfileComponents([], viewerId, tid, sourceMessageId, { enableNextTargetButton }),
     };
   }
 
@@ -643,11 +815,11 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
     const pexComps =
       viewerIsHighStaff && String(viewerId) !== tid
         ? buildProspectPexRows(
-            String(viewerId),
-            tid,
-            sourceMessageId,
-            viewerIsFounder(viewerMemForPanel),
-          )
+          String(viewerId),
+          tid,
+          sourceMessageId,
+          viewerIsFounder(viewerMemForPanel),
+        )
         : [];
     return {
       embeds: [
@@ -659,11 +831,12 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
           )
           .setThumbnail(userAvatarUrlDynamic(targetUser, { size: 128 }) || null),
       ],
-      components: withCloseProfileComponents(mergeProfileComponents(null, pexComps), viewerId, tid, sourceMessageId),
+      components: withCloseProfileComponents(mergeProfileComponents(null, pexComps), viewerId, tid, sourceMessageId, { enableNextTargetButton }),
     };
   }
 
   const displayRoleId = member ? resolveStaffProfileDisplayRoleId(member) : null;
+  const displayRoleEmoji = getStaffRoleEmojiByRoleId(usePartnersChatPmPanel ? pmRoleId : displayRoleId);
   let roleLabel = "—";
   if (usePartnersChatPmPanel) {
     roleLabel = pmRoleId ? guild.roles.cache.get(pmRoleId)?.name || "Partner Manager" : "Partner Manager";
@@ -687,7 +860,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
   if (sec === LEGACY_PARTNER_LB_SECTION) sec = SECTION_HOME;
   if (sec === SECTION_WARN) sec = SECTION_VALUTAZIONI;
   if (profileKind === PROFILE_PM_ONLY || usePartnersChatPmPanel) {
-    const allowedPm = new Set([SECTION_HOME, SECTION_PAUSE]);
+    const allowedPm = new Set([SECTION_HOME, SECTION_PAUSE, SECTION_SHOP]);
     if (!allowedPm.has(sec)) sec = SECTION_HOME;
   }
 
@@ -706,84 +879,85 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
   const omitPexDepexHome = shouldOmitPexDepexHomeRow(viewerId, tid, member);
   const showHsPexDepexOnHome =
     sec === SECTION_HOME &&
-    shouldAttachHighStaffActions(
-      sec,
-      viewerId,
-      tid,
-      viewerIsHighStaff,
-      profileKind,
-      viewerMemForPanel,
-      usePartnersChatPmPanel,
-      member,
-    ) &&
+    shouldAttachHighStaffActions(sec, viewerId, tid, viewerIsHighStaff, profileKind, viewerMemForPanel, usePartnersChatPmPanel, member) &&
     !omitPexDepexHome;
-  let partnerHomeRows = [];
-  if (sec === SECTION_HOME && canHsPartnerPoints) {
-    const vPts = String(viewerId);
-    if (usePartnersChatPmPanel) partnerHomeRows = buildPartnerPointsOnlyRow(vPts, tid, SECTION_HOME, sourceMessageId);
-    else if (profileKind === PROFILE_FULL && hasPm) partnerHomeRows = buildPartnerPointsOnlyRow(vPts, tid, SECTION_HOME, sourceMessageId);
-    else if (profileKind === PROFILE_PM_ONLY) {
-      partnerHomeRows =
-        omitPexDepexHome || showHsPexDepexOnHome
-          ? buildPartnerPointsOnlyRow(vPts, tid, SECTION_HOME, sourceMessageId)
-          : buildPmOnlyPartnerRows(vPts, tid, SECTION_HOME, sourceMessageId);
-    }
-  }
-
   const partnerPtsForRedeem = resolveStaffPartnerPointsDisplay(s);
-  const pmStaffRedeemRows =
-    sec === SECTION_HOME && hasPm && String(viewerId) !== tid && viewerCanPartnerPointsPanel
-      ? buildPartnerManagerRedeemRows(String(viewerId), tid, SECTION_HOME, sourceMessageId, partnerPtsForRedeem)
-      : [];
-  const homeBottomRows = [...partnerHomeRows, ...pmStaffRedeemRows];
+  const partnerHubOpts = buildPartnerManagerHubOptions(sec, canHsPartnerPoints, usePartnersChatPmPanel, omitPexDepexHome, showHsPexDepexOnHome, profileKind, hasPm, viewerId, tid, viewerCanPartnerPointsPanel, partnerPtsForRedeem);
+  const partnerHubRow = partnerHubOpts.length > 0
+    ? buildPartnerManagerHubSelectRow(viewerId, tid, SECTION_HOME, sourceMessageId, partnerHubOpts)
+    : null;
+  const homeBottomRows = partnerHubRow ? [partnerHubRow] : [];
 
   const profileKindForSelect = usePartnersChatPmPanel ? PROFILE_PM_ONLY : profileKind;
-  const selectRow = buildProfileSelectRow(String(viewerId), tid, sec, profileKindForSelect, sourceMessageId, {
-    partnersChatHomeLabel: usePartnersChatPmPanel,
-    hideValutazioniWarn: hideValutazioniWarnForTarget,
-  });
+  const selectRow = buildProfileSelectRow(viewerId, tid, sec, profileKindForSelect, sourceMessageId, { partnersChatHomeLabel: usePartnersChatPmPanel, hideValutazioniWarn: hideValutazioniWarnForTarget });
   const dualPmStaffDepex = profileKind === PROFILE_FULL && memberHasPmAndStaffLadderForDualDepex(member);
-  const highStaffRows = shouldAttachHighStaffActions(
-    sec,
-    viewerId,
-    tid,
-    viewerIsHighStaff,
-    profileKind,
-    viewerMemForPanel,
-    usePartnersChatPmPanel,
-    member,
-  )
+  const highStaffRows = shouldAttachHighStaffActions(sec, viewerId, tid, viewerIsHighStaff, profileKind, viewerMemForPanel, usePartnersChatPmPanel, member)
     ? buildHighStaffActionRows(String(viewerId), tid, sec, dualPmStaffDepex, hasPm, sourceMessageId, omitPexDepexHome)
     : [];
   const hsRows = [...highStaffRows];
-  if (
-    sec === SECTION_HOME &&
-    profileKind === PROFILE_FULL &&
-    !usePartnersChatPmPanel &&
-    String(viewerId) !== tid &&
-    viewerCanFullDepex &&
-    !viewerIsHighStaff
-  ) {
-    hsRows.push(
-      new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId(formatStaffHpButtonCustomId("depex_full", String(viewerId), tid, sec, sourceMessageId))
-          .setLabel("Depex completo")
-          .setEmoji("<a:VC_Cross:1482532424570376253>")
-          .setStyle(ButtonStyle.Danger),
+  if (sec === SECTION_HOME && profileKind === PROFILE_FULL && !usePartnersChatPmPanel && String(viewerId) !== tid && viewerCanFullDepex && !viewerIsHighStaff) {
+    hsRows.push(new ActionRowBuilder().addComponents(new ButtonBuilder()
+      .setCustomId(formatStaffHpButtonCustomId("depex_full", String(viewerId), tid, sec, sourceMessageId))
+      .setLabel("Depex completo")
+      .setEmoji("<a:VC_Cross:1482532424570376253>")
+      .setStyle(ButtonStyle.Danger)));
+  }
+
+  if ((profileKind === PROFILE_PM_ONLY || usePartnersChatPmPanel) && sec === SECTION_SHOP) {
+    const shopTitle = usePartnersChatPmPanel
+      ? `<a:VC_Money:1482724694699278487> Shop premi · ${name}`
+      : `<a:VC_Money:1482724694699278487> Shop premi · ${name}`;
+    const shopBtnRows =
+      hasPm && String(viewerId) === String(tid) ? buildPmShopSelfRedeemRows(viewerId, tid, partnerPtsForRedeem) : [];
+    return {
+      embeds: [
+        new EmbedBuilder()
+          .setColor("#6f4e37")
+          .setTitle(shopTitle.slice(0, 256))
+          .setDescription(
+            buildPmPartnerShopDescription(partnerPtsForRedeem, {
+              selfShop: hasPm && String(viewerId) === String(tid),
+            }),
+          )
+          .setThumbnail(userAvatarUrlDynamic(targetUser, { size: 128 }) || null),
+      ],
+      components: withCloseProfileComponents(
+        mergeProfileComponents(selectRow, hsRows, [...shopBtnRows, ...homeBottomRows]),
+        viewerId,
+        tid,
+        sourceMessageId,
+        { enableNextTargetButton },
       ),
-    );
+    };
   }
 
   if ((profileKind === PROFILE_PM_ONLY || usePartnersChatPmPanel) && sec === SECTION_HOME) {
     const pauseShort = getStaffPauseLine(s, { pmOnly: true });
     const punti = partnerPtsForRedeem;
+    const pmStaffPexRows =
+      profileKind === PROFILE_PM_ONLY &&
+      viewerIsHighStaff &&
+      String(viewerId) !== tid
+        ? buildProspectPexRows(
+          String(viewerId),
+          tid,
+          sourceMessageId,
+          viewerIsFounder(viewerMemForPanel),
+          { hidePartnerManagerPex: true, staffPexFromPartnerManager: true },
+        )
+        : [];
     const pmHomeDesc = [
-      `<:VC_Staff:1494286904089247754> **Ruolo:** ${roleLabel}`,
+      `${displayRoleEmoji} **Ruolo:** ${roleLabel}`,
       "",
       `<a:VC_Calendar:1482706208149475358> **Pause:** ${pauseShort}`,
       "",
-      `<:VC_Partner:1482527213780729896> **Punti partner:** ${punti}`,
+      `<:VC_Partner:1482527213780729896> **Punti:** ${punti}`,
+      ...(pmStaffPexRows.length
+        ? [
+          "",
+          "<a:VC_Verified:1482532479637127188> Usa i pulsanti qui sotto per aggiungere un ruolo **Staff** mantenendo **Partner Manager**.",
+        ]
+        : []),
     ].join("\n");
     const pmTitle = usePartnersChatPmPanel
       ? `<:VC_addperson:1485419347068588073> Profilo Partner Manager ${name}`
@@ -796,63 +970,68 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
           .setDescription(pmHomeDesc.slice(0, 4090))
           .setThumbnail(userAvatarUrlDynamic(targetUser, { size: 128 }) || null),
       ],
-      components: withCloseProfileComponents(mergeProfileComponents(selectRow, hsRows, homeBottomRows), viewerId, tid, sourceMessageId),
+      components: withCloseProfileComponents(
+        mergeProfileComponents(selectRow, [...pmStaffPexRows, ...hsRows], homeBottomRows),
+        viewerId,
+        tid,
+        sourceMessageId,
+        { enableNextTargetButton },
+      ),
     };
   }
 
   if (sec === SECTION_VALUTAZIONI) {
     const posLines = posReasons.map((r, i) => `**+${i + 1}.** ${String(r || "—").slice(0, 900)}`);
     const negLines = negReasons.map((r, i) => `**−${i + 1}.** ${String(r || "—").slice(0, 900)}`);
-    const warnLines = warnReasons.map((r, i) => `**-${i + 1}.** ${String(r || "—").slice(0, 900)}`);
+    const warnLines = warnReasons.map(
+      (r, i) => `${staffWarnProfileLineEmoji(r)} **-${i + 1}.** ${String(r || "—").slice(0, 900)}`,
+    );
     const warnReset = warnResetLine(s.firstWarnStaffAt);
     const warnBlock = warnLines.length
       ? [
-          "<:banhammer:1443651875441217639> **Warn**",
-          "",
-          ...warnLines,
-          ...(warnReset ? ["", warnReset] : []),
-        ]
-      : ["<:banhammer:1443651875441217639> **Warn** — nessun warn."];
-    const body = [
-      posLines.length ? "<:thumbsup:1471292172145004768> **Positive**" : "<:thumbsup:1471292172145004768> **Positive** — nessuna.",
+        "<:banhammer:1443651875441217639> **Warn**",
+        "",
+        ...warnLines,
+        ...(warnReset ? ["", warnReset] : []),
+      ]
+      : ["<:banhammer:1443651875441217639> **Warn** — Nessun warn."];
+    const pauseBonusDays = getValPosTradedPauseBonusDays(s);
+    const bodyParts = [
+      posLines.length ? "<:thumbsup:1471292172145004768> **Positive**" : "<:thumbsup:1471292172145004768> **Positive** — Nessuna.",
       ...posLines,
       "",
-      negLines.length ? "<:thumbsdown:1471292163957457013> **Negative**" : "<:thumbsdown:1471292163957457013> **Negative** — nessuna.",
+      negLines.length ? "<:thumbsdown:1471292163957457013> **Negative**" : "<:thumbsdown:1471292163957457013> **Negative** — Nessuna.",
       ...negLines,
-      "",
-      ...warnBlock,
-    ].join("\n");
-    const chunks = chunkString(body, 3800);
+    ];
+    if (pauseBonusDays > 0) {
+      bodyParts.push("", `<a:VC_Calendar:1482706208149475358> **Giorni pausa extra (scambio positive):** \`${pauseBonusDays}\``);
+    }
+    bodyParts.push("", ...warnBlock);
+    const viewerCanValTrade = Boolean(IDs.roles.HighStaff && viewerMemForPanel?.roles?.cache?.has(IDs.roles.HighStaff));
+    const canHsValTrade =
+      viewerCanValTrade &&
+      String(viewerId) !== String(tid) &&
+      profileKind === PROFILE_FULL &&
+      !hideValutazioniWarnForTarget &&
+      !usePartnersChatPmPanel;
+    const valTradeRows = canHsValTrade ? buildHsValutazioniTradeButtonRows(viewerId, tid, sourceMessageId, { pos, neg }) : [];
+    const chunks = chunkString(bodyParts.join("\n"), 3800);
     const embeds = chunks.map((desc, i) =>
       new EmbedBuilder()
         .setColor("#6f4e37")
         .setDescription(desc)
         .setThumbnail(userAvatarUrlDynamic(targetUser, { size: 128 }) || null),
     );
-    return { embeds, components: withCloseProfileComponents(mergeProfileComponents(selectRow, hsRows, homeBottomRows), viewerId, tid, sourceMessageId) };
+    const valExtraRows = [...valTradeRows, ...homeBottomRows];
+    return { embeds, components: withCloseProfileComponents(mergeProfileComponents(selectRow, hsRows, valExtraRows), viewerId, tid, sourceMessageId, { enableNextTargetButton }) };
   }
 
   if (sec === SECTION_PAUSE) {
     const targetUserObj = targetUser || { id: tid, username: name };
-    const pauseRoleFilter =
-      profileKind === PROFILE_PM_ONLY || usePartnersChatPmPanel ? "pm" : undefined;
-    const listPayload = await buildPauseListPayload({
-      guildId: gid,
-      requesterId: String(viewerId),
-      targetUser: targetUserObj,
-      isHighStaff: viewerIsHighStaff,
-      client,
-      pauseRoleFilter,
-    });
+    const pauseRoleFilter = profileKind === PROFILE_PM_ONLY || usePartnersChatPmPanel ? "pm" : undefined;
+    const listPayload = await buildPauseListPayload({ guildId: gid, requesterId: String(viewerId), targetUser: targetUserObj, isHighStaff: viewerIsHighStaff, client, pauseRoleFilter });
     if (!listPayload.ok) {
-      return {
-        embeds: [
-          new EmbedBuilder()
-            .setColor("Red")
-            .setDescription(listPayload.error || "Errore caricamento pause."),
-        ],
-        components: withCloseProfileComponents(mergeProfileComponents(selectRow, hsRows, homeBottomRows), viewerId, tid, sourceMessageId),
-      };
+      return { embeds: [new EmbedBuilder().setColor("Red").setDescription(listPayload.error || "Errore caricamento pause.")], components: withCloseProfileComponents(mergeProfileComponents(selectRow, hsRows, homeBottomRows), viewerId, tid, sourceMessageId, { enableNextTargetButton }) };
     }
     return {
       embeds: [...listPayload.embeds],
@@ -861,6 +1040,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
         viewerId,
         tid,
         sourceMessageId,
+        { enableNextTargetButton },
       ),
     };
   }
@@ -871,20 +1051,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
     const d7 = new Date(now - 7 * 24 * 60 * 60 * 1000);
     const d30 = new Date(now - 30 * 24 * 60 * 60 * 1000);
     const countAction = (action, since = null) => countModActionsByMod(gid, modId, action, since);
-    const [m7, m30, mall, b7, b30, ball, k7, k30, kall, w7, w30, wall] = await Promise.all([
-      countAction("MUTE", d7),
-      countAction("MUTE", d30),
-      countAction("MUTE"),
-      countAction("BAN", d7),
-      countAction("BAN", d30),
-      countAction("BAN"),
-      countAction("KICK", d7),
-      countAction("KICK", d30),
-      countAction("KICK"),
-      countAction("WARN", d7),
-      countAction("WARN", d30),
-      countAction("WARN"),
-    ]);
+    const [m7, m30, mall, b7, b30, ball, k7, k30, kall, w7, w30, wall] = await Promise.all([ countAction("MUTE", d7), countAction("MUTE", d30), countAction("MUTE"), countAction("BAN", d7), countAction("BAN", d30), countAction("BAN"), countAction("KICK", d7), countAction("KICK", d30), countAction("KICK"), countAction("WARN", d7), countAction("WARN", d30), countAction("WARN") ]);
     const t7 = Number(m7) + Number(b7) + Number(k7) + Number(w7);
     const t30 = Number(m30) + Number(b30) + Number(k30) + Number(w30);
     const tall = Number(mall) + Number(ball) + Number(kall) + Number(wall);
@@ -893,7 +1060,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
       embeds: [
         new EmbedBuilder()
           .setColor("#3498DB")
-          .setTitle("Moderation Statistics")
+          .setTitle("Statistiche Sanzioni")
           .setThumbnail(userAvatarUrlDynamic(targetUser, { size: 256 }) || null)
           .setAuthor({
             name: targetUser?.username || String(modId),
@@ -901,12 +1068,12 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
           })
           .addFields(
             {
-              name: "Last 7 days",
+              name: "Ultimi 7 giorni",
               value: `Mutes: ${m7}\nBans: ${b7}\nKicks: ${k7}\nWarns: ${w7}\n**Total: ${t7}**`,
               inline: true,
             },
             {
-              name: "Last 30 days",
+              name: "Ultimi 30 giorni",
               value: `Mutes: ${m30}\nBans: ${b30}\nKicks: ${k30}\nWarns: ${w30}\n**Total: ${t30}**`,
               inline: true,
             },
@@ -916,10 +1083,10 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
               inline: true,
             },
           )
-          .setFooter({ text: `ID: ${modId} • Oggi alle ${hh}` })
+          .setFooter({ text: `ID: ${modId}` })
           .setTimestamp(),
       ],
-      components: withCloseProfileComponents(mergeProfileComponents(selectRow, hsRows, homeBottomRows), viewerId, tid, sourceMessageId),
+      components: withCloseProfileComponents(mergeProfileComponents(selectRow, hsRows, homeBottomRows), viewerId, tid, sourceMessageId, { enableNextTargetButton }),
     };
   }
 
@@ -938,12 +1105,23 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
   }
 
   const puntiPartner = resolveStaffPartnerPointsDisplay(s);
+  const sfAttState =
+    profileKind === PROFILE_FULL && !usePartnersChatPmPanel
+      ? resolveSerataFilmAttendanceForWeek(s)
+      : null;
+  const sfAttRow =
+    sfAttState && String(viewerId) === tid && sfAttState.editable
+      ? buildSerataFilmAttendanceButtonRow(viewerId, tid, sfAttState, sourceMessageId)
+      : null;
   const homeDescParts = [
-    `<:VC_Staff:1494286904089247754> **Ruolo:** ${roleLabel}`,
+    `${displayRoleEmoji} **Ruolo:** ${roleLabel}`,
     "",
     `<a:VC_Calendar:1482706208149475358> **Pause:**`,
     `${pauseShort}`,
   ];
+  if (sfAttState) {
+    homeDescParts.push("", buildSerataFilmAttendanceDescriptionLine(sfAttState, String(viewerId) === tid));
+  }
   if (!hideValutazioniWarnForTarget) {
     homeDescParts.push(
       "",
@@ -955,44 +1133,26 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
     );
   }
   if (hasPm) {
-    homeDescParts.push("",`<:VC_Partner:1482527213780729896> **Punti:** ${puntiPartner}`);
+    homeDescParts.push("", `<:VC_Partner:1482527213780729896> **Punti:** ${puntiPartner}`);
   }
-  homeDescParts.push("","Seleziona una sezione dal menu per i dettagli.");
+  homeDescParts.push("", "Seleziona una sezione dal menu per i dettagli.");
   const homeDesc = homeDescParts.join("\n");
   return {
     embeds: [
       new EmbedBuilder()
         .setColor("#6f4e37")
-        .setTitle(`<a:VC_Announce:1482534613568979007> Benvenuto ${viewerName}`)
+        .setTitle(`<a:VC_Announce:1482534613568979007> Profilo Staff ${name}`)
         .setDescription(homeDesc)
         .setThumbnail(userAvatarUrlDynamic(targetUser, { size: 128 }) || null),
     ],
-    components: withCloseProfileComponents(mergeProfileComponents(selectRow, hsRows, homeBottomRows), viewerId, tid, sourceMessageId),
+    components: withCloseProfileComponents(
+      mergeProfileComponents(selectRow, hsRows, sfAttRow ? [...homeBottomRows, sfAttRow] : homeBottomRows),
+      viewerId,
+      tid,
+      sourceMessageId,
+      { enableNextTargetButton },
+    ),
   };
 }
 
-module.exports = {
-  PANEL_PREFIX,
-  STAFF_HP_PREFIX,
-  STAFF_HP_SELECT_PREFIX,
-  SECTION_HOME,
-  SECTION_VALUTAZIONI,
-  SECTION_WARN,
-  SECTION_PAUSE,
-  SECTION_MODSTATS,
-  formatStaffProfileSelectCustomId,
-  parseStaffProfileSelectCustomId,
-  formatStaffProfileCloseCustomId,
-  parseStaffProfileCloseCustomId,
-  formatStaffHpButtonCustomId,
-  encodeStaffHpButtonAction,
-  decodeStaffHpButtonActionToken,
-  staffHpSectionToken,
-  parseStaffHpButtonSectionToken,
-  buildStaffProfilePayload,
-  resolveStaffPartnerPointsDisplay,
-  viewerCanUsePartnerPointsPanel,
-  viewerIsCoordinatorOrAbove,
-  viewerIsFounder,
-  shouldOmitPexDepexHomeRow,
-};
+module.exports = { PANEL_PREFIX, STAFF_HP_PREFIX, STAFF_HP_SELECT_PREFIX, STAFF_PM_SHOP_PREFIX, STAFF_VAL_NEG_TRADE_PREFIX, STAFF_VAL_PAUSE_TRADE_PREFIX, SECTION_HOME, SECTION_VALUTAZIONI, SECTION_WARN, SECTION_PAUSE, SECTION_MODSTATS, SECTION_SHOP, formatStaffProfileSelectCustomId, parseStaffProfileSelectCustomId, formatStaffProfileCloseCustomId, parseStaffProfileCloseCustomId, formatStaffProfileNextCustomId, parseStaffProfileNextCustomId, formatStaffValNegTradeOpenCustomId, parseStaffValNegTradeOpenCustomId, formatStaffValNegTradeModalCustomId, parseStaffValNegTradeModalCustomId, formatStaffValPauseTradeOpenCustomId, parseStaffValPauseTradeOpenCustomId, formatStaffValPauseTradeModalCustomId, parseStaffValPauseTradeModalCustomId, formatStaffHpButtonCustomId, encodeStaffHpButtonAction, decodeStaffHpButtonActionToken, staffHpSectionToken, parseStaffHpButtonSectionToken, buildStaffProfilePayload, resolveStaffPartnerPointsDisplay, viewerCanUsePartnerPointsPanel, viewerIsCoordinatorOrAbove, viewerIsFounder, shouldOmitPexDepexHomeRow, resolveNextStaffPanelTargetId };

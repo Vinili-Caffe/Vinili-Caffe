@@ -228,9 +228,14 @@ const Giveaway = {
   async updateOne(filter, update) {
     const buckets = await findBucketsForGiveawayFilter(filter);
     const $set = update?.$set && typeof update.$set === "object" ? update.$set : {};
+    const $pull = update?.$pull && typeof update.$pull === "object" ? update.$pull : {};
     for (const bucket of buckets) {
       const g = findGiveawaySubdocInBucket(bucket, filter);
       if (!g) continue;
+      if ($pull.participants != null && Array.isArray(g.participants)) {
+        const uid = String($pull.participants);
+        g.participants = g.participants.filter((id) => String(id) !== uid);
+      }
       Object.assign(g, $set);
       await bucket.save();
       return { modifiedCount: 1, matchedCount: 1 };
@@ -243,7 +248,7 @@ const Giveaway = {
     if (!guildId) throw new Error("Giveaway.create: guildId required");
     const bucket = await ensureGuildFeatureBucket(guildId);
     const { guildId: _g, ...rest } = payload;
-    bucket.giveaways.push(rest);
+    bucket.giveaways.push({ ...rest, guildId });
     await bucket.save();
     return bucket.giveaways[bucket.giveaways.length - 1];
   },

@@ -1,6 +1,21 @@
 (function () {
   var CONSENT_KEY = "vc_cookie_banner_ack_v3";
   var CONSENT_COOKIE = "vc_cookie_banner_ack_v3";
+  var DISCORD_ACCESS_TOKEN_KEY = "vc_discord_access_token";
+  var DISCORD_EXPIRES_AT_KEY = "vc_discord_expires_at";
+  var FORBIDDEN_BOOKS_KEY = "vc_forbidden_section_books_v1";
+  var FORBIDDEN_BOOKS_START_MS = new Date("2026-06-20T12:00:00").getTime();
+  var FORBIDDEN_BOOKS_END_MS = new Date("2026-09-01T10:00:00").getTime();
+  var FORBIDDEN_SITE_BOOKS_TOTAL = 8;
+  var PAGE_REVEAL_SESSION_KEY = "vc_site_session_reveal_v1";
+
+  try {
+    if (sessionStorage.getItem(PAGE_REVEAL_SESSION_KEY)) {
+      document.documentElement.classList.add("vc-skip-page-reveal");
+    } else {
+      sessionStorage.setItem(PAGE_REVEAL_SESSION_KEY, "1");
+    }
+  } catch (eReveal) {}
 
   function normalizeLegalPath(pathname) {
     var path = String(pathname || "/").replace(/\/+$/, "") || "/";
@@ -19,6 +34,9 @@
 
   function hasCookieConsent() {
     try {
+      if (window.sessionStorage && window.sessionStorage.getItem(CONSENT_KEY) === "accepted") return true;
+    } catch (e) {}
+    try {
       if (window.localStorage && window.localStorage.getItem(CONSENT_KEY) === "accepted") return true;
     } catch (e) {}
     try {
@@ -30,14 +48,29 @@
     }
   }
 
+  function cookieDomainSuffixForConsent() {
+    try {
+      var h = String(window.location.hostname || "").toLowerCase();
+      if (!h || h === "localhost" || h === "127.0.0.1" || h === "[::1]") return "";
+      if (h.endsWith(".localhost")) return "";
+      if (h === "viniliecaffe.it" || h.endsWith(".viniliecaffe.it")) return "; Domain=.viniliecaffe.it";
+    } catch (e) {}
+    return "";
+  }
+
   function rememberCookieConsent() {
     try {
       if (window.localStorage) window.localStorage.setItem(CONSENT_KEY, "accepted");
     } catch (e) {}
     try {
+      if (window.sessionStorage) window.sessionStorage.setItem(CONSENT_KEY, "accepted");
+    } catch (e) {}
+    try {
       var maxAge = 60 * 60 * 24 * 180;
       var secure = String(window.location.protocol || "").toLowerCase() === "https:" ? "; Secure" : "";
-      document.cookie = CONSENT_COOKIE + "=accepted; Max-Age=" + maxAge + "; Path=/; SameSite=Lax" + secure;
+      var domain = cookieDomainSuffixForConsent();
+      document.cookie =
+        CONSENT_COOKIE + "=accepted; Max-Age=" + maxAge + "; Path=/; SameSite=Lax" + secure + domain;
     } catch (e) {}
   }
 
@@ -56,7 +89,29 @@
     if (document.getElementById("vc-necessity-banner")) return;
     if (document.getElementById("cookieyes")) return;
     if (!document.documentElement) return;
-    var cookiePolicyUrl = "/cookie/";
+    function sanitizeLegalHref(raw) {
+      var value = String(raw || "").trim();
+      if (!value) return "";
+      if (/^javascript:/i.test(value)) return "";
+      if (value.startsWith("/")) return value;
+      if (/^https?:\/\//i.test(value)) return value;
+      return "";
+    }
+    function resolveCookiePolicyUrl() {
+      var fromWindow = "";
+      try {
+        fromWindow = sanitizeLegalHref(window.__VC_COOKIE_POLICY_URL);
+      } catch (e0) {}
+      if (fromWindow) return fromWindow;
+      var fromDom = "";
+      try {
+        var link = document.querySelector('a[href*="/cookie"], a[href*="cookie-policy"], a[href*="cookie"]');
+        fromDom = sanitizeLegalHref(link && link.getAttribute("href"));
+      } catch (e1) {}
+      if (fromDom) return fromDom;
+      return "/cookie/";
+    }
+    var cookiePolicyUrl = resolveCookiePolicyUrl();
 
     var cookieIcon =
       '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
@@ -99,8 +154,8 @@
       '<div class="vc-necessity-banner__head">' +
       '<span class="vc-necessity-banner__icon" aria-hidden="true">' + cookieIcon + "</span>" +
       '<div class="vc-necessity-banner__titlewrap">' +
-      '<h2 id="vc-necessity-title">Utilizzo dei Cookie</h2>' +
-      '<p>Usiamo solo cookie tecnici essenziali per login, sicurezza e corretto funzionamento del sito.</p>' +
+      '<h2 id="vc-necessity-title">Cookie essenziali</h2>' +
+      '<p>Usiamo solo dati tecnici necessari per login Discord, sicurezza e funzioni base del sito. La sessione locale può durare fino a 90 giorni.</p>' +
       "</div>" +
       '<button type="button" class="vc-necessity-banner__close" data-vc-necessity-dismiss aria-label="Chiudi avviso cookie">' + closeIcon + "</button>" +
       "</div>" +
@@ -108,16 +163,15 @@
       '<div class="vc-necessity-banner__scroll">' +
       '<div class="vc-necessity-banner__notice">' +
       '<span class="vc-necessity-banner__noticeico" aria-hidden="true">' + infoIcon + "</span>" +
-      '<p><strong>Cookie necessari.</strong> Servono per login, sicurezza, preferenza banner e funzioni base. Nessun uso marketing.</p>' +
+      '<p><strong>Solo tecnici essenziali.</strong> Nessun cookie di marketing o profilazione: solo accesso Discord, sicurezza e preferenze minime.</p>' +
       "</div>" +
       '<details class="vc-necessity-banner__details">' +
       '<summary><span><span class="vc-necessity-banner__summaryico" aria-hidden="true">' + shieldIcon + '</span> Dettagli tecnici</span><span class="vc-necessity-banner__chev" aria-hidden="true">' + chevIcon + "</span></summary>" +
       '<div class="vc-necessity-banner__tech">' +
-      '<div><span class="vc-necessity-banner__techico" aria-hidden="true">' + lockIcon + '</span><span><strong>Session Token</strong><small>Mantiene il login attivo fino a 90 giorni</small></span></div>' +
-      '<div><span class="vc-necessity-banner__techico" aria-hidden="true">' + lockIcon + '</span><span><strong>CSRF Token</strong><small>Protezione da attacchi informatici</small></span></div>' +
-      '<div><span class="vc-necessity-banner__techico" aria-hidden="true">' + lockIcon + '</span><span><strong>OAuth State</strong><small>Autenticazione Discord sicura</small></span></div>' +
-      '<div><span class="vc-necessity-banner__techico" aria-hidden="true">' + lockIcon + '</span><span><strong>Preferenza banner</strong><small>Ricorda la scelta per 180 giorni</small></span></div>' +
-      '<div class="vc-necessity-banner__chips"><span>HttpOnly</span><span>Secure</span><span>SameSite</span><span>Crittografati</span></div>' +
+      '<div><span class="vc-necessity-banner__techico" aria-hidden="true">' + lockIcon + '</span><span><strong>Token accesso Discord</strong><small>Salvato nel browser per mantenere la sessione (max 90 giorni)</small></span></div>' +
+      '<div><span class="vc-necessity-banner__techico" aria-hidden="true">' + lockIcon + '</span><span><strong>Stato OAuth + nonce</strong><small>Controlli anti-CSRF per login Discord sicuro</small></span></div>' +
+      '<div><span class="vc-necessity-banner__techico" aria-hidden="true">' + lockIcon + '</span><span><strong>Preferenza banner</strong><small>Ricorda accettazione/chiusura per 180 giorni</small></span></div>' +
+      '<div class="vc-necessity-banner__chips"><span>Tecnici essenziali</span><span>Sicurezza</span><span>No marketing</span><span>No profilazione</span></div>' +
       '<a href="' + cookiePolicyUrl + '">Leggi la Cookie Policy completa <span aria-hidden="true">&rarr;</span></a>' +
       "</div>" +
       "</details>" +
@@ -127,7 +181,7 @@
       '<button type="button" class="vc-necessity-banner__accept" data-vc-necessity-confirm>Accetta</button>' +
       '<a class="vc-necessity-banner__link" href="' + cookiePolicyUrl + '">Cookie Policy</a>' +
       "</div>" +
-      '<p class="vc-necessity-banner__foot"><strong>Accetta</strong> o la <strong>X</strong> in alto: salvano la stessa preferenza (180 giorni) e nascondono l’avviso. Se chiudi il sito senza fare nulla, alla prossima visita l’avviso compare di nuovo.</p>' +
+      '<p class="vc-necessity-banner__foot"><strong>Accetta</strong> o <strong>X</strong> salvano la stessa scelta tecnica per 180 giorni. Se non scegli nulla, l’avviso ricompare alla visita successiva.</p>' +
       "</div>" +
       "</div>" +
       "</div>";
@@ -347,37 +401,6 @@
   );
 })();
 (function () {
-  function injectForumLinkInCommunityMenus() {
-    var allDetails = document.querySelectorAll("details.vc-snav-details");
-    if (!allDetails || !allDetails.length) return;
-    for (var i = 0; i < allDetails.length; i += 1) {
-      var det = allDetails[i];
-      var summary = det.querySelector(".vc-snav-summary span");
-      var txt = String((summary && summary.textContent) || "").trim().toLowerCase();
-      if (txt !== "community") continue;
-      var panel = det.querySelector(".vc-snav-panel");
-      if (!panel) continue;
-      var forumRows = panel.querySelectorAll("a.vc-snav-row");
-      var hasForum = false;
-      forumRows.forEach(function (row) {
-        var rowPath = pathnameFromHref(row.getAttribute("href"));
-        if (rowPath !== "/forum") return;
-        if (!hasForum) {
-          hasForum = true;
-          return;
-        }
-        row.remove();
-      });
-      if (hasForum) continue;
-      var row = document.createElement("a");
-      row.className = "vc-snav-row";
-      row.href = "/forum";
-      row.innerHTML =
-        '<span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-comments"></i></span><span>Forum</span>';
-      panel.appendChild(row);
-    }
-  }
-
   function normalizePathname(path) {
     var p = String(path || "/").trim() || "/";
     p = p.replace(/\\/g, "/");
@@ -454,31 +477,48 @@
   }
 
   function initHeaderNavAccordion() {
-    injectForumLinkInCommunityMenus();
     var bar = document.querySelector(".vc-header-bar");
     if (!bar) return;
+    var HEADER_MENU_SYNC_KEY = "vc_header_menu_sync_v1";
+    var localWindowId = String(Date.now()) + "-" + String(Math.random()).slice(2);
     var detailsList = bar.querySelectorAll("details.vc-snav-details");
     var notif = bar.querySelector("details.vc-notif-dropdown");
     var accountMenu = bar.querySelector(".discord-account-menu");
-    function syncNotifOpenClass() {
+    function syncHeaderDropdownOpenClasses() {
       var root = document.documentElement;
       if (!root) return;
-      root.classList.toggle("vc-notif-dropdown-open", Boolean(notif && notif.open));
+      var notifOpen = Boolean(notif && notif.open);
+      root.classList.toggle("vc-notif-dropdown-open", notifOpen);
+    }
+    function broadcastHeaderMenuOpen(sourceId) {
+      try {
+        localStorage.setItem(
+          HEADER_MENU_SYNC_KEY,
+          JSON.stringify({
+            t: Date.now(),
+            src: localWindowId,
+            id: String(sourceId || ""),
+          }),
+        );
+      } catch (e) {}
     }
     detailsList.forEach(function (d) {
       d.addEventListener("toggle", function () {
-        if (!d.open) return;
-        detailsList.forEach(function (other) {
-          if (other !== d) other.open = false;
-        });
-        if (notif) notif.open = false;
-        syncNotifOpenClass();
+        if (d.open) {
+          broadcastHeaderMenuOpen(d.id || d.getAttribute("data-menu-id") || "snav");
+          detailsList.forEach(function (other) {
+            if (other !== d) other.open = false;
+          });
+          if (notif) notif.open = false;
+        }
+        syncHeaderDropdownOpenClasses();
       });
     });
     if (notif) {
       notif.addEventListener("toggle", function () {
-        syncNotifOpenClass();
+        syncHeaderDropdownOpenClasses();
         if (!notif.open) return;
+        broadcastHeaderMenuOpen(notif.id || "notif");
         detailsList.forEach(function (other) {
           other.open = false;
         });
@@ -486,20 +526,34 @@
     }
     if (accountMenu && notif) {
       accountMenu.addEventListener("pointerenter", function () {
-        if (notif.open) notif.open = false;
-        syncNotifOpenClass();
+        syncHeaderDropdownOpenClasses();
       });
       accountMenu.addEventListener("focusin", function () {
         if (notif.open) notif.open = false;
-        syncNotifOpenClass();
+        syncHeaderDropdownOpenClasses();
       });
+    }
+    function pointInside(el, ev) {
+      if (!el || typeof ev.clientX !== "number" || typeof ev.clientY !== "number") return false;
+      try {
+        var r = el.getBoundingClientRect();
+        return ev.clientX >= r.left && ev.clientX <= r.right && ev.clientY >= r.top && ev.clientY <= r.bottom;
+      } catch (e) {
+        return false;
+      }
+    }
+    function eventInsideOpenDropdown(openEl, ev) {
+      if (!openEl) return false;
+      var t = ev.target;
+      if (t && openEl.contains(t)) return true;
+      return pointInside(openEl, ev);
     }
     function closeAllHeaderDropdowns() {
       detailsList.forEach(function (d) {
         d.open = false;
       });
       if (notif) notif.open = false;
-      syncNotifOpenClass();
+      syncHeaderDropdownOpenClasses();
     }
     document.addEventListener(
       "pointerdown",
@@ -512,13 +566,24 @@
         );
         if (!opens.length) return;
         for (var i = 0; i < opens.length; i++) {
-          if (opens[i].contains(t)) return;
+          if (eventInsideOpenDropdown(opens[i], ev)) return;
         }
         closeAllHeaderDropdowns();
       },
       true,
     );
-    syncNotifOpenClass();
+    window.addEventListener("storage", function (ev) {
+      if (!ev || ev.key !== HEADER_MENU_SYNC_KEY || !ev.newValue) return;
+      var payload = null;
+      try {
+        payload = JSON.parse(ev.newValue);
+      } catch (e) {
+        payload = null;
+      }
+      if (!payload || payload.src === localWindowId) return;
+      closeAllHeaderDropdowns();
+    });
+    syncHeaderDropdownOpenClasses();
     markSnavDetailsCurrentFromLocation();
   }
   if (document.readyState === "loading") {
@@ -531,6 +596,51 @@
   /** Stesso path del glyph footer (build-site.mjs `tiktokGlyphSvg`), fill via currentColor. */
   var TIKTOK_PREVIEW_SVG =
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path fill="currentColor" d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43V7.36a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.21z"/></svg>';
+  var DISCORD_PREVIEW_SVG =
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path fill="currentColor" d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.419 0 1.334-.956 2.419-2.157 2.419zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.419 0 1.334-.946 2.419-2.157 2.419z"/></svg>';
+
+  function siteDisplayNameForPreview() {
+    try {
+      var w = document.querySelector(".vc-premium-footer__wordmark");
+      var t = w && w.textContent ? String(w.textContent).trim() : "";
+      if (t) return t;
+    } catch (e) {}
+    return "Vinili & Caffè";
+  }
+
+  function discordInvitePathNorm(cleanPath) {
+    return String(cleanPath || "").trim().toLowerCase();
+  }
+
+  function isSiteDiscordInvite(cleanPath) {
+    var path = discordInvitePathNorm(cleanPath);
+    if (!path) return false;
+    if (path.indexOf("viniliecaffe") !== -1) return true;
+    var siteInvite = "";
+    try {
+      var live = window.__VC_LIVE;
+      if (live && live.inviteCode) siteInvite = String(live.inviteCode).trim().toLowerCase();
+    } catch (e) {}
+    return Boolean(siteInvite && (path === siteInvite || path.indexOf(siteInvite + "-") === 0));
+  }
+
+  function discordPreviewSubtitle(anchor, cleanPath) {
+    var custom = anchor && anchor.getAttribute("data-vc-preview-subtitle");
+    if (custom && String(custom).trim()) return String(custom).trim();
+    var sponsorCfg = typeof window !== "undefined" ? window.__VC_SITE_SPONSOR_AD : null;
+    if (sponsorCfg && sponsorCfg.buttonUrl) {
+      try {
+        var sponsorUrl = new URL(String(sponsorCfg.buttonUrl), window.location.href);
+        var sponsorPath = String(sponsorUrl.pathname || "").replace(/^\/+/, "");
+        if (discordInvitePathNorm(sponsorPath) === discordInvitePathNorm(cleanPath)) {
+          var sponsorTitle = String(sponsorCfg.title || "").trim();
+          if (sponsorTitle) return "Entra su " + sponsorTitle;
+        }
+      } catch (e) {}
+    }
+    if (isSiteDiscordInvite(cleanPath)) return "Entra su " + siteDisplayNameForPreview();
+    return "Server Discord";
+  }
 
   function socialPreviewHandleFromCleanPath(cleanPath) {
     var seg = String(cleanPath || "").split("/")[0] || "";
@@ -566,6 +676,15 @@
         title: "TikTok",
         subtitle: handle || "Profilo social",
         urlText: "tiktok.com/" + (cleanPath || ""),
+      };
+    }
+    if (host === "discord.gg" || host.indexOf("discord.com") !== -1) {
+      return {
+        iconHtml: DISCORD_PREVIEW_SVG,
+        icoExtraClass: "vc-social-preview__ico--discord",
+        title: "Discord",
+        subtitle: discordPreviewSubtitle(anchor, cleanPath),
+        urlText: host + "/" + (cleanPath || ""),
       };
     }
     return null;
@@ -642,8 +761,12 @@
     anchor.addEventListener("blur", hidePreview);
   }
 
+  window.__vcBindSocialPreview = bindSocialPreview;
+
   function initSocialPreviews() {
-    var links = document.querySelectorAll('a[href*="instagram.com"], a[href*="tiktok.com"]');
+    var links = document.querySelectorAll(
+      'a[href*="instagram.com"], a[href*="tiktok.com"], a[href*="discord.gg"], a[href*="discord.com/invite"]',
+    );
     for (var i = 0; i < links.length; i += 1) {
       bindSocialPreview(links[i]);
     }
@@ -803,7 +926,10 @@
     var kind = readKind(node);
     var to = readTarget(node);
     node.setAttribute("data-vc-count-visible", "true");
-    animateNode(node, 0, to, kind, readDuration(node));
+    var fromRaw = node.getAttribute("data-vc-count-current");
+    var from = normalizeValue(fromRaw, kind);
+    if (!Number.isFinite(from)) from = 0;
+    animateNode(node, from, to, kind, readDuration(node));
   }
 
   function createObserver() {
@@ -888,7 +1014,9 @@
   var siteNotifsTimer = null;
   var siteRealtimeWs = null;
   var siteRealtimeWsReconnectTimer = null;
-  var SITE_NOTIFS_POLL_MS = 300000;
+  var SITE_NOTIFS_POLL_MS = 60000;
+  var siteNotifsVisibilityTimer = null;
+  var lastNotifRenderSig = "";
   /** Milliseconds the toast stays visible before flying to the bell. */
   var NOTIF_FLY_READ_MS = 4000;
   /** Fly animation duration (ms); match .vc-notif-fly-card--run in vc-landing.css. */
@@ -958,6 +1086,25 @@
     set.add(sid);
     saveDismissedSet(set, userId);
   }
+  function rememberDismissedNotif(item, userId) {
+    if (!item) return;
+    var uid = normalizeUserId(userId || currentUserId);
+    var lid = String((item && item.id) || "").trim();
+    if (!lid) return;
+    var set = loadDismissedSet(uid);
+    set.add(lid);
+    var fpId = buildNotifFingerprintId(item, uid, String((item && item.kind) || "info"), String((item && item.openUrl) || ""));
+    if (fpId && fpId !== lid) set.add(fpId);
+    saveDismissedSet(set, uid);
+  }
+  function isNotifDismissed(item, uid, dismissed) {
+    if (!item) return true;
+    var set = dismissed || loadDismissedSet(uid);
+    var lid = String((item && item.id) || "").trim();
+    if (lid && set.has(lid)) return true;
+    var fpId = buildNotifFingerprintId(item, uid, String((item && item.kind) || "info"), String((item && item.openUrl) || ""));
+    return Boolean(fpId && set.has(fpId));
+  }
   function hashText(input) {
     var s = String(input || "");
     var h = 5381;
@@ -976,6 +1123,26 @@
     var at = Number.isFinite(Number(atRaw)) ? String(Math.floor(Number(atRaw))) : "";
     return "auto:" + hashText([ownerId, kind, title, body, String(openUrl || ""), at].join("|"));
   }
+  function buildNotifFingerprintId(payload, ownerId, kind, openUrl) {
+    var p = payload && typeof payload === "object" ? Object.assign({}, payload) : {};
+    delete p.id;
+    delete p.at;
+    delete p.read;
+    delete p.readAt;
+    return buildStableNotifId(p, ownerId, kind, openUrl);
+  }
+  function isAutoClientNotifId(id) {
+    return String(id || "").indexOf("auto:") === 0;
+  }
+  function sameNotifCore(a, b) {
+    if (!a || !b) return false;
+    return (
+      String((a && a.title) || "").trim() === String((b && b.title) || "").trim() &&
+      String((a && a.body) || "").trim() === String((b && b.body) || "").trim() &&
+      String((a && a.kind) || "").trim() === String((b && b.kind) || "").trim() &&
+      String((a && a.openUrl) || "").trim() === String((b && b.openUrl) || "").trim()
+    );
+  }
   function loadStored() {
     var key = userStorageKey();
     if (!key) return [];
@@ -983,16 +1150,27 @@
       var raw = localStorage.getItem(key);
       if (!raw) return [];
       var arr = JSON.parse(raw);
-      return Array.isArray(arr) ? arr : [];
+      return sortNotifItems(Array.isArray(arr) ? arr : []);
     } catch (e) {
       return [];
     }
+  }
+  function notifTime(item) {
+    var n = Number(item && item.at);
+    return Number.isFinite(n) ? n : 0;
+  }
+  function sortNotifItems(items) {
+    return (Array.isArray(items) ? items.slice() : []).sort(function (a, b) {
+      var dt = notifTime(b) - notifTime(a);
+      if (dt !== 0) return dt;
+      return String(b && b.id || "").localeCompare(String(a && a.id || ""));
+    });
   }
   function saveStored(items) {
     var key = userStorageKey();
     if (!key) return;
     try {
-      localStorage.setItem(key, JSON.stringify(items));
+      localStorage.setItem(key, JSON.stringify(sortNotifItems(items)));
     } catch (e) {}
   }
   function rows() {
@@ -1016,100 +1194,30 @@
     }
   }
 
-  /** Swipe verticale sul foglio mobile: giù chiude, su apre /notifications/. */
-  function applyNotifSheetSwipeDelta(dy, dd) {
-    if (!dd || !dd.open) return false;
-    if (Math.abs(dy) < 52) return false;
-    if (dy > 0) {
-      dd.removeAttribute("open");
-      return true;
+  function buildNotifStoreSignature(items) {
+    var parts = [];
+    for (var si = 0; si < items.length; si += 1) {
+      var n = items[si];
+      if (!n) continue;
+      parts.push(
+        String(n.id || "") +
+          "\x1e" +
+          (n.read ? "1" : "0") +
+          "\x1e" +
+          String(n.at || 0) +
+          "\x1e" +
+          String(n.kind || "") +
+          "\x1e" +
+          String(n.title || "") +
+          "\x1e" +
+          String(n.body || "") +
+          "\x1e" +
+          String(n.openUrl || ""),
+      );
     }
-    try {
-      dd.removeAttribute("open");
-    } catch (e) {}
-    window.location.href = notificationsPageUrl();
-    return true;
+    return parts.join("\x1f");
   }
 
-  function bindNotifBackdropSwipe(bd, dd) {
-    var y0 = 0;
-    var track = false;
-    bd.addEventListener(
-      "touchstart",
-      function (ev) {
-        if (!isMobileNotifViewport() || !dd.open) return;
-        if (ev.touches.length !== 1) return;
-        y0 = ev.touches[0].clientY;
-        track = true;
-      },
-      { passive: true },
-    );
-    bd.addEventListener(
-      "touchend",
-      function (ev) {
-        if (!track) return;
-        track = false;
-        if (!isMobileNotifViewport() || !dd.open) return;
-        var t = ev.changedTouches && ev.changedTouches[0];
-        if (!t) return;
-        applyNotifSheetSwipeDelta(t.clientY - y0, dd);
-      },
-      { passive: true },
-    );
-    bd.addEventListener(
-      "touchcancel",
-      function () {
-        track = false;
-      },
-      { passive: true },
-    );
-  }
-
-  function wireNotifSheetSwipeGestures(dd) {
-    if (!dd || dd.dataset.vcNotifSwipe === "1") return;
-    var panel = dd.querySelector(".vc-notif-panel");
-    if (!panel) return;
-    if (panel.querySelector(".vc-notif-sheet-handle")) {
-      dd.dataset.vcNotifSwipe = "1";
-      return;
-    }
-    dd.dataset.vcNotifSwipe = "1";
-    var handle = document.createElement("div");
-    handle.className = "vc-notif-sheet-handle";
-    handle.setAttribute("aria-hidden", "true");
-    panel.insertBefore(handle, panel.firstChild);
-    var hy0 = 0;
-    var hTrack = false;
-    handle.addEventListener(
-      "touchstart",
-      function (ev) {
-        if (!isMobileNotifViewport() || !dd.open) return;
-        if (ev.touches.length !== 1) return;
-        hy0 = ev.touches[0].clientY;
-        hTrack = true;
-      },
-      { passive: true },
-    );
-    handle.addEventListener(
-      "touchend",
-      function (ev) {
-        if (!hTrack) return;
-        hTrack = false;
-        if (!isMobileNotifViewport() || !dd.open) return;
-        var t = ev.changedTouches && ev.changedTouches[0];
-        if (!t) return;
-        applyNotifSheetSwipeDelta(t.clientY - hy0, dd);
-      },
-      { passive: true },
-    );
-    handle.addEventListener(
-      "touchcancel",
-      function () {
-        hTrack = false;
-      },
-      { passive: true },
-    );
-  }
   function timeAgoIt(atMs) {
     var s = Math.floor((Date.now() - atMs) / 1000);
     if (s < 45) return "Ora";
@@ -1121,7 +1229,7 @@
     if (d < 7) return d === 1 ? "1 giorno fa" : d + " giorni fa";
     return "Più di una settimana fa";
   }
-  function render() {
+  function render(options) {
     var root = document.getElementById("vc-notif-dropdown");
     var listEl = document.getElementById("vc-notif-list");
     var badge = document.getElementById("vc-notif-badge");
@@ -1131,6 +1239,8 @@
     var unread = all.filter(function (n) {
       return !n.read;
     }).length;
+    var sig = buildNotifStoreSignature(all) + "|u:" + unread;
+    var force = options && options.force === true;
     if (unread > 0) {
       badge.hidden = false;
       badge.textContent = unread > 99 ? "99+" : String(unread);
@@ -1140,6 +1250,8 @@
     sub.textContent = unread + " non lette";
     if (all.length > 0) root.classList.add("vc-notif-dropdown--has-items");
     else root.classList.remove("vc-notif-dropdown--has-items");
+    if (!force && sig === lastNotifRenderSig) return;
+    lastNotifRenderSig = sig;
     listEl.innerHTML = "";
     all.forEach(function (n) {
       var li = document.createElement("li");
@@ -1191,17 +1303,21 @@
         return Object.assign({}, x, { read: true });
       }),
     );
+    markAllSiteNotificationsReadOnServer();
     render();
   }
   function clearAll() {
     ephemeralDemo = null;
-    var all = loadStored();
-    for (var i = 0; i < all.length; i += 1) {
-      var sid = String((all[i] && all[i].id) || "").trim();
-      if (sid) markDismissed(sid);
+    var uid = normalizeUserId(currentUserId);
+    var items = loadStored();
+    for (var ci = 0; ci < items.length; ci += 1) {
+      rememberDismissedNotif(items[ci], uid);
     }
     saveStored([]);
     render();
+    clearAllSiteNotificationsOnServer().finally(function () {
+      syncSiteNotificationsFromServer();
+    });
   }
   function markOneRead(id) {
     if (ephemeralDemo && ephemeralDemo.id === id) {
@@ -1215,6 +1331,7 @@
         return x;
       }),
     );
+    markSiteNotificationReadOnServer(id);
     render();
   }
   function resolveNotifDestUrl(dest) {
@@ -1389,13 +1506,16 @@
     ) {
       kind = "vote_reminder";
     }
-    if (stableId && loadDismissedSet(ownerId).has(stableId)) return { added: false };
+    var fpId = buildNotifFingerprintId(p, ownerId, kind, openUrl);
+    var dismissed = loadDismissedSet(ownerId);
+    if ((stableId && dismissed.has(stableId)) || (fpId && dismissed.has(fpId))) return { added: false };
+    var incomingRead = Boolean(p && (p.read === true || p.readAt));
     var item = {
       id: stableId || String(Date.now()) + "-" + String(Math.floor(Math.random() * 1e9)),
       title: String((p && p.title) || ""),
       body: String((p && p.body) || ""),
       at: typeof (p && p.at) === "number" ? p.at : Date.now(),
-      read: false,
+      read: incomingRead,
       kind: kind,
       openUrl: openUrl,
     };
@@ -1408,12 +1528,53 @@
     } catch (e) {
       s = [];
     }
-    if (stableId) {
+    if (stableId || fpId) {
       for (var dup = 0; dup < s.length; dup += 1) {
-        if (String(s[dup].id) === stableId) return { added: false };
+        var exId = String((s[dup] && s[dup].id) || "").trim();
+        var exKind = String((s[dup] && s[dup].kind) || kind);
+        var exOpen = String((s[dup] && s[dup].openUrl) || openUrl);
+        var exFp = buildNotifFingerprintId(s[dup], ownerId, exKind, exOpen);
+        var idMatch = Boolean(stableId && exId === stableId);
+        var fpMatch = Boolean(fpId && (exId === fpId || exFp === fpId));
+        var mongoToAutoFp = Boolean(
+          stableId &&
+            !isAutoClientNotifId(stableId) &&
+            isAutoClientNotifId(exId) &&
+            exFp === fpId,
+        );
+        if (!idMatch && !fpMatch && !mongoToAutoFp) continue;
+        var merged = Object.assign({}, s[dup], item, {
+          id: stableId || exId,
+          read: Boolean(s[dup].read) || incomingRead,
+        });
+        s[dup] = merged;
+        try {
+          localStorage.setItem(key, JSON.stringify(s));
+        } catch (e3) {}
+        if (!p || !p.__noRender) render();
+        return { added: false };
       }
     }
-    s.unshift(item);
+    if (stableId && !isAutoClientNotifId(stableId)) {
+      for (var c = 0; c < s.length; c += 1) {
+        var cid = String((s[c] && s[c].id) || "").trim();
+        if (!cid || cid === stableId) continue;
+        if (!isAutoClientNotifId(cid) && cid.length === 24) continue;
+        if (!sameNotifCore(s[c], item)) continue;
+        var mergedC = Object.assign({}, s[c], item, {
+          id: stableId,
+          read: Boolean(s[c].read) || incomingRead,
+        });
+        s[c] = mergedC;
+        try {
+          localStorage.setItem(key, JSON.stringify(s));
+        } catch (e4) {}
+        if (!p || !p.__noRender) render();
+        return { added: false };
+      }
+    }
+    s.push(item);
+    s = sortNotifItems(s);
     try {
       localStorage.setItem(key, JSON.stringify(s));
     } catch (e2) {}
@@ -1471,7 +1632,6 @@
         bd.addEventListener("click", function () {
           dd.removeAttribute("open");
         });
-        bindNotifBackdropSwipe(bd, dd);
         dd.insertBefore(bd, dd.firstChild);
       }
     } else {
@@ -1500,8 +1660,19 @@
     if (u) return u;
     return "/webhooks/site-notifications";
   }
+  function resolvedSiteNotificationsReadUrl() {
+    var base = resolvedSiteNotificationsUrl();
+    if (!base) return "/webhooks/site-notifications/read";
+    return String(base).replace(/\/+$/, "") + "/read";
+  }
+  function resolvedSiteNotificationsClearUrl() {
+    var base = resolvedSiteNotificationsUrl();
+    if (!base) return "/webhooks/site-notifications/clear";
+    return String(base).replace(/\/+$/, "") + "/clear";
+  }
   function siteRealtimeWsUrl() {
     var c = typeof window !== "undefined" && window.__VC_SITE_NOTIFS ? window.__VC_SITE_NOTIFS : {};
+    if (c.wsEnabled === false || c.wsEnabled === "false") return "";
     var explicit = String(c.wsUrl || "").trim();
     if (explicit) return explicit;
     var http = resolvedSiteNotificationsUrl();
@@ -1571,7 +1742,7 @@
       ws.onmessage = function (ev) {
         try {
           var data = JSON.parse(String(ev.data || "{}"));
-          if (data.type === "notifications_changed" || data.type === "realtime_hello") {
+          if (data.type === "notifications_changed") {
             syncSiteNotificationsFromServer();
           }
         } catch (e3) {}
@@ -1595,60 +1766,233 @@
   }
   function getDiscordAccessToken() {
     try {
+      if (typeof window.__vcDiscordGetAccessToken === "function") {
+        var viaAuth = String(window.__vcDiscordGetAccessToken() || "").trim();
+        if (viaAuth) return viaAuth;
+      }
       return String(localStorage.getItem(DISCORD_ACCESS_TOKEN_KEY) || "").trim();
     } catch (e) {
       return "";
     }
+  }
+  function markSiteNotificationReadOnServer(id) {
+    var token = getDiscordAccessToken();
+    var uid = normalizeUserId(currentUserId);
+    var sid = String(id || "").trim();
+    if (!token || !uid || !sid) return;
+    fetch(resolvedSiteNotificationsReadUrl(), {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + token,
+        "Content-Type": "application/json",
+      },
+      credentials: "omit",
+      body: JSON.stringify({ id: sid }),
+    }).catch(function () {});
+  }
+  function markAllSiteNotificationsReadOnServer() {
+    var token = getDiscordAccessToken();
+    var uid = normalizeUserId(currentUserId);
+    if (!token || !uid) return;
+    fetch(resolvedSiteNotificationsReadUrl(), {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + token,
+        "Content-Type": "application/json",
+      },
+      credentials: "omit",
+      body: JSON.stringify({ all: true }),
+    }).catch(function () {});
+  }
+  function clearAllSiteNotificationsOnServer() {
+    var token = getDiscordAccessToken();
+    var uid = normalizeUserId(currentUserId);
+    if (!token || !uid) return Promise.resolve(false);
+    return fetch(resolvedSiteNotificationsClearUrl(), {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + token,
+        "Content-Type": "application/json",
+      },
+      credentials: "omit",
+      body: JSON.stringify({}),
+    })
+      .then(function (r) {
+        return r.json().catch(function () {
+          return null;
+        });
+      })
+      .then(function (j) {
+        return Boolean(j && j.ok);
+      })
+      .catch(function () {
+        return false;
+      });
+  }
+  function mapServerRowToStoredItem(row) {
+    var kindRaw = row && row.kind;
+    var kind =
+      kindRaw === "vote"
+        ? "vote"
+        : kindRaw === "vote_reminder"
+          ? "vote_reminder"
+          : kindRaw === "success"
+            ? "success"
+            : kindRaw === "review"
+              ? "review"
+              : kindRaw === "mod"
+                ? "mod"
+                : kindRaw === "suggestion"
+                  ? "suggestion"
+                  : "info";
+    var titleRaw = String((row && row.title) || "").toLowerCase();
+    var bodyRaw = String((row && row.body) || "").toLowerCase();
+    if (
+      kind === "vote" &&
+      (titleRaw.indexOf("promemoria") !== -1 ||
+        bodyRaw.indexOf("promemoria") !== -1)
+    ) {
+      kind = "vote_reminder";
+    }
+    var openUrl = "";
+    if (row && typeof row.openUrl === "string") openUrl = String(row.openUrl).trim();
+    var atMs = typeof row.at === "number" ? row.at : Date.now();
+    return {
+      id: String(row.id || "").trim(),
+      title: String((row && row.title) || ""),
+      body: String((row && row.body) || ""),
+      at: atMs,
+      read: Boolean(row.read === true || row.readAt),
+      kind: kind,
+      openUrl: openUrl,
+    };
+  }
+  function mergeStoredWithServerNotificationList(list, uid) {
+    var oldItems = loadStored();
+    var beforeSig = buildNotifStoreSignature(oldItems);
+    var dismissed = loadDismissedSet(uid);
+    var oldIdMap = {};
+    for (var oi = 0; oi < oldItems.length; oi += 1) {
+      var oix = oldItems[oi];
+      var oid = String((oix && oix.id) || "").trim();
+      if (oid) oldIdMap[oid] = true;
+    }
+    var serverIdMap = {};
+    var fromServer = [];
+    for (var i = 0; i < list.length; i += 1) {
+      var row = list[i];
+      if (!row || !row.title) continue;
+      var sid = String(row.id || "").trim();
+      if (!sid) continue;
+      var mapped = mapServerRowToStoredItem(row);
+      var fpId = buildNotifFingerprintId(mapped, uid, mapped.kind, mapped.openUrl);
+      if (dismissed.has(sid) || (fpId && dismissed.has(fpId))) continue;
+      serverIdMap[sid] = true;
+      fromServer.unshift(mapped);
+    }
+    var keepLocal = [];
+    for (var li = 0; li < oldItems.length; li += 1) {
+      var it = oldItems[li];
+      var lid = String((it && it.id) || "").trim();
+      if (!lid) continue;
+      if (!isAutoClientNotifId(lid) || serverIdMap[lid]) continue;
+      var exKind = String((it && it.kind) || "info");
+      var exOpen = String((it && it.openUrl) || "");
+      var fpId = buildNotifFingerprintId(it, uid, exKind, exOpen);
+      if (dismissed.has(lid) || dismissed.has(fpId)) continue;
+      keepLocal.push(it);
+    }
+    var merged = keepLocal.concat(fromServer);
+    saveStored(merged);
+    var changed = beforeSig !== buildNotifStoreSignature(merged);
+    var freshMs = 600000;
+    var toastRow = null;
+    for (var ti = 0; ti < fromServer.length; ti += 1) {
+      var fr = fromServer[ti];
+      if (!fr) continue;
+      var frid = String(fr.id || "").trim();
+      if (!frid || oldIdMap[frid]) continue;
+      if (isNotifDismissed(fr, uid, dismissed)) continue;
+      if (Date.now() - (fr.at || 0) < freshMs) {
+        toastRow = {
+          id: fr.id,
+          title: fr.title,
+          body: fr.body,
+          kind: fr.kind,
+          at: fr.at,
+          read: fr.read,
+          openUrl: fr.openUrl,
+        };
+        break;
+      }
+    }
+    return { toastRow: toastRow, changed: changed };
   }
   function syncSiteNotificationsFromServer() {
     var token = getDiscordAccessToken();
     var uid = normalizeUserId(currentUserId);
     if (!token || !uid) return;
     var url = resolvedSiteNotificationsUrl();
-    fetch(url, { headers: { Authorization: "Bearer " + token }, credentials: "omit" })
+    if (!url) return;
+    var ctrl = null;
+    var tid = null;
+    try {
+      ctrl = new AbortController();
+      tid = setTimeout(function () {
+        try {
+          ctrl.abort();
+        } catch (eAb) {}
+      }, 12000);
+    } catch (e0) {
+      ctrl = null;
+    }
+    var opts = {
+      headers: { Authorization: "Bearer " + token },
+      credentials: "omit",
+    };
+    if (ctrl) opts.signal = ctrl.signal;
+    fetch(url, opts)
       .then(function (r) {
+        if (r && r.status === 401) {
+          try {
+            if (typeof window.__vcDiscordGetAccessToken === "function" && !window.__vcDiscordGetAccessToken()) {
+              localStorage.removeItem(DISCORD_ACCESS_TOKEN_KEY);
+            }
+          } catch (e401) {}
+          return null;
+        }
         return r.json();
       })
       .then(function (j) {
         if (!j || j.ok !== true || !Array.isArray(j.items)) return;
         var list = j.items.slice().reverse();
-        var freshMs = 600000;
-        var toastRow = null;
-        for (var i = 0; i < list.length; i += 1) {
-          var row = list[i];
-          if (!row || !row.title) continue;
-          var atMs = typeof row.at === "number" ? row.at : Date.now();
-          var ins = addNotif({
-            id: row.id,
-            userId: uid,
-            title: row.title,
-            body: row.body || "",
-            kind: row.kind || "info",
-            at: atMs,
-            openUrl: row.openUrl || "",
-            __noRender: true,
-          });
-          if (ins && ins.added && Date.now() - atMs < freshMs) {
-            toastRow = row;
-          }
-        }
-        render();
-        if (toastRow) {
+        var mergeResult = mergeStoredWithServerNotificationList(list, uid);
+        if (mergeResult.changed) render();
+        if (mergeResult.toastRow) {
           playNotifSound();
           window.requestAnimationFrame(function () {
-            showNotifFlyToast(toastRow);
+            showNotifFlyToast(mergeResult.toastRow);
           });
         }
       })
-      .catch(function () {});
+      .catch(function () {})
+      .finally(function () {
+        try {
+          if (tid) clearTimeout(tid);
+        } catch (e1) {}
+      });
   }
   function scheduleSiteNotificationsPolling() {
     stopSiteNotifsPoll();
     disconnectSiteRealtimeWs();
+    try {
+      if (!document.getElementById("vc-notif-dropdown")) return;
+    } catch (eDd) {}
     if (!normalizeUserId(currentUserId) || !getDiscordAccessToken()) return;
     syncSiteNotificationsFromServer();
+    var wsUrl = siteRealtimeWsUrl();
     var rs = siteRealtimeWs ? siteRealtimeWs.readyState : 3;
-    if (rs !== 0 && rs !== 1) connectSiteRealtimeWebSocket();
+    if (wsUrl && rs !== 0 && rs !== 1) connectSiteRealtimeWebSocket();
     if (!siteRealtimeWs || siteRealtimeWs.readyState !== 1) {
       siteNotifsTimer = setInterval(syncSiteNotificationsFromServer, SITE_NOTIFS_POLL_MS);
     }
@@ -1656,7 +2000,6 @@
   function wireNotifMobileSheet() {
     var dd = document.getElementById("vc-notif-dropdown");
     if (!dd) return;
-    wireNotifSheetSwipeGestures(dd);
     dd.addEventListener("toggle", syncNotifMobileSheetChrome);
     window.addEventListener("resize", function () {
       if (!isMobileNotifViewport()) syncNotifMobileSheetChrome();
@@ -1726,7 +2069,8 @@
   }
   window.addEventListener("vc-discord-profile", function (ev) {
     setCurrentUser(ev && ev.detail ? ev.detail.user : null);
-    render();
+    lastNotifRenderSig = "";
+    render({ force: true });
     syncGlobalNotifOverlayClass();
     flushPendingLoginNotification();
     if (normalizeUserId(currentUserId) && getDiscordAccessToken()) {
@@ -1741,9 +2085,13 @@
     disconnectSiteRealtimeWs();
   });
   document.addEventListener("visibilitychange", function () {
-    if (document.visibilityState === "visible" && normalizeUserId(currentUserId) && getDiscordAccessToken()) {
+    if (document.visibilityState !== "visible") return;
+    if (!normalizeUserId(currentUserId) || !getDiscordAccessToken()) return;
+    if (siteNotifsVisibilityTimer) clearTimeout(siteNotifsVisibilityTimer);
+    siteNotifsVisibilityTimer = setTimeout(function () {
+      siteNotifsVisibilityTimer = null;
       syncSiteNotificationsFromServer();
-    }
+    }, 400);
   });
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", init);
@@ -1755,6 +2103,16 @@
   var DRAWER_ID = "vc-mobile-nav-drawer";
   var TOGGLE_ID = "vc-mobile-nav-toggle";
   var BODY_OPEN_CLASS = "vc-mobile-nav-open";
+  var DISCORD_ACCESS_TOKEN_KEY = "vc_discord_access_token";
+  var DISCORD_EXPIRES_AT_KEY = "vc_discord_expires_at";
+  var FORBIDDEN_BOOKS_KEY = "vc_forbidden_section_books_v1";
+  var FORBIDDEN_BOOKS_START_MS = new Date("2026-06-20T12:00:00").getTime();
+  var FORBIDDEN_BOOKS_END_MS = new Date("2026-09-01T10:00:00").getTime();
+  var FORBIDDEN_SITE_BOOKS_TOTAL = 8;
+  var revealForbiddenBooksTimer = null;
+  var forbiddenBooksSyncGen = 0;
+  var forbiddenBooksPreviewViewer = false;
+  var forbiddenBooksRoundState = null;
   var mq = null;
   var drawer = null;
   var toggle = null;
@@ -2130,12 +2488,466 @@
   }
 
   function init() {
+    revealForbiddenSectionBooks();
+    window.setInterval(revealForbiddenSectionBooks, 30000);
     ensure();
     var m = getMq();
     if (m.addEventListener) m.addEventListener("change", onMqChange);
     else if (m.addListener) m.addListener(onMqChange);
     syncDrawerFooter();
   }
+
+  function mergeForbiddenCollected(extra) {
+    var merged = [];
+    var add = function (id) {
+      id = String(id || "").trim();
+      if (!id || merged.indexOf(id) !== -1) return;
+      merged.push(id);
+    };
+    var stored = readForbiddenBooks();
+    for (var i = 0; i < stored.length; i += 1) add(stored[i]);
+    if (Array.isArray(extra)) {
+      for (var j = 0; j < extra.length; j += 1) add(extra[j]);
+    }
+    return merged;
+  }
+
+  function applyForbiddenBooksVisibility(books, collected, options) {
+    var list = mergeForbiddenCollected(collected);
+    var status = forbiddenBooksRoundState || {};
+    var activeIds = Array.isArray(status.bookIds) ? status.bookIds.map(String) : [];
+    var canShow = status.roundActive === true || Boolean(options && options.previewViewer);
+    for (var i = 0; i < books.length; i += 1) {
+      var id = forbiddenBookId(books[i]);
+      if (activeIds.length && activeIds.indexOf(id) === -1) {
+        if (books[i].__vcFlyTimer) window.clearInterval(books[i].__vcFlyTimer);
+        books[i].remove();
+        continue;
+      }
+      if (list.indexOf(id) !== -1) {
+        if (books[i].__vcFlyTimer) window.clearInterval(books[i].__vcFlyTimer);
+        books[i].__vcFlyTimer = null;
+        books[i].remove();
+        continue;
+      }
+      if (!canShow) {
+        hideForbiddenBooks([books[i]]);
+        continue;
+      }
+      setupForbiddenBook(books[i], list);
+    }
+  }
+
+  function revealForbiddenSectionBooks() {
+    if (revealForbiddenBooksTimer) window.clearTimeout(revealForbiddenBooksTimer);
+    revealForbiddenBooksTimer = window.setTimeout(revealForbiddenSectionBooksImpl, 80);
+  }
+
+  function revealForbiddenSectionBooksImpl() {
+    revealForbiddenBooksTimer = null;
+    var now = Date.now();
+
+    function proceed() {
+      ensureForbiddenBookForCurrentPage();
+      var books = document.querySelectorAll("[data-vc-forbidden-book]");
+      if (!books.length) return;
+      if (!Number.isFinite(FORBIDDEN_BOOKS_START_MS) || (Number.isFinite(FORBIDDEN_BOOKS_END_MS) && now > FORBIDDEN_BOOKS_END_MS)) {
+        removeForbiddenBooks(books);
+        return;
+      }
+      if (getDiscordAccessTokenForForbiddenBooks()) {
+        syncForbiddenBooksFromServer(books);
+        return;
+      }
+      if (now < FORBIDDEN_BOOKS_START_MS) {
+        hideForbiddenBooks(books);
+        return;
+      }
+      applyForbiddenBooksVisibility(books, readForbiddenBooks(), {});
+    }
+
+    fetchForbiddenBooksPublicStatus().then(function (status) {
+      forbiddenBooksRoundState = status && status.ok === true ? status : null;
+      if (status && status.ok && forbiddenHuntEnded(status)) {
+        removeAllForbiddenBooks();
+        return;
+      }
+      proceed();
+    }).catch(function () {
+      forbiddenBooksRoundState = null;
+      proceed();
+    });
+  }
+
+  function currentForbiddenBookPageId() {
+    var path = String(window.location.pathname || "/").replace(/\/index\.html$/i, "").replace(/\/+$/, "") || "/";
+    var map = {
+      "/": "home",
+      "/faq": "faq",
+      "/wiki": "wiki",
+      "/regole": "regole",
+      "/donazioni": "donazioni",
+      "/vote": "vote",
+      "/ruoli": "ruoli",
+      "/sponsor": "sponsor",
+      "/candidature": "candidature",
+      "/evento/shop": "evento_shop",
+      "/evento/pozioni": "evento_pozioni",
+      "/evento/smistamento": "evento_smistamento",
+      "/evento/coppa": "evento_coppa",
+      "/recensioni": "recensioni",
+      "/suggerimenti": "suggerimenti",
+      "/user": "user",
+      "/perks": "perks",
+      "/notifications": "notifications",
+      "/unban": "unban",
+      "/privacy": "privacy",
+      "/terms": "terms",
+      "/cookie": "cookie",
+    };
+    return map[path] || "";
+  }
+
+  function ensureForbiddenBookForCurrentPage() {
+    if (document.querySelector("[data-vc-forbidden-book]")) return;
+    var id = currentForbiddenBookPageId();
+    if (!id || !document.body) return;
+    var status = forbiddenBooksRoundState || {};
+    if (status.roundActive !== true) return;
+    var activeIds = Array.isArray(status.bookIds) ? status.bookIds.map(String) : [];
+    if (activeIds.length && activeIds.indexOf(id) === -1) return;
+    var el = document.createElement("span");
+    el.className = "vc-forbidden-book";
+    el.setAttribute("data-vc-forbidden-book", id);
+    el.setAttribute("role", "img");
+    el.setAttribute("aria-label", "libro proibito");
+    el.hidden = true;
+    el.textContent = "📖";
+    document.body.appendChild(el);
+  }
+
+  function hideForbiddenBooks(books) {
+    for (var i = 0; i < books.length; i += 1) {
+      books[i].hidden = true;
+      books[i].setAttribute("hidden", "");
+    }
+  }
+
+  function forbiddenBooksStorageKey() {
+    var roundId = forbiddenBooksRoundState && forbiddenBooksRoundState.roundId;
+    return FORBIDDEN_BOOKS_KEY + (roundId ? "_" + String(roundId) : "");
+  }
+
+  function readForbiddenBooks() {
+    try {
+      var raw = window.localStorage ? window.localStorage.getItem(forbiddenBooksStorageKey()) : "";
+      var parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed.map(String) : [];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  function saveForbiddenBooks(ids) {
+    try {
+      if (window.localStorage) window.localStorage.setItem(forbiddenBooksStorageKey(), JSON.stringify(ids));
+    } catch (_) {}
+  }
+
+  function forbiddenBookId(el) {
+    var explicit = String(el.getAttribute("data-vc-forbidden-book") || "").trim();
+    if (explicit && explicit !== "true") return explicit;
+    var path = String(window.location.pathname || "/").replace(/\/index\.html$/i, "").replace(/\/+$/, "") || "home";
+    return path.replace(/[^\w-]+/g, "_");
+  }
+
+  function setupForbiddenBook(el, collected) {
+    var id = forbiddenBookId(el);
+    var already = collected.indexOf(id) !== -1;
+    if (already) {
+      el.remove();
+      return;
+    }
+    if (el.__vcForbiddenBookReady) {
+      el.hidden = false;
+      el.removeAttribute("hidden");
+      if (!el.classList.contains("vc-forbidden-book--flying") && !el.__vcFlyTimer) startFlyingForbiddenBook(el);
+      return;
+    }
+    el.__vcForbiddenBookReady = true;
+    el.hidden = false;
+    el.removeAttribute("hidden");
+    el.setAttribute("role", "button");
+    el.setAttribute("tabindex", "0");
+    el.setAttribute("title", "Cattura il libro proibito");
+    el.setAttribute("aria-label", "Cattura libro proibito");
+    startFlyingForbiddenBook(el);
+    var collect = function () {
+      if (el.__vcClaiming) return;
+      var now = Date.now();
+      if (now - Number(el.__vcLastCollectAttempt || 0) < 500) return;
+      el.__vcLastCollectAttempt = now;
+      el.__vcClaiming = true;
+      claimForbiddenBook(id).then(function (data) {
+        var current = Array.isArray(data.collectedBookIds) ? data.collectedBookIds.map(String) : readForbiddenBooks();
+        saveForbiddenBooks(current);
+        if (el.__vcFlyTimer) window.clearInterval(el.__vcFlyTimer);
+        el.classList.add("vc-forbidden-book--caught");
+        el.setAttribute("title", "Libro raccolto");
+        el.setAttribute("aria-label", "Libro proibito raccolto");
+        showForbiddenBookToast(current.length, forbiddenHuntEnded(data) ? "Libro raccolto. La caccia ai libri proibiti è conclusa!" : "");
+        window.setTimeout(function () {
+          el.remove();
+        }, 220);
+        if (forbiddenHuntEnded(data)) removeAllForbiddenBooks();
+      }).catch(function (err) {
+        el.__vcClaiming = false;
+        showForbiddenBookToast(readForbiddenBooks().length, err && err.message ? err.message : "Per raccoglierlo devi accedere e aver completato lo smistamento.");
+      });
+    };
+    el.addEventListener("pointerup", function (event) {
+      if (event.pointerType === "mouse" && event.button !== 0) return;
+      collect();
+    });
+    el.addEventListener("keydown", function (event) {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      collect();
+    });
+  }
+
+  function forbiddenBooksApiUrl() {
+    return String(window.__VC_HOGWARTS_FORBIDDEN_BOOKS_API || "/webhooks/site-hogwarts-sorting/forbidden-books").trim() || "/webhooks/site-hogwarts-sorting/forbidden-books";
+  }
+
+  function forbiddenBooksPublicStatusUrl() {
+    return String(window.__VC_HOGWARTS_FORBIDDEN_BOOKS_STATUS_API || "/webhooks/site-hogwarts-sorting/forbidden-books/status").trim() || "/webhooks/site-hogwarts-sorting/forbidden-books/status";
+  }
+
+  function forbiddenHuntEnded(data) {
+    if (!data || data.ok !== true) return false;
+    if (data.roundActive !== true) return true;
+    return data.closed === true;
+  }
+
+  function fetchForbiddenBooksPublicStatus() {
+    return fetch(forbiddenBooksPublicStatusUrl(), { cache: "no-store" })
+      .then(function (res) {
+        return res.json().catch(function () {
+          return {};
+        });
+      })
+      .catch(function () {
+        return {};
+      });
+  }
+
+  function getDiscordAccessTokenForForbiddenBooks() {
+    try {
+      var token = localStorage.getItem(DISCORD_ACCESS_TOKEN_KEY);
+      var expiresAt = Number(localStorage.getItem(DISCORD_EXPIRES_AT_KEY) || "0");
+      if (!token || !expiresAt || Date.now() >= expiresAt) return "";
+      return token;
+    } catch (_) {
+      return "";
+    }
+  }
+
+  function forbiddenBooksRequest(method, body) {
+    var token = getDiscordAccessTokenForForbiddenBooks();
+    if (!token) return Promise.reject(new Error("Accedi con Discord e completa lo smistamento per raccogliere i libri."));
+    return fetch(forbiddenBooksApiUrl(), {
+      method: method,
+      headers: {
+        Authorization: "Bearer " + token,
+        "Content-Type": "application/json",
+      },
+      body: body ? JSON.stringify(body) : undefined,
+      cache: "no-store",
+    }).then(function (res) {
+      return res.json().catch(function () { return {}; }).then(function (data) {
+        if (!res.ok || !data || data.ok !== true) {
+          throw new Error((data && data.message) || "Libro non raccolto.");
+        }
+        return data;
+      });
+    });
+  }
+
+  function claimForbiddenBook(bookId) {
+    return forbiddenBooksRequest("POST", { bookId: bookId });
+  }
+
+  function syncForbiddenBooksFromServer(books) {
+    var localCollected = readForbiddenBooks();
+    if (!getDiscordAccessTokenForForbiddenBooks()) {
+      applyForbiddenBooksVisibility(books, localCollected, {
+        previewViewer: forbiddenBooksPreviewViewer,
+      });
+      return;
+    }
+    var gen = ++forbiddenBooksSyncGen;
+    forbiddenBooksRequest("GET").then(function (data) {
+      if (gen !== forbiddenBooksSyncGen) return;
+      forbiddenBooksPreviewViewer = data.previewViewer === true;
+      forbiddenBooksRoundState = data;
+      var collected = Array.isArray(data.collectedBookIds) ? data.collectedBookIds.map(String) : [];
+      saveForbiddenBooks(collected);
+      if (forbiddenHuntEnded(data)) {
+        removeAllForbiddenBooks();
+        return;
+      }
+      applyForbiddenBooksVisibility(books, collected, {
+        previewViewer: forbiddenBooksPreviewViewer,
+      });
+    }).catch(function () {
+      if (gen !== forbiddenBooksSyncGen) return;
+      applyForbiddenBooksVisibility(books, localCollected, {
+        previewViewer: forbiddenBooksPreviewViewer,
+      });
+    });
+  }
+
+  function removeForbiddenBooks(books) {
+    for (var i = 0; i < books.length; i += 1) {
+      if (books[i].__vcFlyTimer) window.clearInterval(books[i].__vcFlyTimer);
+      books[i].remove();
+    }
+  }
+
+  function removeAllForbiddenBooks() {
+    var books = document.querySelectorAll("[data-vc-forbidden-book]");
+    removeForbiddenBooks(books);
+  }
+
+  function forbiddenBookViewport() {
+    var vv = window.visualViewport;
+    if (vv && Number.isFinite(vv.width) && Number.isFinite(vv.height)) {
+      return {
+        width: vv.width,
+        height: vv.height,
+        offsetLeft: vv.offsetLeft || 0,
+        offsetTop: vv.offsetTop || 0,
+      };
+    }
+    return {
+      width: window.innerWidth || document.documentElement.clientWidth || 320,
+      height: window.innerHeight || document.documentElement.clientHeight || 320,
+      offsetLeft: 0,
+      offsetTop: 0,
+    };
+  }
+
+  function isForbiddenBookMobile() {
+    try {
+      return window.matchMedia("(max-width: 639.98px), (pointer: coarse)").matches;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function prefersForbiddenBookReducedMotion() {
+    try {
+      return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function pauseForbiddenBookFlight(el, pauseMs) {
+    if (!el) return;
+    el.__vcFlyPaused = true;
+    if (el.__vcFlyTimer) {
+      window.clearInterval(el.__vcFlyTimer);
+      el.__vcFlyTimer = null;
+    }
+    window.clearTimeout(el.__vcPauseResumeTimer);
+    el.__vcPauseResumeTimer = window.setTimeout(function () {
+      el.__vcFlyPaused = false;
+      resumeForbiddenBookFlight(el);
+    }, Math.max(1200, Number(pauseMs) || 2200));
+  }
+
+  function resumeForbiddenBookFlight(el) {
+    if (!el || !el.isConnected || el.__vcFlyPaused || el.__vcFlyTimer) return;
+    if (prefersForbiddenBookReducedMotion()) return;
+    var move = el.__vcFlyMove;
+    if (typeof move !== "function") return;
+    move();
+    var base = isForbiddenBookMobile() ? 1650 : 850;
+    el.__vcFlyTimer = window.setInterval(move, base + Math.floor(Math.random() * 450));
+  }
+
+  function startFlyingForbiddenBook(el) {
+    try {
+      if (el.parentNode !== document.body) document.body.appendChild(el);
+    } catch (_) {}
+    var move = function () {
+      if (el.__vcFlyPaused) return;
+      var vp = forbiddenBookViewport();
+      var margin = isForbiddenBookMobile() ? 52 : 72;
+      var minX = vp.offsetLeft + margin;
+      var minY = vp.offsetTop + margin;
+      var maxX = vp.offsetLeft + Math.max(margin + 8, vp.width - margin);
+      var maxY = vp.offsetTop + Math.max(margin + 8, vp.height - margin);
+      var x = minX + Math.random() * Math.max(8, maxX - minX);
+      var y = minY + Math.random() * Math.max(8, maxY - minY);
+      var rotate = Math.round(-28 + Math.random() * 56);
+      el.style.left = x + "px";
+      el.style.top = y + "px";
+      el.style.setProperty("--vc-book-rotate", rotate + "deg");
+    };
+    el.__vcFlyMove = move;
+    el.classList.add("vc-forbidden-book--flying");
+    move();
+    if (!prefersForbiddenBookReducedMotion()) {
+      window.setTimeout(move, 80);
+      resumeForbiddenBookFlight(el);
+    }
+    if (!el.__vcFlyListeners) {
+      el.__vcFlyListeners = true;
+      el.addEventListener("pointerenter", function () {
+        pauseForbiddenBookFlight(el, 2800);
+      });
+      el.addEventListener("pointerdown", function () {
+        pauseForbiddenBookFlight(el, 4500);
+      });
+      var onViewportChange = function () {
+        if (!el.isConnected) return;
+        move();
+      };
+      window.addEventListener("resize", onViewportChange);
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener("resize", onViewportChange);
+        window.visualViewport.addEventListener("scroll", onViewportChange);
+      }
+    }
+  }
+
+  function showForbiddenBookToast(count, customMessage) {
+    var total = FORBIDDEN_SITE_BOOKS_TOTAL;
+    var toast = document.getElementById("vc-forbidden-book-toast");
+    if (!toast) {
+      toast = document.createElement("div");
+      toast.id = "vc-forbidden-book-toast";
+      toast.className = "vc-forbidden-book-toast";
+      toast.setAttribute("role", "status");
+      document.body.appendChild(toast);
+    }
+    toast.textContent = customMessage || ("Libro raccolto: " + Math.min(count, total) + "/" + total + " sul sito. Ricorda: 2 sono negli status dei bot.");
+    toast.classList.add("vc-forbidden-book-toast--show");
+    window.clearTimeout(toast.__vcTimer);
+    toast.__vcTimer = window.setTimeout(function () {
+      toast.classList.remove("vc-forbidden-book-toast--show");
+    }, 3600);
+  }
+
+  window.addEventListener("vc-discord-profile", function () {
+    revealForbiddenSectionBooks();
+  });
+  document.addEventListener("vc-hogwarts-staff-preview-unlock", function () {
+    revealForbiddenSectionBooks();
+  });
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", init);

@@ -1,39 +1,11 @@
 const { EmbedBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require("discord.js");
 const { buildLevelServerPanelPayload, buildLevelUserPanelPayload } = require("../Prefix/Admin/level");
 const { ActivityUserProfile } = require("../Schemas/Community/communitySchemas");
-const {
-  getLevelInfo,
-  getTotalExpForLevel,
-  recordLevelHistory,
-  setLevelChannelLocked,
-  setRoleIgnored,
-  setRoleExpMultiplier,
-  setTemporaryEventMultiplier,
-  setGlobalMultiplier,
-  syncLevelRolesForMember,
-  sendLevelUpAnnouncement,
-} = require("../Services/Community/expService");
+const { getLevelInfo, getTotalExpForLevel, recordLevelHistory, setLevelChannelLocked, setRoleIgnored, setRoleExpMultiplier, setTemporaryEventMultiplier, setGlobalMultiplier, syncLevelRolesForMember, sendLevelUpAnnouncement } = require("../Services/Community/expService");
 const { getGuildMemberCached } = require("../Utils/Interaction/interactionEntityCache");
-
+const SERVER_BTN_MODAL = { gmulti: "gmulti", event: "multiplier", role_multi_set: "role_multi_set", role_multi_remove: "role_multi_remove" };
+const SERVER_MODAL_TITLE = { multiplier: "Boost temporaneo", gmulti: "Moltiplicatore globale", lock: "Blocca canale", unlock: "Sblocca canale", ignore: "Ignora ruolo", unignore: "Non ignorare ruolo", role_multi_set: "Moltiplicatore per ruolo", role_multi_remove: "Rimuovi moltiplicatore ruolo" };
 const PRIVATE_FLAG = 1 << 6;
-
-const SERVER_BTN_MODAL = {
-  gmulti: "gmulti",
-  event: "multiplier",
-  role_multi_set: "role_multi_set",
-  role_multi_remove: "role_multi_remove",
-};
-
-const SERVER_MODAL_TITLE = {
-  multiplier: "Boost temporaneo",
-  gmulti: "Moltiplicatore globale",
-  lock: "Blocca canale",
-  unlock: "Sblocca canale",
-  ignore: "Ignora ruolo",
-  unignore: "Non ignorare ruolo",
-  role_multi_set: "Moltiplicatore per ruolo",
-  role_multi_remove: "Rimuovi moltiplicatore ruolo",
-};
 
 function match(interaction) {
   const id = String(interaction?.customId || "");
@@ -60,13 +32,7 @@ function parseLevelPanelComponentId(customId) {
 
 function parseModalId(customId) {
   const parts = String(customId || "").split(":");
-  return {
-    root: parts[0] || "",
-    scope: parts[1] || "",
-    action: parts[2] || "",
-    ownerId: parts[3] || "",
-    targetId: parts[4] || "",
-  };
+  return { root: parts[0] || "", scope: parts[1] || "", action: parts[2] || "", ownerId: parts[3] || "", targetId: parts[4] || "" };
 }
 
 function asInt(value) {
@@ -205,15 +171,7 @@ async function runUserMutation(interaction, action, targetId, modeInput = null, 
   doc.profile.totals.exp.level = getLevelInfo(doc.profile.totals.exp.totalExp).level;
   await doc.save();
   await syncLevelRolesForMember(interaction.guild, targetId, doc.profile.totals.exp.level);
-  await recordLevelHistory({
-    guildId,
-    userId: targetId,
-    actorId: interaction.user.id,
-    action: `staff_${action}`,
-    beforeExp,
-    afterExp: doc.profile.totals.exp.totalExp,
-    note: `Pannello +level ${action}`,
-  });
+  await recordLevelHistory({ guildId, userId: targetId, actorId: interaction.user.id, action: `staff_${action}`, beforeExp, afterExp: doc.profile.totals.exp.totalExp, note: `Pannello +level ${action}` });
   if (doc.profile.totals.exp.level > beforeLevel) {
     const member = interaction.guild.members.cache.get(targetId) || await getGuildMemberCached(interaction.guild, targetId).catch(() => null);
     if (member) await sendLevelUpAnnouncement(interaction.guild, member, doc.profile.totals.exp.level).catch(() => {});
@@ -229,16 +187,9 @@ async function runUserMutation(interaction, action, targetId, modeInput = null, 
 async function execute(interaction) {
   const modalParsed = interaction.isModalSubmit() ? parseModalId(interaction.customId) : null;
   const compParsed = interaction.isModalSubmit() ? null : parseLevelPanelComponentId(interaction.customId);
-  const ownerId = String(
-    interaction.isModalSubmit()
-      ? modalParsed?.ownerId || ""
-      : compParsed?.ownerId || "",
-  );
+  const ownerId = String(interaction.isModalSubmit() ? modalParsed?.ownerId || "" : compParsed?.ownerId || "");
   if (ownerId && String(interaction.user?.id || "") !== ownerId) {
-    const denied = {
-      embeds: [new EmbedBuilder().setColor("#e74c3c").setDescription("<:vegax:1443934876440068179> Questo pannello non è tuo.")],
-      flags: PRIVATE_FLAG,
-    };
+    const denied = { embeds: [new EmbedBuilder().setColor("#e74c3c").setDescription("<:vegax:1443934876440068179> Questo pannello non è tuo.")], flags: PRIVATE_FLAG };
     if (interaction.deferred || interaction.replied) await interaction.followUp(denied).catch(() => {});
     else await interaction.reply(denied).catch(() => {});
     return true;
@@ -278,10 +229,7 @@ async function execute(interaction) {
       const action = String(compParsed.action || "").toLowerCase();
       const targetId = String(compParsed.targetId || "");
       if (!/^\d{16,20}$/.test(targetId)) {
-        await interaction.reply({
-          embeds: [buildSimpleEmbed("Level", "Target utente non valido.")],
-          flags: PRIVATE_FLAG,
-        }).catch(() => {});
+        await interaction.reply({ embeds: [buildSimpleEmbed("Level", "Target utente non valido.")], flags: PRIVATE_FLAG }).catch(() => {});
         return true;
       }
       if (action === "syncroles" || action === "reset") {

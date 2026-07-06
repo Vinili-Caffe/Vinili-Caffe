@@ -1,8 +1,13 @@
 const canvasModule = require("canvas");
-const { registerCanvasFonts, fontStack, drawTextWithSpecialFallback, } = require("./canvasFonts");
+const { registerCanvasFonts, fontStack, drawTextWithSpecialFallback } = require("./canvasFonts");
 const { createCanvas } = canvasModule;
 const { safeLoadImage } = require("./safeLoadImage");
 const { normalizeTextForCanvas } = require("./canvasUtils");
+const {
+  drawLabelWithEmoji,
+  wrapRichTextToLines,
+  textWidth,
+} = require("./canvasEmojiRichText");
 
 function cleanDisplayText(value, maxLength = 0) {
   const normalized = normalizeTextForCanvas(String(value || ""))
@@ -16,23 +21,6 @@ function cleanDisplayText(value, maxLength = 0) {
   return normalized;
 }
 
-function wrapLines(ctx, text, maxWidth) {
-  const lines = [];
-  const words = String(text || "").split(/\s+/).filter(Boolean);
-  let line = "";
-  for (const word of words) {
-    const test = line ? `${line} ${word}` : word;
-    if (ctx.measureText(test).width <= maxWidth) {
-      line = test;
-    } else {
-      if (line) lines.push(line);
-      line = word;
-    }
-  }
-  if (line) lines.push(line);
-  return lines;
-}
-
 function drawCircleImage(ctx, image, x, y, size) {
   if (!image) return;
   ctx.save();
@@ -44,12 +32,23 @@ function drawCircleImage(ctx, image, x, y, size) {
   ctx.restore();
 }
 
-function drawCirclePlaceholder(ctx, x, y, size, fillStyle = "#4e5058") {
+function drawRoundedSquareImage(ctx, image, x, y, size, radius = 3) {
+  if (!image) return;
+  const r = Math.min(radius, size / 2);
   ctx.save();
-  ctx.fillStyle = fillStyle;
   ctx.beginPath();
-  ctx.arc(x + size / 2, y + size / 2, size / 2, 0, Math.PI * 2);
-  ctx.fill();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + size - r, y);
+  ctx.quadraticCurveTo(x + size, y, x + size, y + r);
+  ctx.lineTo(x + size, y + size - r);
+  ctx.quadraticCurveTo(x + size, y + size, x + size - r, y + size);
+  ctx.lineTo(x + r, y + size);
+  ctx.quadraticCurveTo(x, y + size, x, y + size - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+  ctx.clip();
+  ctx.drawImage(image, x, y, size, size);
   ctx.restore();
 }
 
@@ -86,49 +85,93 @@ function formatTimestamp(date) {
   return `Today at ${time}`;
 }
 
-module.exports = async function renderSkullboardCanvas({ avatarUrl, username, message, nameColor, createdAt, reply, roleIconUrl, mediaUrl, hasMedia, hasEmbedOnly }) {
+function estimateReplyPrefixWidth(ctx, reply, replyName) {
+  let w = 0;
+  if (reply.avatarUrl) w += 16 + 6;
+  ctx.font = fontStack(12, "600");
+  w += textWidth(ctx, replyName, 12, "600") + 5;
+  if (reply.roleIconUrl) w += 14 + 5;
+  return w;
+}
+
+module.exports = async function renderSkullboardCanvas({
+  avatarUrl,
+  username,
+  message,
+  nameColor,
+  createdAt,
+  reply,
+  roleIconUrl,
+  mediaUrl,
+  hasMedia,
+  hasEmbedOnly,
+}) {
   if (!canvasModule) throw new Error("Canvas module not available");
   registerCanvasFonts(canvasModule);
 
   const width = 600;
-  const outerPad = 16;
+  const outerPad = 14;
   const avatarSize = 40;
-  const avatarToContentGap = 12;
+  const avatarToContentGap = 5;
   const contentX = outerPad + avatarSize + avatarToContentGap;
   const textMaxWidth = width - contentX - outerPad;
   const topY = outerPad;
   const headerLineHeight = 20;
-  const usernameToIconGap = 12;
+  const usernameToIconGap = 5;
   const roleIconSize = 14;
-  const roleIconToTimestampGap = 10;
+  const roleIconToTimestampGap = 5;
+
+  const msgSize = 16.5;
+  const msgWeight = "500";
+  const msgLineHeight = 19;
 
   const probe = createCanvas(width, 10).getContext("2d");
-  probe.font = fontStack(16, "500");
+  probe.font = fontStack(msgSize, msgWeight);
+
   const displayUsername = cleanDisplayText(username, 80);
   const displayMessage = cleanDisplayText(message);
-  const rawLines = hasEmbedOnly ? [] : wrapLines(probe, displayMessage || "", textMaxWidth);
+  const messageLines = hasEmbedOnly
+    ? []
+    : wrapRichTextToLines(probe, displayMessage || "", textMaxWidth, msgSize, msgWeight);
   const maxMessageLines = 20;
-  const messageLines = rawLines.slice(0, maxMessageLines);
-  const messageTruncated = rawLines.length > maxMessageLines;
+  const clippedMessageLines = messageLines.slice(0, maxMessageLines);
+  const messageTruncated = messageLines.length > maxMessageLines;
   const hasReply = Boolean(reply && (reply.content || reply.author));
+
+  const replyNameForMeasure = cleanDisplayText(reply?.author || "Sconosciuto", 48) || "Sconosciuto";
+  const replyContentRaw = cleanDisplayText(reply?.content || "", 400);
+  let replyLines = [];
+  let replyRowHeight = 20;
+  if (hasReply) {
+    const prefixW = estimateReplyPrefixWidth(probe, reply, replyNameForMeasure);
+    const replyTextMax = Math.max(80, width - contentX - prefixW - outerPad - 4);
+    probe.font = fontStack(12, "500");
+    replyLines = wrapRichTextToLines(
+      probe,
+      replyContentRaw,
+      replyTextMax,
+      12,
+      "500",
+    ).slice(0, 2);
+    if (!replyLines.length) replyLines = [""];
+    replyRowHeight = replyLines.length > 1 ? 34 : 20;
+  }
 
   let mediaImage = null;
   if (hasMedia && mediaUrl) {
     mediaImage = await safeLoadImage(mediaUrl, { timeoutMs: 15000, suppressWarning: true });
   }
 
-  const replyRowHeight = 22;
-  const replyTopPad = 6;
-  const replyToHeaderGap = 10;
+  const replyTopPad = 2;
+  const replyToHeaderGap = 6;
   let y = topY;
   const replyY = hasReply ? y + replyTopPad : null;
   const headerY = hasReply ? replyY + replyRowHeight + replyToHeaderGap : y;
   const avatarTop = headerY + headerLineHeight / 2 - avatarSize / 2;
-  const messageY = headerY + 26;
-  const lineHeight = 20;
-  const messageH = messageLines.length ? messageLines.length * lineHeight : 0;
+  const messageY = headerY + 24;
+  const messageH = clippedMessageLines.length ? clippedMessageLines.length * msgLineHeight : 0;
   y = messageY + messageH;
-  if (messageTruncated) y += lineHeight;
+  if (messageTruncated) y += msgLineHeight;
 
   let mediaLayout = null;
   if (mediaImage) {
@@ -137,7 +180,7 @@ module.exports = async function renderSkullboardCanvas({ avatarUrl, username, me
     const fitted = fitInside(mediaImage.width, mediaImage.height, maxW, maxH);
     mediaLayout = {
       x: contentX,
-      y: y + 10,
+      y: y + 8,
       width: fitted.width,
       height: fitted.height,
     };
@@ -153,53 +196,67 @@ module.exports = async function renderSkullboardCanvas({ avatarUrl, username, me
 
   if (hasReply) {
     let rx = contentX;
+    let replyTextStartX = contentX;
     const replyAvatarSize = 16;
-    const replyRowMidY = replyY + replyRowHeight / 2;
-    const replyAvatarTop = replyRowMidY - replyAvatarSize / 2;
-    if (reply.avatarUrl) {
-      const rAvatar = await safeLoadImage(reply.avatarUrl, { timeoutMs: 10000 });
-      if (rAvatar) {
-        drawCircleImage(ctx, rAvatar, rx, replyAvatarTop, replyAvatarSize);
-        rx += replyAvatarSize + 8;
+    for (let li = 0; li < replyLines.length; li += 1) {
+      const lineMidY =
+        replyLines.length > 1
+          ? replyY + 9 + li * 16
+          : replyY + replyRowHeight / 2;
+
+      if (li === 0) {
+        rx = contentX;
+        if (reply.avatarUrl) {
+          const rAvatar = await safeLoadImage(reply.avatarUrl, { timeoutMs: 10000 });
+          if (rAvatar) {
+            const replyAvatarTop = lineMidY - replyAvatarSize / 2;
+            drawCircleImage(ctx, rAvatar, rx, replyAvatarTop, replyAvatarSize);
+            rx += replyAvatarSize + 6;
+          }
+        }
+
+        ctx.font = fontStack(12, "600");
+        const replyName = replyNameForMeasure;
+        const replyNameColor = reply.nameColor || "#b9bbbe";
+        drawTextWithSpecialFallback(ctx, replyName, rx, lineMidY, {
+          size: 12,
+          weight: "600",
+          color: replyNameColor,
+          forcePrimaryFont: true,
+          baseline: "middle",
+        });
+        rx += textWidth(ctx, replyName, 12, "600") + 5;
+
+        if (reply.roleIconUrl) {
+          const replyIcon = await safeLoadImage(reply.roleIconUrl, { timeoutMs: 10000 });
+          if (replyIcon) {
+            const replyIconSize = 14;
+            const replyIconTop = lineMidY - replyIconSize / 2;
+            drawRoundedSquareImage(ctx, replyIcon, rx, replyIconTop, replyIconSize, 3);
+            rx += replyIconSize + 5;
+          }
+        }
+        replyTextStartX = rx;
+      } else {
+        rx = replyTextStartX;
       }
+
+      const lineStr = replyLines[li] || "";
+      await drawLabelWithEmoji(ctx, lineStr, rx, lineMidY, {
+        size: 12,
+        weight: "500",
+        color: "#949ba4",
+        forcePrimaryFont: true,
+        baseline: "middle",
+      });
     }
-
-    ctx.font = fontStack(12, "600");
-    const replyName = cleanDisplayText(reply.author || "Sconosciuto", 48) || "Sconosciuto";
-    const replyNameColor = reply.nameColor || "#b9bbbe";
-    drawTextWithSpecialFallback(ctx, replyName, rx, replyRowMidY, {
-      size: 12,
-      weight: "600",
-      color: replyNameColor,
-      forcePrimaryFont: true,
-      baseline: "middle",
-    });
-    rx += ctx.measureText(replyName).width + 8;
-
-    if (reply.roleIconUrl) {
-      const replyIcon = await safeLoadImage(reply.roleIconUrl, { timeoutMs: 10000 });
-      if (replyIcon) {
-        const replyIconSize = 12;
-        const replyIconTop = replyRowMidY - replyIconSize / 2;
-        drawCircleImage(ctx, replyIcon, rx, replyIconTop, replyIconSize);
-        rx += replyIconSize + 8;
-      }
-    }
-
-    const replyContent = cleanDisplayText(reply.content || "", 72);
-    drawTextWithSpecialFallback(ctx, replyContent, rx, replyRowMidY, {
-      size: 12,
-      weight: "500",
-      color: "#949ba4",
-      forcePrimaryFont: true,
-      baseline: "middle",
-    });
 
     const connStartX = outerPad + avatarSize / 2;
     const connStartY = avatarTop + avatarSize / 2;
-    const connEndX = contentX - 10;
-    const connEndY = replyRowMidY;
-    const radius = 8;
+    const connEndX = contentX - 8;
+    const connEndY =
+      replyLines.length > 1 ? replyY + 9 : replyY + replyRowHeight / 2;
+    const radius = 7;
 
     ctx.strokeStyle = "#4e5058";
     ctx.lineWidth = 2;
@@ -212,12 +269,18 @@ module.exports = async function renderSkullboardCanvas({ avatarUrl, username, me
     ctx.stroke();
   }
 
-  const avatar = await safeLoadImage(avatarUrl);
+  const avatar = await safeLoadImage(avatarUrl, { timeoutMs: 12000 });
   if (avatar) {
     drawCircleImage(ctx, avatar, outerPad, avatarTop, avatarSize);
   } else {
     ctx.beginPath();
-    ctx.arc(outerPad + avatarSize / 2, avatarTop + avatarSize / 2, avatarSize / 2, 0, Math.PI * 2);
+    ctx.arc(
+      outerPad + avatarSize / 2,
+      avatarTop + avatarSize / 2,
+      avatarSize / 2,
+      0,
+      Math.PI * 2,
+    );
     ctx.closePath();
     ctx.fillStyle = "rgba(0,0,0,0.35)";
     ctx.fill();
@@ -225,7 +288,7 @@ module.exports = async function renderSkullboardCanvas({ avatarUrl, username, me
 
   const userColor = nameColor || "#f2f3f5";
   ctx.textBaseline = "top";
-  const usernameSize = 34 / 2;
+  const usernameSize = 16.5;
   const usernameWeight = "600";
   drawTextWithSpecialFallback(ctx, displayUsername || "", contentX, headerY, {
     size: usernameSize,
@@ -241,11 +304,11 @@ module.exports = async function renderSkullboardCanvas({ avatarUrl, username, me
     const roleIcon = await safeLoadImage(roleIconUrl, { timeoutMs: 10000 });
     if (roleIcon) {
       const iconTop = headerY + (headerLineHeight - roleIconSize) / 2;
-      drawCircleImage(ctx, roleIcon, cursorX, iconTop, roleIconSize);
+      drawRoundedSquareImage(ctx, roleIcon, cursorX, iconTop, roleIconSize, 3);
       cursorX += roleIconSize + roleIconToTimestampGap;
     }
   }
-  const timestampY = headerY + (headerLineHeight - 14) / 2;
+  const timestampY = headerY + (headerLineHeight - 12) / 2;
   drawTextWithSpecialFallback(
     ctx,
     formatTimestamp(createdAt || new Date()),
@@ -259,23 +322,25 @@ module.exports = async function renderSkullboardCanvas({ avatarUrl, username, me
     },
   );
 
-  if (messageLines.length) {
+  if (clippedMessageLines.length) {
     let lineY = messageY;
-    for (const line of messageLines) {
-      drawTextWithSpecialFallback(ctx, line, contentX, lineY, {
-        size: 33 / 2,
-        weight: "500",
+    for (const line of clippedMessageLines) {
+      await drawLabelWithEmoji(ctx, line, contentX, lineY + msgLineHeight / 2, {
+        size: msgSize,
+        weight: msgWeight,
         color: "#f2f3f5",
         forcePrimaryFont: true,
+        baseline: "middle",
       });
-      lineY += lineHeight;
+      lineY += msgLineHeight;
     }
     if (messageTruncated) {
-      drawTextWithSpecialFallback(ctx, "...", contentX, lineY, {
-        size: 33 / 2,
-        weight: "500",
+      await drawLabelWithEmoji(ctx, "...", contentX, lineY + msgLineHeight / 2, {
+        size: msgSize,
+        weight: msgWeight,
         color: "#949ba4",
         forcePrimaryFont: true,
+        baseline: "middle",
       });
     }
   }

@@ -1,5 +1,6 @@
 const IDs = require("../../Utils/Config/ids");
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ApplicationCommandType, ComponentType, MessageFlags, } = require("discord.js");
+const { DEFAULT_OBSOLETE_SLASH_NAMES } = require("../../../shared/discord/purgeObsoleteApplicationCommands");
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const { getGuildMemberCached } = require("../../Utils/Interaction/entityCache");
 const { loadPermissions } = require("../../Utils/Moderation/permissionsStore");
@@ -9,45 +10,102 @@ const ERROR_EMBED_COLOR = "Red";
 const PRIVATE_FLAG = 1 << 6;
 const NO_REPLY_MENTIONS = { repliedUser: false };
 const PAGE_ROLE_IDS = [IDs.roles.Member, IDs.roles.Staff, IDs.roles.HighStaff, IDs.roles.Founder].filter(Boolean);
-const PAGE_TITLES = {
-  [IDs.roles.Member]: "Comandi Utente",
-  [IDs.roles.Founder]: "Comandi Dev",
-  all: "Comandi Disponibili",
-};
-const CATEGORY_LABELS = { utility: "Utility", tts: "TTS", dev: "Dev" };
-const CATEGORY_ORDER = ["utility", "tts", "dev"];
+const PAGE_TITLES = { [IDs.roles.Member]: "Comandi Utente", [IDs.roles.Founder]: "Comandi Dev", all: "Comandi Disponibili" };
+const CATEGORY_LABELS = { utility: "Utility", music: "Musica", tts: "TTS", dev: "Developer" };
+const CATEGORY_ORDER = ["utility", "music", "tts", "dev"];
+const PREFIX_MUSIC_SESSION_OWNER_COMMANDS = new Set(["skip", "stop", "pause", "resume", "volume", "shuffle", "clear", "repeat", "previous", "rewind", "restart"]);
+const PREFIX_MUSIC_SESSION_OWNER_NOTE = " *Solo chi ha avviato la riproduzione può usarlo.*";
 const HELP_PAGE_SIZE = 18;
 const MAX_HELP_TEXT_LENGTH = 3900;
 const PREFIX_HELP_DESCRIPTIONS = {
-  help: "Mostra tutti i comandi disponibili con il bot.",
+  help: "Mostra tutti i comandi disponibili.",
+  ping: "Mostra latenza bot, database e informazioni di uptime.",
   join: "Fa entrare il bot nel tuo canale vocale.",
   leave: "Fa uscire il bot dal canale vocale.",
   voices: "Mostra le voci TTS disponibili.",
   set: "Impostazioni TTS: autojoin e voce personale.",
+  play: "Riproduce un brano.",
+  pause: "Mette in pausa la traccia in riproduzione.",
+  resume: "Riprende la traccia in pausa.",
+  stop: "Ferma la musica, svuota la coda e fa uscire il bot dal canale vocale.",
+  skip: "Salta il brano in riproduzione e passa alla successiva in coda.",
+  volume: "Imposta il volume della musica.",
+  shuffle: "Mescola l'ordine dei brani in coda.",
+  clear: "Svuota la coda dei brani in attesa.",
+  repeat: "Ripetizione traccia, ripetizione della coda, disattiva tutto.",
+  previous: "Torna al brano riprodotto prima di quello attuale.",
+  rewind: "Riporta il brano in riproduzione all'inizio.",
+  restart: "Ricomincia dall'inizio la sequenza del brano in riproduzione + della coda.",
+  now: "Mostra il brano in riproduzione.",
+  next: "Mostra il prossimo brano in coda.",
+  queue: "Mostra la coda di riproduzione.",
 };
 const PREFIX_SUBCOMMAND_HELP_DESCRIPTIONS = {
-  "set.autojoin": "Attiva o disattiva autojoin TTS.",
-  "set.voice": "Imposta la lingua TTS personale.",
+  "set.autojoin": "Attiva o disattiva l'autojoin TTS del bot.",
+  "set.voice": "Imposta la lingua/voce TTS personale.",
+  "now.playing": "Mostra il brano in riproduzione.",
+  "next.up": "Mostra il prossimo brano in coda.",
+  "repeat.disable": "Disattiva la ripetizione della traccia o della coda.",
+  "repeat.enable": "Attiva la ripetizione della traccia in corso.",
+  "repeat.queue": "Attiva la ripetizione dell'intera coda.",
+  "play.queue": "Riproduce la coda dei brani in attesa.",
+  "play.now": "Riproduce il brano in riproduzione.",
+  "play.next": "Salta il brano in riproduzione e passa alla successiva in coda.",
+  "play.previous": "Torna al brano riprodotto prima di quello attuale.",
+  "play.rewind": "Riporta il brano in riproduzione all'inizio.",
+  "play.restart": "Ricomincia dall'inizio la sequenza del brano in riproduzione + della coda.",
+  "play.stop": "Ferma la musica, svuota la coda e fa uscire il bot dal canale vocale.",
+  "play.shuffle": "Mescola l'ordine dei brani in coda.",
+  "play.clear": "Svuota la coda dei brani in attesa.",
+  "play.repeat": "Ripetizione traccia, ripetizione della coda, disattiva tutto.",
+  "play.previous": "Torna al brano riprodotto prima di quello attuale.",
+  "play.rewind": "Riporta il brano in riproduzione all'inizio.",
+  "play.restart": "Ricomincia dall'inizio la sequenza del brano in riproduzione + della coda.",
 };
+
+const CONTEXT_HELP_DESCRIPTIONS = {};
+const CONTEXT_CATEGORY_OVERRIDES = {};
+const OBSOLETE_SLASH_HELP_NAMES = new Set(
+  (Array.isArray(DEFAULT_OBSOLETE_SLASH_NAMES) ? DEFAULT_OBSOLETE_SLASH_NAMES : [])
+    .map((s) => String(s || "").trim().toLowerCase())
+    .filter(Boolean),
+);
+
+function normalizeCategoryKey(raw) {
+  const value = String(raw || "").trim().toLowerCase();
+  if (!value) return "utility";
+  if (value.includes("music")) return "music";
+  if (value.includes("tts") || value.includes("voice")) return "tts";
+  if (
+    value.includes("dev") ||
+    value.includes("admin") ||
+    value.includes("owner") ||
+    value.includes("staff")
+  ) {
+    return "dev";
+  }
+  if (value in CATEGORY_LABELS) return value;
+  return "utility";
+}
 
 function buildMiniHelpNotFoundEmbed(query) {
   return new EmbedBuilder()
     .setColor(ERROR_EMBED_COLOR)
-    .setTitle("Mini Help")
+    .setTitle("Mini Help 🔍")
     .setDescription(
-      String(`<:vegax:1443934876440068179> Nessun comando trovato per \`${query}\`.`).slice(0, 4096),
+      String(`<a:VC_Cross:1482532424570376253> Nessun comando trovato per \`${query}\`.`).slice(0, 4096),
     );
 }
 
 function buildNoAvailableCommandsEmbed() {
   return new EmbedBuilder()
     .setColor(ERROR_EMBED_COLOR)
-    .setDescription("<:vegax:1443934876440068179> Nessun comando disponibile.");
+    .setDescription("<a:VC_Cross:1482532424570376253> Nessun comando disponibile.");
 }
 
 function normalizeDescription(
   text,
-  fallback = "Nessuna descrizione disponibile.",
+  fallback = "<a:VC_Cross:1482532424570376253> Nessuna descrizione disponibile.",
 ) {
   const value = String(text || "").trim();
   return value.length ? value : fallback;
@@ -55,32 +113,47 @@ function normalizeDescription(
 
 function getPrefixDescription(command) {
   const commandName = String(command?.name || "").toLowerCase();
+  let base;
   if (PREFIX_HELP_DESCRIPTIONS[commandName]) {
-    return PREFIX_HELP_DESCRIPTIONS[commandName];
+    base = PREFIX_HELP_DESCRIPTIONS[commandName];
+  } else {
+    const fromCommand = normalizeDescription(
+      command?.description || command?.desc || command?.help || command?.usage || "",
+      "",
+    );
+    base = fromCommand || "<a:VC_Cross:1482532424570376253> Descrizione non disponibile.";
   }
-  const fromCommand=normalizeDescription(command?.description||command?.desc||command?.help||command?.usage,"",);
-  if (fromCommand) return fromCommand;
-  return "Descrizione non disponibile.";
+  if (PREFIX_MUSIC_SESSION_OWNER_COMMANDS.has(commandName)) {
+    return `${base}${PREFIX_MUSIC_SESSION_OWNER_NOTE}`;
+  }
+  return base;
 }
 
 function getPrefixSubcommandDescription(command, subcommandName) {
   const commandName = String(command?.name || "").toLowerCase();
   const key = `${String(commandName || "").toLowerCase()}.${String(subcommandName || "").toLowerCase()}`;
+  const withOwnerNote = (text) =>
+    PREFIX_MUSIC_SESSION_OWNER_COMMANDS.has(commandName)
+      ? `${String(text || "").trim()}${PREFIX_MUSIC_SESSION_OWNER_NOTE}`
+      : String(text || "").trim();
   if (PREFIX_SUBCOMMAND_HELP_DESCRIPTIONS[key]) {
-    return PREFIX_SUBCOMMAND_HELP_DESCRIPTIONS[key];
+    return withOwnerNote(PREFIX_SUBCOMMAND_HELP_DESCRIPTIONS[key]);
   }
   const commandSubDesc=command?.subcommandDescriptions||command?.subcommandsDescriptions||command?.subcommandHelp||command?.subcommandsHelp||null;
   if (commandSubDesc && typeof commandSubDesc === "object") {
     const fromCommand=commandSubDesc[String(subcommandName||"").toLowerCase()]||commandSubDesc[String(subcommandName||"").trim()];
     if (String(fromCommand || "").trim())
-      return normalizeDescription(fromCommand);
+      return withOwnerNote(normalizeDescription(fromCommand, ""));
   }
-  return "Descrizione non disponibile.";
+  const parentDescription = String(command?.description || command?.desc || command?.help || "").trim();
+  if (parentDescription) return withOwnerNote(parentDescription);
+  return "<a:VC_Cross:1482532424570376253> Descrizione non disponibile.";
 }
 
-function getPrefixBase(command) {
+function getPrefixBase(command, client) {
   void command;
-  return "-";
+  const p = String(client?.config?.prefix ?? "-").trim();
+  return p || "-";
 }
 
 function extractPrefixSubcommands(command) {
@@ -132,6 +205,22 @@ function getSlashTopLevelDescription(dataJson) {
   return normalizeDescription(dataJson?.description, "Comando slash.");
 }
 
+function resolveContextCategory(command, dataJson) {
+  const contextName = String(dataJson?.name || "").trim().toLowerCase();
+  if (contextName && CONTEXT_CATEGORY_OVERRIDES[contextName]) {
+    return normalizeCategoryKey(CONTEXT_CATEGORY_OVERRIDES[contextName]);
+  }
+  return normalizeCategoryKey(command?.category || "utility");
+}
+
+function shouldIncludeSlashCommandInHelp(command) {
+  if (!command || command.skipDeploy) return false;
+  const dataJson = command?._helpDataJson || command?.data?.toJSON?.();
+  const nm = String(dataJson?.name || command?.data?.name || "").trim().toLowerCase();
+  if (OBSOLETE_SLASH_HELP_NAMES.has(nm)) return false;
+  return true;
+}
+
 function getCommandPermissionNode(permissionRoot, commandName) {
   if (!permissionRoot || typeof permissionRoot !== "object") return null;
   const exact = permissionRoot[commandName];
@@ -152,13 +241,7 @@ function normalizePermissionRoles(value) {
   return null;
 }
 
-function getSubcommandEntries(
-  commandName,
-  dataJson,
-  permissionConfig,
-  commandType,
-  category,
-) {
+function getSubcommandEntries(commandName, dataJson, permissionConfig, commandType, category) {
   const entries = [];
   const options = Array.isArray(dataJson?.options) ? dataJson.options : [];
   if (commandType !== ApplicationCommandType.ChatInput) return entries;
@@ -172,7 +255,7 @@ function getSubcommandEntries(
     const roleList = normalizePermissionRoles(allowedRoles);
 
     entries.push({
-      invoke: `/${groupName?`${commandName}${groupName}${subName}` : `${commandName}${subName}`}`,type:"slash",description:normalizeDescription(subOption.description,topDesc),category:normalizeCategoryKey(category),roles:roleList,});};for(const option of options){ if (option?.type === 1) {
+      invoke: groupName ? `/${commandName} ${groupName} ${subName}` : `/${commandName} ${subName}`,type:"slash",description:normalizeDescription(subOption.description,topDesc),category:normalizeCategoryKey(category),roles:roleList,});};for(const option of options){ if (option?.type === 1) {
       parseSubOption(option);
       continue;
     }
@@ -195,7 +278,7 @@ function buildEntries(client, permissions) {
     const commandRoles=Array.isArray(perm)?perm:Array.isArray(perm?.roles)?perm.roles:null;
     const subcommandRoles=perm&&typeof perm==="object"&&!Array.isArray(perm)?perm.subcommands||{}:{};
     const aliases=Array.isArray(command.aliases)?command.aliases.filter((alias) => typeof alias==="string"&&alias.trim().length,):[];
-    const prefixBase = getPrefixBase(command);
+    const prefixBase = getPrefixBase(command, client);
     const base={type:"prefix",description:getPrefixDescription(command),aliases,prefixBase,category:normalizeCategoryKey(command.folder||"misc"),roles:commandRoles,};
 
     const canonicalSubs=Array.isArray(command?.canonicalSubcommands)?Array.from(new Set(command.canonicalSubcommands.map((s) => String(s||"").trim().toLowerCase()).filter(Boolean),),):Array.isArray(command?.subcommands)?Array.from(new Set(command.subcommands.map((s) => String(s||"").trim().toLowerCase()).filter(Boolean),),):[];
@@ -220,6 +303,73 @@ function buildEntries(client, permissions) {
     }
   }
 
+  const seenSlash = new Set();
+  for (const command of client.commands.values()) {
+    if (!shouldIncludeSlashCommandInHelp(command)) continue;
+    const dataJson = command?._helpDataJson || command?.data?.toJSON?.();
+    if (!dataJson?.name) continue;
+    const commandType = dataJson.type || ApplicationCommandType.ChatInput;
+    if (commandType !== ApplicationCommandType.ChatInput) continue;
+    const uniqueKey = `${dataJson.name}:${commandType}`;
+    if (seenSlash.has(uniqueKey)) continue;
+    seenSlash.add(uniqueKey);
+
+    const perm = getCommandPermissionNode(permissions.slash, dataJson.name);
+    const category = normalizeCategoryKey(command?.category || "utility");
+    const hasSubcommands =
+      Array.isArray(dataJson.options) &&
+      dataJson.options.some((opt) => opt?.type === 1 || opt?.type === 2);
+    const roles = normalizePermissionRoles(perm);
+
+    if (hasSubcommands) {
+      entries.push(
+        ...getSubcommandEntries(
+          dataJson.name,
+          dataJson,
+          perm,
+          commandType,
+          category,
+        ),
+      );
+      continue;
+    }
+
+    entries.push({
+      invoke: `/${dataJson.name}`,
+      type: "slash",
+      description: getSlashTopLevelDescription(dataJson),
+      category,
+      roles,
+    });
+  }
+
+  for (const command of client.commands.values()) {
+    if (!shouldIncludeSlashCommandInHelp(command)) continue;
+    const dataJson = command?._helpDataJson || command?.data?.toJSON?.();
+    if (!dataJson?.name) continue;
+    const commandType = dataJson.type || ApplicationCommandType.ChatInput;
+    if (
+      commandType !== ApplicationCommandType.User &&
+      commandType !== ApplicationCommandType.Message
+    ) {
+      continue;
+    }
+    const perm = getCommandPermissionNode(permissions.slash, dataJson.name);
+    const roles = normalizePermissionRoles(perm);
+    entries.push({
+      invoke: `${dataJson.name}`,
+      type: "context",
+      description: normalizeDescription(
+        command?.helpDescription ||
+        command?.description ||
+        CONTEXT_HELP_DESCRIPTIONS[dataJson.name] ||
+        `Comando context (${commandType === ApplicationCommandType.User ? "utente" : "messaggio"}).`,
+      ),
+      category: resolveContextCategory(command, dataJson),
+      roles,
+    });
+  }
+
   const dedupe = new Map();
   for (const entry of entries) {
     if (String(entry?.category || "").toLowerCase() === "misc") continue;
@@ -242,7 +392,6 @@ function hasAnyRole(memberRoles, roleIds) {
   return roleIds.some((roleId) => memberRoles.has(roleId));
 }
 
-const STAFF_TIER_ROLES=[IDs.roles.Founder,IDs.roles.HighStaff,IDs.roles.Staff,IDs.roles.PartnerManager,].filter(Boolean);
 
 function getEntryDisplayTier(entry) {
   const roles = entry?.roles;
@@ -262,10 +411,6 @@ function getEntryDisplayTier(entry) {
   if (minTier === 1) return IDs.roles.Staff;
   if (minTier === 2) return IDs.roles.HighStaff;
   return IDs.roles.Founder;
-}
-
-function entryBelongsToPage(entry, pageRoleId) {
-  return getEntryDisplayTier(entry) === pageRoleId;
 }
 
 function canMemberSeeEntry(entry, memberRoles) {
@@ -329,15 +474,15 @@ function renderPageText(page) {
     sections.push(`**${categoryLabel}**\n${rows.join("\n")}`);
   }
 
-  const raw=page.items.length?["## Comandi Disponibili","",`###${PAGE_TITLES[page.roleId]||"Comandi"}`,
+  const raw=page.items.length?["## Comandi Disponibili","",`###${PAGE_TITLES[page.roleId]||"Comandi Disponibili"}`,
       "",
       "Ecco la lista dei comandi disponibili.",
-      "Usa il prefix, slash o context menu in base al comando.",
-      "Mini-help rapido: `+help<comando>`.",
+      "Usa il prefix o slash in base al comando.",
+      "Mini-help rapido: `,help <comando>`.",
       "",
       sections.join("\n\n"),
     ].join("\n")
-    : "<:vegax:1443934876440068179> Nessun comando disponibile in questa pagina.";
+    : "<a:VC_Cross:1482532424570376253> Nessun comando disponibile in questa pagina.";
   return raw;
 }
 
@@ -413,6 +558,10 @@ function buildNavigationRow(state) {
       .setEmoji(`<a:vegarightarrow:1443673039156936837>`)
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(state.currentIndex >= state.total - 1),
+    new ButtonBuilder()
+      .setCustomId(state.closeId)
+      .setEmoji("<a:VC_Cross:1482532424570376253>")
+      .setStyle(ButtonStyle.Danger),
   );
 }
 
@@ -426,6 +575,14 @@ function buildHelpV2Container(page, navState) {
     accentColor: 0x6f4e37,
     components,
   };
+}
+
+function buildHelpFallbackEmbed(page) {
+  const body = String(page?.renderedText || renderPageText(page) || "").trim();
+  return new EmbedBuilder()
+    .setColor(HELP_EMBED_COLOR)
+    .setTitle("Comandi Disponibili 🔍")
+    .setDescription((body || "<a:VC_Cross:1482532424570376253> Nessun comando.").slice(0, 4096));
 }
 
 function normalizeInvokeLookup(value) {
@@ -540,13 +697,7 @@ function collectCommandUsageSnippets(command, commandName, prefixBase) {
   return ordered.slice(0, 12);
 }
 
-function collectPrefixExampleLines(
-  command,
-  commandName,
-  prefixBase,
-  subEntries = [],
-  requestedSub = null,
-) {
+function collectPrefixExampleLines(command, commandName, prefixBase, subEntries = [], requestedSub = null) {
   const out = [];
   const push=(line) => {const value=String(line||"").trim();if(!value)return;if(!out.includes(value))out.push(value);};
 
@@ -608,7 +759,7 @@ function buildPrefixDetailedHelpEmbed(query, entries, context = {}) {
   if (!command) return null;
 
   const commandName=String(command.name||"").trim().toLowerCase();
-  const prefixBase = getPrefixBase(command);
+  const prefixBase = getPrefixBase(command, context?.client);
   const visibleForCommand=entries.filter((entry) => {if(entry.type!=="prefix")return false;const invoke=normalizeInvokeLookup(entry.invoke);return invoke.split(" ")[0]===commandName;});
   if (!visibleForCommand.length) return null;
 
@@ -635,10 +786,15 @@ function buildPrefixDetailedHelpEmbed(query, entries, context = {}) {
   const aliases=Array.isArray(command.aliases)?command.aliases.map((alias) => String(alias||"").trim().toLowerCase(),).filter(Boolean):[];
   if (aliases.length) {
     usageLines.push(
-      `Alias comando: ${aliases.map((alias) => `\`${prefixBase}${alias}\``).join(", ")}`,
+      `Alias: ${aliases.map((alias) => `\`${prefixBase}${alias}\``).join(", ")}`,
     );
   }
-  usageLines.push(`Ruoli richiesti: ${formatRoleMentions(permConfig.roles)}`);
+  usageLines.push(`Ruoli: ${formatRoleMentions(permConfig.roles)}`);
+  if (PREFIX_MUSIC_SESSION_OWNER_COMMANDS.has(commandName)) {
+    usageLines.push(
+      "<a:VC_Attention:1482534443632558151> Solo chi ha avviato la riproduzione può usarlo.",
+    );
+  }
 
   const subEntries=visibleForCommand.filter((entry) => normalizeInvokeLookup(entry.invoke).split(" ").length>1,).filter((entry) => {if(!requestedSub)return true;return normalizeInvokeLookup(entry.invoke).split(" ")[1]===requestedSub;}).sort((a,b) => String(a.invoke||"").localeCompare(String(b.invoke||""),"it"),);
 
@@ -650,68 +806,45 @@ function buildPrefixDetailedHelpEmbed(query, entries, context = {}) {
     const subAliases = entry.subAliases ?? extractDirectAliasesForSubcommand(command, subName);
     const subAliasPart = Array.isArray(subAliases) && subAliases.length ? ` (${subAliases.join(", ")})` : "";
     subLines.push(
-      `- \`${prefixBase}${commandName} ${subName}\`${subAliasPart} - ${entry.description}`,
+      `- \`${prefixBase}${commandName} ${subName}\`${subAliasPart} - ${normalizeDescription(entry.description)}`,
     );
-    subLines.push(`  Ruoli: ${formatRoleMentions(subRoleIds)}`);
+    subLines.push(`Ruoli richiesti: ${formatRoleMentions(subRoleIds)}`);
   }
   if (requestedSub && !subLines.length) {
     const allKnownSubs=listPrefixSubcommandsForCommand(command,commandName,permissions,);
     for (const sub of allKnownSubs) {
       const invoke = `${prefixBase}${commandName} ${sub}`;
       const isVisible = visibleInvokeSet.has(normalizeInvokeLookup(invoke));
-      const lock = isVisible ? "" : " *(non accessibile con i tuoi ruoli)*";
+      const lock = isVisible ? "" : " <a:VC_Cross:1482532424570376253> Non accessibile con i tuoi ruoli.";
       const subRoleIds=Array.isArray(permConfig.subcommands?.[sub])?permConfig.subcommands[sub]:permConfig.roles;
       const subAliases = extractDirectAliasesForSubcommand(command, sub);
       const subAliasPart = subAliases.length ? ` (${subAliases.join(", ")})` : "";
       subLines.push(
-        `- \`${invoke}\`${subAliasPart} - ${getPrefixSubcommandDescription(command, sub)}${lock}`,
+        `- \`${invoke}\`${subAliasPart} - ${normalizeDescription(getPrefixSubcommandDescription(command, sub))}${lock}`,
       );
-      subLines.push(`  Ruoli: ${formatRoleMentions(subRoleIds)}`);
+      subLines.push(`Ruoli richiesti: ${formatRoleMentions(subRoleIds)}`);
     }
   }
 
-  const snippetLines = collectPrefixExampleLines(
-    command,
-    commandName,
-    prefixBase,
-    subEntries.map((entry) => ({ invoke: entry.invoke })),
-    requestedSub,
-  );
+  const snippetLines = collectPrefixExampleLines(command, commandName, prefixBase, subEntries.map((entry) => ({ invoke: entry.invoke })), requestedSub);
 
   const embed = new EmbedBuilder()
     .setColor("#6f4e37")
-    .setTitle(String(`Guida comando: ${prefixBase}${commandName}`).slice(0, 256))
+    .setTitle(String(`Guida: ${prefixBase}${commandName}`).slice(0, 256))
     .setDescription(String(getPrefixDescription(command) || "").slice(0, 4096));
 
   const fields = [];
-  pushChunkedField(fields, "Sintassi", usageLines);
+  pushChunkedField(fields, "Sintassi 📝", usageLines);
   if (subLines.length) {
     pushChunkedField(
       fields,
-      requestedSub ? `Subcommand: ${requestedSub}` : "Subcommands",
+      requestedSub ? `Subcommand: ${requestedSub}` : "Subcommands 🔍",
       subLines,
     );
   }
-  pushChunkedField(fields, "Esempi di uso", snippetLines);
+  pushChunkedField(fields, "Esempi di uso 💡", snippetLines);
   if (fields.length) embed.addFields(fields);
   return embed;
-}
-
-function getOptionTypeLabel(type) {
-  const labels = {
-    1: "Subcommand",
-    2: "Gruppo",
-    3: "String",
-    4: "Integer",
-    5: "Boolean",
-    6: "User",
-    7: "Channel",
-    8: "Role",
-    9: "Mentionable",
-    10: "Number",
-    11: "Attachment",
-  };
-  return labels[type] || "Option";
 }
 
 function formatSlashOptionPlaceholder(option) {
@@ -732,12 +865,7 @@ function getSlashSampleValueByType(optionType) {
   return "valore";
 }
 
-function buildSlashExampleLine(
-  commandName,
-  groupName,
-  subName,
-  optionList = [],
-) {
+function buildSlashExampleLine(commandName, groupName, subName, optionList = []) {
   const parts = [`/${commandName}`];
   if (groupName) parts.push(groupName);
   if (subName) parts.push(subName);
@@ -749,10 +877,74 @@ function buildSlashExampleLine(
 }
 
 function buildSlashDetailedHelpEmbed(query, entries, context = {}) {
-  void query;
-  void entries;
-  void context;
-  return null;
+  const normalized = normalizeInvokeLookup(query);
+  const tokens = normalized.split(" ").filter(Boolean);
+  const queryToken = tokens[0] || "";
+  if (!queryToken) return null;
+  const seen = new Set();
+  const slashCommands = [];
+  for (const cmd of Array.from(context?.client?.commands?.values?.() || [])) {
+    if (!shouldIncludeSlashCommandInHelp(cmd)) continue;
+    const dataJson = cmd?._helpDataJson || cmd?.data?.toJSON?.();
+    if (!dataJson?.name) continue;
+    const type = dataJson.type || ApplicationCommandType.ChatInput;
+    if (type !== ApplicationCommandType.ChatInput) continue;
+    const key = `${dataJson.name}:${type}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    slashCommands.push({ dataJson });
+  }
+  if (!slashCommands.length) return null;
+  const hit = slashCommands.find(({ dataJson }) => String(dataJson.name || "").trim().toLowerCase() === queryToken);
+  if (!hit) return null;
+  const commandName = String(hit.dataJson.name || "").trim().toLowerCase();
+  const visibleForCommand = entries.filter((entry) => entry.type === "slash" && normalizeInvokeLookup(entry.invoke).split(" ")[0] === commandName);
+  if (!visibleForCommand.length) return null;
+  const options = Array.isArray(hit.dataJson.options) ? hit.dataJson.options : [];
+  const hasSub = options.some((opt) => opt?.type === 1 || opt?.type === 2);
+  const requestedSub = tokens[1] || null;
+  const syntaxLines = [];
+  const optionLines = [];
+  const exampleLines = [];
+  if (!hasSub) {
+    const placeholders = options.filter((opt) => opt?.type >= 3 && opt?.type <= 11).map((opt) => formatSlashOptionPlaceholder(opt)).filter(Boolean);
+    syntaxLines.push(`\`/${commandName}${placeholders.length ? ` ${placeholders.join(" ")}` : ""}\``);
+    exampleLines.push(buildSlashExampleLine(commandName, null, null, options));
+  } else {
+    for (const opt of options) {
+      if (opt?.type === 1) {
+        const subName = String(opt.name || "").trim().toLowerCase();
+        if (requestedSub && requestedSub !== subName) continue;
+        const subPlaceholders = (Array.isArray(opt.options) ? opt.options : []).filter((child) => child?.type >= 3 && child?.type <= 11).map((child) => formatSlashOptionPlaceholder(child)).filter(Boolean);
+        syntaxLines.push(`\`/${commandName} ${subName}${subPlaceholders.length ? ` ${subPlaceholders.join(" ")}` : ""}\``);
+        exampleLines.push(buildSlashExampleLine(commandName, null, subName, Array.isArray(opt.options) ? opt.options : []));
+        optionLines.push(`- \`${subName}\` - ${normalizeDescription(opt.description)}`);
+      }
+      if (opt?.type === 2 && Array.isArray(opt.options)) {
+        const groupName = String(opt.name || "").trim().toLowerCase();
+        for (const sub of opt.options) {
+          if (sub?.type !== 1 || !sub?.name) continue;
+          const subName = String(sub.name || "").trim().toLowerCase();
+          if (requestedSub && requestedSub !== groupName && requestedSub !== subName) continue;
+          const subPlaceholders = (Array.isArray(sub.options) ? sub.options : []).filter((child) => child?.type >= 3 && child?.type <= 11).map((child) => formatSlashOptionPlaceholder(child)).filter(Boolean);
+          syntaxLines.push(`\`/${commandName} ${groupName} ${subName}${subPlaceholders.length ? ` ${subPlaceholders.join(" ")}` : ""}\``);
+          exampleLines.push(buildSlashExampleLine(commandName, groupName, subName, Array.isArray(sub.options) ? sub.options : []));
+          optionLines.push(`- \`${groupName} ${subName}\` - ${normalizeDescription(sub.description)}`);
+        }
+      }
+    }
+  }
+  const perm = context?.permissions?.slash?.[commandName];
+  const roleIds = Array.isArray(perm) ? perm : Array.isArray(perm?.roles) ? perm.roles : null;
+  const effectiveSyntax = syntaxLines.length ? syntaxLines : [`\`/${commandName}\``];
+  const embed = new EmbedBuilder().setColor("#6f4e37").setTitle(String(`Guida: /${commandName}`).slice(0, 256)).setDescription(String(normalizeDescription(hit.dataJson.description)).slice(0, 4096));
+  const fields = [];
+  pushChunkedField(fields, "Sintassi 📝", effectiveSyntax);
+  pushChunkedField(fields, "Permessi", [`Ruoli richiesti: ${formatRoleMentions(roleIds)}`]);
+  if (optionLines.length) pushChunkedField(fields, "Opzioni 🔍", optionLines);
+  pushChunkedField(fields, "Esempi di uso 💡", exampleLines.length ? exampleLines : [`- \`/${commandName}\``]);
+  if (fields.length) embed.addFields(fields.slice(0, 25));
+  return embed;
 }
 
 function buildDetailedHelpEmbed(query, entries, context = {}) {
@@ -806,19 +998,19 @@ function buildSubcommandFallbackEmbed(query, visibleEntries, context = {}) {
   const prefixCommand=resolvePrefixCommandByToken(context?.client,queryToken,);
   if (prefixCommand) {
     const commandName=String(prefixCommand.name||"").trim().toLowerCase();
-    const prefixBase = getPrefixBase(prefixCommand);
+    const prefixBase = getPrefixBase(prefixCommand, context?.client);
     const subcommands=listPrefixSubcommandsForCommand(prefixCommand,commandName,permissions,);
     if (subcommands.length) {
-      const lines=subcommands.map((sub) => {const invoke=`${prefixBase}${commandName}${sub}`;
+      const lines=subcommands.map((sub) => {const invoke=`${prefixBase}${commandName} ${sub}`;
         const isVisible = visibleInvokeSet.has(normalizeInvokeLookup(invoke));
-        const lock = isVisible ? "" : " *(non accessibile con i tuoi ruoli)*";
+        const lock = isVisible ? "" : " <a:VC_Cross:1482532424570376253> Non accessibile con i tuoi ruoli.";
         const subAliases = extractDirectAliasesForSubcommand(prefixCommand, sub);
         const subAliasPart = subAliases.length ? `(${subAliases.join(", ")})` : "";
-        return `-\`${invoke}\`${subAliasPart}-${getPrefixSubcommandDescription(prefixCommand,sub)}${lock}`;
+        return `-\`${invoke}\`${subAliasPart}-${normalizeDescription(getPrefixSubcommandDescription(prefixCommand,sub))}${lock}`;
       });
       return new EmbedBuilder()
         .setColor(HELP_EMBED_COLOR)
-        .setTitle(String(`Subcommands: ${prefixBase}${commandName}`).slice(0, 256))
+        .setTitle(String(`Subcommands 🔍: ${prefixBase}${commandName}`).slice(0, 256))
         .setDescription(String(lines.join("\n")).slice(0, 4096));
     }
   }
@@ -854,7 +1046,7 @@ function buildMiniHelpEmbed(query, entries, context = {}) {
 
   return new EmbedBuilder()
     .setColor(HELP_EMBED_COLOR)
-    .setTitle(String(`Mini Help: ${query}`).slice(0, 256))
+    .setTitle(String(`Mini Help 💡: ${query}`).slice(0, 256))
     .setDescription(String(`${lines.join("\n")}${extra}`).slice(0, 4096));
 }
 
@@ -862,7 +1054,21 @@ module.exports = {
   name: "help",
   allowEmptyArgs: true,
   async execute(message, args, client) {
-    if (!message.guild || !message.member) return;
+    if (!message.guild) return;
+    if (!message.member && message.guild.members?.fetch) {
+      message.member =
+        (await getGuildMemberCached(message.guild, message.author.id, {
+          ttlMs: 20_000,
+          preferFresh: true,
+        }).catch(() => null)) || null;
+    }
+    if (!message.member) {
+      await safeMessageReply(message, {
+        content: "<a:VC_Cross:1482532424570376253> Non riesco a leggere i tuoi ruoli in questo server. Riprova tra qualche secondo.",
+        allowedMentions: NO_REPLY_MENTIONS,
+      });
+      return;
+    }
     await message.channel.sendTyping().catch(() => { });
 
     const permissions = loadPermissions();
@@ -913,7 +1119,7 @@ module.exports = {
       const page = displayPages[initialPageIndex];
       const content = String(page?.renderedText || renderPageText(page) || "").slice(0, 4096);
       return safeMessageReply(message, {
-        embeds: [new EmbedBuilder().setColor(0x6f4e37).setDescription(content || "Nessun comando.")],
+        embeds: [new EmbedBuilder().setColor(0x6f4e37).setDescription(content || "<a:VC_Cross:1482532424570376253> Nessun comando.")],
         allowedMentions: NO_REPLY_MENTIONS,
       });
     }
@@ -921,9 +1127,23 @@ module.exports = {
     const uniqueToken = `${message.id}_${Date.now()}`;
     const navState={currentIndex:initialPageIndex,total:displayPages.length,prevId:`help_prev_${uniqueToken}`,
       nextId: `help_next_${uniqueToken}`,
+      closeId: `help_close_${uniqueToken}`,
     };
 
-    const sent=await safeMessageReply(message,{components:[buildHelpV2Container(displayPages[navState.currentIndex],navState)],flags:MessageFlags.IsComponentsV2,allowedMentions:NO_REPLY_MENTIONS,});
+    let helpUsesComponentsV2 = true;
+    let sent = await safeMessageReply(message, {
+      components: [buildHelpV2Container(displayPages[navState.currentIndex], navState)],
+      flags: MessageFlags.IsComponentsV2,
+      allowedMentions: NO_REPLY_MENTIONS,
+    });
+    if (!sent) {
+      helpUsesComponentsV2 = false;
+      sent = await safeMessageReply(message, {
+        embeds: [buildHelpFallbackEmbed(displayPages[navState.currentIndex])],
+        components: navState.total > 1 ? [buildNavigationRow(navState)] : [],
+        allowedMentions: NO_REPLY_MENTIONS,
+      });
+    }
     if (!sent) return;
 
     const collector=sent.createMessageComponentCollector({time:MAX_HELP_COLLECTOR_MS,idle:MAX_HELP_COLLECTOR_MS,});
@@ -932,8 +1152,7 @@ module.exports = {
       if (interaction.user.id !== message.author.id) {
         await interaction
           .reply({
-            content:
-              "<:vegax:1443934876440068179> Puoi usare i bottoni solo sul tuo help.",
+            content: "<a:VC_Cross:1482532424570376253> Puoi usare i bottoni solo sul tuo help.",
             flags: PRIVATE_FLAG,
           })
           .catch(() => { });
@@ -941,10 +1160,15 @@ module.exports = {
       }
 
       const prevIndex = navState.currentIndex;
-      if (
-        interaction.customId === navState.prevId &&
-        navState.currentIndex > 0
-      ) {
+      if (interaction.customId === navState.closeId) {
+        collector.stop("closed_by_user");
+        await interaction.message?.delete?.().catch(() => {});
+        if (message?.deletable) {
+          await message.delete().catch(() => {});
+        }
+        return;
+      }
+      if (interaction.customId === navState.prevId && navState.currentIndex > 0) {
         navState.currentIndex -= 1;
       } else if (
         interaction.customId === navState.nextId &&
@@ -954,7 +1178,21 @@ module.exports = {
       }
 
       const page = displayPages[navState.currentIndex];
-      const updated=await interaction.update({components:[buildHelpV2Container(page,navState)],}).then(() => true).catch(() => false);
+      let updated = false;
+      if (helpUsesComponentsV2) {
+        updated = await interaction
+          .update({ components: [buildHelpV2Container(page, navState)] })
+          .then(() => true)
+          .catch(() => false);
+      } else {
+        updated = await interaction
+          .update({
+            embeds: [buildHelpFallbackEmbed(page)],
+            components: navState.total > 1 ? [buildNavigationRow(navState)] : [],
+          })
+          .then(() => true)
+          .catch(() => false);
+      }
       if (!updated) {
         navState.currentIndex = prevIndex;
       }

@@ -1,3 +1,4 @@
+const { PermissionsBitField, OverwriteType } = require("discord.js");
 const IDs = require("../Config/ids");
 const { ActivityUserProfile, CustomRole } = require("../../Schemas/Community/communitySchemas");
 const { getLevelInfo, getGlobalMultiplier, getGuildExpSettings, getRoleMultiplier, getResolvedWeeklyExpMultiplier } = require("../../Services/Community/expService");
@@ -5,9 +6,10 @@ const {
   computeLeaderboardRows,
   getRomeDayKey,
 } = require("../../Prefix/Level/classifica");
-const { findCustomVoiceByRole } = require("../Interaction/customRoleUtils");
+const { findCustomVoiceByOwner, findCustomVoiceByRole } = require("../Interaction/customRoleUtils");
 const { getRankCardThemeFromDoc, resolveRankCardWallpaper } = require("../Render/rankCardTheme");
 const { userAvatarUrlDynamic, guildMemberDisplayAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
+const { getEffectiveJoinedAt } = require("../../Services/Community/effectiveMemberJoinService");
 
 const LIST_CACHE_TTL_MS = 30_000;
 const listCache = new Map();
@@ -68,12 +70,12 @@ async function fetchDiscordUserForIdentity(client, guild, userId) {
 }
 
 function boardQuery(board, guildId) {
-  const g = { guildId };
-  if (board === "level") return { ...g, "profile.totals.exp.totalExp": { $gt: 0 } };
+  const g = { guildId, "profile.totals.exp.totalExp": { $gt: 0 } };
+  if (board === "level") return g;
   if (board === "weekly") return { ...g, "profile.totals.exp.weeklyExp": { $gt: 0 } };
   if (board === "messages") return { ...g, "profile.totals.messagesTotal": { $gt: 0 } };
   if (board === "voice") return { ...g, "profile.totals.voiceTotalSeconds": { $gt: 0 } };
-  return { ...g, "profile.totals.exp.totalExp": { $gt: 0 } };
+  return g;
 }
 
 function boardSort(board) {
@@ -173,12 +175,21 @@ async function buildCustomProfileData(guild, userId) {
       ? guild.roles.cache.get(String(doc.secondaryRoleId)) || (await guild.roles.fetch(String(doc.secondaryRoleId)).catch(() => null))
       : null;
   const channelId = String(doc.customVocChannelId || "").trim();
+  const storedVoice = channelId
+    ? guild.channels.cache.get(channelId) || (await guild.channels.fetch(channelId).catch(() => null))
+    : null;
   const voice =
-    channelId
-      ? guild.channels.cache.get(channelId) || (await guild.channels.fetch(channelId).catch(() => null))
-      : role
-        ? findCustomVoiceByRole(guild, role.id)
-        : null;
+    storedVoice ||
+    findCustomVoiceByOwner(guild, userId) ||
+    (role ? findCustomVoiceByRole(guild, role.id) : null) ||
+    (secondaryRole ? findCustomVoiceByRole(guild, secondaryRole.id) : null);
+
+  if (voice?.id && String(doc.customVocChannelId || "") !== String(voice.id)) {
+    await CustomRole.updateOne(
+      { guildId: guild.id, userId: String(userId) },
+      { $set: { customVocChannelId: String(voice.id) } },
+    ).catch(() => null);
+  }
 
   let roleMembers = role?.members ? Array.from(role.members.values()).filter((m) => !m.user?.bot) : [];
   if (role && roleMembers.length === 0) {
@@ -215,14 +226,39 @@ async function buildCustomProfileData(guild, userId) {
       avatarUrl: guildMemberDisplayAvatarUrlDynamic(member, { size: 128 }) || "",
     }))
     .filter((member) => member.id);
+  /** Solo utenti aggiunti alla voc (overwrite membro: Connect+ViewChannel, senza Gestisci canali come il proprietario). */
   let voiceSharedCount = 0;
+  const voiceSharedMembers = [];
   if (voice?.permissionOverwrites?.cache) {
+    const ownerSid = String(userId || "").trim();
+    const botSid = String(guild.members?.me?.id || guild.client?.user?.id || "").trim();
+    const V = PermissionsBitField.Flags.ViewChannel;
+    const C = PermissionsBitField.Flags.Connect;
+    const M = PermissionsBitField.Flags.ManageChannels;
+    const sharedIds = [];
     voice.permissionOverwrites.cache.forEach((overwrite) => {
-      if (String(overwrite.id || "") === String(guild.id || "")) return;
-      if (overwrite.type !== 1 && overwrite.type !== 0) return;
-      if (!overwrite.allow?.has?.("ViewChannel")) return;
+      if (overwrite.type !== OverwriteType.Member) return;
+      const sid = String(overwrite.id || "");
+      if (!sid || sid === ownerSid || (botSid && sid === botSid)) return;
+      const allow = overwrite.allow;
+      if (!allow?.has?.(V) || !allow?.has?.(C)) return;
+      if (allow.has(M)) return;
+      sharedIds.push(sid);
       voiceSharedCount += 1;
     });
+    for (const sid of sharedIds.slice(0, 60)) {
+      const member = guild.members.cache.get(sid) || (await guild.members.fetch({ user: sid, force: true }).catch(() => null));
+      if (!member || member.user?.bot) continue;
+      voiceSharedMembers.push({
+        id: String(member.id || member.user?.id || ""),
+        username: String(member.user?.username || "").trim(),
+        displayName: String(member.user?.username || "Utente").trim(),
+        avatarUrl: guildMemberDisplayAvatarUrlDynamic(member, { size: 128 }) || "",
+      });
+    }
+    voiceSharedMembers.sort((a, b) =>
+      String(a.username || "").localeCompare(String(b.username || ""), "it"),
+    );
   }
 
   return {
@@ -264,6 +300,7 @@ async function buildCustomProfileData(guild, userId) {
           emoji: String(doc?.customVocEmoji || "").trim(),
           createdAt: voice.createdAt ? new Date(voice.createdAt).toISOString() : "",
           memberCount: voiceSharedCount,
+          sharedMembers: voiceSharedMembers,
         }
       : null,
   };
@@ -614,7 +651,7 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
         const mt = nInt(doc.profile?.totals?.messagesTotal);
         pageMaxSecondary = Math.max(1, mt);
         const higherAgg = await ActivityUserProfile.aggregate([
-          { $match: { guildId } },
+          { $match: { guildId, "profile.totals.exp.totalExp": { $gt: 0 } } },
           { $addFields: { __sortVal: numericSortExpr("messages") } },
           { $match: { __sortVal: { $gt: mt } } },
           { $count: "n" },
@@ -625,7 +662,7 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
         const vs = nInt(doc.profile?.totals?.voiceTotalSeconds);
         pageMaxSecondary = Math.max(1, vs);
         const higherAgg = await ActivityUserProfile.aggregate([
-          { $match: { guildId } },
+          { $match: { guildId, "profile.totals.exp.totalExp": { $gt: 0 } } },
           { $addFields: { __sortVal: numericSortExpr("voice") } },
           { $match: { __sortVal: { $gt: vs } } },
           { $count: "n" },
@@ -664,6 +701,8 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
       const stats = buildSearchStats(guild, board, doc, row.username, globalExpMultiplier, hourlySingular, null);
       const member =
         guild?.members?.cache?.get?.(searchId) || (guild ? await guild.members.fetch({ user: searchId, force: true }).catch(() => null) : null);
+      const profileAvatarUrl =
+        (member && guildMemberDisplayAvatarUrlDynamic(member, { size: 256 })) || String(row.avatarUrl || "").trim();
       const profileRoles = member?.roles?.cache
         ? [...member.roles.cache.values()]
             .filter((role) => String(role?.id || "") && String(role.id) !== String(guild?.id || ""))
@@ -680,6 +719,7 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
       const weeklyMultiplierSources =
         board === "weekly" ? buildWeeklyMultiplierSources(member, guildExpSettings, globalExpMultiplier) : null;
       const customProfile = await buildCustomProfileData(guild, searchId);
+      const effectiveJoined = member ? await getEffectiveJoinedAt(member).catch(() => null) : null;
       if (guild && (board === "messages" || board === "voice")) {
         stats.siteRomeCalendarDay = getRomeDayKey(new Date());
       }
@@ -698,8 +738,12 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
           userId: String(row.userId || searchId),
           username: String(row.username || "").trim(),
           displayName: String((member && member.user?.username) || row.username || "").trim(),
-          avatarUrl: String(row.avatarUrl || "").trim(),
-          joinedAt: member?.joinedAt ? new Date(member.joinedAt).toISOString() : "",
+          avatarUrl: String(profileAvatarUrl || "").trim(),
+          joinedAt: effectiveJoined
+            ? effectiveJoined.toISOString()
+            : member?.joinedAt
+              ? new Date(member.joinedAt).toISOString()
+              : "",
           rankCard: getRankCardThemeFromDoc(doc),
           rankCardResolvedWallpaper: resolveRankCardWallpaper(doc?.profile?.rankCard || {}),
           roles: profileRoles,
@@ -819,7 +863,7 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
     if (board === "messages" || board === "voice") {
       const sortExpr = numericSortExpr(board);
       const agg = await ActivityUserProfile.aggregate([
-        { $match: { guildId } },
+        { $match: { guildId, "profile.totals.exp.totalExp": { $gt: 0 } } },
         { $addFields: { __sortVal: sortExpr } },
         { $match: { __sortVal: { $gt: 0 } } },
         { $sort: { __sortVal: -1 } },

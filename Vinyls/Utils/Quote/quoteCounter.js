@@ -1,6 +1,8 @@
 const {
   nextQuoteCount,
+  nextRepostCount,
+  nextClipCount,
   decrementQuoteCount,
 } = require("../Global/globalSettingsBucket");
 
-module.exports = { nextQuoteCount, decrementQuoteCount };
+module.exports = { nextQuoteCount, nextRepostCount, nextClipCount, decrementQuoteCount };

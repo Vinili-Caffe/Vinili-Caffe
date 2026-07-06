@@ -35,6 +35,7 @@ function ticketMatchesFilter(t, filter) {
   if (filter.open !== undefined && Boolean(t.open) !== Boolean(filter.open)) return false;
   if (filter.guildId !== undefined && String(t.guildId || "") !== String(filter.guildId)) return false;
   if (filter.userId !== undefined && String(t.userId) !== String(filter.userId)) return false;
+  if (filter.ticketType !== undefined && String(t.ticketType || "") !== String(filter.ticketType)) return false;
   if (filter.ticketNumber !== undefined && Number(t.ticketNumber) !== Number(filter.ticketNumber)) return false;
   if (Object.prototype.hasOwnProperty.call(filter, "claimedBy") && !Array.isArray(filter.$or)) {
     if (String(t.claimedBy || "") !== String(filter.claimedBy || "")) return false;
@@ -159,6 +160,24 @@ async function readTicketByRef(bucketId, ticketId) {
   return fresh.tickets.id(ticketId) || null;
 }
 
+async function execTicketFindAllBuckets(query) {
+  const all = await GuildFeatureBucket.find({}).catch(() => []);
+  const rows = [];
+  for (const bucket of all) {
+    for (const t of bucket.tickets || []) {
+      if (!ticketMatchesFilter(t, query.filter)) continue;
+      if (query._lean) {
+        const o = t.toObject ? t.toObject() : { ...t };
+        rows.push(projectTicketFields(o, query.projection));
+      } else {
+        rows.push(t);
+      }
+      if (query._limit != null && rows.length >= query._limit) return rows;
+    }
+  }
+  return rows;
+}
+
 class TicketFindQuery {
   constructor(filter, projection) {
     this.filter = filter;
@@ -178,21 +197,36 @@ class TicketFindQuery {
   }
 
   async exec() {
-    const all = await GuildFeatureBucket.find({}).catch(() => []);
-    const rows = [];
-    for (const bucket of all) {
-      for (const t of bucket.tickets || []) {
-        if (!ticketMatchesFilter(t, this.filter)) continue;
+    const f = this.filter || {};
+    if (f && typeof f === "object" && Array.isArray(f.$or) && f.$or.length) {
+      return execTicketFindAllBuckets(this);
+    }
+    const gid = f.guildId != null ? String(f.guildId) : "";
+    if (gid) {
+      const bucket = await GuildFeatureBucket.findOne({ guildId: gid }).catch(() => null);
+      const rows = [];
+      for (const t of bucket?.tickets || []) {
+        if (!ticketMatchesFilter(t, f)) continue;
         if (this._lean) {
           const o = t.toObject ? t.toObject() : { ...t };
           rows.push(projectTicketFields(o, this.projection));
         } else {
           rows.push(t);
         }
-        if (this._limit != null && rows.length >= this._limit) return rows;
       }
+      if (Object.prototype.hasOwnProperty.call(f, "open") && f.open === false && rows.length > 1) {
+        rows.sort((a, b) => {
+          const ta = a.closedAt ? new Date(a.closedAt).getTime() : a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+          const tb = b.closedAt ? new Date(b.closedAt).getTime() : b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+          return tb - ta;
+        });
+      }
+      if (this._limit != null && rows.length > this._limit) {
+        return rows.slice(0, this._limit);
+      }
+      return rows;
     }
-    return rows;
+    return execTicketFindAllBuckets(this);
   }
 
   then(onFulfilled, onRejected) {
@@ -260,6 +294,16 @@ const Ticket = {
     return GuildFeatureBucket.findOne({ "tickets._id": id }).then((bucket) => {
       if (!bucket) return null;
       return bucket.tickets.id(id) || null;
+    });
+  },
+
+  findOneByTranscriptViewToken(token) {
+    const t = String(token || "").trim().toLowerCase();
+    if (!/^[a-f0-9]{64}$/.test(t)) return Promise.resolve(null);
+    return GuildFeatureBucket.findOne({ "tickets.transcriptViewToken": t }).then((bucket) => {
+      if (!bucket?.tickets) return null;
+      const sub = bucket.tickets.find((x) => String(x.transcriptViewToken || "").toLowerCase() === t);
+      return sub || null;
     });
   },
 

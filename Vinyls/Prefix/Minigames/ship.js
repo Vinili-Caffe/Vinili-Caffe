@@ -1,7 +1,7 @@
 const { randomInt } = require("crypto");
 const { AttachmentBuilder, EmbedBuilder } = require("discord.js");
 const { getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
-const { guildMemberDisplayAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
+const { guildMemberDisplayAvatarUrlDynamic, guildMemberDisplayAvatarUrlStatic, userAvatarUrlDynamic, userAvatarUrlStatic } = require("../../Utils/Discord/guildDiscordIdentity");
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const renderShipCanvas = require("../../Utils/Render/shipCanvas");
 
@@ -40,26 +40,40 @@ function trimName(name) {
   return v.length > 16 ? `${v.slice(0, 16)}...` : v;
 }
 
-/** Percentuale 0–100: RNG forte + mix di distribuzioni + rumore per invocazione (meno “sempre uguali / sempre basse”). */
+function resolveShipAvatarUrls(member, user) {
+  const target = member || user;
+  const staticUrl =
+    guildMemberDisplayAvatarUrlStatic(target, { size: 256 }) ||
+    userAvatarUrlStatic(user, { size: 256 }) ||
+    "";
+  const dynamicUrl =
+    guildMemberDisplayAvatarUrlDynamic(target, { size: 256 }) ||
+    userAvatarUrlDynamic(user, { size: 256 }) ||
+    staticUrl;
+  return {
+    dynamicUrl: dynamicUrl || "",
+    staticUrl: staticUrl || dynamicUrl || "",
+  };
+}
+
 function randomShipPercent(messageId) {
   const roll = () => randomInt(1, 101);
-  const d = [roll(), roll(), roll(), roll()];
   const pick = randomInt(0, 100);
   let v;
-  if (pick < 26) v = Math.max(d[0], d[1]);
-  else if (pick < 52) v = Math.round((d[0] + d[1] + d[2]) / 3);
-  else if (pick < 70) v = d[randomInt(0, 4)];
-  else if (pick < 86) v = Math.round((d[0] + d[1] + d[2] + d[3]) / 4);
-  else if (pick < 96) v = Math.max(d[0], d[1], d[2]);
-  else v = Math.min(d[0], d[1]);
+  if (pick < 45) v = Math.round((roll() + roll() + roll()) / 3);
+  else if (pick < 80) v = Math.round((roll() + roll() + roll() + roll()) / 4);
+  else if (pick < 93) v = roll();
+  else v = Math.round((roll() + roll()) / 2);
 
-  const hr = Number(process.hrtime.bigint() % 4096n);
-  const idJitter =
+  const idSalt =
     typeof messageId === "string" && /^\d{10,30}$/.test(messageId)
-      ? Number(BigInt(messageId) % 31n) - 15
-      : randomInt(-15, 16);
-  const tweak = randomInt(-24, 25) + (hr % 35) - 17 + idJitter;
-  return Math.max(0, Math.min(100, v + tweak));
+      ? Number(BigInt(messageId) % 37n) - 18
+      : randomInt(-18, 19);
+  const tweak = randomInt(-12, 13) + Math.round(idSalt / 2);
+  v = Math.max(0, Math.min(99, v + tweak));
+
+  if (randomInt(1, 121) === 1) return 100;
+  return v;
 }
 
 module.exports = {
@@ -128,14 +142,18 @@ module.exports = {
       const guild = message.guild;
       const leftMem =
         guild?.members.cache.get(left.id) ||
-        (await getGuildMemberCached(guild, left.id).catch(() => null));
+        (await getGuildMemberCached(guild, left.id, { preferFresh: true }).catch(() => null));
       const rightMem =
         guild?.members.cache.get(right.id) ||
-        (await getGuildMemberCached(guild, right.id).catch(() => null));
+        (await getGuildMemberCached(guild, right.id, { preferFresh: true }).catch(() => null));
+      const leftAvatars = resolveShipAvatarUrls(leftMem, left);
+      const rightAvatars = resolveShipAvatarUrls(rightMem, right);
       const percent = randomShipPercent(message.id);
       const { buffer, format } = await renderShipCanvas({
-        leftAvatarUrl: guildMemberDisplayAvatarUrlDynamic(leftMem || left, { size: 512 }) || "",
-        rightAvatarUrl: guildMemberDisplayAvatarUrlDynamic(rightMem || right, { size: 512 }) || "",
+        leftAvatarUrl: leftAvatars.dynamicUrl,
+        rightAvatarUrl: rightAvatars.dynamicUrl,
+        leftAvatarStaticUrl: leftAvatars.staticUrl,
+        rightAvatarStaticUrl: rightAvatars.staticUrl,
         leftName: trimName(left.username),
         rightName: trimName(right.username),
         leftId: left.id,

@@ -70,13 +70,13 @@ const COMPLETE_VERSE_BANK = [
   { verse: "I want it that ___", answer: "way", song: "I Want It That Way", artist: "Backstreet Boys" },
   { verse: "Hello from the ___", answer: "other side", song: "Hello", artist: "Adele" },
   { verse: "Cause baby you're a ___", answer: "firework", song: "Firework", artist: "Katy Perry" },
-  { verse: "Let it go, let it ___", answer: "go", song: "Let It Go", artist: "Idina Menzel" },
+  { verse: "Can't hold it back ___", answer: "anymore", song: "Let It Go", artist: "Idina Menzel" },
   { verse: "Don't stop ___", answer: "believin'", song: "Don't Stop Believin'", artist: "Journey" },
   { verse: "Somebody that I used to ___", answer: "know", song: "Somebody That I Used to Know", artist: "Gotye" },
   { verse: "Voglio una vita ___", answer: "da cani", song: "Voglio una vita da cani", artist: "Ligabue" },
   { verse: "E dimmi che non ___", answer: "passa", song: "E dimmi che non passi mai", artist: "Tiziano Ferro" },
-  { verse: "Bella ciao, bella ___", answer: "ciao", song: "Bella ciao", artist: "Tradizionale" },
-  { verse: "Volare, oh oh, cantare ___", answer: "oh oh oh oh", song: "Volare", artist: "Domenico Modugno" },
+  { verse: "O partigiano, ___", answer: "portami via", song: "Bella ciao", artist: "Tradizionale" },
+  { verse: "Volare oh oh, ___ oh oh oh oh", answer: "cantare", song: "Volare", artist: "Domenico Modugno" },
   { verse: "L'italiano vero si vede dal ___", answer: "caffè", song: "L'italiano", artist: "Toto Cutugno" },
   { verse: "We are the ___", answer: "champions", song: "We Are the Champions", artist: "Queen" },
   { verse: "Sweet ___", answer: "child o' mine", song: "Sweet Child O' Mine", artist: "Guns N' Roses" },
@@ -88,8 +88,8 @@ const COMPLETE_VERSE_BANK = [
   { verse: "Eye of the ___", answer: "tiger", song: "Eye of the Tiger", artist: "Survivor" },
   { verse: "Another one bites the ___", answer: "dust", song: "Another One Bites the Dust", artist: "Queen" },
   { verse: "Like a ___", answer: "virgin", song: "Like a Virgin", artist: "Madonna" },
-  { verse: "Nel blu dipinto di ___", answer: "blu", song: "Volare", artist: "Domenico Modugno" },
-  { verse: "Con te partirò ___", answer: "sarò con te", song: "Con te partirò", artist: "Andrea Bocelli" },
+  { verse: "Nel blu dipinto di blu, felice te ___ lì", answer: "pare", song: "Volare", artist: "Domenico Modugno" },
+  { verse: "Con te partirò su navi per ___", answer: "mari", song: "Con te partirò", artist: "Andrea Bocelli" },
   { verse: "L'amore è ___", answer: "un'altra cosa", song: "L'amore è", artist: "Tiziano Ferro" },
 ];
 
@@ -499,9 +499,79 @@ const ITALIAN_GK_BANK = [
   { question: "In quale regione si trova Napoli?", answers: ["Campania"] },
   { question: "Chi compose il Nabucco?", answers: ["Giuseppe Verdi", "Verdi"] },
   { question: "Qual è il capoluogo della Lombardia?", answers: ["Milano"] },
-  { question: "Quale mare bagna la Puglia?", answers: ["Adriatico", "Ionio", "Mar Adriatico", "Mar Ionio"] },
+  { question: "Quale mare bagna la Puglia?", answers: ["Adriatico", "Ionio", "Mar Adriatico", "Mar Ionio", "Mediterraneo", "Mare Mediterraneo"] },
   { question: "Chi scoprì l'America nel 1492?", answers: ["Cristoforo Colombo", "Colombo"] },
   { question: "Qual è la regione più a sud d'Italia?", answers: ["Sicilia", "Calabria"] },
+];
+
+const { HOGWARTS_QUIZ_BANK } = require("./hogwartsQuizBank");
+
+const HOGWARTS_CIPHER_BANK = [
+  { word: "Erbicida", answers: ["Erbicida"] },
+  { word: "Expelliarmus", answers: ["Expelliarmus"] },
+  { word: "Lumos", answers: ["Lumos"] },
+  { word: "Accio", answers: ["Accio"] },
+  { word: "Alohomora", answers: ["Alohomora"] },
+  { word: "Oblivion", answers: ["Oblivion"] },
+  { word: "Protego", answers: ["Protego"] },
+  { word: "Reducto", answers: ["Reducto"] },
+  { word: "Incendio", answers: ["Incendio"] },
+  { word: "Reparo", answers: ["Reparo"] },
+  { word: "Diffindo", answers: ["Diffindo"] },
+  { word: "Stupeficium", answers: ["Stupeficium"] },
+  { word: "Rictusempra", answers: ["Rictusempra"] },
+  { word: "Sectumsempra", answers: ["Sectumsempra"] },
+  { word: "Wingardium", answers: ["Wingardium", "Wingardium Leviosa"] },
+  { word: "Veritaserum", answers: ["Veritaserum"] },
+  { word: "Polisucco", answers: ["Polisucco", "Pozione Polisucco"] },
+  { word: "Amortentia", answers: ["Amortentia"] },
+  { word: "Felix", answers: ["Felix", "Felix Felicis"] },
+  { word: "Antidoto", answers: ["Antidoto"] },
+  { word: "Bacchetta", answers: ["Bacchetta"] },
+  { word: "Gufo", answers: ["Gufo"] },
+  { word: "Libro", answers: ["Libro"] },
+  { word: "Incantesimo", answers: ["Incantesimo"] },
+  { word: "Pozione", answers: ["Pozione"] },
+  { word: "Boccetta", answers: ["Boccetta"] },
+  { word: "Occhiali", answers: ["Occhiali"] },
+  { word: "Cicatrice", answers: ["Cicatrice"] },
+  { word: "Naso", answers: ["Naso"] },
+];
+
+const HOGWARTS_MEMORY_EMOJI_BANK = [
+  { sequence: ["⚡", "🦉", "📚", "🧹"] },
+  { sequence: ["🪄", "🏰", "🕯️", "🗝️"] },
+  { sequence: ["🦁", "📜", "⭐", "🧪"] },
+  { sequence: ["🐍", "🔮", "🧹", "🍬"] },
+  { sequence: ["🦡", "📚", "🪄", "🚂"] },
+  { sequence: ["🦅", "🕯️", "⚡", "📜"] },
+  { sequence: ["🐉", "🗝️", "🦉", "⭐"] },
+  { sequence: ["🚂", "🏰", "🍬", "🔮"] },
+  { sequence: ["📜", "🧪", "🪄", "🦁", "⚡"] },
+  { sequence: ["🦉", "🧹", "🐍", "🕯️", "📚"] },
+  { sequence: ["🏰", "🗝️", "🦡", "🔮", "🚂"] },
+  { sequence: ["🐉", "⭐", "📜", "🍬", "🪄"] },
+  { sequence: ["⚡", "🧪", "🦅", "🧹", "🦉"] },
+  { sequence: ["🦁", "🏰", "🗝️", "📚", "🐍"] },
+  { sequence: ["🍬", "🕯️", "🚂", "🔮", "🦡"] },
+];
+
+const MEMORY_EMOJI_BANK = [
+  { sequence: ["🎧", "☕", "💿", "🎲"] },
+  { sequence: ["🍕", "🎬", "⭐", "🎮"] },
+  { sequence: ["🎵", "📻", "🕹️", "🏆"] },
+  { sequence: ["📚", "🍿", "🎧", "🔥"] },
+  { sequence: ["☕", "🎲", "🎬", "💿"] },
+  { sequence: ["⭐", "🎮", "🍕", "🎵"] },
+  { sequence: ["🏆", "📻", "🔥", "🍿"] },
+  { sequence: ["🕹️", "📚", "☕", "🎧"] },
+  { sequence: ["💿", "🎲", "⭐", "🎬", "🍕"] },
+  { sequence: ["🎮", "🔥", "📻", "☕", "🏆"] },
+  { sequence: ["🍿", "🎵", "🕹️", "📚", "💿"] },
+  { sequence: ["🎧", "🎬", "🎲", "🔥", "⭐"] },
+  { sequence: ["☕", "🍕", "🏆", "📻", "🎮"] },
+  { sequence: ["📚", "💿", "🍿", "🕹️", "🎵"] },
+  { sequence: ["🔥", "🎧", "⭐", "☕", "🎲"] },
 ];
 
 const DRIVING_TRUE_FALSE_BANK = [
@@ -644,6 +714,10 @@ function shuffleBankInPlace(arr) {
   CAPITAL_QUIZ_BANK,
   ITALIAN_REGION_CAPITAL_BANK,
   ITALIAN_GK_BANK,
+  HOGWARTS_QUIZ_BANK,
+  HOGWARTS_CIPHER_BANK,
+  HOGWARTS_MEMORY_EMOJI_BANK,
+  MEMORY_EMOJI_BANK,
   DRIVING_TRUE_FALSE_BANK,
   DRIVING_MULTIPLE_CHOICE_BANK,
   DRIVING_SIGN_QUESTIONS,
@@ -655,8 +729,36 @@ function getGuessYearBank() {
   return GUESS_YEAR_BANK;
 }
 
+function normalizeCompleteVerseText(value) {
+  return String(value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9'\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isCompleteVerseTooEasy(verse, answer) {
+  const visible = String(verse || "").split("___")[0] || "";
+  const visibleNorm = normalizeCompleteVerseText(visible);
+  const answerNorm = normalizeCompleteVerseText(answer);
+  if (!answerNorm || !visibleNorm) return false;
+  if (visibleNorm.includes(answerNorm)) return true;
+  const answerTokens = answerNorm.split(" ").filter((token) => token.length >= 2);
+  const visibleWords = visibleNorm.split(" ").filter(Boolean);
+  const visibleSet = new Set(visibleWords);
+  if (answerTokens.length === 1) {
+    const token = answerTokens[0];
+    if (visibleSet.has(token)) return true;
+    if (visibleWords.some((word) => word.length >= 3 && word.includes(token))) return true;
+  }
+  if (answerTokens.length > 0 && answerTokens.every((token) => visibleSet.has(token))) return true;
+  return false;
+}
+
 function getCompleteVerseBank() {
-  return COMPLETE_VERSE_BANK;
+  return COMPLETE_VERSE_BANK.filter((row) => !isCompleteVerseTooEasy(row.verse, row.answer));
 }
 
 function getGuessEmojiBank() {
@@ -691,6 +793,22 @@ function getItalianGkBank() {
   return ITALIAN_GK_BANK;
 }
 
+function getHogwartsQuizBank() {
+  return HOGWARTS_QUIZ_BANK;
+}
+
+function getHogwartsCipherBank() {
+  return HOGWARTS_CIPHER_BANK;
+}
+
+function getHogwartsMemoryEmojiBank() {
+  return HOGWARTS_MEMORY_EMOJI_BANK;
+}
+
+function getMemoryEmojiBank() {
+  return MEMORY_EMOJI_BANK;
+}
+
 function getDrivingTrueFalseBank() {
   return DRIVING_TRUE_FALSE_BANK;
 }
@@ -711,6 +829,23 @@ function getHangmanWords() {
   return HANGMAN_WORDS;
 }
 
+const TREASURE_HUNT_EMOJI_PAIRS = [
+  { decoy: "\u{1F343}", winner: "\u{1F48E}" },
+  { decoy: "\u{1FAA8}", winner: "\u{1F4B0}" },
+  { decoy: "\u{1F33F}", winner: "\u{1F4E6}" },
+  { decoy: "\u{1F342}", winner: "\u{1F5DD}\u{FE0F}" },
+  { decoy: "\u{1F33E}", winner: "\u{1F4DC}" },
+  { decoy: "\u{1F300}", winner: "\u{1F48D}" },
+  { decoy: "\u{1F311}", winner: "\u{1F31F}" },
+  { decoy: "\u{2B1B}", winner: "\u{1F7E8}" },
+  { decoy: "\u{1F7EB}", winner: "\u{1FA99}" },
+  { decoy: "\u{1F32B}\u{FE0F}", winner: "\u{1F3C6}" },
+];
+
+function getTreasureHuntEmojiPairs() {
+  return TREASURE_HUNT_EMOJI_PAIRS;
+}
+
 module.exports = {
   getGuessYearBank,
   getCompleteVerseBank,
@@ -722,11 +857,16 @@ module.exports = {
   getCapitalQuizBank,
   getItalianRegionCapitalBank,
   getItalianGkBank,
+  getHogwartsQuizBank,
+  getHogwartsCipherBank,
+  getHogwartsMemoryEmojiBank,
+  getMemoryEmojiBank,
   getDrivingTrueFalseBank,
   getDrivingMultipleChoiceBank,
   getDrivingSignQuestions,
   getFastTypingPhrases,
   getHangmanWords,
+  getTreasureHuntEmojiPairs,
   CAPITAL_ITALIAN,
   CAPITAL_COUNTRY_REGION,
   REGION_AREA,

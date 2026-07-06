@@ -1,12 +1,42 @@
+# Plugin JAR: blocco `lavalink.plugins` (sibling di `lavalink.server`), vedi Lavalink/README.md.
+# Se PM2 avvia `java -jar` con cwd fuori da questa cartella, usa `start-lavalink.sh` (passa spring.config.additional-location).
 server:
   port: 2333
-  address: 0.0.0.0
+  address: 127.0.0.1
 
 logging:
   level:
     root: ERROR
+    lavalink: ERROR
   request:
     enabled: false
+
+plugins:
+  lavasrc:
+    providers:
+      - "ytsearch:\"%ISRC%\""
+      - "ytsearch:%QUERY%"
+    sources:
+      spotify: true
+    spotify:
+      clientId: "5e7d3614e8d94e008e0917f2e230d89b"
+      clientSecret: "4e0ce68e108d423592624a13cd17efeb"
+      countryCode: "IT"
+      playlistLoadLimit: 6
+      albumLoadLimit: 6
+  youtube:
+    enabled: true
+    allowSearch: true
+    allowDirectVideoIds: true
+    allowDirectPlaylistIds: true
+    clients:
+      - MUSIC
+      - TVHTML5_SIMPLY
+      - ANDROID_VR
+      - WEB
+    clientOptions:
+      WEB:
+        playback: false
 
 lavalink:
   server:
@@ -18,5 +48,7 @@ lavalink:
     sources:
       youtube: false
   plugins:
-    - dependency: "dev.lavalink.youtube:youtube-plugin:1.18.0"
+    - dependency: "dev.lavalink.youtube:youtube-plugin:1.18.1"
+      repository: "https://maven.lavalink.dev/releases"
+    - dependency: "com.github.topi314.lavasrc:lavasrc-plugin:4.8.1"
       repository: "https://maven.lavalink.dev/releases"

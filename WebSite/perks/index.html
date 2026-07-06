@@ -1,0 +1,992 @@
+<!DOCTYPE html>
+<html lang="it">
+
+<head>
+  {{COOKIEYES_BLOCK}}{{GA_BLOCK}}
+  <meta charset="utf-8" />
+  <title>{{PERKS_PAGE_TITLE}}</title>
+  <meta name="description" content="{{PERKS_META_DESCRIPTION}}" />
+  <meta name="author" content="{{SITE_NAME}}" />
+  <meta name="robots" content="index, follow" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="{{PERKS_OG_TITLE}}" />
+  <meta property="og:description" content="{{PERKS_META_DESCRIPTION}}" />
+  <meta property="og:url" content="{{PERKS_OG_URL}}" />
+  <meta property="og:image" content="{{OG_IMAGE_URL}}" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600&amp;family=Inter:wght@400;500;600;700;800&amp;display=swap"
+    rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css"
+    crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <link rel="stylesheet" href="../css/tw-build.css" />
+  <link rel="stylesheet" href="../css/vc-landing.css" />
+  <script src="../js/vc-auth-pending.js"></script>
+  <link rel="icon" href="{{GUILD_ICON_URL}}" />
+</head>
+
+<body id="top"
+  class="vc-body vc-donazioni-page vc-perks-page relative min-h-screen overflow-x-hidden font-sans text-slate-100 antialiased">
+  <div class="vc-blob vc-blob-a" aria-hidden="true"></div>
+  <div class="vc-blob vc-blob-b" aria-hidden="true"></div>
+  <div class="vc-blob vc-blob-c" aria-hidden="true"></div>
+
+  <header class="fixed inset-x-0 top-0 z-50 px-4 pt-4">
+    <div
+      class="vc-nav-shell vc-glass mx-auto flex max-w-6xl flex-col gap-0 overflow-visible rounded-2xl border border-white/[0.08] bg-[#140f0c]/78 shadow-[0_8px_40px_rgba(0,0,0,0.48),0_0_48px_rgba(212,168,136,0.07)]">
+      <div
+        class="vc-header-bar grid w-full grid-cols-1 items-center gap-y-2.5 gap-x-2 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:gap-x-3 sm:px-5">
+        <div class="flex min-w-0 items-center gap-2.5 justify-self-start sm:gap-3">
+          <a class="vc-header-logo-link shrink-0 rounded-2xl ring-1 ring-[#d4a888]/35 transition hover:ring-[#d4a888]/55 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#d4a888]/60"
+            href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer" aria-label="Entra su Discord"><img
+              src="{{GUILD_ICON_URL}}" width="40" height="40" class="vc-header-logo-img" alt=""
+              loading="eager" decoding="async" /></a>
+          <a class="min-w-0 truncate text-[0.7rem] font-bold uppercase tracking-[0.18em] text-white underline-offset-4 transition hover:text-[#e8c9a8] hover:underline sm:text-xs"
+            href="{{SITE_URL}}" aria-label="Vai alla homepage">{{SITE_NAME}}</a>
+        </div>
+        <nav
+          class="vc-header-snav vc-glass flex max-w-full flex-wrap items-center justify-center justify-self-center gap-0.5 px-1.5 py-1 sm:min-w-0 sm:gap-1 sm:px-2"
+          aria-label="Collegamenti rapidi">
+          <a class="vc-snav-item" href="{{WIKI_URL}}"><i class="fa fa-map-o"
+              aria-hidden="true"></i><span>Wiki</span></a>
+          <a class="vc-snav-item" href="{{SPONSOR_URL}}"><i class="fa fa-handshake-o"
+              aria-hidden="true"></i><span>Sponsor</span></a>
+          <span class="vc-snav-sep mx-0.5 hidden h-5 w-px shrink-0 bg-white/15 sm:inline-block"
+            aria-hidden="true"></span>
+          <details class="vc-snav-details vc-snav-details--current">
+            <summary class="vc-snav-summary"><span>Supporta</span><i
+                class="fa fa-chevron-down vc-snav-chev text-[0.65rem] opacity-80" aria-hidden="true"></i></summary>
+            <div class="vc-snav-panel">
+              <a class="vc-snav-row" href="{{VOTE_URL}}" data-vc-loading="vote"><span class="vc-snav-row-ico"
+                  aria-hidden="true"><i class="fa fa-thumbs-o-up"></i></span><span>Vota il
+                  server</span></a>
+              <a class="vc-snav-row" href="{{REVIEWS_PAGE_URL}}"><span class="vc-snav-row-ico" aria-hidden="true"><i
+                    class="fa fa-star-o"></i></span><span>Recensioni</span></a>
+              <a class="vc-snav-row" href="{{DONATIONS_URL}}"><span class="vc-snav-row-ico" aria-hidden="true"><i
+                    class="fa fa-heart-o"></i></span><span>Donazioni</span></a>
+              <a class="vc-snav-row vc-snav-row--active" href="{{PERKS_URL}}" aria-current="page"><span
+                  class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-diamond"></i></span><span>Perks</span></a>
+            </div>
+          </details>
+          <details class="vc-snav-details">
+            <summary class="vc-snav-summary"><span>Community</span><i
+                class="fa fa-chevron-down vc-snav-chev text-[0.65rem] opacity-80" aria-hidden="true"></i></summary>
+            <div class="vc-snav-panel">
+              <a class="vc-snav-row" href="{{USER_PAGE_URL}}"><span class="vc-snav-row-ico" aria-hidden="true"><i
+                    class="fa fa-users"></i></span><span>Users</span></a>
+              <a class="vc-snav-row" href="{{RUOLI_PAGE_URL}}"><span class="vc-snav-row-ico" aria-hidden="true"><i
+                    class="fa fa-shield"></i></span><span>Ruoli</span></a>
+              <a class="vc-snav-row" href="{{COMMUNITY_RULES_URL}}"><span class="vc-snav-row-ico" aria-hidden="true"><i
+                    class="fa fa-file-text-o"></i></span><span>Regole</span></a>
+              <a class="vc-snav-row" href="{{FAQ_URL}}"><span class="vc-snav-row-ico" aria-hidden="true"><i
+                    class="fa fa-question-circle"></i></span><span>FAQ</span></a>
+            </div>
+          </details>
+          <details class="vc-snav-details">
+            <summary class="vc-snav-summary"><span>Richieste</span><i
+                class="fa fa-chevron-down vc-snav-chev text-[0.65rem] opacity-80" aria-hidden="true"></i></summary>
+            <div class="vc-snav-panel">
+              <a class="vc-snav-row" href="{{RICHIESTE_UNBAN_URL}}"><span class="vc-snav-row-ico" aria-hidden="true"><i
+                    class="fa fa-unlock"></i></span><span>Unban</span></a>
+              <a class="vc-snav-row" href="{{RICHIESTE_CANDIDATURE_URL}}"><span class="vc-snav-row-ico"
+                  aria-hidden="true"><i class="fa fa-file-text-o"></i></span><span>Candidature</span></a>
+              <a class="vc-snav-row" href="{{RICHIESTE_SUGGERIMENTI_URL}}"><span class="vc-snav-row-ico"
+                  aria-hidden="true"><i class="fa fa-lightbulb-o"></i></span><span>Suggerimenti</span></a>
+            </div>
+          </details>
+        </nav>
+        <div class="flex shrink-0 flex-wrap items-center justify-end gap-2 justify-self-end" id="header-quick-actions">
+          <details class="vc-notif-dropdown" id="vc-notif-dropdown">
+            <summary class="vc-icon-btn vc-notif-summary relative inline-flex" aria-label="Notifiche"><i
+                class="fa fa-bell-o" aria-hidden="true"></i><span class="vc-notif-badge" id="vc-notif-badge" hidden
+                aria-live="polite">0</span></summary>
+            <div class="vc-notif-panel" role="region" aria-label="Elenco notifiche">
+              <div class="vc-notif-panel-head">
+                <div class="vc-notif-panel-head-start">
+                  <span class="vc-notif-panel-head-ico" aria-hidden="true"><i class="fa fa-bell-o"></i></span>
+                  <div class="vc-notif-panel-head-text">
+                    <span class="vc-notif-panel-title">Notifiche</span>
+                    <span class="vc-notif-panel-sub" id="vc-notif-unread-sub">0 non lette</span>
+                  </div>
+                </div>
+                <div class="vc-notif-panel-head-actions">
+                  <button type="button" class="vc-notif-action" id="vc-notif-mark-all" title="Segna tutte come lette"
+                    aria-label="Segna tutte come lette"><i class="fa fa-check" aria-hidden="true"></i></button>
+                  <button type="button" class="vc-notif-action" id="vc-notif-clear-all" title="Elimina tutte"
+                    aria-label="Elimina tutte"><i class="fa fa-trash-o" aria-hidden="true"></i></button>
+                </div>
+              </div>
+              <div class="vc-notif-panel-body">
+                <div class="vc-notif-empty-wrap" id="vc-notif-empty-wrap">
+                  <div class="vc-notif-empty">
+                    <div class="vc-notif-empty-ico" aria-hidden="true"><i class="fa fa-bell-o"></i></div>
+                    <p class="vc-notif-empty-title">Nessuna notifica</p>
+                    <p class="vc-notif-empty-sub">Sei tutto aggiornato!</p>
+                  </div>
+                </div>
+                <div class="vc-notif-list-wrap" id="vc-notif-list-wrap">
+                  <ul class="vc-notif-list" id="vc-notif-list" role="list"></ul>
+                </div>
+              </div>
+              <div class="vc-notif-panel-foot" id="vc-notif-panel-foot">
+                <a href="{{SITE_URL}}notifications/" class="vc-notif-see-all" id="vc-notif-see-all">Vedi tutte le
+                  notifiche <i class="fa fa-chevron-right" aria-hidden="true"></i></a>
+              </div>
+            </div>
+          </details>
+          <button class="vc-header-pill" id="discord-login-btn" type="button">Login</button>
+          <div class="header-login-state" id="discord-login-state" hidden></div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="relative z-10 mx-auto w-full max-w-none px-4 pb-28 pt-28 sm:px-6 sm:pt-32 lg:px-10 xl:px-14">
+    <section class="vc-support-page-hero">
+      <div class="grid gap-12 lg:grid-cols-[minmax(0,1.15fr)_minmax(16rem,20rem)] lg:items-center lg:gap-14">
+        <div class="max-w-3xl lg:py-2">
+          <div class="vc-support-page-hero__icon vc-support-page-hero__icon--start vc-perks-hero-rocket mb-6"
+            aria-hidden="true">
+            <i class="fa fa-rocket"></i>
+          </div>
+          <p class="text-xs font-semibold uppercase tracking-[0.32em] text-[#f7ecdf]/75">VANTAGGI</p>
+          <h1
+            class="mt-5 text-4xl font-extrabold tracking-tight text-white sm:text-5xl lg:text-[3.15rem] lg:leading-[1.08]">
+            I perks di <span class="text-[#f7ecdf]">{{SITE_NAME}}</span>
+          </h1>
+          <p
+            class="vc-perks-hero-lead mt-6 max-w-2xl text-lg leading-[1.65] text-slate-200/92 sm:text-xl sm:leading-[1.62]">
+            Qui sono descritti tutti i ruoli ottenibili con i loro vantaggi.
+          </p>
+        </div>
+        <aside class="vc-support-hero-pillars vc-perks-hero-aside mx-auto w-full max-w-md lg:mx-0 lg:max-w-none"
+          aria-label="Sul server">
+          <div class="vc-support-hero-pillars__panel">
+            <ul class="vc-support-hero-pillar-list" role="list">
+              <li class="vc-support-hero-pillar-row vc-support-hero-pillar-row--bot">
+                <span class="vc-support-hero-pillar-row__ico" aria-hidden="true"><i class="fa fa-comments"></i></span>
+                <span class="vc-support-hero-pillar-row__label">Usa <code class="vc-sponsor-code">+rank</code> per
+                  controllare il tuo livello</span>
+              </li>
+              <li class="vc-support-hero-pillar-row vc-support-hero-pillar-row--events">
+                <span class="vc-support-hero-pillar-row__ico" aria-hidden="true"><i class="fa fa-terminal"></i></span>
+                <span class="vc-support-hero-pillar-row__label">Usa <code class="vc-sponsor-code">+profile</code> per la
+                  gestione completa del tuo profilo</span>
+              </li>
+            </ul>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section class="vc-perks-showcase mt-14 md:mt-20" aria-label="Perks e vantaggi">
+      <div class="vc-perks-deck">
+        <article
+          class="vc-support-donate-role vc-support-donate-role--vip-plus vc-support-donate-role--perks-block vc-perks-card"
+          aria-labelledby="vc-perks-boost">
+          <span class="vc-support-donate-role__badge vc-support-donate-role__badge--novita" role="status">Nitro
+            Boost</span>
+          <div class="vc-support-donate-role__head vc-perks-card__head">
+            <div class="vc-perks-card__titleblock">
+              <h2 id="vc-perks-boost" class="vc-support-donate-role__title">
+                <span class="vc-support-donate-role__title-ico" aria-hidden="true"><i class="fa fa-rocket"></i></span>
+                Nitro Boost
+              </h2>
+            </div>
+          </div>
+          <div class="vc-perks-tier vc-perks-tier--left">
+            <p class="vc-perks-tier__label">Con un boost attivo</p>
+            <ul class="vc-support-donate-role__perks" role="list">
+              <li class="vc-support-donate-perk">
+                <span class="vc-support-donate-perk__ico" aria-hidden="true"><i class="fa fa-user-circle-o"></i></span>
+                <span class="vc-support-donate-perk__text">Ruolo <span class="vc-sponsor-mention">@༄ Booster¹</span> con
+                  badge speciale</span>
+              </li>
+              <li class="vc-support-donate-perk">
+                <span class="vc-support-donate-perk__ico" aria-hidden="true"><i class="fa fa-pencil"></i></span>
+                <span class="vc-support-donate-perk__text">Permesso di cambiare il nickname</span>
+              </li>
+              <li class="vc-support-donate-perk">
+                <span class="vc-support-donate-perk__ico" aria-hidden="true"><i class="fa fa-image"></i></span>
+                <span class="vc-support-donate-perk__text">Permesso di allegare immagini e link in chat</span>
+              </li>
+              <li class="vc-support-donate-perk">
+                <span class="vc-support-donate-perk__ico" aria-hidden="true"><i class="fa fa-smile-o"></i></span>
+                <span class="vc-support-donate-perk__text">Permesso di mandare emoji e adesivi di altri server</span>
+              </li>
+              <li class="vc-support-donate-perk">
+                <span class="vc-support-donate-perk__ico" aria-hidden="true"><i class="fa fa-music"></i></span>
+                <span class="vc-support-donate-perk__text">Permesso di usare le Soundboard del server</span>
+              </li>
+              <li class="vc-support-donate-perk">
+                <span class="vc-support-donate-perk__ico" aria-hidden="true"><i class="fa fa-paint-brush"></i></span>
+                <span class="vc-support-donate-perk__text">Possibilità di creare un ruolo <strong
+                    class="text-white">custom</strong> con colore <strong class="text-amber-200">GRADIENTE</strong>,
+                  scelto da te, tramite il comando <code class="vc-sponsor-code">+profile</code> <span
+                    class="vc-support-donate-new">NEW!</span></span>
+              </li>
+              <li class="vc-support-donate-perk">
+                <span class="vc-support-donate-perk__ico" aria-hidden="true"><i class="fa fa-tint"></i></span>
+                <span class="vc-support-donate-perk__text">Sblocchi i COLORI <strong class="text-white">PLUS</strong> in
+                  <code class="vc-sponsor-code">+profile</code> <span class="vc-support-donate-new">NEW!</span></span>
+              </li>
+              <li class="vc-support-donate-perk">
+                <span class="vc-support-donate-perk__ico" aria-hidden="true"><i class="fa fa-comments-o"></i></span>
+                <span class="vc-support-donate-perk__text">Aggiungi reazioni al messaggio quando ti @menzionano in chat
+                  (max. 3) tramite il comando <code class="vc-sponsor-code">+profile</code> <span
+                    class="vc-support-donate-new">NEW!</span></span>
+              </li>
+              <li class="vc-support-donate-perk">
+                <span class="vc-support-donate-perk__ico" aria-hidden="true"><i class="fa fa-clock-o"></i></span>
+                <span class="vc-support-donate-perk__text">Cooldown sui comandi del nostro bot ridotto (da 30 secondi a
+                  15 secondi) <span class="vc-support-donate-new">NEW!</span></span>
+              </li>
+              <li class="vc-support-donate-perk">
+                <span class="vc-support-donate-perk__ico" aria-hidden="true"><i class="fa fa-quote-left"></i></span>
+                <span class="vc-support-donate-perk__text">Sblocchi i comandi <code
+                    class="vc-sponsor-code">+quote</code>, <code class="vc-sponsor-code">+repost</code> e <code
+                    class="vc-sponsor-code">+myrepost</code></span>
+              </li>
+              <li class="vc-support-donate-perk">
+                <span class="vc-support-donate-perk__ico" aria-hidden="true"><i class="fa fa-bolt"></i></span>
+                <span class="vc-support-donate-perk__text"><strong class="text-white">X2</strong> EXP Boost</span>
+              </li>
+            </ul>
+          </div>
+          <div class="vc-perks-tier">
+            <p class="vc-perks-tier__label">Con due boost attivi <span class="vc-support-donate-new">NEW!</span></p>
+            <ul class="vc-support-donate-role__perks" role="list">
+              <li class="vc-support-donate-perk">
+                <span class="vc-support-donate-perk__ico" aria-hidden="true"><i class="fa fa-certificate"></i></span>
+                <span class="vc-support-donate-perk__text">Ruolo <span class="vc-sponsor-mention">@༄ Booster²</span> con
+                  badge speciale <span class="vc-support-donate-new">NEW!</span></span>
+              </li>
+              <li class="vc-support-donate-perk">
+                <span class="vc-support-donate-perk__ico" aria-hidden="true"><i class="fa fa-asterisk"></i></span>
+                <span class="vc-support-donate-perk__text">Tutti i perks precedenti</span>
+              </li>
+              <li class="vc-support-donate-perk">
+                <span class="vc-support-donate-perk__ico" aria-hidden="true"><i class="fa fa-headphones"></i></span>
+                <span class="vc-support-donate-perk__text">Permesso di usare le Soundboard esterne<span
+                    class="vc-support-donate-new">NEW!</span></span>
+              </li>
+              <li class="vc-support-donate-perk">
+                <span class="vc-support-donate-perk__ico" aria-hidden="true"><i class="fa fa-id-card-o"></i></span>
+                <span class="vc-support-donate-perk__text">Sfondo personalizzato per la tua card del comando <code
+                    class="vc-sponsor-code">+rank</code> <span class="vc-support-donate-new">NEW!</span></span>
+              </li>
+              <li class="vc-support-donate-perk">
+                <span class="vc-support-donate-perk__ico" aria-hidden="true"><i class="fa fa-smile-o"></i></span>
+                <span class="vc-support-donate-perk__text">Possibilità di aggiungere reazioni ai messaggi in chat <span
+                    class="vc-support-donate-new">NEW!</span></span>
+              </li>
+              <li class="vc-support-donate-perk">
+                <span class="vc-support-donate-perk__ico" aria-hidden="true"><i class="fa fa-star"></i></span>
+                <span class="vc-support-donate-perk__text">Possibilità di creare un secondo ruolo <strong
+                    class="text-white">custom</strong> con colore <strong class="text-amber-200">GRADIENTE</strong>,
+                  scelto da te, tramite il comando <code class="vc-sponsor-code">+profile</code> <span
+                    class="vc-support-donate-new">NEW!</span></span>
+              </li>
+              <li class="vc-support-donate-perk">
+                <span class="vc-support-donate-perk__ico" aria-hidden="true"><i class="fa fa-users"></i></span>
+                <span class="vc-support-donate-perk__text">Possibilità di creare una vocale privata per te e i tuoi
+                  amici tramite il comando <code class="vc-sponsor-code">+profile</code> <span
+                    class="vc-support-donate-new">NEW!</span></span>
+              </li>
+              <li class="vc-support-donate-perk">
+                <span class="vc-support-donate-perk__ico" aria-hidden="true"><i class="fa fa-plus-square"></i></span>
+                <span class="vc-support-donate-perk__text">Aggiungi reazioni al messaggio quando ti @menzionano in chat
+                  (max. 5) tramite il comando <code class="vc-sponsor-code">+profile</code> <span
+                    class="vc-support-donate-new">NEW!</span></span>
+              </li>
+              <li class="vc-support-donate-perk">
+                <span class="vc-support-donate-perk__ico" aria-hidden="true"><i class="fa fa-tachometer"></i></span>
+                <span class="vc-support-donate-perk__text">Cooldown sui comandi del nostro bot ridotto (da 30 secondi a
+                  5 secondi) <span class="vc-support-donate-new">NEW!</span></span>
+              </li>
+              <li class="vc-support-donate-perk">
+                <span class="vc-support-donate-perk__ico" aria-hidden="true"><i class="fa fa-random"></i></span>
+                <span class="vc-support-donate-perk__text">Bypass requisiti dei giveaway <span
+                    class="vc-support-donate-new">NEW!</span></span>
+              </li>
+              <li class="vc-support-donate-perk">
+                <span class="vc-support-donate-perk__ico" aria-hidden="true"><i class="fa fa-sort-numeric-asc"></i></span>
+                <span class="vc-support-donate-perk__text">Ripristina il counting (max <strong
+                    class="text-white">1 volta al giorno</strong>) tramite il pulsante <span
+                    class="vc-support-donate-new">NEW!</span></span>
+              </li>
+              <li class="vc-support-donate-perk">
+                <span class="vc-support-donate-perk__ico" aria-hidden="true"><i class="fa fa-fire"></i></span>
+                <span class="vc-support-donate-perk__text"><strong class="text-white">X3</strong> EXP Boost <span
+                    class="vc-support-donate-new">NEW!</span></span>
+              </li>
+            </ul>
+          </div>
+          <div class="vc-support-donate-role__foot vc-perks-card__foot">
+            <a href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer"
+              class="vc-support-donate-role__cta inline-flex min-h-[3.5rem] w-full items-center justify-center gap-2 rounded-[1.35rem] bg-gradient-to-r from-[#6f4e37] to-[#4a3425] px-5 py-3 text-sm font-extrabold text-[#f7ecdf] shadow-[0_18px_46px_rgba(212,168,136,0.26)] transition hover:-translate-y-0.5 hover:brightness-105 sm:text-base">
+              <i class="fa fa-comments" aria-hidden="true"></i> BOOSTA ORA!
+            </a>
+          </div>
+        </article>
+
+        <article
+          class="vc-support-donate-role vc-support-donate-role--vip vc-support-donate-role--perks-block vc-perks-card vc-perks-card--community"
+          aria-labelledby="vc-perks-community">
+          <span class="vc-support-donate-role__badge vc-support-donate-role__badge--novita" role="status">EXP · Verifica
+            Selfie</span>
+          <div class="vc-support-donate-role__head vc-perks-card__head">
+            <div class="vc-perks-card__titleblock">
+              <h2 id="vc-perks-community" class="vc-support-donate-role__title">
+                <span class="vc-support-donate-role__title-ico" aria-hidden="true"><i class="fa fa-road"></i></span>
+                Livelli e Verifica Selfie
+              </h2>
+            </div>
+          </div>
+
+          <section class="vc-perks-pane vc-perks-pane--levels" aria-labelledby="vc-perks-levels-h">
+            <p class="vc-perks-tier__label" id="vc-perks-tier-acc-label">Fasce di livello</p>
+            <div class="vc-perks-tier-acc-group" aria-labelledby="vc-perks-tier-acc-label">
+              <details class="vc-perks-tier-acc">
+                <summary class="vc-perks-tier-acc__summary">
+                  <span class="vc-perks-tier-acc__ico" aria-hidden="true"><i class="fa fa-angle-right"></i></span>
+                  <span class="vc-perks-tier-acc__headline"><span class="vc-sponsor-mention">༄ Pop¹⁰⁺</span><span
+                      class="vc-perks-tier-acc__range">Livello 10+</span></span>
+                </summary>
+                <div class="vc-perks-tier-acc__body">
+                  <ul class="vc-perks-tier-acc__list" role="list">
+                    <li><span class="vc-perks-tier-acc__icon" aria-hidden="true"><i
+                          class="fa fa-pencil"></i></span>Permesso di cambiare nickname</li>
+                    <li><span class="vc-perks-tier-acc__icon" aria-hidden="true"><i
+                          class="fa fa-paperclip"></i></span>Permesso di allegare link e immagini in chat</li>
+                    <li><span class="vc-perks-tier-acc__icon" aria-hidden="true"><i
+                          class="fa fa-microphone"></i></span>Permesso di inviare messaggi vocali in chat</li>
+                    <li><span class="vc-perks-tier-acc__icon" aria-hidden="true"><i
+                          class="fa fa-quote-right"></i></span>Sblocchi i comandi <code
+                        class="vc-sponsor-code">+quote</code>, <code class="vc-sponsor-code">+repost</code> e <code
+                        class="vc-sponsor-code">+myrepost</code></li>
+                    <li><span class="vc-perks-tier-acc__icon" aria-hidden="true"><i
+                          class="fa fa-paint-brush"></i></span>Nuovo colore gradiente sbloccato con <code
+                        class="vc-sponsor-code">+profile</code> <span class="vc-sponsor-mention">༄ Yellow &
+                        Blackᵖˡᵘˢ⁺</span><span class="vc-support-donate-new">NEW!</span></li>
+                  </ul>
+                </div>
+              </details>
+              <details class="vc-perks-tier-acc">
+                <summary class="vc-perks-tier-acc__summary">
+                  <span class="vc-perks-tier-acc__ico" aria-hidden="true"><i class="fa fa-angle-right"></i></span>
+                  <span class="vc-perks-tier-acc__headline"><span class="vc-sponsor-mention">༄ Jazz²⁰⁺</span><span
+                      class="vc-perks-tier-acc__range">Livello 20+</span></span>
+                </summary>
+                <div class="vc-perks-tier-acc__body">
+                  <ul class="vc-perks-tier-acc__list" role="list">
+                    <li><span class="vc-perks-tier-acc__icon" aria-hidden="true"><i class="fa fa-gift"></i></span>Tutte
+                      le ricompense precedenti</li>
+                    <li><span class="vc-perks-tier-acc__icon" aria-hidden="true"><i
+                          class="fa fa-smile-o"></i></span>Possibilità di aggiungere reazioni ai messaggi in chat</li>
+                    <li><span class="vc-perks-tier-acc__icon" aria-hidden="true"><i
+                          class="fa fa-paint-brush"></i></span>Nuovo colore gradiente sbloccato con <code
+                        class="vc-sponsor-code">+profile</code> <span class="vc-sponsor-mention">༄ Blue &
+                        Blackᵖˡᵘˢ⁺</span><span class="vc-support-donate-new">NEW!</span></li>
+                  </ul>
+                </div>
+              </details>
+              <details class="vc-perks-tier-acc">
+                <summary class="vc-perks-tier-acc__summary">
+                  <span class="vc-perks-tier-acc__ico" aria-hidden="true"><i class="fa fa-angle-right"></i></span>
+                  <span class="vc-perks-tier-acc__headline"><span class="vc-sponsor-mention">༄ Rap³⁰⁺</span><span
+                      class="vc-perks-tier-acc__range">Livello 30+</span></span>
+                </summary>
+                <div class="vc-perks-tier-acc__body">
+                  <ul class="vc-perks-tier-acc__list" role="list">
+                    <li><span class="vc-perks-tier-acc__icon" aria-hidden="true"><i class="fa fa-gift"></i></span>Tutte
+                      le ricompense precedenti</li>
+                    <li><span class="vc-perks-tier-acc__icon" aria-hidden="true"><i
+                          class="fa fa-volume-up"></i></span>Permesso di usare le Soundboard di altri server</li>
+                    <li><span class="vc-perks-tier-acc__icon" aria-hidden="true"><i
+                          class="fa fa-clock-o"></i></span>Cooldown sui comandi del nostro bot ridotto (da 30 secondi a
+                      15 secondi)</li>
+                    <li><span class="vc-perks-tier-acc__icon" aria-hidden="true"><i
+                          class="fa fa-paint-brush"></i></span>Nuovo colore gradiente sbloccato con <code
+                        class="vc-sponsor-code">+profile</code> <span class="vc-sponsor-mention">༄ Red &
+                        Blackᵖˡᵘˢ⁺</span><span class="vc-support-donate-new">NEW!</span></li>
+                  </ul>
+                </div>
+              </details>
+              <details class="vc-perks-tier-acc">
+                <summary class="vc-perks-tier-acc__summary">
+                  <span class="vc-perks-tier-acc__ico" aria-hidden="true"><i class="fa fa-angle-right"></i></span>
+                  <span class="vc-perks-tier-acc__headline"><span class="vc-sponsor-mention">༄ Reggae⁵⁰⁺</span><span
+                      class="vc-perks-tier-acc__range">Livello 50+</span></span>
+                </summary>
+                <div class="vc-perks-tier-acc__body">
+                  <ul class="vc-perks-tier-acc__list" role="list">
+                    <li><span class="vc-perks-tier-acc__icon" aria-hidden="true"><i class="fa fa-gift"></i></span>Tutte
+                      le ricompense precedenti</li>
+                    <li><span class="vc-perks-tier-acc__icon" aria-hidden="true"><i
+                          class="fa fa-user-plus"></i></span>Possibilità di creare un ruolo <strong
+                        class="text-white">custom</strong> e un canale <strong class="text-white">vocale privato
+                        custom</strong> (<code class="vc-sponsor-code">+profile</code>)</li>
+                    <li><span class="vc-perks-tier-acc__icon" aria-hidden="true"><i
+                          class="fa fa-clock-o"></i></span>Cooldown sui comandi del nostro bot ridotto (da 30 secondi a
+                      5 secondi)</li>
+                    <li><span class="vc-perks-tier-acc__icon" aria-hidden="true"><i
+                          class="fa fa-paint-brush"></i></span>Nuovo colore gradiente sbloccato con <code
+                        class="vc-sponsor-code">+profile</code> <span class="vc-sponsor-mention">༄ White &
+                        Blackᵖˡᵘˢ⁺</span><span class="vc-support-donate-new">NEW!</span></li>
+                  </ul>
+                </div>
+              </details>
+              <details class="vc-perks-tier-acc">
+                <summary class="vc-perks-tier-acc__summary">
+                  <span class="vc-perks-tier-acc__ico" aria-hidden="true"><i class="fa fa-angle-right"></i></span>
+                  <span class="vc-perks-tier-acc__headline"><span class="vc-sponsor-mention">༄ Metal⁷⁰⁺</span><span
+                      class="vc-perks-tier-acc__range">Livello 70+</span></span>
+                </summary>
+                <div class="vc-perks-tier-acc__body">
+                  <ul class="vc-perks-tier-acc__list" role="list">
+                    <li><span class="vc-perks-tier-acc__icon" aria-hidden="true"><i class="fa fa-gift"></i></span>Tutte
+                      le ricompense precedenti</li>
+                    <li><span class="vc-perks-tier-acc__icon" aria-hidden="true"><i
+                          class="fa fa-sticky-note-o"></i></span>Permesso di mandare sticker ed emoji di altri server
+                    </li>
+                    <li><span class="vc-perks-tier-acc__icon" aria-hidden="true"><i class="fa fa-at"></i></span>Aggiungi
+                      reazioni al messaggio quando ti @menzionano in chat (max. 3)</li>
+                    <li><span class="vc-perks-tier-acc__icon" aria-hidden="true"><i
+                          class="fa fa-paint-brush"></i></span>Nuovo colore gradiente sbloccato con <code
+                        class="vc-sponsor-code">+profile</code> <span class="vc-sponsor-mention">༄ Pink &
+                        Blackᵖˡᵘˢ⁺</span><span class="vc-support-donate-new">NEW!</span></li>
+                  </ul>
+                </div>
+              </details>
+              <details class="vc-perks-tier-acc">
+                <summary class="vc-perks-tier-acc__summary">
+                  <span class="vc-perks-tier-acc__ico" aria-hidden="true"><i class="fa fa-angle-right"></i></span>
+                  <span class="vc-perks-tier-acc__headline"><span class="vc-sponsor-mention">༄ Rock¹⁰⁰⁺</span><span
+                      class="vc-perks-tier-acc__range">Livello 100+</span></span>
+                </summary>
+                <div class="vc-perks-tier-acc__body">
+                  <ul class="vc-perks-tier-acc__list" role="list">
+                    <li><span class="vc-perks-tier-acc__icon" aria-hidden="true"><i class="fa fa-gift"></i></span>Tutte
+                      le ricompense precedenti</li>
+                    <li><span class="vc-perks-tier-acc__icon" aria-hidden="true"><i
+                          class="fa fa-clock-o"></i></span>Cooldown sui comandi del nostro bot ridotto (da 30 secondi a
+                      1 secondo)</li>
+                    <li><span class="vc-perks-tier-acc__icon" aria-hidden="true"><i
+                          class="fa fa-check-square-o"></i></span>Bypass requisiti delle candidature</li>
+                    <li><span class="vc-perks-tier-acc__icon" aria-hidden="true"><i class="fa fa-star"></i></span>Bonus
+                      EXP permanente <strong class="text-white">+15%</strong></li>
+                    <li><span class="vc-perks-tier-acc__icon" aria-hidden="true"><i
+                          class="fa fa-paint-brush"></i></span>Nuovo colore gradiente sbloccato con <code
+                        class="vc-sponsor-code">+profile</code> <span class="vc-sponsor-mention">༄ Purple &
+                        Blackᵖˡᵘˢ⁺</span><span class="vc-support-donate-new">NEW!</span></li>
+                  </ul>
+                </div>
+              </details>
+              <details class="vc-perks-tier-acc">
+                <summary class="vc-perks-tier-acc__summary">
+                  <span class="vc-perks-tier-acc__ico" aria-hidden="true"><i class="fa fa-angle-right"></i></span>
+                  <span class="vc-perks-tier-acc__headline"><span class="vc-sponsor-mention">༄ Funk¹²⁵⁺</span><span
+                      class="vc-support-donate-new">NEW!</span><span class="vc-perks-tier-acc__range">Livello
+                      125+</span></span>
+                </summary>
+                <div class="vc-perks-tier-acc__body">
+                  <ul class="vc-perks-tier-acc__list" role="list">
+                    <li><span class="vc-perks-tier-acc__icon" aria-hidden="true"><i class="fa fa-gift"></i></span> Tutte le ricompense precedenti</li>
+                    <li><span class="vc-perks-tier-acc__icon" aria-hidden="true"><i class="fa fa-random"></i></span> Bypass requisiti dei giveaway</li>
+                    <li><span class="vc-perks-tier-acc__icon" aria-hidden="true"><i class="fa fa-star"></i></span> Bonus EXP permanente <strong class="text-white">+20%</strong></li>
+                    <li><span class="vc-perks-tier-acc__icon" aria-hidden="true"><i class="fa fa-plus-square"></i></span> Possibilità di creare un secondo ruolo <strong class="text-white">custom</strong> tramite il comando <code class="vc-sponsor-code">+profile</code></li>
+                    <li><span class="vc-perks-tier-acc__icon" aria-hidden="true"><i class="fa fa-paint-brush"></i></span> Nuovo colore gradiente con <code class="vc-sponsor-code">+profile</code> <span class="vc-sponsor-mention">༄ Orange &amp; Blackᵖˡᵘˢ⁺</span><span class="vc-support-donate-new">NEW!</span></li>
+                  </ul>
+                </div>
+              </details>
+              <details class="vc-perks-tier-acc">
+                <summary class="vc-perks-tier-acc__summary">
+                  <span class="vc-perks-tier-acc__ico" aria-hidden="true"><i class="fa fa-angle-right"></i></span>
+                  <span class="vc-perks-tier-acc__headline"><span class="vc-sponsor-mention">༄ Blues¹⁵⁰⁺</span><span
+                      class="vc-support-donate-new">NEW!</span><span class="vc-perks-tier-acc__range">Livello
+                      150+</span></span>
+                </summary>
+                <div class="vc-perks-tier-acc__body">
+                  <ul class="vc-perks-tier-acc__list" role="list">
+                    <li><span class="vc-perks-tier-acc__icon" aria-hidden="true"><i class="fa fa-gift"></i></span>Tutte
+                      le ricompense precedenti</li>
+                    <li><span class="vc-perks-tier-acc__icon" aria-hidden="true"><i class="fa fa-star"></i></span>Bonus
+                      EXP permanente <strong class="text-white">+25%</strong></li>
+                    <li><span class="vc-perks-tier-acc__icon" aria-hidden="true"><i
+                          class="fa fa-paint-brush"></i></span>Nuovo colore gradiente con <code
+                        class="vc-sponsor-code">+profile</code> <span class="vc-sponsor-mention">༄ Green &amp;
+                        Blackᵖˡᵘˢ⁺</span><span class="vc-support-donate-new">NEW!</span></li>
+                    <li><span class="vc-perks-tier-acc__icon" aria-hidden="true"><i
+                          class="fa fa-trophy"></i></span>Decorazione a scelta riscattabile tramite <code
+                        class="vc-sponsor-mention">༄🎫︲tickets</code> <code class="vc-sponsor-code">HIGH STAFF</code>
+                    </li>
+                  </ul>
+                </div>
+              </details>
+              <details class="vc-perks-tier-acc">
+                <summary class="vc-perks-tier-acc__summary">
+                  <span class="vc-perks-tier-acc__ico" aria-hidden="true"><i class="fa fa-angle-right"></i></span>
+                  <span class="vc-perks-tier-acc__headline"><span class="vc-sponsor-mention">༄ Indie²⁰⁰⁺</span><span
+                      class="vc-support-donate-new">NEW!</span><span class="vc-perks-tier-acc__range">Livello
+                      200+</span></span>
+                </summary>
+                <div class="vc-perks-tier-acc__body">
+                  <ul class="vc-perks-tier-acc__list" role="list">
+                    <li><span class="vc-perks-tier-acc__icon" aria-hidden="true"><i class="fa fa-gift"></i></span>Tutte
+                      le ricompense precedenti</li>
+                    <li><span class="vc-perks-tier-acc__icon" aria-hidden="true"><i
+                          class="fa fa-paint-brush"></i></span>Nuovo colore gradiente con <code
+                        class="vc-sponsor-code">+profile</code> <span class="vc-sponsor-mention">༄ Aqua &amp;
+                        Blackᵖˡᵘˢ⁺</span><span class="vc-support-donate-new">NEW!</span></li>
+                    <li><span class="vc-perks-tier-acc__icon" aria-hidden="true"><i
+                          class="fa fa-trophy"></i></span>Nitro Boost mensile riscattabile tramite <code
+                        class="vc-sponsor-mention">༄🎫︲tickets</code> <code class="vc-sponsor-code">HIGH STAFF</code>
+                    </li>
+                  </ul>
+                </div>
+              </details>
+            </div>
+          </section>
+
+          <section class="vc-perks-pane vc-perks-pane--verify" aria-labelledby="vc-perks-verify-h">
+            <p class="vc-perks-verify__label" id="vc-perks-verify-h">Verifica Selfie</p>
+            <div class="vc-perks-verify-box">
+              <div class="vc-perks-verify-guide__inner">
+                <p class="vc-perks-verify-guide__kicker">Guida rapida</p>
+                <p class="vc-perks-verify-guide__lead">Per verificare il tuo profilo dovrai andare in <span
+                    class="vc-sponsor-mention">⁠༄🎫︲tickets</span> e selezionare la categoria <strong>PERKS</strong>.</p>
+                <p class="vc-perks-verify-guide__lead">Successivamente, dovrete mandare una vostra foto in cui si vede
+                  bene il viso:</p>
+                <ul class="vc-perks-verify-guide__list" role="list">
+                  <li>&bull; con il vostro nickname scritto su un foglio cartaceo;</li>
+                  <li>&bull; oppure con il cellulare nella schermata del vostro profilo Discord.</li>
+                </ul>
+              </div>
+              <div class="vc-perks-verify-guide__divider" aria-hidden="true"></div>
+              <ul class="vc-support-donate-role__perks" role="list">
+                <li class="vc-support-donate-perk">
+                  <span class="vc-support-donate-perk__ico" aria-hidden="true"><i class="fa fa-id-badge"></i></span>
+                  <span class="vc-support-donate-perk__text">Ruolo <span class="vc-sponsor-mention">@༄ Verified
+                      ʰᵉᐟʰⁱᵐ</span>, <span class="vc-sponsor-mention">@༄ Verified ˢʰᵉᐟʰᵉʳ</span> o <span
+                      class="vc-sponsor-mention">@༄ Verified ⁿ^ᐟꜝ</span> con badge speciale</span>
+                </li>
+                <li class="vc-support-donate-perk">
+                  <span class="vc-support-donate-perk__ico" aria-hidden="true"><i class="fa fa-image"></i></span>
+                  <span class="vc-support-donate-perk__text">Permesso di allegare immagini e link in chat</span>
+                </li>
+                <li class="vc-support-donate-perk">
+                  <span class="vc-support-donate-perk__ico" aria-hidden="true"><i class="fa fa-comment"></i></span>
+                  <span class="vc-support-donate-perk__text">Permesso di scrivere in <span
+                      class="vc-sponsor-mention">⁠༄📸︲selfie</span></span>
+                </li>
+              </ul>
+            </div>
+          </section>
+
+          <div class="vc-support-donate-role__foot vc-perks-card__foot vc-perks-card__foot--duo">
+            <a href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer"
+              class="vc-support-donate-role__cta vc-perks-card__cta-half inline-flex min-h-[2.65rem] flex-1 items-center justify-center gap-2 rounded-[1.05rem] bg-gradient-to-r from-[#6f4e37] to-[#4a3425] px-3 py-2.5 text-xs font-extrabold text-[#f7ecdf] shadow-[0_14px_36px_rgba(212,168,136,0.22)] transition hover:-translate-y-0.5 hover:brightness-105 sm:text-sm">
+              <i class="fa fa-line-chart" aria-hidden="true"></i> SBLOCCALI TUTTI!
+            </a>
+            <a href="{{DISCORD_SPONSOR_TICKETS_MESSAGE_URL}}" target="_blank" rel="noopener noreferrer"
+              class="vc-support-donate-role__cta vc-perks-card__cta-half inline-flex min-h-[2.65rem] flex-1 items-center justify-center gap-2 rounded-[1.05rem] border border-[#c9a07a]/42 bg-gradient-to-r from-[#3a2a20]/92 to-[#261a14]/95 px-3 py-2.5 text-xs font-extrabold text-[#f7ecdf] shadow-[0_12px_32px_rgba(180,130,90,0.2)] transition hover:-translate-y-0.5 hover:border-[#d4a888]/55 hover:brightness-105 sm:text-sm"
+              aria-label="Apri Discord sul messaggio dei ticket"><i class="fa fa-ticket"
+                aria-hidden="true"></i> VERIFICATI ADESSO</a>
+          </div>
+        </article>
+
+        <article
+          class="vc-support-donate-role vc-support-donate-role--vip vc-support-donate-role--perks-block vc-perks-card"
+          aria-labelledby="vc-perks-badges">
+          <span class="vc-support-donate-role__badge vc-support-donate-role__badge--novita" role="status">Profilo</span>
+          <div class="vc-support-donate-role__head vc-perks-card__head">
+            <div class="vc-perks-card__titleblock">
+              <h2 id="vc-perks-badges" class="vc-support-donate-role__title">
+                <span class="vc-support-donate-role__title-ico" aria-hidden="true"><i
+                    class="fa fa-certificate"></i></span>
+                Badge e altri ruoli
+              </h2>
+            </div>
+          </div>
+          <div class="vc-perks-tier-acc-group vc-perks-tier-acc-group--badges"
+            aria-labelledby="vc-perks-badge-acc-label">
+            <details class="vc-perks-tier-acc vc-perks-tier-acc--badge">
+              <summary class="vc-perks-tier-acc__summary">
+                <span class="vc-perks-tier-acc__ico" aria-hidden="true"><i class="fa fa-angle-right"></i></span>
+                <span class="vc-perks-tier-acc__headline"><span class="vc-sponsor-mention">༄ Top Monthy
+                    Member</span><span class="vc-support-donate-new">NEW!</span><span
+                    class="vc-perks-tier-acc__range">Classifica Mensile</span></span>
+              </summary>
+              <div class="vc-perks-tier-acc__body">
+                <p class="vc-perks-tier-acc__intro">Ottenibile arrivando primo per exp in messaggi e exp in vocale nella
+                  classifica mensile.</p>
+                <ul class="vc-perks-tier-acc__list" role="list">
+                  <li><span class="vc-perks-tier-acc__icon" aria-hidden="true"><i class="fa fa-trophy"></i></span>Ruolo
+                    esclusivo per <strong class="text-white">1 mese</strong>.</li>
+                  <li><span class="vc-perks-tier-acc__icon" aria-hidden="true"><i
+                        class="fa fa-trophy"></i></span><strong class="text-white">Nitro Boost</strong> mensile
+                    riscattabile tramite <code class="vc-sponsor-mention">༄🎫︲tickets</code> <code
+                      class="vc-sponsor-code">HIGH STAFF</code> </li>
+                </ul>
+              </div>
+            </details>
+            <details class="vc-perks-tier-acc vc-perks-tier-acc--badge">
+              <summary class="vc-perks-tier-acc__summary">
+                <span class="vc-perks-tier-acc__ico" aria-hidden="true"><i class="fa fa-angle-right"></i></span>
+                <span class="vc-perks-tier-acc__headline"><span class="vc-sponsor-mention">༄ Top Weekly Text & ༄ Top
+                    Weekly Voc</span><span class="vc-perks-tier-acc__range">Classifica Settimanale</span></span>
+              </summary>
+              <div class="vc-perks-tier-acc__body">
+                <p class="vc-perks-tier-acc__intro">Ottenibile arrivando primo per exp in messaggi o exp in vocale nella
+                  classifica settimanale.</p>
+                <ul class="vc-perks-tier-acc__list" role="list">
+                  <li><span class="vc-perks-tier-acc__icon" aria-hidden="true"><i class="fa fa-trophy"></i></span>Ruolo
+                    esclusivo per <strong class="text-white">7 giorni</strong>.</li>
+                  <li><span class="vc-perks-tier-acc__icon" aria-hidden="true"><i
+                        class="fa fa-volume-up"></i></span>Permesso di usare soundboard esterne</li>
+                </ul>
+              </div>
+            </details>
+            <details class="vc-perks-tier-acc vc-perks-tier-acc--badge">
+              <summary class="vc-perks-tier-acc__summary">
+                <span class="vc-perks-tier-acc__ico" aria-hidden="true"><i class="fa fa-angle-right"></i></span>
+                <span class="vc-perks-tier-acc__headline"><span class="vc-sponsor-mention">༄ MVP</span><span
+                    class="vc-support-donate-new">NEW!</span><span class="vc-perks-tier-acc__range">Classifica
+                    Settimanale</span></span>
+              </summary>
+              <div class="vc-perks-tier-acc__body">
+                <p class="vc-perks-tier-acc__intro">Ottenibile arrivando primo per punteggio dei minigames nella
+                  classifica settimanale.</p>
+                <ul class="vc-perks-tier-acc__list" role="list">
+                  <li><span class="vc-perks-tier-acc__icon" aria-hidden="true"><i class="fa fa-trophy"></i></span>Ruolo
+                    esclusivo per <strong class="text-white">7 giorni</strong>.</li>
+                  <li><span class="vc-perks-tier-acc__icon" aria-hidden="true"><i
+                        class="fa fa-volume-up"></i></span>Permesso di usare soundboard esterne</li>
+                </ul>
+              </div>
+            </details>
+            <details class="vc-perks-tier-acc vc-perks-tier-acc--badge">
+              <summary class="vc-perks-tier-acc__summary">
+                <span class="vc-perks-tier-acc__ico" aria-hidden="true"><i class="fa fa-angle-right"></i></span>
+                <span class="vc-perks-tier-acc__headline"><span class="vc-sponsor-mention">@༄ Royale</span><span
+                    class="vc-support-donate-new">NEW!</span><span class="vc-perks-tier-acc__range">Top minigames
+                    totali</span></span>
+              </summary>
+              <div class="vc-perks-tier-acc__body">
+                <p class="vc-perks-tier-acc__intro">Assegnato automaticamente all'utente con il punteggio totale più
+                  alto nei minigames (senza scadenza).</p>
+                <ul class="vc-perks-tier-acc__list" role="list">
+                  <li><span class="vc-perks-tier-acc__icon" aria-hidden="true"><i
+                        class="fa fa-trophy"></i></span>Ruolo esclusivo finché resti in vetta alla classifica totale
+                    minigames.</li>
+                </ul>
+              </div>
+            </details>
+            <details class="vc-perks-tier-acc vc-perks-tier-acc--badge">
+              <summary class="vc-perks-tier-acc__summary">
+                <span class="vc-perks-tier-acc__ico" aria-hidden="true"><i class="fa fa-angle-right"></i></span>
+                <span class="vc-perks-tier-acc__headline"><span class="vc-sponsor-mention">@༄ Patron</span><span
+                    class="vc-support-donate-new">NEW!</span><span class="vc-perks-tier-acc__range">Supporter + Fan +
+                    Promoter</span></span>
+              </summary>
+              <div class="vc-perks-tier-acc__body">
+                <p class="vc-perks-tier-acc__intro">Ottenibile possedendo contemporaneamente i ruoli <span
+                    class="vc-sponsor-mention">@༄ Supporter</span>, <span class="vc-sponsor-mention">@༄ Fan</span> e
+                  <span class="vc-sponsor-mention">@༄ Promoter</span>.</p>
+                <ul class="vc-perks-tier-acc__list" role="list">
+                  <li><span class="vc-perks-tier-acc__icon" aria-hidden="true"><i
+                        class="fa fa-text-height"></i></span>Possibilità di scrivere in gigante</li>
+                </ul>
+              </div>
+            </details>
+            <details class="vc-perks-tier-acc vc-perks-tier-acc--badge">
+              <summary class="vc-perks-tier-acc__summary">
+                <span class="vc-perks-tier-acc__ico" aria-hidden="true"><i class="fa fa-angle-right"></i></span>
+                <span class="vc-perks-tier-acc__headline"><span class="vc-sponsor-mention">@༄ Promoter</span><span
+                    class="vc-perks-tier-acc__range">5+ inviti</span></span>
+              </summary>
+              <div class="vc-perks-tier-acc__body">
+                <p class="vc-perks-tier-acc__intro">Ottenibile invitando 5 persone nel server.</p>
+                <ul class="vc-perks-tier-acc__list" role="list">
+                  <li><span class="vc-perks-tier-acc__icon" aria-hidden="true"><i
+                        class="fa fa-image"></i></span>Permesso di allegare link e immagini in chat</li>
+                  <li><span class="vc-perks-tier-acc__icon" aria-hidden="true"><i class="fa fa-edit"></i></span>Permesso
+                    di cambiare nickname</li>
+                </ul>
+              </div>
+            </details>
+            <details class="vc-perks-tier-acc vc-perks-tier-acc--badge">
+              <summary class="vc-perks-tier-acc__summary">
+                <span class="vc-perks-tier-acc__ico" aria-hidden="true"><i class="fa fa-angle-right"></i></span>
+                <span class="vc-perks-tier-acc__headline"><span class="vc-sponsor-mention">@༄ Propulsor</span><span
+                    class="vc-perks-tier-acc__range">25+ inviti</span></span>
+              </summary>
+              <div class="vc-perks-tier-acc__body">
+                <p class="vc-perks-tier-acc__intro">Ottenibile invitando 25 persone nel server.</p>
+                <ul class="vc-perks-tier-acc__list" role="list">
+                  <li><span class="vc-perks-tier-acc__icon" aria-hidden="true"><i class="fa fa-gift"></i></span>Tutte le
+                    ricompense precedenti</li>
+                  <li><span class="vc-perks-tier-acc__icon" aria-hidden="true"><i
+                        class="fa fa-smile-o"></i></span>Permesso di mandare sticker ed emoji di altri server</li>
+                  <li><span class="vc-perks-tier-acc__icon" aria-hidden="true"><i
+                        class="fa fa-thumbs-up"></i></span>Permesso di aggiungere reazioni ai messaggi</li>
+                </ul>
+              </div>
+            </details>
+            <details class="vc-perks-tier-acc vc-perks-tier-acc--badge">
+              <summary class="vc-perks-tier-acc__summary">
+                <span class="vc-perks-tier-acc__ico" aria-hidden="true"><i class="fa fa-angle-right"></i></span>
+                <span class="vc-perks-tier-acc__headline"><span class="vc-sponsor-mention">@༄ Catalyst</span><span
+                    class="vc-perks-tier-acc__range">100+ inviti</span></span>
+              </summary>
+              <div class="vc-perks-tier-acc__body">
+                <p class="vc-perks-tier-acc__intro">Ottenibile invitando 100 persone nel server.</p>
+                <ul class="vc-perks-tier-acc__list" role="list">
+                  <li><span class="vc-perks-tier-acc__icon" aria-hidden="true"><i class="fa fa-gift"></i></span>Tutte le
+                    ricompense precedenti</li>
+                  <li><span class="vc-perks-tier-acc__icon" aria-hidden="true"><i
+                        class="fa fa-volume-up"></i></span>Permesso di usare soundboard esterne</li>
+                </ul>
+              </div>
+            </details>
+            <details class="vc-perks-tier-acc vc-perks-tier-acc--badge">
+              <summary class="vc-perks-tier-acc__summary">
+                <span class="vc-perks-tier-acc__ico" aria-hidden="true"><i class="fa fa-angle-right"></i></span>
+                <span class="vc-perks-tier-acc__headline"><span class="vc-sponsor-mention">@༄ Supporter</span><span
+                    class="vc-support-donate-new">NEW!</span><span class="vc-perks-tier-acc__range">Bio del
+                    Profilo</span></span>
+              </summary>
+              <div class="vc-perks-tier-acc__body">
+                <p class="vc-perks-tier-acc__intro">Ottenibile mettendo il testo ".gg/viniliecaffe" o
+                  "discord.gg/viniliecaffe" nella bio del tuo profilo Discord! Riscattabile tramite <code
+                    class="vc-sponsor-mention">༄🎫︲tickets</code> <code class="vc-sponsor-code">PERKS</code> </p>
+                <ul class="vc-perks-tier-acc__list" role="list">
+                  <li><span class="vc-perks-tier-acc__icon" aria-hidden="true"><i
+                        class="fa fa-image"></i></span>Permesso di allegare link e immagini in chat</li>
+                  <li><span class="vc-perks-tier-acc__icon" aria-hidden="true"><i class="fa fa-edit"></i></span>Permesso
+                    di cambiare nickname</li>
+                </ul>
+              </div>
+            </details>
+            <details class="vc-perks-tier-acc vc-perks-tier-acc--badge">
+              <summary class="vc-perks-tier-acc__summary">
+                <span class="vc-perks-tier-acc__ico" aria-hidden="true"><i class="fa fa-angle-right"></i></span>
+                <span class="vc-perks-tier-acc__headline"><span class="vc-sponsor-mention">@༄ Fan</span><span
+                    class="vc-support-donate-new">NEW!</span><span class="vc-perks-tier-acc__range">Status del
+                    Profilo</span></span>
+              </summary>
+              <div class="vc-perks-tier-acc__body">
+                <p class="vc-perks-tier-acc__intro">Ottenibile mettendo il testo ".gg/viniliecaffe" o
+                  "discord.gg/viniliecaffe" nello status del tuo profilo Discord!</p>
+                <ul class="vc-perks-tier-acc__list" role="list">
+                  <li><span class="vc-perks-tier-acc__icon" aria-hidden="true"><i
+                        class="fa fa-image"></i></span>Permesso di allegare link e immagini in chat</li>
+                  <li><span class="vc-perks-tier-acc__icon" aria-hidden="true"><i class="fa fa-edit"></i></span>Permesso
+                    di cambiare nickname</li>
+                </ul>
+              </div>
+            </details>
+            <details class="vc-perks-tier-acc vc-perks-tier-acc--badge">
+              <summary class="vc-perks-tier-acc__summary">
+                <span class="vc-perks-tier-acc__ico" aria-hidden="true"><i class="fa fa-angle-right"></i></span>
+                <span class="vc-perks-tier-acc__headline"><span class="vc-sponsor-mention">@༄ Follower</span><span
+                    class="vc-support-donate-new">NEW!</span><span class="vc-perks-tier-acc__range">Follower del
+                    Server</span></span>
+              </summary>
+              <div class="vc-perks-tier-acc__body">
+                <p class="vc-perks-tier-acc__intro">Ottenibile seguendo il profilo del server su <a
+                    href="https://instagram.com/viniliecaffe" target="_blank" rel="noopener noreferrer">Instagram</a> &
+                  <a href="https://tiktok.com/@viniliecaffe" target="_blank" rel="noopener noreferrer">TikTok</a>!
+                  Riscattabile tramite <code class="vc-sponsor-mention">༄🎫︲tickets</code> <code
+                    class="vc-sponsor-code">PERKS</code>
+                </p>
+                <ul class="vc-perks-tier-acc__list" role="list">
+                  <li><span class="vc-perks-tier-acc__icon" aria-hidden="true"><i
+                        class="fa fa-image"></i></span>Permesso di allegare link e immagini in chat</li>
+                  <li><span class="vc-perks-tier-acc__icon" aria-hidden="true"><i class="fa fa-edit"></i></span>Permesso
+                    di cambiare nickname</li>
+                </ul>
+              </div>
+            </details>
+            <details class="vc-perks-tier-acc vc-perks-tier-acc--badge">
+              <summary class="vc-perks-tier-acc__summary">
+                <span class="vc-perks-tier-acc__ico" aria-hidden="true"><i class="fa fa-angle-right"></i></span>
+                <span class="vc-perks-tier-acc__headline"><span class="vc-sponsor-mention">@༄ Guilded</span><span
+                    class="vc-support-donate-new">NEW!</span><span class="vc-perks-tier-acc__range">Guild
+                    tags</span></span>
+              </summary>
+              <div class="vc-perks-tier-acc__body">
+                <p class="vc-perks-tier-acc__intro">Ottenibile mettendo una delle nostre guild tags.</p>
+                <ul class="vc-perks-tier-acc__list" role="list">
+                  <li><span class="vc-perks-tier-acc__icon" aria-hidden="true"><i class="fa fa-link"></i></span><span
+                      class="vc-perks-tag-name">༄🌙 ʟᴜɴᴀ</span><span class="vc-perks-tag-arrow" aria-hidden="true"><i
+                        class="fa fa-long-arrow-right"></i></span><a class="vc-perks-tag-link"
+                      href="https://discord.gg/E6vrm5zE6B" target="_blank"
+                      rel="noopener noreferrer">discord.gg/E6vrm5zE6B</a></li>
+                  <li><span class="vc-perks-tier-acc__icon" aria-hidden="true"><i class="fa fa-link"></i></span><span
+                      class="vc-perks-tag-name">༄🔥 ꜰɪʀᴇ</span><span class="vc-perks-tag-arrow" aria-hidden="true"><i
+                        class="fa fa-long-arrow-right"></i></span><a class="vc-perks-tag-link"
+                      href="https://discord.gg/QnTN5P578g" target="_blank"
+                      rel="noopener noreferrer">discord.gg/QnTN5P578g</a></li>
+                  <li><span class="vc-perks-tier-acc__icon" aria-hidden="true"><i class="fa fa-link"></i></span><span
+                      class="vc-perks-tag-name">༄🔞 ᴘღʀɴ</span><span class="vc-perks-tag-arrow" aria-hidden="true"><i
+                        class="fa fa-long-arrow-right"></i></span><a class="vc-perks-tag-link"
+                      href="https://discord.gg/WMuZ4EMAkc" target="_blank"
+                      rel="noopener noreferrer">discord.gg/WMuZ4EMAkc</a></li>
+                  <li><span class="vc-perks-tier-acc__icon" aria-hidden="true"><i class="fa fa-link"></i></span><span
+                      class="vc-perks-tag-name">༄🌟 ꜱᴛᴀʀ</span><span class="vc-perks-tag-arrow" aria-hidden="true"><i
+                        class="fa fa-long-arrow-right"></i></span><a class="vc-perks-tag-link"
+                      href="https://discord.gg/uqUNS9f5m5" target="_blank"
+                      rel="noopener noreferrer">discord.gg/uqUNS9f5m5</a></li>
+                  <li><span class="vc-perks-tier-acc__icon" aria-hidden="true"><i class="fa fa-link"></i></span><span
+                      class="vc-perks-tag-name">༄🍃 ᴡᴇᴇᴅ</span><span class="vc-perks-tag-arrow" aria-hidden="true"><i
+                        class="fa fa-long-arrow-right"></i></span><a class="vc-perks-tag-link"
+                      href="https://discord.gg/SzBwnxHXNv" target="_blank"
+                      rel="noopener noreferrer">discord.gg/SzBwnxHXNv</a></li>
+                  <li><span class="vc-perks-tier-acc__icon" aria-hidden="true"><i class="fa fa-link"></i></span><span
+                      class="vc-perks-tag-name">༄💗 ꜰɪɢᴀ</span><span class="vc-perks-tag-arrow" aria-hidden="true"><i
+                        class="fa fa-long-arrow-right"></i></span><a class="vc-perks-tag-link"
+                      href="https://discord.gg/z3EXtJwvQH" target="_blank"
+                      rel="noopener noreferrer">discord.gg/z3EXtJwvQH</a></li>
+                </ul>
+                <ul class="vc-perks-tier-acc__list" role="list">
+                  <li><span class="vc-perks-tier-acc__icon" aria-hidden="true"><i
+                        class="fa fa-image"></i></span>Permesso di allegare link e immagini in chat</li>
+                  <li><span class="vc-perks-tier-acc__icon" aria-hidden="true"><i class="fa fa-edit"></i></span>Permesso
+                    di cambiare nickname</li>
+                </ul>
+              </div>
+            </details>
+            <details class="vc-perks-tier-acc vc-perks-tier-acc--badge">
+              <summary class="vc-perks-tier-acc__summary">
+                <span class="vc-perks-tier-acc__ico" aria-hidden="true"><i class="fa fa-angle-right"></i></span>
+                <span class="vc-perks-tier-acc__headline"><span class="vc-sponsor-mention">@༄ Voter</span><span
+                    class="vc-support-donate-new">NEW!</span><span class="vc-perks-tier-acc__range">Voti
+                    giornalieri</span></span>
+              </summary>
+              <div class="vc-perks-tier-acc__body">
+                <p class="vc-perks-tier-acc__intro">Ottenibile votando il server su Discadia o Top.gg.</p>
+                <ul class="vc-perks-tier-acc__list" role="list">
+                  <li><span class="vc-perks-tier-acc__icon" aria-hidden="true"><i class="fa fa-bolt"></i></span>Bonus
+                    EXP casuale tra <strong class="text-white">100</strong> e <strong class="text-white">250</strong>
+                  </li>
+                  <li><span class="vc-perks-tier-acc__icon" aria-hidden="true"><i class="fa fa-clock-o"></i></span>Ruolo
+                    temporaneo per <strong class="text-white">12–24 ore</strong></li>
+                </ul>
+              </div>
+            </details>
+            <details class="vc-perks-tier-acc vc-perks-tier-acc--badge">
+              <summary class="vc-perks-tier-acc__summary">
+                <span class="vc-perks-tier-acc__ico" aria-hidden="true"><i class="fa fa-angle-right"></i></span>
+                <span class="vc-perks-tier-acc__headline"><span class="vc-sponsor-mention">@༄ Veterano</span><span
+                    class="vc-perks-tier-acc__range">1 mese di permanenza</span></span>
+              </summary>
+              <div class="vc-perks-tier-acc__body">
+                <p class="vc-perks-tier-acc__intro">Ottenibile stando nel server da almeno 1 mese.</p>
+                <ul class="vc-perks-tier-acc__list" role="list">
+                  <li><span class="vc-perks-tier-acc__icon" aria-hidden="true"><i
+                        class="fa fa-user-secret"></i></span>Esclusività del ruolo.</li>
+                </ul>
+              </div>
+            </details>
+            <details class="vc-perks-tier-acc vc-perks-tier-acc--badge">
+              <summary class="vc-perks-tier-acc__summary">
+                <span class="vc-perks-tier-acc__ico" aria-hidden="true"><i class="fa fa-angle-right"></i></span>
+                <span class="vc-perks-tier-acc__headline"><span class="vc-sponsor-mention">@༄ OG</span><span
+                    class="vc-perks-tier-acc__range">1 anno di permanenza</span></span>
+              </summary>
+              <div class="vc-perks-tier-acc__body">
+                <p class="vc-perks-tier-acc__intro">Ottenibile stando nel server da almeno 1 anno.</p>
+                <ul class="vc-perks-tier-acc__list" role="list">
+                  <li><span class="vc-perks-tier-acc__icon" aria-hidden="true"><i
+                        class="fa fa-user-secret"></i></span>Esclusività del ruolo.</li>
+                </ul>
+              </div>
+            </details>
+          </div>
+          <div class="vc-support-donate-role__foot vc-perks-card__foot">
+            <a href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer"
+              class="vc-support-donate-role__cta inline-flex min-h-[3.5rem] w-full items-center justify-center gap-2 rounded-[1.35rem] bg-gradient-to-r from-[#6f4e37] to-[#4a3425] px-5 py-3 text-sm font-extrabold text-[#f7ecdf] shadow-[0_18px_46px_rgba(212,168,136,0.26)] transition hover:-translate-y-0.5 hover:brightness-105 sm:text-base">
+              <i class="fa fa-comments" aria-hidden="true"></i> ENTRA NEL SERVER!
+            </a>
+          </div>
+        </article>
+      </div>
+      <div class="vc-support-donate-after vc-perks-after-note mx-auto mt-6 w-full max-w-3xl px-4 md:mt-8">
+        <p
+          class="vc-support-donate-refund-note m-0 mx-auto max-w-2xl text-center text-sm leading-relaxed text-slate-400/95">
+          <i class="fa fa-exclamation-circle mr-1.5 align-text-bottom text-amber-400/90" aria-hidden="true"></i><strong
+            class="font-semibold text-slate-300/95">Importante:</strong> Se esci dal server principale, i ruoli verranno
+          rimossi e <strong class="text-slate-100">non saranno riassegnati automaticamente</strong>.
+        </p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="relative z-10 border-t border-white/8 bg-slate-950/20">
+    <div class="mx-auto flex max-w-6xl flex-col items-center gap-5 px-4 py-10 text-center">
+      <div class="vc-footer-brand-row flex flex-wrap items-center justify-center gap-3 sm:gap-5"
+        aria-label="Social e home">
+        {{FOOTER_SOCIAL_LEFT}}
+        <a class="inline-flex items-center rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-3 text-lg font-extrabold tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
+          href="{{SITE_URL}}">{{SITE_NAME}}</a>
+        {{FOOTER_SOCIAL_RIGHT}}
+      </div>
+      <nav class="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-slate-300/80"
+        aria-label="Link legali">
+        <a class="transition hover:text-white" href="{{TERMS_URL}}">Termini di Servizio</a>
+        <a class="transition hover:text-white" href="{{PRIVACY_URL}}">Privacy Policy</a>
+        <a class="transition hover:text-white" href="{{COOKIE_POLICY_URL}}">Cookie Policy</a>
+      </nav>
+      <p class="max-w-xl text-sm leading-relaxed text-slate-400">
+        © {{YEAR}} {{SITE_NAME}}. Sito realizzato da {{SITE_NAME}} con
+        <span class="vc-footer-heart" role="img" aria-label="amore">❤️</span> per la community.
+      </p>
+    </div>
+  </footer>
+
+  <script>
+    window.__VC_AUTH = {
+      clientId: "{{DISCORD_OAUTH_CLIENT_ID}}",
+      redirectUri: "{{DISCORD_OAUTH_REDIRECT_URI}}",
+      homeUrl: "{{SITE_URL}}",
+    };
+    window.__VC_SITE_NOTIFS = {
+      apiUrl: "{{SITE_NOTIFICATIONS_API_URL}}",
+      apiUrlLocal: "{{SITE_NOTIFICATIONS_API_URL_LOCAL}}",
+    };
+  </script>
+  <script src="../js/discord-auth.js" defer></script>  <script src="../js/vc-cursor-trail.js" defer></script>
+
+  <script src="../js/vc-landing.js" defer></script>
+  <script>
+    (function () {
+      var allDetails = document.querySelectorAll('details.vc-perks-tier-acc');
+      allDetails.forEach(function (detail) {
+        detail.addEventListener('toggle', function () {
+          if (!detail.open) return;
+          allDetails.forEach(function (other) {
+            if (other !== detail) other.open = false;
+          });
+        });
+      });
+    })();
+  </script>
+</body>
+
+</html>
+</script>
+</body>
+
+</html>
+
+</html>
+</script>
+</body>
+
+</html>
+
+</html>

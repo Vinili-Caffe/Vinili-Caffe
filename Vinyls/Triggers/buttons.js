@@ -1,22 +1,30 @@
-const { EmbedBuilder, Events, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags, TextDisplayBuilder, SeparatorBuilder, SeparatorSpacingSize, } = require("discord.js");
+const { EmbedBuilder, Events, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags, TextDisplayBuilder, SeparatorBuilder, SeparatorSpacingSize, AttachmentBuilder, } = require("discord.js");
 const { decrementQuoteCount } = require("../Utils/Quote/quoteCounter");
 const { ROLE_MULTIPLIERS } = require("../Services/Community/expService");
 const { AvatarPrivacy, BannerPrivacy, ActivityUserProfile, } = require("../Schemas/Community/communitySchemas");
 const IDs = require("../Utils/Config/ids");
 const { ZODIAC_ROLE_IDS } = require("../Utils/Community/zodiacRoles");
 const { PERSONALITY_NORMAL_COLOR_ROLE_IDS_ALL } = require("../Utils/Community/personalityColorUnlocks");
+const { PERSONALITY_MENTION_ROLE_IDS } = require("../Utils/Community/personalityRolePersistence");
 const { getGuildMemberCached, getUserCached } = require("../Utils/Interaction/interactionEntityCache");
 const { applyDepexOneLevel } = require("../Services/Staff/staffWarnService");
 const { syncStaffDbAndPauseChannelAfterDepex } = require("../Utils/Staff/staffPmUtils");
 const { sendPexDepexLog } = require("../Events/interaction/resocontoHandlers");
 const { checkButtonPermission, checkStringSelectPermission, buildGlobalPermissionDeniedEmbed, buildGlobalChannelDeniedEmbed, buildGlobalNotYourControlEmbed, } = require("../Utils/Moderation/commandPermissions");
-const { DIVIDER_URL } = require("../../shared/discord/constants");
 const { ROLE_TRY_AGAIN, ROLE_PLUS_FORBIDDEN } = require("../Utils/Text/replyMessages");
 const { applyDefaultFooterToEmbeds } = require("../Utils/Embeds/defaultFooter");
-const { guildMemberDisplayAvatarUrlDynamic } = require("../Utils/Discord/guildDiscordIdentity");
+const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../Utils/Discord/guildDiscordIdentity");
 const PRIVATE_FLAG = 1 << 6;
 const MONO_GUILD_DENIED_TEXT = "Questo bot è utilizzabile solo sul server principale di Vinili & Caffè.";
+const { buildStaffGuideMenuRow, STAFF_GUIDE_MENU_ID, STAFF_GUIDE_SECTION_IDS } = require("../Utils/Staff/staffGuideMenuComponents");
+const { buildStaffGuideEmbed } = require("../Embeds/staff");
+const { applyDefaultFooter } = require("../Utils/Embeds/defaultFooter");
 const { MOD_RULE_DETAIL } = require("../Utils/Moderation/modRegolamentoConstants");
+const {
+  panelSelectFollowUp,
+  buildFollowUpInteractionProxy,
+  resetPanelSelectMenu,
+} = require("../../shared/discord/panelSelectMenuRuntime");
 
 function staffSanctionRuleIntro(ruleKey) {
   const body = MOD_RULE_DETAIL[ruleKey];
@@ -61,7 +69,6 @@ function onlyExistingRoleIds(guild, roleIds) {
   return roleIds.filter((id) => id && guild.roles.cache.has(id));
 }
 
-/** Restituisce { existing, missing }. Se missing.length > 0, logga quali ID ruolo non sono più sul server. */
 function partitionRoleIdsByExisting(guild, roleIds, context) {
   if (!guild?.roles?.cache || !Array.isArray(roleIds)) return { existing: [], missing: [] };
   const existing = roleIds.filter((id) => id && guild.roles.cache.has(id));
@@ -82,7 +89,6 @@ async function removeMemberRolesSequential(member, roleIds) {
   }
 }
 
-/** Una sola chiamata API: rimuove roleIdsToRemove e aggiunge roleIdsToAdd. */
 async function setMemberRolesBulk(member, roleIdsToRemove, roleIdsToAdd = []) {
   if (!member?.guild || !Array.isArray(roleIdsToRemove)) return;
   const m = await member.guild.members.fetch(member.id).catch((err) => { logButtonErr(err, { warn: true }); return member; });
@@ -90,6 +96,51 @@ async function setMemberRolesBulk(member, roleIdsToRemove, roleIdsToAdd = []) {
   const current = [...m.roles.cache.keys()].filter((id) => id !== member.guild?.id);
   const next = current.filter((id) => !removeSet.has(id)).concat(roleIdsToAdd.filter(Boolean));
   await m.edit({ roles: [...new Set(next)] }).catch((err) => { logButtonErr(err); });
+}
+
+function buildMiddleGuideNavRow() {
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId("middle_ticket").setLabel("︲GESTIONE TICKET").setEmoji("<:VC_Ticket:1482535175283019888>").setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId("middle_selfie").setLabel("︲VERIFICA SELFIE").setEmoji("<a:VC_Verified:1482532479637127188>").setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId("middle_follower").setLabel("︲FOLLOWER & SUPPORTER").setEmoji("<a:VC_Verified:1482532479637127188>").setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId("middle_partnership").setLabel("︲GESTIONE PARTNER").setEmoji("<:VC_Collab:1482534540089098260>").setStyle(ButtonStyle.Secondary),
+  );
+}
+
+function rebuildStaffGuideMenuComponents() {
+  return [buildStaffGuideMenuRow()];
+}
+
+function rebuildStaffGuidePanelEmbeds(interaction) {
+  return [applyDefaultFooter(buildStaffGuideEmbed(), interaction.guild)];
+}
+
+const staffGuidePanelResetOptions = { rebuildEmbeds: rebuildStaffGuidePanelEmbeds };
+
+async function handleStaffGuideSelectMenu(interaction) {
+  if (!interaction.isStringSelectMenu?.() || interaction.customId !== STAFF_GUIDE_MENU_ID) return false;
+
+  const sectionId = String(interaction.values?.[0] || "").trim();
+  if (!STAFF_GUIDE_SECTION_IDS.has(sectionId)) return false;
+
+  const sectionInteraction = Object.assign(
+    buildFollowUpInteractionProxy(interaction, { treatAsButton: true }),
+    { customId: sectionId },
+  );
+
+  const gate = await checkButtonPermission(sectionInteraction);
+  if (!gate.allowed) {
+    await panelSelectFollowUp(
+      interaction,
+      rebuildStaffGuideMenuComponents,
+      { embeds: [buildDeniedEmbedFromGate(gate, "menu", interaction)] },
+      staffGuidePanelResetOptions,
+    );
+    return true;
+  }
+
+  await resetPanelSelectMenu(interaction, rebuildStaffGuideMenuComponents, staffGuidePanelResetOptions);
+  return handleStaffButtons(sectionInteraction);
 }
 
 async function handleStaffButtons(interaction) {
@@ -138,26 +189,23 @@ async function handleStaffButtons(interaction) {
     return true;
   }
 
-  if (interaction.customId == "sanzioni") {
-    const introText = "<:reportmessage:1443670575376765130> Ogni staffer per sanzionare dovrà __seguire__ <#1442569243626307634>.";
-    const limitsText = [
+  /*if (interaction.customId == "sanzioni") {
+    const embed = new EmbedBuilder()
+      .setColor("#6f4e37")
+      .setDescription([
+      "<:reportmessage:1443670575376765130> Ogni staffer per sanzionare dovrà __seguire__ la <#1442569237142044773>.",
+      "",
       "> <a:VC_Arrow:1482706699365257397> **__LIMITI SETTIMANALI SULLE SANZIONI__**",
-      "<:VC_Dot:1482532364222595303> Ogni <@&" + IDs.roles.Mod + "> dovrà __eseguire__ almeno: **`1 sanzioni`**",
-      "<:VC_Dot:1482532364222595303> Ogni <@&" + IDs.roles.HighStaff + "> dovrà __eseguire__ almeno: **`2 sanzioni`**",
-      "<:VC_Dot:1482532364222595303> Ogni <@&" + IDs.roles.Admin + "> dovrà __eseguire__ almeno: **`3 sanzioni`**",
+      "<:VC_Dot:1482532364222595303> Ogni <@&" + IDs.roles.Mod + "> dovrà __eseguire__ almeno: **`2 sanzioni`**",
+      "<:VC_Dot:1482532364222595303> Ogni <@&" + IDs.roles.SeniorModerator + "> dovrà __eseguire__ almeno: **`2 sanzioni`**",
+      "<:VC_Dot:1482532364222595303> Ogni <@&" + IDs.roles.Director + "> dovrà __eseguire__ almeno: **`1 sanzione`**",
+      "<:VC_Dot:1482532364222595303> Ogni <@&" + IDs.roles.Admin + "> dovrà __eseguire__ almeno: **`1 sanzione`**",
       "",
       "> Chi __rispetterà__ questi limiti riceverà **una valutazione positiva**.",
-    ].join("\n");
-    await interaction.reply({
-      components: [
-        new TextDisplayBuilder().setContent(introText),
-        new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small),
-        new TextDisplayBuilder().setContent(limitsText),
-      ],
-      flags: PRIVATE_FLAG | MessageFlags.IsComponentsV2,
-    }).catch((err) => { logButtonErr(err); return null; });
+    ].join("\n"));
+    await interaction.reply({ embeds: [embed], flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
     return true;
-  }
+  }*/
 
   if (interaction.customId == "moderazione_staff") {
     const embed = new EmbedBuilder()
@@ -166,10 +214,15 @@ async function handleStaffButtons(interaction) {
         `<a:VC_Alarm:1482706641618079816> Per **applicare** le __sanzioni__, è necessario __attenersi__ alle **indicazioni** riportate di seguito e **consultare** le procedure disponibili __cliccando__ sui **bottoni** alla fine del messaggio.
 
 <:VC_1:1482706338021642333> <a:VC_Arrow:1482706699365257397> Bisogna **__sempre__** allegare le **prove** (screen, video, link di messaggi).
+
 <:VC_2:1482706376525611090> <a:VC_Arrow:1482706699365257397> Il __numero__ della **sanzione** si basa su quante volte l'**utente** è stato **sanzionato __specificatamente__ per quella regola**.
+
 <:VC_3:1482706404773990460> <a:VC_Arrow:1482706699365257397> Quando **sanzionate**, usate sempre l'**__articolo__** del **regolamento** infranto.
-<:VC_4:1482706432347344916> <a:VC_Arrow:1482706699365257397> Per visualizzare **quante** volte un __utente__ è stato **sanzionato** usate il comando +modlogs **__\`ID\`__**
+
+<:VC_4:1482706432347344916> <a:VC_Arrow:1482706699365257397> Per visualizzare **quante** volte un __utente__ è stato **sanzionato**, usate il comando +modlogs **__\`ID\`__**.
+
 <:VC_5:1482706459765637272> <a:VC_Arrow:1482706699365257397> Bisogna **__sempre__** sanzionare nel canale <#1442569245878648924> usando i comandi di <@1329118940110127204>
+
 <:VC_6:1482706490769801327> <a:VC_Arrow:1482706699365257397> Ogni volta che si __oltrepassa__ il numero di **sanzioni ottenibili** si **ricomincia** il __ciclo__ di sanzioni per quella **specifica __regola__**.`,
       );
     const rowModeration = new ActionRowBuilder().addComponents(
@@ -183,7 +236,7 @@ async function handleStaffButtons(interaction) {
 
   if (interaction.customId == "warnstaff") {
     const embed = new EmbedBuilder()
-      
+
       .setColor("#6f4e37")
       .setDescription(
         "<:banhammer:1443651875441217639> I **warn staff** vengono __assegnati__ dopo **3 valutazioni negative**. Raggiunti i `2` **warn staff** si verrà depexati al ruolo precedente. **__(Per i Mod sarà depex completo)__**\n\n" +
@@ -194,14 +247,45 @@ async function handleStaffButtons(interaction) {
     return true;
   }
 
+  if (interaction.customId == "pex") {
+    const embed = new EmbedBuilder()
+      .setColor("#6f4e37")
+      .setDescription(
+        "<a:VC_LevelUp:1482527020641419415> **__GUIDA PEX__**\n\n" +
+        "> <:VC_Clock:1473359204189474886> Ogni ruolo, per essere assegnato, richiede un certo tempo per essere ottenuto, ma non è detto che al raggiungimento di questo tempo venga assegnato il ruolo.\n" +
+        "<:VC_Dot:1482532364222595303> Il ruolo <@&" + IDs.roles.Helper + "> è un ruolo di prova, **con un periodo variabile di 1-2 settimane**.\n" +
+        "<:VC_Dot:1482532364222595303> Il ruolo <@&" + IDs.roles.Mod + "> **richiede un periodo variabile di 1-2 mesi**.\n" +
+        "<:VC_Dot:1482532364222595303> Il ruolo <@&" + IDs.roles.SeniorModerator + "> **richiede un periodo variabile di 2-3 mesi**.\n" +
+        "<:VC_Dot:1482532364222595303> Il ruolo <@&" + IDs.roles.Director + "> **richiede un periodo variabile di 3-4 mesi**, essendo esso un ruolo di prova per entrare a tutti gli effetti nell'<@&" + IDs.roles.HighStaff + ">.\n\n" +
+        "> <:VC_Attention:1482534443632558151> Il **pex** viene assegnato quando uno staffer dimostra __costanza__, **qualità** nel lavoro e un comportamento utile alla community.\n" +
+        "<:VC_1:1482706338021642333> **Limiti settimanali** completati con continuità.\n" +
+        "<:VC_2:1482706376525611090> **Presenza vocale** reale e utile, soprattutto nelle vocali pubbliche.\n" +
+        "<:VC_3:1482706404773990460> **Moderazione corretta**, con prove, articoli giusti e buon criterio.\n" +
+        "<:VC_4:1482706432347344916> **Valutazioni positive** e contributi extra al server.\n" +
+        "<:VC_5:1482706459765637272> **Comportamento maturo**, nessun abuso di potere e rispetto della guida staff.\n\n");
+    await interaction.reply({ embeds: [embed], flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
+    return true;
+  }
+
   if (interaction.customId == "valutazioni") {
     const embed = new EmbedBuilder().setColor("#6f4e37").setDescription(
-      "<a:1370everythingisstable:1444006799643508778> **__VALUTAZIONI POSITIVE__**\n" +
+      "<a:1370everythingisstable:1444006799643508778> **__VALUTAZIONI POSITIVE__**\n\n" +
       "<a:questionexclaimanimated:1443660299994533960> Le **valutazioni positive** aumentano la possibilità di essere **pexati** e si possono **ottenere** generando un'__attività__ **superiore** a quella richiesta nei _limiti settimanali_ o facendo qualcosa per dare un **vantaggio** al __server__.\n\n" +
       "> Le **valutazioni positive** si possono **__scambiare__** per dei giorni in più di **pausa**.\n\n" +
-      "<a:laydowntorest:1444006796661358673> **__VALUTAZIONI NEGATIVE__**\n" +
-      "> Le **valutazioni negative** diminuiscono la possibilità di essere **pexati** e si ottengono **non completando** i _limiti settimanali_ o facendo qualcosa di _nocivo_ per il **server**.\n\n" +
-      "> Le **valutazioni negative** possono essere **__rimosse__** completando compiti extra assegnati dall'<@&1442568894349840435> o rinunciando ad almeno `3 o più valutazioni positive` in base al motivo per cui è stata assegnata la valutazione."
+      "<a:laydowntorest:1444006796661358673> **__VALUTAZIONI NEGATIVE__**\n\n" +
+      "<a:questionexclaimanimated:1443660299994533960> Le **valutazioni negative** diminuiscono la possibilità di essere **pexati** e si ottengono **non completando** i _limiti settimanali_ o facendo qualcosa di _nocivo_ per il **server**.\n\n" +
+      "> Le **valutazioni negative** possono essere **__rimosse__** completando compiti extra assegnati dall'<@&1442568894349840435> o rinunciando ad almeno `3 o più valutazioni positive` in base al motivo per cui è stata assegnata la valutazione.\n\n" +
+      "<a:VC_NewsExclamation:1471891662786527253> **__VALUTAZIONI AUTOMATICHE__**\n\n" +
+      "> Ogni settimana si possono ottenere delle **valutazioni automatiche** in base a tre fattori:\n" +
+      "<:VC_1:1482706338021642333> **Completamento dei limiti settimanali superandoli __almeno del doppio__**\n" +
+      "<:VC_2:1482706376525611090> **Completamento dei compiti extra o settimanali**\n" +
+      "<:VC_3:1482706404773990460> **Completamento dei limiti sanzioni**\n\n" +
+      "> Inoltre si possono ottenere delle valutazioni extra in base a alcuni ruoli:\n" +
+      "<:VC_1:1482706338021642333> **Mettendo il link vanity nello status o nella bio, o mettendo una nostra GUILD TAGS**\n" +
+      "<:VC_2:1482706376525611090> **Seguendo le pagine social**\n" +
+      "<:VC_3:1482706404773990460> **Mettendo una recensione sul [nostro sito](https://www.viniliecaffe.it/recensioni)**\n" +
+      "<:VC_4:1482706432347344916> **Boostando il server o comprando un ruolo come Donator, VIP o VIP+ \n(<:VC_Attention:1482534443632558151> __Attenzione: per i boost varrà anche solo con un boost, se viene trasferito verrà rimossa anche la valutazione.__ Solo per il ruolo Supporter e Follower bisognerà aprire un ticket \`PERKS\`)**\n\n" +
+      "> L'<@&" + IDs.roles.HighStaff + "> può inoltre decidere di assegnare valutazioni extra a discrezione in base a comportamenti particolarmente virtuosi o dannosi per la community."
     );
     await interaction.reply({ embeds: [embed], flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
     return true;
@@ -220,15 +304,12 @@ async function handleStaffButtons(interaction) {
       "<:VC_Dot:1482532364222595303> **25** __Aprile__\n" +
       "<:VC_Dot:1482532364222595303> **1** __Maggio__\n" +
       "<:VC_Dot:1482532364222595303> **2** __Giugno__\n\n" +
-
       "> Naturalmente per **garantire** al meglio l'attività del server ci sono dei __limiti__ di staffer che possono essere in pausa nello __stesso periodo__\n" +
       "<:VC_Dot:1482532364222595303> <@&1442568904311570555> <a:VC_Arrow:1482706699365257397> __2__ **staffer**\n" +
-      "<:VC_Dot:1482532364222595303> <@&" +
-        IDs.roles.Mod +
-        "> <a:VC_Arrow:1482706699365257397> __2__ **staffer**\n" +
-        "<:VC_Dot:1482532364222595303> <@&" +
-        IDs.roles.Admin +
-        "> <a:VC_Arrow:1482706699365257397> __1__ **staffer**\n\n" +
+      "<:VC_Dot:1482532364222595303> <@&" + IDs.roles.Mod + "> <a:VC_Arrow:1482706699365257397> __2__ **staffer**\n" +
+      "<:VC_Dot:1482532364222595303> <@&" + IDs.roles.SeniorModerator + "> <a:VC_Arrow:1482706699365257397> __2__ **staffer**\n" +
+      "<:VC_Dot:1482532364222595303> <@&" + IDs.roles.Director + "> <a:VC_Arrow:1482706699365257397> __1__ **staffer**\n" +
+      "<:VC_Dot:1482532364222595303> <@&" + IDs.roles.Admin + "> <a:VC_Arrow:1482706699365257397> __1__ **staffer**\n\n" +
       "<:VC_Attention:1482534443632558151> Potrai chiedere __una pausa__ **ogni mese**. Se quest'ultima cade in `2` **__mesi diversi__**, verrà contato il mese in cui viene **chiesta** la __pausa__, a patto che non superi i primi __`5` giorni__ dell'altro mese. Per chiedere un'altra pausa dovrai aspettare almeno **__`1 settimana`__**\n\n" +
       "> <:banhammer:1443651875441217639> Se l'<@&1442568894349840435> verrà a conoscenza di uno **staffer** __in pausa__ ma **attivo** in un **altro server** nel periodo di tempo della pausa, **toglierà** la pausa e **sanzionerà** lo staffer."
     );
@@ -238,20 +319,182 @@ async function handleStaffButtons(interaction) {
 
   if (interaction.customId == "limiti") {
     const embed = new EmbedBuilder().setColor("#6f4e37").setDescription(
-      "<:infoglowingdot:1443660296823767110> I **`limiti settimanali`** sono dei **messaggi** e delle **ore vocali** che entro una __settimana__ si devono __raggiungere__.\n\n" +
+      "<:VC_Info:1482526956703580372> I **`limiti settimanali`** sono dei **messaggi** e delle **ore vocali** che entro una __settimana__ si devono __raggiungere__.\n\n" +
       "> <:VC_Attention:1482534443632558151> **Superare** i limiti di __poco__ potrebbe comportare un **depex**, mentre **superarli** di __tanto__ **__non garantisce__** un **pex**.\n\n" +
-      "<a:VC_Arrow:1482706699365257397> <@&1442568904311570555>\n" +
-      "<:VC_DoubleReply:1482532332509466797> **__350__** messaggi\n" +
-      "<:VC_Reply:1482532158080942191> **__3.5h__** in vocale\n\n" +
-      "<a:VC_Arrow:1482706699365257397> <@&1442568901887000618>\n" +
-      "<:VC_DoubleReply:1482532332509466797> **__450__** messaggi\n" +
-      "<:VC_Reply:1482532158080942191> **__4.5h__** in vocale\n\n" +
-      "<a:VC_Arrow:1482706699365257397> <@&" +
-        IDs.roles.Admin +
-        ">\n" +
+      "<a:VC_Arrow:1482706699365257397> <@&" + IDs.roles.Helper + ">\n" +
+      "<:VC_DoubleReply:1482532332509466797> **__400__** messaggi\n" +
+      "<:VC_Reply:1482532158080942191> **__4h__** in vocale\n\n" +
+      "<a:VC_Arrow:1482706699365257397> <@&" + IDs.roles.Mod + ">\n" +
       "<:VC_DoubleReply:1482532332509466797> **__500__** messaggi\n" +
       "<:VC_Reply:1482532158080942191> **__5h__** in vocale\n\n" +
-      "> <:VC_Attention:1482534443632558151> Verrà **valutato** anche il **modo** in cui questi __limiti__ vengono raggiunti, ovvero se lo **staffer** è stato costante o no."
+      "<a:VC_Arrow:1482706699365257397> <@&" + IDs.roles.SeniorModerator + ">\n" +
+      "<:VC_DoubleReply:1482532332509466797> **__600__** messaggi\n" +
+      "<:VC_Reply:1482532158080942191> **__6h__** in vocale\n\n" +
+      "<a:VC_Arrow:1482706699365257397> <@&" + IDs.roles.Director + ">\n" +
+      "<:VC_DoubleReply:1482532332509466797> **__550__** messaggi\n" +
+      "<:VC_Reply:1482532158080942191> **__5,5h__** in vocale\n\n" +
+      "<a:VC_Arrow:1482706699365257397> <@&" + IDs.roles.Admin + ">\n" +
+      "<:VC_DoubleReply:1482532332509466797> **__500__** messaggi\n" +
+      "<:VC_Reply:1482532158080942191> **__5h__** in vocale\n\n" +
+      "> <:VC_Attention:1482534443632558151> Verrà **valutato** anche il **modo** in cui questi __limiti__ vengono raggiunti, ovvero se lo **staffer** è stato costante o no.\n" +
+      "> <:reportmessage:1443670575376765130> Ogni staffer per sanzionare dovrà __seguire__ la <#1442569237142044773>.\n\n" +
+      "> <a:VC_Arrow:1482706699365257397> **__LIMITI SETTIMANALI SULLE SANZIONI__**\n" +
+      "<:VC_Dot:1482532364222595303> Ogni <@&" + IDs.roles.Mod + "> dovrà __eseguire__ almeno: **`2 sanzioni`**\n" +
+      "<:VC_Dot:1482532364222595303> Ogni <@&" + IDs.roles.SeniorModerator + "> dovrà __eseguire__ almeno: **`2 sanzioni`**\n" +
+      "<:VC_Dot:1482532364222595303> Ogni <@&" + IDs.roles.Director + "> dovrà __eseguire__ almeno: **`1 sanzione`**\n" +
+      "",
+      "> Chi __rispetterà__ questi limiti riceverà **una valutazione positiva**.",
+    );
+    await interaction.reply({ embeds: [embed], flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
+    return true;
+  }
+
+  if (interaction.customId == "lineeguida") {
+    const embed = new EmbedBuilder().setColor("#6f4e37").setDescription(
+      "Per avere un server attivo bisogna prima di tutto avere un legame con la community. Ecco alcuni consigli per instaurare dei discorsi con i nuovi utenti ma anche con quelli anziani.\n\n" +
+      "> ### Presentarsi è sempre una buona base!\n" +
+      "Nel momento in cui un utente approda nel server, è buona prassi far capire cosa può fare qui con noi. Quando si unisce sa già che come topic abbiamo il chatting quindi si deve puntare a quella che si chiama **profilazione** ovvero la raccolta di dati dell'utente. Per farlo, abbiamo realizzato diversi ruoli che l'utente può prendere. Tutto questo è già possibile con l'inserimento ma, nel caso volesse cambiarli o aggiungerli (cosa su cui dovreste spingere), invece di usare il semplice \"wlc\" potete tranquillamente dire:\n" +
+      `benvenutx @tag_utente! passa in <#${IDs.channels.commands}> e fai il comando +profile per prenderti i colori e tanti altri ruoli <3\n\n` +
+      "> ### Cerca di capire chi hai davanti!\n" +
+      "Per avere attività alla base, come abbiamo detto, c'è un rapporto di fiducia con l'utente. Per creare e rafforzare quest'ultimo, nel momento in cui una persona joina nel server può essere utile:\n" +
+      "- guardare la foto profilo e il banner;\n" +
+      "- guardare la descrizione e lo status;\n" +
+      "- controllare i ruoli presi con l'inserimento.\n" +
+      "Questo può servire per trovare degli interessi dell'utente poiché può avere immagini di un determinato film o una descrizione o attività dove è indicato un gioco o un brano in riproduzione utile per ingaggiare il dialogo. Non abbiate paura di dire cosa pensate ma fatelo con leggerezza e divertimento. Se, per esempio, sta ascoltando un brano che non vi piace e questo è l'unico dato che avete in vostro possesso, invece di non fare niente si può dire \"oddio ma ascolti X, a me non piace\" oppure ancora \"oddio X, meglio Y\".\n\n" +
+      "> ### La costanza è fondamentale!\n" +
+      "Un semplice dialogo che dura poco, non porta a niente. Cercate, anche nei giorni seguenti, di ricordarvi di quell'utente e di cosa avete trattato. Se avete parlato di musica potete condividere il giorno dopo lo screen della vostra riproduzione e taggarlo dicendo \"meglio questa!!\" oppure un semplice \"conosci?\" o nel caso di un gioco potere dire \"come va su gta?\" o robe del genere.\n\n" +
+      "> ### Sii preparato a qualsiasi domanda.\n" +
+      `Spesso e sicuramente un nuovo utente, specialmente di discord, non sa che ci sono determinati requisiti per fare determinate azioni. Un esempio può essere il <@&${IDs.roles.PicPerms}>. L'utente medio non lo sa e invia sempre a sua insaputa un media. Quest'ultimo, nel caso non si trovasse in possesso del ruolo, il bot <@${IDs.bots.ViniliCaffeBot}> elimina subito il messaggio e scrive che serve questo requisito MA ribaditelo anche voi. In questa maniera il dialogo continua ad esserci e non si interromperà davanti a un messaggio di un bot programmato per farlo!\n\n` +
+      "Per portare avanti un progetto, renderlo bello e arricchirlo personalmente sono necessari davvero pochi e piccoli passi. Seguiteli e vedrete che andrà tutto bene! **E ricordati di divertirti!**",
+    );
+    await interaction.reply({ embeds: [embed], flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
+    return true;
+  }
+
+  if (interaction.customId == "comandi") {
+    const embed = new EmbedBuilder().setColor("#6f4e37").setDescription(
+      "<a:VC_StarPink:1330194976440848500> Visto l'alto flusso di utenti che entrano solo per trollare o flammare, abbiamo deciso di creare una guida dedicata ai comandi sulla moderazione, ulteriore a quella già presente in <#" + IDs.channels.guidaStaff + ">.\n" +
+      "> <:VC_Quest:1482534879257165865> Per i tempi e le regole è necessario seguire sempre <#" + IDs.channels.guidaStaff + "> sezione `MODERAZIONE`. Inoltre, esclusi gli <@&" + IDs.roles.Helper + ">, avete tutti un limite di sanzioni che dovrete fare ogni settimana per ricevere una valutazione positiva. Non è un obbligo ma aiuta noi a capire chi è più attivo nello staff e a tenere pulito il server.\n\n" +
+      "<:VC_BanHammer:1482534474502897795> **LISTA DEI COMANDI**\n\n" +
+      "`+purge` <a:VC_Arrow:1482706699365257397> Serve per cancellare i messaggi di un determinato canale o utente, utilizzabile solo dall'<@&" + IDs.roles.HighStaff + ">\n\n" +
+      "`+warn` <a:VC_Arrow:1482706699365257397> Serve per dare un avviso a un utente, esso è eseguibile da tutti. I warn vengono dati anche a chi apre un ticket e non risponde nell'arco delle 24 ore oppure trolla all'interno.\n\n" +
+      "`+mute` <a:VC_Arrow:1482706699365257397> Questo comando si può utilizzare solo da <@&" + IDs.roles.Mod + "> in sù e serve per silenziare un membro che commette un infrazione delle regole. Questo comando oltre a mutare mettere in \"quarantena\" l'utente, ovvero toglie completamente i ruoli all'utente e ne mette uno con cui non può fare nulla.\n\n" +
+      "`+kick` <a:VC_Arrow:1482706699365257397> Serve per buttare fuori, in modo temporaneo, un utente dal server. Utilizzabile solo dall'<@&" + IDs.roles.HighStaff + ">.\n\n" +
+      "`+ban` <a:VC_Arrow:1482706699365257397> Questo è il comando più estremo, ovvero quello da usare veramente poco ma quando si è passato un certo limite o le regole lo impongono. Naturalmente quello che fa è bannare permanentemente un utente ed è utilizzabile solo dal <@&" + IDs.roles.Director + "> in sù.\n\n" +
+      "`+modlogs` <a:VC_Arrow:1482706699365257397> Esso serve per controllare quante sanzioni ha un utente e vi è molto utile a capire se un utente ha già infranto una determinata regola e quindi quale tempistica applicare.\n\n" +
+      "`+duration` e `+reason` <a:VC_Arrow:1482706699365257397> Servono rispettivamente per cambiare la durata e la reason di una sanzione, utilizzabile solo dal <@&" + IDs.roles.Director + "> in sù.\n\n" +
+      "`+case` <a:VC_Arrow:1482706699365257397> Con questo si può controllare dettagliatamente un caso di moderazione e capire quando, da chi e perchè è stato fatto.\n\n" +
+      "`+moderations` <a:VC_Arrow:1482706699365257397> Serve per mostrare le sanzioni **temporanee** attive su un utente.\n\n" +
+      "`+warnings` <a:VC_Arrow:1482706699365257397> Mostra tutti i **warn** ottenuti da un utente.\n\n" +
+      "`+clearwarn`, `+delwarn`, `+unmute` e `+unban` <a:VC_Arrow:1482706699365257397> Usati solo per rimuovere rispettivamente un warn (o tutti i warn col primo), un mute e un ban. Utilizzabili solo da <@&" + IDs.roles.Director + "> in sù.\n\n" +
+      "## <a:VC_Alert:1482706673176150077> Prendi tempo per sanzionare!\n" +
+      "È meglio una sanzione legittima con una motivazione corretta e una tempistica giusta rispetto a un utente che si lamenta dello staff del server!\n\n" +
+      "<a:VC_Exclamation:1482534702077444217> Ricordo naturalmente di seguire anche le altre linee guida su come sanzionare in modo corretto un utente in <#" + IDs.channels.guidaStaff + ">.",
+    );
+    await interaction.reply({ embeds: [embed], flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
+    return true;
+  }
+
+  if (interaction.customId == "compiti_fissi") {
+    const embed = new EmbedBuilder().setColor("#6f4e37").setDescription(
+      "<:VC_Quest:1482534879257165865> **__COMPITI FISSI__**\n\n" +
+      "<a:VC_NewsExclamation:1471891662786527253> Ogni staffer deve **svolgere** ogni settimana **ALMENO UNO** dei seguenti **compiti**:\n" +
+      "<:VC_Dot:1482532364222595303> **Trovare un nuovo staffer**\n" +
+      "<:VC_Dot:1482532364222595303> **Trovare un server che dovrà effettuare una sponsor con il nostro server**\n" +
+      "<:VC_Dot:1482532364222595303> **Trovare un server disponibili a effettuare un trasferimento nel nostro server**\n" +
+      "<:VC_Dot:1482532364222595303> **Invitare nuovi utenti tenedoli attivi**\n" +
+      "<:VC_Dot:1482532364222595303> **Convincere nuovi utenti a boostare il server o acquistare un pacchetto come Donator, VIP o VIP+**\n\n" +
+      "<:VC_bluthumbsup:1482458262401061044> Svolgere uno tra questi compiti ogni settimana garantirà una **valutazione positiva** e maggiore possibilità di essere pexato.\n" +
+      "<:VC_bluthumbsdown:1482458289131360306> Non farlo garantirà una **valutazione negativa** e maggiore possibilità di essere depexato.\n\n" +
+      "<:VC_Ticket:1482535175283019888> Per garantire la correttezza dei compiti è necessario allegare le prove in un <#" + IDs.channels.ticket + "> `HIGH STAFF`.",
+    );
+    await interaction.reply({ embeds: [embed], flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
+    return true;
+  }
+
+  if (interaction.customId == "guidapartners") {
+    const pmCmdChannelId = "1495544523848286340";
+    const embed = new EmbedBuilder().setColor("#6f4e37").setDescription(
+      "<:VC_PartnerManager:1494286911286808576> **__GUIDA PARTNERS__**\n\n" +
+      "> <:VC_Attention:1482534443632558151> In caso di **infrazione** del _regolamento_ verrà **rimosso** il `punto` della __partner__. Ogni **__`Partner Manager`__** ha _diritto_ a `1` mese e `15` giorni di **pausa** __ogni__ anno.\n" +
+      "> <a:VC_Alert:1482706673176150077> Per richiedere una pausa bisogna andare nel canale <#" + IDs.channels.pause + "> e compilare quel semplice modulo all'interno del canale.\n" +
+      "<:VC_DoubleReply:1482532332509466797> **Non** fare la stessa __partnership__ più di una volta al **giorno**;\n" +
+      "<:VC_DoubleReply:1482532332509466797> **Non** fare __partnership__ con se stessi più di una volta al **giorno**;\n" +
+      "<:VC_DoubleReply:1482532332509466797> **Non** mettere più di __`5` partnership__ con lo stesso **utente**;\n" +
+      "<:VC_DoubleReply:1482532332509466797> **Non** mettere partner con link **scaduti**;\n" +
+      "<:VC_DoubleReply:1482532332509466797> Il **numero minimo** di __partnership__ da __fare__ in una settimana è __`30`__;\n" +
+      "<:VC_Reply:1482532158080942191> È **vietato** fare __partnership__ con qualsiasi tipo di __server__ `NSFW` o che violi i `ToS` di **Discord**.\n\n" +
+      "<a:VC_Exclamation:1482534702077444217> **Comandi utili: (da usare con <@" + IDs.bots.ViniliCaffeBot + "> nei ticket o nel thread dei comandi)**\n" +
+      "> `/partnership` - Utilizzabile direttamente in <#" + pmCmdChannelId + "> o nei <#" + IDs.channels.ticket + ">\n" +
+      "> `+desc` - Utilizzabile solo nei <#" + IDs.channels.ticket + "> `partnership`, manda velocemente la descrizione del server\n" +
+      "> `+ticket` - Comando unico per la gestione del ticket\n" +
+      "> `+classifica` - Per vedere la classifica punti partner settimanale e totale\n" +
+      "> `+blacklist` - Per vedere i server in blacklist\n" +
+      "> `+profile` - Per vedere il vostro profilo partner manager\n\n" +
+      "<a:VC_Exclamation:1482534702077444217> **Info utili:**\n" +
+      "> <a:VC_Cross:1482532424570376253> **Non ci sono requisiti per le partner**\n" +
+      "> <a:VC_Verified:1482532479637127188> **Il manager deve aver completato l'inserimento o non si può fare la partner.**\n" +
+      "> <a:VC_PepeExit:1446190735937245415> **Il manager non deve uscire dal server o la partner verrà cancellata.**\n" +
+      "> <:VC_Collab:1482534540089098260> **Quando viene aperto un ticket cercate di completare tutto lì facendovi inviare la descrizione e facendo i comandi direttamente lì.**",
+    );
+    await interaction.reply({ embeds: [embed], flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
+    return true;
+  }
+
+  if (interaction.customId == "guidamiddle") {
+    const embed = new EmbedBuilder().setColor("#6f4e37").setDescription(
+      `<:discordstaff:1443651872258003005> La **__guida middle__** di __Vinili & Caffè__ è dedicata a <@&${IDs.roles.SeniorModerator}> e <@&${IDs.roles.Director}>: qui trovate le procedure per i compiti di livello superiore che richiedono coordinamento e supervisione del low staff.
+
+> La guida si divide in **__\`4\` sezioni__** accessibili **schiacciando** i \`bottoni\` sottostanti:
+<:VC_1:1482706338021642333> **Gestione Ticket**
+<:VC_2:1482706376525611090> **Gestione Verifica Selfie**
+<:VC_3:1482706404773990460> **Gestione Follower & Supporter**
+<:VC_4:1482706432347344916> **Gestione Partnership**`,
+    );
+    const rowMiddle = buildMiddleGuideNavRow();
+    await interaction.reply({ embeds: [embed], components: [rowMiddle], flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
+    return true;
+  }
+
+  if (interaction.customId == "middle_ticket") {
+    const embed = new EmbedBuilder().setColor("#6f4e37").setDescription(
+      "<:VC_Ticket:1482535175283019888> Naturalmente, essendo voi un ruolo superiore non vi è richiesto di rispondere prontamente ai ticket. Anzi, dovrete cercare di dare supporto ai low staff e intervenire solo facendovi aggiungere.\n\n" +
+      "<a:VC_pixeltime:1482535344103620771> Se un ticket rimarrà non claimato per più di 5 minuti allora **dovete** claimarlo e gestirlo voi.",
+    );
+    await interaction.reply({ embeds: [embed], flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
+    return true;
+  }
+
+  if (interaction.customId == "middle_selfie") {
+    const embed = new EmbedBuilder().setColor("#6f4e37").setDescription(
+      "<:VC_Ticket:1482535175283019888> Con l'aggiunta dei ticket `PERKS` tutti voi avrete accesso ad esso per gestire i ruoli e <@&" + IDs.roles.Verificato + "> / <@&" + IDs.roles.VerifiedNeo + "> / <@&" + IDs.roles.Verificata + ">.\n\n" +
+      "<a:VC_Alert:1482706673176150077> Quando un utente aprirà il ticket per chiedere la verifica selfie sarà necessario da parte vostra controllare facendo seguire i passaggi in foto e una volta accertatovi, se siete <@&" + IDs.roles.SeniorModerator + "> dovrete taggare un <@&" + IDs.roles.Director + "> oppure da <@&" + IDs.roles.Director + "> potrete direttamente mettere il ruolo\n" +
+      "> PS: Occhio a dare ruoli sbagliati, il bot potrebbe bannarvi <:VC_Eye:1331619214410383381>",
+    );
+    await interaction.reply({ embeds: [embed], flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
+    return true;
+  }
+
+  if (interaction.customId == "middle_follower") {
+    const embed = new EmbedBuilder().setColor("#6f4e37").setDescription(
+      "<a:VC_Calendar:1482706208149475358> Ogni settimana vi dovrete organizzare per decidere chi deve controllare queste due liste.\n\n" +
+      "<a:VC_Verified:1482532479637127188> Per controllare le liste dovrete usare [questo documento](<https://docs.google.com/spreadsheets/d/1rsyOqlveEraSv2YeSCY9Qg_xF3Rn6bqLj6G3-FI4Zu0/edit?usp=sharing>) chiedendo l'accesso a <@295500038401163264>.\n\n" +
+      "<:VC_Quest:1482534879257165865> Ognuno di voi può controllare al **massimo 1 lista** a settimana. Ogni Sabato in questo post uno di voi compilerà un modulo come questo:\n\n" +
+      "```\n@staffer -> lista che controlla\n@staff -> lista che controlla\n```\n\n" +
+      "<:VC_Ticket:1482535175283019888> Con l'aggiunta dei ticket `PERKS` tutti voi avrete accesso ad esso per gestire i ruoli <@&" + IDs.roles.Follower + "> & <@&" + IDs.roles.SocialSupporter + ">, quando un utente aprirà un ticket per chiedere uno di questi due ruoli accertatevi con delle prove e, se siete <@&" + IDs.roles.SeniorModerator + "> chiamate un <@&" + IDs.roles.Director + "> per assegnare il ruolo.\n" +
+      "> PS: Gentilmente, ogni volta che viene dato anche questo ruolo aggiornate le liste <a:VC_Alarm:1482706641618079816>\n\n" +
+      "<a:VC_Alert:1482706673176150077> Naturalmente, fare questo compito vi garantirà una **valutazione positiva**, non presentare la lista dei compiti il sabato o non fare il compito che vi siete assegnati comporterà a una **valutazione negativa**.",
+    );
+    await interaction.reply({ embeds: [embed], flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
+    return true;
+  }
+
+  if (interaction.customId == "middle_partnership") {
+    const embed = new EmbedBuilder().setColor("#6f4e37").setDescription(
+      "<a:VC_Calendar:1482706208149475358> Ogni settimana un <@&" + IDs.roles.Director + "> dovrà controllare tutte le <#" + IDs.channels.partnerships + "> e assicurarsi che rispettino la guida partners\n\n" +
+      "<:VC_Quest:1482534879257165865> Qualsiasi partner che non rispetta quelle regole dovrà essere reportata qua settimanalmente tramite un semplice modulo\n\n" +
+      "```\nlink messaggio -> regola infranta -> @partner manager\n```\n\n" +
+      "<:VC_Attention:1482534443632558151> Molte regole sono già coperte da <@" + IDs.bots.ViniliCaffeBot + "> e prima di segnalare una partner dovrete controllare <#" + IDs.channels.puntiTolti + "> per capire se il bot ha già tolto il punto o meno.",
     );
     await interaction.reply({ embeds: [embed], flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
     return true;
@@ -259,6 +502,7 @@ async function handleStaffButtons(interaction) {
 
   if (interaction.customId == "regolamento") {
     const embed = new EmbedBuilder().setColor("#6f4e37").setDescription(
+      "<:rules:1443307208543703131> **__REGOLAMENTO STAFF__**\n\n" +
       `<:VC_1:1482706338021642333> **Rispettare** le regole del server.\n` +
       `<:VC_2:1482706376525611090> __Non__ **chiedere** pex _continuamente_.\n` +
       `<:VC_3:1482706404773990460> __Non__ **istigare** o creare **flame** tra lo **\`staff\`** e gli **\`utenti\`**.\n` +
@@ -266,7 +510,8 @@ async function handleStaffButtons(interaction) {
       `<:VC_5:1482706459765637272> Se si è in una **vocale pubblica** da __mutati__ siete **obbligati** a scrivere in <#1442569130573303898>.\n` +
       `<:VC_6:1482706490769801327> __Non__ **floodare**, **spammare** e **usare bot** per completare i **\`limiti settimanali testuali\`**.\n` +
       `<:VC_7:1482706523330183218> __Non__ passare la maggior parte del **tempo** nei **canali vocali privati**, poiché non vengono **conteggiati** al fine dei __limiti settimanali__.\n` +
-      `<:VC_8:1482706553281708092> __Non__ **stare da soli** in una __vocale pubblica__ se in un'altra vi è già un altro **staffer** da solo. Inoltre, almeno uno dei due **deve** essere __smutato__.`);
+      `<:VC_8:1482706553281708092> __Non__ **stare da soli** in una __vocale pubblica__ se in un'altra vi è già un altro **staffer** da solo. Inoltre, almeno uno dei due **deve** essere __smutato__.\n` +
+      `> <a:VC_Alert:1482706673176150077> La violazione di una di queste regole può comportare una **sanzione** da parte dello staff, quindi è importante __conoscerle__ e __rispettarle__.`);
     await interaction.reply({ embeds: [embed], flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
     return true;
   }
@@ -276,18 +521,18 @@ async function handleStaffButtons(interaction) {
 ${staffSanctionRuleIntro("1.1")}                <:VC_Reply:1482532158080942191> Sanzione: **Ban**
 
                 <:rules:1443307208543703131> **__Regola \`1.2\`__**
-${staffSanctionRuleIntro("1.2")}                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Richiamo verbale**
-                <:VC_Reply:1482532158080942191> 2° Sanzione: **Mute __2h__**
+${staffSanctionRuleIntro("1.2")}                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Mute __4h__**
+                <:VC_DoubleReply:1482532332509466797> 2° Sanzione: **Mute __12h__**
+                <:VC_Reply:1482532158080942191> 3° Sanzione: **Mute __24h__**
 
                 <:rules:1443307208543703131> **__Regola \`1.3\`__**
-${staffSanctionRuleIntro("1.3")}                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Richiamo verbale**
-                <:VC_Reply:1482532158080942191> 2° Sanzione: **Mute __3h__**
-                <:VC_Reply:1482532158080942191> 3° Sanzione: **Mute __6h__**
+${staffSanctionRuleIntro("1.3")}                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Warn**
+                <:VC_DoubleReply:1482532332509466797> 2° Sanzione: **Mute __4h__**
+                <:VC_DoubleReply:1482532332509466797> 3° Sanzione: **Mute __8h__**
                 <:VC_Reply:1482532158080942191> 4° Sanzione: **Mute __18h__**
 
                 <:rules:1443307208543703131> **__Regola \`1.4\`__**
-${staffSanctionRuleIntro("1.4")}                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Mute __12h__**
-                <:VC_Reply:1482532158080942191> 2° Sanzione: **Ban**
+${staffSanctionRuleIntro("1.4")}                <:VC_Reply:1482532158080942191> Sanzione: **Ban**
 
                 <:rules:1443307208543703131> **__Regola \`1.5\`__**
 ${staffSanctionRuleIntro("1.5")}                <:VC_Reply:1482532158080942191> Sanzione: **Ban**`);
@@ -297,28 +542,19 @@ ${staffSanctionRuleIntro("1.5")}                <:VC_Reply:1482532158080942191> 
 
   if (interaction.customId == "testualimoderazione") {
     const embed = new EmbedBuilder().setColor("#6f4e37").setDescription(`<:rules:1443307208543703131> **__Regola \`2.1\`__**
-${staffSanctionRuleIntro("2.1")}                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Mute __18h__**
+${staffSanctionRuleIntro("2.1")}                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Mute __24h__**
                 <:VC_Reply:1482532158080942191> 2° Sanzione: **Ban**
 
                 <:rules:1443307208543703131> **__Regola \`2.2\`__**
-${staffSanctionRuleIntro("2.2")}                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Richiamo verbale**
-                <:VC_Reply:1482532158080942191> 2° Sanzione: **Warn**
-                <:VC_Reply:1482532158080942191> 3° Sanzione: **Mute __12h__**
-                <:VC_Reply:1482532158080942191> 4° Sanzione: **Mute __18h__**
-                <:VC_Reply:1482532158080942191> 5° Sanzione: **Mute __24h__**
-                <:VC_Reply:1482532158080942191> 6° Sanzione: **Ban**
+${staffSanctionRuleIntro("2.2")}                <:VC_Reply:1482532158080942191> Sanzione: **Ban**
 
                 <:rules:1443307208543703131> **__Regola \`2.3\`__**
-${staffSanctionRuleIntro("2.3")}                <:VC_Reply:1482532158080942191> Sanzione: **Ban**
+${staffSanctionRuleIntro("2.3")}                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Warn**
+                <:VC_DoubleReply:1482532332509466797> 2° Sanzione: **Mute __3h__**
+                <:VC_Reply:1482532158080942191> 3° Sanzione: **Mute __6h__**
 
                 <:rules:1443307208543703131> **__Regola \`2.4\`__**
-${staffSanctionRuleIntro("2.4")}                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Richiamo verbale**
-                <:VC_Reply:1482532158080942191> 2° Sanzione: **Warn**
-                <:VC_Reply:1482532158080942191> 3° Sanzione: **Mute __6h__**
-                <:VC_Reply:1482532158080942191> 4° Sanzione: **Mute __18h__**
-
-                <:rules:1443307208543703131> **__Regola \`2.5\`__**
-${staffSanctionRuleIntro("2.5")}                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Richiamo verbale**
+${staffSanctionRuleIntro("2.4")}                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Warn**
                 <:VC_Reply:1482532158080942191> 2° Sanzione: **Mute __2h__**`);
     await interaction.reply({ embeds: [embed], flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
     return true;
@@ -326,47 +562,29 @@ ${staffSanctionRuleIntro("2.5")}                <:VC_DoubleReply:148253233250946
 
   if (interaction.customId == "vocalimoderazione") {
     const embed = new EmbedBuilder().setColor("#6f4e37").setDescription(`<:rules:1443307208543703131> **__Regola \`3.1\`__**
-${staffSanctionRuleIntro("3.1")}                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Richiamo verbale**
-                <:VC_Reply:1482532158080942191> 2° Sanzione: **Mute __16h__**
+${staffSanctionRuleIntro("3.1")}                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Mute __12h__**
+                <:VC_DoubleReply:1482532332509466797> 2° Sanzione: **Mute __24h__**
                 <:VC_Reply:1482532158080942191> 3° Sanzione: **Ban**
 
                 <:rules:1443307208543703131> **__Regola \`3.2\`__**
-${staffSanctionRuleIntro("3.2")}                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Richiamo verbale**
-                <:VC_Reply:1482532158080942191> 2° Sanzione: **Mute __12h__**
-                <:VC_Reply:1482532158080942191> 3° Sanzione: **Mute __18h__**
-                <:VC_Reply:1482532158080942191> 4° Sanzione: **Mute __24h__**
-                <:VC_Reply:1482532158080942191> 5° Sanzione: **Ban**
+${staffSanctionRuleIntro("3.2")}                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Mute __4h__**
+                <:VC_DoubleReply:1482532332509466797> 2° Sanzione: **Mute __12h__**
+                <:VC_Reply:1482532158080942191> 3° Sanzione: **Mute __24h__**
 
                 <:rules:1443307208543703131> **__Regola \`3.3\`__**
-${staffSanctionRuleIntro("3.3")}                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Richiamo verbale**
-                <:VC_Reply:1482532158080942191> 2° Sanzione: **Mute __6h__**
+${staffSanctionRuleIntro("3.3")}                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Mute __2h__**
+                <:VC_DoubleReply:1482532332509466797> 2° Sanzione: **Mute __6h__**
                 <:VC_Reply:1482532158080942191> 3° Sanzione: **Mute __12h__**
-                <:VC_Reply:1482532158080942191> 4° Sanzione: **Mute __24h__**
-                <:VC_Reply:1482532158080942191> 5° Sanzione: **Mute __48h__**
 
                 <:rules:1443307208543703131> **__Regola \`3.4\`__**
-${staffSanctionRuleIntro("3.4")}                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Richiamo verbale**
-                <:VC_Reply:1482532158080942191> 2° Sanzione: **Mute __3h__**
-                <:VC_Reply:1482532158080942191> 3° Sanzione: **Mute __6h__**
-                <:VC_Reply:1482532158080942191> 4° Sanzione: **Mute __12h__**
-                <:VC_Reply:1482532158080942191> 5° Sanzione: **Ban**
-
-                <:rules:1443307208543703131> **__Regola \`3.5\`__**
-${staffSanctionRuleIntro("3.5")}                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Richiamo verbale**
-                <:VC_Reply:1482532158080942191> 2° Sanzione: **Mute __3h__**
-                <:VC_Reply:1482532158080942191> 3° Sanzione: **Mute __12h__**
-                <:VC_Reply:1482532158080942191> 4° Sanzione: **Ban**
+${staffSanctionRuleIntro("3.4")}                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Mute __6h__**
+                <:VC_DoubleReply:1482532332509466797> 2° Sanzione: **Mute __15h__**
+                <:VC_Reply:1482532158080942191> 3° Sanzione: **Mute __35h__**
 
                 <:rules:1443307208543703131> **__Regola \`3.6\`__**
-${staffSanctionRuleIntro("3.6")}                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Richiamo verbale**
-                <:VC_Reply:1482532158080942191> 2° Sanzione: **Mute __2h__**
-
-                <:rules:1443307208543703131> **__Regola \`3.7\`__**
-${staffSanctionRuleIntro("3.7")}                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Richiamo verbale**
-                <:VC_Reply:1482532158080942191> 2° Sanzione: **Mute __4h__**
-                <:VC_Reply:1482532158080942191> 3° Sanzione: **Mute __12h__**
-                <:VC_Reply:1482532158080942191> 4° Sanzione: **Mute __18h__**
-                <:VC_Reply:1482532158080942191> 5° Sanzione: **Ban**`);
+${staffSanctionRuleIntro("3.6")}                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Mute __5h__**
+                <:VC_DoubleReply:1482532332509466797> 2° Sanzione: **Mute __11h__**
+                <:VC_Reply:1482532158080942191> 3° Sanzione: **Mute __24h__**`);
     await interaction.reply({ embeds: [embed], flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
     return true;
   }
@@ -479,10 +697,10 @@ async function sendPrivacyViewsLeaderboard(interaction, kind, title) {
 
   const description = lines.length ? lines.join("\n") : "Nessuna visualizzazione registrata.";
   const time = new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit", });
-  const footerText = `Classifica richiesta da ${interaction.user.username} \u2022 Oggi alle ${time}`;
+  const footerText = `Classifica richiesta da ${accountUsername(interaction.member || interaction.user)} \u2022 Oggi alle ${time}`;
 
   const embed = new EmbedBuilder()
-    
+
     .setColor("#6f4e37")
     .setTitle(title)
     .setDescription(description)
@@ -496,10 +714,9 @@ async function sendPrivacyViewsLeaderboard(interaction, kind, title) {
 }
 
 module.exports = {
-  name: Events.InteractionCreate,
   handleStaffButtons,
 
-  async execute(interaction) {
+  async execute(interaction, client) {
     if (!interaction.guild) return;
     if (!interaction.message) return;
     if (interaction.replied || interaction.deferred) return;
@@ -519,11 +736,12 @@ module.exports = {
     interaction.editReply = (p) => origEditReply(withFooter(p));
     const origUpdate = interaction.update?.bind(interaction);
     if (origUpdate) interaction.update = (p) => origUpdate(withFooter(p));
+    if (await handleStaffGuideSelectMenu(interaction)) return;
     if (await handleStaffButtons(interaction)) return;
     if (interaction.isStringSelectMenu()) {
       const menuId = interaction.customId;
       const values = Array.isArray(interaction.values) ? interaction.values : [];
-      const categories = { personality_pronouns: ["1442568997848743997", "1442568999043989565", "1442569000063074498", "1442569001367769210",], personality_age: ["1442568993197265021", "1442568994581381170", "1442568995348807691", "1442568996774871194",], personality_region: ["1442569021861007443", "1442569023303974922", "1442569024486506498", "1442569025790939167",], personality_dm: ["1442569004215697438", "1442569005071077417", "1442569006543274126",], personality_relationship: ["1442569028173299732", "1442569029263818906",], personality_zodiac: ZODIAC_ROLE_IDS, personality_mentions: [IDs.roles.ReviveChat, IDs.roles.Events, IDs.roles.News, IDs.roles.Polls, IDs.roles.Bump, IDs.roles.Minigames, IDs.roles.Forum,], personality_colors_1: PERSONALITY_NORMAL_COLOR_ROLE_IDS_ALL, personality_colors_plus: [IDs.roles.redPlus, IDs.roles.orangePlus, IDs.roles.yellowPlus, IDs.roles.greenPlus, IDs.roles.bluePlus, IDs.roles.purplePlus, IDs.roles.pinkPlus, IDs.roles.blackPlus, IDs.roles.grayPlus, IDs.roles.whitePlus,], };
+      const categories = { personality_pronouns: ["1442568997848743997", "1442568999043989565", "1442569000063074498", "1442569001367769210",], personality_age: ["1442568993197265021", "1442568994581381170", "1442568995348807691", "1442568996774871194",], personality_region: ["1442569021861007443", "1442569023303974922", "1442569024486506498", "1442569025790939167",], personality_dm: ["1442569004215697438", "1442569005071077417", "1442569006543274126",], personality_relationship: ["1442569028173299732", "1442569029263818906",], personality_zodiac: ZODIAC_ROLE_IDS, personality_mentions: PERSONALITY_MENTION_ROLE_IDS, personality_colors_1: PERSONALITY_NORMAL_COLOR_ROLE_IDS_ALL, personality_colors_plus: [IDs.roles.redPlus, IDs.roles.orangePlus, IDs.roles.yellowPlus, IDs.roles.greenPlus, IDs.roles.bluePlus, IDs.roles.purplePlus, IDs.roles.pinkPlus, IDs.roles.blackPlus, IDs.roles.grayPlus, IDs.roles.whitePlus, IDs.roles.orangeBlackPlus, IDs.roles.greenBlackPlus, IDs.roles.aquaBlackPlus,], };
       const colorMenuIds = ["personality_colors_1", "personality_colors_plus"];
       const allColorRoleIds = colorMenuIds.flatMap((id) => categories[id] || []);
 
@@ -536,10 +754,21 @@ module.exports = {
       const { existing: rolesToRemoveExisting } = partitionRoleIdsByExisting(guild, rolesToRemove || [], `menu=${menuId} (config)`);
 
       if (menuId === "personality_colors_plus" && values.length && !values.includes("remove")) {
-        const { memberHasPlusColorFullEligibilityAsync } = require("../Utils/Community/personalityColorUnlocks");
-        const allowed = await memberHasPlusColorFullEligibilityAsync(member);
+        const unlocks = require("../Utils/Community/personalityColorUnlocks");
+        const allowed = await unlocks.memberHasPlusColorFullEligibilityAsync(member);
         if (!allowed) {
           return interaction.reply({ content: ROLE_PLUS_FORBIDDEN, flags: PRIVATE_FLAG }).catch((err) => {
+            logButtonErr(err);
+            return null;
+          });
+        }
+        const level = await unlocks.fetchNumericProfileLevel(guild.id, member.id);
+        const bad = values.find((v) => v !== "remove" && !unlocks.isAllowedColorValue(v, member, level, allowed));
+        if (bad) {
+          return interaction.reply({
+            content: "<:vegax:1443934876440068179> Non hai i requisiti per quel colore Plus (livello o permessi).",
+            flags: PRIVATE_FLAG,
+          }).catch((err) => {
             logButtonErr(err);
             return null;
           });
@@ -572,7 +801,6 @@ module.exports = {
           valuesExisting = partitioned.existing;
         }
 
-        /** `roles.add` restituisce il membro aggiornato; il refetch subito dopo può dare falsi "non applicati". */
         let memberAfterDirectAdd = null;
         if (isRemoveAction) {
           if (colorMenuIds.includes(menuId)) {
@@ -626,6 +854,8 @@ module.exports = {
           return null;
         });
         if (isRemoveAction) {
+          const { persistPersonalityRoleDelta } = require("../Utils/Community/personalityRolePersistence");
+          await persistPersonalityRoleDelta(guild.id, interaction.user.id, { removed: removedRoleIds }).catch((err) => logButtonErr(err, { warn: true }));
           return;
         }
         const appliedAll = valuesExisting.length ? valuesExisting.every((roleId) => m?.roles?.cache?.has?.(roleId)) : true;
@@ -644,6 +874,11 @@ module.exports = {
           logButtonErr(new Error(`ruoli pannello non applicati del tutto (menu=${menuId})`), { warn: true });
           return;
         }
+        const { persistPersonalityRoleDelta } = require("../Utils/Community/personalityRolePersistence");
+        await persistPersonalityRoleDelta(guild.id, interaction.user.id, {
+          added: addedRoleIds,
+          removed: removedRoleIds,
+        }).catch((err) => logButtonErr(err, { warn: true }));
         return;
       } catch (err) {
         logButtonErr(err);
@@ -779,7 +1014,7 @@ module.exports = {
     if (interaction.customId == "metodi") {
       await interaction.reply({
         components: [
-          v2Text("<:Money:1330544713463500970> Per effettuare una sponsor con __Vinili & Caffè__ ci sono due modalità: **pagando** oppure esponendo una **collaborazione** in un <#"+IDs.channels.ticket+"> `HIGH STAFF`."),
+          v2Text("<:Money:1330544713463500970> Per effettuare una sponsor con __Vinili & Caffè__ ci sono due modalità: **pagando** oppure esponendo una **collaborazione** in un <#" + IDs.channels.ticket + "> `HIGH STAFF`."),
           v2Separator(),
           v2Text([
             "<:VC_Dot:1482532364222595303> **€1,50** <a:VC_Arrow:1482706699365257397> sponsor per **2** settimane",
@@ -834,9 +1069,6 @@ module.exports = {
         "",
         "<:rules:1443307208543703131> **`REGOLA TESTUALE 2.4`**",
         `<:VC_Reply:1482532158080942191> ${MOD_RULE_DETAIL["2.4"]}`,
-        "",
-        "<:rules:1443307208543703131> **`REGOLA TESTUALE 2.5`**",
-        `<:VC_Reply:1482532158080942191> ${MOD_RULE_DETAIL["2.5"]}`,
       ].join("\n");
       const voiceRules = [
         "<:rules:1443307208543703131> **`REGOLA VOCALE 3.1`**",
@@ -851,14 +1083,8 @@ module.exports = {
         "<:rules:1443307208543703131> **`REGOLA VOCALE 3.4`**",
         `<:VC_Reply:1482532158080942191> ${MOD_RULE_DETAIL["3.4"]}`,
         "",
-        "<:rules:1443307208543703131> **`REGOLA VOCALE 3.5`**",
-        `<:VC_Reply:1482532158080942191> ${MOD_RULE_DETAIL["3.5"]}`,
-        "",
         "<:rules:1443307208543703131> **`REGOLA VOCALE 3.6`**",
         `<:VC_Reply:1482532158080942191> ${MOD_RULE_DETAIL["3.6"]}`,
-        "",
-        "<:rules:1443307208543703131> **`REGOLA VOCALE 3.7`**",
-        `<:VC_Reply:1482532158080942191> ${MOD_RULE_DETAIL["3.7"]}`,
       ].join("\n");
       await interaction.reply({
         components: [
@@ -878,40 +1104,41 @@ module.exports = {
       const donations = [
         "## <:VC_Sparkles:1468546911936974889> Supporta il server con l'acquisto di un VIP o una donazione!",
         "",
-          "Usiamo i soldi donati per portare eventi con premi migliori, come Discord Nitro o gift card, e per cercare collaborazioni interessanti per voi utenti.",
-          "Le donazioni sono completamente volontarie e contribuiscono alla nostra crescita. In anticipo, grazie.",
-          "",
-          "**Vuoi acquistare direttamente tutti i vantaggi permanenti e differenti dal VIP?**",
-          "`5,00 €`✩",
-          "<:VC_Dot:1482532364222595303> Il ruolo <@&1442568916114346096> **permanente**",
-          "<:VC_Dot:1482532364222595303> Possibilità di allegare link e immagini in chat",
-          "<:VC_Dot:1482532364222595303> Possibilità di usare le soundboard di altri server",
-          "<:VC_Dot:1482532364222595303> Possibilità di mandare sticker ed emoji di altri server",
-          "<:VC_Dot:1482532364222595303> Bypass dei requisiti nei giveaway",
-          "<:VC_Dot:1482532364222595303> Possibilità di cambiare il tuo nickname",
-          "<:VC_Dot:1482532364222595303> Sblocchi i COLORI PLUS in \`+colors\` <:VC_New:1471891729471770819>",
-          "<:VC_Dot:1482532364222595303> Sblocchi il comando `+quote`",
-          "<:VC_Dot:1482532364222595303> X4 EXP boost",
+        "Usiamo i soldi donati per portare eventi con premi migliori, come Discord Nitro o gift card, e per cercare collaborazioni interessanti per voi utenti.",
+        "Le donazioni sono completamente volontarie e contribuiscono alla nostra crescita. In anticipo, grazie.",
+        "",
+        "**Vuoi acquistare direttamente tutti i vantaggi permanenti e differenti dal VIP?**",
+        "`5,00 €`✩",
+        "<:VC_Dot:1482532364222595303> Il ruolo <@&1442568916114346096> **permanente**",
+        "<:VC_Dot:1482532364222595303> Possibilità di allegare link e immagini in chat",
+        "<:VC_Dot:1482532364222595303> Possibilità di usare le soundboard di altri server",
+        "<:VC_Dot:1482532364222595303> Possibilità di mandare sticker ed emoji di altri server",
+        "<:VC_Dot:1482532364222595303> Bypass dei requisiti nei giveaway",
+        "<:VC_Dot:1482532364222595303> Possibilità di cambiare il tuo nickname",
+        "<:VC_Dot:1482532364222595303> Sblocchi i COLORI PLUS in \`+profile\` <:VC_New:1471891729471770819>",
+        "<:VC_Dot:1482532364222595303> Sblocchi i comandi `+quote`, `+repost` e `+myrepost`",
+        "<:VC_Dot:1482532364222595303> X4 EXP boost",
       ].join("\n");
 
       const vip = [
-          "**Vuoi sostenere il server?** Acquista il VIP e riscatta tutti i vantaggi che hai sbloccato qui nel server! <a:VC_HeartsBlue:1468686100045369404>",
-          "",
-          "ACQUISTA IL <@&1442568950805430312> <a:VC_HeartsPink:1468685897389052008>",
-          "`10,00 €`✩",
-          "",
-          "<:sparkledred:1470064814502973591> Sbloccherai:",
-          "<:VC_Dot:1482532364222595303> Permesso di allegare link e immagini in chat",
-          "<:VC_Dot:1482532364222595303> Permesso di usare soundboard di altri server",
-          "<:VC_Dot:1482532364222595303> Possibilità di mandare sticker ed emoji di altri server",
-          "<:VC_Dot:1482532364222595303> Bypass dei requisiti nei giveaway",
-          "<:VC_Dot:1482532364222595303> Possibilità di creare una vocale privata per te e i tuoi amici",
-          "<:VC_Dot:1482532364222595303> Reazioni al messaggio quando vieni @menzionato in chat (max. 3 reazioni).",
-          "<:VC_Dot:1482532364222595303> Potrai crearti un ruolo personalizzato con colore GRADIENTE scelto da te.",
-          "<:VC_Dot:1482532364222595303> X5 EXP boost",
-          "",
-          "<:VC_Attention:1482534443632558151> DISCLAIMER / I soldi non sono rimborsabili, essendo volontari.",
-          "I vantaggi segnati con \"✩\" vengono rimossi qualora l'utente violi il regolamento, porti un'immagine negativa al server o sia inattivo per mesi.",
+        "**Vuoi sostenere il server?** Acquista il VIP e riscatta tutti i vantaggi che hai sbloccato qui nel server! <a:VC_HeartsBlue:1468686100045369404>",
+        "",
+        "ACQUISTA IL <@&1442568950805430312> <a:VC_HeartsPink:1468685897389052008>",
+        "`10,00 €`✩",
+        "",
+        "<:sparkledred:1470064814502973591> Sbloccherai:",
+        "<:VC_Dot:1482532364222595303> Permesso di allegare link e immagini in chat",
+        "<:VC_Dot:1482532364222595303> Permesso di usare soundboard di altri server",
+        "<:VC_Dot:1482532364222595303> Possibilità di mandare sticker ed emoji di altri server",
+        "<:VC_Dot:1482532364222595303> Bypass dei requisiti nei giveaway",
+        "<:VC_Dot:1482532364222595303> Possibilità di creare una vocale privata per te e i tuoi amici",
+        "<:VC_Dot:1482532364222595303> Reazioni al messaggio quando vieni @menzionato in chat (max. 3 reazioni).",
+        `<:VC_Dot:1482532364222595303> ${MENTION_RESPONSE_PERK_BODY}`,
+        "<:VC_Dot:1482532364222595303> Potrai crearti un ruolo personalizzato con colore GRADIENTE scelto da te.",
+        "<:VC_Dot:1482532364222595303> X5 EXP boost",
+        "",
+        "<:VC_Attention:1482534443632558151> DISCLAIMER / I soldi non sono rimborsabili, essendo volontari.",
+        "I vantaggi segnati con \"✩\" vengono rimossi qualora l'utente violi il regolamento, porti un'immagine negativa al server o sia inattivo per mesi.",
       ].join("\n");
 
       await interaction.reply({
@@ -936,38 +1163,23 @@ module.exports = {
       await interaction.reply({ components: [v2Text(sponsorText), rowSponsor], flags: v2PrivateFlags() }).catch((err) => { logButtonErr(err); return null; });
     }
 
-    if (interaction.customId == "info_tags") {
-      const suggestionsMention = IDs.channels.suggestions ? "<#" + IDs.channels.suggestions + ">" : "<#1442569147559973094>";
-      const tagsEmbed = new EmbedBuilder()
-        .setColor("#6f4e37")
-        .setDescription(
-          [
-            "## <:VC_Firework:1470796227913322658> LE NOSTRE TAGS",
-            "",
-            "> Per prendere una di queste tag vi basterà entrare nel server dedicato e verificarvi <a:VC_HeartsBlue:1468686100045369404>",
-            "",
-            "<:VC_Luna1:1482497618289496117><:VC_Luna2:1482497653387427902><a:VC_Arrow:1482706699365257397> <https://discord.gg/E6vrm5zE6B>",
-            "<:VC_Cash1:1482460724302184450><:VC_Cash2:1482460763346960434><a:VC_Arrow:1482706699365257397> <https://discord.gg/QnTN5P578g>",
-            "<:VC_Porn1:1482497744513011944><:VC_Porn2:1482497774892089547><a:VC_Arrow:1482706699365257397> <https://discord.gg/WMuZ4EMAkc>",
-            "<:VC_SixNine1:1482497833578922065><:VC_SixNine2:1482497868328865813><a:VC_Arrow:1482706699365257397> <https://discord.gg/uqUNS9f5m5>",
-            "<:VC_Weed1:1482497951686201534><:VC_Weed2:1482497986910097592><a:VC_Arrow:1482706699365257397> <https://discord.gg/SzBwnxHXNv>",
-            "<:VC_Figa1:1482495980275499169><:VC_Figa2:1482496046222544937><a:VC_Arrow:1482706699365257397> <https://discord.gg/z3EXtJwvQH>",
-            "",
-            "<:VC_Reply:1482532158080942191> _In costante aggiornamento, per consigliarne altre " + suggestionsMention + "_",
-          ].join("\n"),
-        );
-      await interaction.reply({ embeds: [tagsEmbed], flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
-    }
-
     if (interaction.customId == "candidature_premi_partner") {
+      const {
+        buildPartnerRewardDiscountBanner,
+        buildPartnerRewardDiscordEmbedLines,
+        getPartnerRewardPointCost,
+      } = require("../../shared/partner/partnerManagerRewardTiers");
+      const tierLines = buildPartnerRewardDiscordEmbedLines();
+      const discountBanner = buildPartnerRewardDiscountBanner();
+      const autoRedeemCosts = [getPartnerRewardPointCost(50), getPartnerRewardPointCost(100)].join("** e **");
       const premiPartnerEmbed = new EmbedBuilder()
         .setColor("#6f4e37")
         .setDescription(
           "<:partneredserverowner:1443651871125409812> **__Vinili & Caffè__** offre un servizio di __pagamento__ in base al numero di **partner** effettuate.\n" +
           "> Per riscattare eventuali premi bisognerà aprire un <#1442569095068254219> **__`HIGH STAFF`__**\n\n" +
-          "<:VC_Dot:1482532364222595303> **__`50`__** partner <a:vegarightarrow:1443673039156936837> **__2.50__ euro** <:paypal:1329524292446191676>\n" +
-          "<:VC_Dot:1482532364222595303> **__`75`__** partner <a:vegarightarrow:1443673039156936837> **__5__ euro** <:paypal:1329524292446191676> / **Nitro __Basic__** <:sparkles_nitro_basic:1330196488336310383>\n" +
-          "<:VC_Dot:1482532364222595303> **__`150`__** partner <a:vegarightarrow:1443673039156936837> **Nitro __Boost__** <:VC_NitroBoost:1482532248967315627>\n\n" +
+          (discountBanner ? `${discountBanner}\n\n` : "") +
+          tierLines.join("\n") +
+          `\n\n> Dal pannello \`+profile\` (High Staff): i riscatti **${autoRedeemCosts}** fanno in automatico **scalatura + premio** (CR+Voc/VIP 30 giorni). **Decorazione**, **Nitro** e **PayPal**: premio a mano.\n\n` +
           `<a:VC_Winner:1482535294757507255> Inoltre, ogni mese, il miglior <@&${IDs.roles.Staff}> riceverà un **Nitro __Boost__** come premio.\n\n` +
           "<a:flyingnitroboost:1443652205705170986> Naturalmente almeno un **boost** dovrà andare a **__Vinili & Caffè__**.",
         )
@@ -993,21 +1205,6 @@ module.exports = {
         logButtonErr(err);
       });
     };
-    if (interaction.customId == "info_verifica") {
-      const verifyText = [
-          "## <a:VC_Verified:1482532479637127188> **__Verificati per ottenere vantaggi unici__**",
-          "",
-          `Per verificare il tuo profilo dovrai andare in <#${IDs.channels.ticket}> e selezionare la HIGH STAFF`,
-          "<:VC_Reply:1482532158080942191> successivamente, dovrete mandare una vostra foto in cui si vede bene il viso:",
-          "con il vostro nickname scritto su un foglio cartaceo o altrimenti con il cellulare nella schermata del vostro profilo Discord",
-          "",
-          "<:sparkledred:1470064814502973591> Ruolo <@&1469040179799920801>, <@&1469040190730408018> o <@&1495449189390356521> con badge speciale",
-          "<:moon:1470064812615667827> Permesso di allegare immagini e link in chat",
-          "<:pinkstar:1470064804835229768> Permesso di scrivere in <#1470029899740873029>",
-        ].join("\n");
-      await interaction.reply({ components: [v2Text(verifyText)], flags: v2PrivateFlags() }).catch((err) => { logButtonErr(err); return null; });
-    }
-
     if (interaction.customId === "info_buttons_test") {
       const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId("info_buttons_test_ok").setLabel("Funziona").setStyle(ButtonStyle.Success),
@@ -1022,11 +1219,11 @@ module.exports = {
     }
 
     if (interaction.customId === "info_buttons_test_ok") {
-      await interaction.reply({ content: "Perfetto: i bottoni standard stanno funzionando ✅", flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
+      await interaction.reply({ content: "Perfetto: i bottoni standard stanno funzionando <a:VC_Verified:1482532479637127188>", flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
     }
 
     if (interaction.customId === "info_buttons_test_no") {
-      await interaction.reply({ content: "Ricevuto ❌: i bottoni standard non stanno rispondendo come previsto.", flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
+      await interaction.reply({ content: "Ricevuto <a:VC_Cross:1482532424570376253>: i bottoni standard non stanno rispondendo come previsto.", flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
     }
 
     if (interaction.customId === "info_buttons_test_ping") {
@@ -1035,7 +1232,7 @@ module.exports = {
 
     const buildBoostLevelsPayload = () => {
       const boostEmbed = new EmbedBuilder()
-        
+
         .setColor("#6f4e37")
         .setTitle("<a:VC_HeartWhite:1448673535253024860> **__Potenzia il server e sblocca vantaggi unici__**")
         .setDescription([
@@ -1044,12 +1241,14 @@ module.exports = {
           "",
           "<a:VC_Boost:1482706171386269830> **Boostando il server una volta sbloccherai questi vantaggi:**",
           `<:sparkledred:1470064814502973591> Ruolo <@&${IDs.roles.ServerBooster}> con badge speciale`,
+          "<:VC_Dot:1482532364222595303> Permesso di cambiare il nickname",
           "<:moon:1470064812615667827> Permesso di allegare immagini e link in chat",
           "<:pinkstar:1470064804835229768> Permesso di mandare emoji e adesivi di altri server",
           "<:sparkle:1470064801811140866> Permesso di usare le Soundboard del server",
-          "<:blueflash:1470064803157643468> Sblocchi i COLORI PLUS in \`+colors\` <:VC_New:1471891729471770819>",
+          "<:blueflash:1470064803157643468> Sblocchi i COLORI PLUS in \`+profile\` <:VC_New:1471891729471770819>",
           "<a:VC_CrownYellow:1482706085440651428> Aggiungi reazioni al messaggio quando ti @menzionano in chat (max. 3)",
-          "<a:reddiamond:1443652837346377841> Sblocchi il comando `+quote`",
+          MENTION_RESPONSE_PERK_LINE_DISCORD,
+          "<a:reddiamond:1443652837346377841> Sblocchi i comandi `+quote`, `+repost` e `+myrepost`",
           "<:exp:1470067108543987846> X2 EXP Boost",
           "",
           "<a:VC_Boost:1482706171386269830> **Inoltre boostando il server due volte sbloccherai altri vantaggi:**",
@@ -1058,18 +1257,19 @@ module.exports = {
           "<:sparkle:1470064801811140866> Permesso di usare le Soundboard esterne",
           "<:blueflash:1470064803157643468> Possibilità di creare un ruolo **custom** e un canale **vocale privato custom**",
           "<a:VC_CrownYellow:1482706085440651428> Cooldown sui comandi del nostro bot ridotto (da 30 secondi a 5 secondi).",
+          MENTION_RESPONSE_PERK_LINE_DISCORD,
           "<a:reddiamond:1443652837346377841> Bypass requisiti dei giveaway",
           "<:exp:1470067108543987846> X3 EXP Boost",
         ].join("\n"))
         ;
 
       const howtoEmbed = new EmbedBuilder()
-        
+
         .setColor("#6f4e37")
         .setTitle("<:nitroboost:1470064881674883326> **__Come creare ruolo personalizzato e vocale privata__**")
         .setDescription([
-          `Usa \`+profile\` in <#${IDs.channels.commands}> per creare e configurare il ruolo, la vocale e le reaction.`,
-          `Usa \`+colors\` in <#${IDs.channels.commands}> per scegliere il colore gradiente del tuo ruolo.`,
+          `Usa \`+profile\` in <#${IDs.channels.commands}> per creare e configurare il ruolo, la vocale, le reaction e la Mention Response.`,
+          `Usa \`+profile\` in <#${IDs.channels.commands}> per scegliere il colore gradiente del tuo ruolo.`,
           "Digita \`+help\` per la lista completa dei comandi.",
         ].join("\n"));
 
@@ -1080,7 +1280,7 @@ module.exports = {
 
     const buildLevelsPayload = () => {
       const levelEmbed = new EmbedBuilder()
-        
+
         .setColor("#6f4e37")
         .setTitle("<:exp:1470067108543987846> **__Sali di livello e sblocca vantaggi sempre migliori__**")
         .setDescription([
@@ -1101,8 +1301,8 @@ module.exports = {
               "<:VC_DoubleReply:1482532332509466797> Permesso di cambiare nickname",
               "<:VC_DoubleReply:1482532332509466797> Permesso di allegare link e immagini in chat",
               "<:VC_DoubleReply:1482532332509466797> Permesso di inviare messaggi vocali in chat",
-              "<:VC_DoubleReply:1482532332509466797> Sblocchi il comando \`+quote\`",
-              `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo colore gradiente sbloccato con \`+colors\`<@&${IDs.roles.colorUnlockLv10}>`
+              "<:VC_DoubleReply:1482532332509466797> Sblocchi i comandi \`+quote\`, \`+repost\` e \`+myrepost\`",
+              `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo colore gradiente sbloccato con \`+profile\`<@&${IDs.roles.colorUnlockLv10}>`
             ].join("\n"),
             inline: true,
           },
@@ -1112,7 +1312,7 @@ module.exports = {
               `<@&${IDs.roles.Level20}>`,
               "Tutte le ricompense precedenti",
               "<:VC_DoubleReply:1482532332509466797> Possibilità di aggiungere reazioni ai messaggi in chat",
-              `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo colore gradiente sbloccato con \`+colors\`<@&${IDs.roles.colorUnlockLv20}>`
+              `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo colore gradiente sbloccato con \`+profile\`<@&${IDs.roles.colorUnlockLv20}>`
             ].join("\n"),
             inline: true,
           },
@@ -1123,7 +1323,7 @@ module.exports = {
               "Tutte le ricompense precedenti",
               "<:VC_DoubleReply:1482532332509466797> Permesso di usare soundboard di altri server",
               "<:VC_DoubleReply:1482532332509466797> Cooldown sui comandi del nostro bot ridotto (da 30 secondi a 15 secondi).",
-              `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo colore gradiente sbloccato con \`+colors\`<@&${IDs.roles.colorUnlockLv30}>`
+              `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo colore gradiente sbloccato con \`+profile\`<@&${IDs.roles.colorUnlockLv30}>`
             ].join("\n"),
             inline: true,
           },
@@ -1134,7 +1334,7 @@ module.exports = {
               "Tutte le ricompense precedenti",
               "<:VC_DoubleReply:1482532332509466797> Possibilità di creare un ruolo __personalizzato PERMANENTE__ e un canale vocale privato __personalizzato PERMANENTE__.",
               "<:VC_DoubleReply:1482532332509466797> Cooldown sui comandi del nostro bot ridotto (da 30 secondi a 5 secondi).",
-              `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo colore gradiente sbloccato con \`+colors\`<@&${IDs.roles.colorUnlockLv50}>`
+              `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo colore gradiente sbloccato con \`+profile\`<@&${IDs.roles.colorUnlockLv50}>`
             ].join("\n"),
             inline: true,
           },
@@ -1145,34 +1345,67 @@ module.exports = {
               "Tutte le ricompense precedenti",
               "<:VC_DoubleReply:1482532332509466797> Permesso di usare sticker ed emoji di altri server",
               "<:VC_DoubleReply:1482532332509466797> Aggiungi reazioni al messaggio quando ti @menzionano in chat (max. 3)",
-              `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo colore gradiente sbloccato con \`+colors\`<@&${IDs.roles.colorUnlockLv70}>`
+              `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo colore gradiente sbloccato con \`+profile\`<@&${IDs.roles.colorUnlockLv70}>`
             ].join("\n"),
             inline: true,
           },
           {
-            name: "\`LIVELLO 100\`",
+            name: "\`LIVELLO 100-119\`",
             value: [
               `<@&${IDs.roles.Level100}>`,
               "Tutte le ricompense precedenti",
               "<:VC_DoubleReply:1482532332509466797> Cooldown sui comandi del nostro bot ridotto (da 30 secondi a 1 secondo).",
-              "<:VC_DoubleReply:1482532332509466797> Bypass requisiti per i giveaway",
               "<:VC_DoubleReply:1482532332509466797> Bypass requisiti per le candidature",
+              "<:VC_DoubleReply:1482532332509466797> Bonus EXP permanente +15%",
+              `<:VC_DoubleReply:1482532332509466797> ${MENTION_RESPONSE_PERK_BODY}`,
+              `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo colore gradiente sbloccato con \`+profile\`<@&${IDs.roles.colorUnlockLv100}>`
+            ].join("\n"),
+            inline: true,
+          },
+          {
+            name: "\`LIVELLO 125-149\`",
+            value: [
+              `<@&${IDs.roles.Level120}>`,
+              "Tutte le ricompense precedenti",
+              "<:VC_DoubleReply:1482532332509466797> Bypass requisiti per i giveaway",
+              "<:VC_DoubleReply:1482532332509466797> Bonus EXP permanente +20%",
+              "<:VC_DoubleReply:1482532332509466797> Sblocchi il secondo custom role",
+              `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo **Plus combo Black** con \`+profile\` <@&${IDs.roles.orangeBlackPlus}>`,
+            ].join("\n"),
+            inline: true,
+          },
+          {
+            name: "\`LIVELLO 150-199\`",
+            value: [
+              `<@&${IDs.roles.Level150}>`,
+              "Tutte le ricompense precedenti",
               "<:VC_DoubleReply:1482532332509466797> Bonus EXP permanente +25%",
-              `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo colore gradiente sbloccato con \`+colors\`<@&${IDs.roles.colorUnlockLv100}>`
+              `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo **Plus combo Black** con \`+profile\` <@&${IDs.roles.greenBlackPlus}>`,
+              "<:VC_DoubleReply:1482532332509466797> Decorazione a scelta riscattabile tramite ticket **HIGH STAFF**",
+            ].join("\n"),
+            inline: true,
+          },
+          {
+            name: "\`LIVELLO 200+\`",
+            value: [
+              `<@&${IDs.roles.Level200}>`,
+              "Tutte le ricompense precedenti",
+              `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo **Plus combo Black** con \`+profile\` <@&${IDs.roles.aquaBlackPlus}>`,
+              "<:VC_DoubleReply:1482532332509466797> Nitro Boost mensile riscattabile tramite ticket **HIGH STAFF**",
             ].join("\n"),
             inline: true,
           },
         )
-        
+
         .setFooter({ text: "Se esci dal server o cambi account, i livelli ti verranno tolti e NON rimessi." });
 
       const howtoEmbed = new EmbedBuilder().setColor("#6f4e37").setTitle("<:nitroboost:1470064881674883326> **__Come creare ruolo personalizzato e vocale privata__**").setDescription([
-        `Usa \`+profile\` in <#${IDs.channels.commands}> per creare e configurare il ruolo, la vocale e le reaction.`,
-        `Usa \`+colors\` in <#${IDs.channels.commands}> per scegliere il colore gradiente del tuo ruolo.`,
+        `Usa \`+profile\` in <#${IDs.channels.commands}> per creare e configurare il ruolo, la vocale, le reaction e la Mention Response.`,
+        `Usa \`+profile\` in <#${IDs.channels.commands}> per scegliere il colore gradiente del tuo ruolo.`,
         "Digita \`+help\` per la lista completa dei comandi.",
       ].join("\n"));
 
-      const row = new ActionRowBuilder().addComponents( new ButtonBuilder().setLabel("︲CANALE PER I COMANDI").setEmoji(`<:VC_Bot:1482526555174604964>`).setStyle(ButtonStyle.Link).setURL("https://discord.com/channels/1329080093599076474/1442569138114662490",), new ButtonBuilder().setCustomId("torna_indietro").setLabel("︲TORNA INDIETRO").setEmoji("<a:vegaleftarrow:1462914743416131816>").setStyle(ButtonStyle.Primary),);
+      const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setLabel("︲CANALE PER I COMANDI").setEmoji(`<:VC_Bot:1482526555174604964>`).setStyle(ButtonStyle.Link).setURL("https://discord.com/channels/1329080093599076474/1442569138114662490",), new ButtonBuilder().setCustomId("torna_indietro").setLabel("︲TORNA INDIETRO").setEmoji("<a:vegaleftarrow:1462914743416131816>").setStyle(ButtonStyle.Primary),);
 
       return { embeds: [levelEmbed, howtoEmbed], components: [row] };
     };
@@ -1192,7 +1425,7 @@ module.exports = {
 
     if (interaction.customId == "info_badges_roles") {
       const badgesEmbed = new EmbedBuilder()
-        
+
         .setColor("#6f4e37")
         .setTitle("<:pinkstar:1470064804835229768>・**__Ottieni un ruolo speciale per il tuo profilo!__**")
         .setDescription([
@@ -1215,9 +1448,9 @@ module.exports = {
             inline: true,
           },
           {
-            name: "`SUPPORTER`",
+            name: "`FAN`",
             value: [
-              "<@&1442568948271943721>",
+              `<@&${IDs.roles.Fan}>`,
               'Ottenibile mettendo il testo ".gg/viniliecaffe" o "discord.gg/viniliecaffe" nello status del tuo profilo Discord!',
               "Nello stato, non nella bio; se viene tolto o se sei offline, non ti verranno assegnati i vantaggi.",
               "<:VC_DoubleReply:1482532332509466797> Permesso di allegare link e immagini in chat",
@@ -1229,7 +1462,7 @@ module.exports = {
             name: "`VOTER`",
             value: [
               "<@&1468266342682722679>",
-              "Ottenibile votando il server su [Discadia](<https://discadia.com/vote/viniliecaffe/>) o [Top.gg](<https://top.gg/discord/servers/832911595289169920>)",
+              "Ottenibile votando il server dalla [pagina Voti](<https://www.viniliecaffe.it/vote>) del sito (Discadia e Top.gg).",
               "<:VC_DoubleReply:1482532332509466797> EXP casuale da 100 a 250.",
               "<:VC_Reply:1482532158080942191> Ruolo esclusivo per 12 o 24 ore.",
             ].join("\n"),

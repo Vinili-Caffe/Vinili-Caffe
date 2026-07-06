@@ -1,22 +1,16 @@
 const { dispatchPrefixMessage } = require("../Utils/Prefix/prefixDispatcher");
-const IDs = require("../Utils/Config/ids");
 const { handleTtsMessage } = require("../Services/TTS/ttsService");
 const { recordReminderActivity } = require("../Services/Community/chatReminderService");
-
-const ALLOWED_GUILD_IDS = new Set([IDs.guilds ?. main,IDs.guilds ?. test].filter(Boolean).map((id)=>String(id)),);
-
+const { handleStanzaPanelPromptMessageCreate } = require("../Services/Voice/stanzaVoiceRoomsService");
+const { handleVoiceTranscriptionMessage } = require("../Services/Voice/voiceTranscriptionService");
+const { ingestMarkovMessageCreate } = require("../Services/Community/markovMessageCollectorService");
+const { handleMarkovAutoSendMessageCreate } = require("../Services/Community/markovAutoSendService");
+const IDs = require("../Utils/Config/ids");
 const REMINDER_CHANNEL_ID = IDs.channels?.chat || null;
 
 module.exports = {
   name: "messageCreate",
   async execute(message, client) {
-    if (
-      message.guild &&
-      ALLOWED_GUILD_IDS.size &&
-      !ALLOWED_GUILD_IDS.has(String(message.guild.id))
-    ) {
-      return;
-    }
     if (!message.author?.bot && message.guild && REMINDER_CHANNEL_ID && String(message.channelId) === String(REMINDER_CHANNEL_ID)) {
       try {
         recordReminderActivity(message.channelId);
@@ -26,9 +20,34 @@ module.exports = {
     }
     try {
       const safePrefix = String(client?.config?.prefix || "-").trim() || "-";
-      await handleTtsMessage(message, client, safePrefix);
+      const content = String(message.content || "").trim();
+      const isPrefixCommand = content.startsWith(safePrefix);
+      if (!isPrefixCommand && !message.author?.bot && message.guild) {
+        if (await handleStanzaPanelPromptMessageCreate(message)) return;
+      }
+    } catch (error) {
+      global.logger?.error?.("[STANZA PANEL MESSAGE ERROR]", error);
+    }
+    const isEditedPrefixExecution = Boolean(message?.__fromMessageUpdatePrefix);
+    try {
+      if (!isEditedPrefixExecution) {
+        const safePrefix = String(client?.config?.prefix || "-").trim() || "-";
+        await handleTtsMessage(message, client, safePrefix);
+      }
     } catch (error) {
       global.logger?.error?.("[TTS ERROR]", error);
+    }
+    try {
+      if (!isEditedPrefixExecution) {
+        await handleVoiceTranscriptionMessage(message, client);
+      }
+    } catch (error) {
+      global.logger?.error?.("[VOICE TRANSCRIBE ERROR]", error);
+    }
+    if (!message.author?.bot && message.guild) {
+      void ingestMarkovMessageCreate(message, client).then(() => {
+        void handleMarkovAutoSendMessageCreate(message, client);
+      });
     }
     await dispatchPrefixMessage(message, client);
   },

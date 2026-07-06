@@ -6,6 +6,7 @@
   var pollStarted = false;
   var ioFallbackTimer = null;
   var staffHoverGroups = [];
+  var staffLoadPending = false;
 
   function el(key) {
     return document.querySelector('[data-live-stat="' + key + '"]');
@@ -128,6 +129,84 @@
     return h % 360;
   }
 
+  function normalizeStaffHoverGroups(raw) {
+    if (!Array.isArray(raw)) return [];
+    return raw
+      .map(function (g) {
+        var rawMembers = Array.isArray(g && g.members) ? g.members.slice(0, 200) : [];
+        return {
+          role: String((g && g.role) || "Staff"),
+          roleId: String((g && g.roleId) || "").trim(),
+          members: rawMembers
+            .map(function (entry) {
+              if (entry && typeof entry === "object") {
+                return {
+                  name: String(entry.name || "").trim(),
+                  profileUrl: String(entry.profileUrl || "").trim(),
+                  isOwner: entry.isOwner === true,
+                  roleId: String(entry.roleId || "").trim(),
+                  roleLabel: String(entry.roleLabel || "").trim(),
+                };
+              }
+              return {
+                name: String(entry || "").trim(),
+                profileUrl: "",
+                isOwner: false,
+                roleId: "",
+                roleLabel: "",
+              };
+            })
+            .sort(function (a, b) {
+              return (b && b.isOwner ? 1 : 0) - (a && a.isOwner ? 1 : 0);
+            })
+            .filter(function (entry) {
+              return entry.name;
+            }),
+        };
+      })
+      .filter(function (g) {
+        return g.members.length > 0 && !isGenericStaffGroupRole(g.role);
+      });
+  }
+
+  function applyExtraStats(extra) {
+    if (!extra || typeof extra !== "object") return false;
+    var changed = false;
+    if (extra.staffNoPm != null) {
+      setText("staff", extra.staffNoPm);
+      changed = true;
+    }
+    if (Array.isArray(extra.staffHoverGroups)) {
+      staffHoverGroups = normalizeStaffHoverGroups(extra.staffHoverGroups);
+      updateStaffHoverUi();
+      changed = true;
+    }
+    return changed;
+  }
+
+  function prefetchStaffData() {
+    if (staffLoadPending) return;
+    staffLoadPending = true;
+    fetchExtraStatsJson()
+      .then(function (extra) {
+        applyExtraStats(extra);
+      })
+      .finally(function () {
+        staffLoadPending = false;
+        updateStaffHoverUi();
+      });
+  }
+
+  function requestStaffPopoverOpen(cell) {
+    if (!cell) return;
+    if (!staffHoverGroups.length) {
+      var body = cell.querySelector(".vc-stat-staff-popover__body");
+      if (body) body.textContent = "Caricamento...";
+      if (!staffLoadPending) prefetchStaffData();
+    }
+    cell.classList.add("vc-stat-cell--staff-open");
+  }
+
   function ensureStaffHoverUi() {
     var staffNode = el("staff");
     if (!staffNode) return;
@@ -152,8 +231,7 @@
     }
     function open() {
       clearCloseTimer();
-      if (!staffHoverGroups.length) return;
-      cell.classList.add("vc-stat-cell--staff-open");
+      requestStaffPopoverOpen(cell);
     }
     function closeWithDelay() {
       clearCloseTimer();
@@ -167,8 +245,12 @@
     pop.addEventListener("mouseleave", closeWithDelay);
     cell.addEventListener("focus", open);
     cell.addEventListener("blur", closeWithDelay);
-    cell.addEventListener("click", function () {
-      if (!staffHoverGroups.length) return;
+    cell.addEventListener("click", function (ev) {
+      if (ev && typeof ev.preventDefault === "function") ev.preventDefault();
+      if (!staffHoverGroups.length) {
+        requestStaffPopoverOpen(cell);
+        return;
+      }
       cell.classList.toggle("vc-stat-cell--staff-open");
     });
     document.addEventListener("click", function (ev) {
@@ -193,10 +275,9 @@
     var body = cell.querySelector(".vc-stat-staff-popover__body");
     if (!body) return;
     if (!staffHoverGroups.length) {
-      body.textContent = "Nessun membro staff disponibile.";
-      cell.classList.remove("vc-stat-cell--staff");
-      cell.classList.remove("vc-stat-cell--staff-open");
-      cell.removeAttribute("tabindex");
+      body.textContent = staffLoadPending ? "Caricamento..." : "Nessun membro staff disponibile.";
+      cell.classList.add("vc-stat-cell--staff");
+      cell.setAttribute("tabindex", "0");
       return;
     }
     cell.classList.add("vc-stat-cell--staff");
@@ -275,6 +356,24 @@
     return list;
   }
 
+  function guildIconUrlFromInvitePayload(data) {
+    var guild = data && data.guild;
+    var gid = guild && guild.id != null ? String(guild.id).trim() : "";
+    var icon = guild && guild.icon != null ? String(guild.icon).trim() : "";
+    if (!gid || !icon) return "";
+    var ext = icon.indexOf("a_") === 0 ? "gif" : "png";
+    return "https://cdn.discordapp.com/icons/" + gid + "/" + icon + "." + ext + "?size=128";
+  }
+
+  function applyHeaderGuildIcon(url) {
+    var u = String(url || "").trim();
+    if (!u) return;
+    var imgs = document.querySelectorAll("img.vc-header-logo-img");
+    for (var i = 0; i < imgs.length; i += 1) {
+      if (imgs[i].getAttribute("src") !== u) imgs[i].setAttribute("src", u);
+    }
+  }
+
   function refreshInvite() {
     var urls = inviteUrls();
     if (!urls.length) return Promise.resolve();
@@ -282,6 +381,7 @@
     function tryOne(i) {
       if (i >= urls.length) return Promise.reject(new Error("invite_exhausted"));
       return fetchNoStore(urls[i]).then(function (data) {
+        applyHeaderGuildIcon(guildIconUrlFromInvitePayload(data));
         return data;
       }).catch(function () {
         return tryOne(i + 1);
@@ -291,16 +391,24 @@
     return tryOne(0);
   }
 
-  function fetchExtraStatsJson() {
+  function resolveExtraStatsPath() {
     var p = cfg.extraStatsPath;
-    if (p == null || String(p).trim() === "") return Promise.resolve(null);
-    var url;
-    try {
-      url = new URL(String(p).trim(), location.origin).toString();
-    } catch (e) {
-      return Promise.resolve(null);
+    if (p != null && String(p).trim() !== "") {
+      try {
+        return new URL(String(p).trim(), location.origin).toString();
+      } catch (e) {
+        return String(p).trim();
+      }
     }
-    return fetchNoStore(url).catch(function () {
+    try {
+      return new URL("/live-stats-extra.json", location.origin).toString();
+    } catch (e2) {
+      return "/live-stats-extra.json";
+    }
+  }
+
+  function fetchExtraStatsJson() {
+    return fetchNoStore(resolveExtraStatsPath()).catch(function () {
       return null;
     });
   }
@@ -315,41 +423,7 @@
     })]).then(function (pair) {
       var extra = pair[0];
       var inv = pair[1];
-      if (extra && extra.staffNoPm != null) setText("staff", extra.staffNoPm);
-      if (extra && Array.isArray(extra.staffHoverGroups)) {
-        staffHoverGroups = extra.staffHoverGroups
-          .map(function (g) {
-            var rawMembers = Array.isArray(g && g.members) ? g.members.slice(0, 200) : [];
-            return {
-              role: String((g && g.role) || "Staff"),
-              members: rawMembers
-                .map(function (entry) {
-                  if (entry && typeof entry === "object") {
-                    return {
-                      name: String(entry.name || "").trim(),
-                      profileUrl: String(entry.profileUrl || "").trim(),
-                      isOwner: entry.isOwner === true,
-                    };
-                  }
-                  return {
-                    name: String(entry || "").trim(),
-                    profileUrl: "",
-                    isOwner: false,
-                  };
-                })
-                .sort(function (a, b) {
-                  return (b && b.isOwner ? 1 : 0) - (a && a.isOwner ? 1 : 0);
-                })
-                .filter(function (entry) {
-                  return entry.name;
-                }),
-            };
-          })
-          .filter(function (g) {
-            return g.members.length > 0 && !isGenericStaffGroupRole(g.role);
-          });
-        updateStaffHoverUi();
-      }
+      applyExtraStats(extra);
       var guildMem =
         extra && extra.guildMemberCount != null && Number.isFinite(Number(extra.guildMemberCount))
           ? Number(extra.guildMemberCount)
@@ -470,12 +544,27 @@
     }, fallbackMs);
   }
 
+  function bootstrapStaffList() {
+    ensureStaffHoverUi();
+    if (Array.isArray(cfg.staffHoverGroups) && cfg.staffHoverGroups.length) {
+      applyExtraStats({ staffHoverGroups: cfg.staffHoverGroups, staffNoPm: cfg.staffNoPm });
+    } else {
+      updateStaffHoverUi();
+    }
+    prefetchStaffData();
+  }
+
   wireIntroObserver();
-  updateStaffHoverUi();
+  bootstrapStaffList();
 })();
 (function () {
   var cfg = typeof window !== "undefined" ? window.__VC_LIVE : null;
   if (!cfg || cfg.enabled !== true) return;
+  try {
+    if (window.__VC_DISABLE_LIVE_EVENT_UI === true) return;
+    if (document.body && document.body.classList.contains("vc-hw-page")) return;
+    if (document.body && document.body.classList.contains("vc-seratafilm-page")) return;
+  } catch (e0) {}
   var apiProd = String(cfg.liveEventApiUrl || "").trim();
   if (!apiProd) return;
 
@@ -492,6 +581,30 @@
     var local = String(cfg.liveEventApiUrlLocal || "").trim();
     if (isLocalOrigin() && local) return local;
     return apiProd;
+  }
+
+  var LIVE_EVENT_DISMISS_KEY = "vc_live_event_dismiss_v1";
+
+  function getDismissedEventId() {
+    try {
+      return String(localStorage.getItem(LIVE_EVENT_DISMISS_KEY) || "").trim();
+    } catch (e) {
+      return "";
+    }
+  }
+
+  function setDismissedEventId(id) {
+    var s = String(id || "").trim();
+    if (!s) return;
+    try {
+      localStorage.setItem(LIVE_EVENT_DISMISS_KEY, s);
+    } catch (e) {}
+  }
+
+  function clearDismissedEventId() {
+    try {
+      localStorage.removeItem(LIVE_EVENT_DISMISS_KEY);
+    } catch (e) {}
   }
 
   function ensureLiveEventRoot() {
@@ -548,20 +661,30 @@
   if (!root || !reopenBtn || !titleEl || !descEl || !prim) return;
 
   var pollMs = Math.max(20000, Math.min(600000, Number(cfg.liveEventPollMs) || 90000));
-  var isManuallyHidden = false;
   var lastEventPayload = null;
-
-  function hideStrip(manual) {
-    if (manual === true) isManuallyHidden = true;
-    if (manual === false) isManuallyHidden = false;
-    root.hidden = true;
-    reopenBtn.hidden = !isManuallyHidden;
-  }
+  var lastShownEventId = "";
 
   function showStrip(data) {
     var ev = data && data.event ? data.event : null;
     var eid = ev && ev.id != null ? String(ev.id).trim() : "";
     if (!ev || !eid) return;
+    var dismissed = getDismissedEventId() === eid;
+    var wasVisible = !root.hidden && reopenBtn.hidden;
+    if (wasVisible && eid === lastShownEventId && !dismissed) {
+      titleEl.textContent = ev.name || "Evento in corso";
+      descEl.textContent =
+        "In questo momento sul server Discord c’è un evento attivo. Unisciti dalla app o dal browser.";
+      if (ev.description && String(ev.description).trim()) {
+        descEl.textContent = String(ev.description).trim();
+      }
+      var inviteFast = String(data.inviteUrl || prim.getAttribute("href") || cfg.inviteUrl || "").trim();
+      var urlFast = String(ev.buttonUrl || ev.eventUrl || inviteFast).trim();
+      var labelFast = String(ev.buttonLabel || "Partecipa").trim() || "Partecipa";
+      prim.setAttribute("href", urlFast || inviteFast);
+      prim.textContent = labelFast;
+      lastEventPayload = data;
+      return;
+    }
 
     titleEl.textContent = ev.name || "Evento in corso";
     descEl.textContent =
@@ -576,7 +699,8 @@
     prim.textContent = label;
 
     lastEventPayload = data;
-    if (isManuallyHidden) {
+    lastShownEventId = eid;
+    if (dismissed) {
       root.hidden = true;
       reopenBtn.hidden = false;
       return;
@@ -590,12 +714,16 @@
     var t = e && e.target;
     if (!t || !t.closest) return;
     if (t.closest("[data-vc-live-event-dismiss]")) {
-      hideStrip(true);
+      var ev0 = lastEventPayload && lastEventPayload.event ? lastEventPayload.event : null;
+      var id0 = ev0 && ev0.id != null ? String(ev0.id).trim() : "";
+      if (id0) setDismissedEventId(id0);
+      root.hidden = true;
+      reopenBtn.hidden = false;
     }
   });
 
   reopenBtn.addEventListener("click", function () {
-    isManuallyHidden = false;
+    clearDismissedEventId();
     reopenBtn.hidden = true;
     if (lastEventPayload) {
       showStrip(lastEventPayload);
@@ -622,7 +750,10 @@
           showStrip(j);
         } else {
           lastEventPayload = null;
-          hideStrip(false);
+          lastShownEventId = "";
+          clearDismissedEventId();
+          root.hidden = true;
+          reopenBtn.hidden = true;
         }
       })
       .catch(function () {});

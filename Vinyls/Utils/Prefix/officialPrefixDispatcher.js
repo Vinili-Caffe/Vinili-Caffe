@@ -1,4 +1,7 @@
 const { EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder, PermissionFlagsBits, } = require("discord.js");
+const path = require("path");
+const { readSnapshotWithMeta, writeSnapshotWithMeta } = require("../../../shared/recovery/snapshotStore");
+const { registerShutdownFlush, armShutdownCheckpoint } = require("../../../shared/recovery/shutdownCheckpoint");
 const { applyDefaultFooterToEmbeds } = require("../Embeds/defaultFooter");
 const { checkPrefixPermission, getPrefixRequiredRoles, buildGlobalPermissionDeniedEmbed, buildGlobalChannelDeniedEmbed, } = require("../Moderation/commandPermissions");
 const { getUserCommandCooldownSeconds, consumeUserCooldown, } = require("../Moderation/commandCooldown");
@@ -13,6 +16,108 @@ const { EPHEMERAL_TTL_SHORT_MS } = require("../Config/ephemeralMessageTtl");
 const PREFIX_COOLDOWN_BYPASS_ROLE_ID = IDs.roles.Staff;
 const PREFIX_PRECHECK_TIMEOUT_MS = 4000;
 const PREFIX_EXECUTION_TIMEOUT_MS = Math.max(15_000, Number(process.env.PREFIX_EXECUTION_TIMEOUT_MS || 120_000),);
+const PREFIX_QUEUE_SNAPSHOT_PATH = path.join(__dirname, "..", "..", "Data", "prefixQueueSnapshot.json");
+const PREFIX_QUEUE_MAX_ITEMS_PER_LOCK = 100;
+const PREFIX_QUEUE_MAX_AGE_MS = 20 * 60 * 1000;
+const REMOVED_PREFIX_COMMANDS = new Set(["colors", "staff", "ai"]);
+const FIRE_AND_FORGET_PREFIX_COMMANDS = new Set([]);
+
+function serializePrefixQueuePayload(row) {
+  return {
+    channelId: String(row?.channelId || row?.message?.channelId || ""),
+    messageId: String(row?.messageId || row?.message?.id || ""),
+    args: Array.isArray(row?.args) ? row.args.map((arg) => String(arg || "")) : [],
+    commandName: String(row?.commandName || row?.command?.name || "").trim().toLowerCase(),
+    enqueuedAt: Number(row?.enqueuedAt || Date.now()),
+  };
+}
+
+function readPrefixQueueSnapshotRaw() {
+  const raw = readSnapshotWithMeta({
+    filePath: PREFIX_QUEUE_SNAPSHOT_PATH,
+    walPath: `${PREFIX_QUEUE_SNAPSHOT_PATH}.wal`,
+    key: "vinyls_prefix_queue",
+    version: 1,
+    fallback: { queues: {} },
+  });
+  return raw?.queues && typeof raw.queues === "object" ? raw.queues : {};
+}
+
+function persistPrefixQueueSnapshotNow(client) {
+  try {
+    const queues = {};
+    const source = client?.prefixCommandQueue;
+    if (source instanceof Map) {
+      for (const [lockId, rows] of source.entries()) {
+        const key = String(lockId || "").trim();
+        if (!key || !Array.isArray(rows) || rows.length === 0) continue;
+        const serialized = rows
+          .map(serializePrefixQueuePayload)
+          .filter((row) => row.channelId && row.messageId && row.commandName);
+        if (serialized.length) queues[key] = serialized.slice(0, PREFIX_QUEUE_MAX_ITEMS_PER_LOCK);
+      }
+    }
+    if (client?.prefixCommandInFlight instanceof Map) {
+      for (const [lockId, payload] of client.prefixCommandInFlight.entries()) {
+        const key = String(lockId || "").trim();
+        if (!key || !payload) continue;
+        const row = serializePrefixQueuePayload(payload);
+        if (!row.channelId || !row.messageId || !row.commandName) continue;
+        if (!queues[key]) queues[key] = [];
+        queues[key].unshift(row);
+        queues[key] = queues[key].slice(0, PREFIX_QUEUE_MAX_ITEMS_PER_LOCK);
+      }
+    }
+    writeSnapshotWithMeta({
+      filePath: PREFIX_QUEUE_SNAPSHOT_PATH,
+      walPath: `${PREFIX_QUEUE_SNAPSHOT_PATH}.wal`,
+      key: "vinyls_prefix_queue",
+      version: 1,
+      payload: { queues },
+    });
+  } catch {
+    // ignore
+  }
+}
+
+function ensurePrefixQueueLoaded(client) {
+  if (!client || client._prefixQueueSnapshotLoaded) return;
+  armShutdownCheckpoint();
+  client._prefixQueueSnapshotLoaded = true;
+  if (!client.prefixCommandQueue) client.prefixCommandQueue = new Map();
+  const queues = readPrefixQueueSnapshotRaw();
+  for (const [lockId, rows] of Object.entries(queues)) {
+    if (!lockId || !Array.isArray(rows) || !rows.length) continue;
+    const sanitized = rows
+      .map((row) => ({
+        channelId: String(row?.channelId || ""),
+        messageId: String(row?.messageId || ""),
+        args: Array.isArray(row?.args) ? row.args.map((arg) => String(arg || "")) : [],
+        commandName: String(row?.commandName || "").trim().toLowerCase(),
+        enqueuedAt: Number(row?.enqueuedAt || Date.now()),
+      }))
+      .filter(
+        (row) =>
+          row.channelId &&
+          row.messageId &&
+          row.commandName &&
+          Date.now() - Number(row.enqueuedAt || 0) <= PREFIX_QUEUE_MAX_AGE_MS,
+      )
+      .slice(0, PREFIX_QUEUE_MAX_ITEMS_PER_LOCK);
+    if (sanitized.length) client.prefixCommandQueue.set(String(lockId), sanitized);
+  }
+  if (!client.prefixCommandLocks) client.prefixCommandLocks = new Set();
+  if (!client._prefixQueueSnapshotFlushRegistered) {
+    client._prefixQueueSnapshotFlushRegistered = true;
+    registerShutdownFlush("vinyls_prefix_queue", () => persistPrefixQueueSnapshotNow(client));
+  }
+  for (const [lockId, rows] of client.prefixCommandQueue.entries()) {
+    if (!rows?.length || client.prefixCommandLocks.has(lockId)) continue;
+    setTimeout(() => {
+      drainPrefixQueue(lockId, client).catch(() => null);
+    }, 500).unref?.();
+  }
+}
 
 function hasSendablePayload(data) {
   if (typeof data === "string") return data.trim().length > 0;
@@ -259,6 +364,22 @@ async function executePrefixCommandRuntime({
     commandMessage.channel = commandChannel;
   }
 
+  const cmdName = String(execCommand?.name || "").toLowerCase();
+  const fireAndForget =
+    FIRE_AND_FORGET_PREFIX_COMMANDS.has(cmdName) || execCommand?.fireAndForget === true;
+  if (fireAndForget) {
+    void Promise.resolve(execCommand.execute(commandMessage, execArgs, resolvedClient)).catch((err) => {
+      global.logger?.error?.(
+        `[PREFIX] fire-and-forget command=${cmdName} guild=${String(execMessage?.guild?.id || "dm")} user=${String(execMessage?.author?.id || "unknown")}`,
+        err?.stack || err?.message || err,
+      );
+    });
+    commandFinished = true;
+    if (typingStartTimer) clearTimeout(typingStartTimer);
+    if (typingPulseTimer) clearInterval(typingPulseTimer);
+    return null;
+  }
+
   try {
     await Promise.race([
       Promise.resolve(
@@ -276,6 +397,10 @@ async function executePrefixCommandRuntime({
       }),
     ]);
   } catch (error) {
+    global.logger?.error?.(
+      `[PREFIX COMMAND ERROR] command=${String(execCommand?.name || "unknown")} guild=${String(execMessage?.guild?.id || "dm")} user=${String(execMessage?.author?.id || "unknown")}`,
+      error?.stack || error?.message || error,
+    );
     const channelID = IDs.channels.errorLogChannel || IDs.channels.serverBotLogs;
     const errorChannel = channelID ? await getCentralChannel(resolvedClient, channelID) : null;
     const errorEmbed = buildErrorLogEmbed({
@@ -327,6 +452,7 @@ async function executePrefixCommandRuntime({
     }
 
     const feedback = buildInternalCommandErrorEmbed(error);
+    await execMessage.delete().catch(() => null);
     return sendTemporaryReply(execMessage, { embeds: [feedback] }, EPHEMERAL_TTL_SHORT_MS);
   } finally {
     commandFinished = true;
@@ -341,11 +467,22 @@ async function drainPrefixQueue(lockId, resolvedClient) {
   const resolveQueuedMessage = async (payload) => { const fallback = payload?.message || null; const channelId = String(payload?.channelId || fallback?.channelId || ""); const messageId = String(payload?.messageId || fallback?.id || ""); if (!channelId || !messageId) return fallback; try { const channel = resolvedClient.channels?.cache?.get(channelId) || (await resolvedClient.channels.fetch(channelId).catch(() => null)); if (!channel?.messages?.fetch) return fallback; return (await channel.messages.fetch(messageId).catch(() => null)) || fallback; } catch (err) { global.logger?.warn?.("[prefixDispatcher] resolveQueuedMessage:", err?.message || err); return fallback; } }; const removeLoadingReaction = async (msg) => { try { const loadingId = IDs.emojis?.loadingAnimatedId; const fallbackId = IDs.emojis?.loadingFallbackId; const emoji = loadingId ? msg.client?.emojis?.cache?.get(loadingId) : null; if (emoji) { const react = msg.reactions.resolve(emoji.id); if (react) await react.users.remove(resolvedClient.user.id); } const fallback = msg.reactions.resolve("VC_Loading") || (fallbackId ? msg.reactions.resolve(fallbackId) : null); if (fallback) await fallback.users.remove(resolvedClient.user.id); } catch (err) { global.logger?.warn?.("[prefixDispatcher] removeLoadingReaction:", err?.message || err); } }; let queue = resolvedClient.prefixCommandQueue.get(lockId);
   while (queue && queue.length > 0) {
     const next = queue.shift();
+    persistPrefixQueueSnapshotNow(resolvedClient);
+    if (!next?.command && next?.commandName) {
+      const cmdKey = String(next.commandName || "").toLowerCase();
+      next.command =
+        resolvedClient.commands?.get?.(cmdKey) ||
+        [...(resolvedClient.commands?.values?.() || [])].find((entry) => String(entry?.name || "").toLowerCase() === cmdKey) ||
+        null;
+    }
+    if (!next?.command?.execute) continue;
     const hydratedMessage = await resolveQueuedMessage(next);
     if (!hydratedMessage?.channel) continue;
     next.message = hydratedMessage;
     await removeLoadingReaction(next.message);
     resolvedClient.prefixCommandLocks.add(lockId);
+    if (!resolvedClient.prefixCommandInFlight) resolvedClient.prefixCommandInFlight = new Map();
+    resolvedClient.prefixCommandInFlight.set(lockId, next);
     try {
       await Promise.race([
         executePrefixCommandRuntime({ payload: next, resolvedClient }),
@@ -358,12 +495,14 @@ async function drainPrefixQueue(lockId, resolvedClient) {
       global.logger?.warn?.("[PREFIX] drainPrefixQueue item timeout or error", err?.message || err);
     } finally {
       resolvedClient.prefixCommandLocks.delete(lockId);
+      resolvedClient.prefixCommandInFlight?.delete(lockId);
     }
     queue = resolvedClient.prefixCommandQueue.get(lockId);
   }
 
   if (queue && queue.length === 0) {
     resolvedClient.prefixCommandQueue.delete(lockId);
+    persistPrefixQueueSnapshotNow(resolvedClient);
   }
 }
 
@@ -435,6 +574,20 @@ async function handleOfficialPrefixMessage({ message, resolvedClient, defaultPre
   const rawCmd = overrideCommand ? overrideCommand.name : args.shift();
   const cmd = normalizePrefixCommandToken(rawCmd);
   if (!cmd) return;
+  if (REMOVED_PREFIX_COMMANDS.has(cmd)) {
+    await deleteCommandMessage();
+    const removedMessage = cmd === "colors"
+      ? "<:vegax:1443934876440068179> Il comando `+colors` non esiste più. Usa `+profile`."
+      : `<:vegax:1443934876440068179> Il comando \`+${cmd}\` non esiste più.`;
+    await sendTemporaryMessage(
+      message.channel,
+      {
+        content: removedMessage,
+      },
+      EPHEMERAL_TTL_SHORT_MS,
+    );
+    return;
+  }
 
   const command = overrideCommand || resolvedClient.pcommands.get(cmd) || resolvedClient.pcommands.get(resolvedClient.aliases.get(cmd));
   if (!command) {
@@ -488,6 +641,18 @@ async function handleOfficialPrefixMessage({ message, resolvedClient, defaultPre
     return;
   }
 
+  const commandFolder = String(command.folder || "").toLowerCase();
+  if (["staff", "admin"].includes(commandFolder)) {
+    const { staffChatCommandsDeniedReplyContent } = require("../Staff/staffChatChannelUtils");
+    const { sendPartnersChatDeniedPrefixCleanup } = require("../Partner/partnersChatChannelUtils");
+    const deniedStaffChat = await staffChatCommandsDeniedReplyContent(message.channel).catch(() => null);
+    if (deniedStaffChat) {
+      await deleteCommandMessage();
+      await sendPartnersChatDeniedPrefixCleanup(message, deniedStaffChat);
+      return;
+    }
+  }
+
   const rawPrefixSubcommandArg = args[0] ? String(args[0]).toLowerCase() : null;
   const prefixSubcommand = resolveSubcommandState(command, cmd, args);
   const aliasInvokesSubcommand = Boolean(
@@ -535,6 +700,42 @@ async function handleOfficialPrefixMessage({ message, resolvedClient, defaultPre
     `permission precheck for ${command.name}`,
   );
   if (!permissionResult?.allowed) {
+    if (permissionResult?.reason === "multi_guild_tenant_only_media") {
+      await deleteCommandMessage();
+      await sendTemporaryMessage(
+        message.channel,
+        {
+          content:
+            "<:VC_Lock:1482526739044368476> Comando non disponibile su questo server tenant. Usa `+help` per l'elenco dei comandi attivi.",
+        },
+        EPHEMERAL_TTL_SHORT_MS,
+      );
+      return;
+    }
+    if (permissionResult?.reason === "multi_guild_tenant_mod_permission") {
+      await deleteCommandMessage();
+      await sendTemporaryMessage(
+        message.channel,
+        {
+          content:
+            "<:VC_Lock:1482526739044368476> Ti servono i permessi Discord adatti (es. **Banna membri**, **Espelli**, **Modera membri**, **Gestisci messaggi** o **Amministratore**).",
+        },
+        EPHEMERAL_TTL_SHORT_MS,
+      );
+      return;
+    }
+    if (String(permissionResult?.reason || "").startsWith("feature_disabled:")) {
+      await deleteCommandMessage();
+      await sendTemporaryMessage(
+        message.channel,
+        {
+          content:
+            "<:vegax:1443934876440068179> Questa funzione non è attiva su questo server tenant.",
+        },
+        EPHEMERAL_TTL_SHORT_MS,
+      );
+      return;
+    }
     if (
       permissionResult?.reason === "channel" &&
       Array.isArray(permissionResult.channels)
@@ -578,7 +779,7 @@ async function handleOfficialPrefixMessage({ message, resolvedClient, defaultPre
     );
   }
 
-  if (!hasPrefixCooldownBypass && !isEditedPrefixExecution) {
+  if (!hasPrefixCooldownBypass && !isEditedPrefixExecution && !command.skipCommandCooldown) {
     const cooldownSeconds = await resolveWithTimeout(() => getUserCommandCooldownSeconds({ guildId: message.guild.id, userId: message.author.id, member: message.member, }), 0, `cooldown lookup for ${command.name}`,
     );
     const cooldownResult = consumeUserCooldown({ client: resolvedClient, guildId: message.guild.id, userId: message.author.id, cooldownSeconds, });
@@ -593,6 +794,7 @@ async function handleOfficialPrefixMessage({ message, resolvedClient, defaultPre
 
   if (!resolvedClient.prefixCommandLocks) resolvedClient.prefixCommandLocks = new Set();
   if (!resolvedClient.prefixCommandQueue) resolvedClient.prefixCommandQueue = new Map();
+  ensurePrefixQueueLoaded(resolvedClient);
   if (!resolvedClient.prefixCommandBusyNoticeAt) {
     resolvedClient.prefixCommandBusyNoticeAt = new Map();
   }
@@ -604,6 +806,7 @@ async function handleOfficialPrefixMessage({ message, resolvedClient, defaultPre
     message,
     args,
     command,
+    commandName: String(command?.name || cmd || "").trim().toLowerCase(),
     channelId: message.channelId,
     messageId: message.id,
     enqueuedAt: Date.now(),
@@ -618,6 +821,7 @@ async function handleOfficialPrefixMessage({ message, resolvedClient, defaultPre
       if (idx >= 0) {
         queue[idx] = { ...queue[idx], ...commandPayload };
         resolvedClient.prefixCommandQueue.set(queueLockId, queue);
+        persistPrefixQueueSnapshotNow(resolvedClient);
         return;
       }
     }
@@ -635,6 +839,7 @@ async function handleOfficialPrefixMessage({ message, resolvedClient, defaultPre
       resolvedClient.prefixCommandQueue.set(queueLockId, []);
     }
     resolvedClient.prefixCommandQueue.get(queueLockId).push(commandPayload);
+    persistPrefixQueueSnapshotNow(resolvedClient);
   };
   if (resolvedClient.prefixCommandLocks.has(queueLockId)) {
     await enqueueCommand();
@@ -645,6 +850,8 @@ async function handleOfficialPrefixMessage({ message, resolvedClient, defaultPre
   }
 
   resolvedClient.prefixCommandLocks.add(queueLockId);
+  if (!resolvedClient.prefixCommandInFlight) resolvedClient.prefixCommandInFlight = new Map();
+  resolvedClient.prefixCommandInFlight.set(queueLockId, commandPayload);
   try {
     await executePrefixCommandRuntime({
       payload: { message, args, command },
@@ -652,6 +859,8 @@ async function handleOfficialPrefixMessage({ message, resolvedClient, defaultPre
     });
   } finally {
     resolvedClient.prefixCommandLocks.delete(queueLockId);
+    resolvedClient.prefixCommandInFlight?.delete(queueLockId);
+    persistPrefixQueueSnapshotNow(resolvedClient);
     await drainPrefixQueue(queueLockId, resolvedClient);
   }
 }

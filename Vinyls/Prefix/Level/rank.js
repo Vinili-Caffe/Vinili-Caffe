@@ -27,7 +27,7 @@ module.exports = {
 
     const messageGuildId = String(message.guild.id).trim();
     const mainGuildId = String(message.client?.config?.mainGuildId || IDs.guilds?.main || "").trim();
-    /** Stesso contesto del sito (siteRankCardApi): exp, classifiche, rankCard e moltiplicatore sulla guild principale se il membro c'e'. */
+    /** Stesso contesto del sito (siteRankCardApi): exp, classifiche, rankCard e moltiplicatore sulla guild principale se il membro C'è'. */
     let statsGuild = message.guild;
     let statsGuildId = messageGuildId;
     if (mainGuildId && mainGuildId !== messageGuildId) {

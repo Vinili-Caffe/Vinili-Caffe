@@ -1,8 +1,14 @@
+/*!
+ * Copyright (c) 2024–2026 Vinili & Caffè. Tutti i diritti riservati.
+ * Uso, copia, modifica e distribuzione vietati senza autorizzazione scritta.
+ * SPDX-License-Identifier: LicenseRef-Proprietary-ViniliCaffe — vedi LICENSE.
+ */
 const discord = require("discord.js");
 const { Client, IntentsBitField } = discord;
 const GatewayIntentBits = discord.GatewayIntentBits || IntentsBitField?.Flags || {};
 const Partials = discord.Partials || {};
 const path = require("path");
+const { EventEmitter } = require("events");
 const APP_ROOT = __dirname;
 const {acquireSingleInstanceLock,installHandlers,listFoldersIfExists,loadEnvFiles,}= require("../shared/runtime/fsRuntime");
 const { initializeCommandCollections } = require("../shared/runtime/clientRuntime");
@@ -14,20 +20,43 @@ if (process.env.RUN_UNDER_LOADER !== "1") {
 }
 
 const installProcessHandlers = require("./Handlers/processHandler");
+const { buildInitialClientPresenceOptions, installBotPresenceHooks, patchClientPresenceGuard } = require("../shared/discord/botPresenceActivity");
+const { installGatewayShardListenerCeiling } = require("../shared/discord/gatewayListenerCeiling");
 installProcessHandlers();
 
 const intentList = [...new Set(Object.values(GatewayIntentBits).filter((x) => typeof x === "number" && x > 0))];
 if (intentList.length === 0) intentList.push(1);
 const partialList = [...new Set(Object.values(Partials).filter((x) => typeof x === "number"))];
+const coffeeConfig = require("./config.json");
 const client = new Client({
   intents: intentList,
   partials: partialList,
-  presence: { status: "invisible" },
+  presence: buildInitialClientPresenceOptions(coffeeConfig),
   rest: { timeout: 30_000, offset: 50, retries: 3 },
 });
 
+function resolveEventListenersCeiling(configLike) {
+  const raw = Number(configLike?.eventListeners ?? 50);
+  if (!Number.isFinite(raw) || raw <= 0) return 50;
+  return Math.max(10, Math.floor(raw));
+}
+
+function applyListenerCeiling(clientRef, configLike) {
+  if (!clientRef) return;
+  const maxListeners = resolveEventListenersCeiling(configLike);
+  try {
+    clientRef.setMaxListeners(maxListeners);
+  } catch (_) {}
+  try {
+    if (Number(EventEmitter.defaultMaxListeners || 0) < maxListeners) {
+      EventEmitter.defaultMaxListeners = maxListeners;
+    }
+  } catch (_) {}
+}
+
 try {
-  client.config = require("./config.json");
+  client.config = coffeeConfig;
+  patchClientPresenceGuard(client);
 } catch (err) {
   global.logger.error(
     " config.json mancante o non valido:",
@@ -37,9 +66,13 @@ try {
 }
 
 const { getToken, getMongoUrl, ensureToken } = require("../shared/config/env");
+const { connectMongo, isMongoReady } = require("../Vinyls/Utils/Database/mongoConnect");
 client.config.token = getToken(client.config, "DISCORD_TOKEN_TEST");
 client.config.mongoURL = getMongoUrl(client.config);
 ensureToken(client.config.token, "Bot Test (DISCORD_TOKEN_TEST)");
+applyListenerCeiling(client, client.config);
+installGatewayShardListenerCeiling(client);
+installBotPresenceHooks(client);
 
 client.logs = require("./Utils/Moderation/logs");
 initializeCommandCollections(client);
@@ -71,6 +104,12 @@ const commandFolders = listFoldersIfExists(commandsDir);
       });
   }
 
+  if (typeof client.loadButtonHandlers === "function") {
+    await client.loadButtonHandlers(path.join(APP_ROOT, "Buttons")).catch((err) => {
+      global.logger.error(" loadButtonHandlers:", err);
+    });
+  }
+
   if (typeof client.handleTriggers === "function") {
     await client.handleTriggers(APP_ROOT).catch((err) => {
       global.logger.error(" handleTriggers:", err);
@@ -80,6 +119,14 @@ const commandFolders = listFoldersIfExists(commandsDir);
   if (typeof client.logBootTables === "function") {
     client.logBootTables();
   }
+
+  const mongoConnected = await connectMongo(client);
+  if (!mongoConnected || !isMongoReady()) {
+    global.logger.error("[DATABASE] Startup aborted: MongoDB is required before login.");
+    process.exit(1);
+  }
+
+  global.__coffeeDiscordClient = client;
 
   client.login(client.config.token).catch((err) => {
     global.logger.error("Login fallito:", err);

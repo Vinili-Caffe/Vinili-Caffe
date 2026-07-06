@@ -1,8 +1,13 @@
 const { getGuildChannelCached, getClientGuildCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { findLifecycleCandidates, closeCaseByRef } = require("../../Utils/Moderation/modCaseStore");
+const {
+  restoreRolesAfterCommunicationTimeoutEnd,
+  sweepExpiredCommunicationTimeoutMirrors,
+} = require("./mutedMirrorRoleService");
 const LOOP_MS = 60 * 1000;
 const BATCH_SIZE = 50;
 let loopHandle = null;
+let lifecycleTickInFlight = false;
 
 function isUnknownBanError(error) {
   const code = Number(error?.code || 0);
@@ -69,6 +74,11 @@ async function closeExpiredMuteCases(client, now) {
       ).catch(() => null);
       continue;
     }
+    await restoreRolesAfterCommunicationTimeoutEnd(member, {
+      reason: `Mute scaduto automaticamente (case #${caseId})`,
+      client,
+      wasUnmuteFlow: true,
+    }).catch(() => null);
     await closeCaseByRef(guildId, userId, caseId, "Mute scaduto automaticamente").catch(() => null);
   }
 }
@@ -127,10 +137,22 @@ async function closeExpiredLockCases(client, now) {
 
 async function runModCaseLifecycleTick(client) {
   if (!client?.guilds) return;
-  const now = new Date();
-  await closeExpiredMuteCases(client, now);
-  await closeExpiredBanCases(client, now);
-  await closeExpiredLockCases(client, now);
+  if (lifecycleTickInFlight) return;
+  lifecycleTickInFlight = true;
+  try {
+    const now = new Date();
+    await closeExpiredMuteCases(client, now);
+    await closeExpiredBanCases(client, now);
+    await closeExpiredLockCases(client, now);
+    await sweepExpiredCommunicationTimeoutMirrors(client, {
+      limit: 25,
+      includeRecentUnmuteRecovery: false,
+    }).catch((err) => {
+      global.logger?.warn?.("[mutedMirrorRole] lifecycle sweep failed:", err?.message || err);
+    });
+  } finally {
+    lifecycleTickInFlight = false;
+  }
 }
 
 function startModCaseLifecycleLoop(client) {

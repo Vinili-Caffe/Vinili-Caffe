@@ -45,10 +45,22 @@
   }
 
   function getToken() {
-    var t = localStorage.getItem(ACCESS_TOKEN_KEY);
-    var exp = Number(localStorage.getItem(ACCESS_EXPIRES_KEY) || "0");
-    if (!t || !exp || Date.now() >= exp) return "";
-    return t;
+    try {
+      var t = localStorage.getItem(ACCESS_TOKEN_KEY);
+      var exp = Number(localStorage.getItem(ACCESS_EXPIRES_KEY) || "0");
+      if (!t || !exp || Date.now() >= exp) return "";
+      return t;
+    } catch (e) {
+      return "";
+    }
+  }
+
+  function oauthHashPending() {
+    try {
+      return String(window.location.hash || "").indexOf("access_token=") !== -1;
+    } catch (e2) {
+      return false;
+    }
   }
 
   function fetchMe(token) {
@@ -103,7 +115,12 @@
       path = String(window.location.pathname || "");
     } catch (e) {}
     if (path.indexOf("/unban/accesso-richiesto") !== -1) return;
-    window.location.href = accessRequiredUrl();
+    var dest = accessRequiredUrl();
+    try {
+      window.location.replace(dest);
+    } catch (e2) {
+      window.location.href = dest;
+    }
   }
 
   function setStatus(text, ok) {
@@ -302,6 +319,10 @@
       }
       refreshEligibility();
     });
+
+    if (oauthHashPending()) {
+      return;
+    }
 
     var t = getToken();
     if (!t) {

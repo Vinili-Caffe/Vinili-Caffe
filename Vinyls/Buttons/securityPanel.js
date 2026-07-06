@@ -1,23 +1,8 @@
-const {
-  EmbedBuilder,
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
-  StringSelectMenuBuilder,
-  MessageFlags,
-} = require("discord.js");
-
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } = require("discord.js");
+const sec = require("../Prefix/Admin/security");
+const { getGuildMemberCached } = require("../Utils/Interaction/interactionEntityCache");
 const PRIVATE_FLAG = MessageFlags.Ephemeral;
 const STATICS_LAST = 2;
-
-const MODULE_OPTIONS = [
-  { label: "AntiNuke", value: "antinuke", description: "Panic manuale e modulo" },
-  { label: "AutoMod", value: "automod", description: "Panic heat / moduli" },
-  { label: "JoinGate", value: "joingate", description: "Filtri ingresso" },
-  { label: "JoinRaid", value: "joinraid", description: "Rilevamento raid" },
-  { label: "Lock commands", value: "lockcommands", description: "Lock comandi raid/panic" },
-  { label: "Tutti (all)", value: "all", description: "Tutti i moduli" },
-];
 
 function match(interaction) {
   const id = String(interaction?.customId || "");
@@ -26,10 +11,52 @@ function match(interaction) {
 }
 
 function notYourPanelReply() {
-  return {
-    content: "<:vegax:1443934876440068179> Solo chi ha aperto il pannello può usarlo.",
-    flags: PRIVATE_FLAG,
-  };
+  return { content: "<a:VC_Cross:1482532424570376253> Solo chi ha aperto il pannello può usarlo.", flags: PRIVATE_FLAG };
+}
+
+function extractOwnerIdFromCustomId(customId) {
+  const parts = String(customId || "").split(":");
+  const kind = String(parts[1] || "");
+  if (kind === "hub" || kind === "pick" || kind === "back" || kind === "toggle" || kind === "bulk") {
+    return String(parts[2] || "").trim();
+  }
+  if (kind === "status" || kind === "panic" || kind === "statics") {
+    return String(parts[2] || "").trim();
+  }
+  return "";
+}
+
+async function replyEphemeral(interaction, content) {
+  const payload = { content: String(content || "").slice(0, 1900), flags: PRIVATE_FLAG };
+  if (interaction.deferred || interaction.replied) {
+    await interaction.followUp(payload).catch(() => null);
+    return;
+  }
+  await interaction.reply(payload).catch(() => null);
+}
+
+async function ensureDeferred(interaction) {
+  if (interaction.deferred || interaction.replied) return true;
+  try {
+    await interaction.deferUpdate();
+    return true;
+  } catch (err) {
+    global.logger?.warn?.("[securityPanel] deferUpdate:", err?.message || err);
+    return false;
+  }
+}
+
+async function respondPayload(interaction, payload) {
+  if (interaction.deferred || interaction.replied) {
+    await interaction.editReply(payload);
+    return;
+  }
+  try {
+    await interaction.update(payload);
+  } catch (err) {
+    if (!(await ensureDeferred(interaction))) throw err;
+    await interaction.editReply(payload);
+  }
 }
 
 function buildPagerRow(kind, ownerId, page, lastIdx) {
@@ -39,87 +66,99 @@ function buildPagerRow(kind, ownerId, page, lastIdx) {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(`${base}:${p}:first`)
-      .setLabel("<<")
+      .setEmoji("<:VC_page1:1482459684630958223>")
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(p <= 0),
     new ButtonBuilder()
       .setCustomId(`${base}:${p}:prev`)
-      .setLabel("<")
+      .setEmoji("<:VC_page5:1482459835042762752>")
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(p <= 0),
     new ButtonBuilder()
       .setCustomId(`${base}:${p}:next`)
-      .setLabel(">")
+      .setEmoji("<:VC_page4:1482459791975645226>")
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(p >= lastIdx),
     new ButtonBuilder()
       .setCustomId(`${base}:${p}:last`)
-      .setLabel(">>")
+      .setEmoji("<:VC_page3:1482459759268462613>")
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(p >= lastIdx),
-    new ButtonBuilder().setCustomId(back).setLabel("Menu").setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId(back).setEmoji("<:VC_page2:1482459724657201387>").setStyle(ButtonStyle.Primary),
   );
 }
 
-function buildPickRows(ownerId, action) {
-  const rowPick = new ActionRowBuilder().addComponents(
-    new StringSelectMenuBuilder()
-      .setCustomId(`security_panel:pick:${ownerId}:${action}`)
-      .setPlaceholder("Scegli un target…")
-      .addOptions(MODULE_OPTIONS),
-  );
-  const rowBack = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId(`security_panel:back:${ownerId}`)
-      .setLabel("Menu")
-      .setStyle(ButtonStyle.Secondary),
-  );
-  return [rowPick, rowBack];
+async function logModuleAction(interaction, guild, action, target, results) {
+  const okCount = results.filter((r) => r.ok).length;
+  const changedCount = results.filter((r) => r.changed).length;
+  await sec
+    .sendSecurityAuditLog(guild, {
+      actorId: interaction.user.id,
+      action: action === "enable" ? "security.enable" : "security.disable",
+      details: [
+        `Target: \`${target}\``,
+        `Risultati: ${okCount}/${results.length} ok, modificati ${changedCount}`,
+      ],
+      color: okCount === results.length ? "#57F287" : "#FEE75C",
+    })
+    .catch(() => null);
 }
 
 async function execute(interaction) {
-  const sec = require("../Prefix/Admin/security");
   const guild = interaction.guild;
-  const member = interaction.member;
-  if (!guild || !member) return false;
-  if (!sec.hasStaffAccess(member, guild)) {
-    await interaction
-      .reply({
-        content: "<:vegax:1443934876440068179> Non hai i permessi.",
-        flags: PRIVATE_FLAG,
-      })
-      .catch(() => {});
-    return true;
-  }
+  if (!guild) return false;
 
   const id = String(interaction.customId || "");
   const parts = id.split(":");
 
-  let ownerId = "";
-  if (parts[1] === "hub" || parts[1] === "pick" || parts[1] === "back") {
-    ownerId = String(parts[2] || "");
-  } else if (["status", "panic", "statics"].includes(parts[1])) {
-    ownerId = String(parts[2] || "");
-  }
-  if (!/^\d{16,20}$/.test(ownerId)) return false;
+  try {
+    let member = interaction.member;
+    if (!member && interaction.user?.id) {
+      member = await getGuildMemberCached(guild, interaction.user.id).catch(() => null);
+    }
+    if (!member) {
+      await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Impossibile verificare il tuo profilo nel server. Riprova.");
+      return true;
+    }
+    if (!sec.hasStaffAccess(member, guild)) {
+      await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Non hai i permessi.");
+      return true;
+    }
 
-  if (String(interaction.user?.id || "") !== ownerId) {
-    await interaction.reply(notYourPanelReply()).catch(() => {});
-    return true;
-  }
+    const ownerId = extractOwnerIdFromCustomId(id);
+    if (!/^\d{16,20}$/.test(ownerId)) {
+      await replyEphemeral(
+        interaction,
+        "<a:VC_Cross:1482532424570376253> Pannello non valido o scaduto. Esegui di nuovo **`+security`**.",
+      );
+      return true;
+    }
 
-  const tryUpdate = async (payload) => {
-    await interaction.update(payload).catch(async () => {
-      await interaction.reply({ ...payload, flags: PRIVATE_FLAG }).catch(() => {});
-    });
-  };
+    if (String(interaction.user?.id || "") !== ownerId) {
+      await replyEphemeral(interaction, notYourPanelReply().content);
+      return true;
+    }
 
   if (interaction.isStringSelectMenu() && parts[1] === "hub") {
     const v = String(interaction.values?.[0] || "");
+    if (v === "view_modules") {
+      if (!sec.hasPanicControlAccess(member, guild)) {
+        await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Solo Founder può gestire i moduli.");
+        return true;
+      }
+    }
+    if (!v) {
+      await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Selezione non valida.");
+      return true;
+    }
+    if (!(await ensureDeferred(interaction))) {
+      await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Impossibile aggiornare il pannello. Riprova.");
+      return true;
+    }
     if (v === "view_status") {
       const pages = await sec.buildStatusEmbeds(guild);
       const last = pages.length - 1;
-      await tryUpdate({
+      await respondPayload(interaction, {
         embeds: [pages[0]],
         components: [buildPagerRow("status", ownerId, 0, last)],
       });
@@ -128,120 +167,122 @@ async function execute(interaction) {
     if (v === "view_panic") {
       const pages = await sec.buildPanicStatusEmbeds(guild);
       const last = pages.length - 1;
-      await tryUpdate({
+      await respondPayload(interaction, {
         embeds: [pages[0]],
         components: [buildPagerRow("panic", ownerId, 0, last)],
       });
       return true;
     }
     if (v === "view_statics") {
-      await tryUpdate({
+      await respondPayload(interaction, {
         embeds: [sec.buildSecurityStaticsPanelEmbed(guild.id, 0)],
         components: [buildPagerRow("statics", ownerId, 0, STATICS_LAST)],
       });
       return true;
     }
-    if (v === "pick_enable" || v === "pick_disable") {
-      if (!sec.hasPanicControlAccess(member, guild)) {
-        await interaction
-          .reply({
-            content: "<:vegax:1443934876440068179> Solo Founder può abilitare o disabilitare i moduli.",
-            flags: PRIVATE_FLAG,
-          })
-          .catch(() => {});
-        return true;
-      }
-      const action = v === "pick_enable" ? "enable" : "disable";
-      const embed = new EmbedBuilder()
-        .setColor("#6f4e37")
-        .setTitle(action === "enable" ? "Abilita moduli" : "Disabilita moduli")
-        .setDescription("Scegli il **target** da applicare.");
-      await tryUpdate({ embeds: [embed], components: buildPickRows(ownerId, action) });
+    if (v === "view_modules") {
+      const payload = await sec.buildSecurityModulesPanelPayload(guild, ownerId, member);
+      await respondPayload(interaction, payload);
       return true;
     }
-    await interaction
-      .reply({
-        content: "<:vegax:1443934876440068179> Selezione non valida.",
-        flags: PRIVATE_FLAG,
-      })
-      .catch(() => {});
+    if (v === "pick_enable" || v === "pick_disable") {
+      const payload = await sec.buildSecurityModulesPanelPayload(guild, ownerId, member);
+      await respondPayload(interaction, payload);
+      return true;
+    }
+    await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Selezione non valida.");
     return true;
   }
 
   if (interaction.isStringSelectMenu() && parts[1] === "pick") {
-    const action = String(parts[3] || "").toLowerCase();
-    if (!["enable", "disable"].includes(action)) return false;
     if (!sec.hasPanicControlAccess(member, guild)) {
-      await interaction
-        .reply({
-          content: "<:vegax:1443934876440068179> Solo Founder può abilitare o disabilitare i moduli.",
-          flags: PRIVATE_FLAG,
-        })
-        .catch(() => {});
+      await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Solo Founder può gestire i moduli.");
       return true;
     }
     const target = sec.parsePanicTarget(interaction.values?.[0]);
     if (!target) {
-      await interaction
-        .reply({
-          content: "<:vegax:1443934876440068179> Target non valido.",
-          flags: PRIVATE_FLAG,
-        })
-        .catch(() => {});
+      await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Target non valido.");
+      return true;
+    }
+    const action = String(parts[3] || "").toLowerCase() === "enable" ? "enable" : "disable";
+    if (!(await ensureDeferred(interaction))) {
+      await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Impossibile aggiornare il pannello. Riprova.");
       return true;
     }
     const results = await sec.runSecurityAction(action, target, guild, interaction.user.id);
-    const okCount = results.filter((r) => r.ok).length;
-    const changedCount = results.filter((r) => r.changed).length;
-    const lines = results.map((r) => {
-      const status = r.ok ? "OK" : "ERR";
-      const changed = r.changed ? "changed" : "no-change";
-      return `- **${r.system}**: ${status} (${changed}) - ${r.note}`;
-    });
-    await sec
-      .sendSecurityAuditLog(guild, {
-        actorId: interaction.user.id,
-        action: action === "enable" ? "security.enable" : "security.disable",
-        details: [
-          `Target: \`${target}\``,
-          `Results: ${okCount}/${results.length} ok, changed ${changedCount}`,
-        ],
-        color: okCount === results.length ? "#57F287" : "#FEE75C",
-      })
-      .catch(() => null);
+    await logModuleAction(interaction, guild, action, target, results);
+    const payload = await sec.buildSecurityModulesPanelPayload(guild, ownerId, member);
+    await respondPayload(interaction, payload);
+    return true;
+  }
 
-    const resultEmbed = new EmbedBuilder()
-      .setColor(okCount === results.length ? "#57F287" : "#FEE75C")
-      .setTitle(action === "enable" ? "Security Enable" : "Security Disable")
-      .setDescription(
-        [
-          `Target: **${target}**`,
-          `Success: **${okCount}/${results.length}**`,
-          `Changed: **${changedCount}**`,
-          "",
-          ...lines,
-        ].join("\n"),
-      );
-    const rowBack = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId(`security_panel:back:${ownerId}`)
-        .setLabel("Menu")
-        .setStyle(ButtonStyle.Primary),
-    );
-    await tryUpdate({ embeds: [resultEmbed], components: [rowBack] });
+  if (interaction.isButton() && parts[1] === "toggle") {
+    if (!sec.hasPanicControlAccess(member, guild)) {
+      await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Solo Founder può gestire i moduli.");
+      return true;
+    }
+    const moduleId = sec.parsePanicTarget(parts[3]);
+    if (!moduleId || moduleId === "all") {
+      await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Modulo non valido.");
+      return true;
+    }
+    if (!(await ensureDeferred(interaction))) {
+      await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Impossibile aggiornare il pannello. Riprova.");
+      return true;
+    }
+    const modules = await sec.fetchSecurityModulesState(guild);
+    const mod = modules.find((m) => m.id === moduleId);
+    const action = mod?.enabled ? "disable" : "enable";
+    const results = await sec.runSecurityAction(action, moduleId, guild, interaction.user.id);
+    await logModuleAction(interaction, guild, action, moduleId, results);
+    const payload = await sec.buildSecurityModulesPanelPayload(guild, ownerId, member);
+    await respondPayload(interaction, payload);
+    return true;
+  }
+
+  if (interaction.isButton() && parts[1] === "bulk") {
+    if (!sec.hasPanicControlAccess(member, guild)) {
+      await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Solo Founder può gestire i moduli.");
+      return true;
+    }
+    const bulkAction = String(parts[3] || "").toLowerCase();
+    const action = bulkAction === "enable_all" ? "enable" : bulkAction === "disable_all" ? "disable" : "";
+    if (!action) {
+      await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Azione non valida.");
+      return true;
+    }
+    if (!(await ensureDeferred(interaction))) {
+      await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Impossibile aggiornare il pannello. Riprova.");
+      return true;
+    }
+    const results = await sec.runSecurityAction(action, "all", guild, interaction.user.id);
+    await logModuleAction(interaction, guild, action, "all", results);
+    const payload = await sec.buildSecurityModulesPanelPayload(guild, ownerId, member);
+    await respondPayload(interaction, payload);
     return true;
   }
 
   if (interaction.isButton() && parts[1] === "back") {
+    if (!(await ensureDeferred(interaction))) {
+      await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Impossibile aggiornare il pannello. Riprova.");
+      return true;
+    }
     const payload = sec.buildSecurityHubPayload(guild, ownerId, interaction.user, member);
-    await tryUpdate(payload);
+    await respondPayload(interaction, payload);
     return true;
   }
 
   if (interaction.isButton() && ["status", "panic", "statics"].includes(parts[1])) {
     const page = Number(parts[3]);
     const op = String(parts[4] || "").toLowerCase();
-    if (!Number.isFinite(page)) return false;
+    if (!Number.isFinite(page)) {
+      await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Pagina non valida.");
+      return true;
+    }
+    if (!(await ensureDeferred(interaction))) {
+      await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Impossibile aggiornare il pannello. Riprova.");
+      return true;
+    }
     let nextPage = page;
     if (op === "first") nextPage = 0;
     else if (op === "prev") nextPage = Math.max(0, page - 1);
@@ -255,13 +296,16 @@ async function execute(interaction) {
             : await sec.buildPanicStatusEmbeds(guild);
         nextPage = pages.length - 1;
       }
-    } else return false;
+    } else {
+      await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Azione non valida.");
+      return true;
+    }
 
     if (parts[1] === "status") {
       const pages = await sec.buildStatusEmbeds(guild);
       const last = pages.length - 1;
       nextPage = Math.max(0, Math.min(last, nextPage));
-      await tryUpdate({
+      await respondPayload(interaction, {
         embeds: [pages[nextPage]],
         components: [buildPagerRow("status", ownerId, nextPage, last)],
       });
@@ -271,7 +315,7 @@ async function execute(interaction) {
       const pages = await sec.buildPanicStatusEmbeds(guild);
       const last = pages.length - 1;
       nextPage = Math.max(0, Math.min(last, nextPage));
-      await tryUpdate({
+      await respondPayload(interaction, {
         embeds: [pages[nextPage]],
         components: [buildPagerRow("panic", ownerId, nextPage, last)],
       });
@@ -279,7 +323,7 @@ async function execute(interaction) {
     }
     if (parts[1] === "statics") {
       nextPage = Math.max(0, Math.min(STATICS_LAST, nextPage));
-      await tryUpdate({
+      await respondPayload(interaction, {
         embeds: [sec.buildSecurityStaticsPanelEmbed(guild.id, nextPage)],
         components: [buildPagerRow("statics", ownerId, nextPage, STATICS_LAST)],
       });
@@ -287,7 +331,19 @@ async function execute(interaction) {
     }
   }
 
-  return false;
+  await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Azione pannello non riconosciuta.");
+  return true;
+  } catch (err) {
+    global.logger?.error?.(
+      `[securityPanel] execute error customId=${id} guild=${String(guild?.id || "")} user=${String(interaction?.user?.id || "")}:`,
+      err?.stack || err?.message || err,
+    );
+    await replyEphemeral(
+      interaction,
+      "<a:VC_Cross:1482532424570376253> Errore nel pannello sicurezza. Controlla i log del bot o riprova tra poco.",
+    );
+    return true;
+  }
 }
 
 module.exports = { name: "securityPanel", order: 12, match, execute };

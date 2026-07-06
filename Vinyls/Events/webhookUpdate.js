@@ -1,8 +1,7 @@
 const { AuditLogEvent, EmbedBuilder, PermissionsBitField } = require("discord.js");
 const IDs = require("../Utils/Config/ids");
 const { getGuildChannelCached, getGuildMemberCached } = require("../Utils/Interaction/interactionEntityCache");
-const{handleWebhookCreationAction:antiNukeHandleWebhookCreationAction,handleWebhookUpdateAction:antiNukeHandleWebhookUpdateAction,handleWebhookDeletionAction:antiNukeHandleWebhookDeletionAction,}=require("../Services/Moderation/antiNukeService");
-
+const { handleWebhookCreationAction: antiNukeHandleWebhookCreationAction, handleWebhookUpdateAction: antiNukeHandleWebhookUpdateAction, handleWebhookDeletionAction: antiNukeHandleWebhookDeletionAction, } = require("../Services/Moderation/antiNukeService");
 const WEBHOOK_CREATE_ACTION = AuditLogEvent?.WebhookCreate ?? 50;
 const WEBHOOK_UPDATE_ACTION = AuditLogEvent?.WebhookUpdate ?? 51;
 const WEBHOOK_DELETE_ACTION = AuditLogEvent?.WebhookDelete ?? 52;
@@ -53,7 +52,7 @@ async function resolveLogChannel(guild) {
 }
 
 function getStore(client) {
-  const store=client?(client._webhookAuditDedupe||(client._webhookAuditDedupe=new Map())):localWebhookDedupeStore;
+  const store = client ? (client._webhookAuditDedupe || (client._webhookAuditDedupe = new Map())) : localWebhookDedupeStore;
   const now = Date.now();
   for (const [key, ts] of store.entries()) {
     if (now - Number(ts || 0) > DEDUPE_TTL_MS) store.delete(key);
@@ -81,7 +80,7 @@ async function getLatestWebhookEntry(guild, channelId) {
 
     let score = 0;
     if (targetChannelId) {
-      const matchesChannel=(extraChannelId&&extraChannelId===targetChannelId)||(targetWebhookChannelId&&targetWebhookChannelId===targetChannelId);
+      const matchesChannel = (extraChannelId && extraChannelId === targetChannelId) || (targetWebhookChannelId && targetWebhookChannelId === targetChannelId);
       if (!matchesChannel && (extraChannelId || targetWebhookChannelId)) {
         return;
       }
@@ -146,20 +145,20 @@ module.exports = {
       const action = Number(entry.action || 0);
       const monitorableExecutor = await shouldMonitorExecutor(guild, entry.executor);
 
-      let title = "Webhook Update";
+      let title = "<:VC_webhooks:1478515450769047704> Webhook Aggiornato";
       let color = "#F59E0B";
-      let sectionTitle = "**Changes**";
+      let sectionTitle = "**<:VC_tools:1478862265305272364> Cambiamenti**";
       if (action === WEBHOOK_CREATE_ACTION) {
-        title = "Webhook Create";
+        title = "<:VC_webhooks:1478515450769047704> Webhook Creato";
         color = "#57F287";
-        sectionTitle = "**Settings**";
+        sectionTitle = "**<:VC_tools:1478862265305272364> Impostazioni**";
       } else if (action === WEBHOOK_DELETE_ACTION) {
-        title = "Webhook Delete";
+        title = "<:VC_webhooks:1478515450769047704> Webhook Eliminato";
         color = "#ED4245";
-        sectionTitle = "**Previous Settings**";
+        sectionTitle = "**<:VC_tools:1478862265305272364> Impostazioni precedenti**";
       }
 
-      const channelText=entry?.extra?.channel?`${entry.extra.channel}`
+      const channelText = entry?.extra?.channel ? `${entry.extra.channel}`
         : channel
           ? `${channel}`
           : "#sconosciuto";
@@ -167,9 +166,9 @@ module.exports = {
       const typeText = webhookTypeLabel(entry?.target?.type);
 
       const lines = [
-        `<:VC_right_arrow:1482459908245815296> **Responsible:** ${responsible}`,
-        `<:VC_right_arrow:1482459908245815296> **Target:** ${targetName} \`${targetId}\``,
-        `<:VC_right_arrow:1482459908245815296> ${toDiscordTimestamp(new Date(), "F")}`,
+        `<:VC_Staff:1494286904089247754> **Responsabile:** ${responsible}`,
+        `<:VC_User:1482527453586002103> **Target:** ${targetName} \`${targetId}\``,
+        `<:VC_Clock:1473359204189474886> ${toDiscordTimestamp(new Date(), "F")}`,
         "",
         sectionTitle,
       ];
@@ -180,25 +179,25 @@ module.exports = {
         const channelChange = changes.find((c) => String(c?.key || "") === "channel_id");
         const avatarChange = changes.find((c) => String(c?.key || "") === "avatar_hash");
         if (nameChange) {
-          lines.push(`<:VC_right_arrow:1482459908245815296> **Name**`);
-          lines.push(`  ${String(nameChange?.old ?? "sconosciuto")} <:VC_right_arrow:1482459908245815296> ${String(nameChange?.new ?? targetName)}`);
+          lines.push(`<:VC_Modifica:1478859646587633717> **Nome**`);
+          lines.push(`  ${String(nameChange?.old ?? "sconosciuto")} <a:VC_Arrow:1482706699365257397> ${String(nameChange?.new ?? targetName)}`);
         } else {
-          lines.push(`<:VC_right_arrow:1482459908245815296> **Name:** ${targetName}`);
+          lines.push(`<:VC_Modifica:1478859646587633717> **Nome:** ${targetName}`);
         }
         if (channelChange) {
-          lines.push(`<:VC_right_arrow:1482459908245815296> **Channel**`);
-          lines.push(`  ${channelChange?.old ? `<#${channelChange.old}>` : "none"} <:VC_right_arrow:1482459908245815296> ${channelChange?.new ? `<#${channelChange.new}>` : "none"}`);
+          lines.push(`<:VC_Modifica:1478859646587633717> **Canale:**`);
+          lines.push(`  ${channelChange?.old ? `<#${channelChange.old}>` : "none"} <a:VC_Arrow:1482706699365257397> ${channelChange?.new ? `<#${channelChange.new}>` : "none"}`);
         }
         if (avatarChange) {
-          lines.push(`<:VC_right_arrow:1482459908245815296> **Avatar aggiornato:** Sì`);
+          lines.push(`<:VC_Modifica:1478859646587633717> **Avatar aggiornato:** Sì`);
         }
       } else {
-        lines.push(`<:VC_right_arrow:1482459908245815296> **Channel:** ${channelText}`);
+        lines.push(`<:VC_Modifica:1478859646587633717> **Canale:** ${channelText}`);
         if (appId) {
-          lines.push(`<:VC_right_arrow:1482459908245815296> **Application Id:** \`${appId}\``);
+          lines.push(`<:VC_Modifica:1478859646587633717> **Application Id:** \`${appId}\``);
         }
-        lines.push(`<:VC_right_arrow:1482459908245815296> **Name:** ${targetName}`);
-        lines.push(`<:VC_right_arrow:1482459908245815296> **Type:** ${typeText}`);
+        lines.push(`<:VC_Modifica:1478859646587633717> **Nome:** ${targetName}`);
+        lines.push(`<:VC_Modifica:1478859646587633717> **Tipo:** ${typeText}`);
       }
 
       if (monitorableExecutor && logChannel?.isTextBased?.()) {
@@ -206,29 +205,16 @@ module.exports = {
           .setColor(color)
           .setTitle(title)
           .setDescription(lines.join("\n"));
-        await logChannel.send({ embeds: [embed] }).catch(() => {});
+        await logChannel.send({ embeds: [embed] }).catch(() => { });
       }
 
       const targetWebhookId = /^\d{16,20}$/.test(targetId) ? targetId : "";
       if (action === WEBHOOK_CREATE_ACTION) {
-        await antiNukeHandleWebhookCreationAction({
-          guild,
-          executorId,
-          webhookId: targetWebhookId,
-          channelId: String(channel?.id || entry?.extra?.channel?.id || ""),
-        });
+        await antiNukeHandleWebhookCreationAction({ guild, executorId, webhookId: targetWebhookId, channelId: String(channel?.id || entry?.extra?.channel?.id || "") });
       } else if (action === WEBHOOK_UPDATE_ACTION) {
-        await antiNukeHandleWebhookUpdateAction({
-          guild,
-          executorId,
-          webhookId: targetWebhookId,
-        });
+        await antiNukeHandleWebhookUpdateAction({ guild, executorId, webhookId: targetWebhookId });
       } else if (action === WEBHOOK_DELETE_ACTION) {
-        await antiNukeHandleWebhookDeletionAction({
-          guild,
-          executorId,
-          webhookId: targetWebhookId,
-        });
+        await antiNukeHandleWebhookDeletionAction({ guild, executorId, webhookId: targetWebhookId });
       }
     } catch (error) {
       global.logger?.error?.("[webhookUpdate] log failed:", error);

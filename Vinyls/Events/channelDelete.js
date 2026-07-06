@@ -5,7 +5,11 @@ const { markDeletedChannelSnapshot, } = require("../Utils/Community/channelSnaps
 const { ARROW, toDiscordTimestamp, channelTypeLabel, formatAuditActor, buildAuditExtraLines, resolveChannelRolesLogChannel, resolveResponsible, } = require("../Utils/Logging/channelRolesLogUtils");
 const { handleChannelDeletionAction: antiNukeHandleChannelDeletionAction } = require("../Services/Moderation/antiNukeService");
 const { clearGameForChannel } = require("../Services/Minigames/minigameService");
-
+const { finishSerataFilmSessionsForChannel } = require("../Services/Staff/staffAutoValutazioniService");
+const { isTicketCategoryName } = require("../Utils/Ticket/ticketCategoryUtils");
+const { tryDeleteEmptyCustomPrivateCategory } = require("../Utils/Community/customPrivateCategoryUtils");
+const { shouldResyncAutomodForChannel, scheduleDiscordAutomodRulesResync } = require("../Services/Moderation/discordAutomodRulesService");
+const { ChannelType } = require("discord.js");
 const CHANNEL_DELETE_ACTION = AuditLogEvent?.ChannelDelete ?? 12;
 const AUDIT_RETRY_ATTEMPTS = 3;
 const AUDIT_RETRY_DELAY_MS = 700;
@@ -42,6 +46,9 @@ module.exports = {
     if (!guild) return;
 
     clearGameForChannel(channel.id, client, channel.guildId);
+    await finishSerataFilmSessionsForChannel(guild, channel.id).catch((err) => {
+      global.logger?.warn?.("[channelDelete] serata film staff auto:", err?.message || err);
+    });
 
     let executorId = "";
     try {
@@ -52,23 +59,23 @@ module.exports = {
       if (logChannel?.isTextBased?.()) {
         const responsible = formatAuditActor(audit?.executor || null);
 
-        const lines = [`${ARROW} **Responsible:** ${responsible}`,
-        `${ARROW} ${toDiscordTimestamp(new Date(), "F")}`,
+        const lines = [`<:VC_Staff:1494286904089247754> **Responsabile:** ${responsible}`,
+        `<:VC_Clock:1473359204189474886> ${toDiscordTimestamp(new Date(), "F")}`,
         ];
 
-        if (audit.reason) lines.push(`${ARROW} **Reason:** ${audit.reason}`);
+        if (audit.reason) lines.push(`<:VC_reason:1478517122929004544> **Motivo:** ${audit.reason}`);
 
         lines.push(
           "",
-          "**Previous Settings**",
-          `${ARROW} **Name:** ${channel.name || "sconosciuto"} \`[${channel.id}]\``,
-          `${ARROW} **Type:** ${channelTypeLabel(channel)}`,
+          "**<:VC_tools:1478862265305272364> Impostazioni precedenti**",
+          `<:VC_Modifica:1478859646587633717> **Nome:** ${channel.name || "sconosciuto"} \`[${channel.id}]\``,
+          `<a:VC_Channel:1482534583944871996> **Tipo:** ${channelTypeLabel(channel)}`,
         );
         lines.push(...buildAuditExtraLines(audit.entry, ["name", "type"]));
 
         const embed = new EmbedBuilder()
           .setColor("#ED4245")
-          .setTitle("Channel Delete")
+          .setTitle("<a:VC_Channel:1482534583944871996> Channel Delete")
           .setDescription(lines.join("\n"));
 
         await logChannel.send({ embeds: [embed] }).catch(() => { });
@@ -77,14 +84,7 @@ module.exports = {
       global.logger?.error?.("[channelDelete] log failed:", error);
     }
 
-    await antiNukeHandleChannelDeletionAction({
-      guild,
-      executorId,
-      channelName: String(channel.name || ""),
-      channelId: String(channel.id || ""),
-      channel,
-    }).catch(() => { });
-
+    await antiNukeHandleChannelDeletionAction({ guild: channel.guild, executorId, channelName: String(channel.name || ""), channelId: String(channel.id || ""), channel }).catch(() => { });
     await markDeletedChannelSnapshot(channel).catch(() => { });
 
     try {
@@ -105,9 +105,26 @@ module.exports = {
       global.logger?.error?.("[channelDelete] tickets-category cleanup failed:", error);
     }
 
+    try {
+      const isVoiceDelete = channel.type === ChannelType.GuildVoice;
+      if (isVoiceDelete || channel.parentId) {
+        await tryDeleteEmptyCustomPrivateCategory(guild, {
+          excludeChannelId: channel.id,
+          reason: "Auto cleanup empty custom private category",
+        });
+      }
+    } catch (error) {
+      global.logger?.error?.("[channelDelete] custom-private-category cleanup failed:", error);
+    }
+
     if (client) {
       queueCategoryRenumber(client, channel.guildId);
       queueIdsCatalogSync(client, channel.guildId, "channelDelete");
+      const ticketCategoryDeleted =
+        channel.type === ChannelType.GuildCategory && isTicketCategoryName(channel.name);
+      if (ticketCategoryDeleted || shouldResyncAutomodForChannel(channel)) {
+        scheduleDiscordAutomodRulesResync(client);
+      }
     }
   },
 };

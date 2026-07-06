@@ -2,10 +2,12 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const { getPartnerLeaderboardWeekBoundsUtc } = require("../../Services/Staff/weeklyStaffResocontoService");
 const { TOP_LIMIT, rankLabel, formatUserLabel, fetchMembers } = require("../../Prefix/Level/classifica");
+const IDs = require("../Config/ids");
 const PLB_MODE_PREFIX = "plb_mode:";
 const PLB_NAV_PREFIX = "plb_nav:";
 const { resolvePartnerPointsShown } = require("../Staff/partnerPointsDisplayUtils");
 const { guildIconUrl } = require("../Discord/guildDiscordIdentity");
+const PARTNER_MANAGER_ROLE_ID = String(IDs.roles?.PartnerManager || "").trim();
 
 function countValidAllTimePartners(actions) {
   if (!Array.isArray(actions)) return 0;
@@ -100,7 +102,9 @@ async function pickTopPartnerRowsInGuild(sortedAll, guild, limit) {
   const members = await fetchMembers(guild, sortedAll.map((r) => r.userId));
   const out = [];
   for (const row of sortedAll) {
-    if (!members.has(row.userId)) continue;
+    const member = members.get(row.userId);
+    if (!member) continue;
+    if (PARTNER_MANAGER_ROLE_ID && !member.roles?.cache?.has(PARTNER_MANAGER_ROLE_ID)) continue;
     out.push(row);
     if (out.length >= limit) break;
   }

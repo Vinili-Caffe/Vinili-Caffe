@@ -2,7 +2,7 @@ const mongoose = require("mongoose");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const { joinGateSuspicious } = require("../../Utils/Community/activityUserProfilePaths");
 const CACHE = new Map();
-const DEFAULT_TTL_MS = 30 * 24 * 60 * 60_000;
+const DEFAULT_TTL_MS = 3 * 24 * 60 * 60_000;
 
 function nowMs() {
   return Date.now();

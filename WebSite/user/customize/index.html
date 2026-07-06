@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="it">
   <head>
 {{COOKIEYES_BLOCK}}{{GA_BLOCK}}
@@ -8,6 +8,17 @@
     <meta name="author" content="{{SITE_NAME}}" />
     <meta name="robots" content="index, follow" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="{{OG_SITE_NAME}}" />
+    <meta property="og:locale" content="it_IT" />
+    <meta property="og:title" content="{{USER_RANK_CUSTOMIZE_OG_TITLE}}" />
+    <meta property="og:description" content="{{USER_RANK_CUSTOMIZE_OG_DESCRIPTION}}" />
+    <meta property="og:url" content="{{USER_CUSTOMIZE_OG_URL}}" />
+    <meta property="og:image" content="{{OG_IMAGE_URL}}" />
+    <meta property="og:image:width" content="{{OG_IMAGE_WIDTH}}" />
+    <meta property="og:image:height" content="{{OG_IMAGE_HEIGHT}}" />
+    <meta property="og:image:alt" content="{{OG_IMAGE_ALT}}" />
+    <meta name="twitter:card" content="summary_large_image" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -31,7 +42,7 @@
           <div class="flex min-w-0 items-center gap-2.5 justify-self-start sm:gap-3">
             <a class="vc-header-logo-link shrink-0 rounded-2xl ring-1 ring-[#d4a888]/35 transition hover:ring-[#d4a888]/55 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#d4a888]/60"
               href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer" aria-label="Entra su Discord"><img
-                src="/images/vc-header-logo.png" width="40" height="40" class="vc-header-logo-img" alt=""
+                src="{{GUILD_ICON_URL}}" width="40" height="40" class="vc-header-logo-img" alt=""
                 loading="eager" decoding="async" /></a>
             <a class="min-w-0 truncate text-[0.7rem] font-bold uppercase tracking-[0.18em] text-white underline-offset-4 transition hover:text-[#e8c9a8] hover:underline sm:text-xs"
               href="{{SITE_URL}}" aria-label="Vai alla homepage">{{SITE_NAME}}</a>
@@ -49,10 +60,9 @@
                 <a class="vc-snav-row" href="{{VOTE_URL}}" data-vc-loading="vote"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-thumbs-o-up"></i></span><span>Vota il server</span></a>
                 <a class="vc-snav-row" href="{{REVIEWS_PAGE_URL}}"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-star-o"></i></span><span>Recensioni</span></a>
                 <a class="vc-snav-row" href="{{DONATIONS_URL}}"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-heart-o"></i></span><span>Donazioni</span></a>
+                <a class="vc-snav-row" href="{{PERKS_URL}}"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-diamond"></i></span><span>Perks</span></a>
               </div>
             </details>
-            <span class="vc-snav-sep mx-0.5 h-5 w-px shrink-0 bg-white/15"
-              aria-hidden="true"></span>
             <details class="vc-snav-details vc-snav-details--current">
               <summary class="vc-snav-summary"><span>Community</span><i class="fa fa-chevron-down vc-snav-chev text-[0.65rem] opacity-80" aria-hidden="true"></i></summary>
               <div class="vc-snav-panel">
@@ -62,8 +72,6 @@
                 <a class="vc-snav-row" href="{{FAQ_URL}}"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-question-circle"></i></span><span>FAQ</span></a>
               </div>
             </details>
-            <span class="vc-snav-sep mx-0.5 h-5 w-px shrink-0 bg-white/15"
-              aria-hidden="true"></span>
             <details class="vc-snav-details">
               <summary class="vc-snav-summary"><span>Richieste</span><i class="fa fa-chevron-down vc-snav-chev text-[0.65rem] opacity-80" aria-hidden="true"></i></summary>
               <div class="vc-snav-panel">
@@ -189,7 +197,8 @@
         rankApiUrlLocal: "{{RANK_CARD_API_URL_LOCAL}}"
       };
     </script>
-    <script src="/js/discord-auth.js" defer></script>
+    <script src="/js/discord-auth.js" defer></script>  <script src="../../js/vc-cursor-trail.js" defer></script>
+
     <script src="/js/vc-landing.js" defer></script>
     <script src="/js/user-rank-customize-page.js" defer></script>
   </body>

@@ -1,5 +1,4 @@
 const { EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, ComponentType, MessageFlags } = require("discord.js");
-
 const GUIDE_COLOR = "#3498DB";
 const GUIDE_LIFETIME_MS = 10 * 60 * 1000;
 
@@ -37,11 +36,11 @@ function buildDefaultGuideEmbed(command, prefix) {
     .setColor(GUIDE_COLOR)
     .setDescription(
       [
-        `**Command: ${prefix}${command?.name}**`,
+        `**Comando: ${prefix}${command?.name}**`,
         "",
-        `**Aliases:** ${aliases || `${prefix}undefined`}`,
-        `**Description:** ${description}`,
-        "**Usage:**",
+        `**Alias:** ${aliases || `${prefix}undefined`}`,
+        `**Descrizione:** ${description}`,
+        "**Uso:**",
         usage,
       ].join("\n"),
     );
@@ -54,10 +53,10 @@ function buildSubGuideEmbed(command, prefix, sub) {
     .setColor(GUIDE_COLOR)
     .setDescription(
       [
-        `**Command: ${prefix}${command?.name} ${sub}**`,
+        `**Comando: ${prefix}${command?.name} ${sub}**`,
         "",
-        `**Description:** ${description}`,
-        "**Usage:**",
+        `**Descrizione:** ${description}`,
+        "**Uso:**",
         usage,
       ].join("\n"),
     );
@@ -71,14 +70,14 @@ function buildSubcommandRow(command, ownerId, currentValue = "__default") {
 
   const menu = new StringSelectMenuBuilder()
     .setCustomId(`usage_guide:${command.name}:${ownerId}`)
-    .setPlaceholder(String("View Subcommands").slice(0, 150))
+    .setPlaceholder(String("Vedi sotto - comandi").slice(0, 150))
     .addOptions(
       ...filteredSubs.slice(0, 24).map((sub) => ({
         label: String(sub || "").slice(0, 100),
         description: String(getSubDescription(command, sub) || "").slice(0, 100),
         value: String(sub || "").slice(0, 100),
       })),
-      { label: "default", description: String("Torna alla guida principale del comando").slice(0, 100), value: "__default" },
+      { label: "default", description: String("<a:VC_Arrow:1482706699365257397> Torna alla guida principale del comando").slice(0, 100), value: "__default" },
     );
   return new ActionRowBuilder().addComponents(menu);
 }
@@ -110,7 +109,7 @@ async function showPrefixUsageGuide({ message, command, prefix = "-", deleteComm
   collector.on("collect", async (interaction) => {
     if (interaction.user.id !== message.author.id) {
       await interaction
-        .reply({ content: "Questo menu non è tuo.", flags: MessageFlags.Ephemeral })
+        .reply({ content: "<a:VC_Cross:1482532424570376253> Questo menu non è tuo.", flags: MessageFlags.Ephemeral })
         .catch(() => {});
       return;
     }

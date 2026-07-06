@@ -1,8 +1,7 @@
-const { EmbedBuilder, PermissionFlagsBits } = require("discord.js");
+const { EmbedBuilder, PermissionFlagsBits, ChannelType } = require("discord.js");
 const IDs = require("../Config/ids");
 const { getGuildMemberCached } = require("../Interaction/entityCache");
-const { EMPTY_PERMISSIONS, loadPermissions } = require("./permissionsStore");
-
+const { loadPermissions } = require("./permissionsStore");
 const TEST_MAIN_GUILD_ID = IDs?.guilds?.test || null;
 const OFFICIAL_MAIN_GUILD_ID = IDs?.guilds?.main || null;
 const TEST_SCOPE_GUILD_IDS = new Set(
@@ -15,6 +14,10 @@ function isTestMainScopeGuild(guildId) {
 
 function isOfficialMainGuild(guildId) {
   return OFFICIAL_MAIN_GUILD_ID != null && String(guildId || "") === String(OFFICIAL_MAIN_GUILD_ID);
+}
+
+function isExternalGuild(guildId) {
+  return guildId != null && !isTestMainScopeGuild(guildId);
 }
 
 function resolveRoleReference(value) {
@@ -57,6 +60,19 @@ function normalizeChannelList(channelIds) {
     .filter(Boolean);
 }
 
+function channelMatchesPolicyChannelList(channel, policyIds) {
+  const ids = (Array.isArray(policyIds) ? policyIds : []).map(String).filter(Boolean);
+  if (!ids.length) return false;
+  const ch = channel;
+  if (!ch?.id) return false;
+  if (ids.includes(String(ch.id))) return true;
+  if (typeof ch.isThread === "function" && ch.isThread()) {
+    const parent = String(ch.parentId || "");
+    return Boolean(parent && ids.includes(parent));
+  }
+  return false;
+}
+
 function resolveCommandChannelPolicy(data, keys) {
   const map = data?.channels;
   if (!map || typeof map !== "object") return null;
@@ -65,6 +81,22 @@ function resolveCommandChannelPolicy(data, keys) {
     const normalized = normalizeChannelList(map[key]);
     if (Array.isArray(normalized)) return normalized;
   }
+  return null;
+}
+
+function resolvePrefixCommandChannels(data, commandName, subcommandName = null) {
+  const cmd = data?.prefix?.[commandName];
+  if (!cmd || typeof cmd !== "object") return null;
+  const subcommands = cmd.subcommands || {};
+  if (
+    subcommandName &&
+    subcommands[subcommandName] &&
+    typeof subcommands[subcommandName] === "object" &&
+    Array.isArray(subcommands[subcommandName].channels)
+  ) {
+    return normalizeChannelList(subcommands[subcommandName].channels);
+  }
+  if (Array.isArray(cmd.channels)) return normalizeChannelList(cmd.channels);
   return null;
 }
 
@@ -260,35 +292,20 @@ function extractOwnerIdFromMessageMention(message) {
   return null;
 }
 
-function getDevIds(client) {
-  const fromConfig = client?.config?.developers;
-  if (Array.isArray(fromConfig)) return fromConfig.map(String);
-  if (typeof fromConfig === "string") {
-    return fromConfig
-      .split(",")
-      .map((id) => String(id).trim())
-      .filter(Boolean);
-  }
-  return [];
-}
-
 async function checkSlashPermission(interaction) {
   const guildId = interaction?.guildId || interaction?.guild?.id || null;
   const userId = interaction?.user?.id || null;
   if (!guildId) return false;
 
-  if (!isTestMainScopeGuild(guildId)) return false;
+  if (isExternalGuild(guildId)) {
+    return true;
+  }
 
   if (
     String(guildId) === String(TEST_MAIN_GUILD_ID || "") ||
     isOfficialMainGuild(guildId)
   ) {
     return hasAdminPermissionWithFallback(interaction);
-  }
-
-  if (interaction.commandName === "dmbroadcast") {
-    const devIds = getDevIds(interaction?.client);
-    return devIds.includes(String(userId || ""));
   }
 
   const data = loadPermissions();
@@ -305,30 +322,70 @@ async function checkSlashPermission(interaction) {
   return hasAnyRoleWithLiveFallback(interaction, roles);
 }
 
-async function checkPrefixPermission(message, commandName, subcommandName = null) {
+async function checkPrefixPermission(message, commandName, subcommandName = null, options = {}) {
+  const returnDetails = Boolean(options && typeof options === "object" && options.returnDetails);
   const guildId = message?.guild?.id || null;
-  const userId = message?.author?.id || null;
-  if (!guildId) return false;
+  if (!guildId) {
+    return returnDetails
+      ? { allowed: false, reason: "missing_guild", requiredRoles: null, channels: null }
+      : false;
+  }
 
-  if (!isTestMainScopeGuild(guildId)) return false;
-
-  if (
-    String(guildId) === String(TEST_MAIN_GUILD_ID || "") ||
-    isOfficialMainGuild(guildId)
-  ) {
-    return hasAdminPermissionWithFallback(message);
+  if (isExternalGuild(guildId)) {
+    return returnDetails
+      ? { allowed: true, reason: null, requiredRoles: null, channels: null }
+      : true;
   }
 
   const data = loadPermissions();
-  const channelPolicy = resolveCommandChannelPolicy(data,buildPrefixLookupKeys(commandName,subcommandName),);
-  if (isOfficialMainGuild(guildId) && Array.isArray(channelPolicy) && channelPolicy.length > 0) {
-    const channelId = message?.channelId || message?.channel?.id || null;
-    if (!channelId || !channelPolicy.includes(String(channelId))) return false;
+  const safeCommand = String(commandName || "").toLowerCase();
+  const channelPolicy =
+    resolvePrefixCommandChannels(data, safeCommand, subcommandName) ??
+    resolveCommandChannelPolicy(data, buildPrefixLookupKeys(commandName, subcommandName));
+  if (Array.isArray(channelPolicy) && channelPolicy.length > 0) {
+    const ch = message?.channel;
+    const allowed = ch
+      ? channelMatchesPolicyChannelList(ch, channelPolicy)
+      : Boolean(message?.channelId) && channelPolicy.includes(String(message.channelId));
+    const allowInVoiceOrStanzaChat = await (async () => {
+      if (allowed) return false;
+      if (!ch) return false;
+      try {
+        const { isAllowedVoiceCommandChannel } = require("../../../shared/voice/voiceCommandChannelAccess");
+        return await isAllowedVoiceCommandChannel(message.guild, ch, {
+          blockedChannelIds: [
+            IDs.channels?.riunioneStaff || "1443958044802420798",
+            IDs.channels?.serataFilm || "1497535199813042306",
+          ],
+        });
+      } catch (_) {
+        return false;
+      }
+    })();
+    if (!allowed && !allowInVoiceOrStanzaChat) {
+      return returnDetails
+        ? { allowed: false, reason: "channel", requiredRoles: null, channels: channelPolicy }
+        : false;
+    }
   }
   const roles = resolvePrefixRoles(data, commandName, subcommandName);
-  if (!Array.isArray(roles)) return true;
-  if (!message.guild) return false;
-  return hasAnyRoleWithLiveFallback(message, roles);
+  if (!Array.isArray(roles)) {
+    return returnDetails
+      ? { allowed: true, reason: null, requiredRoles: null, channels: null }
+      : true;
+  }
+  if (!message.guild) {
+    return returnDetails
+      ? { allowed: false, reason: "missing_guild", requiredRoles: roles, channels: null }
+      : false;
+  }
+  const ok = await hasAnyRoleWithLiveFallback(message, roles);
+  if (returnDetails) {
+    return ok
+      ? { allowed: true, reason: null, requiredRoles: null, channels: null }
+      : { allowed: false, reason: "missing_role", requiredRoles: roles, channels: null };
+  }
+  return ok;
 }
 
 function evaluateComponentPolicy(interaction, policy) {
@@ -366,15 +423,28 @@ function evaluateComponentPolicy(interaction, policy) {
 async function checkButtonPermission(interaction) {
   const customId = String(interaction?.customId || "");
   const guildId = interaction?.guildId || interaction?.guild?.id || null;
-  if (guildId && isOfficialMainGuild(guildId)) {
+  const data = loadPermissions();
+  const rawPolicy = resolveComponentPolicy(data?.buttons, customId);
+
+  if (isExternalGuild(guildId)) {
     return {
-      allowed: false,
-      reason: "mono_guild",
+      allowed: true,
+      reason: null,
       requiredRoles: null,
       ownerId: null,
     };
   }
-  if (guildId && !isTestMainScopeGuild(guildId)) {
+
+  if (guildId && isOfficialMainGuild(guildId)) {
+    if (!rawPolicy) {
+      return {
+        allowed: false,
+        reason: "mono_guild",
+        requiredRoles: null,
+        ownerId: null,
+      };
+    }
+  } else if (guildId && !isTestMainScopeGuild(guildId)) {
     const member = interaction?.member || (await fetchLiveMember(interaction));
     const allowed = Boolean(member ?. permissions ?. has ?.(PermissionFlagsBits.Administrator),);
     if (allowed) {
@@ -393,11 +463,22 @@ async function checkButtonPermission(interaction) {
     };
   }
 
-  const data = loadPermissions();
-  const rawPolicy = resolveComponentPolicy(data?.buttons, customId);
   const policy = normalizeComponentPolicy(rawPolicy);
   const precheck = evaluateComponentPolicy(interaction, policy);
   if (precheck) return precheck;
+
+  if (customId.startsWith("stanza_")) {
+    const { isStanzaButtonActorAllowed } = require("../../Services/Voice/stanzaVoiceRoomsService");
+    const stanzaOk = await isStanzaButtonActorAllowed(interaction);
+    if (!stanzaOk) {
+      return {
+        allowed: false,
+        reason: "stanza_actor",
+        requiredRoles: policy?.roles || null,
+        ownerId: null,
+      };
+    }
+  }
 
   if (Array.isArray(policy?.roles)) {
     if (!interaction?.inGuild?.()) {
@@ -429,15 +510,29 @@ async function checkButtonPermission(interaction) {
 async function checkStringSelectPermission(interaction) {
   const customId = String(interaction?.customId || "");
   const guildId = interaction?.guildId || interaction?.guild?.id || null;
-  if (guildId && isOfficialMainGuild(guildId)) {
+  const data = loadPermissions();
+  const rawPolicy =
+    resolveComponentPolicy(data?.selectMenus, customId) || resolveComponentPolicy(data?.buttons, customId);
+
+  if (isExternalGuild(guildId)) {
     return {
-      allowed: false,
-      reason: "mono_guild",
+      allowed: true,
+      reason: null,
       requiredRoles: null,
       ownerId: null,
     };
   }
-  if (guildId && !isTestMainScopeGuild(guildId)) {
+
+  if (guildId && isOfficialMainGuild(guildId)) {
+    if (!rawPolicy) {
+      return {
+        allowed: false,
+        reason: "mono_guild",
+        requiredRoles: null,
+        ownerId: null,
+      };
+    }
+  } else if (guildId && !isTestMainScopeGuild(guildId)) {
     return {
       allowed: false,
       reason: "mono_guild",
@@ -446,8 +541,6 @@ async function checkStringSelectPermission(interaction) {
     };
   }
 
-  const data = loadPermissions();
-  const rawPolicy = resolveComponentPolicy(data ?. selectMenus,customId)|| resolveComponentPolicy(data ?. buttons,customId);
   const policy = normalizeComponentPolicy(rawPolicy);
   const precheck = evaluateComponentPolicy(interaction, policy);
   if (precheck) return precheck;
@@ -482,15 +575,29 @@ async function checkStringSelectPermission(interaction) {
 async function checkModalPermission(interaction) {
   const customId = String(interaction?.customId || "");
   const guildId = interaction?.guildId || interaction?.guild?.id || null;
-  if (guildId && isOfficialMainGuild(guildId)) {
+  const data = loadPermissions();
+  const rawPolicy =
+    resolveComponentPolicy(data?.modals, customId) || resolveComponentPolicy(data?.buttons, customId);
+
+  if (isExternalGuild(guildId)) {
     return {
-      allowed: false,
-      reason: "mono_guild",
+      allowed: true,
+      reason: null,
       requiredRoles: null,
       ownerId: null,
     };
   }
-  if (guildId && !isTestMainScopeGuild(guildId)) {
+
+  if (guildId && isOfficialMainGuild(guildId)) {
+    if (!rawPolicy) {
+      return {
+        allowed: false,
+        reason: "mono_guild",
+        requiredRoles: null,
+        ownerId: null,
+      };
+    }
+  } else if (guildId && !isTestMainScopeGuild(guildId)) {
     return {
       allowed: false,
       reason: "mono_guild",
@@ -499,8 +606,6 @@ async function checkModalPermission(interaction) {
     };
   }
 
-  const data = loadPermissions();
-  const rawPolicy = resolveComponentPolicy(data ?. modals,customId)|| resolveComponentPolicy(data ?. buttons,customId);
   const policy = normalizeComponentPolicy(rawPolicy);
   const precheck = evaluateComponentPolicy(interaction, policy);
   if (precheck) return precheck;
@@ -544,24 +649,49 @@ function getPrefixRequiredRoles(commandName, subcommandName = null) {
   return resolvePrefixRoles(data, commandName, subcommandName);
 }
 
-function buildGlobalPermissionDeniedEmbed(
-  requiredRoleIds = [],
-  entityLabel = "comando",
-  customDescription = null,
-) {
-  const roles = Array.isArray(requiredRoleIds)? requiredRoleIds.filter(Boolean):[];
-  const rolesText = roles.length ? roles.map((id)=>`<@&${id}>`).join(", "):"Nessun ruolo configurato.";
-  const description = customDescription != null ? customDescription:`Questo ${entityLabel} è riservato ad una categoria di utenti specifici.`;
+function buildGlobalPermissionDeniedEmbed(requiredRoleIds = [], entityLabel = "comando", customDescription = null, guild = null) {
+  let roles = Array.isArray(requiredRoleIds) ? requiredRoleIds.filter(Boolean) : [];
+  if (guild?.roles?.cache) {
+    roles = roles.filter((id) => guild.roles.cache.has(id));
+  }
+  const rolesText = roles.length
+    ? roles.map((id) => `<@&${id}>`).join(", ")
+    : "<:VC_Attention:1482534443632558151> Nessun ruolo configurato.";
+  const description =
+    customDescription != null
+      ? customDescription
+      : `<:VC_Lock:1482526739044368476> Questo ${entityLabel} è riservato ad una categoria di utenti specifici.`;
 
   const embed = new EmbedBuilder()
-    .setColor("Red")
+    .setColor("#6f4e37")
     .setTitle("<:VC_Lock:1482526739044368476> **Non hai i permessi**")
     .setDescription(description);
 
   if (roles.length > 0) {
     embed.addFields({
       name: "<a:VC_Rocket:1468544312475123753> **Per sbloccarlo:**",
-      value: `Ottieni uno dei seguenti ruoli: ${rolesText}`,
+      value: `<a:VC_Arrow:1482706699365257397> Ottieni uno dei seguenti ruoli: ${rolesText}`,
+    });
+  }
+  return embed;
+}
+
+function buildGlobalChannelDeniedEmbed(allowedChannelIds = [], entityLabel = "comando") {
+  const channels = Array.isArray(allowedChannelIds)
+    ? allowedChannelIds.filter(Boolean).map(String)
+    : [];
+  const channelsText = channels.length
+    ? channels.map((id) => `<#${id}>`).join(", ")
+    : "<:VC_Attention:1482534443632558151> Nessun canale configurato.";
+
+  const embed = new EmbedBuilder()
+    .setColor("#6f4e37")
+    .setTitle("<:VC_Lock:1482526739044368476> **Non hai i permessi**")
+    .setDescription(`<:VC_Lock:1482526739044368476> Questo ${entityLabel} è disponibile solo in canali specifici.`);
+  if (channels.length > 0) {
+    embed.addFields({
+      name: "<a:VC_Rocket:1468544312475123753> **Per sbloccarlo:**",
+      value: `<a:VC_Arrow:1482706699365257397> Usa il comando in uno dei seguenti canali: ${channelsText}`,
     });
   }
   return embed;
@@ -569,20 +699,9 @@ function buildGlobalPermissionDeniedEmbed(
 
 function buildGlobalNotYourControlEmbed() {
   return new EmbedBuilder()
-    .setColor("Red")
+    .setColor("#6f4e37")
     .setTitle("<:VC_Lock:1482526739044368476> **Accesso negato**")
-    .setDescription("Questo controllo non è associato al tuo comando.");
+    .setDescription("<:VC_Attention:1482534443632558151> Questo controllo non è associato al tuo comando.");
 }
 
-module.exports = {
-  checkSlashPermission,
-  checkPrefixPermission,
-  checkButtonPermission,
-  checkStringSelectPermission,
-  checkModalPermission,
-  getSlashRequiredRoles,
-  getPrefixRequiredRoles,
-  buildGlobalPermissionDeniedEmbed,
-  buildGlobalNotYourControlEmbed,
-  hasAnyRole,
-};
+module.exports = { checkSlashPermission, checkPrefixPermission, checkButtonPermission, checkStringSelectPermission, checkModalPermission, getSlashRequiredRoles, getPrefixRequiredRoles, buildGlobalPermissionDeniedEmbed, buildGlobalChannelDeniedEmbed, buildGlobalNotYourControlEmbed, hasAnyRole };

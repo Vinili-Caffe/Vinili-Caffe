@@ -8,6 +8,21 @@
   var emptyBox = document.getElementById("wiki-cmd-empty");
   var panesWrap = panel.querySelector(".vc-cmd-panes");
 
+  function isEconomyCategoryLocked() {
+    var unlockMs = Number(window.__VC_ECONOMY_UNLOCK_MS);
+    return Number.isFinite(unlockMs) && Date.now() < unlockMs;
+  }
+
+  function applyEconomyCategoryGate() {
+    if (!isEconomyCategoryLocked()) return;
+    panel.querySelectorAll('details.vc-cmd-grp[data-vc-cmd-cat="economy"]').forEach(function (grp) {
+      grp.classList.add("vc-cmd-grp--hidden");
+      grp.open = false;
+    });
+  }
+
+  applyEconomyCategoryGate();
+
   function stripLocationHash() {
     try {
       if (!location.hash || !window.history || !window.history.replaceState) return;
@@ -31,8 +46,8 @@
     });
   }
 
-  function ensureMetaBackup(det) {
-    var meta = det.querySelector(".vc-cmd-acc-meta");
+  function ensureGrpMetaBackup(grp) {
+    var meta = grp.querySelector("[data-vc-cmd-grp-meta]");
     if (meta && meta.dataset.vcMetaBackup == null) {
       meta.dataset.vcMetaBackup = meta.textContent || "";
     }
@@ -50,61 +65,74 @@
     var activePane = panel.querySelector(".vc-cmd-pane:not([hidden])");
     if (!activePane) return;
 
-    var accs = activePane.querySelectorAll(".vc-cmd-acc");
+    var groups = activePane.querySelectorAll("details.vc-cmd-grp");
     var anyVisible = false;
 
-    accs.forEach(function (det, idx) {
-      ensureMetaBackup(det);
-      var meta = det.querySelector(".vc-cmd-acc-meta");
-      var titleEl = det.querySelector(".vc-cmd-acc-title");
-      var title = titleEl ? titleEl.textContent : "";
-      var titleLower = title.toLowerCase();
-      var titleMatch = Boolean(needle && titleLower.indexOf(needle) !== -1);
-
-      var lis = det.querySelectorAll(".vc-cmd-list li");
-      lis.forEach(function (li) {
-        if (!needle) {
-          li.classList.remove("vc-cmd-li--hidden");
-          return;
-        }
-        var liHay = (li.textContent || "").toLowerCase();
-        var liMatch = liHay.indexOf(needle) !== -1;
-        var showLi = titleMatch || liMatch;
-        li.classList.toggle("vc-cmd-li--hidden", !showLi);
-      });
-
-      var visibleCount = det.querySelectorAll(".vc-cmd-list li:not(.vc-cmd-li--hidden)").length;
-      var showAcc = !needle || visibleCount > 0;
-
-      det.classList.toggle("vc-cmd-acc--hidden", !showAcc);
-      if (showAcc) anyVisible = true;
-
-      if (needle) {
-        if (showAcc) {
-          det.open = true;
-          if (meta) meta.textContent = comandoMetaLabel(visibleCount);
-        } else {
+    if (!needle) {
+      groups.forEach(function (grp) {
+        ensureGrpMetaBackup(grp);
+        grp.classList.remove("vc-cmd-grp--hidden");
+        grp.open = false;
+        grp.querySelectorAll(".vc-cmd-item").forEach(function (det) {
+          det.classList.remove("vc-cmd-item--hidden");
           det.open = false;
-        }
-      } else {
-        det.open = idx === 0;
+        });
+        var meta = grp.querySelector("[data-vc-cmd-grp-meta]");
         if (meta && meta.dataset.vcMetaBackup != null) {
           meta.textContent = meta.dataset.vcMetaBackup;
         }
+      });
+      if (emptyBox) emptyBox.hidden = true;
+      if (panesWrap) panesWrap.classList.remove("vc-cmd-panes--search-miss");
+      return;
+    }
+
+    activePane.querySelectorAll(".vc-cmd-item").forEach(function (d) {
+      d.open = false;
+    });
+
+    var firstVisibleCmd = null;
+    groups.forEach(function (grp) {
+      ensureGrpMetaBackup(grp);
+      var meta = grp.querySelector("[data-vc-cmd-grp-meta]");
+      var titleEl = grp.querySelector(".vc-cmd-grp-title");
+      var titleLower = titleEl ? titleEl.textContent.toLowerCase() : "";
+      var titleMatch = titleLower.indexOf(needle) !== -1;
+      var items = grp.querySelectorAll(".vc-cmd-item");
+      var visibleInGrp = 0;
+
+      items.forEach(function (det) {
+        var attr = String(det.getAttribute("data-vc-cmd-search") || "").toLowerCase();
+        var body = (det.textContent || "").toLowerCase();
+        var show = titleMatch || attr.indexOf(needle) !== -1 || body.indexOf(needle) !== -1;
+        det.classList.toggle("vc-cmd-item--hidden", !show);
+        if (show) {
+          visibleInGrp++;
+          anyVisible = true;
+          if (!firstVisibleCmd) firstVisibleCmd = det;
+        }
+      });
+
+      grp.classList.toggle("vc-cmd-grp--hidden", visibleInGrp === 0);
+      grp.open = visibleInGrp > 0;
+
+      if (meta && visibleInGrp > 0) {
+        meta.textContent = comandoMetaLabel(visibleInGrp);
+      } else if (meta && meta.dataset.vcMetaBackup != null) {
+        meta.textContent = meta.dataset.vcMetaBackup;
       }
     });
 
-    if (needle) {
-      if (anyVisible) {
-        if (emptyBox) emptyBox.hidden = true;
-        if (panesWrap) panesWrap.classList.remove("vc-cmd-panes--search-miss");
-      } else {
-        if (emptyBox) emptyBox.hidden = false;
-        if (panesWrap) panesWrap.classList.add("vc-cmd-panes--search-miss");
-      }
-    } else {
+    if (firstVisibleCmd) {
+      firstVisibleCmd.open = true;
+    }
+
+    if (anyVisible) {
       if (emptyBox) emptyBox.hidden = true;
       if (panesWrap) panesWrap.classList.remove("vc-cmd-panes--search-miss");
+    } else {
+      if (emptyBox) emptyBox.hidden = false;
+      if (panesWrap) panesWrap.classList.add("vc-cmd-panes--search-miss");
     }
   }
 

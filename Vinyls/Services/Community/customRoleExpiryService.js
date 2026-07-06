@@ -5,8 +5,9 @@ const { getClientGuildCached, getGuildChannelCached, getGuildRoleCached } = requ
 const CUSTOM_VOICE_CATEGORY_ID = IDs.categories.categoryPrivate;
 const CHECK_INTERVAL_MS = 60 * 1000;
 let expiryLoopHandle = null;
-const CUSTOM_VOC_GRACE_MS = 14 * 24 * 60 * 60 * 1000;
-const CUSTOM_ROLE_GRACE_MS = 14 * 24 * 60 * 60 * 1000;
+const CUSTOM_PERK_ELIGIBILITY_GRACE_DAYS = 7;
+const CUSTOM_VOC_GRACE_MS = CUSTOM_PERK_ELIGIBILITY_GRACE_DAYS * 24 * 60 * 60 * 1000;
+const CUSTOM_ROLE_GRACE_MS = CUSTOM_PERK_ELIGIBILITY_GRACE_DAYS * 24 * 60 * 60 * 1000;
 
 async function execLean(queryOrValue, fallback = null) {
   if (queryOrValue && typeof queryOrValue.lean === "function") {
@@ -66,6 +67,59 @@ async function canManageChannels(guild) {
   );
 }
 
+/**
+ * Elimina su Discord ruoli custom e canale voc collegati (nessuna scrittura su `ActivityUserProfile`).
+ * @returns {{ roleHandled: boolean, channelHandled: boolean }}
+ */
+async function deleteDiscordCustomPerkArtifacts(guild, doc) {
+  if (!guild || !doc?.userId) return { roleHandled: true, channelHandled: true };
+  const userId = String(doc.userId);
+  let role = doc.roleId
+    ? guild.roles.cache.get(doc.roleId) || (await getGuildRoleCached(guild, doc.roleId))
+    : null;
+  let secondaryRole = doc.secondaryRoleId
+    ? guild.roles.cache.get(doc.secondaryRoleId) || (await getGuildRoleCached(guild, doc.secondaryRoleId))
+    : null;
+  let voiceChannel = await resolveVoiceChannel(guild, doc);
+
+  if (role) {
+    if (await canManageRole(guild, role)) {
+      await role
+        .delete(`Custom role expired for user ${userId}`)
+        .catch(() => { });
+      role =
+        guild.roles.cache.get(doc.roleId) ||
+        (await getGuildRoleCached(guild, doc.roleId));
+    }
+  }
+  if (secondaryRole) {
+    if (await canManageRole(guild, secondaryRole)) {
+      await secondaryRole
+        .delete(`Custom secondary role expired for user ${userId}`)
+        .catch(() => { });
+      secondaryRole =
+        guild.roles.cache.get(doc.secondaryRoleId) ||
+        (await getGuildRoleCached(guild, doc.secondaryRoleId));
+    }
+  }
+  const roleHandled = !role && !secondaryRole;
+
+  let channelHandled = !voiceChannel;
+  if (voiceChannel) {
+    if (await canManageChannels(guild)) {
+      await voiceChannel
+        .delete(`Custom private voice expired for user ${userId}`)
+        .catch(() => { });
+      const stillExists =
+        guild.channels.cache.get(voiceChannel.id) ||
+        (await getGuildChannelCached(guild, voiceChannel.id));
+      channelHandled = !stillExists;
+    }
+  }
+
+  return { roleHandled, channelHandled };
+}
+
 async function processExpiredCustomRole(client, doc) {
   if (!client || !doc?.guildId || !doc?.userId) return false;
   const identityFilter = { guildId: String(doc.guildId), userId: String(doc.userId) };
@@ -76,49 +130,7 @@ async function processExpiredCustomRole(client, doc) {
     return true;
   }
 
-  let role =
-    guild.roles.cache.get(doc.roleId) ||
-    (await getGuildRoleCached(guild, doc.roleId));
-  let secondaryRole =
-    guild.roles.cache.get(doc.secondaryRoleId) ||
-    (await getGuildRoleCached(guild, doc.secondaryRoleId));
-  let voiceChannel = await resolveVoiceChannel(guild, doc);
-  let roleHandled = !role && !secondaryRole;
-  let channelHandled = !voiceChannel;
-
-  if (role) {
-    if (await canManageRole(guild, role)) {
-      await role
-        .delete(`Custom role expired for user ${doc.userId}`)
-        .catch(() => { });
-      role =
-        guild.roles.cache.get(doc.roleId) ||
-        (await getGuildRoleCached(guild, doc.roleId));
-      roleHandled = !role;
-    }
-  }
-  if (secondaryRole) {
-    if (await canManageRole(guild, secondaryRole)) {
-      await secondaryRole
-        .delete(`Custom secondary role expired for user ${doc.userId}`)
-        .catch(() => { });
-      secondaryRole =
-        guild.roles.cache.get(doc.secondaryRoleId) ||
-        (await getGuildRoleCached(guild, doc.secondaryRoleId));
-    }
-  }
-  roleHandled = !role && !secondaryRole;
-
-  if (voiceChannel) {
-    if (await canManageChannels(guild)) {
-      await voiceChannel
-        .delete(`Custom private voice expired for user ${doc.userId}`)
-        .catch(() => { });
-      const stillExists = guild.channels.cache.get(voiceChannel.id) || (await getGuildChannelCached(guild, voiceChannel.id));
-      channelHandled = !stillExists;
-      voiceChannel = stillExists;
-    }
-  }
+  const { roleHandled, channelHandled } = await deleteDiscordCustomPerkArtifacts(guild, doc);
 
   if (roleHandled && channelHandled) {
     await CustomRole.deleteOne(identityFilter).catch(() => { });
@@ -128,7 +140,7 @@ async function processExpiredCustomRole(client, doc) {
   if (channelHandled && doc.customVocChannelId) {
     await CustomRole.updateOne(
       identityFilter,
-      { $set: { customVocChannelId: null } },
+      { $set: { customVocChannelId: null, customVocViceUserId: null } },
     ).catch(() => { });
   }
 
@@ -164,11 +176,11 @@ async function runExpiredCustomRolesSweep(client) {
       }
       const voiceChannel = await resolveVoiceChannel(guild, doc);
       if (voiceChannel && (await canManageChannels(guild))) {
-        await voiceChannel.delete(`Custom private voice removed after 14d without eligibility for user ${doc.userId}`).catch(() => {});
+        await voiceChannel.delete(`Custom private voice removed after ${CUSTOM_PERK_ELIGIBILITY_GRACE_DAYS}d without eligibility for user ${doc.userId}`).catch(() => {});
       }
       await CustomRole.updateOne(
         { guildId: doc.guildId, userId: doc.userId },
-        { $set: { customVocChannelId: null, customVocEligibilityLostAt: null } },
+        { $set: { customVocChannelId: null, customVocViceUserId: null, customVocEligibilityLostAt: null } },
       ).catch(() => {});
     } catch {
     }
@@ -185,6 +197,12 @@ async function runExpiredCustomRolesSweep(client) {
   for (const doc of staleRole) {
     await processExpiredCustomRole(client, doc).catch(() => {});
   }
+
+  try {
+    const mod = require("./customPerksDiscordCleanupQueueService");
+    await mod.runCustomPerksDiscordCleanupQueueSweep(client);
+  } catch {
+  }
 }
 
 function startCustomRoleExpiryLoop(client) {
@@ -198,4 +216,58 @@ function startCustomRoleExpiryLoop(client) {
   return expiryLoopHandle;
 }
 
+module.exports = {
+  runExpiredCustomRolesSweep,
+  startCustomRoleExpiryLoop,
+  deleteDiscordCustomPerkArtifacts,
+};
+module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
+module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
+module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
+module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
+module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
+module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
+module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
+module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
+module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
+module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
+module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
+module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
+module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
+module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
+module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
+module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
+module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
+module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
+module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
+module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
+module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
+module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
+module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
+module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
+module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
+module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
+module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
+module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
+module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
+module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
+module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
+module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
+module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
+module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
+module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
+module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
+module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
+module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
+module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
+module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
+module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
+module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
+module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
+module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
+module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
+module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
+module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
+module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
+module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
 module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };

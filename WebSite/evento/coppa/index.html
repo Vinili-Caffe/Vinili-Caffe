@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="it">
+  <head>
+    <script>(function(){function s(x,d){try{d=d||0;if(x&&typeof x==="object"){var p=[];if(x.message!=null)p.push(String(x.message));if(x.stack!=null)p.push(String(x.stack));if(x.name!=null)p.push(String(x.name));if(d<2&&x.reason!=null)p.push(s(x.reason,d+1));if(d<2&&x.error!=null)p.push(s(x.error,d+1));if(p.length)return p.join(" ")}return String(x||"")}catch(e){return""}}function n(x){var m=s(x);return /listener indicated an asynchronous response/i.test(m)||/asynchronous response by returning true/i.test(m)||/message channel closed before a response was received/i.test(m)||/closed before a response was received/i.test(m)||/message port closed before a response was received/i.test(m)||/extension context invalidated/i.test(m)||/unchecked runtime\.lasterror/i.test(m)}function h(e){if(!n(e&&e.reason)&&!n(e&&e.message)&&!n(e&&e.error))return;try{e.preventDefault();e.stopImmediatePropagation()}catch(_e){}}window.addEventListener("unhandledrejection",h,true);window.addEventListener("error",h,true);["error","warn"].forEach(function(l){var o=console[l];if(typeof o!=="function")return;console[l]=function(){var a="";for(var i=0;i<arguments.length;i++)a+=" "+s(arguments[i]);if(n(a))return;return o.apply(console,arguments)}})})();</script>
+    <script>(function(){try{if(window.trustedTypes){window.trustedTypes.createPolicy("default",{createHTML:function(s){return String(s)},createScript:function(s){return String(s)},createScriptURL:function(s){return String(s)}})}}catch(e){}})();</script>
+    <script src="../../js/vc-suppress-extension-errors.js"></script>
+{{COOKIEYES_BLOCK}}{{GA_BLOCK}}
+    <meta charset="utf-8" />
+    <title>{{HOGWARTS_POINTS_PAGE_TITLE}}</title>
+    <meta name="description" content="{{HOGWARTS_POINTS_META_DESCRIPTION}}" />
+    <meta name="author" content="{{SITE_NAME}}" />
+    <meta name="robots" content="index, follow" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="{{HOGWARTS_POINTS_OG_TITLE}}" />
+    <meta property="og:description" content="{{HOGWARTS_POINTS_META_DESCRIPTION}}" />
+    <meta property="og:url" content="{{HOGWARTS_POINTS_OG_URL}}" />
+    <meta property="og:image" content="{{OG_IMAGE_URL}}" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&amp;family=Cormorant+Garamond:wght@600&amp;family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="stylesheet" href="../../css/tw-build.css" />
+    <link rel="stylesheet" href="../../css/vc-landing.css" />
+    <link rel="icon" href="{{GUILD_ICON_URL}}" />
+  </head>
+  <body id="top" class="vc-body vc-hw-page vc-hw-points-page vc-hw-page--with-header relative min-h-screen overflow-x-hidden font-sans text-slate-100 antialiased">
+    <div id="vc-hw-loading" class="vc-hw-loading" role="status" aria-live="polite">
+      <div class="vc-hw-loading__card">
+        <p class="vc-hw-loading__text">Verifica accesso…</p>
+      </div>
+    </div>
+    {{HOGWARTS_EVENT_HEADER}}
+    <div class="vc-hw-stars" aria-hidden="true"></div>
+    <div class="vc-blob vc-blob-a" aria-hidden="true"></div>
+    <div class="vc-blob vc-blob-b" aria-hidden="true"></div>
+
+    <button type="button" class="vc-hw-music-fab vc-hw-music-btn" id="vc-hw-music-btn" hidden aria-label="Musica di sottofondo"><i class="fa fa-volume-up" aria-hidden="true"></i></button>
+
+    <main id="vc-hw-points-app" class="relative z-10 mx-auto max-w-6xl px-4 pb-20 pt-10 sm:pt-12" hidden>
+      <section class="vc-hw-hero text-center" aria-labelledby="vc-hw-points-title">
+        <p class="vc-hw-eyebrow">Coppa delle Case</p>
+        <h1 id="vc-hw-points-title" class="vc-hw-title">Punteggio</h1>
+        <p class="vc-hw-subtitle">Le clessidre si riempiono con i punti conquistati dalle quattro case durante l'evento stagionale.</p>
+      </section>
+
+      <section id="vc-hw-points-gate" class="vc-hw-notice mt-8" hidden role="alert">
+        <i class="fa fa-info-circle" aria-hidden="true"></i>
+        <div class="vc-hw-gate-body">
+          <p id="vc-hw-points-gate-msg"></p>
+          <button type="button" id="vc-hw-points-gate-login" class="vc-hw-btn vc-hw-btn--primary mt-4 w-full sm:w-auto" data-vc-discord-login hidden>
+            <i class="fa fa-sign-in" aria-hidden="true"></i> Accedi con Discord
+          </button>
+        </div>
+      </section>
+
+      <section id="vc-hw-points-school-board" class="vc-hw-points-board mt-10" aria-label="Classifica punti delle case per anno scolastico" hidden>
+        <div class="vc-hw-points-board__head">
+          <p class="vc-hw-points-board__eyebrow">Anno scolastico</p>
+          <h2 id="vc-hw-points-school-title">Clessidre dell'anno scolastico</h2>
+          <p id="vc-hw-points-school-subtitle">Punti raccolti nel periodo scolastico attivo.</p>
+          <div id="vc-hw-points-school-periods" class="vc-hw-points-periods" hidden></div>
+        </div>
+        <div id="vc-hw-points-school-grid" class="vc-hw-points-grid"></div>
+      </section>
+
+      <section id="vc-hw-points-event-board" class="vc-hw-points-board mt-10" aria-label="Classifica punti delle case per tutto l'evento" hidden>
+        <div class="vc-hw-points-board__head">
+          <p class="vc-hw-points-board__eyebrow">Evento Hogwarts</p>
+          <h2 id="vc-hw-points-event-title">Clessidre dell'intero evento</h2>
+          <p id="vc-hw-points-event-subtitle">Totale complessivo accumulato durante tutta la durata dell'evento.</p>
+          <div id="vc-hw-points-event-periods" class="vc-hw-points-periods" hidden></div>
+        </div>
+        <div id="vc-hw-points-event-grid" class="vc-hw-points-grid"></div>
+      </section>
+    </main>
+
+    <footer class="relative z-10 border-t border-white/8 bg-slate-950/20">
+      <div class="mx-auto max-w-6xl px-4 py-8 text-center text-sm text-slate-400">
+        <p>© {{YEAR}} {{SITE_NAME}}. All rights reserved.</p>
+      </div>
+    </footer>
+
+    <script>
+      window.__VC_SITE_HOME_URL = "{{SITE_URL}}";
+      window.__VC_DISABLE_LIVE_EVENT_UI = true;
+      window.__VC_DISABLE_RANK_CARD_FETCH = true;
+      window.__VC_AUTH = {
+        clientId: "{{DISCORD_OAUTH_CLIENT_ID}}",
+        redirectUri: "{{DISCORD_OAUTH_REDIRECT_URI}}",
+        homeUrl: "{{SITE_URL}}",
+      };
+      window.__VC_HOGWARTS_POINTS = JSON.parse(decodeURIComponent("{{HOGWARTS_POINTS_URI}}"));
+      window.__VC_HOGWARTS_POINTS_ACCESS_API = "{{HOGWARTS_SORTING_API_URL}}/access";
+      window.__VC_HOGWARTS_POINTS_ACCESS_API_LOCAL = "{{HOGWARTS_SORTING_API_URL_LOCAL}}/access";
+      window.__VC_HOGWARTS_POINTS_API = "{{HOGWARTS_SORTING_API_URL}}/points";
+      window.__VC_HOGWARTS_POINTS_API_LOCAL = "{{HOGWARTS_SORTING_API_URL_LOCAL}}/points";
+      window.__VC_HOGWARTS_BGM = JSON.parse(decodeURIComponent("{{HOGWARTS_BGM_URI}}"));
+    </script>
+    <script src="../../js/vc-youtube-iframe-api.js"></script>
+    <script src="../../js/hogwarts-bgm-youtube.js"></script>
+    <script>if(window.__vcHogwartsYoutubeSetupIfConfigured)window.__vcHogwartsYoutubeSetupIfConfigured();</script>
+    <script src="../../js/hogwarts-house-points-page.js"></script>
+    <script src="../../js/vc-landing.js" defer></script>
+    <script src="../../js/discord-auth.js" defer></script>
+  </body>
+</html>

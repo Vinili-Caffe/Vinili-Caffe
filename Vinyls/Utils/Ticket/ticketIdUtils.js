@@ -112,4 +112,9 @@ async function createTicketDocWithGlobalId(TicketModel, payload = {}, maxRetries
   throw lastError || new Error("Unable to allocate unique ticketNumber");
 }
 
-module.exports = { getNextTicketId, createTicketDocWithGlobalId };
+module.exports = {
+  getNextTicketId,
+  createTicketDocWithGlobalId,
+  isCounterUnavailableError,
+  isTicketNumberDuplicate,
+};

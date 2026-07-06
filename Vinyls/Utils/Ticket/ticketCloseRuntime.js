@@ -1,10 +1,17 @@
 const { EmbedBuilder, ButtonBuilder, ActionRowBuilder, ButtonStyle, } = require("discord.js");
 const Ticket = require("../../Schemas/Ticket/ticketSchema");
-const { createTranscript, createTranscriptHtml, saveTranscriptHtml, } = require("./transcriptUtils");
+const { createTranscript, createTranscriptHtml, } = require("./transcriptUtils");
+const { buildTicketTranscriptViewUrl, prepareTicketTranscriptSecureFields, buildTicketTranscriptActionRow } = require("./ticketTranscriptSecure");
 const { getNextTicketId } = require("./ticketIdUtils");
 const { sendDm } = require("../noDmList");
 const IDs = require("../Config/ids");
-const { getClientGuildCached, getGuildChannelCached, getGuildMemberCached, } = require("./ticketInteractionRuntime");
+const { getClientGuildCached, getGuildChannelCached, getGuildMemberCached } = require("./ticketInteractionRuntime");
+const { getClientChannelCached, getUserCached } = require("../Interaction/interactionEntityCache");
+const { findOpenTicketsForGuildUser } = require("./ticketGuildUserQueries");
+
+function mergeClosedTicketDmRows(transcriptRows, ratingRows) {
+  return [...transcriptRows, ...ratingRows].slice(0, 5);
+}
 
 function buildTicketRatingRows(ticketId) {
   const stylesByScore = { 1: ButtonStyle.Danger, 2: ButtonStyle.Danger, 3: ButtonStyle.Primary, 4: ButtonStyle.Success, 5: ButtonStyle.Success, };
@@ -38,11 +45,10 @@ function buildTicketClosedEmbed(data) {
   }
 
   const embed = new EmbedBuilder()
-    .setAuthor({ name: data?.guildName || "<:VC_Ticket:1482535175283019888> Sistema Ticket", iconURL: data?.guildIconURL || undefined, })
+    .setAuthor({ name: data?.guildName || "Ticket System", iconURL: data?.guildIconURL || undefined, })
     .setTitle("<:VC_Ticket:1482535175283019888> Ticket Chiuso")
     .setColor("#6f4e37")
     .addFields(fields.slice(0, 25))
-    .setFooter({ text: "© 2026 Vinili & Caffè. Tutti i diritti riservati." })
     .setTimestamp();
 
   const reordered = [embed.data.fields?.[0], embed.data.fields?.[1], embed.data.fields?.[2], embed.data.fields?.[3], embed.data.fields?.[5], embed.data.fields?.[4], embed.data.fields?.[6], embed.data.fields?.[7],].filter(Boolean);
@@ -146,7 +152,11 @@ async function closeTicket(targetInteraction, motivo, helpers) {
 
     const transcriptTXT = await createTranscript(targetInteraction.channel).catch(() => "");
     const transcriptHTML = await createTranscriptHtml(targetInteraction.channel).catch(() => "");
-    const transcriptHtmlPath = transcriptHTML ? await saveTranscriptHtml(targetInteraction.channel, transcriptHTML).catch(() => null) : null;
+    const secureT = await prepareTicketTranscriptSecureFields(targetInteraction.channel, transcriptHTML).catch(() => ({}));
+    const transcriptHtmlPath = secureT.transcriptHtmlPath || null;
+    const transcriptViewToken = secureT.transcriptViewToken || null;
+    const transcriptHtmlInline = secureT.transcriptHtmlInline || null;
+    const transcriptViewExpiresAt = secureT.transcriptViewExpiresAt || null;
 
     const existingNum = Number(ticketOpen.ticketNumber);
     let ticketNumber =
@@ -163,6 +173,9 @@ async function closeTicket(targetInteraction, motivo, helpers) {
           ticketNumber,
           transcript: transcriptTXT,
           transcriptHtmlPath: transcriptHtmlPath || null,
+          transcriptViewToken: transcriptViewToken || null,
+          transcriptHtmlInline: transcriptHtmlInline || null,
+          transcriptViewExpiresAt: transcriptViewExpiresAt || null,
           closeReason: motivo || null,
           claimedBy: ticketOpen.claimedBy || null,
           closeRequestedBy: null,
@@ -201,9 +214,9 @@ async function closeTicket(targetInteraction, motivo, helpers) {
     };
     const closeEmbed = buildTicketClosedEmbed(closeEmbedData);
     const ratingRows = buildTicketRatingRows(String(ticket._id));
-    const transcriptRows = transcriptHtmlPath
-      ? [new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`ticket_transcript:${ticket._id}`).setLabel("Visualizza Trascrizione").setStyle(ButtonStyle.Secondary).setEmoji("<:VC_file:1478515880722698300>"))]
-      : [];
+    const transcriptViewUrl = buildTicketTranscriptViewUrl(transcriptViewToken);
+    const transcriptRow = buildTicketTranscriptActionRow(ticket._id, transcriptViewUrl);
+    const transcriptRows = transcriptHtmlPath || transcriptHtmlInline ? (transcriptRow ? [transcriptRow] : []) : [];
 
     let logSentMessage = null;
     if (logChannel?.isTextBased?.()) {
@@ -215,7 +228,7 @@ async function closeTicket(targetInteraction, motivo, helpers) {
       );
     }
 
-    const dmActionRows = [...transcriptRows, ...ratingRows];
+    const dmActionRows = mergeClosedTicketDmRows(transcriptRows, ratingRows);
     const member = await getGuildMemberCached(targetInteraction.guild, ticket.userId);
     if (member) {
       try {
@@ -277,4 +290,150 @@ async function closeTicket(targetInteraction, motivo, helpers) {
   }
 }
 
-module.exports = { buildTicketClosedEmbed, buildTicketRatingRows, closeTicket, sendTranscriptWithBrowserLink };
+async function resolveTicketChannel(client, ticketGuild, channelId) {
+  const cid = String(channelId || "").trim();
+  if (!cid) return null;
+  if (ticketGuild) {
+    const guildChannel = ticketGuild.channels?.cache?.get(cid) ||
+      (await ticketGuild.channels?.fetch?.(cid).catch(() => null));
+    if (guildChannel) return guildChannel;
+  }
+  return client?.channels?.cache?.get(cid) ||
+    (await getClientChannelCached(client, cid).catch(() => null)) ||
+    (await client?.channels?.fetch?.(cid).catch(() => null)) ||
+    null;
+}
+
+async function closeOpenTicketsForGuildUser(guild, userId, options = {}) {
+  if (!guild || !userId) return { closed: 0 };
+  const client = guild.client || options.client;
+  const openTickets = await findOpenTicketsForGuildUser(guild.id, userId).catch(() => []);
+  if (!openTickets.length) return { closed: 0 };
+
+  const closeReason = options.closeReason || "Ticket chiuso automaticamente.";
+  const closedBy = options.closedBy || client?.user?.id || null;
+  const deleteReason = options.deleteReason || `Ticket auto-chiuso (${userId})`;
+  const deleteDelayMs = Number.isFinite(options.deleteDelayMs) ? options.deleteDelayMs : 1500;
+  const centralTicketLogChannelId = options.logChannelId || IDs.channels.ticketLogs || "1442569290682208296";
+  let logChannel =
+    options.logChannel ||
+    client?.channels?.cache?.get(centralTicketLogChannelId) ||
+    (await getClientChannelCached(client, centralTicketLogChannelId).catch(() => null)) ||
+    (await client?.channels?.fetch?.(centralTicketLogChannelId).catch(() => null));
+  if (!logChannel?.isTextBased?.()) logChannel = null;
+
+  let closed = 0;
+  for (const ticket of openTickets.slice(0, 30)) {
+    try {
+      const ticketGid = String(ticket.guildId || "").trim();
+      const ticketGuild =
+        !ticketGid || ticketGid === String(guild.id)
+          ? guild
+          : await client?.guilds?.fetch?.(ticketGid).catch(() => null);
+      const channel = await resolveTicketChannel(client, ticketGuild, ticket.channelId);
+
+      let transcriptTXT = "";
+      let transcriptHtmlPath = null;
+      let transcriptViewToken = null;
+      let transcriptHtmlInline = null;
+      let transcriptViewExpiresAt = null;
+      if (channel) {
+        transcriptTXT = await createTranscript(channel).catch(() => "");
+        const transcriptHTML = await createTranscriptHtml(channel).catch(() => "");
+        const secureT = await prepareTicketTranscriptSecureFields(channel, transcriptHTML).catch(() => ({}));
+        transcriptHtmlPath = secureT.transcriptHtmlPath || null;
+        transcriptViewToken = secureT.transcriptViewToken || null;
+        transcriptHtmlInline = secureT.transcriptHtmlInline || null;
+        transcriptViewExpiresAt = secureT.transcriptViewExpiresAt || null;
+      }
+
+      let ticketNumber = Number(ticket.ticketNumber || 0);
+      if (!ticketNumber) ticketNumber = await getNextTicketId();
+      const closedAt = new Date();
+      const updateResult = await Ticket.updateOne(
+        { _id: ticket._id, open: true },
+        {
+          $set: {
+            open: false,
+            ticketNumber,
+            transcript: transcriptTXT,
+            transcriptHtmlPath: transcriptHtmlPath || null,
+            transcriptViewToken: transcriptViewToken || null,
+            transcriptHtmlInline: transcriptHtmlInline || null,
+            transcriptViewExpiresAt: transcriptViewExpiresAt || null,
+            closeReason,
+            closedAt,
+            closedBy,
+            guildId: String(ticketGuild?.id || guild.id),
+            claimedBy: ticket.claimedBy || null,
+            closeRequestedBy: null,
+            closeRequestedAt: null,
+          },
+        },
+      ).catch(() => ({ modifiedCount: 0 }));
+      if (Number(updateResult?.modifiedCount || updateResult?.matchedCount || 0) < 1) continue;
+
+      const ticketAfterRaw = await Ticket.findById(ticket._id).catch(() => null);
+      const ticketAfter = ticketAfterRaw?.toObject?.() || ticketAfterRaw || null;
+      const closeEmbedData = {
+        ...(ticketAfter || ticket.toObject?.() || ticket),
+        ticketNumber,
+        closeReason,
+        closedBy,
+        closedAt,
+        guildName: ticketGuild?.name || guild?.name || "Ticket System",
+        guildIconURL: ticketGuild?.iconURL?.({ size: 128 }) || guild?.iconURL?.({ size: 128 }) || null,
+      };
+      const closeEmbed = buildTicketClosedEmbed(closeEmbedData);
+      const transcriptViewUrl = buildTicketTranscriptViewUrl(transcriptViewToken);
+      const transcriptRow = buildTicketTranscriptActionRow(ticket._id, transcriptViewUrl);
+      const transcriptRows = transcriptHtmlPath || transcriptHtmlInline ? (transcriptRow ? [transcriptRow] : []) : [];
+      const dmRowsForAutoClose = mergeClosedTicketDmRows(transcriptRows, []);
+
+      if (logChannel?.isTextBased?.()) {
+        const logSentMessage = await sendTranscriptWithBrowserLink(
+          logChannel,
+          { embeds: [closeEmbed] },
+          false,
+          transcriptRows,
+        ).catch(() => null);
+        if (logSentMessage?.id && logChannel?.id) {
+          await Ticket.updateOne(
+            { _id: ticket._id },
+            { $set: { closeLogChannelId: logChannel.id, closeLogMessageId: logSentMessage.id } },
+          ).catch(() => { });
+        }
+      }
+
+      if (options.dmUser !== false) {
+        const user = await getUserCached(client, ticket.userId).catch(() => null);
+        if (user) {
+          await sendTranscriptWithBrowserLink(
+            user,
+            { embeds: [closeEmbed] },
+            false,
+            dmRowsForAutoClose,
+            { guildId: guild.id, bypassNoDm: true },
+          ).catch((err) => {
+            if (![50007, 50278].includes(err?.code)) {
+              global.logger?.warn?.("[TICKET AUTO CLOSE] dm failed:", err?.message || err);
+            }
+          });
+        }
+      }
+
+      if (channel?.deletable) {
+        const channelDeleteTimer = setTimeout(() => {
+          channel.delete(deleteReason).catch(() => { });
+        }, deleteDelayMs);
+        channelDeleteTimer.unref?.();
+      }
+      closed += 1;
+    } catch (err) {
+      global.logger?.warn?.("[TICKET AUTO CLOSE] failed:", err?.message || err);
+    }
+  }
+  return { closed };
+}
+
+module.exports = { buildTicketClosedEmbed, buildTicketRatingRows, closeOpenTicketsForGuildUser, closeTicket, sendTranscriptWithBrowserLink };

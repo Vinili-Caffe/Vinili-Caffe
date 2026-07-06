@@ -1,3 +1,5 @@
+// Copyright (c) 2024–2026 Vinili & Caffè. Tutti i diritti riservati.
+// Uso, copia, modifica e distribuzione vietati — vedi ../../LICENSE.
 import fs from "fs";
 import path from "path";
 import { execFileSync } from "child_process";
@@ -6,15 +8,28 @@ import { fileURLToPath } from "url";
 
 const require = createRequire(import.meta.url);
 import { buildWikiCommandPanesInnerHtml } from "./wiki-command-discovery.mjs";
+import { loadGaleoniEconomyUnlockMs } from "./wiki-help-visibility.mjs";
 import { minifyHtmlFilesInDist, obfuscateProjectJsInDist } from "./minify-obfuscate-dist.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, "..");
 const DIST = path.join(ROOT, "dist");
 const CONFIG_PATH = path.join(ROOT, "site.config.json");
+const botIds = require(path.join(ROOT, "..", "Vinyls", "Utils", "Config", "ids.js"));
 const FALLBACK_GUILD_ICON = "images/vc-header-logo.png";
 /** Discord snowflake epoch (2015-01-01 UTC), ms since Unix epoch. */
 const DISCORD_EPOCH_MS = 1420070400000;
+
+function envFlagTrue(name) {
+  const v = String(process.env[name] ?? "").trim().toLowerCase();
+  return v === "1" || v === "true" || v === "yes";
+}
+
+/** Log informativi build (OAuth, override env, ecc.); disattiva con VC_BUILD_QUIET=1. */
+function buildInfoLog(...args) {
+  if (envFlagTrue("VC_BUILD_QUIET")) return;
+  console.log(...args);
+}
 
 const STAFF_LIST_FALLBACK_HTML = `          <p>
             L&apos;organico dello staff, i permessi e i canali dedicati sono gestiti sul server Discord. Per segnalazioni o partnership
@@ -38,7 +53,46 @@ const EXCLUDE = new Set([
 ]);
 
 function rmrf(dir) {
-  if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true, force: true });
+  if (!fs.existsSync(dir)) return;
+  try {
+    fs.rmSync(dir, { recursive: true, force: true });
+    return;
+  } catch {
+    rmrfContentsExceptLockedLarge(dir);
+    try {
+      if (fs.existsSync(dir) && fs.readdirSync(dir).length === 0) fs.rmdirSync(dir);
+    } catch { /* */ }
+  }
+}
+
+const LARGE_ASSET_MIN_BYTES = 40 * 1024 * 1024;
+
+function rmrfContentsExceptLockedLarge(dir) {
+  for (const name of fs.readdirSync(dir)) {
+    const p = path.join(dir, name);
+    let st;
+    try {
+      st = fs.statSync(p);
+    } catch {
+      continue;
+    }
+    if (st.isDirectory()) {
+      rmrfContentsExceptLockedLarge(p);
+      try {
+        if (fs.readdirSync(p).length === 0) fs.rmdirSync(p);
+      } catch { /* */ }
+    } else {
+      try {
+        fs.unlinkSync(p);
+      } catch (err) {
+        if (st.size >= LARGE_ASSET_MIN_BYTES) {
+          console.warn(`[build-site] File grande in uso, mantengo: ${path.relative(ROOT, p)}`);
+        } else {
+          throw err;
+        }
+      }
+    }
+  }
 }
 
 function copyRecursive(srcDir, dstDir) {
@@ -49,8 +103,35 @@ function copyRecursive(srcDir, dstDir) {
     const dst = path.join(dstDir, name);
     const st = fs.statSync(src);
     if (st.isDirectory()) copyRecursive(src, dst);
-    else fs.copyFileSync(src, dst);
+    else {
+      if (st.size >= LARGE_ASSET_MIN_BYTES && fs.existsSync(dst)) {
+        try {
+          const dstSt = fs.statSync(dst);
+          if (dstSt.size === st.size) continue;
+        } catch { /* ricopia */ }
+      }
+      fs.copyFileSync(src, dst);
+    }
   }
+}
+
+function applyForbiddenBooksScheduleToDist(distDir) {
+  const vinylsConfigPath = path.join(ROOT, "..", "Vinyls", "config.json");
+  if (!fs.existsSync(vinylsConfigPath)) return;
+  let vinylsCfg;
+  try {
+    vinylsCfg = readJson(vinylsConfigPath);
+  } catch {
+    return;
+  }
+  const { resolveForbiddenBooksSchedule } = require(path.join(ROOT, "..", "Vinyls", "Utils", "Web", "hogwartsEventSchedule.js"));
+  const { startMs, endMs } = resolveForbiddenBooksSchedule(vinylsCfg);
+  const landingPath = path.join(distDir, "js", "vc-landing.js");
+  if (!fs.existsSync(landingPath) || !Number.isFinite(startMs) || !Number.isFinite(endMs)) return;
+  let js = fs.readFileSync(landingPath, "utf8");
+  js = js.replace(/var FORBIDDEN_BOOKS_START_MS = [^;]+;/g, `var FORBIDDEN_BOOKS_START_MS = ${startMs};`);
+  js = js.replace(/var FORBIDDEN_BOOKS_END_MS = [^;]+;/g, `var FORBIDDEN_BOOKS_END_MS = ${endMs};`);
+  fs.writeFileSync(landingPath, js, "utf8");
 }
 
 function readJson(p) {
@@ -73,12 +154,122 @@ function escHtml(s) {
     .replace(/"/g, "&quot;");
 }
 
+function formatSponsorPromoUntilLabel(iso) {
+  const raw = String(iso || "").trim();
+  if (!raw) return "";
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return "";
+  const day = d.toLocaleDateString("it-IT", { day: "numeric", month: "long", timeZone: "Europe/Rome" });
+  return `fino al ${day}`;
+}
+
+function buildPremiumFooterTemplate() {
+  return `
+  <footer class="vc-premium-footer" aria-label="Footer">
+    <div class="vc-premium-footer__card">
+      <div class="vc-premium-footer__outer">
+        <div class="vc-premium-footer__inner">
+          <div class="vc-premium-footer__grid">
+            <section class="vc-premium-footer__brand" aria-label="{{SITE_NAME}}">
+              <a class="vc-premium-footer__logo-row" href="{{SITE_URL}}" aria-label="Vai alla homepage">
+                <span class="vc-premium-footer__logo" aria-hidden="true">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M4 20C4 20 4 14 10 10C16 6 20 4 20 4C20 4 18 8 14 14C10 20 4 20 4 20Z" fill="white" />
+                    <path d="M4 20L10 14" stroke="white" stroke-width="2" stroke-linecap="round" />
+                  </svg>
+                </span>
+                <span class="vc-premium-footer__wordmark">{{SITE_NAME}}</span>
+              </a>
+              <p class="vc-premium-footer__desc">Community italiana Discord curata nei dettagli: musica, socialità, ruoli personalizzati, eventi e strumenti sviluppati su misura.</p>
+              <div class="vc-premium-footer__socials" aria-label="Social">
+                <a class="vc-premium-footer__social" href="{{INSTAGRAM_URL}}" target="_blank" rel="noopener noreferrer" aria-label="Instagram">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3.4" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="16.8" cy="7.2" r="1.1" fill="currentColor"/></svg>
+                </a>
+                <a class="vc-premium-footer__social" href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer" aria-label="Discord">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.5 5.4A17 17 0 0 0 15.2 4l-.2.4a13 13 0 0 1 3.2 1.6 10.8 10.8 0 0 0-4-1.2 11.2 11.2 0 0 0-4.4.2A10.8 10.8 0 0 0 5.8 6a13 13 0 0 1 3.3-1.6L8.9 4a17 17 0 0 0-4.4 1.4C1.8 9.4 1 13.3 1.4 17.2A17 17 0 0 0 6.6 20l1.1-1.5c-.6-.2-1.2-.5-1.8-.9l.4-.3c3.4 1.6 7.2 1.6 10.6 0l.4.3c-.6.4-1.2.7-1.8.9l1.1 1.5a17 17 0 0 0 5.2-2.8c.5-4.5-.8-8.4-2.3-11.8ZM8.8 15.1c-1 0-1.8-.9-1.8-2s.8-2 1.8-2 1.8.9 1.8 2-.8 2-1.8 2Zm6.4 0c-1 0-1.8-.9-1.8-2s.8-2 1.8-2 1.8.9 1.8 2-.8 2-1.8 2Z" fill="currentColor"/></svg>
+                </a>
+                <a class="vc-premium-footer__social" href="{{TIKTOK_URL}}" target="_blank" rel="noopener noreferrer" aria-label="TikTok">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 4v9.1a4.4 4.4 0 1 1-4.4-4.4c.35 0 .7.04 1.03.12v2.55a1.9 1.9 0 1 0 1.03 1.68V4h2.34Zm0 0c.4 2.15 1.74 3.43 3.7 3.84v2.42c-1.52-.08-2.8-.56-3.7-1.36" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </a>
+              </div>
+            </section>
+            <nav class="vc-premium-footer__col" aria-label="Community">
+              <h4>Community</h4>
+              <ul>
+                <li><a href="{{SITE_URL}}">Home</a></li>
+                <li><a href="{{USER_PAGE_URL}}">Users</a></li>
+                <li><a href="{{RUOLI_PAGE_URL}}">Ruoli</a></li>
+              </ul>
+            </nav>
+            <nav class="vc-premium-footer__col" aria-label="Scopri">
+              <h4>Scopri</h4>
+              <ul>
+                <li><a href="{{WIKI_URL}}">Wiki</a></li>
+                <li><a href="{{COMMUNITY_RULES_URL}}">Regole</a></li>
+                <li><a href="{{FAQ_URL}}">FAQ</a></li>
+                <li><a href="{{SPONSOR_URL}}">Sponsor</a></li>
+              </ul>
+            </nav>
+            <nav class="vc-premium-footer__col" aria-label="Supporta">
+              <h4>Supporta</h4>
+              <ul>
+                <li><a href="{{PERKS_URL}}">Perks</a></li>
+                <li><a href="{{VOTE_URL}}">Vota</a></li>
+                <li><a href="{{REVIEWS_PAGE_URL}}">Recensioni</a></li>
+                <li><a href="{{DONATIONS_URL}}">Donazioni</a></li>
+              </ul>
+            </nav>
+            <nav class="vc-premium-footer__col" aria-label="Richieste">
+              <h4>Richieste</h4>
+              <ul>
+                <li><a href="{{RICHIESTE_CANDIDATURE_URL}}">Candidature</a></li>
+                <li><a href="{{RICHIESTE_UNBAN_URL}}">Unban</a></li>
+                <li><a href="{{RICHIESTE_SUGGERIMENTI_URL}}">Suggerimenti</a></li>
+              </ul>
+            </nav>
+          </div>
+        </div>
+        <div class="vc-premium-footer__legal">
+          <p>© {{YEAR}} {{SITE_NAME}}. All rights reserved.</p>
+          <nav aria-label="Link legali">
+            <a href="{{TERMS_URL}}">Termini di Servizio</a>
+            <span aria-hidden="true"></span>
+            <a href="{{PRIVACY_URL}}">Privacy Policy</a>
+            <span aria-hidden="true"></span>
+            <a href="{{COOKIE_POLICY_URL}}">Cookie Policy</a>
+          </nav>
+        </div>
+      </div>
+    </div>
+  </footer>`;
+}
+
+function replaceLegacyFooter(html) {
+  if (!html.includes("vc-footer-brand-row")) return html;
+  return html.replace(
+    /<footer\b(?=[\s\S]*?vc-footer-brand-row)[\s\S]*?<\/footer>/g,
+    buildPremiumFooterTemplate(),
+  );
+}
+
 function applyPlaceholderMap(html, map) {
+  html = replaceLegacyFooter(html);
   for (const [key, value] of Object.entries(map)) {
     const ph = `{{${key}}}`;
     if (html.includes(ph)) {
       html = html.split(ph).join(String(value ?? ""));
     }
+  }
+  const assetVersion = encodeURIComponent(String(map.BUILD_ASSET_VERSION || ""));
+  if (assetVersion) {
+    html = html.replace(
+      /href=(["'])([^"']*\/?css\/(?:tw-build|vc-landing|seratafilm-page)\.css)(?![?])\1/g,
+      `href=$1$2?v=${assetVersion}$1`,
+    );
+    html = html.replace(
+      /src=(["'])([^"']*\/?js\/[a-z0-9._-]+\.js)(?![?])\1/gi,
+      `src=$1$2?v=${assetVersion}$1`,
+    );
   }
   return html;
 }
@@ -87,6 +278,35 @@ function warnLeftoverPlaceholders(html, label) {
   const leftover = [...html.matchAll(/\{\{([A-Z0-9_]+)\}\}/g)].map((m) => m[1]);
   if (leftover.length) {
     console.warn(`Placeholder non sostituiti (${label}):`, [...new Set(leftover)].join(", "));
+  }
+}
+
+/** Evita pubblicare un dist incompleto (es. build interrotta dopo copyRecursive). */
+function assertDistHasNoTemplatePlaceholders(distDir) {
+  const re = /\{\{[A-Z0-9_]+\}\}/g;
+  const bad = [];
+  function walk(dir) {
+    for (const name of fs.readdirSync(dir, { withFileTypes: true })) {
+      const p = path.join(dir, name.name);
+      if (name.isDirectory()) {
+        walk(p);
+        continue;
+      }
+      if (!name.name.toLowerCase().endsWith(".html")) continue;
+      const html = fs.readFileSync(p, "utf8");
+      const found = html.match(re);
+      if (found && found.length) {
+        bad.push({
+          rel: path.relative(distDir, p),
+          keys: [...new Set(found)].slice(0, 12).join(", "),
+        });
+      }
+    }
+  }
+  walk(distDir);
+  if (bad.length) {
+    const msg = bad.map((b) => `  ${b.rel}: ${b.keys}`).join("\n");
+    throw new Error(`[build-site] dist/ contiene ancora placeholder {{...}} (build incompleta o pagina non processata):\n${msg}`);
   }
 }
 
@@ -125,17 +345,14 @@ function absUrlForMetadata(siteUrl, pathOrUrl) {
   return `${base}/${p.replace(/^\//, "")}`;
 }
 
+/** Normalizza og:image senza riscrivere i GIF animati del CDN Discord (`a_*`): il .png omonimo non esiste → 404 e niente anteprima su Discord. */
 function forceStaticOgImageUrl(url) {
   const raw = String(url || "").trim();
   if (!raw) return "";
   try {
-    const u = new URL(raw);
-    if (/^\/banners\/\d+\/a_[^/]+\.(gif)$/i.test(u.pathname)) {
-      u.pathname = u.pathname.replace(/\.gif$/i, ".png");
-    }
-    return u.toString();
+    return new URL(raw).toString();
   } catch {
-    return raw.replace(/\.gif(\?[^#]*)?$/i, ".png$1");
+    return raw;
   }
 }
 
@@ -265,10 +482,14 @@ async function discordBotGet(path, botToken, attempt = 0) {
     await new Promise((r) => setTimeout(r, Math.ceil(waitSec * 1000) + 200));
     return discordBotGet(path, botToken, attempt + 1);
   }
+  if ((res.status === 502 || res.status === 503 || res.status === 504) && attempt < 6) {
+    await new Promise((r) => setTimeout(r, 800 + attempt * 1200));
+    return discordBotGet(path, botToken, attempt + 1);
+  }
   return res;
 }
 
-/** Conteggi guild dal bot (allineati a Discord.js `guild.memberCount` in classifica). REST può esporre `member_count` o solo `approximate_member_count`. */
+/** Conteggi membri/boost da GET /guilds/:id?with_counts=true. Preferisci `approximate_member_count` (totale pubblico); `member_count` può essere più basso o non affidabile. */
 async function fetchGuildLiveStatsCountsFromBot(guildId, botToken) {
   const gid = String(guildId || "").trim();
   const t = String(botToken || "").trim();
@@ -281,10 +502,10 @@ async function fetchGuildLiveStatsCountsFromBot(guildId, botToken) {
   const g = await res.json().catch(() => null);
   if (!g || typeof g !== "object") return null;
   const memberCount =
-    g.member_count != null && Number.isFinite(Number(g.member_count))
-      ? Math.floor(Number(g.member_count))
-      : g.approximate_member_count != null && Number.isFinite(Number(g.approximate_member_count))
-        ? Math.floor(Number(g.approximate_member_count))
+    g.approximate_member_count != null && Number.isFinite(Number(g.approximate_member_count))
+      ? Math.floor(Number(g.approximate_member_count))
+      : g.member_count != null && Number.isFinite(Number(g.member_count))
+        ? Math.floor(Number(g.member_count))
         : null;
   const boostCount =
     g.premium_subscription_count != null && Number.isFinite(Number(g.premium_subscription_count))
@@ -294,14 +515,14 @@ async function fetchGuildLiveStatsCountsFromBot(guildId, botToken) {
 }
 
 async function fetchGuildRoleMetas(guildId, botToken) {
+  const map = new Map();
   const res = await discordBotGet(`/guilds/${guildId}/roles`, botToken);
   if (!res.ok) {
     console.warn("[build-site] Guild roles HTTP", res.status);
-    return new Map();
+    return { ok: false, map, httpStatus: res.status };
   }
   const roles = await res.json().catch(() => []);
-  const map = new Map();
-  if (!Array.isArray(roles)) return map;
+  if (!Array.isArray(roles)) return { ok: true, map };
   for (const r of roles) {
     const id = String(r?.id || "");
     if (!id) continue;
@@ -310,7 +531,7 @@ async function fetchGuildRoleMetas(guildId, botToken) {
       position: Number(r?.position ?? 0),
     });
   }
-  return map;
+  return { ok: true, map };
 }
 
 async function fetchGuildOwnerId(guildId, botToken) {
@@ -361,6 +582,24 @@ function memberRoleIds(m) {
   const ids = m?.roles;
   if (Array.isArray(ids)) return ids.map(String);
   return [];
+}
+
+function maintenanceBypassUserIdsFromMembers(members, roleIdList) {
+  const roleSet = new Set(
+    (Array.isArray(roleIdList) ? roleIdList : []).map((x) => String(x).trim()).filter(Boolean),
+  );
+  if (!roleSet.size || !Array.isArray(members)) return [];
+  const out = [];
+  const seen = new Set();
+  for (const m of members) {
+    if (!m?.user || m.user.bot) continue;
+    if (!memberRoleIds(m).some((r) => roleSet.has(String(r)))) continue;
+    const uid = String(m.user.id).trim();
+    if (!uid || seen.has(uid)) continue;
+    seen.add(uid);
+    out.push(uid);
+  }
+  return out;
 }
 
 /** Nome in elenco tipo “Blear#3218” (discriminator) o display / @handle senza #0. */
@@ -434,6 +673,73 @@ function staffListFallback() {
   return { html: STAFF_LIST_FALLBACK_HTML, staffCount: null };
 }
 
+function parseSiteSponsorAdMs(value, endOfDay) {
+  let d = String(value || "").trim();
+  if (!d) return NaN;
+  d = d.replace(/T(\d{2}):(\d{2}):(\d{2}):(\d{2})$/, "T$1:$2:$3");
+  if (d.indexOf("T") < 0 && endOfDay) return new Date(`${d}T23:59:59.999`).getTime();
+  if (d.indexOf("T") < 0) return new Date(`${d}T00:00:00`).getTime();
+  const ms = new Date(d).getTime();
+  return Number.isFinite(ms) ? ms : NaN;
+}
+
+function buildSiteSponsorAdBootHtml(cfg, opts) {
+  const ad = cfg.siteSponsorAd && typeof cfg.siteSponsorAd === "object" ? cfg.siteSponsorAd : null;
+  if (!ad || ad.enabled === false) return "";
+  const scriptPrefix = opts && typeof opts.scriptPrefix === "string" ? opts.scriptPrefix : "";
+  const scriptSrc = scriptPrefix ? `${scriptPrefix}js/vc-site-sponsor-ad.js` : "/js/vc-site-sponsor-ad.js";
+  let startMs = Number(ad.startMs);
+  let untilMs = Number(ad.untilMs);
+  if (!Number.isFinite(startMs)) startMs = parseSiteSponsorAdMs(ad.startAt, false);
+  if (!Number.isFinite(untilMs)) untilMs = parseSiteSponsorAdMs(ad.until, true);
+  const payload = {
+    enabled: true,
+    id: String(ad.id || "site-sponsor").trim() || "site-sponsor",
+    title: String(ad.title || "").trim(),
+    badge: String(ad.badge || "Sponsor").trim() || "Sponsor",
+    description: String(ad.description || "").trim(),
+    buttonUrl: String(ad.buttonUrl || "").trim(),
+    buttonLabel: String(ad.buttonLabel || "Entra nel server").trim() || "Entra nel server",
+    startAt: String(ad.startAt || "").trim(),
+    until: String(ad.until || "").trim(),
+    startMs: Number.isFinite(startMs) ? startMs : null,
+    untilMs: Number.isFinite(untilMs) ? untilMs : null,
+  };
+  const json = JSON.stringify(payload).replace(/</g, "\\u003c");
+  return (
+    `    <script>window.__VC_SITE_SPONSOR_AD=${json};</script>\n` +
+    `    <script src="${scriptSrc}" defer></script>\n`
+  );
+}
+
+function applySiteSponsorAdToDist(distDir, cfg) {
+  const ad = cfg.siteSponsorAd && typeof cfg.siteSponsorAd === "object" ? cfg.siteSponsorAd : null;
+  if (!ad || ad.enabled === false) return;
+  const walk = (dir) => {
+    for (const name of fs.readdirSync(dir)) {
+      const p = path.join(dir, name);
+      const st = fs.statSync(p);
+      if (st.isDirectory()) {
+        walk(p);
+        continue;
+      }
+      if (!name.toLowerCase().endsWith(".html")) continue;
+      const html = fs.readFileSync(p, "utf8");
+      if (html.includes("window.__VC_SITE_SPONSOR_AD") || html.includes("js/vc-site-sponsor-ad.js")) continue;
+      if (html.includes("vc-seratafilm-page")) continue;
+      const scriptPrefix = relativeScriptPrefixFromHtml(p);
+      const boot = buildSiteSponsorAdBootHtml(cfg, { scriptPrefix });
+      if (!boot) continue;
+      let next = html;
+      if (next.includes("</body>")) next = next.replace("</body>", `${boot}  </body>`);
+      else if (next.includes("</head>")) next = next.replace("</head>", `${boot}  </head>`);
+      else next += `\n${boot}`;
+      if (next !== html) fs.writeFileSync(p, next, "utf8");
+    }
+  };
+  walk(distDir);
+}
+
 function buildLiveStatsBootHtml(cfg, inviteCode, opts) {
   const scriptPrefix = opts && typeof opts.scriptPrefix === "string" ? opts.scriptPrefix : "";
   const ls = cfg.liveStats || {};
@@ -444,9 +750,9 @@ function buildLiveStatsBootHtml(cfg, inviteCode, opts) {
       ? ""
       : String(ls.inviteProxyPath != null ? ls.inviteProxyPath : "/discord-invite.json");
   const extraStats =
-    ls.extraStatsPath === ""
-      ? ""
-      : String(ls.extraStatsPath != null ? ls.extraStatsPath : "/live-stats-extra.json");
+    ls.extraStatsPath === "" || ls.extraStatsPath == null
+      ? "/live-stats-extra.json"
+      : String(ls.extraStatsPath);
   const pollMs = Number.isFinite(Number(ls.pollIntervalMs)) ? Number(ls.pollIntervalMs) : 45000;
   const introFallbackMs = Number.isFinite(Number(ls.introFallbackMs)) ? Number(ls.introFallbackMs) : 45000;
   const liveEventApiUrl = String(cfg.liveEventApiUrl || "").trim();
@@ -466,6 +772,12 @@ function buildLiveStatsBootHtml(cfg, inviteCode, opts) {
     liveEventApiUrlLocal,
     liveEventPollMs,
   };
+  if (Array.isArray(opts.staffHoverGroups) && opts.staffHoverGroups.length) {
+    payload.staffHoverGroups = opts.staffHoverGroups;
+  }
+  if (opts.staffNoPm != null && Number.isFinite(Number(opts.staffNoPm))) {
+    payload.staffNoPm = Math.floor(Number(opts.staffNoPm));
+  }
   const json = JSON.stringify(payload).replace(/</g, "\\u003c");
   return (
     `    <script>window.__VC_LIVE=${json};</script>\n` +
@@ -488,16 +800,21 @@ function listFromCsv(value) {
     .filter(Boolean);
 }
 
-function buildMaintenanceBootHtml(cfg) {
+function buildMaintenanceBootHtml(cfg, extra = {}) {
   const maintenance = cfg.maintenance && typeof cfg.maintenance === "object" ? cfg.maintenance : {};
   const envEnabled = boolFromEnv(process.env.VC_SITE_MAINTENANCE);
   const enabled = envEnabled == null ? maintenance.enabled === true : envEnabled;
   const envAllowedIds = listFromCsv(process.env.VC_SITE_MAINTENANCE_ALLOWED_IDS);
+  const fromConfig = Array.isArray(maintenance.allowedUserIds)
+    ? maintenance.allowedUserIds.map((id) => String(id || "").trim()).filter(Boolean)
+    : [];
+  const fromStaffRaw = Array.isArray(extra.guildStaffBypassIds) ? extra.guildStaffBypassIds : [];
+  const fromStaff = fromStaffRaw.map((id) => String(id || "").trim()).filter(Boolean);
+  const includeStaffBypass = maintenance.includeGuildStaffInMaintenanceBypass === true;
+  const staffBypassIds = includeStaffBypass ? fromStaff : [];
   const allowedUserIds = envAllowedIds.length
     ? envAllowedIds
-    : Array.isArray(maintenance.allowedUserIds)
-      ? maintenance.allowedUserIds.map((id) => String(id || "").trim()).filter(Boolean)
-      : [];
+    : [...new Set([...fromConfig, ...staffBypassIds])];
   const payload = {
     enabled,
     allowedUserIds,
@@ -507,7 +824,12 @@ function buildMaintenanceBootHtml(cfg) {
     redirectUri: String(cfg.discordOauth?.redirectUri || cfg.siteUrl || "").trim(),
   };
   const json = JSON.stringify(payload).replace(/</g, "\\u003c");
+  const extensionNoiseBoot = `    <script>(function(){function s(x,d){try{d=d||0;if(x&&typeof x==="object"){var p=[];if(x.message!=null)p.push(String(x.message));if(x.stack!=null)p.push(String(x.stack));if(x.name!=null)p.push(String(x.name));if(d<2&&x.reason!=null)p.push(s(x.reason,d+1));if(d<2&&x.error!=null)p.push(s(x.error,d+1));if(p.length)return p.join(" ")}return String(x||"")}catch(e){return""}}function n(x){var m=s(x);return /listener indicated an asynchronous response/i.test(m)||/listener.*returning true.*(?:message )?channel closed/i.test(m)||/asynchronous response by returning true/i.test(m)||/message channel closed before a response was received/i.test(m)||/channel closed before a response was received/i.test(m)||/closed before a response was received/i.test(m)||/could not establish connection\\.?\\s*receiving end does not exist/i.test(m)||/message port closed before a response was received/i.test(m)||/extension context invalidated/i.test(m)||/unchecked runtime\\.lasterror/i.test(m)||/wrappedSendMessageCallback/i.test(m)||/cookieCrumbler\\.js/i.test(m)||/chrome-extension:\\/\\//i.test(m)||/moz-extension:\\/\\//i.test(m)||(/cannot read properties of undefined/i.test(m)&&/useCache/i.test(m))}function h(e){if(!n(e&&e.reason)&&!n(e&&e.message)&&!n(e&&e.error))return;try{e.preventDefault();e.stopImmediatePropagation()}catch(_e){}}window.addEventListener("unhandledrejection",h,true);window.addEventListener("error",h,true);window.onunhandledrejection=h;["error","warn"].forEach(function(l){var o=console[l];if(typeof o!=="function")return;console[l]=function(){var a="";for(var i=0;i<arguments.length;i++)a+=" "+s(arguments[i]);if(n(a)||/forced reflow while executing javascript took/i.test(a))return;return o.apply(console,arguments)}})})();</script>\n`;
+  const trustedTypesBoot = `    <script>(function(){try{if(window.trustedTypes){window.trustedTypes.createPolicy("default",{createHTML:function(s){return String(s)},createScript:function(s){return String(s)},createScriptURL:function(s){return String(s)}})}}catch(e){}})();</script>\n`;
   return (
+    extensionNoiseBoot +
+    trustedTypesBoot +
+    `    <script src="/js/vc-suppress-extension-errors.js"></script>\n` +
     `    <script>(function(){var w=window;w.__VC_MAINTENANCE=${json};var m=w.__VC_MAINTENANCE;if(!m||m.enabled!==true)return;var de=w.document.documentElement;de.classList.add("vc-maintenance-pending");try{de.style.overflow="hidden";de.style.height="100%";}catch(e1){}})();</script>\n` +
     `    <script src="/js/site-maintenance.js"></script>\n`
   );
@@ -544,9 +866,220 @@ function applyMaintenanceGateToDist(distDir, maintenanceBoot) {
   walk(distDir);
 }
 
+function collectDistHtmlRoutes(distDir) {
+  const paths = new Set(["/"]);
+  const walk = (dir, segments) => {
+    for (const name of fs.readdirSync(dir)) {
+      const p = path.join(dir, name);
+      const st = fs.statSync(p);
+      if (st.isDirectory()) {
+        walk(p, segments.concat(name));
+        continue;
+      }
+      if (name.toLowerCase() !== "index.html") continue;
+      const route = segments.length ? `/${segments.join("/")}` : "/";
+      paths.add(route);
+    }
+  };
+  walk(distDir, []);
+  return [...paths].sort();
+}
+
+const SITE_ROUTE_GUARD_PATTERNS = Object.freeze([
+  { s: "^/users?/\\d{17,20}$", f: "" },
+  { s: "^/users/\\d{17,20}/customize$", f: "" },
+  { s: "^/user/\\d{17,20}/personalizza$", f: "" },
+]);
+
+const SITE_ROUTE_GUARD_HIDDEN_DEFAULTS = Object.freeze(["/seratafilm/accesso-richiesto"]);
+
+function buildSiteRouteGuardBoot(routesPayload) {
+  const json = JSON.stringify(routesPayload).replace(/</g, "\\u003c");
+  return (
+    `    <script>window.__VC_SITE_ROUTES=${json};</script>\n` +
+    `    <script src="/js/vc-site-route-guard.js"></script>\n`
+  );
+}
+
+function applySiteRouteGuardToHtml(html, routeGuardBoot) {
+  if (!routeGuardBoot || html.includes("window.__VC_SITE_ROUTES")) return html;
+  const headOpen = html.match(/<head\b[^>]*>/i);
+  if (headOpen) {
+    return html.replace(headOpen[0], `${headOpen[0]}\n${routeGuardBoot}`);
+  }
+  if (html.includes("</head>")) {
+    return html.replace("</head>", `${routeGuardBoot}  </head>`);
+  }
+  return routeGuardBoot + html;
+}
+
+function applySiteRouteGuardToDist(distDir, cfg) {
+  const paths = collectDistHtmlRoutes(distDir);
+  const siteRoutesRaw = cfg.siteRoutes && typeof cfg.siteRoutes === "object" ? cfg.siteRoutes : {};
+  const hiddenFromCfg = Array.isArray(siteRoutesRaw.hiddenPaths)
+    ? siteRoutesRaw.hiddenPaths.map((p) => String(p || "").trim()).filter(Boolean)
+    : [];
+  const hidden = [...new Set([...SITE_ROUTE_GUARD_HIDDEN_DEFAULTS, ...hiddenFromCfg])].map((p) => {
+    const s = p.replace(/\/+$/, "") || "/";
+    return s.startsWith("/") ? s : `/${s}`;
+  });
+  const payload = {
+    home: "/",
+    paths,
+    patterns: SITE_ROUTE_GUARD_PATTERNS,
+    hidden,
+  };
+  const boot = buildSiteRouteGuardBoot(payload);
+  const walk = (dir) => {
+    for (const name of fs.readdirSync(dir)) {
+      const p = path.join(dir, name);
+      const st = fs.statSync(p);
+      if (st.isDirectory()) {
+        walk(p);
+        continue;
+      }
+      if (!name.toLowerCase().endsWith(".html")) continue;
+      const html = fs.readFileSync(p, "utf8");
+      const next = applySiteRouteGuardToHtml(html, boot);
+      if (next !== html) fs.writeFileSync(p, next, "utf8");
+    }
+  };
+  walk(distDir);
+}
+
+function relativeScriptPrefixFromHtml(absHtmlPath) {
+  const relDir = path.relative(path.dirname(absHtmlPath), DIST).replace(/\\/g, "/");
+  if (!relDir || relDir === ".") return "";
+  return relDir.endsWith("/") ? relDir : `${relDir}/`;
+}
+
+function applyHeaderPromoToHtml(html, { promoButtonHtml, promoBootHtml }) {
+  if (!html.includes('id="header-quick-actions"')) return html;
+  let next = html;
+  if (promoButtonHtml && !next.includes('id="vc-header-promo-btn"')) {
+    next = next.replace(
+      /(<div[^>]*id="header-quick-actions"[^>]*>)/i,
+      `$1\n          ${promoButtonHtml}`,
+    );
+  }
+  if (promoBootHtml && !next.includes("vc-header-promo.js")) {
+    if (next.includes("</body>")) next = next.replace("</body>", `${promoBootHtml}\n</body>`);
+    else if (next.includes("</head>")) next = next.replace("</head>", `${promoBootHtml}\n</head>`);
+    else next += `\n${promoBootHtml}`;
+  }
+  return next;
+}
+
+function applyHeaderPromoToDist(distDir, promoButtonHtml, headerPromoClientConfig) {
+  const { buildHeaderPromoBootHtml } = require(path.join(ROOT, "..", "Vinyls", "Utils", "Web", "hogwartsEventCalendar.js"));
+  const walk = (dir) => {
+    for (const name of fs.readdirSync(dir)) {
+      const p = path.join(dir, name);
+      const st = fs.statSync(p);
+      if (st.isDirectory()) {
+        walk(p);
+        continue;
+      }
+      if (!name.toLowerCase().endsWith(".html")) continue;
+      const html = fs.readFileSync(p, "utf8");
+      if (html.includes("vc-hw-page")) continue;
+      const scriptPrefix = relativeScriptPrefixFromHtml(p);
+      const promoBootHtml = buildHeaderPromoBootHtml(headerPromoClientConfig, scriptPrefix);
+      const next = applyHeaderPromoToHtml(html, { promoButtonHtml, promoBootHtml });
+      if (next !== html) fs.writeFileSync(p, next, "utf8");
+    }
+  };
+  walk(distDir);
+}
+
+function applyLiveStatsBootToDist(distDir, cfg, inviteCode) {
+  const ls = cfg && cfg.liveStats && typeof cfg.liveStats === "object" ? cfg.liveStats : {};
+  if (ls.enabled === false) return;
+  const walk = (dir) => {
+    for (const name of fs.readdirSync(dir)) {
+      const p = path.join(dir, name);
+      const st = fs.statSync(p);
+      if (st.isDirectory()) {
+        walk(p);
+        continue;
+      }
+      if (!name.toLowerCase().endsWith(".html")) continue;
+      const html = fs.readFileSync(p, "utf8");
+      if (html.includes("window.__VC_DISABLE_LIVE_EVENT_UI = true") || html.includes("vc-hw-page") || html.includes("vc-seratafilm-page")) continue;
+      if (html.includes("window.__VC_LIVE") || html.includes("js/live-stats.js")) continue;
+      const scriptPrefix = relativeScriptPrefixFromHtml(p);
+      const boot = buildLiveStatsBootHtml(cfg, inviteCode, { scriptPrefix });
+      if (!boot) continue;
+      let next = html;
+      if (next.includes("</body>")) next = next.replace("</body>", `${boot}  </body>`);
+      else if (next.includes("</head>")) next = next.replace("</head>", `${boot}  </head>`);
+      else next += `\n${boot}`;
+      if (next !== html) fs.writeFileSync(p, next, "utf8");
+    }
+  };
+  walk(distDir);
+}
+
+function applyAvatarFallbackToDist(distDir, assetVersion = "") {
+  const suffix = assetVersion ? `?v=${encodeURIComponent(String(assetVersion))}` : "";
+  const walk = (dir) => {
+    for (const name of fs.readdirSync(dir)) {
+      const p = path.join(dir, name);
+      const st = fs.statSync(p);
+      if (st.isDirectory()) {
+        walk(p);
+        continue;
+      }
+      if (!name.toLowerCase().endsWith(".html")) continue;
+      const html = fs.readFileSync(p, "utf8");
+      if (html.includes("vc-avatar-fallback.js")) continue;
+      const scriptPrefix = relativeScriptPrefixFromHtml(p);
+      const boot = `  <script src="${scriptPrefix}js/vc-avatar-fallback.js${suffix}" defer></script>\n`;
+      let next = html;
+      if (next.includes("</body>")) next = next.replace("</body>", `${boot}  </body>`);
+      else if (next.includes("</head>")) next = next.replace("</head>", `${boot}  </head>`);
+      else next += `\n${boot}`;
+      if (next !== html) fs.writeFileSync(p, next, "utf8");
+    }
+  };
+  walk(distDir);
+}
+
+function applyCursorTrailToDist(distDir, assetVersion = "") {
+  const suffix = assetVersion ? `?v=${encodeURIComponent(String(assetVersion))}` : "";
+  const walk = (dir) => {
+    for (const name of fs.readdirSync(dir)) {
+      const p = path.join(dir, name);
+      const st = fs.statSync(p);
+      if (st.isDirectory()) {
+        walk(p);
+        continue;
+      }
+      if (!name.toLowerCase().endsWith(".html")) continue;
+      const html = fs.readFileSync(p, "utf8");
+      if (html.includes("vc-cursor-trail.js")) continue;
+      if (!html.includes("vc-landing.css")) continue;
+      const scriptPrefix = relativeScriptPrefixFromHtml(p);
+      const boot = `  <script src="${scriptPrefix}js/vc-cursor-trail.js${suffix}" defer></script>\n`;
+      let next = html;
+      if (next.includes("</body>")) next = next.replace("</body>", `${boot}  </body>`);
+      else if (next.includes("</head>")) next = next.replace("</head>", `${boot}  </head>`);
+      else next += `\n${boot}`;
+      if (next !== html) fs.writeFileSync(p, next, "utf8");
+    }
+  };
+  walk(distDir);
+}
+
 async function buildStaffListBlock(cfg, guildId) {
   const b = cfg.discordStaffListBuild;
   if (!b || b.enabled !== true) return staffListFallback();
+  if (envFlagTrue("VC_BUILD_FAST") && b.alwaysFetchStaffListInFastBuild !== true) {
+    buildInfoLog(
+      "[build-site] VC_BUILD_FAST: salto download membri per la staff list (HTML fallback; build pieno senza VC_BUILD_FAST per lista reale).",
+    );
+    return staffListFallback();
+  }
   const gid = String(guildId || b.guildId || "").trim();
   const botToken = process.env.DISCORD_WEBSITE_BUILD_BOT_TOKEN?.trim();
   if (!gid || !botToken) {
@@ -571,12 +1104,18 @@ async function buildStaffListBlock(cfg, guildId) {
     return staffListFallback();
   }
 
-  const roleMetas = await fetchGuildRoleMetas(gid, botToken);
+  const { ok: roleMetasFetchOk, map: roleMetas } = await fetchGuildRoleMetas(gid, botToken);
   const ownerUserId = await fetchGuildOwnerId(gid, botToken);
-  for (const rid of staffRoleIds) {
-    if (!roleMetas.has(rid)) {
-      console.warn("[build-site] staffRoleIds: ruolo non trovato in guild (ID errato o ruolo rimosso):", rid);
+  if (roleMetasFetchOk) {
+    for (const rid of staffRoleIds) {
+      if (!roleMetas.has(rid)) {
+        console.warn("[build-site] staffRoleIds: ruolo non trovato in guild (ID errato o ruolo rimosso):", rid);
+      }
     }
+  } else {
+    console.warn(
+      "[build-site] staffRoleIds: controllo presenza ruoli saltato (elenco ruoli guild non scaricato; spesso 502/503 temporaneo di Discord).",
+    );
   }
 
   const maxScan = Number.isFinite(Number(b.maxMembersToScan)) ? Number(b.maxMembersToScan) : 10000;
@@ -693,7 +1232,7 @@ async function buildStaffListBlock(cfg, guildId) {
   const withStaff = new Set(
     rows.map((r) => String(r.m?.user?.id || "")).filter(Boolean),
   ).size;
-  console.log(
+  buildInfoLog(
     "[build-site] Staff list:",
     members.length,
     "membri scaricati (",
@@ -707,7 +1246,10 @@ async function buildStaffListBlock(cfg, guildId) {
 
   if (!rows.length) {
     console.warn("[build-site] Staff list: nessun membro dopo filtri (ruoli o intent).");
-    return staffListFallback();
+    return {
+      ...staffListFallback(),
+      maintenanceBypassUserIds: maintenanceBypassUserIdsFromMembers(members, botIds.websiteMaintenanceBypassRoleIds),
+    };
   }
 
   const byRole = new Map();
@@ -849,7 +1391,11 @@ async function buildStaffListBlock(cfg, guildId) {
     appendRoleGroupIfMissing(communityManagerRoleId, communityManagerRoleLabel);
   }
   const staffCount = countedStaffUserIds.size;
-  return { html, staffCount, staffHoverGroups };
+  const maintenanceBypassUserIds = maintenanceBypassUserIdsFromMembers(
+    members,
+    botIds.websiteMaintenanceBypassRoleIds,
+  );
+  return { html, staffCount, staffHoverGroups, maintenanceBypassUserIds };
 }
 
 /** Solo `live-stats-extra.json` (nessun rebuild HTML). Utile con cron sul VPS. */
@@ -858,6 +1404,8 @@ async function mainLiveStatsExtraOnly() {
     console.error("Manca site.config.json in", ROOT);
     process.exit(1);
   }
+  const { loadEnvFiles } = require(path.join(__dirname, "..", "..", "shared", "runtime", "fsRuntime.js"));
+  loadEnvFiles(ROOT);
   const cfg = readJson(CONFIG_PATH);
   const staffB = cfg.discordStaffListBuild || {};
   const guildIdConfigured = String(staffB.guildId || "").trim();
@@ -886,7 +1434,9 @@ async function mainLiveStatsExtraOnly() {
   }
   const botTok = String(process.env.DISCORD_WEBSITE_BUILD_BOT_TOKEN || "").trim();
   const guildLiveCounts =
-    guildIdResolved && botTok ? await fetchGuildLiveStatsCountsFromBot(guildIdResolved, botTok) : null;
+    !envFlagTrue("VC_BUILD_FAST") && guildIdResolved && botTok
+      ? await fetchGuildLiveStatsCountsFromBot(guildIdResolved, botTok)
+      : null;
   const payload = { staffNoPm: n };
   if (Array.isArray(staffResult.staffHoverGroups) && staffResult.staffHoverGroups.length) {
     payload.staffHoverGroups = staffResult.staffHoverGroups;
@@ -936,17 +1486,20 @@ async function main() {
     process.exit(1);
   }
   const cfg = readJson(CONFIG_PATH);
+  const buildFast = envFlagTrue("VC_BUILD_FAST");
+  if (buildFast) {
+    console.log(
+      "[build-site] VC_BUILD_FAST: niente scan membri / guild stats bot / avatar wiki via API (invite pubblico resta per banner·icona). Imposta VC_BUILD_QUIET=1 per meno log.",
+    );
+  }
   rmrf(DIST);
   copyRecursive(ROOT, DIST);
+  applyForbiddenBooksScheduleToDist(DIST);
 
   const indexPath = path.join(DIST, "index.html");
   let html = fs.readFileSync(indexPath, "utf8");
 
-  const cookieYesClientId = String(cfg.cookieYesClientId || "").trim();
-  const cookieYesSafe = /^[a-zA-Z0-9_-]+$/.test(cookieYesClientId) ? cookieYesClientId : "";
-  const cookieYesBlock = cookieYesSafe
-    ? `    <script id="cookieyes" type="text/javascript" src="https://cdn-cookieyes.com/client_data/${cookieYesSafe}/script.js"></script>\n`
-    : "";
+  const cookieYesBlock = "";
 
   const gaId = String(cfg.googleAnalyticsMeasurementId || "").trim();
   const gaBlock = gaId
@@ -1010,8 +1563,17 @@ async function main() {
   const siteUrlTrim =
     String(process.env.VC_SITE_URL ?? "").trim() || String(cfg.siteUrl || "").trim();
   if (String(process.env.VC_SITE_URL ?? "").trim()) {
-    console.log("[build-site] VC_SITE_URL (override solo per questo build):", siteUrlTrim);
+    buildInfoLog("[build-site] VC_SITE_URL (override solo per questo build):", siteUrlTrim);
   }
+  const prodSiteBuild = (() => {
+    try {
+      const h = new URL(siteUrlTrim).hostname.toLowerCase();
+      return h !== "localhost" && h !== "127.0.0.1" && h !== "[::1]";
+    } catch {
+      return true;
+    }
+  })();
+  const distApiLocal = (value) => (prodSiteBuild ? "" : value);
 
   const defaultInstagramUrl = "https://www.instagram.com/viniliecaffe/";
   const defaultTiktokUrl = "https://www.tiktok.com/@viniliecaffe";
@@ -1040,7 +1602,7 @@ async function main() {
   const staffResult = await buildStaffListBlock(cfg, guildIdResolved);
   const buildBotTok = String(process.env.DISCORD_WEBSITE_BUILD_BOT_TOKEN || "").trim();
   const guildLiveCounts =
-    guildIdResolved && buildBotTok
+    !buildFast && guildIdResolved && buildBotTok
       ? await fetchGuildLiveStatsCountsFromBot(guildIdResolved, buildBotTok)
       : null;
 
@@ -1061,10 +1623,22 @@ async function main() {
       ? String(staffResult.staffCount)
       : String(cfg.statStaff ?? "0");
 
-  const liveStatsBoot = buildLiveStatsBootHtml(cfg, inviteCode);
-  const liveStatsBootWiki = buildLiveStatsBootHtml(cfg, inviteCode, { scriptPrefix: "../" });
-  const liveStatsBootUser = buildLiveStatsBootHtml(cfg, inviteCode, { scriptPrefix: "../" });
-  const maintenanceBoot = buildMaintenanceBootHtml(cfg);
+  const liveStatsBootOpts = {
+    staffHoverGroups: staffResult.staffHoverGroups,
+    staffNoPm: staffResult.staffCount,
+  };
+  const liveStatsBoot =
+    buildLiveStatsBootHtml(cfg, inviteCode, liveStatsBootOpts) +
+    buildSiteSponsorAdBootHtml(cfg, { scriptPrefix: "" });
+  const liveStatsBootWiki =
+    buildLiveStatsBootHtml(cfg, inviteCode, { scriptPrefix: "../", ...liveStatsBootOpts }) +
+    buildSiteSponsorAdBootHtml(cfg, { scriptPrefix: "../" });
+  const liveStatsBootUser =
+    buildLiveStatsBootHtml(cfg, inviteCode, { scriptPrefix: "../", ...liveStatsBootOpts }) +
+    buildSiteSponsorAdBootHtml(cfg, { scriptPrefix: "../" });
+  const maintenanceBoot = buildMaintenanceBootHtml(cfg, {
+    guildStaffBypassIds: staffResult.maintenanceBypassUserIds || [],
+  });
 
   if (lsForProxy.enabled !== false) {
     const extraPath = path.join(DIST, "live-stats-extra.json");
@@ -1090,7 +1664,7 @@ async function main() {
     invitePayload?.raw
   ) {
     fs.writeFileSync(path.join(DIST, "discord-invite.json"), JSON.stringify(invitePayload.raw), "utf8");
-    console.log(
+    buildInfoLog(
       "[build-site] Scritto discord-invite.json (snapshot all’avvio del build; in produzione nginx può sostituirlo con il proxy live).",
     );
   }
@@ -1154,10 +1728,10 @@ async function main() {
   const richiesteCandidatureUrl = defaultLegalPath("candidature");
   const richiesteSuggerimentiUrl = defaultLegalPath("suggerimenti");
   const donationsPageUrl = defaultLegalPath("donazioni");
+  const perksPageUrl = defaultLegalPath("perks");
   const votePageUrl = defaultLegalPath("vote");
   const discadiaVoteUrlResolved =
     String(cfg.discadiaVoteUrl ?? "").trim() ||
-    String(cfg.voteUrl ?? "").trim() ||
     "https://discadia.com/vote/viniliecaffe/";
   const topggVoteUrlResolved =
     String(cfg.topggVoteUrl ?? "").trim() ||
@@ -1173,20 +1747,20 @@ async function main() {
   const tokenCaffe = process.env.DISCORD_TOKEN_TEST?.trim();
   let wikiViniliFromApi = null;
   let wikiCaffeFromApi = null;
-  if (!wikiViniliCfgUrl && tokenVinili) {
+  if (!wikiViniliCfgUrl && tokenVinili && !buildFast) {
     wikiViniliFromApi = await fetchBotSelfAvatarUrl(tokenVinili, "Vinili");
     if (wikiViniliFromApi) {
-      console.log("[build-site] Wiki Vinili: avatar da Discord GET /users/@me (account bot).");
+      buildInfoLog("[build-site] Wiki Vinili: avatar da Discord GET /users/@me (account bot).");
     } else {
       console.warn(
         "[build-site] Wiki Vinili: impossibile ottenere l’avatar via API. Imposta DISCORD_TOKEN o DISCORD_WEBSITE_BUILD_BOT_TOKEN nel .env del build, oppure wikiBotViniliAvatarUrl in site.config.json.",
       );
     }
   }
-  if (!wikiCaffeCfgUrl && tokenCaffe) {
+  if (!wikiCaffeCfgUrl && tokenCaffe && !buildFast) {
     wikiCaffeFromApi = await fetchBotSelfAvatarUrl(tokenCaffe, "Caffè");
     if (wikiCaffeFromApi) {
-      console.log("[build-site] Wiki Caffè: avatar da Discord GET /users/@me (account bot).");
+      buildInfoLog("[build-site] Wiki Caffè: avatar da Discord GET /users/@me (account bot).");
     } else {
       console.warn(
         "[build-site] Wiki Caffè: impossibile ottenere l’avatar via API. Imposta DISCORD_TOKEN_TEST (token del bot Coffee) nel .env del build, oppure wikiBotCaffeAvatarUrl in site.config.json.",
@@ -1206,15 +1780,13 @@ async function main() {
   const wikiViniliAvatarUrl = absUrlForMetadata(siteUrlForAbs, wikiViniliAvatarRaw);
   const wikiCaffeAvatarUrl = absUrlForMetadata(siteUrlForAbs, wikiCaffeAvatarRaw);
 
+  const wikiEconomyUnlockMs = loadGaleoniEconomyUnlockMs(path.join(ROOT, "..", "Vinyls"));
   const WIKI_CMD_PANES_HTML = buildWikiCommandPanesInnerHtml({
     avatarProdUrl: wikiViniliAvatarUrl,
     avatarTestUrl: wikiCaffeAvatarUrl,
   });
 
   let discordOauthRedirectRaw = String(cfg.discordOauth?.redirectUri || "").trim();
-  if (String(process.env.VC_SITE_URL ?? "").trim()) {
-    discordOauthRedirectRaw = "";
-  }
   if (discordOauthRedirectRaw.includes("discord.com/oauth2/authorize")) {
     console.warn(
       "[build-site] discordOauth.redirectUri sembra l’URL di invito del bot, non la callback del sito. Uso siteUrl.",
@@ -1223,25 +1795,29 @@ async function main() {
   }
   const discordOauthRedirectResolved = discordOauthRedirectRaw || siteUrlTrim;
   const discordOauthRedirectNoSlash = discordOauthRedirectResolved.replace(/\/+$/, "");
+  const resolvePublicWebhookApiUrl = (raw, fallbackPath = "") => {
+    const value = String(raw ?? "").trim();
+    if (!value) return fallbackPath;
+    if (/^https?:\/\//i.test(value)) return value;
+    if (value.startsWith("/")) return value;
+    return siteBaseNoSlash
+      ? `${siteBaseNoSlash.replace(/\/+$/, "")}/${value.replace(/^\/+/, "")}`
+      : value;
+  };
   const candidatureSubmitApiFromEnv = String(process.env.VC_CANDIDATURE_SUBMIT_API_URL ?? "").trim();
   const candidatureSubmitApiRaw =
     candidatureSubmitApiFromEnv || String(cfg.candidatureSubmitApiUrl ?? "").trim();
   if (candidatureSubmitApiFromEnv) {
-    console.log("[build-site] VC_CANDIDATURE_SUBMIT_API_URL (override):", candidatureSubmitApiFromEnv);
+    buildInfoLog("[build-site] VC_CANDIDATURE_SUBMIT_API_URL (override):", candidatureSubmitApiFromEnv);
   }
-  const candidatureSubmitApiResolved =
-    candidatureSubmitApiRaw && /^https?:\/\//i.test(candidatureSubmitApiRaw)
-      ? candidatureSubmitApiRaw
-      : candidatureSubmitApiRaw && siteBaseNoSlash
-        ? `${siteBaseNoSlash.replace(/\/+$/, "")}${candidatureSubmitApiRaw.startsWith("/") ? "" : "/"}${candidatureSubmitApiRaw}`
-        : "";
+  const candidatureSubmitApiResolved = resolvePublicWebhookApiUrl(candidatureSubmitApiRaw);
   const candidatureSubmitApiLocalFromEnv = String(
     process.env.VC_CANDIDATURE_SUBMIT_API_URL_LOCAL ?? "",
   ).trim();
   const candidatureSubmitApiLocalRaw =
     candidatureSubmitApiLocalFromEnv || String(cfg.candidatureSubmitApiUrlLocal ?? "").trim();
   if (candidatureSubmitApiLocalFromEnv) {
-    console.log(
+    buildInfoLog(
       "[build-site] VC_CANDIDATURE_SUBMIT_API_URL_LOCAL (override):",
       candidatureSubmitApiLocalFromEnv,
     );
@@ -1253,12 +1829,7 @@ async function main() {
   const unbanSubmitApiFromEnv = String(process.env.VC_UNBAN_SUBMIT_API_URL ?? "").trim();
   const unbanSubmitApiRaw =
     unbanSubmitApiFromEnv || String(cfg.unbanSubmitApiUrl ?? "").trim();
-  const unbanSubmitApiResolved =
-    unbanSubmitApiRaw && /^https?:\/\//i.test(unbanSubmitApiRaw)
-      ? unbanSubmitApiRaw
-      : unbanSubmitApiRaw && siteBaseNoSlash
-        ? `${siteBaseNoSlash.replace(/\/+$/, "")}${unbanSubmitApiRaw.startsWith("/") ? "" : "/"}${unbanSubmitApiRaw}`
-        : "";
+  const unbanSubmitApiResolved = resolvePublicWebhookApiUrl(unbanSubmitApiRaw);
   const unbanSubmitApiLocalFromEnv = String(process.env.VC_UNBAN_SUBMIT_API_URL_LOCAL ?? "").trim();
   const unbanSubmitApiLocalRaw =
     unbanSubmitApiLocalFromEnv || String(cfg.unbanSubmitApiUrlLocal ?? "").trim();
@@ -1269,14 +1840,7 @@ async function main() {
   const communityRulesApiFromEnv = String(process.env.VC_COMMUNITY_RULES_API_URL ?? "").trim();
   const communityRulesApiRaw =
     communityRulesApiFromEnv || String(cfg.communityRulesApiUrl ?? "").trim();
-  const communityRulesApiResolved =
-    communityRulesApiRaw && /^https?:\/\//i.test(communityRulesApiRaw)
-      ? communityRulesApiRaw
-      : communityRulesApiRaw && siteBaseNoSlash
-        ? `${siteBaseNoSlash.replace(/\/+$/, "")}${communityRulesApiRaw.startsWith("/") ? "" : "/"}${communityRulesApiRaw}`
-        : siteBaseNoSlash
-          ? `${siteBaseNoSlash}/webhooks/site-rules`
-          : "/webhooks/site-rules";
+  const communityRulesApiResolved = resolvePublicWebhookApiUrl(communityRulesApiRaw, "/webhooks/site-rules");
   const communityRulesApiLocalFromEnv = String(process.env.VC_COMMUNITY_RULES_API_URL_LOCAL ?? "").trim();
   const communityRulesApiLocalRaw =
     communityRulesApiLocalFromEnv || String(cfg.communityRulesApiUrlLocal ?? "").trim();
@@ -1287,14 +1851,7 @@ async function main() {
   const usersLeaderboardApiFromEnv = String(process.env.VC_USERS_LEADERBOARD_API_URL ?? "").trim();
   const usersLeaderboardApiRaw =
     usersLeaderboardApiFromEnv || String(cfg.usersLeaderboardApiUrl ?? "").trim();
-  const usersLeaderboardApiResolved =
-    usersLeaderboardApiRaw && /^https?:\/\//i.test(usersLeaderboardApiRaw)
-      ? usersLeaderboardApiRaw
-      : usersLeaderboardApiRaw && siteBaseNoSlash
-        ? `${siteBaseNoSlash.replace(/\/+$/, "")}${usersLeaderboardApiRaw.startsWith("/") ? "" : "/"}${usersLeaderboardApiRaw}`
-        : siteBaseNoSlash
-          ? `${siteBaseNoSlash}/webhooks/site-users`
-          : "/webhooks/site-users";
+  const usersLeaderboardApiResolved = resolvePublicWebhookApiUrl(usersLeaderboardApiRaw, "/webhooks/site-users");
   const usersLeaderboardApiLocalFromEnv = String(process.env.VC_USERS_LEADERBOARD_API_URL_LOCAL ?? "").trim();
   const usersLeaderboardApiLocalRaw =
     usersLeaderboardApiLocalFromEnv || String(cfg.usersLeaderboardApiUrlLocal ?? "").trim();
@@ -1304,14 +1861,7 @@ async function main() {
       : "";
   const voteApiFromEnv = String(process.env.VC_VOTE_API_URL ?? "").trim();
   const voteApiRaw = voteApiFromEnv || String(cfg.voteApiUrl ?? "").trim();
-  const voteApiResolved =
-    voteApiRaw && /^https?:\/\//i.test(voteApiRaw)
-      ? voteApiRaw
-      : voteApiRaw && siteBaseNoSlash
-        ? `${siteBaseNoSlash.replace(/\/+$/, "")}${voteApiRaw.startsWith("/") ? "" : "/"}${voteApiRaw}`
-        : siteBaseNoSlash
-          ? `${siteBaseNoSlash}/webhooks/site-vote`
-          : "/webhooks/site-vote";
+  const voteApiResolved = resolvePublicWebhookApiUrl(voteApiRaw, "/webhooks/site-vote");
   const voteApiLocalFromEnv = String(process.env.VC_VOTE_API_URL_LOCAL ?? "").trim();
   const voteApiLocalRaw = voteApiLocalFromEnv || String(cfg.voteApiUrlLocal ?? "").trim();
   const voteApiLocalResolved =
@@ -1320,31 +1870,478 @@ async function main() {
       : "";
   const siteNotifsApiFromEnv = String(process.env.VC_SITE_NOTIFICATIONS_API_URL ?? "").trim();
   const siteNotifsApiRaw = siteNotifsApiFromEnv || String(cfg.siteNotificationsApiUrl ?? "").trim();
-  const siteNotifsApiResolved =
-    siteNotifsApiRaw && /^https?:\/\//i.test(siteNotifsApiRaw)
-      ? siteNotifsApiRaw
-      : siteNotifsApiRaw && siteBaseNoSlash
-        ? `${siteBaseNoSlash.replace(/\/+$/, "")}${siteNotifsApiRaw.startsWith("/") ? "" : "/"}${siteNotifsApiRaw}`
-        : siteBaseNoSlash
-          ? `${siteBaseNoSlash}/webhooks/site-notifications`
-          : "/webhooks/site-notifications";
+  const siteNotifsApiResolved = resolvePublicWebhookApiUrl(siteNotifsApiRaw, "/webhooks/site-notifications");
   const siteNotifsApiLocalFromEnv = String(process.env.VC_SITE_NOTIFICATIONS_API_URL_LOCAL ?? "").trim();
-  const siteNotifsApiLocalRaw =
-    siteNotifsApiLocalFromEnv || String(cfg.siteNotificationsApiUrlLocal ?? "").trim();
+  const siteNotifsApiLocalRaw = siteNotifsApiLocalFromEnv || String(cfg.siteNotificationsApiUrlLocal ?? "").trim();
   const siteNotifsApiLocalResolved =
     siteNotifsApiLocalRaw && /^https?:\/\//i.test(siteNotifsApiLocalRaw)
       ? siteNotifsApiLocalRaw
       : "";
+  const seratafilmAccessApiFromEnv = String(process.env.VC_SERATAFILM_ACCESS_API_URL ?? "").trim();
+  const seratafilmAccessApiRaw =
+    seratafilmAccessApiFromEnv || String(cfg.seratafilmAccessApiUrl ?? "").trim();
+  const seratafilmAccessApiResolved = resolvePublicWebhookApiUrl(
+    seratafilmAccessApiRaw,
+    "/webhooks/site-seratafilm-access",
+  );
+  const seratafilmAccessApiLocalFromEnv = String(process.env.VC_SERATAFILM_ACCESS_API_URL_LOCAL ?? "").trim();
+  const seratafilmAccessApiLocalRaw =
+    seratafilmAccessApiLocalFromEnv || String(cfg.seratafilmAccessApiUrlLocal ?? "").trim();
+  const seratafilmAccessApiLocalResolved =
+    seratafilmAccessApiLocalRaw && /^https?:\/\//i.test(seratafilmAccessApiLocalRaw)
+      ? seratafilmAccessApiLocalRaw
+      : "";
+  const hogwartsSortingApiFromEnv = String(process.env.VC_HOGWARTS_SORTING_API_URL ?? "").trim();
+  const hogwartsSortingApiRaw =
+    hogwartsSortingApiFromEnv || String(cfg.hogwartsSortingApiUrl ?? "").trim();
+  const hogwartsSortingApiResolved = resolvePublicWebhookApiUrl(
+    hogwartsSortingApiRaw,
+    "/webhooks/site-hogwarts-sorting",
+  );
+  const hogwartsSortingApiLocalFromEnv = String(process.env.VC_HOGWARTS_SORTING_API_URL_LOCAL ?? "").trim();
+  const hogwartsSortingApiLocalRaw =
+    hogwartsSortingApiLocalFromEnv || String(cfg.hogwartsSortingApiUrlLocal ?? "").trim();
+  const hogwartsSortingApiLocalResolved =
+    hogwartsSortingApiLocalRaw && /^https?:\/\//i.test(hogwartsSortingApiLocalRaw)
+      ? hogwartsSortingApiLocalRaw
+      : "";
+  const hogwartsSortingPageUrl = siteBaseNoSlash
+    ? `${siteBaseNoSlash}/evento/smistamento`
+    : "/evento/smistamento";
+  const hogwartsPointsPageUrl = siteBaseNoSlash
+    ? `${siteBaseNoSlash}/evento/coppa`
+    : "/evento/coppa";
+  const hogwartsShopPageUrl = siteBaseNoSlash
+    ? `${siteBaseNoSlash}/evento/shop`
+    : "/evento/shop";
+  const hogwartsPotionsPageUrl = siteBaseNoSlash
+    ? `${siteBaseNoSlash}/evento/pozioni`
+    : "/evento/pozioni";
+  const hogwartsHubPageUrl = siteBaseNoSlash ? `${siteBaseNoSlash}/evento` : "/evento";
+  const {
+    resolveHogwartsEventCalendar,
+    buildEventNavItemsHtml,
+    buildEventHeaderHtml,
+    buildHeaderPromoBootHtml,
+    buildHeaderPromoButtonHtml,
+    buildHeaderPromoClientConfig,
+    buildHogwartsEventNavBootHtml,
+    resolvePublicHeaderPromoMode,
+    resolveEventHeaderPromoMode,
+    parseDateStartMs,
+    parseDateEndMs,
+    serializeCalendarForWeb,
+  } = require(path.join(ROOT, "..", "Vinyls", "Utils", "Web", "hogwartsEventCalendar.js"));
+  const {
+    formatEventWindowIt: formatHogwartsEventWindowIt,
+    formatSortingWindowIt: formatHogwartsSortingWindowIt,
+    isEventWindowOpen: hogwartsIsEventWindowOpen,
+    isSortingWindowOpen: hogwartsIsSortingWindowOpen,
+  } = require(path.join(
+    ROOT,
+    "..",
+    "Vinyls",
+    "Utils",
+    "Web",
+    "hogwartsSortingConfig.js",
+  ));
+  const hogwartsCrestsPath = "../../images/evento-hogwarts/crests/";
+  const hogwartsIntroVideo = "/images/evento-hogwarts/inizio.mp4";
+  const hogwartsEventRaw = cfg.hogwartsEvent && typeof cfg.hogwartsEvent === "object" ? cfg.hogwartsEvent : {};
+  const hogwartsPotionsRaw = cfg.hogwartsPotions && typeof cfg.hogwartsPotions === "object" ? cfg.hogwartsPotions : {};
+  const hogwartsPotionsStartDate = String(hogwartsPotionsRaw.startDate || "2026-08-24T12:00:00").trim() || "2026-08-24T12:00:00";
+  const hogwartsPotionsRedirectUrl = String(hogwartsPotionsRaw.redirectUrl || hogwartsShopPageUrl || "/evento/shop").trim() || "/evento/shop";
+  const hogwartsIntroDurationSec = Math.max(
+    1,
+    Math.min(120, Number(hogwartsEventRaw.introVideoDurationSec) || 12),
+  );
+  const hogwartsIntroTrimEndSec = Math.max(
+    0,
+    Math.min(30, Number(hogwartsEventRaw.introVideoTrimEndSec) || 0),
+  );
+  const {
+    HOUSES: hogwartsHouses,
+    QUESTIONS: hogwartsScoringQuestions,
+    getHouseMeta: getHogwartsHouseMeta,
+    getPublicQuestions: getHogwartsPublicQuestions,
+  } = require(path.join(ROOT, "..", "Vinyls", "Utils", "Web", "hogwartsSortingBank.js"));
+  const hogwartsEventKey = String(hogwartsEventRaw.eventKey || "hogwarts_summer_2026").trim() || "hogwarts_summer_2026";
+  const hogwartsEventTimezone = String(hogwartsEventRaw.timezone || "Europe/Rome").trim() || "Europe/Rome";
+  const hogwartsSortingStartDate =
+    String(hogwartsEventRaw.sortingStartDate || hogwartsEventRaw.startDate || "2026-06-01T12:00:00").trim() ||
+    "2026-06-01T12:00:00";
+  const hogwartsEventWindowLabel =
+    formatHogwartsEventWindowIt({
+      timezone: hogwartsEventRaw.timezone || "Europe/Rome",
+      startDate: hogwartsEventRaw.startDate || "2026-06-01T14:00:00",
+      endDate: hogwartsEventRaw.endDate || "2026-09-01T12:00:00",
+    }) || "";
+  const hogwartsSortingWindowLabel =
+    formatHogwartsSortingWindowIt({
+      timezone: hogwartsEventRaw.timezone || "Europe/Rome",
+      sortingStartDate: hogwartsSortingStartDate,
+      endDate: hogwartsEventRaw.endDate || "2026-09-01T12:00:00",
+    }) || hogwartsEventWindowLabel;
+  const hogwartsStaticWindowState = hogwartsIsEventWindowOpen(
+    {
+      enabled: hogwartsEventRaw.enabled !== false,
+      startMs: parseDateStartMs(hogwartsEventRaw.startDate || "2026-06-01T14:00:00", hogwartsEventTimezone),
+      endMs: parseDateEndMs(hogwartsEventRaw.endDate || "2026-09-01T12:00:00", hogwartsEventTimezone),
+      staffBypassUserIds: Array.isArray(hogwartsEventRaw.staffBypassUserIds)
+        ? hogwartsEventRaw.staffBypassUserIds.map((v) => String(v || "").trim()).filter(Boolean)
+        : [],
+    },
+    Date.now(),
+    null,
+  );
+  const hogwartsSortingStaticWindowState = hogwartsIsSortingWindowOpen(
+    {
+      enabled: hogwartsEventRaw.enabled !== false,
+      sortingStartMs: parseDateStartMs(hogwartsSortingStartDate, hogwartsEventTimezone),
+      endMs: parseDateEndMs(hogwartsEventRaw.endDate || "2026-09-01T12:00:00", hogwartsEventTimezone),
+      staffBypassUserIds: Array.isArray(hogwartsEventRaw.staffBypassUserIds)
+        ? hogwartsEventRaw.staffBypassUserIds.map((v) => String(v || "").trim()).filter(Boolean)
+        : [],
+    },
+    Date.now(),
+    null,
+  );
+  const hogwartsEventCalendarResolved = resolveHogwartsEventCalendar(hogwartsEventRaw, siteBaseNoSlash);
+  hogwartsEventCalendarResolved.windowLabel = hogwartsSortingWindowLabel;
+  hogwartsEventCalendarResolved.potions = {
+    enabled: hogwartsPotionsRaw.enabled !== false,
+    startMs: parseDateStartMs(hogwartsPotionsStartDate, hogwartsEventTimezone),
+    startDate: hogwartsPotionsStartDate,
+  };
+  const hogwartsEventCalendarWeb = serializeCalendarForWeb(hogwartsEventCalendarResolved);
+  const hogwartsEventNav = {
+    previewMode: hogwartsEventRaw.previewMode === true,
+    accessApiUrl: `${String(hogwartsSortingApiResolved || "/webhooks/site-hogwarts-sorting").replace(/\/+$/, "")}/access`,
+    accessApiUrlLocal: distApiLocal(
+      hogwartsSortingApiLocalResolved
+        ? `${String(hogwartsSortingApiLocalResolved).replace(/\/+$/, "")}/access`
+        : "",
+    ),
+    potions: hogwartsEventCalendarResolved.potions,
+  };
+  const hogwartsEventNavBoot = buildHogwartsEventNavBootHtml(hogwartsEventNav);
+  const hogwartsEventCalendarJsonEscaped = JSON.stringify(hogwartsEventCalendarWeb)
+    .replace(/\\/g, "\\\\")
+    .replace(/'/g, "\\'");
+  const notificationsPageUrl = siteBaseNoSlash ? `${siteBaseNoSlash}/notifications/` : "/notifications/";
+  const headerPromoClientConfig = buildHeaderPromoClientConfig({
+    eventRaw: hogwartsEventRaw,
+    eventUrl: hogwartsHubPageUrl,
+    candidatureUrl: richiesteCandidatureUrl,
+  });
+  const headerPromoMode = resolvePublicHeaderPromoMode(hogwartsEventRaw);
+  const headerPromoButtonHtml = buildHeaderPromoButtonHtml({
+    mode: headerPromoMode,
+    eventUrl: hogwartsHubPageUrl,
+    candidatureUrl: richiesteCandidatureUrl,
+  });
+  const eventHeaderPromoButtonHtml = buildHeaderPromoButtonHtml({
+    mode: resolveEventHeaderPromoMode(hogwartsEventRaw),
+    eventUrl: hogwartsHubPageUrl,
+    candidatureUrl: richiesteCandidatureUrl,
+  });
+  const hogwartsPotionsPlayable =
+    hogwartsPotionsRaw.enabled !== false &&
+    Number.isFinite(parseDateStartMs(hogwartsPotionsStartDate)) &&
+    Date.now() >= parseDateStartMs(hogwartsPotionsStartDate);
+  const hogwartsEventHeaderFor = (activeId) =>
+    buildEventHeaderHtml({
+      siteName,
+      siteUrl: siteUrlTrim,
+      discordInviteUrl: discordInviteResolved,
+      guildIconUrl,
+      navItemsHtml: buildEventNavItemsHtml(hogwartsEventCalendarResolved.pages, activeId, {
+        previewMode: hogwartsEventRaw.previewMode === true,
+        potionsPlayable: hogwartsPotionsPlayable,
+      }),
+      eventNavBootHtml: hogwartsEventNavBoot,
+      userPageUrl,
+      notificationsUrl: notificationsPageUrl,
+      promoButtonHtml: eventHeaderPromoButtonHtml,
+    });
+  const hogwartsStaticBootstrap = {
+    ok: true,
+    event: {
+      enabled: hogwartsEventRaw.enabled !== false,
+      previewMode: hogwartsEventRaw.previewMode === true,
+      timezone: String(hogwartsEventRaw.timezone || "Europe/Rome"),
+      startDate: hogwartsSortingStartDate,
+      endDate: String(hogwartsEventRaw.endDate || "2026-09-01T12:00:00"),
+      eventKey: hogwartsEventKey,
+      gringott: {
+        bank: "Gringott",
+        currency: "Galeone d'Oro",
+        currencyPlural: "Galeoni d'Oro",
+        sortingReward: Math.max(1, Math.floor(Number(hogwartsEventRaw.gringott?.sortingReward) || 25)),
+      },
+      windowLabel: hogwartsSortingWindowLabel,
+      phase: hogwartsEventRaw.previewMode === true ? "preview_forbidden" : hogwartsSortingStaticWindowState.phase,
+      open: hogwartsEventRaw.previewMode === true ? false : Boolean(hogwartsSortingStaticWindowState.open),
+      startsAtMs: hogwartsSortingStaticWindowState.startsAtMs ?? parseDateStartMs(hogwartsSortingStartDate, hogwartsEventTimezone),
+      endsAtMs: hogwartsSortingStaticWindowState.endsAtMs ?? parseDateEndMs(hogwartsEventRaw.endDate || "2026-09-01T12:00:00", hogwartsEventTimezone),
+    },
+    questions: getHogwartsPublicQuestions(),
+    scoringQuestions: hogwartsScoringQuestions.map((q) => ({
+      id: q.id,
+      choices: q.choices.map((c) => ({ id: c.id, weights: c.weights })),
+    })),
+    houses: hogwartsHouses.map((id) => getHogwartsHouseMeta(id, String(hogwartsEventRaw.houses?.[id]?.crestUrl || "").trim() || undefined)).filter(Boolean),
+  };
+  const hogwartsStaticBootstrapUri = encodeURIComponent(JSON.stringify(hogwartsStaticBootstrap)).replace(/'/g, "%27");
+  const hogwartsHousePointsRaw =
+    cfg.hogwartsHousePoints && typeof cfg.hogwartsHousePoints === "object"
+      ? cfg.hogwartsHousePoints
+      : hogwartsEventRaw.housePoints && typeof hogwartsEventRaw.housePoints === "object"
+        ? hogwartsEventRaw.housePoints
+        : {};
+  const buildHogwartsPointsBoardPayload = (rawBoard = {}, fallbackRaw = {}) => {
+    const board = rawBoard && typeof rawBoard === "object" ? rawBoard : {};
+    const fallback = fallbackRaw && typeof fallbackRaw === "object" ? fallbackRaw : {};
+    return {
+      title: String(board.title || "").trim(),
+      subtitle: String(board.subtitle || "").trim(),
+      periods: Array.isArray(board.periods)
+        ? board.periods
+            .map((period) => {
+              if (period && typeof period === "object") {
+                return {
+                  label: String(period.label || "").trim(),
+                  range: String(period.range || period.duration || "").trim(),
+                  startDate: String(period.startDate || "").trim(),
+                  endDate: String(period.endDate || "").trim(),
+                };
+              }
+              return String(period || "").trim();
+            })
+            .filter((period) => typeof period === "string" ? Boolean(period) : Boolean(period.label || period.range || period.startDate || period.endDate))
+        : [],
+      maxPoints: Math.max(1, Math.floor(Number(board.maxPoints ?? fallback.maxPoints) || 10000)),
+      scaleStops: Array.isArray(board.scaleStops || fallback.scaleStops)
+        ? (board.scaleStops || fallback.scaleStops)
+          .map((n) => Math.max(0, Math.floor(Number(n) || 0)))
+          .filter(Boolean)
+        : undefined,
+      houses: Object.fromEntries(
+        hogwartsHouses.map((id) => {
+          const meta = getHogwartsHouseMeta(id, String(hogwartsEventRaw.houses?.[id]?.crestUrl || "").trim() || undefined);
+          return [
+            id,
+            {
+              label: meta?.label || id,
+              motto: meta?.motto || "",
+              points: Math.max(0, Math.floor(Number(board[id] ?? fallback[id]) || 0)),
+              color: meta?.primary || "#7c2d12",
+              accent: meta?.accent || "#d4af37",
+              crestUrl: meta?.crestUrl || `${hogwartsCrestsPath}${meta?.crestFile || `${id}.png`}`,
+            },
+          ];
+        }),
+      ),
+    };
+  };
+  const schoolYearPointsRaw = hogwartsHousePointsRaw.schoolYear && typeof hogwartsHousePointsRaw.schoolYear === "object" ? hogwartsHousePointsRaw.schoolYear : hogwartsHousePointsRaw;
+  const eventTotalPointsRaw = hogwartsHousePointsRaw.eventTotal && typeof hogwartsHousePointsRaw.eventTotal === "object" ? hogwartsHousePointsRaw.eventTotal : hogwartsHousePointsRaw;
+  const hogwartsPointsPollMs = Number.isFinite(Number(hogwartsHousePointsRaw.pollIntervalMs))
+    ? Number(hogwartsHousePointsRaw.pollIntervalMs)
+    : Number.isFinite(Number(cfg.liveStats?.pollIntervalMs))
+      ? Number(cfg.liveStats.pollIntervalMs)
+      : 15000;
+  const hogwartsPointsPayload = {
+    pollIntervalMs: hogwartsPointsPollMs >= 5000 ? hogwartsPointsPollMs : 15000,
+    boards: {
+      schoolYear: buildHogwartsPointsBoardPayload(schoolYearPointsRaw, hogwartsHousePointsRaw),
+      eventTotal: buildHogwartsPointsBoardPayload(eventTotalPointsRaw, hogwartsHousePointsRaw),
+    },
+  };
+  const hogwartsPointsUri = encodeURIComponent(JSON.stringify(hogwartsPointsPayload)).replace(/'/g, "%27");
+  const seratafilmBgmRaw = cfg.seratafilmBgm && typeof cfg.seratafilmBgm === "object" ? cfg.seratafilmBgm : {};
+  const seratafilmBgmTrackUrls = Array.isArray(seratafilmBgmRaw.trackUrls)
+    ? seratafilmBgmRaw.trackUrls
+        .map((u) => String(u || "").trim())
+        .filter((u) => /^https?:\/\//i.test(u))
+    : [];
+  const seratafilmYtRaw =
+    seratafilmBgmRaw.youtube && typeof seratafilmBgmRaw.youtube === "object" ? seratafilmBgmRaw.youtube : {};
+  function seratafilmParseYoutubeVideoId(input) {
+    const s = String(input || "").trim();
+    if (!s) return "";
+    if (/^[a-zA-Z0-9_-]{11}$/.test(s)) return s;
+    const m =
+      s.match(/[?&]v=([a-zA-Z0-9_-]{11})(?:[&]|$|#)/) ||
+      s.match(/youtu\.be\/([a-zA-Z0-9_-]{11})(?:[?]|$|\/|#)/) ||
+      s.match(/youtube\.com\/embed\/([a-zA-Z0-9_-]{11})(?:[?]|$|#)/);
+    return m ? m[1] : "";
+  }
+  function seratafilmParseYoutubePlaylistId(input) {
+    const s = String(input || "").trim();
+    if (!s) return "";
+    if (/^[a-zA-Z0-9_-]{10,80}$/.test(s) && /^[A-Z]{2}/.test(s)) return s;
+    const m = s.match(/[?&]list=([^&#]+)/);
+    if (!m) return "";
+    try {
+      const id = decodeURIComponent(m[1]).replace(/[^a-zA-Z0-9_-]/g, "");
+      return /^[a-zA-Z0-9_-]{10,80}$/.test(id) && /^[A-Z]{2}/.test(id) ? id : "";
+    } catch {
+      return "";
+    }
+  }
+  function seratafilmParseYoutubeStartSec(input) {
+    const s = String(input || "").trim();
+    const m = s.match(/[?&](?:t|start)=(\d+)/);
+    return m ? Math.max(0, parseInt(m[1], 10)) : 0;
+  }
+  function seratafilmCollectYoutubeFromUrls(urls) {
+    const list = Array.isArray(urls) ? urls : [];
+    const ids = [];
+    let startSeconds = 0;
+    for (const raw of list) {
+      const id = seratafilmParseYoutubeVideoId(raw);
+      if (!id) continue;
+      ids.push(id);
+      if (!startSeconds) startSeconds = seratafilmParseYoutubeStartSec(raw);
+    }
+    return { videoIds: [...new Set(ids)], startSeconds };
+  }
+  const hogwartsBgmRaw = cfg.hogwartsBgm && typeof cfg.hogwartsBgm === "object" ? cfg.hogwartsBgm : {};
+  const hogwartsYtRaw =
+    hogwartsBgmRaw.youtube && typeof hogwartsBgmRaw.youtube === "object" ? hogwartsBgmRaw.youtube : {};
+  const hogwartsBgmYtVideoIdsFromUrls = Array.isArray(hogwartsYtRaw.videoUrls)
+    ? [
+        ...new Set(
+          hogwartsYtRaw.videoUrls.map((u) => seratafilmParseYoutubeVideoId(u)).filter(Boolean),
+        ),
+      ]
+    : [];
+  const hogwartsBgmYtVideoIdsDirect = Array.isArray(hogwartsYtRaw.videoIds)
+    ? [...new Set(hogwartsYtRaw.videoIds.map((x) => seratafilmParseYoutubeVideoId(x)).filter(Boolean))]
+    : [];
+  const hogwartsBgmYtVideoIds = [
+    ...new Set([...hogwartsBgmYtVideoIdsDirect, ...hogwartsBgmYtVideoIdsFromUrls]),
+  ];
+  let hogwartsBgmYoutubePublic = null;
+  const hogwartsPlaylistUrlRaw = Array.isArray(hogwartsYtRaw.playlistUrl)
+    ? String(hogwartsYtRaw.playlistUrl[0] || "").trim()
+    : String(hogwartsYtRaw.playlistId || hogwartsYtRaw.playlistUrl || "").trim();
+  const hogwartsBgmYtPlaylistId = seratafilmParseYoutubePlaylistId(hogwartsPlaylistUrlRaw);
+  if (hogwartsBgmYtPlaylistId) {
+    hogwartsBgmYoutubePublic = { playlistId: hogwartsBgmYtPlaylistId, videoIds: [] };
+  } else if (hogwartsBgmYtVideoIds.length) {
+    hogwartsBgmYoutubePublic = { playlistId: "", videoIds: hogwartsBgmYtVideoIds };
+  }
+  const hogwartsBgmPayload = {
+    baseVolume: Math.min(1, Math.max(0.02, Number(hogwartsBgmRaw.baseVolume) || 0.2)),
+  };
+  if (hogwartsBgmYoutubePublic) hogwartsBgmPayload.youtube = hogwartsBgmYoutubePublic;
+  let hogwartsBgmUri = encodeURIComponent(JSON.stringify(hogwartsBgmPayload)).replace(/'/g, "%27");
+  let hogwartsBgmJson = JSON.stringify(hogwartsBgmPayload);
+  const seratafilmBgmYtPlaylistId = seratafilmParseYoutubePlaylistId(
+    String(seratafilmYtRaw.playlistId || seratafilmYtRaw.playlistUrl || "").trim(),
+  );
+  const seratafilmDefaultYt = seratafilmCollectYoutubeFromUrls(seratafilmYtRaw.videoUrls);
+  const seratafilmEventYtUrls =
+    Array.isArray(seratafilmYtRaw.eventVideoUrls) && seratafilmYtRaw.eventVideoUrls.length
+      ? seratafilmYtRaw.eventVideoUrls
+      : hogwartsYtRaw.videoUrls;
+  const seratafilmEventYt = seratafilmCollectYoutubeFromUrls(seratafilmEventYtUrls);
+  const seratafilmBgmYtVideoIdsDirect = Array.isArray(seratafilmYtRaw.videoIds)
+    ? [...new Set(seratafilmYtRaw.videoIds.map((x) => seratafilmParseYoutubeVideoId(x)).filter(Boolean))]
+    : [];
+  if (seratafilmBgmYtVideoIdsDirect.length && !seratafilmDefaultYt.videoIds.length) {
+    seratafilmDefaultYt.videoIds = seratafilmBgmYtVideoIdsDirect;
+  }
+  let seratafilmBgmYoutubePublic = null;
+  if (seratafilmBgmYtPlaylistId) {
+    seratafilmBgmYoutubePublic = { playlistId: seratafilmBgmYtPlaylistId, videoIds: [] };
+  } else if (seratafilmDefaultYt.videoIds.length || seratafilmEventYt.videoIds.length) {
+    seratafilmBgmYoutubePublic = {
+      playlistId: "",
+      videoIds: seratafilmDefaultYt.videoIds,
+      defaultVideoIds: seratafilmDefaultYt.videoIds,
+      defaultStartSeconds: seratafilmDefaultYt.startSeconds,
+      eventVideoIds: seratafilmEventYt.videoIds,
+      eventStartSeconds: seratafilmEventYt.startSeconds,
+    };
+  }
+  const seratafilmBgmPayload = {
+    trackUrls: seratafilmBgmTrackUrls,
+    fadeStartSeconds: Math.max(5, Math.min(3600, Number(seratafilmBgmRaw.fadeStartSeconds) || 120)),
+    baseVolume: Math.min(1, Math.max(0.02, Number(seratafilmBgmRaw.baseVolume) || 0.34)),
+    hogwartsEventWindow: {
+      enabled: hogwartsEventRaw.enabled !== false,
+      startMs: parseDateStartMs(hogwartsEventRaw.startDate || "2026-06-01T14:00:00", hogwartsEventTimezone),
+      endMs: parseDateEndMs(hogwartsEventRaw.endDate || "2026-09-01T12:00:00", hogwartsEventTimezone),
+    },
+  };
+  if (seratafilmBgmYoutubePublic) seratafilmBgmPayload.youtube = seratafilmBgmYoutubePublic;
+  const seratafilmBgmUri = encodeURIComponent(JSON.stringify(seratafilmBgmPayload)).replace(/'/g, "%27");
+  const seratafilmEventRaw = cfg.seratafilmEvent && typeof cfg.seratafilmEvent === "object" ? cfg.seratafilmEvent : {};
+  const seratafilmRec = seratafilmEventRaw.recurring || seratafilmEventRaw.weekly || {};
+  const seratafilmScheduleRaw = Array.isArray(seratafilmEventRaw.schedule) ? seratafilmEventRaw.schedule : [];
+  const seratafilmSchedule = seratafilmScheduleRaw
+    .map((row) => {
+      if (!row || typeof row !== "object") return null;
+      const date = String(row.date || "").trim();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+      if (row.skip) return { date, skip: true };
+      const title = String(row.title || "").trim();
+      if (!title) return null;
+      return { date, title };
+    })
+    .filter(Boolean);
+  const seratafilmEventPayload = {
+    timezone: String(seratafilmEventRaw.timezone || "Europe/Rome").trim() || "Europe/Rome",
+    recurring: {
+      weekday: Number.isFinite(Number(seratafilmRec.weekday))
+        ? Math.max(0, Math.min(6, Math.floor(Number(seratafilmRec.weekday))))
+        : 6,
+      hour: Number.isFinite(Number(seratafilmRec.hour))
+        ? Math.max(0, Math.min(23, Math.floor(Number(seratafilmRec.hour))))
+        : 21,
+      minute: Number.isFinite(Number(seratafilmRec.minute))
+        ? Math.max(0, Math.min(59, Math.floor(Number(seratafilmRec.minute))))
+        : 0,
+    },
+    overrideIso: String(seratafilmEventRaw.overrideIso || seratafilmEventRaw.fixedIso || "").trim(),
+    linkFilm: String(seratafilmEventRaw.linkFilm || "").trim(),
+    hogwartsThemeVideoUrl: String(seratafilmEventRaw.hogwartsThemeVideoUrl || hogwartsIntroVideo).trim(),
+    filmTitle: String(seratafilmEventRaw.filmTitle || "").trim(),
+    nextFilmTitle: String(seratafilmEventRaw.nextFilmTitle || "").trim(),
+    adBreak: (() => {
+      const raw = seratafilmEventRaw.adBreak && typeof seratafilmEventRaw.adBreak === "object" ? seratafilmEventRaw.adBreak : {};
+      const videoUrl = String(raw.videoUrl || "").trim();
+      if (raw.enabled === false || !videoUrl) return { enabled: false };
+      return {
+        enabled: true,
+        videoUrl,
+        atPercent: Number.isFinite(Number(raw.atPercent))
+          ? Math.max(1, Math.min(99, Math.floor(Number(raw.atPercent))))
+          : 50,
+        totalMs: Number.isFinite(Number(raw.totalMs))
+          ? Math.max(30000, Math.min(180000, Math.floor(Number(raw.totalMs))))
+          : 60000,
+        introMs: Number.isFinite(Number(raw.introMs))
+          ? Math.max(5000, Math.min(45000, Math.floor(Number(raw.introMs))))
+          : 15000,
+        outroMs: Number.isFinite(Number(raw.outroMs))
+          ? Math.max(5000, Math.min(45000, Math.floor(Number(raw.outroMs))))
+          : 15000,
+        introTitle: String(raw.introTitle || "Pausa pubblicitaria").trim() || "Pausa pubblicitaria",
+        introText: String(raw.introText || "Tra poco riprenderemo la proiezione. Resta con noi!").trim(),
+        outroTitle: String(raw.outroTitle || "La proiezione riprende").trim() || "La proiezione riprende",
+        outroText: String(raw.outroText || "Grazie per la pazienza. Buona visione!").trim(),
+      };
+    })(),
+    schedule: seratafilmSchedule,
+  };
+  const seratafilmEventUri = encodeURIComponent(JSON.stringify(seratafilmEventPayload)).replace(/'/g, "%27");
   const reviewsApiFromEnv = String(process.env.VC_REVIEWS_API_URL ?? "").trim();
   const reviewsApiRaw = reviewsApiFromEnv || String(cfg.reviewsApiUrl ?? "").trim();
-  const reviewsApiResolved =
-    reviewsApiRaw && /^https?:\/\//i.test(reviewsApiRaw)
-      ? reviewsApiRaw
-      : reviewsApiRaw && siteBaseNoSlash
-        ? `${siteBaseNoSlash.replace(/\/+$/, "")}${reviewsApiRaw.startsWith("/") ? "" : "/"}${reviewsApiRaw}`
-        : siteBaseNoSlash
-          ? `${siteBaseNoSlash}/webhooks/site-reviews`
-          : "/webhooks/site-reviews";
+  const reviewsApiResolved = resolvePublicWebhookApiUrl(reviewsApiRaw, "/webhooks/site-reviews");
   const reviewsApiLocalFromEnv = String(process.env.VC_REVIEWS_API_URL_LOCAL ?? "").trim();
   const reviewsApiLocalRaw = reviewsApiLocalFromEnv || String(cfg.reviewsApiUrlLocal ?? "").trim();
   const reviewsApiLocalResolved =
@@ -1353,14 +2350,7 @@ async function main() {
       : "";
   const suggestionsApiFromEnv = String(process.env.VC_SUGGESTIONS_API_URL ?? "").trim();
   const suggestionsApiRaw = suggestionsApiFromEnv || String(cfg.suggestionsApiUrl ?? "").trim();
-  const suggestionsApiResolved =
-    suggestionsApiRaw && /^https?:\/\//i.test(suggestionsApiRaw)
-      ? suggestionsApiRaw
-      : suggestionsApiRaw && siteBaseNoSlash
-        ? `${siteBaseNoSlash.replace(/\/+$/, "")}${suggestionsApiRaw.startsWith("/") ? "" : "/"}${suggestionsApiRaw}`
-        : siteBaseNoSlash
-          ? `${siteBaseNoSlash}/webhooks/site-suggestions`
-          : "/webhooks/site-suggestions";
+  const suggestionsApiResolved = resolvePublicWebhookApiUrl(suggestionsApiRaw, "/webhooks/site-suggestions");
   const suggestionsApiLocalFromEnv = String(process.env.VC_SUGGESTIONS_API_URL_LOCAL ?? "").trim();
   const suggestionsApiLocalRaw =
     suggestionsApiLocalFromEnv || String(cfg.suggestionsApiUrlLocal ?? "").trim();
@@ -1370,14 +2360,7 @@ async function main() {
       : "";
   const rolesApiFromEnv = String(process.env.VC_ROLES_API_URL ?? "").trim();
   const rolesApiRaw = rolesApiFromEnv || String(cfg.rolesApiUrl ?? "").trim();
-  const rolesApiResolved =
-    rolesApiRaw && /^https?:\/\//i.test(rolesApiRaw)
-      ? rolesApiRaw
-      : rolesApiRaw && siteBaseNoSlash
-        ? `${siteBaseNoSlash.replace(/\/+$/, "")}${rolesApiRaw.startsWith("/") ? "" : "/"}${rolesApiRaw}`
-        : siteBaseNoSlash
-          ? `${siteBaseNoSlash}/webhooks/site-roles`
-          : "/webhooks/site-roles";
+  const rolesApiResolved = resolvePublicWebhookApiUrl(rolesApiRaw, "/webhooks/site-roles");
   const rolesApiLocalFromEnv = String(process.env.VC_ROLES_API_URL_LOCAL ?? "").trim();
   const rolesApiLocalRaw =
     rolesApiLocalFromEnv || String(cfg.rolesApiUrlLocal ?? "").trim();
@@ -1407,21 +2390,22 @@ async function main() {
   const userPageUrl = siteBaseNoSlash ? `${siteBaseNoSlash}/user` : "/user";
   const ruoliPageUrl = siteBaseNoSlash ? `${siteBaseNoSlash}/ruoli` : "/ruoli";
   if (discordOauthRedirectResolved) {
-    console.log(
+    buildInfoLog(
       "[build-site] OAuth2 Redirect (Discord Developer Portal): registra solo questa callback (stesso redirect da tutte le pagine; il ritorno alla pagina corretta usa state):",
       JSON.stringify(discordOauthRedirectResolved),
     );
     if (discordOauthRedirectNoSlash !== discordOauthRedirectResolved) {
-      console.log(
+      buildInfoLog(
         "[build-site] Se in portale hai solo la variante senza slash finale, aggiungi anche:",
         JSON.stringify(discordOauthRedirectNoSlash),
       );
     }
-    console.log(
+    buildInfoLog(
       "[build-site] Stessa applicazione (client_id), sezione OAuth2: attiva «Implicit Grant» se usi response_type=token.",
     );
   }
 
+  const buildAssetVersion = String(Date.now());
   const map = {
     COOKIEYES_BLOCK: cookieYesBlock,
     GA_BLOCK: gaBlock,
@@ -1443,12 +2427,27 @@ async function main() {
     ABOUT_DESCRIPTION: escHtml(aboutPlain),
     SITE_NAME: siteName,
     SITE_URL: escAttr(siteUrlTrim),
+    BUILD_ASSET_VERSION: buildAssetVersion,
     TERMS_URL: escAttr(termsUrlResolved),
     PRIVACY_URL: escAttr(privacyUrlResolved),
     COOKIE_POLICY_URL: escAttr(cookiePolicyUrlResolved),
+    NOTIFICATIONS_URL: escAttr(defaultLegalPath("notifications")),
+    USER_PERSONALIZZA_URL: escAttr(defaultLegalPath("user/personalizza")),
     LEGAL_TERMS_UPDATED: escHtml(legalTermsDate),
     LEGAL_PRIVACY_UPDATED: escHtml(legalPrivacyDate),
     LEGAL_COOKIE_UPDATED: escHtml(legalCookieDate),
+    COOKIE_OG_TITLE: escAttr(`Cookie Policy | ${siteName}`),
+    COOKIE_OG_DESCRIPTION: escAttr(
+      `Cookie Policy del sito ${siteName}: cookie tecnici, sicurezza, durata e gestione.`,
+    ),
+    TERMS_OG_TITLE: escAttr(`Termini di Servizio | ${siteName}`),
+    TERMS_OG_DESCRIPTION: escAttr(`Termini di Servizio del sito e del server Discord ${siteName}.`),
+    PRIVACY_OG_TITLE: escAttr(`Privacy Policy | ${siteName}`),
+    PRIVACY_OG_DESCRIPTION: escAttr(`Informativa sulla privacy per il sito e la community ${siteName}.`),
+    USER_RANK_CUSTOMIZE_OG_TITLE: escAttr(`${siteName} | Personalizza rank card`),
+    USER_RANK_CUSTOMIZE_OG_DESCRIPTION: escAttr(`Personalizza la tua rank card direttamente dal sito.`),
+    USER_PERSONALIZZA_OG_URL: escAttr(siteBaseNoSlash ? `${siteBaseNoSlash}/user/personalizza` : ""),
+    USER_CUSTOMIZE_OG_URL: escAttr(siteBaseNoSlash ? `${siteBaseNoSlash}/user/customize` : ""),
     DISCORD_INVITE_DISPLAY: escHtml(discordInviteDisplay),
     SUPPORT_MAILTO: supEmail ? escAttr(`mailto:${supEmail}`) : escAttr("#"),
     VOTE_URL: escAttr(votePageUrl),
@@ -1456,6 +2455,7 @@ async function main() {
     TOPGG_VOTE_URL: escAttr(topggVoteUrlResolved),
     REVIEWS_URL: cfg.reviewsUrl || "https://disboard.org/it/server/1329080093599076474",
     DONATIONS_URL: escAttr(donationsPageUrl),
+    PERKS_URL: escAttr(perksPageUrl),
     PAYPAL_DONATIONS_URL: escAttr(paypalDonationsUrlResolved),
     DISCORD_OAUTH_CLIENT_ID: String(cfg.discordOauth?.clientId || "").trim(),
     DISCORD_OAUTH_REDIRECT_URI: discordOauthRedirectResolved,
@@ -1475,29 +2475,88 @@ async function main() {
     CANDIDATURE_OG_TITLE: escAttr(`${siteName} | Candidature`),
     CANDIDATURE_OG_URL: escAttr(siteBaseNoSlash ? `${siteBaseNoSlash}/candidature` : ""),
     CANDIDATURE_SUBMIT_API_URL: escAttr(candidatureSubmitApiResolved),
-    CANDIDATURE_SUBMIT_API_URL_LOCAL: escAttr(candidatureSubmitApiLocalResolved),
+    CANDIDATURE_SUBMIT_API_URL_LOCAL: escAttr(distApiLocal(candidatureSubmitApiLocalResolved)),
     UNBAN_SUBMIT_API_URL: escAttr(unbanSubmitApiResolved),
-    UNBAN_SUBMIT_API_URL_LOCAL: escAttr(unbanSubmitApiLocalResolved),
+    UNBAN_SUBMIT_API_URL_LOCAL: escAttr(distApiLocal(unbanSubmitApiLocalResolved)),
     COMMUNITY_RULES_API_URL: escAttr(communityRulesApiResolved),
-    COMMUNITY_RULES_API_URL_LOCAL: escAttr(communityRulesApiLocalResolved),
+    COMMUNITY_RULES_API_URL_LOCAL: escAttr(distApiLocal(communityRulesApiLocalResolved)),
     USER_PAGE_URL: escAttr(userPageUrl),
     RUOLI_PAGE_URL: escAttr(ruoliPageUrl),
     USERS_LEADERBOARD_API_URL: escAttr(usersLeaderboardApiResolved),
-    USERS_LEADERBOARD_API_URL_LOCAL: escAttr(usersLeaderboardApiLocalResolved),
+    USERS_LEADERBOARD_API_URL_LOCAL: escAttr(distApiLocal(usersLeaderboardApiLocalResolved)),
     VOTE_API_URL: escAttr(voteApiResolved),
-    VOTE_API_URL_LOCAL: escAttr(voteApiLocalResolved),
+    VOTE_API_URL_LOCAL: escAttr(distApiLocal(voteApiLocalResolved)),
     SITE_NOTIFICATIONS_API_URL: escAttr(siteNotifsApiResolved),
-    SITE_NOTIFICATIONS_API_URL_LOCAL: escAttr(siteNotifsApiLocalResolved),
+    SITE_NOTIFICATIONS_API_URL_LOCAL: escAttr(distApiLocal(siteNotifsApiLocalResolved)),
+    SERATAFILM_ACCESS_API_URL: escAttr(seratafilmAccessApiResolved),
+    SERATAFILM_ACCESS_API_URL_LOCAL: escAttr(distApiLocal(seratafilmAccessApiLocalResolved)),
+    HOGWARTS_SORTING_API_URL: escAttr(hogwartsSortingApiResolved),
+    HOGWARTS_SORTING_API_URL_LOCAL: escAttr(distApiLocal(hogwartsSortingApiLocalResolved)),
+    HOGWARTS_SHOP_API_URL: escAttr(`${hogwartsSortingApiResolved.replace(/\/+$/, "")}/shop`),
+    HOGWARTS_SHOP_API_URL_LOCAL: escAttr(distApiLocal(hogwartsSortingApiLocalResolved ? `${hogwartsSortingApiLocalResolved.replace(/\/+$/, "")}/shop` : "")),
+    HOGWARTS_POTIONS_API_URL: escAttr(`${hogwartsSortingApiResolved.replace(/\/+$/, "")}/potions`),
+    HOGWARTS_POTIONS_API_URL_LOCAL: escAttr(distApiLocal(hogwartsSortingApiLocalResolved ? `${hogwartsSortingApiLocalResolved.replace(/\/+$/, "")}/potions` : "")),
+    HOGWARTS_POTIONS_START_DATE: escAttr(hogwartsPotionsStartDate),
+    HOGWARTS_POTIONS_REDIRECT_URL: escAttr(hogwartsPotionsRedirectUrl),
+    HOGWARTS_CRESTS_PATH: escAttr(hogwartsCrestsPath),
+    HOGWARTS_INTRO_VIDEO: escAttr(hogwartsIntroVideo),
+    HOGWARTS_INTRO_DURATION_SEC: String(hogwartsIntroDurationSec),
+    HOGWARTS_INTRO_TRIM_END_SEC: String(hogwartsIntroTrimEndSec),
+    HOGWARTS_CRESTS_CACHE_BUST: buildAssetVersion,
+    HOGWARTS_STATIC_BOOTSTRAP_URI: hogwartsStaticBootstrapUri,
+    HOGWARTS_POINTS_URI: hogwartsPointsUri,
+    HOGWARTS_BGM_URI: hogwartsBgmUri,
+    HOGWARTS_BGM_JSON: hogwartsBgmJson,
+    HOGWARTS_SORTING_PAGE_URL: escAttr(hogwartsSortingPageUrl),
+    HOGWARTS_POINTS_PAGE_URL: escAttr(hogwartsPointsPageUrl),
+    HOGWARTS_SHOP_PAGE_URL: escAttr(hogwartsShopPageUrl),
+    HOGWARTS_POTIONS_PAGE_URL: escAttr(hogwartsPotionsPageUrl),
+    HOGWARTS_HUB_PAGE_URL: escAttr(hogwartsHubPageUrl),
+    HOGWARTS_EVENT_HEADER: hogwartsEventHeaderFor("hub"),
+    HOGWARTS_EVENT_WINDOW_LABEL: escHtml(hogwartsEventWindowLabel),
+    HOGWARTS_EVENT_CALENDAR_JSON: hogwartsEventCalendarJsonEscaped,
+    HOGWARTS_HUB_PAGE_TITLE: escAttr(`${siteName} | Evento Hogwarts`),
+    HOGWARTS_HUB_META_DESCRIPTION: escAttr(
+      `Calendario settimanale dell'evento Hogwarts ${siteName}: smistamento, shop, pozioni, coppa e attività Discord.`,
+    ),
+    HOGWARTS_HUB_OG_TITLE: escAttr(`${siteName} | Evento Hogwarts`),
+    HOGWARTS_HUB_OG_URL: escAttr(hogwartsHubPageUrl),
+    HOGWARTS_SORTING_PAGE_TITLE: escAttr(`${siteName} | Smistamento Hogwarts`),
+    HOGWARTS_SORTING_META_DESCRIPTION: escAttr(
+      `Quiz di smistamento Harry Potter: scopri la tua casa a Hogwarts nell'evento estivo ${siteName}.`,
+    ),
+    HOGWARTS_SORTING_OG_TITLE: escAttr(`${siteName} | Smistamento Hogwarts`),
+    HOGWARTS_SORTING_OG_URL: escAttr(hogwartsSortingPageUrl),
+    HOGWARTS_POINTS_PAGE_TITLE: escAttr(`${siteName} | Punti Hogwarts`),
+    HOGWARTS_POINTS_META_DESCRIPTION: escAttr(
+      `Clessidre delle case di Hogwarts: segui i punti di Grifondoro, Corvonero, Tassorosso e Serpeverde nell'evento ${siteName}.`,
+    ),
+    HOGWARTS_POINTS_OG_TITLE: escAttr(`${siteName} | Punti Hogwarts`),
+    HOGWARTS_POINTS_OG_URL: escAttr(hogwartsPointsPageUrl),
+    HOGWARTS_SHOP_PAGE_TITLE: escAttr(`${siteName} | Shop Hogwarts`),
+    HOGWARTS_SHOP_META_DESCRIPTION: escAttr(
+      `Shop Hogwarts ${siteName}: acquista bacchette, scope e animali usando i Galeoni d'Oro dell'evento.`,
+    ),
+    HOGWARTS_SHOP_OG_TITLE: escAttr(`${siteName} | Shop Hogwarts`),
+    HOGWARTS_SHOP_OG_URL: escAttr(hogwartsShopPageUrl),
+    HOGWARTS_POTIONS_PAGE_TITLE: escAttr(`${siteName} | Pozioni Hogwarts`),
+    HOGWARTS_POTIONS_META_DESCRIPTION: escAttr(
+      `Pozioni Hogwarts ${siteName}: abbina pozioni ed effetti nel minigioco da 12 ore dell'evento.`,
+    ),
+    HOGWARTS_POTIONS_OG_TITLE: escAttr(`${siteName} | Pozioni Hogwarts`),
+    HOGWARTS_POTIONS_OG_URL: escAttr(hogwartsPotionsPageUrl),
+    SERATAFILM_BGM_URI: seratafilmBgmUri,
+    SERATAFILM_EVENT_URI: seratafilmEventUri,
     REVIEWS_PAGE_URL: escAttr(reviewsPageUrl),
     REVIEWS_API_URL: escAttr(reviewsApiResolved),
-    REVIEWS_API_URL_LOCAL: escAttr(reviewsApiLocalResolved),
+    REVIEWS_API_URL_LOCAL: escAttr(distApiLocal(reviewsApiLocalResolved)),
     SUGGESTIONS_PAGE_URL: escAttr(suggestionsPageUrl),
     SUGGESTIONS_API_URL: escAttr(suggestionsApiResolved),
-    SUGGESTIONS_API_URL_LOCAL: escAttr(suggestionsApiLocalResolved),
+    SUGGESTIONS_API_URL_LOCAL: escAttr(distApiLocal(suggestionsApiLocalResolved)),
     ROLES_API_URL: escAttr(rolesApiResolved),
-    ROLES_API_URL_LOCAL: escAttr(rolesApiLocalResolved),
+    ROLES_API_URL_LOCAL: escAttr(distApiLocal(rolesApiLocalResolved)),
     RANK_CARD_API_URL: escAttr(rankCardApiResolved),
-    RANK_CARD_API_URL_LOCAL: escAttr(rankCardApiLocalResolved),
+    RANK_CARD_API_URL_LOCAL: escAttr(distApiLocal(rankCardApiLocalResolved)),
     USER_PAGE_TITLE: `${siteName} | Community · Classifica`,
     USER_META_DESCRIPTION: escAttr(
       `Classifica livelli ed EXP del server Discord ${siteName}: utenti ordinati per esperienza totale.`,
@@ -1520,6 +2579,12 @@ async function main() {
     ),
     DONAZIONI_OG_TITLE: escAttr(`${siteName} | Donazioni`),
     DONAZIONI_OG_URL: escAttr(donationsPageUrl),
+    PERKS_PAGE_TITLE: `${siteName} | Perks`,
+    PERKS_META_DESCRIPTION: escAttr(
+      `Perks boost Nitro, livelli EXP, badge e verifica selfie della community Discord ${siteName}: riepilogo vantaggi.`,
+    ),
+    PERKS_OG_TITLE: escAttr(`${siteName} | Perks`),
+    PERKS_OG_URL: escAttr(perksPageUrl),
     VOTE_PAGE_TITLE: `${siteName} | Vota`,
     VOTE_META_DESCRIPTION: escAttr(
       `Vota ${siteName} su Discadia e Top.gg, supporta la community e ottieni ricompense.`,
@@ -1540,7 +2605,7 @@ async function main() {
     SUGGESTIONS_OG_URL: escAttr(suggestionsPageUrl),
     FAQ_PAGE_TITLE: `${siteName} | FAQ`,
     FAQ_META_DESCRIPTION: escAttr(
-      `Domande frequenti su ${siteName}: la pagina è in costruzione; torna presto per le risposte.`,
+      `Domande frequenti su ${siteName}: EXP e livelli, vocali, giochi, eventi e come entrare nello staff.`,
     ),
     FAQ_OG_TITLE: escAttr(`${siteName} | FAQ`),
     FAQ_OG_URL: escAttr(siteBaseNoSlash ? `${siteBaseNoSlash}/faq` : ""),
@@ -1550,6 +2615,8 @@ async function main() {
     ),
     SPONSOR_OG_TITLE: escAttr(`${siteName} | Sponsor`),
     SPONSOR_OG_URL: escAttr(siteBaseNoSlash ? `${siteBaseNoSlash}/sponsor` : ""),
+    SPONSOR_PROMO_UNTIL: escAttr(String(cfg.sponsorPromoUntil || "").trim()),
+    SPONSOR_PROMO_UNTIL_LABEL: escHtml(formatSponsorPromoUntilLabel(cfg.sponsorPromoUntil)),
     META_DESCRIPTION: cfg.metaDescription || "",
     META_KEYWORDS: cfg.metaKeywords || "",
     SUPPORT_EMAIL: cfg.supportEmail || "",
@@ -1564,6 +2631,8 @@ async function main() {
     INSTAGRAM_LI_FOOTER: "",
     FOOTER_SOCIAL_LEFT: footerSocialLeft,
     FOOTER_SOCIAL_RIGHT: footerSocialRight,
+    INSTAGRAM_URL: escAttr(instagramUrlResolved || "#"),
+    TIKTOK_URL: escAttr(tiktokUrlResolved || "#"),
     WIKI_PAGE_TITLE: `${siteName} Wiki`,
     WIKI_META_DESCRIPTION: escAttr(
       `Documentazione, comandi e guide del server ${siteName} su Discord.`,
@@ -1573,6 +2642,10 @@ async function main() {
     WIKI_BOT_VINILI_AVATAR_URL: escAttr(wikiViniliAvatarUrl),
     WIKI_BOT_CAFFE_AVATAR_URL: escAttr(wikiCaffeAvatarUrl),
     WIKI_CMD_PANES_HTML,
+    WIKI_ECONOMY_UNLOCK_MS:
+      wikiEconomyUnlockMs != null && Number.isFinite(Number(wikiEconomyUnlockMs))
+        ? String(Math.floor(Number(wikiEconomyUnlockMs)))
+        : "null",
   };
 
   html = applyPlaceholderMap(html, map);
@@ -1629,16 +2702,6 @@ async function main() {
     warnLeftoverPlaceholders(nHtml, "notifications/index.html");
     fs.writeFileSync(notificationsIndexPath, nHtml, "utf8");
   }
-  const verifyIndexPath = path.join(DIST, "verify", "index.html");
-  if (fs.existsSync(verifyIndexPath)) {
-    let verifyHtml = fs.readFileSync(verifyIndexPath, "utf8");
-    verifyHtml = applyPlaceholderMap(verifyHtml, map);
-    warnLeftoverPlaceholders(verifyHtml, "verify/index.html");
-    fs.writeFileSync(verifyIndexPath, verifyHtml, "utf8");
-  } else {
-    console.warn("[build-site] Manca verify/index.html (saltato placeholder).");
-  }
-
   const userIndexPath = path.join(DIST, "user", "index.html");
   if (fs.existsSync(userIndexPath)) {
     let userHtml = fs.readFileSync(userIndexPath, "utf8");
@@ -1678,6 +2741,16 @@ async function main() {
     console.warn("[build-site] Manca donazioni/index.html (saltato placeholder).");
   }
 
+  const perksIndexPath = path.join(DIST, "perks", "index.html");
+  if (fs.existsSync(perksIndexPath)) {
+    let perksHtml = fs.readFileSync(perksIndexPath, "utf8");
+    perksHtml = applyPlaceholderMap(perksHtml, map);
+    warnLeftoverPlaceholders(perksHtml, "perks/index.html");
+    fs.writeFileSync(perksIndexPath, perksHtml, "utf8");
+  } else {
+    console.warn("[build-site] Manca perks/index.html (saltato placeholder).");
+  }
+
   const voteIndexPath = path.join(DIST, "vote", "index.html");
   if (fs.existsSync(voteIndexPath)) {
     let voteHtml = fs.readFileSync(voteIndexPath, "utf8");
@@ -1708,6 +2781,118 @@ async function main() {
     console.warn("[build-site] Manca suggerimenti/index.html (saltato placeholder).");
   }
 
+  const hogwartsHubIndexPath = path.join(DIST, "evento", "index.html");
+  if (fs.existsSync(hogwartsHubIndexPath)) {
+    let hogwartsHubHtml = fs.readFileSync(hogwartsHubIndexPath, "utf8");
+    hogwartsHubHtml = applyPlaceholderMap(hogwartsHubHtml, {
+      ...map,
+      HOGWARTS_EVENT_HEADER: hogwartsEventHeaderFor("hub"),
+    });
+    warnLeftoverPlaceholders(hogwartsHubHtml, "evento/index.html");
+    fs.writeFileSync(hogwartsHubIndexPath, hogwartsHubHtml, "utf8");
+  } else {
+    console.warn("[build-site] Manca evento/index.html (saltato placeholder).");
+  }
+
+  const hogwartsSortingIndexPath = path.join(DIST, "evento", "smistamento", "index.html");
+  if (fs.existsSync(hogwartsSortingIndexPath)) {
+    let hogwartsHtml = fs.readFileSync(hogwartsSortingIndexPath, "utf8");
+    hogwartsHtml = applyPlaceholderMap(hogwartsHtml, {
+      ...map,
+      HOGWARTS_EVENT_HEADER: hogwartsEventHeaderFor("sorting"),
+    });
+    const hogwartsBgmJsonEscaped = hogwartsBgmJson.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+    hogwartsHtml = hogwartsHtml.replace(
+      /window\.__VC_HOGWARTS_BGM = JSON\.parse\('\{"baseVolume":0\.2\}'\);/,
+      `window.__VC_HOGWARTS_BGM = JSON.parse('${hogwartsBgmJsonEscaped}');`,
+    );
+    warnLeftoverPlaceholders(hogwartsHtml, "evento/smistamento/index.html");
+    fs.writeFileSync(hogwartsSortingIndexPath, hogwartsHtml, "utf8");
+    const crestDir = path.join(DIST, "images", "evento-hogwarts", "crests");
+    const crestNames = ["gryffindor.png", "ravenclaw.png", "hufflepuff.png", "slytherin.png"];
+    const missingCrests = crestNames.filter((name) => !fs.existsSync(path.join(crestDir, name)));
+    if (missingCrests.length) {
+      console.warn(
+        "[build-site] Stemmi Hogwarts mancanti in dist (" +
+          missingCrests.join(", ") +
+          "). Copia i PNG in WebSite/images/evento-hogwarts/crests/ e rifai il build.",
+      );
+    }
+    const introMp4 = path.join(DIST, "images", "evento-hogwarts", "inizio.mp4");
+    if (!fs.existsSync(introMp4)) {
+      console.warn(
+        "[build-site] Video intro Hogwarts mancante: WebSite/images/evento-hogwarts/inizio.mp4 (copiato in dist al build).",
+      );
+    }
+  } else {
+    console.warn("[build-site] Manca evento/smistamento/index.html (saltato placeholder).");
+  }
+
+  const hogwartsPointsIndexPath = path.join(DIST, "evento", "coppa", "index.html");
+  if (fs.existsSync(hogwartsPointsIndexPath)) {
+    let hogwartsPointsHtml = fs.readFileSync(hogwartsPointsIndexPath, "utf8");
+    hogwartsPointsHtml = applyPlaceholderMap(hogwartsPointsHtml, {
+      ...map,
+      HOGWARTS_EVENT_HEADER: hogwartsEventHeaderFor("points"),
+    });
+    warnLeftoverPlaceholders(hogwartsPointsHtml, "evento/coppa/index.html");
+    fs.writeFileSync(hogwartsPointsIndexPath, hogwartsPointsHtml, "utf8");
+  } else {
+    console.warn("[build-site] Manca evento/coppa/index.html (saltato placeholder).");
+  }
+
+  const hogwartsShopIndexPath = path.join(DIST, "evento", "shop", "index.html");
+  if (fs.existsSync(hogwartsShopIndexPath)) {
+    let hogwartsShopHtml = fs.readFileSync(hogwartsShopIndexPath, "utf8");
+    hogwartsShopHtml = applyPlaceholderMap(hogwartsShopHtml, {
+      ...map,
+      HOGWARTS_EVENT_HEADER: hogwartsEventHeaderFor("shop"),
+    });
+    warnLeftoverPlaceholders(hogwartsShopHtml, "evento/shop/index.html");
+    fs.writeFileSync(hogwartsShopIndexPath, hogwartsShopHtml, "utf8");
+  } else {
+    console.warn("[build-site] Manca evento/shop/index.html (saltato placeholder).");
+  }
+
+  const hogwartsPotionsIndexPath = path.join(DIST, "evento", "pozioni", "index.html");
+  if (fs.existsSync(hogwartsPotionsIndexPath)) {
+    let hogwartsPotionsHtml = fs.readFileSync(hogwartsPotionsIndexPath, "utf8");
+    hogwartsPotionsHtml = applyPlaceholderMap(hogwartsPotionsHtml, {
+      ...map,
+      HOGWARTS_EVENT_HEADER: hogwartsEventHeaderFor("potions"),
+    });
+    warnLeftoverPlaceholders(hogwartsPotionsHtml, "evento/pozioni/index.html");
+    fs.writeFileSync(hogwartsPotionsIndexPath, hogwartsPotionsHtml, "utf8");
+  } else {
+    console.warn("[build-site] Manca evento/pozioni/index.html (saltato placeholder).");
+  }
+
+  const seratafilmIndexPath = path.join(DIST, "seratafilm", "index.html");
+  if (fs.existsSync(seratafilmIndexPath)) {
+    let seratafilmHtml = fs.readFileSync(seratafilmIndexPath, "utf8");
+    seratafilmHtml = applyPlaceholderMap(seratafilmHtml, map);
+    warnLeftoverPlaceholders(seratafilmHtml, "seratafilm/index.html");
+    fs.writeFileSync(seratafilmIndexPath, seratafilmHtml, "utf8");
+  } else {
+    console.warn("[build-site] Manca seratafilm/index.html (saltato placeholder).");
+  }
+  const seratafilmGraziePath = path.join(DIST, "seratafilm", "grazie", "index.html");
+  if (fs.existsSync(seratafilmGraziePath)) {
+    let seratafilmGrazieHtml = fs.readFileSync(seratafilmGraziePath, "utf8");
+    seratafilmGrazieHtml = applyPlaceholderMap(seratafilmGrazieHtml, map);
+    warnLeftoverPlaceholders(seratafilmGrazieHtml, "seratafilm/grazie/index.html");
+    fs.writeFileSync(seratafilmGraziePath, seratafilmGrazieHtml, "utf8");
+  } else {
+    console.warn("[build-site] Manca seratafilm/grazie/index.html (saltato placeholder).");
+  }
+  const seratafilmAccessoPath = path.join(DIST, "seratafilm", "accesso-richiesto", "index.html");
+  if (fs.existsSync(seratafilmAccessoPath)) {
+    let seratafilmAccessoHtml = fs.readFileSync(seratafilmAccessoPath, "utf8");
+    seratafilmAccessoHtml = applyPlaceholderMap(seratafilmAccessoHtml, map);
+    warnLeftoverPlaceholders(seratafilmAccessoHtml, "seratafilm/accesso-richiesto/index.html");
+    fs.writeFileSync(seratafilmAccessoPath, seratafilmAccessoHtml, "utf8");
+  }
+
   const faqIndexPath = path.join(DIST, "faq", "index.html");
   if (fs.existsSync(faqIndexPath)) {
     let faqHtml = fs.readFileSync(faqIndexPath, "utf8");
@@ -1716,16 +2901,6 @@ async function main() {
     fs.writeFileSync(faqIndexPath, faqHtml, "utf8");
   } else {
     console.warn("[build-site] Manca faq/index.html (saltato placeholder).");
-  }
-
-  const forumIndexPath = path.join(DIST, "forum", "index.html");
-  if (fs.existsSync(forumIndexPath)) {
-    let forumHtml = fs.readFileSync(forumIndexPath, "utf8");
-    forumHtml = applyPlaceholderMap(forumHtml, map);
-    warnLeftoverPlaceholders(forumHtml, "forum/index.html");
-    fs.writeFileSync(forumIndexPath, forumHtml, "utf8");
-  } else {
-    console.warn("[build-site] Manca forum/index.html (saltato placeholder).");
   }
 
   const sponsorIndexPath = path.join(DIST, "sponsor", "index.html");
@@ -1764,16 +2939,24 @@ async function main() {
     fs.writeFileSync(legalPath, legalHtml, "utf8");
   }
 
+  applyAvatarFallbackToDist(DIST, buildAssetVersion);
+  applyCursorTrailToDist(DIST, buildAssetVersion);
+  applyLiveStatsBootToDist(DIST, cfg, inviteCode);
+  applySiteSponsorAdToDist(DIST, cfg);
   applyMaintenanceGateToDist(DIST, maintenanceBoot);
+  applySiteRouteGuardToDist(DIST, cfg);
+  applyHeaderPromoToDist(DIST, headerPromoButtonHtml, headerPromoClientConfig);
 
   const siteBuild = cfg.siteBuild && typeof cfg.siteBuild === "object" ? cfg.siteBuild : null;
   const skipClientObfuscation = siteBuild?.obfuscateClientAssets === false;
   if (!skipClientObfuscation) {
-    obfuscateProjectJsInDist(DIST);
+    await obfuscateProjectJsInDist(DIST);
     await minifyHtmlFilesInDist(DIST);
   } else {
     console.log("[build-site] Offuscamento/minify client disattivato (siteBuild.obfuscateClientAssets: false).");
   }
+
+  assertDistHasNoTemplatePlaceholders(DIST);
 
   console.log("Build OK:", path.relative(process.cwd(), DIST));
 }

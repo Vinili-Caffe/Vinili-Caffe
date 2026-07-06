@@ -10,10 +10,12 @@
   ],
   "scripts": {
     "start": "node --disable-warning=ExperimentalWarning loader.js",
+    "start:wait-lavalink": "node wait-for-lavalink.js",
     "start:official": "npm run start --workspace=Vinyls",
     "start:test": "npm run start --workspace=Coffee",
     "install:bots": "npm install --legacy-peer-deps --prefix Vinyls && npm install --legacy-peer-deps --prefix Coffee",
-    "votes:backfill": "node scripts/backfill-votes-from-supporters.js"
+    "votes:backfill": "node scripts/backfill-votes-from-supporters.js",
+    "dm:banned-unban": "node scripts/dm-banned-unban-link.js"
   },
   "dependencies": {
     "discord.js": "14.25.1"
@@ -23,5 +25,7 @@
   },
   "nodeVersion": "24.7.0",
   "file": "loader.js",
-  "author": "lXo"
+  "author": "lXo",
+  "license": "UNLICENSED",
+  "copyright": "Copyright (c) 2024–2026 Vinili & Caffè. Tutti i diritti riservati."
 }

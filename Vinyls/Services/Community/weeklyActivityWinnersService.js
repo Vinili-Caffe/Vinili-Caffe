@@ -1,39 +1,62 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const cron = require("node-cron");
-const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
-const { VOICE_EXP_PER_MINUTE } = require("./expService");
+const { runCronDetached } = require("../../../shared/scheduling/cronDetached");
+const { ActivityUserProfile, SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Schemas/Community/communitySchemas");
+const { VOICE_EXP_PER_MINUTE, MESSAGE_EXP } = require("./expService");
+const { addGaleoni } = require("./gringottService");
+const { resolveHogwartsEventConfig, isEventWindowOpen, resolveHubStartMs } = require("../../Utils/Web/hogwartsSortingConfig");
+const { HOUSES } = require("../../Utils/Web/hogwartsSortingBank");
+const { housePointPeriodKey } = require("../../Utils/Web/hogwartsHousePointPeriods");
 const IDs = require("../../Utils/Config/ids");
+const { voteCountMonthKeyRome } = require("../../Utils/romeVoteMonthKey");
 const { isChannelInTicketCategory } = require("../../Utils/Ticket/ticketCategoryUtils");
 const { getClientChannelCached, getClientGuildCached, getGuildChannelCached, getGuildMemberCached, getGuildRoleCached, getUserCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { guildIconUrl } = require("../../Utils/Discord/guildDiscordIdentity");
-
-const BACKFILL_HOUR_SUFFIX = "T12";
-function shouldSkipBackfillRow(hourKey, hourSet) {
-  if (!hourKey || typeof hourKey !== "string") return false;
-  if (!hourKey.endsWith(BACKFILL_HOUR_SUFFIX)) return false;
-  const dateKey = hourKey.slice(0, -BACKFILL_HOUR_SUFFIX.length);
-  return [...hourSet].some((k) => k.startsWith(`${dateKey}T`) && k !== hourKey);
-}
-
 const TIME_ZONE = "Europe/Rome";
 const TARGET_CHANNEL_ID = IDs.channels.topWeeklyUser;
 const INFO_CHANNEL_ID = IDs.channels.info;
 const TROPHY_LABELS = ["<:VC_Podio1:1482694399283433582>", "<:VC_Podio2:1482694424411635712>", "<:VC_Podio3:1482694450806259744>"];
 const MESSAGE_WINNER_ROLE_ID = IDs.roles.TopWeeklyText;
 const VOICE_WINNER_ROLE_ID = IDs.roles.TopWeeklyVoc;
+const MINIGAME_WINNER_ROLE_ID = IDs.roles.MVP;
+const ROYALE_MINIGAME_ROLE_ID = IDs.roles.Royale;
+const MONTHLY_MEMBER_ROLE_ID = IDs.roles.TopMonthlyMember;
+const MONTHLY_VOTER_ROLE_RANK_1 = IDs.roles.VIPplus || IDs.roles["VIP+"];
+const MONTHLY_VOTER_ROLE_RANK_2 = IDs.roles.VIP;
+const MONTHLY_VOTER_ROLE_RANK_3 = IDs.roles.Donator;
+const MONTHLY_VOTER_REWARD_DURATION_MS = 30 * 24 * 60 * 60 * 1000;
+const MONTHLY_VOTER_REWARD_PATH = "profile.totals.exp.monthlyVoteTopReward";
+const MONTHLY_TOP_REWARD_ROLE_RANK_2 = IDs.roles.VIPplus || IDs.roles["VIP+"];
+const MONTHLY_TOP_REWARD_ROLE_RANK_3 = IDs.roles.VIP;
+const MONTHLY_TOP_REWARD_DURATION_MS = 30 * 24 * 60 * 60 * 1000;
+const MONTHLY_TOP_REWARD_PATH = "profile.totals.exp.monthlyTopReward";
+const MONTHLY_TOP_NEW_REWARDS_FIRST_RANKED = Object.freeze({ year: 2026, month: 6 });
+const MONTHLY_PRIZE_TICKET_CHANNEL_ID = String(IDs.channels?.ticket || "1442569095068254219");
 const REQUIRED_MEMBER_ROLE_ID = String(IDs.roles.Member || "");
-const WEEKLY_WINNERS_EXCLUDED_ROLE_IDS = new Set(
-  [
-    IDs.roles.Staff,
-    IDs.roles.HighStaff,
-    IDs.roles.Helper,
-    IDs.roles.Mod,
-    IDs.roles.Admin,
-    IDs.roles.Founder,
-  ]
-    .filter(Boolean)
-    .map((id) => String(id)),
+const WEEKLY_WINNERS_EXCLUDED_ROLE_IDS = new Set( [IDs.roles.Staff, IDs.roles.HighStaff, IDs.roles.Helper, IDs.roles.Mod, IDs.roles.SeniorModerator, IDs.roles.Director, IDs.roles.Admin, IDs.roles.Manager, IDs.roles.Founder].filter(Boolean).map((id) => String(id)));
+const HOGWARTS_EVENT_TOP_EXCLUDED_ROLE_IDS = new Set();
+const WEEKLY_WINNERS_PUBLISH_INTRO_MARK = "Annunciamo i vincitori di questa settimana";
+const HOGWARTS_BIWEEKLY_PUBLISH_DOC = "hogwarts_biweekly_top_publish";
+const HOGWARTS_BIWEEKLY_PUBLISH_OWNER_ID = "__event__";
+const HOGWARTS_BIWEEKLY_MS = 14 * 24 * 60 * 60 * 1000;
+const HOGWARTS_BIWEEKLY_HOUSE_POINTS_BY_RANK = [300, 200, 100];
+const HOGWARTS_BIWEEKLY_GALEONI_BY_RANK = [150, 100, 50];
+const HOGWARTS_SORTING_DOC = SITE_DOCUMENT_TYPE.HOGWARTS_SORTING;
+const HOGWARTS_HOUSE_POINTS_DOC = SITE_DOCUMENT_TYPE.HOGWARTS_HOUSE_POINTS;
+const HOGWARTS_HOUSE_POINTS_OWNER_ID = "__event__";
+const BACKFILL_HOUR_SUFFIX = "T12";
+const TEMP_SUPPRESS_MINIGAME_WEEK_KEYS = new Set(
+  ["2026-W19"]
+    .map((k) => String(k || "").trim())
+    .filter(Boolean),
 );
+
+function shouldSkipBackfillRow(hourKey, hourSet) {
+  if (!hourKey || typeof hourKey !== "string") return false;
+  if (!hourKey.endsWith(BACKFILL_HOUR_SUFFIX)) return false;
+  const dateKey = hourKey.slice(0, -BACKFILL_HOUR_SUFFIX.length);
+  return [...hourSet].some((k) => k.startsWith(`${dateKey}T`) && k !== hourKey);
+}
 
 function getRomeOffsetMs(utcDate) {
   const formatter = new Intl.DateTimeFormat("en-US", { timeZone: TIME_ZONE, timeZoneName: "shortOffset", hour: "2-digit" });
@@ -97,6 +120,423 @@ function getLastSunday21BoundaryMsAtOrBefore(date = new Date()) {
   return createUtcFromRomeLocal(p.year, p.month, p.day - p.weekday, 21, 0, 0).getTime();
 }
 
+function getLastSunday12BoundaryMsAtOrBefore(date = new Date()) {
+  const nowMs = date instanceof Date ? date.getTime() : Number(date);
+  if (!Number.isFinite(nowMs)) return Date.now();
+  const p = getRomeDateTimeParts(new Date(nowMs));
+  if (p.weekday === 0) {
+    const thisSunday12 = createUtcFromRomeLocal(p.year, p.month, p.day, 12, 0, 0).getTime();
+    if (nowMs < thisSunday12) {
+      return createUtcFromRomeLocal(p.year, p.month, p.day - 7, 12, 0, 0).getTime();
+    }
+    return thisSunday12;
+  }
+  return createUtcFromRomeLocal(p.year, p.month, p.day - p.weekday, 12, 0, 0).getTime();
+}
+
+function romeDateKeyFromMs(ms) {
+  const p = getRomeDateTimeParts(new Date(ms));
+  return `${p.year}-${pad2(p.month)}-${pad2(p.day)}`;
+}
+
+function buildBiweekPeriodKey(endMs) {
+  const end = Number(endMs);
+  if (!Number.isFinite(end)) return "";
+  return `${romeDateKeyFromMs(end - HOGWARTS_BIWEEKLY_MS)}_${romeDateKeyFromMs(end)}`;
+}
+
+function buildLast14DaysHourKeys(endMs) {
+  const keys = [];
+  for (let h = 0; h < 24 * 14; h += 1) {
+    const d = new Date(endMs - h * 60 * 60 * 1000);
+    const parts = getTimeParts(d);
+    keys.push(`${parts.year}-${pad2(parts.month)}-${pad2(parts.day)}T${pad2(parts.hour)}`);
+  }
+  return keys;
+}
+
+function getIsoWeekKeysInBiweeklyWindow(endMs) {
+  const end = Number(endMs);
+  if (!Number.isFinite(end)) return [];
+  const keys = new Set();
+  for (let h = 0; h < 14 * 24; h += 12) {
+    const parts = getTimeParts(new Date(end - h * 60 * 60 * 1000));
+    keys.add(getWeekKey(new Date(Date.UTC(parts.year, parts.month - 1, parts.day, 12, 0, 0))));
+  }
+  return [...keys].filter(Boolean);
+}
+
+function isHogwartsWeeklyTopReplaced(client) {
+  const cfg = resolveHogwartsEventConfig(client);
+  if (!cfg?.enabled) return false;
+  const gate = isEventWindowOpen(cfg, Date.now());
+  return Boolean(gate?.open);
+}
+
+function shouldPublishHogwartsBiweeklyToday(now = new Date(), eventStartMs) {
+  const start = Number(eventStartMs);
+  if (!Number.isFinite(start)) return false;
+  const endMs = getLastSunday12BoundaryMsAtOrBefore(now);
+  const anchorMs = getLastSunday12BoundaryMsAtOrBefore(new Date(start));
+  const daysSince = Math.floor((endMs - anchorMs) / (24 * 60 * 60 * 1000));
+  if (daysSince < 14) return false;
+  return daysSince % 14 === 0;
+}
+
+function normalizeHogwartsHouseId(value) {
+  const h = String(value || "").trim().toLowerCase();
+  return HOUSES.includes(h) ? h : "";
+}
+
+async function loadSortedHouseByUserId(guildId, eventKey) {
+  const rows = await SiteDocument.find({
+    docType: HOGWARTS_SORTING_DOC,
+    guildId: String(guildId || "").trim(),
+    dedupeKey: String(eventKey || "").trim(),
+    status: { $in: HOUSES },
+  })
+    .select("userId status")
+    .lean()
+    .catch(() => []);
+  const map = new Map();
+  for (const row of rows) {
+    const uid = String(row?.userId || "").trim();
+    const house = normalizeHogwartsHouseId(row?.status);
+    if (!uid || !house || map.has(uid)) continue;
+    map.set(uid, house);
+  }
+  return map;
+}
+
+function filterDocsToSortedUsers(docs, sortedHouseByUserId) {
+  const list = Array.isArray(docs) ? docs : [];
+  if (!sortedHouseByUserId?.size) return [];
+  return list.filter((doc) => sortedHouseByUserId.has(String(doc?.userId || "").trim()));
+}
+
+function pickTopThreeDistinctHouses(ranking, sortedHouseByUserId, limit = 3, excludedUserIds = null) {
+  const cap = Math.max(1, Math.min(25, Number(limit) || 3));
+  const excluded =
+    excludedUserIds instanceof Set
+      ? excludedUserIds
+      : new Set((Array.isArray(excludedUserIds) ? excludedUserIds : []).map((id) => String(id)).filter(Boolean));
+  const out = [];
+  const usedHouses = new Set();
+  const list = Array.isArray(ranking) ? ranking : [];
+  for (const row of list) {
+    if (out.length >= cap) break;
+    const userId = String(row?.userId || "").trim();
+    if (!userId || excluded.has(userId)) continue;
+    const houseId = sortedHouseByUserId.get(userId);
+    if (!houseId || usedHouses.has(houseId)) continue;
+    usedHouses.add(houseId);
+    out.push({ ...row, houseId });
+  }
+  return out;
+}
+
+const HOGWARTS_BIWEEKLY_TOP_CATEGORY_ORDER = ["messages", "voice", "minigame"];
+
+function resolveHogwartsBiweeklyUserKeeps(takeByCategory) {
+  const kept = { messages: new Set(), voice: new Set(), minigame: new Set() };
+  const uidSet = new Set();
+  for (const cat of HOGWARTS_BIWEEKLY_TOP_CATEGORY_ORDER) {
+    for (const row of takeByCategory[cat] || []) {
+      const uid = String(row?.userId || "").trim();
+      if (uid) uidSet.add(uid);
+    }
+  }
+  for (const uid of uidSet) {
+    let bestCat = null;
+    let bestRank = Infinity;
+    let bestPri = Infinity;
+    for (const cat of HOGWARTS_BIWEEKLY_TOP_CATEGORY_ORDER) {
+      const take = takeByCategory[cat] || [];
+      const rank = take.findIndex((r) => String(r?.userId || "").trim() === uid) + 1;
+      if (rank <= 0) continue;
+      const pri = HOGWARTS_BIWEEKLY_TOP_CATEGORY_ORDER.indexOf(cat);
+      if (rank < bestRank || (rank === bestRank && pri < bestPri)) {
+        bestRank = rank;
+        bestPri = pri;
+        bestCat = cat;
+      }
+    }
+    if (bestCat) kept[bestCat].add(uid);
+  }
+  return kept;
+}
+
+function excludedUsersForHogwartsBiweeklyCategory(kept, categoryId) {
+  const out = new Set();
+  for (const cat of HOGWARTS_BIWEEKLY_TOP_CATEGORY_ORDER) {
+    if (cat === categoryId) continue;
+    for (const uid of kept[cat] || []) out.add(uid);
+  }
+  return out;
+}
+
+function buildHogwartsBiweeklyTopsDeduped(poolMessages, poolVoice, poolMinigame, sortedHouseByUserId, limit = 3) {
+  const cap = Math.max(1, Math.min(3, Number(limit) || 3));
+  const takeByCategory = {
+    messages: pickTopThreeDistinctHouses(poolMessages, sortedHouseByUserId, cap),
+    voice: pickTopThreeDistinctHouses(poolVoice, sortedHouseByUserId, cap),
+    minigame: pickTopThreeDistinctHouses(poolMinigame, sortedHouseByUserId, cap),
+  };
+  const kept = resolveHogwartsBiweeklyUserKeeps(takeByCategory);
+  return {
+    messages: pickTopThreeDistinctHouses(poolMessages, sortedHouseByUserId, cap, excludedUsersForHogwartsBiweeklyCategory(kept, "messages")),
+    voice: pickTopThreeDistinctHouses(poolVoice, sortedHouseByUserId, cap, excludedUsersForHogwartsBiweeklyCategory(kept, "voice")),
+    minigame: pickTopThreeDistinctHouses(poolMinigame, sortedHouseByUserId, cap, excludedUsersForHogwartsBiweeklyCategory(kept, "minigame")),
+  };
+}
+
+function effectiveMinigameBiweeklyScore(doc, weekKeys) {
+  const keys = Array.isArray(weekKeys) ? weekKeys : [];
+  let sum = 0;
+  for (const k of keys) {
+    sum += effectiveMinigameWeeklyScoreForRankWeek(doc, k);
+  }
+  return Math.max(0, Math.floor(sum));
+}
+
+async function hasGringottRewardKey(guildId, userId, rewardKey) {
+  const key = String(rewardKey || "").trim();
+  if (!key) return false;
+  const doc = await ActivityUserProfile.findOne({ guildId: String(guildId), userId: String(userId) })
+    .select("profile.events.hogwarts.gringott.rewardKeys")
+    .lean()
+    .catch(() => null);
+  const keys = doc?.profile?.events?.hogwarts?.gringott?.rewardKeys;
+  return Array.isArray(keys) && keys.includes(key);
+}
+
+async function awardHogwartsBiweeklyHousePoints(guildId, houseId, eventKey, points, gameKey, userId = "") {
+  const gid = String(guildId || "").trim();
+  const hid = normalizeHogwartsHouseId(houseId);
+  const pts = Math.max(0, Math.floor(Number(points) || 0));
+  const ek = String(eventKey || "").trim();
+  const gk = String(gameKey || "").trim();
+  const uid = String(userId || "").trim();
+  if (!gid || !hid || pts <= 0 || !ek || !gk) return false;
+  const now = new Date();
+  const periodKey = String(housePointPeriodKey(now.getTime())?.key || "").trim();
+  const inc = {
+    [`rawWebhook.byGame.${gk}`]: pts,
+    "rawWebhook.total": pts,
+    [`rawWebhook.totals.${hid}`]: pts,
+  };
+  if (periodKey) inc[`rawWebhook.byPeriod.${periodKey}.${hid}`] = pts;
+  const { appendMemberHousePointsInc } = require("./hogwartsMemberHousePointsService");
+  const memberSet = {};
+  if (uid) appendMemberHousePointsInc(inc, memberSet, { userId: uid, houseId: hid, periodKey, points: pts });
+  await SiteDocument.findOneAndUpdate(
+    {
+      docType: HOGWARTS_HOUSE_POINTS_DOC,
+      guildId: gid,
+      userId: HOGWARTS_HOUSE_POINTS_OWNER_ID,
+      dedupeKey: ek,
+    },
+    {
+      $setOnInsert: {
+        docType: HOGWARTS_HOUSE_POINTS_DOC,
+        guildId: gid,
+        userId: HOGWARTS_HOUSE_POINTS_OWNER_ID,
+        dedupeKey: ek,
+        createdBy: "hogwarts_biweekly_top",
+        status: "active",
+      },
+      $set: {
+        planKey: "hogwarts_house_points",
+        "rawWebhook.eventKey": ek,
+        "rawWebhook.updatedAt": now,
+        ...memberSet,
+      },
+      $inc: inc,
+    },
+    { upsert: true, new: true, setDefaultsOnInsert: true },
+  ).catch(() => null);
+  return true;
+}
+
+async function awardHogwartsBiweeklyCategoryWinners(client, guild, category, topRows, periodKey, eventKey) {
+  const gid = String(guild?.id || "").trim();
+  const ek = String(eventKey || "").trim();
+  const cat = String(category || "").trim();
+  if (!gid || !ek || !cat) return [];
+  const awarded = [];
+  for (let i = 0; i < topRows.length; i += 1) {
+    const row = topRows[i];
+    const userId = String(row?.userId || "").trim();
+    const houseId = normalizeHogwartsHouseId(row?.houseId);
+    const rank = i + 1;
+    const housePoints = HOGWARTS_BIWEEKLY_HOUSE_POINTS_BY_RANK[i] || 0;
+    const galeoni = HOGWARTS_BIWEEKLY_GALEONI_BY_RANK[i] || 0;
+    if (!userId || !houseId) continue;
+    const rewardKey = `hogwarts_biweekly_${ek}_${periodKey}_${cat}_r${rank}`;
+    if (await hasGringottRewardKey(gid, userId, rewardKey)) {
+      awarded.push({ userId, rank, skipped: true });
+      continue;
+    }
+    if (housePoints > 0) {
+      await awardHogwartsBiweeklyHousePoints(gid, houseId, ek, housePoints, rewardKey, userId);
+    }
+    if (galeoni > 0) {
+      await addGaleoni({
+        guildId: gid,
+        userId,
+        amount: galeoni,
+        reason: `Top bisettimanale Hogwarts — ${cat} (${rank}°)`,
+        source: "hogwarts_biweekly_top",
+        eventKey: ek,
+        rewardKey,
+      });
+    }
+    awarded.push({ userId, rank, houseId, housePoints, galeoni });
+  }
+  return awarded;
+}
+
+async function findBiweeklyPublishMarker(guildId, periodKey) {
+  return SiteDocument.findOne({
+    docType: HOGWARTS_BIWEEKLY_PUBLISH_DOC,
+    guildId: String(guildId || "").trim(),
+    userId: HOGWARTS_BIWEEKLY_PUBLISH_OWNER_ID,
+    dedupeKey: String(periodKey || "").trim(),
+  })
+    .lean()
+    .catch(() => null);
+}
+
+async function markBiweeklyPublishComplete(guildId, periodKey, eventKey, stats = {}) {
+  await SiteDocument.updateOne(
+    {
+      docType: HOGWARTS_BIWEEKLY_PUBLISH_DOC,
+      guildId: String(guildId || "").trim(),
+      userId: HOGWARTS_BIWEEKLY_PUBLISH_OWNER_ID,
+      dedupeKey: String(periodKey || "").trim(),
+    },
+    {
+      $set: {
+        status: "completed",
+        planKey: "hogwarts_biweekly_top",
+        "rawWebhook.eventKey": String(eventKey || "").trim(),
+        "rawWebhook.stats": stats,
+        decidedAt: new Date(),
+      },
+    },
+  ).catch(() => null);
+}
+
+async function collectHogwartsBiweeklyActivityRows(guild, anchorDate = new Date(), eventKey) {
+  const now = anchorDate instanceof Date && !Number.isNaN(anchorDate.getTime()) ? anchorDate : new Date();
+  const periodEndMs = getLastSunday12BoundaryMsAtOrBefore(now);
+  const periodStartMs = periodEndMs - HOGWARTS_BIWEEKLY_MS;
+  const periodKey = buildBiweekPeriodKey(periodEndMs);
+  const ek = String(eventKey || "").trim();
+  const sortedHouseByUserId = await loadSortedHouseByUserId(guild.id, ek);
+  if (!sortedHouseByUserId.size) {
+    return { ok: false, code: "no_sorted", periodStartMs, periodEndMs, periodKey, users: [] };
+  }
+  const rowsSource = await loadBiweeklyRowsFromHourlyWindow(guild, now);
+  let messageDocs = filterDocsToSortedUsers(
+    rowsSource.filter((row) => Number(row?.messageCount || 0) > 0).sort((a, b) => Number(b.messageCount || 0) - Number(a.messageCount || 0)),
+    sortedHouseByUserId,
+  );
+  let voiceDocs = filterDocsToSortedUsers(
+    rowsSource.filter((row) => Number(row?.voiceExp || 0) > 0).sort((a, b) => Number(b.voiceExp || 0) - Number(a.voiceExp || 0)),
+    sortedHouseByUserId,
+  );
+  const minigameWeekKeys = getIsoWeekKeysInBiweeklyWindow(periodEndMs);
+  let minigameDocsRaw = [];
+  if (minigameWeekKeys.length) {
+    minigameDocsRaw = await ActivityUserProfile.find({
+      guildId: guild.id,
+      $or: minigameWeekKeys.flatMap((k) => [
+        { "profile.totals.exp.minigame.weeklyKey": k, "profile.totals.exp.minigame.weeklyExp": { $gt: 0 } },
+        { "profile.totals.exp.minigame.prevWeekKey": k, "profile.totals.exp.minigame.prevWeekExp": { $gt: 0 } },
+      ]),
+    })
+      .select("userId profile.totals.exp.minigame")
+      .limit(1200)
+      .lean()
+      .catch(() => []);
+  }
+  const minigameDocs = filterDocsToSortedUsers(
+    minigameDocsRaw.filter((d) => effectiveMinigameBiweeklyScore(d, minigameWeekKeys) > 0),
+    sortedHouseByUserId,
+  );
+  const mgScore = (doc) => effectiveMinigameBiweeklyScore(doc, minigameWeekKeys);
+  const messageByUser = new Map(messageDocs.map((d) => [String(d.userId), Math.max(0, Math.floor(Number(d.messageCount) || 0))]));
+  const voiceByUser = new Map(voiceDocs.map((d) => [String(d.userId), Math.max(0, Math.floor(Number(d.voiceExp) || 0))]));
+  const minigameByUser = new Map(minigameDocs.map((d) => [String(d.userId), mgScore(d)]));
+  const userIds = new Set([...messageByUser.keys(), ...voiceByUser.keys(), ...minigameByUser.keys()]);
+  const users = [];
+  for (const userId of userIds) {
+    const houseId = sortedHouseByUserId.get(String(userId));
+    if (!houseId) continue;
+    users.push({
+      userId: String(userId),
+      houseId,
+      messages: messageByUser.get(String(userId)) || 0,
+      voiceExp: voiceByUser.get(String(userId)) || 0,
+      voiceMinutes: Math.max(0, Math.floor((voiceByUser.get(String(userId)) || 0) / Math.max(1, VOICE_EXP_PER_MINUTE))),
+      minigame: minigameByUser.get(String(userId)) || 0,
+    });
+  }
+  return {
+    ok: true,
+    periodStartMs,
+    periodEndMs,
+    periodKey,
+    eventKey: ek,
+    sortedHouseByUserId,
+    users,
+    minigameWeekKeys,
+  };
+}
+
+/** True se il membro risulta aver avuto un ruolo staff (stesso set delle esclusioni top weekly) in qualunque momento nella finestra attività settimanale (tra due boundary domenica 21:00 Roma), da `staff.rolesHistory` + `staffRolesHistoryRetention` (dopo depex `staff` è unset). */
+function wasStaffDuringWeeklyActivityWindow(staff, weekPeriodStartMs, weekPeriodEndMs, trackedStaffRoleIds, staffRolesHistoryRetention) {
+  const set =
+    trackedStaffRoleIds instanceof Set
+      ? trackedStaffRoleIds
+      : new Set((Array.isArray(trackedStaffRoleIds) ? trackedStaffRoleIds : []).map((id) => String(id)).filter(Boolean));
+  const start = Number(weekPeriodStartMs);
+  const end = Number(weekPeriodEndMs);
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return false;
+  const isStaffRole = (roleId) => {
+    const id = String(roleId || "").trim();
+    return Boolean(id && set.has(id));
+  };
+  const fromStaff = Array.isArray(staff?.rolesHistory) ? staff.rolesHistory : [];
+  const fromRetention = Array.isArray(staffRolesHistoryRetention) ? staffRolesHistoryRetention : [];
+  const history = [...fromStaff, ...fromRetention].sort((a, b) => new Date(a?.date || 0).getTime() - new Date(b?.date || 0).getTime());
+  let roleAtPeriodStart = null;
+  for (const row of history) {
+    const t = new Date(row?.date || 0).getTime();
+    if (Number.isNaN(t)) continue;
+    if (t >= start) break;
+    if (row?.newRole != null) roleAtPeriodStart = String(row.newRole);
+  }
+  if (isStaffRole(roleAtPeriodStart)) return true;
+  for (const row of history) {
+    const t = new Date(row?.date || 0).getTime();
+    if (Number.isNaN(t) || t < start) continue;
+    if (t > end) break;
+    if (isStaffRole(row?.newRole)) return true;
+  }
+  return false;
+}
+
+function effectiveMinigameWeeklyScoreForRankWeek(doc, rankWeekKey) {
+  const rk = String(rankWeekKey || "").trim();
+  if (!rk) return 0;
+  const mg = doc?.profile?.totals?.exp?.minigame || {};
+  if (String(mg.weeklyKey || "") === rk) return Math.max(0, Math.floor(Number(mg.weeklyExp || 0)));
+  if (String(mg.prevWeekKey || "") === rk) return Math.max(0, Math.floor(Number(mg.prevWeekExp || 0)));
+  return 0;
+}
+
 function toObjectMap(raw) {
   if (!raw) return {};
   if (raw instanceof Map) return Object.fromEntries(raw.entries());
@@ -145,6 +585,13 @@ function getLastCompletedWeekKey(date = new Date()) {
   return getWeekKey(lastSundayDate);
 }
 
+/** ISO week key allineata al periodo minigame chiuso al boundary domenica 21:00 e a `prevWeekKey` dopo reset (evita mismatch con getLastCompletedWeekKey). */
+function getMinigameRankWeekKeyForPublish(now = new Date()) {
+  const boundaryEnd = getLastSunday21BoundaryMsAtOrBefore(now);
+  const anchor = new Date(boundaryEnd - 2 * 60 * 60 * 1000);
+  return getWeekKey(anchor);
+}
+
 function getDateKeysForWeekKey(weekKey) {
   const match = String(weekKey || "").match(/^(\d{4})-W(\d{2})$/);
   if (!match) return [];
@@ -175,6 +622,56 @@ function buildLast7DaysHourKeys(endMs) {
   return keys;
 }
 
+function daysInCalendarMonthRome(year, month1to12) {
+  return new Date(year, month1to12, 0).getDate();
+}
+
+function buildCalendarMonthHourKeys(year, month1to12) {
+  const dim = daysInCalendarMonthRome(year, month1to12);
+  const keys = [];
+  for (let day = 1; day <= dim; day += 1) {
+    for (let hour = 0; hour < 24; hour += 1) {
+      keys.push(`${year}-${pad2(month1to12)}-${pad2(day)}T${pad2(hour)}`);
+    }
+  }
+  return keys;
+}
+
+function getPreviousRomeCalendarMonth(anchor = new Date()) {
+  const p = getRomeDateTimeParts(anchor);
+  let y = p.year;
+  let m = p.month;
+  if (m <= 1) {
+    y -= 1;
+    m = 12;
+  } else {
+    m -= 1;
+  }
+  return { year: y, month: m };
+}
+
+const IT_MONTH_NAMES = [
+  "Gennaio",
+  "Febbraio",
+  "Marzo",
+  "Aprile",
+  "Maggio",
+  "Giugno",
+  "Luglio",
+  "Agosto",
+  "Settembre",
+  "Ottobre",
+  "Novembre",
+  "Dicembre",
+];
+
+async function loadMonthlyRowsFromRomeCalendarMonth(guild, year, month1to12) {
+  const eligible = await getEligibleChannelSets(guild);
+  if (!eligible.text.size && !eligible.voice.size) return [];
+  const hourKeys = buildCalendarMonthHourKeys(year, month1to12);
+  return loadRowsFromHourlyWindowByHourKeys(guild, eligible, hourKeys);
+}
+
 function buildLastHoursHourKeys(endMs, hours) {
   const totalHours = Math.max(1, Math.min(24 * 31, Number(hours) || 1));
   const keys = [];
@@ -184,6 +681,36 @@ function buildLastHoursHourKeys(endMs, hours) {
     keys.push(`${parts.year}-${pad2(parts.month)}-${pad2(parts.day)}T${pad2(parts.hour)}`);
   }
   return keys;
+}
+
+function buildHourKeysBetweenMs(startMs, endMs) {
+  const from = Number(startMs);
+  const to = Number(endMs);
+  if (!Number.isFinite(from) || !Number.isFinite(to) || to <= from) return [];
+  const keys = [];
+  let cursor = from;
+  let guard = 0;
+  while (cursor <= to && guard < 72) {
+    const parts = getTimeParts(new Date(cursor));
+    keys.push(`${parts.year}-${pad2(parts.month)}-${pad2(parts.day)}T${pad2(parts.hour)}`);
+    cursor += 60 * 60 * 1000;
+    guard += 1;
+  }
+  const endParts = getTimeParts(new Date(to));
+  keys.push(`${endParts.year}-${pad2(endParts.month)}-${pad2(endParts.day)}T${pad2(endParts.hour)}`);
+  return [...new Set(keys)];
+}
+
+function hourKeyToBoundsMs(hourKey) {
+  const m = String(hourKey || "").match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2})$/);
+  if (!m) return { startMs: 0, endMs: 0 };
+  const start = createUtcFromRomeLocal(Number(m[1]), Number(m[2]), Number(m[3]), Number(m[4]), 0, 0);
+  const startMs = start.getTime();
+  return { startMs, endMs: startMs + 60 * 60 * 1000 };
+}
+
+function overlapRangeMs(rangeStart, rangeEnd, clipStart, clipEnd) {
+  return Math.max(0, Math.min(rangeEnd, clipEnd) - Math.max(rangeStart, clipStart));
 }
 
 function buildAnchorDateFromWeekKey(weekKey) {
@@ -216,10 +743,17 @@ async function getEligibleChannelSets(guild) {
       .filter(Boolean)
       .map((id) => String(id)),
   );
+  const excludedCategoryIds = new Set(
+    [IDs.categories?.categoryPrivate]
+      .filter(Boolean)
+      .map((id) => String(id)),
+  );
   const text = new Set();
   const voice = new Set();
   for (const channel of guild.channels.cache.values()) {
     if (excludedChannelIds.has(String(channel?.id || ""))) continue;
+    if (excludedCategoryIds.has(String(channel?.id || ""))) continue;
+    if (excludedCategoryIds.has(String(channel?.parentId || ""))) continue;
     if (isChannelInTicketCategory(channel)) continue;
     const perms = channel?.permissionsFor?.(role);
     if (!perms?.has("ViewChannel")) continue;
@@ -237,8 +771,19 @@ async function loadWeeklyRowsFromHourlyWindow(guild, anchorDate = new Date()) {
   return loadRowsFromHourlyWindowByHourKeys(guild, eligible, hourKeys);
 }
 
-async function loadRowsFromHourlyWindowByHourKeys(guild, eligible, hourKeys) {
+async function loadBiweeklyRowsFromHourlyWindow(guild, anchorDate = new Date()) {
+  const eligible = await getEligibleChannelSets(guild);
+  if (!eligible.text.size && !eligible.voice.size) return [];
+  const endMs = getLastSunday12BoundaryMsAtOrBefore(anchorDate);
+  const hourKeys = buildLast14DaysHourKeys(endMs);
+  return loadRowsFromHourlyWindowByHourKeys(guild, eligible, hourKeys);
+}
+
+async function loadRowsFromHourlyWindowByHourKeys(guild, eligible, hourKeys, clipRange = null) {
   const rows = [];
+  const clipStart = Number(clipRange?.startMs);
+  const clipEnd = Number(clipRange?.endMs);
+  const hasClip = Number.isFinite(clipStart) && Number.isFinite(clipEnd) && clipEnd > clipStart;
   const profileDocs = await ActivityUserProfile.find({ guildId: guild.id }).select("userId profile.totals.hourly").lean().catch(() => []);
   if (profileDocs.length) {
     const wanted = new Set(hourKeys.map(String));
@@ -249,8 +794,16 @@ async function loadRowsFromHourlyWindowByHourKeys(guild, eligible, hourKeys) {
       for (const [hourKey, value] of Object.entries(hourly)) {
         if (!wanted.has(String(hourKey))) continue;
         if (shouldSkipBackfillRow(String(hourKey), wanted)) continue;
+        let scale = 1;
+        if (hasClip) {
+          const { startMs, endMs } = hourKeyToBoundsMs(hourKey);
+          const overlap = overlapRangeMs(startMs, endMs, clipStart, clipEnd);
+          if (overlap <= 0) continue;
+          scale = overlap / (60 * 60 * 1000);
+        }
         rows.push({
           userId,
+          scale,
           textChannels: toObjectMap(value?.textChannels || {}),
           voiceChannels: toObjectMap(value?.voiceChannels || {}),
         });
@@ -261,15 +814,16 @@ async function loadRowsFromHourlyWindowByHourKeys(guild, eligible, hourKeys) {
   for (const row of rows) {
     const userId = String(row?.userId || "");
     if (!userId) continue;
+    const scale = Math.max(0, Math.min(1, Number(row?.scale) || 1));
     let messageCount = 0;
     let voiceSeconds = 0;
     for (const [channelId, value] of extractMapEntries(row?.textChannels)) {
       if (!eligible.text.has(String(channelId))) continue;
-      messageCount += Math.max(0, Number(value || 0));
+      messageCount += Math.max(0, Number(value || 0)) * scale;
     }
     for (const [channelId, value] of extractMapEntries(row?.voiceChannels)) {
       if (!eligible.voice.has(String(channelId))) continue;
-      voiceSeconds += Math.max(0, Number(value || 0));
+      voiceSeconds += Math.max(0, Number(value || 0)) * scale;
     }
     if (messageCount <= 0 && voiceSeconds <= 0) continue;
     const current = perUser.get(userId) || { userId, messageCount: 0, voiceSeconds: 0 };
@@ -299,8 +853,12 @@ function extractMapEntries(raw) {
   return [];
 }
 
-async function resolveTopThreeUsers(client, guild, docs, valueGetter, limit = 3) {
+async function resolveTopThreeUsers(client, guild, docs, valueGetter, limit = 3, excludedRoleIds = WEEKLY_WINNERS_EXCLUDED_ROLE_IDS) {
   const cap = Math.max(1, Math.min(25, Number(limit) || 3));
+  const excludedSet =
+    excludedRoleIds instanceof Set
+      ? excludedRoleIds
+      : new Set((Array.isArray(excludedRoleIds) ? excludedRoleIds : []).map((id) => String(id)).filter(Boolean));
   const out = [];
   for (const doc of docs) {
     if (out.length >= cap) break;
@@ -312,10 +870,32 @@ async function resolveTopThreeUsers(client, guild, docs, valueGetter, limit = 3)
     const member = guild.members.cache.get(userId) || (await guild.members.fetch(userId).catch(() => null));
     if (!member) continue;
     if (REQUIRED_MEMBER_ROLE_ID && !member.roles.cache.has(REQUIRED_MEMBER_ROLE_ID)) continue;
-    const hasExcludedRole = Array.from(WEEKLY_WINNERS_EXCLUDED_ROLE_IDS).some((roleId) => member.roles.cache.has(roleId));
+    const hasExcludedRole = Array.from(excludedSet).some((roleId) => member.roles.cache.has(roleId));
     if (hasExcludedRole) continue;
     const value = Math.max(0, Math.floor(Number(valueGetter(doc) || 0)));
     if (value <= 0) continue;
+    out.push({ userId, value });
+  }
+  return out;
+}
+
+/** Minigame: se la top “pulita” è vuota ma ci sono punti in DB, garantisce almeno una classifica (annuncio / MVP). */
+async function resolveMinigameTopForced(client, guild, docs, valueGetter, limit = 10, excludedRoleIdsFirst = WEEKLY_WINNERS_EXCLUDED_ROLE_IDS) {
+  const cap = Math.max(1, Math.min(25, Number(limit) || 10));
+  let rows = await resolveTopThreeUsers(client, guild, docs, valueGetter, cap, excludedRoleIdsFirst);
+  if (rows.length) return rows;
+  rows = await resolveTopThreeUsers(client, guild, docs, valueGetter, cap, new Set());
+  if (rows.length) return rows;
+  const out = [];
+  const list = Array.isArray(docs) ? docs : [];
+  for (const doc of list) {
+    if (out.length >= cap) break;
+    const userId = String(doc?.userId || "");
+    if (!userId) continue;
+    const value = Math.max(0, Math.floor(Number(valueGetter(doc) || 0)));
+    if (value <= 0) continue;
+    const user = client.users.cache.get(userId) || (await client.users.fetch(userId).catch(() => null));
+    if (!user || user.bot) continue;
     out.push({ userId, value });
   }
   return out;
@@ -357,7 +937,7 @@ async function assignRoleToUser(guild, userId, roleId) {
   if (!userId || !roleId) return false;
   const member = await getGuildMemberCached(guild, userId, { preferFresh: true }) || guild.members.cache.get(userId) || (await getGuildMemberCached(guild, userId));
   if (!member) return false;
-  await member.roles.add(roleId).catch(() => {});
+  await member.roles.add(roleId).catch(() => { });
   const refreshedMember = await getGuildMemberCached(guild, userId, { preferFresh: true });
   return Boolean(refreshedMember?.roles?.cache?.has(roleId));
 }
@@ -427,21 +1007,109 @@ function deduplicateTopTwoLists(topA, topB, sortedA, sortedB, targetSize = 3) {
   return { listA: resultA, listB: resultB };
 }
 
-async function updateWeeklyWinnerRoles(guild, topMessages, topVoice) {
+async function updateWeeklyWinnerRoles(guild, topMessages, topVoice, topMinigame) {
   const chosenUserIds = new Set();
   const messageWinner = pickFirstAvailable(topMessages, chosenUserIds);
   if (messageWinner) chosenUserIds.add(messageWinner.userId);
   const voiceWinner = pickFirstAvailable(topVoice, chosenUserIds);
   if (voiceWinner) chosenUserIds.add(voiceWinner.userId);
-  await Promise.all([
+  const minigameWinner =
+    topMinigame !== false &&
+      MINIGAME_WINNER_ROLE_ID &&
+      Array.isArray(topMinigame) &&
+      topMinigame.length
+      ? pickFirstAvailable(topMinigame, chosenUserIds)
+      : null;
+  const removals = [
     removeRoleFromAllMembers(guild, MESSAGE_WINNER_ROLE_ID, messageWinner?.userId),
     removeRoleFromAllMembers(guild, VOICE_WINNER_ROLE_ID, voiceWinner?.userId),
-  ]);
-  await Promise.all([
+  ];
+  if (MINIGAME_WINNER_ROLE_ID && topMinigame !== false) {
+    removals.push(removeRoleFromAllMembers(guild, MINIGAME_WINNER_ROLE_ID, minigameWinner?.userId));
+  }
+  await Promise.all(removals);
+  const assigns = [
     assignRoleToUser(guild, messageWinner?.userId, MESSAGE_WINNER_ROLE_ID),
     assignRoleToUser(guild, voiceWinner?.userId, VOICE_WINNER_ROLE_ID),
-  ]);
-  return { messageWinner, voiceWinner };
+  ];
+  if (MINIGAME_WINNER_ROLE_ID && topMinigame !== false) {
+    assigns.push(assignRoleToUser(guild, minigameWinner?.userId, MINIGAME_WINNER_ROLE_ID));
+  }
+  await Promise.all(assigns);
+  return { messageWinner, voiceWinner, minigameWinner };
+}
+
+async function updateMonthlyWinnerRoles(guild, topCombined) {
+  const first = Array.isArray(topCombined) && topCombined.length ? topCombined[0] : null;
+  const second = Array.isArray(topCombined) && topCombined.length > 1 ? topCombined[1] : null;
+  const third = Array.isArray(topCombined) && topCombined.length > 2 ? topCombined[2] : null;
+  if (!MONTHLY_MEMBER_ROLE_ID) return { topMonthlyWinner: first, monthlyTopSecond: second, monthlyTopThird: third };
+  await removeRoleFromAllMembers(guild, MONTHLY_MEMBER_ROLE_ID);
+  await assignRoleToUser(guild, first?.userId, MONTHLY_MEMBER_ROLE_ID);
+  return { topMonthlyWinner: first, monthlyTopSecond: second, monthlyTopThird: third };
+}
+
+async function resolveRoyaleMinigameWinner(client, guild, docs, valueGetter) {
+  const list = Array.isArray(docs) ? docs : [];
+  for (const doc of list) {
+    const userId = String(doc?.userId || "").trim();
+    if (!userId) continue;
+    const value = Math.max(0, Math.floor(Number(valueGetter(doc) || 0)));
+    if (value <= 0) continue;
+    const user = client.users.cache.get(userId) || (await client.users.fetch(userId).catch(() => null));
+    if (!user || user.bot) continue;
+    const member = guild.members.cache.get(userId) || (await guild.members.fetch(userId).catch(() => null));
+    if (!member) continue;
+    if (REQUIRED_MEMBER_ROLE_ID && !member.roles.cache.has(REQUIRED_MEMBER_ROLE_ID)) continue;
+    return { userId, value };
+  }
+  return null;
+}
+
+async function syncRoyaleMinigameTotalRole(client, options = {}) {
+  const mainGuildId = String(IDs.guilds?.main || "").trim();
+  if (!mainGuildId || !ROYALE_MINIGAME_ROLE_ID) return { ok: false, reason: "not_configured" };
+  const guild =
+    options.guild ||
+    client.guilds.cache.get(mainGuildId) ||
+    (await getClientGuildCached(client, mainGuildId, { ttlMs: 60_000 }).catch(() => null));
+  if (!guild) return { ok: false, reason: "guild_not_found" };
+  const docs = await ActivityUserProfile.find({
+    guildId: guild.id,
+    "profile.totals.exp.minigame.totalExp": { $gt: 0 },
+  })
+    .select("userId profile.totals.exp.minigame.totalExp")
+    .sort({ "profile.totals.exp.minigame.totalExp": -1 })
+    .limit(200)
+    .lean()
+    .catch(() => []);
+  const royaleWinner = await resolveRoyaleMinigameWinner(
+    client,
+    guild,
+    docs,
+    (doc) => Number(doc?.profile?.totals?.exp?.minigame?.totalExp || 0),
+  );
+  await removeRoleFromAllMembers(guild, ROYALE_MINIGAME_ROLE_ID, royaleWinner?.userId);
+  if (royaleWinner?.userId) {
+    await assignRoleToUser(guild, royaleWinner.userId, ROYALE_MINIGAME_ROLE_ID);
+  }
+  return {
+    ok: true,
+    userId: royaleWinner?.userId || null,
+    totalExp: Number(royaleWinner?.value || 0),
+  };
+}
+
+let royaleMinigameSyncTimer = null;
+function scheduleRoyaleMinigameRoleSync(client, delayMs = 45_000) {
+  if (!client || !ROYALE_MINIGAME_ROLE_ID) return;
+  if (royaleMinigameSyncTimer) clearTimeout(royaleMinigameSyncTimer);
+  royaleMinigameSyncTimer = setTimeout(() => {
+    royaleMinigameSyncTimer = null;
+    syncRoyaleMinigameTotalRole(client).catch((err) => {
+      global.logger?.warn?.("[ROYALE MINIGAME] sync failed:", err?.message || err);
+    });
+  }, Math.max(5_000, Number(delayMs) || 45_000));
 }
 
 function buildEmptyLine(kind) {
@@ -449,35 +1117,42 @@ function buildEmptyLine(kind) {
 }
 
 function formatRankLine(index, userMention, value, unit) {
-  const medal = TROPHY_LABELS[index] || "[#]";
+  const medal = TROPHY_LABELS[index] || TROPHY_LABELS[2] || "<:VC_Podio3:1482694450806259744>";
   return `${medal} ${userMention} <a:VC_Arrow:1482706699365257397> **${value}** *${unit}*`;
 }
 
 async function publishWeeklyActivityWinners(client, options = {}) {
   const mode = String(options.mode || "weekly").trim().toLowerCase() === "daily" ? "daily" : "weekly";
   const skipNormalWeekly = Boolean(options.skipNormalWeekly);
+  const editMessage = options.editMessage || null;
   const mainGuildId = String(IDs.guilds?.main || "");
-  let guild =
-    mainGuildId &&
-    (client.guilds.cache.get(mainGuildId) || (await getClientGuildCached(client, mainGuildId, { ttlMs: 60_000 }).catch(() => null)));
-  if (!guild) {
-    const channelIdToUse = options.targetChannelId || TARGET_CHANNEL_ID;
-    const channel =
-      client.channels.cache.get(channelIdToUse) || (await getClientChannelCached(client, channelIdToUse, { ttlMs: 60_000 }));
-    if (!channel?.guild) {
-      global.logger?.error?.("[WEEKLY ACTIVITY] Publish skipped: guild not found (main o canale top weekly).");
-      return;
-    }
-    guild = channel.guild;
-  }
+  let guild = null;
   let channel = null;
-  if (!skipNormalWeekly) {
-    const channelIdToUse = options.targetChannelId || TARGET_CHANNEL_ID;
-    channel =
-      client.channels.cache.get(channelIdToUse) || (await getClientChannelCached(client, channelIdToUse, { ttlMs: 60_000 }));
-    if (!channel?.guild) {
-      global.logger?.error?.("[WEEKLY ACTIVITY] Publish skipped: canale top weekly non trovato.", channelIdToUse);
-      return;
+  if (editMessage?.guild) {
+    guild = editMessage.guild;
+    channel = editMessage.channel || null;
+  } else {
+    guild =
+      mainGuildId &&
+      (client.guilds.cache.get(mainGuildId) || (await getClientGuildCached(client, mainGuildId, { ttlMs: 60_000 }).catch(() => null)));
+    if (!guild) {
+      const channelIdToUse = options.targetChannelId || TARGET_CHANNEL_ID;
+      const ch =
+        client.channels.cache.get(channelIdToUse) || (await getClientChannelCached(client, channelIdToUse, { ttlMs: 60_000 }));
+      if (!ch?.guild) {
+        global.logger?.error?.("[WEEKLY ACTIVITY] Publish skipped: guild not found (main o canale top weekly).");
+        return;
+      }
+      guild = ch.guild;
+    }
+    if (!skipNormalWeekly) {
+      const channelIdToUse = options.targetChannelId || TARGET_CHANNEL_ID;
+      channel =
+        client.channels.cache.get(channelIdToUse) || (await getClientChannelCached(client, channelIdToUse, { ttlMs: 60_000 }));
+      if (!channel?.guild) {
+        global.logger?.error?.("[WEEKLY ACTIVITY] Publish skipped: canale top weekly non trovato.", channelIdToUse);
+        return;
+      }
     }
   }
   const anchorFromWeekKey = options.weekKey ? buildAnchorDateFromWeekKey(options.weekKey) : null;
@@ -485,21 +1160,56 @@ async function publishWeeklyActivityWinners(client, options = {}) {
     anchorFromWeekKey && !Number.isNaN(anchorFromWeekKey.getTime())
       ? anchorFromWeekKey
       :
-    options.anchorDate instanceof Date && !Number.isNaN(options.anchorDate.getTime())
-      ? options.anchorDate
-      : new Date();
+      options.anchorDate instanceof Date && !Number.isNaN(options.anchorDate.getTime())
+        ? options.anchorDate
+        : new Date();
   let displayTopMessages = [];
   let displayTopVoice = [];
+  let displayTopMinigame = [];
   let messageRows = [buildEmptyLine("messaggi")];
   let voiceRows = [buildEmptyLine("exp vocale")];
-  let awarded = { messageWinner: null, voiceWinner: null };
+  let minigameRows = [];
+  let awarded = { messageWinner: null, voiceWinner: null, minigameWinner: null };
+  let minigameRankWeekKey = "";
+  let suppressMinigameThisWeek = false;
   if (!skipNormalWeekly) {
     const rowsSource =
       mode === "daily"
         ? await loadDailyRowsFromHourlyWindow(guild, now)
         : await loadWeeklyRowsFromHourlyWindow(guild, now);
-    const messageDocs = rowsSource.filter((row) => Number(row?.messageCount || 0) > 0).sort((a, b) => Number(b.messageCount || 0) - Number(a.messageCount || 0)).slice(0, 200);
-    const voiceDocs = rowsSource.filter((row) => Number(row?.voiceExp || 0) > 0).sort((a, b) => Number(b.voiceExp || 0) - Number(a.voiceExp || 0)).slice(0, 200);
+    let messageDocs = rowsSource.filter((row) => Number(row?.messageCount || 0) > 0).sort((a, b) => Number(b.messageCount || 0) - Number(a.messageCount || 0)).slice(0, 200);
+    let voiceDocs = rowsSource.filter((row) => Number(row?.voiceExp || 0) > 0).sort((a, b) => Number(b.voiceExp || 0) - Number(a.voiceExp || 0)).slice(0, 200);
+    if (mode === "weekly") {
+      const weekPeriodEndMs = getLastSunday21BoundaryMsAtOrBefore(now);
+      const weekPeriodStartMs = weekPeriodEndMs - 7 * 24 * 60 * 60 * 1000;
+      const mvIds = [
+        ...new Set(
+          [...messageDocs.map((r) => String(r.userId)), ...voiceDocs.map((r) => String(r.userId))].filter(Boolean),
+        ),
+      ];
+      const staffByUserId = new Map();
+      if (mvIds.length) {
+        const profs = await ActivityUserProfile.find({ guildId: guild.id, userId: { $in: mvIds } })
+          .select("userId staff.rolesHistory staffRolesHistoryRetention")
+          .lean()
+          .catch(() => []);
+        for (const p of profs) {
+          staffByUserId.set(String(p.userId), { staff: p.staff, staffRolesHistoryRetention: p.staffRolesHistoryRetention });
+        }
+      }
+      const notStaffThatWeek = (uid) => {
+        const row = staffByUserId.get(String(uid)) || {};
+        return !wasStaffDuringWeeklyActivityWindow(
+          row.staff,
+          weekPeriodStartMs,
+          weekPeriodEndMs,
+          WEEKLY_WINNERS_EXCLUDED_ROLE_IDS,
+          row.staffRolesHistoryRetention,
+        );
+      };
+      messageDocs = messageDocs.filter((row) => notStaffThatWeek(row.userId));
+      voiceDocs = voiceDocs.filter((row) => notStaffThatWeek(row.userId));
+    }
     const topMessages = await resolveTopThreeUsers(client, guild, messageDocs, (doc) => Number(doc?.messageCount || 0), 10);
     const topVoice = await resolveTopThreeUsers(client, guild, voiceDocs, (doc) => Number(doc?.voiceExp || 0), 10);
     const dedupe = deduplicateTopTwoLists(topMessages.slice(0, 3), topVoice.slice(0, 3), topMessages, topVoice, 3);
@@ -511,35 +1221,133 @@ async function publishWeeklyActivityWinners(client, options = {}) {
     voiceRows = displayTopVoice.length
       ? displayTopVoice.map((item, index) => formatRankLine(index, `<@${item.userId}>`, item.value, "exp"))
       : [buildEmptyLine("exp vocale")];
+    if (mode === "weekly") {
+      const rankKeyForSuppress = String(options.weekKey || getMinigameRankWeekKeyForPublish(now) || "").trim();
+      suppressMinigameThisWeek = TEMP_SUPPRESS_MINIGAME_WEEK_KEYS.has(rankKeyForSuppress);
+      if (suppressMinigameThisWeek) {
+        minigameRankWeekKey = rankKeyForSuppress;
+        displayTopMinigame = [];
+        minigameRows = [];
+      } else {
+        const weekPeriodEndMs = getLastSunday21BoundaryMsAtOrBefore(now);
+        const weekPeriodStartMs = weekPeriodEndMs - 7 * 24 * 60 * 60 * 1000;
+        const fetchMinigameDocsByRankKey = async (weekKey) => {
+          const k = String(weekKey || "").trim();
+          if (!k) return [];
+          return ActivityUserProfile.find({
+            guildId: guild.id,
+            $or: [
+              {
+                "profile.totals.exp.minigame.weeklyKey": k,
+                "profile.totals.exp.minigame.weeklyExp": { $gt: 0 },
+              },
+              {
+                "profile.totals.exp.minigame.prevWeekKey": k,
+                "profile.totals.exp.minigame.prevWeekExp": { $gt: 0 },
+              },
+            ],
+          })
+            .select("userId profile.totals.exp.minigame staff.rolesHistory staffRolesHistoryRetention")
+            .limit(800)
+            .lean()
+            .catch(() => []);
+        };
+        minigameRankWeekKey = String(options.weekKey || getMinigameRankWeekKeyForPublish(now) || "").trim();
+        let minigameDocsRaw = await fetchMinigameDocsByRankKey(minigameRankWeekKey);
+        const hasPositiveMinigameScore = (docs, key) =>
+          (Array.isArray(docs) ? docs : []).some((d) => effectiveMinigameWeeklyScoreForRankWeek(d, key) > 0);
+        if (!hasPositiveMinigameScore(minigameDocsRaw, minigameRankWeekKey)) {
+          const hint = await ActivityUserProfile.findOne({
+            guildId: guild.id,
+            "profile.totals.exp.minigame.prevWeekExp": { $gt: 0 },
+          })
+            .sort({ "profile.totals.exp.minigame.prevWeekExp": -1 })
+            .select("profile.totals.exp.minigame.prevWeekKey")
+            .lean()
+            .catch(() => null);
+          const alt = String(hint?.profile?.totals?.exp?.minigame?.prevWeekKey || "").trim();
+          if (alt) {
+            const altDocs = await fetchMinigameDocsByRankKey(alt);
+            if (hasPositiveMinigameScore(altDocs, alt)) {
+              minigameRankWeekKey = alt;
+              minigameDocsRaw = altDocs;
+            }
+          }
+        }
+        minigameDocsRaw.sort(
+          (a, b) => effectiveMinigameWeeklyScoreForRankWeek(b, minigameRankWeekKey) - effectiveMinigameWeeklyScoreForRankWeek(a, minigameRankWeekKey),
+        );
+        const minigameDocs = minigameDocsRaw
+          .slice(0, 450)
+          .filter(
+            (d) =>
+              !wasStaffDuringWeeklyActivityWindow(
+                d?.staff,
+                weekPeriodStartMs,
+                weekPeriodEndMs,
+                WEEKLY_WINNERS_EXCLUDED_ROLE_IDS,
+                d?.staffRolesHistoryRetention,
+              ),
+          );
+        const mgScore = (doc) => effectiveMinigameWeeklyScoreForRankWeek(doc, minigameRankWeekKey);
+        const topMinigame = await resolveTopThreeUsers(client, guild, minigameDocs, mgScore, 10);
+        displayTopMinigame = uniqueRankingByUserId(topMinigame, 3);
+        const rawPool = minigameDocsRaw.slice(0, 450);
+        if (!displayTopMinigame.length && rawPool.some((d) => mgScore(d) > 0)) {
+          const forced = await resolveMinigameTopForced(client, guild, rawPool, mgScore, 10);
+          displayTopMinigame = uniqueRankingByUserId(forced, 3);
+        }
+        minigameRows = displayTopMinigame.length
+          ? displayTopMinigame.map((item, index) => formatRankLine(index, `<@${item.userId}>`, item.value, "pt minigame"))
+          : [buildEmptyLine("minigames")];
+      }
+    }
     if (options.skipWeeklyRoles) {
       const chosenUserIds = new Set();
       const messageWinner = pickFirstAvailable(displayTopMessages, chosenUserIds);
       if (messageWinner) chosenUserIds.add(messageWinner.userId);
       const voiceWinner = pickFirstAvailable(displayTopVoice, chosenUserIds);
-      awarded = { messageWinner, voiceWinner };
+      if (voiceWinner) chosenUserIds.add(voiceWinner.userId);
+      const minigameWinner =
+        mode === "weekly" && !suppressMinigameThisWeek && displayTopMinigame.length
+          ? pickFirstAvailable(displayTopMinigame, chosenUserIds)
+          : null;
+      awarded = { messageWinner, voiceWinner, minigameWinner };
     } else {
-      awarded = await updateWeeklyWinnerRoles(guild, displayTopMessages, displayTopVoice);
+      awarded = await updateWeeklyWinnerRoles(
+        guild,
+        displayTopMessages,
+        displayTopVoice,
+        mode === "weekly" ? (suppressMinigameThisWeek ? false : displayTopMinigame) : false,
+      );
+      if (mode === "weekly") {
+        await syncRoyaleMinigameTotalRole(client, { guild }).catch(() => null);
+      }
     }
   }
   if (skipNormalWeekly) return;
+  const embedDescLines = [
+    `<:VC_Leaderboard:1482534806314287387> // I vantaggi che avete sbloccato sono sul [nostro sito](https://viniliecaffe.it/perks)`,
+    "",
+    `<a:VC_HeartsPink:1468685897389052008> • **Classifica testuale:**`,
+    ...messageRows,
+    "",
+    `<a:VC_HeartsBlue:1468686100045369404> • **Classifica vocale:**`,
+    ...voiceRows,
+  ];
+  if (mode === "weekly" && !suppressMinigameThisWeek && minigameRows.length) {
+    embedDescLines.push("", `<a:VC_Events:1482706144953897223> • **Classifica minigames:**`, ...minigameRows);
+  }
   const embed = new EmbedBuilder()
     .setColor("#6f4e37")
-    .setDescription(
-      [
-        `<:VC_Leaderboard:1482534806314287387> // I vantaggi che avete sbloccato sono in "badge" nel canale <#${INFO_CHANNEL_ID}>`,
-        "",
-        `<a:VC_HeartsPink:1468685897389052008> • **Classifica testuale:**`,
-        ...messageRows,
-        "",
-        `<a:VC_HeartsBlue:1468686100045369404> • **Classifica vocale:**`,
-        ...voiceRows,
-      ].join("\n"),
-    )
+    .setDescription(embedDescLines.join("\n"))
     .setThumbnail(guildIconUrl(guild, { size: 256 }) || null);
   const messageWinnerTotal = Number(awarded?.messageWinner?.value || 0);
   const voiceWinnerTotal = Number(awarded?.voiceWinner?.value || 0);
+  const minigameWinnerTotal = Number(awarded?.minigameWinner?.value || 0);
   const messageWinnerMention = awarded?.messageWinner?.userId ? `<@${awarded.messageWinner.userId}>` : "Nessun vincitore";
   const voiceWinnerMention = awarded?.voiceWinner?.userId ? `<@${awarded.voiceWinner.userId}>` : "Nessun vincitore";
+  const minigameWinnerMention = awarded?.minigameWinner?.userId ? `<@${awarded.minigameWinner.userId}>` : "Nessun vincitore";
   const button = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setLabel("Chat")
@@ -552,24 +1360,865 @@ async function publishWeeklyActivityWinners(client, options = {}) {
       .setEmoji("<:VC_FrogJuice:1331620486517358613>")
       .setURL("https://discord.com/channels/1329080093599076474/1442569101225496819"),
   );
+  const isDailyIntro = mode === "daily";
+  const introLine = isDailyIntro
+    ? "<a:VC_Winner:1482535294757507255> Ciao a tutti! Ecco la Top 3 utenti più attivi di oggi."
+    : "<a:VC_Winner:1482535294757507255> Ciao a tutti! Annunciamo i vincitori di questa settimana per attività.";
+  const minigameAnnounceLine =
+    mode === "weekly" && MINIGAME_WINNER_ROLE_ID && !suppressMinigameThisWeek
+      ? `\n<:VC_Podio1:1482694399283433582> Con un totale di **${minigameWinnerTotal} pt**, ${minigameWinnerMention} ottieni il primo posto per **__minigames__** e il ruolo <@&${MINIGAME_WINNER_ROLE_ID}>.`
+      : "";
+  const payload = {
+    content: `<@&1442568949605597264>
+${introLine}
+
+<:VC_Podio1:1482694399283433582> Con un totale di **${messageWinnerTotal} messaggi**, ${messageWinnerMention} ottieni il primo posto per **__chat testuale__**.
+<:VC_Podio1:1482694399283433582> Con un totale di **${voiceWinnerTotal} exp**, ${voiceWinnerMention} ottieni il primo posto per **__chat vocale__**.${minigameAnnounceLine}
+_ _`,
+    embeds: [embed],
+    components: [button],
+  };
+  if (typeof options.dryRunLogger === "function") {
+    try {
+      options.dryRunLogger({
+        mode,
+        guildId: guild?.id || null,
+        minigameRankWeekKey: minigameRankWeekKey || null,
+        suppressMinigameThisWeek,
+        skipDiscordSends: Boolean(options.skipDiscordSends),
+        skipWeeklyRoles: Boolean(options.skipWeeklyRoles),
+        awarded,
+        displayTopMessages,
+        displayTopVoice,
+        displayTopMinigame,
+        messageRows,
+        voiceRows,
+        minigameRows,
+        embedDescription: embedDescLines.join("\n"),
+        payloadContent: payload.content,
+      });
+    } catch (e) {
+      global.logger?.warn?.("[WEEKLY ACTIVITY] dryRunLogger:", e?.message || e);
+    }
+  }
+  const discordTarget = editMessage || channel;
+  if (!options.skipDiscordSends && discordTarget) {
+    try {
+      if (editMessage) {
+        await editMessage.edit(payload);
+      } else {
+        await channel.send(payload);
+      }
+    } catch (error) {
+      global.logger.error(
+        editMessage ? "[WEEKLY ACTIVITY] Failed to edit winners message:" : "[WEEKLY ACTIVITY] Failed to send winners message:",
+        error,
+      );
+    }
+  }
+}
+
+async function publishMonthlyActivityWinners(client, options = {}) {
+  const mainGuildId = String(IDs.guilds?.main || "");
+  let guild =
+    mainGuildId &&
+    (client.guilds.cache.get(mainGuildId) || (await getClientGuildCached(client, mainGuildId, { ttlMs: 60_000 }).catch(() => null)));
+  const channelIdToUse = options.targetChannelId || TARGET_CHANNEL_ID;
+  if (!guild) {
+    const channel =
+      client.channels.cache.get(channelIdToUse) || (await getClientChannelCached(client, channelIdToUse, { ttlMs: 60_000 }));
+    if (!channel?.guild) {
+      global.logger?.error?.("[MONTHLY ACTIVITY] Publish skipped: guild not found (main o canale top weekly).");
+      return;
+    }
+    guild = channel.guild;
+  }
+  const channel =
+    client.channels.cache.get(channelIdToUse) || (await getClientChannelCached(client, channelIdToUse, { ttlMs: 60_000 }));
+  if (!channel?.guild) {
+    global.logger?.error?.("[MONTHLY ACTIVITY] Publish skipped: canale top weekly non trovato.", channelIdToUse);
+    return;
+  }
+  const anchor =
+    options.anchorDate instanceof Date && !Number.isNaN(options.anchorDate.getTime()) ? options.anchorDate : new Date();
+  let rankedYear;
+  let rankedMonth;
+  if (options.rankedYear != null && options.rankedMonth != null) {
+    rankedYear = Number(options.rankedYear);
+    rankedMonth = Number(options.rankedMonth);
+  } else {
+    const prev = getPreviousRomeCalendarMonth(anchor);
+    rankedYear = prev.year;
+    rankedMonth = prev.month;
+  }
+  if (!Number.isFinite(rankedYear) || !Number.isFinite(rankedMonth) || rankedMonth < 1 || rankedMonth > 12) {
+    global.logger?.error?.("[MONTHLY ACTIVITY] Publish skipped: mese non valido.", rankedYear, rankedMonth);
+    return;
+  }
+  const monthNameLabel = `${IT_MONTH_NAMES[rankedMonth - 1] || ""} ${rankedYear}`.trim();
+  const rows = await loadMonthlyRowsFromRomeCalendarMonth(guild, rankedYear, rankedMonth);
+  const augmented = rows.map((r) => {
+    const textExp = Math.max(0, Math.floor(Number(r.messageCount || 0) * MESSAGE_EXP));
+    const voiceExp = Math.max(0, Math.floor(Number(r.voiceExp || 0)));
+    return {
+      userId: r.userId,
+      textExp,
+      voiceExp,
+      totalExp: textExp + voiceExp,
+    };
+  });
+  const combinedDocs = augmented
+    .filter((row) => Number(row.totalExp || 0) > 0)
+    .sort((a, b) => Number(b.totalExp || 0) - Number(a.totalExp || 0))
+    .slice(0, 200);
+  const topCombined = await resolveTopThreeUsers(client, guild, combinedDocs, (doc) => Number(doc?.totalExp || 0), 10);
+  const displayTopCombined = uniqueRankingByUserId(topCombined, 3);
+  const combinedRows = displayTopCombined.length
+    ? displayTopCombined.map((item, index) => formatRankLine(index, `<@${item.userId}>`, item.value, "exp totali"))
+    : [buildEmptyLine("EXP totali (chat + vocale)")];
+  let awarded = { topMonthlyWinner: null, monthlyTopSecond: null, monthlyTopThird: null, monthlyVotersTop: [] };
+  if (options.skipMonthlyRoles) {
+    awarded = {
+      topMonthlyWinner: displayTopCombined[0] || null,
+      monthlyTopSecond: displayTopCombined[1] || null,
+      monthlyTopThird: displayTopCombined[2] || null,
+    };
+  } else {
+    awarded = await updateMonthlyWinnerRoles(guild, displayTopCombined);
+  }
+  const monthlyVotersTop = await resolvePreviousMonthTopVoters(client, guild);
+  awarded.monthlyVotersTop = monthlyVotersTop;
+  if (!options.skipMonthlyRoles) {
+    await cleanupExpiredMonthlyVoterRewards(guild).catch(() => null);
+    await cleanupExpiredMonthlyTopRewards(guild).catch(() => null);
+    await revokeActiveMonthlyVoterRewardsExcept(guild, monthlyVotersTop).catch(() => null);
+    await revokeActiveMonthlyTopRewardsExcept(guild, displayTopCombined, rankedYear, rankedMonth).catch(() => null);
+    await assignMonthlyVoterRewards(guild, monthlyVotersTop).catch(() => null);
+    await assignMonthlyTopRewards(guild, displayTopCombined, rankedYear, rankedMonth).catch(() => null);
+  }
+  const voterRows = monthlyVotersTop.length
+    ? monthlyVotersTop.map((item, index) => {
+      const rewardLabel = index === 0
+        ? "VIP+ (30g)"
+        : index === 1
+          ? "VIP (30g)"
+          : "Donator (30g)";
+      return `${TROPHY_LABELS[index] || TROPHY_LABELS[2] || "<:VC_Podio3:1482694450806259744>"} <@${item.userId}> <a:VC_Arrow:1482706699365257397> **${item.value}** *voti* · \`${rewardLabel}\``;
+    })
+    : [buildEmptyLine("voti del mese scorso")];
+  const monthlyRewardRows = buildMonthlyTopPrizeEmbedLines(displayTopCombined, rankedYear, rankedMonth);
+  const embedDescLines = [
+    `<:VC_Leaderboard:1482534806314287387> // **${monthNameLabel}** — I vantaggi che avete sbloccato sono sul [nostro sito](https://viniliecaffe.it/perks)`,
+    "",
+    `<a:VC_HeartsPink:1468685897389052008> • **Classifica mensile EXP totale:**`,
+    ...combinedRows,
+    "",
+    `<a:VC_Winner:1482535294757507255> • **Premi Top Monthly:**`,
+    ...monthlyRewardRows,
+    "",
+    `<:VC_Leaderboard:1482534806314287387> • **Top Voters:**`,
+    ...voterRows,
+  ];
+  const embed = new EmbedBuilder()
+    .setColor("#6f4e37")
+    .setDescription(embedDescLines.join("\n"))
+    .setThumbnail(guildIconUrl(guild, { size: 256 }) || null);
+  const monthlyAnnounce = buildMonthlyTopWinnerAnnounceLines(awarded, rankedYear, rankedMonth);
+  const button = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setLabel("Chat")
+      .setStyle(ButtonStyle.Link)
+      .setEmoji("<:VC_FrogCute:1331620415185096746>")
+      .setURL("https://discord.com/channels/1329080093599076474/1442569130573303898"),
+    new ButtonBuilder()
+      .setLabel("Vocal")
+      .setStyle(ButtonStyle.Link)
+      .setEmoji("<:VC_FrogJuice:1331620486517358613>")
+      .setURL("https://discord.com/channels/1329080093599076474/1442569101225496819"),
+    new ButtonBuilder()
+      .setLabel("Vota")
+      .setStyle(ButtonStyle.Link)
+      .setEmoji("<a:VC_Vote:1482535223001485473>")
+      .setURL("https://www.viniliecaffe.it/vote"),
+  );
   if (!options.skipDiscordSends && channel) {
-    const isDaily = mode === "daily";
-    const introLine = isDaily
-      ? "<a:VC_Winner:1482535294757507255> Ciao a tutti! Ecco la Top 3 utenti più attivi di oggi."
-      : "<a:VC_Winner:1482535294757507255> Ciao a tutti! Annunciamo i vincitori di questa settimana per attività.";
+    const introLine = `<a:VC_Winner:1482535294757507255> Ciao a tutti! Annunciamo i vincitori del mese.`;
+    const votersRoleTextByIndex = ["<@&1521787468201066666>", "<@&1442568950805430312>", "<@&1442568916114346096>"];
+    const voter1 = monthlyVotersTop[0];
+    const voter2 = monthlyVotersTop[1];
+    const voter3 = monthlyVotersTop[2];
+    const votersTextLine = monthlyVotersTop.length
+      ? [
+        "\n<:VC_Leaderboard:1482534806314287387> **Top Voters:**",
+        voter1
+          ? `${TROPHY_LABELS[0] || "<:VC_Podio1:1482694399283433582>"} <@${voter1.userId}> <a:VC_Arrow:1482706699365257397> **${voter1.value}** *voti* · \`${votersRoleTextByIndex[0]} 30 giorni\``
+          : null,
+        voter2
+          ? `${TROPHY_LABELS[1] || "<:VC_Podio2:1482694424411635712>"} <@${voter2.userId}> <a:VC_Arrow:1482706699365257397> **${voter2.value}** *voti* · \`${votersRoleTextByIndex[1]} 30 giorni\``
+          : null,
+        voter3
+          ? `${TROPHY_LABELS[2] || "<:VC_Podio3:1482694450806259744>"} <@${voter3.userId}> <a:VC_Arrow:1482706699365257397> **${voter3.value}** *voti* · \`${votersRoleTextByIndex[2]} 30 giorni\``
+          : null,
+      ].filter(Boolean).join("\n")
+      : "";
     try {
       await channel.send({
         content: `<@&1442568949605597264>
 ${introLine}
 
-<a:VC_Arrow:1482706699365257397> Con un totale di **${messageWinnerTotal} messaggi**, ${messageWinnerMention} ottieni il primo posto per **__chat testuale__**.
-<a:VC_Arrow:1482706699365257397> Con un totale di **${voiceWinnerTotal} exp**, ${voiceWinnerMention} ottieni il primo posto per **__chat vocale__**.
+<:VC_Podio1:1482694399283433582> Con un totale di **${monthlyAnnounce.winnerTotal} EXP**, ${monthlyAnnounce.winnerMention} ottiene il primo posto della **__classifica mensile__** e riceve il ruolo <@&1500848813680758836> e un **Nitro Boost** riscattabile tramite <#1442569095068254219> \`HIGH STAFF\`.
+${monthlyAnnounce.secondLine}
+${monthlyAnnounce.thirdLine}
+${votersTextLine}
 _ _`,
         embeds: [embed],
         components: [button],
       });
     } catch (error) {
-      global.logger.error("[WEEKLY ACTIVITY] Failed to send winners message:", error);
+      global.logger.error("[MONTHLY ACTIVITY] Failed to send winners message:", error);
+    }
+  }
+}
+
+function previousMonthKeyRome(now = new Date()) {
+  const p = getPreviousRomeCalendarMonth(now);
+  return `${p.year}-${pad2(p.month)}`;
+}
+
+async function resolvePreviousMonthTopVoters(client, guild) {
+  const monthKey = previousMonthKeyRome(new Date());
+  const docs = await ActivityUserProfile.find({
+    guildId: guild.id,
+    $or: [
+      {
+        "profile.totals.exp.bumpVoteRewards.discadia_vote.voteCountMonthKey": monthKey,
+        $or: [
+          { "profile.totals.exp.bumpVoteRewards.discadia_vote.voteCountTopgg": { $gt: 0 } },
+          { "profile.totals.exp.bumpVoteRewards.discadia_vote.voteCountDiscadia": { $gt: 0 } },
+        ],
+      },
+      {
+        "profile.totals.exp.bumpVoteRewards.discadia_vote.prevVoteCountMonthKey": monthKey,
+        $or: [
+          { "profile.totals.exp.bumpVoteRewards.discadia_vote.prevVoteCountTopgg": { $gt: 0 } },
+          { "profile.totals.exp.bumpVoteRewards.discadia_vote.prevVoteCountDiscadia": { $gt: 0 } },
+        ],
+      },
+    ],
+  })
+    .select("userId profile.totals.exp.bumpVoteRewards.discadia_vote")
+    .lean()
+    .catch(() => []);
+  const sorted = docs
+    .map((doc) => {
+      const vote = doc?.profile?.totals?.exp?.bumpVoteRewards?.discadia_vote || {};
+      const activeMatches = String(vote.voteCountMonthKey || "") === monthKey;
+      const snapshotMatches = String(vote.prevVoteCountMonthKey || "") === monthKey;
+      const total = activeMatches
+        ? Math.max(0, Number(vote.voteCountTopgg || 0)) + Math.max(0, Number(vote.voteCountDiscadia || 0))
+        : snapshotMatches
+          ? Math.max(0, Number(vote.prevVoteCountTopgg || 0)) + Math.max(0, Number(vote.prevVoteCountDiscadia || 0))
+          : 0;
+      return { ...doc, _voteTotal: total };
+    })
+    .filter((doc) => Number(doc?._voteTotal || 0) > 0)
+    .sort((a, b) => Number(b._voteTotal || 0) - Number(a._voteTotal || 0))
+    .slice(0, 200);
+  return resolveTopThreeUsers(
+    client,
+    guild,
+    sorted,
+    (doc) => Number(doc?._voteTotal || 0),
+    3,
+    WEEKLY_WINNERS_EXCLUDED_ROLE_IDS,
+  );
+}
+
+function monthlyVoterRewardRoleByRank(rankIndex) {
+  if (rankIndex === 0) return MONTHLY_VOTER_ROLE_RANK_1;
+  if (rankIndex === 1) return MONTHLY_VOTER_ROLE_RANK_2;
+  if (rankIndex === 2) return MONTHLY_VOTER_ROLE_RANK_3;
+  return null;
+}
+
+async function cleanupExpiredMonthlyVoterRewards(guild) {
+  const now = new Date();
+  const nowMs = Date.now();
+  const rows = await ActivityUserProfile.find({
+    guildId: guild.id,
+    [`${MONTHLY_VOTER_REWARD_PATH}.expiresAt`]: { $lte: now },
+  })
+    .select(`userId ${MONTHLY_VOTER_REWARD_PATH} ${MONTHLY_TOP_REWARD_PATH}`)
+    .lean()
+    .catch(() => []);
+  for (const row of rows) {
+    const userId = String(row?.userId || "");
+    const reward = row?.profile?.totals?.exp?.monthlyVoteTopReward || null;
+    const roleId = String(reward?.roleId || "");
+    const hadRoleBefore = Boolean(reward?.hadRoleBefore);
+    const keepByTopReward = hasActiveMonthlyTopRewardOnRole(row, roleId, nowMs);
+    if (userId && roleId && !hadRoleBefore && !keepByTopReward) {
+      const member = await getGuildMemberCached(guild, userId, { preferFresh: true }).catch(() => null);
+      if (member?.roles?.cache?.has(roleId)) {
+        await member.roles.remove(roleId).catch(() => null);
+      }
+    }
+    await ActivityUserProfile.updateOne(
+      { guildId: guild.id, userId },
+      { $unset: { [MONTHLY_VOTER_REWARD_PATH]: "" } },
+    ).catch(() => null);
+  }
+}
+
+async function assignMonthlyVoterRewards(guild, ranking) {
+  const now = Date.now();
+  for (let i = 0; i < Math.min(3, Array.isArray(ranking) ? ranking.length : 0); i += 1) {
+    const row = ranking[i];
+    const userId = String(row?.userId || "");
+    const roleId = String(monthlyVoterRewardRoleByRank(i) || "");
+    if (!userId || !roleId) continue;
+    const member = await getGuildMemberCached(guild, userId, { preferFresh: true }).catch(() => null);
+    if (!member) continue;
+    const existing = await ActivityUserProfile.findOne({ guildId: guild.id, userId })
+      .select(MONTHLY_VOTER_REWARD_PATH)
+      .lean()
+      .catch(() => null);
+    const existingReward = existing?.profile?.totals?.exp?.monthlyVoteTopReward || null;
+    const existingRoleId = String(existingReward?.roleId || "");
+    const existingHadRoleBefore = Boolean(existingReward?.hadRoleBefore);
+    if (existingRoleId && existingRoleId !== roleId && !existingHadRoleBefore && member.roles.cache.has(existingRoleId)) {
+      await member.roles.remove(existingRoleId).catch(() => null);
+    }
+    const hadRoleBefore = member.roles.cache.has(roleId);
+    if (!hadRoleBefore) {
+      await member.roles.add(roleId).catch(() => null);
+    }
+    await ActivityUserProfile.updateOne(
+      { guildId: guild.id, userId },
+      {
+        $set: {
+          [`${MONTHLY_VOTER_REWARD_PATH}.rank`]: i + 1,
+          [`${MONTHLY_VOTER_REWARD_PATH}.roleId`]: roleId,
+          [`${MONTHLY_VOTER_REWARD_PATH}.awardedAt`]: new Date(now),
+          [`${MONTHLY_VOTER_REWARD_PATH}.expiresAt`]: new Date(now + MONTHLY_VOTER_REWARD_DURATION_MS),
+          [`${MONTHLY_VOTER_REWARD_PATH}.hadRoleBefore`]: hadRoleBefore,
+          [`${MONTHLY_VOTER_REWARD_PATH}.monthKey`]: voteCountMonthKeyRome(new Date(now)),
+        },
+      },
+    ).catch(() => null);
+  }
+}
+
+function rankedMonthOrdinal(year, month) {
+  return Number(year) * 12 + Number(month);
+}
+
+function usesNewMonthlyTopActivityRewards(rankedYear, rankedMonth) {
+  const y = Number(rankedYear);
+  const m = Number(rankedMonth);
+  if (!Number.isFinite(y) || !Number.isFinite(m)) return true;
+  return rankedMonthOrdinal(y, m) >= rankedMonthOrdinal(
+    MONTHLY_TOP_NEW_REWARDS_FIRST_RANKED.year,
+    MONTHLY_TOP_NEW_REWARDS_FIRST_RANKED.month,
+  );
+}
+
+function monthlyTopVipPlusMention() {
+  const roleId = String(MONTHLY_TOP_REWARD_ROLE_RANK_2 || "");
+  return roleId ? `<@&${roleId}>` : "**VIP+**";
+}
+
+function monthlyPrizeTicketRef() {
+  return `<#${MONTHLY_PRIZE_TICKET_CHANNEL_ID}> \`HIGH STAFF\``;
+}
+
+function buildMonthlyTopPrizeEmbedLines(displayTopCombined, rankedYear, rankedMonth) {
+  const t0 = TROPHY_LABELS[0] || "<:VC_Podio1:1482694399283433582>";
+  const t1 = TROPHY_LABELS[1] || "<:VC_Podio2:1482694424411635712>";
+  const t2 = TROPHY_LABELS[2] || "<:VC_Podio3:1482694450806259744>";
+  const arrow = "<a:VC_Arrow:1482706699365257397>";
+  const first = displayTopCombined[0];
+  const second = displayTopCombined[1];
+  const third = displayTopCombined[2];
+  if (usesNewMonthlyTopActivityRewards(rankedYear, rankedMonth)) {
+    const vipPlus = monthlyTopVipPlusMention();
+    return [
+      first?.userId
+        ? `${t0} <@${first.userId}> ${arrow} <@&${MONTHLY_MEMBER_ROLE_ID}> + **Nitro Boost**`
+        : `${t0} Nessun vincitore`,
+      second?.userId
+        ? `${t1} <@${second.userId}> ${arrow} **Decorazione a scelta (max 15,99€)**`
+        : `${t1} Nessun vincitore`,
+      third?.userId
+        ? `${t2} <@${third.userId}> ${arrow} ${vipPlus} **per 30 giorni**`
+        : `${t2} Nessun vincitore`,
+    ];
+  }
+  return [
+    first?.userId
+      ? `${t0} <@${first.userId}> ${arrow} <@&${MONTHLY_MEMBER_ROLE_ID}> + **Nitro Boost**`
+      : `${t0} Nessun vincitore`,
+    second?.userId
+      ? `${t1} <@${second.userId}> ${arrow} **VIP+ (30 giorni) + Decorazione a scelta (max 15,99€)**`
+      : `${t1} Nessun vincitore`,
+    third?.userId
+      ? `${t2} <@${third.userId}> ${arrow} **VIP (30 giorni) + Nitro Basic**`
+      : `${t2} Nessun vincitore`,
+  ];
+}
+
+function buildMonthlyTopWinnerAnnounceLines(awarded, rankedYear, rankedMonth) {
+  const ticketRef = monthlyPrizeTicketRef();
+  const winnerTotal = Number(awarded?.topMonthlyWinner?.value || 0);
+  const winnerMention = awarded?.topMonthlyWinner?.userId ? `<@${awarded.topMonthlyWinner.userId}>` : "Nessun vincitore";
+  const secondTotal = Number(awarded?.monthlyTopSecond?.value || 0);
+  const secondMention = awarded?.monthlyTopSecond?.userId ? `<@${awarded.monthlyTopSecond.userId}>` : null;
+  const thirdTotal = Number(awarded?.monthlyTopThird?.value || 0);
+  const thirdMention = awarded?.monthlyTopThird?.userId ? `<@${awarded.monthlyTopThird.userId}>` : null;
+  let secondLine = "";
+  let thirdLine = "";
+  if (usesNewMonthlyTopActivityRewards(rankedYear, rankedMonth)) {
+    const vipPlus = monthlyTopVipPlusMention();
+    secondLine = secondMention
+      ? `\n<:VC_Podio2:1482694424411635712> Con un totale di **${secondTotal} EXP**, ${secondMention} ottiene il secondo posto e riceve una **decorazione a scelta (max 15,99€)** riscattabile tramite ${ticketRef}.`
+      : "";
+    thirdLine = thirdMention
+      ? `\n<:VC_Podio3:1482694450806259744> Con un totale di **${thirdTotal} EXP**, ${thirdMention} ottiene il terzo posto e riceve ${vipPlus} **per 30 giorni**.`
+      : "";
+  } else {
+    secondLine = secondMention
+      ? `\n<:VC_Podio2:1482694424411635712> Con un totale di **${secondTotal} EXP**, ${secondMention} ottiene il secondo posto e riceve **VIP+ per 30 giorni** e una **decorazione a scelta (max 15,99€)** riscattabile tramite ${ticketRef}.`
+      : "";
+    thirdLine = thirdMention
+      ? `\n<:VC_Podio3:1482694450806259744> Con un totale di **${thirdTotal} EXP**, ${thirdMention} ottiene il terzo posto e riceve **VIP per 30 giorni** e un **Nitro Basic** riscattabile tramite ${ticketRef}.`
+      : "";
+  }
+  return { winnerTotal, winnerMention, secondLine, thirdLine };
+}
+
+function monthlyTopRewardRoleByRank(rankIndex, rankedYear, rankedMonth) {
+  if (usesNewMonthlyTopActivityRewards(rankedYear, rankedMonth)) {
+    if (rankIndex === 2) return MONTHLY_TOP_REWARD_ROLE_RANK_2;
+    return null;
+  }
+  if (rankIndex === 1) return MONTHLY_TOP_REWARD_ROLE_RANK_2;
+  if (rankIndex === 2) return MONTHLY_TOP_REWARD_ROLE_RANK_3;
+  return null;
+}
+
+function hasActiveMonthlyTopRewardOnRole(profile, roleId, now = Date.now()) {
+  const role = String(roleId || "");
+  if (!role) return false;
+  const reward = profile?.profile?.totals?.exp?.monthlyTopReward || null;
+  if (String(reward?.roleId || "") !== role) return false;
+  const expiresAt = Number(new Date(reward?.expiresAt || 0).getTime() || 0);
+  return expiresAt > now;
+}
+
+function hasActiveMonthlyVoterRewardOnRole(profile, roleId, now = Date.now()) {
+  const role = String(roleId || "");
+  if (!role) return false;
+  const reward = profile?.profile?.totals?.exp?.monthlyVoteTopReward || null;
+  if (String(reward?.roleId || "") !== role) return false;
+  const expiresAt = Number(new Date(reward?.expiresAt || 0).getTime() || 0);
+  return expiresAt > now;
+}
+
+async function revokeMonthlyRewardHolder(guild, row, rewardPath, nowMs = Date.now()) {
+  const userId = String(row?.userId || "");
+  const reward =
+    rewardPath === MONTHLY_TOP_REWARD_PATH
+      ? row?.profile?.totals?.exp?.monthlyTopReward
+      : row?.profile?.totals?.exp?.monthlyVoteTopReward;
+  const roleId = String(reward?.roleId || "");
+  const hadRoleBefore = Boolean(reward?.hadRoleBefore);
+  if (!userId || !roleId) return false;
+
+  const keepByOtherReward =
+    rewardPath === MONTHLY_TOP_REWARD_PATH
+      ? hasActiveMonthlyVoterRewardOnRole(row, roleId, nowMs)
+      : hasActiveMonthlyTopRewardOnRole(row, roleId, nowMs);
+  if (keepByOtherReward) return false;
+
+  if (!hadRoleBefore) {
+    const member = await getGuildMemberCached(guild, userId, { preferFresh: true }).catch(() => null);
+    if (member?.roles?.cache?.has(roleId)) {
+      await member.roles.remove(roleId).catch(() => null);
+    }
+  }
+  await ActivityUserProfile.updateOne(
+    { guildId: guild.id, userId },
+    { $unset: { [rewardPath]: "" } },
+  ).catch(() => null);
+  return true;
+}
+
+function collectMonthlyTopKeeperUserIds(ranking, rankedYear, rankedMonth) {
+  const keep = new Set();
+  const rankIndexes = usesNewMonthlyTopActivityRewards(rankedYear, rankedMonth) ? [2] : [1, 2];
+  for (const i of rankIndexes) {
+    const userId = String(ranking?.[i]?.userId || "").trim();
+    if (userId) keep.add(userId);
+  }
+  return keep;
+}
+
+function collectMonthlyVoterKeeperUserIds(ranking) {
+  const keep = new Set();
+  for (let i = 0; i < Math.min(3, Array.isArray(ranking) ? ranking.length : 0); i += 1) {
+    const userId = String(ranking?.[i]?.userId || "").trim();
+    if (userId) keep.add(userId);
+  }
+  return keep;
+}
+
+async function revokeActiveMonthlyTopRewardsExcept(guild, ranking, rankedYear, rankedMonth) {
+  const nowMs = Date.now();
+  const keepUserIds = collectMonthlyTopKeeperUserIds(ranking, rankedYear, rankedMonth);
+  const rows = await ActivityUserProfile.find({
+    guildId: guild.id,
+    [`${MONTHLY_TOP_REWARD_PATH}.expiresAt`]: { $gt: new Date() },
+  })
+    .select(`userId ${MONTHLY_TOP_REWARD_PATH} ${MONTHLY_VOTER_REWARD_PATH}`)
+    .lean()
+    .catch(() => []);
+  for (const row of rows) {
+    const userId = String(row?.userId || "");
+    if (!userId || keepUserIds.has(userId)) continue;
+    await revokeMonthlyRewardHolder(guild, row, MONTHLY_TOP_REWARD_PATH, nowMs);
+  }
+}
+
+async function revokeActiveMonthlyVoterRewardsExcept(guild, ranking) {
+  const nowMs = Date.now();
+  const keepUserIds = collectMonthlyVoterKeeperUserIds(ranking);
+  const rows = await ActivityUserProfile.find({
+    guildId: guild.id,
+    [`${MONTHLY_VOTER_REWARD_PATH}.expiresAt`]: { $gt: new Date() },
+  })
+    .select(`userId ${MONTHLY_TOP_REWARD_PATH} ${MONTHLY_VOTER_REWARD_PATH}`)
+    .lean()
+    .catch(() => []);
+  for (const row of rows) {
+    const userId = String(row?.userId || "");
+    if (!userId || keepUserIds.has(userId)) continue;
+    await revokeMonthlyRewardHolder(guild, row, MONTHLY_VOTER_REWARD_PATH, nowMs);
+  }
+}
+
+/** Se più utenti hanno lo stesso premio mensile attivo sullo stesso ruolo, tiene solo l'ultimo assegnato. */
+async function reconcileDuplicateActiveMonthlyRewardRoles(guild) {
+  const nowMs = Date.now();
+  for (const rewardPath of [MONTHLY_TOP_REWARD_PATH, MONTHLY_VOTER_REWARD_PATH]) {
+    const rows = await ActivityUserProfile.find({
+      guildId: guild.id,
+      [`${rewardPath}.expiresAt`]: { $gt: new Date() },
+    })
+      .select(`userId ${MONTHLY_TOP_REWARD_PATH} ${MONTHLY_VOTER_REWARD_PATH}`)
+      .lean()
+      .catch(() => []);
+    const byRole = new Map();
+    for (const row of rows) {
+      const reward =
+        rewardPath === MONTHLY_TOP_REWARD_PATH
+          ? row?.profile?.totals?.exp?.monthlyTopReward
+          : row?.profile?.totals?.exp?.monthlyVoteTopReward;
+      const roleId = String(reward?.roleId || "");
+      if (!roleId) continue;
+      const awardedAt = Number(new Date(reward?.awardedAt || 0).getTime() || 0);
+      if (!byRole.has(roleId)) byRole.set(roleId, []);
+      byRole.get(roleId).push({ row, awardedAt });
+    }
+    for (const holders of byRole.values()) {
+      if (holders.length <= 1) continue;
+      holders.sort((a, b) => b.awardedAt - a.awardedAt);
+      for (let i = 1; i < holders.length; i += 1) {
+        await revokeMonthlyRewardHolder(guild, holders[i].row, rewardPath, nowMs);
+      }
+    }
+  }
+}
+
+async function cleanupExpiredMonthlyTopRewards(guild) {
+  const now = new Date();
+  const nowMs = Date.now();
+  const rows = await ActivityUserProfile.find({
+    guildId: guild.id,
+    [`${MONTHLY_TOP_REWARD_PATH}.expiresAt`]: { $lte: now },
+  })
+    .select(`userId ${MONTHLY_TOP_REWARD_PATH} ${MONTHLY_VOTER_REWARD_PATH}`)
+    .lean()
+    .catch(() => []);
+  for (const row of rows) {
+    const userId = String(row?.userId || "");
+    const reward = row?.profile?.totals?.exp?.monthlyTopReward || null;
+    const roleId = String(reward?.roleId || "");
+    const hadRoleBefore = Boolean(reward?.hadRoleBefore);
+    const keepByVoterReward = hasActiveMonthlyVoterRewardOnRole(row, roleId, nowMs);
+    if (userId && roleId && !hadRoleBefore && !keepByVoterReward) {
+      const member = await getGuildMemberCached(guild, userId, { preferFresh: true }).catch(() => null);
+      if (member?.roles?.cache?.has(roleId)) {
+        await member.roles.remove(roleId).catch(() => null);
+      }
+    }
+    await ActivityUserProfile.updateOne(
+      { guildId: guild.id, userId },
+      { $unset: { [MONTHLY_TOP_REWARD_PATH]: "" } },
+    ).catch(() => null);
+  }
+}
+
+async function assignMonthlyTopRewards(guild, ranking, rankedYear, rankedMonth) {
+  const now = Date.now();
+  const rankIndexes = usesNewMonthlyTopActivityRewards(rankedYear, rankedMonth) ? [2] : [1, 2];
+  for (const i of rankIndexes) {
+    const row = Array.isArray(ranking) ? ranking[i] : null;
+    const userId = String(row?.userId || "");
+    const roleId = String(monthlyTopRewardRoleByRank(i, rankedYear, rankedMonth) || "");
+    if (!userId || !roleId) continue;
+    const member = await getGuildMemberCached(guild, userId, { preferFresh: true }).catch(() => null);
+    if (!member) continue;
+    const existing = await ActivityUserProfile.findOne({ guildId: guild.id, userId })
+      .select(`${MONTHLY_TOP_REWARD_PATH} ${MONTHLY_VOTER_REWARD_PATH}`)
+      .lean()
+      .catch(() => null);
+    const existingReward = existing?.profile?.totals?.exp?.monthlyTopReward || null;
+    const existingRoleId = String(existingReward?.roleId || "");
+    const existingHadRoleBefore = Boolean(existingReward?.hadRoleBefore);
+    const keepByVoterReward = hasActiveMonthlyVoterRewardOnRole(existing, existingRoleId, now);
+    if (
+      existingRoleId &&
+      existingRoleId !== roleId &&
+      !existingHadRoleBefore &&
+      !keepByVoterReward &&
+      member.roles.cache.has(existingRoleId)
+    ) {
+      await member.roles.remove(existingRoleId).catch(() => null);
+    }
+    const hadRoleBefore = member.roles.cache.has(roleId);
+    if (!hadRoleBefore) {
+      await member.roles.add(roleId).catch(() => null);
+    }
+    await ActivityUserProfile.updateOne(
+      { guildId: guild.id, userId },
+      {
+        $set: {
+          [`${MONTHLY_TOP_REWARD_PATH}.rank`]: i + 1,
+          [`${MONTHLY_TOP_REWARD_PATH}.roleId`]: roleId,
+          [`${MONTHLY_TOP_REWARD_PATH}.awardedAt`]: new Date(now),
+          [`${MONTHLY_TOP_REWARD_PATH}.expiresAt`]: new Date(now + MONTHLY_TOP_REWARD_DURATION_MS),
+          [`${MONTHLY_TOP_REWARD_PATH}.hadRoleBefore`]: hadRoleBefore,
+          [`${MONTHLY_TOP_REWARD_PATH}.monthKey`]: voteCountMonthKeyRome(new Date(now)),
+        },
+      },
+    ).catch(() => null);
+  }
+}
+
+async function publishHogwartsBiweeklyActivityWinners(client, options = {}) {
+  const eventCfg = resolveHogwartsEventConfig(client);
+  if (!isHogwartsWeeklyTopReplaced(client)) {
+    global.logger?.info?.("[HOGWARTS BIWEEKLY TOP] Publish skipped: evento non attivo.");
+    return;
+  }
+  const mainGuildId = String(IDs.guilds?.main || "");
+  let guild =
+    mainGuildId &&
+    (client.guilds.cache.get(mainGuildId) || (await getClientGuildCached(client, mainGuildId, { ttlMs: 60_000 }).catch(() => null)));
+  const channelIdToUse = options.targetChannelId || TARGET_CHANNEL_ID;
+  let channel = null;
+  if (!guild) {
+    channel =
+      client.channels.cache.get(channelIdToUse) || (await getClientChannelCached(client, channelIdToUse, { ttlMs: 60_000 }));
+    if (!channel?.guild) {
+      global.logger?.error?.("[HOGWARTS BIWEEKLY TOP] Publish skipped: guild not found.");
+      return;
+    }
+    guild = channel.guild;
+  }
+  channel =
+    client.channels.cache.get(channelIdToUse) || (await getClientChannelCached(client, channelIdToUse, { ttlMs: 60_000 }));
+  if (!channel?.guild) {
+    global.logger?.error?.("[HOGWARTS BIWEEKLY TOP] Publish skipped: canale non trovato.", channelIdToUse);
+    return;
+  }
+  const now =
+    options.anchorDate instanceof Date && !Number.isNaN(options.anchorDate.getTime()) ? options.anchorDate : new Date();
+  if (!options.forcePublish && !shouldPublishHogwartsBiweeklyToday(now, resolveHubStartMs(eventCfg))) {
+    global.logger?.info?.("[HOGWARTS BIWEEKLY TOP] Publish skipped: non è domenica di chiusura bisettimanale.");
+    return;
+  }
+  const periodEndMs = getLastSunday12BoundaryMsAtOrBefore(now);
+  const periodStartMs = periodEndMs - HOGWARTS_BIWEEKLY_MS;
+  const periodKey = buildBiweekPeriodKey(periodEndMs);
+  const eventKey = String(eventCfg.eventKey || "").trim();
+  if (!periodKey || !eventKey) return;
+  const existing = await findBiweeklyPublishMarker(guild.id, periodKey);
+  if (existing?.status === "completed" && !options.forcePublish) {
+    global.logger?.info?.("[HOGWARTS BIWEEKLY TOP] Publish skipped: periodo già pubblicato.", periodKey);
+    return;
+  }
+  const sortedHouseByUserId = await loadSortedHouseByUserId(guild.id, eventKey);
+  if (!sortedHouseByUserId.size) {
+    global.logger?.warn?.("[HOGWARTS BIWEEKLY TOP] Publish skipped: nessuno smistato.");
+    return;
+  }
+  const rowsSource = await loadBiweeklyRowsFromHourlyWindow(guild, now);
+  let messageDocs = filterDocsToSortedUsers(
+    rowsSource.filter((row) => Number(row?.messageCount || 0) > 0).sort((a, b) => Number(b.messageCount || 0) - Number(a.messageCount || 0)).slice(0, 300),
+    sortedHouseByUserId,
+  );
+  let voiceDocs = filterDocsToSortedUsers(
+    rowsSource.filter((row) => Number(row?.voiceExp || 0) > 0).sort((a, b) => Number(b.voiceExp || 0) - Number(a.voiceExp || 0)).slice(0, 300),
+    sortedHouseByUserId,
+  );
+  const topMessagesPool = await resolveTopThreeUsers(client, guild, messageDocs, (doc) => Number(doc?.messageCount || 0), 40, HOGWARTS_EVENT_TOP_EXCLUDED_ROLE_IDS);
+  const topVoicePool = await resolveTopThreeUsers(client, guild, voiceDocs, (doc) => Number(doc?.voiceExp || 0), 40, HOGWARTS_EVENT_TOP_EXCLUDED_ROLE_IDS);
+  const minigameWeekKeys = getIsoWeekKeysInBiweeklyWindow(periodEndMs);
+  let minigameDocsRaw = [];
+  if (minigameWeekKeys.length) {
+    minigameDocsRaw = await ActivityUserProfile.find({
+      guildId: guild.id,
+      $or: minigameWeekKeys.flatMap((k) => [
+        { "profile.totals.exp.minigame.weeklyKey": k, "profile.totals.exp.minigame.weeklyExp": { $gt: 0 } },
+        { "profile.totals.exp.minigame.prevWeekKey": k, "profile.totals.exp.minigame.prevWeekExp": { $gt: 0 } },
+      ]),
+    })
+      .select("userId profile.totals.exp.minigame")
+      .limit(1200)
+      .lean()
+      .catch(() => []);
+  }
+  const minigameDocs = filterDocsToSortedUsers(
+    minigameDocsRaw
+      .filter((d) => effectiveMinigameBiweeklyScore(d, minigameWeekKeys) > 0)
+      .sort((a, b) => effectiveMinigameBiweeklyScore(b, minigameWeekKeys) - effectiveMinigameBiweeklyScore(a, minigameWeekKeys))
+      .slice(0, 450),
+    sortedHouseByUserId,
+  );
+  const mgScore = (doc) => effectiveMinigameBiweeklyScore(doc, minigameWeekKeys);
+  let topMinigamePool = await resolveTopThreeUsers(client, guild, minigameDocs, mgScore, 40, HOGWARTS_EVENT_TOP_EXCLUDED_ROLE_IDS);
+  if (!topMinigamePool.length && minigameDocs.some((d) => mgScore(d) > 0)) {
+    topMinigamePool = await resolveMinigameTopForced(client, guild, minigameDocs, mgScore, 40, HOGWARTS_EVENT_TOP_EXCLUDED_ROLE_IDS);
+  }
+  const dedupedTops = buildHogwartsBiweeklyTopsDeduped(topMessagesPool, topVoicePool, topMinigamePool, sortedHouseByUserId, 3);
+  const displayTopMessages = dedupedTops.messages;
+  const displayTopVoice = dedupedTops.voice;
+  const displayTopMinigame = dedupedTops.minigame;
+  const messageRows = displayTopMessages.length
+    ? displayTopMessages.map((item, index) => formatRankLine(index, `<@${item.userId}>`, item.value, "messaggi"))
+    : [buildEmptyLine("messaggi")];
+  const voiceRows = displayTopVoice.length
+    ? displayTopVoice.map((item, index) => formatRankLine(index, `<@${item.userId}>`, item.value, "exp"))
+    : [buildEmptyLine("exp vocale")];
+  const minigameRows = displayTopMinigame.length
+    ? displayTopMinigame.map((item, index) => formatRankLine(index, `<@${item.userId}>`, item.value, "pt minigame"))
+    : [buildEmptyLine("minigames")];
+  const embedDescLines = [
+    `<:VC_Leaderboard:1482534806314287387> // Tutti i vincitori hanno ricevuto galeoni e punti casa`,
+    "",
+    `<a:VC_HeartsPink:1468685897389052008> • **Classifica testuale:**`,
+    ...messageRows,
+    "",
+    `<a:VC_HeartsBlue:1468686100045369404> • **Classifica vocale:**`,
+    ...voiceRows,
+    "",
+    `<a:VC_Events:1482706144953897223> • **Classifica minigames:**`,
+    ...minigameRows,
+  ];
+  const embed = new EmbedBuilder()
+    .setColor("#6f4e37")
+    .setDescription(embedDescLines.join("\n"))
+    .setThumbnail(guildIconUrl(guild, { size: 256 }) || null);
+  const messageWinner = displayTopMessages[0] || null;
+  const voiceWinner = displayTopVoice[0] || null;
+  const minigameWinner = displayTopMinigame[0] || null;
+  const messageWinnerTotal = Number(messageWinner?.value || 0);
+  const voiceWinnerTotal = Number(voiceWinner?.value || 0);
+  const minigameWinnerTotal = Number(minigameWinner?.value || 0);
+  const messageWinnerMention = messageWinner?.userId ? `<@${messageWinner.userId}>` : "Nessun vincitore";
+  const voiceWinnerMention = voiceWinner?.userId ? `<@${voiceWinner.userId}>` : "Nessun vincitore";
+  const minigameWinnerMention = minigameWinner?.userId ? `<@${minigameWinner.userId}>` : "Nessun vincitore";
+  const button = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setLabel("Chat")
+      .setStyle(ButtonStyle.Link)
+      .setEmoji("<:VC_FrogCute:1331620415185096746>")
+      .setURL("https://discord.com/channels/1329080093599076474/1442569130573303898"),
+    new ButtonBuilder()
+      .setLabel("Vocal")
+      .setStyle(ButtonStyle.Link)
+      .setEmoji("<:VC_FrogJuice:1331620486517358613>")
+      .setURL("https://discord.com/channels/1329080093599076474/1442569101225496819"),
+  );
+  const minigameAnnounceLine = `\n<:VC_Podio1:1482694399283433582> Con un totale di **${minigameWinnerTotal} pt**, ${minigameWinnerMention} ottiene il primo posto per **__minigames__**.`;
+  const payload = {
+    content: `<@&1442568949605597264>
+<a:VC_Winner:1482535294757507255> Ciao a tutti! Annunciamo i vincitori di queste **due settimane** per attività.
+
+<:VC_Podio1:1482694399283433582> Con un totale di **${messageWinnerTotal} messaggi**, ${messageWinnerMention} ottiene il primo posto per **__chat testuale__**.
+<:VC_Podio1:1482694399283433582> Con un totale di **${voiceWinnerTotal} exp**, ${voiceWinnerMention} ottiene il primo posto per **__chat vocale__**.${minigameAnnounceLine}
+_ _`,
+    embeds: [embed],
+    components: [button],
+  };
+  await SiteDocument.findOneAndUpdate(
+    {
+      docType: HOGWARTS_BIWEEKLY_PUBLISH_DOC,
+      guildId: guild.id,
+      userId: HOGWARTS_BIWEEKLY_PUBLISH_OWNER_ID,
+      dedupeKey: periodKey,
+    },
+    {
+      $setOnInsert: {
+        docType: HOGWARTS_BIWEEKLY_PUBLISH_DOC,
+        guildId: guild.id,
+        userId: HOGWARTS_BIWEEKLY_PUBLISH_OWNER_ID,
+        dedupeKey: periodKey,
+        createdBy: "hogwarts_biweekly_top",
+      },
+      $set: {
+        status: "running",
+        planKey: "hogwarts_biweekly_top",
+        "rawWebhook.periodStartMs": periodStartMs,
+        "rawWebhook.periodEndMs": periodEndMs,
+        "rawWebhook.eventKey": eventKey,
+      },
+    },
+    { upsert: true, new: true, setDefaultsOnInsert: true },
+  ).catch(() => null);
+  if (!options.skipDiscordSends && channel) {
+    try {
+      await channel.send(payload);
+    } catch (error) {
+      global.logger.error("[HOGWARTS BIWEEKLY TOP] Failed to send winners message:", error);
+    }
+  }
+  const awardStats = {
+    messages: await awardHogwartsBiweeklyCategoryWinners(client, guild, "messages", displayTopMessages, periodKey, eventKey),
+    voice: await awardHogwartsBiweeklyCategoryWinners(client, guild, "voice", displayTopVoice, periodKey, eventKey),
+    minigames: await awardHogwartsBiweeklyCategoryWinners(client, guild, "minigames", displayTopMinigame, periodKey, eventKey),
+  };
+  await markBiweeklyPublishComplete(guild.id, periodKey, eventKey, {
+    displayTopMessages,
+    displayTopVoice,
+    displayTopMinigame,
+    awardStats,
+  });
+  if (typeof options.dryRunLogger === "function") {
+    try {
+      options.dryRunLogger({
+        periodKey,
+        periodStartMs,
+        periodEndMs,
+        displayTopMessages,
+        displayTopVoice,
+        displayTopMinigame,
+        awardStats,
+        payloadContent: payload.content,
+      });
+    } catch (e) {
+      global.logger?.warn?.("[HOGWARTS BIWEEKLY TOP] dryRunLogger:", e?.message || e);
     }
   }
 }
@@ -582,22 +2231,25 @@ async function resetWeeklyActivityCounters(client, options = {}) {
     return;
   }
   const now = new Date();
-  /* Deve coincidere con getWeekKey/getIsoWeekKey usati da activityService e expService su “ora”:
-     getNextWeekKey (lunedì) sulla domenica sera metteva una chiave avanti di una settimana ISO,
-     quindi mismatch → contatori settimanali sempre azzerati e sito a 0. */
-  const nextWeekKey = options.nextWeekKey != null ? options.nextWeekKey : getWeekKey(now);
+  const nextWeekKey = String(options.nextWeekKey != null ? options.nextWeekKey : getWeekKey(now));
   await ActivityUserProfile.updateMany(
     { guildId },
-    {
-      $set: {
-        "profile.totals.messagesWeekly": 0,
-        "profile.totals.messagesWeeklyKey": nextWeekKey,
-        "profile.totals.voiceWeeklySeconds": 0,
-        "profile.totals.voiceWeeklyKey": nextWeekKey,
-        "profile.totals.exp.weeklyExp": 0,
-        "profile.totals.exp.weeklyKey": nextWeekKey,
+    [
+      {
+        $set: {
+          "profile.totals.messagesWeekly": 0,
+          "profile.totals.messagesWeeklyKey": nextWeekKey,
+          "profile.totals.voiceWeeklySeconds": 0,
+          "profile.totals.voiceWeeklyKey": nextWeekKey,
+          "profile.totals.exp.weeklyExp": 0,
+          "profile.totals.exp.weeklyKey": nextWeekKey,
+          "profile.totals.exp.minigame.prevWeekKey": { $ifNull: ["$profile.totals.exp.minigame.weeklyKey", ""] },
+          "profile.totals.exp.minigame.prevWeekExp": { $ifNull: ["$profile.totals.exp.minigame.weeklyExp", 0] },
+          "profile.totals.exp.minigame.weeklyExp": 0,
+          "profile.totals.exp.minigame.weeklyKey": nextWeekKey,
+        },
       },
-    },
+    ],
   );
 }
 
@@ -606,76 +2258,63 @@ function startWeeklyActivityWinnersLoop(client) {
   if (weeklyActivityWinnersLoopStarted) return;
   weeklyActivityWinnersLoopStarted = true;
   cron.schedule(
-    "0 21 * * *",
-    async () => {
-      try {
-        await publishWeeklyActivityWinners(client, {
-          mode: "daily",
-          skipWeeklyRoles: true,
-        });
-      } catch (error) {
-        global.logger.error("[WEEKLY ACTIVITY] Daily execution failed:", error);
+    "0 21 * * 0",
+    runCronDetached("[WEEKLY ACTIVITY]", async () => {
+      if (!isHogwartsWeeklyTopReplaced(client)) {
+        await publishWeeklyActivityWinners(client);
       }
-    },
-    { timezone: TIME_ZONE },
+      const { runCustomVocWeeklyEnforcement } = require("./customVocWeeklyActivityService");
+      await runCustomVocWeeklyEnforcement(client, { mode: "weekly" });
+      await resetWeeklyActivityCounters(client);
+    }),
+    { timezone: TIME_ZONE, noOverlap: true },
   );
   cron.schedule(
-    "0 21 * * 0",
-    async () => {
-      try {
-        await publishWeeklyActivityWinners(client);
-        await resetWeeklyActivityCounters(client);
-      } catch (error) {
-        global.logger.error("[WEEKLY ACTIVITY] Scheduled execution failed:", error);
-      }
-    },
-    { timezone: TIME_ZONE },
+    "0 12 * * 0",
+    runCronDetached("[HOGWARTS BIWEEKLY TOP]", async () => {
+      if (!isHogwartsWeeklyTopReplaced(client)) return;
+      await publishHogwartsBiweeklyActivityWinners(client);
+      const { publishHogwartsHouseActivityReport } = require("./hogwartsHouseActivityReportService");
+      await publishHogwartsHouseActivityReport(client);
+    }),
+    { timezone: TIME_ZONE, noOverlap: true },
   );
-  const wasWeeklyPostAlreadyPublishedAfterBoundary = async (channel, boundaryMs) => {
-    if (!channel?.messages?.fetch || !client?.user?.id || !Number.isFinite(boundaryMs)) return false;
-    const fetched = await channel.messages.fetch({ limit: 25 }).catch(() => null);
-    if (!fetched?.size) return false;
-    for (const msg of fetched.values()) {
-      if (Number(msg?.createdTimestamp || 0) < boundaryMs) continue;
-      if (String(msg?.author?.id || "") !== String(client.user.id)) continue;
-      const content = String(msg?.content || "");
-      if (!content.includes("Annunciamo i vincitori di questa settimana")) continue;
-      return true;
-    }
-    return false;
-  };
-  const runRecoveryIfNeeded = async () => {
-    const now = new Date();
-    const nowRome = getRomeDateTimeParts(now);
-    // Hard guard richiesto: recovery weekly solo di domenica.
-    if (Number(nowRome?.weekday) !== 0) return;
-    const channel = client.channels.cache.get(TARGET_CHANNEL_ID) || (await getClientChannelCached(client, TARGET_CHANNEL_ID, { ttlMs: 60_000 }));
-    const gid = channel?.guild?.id;
-    if (!gid) return;
-    const lastSunday21BoundaryMs = getLastSunday21BoundaryMsAtOrBefore(now);
-    const alreadyPublished = await wasWeeklyPostAlreadyPublishedAfterBoundary(channel, lastSunday21BoundaryMs);
-    if (alreadyPublished) return;
-    const currentWeekKey = getWeekKey(now);
-    const previousWeekKey = getLastCompletedWeekKey(now);
-    if (previousWeekKey === currentWeekKey) return;
+  cron.schedule(
+    "0 10 1 * *",
+    runCronDetached("[MONTHLY ACTIVITY]", async () => {
+      await publishMonthlyActivityWinners(client);
+    }),
+    { timezone: TIME_ZONE, noOverlap: true },
+  );
+  cron.schedule(
+    "5 0 * * *",
+    runCronDetached("[MONTHLY REWARDS]", async () => {
+      const mainGuildId = String(IDs.guilds?.main || "");
+      const guild =
+        (mainGuildId && (client.guilds.cache.get(mainGuildId) || (await getClientGuildCached(client, mainGuildId, { ttlMs: 60_000 }).catch(() => null)))) ||
+        null;
+      if (!guild) return;
+      await cleanupExpiredMonthlyVoterRewards(guild);
+      await cleanupExpiredMonthlyTopRewards(guild);
+      await reconcileDuplicateActiveMonthlyRewardRoles(guild);
+    }),
+    { timezone: TIME_ZONE, noOverlap: true },
+  );
+  setTimeout(async () => {
     try {
-      global.logger.info("[WEEKLY ACTIVITY] Recovery: running missed weekly winners (bot was likely offline Sunday 21:00).");
-      await publishWeeklyActivityWinners(client, { weekKey: previousWeekKey });
-      await resetWeeklyActivityCounters(client, { nextWeekKey: currentWeekKey });
-    } catch (error) {
-      global.logger.error("[WEEKLY ACTIVITY] Recovery run failed:", error);
+      const mainGuildId = String(IDs.guilds?.main || "");
+      const guild =
+        (mainGuildId && (client.guilds.cache.get(mainGuildId) || (await getClientGuildCached(client, mainGuildId, { ttlMs: 60_000 }).catch(() => null)))) ||
+        null;
+      if (!guild) return;
+      await cleanupExpiredMonthlyVoterRewards(guild);
+      await cleanupExpiredMonthlyTopRewards(guild);
+      await reconcileDuplicateActiveMonthlyRewardRoles(guild);
+      await syncRoyaleMinigameTotalRole(client, { guild });
+    } catch (err) {
+      global.logger?.error?.("[MONTHLY REWARDS] Startup expiry cleanup failed:", err);
     }
-  };
-  setImmediate(() => {
-    runRecoveryIfNeeded().catch((err) => global.logger?.error?.("[WEEKLY ACTIVITY] Recovery on start failed:", err));
-  });
+  }, 20_000);
 }
 
-module.exports = {
-  startWeeklyActivityWinnersLoop,
-  publishWeeklyActivityWinners,
-  resetWeeklyActivityCounters,
-  getLastCompletedWeekKey,
-  getDateKeysForWeekKey,
-  getWeekKey,
-};
+module.exports = { startWeeklyActivityWinnersLoop, publishWeeklyActivityWinners, publishHogwartsBiweeklyActivityWinners, publishMonthlyActivityWinners, reconcileDuplicateActiveMonthlyRewardRoles, resetWeeklyActivityCounters, getLastCompletedWeekKey, getDateKeysForWeekKey, getWeekKey, isHogwartsWeeklyTopReplaced, shouldPublishHogwartsBiweeklyToday, collectHogwartsBiweeklyActivityRows, loadSortedHouseByUserId, loadRowsFromHourlyWindowByHourKeys, awardHogwartsBiweeklyHousePoints, buildHourKeysBetweenMs, buildLast7DaysHourKeys, createUtcFromRomeLocal, getLastSunday21BoundaryMsAtOrBefore, syncRoyaleMinigameTotalRole, scheduleRoyaleMinigameRoleSync };

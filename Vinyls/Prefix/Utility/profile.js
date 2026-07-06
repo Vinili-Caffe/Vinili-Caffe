@@ -1,5 +1,24 @@
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const profileButton = require("../../Buttons/profile");
+const IDs = require("../../Utils/Config/ids");
+const { buildStaffProfilePayload, SECTION_HOME } = require("../../Utils/Staff/staffProfilePanelRuntime");
+const {
+  isChannelOrThreadUnderStaffCmds,
+  isStaffCmdsPmCommandsThread,
+} = require("../../Utils/Staff/staffCmdsChannelUtils");
+
+function withDiscordTimeout(promise, ms = 8000, label = "discord") {
+  const limit = Math.max(500, Number(ms) || 8000);
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      const timer = setTimeout(() => {
+        reject(new Error(`${label} timed out after ${limit}ms`));
+      }, limit);
+      timer.unref?.();
+    }),
+  ]);
+}
 
 async function resolveTargetUser(message, args = []) {
   const mentioned = message?.mentions?.users?.first?.();
@@ -11,6 +30,33 @@ async function resolveTargetUser(message, args = []) {
     return message.client.users.fetch(id).catch(() => null);
   }
   return message?.author || null;
+}
+
+async function upsertProfileReply(message, payload) {
+  const normalizedPayload = {
+    ...(payload && typeof payload === "object" ? payload : {}),
+    allowedMentions: { repliedUser: false },
+  };
+  const botId = String(message?.client?.user?.id || "");
+  if (!botId || !message?.channel?.messages?.fetch) {
+    return safeMessageReply(message, normalizedPayload);
+  }
+  const recent = await withDiscordTimeout(
+    message.channel.messages.fetch({ limit: 50 }).catch(() => null),
+    8000,
+    "profile reply scan",
+  ).catch(() => null);
+  const existing = recent?.find?.(
+    (msg) =>
+      String(msg?.author?.id || "") === botId &&
+      String(msg?.reference?.messageId || "") === String(message.id || "") &&
+      msg?.editable,
+  );
+  if (existing) {
+    const updated = await existing.edit(normalizedPayload).catch(() => null);
+    if (updated) return updated;
+  }
+  return safeMessageReply(message, normalizedPayload);
 }
 
 module.exports = {
@@ -30,15 +76,59 @@ module.exports = {
       });
       return;
     }
+    const targetMember = await message.guild.members.fetch(targetUser.id).catch(() => null);
+    const targetHasPm = Boolean(IDs.roles?.PartnerManager && targetMember?.roles?.cache?.has(IDs.roles.PartnerManager));
+
+    if (await isStaffCmdsPmCommandsThread(message.channel)) {
+      if (!targetHasPm) {
+        await upsertProfileReply(message, {
+          content: "<:VC_Attention:1482534443632558151> Qui `+profile` mostra solo profili **Partner Manager**.",
+        });
+        return;
+      }
+      const staffPayload = await buildStaffProfilePayload(
+        message.guild,
+        targetUser.id,
+        message.author.id,
+        message.client,
+        SECTION_HOME,
+        { sourceMessageId: message.id, partnersChatPanel: true },
+      );
+      await upsertProfileReply(message, staffPayload);
+      return;
+    }
+
+    if (isChannelOrThreadUnderStaffCmds(message.channel)) {
+      const staffPayload = await buildStaffProfilePayload(
+        message.guild,
+        targetUser.id,
+        message.author.id,
+        message.client,
+        SECTION_HOME,
+        { sourceMessageId: message.id, partnersChatPanel: false },
+      );
+      await upsertProfileReply(message, staffPayload);
+      return;
+    }
+
     const payload = await profileButton.buildPanelPayload(
       message.guild,
       targetUser.id,
       message.client,
       "home",
-    );
-    await safeMessageReply(message, {
-      ...payload,
-      allowedMentions: { repliedUser: false },
+      null,
+      message.author.id,
+    ).catch((err) => {
+      global.logger?.warn?.("[profile] buildPanelPayload failed:", err?.message || err);
+      return null;
     });
+    if (!payload) {
+      await safeMessageReply(message, {
+        content: "<:VC_Attention:1482534443632558151> Il profilo non risponde in tempo (database o Discord lenti). Riprova tra qualche secondo.",
+        allowedMentions: { repliedUser: false },
+      });
+      return;
+    }
+    await upsertProfileReply(message, payload);
   },
 };
