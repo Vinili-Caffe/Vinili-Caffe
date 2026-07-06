@@ -80,7 +80,8 @@
     }
     return new Promise(function (resolve, reject) {
       var s = document.createElement("script");
-      s.src = youtubeApiScriptSrc();
+      var apiSrc = youtubeApiScriptSrc();
+      s.src = typeof window.__vcTrustedScriptURL === "function" ? window.__vcTrustedScriptURL(apiSrc) : apiSrc;
       s.async = true;
       s.onload = function () {
         if (typeof window.__vcLoadYoutubeIframeApi === "function") {
@@ -129,6 +130,72 @@
     if (video && video.parentNode === wrap) wrap.insertBefore(host, video);
     else wrap.insertBefore(host, wrap.firstChild || null);
     return host;
+  }
+
+  function themePlayerSize() {
+    return { width: 1280, height: 720 };
+  }
+
+  function applyThemeIframeCover() {
+    var iframe = null;
+    try {
+      iframe =
+        document.querySelector("#vc-seratafilm-hogwarts-bg-yt-player iframe") ||
+        document.querySelector("#vc-seratafilm-hogwarts-bg-yt iframe");
+    } catch (eIf) {}
+    if (!iframe) return;
+    try {
+      iframe.style.setProperty("position", "absolute", "important");
+      iframe.style.setProperty("top", "50%", "important");
+      iframe.style.setProperty("left", "50%", "important");
+      iframe.style.setProperty("width", "100vw", "important");
+      iframe.style.setProperty("height", "56.25vw", "important");
+      iframe.style.setProperty("min-width", "177.78vh", "important");
+      iframe.style.setProperty("min-height", "100vh", "important");
+      iframe.style.setProperty("max-width", "none", "important");
+      iframe.style.setProperty("transform", "translate(-50%, -50%)", "important");
+      iframe.style.setProperty("border", "0", "important");
+      iframe.style.setProperty("pointer-events", "none", "important");
+      iframe.setAttribute("tabindex", "-1");
+    } catch (eSt) {}
+  }
+
+  function setYoutubeHostBooting(booting) {
+    var host = document.getElementById("vc-seratafilm-hogwarts-bg-yt");
+    var wrap = getBgWrap();
+    if (host) {
+      if (booting) host.classList.add("vc-seratafilm-hogwarts-bg__yt--booting");
+      else host.classList.remove("vc-seratafilm-hogwarts-bg__yt--booting");
+    }
+    if (wrap) {
+      if (booting) wrap.classList.add("vc-seratafilm-hogwarts-bg--yt-booting");
+      else wrap.classList.remove("vc-seratafilm-hogwarts-bg--yt-booting");
+    }
+  }
+
+  function revealYoutubeHostSoon() {
+    setYoutubeHostBooting(false);
+    applyThemeIframeCover();
+  }
+
+  function armYoutubeBootFailsafe() {
+    setTimeout(function () {
+      if (!ytMode) return;
+      var host = document.getElementById("vc-seratafilm-hogwarts-bg-yt");
+      if (host && host.classList.contains("vc-seratafilm-hogwarts-bg__yt--booting")) {
+        revealYoutubeHostSoon();
+      }
+    }, 7000);
+  }
+
+  function watchThemeIframeInsert() {
+    var inner = document.getElementById("vc-seratafilm-hogwarts-bg-yt-player");
+    if (!inner || typeof MutationObserver === "undefined") return;
+    var obs = new MutationObserver(function () {
+      setYoutubeHostBooting(true);
+      applyThemeIframeCover();
+    });
+    obs.observe(inner, { childList: true, subtree: true });
   }
 
   function setBgVisible(visible) {
@@ -209,6 +276,7 @@
     } catch (eD) {}
     ytPlayer = null;
     ytReady = false;
+    setYoutubeHostBooting(false);
     var host = document.getElementById("vc-seratafilm-hogwarts-bg-yt");
     if (host) {
       host.hidden = true;
@@ -233,10 +301,13 @@
     if (host) {
       host.hidden = false;
       host.removeAttribute("hidden");
+      setYoutubeHostBooting(true);
     }
     ytMode = true;
     ytVideoId = videoId;
     if (ytPlayer) destroyYoutubeBgPlayer();
+    watchThemeIframeInsert();
+    armYoutubeBootFailsafe();
     var playerVars = {
       autoplay: 1,
       mute: 1,
@@ -250,23 +321,26 @@
       loop: 1,
       playlist: videoId,
       iv_load_policy: 3,
-      cc_load_policy: 0,
+      cc_load_policy: 3,
       showinfo: 0,
       autohide: 1,
     };
     try {
       var originStr = String(window.location.origin || "").trim();
       if (originStr) playerVars.origin = originStr;
+      playerVars.widget_referrer = window.location.href;
     } catch (eOr) {}
+    var size = themePlayerSize();
     ytPlayer = new window.YT.Player("vc-seratafilm-hogwarts-bg-yt-player", {
       host: window.__vcYoutubePlayerHost || "https://www.youtube-nocookie.com",
       videoId: videoId,
-      width: "100%",
-      height: "100%",
+      width: size.width,
+      height: size.height,
       playerVars: playerVars,
       events: {
         onReady: function () {
           ytReady = true;
+          applyThemeIframeCover();
           try {
             ytPlayer.mute();
           } catch (eM) {}
@@ -274,6 +348,14 @@
         },
         onStateChange: function (ev) {
           if (!window.YT || !window.YT.PlayerState) return;
+          if (ev.data === window.YT.PlayerState.PLAYING) {
+            revealYoutubeHostSoon();
+          }
+          if (ev.data === window.YT.PlayerState.PAUSED) {
+            try {
+              ytPlayer.playVideo();
+            } catch (eP) {}
+          }
           if (ev.data === window.YT.PlayerState.ENDED) {
             try {
               ytPlayer.seekTo(0, true);
@@ -300,6 +382,7 @@
   function showYoutubeBg(videoId) {
     if (!videoId) return;
     setBgVisible(true);
+    setYoutubeHostBooting(true);
     loadYoutubeIframeApi()
       .then(function () {
         if (ytVideoId === videoId && ytPlayer && ytReady) {
@@ -353,10 +436,26 @@
     obs.observe(document.body, { attributes: true, attributeFilter: ["class"] });
   }
 
+  function wireThemeResize() {
+    if (!window.addEventListener) return;
+    var resizeIv = null;
+    window.addEventListener(
+      "resize",
+      function () {
+        try {
+          if (resizeIv) clearTimeout(resizeIv);
+        } catch (eCl) {}
+        resizeIv = setTimeout(applyThemeIframeCover, 120);
+      },
+      { passive: true },
+    );
+  }
+
   window.__vcSeratafilmApplyHogwartsTheme = applyHogwartsTheme;
 
   function boot() {
     wireFilmPlayerSync();
+    wireThemeResize();
   }
 
   if (document.readyState === "loading") {

@@ -4,6 +4,7 @@ const { ActivityUserProfile } = require("../../Schemas/Community/communitySchema
 const IDs = require("../../Utils/Config/ids");
 const { getOrCreateStaffDoc, ensureStaff } = require("../../Utils/Staff/staffDocUtils");
 const { getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
+const { getHighestStaffLadderRoleId, STAFF_LADDER_KEYS_HIGH_TO_LOW } = require("../../Utils/Staff/staffRoleHierarchy");
 
 const NEGATIVES_PER_STAFF_WARN = 3;
 /** Testo salvato su `warnReasons` e mostrato nell'embed warn automatico (3 negative). */
@@ -19,23 +20,13 @@ const ROLE_MODERATOR = String(IDs.roles.Mod);
 const ROLE_SENIOR_MODERATOR = String(IDs.roles.SeniorModerator);
 const ROLE_DIRECTOR = String(IDs.roles.Director);
 const ROLE_ADMIN = String(IDs.roles.Admin);
+const ROLE_MANAGER = String(IDs.roles.Manager || "");
 const ROLE_OWNER = String(IDs.roles.Founder || "");
 
-const STAFF_ROLES_HIGH_TO_LOW = [
-  ROLE_OWNER,
-  ROLE_ADMIN,
-  ROLE_DIRECTOR,
-  ROLE_SENIOR_MODERATOR,
-  ROLE_MODERATOR,
-  ROLE_HELPER,
-].filter(Boolean);
+const STAFF_ROLES_HIGH_TO_LOW = require("../../Utils/Staff/staffRoleHierarchy").staffLadderRoleIds(STAFF_LADDER_KEYS_HIGH_TO_LOW);
 
 function getHighestStaffRoleId(member) {
-  if (!member?.roles?.cache) return null;
-  for (const roleId of STAFF_ROLES_HIGH_TO_LOW) {
-    if (member.roles.cache.has(roleId)) return roleId;
-  }
-  return null;
+  return getHighestStaffLadderRoleId(member, STAFF_LADDER_KEYS_HIGH_TO_LOW);
 }
 
 async function bumpCandidatureCooldownAfterDepexOneLevel(userId) {
@@ -110,9 +101,15 @@ async function applyDepexOneLevel(guild, member, forcedLadderRoleId = null) {
 
   if (ROLE_OWNER && roleId === ROLE_OWNER) {
     await member.roles.remove(ROLE_OWNER).catch(() => null);
-    await member.roles.add(ROLE_ADMIN).catch(() => null);
+    if (ROLE_MANAGER) await member.roles.add(ROLE_MANAGER).catch(() => null);
     await member.roles.add(ROLE_STAFF).catch(() => null);
     await member.roles.add(ROLE_HIGH_STAFF).catch(() => null);
+    await bumpCandidatureCooldownAfterDepexOneLevel(member.id);
+    return { ok: true, roleRemoved: roleId, newRole: ROLE_MANAGER || ROLE_ADMIN };
+  }
+  if (ROLE_MANAGER && roleId === ROLE_MANAGER) {
+    await member.roles.remove([ROLE_MANAGER, ROLE_HIGH_STAFF].filter(Boolean)).catch(() => null);
+    await member.roles.add([ROLE_ADMIN, ROLE_STAFF].filter(Boolean)).catch(() => null);
     await bumpCandidatureCooldownAfterDepexOneLevel(member.id);
     return { ok: true, roleRemoved: roleId, newRole: ROLE_ADMIN };
   }

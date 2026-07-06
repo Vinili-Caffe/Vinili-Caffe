@@ -7,6 +7,7 @@ const {
   parseStaffValNegTradeModalCustomId,
   formatStaffValPauseTradeOpenCustomId,
   formatStaffValPauseTradeModalCustomId,
+  parseStaffValPauseTradeOpenCustomId,
   parseStaffValPauseTradeModalCustomId,
   buildStaffProfilePayload,
   SECTION_VALUTAZIONI,
@@ -33,8 +34,11 @@ function modalFieldValue(interaction, customId) {
 function memberIsHighStaffOrAbove(member) {
   const cache = member?.roles?.cache;
   if (!cache) return false;
-  const allowRoles = [IDs.roles?.Admin, IDs.roles?.Director, IDs.roles?.Founder, IDs.roles?.HighStaff].filter(Boolean);
-  return allowRoles.some((roleId) => cache.has(roleId));
+  return Boolean(IDs.roles?.HighStaff && cache.has(IDs.roles.HighStaff));
+}
+
+function isSelfValTradeTarget(parsed) {
+  return String(parsed?.viewerId || "") === String(parsed?.targetId || "");
 }
 
 async function refreshValutazioniPanelMessage(interaction, client, parsed) {
@@ -79,6 +83,12 @@ async function execute(interaction) {
           .catch(() => {});
         return true;
       }
+      if (isSelfValTradeTarget(negParsed)) {
+        await interaction
+          .reply({ content: "<a:VC_Cross:1482532424570376253> Non puoi scambiare valutazioni sul **tuo** profilo.", flags: PRIVATE_FLAG })
+          .catch(() => {});
+        return true;
+      }
       const modal = new ModalBuilder()
         .setCustomId(formatStaffValNegTradeModalCustomId(negParsed.viewerId, negParsed.targetId, negParsed.sourceMessageId))
         .setTitle("Compensa 1 negativa (3 positive)");
@@ -109,6 +119,12 @@ async function execute(interaction) {
       if (!memberIsHighStaffOrAbove(interaction.member)) {
         await interaction
           .reply({ content: "<a:VC_Cross:1482532424570376253> Solo **High Staff** può usare questa opzione.", flags: PRIVATE_FLAG })
+          .catch(() => {});
+        return true;
+      }
+      if (isSelfValTradeTarget(pauseParsed)) {
+        await interaction
+          .reply({ content: "<a:VC_Cross:1482532424570376253> Non puoi scambiare valutazioni sul **tuo** profilo.", flags: PRIVATE_FLAG })
           .catch(() => {});
         return true;
       }
@@ -158,6 +174,12 @@ async function execute(interaction) {
           .catch(() => {});
         return true;
       }
+      if (isSelfValTradeTarget(negParsed)) {
+        await interaction
+          .reply({ content: "<a:VC_Cross:1482532424570376253> Non puoi scambiare valutazioni sul **tuo** profilo.", flags: PRIVATE_FLAG })
+          .catch(() => {});
+        return true;
+      }
       const negId = parsePositiveInt(modalFieldValue(interaction, IN_NEG_ID), 1);
       if (!negId) {
         await interaction
@@ -198,6 +220,12 @@ async function execute(interaction) {
       if (!memberIsHighStaffOrAbove(interaction.member)) {
         await interaction
           .reply({ content: "<a:VC_Cross:1482532424570376253> Solo **High Staff** può usare questa opzione.", flags: PRIVATE_FLAG })
+          .catch(() => {});
+        return true;
+      }
+      if (isSelfValTradeTarget(pauseParsed)) {
+        await interaction
+          .reply({ content: "<a:VC_Cross:1482532424570376253> Non puoi scambiare valutazioni sul **tuo** profilo.", flags: PRIVATE_FLAG })
           .catch(() => {});
         return true;
       }

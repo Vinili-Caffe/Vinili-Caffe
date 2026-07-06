@@ -14,8 +14,7 @@ const HELP_EMBED_COLOR = "#6f4e37";
 const ERROR_EMBED_COLOR = "Red";
 const PRIVATE_FLAG = 1 << 6;
 const NO_REPLY_MENTIONS = { repliedUser: false, parse: [] };
-const { isServerEconomyEnabled } = require("../../Services/Community/serverEconomyService");
-const { resolveEconomyPresentation } = require("../../Utils/Economy/economyPresentation");
+const { isEconomyCommandsVisible, isServerEconomyEnabled } = require("../../Services/Community/activeEconomyService");
 const PAGE_ROLE_IDS = [IDs.roles.Member, IDs.roles.Staff, IDs.roles.HighStaff, IDs.roles.Founder,].filter(Boolean);
 const PAGE_TITLES = { [IDs.roles.Member]: "Comandi Utente", [IDs.roles.Staff]: "Comandi Staff", [IDs.roles.HighStaff]: "Comandi High Staff", [IDs.roles.Founder]: "Comandi Dev", all: "Comandi Disponibili", };
 const CATEGORY_LABELS = { utility: "Utility", music: "Musica", tts: "TTS", level: "Level", minigames: "Minigames", stats: "Stats", economy: "Economy", moderation: "Moderation", admin: "Admin", staff: "Staff", vip: "VIP", dev: "Dev", };
@@ -31,7 +30,7 @@ const MAX_HELP_TEXT_LENGTH = 3900;
 const HELP_CHANNEL_PUBLIC_COMMANDS_ID = String(IDs.channels?.commands || "1442569138114662490");
 const HELP_CHANNEL_PM_ONLY_ID = "1495544523848286340";
 const HELP_CHANNEL_STAFF_COMMANDS_ID = String(IDs.channels?.staffCmds || "1442569262689554444");
-const HELP_PRIVILEGED_ROLE_IDS = [ IDs.roles.Founder, IDs.roles.HighStaff, IDs.roles.Admin, IDs.roles.Director, IDs.roles.SeniorModerator, IDs.roles.Mod, IDs.roles.Helper, IDs.roles.Staff, IDs.roles.PartnerManager].filter(Boolean);
+const HELP_PRIVILEGED_ROLE_IDS = [ IDs.roles.Founder, IDs.roles.Manager, IDs.roles.HighStaff, IDs.roles.Admin, IDs.roles.Director, IDs.roles.SeniorModerator, IDs.roles.Mod, IDs.roles.Helper, IDs.roles.Staff, IDs.roles.PartnerManager].filter(Boolean);
 const PREFIX_HELP_DESCRIPTIONS = {
   help: "Mostra tutti i comandi disponibili con il bot.",
   afk: "Imposta il tuo stato AFK con un messaggio personalizzato.",
@@ -104,7 +103,8 @@ const PREFIX_HELP_DESCRIPTIONS = {
   clear: "Svuota la coda dei brani in attesa.",
   repeat: "Ripetizione traccia, ripetizione della coda, disattiva tutto.",
   previous: "Torna al brano riprodotto prima di quello attuale.",
-  sezioneproibita: "Verifica libri proibiti sul sito o assegna vincitori evento."
+  sezioneproibita: "Verifica libri proibiti sul sito o assegna vincitori evento.",
+  live: "Gestisce annuncio live Twitch e stato del canale vocale streaming (solo streamer configurato).",
 };
 
 const PREFIX_SUBCOMMAND_HELP_DESCRIPTIONS = {
@@ -116,6 +116,8 @@ const PREFIX_SUBCOMMAND_HELP_DESCRIPTIONS = {
   "repeat.enable": "Attiva la ripetizione della traccia.",
   "repeat.queue": "Attiva la ripetizione della coda.",
   "repeat.all": "Disattiva tutto.",
+  "live.on": "Attiva la live: verifica Twitch, aggiorna il canale vocale e annuncia in #news.",
+  "live.off": "Disattiva la live: ripristina il canale vocale e rimuove lo status.",
 };
 const CONTEXT_HELP_DESCRIPTIONS = {};
 const CONTEXT_CATEGORY_OVERRIDES = {};
@@ -460,7 +462,30 @@ const OBSOLETE_PREFIX_HELP_NAMES = new Set([
   "colors",
   "no-dm-list",
   "recensione",
+  "evento",
 ]);
+
+function isConfiguredTwitchStreamer(client, userId) {
+  try {
+    const { resolveStreamerByDiscordUserId } = require("../../Services/Community/twitchLiveAlertService");
+    return Boolean(resolveStreamerByDiscordUserId(client, userId));
+  } catch {
+    return false;
+  }
+}
+
+function shouldIncludePrefixCommandInHelp(command, client, userId) {
+  if (!command?.name) return false;
+  if (command.tenantOnly) return false;
+  if (command.hideFromHelp) {
+    if (String(command.name).toLowerCase() === "live" && isConfiguredTwitchStreamer(client, userId)) {
+      return true;
+    }
+    return false;
+  }
+  if (OBSOLETE_PREFIX_HELP_NAMES.has(String(command.name).trim().toLowerCase())) return false;
+  return true;
+}
 
 function shouldIncludeSlashCommandInHelp(command) {
   if (!command || command.skipDeploy || command.hideFromHelp) return false;
@@ -470,15 +495,15 @@ function shouldIncludeSlashCommandInHelp(command) {
   return true;
 }
 
-function buildEntries(client, permissions) {
+function buildEntries(client, permissions, options = {}) {
+  const helpUserId = String(options.userId || "").trim();
   const entries = [];
-  const showEconomyHelp = isServerEconomyEnabled(client);
+  const showEconomyHelp = isEconomyCommandsVisible(client);
 
   for (const command of client.pcommands.values()) {
-    if (!command?.name) continue;
-    if (command.tenantOnly || command.hideFromHelp) continue;
-    if (OBSOLETE_PREFIX_HELP_NAMES.has(String(command.name).trim().toLowerCase())) continue;
+    if (!shouldIncludePrefixCommandInHelp(command, client, helpUserId)) continue;
     if (normalizeCategoryKey(command.folder || "misc") === "economy" && !showEconomyHelp) continue;
+    if (normalizeCategoryKey(command.folder || "misc") === "economy" && command.name === "shop" && !isServerEconomyEnabled(client)) continue;
 
     const perm = permissions.prefix?.[command.name];
     const commandRoles = Array.isArray(perm) ? perm : Array.isArray(perm?.roles) ? perm.roles : null;
@@ -1555,7 +1580,7 @@ module.exports = {
     }
     await message.channel.sendTyping().catch(() => { });
     const permissions = loadPermissions();
-    const allEntries = buildEntries(client, permissions);
+    const allEntries = buildEntries(client, permissions, { userId: message.author.id });
     const newUntilMap = await ensureHelpNewUntilForEntries(allEntries, await loadHelpNewUntilMap());
     const freshMember = await withHelpTimeout(
       getGuildMemberCached(message.guild, message.author.id, { ttlMs: 20_000, preferFresh: true, }),

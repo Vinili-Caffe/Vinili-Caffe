@@ -33,5 +33,15 @@
     "words": ["brava", "brave", "bravi", "bravo", "brave a tutte", "bravi a tutti", "complimenti", "complimenti a tutti", "complimenti a te", "complimenti a te e a tutti", "gg", "gg a tutti", "gg a te", "gg a te e a tutti", "ggwp", "ggwp a tutti", "ggwp a te", "ggwp a te e a tutti", "complimenti a tutte"],
     "reactions": ["<a:VC_clap:1507868436095696976>"],
     "channelIds": ["chat", "1442569260059725844", "1442569268666568897", "1442569285909217301", "1442569209849843823", "1442569136067575809", "1442569138114662490", "1470029899740873029"]
+  },
+  {
+    "words": ["no", "non penso", "non credo"],
+    "reactions": ["<a:VC_no:1522004036633755708>"],
+    "channelIds": ["chat", "1442569260059725844", "1442569268666568897", "1442569285909217301", "1442569209849843823", "1442569136067575809", "1442569138114662490", "1470029899740873029"]
+  },
+  {
+    "words": ["lol", "haha", "ahah"],
+    "reactions": ["<a:VC_risata:1483909391689449532>"],
+    "channelIds": ["chat", "1442569260059725844", "1442569268666568897", "1442569285909217301", "1442569209849843823", "1442569136067575809", "1442569138114662490", "1470029899740873029"]
   }
 ]

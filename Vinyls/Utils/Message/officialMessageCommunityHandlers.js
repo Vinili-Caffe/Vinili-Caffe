@@ -10,6 +10,7 @@ const IDs = require("../Config/ids");
 const { EPHEMERAL_TTL_NORMAL_MS, PROFILE_CUSTOM_RESPONSE_TTL_MS, scheduleMessageDeletion } = require("../Config/ephemeralMessageTtl");
 const { validateMentionResponseText } = require("../Community/mentionResponseValidation");
 const { memberHasMentionResponseAccess } = require("../Community/mentionResponseAccessUtils");
+const { messageAllowsMentionInteraction } = require("../Community/mentionInteractionChannelUtils");
 const { revokeCountingChannelSend, applyObviousWrongDayBan, formatBanUntilRomeTime } = require("../Community/countingChannelBanService");
 const COUNTING_CHANNEL_ID = IDs.channels.counting;
 const COUNTING_ALLOWED_REGEX = /^[0-9+\-*/x:() ]+$/;
@@ -343,13 +344,29 @@ function normalizeMessageContentForWordMatch(content) {
 
 const WORD_MATCH_BOUNDARY = "[\\s\\p{P}\\p{S}\\p{Extended_Pictographic}]";
 
+function matchesStretchedLaughToken(token, word) {
+  const w = String(word || "").trim().toLowerCase();
+  const t = String(token || "").trim().toLowerCase();
+  if (!w || !t || /\s/u.test(t)) return false;
+  if (!/^[a-z]+$/u.test(t)) return false;
+  if (w === "lol") return t.length >= 3 && /^(?:l+o+l+|lo+l+)$/u.test(t);
+  if (w === "haha") return t.length >= 4 && /^(?:(?:ha)+|(?:haha)+)$/u.test(t);
+  if (w === "ahah") return t.length >= 4 && /^(?:(?:ah)+|(?:ahah)+)$/u.test(t);
+  return false;
+}
+
 function containsWholeWord(haystack, word) {
   const w = String(word || "").trim().toLowerCase();
   if (!w) return false;
   const lastChar = w.slice(-1);
   const trailingRepeat = lastChar ? `${escapeRegex(lastChar)}*` : "";
   const pattern = new RegExp(`(?:^|${WORD_MATCH_BOUNDARY})(?:${escapeRegex(w)})${trailingRepeat}(?:${WORD_MATCH_BOUNDARY}|$)`, "iu");
-  return pattern.test(haystack);
+  if (pattern.test(haystack)) return true;
+  if (!["lol", "haha", "ahah"].includes(w)) return false;
+  return String(haystack || "")
+    .split(/\s+/u)
+    .filter(Boolean)
+    .some((token) => matchesStretchedLaughToken(token, w));
 }
 
 function stripLeadingNoiseForGreeting(text) {
@@ -416,6 +433,7 @@ function isLoneWordMessage(normalized, word) {
   let s = stripLeadingNoiseForGreeting(normalized);
   s = s.replace(/[\p{P}\s]+$/gu, "").trim();
   if (s === w) return true;
+  if (matchesStretchedLaughToken(s, w)) return true;
   const lastChar = w.slice(-1);
   const repeatedNeedle = lastChar ? `${escapeRegex(w)}${escapeRegex(lastChar)}*` : escapeRegex(w);
   return new RegExp(`^${repeatedNeedle}$`, "u").test(s);
@@ -697,6 +715,7 @@ async function reactToMessageWithStoredToken(message, token) {
 }
 async function handleMentionAutoReactions(message) {
   try {
+    if (!messageAllowsMentionInteraction(message)) return;
     const mentionedUsers = message.mentions?.users;
     if (!mentionedUsers || mentionedUsers.size === 0) return;
 
@@ -746,6 +765,7 @@ async function handleMentionAutoReactions(message) {
 
 async function handleMentionAutoResponses(message) {
   try {
+    if (!messageAllowsMentionInteraction(message)) return;
     const mentionedUsers = message.mentions?.users;
     if (!mentionedUsers || mentionedUsers.size === 0) return;
 
@@ -1027,7 +1047,7 @@ async function sendCountingFailureReply(message, embed, client, restoreContext =
   const guildId = String(restoreContext?.guildId || message?.guild?.id || "");
   let restoreToken = null;
   if (lostCount > 0 && guildId) {
-    restoreToken = createRestoreToken({
+    restoreToken = await createRestoreToken({
       guildId,
       lostCount,
       lostLastUser: restoreContext?.lostLastUser,
@@ -1042,7 +1062,7 @@ async function sendCountingFailureReply(message, embed, client, restoreContext =
       allowedMentions: { repliedUser: false },
     });
     if (sent?.id && restoreToken) {
-      attachRestoreMessageId(restoreToken, sent.id);
+      await attachRestoreMessageId(restoreToken, sent.id, client);
     }
     return sent;
   } catch (err) {

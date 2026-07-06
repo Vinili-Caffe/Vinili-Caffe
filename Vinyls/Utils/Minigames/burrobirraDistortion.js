@@ -196,6 +196,14 @@ async function fetchAndFlipUrlImage(url, seed = "") {
   }
 }
 
+function isEmojiOnlySequenceText(text) {
+  const trimmed = String(text || "").trim();
+  if (!trimmed) return false;
+  const stripped = trimmed.replace(/[\s\uFE0F\u200D]/g, "");
+  if (!stripped) return false;
+  return !/[A-Za-z0-9]/.test(stripped);
+}
+
 function distortQuestionDescriptionLine(line, seed) {
   const raw = String(line || "");
   if (!raw.trim()) return raw;
@@ -221,6 +229,7 @@ function distortQuestionDescriptionLine(line, seed) {
   }
   const hashMatch = raw.match(/^(\#\s+)([\s\S]+)$/);
   if (hashMatch) {
+    if (isEmojiOnlySequenceText(hashMatch[2])) return raw;
     return `${hashMatch[1]}${distortMinigameText(hashMatch[2], `${seed}:hash`)}`;
   }
   const completaMatch = raw.match(/^([\s\S]*?Completa:\s*)\*\*([^*]+)\*\*([\s\S]*)$/i);
@@ -260,6 +269,16 @@ function distortEmbedJsonQuestionOnly(embedJson, seed) {
   if (out.description) {
     const lines = String(out.description).split("\n");
     out.description = lines.map((line, idx) => distortQuestionDescriptionLine(line, `${seed}:l${idx}`)).join("\n");
+  }
+  if (Array.isArray(out.fields)) {
+    out.fields = out.fields.map((field) => {
+      const name = String(field?.name || "");
+      const value = String(field?.value || "");
+      if (/^sequenza$/i.test(name.trim()) && isEmojiOnlySequenceText(value)) {
+        return { ...field };
+      }
+      return field;
+    });
   }
   return out;
 }

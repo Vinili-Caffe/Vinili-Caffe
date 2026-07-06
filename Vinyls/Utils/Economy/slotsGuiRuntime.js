@@ -1,7 +1,7 @@
 const { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const { buildImageButtonPayload } = require("./guiPanelPayload");
 const { formatCurrency } = require("../../Services/Community/serverWalletService");
-const { cashoutSlotsBank, economyConfig, playSlotsBanked } = require("../../Services/Community/serverEconomyService");
+const { cashoutSlotsBank, economyConfig, playSlotsBanked } = require("../../Services/Community/activeEconomyService");
 const { clearSlotsGuiSession, loadSlotsGuiSessionByMessage, persistSlotsGuiSession } = require("../../Services/Community/slotsGuiSessionStore");
 const PREFIX = "slots_gui";
 const SESSION_TTL_MS = 15 * 60 * 1000;

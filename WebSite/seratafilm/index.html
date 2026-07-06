@@ -197,7 +197,11 @@
         function loadScript(name) {
           return new Promise(function (resolve) {
             var s = document.createElement("script");
-            s.src = base + name + "?v=" + v;
+            var scriptSrc = base + name + "?v=" + v;
+            s.src =
+              typeof window.__vcTrustedScriptURL === "function"
+                ? window.__vcTrustedScriptURL(scriptSrc)
+                : scriptSrc;
             s.async = true;
             s.onload = resolve;
             s.onerror = resolve;

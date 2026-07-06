@@ -1,7 +1,6 @@
 const { Events } = require("discord.js");
 const { logCommandUsage } = require("../Utils/Logging/commandUsageLogger");
 const IDs = require("../Utils/Config/ids");
-const { userAvatarUrlDynamic } = require("../Utils/Discord/guildDiscordIdentity");
 
 function getStandardPrefixes(client) {
   void client;
@@ -78,7 +77,7 @@ module.exports = {
         user: message.author.tag || message.author.username || "unknown",
         userId: message.author.id,
         content: message.content,
-        userAvatarUrl: userAvatarUrlDynamic(message.member || message.author, { size: 128 }),
+        userLike: message.member || message.author,
       });
     } catch (error) {
       global.logger?.error?.("[prefixCommandLogging] failed:", error);

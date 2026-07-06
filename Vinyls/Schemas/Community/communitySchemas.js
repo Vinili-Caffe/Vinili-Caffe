@@ -1354,6 +1354,23 @@ const RepostPrivacy = buildProfileSubdocModel({
   clearSet: { "profile.privacy.repost.blocked": false },
 });
 
+const countingRestoreTokenSchema = new Schema(
+  {
+    token: { type: String, required: true, unique: true, index: true },
+    guildId: { type: String, required: true, index: true },
+    lostCount: { type: Number, default: 0 },
+    lostLastUser: { type: String, default: " " },
+    channelId: { type: String, default: "" },
+    messageId: { type: String, default: "" },
+    used: { type: Boolean, default: false, index: true },
+    expiresAt: { type: Date, required: true, index: true },
+    buttonDisabled: { type: Boolean, default: false },
+  },
+  { timestamps: true },
+);
+countingRestoreTokenSchema.index({ used: 1, expiresAt: 1 });
+countingRestoreTokenSchema.index({ used: 1, buttonDisabled: 1, expiresAt: 1 });
+
 const ActivityUserProfile = models.ActivityUserProfile || model("ActivityUserProfile", activityUserProfileSchema, "activityuserprofiles");
 const ActivityGuildHourly = models.ActivityGuildHourly || model("ActivityGuildHourly", activityGuildHourlySchema, "activityguildhourlys");
 const UserLeaveBackup = models.UserLeaveBackup || model("UserLeaveBackup", userLeaveBackupSchema, "userleavebackups");
@@ -1368,6 +1385,9 @@ const CustomPerksDiscordCleanupQueue =
   models.CustomPerksDiscordCleanupQueue ||
   model("CustomPerksDiscordCleanupQueue", customPerksDiscordCleanupQueueSchema, "customperksdiscordcleanupqueues");
 const SiteDocument = models.SiteDocument || model("SiteDocument", siteDocumentSchema, "sitedocuments");
+const CountingRestoreToken =
+  models.CountingRestoreToken ||
+  model("CountingRestoreToken", countingRestoreTokenSchema, "countingrestoretokens");
 const ModCase = USE_LEGACY_MOD_CASE_MODEL ? (models.mod_case || model("mod_case", modCaseSchema, MOD_CASE_COLLECTION)) : null;
 
 module.exports = {
@@ -1392,5 +1412,6 @@ module.exports = {
   CommunicationTimeoutRoleSnapshot,
   CustomPerksDiscordCleanupQueue,
   SiteDocument,
+  CountingRestoreToken,
   SITE_DOCUMENT_TYPE,
 };

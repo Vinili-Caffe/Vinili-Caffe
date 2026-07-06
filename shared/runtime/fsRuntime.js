@@ -126,11 +126,9 @@ function acquireSingleInstanceLock(lockName) {
   process.on("exit", release);
   process.on("SIGINT", () => {
     release();
-    process.exit();
   });
   process.on("SIGTERM", () => {
     release();
-    process.exit();
   });
 }
 

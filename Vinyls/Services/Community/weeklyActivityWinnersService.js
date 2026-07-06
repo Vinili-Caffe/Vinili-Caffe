@@ -19,6 +19,7 @@ const TROPHY_LABELS = ["<:VC_Podio1:1482694399283433582>", "<:VC_Podio2:14826944
 const MESSAGE_WINNER_ROLE_ID = IDs.roles.TopWeeklyText;
 const VOICE_WINNER_ROLE_ID = IDs.roles.TopWeeklyVoc;
 const MINIGAME_WINNER_ROLE_ID = IDs.roles.MVP;
+const ROYALE_MINIGAME_ROLE_ID = IDs.roles.Royale;
 const MONTHLY_MEMBER_ROLE_ID = IDs.roles.TopMonthlyMember;
 const MONTHLY_VOTER_ROLE_RANK_1 = IDs.roles.VIPplus || IDs.roles["VIP+"];
 const MONTHLY_VOTER_ROLE_RANK_2 = IDs.roles.VIP;
@@ -32,7 +33,7 @@ const MONTHLY_TOP_REWARD_PATH = "profile.totals.exp.monthlyTopReward";
 const MONTHLY_TOP_NEW_REWARDS_FIRST_RANKED = Object.freeze({ year: 2026, month: 6 });
 const MONTHLY_PRIZE_TICKET_CHANNEL_ID = String(IDs.channels?.ticket || "1442569095068254219");
 const REQUIRED_MEMBER_ROLE_ID = String(IDs.roles.Member || "");
-const WEEKLY_WINNERS_EXCLUDED_ROLE_IDS = new Set( [IDs.roles.Staff, IDs.roles.HighStaff, IDs.roles.Helper, IDs.roles.Mod, IDs.roles.SeniorModerator, IDs.roles.Director, IDs.roles.Admin, IDs.roles.Founder].filter(Boolean).map((id) => String(id)));
+const WEEKLY_WINNERS_EXCLUDED_ROLE_IDS = new Set( [IDs.roles.Staff, IDs.roles.HighStaff, IDs.roles.Helper, IDs.roles.Mod, IDs.roles.SeniorModerator, IDs.roles.Director, IDs.roles.Admin, IDs.roles.Manager, IDs.roles.Founder].filter(Boolean).map((id) => String(id)));
 const HOGWARTS_EVENT_TOP_EXCLUDED_ROLE_IDS = new Set();
 const WEEKLY_WINNERS_PUBLISH_INTRO_MARK = "Annunciamo i vincitori di questa settimana";
 const HOGWARTS_BIWEEKLY_PUBLISH_DOC = "hogwarts_biweekly_top_publish";
@@ -1048,6 +1049,69 @@ async function updateMonthlyWinnerRoles(guild, topCombined) {
   return { topMonthlyWinner: first, monthlyTopSecond: second, monthlyTopThird: third };
 }
 
+async function resolveRoyaleMinigameWinner(client, guild, docs, valueGetter) {
+  const list = Array.isArray(docs) ? docs : [];
+  for (const doc of list) {
+    const userId = String(doc?.userId || "").trim();
+    if (!userId) continue;
+    const value = Math.max(0, Math.floor(Number(valueGetter(doc) || 0)));
+    if (value <= 0) continue;
+    const user = client.users.cache.get(userId) || (await client.users.fetch(userId).catch(() => null));
+    if (!user || user.bot) continue;
+    const member = guild.members.cache.get(userId) || (await guild.members.fetch(userId).catch(() => null));
+    if (!member) continue;
+    if (REQUIRED_MEMBER_ROLE_ID && !member.roles.cache.has(REQUIRED_MEMBER_ROLE_ID)) continue;
+    return { userId, value };
+  }
+  return null;
+}
+
+async function syncRoyaleMinigameTotalRole(client, options = {}) {
+  const mainGuildId = String(IDs.guilds?.main || "").trim();
+  if (!mainGuildId || !ROYALE_MINIGAME_ROLE_ID) return { ok: false, reason: "not_configured" };
+  const guild =
+    options.guild ||
+    client.guilds.cache.get(mainGuildId) ||
+    (await getClientGuildCached(client, mainGuildId, { ttlMs: 60_000 }).catch(() => null));
+  if (!guild) return { ok: false, reason: "guild_not_found" };
+  const docs = await ActivityUserProfile.find({
+    guildId: guild.id,
+    "profile.totals.exp.minigame.totalExp": { $gt: 0 },
+  })
+    .select("userId profile.totals.exp.minigame.totalExp")
+    .sort({ "profile.totals.exp.minigame.totalExp": -1 })
+    .limit(200)
+    .lean()
+    .catch(() => []);
+  const royaleWinner = await resolveRoyaleMinigameWinner(
+    client,
+    guild,
+    docs,
+    (doc) => Number(doc?.profile?.totals?.exp?.minigame?.totalExp || 0),
+  );
+  await removeRoleFromAllMembers(guild, ROYALE_MINIGAME_ROLE_ID, royaleWinner?.userId);
+  if (royaleWinner?.userId) {
+    await assignRoleToUser(guild, royaleWinner.userId, ROYALE_MINIGAME_ROLE_ID);
+  }
+  return {
+    ok: true,
+    userId: royaleWinner?.userId || null,
+    totalExp: Number(royaleWinner?.value || 0),
+  };
+}
+
+let royaleMinigameSyncTimer = null;
+function scheduleRoyaleMinigameRoleSync(client, delayMs = 45_000) {
+  if (!client || !ROYALE_MINIGAME_ROLE_ID) return;
+  if (royaleMinigameSyncTimer) clearTimeout(royaleMinigameSyncTimer);
+  royaleMinigameSyncTimer = setTimeout(() => {
+    royaleMinigameSyncTimer = null;
+    syncRoyaleMinigameTotalRole(client).catch((err) => {
+      global.logger?.warn?.("[ROYALE MINIGAME] sync failed:", err?.message || err);
+    });
+  }, Math.max(5_000, Number(delayMs) || 45_000));
+}
+
 function buildEmptyLine(kind) {
   return `<:VC_InactiveStatus:1482526984234860574> - Nessun dato disponibile per ${kind}.`;
 }
@@ -1256,6 +1320,9 @@ async function publishWeeklyActivityWinners(client, options = {}) {
         displayTopVoice,
         mode === "weekly" ? (suppressMinigameThisWeek ? false : displayTopMinigame) : false,
       );
+      if (mode === "weekly") {
+        await syncRoyaleMinigameTotalRole(client, { guild }).catch(() => null);
+      }
     }
   }
   if (skipNormalWeekly) return;
@@ -1299,14 +1366,14 @@ async function publishWeeklyActivityWinners(client, options = {}) {
     : "<a:VC_Winner:1482535294757507255> Ciao a tutti! Annunciamo i vincitori di questa settimana per attività.";
   const minigameAnnounceLine =
     mode === "weekly" && MINIGAME_WINNER_ROLE_ID && !suppressMinigameThisWeek
-      ? `\n<a:VC_Arrow:1482706699365257397> Con un totale di **${minigameWinnerTotal} pt**, ${minigameWinnerMention} ottieni il primo posto per **__minigames__** e il ruolo <@&${MINIGAME_WINNER_ROLE_ID}>.`
+      ? `\n<:VC_Podio1:1482694399283433582> Con un totale di **${minigameWinnerTotal} pt**, ${minigameWinnerMention} ottieni il primo posto per **__minigames__** e il ruolo <@&${MINIGAME_WINNER_ROLE_ID}>.`
       : "";
   const payload = {
     content: `<@&1442568949605597264>
 ${introLine}
 
-<a:VC_Arrow:1482706699365257397> Con un totale di **${messageWinnerTotal} messaggi**, ${messageWinnerMention} ottieni il primo posto per **__chat testuale__**.
-<a:VC_Arrow:1482706699365257397> Con un totale di **${voiceWinnerTotal} exp**, ${voiceWinnerMention} ottieni il primo posto per **__chat vocale__**.${minigameAnnounceLine}
+<:VC_Podio1:1482694399283433582> Con un totale di **${messageWinnerTotal} messaggi**, ${messageWinnerMention} ottieni il primo posto per **__chat testuale__**.
+<:VC_Podio1:1482694399283433582> Con un totale di **${voiceWinnerTotal} exp**, ${voiceWinnerMention} ottieni il primo posto per **__chat vocale__**.${minigameAnnounceLine}
 _ _`,
     embeds: [embed],
     components: [button],
@@ -1424,6 +1491,8 @@ async function publishMonthlyActivityWinners(client, options = {}) {
   if (!options.skipMonthlyRoles) {
     await cleanupExpiredMonthlyVoterRewards(guild).catch(() => null);
     await cleanupExpiredMonthlyTopRewards(guild).catch(() => null);
+    await revokeActiveMonthlyVoterRewardsExcept(guild, monthlyVotersTop).catch(() => null);
+    await revokeActiveMonthlyTopRewardsExcept(guild, displayTopCombined, rankedYear, rankedMonth).catch(() => null);
     await assignMonthlyVoterRewards(guild, monthlyVotersTop).catch(() => null);
     await assignMonthlyTopRewards(guild, displayTopCombined, rankedYear, rankedMonth).catch(() => null);
   }
@@ -1447,7 +1516,7 @@ async function publishMonthlyActivityWinners(client, options = {}) {
     `<a:VC_Winner:1482535294757507255> • **Premi Top Monthly:**`,
     ...monthlyRewardRows,
     "",
-    `<a:VC_HeartsBlue:1468686100045369404> • **Top Voters:**`,
+    `<:VC_Leaderboard:1482534806314287387> • **Top Voters:**`,
     ...voterRows,
   ];
   const embed = new EmbedBuilder()
@@ -1474,21 +1543,21 @@ async function publishMonthlyActivityWinners(client, options = {}) {
   );
   if (!options.skipDiscordSends && channel) {
     const introLine = `<a:VC_Winner:1482535294757507255> Ciao a tutti! Annunciamo i vincitori del mese.`;
-    const votersRoleTextByIndex = ["VIP+", "VIP", "Donator"];
+    const votersRoleTextByIndex = ["<@&1521787468201066666>", "<@&1442568950805430312>", "<@&1442568916114346096>"];
     const voter1 = monthlyVotersTop[0];
     const voter2 = monthlyVotersTop[1];
     const voter3 = monthlyVotersTop[2];
     const votersTextLine = monthlyVotersTop.length
       ? [
-        "\n<a:VC_Arrow:1482706699365257397> **Top Voters:**",
+        "\n<:VC_Leaderboard:1482534806314287387> **Top Voters:**",
         voter1
-          ? `<a:VC_Arrow:1482706699365257397> ${TROPHY_LABELS[0] || "<:VC_Podio1:1482694399283433582>"} <@${voter1.userId}> · **${voter1.value} voti** · ${votersRoleTextByIndex[0]} 30 giorni`
+          ? `${TROPHY_LABELS[0] || "<:VC_Podio1:1482694399283433582>"} <@${voter1.userId}> <a:VC_Arrow:1482706699365257397> **${voter1.value}** *voti* · \`${votersRoleTextByIndex[0]} 30 giorni\``
           : null,
         voter2
-          ? `<a:VC_Arrow:1482706699365257397> ${TROPHY_LABELS[1] || "<:VC_Podio2:1482694424411635712>"} <@${voter2.userId}> · **${voter2.value} voti** · ${votersRoleTextByIndex[1]} 30 giorni`
+          ? `${TROPHY_LABELS[1] || "<:VC_Podio2:1482694424411635712>"} <@${voter2.userId}> <a:VC_Arrow:1482706699365257397> **${voter2.value}** *voti* · \`${votersRoleTextByIndex[1]} 30 giorni\``
           : null,
         voter3
-          ? `<a:VC_Arrow:1482706699365257397> ${TROPHY_LABELS[2] || "<:VC_Podio3:1482694450806259744>"} <@${voter3.userId}> · **${voter3.value} voti** · ${votersRoleTextByIndex[2]} 30 giorni`
+          ? `${TROPHY_LABELS[2] || "<:VC_Podio3:1482694450806259744>"} <@${voter3.userId}> <a:VC_Arrow:1482706699365257397> **${voter3.value}** *voti* · \`${votersRoleTextByIndex[2]} 30 giorni\``
           : null,
       ].filter(Boolean).join("\n")
       : "";
@@ -1497,8 +1566,7 @@ async function publishMonthlyActivityWinners(client, options = {}) {
         content: `<@&1442568949605597264>
 ${introLine}
 
-<a:VC_Arrow:1482706699365257397> Con un totale di **${monthlyAnnounce.winnerTotal} EXP**, ${monthlyAnnounce.winnerMention} ottiene il primo posto della **__classifica mensile__**.
-${monthlyAnnounce.roleLine}
+<:VC_Podio1:1482694399283433582> Con un totale di **${monthlyAnnounce.winnerTotal} EXP**, ${monthlyAnnounce.winnerMention} ottiene il primo posto della **__classifica mensile__** e riceve il ruolo <@&1500848813680758836> e un **Nitro Boost** riscattabile tramite <#1442569095068254219> \`HIGH STAFF\`.
 ${monthlyAnnounce.secondLine}
 ${monthlyAnnounce.thirdLine}
 ${votersTextLine}
@@ -1701,36 +1769,31 @@ function buildMonthlyTopPrizeEmbedLines(displayTopCombined, rankedYear, rankedMo
 
 function buildMonthlyTopWinnerAnnounceLines(awarded, rankedYear, rankedMonth) {
   const ticketRef = monthlyPrizeTicketRef();
-  const roleMention = MONTHLY_MEMBER_ROLE_ID ? `<@&${MONTHLY_MEMBER_ROLE_ID}>` : "il ruolo Top Monthly";
   const winnerTotal = Number(awarded?.topMonthlyWinner?.value || 0);
   const winnerMention = awarded?.topMonthlyWinner?.userId ? `<@${awarded.topMonthlyWinner.userId}>` : "Nessun vincitore";
   const secondTotal = Number(awarded?.monthlyTopSecond?.value || 0);
   const secondMention = awarded?.monthlyTopSecond?.userId ? `<@${awarded.monthlyTopSecond.userId}>` : null;
   const thirdTotal = Number(awarded?.monthlyTopThird?.value || 0);
   const thirdMention = awarded?.monthlyTopThird?.userId ? `<@${awarded.monthlyTopThird.userId}>` : null;
-  const roleLine =
-    awarded?.topMonthlyWinner?.userId && MONTHLY_MEMBER_ROLE_ID
-      ? `\n<a:VC_Arrow:1482706699365257397> Il primo in classifica riceve ${roleMention} e un **Nitro Boost** riscattabile tramite ${ticketRef}.`
-      : "";
   let secondLine = "";
   let thirdLine = "";
   if (usesNewMonthlyTopActivityRewards(rankedYear, rankedMonth)) {
     const vipPlus = monthlyTopVipPlusMention();
     secondLine = secondMention
-      ? `\n<a:VC_Arrow:1482706699365257397> Con un totale di **${secondTotal} EXP**, ${secondMention} ottiene il secondo posto e riceve una **decorazione a scelta (max 15,99€)** riscattabile tramite ${ticketRef}.`
+      ? `\n<:VC_Podio2:1482694424411635712> Con un totale di **${secondTotal} EXP**, ${secondMention} ottiene il secondo posto e riceve una **decorazione a scelta (max 15,99€)** riscattabile tramite ${ticketRef}.`
       : "";
     thirdLine = thirdMention
-      ? `\n<a:VC_Arrow:1482706699365257397> Con un totale di **${thirdTotal} EXP**, ${thirdMention} ottiene il terzo posto e riceve ${vipPlus} **per 30 giorni**.`
+      ? `\n<:VC_Podio3:1482694450806259744> Con un totale di **${thirdTotal} EXP**, ${thirdMention} ottiene il terzo posto e riceve ${vipPlus} **per 30 giorni**.`
       : "";
   } else {
     secondLine = secondMention
-      ? `\n<a:VC_Arrow:1482706699365257397> Con un totale di **${secondTotal} EXP**, ${secondMention} ottiene il secondo posto e riceve **VIP+ per 30 giorni** e una **decorazione a scelta (max 15,99€)** riscattabile tramite ${ticketRef}.`
+      ? `\n<:VC_Podio2:1482694424411635712> Con un totale di **${secondTotal} EXP**, ${secondMention} ottiene il secondo posto e riceve **VIP+ per 30 giorni** e una **decorazione a scelta (max 15,99€)** riscattabile tramite ${ticketRef}.`
       : "";
     thirdLine = thirdMention
-      ? `\n<a:VC_Arrow:1482706699365257397> Con un totale di **${thirdTotal} EXP**, ${thirdMention} ottiene il terzo posto e riceve **VIP per 30 giorni** e un **Nitro Basic** riscattabile tramite ${ticketRef}.`
+      ? `\n<:VC_Podio3:1482694450806259744> Con un totale di **${thirdTotal} EXP**, ${thirdMention} ottiene il terzo posto e riceve **VIP per 30 giorni** e un **Nitro Basic** riscattabile tramite ${ticketRef}.`
       : "";
   }
-  return { winnerTotal, winnerMention, roleLine, secondLine, thirdLine };
+  return { winnerTotal, winnerMention, secondLine, thirdLine };
 }
 
 function monthlyTopRewardRoleByRank(rankIndex, rankedYear, rankedMonth) {
@@ -1759,6 +1822,121 @@ function hasActiveMonthlyVoterRewardOnRole(profile, roleId, now = Date.now()) {
   if (String(reward?.roleId || "") !== role) return false;
   const expiresAt = Number(new Date(reward?.expiresAt || 0).getTime() || 0);
   return expiresAt > now;
+}
+
+async function revokeMonthlyRewardHolder(guild, row, rewardPath, nowMs = Date.now()) {
+  const userId = String(row?.userId || "");
+  const reward =
+    rewardPath === MONTHLY_TOP_REWARD_PATH
+      ? row?.profile?.totals?.exp?.monthlyTopReward
+      : row?.profile?.totals?.exp?.monthlyVoteTopReward;
+  const roleId = String(reward?.roleId || "");
+  const hadRoleBefore = Boolean(reward?.hadRoleBefore);
+  if (!userId || !roleId) return false;
+
+  const keepByOtherReward =
+    rewardPath === MONTHLY_TOP_REWARD_PATH
+      ? hasActiveMonthlyVoterRewardOnRole(row, roleId, nowMs)
+      : hasActiveMonthlyTopRewardOnRole(row, roleId, nowMs);
+  if (keepByOtherReward) return false;
+
+  if (!hadRoleBefore) {
+    const member = await getGuildMemberCached(guild, userId, { preferFresh: true }).catch(() => null);
+    if (member?.roles?.cache?.has(roleId)) {
+      await member.roles.remove(roleId).catch(() => null);
+    }
+  }
+  await ActivityUserProfile.updateOne(
+    { guildId: guild.id, userId },
+    { $unset: { [rewardPath]: "" } },
+  ).catch(() => null);
+  return true;
+}
+
+function collectMonthlyTopKeeperUserIds(ranking, rankedYear, rankedMonth) {
+  const keep = new Set();
+  const rankIndexes = usesNewMonthlyTopActivityRewards(rankedYear, rankedMonth) ? [2] : [1, 2];
+  for (const i of rankIndexes) {
+    const userId = String(ranking?.[i]?.userId || "").trim();
+    if (userId) keep.add(userId);
+  }
+  return keep;
+}
+
+function collectMonthlyVoterKeeperUserIds(ranking) {
+  const keep = new Set();
+  for (let i = 0; i < Math.min(3, Array.isArray(ranking) ? ranking.length : 0); i += 1) {
+    const userId = String(ranking?.[i]?.userId || "").trim();
+    if (userId) keep.add(userId);
+  }
+  return keep;
+}
+
+async function revokeActiveMonthlyTopRewardsExcept(guild, ranking, rankedYear, rankedMonth) {
+  const nowMs = Date.now();
+  const keepUserIds = collectMonthlyTopKeeperUserIds(ranking, rankedYear, rankedMonth);
+  const rows = await ActivityUserProfile.find({
+    guildId: guild.id,
+    [`${MONTHLY_TOP_REWARD_PATH}.expiresAt`]: { $gt: new Date() },
+  })
+    .select(`userId ${MONTHLY_TOP_REWARD_PATH} ${MONTHLY_VOTER_REWARD_PATH}`)
+    .lean()
+    .catch(() => []);
+  for (const row of rows) {
+    const userId = String(row?.userId || "");
+    if (!userId || keepUserIds.has(userId)) continue;
+    await revokeMonthlyRewardHolder(guild, row, MONTHLY_TOP_REWARD_PATH, nowMs);
+  }
+}
+
+async function revokeActiveMonthlyVoterRewardsExcept(guild, ranking) {
+  const nowMs = Date.now();
+  const keepUserIds = collectMonthlyVoterKeeperUserIds(ranking);
+  const rows = await ActivityUserProfile.find({
+    guildId: guild.id,
+    [`${MONTHLY_VOTER_REWARD_PATH}.expiresAt`]: { $gt: new Date() },
+  })
+    .select(`userId ${MONTHLY_TOP_REWARD_PATH} ${MONTHLY_VOTER_REWARD_PATH}`)
+    .lean()
+    .catch(() => []);
+  for (const row of rows) {
+    const userId = String(row?.userId || "");
+    if (!userId || keepUserIds.has(userId)) continue;
+    await revokeMonthlyRewardHolder(guild, row, MONTHLY_VOTER_REWARD_PATH, nowMs);
+  }
+}
+
+/** Se più utenti hanno lo stesso premio mensile attivo sullo stesso ruolo, tiene solo l'ultimo assegnato. */
+async function reconcileDuplicateActiveMonthlyRewardRoles(guild) {
+  const nowMs = Date.now();
+  for (const rewardPath of [MONTHLY_TOP_REWARD_PATH, MONTHLY_VOTER_REWARD_PATH]) {
+    const rows = await ActivityUserProfile.find({
+      guildId: guild.id,
+      [`${rewardPath}.expiresAt`]: { $gt: new Date() },
+    })
+      .select(`userId ${MONTHLY_TOP_REWARD_PATH} ${MONTHLY_VOTER_REWARD_PATH}`)
+      .lean()
+      .catch(() => []);
+    const byRole = new Map();
+    for (const row of rows) {
+      const reward =
+        rewardPath === MONTHLY_TOP_REWARD_PATH
+          ? row?.profile?.totals?.exp?.monthlyTopReward
+          : row?.profile?.totals?.exp?.monthlyVoteTopReward;
+      const roleId = String(reward?.roleId || "");
+      if (!roleId) continue;
+      const awardedAt = Number(new Date(reward?.awardedAt || 0).getTime() || 0);
+      if (!byRole.has(roleId)) byRole.set(roleId, []);
+      byRole.get(roleId).push({ row, awardedAt });
+    }
+    for (const holders of byRole.values()) {
+      if (holders.length <= 1) continue;
+      holders.sort((a, b) => b.awardedAt - a.awardedAt);
+      for (let i = 1; i < holders.length; i += 1) {
+        await revokeMonthlyRewardHolder(guild, holders[i].row, rewardPath, nowMs);
+      }
+    }
+  }
 }
 
 async function cleanupExpiredMonthlyTopRewards(guild) {
@@ -1973,13 +2151,13 @@ async function publishHogwartsBiweeklyActivityWinners(client, options = {}) {
       .setEmoji("<:VC_FrogJuice:1331620486517358613>")
       .setURL("https://discord.com/channels/1329080093599076474/1442569101225496819"),
   );
-  const minigameAnnounceLine = `\n<a:VC_Arrow:1482706699365257397> Con un totale di **${minigameWinnerTotal} pt**, ${minigameWinnerMention} ottiene il primo posto per **__minigames__**.`;
+  const minigameAnnounceLine = `\n<:VC_Podio1:1482694399283433582> Con un totale di **${minigameWinnerTotal} pt**, ${minigameWinnerMention} ottiene il primo posto per **__minigames__**.`;
   const payload = {
     content: `<@&1442568949605597264>
 <a:VC_Winner:1482535294757507255> Ciao a tutti! Annunciamo i vincitori di queste **due settimane** per attività.
 
-<a:VC_Arrow:1482706699365257397> Con un totale di **${messageWinnerTotal} messaggi**, ${messageWinnerMention} ottiene il primo posto per **__chat testuale__**.
-<a:VC_Arrow:1482706699365257397> Con un totale di **${voiceWinnerTotal} exp**, ${voiceWinnerMention} ottiene il primo posto per **__chat vocale__**.${minigameAnnounceLine}
+<:VC_Podio1:1482694399283433582> Con un totale di **${messageWinnerTotal} messaggi**, ${messageWinnerMention} ottiene il primo posto per **__chat testuale__**.
+<:VC_Podio1:1482694399283433582> Con un totale di **${voiceWinnerTotal} exp**, ${voiceWinnerMention} ottiene il primo posto per **__chat vocale__**.${minigameAnnounceLine}
 _ _`,
     embeds: [embed],
     components: [button],
@@ -2118,6 +2296,7 @@ function startWeeklyActivityWinnersLoop(client) {
       if (!guild) return;
       await cleanupExpiredMonthlyVoterRewards(guild);
       await cleanupExpiredMonthlyTopRewards(guild);
+      await reconcileDuplicateActiveMonthlyRewardRoles(guild);
     }),
     { timezone: TIME_ZONE, noOverlap: true },
   );
@@ -2130,10 +2309,12 @@ function startWeeklyActivityWinnersLoop(client) {
       if (!guild) return;
       await cleanupExpiredMonthlyVoterRewards(guild);
       await cleanupExpiredMonthlyTopRewards(guild);
+      await reconcileDuplicateActiveMonthlyRewardRoles(guild);
+      await syncRoyaleMinigameTotalRole(client, { guild });
     } catch (err) {
       global.logger?.error?.("[MONTHLY REWARDS] Startup expiry cleanup failed:", err);
     }
   }, 20_000);
 }
 
-module.exports = { startWeeklyActivityWinnersLoop, publishWeeklyActivityWinners, publishHogwartsBiweeklyActivityWinners, publishMonthlyActivityWinners, resetWeeklyActivityCounters, getLastCompletedWeekKey, getDateKeysForWeekKey, getWeekKey, isHogwartsWeeklyTopReplaced, shouldPublishHogwartsBiweeklyToday, collectHogwartsBiweeklyActivityRows, loadSortedHouseByUserId, loadRowsFromHourlyWindowByHourKeys, awardHogwartsBiweeklyHousePoints, buildHourKeysBetweenMs, buildLast7DaysHourKeys, createUtcFromRomeLocal, getLastSunday21BoundaryMsAtOrBefore };
+module.exports = { startWeeklyActivityWinnersLoop, publishWeeklyActivityWinners, publishHogwartsBiweeklyActivityWinners, publishMonthlyActivityWinners, reconcileDuplicateActiveMonthlyRewardRoles, resetWeeklyActivityCounters, getLastCompletedWeekKey, getDateKeysForWeekKey, getWeekKey, isHogwartsWeeklyTopReplaced, shouldPublishHogwartsBiweeklyToday, collectHogwartsBiweeklyActivityRows, loadSortedHouseByUserId, loadRowsFromHourlyWindowByHourKeys, awardHogwartsBiweeklyHousePoints, buildHourKeysBetweenMs, buildLast7DaysHourKeys, createUtcFromRomeLocal, getLastSunday21BoundaryMsAtOrBefore, syncRoyaleMinigameTotalRole, scheduleRoyaleMinigameRoleSync };

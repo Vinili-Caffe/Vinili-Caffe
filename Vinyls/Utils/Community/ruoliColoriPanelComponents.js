@@ -10,6 +10,7 @@ const ROLE_PANEL_CATEGORY_KEYS = [
   "dm",
   "relationship",
   "mentions",
+  "hobby",
   "colors1",
   "colors_level",
   "colors_plus",
@@ -128,7 +129,7 @@ function buildMentionsRow() {
       .setCustomId("personality_mentions")
       .setPlaceholder("🔔 Seleziona le notifiche da ricevere")
       .setMinValues(1)
-      .setMaxValues(7)
+      .setMaxValues(8)
       .addOptions(
         { label: "Rimuovi tutti i ping", value: "remove", emoji: "<:vegax:1443934876440068179>", description: "Rimuovi ruoli dal tuo profilo" },
         { label: "༄ Revive Chat", value: IDs.roles.ReviveChat, emoji: "<a:pepedeadchat:1470541176284381226>", description: "Clicca qui per ottenere il ruolo" },
@@ -140,6 +141,31 @@ function buildMentionsRow() {
         { label: "༄ Polls", value: IDs.roles.Polls, emoji: "<:polls:1470541168860201072>", description: "Clicca qui per ottenere il ruolo" },
         { label: "༄ Bump", value: IDs.roles.Bump, emoji: "<:bumpstab:1470541167429947607>", description: "Clicca qui per ottenere il ruolo" },
         { label: "༄ Minigames", value: IDs.roles.Minigames, emoji: "<:health:1470541164363911313>", description: "Clicca qui per ottenere il ruolo" },
+        { label: "༄ Notturno", value: IDs.roles.Notturno, emoji: "<:moon:1470064812615667827>", description: "Clicca qui per ottenere il ruolo" },
+        { label: "༄ Live", value: IDs.roles.Live, emoji: "<a:VC_Ping:1482694298687246377>", description: "Clicca qui per ottenere il ruolo" },
+      ),
+  );
+}
+
+function buildHobbyRow() {
+  return new ActionRowBuilder().addComponents(
+    new StringSelectMenuBuilder()
+      .setCustomId("personality_hobby")
+      .setPlaceholder("🎯 Seleziona i tuoi hobby")
+      .setMinValues(1)
+      .setMaxValues(10)
+      .addOptions(
+        { label: "Rimuovi tutti gli hobby", value: "remove", emoji: "<:vegax:1443934876440068179>", description: "Rimuovi ruoli dal tuo profilo" },
+        { label: "༄ Anime & Manga", value: IDs.roles.HobbyAnimeManga, emoji: "🎌", description: "Clicca qui per ottenere il ruolo" },
+        { label: "༄ Lettura", value: IDs.roles.HobbyLettura, emoji: "📚", description: "Clicca qui per ottenere il ruolo" },
+        { label: "༄ Scrittura", value: IDs.roles.HobbyScrittura, emoji: "✍️", description: "Clicca qui per ottenere il ruolo" },
+        { label: "༄ Film & Serie TV", value: IDs.roles.HobbyFilmSerieTV, emoji: "🎬", description: "Clicca qui per ottenere il ruolo" },
+        { label: "༄ Sport", value: IDs.roles.HobbySport, emoji: "⚽", description: "Clicca qui per ottenere il ruolo" },
+        { label: "༄ Musica", value: IDs.roles.HobbyMusica, emoji: "🎵", description: "Clicca qui per ottenere il ruolo" },
+        { label: "༄ Gaming", value: IDs.roles.HobbyGaming, emoji: "🎮", description: "Clicca qui per ottenere il ruolo" },
+        { label: "༄ Disegno", value: IDs.roles.HobbyDisegno, emoji: "🖌️", description: "Clicca qui per ottenere il ruolo" },
+        { label: "༄ Cucina", value: IDs.roles.HobbyCucina, emoji: "🍳", description: "Clicca qui per ottenere il ruolo" },
+        { label: "༄ Fotografia", value: IDs.roles.HobbyFotografia, emoji: "📷", description: "Clicca qui per ottenere il ruolo" },
       ),
   );
 }
@@ -208,6 +234,8 @@ function buildRuoliColoriPersonalityMenuRow(categoryKey) {
       return buildRelationshipRow();
     case "mentions":
       return buildMentionsRow();
+    case "hobby":
+      return buildHobbyRow();
     case "colors1":
       return buildColors1Row();
     default:
@@ -231,6 +259,7 @@ function buildRolePanelCategoryPickerRow(ownerId, selectedKey) {
         { label: "Stato DM", value: "dm", emoji: "💬", default: sel === "dm" },
         { label: "Stato sentimentale", value: "relationship", emoji: "💘", default: sel === "relationship" },
         { label: "Ping", value: "mentions", emoji: "🔔", default: sel === "mentions" },
+        { label: "Hobby", value: "hobby", emoji: "🎯", default: sel === "hobby" },
         { label: "Colori Base", value: "colors1", emoji: "🎨", default: sel === "colors1" },
         { label: "Colori Livelli", value: "colors_level", emoji: "<:VC_EXP:1482534670896730143>", default: sel === "colors_level" },
         { label: "Colori Plus", value: "colors_plus", emoji: "<:VC_Vip:1482534921472835895>", default: sel === "colors_plus" },
@@ -255,6 +284,7 @@ module.exports = {
   buildDmRow,
   buildRelationshipRow,
   buildMentionsRow,
+  buildHobbyRow,
   buildColors1Row,
   buildColorsPlusRow,
   buildRuoliColoriPersonalityMenuRow,

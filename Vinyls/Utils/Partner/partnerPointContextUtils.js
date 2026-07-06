@@ -97,7 +97,7 @@ function parsePartnerPointModalId(customId, prefix) {
 
 function memberIsHighStaffForPointReview(member) {
   if (!member?.roles?.cache) return false;
-  const ids = [IDs.roles?.HighStaff, IDs.roles?.Founder, IDs.roles?.Admin].filter(Boolean).map(String);
+  const ids = [IDs.roles?.HighStaff, IDs.roles?.Founder, IDs.roles?.Manager, IDs.roles?.Admin].filter(Boolean).map(String);
   return ids.some((rid) => member.roles.cache.has(rid));
 }
 

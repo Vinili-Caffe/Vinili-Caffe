@@ -1,4 +1,4 @@
-const { assertServerEconomyAccess, isHighStaff } = require("../../Services/Community/serverEconomyService");
+const { assertServerEconomyAccess, isHighStaff } = require("../../Services/Community/activeEconomyService");
 const { openBalPanel, setSession } = require("../../Utils/Economy/balGuiRuntime");
 const { postGuiPanel, replyDeny, runEconomyPanelCommand } = require("../../Utils/Economy/economyCommandHelpers");
 

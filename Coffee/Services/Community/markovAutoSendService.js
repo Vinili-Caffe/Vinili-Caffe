@@ -1,8 +1,9 @@
-const { getMarkovConfig, isMarkovEnabled, readGuildCorpus, readGuildImages, readGuildStickers } = require("./markovMessageCollectorService");
+const { getMarkovConfig, isMarkovEnabled, readGuildCorpus, readGuildImages, readGuildStickers, removeStickerFromGuildCorpus } = require("./markovMessageCollectorService");
 const { isMarkovEligibleChannel, resolveMarkovOutputChannel, resolveMarkovOutputChannelId } = require("./markovChannelAccess");
 const { generateMarkovLines } = require("./markovGeneratorService");
-const { buildAllowedMentionsForText, pickRandomItem, clampMarkovOutput, resolveMarkovImageEmbed } = require("./markovMediaUtils");
+const { buildAllowedMentionsForText, pickRandomItem, clampMarkovOutput, resolveMarkovImageEmbed, resolveMarkovStickerEmbed } = require("./markovMediaUtils");
 const { maybeApplyCommandStyle, sanitizeCommandLikeText } = require("./markovCommandStyleService");
+const { isMarkovScamText, filterScamLines } = require("../../../shared/moderation/markovScamFilter");
 
 const guildState = new Map();
 const markovMessageIdsByGuild = new Map();
@@ -219,32 +220,79 @@ function buildAutoSendPayload(client, text, images, stickers, opts = {}) {
   const imageList = Array.isArray(images) ? images : [];
   const stickerList = Array.isArray(stickers) ? stickers : [];
   const trimmedText = String(text || "").trim();
+  if (trimmedText && isMarkovScamText(trimmedText)) return null;
   const visual = pickVisualAttachment(imageList, stickerList, state, autoCfg);
   const imageUrl = visual?.kind === "image" ? visual.value : null;
-  const stickerId = visual?.kind === "sticker" ? visual.value : null;
-  if (!trimmedText && !imageUrl && !stickerId) return null;
+  const stickerRef = visual?.kind === "sticker" ? visual.value : null;
+  if (!trimmedText && !imageUrl && !stickerRef) return null;
   if (!trimmedText && imageUrl && !autoCfg.allowImageOnly) return null;
-  if (!trimmedText && stickerId && !autoCfg.allowStickerOnly) return null;
+  if (!trimmedText && stickerRef && !autoCfg.allowStickerOnly) return null;
 
   const payload = {
     allowedMentions: buildAllowedMentionsForText(trimmedText, markov),
   };
   if (trimmedText) payload.content = trimmedText;
   if (imageUrl) payload.pendingImageUrl = imageUrl;
-  if (stickerId) payload.stickers = [stickerId];
+  if (stickerRef) payload.pendingStickerRef = stickerRef;
   return payload;
 }
 
-async function materializeMarkovPayload(payload) {
+async function materializeMarkovPayload(payload, client) {
   if (!payload) return null;
   const pendingImageUrl = payload.pendingImageUrl;
+  const pendingStickerRef = payload.pendingStickerRef;
   const out = { ...payload };
   delete out.pendingImageUrl;
+  delete out.pendingStickerRef;
   if (pendingImageUrl) {
     const imageEmbed = await resolveMarkovImageEmbed(pendingImageUrl);
     if (imageEmbed) out.embeds = [imageEmbed];
   }
+  if (pendingStickerRef) {
+    const stickerEmbed = await resolveMarkovStickerEmbed(client, pendingStickerRef);
+    if (stickerEmbed) {
+      out.embeds = [...(out.embeds || []), stickerEmbed];
+    } else {
+      const stickerId = String(pendingStickerRef?.id || pendingStickerRef || "").trim();
+      if (stickerId) {
+        void removeStickerFromGuildCorpus(client, stickerId).catch(() => {});
+      }
+    }
+  }
   return out;
+}
+
+function isMarkovStickerSendError(err) {
+  const message = String(err?.message || err || "").toLowerCase();
+  return message.includes("cannot use this sticker") || message.includes("unknown sticker");
+}
+
+async function sendMarkovPayload(channel, payload, client, sendFn) {
+  const sent = await sendFn(payload).catch((err) => {
+    if (!isMarkovStickerSendError(err)) {
+      global.logger?.warn?.("[MARKOV] send failed:", err?.message || err);
+      return null;
+    }
+    const stickerId = String(payload?.pendingStickerRef?.id || "").trim();
+    if (stickerId) {
+      void removeStickerFromGuildCorpus(client, stickerId).catch(() => {});
+    }
+    const retryPayload = { ...payload };
+    delete retryPayload.pendingStickerRef;
+    delete retryPayload.stickers;
+    if (retryPayload.embeds?.length) {
+      retryPayload.embeds = retryPayload.embeds.filter((embed) => !embed?.image?.url);
+      if (!retryPayload.embeds.length) delete retryPayload.embeds;
+    }
+    if (!retryPayload.content && !retryPayload.embeds?.length && !retryPayload.files?.length) {
+      return null;
+    }
+    return sendFn(retryPayload).catch((retryErr) => {
+      global.logger?.warn?.("[MARKOV] send retry failed:", retryErr?.message || retryErr);
+      return null;
+    });
+  });
+  return sent;
 }
 
 function getMarkovReadOpts(client) {
@@ -268,23 +316,30 @@ function hasEnoughMarkovCorpus(corpus, images, stickers, autoCfg, opts = {}) {
 }
 
 async function composeMarkovText(client, channel, corpus, autoCfg) {
-  if (!corpus.length) return "";
+  const safeCorpus = filterScamLines(corpus);
+  if (!safeCorpus.length) return "";
   const outputLimits = { maxSymbols: autoCfg.maxSymbols, maxWords: autoCfg.maxWords };
-  const result = await generateMarkovLines(client, channel, {
-    count: 1,
-    corpusScope: "guild",
-    maxSymbols: autoCfg.maxSymbols,
-  });
-  if (!result.ok || !result.lines?.[0]) return "";
-  let text = clampMarkovOutput(result.lines[0], outputLimits);
-  if (text && autoCfg.commandStyleEnabled) {
-    text = maybeApplyCommandStyle(client, text, corpus);
-    text = clampMarkovOutput(text, {
-      maxSymbols: autoCfg.maxSymbols + 48,
-      maxWords: autoCfg.maxWords + 6,
+  const maxAttempts = 8;
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    const result = await generateMarkovLines(client, channel, {
+      count: 1,
+      corpusScope: "guild",
+      maxSymbols: autoCfg.maxSymbols,
+      corpusLines: safeCorpus,
     });
+    if (!result.ok || !result.lines?.[0]) continue;
+    let text = clampMarkovOutput(result.lines[0], outputLimits);
+    if (text && autoCfg.commandStyleEnabled) {
+      text = maybeApplyCommandStyle(client, text, safeCorpus);
+      text = clampMarkovOutput(text, {
+        maxSymbols: autoCfg.maxSymbols + 48,
+        maxWords: autoCfg.maxWords + 6,
+      });
+    }
+    text = sanitizeCommandLikeText(client, text);
+    if (text && !isMarkovScamText(text)) return text;
   }
-  return sanitizeCommandLikeText(client, text);
+  return "";
 }
 
 async function buildMarkovSendPayload(client, channel, opts = {}) {
@@ -339,19 +394,17 @@ async function tryAutoSendMarkovMessage(message, client) {
 
       const payload = await materializeMarkovPayload(
         await buildMarkovSendPayload(client, outputChannel, { state, autoCfg, requireMinimums: true }),
+        client,
       );
       if (!payload) return false;
 
-      const sent = await outputChannel.send(payload).catch((err) => {
-        global.logger?.warn?.("[MARKOV] auto-send failed:", err?.message || err);
-        return null;
-      });
+      const sent = await sendMarkovPayload(outputChannel, payload, client, (sendPayload) => outputChannel.send(sendPayload));
 
       if (!sent) return false;
 
       recordMarkovSentMessage(guildId, sent.id, client);
       state.lastAutoSendAt = Date.now();
-      state.lastSendHadImage = Boolean(payload.embeds?.length || payload.files?.length || payload.stickers?.length);
+      state.lastSendHadImage = Boolean(payload.embeds?.length || payload.files?.length);
       resetGuildState(guildId, client);
       return true;
     } finally {
@@ -383,11 +436,14 @@ async function tryReplyToMarkovMessage(message, client) {
   state.inFlight = true;
   try {
     const autoCfg = getAutoSendConfig(client);
-    const payload = await buildMarkovSendPayload(client, message.channel, {
-      state,
-      autoCfg,
-      requireMinimums: false,
-    });
+    const payload = await materializeMarkovPayload(
+      await buildMarkovSendPayload(client, message.channel, {
+        state,
+        autoCfg,
+        requireMinimums: false,
+      }),
+      client,
+    );
     if (!payload) return false;
 
     const replyPayload = {
@@ -399,15 +455,12 @@ async function tryReplyToMarkovMessage(message, client) {
       failIfNotExists: false,
     };
 
-    const sent = await message.reply(replyPayload).catch((err) => {
-      global.logger?.warn?.("[MARKOV] reply failed:", err?.message || err);
-      return null;
-    });
+    const sent = await sendMarkovPayload(message.channel, replyPayload, client, (sendPayload) => message.reply(sendPayload));
     if (!sent) return false;
 
     recordMarkovSentMessage(guildId, sent.id, client);
     replyCooldownByUser.set(coolKey, Date.now());
-    state.lastSendHadImage = Boolean(payload.embeds?.length || payload.files?.length || payload.stickers?.length);
+    state.lastSendHadImage = Boolean(payload.embeds?.length || payload.files?.length);
     return true;
   } finally {
     state.inFlight = false;

@@ -1,7 +1,9 @@
 (function () {
-  try {
-    if (window.trustedTypes) {
-      window.trustedTypes.createPolicy("default", {
+  function ensureTrustedTypesPolicy() {
+    try {
+      if (!window.trustedTypes) return null;
+      if (window.trustedTypes.defaultPolicy) return window.trustedTypes.defaultPolicy;
+      return window.trustedTypes.createPolicy("default", {
         createHTML: function (s) {
           return String(s);
         },
@@ -12,8 +14,25 @@
           return String(s);
         },
       });
+    } catch (ePolicy) {
+      return null;
     }
-  } catch (ePolicy) {}
+  }
+
+  ensureTrustedTypesPolicy();
+
+  window.__vcTrustedScriptURL = function (url) {
+    var u = String(url || "");
+    try {
+      var policy = ensureTrustedTypesPolicy() || window.trustedTypes?.defaultPolicy;
+      if (policy && typeof policy.createScriptURL === "function") return policy.createScriptURL(u);
+    } catch (eUrl) {}
+    return u;
+  };
+
+  try {
+    ensureTrustedTypesPolicy();
+  } catch (ePolicy2) {}
 
   if (window.__vcExtensionNoiseFilterInstalled) return;
   window.__vcExtensionNoiseFilterInstalled = true;

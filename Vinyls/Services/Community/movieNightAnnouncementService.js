@@ -28,6 +28,7 @@ const DISCORD_POLL_MAX_ANSWERS = 10;
 const REVIEW_THREAD_NAME = "RECENSIONI E SUGGERIMENTI";
 const REVIEW_THREAD_CLOSE_AFTER_MS = 24 * 60 * 60 * 1000;
 const REVIEW_THREAD_SWEEP_MS = 5 * 60 * 1000;
+const REVIEW_THREAD_DISCOVERY_MAX_AGE_MS = REVIEW_THREAD_CLOSE_AFTER_MS + 12 * 60 * 60 * 1000;
 const FALLBACK_MOVIE_DESCRIPTION = "Non ho trovato una descrizione affidabile in italiano, ma sarà una buona occasione per scoprirlo insieme durante la serata.";
 const ANNOUNCEMENT_CHANNEL_ID = "1481660281032675510";
 const MOVIE_NIGHT_EVENT_CHANNEL_ID = "1497535199813042306";
@@ -516,8 +517,9 @@ async function publishMovieNightAnnouncement(guild, event, weekKey) {
   const previousState = await getBotState(STATE_KEY, null);
   const previousWeekKey = String(previousState?.weekKey || "");
   const keepPriorWeekFields = previousWeekKey && previousWeekKey === weekKey && previousState && typeof previousState === "object";
+  const openReviewFields = pickOpenReviewThreadStateFields(previousState);
   await setBotState(STATE_KEY, {
-    ...(keepPriorWeekFields ? previousState : {}),
+    ...(keepPriorWeekFields ? previousState : openReviewFields),
     weekKey,
     guildId: String(guild.id || ""),
     eventId: String(event?.id || ""),
@@ -1589,38 +1591,132 @@ async function resolveTextChannelForMovieNight(clientOrGuild) {
   return client?.channels?.cache?.get(ANNOUNCEMENT_CHANNEL_ID) || (await client?.channels?.fetch?.(ANNOUNCEMENT_CHANNEL_ID).catch(() => null));
 }
 
+function pickOpenReviewThreadStateFields(state) {
+  if (!state || typeof state !== "object") return {};
+  const threadId = String(state.reviewThreadId || "").trim();
+  if (!threadId || state.reviewThreadClosedAt) return {};
+  return {
+    reviewThreadId: threadId,
+    reviewThreadCloseAt: Number(state.reviewThreadCloseAt || 0) || null,
+    stageCloseMessageId: String(state.stageCloseMessageId || ""),
+    stageCloseMovieTitle: String(state.stageCloseMovieTitle || ""),
+    stageClosedAt: String(state.stageClosedAt || ""),
+    stagePermissionsClosedAt: String(state.stagePermissionsClosedAt || ""),
+  };
+}
+
+function resolveReviewThreadCloseAtFromStageCloseMessage(message, state = null) {
+  const fromState = Number(state?.reviewThreadCloseAt || 0);
+  if (fromState > 0) return fromState;
+  const created = Number(message?.createdTimestamp || 0);
+  if (created > 0) return created + REVIEW_THREAD_CLOSE_AFTER_MS;
+  return Date.now() + REVIEW_THREAD_CLOSE_AFTER_MS;
+}
+
+async function discoverOpenMovieNightReviewThread(client) {
+  const channel = await resolveTextChannelForMovieNight(client);
+  if (!channel?.messages?.fetch) return null;
+  const messages = await channel.messages.fetch({ limit: 50 }).catch(() => null);
+  if (!messages?.size) return null;
+  for (const message of messages.values()) {
+    if (!isMovieNightStageCloseMessage(message, client, REVIEW_THREAD_DISCOVERY_MAX_AGE_MS)) continue;
+    const thread = await resolveReviewThreadFromMessage(message);
+    if (!thread?.isThread?.()) continue;
+    if (thread.locked && thread.archived) continue;
+    return {
+      threadId: String(thread.id),
+      closeAt: resolveReviewThreadCloseAtFromStageCloseMessage(message),
+      stageCloseMessageId: String(message.id || ""),
+    };
+  }
+  return null;
+}
+
+async function syncMovieNightReviewThreadClosedState(client, state) {
+  const threadId = String(state?.reviewThreadId || "").trim();
+  if (!threadId || state?.reviewThreadClosedAt) return state;
+  const thread = client.channels.cache.get(threadId) || (await client.channels.fetch(threadId).catch(() => null));
+  if (!thread?.isThread?.() || !thread.locked || !thread.archived) return state;
+  const next = {
+    ...state,
+    reviewThreadClosedAt: new Date().toISOString(),
+  };
+  await setBotState(STATE_KEY, next);
+  return next;
+}
+
+async function ensureMovieNightReviewThreadTracking(client) {
+  let state = await getBotState(STATE_KEY, null);
+  if (state?.reviewThreadId && !state?.reviewThreadClosedAt) {
+    state = await syncMovieNightReviewThreadClosedState(client, state);
+    if (state?.reviewThreadClosedAt) {
+      return { ok: true, source: "state_sync", threadId: String(state.reviewThreadId || ""), alreadyClosed: true };
+    }
+    const closeAt = Number(state.reviewThreadCloseAt || 0);
+    if (closeAt > 0) scheduleMovieNightReviewThreadClose(client, closeAt);
+    return { ok: true, source: "state", threadId: String(state.reviewThreadId || ""), closeAt };
+  }
+  if (state?.reviewThreadClosedAt) return { skipped: true, reason: "already_closed_in_state" };
+  const discovered = await discoverOpenMovieNightReviewThread(client);
+  if (!discovered?.threadId) return { skipped: true, reason: "no_open_review_thread" };
+  const nextState = {
+    ...(state && typeof state === "object" ? state : {}),
+    reviewThreadId: discovered.threadId,
+    reviewThreadCloseAt: discovered.closeAt,
+    stageCloseMessageId: discovered.stageCloseMessageId || state?.stageCloseMessageId || "",
+  };
+  await setBotState(STATE_KEY, nextState);
+  scheduleMovieNightReviewThreadClose(client, discovered.closeAt);
+  global.logger?.info?.(
+    "[MOVIE NIGHT ANNOUNCE] review thread recovered from channel:",
+    discovered.threadId,
+    "closeAt=",
+    new Date(discovered.closeAt).toISOString(),
+  );
+  return { ok: true, source: "discovered", threadId: discovered.threadId, closeAt: discovered.closeAt };
+}
+
 async function closeReviewThreadById(client, threadId) {
   const id = String(threadId || "");
   if (!id) return false;
-  const thread = client.channels.cache.get(id) || (await client.channels.fetch(id).catch(() => null));
+  let thread = client.channels.cache.get(id) || (await client.channels.fetch(id).catch(() => null));
   if (!thread?.isThread?.()) return false;
   if (thread.archived && !thread.locked) {
     await thread.setArchived(false, "Riapertura tecnica per bloccare recensioni Serata Film").catch(() => null);
+    thread = (await client.channels.fetch(id).catch(() => null)) || thread;
   }
   if (!thread.locked && thread.setLocked) {
     await thread.setLocked(true, "Chiusura recensioni Serata Film").catch((err) => {
       global.logger?.warn?.("[MOVIE NIGHT ANNOUNCE] review thread lock failed:", err?.message || err);
     });
+    thread = (await client.channels.fetch(id).catch(() => null)) || thread;
   }
   if (!thread.archived && thread.setArchived) {
     await thread.setArchived(true, "Chiusura recensioni Serata Film").catch((err) => {
       global.logger?.warn?.("[MOVIE NIGHT ANNOUNCE] review thread archive failed:", err?.message || err);
     });
+    thread = (await client.channels.fetch(id).catch(() => null)) || thread;
   }
-  return true;
+  return Boolean(thread?.locked && thread.archived);
 }
 
 async function closeMovieNightReviewThreadIfDue(client, opts = {}) {
-  const state = await getBotState(STATE_KEY, null);
-  if (!state?.reviewThreadId || state?.reviewThreadClosedAt) return { skipped: true, reason: "no_open_review_thread" };
+  await ensureMovieNightReviewThreadTracking(client).catch((err) => {
+    global.logger?.warn?.("[MOVIE NIGHT ANNOUNCE] review thread tracking failed:", err?.message || err);
+  });
+  let state = await getBotState(STATE_KEY, null);
+  if (!state?.reviewThreadId || state?.reviewThreadClosedAt) {
+    return { skipped: true, reason: "no_open_review_thread" };
+  }
   const closeAt = Number(state.reviewThreadCloseAt || 0);
   if (!opts.force && (!closeAt || Date.now() < closeAt)) return { skipped: true, reason: "not_due" };
   const closed = await closeReviewThreadById(client, state.reviewThreadId);
-  if (!closed) return { skipped: true, reason: "thread_unavailable" };
+  if (!closed) return { skipped: true, reason: "thread_close_failed" };
   await setBotState(STATE_KEY, {
     ...state,
     reviewThreadClosedAt: new Date().toISOString(),
   });
+  global.logger?.info?.("[MOVIE NIGHT ANNOUNCE] review thread closed:", state.reviewThreadId);
   return { ok: true, threadId: String(state.reviewThreadId || "") };
 }
 
@@ -1866,6 +1962,12 @@ async function runMovieNightStageCloseRecoveryCheck(client, opts = {}) {
           ...(state && typeof state === "object" ? state : {}),
           stageCloseMessageId: closeMessage.id,
         }, title);
+        await ensureMovieNightReviewThreadTracking(client).catch((err) => {
+          global.logger?.warn?.("[MOVIE NIGHT ANNOUNCE] review thread tracking on recovery failed:", err?.message || err);
+        });
+        await closeMovieNightReviewThreadIfDue(client).catch((err) => {
+          global.logger?.warn?.("[MOVIE NIGHT ANNOUNCE] review thread close on recovery failed:", err?.message || err);
+        });
         return { ok: true, skipped: true, reason: "close_already_done", leaderboard: lb?.ok ? "published" : lb?.reason || "none" };
       }
     }
@@ -1903,6 +2005,21 @@ async function handleMovieNightStageClose(stageInstance, opts = {}) {
           || state?.finalMovieTitle
           || state?.eventStartMovieTitle
           || "il film scelto";
+        const existingThread = await resolveReviewThreadFromMessage(existingForWeek);
+        const reviewThreadCloseAt = resolveReviewThreadCloseAtFromStageCloseMessage(existingForWeek, state);
+        if (existingThread?.id && !state?.reviewThreadClosedAt) {
+          await persistMovieNightStageCloseState({
+            state,
+            guild,
+            weekKey,
+            title,
+            messageId: existingForWeek.id,
+            threadId: existingThread.id,
+            reviewThreadCloseAt,
+            permissionsClosed: Boolean(state?.stagePermissionsClosedAt),
+          });
+          scheduleMovieNightReviewThreadClose(client, reviewThreadCloseAt);
+        }
         await ensureSerataFilmEndLeaderboardPublished(client, guild, weekKey, {
           ...(state && typeof state === "object" ? state : {}),
           stageCloseMessageId: existingForWeek.id,
@@ -1921,7 +2038,7 @@ async function handleMovieNightStageClose(stageInstance, opts = {}) {
     const existingMessage = !opts.force ? await findRecentMovieNightEndAnnouncementInChannel(channel, client, weekKey) : null;
     if (existingMessage) {
       const existingThread = await resolveReviewThreadFromMessage(existingMessage);
-      const reviewThreadCloseAt = Number(state?.reviewThreadCloseAt || 0) || (Date.now() + REVIEW_THREAD_CLOSE_AFTER_MS);
+      const reviewThreadCloseAt = Number(state?.reviewThreadCloseAt || 0) || resolveReviewThreadCloseAtFromStageCloseMessage(existingMessage, state);
       const nextState = {
         ...(state && typeof state === "object" ? state : {}),
         weekKey,
@@ -1955,7 +2072,7 @@ async function handleMovieNightStageClose(stageInstance, opts = {}) {
           const retryMessage = await findRecentMovieNightEndAnnouncementInChannel(channel, client, weekKey);
           if (retryMessage) {
             const retryThread = await resolveReviewThreadFromMessage(retryMessage);
-            const reviewThreadCloseAt = Number(claim.state?.reviewThreadCloseAt || 0) || (Date.now() + REVIEW_THREAD_CLOSE_AFTER_MS);
+            const reviewThreadCloseAt = Number(claim.state?.reviewThreadCloseAt || 0) || resolveReviewThreadCloseAtFromStageCloseMessage(retryMessage, claim.state);
             await persistMovieNightStageCloseState({
               state: claim.state || state,
               guild,
@@ -2298,6 +2415,14 @@ async function recoverMovieNightAnnouncementsOnStartup(client, opts = {}) {
       error: err?.message || String(err),
     }));
   }
+  steps.reviewThreadTracking = await ensureMovieNightReviewThreadTracking(client).catch((err) => ({
+    ok: false,
+    error: err?.message || String(err),
+  }));
+  steps.reviewThreadClose = await closeMovieNightReviewThreadIfDue(client).catch((err) => ({
+    ok: false,
+    error: err?.message || String(err),
+  }));
   return { ok: true, slot, steps };
 }
 
@@ -2328,6 +2453,12 @@ async function runMovieNightEventStartCheck(client, opts = {}) {
 
 function startMovieNightAnnouncementLoop(client) {
   if (!client || movieNightAnnouncementTasks) return movieNightAnnouncementTasks;
+  ensureMovieNightReviewThreadTracking(client).catch((err) => {
+    global.logger?.warn?.("[MOVIE NIGHT ANNOUNCE] review thread tracking on loop start failed:", err?.message || err);
+  });
+  closeMovieNightReviewThreadIfDue(client).catch((err) => {
+    global.logger?.warn?.("[MOVIE NIGHT ANNOUNCE] review thread close on loop start failed:", err?.message || err);
+  });
   const announceTask = cron.schedule(
     ANNOUNCE_CRON,
     runCronDetached("[MOVIE NIGHT ANNOUNCE]", () => runMovieNightAnnouncementCheck(client)),

@@ -361,7 +361,7 @@
         adVideo.load();
       } catch (eL) {}
     }
-    return waitForAdVideoReady(adVideo, 15000).then(function (ready) {
+    return waitForAdVideoReady(adVideo, 20000).then(function (ready) {
       if (!ready) {
         try {
           adVideo.load();
@@ -369,48 +369,149 @@
       }
       return new Promise(function (resolve) {
         var done = false;
-        function finish() {
-          if (done) return;
-          done = true;
-          clearAdBreakTimers();
+        var playStartedAt = 0;
+        var lastProgressAt = Date.now();
+        var lastProgressTime = 0;
+        var stallWatchTimer = 0;
+        var stallRecoveries = 0;
+        var maxMsSafe = Math.max(1000, Math.floor(Number(maxMs) || 0));
+
+        function cleanupAdVideoListeners() {
           try {
             adVideo.onended = null;
             adVideo.onerror = null;
-            adVideo.onstalled = null;
+            adVideo.removeEventListener("timeupdate", onAdProgress);
+            adVideo.removeEventListener("playing", onAdPlaying);
+          } catch (eCl) {}
+          if (stallWatchTimer) {
+            try {
+              clearInterval(stallWatchTimer);
+            } catch (eSw) {}
+            stallWatchTimer = 0;
+          }
+        }
+
+        function finish(result) {
+          if (done) return;
+          done = true;
+          clearAdBreakTimers();
+          cleanupAdVideoListeners();
+          try {
             adVideo.pause();
           } catch (eP) {}
           adVideo.hidden = true;
           adVideo.setAttribute("hidden", "");
-          resolve();
+          var playedMs = playStartedAt ? Math.max(0, Date.now() - playStartedAt) : 0;
+          resolve({
+            playedMs: playedMs,
+            completed: Boolean(result && result.completed),
+          });
         }
-        adVideo.onended = finish;
-        adVideo.onerror = finish;
-        adVideo.onstalled = function () {
-          if (Number(adVideo.readyState) < 2) finish();
-        };
-        adBreakMaxTimer = setTimeout(finish, Math.max(1000, Math.floor(Number(maxMs) || 0)));
-        function tryPlay() {
-          var p = adVideo.play();
-          if (p && typeof p.then === "function") {
-            p.catch(function () {
-              adVideo.muted = true;
-              var p2 = adVideo.play();
-              if (p2 && typeof p2.catch === "function") {
-                p2.catch(finish);
-              } else {
-                finish();
-              }
-            });
+
+        function onAdPlaying() {
+          if (!playStartedAt) playStartedAt = Date.now();
+          lastProgressAt = Date.now();
+        }
+
+        function onAdProgress() {
+          var t = Number(adVideo.currentTime) || 0;
+          if (t > lastProgressTime + 0.04) {
+            lastProgressTime = t;
+            lastProgressAt = Date.now();
           }
         }
+
+        function recoverAdPlayback() {
+          stallRecoveries += 1;
+          try {
+            adVideo.play();
+          } catch (ePlay) {}
+          if (stallRecoveries >= 3) {
+            try {
+              var resumeAt = Math.max(0, lastProgressTime - 0.05);
+              adVideo.load();
+              adVideo.currentTime = resumeAt;
+              adVideo.play();
+            } catch (eReload) {}
+          }
+        }
+
+        function startStallWatch() {
+          if (stallWatchTimer) return;
+          stallWatchTimer = setInterval(function () {
+            if (done || adVideo.ended) return;
+            var stallMs = Date.now() - lastProgressAt;
+            if (stallMs < 10000) return;
+            if (stallRecoveries < 4) {
+              recoverAdPlayback();
+              return;
+            }
+            finish({ completed: false });
+          }, 2500);
+        }
+
+        adVideo.onended = function () {
+          finish({ completed: true });
+        };
+        adVideo.onerror = function () {
+          if (stallRecoveries < 2) {
+            stallRecoveries += 1;
+            try {
+              adVideo.load();
+              adVideo.play();
+            } catch (eErr) {
+              finish({ completed: false });
+            }
+            return;
+          }
+          finish({ completed: false });
+        };
+        adVideo.addEventListener("timeupdate", onAdProgress);
+        adVideo.addEventListener("playing", onAdPlaying);
+        adBreakMaxTimer = setTimeout(function () {
+          finish({ completed: Number(adVideo.currentTime) > 1 });
+        }, maxMsSafe);
+
+        function tryPlay(attempt) {
+          var p = adVideo.play();
+          if (!p || typeof p.then !== "function") {
+            startStallWatch();
+            return;
+          }
+          p.then(function () {
+            startStallWatch();
+          }).catch(function () {
+            adVideo.muted = true;
+            var p2 = adVideo.play();
+            if (!p2 || typeof p2.then !== "function") {
+              startStallWatch();
+              return;
+            }
+            p2.then(function () {
+              startStallWatch();
+            }).catch(function () {
+              if ((attempt || 0) < 2) {
+                waitMs(400).then(function () {
+                  tryPlay((attempt || 0) + 1);
+                });
+                return;
+              }
+              finish({ completed: false });
+            });
+          });
+        }
+
         if (!ready) {
-          waitForAdVideoReady(adVideo, 8000).then(function (ready2) {
-            if (!ready2) finish();
-            else tryPlay();
+          waitForAdVideoReady(adVideo, 12000).then(function (ready2) {
+            if (!ready2) {
+              finish({ completed: false });
+              return;
+            }
+            tryPlay(0);
           });
           return;
         }
-        tryPlay();
+        tryPlay(0);
       });
     });
   }
@@ -482,9 +583,14 @@
     try {
       await showAdBreakCard(cfg.introTitle, cfg.introText, cfg.introMs);
       var adMaxMs = Math.max(5000, cfg.totalMs - cfg.introMs - cfg.outroMs);
-      await playAdBreakVideo(cfg.videoUrl, adMaxMs);
+      var adResult = await playAdBreakVideo(cfg.videoUrl, adMaxMs);
+      var adPlayedMs = adResult && Number.isFinite(Number(adResult.playedMs)) ? Number(adResult.playedMs) : 0;
+      var adCompleted = Boolean(adResult && adResult.completed);
       var elapsed = Date.now() - breakStart;
-      var outroMs = Math.max(cfg.outroMs, cfg.totalMs - elapsed);
+      var outroMs = cfg.outroMs;
+      if (adCompleted || adPlayedMs >= Math.min(adMaxMs * 0.45, 12000)) {
+        outroMs = Math.max(cfg.outroMs, cfg.totalMs - elapsed);
+      }
       await showAdBreakCard(cfg.outroTitle, cfg.outroText, outroMs);
       markAdBreakSeenThisScreening();
     } catch (eRun) {
@@ -626,6 +732,68 @@
     }
   }
 
+  var filmStallRecoveries = 0;
+  var filmLastProgressAt = 0;
+  var filmLastProgressTime = 0;
+  var filmStallWatchTimer = 0;
+
+  function clearFilmStallWatch() {
+    if (!filmStallWatchTimer) return;
+    try {
+      clearInterval(filmStallWatchTimer);
+    } catch (eSw) {}
+    filmStallWatchTimer = 0;
+  }
+
+  function noteFilmProgress(video) {
+    if (!video) return;
+    var t = Number(video.currentTime) || 0;
+    if (t > filmLastProgressTime + 0.04) {
+      filmLastProgressTime = t;
+      filmLastProgressAt = Date.now();
+      filmStallRecoveries = 0;
+      setFilmLoading(false);
+    }
+  }
+
+  function recoverInlineFilmPlayback(video, hard) {
+    if (!video || !filmStarted || video.ended) return;
+    filmStallRecoveries += 1;
+    var resumeAt = Math.max(0, filmLastProgressTime - 0.25);
+    try {
+      if (hard) {
+        video.load();
+        video.currentTime = resumeAt;
+      } else if (Number(video.currentTime) > 0.2) {
+        video.currentTime = Math.max(0, Number(video.currentTime) - 0.15);
+      }
+    } catch (eSeek) {}
+    tryPlayInlineFilm(video);
+  }
+
+  function bindFilmStallWatch(video) {
+    if (!video) return;
+    clearFilmStallWatch();
+    filmLastProgressAt = Date.now();
+    filmLastProgressTime = Number(video.currentTime) || 0;
+    filmStallWatchTimer = setInterval(function () {
+      if (!filmStarted || !video || video.paused || video.ended || adBreakRunning) return;
+      var stallMs = Date.now() - filmLastProgressAt;
+      if (stallMs < 8000) return;
+      if (filmStallRecoveries < 2) {
+        setFilmLoading(true, "Buffering…");
+        recoverInlineFilmPlayback(video, false);
+        return;
+      }
+      if (filmStallRecoveries < 4) {
+        setFilmLoading(true, "Riconnessione allo stream…");
+        recoverInlineFilmPlayback(video, true);
+        return;
+      }
+      setFilmLoading(true, "La proiezione si è bloccata. Premi play o ricarica la pagina.");
+    }, 3000);
+  }
+
   function bindInlineFilmPlaybackHelpers(video) {
     if (!video || video.dataset.vcSeratafilmPlaybackBound === "1") return;
     video.dataset.vcSeratafilmPlaybackBound = "1";
@@ -634,18 +802,25 @@
       setFilmLoading(true, "Impossibile caricare il film. Ricarica la pagina o contatta lo staff.");
     });
     video.addEventListener("waiting", function () {
-      if (!filmStarted || video.paused) return;
+      if (!filmStarted || video.paused || adBreakRunning) return;
+      setFilmLoading(true, "Buffering…");
+    });
+    video.addEventListener("stalled", function () {
+      if (!filmStarted || video.paused || adBreakRunning) return;
       setFilmLoading(true, "Buffering…");
     });
     video.addEventListener("playing", function () {
+      filmLastProgressAt = Date.now();
       setFilmLoading(false);
     });
     video.addEventListener("canplay", function () {
       if (filmStarted) setFilmLoading(false);
     });
     video.addEventListener("timeupdate", function () {
-      if (filmStarted && Number(video.currentTime) > 0.05) setFilmLoading(false);
+      if (!filmStarted) return;
+      noteFilmProgress(video);
     });
+    bindFilmStallWatch(video);
   }
 
   function preloadInlineFilm(url, options) {
@@ -677,6 +852,10 @@
     filmStarted = true;
     adBreakDone = false;
     adBreakRunning = false;
+    filmStallRecoveries = 0;
+    filmLastProgressAt = Date.now();
+    filmLastProgressTime = 0;
+    clearFilmStallWatch();
     syncAdBreakDoneFromStorage();
     clearAdBreakTimers();
     setAdBreakUi(false);
@@ -710,6 +889,7 @@
     bindInlineFilmEndRedirect(video);
     bindInlineFilmPlaybackHelpers(video);
     bindAdBreakWatcher(video);
+    bindFilmStallWatch(video);
     var adCfgStart = resolveAdBreakConfig();
     if (adCfgStart) preloadAdBreakVideo(adCfgStart.videoUrl);
     if (!sameMediaUrl(video.currentSrc || video.src, url)) {
@@ -860,6 +1040,8 @@
     filmStarted = false;
     adBreakDone = false;
     adBreakRunning = false;
+    filmStallRecoveries = 0;
+    clearFilmStallWatch();
     clearAdBreakTimers();
     setAdBreakUi(false);
     clearCountdownAudioArm();

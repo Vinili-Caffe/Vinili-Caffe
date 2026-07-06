@@ -1,7 +1,7 @@
 const { ChannelType, PermissionFlagsBits } = require("discord.js");
 const IDs = require("../Config/ids");
 
-const CUSTOM_PRIVATE_CATEGORY_NAME = "⁰⁹・ PRIVATE ・";
+const CUSTOM_PRIVATE_CATEGORY_NAME = "・ 　　　　    　    PRIVATE 　　      　    　・";
 
 function normalizeCategoryName(name) {
   return String(name || "")
@@ -67,14 +67,84 @@ function countCustomPrivateCategoryChildren(guild, categoryId, excludeChannelId 
   ).size;
 }
 
-async function placeCategoryBelowAnchor(guild, category) {
-  const anchorId = String(IDs?.categories?.categoryPrivateAnchor || "").trim();
-  if (!anchorId || !category) return;
-  const anchor =
-    guild.channels.cache.get(anchorId) ||
-    (await guild.channels.fetch(anchorId).catch(() => null));
-  if (anchor?.type !== ChannelType.GuildCategory) return;
-  await category.setPosition(anchor.rawPosition + 1).catch(() => { });
+async function fetchGuildCategory(guild, categoryId) {
+  const id = String(categoryId || "").trim();
+  if (!id || !guild) return null;
+  const cached = guild.channels.cache.get(id);
+  if (cached?.type === ChannelType.GuildCategory) return cached;
+  const fetched = await guild.channels.fetch(id).catch(() => null);
+  return fetched?.type === ChannelType.GuildCategory ? fetched : null;
+}
+
+function resolveLimitateCategory(guild) {
+  const duoChannelId = String(IDs?.channels?.vocaleDuo1 || "").trim();
+  if (!duoChannelId || !guild?.channels?.cache) return null;
+  const duo = guild.channels.cache.get(duoChannelId);
+  const parentId = String(duo?.parentId || "").trim();
+  if (!parentId) return null;
+  const parent = guild.channels.cache.get(parentId);
+  return parent?.type === ChannelType.GuildCategory ? parent : null;
+}
+
+function computePrivateCategoryTargetPosition(category, partner, limitate) {
+  if (!partner || !category) return null;
+
+  const partnerPos = Number(partner.rawPosition);
+  const floor =
+    limitate && String(limitate.id) !== String(category.id)
+      ? Number(limitate.rawPosition) + 1
+      : 0;
+
+  // Must be strictly above partner (lower rawPosition). Same index as partner ties on
+  // channel id; dynamically created categories always have a newer id and sink below.
+  let target = partnerPos - 1;
+  if (!Number.isFinite(target)) return null;
+  if (target < floor) target = floor;
+  if (target >= partnerPos) target = Math.max(floor, partnerPos - 1);
+  return target;
+}
+
+function isPrivateCategoryCorrectlyPlaced(category, partner, limitate) {
+  const target = computePrivateCategoryTargetPosition(category, partner, limitate);
+  if (target == null) return true;
+  const current = Number(category.rawPosition);
+  if (current < Number(partner.rawPosition) && current > Number(limitate?.rawPosition ?? -1)) {
+    return true;
+  }
+  return current === target;
+}
+
+async function placePrivateCategoryAbovePartner(guild, category) {
+  const partnerId = String(IDs?.categories?.categoryPartner || "").trim();
+  if (!partnerId || !category) return;
+  await warmGuildChannelsIfNeeded(guild);
+
+  const partner = await fetchGuildCategory(guild, partnerId);
+  if (!partner) return;
+
+  const limitate = resolveLimitateCategory(guild);
+  if (isPrivateCategoryCorrectlyPlaced(category, partner, limitate)) return;
+
+  const targetPosition = computePrivateCategoryTargetPosition(category, partner, limitate);
+  if (targetPosition == null) return;
+
+  await category
+    .setPosition(targetPosition, { reason: "Mantieni categoria vocali private sopra Partner/Staff" })
+    .catch((err) => {
+      global.logger?.warn?.(
+        `[CUSTOM PRIVATE CATEGORY] setPosition failed for ${category.id} -> ${targetPosition}:`,
+        err?.message || err,
+      );
+    });
+}
+
+async function syncCustomPrivateCategoryLayout(guild, category) {
+  if (!guild || !category || category.type !== ChannelType.GuildCategory) return category;
+  if (category.name !== CUSTOM_PRIVATE_CATEGORY_NAME) {
+    await category.setName(CUSTOM_PRIVATE_CATEGORY_NAME, "Allinea nome categoria vocali private").catch(() => { });
+  }
+  await placePrivateCategoryAbovePartner(guild, category);
+  return category;
 }
 
 async function tryDeleteEmptyCustomPrivateCategory(guild, { excludeChannelId = "", reason = "Auto cleanup empty custom private category" } = {}) {
@@ -109,14 +179,14 @@ async function ensureCustomPrivateCategory(guild, client) {
       guild.channels.cache.get(cachedId) ||
       (await guild.channels.fetch(cachedId).catch(() => null));
     if (cached?.type === ChannelType.GuildCategory && (isCustomPrivateCategoryName(cached.name) || isConfiguredCustomPrivateCategory(cached))) {
-      await placeCategoryBelowAnchor(guild, cached);
+      await syncCustomPrivateCategoryLayout(guild, cached);
       return cached;
     }
     client.customPrivateCategoryCache.delete(guild.id);
   }
   const existing = listCustomPrivateCategories(guild)[0] || null;
   if (existing) {
-    await placeCategoryBelowAnchor(guild, existing);
+    await syncCustomPrivateCategoryLayout(guild, existing);
     client.customPrivateCategoryCache.set(guild.id, existing.id);
     return existing;
   }
@@ -130,7 +200,7 @@ async function ensureCustomPrivateCategory(guild, client) {
     })
     .catch(() => null);
   if (!category) return null;
-  await placeCategoryBelowAnchor(guild, category);
+  await syncCustomPrivateCategoryLayout(guild, category);
   client.customPrivateCategoryCache.set(guild.id, category.id);
   try {
     const { queueIdsCatalogSync } = require("../Config/idsAutoSync");
@@ -148,4 +218,5 @@ module.exports = {
   isChannelInCustomPrivateCategory,
   tryDeleteEmptyCustomPrivateCategory,
   ensureCustomPrivateCategory,
+  syncCustomPrivateCategoryLayout,
 };

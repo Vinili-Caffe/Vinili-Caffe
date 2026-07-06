@@ -18,11 +18,34 @@ const { userAvatarUrlDynamic, guildMemberDisplayAvatarUrlDynamic, accountUsernam
 const { getCustomRoleSlotCapFromRoles, getCustomRoleSlotCapWithContest, memberHasCustomRolePanelAccess, memberHasCustomRoleSecondarySlot } = require("../Utils/Community/customRoleSlots");
 const { partnerManagerPerkDateActive, fetchPartnerManagerTimedPerkLean, partnerManagerCustomBundleActiveFromLean } = require("../Utils/Staff/partnerManagerTimedPerks");
 const { findCustomVoiceByRole } = require("../Utils/Interaction/customRoleUtils");
+const { buildCustomVocCreateOverwrites, ensureCustomVocChannelBaseline, stripLinkedCustomRolesFromChannel, syncCustomVocChannelForOwner } = require("../Services/Community/customVocPermissionsService");
 const { ensureCustomPrivateCategory, isChannelInCustomPrivateCategory } = require("../Utils/Community/customPrivateCategoryUtils");
 const { buildHogwartsProfileHomeLines, fetchHogwartsProfileSection, isHogwartsProfileSectionEnabled } = require("../Services/Community/hogwartsProfileSectionService");
 const { buildCustomVocWeeklyActivityPanelState, buildCustomVocWeeklyActivityEmbedLines, getLastSunday21BoundaryMsAtOrBefore } = require("../Utils/Community/customVocWeeklyActivityUtils");
 const { isCustomVocRecreationBlocked } = require("../Services/Community/customVocWeeklyActivityService");
+const { withMongoTimeout } = require("../Utils/Database/mongoConnect");
+
+const PROFILE_DB_MS = 10_000;
+const PROFILE_DISCORD_MS = 8_000;
+
+function withDiscordTimeout(promise, ms = PROFILE_DISCORD_MS, label = "discord") {
+  const limit = Math.max(500, Number(ms) || PROFILE_DISCORD_MS);
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      const timer = setTimeout(() => {
+        reject(new Error(`${label} timed out after ${limit}ms`));
+      }, limit);
+      timer.unref?.();
+    }),
+  ]);
+}
+
+function mongoProfileQuery(promise, label = "profile mongo") {
+  return withMongoTimeout(promise, PROFILE_DB_MS, label).catch(() => null);
+}
 const { ROLE_PANEL_DEFAULT_CATEGORY, buildRuoliColoriPersonalityMenuRow, buildRolePanelCategoryPickerRow, normalizeRolePanelCategory } = require("../Utils/Community/ruoliColoriPanelComponents");
+const { resolveProfilePanelControl } = require("../Utils/Community/profilePanelControl");
 const path = require("path");
 const { readSnapshotWithMeta, writeSnapshotWithMeta } = require("../../shared/recovery/snapshotStore");
 const PANEL_PREFIX = "profile_panel";
@@ -49,7 +72,6 @@ let birthdayDraftsLoaded = false;
 const ANCHOR_ROLE_ID = IDs?.roles?.separatore4 || "1469452890761596981";
 const MEMBER_ROLE_ID = IDs?.roles?.Member || null;
 const CUSTOM_VOC_CREATE_ROLE_IDS = [IDs?.roles?.VIP, IDs?.roles?.DoubleBooster, IDs?.roles?.VIPplus, IDs?.roles?.["VIP+"], IDs?.roles?.Level50].filter(Boolean);
-const CUSTOM_VOC_MEMBER_ALLOW_FLAGS = [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.Connect, PermissionsBitField.Flags.Speak, PermissionsBitField.Flags.UseVAD, PermissionsBitField.Flags.Stream];
 
 function parseBirthdayDate(rawValue) {
   const value = String(rawValue || "").trim();
@@ -218,6 +240,7 @@ function listVoiceChannelsWithOwnerPrivateAccess(guild, ownerId) {
   const uid = String(ownerId || "").trim();
   if (!guild?.channels?.cache || !/^\d{17,22}$/.test(uid)) return [];
   const ManageChannels = PermissionsBitField.Flags.ManageChannels;
+  const MoveMembers = PermissionsBitField.Flags.MoveMembers;
   const Connect = PermissionsBitField.Flags.Connect;
   const list = [];
   for (const ch of guild.channels.cache.values()) {
@@ -225,7 +248,7 @@ function listVoiceChannelsWithOwnerPrivateAccess(guild, ownerId) {
     if (!isChannelInCustomPrivateCategory(ch, guild)) continue;
     const ow = ch.permissionOverwrites.cache.get(uid);
     if (!ow?.allow) continue;
-    if (ow.allow.has(ManageChannels) && ow.allow.has(Connect)) list.push(ch);
+    if (ow.allow.has(Connect) && (ow.allow.has(MoveMembers) || ow.allow.has(ManageChannels))) list.push(ch);
   }
   list.sort((a, b) => a.id.localeCompare(b.id));
   return list;
@@ -273,6 +296,8 @@ async function consolidateOwnerCustomVoiceChannels(guild, ownerId, latestDoc, ke
       if (ch.id === keep.id) continue;
       await ch.delete(`<:VC_Attention:1482534443632558151> Custom voc: massimo 1 per utente`).catch(() => { });
     }
+    await stripLinkedCustomRolesFromChannel(keep).catch(() => {});
+    await ensureCustomVocChannelBaseline(keep, uid, guild.client?.user?.id).catch(() => {});
   }
 
   if (String(latestDoc?.customVocChannelId || "") !== keep.id) {
@@ -342,39 +367,56 @@ function parsePanelCustomId(customId) {
 async function fetchProfilePanelState(guild, userId, client) {
   const guildId = guild?.id;
   const [birthday, reactionDoc, mentionResponse, customState, customDocLean, noDmPrefs, avatarPrivacy, bannerPrivacy, quotePrivacy, repostPrivacy, member, contestPrizeLean, eventWeek2Grant, eventWeek3Grant] = await Promise.all([
-    getBirthdayProfile(guildId, userId),
-    MentionReaction.findOne({ guildId, userId }).lean().catch(() => null),
-    getMentionResponse(guildId, userId).catch(() => null),
-    resolveCustomRoleState({ guild, userId, client, cleanupExpired: false }),
-    CustomRole.findOne(
-      { guildId, userId },
-      {
-        customVocChannelId: 1,
-        customVocEmoji: 1,
-        roleId: 1,
-        secondaryRoleId: 1,
-        expiresAt: 1,
-        customVocFailedWeekStreak: 1,
-        customVocLastEvaluatedWeekEndMs: 1,
-        customVocRecreationBlockedUntil: 1,
-      },
-    ).lean().catch(() => null),
-    getNoDmPreferences(guildId, userId).catch(() => ({ blockAll: false, disabled: new Set() })),
-    AvatarPrivacy.findOne({ guildId, userId }).lean().catch(() => null),
-    BannerPrivacy.findOne({ guildId, userId }).lean().catch(() => null),
-    QuotePrivacy.findOne({ guildId, userId }).lean().catch(() => null),
-    RepostPrivacy.findOne({ guildId, userId }).lean().catch(() => null),
-    guild?.members?.fetch?.(userId).catch(() => guild?.members?.cache?.get?.(userId) || null),
-    ActivityUserProfile.findOne({ guildId, userId })
-      .select("profile.contestPrizes profile.totals.exp.event profile.totals.hourly profile.customRole sessionChannelId sessionStartedAt staff.partnerManagerCustomPerksUntil staff.partnerManagerVipUntil")
-      .lean()
-      .catch(() => null),
-    guildId && userId ? hasEventWeekWinnerGrant(guildId, userId, 2).catch(() => false) : false,
-    guildId && userId ? hasEventWeekWinnerGrant(guildId, userId, 3).catch(() => false) : false,
+    mongoProfileQuery(getBirthdayProfile(guildId, userId), "profile birthday"),
+    mongoProfileQuery(MentionReaction.findOne({ guildId, userId }).lean(), "profile reactions"),
+    mongoProfileQuery(getMentionResponse(guildId, userId), "profile mention response"),
+    withDiscordTimeout(
+      resolveCustomRoleState({ guild, userId, client, cleanupExpired: false }),
+      PROFILE_DISCORD_MS,
+      "profile custom role state",
+    ).catch(() => ({ status: "none", doc: null, role: null })),
+    mongoProfileQuery(
+      CustomRole.findOne(
+        { guildId, userId },
+        {
+          customVocChannelId: 1,
+          customVocEmoji: 1,
+          roleId: 1,
+          secondaryRoleId: 1,
+          expiresAt: 1,
+          customVocFailedWeekStreak: 1,
+          customVocLastEvaluatedWeekEndMs: 1,
+          customVocRecreationBlockedUntil: 1,
+        },
+      ).lean(),
+      "profile custom role doc",
+    ),
+    mongoProfileQuery(getNoDmPreferences(guildId, userId), "profile no-dm").catch(() => ({ blockAll: false, disabled: new Set() })),
+    mongoProfileQuery(AvatarPrivacy.findOne({ guildId, userId }).lean(), "profile avatar privacy"),
+    mongoProfileQuery(BannerPrivacy.findOne({ guildId, userId }).lean(), "profile banner privacy"),
+    mongoProfileQuery(QuotePrivacy.findOne({ guildId, userId }).lean(), "profile quote privacy"),
+    mongoProfileQuery(RepostPrivacy.findOne({ guildId, userId }).lean(), "profile repost privacy"),
+    withDiscordTimeout(
+      guild?.members?.fetch?.(userId).catch(() => guild?.members?.cache?.get?.(userId) || null),
+      PROFILE_DISCORD_MS,
+      "profile member fetch",
+    ).catch(() => guild?.members?.cache?.get?.(userId) || null),
+    mongoProfileQuery(
+      ActivityUserProfile.findOne({ guildId, userId })
+        .select("profile.contestPrizes profile.totals.exp.event profile.totals.hourly profile.customRole sessionChannelId sessionStartedAt staff.partnerManagerCustomPerksUntil staff.partnerManagerVipUntil")
+        .lean(),
+      "profile activity doc",
+    ),
+    guildId && userId ? mongoProfileQuery(hasEventWeekWinnerGrant(guildId, userId, 2), "profile event week2") : false,
+    guildId && userId ? mongoProfileQuery(hasEventWeekWinnerGrant(guildId, userId, 3), "profile event week3") : false,
   ]);
   const hogwarts =
     client && guildId && userId
-      ? await fetchHogwartsProfileSection(client, guildId, userId, member, guild).catch((err) => {
+      ? await withMongoTimeout(
+        fetchHogwartsProfileSection(client, guildId, userId, member, guild),
+        PROFILE_DB_MS,
+        "profile hogwarts section",
+      ).catch((err) => {
         global.logger?.warn?.("[profile] hogwarts section:", err?.message || err);
         return isHogwartsProfileSectionEnabled(client) ? { visible: true, sorted: false, galeoniLabel: "0 Galeoni d'Oro", cupRankLabel: "—", houseCupPoints: 0 } : { visible: false };
       })
@@ -388,8 +430,8 @@ async function fetchProfilePanelState(guild, userId, client) {
   const hasCustomReactionAccess = memberHasCustomReactionRoleAccess(member);
   const hasMentionResponseAccess = memberHasMentionResponseAccess(member);
   const customReactionMax = getCustomReactionMax(member);
-  const colorLevel = await colorUnlocks.fetchNumericProfileLevel(guildId, userId).catch(() => 0);
-  const colorCanPickPlus = await colorUnlocks.memberHasPlusColorFullEligibilityAsync(member).catch(() => false);
+  const colorLevel = await mongoProfileQuery(colorUnlocks.fetchNumericProfileLevel(guildId, userId), "profile color level").then((v) => Number(v) || 0);
+  const colorCanPickPlus = await mongoProfileQuery(colorUnlocks.memberHasPlusColorFullEligibilityAsync(member), "profile color plus").then(Boolean);
 
   let mergedCustomDoc = customState?.doc || customDocLean || null;
   if (!mergedCustomDoc && contestPrizeLean?.profile?.customRole) {
@@ -399,17 +441,12 @@ async function fetchProfilePanelState(guild, userId, client) {
     }
   }
   const vocIdSync = String(mergedCustomDoc?.customVocChannelId || "").trim();
-  if (guild && /^\d{17,22}$/.test(String(userId)) && vocIdSync && typeof guild.channels?.fetch === "function") {
-    await guild.channels.fetch(vocIdSync).catch(() => null);
-  }
-  if (
-    guild &&
-    /^\d{17,22}$/.test(String(userId)) &&
-    mergedCustomDoc &&
-    (mergedCustomDoc.roleId || mergedCustomDoc.secondaryRoleId || mergedCustomDoc.customVocChannelId)
-  ) {
-    const consolidated = await consolidateOwnerCustomVoiceChannels(guild, String(userId), mergedCustomDoc, vocIdSync).catch(() => null);
-    if (consolidated?.doc) mergedCustomDoc = consolidated.doc;
+  if (guild && vocIdSync && typeof guild.channels?.fetch === "function") {
+    await withDiscordTimeout(
+      guild.channels.fetch(vocIdSync).catch(() => null),
+      5000,
+      "profile voc channel fetch",
+    ).catch(() => null);
   }
   const mergedCustomState = customState && typeof customState === "object"
     ? { ...customState, doc: mergedCustomDoc || null }
@@ -748,7 +785,7 @@ function buildRows(guild, ownerId, section, state = null, rolePanelCategory = nu
   }
   if (canAccessMentionResponse) {
     selectOptions.push(
-      { label: "Mention Response", value: SECTION_MENTIONRESPONSE, emoji: "<a:VC_Ping:1482694298687246377>", default: section === SECTION_MENTIONRESPONSE },
+      { label: "Mention Response", value: SECTION_MENTIONRESPONSE, emoji: "<:VC_Vip:1482534921472835895>", default: section === SECTION_MENTIONRESPONSE },
     );
   }
   const select = new StringSelectMenuBuilder()
@@ -923,6 +960,23 @@ function buildRows(guild, ownerId, section, state = null, rolePanelCategory = nu
 
 async function buildPanelPayload(guild, ownerId, client, section = SECTION_HOME, rolePanelCategory = null, viewerId = null) {
   const state = await fetchProfilePanelState(guild, ownerId, client);
+  if (String(section || SECTION_HOME) === SECTION_CUSTOMVOC && state?.featureAccess?.customVoc) {
+    const vocDoc = state?.custom?.doc;
+    if (guild && vocDoc) {
+      const vocId = String(vocDoc?.customVocChannelId || "").trim();
+      const consolidated = await withDiscordTimeout(
+        consolidateOwnerCustomVoiceChannels(guild, String(ownerId), vocDoc, vocId),
+        20_000,
+        "profile custom voc consolidate",
+      ).catch(() => null);
+      if (consolidated?.doc) state.custom = { ...(state.custom || {}), doc: consolidated.doc };
+    }
+    await withDiscordTimeout(
+      syncCustomVocChannelForOwner(guild, ownerId),
+      20_000,
+      "profile custom voc sync",
+    ).catch(() => {});
+  }
   const canAccessCustomRole = Boolean(state?.featureAccess?.customRole);
   const canAccessSecondaryCustomRole = Boolean(state?.featureAccess?.secondaryCustomRole);
   const canAccessCustomVoc = Boolean(state?.featureAccess?.customVoc);
@@ -961,7 +1015,11 @@ async function buildPanelPayload(guild, ownerId, client, section = SECTION_HOME,
       ...(typeof draft?.showAge === "boolean" ? { showAge: draft.showAge } : {}),
     };
   }
-  let panelUser = await client.users.fetch(ownerId).catch(() => null);
+  let panelUser = await withDiscordTimeout(
+    client.users.fetch(ownerId).catch(() => null),
+    PROFILE_DISCORD_MS,
+    "profile user fetch",
+  ).catch(() => null);
   const panelMember = state.panelMember || null;
   if (!panelUser && panelMember) panelUser = panelMember.user ?? null;
   const panelIdentity = panelMember || panelUser;
@@ -979,9 +1037,13 @@ async function buildPanelPayload(guild, ownerId, client, section = SECTION_HOME,
 }
 
 async function ensureOwner(interaction, ownerId) {
-  if (String(interaction?.user?.id || "") === String(ownerId)) return true;
+  const control = await resolveProfilePanelControl(interaction, ownerId);
+  if (control.ok) return true;
+  const deniedOwnerId = control.ownerId || ownerId;
   await interaction.reply({
-    content: "<:vegax:1443934876440068179> Questo pannello non è tuo.",
+    content: deniedOwnerId && String(interaction?.user?.id || "") !== String(deniedOwnerId)
+      ? `<:vegax:1443934876440068179> Questo pannello è del profilo di <@${deniedOwnerId}>. Usa \`+profile\` per aprire il tuo.`
+      : "<:vegax:1443934876440068179> Questo pannello non è tuo.",
     flags: PRIVATE_FLAG,
   }).catch(() => { });
   return false;
@@ -1162,39 +1224,10 @@ async function ensureCustomVocExists(interaction, ownerId, client) {
     type: ChannelType.GuildVoice,
     parent: category.id,
     reason: `Canale vocale privato per ${interaction.user?.tag || ownerId}`,
-    permissionOverwrites: [
-      {
-        id: guild.roles.everyone.id,
-        deny: [
-          PermissionsBitField.Flags.ViewChannel,
-          PermissionsBitField.Flags.Connect,
-          PermissionsBitField.Flags.Speak,
-          PermissionsBitField.Flags.UseVAD,
-          PermissionsBitField.Flags.Stream,
-        ],
-      },
-      ...(MEMBER_ROLE_ID ? [{ id: MEMBER_ROLE_ID, allow: [PermissionsBitField.Flags.ViewChannel], deny: [PermissionsBitField.Flags.Connect] }] : []),
-      {
-        id: ownerId,
-        allow: [
-          ...CUSTOM_VOC_MEMBER_ALLOW_FLAGS,
-          PermissionsBitField.Flags.MoveMembers,
-          PermissionsBitField.Flags.ManageChannels,
-        ],
-      },
-      {
-        id: client.user.id,
-        allow: [
-          PermissionsBitField.Flags.ViewChannel,
-          PermissionsBitField.Flags.Connect,
-          PermissionsBitField.Flags.Speak,
-          PermissionsBitField.Flags.ManageChannels,
-          PermissionsBitField.Flags.MoveMembers,
-        ],
-      },
-    ],
+    permissionOverwrites: buildCustomVocCreateOverwrites(guild, ownerId, client.user.id),
   }).catch(() => null);
   if (!channel) return { ok: false, reason: "channel_create_failed" };
+  await ensureCustomVocChannelBaseline(channel, ownerId, client.user.id).catch(() => {});
 
   const doc = await CustomRole.findOneAndUpdate(
     { guildId: guild.id, userId: ownerId },
@@ -1395,7 +1428,13 @@ function match(interaction) {
 async function execute(interaction, client) {
   const parsed = parsePanelCustomId(interaction.customId);
   if (!parsed) return false;
-  const { kind, ownerId, rest } = parsed;
+  const control = await resolveProfilePanelControl(interaction, parsed.ownerId);
+  if (!control.ok) {
+    await ensureOwner(interaction, parsed.ownerId);
+    return true;
+  }
+  const ownerId = control.ownerId || parsed.ownerId;
+  const { kind, rest } = parsed;
 
   if (interaction.isStringSelectMenu() && kind === "rsub") {
     if (!(await ensureOwner(interaction, ownerId))) return true;
@@ -1407,6 +1446,13 @@ async function execute(interaction, client) {
 
   if (interaction.isStringSelectMenu() && kind === "select") {
     const section = String(interaction.values?.[0] || SECTION_HOME);
+    const { cancelProfilePrompt } = require("../Events/interaction/customRoleHandlers");
+    await cancelProfilePrompt(
+      interaction.guild.id,
+      interaction.user.id,
+      client,
+      "<:cancel:1461730653677551691> Operazione annullata (sezione cambiata).",
+    ).catch(() => { });
     const payload = await buildPanelPayload(interaction.guild, ownerId, client, section);
     await safeUpdatePanelInteraction(interaction, payload);
     return true;
@@ -1417,6 +1463,13 @@ async function execute(interaction, client) {
   if (interaction.isButton() && kind === "action") {
     const action = String(rest?.[0] || "");
     if (action === "close") {
+      const { cancelProfilePrompt } = require("../Events/interaction/customRoleHandlers");
+      await cancelProfilePrompt(
+        interaction.guild.id,
+        interaction.user.id,
+        client,
+        "<:cancel:1461730653677551691> Operazione annullata (pannello chiuso).",
+      ).catch(() => { });
       const sourceMessageId = String(interaction.message?.reference?.messageId || "").trim();
       await interaction.message?.delete?.().catch(() => { });
       if (/^\d{16,20}$/.test(sourceMessageId) && interaction.channel?.messages?.fetch) {

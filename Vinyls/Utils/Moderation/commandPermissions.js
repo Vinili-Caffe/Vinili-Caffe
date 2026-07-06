@@ -9,6 +9,13 @@ const { isChannelInTicketCategory } = require("../Ticket/ticketCategoryUtils");
 const { buildPrefixLookupKeys, buildSlashLookupKeys } = require("./temporaryCommandPermissions");
 const { getGuildMemberCached } = require("../Interaction/interactionEntityCache");
 const { hasEventWeekWinnerGrant } = require("../../Services/Community/weekWinnerGrantsService");
+const { parseProfilePanelOwnerIdFromCustomId, resolveProfilePanelControl } = require("../Community/profilePanelControl");
+const {
+  interactionHasResocontoButtonAccess,
+  hasCandidatureReviewAccess,
+  isResocontoInteraction,
+  isCandidatureStaffReviewInteraction,
+} = require("../Staff/resocontoAccess");
 const PERMISSIONS_CANDIDATES = [path.resolve(__dirname, "../../permissions.json"), path.join(process.cwd(), "permissions.json"),];
 const EMPTY_PERMISSIONS = { slash: {}, prefix: {}, channels: {}, buttons: {}, selectMenus: {}, modals: {}, };
 const PERMISSIONS_CACHE_TTL_MS = 3000;
@@ -44,6 +51,7 @@ function getStaffGuideAccessRoleIds() {
     IDs.roles?.SeniorModerator,
     IDs.roles?.Director,
     IDs.roles?.HighStaff,
+    IDs.roles?.Manager,
     IDs.roles?.Admin,
     IDs.roles?.Founder,
   ]
@@ -205,6 +213,21 @@ function isProfilePanelInteraction(customId) {
   return String(customId).trim().startsWith("profile_panel:") || String(customId).trim().startsWith("staff_profile_panel:") || String(customId).trim().startsWith("staff_pm_shop:") || String(customId).trim().startsWith("staff_val_neg_trade:");
 }
 
+async function checkProfilePanelControlPermission(interaction, customId) {
+  const id = String(customId || "");
+  if (!id.startsWith("profile_panel:")) return null;
+  const control = await resolveProfilePanelControl(interaction);
+  if (control.ok) {
+    return { allowed: true, reason: null, requiredRoles: null, ownerId: null };
+  }
+  return {
+    allowed: false,
+    reason: "not_owner",
+    requiredRoles: null,
+    ownerId: control.ownerId || parseProfilePanelOwnerIdFromCustomId(id) || null,
+  };
+}
+
 function isCustomRoleSystemInteraction(customId) {
   if (!customId || typeof customId !== "string") return false;
   const id = String(customId).trim();
@@ -222,7 +245,7 @@ function isApplyOrCandidatureInteraction(customId) {
   const id = String(customId).trim();
   if (id === "apply_helper" || id === "apply_partnermanager") return true;
   if (id.startsWith("apply_start:") || id.startsWith("apply_back:") || id.startsWith("apply_page:")) return true;
-  if (id.startsWith("apply_pex:") || id.startsWith("apply_form:") || id.startsWith("apply_pex_modal:")) return true;
+  if (id.startsWith("apply_form:")) return true;
   if (id === "candidature_premi_partner") return true;
   return false;
 }
@@ -564,7 +587,11 @@ function hasAllPermissions(member, permissionFlags) {
 }
 
 async function fetchLiveMember(entity) {
-  const guild = entity?.guild || entity?.member?.guild || null;
+  const guild =
+    entity?.guild ||
+    entity?.member?.guild ||
+    (entity?.guildId && entity?.client?.guilds?.cache?.get(String(entity.guildId))) ||
+    null;
   const userId = entity?.user?.id || entity?.author?.id || entity?.member?.id || entity?.member?.user?.id || null;
   if (!guild || !userId || typeof guild.members?.fetch !== "function")
     return null;
@@ -1113,9 +1140,32 @@ async function checkButtonPermission(interaction) {
     };
   }
 
+  if (isMainGuild(guildId) && isCandidatureStaffReviewInteraction(customId)) {
+    const allowed = hasCandidatureReviewAccess(interaction);
+    return {
+      allowed,
+      reason: allowed ? null : "missing_role",
+      requiredRoles: ["roles.Admin", "roles.Manager", "roles.Founder"],
+      ownerId: null,
+    };
+  }
+
+  if (isMainGuild(guildId) && isResocontoInteraction(customId)) {
+    const allowed = interactionHasResocontoButtonAccess(interaction);
+    return {
+      allowed,
+      reason: allowed ? null : "missing_role",
+      requiredRoles: null,
+      ownerId: null,
+    };
+  }
+
   if (!customId) {
     return { allowed: true, reason: null, requiredRoles: null, ownerId: null };
   }
+
+  const profilePanelGate = await checkProfilePanelControlPermission(interaction, customId);
+  if (profilePanelGate) return profilePanelGate;
 
   const staffGuideGate = await checkStaffGuideButtonGate(interaction, customId);
   if (staffGuideGate) return staffGuideGate;
@@ -1321,6 +1371,14 @@ async function checkStringSelectPermission(interaction) {
   if (!customId) {
     return { allowed: true, reason: null, requiredRoles: null, ownerId: null };
   }
+
+  const profilePanelGate = await checkProfilePanelControlPermission(interaction, customId);
+  if (profilePanelGate) return profilePanelGate;
+
+  if (customId === "staff_guide_menu") {
+    return { allowed: true, reason: null, requiredRoles: null, ownerId: null };
+  }
+
   const data = loadPermissions();
   await ensureStaffCmdsThreadIdsHydrated().catch(() => {});
   const rawPolicy = resolveComponentPolicy(data?.selectMenus, customId) || resolveComponentPolicy(data?.buttons, customId);
@@ -1505,9 +1563,32 @@ async function checkModalPermission(interaction) {
     };
   }
 
+  if (isMainGuild(guildId) && isCandidatureStaffReviewInteraction(customId)) {
+    const allowed = hasCandidatureReviewAccess(interaction);
+    return {
+      allowed,
+      reason: allowed ? null : "missing_role",
+      requiredRoles: ["roles.Admin", "roles.Manager", "roles.Founder"],
+      ownerId: null,
+    };
+  }
+
+  if (isMainGuild(guildId) && isResocontoInteraction(customId)) {
+    const allowed = interactionHasResocontoButtonAccess(interaction);
+    return {
+      allowed,
+      reason: allowed ? null : "missing_role",
+      requiredRoles: null,
+      ownerId: null,
+    };
+  }
+
   if (!customId) {
     return { allowed: true, reason: null, requiredRoles: null, ownerId: null };
   }
+
+  const profilePanelGate = await checkProfilePanelControlPermission(interaction, customId);
+  if (profilePanelGate) return profilePanelGate;
 
   const data = loadPermissions();
   await ensureStaffCmdsThreadIdsHydrated().catch(() => {});

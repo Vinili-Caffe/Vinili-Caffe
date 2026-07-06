@@ -1,0 +1,111 @@
+{
+  "enabled": false,
+  "detectPrune": false,
+  "vanityGuard": true,
+  "autoQuarantine": {
+    "enabled": true,
+    "strictMode": true,
+    "strictMemberRoleAddition": true,
+    "monitorPublicRoles": true,
+    "monitorChannelPermissions": true,
+    "quarantineRoleId": "1442568884833095832",
+    "quarantineTimeoutMs": 86400000,
+    "whitelistUserIds": [
+      "610531025470095390",
+      "700814270069342339",
+      "1466495522474037463",
+      "1329118940110127204"
+    ]
+  },
+  "kickBanFilter": {
+    "enabled": true,
+    "minuteLimit": 5,
+    "hourLimit": 15,
+    "heatPerAction": 20
+  },
+  "roleCreationFilter": {
+    "enabled": true,
+    "minuteLimit": 5,
+    "hourLimit": 15,
+    "heatPerAction": 10
+  },
+  "roleDeletionFilter": {
+    "enabled": true,
+    "minuteLimit": 3,
+    "hourLimit": 10,
+    "heatPerAction": 25
+  },
+  "channelCreationFilter": {
+    "enabled": true,
+    "minuteLimit": 4,
+    "hourLimit": 12,
+    "heatPerAction": 16
+  },
+  "channelDeletionFilter": {
+    "enabled": true,
+    "minuteLimit": 3,
+    "hourLimit": 8,
+    "heatPerAction": 25
+  },
+  "webhookCreationFilter": {
+    "enabled": true,
+    "minuteLimit": 3,
+    "hourLimit": 10,
+    "heatPerAction": 15
+  },
+  "webhookUpdateFilter": {
+    "enabled": true,
+    "minuteLimit": 4,
+    "hourLimit": 12,
+    "heatPerAction": 12
+  },
+  "webhookDeletionFilter": {
+    "enabled": true,
+    "minuteLimit": 3,
+    "hourLimit": 8,
+    "heatPerAction": 10
+  },
+  "inviteCreationFilter": {
+    "enabled": true,
+    "minuteLimit": 4,
+    "hourLimit": 15,
+    "heatPerAction": 12
+  },
+  "panicMode": {
+    "enabled": false,
+    "useHeatAlgorithm": true,
+    "thresholdHeat": 130,
+    "decayPerSec": 5,
+    "durationMs": 600000,
+    "maxDurationMs": 2700000,
+    "extendByMsOnTrigger": 120000,
+    "lockdown": {
+      "dangerousRoles": true,
+      "lockModerationCommands": false,
+      "lockAllCommands": false,
+      "channelLockdown": true,
+      "banAttackExecutor": false,
+      "unlockDangerousRolesOnFinish": true,
+      "roleAllowlistIds": []
+    },
+    "warnedRoleIds": [
+      "1442568894349840435"
+    ],
+    "whitelistCategoryIds": [],
+    "autoBackupSync": {
+      "enabled": true,
+      "restoreDeletedRoles": true,
+      "restoreDeletedChannels": true,
+      "deleteNewRoles": true,
+      "deleteNewChannels": true,
+      "deleteNewWebhooks": true
+    },
+    "instantRollbackWhileActive": {
+      "enabled": true,
+      "quarantineExecutor": true,
+      "deleteCreatedRoles": true,
+      "deleteCreatedChannels": true,
+      "deleteCreatedWebhooks": true
+    }
+  }
+}

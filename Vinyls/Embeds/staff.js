@@ -1,9 +1,37 @@
 const IDs = require("../Utils/Config/ids");
 const { getClientChannelCached, getClientGuildCached, getGuildChannelCached } = require("../Utils/Interaction/interactionEntityCache");
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
+const { buildStaffGuideMenuRow } = require("../Utils/Staff/staffGuideMenuComponents");
 const { upsertPanelMessage } = require("../../shared/discord/panelUpsertRuntime");
 const { DIVIDER_URL } = require("../../shared/discord/constants");
 const SHOW_SANZIONI_IN_GUIDA_STAFF = true;
+
+function buildStaffGuideEmbed() {
+  const ch = IDs.channels;
+
+  return new EmbedBuilder()
+    .setColor("#6f4e37")
+    .setDescription(
+      [
+        "<:discordstaff:1443651872258003005> La **guida staff** è il manuale ufficiale di **Vinili & Caffè**: qui trovi regole, obiettivi di attività, procedure di moderazione e criteri di carriera.",
+        "",
+        "<a:VC_Alert:1482706673176150077> Ogni membro dello staff deve **conoscerla e rispettarla**. In caso di violazioni si possono ricevere **valutazioni negative**, **warn staff** e, nei casi più gravi, il **depex**.",
+        "",
+        "> <a:VC_Rule:1482706839928967280> Apri una sezione dal **menu qui sotto** per leggere il capitolo completo.",
+      ].join("\n"),
+    )
+    .addFields(
+      {
+        name: "<:VC_Attention:1482534443632558151> Canali di riferimento",
+        value: [
+          `<:VC_Dot:1482532364222595303> Sanzioni utenti: <#${ch.sanzioniUtenti}>`,
+          `<:VC_Dot:1482532364222595303> Richiesta pause: <#${ch.pause}>`,
+          `<:VC_Dot:1482532364222595303> Valutazioni e Warn staff: <#${ch.valutazioniStaff}>`,
+        ].join("\n"),
+        inline: false,
+      },
+    )
+}
 
 async function resolveBestStaffChannel(client) {
   const channelId = String(IDs.channels?.bestStaff || "").trim();
@@ -47,25 +75,7 @@ async function run(client) {
     )
 
   const embeds = [
-    new EmbedBuilder()
-      .setColor("#6f4e37")
-      .setDescription(
-        `<:discordstaff:1443651872258003005> La **__guida staff__** di __Vinili & Caffè__ serve per portare **ordine** tra lo __staff__, infatti sono presenti delle **__regole__** che __tutti__ dovranno **rispettare**; in __caso__ vengano \`trasgredite\`, potreste andare **incontro** a **__sanzioni__**, come **__\`valutazioni negative\`__** o in casi estremi il **__\`depex\`__**.
-
-> La __guida staff__ si divide in **__\`11\` sezioni__** che sono __accessibili__ **schiacciando** i \`bottoni\` sottostanti:
-<:VC_1:1482706338021642333> **Regolamento**
-<:VC_2:1482706376525611090> **Limiti Settimanali**
-<:VC_3:1482706404773990460> **Pause**
-<:VC_4:1482706432347344916> **Valutazioni**
-<:VC_5:1482706459765637272> **Moderazione**
-<:VC_6:1482706490769801327> **Warn Staff**
-<:VC_7:1482706523330183218> **Guida Pex**
-<:VC_8:1482706553281708092> **Linee Guida**
-<:VC_9:1482706583438889051> **Comandi**
-<:VC_10:1482706613663174707> **Guida Partners**
-<:VC_11:1519322162329026812> **Guida Middle**
-`,
-      ),
+    buildStaffGuideEmbed(),
     new EmbedBuilder()
       .setColor("#6f4e37")
       .setDescription(
@@ -85,28 +95,7 @@ async function run(client) {
       )
   ];
 
-  const cleanRowGuideMain = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId("regolamento").setLabel("︲REGOLAMENTO").setEmoji("<:rules:1443307208543703131>").setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId("limiti").setLabel("︲LIMITI").setEmoji("<:reportmessage:1443670575376765130>").setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId("pause").setLabel("︲PAUSE").setEmoji("<:Clock:1330530065133338685>").setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId("valutazioni").setLabel("︲VALUTAZIONI").setEmoji("<a:loading:1443934440614264924>").setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId("moderazione_staff").setLabel("︲MODERAZIONE").setEmoji("<:discordstaff:1443651872258003005>").setStyle(ButtonStyle.Secondary),
-  );
-  const cleanRowGuideSecondary = new ActionRowBuilder().addComponents(
-    /*
-    ...(SHOW_SANZIONI_IN_GUIDA_STAFF
-      ? [new ButtonBuilder().setCustomId("sanzioni").setLabel("︲SANZIONI").setEmoji("<a:VC_Alarm:1482706641618079816>").setStyle(ButtonStyle.Secondary)]
-      : []),
-    */
-    new ButtonBuilder().setCustomId("warnstaff").setLabel("︲WARN STAFF").setEmoji("<:banhammer:1443651875441217639>").setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId("pex").setLabel("︲PEX").setEmoji("<a:VC_LevelUp:1482527020641419415>").setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId("lineeguida").setLabel("︲LINEE GUIDA").setEmoji("<:VC_PinkQuestionMark:1471892611026391306>").setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId("comandi").setLabel("︲COMANDI").setEmoji("<:VC_Bot:1482526555174604964>").setStyle(ButtonStyle.Secondary),
-  );
-  const cleanRowGuidePartners = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId("guidapartners").setLabel("︲GUIDA PARTNERS").setEmoji("<:VC_PartnerManager:1494286911286808576>").setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId("guidamiddle").setLabel("︲GUIDA MIDDLE").setEmoji("<:discordstaff:1443651872258003005>").setStyle(ButtonStyle.Secondary),
-  );
+  const staffGuideMenuRow = buildStaffGuideMenuRow();
   const rowModeration = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId("generalimoderazione").setLabel("︲GENERALI").setEmoji("<:appdirectoryallwhite:1443308556995788840>").setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId("testualimoderazione").setLabel("︲TESTUALI").setEmoji("<:discordchannelwhite:1443308552536985810>").setStyle(ButtonStyle.Secondary),
@@ -130,7 +119,7 @@ async function run(client) {
   if (guideChannel?.isTextBased?.()) {
     await upsertPanelMessage(guideChannel, client, {
       embeds: [embeds[0]],
-      components: [cleanRowGuideMain, cleanRowGuideSecondary, cleanRowGuidePartners],
+      components: [staffGuideMenuRow],
     });
   }
   if (moderationChannel?.isTextBased?.()) {
@@ -141,4 +130,5 @@ async function run(client) {
   }
 }
 
-module.exports = { name: "staff", order: 30, section: "embedWithButtons", run };
+module.exports = {
+  name: "staff", order: 30, section: "embedWithButtons", run, buildStaffGuideEmbed };

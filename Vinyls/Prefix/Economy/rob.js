@@ -1,4 +1,4 @@
-const { assertServerEconomyAccess, economyConfig, parseCurrencyArg, defaultBetCurrency } = require("../../Services/Community/serverEconomyService");
+const { assertServerEconomyAccess, economyConfig, parseCurrencyArg, defaultBetCurrency, resolveEconomyMode } = require("../../Services/Community/activeEconomyService");
 const {
   attemptRob,
   buildRobGuiPayload,
@@ -28,15 +28,22 @@ module.exports = {
       }
       const cfg = economyConfig(c);
       const rawArgs = Array.isArray(args) ? args.map((v) => String(v || "").trim()).filter(Boolean) : [];
-      const lastCur = rawArgs.length ? parseCurrencyArg(rawArgs[rawArgs.length - 1]) : null;
-      const currency = lastCur?.ok && lastCur.currency ? lastCur.currency : defaultBetCurrency();
-      const targetArgs = lastCur?.ok && lastCur.currency && rawArgs.length ? rawArgs.slice(0, -1) : rawArgs;
+      const galeoniMode = resolveEconomyMode(c) === "galeoni";
+      let currency = defaultBetCurrency();
+      let targetArgs = rawArgs;
+      if (!galeoniMode) {
+        const lastCur = rawArgs.length ? parseCurrencyArg(rawArgs[rawArgs.length - 1]) : null;
+        currency = lastCur?.ok && lastCur.currency ? lastCur.currency : defaultBetCurrency();
+        targetArgs = lastCur?.ok && lastCur.currency && rawArgs.length ? rawArgs.slice(0, -1) : rawArgs;
+      }
       const targetId = msg.mentions.users.first()?.id || extractUserId(targetArgs?.[0]);
       const resolved = await resolveTargetUser(c, msg, targetId, cfg, currency);
       if (!resolved || resolved.error) {
         await deny(
           msg,
-          resolved?.error || "Nessun bersaglio idoneo: serve un utente con saldo sufficiente in Vinili o Caffè.",
+          resolved?.error || (galeoniMode
+            ? "Nessun bersaglio idoneo: serve un utente con Galeoni sufficienti e smistamento completato."
+            : "Nessun bersaglio idoneo: serve un utente con saldo sufficiente in Vinili o Caffè."),
         );
         return;
       }

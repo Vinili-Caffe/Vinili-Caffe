@@ -1,7 +1,13 @@
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const IDs = require("../Config/ids");
 const { memberHasStaffRole, queueStaffListRefreshAfterRoleMutation } = require("../Community/staffListUtils");
-const { deleteStaffPauseRequestChannelMessages, deleteStaffRelatedMessagesFromConfiguredChannels, archiveStaffRolesHistoryThenUnsetStaff } = require("./staffDocUtils");
+const {
+  deleteStaffPauseRequestChannelMessages,
+  deleteStaffRelatedMessagesFromConfiguredChannels,
+  archiveStaffRolesHistoryThenUnsetStaff,
+  resetStaffLadderTrackInDb,
+} = require("./staffDocUtils");
+const { getHighestStaffLadderRoleId } = require("./staffRoleHierarchy");
 
 const ROLE_PM = IDs.roles.PartnerManager;
 const ROLE_STAFF_GENERIC = IDs.roles.Staff;
@@ -40,8 +46,13 @@ function buildStaffPartnerManagerIdUnsetUpdate() {
   return { $unset: { "staff.managerId": "" } };
 }
 
+function memberHasStaffLadderRole(member) {
+  return Boolean(getHighestStaffLadderRoleId(member));
+}
+
 /**
  * Dopo un depex (o equivalente): se non resta nessun ruolo staff list → elimina tutto `staff`.
+ * Se resta solo PM (senza scala staff) → azzera tracciamento staff (valutazioni/warn/pause) ma tiene punti partner.
  * Se resta staff ma non più PM → rimuove solo `managerId` (storico partner e punti restano nel DB).
  */
 async function applyStaffDatabaseAfterDepex(guildId, userId, member) {
@@ -58,6 +69,8 @@ async function applyStaffDatabaseAfterDepex(guildId, userId, member) {
         { guildId: gid, userId: uid },
         buildStaffPartnerManagerIdUnsetUpdate(),
       ).catch(() => null);
+    } else if (!memberHasStaffLadderRole(member)) {
+      await resetStaffLadderTrackInDb(gid, uid);
     }
   } else {
     await archiveStaffRolesHistoryThenUnsetStaff(gid, uid);

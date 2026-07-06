@@ -1,6 +1,7 @@
 const { ChannelType, PermissionsBitField, OverwriteType } = require("discord.js");
 const IDs = require("../../Utils/Config/ids");
 const { queueCategoryRenumber } = require("../Community/communityOpsService");
+const { buildRecoveryVoiceState } = require("../../../shared/discord/voiceStateRecovery");
 
 const SUPERSCRIPT_MAP = { 0: "⁰", 1: "¹", 2: "²", 3: "³", 4: "⁴", 5: "⁵", 6: "⁶", 7: "⁷", 8: "⁸", 9: "⁹" };
 const DIGIT_FROM_SUPERSCRIPT = Object.fromEntries(Object.entries(SUPERSCRIPT_MAP).map(([d, s]) => [s, d]));
@@ -49,6 +50,31 @@ function toSuperscriptNumber(value, minDigits = MIN_SUFFIX_DIGITS) {
   return normalized.split("").map((digit) => SUPERSCRIPT_MAP[digit] || digit).join("");
 }
 
+const HUB_GROUP_LABELS = {
+  duo: "Duo",
+  trio: "Trio",
+  quad: "Quad",
+  lounge: "Lounge",
+  squad: "Squad",
+};
+
+const HUB_CHANNEL_GROUP_KEYS = Object.fromEntries(
+  [
+    [String(IDs.channels?.vocaleDuo1 || "").trim(), "duo"],
+    [String(IDs.channels?.vocaleTrio1 || "").trim(), "trio"],
+    [String(IDs.channels?.vocaleQuad1 || "").trim(), "quad"],
+  ].filter(([id]) => id),
+);
+
+const HUB_LOBBY_CREATE_PHRASE_RE = /\bcrea\s+un[a']?\s+/gi;
+
+function stripHubLobbyCreatePhrase(name) {
+  return String(name || "")
+    .replace(HUB_LOBBY_CREATE_PHRASE_RE, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
 function voiceHubGroupKey(name) {
   const raw = String(name || "");
   if (/\bduo\b/i.test(raw)) return "duo";
@@ -57,6 +83,15 @@ function voiceHubGroupKey(name) {
   if (/\blounge\b/i.test(raw)) return "lounge";
   if (/\bsquad\b/i.test(raw)) return "squad";
   return "";
+}
+
+function resolveHubSpawnBaseName(hubChannel) {
+  const stripped = stripVoiceSuffix(hubChannel?.name || "");
+  const withoutPhrase = stripHubLobbyCreatePhrase(stripped);
+  if (withoutPhrase) return withoutPhrase;
+  const fromIdKey = HUB_CHANNEL_GROUP_KEYS[String(hubChannel?.id || "").trim()];
+  if (fromIdKey && HUB_GROUP_LABELS[fromIdKey]) return HUB_GROUP_LABELS[fromIdKey];
+  return stripped;
 }
 
 function isHubGroupSpawnChannel(channel, hubChannel, client) {
@@ -480,11 +515,60 @@ async function ensurePublicVoiceHubChannelsOnReady(client) {
   }
 }
 
+async function recoverPublicVoiceHubOnStartup(client) {
+  if (client?.config?.publicVoiceHubs?.enabled === false) return { lobbies: 0, spawned: 0 };
+  const guildId = String(IDs.guilds?.main || "");
+  if (!guildId) return { lobbies: 0, spawned: 0 };
+  const guild = client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
+  if (!guild || !(await botCanManageVoiceHubs(guild))) return { lobbies: 0, spawned: 0 };
+
+  await guild.channels.fetch().catch(() => null);
+  await guild.members.fetch({ withPresences: false }).catch(() => null);
+
+  let spawned = 0;
+  let lobbies = 0;
+
+  for (const hubId of getHubChannelIds(client)) {
+    const hub = guild.channels.cache.get(hubId) || (await guild.channels.fetch(hubId).catch(() => null));
+    if (!hub?.isVoiceBased?.()) continue;
+
+    for (const ch of listHubGroupChannels(guild, hub)) {
+      if (!isHubGroupSpawnChannel(ch, hub, client)) continue;
+      rememberSpawnedChannel(ch.id, hubId);
+      spawned += 1;
+      if (countHumanMembers(ch) === 0) {
+        scheduleSpawnedChannelDelete(ch, client);
+      }
+    }
+
+    for (const member of hub.members.values()) {
+      if (member.user?.bot) continue;
+      const oldState = buildRecoveryVoiceState(guild, member, null);
+      const newState = buildRecoveryVoiceState(guild, member, hubId);
+      await handlePublicVoiceHubJoin(oldState, newState, client);
+      lobbies += 1;
+    }
+  }
+
+  if (lobbies > 0 || spawned > 0) {
+    global.logger?.info?.(`[publicVoiceHub] recovery: lobbies=${lobbies} spawned=${spawned}`);
+  }
+  return { lobbies, spawned };
+}
+
 function startPublicVoiceHubSetup(client) {
   setImmediate(() => {
-    ensurePublicVoiceHubChannelsOnReady(client).catch((err) =>
-      global.logger?.warn?.("[publicVoiceHub] hub permission sync failed:", err?.message || err),
-    );
+    (async () => {
+      await ensurePublicVoiceHubChannelsOnReady(client).catch((err) =>
+        global.logger?.warn?.("[publicVoiceHub] hub permission sync failed:", err?.message || err),
+      );
+      await recoverPublicVoiceHubOnStartup(client).catch((err) =>
+        global.logger?.warn?.("[publicVoiceHub] lobby recovery failed:", err?.message || err),
+      );
+      await realignPublicVoiceHubGroupsOnStartup(client).catch((err) =>
+        global.logger?.warn?.("[publicVoiceHub] realign failed:", err?.message || err),
+      );
+    })();
   });
 }
 
@@ -592,7 +676,7 @@ async function handlePublicVoiceHubJoin(oldState, newState, client) {
       await ensureHubLobbySpeakDenied(freshHub, guild);
       const group = listHubGroupChannels(guild, freshHub);
       const nextIndex = nextSpawnSuffixIndex(group, joinedId);
-      const spawnName = `${stripVoiceSuffix(freshHub.name)}${toSuperscriptNumber(nextIndex, MIN_SUFFIX_DIGITS)}`;
+      const spawnName = `${resolveHubSpawnBaseName(freshHub)}${toSuperscriptNumber(nextIndex, MIN_SUFFIX_DIGITS)}`;
       const position = resolveInsertSlot(freshHub, guild, client);
 
       const createOptions = {
@@ -663,11 +747,13 @@ module.exports = {
   isSpawnedHubChannel,
   stripVoiceSuffix,
   voiceHubGroupKey,
+  resolveHubSpawnBaseName,
   isHubGroupSpawnChannel,
   parseVoiceSuffixIndex,
   toSuperscriptNumber,
   handlePublicVoiceHubJoin,
   handlePublicVoiceHubEmpty,
+  recoverPublicVoiceHubOnStartup,
   ensurePublicVoiceHubChannelsOnReady,
   startPublicVoiceHubSetup,
   buildSpawnPermissionOverwrites,

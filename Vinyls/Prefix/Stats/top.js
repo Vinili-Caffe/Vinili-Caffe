@@ -134,18 +134,19 @@ async function resolveTopUserEntries(guild, entries = []) {
 }
 
 async function resolveTopUserEntriesForCanvas(guild, entries = []) {
-  const out = [];
-  for (const item of entries) {
-    const userId = String(item?.id || "").trim();
-    if (!userId) continue;
-    const label = await resolveStatsUsernameLabel(guild, userId);
-    out.push({
-      id: userId,
-      label,
+  const items = (entries || [])
+    .map((item) => ({
+      userId: String(item?.id || "").trim(),
       value: Number(item?.value || 0),
-    });
-  }
-  return out;
+    }))
+    .filter((item) => item.userId);
+  if (!items.length) return [];
+  const labels = await Promise.all(items.map((item) => resolveStatsUsernameLabel(guild, item.userId)));
+  return items.map((item, index) => ({
+    id: item.userId,
+    label: labels[index],
+    value: item.value,
+  }));
 }
 
 function voteCountInt(v) {
@@ -704,8 +705,8 @@ module.exports = {
   async execute(message, args = []) {
     await message.channel.sendTyping().catch(() => {});
     const dayToken=Array.isArray(args)?args.find((x) => /^\d+d?$/i.test(String(x||"").trim())):null;
-
-    const payload=await buildTopChannelPayload(message,dayToken||"14","main","overview",1,message.author?.id,);
+    const lookbackDays = normalizeLookbackDays(dayToken || "14");
+    const payload=await buildTopChannelPayload(message,lookbackDays,"main","overview",1,message.author?.id,);
     await sendTopPayload(message, payload);
   },
 };

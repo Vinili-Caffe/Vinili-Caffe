@@ -192,6 +192,13 @@
     return document.getElementById(id);
   }
 
+  function hydratePartnerManagerRewardIntro(root) {
+    if (!root || !window.VCPartnerManagerRewards) return;
+    var tiers = root.querySelector("#vc-pm-reward-tiers");
+    if (!tiers) return;
+    tiers.innerHTML = window.VCPartnerManagerRewards.buildWebsiteTierHtml();
+  }
+
   /** Contenuto markup in <template> in candidature/index.html (evita HTML in stringhe JS). */
   function setRoleIntroFromTemplate(kind) {
     var intro = byId("vc-candidature-role-intro");
@@ -204,6 +211,7 @@
     var tpl = byId(tid);
     if (!tpl || !tpl.content) return;
     intro.appendChild(document.importNode(tpl.content, true));
+    if (kind === "partnermanager") hydratePartnerManagerRewardIntro(intro);
   }
 
   function setShuffleText(el, finalText) {
@@ -437,7 +445,11 @@
       c === "already_role" ||
       c === "helper_blocked" ||
       c === "no_moduli" ||
-      c === "no_member_role"
+      c === "no_member_role" ||
+      c === "helper_level" ||
+      c === "helper_tenure" ||
+      c === "helper_join_unknown" ||
+      c === "helper_requirements"
     ) {
       return true;
     }

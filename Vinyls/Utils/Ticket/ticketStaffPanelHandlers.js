@@ -8,6 +8,7 @@ const {
   hasStaffTicketRole,
   buildTicketReopenOutsidePanelPayload,
   fetchClosedTicketsOrdered,
+  buildRemoveMemberOptions,
 } = require("./ticketStaffPanelBuild");
 const {
   readTicketReopenOutsideSession,
@@ -23,6 +24,10 @@ const {
   TICKET_PANEL_SWITCH_CATEGORY_PREFIX,
   TICKET_PANEL_TRANSFER_USER_PREFIX,
 } = require("./ticketInteractionRuntime");
+const {
+  panelSelectFollowUp,
+  beginPanelSelectDefer,
+} = require("../../../shared/discord/panelSelectMenuRuntime");
 const { registerTicketMemberPrompt } = require("./ticketMemberPrompt");
 const HIGHSTAFF_ROLE_ID = IDs.roles.HighStaff;
 const TICKET_READ_PROJECTION = { _id: 1, channelId: 1, open: 1, userId: 1, claimedBy: 1, guildId: 1, ticketNumber: 1, ticketType: 1 };
@@ -47,7 +52,7 @@ function makeError(title, description) {
 
 function createInteractionMessageProxy(interaction, options = {}) {
   const forceEphemeral = Boolean(options?.ephemeral);
-  let replyCount = 0;
+  const followUpOnly = Boolean(options?.followUpOnly);
   return {
     channel: interaction.channel,
     guild: interaction.guild,
@@ -55,18 +60,86 @@ function createInteractionMessageProxy(interaction, options = {}) {
     member: interaction.member,
     author: interaction.user,
     reply: async (payload) => {
-      replyCount += 1;
       let p = { ...payload };
       if (forceEphemeral) {
         const baseFlags = Number(payload?.flags) || 0;
         p = { ...p, flags: baseFlags | MessageFlags.Ephemeral };
       }
-      if (replyCount === 1) {
-        return interaction.editReply(p);
+      if (followUpOnly || interaction.deferred || interaction.replied) {
+        return interaction.followUp(p);
       }
-      return interaction.followUp(p);
+      return interaction.reply(p);
     },
   };
+}
+
+async function rebuildReopenPickComponents(interaction) {
+  const mid = interaction.message?.id;
+  const session = readTicketReopenOutsideSession(interaction.client, mid);
+  if (!session) return [];
+  const allDocs = await fetchClosedTicketsOrdered(session.guildId);
+  const panel = await buildTicketReopenOutsidePanelPayload(interaction.guild, allDocs, {
+    page: session.page,
+    filterQuery: session.filterQuery,
+  });
+  return panel.components || [];
+}
+
+function rebuildSwitchCategoryComponents(interaction) {
+  return [
+    new ActionRowBuilder().addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId(withTicketPanelMessageCustomId(TICKET_PANEL_SWITCH_CATEGORY_PREFIX, interaction.message?.id))
+        .setPlaceholder("🔄 Cambia categoria…")
+        .setMinValues(1)
+        .setMaxValues(1)
+        .addOptions(
+          { label: "SUPPORTO", value: "supporto", description: "SUPPORTO" },
+          { label: "PARTNERSHIP", value: "partnership", description: "PARTNERSHIP" },
+          { label: "HIGH STAFF", value: "highstaff", description: "HIGH STAFF" },
+          { label: "PERKS", value: "perks", description: "PERKS" },
+        ),
+    ),
+  ];
+}
+
+function rebuildAddMemberComponents(interaction) {
+  return [
+    new ActionRowBuilder().addComponents(
+      new UserSelectMenuBuilder()
+        .setCustomId(withTicketPanelMessageCustomId(TICKET_PANEL_ADD_MEMBER_PREFIX, interaction.message?.id))
+        .setPlaceholder("Scegli un utente…")
+        .setMinValues(1)
+        .setMaxValues(1),
+    ),
+  ];
+}
+
+function rebuildTransferUserComponents(interaction) {
+  return [
+    new ActionRowBuilder().addComponents(
+      new UserSelectMenuBuilder()
+        .setCustomId(withTicketPanelMessageCustomId(TICKET_PANEL_TRANSFER_USER_PREFIX, interaction.message?.id))
+        .setPlaceholder("Scegli un utente…")
+        .setMinValues(1)
+        .setMaxValues(1),
+    ),
+  ];
+}
+
+function rebuildRemoveMemberComponents(interaction) {
+  const opts = buildRemoveMemberOptions(interaction.channel);
+  if (!opts.length) return [];
+  return [
+    new ActionRowBuilder().addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId(interaction.customId)
+        .setPlaceholder("Rimuovi utente…")
+        .setMinValues(1)
+        .setMaxValues(1)
+        .addOptions(opts),
+    ),
+  ];
 }
 
 function messageIsPlusTicketStaffPanel(message) {
@@ -356,33 +429,38 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
       return true;
     }
     if (!hasStaffTicketRole(interaction.member, ticketDoc.ticketType)) {
-      await safeReply(interaction, {
-        embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> Non hai permesso di aggiungere utenti.")],
-        flags: 1 << 6,
-      });
+      await panelSelectFollowUp(
+        interaction,
+        rebuildAddMemberComponents,
+        {
+          embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> Non hai permesso di aggiungere utenti.")],
+        },
+      );
       return true;
     }
     const userId = interaction.values?.[0];
     if (!userId) {
-      await safeReply(interaction, {
-        embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> Selezione non valida.")],
-        flags: 1 << 6,
-      });
+      await panelSelectFollowUp(
+        interaction,
+        rebuildAddMemberComponents,
+        { embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> Selezione non valida.")] },
+      );
       return true;
     }
     const targetMember = await getGuildMemberCached(interaction.guild, userId).catch(() => null);
     if (!targetMember || targetMember.user?.bot) {
-      await safeReply(interaction, {
-        embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> Utente non valido o bot.")],
-        flags: 1 << 6,
-      });
+      await panelSelectFollowUp(
+        interaction,
+        rebuildAddMemberComponents,
+        { embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> Utente non valido o bot.")] },
+      );
       return true;
     }
     await interaction.channel.permissionOverwrites.edit(userId, {
       ViewChannel: true,
       SendMessages: true,
     });
-    await interaction.reply({
+    await panelSelectFollowUp(interaction, rebuildAddMemberComponents, {
       embeds: [
         makeError(
           "Aggiungi",
@@ -402,64 +480,75 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
     const ticketDocXfer = await Ticket.findOne({ channelId: interaction.channel.id, open: true }).catch(() => null);
     const xferClaimer = String(ticketDocXfer?.claimedBy || "").trim();
     if (!xferClaimer) {
-      await safeReply(interaction, {
-        embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> Il ticket non è claimato.")],
-        flags: 1 << 6,
-      });
+      await panelSelectFollowUp(
+        interaction,
+        rebuildTransferUserComponents,
+        { embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> Il ticket non è claimato.")] },
+      );
       return true;
     }
     const isClaimerXfer = interaction.user.id === xferClaimer;
     const isHighXfer = HIGHSTAFF_ROLE_ID && interaction.member?.roles?.cache?.has(HIGHSTAFF_ROLE_ID);
     if (!isClaimerXfer && !isHighXfer) {
-      await safeReply(interaction, {
-        embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> Solo chi ha claimato o l’**High Staff** può trasferire il claim.")],
-        flags: 1 << 6,
-      });
+      await panelSelectFollowUp(
+        interaction,
+        rebuildTransferUserComponents,
+        {
+          embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> Solo chi ha claimato o l’**High Staff** può trasferire il claim.")],
+        },
+      );
       return true;
     }
     const targetUserId = interaction.values?.[0];
     if (!targetUserId) {
-      await safeReply(interaction, {
-        embeds: [makeErrorEmbed("Errore", "<:vegax:1443934876440068179> Selezione non valida.")],
-        flags: 1 << 6,
-      });
+      await panelSelectFollowUp(
+        interaction,
+        rebuildTransferUserComponents,
+        { embeds: [makeErrorEmbed("Errore", "<:vegax:1443934876440068179> Selezione non valida.")] },
+      );
       return true;
     }
     const targetMember = await getGuildMemberCached(interaction.guild, targetUserId);
     if (!targetMember) {
-      await safeReply(interaction, {
-        embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> Utente non nel server.")],
-        flags: 1 << 6,
-      });
+      await panelSelectFollowUp(
+        interaction,
+        rebuildTransferUserComponents,
+        { embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> Utente non nel server.")] },
+      );
       return true;
     }
     if (targetMember.user?.bot) {
-      await safeReply(interaction, {
-        embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> Non puoi assegnare il claim a un bot.")],
-        flags: 1 << 6,
-      });
+      await panelSelectFollowUp(
+        interaction,
+        rebuildTransferUserComponents,
+        { embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> Non puoi assegnare il claim a un bot.")] },
+      );
       return true;
     }
     if (!ticketModule.canClaimTicket(targetMember, ticketDocXfer.ticketType, interaction.guild?.id)) {
-      await safeReply(interaction, {
-        embeds: [
-          makeErrorEmbed(
-            "<a:VC_Alert:1482706673176150077> Errore",
-            "<:vegax:1443934876440068179> L’utente non ha il ruolo richiesto per gestire **questo** tipo di ticket (supporto → Staff/High Staff, partnership → Partner Manager/High Staff, high → High Staff).",
-          ),
-        ],
-        flags: 1 << 6,
-      });
+      await panelSelectFollowUp(
+        interaction,
+        rebuildTransferUserComponents,
+        {
+          embeds: [
+            makeErrorEmbed(
+              "<a:VC_Alert:1482706673176150077> Errore",
+              "<:vegax:1443934876440068179> L’utente non ha il ruolo richiesto per gestire **questo** tipo di ticket (supporto → Staff/High Staff, partnership → Partner Manager/Resoconti PM/High Staff, high → High Staff).",
+            ),
+          ],
+        },
+      );
       return true;
     }
     if (targetUserId === ticketDocXfer.userId || targetUserId === xferClaimer) {
-      await safeReply(interaction, {
-        embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> Scelta non valida per il transfer.")],
-        flags: 1 << 6,
-      });
+      await panelSelectFollowUp(
+        interaction,
+        rebuildTransferUserComponents,
+        { embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> Scelta non valida per il transfer.")] },
+      );
       return true;
     }
-    await interaction.deferReply().catch(() => null);
+    await beginPanelSelectDefer(interaction, rebuildTransferUserComponents);
     const oldClaimerId = xferClaimer;
     const transferResult = await Ticket.updateOne(
       {
@@ -470,15 +559,14 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
       { $set: { claimedBy: targetUserId } },
     ).catch(() => null);
     if (!transferResult || Number(transferResult.modifiedCount || 0) < 1) {
-      await safeReply(interaction, {
+      await interaction.editReply({
         embeds: [
           makeErrorEmbed(
             "<a:VC_Alert:1482706673176150077> Errore",
             "<:vegax:1443934876440068179> Claim non aggiornato: ticket modificato da un'altra azione. Riprova.",
           ),
         ],
-        flags: 1 << 6,
-      });
+      }).catch(() => null);
       return true;
     }
     await interaction.channel.permissionOverwrites.delete(oldClaimerId).catch(() => {});
@@ -496,14 +584,14 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
       );
       await msg.edit({ embeds: [updatedEmbed], components: [updatedButtons] }).catch(() => {});
     }
-    await safeReply(interaction, {
+    await interaction.editReply({
       embeds: [
         makeError(
           "Claim trasferito",
           `<:VC_claim:1478517202016669887> Ticket assegnato a <@${targetUserId}> (prima: <@${oldClaimerId}>).`,
         ),
       ],
-    });
+    }).catch(() => null);
     const xferPanelMid = parseTicketPanelMessageIdFromCustomId(cid, TICKET_PANEL_TRANSFER_USER_PREFIX);
     if (xferPanelMid) await deletePlusTicketStaffPanelById(interaction.channel, xferPanelMid);
     return true;
@@ -513,22 +601,26 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
     if (cid === "ticket_panel_reopen_pick") {
       const isHigh = HIGHSTAFF_ROLE_ID && interaction.member?.roles?.cache?.has(HIGHSTAFF_ROLE_ID);
       if (!isHigh) {
-        await safeReply(interaction, {
-          embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> Solo l’**High Staff** può riaprire ticket.")],
-          flags: 1 << 6,
-        });
+        await panelSelectFollowUp(
+          interaction,
+          rebuildReopenPickComponents,
+          {
+            embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> Solo l’**High Staff** può riaprire ticket.")],
+          },
+        );
         return true;
       }
       const ticketNumber = Number(interaction.values?.[0]);
       if (!Number.isInteger(ticketNumber) || ticketNumber <= 0) {
-        await safeReply(interaction, {
-          embeds: [makeErrorEmbed("Errore", "<:vegax:1443934876440068179> Selezione non valida.")],
-          flags: 1 << 6,
-        });
+        await panelSelectFollowUp(
+          interaction,
+          rebuildReopenPickComponents,
+          { embeds: [makeErrorEmbed("Errore", "<:vegax:1443934876440068179> Selezione non valida.")] },
+        );
         return true;
       }
-      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-      const proxy = createInteractionMessageProxy(interaction);
+      await beginPanelSelectDefer(interaction, rebuildReopenPickComponents, { flags: MessageFlags.Ephemeral });
+      const proxy = createInteractionMessageProxy(interaction, { ephemeral: true, followUpOnly: true });
       const reopened = await ticketModule.ticketReopenByNumber(
         { guild: interaction.guild, reply: (p) => proxy.reply(p) },
         ticketNumber,
@@ -548,10 +640,13 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
 
     if (cid === TICKET_PANEL_REMOVE_MEMBER_PREFIX || cid.startsWith(`${TICKET_PANEL_REMOVE_MEMBER_PREFIX}:`)) {
       if (!hasStaffTicketRole(interaction.member, ticketDoc.ticketType)) {
-        await safeReply(interaction, {
-          embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> Non hai permesso di rimuovere utenti.")],
-          flags: 1 << 6,
-        });
+        await panelSelectFollowUp(
+          interaction,
+          rebuildRemoveMemberComponents,
+          {
+            embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> Non hai permesso di rimuovere utenti.")],
+          },
+        );
         return true;
       }
       const userId = interaction.values[0];
@@ -559,7 +654,7 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
         ViewChannel: false,
         SendMessages: false,
       });
-      await interaction.reply({
+      await panelSelectFollowUp(interaction, rebuildRemoveMemberComponents, {
         embeds: [
           makeError(
             "Rimuovi",
@@ -574,15 +669,18 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
 
     if (cid === TICKET_PANEL_SWITCH_CATEGORY_PREFIX || cid.startsWith(`${TICKET_PANEL_SWITCH_CATEGORY_PREFIX}:`)) {
       if (!HIGHSTAFF_ROLE_ID || !interaction.member?.roles?.cache?.has(HIGHSTAFF_ROLE_ID)) {
-        await safeReply(interaction, {
-          embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> Solo l’**High Staff** può cambiare categoria.")],
-          flags: 1 << 6,
-        });
+        await panelSelectFollowUp(
+          interaction,
+          rebuildSwitchCategoryComponents,
+          {
+            embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> Solo l’**High Staff** può cambiare categoria.")],
+          },
+        );
         return true;
       }
       const categoryToken = String(interaction.values[0] || "").toLowerCase();
-      await interaction.deferReply();
-      const proxy = createInteractionMessageProxy(interaction, { ephemeral: false });
+      await beginPanelSelectDefer(interaction, rebuildSwitchCategoryComponents);
+      const proxy = createInteractionMessageProxy(interaction, { ephemeral: false, followUpOnly: true });
       const switched = await ticketModule.ticketSwitchPanelExecute(proxy, categoryToken);
       if (switched) {
         const swPanelMid = parseTicketPanelMessageIdFromCustomId(cid, TICKET_PANEL_SWITCH_CATEGORY_PREFIX);

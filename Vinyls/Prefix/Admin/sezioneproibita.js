@@ -4,7 +4,7 @@ const IDs = require("../../Utils/Config/ids");
 const { resolveHogwartsEventConfig } = require("../../Utils/Web/hogwartsSortingConfig");
 const { auditForbiddenBooksForUser, assignForbiddenSectionWinner, formatForbiddenBookList, formatForbiddenWinnersList, FORBIDDEN_MAX_WINNERS } = require("../../Services/Community/hogwartsForbiddenBooksService");
 const { formatGaleoni } = require("../../Services/Community/gringottService");
-const STAFF_ROLE_IDS = [ IDs.roles.Founder, IDs.roles.Admin ].filter(Boolean);
+const STAFF_ROLE_IDS = [ IDs.roles.Founder, IDs.roles.Manager, IDs.roles.Admin ].filter(Boolean);
 const WINNER_SUBS = new Set(["vincitore", "assegna", "winner"]);
 const CHECK_SUBS = new Set(["check", "verifica"]);
 
@@ -150,6 +150,7 @@ function buildWinnerSuccessEmbed(result, targetUser, client) {
 
 module.exports = {
   name: "sezioneproibita",
+  hideFromHelp: true,
   allowEmptyArgs: false,
   subcommands: ["check", "winner"],
   description: "Verifica libri proibiti sul sito o assegna vincitori evento.",

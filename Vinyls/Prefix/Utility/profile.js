@@ -7,6 +7,19 @@ const {
   isStaffCmdsPmCommandsThread,
 } = require("../../Utils/Staff/staffCmdsChannelUtils");
 
+function withDiscordTimeout(promise, ms = 8000, label = "discord") {
+  const limit = Math.max(500, Number(ms) || 8000);
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      const timer = setTimeout(() => {
+        reject(new Error(`${label} timed out after ${limit}ms`));
+      }, limit);
+      timer.unref?.();
+    }),
+  ]);
+}
+
 async function resolveTargetUser(message, args = []) {
   const mentioned = message?.mentions?.users?.first?.();
   if (mentioned) return mentioned;
@@ -28,7 +41,11 @@ async function upsertProfileReply(message, payload) {
   if (!botId || !message?.channel?.messages?.fetch) {
     return safeMessageReply(message, normalizedPayload);
   }
-  const recent = await message.channel.messages.fetch({ limit: 50 }).catch(() => null);
+  const recent = await withDiscordTimeout(
+    message.channel.messages.fetch({ limit: 50 }).catch(() => null),
+    8000,
+    "profile reply scan",
+  ).catch(() => null);
   const existing = recent?.find?.(
     (msg) =>
       String(msg?.author?.id || "") === botId &&
@@ -101,7 +118,17 @@ module.exports = {
       "home",
       null,
       message.author.id,
-    );
+    ).catch((err) => {
+      global.logger?.warn?.("[profile] buildPanelPayload failed:", err?.message || err);
+      return null;
+    });
+    if (!payload) {
+      await safeMessageReply(message, {
+        content: "<:VC_Attention:1482534443632558151> Il profilo non risponde in tempo (database o Discord lenti). Riprova tra qualche secondo.",
+        allowedMentions: { repliedUser: false },
+      });
+      return;
+    }
     await upsertProfileReply(message, payload);
   },
 };

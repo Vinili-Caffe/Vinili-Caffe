@@ -12,8 +12,50 @@ function normalizeUserId(userId) {
 
 function normalizeKind(kind) {
   const k = String(kind || "info").trim().toLowerCase();
-  if (["vote", "success", "info", "review", "mod", "suggestion"].includes(k)) return k;
+  if (["vote", "vote_reminder", "success", "info", "review", "mod", "suggestion"].includes(k)) return k;
   return "info";
+}
+
+async function saveInboxItems(userId, items) {
+  const uid = normalizeUserId(userId);
+  if (!uid) return false;
+  const merged = mergeItemsSortTrim(items);
+  const existing = await SiteDocument.findOne(inboxQuery(uid)).catch(() => null);
+  if (existing) {
+    existing.inAppNotifItems = merged;
+    try {
+      await existing.save();
+      return true;
+    } catch (err) {
+      global.logger?.warn?.("[siteInAppNotifications] inbox save failed:", err?.message || err);
+      return false;
+    }
+  }
+  try {
+    await SiteDocument.create({
+      docType: NOTIF,
+      userId: uid,
+      guildId: "",
+      inAppNotifAggregate: true,
+      inAppNotifItems: merged,
+    });
+    return true;
+  } catch (err) {
+    if (Number(err?.code) === 11000) {
+      const again = await SiteDocument.findOne(inboxQuery(uid)).catch(() => null);
+      if (!again) return false;
+      again.inAppNotifItems = mergeItemsSortTrim([...(again.inAppNotifItems || []), ...merged]);
+      try {
+        await again.save();
+        return true;
+      } catch (saveErr) {
+        global.logger?.warn?.("[siteInAppNotifications] inbox retry save failed:", saveErr?.message || saveErr);
+        return false;
+      }
+    }
+    global.logger?.warn?.("[siteInAppNotifications] inbox create failed:", err?.message || err);
+    return false;
+  }
 }
 
 function legacyFlatQuery(userId) {
@@ -152,30 +194,16 @@ async function enqueueSiteInAppNotification(opts = {}) {
     createdAt: new Date(),
     updatedAt: new Date(),
   };
-  const updated = await SiteDocument.findOneAndUpdate(
-    inboxQuery(userId),
-    {
-      $setOnInsert: {
-        docType: NOTIF,
-        userId,
-        guildId: "",
-        inAppNotifAggregate: true,
-      },
-      $push: {
-        inAppNotifItems: {
-          $each: [newItem],
-          $sort: { createdAt: -1 },
-          $slice: MAX_PER_USER,
-        },
-      },
-    },
-    { upsert: true, new: true },
-  ).catch(() => null);
-  if (updated) {
+  const inbox = await SiteDocument.findOne(inboxQuery(userId)).select("inAppNotifItems").lean().catch(() => null);
+  const currentItems = Array.isArray(inbox?.inAppNotifItems) ? inbox.inAppNotifItems : [];
+  const saved = await saveInboxItems(userId, [...currentItems, newItem]);
+  if (saved) {
     try {
       const { broadcastSiteNotificationsChanged } = require("./siteSuggestionsBroadcast");
       broadcastSiteNotificationsChanged();
     } catch (_) {}
+  } else {
+    global.logger?.warn?.("[siteInAppNotifications] enqueue failed:", { userId, kind, title });
   }
 }
 
@@ -291,16 +319,27 @@ async function listSiteInAppNotificationsForUser(userId, limit = 50) {
     const tb = new Date(b.createdAt || 0).getTime();
     return tb - ta;
   });
-  return sorted.slice(0, lim).map((doc) => ({
-    id: String(doc._id),
-    title: String(doc.title || ""),
-    body: String(doc.body || ""),
-    kind: normalizeKind(doc.notifKind || doc.kind),
+  return sorted.slice(0, lim).map((doc) => {
+    let kind = normalizeKind(doc.notifKind || doc.kind);
+    const title = String(doc.title || "");
+    const body = String(doc.body || "");
+    if (
+      kind === "vote" &&
+      (/promemoria/i.test(title) || /promemoria/i.test(body) || /puoi votare di nuovo/i.test(body))
+    ) {
+      kind = "vote_reminder";
+    }
+    return {
+      id: String(doc._id),
+      title,
+      body,
+      kind,
     at: doc.createdAt ? new Date(doc.createdAt).getTime() : Date.now(),
     openUrl: String(doc.openUrl || "").trim(),
     read: Boolean(doc.readAt),
     readAt: doc.readAt ? new Date(doc.readAt).getTime() : null,
-  }));
+  };
+  });
 }
 
 async function deleteSiteInAppNotificationForUser(userId, notificationId) {

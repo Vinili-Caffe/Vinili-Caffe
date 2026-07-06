@@ -74,6 +74,7 @@ function staffBadgeRoleOrder(ids) {
   const R = ids.roles;
   return [
     R.Founder,
+    R.Manager,
     R.Admin,
     R.Director,
     R.HighStaff,

@@ -26,6 +26,8 @@ const MEDIA_BLOCK_EXEMPT_CATEGORY_ID = IDs.categories.categorChat;
 const MEDIA_BLOCK_EXEMPT_CHANNEL_IDS = new Set([IDs.channels.media].filter(Boolean).map((id) => String(id)));
 const WRONG_PREFIX_HINT_CHANNEL_IDS = new Set([IDs.channels.commands, IDs.channels.staffCmds].filter(Boolean).map((id) => String(id)),);
 const AUTOMATION_RECHECK_DELAY_MS = 8000;
+const VOTE_CHANNEL_ID = IDs.channels?.supporters;
+const VOTE_AUTOMATION_RECHECK_DELAYS_MS = [1500, 3500, 8000];
 const automationRecheckJobs = new Map();
 
 function isViniliFullFeatureGuild(guildId) {
@@ -166,25 +168,80 @@ async function maybeSendWrongPrefixHint(message, resolvedClient, validPrefix = "
   return true;
 }
 
-function scheduleAutomationMessageRecheck(message, resolvedClient) {
+function cancelAutomationMessageRecheck(messageId) {
+  const key = String(messageId || "");
+  if (!key) return;
+  const job = automationRecheckJobs.get(key);
+  if (!job) return;
+  if (typeof job.cancel === "function") job.cancel();
+  else clearTimeout(job);
+  automationRecheckJobs.delete(key);
+}
+
+function scheduleAutomationMessageRecheck(message, resolvedClient, options = {}) {
   const messageId = String(message?.id || "");
   if (!messageId || automationRecheckJobs.has(messageId)) return;
-  const timeout = setTimeout(async () => {
-    automationRecheckJobs.delete(messageId);
-    try {
-      const channel = message?.channel;
-      if (!channel?.messages?.fetch) return;
-      const fresh = await channel.messages.fetch(messageId).catch(() => null);
-      if (!fresh) return;
-      if (await handleDisboardBump(fresh, resolvedClient)) return;
-      if (await handleDiscadiaBump(fresh, resolvedClient)) return;
-      await handleVoteManagerMessage(fresh, resolvedClient);
-    } catch (error) {
-      logEventError(resolvedClient, "AUTOMATION RECHECK ERROR", error);
+  const isVoteChannel = VOTE_CHANNEL_ID && String(message?.channelId || "") === String(VOTE_CHANNEL_ID);
+  const delays =
+    options.voteFastRecheck && isVoteChannel
+      ? VOTE_AUTOMATION_RECHECK_DELAYS_MS
+      : [AUTOMATION_RECHECK_DELAY_MS];
+  let attempt = 0;
+  let cancelled = false;
+
+  const runAttempt = () => {
+    const delay = delays[attempt];
+    if (delay == null) {
+      automationRecheckJobs.delete(messageId);
+      return;
     }
-  }, AUTOMATION_RECHECK_DELAY_MS);
-  timeout.unref?.();
-  automationRecheckJobs.set(messageId, timeout);
+    const timeout = setTimeout(async () => {
+      if (cancelled) return;
+      try {
+        const channel = message?.channel;
+        if (!channel?.messages?.fetch) {
+          automationRecheckJobs.delete(messageId);
+          return;
+        }
+        const fresh = await channel.messages.fetch(messageId).catch(() => null);
+        if (!fresh) {
+          automationRecheckJobs.delete(messageId);
+          return;
+        }
+        if (await handleVoteManagerMessage(fresh, resolvedClient)) {
+          automationRecheckJobs.delete(messageId);
+          return;
+        }
+        if (await handleDisboardBump(fresh, resolvedClient)) {
+          automationRecheckJobs.delete(messageId);
+          return;
+        }
+        if (await handleDiscadiaBump(fresh, resolvedClient)) {
+          automationRecheckJobs.delete(messageId);
+          return;
+        }
+        attempt += 1;
+        if (attempt < delays.length) {
+          runAttempt();
+          return;
+        }
+        automationRecheckJobs.delete(messageId);
+      } catch (error) {
+        automationRecheckJobs.delete(messageId);
+        logEventError(resolvedClient, "AUTOMATION RECHECK ERROR", error);
+      }
+    }, delay);
+    timeout.unref?.();
+    automationRecheckJobs.set(messageId, {
+      timeout,
+      cancel: () => {
+        cancelled = true;
+        clearTimeout(timeout);
+      },
+    });
+  };
+
+  runAttempt();
 }
 
 module.exports = {
@@ -217,13 +274,22 @@ module.exports = {
       try {
         const nativeBoost = guildMemberUpdateExtras.handleNativeBoostSystemMessage?.(message);
         if (nativeBoost?.userId) {
-          await guildMemberUpdateExtras
+          void guildMemberUpdateExtras
             .recoverMissingBoostEmbedsForUser(message.guild, nativeBoost.userId, {
               knownNativeSlots: nativeBoost.slots,
               expectedSlots: nativeBoost.slots,
               startedAt: Date.now(),
             })
             .catch(() => null);
+          const boostChannelId = require("../Utils/Config/ids").channels?.supporters;
+          const boostChannel =
+            (boostChannelId && message.guild.channels.cache.get(boostChannelId)) ||
+            message.channel;
+          setTimeout(() => {
+            guildMemberUpdateExtras
+              .recoverConcurrentNativeBoosts(message.guild, boostChannel, { windowMs: 3 * 60 * 1000 })
+              .catch(() => null);
+          }, 2500).unref?.();
         }
         if (message.author?.bot || message.webhookId || message.applicationId) {
           try {
@@ -232,15 +298,24 @@ module.exports = {
           } catch (error) {
             logEventError(resolvedClient, "POKE-NAME CHANNEL BLOCK ERROR", error);
           }
-          if (await handleDisboardBump(message, resolvedClient)) return;
-          if (await handleDiscadiaBump(message, resolvedClient)) return;
-          scheduleAutomationMessageRecheck(message, resolvedClient);
+          if (await handleDisboardBump(message, resolvedClient)) {
+            cancelAutomationMessageRecheck(message.id);
+            return;
+          }
+          if (await handleDiscadiaBump(message, resolvedClient)) {
+            cancelAutomationMessageRecheck(message.id);
+            return;
+          }
+          scheduleAutomationMessageRecheck(message, resolvedClient, { voteFastRecheck: true });
         }
         if (message.author?.id !== resolvedClient?.user?.id) {
           const handledVote = await handleVoteManagerMessage(message, resolvedClient);
-          if (handledVote) return;
+          if (handledVote) {
+            cancelAutomationMessageRecheck(message.id);
+            return;
+          }
           if (message.author?.bot || message.webhookId || message.applicationId) {
-            scheduleAutomationMessageRecheck(message, resolvedClient);
+            scheduleAutomationMessageRecheck(message, resolvedClient, { voteFastRecheck: true });
           }
         }
       } catch (error) {
@@ -322,6 +397,15 @@ module.exports = {
 
     if (message.author.bot || message.system || message.webhookId) {
       return;
+    }
+
+    if (!isEditedPrefixExecution && message.guild) {
+      try {
+        const { handleStaffManagedThreadRoleMentionMessage } = require("../Utils/Staff/staffManagedThreadsGuard");
+        if (await handleStaffManagedThreadRoleMentionMessage(message)) return;
+      } catch (error) {
+        logEventError(resolvedClient, "STAFF THREAD ROLE MENTION GUARD ERROR", error);
+      }
     }
 
     if (!isEditedPrefixExecution && message.guild) {

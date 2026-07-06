@@ -1,4 +1,4 @@
-const { EmbedBuilder, PermissionsBitField, AuditLogEvent, UserFlagsBitField, } = require("discord.js");
+const { EmbedBuilder, PermissionsBitField, AuditLogEvent, UserFlagsBitField, MessageFlags, } = require("discord.js");
 const { DIVIDER_URL } = require("../../shared/discord/constants");
 const { ActivityUserProfile, InviteReminderState, CustomRole, } = require("../Schemas/Community/communitySchemas");
 const IDs = require("../Utils/Config/ids");
@@ -65,6 +65,21 @@ function shortInviteLinkForFooter() {
 function formatInviteCountIt(count) {
   const n = Math.max(0, Number(count || 0));
   return n === 1 ? "1 invito" : `${n} inviti`;
+}
+
+function extractInviteCodeFromLink(link) {
+  const raw = String(link || "").trim();
+  if (!raw || /^link non disponibile/i.test(raw)) return null;
+  const m = raw.match(/(?:discord\.gg|discord(?:app)?\.com\/invite)\/([A-Za-z0-9-]+)/i);
+  if (m?.[1]) return m[1];
+  const tail = raw.split("/").pop();
+  return tail && /^[A-Za-z0-9-]+$/.test(tail) ? tail : null;
+}
+
+/** Solo codice in backtick: evita l'anteprima embed Discord sugli inviti (anche con SuppressEmbeds). */
+function formatInviteLinkForJoinMessage(link) {
+  const code = extractInviteCodeFromLink(link);
+  return code ? `\`${code}\`` : "`—`";
 }
 
 function getInviteMilestoneTitle(target) {
@@ -609,7 +624,8 @@ async function handleBotJoin(member, joinGateConfig) {
     } else {
       await inviteChannel
         .send({
-          content: `<:VC_Reply:1482532158080942191> Bot entrato con il link <${info.link}>,\n-# -> invitato da ${info.inviterTag} che ora ha **${formatInviteCountIt(info.totalInvites)}**.`,
+          content: `<:VC_Reply:1482532158080942191> Bot entrato con il link ${formatInviteLinkForJoinMessage(info.link)},\n-# -> invitato da ${info.inviterTag} che ora ha **${formatInviteCountIt(info.totalInvites)}**.`,
+          flags: MessageFlags.SuppressEmbeds,
         })
         .catch(() => { });
     }
@@ -1323,7 +1339,8 @@ async function announceInviteInfo(member, channel, info) {
 
   await channel
     .send({
-      content: `<:VC_Reply:1482532158080942191> È entratx con il link <${info.link}>,\n-# -> invitato da ${info.inviterTag} che ora ha **${formatInviteCountIt(info.totalInvites)}**.`,
+      content: `<:VC_Reply:1482532158080942191> È entratx con il link ${formatInviteLinkForJoinMessage(info.link)},\n-# -> invitato da ${info.inviterTag} che ora ha **${formatInviteCountIt(info.totalInvites)}**.`,
+      flags: MessageFlags.SuppressEmbeds,
     })
     .catch(() => { });
 }
@@ -1530,7 +1547,6 @@ async function dispatchPublicJoinAnnouncements(member) {
   }
   await maybeSendInviteNearRewardReminder(fresh, info);
   await maybeSendInviteReward(fresh, info);
-  await sendJoinLog(fresh).catch(() => { });
 
   if (fresh.guild?.id === IDs.guilds.main && fresh.client && memberHasStaffRole(fresh)) {
     scheduleStaffListRefresh(fresh.client, fresh.guild.id);
@@ -1874,9 +1890,9 @@ module.exports = { name: "guildMemberAdd", kickForJoinGate, runDeferredJoinAnnou
             await restoreDiscadiaVoteRoleOnRejoin(member).catch(() => {});
             await restoreCustomRoleOnRejoin(member).catch(() => {});
             await maybeAssignHogwartsCompletionRoleOnJoin(member.client, member).catch(() => {});
-            if (canAnnounce) {
-              await sendJoinLog(member);
+            await sendJoinLog(memberAfterVerifyJoin).catch(() => {});
 
+            if (canAnnounce) {
               if (info && !info.isVanity && info.inviterId) {
                 await trackInviteJoin(member, info.inviterId).catch(() => { });
               }

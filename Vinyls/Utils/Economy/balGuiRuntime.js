@@ -2,6 +2,9 @@ const { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle, ModalBu
 const { buildImageButtonPayload, canvasStatusLine } = require("./guiPanelPayload");
 const { CURRENCY_CAFFE, CURRENCY_VINILI, addCurrency, formatCurrency, getServerWallet, spendCurrency } = require("../../Services/Community/serverWalletService");
 const { getBalBridgePanel } = require("../../Services/Community/serverEconomyBridgeService");
+const { resolveEconomyMode } = require("../../Services/Community/activeEconomyService");
+const { getGringottBalance } = require("../../Services/Community/gringottService");
+const { eventKey } = require("../../Services/Community/galeoniEconomyService");
 const PREFIX = "bal_gui";
 const MODAL_PREFIX = "bal_gui_md";
 const CONVERT_MODAL_PREFIX = "bal_gui_cv";
@@ -207,6 +210,20 @@ async function buildBalPayload(session, notice = "", panelClosed = false) {
 }
 
 async function reloadBalance(client, session, messageLike = null) {
+  if (resolveEconomyMode(client) === "galeoni" && session.showGaleoni && !session.showStaffControls) {
+    const evt = eventKey(client);
+    const gState = await getGringottBalance(session.guildId, session.targetId, evt);
+    session.galeoni = {
+      balance: Math.max(0, Math.floor(Number(gState?.balance) || 0)),
+      earned: Math.max(0, Math.floor(Number(gState?.earned) || 0)),
+      spent: Math.max(0, Math.floor(Number(gState?.spent) || 0)),
+    };
+    session.showGaleoni = true;
+    session.canConvert = false;
+    session.state = emptyWalletState();
+    session.updatedAt = now();
+    return session;
+  }
   const state = await getServerWallet(session.guildId, session.targetId);
   session.state = state || emptyWalletState();
   const msg = messageLike || { guild: { id: session.guildId }, author: { id: session.ownerId }, member: null };
@@ -313,6 +330,29 @@ async function openBalPanel(client, message, options = {}) {
   const guildId = String(message?.guild?.id || "");
   const targetId = String(options.targetId || message?.author?.id || "");
   const targetName = String(options.targetName || "Utente").trim() || "Utente";
+  const mode = resolveEconomyMode(client);
+
+  if (mode === "galeoni") {
+    const evt = eventKey(client);
+    const gState = await getGringottBalance(guildId, targetId, evt);
+    const galeoni = {
+      balance: Math.max(0, Math.floor(Number(gState?.balance) || 0)),
+      earned: Math.max(0, Math.floor(Number(gState?.earned) || 0)),
+      spent: Math.max(0, Math.floor(Number(gState?.spent) || 0)),
+    };
+    const session = makeSession({
+      ownerId: message.author.id,
+      guildId,
+      targetId,
+      targetName,
+      showStaffControls: false,
+      state: emptyWalletState(),
+      bridge: { showGaleoni: true, canConvert: false, galeoni },
+    });
+    await warmupBalPanel();
+    return { ok: true, session, payload: await buildBalPayload(session, false) };
+  }
+
   const state = await getServerWallet(guildId, targetId);
   const bridge = await getBalBridgePanel(client, message, message.author.id, targetId);
   const session = makeSession({

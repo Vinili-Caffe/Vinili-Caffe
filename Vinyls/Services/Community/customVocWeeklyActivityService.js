@@ -92,7 +92,9 @@ async function enforceDeleteCustomVoc(guild, client, userId, channelId, weekEndM
     global.logger?.warn?.(`[CUSTOM VOC WEEKLY] Delete failed for voc ${channelId} user ${userId}; channel still exists`);
     return { deleted: false };
   }
-  const blockUntil = new Date(Date.now() + CUSTOM_VOC_RECREATION_COOLDOWN_MS);
+  const blockUntil = CUSTOM_VOC_RECREATION_COOLDOWN_MS > 0
+    ? new Date(Date.now() + CUSTOM_VOC_RECREATION_COOLDOWN_MS)
+    : null;
   await persistCustomVocActivityFields(guild.id, userId, {
     customVocChannelId: null,
     customVocFailedWeekStreak: 0,

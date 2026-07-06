@@ -4,6 +4,7 @@ const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../Disc
 const { getGuildChannelCached, getGuildMemberCached } = require("../Interaction/interactionEntityCache");
 const { wasRoleRestoredByMuteMirror } = require("../../Services/Moderation/mutedMirrorRoleService");
 const { MENTION_RESPONSE_PERK_LINE_DISCORD } = require("./mentionResponseAccessUtils");
+const { collectRecentRoleAddsFromAudit } = require("./supportersChannelEmbedRecoveryUtils");
 
 const TIER_RANK = { donator: 1, vip: 2, vipPlus: 3 };
 const DONATION_ANNOUNCE_DEBOUNCE_MS = 5000;
@@ -15,6 +16,37 @@ const ROLE_ID_BY_TIER = {
   vip: IDs.roles.VIP,
   vipPlus: IDs.roles.VIPplus,
 };
+
+const TIER_PACKAGE_LABEL = {
+  donator: "DONATOR",
+  vip: "VIP",
+  vipPlus: "VIP+",
+};
+
+function buildDonationPackageHeading(tier, member, isPurchase = false) {
+  const label = TIER_PACKAGE_LABEL[tier] || "VIP+";
+  if (isPurchase) {
+    return `### <a:ThankYou:1329504268369002507> **__GRAZIE ${member.user} PER AVER ACQUISTATO IL PACCHETTO ${label}!__**`;
+  }
+  return `### <a:ThankYou:1329504268369002507> **__${member.user} HAI RICEVUTO IL RUOLO ${label}!__**`;
+}
+
+async function resolveRoleAddWasManualPurchase(guild, userId, roleId, client) {
+  const uid = String(userId || "").trim();
+  const rid = String(roleId || "").trim();
+  if (!guild?.fetchAuditLogs || !uid || !rid) return false;
+  const rows = await collectRecentRoleAddsFromAudit(guild, [rid], 3 * 60 * 1000);
+  const match = rows.find((row) => String(row.userId) === uid && String(row.roleId) === rid);
+  const executorId = String(match?.executorId || "").trim();
+  if (!executorId) return false;
+  const botId = String(client?.user?.id || "").trim();
+  if (botId && executorId === botId) return false;
+  const executor =
+    guild.members.cache.get(executorId) ||
+    (await guild.members.fetch(executorId).catch(() => null));
+  if (!executor || executor.user?.bot) return false;
+  return true;
+}
 
 function pickHighestNewPurchasedTier(oldMember, newMember) {
   let best = null;
@@ -35,14 +67,15 @@ function pickHighestNewPurchasedTier(oldMember, newMember) {
   return best;
 }
 
-function buildDonationPackageEmbed(tier, member) {
+function buildDonationPackageEmbed(tier, member, isPurchase = false) {
   const avatarUrl = guildMemberDisplayAvatarUrlDynamic(member, { size: 256 });
   const roleMention = (id) => `<@&${id}>`;
+  const heading = buildDonationPackageHeading(tier, member, isPurchase);
 
   let perkBlock = "";
   if (tier === "donator") {
     perkBlock =
-      `### <a:ThankYou:1329504268369002507> **__GRAZIE ${member.user} PER AVER ACQUISTATO IL PACCHETTO DONATOR!__**\n` +
+      `${heading}\n` +
       "\n" +
       "**Con questo ruolo hai sbloccato i seguenti vantaggi:**\n" +
       "\n" +
@@ -60,7 +93,7 @@ function buildDonationPackageEmbed(tier, member) {
       "<:VC_Logo:1498073401317916803> Trovate tutti i vantaggi del nostro server sul nostro sito [viniliecaffe.it](<https://viniliecaffe.it>)!";
   } else if (tier === "vip") {
     perkBlock =
-      `### <a:ThankYou:1329504268369002507> **__GRAZIE ${member.user} PER AVER ACQUISTATO IL PACCHETTO VIP!__**\n` +
+      `${heading}\n` +
       "\n" +
       "**Con questo ruolo hai sbloccato i seguenti vantaggi:**\n" +
       "\n" +
@@ -78,7 +111,7 @@ function buildDonationPackageEmbed(tier, member) {
       "<:VC_Logo:1498073401317916803> Trovate tutti i vantaggi del nostro server sul nostro sito [viniliecaffe.it](<https://viniliecaffe.it>)!";
   } else {
     perkBlock =
-      `### <a:ThankYou:1329504268369002507> **__GRAZIE ${member.user} PER AVER ACQUISTATO IL PACCHETTO VIP+!__**\n` +
+      `${heading}\n` +
       "\n" +
       "**Con questo ruolo hai sbloccato i seguenti vantaggi:**\n" +
       "\n" +
@@ -153,6 +186,9 @@ async function flushDonationPackageAnnounce(key) {
     member.guild.channels.cache.get(channelId) || (await getGuildChannelCached(member.guild, channelId));
   if (!channel?.isTextBased?.()) return;
 
+  const roleId = ROLE_ID_BY_TIER[tier];
+  const isPurchase = await resolveRoleAddWasManualPurchase(guild, userId, roleId, guild.client);
+
   const staffPing = String(IDs.roles?.Staff || "").trim();
   const content = staffPing
     ? `<a:ThankYou:1329504268369002507> \`|\`  ${member.user} \`|\` <@&${staffPing}>`
@@ -161,7 +197,7 @@ async function flushDonationPackageAnnounce(key) {
   await channel
     .send({
       content,
-      embeds: [buildDonationPackageEmbed(tier, member)],
+      embeds: [buildDonationPackageEmbed(tier, member, isPurchase)],
     })
     .catch(() => null);
 
@@ -175,7 +211,7 @@ function tierForMemberRoles(member) {
   return null;
 }
 
-async function sendDonationPackageAnnounceNow(member, tier) {
+async function sendDonationPackageAnnounceNow(member, tier, opts = {}) {
   const rank = TIER_RANK[tier] || 0;
   if (!tier || !rank || !member?.guild) return { ok: false, reason: "invalid_input" };
   const mainId = String(IDs.guilds?.main || "");
@@ -185,6 +221,16 @@ async function sendDonationPackageAnnounceNow(member, tier) {
   const channel =
     member.guild.channels.cache.get(channelId) || (await getGuildChannelCached(member.guild, channelId));
   if (!channel?.isTextBased?.()) return { ok: false, reason: "channel_not_text" };
+  const roleId = ROLE_ID_BY_TIER[tier];
+  let isPurchase = opts.isPurchase;
+  if (typeof isPurchase !== "boolean") {
+    isPurchase = await resolveRoleAddWasManualPurchase(
+      member.guild,
+      member.id,
+      roleId,
+      member.client || opts.client,
+    );
+  }
   const staffPing = String(IDs.roles?.Staff || "").trim();
   const content = staffPing
     ? `<a:ThankYou:1329504268369002507> \`|\`  ${member.user} \`|\` <@&${staffPing}>`
@@ -192,7 +238,7 @@ async function sendDonationPackageAnnounceNow(member, tier) {
   const sent = await channel
     .send({
       content,
-      embeds: [buildDonationPackageEmbed(tier, member)],
+      embeds: [buildDonationPackageEmbed(tier, member, isPurchase)],
     })
     .catch(() => null);
   if (!sent?.id) return { ok: false, reason: "send_failed" };
@@ -242,13 +288,18 @@ async function recoverDonationPackageAnnouncesOnStartup(client, opts = {}) {
     }
     if (!tier) continue;
     const exists = await botSupportersEmbedExistsForUser(channel, uid, botId, embedSinceMs, (blob) =>
-      /PACCHETTO\s+(DONATOR|VIP)/i.test(blob),
+      /PACCHETTO\s+(DONATOR|VIP)/i.test(blob) || /HAI RICEVUTO IL RUOLO (DONATOR|VIP)/i.test(blob),
     );
     if (exists) continue;
     const member = await getGuildMemberCached(guild, uid, { preferFresh: true }).catch(() => null);
     if (!member?.roles?.cache?.has(rid)) continue;
     const bestTier = tierForMemberRoles(member) || tier;
-    const result = await sendDonationPackageAnnounceNow(member, bestTier);
+    const executorId = String(row.executorId || "").trim();
+    const isPurchase =
+      Boolean(executorId) &&
+      executorId !== botId &&
+      !(await guild.members.fetch(executorId).then((m) => m?.user?.bot).catch(() => true));
+    const result = await sendDonationPackageAnnounceNow(member, bestTier, { isPurchase, client });
     if (result?.ok) {
       recovered += 1;
       global.logger?.info?.("[donation-recovery] announce:", uid, bestTier);

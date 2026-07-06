@@ -1,5 +1,5 @@
 const canvasModule = require("canvas");
-const { formatDuration } = require("../../Services/Community/serverEconomyService");
+const { formatDuration } = require("../../Services/Community/activeEconomyService");
 const { registerCanvasFonts } = require("./canvasFonts");
 const { createCanvas } = canvasModule;
 const TYPE_META = {

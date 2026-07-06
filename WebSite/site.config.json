@@ -34,7 +34,6 @@
   "voteApiUrlLocal": "http://127.0.0.1:3042/webhooks/site-vote",
   "siteNotificationsApiUrl": "/webhooks/site-notifications",
   "siteNotificationsApiUrlLocal": "http://127.0.0.1:3042/webhooks/site-notifications",
-  "siteNotificationsWsEnabled": true,
   "suggestionsApiUrl": "/webhooks/site-suggestions",
   "suggestionsApiUrlLocal": "http://127.0.0.1:3042/webhooks/site-suggestions",
   "rolesApiUrl": "/webhooks/site-roles",
@@ -110,9 +109,9 @@
     "timezone": "Europe/Rome",
     "recurring": { "weekday": 6, "hour": 21, "minute": 0 },
     "overrideIso": "",
-    "linkFilm": "/images/evento-hogwarts/harry-potter-prigioniero-di-azkaban.mp4",
+    "linkFilm": "/images/evento-hogwarts/ven-web.mp4",
     "hogwartsThemeVideoUrl": "https://www.youtube.com/watch?v=YrAA02NlyNE",
-    "filmTitle": "Harry Potter e il prigioniero di Azkaban",
+    "filmTitle": "Harry Potter e il calice di fuoco",
     "adBreak": {
       "enabled": true,
       "videoUrl": "/images/evento-hogwarts/pubblicità.mp4",
@@ -152,6 +151,7 @@
     "guildId": "1329080093599076474",
     "staffRoleIds": [
       "1442568886988963923",
+      "1521562607339704442",
       "1442568893435478097",
       "1502322782602530977",
       "1442568894349840435",
@@ -162,6 +162,7 @@
     ],
     "staffRoleDisplayOrder": [
       "1442568886988963923",
+      "1521562607339704442",
       "1442568893435478097",
       "1502322782602530977",
       "1442568894349840435",

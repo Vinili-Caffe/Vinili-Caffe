@@ -10,7 +10,7 @@ const {
   STAFF_WARN_THREE_NEGATIVES_REASON,
 } = require("../../Services/Staff/staffWarnService");
 const { syncStaffDbAndPauseChannelAfterDepex } = require("../../Utils/Staff/staffPmUtils");
-const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
+const { accountUsername, guildMemberDisplayAvatarUrlDynamic, resolveEmbedUserAvatarUrl } = require("../Discord/guildDiscordIdentity");
 
 async function ensureStaffProfileDoc(profileDoc, guildId, userId) {
   if (profileDoc) {
@@ -27,7 +27,7 @@ async function getStaffDoc(guildId, userId) {
   return ActivityUserProfile.findOne({ guildId: g, userId: u });
 }
 
-function makeLogEmbed(
+async function makeLogEmbed(
   actor,
   user,
   title,
@@ -36,15 +36,19 @@ function makeLogEmbed(
   color = "#6f4e37",
   guild = null,
 ) {
-  const actorLike = actor.member || actor.user;
+  const actorLike = actor?.member || actor?.user || actor;
   const targetMember = guild?.members?.cache?.get(user.id) || null;
+  const [actorIcon, thumb] = await Promise.all([
+    resolveEmbedUserAvatarUrl(actorLike),
+    resolveEmbedUserAvatarUrl(targetMember || user),
+  ]);
   return new EmbedBuilder()
     .setAuthor({
       name: `Valutazione eseguita da ${accountUsername(actorLike)}`,
-      iconURL: guildMemberDisplayAvatarUrlDynamic(actorLike) || undefined,
+      iconURL: actorIcon,
     })
     .setTitle(title)
-    .setThumbnail(guildMemberDisplayAvatarUrlDynamic(targetMember || user) || undefined)
+    .setThumbnail(thumb)
     .setDescription(
       [
         `<:VC_Staff:1494286904089247754> <a:VC_Arrow:1482706699365257397> ${user}`,
@@ -56,16 +60,19 @@ function makeLogEmbed(
 }
 
 /** Embed warn automatico: stesso author/descrizione delle valutazioni da pannello (`makeLogEmbed`). */
-function buildAutoStaffWarnFromNegativesEmbed(actorLike, targetUser, warnCount, guild = null) {
+async function buildAutoStaffWarnFromNegativesEmbed(actorLike, targetUser, warnCount, guild = null) {
   const actorForAuthor = actorLike?.member || actorLike?.user || actorLike;
   const username = accountUsername(actorForAuthor) || "Staff";
   const targetMention = targetUser?.id ? `<@${targetUser.id}>` : String(targetUser || "");
   const targetMember = guild?.members?.cache?.get(targetUser.id) || null;
-  const thumb = guildMemberDisplayAvatarUrlDynamic(targetMember || targetUser);
+  const [actorIcon, thumb] = await Promise.all([
+    resolveEmbedUserAvatarUrl(actorForAuthor),
+    resolveEmbedUserAvatarUrl(targetMember || targetUser),
+  ]);
   return new EmbedBuilder()
     .setAuthor({
       name: `Valutazione eseguita da ${username}`,
-      iconURL: guildMemberDisplayAvatarUrlDynamic(actorForAuthor) || undefined,
+      iconURL: actorIcon,
     })
     .setTitle(`<a:VC_Alert:1482706673176150077> • **__WARN STAFF__** \`#${warnCount}\``)
     .setThumbnail(thumb)
@@ -80,7 +87,7 @@ function buildAutoStaffWarnFromNegativesEmbed(actorLike, targetUser, warnCount, 
 }
 
 function makeRemovalEmbed(actor, user, title, description, reason, updatedLabel, updatedValue) {
-  const actorLike = actor.member || actor.user;
+  const actorLike = actor?.member || actor?.user || actor;
   const safeDescriptionRaw = String(description || "").trim();
   const safeDescription = safeDescriptionRaw
     ? safeDescriptionRaw.replace("{user}", user.toString())
@@ -189,7 +196,7 @@ async function valutazionePositiveAddCore(profileDoc, staffUser, reason, actor, 
   }
   if (!counts) return { message: null };
   const s = await syncProfileStaffFromDb(profileDoc, guildId, userId);
-  const embed = makeLogEmbed(
+  const embed = await makeLogEmbed(
     actor,
     staffUser,
     `<:thumbsup:1471292172145004768> **__VALUTAZIONE POSITIVA__** #${counts.sectionCount}`,
@@ -248,7 +255,7 @@ async function valutazioneNegativeAddCore(guild, profileDoc, staffUser, reason, 
   }
   if (!counts) return { message: null };
   const s = await syncProfileStaffFromDb(profileDoc, guildId, userId);
-  const embed = makeLogEmbed(
+  const embed = await makeLogEmbed(
     actor,
     staffUser,
     `<:thumbsdown:1471292163957457013> **__VALUTAZIONE NEGATIVA__** #${counts.sectionCount}`,
@@ -264,7 +271,7 @@ async function valutazioneNegativeAddCore(guild, profileDoc, staffUser, reason, 
   const warnResult = await addStaffWarnFromNegatives(guild.id, staffUser.id, s.negativeCount, reason);
   const warnChannel = channel?.isTextBased?.() ? channel : null;
   if (warnResult.added && warnChannel) {
-    const warnEmbed = buildAutoStaffWarnFromNegativesEmbed(actor, staffUser, warnResult.warnCount, guild);
+    const warnEmbed = await buildAutoStaffWarnFromNegativesEmbed(actor, staffUser, warnResult.warnCount, guild);
     await warnChannel.send({ content: `${staffUser}`, embeds: [warnEmbed] }).catch(() => null);
     if (warnResult.shouldAskDepex) {
       const staffMemberForThumb = await getGuildMemberCached(guild, staffUser.id).catch(() => null);
@@ -347,8 +354,7 @@ function actorFromMember(member) {
 function memberIsHighStaffOrAbove(member) {
   const cache = member?.roles?.cache;
   if (!cache) return false;
-  const allowRoles = [IDs.roles?.Admin, IDs.roles?.Director, IDs.roles?.Founder, IDs.roles?.HighStaff].filter(Boolean);
-  return allowRoles.some((roleId) => cache.has(roleId));
+  return Boolean(IDs.roles?.HighStaff && cache.has(IDs.roles.HighStaff));
 }
 
 async function removeOldestPositiveValutazioni(s, count, actor, staffUser, channel, guild, removalReason, finalPosLabel) {
@@ -515,7 +521,7 @@ async function valutazioneSelfNegTradeThreePosOneNegCore(profileDoc, staffUser, 
   );
   const negEdited = await editOriginalValutazioneMessage(guildRef, negEntry, negEmbed);
   if (!negEdited) await sendChannelEmbed(channel, { embeds: [negEmbed] });
-  const actorLike = actor.member || actor.user;
+  const actorLike = actor?.member || actor?.user || actor;
   const summary = new EmbedBuilder()
     .setAuthor({
       name: `Valutazione negativa rimossa — ${accountUsername(actorLike)}`,
@@ -566,7 +572,7 @@ async function valutazionePosForPauseTradeCore(profileDoc, staffUser, positiveCo
   s.valPosTradedPauseBonusDays = prevBonus + days;
   profileDoc.markModified("staff");
   await profileDoc.save();
-  const actorLike = actor.member || actor.user;
+  const actorLike = actor?.member || actor?.user || actor;
   const summary = new EmbedBuilder()
     .setAuthor({
       name: `Scambio pause — ${accountUsername(actorLike)}`,
@@ -653,4 +659,4 @@ async function runValutazioneSelfNegTradeForPanel(guild, actorMember, staffUser,
   return runValutazioneNegTradeForPanel(guild, actorMember, staffUser, negativeRemoveId1Based);
 }
 
-module.exports = { buildAutoStaffWarnFromNegativesEmbed, ensureStaffProfileDoc, getStaffDoc, valutazionePositiveAddCore, valutazioneNegativeAddCore, runValutazionePositiveAddForPanel, runValutazioneNegativeAddForPanel, runValutazionePositiveRemoveForPanel, runValutazioneNegativeRemoveForPanel, runValutazioneNegTradeForPanel, runValutazionePosPauseTradeForPanel, runValutazioneSelfNegTradeForPanel };
+module.exports = { buildAutoStaffWarnFromNegativesEmbed, ensureStaffProfileDoc, getStaffDoc, valutazionePositiveAddCore, valutazioneNegativeAddCore, valutazionePositiveRemoveCore, makeRemovalEmbed, runValutazionePositiveAddForPanel, runValutazioneNegativeAddForPanel, runValutazionePositiveRemoveForPanel, runValutazioneNegativeRemoveForPanel, runValutazioneNegTradeForPanel, runValutazionePosPauseTradeForPanel, runValutazioneSelfNegTradeForPanel };

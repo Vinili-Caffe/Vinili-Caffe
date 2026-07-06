@@ -55,7 +55,7 @@ async function collectRecentRoleAddsFromAudit(guild, roleIds, lookbackMs = DEFAU
     for (const c of auditLogChangesArray(entry)) {
       for (const rid of changeNewRoleIds(c)) {
         if (!idSet.has(rid)) continue;
-        rows.push({ userId: targetId, roleId: rid, createdMs });
+        rows.push({ userId: targetId, roleId: rid, createdMs, executorId: String(entry?.executor?.id || "") });
       }
     }
   }

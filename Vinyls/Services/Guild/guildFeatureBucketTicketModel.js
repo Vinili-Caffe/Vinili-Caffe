@@ -35,6 +35,7 @@ function ticketMatchesFilter(t, filter) {
   if (filter.open !== undefined && Boolean(t.open) !== Boolean(filter.open)) return false;
   if (filter.guildId !== undefined && String(t.guildId || "") !== String(filter.guildId)) return false;
   if (filter.userId !== undefined && String(t.userId) !== String(filter.userId)) return false;
+  if (filter.ticketType !== undefined && String(t.ticketType || "") !== String(filter.ticketType)) return false;
   if (filter.ticketNumber !== undefined && Number(t.ticketNumber) !== Number(filter.ticketNumber)) return false;
   if (Object.prototype.hasOwnProperty.call(filter, "claimedBy") && !Array.isArray(filter.$or)) {
     if (String(t.claimedBy || "") !== String(filter.claimedBy || "")) return false;

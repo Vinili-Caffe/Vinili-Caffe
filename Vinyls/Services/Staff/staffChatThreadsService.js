@@ -7,7 +7,13 @@ const {
   getStaffChatHubMessageId,
   setStaffChatHubMessageId,
 } = require("../../Utils/Global/globalSettingsBucket");
-const { addAllRoleMembersToThread, hydrateGuildMembersForRolePings } = require("../../Utils/Discord/threadRoleMembers");
+const { addAllRoleMembersToThread, addUserIdsToThread, hydrateGuildMembersForRolePings } = require("../../Utils/Discord/threadRoleMembers");
+const {
+  resolveStaffThreadQualifyingRoleIds,
+  memberHasStaffThreadAccess,
+  memberQualifiesForStaffThreadSpec,
+  alwaysAccessStaffThreadRoleIds,
+} = require("../../Utils/Staff/staffThreadQualification");
 
 const STAFF_CHAT_THREAD_SPECS = [
   {
@@ -40,20 +46,15 @@ const STAFF_CHAT_THREAD_SPECS = [
 ];
 
 function alwaysAccessRoleIds() {
-  return [IDs.roles?.Founder, IDs.roles?.Admin].filter(Boolean).map(String);
+  return alwaysAccessStaffThreadRoleIds();
 }
 
 function specRoleIds(spec) {
-  return [...new Set([...(spec.roleIds?.() || []), ...alwaysAccessRoleIds()])];
-}
-
-function memberHasAnyRole(member, roleIds) {
-  if (!member?.roles?.cache || !roleIds?.length) return false;
-  return roleIds.some((rid) => member.roles.cache.has(String(rid)));
+  return resolveStaffThreadQualifyingRoleIds(spec);
 }
 
 function memberQualifiesForSpec(member, spec) {
-  return memberHasAnyRole(member, specRoleIds(spec));
+  return memberQualifiesForStaffThreadSpec(member, spec);
 }
 
 function buildStaffChatParentRoleOverwrite(roleId) {
@@ -119,22 +120,33 @@ async function deleteThreadOpeningMessage(thread) {
 async function populateThreadMembers(thread, guild, spec, opts = {}) {
   const roleIds = specRoleIds(spec);
   const logTag = opts.logTag || "[STAFF CHAT THREAD]";
+  if (thread?.members?.fetch) {
+    await thread.members.fetch().catch(() => null);
+  }
   if (opts.hydrate !== false) {
     await hydrateGuildMembersForRolePings(guild, logTag);
   }
   for (const roleId of roleIds) {
     await addAllRoleMembersToThread(thread, guild, roleId, { logTag, hydrate: false });
   }
+  const reviewerUserIds = spec.reviewerUserIds?.() || [];
+  if (reviewerUserIds.length) {
+    await addUserIdsToThread(thread, reviewerUserIds, { logTag });
+  }
 }
 
 async function sendThreadIntro(thread, spec) {
   const roleIds = spec.roleIds?.() || [];
-  const mentions = roleIds.map((rid) => `<@&${rid}>`).join(" ");
+  const userIds = spec.reviewerUserIds?.() || [];
+  const mentions = [
+    ...roleIds.map((rid) => `<@&${rid}>`),
+    ...userIds.map((uid) => `<@${uid}>`),
+  ].join(" ");
   const content = spec.introLines(mentions).join("\n");
   await thread
     .send({
       content,
-      allowedMentions: { roles: roleIds },
+      allowedMentions: { roles: roleIds, users: userIds },
     })
     .catch((err) => {
       global.logger?.warn?.("[STAFF CHAT THREAD] Intro fallita:", spec.key, err?.message || err);
@@ -252,25 +264,24 @@ async function syncStaffChatThreadsForMemberChange(oldMember, newMember) {
     const thread =
       client.channels?.cache?.get(threadId) || (await client.channels.fetch(threadId).catch(() => null));
     if (!thread?.isThread?.() || !thread.members) continue;
-    const had = memberQualifiesForSpec(oldMember, spec);
-    const has = memberQualifiesForSpec(newMember, spec);
+    const had = memberHasStaffThreadAccess(oldMember, spec);
+    const has = memberHasStaffThreadAccess(newMember, spec);
     if (had === has) continue;
-    if (had && !has) {
+    if (had === true && has === false) {
       await thread.members.remove(newMember.id).catch(() => {});
       continue;
     }
-    if (!had && has) {
-      const parentId = String(IDs.channels?.staffChat || "").trim();
-      const parent =
-        newMember.guild.channels.cache.get(parentId) ||
-        (await getGuildChannelCached(newMember.guild, parentId).catch(() => null));
-      if (parent) {
-        for (const roleId of spec.roleIds?.() || []) {
-          await ensureStaffChatParentRoleOverwrite(parent, roleId);
-        }
+    if (has !== true) continue;
+    const parentId = String(IDs.channels?.staffChat || "").trim();
+    const parent =
+      newMember.guild.channels.cache.get(parentId) ||
+      (await getGuildChannelCached(newMember.guild, parentId).catch(() => null));
+    if (parent) {
+      for (const roleId of spec.roleIds?.() || []) {
+        await ensureStaffChatParentRoleOverwrite(parent, roleId);
       }
-      await thread.members.add(newMember.id).catch(() => {});
     }
+    await thread.members.add(newMember.id).catch(() => {});
   }
 }
 

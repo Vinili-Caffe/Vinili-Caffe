@@ -496,7 +496,9 @@ async function syncAllStaffAutoValutazioni(client, options = {}) {
 
 async function runStaffAutoValutazioniSyncLocked(client, source = "loop") {
   if (autoValutazioniSyncRunning) {
-    global.logger?.warn?.(`[STAFF AUTO VALUTAZIONI] ${source} skipped: previous sync still running.`);
+    if (source !== "loop") {
+      global.logger?.warn?.(`[STAFF AUTO VALUTAZIONI] ${source} skipped: previous sync still running.`);
+    }
     return;
   }
   autoValutazioniSyncRunning = true;
@@ -522,15 +524,20 @@ function startStaffAutoValutazioniLoop(client) {
     autoValutazioniCleanupStarted = true;
     cleanupMalformedAutoValutazioni().catch(() => null);
   }
+  const scheduleCron = () => {
+    if (client.__staffAutoValutazioniCronStarted) return;
+    client.__staffAutoValutazioniCronStarted = true;
+    cron.schedule(
+      AUTO_SYNC_CRON,
+      runCronDetached("[STAFF AUTO VALUTAZIONI] cron", () => runStaffAutoValutazioniSyncLocked(client, "loop")),
+      { timezone: "Europe/Rome", noOverlap: true },
+    );
+  };
   const firstSync = setTimeout(() => {
-    runStaffAutoValutazioniSyncLocked(client, "first_sync");
+    runStaffAutoValutazioniSyncLocked(client, "first_sync")
+      .finally(() => scheduleCron());
   }, 15_000);
   firstSync.unref?.();
-  cron.schedule(
-    AUTO_SYNC_CRON,
-    runCronDetached("[STAFF AUTO VALUTAZIONI] cron", () => runStaffAutoValutazioniSyncLocked(client, "loop")),
-    { timezone: "Europe/Rome", noOverlap: true },
-  );
 }
 
 function isSerataFilmEvent(event) {
@@ -615,12 +622,7 @@ async function finishSerataFilmSession(event) {
     if (hasActiveAcceptedStaffPause(pauses, evalDateUtc)) continue;
     const ms = Number(session.attendanceMs.get(uid) || 0);
     const staffAttendance = attendanceByUserId.get(uid);
-    if (ms >= SERATA_FILM_MIN_MS) {
-      await ensureAutoValutazione(guild, member, `serata_film:${session.eventId}`, "positive", "Si presenta durante la serata film per almeno 30 minuti.").catch((err) => {
-        global.logger?.warn?.("[STAFF AUTO VALUTAZIONI] serata film positive failed:", member.id, err?.message || err);
-      });
-      continue;
-    }
+    if (ms >= SERATA_FILM_MIN_MS) continue;
     if (isSerataFilmAbsentExcused(staffAttendance, saturdayKey)) continue;
     await ensureAutoValutazione(guild, member, `serata_film:${session.eventId}`, "negative", "Non si presenta durante la serata film o rimane per meno di 30 minuti.").catch((err) => {
       global.logger?.warn?.("[STAFF AUTO VALUTAZIONI] serata film negative failed:", member.id, err?.message || err);

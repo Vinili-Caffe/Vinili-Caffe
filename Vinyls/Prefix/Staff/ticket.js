@@ -5,6 +5,7 @@ const { TICKETS_CATEGORY_NAME, isChannelInTicketCategory } = require("../../Util
 const { buildTicketChannelName, resolveTicketRenamePrefix, sanitizeTicketChannelTail } = require("../../Utils/Ticket/ticketNamingRuntime");
 const { getTicketPanelConfig } = require("../../Utils/Ticket/ticketPanelConfig");
 const { PERKS_STAFF_ROLE_IDS, PERKS_PING_ROLE_IDS, memberCanAccessPerksTicket, buildPerksPingMention } = require("../../Utils/Ticket/ticketPerksStaffRoles");
+const { PARTNERSHIP_TICKET_STAFF_ROLE_IDS, memberCanAccessPartnershipTicket, buildPartnershipTicketReviewerCreateOverwrites } = require("../../Utils/Ticket/ticketPartnershipStaffRoles");
 const IDs = require("../../Utils/Config/ids");
 const { getClientGuildCached, getGuildChannelCached, getGuildMemberCached, } = require("../../Utils/Interaction/interactionEntityCache");
 const STAFF_ROLE_ID = IDs.roles.Staff;
@@ -22,7 +23,7 @@ function hasAnyRole(member, roleIds = []) {
 function canClaimTicket(member, ticketType, _guildId = null) {
   if (!member) return false;
   const isSupport = ticketType === "supporto" && hasAnyRole(member, STAFF_ROLE_IDS);
-  const isPartnership = ticketType === "partnership" && (member.roles.cache.has(PARTNERMANAGER_ROLE_ID) || member.roles.cache.has(HIGHSTAFF_ROLE_ID));
+  const isPartnership = ticketType === "partnership" && memberCanAccessPartnershipTicket(member);
   const isHigh = ticketType === "high" && member.roles.cache.has(HIGHSTAFF_ROLE_ID);
   const isPerks = ticketType === "perks" && memberCanAccessPerksTicket(member);
   return isSupport || isPartnership || isHigh || isPerks;
@@ -76,17 +77,15 @@ function getTicketChannelPermissionOverwrites(guild, userId, ticketType) {
       },
     );
   } else if (ticketType === "partnership") {
+    for (const roleId of PARTNERSHIP_TICKET_STAFF_ROLE_IDS) {
+      base.push({
+        id: roleId,
+        allow: TICKET_SPECTATE_STAFF_ALLOW,
+        deny: TICKET_SPECTATE_STAFF_DENY,
+      });
+    }
+    base.push(...buildPartnershipTicketReviewerCreateOverwrites());
     base.push(
-      {
-        id: PARTNERMANAGER_ROLE_ID,
-        allow: TICKET_SPECTATE_STAFF_ALLOW,
-        deny: TICKET_SPECTATE_STAFF_DENY,
-      },
-      {
-        id: HIGHSTAFF_ROLE_ID,
-        allow: TICKET_SPECTATE_STAFF_ALLOW,
-        deny: TICKET_SPECTATE_STAFF_DENY,
-      },
       {
         id: STAFF_ROLE_ID,
         deny: [PermissionFlagsBits.ViewChannel],
@@ -297,21 +296,13 @@ async function ticketSwitchPanelExecute(message, categoryToken) {
         }
 
         if (panelConfig.type === "partnership") {
-          if (ticketDoc.claimedBy) {
+          for (const roleId of PARTNERSHIP_TICKET_STAFF_ROLE_IDS) {
             await targetChannel.permissionOverwrites
-              .edit(PARTNERMANAGER_ROLE_ID, applyReadOnly)
-              .catch(() => { });
-            await targetChannel.permissionOverwrites
-              .edit(HIGHSTAFF_ROLE_ID, applyReadOnly)
-              .catch(() => { });
-          } else {
-            await targetChannel.permissionOverwrites
-              .edit(PARTNERMANAGER_ROLE_ID, applyReadOnly)
-              .catch(() => { });
-            await targetChannel.permissionOverwrites
-              .edit(HIGHSTAFF_ROLE_ID, applyReadOnly)
+              .edit(roleId, applyReadOnly)
               .catch(() => { });
           }
+          const { applyPartnershipTicketReviewerOverwrites } = require("../../Utils/Ticket/ticketPartnershipStaffRoles");
+          await applyPartnershipTicketReviewerOverwrites(targetChannel);
           await targetChannel.permissionOverwrites
             .edit(STAFF_ROLE_ID, roleHideFromTicket)
             .catch(() => { });

@@ -205,10 +205,10 @@
     try {
       sessionStorage.removeItem(OAUTH_PENDING_RETURN_KEY);
     } catch (eR) {}
-    var expiresInSec = Math.floor(Number(p.get("expires_in") || 0));
+    var expiresInSec = Number(p.get("expires_in") || "0");
     var exp =
       expiresInSec > 0
-        ? Date.now() + Math.max(60, expiresInSec) * 1000
+        ? Date.now() + Math.min(SITE_SESSION_TTL_MS, Math.max(60_000, expiresInSec * 1000))
         : Date.now() + SITE_SESSION_TTL_MS;
     localStorage.setItem(ACCESS_TOKEN_KEY, t);
     localStorage.setItem(EXPIRES_AT_KEY, String(exp));
@@ -227,7 +227,6 @@
 
   try {
     window.__vcDiscordGetAccessToken = getToken;
-    window.__vcDiscordClearSession = clearToken;
   } catch (eGt) {}
 
   function clearToken() {
@@ -844,13 +843,6 @@
       if (getToken()) return;
       if (window.__VC_DISCORD_PROFILE) renderLoggedOut();
     } catch (eVis) {}
-  });
-
-  window.addEventListener("vc-discord-session-expired", function () {
-    try {
-      clearToken();
-      renderLoggedOut();
-    } catch (eSess) {}
   });
 
   if (document.readyState === "loading") {

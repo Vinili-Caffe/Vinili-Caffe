@@ -494,6 +494,8 @@
     var hasFounder = includesAnyRole(names, ["founder", "fondatore"]);
     if (hasFounder) add("founder", "fa-star-o", "Founder");
 
+    if (includesAnyRole(names, ["manager"])) add("manager", "fa-briefcase", "Manager");
+
     if (includesAnyRole(names, ["high staff", "staff", "admin", "mod", "moderator", "helper", "community manager"])) {
       add("staff", "fa-shield", "Staff");
     }

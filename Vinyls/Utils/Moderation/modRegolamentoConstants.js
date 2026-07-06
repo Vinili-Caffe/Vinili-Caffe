@@ -39,10 +39,6 @@ const BUCKET_VIOLATION_KEYS = {
   ]),
 };
 
-/**
- * Passi per famiglia: timeout (ms) o ban effettivo.
- * 2.4: warn/delete prima tramite heat; poi mute 3 h → 6 h.
- */
 const AUTOMOD_REGOLA_STEPS = {
   "1_2": [
     { type: "timeout", ms: 4 * 60 * 60_000 },

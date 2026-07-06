@@ -77,6 +77,7 @@ const recentQuestionKeysByChannel = new Map();
 const hogwartsQuizDeckByChannel = new Map();
 const hogwartsPodiumByChannel = new Map();
 const hogwartsPodiumRegisterQueues = new Map();
+const hogwartsPodiumPendingAwards = new Map();
 const minigameChannelExclusiveQueues = new Map();
 const hogwartsUnsortedWinnersByChannel = new Map();
 const REWARD_CHANNEL_ID = IDs.channels.commands;
@@ -618,6 +619,14 @@ function getConfig(client) {
     findBot: {
       ...(cfg.findBot || {}),
       requiredRoleId: IDs.roles.Member,
+    },
+    findBotVoice: {
+      ...(cfg.findBotVoice || {}),
+      requiredRoleId: IDs.roles.Member,
+      excludedChannelIds:
+        cfg.findBotVoice?.excludedChannelIds ||
+        cfg.findBot?.excludedChannelIds ||
+        [],
     },
   };
   if (hogwartsEventLive && hogwartsExclusiveDuringEvent) {
@@ -1592,6 +1601,7 @@ function appendHogwartsEventBonusGameTypes(cfg, types) {
   tryPush("drivingQuiz", cfg?.drivingQuiz !== false);
   tryPush("mathExpression", cfg?.mathExpression !== false);
   tryPush("findBot", cfg?.findBot !== false);
+  tryPush("findBotVoice", cfg?.findBotVoice !== false);
   tryPush("memoryEmoji", cfg?.memoryEmoji !== false && getMemoryEmojiBank().length);
   tryPush("guessYear", cfg?.guessYear !== false);
   tryPush("completeVerse", cfg?.completeVerse !== false);
@@ -1905,12 +1915,7 @@ function clearStaleMinigameChannelGame(channelId, client, cfg) {
   if (!id) return false;
   const game = activeGames.get(id);
   if (!game || !isStaleOrInvalidActiveGame(game)) return false;
-  if (game.timeout) clearTimeout(game.timeout);
-  if (game.hintTimeout) clearTimeout(game.hintTimeout);
-  if (game.revealTimeout) clearTimeout(game.revealTimeout);
-  recordNoParticipationIfNeeded(id, game);
-  activeGames.delete(id);
-  if (client && cfg) clearActiveGame(client, { ...cfg, channelId: id }).catch(() => { });
+  void closeStaleActiveMinigameChannel(client, cfg, id, game).catch((err) => warnMinigame(err));
   return true;
 }
 
@@ -1949,6 +1954,28 @@ function isStaleOrInvalidActiveGame(game, nowMs = Date.now()) {
   const endsAt = Number(game.endsAt || 0);
   if (!Number.isFinite(endsAt) || endsAt <= 0) return true;
   return nowMs >= endsAt;
+}
+
+async function closeStaleActiveMinigameChannel(client, cfg, channelId, game, channel = null) {
+  if (!game || !isStaleOrInvalidActiveGame(game)) return false;
+  const chId = String(channelId || cfg?.channelId || "").trim();
+  if (!chId) return false;
+  clearMinigameRoundTimers(game);
+  recordNoParticipationIfNeeded(chId, game);
+  const targetChannel = channel || (await getChannelCached(client, chId));
+  const closeCfg = { ...cfg, channelId: chId };
+  if (!closeCfg.guildId && targetChannel?.guild?.id) {
+    closeCfg.guildId = String(targetChannel.guild.id);
+  }
+  await sendMinigameTimeoutAndClose(
+    client,
+    closeCfg,
+    chId,
+    targetChannel,
+    game,
+    buildMinigameTimeoutEmbedForGame(game),
+  ).catch((err) => warnMinigame(err));
+  return true;
 }
 
 async function saveActiveGame(client, cfg, payload) {
@@ -1998,7 +2025,11 @@ async function purgeExpiredMinigameDbState(client, cfg) {
   const snapshot = { type: state.type };
   restoreHogwartsPodiumFromState(channelId, state, snapshot);
   if (isHogwartsPodiumWinMode(cfg, state.type, snapshot) && isHogwartsPodiumRoundComplete(snapshot, channelId)) {
-    await clearActiveGame(client, { ...cfg, guildId, channelId });
+    if (state.type === "treasureHunt" && channel) {
+      await recoverTreasureHuntPodiumLeaderboard(client, { ...cfg, guildId }, channel, state);
+    } else {
+      await clearActiveGame(client, { ...cfg, guildId, channelId });
+    }
   }
 }
 
@@ -2026,10 +2057,34 @@ async function clearActiveGame(client, cfg) {
 
 function clearMinigameRoundTimers(game) {
   if (!game || typeof game !== "object") return;
-  if (game.timeout) clearTimeout(game.timeout);
-  if (game.hintTimeout) clearTimeout(game.hintTimeout);
-  if (game.revealTimeout) clearTimeout(game.revealTimeout);
-  if (Array.isArray(game.censorRevealTimeouts)) game.censorRevealTimeouts.forEach((t) => clearTimeout(t));
+  if (game.timeout) {
+    clearTimeout(game.timeout);
+    game.timeout = null;
+  }
+  if (game.hintTimeout) {
+    clearTimeout(game.hintTimeout);
+    game.hintTimeout = null;
+  }
+  if (game.revealTimeout) {
+    clearTimeout(game.revealTimeout);
+    game.revealTimeout = null;
+  }
+  if (Array.isArray(game.censorRevealTimeouts)) {
+    game.censorRevealTimeouts.forEach((t) => clearTimeout(t));
+    game.censorRevealTimeouts = [];
+  }
+}
+
+function markMinigameRoundClosed(game) {
+  if (!game || typeof game !== "object") return;
+  game._roundClosed = true;
+}
+
+function shouldAbortMinigameTimeoutClose(game, channelId) {
+  const chId = String(channelId || "").trim();
+  if (!game || game._roundClosed) return true;
+  if (!chId) return true;
+  return !activeGames.has(chId);
 }
 
 async function beginMinigameWinClose(client, cfg, game = null) {
@@ -2037,6 +2092,7 @@ async function beginMinigameWinClose(client, cfg, game = null) {
   if (!channelId) return false;
   if (!tryClaimMinigameChannelClose(channelId)) return false;
   const live = activeGames.get(channelId) || game;
+  markMinigameRoundClosed(live);
   clearMinigameRoundTimers(live);
   activeGames.delete(channelId);
   let guildId = String(cfg?.guildId || "").trim();
@@ -5494,6 +5550,20 @@ function buildFindBotButtonEmbed(rewardExp, durationMs) {
     );
 }
 
+function buildFindBotVoiceEmbed(rewardExp, durationMs) {
+  const minutes = Math.max(1, Math.round(durationMs / 60000));
+  return new EmbedBuilder()
+    .setColor("#6f4e37")
+    .setTitle("Trova il bot in vocale <a:VC_Exclamation:1482534702077444217>")
+    .setDescription(
+      [
+        `<:VC_EXP:1482534670896730143> Il bot si è nascosto in una **vocale vuota** del server: entra in quella vocale per ottenere **${rewardExp} exp**.`,
+        `> <a:VC_pixeltime:1482535344103620771> Hai ${formatItalianMinutesBold(minutes)} per trovarlo.`,
+        `> <a:VC_Winner:1482535294757507255> Esegui il comando \`+mstats\` per vedere le tue statistiche dei minigiochi.`,
+      ].join("\n"),
+    );
+}
+
 function buildFindScrollEmbed(rewardExp, durationMs) {
   const minutes = Math.max(1, Math.round(durationMs / 60000));
   return new EmbedBuilder()
@@ -5874,6 +5944,14 @@ function buildTimeoutFindBotEmbed() {
     );
 }
 
+function buildTimeoutFindBotVoiceEmbed() {
+  return new EmbedBuilder()
+    .setColor("#6f4e37")
+    .setDescription(
+      "<a:VC_pixeltime:1482535344103620771> Tempo scaduto! Nessuno è entrato nella vocale del bot.",
+    );
+}
+
 function buildTimeoutFindScrollEmbed() {
   return new EmbedBuilder()
     .setColor("#6f4e37")
@@ -5884,16 +5962,20 @@ function buildTimeoutFindScrollEmbed() {
 
 function buildHogwartsMemorySequenceEmbed(sequence, rewardExp, displayMs) {
   const seconds = Math.max(1, Math.round(Number(displayMs || 8000) / 1000));
+  const safeSequence = String(sequence || "").trim();
   return new EmbedBuilder()
     .setColor("#6f4e37")
     .setTitle("Memoria <a:VC_Exclamation:1482534702077444217>")
     .setDescription([
       `<:VC_EXP:1482534670896730143> Memorizza questa sequenza e riscrivila per ottenere **${rewardExp} exp**.`,
       "",
-      `# ${sequence}`,
-      "",
       `> <a:VC_pixeltime:1482535344103620771> La sequenza sparirà tra **${seconds} secondi**.`,
-    ].join("\n"));
+    ].join("\n"))
+    .addFields({
+      name: "Sequenza",
+      value: safeSequence || "—",
+      inline: false,
+    });
 }
 
 function buildHogwartsMemoryRecallEmbed(durationMs) {
@@ -6304,6 +6386,7 @@ function getAvailableGameTypes(cfg) {
   if (cfg?.drivingQuiz !== false) types.push("drivingQuiz");
   if (cfg?.mathExpression !== false) types.push("mathExpression");
   if (cfg?.findBot !== false) types.push("findBot");
+  if (cfg?.findBotVoice !== false) types.push("findBotVoice");
   if (cfg?.findScroll !== false && cfg?.findScroll?.eventLive && cfg?.findScroll?.unlocked) types.push("findScroll");
   if (cfg?.memoryEmoji !== false && getMemoryEmojiBank().length) types.push("memoryEmoji");
   if (cfg?.hogwartsMemoryEmoji !== false && cfg?.hogwartsMemoryEmoji?.eventLive && cfg?.hogwartsMemoryEmoji?.unlocked && getHogwartsMemoryEmojiBank().length) types.push("hogwartsMemoryEmoji");
@@ -6381,6 +6464,46 @@ async function runHogwartsPodiumRegisterExclusive(channelId, task) {
       hogwartsPodiumRegisterQueues.delete(key);
     }
   }
+}
+
+function trackHogwartsPodiumAward(channelId, awardPromise) {
+  const key = String(channelId || "").trim();
+  if (!key) return awardPromise;
+  let bucket = hogwartsPodiumPendingAwards.get(key);
+  if (!bucket) {
+    bucket = new Set();
+    hogwartsPodiumPendingAwards.set(key, bucket);
+  }
+  const tracked = Promise.resolve(awardPromise).finally(() => {
+    bucket.delete(tracked);
+    if (bucket.size === 0) hogwartsPodiumPendingAwards.delete(key);
+  });
+  bucket.add(tracked);
+  return tracked;
+}
+
+async function waitForHogwartsPodiumPendingAwards(channelId) {
+  const key = String(channelId || "").trim();
+  const bucket = hogwartsPodiumPendingAwards.get(key);
+  if (!bucket?.size) return;
+  await Promise.allSettled([...bucket]);
+}
+
+function hogwartsPodiumRowsMissingAwards(game, channelId = "") {
+  const podium = ensureHogwartsPodium(game, channelId);
+  return podium.filter((row) => !row.award || typeof row.award !== "object");
+}
+
+async function awaitHogwartsPodiumAwardsReady(channelId, game, maxMs = 10_000) {
+  const chId = String(channelId || "").trim();
+  if (!chId || !game) return game;
+  const deadline = Date.now() + Math.max(1000, Number(maxMs) || 10_000);
+  while (Date.now() < deadline) {
+    await waitForHogwartsPodiumPendingAwards(chId);
+    if (!hogwartsPodiumRowsMissingAwards(game, chId).length) return game;
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  return game;
 }
 
 function getHogwartsHousePointReward(cfg, gameType, game = null) {
@@ -6876,6 +6999,7 @@ function clearHogwartsPodiumChannel(channelId) {
   if (!id) return;
   hogwartsPodiumByChannel.delete(id);
   hogwartsUnsortedWinnersByChannel.delete(id);
+  hogwartsPodiumPendingAwards.delete(id);
 }
 
 function isHogwartsPodiumRoundComplete(game, channelId = "") {
@@ -6888,14 +7012,18 @@ async function closeHogwartsPodiumRoundIfComplete(client, cfg, game, channelId, 
   if (!game || !chId) return false;
   if (!isHogwartsPodiumWinMode(cfg, game.type, game)) return false;
   if (!isHogwartsPodiumRoundComplete(game, chId)) return false;
-  if (!activeGames.has(chId)) return true;
-  if (channelWinClosing.has(chId)) return true;
+  if (game._podiumClosing || channelWinClosing.has(chId)) return true;
+  const live = activeGames.get(chId);
+  if (live && live !== game) {
+    ensureHogwartsPodium(live, chId);
+    game = live;
+  }
+  markMinigameRoundClosed(game);
   game._podiumClosing = true;
   game._claiming = true;
   blockMinigameRehydrate(chId);
   clearMinigameRoundTimers(game);
   clearNoParticipationDelay(chId);
-  if (game.timeout) clearTimeout(game.timeout);
   const clearCfg = { ...cfg, channelId: chId };
   let guildId = String(clearCfg.guildId || "").trim();
   const targetChannel = channel || (await getChannelCached(client, chId));
@@ -6905,6 +7033,13 @@ async function closeHogwartsPodiumRoundIfComplete(client, cfg, game, channelId, 
   }
   if (typeof options.beforeClose === "function") {
     await options.beforeClose().catch(() => { });
+  }
+  await waitForHogwartsPodiumPendingAwards(chId);
+  await awaitHogwartsPodiumAwardsReady(chId, game);
+  const refreshed = activeGames.get(chId);
+  if (refreshed && refreshed !== game) {
+    ensureHogwartsPodium(refreshed, chId);
+    game = refreshed;
   }
   if (game.type === "treasureHunt" && targetChannel) {
     await cleanupTreasureHuntReactions(targetChannel, game).catch(() => { });
@@ -7000,16 +7135,50 @@ function buildHogwartsPodiumSummaryEmbed(cfg, gameType, podium, options = {}) {
     .setDescription(lines.join("\n\n") + (lines.length ? `\n\n${footer}` : footer));
 }
 
-function storeHogwartsPodiumEntryAward(game, userId, award) {
+function storeHogwartsPodiumEntryAward(game, userId, award, channelId = "") {
   const uid = String(userId || "").trim();
   if (!uid || !award) return;
-  const row = ensureHogwartsPodium(game).find((entry) => entry.userId === uid);
+  const chId = String(channelId || "").trim();
+  const row = ensureHogwartsPodium(game, chId).find((entry) => entry.userId === uid);
   if (!row) return;
   row.award = {
     effectiveExp: Number(award.effectiveExp || 0),
     nextTotal: Number(award.nextTotal || 0),
     details: award.details || null,
   };
+  if (chId && Array.isArray(game?.hogwartsPodium)) {
+    hogwartsPodiumByChannel.set(chId, game.hogwartsPodium.slice());
+  }
+}
+
+async function grantAndStoreHogwartsPodiumAward({
+  client,
+  guild,
+  userId,
+  cfg,
+  game,
+  channelId,
+  reg,
+}) {
+  const award = await trackHogwartsPodiumAward(
+    channelId,
+    awardMinigameWinToUser({
+      client,
+      guild,
+      userId,
+      cfg,
+      game,
+      rewardExp: game.rewardExp,
+      housePointAmount: getHogwartsPodiumPlaceHousePoints(cfg, game?.type, reg.entry.place),
+      podiumMeta: { place: reg.entry.place + 1, houseId: reg.entry.houseId },
+      channelId,
+    }),
+  );
+  storeHogwartsPodiumEntryAward(game, userId, award, channelId);
+  if (award.member) {
+    await handleExpReward(client, award.member, award.nextTotal);
+  }
+  return award;
 }
 
 function buildMinigameTimeoutEmbedForGame(game) {
@@ -7061,6 +7230,8 @@ function buildMinigameTimeoutEmbedForGame(game) {
       return buildTimeoutMathEmbed(String(game.answer ?? "0"));
     case "findBot":
       return buildTimeoutFindBotEmbed();
+    case "findBotVoice":
+      return buildTimeoutFindBotVoiceEmbed();
     case "findScroll":
       return buildTimeoutFindScrollEmbed();
     case "guessYear":
@@ -7202,6 +7373,7 @@ function buildGameSnapshotFromPersistedState(state) {
       game.answers = parsed?.answers || [];
       return game;
     case "findBot":
+    case "findBotVoice":
     case "findScroll":
       return game;
     default:
@@ -7223,7 +7395,11 @@ async function deleteFindMinigameRemoteMessage(guild, gameOrState) {
 
 async function finalizeFindMinigameTimeout(client, cfg, mainChannelId, mainChannel, game, buildTimeoutEmbed) {
   if (!game) return;
-  await deleteFindMinigameRemoteMessage(mainChannel?.guild, game);
+  if (game.type === "findBotVoice") {
+    await leaveFindBotVoiceChannel(mainChannel?.guild?.id);
+  } else {
+    await deleteFindMinigameRemoteMessage(mainChannel?.guild, game);
+  }
   await sendMinigameTimeoutAndClose(client, cfg, mainChannelId, mainChannel, game, buildTimeoutEmbed());
 }
 
@@ -7290,6 +7466,9 @@ async function closeExpiredMinigameState(client, cfg, channel, state) {
   if (type === "findBot" || type === "findScroll") {
     await deleteFindMinigameRemoteMessage(channel.guild, state);
   }
+  if (type === "findBotVoice") {
+    await leaveFindBotVoiceChannel(channel.guild?.id);
+  }
 }
 
 function scheduleMinigameRoundTimeout(client, cfg, channelId, channel, durationMs) {
@@ -7297,12 +7476,13 @@ function scheduleMinigameRoundTimeout(client, cfg, channelId, channel, durationM
     const chId = String(channelId || "").trim();
     if (channelWinClosing.has(chId)) return;
     const game = activeGames.get(chId);
-    if (!game) return;
+    if (shouldAbortMinigameTimeoutClose(game, chId)) return;
     if (game.type === "hogwartsObservationTower") {
       if (game._finishClaimed || game._finishEmbedSent) return;
       await finishObservationTowerTimeout(client, cfg, chId, channel, game);
       return;
     }
+    if (shouldAbortMinigameTimeoutClose(game, chId)) return;
     await sendMinigameTimeoutAndClose(client, cfg, chId, channel, game, buildMinigameTimeoutEmbedForGame(game));
   }, durationMs);
   timer.unref?.();
@@ -7310,8 +7490,8 @@ function scheduleMinigameRoundTimeout(client, cfg, channelId, channel, durationM
 }
 
 async function sendMinigameTimeoutAndClose(client, cfg, channelId, channel, game, timeoutEmbed) {
-  if (!game) return;
   const chId = String(channelId || "").trim();
+  if (shouldAbortMinigameTimeoutClose(game, chId)) return;
   if (!tryClaimMinigameChannelClose(chId)) return;
   try {
     recordNoParticipationIfNeeded(chId, game);
@@ -8922,7 +9102,7 @@ async function awardObservationTowerParticipants(client, cfg, guild, participant
 }
 
 function tryClaimObservationTowerFinish(game, channelId) {
-  if (!game || game._finishEmbedSent || game._finishClaimed) return false;
+  if (!game || game._finishEmbedSent || game._finishClaimed || game._finishAwardsGiven) return false;
   const chId = String(channelId || "").trim();
   if (!tryClaimMinigameChannelClose(chId)) return false;
   game._finishClaimed = true;
@@ -8938,6 +9118,28 @@ function tryClaimObservationTowerEmbed(game) {
   if (!game || game._finishEmbedSent) return false;
   game._finishEmbedSent = true;
   return true;
+}
+
+function tryClaimObservationTowerAwards(game) {
+  if (!game || game._finishAwardsGiven) return false;
+  game._finishAwardsGiven = true;
+  return true;
+}
+
+function observationTowerMessageAlreadyProcessed(game, messageId) {
+  const mid = String(messageId || "").trim();
+  if (!mid || !game) return false;
+  if (!game._processedBrickMessageIds) game._processedBrickMessageIds = new Set();
+  if (game._processedBrickMessageIds.has(mid)) return true;
+  game._processedBrickMessageIds.add(mid);
+  if (game._processedBrickMessageIds.size > 400) {
+    const drop = game._processedBrickMessageIds.size - 300;
+    for (const id of game._processedBrickMessageIds) {
+      game._processedBrickMessageIds.delete(id);
+      if (drop <= 0) break;
+    }
+  }
+  return false;
 }
 
 async function finishObservationTowerTimeout(client, cfg, channelId, channel, game) {
@@ -8960,10 +9162,13 @@ async function finishObservationTowerTimeout(client, cfg, channelId, channel, ga
 }
 
 async function finishObservationTowerSuccess(client, cfg, channel, game) {
-  if (!channel?.guild || !game || game._finishEmbedSent) return;
+  if (!channel?.guild || !game || game._finishEmbedSent || game._finishAwardsGiven) return;
   const channelId = String(cfg?.channelId || "").trim();
   if (!game._finishClaimed && !tryClaimObservationTowerFinish(game, channelId)) return;
+  if (!tryClaimObservationTowerAwards(game)) return;
+  if (!tryClaimObservationTowerEmbed(game)) return;
   try {
+    await clearActiveGame(client, { ...cfg, guildId: channel.guild.id, channelId });
     const soloHouseId = String(game.soloHouseId || game.hogwartsHouseChannel?.soloHouseId || "").trim();
     const housePoints = Math.max(0, Math.floor(Number(game.housePoints) || 0));
     const unsortedHousePoints = soloHouseId ? 0 : getHogwartsUnsortedHousePointReward(cfg, "hogwartsObservationTower");
@@ -9005,7 +9210,6 @@ async function finishObservationTowerSuccess(client, cfg, channel, game) {
     const displayHousePoints = soloHouseId
       ? (soloHouseAward ? housePoints : 0)
       : (housesAwarded > 0 ? housePoints : 0);
-    if (!tryClaimObservationTowerEmbed(game)) return;
     await sendMinigameMessage(channel, {
       embeds: [
         buildObservationTowerSuccessEmbed(
@@ -9020,7 +9224,6 @@ async function finishObservationTowerSuccess(client, cfg, channel, game) {
         ),
       ],
     }).catch(() => { });
-    await clearActiveGame(client, { ...cfg, guildId: channel.guild.id });
   } finally {
     endMinigameWinClose(channelId);
   }
@@ -9028,6 +9231,7 @@ async function finishObservationTowerSuccess(client, cfg, channel, game) {
 
 async function processObservationTowerMessage(message, client, cfg, game) {
   if (await rejectIfBasiliskBlockedMessage(message, game)) return true;
+  if (observationTowerMessageAlreadyProcessed(game, message.id)) return true;
   const content = String(message.content || "");
   if (getObservationTowerLetterCount(content) < Number(game.minLetters || 5)) {
     await message.react(MINIGAME_WRONG_EMOJI).catch(() => { });
@@ -9488,6 +9692,119 @@ async function pickRandomFindBotChannel(guild, requiredRoleId, excludeChannelId 
   return pickRandomItem(list);
 }
 
+const findBotVoiceSessionByGuild = new Map();
+
+function countHumanMembersInVoiceChannel(channel, botUserId = "") {
+  if (!channel?.members) return 0;
+  const botId = String(botUserId || "");
+  return channel.members.filter((member) => !member.user?.bot && String(member.id) !== botId).size;
+}
+
+function guildVoiceBusyForFindBotMinigame(guildId) {
+  const gid = String(guildId || "").trim();
+  if (!gid || findBotVoiceSessionByGuild.has(gid)) return false;
+  try {
+    const { getVoiceConnection, VoiceConnectionStatus } = require("@discordjs/voice");
+    const conn = getVoiceConnection(gid);
+    return Boolean(conn && conn.state?.status !== VoiceConnectionStatus.Destroyed);
+  } catch {
+    return false;
+  }
+}
+
+async function leaveFindBotVoiceChannel(guildId) {
+  const gid = String(guildId || "").trim();
+  if (!gid) return;
+  const row = findBotVoiceSessionByGuild.get(gid);
+  if (row?.connection) {
+    try {
+      row.connection.destroy();
+    } catch (_) {}
+  }
+  findBotVoiceSessionByGuild.delete(gid);
+}
+
+async function joinFindBotVoiceChannel(guild, voiceChannel) {
+  const gid = String(guild?.id || "").trim();
+  if (!gid || !voiceChannel?.id) return false;
+  const { joinVoiceChannel, VoiceConnectionStatus, entersState } = require("@discordjs/voice");
+  await leaveFindBotVoiceChannel(gid);
+  const liveGuild = guild?.voiceAdapterCreator ? guild : await guild.fetch().catch(() => guild);
+  if (!liveGuild?.voiceAdapterCreator) return false;
+  try {
+    const connection = joinVoiceChannel({
+      channelId: voiceChannel.id,
+      guildId: gid,
+      adapterCreator: liveGuild.voiceAdapterCreator,
+      selfDeaf: true,
+      selfMute: true,
+    });
+    await entersState(connection, VoiceConnectionStatus.Ready, 15_000);
+    findBotVoiceSessionByGuild.set(gid, {
+      channelId: String(voiceChannel.id),
+      connection,
+    });
+    return true;
+  } catch (err) {
+    warnMinigame(err);
+    await leaveFindBotVoiceChannel(gid);
+    return false;
+  }
+}
+
+async function pickRandomEmptyVoiceChannel(guild, requiredRoleId, excludedChannelIds = null) {
+  if (!guild) return null;
+  await guild.channels.fetch().catch(() => {});
+  const me = guild.members.me || guild.members.cache.get(guild.client?.user?.id);
+  const botUserId = String(me?.id || guild.client?.user?.id || "");
+  const roleToCheck = requiredRoleId ? guild.roles.cache.get(requiredRoleId) : guild.roles.everyone;
+  const excludedSet = new Set(
+    Array.isArray(excludedChannelIds)
+      ? excludedChannelIds.filter((id) => id != null && String(id).trim()).map(String)
+      : [],
+  );
+
+  const channels = guild.channels.cache.filter((channel) => {
+    if (channel.type !== ChannelType.GuildVoice) return false;
+    if (excludedSet.has(String(channel.id))) return false;
+    if (!channel.viewable) return false;
+    if (countHumanMembersInVoiceChannel(channel, botUserId) > 0) return false;
+    const otherBots = channel.members?.filter((member) => member.user?.bot && String(member.id) !== botUserId).size || 0;
+    if (otherBots > 0) return false;
+    if (
+      me &&
+      !me.permissions?.has(PermissionsBitField.Flags.Administrator) &&
+      !channel.permissionsFor(me)?.has([PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.Connect])
+    ) {
+      return false;
+    }
+    const memberPerms = channel.permissionsFor(roleToCheck);
+    if (!memberPerms?.has([PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.Connect])) return false;
+    return true;
+  });
+
+  const list = Array.from(channels.values());
+  return pickRandomItem(list);
+}
+
+function getActiveFindBotVoiceGame(client) {
+  const cfg = getConfig(client);
+  const mainChannelId = String(cfg?.channelId || "").trim();
+  if (!mainChannelId) return null;
+  const game = activeGames.get(mainChannelId);
+  if (!game || game.type !== "findBotVoice") return null;
+  return { cfg, game, mainChannelId };
+}
+
+function shouldDeferTtsLeaveForFindBotVoiceMinigame(client, guildId, channelId) {
+  const active = getActiveFindBotVoiceGame(client);
+  if (!active) return false;
+  return (
+    String(active.game.guildId || "") === String(guildId || "") &&
+    String(active.game.channelId || active.game.voiceChannelId || "") === String(channelId || "")
+  );
+}
+
 async function startFindBotGame(client, cfg) {
   const channelId = cfg.channelId;
   if (!channelId) return false;
@@ -9553,6 +9870,86 @@ async function startFindBotGame(client, cfg) {
   stampMinigameBurrobirraApplies(channelId, client);
   markSent(channelId);
 
+  return true;
+}
+
+async function startFindBotVoiceGame(client, cfg) {
+  const channelId = cfg.channelId;
+  if (!channelId) return false;
+  if (activeGames.has(channelId)) return false;
+
+  const durationMs = Math.max(60000, Number(cfg?.findBotVoice?.durationMs || cfg?.findBot?.durationMs || 300000));
+  const rewardExp = normalizeRewardExp(cfg?.findBotVoice?.rewardExp ?? cfg?.findBot?.rewardExp ?? 100);
+  const requiredRoleId = cfg?.findBotVoice?.requiredRoleId || cfg?.findBot?.requiredRoleId || null;
+  const excludedChannelIds = cfg?.findBotVoice?.excludedChannelIds || cfg?.findBot?.excludedChannelIds || null;
+
+  const mainChannel = await getChannelCached(client, channelId);
+  if (!mainChannel?.guild) return false;
+  const guildId = String(mainChannel.guild.id || "");
+  if (guildVoiceBusyForFindBotMinigame(guildId)) return false;
+
+  const targetVoice = await pickRandomEmptyVoiceChannel(mainChannel.guild, requiredRoleId, excludedChannelIds);
+  if (!targetVoice) return false;
+
+  const joined = await joinFindBotVoiceChannel(mainChannel.guild, targetVoice);
+  if (!joined) return false;
+
+  const roleId = cfg.roleId;
+  await sendMinigameRolePing(mainChannel, cfg, roleId);
+
+  const attachment = buildPromptImageAttachment(
+    "Trova il bot in vocale",
+    ["Il bot si è nascosto in una vocale vuota del server.", "Entra in quella vocale per vincere!"],
+    "find_bot",
+    "",
+    client,
+    false,
+  );
+  const introEmbed = buildFindBotVoiceEmbed(rewardExp, durationMs);
+  if (attachment) introEmbed.setImage(`attachment://${attachment.name}`);
+  const mainMessage = await sendMinigameMessage(mainChannel, {
+    embeds: [introEmbed],
+    files: attachment ? [attachment] : [],
+  }).catch(() => null);
+
+  const customId = `minigame_findbotvoice:${Date.now()}`;
+  const timeout = scheduleFindMinigameTimeout(
+    client,
+    cfg,
+    channelId,
+    mainChannel,
+    customId,
+    durationMs,
+    buildTimeoutFindBotVoiceEmbed,
+  );
+  const hintTimeout = await scheduleMinuteHint(client, targetVoice.id, durationMs, channelId);
+
+  activeGames.set(channelId, {
+    type: "findBotVoice",
+    guildId,
+    rewardExp,
+    startedAt: Date.now(),
+    endsAt: Date.now() + durationMs,
+    timeout,
+    hintTimeout,
+    channelId: targetVoice.id,
+    voiceChannelId: targetVoice.id,
+    mainMessageId: mainMessage?.id || null,
+    customId,
+  });
+
+  await saveActiveGame(client, cfg, {
+    type: "findBotVoice",
+    rewardExp,
+    startedAt: new Date(),
+    endsAt: new Date(Date.now() + durationMs),
+    targetChannelId: targetVoice.id,
+    mainMessageId: mainMessage?.id || null,
+    customId,
+  });
+
+  stampMinigameBurrobirraApplies(channelId, client);
+  markSent(channelId);
   return true;
 }
 
@@ -10326,7 +10723,7 @@ async function mountTreasureHuntGame(client, cfg, channel, state, remainingMs) {
   const timeout = setTimeout(async () => {
     const game = activeGames.get(cfg.channelId);
     if (!game || game.type !== "treasureHunt") return;
-    if (game._claiming) return;
+    if (game._podiumClosing) return;
     recordNoParticipationIfNeeded(cfg.channelId, game);
     activeGames.delete(cfg.channelId);
     await finishTreasureHuntByTimeout(client, cfg, channel, game);
@@ -10377,11 +10774,14 @@ async function ensureTreasureHuntGame(client, cfg) {
   if (!state || state.type !== "treasureHunt") return null;
   const endsAt = new Date(state.endsAt).getTime();
   const remainingMs = endsAt - Date.now();
-  if (remainingMs <= 0) return null;
+  if (remainingMs <= 0) {
+    await closeExpiredMinigameState(client, { ...cfg, guildId }, channel, state);
+    return null;
+  }
   const podiumProbe = { type: "treasureHunt" };
   restoreHogwartsPodiumFromState(channelId, state, podiumProbe);
   if (isHogwartsPodiumWinMode(cfg, "treasureHunt", podiumProbe) && isHogwartsPodiumRoundComplete(podiumProbe, channelId)) {
-    await clearActiveGame(client, { ...cfg, guildId, channelId });
+    await recoverTreasureHuntPodiumLeaderboard(client, { ...cfg, guildId }, channel, state);
     return null;
   }
   return mountTreasureHuntGame(client, { ...cfg, guildId }, channel, state, remainingMs);
@@ -10573,7 +10973,8 @@ async function handleTreasureHuntIncomingMessage(message, client, cfg) {
     live = await ensureTreasureHuntGame(client, cfg);
   }
   if (!live || live.type !== "treasureHunt") return false;
-  if (live._claiming) return false;
+  if (live._claiming || live._podiumClosing) return false;
+  if (live.winnerMessageId) return false;
   if (
     isHogwartsPodiumWinMode(cfg, live.type, live) &&
     isHogwartsPodiumRoundComplete(live, channelId)
@@ -10627,6 +11028,7 @@ async function primeTreasureHuntRecentMessages(channel, client, cfg, game) {
     (a, b) => (a.createdTimestamp || 0) - (b.createdTimestamp || 0),
   );
   for (const msg of sorted) {
+    if (game.winnerMessageId) break;
     if (Number(game.collectedCount || 0) >= Math.max(1, Number(game.targetCount || 0))) break;
     const createdAt = msg.createdTimestamp || msg.createdAt?.getTime?.() || 0;
     if (startedAt && createdAt < startedAt - 500) continue;
@@ -10692,6 +11094,10 @@ async function computeMinigameAwardForUser({ guildId, userId, cfg, baseExp, star
   } catch (err) {
     warnMinigame(err);
   }
+  if (client) {
+    const { scheduleRoyaleMinigameRoleSync } = require("../Community/weeklyActivityWinnersService");
+    scheduleRoyaleMinigameRoleSync(client);
+  }
   const nextTotal = Number(doc?.profile?.totals?.exp?.minigame?.totalExp ?? 0);
   ActivityUserProfile.updateMany(
     { guildId, userId: { $ne: userId } },
@@ -10739,31 +11145,84 @@ async function sendTreasureHuntFoundOnce(channel, game) {
   return true;
 }
 
+async function recoverTreasureHuntPodiumLeaderboard(client, cfg, channel, state, options = {}) {
+  const channelId = String(cfg?.channelId || "").trim();
+  const guildId = String(cfg?.guildId || channel?.guild?.id || "").trim();
+  if (!channelId || !channel?.send || !state || state.type !== "treasureHunt") return false;
+  const parsed = parseStateTarget(state.target);
+  const game = {
+    type: "treasureHunt",
+    decoy: String(parsed?.decoy || ""),
+    winner: String(parsed?.winner || ""),
+    winnerMessageId: parsed?.winnerMessageId ? String(parsed.winnerMessageId) : null,
+    candidateIds: Array.isArray(parsed?.candidateIds) ? parsed.candidateIds.map(String) : [],
+    rewardExp: Number(state.rewardExp || 0),
+    startedAt: new Date(state.startedAt).getTime(),
+  };
+  restoreHogwartsPodiumFromState(channelId, state, game);
+  const podium = isHogwartsPodiumWinMode(cfg, "treasureHunt", game) ? ensureHogwartsPodium(game, channelId) : [];
+  if (!podium.length) return false;
+  if (!tryClaimMinigameChannelClose(channelId)) return false;
+  try {
+    clearMinigameRoundTimers(game);
+    const embeds = [];
+    if (game.winnerMessageId) {
+      embeds.push(
+        buildTreasureHuntFoundEmbed(getTreasureHuntMessageUrl(guildId, channel.id, game.winnerMessageId)),
+      );
+    }
+    embeds.push(buildHogwartsPodiumSummaryEmbed(cfg, "treasureHunt", podium, options.embedOptions || {}));
+    await sendMinigameMessage(channel, { embeds }).catch(() => {});
+    await cleanupTreasureHuntReactions(channel, game).catch(() => {});
+    await clearActiveGame(client, { ...cfg, guildId, channelId });
+    return true;
+  } finally {
+    endMinigameWinClose(channelId);
+  }
+}
+
 async function finishTreasureHuntByTimeout(client, cfg, channel, game) {
   if (!channel?.send) return;
   const channelId = String(cfg?.channelId || "");
-  const podium = isHogwartsPodiumWinMode(cfg, game?.type, game) ? ensureHogwartsPodium(game, channelId) : [];
-  if (podium.length > 0) {
-    clearMinigameRoundTimers(game);
-    clearHogwartsPodiumChannel(channelId);
-    const embeds = [];
-    if (game?.winnerMessageId) embeds.push(buildTreasureHuntFoundEmbed(getTreasureHuntMessageUrl(channel.guildId || channel.guild?.id, channel.id, game.winnerMessageId)));
-    embeds.push(buildHogwartsPodiumSummaryEmbed(cfg, game.type, podium, { timedOut: true }));
-    await sendMinigameMessage(channel, { embeds }).catch(() => {});
+  if (!tryClaimMinigameChannelClose(channelId)) return;
+  try {
+    if (
+      isHogwartsPodiumWinMode(cfg, game?.type, game) &&
+      ensureHogwartsPodium(game, channelId).length === 0
+    ) {
+      let guildId = String(cfg?.guildId || channel.guild?.id || "").trim();
+      const state = guildId
+        ? await minigameStateFindOneLean({ guildId, channelId }).catch(() => null)
+        : null;
+      if (state) restoreHogwartsPodiumFromState(channelId, state, game);
+    }
+    const podium = isHogwartsPodiumWinMode(cfg, game?.type, game) ? ensureHogwartsPodium(game, channelId) : [];
+    if (podium.length > 0) {
+      clearMinigameRoundTimers(game);
+      const embeds = [];
+      if (game?.winnerMessageId) {
+        embeds.push(
+          buildTreasureHuntFoundEmbed(
+            getTreasureHuntMessageUrl(channel.guildId || channel.guild?.id, channel.id, game.winnerMessageId),
+          ),
+        );
+      }
+      embeds.push(buildHogwartsPodiumSummaryEmbed(cfg, game.type, podium, { timedOut: true }));
+      await sendMinigameMessage(channel, { embeds }).catch(() => {});
+      await cleanupTreasureHuntReactions(channel, game);
+      await clearActiveGame(client, cfg);
+      return;
+    }
     await cleanupTreasureHuntReactions(channel, game);
+    const url = getTreasureHuntMessageUrl(channel.guildId || channel.guild?.id, channel.id, game?.winnerMessageId);
+    const labels = await treasureHuntDisplayTexts(channel.guild, game);
+    await sendMinigameMessage(channel, {
+      embeds: [buildTreasureHuntTimeoutEmbed(labels.decoy, labels.winner, url)],
+    }).catch(() => {});
     await clearActiveGame(client, cfg);
-    return;
+  } finally {
+    endMinigameWinClose(channelId);
   }
-  await cleanupTreasureHuntReactions(channel, game);
-  const url = getTreasureHuntMessageUrl(channel.guildId || channel.guild?.id, channel.id, game?.winnerMessageId);
-  const labels = await treasureHuntDisplayTexts(channel.guild, game);
-  await sendMinigameMessage(channel, {
-      embeds: [
-        buildTreasureHuntTimeoutEmbed(labels.decoy, labels.winner, url),
-      ],
-    })
-    .catch(() => {});
-  await clearActiveGame(client, cfg);
 }
 
 async function startTreasureHuntGame(client, cfg) {
@@ -10805,7 +11264,7 @@ async function startTreasureHuntGame(client, cfg) {
   const timeout = setTimeout(async () => {
     const current = activeGames.get(channelId);
     if (!current || current.type !== "treasureHunt") return;
-    if (current._claiming) return;
+    if (current._podiumClosing) return;
     recordNoParticipationIfNeeded(channelId, current);
     activeGames.delete(channelId);
     await finishTreasureHuntByTimeout(client, cfg, channel, current);
@@ -10901,23 +11360,18 @@ async function handleTreasureHuntPodiumReaction(client, reaction, user, message,
   game.hadParticipation = true;
   const channel = message.channel || (await getChannelCached(botClient, channelId));
   try {
-    const award = await awardMinigameWinToUser({
+    const award = await grantAndStoreHogwartsPodiumAward({
       client: botClient,
       guild: message.guild,
       userId: user.id,
       cfg,
       game,
-      rewardExp: game.rewardExp,
-      housePointAmount: getHogwartsPodiumPlaceHousePoints(cfg, game?.type, reg.entry.place),
-      podiumMeta: { place: reg.entry.place + 1, houseId: reg.entry.houseId },
       channelId,
+      reg,
     });
-    storeHogwartsPodiumEntryAward(game, user.id, award);
-    if (award.member) {
-      await handleExpReward(botClient, award.member, award.nextTotal);
-    }
     await sendTreasureHuntFoundOnce(channel, game);
     if (reg.complete) {
+      await waitForHogwartsPodiumPendingAwards(channelId);
       await closeHogwartsPodiumRoundIfComplete(botClient, clearCfg, game, channelId, channel);
     } else {
       activeGames.set(channelId, game);
@@ -10926,6 +11380,10 @@ async function handleTreasureHuntPodiumReaction(client, reaction, user, message,
     }
   } catch (err) {
     warnMinigame(err);
+    if (reg.complete) {
+      await waitForHogwartsPodiumPendingAwards(channelId).catch(() => { });
+      await closeHogwartsPodiumRoundIfComplete(botClient, clearCfg, game, channelId, channel).catch(() => {});
+    }
   }
   return true;
 }
@@ -11055,6 +11513,7 @@ async function safeStartGameByType(client, cfg, gameType) {
     if (gameType === "mathExpression")
       return startMathExpressionGame(client, cfg);
     if (gameType === "findBot") return startFindBotGame(client, cfg);
+    if (gameType === "findBotVoice") return startFindBotVoiceGame(client, cfg);
     if (gameType === "findScroll") return startFindScrollGame(client, cfg);
     if (gameType === "memoryEmoji") return startStandardMemoryEmojiGame(client, cfg);
     if (gameType === "hogwartsMemoryEmoji") return startHogwartsMemoryEmojiGame(client, cfg);
@@ -11110,11 +11569,7 @@ async function maybeStartRandomGame(client, force = false) {
     if (activeGames.has(cfg.channelId)) {
       const game = activeGames.get(cfg.channelId);
       if (isStaleOrInvalidActiveGame(game)) {
-        if (game.timeout) clearTimeout(game.timeout);
-        if (game.hintTimeout) clearTimeout(game.hintTimeout);
-        recordNoParticipationIfNeeded(cfg.channelId, game);
-        activeGames.delete(cfg.channelId);
-        await clearActiveGame(client, cfg);
+        await closeStaleActiveMinigameChannel(client, cfg, cfg.channelId, game);
         logMinigameDebug("cleanup: stale active game", { channelId: cfg.channelId, type: game?.type || null });
       } else {
         logMinigameDebug("skip: active game still running", { channelId: cfg.channelId, type: game?.type || null, endsAt: game?.endsAt || null });
@@ -11472,6 +11927,10 @@ async function awardMinigameWinToUser({
   } catch (err) {
     warnMinigame(err);
   }
+  if (client) {
+    const { scheduleRoyaleMinigameRoleSync } = require("../Community/weeklyActivityWinnersService");
+    scheduleRoyaleMinigameRoleSync(client);
+  }
   const nextTotal = Number(doc?.profile?.totals?.exp?.minigame?.totalExp ?? 0);
   ActivityUserProfile.updateMany(
     { guildId: guild.id, userId: { $ne: userId } },
@@ -11619,31 +12078,30 @@ async function handleMinigameWin(message, game, cfg) {
       return;
     }
     try {
-      const award = await awardMinigameWinToUser({
+      await grantAndStoreHogwartsPodiumAward({
         client,
         guild: message.guild,
         userId: message.author.id,
         cfg,
         game,
-        rewardExp: game.rewardExp,
-        housePointAmount: getHogwartsPodiumPlaceHousePoints(cfg, game?.type, reg.entry.place),
-        podiumMeta: { place: reg.entry.place + 1, houseId: reg.entry.houseId },
         channelId: message.channel?.id || message.channelId || null,
+        reg,
       });
-      storeHogwartsPodiumEntryAward(game, message.author.id, award);
       await reactMinigameWin(message);
-      if (award.member) {
-        await handleExpReward(client, award.member, award.nextTotal);
+      if (reg.complete) {
+        await waitForHogwartsPodiumPendingAwards(channelId);
+        await closeHogwartsPodiumRoundIfComplete(client, clearCfg, game, channelId, message.channel);
+      } else {
+        activeGames.set(channelId, game);
+        await persistHogwartsPodium(client, clearCfg, game);
       }
     } catch (err) {
       warnMinigame(err);
       await reactMinigameWin(message).catch(() => { });
-    }
-    if (reg.complete) {
-      await closeHogwartsPodiumRoundIfComplete(client, clearCfg, game, channelId, message.channel);
-    } else {
-      activeGames.set(channelId, game);
-      await persistHogwartsPodium(client, clearCfg, game);
+      if (reg.complete) {
+        await waitForHogwartsPodiumPendingAwards(channelId).catch(() => { });
+        await closeHogwartsPodiumRoundIfComplete(client, clearCfg, game, channelId, message.channel).catch(() => { });
+      }
     }
     return;
   }
@@ -11738,26 +12196,20 @@ async function handleMinigameButtonWin(interaction, game, cfg) {
     }
     let award = null;
     try {
-      award = await awardMinigameWinToUser({
+      award = await grantAndStoreHogwartsPodiumAward({
         client,
         guild: interaction.guild,
         userId: interaction.user.id,
         cfg,
         game,
-        rewardExp: game.rewardExp,
-        housePointAmount: getHogwartsPodiumPlaceHousePoints(cfg, game?.type, reg.entry.place),
-        podiumMeta: { place: reg.entry.place + 1, houseId: reg.entry.houseId },
         channelId: cfg.channelId || null,
+        reg,
       });
-      storeHogwartsPodiumEntryAward(game, interaction.user.id, award);
-      const mainChannel = await getChannelCached(client, cfg.channelId);
-      if (award.member) {
-        await handleExpReward(client, award.member, award.nextTotal);
-      }
     } catch (err) {
       warnMinigame(err);
     }
     if (reg.complete) {
+      await waitForHogwartsPodiumPendingAwards(channelId);
       const mainChannel = await getChannelCached(client, cfg.channelId);
       await closeHogwartsPodiumRoundIfComplete(client, winCfg, game, channelId, mainChannel, {
         beforeClose: async () => {
@@ -11859,10 +12311,7 @@ async function handleMinigameMessage(message, client) {
   }
   if (game?.type === "treasureHunt") {
     if (isStaleOrInvalidActiveGame(game)) {
-      if (game.timeout) clearTimeout(game.timeout);
-      recordNoParticipationIfNeeded(cfg.channelId, game);
-      activeGames.delete(cfg.channelId);
-      await clearActiveGame(client, { ...cfg, guildId: message.guild.id });
+      await closeStaleActiveMinigameChannel(client, cfg, cfg.channelId, game, message.channel);
       return false;
     }
     if (game.hadParticipation === undefined) game.hadParticipation = false;
@@ -11881,12 +12330,7 @@ async function handleMinigameMessage(message, client) {
     resolveHogwartsQuizAnswerPool(game);
   }
   if (game && isStaleOrInvalidActiveGame(game)) {
-    if (game.timeout) clearTimeout(game.timeout);
-    if (game.hintTimeout) clearTimeout(game.hintTimeout);
-    if (game.revealTimeout) clearTimeout(game.revealTimeout);
-    recordNoParticipationIfNeeded(cfg.channelId, game);
-    activeGames.delete(cfg.channelId);
-    await clearActiveGame(client, { ...cfg, guildId: message.guild.id });
+    await closeStaleActiveMinigameChannel(client, cfg, cfg.channelId, game, message.channel);
     return false;
   }
   if (game && cfg.hogwartsEventLive && isHogwartsExclusiveMinigamesEnabled(client, cfg) && !isHogwartsEventMinigameType(game.type, cfg)) {
@@ -11902,6 +12346,11 @@ async function handleMinigameMessage(message, client) {
     game.hadParticipation = true;
   }
   if (!game) return false;
+  if (isHogwartsPodiumRoundComplete(game, chatId)) {
+    if (hogwartsPodiumRowsMissingAwards(game, chatId).length > 0 || hogwartsPodiumPendingAwards.has(chatId)) {
+      return false;
+    }
+  }
   if (await closeHogwartsPodiumRoundIfComplete(client, cfg, game, chatId)) {
     return true;
   }
@@ -12176,7 +12625,7 @@ async function handleMinigameMessage(message, client) {
       if (channelWinClosing.has(chId)) return true;
       const liveGame = activeGames.get(chId);
       if (!liveGame || liveGame.type !== "hogwartsObservationTower") return false;
-      if (liveGame._finishClaimed || liveGame._finishEmbedSent) return true;
+      if (liveGame._finishClaimed || liveGame._finishEmbedSent || liveGame._finishAwardsGiven) return true;
       return processObservationTowerMessage(message, client, cfg, liveGame);
     });
   }
@@ -12735,7 +13184,18 @@ async function restoreSingleHouseChannelActiveGame(client, chId, houseId, guildI
   const state = await minigameStateFindOneLean({ guildId: gid, channelId }).catch(() => null);
   if (!state) return false;
   const endsAt = new Date(state.endsAt).getTime();
-  if (endsAt <= Date.now()) return false;
+  if (endsAt <= Date.now()) {
+    const channel = await getChannelCached(client, channelId);
+    const mode = state.type === "hogwartsObservationTower" ? "tower" : "themed";
+    const closeCfg = houseChannelSvc.buildHouseChannelSpawnCfg(client, channelId, houseId, mode) || partialCfg;
+    closeCfg.guildId = gid;
+    if (channel) {
+      await closeExpiredMinigameState(client, closeCfg, channel, state);
+    } else {
+      await clearActiveGame(client, { ...partialCfg, guildId: gid, channelId });
+    }
+    return false;
+  }
   if (!isHogwartsThemedMinigameType(state.type)) {
     await clearActiveGame(client, partialCfg);
     return false;
@@ -12828,6 +13288,15 @@ async function mountHouseChannelActiveGameFromState(client, cfg, channel, state,
       promptMessageId: null,
     });
     restoreHogwartsPodiumFromState(chId, state, activeGames.get(chId));
+    if (acceptsAt <= Date.now()) {
+      const prompt = await sendMinigameMessage(channel, {
+        embeds: [buildHogwartsMemoryRecallEmbed(Math.max(60000, endsAt - Date.now()))],
+      }).catch(() => null);
+      if (prompt) {
+        const game = activeGames.get(cfg.channelId);
+        if (game) game.promptMessageId = prompt.id;
+      }
+    }
   } else if (state.type === "hogwartsObservationTower") {
     const parsed = parseStateTarget(state.target);
     const targetBricks = Math.max(1, Number(parsed?.targetBricks || OBSERVATION_TOWER_DEFAULT_TARGET_BRICKS));
@@ -12846,8 +13315,8 @@ async function mountHouseChannelActiveGameFromState(client, cfg, channel, state,
       minPlayers,
       housePoints,
     });
-    const timeout = setTimeout(async () => { const game = activeGames.get(cfg.channelId); if (!game) return; await sendMinigameTimeoutAndClose(client, cfg, cfg.channelId, channel, game, buildObservationTowerTimeoutEmbed(game.houseBrickCounts, game.targetBricks, game.soloHouseId || "")); }, remainingMs); timeout.unref?.();
-    activeGames.set(cfg.channelId, {
+    const startedAt = new Date(state.startedAt).getTime();
+    const towerGame = {
       type: "hogwartsObservationTower",
       targetBricks,
       houseBrickCounts,
@@ -12858,13 +13327,15 @@ async function mountHouseChannelActiveGameFromState(client, cfg, channel, state,
       minPlayers,
       housePoints,
       rewardExp,
-      startedAt: new Date(state.startedAt).getTime(),
+      startedAt,
       endsAt,
-      timeout,
+      timeout: null,
       gameMessageId: state.gameMessageId || null,
       soloHouseId,
       hogwartsHouseChannel: cfg?.hogwartsHouseChannelMeta || null,
-    });
+    };
+    activeGames.set(cfg.channelId, towerGame);
+    towerGame.timeout = scheduleMinigameRoundTimeout(client, cfg, cfg.channelId, channel, remainingMs);
   } else {
     await clearActiveGame(client, { guildId: cfg.guildId, channelId: chId });
     return;
@@ -13253,8 +13724,8 @@ async function restoreActiveGames(client) {
     const minPlayers = Math.max(1, Number(parsed?.minPlayers || OBSERVATION_TOWER_DEFAULT_MIN_PLAYERS));
     const housePoints = Math.max(0, Math.floor(Number(parsed?.housePoints) || 0));
     const rewardExp = Number(state.rewardExp || 0);
-    const timeout = setTimeout(async () => { const game = activeGames.get(cfg.channelId); if (!game) return; await sendMinigameTimeoutAndClose(client, cfg, cfg.channelId, channel, game, buildObservationTowerTimeoutEmbed(game.houseBrickCounts, game.targetBricks, game.soloHouseId || "")); }, remainingMs); timeout.unref?.();
-    activeGames.set(cfg.channelId, {
+    const startedAt = new Date(state.startedAt).getTime();
+    const towerGame = {
       type: "hogwartsObservationTower",
       targetBricks,
       houseBrickCounts,
@@ -13265,13 +13736,15 @@ async function restoreActiveGames(client) {
       minPlayers,
       housePoints,
       rewardExp,
-      startedAt: new Date(state.startedAt).getTime(),
+      startedAt,
       endsAt,
-      timeout,
+      timeout: null,
       gameMessageId: state.gameMessageId || null,
       soloHouseId,
       hogwartsHouseChannel: cfg?.hogwartsHouseChannelMeta || null,
-    });
+    };
+    activeGames.set(cfg.channelId, towerGame);
+    towerGame.timeout = scheduleMinigameRoundTimeout(client, cfg, cfg.channelId, channel, remainingMs);
     return;
   }
   if (state.type === "hogwartsMemoryEmoji" || state.type === "memoryEmoji") {
@@ -13311,7 +13784,13 @@ async function restoreActiveGames(client) {
       promptMessageId: null,
     });
     if (acceptsAt <= Date.now()) {
-     (channel, { embeds: [buildHogwartsMemoryRecallEmbed(Math.max(60000, endsAt - Date.now()))] }).catch(() => null);
+      const prompt = await sendMinigameMessage(channel, {
+        embeds: [buildHogwartsMemoryRecallEmbed(Math.max(60000, endsAt - Date.now()))],
+      }).catch(() => null);
+      if (prompt) {
+        const game = activeGames.get(cfg.channelId);
+        if (game) game.promptMessageId = prompt.id;
+      }
     }
     return;
   }
@@ -13590,6 +14069,46 @@ async function restoreActiveGames(client) {
       mainMessageId: state.mainMessageId || null,
       customId: state.customId,
     });
+    return;
+  }
+  if (state.type === "findBotVoice") {
+    const voiceChannelId = String(state.targetChannelId || "").trim();
+    const guildId = String(channel.guild?.id || cfg.guildId || "");
+    if (voiceChannelId && channel.guild) {
+      const voiceChannel =
+        channel.guild.channels.cache.get(voiceChannelId) ||
+        (await channel.guild.channels.fetch(voiceChannelId).catch(() => null));
+      if (voiceChannel?.isVoiceBased?.()) {
+        await joinFindBotVoiceChannel(channel.guild, voiceChannel).catch(() => null);
+      }
+    }
+    const sessionId = state.customId || `minigame_findbotvoice:restored:${Date.now()}`;
+    const timeout = scheduleFindMinigameTimeout(
+      client,
+      cfg,
+      cfg.channelId,
+      channel,
+      sessionId,
+      remainingMs,
+      buildTimeoutFindBotVoiceEmbed,
+    );
+    const hintTimeout = voiceChannelId
+      ? await scheduleMinuteHint(client, voiceChannelId, remainingMs, cfg.channelId)
+      : null;
+    activeGames.set(cfg.channelId, {
+      type: "findBotVoice",
+      guildId,
+      rewardExp: Number(state.rewardExp || 0),
+      startedAt: new Date(state.startedAt).getTime(),
+      endsAt,
+      timeout,
+      hintTimeout,
+      channelId: voiceChannelId,
+      voiceChannelId,
+      mainMessageId: state.mainMessageId || null,
+      customId: sessionId,
+    });
+    return;
   }
 }
 
@@ -13598,6 +14117,9 @@ function clearGameForChannel(channelId, client = null, guildId = null) {
   if (!id) return;
   const game = activeGames.get(id);
   if (game) {
+    if (game.type === "findBotVoice") {
+      void leaveFindBotVoiceChannel(guildId || game.guildId);
+    }
     if (game.timeout) clearTimeout(game.timeout);
     if (game.hintTimeout) clearTimeout(game.hintTimeout);
     if (game.revealTimeout) clearTimeout(game.revealTimeout);
@@ -13609,7 +14131,11 @@ function clearGameForChannel(channelId, client = null, guildId = null) {
   startingChannels.delete(id);
   blockMinigameRehydrate(id);
   for (const [mainChId, g] of [...activeGames.entries()]) {
-    if ((g?.type === "findBot" || g?.type === "findScroll") && String(g.channelId || "") === id) {
+    const targetId = String(g?.channelId || g?.voiceChannelId || "");
+    if ((g?.type === "findBot" || g?.type === "findScroll" || g?.type === "findBotVoice") && targetId === id) {
+      if (g.type === "findBotVoice") {
+        void leaveFindBotVoiceChannel(guildId || g.guildId);
+      }
       if (g.timeout) clearTimeout(g.timeout);
       if (g.hintTimeout) clearTimeout(g.hintTimeout);
       activeGames.delete(mainChId);
@@ -13644,4 +14170,70 @@ function isMinigameFloodExemptChannel(message) {
   return false;
 }
 
-module.exports = { startMinigameLoop, forceStartMinigame, restoreActiveGames, bootstrapMinigameScheduler, handleMinigameMessage, handleMinigameButton, handleMinigameReaction, clearGameForChannel, isMinigameFloodExemptChannel, isMinigameChannelBusy, isMainChatMinigameChannelBusy, hasAnyHouseChannelMinigameBusy, hasAnyActiveMinigame, spawnHouseChannelMinigame, getActiveGameForChannel, getConfig, pickObservationTowerTier };
+async function handleFindBotVoiceWin(client, guild, member, game, cfg) {
+  const winCfg = { ...cfg, guildId: String(guild?.id || cfg?.guildId || "") };
+  const channelId = String(winCfg.channelId || "");
+  if (!channelId || !member?.user || member.user.bot) return false;
+  clearNoParticipationDelay(channelId);
+  if (game?.basilisk) {
+    const { isBasiliskBlockedForUser } = require("../Community/hogwartsBasiliskService");
+    const blocked = await isBasiliskBlockedForUser(client, guild.id, member.id, game);
+    if (blocked) return false;
+  }
+  if (await isWrongHouseChannelMember(client, guild.id, member.id, game, member)) return false;
+  const closed = await beginMinigameWinClose(client, winCfg, game);
+  if (!closed) return false;
+  try {
+    const award = await awardMinigameWinToUser({
+      client,
+      guild,
+      userId: member.id,
+      cfg,
+      game,
+      rewardExp: game.rewardExp,
+      channelId,
+    });
+    const winEmbed = buildWinEmbed(member.id, award.effectiveExp, award.nextTotal, award.details);
+    const mainChannel = await getChannelCached(client, channelId);
+    if (mainChannel) {
+      await sendMinigameMessage(mainChannel, {
+        content: `${member}`,
+        embeds: [winEmbed],
+      }).catch(() => {});
+    }
+    if (award.member) {
+      await handleExpReward(client, award.member, award.nextTotal);
+    }
+    return true;
+  } catch (err) {
+    warnMinigame(err);
+    return false;
+  } finally {
+    await leaveFindBotVoiceChannel(guild.id);
+    clearHogwartsPodiumChannel(channelId);
+    await clearActiveGame(client, winCfg).catch(() => {});
+    endMinigameWinClose(channelId);
+  }
+}
+
+async function handleMinigameVoiceState(oldState, newState, client) {
+  const member = newState?.member || oldState?.member;
+  const guild = newState?.guild || oldState?.guild;
+  if (!guild || !member?.user || member.user.bot) return false;
+  const joinedChannelId = String(newState?.channelId || "");
+  const previousChannelId = String(oldState?.channelId || "");
+  if (!joinedChannelId || joinedChannelId === previousChannelId) return false;
+
+  const active = getActiveFindBotVoiceGame(client);
+  if (!active) return false;
+  const targetVoiceId = String(active.game.channelId || active.game.voiceChannelId || "");
+  if (!targetVoiceId || targetVoiceId !== joinedChannelId) return false;
+  if (String(guild.id) !== String(active.game.guildId || guild.id)) return false;
+
+  const botMember = guild.members.me || guild.members.cache.get(client?.user?.id);
+  if (!botMember?.voice?.channelId || String(botMember.voice.channelId) !== targetVoiceId) return false;
+
+  return handleFindBotVoiceWin(client, guild, member, active.game, active.cfg);
+}
+
+module.exports = { startMinigameLoop, forceStartMinigame, restoreActiveGames, bootstrapMinigameScheduler, handleMinigameMessage, handleMinigameButton, handleMinigameReaction, handleMinigameVoiceState, shouldDeferTtsLeaveForFindBotVoiceMinigame, clearGameForChannel, isMinigameFloodExemptChannel, isMinigameChannelBusy, isMainChatMinigameChannelBusy, hasAnyHouseChannelMinigameBusy, hasAnyActiveMinigame, spawnHouseChannelMinigame, getActiveGameForChannel, getConfig, pickObservationTowerTier };

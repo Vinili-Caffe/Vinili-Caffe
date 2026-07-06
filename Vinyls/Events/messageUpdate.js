@@ -234,6 +234,12 @@ module.exports = {
         } catch (error) {
           global.logger?.error?.("[messageUpdate] blocco markdown discord failed:", error);
         }
+        try {
+          const { handleStaffManagedThreadRoleMentionMessage } = require("../Utils/Staff/staffManagedThreadsGuard");
+          if (await handleStaffManagedThreadRoleMentionMessage(updated)) return;
+        } catch (error) {
+          global.logger?.error?.("[messageUpdate] staff thread role mention guard failed:", error);
+        }
       }
 
       await sendMessageEditLog(previous, updated);

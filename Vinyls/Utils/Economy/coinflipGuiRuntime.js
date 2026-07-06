@@ -1,7 +1,7 @@
 const { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const { buildImageButtonPayload } = require("./guiPanelPayload");
 const { formatCurrency } = require("../../Services/Community/serverWalletService");
-const { economyConfig, playCoinflip } = require("../../Services/Community/serverEconomyService");
+const { economyConfig, playCoinflip } = require("../../Services/Community/activeEconomyService");
 const { normalizeCoinChoice, sideLabel } = require("./coinflipEngine");
 const PREFIX = "coinflip_gui";
 const SESSION_TTL_MS = 10 * 60 * 1000;

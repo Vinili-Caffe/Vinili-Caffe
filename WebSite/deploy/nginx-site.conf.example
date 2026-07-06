@@ -1,9 +1,6 @@
 # Docroot: owner/gruppo leggibile da nginx (su Ubuntu: user "www-data").
 # Dopo upload come root: chown -R www-data:www-data /var/www/viniliecaffe
 # e chmod 755 sulle directory, 644 sui file (lo fa scripts/deploy-site.ps1 via ssh).
-# Stesso `siteUrl` usato dal build (es. https://www.…/) per og:url / immagini OG assolute.
-# Apex e www servono gli stessi file: l’anteprima Discord usa sempre `og:image` assoluto dal build.
-# Consigliato: server dedicato per apex con return 301 verso https://www.esempio.it$request_uri;
 server {
     listen 80;
     server_name www.esempio.it esempio.it;
@@ -18,19 +15,10 @@ server {
     location ~ ^/users?/(\d{17,20})/?$ {
         try_files /user/index.html =404;
     }
-    # Pagina rimossa: login Serata Film avviene dalla home (token in localStorage).
-    location = /seratafilm/accesso-richiesto {
-        return 301 /;
-    }
-    location = /seratafilm/accesso-richiesto/ {
-        return 301 /;
-    }
     location / {
         # Includere $uri/ qui può dare 403 (cartella senza index, autoindex off), es. /regole incompleto.
-        # Senza fallback su /index.html: i path inesistenti vanno in 404 → redirect pulito a /.
-        try_files $uri $uri/index.html =404;
+        try_files $uri $uri/index.html /index.html;
     }
-    error_page 404 =302 /;
     # Stesso codice invite di site.config.json (path /api/v10/invites/CODICE?with_counts=true).
     location = /discord-invite.json {
         proxy_pass https://discord.com/api/v10/invites/viniliecaffe?with_counts=true;
@@ -41,4 +29,12 @@ server {
     }
     add_header X-Content-Type-Options nosniff;
     add_header Referrer-Policy strict-origin-when-cross-origin;
+
+    # MP4 Serata Film: faststart in upload + cache breve (il file cambia a ogni film).
+    location ~* ^/images/evento-hogwarts/.+\.mp4$ {
+        types { }
+        default_type video/mp4;
+        add_header Accept-Ranges bytes always;
+        add_header Cache-Control "public, max-age=3600";
+    }
 }

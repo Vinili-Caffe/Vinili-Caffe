@@ -1,12 +1,11 @@
 const { ModalBuilder, ActionRowBuilder, TextInputBuilder, TextInputStyle, ButtonBuilder, ButtonStyle } = require("discord.js");
 const IDs = require("../Utils/Config/ids");
 const { STAFF_HP_PREFIX, STAFF_HP_SELECT_PREFIX, SECTION_HOME, SECTION_VALUTAZIONI, SECTION_WARN, SECTION_PAUSE, SECTION_MODSTATS, SECTION_SHOP, buildStaffProfilePayload, resolveStaffPartnerPointsDisplay, parseStaffProfileCloseCustomId, parseStaffProfileSelectCustomId, encodeStaffHpButtonAction, decodeStaffHpButtonActionToken, staffHpSectionToken, parseStaffHpButtonSectionToken } = require("../Utils/Staff/staffProfilePanelRuntime");
-const { viewerCanUsePartnerPointsPanel, viewerIsCoordinatorOrAbove, viewerIsFounder, shouldOmitPexDepexHomeRow } = require("../Utils/Staff/staffProfilePanelRuntime");
-const { runProfileStaffPex, runProspectStaffPex, runProspectStaffPexToPartnerManager, runProfileStaffDepex, runProfileStaffCompleteDepex, runProfileStaffWarnAdd, runProfileStaffWarnRemove } = require("../Utils/Staff/staffPanelActions");
+const { viewerCanUsePartnerPointsPanel, viewerIsCoordinatorOrAbove, viewerIsFounder, shouldOmitPexDepexHomeRow, buildProspectPexRows } = require("../Utils/Staff/staffProfilePanelRuntime");
+const { runProfileStaffPex, runProspectStaffPex, runProspectStaffPexToPartnerManager, runProfileStaffDepex, runProfileStaffCompleteDepex, runProfileStaffWarnAdd, runProfileStaffWarnRemove, getHighestLadderRole } = require("../Utils/Staff/staffPanelActions");
 const valutazioneCmd = require("../Utils/Staff/valutazionePanelActions");
 const { addPartnerPoints, removePartnerPoints, formatPartnerPointsChange, partnerManagerRedeemTierFromAction } = require("../Utils/Staff/partnerPointsUtils");
 const { completePartnerManagerRedeemForGuild } = require("../Utils/Staff/partnerManagerRedeemRuntime");
-const { memberHasStaffRole } = require("../Utils/Community/staffListUtils");
 const { isPartnerPmDailyCommandsThread } = require("../Utils/Partner/partnersChatChannelUtils");
 const MODAL_PREFIX = "vcsm";
 const IN_REASON = "staff_hp_reason";
@@ -16,12 +15,12 @@ const IN_PPM_LINK = "staff_hp_ppm_link";
 const PRIVATE_FLAG = 1 << 6;
 const MAX_PPM_AMOUNT = 10000;
 const STAFF_HP_SECTIONS = new Set([SECTION_HOME, SECTION_VALUTAZIONI, SECTION_WARN, SECTION_PAUSE, SECTION_MODSTATS, SECTION_SHOP]);
-const FOUNDER_ONLY_PROSPECT_PEX_ACTIONS = new Set(["pex_mod", "pex_senior_moderator", "pex_director", "pex_admin"]);
-const STAFF_HP_MODAL_ACTION_CODE = { pex: "pex", pex_helper: "phl", pex_mod: "pmo", pex_senior_moderator: "psm", pex_director: "pdr", pex_admin: "pxa", pex_founder: "pfn", pex_pm: "ppm", depex: "dpx", depex_full: "dff", depex_staff: "dst", depex_pm_only: "dpo", valpos: "vps", valneg: "vng", warn: "wrn", valpos_rm: "vpr", valneg_rm: "vnr", warn_rm: "wrr", ppm_add: "pma", ppm_remove: "pmr" };
+const FOUNDER_ONLY_PROSPECT_PEX_ACTIONS = new Set(["pex_mod", "pex_senior_moderator", "pex_director", "pex_admin", "pex_manager"]);
+const STAFF_HP_MODAL_ACTION_CODE = { pex: "pex", pex_helper: "phl", pex_mod: "pmo", pex_senior_moderator: "psm", pex_director: "pdr", pex_admin: "pxa", pex_manager: "pmg", pex_founder: "pfn", pex_pm: "ppm", depex: "dpx", depex_full: "dff", depex_staff: "dst", depex_pm_only: "dpo", valpos: "vps", valneg: "vng", warn: "wrn", valpos_rm: "vpr", valneg_rm: "vnr", warn_rm: "wrr", ppm_add: "pma", ppm_remove: "pmr" };
 const STAFF_HP_MODAL_CODE_ACTION = Object.fromEntries(Object.entries(STAFF_HP_MODAL_ACTION_CODE).map(([full, short]) => [short, full]));
 const SECTION_CHAR_FOR_MODAL = { [SECTION_HOME]: "h", [SECTION_VALUTAZIONI]: "v", [SECTION_WARN]: "w", [SECTION_PAUSE]: "p", [SECTION_MODSTATS]: "m", [SECTION_SHOP]: "q" };
 const MODAL_CHAR_TO_SECTION = { h: SECTION_HOME, v: SECTION_VALUTAZIONI, w: SECTION_WARN, p: SECTION_PAUSE, m: SECTION_MODSTATS, q: SECTION_SHOP };
-const TITLE_BY_ACTION = { pex: "Motivo pex", pex_helper: "Motivo pex Helper", pex_mod: "Motivo pex Moderator", pex_senior_moderator: "Motivo pex Senior Moderator", pex_director: "Motivo pex Director", pex_admin: "Motivo pex Admin", pex_founder: "Motivo pex Founder", pex_pm: "Motivo pex Partner Manager", depex: "Motivo depex", depex_full: "Motivo depex completo", depex_staff: "Motivo depex", depex_pm_only: "Motivo depex", valpos: "Motivo valutazione positiva", valneg: "Motivo valutazione negativa", warn: "Motivo warn staff", valpos_rm: "Rimuovi valutazione positiva", valneg_rm: "Rimuovi valutazione negativa", warn_rm: "Rimuovi warn staff", ppm_add: "Aggiungi punti partner", ppm_remove: "Rimuovi punti partner" };
+const TITLE_BY_ACTION = { pex: "Motivo pex", pex_helper: "Motivo pex Helper", pex_mod: "Motivo pex Moderator", pex_senior_moderator: "Motivo pex Senior Moderator", pex_director: "Motivo pex Director", pex_admin: "Motivo pex Admin", pex_manager: "Motivo pex Manager", pex_founder: "Motivo pex Founder", pex_pm: "Motivo pex Partner Manager", depex: "Motivo depex", depex_full: "Motivo depex completo", depex_staff: "Motivo depex", depex_pm_only: "Motivo depex", valpos: "Motivo valutazione positiva", valneg: "Motivo valutazione negativa", warn: "Motivo warn staff", valpos_rm: "Rimuovi valutazione positiva", valneg_rm: "Rimuovi valutazione negativa", warn_rm: "Rimuovi warn staff", ppm_add: "Aggiungi punti partner", ppm_remove: "Rimuovi punti partner" };
 
 function normalizeSourceMessageId(raw) {
   const id = String(raw || "").trim();
@@ -114,7 +113,7 @@ function parseStaffHpButton(customId) {
   const viewerId = String(parts[2] || "");
   const targetId = String(parts[3] || "");
   if (!/^\d{16,20}$/.test(viewerId) || !/^\d{16,20}$/.test(targetId)) return null;
-  const allowed = new Set(["pex_menu", "depex_menu", "val_add_menu", "val_remove_menu", "pex", "pex_helper", "pex_mod", "pex_senior_moderator", "pex_director", "pex_admin", "pex_founder", "pex_pm", "depex", "depex_full", "depex_staff", "depex_pm_only", "valpos", "valneg", "warn", "valpos_rm", "valneg_rm", "warn_rm", "ppm_add", "ppm_remove", "ppm_r50", "ppm_r100", "ppm_r150", "ppm_r200", "ppm_r250"]);
+  const allowed = new Set(["pex_menu", "depex_menu", "val_add_menu", "val_remove_menu", "pex", "pex_helper", "pex_mod", "pex_senior_moderator", "pex_director", "pex_admin", "pex_manager", "pex_founder", "pex_pm", "depex", "depex_full", "depex_staff", "depex_pm_only", "valpos", "valneg", "warn", "valpos_rm", "valneg_rm", "warn_rm", "ppm_add", "ppm_remove", "ppm_r50", "ppm_r100", "ppm_r150", "ppm_r200", "ppm_r250"]);
   if (!allowed.has(action)) return null;
   const section = parseStaffHpButtonSectionToken(parts.length >= 5 ? parts[4] : "");
   const { sourceMessageId, panelMessageId } = parseTrailingStaffHpIds(parts);
@@ -241,11 +240,18 @@ async function ensureDepexFullViewer(interaction) {
   return false;
 }
 
+function targetIsPmOnlyWithoutStaffLadder(member) {
+  if (!member?.roles?.cache) return false;
+  const hasPm = Boolean(IDs.roles.PartnerManager && member.roles.cache.has(IDs.roles.PartnerManager));
+  return hasPm && !getHighestLadderRole(member);
+}
+
 function targetShouldChooseDepexMode(member) {
   if (!member?.roles?.cache) return true;
   if (Boolean(IDs.roles.SeniorModerator) && member.roles.cache.has(IDs.roles.SeniorModerator)) return true;
   if (Boolean(IDs.roles.Director) && member.roles.cache.has(IDs.roles.Director)) return true;
   if (Boolean(IDs.roles.Admin) && member.roles.cache.has(IDs.roles.Admin)) return true;
+  if (Boolean(IDs.roles.Manager) && member.roles.cache.has(IDs.roles.Manager)) return true;
   return false;
 }
 
@@ -316,7 +322,7 @@ async function openStaffHpReasonModalFromButton(interaction, parsed) {
     return true;
   } else if (!selfHp && FOUNDER_ONLY_PROSPECT_PEX_ACTIONS.has(parsed.action)) {
     if (!viewerIsFounder(interaction.member)) {
-      await interaction.reply({ content: "<a:VC_Cross:1482532424570376253> Solo i **Founder** possono usare **Member → Mod/Senior Moderator/Director/Admin**.", flags: PRIVATE_FLAG }).catch(() => { });
+      await interaction.reply({ content: "<a:VC_Cross:1482532424570376253> Solo i **Founder** possono usare **Member → Mod/Senior Moderator/Director/Admin/Manager**.", flags: PRIVATE_FLAG }).catch(() => { });
       return true;
     }
   } else if (!selfHp && !(await ensureHighStaffViewer(interaction))) {
@@ -474,7 +480,7 @@ async function execute(interaction) {
     }
     if (!(await ensureNoUnauthorizedSelfStaffHp(interaction, parsedSel))) return true;
     if (!viewerIsFounder(interaction.member)) {
-      await interaction.reply({ content: "<a:VC_Cross:1482532424570376253> Solo un **Founder** può usare **Member → Mod/Senior Moderator/Director/Admin** da questo menu.", flags: PRIVATE_FLAG }).catch(() => { });
+      await interaction.reply({ content: "<a:VC_Cross:1482532424570376253> Solo un **Founder** può usare **Member → Mod/Senior Moderator/Director/Admin/Manager** da questo menu.", flags: PRIVATE_FLAG }).catch(() => { });
       return true;
     }
     const chosenAction = String(interaction.values?.[0] || "");
@@ -511,6 +517,21 @@ async function execute(interaction) {
       const secTok = staffHpSectionToken(parsed.section);
       const hasPartnerManager = Boolean(targetMember?.roles?.cache?.has?.(IDs.roles.PartnerManager));
       if (parsed.action === "pex_menu") {
+        if (targetIsPmOnlyWithoutStaffLadder(targetMember)) {
+          const pexRows = buildProspectPexRows(
+            parsed.viewerId,
+            parsed.targetId,
+            parsed.sourceMessageId,
+            viewerIsFounder(interaction.member),
+            { hidePartnerManagerPex: true, staffPexFromPartnerManager: true },
+          );
+          await interaction.reply({
+            content: "Scegli il ruolo staff da aggiungere (mantiene Partner Manager):",
+            components: pexRows,
+            flags: PRIVATE_FLAG,
+          }).catch(() => { });
+          return true;
+        }
         const pexRow = new ActionRowBuilder().addComponents(
           new ButtonBuilder()
             .setCustomId(`${STAFF_HP_PREFIX}:${encodeStaffHpButtonAction("pex")}:${parsed.viewerId}:${parsed.targetId}:${secTok}${trail}`)
@@ -617,7 +638,7 @@ async function execute(interaction) {
       return true;
     } else if (!selfHp && FOUNDER_ONLY_PROSPECT_PEX_ACTIONS.has(parsed.action)) {
       if (!viewerIsFounder(interaction.member)) {
-        await interaction.reply({ content: "<a:VC_Cross:1482532424570376253> Solo un **Founder** può usare **Member → Mod/Senior Moderator/Director/Admin**.", flags: PRIVATE_FLAG }).catch(() => { });
+        await interaction.reply({ content: "<a:VC_Cross:1482532424570376253> Solo un **Founder** può usare **Member → Mod/Senior Moderator/Director/Admin/Manager**.", flags: PRIVATE_FLAG }).catch(() => { });
         return true;
       }
     } else if (!selfHp && !(await ensureHighStaffViewer(interaction))) {
@@ -678,7 +699,9 @@ async function execute(interaction) {
       });
       const changeLabel = formatPartnerPointsChange("add", amount);
       await tryRefreshStaffPanelMessage(interaction, parsed, interaction.client);
-      await sendModalReply({ content: `<a:VC_Verified:1482532479637127188> **${changeLabel}** a ${targetUser}. Totale: \`${staffData?.staff?.partnerCount ?? 0}\`.` });
+      await sendModalReply({
+        content: `<a:VC_Verified:1482532479637127188> **${changeLabel}** a ${targetUser}. Totale: \`${resolveStaffPartnerPointsDisplay(staffData?.staff)}\`.`,
+      });
       return true;
     }
     if (parsed.action === "ppm_remove") {
@@ -707,7 +730,8 @@ async function execute(interaction) {
         return true;
       }
       const staffData = await removePartnerPoints(guild.id, targetUser.id, amount);
-      const changeLabel = formatPartnerPointsChange("remove", amount);
+      const removedAmount = Math.max(0, Math.floor(Number(staffData?._partnerPointsRemoved ?? amount) || 0));
+      const changeLabel = formatPartnerPointsChange("remove", removedAmount);
       const removedPointsChannel = guild.channels.cache.get(IDs.channels?.puntiTolti);
       if (removedPointsChannel) {
         const logLines = [
@@ -722,7 +746,9 @@ async function execute(interaction) {
           .catch(() => null);
       }
       await tryRefreshStaffPanelMessage(interaction, parsed, interaction.client);
-      await sendModalReply({ content: `<a:VC_Verified:1482532479637127188> **${changeLabel}** a ${targetUser}. Totale: \`${staffData?.staff?.partnerCount ?? 0}\`.` });
+      await sendModalReply({
+        content: `<a:VC_Verified:1482532479637127188> **${changeLabel}** a ${targetUser}. Totale: \`${resolveStaffPartnerPointsDisplay(staffData?.staff)}\`.`,
+      });
       return true;
     }
     if (parsed.action === "pex" || parsed.action.startsWith("pex_")) {
@@ -734,10 +760,10 @@ async function execute(interaction) {
         res = await runProspectStaffPexToPartnerManager(guild, interaction.client, targetUser, interaction.user, reason);
       } else {
         const targetMember = await guild.members.fetch(parsed.targetId).catch(() => null);
-        if (targetMember && memberHasStaffRole(targetMember)) {
+        if (targetMember && getHighestLadderRole(targetMember)) {
           res = await runProfileStaffPex(guild, interaction.client, targetUser, interaction.user, reason);
         } else {
-          const roleByAction = { pex_helper: IDs.roles.Helper, pex_mod: IDs.roles.Mod, pex_senior_moderator: IDs.roles.SeniorModerator, pex_director: IDs.roles.Director, pex_admin: IDs.roles.Admin, pex_founder: IDs.roles.Founder };
+          const roleByAction = { pex_helper: IDs.roles.Helper, pex_mod: IDs.roles.Mod, pex_senior_moderator: IDs.roles.SeniorModerator, pex_director: IDs.roles.Director, pex_admin: IDs.roles.Admin, pex_manager: IDs.roles.Manager, pex_founder: IDs.roles.Founder };
           const selectedRoleId = roleByAction[parsed.action] || IDs.roles.Helper;
           res = await runProspectStaffPex(guild, interaction.client, targetUser, interaction.user, reason, selectedRoleId);
         }

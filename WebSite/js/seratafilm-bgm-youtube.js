@@ -155,7 +155,8 @@
         return;
       }
       var s = document.createElement("script");
-      s.src = youtubeApiScriptSrc();
+      var apiSrc = youtubeApiScriptSrc();
+      s.src = typeof window.__vcTrustedScriptURL === "function" ? window.__vcTrustedScriptURL(apiSrc) : apiSrc;
       s.async = true;
       s.dataset.vcYtApi = "seratafilm";
       s.onload = function () {

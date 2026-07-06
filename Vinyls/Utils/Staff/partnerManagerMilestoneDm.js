@@ -3,8 +3,14 @@ const { ActivityUserProfile } = require("../../Schemas/Community/communitySchema
 const IDs = require("../Config/ids");
 const { sendUserDirectMessage } = require("../../../shared/discord/dmPrivacyNotice");
 const { getGuildMemberCached } = require("../Interaction/interactionEntityCache");
-const PARTNER_MILESTONE_POINT_TIERS = Object.freeze([50, 100, 150, 200, 250]);
-const PARTNER_MILESTONE_REWARD_LABELS = Object.freeze({ 50: "Custom Role e Custom Voc per 30 giorni", 100: "Ruolo VIP per 30 giorni", 150: "Decorazione a scelta (max 15,99 €)", 200: "Nitro Boost", 250: "5 € PayPal" });
+const {
+  PARTNER_REWARD_CANONICAL_TIERS,
+  PARTNER_REWARD_LABELS,
+  getPartnerRewardPointCost,
+} = require("../../../shared/partner/partnerManagerRewardTiers");
+
+const PARTNER_MILESTONE_POINT_TIERS = PARTNER_REWARD_CANONICAL_TIERS;
+const PARTNER_MILESTONE_REWARD_LABELS = PARTNER_REWARD_LABELS;
 
 async function maybeSendPartnerManagerRewardMilestoneDms(client, guild, userId, beforePoints, afterPoints) {
   const gid = String(guild?.id || "").trim();
@@ -18,7 +24,11 @@ async function maybeSendPartnerManagerRewardMilestoneDms(client, guild, userId, 
   const a = Math.max(0, Math.floor(Number(afterPoints || 0)));
   if (a <= b) return;
 
-  const crossed = PARTNER_MILESTONE_POINT_TIERS.filter((tier) => a >= tier && b < tier);
+  const now = new Date();
+  const crossed = PARTNER_REWARD_CANONICAL_TIERS.filter((tier) => {
+    const cost = getPartnerRewardPointCost(tier, now);
+    return a >= cost && b < cost;
+  });
   if (!crossed.length) return;
 
   const member =
@@ -28,7 +38,7 @@ async function maybeSendPartnerManagerRewardMilestoneDms(client, guild, userId, 
 
   const ticketCh = String(IDs.channels?.ticket || "").trim();
   const ticketLine = ticketCh
-    ? `Apri un ticket **High Staff** da ${`<#${ticketCh}>`} e indica che vuoi riscattare il premio Partner Manager alla soglia **${tier}**.`
+    ? `Apri un ticket **High Staff** da ${`<#${ticketCh}>`} e indica che vuoi riscattare il premio Partner Manager alla soglia **{tier}**.`
     : "Apri un ticket **High Staff** sul server e indica che vuoi riscattare il premio Partner Manager.";
 
   const fresh = await ActivityUserProfile.findOne({ guildId: gid, userId: uid })
@@ -41,16 +51,17 @@ async function maybeSendPartnerManagerRewardMilestoneDms(client, guild, userId, 
   const user = member.user;
   for (const tier of crossed) {
     if (already.has(tier)) continue;
-    const reward = PARTNER_MILESTONE_REWARD_LABELS[tier];
+    const reward = PARTNER_REWARD_LABELS[tier];
     if (!reward) continue;
+    const cost = getPartnerRewardPointCost(tier, now);
 
-    const howTo = ticketLine.replace(/\{tier\}/g, String(tier));
+    const howTo = ticketLine.replace(/\{tier\}/g, String(cost));
     const embed = new EmbedBuilder()
       .setColor("#6f4e37")
-      .setTitle(`<:VC_PartnerManager:1494286911286808576> Soglia ${tier} partner`)
+      .setTitle(`<:VC_PartnerManager:1494286911286808576> Soglia ${cost} partner`)
       .setDescription(
         [
-          `Hai raggiunto **${tier}** punti partner validi.`,
+          `Hai raggiunto **${cost}** punti partner validi.`,
           "",
           `Puoi riscattare: **${reward}**.`,
           "",

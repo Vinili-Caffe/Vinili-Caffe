@@ -1,4 +1,4 @@
-const { assertEconomyGamblingAccess, assertEconomyGamblingAccessForUser, economyConfig } = require("../../Services/Community/serverEconomyService");
+const { assertEconomyGamblingAccess, assertEconomyGamblingAccessForUser, economyConfig } = require("../../Services/Community/activeEconomyService");
 const { formatGaleoni } = require("../../Services/Community/gringottService");
 const { buildRpsGuiPayload, clampBet, findActivePvpMessageId, formatRpsRoundNotice, getSession, makeSession, playRpsSession, schedulePvpInviteExpiry, scheduleRpsIdlePanel, setSession, warmupRpsPanel } = require("../../Utils/Economy/rpsGuiRuntime");
 const { postGuiPanel, replyDeny, runEconomyPanelCommand } = require("../../Utils/Economy/economyCommandHelpers");

@@ -79,7 +79,10 @@
           return;
         }
         var tag = document.createElement("script");
-        tag.src = API_SOURCES[idx];
+        tag.src =
+          typeof window.__vcTrustedScriptURL === "function"
+            ? window.__vcTrustedScriptURL(API_SOURCES[idx])
+            : API_SOURCES[idx];
         tag.async = true;
         tag.onerror = function () {
           try {

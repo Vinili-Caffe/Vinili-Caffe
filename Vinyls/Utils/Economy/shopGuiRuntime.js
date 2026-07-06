@@ -1,6 +1,6 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require("discord.js");
 const { CURRENCY_CAFFE, CURRENCY_VINILI, formatCurrency } = require("../../Services/Community/serverWalletService");
-const { formatDuration } = require("../../Services/Community/serverEconomyService");
+const { formatDuration } = require("../../Services/Community/activeEconomyService");
 const { getShopPanelState, purchaseShopItem } = require("../../Services/Community/serverShopService");
 
 const PREFIX = "shop_gui";

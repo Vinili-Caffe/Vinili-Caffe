@@ -9,6 +9,7 @@ const { resolveCustomRoleState, buildExpiryText, } = require("../../Utils/Commun
 const { getClientGuildCached, getGuildMemberCached, getGuildChannelCached, getUserCached, } = require("../../Utils/Interaction/interactionEntityCache");
 const { userAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
 const { fetchGuildChannel, fetchGuildMember, fetchGuildRole, replyEphemeral, parseRoleActionId, parseVoiceActionId, findCustomVoiceByRole, canManageRole, refreshEmbedRoleLine, sanitizeVoiceBaseName, parseCustomVocName, buildCustomVocName, extractCustomVocEmojiFromMessage, normalizeCustomVocEmojiValue } = require("../../Utils/Interaction/customRoleUtils");
+const { CUSTOM_VOC_MEMBER_PERMS } = require("../../Services/Community/customVocPermissionsService");
 const { buildPanelPayload } = require("../../Buttons/profile");
 const { readSnapshotWithMeta, writeSnapshotWithMeta } = require("../../../shared/recovery/snapshotStore");
 const pendingRoleGrants = new Map();
@@ -75,6 +76,35 @@ function clearProfilePrompt(guildId, userId) {
   const old = pendingProfilePrompts.get(key);
   if (old?.timerId) clearTimeout(old.timerId);
   pendingProfilePrompts.delete(key);
+}
+
+async function cancelProfilePrompt(guildId, userId, client, content) {
+  const key = profilePromptKey(guildId, userId);
+  const pending = pendingProfilePrompts.get(key);
+  if (!pending) return false;
+  clearProfilePrompt(guildId, userId);
+  if (client) {
+    await editProfilePromptReply(
+      client,
+      pending,
+      content || "<:cancel:1461730653677551691> Operazione annullata.",
+    ).catch(() => { });
+  }
+  return true;
+}
+
+function hasPendingRoleGrantFor({ guildId, requesterId, targetId, roleId }) {
+  ensurePendingLoaded();
+  const now = Date.now();
+  for (const req of pendingRoleGrants.values()) {
+    if (now > Number(req.expiresAt || 0)) continue;
+    if (String(req.guildId || "") !== String(guildId || "")) continue;
+    if (String(req.requesterId || "") !== String(requesterId || "")) continue;
+    if (String(req.targetId || "") !== String(targetId || "")) continue;
+    if (String(req.roleId || "") !== String(roleId || "")) continue;
+    return true;
+  }
+  return false;
 }
 
 function registerProfilePrompt(interaction, data) {
@@ -1391,6 +1421,24 @@ async function handleAddRemoveSelectMenus(interaction) {
       return true;
     }
 
+    if (
+      hasPendingRoleGrantFor({
+        guildId: interaction.guild.id,
+        requesterId: ownerId,
+        targetId,
+        roleId: role.id,
+      })
+    ) {
+      await interaction
+        .reply({
+          content:
+            "<:VC_Attention:1482534443632558151> C'è ancora una richiesta in attesa di accettazione per questo utente. Attendi la risposta.",
+          flags: 1 << 6,
+        })
+        .catch(() => { });
+      return true;
+    }
+
     await targetMember.roles
       .remove(role.id, `Custom role member removal by ${interaction.user.tag}`)
       .catch(() => { });
@@ -1445,13 +1493,7 @@ async function handleAddRemoveSelectMenus(interaction) {
     }
     await channel.permissionOverwrites.edit(
       targetId,
-      {
-        ViewChannel: true,
-        Connect: true,
-        Speak: true,
-        UseVAD: true,
-        Stream: true,
-      },
+      CUSTOM_VOC_MEMBER_PERMS,
       { reason: `Custom voc grant by ${interaction.user?.tag || interaction.user?.id}` },
     ).catch(() => {});
     await interaction.update({
@@ -2429,6 +2471,18 @@ async function handleCustomProfilePromptMessage(message) {
         const started = await createCustomRoleGrantRequest({ client: message.client, guildId: message.guild.id, channelId: message.channel.id, requesterId: pending.ownerId, targetId, roleId: role.id, timeoutMs: 60_000 });
         return done(started?.ok ? `<:thumbsup:1471292172145004768> Ho inviato la richiesta in DM a <@${targetId}>.` : "<:VC_Attention:1482534443632558151> Non sono riuscito ad avviare la richiesta (DM chiusi o errore).");
       }
+      if (
+        hasPendingRoleGrantFor({
+          guildId: message.guild.id,
+          requesterId: pending.ownerId,
+          targetId,
+          roleId: role.id,
+        })
+      ) {
+        return done(
+          "<:VC_Attention:1482534443632558151> C'è ancora una richiesta in attesa di accettazione per questo utente. Attendi la risposta o scrivi `annulla`.",
+        );
+      }
       await targetMember.roles.remove(role.id, `Custom role member removal by ${message.author?.tag || message.author?.id}`).catch(() => {});
       await targetMember.send({ embeds: [new EmbedBuilder().setColor("#e74c3c").setTitle("<:VC_Attention:1482534443632558151> Ruolo Rimosso").setDescription(`Sei stato rimosso dal ruolo personalizzato **${role.name}** in **${message.guild.name}**.`)] }).catch(() => {});
       return done(`<:thumbsdown:1471292163957457013> L'utente ${targetMember} è stato rimosso dal tuo ruolo.`);
@@ -2482,7 +2536,7 @@ async function handleCustomProfilePromptMessage(message) {
       if (!targetId) return false;
       if (targetId === ownerId || targetId === String(message.client.user?.id || "")) return done("<:VC_Attention:1482534443632558151> Non puoi usare questa azione su proprietario o bot.");
       if (type === "voc_add") {
-        await channel.permissionOverwrites.edit(targetId, { ViewChannel: true, Connect: true, Speak: true, UseVAD: true, Stream: true }, { reason: `Custom voc grant by ${message.author?.tag || message.author?.id}` }).catch(() => {});
+        await channel.permissionOverwrites.edit(targetId, CUSTOM_VOC_MEMBER_PERMS, { reason: `Custom voc grant by ${message.author?.tag || message.author?.id}` }).catch(() => {});
         return done(`<:thumbsup:1471292172145004768> <@${targetId}> ora può accedere alla tua custom voc.`);
       }
       await channel.permissionOverwrites.delete(targetId, `Custom voc revoke by ${message.author?.tag || message.author?.id}`).catch(() => {});
@@ -2499,4 +2553,12 @@ function getPendingRoleGrantByToken(token) {
   return pendingRoleGrants.get(String(token)) || null;
 }
 
-module.exports = { handleCustomRoleInteraction, handleCustomProfilePromptMessage, createCustomRoleGrantRequest, createSiteRoleJoinRequest, getPendingRoleGrantByToken };
+module.exports = {
+  handleCustomRoleInteraction,
+  handleCustomProfilePromptMessage,
+  createCustomRoleGrantRequest,
+  createSiteRoleJoinRequest,
+  getPendingRoleGrantByToken,
+  clearProfilePrompt,
+  cancelProfilePrompt,
+};

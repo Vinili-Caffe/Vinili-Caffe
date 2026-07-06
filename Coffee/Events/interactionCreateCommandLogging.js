@@ -1,7 +1,6 @@
 const { Events } = require("discord.js");
 const { logCommandUsage } = require("../Utils/Logging/commandUsageLogger");
 const IDs = require("../Utils/Config/ids");
-const { userAvatarUrlDynamic } = require("../Utils/Discord/guildDiscordIdentity");
 
 function isCommandInteraction(interaction) {
   return (
@@ -37,7 +36,7 @@ module.exports = {
         user: user.tag || user.username || "unknown",
         userId: user.id || "unknown",
         content: getCommandContent(interaction),
-        userAvatarUrl: userAvatarUrlDynamic(interaction.member || interaction.user, { size: 128 }),
+        userLike: interaction.member || interaction.user,
       });
     } catch (error) {
       global.logger?.error?.("[interactionCreateCommandLogging] failed:", error);

@@ -9,6 +9,10 @@ const { memberHasStaffRole, queueStaffListRefreshAfterRoleMutation } = require("
 const { getStaffRoleEmojiByRoleId } = require("../../Utils/Community/staffRoleEmoji");
 const { clearStaffPendingPurgeAt } = require("../../Services/Community/userLeaveBackupService");
 const { userAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
+const {
+  memberHasResocontoButtonAccess,
+} = require("../../Utils/Staff/resocontoAccess");
+const { onResocontoOutcomeRecorded } = require("../../Services/Staff/resocontoReviewerRewardService");
 const RESOCONTO_APPLY_PREFIX = "resoconto_apply";
 const RESOCONTO_REJECT_PREFIX = "resoconto_reject";
 const RESOCONTO_OVERRIDE_PREFIX = "resoconto_override";
@@ -21,16 +25,17 @@ const ROLE_UP = {
   [String(IDs.roles.Mod)]: String(IDs.roles.SeniorModerator),
   [String(IDs.roles.SeniorModerator)]: String(IDs.roles.Director),
   [String(IDs.roles.Director)]: String(IDs.roles.Admin),
+  [String(IDs.roles.Admin)]: String(IDs.roles.Manager),
 };
 const ROLE_PARTNER_MANAGER = String(IDs.roles.PartnerManager);
 const ROLE_MEMBER = String(IDs.roles.Member || "");
 const ROLE_STAFF = String(IDs.roles.Staff);
-const ROLE_HIGH_STAFF = String(IDs.roles.HighStaff);
 const ROLE_HELPER = String(IDs.roles.Helper);
 const ROLE_MODERATOR = String(IDs.roles.Mod);
 const ROLE_SENIOR_MODERATOR = String(IDs.roles.SeniorModerator);
 const ROLE_DIRECTOR = String(IDs.roles.Director);
 const ROLE_ADMIN = String(IDs.roles.Admin);
+const ROLE_MANAGER = String(IDs.roles.Manager || "");
 const ROLE_CO_OWNER = "";
 const ROLE_OWNER = String(IDs.roles.Founder);
 
@@ -95,11 +100,8 @@ function parseResocontoOverrideCustomId(customId) {
   return null;
 }
 
-function hasResocontoHighStaffAccess(interaction) {
-  return Boolean(
-    interaction?.member?.roles?.cache?.has?.(ROLE_HIGH_STAFF) ||
-      interaction?.member?.roles?.cache?.has?.(ROLE_DIRECTOR),
-  );
+function hasResocontoButtonAccess(interaction, payload) {
+  return memberHasResocontoButtonAccess(interaction?.member, payload);
 }
 
 function isModOrAboveRoleId(roleId) {
@@ -108,8 +110,8 @@ function isModOrAboveRoleId(roleId) {
     ROLE_MODERATOR,
     ROLE_SENIOR_MODERATOR,
     ROLE_DIRECTOR,
-    ROLE_HIGH_STAFF,
     ROLE_ADMIN,
+    ROLE_MANAGER,
     ROLE_CO_OWNER,
     ROLE_OWNER,
   ].filter(Boolean);
@@ -230,8 +232,17 @@ async function applyPexSideEffects(guild, member, roleId) {
     const highStaffAdded = await ensureRoleAdded(guild, member, ROLE_HIGH_STAFF);
     return modRemoved && highStaffAdded;
   }
+  if (roleId === ROLE_MANAGER) {
+    const adminRemoved = await ensureRoleRemoved(guild, member, ROLE_ADMIN);
+    const highStaffAdded = await ensureRoleAdded(guild, member, ROLE_HIGH_STAFF);
+    return adminRemoved && highStaffAdded;
+  }
   if (roleId === ROLE_CO_OWNER) return ensureRoleRemoved(guild, member, ROLE_ADMIN);
-  if (roleId === ROLE_OWNER) return ensureRoleRemoved(guild, member, ROLE_CO_OWNER);
+  if (roleId === ROLE_OWNER) {
+    const managerRemoved = ROLE_MANAGER ? await ensureRoleRemoved(guild, member, ROLE_MANAGER) : true;
+    const coOwnerRemoved = ROLE_CO_OWNER ? await ensureRoleRemoved(guild, member, ROLE_CO_OWNER) : true;
+    return managerRemoved && coOwnerRemoved;
+  }
   return true;
 }
 
@@ -271,7 +282,7 @@ async function applyDepexSideEffects(guild, member, roleId) {
     if (ok && member?.id) await bumpCandidatureCooldownAfterStaffRemoval(member.id);
     return ok;
   }
-  if (roleId === ROLE_ADMIN || roleId === ROLE_CO_OWNER) {
+  if (roleId === ROLE_ADMIN || roleId === ROLE_MANAGER || roleId === ROLE_CO_OWNER) {
     const roleRemoved = await ensureRoleRemoved(guild, member, roleId);
     const staffRemoved = await ensureRoleRemoved(guild, member, ROLE_STAFF);
     const highStaffRemoved = await ensureRoleRemoved(guild, member, ROLE_HIGH_STAFF);
@@ -282,11 +293,12 @@ async function applyDepexSideEffects(guild, member, roleId) {
   }
   if (roleId === ROLE_OWNER) {
     const roleRemoved = await ensureRoleRemoved(guild, member, ROLE_OWNER);
-    const coOwnerRemoved = await ensureRoleRemoved(guild, member, ROLE_CO_OWNER);
+    const managerRemoved = ROLE_MANAGER ? await ensureRoleRemoved(guild, member, ROLE_MANAGER) : true;
+    const coOwnerRemoved = ROLE_CO_OWNER ? await ensureRoleRemoved(guild, member, ROLE_CO_OWNER) : true;
     const staffRemoved = await ensureRoleRemoved(guild, member, ROLE_STAFF);
     const highStaffRemoved = await ensureRoleRemoved(guild, member, ROLE_HIGH_STAFF);
     const memberAdded = ROLE_MEMBER ? await ensureRoleAdded(guild, member, ROLE_MEMBER) : true;
-    const ok = roleRemoved && coOwnerRemoved && staffRemoved && highStaffRemoved && memberAdded;
+    const ok = roleRemoved && managerRemoved && coOwnerRemoved && staffRemoved && highStaffRemoved && memberAdded;
     if (ok && member?.id) await bumpCandidatureCooldownAfterStaffRemoval(member.id);
     return ok;
   }
@@ -539,10 +551,10 @@ async function handleResocontoButton(interaction) {
   const payload = parsed || parsedOverride;
   if (!payload) return false;
   if (!interaction.guild) return true;
-  if (!hasResocontoHighStaffAccess(interaction)) {
+  if (!hasResocontoButtonAccess(interaction, payload)) {
     await interaction
       .reply({
-        content: "<a:VC_Alert:1482706673176150077> Questo controllo è riservato all'High Staff.",
+        content: "<a:VC_Alert:1482706673176150077> Questo controllo non è disponibile per il tuo ruolo.",
         flags: 1 << 6,
       })
       .catch(() => null);
@@ -592,7 +604,7 @@ async function handleResocontoButton(interaction) {
   await interaction.deferUpdate().catch(() => null);
 
   const statusText = payload.kind === "s"
-    ? await applyStaffAction(interaction.guild, interaction.user, payload, autoReason || null)
+    ? await applyStaffAction(interaction.guild, interaction.member || interaction.user, payload, autoReason || null)
     : await applyPmAction(interaction.guild, payload, autoReason || null);
 
   await appendOutcomeToMessage(
@@ -602,6 +614,12 @@ async function handleResocontoButton(interaction) {
     interaction.user.id,
     true,
     statusText,
+  );
+  await onResocontoOutcomeRecorded(
+    interaction.guild,
+    interaction.channel,
+    interaction.user.id,
+    payload,
   );
   if (parsedOverride) {
     await interaction
@@ -618,10 +636,10 @@ async function handleResocontoModal(interaction) {
   const parsed = parseResocontoModalCustomId(interaction.customId);
   if (!parsed) return false;
   if (!interaction.guild) return true;
-  if (!hasResocontoHighStaffAccess(interaction)) {
+  if (!hasResocontoButtonAccess(interaction, { kind: parsed.kind, roleId: parsed.roleId })) {
     await interaction
       .reply({
-        content: "<a:VC_Alert:1482706673176150077> Questo modulo è riservato all'High Staff.",
+        content: "<a:VC_Alert:1482706673176150077> Questo modulo non è disponibile per il tuo ruolo.",
         flags: 1 << 6,
       })
       .catch(() => null);
@@ -653,7 +671,7 @@ async function handleResocontoModal(interaction) {
   }
   await interaction.deferReply({ flags: 1 << 6 }).catch(() => null);
 
-  const statusText = await applyStaffAction(interaction.guild, interaction.user, parsed, reason);
+  const statusText = await applyStaffAction(interaction.guild, interaction.member || interaction.user, parsed, reason);
   await appendOutcomeToMessage(
     interaction.guild,
     interaction.channelId,
@@ -661,6 +679,12 @@ async function handleResocontoModal(interaction) {
     interaction.user.id,
     true,
     statusText,
+  );
+  await onResocontoOutcomeRecorded(
+    interaction.guild,
+    interaction.channel,
+    interaction.user.id,
+    parsed,
   );
   await interaction
     .editReply({

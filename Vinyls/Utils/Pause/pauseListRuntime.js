@@ -48,6 +48,7 @@ const RESOCONTO_ROLE_RANK = new Map(
     IDs.roles.HighStaff,
     IDs.roles.Director,
     IDs.roles.Admin,
+    IDs.roles.Manager,
     IDs.roles.Founder,
     IDs.roles.PartnerManager,
   ]
@@ -60,6 +61,7 @@ const ROLE_UP = {
 [String(IDs.roles.Mod || "")]: String(IDs.roles.SeniorModerator || ""),
 [String(IDs.roles.SeniorModerator || "")]: String(IDs.roles.Director || ""),
 [String(IDs.roles.Director || "")]: String(IDs.roles.Admin || ""),
+[String(IDs.roles.Admin || "")]: String(IDs.roles.Manager || ""),
 };
 
 function isStaffRolesHistoryPexRow(row) {

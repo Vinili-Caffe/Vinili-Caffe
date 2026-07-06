@@ -9,8 +9,9 @@ const { roleChoiceAppliesTo, PAUSE_ROLE_PM, getValPosTradedPauseBonusDays } = re
 const { memberHasStaffRole } = require("../Community/staffListUtils");
 const { getStaffRoleEmojiByRoleId } = require("../Community/staffRoleEmoji");
 const { resolvePartnerPointsShown } = require("./partnerPointsDisplayUtils");
-const { PARTNER_MANAGER_REDEEM_TIERS, partnerManagerRedeemButtonLabel } = require("./partnerPointsUtils");
+const { PARTNER_MANAGER_REDEEM_TIERS, partnerManagerRedeemButtonLabel, partnerManagerCanAffordReward, getPartnerRewardPointCost } = require("./partnerPointsUtils");
 const { PARTNER_MILESTONE_REWARD_LABELS } = require("./partnerManagerMilestoneDm");
+const { buildPartnerRewardDiscountBanner } = require("../../../shared/partner/partnerManagerRewardTiers");
 const { accountUsername, userAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
 const {
   resolveSerataFilmAttendanceForWeek,
@@ -29,17 +30,17 @@ const SECTION_SHOP = "shop";
 const STAFF_HP_BUTTON_SECTION_IDS = new Set([SECTION_HOME, SECTION_VALUTAZIONI, SECTION_WARN, SECTION_PAUSE, SECTION_MODSTATS, SECTION_SHOP]);
 const STAFF_HP_SECTION_CHAR_MAP = { [SECTION_HOME]: "h", [SECTION_VALUTAZIONI]: "v", [SECTION_WARN]: "w", [SECTION_PAUSE]: "p", [SECTION_MODSTATS]: "m", [SECTION_SHOP]: "q" };
 const STAFF_HP_SECTION_CHAR_REVERSE = Object.fromEntries(Object.entries(STAFF_HP_SECTION_CHAR_MAP).map(([sec, ch]) => [ch, sec]));
-const STAFF_HP_BUTTON_ACTION_FULL_TO_SHORT = { pex_menu: "pxm", depex_menu: "dxm", val_add_menu: "vam", val_remove_menu: "vrm", pex: "pex", pex_helper: "phl", pex_mod: "pmo", pex_senior_moderator: "psm", pex_director: "pdr", pex_admin: "pxa", pex_founder: "pfn", pex_pm: "ppm", depex: "dpx", depex_full: "dff", depex_staff: "dst", depex_pm_only: "dpo", valpos: "vps", valneg: "vng", warn: "wrn", valpos_rm: "vpr", valneg_rm: "vnr", warn_rm: "wrr", ppm_add: "pma", ppm_remove: "pmr" };
+const STAFF_HP_BUTTON_ACTION_FULL_TO_SHORT = { pex_menu: "pxm", depex_menu: "dxm", val_add_menu: "vam", val_remove_menu: "vrm", pex: "pex", pex_helper: "phl", pex_mod: "pmo", pex_senior_moderator: "psm", pex_director: "pdr", pex_admin: "pxa", pex_manager: "pmg", pex_founder: "pfn", pex_pm: "ppm", depex: "dpx", depex_full: "dff", depex_staff: "dst", depex_pm_only: "dpo", valpos: "vps", valneg: "vng", warn: "wrn", valpos_rm: "vpr", valneg_rm: "vnr", warn_rm: "wrr", ppm_add: "pma", ppm_remove: "pmr" };
 const STAFF_HP_BUTTON_ACTION_SHORT_TO_FULL = Object.fromEntries(Object.entries(STAFF_HP_BUTTON_ACTION_FULL_TO_SHORT).map(([full, short]) => [short, full]));
 const LEGACY_PARTNER_LB_SECTION = "partner_lb";
 const PROFILE_FULL = "full";
 const PROFILE_PM_ONLY = "pm_only";
 const PROFILE_PROSPECT = "prospect";
 const STAFF_ROLE_PRIORITY = [String(IDs.roles.Director), String(IDs.roles.SeniorModerator), String(IDs.roles.Mod), String(IDs.roles.Helper), String(IDs.roles.Staff)].filter(Boolean);
-const STAFF_PROFILE_DISPLAY_ROLE_PRIORITY = [IDs.roles.Founder, IDs.roles.Admin, IDs.roles.Director, IDs.roles.HighStaff, String(IDs.roles.SeniorModerator), String(IDs.roles.Mod), String(IDs.roles.Helper), IDs.roles.PartnerManager, String(IDs.roles.Staff)].filter(Boolean);
-const STAFF_LADDER_ROLE_IDS_FOR_PANEL = [String(IDs.roles.Helper), String(IDs.roles.Mod), String(IDs.roles.SeniorModerator), String(IDs.roles.Director), String(IDs.roles.Admin), String(IDs.roles.Founder)].filter(Boolean).map((id) => String(id));
-const STAFF_PANEL_NON_PM_ROLE_IDS = [String(IDs.roles?.Founder), String(IDs.roles?.Admin), String(IDs.roles?.Director), String(IDs.roles?.HighStaff), String(IDs.roles?.SeniorModerator), String(IDs.roles?.Mod), String(IDs.roles?.Helper), String(IDs.roles?.Staff)].filter(Boolean).map((id) => String(id));
-const STAFF_PANEL_NAV_ROLE_PRIORITY = [String(IDs.roles?.Founder), String(IDs.roles?.Admin), String(IDs.roles?.Director), String(IDs.roles?.HighStaff), String(IDs.roles?.SeniorModerator), String(IDs.roles?.Mod), String(IDs.roles?.Helper), String(IDs.roles?.Staff)].filter(Boolean).map((id) => String(id));
+const STAFF_PROFILE_DISPLAY_ROLE_PRIORITY = [IDs.roles.Founder, IDs.roles.Manager, IDs.roles.Admin, IDs.roles.Director, IDs.roles.HighStaff, String(IDs.roles.SeniorModerator), String(IDs.roles.Mod), String(IDs.roles.Helper), IDs.roles.PartnerManager, String(IDs.roles.Staff)].filter(Boolean);
+const STAFF_LADDER_ROLE_IDS_FOR_PANEL = [String(IDs.roles.Helper), String(IDs.roles.Mod), String(IDs.roles.SeniorModerator), String(IDs.roles.Director), String(IDs.roles.Admin), String(IDs.roles.Manager), String(IDs.roles.Founder)].filter(Boolean).map((id) => String(id));
+const STAFF_PANEL_NON_PM_ROLE_IDS = [String(IDs.roles?.Founder), String(IDs.roles?.Manager), String(IDs.roles?.Admin), String(IDs.roles?.Director), String(IDs.roles?.HighStaff), String(IDs.roles?.SeniorModerator), String(IDs.roles?.Mod), String(IDs.roles?.Helper), String(IDs.roles?.Staff)].filter(Boolean).map((id) => String(id));
+const STAFF_PANEL_NAV_ROLE_PRIORITY = [String(IDs.roles?.Founder), String(IDs.roles?.Manager), String(IDs.roles?.Admin), String(IDs.roles?.Director), String(IDs.roles?.HighStaff), String(IDs.roles?.SeniorModerator), String(IDs.roles?.Mod), String(IDs.roles?.Helper), String(IDs.roles?.Staff)].filter(Boolean).map((id) => String(id));
 
 function resolveStaffPartnerPointsDisplay(staffObj) {
   return resolvePartnerPointsShown(staffObj);
@@ -73,6 +74,10 @@ function buildPmPartnerShopDescription(balance, opts = {}) {
     ? `Per **consumare i punti** e ottenere il premio serve un **High Staff**.`
     : "Per **consumare i punti** e ottenere il premio serve un **High Staff**.";
   const lines = [];
+  const discountBanner = buildPartnerRewardDiscountBanner();
+  if (discountBanner) {
+    lines.push(discountBanner, "");
+  }
   if (opts.selfShop) {
     lines.push(
       "**Riscatto:** usa i pulsanti qui sotto.",
@@ -81,13 +86,15 @@ function buildPmPartnerShopDescription(balance, opts = {}) {
   }
   lines.push(`<:VC_Partner:1482527213780729896> **Saldo:** **${pts}** punti`, "");
   for (const tier of PARTNER_MANAGER_REDEEM_TIERS) {
+    const cost = getPartnerRewardPointCost(tier);
     const reward = PARTNER_MILESTONE_REWARD_LABELS[tier] || partnerManagerRedeemButtonLabel(tier);
-    lines.push(`**Soglia \`${tier}\`**: ${reward}`);
-    if (pts >= tier) {
+    const costLabel = cost < tier ? `\`${cost}\` (era \`${tier}\`)` : `\`${cost}\``;
+    lines.push(`**Soglia ${costLabel}**: ${reward}`);
+    if (partnerManagerCanAffordReward(pts, tier)) {
       lines.push(`<a:VC_Verified:1482532479637127188> Con questo saldo il premio è **riscattabile**.`);
     } else {
-      const miss = tier - pts;
-      lines.push(`<a:VC_Cross:1482532424570376253> Mancano **${miss}** punti per raggiungere **${tier}**.`);
+      const miss = cost - pts;
+      lines.push(`<a:VC_Cross:1482532424570376253> Mancano **${miss}** punti per raggiungere **${cost}**.`);
     }
     lines.push("");
   }
@@ -107,11 +114,12 @@ function buildPmShopSelfRedeemRows(viewerId, targetId, partnerPtsForRedeem) {
   const rowA = [];
   const rowB = [];
   for (const tier of PARTNER_MANAGER_REDEEM_TIERS) {
-    const can = pts >= tier;
+    const cost = getPartnerRewardPointCost(tier);
+    const can = partnerManagerCanAffordReward(pts, tier);
     const short = tier === 50 || tier === 100 ? `r${tier}` : `t${tier}`;
     const b = new ButtonBuilder()
       .setCustomId(`${STAFF_PM_SHOP_PREFIX}:${short}:${v}:${t}`)
-      .setLabel(`${tier} pt`)
+      .setLabel(`${cost} pt`)
       .setStyle(tier <= 100 ? ButtonStyle.Success : ButtonStyle.Primary)
       .setDisabled(!can);
     if (tier <= 150) rowA.push(b);
@@ -232,7 +240,7 @@ function targetIsFounder(member) {
 function viewerIsCoordinatorOrAbove(member) {
   if (!member?.roles?.cache) return false;
   const c = member.roles.cache;
-  return Boolean((IDs.roles.Admin && c.has(IDs.roles.Admin)) || (IDs.roles.Director && c.has(IDs.roles.Director)) || (IDs.roles.Founder && c.has(IDs.roles.Founder)) || (IDs.roles.HighStaff && c.has(IDs.roles.HighStaff)));
+  return Boolean((IDs.roles.Admin && c.has(IDs.roles.Admin)) || (IDs.roles.Manager && c.has(IDs.roles.Manager)) || (IDs.roles.Director && c.has(IDs.roles.Director)) || (IDs.roles.Founder && c.has(IDs.roles.Founder)) || (IDs.roles.HighStaff && c.has(IDs.roles.HighStaff)));
 }
 
 function resolveStaffProfileKind(member) {
@@ -261,34 +269,41 @@ function memberHasPmAndStaffLadderForDualDepex(member) {
   return Boolean(getHighestStaffLadderRoleIdForPanel(member));
 }
 
-function buildProspectPexRows(viewerId, targetId, sourceMessageId = null, includeFounderOnlyAdvanceSelect = false) {
+function buildProspectPexRows(viewerId, targetId, sourceMessageId = null, includeFounderOnlyAdvanceSelect = false, options = {}) {
   const v = String(viewerId);
   const t = String(targetId);
-  const rows = [
-    new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId(formatStaffHpButtonCustomId("pex_helper", v, t, SECTION_HOME, sourceMessageId))
-        .setLabel("Member → Helper")
-        .setEmoji("<:VC_Helper:1502328751638450426>")
-        .setStyle(ButtonStyle.Success),
+  const hidePartnerManagerPex = options?.hidePartnerManagerPex === true;
+  const fromLabel = options?.staffPexFromPartnerManager ? "Partner Manager" : "Member";
+  const firstRowButtons = [
+    new ButtonBuilder()
+      .setCustomId(formatStaffHpButtonCustomId("pex_helper", v, t, SECTION_HOME, sourceMessageId))
+      .setLabel(`${fromLabel} → Helper`)
+      .setEmoji("<:VC_Helper:1502328751638450426>")
+      .setStyle(ButtonStyle.Success),
+  ];
+  if (!hidePartnerManagerPex) {
+    firstRowButtons.push(
       new ButtonBuilder()
         .setCustomId(formatStaffHpButtonCustomId("pex_pm", v, t, SECTION_HOME, sourceMessageId))
         .setLabel("Member → Partner Manager")
         .setEmoji("<:VC_PartnerManager:1494286911286808576>")
         .setStyle(ButtonStyle.Secondary),
-    ),
-  ];
+    );
+  }
+  const rows = [new ActionRowBuilder().addComponents(...firstRowButtons)];
   if (includeFounderOnlyAdvanceSelect) {
+    const advanceFromLabel = options?.staffPexFromPartnerManager ? "Partner Manager" : "Member";
     rows.push(
       new ActionRowBuilder().addComponents(
         new StringSelectMenuBuilder()
           .setCustomId(formatStaffHpSelectCustomId("prospect_pex", v, t, SECTION_HOME, sourceMessageId))
           .setPlaceholder("Promuovi a ruolo staff avanzato")
           .addOptions(
-            { label: "Member → Mod", value: "pex_mod", emoji: "<:VC_Mod:1494287597952958514>" },
-            { label: "Member → Senior Moderator", value: "pex_senior_moderator", emoji: "<:VC_SeniorModerator:1494286913744539648>" },
-            { label: "Member → Director", value: "pex_director", emoji: "<:VC_Director:1494286915778641941>" },
-            { label: "Member → Admin", value: "pex_admin", emoji: "<:VC_Admin:1494286848686686209>" },
+            { label: `${advanceFromLabel} → Mod`, value: "pex_mod", emoji: "<:VC_Mod:1494287597952958514>" },
+            { label: `${advanceFromLabel} → Senior Moderator`, value: "pex_senior_moderator", emoji: "<:VC_SeniorModerator:1494286913744539648>" },
+            { label: `${advanceFromLabel} → Director`, value: "pex_director", emoji: "<:VC_Director:1494286915778641941>" },
+            { label: `${advanceFromLabel} → Admin`, value: "pex_admin", emoji: "<:VC_Admin:1494286848686686209>" },
+            { label: `${advanceFromLabel} → Manager`, value: "pex_manager", emoji: "<:VC_Manager:1521629610876338307>" },
           ),
       ),
     );
@@ -614,7 +629,7 @@ function buildPartnerManagerHubOptions(sec, canHsPartnerPoints, usePartnersChatP
     sec === SECTION_HOME && hasPm && vid !== tid && viewerCanPartnerPointsPanel;
   if (pmStaffEconomy) {
     const pts = Math.max(0, Math.floor(Number(partnerPtsForRedeem || 0)));
-    for (const tier of PARTNER_MANAGER_REDEEM_TIERS.filter((n) => pts >= n)) {
+    for (const tier of PARTNER_MANAGER_REDEEM_TIERS.filter((n) => partnerManagerCanAffordReward(pts, n))) {
       hubOpts.push({ action: `ppm_r${tier}`, label: partnerManagerRedeemButtonLabel(tier) });
     }
   }
@@ -919,12 +934,30 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
   if ((profileKind === PROFILE_PM_ONLY || usePartnersChatPmPanel) && sec === SECTION_HOME) {
     const pauseShort = getStaffPauseLine(s, { pmOnly: true });
     const punti = partnerPtsForRedeem;
+    const pmStaffPexRows =
+      profileKind === PROFILE_PM_ONLY &&
+      viewerIsHighStaff &&
+      String(viewerId) !== tid
+        ? buildProspectPexRows(
+          String(viewerId),
+          tid,
+          sourceMessageId,
+          viewerIsFounder(viewerMemForPanel),
+          { hidePartnerManagerPex: true, staffPexFromPartnerManager: true },
+        )
+        : [];
     const pmHomeDesc = [
       `${displayRoleEmoji} **Ruolo:** ${roleLabel}`,
       "",
       `<a:VC_Calendar:1482706208149475358> **Pause:** ${pauseShort}`,
       "",
       `<:VC_Partner:1482527213780729896> **Punti:** ${punti}`,
+      ...(pmStaffPexRows.length
+        ? [
+          "",
+          "<a:VC_Verified:1482532479637127188> Usa i pulsanti qui sotto per aggiungere un ruolo **Staff** mantenendo **Partner Manager**.",
+        ]
+        : []),
     ].join("\n");
     const pmTitle = usePartnersChatPmPanel
       ? `<:VC_addperson:1485419347068588073> Profilo Partner Manager ${name}`
@@ -937,7 +970,13 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
           .setDescription(pmHomeDesc.slice(0, 4090))
           .setThumbnail(userAvatarUrlDynamic(targetUser, { size: 128 }) || null),
       ],
-      components: withCloseProfileComponents(mergeProfileComponents(selectRow, hsRows, homeBottomRows), viewerId, tid, sourceMessageId, { enableNextTargetButton }),
+      components: withCloseProfileComponents(
+        mergeProfileComponents(selectRow, [...pmStaffPexRows, ...hsRows], homeBottomRows),
+        viewerId,
+        tid,
+        sourceMessageId,
+        { enableNextTargetButton },
+      ),
     };
   }
 
@@ -968,8 +1007,10 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
       bodyParts.push("", `<a:VC_Calendar:1482706208149475358> **Giorni pausa extra (scambio positive):** \`${pauseBonusDays}\``);
     }
     bodyParts.push("", ...warnBlock);
+    const viewerCanValTrade = Boolean(IDs.roles.HighStaff && viewerMemForPanel?.roles?.cache?.has(IDs.roles.HighStaff));
     const canHsValTrade =
-      viewerIsHighStaff &&
+      viewerCanValTrade &&
+      String(viewerId) !== String(tid) &&
       profileKind === PROFILE_FULL &&
       !hideValutazioniWarnForTarget &&
       !usePartnersChatPmPanel;

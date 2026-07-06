@@ -254,6 +254,61 @@ async function deleteStaffRelatedMessagesFromConfiguredChannels(guild, userId, s
   return { deleted };
 }
 
+const STAFF_LADDER_TRACK_RESET_SET = {
+  "staff.idCount": 0,
+  "staff.warnCount": 0,
+  "staff.warnReasons": [],
+  "staff.firstWarnStaffAt": null,
+  "staff.positiveCount": 0,
+  "staff.negativeCount": 0,
+  "staff.positiveReasons": [],
+  "staff.negativeReasons": [],
+  "staff.positiveValutazioni": [],
+  "staff.negativeValutazioni": [],
+  "staff.valutazioniCount": 0,
+  "staff.autoValutazioni": [],
+  "staff.valPosTradedPauseBonusDays": 0,
+  "staff.bestStaffPauseBonusYears": [],
+  "staff.serataFilmAttendanceSaturdayKey": null,
+  "staff.serataFilmWillAttend": null,
+  "staff.pauses": [],
+};
+
+function buildStaffLadderTrackResetUpdate() {
+  return { $set: { ...STAFF_LADDER_TRACK_RESET_SET } };
+}
+
+function applyStaffLadderTrackResetToObject(staffObj) {
+  if (!staffObj || typeof staffObj !== "object") return;
+  staffObj.idCount = 0;
+  staffObj.warnCount = 0;
+  staffObj.warnReasons = [];
+  staffObj.firstWarnStaffAt = null;
+  staffObj.positiveCount = 0;
+  staffObj.negativeCount = 0;
+  staffObj.positiveReasons = [];
+  staffObj.negativeReasons = [];
+  staffObj.positiveValutazioni = [];
+  staffObj.negativeValutazioni = [];
+  staffObj.valutazioniCount = 0;
+  staffObj.autoValutazioni = [];
+  staffObj.valPosTradedPauseBonusDays = 0;
+  staffObj.bestStaffPauseBonusYears = [];
+  staffObj.serataFilmAttendanceSaturdayKey = null;
+  staffObj.serataFilmWillAttend = null;
+  staffObj.pauses = [];
+}
+
+async function resetStaffLadderTrackInDb(guildId, userId) {
+  const gid = String(guildId || "").trim();
+  const uid = String(userId || "").trim();
+  if (!gid || !uid || !isValidGuildUserId(gid, uid)) return;
+  await ActivityUserProfile.updateOne(
+    { guildId: gid, userId: uid, staff: { $exists: true } },
+    buildStaffLadderTrackResetUpdate(),
+  ).catch(() => null);
+}
+
 async function purgeStaffChannelMessagesForUser(guild, userId) {
   return deleteStaffRelatedMessagesFromConfiguredChannels(guild, userId);
 }
@@ -267,4 +322,7 @@ module.exports = {
   purgeStaffChannelMessagesForUser,
   ensureStaff,
   archiveStaffRolesHistoryThenUnsetStaff,
+  buildStaffLadderTrackResetUpdate,
+  applyStaffLadderTrackResetToObject,
+  resetStaffLadderTrackInDb,
 };

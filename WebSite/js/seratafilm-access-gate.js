@@ -284,7 +284,7 @@
     var src = seratafilmJsBase() + "seratafilm-hogwarts-theme.js";
     if (v) src += "?v=" + encodeURIComponent(v);
     var s = document.createElement("script");
-    s.src = src;
+    s.src = typeof window.__vcTrustedScriptURL === "function" ? window.__vcTrustedScriptURL(src) : src;
     s.async = true;
     s.onload = function () {
       try {

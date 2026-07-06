@@ -16,6 +16,22 @@
             "944980651713658970": 1
           },
           "panicEnabled": 0
+        },
+        "2026-06-27": {
+          "actions": {
+            "warn": 4,
+            "delete": 4
+          },
+          "rules": {
+            "similar_message": 8
+          },
+          "channels": {
+            "1442569130573303898": 8
+          },
+          "users": {
+            "1254899536003076230": 8
+          },
+          "panicEnabled": 0
         }
       }
     }

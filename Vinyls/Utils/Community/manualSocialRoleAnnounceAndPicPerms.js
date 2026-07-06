@@ -351,7 +351,6 @@ async function recoverManualSocialRoleAnnouncesOnStartup(client, opts = {}) {
     }
     if (sent) {
       recovered += 1;
-      global.logger?.info?.("[social-role-recovery] announce:", uid, rid);
       await recoverySleep(450);
     }
     if (!memberIsInMuteMirrorState(member)) {
@@ -359,7 +358,6 @@ async function recoverManualSocialRoleAnnouncesOnStartup(client, opts = {}) {
       await tryGrantPicPermsIfAnyAutoTrigger(member);
     }
   }
-  if (recovered > 0) global.logger?.info?.("[social-role-recovery] done:", recovered);
   return { ok: true, recovered };
 }
 

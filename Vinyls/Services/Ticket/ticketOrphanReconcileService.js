@@ -168,6 +168,12 @@ async function reconcileOrphanTicketsForGuild(guild) {
   if (summary.created || summary.reopened || summary.backfilled_number) {
     global.logger?.info?.("[TICKET RECONCILE] Completato:", summary);
   }
+  try {
+    const { syncOpenPartnershipTicketReviewerAccess } = require("../../Utils/Ticket/ticketPartnershipStaffRoles");
+    await syncOpenPartnershipTicketReviewerAccess(guild.client);
+  } catch (err) {
+    global.logger?.warn?.("[TICKET RECONCILE] Partnership reviewer sync:", err?.message || err);
+  }
   return { ok: true, ...summary };
 }
 

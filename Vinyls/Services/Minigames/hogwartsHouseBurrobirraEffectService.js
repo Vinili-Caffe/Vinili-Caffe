@@ -13,6 +13,7 @@ const loopState = new WeakSet();
 const activeByClient = new WeakMap();
 const lastStrikeHouseByClient = new WeakMap();
 const lastStrikeAtByClient = new WeakMap();
+const nextRollEligibleAtByClient = new WeakMap();
 
 function normalizeId(value) {
   return String(value || "").trim();
@@ -30,9 +31,10 @@ function resolveCfg(client) {
   return {
     enabled: o.enabled !== false,
     onlyDuringHogwartsEvent: o.onlyDuringHogwartsEvent !== false,
-    spawnChancePercent: Math.min(100, Math.max(0, Number(o.spawnChancePercent) || 2)),
+    spawnChancePercent: Math.min(100, Math.max(0, Number(o.spawnChancePercent) || 2.5)),
     durationMs: safeInt(o.durationMs, 45 * 60 * 1000, 10 * 60 * 1000, 3 * 60 * 60 * 1000),
     minGapBetweenMs: safeInt(o.minGapBetweenMs, 2 * 60 * 60 * 1000, 0, 12 * 60 * 60 * 1000),
+    rollJitterMaxMs: safeInt(o.rollJitterMaxMs, 90 * 60 * 1000, 0, 8 * 60 * 60 * 1000),
     avoidRepeatHouses: safeInt(o.avoidRepeatHouses, 2, 0, 3),
     mainChannelId: normalizeId(o.mainChannelId || IDs.channels?.chat || ""),
   };
@@ -135,11 +137,20 @@ async function publishEndNotices(client, _cfg, houseId) {
   await sendHouseBurrobirraEmbed(client, houseChannelId, buildEndEmbed(houseId, true), houseId);
 }
 
-function passMinGap(client, cfg, nowMs = Date.now()) {
+function scheduleNextHouseBurrobirraRoll(client, cfg, strikeAtMs = Date.now()) {
   const minGap = Math.max(0, Number(cfg.minGapBetweenMs) || 0);
-  if (minGap <= 0) return true;
+  const jitterMax = Math.max(0, Number(cfg.rollJitterMaxMs) || Math.floor(minGap * 0.75));
+  const jitter = jitterMax > 0 ? Math.floor(Math.random() * jitterMax) : 0;
+  nextRollEligibleAtByClient.set(client, Math.floor(Number(strikeAtMs) || Date.now()) + minGap + jitter);
+}
+
+function passRollWindow(client, cfg, nowMs = Date.now()) {
+  const minGap = Math.max(0, Number(cfg.minGapBetweenMs) || 0);
   const lastAt = Math.floor(Number(lastStrikeAtByClient.get(client)) || 0);
-  return !(lastAt > 0 && nowMs - lastAt < minGap);
+  if (minGap > 0 && lastAt > 0 && nowMs - lastAt < minGap) return false;
+  const eligibleAt = Math.floor(Number(nextRollEligibleAtByClient.get(client)) || 0);
+  if (eligibleAt > 0 && nowMs < eligibleAt) return false;
+  return true;
 }
 
 async function tryStartHouseBurrobirra(client, nowMs = Date.now()) {
@@ -155,10 +166,12 @@ async function rollHouseBurrobirraForMinigameStart(client, channelId, houseId, g
   const active = readActive(client, nowMs);
   if (active?.houseId === hid) return true;
   const cfg = resolveCfg(client);
-  if (!passMinGap(client, cfg, nowMs)) return false;
+  if (!passRollWindow(client, cfg, nowMs)) return false;
   if (Math.random() * 100 >= cfg.spawnChancePercent) return false;
   const durationMs = Math.max(60_000, Math.floor(Number(cfg.durationMs) || 45 * 60 * 1000));
   const endAtMs = nowMs + durationMs;
+  lastStrikeAtByClient.set(client, nowMs);
+  scheduleNextHouseBurrobirraRoll(client, cfg, nowMs);
   activeByClient.set(client, { houseId: hid, startAtMs: nowMs, endAtMs, endSent: false });
   await publishStartNotices(client, cfg, hid, endAtMs);
   return true;

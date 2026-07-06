@@ -19,6 +19,7 @@ const HIGH_STAFF_MENTION = HIGH_STAFF_ROLE_ID ? `<@&${HIGH_STAFF_ROLE_ID}>` : nu
 const VERIFIED_BOT_IDS = new Set(Object.values(IDs?.bots || {}).filter(Boolean).map(String),);
 const JOIN_RAID_CONFIG = { enabled: true, lockCommands: true, triggerAction: "quarantine", triggerType: "unique", accountType: "young_or_no_pfp", punishOnActiveRaid: true, triggerCount: 18, triggerWindowMs: 3 * 60 * 60_000, raidDurationMs: 30 * 60_000, warnedRoleIds: [
       IDs.roles.Founder,
+      IDs.roles.Manager,
       IDs.roles.Admin,
       IDs.roles.Director,
       IDs.roles.HighStaff,

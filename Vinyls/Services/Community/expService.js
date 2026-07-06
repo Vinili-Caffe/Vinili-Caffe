@@ -6,7 +6,7 @@ const { sendUserDirectMessage } = require("../../../shared/discord/dmPrivacyNoti
 const botConfig = require("../../config.json");
 const { getGuildChannelCached, getGuildMemberCached, getGuildRoleCached, getClientGuildCached, getClientChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { sendLevelMilestoneSupportersAnnouncement } = require("../../Utils/Community/levelMilestoneSupportersAnnounceEmbeds");
-const { guildMemberDisplayAvatarUrlDynamic, accountUsername } = require("../../Utils/Discord/guildDiscordIdentity");
+const { guildMemberDisplayAvatarUrlDynamic, accountUsername, resolveEmbedUserAvatarUrl } = require("../../Utils/Discord/guildDiscordIdentity");
 const { parseScheduleMs, parseScheduleEndMs } = require("../../Utils/Web/hogwartsEventSchedule");
 const EXP_EXCLUDED_CATEGORY_IDS = new Set([].filter(Boolean).map((id) => String(id)),);
 const TIME_ZONE = "Europe/Rome";
@@ -547,15 +547,16 @@ async function getResolvedWeeklyExpMultiplier(guild, userId, guildSettings = nul
   return combineWeeklyExpMultiplier(globalMulti, getRoleMultiplier(member, settings));
 }
 
-function buildLevelUpEmbed(member, level) {
-  const avatarUrl = guildMemberDisplayAvatarUrlDynamic(member, { size: 256 });
+async function buildLevelUpEmbed(member, level) {
+  const avatarUrl = await resolveEmbedUserAvatarUrl(member, { size: 256 });
   const name = accountUsername(member);
   return {
     embeds: [
       {
         color: 0x6f4e37,
         title: `${name} leveled up!`,
-        ...(avatarUrl ? { thumbnail: { url: avatarUrl } } : {}),
+        thumbnail: { url: avatarUrl },
+        author: { name, icon_url: avatarUrl },
         description: [
           `<a:VC_PandaClap:1331620157398712330> **Complimenti ${member}!**`,
           `<:VC_LevelUp2:1482527047871107143> Hai appena __raggiunto__ il **livello** \`${level}\``,
@@ -570,7 +571,7 @@ async function sendLevelUpMessage(guild, member, level) {
   if (!guild || !member) return;
   const channel = await getLevelUpChannel(guild);
   if (!channel) return;
-  const payload = buildLevelUpEmbed(member, level);
+  const payload = await buildLevelUpEmbed(member, level);
   await sendLevelUpPayload(channel, member, payload);
 }
 
@@ -586,14 +587,15 @@ async function sendLevelUpAnnouncement(guild, member, level) {
   }
 }
 
-function buildPerksLevelEmbed(member, level, roleId) {
-  const avatarUrl = guildMemberDisplayAvatarUrlDynamic(member, { size: 256 });
+async function buildPerksLevelEmbed(member, level, roleId) {
+  const avatarUrl = await resolveEmbedUserAvatarUrl(member, { size: 256 });
   return {
     embeds: [
       {
         color: 0x6f4e37,
         title: `${accountUsername(member)} leveled up!`,
-        ...(avatarUrl ? { thumbnail: { url: avatarUrl } } : {}),
+        thumbnail: { url: avatarUrl },
+        author: { name: accountUsername(member), icon_url: avatarUrl },
         description: [
           `<a:VC_PandaClap:1331620157398712330> **Complimenti ${member}!**`,
           `<:VC_LevelUp2:1482527047871107143> Hai appena __raggiunto__ il <@&${roleId}>`,
@@ -609,19 +611,19 @@ async function sendPerksLevelMessage(guild, member, level) {
   if (!guild || !member || !roleId) return;
   const channel = await getLevelUpChannel(guild);
   if (!channel) return;
-  const payload = buildPerksLevelEmbed(member, level, roleId);
+  const payload = await buildPerksLevelEmbed(member, level, roleId);
   await sendLevelUpPayload(channel, member, payload);
 }
 
-function buildPerkNearDmEmbed(member, targetLevel, roleLabel, missingExp) {
+async function buildPerkNearDmEmbed(member, targetLevel, roleLabel, missingExp) {
   const safeRoleLabel = String(roleLabel || "<:VC_Mention:1482526855289634997> Ruolo sconosciuto").trim();
-  const perkThumb = guildMemberDisplayAvatarUrlDynamic(member, { size: 256 });
+  const perkThumb = await resolveEmbedUserAvatarUrl(member, { size: 256 });
   return {
     embeds: [
       {
         color: 0x6f4e37,
         title: "<:VC_InactiveStatus:1482526984234860574> Sei vicino a un nuovo perk!",
-        ...(perkThumb ? { thumbnail: { url: perkThumb } } : {}),
+        thumbnail: { url: perkThumb },
         description: [
           `<a:VC_PandaClap:1331620157398712330> ${member}, ci sei quasi!`,
           `<:VC_Mention:1482526855289634997> Sei vicino al ruolo **${safeRoleLabel}** (livello \`${targetLevel}\`).`,
@@ -660,7 +662,7 @@ async function maybeSendPerkNearReminder(guild, member, result) {
   const missingExp = Math.max(0, targetExp - Number(result.afterExp || 0));
   const role = guild.roles.cache.get(roleId) || (await getGuildRoleCached(guild, roleId));
   const roleLabel = role?.name || `ID ${roleId}`;
-  const payload = buildPerkNearDmEmbed(member, nextPerkLevel, roleLabel, missingExp,);
+  const payload = await buildPerkNearDmEmbed(member, nextPerkLevel, roleLabel, missingExp);
 
   const sent = await sendUserDirectMessage(member.user, payload, {
     guildId: guild.id,

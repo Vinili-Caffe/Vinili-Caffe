@@ -1,5 +1,6 @@
-const { redeemPartnerManagerPointsForDisplay } = require("./partnerPointsUtils");
+const { redeemPartnerManagerPointsForDisplay, getPartnerRewardPointCost } = require("./partnerPointsUtils");
 const { applyPartnerManagerRedeem50, applyPartnerManagerRedeem100 } = require("./partnerManagerTimedPerks");
+const { PARTNER_REWARD_LABELS } = require("../../../shared/partner/partnerManagerRewardTiers");
 const IDs = require("../Config/ids");
 
 async function completePartnerManagerRedeemForGuild(guild, client, { targetUserId, redeemTier, actorUser }) {
@@ -10,13 +11,14 @@ async function completePartnerManagerRedeemForGuild(guild, client, { targetUserI
     return { ok: false, code: "bad_input", userMessage: "<a:VC_Cross:1482532424570376253> Richiesta non valida." };
   }
 
-  const redeemRes = await redeemPartnerManagerPointsForDisplay(gid, uid, tier);
+  const pointCost = getPartnerRewardPointCost(tier);
+  const redeemRes = await redeemPartnerManagerPointsForDisplay(gid, uid, pointCost);
   if (!redeemRes.ok) {
     if (redeemRes.code === "insufficient") {
       return {
         ok: false,
         code: "insufficient",
-        userMessage: `<a:VC_Cross:1482532424570376253> Punti insufficienti: saldo \`${redeemRes.before ?? 0}\`, servono \`${tier}\`.`,
+        userMessage: `<a:VC_Cross:1482532424570376253> Punti insufficienti: saldo \`${redeemRes.before ?? 0}\`, servono \`${pointCost}\`.`,
         before: redeemRes.before,
       };
     }
@@ -63,13 +65,14 @@ async function completePartnerManagerRedeemForGuild(guild, client, { targetUserI
   const actor = actorUser;
   const targetPmUser = await client.users.fetch(uid).catch(() => null);
   const pmMention = targetPmUser ? String(targetPmUser) : `<@${uid}>`;
+  const rewardName = PARTNER_REWARD_LABELS[tier] || `premio ${tier}`;
   if (removedPointsChannel) {
     await removedPointsChannel
       .send({
         content:
           `<:VC_PartnerManager:1494286911286808576> Partner Manager\: ${pmMention}\n` +
           `<:VC_Staff:1494286904089247754> Staffer: ${actor}\n` +
-          `<:VC_reason:1478517122929004544> **Premio riscattato** (\`${tier}\` punti).\n` +
+          `<:VC_reason:1478517122929004544> **Premio riscattato** (\`${pointCost}\` punti — ${rewardName}).\n` +
           `<:VC_Partner:1482527213780729896> Nuovo Saldo: \`${ptsBefore}\` → \`${ptsAfter}\`` +
           (postRedeemNote ? `\n${postRedeemNote.trim()}` : "") +
           (autoApplySummary ? `\n${autoApplySummary}` : ""),
@@ -78,7 +81,7 @@ async function completePartnerManagerRedeemForGuild(guild, client, { targetUserI
   }
 
   const userMessage =
-    `<a:VC_Verified:1482532479637127188> Riscattati **${tier}** punti a ${pmMention}. Nuovo saldo: \`${ptsAfter}\`.` +
+    `<a:VC_Verified:1482532479637127188> Riscattati **${pointCost}** punti a ${pmMention} (${rewardName}). Nuovo saldo: \`${ptsAfter}\`.` +
     (postRedeemNote ? `\n${postRedeemNote.trim()}` : "") +
     (autoApplySummary ? `\n${autoApplySummary}` : "");
 

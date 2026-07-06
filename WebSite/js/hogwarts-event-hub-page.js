@@ -74,18 +74,43 @@
     }
   }
 
-  function parseDayMs(iso) {
-    const d = String(iso || "").trim();
-    if (!/^\d{4}-\d{2}-\d{2}/.test(d)) return NaN;
-    return new Date(d.includes("T") ? d : `${d}T12:00:00`).getTime();
+  function weekBounds(week) {
+    const start = String(week?.start || "").slice(0, 10);
+    const end = String(week?.end || "").slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(start) || !/^\d{4}-\d{2}-\d{2}$/.test(end)) return null;
+    return { start, end };
   }
 
   function weekPhase(week, nowMs, timezone) {
-    const t = parseDayMs(todayKey(timezone, nowMs));
-    if (!Number.isFinite(t) || !week) return "upcoming";
-    if (t < week.startMs) return "upcoming";
-    if (t > week.endMs) return "past";
+    const bounds = weekBounds(week);
+    const today = todayKey(timezone, nowMs);
+    if (!bounds || !today) return "upcoming";
+    if (today < bounds.start) return "upcoming";
+    if (today > bounds.end) return "past";
     return "current";
+  }
+
+  function pickCurrentWeekKey(weeks, timezone, nowMs) {
+    const list = Array.isArray(weeks) ? weeks : [];
+    if (!list.length) return "";
+    const today = todayKey(timezone, nowMs);
+    if (!today) return list[0].key;
+    for (const w of list) {
+      const bounds = weekBounds(w);
+      if (bounds && today >= bounds.start && today <= bounds.end) return w.key;
+    }
+    const first = weekBounds(list[0]);
+    if (first && today < first.start) return list[0].key;
+    return list[list.length - 1].key;
+  }
+
+  function withLiveCurrentWeek(data, nowMs) {
+    if (!data || typeof data !== "object") return data;
+    const weeks = Array.isArray(data.weeks) ? data.weeks : [];
+    return {
+      ...data,
+      currentWeekKey: pickCurrentWeekKey(weeks, data.timezone, nowMs),
+    };
   }
 
   function isPotionsHref(href) {
@@ -196,10 +221,11 @@
 
   function refreshCalendar(data) {
     if (!data || typeof data !== "object") return;
-    if (!applyHubGate(data)) return;
-    renderCurrentWeek(data);
+    const live = withLiveCurrentWeek(data);
+    if (!applyHubGate(live)) return;
+    renderCurrentWeek(live);
     const allSection = document.getElementById("vc-hw-hub-all-weeks");
-    if (allSection && allSection.dataset.rendered === "1") renderAllWeeks(allSection, data);
+    if (allSection && allSection.dataset.rendered === "1") renderAllWeeks(allSection, live);
   }
 
   function boot() {

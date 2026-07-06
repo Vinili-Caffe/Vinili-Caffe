@@ -1,4 +1,5 @@
 const { checkButtonPermission, checkStringSelectPermission, checkModalPermission, buildGlobalPermissionDeniedEmbed, buildGlobalChannelDeniedEmbed, buildGlobalNotYourControlEmbed, } = require("../Moderation/commandPermissions");
+const { EmbedBuilder } = require("discord.js");
 const PRIVATE_FLAG = 1 << 6;
 const BUTTON_SPAM_COOLDOWN_MS = 1200;
 const BUTTON_INFLIGHT_TTL_MS = 15000;
@@ -117,6 +118,14 @@ function acquireButtonSpamGuard(interaction, client) {
 
 function buildDeniedEmbed(gate, controlLabel) {
   if (gate.reason === "not_owner") {
+    if (gate.ownerId) {
+      return new EmbedBuilder()
+        .setColor("#6f4e37")
+        .setTitle("<:VC_Lock:1482526739044368476> **Accesso negato**")
+        .setDescription(
+          `<:VC_Attention:1482534443632558151> Questo pannello è del profilo di <@${gate.ownerId}>. Usa \`+profile\` per aprire e modificare il tuo.`,
+        );
+    }
     return buildGlobalNotYourControlEmbed();
   }
 

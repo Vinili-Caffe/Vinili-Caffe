@@ -3,6 +3,7 @@ const{handleAutocomplete,handleSlashCommand,}=require("./interaction/commandHand
 const { handleButtonInteraction } = require("./interaction/buttonHandlers");
 const { handlePartnerModal } = require("./interaction/partnerModal");
 const { handlePartnerPointContextModal } = require("./interaction/partnerPointContextHandlers");
+const { handleSanzionaModal } = require("./interaction/sanzionaHandlers");
 const { handleCustomRoleInteraction } = require("./interaction/customRoleHandlers");
 const{acquireButtonSpamGuard,runPermissionGate,}=require("../Utils/Interaction/interactionRuntimeGuards");
 const{logInteractionError,}=require("../Utils/Interaction/interactionErrorHandler");
@@ -84,6 +85,11 @@ module.exports = {
         return;
       }
 
+      if (interaction.isUserContextMenuCommand?.()) {
+        await handleSlashCommand(interaction, resolvedClient);
+        return;
+      }
+
       if (interaction.isChatInputCommand?.()) {
         await handleSlashCommand(interaction, resolvedClient);
         return;
@@ -92,6 +98,7 @@ module.exports = {
       const allowedByGate = await runPermissionGate(interaction);
       if (!allowedByGate) return;
 
+      if (await handleSanzionaModal(interaction, resolvedClient)) return;
       if (await handlePartnerPointContextModal(interaction)) return;
       if (await handlePartnerModal(interaction)) return;
       if (await handleCustomRoleInteraction(interaction)) {

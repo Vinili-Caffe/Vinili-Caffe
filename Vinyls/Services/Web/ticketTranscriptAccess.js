@@ -43,6 +43,7 @@ function ticketStaffRoleIdsForGuild(guildId) {
     IDs.roles.SeniorModerator,
     IDs.roles.Director,
     IDs.roles.HighStaff,
+    IDs.roles.Manager,
     IDs.roles.Admin,
     IDs.roles.Founder,
     IDs.roles.CommunityManager,

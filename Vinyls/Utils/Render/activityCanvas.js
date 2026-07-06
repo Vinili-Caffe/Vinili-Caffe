@@ -29,6 +29,34 @@ const ACTIVITY_CHANNEL_ANIM_FRAMES = Math.max(
   2,
   Math.min(30, Math.floor(Number(process.env.VC_ACTIVITY_CHANNEL_ANIM_FRAMES ?? 12))),
 );
+const STATS_AVATAR_CACHE_TTL_MS = Math.max(
+  0,
+  Math.min(600_000, Number(process.env.STATS_AVATAR_CACHE_TTL_MS ?? 300_000)),
+);
+const statsAvatarCache = new Map();
+
+function getStatsAvatarCache(url) {
+  if (!STATS_AVATAR_CACHE_TTL_MS) return null;
+  const key = String(url || "");
+  if (!key) return null;
+  const entry = statsAvatarCache.get(key);
+  if (!entry || entry.expiresAt <= Date.now()) {
+    if (entry) statsAvatarCache.delete(key);
+    return null;
+  }
+  return entry.value;
+}
+
+function setStatsAvatarCache(url, value) {
+  if (!STATS_AVATAR_CACHE_TTL_MS || !value) return;
+  const key = String(url || "");
+  if (!key) return;
+  statsAvatarCache.set(key, { value, expiresAt: Date.now() + STATS_AVATAR_CACHE_TTL_MS });
+  if (statsAvatarCache.size > 250) {
+    const oldest = statsAvatarCache.keys().next().value;
+    if (oldest) statsAvatarCache.delete(oldest);
+  }
+}
 
 const STATS_TITLE = "#e8edf2";
 const STATS_BODY = "#c5d0db";
@@ -248,31 +276,40 @@ function drawBackground(ctx, width, height) {
 
 async function loadAvatarForStatsCanvas(url) {
   if (!url) return null;
+  const cached = getStatsAvatarCache(url);
+  if (cached) return cached;
   const buf = await fetchHttpImageBuffer(url, { timeoutMs: 10000 }).catch(() => null);
   if (!buf?.length) return null;
   const isGif = buf[0] === 0x47 && buf[1] === 0x49 && buf[2] === 0x46;
+  let resolved = null;
   if (isGif) {
     try {
       const decoded = decodeGif(buf);
-      if (decoded?.frames?.length)
-        return { kind: "gif", width: decoded.width, height: decoded.height, frames: decoded.frames };
+      if (decoded?.frames?.length) {
+        resolved = { kind: "gif", width: decoded.width, height: decoded.height, frames: decoded.frames };
+      }
     } catch {
     }
+    if (!resolved) {
+      try {
+        const image = await getCanvasModule().loadImage(buf);
+        resolved = { kind: "static", image };
+      } catch {
+        const image = await safeLoadImage(url, { timeoutMs: 10000 }).catch(() => null);
+        resolved = image ? { kind: "static", image } : null;
+      }
+    }
+  } else {
     try {
       const image = await getCanvasModule().loadImage(buf);
-      return { kind: "static", image };
+      resolved = { kind: "static", image };
     } catch {
       const image = await safeLoadImage(url, { timeoutMs: 10000 }).catch(() => null);
-      return image ? { kind: "static", image } : null;
+      resolved = image ? { kind: "static", image } : null;
     }
   }
-  try {
-    const image = await getCanvasModule().loadImage(buf);
-    return { kind: "static", image };
-  } catch {
-    const image = await safeLoadImage(url, { timeoutMs: 10000 }).catch(() => null);
-    return image ? { kind: "static", image } : null;
-  }
+  if (resolved) setStatsAvatarCache(url, resolved);
+  return resolved;
 }
 
 function strokeAvatarRing(ctx, x, y, size, animationPhase) {

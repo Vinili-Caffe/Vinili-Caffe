@@ -79,7 +79,6 @@ web_modules/
 .env.production.local
 .env.local
 deploy/.env.mongo
-Lavalink/.env.lavalink
 deploy/backups/
 deploy/atlas-dump/
 
@@ -167,4 +166,16 @@ Lavalink/plugins/
 
 # Deploy
 .deploy/tools/
-WebSite/images/evento-hogwarts/Watch Harry Potter e il prigioniero di Azkaban.mp4
+deploy/tools/
+
+# Bot runtime state (rigenerato a ogni avvio / sul VPS)
+**/Data/*Snapshot*.json
+**/*.wal
+Coffee/Data/markov/
+Coffee/Data/voiceTranscriptionCheckpoint.json
+Vinyls/Data/Backups/**
+!Vinyls/Data/Backups/.gitkeep
+Vinyls/Data/Hogwarts/*.jsonl
+Vinyls/Data/noDmList.json*
+Vinyls/Data/ticketReopenOutsideSessions.json*
+shared/discord/chatHubPacing.snapshot.json

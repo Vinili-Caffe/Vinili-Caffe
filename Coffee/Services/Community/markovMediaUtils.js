@@ -51,15 +51,37 @@ function extractMessageImageUrls(message) {
   return [...urls];
 }
 
-function extractMessageStickerIds(message) {
+function normalizeMarkovStickerRef(entry) {
+  if (!entry) return null;
+  if (typeof entry === "string") {
+    const id = entry.trim();
+    return /^\d{5,30}$/.test(id) ? { id, url: null } : null;
+  }
+  const id = String(entry.id || "").trim();
+  if (!/^\d{5,30}$/.test(id)) return null;
+  const url = String(entry.url || "").trim() || null;
+  return { id, url };
+}
+
+function extractMessageStickers(message) {
   const stickers = message?.stickers;
   if (!stickers?.size) return [];
-  const ids = [];
+  const out = [];
+  const seen = new Set();
   for (const sticker of stickers.values()) {
-    const id = String(sticker?.id || "").trim();
-    if (/^\d{5,30}$/.test(id)) ids.push(id);
+    const ref = normalizeMarkovStickerRef({
+      id: sticker?.id,
+      url: sticker?.url,
+    });
+    if (!ref || seen.has(ref.id)) continue;
+    seen.add(ref.id);
+    out.push(ref);
   }
-  return [...new Set(ids)];
+  return out;
+}
+
+function extractMessageStickerIds(message) {
+  return extractMessageStickers(message).map((ref) => ref.id);
 }
 
 function pickRandomItem(items) {
@@ -135,11 +157,32 @@ async function resolveMarkovImageEmbed(url) {
   return { image: { url: trimmed } };
 }
 
+async function resolveMarkovStickerEmbed(client, stickerRef) {
+  const ref = normalizeMarkovStickerRef(stickerRef);
+  if (!ref) return null;
+  let url = ref.url;
+  if (!url && client?.fetchSticker) {
+    try {
+      const sticker = await client.fetchSticker(ref.id);
+      url = String(sticker?.url || "").trim() || null;
+    } catch {
+      return null;
+    }
+  }
+  if (!url) return null;
+  if (/cdn\.discordapp\.com\/stickers\//i.test(url) || /media\.discordapp\.net\/stickers\//i.test(url)) {
+    return { image: { url } };
+  }
+  return resolveMarkovImageEmbed(url);
+}
+
 module.exports = {
   extractUserMentionIds,
   buildAllowedMentionsForText,
   isLikelyImageUrl,
   extractMessageImageUrls,
+  normalizeMarkovStickerRef,
+  extractMessageStickers,
   extractMessageStickerIds,
   pickRandomItem,
   resolveMarkovOutputLimits,
@@ -147,4 +190,5 @@ module.exports = {
   fileNameFromImageUrl,
   validateMarkovImageUrl,
   resolveMarkovImageEmbed,
+  resolveMarkovStickerEmbed,
 };

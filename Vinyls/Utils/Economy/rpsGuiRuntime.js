@@ -1,7 +1,7 @@
 const { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const { buildImageButtonPayload, canvasStatusLine } = require("./guiPanelPayload");
 const { formatCurrency } = require("../../Services/Community/serverWalletService");
-const { economyConfig, lockRpsPvpStakes, normalizeRps, playRps, refundRpsPvpStake, settleRpsPvp } = require("../../Services/Community/serverEconomyService");
+const { economyConfig, lockRpsPvpStakes, normalizeRps, playRps, refundRpsPvpStake, settleRpsPvp } = require("../../Services/Community/activeEconomyService");
 
 const PREFIX = "rps_gui";
 const SESSION_TTL_MS = 10 * 60 * 1000;

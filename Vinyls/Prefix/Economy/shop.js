@@ -1,5 +1,5 @@
 const { CURRENCY_CAFFE, CURRENCY_VINILI } = require("../../Services/Community/serverWalletService");
-const { parseCurrencyArg, defaultBetCurrency } = require("../../Services/Community/serverEconomyService");
+const { parseCurrencyArg, defaultBetCurrency, isServerEconomyEnabled } = require("../../Services/Community/activeEconomyService");
 const { openShopPanel, setSession } = require("../../Utils/Economy/shopGuiRuntime");
 const { postGuiPanel, replyDeny, runEconomyPanelCommand } = require("../../Utils/Economy/economyCommandHelpers");
 
@@ -12,6 +12,10 @@ module.exports = {
   examples: ["+shop", "+shop caffe", "+shop vinili"],
   async execute(message, args, client) {
     await runEconomyPanelCommand(message, client, "SHOP", async ({ message: msg, client: c, replyDeny: deny, postGuiPanel: post }) => {
+      if (!isServerEconomyEnabled(c)) {
+        await deny(msg, "Lo shop Vinili & Caffè non è disponibile durante l'evento Hogwarts.");
+        return;
+      }
       const raw = String(args?.[0] || "").trim();
       const parsed = raw ? parseCurrencyArg(raw) : { ok: true, currency: defaultBetCurrency() };
       if (!parsed.ok) {

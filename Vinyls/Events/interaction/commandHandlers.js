@@ -10,6 +10,17 @@ const { getCentralChannel } = require("../../Utils/Logging/commandUsageLogger");
 const IDs = require("../../Utils/Config/ids");
 const { shouldBlockModerationCommands } = require("../../Services/Moderation/antiNukeService");
 const { getSecurityLockState } = require("../../Services/Moderation/securityOrchestratorService");
+const {
+  registerInteractionShutdownGuard,
+  trackInteractionStart,
+  markInteractionDeferred,
+  markInteractionReplied,
+  releaseInteraction,
+  isShuttingDown,
+  SHUTDOWN_MESSAGE,
+} = require("../../../shared/discord/interactionShutdownGuard");
+
+registerInteractionShutdownGuard();
 const SLASH_COOLDOWN_BYPASS_ROLE_ID = IDs.roles?.Staff || null;
 const STAFF_BYPASS_PERMISSIONS=[PermissionFlagsBits.Administrator,PermissionFlagsBits.ManageGuild,PermissionFlagsBits.ManageChannels,PermissionFlagsBits.ManageRoles,PermissionFlagsBits.ManageMessages,PermissionFlagsBits.KickMembers,PermissionFlagsBits.BanMembers,PermissionFlagsBits.ModerateMembers,];
 const SLASH_EXECUTION_TIMEOUT_MS=Math.max(15_000,Number(process.env.SLASH_EXECUTION_TIMEOUT_MS||120_000),);
@@ -70,6 +81,10 @@ async function handleAutocomplete(interaction, client) {
 }
 
 async function handleSlashCommand(interaction, client) {
+  if (isShuttingDown()) {
+    return interaction.reply({ content: SHUTDOWN_MESSAGE, flags: MessageFlags.Ephemeral }).catch(() => null);
+  }
+
   const command=client.commands.get(getCommandKey(interaction.commandName,interaction.commandType),);
   if (!command) {
     if (OBSOLETE_SLASH_NAMES.has(String(interaction.commandName || "").toLowerCase())) {
@@ -96,6 +111,13 @@ async function handleSlashCommand(interaction, client) {
     ))
   ) {
     return interaction.reply({ content: "<a:VC_Lock:1482526739044368476> Comandi di moderazione temporaneamente bloccati.", flags: 1 << 6 });
+  }
+  if (isModerationSlashCommand && interaction.channel) {
+    const { staffChatCommandsDeniedReplyContent } = require("../../Utils/Staff/staffChatChannelUtils");
+    const deniedStaffChat = await staffChatCommandsDeniedReplyContent(interaction.channel).catch(() => null);
+    if (deniedStaffChat) {
+      return interaction.reply({ content: deniedStaffChat, flags: 1 << 6 });
+    }
   }
   const expectsModal = command?.expectsModal === true;
   const isAdminCommand=String(command?.category||"").toLowerCase()==="admin";
@@ -127,21 +149,34 @@ async function handleSlashCommand(interaction, client) {
   }
   client.interactionCommandLocks.add(interactionLockId);
 
+  const track = trackInteractionStart(interaction, { commandName: command.name });
+  if (!track.ok) {
+    client.interactionCommandLocks.delete(interactionLockId);
+    return interaction.reply({ content: SHUTDOWN_MESSAGE, flags: MessageFlags.Ephemeral }).catch(() => null);
+  }
+
   const originalReply = interaction.reply.bind(interaction);
   const originalFollowUp = interaction.followUp?.bind(interaction);
   const originalEditReply = interaction.editReply.bind(interaction);
   const originalChannelSend=interaction.channel?.send?.bind(interaction.channel,);
   const wrappedInteraction = Object.create(interaction);
   wrappedInteraction.deferReply = (...args) => {
-    if (isAdminCommand) return interaction.deferReply(...args);
-    const first = args?.[0];
-    if (!first || typeof first !== "object" || Array.isArray(first)) {
-      return interaction.deferReply({ flags: 1 << 6 });
-    }
-    if (!Object.prototype.hasOwnProperty.call(first, "flags")) {
-      return interaction.deferReply({ ...first, flags: 1 << 6 });
-    }
-    return interaction.deferReply(...args);
+    const runDefer = isAdminCommand
+      ? interaction.deferReply(...args)
+      : (() => {
+          const first = args?.[0];
+          if (!first || typeof first !== "object" || Array.isArray(first)) {
+            return interaction.deferReply({ flags: 1 << 6 });
+          }
+          if (!Object.prototype.hasOwnProperty.call(first, "flags")) {
+            return interaction.deferReply({ ...first, flags: 1 << 6 });
+          }
+          return interaction.deferReply(...args);
+        })();
+    return Promise.resolve(runDefer).then((result) => {
+      markInteractionDeferred(interaction);
+      return result;
+    });
   };
   wrappedInteraction.showModal = (...args) => interaction.showModal(...args);
   wrappedInteraction.deferUpdate = (...args) => interaction.deferUpdate(...args);
@@ -150,8 +185,11 @@ async function handleSlashCommand(interaction, client) {
   wrappedInteraction.deleteReply = (...args) => interaction.deleteReply(...args);
   wrappedInteraction.reply = async (payload) => {
     payload = applyDefaultFooterToEmbeds(payload, interaction.guild);
-    if (interaction.deferred) return interaction.editReply(sanitizeEditPayload(payload));
-    return originalReply(payload);
+    const result = interaction.deferred
+      ? await interaction.editReply(sanitizeEditPayload(payload))
+      : await originalReply(payload);
+    markInteractionReplied(interaction);
+    return result;
   };
 
   if (originalFollowUp) {
@@ -165,7 +203,9 @@ async function handleSlashCommand(interaction, client) {
         }
       }
       try {
-        return await originalFollowUp(payload);
+        const result = await originalFollowUp(payload);
+        markInteractionReplied(interaction);
+        return result;
       } catch (err) {
         if (err?.code === "InteractionNotReplied") {
           return originalReply(payload);
@@ -177,7 +217,9 @@ async function handleSlashCommand(interaction, client) {
 
   wrappedInteraction.editReply = async (payload) => {
     const withFooter = applyDefaultFooterToEmbeds(payload, interaction.guild);
-    return originalEditReply(sanitizeEditPayload(withFooter));
+    const result = await originalEditReply(sanitizeEditPayload(withFooter));
+    markInteractionReplied(interaction);
+    return result;
   };
   if (originalChannelSend) {
     const wrappedChannel = Object.create(interaction.channel);
@@ -199,7 +241,10 @@ async function handleSlashCommand(interaction, client) {
       deferTimer = setTimeout(() => {
         if (!interaction.replied && !interaction.deferred) {
           const deferPayload = isAdminCommand ? {} : { flags: 1 << 6 };
-          interaction.deferReply(deferPayload).catch(() => {});
+          interaction
+            .deferReply(deferPayload)
+            .then(() => markInteractionDeferred(interaction))
+            .catch(() => {});
         }
       }, 1500);
       if (typeof deferTimer?.unref === "function") deferTimer.unref();
@@ -288,6 +333,7 @@ async function handleSlashCommand(interaction, client) {
     if (deferTimer) clearTimeout(deferTimer);
     if (executionTimeoutTimer) clearTimeout(executionTimeoutTimer);
     client.interactionCommandLocks.delete(interactionLockId);
+    releaseInteraction(interaction);
   }
 }
 

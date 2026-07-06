@@ -89,6 +89,7 @@ function listCustomPrivateVoiceChannelsByOwner(guild, ownerId) {
   const uid = String(ownerId || "").trim();
   if (!guild?.channels?.cache || !privateCategoryIds.size || !/^\d{17,22}$/.test(uid)) return [];
   const ManageChannels = PermissionsBitField.Flags.ManageChannels;
+  const MoveMembers = PermissionsBitField.Flags.MoveMembers;
   const Connect = PermissionsBitField.Flags.Connect;
   const list = [];
   for (const ch of guild.channels.cache.values()) {
@@ -96,7 +97,7 @@ function listCustomPrivateVoiceChannelsByOwner(guild, ownerId) {
     if (!privateCategoryIds.has(String(ch.parentId || ""))) continue;
     const ow = ch.permissionOverwrites?.cache?.get(uid);
     if (!ow?.allow) continue;
-    if (ow.allow.has(ManageChannels) && ow.allow.has(Connect)) list.push(ch);
+    if (ow.allow.has(Connect) && (ow.allow.has(MoveMembers) || ow.allow.has(ManageChannels))) list.push(ch);
   }
   list.sort((a, b) => a.id.localeCompare(b.id));
   return list;
@@ -108,6 +109,7 @@ function discoverCustomPrivateVoiceOwnersFromGuild(guild) {
   const owners = new Map();
   if (!guild?.channels?.cache || !privateCategoryIds.size) return owners;
   const ManageChannels = PermissionsBitField.Flags.ManageChannels;
+  const MoveMembers = PermissionsBitField.Flags.MoveMembers;
   const Connect = PermissionsBitField.Flags.Connect;
   for (const ch of guild.channels.cache.values()) {
     if (!ch?.isVoiceBased?.()) continue;
@@ -118,7 +120,8 @@ function discoverCustomPrivateVoiceOwnersFromGuild(guild) {
       if (ow.type !== OverwriteType.Member) continue;
       const uid = String(ow.id || "");
       if (!uid || uid === botId || !/^\d{17,22}$/.test(uid)) continue;
-      if (!ow.allow?.has(ManageChannels) || !ow.allow?.has(Connect)) continue;
+      if (!ow.allow?.has(Connect)) continue;
+      if (!ow.allow?.has(MoveMembers) && !ow.allow?.has(ManageChannels)) continue;
       const prev = owners.get(uid);
       if (!prev || ch.id.localeCompare(prev) < 0) owners.set(uid, ch.id);
     }

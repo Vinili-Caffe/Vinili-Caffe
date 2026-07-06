@@ -1,6 +1,6 @@
 const { MessageFlags } = require("discord.js");
 const { CURRENCY_CAFFE, CURRENCY_VINILI } = require("../Services/Community/serverWalletService");
-const { isHighStaff } = require("../Services/Community/serverEconomyService");
+const { isHighStaff } = require("../Services/Community/activeEconomyService");
 const { applyStaffCredit, applyStaffDebit, buildAmountModal, buildBalPayload, buildConvertModal, cycleStep, deleteSession, formatCurrency, getSession, isBalGuiCustomId, isStaffAction, normalizeAmountStep, parseBalGuiCustomId, reloadBalance, setSession, staffCurrencyLabel } = require("../Utils/Economy/balGuiRuntime");
 const { convertCaffeToGaleoni } = require("../Services/Community/serverEconomyBridgeService");
 const PRIVATE_FLAG = MessageFlags.Ephemeral;

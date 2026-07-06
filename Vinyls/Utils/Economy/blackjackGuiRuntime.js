@@ -1,7 +1,7 @@
 const { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const { buildImageButtonPayload } = require("./guiPanelPayload");
 const { formatCurrency } = require("../../Services/Community/serverWalletService");
-const { economyConfig, payBlackjackWin, playBlackjackBet } = require("../../Services/Community/serverEconomyService");
+const { economyConfig, payBlackjackWin, playBlackjackBet } = require("../../Services/Community/activeEconomyService");
 const { compareOutcome, dealerShouldHit, drawCard, freshShoe, handLabel, handValue, isNaturalBlackjack, payoutMultiplier } = require("./blackjackEngine");
 const PREFIX = "blackjack_gui";
 const SESSION_TTL_MS = 10 * 60 * 1000;

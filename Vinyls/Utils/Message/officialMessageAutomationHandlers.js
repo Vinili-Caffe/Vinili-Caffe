@@ -415,6 +415,24 @@ function getMessageTextParts(message) {
   };
 }
 
+async function hydrateAutomationMessage(message) {
+  if (!message?.channel?.messages?.fetch) return message;
+  try {
+    if (message.partial) {
+      return (await message.fetch().catch(() => null)) || message;
+    }
+    const { content, embedText } = getMessageTextParts(message);
+    const hasEmbedsArray = Array.isArray(message.embeds) && message.embeds.length > 0;
+    if (!content && !embedText && !hasEmbedsArray) {
+      const fresh = await message.channel.messages.fetch(message.id).catch(() => null);
+      if (fresh) return fresh;
+    }
+    return message;
+  } catch {
+    return message;
+  }
+}
+
 async function resolveUserFromMessage(message) {
   const mentioned = message.mentions?.users?.first();
   if (mentioned) return mentioned;
@@ -504,6 +522,8 @@ async function handleVoteManagerMessage(message, client) {
     return false;
   }
 
+  message = await hydrateAutomationMessage(message);
+
   const { content, embedText, embedTitle, fieldsText } = getMessageTextParts(message);
   const voteText = `${content}${embedText}${embedTitle}${fieldsText}`.toLowerCase();
   const looksLikeVote =
@@ -556,17 +576,6 @@ async function processDiscadiaVote(guild, user, client, options = {}) {
     global.logger?.warn?.("[officialMessageAutomation] record vote error: ", err?.message || err);
   }
 
-  try {
-    const expiresAt = new Date(Date.now() + voteCooldownMs);
-    await upsertVoteRole(guild.id, user.id, expiresAt);
-    const member = await getCachedOrFetchMember(guild, user.id);
-    if (member && !member.roles.cache.has(VOTE_ROLE_ID)) {
-      await member.roles.add(VOTE_ROLE_ID).catch(() => { });
-    }
-  } catch (err) {
-    global.logger?.warn?.("[officialMessageAutomation] role/event error: ", err?.message || err);
-  }
-
   const { DIVIDER_URL: dividerUrl } = require("../../../shared/discord/constants");
   const voteCooldownHours = Math.max(1, Math.round(voteCooldownMs / (60 * 60 * 1000)));
   const voteAgainHoursLabel = voteCooldownHours === 1 ? "1 ora" : `${voteCooldownHours} ore`;
@@ -614,22 +623,37 @@ async function processDiscadiaVote(guild, user, client, options = {}) {
     await channel.send({ content: `${user}`, embeds: [embed], components, }).catch(() => { });
   }
 
-  try {
-    const { enqueueSiteInAppNotification } = require("../Web/siteInAppNotificationsService");
-    const platformLabel = voteListing === "topgg" ? "Top.gg" : "Discadia";
-    await enqueueSiteInAppNotification({
-      guildId: guild.id,
-      userId: user.id,
-      title: voteListing === "topgg" ? "Voto su Top.gg registrato" : "Voto su Discadia registrato",
-      body: `Il voto su ${platformLabel} è stato registrato: hai ricevuto EXP e ricompense sul server. Grazie per il supporto!`,
-      kind: "vote",
-      openUrl: "/vote",
-      dedupeKey: `vote:${voteListing}:${user.id}`,
-      dedupeWindowMs: 120_000,
-    });
-  } catch (eN) {
-    global.logger?.warn?.("[officialMessageAutomation] site notification vote:", eN?.message || eN);
-  }
+  void (async () => {
+    try {
+      const expiresAt = new Date(Date.now() + voteCooldownMs);
+      await upsertVoteRole(guild.id, user.id, expiresAt);
+      const member = await getCachedOrFetchMember(guild, user.id);
+      if (member && !member.roles.cache.has(VOTE_ROLE_ID)) {
+        await member.roles.add(VOTE_ROLE_ID).catch(() => { });
+      }
+    } catch (err) {
+      global.logger?.warn?.("[officialMessageAutomation] role/event error: ", err?.message || err);
+    }
+  })();
+
+  void (async () => {
+    try {
+      const { enqueueSiteInAppNotification } = require("../Web/siteInAppNotificationsService");
+      const platformLabel = voteListing === "topgg" ? "Top.gg" : "Discadia";
+      await enqueueSiteInAppNotification({
+        guildId: guild.id,
+        userId: user.id,
+        title: voteListing === "topgg" ? "Voto su Top.gg registrato" : "Voto su Discadia registrato",
+        body: `Il voto su ${platformLabel} è stato registrato: hai ricevuto EXP e ricompense sul server. Grazie per il supporto!`,
+        kind: "vote",
+        openUrl: "/vote",
+        dedupeKey: `vote:${voteListing}:${user.id}`,
+        dedupeWindowMs: 120_000,
+      });
+    } catch (eN) {
+      global.logger?.warn?.("[officialMessageAutomation] site notification vote:", eN?.message || eN);
+    }
+  })();
 
   return true;
 }

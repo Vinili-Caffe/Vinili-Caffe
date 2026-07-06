@@ -164,6 +164,12 @@ async function run(root) {
     assert(detectScam("I'm excited to announce my crypto casino launch") === true, "detectScam crypto casino phrase");
     assert(detectScam("visit betchoco.com BONUS") === true, "detectScam betchoco domain");
     assert(detectScam("register at serowin.com promo BET") === true, "detectScam serowin domain");
+    assert(
+      detectScam(
+        "LOST YOUR CRYPTO TO A SCAM? Reach out to Kate Expert Services for crypto asset tracing. NO UPFRONT PAYMENT Kateexpertsservices@gmail.com +44 7884 893099",
+      ) === true,
+      "detectScam crypto recovery kate expert",
+    );
     assert(detectScam("ciao come stai oggi") === false, "detectScam conversazione normale");
     const detectScamImageBait = automodService?.__test?.detectScamImageBait;
     assert(typeof detectScamImageBait === "function", "automod __test detectScamImageBait mancante");
@@ -543,6 +549,22 @@ async function run(root) {
   }
 
   const mentionResponseAccess = require(path.join(root, "Utils", "Community", "mentionResponseAccessUtils"));
+  const staffRegolamento = require(path.join(root, "Utils", "Moderation", "staffRegolamentoSteps"));
+  assert(staffRegolamento.normalizeRuleDot("1,2") === "1.2", "sanziona normalize rule 1,2");
+  assert(staffRegolamento.normalizeRuleDot("2_3") === "2.3", "sanziona normalize rule 2_3");
+  assert(staffRegolamento.normalizeRuleDot("foo") === null, "sanziona reject invalid rule");
+  const r13 = staffRegolamento.resolveStaffRegolaSanction("1.3", 0);
+  assert(r13?.step?.type === "warn", "sanziona 1.3 first step warn");
+  const r13b = staffRegolamento.resolveStaffRegolaSanction("1.3", 1);
+  assert(r13b?.step?.type === "mute" && r13b.step.duration === "4h", "sanziona 1.3 second step mute 4h");
+  const r13max = staffRegolamento.resolveStaffRegolaSanction("1.3", 99);
+  assert(r13max?.step?.duration === "18h", "sanziona 1.3 caps at last step");
+  assert(
+    staffRegolamento.isMatchingRuleCase({ reason: "Violazione della regola 1.2 (2°)" }, "1.2"),
+    "sanziona modlog match violazione regola",
+  );
+  const dynoWarn = staffRegolamento.buildDynoArgs("123", r13, "Violazione della regola 1.3 (1°)", "");
+  assert(dynoWarn?.cmd === "warn" && dynoWarn.args[0] === "123", "sanziona dyno warn args");
   const { MENTION_RESPONSE_ROLE_IDS } = mentionResponseAccess;
   assert(Array.isArray(MENTION_RESPONSE_ROLE_IDS) && MENTION_RESPONSE_ROLE_IDS.length >= 5, "mentionResponse role ids");
   const fakeMember = (roleIds) => ({
@@ -551,6 +573,48 @@ async function run(root) {
   assert(!mentionResponseAccess.memberHasMentionResponseAccess(fakeMember([])), "mentionResponse deny senza ruoli");
   assert(mentionResponseAccess.memberHasMentionResponseAccess(fakeMember([MENTION_RESPONSE_ROLE_IDS[0]])), "mentionResponse allow VIP");
   assert(mentionResponseAccess.memberHasMentionResponseAccess(fakeMember([MENTION_RESPONSE_ROLE_IDS.at(-1)])), "mentionResponse allow Level100");
+
+  const mentionInteractionChannels = require(path.join(root, "Utils", "Community", "mentionInteractionChannelUtils"));
+  const IDs = require(path.join(root, "Utils", "Config", "ids"));
+  const { ChannelType } = require("discord.js");
+  const fakeChannel = (id, type = ChannelType.GuildText, parentId = null) => ({
+    id: String(id),
+    type,
+    parentId,
+    isThread: () => false,
+    isTextBased: () => type === ChannelType.GuildVoice || type === ChannelType.GuildText,
+  });
+  const fakeThread = (parent) => ({
+    isThread: () => true,
+    parent,
+    parentId: parent?.id,
+  });
+  assert(
+    mentionInteractionChannels.channelAllowsMentionInteraction(fakeChannel(IDs.channels.chat)),
+    "mentionInteraction allow chat",
+  );
+  assert(
+    !mentionInteractionChannels.channelAllowsMentionInteraction(fakeChannel(IDs.channels.partnerships)),
+    "mentionInteraction deny partnerships",
+  );
+  assert(
+    mentionInteractionChannels.channelAllowsMentionInteraction(
+      fakeChannel("voice-text", ChannelType.GuildVoice, IDs.categories.categoryPublics),
+    ),
+    "mentionInteraction allow voice text chat",
+  );
+  assert(
+    mentionInteractionChannels.channelAllowsMentionInteraction(
+      fakeThread(fakeChannel(IDs.channels.media)),
+    ),
+    "mentionInteraction allow thread in media",
+  );
+  assert(
+    !mentionInteractionChannels.channelAllowsMentionInteraction(
+      fakeThread(fakeChannel(IDs.channels.partnerships)),
+    ),
+    "mentionInteraction deny thread in partnerships",
+  );
 
   const staffChatUtils = require(path.join(root, "Utils", "Staff", "staffChatChannelUtils"));
   const pmThread = await staffChatUtils.resolveStaffChatPmThread(null);

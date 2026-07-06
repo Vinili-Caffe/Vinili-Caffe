@@ -11,7 +11,7 @@ const { PermissionsBitField } = require("discord.js");
 const TIME_ZONE = "Europe/Rome";
 const CUSTOM_VOC_WEEKLY_MIN_SECONDS = 5 * 60 * 60;
 const CUSTOM_VOC_MAX_FAILED_WEEKS = 3;
-const CUSTOM_VOC_RECREATION_COOLDOWN_MS = 14 * 24 * 60 * 60 * 1000;
+const CUSTOM_VOC_RECREATION_COOLDOWN_MS = 0;
 const CUSTOM_VOC_RETROACTIVE_MAX_WEEKS = 104;
 
 const romeDateTimeFormatter = new Intl.DateTimeFormat("en-GB", {
@@ -262,7 +262,9 @@ function buildCustomVocWeeklyActivityEmbedLines(activityState) {
   const lines = [];
   if (activityState.recreationBlocked) {
     lines.push(`<a:VC_Alert:1482706673176150077> Ricreazione bloccata${activityState.cooldownRemainingLabel ? ` per ancora **${activityState.cooldownRemainingLabel}**` : ""} (fino al **${activityState.recreationBlockedLabel || "—"}**).`);
-    lines.push("<:VC_Info:1482526956703580372> Dopo **3 settimane** consecutive sotto **5 ore** la vocale viene eliminata; per ricrearla serve attendere **2 settimane**.");
+    if (CUSTOM_VOC_RECREATION_COOLDOWN_MS > 0) {
+      lines.push("<:VC_Info:1482526956703580372> Dopo **3 settimane** consecutive sotto **5 ore** la vocale viene eliminata; per ricrearla serve attendere **2 settimane**.");
+    }
     return lines;
   }
   if (activityState.hasChannel) {
@@ -278,7 +280,11 @@ function buildCustomVocWeeklyActivityEmbedLines(activityState) {
     lines.push("<:VC_Info:1482526956703580372> Minimo **5 ore/settimana** nella tua vocale (periodo: domenica 21:00 → domenica 21:00, ora di Roma).");
     return lines;
   }
-  lines.push("<:VC_Info:1482526956703580372> Minimo **5 ore/settimana** nella vocale privata; **3 settimane** consecutive sotto soglia → eliminazione **domenica 21:00** e attesa di **2 settimane** per ricrearla.");
+  if (CUSTOM_VOC_RECREATION_COOLDOWN_MS > 0) {
+    lines.push("<:VC_Info:1482526956703580372> Minimo **5 ore/settimana** nella vocale privata; **3 settimane** consecutive sotto soglia → eliminazione **domenica 21:00** e attesa di **2 settimane** per ricrearla.");
+  } else {
+    lines.push("<:VC_Info:1482526956703580372> Minimo **5 ore/settimana** nella vocale privata; **3 settimane** consecutive sotto soglia → eliminazione **domenica 21:00**.");
+  }
   return lines;
 }
 

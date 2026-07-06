@@ -223,6 +223,9 @@
           <li>
             <span class="vc-candidature-req-body">Non essere mai stato <strong class="text-white">sanzionato</strong> nel server</span>
           </li>
+          <li>
+            <span class="vc-candidature-req-body">Aver raggiunto almeno il <strong class="text-white">livello 10</strong> ed essere nel server da almeno <strong class="text-white">2 settimane</strong> (solo per Helper)</span>
+          </li>
         </ol>
       </section>
 
@@ -311,11 +314,13 @@
     <template id="vc-candidature-role-intro-partnermanager">
       <div class="rounded-[1.2rem] border border-[#d4a888]/22 bg-[#1a120d]/78 p-4 text-sm leading-relaxed text-slate-100">
         <p class="m-0 font-semibold text-[#e8c9a8]"><i class="fa fa-money mr-1" aria-hidden="true"></i> STAFF PAGATO</p>
+        <div id="vc-pm-reward-tiers">
         <p class="mt-2 mb-0">50 partner → Custom Role &amp; Custom Voc per 30 giorni</p>
         <p class="mt-1 mb-0">100 partner → Ruolo <span class="vc-sponsor-mention">༄ VIP</span> per 30 giorni</p>
         <p class="mt-1 mb-0">150 partner → <strong>Decorazione a scelta (max 15,99 €)</strong></p>
         <p class="mt-1 mb-0">200 partner → <strong>Nitro Boost</strong></p>
         <p class="mt-1 mb-0">250 partner → <strong>5€ PayPal</strong></p>
+        </div>
       </div>
     </template>
     <script>
@@ -333,6 +338,7 @@
         submitApiUrlLocal: "{{CANDIDATURE_SUBMIT_API_URL_LOCAL}}",
       };
     </script>
+    <script src="../js/partner-manager-reward-tiers.js" defer></script>
     <script src="../js/form-field-validation-tip.js" defer></script>
     <script src="../js/candidature-page.js" defer></script>
     <script src="../js/discord-auth.js" defer></script>  <script src="../js/vc-cursor-trail.js" defer></script>

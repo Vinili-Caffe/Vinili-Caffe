@@ -11,6 +11,7 @@ const pauseStatusRefreshScheduled = new Map();
 const PAUSE_FESTIVI_TIMEZONE = "Europe/Rome";
 const STAFF_ROLE_PRIORITY = [
   IDs.roles.Founder,
+  IDs.roles.Manager,
   IDs.roles.Admin,
   IDs.roles.Director,
   IDs.roles.HighStaff,
@@ -476,7 +477,7 @@ function getPauseTimingText(startRaw, endRaw) {
   const end = parseItalianDate(endRaw);
   const today = getTodayUtc();
   if (!start || !end) return "è in pausa";
-  if (today < start) return "avrà pausa";
+  if (today < start) return "andrà in pausa";
   if (today > end) return "era in pausa";
   return "è in pausa";
 }
@@ -595,6 +596,7 @@ function normalizePauseStatusPhrase(content, targetPhrase) {
     .replace(new RegExp(esc("è stata in pausa"), "gi"), target)
     .replace(new RegExp(esc("è stato in pausa"), "gi"), target)
     .replace(new RegExp(esc("sarà in pausa"), "gi"), target)
+    .replace(new RegExp(esc("andrà in pausa"), "gi"), target)
     .replace(new RegExp(esc("avrà pausa"), "gi"), target)
     .replace(new RegExp(esc("era in pausa"), "gi"), target)
     .replace(new RegExp(esc("è in pausa"), "gi"), target);
@@ -626,7 +628,7 @@ async function applyAcceptedPausePhaseToDiscordMessage(channel, messageId, userI
   let nextContent = currentContent;
   let nextComponents = [];
   const phrase =
-    phase === "planned" ? "avrà pausa" : phase === "active" ? "è in pausa" : "era in pausa";
+    phase === "planned" ? "andrà in pausa" : phase === "active" ? "è in pausa" : "era in pausa";
   if (withControls) {
     nextContent = normalizePauseStatusPhrase(currentContent, phrase);
     if (phase === "ended") nextComponents = [];

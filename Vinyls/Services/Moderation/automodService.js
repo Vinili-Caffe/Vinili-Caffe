@@ -1694,17 +1694,25 @@ const SCAM_CRYPTO_PATTERNS = [
   /\b(usdt|btc|eth)\b.{0,40}\b(withdraw|bonus|giveaway|promo|register)\b/,
   /\b(register|sign\s*up).{0,40}\b(withdraw|bonus|instant)\b/,
   /\bcelebrat(?:e|ing)\b.{0,40}\b(launch|crypto|casino)\b/,
+  /\blost\s+your\s+crypto\s+to\s+a\s+scam\b/i,
+  /\bkate\s+expert\s+services\b/i,
+  /\bkateexpertsservices\b/i,
+  /\bno\s+upfront\s+payment\b/i,
+  /\bcrypto\s+asset\s+tracing\b/i,
+  /\brecovery\s+assessment\b/i,
+  /\b(funds?\s+(?:have\s+been\s+)?successfully\s+recovered)\b/i,
+  /\b7884\s*893\s*099\b/,
 ];
 
 const SCAM_IMAGE_BAIT_PATTERNS = [
   /^omg\b/i,
-  /\b(wow|look at this|check this|free money|guadagn|soldi)\b/i,
+  /\b(wow|look at this|check this|free money|guadagn)\b/i,
   /[\u{1F4B0}\u{1F911}\u{1F633}\u{1F4B5}]/u,
-  /\b(bro|guys|y'all|yall|wtf|insane|crazy|no way|real|fr)\b/i,
   /\b(mrbeast|mr\s*beast)\b/i,
   /\b(bonus|promocode|promo\s*code|activate\s+code)\b/i,
   /\b(withdraw(?:al)?|casino|crypto)\b/i,
-  /\b(guarda|incredibile|assurdo|soldi|gratis)\b/i,
+  /\b(guarda questo|clicca qui|claim|redeem|vinci)\b/i,
+  /\b(soldi facili|soldi gratis|guadagna)\b/i,
   /\$\d{2,5}\b/,
   /\b(riftroll|betchoco|nozawin|serowin)\b/i,
 ];
@@ -1731,9 +1739,9 @@ function detectScamImageBait(message, moderationContent, options = {}) {
   const youngDays = Number(AUTOMOD_SCAM_CONFIG.youngAccountMaxDays || 14);
   const accountAgeMs = Number(options.accountAgeMs || 0);
   const youngMs = youngDays * 24 * 60 * 60_000;
-  if (options.youngAccount && text.length <= 32) return true;
-  if (accountAgeMs > 0 && accountAgeMs < youngMs && text.length <= 32) return true;
-  return text.length <= 24;
+  if (options.youngAccount && text.length <= 28) return true;
+  if (accountAgeMs > 0 && accountAgeMs < youngMs && text.length <= 28) return true;
+  return text.length <= 16;
 }
 
 /** Esclude host tipo `do...lo` (puntini sospensivi) che `URL` accetta ma non sono domini reali. */

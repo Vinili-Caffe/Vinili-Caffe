@@ -4,7 +4,7 @@ const channelButton = require("../../Buttons").channel;
 module.exports = {
   name: channelButton.name,
   allowEmptyArgs: true,
-  
+
   async execute(message, args = []) {
     await message.channel.sendTyping();
     const { channel, lookbackDays } = await channelButton.resolveChannelAndLookback(message, args);
@@ -20,7 +20,7 @@ module.exports = {
       channel,
       lookbackDays,
       "main",
-      message.author?.id
+      message.author?.id,
     );
     await safeMessageReply(message, { ...payload, allowedMentions: { repliedUser: false } });
   },

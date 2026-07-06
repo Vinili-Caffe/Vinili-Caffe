@@ -4,6 +4,7 @@ const Ticket = require("../../Schemas/Ticket/ticketSchema");
 const { GuildFeatureBucket } = require("../../Schemas/Guild/guildFeatureBucketSchema");
 const IDs = require("../Config/ids");
 const { memberCanAccessPerksTicket } = require("./ticketPerksStaffRoles");
+const { memberCanAccessPartnershipTicket } = require("./ticketPartnershipStaffRoles");
 const { userAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
 const { getGuildMemberCached } = require("../Interaction/interactionEntityCache");
 const STAFF_ROLE_ID = IDs.roles.Staff;
@@ -12,8 +13,12 @@ const PARTNERMANAGER_ROLE_ID = IDs.roles.PartnerManager;
 
 function hasStaffTicketRole(member, ticketType) {
   if (!member?.roles?.cache) return false;
-  if (String(ticketType || "").toLowerCase() === "perks") {
+  const type = String(ticketType || "").toLowerCase();
+  if (type === "perks") {
     return memberCanAccessPerksTicket(member);
+  }
+  if (type === "partnership") {
+    return memberCanAccessPartnershipTicket(member);
   }
   return [STAFF_ROLE_ID, HIGHSTAFF_ROLE_ID, PARTNERMANAGER_ROLE_ID].some(
     (id) => id && member.roles.cache.has(id),

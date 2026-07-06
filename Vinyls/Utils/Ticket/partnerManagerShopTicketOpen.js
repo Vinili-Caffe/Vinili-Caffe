@@ -6,7 +6,7 @@ const { createTicketDocWithGlobalId } = require("./ticketIdUtils");
 const { findOpenTicketByUser: runtimeFindOpenTicketByUser } = require("./ticketInteractionRuntime");
 const { buildTicketChannelName } = require("./ticketNamingRuntime");
 const { getTicketPanelConfig } = require("./ticketPanelConfig");
-const { partnerManagerRedeemButtonLabel } = require("../Staff/partnerPointsUtils");
+const { partnerManagerRedeemButtonLabel, getPartnerRewardPointCost } = require("../Staff/partnerPointsUtils");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const { resolvePartnerPointsShown } = require("../Staff/partnerPointsDisplayUtils");
 const TICKET_PERMISSIONS = [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.EmbedLinks, PermissionFlagsBits.AttachFiles, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.AddReactions];
@@ -38,6 +38,7 @@ async function pinFirstTicketMessage(channel, message) {
 async function openPartnerManagerShopManualTicket(interaction, tier) {
   const guild = interaction.guild;
   const tierN = Math.floor(Number(tier) || 0);
+  const pointCost = getPartnerRewardPointCost(tierN);
   if (!guild || !interaction.user) {
     return { ok: false, userMessage: "<a:VC_Cross:1482532424570376253> Usa questo pulsante nel server." };
   }
@@ -55,10 +56,10 @@ async function openPartnerManagerShopManualTicket(interaction, tier) {
     .lean()
     .catch(() => null);
   const balance = resolvePartnerPointsShown(lean?.staff);
-  if (balance < tierN) {
+  if (balance < pointCost) {
     return {
       ok: false,
-      userMessage: `<a:VC_Cross:1482532424570376253> Ti servono **${tierN}** punti (saldo attuale: **${balance}**).`,
+      userMessage: `<a:VC_Cross:1482532424570376253> Ti servono **${pointCost}** punti (saldo attuale: **${balance}**).`,
     };
   }
 
@@ -124,7 +125,7 @@ async function openPartnerManagerShopManualTicket(interaction, tier) {
           `<:VC_PartnerManager:1494286911286808576> **Partner Manager:** ${interaction.user}`,
           "",
           `<:VC_reason:1478517122929004544> **Premio richiesto:** ${rewardLabel}`,
-          `<:VC_Partner:1482527213780729896> **Punti necessari:** \`${tierN}\` (saldo attuale **${balance}**).`,
+          `<:VC_Partner:1482527213780729896> **Punti necessari:** \`${pointCost}\` (saldo attuale **${balance}**).`,
           "",
           `<a:VC_Alert:1482706673176150077> Attendi un membro dell'**High Staff** per completare la consegna del premio.`,
         ].join("\n"),

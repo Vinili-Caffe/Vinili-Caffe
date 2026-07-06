@@ -14,6 +14,11 @@
                 "channels.partnerships"
             ]
         },
+        "sanziona": {
+            "roles": [
+                "roles.Staff"
+            ]
+        },
         "rimuovi": {
             "roles": [
                 "roles.HighStaff"
@@ -203,6 +208,30 @@
                 "channels.staffCmds",
                 "channels.highCmds"
             ]
+        },
+        "live": {
+            "roles": [
+                "roles.Member"
+            ],
+            "channels": [
+                "channels.commands",
+                "channels.chat",
+                "channels.news",
+                "channels.staffCmds",
+                "channels.highCmds"
+            ],
+            "subcommands": {
+                "on": {
+                    "roles": [
+                        "roles.Member"
+                    ]
+                },
+                "off": {
+                    "roles": [
+                        "roles.Member"
+                    ]
+                }
+            }
         },
         "clear": {
             "roles": [
@@ -744,6 +773,7 @@
         "sezioneproibita": {
             "roles": [
                 "roles.Founder",
+                "roles.Manager",
                 "roles.Admin"
             ],
             "channels": [
@@ -752,10 +782,12 @@
             "subcommands": {
                 "winner": [
                     "roles.Founder",
+                    "roles.Manager",
                     "roles.Admin"
                 ],
                 "check": [
                     "roles.Founder",
+                    "roles.Manager",
                     "roles.Admin"
                 ]
             }
@@ -950,6 +982,7 @@
         "ban": {
             "roles": [
                 "roles.Director",
+                "roles.Manager",
                 "roles.Admin",
                 "roles.Founder"
             ],
@@ -1550,6 +1583,11 @@
         "comandi": [
             "roles.Staff"
         ],
+        "compiti_fissi": [
+            "roles.Helper",
+            "roles.Mod",
+            "roles.HighStaff"
+        ],
         "generalimoderazione": [
             "roles.Staff"
         ],
@@ -1716,6 +1754,15 @@
         "ping": [
             "roles.Member"
         ],
+        "live": [
+            "roles.Member"
+        ],
+        "live on": [
+            "roles.Member"
+        ],
+        "live off": [
+            "roles.Member"
+        ],
         "plb_*": [
             "roles.Member"
         ],
@@ -1733,13 +1780,16 @@
             "roles.Staff"
         ],
         "resoconto_apply:*": [
-            "roles.HighStaff"
+            "roles.Manager",
+            "roles.Founder"
         ],
         "resoconto_reject:*": [
-            "roles.HighStaff"
+            "roles.Manager",
+            "roles.Founder"
         ],
         "resoconto_override:*": [
-            "roles.HighStaff"
+            "roles.Manager",
+            "roles.Founder"
         ],
         "rifiuta": {
             "ownerFromMessageMention": true
@@ -1899,10 +1949,14 @@
             "ownerSegment": 2
         },
         "apply_pex:*": [
-            "roles.HighStaff"
+            "roles.Admin",
+            "roles.Manager",
+            "roles.Founder"
         ],
         "apply_reject:*": [
-            "roles.HighStaff"
+            "roles.Admin",
+            "roles.Manager",
+            "roles.Founder"
         ],
         "website_unban_acc:*": [
             "roles.HighStaff"
@@ -2175,6 +2229,9 @@
         "personality_mentions": [
             "roles.Member"
         ],
+        "personality_hobby": [
+            "roles.Member"
+        ],
         "personality_pronouns": [
             "roles.Member"
         ],
@@ -2296,7 +2353,8 @@
             "ownerSegment": 1
         },
         "resoconto_reason:*": [
-            "roles.HighStaff"
+            "roles.Manager",
+            "roles.Founder"
         ]
     }
 }

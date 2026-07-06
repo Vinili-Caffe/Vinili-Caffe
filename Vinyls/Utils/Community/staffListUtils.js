@@ -2,15 +2,42 @@ const { ChannelType, PermissionFlagsBits } = require("discord.js");
 const IDs = require("../Config/ids");
 const { getClientGuildCached, getGuildChannelCached, getClientChannelCached } = require("../Interaction/interactionEntityCache");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
+const { getBotState, setBotState } = require("../BotState/botStateStore");
+const { wasRoleRestoredByMuteMirror } = require("../Moderation/muteRestoreAnnounceSuppress");
 const STAFF_LIST_HASH_SPLIT = "\n---STAFF_LIST_SPLIT---\n";
 const STAFF_LIST_STARTUP_REFRESH_MS = 4500;
 const STAFF_LIST_DISCORD_MAX = 2000;
+const BOT_STATE_KEY_STAFF_LIST_SYNC_PREFIX = "staffListSync";
+const STAFF_LIST_LAYOUT_REV = "helper-with-pm-v8";
 
 function normalizeStaffListContent(raw) {
   return String(raw || "")
     .replace(/\u200B|\u200C|\u200D|\uFEFF/g, "")
     .replace(/\r\n/g, "\n")
     .trim();
+}
+
+function staffListContentEquals(stored, expected) {
+  return (
+    String(stored || "")
+      .replace(/\r\n/g, "\n")
+      .trimEnd() ===
+    String(expected || "")
+      .replace(/\r\n/g, "\n")
+      .trimEnd()
+  );
+}
+
+function buildStaffListSerial(parts) {
+  return `${STAFF_LIST_LAYOUT_REV}${STAFF_LIST_HASH_SPLIT}${String(parts.main || "").replace(/\r\n/g, "\n").trimEnd()}${STAFF_LIST_HASH_SPLIT}${String(parts.pm || "").replace(/\r\n/g, "\n").trimEnd()}`;
+}
+
+function joinStaffListMainWithPm(mainBody, pmBody) {
+  const left = String(mainBody || "").replace(/\n\n$/, "").trimEnd();
+  const right = String(pmBody || "").trim();
+  if (!right) return left;
+  if (!left) return right;
+  return `${left}\n\n${right}`;
 }
 
 function staffListFirstLine(content) {
@@ -27,10 +54,13 @@ function isMainStaffListMessageContent(content) {
 function isPmStaffListMessageContent(content) {
   if (isMainStaffListMessageContent(content)) return false;
   const c = String(content || "").trimStart();
+  if (/^##\s*staff\s*list\s*·\s*_?continua_?/i.test(c)) return true;
   if (/^##\s*partner manager/i.test(c)) return true;
   if (/[·•]\s*partner\s*manager/i.test(c)) return true;
-  const pmId = String(IDs.roles.PartnerManager || "");
-  if (pmId && c.includes(`<@&${pmId}>`) && c.includes("︲")) return true;
+  if (!c.includes("︲")) return false;
+  for (const roleId of STAFF_LIST_SECTION_ROLE_IDS) {
+    if (c.includes(`<@&${roleId}>`)) return true;
+  }
   return false;
 }
 const STAFF_NEW_EMOJI = "<:VC_New:1471891729471770819>";
@@ -42,9 +72,13 @@ const ROLE_EMOJIS = {
   [IDs.roles.SeniorModerator]: { emoji: "<:VC_SeniorModerator:1494286913744539648>" },
   [IDs.roles.Director]: { emoji: "<:VC_Director:1494286915778641941>" },
   [IDs.roles.Admin]: { emoji: "<:VC_Admin:1494286848686686209>" },
+  [IDs.roles.Manager]: { emoji: "<:VC_Manager:1521629610876338307>" },
   [IDs.roles.Founder]: { emoji: "<:VC_Founder:1494286918974963732>" },
 };
-const ROLE_EXCLUSIONS = { [IDs.roles.PartnerManager]: ["1442568907801100419"], };
+const ROLE_EXCLUSIONS = {
+  [IDs.roles.PartnerManager]: ["1442568907801100419"],
+  [IDs.roles.Director]: ["1259884798688759839"],
+};
 const STAFF_LIST_SECTION_ROLE_IDS = Object.keys(ROLE_EMOJIS);
 const HIGH_STAFF_ROLE_ID = String(IDs.roles.HighStaff || "").trim();
 const STAFF_ROLE_IDS =
@@ -110,17 +144,79 @@ function didStaffListDisplayRolesChange(oldMember, newMember) {
   return false;
 }
 
+function buildStaffListSyncStateKey(guildId) {
+  return `${BOT_STATE_KEY_STAFF_LIST_SYNC_PREFIX}:${String(guildId || "").trim()}`;
+}
+
+async function hydrateStaffListPersistedState(client, guildId) {
+  const state = ensureState(client);
+  const gk = String(guildId || "").trim();
+  if (!gk) return;
+  if (state.contentHashByGuild.has(gk) && state.messageIdsByGuild.has(gk)) return;
+
+  const persisted = await getBotState(buildStaffListSyncStateKey(gk), null);
+  if (!persisted || typeof persisted !== "object") return;
+
+  if (!state.contentHashByGuild.has(gk) && persisted.hash) {
+    state.contentHashByGuild.set(gk, String(persisted.hash));
+  }
+  if (!state.messageIdsByGuild.has(gk) && Array.isArray(persisted.messageIds) && persisted.messageIds[0]) {
+    state.messageIdsByGuild.set(
+      gk,
+      persisted.messageIds.map((id) => String(id || "").trim()).filter(Boolean),
+    );
+  }
+}
+
+async function persistStaffListSyncState(guildId, serial, messageIds) {
+  const gk = String(guildId || "").trim();
+  if (!gk || !serial) return;
+  const ids = (Array.isArray(messageIds) ? messageIds : [])
+    .map((id) => String(id || "").trim())
+    .filter(Boolean);
+  await setBotState(buildStaffListSyncStateKey(gk), {
+    hash: String(serial),
+    messageIds: ids,
+    at: Date.now(),
+  });
+}
+
+function pickNewestStaffListCandidate(candidates, predicate) {
+  return [...candidates]
+    .filter(predicate)
+    .sort((a, b) => Number(b?.createdTimestamp || 0) - Number(a?.createdTimestamp || 0))[0] || null;
+}
+
 function staffListContentMatches(storedMain, storedPm, parts) {
   return (
-    normalizeStaffListContent(storedMain) === normalizeStaffListContent(parts.main) &&
-    normalizeStaffListContent(storedPm) === normalizeStaffListContent(parts.pm)
+    staffListContentEquals(storedMain, parts.main) &&
+    staffListContentEquals(storedPm, parts.pm)
   );
 }
 
-function rowQualifiesForStaffListNewBadge(row) {
+function userPreviouslyHeldStaffListRole(history, roleId, beforeWhen) {
+  const rid = String(roleId || "").trim();
+  if (!rid) return false;
+  const beforeMs = beforeWhen instanceof Date ? beforeWhen.getTime() : Number(beforeWhen);
+  if (!Number.isFinite(beforeMs)) return false;
+  const rows = Array.isArray(history) ? history : [];
+  return rows.some((row) => {
+    if (String(row?.newRole || "").trim() !== rid) return false;
+    const when = row?.date ? new Date(row.date) : null;
+    if (!when || Number.isNaN(when.getTime())) return false;
+    return when.getTime() < beforeMs;
+  });
+}
+
+function rowQualifiesForStaffListNewBadge(row, history = []) {
   const oldRole = String(row?.oldRole || "");
   const newRole = String(row?.newRole || "");
   if (!newRole || !STAFF_LIST_ROLE_ID_SET.has(newRole)) return false;
+
+  const when = row?.date ? new Date(row.date) : null;
+  if (when && !Number.isNaN(when.getTime()) && userPreviouslyHeldStaffListRole(history, newRole, when)) {
+    return false;
+  }
 
   const fromMember = MEMBER_ROLE_ID && oldRole === MEMBER_ROLE_ID;
 
@@ -132,12 +228,17 @@ function rowQualifiesForStaffListNewBadge(row) {
       (STAFF_GENERIC_ROLE_ID && oldRole === STAFF_GENERIC_ROLE_ID));
   const staffToPm = newRole === PM_ROLE_ID && oldWasStaffForPm;
 
+  const pmToStaffLadder =
+    oldRole === PM_ROLE_ID &&
+    newRole !== PM_ROLE_ID &&
+    STAFF_LIST_ROLE_ID_SET.has(newRole);
+
   const ontoStaffListFromNonListRole =
     oldRole &&
     !STAFF_LIST_ROLE_ID_SET.has(oldRole) &&
     newRole !== PM_ROLE_ID;
 
-  return fromMember || staffToPm || ontoStaffListFromNonListRole;
+  return fromMember || staffToPm || pmToStaffLadder || ontoStaffListFromNonListRole;
 }
 
 async function getStaffListNewBadgeRoleIdsByUser(guildId) {
@@ -158,7 +259,7 @@ async function getStaffListNewBadgeRoleIdsByUser(guildId) {
       const when = row?.date ? new Date(row.date) : null;
       if (!when || Number.isNaN(when.getTime())) continue;
       if (when.getTime() < cutoff) continue;
-      if (!rowQualifiesForStaffListNewBadge(row)) continue;
+      if (!rowQualifiesForStaffListNewBadge(row, history)) continue;
       const nr = String(row?.newRole || "");
       if (!STAFF_LIST_ROLE_ID_SET.has(nr)) continue;
       if (!out.has(uid)) out.set(uid, new Set());
@@ -227,21 +328,38 @@ function buildRoleSectionWithCustomEmoji(roleId, emoji, guild, membersSource) {
   return `${String(emoji || "")} **<@&${roleId}>︲\`${memberCount}\`**\n\n${membersList}\n\n`;
 }
 
-function finalizeStaffListPart(text) {
-  return `${String(text || "").trimEnd()}\n\n`;
+function finalizeStaffListMain(text, { hasContinuation = false } = {}) {
+  const raw = String(text || "");
+  if (!raw.trim()) return "";
+  const withoutTrailingSpaces = raw.replace(/[ \t\u00A0]+$/g, "");
+  if (hasContinuation) return withoutTrailingSpaces;
+  return `${withoutTrailingSpaces.trimEnd()}\n\n`;
 }
 
 function buildStaffListParts(guild, membersSource = guild.members.cache, newBadgeRoleIdsByUser = new Map()) {
   const staffRoleIds = STAFF_LIST_SECTION_ROLE_IDS.slice().reverse();
   const pmRoleId = String(IDs.roles.PartnerManager || "");
   const helperRoleId = String(IDs.roles.Helper || "");
-  const header = "## STAFF LIST\n\n";
+  let main = "## STAFF LIST\n\n";
+  let helper = "";
+  let pm = "";
 
-  const sectionEntries = [];
   for (const roleId of staffRoleIds) {
     const section = buildRoleSection(roleId, guild, membersSource, newBadgeRoleIdsByUser);
     if (!section) continue;
-    sectionEntries.push({ roleId: String(roleId), section });
+    const rid = String(roleId);
+    if (rid === pmRoleId) {
+      pm = section;
+    } else if (rid === helperRoleId) {
+      helper = section;
+    } else {
+      main += section;
+    }
+  }
+
+  if (!pm && pmRoleId) {
+    const rid = IDs.roles.PartnerManager;
+    pm = `${ROLE_EMOJIS[rid]?.emoji || ""} **<@&${rid}>︲\`0\`**\n\n<:VC_Dot:1482532364222595303>\n\n`;
   }
 
   let pmExtras = "";
@@ -251,45 +369,75 @@ function buildStaffListParts(guild, membersSource = guild.members.cache, newBadg
     pmExtras += buildRoleSectionWithCustomEmoji(roleId, section?.emoji, guild, membersSource);
   }
 
-  if (!sectionEntries.some((entry) => entry.roleId === pmRoleId) && pmRoleId) {
-    const rid = IDs.roles.PartnerManager;
-    const emptyPm = `${ROLE_EMOJIS[rid]?.emoji || ""} **<@&${rid}>︲\`0\`**\n\n<:VC_Dot:1482532364222595303>\n\n`;
-    sectionEntries.push({ roleId: pmRoleId, section: emptyPm });
-  }
+  const pmOnlyBody = `${pm}${pmExtras}`.trim();
+  const continuationBody = joinStaffListMainWithPm(helper, pmOnlyBody);
+  const hasContinuation = Boolean(continuationBody);
 
-  const fullBody = sectionEntries.map((entry) => entry.section).join("") + pmExtras;
-  const fullSingle = header + fullBody;
+  const fullCombined = hasContinuation ? joinStaffListMainWithPm(main, continuationBody) : main;
+  const fullSingle = finalizeStaffListMain(fullCombined);
   if (fullSingle.length <= STAFF_LIST_DISCORD_MAX) {
-    return { main: finalizeStaffListPart(fullSingle), pm: "" };
+    return { main: fullSingle, pm: "" };
   }
 
-  const helperIdx = sectionEntries.findIndex((entry) => entry.roleId === helperRoleId);
-  const splitAt = helperIdx >= 0 ? helperIdx : sectionEntries.findIndex((entry) => entry.roleId === pmRoleId);
+  const mainPart = finalizeStaffListMain(main, { hasContinuation });
+  const pmPart = finalizeStaffListMain(continuationBody);
 
-  if (splitAt < 0) {
-    return { main: finalizeStaffListPart(fullSingle), pm: "" };
+  if (mainPart.length <= STAFF_LIST_DISCORD_MAX && pmPart.length <= STAFF_LIST_DISCORD_MAX) {
+    return { main: mainPart, pm: pmPart };
   }
 
-  let main = header + sectionEntries.slice(0, splitAt).map((entry) => entry.section).join("");
-  let pm = sectionEntries.slice(splitAt).map((entry) => entry.section).join("") + pmExtras;
+  global.logger?.error?.("[STAFF LIST] contenuto supera il limite Discord (2000)", {
+    guildId: String(guild?.id || ""),
+    mainLen: mainPart.length,
+    pmLen: pmPart.length,
+  });
+  return { main: mainPart, pm: pmPart };
+}
 
-  if (main.length > STAFF_LIST_DISCORD_MAX || pm.length > STAFF_LIST_DISCORD_MAX) {
-    main = header;
-    pm = "";
-    for (const entry of sectionEntries) {
-      if (entry.roleId === pmRoleId) {
-        pm += entry.section;
-      } else {
-        main += entry.section;
-      }
-    }
-    pm += pmExtras;
+async function deleteStaffListMessages(mainMsg, pmMsg) {
+  const tasks = [];
+  if (pmMsg?.deletable) tasks.push(pmMsg.delete().catch(() => null));
+  if (mainMsg?.deletable) tasks.push(mainMsg.delete().catch(() => null));
+  if (tasks.length) await Promise.all(tasks);
+}
+
+async function pruneStaleStaffListMessages(channel, client, keepIds = []) {
+  const keep = new Set((Array.isArray(keepIds) ? keepIds : []).map((id) => String(id || "").trim()).filter(Boolean));
+  const batch = await channel.messages.fetch({ limit: 100 }).catch(() => null);
+  const botId = String(client?.user?.id || "");
+  if (!batch?.size || !botId) return 0;
+  let removed = 0;
+  for (const msg of batch.values()) {
+    if (String(msg?.author?.id || "") !== botId) continue;
+    if (keep.has(String(msg.id))) continue;
+    const content = String(msg.content || "");
+    if (!isMainStaffListMessageContent(content) && !isPmStaffListMessageContent(content)) continue;
+    const ok = await msg.delete().catch(() => null);
+    if (ok) removed += 1;
   }
+  return removed;
+}
 
-  return {
-    main: finalizeStaffListPart(main),
-    pm: finalizeStaffListPart(pm),
-  };
+async function sendStaffListParts(channel, parts, needsPmMessage) {
+  const sentMain = await channel.send(parts.main).catch((err) => {
+    global.logger?.error?.("[STAFF LIST] main channel.send failed:", err?.message || err, {
+      code: err?.code,
+      channelId: String(channel?.id || ""),
+    });
+    return null;
+  });
+  if (!sentMain) return { mainId: null, pmId: null };
+
+  if (!needsPmMessage) return { mainId: sentMain.id, pmId: null };
+
+  const sentPm = await channel.send(parts.pm).catch((err) => {
+    global.logger?.error?.("[STAFF LIST] pm channel.send failed:", err?.message || err, {
+      code: err?.code,
+      channelId: String(channel?.id || ""),
+    });
+    return null;
+  });
+  return { mainId: sentMain.id, pmId: sentPm?.id || null };
 }
 
 async function fetchChannelMessage(channel, messageId) {
@@ -317,8 +465,11 @@ async function resolveStaffListMessages(channel, client, guildId) {
           (isMainStaffListMessageContent(m.content) || isPmStaffListMessageContent(m.content)),
       )
     : [];
-  const mainMsg = candidates.find((m) => isMainStaffListMessageContent(m.content));
-  const pmMsg = candidates.find((m) => m !== mainMsg && isPmStaffListMessageContent(m.content));
+  const mainMsg = pickNewestStaffListCandidate(candidates, (m) => isMainStaffListMessageContent(m.content));
+  const pmMsg = pickNewestStaffListCandidate(
+    candidates,
+    (m) => m !== mainMsg && isPmStaffListMessageContent(m.content),
+  );
   if (mainMsg && pmMsg) {
     state.messageIdsByGuild.set(gk, [mainMsg.id, pmMsg.id]);
   }
@@ -389,7 +540,9 @@ async function fetchMembersForStaffList(guild) {
   return out;
 }
 
-async function refreshStaffList(client, guildId = IDs.guilds.main, { force = false } = {}) {
+async function refreshStaffList(client, guildId = IDs.guilds.main, opts = {}) {
+  const force = Boolean(opts?.force);
+  const bootstrapOnly = Boolean(opts?.bootstrapOnly);
   const state = ensureState(client);
   const gidKey = String(guildId ?? IDs.guilds.main ?? "").trim();
   if (!gidKey) {
@@ -435,10 +588,26 @@ async function refreshStaffList(client, guildId = IDs.guilds.main, { force = fal
   }
   client._staffListRefreshInFlight = true;
   try {
+  await hydrateStaffListPersistedState(client, gidKey);
+
   const membersSource = await fetchMembersForStaffList(guild);
   const newBadgeRoleIdsByUser = await getStaffListNewBadgeRoleIdsByUser(guild.id);
   const parts = buildStaffListParts(guild, membersSource, newBadgeRoleIdsByUser);
-  const serial = `${normalizeStaffListContent(parts.main)}${STAFF_LIST_HASH_SPLIT}${normalizeStaffListContent(parts.pm)}`;
+  const serial = buildStaffListSerial(parts);
+  const needsPmMessage = Boolean(String(parts.pm || "").trim());
+
+  if (bootstrapOnly && !force) {
+    const { main: existingMain, pm: existingPm } = await resolveStaffListMessages(channel, client, gidKey);
+    if (existingMain && (!needsPmMessage || existingPm)) {
+      if (staffListContentMatches(existingMain.content, existingPm?.content || "", parts)) {
+        const syncedIds = needsPmMessage ? [existingMain.id, existingPm.id] : [existingMain.id];
+        state.messageIdsByGuild.set(gidKey, syncedIds);
+        state.contentHashByGuild.set(gidKey, serial);
+        await persistStaffListSyncState(gidKey, serial, syncedIds);
+        return;
+      }
+    }
+  }
 
   if (parts.main.trim() === "## STAFF LIST") {
     const staffRoleIds = STAFF_LIST_SECTION_ROLE_IDS.slice().reverse();
@@ -461,19 +630,24 @@ async function refreshStaffList(client, guildId = IDs.guilds.main, { force = fal
   }
 
   const previousHash = state.contentHashByGuild.get(gidKey);
-  const needsPmMessage = Boolean(String(parts.pm || "").trim());
-  if (!force && previousHash === serial && mainMsg && (!needsPmMessage || pmMsg)) {
+  const contentAlreadySynced =
+    !force &&
+    mainMsg &&
+    staffListContentEquals(mainMsg.content, parts.main) &&
+    (!needsPmMessage || (pmMsg && staffListContentEquals(pmMsg.content, parts.pm)));
+
+  if (contentAlreadySynced) {
+    const syncedIds = needsPmMessage ? [mainMsg.id, pmMsg?.id].filter(Boolean) : [mainMsg.id];
+    state.messageIdsByGuild.set(gidKey, syncedIds);
+    state.contentHashByGuild.set(gidKey, serial);
+    await persistStaffListSyncState(gidKey, serial, syncedIds);
     return;
   }
 
-  if (
-    !force &&
-    !previousHash &&
-    mainMsg &&
-    (!needsPmMessage || pmMsg) &&
-    staffListContentMatches(mainMsg.content, pmMsg?.content || "", parts)
-  ) {
-    state.contentHashByGuild.set(gidKey, serial);
+  if (!force && previousHash === serial && mainMsg && (!needsPmMessage || pmMsg)) {
+    const syncedIds = needsPmMessage ? [mainMsg.id, pmMsg?.id].filter(Boolean) : [mainMsg.id];
+    state.messageIdsByGuild.set(gidKey, syncedIds);
+    await persistStaffListSyncState(gidKey, serial, syncedIds);
     return;
   }
 
@@ -491,8 +665,27 @@ async function refreshStaffList(client, guildId = IDs.guilds.main, { force = fal
   let mainId = null;
   let pmId = null;
 
-  if (mainMsg) {
-    if (force || normalizeStaffListContent(mainMsg.content) !== normalizeStaffListContent(parts.main)) {
+  const mainChanged = !mainMsg || force || !staffListContentEquals(mainMsg.content, parts.main);
+  const pmChanged =
+    needsPmMessage && (!pmMsg || force || !staffListContentEquals(pmMsg.content, parts.pm));
+
+  async function resendStaffListTogether() {
+    await deleteStaffListMessages(mainMsg, pmMsg);
+    await pruneStaleStaffListMessages(channel, client, []);
+    state.messageIdsByGuild.delete(gidKey);
+    const sent = await sendStaffListParts(channel, parts, needsPmMessage);
+    mainId = sent.mainId;
+    pmId = sent.pmId;
+  }
+
+  if (!mainMsg) {
+    const sent = await sendStaffListParts(channel, parts, needsPmMessage);
+    mainId = sent.mainId;
+    pmId = sent.pmId;
+  } else if (needsPmMessage && !pmMsg) {
+    await resendStaffListTogether();
+  } else if (needsPmMessage && (mainChanged || pmChanged)) {
+    if (mainChanged) {
       const edited = await mainMsg.edit(parts.main).catch((err) => {
         global.logger?.error?.("[STAFF LIST] main message.edit failed:", err?.message || err, {
           code: err?.code,
@@ -500,68 +693,53 @@ async function refreshStaffList(client, guildId = IDs.guilds.main, { force = fal
         });
         return null;
       });
-      if (edited) {
-        mainId = edited.id;
+      if (!edited) {
+        await resendStaffListTogether();
       } else {
-        state.messageIdsByGuild.delete(gidKey);
-        const sent = await channel.send(parts.main).catch((err) => {
-          global.logger?.warn?.("[STAFF LIST] main channel.send (after edit fail):", err?.message || err);
-          return null;
-        });
-        if (sent) mainId = sent.id;
-      }
-    } else {
-      mainId = mainMsg.id;
-    }
-  } else {
-    const sent = await channel.send(parts.main).catch((err) => {
-      global.logger?.error?.("[STAFF LIST] main channel.send failed:", err?.message || err, {
-        code: err?.code,
-        guildId: gidKey,
-        channelId: String(channel.id),
-      });
-      return null;
-    });
-    if (sent) mainId = sent.id;
-  }
-
-  if (mainId) {
-    if (needsPmMessage) {
-      if (pmMsg) {
-        if (force || normalizeStaffListContent(pmMsg.content) !== normalizeStaffListContent(parts.pm)) {
+        mainId = edited.id;
+        if (pmChanged && pmMsg) {
           const editedPm = await pmMsg.edit(parts.pm).catch((err) => {
             global.logger?.warn?.("[STAFF LIST] pm message.edit failed:", err?.message || err);
             return null;
           });
-          if (editedPm) {
-            pmId = editedPm.id;
-          } else {
-            state.messageIdsByGuild.delete(gidKey);
-            const sentPm = await channel.send(parts.pm).catch((err) => {
-              global.logger?.error?.("[STAFF LIST] pm channel.send (after edit fail):", err?.message || err, {
-                code: err?.code,
-                guildId: gidKey,
-                channelId: String(channel.id),
-              });
-              return null;
-            });
-            if (sentPm) pmId = sentPm.id;
-          }
-        } else {
+          if (!editedPm) await resendStaffListTogether();
+          else pmId = editedPm.id;
+        } else if (pmMsg) {
           pmId = pmMsg.id;
         }
-      } else {
-        const sentPm = await channel.send(parts.pm).catch((err) => {
-          global.logger?.warn?.("[STAFF LIST] pm channel.send failed:", err?.message || err);
-          return null;
-        });
-        if (sentPm) pmId = sentPm.id;
       }
-    } else if (pmMsg) {
+    } else if (pmChanged && pmMsg) {
+      const editedPm = await pmMsg.edit(parts.pm).catch((err) => {
+        global.logger?.warn?.("[STAFF LIST] pm message.edit failed:", err?.message || err);
+        return null;
+      });
+      if (editedPm) {
+        mainId = mainMsg.id;
+        pmId = editedPm.id;
+      } else {
+        await resendStaffListTogether();
+      }
+    }
+  } else if (mainChanged) {
+    const edited = await mainMsg.edit(parts.main).catch((err) => {
+      global.logger?.error?.("[STAFF LIST] main message.edit failed:", err?.message || err, { guildId: gidKey });
+      return null;
+    });
+    if (edited) {
+      mainId = edited.id;
+    } else {
+      await deleteStaffListMessages(mainMsg, pmMsg);
+      const sent = await channel.send(parts.main).catch(() => null);
+      if (sent) mainId = sent.id;
+    }
+    if (pmMsg) {
       await pmMsg.delete().catch((err) => {
         global.logger?.warn?.("[STAFF LIST] pm message.delete failed:", err?.message || err);
       });
     }
+  } else {
+    mainId = mainMsg.id;
+    if (needsPmMessage && pmMsg) pmId = pmMsg.id;
   }
 
   if (mainId && (!needsPmMessage || pmId)) {
@@ -577,7 +755,15 @@ async function refreshStaffList(client, guildId = IDs.guilds.main, { force = fal
     });
   }
 
-  if (synced) state.contentHashByGuild.set(gidKey, serial);
+  if (synced) {
+    state.contentHashByGuild.set(gidKey, serial);
+    const syncedIds = state.messageIdsByGuild.get(gidKey) || (needsPmMessage ? [mainId, pmId] : [mainId]);
+    await persistStaffListSyncState(gidKey, serial, syncedIds);
+    const pruned = await pruneStaleStaffListMessages(channel, client, syncedIds);
+    if (pruned > 0) {
+      global.logger?.info?.("[STAFF LIST] removed stale messages:", { guildId: gidKey, pruned });
+    }
+  }
   } finally {
     client._staffListRefreshInFlight = false;
   }
@@ -586,10 +772,10 @@ async function refreshStaffList(client, guildId = IDs.guilds.main, { force = fal
 function startStaffListPeriodicRefreshLoop(client) {
   if (!client || client._staffListPeriodicRefreshStarted) return;
   client._staffListPeriodicRefreshStarted = true;
-  scheduleStaffListRefresh(client, IDs.guilds.main, STAFF_LIST_STARTUP_REFRESH_MS);
+  scheduleStaffListRefresh(client, IDs.guilds.main, STAFF_LIST_STARTUP_REFRESH_MS, { force: true });
 }
 
-function scheduleStaffListRefresh(client, guildId = IDs.guilds.main, delayMs = 500, { force = false } = {}) {
+function scheduleStaffListRefresh(client, guildId = IDs.guilds.main, delayMs = 500, opts = {}) {
   const state = ensureState(client);
   const gidKey = String(guildId ?? IDs.guilds.main ?? "").trim();
   if (!gidKey) return;
@@ -598,7 +784,7 @@ function scheduleStaffListRefresh(client, guildId = IDs.guilds.main, delayMs = 5
 
   const timer = setTimeout(() => {
     state.timersByGuild.delete(gidKey);
-    refreshStaffList(client, gidKey, { force }).catch((err) => {
+    refreshStaffList(client, gidKey, opts).catch((err) => {
       global.logger.error("[STAFF LIST] refresh failed:", err);
     });
   }, delayMs);

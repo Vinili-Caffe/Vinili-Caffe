@@ -9,22 +9,146 @@ const { resolveHogwartsEventConfig } = require("../../Utils/Web/hogwartsSortingC
 const { housePointPeriodKey } = require("../../Utils/Web/hogwartsHousePointPeriods");
 const { ActivityUserProfile, SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Schemas/Community/communitySchemas");
 const { getClientChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
+const { getBotState, setBotState } = require("../../Utils/BotState/botStateStore");
+const BASILISK_STATE_KEY = "hogwartsBasiliskScope";
+const PHOENIX_PET_ID = "mini-phoenix-pet";
 const HOGWARTS_HOUSE_POINTS_DOC_OWNER_ID = "__event__";
 const HOUSE_CHANNEL_KEYS = Object.freeze({ gryffindor: "hogwartsHouseGryffindor", hufflepuff: "hogwartsHouseHufflepuff", ravenclaw: "hogwartsHouseRavenclaw", slytherin: "hogwartsHouseSlytherin" });
 const SCOPE_GLOBAL = "global";
 const SCOPE_HOUSE = "house";
 const scopeStateByClient = new WeakMap();
+let basiliskPersistTimer = null;
+let basiliskPersistClient = null;
+
+function snapshotScopeSlice(state, scope) {
+  const base = {
+    recent: Array.isArray(state?.recent) ? state.recent.slice(-8) : [],
+    lastStrikeAt: Math.floor(Number(state?.lastStrikeAt) || 0),
+    struckUserIds: Array.isArray(state?.struckUserIds) ? state.struckUserIds.map(String).filter(Boolean) : [],
+    struckPeriodKey: String(state?.struckPeriodKey || ""),
+  };
+  if (scope === SCOPE_HOUSE) {
+    const curses = {};
+    const raw = state?.persistentCurses && typeof state.persistentCurses === "object" ? state.persistentCurses : {};
+    for (const [houseId, row] of Object.entries(raw)) {
+      const normalized = normalizePersistentCurseRow(row);
+      if (normalized) curses[String(houseId)] = normalized;
+    }
+    return { ...base, persistentCurses: curses };
+  }
+  return {
+    ...base,
+    persistentCurse: normalizePersistentCurseRow(state?.persistentCurse) || null,
+  };
+}
+
+function schedulePersistBasiliskScopeState(client) {
+  if (!client) return;
+  basiliskPersistClient = client;
+  if (basiliskPersistTimer) return;
+  basiliskPersistTimer = setTimeout(() => {
+    basiliskPersistTimer = null;
+    void persistBasiliskScopeState(basiliskPersistClient);
+  }, 400);
+  basiliskPersistTimer.unref?.();
+}
+
+async function persistBasiliskScopeState(client) {
+  if (!client) return;
+  const bag = getScopeBag(client);
+  await setBotState(BASILISK_STATE_KEY, {
+    global: snapshotScopeSlice(bag.global, SCOPE_GLOBAL),
+    house: snapshotScopeSlice(bag.house, SCOPE_HOUSE),
+  }).catch((err) => {
+    global.logger?.warn?.("[BASILISK] persist state failed:", err?.message || err);
+  });
+}
+
+async function hydrateBasiliskScopeState(client) {
+  if (!client) return;
+  const bag = getScopeBag(client);
+  if (bag.__hydrated) return;
+  bag.__hydrated = true;
+  const stored = await getBotState(BASILISK_STATE_KEY, null);
+  if (!stored || typeof stored !== "object") return;
+
+  const globalStored = stored.global;
+  if (globalStored && typeof globalStored === "object") {
+    const g = getScopeState(client, SCOPE_GLOBAL);
+    if (Array.isArray(globalStored.recent)) g.recent = globalStored.recent.slice(-8);
+    g.lastStrikeAt = Math.floor(Number(globalStored.lastStrikeAt) || 0);
+    g.persistentCurse = normalizePersistentCurseRow(globalStored.persistentCurse);
+    if (Array.isArray(globalStored.struckUserIds)) g.struckUserIds = globalStored.struckUserIds.map(String).filter(Boolean);
+    g.struckPeriodKey = String(globalStored.struckPeriodKey || "");
+  }
+
+  const houseStored = stored.house;
+  if (houseStored && typeof houseStored === "object") {
+    const h = getScopeState(client, SCOPE_HOUSE);
+    if (Array.isArray(houseStored.recent)) h.recent = houseStored.recent.slice(-8);
+    h.lastStrikeAt = Math.floor(Number(houseStored.lastStrikeAt) || 0);
+    if (Array.isArray(houseStored.struckUserIds)) h.struckUserIds = houseStored.struckUserIds.map(String).filter(Boolean);
+    h.struckPeriodKey = String(houseStored.struckPeriodKey || "");
+    h.persistentCurses = {};
+    const raw = houseStored.persistentCurses && typeof houseStored.persistentCurses === "object" ? houseStored.persistentCurses : {};
+    for (const [houseId, row] of Object.entries(raw)) {
+      const normalized = normalizePersistentCurseRow(row);
+      if (normalized) h.persistentCurses[String(houseId)] = normalized;
+    }
+  }
+}
 
 function getScopeBag(client) {
   let bag = scopeStateByClient.get(client);
   if (!bag) {
     bag = {
       global: { recent: [], lastStrikeAt: 0, persistentCurse: null, struckUserIds: [], struckPeriodKey: "" },
-      house: { recent: [], lastStrikeAt: 0, persistentCurse: null, struckUserIds: [], struckPeriodKey: "" },
+      house: { recent: [], lastStrikeAt: 0, persistentCurses: {}, struckUserIds: [], struckPeriodKey: "" },
     };
     scopeStateByClient.set(client, bag);
   }
   return bag;
+}
+
+function normalizeHouseId(houseId) {
+  const hid = String(houseId || "").trim().toLowerCase();
+  return HOUSES.includes(hid) ? hid : "";
+}
+
+function isMainChatMinigameCfg(cfg) {
+  const chatId = String(IDs.channels?.chat || "").trim();
+  const channelId = String(cfg?.channelId || "").trim();
+  return Boolean(chatId && channelId === chatId);
+}
+
+function persistentCurseAppliesToMinigame(curse, cfg, scope) {
+  if (!curse) return false;
+  if (scope === SCOPE_HOUSE) {
+    const currentHouseId = resolveStrikeHouseIdForMinigame(cfg);
+    const curseHouseId = normalizeHouseId(curse.announceHouseId);
+    return Boolean(currentHouseId && curseHouseId && currentHouseId === curseHouseId);
+  }
+  return isMainChatMinigameCfg(cfg);
+}
+
+function normalizePersistentCurseRow(row) {
+  if (!row) return null;
+  const remaining = Math.floor(Number(row.remainingMinigames) || 0);
+  const announceHouseId = normalizeHouseId(row.announceHouseId);
+  const blockedUserIds = (Array.isArray(row.blockedUserIds) ? row.blockedUserIds : [])
+    .map((uid) => String(uid || "").trim())
+    .filter(Boolean);
+  if (remaining <= 0 || !announceHouseId || !blockedUserIds.length) return null;
+  return { ...row, announceHouseId, blockedUserIds, remainingMinigames: remaining };
+}
+
+function listActivePersistentCurses(client, scope = SCOPE_GLOBAL) {
+  if (scope === SCOPE_HOUSE) {
+    const map = getScopeState(client, scope).persistentCurses || {};
+    return HOUSES.map((houseId) => normalizePersistentCurseRow(map[houseId])).filter(Boolean);
+  }
+  const row = normalizePersistentCurseRow(getScopeState(client, scope).persistentCurse);
+  return row ? [row] : [];
 }
 
 function getScopeState(client, scope) {
@@ -47,13 +171,14 @@ function randomBetween(min, max) {
 function parseBasiliskCfgRaw(raw) {
   if (!raw || raw.enabled === false) return null;
   return {
-    chancePercent: Math.min(100, Math.max(0, Number(raw.chancePercent) || 7)),
-    wholeHouseChancePercent: Math.min(100, Math.max(0, Number(raw.wholeHouseChancePercent) || 0.5)),
-    persistentPlayersChancePercent: Math.min(100, Math.max(0, Number(raw.persistentPlayersChancePercent) || 7)),
+    chancePercent: Math.min(100, Math.max(0, Number(raw.chancePercent) || 2)),
+    wholeHouseChancePercent: Math.min(100, Math.max(0, Number(raw.wholeHouseChancePercent) || 0.35)),
+    persistentPlayersChancePercent: Math.min(100, Math.max(0, Number(raw.persistentPlayersChancePercent) || 2.5)),
     persistentMinigamesMin: safeInt(raw.persistentMinigamesMin, 4, 2, 8),
     persistentMinigamesMax: safeInt(raw.persistentMinigamesMax, 5, 2, 10),
     blockedPlayerCount: Math.min(10, Math.max(1, Math.floor(Number(raw.blockedPlayerCount ?? raw.blockedCount) || 3))),
     announceDelayMs: Math.max(0, Math.min(20_000, Math.floor(Number(raw.announceDelayMs) || 5000))),
+    phoenixCureChancePercent: Math.min(100, Math.max(0, Number(raw.phoenixCureChancePercent) || 6)),
     avoidRepeatStrikeHouses: Math.min(3, Math.max(0, Math.floor(Number(raw.avoidRepeatStrikeHouses ?? raw.avoidRepeatAnnounceHouses) || 2))),
     minGapBetweenStrikesMs: Math.max(0, Math.floor(Number(raw.minGapBetweenStrikesMs) || 0)),
     onlyDuringHogwartsEvent: raw.onlyDuringHogwartsEvent !== false,
@@ -257,6 +382,7 @@ function recordBasiliskStruckUsers(client, scope, userIds) {
   if (!incoming.length) return;
   const merged = new Set([...(state.struckUserIds || []), ...incoming]);
   state.struckUserIds = [...merged];
+  schedulePersistBasiliskScopeState(client);
 }
 
 function getCrossScopeBasiliskExcludeUserIds(client, scope) {
@@ -264,10 +390,19 @@ function getCrossScopeBasiliskExcludeUserIds(client, scope) {
   const state = getScopeState(client, otherScope);
   syncStruckUsersPeriod(state);
   const excluded = new Set(state.struckUserIds || []);
-  const persistent = readActivePersistentCurse(client, otherScope);
-  for (const uid of persistent?.blockedUserIds || []) {
-    const id = String(uid || "").trim();
-    if (id) excluded.add(id);
+  if (otherScope === SCOPE_GLOBAL) {
+    const persistent = readActivePersistentCurse(client, SCOPE_GLOBAL);
+    for (const uid of persistent?.blockedUserIds || []) {
+      const id = String(uid || "").trim();
+      if (id) excluded.add(id);
+    }
+  } else {
+    for (const curse of listActivePersistentCurses(client, SCOPE_HOUSE)) {
+      for (const uid of curse.blockedUserIds || []) {
+        const id = String(uid || "").trim();
+        if (id) excluded.add(id);
+      }
+    }
   }
   return excluded;
 }
@@ -311,6 +446,7 @@ function pickRandomStrikeHouse(client, preferredHouseId = "", scope = SCOPE_GLOB
   const preferred = String(preferredHouseId || "").trim().toLowerCase();
   if (preferred && HOUSES.includes(preferred)) {
     getScopeState(client, scope).lastStrikeAt = Date.now();
+    schedulePersistBasiliskScopeState(client);
     return preferred;
   }
   const cfg = readBasiliskCfg(client, scope);
@@ -321,6 +457,7 @@ function pickRandomStrikeHouse(client, preferredHouseId = "", scope = SCOPE_GLOB
   const picked = pool[Math.floor(Math.random() * pool.length)] || HOUSES[0];
   state.recent = [...state.recent, picked].slice(-8);
   state.lastStrikeAt = Date.now();
+  schedulePersistBasiliskScopeState(client);
   return picked;
 }
 
@@ -409,8 +546,8 @@ function buildBasiliskEmbed(plan, cfg, imageUrl = "") {
       `Uno sguardo gelido precede il minigioco ${location}.`,
       "",
       inHouseChannel
-        ? `Il Basilisco ha **pietrificato i ${blockedCount} compagni più attivi** ai minigiochi di **${label}**: resteranno bloccati per **${roundsLeft} minigiochi** nella **sala comune** di casata.`
-        : `Il Basilisco ha maledetto **${label}**: i **${blockedCount} più attivi** ai minigiochi della **chat principale** resteranno **pietrificati per ${roundsLeft} minigiochi** consecutivi.`,
+        ? `Il Basilisco ha **pietrificato i ${blockedCount} compagni più attivi** ai minigiochi di **${label}**: resteranno bloccati per **${roundsLeft} minigiochi** nella **sala comune di ${label}**.`
+        : `Il Basilisco ha maledetto **${label}**: i **${blockedCount} più attivi** ai minigiochi della **chat principale** resteranno **pietrificati per ${roundsLeft} minigiochi** consecutivi in **#chat**.`,
       "",
       "⏳ La maledizione persiste su **più round** — finché non si esaurisce.",
     ];
@@ -430,43 +567,88 @@ function buildBasiliskEmbed(plan, cfg, imageUrl = "") {
   return embed;
 }
 
-async function prunePersistentCurseGuildMembers(client, guildId, scope = SCOPE_GLOBAL) {
+async function prunePersistentCurseGuildMembers(client, guildId, scope = SCOPE_GLOBAL, houseId = "") {
+  if (scope === SCOPE_HOUSE) {
+    const hid = normalizeHouseId(houseId);
+    if (!hid) return null;
+    const state = getScopeState(client, scope);
+    const row = state.persistentCurses?.[hid];
+    if (!row) return null;
+    const blockedUserIds = await filterUserIdsInGuild(client, guildId, row.blockedUserIds || []);
+    if (!blockedUserIds.length) {
+      delete state.persistentCurses[hid];
+      schedulePersistBasiliskScopeState(client);
+      return null;
+    }
+    if (blockedUserIds.length !== (row.blockedUserIds || []).length) {
+      row.blockedUserIds = blockedUserIds;
+      schedulePersistBasiliskScopeState(client);
+    }
+    return row;
+  }
+
   const state = getScopeState(client, scope);
   const row = state.persistentCurse;
   if (!row) return null;
   const blockedUserIds = await filterUserIdsInGuild(client, guildId, row.blockedUserIds || []);
   if (!blockedUserIds.length) {
     state.persistentCurse = null;
+    schedulePersistBasiliskScopeState(client);
     return null;
   }
   if (blockedUserIds.length !== (row.blockedUserIds || []).length) {
     row.blockedUserIds = blockedUserIds;
+    schedulePersistBasiliskScopeState(client);
   }
   return row;
 }
 
-function readActivePersistentCurse(client, scope = SCOPE_GLOBAL) {
-  const row = getScopeState(client, scope).persistentCurse;
-  if (!row) return null;
-  const remaining = Math.floor(Number(row.remainingMinigames) || 0);
-  if (remaining <= 0 || !row.announceHouseId || !Array.isArray(row.blockedUserIds) || !row.blockedUserIds.length) {
-    getScopeState(client, scope).persistentCurse = null;
-    return null;
+function clearPersistentCurse(client, scope = SCOPE_GLOBAL, houseId = "") {
+  if (scope === SCOPE_HOUSE) {
+    const hid = normalizeHouseId(houseId);
+    if (!hid) return;
+    const state = getScopeState(client, scope);
+    if (state.persistentCurses?.[hid]) delete state.persistentCurses[hid];
+    schedulePersistBasiliskScopeState(client);
+    return;
   }
-  return { ...row, remainingMinigames: remaining };
+  getScopeState(client, scope).persistentCurse = null;
+  schedulePersistBasiliskScopeState(client);
+}
+
+function readActivePersistentCurse(client, scope = SCOPE_GLOBAL, houseId = "") {
+  if (scope === SCOPE_HOUSE) {
+    const hid = normalizeHouseId(houseId);
+    if (!hid) return null;
+    const row = normalizePersistentCurseRow(getScopeState(client, scope).persistentCurses?.[hid]);
+    if (!row) clearPersistentCurse(client, scope, hid);
+    return row;
+  }
+  const row = normalizePersistentCurseRow(getScopeState(client, scope).persistentCurse);
+  if (!row) clearPersistentCurse(client, scope);
+  return row;
 }
 
 function startPersistentCurse(client, payload, scope = SCOPE_GLOBAL) {
   if (!client || !payload?.announceHouseId || !payload.blockedUserIds?.length) return null;
+  const announceHouseId = normalizeHouseId(payload.announceHouseId);
+  if (!announceHouseId) return null;
   const total = Math.max(1, Math.floor(Number(payload.totalMinigames) || 1));
   const row = {
-    announceHouseId: String(payload.announceHouseId).trim(),
+    announceHouseId,
     blockedUserIds: payload.blockedUserIds.map((uid) => String(uid || "").trim()).filter(Boolean),
     remainingMinigames: total,
     totalMinigames: total,
     startedAtMs: Date.now(),
   };
-  getScopeState(client, scope).persistentCurse = row;
+  if (scope === SCOPE_HOUSE) {
+    const state = getScopeState(client, scope);
+    if (!state.persistentCurses || typeof state.persistentCurses !== "object") state.persistentCurses = {};
+    state.persistentCurses[announceHouseId] = row;
+  } else {
+    getScopeState(client, scope).persistentCurse = row;
+  }
+  schedulePersistBasiliskScopeState(client);
   return row;
 }
 
@@ -486,16 +668,20 @@ function buildPlanFromPersistentCurse(curse, cfg, scope = SCOPE_GLOBAL) {
   };
 }
 
-function consumePersistentCurseRound(client, scope = SCOPE_GLOBAL) {
+function consumePersistentCurseRound(client, scope = SCOPE_GLOBAL, houseId = "") {
+  const active = readActivePersistentCurse(client, scope, houseId);
+  if (!active) return null;
+  const hid = scope === SCOPE_HOUSE ? normalizeHouseId(houseId || active.announceHouseId) : "";
   const state = getScopeState(client, scope);
-  const row = state.persistentCurse;
+  const row = scope === SCOPE_HOUSE ? state.persistentCurses?.[hid] : state.persistentCurse;
   if (!row) return null;
   row.remainingMinigames = Math.max(0, Math.floor(Number(row.remainingMinigames) || 0) - 1);
   if (row.remainingMinigames <= 0) {
     const ended = { ...row, remainingMinigames: 0 };
-    state.persistentCurse = null;
+    clearPersistentCurse(client, scope, hid);
     return ended;
   }
+  schedulePersistBasiliskScopeState(client);
   return null;
 }
 
@@ -527,6 +713,7 @@ async function announcePersistentCurseEnd(client, houseId, scope = SCOPE_GLOBAL)
 }
 
 async function planBasiliskStrike(client, cfg, options = {}) {
+  await hydrateBasiliskScopeState(client);
   const scope = resolveBasiliskScope(cfg);
   if (!scope) return null;
   if (scope === SCOPE_HOUSE) {
@@ -540,10 +727,20 @@ async function planBasiliskStrike(client, cfg, options = {}) {
   const fixedHouseId = resolveStrikeHouseIdForMinigame(cfg);
   const inHouseChannel = scope === SCOPE_HOUSE;
   const locationLabel = resolveMinigameLocationLabel(cfg);
-  await prunePersistentCurseGuildMembers(client, guildId, scope);
-  const activePersistent = readActivePersistentCurse(client, scope);
-  if (activePersistent) {
-    return buildPlanFromPersistentCurse(activePersistent, cfg, scope);
+  if (scope === SCOPE_HOUSE) {
+    if (fixedHouseId) {
+      await prunePersistentCurseGuildMembers(client, guildId, scope, fixedHouseId);
+      const activePersistent = readActivePersistentCurse(client, scope, fixedHouseId);
+      if (activePersistent && persistentCurseAppliesToMinigame(activePersistent, cfg, scope)) {
+        return buildPlanFromPersistentCurse(activePersistent, cfg, scope);
+      }
+    }
+  } else if (isMainChatMinigameCfg(cfg)) {
+    await prunePersistentCurseGuildMembers(client, guildId, scope);
+    const activePersistent = readActivePersistentCurse(client, scope);
+    if (activePersistent && persistentCurseAppliesToMinigame(activePersistent, cfg, scope)) {
+      return buildPlanFromPersistentCurse(activePersistent, cfg, scope);
+    }
   }
   if (!passBasiliskMinGap(client, basiliskCfg, scope)) return null;
   if (rollBasiliskWholeHouse(client, basiliskCfg)) {
@@ -722,11 +919,134 @@ function isBasiliskBlockActiveForGame(game) {
   return true;
 }
 
+async function resolvePhoenixPetOwnerIds(guildId, userIds) {
+  const ids = [...new Set((Array.isArray(userIds) ? userIds : [])
+    .map((uid) => String(uid || "").trim())
+    .filter(Boolean))];
+  if (!ids.length) return new Set();
+  const gid = String(guildId || "").trim();
+  if (!gid) return new Set();
+  const { normalizeShopInventory } = require("./hogwartsShopBoostsService");
+  const docs = await ActivityUserProfile.find({ guildId: gid, userId: { $in: ids } })
+    .select("userId profile.events.hogwarts.shop")
+    .lean()
+    .catch(() => []);
+  const owners = new Set();
+  for (const doc of Array.isArray(docs) ? docs : []) {
+    const uid = String(doc?.userId || "").trim();
+    if (!uid) continue;
+    const inventory = normalizeShopInventory(doc?.profile?.events?.hogwarts?.shop);
+    if (String(inventory?.pet?.id || "") === PHOENIX_PET_ID) owners.add(uid);
+  }
+  return owners;
+}
+
+function buildPhoenixBasiliskCureEmbed(curedUserIds, cfg) {
+  const mentions = curedUserIds.map((uid) => `<@${uid}>`).join(" ");
+  const inHouseChannel = isHouseChannelMinigameCfg(cfg);
+  return new EmbedBuilder()
+    .setColor("#e25822")
+    .setTitle("🐦‍🔥 Il Pulcino di Fenice interviene")
+    .setImage("https://media4.giphy.com/media/v1.Y2lkPTc5MGI3NjExaGJvNmprMTB1MzY0ajFmdW41cnNnbnZuaTVtcWE5bWtjdjdvYWZudyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/DRMTy97vzZY9W/giphy.gif")
+    .setDescription(
+      [
+        "Una **lacrima di fenice** ti ha curato dal veleno del Basilisco…",
+        "",
+        inHouseChannel
+          ? `${mentions} ${curedUserIds.length === 1 ? "è stato liberato" : "sono stati liberati"} dalla maledizione e può di nuovo giocare ai minigiochi di casata.`
+          : `${mentions} ${curedUserIds.length === 1 ? "è stato liberato" : "sono stati liberati"} dalla maledizione e può di nuovo giocare in **#chat**.`,
+        "",
+        "⏳ Il minigioco sta per iniziare.",
+      ].join("\n"),
+    );
+}
+
+async function announcePhoenixBasiliskCure(client, cfg, plan, curedUserIds) {
+  const ids = (Array.isArray(curedUserIds) ? curedUserIds : [])
+    .map((uid) => String(uid || "").trim())
+    .filter(Boolean);
+  if (!ids.length) return false;
+  const channelId = resolveBasiliskAnnounceChannelId(cfg);
+  if (!channelId) return false;
+  const channel = await getClientChannelCached(client, channelId);
+  if (!channel?.send) return false;
+  const embed = buildPhoenixBasiliskCureEmbed(ids, cfg);
+  await channel.send({
+    content: ids.map((uid) => `<@${uid}>`).join(" "),
+    embeds: [embed],
+    allowedMentions: { users: ids },
+  }).catch(() => null);
+  const scope = plan?.scope || resolveBasiliskScope(cfg) || SCOPE_GLOBAL;
+  const delayMs = Math.max(0, Math.floor(Number(readBasiliskCfg(client, scope)?.announceDelayMs) || 0));
+  if (delayMs > 0) {
+    await new Promise((resolve) => {
+      const timer = setTimeout(resolve, delayMs);
+      timer.unref?.();
+    });
+  }
+  return true;
+}
+
+async function attemptPhoenixBasiliskCure(client, cfg, plan) {
+  if (!plan || plan.mode !== "persistent_players" || plan.shouldAnnounce !== false) {
+    return { plan, curedUserIds: [], curseCleared: false };
+  }
+  const scope = plan.scope || resolveBasiliskScope(cfg) || SCOPE_GLOBAL;
+  const houseId = normalizeHouseId(plan.announceHouseId);
+  const active = scope === SCOPE_HOUSE
+    ? readActivePersistentCurse(client, scope, houseId)
+    : readActivePersistentCurse(client, scope);
+  if (!active) return { plan, curedUserIds: [], curseCleared: false };
+
+  const guildId = String(cfg?.guildId || IDs.guilds?.main || "").trim();
+  const blocked = (active.blockedUserIds || []).map((uid) => String(uid || "").trim()).filter(Boolean);
+  if (!blocked.length) return { plan, curedUserIds: [], curseCleared: false };
+
+  const basiliskCfg = readBasiliskCfg(client, scope);
+  const chance = Math.min(100, Math.max(0, Number(basiliskCfg?.phoenixCureChancePercent) || 6));
+  const phoenixOwners = await resolvePhoenixPetOwnerIds(guildId, blocked);
+  const cured = [];
+  for (const uid of blocked) {
+    if (!phoenixOwners.has(uid)) continue;
+    if (Math.random() * 100 < chance) cured.push(uid);
+  }
+  if (!cured.length) return { plan, curedUserIds: [], curseCleared: false };
+
+  const curedSet = new Set(cured);
+  const newBlocked = blocked.filter((uid) => !curedSet.has(uid));
+  if (scope === SCOPE_HOUSE) {
+    const state = getScopeState(client, scope);
+    const row = state.persistentCurses?.[houseId];
+    if (row) row.blockedUserIds = newBlocked;
+  } else {
+    const row = getScopeState(client, scope).persistentCurse;
+    if (row) row.blockedUserIds = newBlocked;
+  }
+  if (!newBlocked.length) clearPersistentCurse(client, scope, houseId);
+  else schedulePersistBasiliskScopeState(client);
+
+  await announcePhoenixBasiliskCure(client, cfg, plan, cured);
+
+  if (!newBlocked.length) {
+    return { plan: null, curedUserIds: cured, curseCleared: true };
+  }
+  return {
+    plan: { ...plan, blockedUserIds: newBlocked },
+    curedUserIds: cured,
+    curseCleared: false,
+  };
+}
+
 async function isBasiliskBlockedForUser(client, guildId, userId, game) {
   const basilisk = game?.basilisk;
   if (!basilisk || !isBasiliskBlockActiveForGame(game)) return false;
-  if (basilisk.mode === "persistent_players" && !readActivePersistentCurse(client, basilisk.scope || SCOPE_GLOBAL)) {
-    return false;
+  if (basilisk.mode === "persistent_players") {
+    const scope = basilisk.scope || SCOPE_GLOBAL;
+    const houseId = normalizeHouseId(basilisk.announceHouseId || basilisk.struckHouseId);
+    const active = scope === SCOPE_HOUSE
+      ? readActivePersistentCurse(client, scope, houseId)
+      : readActivePersistentCurse(client, scope);
+    if (!active) return false;
   }
   const uid = String(userId || "").trim();
   if (!uid) return false;
@@ -743,6 +1063,7 @@ async function isBasiliskBlockedForUser(client, guildId, userId, game) {
 }
 
 async function runMinigameStartWithBasilisk(client, cfg, gameType, startFn, options = {}) {
+  await hydrateBasiliskScopeState(client);
   const basiliskEligible = isBasiliskEligibleMinigame(cfg);
   const scope = resolveBasiliskScope(cfg);
   if (scope === SCOPE_HOUSE) {
@@ -751,7 +1072,12 @@ async function runMinigameStartWithBasilisk(client, cfg, gameType, startFn, opti
     const { rollHouseBurrobirraForMinigameStart } = require("../Minigames/hogwartsHouseBurrobirraEffectService");
     await rollHouseBurrobirraForMinigameStart(client, cfg?.channelId, houseId, durationMs).catch(() => false);
   }
-  const plan = basiliskEligible ? await planBasiliskStrike(client, cfg, { ...options, gameType }) : null;
+  let plan = basiliskEligible ? await planBasiliskStrike(client, cfg, { ...options, gameType }) : null;
+  if (plan?.mode === "persistent_players" && plan.shouldAnnounce === false) {
+    const cure = await attemptPhoenixBasiliskCure(client, cfg, plan);
+    if (cure.curseCleared) plan = null;
+    else if (cure.plan) plan = cure.plan;
+  }
   if (plan?.skipMinigame) {
     if (plan.shouldAnnounce !== false) await announceBasiliskStrike(client, cfg, plan);
     return { started: false, basiliskSkip: true };
@@ -767,7 +1093,10 @@ async function runMinigameStartWithBasilisk(client, cfg, gameType, startFn, opti
     const game = typeof options.getActiveGame === "function" ? options.getActiveGame(channelId) : null;
     const planScope = plan.scope || scope || SCOPE_GLOBAL;
     if (plan.mode === "persistent_players") {
-      const ended = consumePersistentCurseRound(client, planScope);
+      const curseHouseId = normalizeHouseId(plan.announceHouseId);
+      const ended = planScope === SCOPE_HOUSE
+        ? consumePersistentCurseRound(client, planScope, curseHouseId)
+        : consumePersistentCurseRound(client, planScope);
       if (ended) {
         await announcePersistentCurseEnd(client, ended.announceHouseId, planScope);
       } else if (game) {
@@ -780,4 +1109,4 @@ async function runMinigameStartWithBasilisk(client, cfg, gameType, startFn, opti
   return result;
 }
 
-module.exports = { attachBasiliskToGame, filterUserIdsInGuild, isBasiliskBlockedForUser, planBasiliskStrike, announceBasiliskStrike, runMinigameStartWithBasilisk, resolveHouseChannelId };
+module.exports = { attachBasiliskToGame, filterUserIdsInGuild, hydrateBasiliskScopeState, isBasiliskBlockedForUser, planBasiliskStrike, announceBasiliskStrike, runMinigameStartWithBasilisk, resolveHouseChannelId };

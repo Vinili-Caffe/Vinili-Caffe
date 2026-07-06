@@ -57,6 +57,34 @@ async function hydrateGuildMembersForRolePings(guild, logTag = "[threadRoleMembe
 }
 
 /**
+ * @param {import("discord.js").Guild} guild
+ * @param {string} roleId
+ * @param {{ logTag?: string, hydrate?: boolean }} [opts]
+ * @returns {Promise<string[]>}
+ */
+async function collectHumanMemberIdsWithRole(guild, roleId, opts = {}) {
+  const rid = String(roleId || "").trim();
+  if (!guild || !rid) return [];
+  const logTag = opts.logTag || "[collectHumanMemberIdsWithRole]";
+  if (opts.hydrate !== false) {
+    await hydrateGuildMembersForRolePings(guild, logTag);
+  }
+  const ids = new Set();
+  const role = guild.roles.cache.get(rid) || (await guild.roles.fetch(rid).catch(() => null));
+  if (role?.members) {
+    for (const member of role.members.values()) {
+      if (!member?.user?.bot) ids.add(String(member.id));
+    }
+  }
+  if (guild.members?.cache) {
+    for (const member of guild.members.cache.values()) {
+      if (!member?.user?.bot && member.roles?.cache?.has(rid)) ids.add(String(member.id));
+    }
+  }
+  return [...ids].filter((id) => /^\d{16,22}$/.test(id));
+}
+
+/**
  * Aggiunge al thread i membri umani con il ruolo indicato che non ci sono già.
  * @param {import("discord.js").AnyThreadChannel} thread
  * @param {import("discord.js").Guild} guild
@@ -67,11 +95,11 @@ async function addAllRoleMembersToThread(thread, guild, roleId, opts = {}) {
   const rid = String(roleId || "").trim();
   if (!thread?.members?.add || !guild || !rid) return { added: 0, failed: 0, skipped: 0 };
   const logTag = opts.logTag || "[addAllRoleMembersToThread]";
-  if (opts.hydrate !== false) {
-    await hydrateGuildMembersForRolePings(guild, logTag);
-  }
-  const role = guild.roles.cache.get(rid) || (await guild.roles.fetch(rid).catch(() => null));
-  if (!role) return { added: 0, failed: 0, skipped: 0 };
+  const memberIds = await collectHumanMemberIdsWithRole(guild, rid, {
+    logTag,
+    hydrate: opts.hydrate !== false,
+  });
+  if (!memberIds.length) return { added: 0, failed: 0, skipped: 0 };
   const threadMemberIds = new Set(
     thread.members?.cache ? [...thread.members.cache.keys()].map(String) : [],
   );
@@ -81,16 +109,44 @@ async function addAllRoleMembersToThread(thread, guild, roleId, opts = {}) {
   let failed = 0;
   let skipped = 0;
   let i = 0;
-  for (const m of role.members.values()) {
-    if (m.user?.bot) continue;
-    if (threadMemberIds.has(String(m.id))) {
+  for (const memberId of memberIds) {
+    if (threadMemberIds.has(memberId)) {
       skipped += 1;
       continue;
     }
-    const ok = await thread.members.add(m.id).then(() => true).catch(() => false);
+    const ok = await thread.members.add(memberId).then(() => true).catch(() => false);
     if (ok) {
       added += 1;
-      threadMemberIds.add(String(m.id));
+      threadMemberIds.add(memberId);
+    } else failed += 1;
+    i += 1;
+    if (every > 0 && throttleMs > 0 && i % every === 0) await sleep(throttleMs);
+  }
+  return { added, failed, skipped };
+}
+
+async function addUserIdsToThread(thread, userIds, opts = {}) {
+  if (!thread?.members?.add) return { added: 0, failed: 0, skipped: 0 };
+  const ids = [...new Set((Array.isArray(userIds) ? userIds : []).map((id) => String(id || "").trim()).filter((id) => /^\d{16,22}$/.test(id)))];
+  if (!ids.length) return { added: 0, failed: 0, skipped: 0 };
+  const threadMemberIds = new Set(
+    thread.members?.cache ? [...thread.members.cache.keys()].map(String) : [],
+  );
+  const every = Math.max(0, Math.floor(Number(opts.throttleEvery ?? 8)));
+  const throttleMs = Math.max(0, Math.floor(Number(opts.throttleMs ?? 45)));
+  let added = 0;
+  let failed = 0;
+  let skipped = 0;
+  let i = 0;
+  for (const userId of ids) {
+    if (threadMemberIds.has(userId)) {
+      skipped += 1;
+      continue;
+    }
+    const ok = await thread.members.add(userId).then(() => true).catch(() => false);
+    if (ok) {
+      added += 1;
+      threadMemberIds.add(userId);
     } else failed += 1;
     i += 1;
     if (every > 0 && throttleMs > 0 && i % every === 0) await sleep(throttleMs);
@@ -111,4 +167,10 @@ async function resolveGuildMemberIds(guild, logTag = "[threadRoleMembers]") {
   return ids;
 }
 
-module.exports = { hydrateGuildMembersForRolePings, addAllRoleMembersToThread, resolveGuildMemberIds };
+module.exports = {
+  hydrateGuildMembersForRolePings,
+  collectHumanMemberIdsWithRole,
+  addAllRoleMembersToThread,
+  addUserIdsToThread,
+  resolveGuildMemberIds,
+};

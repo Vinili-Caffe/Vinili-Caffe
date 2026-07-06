@@ -1,7 +1,7 @@
 const { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } = require("discord.js");
 const { buildImageButtonPayload } = require("./guiPanelPayload");
 const { formatCurrency } = require("../../Services/Community/serverWalletService");
-const { economyConfig, normalizeRouletteChoice, playRoulette } = require("../../Services/Community/serverEconomyService");
+const { economyConfig, normalizeRouletteChoice, playRoulette } = require("../../Services/Community/activeEconomyService");
 const PREFIX = "roulette_gui";
 const SESSION_TTL_MS = 10 * 60 * 1000;
 const RENDER_CACHE_MAX = 64;

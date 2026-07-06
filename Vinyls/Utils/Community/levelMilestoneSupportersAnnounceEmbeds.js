@@ -1,6 +1,6 @@
 const { EmbedBuilder } = require("discord.js");
 const IDs = require("../Config/ids");
-const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
+const { accountUsername, resolveEmbedUserAvatarUrl } = require("../Discord/guildDiscordIdentity");
 const { getGuildChannelCached } = require("../Interaction/interactionEntityCache");
 const { shouldSendPublicMemberAnnouncement } = require("./memberPublicAnnouncementGate");
 const { MENTION_RESPONSE_PERK_LINE_DISCORD } = require("./mentionResponseAccessUtils");
@@ -33,7 +33,6 @@ function buildPerkBlockLines(level) {
   } else if (L === 20) {
     lines.push(
       "<:sparkle:1470064801811140866> Tutte le ricompense dei livelli precedenti",
-      "<:VC_Dot:1482532364222595303> Possibilità di **scrivere in gigante**",
       "<:pinkstar:1470064804835229768> Possibilità di **aggiungere reazioni** ai messaggi in chat",
       `<:VC_Color:1482532543273238569> Nuovo **colore gradiente** con \`+profile\` <@&${IDs.roles.colorUnlockLv20}>`,
     );
@@ -92,8 +91,8 @@ function buildPerkBlockLines(level) {
   return lines;
 }
 
-function buildLevelMilestoneSupportersEmbed(member, level, roleId) {
-  const avatarUrl = guildMemberDisplayAvatarUrlDynamic(member, { size: 256 });
+async function buildLevelMilestoneSupportersEmbed(member, level, roleId) {
+  const avatarUrl = await resolveEmbedUserAvatarUrl(member, { size: 256 });
   const perkLines = buildPerkBlockLines(level);
   const perkBlock = perkLines.length ? `${perkLines.join("\n")}\n` : "";
   const roleLine = roleId ? `<@&${roleId}>` : `livello **${level}**`;
@@ -130,7 +129,7 @@ async function sendLevelMilestoneSupportersAnnouncement(guild, member, level, ro
   const channel =
     guild.channels.cache.get(SUPPORTERS_CHANNEL_ID) || (await getGuildChannelCached(guild, SUPPORTERS_CHANNEL_ID));
   if (!channel?.isTextBased?.()) return;
-  const embed = buildLevelMilestoneSupportersEmbed(member, level, roleId);
+  const embed = await buildLevelMilestoneSupportersEmbed(member, level, roleId);
   await channel
     .send({
       content: buildLevelMilestoneSupportersAnnounceContent(member.user),

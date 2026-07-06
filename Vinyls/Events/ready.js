@@ -7,6 +7,10 @@ const { shouldRunDiscadiaVoteMonthRepairOnStartup, repairDiscadiaVoteMonthRowsFo
 const { processAllRecentAutomationMessages } = require("../Utils/Message/officialMessageAutomationHandlers");
 const { processPendingCountingMessages, restoreWelcomeSessionsFromDb } = require("../Utils/Message/officialMessageCommunityHandlers");
 const { rehydrateCountingChannelBans } = require("../Utils/Community/countingChannelBanService");
+const {
+  hydrateCountingRestoreTokens,
+  startCountingRestoreMaintenance,
+} = require("../Utils/Community/countingRestoreService");
 const { bootstrapSupporter, recoverSupporterStatusAnnouncesOnStartup } = require("./presenceUpdate");
 const { restoreTtsConnections } = require("../Services/TTS/ttsService");
 const { runDueOneTimeReminders, } = require("../Services/Reminders/oneTimeReminderService");
@@ -36,12 +40,14 @@ const { startDailyPartnerAuditLoop, } = require("../Services/Partner/partnerAudi
 const { syncPartnerDescription } = require("../Services/Partner/partnerDescriptionSyncService");
 const { startStaffChatThreadsLoop } = require("../Services/Staff/staffChatThreadsService");
 const { startStaffCmdsThreadsLoop } = require("../Services/Staff/staffCmdsThreadsService");
+const { startResocontoStaffChannelAccessLoop } = require("../Services/Staff/resocontoStaffChannelAccessService");
 const { startPublicVoiceHubSetup } = require("../Services/Voice/publicVoiceHubService");
 const { startTicketAutoClosePromptLoop, startTranscriptCleanupLoop, } = require("../Services/Ticket/ticketMaintenanceService");
 const { startAutoBackupLoop } = require("../Services/Backup/autoBackupService");
 const { startModCaseLifecycleLoop } = require("../Services/Moderation/modCaseLifecycleService");
 const { startWeeklyStaffResocontoLoop } = require("../Services/Staff/weeklyStaffResocontoService");
 const { startWeeklyActivityWinnersLoop } = require("../Services/Community/weeklyActivityWinnersService");
+const { startTwitchLiveAlertLoop } = require("../Services/Community/twitchLiveAlertService");
 const { startHogwartsHouseCupLoop } = require("../Services/Community/hogwartsHouseCupPublishService");
 const { syncHogwartsShopLogsOnStartup } = require("../Services/Community/hogwartsShopLogService");
 const { syncShopBoostMinigameUsageBackfillOnStartup } = require("../Services/Community/hogwartsShopBoostsService");
@@ -51,6 +57,8 @@ const { startContestPrizeMaintenanceCron } = require("../Services/Community/cont
 const { startStaffWarnResetLoop } = require("../Services/Staff/staffWarnService");
 const { runStaffWarnChannelMigrationOnStartup } = require("../Services/Staff/staffWarnChannelMigrationService");
 const { startStaffAutoValutazioniLoop, syncAllStaffAutoValutazioni, restoreActiveSerataFilmSessions, cleanupMalformedAutoValutazioni } = require("../Services/Staff/staffAutoValutazioniService");
+const { reconcileResocontoReviewerRewardAutoValutazioni } = require("../Services/Staff/resocontoReviewerRewardService");
+const { purgeDuplicateCompitoSettimanaleValutazioni } = require("../Services/Staff/compitoSettimanaleDuplicatePurgeService");
 const { runScheduledEnds, syncActiveGiveawayButtons } = require("../Services/Giveaway/giveawayService");
 const { retroSyncGuildLevels } = require("../Services/Community/expService");
 const { runFullCleanupUsersNotInServer } = require("../Services/Community/cleanupUsersNotInServerService");
@@ -68,6 +76,7 @@ const guildMemberUpdateExtras = require("./guildMemberUpdate");
 const guildMemberAddExtras = require("./guildMemberAdd");
 const { recoverDonationPackageAnnouncesOnStartup } = require("../Utils/Community/donationPackageSupportersAnnounce");
 const { recoverManualSocialRoleAnnouncesOnStartup } = require("../Utils/Community/manualSocialRoleAnnounceAndPicPerms");
+const { reconcilePatronRolesOnStartup, recoverPatronAnnouncesOnStartup } = require("../Utils/Community/patronRoleService");
 const { recoverLevelMilestoneSupportersAnnouncesOnStartup } = require("../Utils/Community/levelMilestoneSupportersAnnounceEmbeds");
 const startupPanelsTrigger = require("../Triggers/embeds");
 const { queueIdsCatalogSync } = require("../Utils/Config/idsAutoSync");
@@ -300,7 +309,7 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
     {
       label: "correct misleading single boost embeds (double booster)",
       weight: 38,
-      enabled: primaryScheduler,
+      enabled: false,
       run: () => guildMemberUpdateExtras.correctMisleadingSingleBoostEmbedsOnStartup(client),
     },
     {
@@ -350,6 +359,22 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
         }),
     },
     {
+      label: "reconcile patron roles from social prerequisites",
+      weight: 45.2,
+      enabled: primaryScheduler,
+      run: () => reconcilePatronRolesOnStartup(client, { limit: 300 }),
+    },
+    {
+      label: "recover missed patron role announces",
+      weight: 45.4,
+      enabled: primaryScheduler,
+      run: () =>
+        recoverPatronAnnouncesOnStartup(client, {
+          limit: 15,
+          lookbackMs: 24 * 60 * 60 * 1000,
+        }),
+    },
+    {
       label: "recover missed level milestone supporter announces",
       weight: 46,
       enabled: primaryScheduler,
@@ -393,13 +418,23 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
       run: () => guildMemberUpdateExtras.backfillAnnouncedBoostSlotsFromSupportersHistory(client),
     },
     {
+      label: "recover unannounced boosters (member + native scan)",
+      weight: 50.5,
+      enabled: primaryScheduler,
+      run: () =>
+        guildMemberUpdateExtras.recoverUnannouncedBoostersOnStartup(client, {
+          lookbackMs: 48 * 60 * 60 * 1000,
+          maxRecover: 25,
+        }),
+    },
+    {
       label: "recover missing second boost embeds (native vs supporters)",
       weight: 51,
       enabled: primaryScheduler,
       run: () =>
         guildMemberUpdateExtras.recoverMissingSecondBoostEmbedsOnStartup(client, {
-          lookbackMs: 30 * 24 * 60 * 60 * 1000,
-          maxRecover: 20,
+          lookbackMs: 7 * 24 * 60 * 60 * 1000,
+          maxRecover: 10,
         }),
     },
     {
@@ -446,6 +481,15 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
       run: () => runCustomPerksRulesMigration(client),
     },
     {
+      label: "repair custom voc channel permissions",
+      weight: 75.2,
+      enabled: primaryScheduler,
+      run: () => {
+        const { repairCustomVocPermissionsOnStartup } = require("../Services/Community/customVocPermissionsService");
+        return repairCustomVocPermissionsOnStartup(client);
+      },
+    },
+    {
       label: "custom private category empty cleanup",
       weight: 54,
       enabled: primaryScheduler,
@@ -454,7 +498,14 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
         if (!guildId) return;
         const guild = client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
         if (!guild) return;
-        const { tryDeleteEmptyCustomPrivateCategory } = require("../Utils/Community/customPrivateCategoryUtils");
+        const {
+          tryDeleteEmptyCustomPrivateCategory,
+          listCustomPrivateCategories,
+          syncCustomPrivateCategoryLayout,
+        } = require("../Utils/Community/customPrivateCategoryUtils");
+        for (const cat of listCustomPrivateCategories(guild)) {
+          await syncCustomPrivateCategoryLayout(guild, cat).catch(() => null);
+        }
         const deleted = await tryDeleteEmptyCustomPrivateCategory(guild).catch(() => false);
         if (deleted) global.logger?.info?.("[CUSTOM PRIVATE CATEGORY] Startup removed empty private category");
       },
@@ -479,6 +530,18 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
         await cleanupMalformedAutoValutazioni();
         await syncAllStaffAutoValutazioni(client);
       },
+    },
+    {
+      label: "reconcile resoconto reviewer compito settimanale",
+      weight: 81,
+      enabled: primaryScheduler,
+      run: () => reconcileResocontoReviewerRewardAutoValutazioni(client),
+    },
+    {
+      label: "purge duplicate compito settimanale valutazioni",
+      weight: 82,
+      enabled: primaryScheduler,
+      run: () => purgeDuplicateCompitoSettimanaleValutazioni(client, { dryRun: false }),
     },
     {
       label: "verification tenure backfill",
@@ -511,6 +574,15 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
       run: () => syncHouseSortingAnnouncesOnStartup(client),
     },
     {
+      label: "hogwarts basilisk curse state hydrate",
+      weight: 87,
+      enabled: primaryScheduler,
+      run: async () => {
+        const { hydrateBasiliskScopeState } = require("../Services/Community/hogwartsBasiliskService");
+        await hydrateBasiliskScopeState(client);
+      },
+    },
+    {
       label: "renumber categories",
       weight: 88,
       enabled: primaryScheduler,
@@ -540,6 +612,22 @@ const getChannelSafe = async (client, channelId) => { if (!channelId) return nul
 
 const PENDING_COMMANDS_LOOKBACK_MS = 5 * 60 * 1000;
 const PENDING_COMMANDS_FETCH_LIMIT = 25;
+
+function messageHasBotLoadingReaction(message, client) {
+  const botId = String(client?.user?.id || "");
+  if (!botId || !message?.reactions?.cache?.size) return false;
+  const loadingId = String(IDs.emojis?.loadingAnimatedId || "");
+  const fallbackId = String(IDs.emojis?.loadingFallbackId || "");
+  for (const reaction of message.reactions.cache.values()) {
+    if (!reaction?.users?.cache?.has(botId)) continue;
+    const emojiId = String(reaction.emoji?.id || "");
+    if (loadingId && emojiId === loadingId) return true;
+    if (fallbackId && emojiId === fallbackId) return true;
+    if (reaction.emoji?.name === "\u23F3" || reaction.emoji?.name === "⏳") return true;
+    if (reaction.emoji?.name === "VC_Loading") return true;
+  }
+  return false;
+}
 
 async function processPendingPrefixCommands(client) {
   const envValue = String(process.env.PROCESS_PENDING_COMMANDS_ON_STARTUP || "").trim().toLowerCase();
@@ -571,6 +659,7 @@ async function processPendingPrefixCommands(client) {
         for (const msg of messages.values()) {
           if (msg.author?.bot || !msg.content?.trim().startsWith(prefix)) continue;
           if (msg.createdTimestamp < cutoff) continue;
+          if (!messageHasBotLoadingReaction(msg, client)) continue;
           collected.push({ message: msg, ts: msg.createdTimestamp });
         }
       } catch (err) {
@@ -579,6 +668,9 @@ async function processPendingPrefixCommands(client) {
     }
   }
   collected.sort((a, b) => a.ts - b.ts);
+  if (collected.length) {
+    global.logger?.info?.(`[READY] Recupero ${collected.length} prefix command in sospeso (reazione loading attiva).`);
+  }
   for (const { message } of collected) {
     try {
       try {
@@ -745,6 +837,7 @@ function startPrimaryLoops(client, engagementTick) {
       startRepostRouletteCron(client);
     }],
     ["[MOVIE NIGHT ANNOUNCE] Failed to start loop", () => startMovieNightAnnouncementLoop(client)],
+    ["[TWITCH LIVE] Failed to start loop", () => startTwitchLiveAlertLoop(client)],
     ["[DB MAINTENANCE] Failed to start loop", () => startDbMaintenanceLoop(client)],
     ["[STAFF GRACE PURGE] Failed to start loop", () => startStaffGracePurgeLoop(client)],
     ["[JOIN RAID RESTORE] Failed to start loop", () => {
@@ -912,6 +1005,11 @@ module.exports = {
         global.logger?.error?.("[STAFF CMDS THREAD INIT ERROR]", err);
       }
       try {
+        startResocontoStaffChannelAccessLoop(client);
+      } catch (err) {
+        global.logger?.error?.("[RESOCONTO STAFF CHANNEL INIT ERROR]", err);
+      }
+      try {
         startStaffChatThreadsLoop(client);
       } catch (err) {
         global.logger?.error?.("[STAFF CHAT THREAD INIT ERROR]", err);
@@ -920,6 +1018,12 @@ module.exports = {
         startPublicVoiceHubSetup(client);
       } catch (err) {
         global.logger?.error?.("[PUBLIC VOICE HUB INIT ERROR]", err);
+      }
+      try {
+        const { startStanzaVoiceRecovery } = require("../Services/Voice/stanzaVoiceRoomsService");
+        startStanzaVoiceRecovery(client);
+      } catch (err) {
+        global.logger?.error?.("[STANZA VOICE INIT ERROR]", err);
       }
     }
 
@@ -935,6 +1039,15 @@ module.exports = {
       let engagementTickRunning = false;
       const engagementTick = async () => { if (engagementTickRunning) return; engagementTickRunning = true; try { await runDueOneTimeReminders(client); } catch (err) { global.logger?.error?.(err); } finally { engagementTickRunning = false; } };
       client._engagementTick = engagementTick;
+
+      void (async () => {
+        try {
+          const { repairCustomVocPermissionsOnStartup } = require("../Services/Community/customVocPermissionsService");
+          await repairCustomVocPermissionsOnStartup(client);
+        } catch (err) {
+          global.logger?.warn?.("[CUSTOM VOC PERMS] early repair failed:", err?.message || err);
+        }
+      })();
 
       if (!client._deferredStartupRunning) {
         client._deferredStartupRunning = true;
@@ -975,6 +1088,10 @@ module.exports = {
     void rehydrateCountingChannelBans(client).catch((err) =>
       global.logger?.warn?.("[READY] counting channel bans rehydrate:", err?.message || err),
     );
+    void hydrateCountingRestoreTokens(client).catch((err) =>
+      global.logger?.warn?.("[READY] counting restore tokens hydrate:", err?.message || err),
+    );
+    startCountingRestoreMaintenance(client);
     const countingCatchUpRetry = setTimeout(() => {
       void processPendingCountingMessages(client).catch((err) =>
         global.logger?.warn?.("[READY] counting catch-up retry:", err?.message || err),

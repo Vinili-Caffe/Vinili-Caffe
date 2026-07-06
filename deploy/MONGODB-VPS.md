@@ -47,7 +47,8 @@ chmod 600 /opt/bot/deploy/.env.mongo
 | Script | Cosa fa |
 |--------|--------|
 | `start-mongo.sh` | Avvia Mongo (Docker) |
-| `backup-mongo.sh` | Dump in `deploy/backups/mongo-YYYYMMDD-HHMMSS` (cancella backup > 14 gg) |
+| `backup-mongo.sh` | Dump in `deploy/backups/mongo-YYYYMMDD-HHMMSS` + `prune-mongo-backups.sh` (tiene ultimi 7) |
+| `prune-mongo-backups.sh [N]` | Solo prune: tiene gli N backup `mongo-*` più recenti (default 7) |
 | `restore-mongo.sh /percorso/cartella_dump` | Restore da una cartella di backup |
 | `setup-vps-mongo.sh` | chmod sicuri, avvio Mongo, crea `backups/`, istruzioni + cron |
 
@@ -155,19 +156,40 @@ Oppure: `./fix-env-mongo-crlf.sh` in deploy.
 
 ## Compass dal PC (tunnel SSH)
 
-Sulla VPS Mongo deve essere su (start-mongo.sh). Sul PC, PowerShell:
+Sulla VPS Mongo deve essere su (start-mongo.sh). Sul PC hai tre modi:
 
-```powershell
-.\deploy\compass-tunnel.ps1 -VpsHost IP_O_DOMINIO
+### A) Automatico con `ssh vinili` (consigliato)
+
+In `~/.ssh/config` sotto `Host vinili`:
+
+```sshconfig
+LocalForward 27018 127.0.0.1:27017
 ```
 
-Oppure: `ssh -N -L 27018:127.0.0.1:27017 vinili@VPS`
+Ogni sessione `ssh vinili` (anche quella che tieni aperta per il deploy) espone Mongo su `127.0.0.1:27018` — **non serve un terminale tunnel separato**.
+
+Dopo aver aggiunto la riga, riconnetti `ssh vinili` (o avvia `ssh -N -f -L 27018:127.0.0.1:27017 vinili` in background).
+
+### B) Script dedicato
+
+```bash
+./deploy/compass-tunnel.sh
+```
+
+PowerShell: `.\deploy\compass-tunnel.ps1 -VpsHost IP_O_DOMINIO`
+
+### C) Tunnel SSH integrato in Compass
+
+In Compass → Edit connection → **SSH Tunnel**: host `vinili` (o IP VPS), user `root`, chiave `~/.ssh/vinili`.  
+Hostname Mongo: `127.0.0.1`, porta `27017` (lato VPS). Nessun tunnel esterno.
 
 Compass URI (stessi user/password di `.env.mongo`):
 
 ```text
 mongodb://USER:PASS@127.0.0.1:27018/?authSource=admin
 ```
+
+**Porta 27018** in locale, non 27017 (quella è solo sulla VPS o se hai Mongo installato in locale).
 
 ---
 

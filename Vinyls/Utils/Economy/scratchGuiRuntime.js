@@ -1,7 +1,7 @@
 const { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const { buildImageButtonPayload } = require("./guiPanelPayload");
 const { formatCurrency } = require("../../Services/Community/serverWalletService");
-const { economyConfig, payScratchWin, playScratchBet } = require("../../Services/Community/serverEconomyService");
+const { economyConfig, payScratchWin, playScratchBet } = require("../../Services/Community/activeEconomyService");
 const { allRevealed, emptyRevealed, evaluateCard, generateCard, symbolLabel } = require("./scratchEngine");
 const PREFIX = "scratch_gui";
 const SESSION_TTL_MS = 10 * 60 * 1000;

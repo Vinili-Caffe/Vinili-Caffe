@@ -1,7 +1,8 @@
 const { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const { buildImageButtonPayload, canvasStatusLine } = require("./guiPanelPayload");
 const { formatCurrency } = require("../../Services/Community/serverWalletService");
-const { ROB_BANK_TARGET_ID, economyConfig, evaluateRobTarget, isRobBankTarget, rob, robBank } = require("../../Services/Community/serverEconomyService");
+const { ROB_BANK_TARGET_ID, economyConfig, evaluateRobTarget, isRobBankTarget, rob, robBank, robBankTargetId, resolveEconomyMode } = require("../../Services/Community/activeEconomyService");
+const { formatGaleoni } = require("../../Services/Community/gringottService");
 const { resolveEconomyPresentation } = require("./economyPresentation");
 const PREFIX = "rob_gui";
 const SESSION_TTL_MS = 10 * 60 * 1000;
@@ -24,7 +25,7 @@ function sessionKey(messageId) {
 function makeBankTarget(client) {
   const label = client ? resolveEconomyPresentation(client).robBankLabel : "Cassaforte";
   return {
-    id: ROB_BANK_TARGET_ID,
+    id: client ? robBankTargetId(client) : ROB_BANK_TARGET_ID,
     name: label,
     user: null,
     isBank: true,
@@ -34,14 +35,16 @@ function makeBankTarget(client) {
 async function makeSession({ ownerId, guildId, targetId, targetName, cfg, isBank, client, currency }) {
   const bank = Boolean(isBank) || isRobBankTarget(targetId);
   const bankLabel = client ? resolveEconomyPresentation(client).robBankLabel : "Cassaforte";
+  const galeoniEconomy = Boolean(client && resolveEconomyMode(client) === "galeoni");
   const baseChance = Math.max(1, Math.min(99, Math.floor(Number(cfg?.rob?.successChance) || 35)));
   return {
     ownerId: String(ownerId || ""),
     guildId: String(guildId || ""),
-    targetId: bank ? ROB_BANK_TARGET_ID : String(targetId || ""),
+    targetId: bank ? (client ? robBankTargetId(client) : ROB_BANK_TARGET_ID) : String(targetId || ""),
     targetName: bank ? bankLabel : String(targetName || "").trim() || "Bersaglio",
     isBank: bank,
     currency: currency === "vinili" ? "vinili" : "caffe",
+    galeoniEconomy,
     robBankLabel: bankLabel,
     phase: "idle",
     lastResult: null,
@@ -49,6 +52,7 @@ async function makeSession({ ownerId, guildId, targetId, targetName, cfg, isBank
     successChance: baseChance,
     robBroomBonus: 0,
     robBroomName: "",
+    galeoniEconomy: client ? resolveEconomyMode(client) === "galeoni" : false,
     createdAt: now(),
     updatedAt: now(),
   };
@@ -181,8 +185,9 @@ function buildRobContent(session, notice, panelClosed) {
   const last = session.lastResult;
   if (session.phase === "done" && last) {
     return formatRobNotice(
-      { ok: true, success: Boolean(last.success), amount: last.amount, penalty: last.penalty, bank: session.isBank },
+      { ok: true, success: Boolean(last.success), amount: last.amount, penalty: last.penalty, bank: session.isBank, currency: last.currency },
       session.targetName,
+      session.galeoniEconomy ? { galeoni: true } : null,
     );
   }
   if (session.panelAnimating) return String(notice || "").trim();
@@ -309,7 +314,7 @@ async function pushRobHitAnimation(message, session, attemptFn) {
   session.phase = "done";
   session.panelAnimating = true;
   setSession(messageId, session);
-  const notice = formatRobNotice(hit.result, session.targetName);
+  const notice = formatRobNotice(hit.result, session.targetName, session.galeoniEconomy ? { galeoni: true } : null);
   const remaining = Math.max(0, spinAnimationDurationMs() - (Date.now() - started));
   scheduleRobIdlePanel(message, session, notice, remaining);
   return hit;
@@ -379,21 +384,26 @@ function resetForNewAttempt(session) {
   session.updatedAt = now();
 }
 
-function formatRobNotice(result, targetName) {
+function formatRobNotice(result, targetName, modeHint = null) {
+  const galeoniMode = modeHint?.galeoni === true;
   const cur = result?.currency === "vinili" ? "vinili" : "caffe";
+  const formatAmt = (amount) => (galeoniMode ? formatGaleoni(amount) : formatCurrency(cur, amount));
   if (!result?.ok) return result?.message || "";
   if (result.success) {
     return result.bank
-      ? `🏆 ${targetName} svaligiata: **+${formatCurrency(cur, result.amount)}**.`
-      : `🏆 Colpo riuscito su **${targetName}**: **+${formatCurrency(cur, result.amount)}**.`;
+      ? `🏆 ${targetName} svaligiata: **+${formatAmt(result.amount)}**.`
+      : `🏆 Colpo riuscito su **${targetName}**: **+${formatAmt(result.amount)}**.`;
   }
   return result.bank
-    ? `<a:VC_Cross:1482532424570376253> Allarme alla ${targetName}! Multa: **${formatCurrency(cur, result.penalty || 0)}**.`
-    : `<a:VC_Cross:1482532424570376253> Beccato su **${targetName}**! Multa: **${formatCurrency(cur, result.penalty || 0)}**.`;
+    ? `<a:VC_Cross:1482532424570376253> Allarme alla ${targetName}! Multa: **${formatAmt(result.penalty || 0)}**.`
+    : `<a:VC_Cross:1482532424570376253> Beccato su **${targetName}**! Multa: **${formatAmt(result.penalty || 0)}**.`;
 }
 
 async function attemptRob(client, messageLike, session, cfg) {
   const currency = session.currency === "vinili" ? "vinili" : "caffe";
+  const targetError = resolveEconomyMode(client) === "galeoni"
+    ? "Nessun bersaglio idoneo: serve un utente con Galeoni sufficienti e smistamento completato."
+    : "Nessun bersaglio idoneo: serve un utente con saldo sufficiente in Vinili o Caffè.";
   if (session.isBank || isRobBankTarget(session.targetId)) {
     const result = await robBank(client, messageLike, currency);
     if (!result.ok) return result;
@@ -402,7 +412,7 @@ async function attemptRob(client, messageLike, session, cfg) {
   }
   const target = await resolveTargetUser(client, messageLike, session.targetId, cfg || economyConfig(client), currency);
   if (target?.error) return { ok: false, message: target.error };
-  if (!target?.user) return { ok: false, message: "Nessun bersaglio idoneo: serve un utente con saldo sufficiente in Vinili o Caffè." };
+  if (!target?.user) return { ok: false, message: targetError };
   session.targetId = target.id;
   session.targetName = target.name;
   session.isBank = false;

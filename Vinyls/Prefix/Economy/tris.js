@@ -1,4 +1,4 @@
-const { assertEconomyGamblingAccess, assertEconomyGamblingAccessForUser, economyConfig } = require("../../Services/Community/serverEconomyService");
+const { assertEconomyGamblingAccess, assertEconomyGamblingAccessForUser, economyConfig } = require("../../Services/Community/activeEconomyService");
 const { formatGaleoni } = require("../../Services/Community/gringottService");
 const { buildTrisGuiPayload, clampBet, findActiveTrisPvpMessageId, getSession, makeSession, schedulePvpInviteExpiry, setSession, startGame, warmupTrisPanel } = require("../../Utils/Economy/trisGuiRuntime");
 const { postGuiPanel, runEconomyPanelCommand } = require("../../Utils/Economy/economyCommandHelpers");

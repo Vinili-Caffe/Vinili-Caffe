@@ -1,4 +1,10 @@
 const { ActionRowBuilder, StringSelectMenuBuilder } = require("discord.js");
+const {
+  resetPanelSelectMenu,
+  payloadWithDefaultEphemeral,
+  beginPanelSelectDefer,
+} = require("../../../shared/discord/panelSelectMenuRuntime");
+
 const TICKET_OPEN_MENU_CUSTOM_ID = "ticket_open_menu";
 
 function buildTicketOpenSelectRows() {
@@ -23,18 +29,30 @@ function isTicketOpenMenuSelect(interaction) {
 }
 
 async function resetTicketOpenPanelAfterInteraction(interaction) {
-  if (!isTicketOpenMenuSelect(interaction)) return;
-  const msg = interaction.message;
-  if (!msg || typeof msg.edit !== "function") return;
-  try {
-    const embeds = Array.isArray(msg.embeds) && msg.embeds.length ? [...msg.embeds] : [];
-    await msg.edit({
-      embeds,
-      components: buildTicketOpenSelectRows(),
-    });
-  } catch (e) {
-    global.logger?.warn?.("[ticketOpenMenu] reset panel:", e?.message || e);
-  }
+  if (!isTicketOpenMenuSelect(interaction)) return false;
+  return resetPanelSelectMenu(interaction, buildTicketOpenSelectRows);
 }
 
-module.exports = { TICKET_OPEN_MENU_CUSTOM_ID, buildTicketOpenSelectRows, isTicketOpenMenuSelect, resetTicketOpenPanelAfterInteraction };
+async function replyTicketOpenPanel(interaction, payload, safeReply) {
+  if (isTicketOpenMenuSelect(interaction) && !interaction.replied && !interaction.deferred) {
+    await resetPanelSelectMenu(interaction, buildTicketOpenSelectRows);
+    return interaction.followUp(payloadWithDefaultEphemeral(payload, true)).catch(() => null);
+  }
+  const sent = await safeReply(interaction, payload);
+  await resetTicketOpenPanelAfterInteraction(interaction);
+  return sent;
+}
+
+async function deferTicketOpenPanel(interaction) {
+  if (!isTicketOpenMenuSelect(interaction)) return false;
+  return beginPanelSelectDefer(interaction, buildTicketOpenSelectRows, { flags: 1 << 6 });
+}
+
+module.exports = {
+  TICKET_OPEN_MENU_CUSTOM_ID,
+  buildTicketOpenSelectRows,
+  isTicketOpenMenuSelect,
+  resetTicketOpenPanelAfterInteraction,
+  replyTicketOpenPanel,
+  deferTicketOpenPanel,
+};

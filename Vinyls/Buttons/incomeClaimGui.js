@@ -55,7 +55,7 @@ async function execute(interaction, client) {
       return true;
     }
     setSession(interaction.message.id, session);
-    const notice = formatClaimNotice(claimed.result, session.incomeType);
+    const notice = formatClaimNotice(claimed.result, session.incomeType, client);
     const payload = await buildIncomeClaimPayload(session, notice, false);
     await interaction.message?.edit?.(payload).catch(() => {});
     return true;

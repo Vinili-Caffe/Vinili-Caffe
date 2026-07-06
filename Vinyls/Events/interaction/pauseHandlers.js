@@ -266,7 +266,8 @@ async function handlePauseButton(interaction) {
 
     const todayUtc = getTodayUtc();
     const start = parseItalianDate(targetPause.dataRichiesta);
-    const totalScheduledDays=getPauseDaysBetween(targetPause.dataRichiesta,targetPause.dataRitorno)||0;
+    const end = parseItalianDate(targetPause.dataRitorno);
+    const totalScheduledDays = getPauseDaysBetween(targetPause.dataRichiesta, targetPause.dataRitorno) || 0;
     let consumedForCancelledPause = 0;
     if (start && end) {
       if (todayUtc < start) consumedForCancelledPause = 0;

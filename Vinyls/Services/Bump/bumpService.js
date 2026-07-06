@@ -18,6 +18,7 @@ const STAFF_BYPASS_ROLE_IDS = new Set(
     IDs.roles.HighStaff,
     IDs.roles.Director,
     IDs.roles.Admin,
+    IDs.roles.Manager,
     IDs.roles.Founder,
   ].filter(Boolean),
 );
@@ -732,7 +733,7 @@ function buildVoteSiteInAppNotificationOpts(client, guildId, userId, voteListing
     body: isTop
       ? "Puoi votare di nuovo su Top.gg: un voto aiuta il server a farsi conoscere. Grazie!"
       : "Puoi votare di nuovo su Discadia: un voto aiuta il server a farsi conoscere. Grazie!",
-    kind: "vote",
+    kind: "vote_reminder",
     openUrl: openUrl || undefined,
     dedupeKey: `vote_reminder_${listing}_${lastVoteAtMs}`,
     dedupeWindowMs: safeCooldown,
@@ -860,7 +861,9 @@ async function dispatchVoteReminder(client, { guildId, userId, voteListing, last
   if (!gid || !uid) return { ok: false, delivered: false, skippedOptOut: false };
 
   const siteOpts = buildVoteSiteInAppNotificationOpts(client, gid, uid, listing, lastVoteAtMs, cooldownMs);
-  await enqueueSiteInAppNotification(siteOpts).catch(() => {});
+  await enqueueSiteInAppNotification(siteOpts).catch((err) => {
+    global.logger?.warn?.("[VOTE REMINDER] site notification failed:", uid, err?.message || err);
+  });
 
   const skipDm = await shouldSkipVoteDmByNoDm(client, gid, uid, listing);
   if (skipDm) {
@@ -997,6 +1000,23 @@ async function recordDiscadiaVote(client, guildId, userId, options = {}) {
       : Math.max(0, Number(outSub.voteCountDiscadia ?? 0));
 
   scheduleDiscadiaVoteReminder(client, mainGuildId, userId, now, voteListing);
+
+  try {
+    const platformLabel = voteListing === "topgg" ? "Top.gg" : "Discadia";
+    await enqueueSiteInAppNotification({
+      guildId: mainGuildId,
+      userId,
+      title: voteListing === "topgg" ? "Voto su Top.gg registrato" : "Voto su Discadia registrato",
+      body: `Il voto su ${platformLabel} è stato registrato: hai ricevuto EXP e ricompense sul server. Grazie per il supporto!`,
+      kind: "vote",
+      openUrl: "/vote",
+      dedupeKey: `vote:${voteListing}:${userId}`,
+      dedupeWindowMs: 120_000,
+    });
+  } catch (err) {
+    global.logger?.warn?.("[DISCADIA VOTE] site notification:", err?.message || err);
+  }
+
   return { voteCount: voteCountForListing, previousLastVoteAt, voteListing };
 }
 

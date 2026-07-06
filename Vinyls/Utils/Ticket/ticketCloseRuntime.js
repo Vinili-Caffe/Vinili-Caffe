@@ -5,20 +5,12 @@ const { buildTicketTranscriptViewUrl, prepareTicketTranscriptSecureFields, build
 const { getNextTicketId } = require("./ticketIdUtils");
 const { sendDm } = require("../noDmList");
 const IDs = require("../Config/ids");
-const { getClientGuildCached, getGuildChannelCached, getGuildMemberCached, } = require("./ticketInteractionRuntime");
+const { getClientGuildCached, getGuildChannelCached, getGuildMemberCached } = require("./ticketInteractionRuntime");
 const { getClientChannelCached, getUserCached } = require("../Interaction/interactionEntityCache");
 const { findOpenTicketsForGuildUser } = require("./ticketGuildUserQueries");
-const { buildPartnerManagerShopRedeemAckRows } = require("../Staff/partnerManagerShopAckRuntime");
 
-function mergeClosedTicketDmRows(transcriptRows, ratingRows, ticketOpenDoc, guildId) {
-  const tier = Math.floor(Number(ticketOpenDoc?.partnerManagerShopRedeemTier || 0));
-  const tid = ticketOpenDoc?._id != null ? String(ticketOpenDoc._id) : "";
-  const gid = String(guildId || "").trim();
-  const shopAck =
-    (tier === 150 || tier === 200 || tier === 250) && tid && gid
-      ? buildPartnerManagerShopRedeemAckRows(tid, gid)
-      : [];
-  return [...transcriptRows, ...ratingRows, ...shopAck].slice(0, 5);
+function mergeClosedTicketDmRows(transcriptRows, ratingRows) {
+  return [...transcriptRows, ...ratingRows].slice(0, 5);
 }
 
 function buildTicketRatingRows(ticketId) {
@@ -236,7 +228,7 @@ async function closeTicket(targetInteraction, motivo, helpers) {
       );
     }
 
-    const dmActionRows = mergeClosedTicketDmRows(transcriptRows, ratingRows, ticketOpen, targetInteraction.guild.id);
+    const dmActionRows = mergeClosedTicketDmRows(transcriptRows, ratingRows);
     const member = await getGuildMemberCached(targetInteraction.guild, ticket.userId);
     if (member) {
       try {
@@ -396,7 +388,7 @@ async function closeOpenTicketsForGuildUser(guild, userId, options = {}) {
       const transcriptViewUrl = buildTicketTranscriptViewUrl(transcriptViewToken);
       const transcriptRow = buildTicketTranscriptActionRow(ticket._id, transcriptViewUrl);
       const transcriptRows = transcriptHtmlPath || transcriptHtmlInline ? (transcriptRow ? [transcriptRow] : []) : [];
-      const dmRowsForAutoClose = mergeClosedTicketDmRows(transcriptRows, [], ticket, guild.id);
+      const dmRowsForAutoClose = mergeClosedTicketDmRows(transcriptRows, []);
 
       if (logChannel?.isTextBased?.()) {
         const logSentMessage = await sendTranscriptWithBrowserLink(

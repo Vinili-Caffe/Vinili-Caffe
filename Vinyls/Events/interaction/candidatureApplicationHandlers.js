@@ -33,7 +33,7 @@ const NOMODULI_ROLE_ID = IDs.roles.blacklistModuli;
 const MEMBER_ROLE_ID = IDs.roles.Member;
 const HELPER_ROLE_ID = IDs.roles.Helper;
 const PARTNER_MANAGER_ROLE_ID = IDs.roles.PartnerManager;
-const HELPER_REAPPLY_BLOCK_ROLE_IDS = [IDs.roles.Staff, IDs.roles.Helper, IDs.roles.Mod, IDs.roles.SeniorModerator, IDs.roles.HighStaff, IDs.roles.Director, IDs.roles.Admin, IDs.roles.Founder].filter(Boolean);
+const HELPER_REAPPLY_BLOCK_ROLE_IDS = [IDs.roles.Staff, IDs.roles.Helper, IDs.roles.Mod, IDs.roles.SeniorModerator, IDs.roles.HighStaff, IDs.roles.Director, IDs.roles.Admin, IDs.roles.Manager, IDs.roles.Founder].filter(Boolean);
 const pendingApplications = new Map();
 const cooldownByUserAndType = new Map();
 let cooldownLoaded = false;
@@ -328,11 +328,7 @@ function hasNoModuliRole(interaction) {
   return hasAnyRole(interaction, [NOMODULI_ROLE_ID]);
 }
 
-function hasHighStaffRole(interaction) {
-  const highStaffRoleId = IDs?.roles?.HighStaff ? String(IDs.roles.HighStaff) : null;
-  if (!highStaffRoleId) return false;
-  return Boolean(interaction?.member?.roles?.cache?.has(highStaffRoleId));
-}
+const { hasCandidatureReviewAccess } = require("../../Utils/Staff/resocontoAccess");
 
 async function getCooldownUntil(userId, type) {
   await loadCooldownMap();
@@ -1347,9 +1343,9 @@ async function handleCandidatureApplicationInteraction(interaction) {
     if (String(interaction.customId || "").startsWith(`${APPLY_PEX_PREFIX}:`)) {
       const parsed = parseCandidatePexCustomId(interaction.customId);
       if (!parsed) return false;
-      if (!hasHighStaffRole(interaction)) {
+      if (!hasCandidatureReviewAccess(interaction)) {
         await interaction.reply({
-          content: "<a:VC_Cross:1482532424570376253> Questo bottone è riservato all'High Staff.",
+          content: "<a:VC_Cross:1482532424570376253> Questo bottone è riservato ad Admin, Manager e Founder.",
           flags: 1 << 6,
         }).catch(() => null);
         return true;
@@ -1375,9 +1371,9 @@ async function handleCandidatureApplicationInteraction(interaction) {
       return true;
     }
     if (String(interaction.customId || "").startsWith(`${APPLY_REJECT_PREFIX}:`)) {
-      if (!hasHighStaffRole(interaction)) {
+      if (!hasCandidatureReviewAccess(interaction)) {
         await interaction.reply({
-          content: "<a:VC_Cross:1482532424570376253> Questo bottone è riservato all'High Staff.",
+          content: "<a:VC_Cross:1482532424570376253> Questo bottone è riservato ad Admin, Manager e Founder.",
           flags: 1 << 6,
         }).catch(() => null);
         return true;
@@ -1481,9 +1477,9 @@ async function handleCandidatureApplicationInteraction(interaction) {
   if (String(interaction.customId || "").startsWith(`${APPLY_PEX_MODAL_PREFIX}:`)) {
     const parsed = parseCandidatePexModalId(interaction.customId);
     if (!parsed) return false;
-    if (!hasHighStaffRole(interaction)) {
+    if (!hasCandidatureReviewAccess(interaction)) {
       await interaction.reply({
-        content: "<a:VC_Cross:1482532424570376253> Questo modulo è riservato all'High Staff.",
+        content: "<a:VC_Cross:1482532424570376253> Questo modulo è riservato ad Admin, Manager e Founder.",
         flags: 1 << 6,
       }).catch(() => null);
       return true;

@@ -6,6 +6,7 @@ const {
   isStaffCmdsPmCommandsThread,
   getStaffCmdsThreadIdsCache,
 } = require("../Staff/staffCmdsChannelUtils");
+const { isChannelOrThreadUnderStaffChat } = require("../Staff/staffChatChannelUtils");
 const { getStaffCmdsThreadIds } = require("../Global/globalSettingsBucket");
 
 function partnersChatChannelId() {
@@ -45,7 +46,7 @@ async function resolvePmCommandsThreadId() {
 }
 
 /**
- * Se il comando PM è fuori dal thread dedicato (partners-chat, #staff-cmds o thread High),
+ * Se il comando PM è fuori dal thread dedicato (partners-chat, #staff-chat, #staff-cmds o thread High),
  * restituisce il testo di rifiuto; altrimenti null.
  */
 async function partnersChatPartnerCommandDeniedReplyContent(channel, options = {}) {
@@ -53,16 +54,22 @@ async function partnersChatPartnerCommandDeniedReplyContent(channel, options = {
   if (await isStaffCmdsPmCommandsThread(channel)) return null;
   const inPartnersChat = isChannelOrThreadUnderPartnersChat(channel);
   const inStaffCmdsZone = isChannelOrThreadUnderStaffCmds(channel);
-  if (!inPartnersChat && !inStaffCmdsZone) return null;
+  const inStaffChatZone = isChannelOrThreadUnderStaffChat(channel);
+  if (!inPartnersChat && !inStaffCmdsZone && !inStaffChatZone) return null;
   const tid = await resolvePmCommandsThreadId();
   const staffCmdsId = String(IDs.channels?.staffCmds || "").trim();
+  const staffChatId = String(IDs.channels?.staffChat || "").trim();
   const hint = tid
     ? ` Spostati in <#${tid}> (sotto <#${staffCmdsId}>).`
     : staffCmdsId
       ? ` Apri il thread **Comandi Partner Manager** sotto <#${staffCmdsId}>.`
       : " Apri il thread **Comandi Partner Manager** sotto #staff-cmds.";
+  const chatWarn = inStaffChatZone && staffChatId
+    ? ` Non usare i comandi PM nel thread **Chat** sotto <#${staffChatId}>.`
+    : "";
   return (
     "<:vegax:1443934876440068179> Partnership, classifica PM, blacklist e pannello profilo staff/PM vanno usati solo nel **thread Comandi Partner Manager**, non qui." +
+    chatWarn +
     hint
   );
 }

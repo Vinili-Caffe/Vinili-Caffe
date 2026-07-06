@@ -1,6 +1,7 @@
 const { MessageFlags } = require("discord.js");
 const IDs = require("../Utils/Config/ids");
 const { removePartnerPoints, formatPartnerPointsChange } = require("../Utils/Staff/partnerPointsUtils");
+const { resolvePartnerPointsShown } = require("../Utils/Staff/partnerPointsDisplayUtils");
 const { memberIsHighStaffForPointReview } = require("../Utils/Partner/partnerPointContextUtils");
 
 const PREFIX_OK = "partner_pt_ok:";
@@ -85,8 +86,8 @@ module.exports = {
       await interaction.message
         ?.edit({ content: updatedContent, components: disableRows(interaction.message.components) })
         .catch(() => null);
-      const changeLabel = formatPartnerPointsChange("remove", 1);
-      const total = staffData?.staff?.partnerCount ?? 0;
+      const changeLabel = formatPartnerPointsChange("remove", staffData?._partnerPointsRemoved ?? 1);
+      const total = resolvePartnerPointsShown(staffData?.staff);
       await interaction.reply({
         content: `<:success:1461731530333229226> **${changeLabel}** a <@${parsed.pmUserId}>. Totale: \`${total}\`.`,
         flags: EPHEMERAL,

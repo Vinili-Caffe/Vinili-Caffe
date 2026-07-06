@@ -2,8 +2,9 @@ const fs = require("fs");
 const fsp = require("fs/promises");
 const path = require("path");
 const { isMarkovEligibleChannel, listMarkovEligibleChannels, listMarkovEligibleThreads } = require("./markovChannelAccess");
-const { extractMessageImageUrls, extractMessageStickerIds } = require("./markovMediaUtils");
+const { extractMessageImageUrls, extractMessageStickers } = require("./markovMediaUtils");
 const { looksLikeWrittenCommand, sanitizeMarkovCollectLine } = require("./markovCommandStyleService");
+const { isMarkovScamMessage, isMarkovScamText, filterScamLines } = require("../../../shared/moderation/markovScamFilter");
 
 const COFFEE_ROOT = path.join(__dirname, "..", "..");
 const trimTimers = new Map();
@@ -95,6 +96,7 @@ function passesEligibility(message, client, options = {}) {
 function hasCollectibleText(message, client) {
   const content = String(message?.content || "").trim();
   if (!content) return false;
+  if (isMarkovScamText(content)) return false;
   if (getMarkovConfig(client).collectPrefixMessages !== false && looksLikeWrittenCommand(content)) {
     return Boolean(sanitizeMarkovCollectLine(client, content));
   }
@@ -105,16 +107,19 @@ function hasCollectibleText(message, client) {
 
 function hasCollectibleImages(message, client) {
   if (!canStoreImages(client)) return false;
+  if (isMarkovScamMessage(message)) return false;
   return extractMessageImageUrls(message).length > 0;
 }
 
 function hasCollectibleStickers(message, client) {
   if (!canStoreStickers(client)) return false;
-  return extractMessageStickerIds(message).length > 0;
+  if (isMarkovScamMessage(message)) return false;
+  return extractMessageStickers(message).length > 0;
 }
 
 function isCollectibleMessage(message, client, options = {}) {
   if (!passesEligibility(message, client, options)) return false;
+  if (isMarkovScamMessage(message)) return false;
   return hasCollectibleText(message, client) || hasCollectibleImages(message, client) || hasCollectibleStickers(message, client);
 }
 
@@ -145,8 +150,10 @@ async function readChannelLines(client, channelId, opts = {}) {
   const uriRe = /https?:\/\/[^\s/$.?#][^\s]*/gi;
   const lines = raw.split("\n").map((line) => line.trim()).filter(Boolean);
   const sliced = maxLines > 0 ? lines.slice(-maxLines) : lines;
-  if (!cleanLinks) return sliced;
-  return sliced.map((line) => line.replace(uriRe, "").replace(/\s+/g, " ").trim()).filter(Boolean);
+  const cleaned = !cleanLinks
+    ? sliced
+    : sliced.map((line) => line.replace(uriRe, "").replace(/\s+/g, " ").trim()).filter(Boolean);
+  return filterScamLines(cleaned);
 }
 
 async function readChannelImages(client, channelId, opts = {}) {
@@ -176,9 +183,14 @@ async function readChannelStickers(client, channelId, opts = {}) {
     const raw = await fsp.readFile(filePath, "utf8");
     const data = JSON.parse(raw);
     if (Array.isArray(data)) {
-      parsed = data
-        .map((entry) => String(entry?.id || entry || "").trim())
-        .filter((id) => /^\d{5,30}$/.test(id));
+      const seen = new Set();
+      for (const entry of data) {
+        const id = String(entry?.id || entry || "").trim();
+        if (!/^\d{5,30}$/.test(id) || seen.has(id)) continue;
+        seen.add(id);
+        const url = String(entry?.url || "").trim() || null;
+        parsed.push({ id, url });
+      }
     }
   } catch {
     parsed = [];
@@ -238,10 +250,10 @@ async function readGuildStickers(client, opts = {}) {
   const seen = new Set();
   for (const channelId of channelIds) {
     const part = await readChannelStickers(client, channelId, opts);
-    for (const id of part) {
-      if (seen.has(id)) continue;
-      seen.add(id);
-      stickers.push(id);
+    for (const ref of part) {
+      if (seen.has(ref.id)) continue;
+      seen.add(ref.id);
+      stickers.push(ref);
     }
   }
   return stickers;
@@ -256,11 +268,15 @@ async function writeChannelImages(client, channelId, urls) {
   return true;
 }
 
-async function writeChannelStickers(client, channelId, ids) {
+async function writeChannelStickers(client, channelId, refs) {
   const filePath = channelStickersFilePath(client, channelId);
   if (!filePath) return false;
   await ensureStickersDir(client);
-  const payload = ids.map((id) => ({ id }));
+  const payload = refs.map((ref) => {
+    const id = String(ref?.id || ref || "").trim();
+    const url = String(ref?.url || "").trim() || null;
+    return url ? { id, url } : { id };
+  });
   await fsp.writeFile(filePath, JSON.stringify(payload), "utf8");
   return true;
 }
@@ -334,7 +350,7 @@ function scheduleTrimChannelStickers(client, channelId) {
 async function appendMarkovLine(client, channelId, line) {
   const sanitized = sanitizeMarkovCollectLine(client, line);
   const normalized = normalizeMarkovLine(sanitized);
-  if (!normalized) return false;
+  if (!normalized || isMarkovScamText(normalized)) return false;
   await ensureMessagesDir(client);
   const filePath = channelFilePath(client, channelId);
   if (!filePath) return false;
@@ -360,23 +376,51 @@ async function appendMarkovImages(client, channelId, urls) {
   return true;
 }
 
-async function appendMarkovStickers(client, channelId, ids) {
-  const incoming = (Array.isArray(ids) ? ids : [])
-    .map((id) => String(id || "").trim())
-    .filter((id) => /^\d{5,30}$/.test(id));
+async function appendMarkovStickers(client, channelId, refs) {
+  const incoming = (Array.isArray(refs) ? refs : [])
+    .map((ref) => {
+      const id = String(ref?.id || ref || "").trim();
+      if (!/^\d{5,30}$/.test(id)) return null;
+      const url = String(ref?.url || "").trim() || null;
+      return url ? { id, url } : { id };
+    })
+    .filter(Boolean);
   if (!incoming.length) return false;
   const existing = await readChannelStickers(client, channelId);
   const merged = [...existing, ...incoming];
   const deduped = [];
   const seen = new Set();
-  for (const id of merged) {
-    if (seen.has(id)) continue;
-    seen.add(id);
-    deduped.push(id);
+  for (const ref of merged) {
+    if (seen.has(ref.id)) continue;
+    seen.add(ref.id);
+    deduped.push(ref);
   }
   await writeChannelStickers(client, channelId, deduped);
   scheduleTrimChannelStickers(client, channelId);
   return true;
+}
+
+async function removeStickerFromGuildCorpus(client, stickerId) {
+  const id = String(stickerId || "").trim();
+  if (!/^\d{5,30}$/.test(id)) return false;
+  await ensureStickersDir(client);
+  const channelIds = await listStoredChannelIds(client, "stickers");
+  let changed = false;
+  for (const channelId of channelIds) {
+    const stickers = await readChannelStickers(client, channelId);
+    const next = stickers.filter((ref) => ref.id !== id);
+    if (next.length === stickers.length) continue;
+    if (next.length) {
+      await writeChannelStickers(client, channelId, next);
+    } else {
+      const filePath = channelStickersFilePath(client, channelId);
+      if (filePath && fs.existsSync(filePath)) {
+        await fsp.unlink(filePath).catch(() => {});
+      }
+    }
+    changed = true;
+  }
+  return changed;
 }
 
 async function ingestMarkovMessage(message, client, options = {}) {
@@ -390,8 +434,8 @@ async function ingestMarkovMessage(message, client, options = {}) {
     stored = await appendMarkovImages(client, message.channelId, urls) || stored;
   }
   if (hasCollectibleStickers(message, client)) {
-    const ids = extractMessageStickerIds(message);
-    stored = await appendMarkovStickers(client, message.channelId, ids) || stored;
+    const refs = extractMessageStickers(message);
+    stored = await appendMarkovStickers(client, message.channelId, refs) || stored;
   }
   return stored;
 }
@@ -455,9 +499,39 @@ async function backfillMarkovCorpus(client) {
 }
 
 function startMarkovBackfill(client) {
+  void purgeScamCorpusFromDisk(client).catch((err) => {
+    global.logger?.warn?.("[MARKOV] scam corpus purge failed:", err?.message || err);
+  });
   void backfillMarkovCorpus(client).catch((err) => {
     global.logger?.warn?.("[MARKOV] backfill failed:", err?.message || err);
   });
 }
 
-module.exports = { COFFEE_ROOT, getMarkovConfig, isMarkovEnabled, resolveMessagesDir, resolveImagesDir, resolveStickersDir, channelFilePath, channelImagesFilePath, channelStickersFilePath, normalizeMarkovLine, readChannelLines, readChannelImages, readChannelStickers, readGuildCorpus, readGuildImages, readGuildStickers, listStoredChannelIds, appendMarkovLine, appendMarkovImages, appendMarkovStickers, ingestMarkovMessage, ingestMarkovMessageCreate, backfillMarkovCorpus, startMarkovBackfill, ensureMessagesDir, ensureImagesDir, ensureStickersDir, trimChannelFile, trimChannelImages, trimChannelStickers, scheduleTrimChannelFile, scheduleTrimChannelImages, scheduleTrimChannelStickers, extractMessageImageUrls, extractMessageStickerIds };
+async function purgeScamCorpusFromDisk(client) {
+  if (!isMarkovEnabled(client)) return { files: 0, removed: 0 };
+  await ensureMessagesDir(client);
+  const channelIds = await listStoredChannelIds(client, "messages");
+  let files = 0;
+  let removed = 0;
+  for (const channelId of channelIds) {
+    const filePath = channelFilePath(client, channelId);
+    if (!filePath || !fs.existsSync(filePath)) continue;
+    const raw = await fsp.readFile(filePath, "utf8").catch(() => "");
+    const lines = raw.split("\n").map((line) => line.trim()).filter(Boolean);
+    const filtered = filterScamLines(lines);
+    if (filtered.length === lines.length) continue;
+    files += 1;
+    removed += lines.length - filtered.length;
+    if (filtered.length) {
+      await fsp.writeFile(filePath, `${filtered.join("\n")}\n`, "utf8");
+    } else {
+      await fsp.unlink(filePath).catch(() => {});
+    }
+  }
+  if (removed > 0) {
+    global.logger?.info?.(`[MARKOV] scam corpus purge: removed ${removed} line(s) from ${files} file(s)`);
+  }
+  return { files, removed };
+}
+
+module.exports = { COFFEE_ROOT, getMarkovConfig, isMarkovEnabled, resolveMessagesDir, resolveImagesDir, resolveStickersDir, channelFilePath, channelImagesFilePath, channelStickersFilePath, normalizeMarkovLine, readChannelLines, readChannelImages, readChannelStickers, readGuildCorpus, readGuildImages, readGuildStickers, listStoredChannelIds, appendMarkovLine, appendMarkovImages, appendMarkovStickers, removeStickerFromGuildCorpus, ingestMarkovMessage, ingestMarkovMessageCreate, backfillMarkovCorpus, startMarkovBackfill, purgeScamCorpusFromDisk, ensureMessagesDir, ensureImagesDir, ensureStickersDir, trimChannelFile, trimChannelImages, trimChannelStickers, scheduleTrimChannelFile, scheduleTrimChannelImages, scheduleTrimChannelStickers, extractMessageImageUrls, extractMessageStickers };

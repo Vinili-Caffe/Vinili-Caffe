@@ -8,7 +8,7 @@ const {
   playTrisBet,
   refundTrisPvpStake,
   settleTrisPvp,
-} = require("../../Services/Community/serverEconomyService");
+} = require("../../Services/Community/activeEconomyService");
 const {
   BOT,
   PLAYER,

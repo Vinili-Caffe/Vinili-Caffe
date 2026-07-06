@@ -135,10 +135,10 @@ async function validateModerationTarget(message, member, actionLabel, targetUser
       error: "<:VC_Lock:1482526739044368476> Non puoi moderare un utente con ruolo superiore o uguale al tuo.",
     };
   }
-  const protectedRoleIds = [ IDs?.roles?.Staff, IDs?.roles?.Helper, IDs?.roles?.Mod, IDs?.roles?.SeniorModerator, IDs?.roles?.HighStaff, IDs?.roles?.Director, IDs?.roles?.Admin, IDs?.roles?.Founder,].map((id) => String(id || "").trim()).filter(Boolean);
-  const actorHighStaffBypass = [IDs?.roles?.HighStaff, IDs?.roles?.Director, IDs?.roles?.Admin, IDs?.roles?.Founder,].map((id) => String(id || "").trim()).filter(Boolean).some((roleId) => message.member?.roles?.cache?.has(roleId));
+  const protectedRoleIds = [ IDs?.roles?.Staff, IDs?.roles?.Helper, IDs?.roles?.Mod, IDs?.roles?.SeniorModerator, IDs?.roles?.HighStaff, IDs?.roles?.Director, IDs?.roles?.Admin, IDs?.roles?.Manager, IDs?.roles?.Founder,].map((id) => String(id || "").trim()).filter(Boolean);
+  const actorHighStaffBypass = [IDs?.roles?.HighStaff, IDs?.roles?.Director, IDs?.roles?.Admin, IDs?.roles?.Manager, IDs?.roles?.Founder,].map((id) => String(id || "").trim()).filter(Boolean).some((roleId) => message.member?.roles?.cache?.has(roleId));
   const targetHasStaffRole = String(IDs?.roles?.Staff || "").trim() && targetMember.roles?.cache?.has(String(IDs?.roles?.Staff || "").trim());
-  const targetHasCoreProtectedRole = [IDs?.roles?.HighStaff, IDs?.roles?.Director, IDs?.roles?.Admin, IDs?.roles?.Founder,].map((id) => String(id || "").trim()).filter(Boolean).some((roleId) => targetMember.roles?.cache?.has(roleId));
+  const targetHasCoreProtectedRole = [IDs?.roles?.HighStaff, IDs?.roles?.Director, IDs?.roles?.Admin, IDs?.roles?.Manager, IDs?.roles?.Founder,].map((id) => String(id || "").trim()).filter(Boolean).some((roleId) => targetMember.roles?.cache?.has(roleId));
 
   if (actorHighStaffBypass && targetHasStaffRole && !targetHasCoreProtectedRole) {
     return { ok: true };
@@ -451,15 +451,24 @@ async function runNamed(name, message, args, client) {
     }
     const guard = await validateModerationTarget(message, member, "ban", userId);
     if (!guard.ok) return reply(message, client, "Ban", guard.error, "Red");
+    const resolvedUser = user || (await message.client.users.fetch(userId).catch(() => null));
+    if (!resolvedUser) {
+      return reply(
+        message,
+        client,
+        "Ban",
+        "<:VC_Lock:1482526739044368476> Utente sconosciuto o **ID non valido** (account eliminato o ID errato).",
+        "Red",
+      );
+    }
     const duration = parseMaybeDuration(args[targetIndex + 1]);
     const reason = reasonFrom(args, duration ? targetIndex + 2 : targetIndex + 1, "");
     if (!reason || !reason.trim()) {
       return reply(message, client, "Ban", "<:VC_Lock:1482526739044368476> Il motivo è obbligatorio per il ban. Uso: `+ban [utente] [durata] [motivo]`", "Red");
     }
     const deleteSeconds = mode === "save" ? 0 : 604800;
-    const dmUser = user || (await message.client.users.fetch(userId).catch(() => null));
     await sendModerationDm({
-      user: dmUser,
+      user: resolvedUser,
       guildId: message.guild.id,
       guildName: message.guild.name,
       action: "ban",
@@ -470,7 +479,7 @@ async function runNamed(name, message, args, client) {
       return reply(message, client, "Ban", `<:VC_Lock:1482526739044368476> ${banOut.error}`, "Red");
     }
     await makeCase(client, message, "BAN", userId, reason, duration);
-    return successReply(message, formatTargetLabel(user || { id: userId }), "was banned", reason);
+    return successReply(message, formatTargetLabel(resolvedUser), "was banned", reason);
   }
 
   if (cmd === "kick") {

@@ -8,6 +8,7 @@ const { getTicketPanelConfig } = require("../../Utils/Ticket/ticketPanelConfig")
 const { buildTicketChannelName } = require("../../Utils/Ticket/ticketNamingRuntime");
 const { canUserHandleCloseRequest: runtimeCanUserHandleCloseRequest, ensureClosableTicketOrReply: runtimeEnsureClosableTicketOrReply, findOpenTicketByUser: runtimeFindOpenTicketByUser, findTicketByChannel: runtimeFindTicketByChannel, getClientGuildCached: runtimeGetClientGuildCached, getGuildChannelCached: runtimeGetGuildChannelCached, getSelectedTicketAction: runtimeGetSelectedTicketAction, hasActiveTicketClaimer: runtimeHasActiveTicketClaimer, isHandledTicketInteraction: runtimeIsHandledTicketInteraction, isTicketRatingButton: runtimeIsTicketRatingButton, isTicketTranscriptButton: runtimeIsTicketTranscriptButton, loadTicketForChannelOrReply: runtimeLoadTicketForChannelOrReply, } = require("../../Utils/Ticket/ticketInteractionRuntime");
 const { buildTicketClosedEmbed: runtimeBuildTicketClosedEmbed, buildTicketRatingRows: runtimeBuildTicketRatingRows, closeTicket: runtimeCloseTicket, } = require("../../Utils/Ticket/ticketCloseRuntime");
+const { maybeDeferCloseForPartnerManagerShopAck } = require("../../Utils/Staff/partnerManagerShopAckRuntime");
 const { createTicketsCategory: runtimeCreateTicketsCategory } = require("../../Utils/Ticket/ticketOpenRuntime");
 const {
   createTicketDocWithGlobalId,
@@ -15,10 +16,12 @@ const {
 } = require("../../Utils/Ticket/ticketIdUtils");
 const { ensureMongoReady } = require("../../Utils/Database/mongoConnect");
 const { handleTicketStaffPanelInteraction } = require("../../Utils/Ticket/ticketStaffPanelHandlers");
-const { resetTicketOpenPanelAfterInteraction } = require("../../Utils/Ticket/ticketOpenMenuComponents");
+const { hasStaffTicketRole } = require("../../Utils/Ticket/ticketStaffPanelBuild");
+const { replyTicketOpenPanel, deferTicketOpenPanel } = require("../../Utils/Ticket/ticketOpenMenuComponents");
 const { buildTicketTranscriptViewUrl, transcriptViewExpired, } = require("../../Utils/Ticket/ticketTranscriptSecure");
 const { applyChannelPermissionOverwritesAfterUnclaim } = require("../../Utils/Ticket/ticketAutoUnclaimOnStaffLoss");
 const { PERKS_STAFF_ROLE_IDS, buildPerksPingMention } = require("../../Utils/Ticket/ticketPerksStaffRoles");
+const { PARTNERSHIP_TICKET_STAFF_ROLE_IDS, memberCanAccessPartnershipTicket, buildPartnershipTicketReviewerCreateOverwrites, applyPartnershipTicketReviewerOverwrites } = require("../../Utils/Ticket/ticketPartnershipStaffRoles");
 
 async function handleTicketInteraction(interaction) {
   const selectedTicketAction = runtimeGetSelectedTicketAction(interaction);
@@ -64,8 +67,8 @@ async function handleTicketInteraction(interaction) {
     return safeEditReplyHelper(target, payload);
   }
 
-  async function refreshTicketOpenPanelSelect() {
-    await resetTicketOpenPanelAfterInteraction(interaction);
+  async function openPanelReply(payload) {
+    return replyTicketOpenPanel(interaction, payload, safeReply);
   }
 
   function makeErrorEmbed(title, description) {
@@ -94,7 +97,7 @@ async function handleTicketInteraction(interaction) {
         const cid = t?.claimedBy != null ? String(t.claimedBy).trim() : "";
         if (cid) { suffix = `\n\n<:VC_claim:1478517202016669887> **Claimato da** <@${cid}>`; }
       }
-      await safeReply(interaction, {
+      await openPanelReply({
         embeds: [
           makeErrorEmbed(
             "<a:VC_Loading:1482526818278969578> Attendi",
@@ -196,7 +199,6 @@ async function handleTicketInteraction(interaction) {
           ],
           flags: 1 << 6,
         });
-        await refreshTicketOpenPanelSelect();
         return true;
       }
       const ticketOpenButtons = ["ticket_partnership", "ticket_supporto", "ticket_highstaff", "ticket_perks"];
@@ -204,7 +206,7 @@ async function handleTicketInteraction(interaction) {
         ticketOpenButtons.includes(ticketActionId) &&
         interaction.member?.roles?.cache?.has(ROLE_TICKET_BLACKLIST)
       ) {
-        await safeReply(interaction, {
+        await openPanelReply({
           embeds: [
             new EmbedBuilder()
               .setColor("#6f4e37")
@@ -212,13 +214,12 @@ async function handleTicketInteraction(interaction) {
           ],
           flags: 1 << 6,
         });
-        await refreshTicketOpenPanelSelect();
         return true;
       }
       const userOnlyTickets = ["ticket_partnership", "ticket_highstaff", "ticket_perks"];
       if (userOnlyTickets.includes(ticketActionId)) {
         if (!ROLE_USER) {
-          await safeReply(interaction, {
+          await openPanelReply({
             embeds: [
               makeErrorEmbed(
                 "<a:VC_Alert:1482706673176150077> Errore",
@@ -227,7 +228,6 @@ async function handleTicketInteraction(interaction) {
             ],
             flags: 1 << 6,
           });
-          await refreshTicketOpenPanelSelect();
           return true;
         }
         let memTicket = interaction.member;
@@ -242,7 +242,7 @@ async function handleTicketInteraction(interaction) {
               .catch(() => null)) || memTicket;
         }
         if (!memTicket?.roles?.cache?.has(ROLE_USER)) {
-          await safeReply(interaction, {
+          await openPanelReply({
             embeds: [
               makeErrorEmbed(
                 "<a:VC_Alert:1482706673176150077> Errore",
@@ -251,7 +251,6 @@ async function handleTicketInteraction(interaction) {
             ],
             flags: 1 << 6,
           });
-          await refreshTicketOpenPanelSelect();
           return true;
         }
       }
@@ -283,7 +282,7 @@ async function handleTicketInteraction(interaction) {
         !runtimeIsTicketTranscriptButton(interaction.customId) &&
         !runtimeIsTicketRatingButton(interaction.customId)
       ) {
-        await safeReply(interaction, {
+        await openPanelReply({
           embeds: [
             makeErrorEmbed(
               "<a:VC_Alert:1482706673176150077> Errore",
@@ -292,7 +291,6 @@ async function handleTicketInteraction(interaction) {
           ],
           flags: 1 << 6,
         });
-        await refreshTicketOpenPanelSelect();
         return true;
       }
       if (config) {
@@ -301,7 +299,7 @@ async function handleTicketInteraction(interaction) {
         }
         const ticketLockKey = `${interaction.guild.id}:${interaction.user.id}`;
         if (interaction.client.ticketOpenLocks.has(ticketLockKey)) {
-          await safeReply(interaction, {
+          await openPanelReply({
             embeds: [
               makeErrorEmbed(
                 "<a:VC_Loading:1482526818278969578> Attendi",
@@ -310,14 +308,16 @@ async function handleTicketInteraction(interaction) {
             ],
             flags: 1 << 6,
           });
-          await refreshTicketOpenPanelSelect();
           return true;
         }
         interaction.client.ticketOpenLocks.add(ticketLockKey);
         try {
           if (!interaction.deferred && !interaction.replied) {
             try {
-              await interaction.deferReply({ flags: 1 << 6 }).catch(() => { });
+              const deferredOpen = await deferTicketOpenPanel(interaction);
+              if (!deferredOpen) {
+                await interaction.deferReply({ flags: 1 << 6 }).catch(() => { });
+              }
             } catch (err) {
               global.logger?.warn?.("[ticketHandlers] ", err?.message || err);
             }
@@ -326,7 +326,7 @@ async function handleTicketInteraction(interaction) {
           if (interaction.guild && memOpen && (!memOpen.roles?.cache?.size || memOpen.partial)) { memOpen = (await interaction.guild.members.fetch(interaction.user.id).catch(() => null)) || memOpen; }
           if (["ticket_partnership", "ticket_highstaff", "ticket_perks"].includes(ticketActionId)) {
             if (!ROLE_USER || !memOpen?.roles?.cache?.has(ROLE_USER)) {
-              await safeReply(interaction, {
+              await openPanelReply({
                 embeds: [
                   makeErrorEmbed(
                     "<a:VC_Alert:1482706673176150077> Errore",
@@ -335,14 +335,13 @@ async function handleTicketInteraction(interaction) {
                 ],
                 flags: 1 << 6,
               });
-              await refreshTicketOpenPanelSelect();
               return true;
             }
           }
           if (config.requiredRoles?.length > 0) {
             const hasRole = config.requiredRoles.some((r) => memOpen?.roles?.cache?.has(r));
             if (!hasRole) {
-              await safeReply(interaction, {
+              await openPanelReply({
                 embeds: [
                   makeErrorEmbed(
                     "<a:VC_Alert:1482706673176150077> Errore",
@@ -351,7 +350,6 @@ async function handleTicketInteraction(interaction) {
                 ],
                 flags: 1 << 6,
               });
-              await refreshTicketOpenPanelSelect();
               return true;
             }
           }
@@ -361,7 +359,7 @@ async function handleTicketInteraction(interaction) {
             interaction.guild,
           );
           if (existing) {
-            await safeReply(interaction, {
+            await openPanelReply({
               embeds: [
                 new EmbedBuilder()
                   .setTitle("<:VC_open:1478517277279129712> • **__TICKET APERTO__**")
@@ -372,12 +370,11 @@ async function handleTicketInteraction(interaction) {
               ],
               flags: 1 << 6,
             });
-            await refreshTicketOpenPanelSelect();
             return true;
           }
           const ticketsCategory = await runtimeCreateTicketsCategory(interaction, interaction.guild,);
           if (!ticketsCategory) {
-            await safeReply(interaction, {
+            await openPanelReply({
               embeds: [
                 makeErrorEmbed(
                   "<a:VC_Alert:1482706673176150077> Errore",
@@ -386,12 +383,11 @@ async function handleTicketInteraction(interaction) {
               ],
               flags: 1 << 6,
             });
-            await refreshTicketOpenPanelSelect();
             return true;
           }
           const existingAgain = await runtimeFindOpenTicketByUser(interaction.guild.id, interaction.user.id, interaction.guild);
           if (existingAgain) {
-            await safeReply(interaction, {
+            await openPanelReply({
               embeds: [
                 new EmbedBuilder()
                   .setTitle("<:VC_open:1478517277279129712> • **__TICKET APERTO__**")
@@ -400,7 +396,6 @@ async function handleTicketInteraction(interaction) {
               ],
               flags: 1 << 6,
             });
-            await refreshTicketOpenPanelSelect();
             return true;
           }
           const channel = await interaction.guild.channels.create({
@@ -419,8 +414,8 @@ async function handleTicketInteraction(interaction) {
                 : []),
               ...(config.type === "partnership"
                 ? [
-                    toCreateOverwrite(ROLE_PARTNERMANAGER, TICKET_ROLE_SPECTATE),
-                    toCreateOverwrite(ROLE_HIGHSTAFF, TICKET_ROLE_SPECTATE),
+                    ...PARTNERSHIP_TICKET_STAFF_ROLE_IDS.map((roleId) => toCreateOverwrite(roleId, TICKET_ROLE_SPECTATE)),
+                    ...buildPartnershipTicketReviewerCreateOverwrites(),
                     { id: ROLE_STAFF, deny: [PermissionFlagsBits.ViewChannel] },
                   ]
                 : []),
@@ -444,7 +439,7 @@ async function handleTicketInteraction(interaction) {
             return null;
           });
           if (!channel) {
-            await safeReply(interaction, {
+            await openPanelReply({
               embeds: [
                 makeErrorEmbed(
                   "<a:VC_Alert:1482706673176150077> Errore",
@@ -453,7 +448,6 @@ async function handleTicketInteraction(interaction) {
               ],
               flags: 1 << 6,
             });
-            await refreshTicketOpenPanelSelect();
             return true;
           }
           try {
@@ -497,7 +491,6 @@ async function handleTicketInteraction(interaction) {
                   ],
                   flags: 1 << 6,
                 });
-                await refreshTicketOpenPanelSelect();
                 return true;
               }
               if (isCounterUnavailableError(err) && attempt < 5) {
@@ -531,7 +524,6 @@ async function handleTicketInteraction(interaction) {
               ],
               flags: 1 << 6,
             });
-            await refreshTicketOpenPanelSelect();
             return true;
           }
           let tagRole = config.type === "partnership" ? ROLE_PARTNERMANAGER : config.role;
@@ -552,7 +544,6 @@ async function handleTicketInteraction(interaction) {
             ],
             flags: 1 << 6,
           });
-          await refreshTicketOpenPanelSelect();
           return true;
         } finally { interaction.client.ticketOpenLocks.delete(ticketLockKey) }
       }
@@ -672,7 +663,7 @@ async function handleTicketInteraction(interaction) {
         }
 
         const isOwner = String(ticketDoc.userId || "") === String(interaction.user?.id || "");
-        const hasStaffRole = Boolean(interaction.member?.roles?.cache?.has(ROLE_STAFF)) || Boolean(interaction.member?.roles?.cache?.has(ROLE_HIGHSTAFF)) || Boolean(interaction.member?.roles?.cache?.has(ROLE_PARTNERMANAGER));
+        const hasStaffRole = hasStaffTicketRole(interaction.member, ticketDoc.ticketType);
         if (!isOwner && !hasStaffRole) {
           await safeReply(interaction, {
             embeds: [
@@ -762,7 +753,7 @@ async function handleTicketInteraction(interaction) {
             return true;
           }
           const canClaimSupport = ticket.ticketType === "supporto" && STAFF_ROLES.some((r) => interaction.member?.roles?.cache?.has(r));
-          const canClaimPartnership = ticket.ticketType === "partnership" && (interaction.member?.roles?.cache?.has(ROLE_PARTNERMANAGER) || interaction.member?.roles?.cache?.has(ROLE_HIGHSTAFF));
+          const canClaimPartnership = ticket.ticketType === "partnership" && memberCanAccessPartnershipTicket(interaction.member);
           const canClaimHigh = ticket.ticketType === "high" && interaction.member?.roles?.cache?.has(ROLE_HIGHSTAFF);
           const canClaimPerks = ticket.ticketType === "perks" && PERKS_STAFF_ROLE_IDS.some((r) => interaction.member?.roles?.cache?.has(r));
           if (!canClaimSupport && !canClaimPartnership && !canClaimHigh && !canClaimPerks) {
@@ -863,8 +854,10 @@ async function handleTicketInteraction(interaction) {
                 }
               }
               if (ticket.ticketType === "partnership") {
-                if (ROLE_PARTNERMANAGER) await interaction.channel.permissionOverwrites.edit(ROLE_PARTNERMANAGER, TICKET_ROLE_SPECTATE).catch(() => {});
-                if (ROLE_HIGHSTAFF) await interaction.channel.permissionOverwrites.edit(ROLE_HIGHSTAFF, TICKET_ROLE_SPECTATE).catch(() => {});
+                for (const roleId of PARTNERSHIP_TICKET_STAFF_ROLE_IDS) {
+                  await interaction.channel.permissionOverwrites.edit(roleId, TICKET_ROLE_SPECTATE).catch(() => {});
+                }
+                await applyPartnershipTicketReviewerOverwrites(interaction.channel);
               } else if (ticket.ticketType === "high") {
                 if (ROLE_HIGHSTAFF) await interaction.channel.permissionOverwrites.edit(ROLE_HIGHSTAFF, TICKET_ROLE_SPECTATE).catch(() => {});
               } else if (ticket.ticketType === "perks") {
@@ -1120,6 +1113,17 @@ async function handleTicketInteraction(interaction) {
         if (!ticketDoc) return true;
         const canClose = await runtimeEnsureClosableTicketOrReply({ interaction, safeReply, makeErrorEmbed, ticketDoc, highStaff: isHighStaffActor(), });
         if (!canClose) return true;
+        if (
+          await maybeDeferCloseForPartnerManagerShopAck({
+            interaction,
+            ticketDoc,
+            motivo: null,
+            closedById: interaction.user.id,
+            safeReply,
+          })
+        ) {
+          return true;
+        }
         try {
           await interaction.deferReply().catch(() => { });
         } catch (err) {
@@ -1162,6 +1166,17 @@ async function handleTicketInteraction(interaction) {
           global.logger?.warn?.("[ticketHandlers] ", err?.message || err);
         }
         const motivo = ticketDoc.closeReason || "Nessun motivo inserito";
+        if (
+          await maybeDeferCloseForPartnerManagerShopAck({
+            interaction,
+            ticketDoc,
+            motivo,
+            closedById: ticketDoc.closeRequestedBy || interaction.user.id,
+            safeReply,
+          })
+        ) {
+          return true;
+        }
         await runtimeCloseTicket(interaction, motivo, { safeReply, safeEditReply, makeErrorEmbed, LOG_CHANNEL, closedById: ticketDoc.closeRequestedBy || interaction.user.id });
         return true;
       }
@@ -1251,6 +1266,17 @@ async function handleTicketInteraction(interaction) {
               global.logger?.warn?.("[ticketHandlers] ", err?.message || err);
             }
             const motivo = ticketDoc.closeReason || "Chiusura automatica dopo 24h.";
+            if (
+              await maybeDeferCloseForPartnerManagerShopAck({
+                interaction,
+                ticketDoc,
+                motivo,
+                closedById: interaction.user.id,
+                safeReply,
+              })
+            ) {
+              return true;
+            }
             await runtimeCloseTicket(interaction, motivo, {
               safeReply,
               safeEditReply,
@@ -1286,11 +1312,6 @@ async function handleTicketInteraction(interaction) {
       isTicketModal &&
       String(interaction.customId || "").startsWith("modal_close_ticket")
     ) {
-      try {
-        await interaction.deferReply().catch(() => { });
-      } catch (err) {
-        global.logger?.warn?.("[ticketHandlers] ", err?.message || err);
-      }
       const ticketDoc = await runtimeLoadTicketForChannelOrReply({ interaction, safeReply, makeErrorEmbed, channelId: interaction.channel?.id, missingDescription: "<:vegax:1443934876440068179> Ticket non trovato", });
       if (!ticketDoc) return true;
       const canClose = await runtimeEnsureClosableTicketOrReply({ interaction, safeReply, makeErrorEmbed, ticketDoc, highStaff: isHighStaffActor(), });
@@ -1304,6 +1325,22 @@ async function handleTicketInteraction(interaction) {
       if (!motivo && interaction.fields?.fields) {
         const first = interaction.fields.fields.first();
         if (first?.value) motivo = String(first.value).trim() || null;
+      }
+      if (
+        await maybeDeferCloseForPartnerManagerShopAck({
+          interaction,
+          ticketDoc,
+          motivo,
+          closedById: interaction.user.id,
+          safeReply,
+        })
+      ) {
+        return true;
+      }
+      try {
+        await interaction.deferReply().catch(() => { });
+      } catch (err) {
+        global.logger?.warn?.("[ticketHandlers] ", err?.message || err);
       }
       await runtimeCloseTicket(interaction, motivo, { safeReply, safeEditReply, makeErrorEmbed, LOG_CHANNEL });
       return true;

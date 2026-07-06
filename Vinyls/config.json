@@ -1,5 +1,6 @@
 {
   "prefix": "+",
+  "processPendingCommands": true,
   "mainGuildId": "1329080093599076474",
   "status": "idle",
   "presence": {
@@ -300,28 +301,30 @@
     },
     "hogwartsBasilisk": {
       "enabled": true,
-      "chancePercent": 5,
-      "wholeHouseChancePercent": 1,
-      "persistentPlayersChancePercent": 7,
+      "chancePercent": 2,
+      "wholeHouseChancePercent": 0.35,
+      "persistentPlayersChancePercent": 2.5,
       "persistentMinigamesMin": 2,
       "persistentMinigamesMax": 4,
       "blockedPlayerCount": 3,
       "announceDelayMs": 5000,
+      "phoenixCureChancePercent": 6,
       "avoidRepeatStrikeHouses": 2,
-      "minGapBetweenStrikesMs": 900000,
+      "minGapBetweenStrikesMs": 1200000,
       "onlyDuringHogwartsEvent": true
     },
     "hogwartsHouseBasilisk": {
       "enabled": true,
-      "chancePercent": 5,
-      "wholeHouseChancePercent": 1,
-      "persistentPlayersChancePercent": 5,
+      "chancePercent": 2,
+      "wholeHouseChancePercent": 0.35,
+      "persistentPlayersChancePercent": 2,
       "persistentMinigamesMin": 2,
       "persistentMinigamesMax": 4,
       "blockedPlayerCount": 3,
       "announceDelayMs": 5000,
+      "phoenixCureChancePercent": 6,
       "avoidRepeatStrikeHouses": 2,
-      "minGapBetweenStrikesMs": 900000,
+      "minGapBetweenStrikesMs": 1200000,
       "onlyDuringHogwartsEvent": true
     },
     "hogwartsEventBonusMinigames": true,
@@ -334,15 +337,16 @@
       "windowEndHour": 23,
       "windowEndMinute": 59,
       "durationMs": 3600000,
-      "maxOccurrencesPerDay": 4,
-      "minGapBetweenMs": 1800000
+      "maxOccurrencesPerDay": 3,
+      "minGapBetweenMs": 7200000
     },
     "hogwartsHouseBurrobirraEffect": {
       "enabled": true,
       "onlyDuringHogwartsEvent": true,
-      "spawnChancePercent": 5,
+      "spawnChancePercent": 2.5,
       "durationMs": 2700000,
       "minGapBetweenMs": 7200000,
+      "rollJitterMaxMs": 5400000,
       "avoidRepeatHouses": 2,
       "mainChannelId": "1442569130573303898"
     },
@@ -517,6 +521,10 @@
       "durationMs": 300000,
       "rewardExp": 200
     },
+    "findBotVoice": {
+      "durationMs": 300000,
+      "rewardExp": 200
+    },
     "findScroll": {
       "startDate": "2026-06-15T14:00:00",
       "durationMs": 300000,
@@ -668,8 +676,23 @@
     "pageUrl": "/evento/pozioni",
     "redirectUrl": "/evento/shop"
   },
-  "serverEconomy": {
+  "twitchLiveAlerts": {
     "enabled": true,
+    "pollIntervalSec": 90,
+    "streamVoiceChannelId": "1522558362288521226",
+    "streamers": [
+      {
+        "login": "d1unkk",
+        "displayName": "d1unkk",
+        "discordUserId": "610531025470095390",
+        "voiceNameOn": "༄🟢︲Streaming D1unkk: ON",
+        "voiceNameOff": "༄🔴︲Streaming D1unkk: OFF",
+        "voiceStatusOn": "Sono in live su https://www.twitch.tv/d1unkk"
+      }
+    ]
+  },
+  "serverEconomy": {
+    "enabled": false,
     "earnSplitMinPct": 30,
     "earnSplitMaxPct": 70,
     "minBet": 2,
@@ -695,9 +718,9 @@
     "coinflip": { "cooldownMs": 5000, "winPayout": 2 },
     "tris": { "cooldownMs": 5000, "winPayout": 2, "botRandomPct": 35 },
     "scratch": { "cooldownMs": 5000, "pairPayout": 2, "triplePayout": 8, "jackpotPayout": 15 },
-    "shop": { "enabled": true, "purchaseCooldownMs": 3000 },
+    "shop": { "enabled": false, "purchaseCooldownMs": 3000 },
     "bridge": {
-      "enabled": true,
+      "enabled": false,
       "caffePerGaleone": 4,
       "minCaffeConvert": 8,
       "maxCaffeConvert": 120,

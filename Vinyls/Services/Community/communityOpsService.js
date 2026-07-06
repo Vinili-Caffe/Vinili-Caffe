@@ -646,6 +646,7 @@ function isTicketsCategoryName(name) {
 }
 
 async function renumberGuildCategoryNames(guild, options) {
+  const { isCustomPrivateCategory } = require("../../Utils/Community/customPrivateCategoryUtils");
   const categories = guild.channels.cache
     .filter((channel) => channel.type === ChannelType.GuildCategory)
     .sort((a, b) => a.rawPosition - b.rawPosition || a.id.localeCompare(b.id))
@@ -656,6 +657,7 @@ async function renumberGuildCategoryNames(guild, options) {
     const category = categories[index];
     if (!category?.manageable) continue;
     if (isTicketsCategoryName(category.name)) continue;
+    if (isCustomPrivateCategory(category)) continue;
 
     const nextNumber = toSuperscriptNumber(nonTicketIndex++, options.minDigits);
     const expectedName = replaceNumberPrefixOnly(category.name, nextNumber, options.separator,);
@@ -689,6 +691,16 @@ async function renumberGuildCategories(guild, options, client = null) {
         guild.id,
         pending,
       );
+    }
+    const mainGuildId = String(IDs?.guilds?.main || "").trim();
+    if (mainGuildId && String(guild.id) === mainGuildId) {
+      const {
+        listCustomPrivateCategories,
+        syncCustomPrivateCategoryLayout,
+      } = require("../../Utils/Community/customPrivateCategoryUtils");
+      for (const cat of listCustomPrivateCategories(guild)) {
+        await syncCustomPrivateCategoryLayout(guild, cat).catch(() => null);
+      }
     }
     return { pending };
   })();

@@ -259,6 +259,9 @@ function resolveQuotedAuthorIdFromQuoteMessage(targetMessage) {
       const match = String(field?.value || "").match(/<@!?(\d{16,20})>/);
       if (match?.[1]) return match[1];
     }
+    const desc = String(emb?.description || "");
+    const descMatch = desc.match(/Autore del messaggio:\s*<@!?(\d{16,20})>/i);
+    if (descMatch?.[1]) return descMatch[1];
   }
   return null;
 }
@@ -760,6 +763,7 @@ async function handleRepostaButton(interaction) {
     }
     sourceChannelId = String(doc.sourceChannelId || "");
     sourceMessageId = String(doc.sourceMessageId || "");
+    quotedAuthorId = String(doc.sourceAuthorId || "").trim();
   } else {
     return { handled: false };
   }

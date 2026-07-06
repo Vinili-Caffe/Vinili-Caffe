@@ -2,6 +2,7 @@ const { ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } = require("
 const IDs = require("../../Utils/Config/ids");
 const { getGuildChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { removePartnerPoints, formatPartnerPointsChange } = require("../../Utils/Staff/partnerPointsUtils");
+const { resolvePartnerPointsShown } = require("../../Utils/Staff/partnerPointsDisplayUtils");
 const { buildPartnershipMessageLink, buildPartnerPointLogContent, getPartnerPointHighStaffPingRoleIds, parsePartnerPointModalId } = require("../../Utils/Partner/partnerPointContextUtils");
 
 const IN_RULE = "regolaViolata";
@@ -125,8 +126,8 @@ async function handlePartnerRimuoviModal(interaction) {
   if (logChannel?.isTextBased?.()) {
     await logChannel.send({ content }).catch(() => null);
   }
-  const changeLabel = formatPartnerPointsChange("remove", 1);
-  const total = staffData?.staff?.partnerCount ?? 0;
+  const changeLabel = formatPartnerPointsChange("remove", staffData?._partnerPointsRemoved ?? 1);
+  const total = resolvePartnerPointsShown(staffData?.staff);
   await interaction.reply({
     content: `<:success:1461731530333229226> **${changeLabel}** a <@${parsed.pmUserId}>. Totale: \`${total}\`.`,
     flags: EPHEMERAL,

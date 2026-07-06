@@ -13,12 +13,39 @@ const BACKFILL_HOUR_SUFFIX = "T12";
 const HOURLY_BACKFILL_BATCH = 500;
 const HOURLY_BACKFILL_PREFIX_MAX_WAIT_MS = Math.max(
   0,
-  Math.min(120_000, Number(process.env.HOURLY_BACKFILL_PREFIX_MAX_WAIT_MS ?? 12_000)),
+  Math.min(120_000, Number(process.env.HOURLY_BACKFILL_PREFIX_MAX_WAIT_MS ?? 2_500)),
 );
 const ACTIVITY_GUILD_HOURLY_QUERY_MAX_MS = Math.max(
   0,
   Math.min(120_000, Number(process.env.ACTIVITY_GUILD_HOURLY_QUERY_MAX_MS ?? 45_000)),
 );
+const OVERVIEW_STATS_CACHE_TTL_MS = Math.max(
+  0,
+  Math.min(120_000, Number(process.env.OVERVIEW_STATS_CACHE_TTL_MS ?? 45_000)),
+);
+const overviewStatsCache = new Map();
+const guildHourlyRowsCache = new Map();
+
+function buildHourlyRowsCacheKey(guildId, hourKeys) {
+  const gid = String(guildId || "");
+  if (!Array.isArray(hourKeys) || !hourKeys.length) return `${gid}:all`;
+  return `${gid}:h:${hourKeys.length}:${hourKeys[0]}:${hourKeys[hourKeys.length - 1]}`;
+}
+
+function getOverviewStatsCache(key) {
+  if (!OVERVIEW_STATS_CACHE_TTL_MS) return null;
+  const entry = overviewStatsCache.get(key);
+  if (!entry || entry.expiresAt <= Date.now()) {
+    if (entry) overviewStatsCache.delete(key);
+    return null;
+  }
+  return entry.value;
+}
+
+function setOverviewStatsCache(key, value) {
+  if (!OVERVIEW_STATS_CACHE_TTL_MS) return;
+  overviewStatsCache.set(key, { value, expiresAt: Date.now() + OVERVIEW_STATS_CACHE_TTL_MS });
+}
 
 function shouldSkipBackfillRow(hourKey, hourSet) {
   if (!hourKey || typeof hourKey !== "string") return false;
@@ -387,11 +414,23 @@ async function loadGuildHourlyRows(guildId, hourKeys = null) {
 
 async function loadHourlyRows(guildId, hourKeys = null, userId = null) {
   if (userId) return loadHourlyRowsFromProfile(guildId, hourKeys, userId);
+  const cacheKey = buildHourlyRowsCacheKey(guildId, hourKeys);
+  if (OVERVIEW_STATS_CACHE_TTL_MS > 0) {
+    const cached = guildHourlyRowsCache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) return cached.value;
+  }
   const [profileRows, guildRows] = await Promise.all([
     loadHourlyRowsFromProfile(guildId, hourKeys, null),
     loadGuildHourlyRows(guildId, hourKeys),
   ]);
-  return mergeGuildPreferHourlyRows(profileRows, guildRows);
+  const merged = mergeGuildPreferHourlyRows(profileRows, guildRows);
+  if (OVERVIEW_STATS_CACHE_TTL_MS > 0) {
+    guildHourlyRowsCache.set(cacheKey, {
+      value: merged,
+      expiresAt: Date.now() + OVERVIEW_STATS_CACHE_TTL_MS,
+    });
+  }
+  return merged;
 }
 
 async function ensureHourlyBackfillForGuild(guildId) {
@@ -1386,6 +1425,9 @@ async function getServerActivityStats(guildId, days = 7) {
 async function getServerOverviewStats(guildId, lookbackDays = 14, topLimit = 3) {
   const safeTopLimit = Math.max(1, Math.min(500, Number(topLimit || 3)));
   const safeLookback = [1, 7, 14, 21, 30].includes(Number(lookbackDays)) ? Number(lookbackDays) : 14;
+  const cacheKey = `server:${guildId}:${safeLookback}:${safeTopLimit}`;
+  const cached = getOverviewStatsCache(cacheKey);
+  if (cached) return cached;
   if (HOURLY_BACKFILL_PREFIX_MAX_WAIT_MS > 0) {
     let timer;
     try {
@@ -1515,7 +1557,7 @@ async function getServerOverviewStats(guildId, lookbackDays = 14, topLimit = 3) 
       d30: { text: totalText30, voiceSeconds: totalVoice30, contributors: 0 },
     };
 
-    return {
+    const fallbackResult = {
       approximate: true,
       lookbackDays: safeLookback,
       windows: fallbackWindows,
@@ -1525,9 +1567,11 @@ async function getServerOverviewStats(guildId, lookbackDays = 14, topLimit = 3) 
       topChannelsVoice: [],
       chart: chartPoints,
     };
+    setOverviewStatsCache(cacheKey, fallbackResult);
+    return fallbackResult;
   }
 
-  return {
+  const result = {
     approximate: false,
     lookbackDays: safeLookback,
     windows: {
@@ -1563,6 +1607,8 @@ async function getServerOverviewStats(guildId, lookbackDays = 14, topLimit = 3) 
     topChannelsVoice: aggLookback.topChannelsVoice,
     chart: chartPoints,
   };
+  setOverviewStatsCache(cacheKey, result);
+  return result;
 }
 
 async function getUserOverviewStats(guildId, userId, lookbackDays = 14, excludeVoiceChannelIds = null, options = null) {
@@ -1577,6 +1623,9 @@ async function getUserOverviewStats(guildId, userId, lookbackDays = 14, excludeV
       ? options.includeVoiceChannelIds
       : null;
   const safeLookback = [1, 7, 14, 21, 30].includes(Number(lookbackDays)) ? Number(lookbackDays) : 14;
+  const cacheKey = `user:${guildId}:${userId}:${safeLookback}`;
+  const cached = getOverviewStatsCache(cacheKey);
+  if (cached) return cached;
   if (HOURLY_BACKFILL_PREFIX_MAX_WAIT_MS > 0) {
     let timer;
     try {
@@ -1601,7 +1650,15 @@ async function getUserOverviewStats(guildId, userId, lookbackDays = 14, excludeV
   const allHourKeys = Array.from(new Set([...hourKeys1, ...hourKeys7, ...hourKeys14, ...hourKeys21, ...hourKeys30, ...hourKeysLookback,]),);
   const dayKeysLookback = getLastNDaysKeys(safeLookback);
 
-  const userRows = await loadHourlyRows(guildId, allHourKeys, userId);
+  const [userRows, guildRows14, liveDoc, liveGuildSessions] = await Promise.all([
+    loadHourlyRows(guildId, allHourKeys, userId),
+    loadHourlyRows(guildId, hourKeysLookback),
+    ActivityUserProfile.findOne({ guildId, userId, "profile.totals.sessionStartedAt": { $ne: null } })
+      .select("profile.totals.sessionStartedAt profile.totals.sessionChannelId")
+      .lean()
+      .catch(() => null),
+    loadLiveVoiceSessions(guildId),
+  ]);
 
   const agg1 = aggregateUserHourlyRows(userRows, hourKeys1, exclude, includeText, includeVoice);
   const agg7 = aggregateUserHourlyRows(userRows, hourKeys7, exclude, includeText, includeVoice);
@@ -1615,10 +1672,6 @@ async function getUserOverviewStats(guildId, userId, lookbackDays = 14, excludeV
     const point = userChartByDay.get(dayKey) || { text: 0, voiceSeconds: 0 };
     return { dayKey, text: Number(point.text || 0), voiceSeconds: Number(point.voiceSeconds || 0) };
   });
-  const liveDoc = await ActivityUserProfile.findOne({ guildId, userId, "profile.totals.sessionStartedAt": { $ne: null } })
-    .select("profile.totals.sessionStartedAt profile.totals.sessionChannelId")
-    .lean()
-    .catch(() => null);
 
   if (liveDoc?.profile?.totals?.sessionStartedAt) {
     const nowMs = Date.now();
@@ -1652,8 +1705,6 @@ async function getUserOverviewStats(guildId, userId, lookbackDays = 14, excludeV
     }
   }
 
-  const guildRows14 = await loadHourlyRows(guildId, hourKeysLookback);
-
   const rankTextMap = new Map();
   const rankVoiceMap = new Map();
   for (const row of guildRows14) {
@@ -1674,10 +1725,10 @@ async function getUserOverviewStats(guildId, userId, lookbackDays = 14, excludeV
     }
   }
 
-  const liveGuildSessions = await loadLiveVoiceSessions(guildId);
-  if (liveGuildSessions.length) {
+  const liveGuildSessionsList = liveGuildSessions || [];
+  if (liveGuildSessionsList.length) {
     const nowMs = Date.now();
-    for (const row of liveGuildSessions) {
+    for (const row of liveGuildSessionsList) {
       const id = String(row?.userId || "");
       const startedAt = row?.voice?.sessionStartedAt;
       if (!id || !startedAt) continue;
@@ -1703,7 +1754,7 @@ async function getUserOverviewStats(guildId, userId, lookbackDays = 14, excludeV
       d21: { text: Number(t.messagesTotal || 0), voiceSeconds: Number(t.voiceTotalSeconds || 0) },
       d30: { text: Number(t.messagesTotal || 0), voiceSeconds: Number(t.voiceTotalSeconds || 0) },
     };
-    return {
+    const fallbackResult = {
       approximate: true,
       lookbackDays: safeLookback,
       windows: fallback,
@@ -1712,9 +1763,11 @@ async function getUserOverviewStats(guildId, userId, lookbackDays = 14, excludeV
       topChannelsVoice: [],
       chart,
     };
+    setOverviewStatsCache(cacheKey, fallbackResult);
+    return fallbackResult;
   }
 
-  return {
+  const result = {
     approximate: false,
     lookbackDays: safeLookback,
     windows: {
@@ -1732,6 +1785,8 @@ async function getUserOverviewStats(guildId, userId, lookbackDays = 14, excludeV
     topChannelsVoice: aggLookback.topChannelsVoice,
     chart,
   };
+  setOverviewStatsCache(cacheKey, result);
+  return result;
 }
 
 async function syncLiveVoiceSessionsFromGateway(client) {
@@ -1889,6 +1944,9 @@ async function getChannelOverviewStats(guildId, channelId, lookbackDays = 14) {
       chart: [],
     };
   }
+  const cacheKey = `channel:${guildId}:${channelIdStr}:${safeLookback}`;
+  const cached = getOverviewStatsCache(cacheKey);
+  if (cached) return cached;
   const dayKeys1 = getLastNDaysKeys(1);
   const dayKeys7 = getLastNDaysKeys(7);
   const dayKeys14 = getLastNDaysKeys(14);
@@ -1975,7 +2033,7 @@ async function getChannelOverviewStats(guildId, channelId, lookbackDays = 14) {
     };
   });
 
-  return {
+  const result = {
     lookbackDays: safeLookback,
     windows: {
       d1: { ...d1, contributors: contrib1.size },
@@ -1988,6 +2046,8 @@ async function getChannelOverviewStats(guildId, channelId, lookbackDays = 14) {
     topUsersVoice: topNFromMap(userVoiceAll, 3),
     chart,
   };
+  setOverviewStatsCache(cacheKey, result);
+  return result;
 }
 
 module.exports = {

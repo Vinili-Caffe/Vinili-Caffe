@@ -1,5 +1,10 @@
 const IDs = require("../Config/ids");
 const { getStaffChatThreadIds } = require("../Global/globalSettingsBucket");
+const {
+  ensureStaffCmdsThreadIdsHydrated,
+  isStaffCmdsManagedCommandsThread,
+  staffCmdsChannelId,
+} = require("./staffCmdsChannelUtils");
 
 function staffChatChannelId() {
   return String(IDs.channels?.staffChat || "").trim();
@@ -36,9 +41,31 @@ async function resolveStaffChatPmThread(client) {
   return resolved?.isThread?.() ? resolved : null;
 }
 
+/**
+ * Nei thread Chat sotto #staff-chat i comandi vanno usati solo nei thread Comandi sotto #staff-cmds.
+ * @returns {Promise<string|null>} messaggio di rifiuto o null se il canale è consentito
+ */
+async function staffChatCommandsDeniedReplyContent(channel) {
+  if (!isChannelOrThreadUnderStaffChat(channel)) return null;
+  await ensureStaffCmdsThreadIdsHydrated().catch(() => {});
+  if (await isStaffCmdsManagedCommandsThread(channel)) return null;
+  const staffCmdsId = staffCmdsChannelId();
+  const staffChatId = staffChatChannelId();
+  const hint = staffCmdsId
+    ? ` Usa un thread **Comandi** sotto <#${staffCmdsId}>.`
+    : " Usa un thread **Comandi** sotto #staff-cmds.";
+  const chatHint = staffChatId ? ` (non nei thread **Chat** sotto <#${staffChatId}>).` : ".";
+  return (
+    "<:vegax:1443934876440068179> I comandi staff vanno usati solo nei thread **Comandi** sotto #staff-cmds," +
+    chatHint +
+    hint
+  );
+}
+
 module.exports = {
   staffChatChannelId,
   isChannelOrThreadUnderStaffChat,
   isStaffChatManagedThread,
   resolveStaffChatPmThread,
+  staffChatCommandsDeniedReplyContent,
 };

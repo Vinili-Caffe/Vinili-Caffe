@@ -5,6 +5,7 @@ const { AvatarPrivacy, BannerPrivacy, ActivityUserProfile, } = require("../Schem
 const IDs = require("../Utils/Config/ids");
 const { ZODIAC_ROLE_IDS } = require("../Utils/Community/zodiacRoles");
 const { PERSONALITY_NORMAL_COLOR_ROLE_IDS_ALL } = require("../Utils/Community/personalityColorUnlocks");
+const { PERSONALITY_MENTION_ROLE_IDS } = require("../Utils/Community/personalityRolePersistence");
 const { getGuildMemberCached, getUserCached } = require("../Utils/Interaction/interactionEntityCache");
 const { applyDepexOneLevel } = require("../Services/Staff/staffWarnService");
 const { syncStaffDbAndPauseChannelAfterDepex } = require("../Utils/Staff/staffPmUtils");
@@ -15,8 +16,15 @@ const { applyDefaultFooterToEmbeds } = require("../Utils/Embeds/defaultFooter");
 const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../Utils/Discord/guildDiscordIdentity");
 const PRIVATE_FLAG = 1 << 6;
 const MONO_GUILD_DENIED_TEXT = "Questo bot è utilizzabile solo sul server principale di Vinili & Caffè.";
+const { buildStaffGuideMenuRow, STAFF_GUIDE_MENU_ID, STAFF_GUIDE_SECTION_IDS } = require("../Utils/Staff/staffGuideMenuComponents");
+const { buildStaffGuideEmbed } = require("../Embeds/staff");
+const { applyDefaultFooter } = require("../Utils/Embeds/defaultFooter");
 const { MOD_RULE_DETAIL } = require("../Utils/Moderation/modRegolamentoConstants");
-const { MENTION_RESPONSE_PERK_BODY, MENTION_RESPONSE_PERK_LINE_DISCORD } = require("../Utils/Community/mentionResponseAccessUtils");
+const {
+  panelSelectFollowUp,
+  buildFollowUpInteractionProxy,
+  resetPanelSelectMenu,
+} = require("../../shared/discord/panelSelectMenuRuntime");
 
 function staffSanctionRuleIntro(ruleKey) {
   const body = MOD_RULE_DETAIL[ruleKey];
@@ -97,6 +105,42 @@ function buildMiddleGuideNavRow() {
     new ButtonBuilder().setCustomId("middle_follower").setLabel("︲FOLLOWER & SUPPORTER").setEmoji("<a:VC_Verified:1482532479637127188>").setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId("middle_partnership").setLabel("︲GESTIONE PARTNER").setEmoji("<:VC_Collab:1482534540089098260>").setStyle(ButtonStyle.Secondary),
   );
+}
+
+function rebuildStaffGuideMenuComponents() {
+  return [buildStaffGuideMenuRow()];
+}
+
+function rebuildStaffGuidePanelEmbeds(interaction) {
+  return [applyDefaultFooter(buildStaffGuideEmbed(), interaction.guild)];
+}
+
+const staffGuidePanelResetOptions = { rebuildEmbeds: rebuildStaffGuidePanelEmbeds };
+
+async function handleStaffGuideSelectMenu(interaction) {
+  if (!interaction.isStringSelectMenu?.() || interaction.customId !== STAFF_GUIDE_MENU_ID) return false;
+
+  const sectionId = String(interaction.values?.[0] || "").trim();
+  if (!STAFF_GUIDE_SECTION_IDS.has(sectionId)) return false;
+
+  const sectionInteraction = Object.assign(
+    buildFollowUpInteractionProxy(interaction, { treatAsButton: true }),
+    { customId: sectionId },
+  );
+
+  const gate = await checkButtonPermission(sectionInteraction);
+  if (!gate.allowed) {
+    await panelSelectFollowUp(
+      interaction,
+      rebuildStaffGuideMenuComponents,
+      { embeds: [buildDeniedEmbedFromGate(gate, "menu", interaction)] },
+      staffGuidePanelResetOptions,
+    );
+    return true;
+  }
+
+  await resetPanelSelectMenu(interaction, rebuildStaffGuideMenuComponents, staffGuidePanelResetOptions);
+  return handleStaffButtons(sectionInteraction);
 }
 
 async function handleStaffButtons(interaction) {
@@ -289,8 +333,11 @@ async function handleStaffButtons(interaction) {
       "<a:VC_Arrow:1482706699365257397> <@&" + IDs.roles.Director + ">\n" +
       "<:VC_DoubleReply:1482532332509466797> **__550__** messaggi\n" +
       "<:VC_Reply:1482532158080942191> **__5,5h__** in vocale\n\n" +
-      "> <:VC_Attention:1482534443632558151> Verrà **valutato** anche il **modo** in cui questi __limiti__ vengono raggiunti, ovvero se lo **staffer** è stato costante o no." +
-      "<:reportmessage:1443670575376765130> Ogni staffer per sanzionare dovrà __seguire__ la <#1442569237142044773>.\n\n" +
+      "<a:VC_Arrow:1482706699365257397> <@&" + IDs.roles.Admin + ">\n" +
+      "<:VC_DoubleReply:1482532332509466797> **__500__** messaggi\n" +
+      "<:VC_Reply:1482532158080942191> **__5h__** in vocale\n\n" +
+      "> <:VC_Attention:1482534443632558151> Verrà **valutato** anche il **modo** in cui questi __limiti__ vengono raggiunti, ovvero se lo **staffer** è stato costante o no.\n" +
+      "> <:reportmessage:1443670575376765130> Ogni staffer per sanzionare dovrà __seguire__ la <#1442569237142044773>.\n\n" +
       "> <a:VC_Arrow:1482706699365257397> **__LIMITI SETTIMANALI SULLE SANZIONI__**\n" +
       "<:VC_Dot:1482532364222595303> Ogni <@&" + IDs.roles.Mod + "> dovrà __eseguire__ almeno: **`2 sanzioni`**\n" +
       "<:VC_Dot:1482532364222595303> Ogni <@&" + IDs.roles.SeniorModerator + "> dovrà __eseguire__ almeno: **`2 sanzioni`**\n" +
@@ -343,6 +390,23 @@ async function handleStaffButtons(interaction) {
       "## <a:VC_Alert:1482706673176150077> Prendi tempo per sanzionare!\n" +
       "È meglio una sanzione legittima con una motivazione corretta e una tempistica giusta rispetto a un utente che si lamenta dello staff del server!\n\n" +
       "<a:VC_Exclamation:1482534702077444217> Ricordo naturalmente di seguire anche le altre linee guida su come sanzionare in modo corretto un utente in <#" + IDs.channels.guidaStaff + ">.",
+    );
+    await interaction.reply({ embeds: [embed], flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
+    return true;
+  }
+
+  if (interaction.customId == "compiti_fissi") {
+    const embed = new EmbedBuilder().setColor("#6f4e37").setDescription(
+      "<:VC_Quest:1482534879257165865> **__COMPITI FISSI__**\n\n" +
+      "<a:VC_NewsExclamation:1471891662786527253> Ogni staffer deve **svolgere** ogni settimana **ALMENO UNO** dei seguenti **compiti**:\n" +
+      "<:VC_Dot:1482532364222595303> **Trovare un nuovo staffer**\n" +
+      "<:VC_Dot:1482532364222595303> **Trovare un server che dovrà effettuare una sponsor con il nostro server**\n" +
+      "<:VC_Dot:1482532364222595303> **Trovare un server disponibili a effettuare un trasferimento nel nostro server**\n" +
+      "<:VC_Dot:1482532364222595303> **Invitare nuovi utenti tenedoli attivi**\n" +
+      "<:VC_Dot:1482532364222595303> **Convincere nuovi utenti a boostare il server o acquistare un pacchetto come Donator, VIP o VIP+**\n\n" +
+      "<:VC_bluthumbsup:1482458262401061044> Svolgere uno tra questi compiti ogni settimana garantirà una **valutazione positiva** e maggiore possibilità di essere pexato.\n" +
+      "<:VC_bluthumbsdown:1482458289131360306> Non farlo garantirà una **valutazione negativa** e maggiore possibilità di essere depexato.\n\n" +
+      "<:VC_Ticket:1482535175283019888> Per garantire la correttezza dei compiti è necessario allegare le prove in un <#" + IDs.channels.ticket + "> `HIGH STAFF`.",
     );
     await interaction.reply({ embeds: [embed], flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
     return true;
@@ -650,10 +714,9 @@ async function sendPrivacyViewsLeaderboard(interaction, kind, title) {
 }
 
 module.exports = {
-  name: Events.InteractionCreate,
   handleStaffButtons,
 
-  async execute(interaction) {
+  async execute(interaction, client) {
     if (!interaction.guild) return;
     if (!interaction.message) return;
     if (interaction.replied || interaction.deferred) return;
@@ -673,11 +736,12 @@ module.exports = {
     interaction.editReply = (p) => origEditReply(withFooter(p));
     const origUpdate = interaction.update?.bind(interaction);
     if (origUpdate) interaction.update = (p) => origUpdate(withFooter(p));
+    if (await handleStaffGuideSelectMenu(interaction)) return;
     if (await handleStaffButtons(interaction)) return;
     if (interaction.isStringSelectMenu()) {
       const menuId = interaction.customId;
       const values = Array.isArray(interaction.values) ? interaction.values : [];
-      const categories = { personality_pronouns: ["1442568997848743997", "1442568999043989565", "1442569000063074498", "1442569001367769210",], personality_age: ["1442568993197265021", "1442568994581381170", "1442568995348807691", "1442568996774871194",], personality_region: ["1442569021861007443", "1442569023303974922", "1442569024486506498", "1442569025790939167",], personality_dm: ["1442569004215697438", "1442569005071077417", "1442569006543274126",], personality_relationship: ["1442569028173299732", "1442569029263818906",], personality_zodiac: ZODIAC_ROLE_IDS, personality_mentions: [IDs.roles.ReviveChat, IDs.roles.Events, IDs.roles.News, IDs.roles.Polls, IDs.roles.Bump, IDs.roles.Minigames,], personality_colors_1: PERSONALITY_NORMAL_COLOR_ROLE_IDS_ALL, personality_colors_plus: [IDs.roles.redPlus, IDs.roles.orangePlus, IDs.roles.yellowPlus, IDs.roles.greenPlus, IDs.roles.bluePlus, IDs.roles.purplePlus, IDs.roles.pinkPlus, IDs.roles.blackPlus, IDs.roles.grayPlus, IDs.roles.whitePlus, IDs.roles.orangeBlackPlus, IDs.roles.greenBlackPlus, IDs.roles.aquaBlackPlus,], };
+      const categories = { personality_pronouns: ["1442568997848743997", "1442568999043989565", "1442569000063074498", "1442569001367769210",], personality_age: ["1442568993197265021", "1442568994581381170", "1442568995348807691", "1442568996774871194",], personality_region: ["1442569021861007443", "1442569023303974922", "1442569024486506498", "1442569025790939167",], personality_dm: ["1442569004215697438", "1442569005071077417", "1442569006543274126",], personality_relationship: ["1442569028173299732", "1442569029263818906",], personality_zodiac: ZODIAC_ROLE_IDS, personality_mentions: PERSONALITY_MENTION_ROLE_IDS, personality_colors_1: PERSONALITY_NORMAL_COLOR_ROLE_IDS_ALL, personality_colors_plus: [IDs.roles.redPlus, IDs.roles.orangePlus, IDs.roles.yellowPlus, IDs.roles.greenPlus, IDs.roles.bluePlus, IDs.roles.purplePlus, IDs.roles.pinkPlus, IDs.roles.blackPlus, IDs.roles.grayPlus, IDs.roles.whitePlus, IDs.roles.orangeBlackPlus, IDs.roles.greenBlackPlus, IDs.roles.aquaBlackPlus,], };
       const colorMenuIds = ["personality_colors_1", "personality_colors_plus"];
       const allColorRoleIds = colorMenuIds.flatMap((id) => categories[id] || []);
 
@@ -1100,16 +1164,22 @@ module.exports = {
     }
 
     if (interaction.customId == "candidature_premi_partner") {
+      const {
+        buildPartnerRewardDiscountBanner,
+        buildPartnerRewardDiscordEmbedLines,
+        getPartnerRewardPointCost,
+      } = require("../../shared/partner/partnerManagerRewardTiers");
+      const tierLines = buildPartnerRewardDiscordEmbedLines();
+      const discountBanner = buildPartnerRewardDiscountBanner();
+      const autoRedeemCosts = [getPartnerRewardPointCost(50), getPartnerRewardPointCost(100)].join("** e **");
       const premiPartnerEmbed = new EmbedBuilder()
         .setColor("#6f4e37")
         .setDescription(
           "<:partneredserverowner:1443651871125409812> **__Vinili & Caffè__** offre un servizio di __pagamento__ in base al numero di **partner** effettuate.\n" +
           "> Per riscattare eventuali premi bisognerà aprire un <#1442569095068254219> **__`HIGH STAFF`__**\n\n" +
-          "<:VC_Dot:1482532364222595303> **__`50`__** partner <a:vegarightarrow:1443673039156936837> **Custom Role** + **Custom Voc** (30 giorni)\n" +
-          "<:VC_Dot:1482532364222595303> **__`100`__** partner <a:vegarightarrow:1443673039156936837> **Ruolo VIP** (30 giorni)\n" +
-          "<:VC_Dot:1482532364222595303> **__`150`__** partner <a:vegarightarrow:1443673039156936837> **Decorazione** a scelta (max **15,99** €)\n" +
-          "<:VC_Dot:1482532364222595303> **__`200`__** partner <a:vegarightarrow:1443673039156936837> **Nitro Boost** <:VC_NitroBoost:1482532248967315627>\n\n" +
-          "> Dal pannello `+profile` (High Staff): i riscatti **50** e **100** fanno in automatico **scalatura + premio** (CR+Voc/VIP 30 giorni). **150** e **200**: solo punti, premio a mano.\n\n" +
+          (discountBanner ? `${discountBanner}\n\n` : "") +
+          tierLines.join("\n") +
+          `\n\n> Dal pannello \`+profile\` (High Staff): i riscatti **${autoRedeemCosts}** fanno in automatico **scalatura + premio** (CR+Voc/VIP 30 giorni). **Decorazione**, **Nitro** e **PayPal**: premio a mano.\n\n` +
           `<a:VC_Winner:1482535294757507255> Inoltre, ogni mese, il miglior <@&${IDs.roles.Staff}> riceverà un **Nitro __Boost__** come premio.\n\n` +
           "<a:flyingnitroboost:1443652205705170986> Naturalmente almeno un **boost** dovrà andare a **__Vinili & Caffè__**.",
         )

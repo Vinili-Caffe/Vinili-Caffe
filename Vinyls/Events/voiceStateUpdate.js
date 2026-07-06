@@ -326,6 +326,13 @@ module.exports = {
     }
 
     try {
+      const { handleCustomVocVoiceStateUpdate } = require("../Services/Community/customVocPermissionsService");
+      await handleCustomVocVoiceStateUpdate(oldState, newState);
+    } catch (error) {
+      global.logger?.error?.("[CUSTOM VOC PERMS] voiceStateUpdate failed:", error);
+    }
+
+    try {
       await handleVoiceActivity(oldState, newState);
     } catch (error) {
       if (client?.logs?.error) {
@@ -340,6 +347,12 @@ module.exports = {
       global.logger?.error?.("[DAILY ENGAGEMENT VOICE ERROR]", error);
     }
     try {
+      const { handleMinigameVoiceState } = require("../Services/Minigames/minigameService");
+      await handleMinigameVoiceState(oldState, newState, client);
+    } catch (error) {
+      global.logger?.error?.("[MINIGAMES] voiceStateUpdate failed:", error);
+    }
+    try {
       const { handlePublicVoiceHubJoin, handlePublicVoiceHubEmpty } = require("../Services/Voice/publicVoiceHubService");
       if (client?.config?.publicVoiceHubs?.enabled !== false) {
         await handlePublicVoiceHubJoin(oldState, newState, client);
@@ -347,6 +360,19 @@ module.exports = {
       }
     } catch (error) {
       global.logger?.error?.("[PUBLIC VOICE HUB ERROR]", error);
+    }
+
+    try {
+      const {
+        handleStanzaVoiceLobbyJoin,
+        handleStanzaVoiceOccupied,
+        handleStanzaVoiceEmpty,
+      } = require("../Services/Voice/stanzaVoiceRoomsService");
+      await handleStanzaVoiceLobbyJoin(oldState, newState, client);
+      await handleStanzaVoiceOccupied(oldState, newState);
+      await handleStanzaVoiceEmpty(oldState, newState);
+    } catch (error) {
+      global.logger?.error?.("[STANZA VOICE ERROR]", error);
     }
 
     try {
@@ -407,8 +433,10 @@ module.exports = {
 
     const humans = botChannel.members.filter((m) => !m.user.bot);
     if (humans.size === 0) {
+      const { shouldDeferTtsLeaveForFindBotVoiceMinigame } = require("../Services/Minigames/minigameService");
       const { shouldDeferTtsLeaveForMusicEmptyVc } = require("../Services/Music/lavalinkMusicService");
-      if (shouldDeferTtsLeaveForMusicEmptyVc(client, guild.id)) {
+      if (shouldDeferTtsLeaveForFindBotVoiceMinigame(client, guild.id, botChannel.id)) {
+      } else if (shouldDeferTtsLeaveForMusicEmptyVc(client, guild.id)) {
       } else {
         await leaveTtsGuild(guild.id, client).catch((err) => {
           global.logger?.warn?.("[voiceStateUpdate] leaveTtsGuild failed:", err?.message || err);

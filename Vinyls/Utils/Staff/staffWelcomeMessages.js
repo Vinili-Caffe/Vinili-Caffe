@@ -27,9 +27,9 @@ async function buildPartnerManagerWelcomeBody() {
     "",
     "> **Per iniziare al meglio controlla:** <:VC_id:1478517313618575419>",
   ];
-  if (guidaStaff) lines.push(`<:VC_Reply:1482532158080942191> <#${guidaStaff}>`);
   if (chatIds.pm) lines.push(`<:VC_DoubleReply:1482532332509466797> Chat PM: <#${chatIds.pm}>`);
   if (cmdsIds.pm) lines.push(`<:VC_DoubleReply:1482532332509466797> Comandi PM: <#${cmdsIds.pm}>`);
+  if (guidaStaff) lines.push(`<:VC_Reply:1482532158080942191> <#${guidaStaff}>`);
   lines.push("", "__Per qualsiasi cosa l'High Staff è disponibile__ <:VC_Staff:1494286904089247754>");
   return lines.join("\n");
 }

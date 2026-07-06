@@ -1,7 +1,7 @@
 const { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const { buildImageButtonPayload } = require("./guiPanelPayload");
 const { formatEconomyAmount } = require("./economyDisplayHelpers");
-const { claimFixed, claimWork, formatDuration, peekFixedClaim, peekWorkClaim } = require("../../Services/Community/serverEconomyService");
+const { claimFixed, claimWork, formatDuration, peekFixedClaim, peekWorkClaim } = require("../../Services/Community/activeEconomyService");
 
 const PREFIX = "income_gui";
 const SESSION_TTL_MS = 8 * 60 * 1000;
@@ -212,16 +212,16 @@ async function claimFromPanel(client, messageLike, session) {
   return { ok: true, result };
 }
 
-function formatClaimNotice(result, incomeType) {
+function formatClaimNotice(result, incomeType, client = null) {
   if (!result?.ok) return "";
   const meta = TYPE_LABELS[incomeType] || TYPE_LABELS.daily;
   const bonus = result.bonusAmount > 0
-    ? ` (base ${formatEconomyAmount(result.baseAmount)} + bonus ${formatEconomyAmount(result.bonusAmount)})`
+    ? ` (base ${formatEconomyAmount(result.baseAmount, client)} + bonus ${formatEconomyAmount(result.bonusAmount, client)})`
     : "";
   if (incomeType === "work") {
-    return `<a:VC_Verified:1482532479637127188> Turno completato: **${formatEconomyAmount(result.amount)}**${bonus} — streak **x${result.streak?.count || 1}**.`;
+    return `<a:VC_Verified:1482532479637127188> Turno completato: **${formatEconomyAmount(result.amount, client)}**${bonus} — streak **x${result.streak?.count || 1}**.`;
   }
-  return `<a:VC_Verified:1482532479637127188> **${meta.title}** riscossa: **${formatEconomyAmount(result.amount)}**${bonus} — streak **x${result.streak?.count || 1}**.`;
+  return `<a:VC_Verified:1482532479637127188> **${meta.title}** riscossa: **${formatEconomyAmount(result.amount, client)}**${bonus} — streak **x${result.streak?.count || 1}**.`;
 }
 
 module.exports = {
