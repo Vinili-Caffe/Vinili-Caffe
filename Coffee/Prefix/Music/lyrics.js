@@ -1,8 +1,9 @@
-const crypto = require("crypto");
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType } = require("discord.js");
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require("discord.js");
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const { applyDefaultFooterToEmbeds } = require("../../Utils/Embeds/defaultFooter");
-const { resolveGuildLyrics, registerLyricsSession, deleteLyricsSession, getLyricsSession } = require("../../Services/Music/lyricsService");
+const { resolveGuildLyrics } = require("../../Services/Music/lyricsService");
+
+const PRIVATE = 1 << 6;
 
 function buildLyricsEmbed(title, pageText, pageIdx, total) {
   const footer = `\n\n**Pagina ${pageIdx + 1}/${total}**`;
@@ -13,113 +14,124 @@ function buildLyricsEmbed(title, pageText, pageIdx, total) {
     .setDescription(desc);
 }
 
-function buildRows(sessionKey, pageIdx, total) {
-  return new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId(`vcly:${sessionKey}:prev`)
-      .setEmoji("<:VC_page5:1482459835042762752>")
-      .setStyle(ButtonStyle.Secondary)
-      .setDisabled(pageIdx <= 0),
-    new ButtonBuilder()
-      .setCustomId(`vcly:${sessionKey}:next`)
-      .setEmoji("<:VC_page4:1482459791975645226>")
-      .setStyle(ButtonStyle.Secondary)
-      .setDisabled(pageIdx >= total - 1),
+function encodeQuery(query) {
+  const raw = String(query || "").trim().slice(0, 40);
+  if (!raw) return "-";
+  return Buffer.from(raw, "utf8").toString("base64url").slice(0, 48) || "-";
+}
+
+function decodeQuery(token) {
+  const t = String(token || "").trim();
+  if (!t || t === "-") return "";
+  try {
+    return Buffer.from(t, "base64url").toString("utf8");
+  } catch {
+    return "";
+  }
+}
+
+function buildLyricsRows(authorId, pageIdx, total, queryToken) {
+  const base = `vcly:${authorId}:${pageIdx}:${queryToken}`;
+  return [
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`${base}:prev`)
+        .setEmoji("<a:vegaleftarrow:1462914743416131816>")
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(pageIdx <= 0 || total <= 1),
+      new ButtonBuilder()
+        .setCustomId(`${base}:next`)
+        .setEmoji("<a:vegarightarrow:1443673039156936837>")
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(pageIdx >= total - 1 || total <= 1),
+    ),
+  ];
+}
+
+function parseLyricsCustomId(customId) {
+  const parts = String(customId || "").split(":");
+  if (parts.length < 5 || parts[0] !== "vcly") return null;
+  const [, authorId, pageRaw, queryToken, action] = parts;
+  if (!/^\d{16,20}$/.test(authorId)) return null;
+  if (action !== "prev" && action !== "next") return null;
+  return {
+    authorId,
+    page: Math.max(0, Math.floor(Number(pageRaw) || 0)),
+    queryToken: String(queryToken || "-"),
+    action,
+  };
+}
+
+async function buildLyricsPayload(client, guild, authorId, pageIdx, query) {
+  const result = await resolveGuildLyrics(client, guild, query);
+  if (!result?.ok) {
+    return {
+      embeds: [new EmbedBuilder().setColor(0xff0000).setDescription(`**${result?.message || "Errore"}**`)],
+      components: [],
+    };
+  }
+  const pages = Array.isArray(result.pages) ? result.pages : [];
+  if (!pages.length) {
+    return {
+      embeds: [new EmbedBuilder().setColor(0xff0000).setDescription("**Nessun testo da mostrare.**")],
+      components: [],
+    };
+  }
+  const total = pages.length;
+  const safePage = Math.min(total - 1, Math.max(0, pageIdx));
+  const queryToken = encodeQuery(query);
+  return {
+    embeds: [buildLyricsEmbed(result.title, pages[safePage], safePage, total)],
+    components: total > 1 ? buildLyricsRows(authorId, safePage, total, queryToken) : [],
+  };
+}
+
+async function handleLyricsInteraction(interaction) {
+  const parsed = parseLyricsCustomId(interaction.customId);
+  if (!parsed) return false;
+  if (String(interaction.user?.id) !== parsed.authorId) {
+    await interaction
+      .reply({ content: "Solo chi ha usato il comando può cambiare pagina.", flags: PRIVATE })
+      .catch(() => null);
+    return true;
+  }
+  const query = decodeQuery(parsed.queryToken);
+  let page = parsed.page;
+  if (parsed.action === "prev") page = Math.max(0, page - 1);
+  else if (parsed.action === "next") page = page + 1;
+
+  const payload = applyDefaultFooterToEmbeds(
+    await buildLyricsPayload(interaction.client, interaction.guild, parsed.authorId, page, query),
+    interaction.guild,
   );
+  await interaction.update(payload).catch(() => null);
+  return true;
 }
 
 module.exports = {
   name: "lyrics",
   allowEmptyArgs: true,
   description: "Mostra i testi del brano in riproduzione o di un brano ricercato.",
-  usage: ",lyrics [ricerca]",
+  usage: ",lyrics [brano]",
   examples: [",lyrics", ",lyrics 16 marzo achille lauro"],
+  parseLyricsCustomId,
+  handleLyricsInteraction,
+  buildLyricsPayload,
   async execute(message, args) {
     const query = Array.isArray(args) ? args.join(" ").trim() : "";
-    const result = await resolveGuildLyrics(message.client, message.guild, query);
-    if (!result.ok) {
-      const err = new EmbedBuilder()
-        .setColor(0xff0000)
-        .setDescription(`**${result.message}**`);
-      await safeMessageReply(
-        message,
-        applyDefaultFooterToEmbeds(
-          { embeds: [err], allowedMentions: { repliedUser: false } },
-          message.guild,
-        ),
-      ).catch(() => null);
-      return;
-    }
-    const pages = result.pages;
-    if (!Array.isArray(pages) || !pages.length) {
-      const err = new EmbedBuilder()
-        .setColor(0xff0000)
-        .setDescription("<a:VC_Cross:1482532424570376253> Nessun testo da mostrare.");
-      await safeMessageReply(
-        message,
-        applyDefaultFooterToEmbeds(
-          { embeds: [err], allowedMentions: { repliedUser: false } },
-          message.guild,
-        ),
-      ).catch(() => null);
-      return;
-    }
-    const sessionKey = crypto.randomBytes(16).toString("hex");
-    const state = {
-      pages,
-      title: result.title,
-      authorId: message.author.id,
-      page: 0,
-    };
-    registerLyricsSession(sessionKey, state);
-    const embed = buildLyricsEmbed(state.title, pages[0], 0, pages.length);
-    const row = buildRows(sessionKey, 0, pages.length);
-    const sent = await safeMessageReply(
+    const payload = await buildLyricsPayload(
+      message.client,
+      message.guild,
+      message.author.id,
+      0,
+      query,
+    );
+    await safeMessageReply(
       message,
       applyDefaultFooterToEmbeds(
-        {
-          embeds: [embed],
-          components: [row],
-          allowedMentions: { repliedUser: false },
-        },
+        { ...payload, allowedMentions: { repliedUser: false } },
         message.guild,
       ),
     ).catch(() => null);
-    if (!sent?.createMessageComponentCollector) {
-      deleteLyricsSession(sessionKey);
-      return;
-    }
-    const collector = sent.createMessageComponentCollector({
-      componentType: ComponentType.Button,
-      time: 420_000,
-      filter: (i) => String(i.customId || "").startsWith(`vcly:${sessionKey}:`),
-    });
-    collector.on("collect", async (i) => {
-      const st = getLyricsSession(sessionKey);
-      if (!st) {
-        await i.deferUpdate().catch(() => null);
-        return;
-      }
-      if (i.user.id !== st.authorId) {
-        await i.reply({ content: "<a:VC_Attention:1482534443632558151> Solo chi ha usato il comando può cambiare pagina.", ephemeral: true }).catch(
-          () => null,
-        );
-        return;
-      }
-      const dir = String(i.customId || "").split(":").pop();
-      if (dir === "prev") st.page = Math.max(0, st.page - 1);
-      else if (dir === "next") st.page = Math.min(st.pages.length - 1, st.page + 1);
-      const nextEmbed = buildLyricsEmbed(st.title, st.pages[st.page], st.page, st.pages.length);
-      const nextRow = buildRows(sessionKey, st.page, st.pages.length);
-      await i
-        .update(
-          applyDefaultFooterToEmbeds({ embeds: [nextEmbed], components: [nextRow] }, message.guild),
-        )
-        .catch(() => null);
-    });
-    collector.on("end", () => {
-      deleteLyricsSession(sessionKey);
-      sent.edit({ components: [] }).catch(() => null);
-    });
   },
 };

@@ -1,14 +1,29 @@
 (function () {
   var STORAGE_PREFIX = "vc_notifications_v1:";
   var DISMISSED_PREFIX = "vc_notifications_dismissed_v1:";
+  var NOTIF_SYNC_KEY = "vc_notifications_sync_v1";
+  var PENDING_READ_PREFIX = "vc_notifications_pending_read_v1:";
   var PENDING_LOGIN_NOTIF_KEY = "vc_pending_login_notification_v1";
   var DISCORD_ACCESS_TOKEN_KEY = "vc_discord_access_token";
   var filterMode = "all";
   var currentUserId = "";
   var lastNotifyListRenderSig = "";
+  var ignoreSelfNotifSync = 0;
+  var notifPeerSyncTimer = null;
+  var notifSyncBc = null;
+  try {
+    notifSyncBc = new BroadcastChannel("vc_notifications_sync_v1");
+  } catch (eBc) {
+    notifSyncBc = null;
+  }
 
   function byId(id) {
     return document.getElementById(id);
+  }
+
+  function t(key, vars) {
+    if (window.VcI18n && typeof window.VcI18n.t === "function") return window.VcI18n.t(key, vars);
+    return key;
   }
 
   function resolveNotifDestUrl(dest) {
@@ -42,6 +57,38 @@
         return;
       } catch (e) {}
     }
+    try {
+      var dest = new URL(String(href), window.location.origin);
+      var here = window.location;
+      var destPath = String(dest.pathname || "").replace(/\/+$/, "") || "/";
+      var herePath = String(here.pathname || "").replace(/\/+$/, "") || "/";
+      var isTicketsDest = /\/tickets$/i.test(destPath);
+      var onTicketsPage = /\/tickets$/i.test(herePath);
+      if (isTicketsDest && onTicketsPage) {
+        var ticketId = String(dest.hash || "").replace(/^#/, "").trim();
+        var wantStaff = false;
+        try {
+          wantStaff = dest.searchParams.get("view") === "staff";
+        } catch (eSp) {}
+        if (wantStaff && String(here.search || "").indexOf("view=staff") < 0) {
+          window.location.href = dest.pathname + "?view=staff" + (ticketId ? "#" + ticketId : "");
+          return;
+        }
+        if (ticketId && /^[a-f0-9]{24}$/i.test(ticketId)) {
+          if (String(here.hash || "").replace(/^#/, "") !== ticketId) {
+            here.hash = ticketId;
+          }
+          try {
+            window.dispatchEvent(
+              new CustomEvent("vc:web-tickets-open", {
+                detail: { id: ticketId, staff: wantStaff },
+              }),
+            );
+          } catch (eEv) {}
+          return;
+        }
+      }
+    } catch (eNav) {}
     window.location.href = href;
   }
 
@@ -125,13 +172,55 @@
     }
   }
 
+  function notifyNotifStorePeers() {
+    try {
+      localStorage.setItem(NOTIF_SYNC_KEY, String(Date.now()) + ":" + Math.random().toString(36).slice(2, 8));
+    } catch (ePing) {}
+    try {
+      if (notifSyncBc) notifSyncBc.postMessage({ t: Date.now() });
+    } catch (eBcPost) {}
+    ignoreSelfNotifSync += 1;
+    try {
+      window.dispatchEvent(new CustomEvent("vc:notifications-sync"));
+    } catch (eEv) {
+    } finally {
+      ignoreSelfNotifSync -= 1;
+    }
+  }
+  function isNotifStorageSyncKey(key) {
+    var k = String(key || "");
+    if (!k) return false;
+    if (k === NOTIF_SYNC_KEY) return true;
+    if (k.indexOf(STORAGE_PREFIX) === 0) return true;
+    if (k.indexOf(DISMISSED_PREFIX) === 0) return true;
+    return false;
+  }
+  function onNotifStorePeerSync() {
+    if (ignoreSelfNotifSync > 0) return;
+    lastNotifyListRenderSig = "";
+    renderList();
+    try {
+      if (window.vcNotify && typeof window.vcNotify.refresh === "function") {
+        window.vcNotify.refresh({ force: true });
+      }
+    } catch (eRefresh) {}
+    if (!normalizeUserId(currentUserId) || !getDiscordAccessToken()) return;
+    if (notifPeerSyncTimer) clearTimeout(notifPeerSyncTimer);
+    notifPeerSyncTimer = setTimeout(function () {
+      notifPeerSyncTimer = null;
+      syncSiteNotificationsFromServer();
+    }, 250);
+  }
   function saveDismissedSet(setLike, userId) {
     var key = userDismissedKey(userId);
     if (!key) return;
     var arr = Array.from(setLike || []).filter(Boolean);
     if (arr.length > 500) arr = arr.slice(arr.length - 500);
+    var next = JSON.stringify(arr);
     try {
-      localStorage.setItem(key, JSON.stringify(arr));
+      if (localStorage.getItem(key) === next) return;
+      localStorage.setItem(key, next);
+      notifyNotifStorePeers();
     } catch (e) {}
   }
 
@@ -165,13 +254,15 @@
   function buildNotifFingerprintId(payload, ownerId, kind, openUrl) {
     var p = payload && typeof payload === "object" ? Object.assign({}, payload) : {};
     delete p.id;
-    delete p.at;
     delete p.read;
     delete p.readAt;
     return buildStableNotifId(p, ownerId, kind, openUrl);
   }
   function isAutoClientNotifId(id) {
     return String(id || "").indexOf("auto:") === 0;
+  }
+  function isServerBackedNotifId(id) {
+    return /^[a-f0-9]{24}$/i.test(String(id || "").trim());
   }
   function sameNotifCore(a, b) {
     if (!a || !b) return false;
@@ -183,6 +274,60 @@
     );
   }
 
+  function pendingReadKey() {
+    var uid = normalizeUserId(currentUserId);
+    return uid ? PENDING_READ_PREFIX + uid : "";
+  }
+  function loadPendingReadMap() {
+    var key = pendingReadKey();
+    if (!key) return {};
+    try {
+      var raw = sessionStorage.getItem(key);
+      var arr = raw ? JSON.parse(raw) : [];
+      var map = {};
+      if (Array.isArray(arr)) {
+        for (var i = 0; i < arr.length; i += 1) {
+          var id = String(arr[i] || "").trim();
+          if (id) map[id] = true;
+        }
+      }
+      return map;
+    } catch (e) {
+      return {};
+    }
+  }
+  function savePendingReadMap(map) {
+    var key = pendingReadKey();
+    if (!key) return;
+    try {
+      sessionStorage.setItem(key, JSON.stringify(Object.keys(map || {})));
+    } catch (e) {}
+  }
+  function rememberPendingRead(id) {
+    var sid = String(id || "").trim();
+    if (!sid) return;
+    var map = loadPendingReadMap();
+    map[sid] = true;
+    savePendingReadMap(map);
+  }
+  function forgetPendingRead(id) {
+    var sid = String(id || "").trim();
+    if (!sid) return;
+    var map = loadPendingReadMap();
+    if (!map[sid]) return;
+    delete map[sid];
+    savePendingReadMap(map);
+  }
+  function applyPendingReads(items) {
+    var map = loadPendingReadMap();
+    var keys = Object.keys(map);
+    if (!keys.length) return Array.isArray(items) ? items : [];
+    return (Array.isArray(items) ? items : []).map(function (x) {
+      var id = String((x && x.id) || "").trim();
+      if (id && map[id] && !x.read) return Object.assign({}, x, { read: true });
+      return x;
+    });
+  }
   function loadStored() {
     var key = userStorageKey();
     if (!key) return [];
@@ -190,7 +335,7 @@
       var raw = localStorage.getItem(key);
       if (!raw) return [];
       var arr = JSON.parse(raw);
-      return sortNotifItems(Array.isArray(arr) ? arr : []);
+      return applyPendingReads(sortNotifItems(Array.isArray(arr) ? arr : []));
     } catch (e) {
       return [];
     }
@@ -210,8 +355,11 @@
   function saveStored(items) {
     var key = userStorageKey();
     if (!key) return;
+    var next = JSON.stringify(sortNotifItems(items));
     try {
-      localStorage.setItem(key, JSON.stringify(sortNotifItems(items)));
+      if (localStorage.getItem(key) === next) return;
+      localStorage.setItem(key, next);
+      notifyNotifStorePeers();
     } catch (e) {}
   }
 
@@ -358,25 +506,25 @@
   }
 
   function kindUiLabel(kind) {
-    if (kind === "vote") return "Voto";
-    if (kind === "vote_reminder") return "Promemoria";
-    if (kind === "success") return "Successo";
-    if (kind === "review") return "Recensione";
-    if (kind === "mod") return "Moderazione";
-    if (kind === "suggestion") return "Suggerimento";
-    return "Info";
+    if (kind === "vote") return t("notifPage.kind.vote");
+    if (kind === "vote_reminder") return t("notifPage.kind.voteReminder");
+    if (kind === "success") return t("notifPage.kind.success");
+    if (kind === "review") return t("notifPage.kind.review");
+    if (kind === "mod") return t("notifPage.kind.mod");
+    if (kind === "suggestion") return t("notifPage.kind.suggestion");
+    return t("notifPage.kind.info");
   }
 
   function timeAgoIt(atMs) {
     var s = Math.floor((Date.now() - atMs) / 1000);
-    if (s < 45) return "Ora";
+    if (s < 45) return t("notifPage.timeNow");
     var m = Math.floor(s / 60);
-    if (m < 60) return m === 1 ? "1 minuto fa" : m + " minuti fa";
+    if (m < 60) return m === 1 ? t("notifPage.timeMinute", { n: m }) : t("notifPage.timeMinutes", { n: m });
     var h = Math.floor(m / 60);
-    if (h < 24) return h === 1 ? "1 ora fa" : h + " ore fa";
+    if (h < 24) return h === 1 ? t("notifPage.timeHour", { n: h }) : t("notifPage.timeHours", { n: h });
     var d = Math.floor(h / 24);
-    if (d < 7) return d === 1 ? "1 giorno fa" : d + " giorni fa";
-    return "Più di una settimana fa";
+    if (d < 7) return d === 1 ? t("notifPage.timeDay", { n: d }) : t("notifPage.timeDays", { n: d });
+    return t("notifPage.timeOverWeek");
   }
 
   function filteredRows(rows) {
@@ -407,7 +555,12 @@
     var readEl = byId("vc-stat-read");
     var filteredEl = byId("vc-stat-filtered");
     var countApi = typeof window !== "undefined" ? window.VCCountUp : null;
-    if (subtitle) subtitle.textContent = (unread === 0 ? "Tutte lette" : unread + " non lette") + " - " + total + " totali";
+    if (subtitle) {
+      subtitle.textContent =
+        (unread === 0 ? t("notifPage.allRead") : t("notif.unread", { n: unread })) +
+        " - " +
+        t("notifPage.totalSuffix", { n: total });
+    }
     if (totalEl) {
       if (countApi && typeof countApi.set === "function") countApi.set(totalEl, total, "int");
       else totalEl.textContent = String(total);
@@ -427,6 +580,7 @@
   }
 
   function markRead(id) {
+    rememberPendingRead(id);
     var next = loadStored().map(function (x) {
       if (x.id === id) return Object.assign({}, x, { read: true });
       return x;
@@ -437,30 +591,44 @@
     var token = getDiscordAccessToken();
     var uid = normalizeUserId(currentUserId);
     var sid = String(id || "").trim();
-    if (!token || !uid || !sid) return;
-    fetch(resolvedSiteNotificationsReadUrl(), {
+    if (!token || !uid || !sid) return Promise.resolve(false);
+    return fetch(resolvedSiteNotificationsReadUrl(), {
       method: "POST",
       headers: {
         Authorization: "Bearer " + token,
         "Content-Type": "application/json",
       },
       credentials: "omit",
+      keepalive: true,
       body: JSON.stringify({ id: sid }),
-    }).catch(function () {});
+    })
+      .then(function (r) {
+        return r && r.ok;
+      })
+      .catch(function () {
+        return false;
+      });
   }
   function markAllReadOnServer() {
     var token = getDiscordAccessToken();
     var uid = normalizeUserId(currentUserId);
-    if (!token || !uid) return;
-    fetch(resolvedSiteNotificationsReadUrl(), {
+    if (!token || !uid) return Promise.resolve(false);
+    return fetch(resolvedSiteNotificationsReadUrl(), {
       method: "POST",
       headers: {
         Authorization: "Bearer " + token,
         "Content-Type": "application/json",
       },
       credentials: "omit",
+      keepalive: true,
       body: JSON.stringify({ all: true }),
-    }).catch(function () {});
+    })
+      .then(function (r) {
+        return r && r.ok;
+      })
+      .catch(function () {
+        return false;
+      });
   }
   function deleteSiteNotificationOnServer(id) {
     var token = getDiscordAccessToken();
@@ -566,8 +734,14 @@
     var oldItems = loadStored();
     var beforeSig = buildNotifyPageSignature(oldItems, filteredRows(oldItems).length);
     var dismissed = loadDismissedSet(uid);
+    var oldReadMap = {};
     var serverIdMap = {};
     var fromServer = [];
+    for (var ori = 0; ori < oldItems.length; ori += 1) {
+      var oid = String((oldItems[ori] && oldItems[ori].id) || "").trim();
+      if (oid && oldItems[ori] && oldItems[ori].read) oldReadMap[oid] = true;
+    }
+    var pendingReadMap = loadPendingReadMap();
     for (var i = 0; i < list.length; i += 1) {
       var row = list[i];
       if (!row || !row.title) continue;
@@ -575,9 +749,16 @@
       if (!sid) continue;
       var mapped = mapServerRowToStoredItemPage(row);
       var fpId = buildNotifFingerprintId(mapped, uid, mapped.kind, mapped.openUrl);
-      if (dismissed.has(sid) || (fpId && dismissed.has(fpId))) continue;
+      // Server = source of truth (dismissed locale non nasconde item ancora in API).
+      if (!isServerBackedNotifId(sid) && dismissed.has(sid)) continue;
+      if (!isServerBackedNotifId(sid) && fpId && dismissed.has(fpId)) continue;
       serverIdMap[sid] = true;
-      fromServer.unshift(mapped);
+      if (mapped.read) forgetPendingRead(sid);
+      fromServer.push(
+        Object.assign({}, mapped, {
+          read: Boolean(mapped.read) || Boolean(oldReadMap[sid]) || Boolean(pendingReadMap[sid]),
+        }),
+      );
     }
     var keepLocal = [];
     for (var li = 0; li < oldItems.length; li += 1) {
@@ -627,7 +808,7 @@
     var dismissed = loadDismissedSet(uid);
     var sid = String(id || "").trim();
     if (sid) dismissed.add(sid);
-    if (item) {
+    if (item && !isServerBackedNotifId(sid)) {
       var fpId = buildNotifFingerprintId(item, uid, String(item.kind || "info"), String(item.openUrl || ""));
       if (fpId) dismissed.add(fpId);
     }
@@ -646,14 +827,30 @@
       var it = items[ci];
       var lid = String((it && it.id) || "").trim();
       if (lid) dismissed.add(lid);
-      var fpId = buildNotifFingerprintId(it, uid, String((it && it.kind) || "info"), String((it && it.openUrl) || ""));
-      if (fpId) dismissed.add(fpId);
+      if (!isServerBackedNotifId(lid)) {
+        var fpId = buildNotifFingerprintId(it, uid, String((it && it.kind) || "info"), String((it && it.openUrl) || ""));
+        if (fpId) dismissed.add(fpId);
+      }
     }
     saveDismissedSet(dismissed, uid);
     saveStored([]);
     clearAllSiteNotificationsOnServer().finally(function () {
       syncSiteNotificationsFromServer();
     });
+  }
+
+  function openAndMarkRead(n, destRaw) {
+    if (!n || !n.id) return;
+    markRead(n.id);
+    markReadOnServer(n.id)
+      .then(function (ok) {
+        if (ok) forgetPendingRead(n.id);
+      })
+      .finally(function () {
+        syncSiteNotificationsFromServer();
+      });
+    renderList();
+    if (destRaw) openNotifDestination(resolveNotifDestUrl(destRaw), n.kind);
   }
 
   function renderList() {
@@ -686,13 +883,7 @@
       if (destRaw) li.classList.add("vc-notify-row--link");
       li.addEventListener("click", function (ev) {
         if (ev.target.closest(".vc-notify-close-btn") || ev.target.closest(".vc-notify-open-btn")) return;
-        markRead(n.id);
-        markReadOnServer(n.id);
-        if (destRaw) {
-          openNotifDestination(resolveNotifDestUrl(destRaw), n.kind);
-          return;
-        }
-        renderList();
+        openAndMarkRead(n, destRaw);
       });
 
       var iconWrap = document.createElement("span");
@@ -733,26 +924,20 @@
       var openBtn = document.createElement("button");
       openBtn.type = "button";
       openBtn.className = "vc-notify-open-btn";
-      openBtn.appendChild(document.createTextNode("Vai "));
+      openBtn.appendChild(document.createTextNode(t("notifPage.goTo") + " "));
       var openChev = document.createElement("i");
       openChev.className = "fa fa-chevron-right";
       openChev.setAttribute("aria-hidden", "true");
       openBtn.appendChild(openChev);
-      openBtn.setAttribute("aria-label", "Vai alla schermata principale");
+      openBtn.setAttribute("aria-label", t("notifPage.goToAria"));
       openBtn.addEventListener("click", function () {
-        markRead(n.id);
-        markReadOnServer(n.id);
-        if (destRaw) {
-          openNotifDestination(resolveNotifDestUrl(destRaw), n.kind);
-          return;
-        }
-        renderList();
+        openAndMarkRead(n, destRaw);
       });
 
       var closeBtn = document.createElement("button");
       closeBtn.type = "button";
       closeBtn.className = "vc-notify-close-btn";
-      closeBtn.setAttribute("aria-label", "Elimina notifica");
+      closeBtn.setAttribute("aria-label", t("notifPage.deleteAria"));
       closeBtn.innerHTML = '<i class="fa fa-times" aria-hidden="true"></i>';
       closeBtn.addEventListener("click", function () {
         removeOne(n.id);
@@ -805,6 +990,24 @@
     syncSiteNotificationsFromServer();
     renderList();
   });
+
+  document.addEventListener("vc:langchange", function () {
+    lastNotifyListRenderSig = "";
+    renderList();
+  });
+
+  window.addEventListener("storage", function (ev) {
+    if (!ev || !isNotifStorageSyncKey(ev.key)) return;
+    onNotifStorePeerSync();
+  });
+  window.addEventListener("vc:notifications-sync", function () {
+    onNotifStorePeerSync();
+  });
+  if (notifSyncBc) {
+    notifSyncBc.addEventListener("message", function () {
+      onNotifStorePeerSync();
+    });
+  }
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", init);

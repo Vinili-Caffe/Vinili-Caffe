@@ -7,23 +7,33 @@ const { handleMessageCommunityExpBonuses } = require("../Services/Community/mess
 const { trackMessageEngagement } = require("../Services/Community/dailyEngagementStatsService");
 const { trackChannelMessage } = require("../Services/Community/dailyChannelMessageStatsService");
 const { handleIdeaBugMessage } = require("../Services/Community/ideaBugThreadService");
+const { handleStaffProofRequestMessage } = require("../Services/Staff/staffProofRequestThreadService");
+const { handleMainStaffAlertThreadMessage } = require("../Services/Staff/mainStaffAlertThreadService");
 const { handleOfficialPrefixMessage } = require("../Utils/Prefix/officialPrefixDispatcher");
 const { channelAllowsMedia, getCachedOrFetchMember, handleDisboardBump, handleDiscadiaBump, handleMovieNightVoteMessage, handlePauseChannelMessage, handleThreadVoteMessage, handleVoteManagerMessage, hasMediaPermission, isDiscordInviteLinkMessage, isMediaMessage, } = require("../Utils/Message/officialMessageAutomationHandlers");
 const { handleAfk, handleCounting, handleMentionAutoReactions, handleMentionAutoResponses, handleWordReactions, logEventError, } = require("../Utils/Message/officialMessageCommunityHandlers");
 const { runAutoModMessage } = require("../Services/Moderation/automodService");
 const { handleCustomProfilePromptMessage } = require("./interaction/customRoleHandlers");
 const { handleTicketMemberPromptMessage } = require("../Utils/Ticket/ticketMemberPrompt");
+const { handleStanzaPanelPromptMessageCreate } = require("../Services/Voice/stanzaVoiceRoomsService");
+const { handleUntrustedBotMessage, handleUntrustedApplicationMessage } = require("../Services/Moderation/trustedBotGuardService");
 const { handleProfileMentionResponsePromptMessage } = require("../Buttons/profile");
 const IDs = require("../Utils/Config/ids");
 const { EPHEMERAL_TTL_SHORT_MS, scheduleMessageDeletion } = require("../Utils/Config/ephemeralMessageTtl");
 const { isCoffeePrefixCommandToken } = require("../../shared/discord/coffeePrefixCommandTokens");
 const guildMemberUpdateExtras = require("./guildMemberUpdate");
 const { handlePartnerDescriptionMessageUpsert, isPartnerDescriptionChannel } = require("../Services/Partner/partnerDescriptionSyncService");
-const { shouldDeleteHumanPartnershipsChannelMessage } = require("../Utils/Partner/partnerPointContextUtils");
+const {
+  handleTenantPartnerDescriptionMessageUpsert,
+  isTenantPartnerDescriptionChannel,
+} = require("../Services/Partner/tenantPartnerDescriptionService");
+const { shouldDeleteHumanPartnershipsChannelMessage, isHumanPartnershipChannelMessage } = require("../Utils/Partner/partnerPointContextUtils");
+const { tryProcessManualPartnershipMessage } = require("../Services/Partner/tenantManualPartnershipService");
 const STAFF_BYPASS_PERMISSIONS = [PermissionFlagsBits.Administrator, PermissionFlagsBits.ManageGuild, PermissionFlagsBits.ManageChannels, PermissionFlagsBits.ManageRoles, PermissionFlagsBits.ManageMessages, PermissionFlagsBits.KickMembers, PermissionFlagsBits.BanMembers, PermissionFlagsBits.ModerateMembers,];
 const FORCE_DELETE_CHANNEL_IDS = new Set([IDs.channels.messagesAutoDelete].filter(Boolean).map((id) => String(id)));
 const MEDIA_BLOCK_EXEMPT_CATEGORY_ID = IDs.categories.categorChat;
 const MEDIA_BLOCK_EXEMPT_CHANNEL_IDS = new Set([IDs.channels.media].filter(Boolean).map((id) => String(id)));
+const TEST_GUILD_ID = String(IDs.guilds?.test || "").trim();
 const WRONG_PREFIX_HINT_CHANNEL_IDS = new Set([IDs.channels.commands, IDs.channels.staffCmds].filter(Boolean).map((id) => String(id)),);
 const AUTOMATION_RECHECK_DELAY_MS = 8000;
 const VOTE_CHANNEL_ID = IDs.channels?.supporters;
@@ -39,20 +49,36 @@ function isViniliFullFeatureGuild(guildId) {
   }
 }
 
-async function executeTenantMediaOnlyMessageFlow(message, resolvedClient, defaultPrefix, isEditedPrefixExecution) {
+async function executeTenantPartnershipMessageFlow(message, resolvedClient, defaultPrefix, isEditedPrefixExecution) {
   if (message.author?.bot || message.system || message.webhookId) return;
-  if (!isEditedPrefixExecution) {
-    try {
-      await handleTtsMessage(message, resolvedClient, defaultPrefix);
-    } catch (error) {
-      logEventError(resolvedClient, "TTS ERROR", error);
+
+  if (isHumanPartnershipChannelMessage(message)) {
+    const manualResult = await tryProcessManualPartnershipMessage(message).catch(() => ({ handled: false }));
+    if (manualResult?.handled) return;
+    const prefixCommand = resolveOfficialPrefixCommandFromMessage(message, resolvedClient, defaultPrefix);
+    if (prefixCommand) {
+      const { sendPartnersChatDeniedPrefixCleanup, partnershipPublishChannelCommandsDeniedReplyContent } = require("../Utils/Partner/partnersChatChannelUtils");
+      const denied = partnershipPublishChannelCommandsDeniedReplyContent(message.channel);
+      if (denied) {
+        await sendPartnersChatDeniedPrefixCleanup(message, denied).catch(() => null);
+        return;
+      }
     }
-    try {
-      await handleAfk(message);
-    } catch (error) {
-      logEventError(resolvedClient, "AFK ERROR", error);
+    if (!prefixCommand) {
+      if (shouldDeleteHumanPartnershipsChannelMessage(message) || manualResult?.delete) {
+        await message.delete().catch(() => null);
+      }
+      return;
     }
   }
+
+  if (
+    message.guild?.id &&
+    isTenantPartnerDescriptionChannel(message.guild.id, message.channelId)
+  ) {
+    void handleTenantPartnerDescriptionMessageUpsert(resolvedClient, message).catch(() => null);
+  }
+
   await handleOfficialPrefixMessage({
     message,
     resolvedClient,
@@ -98,6 +124,21 @@ function resolvePrefixCommandByToken(client, token) {
     client?.pcommands?.get?.(client?.aliases?.get?.(safe)) ||
     null
   );
+}
+
+function resolveOfficialPrefixCommandFromMessage(message, resolvedClient, defaultPrefix) {
+  const content = String(message?.content || "");
+  const prefix = String(defaultPrefix || "+");
+  if (!content.startsWith(prefix)) return null;
+  const args = content.slice(prefix.length).trim().split(/\s+/).filter(Boolean);
+  const rawCmd = args[0];
+  if (!rawCmd) return null;
+  const cmd = String(rawCmd)
+    .replace(/[\u200B-\u200D\uFEFF]/g, "")
+    .replace(/[\u2010\u2011\u2012\u2013\u2014\u2212]/g, "-")
+    .trim()
+    .toLowerCase();
+  return resolvePrefixCommandByToken(resolvedClient, cmd);
 }
 
 function parseWrongPrefixAttempt(content, validPrefix = "+") {
@@ -253,32 +294,39 @@ module.exports = {
 
     const isAutomatedMessage = Boolean(message.author?.bot || message.webhookId || message.applicationId,);
     const isEditedPrefixExecution = Boolean(message?.__fromMessageUpdatePrefix);
-    const defaultPrefix = String(resolvedClient?.config?.prefix || "+");
+    const configPrefix = String(resolvedClient?.config?.prefix || "+");
+    let defaultPrefix = configPrefix;
+    if (message.guild?.id) {
+      try {
+        const {
+          resolveCommandPrefixForGuildFresh,
+        } = require("../MultiGuild/core/tenantGuildSettings");
+        defaultPrefix = await resolveCommandPrefixForGuildFresh(message.guild.id, resolvedClient);
+      } catch {
+        defaultPrefix = configPrefix;
+      }
+    }
     let automodProcessed = false;
 
     if (message.guild && !isViniliFullFeatureGuild(message.guild.id)) {
-      await executeTenantMediaOnlyMessageFlow(message, resolvedClient, defaultPrefix, isEditedPrefixExecution);
+      await executeTenantPartnershipMessageFlow(message, resolvedClient, defaultPrefix, isEditedPrefixExecution);
       return;
     }
-
-    const runAutomodOnce = async () => {
-      if (automodProcessed) return { blocked: false, skipped: true };
-      automodProcessed = true;
-      if (message.system) return { blocked: false, skipped: true };
-      if (message.webhookId) return runAutoModMessage(message);
-      if (message.author?.bot || message.applicationId) return { blocked: false, skipped: true };
-      return runAutoModMessage(message);
-    };
 
     if (!isEditedPrefixExecution && message?.guild) {
       try {
         const nativeBoost = guildMemberUpdateExtras.handleNativeBoostSystemMessage?.(message);
         if (nativeBoost?.userId) {
+          // slots del messaggio native (spesso 1 anche al secondo boost a distanza).
+          // recover somma allo slot già annunciato via nativeEventIncrement.
           void guildMemberUpdateExtras
             .recoverMissingBoostEmbedsForUser(message.guild, nativeBoost.userId, {
               knownNativeSlots: nativeBoost.slots,
               expectedSlots: nativeBoost.slots,
+              nativeEventSlots: nativeBoost.slots,
+              nativeEventIncrement: true,
               startedAt: Date.now(),
+              skipNativeScan: true,
             })
             .catch(() => null);
           const boostChannelId = require("../Utils/Config/ids").channels?.supporters;
@@ -323,6 +371,32 @@ module.exports = {
       }
     }
 
+    if (!isEditedPrefixExecution && message.guild && message.applicationId) {
+      try {
+        if (await handleUntrustedApplicationMessage(message)) return;
+      } catch (error) {
+        logEventError(resolvedClient, "TRUSTED APP GUARD ERROR", error);
+      }
+    }
+
+    if (!isEditedPrefixExecution && message.guild && message.author?.bot) {
+      try {
+        if (await handleUntrustedBotMessage(message)) return;
+      } catch (error) {
+        logEventError(resolvedClient, "TRUSTED BOT GUARD ERROR", error);
+      }
+    }
+
+    const runAutomodOnce = async () => {
+      if (automodProcessed) return { blocked: false, skipped: true };
+      automodProcessed = true;
+      if (message.system) return { blocked: false, skipped: true };
+      if (message.webhookId) return runAutoModMessage(message);
+      if (message.applicationId) return { blocked: false, skipped: true };
+      if (message.author?.bot) return { blocked: false, skipped: true };
+      return runAutoModMessage(message);
+    };
+
     if (
       FORCE_DELETE_CHANNEL_IDS.has(String(message?.channelId || "")) &&
       !message?.system
@@ -341,7 +415,7 @@ module.exports = {
       }
     }
 
-    if (shouldDeleteHumanPartnershipsChannelMessage(message)) {
+    if (isHumanPartnershipChannelMessage(message)) {
       if (!isEditedPrefixExecution) {
         try {
           const automodResult = await runAutomodOnce();
@@ -350,8 +424,23 @@ module.exports = {
           logEventError(resolvedClient, "AUTOMOD ERROR", error);
         }
       }
-      await message.delete().catch(() => { });
-      return;
+      const manualResult = await tryProcessManualPartnershipMessage(message).catch(() => ({ handled: false }));
+      if (manualResult?.handled) return;
+      const prefixCommand = resolveOfficialPrefixCommandFromMessage(message, resolvedClient, defaultPrefix);
+      if (prefixCommand) {
+        const { sendPartnersChatDeniedPrefixCleanup, partnershipPublishChannelCommandsDeniedReplyContent } = require("../Utils/Partner/partnersChatChannelUtils");
+        const denied = partnershipPublishChannelCommandsDeniedReplyContent(message.channel);
+        if (denied) {
+          await sendPartnersChatDeniedPrefixCleanup(message, denied).catch(() => null);
+          return;
+        }
+      }
+      if (!prefixCommand) {
+        if (shouldDeleteHumanPartnershipsChannelMessage(message) || manualResult?.delete) {
+          await message.delete().catch(() => { });
+        }
+        return;
+      }
     }
 
     if (!isEditedPrefixExecution) {
@@ -373,7 +462,19 @@ module.exports = {
 
     try {
       if (!isEditedPrefixExecution) {
-        if (message.guild && message.member && !isAutomatedMessage && isMediaMessage(message) && !isDiscordInviteLinkMessage(message) && !hasMediaPermission(message.member) && !channelAllowsMedia(message) && message.channel?.parentId !== MEDIA_BLOCK_EXEMPT_CATEGORY_ID && !MEDIA_BLOCK_EXEMPT_CHANNEL_IDS.has(message.channel?.id)) {
+        if (
+          message.guild &&
+          TEST_GUILD_ID &&
+          String(message.guild.id) !== TEST_GUILD_ID &&
+          message.member &&
+          !isAutomatedMessage &&
+          isMediaMessage(message) &&
+          !isDiscordInviteLinkMessage(message) &&
+          !hasMediaPermission(message.member) &&
+          !channelAllowsMedia(message) &&
+          message.channel?.parentId !== MEDIA_BLOCK_EXEMPT_CATEGORY_ID &&
+          !MEDIA_BLOCK_EXEMPT_CHANNEL_IDS.has(message.channel?.id)
+        ) {
           setImmediate(() => {
             recordMessageActivity(message).catch((err) => logEventError(resolvedClient, "ACTIVITY MESSAGE ERROR", err));
           });
@@ -413,6 +514,7 @@ module.exports = {
         if (await handleProfileMentionResponsePromptMessage(message)) return;
         if (await handleCustomProfilePromptMessage(message)) return;
         if (await handleTicketMemberPromptMessage(message)) return;
+        if (await handleStanzaPanelPromptMessageCreate(message)) return;
       } catch (error) {
         logEventError(resolvedClient, "CUSTOM PROFILE PROMPT ERROR", error);
       }
@@ -422,6 +524,22 @@ module.exports = {
       setImmediate(() => {
         handleIdeaBugMessage(message).catch((err) =>
           logEventError(resolvedClient, "IDEA BUG THREAD ERROR", err),
+        );
+      });
+    }
+
+    if (message.guild) {
+      setImmediate(() => {
+        handleStaffProofRequestMessage(message).catch((err) =>
+          logEventError(resolvedClient, "STAFF PROOF THREAD ERROR", err),
+        );
+      });
+    }
+
+    if (message.guild) {
+      setImmediate(() => {
+        handleMainStaffAlertThreadMessage(message).catch((err) =>
+          logEventError(resolvedClient, "MAIN STAFF ALERT THREAD ERROR", err),
         );
       });
     }
@@ -463,52 +581,66 @@ module.exports = {
         );
       });
 
-      const [minigameResult, afkResult, pmAfkChatResult, mentionsResult, mentionResponsesResult, countingResult, wordReactionsResult] = await Promise.allSettled([
-        handleMinigameMessage(message, resolvedClient),
-        handleAfk(message),
-        (async () => {
-          const { handlePmVoiceAfkChatMessage } = require("../Services/Staff/pmVoiceAfkWatchService");
-          return handlePmVoiceAfkChatMessage(message, resolvedClient);
-        })(),
-        handleMentionAutoReactions(message),
-        handleMentionAutoResponses(message),
-        handleCounting(message, resolvedClient),
-        handleWordReactions(message),
-      ]);
-      if (minigameResult.status === "rejected") {
-        logEventError(resolvedClient, "MINIGAME ERROR", minigameResult.reason);
-      }
-      if (afkResult.status === "rejected") {
-        logEventError(resolvedClient, "AFK ERROR", afkResult.reason);
-      }
-      if (pmAfkChatResult.status === "rejected") {
-        logEventError(resolvedClient, "PM AFK CHAT ERROR", pmAfkChatResult.reason);
-      }
-      if (mentionsResult.status === "rejected") {
-        logEventError(resolvedClient, "MENTION REACTION ERROR", mentionsResult.reason);
-      }
-      if (mentionResponsesResult.status === "rejected") {
-        logEventError(resolvedClient, "MENTION RESPONSE ERROR", mentionResponsesResult.reason);
-      }
-      if (countingResult.status === "rejected") {
-        logEventError(resolvedClient, "COUNTING ERROR", countingResult.reason);
-      }
-      if (wordReactionsResult.status === "rejected") {
-        logEventError(resolvedClient, "WORD REACTIONS ERROR", wordReactionsResult.reason);
+      const runCommunitySideEffects = () =>
+        Promise.allSettled([
+          handleMinigameMessage(message, resolvedClient),
+          handleAfk(message),
+          (async () => {
+            const { handlePmVoiceAfkChatMessage } = require("../Services/Staff/pmVoiceAfkWatchService");
+            return handlePmVoiceAfkChatMessage(message, resolvedClient);
+          })(),
+          handleMentionAutoReactions(message),
+          handleMentionAutoResponses(message),
+          handleCounting(message, resolvedClient),
+          handleWordReactions(message),
+        ]).then((results) => {
+          const labels = [
+            "MINIGAME ERROR",
+            "AFK ERROR",
+            "PM AFK CHAT ERROR",
+            "MENTION REACTION ERROR",
+            "MENTION RESPONSE ERROR",
+            "COUNTING ERROR",
+            "WORD REACTIONS ERROR",
+          ];
+          for (let i = 0; i < results.length; i += 1) {
+            if (results[i].status === "rejected") {
+              logEventError(resolvedClient, labels[i], results[i].reason);
+            }
+          }
+        });
+
+      // Dopo i riavvii i minigiochi/counting possono bloccarsi secondi: i +comandi non devono aspettare.
+      const isPrefixLike = String(message.content || "").trim().startsWith(String(defaultPrefix || "+"));
+      if (isPrefixLike) {
+        setImmediate(() => {
+          runCommunitySideEffects().catch(() => null);
+        });
+      } else {
+        await runCommunitySideEffects();
       }
     }
 
     let overrideCommand = null;
     if (!isEditedPrefixExecution) {
-      try {
-        await handleTtsMessage(message, resolvedClient, defaultPrefix);
-      } catch (error) {
-        logEventError(resolvedClient, "TTS ERROR", error);
+      const isPrefixLike = String(message.content || "").trim().startsWith(String(defaultPrefix || "+"));
+      if (!isPrefixLike) {
+        try {
+          await handleTtsMessage(message, resolvedClient, defaultPrefix);
+        } catch (error) {
+          logEventError(resolvedClient, "TTS ERROR", error);
+        }
       }
     }
 
     if (message.guild && isPartnerDescriptionChannel(message.channelId)) {
       void handlePartnerDescriptionMessageUpsert(resolvedClient, message).catch(() => null);
+    }
+    if (
+      message.guild?.id &&
+      isTenantPartnerDescriptionChannel(message.guild.id, message.channelId)
+    ) {
+      void handleTenantPartnerDescriptionMessageUpsert(resolvedClient, message).catch(() => null);
     }
 
     await handleOfficialPrefixMessage({ message, resolvedClient, defaultPrefix, overrideCommand, maybeSendWrongPrefixHint, getCachedOrFetchMember, hasAnyStaffBypassPermission });

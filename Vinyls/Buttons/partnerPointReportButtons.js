@@ -1,8 +1,8 @@
 const { MessageFlags } = require("discord.js");
-const IDs = require("../Utils/Config/ids");
 const { removePartnerPoints, formatPartnerPointsChange } = require("../Utils/Staff/partnerPointsUtils");
-const { resolvePartnerPointsShown } = require("../Utils/Staff/partnerPointsDisplayUtils");
+const { resolvePartnerTotalEarned, resolvePartnerPointsShown } = require("../Utils/Staff/partnerPointsDisplayUtils");
 const { memberIsHighStaffForPointReview } = require("../Utils/Partner/partnerPointContextUtils");
+const { memberHasPartnerManagerRole } = require("../Utils/Partner/partnershipConfigResolver");
 
 const PREFIX_OK = "partner_pt_ok:";
 const PREFIX_NO = "partner_pt_no:";
@@ -68,7 +68,7 @@ module.exports = {
     const updatedContent = `${nextContent}\n${statusLine}`;
     if (isConfirm) {
       const pmMember = await interaction.guild.members.fetch(parsed.pmUserId).catch(() => null);
-      if (!pmMember?.roles?.cache?.has?.(IDs.roles?.PartnerManager)) {
+      if (!memberHasPartnerManagerRole(pmMember, interaction.guild.id)) {
         await interaction.reply({
           content: "<a:VC_Cross:1482532424570376253> L'utente non è più Partner Manager.",
           flags: EPHEMERAL,
@@ -87,9 +87,12 @@ module.exports = {
         ?.edit({ content: updatedContent, components: disableRows(interaction.message.components) })
         .catch(() => null);
       const changeLabel = formatPartnerPointsChange("remove", staffData?._partnerPointsRemoved ?? 1);
-      const total = resolvePartnerPointsShown(staffData?.staff);
+      const total = resolvePartnerTotalEarned(staffData?.staff);
+      const spendable = resolvePartnerPointsShown(staffData?.staff);
+      const saldoHint =
+        Number(spendable) !== Number(total) ? ` · Saldo shop: \`${spendable}\`` : "";
       await interaction.reply({
-        content: `<:success:1461731530333229226> **${changeLabel}** a <@${parsed.pmUserId}>. Totale: \`${total}\`.`,
+        content: `<:success:1461731530333229226> **${changeLabel}** a <@${parsed.pmUserId}>. Totale: \`${total}\`${saldoHint}.`,
         flags: EPHEMERAL,
       });
       return true;

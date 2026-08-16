@@ -6,7 +6,7 @@
     <title>Cookie Policy | {{SITE_NAME}}</title>
     <meta name="description" content="Cookie Policy del sito {{SITE_NAME}}: cookie tecnici, sicurezza, durata e gestione." />
     <meta name="robots" content="index, follow" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="{{OG_SITE_NAME}}" />
     <meta property="og:locale" content="it_IT" />
@@ -63,7 +63,7 @@
             <details class="vc-snav-details">
               <summary class="vc-snav-summary"><span>Richieste</span><i class="fa fa-chevron-down vc-snav-chev text-[0.65rem] opacity-80" aria-hidden="true"></i></summary>
               <div class="vc-snav-panel">
-                <a class="vc-snav-row" href="{{RICHIESTE_UNBAN_URL}}"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-unlock"></i></span><span>Unban</span></a>
+                <a class="vc-snav-row" href="{{RICHIESTE_UNBAN_URL}}"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-balance-scale"></i></span><span data-i18n="nav.appeals">Appelli</span></a>
                 <a class="vc-snav-row" href="{{RICHIESTE_CANDIDATURE_URL}}"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-file-text-o"></i></span><span>Candidature</span></a>
                 <a class="vc-snav-row" href="{{RICHIESTE_SUGGERIMENTI_URL}}"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-lightbulb-o"></i></span><span>Suggerimenti</span></a>
               </div>
@@ -112,32 +112,43 @@
 
     <main class="vc-legal-main relative z-10 mx-auto px-4 pb-20 pt-32 sm:pt-40">
       <section class="vc-legal-hero text-center">
-        <h1 class="vc-legal-hero__title">Cookie Policy</h1>
-        <p class="vc-legal-hero__meta">Ultimo aggiornamento: {{LEGAL_COOKIE_UPDATED}}</p>
+        <h1 class="vc-legal-hero__title" data-i18n="legal.cookie.h1">Cookie Policy</h1>
+        <p class="vc-legal-hero__meta"><span data-i18n="legal.cookie.updated">Ultimo aggiornamento:</span> <span>{{LEGAL_COOKIE_UPDATED}}</span></p>
       </section>
 
       <section class="vc-legal-stack" aria-label="Sezioni Cookie Policy">
         <article class="vc-legal-card vc-legal-card--gold">
           <div class="vc-legal-card__head">
             <span class="vc-legal-card__icon"><i class="fa fa-circle-o-notch" aria-hidden="true"></i></span>
-            <h2 class="vc-legal-card__title">Cosa sono i cookie?</h2>
+            <h2 class="vc-legal-card__title" data-i18n="legal.cookie.s1.title">Cosa sono i cookie?</h2>
           </div>
-          <p>I cookie sono piccoli file di testo memorizzati sul tuo dispositivo quando visiti un sito web. Vengono utilizzati per far funzionare il sito correttamente, mantenere l'accesso e proteggere la navigazione.</p>
+          <div data-i18n-html="legal.cookie.s1.body">
+          <p>I cookie sono piccoli file di testo memorizzati sul dispositivo quando visiti un sito. Usano tecnologie simili anche lo storage del browser (<em>localStorage</em>/<em>sessionStorage</em>) per login, preferenze e sicurezza.</p>
+          </div>
         </article>
 
         <article class="vc-legal-card vc-legal-card--blue">
           <div class="vc-legal-card__head">
             <span class="vc-legal-card__icon"><i class="fa fa-file-text-o" aria-hidden="true"></i></span>
-            <h2 class="vc-legal-card__title">Cookie che utilizziamo</h2>
+            <h2 class="vc-legal-card__title" data-i18n="legal.cookie.s2.title">Cookie che utilizziamo</h2>
           </div>
-
-          <h3 class="vc-cookie-section-title"><i class="fa fa-check-circle-o" aria-hidden="true"></i> Cookie essenziali</h3>
-          <p>Utilizziamo cookie tecnici strettamente necessari e, dove richiesto dal login Discord, token tecnici di sessione salvati nel browser. La sessione locale del sito può durare fino a 90 giorni. Disabilitare questi elementi può impedire accesso e funzioni riservate.</p>
+          <div data-i18n-html="legal.cookie.s2.body">
+          <h3 class="vc-cookie-section-title">Necessari al funzionamento</h3>
+          <p>Utilizziamo cookie tecnici e storage locale strettamente necessari. Senza di essi login e aree riservate possono non funzionare.</p>
+          <p>
+          <strong>Sessione OAuth Discord</strong> — token e scadenza nel localStorage (fino a 90 giorni / logout / scadenza token).<br>
+          <strong>Scope e cache profilo</strong> — ricordano permessi OAuth e dati minimi del profilo per ridurre chiamate a Discord.<br>
+          <strong>Preferenza lingua</strong> — salva la lingua del sito.<br>
+          <strong>Preferenza banner cookie</strong> — ricorda la conferma del banner (fino a 180 giorni).<br>
+          <strong>Stato UI tecnico</strong> — chiavi locali per notifiche, accessi eventi o anteprime, senza profilazione pubblicitaria.</p>
+          <h3 class="vc-cookie-section-title">Analitici / marketing</h3>
+          <p>{{SITE_NAME}} <strong>non usa</strong> cookie di profilazione pubblicitaria, remarketing o social tracking (salvo cookie di Discord durante OAuth). Eventuali strumenti di misura o banner di consenso, se attivati in futuro, saranno indicati qui e richiedono consenso ove obbligatorio.</p>
+          </div>
 
           <div class="vc-cookie-mini-stack">
             <div class="vc-cookie-mini-card">
               <div class="vc-cookie-mini-card__head">
-                <h4 class="vc-cookie-mini-card__title">Sessione autenticata sito</h4>
+                <h4 class="vc-cookie-mini-card__title">Sessione OAuth Discord</h4>
                 <span class="vc-cookie-mini-card__badge">Essenziale</span>
               </div>
               <ul class="vc-legal-kvlist">
@@ -188,117 +199,120 @@
         <article class="vc-legal-card vc-legal-card--cyan">
           <div class="vc-legal-card__head">
             <span class="vc-legal-card__icon"><i class="fa fa-shield" aria-hidden="true"></i></span>
-            <h2 class="vc-legal-card__title">Sicurezza dei cookie</h2>
+            <h2 class="vc-legal-card__title" data-i18n="legal.cookie.s3.title">Sicurezza dei cookie</h2>
           </div>
+          <div data-i18n-html="legal.cookie.s3.body">
           <p>I nostri cookie utilizzano protezioni avanzate:</p>
           <ul class="vc-legal-list">
-            <li><span class="vc-legal-card__label">HTTPS/TLS</span> — comunicazioni cifrate con i servizi API.</li>
-            <li><span class="vc-legal-card__label">State OAuth anti-CSRF</span> — verifica dello stato nelle callback di login.</li>
-            <li><span class="vc-legal-card__label">Scadenza sessione</span> — la sessione locale termina dopo massimo 90 giorni, logout o invalida/scadenza del token Discord.</li>
-            <li><span class="vc-legal-card__label">Dati minimizzati</span> — solo dati tecnici strettamente necessari al funzionamento.</li>
+          <li>
+          <span class="vc-legal-card__label">HTTPS/TLS</span> — comunicazioni cifrate con i servizi API.</li>
+          <li>
+          <span class="vc-legal-card__label">State OAuth anti-CSRF</span> — verifica dello stato nelle callback di login.</li>
+          <li>
+          <span class="vc-legal-card__label">Scadenza sessione</span> — la sessione locale termina dopo massimo 90 giorni, logout o invalida/scadenza del token Discord.</li>
+          <li>
+          <span class="vc-legal-card__label">Dati minimizzati</span> — solo dati tecnici strettamente necessari al funzionamento.</li>
           </ul>
+          </div>
         </article>
 
         <article class="vc-legal-card vc-legal-card--purple">
           <div class="vc-legal-card__head">
             <span class="vc-legal-card__icon"><i class="fa fa-bullseye" aria-hidden="true"></i></span>
-            <h2 class="vc-legal-card__title">Finalità dei cookie</h2>
+            <h2 class="vc-legal-card__title" data-i18n="legal.cookie.s4.title">Finalità dei cookie</h2>
           </div>
-          <p>Utilizziamo i cookie per:</p>
+          <div data-i18n-html="legal.cookie.s4.body">
+          <p>Utilizziamo cookie e storage locale per:</p>
           <ul class="vc-legal-list">
-            <li>Mantenerti autenticato durante la navigazione.</li>
-            <li>Proteggere il tuo account da accessi non autorizzati.</li>
-            <li>Prevenire attacchi informatici e abusi automatizzati.</li>
-            <li>Garantire il funzionamento delle votazioni e delle aree riservate.</li>
-            <li>Fornire un'esperienza sicura e fluida.</li>
+          <li>Mantenerti autenticato sul sito e sulla dashboard.</li>
+          <li>Proteggere account e API da accessi non autorizzati.</li>
+          <li>Prevenire abusi automatizzati.</li>
+          <li>Ricordare lingua e scelte tecniche di interfaccia.</li>
+          <li>Supportare votazioni e aree riservate.</li>
           </ul>
+          </div>
         </article>
 
         <article class="vc-legal-card vc-legal-card--gold">
           <div class="vc-legal-card__head">
             <span class="vc-legal-card__icon"><i class="fa fa-balance-scale" aria-hidden="true"></i></span>
-            <h2 class="vc-legal-card__title">Base giuridica</h2>
+            <h2 class="vc-legal-card__title" data-i18n="legal.cookie.s5.title">Base giuridica</h2>
           </div>
-          <p>I cookie che utilizziamo sono <span class="vc-legal-card__label">strettamente necessari</span> per fornire i servizi richiesti, come login, navigazione sicura, votazioni e gestione dell'account.</p>
-          <p>Secondo il GDPR e la Direttiva ePrivacy, non &egrave; richiesto il consenso esplicito per cookie tecnici essenziali.</p>
-          <p><span class="vc-legal-card__label">NON utilizziamo cookie di profilazione o marketing</span> che richiederebbero il tuo consenso.</p>
+          <div data-i18n-html="legal.cookie.s5.body">
+          <p>I cookie/storage che utilizziamo oggi sono <span class="vc-legal-card__label">strettamente necessari</span> al login, alla sicurezza e al funzionamento del sito. Secondo GDPR ed ePrivacy non è richiesto il consenso esplicito per questi elementi tecnici essenziali. <span class="vc-legal-card__label">Non utilizziamo cookie di profilazione o marketing</span>.</p>
+          </div>
         </article>
 
         <article class="vc-legal-card vc-legal-card--indigo">
           <div class="vc-legal-card__head">
             <span class="vc-legal-card__icon"><i class="fa fa-cog" aria-hidden="true"></i></span>
-            <h2 class="vc-legal-card__title">Come gestire i cookie</h2>
+            <h2 class="vc-legal-card__title" data-i18n="legal.cookie.s6.title">Come gestire i cookie</h2>
           </div>
-          <p class="vc-legal-card__strong">Tramite il browser</p>
-          <p>Puoi gestire i cookie nelle impostazioni del browser:</p>
-          <ul class="vc-legal-list">
-            <li><span class="vc-legal-card__label">Chrome</span> — Impostazioni &rarr; Privacy e sicurezza &rarr; Cookie.</li>
-            <li><span class="vc-legal-card__label">Firefox</span> — Opzioni &rarr; Privacy e sicurezza &rarr; Cookie.</li>
-            <li><span class="vc-legal-card__label">Safari</span> — Preferenze &rarr; Privacy &rarr; Gestisci dati siti.</li>
-            <li><span class="vc-legal-card__label">Edge</span> — Impostazioni &rarr; Cookie e autorizzazioni.</li>
-          </ul>
-          <div class="vc-cookie-mini-card vc-cookie-mini-card--warning">
-            <h4 class="vc-cookie-mini-card__title"><i class="fa fa-exclamation-triangle" aria-hidden="true"></i> Attenzione</h4>
-            <p>Disabilitare i cookie essenziali impedir&agrave; il login e l'utilizzo delle funzioni riservate. Se elimini i cookie, dovrai effettuare nuovamente il login.</p>
+          <div data-i18n-html="legal.cookie.s6.body">
+          <p>Puoi gestire cookie e storage nelle impostazioni del browser (Chrome, Firefox, Safari, Edge) o cancellando i dati del sito. Disabilitare gli elementi essenziali impedirà il login. Per rimuovere la sessione, effettua il logout dal sito.</p>
           </div>
           <p class="vc-legal-card__strong">Logout</p>
           <p>Per rimuovere i cookie di sessione, effettua il logout dal sito. I cookie collegati alla sessione verranno eliminati o invalidati automaticamente.</p>
+          </div>
         </article>
 
         <article class="vc-legal-card vc-legal-card--blue">
           <div class="vc-legal-card__head">
             <span class="vc-legal-card__icon"><i class="fa fa-globe" aria-hidden="true"></i></span>
-            <h2 class="vc-legal-card__title">Cookie di terze parti</h2>
+            <h2 class="vc-legal-card__title" data-i18n="legal.cookie.s7.title">Cookie di terze parti</h2>
           </div>
-          <p>Durante l'autenticazione OAuth con Discord, potresti ricevere cookie da <strong>discord.com</strong>. Questi cookie sono gestiti direttamente da Discord Inc. e sono soggetti alla loro <a href="https://discord.com/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a>.</p>
-          <p>{{SITE_NAME}} non ha controllo sui cookie impostati da Discord durante la fase di autenticazione esterna.</p>
+          <div data-i18n-html="legal.cookie.s7.body">
+          <p>Durante l'autenticazione OAuth con Discord potresti ricevere cookie da discord.com, gestiti da Discord Inc. secondo la loro Privacy Policy. {{SITE_NAME}} non ha controllo su quei cookie.</p>
+          </div>
         </article>
 
         <article class="vc-legal-card vc-legal-card--teal">
           <div class="vc-legal-card__head">
             <span class="vc-legal-card__icon"><i class="fa fa-clock-o" aria-hidden="true"></i></span>
-            <h2 class="vc-legal-card__title">Durata dei cookie</h2>
+            <h2 class="vc-legal-card__title" data-i18n="legal.cookie.s8.title">Durata dei cookie</h2>
           </div>
+          <div data-i18n-html="legal.cookie.s8.body">
           <table class="vc-cookie-policy-table">
-            <thead>
-              <tr>
-                <th>Tipo Cookie</th>
-                <th>Durata</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>Sessione autenticazione sito</td>
-                <td>Fino a 90 giorni, logout o invalida/scadenza token Discord</td>
-              </tr>
-              <tr>
-                <td>Token sicurezza</td>
-                <td>Sessione temporanea</td>
-              </tr>
-              <tr>
-                <td>Preferenza banner cookie</td>
-                <td>180 giorni</td>
-              </tr>
-              <tr>
-                <td>OAuth Discord</td>
-                <td>Gestita da Discord secondo la loro policy tecnica corrente</td>
-              </tr>
-              <tr>
-                <td>Redirect callback</td>
-                <td>Fino a completamento login</td>
-              </tr>
-            </tbody>
+          <thead>
+          <tr>
+          <th>Tipo</th>
+          <th>Durata</th>
+          </tr>
+          </thead>
+          <tbody>
+          <tr>
+          <td>Sessione autenticazione sito (localStorage)</td>
+          <td>Fino a 90 giorni, logout o scadenza token Discord</td>
+          </tr>
+          <tr>
+          <td>Preferenza lingua / UI tecnica</td>
+          <td>Fino a cancellazione manuale o logout dove previsto</td>
+          </tr>
+          <tr>
+          <td>Preferenza banner cookie</td>
+          <td>180 giorni</td>
+          </tr>
+          <tr>
+          <td>OAuth Discord (cookie di discord.com)</td>
+          <td>Gestita da Discord</td>
+          </tr>
+          <tr>
+          <td>Redirect / state OAuth</td>
+          <td>Fino a completamento login</td>
+          </tr>
+          </tbody>
           </table>
+          </div>
         </article>
 
         <article class="vc-legal-card vc-legal-card--cyan">
           <div class="vc-legal-card__head">
             <span class="vc-legal-card__icon"><i class="fa fa-envelope-o" aria-hidden="true"></i></span>
-            <h2 class="vc-legal-card__title">Contatti</h2>
+            <h2 class="vc-legal-card__title" data-i18n="legal.cookie.s9.title">Contatti</h2>
           </div>
-          <p class="vc-legal-card__contact">Per domande su questa Cookie Policy:</p>
-          <p class="vc-legal-card__contact"><strong>Discord:</strong> <a href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer">{{DISCORD_INVITE_DISPLAY}}</a></p>
-          <p class="vc-legal-card__contact"><strong>Email:</strong> <a href="{{SUPPORT_MAILTO}}">{{SUPPORT_EMAIL}}</a></p>
+          <div data-i18n-html="legal.cookie.s9.body">
+          <p>Per domande su questa Cookie Policy: Discord o email ({{SUPPORT_EMAIL}}).</p>
+          </div>
         </article>
       </section>
     </main>

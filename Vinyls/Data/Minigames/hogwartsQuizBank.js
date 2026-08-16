@@ -262,7 +262,6 @@ const HOGWARTS_QUIZ_BANK = [
   { question: "In quale libro Hermione usa il Giratempo?", answers: ["Terzo","Prigioniero di Azkaban","3"] },
   { question: "Quante lezioni segue Hermione col Giratempo?", answers: ["3","tre","Più lezioni"] },
   { question: "Chi salva Buckbeak e Sirius con il Giratempo?", answers: ["Harry e Hermione"] },
-  { question: "Quale incantesimo Harry lancia a Malfoy nel secondo libro?", answers: ["Rictusempra"] },
   { question: "Quale incantesimo Harry lancia a Malfoy nel sesto libro?", answers: ["Sectumsempra"] },
   { question: "Chi insegna il Patronus a Harry?", answers: ["Lupin","Remus Lupin", "Remus"] },
   { question: "Contro cosa protegge un Patronus?", answers: ["Dissennatori"] },

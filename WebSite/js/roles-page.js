@@ -1009,6 +1009,10 @@
       setSummary(state.summary);
       renderGrid();
     } catch (err) {
+      if (silent && Array.isArray(state.rows) && state.rows.length) {
+        // Keep last good grid on background poll failures.
+        return;
+      }
       var timedOut = err && String(err.message || "").toLowerCase() === "timeout";
       setState(
         timedOut

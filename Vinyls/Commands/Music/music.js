@@ -14,6 +14,8 @@ const EPHEMERAL_FLAG = 1 << 6;
 module.exports = {
   category: "Music",
   description: "Musica tramite Lavalink (YouTube, Spotify, URL, ricerca).",
+  // Slash /music rimosso da Discord: la musica è solo prefix (+play, +skip, …).
+  skipDeploy: true,
   data: new SlashCommandBuilder()
     .setName("music")
     .setDescription("Controlla la riproduzione musicale del bot.")

@@ -64,6 +64,7 @@ module.exports = {
       embeds: payload.embeds,
       components: payload.components,
       allowedMentions: { users: payload.allowedUserIds || [], repliedUser: false },
+      includeBanner: false,
     });
   },
 };

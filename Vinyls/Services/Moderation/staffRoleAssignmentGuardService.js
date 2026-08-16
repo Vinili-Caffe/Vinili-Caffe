@@ -3,6 +3,7 @@ const IDs = require("../../Utils/Config/ids");
 const { getGuildChannelCached, getGuildMemberCached, getGuildRoleCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { syncMutedMirrorRoleFromMemberUpdate } = require("./mutedMirrorRoleService");
 const { createModCase, getModConfig, logModCase } = require("../../Utils/Moderation/moderation");
+const { isWhitelistedExecutor } = require("./antiNukeService");
 
 const EXTRA_PROTECTED_ROLE_IDS = Object.freeze([
   "1442568888096391260",
@@ -103,6 +104,30 @@ function memberIsStaffActor(member) {
   for (const roleId of staffIds) {
     if (member.roles.cache.has(roleId)) return true;
   }
+  return false;
+}
+
+function isConfigDeveloper(userId) {
+  const uid = String(userId || "").trim();
+  if (!uid) return false;
+  try {
+    const config = require("../../config.json");
+    const developers = Array.isArray(config?.developers) ? config.developers : [];
+    return developers.some((id) => String(id || "").trim() === uid);
+  } catch {
+    return false;
+  }
+}
+
+/** Stesse eccezioni dell'anti-nuke: owner, Founder, High Staff (fullImmunity), whitelist, extra owners, ecc. */
+function isAllowedManualStaffRoleAssigner(guild, executorMember, actorId) {
+  const uid = String(actorId || "").trim();
+  if (!uid) return false;
+  if (memberIsFounder(executorMember)) return true;
+  if (isConfigDeveloper(uid)) return true;
+  try {
+    if (isWhitelistedExecutor(guild, uid)) return true;
+  } catch (_) {}
   return false;
 }
 
@@ -243,7 +268,8 @@ async function handleStaffRoleAssignmentGuard({
     guild.members.cache.get(actorId) ||
     (await getGuildMemberCached(guild, actorId, { ttlMs: 5_000 }).catch(() => null));
 
-  if (memberIsFounder(executorMember)) {
+  // Allineato all'anti-nuke: owner / Founder / High Staff (fullImmunity) / whitelist / extra owners / developers.
+  if (isAllowedManualStaffRoleAssigner(guild, executorMember, actorId)) {
     return { handled: false, allowed: true };
   }
 
@@ -290,4 +316,5 @@ module.exports = {
   handleStaffRoleAssignmentGuard,
   getProtectedStaffAssignmentRoleIds: () => [...getProtectedRoleIdSet()],
   getStaffActorRoleIds: () => [...getStaffActorRoleIdSet()],
+  isAllowedManualStaffRoleAssigner,
 };

@@ -332,7 +332,7 @@
     } catch (eOr) {}
     var size = themePlayerSize();
     ytPlayer = new window.YT.Player("vc-seratafilm-hogwarts-bg-yt-player", {
-      host: window.__vcYoutubePlayerHost || "https://www.youtube-nocookie.com",
+      host: window.__vcYoutubePlayerHost || "https://www.youtube.com",
       videoId: videoId,
       width: size.width,
       height: size.height,
@@ -425,11 +425,16 @@
   function wireFilmPlayerSync() {
     if (!document.body || typeof MutationObserver === "undefined") return;
     var obs = new MutationObserver(function () {
-      if (document.body.classList.contains("vc-seratafilm-film-active")) {
+      var b = document.body;
+      var blocking =
+        b.classList.contains("vc-seratafilm-film-active") ||
+        b.classList.contains("vc-seratafilm-ad-break-active") ||
+        b.classList.contains("vc-seratafilm-ad-spot-playing");
+      if (blocking) {
         pauseBgMedia();
         return;
       }
-      if (document.body.classList.contains("vc-seratafilm-hogwarts-event")) {
+      if (b.classList.contains("vc-seratafilm-hogwarts-event")) {
         playBgMedia();
       }
     });

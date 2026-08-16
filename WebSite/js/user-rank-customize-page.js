@@ -695,11 +695,28 @@
     refreshServerPreview();
   }
 
-  function setStatus(text, isError) {
+  var statusTimer = null;
+  var STATUS_AUTO_MS = 6000;
+
+  function clearStatusTimer() {
+    if (statusTimer) {
+      clearTimeout(statusTimer);
+      statusTimer = null;
+    }
+  }
+
+  function setStatus(text, isError, opts) {
     var el = byId("vc-rank-status");
     if (!el) return;
+    clearStatusTimer();
     el.textContent = text || "";
     el.className = "vc-rank-editor-status" + (isError ? " is-error" : "") + (text ? " is-visible" : "");
+    if (text && !(opts && opts.sticky)) {
+      statusTimer = setTimeout(function () {
+        statusTimer = null;
+        setStatus("");
+      }, STATUS_AUTO_MS);
+    }
   }
 
   function toastHostEl() {
@@ -1130,31 +1147,43 @@
       setStatus("Sessione Discord scaduta. Effettua di nuovo il login.", true);
       return;
     }
-    if (!window.confirm("Vuoi davvero ripristinare i colori predefiniti?")) {
-      return;
-    }
-    setStatus("Reset in corso...", false);
-    fetch(resolvedRankApiUrl(), {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: "Bearer " + token,
-      },
-      body: JSON.stringify({ mode: "reset" }),
-    })
-      .then(function (r) { return r.json(); })
-      .then(function (body) {
-        if (!body || body.ok !== true) {
-          setStatus((body && body.message) || "Non sono riuscito a resettare la rank card.", true);
-          return;
-        }
-        draft = normalizeTheme(body.theme || {});
-        setStatus(body.message || "Rank card resettata.", false);
-        render();
+    var run = function () {
+      setStatus("Reset in corso...", false);
+      fetch(resolvedRankApiUrl(), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer " + token,
+        },
+        body: JSON.stringify({ mode: "reset" }),
       })
-      .catch(function () {
-        setStatus("Errore di rete durante il reset.", true);
-      });
+        .then(function (r) { return r.json(); })
+        .then(function (body) {
+          if (!body || body.ok !== true) {
+            setStatus((body && body.message) || "Non sono riuscito a resettare la rank card.", true);
+            return;
+          }
+          draft = normalizeTheme(body.theme || {});
+          setStatus(body.message || "Rank card resettata.", false);
+          render();
+        })
+        .catch(function () {
+          setStatus("Errore di rete durante il reset.", true);
+        });
+    };
+    var confirmP = window.VcDialog
+      ? window.VcDialog.confirm({
+          title: "Ripristinare i colori?",
+          message: "Vuoi davvero ripristinare i colori predefiniti?",
+          confirmLabel: "Ripristina",
+          cancelLabel: "Annulla",
+          danger: true,
+          icon: "fa-undo",
+        })
+      : Promise.resolve(window.confirm("Vuoi davvero ripristinare i colori predefiniti?"));
+    confirmP.then(function (ok) {
+      if (ok) run();
+    });
   }
 
   function main() {

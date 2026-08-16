@@ -1,4 +1,5 @@
 const cron = require("node-cron");
+const { OverwriteType } = require("discord.js");
 const { runCronDetached } = require("../../../shared/scheduling/cronDetached");
 const BotState = require("../../Schemas/BotState/botStateSchema");
 const { COMPACT_BOTSTATE_KEY } = BotState;
@@ -410,6 +411,8 @@ function buildMovieNightStaffCommunicationMessage({ title, dateLabel }) {
     "",
     "> <a:VC_Rocket:1468544312475123753> Vi ricordo anche che in vocale gli **XP** sono **doppi**. Questo è da tenere in considerazione per futuri eventi.",
     "",
+    "> <:VC_OfflineStatus:1482527117051957380> Ricordo a tutti che potete segnalare la vostra assenza alla serata film fino alle 20:45 di Sabato direttamente in `+profile`, ciò per evitare valutazioni negative errate.",
+    "",
     `<a:VC_Ping:1482694298687246377>・<@&${STAFF_COMMUNICATION_ROLE_ID}>`,
   ].join("\n");
 }
@@ -463,6 +466,10 @@ function buildMovieNightStartAnnouncementMessage(title) {
 function buildMovieNightEndAnnouncementMessage(title, options = {}) {
   const lb = options?.lb && typeof options.lb === "object" ? options.lb : options;
   const hogwartsEventActive = options?.hogwartsEventActive === true;
+  const reviewThreadId = String(options?.reviewThreadId || "").trim();
+  const reviewCta = reviewThreadId
+    ? `<a:VC_NewsExclamation:1471891662786527253> Hai un suggerimento o vuoi lasciare una recensione per i prossimi eventi? Scrivi in <#${reviewThreadId}>!`
+    : "<a:VC_NewsExclamation:1471891662786527253> Hai un suggerimento o vuoi lasciare una recensione per i prossimi eventi? Usa il thread qui sotto!";
   const lines = [
     "# <:VC_Firework:1470796227913322658> SERATA FILM ANDATA!",
     "",
@@ -479,13 +486,29 @@ function buildMovieNightEndAnnouncementMessage(title, options = {}) {
     );
   }
   lines.push(
-    "<a:VC_NewsExclamation:1471891662786527253> Hai un suggerimento o vuoi lasciare una recensione per i prossimi eventi? Usa il thread qui sotto!",
+    reviewCta,
     "",
     "> <a:VC_lil_swag:1494319540954464327>  Alla prossima proiezione!",
     "",
     `<a:VC_Ping:1482694298687246377>︲<@&${SERATA_FILM_ROLE_ID}>`,
   );
   return lines.join("\n");
+}
+
+function withReviewThreadMentionInEndContent(content, threadId) {
+  const id = String(threadId || "").trim();
+  const raw = String(content || "");
+  if (!id || !raw) return raw;
+  if (raw.includes(`<#${id}>`)) return raw;
+  const linked =
+    `<a:VC_NewsExclamation:1471891662786527253> Hai un suggerimento o vuoi lasciare una recensione per i prossimi eventi? Scrivi in <#${id}>!`;
+  if (raw.includes("Usa il thread qui sotto!")) {
+    return raw.replace(
+      /<a:VC_NewsExclamation:[^>]+>\s*Hai un suggerimento o vuoi lasciare una recensione per i prossimi eventi\? Usa il thread qui sotto!/,
+      linked,
+    );
+  }
+  return raw;
 }
 
 async function publishMovieNightAnnouncement(guild, event, weekKey) {
@@ -497,6 +520,7 @@ async function publishMovieNightAnnouncement(guild, event, weekKey) {
   const message = await channel.send({
     content: buildMovieNightAnnouncementMessage(),
     allowedMentions: { roles: [EVENTS_ROLE_ID, SERATA_FILM_ROLE_ID] },
+    __skipNoticeEmbed: true,
   });
   let thread = await message.startThread({
     name: MOVIE_NIGHT_NAME,
@@ -790,6 +814,7 @@ async function maybePublishTieBreakerPoll(client, thread, state) {
   const pollMessage = await channel.send({
     content: buildTieBreakerAnnouncementMessage(thread.id, options.map((option) => option.title)),
     allowedMentions: { roles: [EVENTS_ROLE_ID, SERATA_FILM_ROLE_ID] },
+    __skipNoticeEmbed: true,
     poll: {
       question: { text: `Quale film guardiamo domani alle ${MOVIE_NIGHT_DISPLAY_TIME}?` },
       answers: options.map((option) => ({ text: option.title })),
@@ -1063,6 +1088,15 @@ async function fetchStaffCommunicationChannel(client) {
   return getGuildChannelCached(guild, STAFF_COMMUNICATION_CHANNEL_ID).catch(() => null);
 }
 
+function messageTextHaystack(message) {
+  const parts = [String(message?.content || "")];
+  const embeds = Array.isArray(message?.embeds) ? message.embeds : [];
+  for (const embed of embeds) {
+    parts.push(String(embed?.title || ""), String(embed?.description || ""));
+  }
+  return parts.join("\n");
+}
+
 async function staffCommunicationMessageStillExists(client, messageId) {
   const id = String(messageId || "").trim();
   if (!id) return false;
@@ -1083,9 +1117,9 @@ async function staffCommunicationPostExistsInChannel(client, { title, weekKey, s
   const marker = /COMUNICAZIONE SERATA FILM/i;
   for (const message of recent.values()) {
     if (Number(message.createdTimestamp || 0) < since) continue;
-    const content = String(message.content || "");
-    if (!marker.test(content)) continue;
-    if (content.includes(film)) return true;
+    const haystack = messageTextHaystack(message);
+    if (!marker.test(haystack)) continue;
+    if (haystack.includes(film)) return true;
   }
   return false;
 }
@@ -1127,6 +1161,8 @@ function buildMovieNightStaffCommunicationPayload({ title, now = new Date(), ann
       }),
     }),
     allowedMentions: { roles: [STAFF_COMMUNICATION_ROLE_ID] },
+    // Annuncio staff: plain text, non notice-embed (VC_Alert triggerava il coerce).
+    __skipNoticeEmbed: true,
   };
 }
 
@@ -1196,7 +1232,7 @@ async function resolveMovieNightStaffCommunicationStatus(client, state, saturday
   if (messageId) {
     const channel = await fetchStaffCommunicationChannel(client);
     const message = channel?.messages?.fetch ? await channel.messages.fetch(messageId).catch(() => null) : null;
-    if (message?.id && String(message.content || "").includes(resolvedTitle)) {
+    if (message?.id && messageTextHaystack(message).includes(resolvedTitle)) {
       return { done: true, reason: "already_announced_this_week", messageId: String(message.id || "") };
     }
   }
@@ -1448,6 +1484,7 @@ async function runMovieNightFinalAnnouncementCheck(client, opts = {}) {
         hogwartsEventActive: isHogwartsWeeklyTopReplaced(client),
       }),
       allowedMentions: { roles: [EVENTS_ROLE_ID, SERATA_FILM_ROLE_ID] },
+      __skipNoticeEmbed: true,
     });
 
     const staffResult = await maybePublishMovieNightStaffCommunication(client, {
@@ -1492,12 +1529,12 @@ async function openMovieNightStagePermissions(guild) {
     ViewChannel: true,
     Connect: true,
   };
-  await channel.permissionOverwrites.edit(guild.roles.everyone.id, permissionPatch, { reason: "Apertura Serata Film" }).catch((err) => {
+  await channel.permissionOverwrites.edit(guild.roles.everyone.id, permissionPatch, { reason: "Apertura Serata Film", type: OverwriteType.Role }).catch((err) => {
     global.logger?.warn?.("[MOVIE NIGHT ANNOUNCE] everyone permission open failed:", err?.message || err);
   });
   const memberRoleId = String(IDs.roles?.Member || "");
   if (memberRoleId) {
-    await channel.permissionOverwrites.edit(memberRoleId, permissionPatch, { reason: "Apertura Serata Film" }).catch((err) => {
+    await channel.permissionOverwrites.edit(memberRoleId, permissionPatch, { reason: "Apertura Serata Film", type: OverwriteType.Role }).catch((err) => {
       global.logger?.warn?.("[MOVIE NIGHT ANNOUNCE] member permission open failed:", err?.message || err);
     });
   }
@@ -1511,12 +1548,12 @@ async function closeMovieNightStagePermissions(guild) {
   const permissionPatch = {
     Connect: false,
   };
-  await channel.permissionOverwrites.edit(guild.roles.everyone.id, permissionPatch, { reason: "Chiusura Serata Film" }).catch((err) => {
+  await channel.permissionOverwrites.edit(guild.roles.everyone.id, permissionPatch, { reason: "Chiusura Serata Film", type: OverwriteType.Role }).catch((err) => {
     global.logger?.warn?.("[MOVIE NIGHT ANNOUNCE] everyone permission close failed:", err?.message || err);
   });
   const memberRoleId = String(IDs.roles?.Member || "");
   if (memberRoleId) {
-    await channel.permissionOverwrites.edit(memberRoleId, permissionPatch, { reason: "Chiusura Serata Film" }).catch((err) => {
+    await channel.permissionOverwrites.edit(memberRoleId, permissionPatch, { reason: "Chiusura Serata Film", type: OverwriteType.Role }).catch((err) => {
       global.logger?.warn?.("[MOVIE NIGHT ANNOUNCE] member permission close failed:", err?.message || err);
     });
   }
@@ -1565,6 +1602,7 @@ async function handleMovieNightEventStart(event, opts = {}) {
   const message = await channel.send({
     content: buildMovieNightStartAnnouncementMessage(title),
     allowedMentions: { parse: ["everyone"], roles: [SERATA_FILM_ROLE_ID] },
+    __skipNoticeEmbed: true,
   });
   await setBotState(STATE_KEY, {
     ...(state && typeof state === "object" ? state : {}),
@@ -1607,7 +1645,8 @@ function pickOpenReviewThreadStateFields(state) {
 
 function resolveReviewThreadCloseAtFromStageCloseMessage(message, state = null) {
   const fromState = Number(state?.reviewThreadCloseAt || 0);
-  if (fromState > 0) return fromState;
+  // Solo se ancora nel futuro: uno scaduto (es. settimana precedente) chiuderebbe il thread appena creato.
+  if (fromState > Date.now()) return fromState;
   const created = Number(message?.createdTimestamp || 0);
   if (created > 0) return created + REVIEW_THREAD_CLOSE_AFTER_MS;
   return Date.now() + REVIEW_THREAD_CLOSE_AFTER_MS;
@@ -1641,8 +1680,8 @@ async function syncMovieNightReviewThreadClosedState(client, state) {
     ...state,
     reviewThreadClosedAt: new Date().toISOString(),
   };
-  await setBotState(STATE_KEY, next);
-  return next;
+  const saved = await setBotState(STATE_KEY, next);
+  return saved ? next : state;
 }
 
 async function ensureMovieNightReviewThreadTracking(client) {
@@ -1653,34 +1692,85 @@ async function ensureMovieNightReviewThreadTracking(client) {
       return { ok: true, source: "state_sync", threadId: String(state.reviewThreadId || ""), alreadyClosed: true };
     }
     const closeAt = Number(state.reviewThreadCloseAt || 0);
-    if (closeAt > 0) scheduleMovieNightReviewThreadClose(client, closeAt);
+    // Solo se la scadenza è ancora nel futuro: altrimenti il timer da 1s crea uno spam loop.
+    if (closeAt > Date.now()) scheduleMovieNightReviewThreadClose(client, closeAt);
     return { ok: true, source: "state", threadId: String(state.reviewThreadId || ""), closeAt };
   }
-  if (state?.reviewThreadClosedAt) return { skipped: true, reason: "already_closed_in_state" };
+
   const discovered = await discoverOpenMovieNightReviewThread(client);
-  if (!discovered?.threadId) return { skipped: true, reason: "no_open_review_thread" };
-  const nextState = {
-    ...(state && typeof state === "object" ? state : {}),
-    reviewThreadId: discovered.threadId,
-    reviewThreadCloseAt: discovered.closeAt,
-    stageCloseMessageId: discovered.stageCloseMessageId || state?.stageCloseMessageId || "",
+  if (discovered?.threadId) {
+    const nextState = {
+      ...(state && typeof state === "object" ? state : {}),
+      reviewThreadId: discovered.threadId,
+      reviewThreadCloseAt: discovered.closeAt,
+      reviewThreadClosedAt: "",
+      stageCloseMessageId: discovered.stageCloseMessageId || state?.stageCloseMessageId || "",
+    };
+    await setBotState(STATE_KEY, nextState);
+    if (Number(discovered.closeAt || 0) > Date.now()) {
+      scheduleMovieNightReviewThreadClose(client, discovered.closeAt);
+    }
+    return { ok: true, source: "discovered", threadId: discovered.threadId, closeAt: discovered.closeAt };
+  }
+
+  // Messaggio "SERATA FILM ANDATA" presente ma senza thread: crealo (anche se stato dice closed).
+  const channel = await resolveTextChannelForMovieNight(client);
+  const weekKey = String(state?.weekKey || getRomeWeekKey()).trim();
+  const endMessage =
+    (await findRecentMovieNightEndAnnouncementInChannel(
+      channel,
+      client,
+      weekKey,
+      REVIEW_THREAD_DISCOVERY_MAX_AGE_MS,
+    ).catch(() => null)) ||
+    (await findRecentMovieNightEndAnnouncementInChannel(
+      channel,
+      client,
+      "",
+      REVIEW_THREAD_DISCOVERY_MAX_AGE_MS,
+    ).catch(() => null));
+  if (!endMessage) {
+    return {
+      skipped: true,
+      reason: state?.reviewThreadClosedAt ? "already_closed_in_state" : "no_open_review_thread",
+    };
+  }
+
+  const mainGuildId = String(IDs.guilds?.main || client?.config?.mainGuildId || "");
+  const guild =
+    (mainGuildId ? await getClientGuildCached(client, mainGuildId).catch(() => null) : null) ||
+    endMessage.guild ||
+    null;
+  const title =
+    state?.stageCloseMovieTitle ||
+    state?.finalMovieTitle ||
+    state?.eventStartMovieTitle ||
+    "il film scelto";
+  const ensured = await ensureReviewThreadForEndMessage(endMessage, {
+    client,
+    guild,
+    weekKey: weekKey || getRomeWeekKey(),
+    title,
+    state,
+    permissionsClosed: Boolean(state?.stagePermissionsClosedAt),
+  });
+  if (!ensured.thread?.id) return { skipped: true, reason: "review_thread_create_failed" };
+  return {
+    ok: true,
+    source: "created_missing",
+    threadId: String(ensured.thread.id),
+    closeAt: ensured.reviewThreadCloseAt,
   };
-  await setBotState(STATE_KEY, nextState);
-  scheduleMovieNightReviewThreadClose(client, discovered.closeAt);
-  global.logger?.info?.(
-    "[MOVIE NIGHT ANNOUNCE] review thread recovered from channel:",
-    discovered.threadId,
-    "closeAt=",
-    new Date(discovered.closeAt).toISOString(),
-  );
-  return { ok: true, source: "discovered", threadId: discovered.threadId, closeAt: discovered.closeAt };
 }
 
 async function closeReviewThreadById(client, threadId) {
   const id = String(threadId || "");
-  if (!id) return false;
+  if (!id) return { ok: false, alreadyClosed: false };
   let thread = client.channels.cache.get(id) || (await client.channels.fetch(id).catch(() => null));
-  if (!thread?.isThread?.()) return false;
+  if (!thread?.isThread?.()) return { ok: false, alreadyClosed: false };
+  if (thread.locked && thread.archived) {
+    return { ok: true, alreadyClosed: true };
+  }
   if (thread.archived && !thread.locked) {
     await thread.setArchived(false, "Riapertura tecnica per bloccare recensioni Serata Film").catch(() => null);
     thread = (await client.channels.fetch(id).catch(() => null)) || thread;
@@ -1697,8 +1787,11 @@ async function closeReviewThreadById(client, threadId) {
     });
     thread = (await client.channels.fetch(id).catch(() => null)) || thread;
   }
-  return Boolean(thread?.locked && thread.archived);
+  const done = Boolean(thread?.locked && thread.archived);
+  return { ok: done, alreadyClosed: false };
 }
+
+const reviewThreadCloseLogOnce = new Set();
 
 async function closeMovieNightReviewThreadIfDue(client, opts = {}) {
   await ensureMovieNightReviewThreadTracking(client).catch((err) => {
@@ -1710,19 +1803,38 @@ async function closeMovieNightReviewThreadIfDue(client, opts = {}) {
   }
   const closeAt = Number(state.reviewThreadCloseAt || 0);
   if (!opts.force && (!closeAt || Date.now() < closeAt)) return { skipped: true, reason: "not_due" };
-  const closed = await closeReviewThreadById(client, state.reviewThreadId);
-  if (!closed) return { skipped: true, reason: "thread_close_failed" };
-  await setBotState(STATE_KEY, {
+  const threadId = String(state.reviewThreadId || "");
+  const closeResult = await closeReviewThreadById(client, threadId);
+  if (!closeResult?.ok) return { skipped: true, reason: "thread_close_failed" };
+  const saved = await setBotState(STATE_KEY, {
     ...state,
     reviewThreadClosedAt: new Date().toISOString(),
   });
-  global.logger?.info?.("[MOVIE NIGHT ANNOUNCE] review thread closed:", state.reviewThreadId);
-  return { ok: true, threadId: String(state.reviewThreadId || "") };
+  if (!saved) {
+    if (!reviewThreadCloseLogOnce.has(`persist:${threadId}`)) {
+      reviewThreadCloseLogOnce.add(`persist:${threadId}`);
+      global.logger?.warn?.(
+        "[MOVIE NIGHT ANNOUNCE] review thread closed on Discord but state persist failed:",
+        threadId,
+      );
+    }
+    return { ok: false, reason: "persist_failed", threadId };
+  }
+  return { ok: true, threadId, alreadyClosed: Boolean(closeResult.alreadyClosed) };
 }
 
 function scheduleMovieNightReviewThreadClose(client, closeAt) {
   if (movieNightReviewCloseTimer) clearTimeout(movieNightReviewCloseTimer);
-  const delay = Math.max(1000, Number(closeAt || 0) - Date.now());
+  const dueAt = Number(closeAt || 0);
+  if (!dueAt || dueAt <= Date.now()) {
+    // Scaduto: chiudi subito una volta, niente timer da 1s in loop.
+    movieNightReviewCloseTimer = null;
+    closeMovieNightReviewThreadIfDue(client, { force: true }).catch((err) => {
+      global.logger?.warn?.("[MOVIE NIGHT ANNOUNCE] review thread close timer failed:", err?.message || err);
+    });
+    return;
+  }
+  const delay = Math.max(1000, dueAt - Date.now());
   movieNightReviewCloseTimer = setTimeout(() => {
     movieNightReviewCloseTimer = null;
     closeMovieNightReviewThreadIfDue(client, { force: true }).catch((err) => {
@@ -1817,9 +1929,95 @@ async function claimMovieNightStageCloseSlot(weekKey) {
 
 async function resolveReviewThreadFromMessage(message) {
   if (!message) return null;
-  if (message.thread) return message.thread;
+  if (message.thread?.isThread?.()) return message.thread;
   const fetched = await message.fetch?.().catch(() => null);
-  return fetched?.thread || null;
+  if (fetched?.thread?.isThread?.()) return fetched.thread;
+  // Thread pubblico creato da un messaggio: channel id = message id.
+  const threadId = String(message.id || "").trim();
+  const client = message.client;
+  if (!threadId || !client?.channels?.fetch) return null;
+  const byId =
+    client.channels.cache.get(threadId) ||
+    (await client.channels.fetch(threadId).catch(() => null));
+  return byId?.isThread?.() ? byId : null;
+}
+
+async function createMovieNightReviewThread(message) {
+  if (!message?.startThread) return null;
+  const existing = await resolveReviewThreadFromMessage(message);
+  if (existing?.id) return existing;
+
+  const attempts = [
+    { autoArchiveDuration: 1440 },
+    { autoArchiveDuration: 10080 },
+    { autoArchiveDuration: 60 },
+  ];
+  for (let i = 0; i < attempts.length; i += 1) {
+    const opts = attempts[i];
+    const thread = await message
+      .startThread({
+        name: REVIEW_THREAD_NAME,
+        reason: "Thread automatico recensioni e suggerimenti Serata Film",
+        ...opts,
+      })
+      .catch((err) => {
+        global.logger?.warn?.(
+          "[MOVIE NIGHT ANNOUNCE] review thread create failed:",
+          `archive=${opts.autoArchiveDuration}`,
+          err?.code || "",
+          err?.message || err,
+        );
+        return null;
+      });
+    if (thread?.id) return thread;
+    if (i < attempts.length - 1) {
+      await new Promise((resolve) => setTimeout(resolve, 800));
+    }
+  }
+  return null;
+}
+
+async function ensureReviewThreadForEndMessage(message, {
+  client,
+  guild,
+  weekKey,
+  title,
+  state,
+  permissionsClosed = false,
+} = {}) {
+  if (!message?.id) return { thread: null, created: false };
+  let thread = await resolveReviewThreadFromMessage(message);
+  let created = false;
+  if (!thread?.id) {
+    thread = await createMovieNightReviewThread(message);
+    created = Boolean(thread?.id);
+  }
+  if (!thread?.id) return { thread: null, created: false };
+
+  const nextContent = withReviewThreadMentionInEndContent(message.content, thread.id);
+  if (nextContent && nextContent !== String(message.content || "") && message.editable) {
+    await message.edit({ content: nextContent }).catch((err) => {
+      global.logger?.warn?.("[MOVIE NIGHT ANNOUNCE] review thread mention edit failed:", err?.message || err);
+    });
+  }
+
+  const reviewThreadCloseAt = created
+    ? resolveReviewThreadCloseAtFromStageCloseMessage(message, null)
+    : resolveReviewThreadCloseAtFromStageCloseMessage(message, state);
+  if (guild && weekKey) {
+    await persistMovieNightStageCloseState({
+      state,
+      guild,
+      weekKey,
+      title: title || state?.stageCloseMovieTitle || "il film scelto",
+      messageId: message.id,
+      threadId: thread.id,
+      reviewThreadCloseAt,
+      permissionsClosed: permissionsClosed || Boolean(state?.stagePermissionsClosedAt),
+    });
+  }
+  if (client) scheduleMovieNightReviewThreadClose(client, reviewThreadCloseAt);
+  return { thread, created, reviewThreadCloseAt };
 }
 
 async function persistMovieNightStageCloseState({
@@ -1840,6 +2038,7 @@ async function persistMovieNightStageCloseState({
     stageCloseMessageId: String(messageId || ""),
     reviewThreadId: String(threadId || ""),
     reviewThreadCloseAt,
+    reviewThreadClosedAt: threadId ? "" : state?.reviewThreadClosedAt || "",
     stagePermissionsClosedAt: permissionsClosed ? new Date().toISOString() : state?.stagePermissionsClosedAt || "",
     stageClosedAt: new Date().toISOString(),
   });
@@ -1908,11 +2107,16 @@ async function repairMovieNightEndAnnouncementLeaderboard(client, { guild, weekK
   }
   const hogwartsRoleIds = collectHouseRoleIdsFromRanked(lb.rankedCombined, lb.eventCfg);
   await message.edit({
-    content: buildMovieNightEndAnnouncementMessage(filmTitle, { hogwartsEventActive: true, lb }),
+    content: buildMovieNightEndAnnouncementMessage(filmTitle, {
+      hogwartsEventActive: true,
+      lb,
+      reviewThreadId: state?.reviewThreadId || message.thread?.id || message.id,
+    }),
     embeds: lb.embed ? [lb.embed] : [],
     allowedMentions: {
       roles: [SERATA_FILM_ROLE_ID, ...hogwartsRoleIds].filter(Boolean),
     },
+    __skipNoticeEmbed: true,
   });
   return { ok: true, messageId, rankedCombined: lb.rankedCombined };
 }
@@ -1999,27 +2203,20 @@ async function handleMovieNightStageClose(stageInstance, opts = {}) {
   const result = await withMovieNightStageCloseLock(weekKey, async () => {
     const state = await getBotState(STATE_KEY, null);
     if (!opts.force) {
-      const existingForWeek = await fetchStageCloseMessageForWeek(guild, weekKey, state);
+        const existingForWeek = await fetchStageCloseMessageForWeek(guild, weekKey, state);
       if (existingForWeek) {
         const title = (await resolveFinalMovieTitle(client, state, opts.now || new Date()).catch(() => null))
           || state?.finalMovieTitle
           || state?.eventStartMovieTitle
           || "il film scelto";
-        const existingThread = await resolveReviewThreadFromMessage(existingForWeek);
-        const reviewThreadCloseAt = resolveReviewThreadCloseAtFromStageCloseMessage(existingForWeek, state);
-        if (existingThread?.id && !state?.reviewThreadClosedAt) {
-          await persistMovieNightStageCloseState({
-            state,
-            guild,
-            weekKey,
-            title,
-            messageId: existingForWeek.id,
-            threadId: existingThread.id,
-            reviewThreadCloseAt,
-            permissionsClosed: Boolean(state?.stagePermissionsClosedAt),
-          });
-          scheduleMovieNightReviewThreadClose(client, reviewThreadCloseAt);
-        }
+        await ensureReviewThreadForEndMessage(existingForWeek, {
+          client,
+          guild,
+          weekKey,
+          title,
+          state,
+          permissionsClosed: Boolean(state?.stagePermissionsClosedAt),
+        });
         await ensureSerataFilmEndLeaderboardPublished(client, guild, weekKey, {
           ...(state && typeof state === "object" ? state : {}),
           stageCloseMessageId: existingForWeek.id,
@@ -2037,32 +2234,37 @@ async function handleMovieNightStageClose(stageInstance, opts = {}) {
 
     const existingMessage = !opts.force ? await findRecentMovieNightEndAnnouncementInChannel(channel, client, weekKey) : null;
     if (existingMessage) {
-      const existingThread = await resolveReviewThreadFromMessage(existingMessage);
-      const reviewThreadCloseAt = Number(state?.reviewThreadCloseAt || 0) || resolveReviewThreadCloseAtFromStageCloseMessage(existingMessage, state);
+      const ensured = await ensureReviewThreadForEndMessage(existingMessage, {
+        client,
+        guild,
+        weekKey,
+        title,
+        state,
+        permissionsClosed,
+      });
       const nextState = {
         ...(state && typeof state === "object" ? state : {}),
         weekKey,
         guildId: String(guild.id || ""),
         stageCloseMovieTitle: title,
         stageCloseMessageId: String(existingMessage.id || ""),
-        reviewThreadId: String(existingThread?.id || state?.reviewThreadId || ""),
-        reviewThreadCloseAt,
+        reviewThreadId: String(ensured.thread?.id || state?.reviewThreadId || ""),
+        reviewThreadCloseAt: ensured.reviewThreadCloseAt || state?.reviewThreadCloseAt || null,
         stagePermissionsClosedAt: permissionsClosed ? new Date().toISOString() : state?.stagePermissionsClosedAt || "",
         stageClosedAt: new Date().toISOString(),
       };
-      await persistMovieNightStageCloseState({
-        state,
-        guild,
-        weekKey,
-        title,
-        messageId: existingMessage.id,
-        threadId: existingThread?.id || state?.reviewThreadId || "",
-        reviewThreadCloseAt,
-        permissionsClosed,
-      });
-      if (existingThread?.id) scheduleMovieNightReviewThreadClose(client, reviewThreadCloseAt);
       await ensureSerataFilmEndLeaderboardPublished(client, guild, weekKey, nextState, title);
-      return { ok: true, deduped: true, reason: "channel_recent_message", messageId: String(existingMessage.id || ""), threadId: String(existingThread?.id || ""), title, permissionsClosed, weekKey, nextState };
+      return {
+        ok: true,
+        deduped: true,
+        reason: "channel_recent_message",
+        messageId: String(existingMessage.id || ""),
+        threadId: String(ensured.thread?.id || ""),
+        title,
+        permissionsClosed,
+        weekKey,
+        nextState,
+      };
     }
 
     if (!opts.force) {
@@ -2071,27 +2273,34 @@ async function handleMovieNightStageClose(stageInstance, opts = {}) {
         if (claim.reason === "already_announced" || claim.reason === "pending_other") {
           const retryMessage = await findRecentMovieNightEndAnnouncementInChannel(channel, client, weekKey);
           if (retryMessage) {
-            const retryThread = await resolveReviewThreadFromMessage(retryMessage);
-            const reviewThreadCloseAt = Number(claim.state?.reviewThreadCloseAt || 0) || resolveReviewThreadCloseAtFromStageCloseMessage(retryMessage, claim.state);
-            await persistMovieNightStageCloseState({
-              state: claim.state || state,
+            const ensured = await ensureReviewThreadForEndMessage(retryMessage, {
+              client,
               guild,
               weekKey,
               title,
-              messageId: retryMessage.id,
-              threadId: retryThread?.id || claim.state?.reviewThreadId || "",
-              reviewThreadCloseAt,
+              state: claim.state || state,
               permissionsClosed,
             });
-            if (retryThread?.id) scheduleMovieNightReviewThreadClose(client, reviewThreadCloseAt);
             const nextState = {
               ...(claim.state || state || {}),
               weekKey,
               stageCloseMovieTitle: title,
+              stageCloseMessageId: String(retryMessage.id || ""),
+              reviewThreadId: String(ensured.thread?.id || ""),
               stageClosedAt: new Date().toISOString(),
             };
             await ensureSerataFilmEndLeaderboardPublished(client, guild, weekKey, nextState, title);
-            return { ok: true, deduped: true, reason: "claim_lost_channel_message", messageId: String(retryMessage.id || ""), threadId: String(retryThread?.id || ""), title, permissionsClosed, weekKey, nextState };
+            return {
+              ok: true,
+              deduped: true,
+              reason: "claim_lost_channel_message",
+              messageId: String(retryMessage.id || ""),
+              threadId: String(ensured.thread?.id || ""),
+              title,
+              permissionsClosed,
+              weekKey,
+              nextState,
+            };
           }
         }
         return { skipped: true, reason: claim.reason || "claim_failed", weekKey, permissionsClosed };
@@ -2130,39 +2339,39 @@ async function handleMovieNightStageClose(stageInstance, opts = {}) {
       allowedMentions: {
         roles: [SERATA_FILM_ROLE_ID, ...hogwartsRoleIds].filter(Boolean),
       },
+      __skipNoticeEmbed: true,
     });
-    const thread = await message.startThread({
-      name: REVIEW_THREAD_NAME,
-      autoArchiveDuration: 1440,
-      reason: "Thread automatico recensioni e suggerimenti Serata Film",
-    }).catch((err) => {
-      global.logger?.warn?.("[MOVIE NIGHT ANNOUNCE] review thread create failed:", err?.message || err);
-      return null;
-    });
-    const reviewThreadCloseAt = Date.now() + REVIEW_THREAD_CLOSE_AFTER_MS;
-    await persistMovieNightStageCloseState({
-      state,
+    const ensured = await ensureReviewThreadForEndMessage(message, {
+      client,
       guild,
       weekKey,
       title,
-      messageId: message.id,
-      threadId: thread?.id || "",
-      reviewThreadCloseAt,
+      state,
       permissionsClosed,
     });
-    if (thread?.id) scheduleMovieNightReviewThreadClose(client, reviewThreadCloseAt);
+    const reviewThreadCloseAt =
+      ensured.reviewThreadCloseAt || Date.now() + REVIEW_THREAD_CLOSE_AFTER_MS;
     const nextState = {
       ...(state && typeof state === "object" ? state : {}),
       weekKey,
       guildId: String(guild.id || ""),
       stageCloseMovieTitle: title,
       stageCloseMessageId: String(message.id || ""),
-      reviewThreadId: String(thread?.id || ""),
+      reviewThreadId: String(ensured.thread?.id || ""),
       reviewThreadCloseAt,
       stagePermissionsClosedAt: permissionsClosed ? new Date().toISOString() : state?.stagePermissionsClosedAt || "",
       stageClosedAt: new Date().toISOString(),
     };
-    return { ok: true, messageId: String(message.id || ""), threadId: String(thread?.id || ""), title, permissionsClosed, weekKey, nextState, lbResult };
+    return {
+      ok: true,
+      messageId: String(message.id || ""),
+      threadId: String(ensured.thread?.id || ""),
+      title,
+      permissionsClosed,
+      weekKey,
+      nextState,
+      lbResult,
+    };
   });
 
   if (result?.ok && isHogwartsWeeklyTopReplaced(client)) {
@@ -2321,6 +2530,85 @@ async function repairFinalMovieNightAnnouncementDescription(client) {
   } finally {
     movieNightFinalRepairRunning = false;
   }
+}
+
+/**
+ * Elimina la comunicazione staff in notice-embed (bug VC_Alert) e la rimanda come plain text.
+ */
+async function republishMovieNightStaffCommunicationAsPlainText(client, opts = {}) {
+  const now = opts.now || new Date();
+  const channel = await fetchStaffCommunicationChannel(client);
+  if (!channel?.isTextBased?.() || !channel?.messages?.fetch) {
+    return { ok: false, reason: "staff_channel_unavailable" };
+  }
+
+  const state = await getBotState(STATE_KEY, null);
+  const title =
+    String(opts.title || state?.finalMovieTitle || "").trim() ||
+    getFixedMovieTitleForWeek(now) ||
+    "Harry Potter e i Doni della Morte - Parte 1";
+  const saturdayKey = getRomeSaturdayKeyForWeek(now);
+  const weekKey = getRomeWeekKey(now);
+  const announceSlot =
+    String(opts.announceSlot || getMovieNightFinalAnnouncementSlot(now) || getMovieNightStartupRecoverySlot(now) || "friday").toLowerCase() ===
+    "saturday"
+      ? "saturday"
+      : "friday";
+
+  const recent = await channel.messages.fetch({ limit: 40 }).catch(() => null);
+  const marker = /COMUNICAZIONE SERATA FILM/i;
+  const deletedIds = [];
+  if (recent?.size) {
+    for (const message of recent.values()) {
+      const haystack = messageTextHaystack(message);
+      if (!marker.test(haystack)) continue;
+      if (title && !haystack.includes(title) && !/harry potter/i.test(haystack)) continue;
+      const hasEmbed = Array.isArray(message.embeds) && message.embeds.length > 0;
+      const contentEmpty = !String(message.content || "").trim();
+      // Cancella solo i post finiti in embed (bug), o l'id salvato in stato.
+      const tracked = String(state?.staffCommunicationMessageId || "") === String(message.id || "");
+      if (!hasEmbed && !tracked) continue;
+      if (hasEmbed || (tracked && contentEmpty)) {
+        await message.delete().catch(() => null);
+        deletedIds.push(String(message.id));
+      }
+    }
+  }
+
+  if (state && typeof state === "object") {
+    await setBotState(STATE_KEY, {
+      ...state,
+      staffCommunicationMessageId: "",
+      staffCommunicationAt: "",
+      staffAnnouncedSaturdayKey: "",
+    });
+  }
+
+  const message = await channel.send(
+    buildMovieNightStaffCommunicationPayload({
+      title,
+      now,
+      announceSlot,
+    }),
+  );
+  const messageId = String(message?.id || "");
+  await setBotState(STATE_KEY, {
+    ...(state && typeof state === "object" ? state : {}),
+    weekKey,
+    finalMovieTitle: title,
+    staffCommunicationMessageId: messageId,
+    staffCommunicationAt: new Date().toISOString(),
+    staffAnnouncedSaturdayKey: saturdayKey,
+  });
+
+  return {
+    ok: true,
+    messageId,
+    deletedIds,
+    title,
+    weekKey,
+    saturdayKey,
+  };
 }
 
 async function repairMovieNightStaffCommunication(client, opts = {}) {
@@ -2510,4 +2798,4 @@ function startMovieNightAnnouncementLoop(client) {
   return movieNightAnnouncementTasks;
 }
 
-module.exports = { buildMovieNightStaffCommunicationMessage, buildFinalMovieNightAnnouncementMessage, buildMovieNightEndAnnouncementMessage, buildMovieNightAnnouncementMessage, buildMovieNightStartAnnouncementMessage, buildTieBreakerAnnouncementMessage, collectMovieNightVoteResults, ensureMovieNightStaffCommunicationOnStartup, fetchItalianMovieDescription, findCurrentWeekMovieNightEvent, getFixedMovieTitleForWeek, getHarryPotterMovieNightScheduleForWeek, getRomeWeekKey, handleMovieNightEventStart, handleMovieNightStageClose, isMovieNightFixedScheduleSkipWeek, isTargetMovieNightEvent, closeMovieNightStagePermissions, closeMovieNightReviewThreadIfDue, repairFinalMovieNightAnnouncementDescription, recoverMovieNightAnnouncementsOnStartup, runMovieNightAnnouncementCheck, runMovieNightEventStartCheck, runMovieNightFinalAnnouncementCheck, runMovieNightStageCloseRecoveryCheck, runMovieNightThreadCloseCheck, startMovieNightAnnouncementLoop };
+module.exports = { buildMovieNightStaffCommunicationMessage, buildFinalMovieNightAnnouncementMessage, buildMovieNightEndAnnouncementMessage, buildMovieNightAnnouncementMessage, buildMovieNightStartAnnouncementMessage, buildTieBreakerAnnouncementMessage, collectMovieNightVoteResults, ensureMovieNightStaffCommunicationOnStartup, fetchItalianMovieDescription, findCurrentWeekMovieNightEvent, getFixedMovieTitleForWeek, getHarryPotterMovieNightScheduleForWeek, getRomeWeekKey, handleMovieNightEventStart, handleMovieNightStageClose, isMovieNightFixedScheduleSkipWeek, isTargetMovieNightEvent, closeMovieNightStagePermissions, closeMovieNightReviewThreadIfDue, repairFinalMovieNightAnnouncementDescription, recoverMovieNightAnnouncementsOnStartup, republishMovieNightStaffCommunicationAsPlainText, runMovieNightAnnouncementCheck, runMovieNightEventStartCheck, runMovieNightFinalAnnouncementCheck, runMovieNightStageCloseRecoveryCheck, runMovieNightThreadCloseCheck, startMovieNightAnnouncementLoop };

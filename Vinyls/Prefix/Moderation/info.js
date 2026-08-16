@@ -95,33 +95,8 @@ function buildStrikesEmbed(member, strikes, page, totalPages) {
     .setDescription([...rows, "", `Page: ${safePage + 1}/${totalPages}`].join("\n"));
 }
 
-function buildStrikeButtons(scope, page, totalPages) {
-  return new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId(`info_strike_first:${scope}`)
-      .setStyle(ButtonStyle.Secondary)
-      .setEmoji("⏮️")
-      .setDisabled(page <= 0),
-    new ButtonBuilder()
-      .setCustomId(`info_strike_prev:${scope}`)
-      .setStyle(ButtonStyle.Secondary)
-      .setEmoji("◀️")
-      .setDisabled(page <= 0),
-    new ButtonBuilder()
-      .setCustomId(`info_strike_next:${scope}`)
-      .setStyle(ButtonStyle.Secondary)
-      .setEmoji("▶️")
-      .setDisabled(page >= totalPages - 1),
-    new ButtonBuilder()
-      .setCustomId(`info_strike_last:${scope}`)
-      .setStyle(ButtonStyle.Secondary)
-      .setEmoji("⏭️")
-      .setDisabled(page >= totalPages - 1),
-    new ButtonBuilder()
-      .setCustomId(`info_strike_close:${scope}`)
-      .setStyle(ButtonStyle.Danger)
-      .setEmoji("✖️"),
-  );
+function buildStrikeButtons(ownerId, targetId, page, totalPages) {
+  return require("../../Buttons/infoStrike").buildStrikeButtons(ownerId, targetId, page, totalPages);
 }
 
 module.exports = {
@@ -210,49 +185,9 @@ module.exports = {
     const payload={embeds:[buildPageEmbed(0)],allowedMentions:{repliedUser:false,users:[]},};
 
     if (totalPages > 1) {
-      const scope = `${message.id}:${member.id}:${Date.now()}`;
-      payload.components = [buildStrikeButtons(scope, 0, totalPages)];
+      payload.components = [buildStrikeButtons(message.author.id, member.id, 0, totalPages)];
       payload.content = `<@${message.author.id}>`;
-      const sent = await safeMessageReply(message, payload);
-      if (!sent) return;
-
-      let currentPage = 0;
-      const collector=sent.createMessageComponentCollector({componentType:ComponentType.Button,time:10*60_000,});
-
-      collector.on("collect", async (interaction) => {
-        if (!interaction.customId.endsWith(scope)) return;
-        if (interaction.user.id !== message.author.id) {
-          await interaction
-            .reply({
-              content: "Solo chi ha usato il comando può usare questi pulsanti.",
-              flags: MessageFlags.Ephemeral,
-            })
-            .catch(() => {});
-          return;
-        }
-
-        if (interaction.customId.startsWith("info_strike_close:")) {
-          collector.stop("closed");
-          await interaction.update({ components: [] }).catch(() => {});
-          return;
-        }
-        if (interaction.customId.startsWith("info_strike_first:")) currentPage = 0;
-        if (interaction.customId.startsWith("info_strike_prev:")) currentPage = Math.max(0, currentPage - 1);
-        if (interaction.customId.startsWith("info_strike_next:")) currentPage = Math.min(totalPages - 1, currentPage + 1);
-        if (interaction.customId.startsWith("info_strike_last:")) currentPage = totalPages - 1;
-
-        await interaction
-          .update({
-            embeds: [buildPageEmbed(currentPage)],
-            components: [buildStrikeButtons(scope, currentPage, totalPages)],
-          })
-          .catch(() => {});
-      });
-
-      collector.on("end", async (_, reason) => {
-        if (reason === "closed") return;
-        await sent.edit({ components: [] }).catch(() => {});
-      });
+      await safeMessageReply(message, payload);
       return;
     }
 

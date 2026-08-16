@@ -2,6 +2,7 @@ const { AuditLogEvent, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyl
 const IDs = require("../Utils/Config/ids");
 const { startSerataFilmSession } = require("../Services/Staff/staffAutoValutazioniService");
 const { handleMovieNightEventStart } = require("../Services/Community/movieNightAnnouncementService");
+const { isViniliFullFeatureGuild } = require("../MultiGuild/core/guildFeatureScope");
 const AUDIT_FETCH_LIMIT = 20;
 const AUDIT_LOOKBACK_MS = 120 * 1000;
 
@@ -93,6 +94,8 @@ module.exports = {
   name: "guildScheduledEventCreate",
   async execute(scheduledEvent) {
     try {
+      const guildEarly = scheduledEvent?.guild;
+      if (guildEarly?.id && !isViniliFullFeatureGuild(guildEarly.id)) return;
       if (Number(scheduledEvent?.status || 0) === 2) {
         await startSerataFilmSession(scheduledEvent).catch((err) => {
           global.logger?.warn?.("[guildScheduledEventCreate] serata film auto:", err?.message || err);

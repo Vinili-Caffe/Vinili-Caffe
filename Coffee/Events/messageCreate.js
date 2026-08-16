@@ -4,7 +4,7 @@ const { recordReminderActivity } = require("../Services/Community/chatReminderSe
 const { handleStanzaPanelPromptMessageCreate } = require("../Services/Voice/stanzaVoiceRoomsService");
 const { handleVoiceTranscriptionMessage } = require("../Services/Voice/voiceTranscriptionService");
 const { ingestMarkovMessageCreate } = require("../Services/Community/markovMessageCollectorService");
-const { handleMarkovAutoSendMessageCreate } = require("../Services/Community/markovAutoSendService");
+const { handleMarkovAutoSendMessageCreate, handleMarkovReplyMessageCreate } = require("../Services/Community/markovAutoSendService");
 const IDs = require("../Utils/Config/ids");
 const REMINDER_CHANNEL_ID = IDs.channels?.chat || null;
 
@@ -45,8 +45,11 @@ module.exports = {
       global.logger?.error?.("[VOICE TRANSCRIBE ERROR]", error);
     }
     if (!message.author?.bot && message.guild) {
-      void ingestMarkovMessageCreate(message, client).then(() => {
-        void handleMarkovAutoSendMessageCreate(message, client);
+      void ingestMarkovMessageCreate(message, client).then(async () => {
+        const replied = await handleMarkovReplyMessageCreate(message, client);
+        if (!replied) {
+          void handleMarkovAutoSendMessageCreate(message, client);
+        }
       });
     }
     await dispatchPrefixMessage(message, client);

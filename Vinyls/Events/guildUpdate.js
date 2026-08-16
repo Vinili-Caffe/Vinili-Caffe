@@ -2,6 +2,7 @@ const { AuditLogEvent, EmbedBuilder } = require("discord.js");
 const { buildAuditExtraLines } = require("../Utils/Logging/channelRolesLogUtils");
 const { handleVanityGuard: antiNukeHandleVanityGuard } = require("../Services/Moderation/antiNukeService");
 const { resolveModLogChannel, fetchRecentAuditEntry, formatResponsible, nowDiscordTs, } = require("../Utils/Logging/modAuditLogUtils");
+const { isViniliFullFeatureGuild } = require("../MultiGuild/core/guildFeatureScope");
 
 function notificationsLabel(value) {
   const n = Number(value);
@@ -21,6 +22,7 @@ module.exports = {
     try {
       const guild = newGuild || oldGuild;
       if (!guild) return;
+      if (!isViniliFullFeatureGuild(guild.id)) return;
 
       const changes = [];
       if (oldGuild?.name !== newGuild?.name) {

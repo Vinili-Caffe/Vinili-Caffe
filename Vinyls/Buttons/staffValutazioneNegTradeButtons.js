@@ -17,6 +17,7 @@ const {
   runValutazionePosPauseTradeForPanel,
 } = require("../Utils/Staff/valutazionePanelActions");
 const { isPartnerPmDailyCommandsThread } = require("../Utils/Partner/partnersChatChannelUtils");
+const { safeMessageEdit } = require("../../shared/discord/replyRuntime");
 const IDs = require("../Utils/Config/ids");
 const PRIVATE_FLAG = 1 << 6;
 const IN_NEG_ID = "staff_vnt_neg_id";
@@ -41,6 +42,12 @@ function isSelfValTradeTarget(parsed) {
   return String(parsed?.viewerId || "") === String(parsed?.targetId || "");
 }
 
+/** Compensa 3 positive → 1 negativa: self sul proprio profilo, oppure High Staff su altri. */
+function canUseNegTrade(interaction, parsed) {
+  if (isSelfValTradeTarget(parsed)) return true;
+  return memberIsHighStaffOrAbove(interaction.member);
+}
+
 async function refreshValutazioniPanelMessage(interaction, client, parsed) {
   const guild = interaction.guild;
   const msg = interaction.message;
@@ -49,7 +56,7 @@ async function refreshValutazioniPanelMessage(interaction, client, parsed) {
   if (parsed.sourceMessageId) opts.sourceMessageId = parsed.sourceMessageId;
   if (await isPartnerPmDailyCommandsThread(interaction.channel)) opts.partnersChatPanel = true;
   const payload = await buildStaffProfilePayload(guild, parsed.targetId, parsed.viewerId, client, SECTION_VALUTAZIONI, opts);
-  await msg.edit(payload).catch(() => {});
+  await safeMessageEdit(msg, payload, interaction).catch(() => {});
 }
 
 function parsePositiveInt(raw, min = 1) {
@@ -77,15 +84,9 @@ async function execute(interaction) {
           .catch(() => {});
         return true;
       }
-      if (!memberIsHighStaffOrAbove(interaction.member)) {
+      if (!canUseNegTrade(interaction, negParsed)) {
         await interaction
-          .reply({ content: "<a:VC_Cross:1482532424570376253> Solo **High Staff** può usare questa opzione.", flags: PRIVATE_FLAG })
-          .catch(() => {});
-        return true;
-      }
-      if (isSelfValTradeTarget(negParsed)) {
-        await interaction
-          .reply({ content: "<a:VC_Cross:1482532424570376253> Non puoi scambiare valutazioni sul **tuo** profilo.", flags: PRIVATE_FLAG })
+          .reply({ content: "<a:VC_Cross:1482532424570376253> Solo **High Staff** può usare questa opzione su un altro profilo.", flags: PRIVATE_FLAG })
           .catch(() => {});
         return true;
       }
@@ -168,15 +169,9 @@ async function execute(interaction) {
           .catch(() => {});
         return true;
       }
-      if (!memberIsHighStaffOrAbove(interaction.member)) {
+      if (!canUseNegTrade(interaction, negParsed)) {
         await interaction
-          .reply({ content: "<a:VC_Cross:1482532424570376253> Solo **High Staff** può usare questa opzione.", flags: PRIVATE_FLAG })
-          .catch(() => {});
-        return true;
-      }
-      if (isSelfValTradeTarget(negParsed)) {
-        await interaction
-          .reply({ content: "<a:VC_Cross:1482532424570376253> Non puoi scambiare valutazioni sul **tuo** profilo.", flags: PRIVATE_FLAG })
+          .reply({ content: "<a:VC_Cross:1482532424570376253> Solo **High Staff** può usare questa opzione su un altro profilo.", flags: PRIVATE_FLAG })
           .catch(() => {});
         return true;
       }

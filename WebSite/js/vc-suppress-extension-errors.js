@@ -79,7 +79,10 @@
       /moz-extension:\/\//i.test(msg) ||
       (/cannot read properties of undefined/i.test(msg) && /useCache/i.test(msg)) ||
       (/failed to execute ['"]?removechild['"]?/i.test(msg) && /content(?:_script)?\.js|chrome-extension|moz-extension/i.test(msg)) ||
-      (/notfounderror/i.test(msg) && /node to be removed is not a child/i.test(msg))
+      (/notfounderror/i.test(msg) && /node to be removed is not a child/i.test(msg)) ||
+      // Cloudflare Turnstile / challenge noise (non app errors)
+      (/font-size:\s*0;\s*color:\s*transparent/i.test(msg) && /NaN/i.test(msg)) ||
+      /challenges\.cloudflare\.com/i.test(msg)
     );
   }
 
@@ -89,11 +92,20 @@
       for (var i = 0; i < args.length; i += 1) {
         if (args[i] != null) s += " " + String(args[i]);
       }
-      if (!/ERR_BLOCKED_BY_CLIENT/i.test(s)) return false;
-      return /youtube|googlevideo|ytimg|gstatic/i.test(s);
+      if (!/ERR_BLOCKED_BY_CLIENT|ERR_BLOCKED_BY_ORB/i.test(s)) return false;
+      return /youtube|googlevideo|ytimg|gstatic|iframe_api/i.test(s);
     } catch (e) {
       return false;
     }
+  }
+
+  function isTurnstileFormatNoise(args) {
+    try {
+      var first = String(args[0] || "");
+      if (/font-size:\s*0;\s*color:\s*transparent/i.test(first)) return true;
+      if (/%c%d/i.test(first) && (args[1] !== args[1] || args[1] == null)) return true;
+    } catch (e) {}
+    return false;
   }
 
   window.addEventListener(
@@ -148,15 +160,19 @@
     } catch (e4) {}
   };
 
-  ["error", "warn"].forEach(function (level) {
+  ["error", "warn", "log", "info", "debug"].forEach(function (level) {
     var orig = console[level];
     if (typeof orig !== "function") return;
     console[level] = function () {
       if (isYoutubeBlockedNoise(arguments)) return;
+      if (isTurnstileFormatNoise(arguments)) return;
       var all = "";
       for (var i = 0; i < arguments.length; i += 1) all += " " + msgOf(arguments[i]);
       if (isExtensionNoise(all)) return;
-      if (/forced reflow while executing javascript took/i.test(all)) return;
+      /forced reflow while executing javascript took/i.test(all) ||
+      /failed to execute ['"]?postmessage['"]? on ['"]?domwindow['"]?/i.test(all) ||
+      (/target origin provided/i.test(all) && /youtube(-nocookie)?\.com/i.test(all))
+    ) return;
       return orig.apply(console, arguments);
     };
   });

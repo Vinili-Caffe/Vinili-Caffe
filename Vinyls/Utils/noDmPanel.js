@@ -1,4 +1,4 @@
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType } = require("discord.js");
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const { getNoDmPreferences, setNoDmCategories, DM_CATEGORIES, DM_CATEGORY_ALL, DM_CATEGORY_LABELS } = require("./noDmList");
 
 function _stripRef(p) {
@@ -34,13 +34,14 @@ async function _reply(message, payload) {
     return sent;
   }
 }
-const PREFIX = "nodm_panel_";
+const PREFIX = "nodm_panel";
 const EMOJI_OFF = "<:VC_OfflineStatus:1482527117051957380>";
 const EMOJI_ON = "<:VC_OnlineStatus:1482527088912240650>";
 const BTN_EMOJI_OFF = "<:VC_OfflineStatus:1482527117051957380>";
 const BTN_EMOJI_ON = "<:VC_OnlineStatus:1482527088912240650>";
+const PRIVATE = 1 << 6;
 
-function buildPanelEmbed(prefs, mode = "disable") {
+function buildPanelEmbed(prefs) {
   const isAll = prefs.blockAll || prefs.disabled.has(DM_CATEGORY_ALL);
   const lines = DM_CATEGORIES.map((key) => {
     const off = isAll || prefs.disabled.has(key);
@@ -67,12 +68,12 @@ function buildPanelEmbed(prefs, mode = "disable") {
     .setFooter({ text: footerText });
 }
 
-function buildRows(prefs, uniqueKey) {
+function buildRows(prefs, ownerId) {
   const isAll = prefs.blockAll || prefs.disabled.has(DM_CATEGORY_ALL);
   const dmButtons = DM_CATEGORIES.map((key) => {
     const off = isAll || prefs.disabled.has(key);
     return new ButtonBuilder()
-      .setCustomId(`${PREFIX}toggle_${key}_${uniqueKey}`)
+      .setCustomId(`${PREFIX}:toggle:${key}:${ownerId}`)
       .setLabel(String(DM_CATEGORY_LABELS[key]).slice(0, 80))
       .setStyle(off ? ButtonStyle.Secondary : ButtonStyle.Success)
       .setEmoji(off ? BTN_EMOJI_OFF : BTN_EMOJI_ON);
@@ -81,143 +82,118 @@ function buildRows(prefs, uniqueKey) {
   for (let i = 0; i < dmButtons.length; i += 5) {
     rows.push(new ActionRowBuilder().addComponents(...dmButtons.slice(i, i + 5)));
   }
-  const row2 = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId(`${PREFIX}all_${uniqueKey}`)
-      .setLabel("Disattiva tutto")
-      .setStyle(isAll ? ButtonStyle.Danger : ButtonStyle.Secondary)
-      .setEmoji("<:cancel:1461730653677551691>"),
-    new ButtonBuilder()
-      .setCustomId(`${PREFIX}none_${uniqueKey}`)
-      .setLabel("Attiva tutto")
-      .setStyle(!isAll && prefs.disabled.size === 0 ? ButtonStyle.Success : ButtonStyle.Secondary)
-      .setEmoji("<:success:1461731530333229226>"),
-    new ButtonBuilder()
-      .setCustomId(`${PREFIX}done_${uniqueKey}`)
-      .setLabel("Fine")
-      .setStyle(ButtonStyle.Primary)
-      .setEmoji("<:vegacheckmark:1443666279058772028>"),
+  rows.push(
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`${PREFIX}:all:${ownerId}`)
+        .setLabel("Disattiva tutto")
+        .setStyle(isAll ? ButtonStyle.Danger : ButtonStyle.Secondary)
+        .setEmoji("<:cancel:1461730653677551691>"),
+      new ButtonBuilder()
+        .setCustomId(`${PREFIX}:none:${ownerId}`)
+        .setLabel("Attiva tutto")
+        .setStyle(!isAll && prefs.disabled.size === 0 ? ButtonStyle.Success : ButtonStyle.Secondary)
+        .setEmoji("<:success:1461731530333229226>"),
+      new ButtonBuilder()
+        .setCustomId(`${PREFIX}:done:${ownerId}`)
+        .setLabel("Fine")
+        .setStyle(ButtonStyle.Primary)
+        .setEmoji("<:vegacheckmark:1443666279058772028>"),
+    ),
   );
-  rows.push(row2);
   return rows;
 }
 
-/**
- * Mostra il pannello interattivo preferenze DM e gestisce i click.
- * @param {import("discord.js").Message} message - Messaggio del comando
- * @param {{ mode?: string }} options - opzioni (non più usate per differenziare enable/disable)
- */
-async function runNoDmPanel(message, options = {}) {
-  const mode = "filters";
+function parseNoDmCustomId(customId) {
+  const parts = String(customId || "").split(":");
+  if (parts[0] !== PREFIX || parts.length < 3) return null;
+  if (parts[1] === "toggle") {
+    if (parts.length < 4) return null;
+    return { action: "toggle", category: parts[2], ownerId: parts[3] };
+  }
+  return { action: parts[1], ownerId: parts[2] };
+}
+
+async function handleNoDmPanelInteraction(interaction) {
+  const parsed = parseNoDmCustomId(interaction.customId);
+  if (!parsed) return false;
+  if (String(interaction.user?.id) !== String(parsed.ownerId)) {
+    await interaction
+      .reply({ content: "<:vegax:1443934876440068179> Questo pannello non è tuo.", flags: PRIVATE })
+      .catch(() => null);
+    return true;
+  }
+  const guildId = interaction.guild?.id;
+  const userId = parsed.ownerId;
+  if (!guildId) return true;
+
+  if (parsed.action === "done") {
+    await interaction
+      .update({
+        embeds: [
+          new EmbedBuilder()
+            .setColor("#6f4e37")
+            .setTitle("<:success:1461731530333229226> Preferenze DM salvate")
+            .setDescription(
+              "<:VC_InactiveStatus:1482526984234860574> Le tue preferenze sono state aggiornate con successo. Usa `+profile` per modificarle in futuro.",
+            ),
+        ],
+        components: [],
+      })
+      .catch(() => null);
+    return true;
+  }
+
+  if (parsed.action === "toggle") {
+    const cat = parsed.category;
+    if (!DM_CATEGORIES.includes(cat)) {
+      await interaction.deferUpdate().catch(() => null);
+      return true;
+    }
+    const prefs2 = await getNoDmPreferences(guildId, userId);
+    const isAll = prefs2.blockAll || prefs2.disabled.has(DM_CATEGORY_ALL);
+    let next;
+    if (isAll) {
+      next = DM_CATEGORIES.filter((k) => k !== cat);
+    } else {
+      const disabled = new Set(prefs2.disabled);
+      if (disabled.has(cat)) disabled.delete(cat);
+      else disabled.add(cat);
+      next = [...disabled];
+    }
+    await setNoDmCategories(guildId, userId, next.length ? next : []);
+  } else if (parsed.action === "all") {
+    await setNoDmCategories(guildId, userId, [DM_CATEGORY_ALL]);
+  } else if (parsed.action === "none") {
+    await setNoDmCategories(guildId, userId, []);
+  } else {
+    return false;
+  }
+
+  const prefs3 = await getNoDmPreferences(guildId, userId);
+  await interaction
+    .update({
+      embeds: [buildPanelEmbed(prefs3)],
+      components: buildRows(prefs3, userId),
+    })
+    .catch(() => null);
+  return true;
+}
+
+async function runNoDmPanel(message) {
   const guildId = message.guild.id;
   const userId = message.author.id;
   const prefs = await getNoDmPreferences(guildId, userId);
-  const uniqueKey = `${Date.now()}_${Math.floor(Math.random() * 9999)}`;
-
-  const embed = buildPanelEmbed(prefs, mode);
-  const components = buildRows(prefs, uniqueKey);
-
-  const promptMessage = await _reply(message, {
-    embeds: [embed],
-    components,
+  await _reply(message, {
+    embeds: [buildPanelEmbed(prefs)],
+    components: buildRows(prefs, userId),
     allowedMentions: { repliedUser: false },
-  });
-  if (!promptMessage) return;
-
-  const collector = promptMessage.createMessageComponentCollector({
-    componentType: ComponentType.Button,
-    time: 120_000,
-    filter: (i) =>
-      i.customId.startsWith(PREFIX) &&
-      i.customId.endsWith(uniqueKey) &&
-      i.user.id === userId,
-  });
-
-  collector.on("collect", async (interaction) => {
-    const id = interaction.customId;
-    if (id.includes("_toggle_")) {
-      const afterToggle = id.slice((PREFIX + "toggle_").length);
-      const cat = afterToggle.slice(0, afterToggle.indexOf("_"));
-      if (!DM_CATEGORIES.includes(cat)) return interaction.deferUpdate().catch(() => { });
-      const prefs2 = await getNoDmPreferences(guildId, userId);
-      const isAll = prefs2.blockAll || prefs2.disabled.has(DM_CATEGORY_ALL);
-      let next;
-      if (isAll) {
-        next = DM_CATEGORIES.filter((k) => k !== cat);
-      } else {
-        const disabled = new Set(prefs2.disabled);
-        if (disabled.has(cat)) disabled.delete(cat);
-        else disabled.add(cat);
-        next = [...disabled];
-      }
-      if (next.length === 0) {
-        await setNoDmCategories(guildId, userId, []);
-      } else {
-        await setNoDmCategories(guildId, userId, next);
-      }
-      const prefs3 = await getNoDmPreferences(guildId, userId);
-      await interaction
-        .update({
-          embeds: [buildPanelEmbed(prefs3, mode)],
-          components: buildRows(prefs3, uniqueKey),
-        })
-        .catch(() => { });
-      return;
-    }
-    if (id.includes("_all_")) {
-      await setNoDmCategories(guildId, userId, [DM_CATEGORY_ALL]);
-      const prefs2 = await getNoDmPreferences(guildId, userId);
-      await interaction
-        .update({
-          embeds: [buildPanelEmbed(prefs2, mode)],
-          components: buildRows(prefs2, uniqueKey),
-        })
-        .catch(() => { });
-      return;
-    }
-    if (id.includes("_none_")) {
-      await setNoDmCategories(guildId, userId, []);
-      const prefs2 = await getNoDmPreferences(guildId, userId);
-      await interaction
-        .update({
-          embeds: [buildPanelEmbed(prefs2, mode)],
-          components: buildRows(prefs2, uniqueKey),
-        })
-        .catch(() => { });
-      return;
-    }
-    if (id.includes("_done_")) {
-      collector.stop("done");
-      await interaction
-        .update({
-          embeds: [
-            new EmbedBuilder()
-              .setColor("#6f4e37")
-              .setTitle("<:success:1461731530333229226> Preferenze DM salvate")
-              .setDescription(
-                "<:VC_InactiveStatus:1482526984234860574> Le tue preferenze sono state aggiornate con successo. Usa `+profile` per modificarle in futuro.",
-              ),
-          ],
-          components: [],
-        })
-        .catch(() => { });
-    }
-  });
-
-  collector.on("end", async (_, reason) => {
-    if (reason === "done") return;
-    try {
-      const rows = buildRows(await getNoDmPreferences(guildId, userId), uniqueKey);
-      const disabledRows = rows.map((row) =>
-        new ActionRowBuilder().addComponents(
-          ...row.components.map((c) => ButtonBuilder.from(c).setDisabled(true)),
-        ),
-      );
-      await promptMessage.edit({ components: disabledRows }).catch(() => { });
-    } catch (err) {
-      global.logger?.warn?.("[noDmPanel] edit components:", err?.message || err);
-    }
   });
 }
 
-module.exports = { runNoDmPanel, buildPanelEmbed, buildRows, DM_CATEGORY_LABELS };
+module.exports = {
+  runNoDmPanel,
+  parseNoDmCustomId,
+  handleNoDmPanelInteraction,
+  PREFIX,
+};

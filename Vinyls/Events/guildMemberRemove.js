@@ -1,9 +1,10 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, AuditLogEvent, PermissionsBitField, } = require("discord.js");
 const { closeOpenTicketsForGuildUser } = require("../Utils/Ticket/ticketCloseRuntime");
+const { autoUnclaimOpenTicketsClaimedByUser } = require("../Utils/Ticket/ticketAutoUnclaimOnStaffLoss");
 const { ActivityUserProfile, ACTIVITY_MAIN_GUILD_ID } = require("../Schemas/Community/communitySchemas");
 const { sponsorMainLeave } = require("../Utils/Community/activityUserProfilePaths");
 const IDs = require("../Utils/Config/ids");
-const { getGuildChannelCached, getClientGuildCached, getClientChannelCached } = require("../Utils/Interaction/interactionEntityCache");
+const { getGuildChannelCached, getClientGuildCached } = require("../Utils/Interaction/interactionEntityCache");
 const { scheduleStaffListRefresh, memberHasStaffRole, } = require("../Utils/Community/staffListUtils");
 const { getStaffRoleEmojiByRoleId } = require("../Utils/Community/staffRoleEmoji");
 const { queueIdsCatalogSync } = require("../Utils/Config/idsAutoSync");
@@ -14,8 +15,11 @@ const {
   shouldRetainHogwartsProfileOnLeave,
 } = require("../Services/Community/hogwartsLeaveRetention");
 const { resolveHogwartsEventConfig } = require("../Utils/Web/hogwartsSortingConfig");
-const { backupUserOnLeave, recordLeaveDepexMessages } = require("../Services/Community/userLeaveBackupService");
+const { backupUserOnLeave } = require("../Services/Community/userLeaveBackupService");
 const { handleMuteMirrorOnMemberLeave } = require("../Services/Moderation/mutedMirrorRoleService");
+const {
+  handleTenantPartnerManagerLeave,
+} = require("../Services/Partner/partnerManagerLeaveService");
 const { enqueueCustomPerksDiscordCleanupAfterLeave } = require("../Services/Community/customPerksDiscordCleanupQueueService");
 const sponsorVerifiedRequiresMain = require("../Services/Community/sponsorVerifiedRequiresMainService");
 const { buildAuditExtraLines } = require("../Utils/Logging/channelRolesLogUtils");
@@ -24,6 +28,17 @@ const { consumeRecentJoinGateKick } = require("../Utils/Moderation/joinGateKickC
 const { guildMemberDisplayAvatarUrlDynamic } = require("../Utils/Discord/guildDiscordIdentity");
 const { trackMemberLeave } = require("../Services/Community/dailyMemberStatsService");
 const { handleMainGuildMemberRemove } = require("../Services/Staff/staffAccessMirrorService");
+const { cancelOpenPausesOnMemberLeave } = require("../Utils/Pause/pauseHandlersUtils");
+
+function isViniliFullFeatureGuild(guildId) {
+  try {
+    const { isViniliFullFeatureGuild: check } = require("../MultiGuild/core/guildFeatureScope");
+    return check(guildId);
+  } catch {
+    return true;
+  }
+}
+
 const AUDIT_FETCH_LIMIT = 20;
 const AUDIT_LOOKBACK_MS = 120 * 1000;
 const STAFF_TRACKED_ROLE_IDS = new Set([IDs.roles.PartnerManager, IDs.roles.Staff, IDs.roles.Helper, IDs.roles.Mod, IDs.roles.SeniorModerator, IDs.roles.HighStaff, IDs.roles.Director, IDs.roles.Admin, IDs.roles.Manager, IDs.roles.Founder,]);
@@ -169,7 +184,7 @@ function buildStaffLeaveResignationContent(member, staffRole, userRoleLabel) {
   const label = String(staffRole?.name || "Staff/PM").trim() || "Staff/PM";
   const dest = String(userRoleLabel || "User").trim() || "User";
   const lead = formatStaffRoleLeadingEmoji(staffRole);
-  return `**<a:VC_Cross:1482532424570376253> DEPEX** ${member.user}
+  return `**<:cancel:1461730653677551691> DEPEX** ${member.user}
 ${lead}\`${label}\` <a:VC_Arrow:1482706699365257397> \`${dest}\`
 <:VC_reason:1478517122929004544> __Dimissioni (Esce dal server)__`;
 }
@@ -186,7 +201,7 @@ async function handleTrackedStaffLeave(member) {
     { $set: { staffPendingPurgeAt: pruneAt, updatedAt: new Date() } },
   ).catch(() => { });
 
-  const resignChannel = guild.channels.cache.get(IDs.channels.pexDepex) || (await getGuildChannelCached(guild, IDs.channels.pexDepex)) || (await getClientChannelCached(member.client, IDs.channels.pexDepex));
+  const resignChannel = guild.channels.cache.get(IDs.channels.pexDepex) || (await getGuildChannelCached(guild, IDs.channels.pexDepex));
   if (!resignChannel?.isTextBased?.()) return;
 
   const userRole = guild.roles.cache.get(IDs.roles.Member);
@@ -194,12 +209,10 @@ async function handleTrackedStaffLeave(member) {
 
   const pmRole = hasPm ? guild.roles.cache.get(PARTNER_MANAGER_ROLE_ID) : null;
   const pmLabel = pmRole?.name || "Partner Manager";
-  const leaveDepexMessages = [];
 
   if (highestStaffExPm) {
     const content = buildStaffLeaveResignationContent(member, highestStaffExPm, userRoleLabel);
-    const sent = await resignChannel.send({ content }).catch(() => null);
-    if (sent?.id) leaveDepexMessages.push({ channelId: String(resignChannel.id), messageId: String(sent.id) });
+    await resignChannel.send({ content, __skipNoticeEmbed: true }).catch(() => null);
   }
   if (hasPm) {
     const contentPm = buildStaffLeaveResignationContent(
@@ -207,13 +220,32 @@ async function handleTrackedStaffLeave(member) {
       pmRole || { id: PARTNER_MANAGER_ROLE_ID, name: pmLabel },
       userRoleLabel,
     );
-    const sentPm = await resignChannel.send({ content: contentPm }).catch(() => null);
-    if (sentPm?.id) leaveDepexMessages.push({ channelId: String(resignChannel.id), messageId: String(sentPm.id) });
+    await resignChannel.send({ content: contentPm, __skipNoticeEmbed: true }).catch(() => null);
   }
-  if (leaveDepexMessages.length > 0) {
-    await recordLeaveDepexMessages(guild.id, member.id, leaveDepexMessages).catch((err) => {
-      global.logger?.warn?.("[guildMemberRemove] leave depex message backup:", member.id, err?.message || err);
-    });
+}
+
+/** Solo main: PM uscito → cancella tutte le sue partner (DB + messaggi canale). */
+async function handlePmStaffPartnershipWipeOnLeave(member, client) {
+  const guild = member?.guild;
+  if (!guild?.id || String(guild.id) !== String(MAIN_GUILD_ID)) return;
+  if (!PARTNER_MANAGER_ROLE_ID || !member.roles?.cache?.has(PARTNER_MANAGER_ROLE_ID)) return;
+
+  const { deletePartnershipsForPmStaffLeave } = require("../Services/Partner/tenantPartnershipDeleteService");
+  const removed = await deletePartnershipsForPmStaffLeave(
+    guild,
+    member.id,
+    client || member.client,
+  ).catch((err) => {
+    global.logger?.warn?.(
+      "[guildMemberRemove] deletePartnershipsForPmStaffLeave:",
+      err?.message || err,
+    );
+    return 0;
+  });
+  if (removed > 0) {
+    global.logger?.info?.(
+      `[guildMemberRemove] PM ${member.id} leave: rimosse ${removed} partnership dal main.`,
+    );
   }
 }
 
@@ -390,6 +422,19 @@ module.exports = {
   async execute(member, client) {
     try {
       if (!member?.guild || !member?.user) return;
+
+      if (member.guild?.id && !isViniliFullFeatureGuild(member.guild.id)) {
+        await autoUnclaimOpenTicketsClaimedByUser(member.guild, member.id, {
+          reason: "perché è uscito dal server",
+        }).catch((err) => {
+          global.logger?.warn?.("[guildMemberRemove] ticket auto-unclaim on leave (tenant):", member.id, err?.message || err);
+        });
+        await handleTenantPartnerManagerLeave(member, client).catch((err) => {
+          global.logger?.warn?.("[guildMemberRemove] handleTenantPartnerManagerLeave:", err?.message || err);
+        });
+        return;
+      }
+
       await handleMainGuildMemberRemove(member).catch((err) => {
         global.logger?.warn?.("[guildMemberRemove] staff access mirror:", member.id, err?.message || err);
       });
@@ -431,13 +476,40 @@ module.exports = {
 
       const guild = member.guild;
 
-      await closeOpenTicketsForMember(
-        member,
-        wasKicked ? "Utente kickato dal server" : "Utente uscito dal server",
-      );
-      await handleTrackedStaffLeave(member);
-      await handlePartnershipOnLeave(member, client);
+      let autoCloseOnLeave = true;
+      try {
+        const { getTicketSettingsSync } = require("../MultiGuild/core/tenantTicketSettings");
+        autoCloseOnLeave = getTicketSettingsSync(guild.id)?.autoCloseOnUserLeave !== false;
+      } catch (_) {
+        autoCloseOnLeave = true;
+      }
+      if (autoCloseOnLeave) {
+        await closeOpenTicketsForMember(
+          member,
+          wasKicked ? "Utente kickato dal server" : "Utente uscito dal server",
+        );
+      }
+      await autoUnclaimOpenTicketsClaimedByUser(member.guild, member.id, {
+        reason: wasKicked ? "perché è stato kickato dal server" : "perché è uscito dal server",
+      }).catch((err) => {
+        global.logger?.warn?.("[guildMemberRemove] ticket auto-unclaim on leave:", member.id, err?.message || err);
+      });
       const activeClient = client || member.client;
+      await handleTrackedStaffLeave(member);
+      await handlePmStaffPartnershipWipeOnLeave(member, activeClient).catch((err) => {
+        global.logger?.warn?.(
+          "[guildMemberRemove] PM partnership wipe:",
+          err?.message || err,
+        );
+      });
+      await cancelOpenPausesOnMemberLeave(member.guild, member.id, {
+        client: activeClient,
+        reason: "Uscita dal server",
+      }).catch((err) => {
+        global.logger?.warn?.("[guildMemberRemove] cancel pauses:", err?.message || err);
+      });
+      await handlePartnershipOnLeave(member, client);
+      await handleTenantPartnerManagerLeave(member, client);
       await handleMuteMirrorOnMemberLeave(member).catch(() => null);
       await backupUserOnLeave(guild.id, member.id, member);
       if (!member.user.bot && String(guild.id) === String(MAIN_GUILD_ID)) {

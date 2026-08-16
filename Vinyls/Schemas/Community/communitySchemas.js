@@ -160,6 +160,8 @@ const globalSettingsSchema = new Schema(
     expMultiplier: { type: Number, default: 2 },
     expEventMultiplier: { type: Number, default: 1 },
     expEventMultiplierExpiresAt: { type: Date, default: null },
+    /** Chiavi `globalExpEvents[].key` già annunciate a inizio evento (anti-duplicato). */
+    expEventStartAnnouncementsSent: { type: [String], default: [] },
     expLockedChannelIds: { type: [String], default: [] },
     expIgnoredRoleIds: { type: [String], default: [] },
     expRoleMultipliers: { type: Schema.Types.Mixed, default: {} },
@@ -228,6 +230,9 @@ const staffPartnerActionSchema = new Schema(
     managerId: String,
     partnershipChannelId: String,
     partnerMessageIds: { type: [String], default: [] },
+    globalLogId: { type: Number, default: null },
+    /** Id job dashboard migrazione cronologia (solo import automatici). */
+    migrationJobId: { type: String, default: null },
     auditPenaltyDates: { type: [String], default: [] },
     auditPenaltyLogs: {
       type: [
@@ -256,6 +261,8 @@ const staffPauseEntrySchema = new Schema(
     giorniAggiuntivi: { type: Number, default: 0 },
     ruoloRichiesto: String,
     ruolo: String,
+    /** Discord role id del grado staff mostrato nel messaggio pausa (Mod/Director/…). */
+    ruoloGradeId: { type: String, default: null },
     stafferInPausa: { type: Number, default: 0 },
     status: { type: String, default: "pending" },
     cancelledAt: { type: Date, default: null },
@@ -305,8 +312,13 @@ const staffEmbeddedSchema = new Schema(
     negativeValutazioni: { type: [staffValutazioneLogEntrySchema], default: [] },
     valutazioniCount: { type: Number, default: 0 },
     autoValutazioni: { type: [staffAutoValutazioneSchema], default: [] },
+    /** Media rating ticket web (stelle 1–5): sum/count. Si azzera al depex / ladder reset. */
+    webTicketRatingSum: { type: Number, default: 0 },
+    webTicketRatingCount: { type: Number, default: 0 },
     partnerCount: { type: Number },
     partnerRedeemSpend: { type: Number, default: 0 },
+    /** Reset score attivo sul server (ruolo PM rimosso); lo storico partnerActions resta. */
+    partnerServerResetAt: { type: Date, default: null },
     managerId: { type: String },
     partnerActions: { type: [staffPartnerActionSchema] },
     partnerMilestoneDmSent: { type: [Number], default: [] },
@@ -443,10 +455,28 @@ const activityUserProfileSchema = new Schema(
         lastMessageId: { type: String, default: null },
         lastSentAt: { type: Date, default: null },
         hasLink: { type: Boolean, default: false },
+        /** Scadenza wall-clock rimozione Fan (sopravvive a offline/restart). */
+        removalDueAt: { type: Date, default: null },
       },
       countingRestoreLastDayKey: { type: String, default: null },
       countingChannelBanUntil: { type: Date, default: null },
       serverBoostAnnouncedSlotCount: { type: Number, default: null, min: 0 },
+      /** Snapshot ruoli pre-mute (sostituisce la collection comtimeoutrolesnapshots). */
+      muteRoleSnapshot: {
+        roleIds: { type: [String], default: [] },
+        at: { type: Date, default: null },
+      },
+      /** Totale secondi in stanza voice come visitatore (ex collection stanzauservoicetotals). */
+      stanzaVoiceTotalSeconds: { type: Number, default: 0, min: 0 },
+      /** Dopo leave: snapshot ID Discord da ripulire quando scade la finestra di restore (sostituisce customperksdiscordcleanupqueues). */
+      customPerksDiscordCleanup: {
+        runAt: { type: Date, default: null },
+        roleId: { type: String, default: null },
+        secondaryRoleId: { type: String, default: null },
+        customVocChannelId: { type: String, default: null },
+        customVocEmoji: { type: String, default: null },
+        clearMentionReactions: { type: Boolean, default: false },
+      },
       afk: {
         message: { type: String, default: null },
         timestamp: { type: Date, default: null },
@@ -510,6 +540,7 @@ const activityUserProfileSchema = new Schema(
       },
       inviteTrack: {
         inviterId: { type: String, default: null },
+        inviteCode: { type: String, default: null },
         active: { type: Boolean, default: true },
         joinedAt: { type: Date, default: null },
         leftAt: { type: Date, default: null },
@@ -527,6 +558,29 @@ const activityUserProfileSchema = new Schema(
       noDmPreference: {
         categories: { type: [String], default: null },
       },
+      tenantPartnership: {
+        suppressManagerPing: { type: Boolean, default: false },
+        ephemeralCommands: { type: Boolean, default: false },
+        language: { type: String, default: "it" },
+        languageManual: { type: Boolean, default: false },
+        selectedBadges: { type: [String], default: [] },
+        notificationsReadAt: { type: Date, default: null },
+        objectivesCompleted: { type: [String], default: [] },
+        objectiveStats: {
+          topDailyPeriods: { type: [String], default: [] },
+          topWeeklyPeriods: { type: [String], default: [] },
+          topGlobalPeriods: { type: [String], default: [] },
+          bugReports: { type: Number, default: 0 },
+          bestGlobalRank: { type: Number, default: null },
+          flags: {
+            setupDone: { type: Boolean, default: false },
+            descSet: { type: Boolean, default: false },
+            thankYouSet: { type: Boolean, default: false },
+            privacySet: { type: Boolean, default: false },
+          },
+          guildFlags: { type: Schema.Types.Mixed, default: {} },
+        },
+      },
       verificationTenure: {
         verifiedAt: { type: Date, default: null },
         stage: { type: Number, default: 1 },
@@ -539,6 +593,11 @@ const activityUserProfileSchema = new Schema(
         kickAt: { type: Date, default: null },
         dmSent: { type: Boolean, default: false },
         dmFailed: { type: Boolean, default: false },
+      },
+      /** Economia server (Vinili/Caffè) + sessioni GUI (es. slots bank). Mixed: sotto-chiavi dinamiche. */
+      economy: {
+        type: Schema.Types.Mixed,
+        default: () => ({}),
       },
       events: {
         hogwarts: {
@@ -561,6 +620,11 @@ const activityUserProfileSchema = new Schema(
             type: Schema.Types.Mixed,
             default: () => ({}),
           },
+          /** Boost consumabili personali (housePoints/exp): itemId, expiresAt, … */
+          consumableBoosts: {
+            type: Schema.Types.Mixed,
+            default: () => ({}),
+          },
           potions: {
             type: Schema.Types.Mixed,
             default: () => ({}),
@@ -568,6 +632,11 @@ const activityUserProfileSchema = new Schema(
           economy: {
             type: Schema.Types.Mixed,
             default: () => ({}),
+          },
+          duel: {
+            eventKey: { type: String, default: "" },
+            cooldownUntil: { type: Date, default: null },
+            lastRewardAt: { type: Date, default: null },
           },
         },
       },
@@ -593,6 +662,8 @@ activityUserProfileSchema.index({ guildId: 1, "staff.firstWarnStaffAt": 1 });
 activityUserProfileSchema.index({ guildId: 1, "staff.pauses.requestMessageId": 1 });
 activityUserProfileSchema.index({ guildId: 1, staffPendingPurgeAt: 1 }, { sparse: true });
 activityUserProfileSchema.index({ guildId: 1, "profile.contestPrizes.finalePendingRoleRemovals": 1 }, { sparse: true });
+activityUserProfileSchema.index({ "profile.muteRoleSnapshot.roleIds.0": 1 }, { sparse: true });
+activityUserProfileSchema.index({ guildId: 1, "profile.customPerksDiscordCleanup.runAt": 1 }, { sparse: true });
 
 const userLeaveBackupSchema = new Schema(
   {
@@ -622,33 +693,6 @@ const userLeaveBackupSchema = new Schema(
 userLeaveBackupSchema.index({ guildId: 1, userId: 1 }, { unique: true });
 userLeaveBackupSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
-const communicationTimeoutRoleSnapshotSchema = new Schema(
-  {
-    guildId: { type: String, required: true, index: true },
-    userId: { type: String, required: true, index: true },
-    roleIds: { type: [String], default: [] },
-  },
-  { timestamps: true },
-);
-communicationTimeoutRoleSnapshotSchema.index({ guildId: 1, userId: 1 }, { unique: true });
-
-/** Dopo leave: snapshot ID Discord da ripulire quando scade la finestra di restore (stessa TTL di `UserLeaveBackup`). */
-const customPerksDiscordCleanupQueueSchema = new Schema(
-  {
-    guildId: { type: String, required: true },
-    userId: { type: String, required: true },
-    runAt: { type: Date, required: true },
-    roleId: { type: String, default: null },
-    secondaryRoleId: { type: String, default: null },
-    customVocChannelId: { type: String, default: null },
-    customVocEmoji: { type: String, default: null },
-    clearMentionReactions: { type: Boolean, default: false },
-  },
-  { timestamps: true },
-);
-customPerksDiscordCleanupQueueSchema.index({ guildId: 1, userId: 1 }, { unique: true });
-customPerksDiscordCleanupQueueSchema.index({ runAt: 1 });
-
 /** Aggregati orari per guild (+server / contest): un solo documento per guildId, ore in `hours`. */
 const activityGuildHourlySchema = new Schema(
   {
@@ -657,14 +701,16 @@ const activityGuildHourlySchema = new Schema(
   },
   { timestamps: true },
 );
-activityGuildHourlySchema.index({ guildId: 1 }, { unique: true });
+activityGuildHourlySchema.index({ guildId: 1 }, { unique: true, name: "activityGuildHourly_guildId_unique" });
 
 /** Unifica le vecchie collection site* (notifiche, cooldown ruoli, recensioni, suggerimenti, pagamenti). */
 const SITE_DOCUMENT_TYPE = Object.freeze({
   IN_APP_NOTIFICATION: "in_app_notification",
   ROLE_REQUEST_COOLDOWN: "role_request_cooldown",
+  ROLE_REQUEST_PENDING: "role_request_pending",
   REVIEW: "review",
   SUGGESTION: "suggestion",
+  BOT_FEEDBACK: "bot_feedback",
   PAYMENT: "payment",
   HOGWARTS_SORTING: "hogwarts_sorting",
   HOGWARTS_FORBIDDEN_BOOKS: "hogwarts_forbidden_books",
@@ -678,6 +724,12 @@ const SITE_DOCUMENT_TYPE = Object.freeze({
   HOGWARTS_MINIGAME_SPAWN_WINDOW: "hogwarts_minigame_spawn_window",
   HOGWARTS_HOUSE_CHANNEL_MINIGAME_SCHEDULER: "hogwarts_house_channel_minigame_scheduler",
   HOGWARTS_SERATA_FILM_LB_PUBLISH: "hogwarts_serata_film_lb_publish",
+  /** Ping ruolo minigioco già inviato (anti doppio ping al restart mid-spawn). */
+  MINIGAME_ROLE_PING: "minigame_role_ping",
+  /** Sostituisce la collection countingrestoretokens. */
+  COUNTING_RESTORE_TOKEN: "counting_restore_token",
+  /** Web Push: una riga per endpoint browser (chiavi VAPID). */
+  WEB_PUSH_SUBSCRIPTION: "web_push_subscription",
 });
 
 const siteSuggestionCommentSchema = new Schema(
@@ -712,9 +764,8 @@ const siteDocumentSchema = new Schema(
       type: String,
       required: true,
       enum: Object.values(SITE_DOCUMENT_TYPE),
-      index: true,
     },
-    guildId: { type: String, default: "", index: true },
+    guildId: { type: String, default: "" },
     userId: { type: String, default: "", index: true },
 
     /** Un solo documento per userId: inbox notifiche in-app (array `inAppNotifItems`). */
@@ -733,8 +784,16 @@ const siteDocumentSchema = new Schema(
     ownerId: { type: String, default: null, index: true },
     lastRequestedAt: { type: Date, default: null },
     cooldownUntil: { type: Date, default: null, index: true },
+    /** Pending site role request (site-api ↔ gateway). */
+    requestToken: { type: String, default: "", index: true },
+    expiresAt: { type: Date, default: null, index: true },
+    dmChannelId: { type: String, default: "", trim: true, maxlength: 32 },
+    dmMessageId: { type: String, default: "", trim: true, maxlength: 32 },
+    reason: { type: String, default: "", trim: true, maxlength: 500 },
 
     reviewKind: { type: String, default: null, trim: true, maxlength: 16 },
+    /** Lingua del testo recensione: "it" | "en" (usata soprattutto per reviewKind bot). */
+    contentLang: { type: String, default: null, trim: true, maxlength: 8 },
     staffUserId: { type: String, default: null, index: true },
     rating: { type: Number, min: 1, max: 5 },
     content: { type: String, trim: true, maxlength: 2000 },
@@ -748,6 +807,12 @@ const siteDocumentSchema = new Schema(
     serverReplyAuthorId: { type: String, default: "" },
 
     status: { type: String, default: null, trim: true, maxlength: 24 },
+    /** bot_feedback: "suggestion" | "bug" */
+    feedbackKind: { type: String, default: null, trim: true, maxlength: 24 },
+    /** bot_feedback bug accettato: missione/badge già conteggiata (idempotenza). */
+    missionRewardGrantedAt: { type: Date, default: null },
+    /** Public image URLs (bot feedback attachments). */
+    imageUrls: { type: [String], default: undefined },
     staffReason: { type: String, default: "", trim: true, maxlength: 1000 },
     decidedAt: { type: Date, default: null },
     comments: { type: [siteSuggestionCommentSchema], default: [] },
@@ -769,6 +834,16 @@ const siteDocumentSchema = new Schema(
     rawOrder: { type: Schema.Types.Mixed, default: null },
     rawCapture: { type: Schema.Types.Mixed, default: null },
     rawWebhook: { type: Schema.Types.Mixed, default: null },
+
+    /** Annuncio smistamento in canale casata (dedupe persistente su Mongo). */
+    houseAnnounceAt: { type: Date, default: null },
+    houseAnnounceHouseId: { type: String, default: "", trim: true, maxlength: 24 },
+
+    /** Web Push subscription (browser Push API). */
+    pushEndpoint: { type: String, default: "", trim: true, maxlength: 2048 },
+    pushP256dh: { type: String, default: "", trim: true, maxlength: 512 },
+    pushAuth: { type: String, default: "", trim: true, maxlength: 256 },
+    pushUserAgent: { type: String, default: "", trim: true, maxlength: 300 },
   },
   { timestamps: true },
 );
@@ -790,6 +865,34 @@ siteDocumentSchema.index(
   { unique: true, partialFilterExpression: { docType: SITE_DOC.ROLE_REQUEST_COOLDOWN } },
 );
 siteDocumentSchema.index(
+  { docType: 1, requestToken: 1 },
+  { unique: true, partialFilterExpression: { docType: SITE_DOC.ROLE_REQUEST_PENDING } },
+);
+siteDocumentSchema.index(
+  { docType: 1, expiresAt: 1 },
+  { partialFilterExpression: { docType: SITE_DOC.ROLE_REQUEST_PENDING } },
+);
+siteDocumentSchema.index(
+  { docType: 1, requestToken: 1 },
+  { unique: true, name: "counting_restore_token_unique", partialFilterExpression: { docType: SITE_DOC.COUNTING_RESTORE_TOKEN } },
+);
+siteDocumentSchema.index(
+  { docType: 1, pushEndpoint: 1 },
+  {
+    unique: true,
+    name: "web_push_endpoint_unique",
+    partialFilterExpression: { docType: SITE_DOC.WEB_PUSH_SUBSCRIPTION, pushEndpoint: { $type: "string", $gt: "" } },
+  },
+);
+siteDocumentSchema.index(
+  { docType: 1, userId: 1 },
+  { name: "web_push_user", partialFilterExpression: { docType: SITE_DOC.WEB_PUSH_SUBSCRIPTION } },
+);
+siteDocumentSchema.index(
+  { docType: 1, status: 1, expiresAt: 1 },
+  { name: "counting_restore_token_sweep", partialFilterExpression: { docType: SITE_DOC.COUNTING_RESTORE_TOKEN } },
+);
+siteDocumentSchema.index(
   { docType: 1, guildId: 1, reviewKind: 1, userId: 1, staffUserId: 1 },
   { unique: true, partialFilterExpression: { docType: SITE_DOC.REVIEW } },
 );
@@ -798,13 +901,28 @@ siteDocumentSchema.index(
   { partialFilterExpression: { docType: SITE_DOC.REVIEW } },
 );
 siteDocumentSchema.index(
+  { docType: 1, guildId: 1, reviewKind: 1, contentLang: 1, createdAt: -1 },
+  { name: "site_bot_review_lang_created", partialFilterExpression: { docType: SITE_DOC.REVIEW, reviewKind: "bot" } },
+);
+siteDocumentSchema.index(
   { docType: 1, guildId: 1, staffUserId: 1, createdAt: -1 },
   { partialFilterExpression: { docType: SITE_DOC.REVIEW, reviewKind: "staff" } },
 );
-siteDocumentSchema.index({ docType: 1, guildId: 1, createdAt: -1 }, { partialFilterExpression: { docType: SITE_DOC.SUGGESTION } });
+// Nomi espliciti: evita warning Mongoose "Duplicate schema index" se lo stesso
+// key pattern venisse registrato anche altrove (partial filter diversi).
+siteDocumentSchema.index(
+  { docType: 1, guildId: 1, createdAt: -1 },
+  {
+    name: "site_feedback_guild_created_v2",
+    partialFilterExpression: { docType: { $in: [SITE_DOC.SUGGESTION, SITE_DOC.BOT_FEEDBACK] } },
+  },
+);
 siteDocumentSchema.index(
   { docType: 1, guildId: 1, status: 1, updatedAt: -1 },
-  { partialFilterExpression: { docType: SITE_DOC.SUGGESTION } },
+  {
+    name: "site_feedback_guild_status_updated_v2",
+    partialFilterExpression: { docType: { $in: [SITE_DOC.SUGGESTION, SITE_DOC.BOT_FEEDBACK] } },
+  },
 );
 siteDocumentSchema.index(
   { docType: 1, provider: 1, orderId: 1 },
@@ -865,6 +983,10 @@ siteDocumentSchema.index(
 siteDocumentSchema.index(
   { docType: 1, guildId: 1, dedupeKey: 1 },
   { unique: true, name: "hogwarts_house_channel_minigame_scheduler_unique", partialFilterExpression: { docType: SITE_DOC.HOGWARTS_HOUSE_CHANNEL_MINIGAME_SCHEDULER } },
+);
+siteDocumentSchema.index(
+  { docType: 1, dedupeKey: 1 },
+  { unique: true, name: "minigame_role_ping_unique", partialFilterExpression: { docType: SITE_DOC.MINIGAME_ROLE_PING } },
 );
 siteDocumentSchema.index(
   { docType: 1, guildId: 1, userId: 1, dedupeKey: 1 },
@@ -1022,6 +1144,7 @@ const InviteTrack = {
         $setOnInsert: { guildId: String(filter?.guildId || ""), userId: String(filter?.userId || ""), ...(insertPayload?.joinedAt ? { "profile.inviteTrack.joinedAt": insertPayload.joinedAt } : {}) },
         $set: {
           ...(setPayload?.inviterId != null ? { "profile.inviteTrack.inviterId": setPayload.inviterId } : {}),
+          ...(setPayload?.inviteCode != null ? { "profile.inviteTrack.inviteCode": String(setPayload.inviteCode) } : {}),
           ...(setPayload?.active != null ? { "profile.inviteTrack.active": Boolean(setPayload.active) } : {}),
           ...(Object.prototype.hasOwnProperty.call(setPayload, "leftAt") ? { "profile.inviteTrack.leftAt": setPayload.leftAt } : {}),
         },
@@ -1354,40 +1477,10 @@ const RepostPrivacy = buildProfileSubdocModel({
   clearSet: { "profile.privacy.repost.blocked": false },
 });
 
-const countingRestoreTokenSchema = new Schema(
-  {
-    token: { type: String, required: true, unique: true, index: true },
-    guildId: { type: String, required: true, index: true },
-    lostCount: { type: Number, default: 0 },
-    lostLastUser: { type: String, default: " " },
-    channelId: { type: String, default: "" },
-    messageId: { type: String, default: "" },
-    used: { type: Boolean, default: false, index: true },
-    expiresAt: { type: Date, required: true, index: true },
-    buttonDisabled: { type: Boolean, default: false },
-  },
-  { timestamps: true },
-);
-countingRestoreTokenSchema.index({ used: 1, expiresAt: 1 });
-countingRestoreTokenSchema.index({ used: 1, buttonDisabled: 1, expiresAt: 1 });
-
 const ActivityUserProfile = models.ActivityUserProfile || model("ActivityUserProfile", activityUserProfileSchema, "activityuserprofiles");
 const ActivityGuildHourly = models.ActivityGuildHourly || model("ActivityGuildHourly", activityGuildHourlySchema, "activityguildhourlys");
 const UserLeaveBackup = models.UserLeaveBackup || model("UserLeaveBackup", userLeaveBackupSchema, "userleavebackups");
-const CommunicationTimeoutRoleSnapshot =
-  models.CommunicationTimeoutRoleSnapshot ||
-  model(
-    "CommunicationTimeoutRoleSnapshot",
-    communicationTimeoutRoleSnapshotSchema,
-    "comtimeoutrolesnapshots",
-  );
-const CustomPerksDiscordCleanupQueue =
-  models.CustomPerksDiscordCleanupQueue ||
-  model("CustomPerksDiscordCleanupQueue", customPerksDiscordCleanupQueueSchema, "customperksdiscordcleanupqueues");
 const SiteDocument = models.SiteDocument || model("SiteDocument", siteDocumentSchema, "sitedocuments");
-const CountingRestoreToken =
-  models.CountingRestoreToken ||
-  model("CountingRestoreToken", countingRestoreTokenSchema, "countingrestoretokens");
 const ModCase = USE_LEGACY_MOD_CASE_MODEL ? (models.mod_case || model("mod_case", modCaseSchema, MOD_CASE_COLLECTION)) : null;
 
 module.exports = {
@@ -1409,9 +1502,6 @@ module.exports = {
   QuotePrivacy,
   RepostPrivacy,
   UserLeaveBackup,
-  CommunicationTimeoutRoleSnapshot,
-  CustomPerksDiscordCleanupQueue,
   SiteDocument,
-  CountingRestoreToken,
   SITE_DOCUMENT_TYPE,
 };

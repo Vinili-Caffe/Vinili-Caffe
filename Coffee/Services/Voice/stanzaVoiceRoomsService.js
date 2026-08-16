@@ -4,8 +4,7 @@ const path = require("path");
 const IDs = require("../../Utils/Config/ids");
 const { sendUserDirectMessage } = require("../../../shared/discord/dmPrivacyNotice");
 const { accountUsername } = require("../../Utils/Discord/guildDiscordIdentity");
-const { StanzaUserVoiceTotal } = require("../../Schemas/stanzaUserVoiceTotal");
-const { CustomRole } = require("../../../Vinyls/Schemas/Community/communitySchemas");
+const { CustomRole, ActivityUserProfile } = require("../../../Vinyls/Schemas/Community/communitySchemas");
 const { isValidGuildUserId } = require("../../Utils/DB/validateWriteIds");
 const MAIN_GUILD_ID = String(IDs.guilds?.main || "").trim();
 const STANZA_ALLOWED_GUILD_IDS = new Set([IDs.guilds?.main, IDs.guilds?.test].map((id) => String(id || "").trim()).filter((id) => /^\d{5,30}$/.test(id)));
@@ -299,20 +298,25 @@ async function incrementStanzaVisitorVoiceSeconds(guildId, userId, deltaSeconds)
   if (!isValidGuildUserId(guildId, userId)) return;
   const d = Math.max(0, Math.floor(Number(deltaSeconds) || 0));
   if (d <= 0) return;
-  await StanzaUserVoiceTotal.findOneAndUpdate(
-    { guildId: String(guildId), userId: String(userId) },
-    { $inc: { totalSeconds: d } },
+  const gid = String(guildId);
+  const uid = String(userId);
+  await ActivityUserProfile.findOneAndUpdate(
+    { guildId: gid, userId: uid },
+    {
+      $inc: { "profile.stanzaVoiceTotalSeconds": d },
+      $setOnInsert: { guildId: gid, userId: uid },
+    },
     { upsert: true, setDefaultsOnInsert: true },
   ).catch(() => {});
 }
 
 async function getStanzaVisitorVoiceTotalSeconds(guildId, userId) {
   if (!isValidGuildUserId(guildId, userId)) return 0;
-  const doc = await StanzaUserVoiceTotal.findOne({ guildId: String(guildId), userId: String(userId) })
-    .select("totalSeconds")
+  const doc = await ActivityUserProfile.findOne({ guildId: String(guildId), userId: String(userId) })
+    .select("profile.stanzaVoiceTotalSeconds")
     .lean()
     .catch(() => null);
-  return Math.max(0, Math.floor(Number(doc?.totalSeconds) || 0));
+  return Math.max(0, Math.floor(Number(doc?.profile?.stanzaVoiceTotalSeconds) || 0));
 }
 
 async function fetchVoiceChannelStatusText(client, channelId, meta = null) {
@@ -738,11 +742,11 @@ function isStanzaMemberRoleConnectBlocked(voiceChannel, guild) {
   return Boolean(ow?.deny?.has(PermissionsBitField.Flags.Connect));
 }
 
-const STANZA_VOICE_MEMBER_ROLE_PUBLIC = { ViewChannel: true, Connect: true, Speak: true, UseVAD: true, Stream: true };
+const STANZA_VOICE_MEMBER_ROLE_PUBLIC = { ViewChannel: true, Connect: true, Speak: true, UseVAD: true, Stream: true, UseEmbeddedActivities: true, UseExternalApps: true };
 const STANZA_VOICE_MEMBER_ROLE_LOCKED = { ViewChannel: false, Connect: false };
-const STANZA_VOICE_OWNER_OVERWRITE = { ViewChannel: true, Connect: true, Speak: true, UseVAD: true, Stream: true, MoveMembers: true, MuteMembers: true, DeafenMembers: true, ManageChannels: true };
+const STANZA_VOICE_OWNER_OVERWRITE = { ViewChannel: true, Connect: true, Speak: true, UseVAD: true, Stream: true, UseEmbeddedActivities: true, UseExternalApps: true, MoveMembers: true, MuteMembers: true, DeafenMembers: true, ManageChannels: true };
 const STANZA_VOICE_BOT_OVERWRITE = { ViewChannel: true, Connect: true, Speak: true, ManageChannels: true, MoveMembers: true };
-const STANZA_VOICE_MEMBER_WITH_PANEL_CHAT = { ViewChannel: true, Connect: true, Speak: true, UseVAD: true, Stream: true, SendMessages: true, ReadMessageHistory: true, EmbedLinks: true, AttachFiles: true, AddReactions: true };
+const STANZA_VOICE_MEMBER_WITH_PANEL_CHAT = { ViewChannel: true, Connect: true, Speak: true, UseVAD: true, Stream: true, UseEmbeddedActivities: true, UseExternalApps: true, SendMessages: true, ReadMessageHistory: true, EmbedLinks: true, AttachFiles: true, AddReactions: true };
 const STANZA_VOICE_OWNER_WITH_PANEL_CHAT = { ...STANZA_VOICE_OWNER_OVERWRITE, SendMessages: true, ReadMessageHistory: true, EmbedLinks: true, AttachFiles: true, AddReactions: true, ManageMessages: true };
 const STANZA_VOICE_BOT_WITH_PANEL_CHAT = { ...STANZA_VOICE_BOT_OVERWRITE, SendMessages: true, ReadMessageHistory: true, EmbedLinks: true, AttachFiles: true, ManageMessages: true };
 
@@ -757,9 +761,9 @@ function stanzaPermissionAllowArrayFromObject(obj) {
   return out;
 }
 
-const STANZA_VOICE_MEMBER_ALLOW = { ViewChannel: true, Connect: true, Speak: true, UseVAD: true, Stream: true };
+const STANZA_VOICE_MEMBER_ALLOW = { ViewChannel: true, Connect: true, Speak: true, UseVAD: true, Stream: true, UseEmbeddedActivities: true, UseExternalApps: true };
 const STANZA_VOICE_MEMBER_EXCLUDE = { ViewChannel: false, Connect: false };
-const STANZA_VOICE_MEMBER_SILENCE = { ViewChannel: true, Connect: true, Speak: false, Stream: false, UseVAD: false };
+const STANZA_VOICE_MEMBER_SILENCE = { ViewChannel: true, Connect: true, Speak: false, Stream: false, UseVAD: false, UseEmbeddedActivities: false, UseExternalApps: false };
 const STANZA_TEXT_MEMBER_ROLE_PUBLIC = { ViewChannel: true, SendMessages: true, ReadMessageHistory: true, EmbedLinks: true, AttachFiles: true, AddReactions: true };
 const STANZA_TEXT_MEMBER_ROLE_LOCKED = { ViewChannel: false, SendMessages: false };
 const STANZA_TEXT_OWNER_OVERWRITE = { ViewChannel: true, SendMessages: true, ReadMessageHistory: true, EmbedLinks: true, AttachFiles: true, AddReactions: true, ManageChannels: true, ManageMessages: true };
@@ -781,7 +785,7 @@ async function ensureStanzaOwnerVoiceOverwrite(voiceChannel, ownerId) {
   if (!id) return false;
   if (voiceChannel.permissionOverwrites.cache.has(id)) return true;
   return voiceChannel.permissionOverwrites
-    .create(id, STANZA_VOICE_OWNER_OVERWRITE, { reason: "Stanza: accesso creatore" })
+    .create(id, STANZA_VOICE_OWNER_OVERWRITE, { reason: "Stanza: accesso creatore", type: OverwriteType.Member })
     .then(() => true)
     .catch(() => false);
 }
@@ -791,12 +795,12 @@ async function setStanzaPrivilegedUserVoiceOverwrite(voiceChannel, userId, reaso
   if (!id) return false;
   if (voiceChannel.permissionOverwrites.cache.has(id)) {
     return voiceChannel.permissionOverwrites
-      .edit(id, STANZA_VOICE_OWNER_OVERWRITE, { reason })
+      .edit(id, STANZA_VOICE_OWNER_OVERWRITE, { reason, type: OverwriteType.Member })
       .then(() => true)
       .catch(() => false);
   }
   return voiceChannel.permissionOverwrites
-    .create(id, STANZA_VOICE_OWNER_OVERWRITE, { reason })
+    .create(id, STANZA_VOICE_OWNER_OVERWRITE, { reason, type: OverwriteType.Member })
     .then(() => true)
     .catch(() => false);
 }
@@ -806,7 +810,7 @@ async function ensureStanzaBotVoiceOverwrite(voiceChannel, botUserId) {
   if (!id) return false;
   if (voiceChannel.permissionOverwrites.cache.has(id)) return true;
   return voiceChannel.permissionOverwrites
-    .create(id, STANZA_VOICE_BOT_OVERWRITE, { reason: "Stanza: accesso bot" })
+    .create(id, STANZA_VOICE_BOT_OVERWRITE, { reason: "Stanza: accesso bot", type: OverwriteType.Member })
     .then(() => true)
     .catch(() => false);
 }
@@ -826,9 +830,9 @@ async function applyStanzaMemberVoicePerms(voiceChannel, userId, permsObject, re
   if (!id) return false;
   try {
     if (voiceChannel.permissionOverwrites.cache.has(id)) {
-      await voiceChannel.permissionOverwrites.edit(id, permsObject, { reason });
+      await voiceChannel.permissionOverwrites.edit(id, permsObject, { reason, type: OverwriteType.Member });
     } else {
-      await voiceChannel.permissionOverwrites.create(id, permsObject, { reason });
+      await voiceChannel.permissionOverwrites.create(id, permsObject, { reason, type: OverwriteType.Member });
     }
     return true;
   } catch (err) {
@@ -854,9 +858,9 @@ async function ensureStanzaEveryoneNoAccess(voiceChannel, guild) {
   const payload = { ViewChannel: false, Connect: false, Speak: false, UseVAD: false, Stream: false };
   try {
     if (voiceChannel.permissionOverwrites.cache.has(everyoneId)) {
-      await voiceChannel.permissionOverwrites.edit(everyoneId, payload, { reason: "Stanza: @everyone senza accesso al canale" });
+      await voiceChannel.permissionOverwrites.edit(everyoneId, payload, { reason: "Stanza: @everyone senza accesso al canale", type: OverwriteType.Role });
     } else {
-      await voiceChannel.permissionOverwrites.create(everyoneId, payload, { reason: "Stanza: @everyone senza accesso al canale" });
+      await voiceChannel.permissionOverwrites.create(everyoneId, payload, { reason: "Stanza: @everyone senza accesso al canale", type: OverwriteType.Role });
     }
     return true;
   } catch {
@@ -869,9 +873,9 @@ async function setStanzaMemberRoleChannelOverwrite(voiceChannel, payload, reason
   if (!roleId) return false;
   try {
     if (voiceChannel.permissionOverwrites.cache.has(roleId)) {
-      await voiceChannel.permissionOverwrites.edit(roleId, payload, { reason });
+      await voiceChannel.permissionOverwrites.edit(roleId, payload, { reason, type: OverwriteType.Role });
     } else {
-      await voiceChannel.permissionOverwrites.create(roleId, payload, { reason });
+      await voiceChannel.permissionOverwrites.create(roleId, payload, { reason, type: OverwriteType.Role });
     }
     return true;
   } catch {
@@ -928,9 +932,9 @@ async function applyStanzaMemberTextPerms(textChannel, userId, permsObject, reas
   if (!id) return false;
   try {
     if (textChannel.permissionOverwrites.cache.has(id)) {
-      await textChannel.permissionOverwrites.edit(id, permsObject, { reason });
+      await textChannel.permissionOverwrites.edit(id, permsObject, { reason, type: OverwriteType.Member });
     } else {
-      await textChannel.permissionOverwrites.create(id, permsObject, { reason });
+      await textChannel.permissionOverwrites.create(id, permsObject, { reason, type: OverwriteType.Member });
     }
     return true;
   } catch (err) {
@@ -944,9 +948,9 @@ async function setStanzaMemberRoleTextChannelOverwrite(textChannel, payload, rea
   if (!roleId) return false;
   try {
     if (textChannel.permissionOverwrites.cache.has(roleId)) {
-      await textChannel.permissionOverwrites.edit(roleId, payload, { reason });
+      await textChannel.permissionOverwrites.edit(roleId, payload, { reason, type: OverwriteType.Role });
     } else {
-      await textChannel.permissionOverwrites.create(roleId, payload, { reason });
+      await textChannel.permissionOverwrites.create(roleId, payload, { reason, type: OverwriteType.Role });
     }
     return true;
   } catch {
@@ -959,7 +963,7 @@ async function ensureStanzaOwnerTextOverwrite(textChannel, ownerId) {
   if (!id) return false;
   if (textChannel.permissionOverwrites.cache.has(id)) return true;
   return textChannel.permissionOverwrites
-    .create(id, STANZA_TEXT_OWNER_OVERWRITE, { reason: "Stanza: accesso creatore (chat)" })
+    .create(id, STANZA_TEXT_OWNER_OVERWRITE, { reason: "Stanza: accesso creatore (chat)", type: OverwriteType.Member })
     .then(() => true)
     .catch(() => false);
 }
@@ -969,12 +973,12 @@ async function setStanzaPrivilegedUserTextOverwrite(textChannel, userId, reason)
   if (!id) return false;
   if (textChannel.permissionOverwrites.cache.has(id)) {
     return textChannel.permissionOverwrites
-      .edit(id, STANZA_TEXT_OWNER_OVERWRITE, { reason })
+      .edit(id, STANZA_TEXT_OWNER_OVERWRITE, { reason, type: OverwriteType.Member })
       .then(() => true)
       .catch(() => false);
   }
   return textChannel.permissionOverwrites
-    .create(id, STANZA_TEXT_OWNER_OVERWRITE, { reason })
+    .create(id, STANZA_TEXT_OWNER_OVERWRITE, { reason, type: OverwriteType.Member })
     .then(() => true)
     .catch(() => false);
 }
@@ -984,7 +988,7 @@ async function ensureStanzaBotTextOverwrite(textChannel, botUserId) {
   if (!id) return false;
   if (textChannel.permissionOverwrites.cache.has(id)) return true;
   return textChannel.permissionOverwrites
-    .create(id, STANZA_TEXT_BOT_OVERWRITE, { reason: "Stanza: accesso bot (chat)" })
+    .create(id, STANZA_TEXT_BOT_OVERWRITE, { reason: "Stanza: accesso bot (chat)", type: OverwriteType.Member })
     .then(() => true)
     .catch(() => false);
 }
@@ -1004,9 +1008,9 @@ async function ensureStanzaEveryoneNoAccessText(textChannel, guild) {
   const payload = { ViewChannel: false, SendMessages: false };
   try {
     if (textChannel.permissionOverwrites.cache.has(everyoneId)) {
-      await textChannel.permissionOverwrites.edit(everyoneId, payload, { reason: "Stanza: @everyone senza accesso alla chat" });
+      await textChannel.permissionOverwrites.edit(everyoneId, payload, { reason: "Stanza: @everyone senza accesso alla chat", type: OverwriteType.Role });
     } else {
-      await textChannel.permissionOverwrites.create(everyoneId, payload, { reason: "Stanza: @everyone senza accesso alla chat" });
+      await textChannel.permissionOverwrites.create(everyoneId, payload, { reason: "Stanza: @everyone senza accesso alla chat", type: OverwriteType.Role });
     }
     return true;
   } catch {
@@ -1187,7 +1191,7 @@ function buildStanzaManageRows(voiceChannel) {
         .setEmoji("🔒")
         .setStyle(ButtonStyle.Danger);
   const row2 = new ActionRowBuilder().addComponents(vistaBtn, lockToggleBtn, new ButtonBuilder().setCustomId(`stanza_vice:${cid}`).setLabel("Nomina Vice").setEmoji("🌙").setStyle(ButtonStyle.Primary));
-  const row3 = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`stanza_back:${cid}`).setLabel("Indietro").setEmoji("↩️").setStyle(ButtonStyle.Secondary));
+  const row3 = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`stanza_back:${cid}`).setLabel("Indietro").setEmoji("<:1343arrowleft:1525249879151083621>️").setStyle(ButtonStyle.Secondary));
   return [row1, row2, row3];
 }
 
@@ -1227,7 +1231,7 @@ function buildStanzaUsersManageRows(channelId) {
     new ButtonBuilder()
       .setCustomId(`stanza_users_back:${cid}`)
       .setLabel("Indietro")
-      .setEmoji("↩️")
+      .setEmoji("<:1343arrowleft:1525249879151083621>️")
       .setStyle(ButtonStyle.Primary),
   );
   return [row];
@@ -1375,18 +1379,22 @@ async function handleStanzaVoiceLobbyJoin(oldState, newState, client) {
         permissionOverwrites: [
           {
             id: guild.roles.everyone.id,
+            type: OverwriteType.Role,
             deny: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.Connect, PermissionsBitField.Flags.Speak, PermissionsBitField.Flags.UseVAD, PermissionsBitField.Flags.Stream, PermissionsBitField.Flags.SendMessages],
           },
           {
             id: memberRoleId,
+            type: OverwriteType.Role,
             allow: stanzaPermissionAllowArrayFromObject(STANZA_VOICE_MEMBER_WITH_PANEL_CHAT),
           },
           {
             id: uid,
+            type: OverwriteType.Member,
             allow: stanzaPermissionAllowArrayFromObject(STANZA_VOICE_OWNER_WITH_PANEL_CHAT),
           },
           {
             id: client.user.id,
+            type: OverwriteType.Member,
             allow: stanzaPermissionAllowArrayFromObject(STANZA_VOICE_BOT_WITH_PANEL_CHAT),
           },
         ],

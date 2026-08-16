@@ -35,30 +35,71 @@
     return full;
   }
 
-  function homeUrl() {
-    var raw = "";
+  function seratafilmReturnPath() {
     try {
-      raw = String((window.__VC_SITE_HOME_URL || "").trim());
-    } catch (e) {}
-    if (!raw || /\{\{/.test(raw)) {
-      try {
-        return new URL("/", window.location.origin).href;
-      } catch (e2) {
-        return "/";
+      var p = String(window.location.pathname || "").replace(/\/+$/, "") || "/seratafilm";
+      if (/\/seratafilm(\/|$)/i.test(p) && p.indexOf("/accesso-richiesto") === -1) {
+        return p.endsWith("/") ? p : p + "/";
       }
-    }
+    } catch (e) {}
+    return "/seratafilm/";
+  }
+
+  function accessRequiredUrl() {
     try {
-      return new URL(raw).href;
-    } catch (e3) {
-      return raw;
+      var u = new URL("/seratafilm/accesso-richiesto/", window.location.origin);
+      u.searchParams.set("from", seratafilmReturnPath());
+      return u.href;
+    } catch (e) {
+      return "/seratafilm/accesso-richiesto/";
+    }
+  }
+
+  function navigateTo(target) {
+    hideLoading();
+    var dest = String(target || "").trim() || "/";
+    try {
+      window.location.replace(dest);
+      return;
+    } catch (e0) {}
+    try {
+      window.location.href = dest;
+    } catch (e1) {}
+  }
+
+  function redirectAccessRequired() {
+    navigateTo(accessRequiredUrl());
+  }
+
+  function showDenied(message) {
+    hideLoading();
+    var panel = document.getElementById("vc-seratafilm-denied");
+    var msg = document.getElementById("vc-seratafilm-denied-msg");
+    if (msg) {
+      msg.textContent = String(
+        message ||
+          "Non hai i permessi High Staff per aprire la Serata Film. Se pensi sia un errore, riprova dopo aver aggiornato i ruoli Discord.",
+      );
+    }
+    if (panel) {
+      try {
+        panel.style.setProperty("display", "flex", "important");
+      } catch (e0) {
+        panel.style.display = "flex";
+      }
+      try {
+        panel.removeAttribute("hidden");
+      } catch (e1) {}
     }
   }
 
   function getToken() {
     try {
       var t = localStorage.getItem("vc_discord_access_token");
+      if (!t) return "";
       var exp = Number(localStorage.getItem("vc_discord_expires_at") || "0");
-      if (!t || !exp || Date.now() >= exp) return "";
+      // Se manca expires_at (sessioni legacy) non trattare come logout.
+      if (exp && Date.now() >= exp) return "";
       return t;
     } catch (e) {
       return "";
@@ -121,18 +162,6 @@
     if (el) el.textContent = String(text || "");
   }
 
-  function redirectHome() {
-    hideLoading();
-    var target = homeUrl();
-    try {
-      window.location.replace(target);
-      return;
-    } catch (e0) {}
-    try {
-      window.location.href = target;
-    } catch (e1) {}
-  }
-
   function bindDeniedRetryOnce() {
     if (window.__vcSeratafilmDeniedRetryBound) return;
     window.__vcSeratafilmDeniedRetryBound = true;
@@ -148,7 +177,7 @@
         localStorage.removeItem("vc_discord_access_token");
         localStorage.removeItem("vc_discord_expires_at");
       } catch (e0) {}
-      redirectHome();
+      redirectAccessRequired();
     });
   }
 
@@ -258,12 +287,33 @@
   }
 
   function armLoadingFailsafe(ms) {
-    var timeoutMs = Math.max(4000, Math.min(12000, Number(ms) || FAILSAFE_MS));
+    var timeoutMs = Math.max(4000, Math.min(16000, Number(ms) || FAILSAFE_MS));
     setTimeout(function () {
       try {
         if (document.body.classList.contains("vc-seratafilm-app-revealed")) return;
       } catch (eFs) {}
-      redirectHome();
+      try {
+        var denied = document.getElementById("vc-seratafilm-denied");
+        if (denied && denied.style && denied.style.display === "flex") return;
+      } catch (eD) {}
+      var token = getToken();
+      if (!token) {
+        redirectAccessRequired();
+        return;
+      }
+      setLoadingHint("La verifica sta impiegando più del solito… riprovo.");
+      var api = resolvedApiUrl();
+      if (!api) {
+        showDenied("Impossibile verificare l'accesso in questo momento. Riprova tra poco.");
+        return;
+      }
+      requestAccess(api, token)
+        .then(function (out) {
+          handleAccessResult(out, document.getElementById("vc-seratafilm-app"), token);
+        })
+        .catch(function () {
+          showDenied("Verifica accesso non riuscita. Controlla la connessione e riprova.");
+        });
     }, timeoutMs);
   }
 
@@ -344,16 +394,24 @@
           localStorage.removeItem("vc_discord_access_token");
           localStorage.removeItem("vc_discord_expires_at");
         } catch (e401) {}
-      } else if (out.res.status === 403) {
+        redirectAccessRequired();
+        return;
+      }
+      if (out.res.status === 403) {
         try {
           sessionStorage.removeItem(ACCESS_CACHE_KEY);
         } catch (e403c) {}
+        showDenied(
+          (out.data && (out.data.message || out.data.error)) ||
+            "Non hai i permessi High Staff per aprire la Serata Film.",
+        );
+        return;
       }
-      redirectHome();
+      showDenied("Verifica accesso non riuscita. Riprova tra poco.");
       return;
     }
     if (out && out.skipped) {
-      redirectHome();
+      redirectAccessRequired();
       return;
     }
     if (out && out.error) {
@@ -362,11 +420,11 @@
           handleAccessResult(fresh, app, token);
         })
         .catch(function () {
-          redirectHome();
+          showDenied("Verifica accesso non riuscita. Controlla la connessione e riprova.");
         });
       return;
     }
-    redirectHome();
+    showDenied("Verifica accesso non riuscita. Riprova tra poco.");
   }
 
   function run() {
@@ -376,12 +434,12 @@
     var api = resolvedApiUrl();
     var app = document.getElementById("vc-seratafilm-app");
     if (!api) {
-      redirectHome();
+      showDenied("Configurazione accesso non disponibile. Riprova più tardi.");
       return;
     }
     var token = getToken();
     if (!token) {
-      redirectHome();
+      redirectAccessRequired();
       return;
     }
     var cached = readAccessCache(token);
@@ -395,7 +453,7 @@
         handleAccessResult(out, app, token);
       })
       .catch(function () {
-        redirectHome();
+        showDenied("Verifica accesso non riuscita. Controlla la connessione e riprova.");
       });
   }
 

@@ -1,51 +1,68 @@
 (function () {
-  var SEGMENTS = 22;
-  var SEGMENT_LEN = 9;
-  var TRAIL_COLOR = "rgba(234, 212, 192, 0.82)";
-  var TRAIL_FADE = "rgba(234, 212, 192, 0.08)";
-  var LINE_WIDTH = 1.35;
-  var MOVE_SQ = 4;
-  var IDLE_MS = 16;
+  /* SVG (non canvas): Brave Shields/farbling non spegne la scia. */
+  var SEGMENTS = 18;
+  var SEGMENT_LEN = 11;
+  var LINE_WIDTH = 2.8;
+  var MOVE_SQ = 1;
+  var IDLE_MS = 240;
+  var NS = "http://www.w3.org/2000/svg";
 
   function canRun() {
-    try {
-      if (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) return false;
-      if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return false;
-    } catch (e) {}
+    /* Sempre attiva su desktop; touch viene filtrato da pointerType. */
     return typeof window !== "undefined" && typeof document !== "undefined";
   }
 
   function initCursorTrail() {
     if (!canRun()) return;
+    if (window.__VC_CURSOR_TRAIL_INIT) return;
     if (document.documentElement.classList.contains("vc-cursor-trail-off")) return;
+    window.__VC_CURSOR_TRAIL_INIT = true;
 
-    var canvas = document.createElement("canvas");
-    canvas.className = "vc-cursor-trail";
-    canvas.setAttribute("aria-hidden", "true");
-    document.body.appendChild(canvas);
+    var svg = document.createElementNS(NS, "svg");
+    svg.setAttribute("class", "vc-cursor-trail");
+    svg.setAttribute("aria-hidden", "true");
+    svg.setAttribute("width", "100%");
+    svg.setAttribute("height", "100%");
+    svg.style.cssText =
+      "position:fixed;top:0;left:0;width:100vw;height:100vh;pointer-events:none;z-index:2147483645;display:block;margin:0;padding:0;border:0;overflow:visible;";
 
-    var ctx = canvas.getContext("2d");
-    if (!ctx) return;
+    var defs = document.createElementNS(NS, "defs");
+    var grad = document.createElementNS(NS, "linearGradient");
+    grad.setAttribute("id", "vc-cursor-trail-grad");
+    grad.setAttribute("gradientUnits", "userSpaceOnUse");
+    var stopA = document.createElementNS(NS, "stop");
+    stopA.setAttribute("offset", "0%");
+    stopA.setAttribute("stop-color", "#f4e2cc");
+    stopA.setAttribute("stop-opacity", "0.95");
+    var stopB = document.createElementNS(NS, "stop");
+    stopB.setAttribute("offset", "100%");
+    stopB.setAttribute("stop-color", "#f4e2cc");
+    stopB.setAttribute("stop-opacity", "0.08");
+    grad.appendChild(stopA);
+    grad.appendChild(stopB);
+    defs.appendChild(grad);
 
-    var dpr = 1;
-    var width = 0;
-    var height = 0;
+    var path = document.createElementNS(NS, "path");
+    path.setAttribute("fill", "none");
+    path.setAttribute("stroke", "url(#vc-cursor-trail-grad)");
+    path.setAttribute("stroke-width", String(LINE_WIDTH));
+    path.setAttribute("stroke-linecap", "round");
+    path.setAttribute("stroke-linejoin", "round");
+    path.setAttribute("d", "");
+
+    svg.appendChild(defs);
+    svg.appendChild(path);
+    (document.body || document.documentElement).appendChild(svg);
+
     var points = [];
     var mouse = { x: -9999, y: -9999, active: false };
     var lastMoveAt = 0;
-    var idle = false;
     var rafId = 0;
     var running = false;
+    var lastPointerType = "";
 
     function resize() {
-      dpr = Math.min(window.devicePixelRatio || 1, 2);
-      width = window.innerWidth;
-      height = window.innerHeight;
-      canvas.width = Math.floor(width * dpr);
-      canvas.height = Math.floor(height * dpr);
-      canvas.style.width = width + "px";
-      canvas.style.height = height + "px";
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      svg.setAttribute("viewBox", "0 0 " + window.innerWidth + " " + window.innerHeight);
     }
 
     function seedPoints(x, y) {
@@ -56,30 +73,42 @@
     }
 
     function clearTrail() {
-      idle = true;
       running = false;
-      ctx.clearRect(0, 0, width, height);
+      path.setAttribute("d", "");
+      mouse.active = false;
     }
 
     function isIdle() {
       return performance.now() - lastMoveAt > IDLE_MS;
     }
 
-    function onMove(ev) {
+    function shouldIgnorePointer(type) {
+      if (type === "touch") return true;
+      /* dopo un touch, i fake mousemove del mobile non devono creare la scia */
+      if (lastPointerType === "touch" && (!type || type === "mouse")) return true;
+      return false;
+    }
+
+    function onMove(ev, pointerType) {
+      var type = pointerType || ev.pointerType || "";
+      if (type) lastPointerType = type;
+      if (shouldIgnorePointer(type || lastPointerType)) return;
+
       var x = ev.clientX;
       var y = ev.clientY;
+      if (typeof x !== "number" || typeof y !== "number") return;
       var dx = x - mouse.x;
       var dy = y - mouse.y;
       if (mouse.active && dx * dx + dy * dy < MOVE_SQ) return;
 
       lastMoveAt = performance.now();
-      if (!mouse.active || idle) {
+      if (!mouse.active) {
         seedPoints(x, y);
         mouse.active = true;
-        idle = false;
       }
       mouse.x = x;
       mouse.y = y;
+      if (!points.length) seedPoints(x, y);
       points[0].x = x;
       points[0].y = y;
       if (!running) {
@@ -89,12 +118,7 @@
     }
 
     function onLeave() {
-      mouse.active = false;
       clearTrail();
-    }
-
-    function onEnter(ev) {
-      onMove(ev);
     }
 
     function simulate() {
@@ -111,31 +135,32 @@
       }
     }
 
-    function draw() {
-      ctx.clearRect(0, 0, width, height);
-      if (!mouse.active || points.length < 2 || isIdle()) return;
-
-      ctx.lineCap = "round";
-      ctx.lineJoin = "round";
-      ctx.beginPath();
-      ctx.moveTo(points[0].x, points[0].y);
-
+    function buildPathD() {
+      if (points.length < 2) return "";
+      var d = "M " + points[0].x + " " + points[0].y;
       for (var i = 1; i < points.length - 2; i += 1) {
         var cx = (points[i].x + points[i + 1].x) * 0.5;
         var cy = (points[i].y + points[i + 1].y) * 0.5;
-        ctx.quadraticCurveTo(points[i].x, points[i].y, cx, cy);
+        d += " Q " + points[i].x + " " + points[i].y + " " + cx + " " + cy;
       }
-
       var tailA = points[points.length - 2];
       var tailB = points[points.length - 1];
-      ctx.quadraticCurveTo(tailA.x, tailA.y, tailB.x, tailB.y);
+      d += " Q " + tailA.x + " " + tailA.y + " " + tailB.x + " " + tailB.y;
+      return d;
+    }
 
-      var grad = ctx.createLinearGradient(points[0].x, points[0].y, tailB.x, tailB.y);
-      grad.addColorStop(0, TRAIL_COLOR);
-      grad.addColorStop(1, TRAIL_FADE);
-      ctx.strokeStyle = grad;
-      ctx.lineWidth = LINE_WIDTH;
-      ctx.stroke();
+    function draw() {
+      if (!mouse.active || points.length < 2) {
+        path.setAttribute("d", "");
+        return;
+      }
+      var head = points[0];
+      var tail = points[points.length - 1];
+      grad.setAttribute("x1", String(head.x));
+      grad.setAttribute("y1", String(head.y));
+      grad.setAttribute("x2", String(tail.x));
+      grad.setAttribute("y2", String(tail.y));
+      path.setAttribute("d", buildPathD());
     }
 
     function tick() {
@@ -143,31 +168,51 @@
         clearTrail();
         return;
       }
+      simulate();
+      draw();
       if (isIdle()) {
         clearTrail();
         return;
       }
-      simulate();
-      draw();
       rafId = window.requestAnimationFrame(tick);
     }
 
     resize();
     window.addEventListener("resize", resize, { passive: true });
-    window.addEventListener("mousemove", onMove, { passive: true });
-    window.addEventListener("mouseenter", onEnter, { passive: true });
-    document.addEventListener("mouseleave", onLeave, { passive: true });
+    document.addEventListener(
+      "pointermove",
+      function (ev) {
+        onMove(ev, ev.pointerType || "");
+      },
+      { passive: true, capture: true },
+    );
+    document.addEventListener(
+      "mousemove",
+      function (ev) {
+        onMove(ev, lastPointerType === "touch" ? "touch" : "mouse");
+      },
+      { passive: true, capture: true },
+    );
+    document.documentElement.addEventListener("mouseleave", onLeave, { passive: true });
     document.addEventListener("visibilitychange", function () {
       if (document.visibilityState === "hidden" && rafId) {
         window.cancelAnimationFrame(rafId);
-        running = false;
+        clearTrail();
       }
     });
   }
 
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", initCursorTrail);
-  } else {
+  function boot() {
+    if (!document.body) {
+      document.addEventListener("DOMContentLoaded", initCursorTrail);
+      return;
+    }
     initCursorTrail();
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", boot);
+  } else {
+    boot();
   }
 })();

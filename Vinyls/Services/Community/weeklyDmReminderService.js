@@ -682,9 +682,13 @@ function pickRandomDayOffset(existing = []) {
   return source[randomInt(0, source.length)];
 }
 
-function createReminderEmbed(entry) {
+function createReminderEmbed(entry, viewer = null) {
+  const { scrubInvisibleChannelMentionsInText } = require("../../Utils/Discord/visibleChannelMentions");
   const title = String(entry?.title || "Reminder settimanale");
-  const description = String(entry?.description || "").trim();
+  let description = String(entry?.description || "").trim();
+  if (viewer) {
+    description = scrubInvisibleChannelMentionsInText(description, viewer);
+  }
   return new EmbedBuilder()
     .setColor("#6f4e37")
     .setTitle(title)
@@ -1051,7 +1055,7 @@ async function runStartupBlastOnce(client, guild) {
 
       try {
         await member.user.send({
-          embeds: [createReminderEmbed(reminder)],
+          embeds: [createReminderEmbed(reminder, member)],
           allowedMentions: { parse: [] },
         });
         history[userId] = {
@@ -1327,7 +1331,7 @@ async function sendDueJobs(client, guild) {
 
     try {
       await user.send({
-        embeds: [createReminderEmbed(job.reminder)],
+        embeds: [createReminderEmbed(job.reminder, member)],
         allowedMentions: { parse: [] },
       });
       job.sentAt = Date.now();

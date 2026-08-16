@@ -75,6 +75,24 @@ module.exports = {
         return;
       }
 
+      // Top channel: ack immediato (build payload può superare i 3s col gate/handler chain).
+      try {
+        const topChannel = require("../Buttons/topChannelHandler");
+        if (
+          typeof topChannel.isTopChannelInteraction === "function" &&
+          topChannel.isTopChannelInteraction(interaction) &&
+          !interaction.replied &&
+          !interaction.deferred
+        ) {
+          // showModal non può seguire un deferUpdate: solo update-path qui.
+          const id = String(interaction.customId || "");
+          const isPageModalOpen = id === "top_channel_page_modal_open" || id.startsWith("top_channel_page_modal_open:");
+          if (!isPageModalOpen) {
+            await interaction.deferUpdate().catch(() => {});
+          }
+        }
+      } catch (_) {}
+
       if (interaction.type === InteractionType.ApplicationCommandAutocomplete) {
         await handleAutocomplete(interaction, resolvedClient);
         return;

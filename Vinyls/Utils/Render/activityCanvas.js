@@ -278,7 +278,7 @@ async function loadAvatarForStatsCanvas(url) {
   if (!url) return null;
   const cached = getStatsAvatarCache(url);
   if (cached) return cached;
-  const buf = await fetchHttpImageBuffer(url, { timeoutMs: 10000 }).catch(() => null);
+  const buf = await fetchHttpImageBuffer(url, { timeoutMs: 4000 }).catch(() => null);
   if (!buf?.length) return null;
   const isGif = buf[0] === 0x47 && buf[1] === 0x49 && buf[2] === 0x46;
   let resolved = null;
@@ -295,7 +295,7 @@ async function loadAvatarForStatsCanvas(url) {
         const image = await getCanvasModule().loadImage(buf);
         resolved = { kind: "static", image };
       } catch {
-        const image = await safeLoadImage(url, { timeoutMs: 10000 }).catch(() => null);
+        const image = await safeLoadImage(url, { timeoutMs: 4000 }).catch(() => null);
         resolved = image ? { kind: "static", image } : null;
       }
     }
@@ -1349,7 +1349,9 @@ async function renderChannelActivityCanvas(props) {
   registerCanvasFonts(getCanvasModule());
   const width = 1280;
   const height = 900;
-  const channelIconResolved = props.channelIconUrl ? await loadAvatarForStatsCanvas(props.channelIconUrl) : null;
+  const channelIconResolved =
+    props.channelIconPrefetch ??
+    (props.channelIconUrl ? await loadAvatarForStatsCanvas(props.channelIconUrl) : null);
   let GIFEncoder = null;
   try {
     GIFEncoder = require("gif-encoder-2");
@@ -1657,7 +1659,8 @@ async function renderUserActivityCanvas(props) {
   registerCanvasFonts(getCanvasModule());
   const width = 1280;
   const height = 740;
-  const avatarResolved = props.avatarUrl ? await loadAvatarForStatsCanvas(props.avatarUrl) : null;
+  const avatarResolved =
+    props.avatarPrefetch ?? (props.avatarUrl ? await loadAvatarForStatsCanvas(props.avatarUrl) : null);
   let GIFEncoder = null;
   try {
     GIFEncoder = require("gif-encoder-2");
@@ -1904,7 +1907,9 @@ async function renderServerActivityCanvas(props) {
   const width = 1280;
   const height = 940;
   const forceStatic = Boolean(props?.forceStatic);
-  const guildIconResolved = props.guildIconUrl ? await loadAvatarForStatsCanvas(props.guildIconUrl) : null;
+  const guildIconResolved =
+    props.guildIconPrefetch ??
+    (props.guildIconUrl ? await loadAvatarForStatsCanvas(props.guildIconUrl) : null);
   let GIFEncoder = null;
   try {
     GIFEncoder = require("gif-encoder-2");
@@ -2315,4 +2320,4 @@ async function renderTopLeaderboardPageCanvas({
   return canvas.toBuffer("image/png");
 }
 
-module.exports = { renderUserActivityCanvas, renderServerActivityCanvas, renderChannelActivityCanvas, renderTopStatisticsCanvas, renderTopStatisticsSingleCanvas, renderTopLeaderboardPageCanvas, formatCanvasChannelLabel };
+module.exports = { renderUserActivityCanvas, renderServerActivityCanvas, renderChannelActivityCanvas, renderTopStatisticsCanvas, renderTopStatisticsSingleCanvas, renderTopLeaderboardPageCanvas, formatCanvasChannelLabel, prefetchStatsCanvasAvatar: loadAvatarForStatsCanvas };

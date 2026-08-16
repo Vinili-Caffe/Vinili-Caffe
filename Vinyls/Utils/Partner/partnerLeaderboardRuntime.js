@@ -5,24 +5,27 @@ const { TOP_LIMIT, rankLabel, formatUserLabel, fetchMembers } = require("../../P
 const IDs = require("../Config/ids");
 const PLB_MODE_PREFIX = "plb_mode:";
 const PLB_NAV_PREFIX = "plb_nav:";
-const { resolvePartnerPointsShown } = require("../Staff/partnerPointsDisplayUtils");
+const {
+  resolvePartnerPointsShown,
+  countPartnerCreateActions,
+} = require("../Staff/partnerPointsDisplayUtils");
 const { guildIconUrl } = require("../Discord/guildDiscordIdentity");
-const PARTNER_MANAGER_ROLE_ID = String(IDs.roles?.PartnerManager || "").trim();
+const { getPartnerManagerRoleId } = require("./partnershipConfigResolver");
+const { applyPartnershipPayloadBranding, resolveEmbedColorForGuild } = require("../../MultiGuild/utils/tenantEmbedBranding");
 
+/** @deprecated Prefer countPartnerCreateActions — stesso criterio (create valide, no audit penalty). */
 function countValidAllTimePartners(actions) {
-  if (!Array.isArray(actions)) return 0;
-  return actions.reduce((total, action) => {
-    if (String(action?.action || "").toLowerCase() !== "create") return total;
-    return total + 1;
-  }, 0);
+  return countPartnerCreateActions(actions);
 }
 
 function computeTotalPartnerScore(staff) {
+  // All Time: partnership valide − punti già riscattati (saldo spendibile).
   return resolvePartnerPointsShown(staff || {});
 }
 
 function isPartnerCreateInResocontoWeek(action, weekStart, weekEndExclusive) {
   if (!action || String(action.action || "").toLowerCase() !== "create") return false;
+  if (Array.isArray(action.auditPenaltyDates) && action.auditPenaltyDates.length > 0) return false;
   const raw = action.date != null ? action.date : null;
   const when = raw != null ? new Date(raw) : null;
   if (!when || Number.isNaN(when.getTime())) return false;
@@ -34,7 +37,7 @@ function buildPartnerLbShellEmbed(guild, isWeekly, bodyLines) {
   const title = isWeekly ? "Classifica partnership [Weekly]" : "Classifica partnership [All Time]";
   const icon = guildIconUrl(guild, { size: 128 });
   return new EmbedBuilder()
-    .setColor("#6f4e37")
+    .setColor(resolveEmbedColorForGuild(guild?.id))
     .setAuthor({ name: guild.name, iconURL: icon })
     .setTitle(title)
     .setThumbnail(icon)
@@ -63,7 +66,7 @@ async function buildPartnerLbEmbed(guild, visibleRows, isWeekly) {
 
 async function fetchSortedPartners(guild, isWeekly) {
   const allStaff = await ActivityUserProfile.find({ guildId: guild.id })
-    .select("userId staff.partnerCount staff.partnerActions staff.partnerRedeemSpend")
+    .select("userId staff.partnerCount staff.partnerActions staff.partnerRedeemSpend staff.partnerServerResetAt")
     .lean();
   const weekBounds = isWeekly ? getPartnerLeaderboardWeekBoundsUtc(new Date()) : null;
   return allStaff
@@ -99,12 +102,13 @@ function buildPartnerLbToggleRow(mode = "totale") {
 }
 
 async function pickTopPartnerRowsInGuild(sortedAll, guild, limit) {
+  const partnerManagerRoleId = String(getPartnerManagerRoleId(guild?.id) || IDs.roles?.PartnerManager || "").trim();
   const members = await fetchMembers(guild, sortedAll.map((r) => r.userId));
   const out = [];
   for (const row of sortedAll) {
     const member = members.get(row.userId);
     if (!member) continue;
-    if (PARTNER_MANAGER_ROLE_ID && !member.roles?.cache?.has(PARTNER_MANAGER_ROLE_ID)) continue;
+    if (partnerManagerRoleId && !member.roles?.cache?.has(partnerManagerRoleId)) continue;
     out.push(row);
     if (out.length >= limit) break;
   }
@@ -117,7 +121,10 @@ async function buildPartnerLeaderboardPayload(client, guild, mode = "totale", _p
   const toggleRow = buildPartnerLbToggleRow(isWeekly ? "settimanale" : "totale");
   const visible = await pickTopPartnerRowsInGuild(sortedAll, guild, TOP_LIMIT);
   const embed = await buildPartnerLbEmbed(guild, visible, isWeekly);
-  return { embeds: [embed], components: [toggleRow] };
+  return applyPartnershipPayloadBranding(
+    { embeds: [embed], components: [toggleRow] },
+    { guildId: guild?.id, guild, client },
+  );
 }
 
-module.exports = { TOP_LIMIT, PARTNERS_PER_PAGE: TOP_LIMIT, PLB_MODE_PREFIX: "plb_mode:", PLB_NAV_PREFIX: "plb_nav:", buildPartnerLeaderboardPayload, fetchSortedPartners, countValidAllTimePartners };
+module.exports = { TOP_LIMIT, PARTNERS_PER_PAGE: TOP_LIMIT, PLB_MODE_PREFIX: "plb_mode:", PLB_NAV_PREFIX: "plb_nav:", buildPartnerLeaderboardPayload, fetchSortedPartners, pickTopPartnerRowsInGuild, countValidAllTimePartners };

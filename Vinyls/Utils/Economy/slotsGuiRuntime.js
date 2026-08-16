@@ -1,10 +1,24 @@
 const { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const { buildImageButtonPayload } = require("./guiPanelPayload");
-const { formatCurrency } = require("../../Services/Community/serverWalletService");
-const { cashoutSlotsBank, economyConfig, playSlotsBanked } = require("../../Services/Community/activeEconomyService");
-const { clearSlotsGuiSession, loadSlotsGuiSessionByMessage, persistSlotsGuiSession } = require("../../Services/Community/slotsGuiSessionStore");
+const { runEconomyRender } = require("../../../shared/render/economyRenderQueue");
+const { formatEconomyAmount } = require("./economyDisplayHelpers");
+const { buildBetAmountButton, betBounds, clampBetAmount } = require("./economyBetModal");
+const {
+  cashoutSlotsBank,
+  economyConfig,
+  flushSlotsGuiPendingBank,
+  playSlots,
+} = require("../../Services/Community/activeEconomyService");
+const { markSessionStakeCooldown, sessionSpendOptions } = require("./economyCommandHelpers");
+const {
+  clearSlotsGuiSession,
+  loadSlotsGuiSessionByMessage,
+  loadSlotsGuiSessionByOwner,
+  persistSlotsGuiSession,
+  takeUserSlotsGuiPending,
+} = require("../../Services/Community/slotsGuiSessionStore");
 const PREFIX = "slots_gui";
-const SESSION_TTL_MS = 15 * 60 * 1000;
+const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const RENDER_CACHE_MAX = 64;
 const sessions = new Map();
 const renderCache = new Map();
@@ -18,11 +32,8 @@ function sessionKey(messageId) {
   return String(messageId || "").trim();
 }
 
-function clampBet(value, cfg) {
-  const min = Math.max(1, Math.floor(Number(cfg?.minBet) || 1));
-  const max = Math.max(min, Math.floor(Number(cfg?.maxBet) || min));
-  const n = Math.floor(Number(value) || min);
-  return Math.max(min, Math.min(max, n));
+function clampBet(value, cfg, balance = null) {
+  return clampBetAmount(value, cfg, balance);
 }
 
 function betStep(cfg) {
@@ -44,34 +55,73 @@ function makeSession({ ownerId, guildId, bet, cfg }) {
   };
 }
 
-function setSession(messageId, session) {
-  const live = { ...session, updatedAt: now() };
-  sessions.set(sessionKey(messageId), live);
-  persistSlotsGuiSession(messageId, live).catch(() => {});
+async function setSession(messageId, session) {
+  const mid = sessionKey(messageId);
+  const live = {
+    ...session,
+    messageId: mid || sessionKey(session?.messageId),
+    updatedAt: now(),
+  };
+  if (mid) sessions.set(mid, live);
+  const persistPromise = persistSlotsGuiSession(mid || live.messageId, live)
+    .then((ok) => {
+      if (!ok) global.logger?.warn?.(`[SLOTS GUI] persist failed for message ${mid || live.messageId}`);
+      return ok;
+    })
+    .catch((err) => {
+      global.logger?.warn?.("[SLOTS GUI] persist:", err?.message || err);
+      return false;
+    });
+  live.persistPromise = persistPromise;
+  return live;
 }
 
-async function getSession(messageId, guildId) {
+async function getSession(messageId, guildId, ownerIdHint = "") {
   const key = sessionKey(messageId);
-  const cached = sessions.get(key);
-  if (cached) {
-    if (now() - Number(cached.updatedAt || cached.createdAt || 0) > SESSION_TTL_MS) {
-      sessions.delete(key);
-    } else {
-      return cached;
+  if (key) {
+    const cached = sessions.get(key);
+    if (cached) {
+      const bank = Math.max(0, Math.floor(Number(cached.bank) || 0));
+      const age = now() - Number(cached.updatedAt || cached.createdAt || 0);
+      if (bank <= 0 && age > SESSION_TTL_MS) {
+        sessions.delete(key);
+      } else {
+        return cached;
+      }
     }
   }
+
   const g = String(guildId || "").trim();
-  if (!g) return null;
-  const restored = await loadSlotsGuiSessionByMessage(g, messageId);
+  const owner = String(ownerIdHint || "").trim();
+  let restored = null;
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    if (key) restored = await loadSlotsGuiSessionByMessage(g, key);
+    if (!restored && owner && g) {
+      const byOwner = await loadSlotsGuiSessionByOwner(g, owner);
+      // Accetta restore per owner solo se messageId combacia (o non richiesto).
+      if (byOwner && (!key || sessionKey(byOwner.messageId) === key)) restored = byOwner;
+    }
+    if (restored) break;
+    if (attempt < 3) await new Promise((r) => setTimeout(r, 80 * attempt));
+  }
   if (!restored) return null;
-  sessions.set(key, restored);
+
+  restored.updatedAt = now();
+  restored.panelAnimating = false;
+  const storeKey = sessionKey(restored.messageId) || key;
+  if (storeKey) sessions.set(storeKey, restored);
+  if (key && key !== storeKey) sessions.set(key, restored);
   return restored;
 }
 
 function deleteSession(messageId, session) {
-  sessions.delete(sessionKey(messageId));
-  if (session?.guildId && session?.ownerId) {
-    clearSlotsGuiSession(session.guildId, session.ownerId, messageId).catch(() => {});
+  const mid = sessionKey(messageId);
+  const cached = mid ? sessions.get(mid) : null;
+  if (mid) sessions.delete(mid);
+  const live = session || cached;
+  if (live) live.cashedOut = true;
+  if (live?.guildId && live?.ownerId) {
+    clearSlotsGuiSession(live.guildId, live.ownerId, mid || live.messageId).catch(() => {});
   }
 }
 
@@ -89,12 +139,10 @@ function parseSlotsGuiCustomId(customId) {
   return { action: parts[1], ownerId: parts[2] };
 }
 
-function buildRows(session, cfg, disabled = false) {
+function buildRows(session, cfg, disabled = false, balance = null) {
   const ownerId = session.ownerId;
   const step = betStep(cfg);
-  const min = Math.max(1, Math.floor(Number(cfg?.minBet) || 1));
-  const max = Math.max(min, Math.floor(Number(cfg?.maxBet) || min));
-  const canCashout = !disabled && Number(session.bank || 0) > 0;
+  const { min, max } = betBounds(cfg, balance);
   return [
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
@@ -103,24 +151,21 @@ function buildRows(session, cfg, disabled = false) {
         .setEmoji("➖")
         .setStyle(ButtonStyle.Secondary)
         .setDisabled(disabled || session.bet <= min),
+      buildBetAmountButton(controlId("bet", ownerId), { disabled }),
       new ButtonBuilder()
         .setCustomId(controlId("plus", ownerId))
         .setLabel(`+${step}`)
         .setEmoji("➕")
         .setStyle(ButtonStyle.Secondary)
         .setDisabled(disabled || session.bet >= max),
+    ),
+    new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId(controlId("spin", ownerId))
         .setLabel("Gira")
         .setEmoji("🎰")
         .setStyle(ButtonStyle.Primary)
         .setDisabled(disabled || Boolean(session.panelAnimating)),
-      new ButtonBuilder()
-        .setCustomId(controlId("cashout", ownerId))
-        .setLabel("Riscuoti")
-        .setEmoji("💰")
-        .setStyle(ButtonStyle.Success)
-        .setDisabled(!canCashout),
       new ButtonBuilder()
         .setCustomId(controlId("close", ownerId))
         .setLabel("Chiudi")
@@ -176,14 +221,16 @@ async function renderSlotsAttachment(session, { animating = false } = {}) {
   if (hit) return attachmentFromCache(hit);
   try {
     const renderSlotsCanvas = require("../Render/slotsCanvas");
-    const rendered = await renderSlotsCanvas({
+    const rendered = await runEconomyRender(() =>
+      renderSlotsCanvas({
       reels: last?.result?.reels || ["🍒", "🍋", "🔔"],
       bet: session.bet,
       payout: last?.payout || 0,
       win: Boolean(last?.win),
       hasResult: Boolean(last),
       animating: Boolean(animating && last),
-    });
+    }),
+    );
     const fileName = rendered.format === "gif" ? "slots-panel.gif" : "slots-panel.png";
     rememberRenderCache(key, rendered.buffer, fileName);
     return attachmentFromCache(renderCache.get(key));
@@ -229,34 +276,30 @@ function scheduleSlotsIdlePanel(message, session, cfg, notice = "", disabled = f
   if (!message?.edit || !messageId) return;
   const delayMs = spinAnimationDurationMs();
   setTimeout(() => {
-    getSession(messageId, session.guildId).then((live) => {
-    if (!live) return;
-    live.panelAnimating = false;
-    setSession(messageId, live);
-    buildSlotsGuiPayload(live, cfg, notice, disabled, false)
-      .then((payload) => message.edit(payload).catch(() => {}))
-      .catch(() => {});
+    getSession(messageId, session.guildId, session.ownerId).then((live) => {
+      if (!live) return;
+      live.panelAnimating = false;
+      setSession(messageId, live);
+      buildSlotsGuiPayload(live, cfg, notice, disabled, false)
+        .then((payload) => message.edit(payload).catch(() => {}))
+        .catch(() => {});
     }).catch(() => {});
   }, delayMs);
 }
 
-function formatSlotsSpinNotice(spinResult, session) {
-  const bank = Math.max(0, Math.floor(Number(session?.bank) || 0));
+function formatSlotsSpinNotice(spinResult) {
   if (spinResult?.win) {
-    return `💸 Vincita aggiunta al banco: **${formatCurrency("caffe",spinResult.payout)}**.\n💰 Clicca su **Riscuoti** per incassare.`;
-  }
-  if (bank > 0) {
-    return `<a:VC_Cross:1482532424570376253> Ultimo giro perso.\n<a:VC_pixeltime:1482535344103620771> Puoi rigirare quando il cooldown lo permette.`;
+    return `🏆 Hai vinto **${formatEconomyAmount(spinResult.payout)}** (accreditati subito).`;
   }
   return "<a:VC_Cross:1482532424570376253> Giro perso.\n<a:VC_pixeltime:1482535344103620771> Puoi rigirare quando il cooldown lo permette.";
 }
 
-async function buildSlotsGuiPayload(session, cfg, notice = "", disabled = false, animating = false) {
+async function buildSlotsGuiPayload(session, cfg, notice = "", disabled = false, animating = false, balance = null) {
   const attachment = await resolvePanelAttachment(session, animating);
   if (!attachment.files?.length) global.logger?.warn?.("[SLOTS GUI] pannello senza immagine (canvas/cache vuoti)");
   return buildImageButtonPayload({
     files: attachment.files || [],
-    components: buildRows(session, cfg, disabled),
+    components: buildRows(session, cfg, disabled, balance),
   });
 }
 
@@ -269,23 +312,67 @@ function interactionMessageAdapter(interaction) {
 }
 
 async function spinSession(client, messageLike, session) {
-  const result = await playSlotsBanked(client, messageLike, String(session.bet));
+  const result = await playSlots(client, messageLike, String(session.bet), null, sessionSpendOptions(session));
   if (!result.ok) return { ok: false, message: result.message };
+  markSessionStakeCooldown(session);
   session.lastResult = result;
   session.spins += 1;
-  session.bank += Math.max(0, Math.floor(Number(result.payout) || 0));
+  session.bank = 0;
   session.updatedAt = now();
   return { ok: true, result };
 }
 
 async function cashoutSession(client, interaction, session, messageId) {
-  const amount = Math.max(0, Math.floor(Number(session.bank) || 0));
-  const out = await cashoutSlotsBank(client, interactionMessageAdapter(interaction), amount);
+  const adapter = interactionMessageAdapter(interaction);
+  if (messageId && session) {
+    await setSession(messageId, session);
+  }
+  const pending = session?.guildId && session?.ownerId
+    ? await takeUserSlotsGuiPending(session.guildId, session.ownerId)
+    : null;
+  const memBank = Math.max(0, Math.floor(Number(session?.bank) || 0));
+  const dbBank = Math.max(0, Math.floor(Number(pending?.bank) || 0));
+  if (dbBank > 0) {
+    const flushed = await flushSlotsGuiPendingBank(client, adapter);
+    if (!flushed?.ok) return flushed;
+    if (flushed.amount > 0) {
+      if (session) {
+        session.bank = 0;
+        session.cashedOut = true;
+      }
+      if (messageId && session) await setSession(messageId, session);
+      return { ok: true, amount: flushed.amount, paid: flushed };
+    }
+  }
+  if (memBank <= 0) {
+    return { ok: false, message: "<a:VC_Cross:1482532424570376253> Non hai vincite da riscuotere in questa sessione." };
+  }
+  const out = await cashoutSlotsBank(client, adapter, memBank);
   if (!out.ok) return out;
-  session.bank = 0;
-  session.cashedOut = true;
-  if (messageId) setSession(messageId, session);
+  if (session) {
+    session.bank = 0;
+    session.cashedOut = true;
+  }
+  if (messageId && session) await setSession(messageId, session);
   return out;
 }
 
-module.exports = { SESSION_TTL_MS, buildSlotsGuiPayload, cashoutSession, clampBet, deleteSession, economyConfig, formatSlotsSpinNotice, getSession, interactionMessageAdapter, isSlotsGuiCustomId, makeSession, parseSlotsGuiCustomId, scheduleSlotsIdlePanel, setSession, spinSession, spinAnimationDurationMs, warmupSlotsPanel };
+module.exports = {
+  SESSION_TTL_MS,
+  buildSlotsGuiPayload,
+  cashoutSession,
+  clampBet,
+  deleteSession,
+  economyConfig,
+  formatSlotsSpinNotice,
+  getSession,
+  interactionMessageAdapter,
+  isSlotsGuiCustomId,
+  makeSession,
+  parseSlotsGuiCustomId,
+  scheduleSlotsIdlePanel,
+  setSession,
+  spinSession,
+  spinAnimationDurationMs,
+  warmupSlotsPanel,
+};

@@ -1,12 +1,64 @@
 const { EmbedBuilder, AttachmentBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlagsBitField } = require("discord.js");
 const IDs = require("../Utils/Config/ids");
-const { getGuildChannelCached, getClientChannelCached } = require("../Utils/Interaction/interactionEntityCache");
+const { getGuildChannelCached } = require("../Utils/Interaction/interactionEntityCache");
 const { runAutoModMessage } = require("../Services/Moderation/automodService");
 const { handleDisboardBump, handleDiscadiaBump, handleVoteManagerMessage } = require("../Utils/Message/officialMessageAutomationHandlers");
 const { handleMentionAutoReactions, handleWordReactions, maybePunishCountingOnEdit } = require("../Utils/Message/officialMessageCommunityHandlers");
 const { toDiscordTimestamp } = require("../Utils/Logging/channelRolesLogUtils");
 const { handlePartnerDescriptionMessageUpsert, isPartnerDescriptionChannel } = require("../Services/Partner/partnerDescriptionSyncService");
+const {
+  handleTenantPartnerDescriptionMessageUpsert,
+  isTenantPartnerDescriptionChannel,
+} = require("../Services/Partner/tenantPartnerDescriptionService");
 const { shouldDeleteHumanPartnershipsChannelMessage } = require("../Utils/Partner/partnerPointContextUtils");
+const { tryResolvePendingManualPartnershipOnUpdate } = require("../Services/Partner/tenantManualPartnershipService");
+
+function isViniliFullFeatureGuild(guildId) {
+  try {
+    const { isViniliFullFeatureGuild: check } = require("../MultiGuild/core/guildFeatureScope");
+    return check(guildId);
+  } catch {
+    return true;
+  }
+}
+
+async function executeTenantPartnershipMessageUpdateFlow(previous, updated, resolvedClient) {
+  const before = String(previous?.content || "");
+  const after = String(updated?.content || "");
+  const contentChanged = before !== after;
+
+  if (shouldDeleteHumanPartnershipsChannelMessage(updated)) {
+    const editedContent = String(updated?.content || "");
+    if (!editedContent.startsWith("+")) {
+      await updated.delete().catch(() => null);
+      return;
+    }
+  }
+
+  if (contentChanged && !updated.author.bot && !updated.system && !updated.webhookId) {
+    const manualResolve = await tryResolvePendingManualPartnershipOnUpdate(previous, updated).catch(() => ({ handled: false }));
+    if (manualResolve?.handled) {
+      if (manualResolve.delete) {
+        await updated.delete().catch(() => null);
+      }
+      return;
+    }
+  }
+
+  if (
+    contentChanged &&
+    updated.guild?.id &&
+    isTenantPartnerDescriptionChannel(updated.guild.id, updated.channelId || updated.channel?.id)
+  ) {
+    void handleTenantPartnerDescriptionMessageUpsert(resolvedClient, updated).catch(() => null);
+  }
+
+  if (!after || !contentChanged || updated.author?.bot || updated.system || updated.webhookId) return;
+  if (!after.startsWith("+")) return;
+
+  updated.__fromMessageUpdatePrefix = true;
+  resolvedClient?.emit?.("messageCreate", updated);
+}
 const MAX_EMBED_DIFF_LENGTH = 900;
 const VERIFICATION_EXCLUDED_CHANNEL_IDS = new Set(
   [IDs.channels.verify, IDs.channels.clickMe, IDs.channels.activityLogs].filter(Boolean).map((id) => String(id)),
@@ -101,8 +153,7 @@ function isHttpUrl(value) {
 async function resolveLogChannel(guild) {
   const channelId = IDs.channels.activityLogs;
   if (!guild || !channelId) return null;
-  const client = guild.client;
-  return guild.channels.cache.get(channelId) || (await getGuildChannelCached(guild, channelId)) || (client ? (await getClientChannelCached(client, channelId)) : null);
+  return guild.channels.cache.get(channelId) || (await getGuildChannelCached(guild, channelId));
 }
 
 async function sendRaw(channel, payload) {
@@ -200,6 +251,10 @@ module.exports = {
     const resolvedClient = client || newMessage?.client || oldMessage?.client;
 
     try {
+      // Confronta i flag publish sul messaggio pre-fetch: un fetch di `previous`
+      // dopo la publish restituisce già Crossposted e il relay non partirebbe.
+      const previousForPublishCheck = oldMessage;
+
       if (previous?.partial) {
         previous = await previous.fetch().catch(() => previous);
       }
@@ -208,9 +263,26 @@ module.exports = {
       }
       if (!updated?.guild || !updated?.author) return;
 
-      if (shouldDeleteHumanPartnershipsChannelMessage(updated)) {
-        await updated.delete().catch(() => null);
+      try {
+        const { handlePossiblePublishedBotUpdate } = require("../Services/Community/botUpdatesRelayService");
+        void handlePossiblePublishedBotUpdate(resolvedClient, previousForPublishCheck, updated).catch((err) => {
+          global.logger?.warn?.("[messageUpdate] bot updates relay:", err?.message || err);
+        });
+      } catch (error) {
+        global.logger?.warn?.("[messageUpdate] bot updates relay load:", error?.message || error);
+      }
+
+      if (!isViniliFullFeatureGuild(updated.guild.id)) {
+        await executeTenantPartnershipMessageUpdateFlow(previous, updated, resolvedClient);
         return;
+      }
+
+      if (shouldDeleteHumanPartnershipsChannelMessage(updated)) {
+        const editedContent = String(updated?.content || "");
+        if (!editedContent.startsWith("+")) {
+          await updated.delete().catch(() => null);
+          return;
+        }
       }
 
       if (!updated.author.bot && !updated.system && !updated.webhookId) {
@@ -220,6 +292,16 @@ module.exports = {
       const before = String(previous?.content || "");
       const after = String(updated?.content || "");
       const contentChanged = before !== after;
+
+      if (contentChanged && !updated.author.bot && !updated.system && !updated.webhookId) {
+        const manualResolve = await tryResolvePendingManualPartnershipOnUpdate(previous, updated).catch(() => ({ handled: false }));
+        if (manualResolve?.handled) {
+          if (manualResolve.delete) {
+            await updated.delete().catch(() => null);
+          }
+          return;
+        }
+      }
 
       if (contentChanged && after && !updated.author.bot && !updated.system && !updated.webhookId) {
         try {
@@ -246,6 +328,13 @@ module.exports = {
 
       if (contentChanged && isPartnerDescriptionChannel(updated.channelId || updated.channel?.id)) {
         void handlePartnerDescriptionMessageUpsert(resolvedClient, updated).catch(() => null);
+      }
+      if (
+        contentChanged &&
+        updated.guild?.id &&
+        isTenantPartnerDescriptionChannel(updated.guild.id, updated.channelId || updated.channel?.id)
+      ) {
+        void handleTenantPartnerDescriptionMessageUpsert(resolvedClient, updated).catch(() => null);
       }
 
       if (updated.author.bot || updated.system || updated.webhookId || updated.applicationId) {

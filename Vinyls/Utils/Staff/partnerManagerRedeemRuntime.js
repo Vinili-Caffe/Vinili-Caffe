@@ -61,7 +61,9 @@ async function completePartnerManagerRedeemForGuild(guild, client, { targetUserI
     postRedeemNote = " Premio **5 € PayPal** consegnato manualmente.";
   }
 
-  const removedPointsChannel = guild.channels?.cache?.get(IDs.channels?.puntiTolti);
+  const { getPartnershipLogChannelIds } = require("../Partner/partnershipConfigResolver");
+  const { primary: logChannelId } = getPartnershipLogChannelIds(guild?.id);
+  const removedPointsChannel = logChannelId ? guild.channels?.cache?.get(logChannelId) : null;
   const actor = actorUser;
   const targetPmUser = await client.users.fetch(uid).catch(() => null);
   const pmMention = targetPmUser ? String(targetPmUser) : `<@${uid}>`;

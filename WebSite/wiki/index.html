@@ -7,7 +7,7 @@
     <meta name="description" content="{{WIKI_META_DESCRIPTION}}" />
     <meta name="author" content="{{SITE_NAME}}" />
     <meta name="robots" content="index, follow" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta property="og:type" content="website" />
     <meta property="og:title" content="{{WIKI_OG_TITLE}}" />
     <meta property="og:description" content="{{WIKI_META_DESCRIPTION}}" />
@@ -103,9 +103,7 @@
               <summary class="vc-snav-summary"><span>Richieste</span><i
                   class="fa fa-chevron-down vc-snav-chev text-[0.65rem] opacity-80" aria-hidden="true"></i></summary>
               <div class="vc-snav-panel">
-                <a class="vc-snav-row" href="{{RICHIESTE_UNBAN_URL}}"
-                  ><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-unlock"></i></span
-                  ><span>Unban</span></a>
+                <a class="vc-snav-row" href="{{RICHIESTE_UNBAN_URL}}"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-balance-scale"></i></span><span data-i18n="nav.appeals">Appelli</span></a>
                 <a class="vc-snav-row" href="{{RICHIESTE_CANDIDATURE_URL}}"
                   ><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-file-text-o"></i></span
                   ><span>Candidature</span></a>
@@ -174,11 +172,11 @@
             <div class="vc-support-page-hero__icon vc-support-page-hero__icon--start vc-wiki-hero-book mb-5" aria-hidden="true">
               <i class="fa fa-book"></i>
             </div>
-            <p class="text-xs font-semibold uppercase tracking-[0.28em] text-[#e8c9a8]/75">Documentazione</p>
+            <p class="text-xs font-semibold uppercase tracking-[0.28em] text-[#e8c9a8]/75" data-i18n="wiki.kicker">Documentazione</p>
             <h1 id="vc-wiki-hero-heading" class="mt-4 text-4xl font-extrabold tracking-tight text-white sm:text-5xl lg:text-6xl">
               <span class="text-[#f7ecdf]">{{SITE_NAME}}</span> Wiki<span class="vc-forbidden-book" data-vc-forbidden-book="wiki" hidden role="img" aria-label="libro proibito">📖</span>
             </h1>
-            <p class="mt-5 max-w-2xl text-lg leading-8 text-[#e8dcd0]/88 sm:text-xl">
+            <p class="mt-5 max-w-2xl text-lg leading-8 text-[#e8dcd0]/88 sm:text-xl" data-i18n-html="wiki.lead">
               I <strong class="font-semibold text-white">nostri</strong> bot: un'unicità a 360°
             </p>
             <div class="mt-8 flex flex-wrap gap-3">
@@ -186,32 +184,32 @@
                 class="inline-flex min-h-[3.4rem] items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#d4b896] to-[#7a553c] px-6 py-3 text-base font-extrabold text-[#1c130d] shadow-[0_18px_40px_rgba(111,78,55,0.35)] transition hover:brightness-105"
                 href="{{WIKI_URL}}"
                 data-vc-wiki-scroll="wiki-comandi-panel"
-                ><i class="fa fa-terminal" aria-hidden="true"></i> Vai ai comandi</a>
+                ><i class="fa fa-terminal" aria-hidden="true"></i> <span data-i18n="wiki.ctaCommands">Vai ai comandi</span></a>
               <a
                 class="inline-flex min-h-[3.4rem] items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-6 py-3 text-base font-semibold text-white transition hover:bg-white/10"
                 href="{{DISCORD_INVITE_URL}}"
                 target="_blank"
                 rel="noopener noreferrer"
-                ><i class="fa fa-sign-in" aria-hidden="true"></i> Entra nel server</a>
+                ><i class="fa fa-sign-in" aria-hidden="true"></i> <span data-i18n="wiki.ctaJoin">Entra nel server</span></a>
             </div>
           </div>
           <div class="grid gap-4">
             <div class="rounded-[1.6rem] border border-[#d4a888]/22 bg-[#1a120d]/55 p-5 backdrop-blur">
-              <p class="text-xs font-semibold uppercase tracking-[0.22em] text-[#e8c9a8]/75">Cosa trovi</p>
+              <p class="text-xs font-semibold uppercase tracking-[0.22em] text-[#e8c9a8]/75" data-i18n="wiki.whatInside">Cosa trovi</p>
               <ul class="mt-4 space-y-3 text-sm leading-6 text-[#f4ebe3]/90">
                 <li class="flex gap-3">
-                  <i class="fa fa-list-alt mt-0.5 text-[#d4a888]" aria-hidden="true"></i>
-                  <span>Comandi, prefissi e funzioni utili.</span>
+                  <i class="fa fa-list-alt text-[#d4a888]" aria-hidden="true"></i>
+                  <span data-i18n="wiki.whatInside.b1">Comandi, prefissi e funzioni utili.</span>
                 </li>
                 <li class="flex gap-3">
-                  <i class="fa fa-plug mt-0.5 text-[#d4a888]" aria-hidden="true"></i>
-                  <span>Schede <strong class="text-white">Vinili</strong> e <strong class="text-white">Caffè</strong> qui sotto per i comandi di ogni bot.</span>
+                  <i class="fa fa-plug text-[#d4a888]" aria-hidden="true"></i>
+                  <span data-i18n-html="wiki.whatInside.b2">Schede <strong class="text-white">Vinili</strong> e <strong class="text-white">Caffè</strong> qui sotto per i comandi di ogni bot.</span>
                 </li>
               </ul>
             </div>
             <div class="rounded-[1.6rem] border border-[#d4a888]/18 bg-[#140f0c]/45 p-5 backdrop-blur">
-              <p class="text-xs font-semibold uppercase tracking-[0.22em] text-[#c9a88c]/78">Suggerimento</p>
-              <p class="mt-3 text-sm leading-6 text-[#e8dcd0]/85">
+              <p class="text-xs font-semibold uppercase tracking-[0.22em] text-[#c9a88c]/78" data-i18n="wiki.tip">Suggerimento</p>
+              <p class="mt-3 text-sm leading-6 text-[#e8dcd0]/85" data-i18n="wiki.tip.body">
                 Usa la barra di ricerca per trovare rapidamente un comando o una categoria.
               </p>
             </div>
@@ -227,28 +225,28 @@
             class="vc-wiki-cmd-shell w-full rounded-[1.7rem] border border-[#d4a888]/25 bg-[#120d0a]/40 p-5 shadow-[0_18px_48px_rgba(0,0,0,0.18)] backdrop-blur sm:p-7">
             <div class="text-center sm:text-left">
               <p class="vc-cmd-pill mx-auto inline-flex sm:mx-0">
-                <i class="fa fa-terminal" aria-hidden="true"></i><span>Comandi bot</span>
+                <i class="fa fa-terminal" aria-hidden="true"></i><span data-i18n="wiki.cmdPill">Comandi bot</span>
               </p>
-              <h2 class="vc-cmd-heading mt-4 text-2xl font-extrabold tracking-tight text-white sm:text-3xl">
+              <h2 class="vc-cmd-heading mt-4 text-2xl font-extrabold tracking-tight text-white sm:text-3xl" data-i18n="wiki.selectBot">
                 Seleziona un bot
               </h2>
             </div>
-            <div class="vc-cmd-tabs mt-6 flex flex-wrap justify-center gap-2 sm:justify-start" role="tablist" aria-label="Bot">
-              <button type="button" class="vc-cmd-tab vc-cmd-tab--on" role="tab" aria-selected="true" data-bot="prod" id="wiki-tab-prod" aria-label="Bot Vinili">
+            <div class="vc-cmd-tabs mt-6 flex flex-wrap justify-center gap-2 sm:justify-start" role="tablist" aria-label="Bot" data-i18n-attr="aria-label:wiki.tabsAria">
+              <button type="button" class="vc-cmd-tab vc-cmd-tab--on" role="tab" aria-selected="true" data-bot="prod" id="wiki-tab-prod" aria-label="Bot Vinili" data-i18n-attr="aria-label:wiki.tabVinylsAria">
                 <img class="vc-cmd-tab-avatar" src="{{WIKI_BOT_VINILI_AVATAR_URL}}" alt="" width="22" height="22" decoding="async" /><span>Vinili</span>
               </button>
-              <button type="button" class="vc-cmd-tab" role="tab" aria-selected="false" data-bot="test" id="wiki-tab-test" aria-label="Bot Caffè">
+              <button type="button" class="vc-cmd-tab" role="tab" aria-selected="false" data-bot="test" id="wiki-tab-test" aria-label="Bot Caffè" data-i18n-attr="aria-label:wiki.tabCoffeeAria">
                 <img class="vc-cmd-tab-avatar" src="{{WIKI_BOT_CAFFE_AVATAR_URL}}" alt="" width="22" height="22" decoding="async" /><span>Caffè</span>
               </button>
             </div>
             <label class="vc-cmd-search mx-auto mt-6 w-full max-w-none sm:mx-0">
               <i class="fa fa-search" aria-hidden="true"></i>
-              <input id="wiki-cmd-search" type="search" placeholder="Cerca comandi..." autocomplete="off" spellcheck="false" />
+              <input id="wiki-cmd-search" type="search" placeholder="Cerca comandi..." autocomplete="off" spellcheck="false" data-i18n-placeholder="wiki.searchPlaceholder" />
             </label>
             <div class="vc-cmd-search-results mt-5 text-left">
               <div id="wiki-cmd-empty" class="vc-cmd-empty" hidden role="status" aria-live="polite">
                 <div class="vc-cmd-empty-ico" aria-hidden="true"><i class="fa fa-diamond"></i></div>
-                <p class="vc-cmd-empty-text">Nessun comando trovato</p>
+                <p class="vc-cmd-empty-text" data-i18n="wiki.emptyText">Nessun comando trovato</p>
               </div>
               <div class="vc-cmd-panes">
 {{WIKI_CMD_PANES_HTML}}
@@ -295,6 +293,7 @@
     <script src="../js/discord-auth.js" defer></script>  <script src="../js/vc-cursor-trail.js" defer></script>
 
     <script src="../js/vc-landing.js" defer></script>
+    <script src="../js/vc-i18n-pages.js" defer></script>
     <script src="../js/wiki-commands.js" defer></script>
   </body>
 </html>

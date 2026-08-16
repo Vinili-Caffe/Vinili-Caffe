@@ -1,13 +1,17 @@
 const { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } = require("discord.js");
 const { buildImageButtonPayload } = require("./guiPanelPayload");
-const { formatCurrency } = require("../../Services/Community/serverWalletService");
+const { runEconomyRender } = require("../../../shared/render/economyRenderQueue");
+const { formatEconomyAmount } = require("./economyDisplayHelpers");
+const { buildBetAmountButton, betBounds, clampBetAmount } = require("./economyBetModal");
 const { economyConfig, normalizeRouletteChoice, playRoulette } = require("../../Services/Community/activeEconomyService");
+const { markSessionStakeCooldown, sessionSpendOptions } = require("./economyCommandHelpers");
+const { createPersistedGuiSessionApi, SESSION_DB_TTL_MS } = require("../../Services/Community/economyGuiSessionStore");
 const PREFIX = "roulette_gui";
-const SESSION_TTL_MS = 10 * 60 * 1000;
+const SESSION_TTL_MS = SESSION_DB_TTL_MS;
 const RENDER_CACHE_MAX = 64;
 const IDLE_CACHE_KEY = "png:idle";
 const SIMPLE_CHOICES = new Set(["rosso", "nero", "pari", "dispari"]);
-const sessions = new Map();
+const { setSession, getSession, deleteSession } = createPersistedGuiSessionApi("roulette", { ttlMs: SESSION_TTL_MS });
 const renderCache = new Map();
 let defaultIdleCache = null;
 let warmupPromise = null;
@@ -16,15 +20,8 @@ function now() {
   return Date.now();
 }
 
-function sessionKey(messageId) {
-  return String(messageId || "").trim();
-}
-
-function clampBet(value, cfg) {
-  const min = Math.max(1, Math.floor(Number(cfg?.minBet) || 1));
-  const max = Math.max(min, Math.floor(Number(cfg?.maxBet) || min));
-  const n = Math.floor(Number(value) || min);
-  return Math.max(min, Math.min(max, n));
+function clampBet(value, cfg, balance = null) {
+  return clampBetAmount(value, cfg, balance);
 }
 
 function betStep(cfg) {
@@ -44,25 +41,6 @@ function makeSession({ ownerId, guildId, bet, cfg, choice, isNumber, currency })
     createdAt: now(),
     updatedAt: now(),
   };
-}
-
-function setSession(messageId, session) {
-  sessions.set(sessionKey(messageId), { ...session, updatedAt: now() });
-}
-
-function getSession(messageId) {
-  const key = sessionKey(messageId);
-  const cached = sessions.get(key);
-  if (!cached) return null;
-  if (now() - Number(cached.updatedAt || cached.createdAt || 0) > SESSION_TTL_MS) {
-    sessions.delete(key);
-    return null;
-  }
-  return cached;
-}
-
-function deleteSession(messageId) {
-  sessions.delete(sessionKey(messageId));
 }
 
 function controlId(action, ownerId) {
@@ -107,11 +85,10 @@ function buildNumberSelect(action, ownerId, from, to, disabled) {
     .setDisabled(disabled);
 }
 
-function buildRows(session, cfg, disabled = false) {
+function buildRows(session, cfg, disabled = false, balance = null) {
   const ownerId = session.ownerId;
   const step = betStep(cfg);
-  const min = Math.max(1, Math.floor(Number(cfg?.minBet) || 1));
-  const max = Math.max(min, Math.floor(Number(cfg?.maxBet) || min));
+  const { min, max } = betBounds(cfg, balance);
   const locked = disabled || Boolean(session.panelAnimating);
   const hasChoice = Boolean(session.choice);
   const choiceStyle = (id) => (session.choice === id && !session.isNumber ? ButtonStyle.Success : ButtonStyle.Secondary);
@@ -123,6 +100,7 @@ function buildRows(session, cfg, disabled = false) {
         .setEmoji("➖")
         .setStyle(ButtonStyle.Secondary)
         .setDisabled(locked || session.bet <= min),
+      buildBetAmountButton(controlId("bet", ownerId), { disabled: locked }),
       new ButtonBuilder()
         .setCustomId(controlId("plus", ownerId))
         .setLabel(`+${step}`)
@@ -166,15 +144,16 @@ function spinAnimationDurationMs() {
 function renderCacheKey(session, animating, previewSpin = false) {
   const last = session.lastResult;
   const spin = last?.result || {};
-  if (!last) return IDLE_CACHE_KEY;
+  const bet = Math.max(0, Math.floor(Number(session.bet) || 0));
+  if (!last) return `idle:${bet}`;
   const choice = session.choice || "";
   if (previewSpin) {
-    return "preview:spinning";
+    return `preview:spinning:${bet}`;
   }
   if (animating && last) {
-    return `gif:${spin.number}|${spin.color}:${choice}:${last.win ? 1 : 0}`;
+    return `gif:${spin.number}|${spin.color}:${choice}:${last.win ? 1 : 0}:${bet}`;
   }
-  return `png:${spin.number}|${spin.color}:${choice}:${last.win ? 1 : 0}`;
+  return `png:${spin.number}|${spin.color}:${choice}:${last.win ? 1 : 0}:${bet}`;
 }
 
 function attachmentFromCache(entry) {
@@ -203,7 +182,8 @@ async function renderRouletteAttachment(session, { animating = false, previewSpi
   if (hit) return attachmentFromCache(hit);
   try {
     const renderRouletteCanvas = require("../Render/rouletteCanvas");
-    const rendered = await renderRouletteCanvas({
+    const rendered = await runEconomyRender(() =>
+      renderRouletteCanvas({
       bet: session.bet,
       playerChoice: session.choice,
       isNumber: session.isNumber,
@@ -213,7 +193,8 @@ async function renderRouletteAttachment(session, { animating = false, previewSpi
       hasResult: Boolean(last),
       animating: Boolean(animating && last),
       previewSpin: Boolean(previewSpin && last),
-    });
+    }),
+    );
     const fileName = rendered.format === "gif" ? "roulette-spin.gif" : "roulette-panel.png";
     rememberRenderCache(key, rendered.buffer, fileName);
     return attachmentFromCache(renderCache.get(key));
@@ -225,9 +206,6 @@ async function renderRouletteAttachment(session, { animating = false, previewSpi
 }
 
 async function resolvePanelAttachment(session, animating = false, previewSpin = false) {
-  if (!session.lastResult && !animating && !previewSpin && defaultIdleCache) {
-    return attachmentFromCache(defaultIdleCache);
-  }
   const out = await renderRouletteAttachment(session, { animating, previewSpin });
   if (out.files?.length) return out;
   if (defaultIdleCache) return attachmentFromCache(defaultIdleCache);
@@ -264,13 +242,14 @@ function scheduleRouletteIdlePanel(message, session, cfg, notice = "", disabled 
   if (!message?.edit || !messageId) return;
   const waitMs = Number.isFinite(delayMs) ? Math.max(0, delayMs) : spinAnimationDurationMs();
   setTimeout(() => {
-    const live = getSession(messageId);
-    if (!live) return;
-    live.panelAnimating = false;
-    setSession(messageId, live);
-    buildRouletteGuiPayload(live, cfg, notice, disabled, false, false)
-      .then((payload) => message.edit(payload).catch(() => {}))
-      .catch(() => {});
+    void getSession(messageId, session?.guildId, session?.ownerId).then((live) => {
+      if (!live) return;
+      live.panelAnimating = false;
+      setSession(messageId, live);
+      buildRouletteGuiPayload(live, cfg, notice, disabled, false, false)
+        .then((payload) => message.edit(payload).catch(() => {}))
+        .catch(() => {});
+    });
   }, waitMs);
 }
 
@@ -298,23 +277,23 @@ async function pushRouletteSpinGif(message, session, cfg, spinNotice, finalNotic
 function formatRouletteSpinNotice(result) {
   if (!result?.ok) return "";
   const spin = result.result || {};
-  if (result.win) return `🏆 È uscito **${spin.number} ${spin.color}** — hai vinto **${formatCurrency(result.currency || "caffe", result.payout)}**.`;
+  if (result.win) return `🏆 È uscito **${spin.number} ${spin.color}** — hai vinto **${formatEconomyAmount(result.payout)}**.`;
   return `<a:VC_Cross:1482532424570376253> È uscito **${spin.number} ${spin.color} (${spin.evenOdd})**.\n<a:VC_pixeltime:1482535344103620771> Puoi rigiocare quando il cooldown lo permette.`;
 }
 
-async function buildRouletteGuiPayload(session, cfg, notice = "", disabled = false, animating = false, previewSpin = false) {
+async function buildRouletteGuiPayload(session, cfg, notice = "", disabled = false, animating = false, previewSpin = false, balance = null) {
   const attachment = await resolvePanelAttachment(session, animating, previewSpin);
   return buildImageButtonPayload({
     files: attachment.files || [],
-    components: buildRows(session, cfg, disabled),
+    components: buildRows(session, cfg, disabled, balance),
   });
 }
 
-async function buildRouletteBetPayload(session, cfg, notice = "") {
-  const attachment = defaultIdleCache ? attachmentFromCache(defaultIdleCache) : await resolvePanelAttachment(session, false);
+async function buildRouletteBetPayload(session, cfg, notice = "", balance = null) {
+  const attachment = await resolvePanelAttachment(session, false);
   return buildImageButtonPayload({
     files: attachment.files || [],
-    components: buildRows(session, cfg, false),
+    components: buildRows(session, cfg, false, balance),
   });
 }
 
@@ -328,8 +307,9 @@ function interactionMessageAdapter(interaction) {
 
 async function spinRouletteSession(client, messageLike, session) {
   if (!session.choice) return { ok: false, message: "Scegli prima una puntata (rosso, nero, pari, dispari o numero)." };
-  const result = await playRoulette(client, messageLike, String(session.bet), session.choice, session.currency || "caffe");
+  const result = await playRoulette(client, messageLike, String(session.bet), session.choice, session.currency || "caffe", sessionSpendOptions(session));
   if (!result.ok) return { ok: false, message: result.message };
+  markSessionStakeCooldown(session);
   session.lastResult = result;
   session.updatedAt = now();
   return { ok: true, result: session.lastResult };

@@ -6,6 +6,7 @@ const { spawnSync } = require("child_process");
 const ffmpegPath = require("ffmpeg-static");
 const { createCanvas } = canvasModule;
 const { registerCanvasFonts, drawTextWithSpecialFallback } = require("./canvasFonts");
+const { sanitizeCanvasDisplayName } = require("./canvasUtils");
 const {
   safeLoadImage,
   fetchHttpImageBuffer,
@@ -587,22 +588,20 @@ function drawShipFrame(ctx, {
     forcePrimaryFont: true,
   });
 
-  drawTextWithSpecialFallback(ctx, leftName, 220, 450, {
+  drawTextWithSpecialFallback(ctx, sanitizeCanvasDisplayName(leftName, 16, "Utente"), 220, 450, {
     size: 42,
     weight: "700",
     color: "#ffffff",
     align: "center",
     baseline: "middle",
-    forcePrimaryFont: true,
   });
 
-  drawTextWithSpecialFallback(ctx, rightName, 780, 450, {
+  drawTextWithSpecialFallback(ctx, sanitizeCanvasDisplayName(rightName, 16, "Utente"), 780, 450, {
     size: 42,
     weight: "700",
     color: "#ffffff",
     align: "center",
     baseline: "middle",
-    forcePrimaryFont: true,
   });
 
   const percentNorm = finalPercent / 100;

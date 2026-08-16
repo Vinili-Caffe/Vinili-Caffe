@@ -5,6 +5,12 @@ function buildCacheKey(kind, parentId, entityId) {
   return `${kind}:${String(parentId || "none")}:${String(entityId || "none")}`;
 }
 
+function isUnknownDiscordMemberError(err) {
+  const code = Number(err?.code ?? err?.rawError?.code);
+  if (code === 10007) return true;
+  return /unknown member/i.test(String(err?.message || err || ""));
+}
+
 function getCachedValue(cacheKey) {
   const cached = entityCache.get(cacheKey);
   const now = Date.now();
@@ -74,7 +80,27 @@ async function getGuildMemberCached(guild, userId, options = {}) {
     ttlMs: options.ttlMs,
     resolveFromCache: () =>
       preferFresh ? null : guild.members?.cache?.get(String(userId)) || null,
-    fetchEntity: () => guild.members.fetch(String(userId)),
+    fetchEntity: () => {
+      const uid = String(userId);
+      if (!guild.members || typeof guild.members.fetch !== "function") {
+        return Promise.resolve(null);
+      }
+      // Prefer force when available (REST wrap + discord.js) so workers never reuse stubs.
+      // Never fall back to a soft fetch after force fails: that can return a ghost from
+      // guild.members.cache and then roles.set throws Unknown Member forever.
+      if (preferFresh && typeof guild.members.fetch === "function") {
+        return guild.members.fetch({ user: uid, force: true }).catch((err) => {
+          if (isUnknownDiscordMemberError(err)) {
+            try {
+              guild.members?.cache?.delete?.(uid);
+            } catch (_) {}
+            return null;
+          }
+          return null;
+        });
+      }
+      return guild.members.fetch(uid);
+    },
   });
 }
 
@@ -90,6 +116,15 @@ async function getGuildRoleCached(guild, roleId, options = {}) {
   });
 }
 
+function isUsableClientGuild(guild) {
+  // REST worker seeds lightweight stubs (`partial: true`, no members manager).
+  // Never treat those as a warm cache hit — callers expect guild.members.me / fetch.
+  if (!guild?.id) return false;
+  if (guild.partial === true) return false;
+  if (!guild.members || typeof guild.members.fetch !== "function") return false;
+  return true;
+}
+
 async function getClientGuildCached(client, guildId, options = {}) {
   if (!client || !guildId) return null;
   return getOrFetchEntity({
@@ -97,7 +132,10 @@ async function getClientGuildCached(client, guildId, options = {}) {
     parentId: client.user?.id || "client",
     entityId: guildId,
     ttlMs: options.ttlMs,
-    resolveFromCache: () => client.guilds?.cache?.get(String(guildId)) || null,
+    resolveFromCache: () => {
+      const g = client.guilds?.cache?.get(String(guildId)) || null;
+      return isUsableClientGuild(g) ? g : null;
+    },
     fetchEntity: () => client.guilds.fetch(String(guildId)),
   });
 }
@@ -146,4 +184,4 @@ async function addRolesAndGetMember(guild, userId, roleIds) {
   return getGuildMemberCached(guild, userId, { preferFresh: true }).catch(() => member);
 }
 
-module.exports = { buildCacheKey, getCachedValue, setCachedValue, getClientChannelCached, getClientGuildCached, getGuildChannelCached, getGuildMemberCached, getGuildRoleCached, getUserCached, addRolesAndGetMember };
+module.exports = { buildCacheKey, getCachedValue, setCachedValue, getClientChannelCached, getClientGuildCached, getGuildChannelCached, getGuildMemberCached, getGuildRoleCached, getUserCached, addRolesAndGetMember, isUnknownDiscordMemberError };

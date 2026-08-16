@@ -272,7 +272,7 @@ async function sendSocialSupporterRoleAnnounce(member, channel) {
       "<a:VC_Infinity:1448687797266288832> - Permesso di allegare immagini e link in chat",
       "<a:VC_HeartWhite:1448673535253024860> - Permesso di cambiare il nickname",
       "",
-      "<a:VC_Arrow:1482706699365257397> Metti `.gg/viniliecaffe` o `discord.gg/viniliecaffe` nella tua bio.",
+      "<a:VC_Arrow:1482706699365257397> Metti `.gg/viniliecaffe`, `discord.gg/viniliecaffe` o `viniliecaffe.it` nella tua bio.",
     ].join("\n"))
     .setFooter({ text: "Grazie per il tuo supporto!" });
   applyPronounGenderToEmbedForMember(embed, member);

@@ -8,7 +8,7 @@
   <meta name="description" content="{{USER_META_DESCRIPTION}}" />
   <meta name="author" content="{{SITE_NAME}}" />
   <meta name="robots" content="index, follow" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta property="og:type" content="website" />
   <meta property="og:title" content="{{USER_OG_TITLE}}" />
   <meta property="og:description" content="{{USER_META_DESCRIPTION}}" />
@@ -87,8 +87,7 @@
             <summary class="vc-snav-summary"><span>Richieste</span><i
                 class="fa fa-chevron-down vc-snav-chev text-[0.65rem] opacity-80" aria-hidden="true"></i></summary>
             <div class="vc-snav-panel">
-              <a class="vc-snav-row" href="{{RICHIESTE_UNBAN_URL}}"><span class="vc-snav-row-ico" aria-hidden="true"><i
-                    class="fa fa-unlock"></i></span><span>Unban</span></a>
+              <a class="vc-snav-row" href="{{RICHIESTE_UNBAN_URL}}"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-balance-scale"></i></span><span data-i18n="nav.appeals">Appelli</span></a>
               <a class="vc-snav-row" href="{{RICHIESTE_CANDIDATURE_URL}}"><span class="vc-snav-row-ico"
                   aria-hidden="true"><i class="fa fa-file-text-o"></i></span><span>Candidature</span></a>
               <a class="vc-snav-row" href="{{RICHIESTE_SUGGERIMENTI_URL}}"><span class="vc-snav-row-ico"
@@ -158,8 +157,8 @@
     <section class="vc-notify-hero w-full" data-vc-leader-only>
       <div class="flex w-full min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
         <div class="min-w-0 flex-1">
-          <h1 class="vc-users-title">Community</h1>
-          <p id="vc-user-leader-sub" class="vc-users-sub">Classifica per livello (EXP totale)</p>
+          <h1 class="vc-users-title" data-i18n="user.community">Community</h1>
+          <p id="vc-user-leader-sub" class="vc-users-sub" data-i18n="user.subLevel">Classifica per livello (EXP totale)</p>
         </div>
         <a class="vc-notify-home-btn shrink-0 self-start sm:mt-1" href="{{SITE_URL}}">
           <i class="fa fa-chevron-left" aria-hidden="true"></i> Home
@@ -169,15 +168,15 @@
 
     <section class="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-3" data-vc-leader-only>
       <article class="vc-notify-stat vc-notify-stat--a">
-        <p class="vc-notify-stat-label">Totale membri</p>
+        <p class="vc-notify-stat-label" data-i18n="user.totalMembers">Totale membri</p>
         <p class="vc-notify-stat-value" id="vc-ul-stat-members" data-vc-countup="true" data-vc-count-kind="int" data-vc-count-value="0">—</p>
       </article>
       <article class="vc-notify-stat vc-notify-stat--b">
-        <p class="vc-notify-stat-label" id="vc-ul-stat-mid-label">Livello più alto</p>
+        <p class="vc-notify-stat-label" id="vc-ul-stat-mid-label" data-i18n="user.highestLevel">Livello più alto</p>
         <p class="vc-notify-stat-value" id="vc-ul-stat-mid-value" data-vc-countup="true" data-vc-count-kind="int" data-vc-count-value="0">—</p>
       </article>
       <article class="vc-notify-stat vc-notify-stat--c">
-        <p class="vc-notify-stat-label">Top player</p>
+        <p class="vc-notify-stat-label" data-i18n="user.topPlayer">Top player</p>
         <p class="vc-notify-stat-value vc-ul-stat-topname text-xl sm:text-2xl" id="vc-ul-stat-topname">—</p>
       </article>
     </section>
@@ -188,26 +187,26 @@
           class="vc-ul-board-tabs flex w-auto min-w-0 max-w-full flex-wrap items-center gap-2 self-start">
           <button type="button" class="vc-notify-filter-btn vc-notify-filter-btn--on" id="vc-ul-tab-level"
             data-board="level" aria-current="true">
-            <i class="fa fa-trophy" aria-hidden="true"></i> Top livello
+            <i class="fa fa-trophy" aria-hidden="true"></i> <span data-i18n="user.topLevel">Top livello</span>
           </button>
           <button type="button" class="vc-notify-filter-btn" id="vc-ul-tab-weekly" data-board="weekly">
-            <i class="fa fa-line-chart" aria-hidden="true"></i> Top settimanale
+            <i class="fa fa-line-chart" aria-hidden="true"></i> <span data-i18n="user.topWeekly">Top settimanale</span>
           </button>
           <button type="button" class="vc-notify-filter-btn" id="vc-ul-tab-msg" data-board="messages">
-            <i class="fa fa-comments-o" aria-hidden="true"></i> Top messaggi
+            <i class="fa fa-comments-o" aria-hidden="true"></i> <span data-i18n="user.topMessages">Top messaggi</span>
           </button>
           <button type="button" class="vc-notify-filter-btn" id="vc-ul-tab-voice" data-board="voice">
-            <i class="fa fa-microphone" aria-hidden="true"></i> Top voice
+            <i class="fa fa-microphone" aria-hidden="true"></i> <span data-i18n="user.topVoice">Top voice</span>
           </button>
           <button type="button" class="vc-notify-filter-btn vc-ul-filter-tab" id="vc-ul-open-filters"
             aria-expanded="false" aria-controls="vc-ul-filters-wrap">
-            <i class="fa fa-filter" aria-hidden="true"></i> Filtri
+            <i class="fa fa-filter" aria-hidden="true"></i> <span data-i18n="user.filters">Filtri</span>
             <i class="fa fa-chevron-down vc-ul-filter-chevron" aria-hidden="true"></i>
           </button>
         </div>
         <div id="vc-ul-filters-wrap" class="vc-ul-filters-wrap" hidden>
           <div id="vc-ul-filters-panel" class="vc-ul-filters-panel" role="region" aria-label="Cerca per ID Discord">
-            <p class="vc-ul-filters-heading">Cerca un utente per ID Discord</p>
+            <p class="vc-ul-filters-heading" data-i18n="user.searchById">Cerca un utente per ID Discord</p>
             <form class="vc-ul-filters-form" id="vc-ul-filters-form" action="#" method="get">
               <div class="vc-ul-filters-inputwrap">
                 <div class="vc-ul-filters-infield">

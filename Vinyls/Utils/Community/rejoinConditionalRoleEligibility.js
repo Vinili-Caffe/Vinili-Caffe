@@ -1,8 +1,8 @@
 const IDs = require("../Config/ids");
 const { hasMatchingTag } = require("../../Services/Community/clanTagRoleService");
 const { getAnnouncedBoostSlots, ensureBoostSlotsSynced, setAnnouncedBoostSlots, persistAnnouncedBoostSlotsToDb } = require("./boostSlotAnnounceTracker");
+const { textHasSupporterStatusLink, normalizeSupporterStatusText } = require("./supporterStatusLink");
 const MAIN_GUILD_ID = String(IDs.guilds?.main || "");
-const FAN_INVITE_REGEX = /(?:discord\.gg|dsc\.gg|\.gg|discord\.com\/invite|discord\.me)\s*(?:\/|\\)?\s*viniliecaff[eèé]/i;
 
 function collectGuildedRoleIds(client) {
   const ids = new Set();
@@ -18,22 +18,15 @@ function collectGuildedRoleIds(client) {
   return ids;
 }
 
-function normalizePresenceSearchText(text) {
-  return String(text || "")
-    .replace(/\u2044|\u2215/g, "/")
-    .replace(/[\u200B-\u200D\uFEFF]/g, "")
-    .toLowerCase();
-}
-
 function memberHasSupporterInviteInPresence(member) {
   const presence = member?.presence;
   if (!presence || ["offline", "invisible"].includes(String(presence.status || ""))) return false;
   const activities = Array.isArray(presence.activities) ? presence.activities : [];
   const blob = activities
     .flatMap((a) => [a?.name, a?.state, a?.details, a?.url].filter(Boolean))
-    .map((s) => normalizePresenceSearchText(s))
+    .map((s) => normalizeSupporterStatusText(s))
     .join(" ");
-  return FAN_INVITE_REGEX.test(blob);
+  return textHasSupporterStatusLink(blob);
 }
 
 async function memberEligibleForDoubleBoosterRejoin(member) {

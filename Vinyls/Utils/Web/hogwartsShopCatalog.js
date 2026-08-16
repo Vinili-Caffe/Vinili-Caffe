@@ -1,7 +1,7 @@
 const SHOP_CATEGORIES = Object.freeze({ WAND: "wand", BROOM: "broom", PET: "pet" });
 const SHOP_DURABLE_BOOST_MAX_USES = 750;
 const WAND_WIN_CHANCE = Object.freeze({ "willow-spark-wand": 58, "ash-moon-wand": 72, "elder-ember-wand": 86, "phoenix-legacy-wand": 100 });
-const BROOM_ROB_SUCCESS_BONUS = Object.freeze({ "school-sweeper-broom": 10, "comet-copper-broom": 18, "stormchaser-broom": 26, "aurora-3000-broom": 35 });
+const BROOM_ROB_SUCCESS_BONUS = Object.freeze({ "school-sweeper-broom": 18, "comet-copper-broom": 32, "stormchaser-broom": 50, "aurora-3000-broom": 60 });
 const PET_HOUSE_POINTS_MULTIPLIER = Object.freeze({ "tabby-cat-pet": 2, "snowy-owl-pet": 3, "moon-toad-pet": 4, "mini-phoenix-pet": 5 });
 const SHOP_BOOST_TYPE_LABELS = Object.freeze({ [SHOP_CATEGORIES.WAND]: "Duello", [SHOP_CATEGORIES.BROOM]: "Rubare", [SHOP_CATEGORIES.PET]: "Minigiochi" });
 const SHOP_CATEGORY_LABELS = Object.freeze({ [SHOP_CATEGORIES.WAND]: "Bacchette", [SHOP_CATEGORIES.BROOM]: "Scope", [SHOP_CATEGORIES.PET]: "Animali" });

@@ -79,7 +79,16 @@ async function sweepExpiredPartnerManagerTimedPerks(client) {
     if (!uid) continue;
     const m = await guild.members.fetch(uid).catch(() => null);
     if (m && vipId && m.roles.cache.has(vipId)) {
-      await m.roles.remove(vipId, "Scadenza premio Partner Manager VIP (30 giorni)").catch(() => {});
+      // VIP è un ruolo condiviso (donazioni, premi, ecc.): toglilo solo se non
+      // resta un altro entitlement evidente, altrimenti sparisce ai riavvii/sweep.
+      const keepVip =
+        Boolean(IDs.roles?.VIPplus && m.roles.cache.has(IDs.roles.VIPplus)) ||
+        Boolean(IDs.roles?.Donator && m.roles.cache.has(IDs.roles.Donator)) ||
+        Boolean(IDs.roles?.MVP && m.roles.cache.has(IDs.roles.MVP)) ||
+        Boolean(IDs.roles?.DoubleBooster && m.roles.cache.has(IDs.roles.DoubleBooster));
+      if (!keepVip) {
+        await m.roles.remove(vipId, "Scadenza premio Partner Manager VIP (30 giorni)").catch(() => {});
+      }
     }
     await ActivityUserProfile.updateOne(
       { guildId, userId: uid },

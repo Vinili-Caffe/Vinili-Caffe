@@ -5,19 +5,16 @@ const { getBalBridgePanel } = require("../../Services/Community/serverEconomyBri
 const { resolveEconomyMode } = require("../../Services/Community/activeEconomyService");
 const { getGringottBalance } = require("../../Services/Community/gringottService");
 const { eventKey } = require("../../Services/Community/galeoniEconomyService");
+const { createPersistedGuiSessionApi, SESSION_DB_TTL_MS } = require("../../Services/Community/economyGuiSessionStore");
 const PREFIX = "bal_gui";
 const MODAL_PREFIX = "bal_gui_md";
 const CONVERT_MODAL_PREFIX = "bal_gui_cv";
-const SESSION_TTL_MS = 12 * 60 * 1000;
+const SESSION_TTL_MS = SESSION_DB_TTL_MS;
 const AMOUNT_STEPS = [2, 5, 10, 25, 50, 100];
-const sessions = new Map();
+const { setSession, getSession, deleteSession } = createPersistedGuiSessionApi("bal", { ttlMs: SESSION_TTL_MS });
 
 function now() {
   return Date.now();
-}
-
-function sessionKey(messageId) {
-  return String(messageId || "").trim();
 }
 
 function normalizeAmountStep(value) {
@@ -61,6 +58,7 @@ function makeSession({ ownerId, guildId, targetId, targetName, showStaffControls
     adjustAmount: normalizeAmountStep(adjustAmount ?? AMOUNT_STEPS[1]),
     staffCurrency: staffCurrency === CURRENCY_CAFFE ? CURRENCY_CAFFE : CURRENCY_VINILI,
     showGaleoni: Boolean(bridgeData.showGaleoni),
+    galeoniOnly: Boolean(bridgeData.galeoniOnly),
     canConvert: Boolean(bridgeData.canConvert),
     galeoni: bridgeData.galeoni || { balance: 0, earned: 0, spent: 0 },
     conversion: bridgeData.conversion || null,
@@ -69,25 +67,6 @@ function makeSession({ ownerId, guildId, targetId, targetName, showStaffControls
     createdAt: now(),
     updatedAt: now(),
   };
-}
-
-function setSession(messageId, session) {
-  sessions.set(sessionKey(messageId), { ...session, updatedAt: now() });
-}
-
-function getSession(messageId) {
-  const key = sessionKey(messageId);
-  const cached = sessions.get(key);
-  if (!cached) return null;
-  if (now() - Number(cached.updatedAt || cached.createdAt || 0) > SESSION_TTL_MS) {
-    sessions.delete(key);
-    return null;
-  }
-  return cached;
-}
-
-function deleteSession(messageId) {
-  sessions.delete(sessionKey(messageId));
 }
 
 function controlId(action, ownerId, targetId) {
@@ -170,7 +149,7 @@ function buildRows(session, panelClosed = false) {
 
 function bridgeHintForSession(session) {
   const conv = session.conversion;
-  if (!session.showGaleoni) return "";
+  if (!session.showGaleoni || session.galeoniOnly) return "";
   if (session.canConvert && conv?.rateLabel) {
     return `${conv.rateLabel} · oggi ancora ${conv.remainingGaleoni} Galeoni`;
   }
@@ -187,10 +166,19 @@ async function renderPanel(session, notice = "") {
       caffe: session.state?.caffe || emptyWalletState().caffe,
       galeoni: session.galeoni || { balance: 0, earned: 0, spent: 0 },
       showGaleoni: session.showGaleoni,
+      galeoniOnly: Boolean(session.galeoniOnly),
       bridgeHint: bridgeHintForSession(session),
       staffMode: session.showStaffControls,
       staffCurrency: session.staffCurrency,
-      noticeShort: status || (session.showStaffControls ? `${staffCurrencyLabel(session.staffCurrency)} · ${session.adjustAmount}` : session.showGaleoni ? "Vinili · Caffè · Galeoni" : "Vinili & Caffè"),
+      noticeShort:
+        status ||
+        (session.showStaffControls
+          ? `${staffCurrencyLabel(session.staffCurrency)} · ${session.adjustAmount}`
+          : session.galeoniOnly
+            ? "Galeoni d'Oro"
+            : session.showGaleoni
+              ? "Vinili · Caffè · Galeoni"
+              : "Vinili & Caffè"),
     });
     const fileName = "server-bal.png";
     const files = [new AttachmentBuilder(Buffer.from(rendered.buffer), { name: fileName })];
@@ -219,6 +207,7 @@ async function reloadBalance(client, session, messageLike = null) {
       spent: Math.max(0, Math.floor(Number(gState?.spent) || 0)),
     };
     session.showGaleoni = true;
+    session.galeoniOnly = true;
     session.canConvert = false;
     session.state = emptyWalletState();
     session.updatedAt = now();
@@ -229,6 +218,7 @@ async function reloadBalance(client, session, messageLike = null) {
   const msg = messageLike || { guild: { id: session.guildId }, author: { id: session.ownerId }, member: null };
   const bridge = await getBalBridgePanel(client, msg, session.ownerId, session.targetId);
   session.showGaleoni = bridge.showGaleoni;
+  session.galeoniOnly = false;
   session.canConvert = bridge.canConvert;
   session.galeoni = bridge.galeoni;
   session.conversion = bridge.conversion;
@@ -347,7 +337,7 @@ async function openBalPanel(client, message, options = {}) {
       targetName,
       showStaffControls: false,
       state: emptyWalletState(),
-      bridge: { showGaleoni: true, canConvert: false, galeoni },
+      bridge: { showGaleoni: true, galeoniOnly: true, canConvert: false, galeoni },
     });
     await warmupBalPanel();
     return { ok: true, session, payload: await buildBalPayload(session, false) };

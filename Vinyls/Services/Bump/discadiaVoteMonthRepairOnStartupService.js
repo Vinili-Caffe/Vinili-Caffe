@@ -3,7 +3,7 @@ const { runCronDetached } = require("../../../shared/scheduling/cronDetached");
 const mongoose = require("mongoose");
 const IDs = require("../../Utils/Config/ids");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
-const { voteCountMonthKeyRome, isFirstCalendarDayRome } = require("../../Utils/romeVoteMonthKey");
+const { voteCountMonthKeyRome } = require("../../Utils/romeVoteMonthKey");
 
 const VOTE_LEAF = "profile.totals.exp.bumpVoteRewards.discadia_vote";
 
@@ -19,12 +19,18 @@ function previousMonthKey(monthKey) {
   return `${year}-${String(month).padStart(2, "0")}`;
 }
 
+function isRepairForced(client) {
+  const envValue = String(process.env.DISCADIA_VOTE_MONTH_REPAIR_ON_STARTUP || "").trim().toLowerCase();
+  if (["always", "force", "every"].includes(envValue)) return true;
+  return client?.config?.discadiaVoteMonthRepairOnStartup === "force";
+}
+
+/** Recovery al boot: on di default, off esplicito. Non dipende dal 1° del mese. */
 function shouldRunDiscadiaVoteMonthRepairOnStartup(client) {
   const envValue = String(process.env.DISCADIA_VOTE_MONTH_REPAIR_ON_STARTUP || "").trim().toLowerCase();
   if (["0", "false", "no", "off"].includes(envValue)) return false;
   if (client?.config?.discadiaVoteMonthRepairOnStartup === false) return false;
-  if (["always", "force", "every"].includes(envValue)) return true;
-  return isFirstCalendarDayRome(new Date());
+  return true;
 }
 
 function shouldRunDiscadiaVoteMonthRolloverCron(client) {
@@ -35,14 +41,7 @@ function shouldRunDiscadiaVoteMonthRolloverCron(client) {
   return true;
 }
 
-/**
- * @param {"startup"|"cron"} mode — cron include anche profili con ultimo voto salvato ma contatori a 0.
- */
-async function repairDiscadiaVoteMonthRowsForMainGuild(client, mode = "startup") {
-  const guildId = String(client?.config?.mainGuildId || IDs.guilds?.main || "").trim();
-  if (!guildId) return { matched: 0, modified: 0 };
-  const currentKey = voteCountMonthKeyRome(new Date());
-  const fallbackPreviousKey = previousMonthKey(currentKey);
+function buildStaleMonthFilter(guildId, currentKey, mode) {
   const kPath = `${VOTE_LEAF}.voteCountMonthKey`;
   const staleKey = {
     $or: [{ [kPath]: { $exists: false } }, { [kPath]: "" }, { [kPath]: { $ne: currentKey } }],
@@ -62,10 +61,28 @@ async function repairDiscadiaVoteMonthRowsForMainGuild(client, mode = "startup")
       { [`${VOTE_LEAF}.lastVoteAtDiscadia`]: { $exists: true, $ne: null } },
     ],
   };
-  const filter =
-    mode === "cron"
-      ? { guildId, $and: [staleKey, hasVoteActivity] }
-      : { guildId, $and: [staleKey, hasCounters] };
+  return mode === "cron"
+    ? { guildId, $and: [staleKey, hasVoteActivity] }
+    : { guildId, $and: [staleKey, hasCounters] };
+}
+
+/**
+ * @param {"startup"|"cron"} mode — cron include anche profili con ultimo voto salvato ma contatori a 0.
+ * Startup: silenzioso se non c’è nulla da riparare (rollover di mezzanotte già ok).
+ */
+async function repairDiscadiaVoteMonthRowsForMainGuild(client, mode = "startup") {
+  const guildId = String(client?.config?.mainGuildId || IDs.guilds?.main || "").trim();
+  if (!guildId) return { matched: 0, modified: 0, skipped: true };
+  const currentKey = voteCountMonthKeyRome(new Date());
+  const fallbackPreviousKey = previousMonthKey(currentKey);
+  const filter = buildStaleMonthFilter(guildId, currentKey, mode);
+  const force = mode === "startup" && isRepairForced(client);
+
+  if (mode === "startup" && !force) {
+    const pending = await ActivityUserProfile.countDocuments(filter).catch(() => 0);
+    if (!pending) return { matched: 0, modified: 0, skipped: true };
+  }
+
   const res = await ActivityUserProfile.updateMany(filter, [
     {
       $set: {
@@ -90,13 +107,18 @@ async function repairDiscadiaVoteMonthRowsForMainGuild(client, mode = "startup")
   const matched = Number(res?.matchedCount ?? 0);
   const modified = Number(res?.modifiedCount ?? 0);
   const tag = mode === "cron" ? "[DISCADIA_VOTE_MONTH_CRON]" : "[DISCADIA_VOTE_MONTH_REPAIR]";
-  global.logger?.info?.(`${tag} guild=${guildId} romeMonth=${currentKey} mode=${mode} matched=${matched} modified=${modified}`);
-  return { matched, modified };
+  if (mode === "cron" || matched > 0 || modified > 0 || force) {
+    global.logger?.info?.(
+      `${tag} guild=${guildId} romeMonth=${currentKey} mode=${mode} matched=${matched} modified=${modified}`,
+    );
+  }
+  return { matched, modified, skipped: false };
 }
 
 function startDiscadiaVoteMonthRolloverCron(client) {
   if (!client || client._discadiaVoteMonthRolloverCron) return;
   if (!shouldRunDiscadiaVoteMonthRolloverCron(client)) return;
+  // 1° del mese alle 00:00 Europe/Rome — unico passaggio ufficiale.
   client._discadiaVoteMonthRolloverCron = cron.schedule(
     "0 0 1 * *",
     runCronDetached("[DISCADIA_VOTE_MONTH_CRON]", async () => {

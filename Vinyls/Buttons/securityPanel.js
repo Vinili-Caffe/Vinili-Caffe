@@ -27,7 +27,10 @@ function extractOwnerIdFromCustomId(customId) {
 }
 
 async function replyEphemeral(interaction, content) {
-  const payload = { content: String(content || "").slice(0, 1900), flags: PRIVATE_FLAG };
+  const { buildSimpleNoticePayload } = require("../Utils/Embeds/simpleNoticeEmbed");
+  const payload = buildSimpleNoticePayload(String(content || "").slice(0, 1900), interaction.guild, {
+    flags: PRIVATE_FLAG,
+  });
   if (interaction.deferred || interaction.replied) {
     await interaction.followUp(payload).catch(() => null);
     return;
@@ -66,22 +69,22 @@ function buildPagerRow(kind, ownerId, page, lastIdx) {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(`${base}:${p}:first`)
-      .setEmoji("<:VC_page1:1482459684630958223>")
+      .setEmoji("<:1343arrowleft:1525249879151083621>")
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(p <= 0),
     new ButtonBuilder()
       .setCustomId(`${base}:${p}:prev`)
-      .setEmoji("<:VC_page5:1482459835042762752>")
+      .setEmoji("<:1343arrowleft:1525249879151083621>")
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(p <= 0),
     new ButtonBuilder()
       .setCustomId(`${base}:${p}:next`)
-      .setEmoji("<:VC_page4:1482459791975645226>")
+      .setEmoji("<:1343arrowright:1525249880728145970>")
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(p >= lastIdx),
     new ButtonBuilder()
       .setCustomId(`${base}:${p}:last`)
-      .setEmoji("<:VC_page3:1482459759268462613>")
+      .setEmoji("<:1343arrowright:1525249880728145970>")
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(p >= lastIdx),
     new ButtonBuilder().setCustomId(back).setEmoji("<:VC_page2:1482459724657201387>").setStyle(ButtonStyle.Primary),

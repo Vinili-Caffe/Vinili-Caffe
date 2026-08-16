@@ -1,6 +1,6 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 
-const UNBAN_REQUEST_URL = "https://www.viniliecaffe.it/unban";
+const UNBAN_REQUEST_URL = "https://www.viniliecaffe.it/appelli";
 
 function buildUnbanRequestRow() {
   return new ActionRowBuilder().addComponents(

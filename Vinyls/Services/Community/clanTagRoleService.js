@@ -21,17 +21,28 @@ function normalizeForMatch(text) {
     .replace(/ᴡ/g, "w").replace(/ᴇ/g, "e").replace(/ᴅ/g, "d").replace(/ꜰ/g, "f")
     .replace(/ɪ/g, "i").replace(/ɢ/g, "g").replace(/ღ/g, "o").replace(/ᴛ/g, "t").replace(/ʀ/g, "r")
     .replace(/𝟨/g, "6").replace(/𝟫/g, "9")
+    .replace(/[⁶₆]/g, "6")
     .replace(/[^a-z0-9]/g, "");
 }
 
 async function hasMatchingTag(member, client, userForClan = null, options = {}) {
+  const resolved = await resolveClanTagMatch(member, client, userForClan, options);
+  return resolved.match;
+}
+
+/**
+ * @returns {{ match: object|null, lookupFailed: boolean }}
+ * lookupFailed=true → non rimuovere Guilded (API/cache inaffidabile).
+ */
+async function resolveClanTagMatch(member, client, userForClan = null, options = {}) {
   const user = userForClan || member?.user;
-  if (!user) return null;
+  if (!user) return { match: null, lookupFailed: true };
 
   const guildTagConfig = IDs.sponsorGuildTagConfig || {};
   const mainTagNorm = normalizeForMatch(MAIN_SERVER_TAG);
 
   let clan = null;
+  let lookupFailed = false;
   if (userForClan) {
     clan = userForClan.clan ?? null;
     // In alcuni userUpdate il campo clan non arriva: fallback REST per sync live.
@@ -39,7 +50,9 @@ async function hasMatchingTag(member, client, userForClan = null, options = {}) 
       try {
         const raw = await client.rest.get(`/guilds/${member.guild.id}/members/${member.id}`);
         clan = raw.user?.clan ?? null;
-      } catch (_) { }
+      } catch (_) {
+        lookupFailed = true;
+      }
     }
   } else if (options.refreshFromApi === true && client && member?.guild?.id) {
     try {
@@ -47,6 +60,7 @@ async function hasMatchingTag(member, client, userForClan = null, options = {}) 
       clan = raw.user?.clan ?? null;
     } catch (e) {
       clan = user.clan ?? null;
+      if (!clan) lookupFailed = true;
     }
   } else {
     clan = user.clan ?? null;
@@ -54,7 +68,9 @@ async function hasMatchingTag(member, client, userForClan = null, options = {}) 
       try {
         const raw = await client.rest.get(`/guilds/${member.guild.id}/members/${member.id}`);
         clan = raw.user?.clan ?? null;
-      } catch (e) { }
+      } catch (e) {
+        lookupFailed = true;
+      }
     }
   }
 
@@ -66,15 +82,18 @@ async function hasMatchingTag(member, client, userForClan = null, options = {}) 
     const sponsorGuild = clanGuildId ? guildTagConfig[clanGuildId] || guildTagConfig[String(clanGuildId)] : null;
 
     if (isMainGuild && tagNorm === mainTagNorm) {
-      return { type: "native", tag: clan.tag, identityGuildId: MAIN_GUILD_ID };
+      return { match: { type: "native", tag: clan.tag, identityGuildId: MAIN_GUILD_ID }, lookupFailed: false };
     }
 
     if (sponsorGuild && normalizeForMatch(sponsorGuild.tagName) === tagNorm) {
-      return { type: "native", tag: clan.tag, identityGuildId: String(clanGuildId || "") };
+      return {
+        match: { type: "native", tag: clan.tag, identityGuildId: String(clanGuildId || "") },
+        lookupFailed: false,
+      };
     }
   }
 
-  return null;
+  return { match: null, lookupFailed };
 }
 
 async function hadObtainableGuildTagBefore(member, client, previousUser) {
@@ -194,7 +213,7 @@ async function applyClanTagGuildedRoles(member, client, options = {}) {
 
   const userForClan = options.userForClan || null;
   const refreshFromApi = options.refreshFromApi !== undefined ? options.refreshFromApi : !userForClan;
-  const match = await hasMatchingTag(member, client, userForClan, { refreshFromApi });
+  const { match, lookupFailed } = await resolveClanTagMatch(member, client, userForClan, { refreshFromApi });
 
   const g = String(member.guild.id);
   const onMain = g === String(MAIN_GUILD_ID);
@@ -225,32 +244,50 @@ async function applyClanTagGuildedRoles(member, client, options = {}) {
           }
         }
       }
-    } else if (GLOBAL_GUILDED_ROLE_ID) {
+    } else if (GLOBAL_GUILDED_ROLE_ID && !lookupFailed) {
       await removeRolesFromMember(member, [GLOBAL_GUILDED_ROLE_ID], "Ruolo Guilded");
       lastGuildedChannelAnnounceByUserId.delete(String(member.id));
       await deleteGuildedAnnouncementForUser(member).catch(() => false);
       lastGuildedAnnouncementMessageByUserId.delete(String(member.id));
+    } else if (lookupFailed) {
+      global.logger?.warn?.(
+        "[ClanTagService] skip rimozione Guilded: lookup clan fallito",
+        member.id,
+      );
     }
     return { added: addedMain, addedMain, addedSponsor };
   }
 
   if (guildHasSponsorGuildedExtra(g, client)) {
+    if (lookupFailed) {
+      global.logger?.warn?.(
+        "[ClanTagService] skip sync Guilded sponsor: lookup clan fallito",
+        member.guild.id,
+        member.id,
+      );
+      return { added: false, addedMain: false, addedSponsor: false };
+    }
     const map = client.config.guildedRoleIds;
     const extraRoleId = String(map[g] || "");
     const configuredIds = getAllGuildedRoleIdsFromConfig(client);
-    const presentConfigured = configuredIds.filter((rid) => member.roles.cache.has(rid));
-    if (presentConfigured.length) {
-      await removeRolesFromMember(member, presentConfigured, "Ruolo Guilded sponsor reset");
-    }
     const shouldHaveSponsorRole = Boolean(
       match &&
       extraRoleId &&
       String(match.identityGuildId) === g,
     );
     if (shouldHaveSponsorRole) {
+      const others = configuredIds.filter((rid) => rid !== extraRoleId && member.roles.cache.has(rid));
+      if (others.length) {
+        await removeRolesFromMember(member, others, "Ruolo Guilded sponsor reset");
+      }
       if (!member.roles.cache.has(extraRoleId)) {
         const ok = await member.roles.add(extraRoleId).then(() => true).catch(() => false);
         if (ok) addedSponsor = true;
+      }
+    } else {
+      const presentConfigured = configuredIds.filter((rid) => member.roles.cache.has(rid));
+      if (presentConfigured.length) {
+        await removeRolesFromMember(member, presentConfigured, "Ruolo Guilded sponsor reset");
       }
     }
     return { added: addedMain || addedSponsor, addedMain, addedSponsor };

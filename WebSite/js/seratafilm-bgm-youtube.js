@@ -1,11 +1,33 @@
 (function () {
+  var HINT_AUTO_HIDE_MS = 4500;
+  var VOL_PREF_KEY = "vc_seratafilm_bgm_volume_v1";
   var hintEl = null;
+  var hintHideTimer = null;
   var detachFirst = null;
   var started = false;
+  var mutedByUser = false;
   var baseVol = 0.34;
+  var userVol = 0.34;
   var fadeWindowMs = 120000;
   var player = null;
   var playerReady = false;
+  /** Dopo l’avvio film/spot la BGM non deve ripartire da sola. */
+  var lockedOffForFilm = false;
+  var volumeUiBound = false;
+
+  function isProjectionBlockingBgm() {
+    try {
+      var b = document.body;
+      if (!b) return false;
+      return (
+        b.classList.contains("vc-seratafilm-film-active") ||
+        b.classList.contains("vc-seratafilm-ad-break-active") ||
+        b.classList.contains("vc-seratafilm-ad-spot-playing")
+      );
+    } catch (eB) {
+      return false;
+    }
+  }
 
   function isHogwartsEventBgmActive() {
     try {
@@ -80,7 +102,23 @@
     }
   }
 
+  function clearHintAutoHide() {
+    if (hintHideTimer) {
+      clearTimeout(hintHideTimer);
+      hintHideTimer = null;
+    }
+  }
+
+  function scheduleHintAutoHide() {
+    clearHintAutoHide();
+    hintHideTimer = setTimeout(function () {
+      hintHideTimer = null;
+      hideHint();
+    }, HINT_AUTO_HIDE_MS);
+  }
+
   function hideHint() {
+    clearHintAutoHide();
     if (!hintEl) return;
     hintEl.classList.add("vc-seratafilm-bgm-hint--hide");
     setTimeout(function () {
@@ -92,17 +130,30 @@
   }
 
   function ensureHint(msg) {
+    var text = msg || "Tocca per avviare la musica";
     if (hintEl) {
-      hintEl.textContent = msg || hintEl.textContent;
+      var txt = hintEl.querySelector(".vc-seratafilm-bgm-hint__txt");
+      if (txt) txt.textContent = text;
+      else hintEl.textContent = text;
+      scheduleHintAutoHide();
       return;
     }
     hintEl = document.createElement("div");
     hintEl.className = "vc-seratafilm-bgm-hint";
     hintEl.setAttribute("role", "status");
-    hintEl.textContent =
-      msg ||
-      "Musica di sottofondo da YouTube: tocca la pagina (o premi un tasto) per avviare la riproduzione.";
+    var ico = document.createElement("span");
+    ico.className = "vc-seratafilm-bgm-hint__ico";
+    ico.setAttribute("aria-hidden", "true");
+    var fi = document.createElement("i");
+    fi.className = "fa fa-music";
+    ico.appendChild(fi);
+    var label = document.createElement("span");
+    label.className = "vc-seratafilm-bgm-hint__txt";
+    label.textContent = text;
+    hintEl.appendChild(ico);
+    hintEl.appendChild(label);
     document.body.appendChild(hintEl);
+    scheduleHintAutoHide();
   }
 
   function ensureHost() {
@@ -176,13 +227,170 @@
   function readFadeFromGlobalBgm() {
     try {
       var c = window.__VC_SERATAFILM_BGM || {};
-      baseVol = Math.min(1, Math.max(0.02, Number(c.baseVolume) || 0.34));
+      var cfgVol = Math.min(1, Math.max(0.02, Number(c.baseVolume) || 0.34));
       var fadeSec = Math.max(5, Math.min(3600, Number(c.fadeStartSeconds) || 120));
       fadeWindowMs = fadeSec * 1000;
+      try {
+        var raw = localStorage.getItem(VOL_PREF_KEY);
+        if (raw != null && raw !== "") {
+          var n = Number(raw);
+          if (Number.isFinite(n)) {
+            userVol = Math.min(1, Math.max(0, n > 1 ? n / 100 : n));
+            baseVol = userVol;
+            return;
+          }
+        }
+      } catch (eLs) {}
+      userVol = cfgVol;
+      baseVol = cfgVol;
     } catch (e4) {}
   }
 
+  function persistVolume(vol) {
+    userVol = Math.min(1, Math.max(0, Number(vol) || 0));
+    baseVol = userVol;
+    try {
+      localStorage.setItem(VOL_PREF_KEY, String(Math.round(userVol * 100) / 100));
+    } catch (eP) {}
+  }
+
+  function syncVolumeSliderUi() {
+    var range = document.getElementById("vc-sf-music-vol");
+    if (!range) return;
+    range.value = String(Math.round(Math.min(1, Math.max(0, userVol)) * 100));
+  }
+
+  function updateMusicButtonUi() {
+    ensurePlayerShell();
+    var btn = document.getElementById("vc-sf-music-btn");
+    if (!btn) return;
+    var ico = btn.querySelector(".fa");
+    if (ico) {
+      ico.className = started && !mutedByUser ? "fa fa-volume-up" : "fa fa-volume-off";
+    }
+    btn.setAttribute(
+      "aria-label",
+      started && !mutedByUser ? "Disattiva musica di sottofondo" : "Attiva musica di sottofondo",
+    );
+    syncVolumeSliderUi();
+  }
+
+  function ensurePlayerShell() {
+    var existing = document.getElementById("vc-sf-music-player");
+    if (existing) {
+      syncVolumeSliderUi();
+      return existing;
+    }
+    var wrap = document.createElement("div");
+    wrap.id = "vc-sf-music-player";
+    wrap.className = "vc-bgm-player vc-bgm-player--seratafilm";
+    wrap.hidden = true;
+    wrap.setAttribute("hidden", "");
+
+    var btn = document.createElement("button");
+    btn.type = "button";
+    btn.id = "vc-sf-music-btn";
+    btn.className = "vc-bgm-player__toggle";
+    btn.setAttribute("aria-label", "Musica di sottofondo");
+    var fi = document.createElement("i");
+    fi.className = "fa fa-volume-up";
+    fi.setAttribute("aria-hidden", "true");
+    btn.appendChild(fi);
+
+    var meta = document.createElement("div");
+    meta.className = "vc-bgm-player__meta";
+    var label = document.createElement("span");
+    label.className = "vc-bgm-player__label";
+    label.textContent = "Musica Serata Film";
+    var row = document.createElement("div");
+    row.className = "vc-bgm-player__slider-row";
+    var icoLo = document.createElement("i");
+    icoLo.className = "fa fa-volume-down";
+    icoLo.setAttribute("aria-hidden", "true");
+    var range = document.createElement("input");
+    range.type = "range";
+    range.id = "vc-sf-music-vol";
+    range.className = "vc-bgm-player__range";
+    range.min = "0";
+    range.max = "100";
+    range.step = "1";
+    range.setAttribute("aria-label", "Volume musica");
+    var icoHi = document.createElement("i");
+    icoHi.className = "fa fa-volume-up";
+    icoHi.setAttribute("aria-hidden", "true");
+    row.appendChild(icoLo);
+    row.appendChild(range);
+    row.appendChild(icoHi);
+    meta.appendChild(label);
+    meta.appendChild(row);
+    wrap.appendChild(btn);
+    wrap.appendChild(meta);
+    document.body.appendChild(wrap);
+
+    btn.addEventListener("click", function (ev) {
+      if (ev) {
+        try {
+          ev.preventDefault();
+          ev.stopPropagation();
+        } catch (e0) {}
+      }
+      if (started && !mutedByUser) {
+        mutedByUser = true;
+        try {
+          if (player) player.pauseVideo();
+        } catch (eP) {}
+        updateMusicButtonUi();
+        return;
+      }
+      mutedByUser = false;
+      startFromUserGesture(true);
+      updateMusicButtonUi();
+    });
+
+    function onVolInput() {
+      var pct = Math.min(100, Math.max(0, Number(range.value) || 0));
+      persistVolume(pct / 100);
+      if (pct <= 0) {
+        mutedByUser = true;
+        try {
+          if (player) {
+            player.pauseVideo();
+            player.setVolume(0);
+          }
+        } catch (eZ) {}
+        started = false;
+        updateMusicButtonUi();
+        return;
+      }
+      mutedByUser = false;
+      try {
+        if (player && playerReady) player.setVolume(Math.round(baseVol * 100));
+      } catch (eV) {}
+      if (!started) startFromUserGesture(true);
+      updateMusicButtonUi();
+    }
+    range.addEventListener("input", onVolInput);
+    range.addEventListener("change", onVolInput);
+    range.addEventListener("pointerdown", function (ev) {
+      try {
+        ev.stopPropagation();
+      } catch (eS) {}
+    });
+    volumeUiBound = true;
+    syncVolumeSliderUi();
+    return wrap;
+  }
+
+  function showMusicPlayer() {
+    var wrap = ensurePlayerShell();
+    if (!wrap) return;
+    wrap.hidden = false;
+    wrap.removeAttribute("hidden");
+    updateMusicButtonUi();
+  }
+
   function createPlayerAndCue() {
+    if (lockedOffForFilm || isProjectionBlockingBgm()) return;
     var pub = youtubePublicCfg();
     if (!pub) return;
     ensureHost();
@@ -200,7 +408,7 @@
       if (originStr) playerVars.origin = originStr;
     } catch (eOr) {}
     var opts = {
-      host: window.__vcYoutubePlayerHost || "https://www.youtube-nocookie.com",
+      host: window.__vcYoutubePlayerHost || "https://www.youtube.com",
       height: "180",
       width: "320",
       playerVars: playerVars,
@@ -215,7 +423,7 @@
               player.cueVideoById(pub.videoIds[0], pub.startSeconds || 0);
             }
           } catch (e5) {
-            ensureHint("YouTube: impossibile caricare la playlist o i video.");
+            ensureHint("Playlist YouTube non disponibile.");
             return;
           }
           playerReady = true;
@@ -223,13 +431,8 @@
             player.setVolume(Math.round(baseVol * 100));
           } catch (e6) {}
         },
-        onError: function (ev) {
-          var code = ev && ev.data != null ? String(ev.data) : "?";
-          ensureHint(
-            "YouTube bloccato (codice " +
-              code +
-              "). Consenti youtube-nocookie.com / youtube.com per questo sito (ad-blocker).",
-          );
+        onError: function () {
+          ensureHint("YouTube bloccato. Consenti youtube-nocookie.com.");
         },
       },
     };
@@ -239,21 +442,28 @@
     player = new window.YT.Player("vc-seratafilm-yt-player", opts);
   }
 
-  function startFromUserGesture() {
-    if (started || !youtubePublicCfg()) return;
+  function startFromUserGesture(force) {
+    if (lockedOffForFilm || isProjectionBlockingBgm()) return;
+    if (!force && (started || !youtubePublicCfg())) return;
+    if (!youtubePublicCfg()) return;
     if (!playerReady || !player) {
-      ensureHint("Caricamento player YouTube… riprova tra un secondo (o tocca di nuovo).");
+      ensureHint("Caricamento… tocca di nuovo tra un attimo.");
       return;
     }
     started = true;
+    mutedByUser = false;
     hideHint();
     if (typeof detachFirst === "function") {
       detachFirst();
       detachFirst = null;
     }
     try {
+      player.unMute();
+      player.setVolume(Math.round(baseVol * 100));
       player.playVideo();
     } catch (e8) {}
+    showMusicPlayer();
+    updateMusicButtonUi();
   }
 
   function armFirstPointer() {
@@ -261,7 +471,8 @@
       document.removeEventListener("pointerdown", onPointer, true);
       document.removeEventListener("keydown", onKey, true);
     };
-    function onPointer() {
+    function onPointer(ev) {
+      if (ev && ev.target && ev.target.closest && ev.target.closest("#vc-sf-music-player")) return;
       startFromUserGesture();
     }
     function onKey(ev) {
@@ -276,6 +487,7 @@
   window.__vcSeratafilmYoutubeSetupIfConfigured = function () {
     if (!youtubePublicCfg()) return false;
     readFadeFromGlobalBgm();
+    showMusicPlayer();
     ensureHint();
     armFirstPointer();
     loadYoutubeIframeApi()
@@ -285,12 +497,21 @@
         createPlayerAndCue();
       })
       .catch(function () {
-        ensureHint("YouTube non caricato: connessione o ad-blocker. Consenti youtube-nocookie.com per questo sito.");
+        ensureHint("YouTube non caricato. Controlla ad-blocker.");
       });
     return true;
   };
 
   window.__vcSeratafilmYoutubeOnTick = function (remainingMs) {
+    if (lockedOffForFilm || isProjectionBlockingBgm() || mutedByUser) {
+      try {
+        if (player && playerReady) {
+          player.pauseVideo();
+          player.setVolume(0);
+        }
+      } catch (eLock) {}
+      return;
+    }
     if (!player || !playerReady) return;
     var r = Number(remainingMs);
     var vol = baseVol;
@@ -314,11 +535,15 @@
   });
 
   window.__vcSeratafilmYoutubeStop = function () {
+    lockedOffForFilm = true;
     hideHint();
     if (typeof detachFirst === "function") {
       detachFirst();
       detachFirst = null;
     }
+    try {
+      if (player) player.pauseVideo();
+    } catch (ePause) {}
     try {
       if (player) player.stopVideo();
     } catch (e10) {}
@@ -332,5 +557,12 @@
       var h = document.getElementById("vc-seratafilm-yt-host");
       if (h && h.parentNode) h.parentNode.removeChild(h);
     } catch (e12) {}
+    try {
+      var wrap = document.getElementById("vc-sf-music-player");
+      if (wrap) {
+        wrap.hidden = true;
+        wrap.setAttribute("hidden", "");
+      }
+    } catch (eW) {}
   };
 })();

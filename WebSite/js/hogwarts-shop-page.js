@@ -10,7 +10,7 @@
     "consumable-house-points": "Boost ×2 sui punti casa guadagnati. Attivazione immediata.",
     "consumable-exp": "Boost ×2 sull'EXP guadagnata. Attivazione immediata.",
   };
-  var state = { loaded: false, buying: "", data: null };
+  var state = { loaded: false, buying: "", data: null, countdownTimer: null };
 
   function byId(id) {
     return document.getElementById(id);
@@ -80,6 +80,11 @@
     var max = Number(row.max || boostUsage.maxUses || 750);
     if (!Number.isFinite(used) || !Number.isFinite(max) || max <= 0) return "";
     return String(Math.max(0, Math.floor(used))) + "/" + String(Math.floor(max));
+  }
+
+  function boostUsageTitle(boostUsage) {
+    var period = String((boostUsage && boostUsage.periodLabel) || "").trim();
+    return period ? "Utilizzi boost · " + period : "Utilizzi boost (reset ogni anno scolastico)";
   }
 
   function renderCardPills(item, options) {
@@ -177,18 +182,90 @@
     var total = Math.max(0, Math.ceil(Number(ms) / 1000));
     var h = Math.floor(total / 3600);
     var m = Math.floor((total % 3600) / 60);
+    var s = total % 60;
     if (h > 0) return h + "h " + String(m).padStart(2, "0") + "m";
-    return m + "m";
+    if (m > 0) return m + "m " + String(s).padStart(2, "0") + "s";
+    return s + "s";
+  }
+
+  function resolveExpiresAtMs(rowOrItem, remainingFallbackMs) {
+    if (!rowOrItem) return 0;
+    var raw = rowOrItem.expiresAt || rowOrItem.purchaseBlockedUntil || "";
+    var parsed = Date.parse(String(raw || ""));
+    if (Number.isFinite(parsed) && parsed > 0) return parsed;
+    var rem = Number(rowOrItem.remainingMs || rowOrItem.purchaseBlockedRemainingMs || remainingFallbackMs || 0);
+    if (Number.isFinite(rem) && rem > 0) return Date.now() + rem;
+    return 0;
   }
 
   function activeBoostForItem(activeBoosts, item) {
     var scope = String(item.scope || "").trim();
-    var boostType = String(item.boostType || "").trim() === "exp" ? "exp" : "housePoints";
+    var rawType = String(item.boostType || item.boostTypeLabel || "").trim().toLowerCase();
+    var boostType = rawType === "exp" ? "exp" : "housePoints";
     var bucket = activeBoosts && activeBoosts[boostType] ? activeBoosts[boostType] : null;
     if (!bucket) return null;
     var row = scope === "global" ? bucket.global : scope === "house" ? bucket.house : bucket.personal;
-    if (!row || !Number(row.remainingMs)) return null;
+    if (!row) return null;
+    var expiresAt = resolveExpiresAtMs(row);
+    if (expiresAt && expiresAt <= Date.now()) return null;
+    if (!expiresAt && !Number(row.remainingMs)) return null;
     return row;
+  }
+
+  function renderBoostStatusNote(mode, expiresAtMs, byName) {
+    if (!expiresAtMs || expiresAtMs <= Date.now()) return "";
+    var left = Math.max(0, expiresAtMs - Date.now());
+    if (mode === "active") {
+      return (
+        '<div class="vc-hw-shop-card__boost-status vc-hw-shop-card__boost-status--active" data-boost-mode="active" data-boost-expires-at="' + esc(new Date(expiresAtMs).toISOString()) + '">' +
+          '<span class="vc-hw-shop-card__boost-badge"><i class="fa fa-bolt" aria-hidden="true"></i> Attivo</span>' +
+          '<span class="vc-hw-shop-card__boost-countdown" data-boost-countdown>' + esc(formatRemainingMs(left)) + " rimasti</span>" +
+        "</div>"
+      );
+    }
+    return (
+      '<div class="vc-hw-shop-card__boost-status vc-hw-shop-card__boost-status--locked" data-boost-mode="locked" data-boost-expires-at="' + esc(new Date(expiresAtMs).toISOString()) + '">' +
+        '<span class="vc-hw-shop-card__boost-badge"><i class="fa fa-lock" aria-hidden="true"></i> Bloccato</span>' +
+        '<span class="vc-hw-shop-card__boost-countdown" data-boost-countdown>Disponibile tra ' + esc(formatRemainingMs(left)) + "</span>" +
+        (byName ? '<span class="vc-hw-shop-card__boost-by">per ' + esc(byName) + "</span>" : "") +
+      "</div>"
+    );
+  }
+
+  function stopCountdownTicker() {
+    if (state.countdownTimer) {
+      clearInterval(state.countdownTimer);
+      state.countdownTimer = null;
+    }
+  }
+
+  function startCountdownTicker() {
+    stopCountdownTicker();
+    state.countdownTimer = setInterval(function () {
+      var nodes = document.querySelectorAll("[data-boost-expires-at]");
+      if (!nodes.length) return;
+      var now = Date.now();
+      var expired = false;
+      for (var i = 0; i < nodes.length; i += 1) {
+        var el = nodes[i];
+        var exp = Date.parse(String(el.getAttribute("data-boost-expires-at") || ""));
+        var left = Number.isFinite(exp) ? Math.max(0, exp - now) : 0;
+        var target = el.querySelector("[data-boost-countdown]");
+        var mode = String(el.getAttribute("data-boost-mode") || "");
+        if (target) {
+          if (mode === "locked") {
+            target.textContent = left > 0 ? "Disponibile tra " + formatRemainingMs(left) : "Sbloccato";
+          } else {
+            target.textContent = left > 0 ? formatRemainingMs(left) + " rimasti" : "Scaduto";
+          }
+        }
+        if (left <= 0) expired = true;
+      }
+      if (expired) {
+        stopCountdownTicker();
+        loadShop();
+      }
+    }, 1000);
   }
 
   function renderEquipmentCategory(cat, inventory, balance, boostUsage) {
@@ -237,7 +314,7 @@
                 '<div class="vc-hw-shop-card__art">' +
                   renderCardPills(item, {
                     usageText: usageBadge || (item.boostMaxUses ? "0/" + item.boostMaxUses : ""),
-                    usesTitle: "Utilizzi boost",
+                    usesTitle: boostUsageTitle(boostUsage),
                   }) +
                   itemVisual(item) +
                   '<span class="vc-hw-shop-card__glow"></span></div>' +
@@ -289,39 +366,58 @@
           items.map(function (item) {
             var price = numberOf(item.price);
             var affordable = balance >= price;
-            var ownActive = activeBoostForItem(activeBoosts, item);
-            var blocked = item.purchaseBlocked === true;
-            var disabled = state.buying || !purchasable || blocked || !affordable;
+            var slotRow = activeBoostForItem(activeBoosts, item);
+            var slotActive = Boolean(slotRow);
+            var ownActive = slotActive && item.id && String(slotRow.itemId || "") === String(item.id);
+            var blocked = Boolean(item.purchaseBlocked === true) || (slotActive && !ownActive);
+            var blockedUntil = 0;
+            if (blocked) {
+              blockedUntil = resolveExpiresAtMs(item);
+              if (!blockedUntil && slotRow) blockedUntil = resolveExpiresAtMs(slotRow);
+            }
+            var activeUntil = slotRow ? resolveExpiresAtMs(slotRow) : 0;
+            var disabled = Boolean(state.buying) || !purchasable || blocked || slotActive || !affordable;
             var label = !purchasable
               ? "In anteprima"
               : ownActive
               ? "Boost attivo"
-              : blocked
-                ? "Non disponibile"
+              : (blocked || slotActive)
+                ? "Bloccato"
                 : affordable
                   ? "Attiva"
                   : "Galeoni insufficienti";
-            var activeNote = ownActive
-              ? '<p class="vc-hw-shop-card__active">Attivo: ' + esc(formatRemainingMs(ownActive.remainingMs)) + " rimasti</p>"
-              : blocked && item.purchaseBlockedReason
-                ? '<p class="vc-hw-shop-card__active">' + esc(item.purchaseBlockedReason) + "</p>"
+            var statusNote = ownActive
+              ? renderBoostStatusNote("active", activeUntil, "")
+              : (blocked || slotActive)
+                ? renderBoostStatusNote(
+                    "locked",
+                    activeUntil || blockedUntil,
+                    item.purchaseBlockedBy || (slotRow && slotRow.itemName) || "",
+                  )
                 : "";
+            var cardMods = " vc-hw-shop-card--consumable";
+            if (ownActive) cardMods += " vc-hw-shop-card--owned vc-hw-shop-card--boost-active";
+            else if (blocked || slotActive) cardMods += " vc-hw-shop-card--locked vc-hw-shop-card--boost-locked";
             return (
-              '<article class="vc-hw-shop-card vc-hw-shop-card--consumable' + (ownActive || blocked ? " vc-hw-shop-card--owned" : "") + '" style="--shop-accent:' + esc(item.accent || "#d4af37") + '">' +
+              '<article class="vc-hw-shop-card' + cardMods + '" style="--shop-accent:' + esc(item.accent || "#d4af37") + '">' +
                 '<div class="vc-hw-shop-card__art">' +
                   renderCardPills(item, { usesField: "boostDuration", usesTitle: "Durata" }) +
                   consumableVisual(item) +
+                  ((blocked || (slotActive && !ownActive)) ? '<span class="vc-hw-shop-card__lock-seal" aria-hidden="true"><i class="fa fa-lock"></i></span>' : "") +
                   '<span class="vc-hw-shop-card__glow"></span></div>' +
                 '<div class="vc-hw-shop-card__body">' +
                   '<p class="vc-hw-shop-card__rarity">' + esc(item.rarity || "") + "</p>" +
                   '<h3>' + esc(item.name || "") + "</h3>" +
                   '<p class="vc-hw-shop-card__desc">' + esc(item.description || "") + "</p>" +
                   '<p class="vc-hw-shop-card__detail">' + esc(item.detail || "") + "</p>" +
-                  activeNote +
+                  statusNote +
                 "</div>" +
                 '<div class="vc-hw-shop-card__foot">' +
                   '<span class="vc-hw-shop-card__price">' + price.toLocaleString("it-IT") + " Galeoni</span>" +
-                  '<button type="button" class="vc-hw-btn vc-hw-btn--primary vc-hw-shop-buy" data-category="' + esc(category) + '" data-item-id="' + esc(item.id) + '"' + (disabled ? " disabled" : "") + ">" + esc(label) + "</button>" +
+                  '<button type="button" class="vc-hw-btn vc-hw-btn--primary vc-hw-shop-buy' + ((blocked || slotActive) ? " vc-hw-shop-buy--locked" : "") + '" data-category="' + esc(category) + '" data-item-id="' + esc(item.id) + '"' + (disabled ? " disabled" : "") + ">" +
+                    ((blocked || (slotActive && !ownActive)) ? '<i class="fa fa-lock" aria-hidden="true"></i> ' : "") +
+                    esc(label) +
+                  "</button>" +
                 "</div>" +
               "</article>"
             );
@@ -379,7 +475,7 @@
           '<p class="vc-hw-shop-divider__note">' +
             esc(consumablesUnlocked
               ? "Boost ×2 attivabili subito con i Galeoni d'Oro."
-              : "Anteprima staff: si attivano dal 10 agosto con l'economia Galeoni.") +
+              : "Anteprima staff: si attivano lunedì 10 agosto alle 14:00 con l'economia Galeoni.") +
           "</p>" +
         "</div>";
       html += consumableCategories.map(function (cat) {
@@ -388,6 +484,7 @@
     }
     grid.innerHTML = html;
     scrollToConsumablesIfRequested();
+    startCountdownTicker();
   }
 
   function request(method, path, body) {
@@ -454,8 +551,12 @@
 
   function buy(category, itemId) {
     if (state.buying) return;
-    state.buying = itemId;
+    state.buying = itemId || "1";
     showToast("Acquisto in corso…", "");
+    try {
+      var buttons = document.querySelectorAll(".vc-hw-shop-buy");
+      for (var i = 0; i < buttons.length; i += 1) buttons[i].disabled = true;
+    } catch (e) {}
     render();
     request("POST", "/purchase", { category: category, itemId: itemId })
       .then(function (data) {
@@ -477,7 +578,8 @@
     if (grid) {
       grid.addEventListener("click", function (ev) {
         var btn = ev.target && ev.target.closest ? ev.target.closest(".vc-hw-shop-buy") : null;
-        if (!btn || btn.disabled) return;
+        if (!btn || btn.disabled || state.buying) return;
+        btn.disabled = true;
         buy(btn.getAttribute("data-category"), btn.getAttribute("data-item-id"));
       });
     }

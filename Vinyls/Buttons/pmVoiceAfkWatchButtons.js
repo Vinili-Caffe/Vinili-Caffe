@@ -187,6 +187,12 @@ module.exports = {
       await interaction.reply({ content: "<a:VC_Cross:1482532424570376253> Non sono riuscito ad applicare il timeout (permessi/gerarchia?).", flags: 1 << 6 }).catch(() => null);
       return true;
     }
+    try {
+      const { applyActiveMuteMirror } = require("../Services/Moderation/mutedMirrorRoleService");
+      await applyActiveMuteMirror(target, { reason });
+    } catch (err) {
+      global.logger?.warn?.("[pmVoiceAfk] active mute mirror after timeout:", err?.message || err);
+    }
 
     await createModCase({
       guildId: guild.id,

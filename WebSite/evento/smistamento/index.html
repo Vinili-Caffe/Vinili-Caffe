@@ -10,7 +10,7 @@
     <meta name="description" content="{{HOGWARTS_SORTING_META_DESCRIPTION}}" />
     <meta name="author" content="{{SITE_NAME}}" />
     <meta name="robots" content="index, follow" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta property="og:type" content="website" />
     <meta property="og:title" content="{{HOGWARTS_SORTING_OG_TITLE}}" />
     <meta property="og:description" content="{{HOGWARTS_SORTING_META_DESCRIPTION}}" />
@@ -127,11 +127,11 @@
     </main>
 
     <footer class="relative z-10 border-t border-white/8 bg-slate-950/20">
-      <div class="mx-auto max-w-3xl px-4 py-8 text-center text-sm text-slate-400">
+      <div class="mx-auto max-w-7xl px-4 py-8 text-center text-sm text-slate-400">
         <p>© {{YEAR}} {{SITE_NAME}}. All rights reserved.</p>
       </div>
     </footer>
-    </div>
+</div>
 
     <script>
       window.__VC_SITE_HOME_URL = "{{SITE_URL}}";
@@ -164,5 +164,6 @@
     <script src="../../js/vc-landing.js" defer></script>
     <script src="../../js/hogwarts-access-gate.js" defer></script>
     <script src="../../js/discord-auth.js" defer></script>
+      <script src="/js/vc-cursor-trail.js?v={{BUILD_ASSET_VERSION}}" defer></script>
   </body>
 </html>

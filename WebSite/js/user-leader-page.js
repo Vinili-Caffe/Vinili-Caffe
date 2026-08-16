@@ -288,7 +288,7 @@
     return "/users/" + encodeURIComponent(id);
   }
 
-  var state = { page: 1, totalPages: 1, loading: false, board: "level", searchUserId: "", filtersOpen: false };
+  var state = { page: 1, totalPages: 1, loading: false, board: "level", searchUserId: "", filtersOpen: false, renderFingerprint: "" };
   var liveUsersPollTimer = null;
   var LIVE_USERS_POLL_MS = 45000;
   var USERS_CACHE_TTL_MS = 30000;
@@ -849,6 +849,22 @@
         if (body.board) state.board = String(body.board);
         applyAnimatedStats(body);
         animateTopStats();
+        var fp = "";
+        try {
+          fp = JSON.stringify({
+            board: body.board,
+            page: body.page,
+            total: body.total,
+            rows: body.rows,
+          });
+        } catch (e) {
+          fp = "";
+        }
+        if (silent && fp && fp === state.renderFingerprint) {
+          syncSearchUi();
+          return;
+        }
+        state.renderFingerprint = fp;
         render(body);
         syncSearchUi();
       })

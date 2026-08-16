@@ -1,4 +1,3 @@
-const { isViniliProtectedGuild } = require("../../MultiGuild/core/viniliProtectedGuilds");
 const { resolveGuildAccess } = require("../../MultiGuild/core/guildRegistry");
 const { getTenantChannelMapSync } = require("../../MultiGuild/core/tenantGuildSettings");
 const IDs = require("../Config/ids");
@@ -11,7 +10,9 @@ function normalizeModLogChannelId(value) {
 function resolveModLogChannelId(guildId) {
   const gid = String(guildId || "").trim();
   if (!gid) return null;
-  if (isViniliProtectedGuild(gid)) {
+  const mainId = String(IDs.guilds?.main || "").trim();
+  // Solo il main usa i canali catalogo del main: niente spillover da sponsor/tenant.
+  if (mainId && gid === mainId) {
     return normalizeModLogChannelId(IDs.channels?.modLogs);
   }
   const fromTenantSettings = normalizeModLogChannelId(getTenantChannelMapSync(gid).modLogs);

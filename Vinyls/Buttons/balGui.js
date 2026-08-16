@@ -31,6 +31,22 @@ function currencyBalance(session, currency) {
   return Math.max(0, Math.floor(Number(bucket?.balance) || 0));
 }
 
+async function loadBalSession(interaction, parsed) {
+  const mid = interaction.message?.id;
+  const guildId = interaction.guild?.id;
+  const ownerId = parsed?.ownerId || "";
+  let session = await getSession(mid, guildId, ownerId);
+  if (!session && ownerId) {
+    session = await getSession("", guildId, ownerId);
+    if (session) {
+      const sid = String(session.messageId || "");
+      if (mid && sid && sid !== String(mid)) session = null;
+      else if (mid) setSession(mid, session);
+    }
+  }
+  return session;
+}
+
 async function execute(interaction, client) {
   const parsed = parseBalGuiCustomId(interaction.customId);
   if (!parsed) return false;
@@ -40,7 +56,7 @@ async function execute(interaction, client) {
       await replyPrivate(interaction, "<a:VC_Cross:1482532424570376253> Questo modulo non è tuo.");
       return true;
     }
-    const session = getSession(interaction.message?.id);
+    const session = await loadBalSession(interaction, parsed);
     if (!session || session.ownerId !== parsed.ownerId || session.targetId !== parsed.targetId) {
       await replyPrivate(interaction, "<a:VC_Cross:1482532424570376253> Sessione scaduta. Usa di nuovo `+bal`.");
       return true;
@@ -67,7 +83,7 @@ async function execute(interaction, client) {
 
   if (parsed.kind === "modal") {
     if (!(await ensureStaff(interaction, client))) return true;
-    const session = getSession(interaction.message?.id);
+    const session = await loadBalSession(interaction, parsed);
     if (!session || session.ownerId !== parsed.ownerId || session.targetId !== parsed.targetId) {
       await replyPrivate(interaction, "<a:VC_Cross:1482532424570376253> Sessione scaduta. Usa di nuovo `+bal`.");
       return true;
@@ -85,7 +101,7 @@ async function execute(interaction, client) {
     return true;
   }
 
-  const session = getSession(interaction.message?.id);
+  const session = await loadBalSession(interaction, parsed);
   if (!session) {
     await replyPrivate(interaction, "<a:VC_Cross:1482532424570376253> Sessione scaduta. Usa di nuovo `+bal`.");
     return true;

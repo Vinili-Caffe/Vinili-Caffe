@@ -1,7 +1,10 @@
 const crypto = require("node:crypto");
 const IDs = require("../../Utils/Config/ids");
-const { resolveDiscordOauthClientIdForSite, resolveDiscordOauthRedirectUriForSite, normalizeSiteOAuthReturnPath } = require("../../Utils/Web/verifyOauthPublicUrl");
 const { processDiscadiaVote } = require("../../Utils/Message/officialMessageAutomationHandlers");
+const {
+  enqueuePendingDiscadiaVote,
+  enqueuePendingTopggVote,
+} = require("./discadiaVoteInboxService");
 const TOPGG_V1_SIGNATURE_TIMESTAMP_WINDOW_MS = 30_000;
 
 function tryRequireExpress() {
@@ -20,6 +23,9 @@ function shouldStartDiscadiaVoteHttpWebhook(client) {
 }
 
 function shouldStartTopggVoteHttpWebhook(client) {
+  if (["1", "true", "yes", "on"].includes(String(process.env.TOPGG_VOTE_HTTP_EXTERNAL || "").trim().toLowerCase())) {
+    return false;
+  }
   const env = String(process.env.TOPGG_VOTE_HTTP_WEBHOOK || "").trim().toLowerCase();
   if (["1", "true", "yes", "on"].includes(env)) return true;
   if (["0", "false", "no", "off"].includes(env)) return false;
@@ -36,7 +42,12 @@ function shouldStartPublicSiteReadonlyHttp() {
   return ["1", "true", "yes", "on"].includes(String(raw).trim().toLowerCase());
 }
 
+function isSiteApiExternal() {
+  return ["1", "true", "yes", "on"].includes(String(process.env.SITE_API_EXTERNAL || "").trim().toLowerCase());
+}
+
 function shouldStartBotHttpServer(client) {
+  if (isSiteApiExternal()) return true;
   return shouldStartDiscadiaVoteHttpWebhook(client) || shouldStartTopggVoteHttpWebhook(client) || isCandidatureWebsiteApiEnabled() || shouldStartPublicSiteReadonlyHttp();
 }
 
@@ -105,30 +116,270 @@ function corsAllowlistPermitsAnyLoopbackDevOrigin(allowlist) {
   return allowlist.some((o) => isLoopbackBrowserOriginUrl(o));
 }
 
-function extractVoteWebhookUserId(body) {
-  if (!body || typeof body !== "object") return null;
-  if (typeof body.user === "string") {
-    const u = String(body.user).trim();
-    if (/^\d{17,22}$/.test(u)) return u;
+function asDiscordSnowflakeId(value) {
+  if (value == null || value === "") return null;
+  if (typeof value === "number" && Number.isFinite(value)) {
+    const id = String(Math.trunc(value));
+    return /^\d{17,22}$/.test(id) ? id : null;
   }
-  const candidates = [body.user_id, body.userId, body.id, body.voter_id, body.voterId, body.discord_id, body.discordId, body.user?.id, body.voter?.id, body.member?.id];
+  if (typeof value === "bigint") {
+    const id = String(value);
+    return /^\d{17,22}$/.test(id) ? id : null;
+  }
+  const text = String(value).trim();
+  if (/^\d{17,22}$/.test(text)) return text;
+  return null;
+}
+
+function extractSnowflakeFromText(text) {
+  if (!text) return null;
+  const mention = String(text).match(/<@!?(\d{17,22})>/);
+  if (mention) return mention[1];
+  const labeled = String(text).match(
+    /["']?(?:user(?:[_-]?id)?|voter(?:[_-]?id)?|discord(?:[_-]?id)?|uid|member(?:[_-]?id)?)["']?\s*[:=]\s*["']?(\d{17,22})/i,
+  );
+  if (labeled) return labeled[1];
+  const snowflake = String(text).match(/\b(\d{17,22})\b/);
+  return snowflake ? snowflake[1] : null;
+}
+
+function flattenWebhookEmbedText(embed) {
+  if (!embed || typeof embed !== "object") return "";
+  const parts = [];
+  const push = (value) => {
+    if (typeof value === "string" && value.trim()) parts.push(value);
+  };
+  push(embed.title);
+  push(embed.description);
+  push(embed.url);
+  push(embed.author?.name);
+  push(embed.footer?.text);
+  if (Array.isArray(embed.fields)) {
+    for (const field of embed.fields) {
+      push(field?.name);
+      push(field?.value);
+    }
+  }
+  return parts.join("\n");
+}
+
+function extractVoteWebhookUserId(body) {
+  if (!body || typeof body === "string") {
+    if (typeof body === "string") return extractSnowflakeFromText(body);
+    return null;
+  }
+  if (Buffer.isBuffer(body)) return extractVoteWebhookUserId(body.toString("utf8"));
+
+  const directUser = asDiscordSnowflakeId(body.user);
+  if (directUser) return directUser;
+
+  const candidates = [
+    body.user_id,
+    body.userId,
+    body.userid,
+    body.uid,
+    body.voter_id,
+    body.voterId,
+    body.discord_id,
+    body.discordId,
+    body.member_id,
+    body.memberId,
+    body.user?.id,
+    body.user?.user_id,
+    body.user?.userId,
+    body.user?.discord_id,
+    body.user?.discordId,
+    body.user?.platform_id,
+    body.user?.platformId,
+    body.voter?.id,
+    body.voter,
+    body.member?.id,
+    body.member,
+    body.data?.user?.id,
+    body.data?.user?.platform_id,
+    body.data?.user?.platformId,
+    body.data?.user?.discord_id,
+    body.data?.user?.discordId,
+    body.data?.user_id,
+    body.data?.userId,
+    body.data?.voter_id,
+    body.data?.voterId,
+    typeof body.content === "string" ? body.content : null,
+    body.id,
+  ];
   for (const c of candidates) {
-    if (c == null) continue;
-    const id = String(c).trim();
-    if (/^\d{17,22}$/.test(id)) return id;
+    const asId = asDiscordSnowflakeId(c);
+    if (asId) return asId;
+    if (typeof c === "string") {
+      const fromText = extractSnowflakeFromText(c);
+      if (fromText) return fromText;
+    }
+  }
+
+  if (Array.isArray(body.embeds)) {
+    for (const embed of body.embeds) {
+      const fromEmbed = extractSnowflakeFromText(flattenWebhookEmbedText(embed));
+      if (fromEmbed) return fromEmbed;
+    }
   }
   return null;
+}
+
+function normalizeWebhookPath(pathRaw) {
+  const pathOnly = String(pathRaw || "").split("?")[0];
+  if (!pathOnly || pathOnly === "/") return "/";
+  return pathOnly.replace(/\/+$/, "") || "/";
+}
+
+function isDiscadiaWebhookRequest(req) {
+  return normalizeWebhookPath(req.originalUrl || req.url || req.path) === "/webhooks/discadia";
+}
+
+function summarizeRawBodyForLog(rawBuf, maxLen = 240) {
+  if (!Buffer.isBuffer(rawBuf) || rawBuf.length === 0) return "(empty)";
+  const compact = rawBuf.toString("utf8").replace(/\s+/g, " ").trim();
+  if (!compact) return "(empty)";
+  if (compact.length <= maxLen) return compact;
+  return `${compact.slice(0, maxLen)}…`;
+}
+
+function parseDiscadiaWebhookBodyFromRaw(rawBuf, contentTypeRaw) {
+  if (!Buffer.isBuffer(rawBuf) || rawBuf.length === 0) return {};
+  const raw = rawBuf.toString("utf8").trim();
+  if (!raw) return {};
+
+  const contentType = String(contentTypeRaw || "").toLowerCase();
+  const looksUrlEncoded =
+    contentType.includes("application/x-www-form-urlencoded") ||
+    (!raw.startsWith("{") && !raw.startsWith("[") && raw.includes("="));
+
+  if (looksUrlEncoded) {
+    try {
+      const params = new URLSearchParams(raw);
+      if ([...params.keys()].length) {
+        const out = {};
+        for (const [key, value] of params) out[key] = value;
+        return out;
+      }
+    } catch {
+      // fall through
+    }
+  }
+
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === "object") return parsed;
+  } catch {
+    // Discadian a volte manda JSON non-standard (quote singole, escape invalidi).
+  }
+
+  const userFromText = extractSnowflakeFromText(raw);
+  if (userFromText) return { user_id: userFromText };
+  return {};
+}
+
+function resolveDiscadiaWebhookBody(req) {
+  const fromParser = req.body;
+  if (fromParser && typeof fromParser === "object" && !Buffer.isBuffer(fromParser)) {
+    const keys = Object.keys(fromParser);
+    if (keys.length) return fromParser;
+  }
+  const fromRaw = parseDiscadiaWebhookBodyFromRaw(req._discadiaRawBody, req.headers["content-type"]);
+  if (fromRaw && typeof fromRaw === "object" && Object.keys(fromRaw).length) return fromRaw;
+  if (req.query && typeof req.query === "object" && Object.keys(req.query).length) return req.query;
+  return fromRaw || {};
+}
+
+async function handleDiscadiaVoteWebhook(req, res, client, secret) {
+  try {
+    if (secret) {
+      const receivedSecret = normalizeHeaderSecret(
+        req.headers["authorization"] || req.headers["x-discadia-secret"],
+      );
+      if (receivedSecret !== secret) {
+        global.logger?.warn?.("[WEBHOOK] Discadia: Unauthorized request (secret mismatch)");
+        return res.status(401).send("Unauthorized");
+      }
+    }
+
+    const body = resolveDiscadiaWebhookBody(req);
+    const rawText = Buffer.isBuffer(req._discadiaRawBody)
+      ? req._discadiaRawBody.toString("utf8")
+      : "";
+    // Preferisci l'ID dal raw string: se Discadia manda `user` come number JSON,
+    // JS perde precisione oltre Number.MAX_SAFE_INTEGER e l'ID Discord risulta sbagliato.
+    const user_id =
+      extractSnowflakeFromText(rawText) ||
+      extractVoteWebhookUserId(body) ||
+      extractVoteWebhookUserId(req.query);
+    if (!user_id) {
+      const contentType = String(req.headers["content-type"] || "").trim() || "(none)";
+      const rawSummary = summarizeRawBodyForLog(req._discadiaRawBody);
+      const looksLikeProbe =
+        rawSummary === "(empty)" || rawSummary === "{}" || rawSummary === "[]" || rawSummary === "null";
+      if (looksLikeProbe) {
+        // Health-check / “Test webhook” Discadia: non è un voto. 200 evita che il provider segni l’URL come rotto.
+        return res.status(200).send("Ignored");
+      }
+      global.logger?.warn?.(
+        "[WEBHOOK] Discadia: User ID missing; content-type: " +
+          contentType +
+          "; body keys: " +
+          (body && typeof body === "object" ? Object.keys(body).join(", ") : "(non-object)") +
+          "; raw: " +
+          rawSummary,
+      );
+      return res.status(400).send("User ID missing");
+    }
+
+    const guildId = client.config.mainGuildId || IDs.guilds.main;
+    // Accoda subito (sopravvive se processDiscadiaVote fallisce / bot non pronto).
+    await enqueuePendingDiscadiaVote(guildId, user_id, {
+      source: "bots-http",
+      rawSnippet: rawText.replace(/\s+/g, " ").trim().slice(0, 240),
+    });
+
+    const guild = client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
+
+    if (!guild) {
+      global.logger?.warn?.("[WEBHOOK] Discadia: Guild not ready, vote queued for " + user_id);
+      return res.status(200).send("Queued");
+    }
+
+    const user = await client.users.fetch(user_id).catch(() => null);
+    if (!user) {
+      global.logger?.warn?.("[WEBHOOK] Discadia: User not found for ID " + user_id);
+      return res.status(404).send("User not found");
+    }
+
+    const handled = await processDiscadiaVote(guild, user, client, { voteListing: "discadia" });
+    if (handled) {
+      return res.status(200).send("Vote Processed");
+    }
+    return res.status(200).send("Queued");
+  } catch (err) {
+    global.logger?.error?.("[WEBHOOK] Discadia: Error handling webhook", err);
+    return res.status(500).send("Internal Server Error");
+  }
 }
 
 function extractTopggVoteDiscordUserId(body) {
   if (!body || typeof body !== "object") return null;
   const type = String(body.type || "").toLowerCase();
   if (type === "vote.create" || type === "webhook.test") {
-    const pid = body.data?.user?.platform_id;
-    if (pid != null) {
-      const id = String(pid).trim();
-      if (/^\d{17,22}$/.test(id)) return id;
+    const userObj = body.data?.user;
+    if (userObj && typeof userObj === "object") {
+      for (const key of ["platform_id", "platformId", "discord_id", "discordId"]) {
+        const raw = userObj[key];
+        if (raw == null) continue;
+        const id = String(raw).trim();
+        if (/^\d{17,22}$/.test(id)) return id;
+      }
+      const nestedUser = extractVoteWebhookUserId(userObj);
+      if (nestedUser) return nestedUser;
     }
+    const nestedData = extractVoteWebhookUserId(body.data);
+    if (nestedData) return nestedData;
   }
   return extractVoteWebhookUserId(body);
 }
@@ -198,13 +449,17 @@ async function startWebhookServer(client) {
     express.json({
       limit: "12mb",
       verify: (req, res, buf) => {
-        const pathOnly = String(req.originalUrl || req.url || "").split("?")[0];
+        const pathOnly = normalizeWebhookPath(req.originalUrl || req.url || "");
         if (pathOnly === "/webhooks/topgg") {
           req._topggRawBody = buf;
+        }
+        if (pathOnly === "/webhooks/discadia") {
+          req._discadiaRawBody = buf;
         }
       },
     }),
   );
+  app.use(express.urlencoded({ extended: true, limit: "256kb" }));
 
   try {
     const { mountTicketTranscriptRoutes } = require("./ticketTranscriptHttp");
@@ -222,9 +477,10 @@ async function startWebhookServer(client) {
   const siteCandidatureCorsMiddleware = (req, res, next) => {
     const rawPath = String(req.originalUrl || req.url || req.path || "");
     const pathStr = rawPath.split("?")[0];
-    const isStatus = pathStr === "/webhooks/status";
+    const isStatus = pathStr === "/webhooks/status" || pathStr === "/webhooks/health";
     const isCandidature = pathStr.startsWith("/webhooks/site-candidature");
     const isUnban = pathStr.startsWith("/webhooks/site-unban");
+    const isUnmute = pathStr.startsWith("/webhooks/site-unmute");
     const isSiteRules = pathStr.startsWith("/webhooks/site-rules");
     const isSiteUsers = pathStr.startsWith("/webhooks/site-users");
     const isSiteVote = pathStr.startsWith("/webhooks/site-vote");
@@ -233,12 +489,26 @@ async function startWebhookServer(client) {
     const isSiteRankCard = pathStr.startsWith("/webhooks/site-rank-card");
     const isSiteReviews = pathStr.startsWith("/webhooks/site-reviews");
     const isSiteSuggestions = pathStr.startsWith("/webhooks/site-suggestions");
+    const isSiteBotFeedback = pathStr.startsWith("/webhooks/site-bot-feedback");
+    const isSiteWebTickets = pathStr.startsWith("/webhooks/site-web-tickets");
     const isSiteNotifications = pathStr.startsWith("/webhooks/site-notifications");
     const isSiteVerify = pathStr.startsWith("/webhooks/site-verify");
     const isSitePayments = pathStr.startsWith("/webhooks/site-payments");
     const isSiteSeratafilmAccess = pathStr.startsWith("/webhooks/site-seratafilm-access");
+    const isSiteStaffAccess =
+      pathStr.startsWith("/webhooks/site-staff-access") ||
+      pathStr.startsWith("/webhooks/site-staff-dashboard") ||
+      pathStr.startsWith("/webhooks/site-staff-manage") ||
+      pathStr.startsWith("/webhooks/site-staff-pause") ||
+      pathStr.startsWith("/webhooks/site-staff-profile") ||
+      pathStr.startsWith("/webhooks/site-staff-directory") ||
+      pathStr.startsWith("/webhooks/site-staff-pm-hub") ||
+      pathStr.startsWith("/webhooks/site-staff-valwarn") ||
+      pathStr.startsWith("/webhooks/site-staff-tickets") ||
+      pathStr.startsWith("/webhooks/site-staff-seratafilm") ||
+      pathStr.startsWith("/webhooks/site-staff-guide");
     const isSiteHogwartsSorting = pathStr.startsWith("/webhooks/site-hogwarts-sorting");
-    if (!isStatus && !isCandidature && !isUnban && !isSiteRules && !isSiteUsers && !isSiteVote && !isSiteLiveEvent && !isSiteRoles && !isSiteRankCard && !isSiteReviews && !isSiteSuggestions && !isSiteNotifications && !isSiteVerify && !isSitePayments && !isSiteSeratafilmAccess && !isSiteHogwartsSorting) return next();
+    if (!isStatus && !isCandidature && !isUnban && !isUnmute && !isSiteRules && !isSiteUsers && !isSiteVote && !isSiteLiveEvent && !isSiteRoles && !isSiteRankCard && !isSiteReviews && !isSiteSuggestions && !isSiteBotFeedback && !isSiteWebTickets && !isSiteNotifications && !isSiteVerify && !isSitePayments && !isSiteSeratafilmAccess && !isSiteStaffAccess && !isSiteHogwartsSorting) return next();
     const originRaw = String(req.headers.origin || "").trim();
     const originNorm = originRaw ? normalizeCorsOriginEntry(originRaw) || originRaw : "";
     let allowOrigin = "";
@@ -257,7 +527,7 @@ async function startWebhookServer(client) {
     if (allowOrigin) {
       res.setHeader("Access-Control-Allow-Origin", allowOrigin);
       res.append("Vary", "Origin");
-    } else if (isStatus || isSiteRules || isSiteUsers || isSiteVote || isSiteLiveEvent || isSiteRoles || isSiteRankCard || isSiteReviews || isSiteSuggestions || isSiteNotifications || isSitePayments || isSiteSeratafilmAccess || isSiteHogwartsSorting) {
+    } else if (isStatus || isSiteRules || isSiteUsers || isSiteVote || isSiteLiveEvent || isSiteRoles || isSiteRankCard || isSiteReviews || isSiteSuggestions || isSiteBotFeedback || isSiteNotifications || isSitePayments || isSiteSeratafilmAccess || isSiteStaffAccess || isSiteHogwartsSorting) {
       res.setHeader("Access-Control-Allow-Origin", "*");
     }
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS");
@@ -270,85 +540,25 @@ async function startWebhookServer(client) {
     next();
   };
 
-  if (isCandidatureWebsiteApiEnabled()) {
-    app.use(siteCandidatureCorsMiddleware);
-    const { submitCandidatureWebsite, getCandidatureEligibilitySummary } = require("../../Events/interaction/candidatureApplicationHandlers");
-    const { getWebsiteUnbanEligibility, submitWebsiteUnban } = require("../../Events/interaction/unbanWebsiteHandlers");
-    app.get("/webhooks/site-candidature/eligibility", async (req, res) => {
-      try {
-        const accessToken = normalizeHeaderSecret(req.headers.authorization);
-        if (!accessToken) {
-          return res.status(401).json({ ok: false, error: "missing_token", message: "Header Authorization: Bearer <token> richiesto." });
-        }
-        const out = await getCandidatureEligibilitySummary(client, accessToken);
-        return res.status(Number(out.status) || 500).json(out);
-      } catch (err) {
-        global.logger?.error?.("[WEBHOOK] site-candidature eligibility:", err);
-        return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
-      }
+  const skipSiteRoutesOnBots = ["1", "true", "yes", "on"].includes(
+    String(process.env.SITE_API_EXTERNAL || "").trim().toLowerCase(),
+  );
+  if (!skipSiteRoutesOnBots) {
+    const {
+      listSitePaymentPlans,
+      createSitePaymentOrder,
+      captureSitePaymentOrder,
+      handleSitePayPalWebhook,
+    } = require("../../Utils/Web/sitePaymentsApi");
+    const { mountSiteWebhookRoutes } = require("./siteWebhookRoutes");
+    mountSiteWebhookRoutes(app, client, {
+      normalizeHeaderSecret,
+      siteCorsMiddleware: siteCandidatureCorsMiddleware,
+      listSitePaymentPlans,
+      createSitePaymentOrder,
+      captureSitePaymentOrder,
+      handleSitePayPalWebhook,
     });
-    app.post("/webhooks/site-candidature", async (req, res) => {
-      try {
-        const accessToken = normalizeHeaderSecret(req.headers.authorization);
-        if (!accessToken) {
-          return res.status(401).json({ ok: false, error: "missing_token", message: "Header Authorization: Bearer <token> richiesto." });
-        }
-        const body = req.body && typeof req.body === "object" ? req.body : {};
-        const type = body.type;
-        const answers = body.answers;
-        const out = await submitCandidatureWebsite(client, { accessToken, type, answers });
-        return res.status(Number(out.status) || 500).json(out);
-      } catch (err) {
-        global.logger?.error?.("[WEBHOOK] site-candidature:", err);
-        return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
-      }
-    });
-    app.get("/webhooks/site-unban/eligibility", async (req, res) => {
-      try {
-        const accessToken = normalizeHeaderSecret(req.headers.authorization);
-        if (!accessToken) {
-          return res.status(401).json({ ok: false, error: "missing_token", message: "Header Authorization: Bearer <token> richiesto." });
-        }
-        const out = await getWebsiteUnbanEligibility(client, accessToken);
-        return res.status(Number(out.status) || 500).json(out);
-      } catch (err) {
-        global.logger?.error?.("[WEBHOOK] site-unban eligibility:", err);
-        return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
-      }
-    });
-    app.post("/webhooks/site-unban", async (req, res) => {
-      try {
-        const accessToken = normalizeHeaderSecret(req.headers.authorization);
-        if (!accessToken) {
-          return res.status(401).json({ ok: false, error: "missing_token", message: "Header Authorization: Bearer <token> richiesto." });
-        }
-        const body = req.body && typeof req.body === "object" ? req.body : {};
-        const out = await submitWebsiteUnban(client, {
-          accessToken,
-          answers: body.answers,
-          acceptedRules: body.acceptedRules,
-        });
-        return res.status(Number(out.status) || 500).json(out);
-      } catch (err) {
-        global.logger?.error?.("[WEBHOOK] site-unban:", err);
-        return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
-      }
-    });
-  } else {
-    const candidatureDisabledBody = {
-      ok: false,
-      error: "candidature_http_disabled",
-      message:
-        "API candidature sito disattivata: nel .env del bot imposta WEBSITE_CANDIDATURE_HTTP=1 e riavvia. Se il sito statico e il bot usano la stessa porta (es. tutto su 3000), il POST colpisce `serve` e non Express: avvia il sito su un'altra porta (es. 5173) e lascia la webhookPort al bot.",
-    };
-    app.use(siteCandidatureCorsMiddleware);
-    app.get("/webhooks/site-candidature/eligibility", (req, res) => res.status(503).json(candidatureDisabledBody));
-    app.post("/webhooks/site-candidature", (req, res) => res.status(503).json(candidatureDisabledBody));
-    app.get("/webhooks/site-unban/eligibility", (req, res) => res.status(503).json(candidatureDisabledBody));
-    app.post("/webhooks/site-unban", (req, res) => res.status(503).json(candidatureDisabledBody));
-    global.logger?.warn?.(
-      "[WEBHOOK] API sito disattive: WEBSITE_CANDIDATURE_HTTP disattivo — GET/POST su /webhooks/site-candidature e /webhooks/site-unban rispondono 503.",
-    );
   }
 
   if (shouldStartTopggVoteHttpWebhook(client)) {
@@ -381,23 +591,14 @@ async function startWebhookServer(client) {
           }
 
           const guildId = client.config.mainGuildId || IDs.guilds.main;
-          const guild = client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
-          if (!guild) {
-            global.logger?.error?.("[WEBHOOK] Top.gg: Guild not found for ID " + guildId);
-            return res.status(500).send("Guild not found");
-          }
-
-          const user = await client.users.fetch(user_id).catch(() => null);
-          if (!user) {
-            global.logger?.warn?.("[WEBHOOK] Top.gg: User not found for ID " + user_id);
-            return res.status(404).send("User not found");
-          }
-
-          const handled = await processDiscadiaVote(guild, user, client, { voteListing: "topgg" });
-          if (handled) {
-            return res.status(200).send("Vote Processed");
-          }
-          return res.status(500).send("Vote processing failed");
+          const rawSnippet = Buffer.isBuffer(req._topggRawBody)
+            ? req._topggRawBody.toString("utf8").replace(/\s+/g, " ").trim().slice(0, 240)
+            : "";
+          await enqueuePendingTopggVote(guildId, user_id, {
+            source: "bots-http",
+            rawSnippet,
+          });
+          return res.status(200).send("Queued");
         } catch (err) {
           global.logger?.error?.("[WEBHOOK] Top.gg: Error handling webhook", err);
           return res.status(500).send("Internal Server Error");
@@ -406,705 +607,57 @@ async function startWebhookServer(client) {
     }
   }
 
-  const { buildCommunityRulesSitePayload } = require("../../Utils/Web/communityRulesPayload");
-  const { handleSiteUsersLeaderboardGet } = require("../../Utils/Web/siteUsersLeaderboardApi");
-  const { handleSiteVoteGet } = require("../../Utils/Web/siteVoteApi");
-  const { handleSiteLiveEventGet } = require("../../Utils/Web/siteLiveEventApi");
-  const { handleSiteRolesGet } = require("../../Utils/Web/siteRolesApi");
-  const { submitSiteRoleRequest } = require("../../Utils/Web/siteRoleRequestApi");
-  const { getRankCardCustomization, updateRankCardCustomization, getRankCardPreview, getPublicRankCardPreview } = require("../../Utils/Web/siteRankCardApi");
-  const { getSiteReviews, submitSiteReview, deleteSiteReview, toggleSiteReviewLike, upsertServerReviewReply } = require("../../Utils/Web/siteReviewsApi");
-  const { getSiteSuggestions, createSiteSuggestion, updateOwnSiteSuggestion, deleteOwnSiteSuggestion, addSiteSuggestionComment, updateSiteSuggestionComment, deleteSiteSuggestionComment, setSiteSuggestionCommentVote, setSiteSuggestionVote, staffAcceptSiteSuggestion, staffRejectSiteSuggestion, staffSetSiteSuggestionDecision, staffDeleteSiteSuggestion } = require("../../Utils/Web/siteSuggestionsApi");
-  const { handleSiteNotificationsGet, handleSiteNotificationsMarkReadPost, handleSiteNotificationsClearPost, handleSiteNotificationsDeletePost } = require("../../Utils/Web/siteInAppNotificationsApi");
-  const { completeSiteVerify } = require("../../Utils/Web/siteVerifyApi");
-  const { handleSiteSeratafilmAccessGet } = require("../../Utils/Web/siteSeratafilmAccessApi");
-  const { handleHogwartsForbiddenBooksClaim, handleHogwartsForbiddenBooksGet, handleHogwartsForbiddenBooksPublicStatus, handleHogwartsHousePointsGet, handleHogwartsPotionsGet, handleHogwartsPotionsPost, handleHogwartsShopGet, handleHogwartsShopPurchasePost, handleHogwartsSortingBootstrap, handleHogwartsSortingEligibility, handleHogwartsSortingSubmit, handleHogwartsSortingAccessGet, handleHogwartsGringottGet, setHogwartsMutationNoStore } = require("../../Utils/Web/siteHogwartsSortingApi");
-  const hogwartsMutationNoStore = (req, res, next) => {
-    if (req.method === "POST" || req.method === "PATCH") setHogwartsMutationNoStore(res);
-    next();
-  };
-  app.use("/webhooks/site-hogwarts-sorting", hogwartsMutationNoStore);
-
-  app.get("/webhooks/site-rules", (req, res) => {
-    try {
-      res.setHeader("Cache-Control", "public, max-age=120");
-      return res.json(buildCommunityRulesSitePayload());
-    } catch (err) {
-      global.logger?.error?.("[WEBHOOK] site-rules:", err);
-      return res.status(500).json({ ok: false, error: "internal" });
-    }
-  });
-  app.get("/webhooks/site-users", (req, res) => {
-    return handleSiteUsersLeaderboardGet(client, req, res);
-  });
-  app.get("/webhooks/site-vote", (req, res) => {
-    return handleSiteVoteGet(client, req, res);
-  });
-  app.get("/webhooks/site-notifications", (req, res) => {
-    return handleSiteNotificationsGet(client, req, res);
-  });
-  app.post("/webhooks/site-notifications/read", (req, res) => {
-    return handleSiteNotificationsMarkReadPost(client, req, res);
-  });
-  app.post("/webhooks/site-notifications/clear", (req, res) => {
-    return handleSiteNotificationsClearPost(client, req, res);
-  });
-  app.post("/webhooks/site-notifications/delete", (req, res) => {
-    return handleSiteNotificationsDeletePost(client, req, res);
-  });
-  app.get("/webhooks/site-seratafilm-access", (req, res) => handleSiteSeratafilmAccessGet(client, req, res));
-  app.get("/webhooks/site-hogwarts-sorting/bootstrap", (req, res) => handleHogwartsSortingBootstrap(client, req, res));
-  app.get("/webhooks/site-hogwarts-sorting/access", (req, res) => handleHogwartsSortingAccessGet(client, req, res));
-  app.get("/webhooks/site-hogwarts-sorting/gringott", (req, res) => handleHogwartsGringottGet(client, req, res));
-  app.get("/webhooks/site-hogwarts-sorting/points", (req, res) => handleHogwartsHousePointsGet(client, req, res));
-  app.get("/webhooks/site-hogwarts-sorting/potions", (req, res) => handleHogwartsPotionsGet(client, req, res));
-  app.post("/webhooks/site-hogwarts-sorting/potions", (req, res) => handleHogwartsPotionsPost(client, req, res));
-  app.get("/webhooks/site-hogwarts-sorting/shop", (req, res) => handleHogwartsShopGet(client, req, res));
-  app.post("/webhooks/site-hogwarts-sorting/shop/purchase", (req, res) => handleHogwartsShopPurchasePost(client, req, res));
-  app.get("/webhooks/site-hogwarts-sorting/forbidden-books/status", (req, res) => handleHogwartsForbiddenBooksPublicStatus(client, req, res));
-  app.get("/webhooks/site-hogwarts-sorting/forbidden-books", (req, res) => handleHogwartsForbiddenBooksGet(client, req, res));
-  app.post("/webhooks/site-hogwarts-sorting/forbidden-books", (req, res) => handleHogwartsForbiddenBooksClaim(client, req, res));
-  app.get("/webhooks/site-hogwarts-sorting/eligibility", (req, res) =>
-    handleHogwartsSortingEligibility(client, req, res),
-  );
-  app.post("/webhooks/site-hogwarts-sorting", (req, res) => handleHogwartsSortingSubmit(client, req, res));
-  app.get("/webhooks/site-payments/plans", (req, res) => {
-    try {
-      return res.status(200).json({ ok: true, items: listSitePaymentPlans() });
-    } catch (err) {
-      global.logger?.error?.("[WEBHOOK] site-payments plans:", err);
-      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
-    }
-  });
-  app.post("/webhooks/site-payments/create-order", async (req, res) => {
-    try {
-      const accessToken = normalizeHeaderSecret(req.headers.authorization);
-      if (!accessToken) {
-        return res.status(401).json({
-          ok: false,
-          error: "missing_token",
-          message: "Header Authorization: Bearer <token> richiesto.",
-        });
-      }
-      const body = req.body && typeof req.body === "object" ? req.body : {};
-      const out = await createSitePaymentOrder(client, {
-        accessToken,
-        planKey: body.planKey,
-      });
-      return res.status(Number(out.status) || 500).json(out);
-    } catch (err) {
-      global.logger?.error?.("[WEBHOOK] site-payments create-order:", err);
-      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
-    }
-  });
-  app.post("/webhooks/site-payments/capture-order", async (req, res) => {
-    try {
-      const accessToken = normalizeHeaderSecret(req.headers.authorization);
-      if (!accessToken) {
-        return res.status(401).json({
-          ok: false,
-          error: "missing_token",
-          message: "Header Authorization: Bearer <token> richiesto.",
-        });
-      }
-      const body = req.body && typeof req.body === "object" ? req.body : {};
-      const out = await captureSitePaymentOrder(client, {
-        accessToken,
-        orderId: body.orderId,
-      });
-      return res.status(Number(out.status) || 500).json(out);
-    } catch (err) {
-      global.logger?.error?.("[WEBHOOK] site-payments capture-order:", err);
-      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
-    }
-  });
-  app.post("/webhooks/site-payments/paypal-webhook", async (req, res) => {
-    return handleSitePayPalWebhook(client, req, res);
-  });
-  app.post("/webhooks/site-verify/complete", async (req, res) => {
-    try {
-      const accessToken = normalizeHeaderSecret(req.headers.authorization);
-      if (!accessToken) {
-        return res.status(401).json({
-          ok: false,
-          error: "missing_token",
-          message: "Header Authorization: Bearer <token> richiesto.",
-        });
-      }
-      const body = req.body && typeof req.body === "object" ? req.body : {};
-      const out = await completeSiteVerify(client, {
-        accessToken,
-        guildId: body.guildId,
-      });
-      return res.status(Number(out.status) || 500).json(out);
-    } catch (err) {
-      global.logger?.error?.("[WEBHOOK] site-verify complete:", err);
-      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
-    }
-  });
-  app.get("/webhooks/site-verify/oauth-start", (req, res) => {
-    const clientId = resolveDiscordOauthClientIdForSite();
-    const redirectUri = resolveDiscordOauthRedirectUriForSite();
-    if (!clientId || !redirectUri) {
-      res
-        .status(503)
-        .type("text/plain; charset=utf-8")
-        .send("OAuth sito non configurato sul bot. Imposta DISCORD_OAUTH_CLIENT_ID e DISCORD_OAUTH_REDIRECT_URI (o WEBSITE_*).");
-      return;
-    }
-    const fromR = normalizeSiteOAuthReturnPath(req.query?.r);
-    const gid = String(req.query?.guildId || req.query?.guild || "").trim();
-    const returnPath =
-      fromR ||
-      (/^\d{17,22}$/.test(gid) ? `/?siteVerifyGuild=${encodeURIComponent(gid)}` : "/");
-    const nonce = crypto.randomBytes(16).toString("hex");
-    const state = encodeURIComponent(JSON.stringify({ r: returnPath, n: nonce, t: Date.now() }));
-    const q = new URLSearchParams({
-      client_id: clientId,
-      redirect_uri: redirectUri,
-      response_type: "token",
-      scope: "identify",
-      state,
-    });
-    const authorizeUrl = `https://discord.com/oauth2/authorize?${q.toString()}`;
-    const nonceJson = JSON.stringify(nonce);
-    const urlJson = JSON.stringify(authorizeUrl);
-    const html =
-      "<!DOCTYPE html><html lang=\"it\"><head><meta charset=\"utf-8\"><meta name=\"robots\" content=\"noindex\"><title>Discord</title></head><body>" +
-      "<script>(function(){var n=" +
-      nonceJson +
-      ";try{sessionStorage.setItem(\"vc_oauth_state_nonce_v1\",n);}catch(e){}location.replace(" +
-      urlJson +
-      ");})();<\/script></body></html>";
-    res.status(200).type("text/html; charset=utf-8").send(html);
-  });
-  app.get("/webhooks/site-live-event", (req, res) => {
-    return handleSiteLiveEventGet(client, req, res);
-  });
-  app.get("/webhooks/site-roles", (req, res) => {
-    return handleSiteRolesGet(client, req, res);
-  });
-  app.post("/webhooks/site-roles/request", async (req, res) => {
-    try {
-      const accessToken = normalizeHeaderSecret(req.headers.authorization);
-      if (!accessToken) {
-        return res.status(401).json({
-          ok: false,
-          error: "missing_token",
-          message: "Header Authorization: Bearer <token> richiesto.",
-        });
-      }
-      const body = req.body && typeof req.body === "object" ? req.body : {};
-      const out = await submitSiteRoleRequest(client, {
-        accessToken,
-        roleId: body.roleId,
-        reason: body.reason,
-      });
-      return res.status(Number(out.status) || 500).json(out);
-    } catch (err) {
-      global.logger?.error?.("[WEBHOOK] site-roles request:", err);
-      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
-    }
-  });
-  app.get("/webhooks/site-rank-card", async (req, res) => {
-    try {
-      const accessToken = normalizeHeaderSecret(req.headers.authorization);
-      if (!accessToken) {
-        return res.status(401).json({
-          ok: false,
-          error: "missing_token",
-          message: "Header Authorization: Bearer <token> richiesto.",
-        });
-      }
-      const out = await getRankCardCustomization(client, { accessToken });
-      return res.status(Number(out.status) || 500).json(out);
-    } catch (err) {
-      global.logger?.error?.("[WEBHOOK] site-rank-card get:", err);
-      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
-    }
-  });
-  app.post("/webhooks/site-rank-card", async (req, res) => {
-    try {
-      const accessToken = normalizeHeaderSecret(req.headers.authorization);
-      if (!accessToken) {
-        return res.status(401).json({
-          ok: false,
-          error: "missing_token",
-          message: "Header Authorization: Bearer <token> richiesto.",
-        });
-      }
-      const body = req.body && typeof req.body === "object" ? req.body : {};
-      const out = await updateRankCardCustomization(client, {
-        accessToken,
-        mode: body.mode,
-        theme: body.theme,
-      });
-      return res.status(Number(out.status) || 500).json(out);
-    } catch (err) {
-      global.logger?.error?.("[WEBHOOK] site-rank-card post:", err);
-      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
-    }
-  });
-  app.post("/webhooks/site-rank-card-preview", async (req, res) => {
-    try {
-      const accessToken = normalizeHeaderSecret(req.headers.authorization);
-      if (!accessToken) {
-        return res.status(401).json({
-          ok: false,
-          error: "missing_token",
-          message: "Header Authorization: Bearer <token> richiesto.",
-        });
-      }
-      const body = req.body && typeof req.body === "object" ? req.body : {};
-      const out = await getRankCardPreview(client, {
-        accessToken,
-        theme: body.theme,
-      });
-      if (!out || out.ok !== true || !out.image) {
-        return res.status(Number(out?.status) || 500).json(out || { ok: false, error: "preview_failed" });
-      }
-      res.setHeader("Content-Type", String(out.mimeType || "image/png"));
-      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
-      return res.status(200).send(out.image);
-    } catch (err) {
-      global.logger?.error?.("[WEBHOOK] site-rank-card-preview post:", err);
-      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
-    }
-  });
-  app.get("/webhooks/site-rank-card-public", async (req, res) => {
-    try {
-      const userId = String((req.query && req.query.userId) || "").trim();
-      const out = await getPublicRankCardPreview(client, { userId });
-      if (!out || out.ok !== true || !out.image) {
-        return res.status(Number(out?.status) || 500).json(out || { ok: false, error: "preview_failed" });
-      }
-      res.setHeader("Content-Type", String(out.mimeType || "image/png"));
-      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
-      return res.status(200).send(out.image);
-    } catch (err) {
-      global.logger?.error?.("[WEBHOOK] site-rank-card-public get:", err);
-      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
-    }
-  });
-  app.get("/webhooks/site-reviews", async (req, res) => {
-    try {
-      const accessToken = normalizeHeaderSecret(req.headers.authorization);
-      const out = await getSiteReviews(client, { accessToken });
-      return res.status(Number(out.status) || 500).json(out);
-    } catch (err) {
-      global.logger?.error?.("[WEBHOOK] site-reviews get:", err);
-      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
-    }
-  });
-  app.post("/webhooks/site-reviews", async (req, res) => {
-    try {
-      const accessToken = normalizeHeaderSecret(req.headers.authorization);
-      if (!accessToken) {
-        return res.status(401).json({
-          ok: false,
-          error: "missing_token",
-          message: "Header Authorization: Bearer <token> richiesto.",
-        });
-      }
-      const body = req.body && typeof req.body === "object" ? req.body : {};
-      const out = await submitSiteReview(client, {
-        accessToken,
-        kind: body.kind,
-        rating: body.rating,
-        content: body.content,
-        staffUserId: body.staffUserId,
-      });
-      return res.status(Number(out.status) || 500).json(out);
-    } catch (err) {
-      global.logger?.error?.("[WEBHOOK] site-reviews post:", err);
-      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
-    }
-  });
-  app.delete("/webhooks/site-reviews/:reviewId", async (req, res) => {
-    try {
-      const accessToken = normalizeHeaderSecret(req.headers.authorization);
-      if (!accessToken) {
-        return res.status(401).json({
-          ok: false,
-          error: "missing_token",
-          message: "Header Authorization: Bearer <token> richiesto.",
-        });
-      }
-      const out = await deleteSiteReview(client, {
-        accessToken,
-        reviewId: req.params?.reviewId,
-      });
-      return res.status(Number(out.status) || 500).json(out);
-    } catch (err) {
-      global.logger?.error?.("[WEBHOOK] site-reviews delete:", err);
-      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
-    }
-  });
-  app.post("/webhooks/site-reviews/:reviewId/like", async (req, res) => {
-    try {
-      const accessToken = normalizeHeaderSecret(req.headers.authorization);
-      if (!accessToken) {
-        return res.status(401).json({
-          ok: false,
-          error: "missing_token",
-          message: "Header Authorization: Bearer <token> richiesto.",
-        });
-      }
-      const out = await toggleSiteReviewLike(client, {
-        accessToken,
-        reviewId: req.params?.reviewId,
-      });
-      return res.status(Number(out.status) || 500).json(out);
-    } catch (err) {
-      global.logger?.error?.("[WEBHOOK] site-reviews like:", err);
-      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
-    }
-  });
-  app.post("/webhooks/site-reviews/:reviewId/server-reply", async (req, res) => {
-    try {
-      const accessToken = normalizeHeaderSecret(req.headers.authorization);
-      if (!accessToken) {
-        return res.status(401).json({
-          ok: false,
-          error: "missing_token",
-          message: "Header Authorization: Bearer <token> richiesto.",
-        });
-      }
-      const body = req.body && typeof req.body === "object" ? req.body : {};
-      const out = await upsertServerReviewReply(client, {
-        accessToken,
-        reviewId: req.params?.reviewId,
-        content: body.content,
-      });
-      return res.status(Number(out.status) || 500).json(out);
-    } catch (err) {
-      global.logger?.error?.("[WEBHOOK] site-reviews server-reply:", err);
-      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
-    }
-  });
-  app.get("/webhooks/site-suggestions", async (req, res) => {
-    try {
-      const accessToken = normalizeHeaderSecret(req.headers.authorization);
-      const out = await getSiteSuggestions(client, { accessToken });
-      return res.status(Number(out.status) || 500).json(out);
-    } catch (err) {
-      global.logger?.error?.("[WEBHOOK] site-suggestions get:", err);
-      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
-    }
-  });
-  app.post("/webhooks/site-suggestions", async (req, res) => {
-    try {
-      const accessToken = normalizeHeaderSecret(req.headers.authorization);
-      if (!accessToken) {
-        return res.status(401).json({
-          ok: false,
-          error: "missing_token",
-          message: "Header Authorization: Bearer <token> richiesto.",
-        });
-      }
-      const body = req.body && typeof req.body === "object" ? req.body : {};
-      const out = await createSiteSuggestion(client, {
-        accessToken,
-        content: body.content,
-      });
-      return res.status(Number(out.status) || 500).json(out);
-    } catch (err) {
-      global.logger?.error?.("[WEBHOOK] site-suggestions post:", err);
-      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
-    }
-  });
-  app.post("/webhooks/site-suggestions/:suggestionId/comments/:commentId/vote", async (req, res) => {
-    try {
-      const accessToken = normalizeHeaderSecret(req.headers.authorization);
-      if (!accessToken) {
-        return res.status(401).json({
-          ok: false,
-          error: "missing_token",
-          message: "Header Authorization: Bearer <token> richiesto.",
-        });
-      }
-      const body = req.body && typeof req.body === "object" ? req.body : {};
-      const out = await setSiteSuggestionCommentVote(client, {
-        accessToken,
-        suggestionId: req.params?.suggestionId,
-        commentId: req.params?.commentId,
-        direction: body.direction,
-      });
-      return res.status(Number(out.status) || 500).json(out);
-    } catch (err) {
-      global.logger?.error?.("[WEBHOOK] site-suggestions comment vote:", err);
-      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
-    }
-  });
-  app.patch("/webhooks/site-suggestions/:suggestionId/comments/:commentId", async (req, res) => {
-    try {
-      const accessToken = normalizeHeaderSecret(req.headers.authorization);
-      if (!accessToken) {
-        return res.status(401).json({
-          ok: false,
-          error: "missing_token",
-          message: "Header Authorization: Bearer <token> richiesto.",
-        });
-      }
-      const body = req.body && typeof req.body === "object" ? req.body : {};
-      const out = await updateSiteSuggestionComment(client, {
-        accessToken,
-        suggestionId: req.params?.suggestionId,
-        commentId: req.params?.commentId,
-        content: body.content,
-      });
-      return res.status(Number(out.status) || 500).json(out);
-    } catch (err) {
-      global.logger?.error?.("[WEBHOOK] site-suggestions comment patch:", err);
-      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
-    }
-  });
-  app.delete("/webhooks/site-suggestions/:suggestionId/comments/:commentId", async (req, res) => {
-    try {
-      const accessToken = normalizeHeaderSecret(req.headers.authorization);
-      if (!accessToken) {
-        return res.status(401).json({
-          ok: false,
-          error: "missing_token",
-          message: "Header Authorization: Bearer <token> richiesto.",
-        });
-      }
-      const out = await deleteSiteSuggestionComment(client, {
-        accessToken,
-        suggestionId: req.params?.suggestionId,
-        commentId: req.params?.commentId,
-      });
-      return res.status(Number(out.status) || 500).json(out);
-    } catch (err) {
-      global.logger?.error?.("[WEBHOOK] site-suggestions comment delete:", err);
-      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
-    }
-  });
-  app.post("/webhooks/site-suggestions/:suggestionId/comments", async (req, res) => {
-    try {
-      const accessToken = normalizeHeaderSecret(req.headers.authorization);
-      if (!accessToken) {
-        return res.status(401).json({
-          ok: false,
-          error: "missing_token",
-          message: "Header Authorization: Bearer <token> richiesto.",
-        });
-      }
-      const body = req.body && typeof req.body === "object" ? req.body : {};
-      const out = await addSiteSuggestionComment(client, {
-        accessToken,
-        suggestionId: req.params?.suggestionId,
-        content: body.content,
-        parentCommentId: body.parentCommentId,
-      });
-      return res.status(Number(out.status) || 500).json(out);
-    } catch (err) {
-      global.logger?.error?.("[WEBHOOK] site-suggestions comment:", err);
-      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
-    }
-  });
-  app.patch("/webhooks/site-suggestions/:suggestionId", async (req, res) => {
-    try {
-      const accessToken = normalizeHeaderSecret(req.headers.authorization);
-      if (!accessToken) {
-        return res.status(401).json({
-          ok: false,
-          error: "missing_token",
-          message: "Header Authorization: Bearer <token> richiesto.",
-        });
-      }
-      const body = req.body && typeof req.body === "object" ? req.body : {};
-      const out = await updateOwnSiteSuggestion(client, {
-        accessToken,
-        suggestionId: req.params?.suggestionId,
-        content: body.content,
-      });
-      return res.status(Number(out.status) || 500).json(out);
-    } catch (err) {
-      global.logger?.error?.("[WEBHOOK] site-suggestions patch:", err);
-      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
-    }
-  });
-  app.delete("/webhooks/site-suggestions/:suggestionId", async (req, res) => {
-    try {
-      const accessToken = normalizeHeaderSecret(req.headers.authorization);
-      if (!accessToken) {
-        return res.status(401).json({
-          ok: false,
-          error: "missing_token",
-          message: "Header Authorization: Bearer <token> richiesto.",
-        });
-      }
-      const out = await deleteOwnSiteSuggestion(client, {
-        accessToken,
-        suggestionId: req.params?.suggestionId,
-      });
-      return res.status(Number(out.status) || 500).json(out);
-    } catch (err) {
-      global.logger?.error?.("[WEBHOOK] site-suggestions author delete:", err);
-      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
-    }
-  });
-  app.post("/webhooks/site-suggestions/:suggestionId/vote", async (req, res) => {
-    try {
-      const accessToken = normalizeHeaderSecret(req.headers.authorization);
-      if (!accessToken) {
-        return res.status(401).json({
-          ok: false,
-          error: "missing_token",
-          message: "Header Authorization: Bearer <token> richiesto.",
-        });
-      }
-      const body = req.body && typeof req.body === "object" ? req.body : {};
-      const out = await setSiteSuggestionVote(client, {
-        accessToken,
-        suggestionId: req.params?.suggestionId,
-        direction: body.direction,
-      });
-      return res.status(Number(out.status) || 500).json(out);
-    } catch (err) {
-      global.logger?.error?.("[WEBHOOK] site-suggestions vote:", err);
-      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
-    }
-  });
-  app.post("/webhooks/site-suggestions/:suggestionId/accept", async (req, res) => {
-    try {
-      const accessToken = normalizeHeaderSecret(req.headers.authorization);
-      if (!accessToken) {
-        return res.status(401).json({
-          ok: false,
-          error: "missing_token",
-          message: "Header Authorization: Bearer <token> richiesto.",
-        });
-      }
-      const body = req.body && typeof req.body === "object" ? req.body : {};
-      const out = await staffAcceptSiteSuggestion(client, {
-        accessToken,
-        suggestionId: req.params?.suggestionId,
-        reason: body.reason,
-      });
-      return res.status(Number(out.status) || 500).json(out);
-    } catch (err) {
-      global.logger?.error?.("[WEBHOOK] site-suggestions accept:", err);
-      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
-    }
-  });
-  app.post("/webhooks/site-suggestions/:suggestionId/reject", async (req, res) => {
-    try {
-      const accessToken = normalizeHeaderSecret(req.headers.authorization);
-      if (!accessToken) {
-        return res.status(401).json({
-          ok: false,
-          error: "missing_token",
-          message: "Header Authorization: Bearer <token> richiesto.",
-        });
-      }
-      const body = req.body && typeof req.body === "object" ? req.body : {};
-      const out = await staffRejectSiteSuggestion(client, {
-        accessToken,
-        suggestionId: req.params?.suggestionId,
-        reason: body.reason,
-      });
-      return res.status(Number(out.status) || 500).json(out);
-    } catch (err) {
-      global.logger?.error?.("[WEBHOOK] site-suggestions reject:", err);
-      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
-    }
-  });
-  app.patch("/webhooks/site-suggestions/:suggestionId/decision", async (req, res) => {
-    try {
-      const accessToken = normalizeHeaderSecret(req.headers.authorization);
-      if (!accessToken) {
-        return res.status(401).json({
-          ok: false,
-          error: "missing_token",
-          message: "Header Authorization: Bearer <token> richiesto.",
-        });
-      }
-      const body = req.body && typeof req.body === "object" ? req.body : {};
-      const out = await staffSetSiteSuggestionDecision(client, {
-        accessToken,
-        suggestionId: req.params?.suggestionId,
-        status: body.status,
-        reason: body.reason,
-      });
-      return res.status(Number(out.status) || 500).json(out);
-    } catch (err) {
-      global.logger?.error?.("[WEBHOOK] site-suggestions decision:", err);
-      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
-    }
-  });
-  app.post("/webhooks/site-suggestions/:suggestionId/delete", async (req, res) => {
-    try {
-      const accessToken = normalizeHeaderSecret(req.headers.authorization);
-      if (!accessToken) {
-        return res.status(401).json({
-          ok: false,
-          error: "missing_token",
-          message: "Header Authorization: Bearer <token> richiesto.",
-        });
-      }
-      const out = await staffDeleteSiteSuggestion(client, {
-        accessToken,
-        suggestionId: req.params?.suggestionId,
-      });
-      return res.status(Number(out.status) || 500).json(out);
-    } catch (err) {
-      global.logger?.error?.("[WEBHOOK] site-suggestions delete:", err);
-      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
-    }
-  });
-
   if (shouldStartDiscadiaVoteHttpWebhook(client)) {
-  app.post("/webhooks/discadia", async (req, res) => {
-    try {
-      if (secret) {
-        const receivedSecret = normalizeHeaderSecret(
-          req.headers["authorization"] || req.headers["x-discadia-secret"],
-        );
-        if (receivedSecret !== secret) {
-          global.logger?.warn?.("[WEBHOOK] Discadia: Unauthorized request (secret mismatch)");
-          return res.status(401).send("Unauthorized");
-        }
-      }
-
-      const user_id = extractVoteWebhookUserId(req.body);
-      if (!user_id) {
-        global.logger?.warn?.(
-          "[WEBHOOK] Discadia: User ID missing; body keys: " +
-            (req.body && typeof req.body === "object" ? Object.keys(req.body).join(", ") : "(non-object)"),
-        );
-        return res.status(400).send("User ID missing");
-      }
-
-      const guildId = client.config.mainGuildId || IDs.guilds.main;
-        const guild = client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
-
-      if (!guild) {
-        global.logger?.error?.("[WEBHOOK] Discadia: Guild not found for ID " + guildId);
-        return res.status(500).send("Guild not found");
-      }
-
-      const user = await client.users.fetch(user_id).catch(() => null);
-      if (!user) {
-        global.logger?.warn?.("[WEBHOOK] Discadia: User not found for ID " + user_id);
-        return res.status(404).send("User not found");
-      }
-
-        const handled = await processDiscadiaVote(guild, user, client, { voteListing: "discadia" });
-      if (handled) {
-        return res.status(200).send("Vote Processed");
-      }
-      return res.status(500).send("Vote processing failed");
-    } catch (err) {
-      global.logger?.error?.("[WEBHOOK] Discadia: Error handling webhook", err);
-      return res.status(500).send("Internal Server Error");
-    }
-  });
+    app.post("/webhooks/discadia", (req, res) => {
+      handleDiscadiaVoteWebhook(req, res, client, secret);
+    });
   }
 
   app.get("/webhooks/status", (req, res) => {
     res.status(200).json({ status: "online", bot: client.user?.tag || "Offline" });
+  });
+
+  app.get("/webhooks/coffee/health", async (req, res) => {
+    try {
+      const { probeCoffeeHealth } = require("../../Utils/Web/stackHealth");
+      const coffee = await probeCoffeeHealth(1500);
+      return res.status(coffee.ok ? 200 : 503).json({
+        ok: coffee.ok,
+        status: coffee.status,
+        service: "coffee",
+        bot: coffee.bot,
+        ts: new Date().toISOString(),
+      });
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] coffee health:", err?.message || err);
+      return res.status(503).json({ ok: false, status: "error", service: "coffee" });
+    }
+  });
+
+  app.get("/webhooks/health", (req, res) => {
+    const { sendStackHealth } = require("../../Utils/Web/stackHealth");
+    return sendStackHealth(client, req, res, { service: "bots", includeLavalink: true, includeCoffee: true });
+  });
+
+  app.use((err, req, res, next) => {
+    const isJsonBodyError =
+      err instanceof SyntaxError && Number(err.status) === 400 && "body" in err;
+    if (!isJsonBodyError) return next(err);
+
+    // Discadia (fallback su bots): riprova dal raw body.
+    if (isDiscadiaWebhookRequest(req)) {
+      global.logger?.warn?.(
+        "[WEBHOOK] Discadia: JSON body parse failed, retrying from raw buffer:",
+        err.message,
+      );
+      return handleDiscadiaVoteWebhook(req, res, client, secret);
+    }
+
+    // Top.gg / probe / body spazzatura: 400 silenzioso (niente stack in stderr).
+    if (!res.headersSent) {
+      return res.status(400).send("Bad Request");
+    }
+    return undefined;
   });
 
   const http = require("node:http");
@@ -1138,4 +691,13 @@ async function startWebhookServer(client) {
   });
 }
 
-module.exports = { startWebhookServer, shouldStartDiscadiaVoteHttpWebhook, shouldStartTopggVoteHttpWebhook, shouldStartBotHttpServer, shouldStartPublicSiteReadonlyHttp, isCandidatureWebsiteApiEnabled };
+module.exports = {
+  startWebhookServer,
+  shouldStartDiscadiaVoteHttpWebhook,
+  shouldStartTopggVoteHttpWebhook,
+  shouldStartBotHttpServer,
+  shouldStartPublicSiteReadonlyHttp,
+  isCandidatureWebsiteApiEnabled,
+  extractTopggVoteDiscordUserId,
+  isTopggWebhookAuthorized,
+};

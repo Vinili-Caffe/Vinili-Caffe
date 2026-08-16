@@ -1,8 +1,9 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder } = require("discord.js");
 const { getChannelOverviewStats } = require("../Services/Community/activityService");
-const { renderChannelActivityCanvas, formatCanvasChannelLabel } = require("../Utils/Render/activityCanvas");
+const { renderChannelActivityCanvas, formatCanvasChannelLabel, prefetchStatsCanvasAvatar } = require("../Utils/Render/activityCanvas");
+const { getOrBuildStatsCanvasBuffer } = require("../Utils/Stats/statsCanvasCache");
 const { guildIconUrl } = require("../Utils/Discord/guildDiscordIdentity");
-const { resolveTopUserEntries } = require("../Prefix/Stats/top");
+const { resolveTopUserEntriesForCanvas } = require("../Prefix/Stats/top");
 const CHANNEL_REFRESH_CUSTOM_ID_PREFIX = "channel_refresh";
 const CHANNEL_PERIOD_OPEN_CUSTOM_ID_PREFIX = "channel_period_open";
 const CHANNEL_PERIOD_SET_CUSTOM_ID_PREFIX = "channel_period_set";
@@ -76,13 +77,13 @@ async function buildChannelOverviewPayload(guild, channel, lookbackDays, view, o
   if (!guild?.id || !channelId) return { files: [], components: [] };
 
   const stats = await getChannelOverviewStats(guild.id, channelId, safeLookback);
-  const [topUsersTextResolved, topUsersVoiceResolved] = await Promise.all([
-    resolveTopUserEntries(guild, stats.topUsersText || []),
-    resolveTopUserEntries(guild, stats.topUsersVoice || []),
-  ]);
-
   const channelName = channel?.name ? formatCanvasChannelLabel(channel.name) : "# channel";
   const channelIconUrl = channel?.isVoiceBased?.() ? guildIconUrl(guild, { size: 256 }) : null;
+  const [topUsersTextResolved, topUsersVoiceResolved, channelIconPrefetch] = await Promise.all([
+    resolveTopUserEntriesForCanvas(guild, stats.topUsersText || []),
+    resolveTopUserEntriesForCanvas(guild, stats.topUsersVoice || []),
+    channelIconUrl ? prefetchStatsCanvasAvatar(channelIconUrl) : Promise.resolve(null),
+  ]);
   const createdOn = channel?.createdAt ?? new Date(0);
   const me = guild.members?.me;
   const joinedOn =
@@ -95,7 +96,24 @@ async function buildChannelOverviewPayload(guild, channel, lookbackDays, view, o
 
   const isVoiceChannel = Boolean(channel?.isVoiceBased?.());
   const isTextChannel = isVoiceChannel ? false : Boolean(channel?.isTextBased?.());
-  const buffer = await renderChannelActivityCanvas({ channelName, channelIconUrl, createdOn, joinedOn, lookbackDays: safeLookback, windows: stats.windows, topUsersText: topUsersTextResolved, topUsersVoice: topUsersVoiceResolved, chart: stats.chart, isTextChannel, guildName });
+  const buffer = await getOrBuildStatsCanvasBuffer(
+    `channel:${guild.id}:${channelId}:${safeLookback}:${isTextChannel ? "text" : "voice"}`,
+    () =>
+      renderChannelActivityCanvas({
+        channelName,
+        channelIconUrl,
+        channelIconPrefetch,
+        createdOn,
+        joinedOn,
+        lookbackDays: safeLookback,
+        windows: stats.windows,
+        topUsersText: topUsersTextResolved,
+        topUsersVoice: topUsersVoiceResolved,
+        chart: stats.chart,
+        isTextChannel,
+        guildName,
+      }),
+  );
 
   const components = buildChannelComponents(ownerId, channelId, safeLookback, view);
   const overviewExt =

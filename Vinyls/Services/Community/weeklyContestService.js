@@ -1,5 +1,5 @@
 const cron = require("node-cron");
-const { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, MessageFlags, ThreadAutoArchiveDuration } = require("discord.js");
+const { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, MessageFlags, ThreadAutoArchiveDuration, OverwriteType } = require("discord.js");
 const IDs = require("../../Utils/Config/ids");
 const { isValidGuildUserId } = require("../../Utils/DB/validateWriteIds");
 const { loadHourlyRows } = require("./activityService");
@@ -566,7 +566,7 @@ async function ensureContestChannelsHideReactionCounts(client) {
     const ch =
       guild.channels.cache.get(cid) || (await guild.channels.fetch(cid).catch(() => null));
     if (!ch?.permissionOverwrites?.edit) continue;
-    await ch.permissionOverwrites.edit(everyoneId, { AddReactions: false }).catch((err) => {
+    await ch.permissionOverwrites.edit(everyoneId, { AddReactions: false }, { type: OverwriteType.Role }).catch((err) => {
       global.logger?.warn?.(
         "[WEEKLY_CONTEST] impossibile negare AddReactions a @everyone:",
         cid,
@@ -607,7 +607,7 @@ async function runContestMemberSendChannelsOpenJob(client) {
       return;
     }
     const ok = await ch.permissionOverwrites
-      .edit(memberRoleId, { SendMessages: true })
+      .edit(memberRoleId, { SendMessages: true }, { type: OverwriteType.Role })
       .then(() => true)
       .catch((err) => {
         global.logger?.warn?.("[WEEKLY_CONTEST] Member SendMessages:", cid, err?.message || err);
@@ -628,7 +628,7 @@ async function runContestMemberSendChannelsOpenJob(client) {
 async function denySendInContestChannel(channel, userId) {
   const uid = String(userId || "");
   if (!channel?.permissionOverwrites?.edit || !uid) return;
-  await channel.permissionOverwrites.edit(uid, { SendMessages: false }).catch((err) => {
+  await channel.permissionOverwrites.edit(uid, { SendMessages: false }, { type: OverwriteType.Member }).catch((err) => {
     global.logger?.warn?.("[WEEKLY_CONTEST] deny SendMessages:", err?.message || err);
   });
 }
@@ -2420,7 +2420,7 @@ async function handleContestDisegniSqualifica(interaction, client) {
       ? await channel.messages.fetch(mid).catch(() => null) || target
       : target;
   await msgToEdit
-    .edit({ embeds: [disqualifyEmbed], components: [], files: [] })
+    .edit({ embeds: [disqualifyEmbed], components: [], files: [], attachments: [] })
     .catch((err) => global.logger?.warn?.("[WEEKLY_CONTEST] disqualify message edit:", err?.message || err));
 
   return {

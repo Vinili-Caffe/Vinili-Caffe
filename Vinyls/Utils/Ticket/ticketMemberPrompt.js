@@ -1,7 +1,8 @@
 const { InteractionWebhook } = require("discord.js");
 const Ticket = require("../../Schemas/Ticket/ticketSchema");
 const { getGuildMemberCached } = require("../Interaction/interactionEntityCache");
-const { hasStaffTicketRole } = require("./ticketStaffPanelBuild");
+const { isTicketOpenedByMember, memberCanActAsTicketStaff } = require("./ticketStaffPanelBuild");
+const { editTicketMemberOverwrite } = require("./ticketHighStaffOverwrites");
 
 const TICKET_MEMBER_PROMPT_TTL_MS = 90_000;
 const pendingTicketMemberPrompts = new Map();
@@ -84,10 +85,16 @@ async function handleTicketMemberPromptMessage(message) {
   }
 
   const member = message.member || (await getGuildMemberCached(message.guild, message.author.id).catch(() => null));
-  if (!hasStaffTicketRole(member, ticketDoc.ticketType)) {
+  if (isTicketOpenedByMember(ticketDoc, message.author.id) || !memberCanActAsTicketStaff(member, ticketDoc)) {
     clearTicketMemberPrompt(message.guild.id, message.author.id);
     await message.delete().catch(() => {});
-    await editTicketMemberPromptReply(message.client, pending, "<:vegax:1443934876440068179> Non hai permesso per questa azione.");
+    await editTicketMemberPromptReply(
+      message.client,
+      pending,
+      isTicketOpenedByMember(ticketDoc, message.author.id)
+        ? "<:vegax:1443934876440068179> Non puoi usare i pulsanti staff sul ticket che hai aperto tu."
+        : "<:vegax:1443934876440068179> Non hai permesso per questa azione.",
+    );
     return true;
   }
 
@@ -103,10 +110,10 @@ async function handleTicketMemberPromptMessage(message) {
   }
 
   if (type === "ticket_add") {
-    await message.channel.permissionOverwrites.edit(targetId, {
+    await editTicketMemberOverwrite(message.channel, targetId, {
       ViewChannel: true,
       SendMessages: true,
-    }).catch(() => {});
+    });
     clearTicketMemberPrompt(message.guild.id, message.author.id);
     await message.delete().catch(() => {});
     await editTicketMemberPromptReply(
@@ -125,10 +132,10 @@ async function handleTicketMemberPromptMessage(message) {
     return true;
   }
 
-  await message.channel.permissionOverwrites.edit(targetId, {
+  await editTicketMemberOverwrite(message.channel, targetId, {
     ViewChannel: false,
     SendMessages: false,
-  }).catch(() => {});
+  });
   clearTicketMemberPrompt(message.guild.id, message.author.id);
   await message.delete().catch(() => {});
   await editTicketMemberPromptReply(

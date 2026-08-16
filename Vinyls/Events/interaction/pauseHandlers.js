@@ -1,7 +1,7 @@
 const { EmbedBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const IDs = require("../../Utils/Config/ids");
 const { getGuildChannelCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
-const { PAUSE_REQUEST_OPEN_ID } = require("../../Utils/Pause/pauseStickyPanelRuntime");
+const { PAUSE_REQUEST_OPEN_ID, maybeRepositionPauseSticky } = require("../../Utils/Pause/pauseStickyPanelRuntime");
 const {
   PAUSE_ROLE_PICK_PM,
   PAUSE_ROLE_PICK_STAFF,
@@ -13,9 +13,19 @@ const {
 } = require("../../Utils/Pause/pauseRequestSubmitRuntime");
 const PAUSE_REQUEST_MODAL_ID = "pause_request:modal";
 const { accountUsername } = require("../../Utils/Discord/guildDiscordIdentity");
-const { MS_PER_DAY, parseItalianDate, getPauseDaysBetween, getTodayUtc, getCurrentYearBoundsUtc, countOverlapDays, computeConsumedPauseDays, getMemberRoleLabel, getPauseStatusLabel, computePauseScaledDaysThisYear, getStaffPauseRecord, getStaffAndPauseByRequestMessageId, updatePauseInDb, buildRequestButtonsRow, buildAcceptedButtonsRow, schedulePauseButtonsRemoval, syncSingleAcceptedPauseMessage, getPausePhase, getBasePauseLimit, getPauseRoleLimit, getPauseTimingText, computeStaffersInPauseByRoleForRange, getPauseReasonFromMessage, normalizePauseRoleChoice, getPauseRoleTargets, roleChoiceAppliesTo, PAUSE_ROLE_STAFF, PAUSE_ROLE_PM, PAUSE_ROLE_BOTH, getBestStaffPauseBonusDays, getStaffPauseBonusDaysTotal, grantBestStaffPauseBonusYear } = require("../../Utils/Pause/pauseHandlersUtils");
+const { MS_PER_DAY, parseItalianDate, getPauseDaysBetween, getTodayUtc, getCurrentYearBoundsUtc, countOverlapDays, computeConsumedPauseDays, getMemberRoleLabel, getPauseStatusLabel, computePauseScaledDaysThisYear, getStaffPauseRecord, getStaffAndPauseByRequestMessageId, updatePauseInDb, buildRequestButtonsRow, buildAcceptedButtonsRow, schedulePauseButtonsRemoval, syncSingleAcceptedPauseMessage, getPausePhase, getBasePauseLimit, getPauseRoleLimit, getPauseTimingText, computeStaffersInPauseByRoleForRange, computeStaffersInPauseByStaffRankForRange, getMemberStaffRankRoleId, getStaffRankLimitKey, buildAcceptedPauseLogContent, buildCancelledPauseLogContent, formatPauseRoleLabelForMessage, getPauseReasonFromMessage, normalizePauseRoleChoice, getPauseRoleTargets, roleChoiceAppliesTo, PAUSE_ROLE_STAFF, PAUSE_ROLE_PM, PAUSE_ROLE_BOTH, getBestStaffPauseBonusDays, getStaffPauseBonusDaysTotal, getValPosTradedPauseBonusDays, grantBestStaffPauseBonusYear } = require("../../Utils/Pause/pauseHandlersUtils");
 const { buildPauseListPayload, buildPauseListMonthRows } = require("../../Utils/Pause/pauseListRuntime");
+const { scheduleStaffListRefresh } = require("../../Utils/Community/staffListUtils");
 const pauseActionLocks = new Set();
+
+function notifyStaffPauseCalendarChanged() {
+  try {
+    const { broadcastSiteStaffPausesChanged } = require("../../Utils/Web/siteSuggestionsBroadcast");
+    broadcastSiteStaffPausesChanged();
+  } catch {
+    /* ignore */
+  }
+}
 
 function pauseListMemberLabel(guild, client, userId) {
   const mem = guild?.members?.cache?.get(userId);
@@ -43,22 +53,6 @@ function resolveAcceptedPauseRoleChoice(member, targetPause) {
   if (targets.length === 2) return PAUSE_ROLE_BOTH;
   if (targets[0] === PAUSE_ROLE_PM) return PAUSE_ROLE_PM;
   return PAUSE_ROLE_STAFF;
-}
-
-function formatPauseRoleLabelForMessage(guild, roleChoice, member) {
-  const normalized = normalizePauseRoleChoice(roleChoice) || PAUSE_ROLE_STAFF;
-  const pmRole = guild?.roles?.cache?.get(String(IDs.roles?.PartnerManager || ""));
-  const pmLabel = pmRole?.name || "Partner Manager";
-  const staffRole = guild?.roles?.cache?.get(String(IDs.roles?.Staff || ""));
-  const staffFallback = staffRole?.name || "Staff";
-
-  if (normalized === PAUSE_ROLE_PM) return pmLabel;
-  if (member) return getMemberRoleLabel(member);
-  return staffFallback;
-}
-
-function buildAcceptedPauseLogContent({ roleLabel, effectiveUserId, pauseTimingText, dataRichiesta, dataRitorno, giorniUsati, maxGiorni, giorniRimanenti, sameRoleActiveCount, roleLimitWarning }) {
-  return `<a:VC_Calendar:1482706208149475358> **\`${roleLabel}\`** - **<@${effectiveUserId}>** ${pauseTimingText}.\n<:VC_Clock:1473359204189474886> Dal **\`${dataRichiesta}\`** al **\`${dataRitorno}\`**\n<:VC_update:1478721333096349817> __\`${giorniUsati}/${maxGiorni}\`__ giorni utilizzati (\`${giorniRimanenti}\` rimanenti) - <:VC_Staff:1494286904089247754> __\`${sameRoleActiveCount}\`__ staffer in pausa in quel ruolo${roleLimitWarning}`;
 }
 
 async function handlePauseButton(interaction) {
@@ -259,11 +253,7 @@ async function handlePauseButton(interaction) {
     }
 
     const member = await getGuildMemberCached(interaction.guild, effectiveUserId);
-    if (!member) {
-      await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Staffer non trovato nel server.", flags: 1 << 6 }).catch(() => {});
-      return true;
-    }
-
+    // Se è uscito dal server la pausa va comunque annullabile (cleanup leave).
     const todayUtc = getTodayUtc();
     const start = parseItalianDate(targetPause.dataRichiesta);
     const end = parseItalianDate(targetPause.dataRitorno);
@@ -283,25 +273,55 @@ async function handlePauseButton(interaction) {
     targetPause.status = "cancelled";
     targetPause.giorniUsati = consumedForCancelledPause;
     targetPause.cancelledAt = new Date();
+    scheduleStaffListRefresh(interaction.client, guildId, 800);
 
     const roleChoiceForPause = normalizePauseRoleChoice(targetPause?.ruolo || targetPause?.ruoloRichiesto) || PAUSE_ROLE_STAFF;
     const baseLimit = getBasePauseLimit(member, roleChoiceForPause);
-    const bonusPause = getStaffPauseBonusDaysTotal(member, stafferRecord);
+    const bonusPause = member
+      ? getStaffPauseBonusDaysTotal(member, stafferRecord)
+      : getValPosTradedPauseBonusDays(stafferRecord);
     const maxGiorni = baseLimit + bonusPause;
     const giorniTotaliUsati = computeConsumedPauseDays(stafferRecord.staff?.pauses);
     const giorniRimanenti = Math.max(0, maxGiorni - giorniTotaliUsati);
 
-    const currentContent = interaction.message?.content || "";
-    const annullataTag = "<:cancel:1461730653677551691> **__\`ANNULLATA\`__**";
-    const updatedContent=currentContent.includes(annullataTag)?currentContent:`${currentContent}\n\n${annullataTag}`;
-
-    await interaction.update({ content: updatedContent, components: [buildAcceptedButtonsRow(effectiveUserId, effectivePauseId, { hideCancel: true })] });
+    const roleLabelForCancel = formatPauseRoleLabelForMessage(
+      interaction.guild,
+      roleChoiceForPause === PAUSE_ROLE_BOTH ? PAUSE_ROLE_STAFF : roleChoiceForPause,
+      member,
+    );
+    const cancelledContent = buildCancelledPauseLogContent({
+      roleLabel: roleLabelForCancel,
+      effectiveUserId,
+      dataRichiesta: targetPause.dataRichiesta,
+      dataRitorno: targetPause.dataRitorno,
+      giorniScalati: consumedForCancelledPause,
+      giorniTotaliUsati,
+      maxGiorni,
+      giorniRimanenti,
+    });
+    const pmRole = interaction.guild?.roles?.cache?.get(String(IDs.roles?.PartnerManager || ""));
+    const cancelledContentPm = buildCancelledPauseLogContent({
+      roleLabel: pmRole?.name || "Partner Manager",
+      effectiveUserId,
+      dataRichiesta: targetPause.dataRichiesta,
+      dataRitorno: targetPause.dataRitorno,
+      giorniScalati: consumedForCancelledPause,
+      giorniTotaliUsati,
+      maxGiorni,
+      giorniRimanenti,
+    });
 
     const staffMsgId = String(targetPause.requestMessageId || "").trim();
     const pmMsgId = String(targetPause.requestMessageIdPm || "").trim();
     const currentMsgId = String(interaction.message?.id || "").trim();
+    const editingPmMessage = Boolean(currentMsgId && pmMsgId && currentMsgId === pmMsgId);
+    const contentForCurrent = editingPmMessage ? cancelledContentPm : cancelledContent;
+    const cancelButtons = [buildAcceptedButtonsRow(effectiveUserId, effectivePauseId, { hideCancel: true })];
+
+    await interaction.update({ content: contentForCurrent, components: cancelButtons });
+
     const siblingId =
-      currentMsgId && pmMsgId && currentMsgId === pmMsgId && staffMsgId
+      editingPmMessage && staffMsgId
         ? staffMsgId
         : currentMsgId && staffMsgId && currentMsgId === staffMsgId && pmMsgId
           ? pmMsgId
@@ -309,18 +329,19 @@ async function handlePauseButton(interaction) {
     if (siblingId && interaction.channel?.messages?.fetch) {
       const siblingMsg = await interaction.channel.messages.fetch(siblingId).catch(() => null);
       if (siblingMsg) {
-        const sibContent = String(siblingMsg.content || "");
-        const sibUpdated = sibContent.includes(annullataTag) ? sibContent : `${sibContent}\n\n${annullataTag}`;
+        const siblingContent = editingPmMessage ? cancelledContent : cancelledContentPm;
         await siblingMsg
           .edit({
-            content: sibUpdated,
-            components: [buildAcceptedButtonsRow(effectiveUserId, effectivePauseId, { hideCancel: true })],
+            content: siblingContent,
+            components: cancelButtons,
           })
           .catch(() => {});
       }
     }
 
     await interaction.channel?.send({ content: `<:cancel:1461730653677551691> Pausa annullata per <@${effectiveUserId}>. <a:VC_Calendar:1482706208149475358> Giorni scalati: \`${consumedForCancelledPause}\`. <:VC_Clock:1473359204189474886> Totale usati: \`${giorniTotaliUsati}/${maxGiorni}\` (\`${giorniRimanenti}\` rimanenti).` });
+    void maybeRepositionPauseSticky(interaction.channel, interaction.client).catch(() => null);
+    notifyStaffPauseCalendarChanged();
     return true;
   }
 
@@ -357,14 +378,38 @@ async function handlePauseButton(interaction) {
   let sameRoleActiveCount = 1;
   let sameRoleActiveCountStaff = null;
   let sameRoleActiveCountPm = null;
+  const staffRankRoleId = getMemberStaffRankRoleId(member);
   if (roleChoice === PAUSE_ROLE_BOTH) {
-    const overlapStaff = await computeStaffersInPauseByRoleForRange(guildId, PAUSE_ROLE_STAFF, targetPause.dataRichiesta, targetPause.dataRitorno, effectiveUserId);
+    const overlapStaff = staffRankRoleId
+      ? await computeStaffersInPauseByStaffRankForRange(
+          interaction.guild,
+          guildId,
+          staffRankRoleId,
+          targetPause.dataRichiesta,
+          targetPause.dataRitorno,
+          effectiveUserId,
+          PAUSE_ROLE_STAFF,
+        )
+      : await computeStaffersInPauseByRoleForRange(guildId, PAUSE_ROLE_STAFF, targetPause.dataRichiesta, targetPause.dataRitorno, effectiveUserId);
     const overlapPm = await computeStaffersInPauseByRoleForRange(guildId, PAUSE_ROLE_PM, targetPause.dataRichiesta, targetPause.dataRitorno, effectiveUserId);
     sameRoleActiveCountStaff = overlapStaff + 1;
     sameRoleActiveCountPm = overlapPm + 1;
     sameRoleActiveCount = Math.max(sameRoleActiveCountStaff, sameRoleActiveCountPm);
-  } else {
+  } else if (roleChoice === PAUSE_ROLE_PM) {
     const overlappingSameRole = await computeStaffersInPauseByRoleForRange(guildId, roleChoice, targetPause.dataRichiesta, targetPause.dataRitorno, effectiveUserId);
+    sameRoleActiveCount = overlappingSameRole + 1;
+  } else {
+    const overlappingSameRole = staffRankRoleId
+      ? await computeStaffersInPauseByStaffRankForRange(
+          interaction.guild,
+          guildId,
+          staffRankRoleId,
+          targetPause.dataRichiesta,
+          targetPause.dataRitorno,
+          effectiveUserId,
+          PAUSE_ROLE_STAFF,
+        )
+      : await computeStaffersInPauseByRoleForRange(guildId, roleChoice, targetPause.dataRichiesta, targetPause.dataRitorno, effectiveUserId);
     sameRoleActiveCount = overlappingSameRole + 1;
   }
 
@@ -372,6 +417,7 @@ async function handlePauseButton(interaction) {
   const updateResult = await updatePauseInDb(guildId, effectiveUserId, effectivePauseId, {
     status: "accepted",
     ruolo: roleChoice,
+    ruoloGradeId: staffRankRoleId || null,
     giorniUsati,
     giorniAggiuntivi: bonusBestStaff,
     stafferInPausa: sameRoleActiveCount,
@@ -383,6 +429,7 @@ async function handlePauseButton(interaction) {
   }
   targetPause.status = "accepted";
   targetPause.ruolo = roleChoice;
+  targetPause.ruoloGradeId = staffRankRoleId || null;
   targetPause.giorniUsati = giorniUsati;
   targetPause.giorniAggiuntivi = bonusBestStaff;
   targetPause.stafferInPausa = sameRoleActiveCount;
@@ -392,16 +439,26 @@ async function handlePauseButton(interaction) {
     await grantBestStaffPauseBonusYear(guildId, effectiveUserId);
   }
 
-  const roleLimit = roleChoice === PAUSE_ROLE_BOTH ? null : getPauseRoleLimit(roleChoice);
-  const roleLimitWarning = roleChoice !== PAUSE_ROLE_BOTH && roleLimit != null && sameRoleActiveCount > roleLimit
-    ? `\n\n⚠️ Limite ruolo \`${roleChoice}\` superato (max ${roleLimit} in pausa). Accettata comunque da High Staff.`
-    : "";
+  const staffRankLimitKey = getStaffRankLimitKey(staffRankRoleId);
+  const roleLimit =
+    roleChoice === PAUSE_ROLE_BOTH || roleChoice === PAUSE_ROLE_PM
+      ? getPauseRoleLimit(roleChoice)
+      : getPauseRoleLimit(staffRankLimitKey || roleChoice);
+  const roleLimitWarning =
+    roleChoice !== PAUSE_ROLE_BOTH &&
+    roleChoice !== PAUSE_ROLE_PM &&
+    roleLimit != null &&
+    sameRoleActiveCount > roleLimit
+      ? `\n\n⚠️ Limite ruolo \`${formatPauseRoleLabelForMessage(interaction.guild, roleChoice, member)}\` superato (max ${roleLimit} in pausa). Accettata comunque da High Staff.`
+      : roleChoice === PAUSE_ROLE_PM && roleLimit != null && sameRoleActiveCount > roleLimit
+        ? `\n\n⚠️ Limite ruolo \`${PAUSE_ROLE_PM}\` superato (max ${roleLimit} in pausa). Accettata comunque da High Staff.`
+        : "";
 
-  const staffLimit = getPauseRoleLimit(PAUSE_ROLE_STAFF);
+  const staffLimit = getPauseRoleLimit(staffRankLimitKey || PAUSE_ROLE_STAFF);
   const pmLimit = getPauseRoleLimit(PAUSE_ROLE_PM);
   const roleLimitWarningStaff =
     roleChoice === PAUSE_ROLE_BOTH && staffLimit != null && sameRoleActiveCountStaff > staffLimit
-      ? `\n\n⚠️ Limite ruolo \`${PAUSE_ROLE_STAFF}\` superato (max ${staffLimit} in pausa). Accettata comunque da High Staff.`
+      ? `\n\n⚠️ Limite ruolo \`${formatPauseRoleLabelForMessage(interaction.guild, PAUSE_ROLE_STAFF, member)}\` superato (max ${staffLimit} in pausa). Accettata comunque da High Staff.`
       : "";
   const roleLimitWarningPm =
     roleChoice === PAUSE_ROLE_BOTH && pmLimit != null && sameRoleActiveCountPm > pmLimit
@@ -442,6 +499,9 @@ async function handlePauseButton(interaction) {
     await interaction.message?.edit({ content: acceptanceContent, components: [buildAcceptedButtonsRow(effectiveUserId, effectivePauseId, { hideCancel: false, disableCancel: pauseAlreadyEnded })] });
     if (pauseEnd && interaction.message?.id && interaction.channel?.id) { schedulePauseButtonsRemoval(interaction.guild, interaction.channel.id, interaction.message.id, targetPause.dataRichiesta, targetPause.dataRitorno, effectiveUserId, effectivePauseId) }
   }
+  scheduleStaffListRefresh(interaction.client, guildId, 800);
+  void maybeRepositionPauseSticky(interaction.channel, interaction.client).catch(() => null);
+  notifyStaffPauseCalendarChanged();
   return true;
   } finally { pauseActionLocks.delete(lockKey) }
   }

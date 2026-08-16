@@ -8,7 +8,6 @@ const STAFF_REGOLA_STEPS = {
     { type: "mute", duration: "24h" },
   ],
   "1.3": [
-    { type: "warn" },
     { type: "mute", duration: "4h" },
     { type: "mute", duration: "8h" },
     { type: "mute", duration: "18h" },
@@ -18,7 +17,6 @@ const STAFF_REGOLA_STEPS = {
   "2.1": [{ type: "mute", duration: "24h" }, { type: "ban" }],
   "2.2": [{ type: "ban" }],
   "2.3": [
-    { type: "warn" },
     { type: "mute", duration: "3h" },
     { type: "mute", duration: "6h" },
   ],
@@ -76,9 +74,20 @@ function isMatchingRuleCase(row, ruleDot) {
   return lower.includes(`regola ${dot}`) || lower.includes(`regola \`${dot}\``) || lower.includes(`violazione della regola ${dot}`);
 }
 
+function staffLadderIncludesWarn(ruleDot) {
+  const steps = STAFF_REGOLA_STEPS[String(ruleDot || "")];
+  if (!Array.isArray(steps) || !steps.length) return false;
+  return steps.some((s) => String(s?.type || "").toLowerCase() === "warn");
+}
+
 async function countPreviousRuleCases(guildId, userId, ruleDot) {
   const page = await findModLogsPage(guildId, userId, 0, 100).catch(() => []);
-  return (Array.isArray(page) ? page : []).filter((row) => isMatchingRuleCase(row, ruleDot)).length;
+  const rows = (Array.isArray(page) ? page : []).filter((row) => isMatchingRuleCase(row, ruleDot));
+  // Warn restano all'automod (modlogs effettivi): non devono far saltare i mute della scala staff.
+  if (!staffLadderIncludesWarn(ruleDot)) {
+    return rows.filter((row) => String(row?.action || "").toUpperCase() !== "WARN").length;
+  }
+  return rows.length;
 }
 
 function resolveStepIndex(previousCount, stepsLength) {

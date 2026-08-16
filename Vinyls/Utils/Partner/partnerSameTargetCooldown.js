@@ -1,6 +1,6 @@
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 
-/** Tra due partnership con lo stesso server target devono passare almeno 12 ore (in tutta la guild). */
+/** Default legacy: tra due partnership con lo stesso server target devono passare almeno 12 ore. */
 const PARTNER_SAME_TARGET_COOLDOWN_MS = 12 * 60 * 60 * 1000;
 
 function escapeRegExp(s) {
@@ -50,18 +50,39 @@ async function getLatestPartnerCreateAtForTarget(guildId, partnerGuildId, invite
 }
 
 /**
- * @returns {Promise<{ ok: true } | { ok: false, nextAllowedAt: Date }>}
+ * @param {number|null|undefined} cooldownMs durata minima tra due partner verso lo stesso server; ≤0/null = nessun limite
+ * @returns {Promise<{ ok: true } | { ok: false, nextAllowedAt: Date, cooldownMs: number }>}
  */
-async function checkSamePartnerTargetCooldown(guildId, partnerGuildId, inviteCode) {
+async function checkSamePartnerTargetCooldown(guildId, partnerGuildId, inviteCode, cooldownMs) {
+  const windowMs = Math.floor(Number(cooldownMs));
+  if (!Number.isFinite(windowMs) || windowMs <= 0) return { ok: true };
+
   const last = await getLatestPartnerCreateAtForTarget(guildId, partnerGuildId, inviteCode);
   if (!last) return { ok: true };
   const elapsed = Date.now() - last.getTime();
-  if (elapsed >= PARTNER_SAME_TARGET_COOLDOWN_MS) return { ok: true };
-  return { ok: false, nextAllowedAt: new Date(last.getTime() + PARTNER_SAME_TARGET_COOLDOWN_MS) };
+  if (elapsed >= windowMs) return { ok: true };
+  return { ok: false, nextAllowedAt: new Date(last.getTime() + windowMs), cooldownMs: windowMs };
+}
+
+/**
+ * Risolve il cooldown effettivo dalla config partnership.
+ * - Tenant: solo se impostato (>0)
+ * - Legacy senza valore in mongo: default 12h
+ */
+function resolveSameServerCooldownMs(partnershipCfg) {
+  const raw = partnershipCfg?.sameServerCooldownMs;
+  if (raw === undefined) {
+    return partnershipCfg?.legacy ? PARTNER_SAME_TARGET_COOLDOWN_MS : null;
+  }
+  if (raw === null || raw === "") return null;
+  const n = Math.floor(Number(raw));
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return n;
 }
 
 module.exports = {
   PARTNER_SAME_TARGET_COOLDOWN_MS,
   getLatestPartnerCreateAtForTarget,
   checkSamePartnerTargetCooldown,
+  resolveSameServerCooldownMs,
 };

@@ -53,9 +53,19 @@
     }
   }
 
+  function t(key, vars, fallback) {
+    try {
+      if (window.VcI18n && typeof window.VcI18n.t === "function") {
+        var v = window.VcI18n.t(key, vars);
+        if (v && v !== key) return v;
+      }
+    } catch (e) {}
+    return fallback;
+  }
+
   function comandoMetaLabel(n) {
-    if (n === 1) return "1 comando";
-    return String(n) + " comandi";
+    if (n === 1) return t("wiki.cmdCountOne", { n: n }, "1 comando");
+    return t("wiki.cmdCountMany", { n: n }, String(n) + " comandi");
   }
 
   function filter(q) {

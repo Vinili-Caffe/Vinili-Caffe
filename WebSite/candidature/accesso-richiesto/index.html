@@ -7,7 +7,7 @@
     <meta name="description" content="Accedi con Discord per inviare la tua candidatura staff." />
     <meta name="author" content="{{SITE_NAME}}" />
     <meta name="robots" content="noindex, nofollow" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta property="og:type" content="website" />
     <meta property="og:title" content="Accesso richiesto - {{SITE_NAME}}" />
     <meta property="og:description" content="Accedi con Discord per inviare la tua candidatura staff." />
@@ -62,7 +62,7 @@
             <details class="vc-snav-details vc-snav-details--current">
               <summary class="vc-snav-summary"><span>Richieste</span><i class="fa fa-chevron-down vc-snav-chev text-[0.65rem] opacity-80" aria-hidden="true"></i></summary>
               <div class="vc-snav-panel">
-                <a class="vc-snav-row" href="{{RICHIESTE_UNBAN_URL}}"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-unlock"></i></span><span>Unban</span></a>
+                <a class="vc-snav-row" href="{{RICHIESTE_UNBAN_URL}}"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-balance-scale"></i></span><span data-i18n="nav.appeals">Appelli</span></a>
                 <a class="vc-snav-row vc-snav-row--active" href="{{RICHIESTE_CANDIDATURE_URL}}" aria-current="page"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-file-text-o"></i></span><span>Candidature</span></a>
                 <a class="vc-snav-row" href="{{RICHIESTE_SUGGERIMENTI_URL}}"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-lightbulb-o"></i></span><span>Suggerimenti</span></a>
               </div>
@@ -114,21 +114,21 @@
         <div class="vc-auth-required-icon mb-6" aria-hidden="true">
           <i class="fa fa-shield"></i>
         </div>
-        <h1 id="auth-required-title" class="text-center text-4xl font-extrabold leading-[1.05] tracking-tight text-white">
+        <h1 id="auth-required-title" class="text-center text-4xl font-extrabold leading-[1.05] tracking-tight text-white" data-i18n-html="gate.title">
           Accesso<br />Richiesto
         </h1>
-        <p class="mt-3 text-center text-sm text-slate-300">Accedi con Discord per continuare</p>
+        <p class="mt-3 text-center text-sm text-slate-300" data-i18n="gate.loginContinue">Accedi con Discord per continuare</p>
 
         <div class="mt-6 rounded-xl border border-[#d4a888]/22 bg-[#1a120d]/72 p-3 text-sm text-slate-100">
-          <p class="m-0 flex items-center gap-2"><i class="fa fa-lock text-[#d4a888]" aria-hidden="true"></i> Devi effettuare il login con Discord</p>
+          <p class="m-0 flex items-center gap-2"><i class="fa fa-lock text-[#d4a888]" aria-hidden="true"></i> <span data-i18n="gate.needDiscordLogin">Devi effettuare il login con Discord</span></p>
         </div>
 
         <button id="discord-login-btn" type="button" data-vc-discord-login class="vc-auth-required-login mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-base font-bold text-white">
-          <i class="fa fa-sign-in" aria-hidden="true"></i> Accedi con Discord
+          <i class="fa fa-sign-in" aria-hidden="true"></i> <span data-i18n="dash.gateLogin">Accedi con Discord</span>
         </button>
 
         <a class="vc-auth-required-secondary mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold text-slate-100" href="{{SITE_URL}}">
-          <i class="fa fa-chevron-left" aria-hidden="true"></i> Torna alla Home
+          <i class="fa fa-chevron-left" aria-hidden="true"></i> <span data-i18n="dash.backHome">Torna alla Home</span>
         </a>
       </section>
     </main>
@@ -168,5 +168,6 @@
     <script src="../../js/discord-auth.js" defer></script>  <script src="../../js/vc-cursor-trail.js" defer></script>
 
     <script src="../../js/vc-landing.js" defer></script>
+    <script src="../../js/vc-i18n-pages.js" defer></script>
   </body>
 </html>

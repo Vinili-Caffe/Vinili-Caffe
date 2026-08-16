@@ -175,6 +175,8 @@ Coffee/Data/markov/
 Coffee/Data/voiceTranscriptionCheckpoint.json
 Vinyls/Data/Backups/**
 !Vinyls/Data/Backups/.gitkeep
+Vinyls/Data/uploads/**
+!Vinyls/Data/uploads/.gitkeep
 Vinyls/Data/Hogwarts/*.jsonl
 Vinyls/Data/noDmList.json*
 Vinyls/Data/ticketReopenOutsideSessions.json*

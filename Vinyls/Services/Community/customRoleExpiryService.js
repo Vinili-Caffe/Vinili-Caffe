@@ -206,11 +206,18 @@ async function runExpiredCustomRolesSweep(client) {
 }
 
 function startCustomRoleExpiryLoop(client) {
+  const dedicated = String(process.env.BOT_SCHEDULER_WORKER || "").trim() === "1";
+  const external = String(process.env.BOT_SCHEDULER_EXTERNAL || "").trim() === "1";
+  if (external && !dedicated) {
+    return null;
+  }
   if (!client) return null;
   if (expiryLoopHandle) return expiryLoopHandle;
-  runExpiredCustomRolesSweep(client).catch((err) => global.logger?.warn?.("[CUSTOM ROLE EXPIRY] Recovery sweep on start failed:", err?.message || err));
+  runExpiredCustomRolesSweep(client).catch((err) =>
+    global.logger?.warn?.("[CUSTOM ROLE EXPIRY] Recovery sweep on start failed:", err?.message || err),
+  );
   expiryLoopHandle = setInterval(() => {
-    runExpiredCustomRolesSweep(client).catch(() => { });
+    runExpiredCustomRolesSweep(client).catch(() => {});
   }, CHECK_INTERVAL_MS);
   expiryLoopHandle.unref?.();
   return expiryLoopHandle;
@@ -221,53 +228,3 @@ module.exports = {
   startCustomRoleExpiryLoop,
   deleteDiscordCustomPerkArtifacts,
 };
-module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
-module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
-module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
-module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
-module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
-module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
-module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
-module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
-module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
-module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
-module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
-module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
-module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
-module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
-module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
-module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
-module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
-module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
-module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
-module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
-module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
-module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
-module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
-module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
-module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
-module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
-module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
-module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
-module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
-module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
-module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
-module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
-module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
-module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
-module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
-module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
-module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
-module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
-module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
-module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
-module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
-module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
-module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
-module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
-module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
-module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
-module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
-module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
-module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };
-module.exports = { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop };

@@ -200,6 +200,10 @@ function formatRuoloPausaRichiestoInMessage(guild, normalizedOrRawRole) {
   return String(normalizedOrRawRole || "").trim() || staffName;
 }
 
+function isSiteApiProcess() {
+  return ["1", "true", "yes", "on"].includes(String(process.env.SITE_API_PROCESS || "").trim().toLowerCase());
+}
+
 async function createPauseRequest({ guild, userId, requesterMention, rawStart, rawEnd, reason, member = null, requestedRole = null }) {
   const memberHasStaff = Boolean(member?.roles?.cache?.has(IDs.roles.Staff));
   const memberHasPm = Boolean(member?.roles?.cache?.has(IDs.roles.PartnerManager));
@@ -209,6 +213,10 @@ async function createPauseRequest({ guild, userId, requesterMention, rawStart, r
   const guildId = String(guild?.id ?? "").trim();
   const uid = String(userId ?? "").trim();
   if (!guild || !guildId || !uid) return { ok: false, error: "<a:VC_Alert:1482706673176150077> Dati pausa non validi." };
+  const mention =
+    typeof requesterMention === "string" && /<@!?\d+>/.test(requesterMention)
+      ? requesterMention
+      : `<@${uid}>`;
   const client = guild.client;
   const pauseChannel = guild.channels.cache.get(IDs.channels?.pause) || (await getGuildChannelCached(guild, IDs.channels?.pause)) || (await getClientChannelCached(client, IDs.channels?.pause));
   const normalized = normalizePauseDates(rawStart, rawEnd);
@@ -260,10 +268,11 @@ async function createPauseRequest({ guild, userId, requesterMention, rawStart, r
     ? "\n\n<a:VC_Alert:1482706673176150077> **Requisiti non rispettati:**\n" + requisitiNonRispettati.map((r) => `• ${r}`).join("\n") + "\n\n_L'High Staff può accettare comunque._"
     : "";
 
-  const content = `<:VC_Staff:1494286904089247754> <@&${IDs.roles.HighStaff}> ${requesterMention} ha richiesto una pausa.\n<:VC_Mention:1482526855289634997> Ruolo pausa richiesto: **${ruoloRichiestoDisplay}**\n<a:VC_Calendar:1482706208149475358> Data richiesta: ${normalized.dataRichiesta}\n<a:VC_Calendar:1482706208149475358> Data ritorno: ${normalized.dataRitorno}\n<:VC_reason:1478517122929004544> Motivo: ${reason}`;
+  const content = `<:VC_Staff:1494286904089247754> <@&${IDs.roles.HighStaff}> ${mention} ha richiesto una pausa.\n<:VC_Mention:1482526855289634997> Ruolo pausa richiesto: **${ruoloRichiestoDisplay}**\n<a:VC_Calendar:1482706208149475358> Data richiesta: ${normalized.dataRichiesta}\n<a:VC_Calendar:1482706208149475358> Data ritorno: ${normalized.dataRitorno}\n<:VC_reason:1478517122929004544> Motivo: ${reason}`;
   const posted = await pauseChannel.send({
     content,
     components: [buildPauseRequestButtonsRow(uid, pauseId)],
+    __skipNoticeEmbed: true,
   }).catch(() => null);
   if (!posted) {
     createdPause.status = "cancelled";
@@ -288,7 +297,9 @@ async function createPauseRequest({ guild, userId, requesterMention, rawStart, r
       reason: "Richiesta pausa staff",
     });
   } catch (e) {
-    void maybeRepositionPauseSticky(pauseChannel, client).catch(() => null);
+    if (!isSiteApiProcess()) {
+      void maybeRepositionPauseSticky(pauseChannel, client).catch(() => null);
+    }
     return { ok: true, pauseId };
   }
   await thread.members.add(uid).catch(() => null);
@@ -302,10 +313,11 @@ async function createPauseRequest({ guild, userId, requesterMention, rawStart, r
     }
   }
   await thread.send({
-    content: `<:VC_Staff:1494286904089247754> Discussione per la richiesta pausa di ${requesterMention}. Il messaggio con i pulsanti è nel canale.`,
+    content: `<:VC_Staff:1494286904089247754> Discussione per la richiesta pausa di ${mention}. Il messaggio con i pulsanti è nel canale.`,
+    __skipNoticeEmbed: true,
   }).catch(() => null);
   if (warningBlock) {
-    await thread.send({ content: warningBlock.trim() }).catch(() => null);
+    await thread.send({ content: warningBlock.trim(), __skipNoticeEmbed: true }).catch(() => null);
   }
   createdPause.requestThreadId = String(thread.id ?? "").trim();
   stafferDoc.markModified("staff");
@@ -314,7 +326,10 @@ async function createPauseRequest({ guild, userId, requesterMention, rawStart, r
   } catch (err) {
     global.logger?.error?.("[createPauseRequest] save (threadId) failed", err);
   }
-  void maybeRepositionPauseSticky(pauseChannel, client).catch(() => null);
+  // Da site-api lo sticky lo ripubblica il gateway bots sul MESSAGE_CREATE (REST non è affidabile qui).
+  if (!isSiteApiProcess()) {
+    void maybeRepositionPauseSticky(pauseChannel, client).catch(() => null);
+  }
   return { ok: true, pauseId };
 }
 

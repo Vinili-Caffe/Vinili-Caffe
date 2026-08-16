@@ -4,6 +4,7 @@ const { handlePruneAction: antiNukeHandlePruneAction } = require("../Services/Mo
 const { resolveModLogChannel, formatResponsible, nowDiscordTs, } = require("../Utils/Logging/modAuditLogUtils");
 const IDs = require("../Utils/Config/ids");
 const { grantBestStaffPauseBonusYear } = require("../Utils/Pause/pauseHandlersUtils");
+const { isViniliFullFeatureGuild } = require("../MultiGuild/core/guildFeatureScope");
 const MEMBER_ROLE_UPDATE_ACTION = AuditLogEvent.MemberRoleUpdate ?? 25;
 
 function auditEntryChangeAddsRoleId(entry, roleId) {
@@ -37,6 +38,7 @@ module.exports = {
   async execute(entry, guild) {
     try {
       if (!entry || !guild) return;
+      if (!isViniliFullFeatureGuild(guild.id)) return;
 
       await maybeGrantBestStaffPauseBonusFromAudit(entry, guild);
 

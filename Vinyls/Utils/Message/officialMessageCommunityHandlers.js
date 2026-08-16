@@ -344,29 +344,72 @@ function normalizeMessageContentForWordMatch(content) {
 
 const WORD_MATCH_BOUNDARY = "[\\s\\p{P}\\p{S}\\p{Extended_Pictographic}]";
 
+function isLaughConfigWord(word) {
+  return ["lol", "haha", "ahah"].includes(String(word || "").trim().toLowerCase());
+}
+
+function isStretchedLolToken(token) {
+  const t = String(token || "").trim().toLowerCase();
+  if (t.length < 3 || t.length > 24 || !/^[lo]+$/u.test(t)) return false;
+  if (!/l/u.test(t) || !/o/u.test(t)) return false;
+  return /^(?:l+o+l+|lo+l+|l+ol+)$/u.test(t);
+}
+
+function isStretchedAhLaughToken(token) {
+  const t = String(token || "").trim().toLowerCase();
+  if (t.length < 4 || t.length > 40 || !/^[ah]+$/u.test(t)) return false;
+  if (!/a/u.test(t) || !/h/u.test(t)) return false;
+  return true;
+}
+
 function matchesStretchedLaughToken(token, word) {
   const w = String(word || "").trim().toLowerCase();
   const t = String(token || "").trim().toLowerCase();
   if (!w || !t || /\s/u.test(t)) return false;
   if (!/^[a-z]+$/u.test(t)) return false;
-  if (w === "lol") return t.length >= 3 && /^(?:l+o+l+|lo+l+)$/u.test(t);
-  if (w === "haha") return t.length >= 4 && /^(?:(?:ha)+|(?:haha)+)$/u.test(t);
-  if (w === "ahah") return t.length >= 4 && /^(?:(?:ah)+|(?:ahah)+)$/u.test(t);
+  if (w === "lol") return isStretchedLolToken(t);
+  if (w === "haha" || w === "ahah") return isStretchedAhLaughToken(t);
   return false;
+}
+
+function tokenizeForWordMatch(normalized) {
+  return String(normalized || "")
+    .split(/\s+/u)
+    .map((tok) => tok.replace(/^[\p{P}]+|[\p{P}]+$/gu, "").toLowerCase())
+    .filter(Boolean);
+}
+
+function matchesExactTokenWord(normalized, word) {
+  const w = String(word || "").trim().toLowerCase();
+  if (!w || w.includes(" ")) return false;
+  const tokens = tokenizeForWordMatch(normalized);
+  return tokens.some((tok) => {
+    if (tok === w) return true;
+    return matchesStretchedLaughToken(tok, w);
+  });
+}
+
+function shouldUseExactTokenWordMatch(word) {
+  const w = String(word || "").trim().toLowerCase();
+  if (!w || w.includes(" ")) return false;
+  if (isLaughConfigWord(w)) return false;
+  return w.length <= 4;
 }
 
 function containsWholeWord(haystack, word) {
   const w = String(word || "").trim().toLowerCase();
   if (!w) return false;
+  if (isLaughConfigWord(w)) {
+    return matchesExactTokenWord(haystack, w);
+  }
+  if (shouldUseExactTokenWordMatch(w)) {
+    return matchesExactTokenWord(haystack, w);
+  }
   const lastChar = w.slice(-1);
   const trailingRepeat = lastChar ? `${escapeRegex(lastChar)}*` : "";
   const pattern = new RegExp(`(?:^|${WORD_MATCH_BOUNDARY})(?:${escapeRegex(w)})${trailingRepeat}(?:${WORD_MATCH_BOUNDARY}|$)`, "iu");
   if (pattern.test(haystack)) return true;
-  if (!["lol", "haha", "ahah"].includes(w)) return false;
-  return String(haystack || "")
-    .split(/\s+/u)
-    .filter(Boolean)
-    .some((token) => matchesStretchedLaughToken(token, w));
+  return false;
 }
 
 function stripLeadingNoiseForGreeting(text) {
@@ -558,15 +601,35 @@ function getWordReactionsConfig() {
 }
 const COUNTING_CACHE_TTL_MS = 60_000;
 const countingConfigCache = new Map();
+/** Coda per-guild: evita race tra messaggi ravvicinati (stesso Count letto due volte). */
+const countingGuildQueues = new Map();
 
-async function getCountingConfig(guildId) {
+function withCountingGuildLock(guildId, work) {
+  const key = String(guildId || "") || "_";
+  const prev = countingGuildQueues.get(key) || Promise.resolve();
+  const run = prev.catch(() => null).then(() => work());
+  countingGuildQueues.set(
+    key,
+    run.then(
+      () => null,
+      () => null,
+    ),
+  );
+  return run;
+}
+
+async function getCountingConfig(guildId, { bypassCache = false } = {}) {
   if (mongoose.connection?.readyState !== 1) return null;
   const key = String(guildId || "");
   if (!key) return null;
   const now = Date.now();
-  const cached = countingConfigCache.get(key);
-  if (cached?.value && now < Number(cached.expiresAt || 0)) {
-    return cached.value;
+  if (!bypassCache) {
+    const cached = countingConfigCache.get(key);
+    if (cached?.value && now < Number(cached.expiresAt || 0)) {
+      return cached.value;
+    }
+  } else {
+    countingConfigCache.delete(key);
   }
   const doc = await getCountingConfigFromBucket(key).catch(() => null);
   countingConfigCache.set(key, {
@@ -633,10 +696,9 @@ async function handleAfk(message) {
       await member.setNickname(originalName).catch(() => { });
     }
     await clearAfk(guildId, userId);
-    const msg = await safeMessageReply(
-      message,
-      `Bentornato <@${userId}>, ho rimosso il tuo AFK.`,
-    );
+    const msg = await safeMessageReply(message, {
+      content: `Bentornato/a <@${userId}>, ho rimosso il tuo AFK.`,
+    });
     if (msg) scheduleMessageDeletion(msg, AFK_RETURN_TTL_MS);
   }
 
@@ -806,6 +868,7 @@ async function handleMentionAutoResponses(message) {
       const content = validation.text;
       const replyMsg = await safeMessageReply(message, {
         content,
+        __skipNoticeEmbed: true,
         allowedMentions: {
           parse: [],
           users: mentionerId ? [mentionerId] : [],
@@ -841,7 +904,8 @@ function messageMatchesWordReactionRule(message, rule, now = new Date(), options
   const loneWords = Array.isArray(rule.loneWords) ? rule.loneWords : [];
   const matchAtStart = rule.matchAtStart === true;
   const welcomeTerms = rule.onlyInWelcomeContext === true;
-  for (const w of words) {
+  const sortedWords = [...words].sort((a, b) => String(b || "").length - String(a || "").length);
+  for (const w of sortedWords) {
     const term = String(w || "").trim();
     if (!term) continue;
     if (matchAtStart) {
@@ -1291,8 +1355,12 @@ async function handleCounting(message, client) {
   const guildId =
     message?.guild?.id || message?.channel?.guild?.id || message?.guildId;
   if (!guildId) return;
+  return withCountingGuildLock(guildId, () => handleCountingLocked(message, client, guildId));
+}
 
-  const countdata = await getCountingConfig(guildId);
+async function handleCountingLocked(message, client, guildId) {
+  // Sempre fresco sotto lock: la cache condivisa faceva valutare 987 con Count ancora a 985.
+  const countdata = await getCountingConfig(guildId, { bypassCache: true });
   if (!countdata) return;
   const member = await resolveCountingMember(message);
   if (!member) return;
@@ -1313,14 +1381,15 @@ async function handleCounting(message, client) {
   const messageChannelId = message?.channel?.id;
   if (!messageChannelId) return;
   if (messageChannelId !== countchannel.id) return;
+  if (!COUNTING_ALLOWED_REGEX.test(message.content)) {
+    return message.delete().catch(() => { });
+  }
   try {
     const sendPerms = countchannel.permissionsFor?.(member);
+    // Deny SendMessages: non processare numeri, ma i non-numerici sono già stati cancellati sopra.
     if (sendPerms && !sendPerms.has(PermissionFlagsBits.SendMessages)) return;
   } catch {
     /* ignore */
-  }
-  if (!COUNTING_ALLOWED_REGEX.test(message.content)) {
-    return message.delete().catch(() => { });
   }
   const messageValue = evaluateCountingContent(message.content);
   if (messageValue === null) {
@@ -1334,32 +1403,20 @@ async function handleCounting(message, client) {
     return;
   }
   if (messageHasBotSuccessReaction(message)) return;
-  if (message.author.id === countdata.LastUser) {
-    const lostCount = countdata.Count;
+  const countNow = Math.floor(Number(countdata.Count || 0));
+  const expectedNext = countNow + 1;
+  // Confronti numerici: Count da bucket/legacy a volte arriva come stringa
+  // (`738 !== "738"`) e faceva partire "Hai sbagliato" sul numero corretto.
+  const isWrongNumber =
+    messageValue - 1 !== countNow ||
+    messageValue === countNow ||
+    messageValue > countNow + 1;
+  const isAlone = String(message.author.id) === String(countdata.LastUser || "").trim();
+  // Numero sbagliato prima di "da solo": se LastUser scrive 1 con count alto
+  // prima finiva nel ramo alone e saltava il ban giornaliero.
+  if (isWrongNumber) {
+    const lostCount = countNow;
     const lostLastUser = countdata.LastUser;
-    await sendCountingFailureReply(
-      message,
-      new EmbedBuilder()
-        .setDescription(
-          `<:cancel:1461730653677551691> Non puoi contare da solo! Counting perso a: **${lostCount}**! Riparti scrivendo **1**.`,
-        )
-        .setColor("#6f4e37"),
-      client,
-      { guildId, lostCount, lostLastUser },
-    );
-    countdata.Count = 0;
-    countdata.LastUser = " ";
-    message
-      .react("<:cancel:1461730653677551691>")
-      .catch((err) => logEventError(client, "COUNTING", err));
-  } else if (
-    messageValue - 1 !== countdata.Count ||
-    messageValue === countdata.Count ||
-    messageValue > countdata.Count + 1
-  ) {
-    const lostCount = countdata.Count;
-    const lostLastUser = countdata.LastUser;
-    const expectedNext = countdata.Count + 1;
     const banOutcome = await applyObviousWrongDayBan({
       member,
       channel: countchannel,
@@ -1381,11 +1438,30 @@ async function handleCounting(message, client) {
       { guildId, lostCount, lostLastUser },
     );
     countdata.Count = 0;
+    countdata.LastUser = " ";
+    message
+      .react("<:cancel:1461730653677551691>")
+      .catch((err) => logEventError(client, "COUNTING", err));
+  } else if (isAlone) {
+    const lostCount = countNow;
+    const lostLastUser = countdata.LastUser;
+    await sendCountingFailureReply(
+      message,
+      new EmbedBuilder()
+        .setDescription(
+          `<:cancel:1461730653677551691> Non puoi contare da solo! Counting perso a: **${lostCount}**! Riparti scrivendo **1**.`,
+        )
+        .setColor("#6f4e37"),
+      client,
+      { guildId, lostCount, lostLastUser },
+    );
+    countdata.Count = 0;
+    countdata.LastUser = " ";
     message
       .react("<:cancel:1461730653677551691>")
       .catch((err) => logEventError(client, "COUNTING", err));
   } else {
-    countdata.Count += 1;
+    countdata.Count = countNow + 1;
     countdata.LastUser = message.author.id;
     message
       .react(reaction)
@@ -1397,6 +1473,8 @@ async function handleCounting(message, client) {
 
 const COUNTING_CATCHUP_FETCH_LIMIT = 100;
 const COUNTING_SUCCESS_EMOJI_ID = "1461731530333229226";
+const COUNTING_CANCEL_EMOJI_ID = "1461730653677551691";
+let countingCatchUpInFlight = null;
 
 function messageHasBotCountingReaction(message) {
   return message.reactions.cache.some((r) => r.me === true);
@@ -1408,6 +1486,15 @@ function messageHasBotSuccessReaction(message) {
       r.me === true &&
       (String(r.emoji?.id || "") === COUNTING_SUCCESS_EMOJI_ID ||
         String(r.emoji?.name || "").toLowerCase() === "success"),
+  );
+}
+
+function messageHasBotCancelReaction(message) {
+  return message.reactions.cache.some(
+    (r) =>
+      r.me === true &&
+      (String(r.emoji?.id || "") === COUNTING_CANCEL_EMOJI_ID ||
+        String(r.emoji?.name || "").toLowerCase() === "cancel"),
   );
 }
 
@@ -1429,54 +1516,165 @@ async function resolveCountingTextChannelForSync(guild, client, channelId) {
   return null;
 }
 
+/**
+ * Catch-up soft: avanza solo la catena consecutiva valida.
+ * Mai reset/ban/reply di fallimento (un restart non deve far perdere il counting).
+ */
+async function softSyncCountingCatchUpForGuild(guild, client, countdata) {
+  const mainGuildId = IDs.guilds?.main || null;
+  const channelId = countdata.Channel || (guild.id === mainGuildId ? COUNTING_CHANNEL_ID : null);
+  const channel = await resolveCountingTextChannelForSync(guild, client, channelId);
+  if (!channel?.messages?.fetch) return { advanced: 0 };
+
+  let messages;
+  try {
+    messages = await channel.messages.fetch({ limit: COUNTING_CATCHUP_FETCH_LIMIT });
+  } catch (err) {
+    global.logger?.warn?.("[COUNTING] catch-up fetch failed:", guild.id, err?.message || err);
+    return { advanced: 0 };
+  }
+
+  invalidateCountingConfig(guild.id);
+  const fresh = (await getCountingConfig(guild.id)) || countdata;
+  let counterNow = Math.floor(Number(fresh.Count || 0));
+  let lastUser = String(fresh.LastUser || "").trim();
+  const successReaction = "<:success:1461731530333229226>";
+
+  const chronological = [...messages.values()]
+    .filter((m) => !m.author?.bot && COUNTING_ALLOWED_REGEX.test(m.content))
+    .sort((a, b) => a.createdTimestamp - b.createdTimestamp);
+
+  // Se il DB è stato resettato/avanti a torto, ancora all'ultimo successo pulito (no cancel).
+  // Race catch-up poteva lasciare success+cancel sullo stesso messaggio.
+  // Non ripristinare se dopo quel successo c'è già un fail (cancel): altrimenti un restart
+  // dopo "Counting perso" rimetteva il counter e il click su Ripristina toglieva il bottone.
+  let dirty = false;
+  let lastCleanSuccess = null;
+  for (let i = chronological.length - 1; i >= 0; i -= 1) {
+    const m = chronological[i];
+    if (!messageHasBotSuccessReaction(m)) continue;
+    if (messageHasBotCancelReaction(m)) continue;
+    const v = Math.floor(Number(evaluateCountingContent(m.content)));
+    if (!Number.isFinite(v)) continue;
+    lastCleanSuccess = {
+      value: v,
+      authorId: String(m.author?.id || "").trim(),
+      createdTimestamp: m.createdTimestamp,
+    };
+    break;
+  }
+  const hasFailAfterLastSuccess = lastCleanSuccess
+    ? chronological.some(
+        (m) =>
+          m.createdTimestamp > lastCleanSuccess.createdTimestamp &&
+          messageHasBotCancelReaction(m),
+      )
+    : false;
+  if (lastCleanSuccess && !hasFailAfterLastSuccess) {
+    const { value: v, authorId } = lastCleanSuccess;
+    if (v !== counterNow || authorId !== lastUser) {
+      counterNow = v;
+      lastUser = authorId || lastUser;
+      fresh.Count = counterNow;
+      fresh.LastUser = lastUser || " ";
+      dirty = true;
+      global.logger?.info?.(
+        `[COUNTING] catch-up guild ${guild.id}: ripristino da ultimo successo → ${counterNow}`,
+      );
+    }
+  } else if (lastCleanSuccess && hasFailAfterLastSuccess && counterNow === 0) {
+    global.logger?.info?.(
+      `[COUNTING] catch-up guild ${guild.id}: fail dopo ultimo successo → lascio counter a 0 (Ripristina)`,
+    );
+  }
+
+  // Pulisci success spurii su messaggi già marcati cancel.
+  for (const m of chronological) {
+    if (!messageHasBotCancelReaction(m) || !messageHasBotSuccessReaction(m)) continue;
+    const success = m.reactions.cache.find(
+      (r) =>
+        r.me === true &&
+        (String(r.emoji?.id || "") === COUNTING_SUCCESS_EMOJI_ID ||
+          String(r.emoji?.name || "").toLowerCase() === "success"),
+    );
+    if (success) {
+      await success.users.remove(client.user.id).catch(() => null);
+    }
+  }
+
+  const pending = chronological.filter((m) => {
+    if (messageHasBotCancelReaction(m)) return false;
+    if (messageHasBotSuccessReaction(m)) return false;
+    const v = Math.floor(Number(evaluateCountingContent(m.content)));
+    if (!Number.isFinite(v)) return false;
+    return v > counterNow;
+  });
+  if (!pending.length && !dirty) return { advanced: 0 };
+  if (pending.length) {
+    global.logger?.info?.(
+      `[COUNTING] catch-up guild ${guild.id}: ${pending.length} messaggio/i da allineare (counter DB: ${counterNow})`,
+    );
+  }
+
+  let advanced = 0;
+  for (const message of pending) {
+    const value = Math.floor(Number(evaluateCountingContent(message.content)));
+    if (!Number.isFinite(value)) break;
+    const authorId = String(message.author?.id || "");
+    if (value === counterNow && authorId && authorId === lastUser) {
+      if (!messageHasBotSuccessReaction(message)) {
+        await message.react(successReaction).catch((err) => logEventError(client, "COUNTING", err));
+      }
+      continue;
+    }
+    if (value !== counterNow + 1) break;
+    if (authorId && authorId === lastUser) break;
+
+    counterNow = value;
+    lastUser = authorId || lastUser;
+    fresh.Count = counterNow;
+    fresh.LastUser = lastUser || " ";
+    dirty = true;
+    advanced += 1;
+    if (!messageHasBotSuccessReaction(message)) {
+      await message.react(successReaction).catch((err) => logEventError(client, "COUNTING", err));
+    }
+  }
+
+  if (dirty) {
+    await fresh.save();
+    invalidateCountingConfig(guild.id);
+    global.logger?.info?.(
+      `[COUNTING] catch-up guild ${guild.id}: allineato a ${counterNow} (+${advanced})`,
+    );
+  }
+  return { advanced, counterNow };
+}
+
 async function processPendingCountingMessages(client) {
   if (!client?.user?.id) return;
   if (mongoose.connection?.readyState !== 1) return;
-  const mainGuildId = IDs.guilds?.main || null;
-  for (const guild of client.guilds.cache.values()) {
-    const countdata = await getCountingConfig(guild.id);
-    if (!countdata) continue;
-    const channelId = countdata.Channel || (guild.id === mainGuildId ? COUNTING_CHANNEL_ID : null);
-    const channel = await resolveCountingTextChannelForSync(guild, client, channelId);
-    if (!channel?.messages?.fetch) continue;
-    let messages;
+  if (countingCatchUpInFlight) return countingCatchUpInFlight;
+
+  countingCatchUpInFlight = (async () => {
     try {
-      messages = await channel.messages.fetch({ limit: COUNTING_CATCHUP_FETCH_LIMIT });
-    } catch (err) {
-      global.logger?.warn?.("[COUNTING] catch-up fetch failed:", guild.id, err?.message || err);
-      continue;
-    }
-    invalidateCountingConfig(guild.id);
-    const freshCountdata = (await getCountingConfig(guild.id)) || countdata;
-    const counterNow = Math.floor(Number(freshCountdata.Count || 0));
-    const lastSuccessTs = findLastBotSuccessTimestamp(messages);
-    const pending = [...messages.values()]
-      .filter((m) => {
-        if (m.author.bot) return false;
-        if (!COUNTING_ALLOWED_REGEX.test(m.content)) return false;
-        if (messageHasBotSuccessReaction(m)) return false;
-        if (m.createdTimestamp <= lastSuccessTs) return false;
-        const value = evaluateCountingContent(m.content);
-        if (value === null) return false;
-        const v = Math.floor(Number(value));
-        if (v <= counterNow) return false;
-        return true;
-      })
-      .sort((a, b) => a.createdTimestamp - b.createdTimestamp);
-    if (!pending.length) continue;
-    global.logger?.info?.(
-      `[COUNTING] catch-up guild ${guild.id}: ${pending.length} messaggio/i da processare (counter DB: ${counterNow})`,
-    );
-    for (const message of pending) {
-      try {
-        invalidateCountingConfig(guild.id);
-        await handleCounting(message, client);
-        invalidateCountingConfig(guild.id);
-      } catch (err) {
-        global.logger?.warn?.("[COUNTING] catch-up item failed:", message.id, err?.message || err);
+      for (const guild of client.guilds.cache.values()) {
+        try {
+          await withCountingGuildLock(guild.id, async () => {
+            const countdata = await getCountingConfig(guild.id, { bypassCache: true });
+            if (!countdata) return;
+            await softSyncCountingCatchUpForGuild(guild, client, countdata);
+          });
+        } catch (err) {
+          global.logger?.warn?.("[COUNTING] catch-up guild failed:", guild.id, err?.message || err);
+        }
       }
+    } finally {
+      countingCatchUpInFlight = null;
     }
-  }
+  })();
+
+  return countingCatchUpInFlight;
 }
 
-module.exports = { handleAfk, handleCounting, handleMentionAutoReactions, handleMentionAutoResponses, handleWordReactions, logEventError, processPendingCountingMessages, setWelcomeContextActive, activateWelcomeContextForGuild, refreshWelcomeContextForGuild, restoreWelcomeSessionsFromDb, ensureWelcomeContextHydratedForGreeting, isWelcomeContextActive, getWelcomeSessionId, getWelcomeJoinTargetUserId, getWelcomeSessionIdForChannel, normalizeWelcomeJoinTargetUserId, isValidWelcomeJoinTargetUserId, resolveWelcomeGreetingSessionId, resolveWelcomeGreetingSessionIdAsync, resolveWelcomeGreetingSessionIdWithRetry, isMessageInWelcomeExpChannel, matchesWelcomeGreetingMessage, matchesWelcomeGreetingForExp, matchesWelcomeGreetingExpMessage, maybePunishCountingOnDelete, maybePunishCountingOnEdit, maybePunishCountingOnBulkDelete, invalidateCountingConfig };
+module.exports = { handleAfk, handleCounting, handleMentionAutoReactions, handleMentionAutoResponses, handleWordReactions, logEventError, processPendingCountingMessages, setWelcomeContextActive, activateWelcomeContextForGuild, refreshWelcomeContextForGuild, restoreWelcomeSessionsFromDb, ensureWelcomeContextHydratedForGreeting, isWelcomeContextActive, getWelcomeSessionId, getWelcomeJoinTargetUserId, getWelcomeSessionIdForChannel, normalizeWelcomeJoinTargetUserId, isValidWelcomeJoinTargetUserId, resolveWelcomeGreetingSessionId, resolveWelcomeGreetingSessionIdAsync, resolveWelcomeGreetingSessionIdWithRetry, isMessageInWelcomeExpChannel, matchesWelcomeGreetingMessage, matchesWelcomeGreetingForExp, matchesWelcomeGreetingExpMessage, maybePunishCountingOnDelete, maybePunishCountingOnEdit, maybePunishCountingOnBulkDelete, invalidateCountingConfig, withCountingGuildLock };

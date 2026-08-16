@@ -290,15 +290,14 @@ module.exports = async function renderSkullboardCanvas({
   ctx.textBaseline = "top";
   const usernameSize = 16.5;
   const usernameWeight = "600";
-  drawTextWithSpecialFallback(ctx, displayUsername || "", contentX, headerY, {
+  drawTextWithSpecialFallback(ctx, cleanDisplayText(displayUsername || ""), contentX, headerY, {
     size: usernameSize,
     weight: usernameWeight,
     color: userColor,
-    forcePrimaryFont: true,
   });
 
   ctx.font = fontStack(usernameSize, usernameWeight);
-  const usernameWidth = ctx.measureText(displayUsername || "").width;
+  const usernameWidth = ctx.measureText(cleanDisplayText(displayUsername || "")).width;
   let cursorX = contentX + usernameWidth + usernameToIconGap;
   if (roleIconUrl) {
     const roleIcon = await safeLoadImage(roleIconUrl, { timeoutMs: 10000 });

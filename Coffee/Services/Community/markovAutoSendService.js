@@ -1,9 +1,9 @@
-const { getMarkovConfig, isMarkovEnabled, readGuildCorpus, readGuildImages, readGuildStickers, removeStickerFromGuildCorpus } = require("./markovMessageCollectorService");
+const { getMarkovConfig, isMarkovEnabled, readGuildCorpus, readGuildImages, readGuildStickers, removeStickerFromGuildCorpus, removeImageFromGuildCorpus } = require("./markovMessageCollectorService");
 const { isMarkovEligibleChannel, resolveMarkovOutputChannel, resolveMarkovOutputChannelId } = require("./markovChannelAccess");
 const { generateMarkovLines } = require("./markovGeneratorService");
-const { buildAllowedMentionsForText, pickRandomItem, clampMarkovOutput, resolveMarkovImageEmbed, resolveMarkovStickerEmbed } = require("./markovMediaUtils");
-const { maybeApplyCommandStyle, sanitizeCommandLikeText } = require("./markovCommandStyleService");
-const { isMarkovScamText, filterScamLines } = require("../../../shared/moderation/markovScamFilter");
+const { buildAllowedMentionsForText, pickRandomItem, clampMarkovOutput, resolveMarkovImageAttachment, resolveMarkovStickerEmbed } = require("./markovMediaUtils");
+const { maybeApplyCommandStyle, sanitizeCommandLikeText, looksLikeWrittenCommand } = require("./markovCommandStyleService");
+const { isMarkovUnsafeText, filterUnsafeMarkovLines } = require("../../../shared/moderation/markovTextSafety");
 
 const guildState = new Map();
 const markovMessageIdsByGuild = new Map();
@@ -75,8 +75,17 @@ function getMarkovReplyConfig(client) {
   const auto = markov.autoSend && typeof markov.autoSend === "object" ? markov.autoSend : {};
   const cooldownRaw = Number(auto.replyCooldownMs ?? 8000);
   const maxTrackedRaw = Number(auto.maxTrackedMessageIds ?? 500);
+  // Solo reply a messaggi Markov generati (default). `replyToBotMessage` = qualsiasi msg del bot (opt-in).
+  const replyToMarkovMessage =
+    auto.replyToMarkovMessage === true ||
+    (auto.replyToMarkovMessage !== false && auto.replyToBotMessage !== true);
+  const replyToBotMessage = auto.replyToBotMessage === true;
+  const replyToMention = auto.replyToMention === true;
   return {
-    enabled: auto.replyToMarkovMessage === true && markov.enabled !== false,
+    enabled: (replyToMarkovMessage || replyToBotMessage || replyToMention) && markov.enabled !== false,
+    replyToMarkovMessage,
+    replyToBotMessage,
+    replyToMention,
     cooldownMs: Number.isFinite(cooldownRaw) ? Math.max(0, cooldownRaw) : 8000,
     maxTrackedMessageIds: Number.isFinite(maxTrackedRaw) ? Math.max(50, maxTrackedRaw) : 500,
   };
@@ -149,13 +158,79 @@ function recordMarkovSentMessage(guildId, messageId, client) {
   }
 }
 
-function isMarkovReplyTarget(refMessage, guildId, client) {
+function isBotClientMessage(message, client) {
+  const botId = String(client?.user?.id || "").trim();
+  if (!botId) return false;
+  return String(message?.author?.id || "") === botId;
+}
+
+function messageMentionsClient(message, client) {
+  const botId = String(client?.user?.id || "").trim();
+  if (!botId) return false;
+  if (message?.mentions?.users?.has?.(botId)) return true;
+  const content = String(message?.content || "");
+  if (!content) return false;
+  return content.includes(`<@${botId}>`) || content.includes(`<@!${botId}>`);
+}
+
+/** Menzione esplicita nel testo (non solo il ping automatico della reply a Discord). */
+function messageMentionsClientInContent(message, client) {
+  const botId = String(client?.user?.id || "").trim();
+  if (!botId) return false;
+  const content = String(message?.content || "");
+  if (!content) return false;
+  return content.includes(`<@${botId}>`) || content.includes(`<@!${botId}>`);
+}
+
+/**
+ * True se la menzione del bot è un trigger valido.
+ * Una reply al bot con solo il ping automatico NON conta: altrimenti trascrizioni/embed
+ * non-Markov farebbero partire Markov a ogni "Rispondi".
+ */
+function isValidMentionTrigger(message, client, refMessage, replyCfg) {
+  if (!replyCfg?.replyToMention) return false;
+  if (!messageMentionsClient(message, client)) return false;
+  if (refMessage && isBotClientMessage(refMessage, client)) {
+    return messageMentionsClientInContent(message, client);
+  }
+  return true;
+}
+
+/** True se il messaggio è (o inizia con) un comando prefix tipo `+ship` / `,play`, anche dopo menzioni. */
+function isPrefixCommandMessage(message, client) {
+  let text = String(message?.content || "").trim();
+  if (!text) return false;
+  const botId = String(client?.user?.id || "").trim();
+  if (botId) {
+    text = text
+      .replace(new RegExp(`^(?:<@!?${botId}>\\s*)+`, "i"), "")
+      .trim();
+  }
+  text = text.replace(/^(?:<@!?\d{16,22}>\s*)+/g, "").trim();
+  if (!text) return false;
+  if (looksLikeWrittenCommand(text)) return true;
+  const coffeePrefix = String(client?.config?.prefix || ",").trim();
+  const vinylsPrefix = String(client?.config?.markov?.vinylsStylePrefix || "+").trim() || "+";
+  for (const prefix of [coffeePrefix, vinylsPrefix, "+", ",", ".", "/"]) {
+    if (!prefix) continue;
+    if (text.startsWith(prefix) && /^[a-zA-Z0-9_-]+/.test(text.slice(prefix.length))) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function isMarkovReplyTarget(refMessage, guildId, client, replyCfg = null) {
   if (!refMessage) return false;
-  if (String(refMessage.author?.id || "") !== String(client?.user?.id || "")) return false;
-  if (getReplyReferenceId(refMessage)) return false;
-  if (isTrackedMarkovMessage(guildId, refMessage.id)) return true;
-  const outputId = resolveMarkovOutputChannelId(client);
-  return Boolean(outputId && String(refMessage.channelId) === String(outputId));
+  if (!isBotClientMessage(refMessage, client)) return false;
+  const cfg = replyCfg || getMarkovReplyConfig(client);
+  // Opt-in esplicito: reply a qualsiasi messaggio del bot (giveaway, annunci, …).
+  if (cfg.replyToBotMessage) return true;
+  // Default: solo messaggi effettivamente generati da Markov (tracciati).
+  if (cfg.replyToMarkovMessage) {
+    return isTrackedMarkovMessage(guildId, refMessage.id);
+  }
+  return false;
 }
 
 async function resolveReferencedMessage(message) {
@@ -220,7 +295,7 @@ function buildAutoSendPayload(client, text, images, stickers, opts = {}) {
   const imageList = Array.isArray(images) ? images : [];
   const stickerList = Array.isArray(stickers) ? stickers : [];
   const trimmedText = String(text || "").trim();
-  if (trimmedText && isMarkovScamText(trimmedText)) return null;
+  if (trimmedText && isMarkovUnsafeText(trimmedText)) return null;
   const visual = pickVisualAttachment(imageList, stickerList, state, autoCfg);
   const imageUrl = visual?.kind === "image" ? visual.value : null;
   const stickerRef = visual?.kind === "sticker" ? visual.value : null;
@@ -230,6 +305,10 @@ function buildAutoSendPayload(client, text, images, stickers, opts = {}) {
 
   const payload = {
     allowedMentions: buildAllowedMentionsForText(trimmedText, markov),
+    // Testo markov non è un deny/ACL: non wrapparlo in notice embed.
+    __skipNoticeEmbed: true,
+    // Media markov = file/attachment, mai footer-only embed.
+    __skipDefaultEmbedFooter: true,
   };
   if (trimmedText) payload.content = trimmedText;
   if (imageUrl) payload.pendingImageUrl = imageUrl;
@@ -244,27 +323,77 @@ async function materializeMarkovPayload(payload, client) {
   const out = { ...payload };
   delete out.pendingImageUrl;
   delete out.pendingStickerRef;
+  out.__skipDefaultEmbedFooter = true;
+  out.__skipNoticeEmbed = true;
+
   if (pendingImageUrl) {
-    const imageEmbed = await resolveMarkovImageEmbed(pendingImageUrl);
-    if (imageEmbed) out.embeds = [imageEmbed];
-  }
-  if (pendingStickerRef) {
-    const stickerEmbed = await resolveMarkovStickerEmbed(client, pendingStickerRef);
-    if (stickerEmbed) {
-      out.embeds = [...(out.embeds || []), stickerEmbed];
+    const imageFile = await resolveMarkovImageAttachment(pendingImageUrl);
+    if (imageFile) {
+      out.files = [...(Array.isArray(out.files) ? out.files : []), imageFile];
     } else {
-      const stickerId = String(pendingStickerRef?.id || pendingStickerRef || "").trim();
-      if (stickerId) {
-        void removeStickerFromGuildCorpus(client, stickerId).catch(() => {});
+      void removeImageFromGuildCorpus(client, pendingImageUrl).catch(() => {});
+    }
+  }
+
+  if (pendingStickerRef) {
+    const stickerId = String(pendingStickerRef?.id || pendingStickerRef || "").trim();
+    // Preferisci sticker nativo Discord (no riquadro embed vuoto).
+    if (stickerId) {
+      out.stickers = [stickerId];
+      out.pendingStickerRef = normalizePendingStickerRef(pendingStickerRef);
+    } else {
+      const stickerEmbed = await resolveMarkovStickerEmbed(client, pendingStickerRef);
+      if (stickerEmbed?.image?.url) {
+        const stickerFile = await resolveMarkovImageAttachment(stickerEmbed.image.url);
+        if (stickerFile) {
+          out.files = [...(Array.isArray(out.files) ? out.files : []), stickerFile];
+        }
       }
     }
   }
+
+  // Mai lasciare embed media markov (CDN scaduti → box grigio + footer).
+  if (Array.isArray(out.embeds)) {
+    delete out.embeds;
+  }
+
+  if (!out.content && !out.files?.length && !out.stickers?.length) return null;
   return out;
+}
+
+function normalizePendingStickerRef(stickerRef) {
+  if (!stickerRef) return null;
+  if (typeof stickerRef === "string") {
+    const id = stickerRef.trim();
+    return /^\d{5,30}$/.test(id) ? { id, url: null } : null;
+  }
+  const id = String(stickerRef.id || "").trim();
+  if (!/^\d{5,30}$/.test(id)) return null;
+  return { id, url: String(stickerRef.url || "").trim() || null };
 }
 
 function isMarkovStickerSendError(err) {
   const message = String(err?.message || err || "").toLowerCase();
   return message.includes("cannot use this sticker") || message.includes("unknown sticker");
+}
+
+function isCannotReplyToMessageError(err) {
+  const code = err?.code ?? err?.rawError?.code;
+  if (code === 50035) {
+    const refErr = err?.rawError?.errors?.message_reference;
+    if (refErr && typeof refErr === "object") {
+      const flat = JSON.stringify(refErr);
+      if (/REPLIES_CANNOT_REPLY_TO_SYSTEM_MESSAGE|cannot reply to a system message/i.test(flat)) {
+        return true;
+      }
+    }
+  }
+  return /cannot reply to a system message/i.test(String(err?.message || err || ""));
+}
+
+function canReplyToDiscordMessage(message) {
+  if (!message || message.system === true) return false;
+  return typeof message.reply === "function";
 }
 
 async function sendMarkovPayload(channel, payload, client, sendFn) {
@@ -273,7 +402,7 @@ async function sendMarkovPayload(channel, payload, client, sendFn) {
       global.logger?.warn?.("[MARKOV] send failed:", err?.message || err);
       return null;
     }
-    const stickerId = String(payload?.pendingStickerRef?.id || "").trim();
+    const stickerId = String(payload?.pendingStickerRef?.id || payload?.stickers?.[0] || "").trim();
     if (stickerId) {
       void removeStickerFromGuildCorpus(client, stickerId).catch(() => {});
     }
@@ -281,10 +410,9 @@ async function sendMarkovPayload(channel, payload, client, sendFn) {
     delete retryPayload.pendingStickerRef;
     delete retryPayload.stickers;
     if (retryPayload.embeds?.length) {
-      retryPayload.embeds = retryPayload.embeds.filter((embed) => !embed?.image?.url);
-      if (!retryPayload.embeds.length) delete retryPayload.embeds;
+      delete retryPayload.embeds;
     }
-    if (!retryPayload.content && !retryPayload.embeds?.length && !retryPayload.files?.length) {
+    if (!retryPayload.content && !retryPayload.files?.length) {
       return null;
     }
     return sendFn(retryPayload).catch((retryErr) => {
@@ -293,6 +421,20 @@ async function sendMarkovPayload(channel, payload, client, sendFn) {
     });
   });
   return sent;
+}
+
+async function sendMarkovReplyOrFallback(message, payload, client) {
+  if (!canReplyToDiscordMessage(message)) {
+    return sendMarkovPayload(message.channel, payload, client, (p) => message.channel.send(p));
+  }
+  return sendMarkovPayload(message.channel, payload, client, async (p) => {
+    try {
+      return await message.reply(p);
+    } catch (err) {
+      if (!isCannotReplyToMessageError(err)) throw err;
+      return message.channel.send(p);
+    }
+  });
 }
 
 function getMarkovReadOpts(client) {
@@ -316,7 +458,7 @@ function hasEnoughMarkovCorpus(corpus, images, stickers, autoCfg, opts = {}) {
 }
 
 async function composeMarkovText(client, channel, corpus, autoCfg) {
-  const safeCorpus = filterScamLines(corpus);
+  const safeCorpus = filterUnsafeMarkovLines(corpus);
   if (!safeCorpus.length) return "";
   const outputLimits = { maxSymbols: autoCfg.maxSymbols, maxWords: autoCfg.maxWords };
   const maxAttempts = 8;
@@ -337,7 +479,7 @@ async function composeMarkovText(client, channel, corpus, autoCfg) {
       });
     }
     text = sanitizeCommandLikeText(client, text);
-    if (text && !isMarkovScamText(text)) return text;
+    if (text && !isMarkovUnsafeText(text)) return text;
   }
   return "";
 }
@@ -372,7 +514,7 @@ async function buildMarkovSendPayload(client, channel, opts = {}) {
 
 async function tryAutoSendMarkovMessage(message, client) {
   if (!message?.guild || !message.channel) return false;
-  if (message.author?.bot) return false;
+  if (message.system || message.author?.bot) return false;
   if (!isMarkovEnabled(client)) return false;
   const autoCfg = getAutoSendConfig(client);
   if (!autoCfg.enabled) return false;
@@ -404,7 +546,7 @@ async function tryAutoSendMarkovMessage(message, client) {
 
       recordMarkovSentMessage(guildId, sent.id, client);
       state.lastAutoSendAt = Date.now();
-      state.lastSendHadImage = Boolean(payload.embeds?.length || payload.files?.length);
+      state.lastSendHadImage = Boolean(payload.files?.length || payload.stickers?.length);
       resetGuildState(guildId, client);
       return true;
     } finally {
@@ -415,12 +557,28 @@ async function tryAutoSendMarkovMessage(message, client) {
 
 async function tryReplyToMarkovMessage(message, client) {
   if (!message?.guild || !message.channel) return false;
-  if (message.author?.bot) return false;
+  if (message.system || message.author?.bot) return false;
   if (!isMarkovEnabled(client)) return false;
   const replyCfg = getMarkovReplyConfig(client);
   if (!replyCfg.enabled) return false;
-  if (!getReplyReferenceId(message)) return false;
+  // Solo #chat (outputChannelId): menzioni/reply Markov non devono parlare fuori da lì.
+  if (!isAutoSendTriggerChannel(message, client)) return false;
   if (!isMarkovEligibleChannel(message.channel, message.guild, client.config || {}, client)) return false;
+  // Niente reply Markov su comandi (`+ship`, `,play`, ecc.), anche in reply/menzione al bot.
+  if (isPrefixCommandMessage(message, client)) return false;
+
+  const refId = getReplyReferenceId(message);
+  const refMessage = refId ? await resolveReferencedMessage(message) : null;
+
+  // Reply a un messaggio del bot: solo se è Markov tracciato (o replyToBotMessage).
+  // Il ping automatico della reply NON deve attivare replyToMention su trascrizioni/altro.
+  let isValidTrigger = false;
+  if (refMessage && isBotClientMessage(refMessage, client)) {
+    isValidTrigger = isMarkovReplyTarget(refMessage, String(message.guild.id), client, replyCfg);
+  } else {
+    isValidTrigger = isValidMentionTrigger(message, client, refMessage, replyCfg);
+  }
+  if (!isValidTrigger) return false;
 
   const guildId = String(message.guild.id);
   const state = getGuildState(guildId, client);
@@ -429,9 +587,6 @@ async function tryReplyToMarkovMessage(message, client) {
   const coolKey = `${guildId}:${message.author.id}`;
   const lastReplyAt = replyCooldownByUser.get(coolKey) || 0;
   if (replyCfg.cooldownMs > 0 && Date.now() - lastReplyAt < replyCfg.cooldownMs) return false;
-
-  const refMessage = await resolveReferencedMessage(message);
-  if (!isMarkovReplyTarget(refMessage, guildId, client)) return false;
 
   state.inFlight = true;
   try {
@@ -455,12 +610,12 @@ async function tryReplyToMarkovMessage(message, client) {
       failIfNotExists: false,
     };
 
-    const sent = await sendMarkovPayload(message.channel, replyPayload, client, (sendPayload) => message.reply(sendPayload));
+    const sent = await sendMarkovReplyOrFallback(message, replyPayload, client);
     if (!sent) return false;
 
     recordMarkovSentMessage(guildId, sent.id, client);
     replyCooldownByUser.set(coolKey, Date.now());
-    state.lastSendHadImage = Boolean(payload.embeds?.length || payload.files?.length);
+    state.lastSendHadImage = Boolean(payload.files?.length || payload.stickers?.length);
     return true;
   } finally {
     state.inFlight = false;
@@ -498,4 +653,6 @@ module.exports = {
   isTrackedMarkovMessage,
   recordMarkovSentMessage,
   isMarkovReplyTarget,
+  isBotClientMessage,
+  messageMentionsClient,
 };

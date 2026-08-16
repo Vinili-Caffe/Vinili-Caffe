@@ -169,7 +169,7 @@ async function getChannelSnapshotMapEmbedded(guildId, channelIds = []) {
 }
 
 async function skullboardFindOneLean(guildId, messageId) {
-  const gid = MAIN_GUILD_ID;
+  const gid = String(guildId || "").trim() || MAIN_GUILD_ID;
   const mid = String(messageId || "");
   if (!gid || !mid) return null;
   const doc = await GlobalSettings.findOne({ guildId: gid }).select("skullboardPosts").lean().catch(() => null);
@@ -178,7 +178,7 @@ async function skullboardFindOneLean(guildId, messageId) {
 }
 
 async function skullboardUpsert(guildId, messageId, postMessageId) {
-  const gid = MAIN_GUILD_ID;
+  const gid = String(guildId || "").trim() || MAIN_GUILD_ID;
   const mid = String(messageId || "");
   if (!gid || !mid) return null;
   const doc = await GlobalSettings.findOne({ guildId: gid }).select("skullboardPosts").lean().catch(() => null);

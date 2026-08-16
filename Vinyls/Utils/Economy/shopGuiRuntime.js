@@ -2,18 +2,15 @@ const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require("
 const { CURRENCY_CAFFE, CURRENCY_VINILI, formatCurrency } = require("../../Services/Community/serverWalletService");
 const { formatDuration } = require("../../Services/Community/activeEconomyService");
 const { getShopPanelState, purchaseShopItem } = require("../../Services/Community/serverShopService");
+const { createPersistedGuiSessionApi, SESSION_DB_TTL_MS } = require("../../Services/Community/economyGuiSessionStore");
 
 const PREFIX = "shop_gui";
-const SESSION_TTL_MS = 12 * 60 * 1000;
+const SESSION_TTL_MS = SESSION_DB_TTL_MS;
 const SHOP_COLOR = 0x6f4e37;
-const sessions = new Map();
+const { setSession, getSession, deleteSession } = createPersistedGuiSessionApi("shop", { ttlMs: SESSION_TTL_MS });
 
 function now() {
   return Date.now();
-}
-
-function sessionKey(messageId) {
-  return String(messageId || "").trim();
 }
 
 function makeSession({ ownerId, guildId, currency, panelState }) {
@@ -27,25 +24,6 @@ function makeSession({ ownerId, guildId, currency, panelState }) {
     createdAt: now(),
     updatedAt: now(),
   };
-}
-
-function setSession(messageId, session) {
-  sessions.set(sessionKey(messageId), { ...session, updatedAt: now() });
-}
-
-function getSession(messageId) {
-  const key = sessionKey(messageId);
-  const cached = sessions.get(key);
-  if (!cached) return null;
-  if (now() - Number(cached.updatedAt || cached.createdAt || 0) > SESSION_TTL_MS) {
-    sessions.delete(key);
-    return null;
-  }
-  return cached;
-}
-
-function deleteSession(messageId) {
-  sessions.delete(sessionKey(messageId));
 }
 
 function controlId(action, ownerId, extra = "") {

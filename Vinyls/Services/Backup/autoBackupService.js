@@ -1,7 +1,17 @@
 const fs = require("fs/promises");
 const path = require("path");
 const cron = require("node-cron");
-const { createGuildBackup, deleteGuildBackup, pruneGuildBackups, validateAndHealGuildBackups, } = require("./serverBackupService");
+const {
+  createGuildBackup,
+  deleteGuildBackup,
+  pruneGuildBackups,
+  validateAndHealGuildBackups,
+} = require("./serverBackupService");
+const {
+  getProtectedGuildIds,
+  isViniliProtectedGuild,
+} = require("../../MultiGuild/core/viniliProtectedGuilds");
+
 const MIN_BACKUP_GAP_MS = 50 * 60 * 1000;
 const MAX_MANUAL_BACKUPS = 50;
 const MAX_AUTOMATIC_BACKUPS = 1;
@@ -10,8 +20,19 @@ const MIN_MANUAL_BACKUPS_TO_KEEP = 8;
 const AUTO_BACKUP_TIMEZONE = "Europe/Rome";
 
 function getZonedParts(date = new Date(), timeZone = AUTO_BACKUP_TIMEZONE) {
-  const formatter = new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false, });
-  const parts = formatter.formatToParts(date).reduce((acc, part) => { if (part.type !== "literal") acc[part.type] = part.value; return acc; }, {});
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  const parts = formatter.formatToParts(date).reduce((acc, part) => {
+    if (part.type !== "literal") acc[part.type] = part.value;
+    return acc;
+  }, {});
   return {
     year: Number(parts.year || 0),
     month: Number(parts.month || 0),
@@ -29,16 +50,26 @@ function getZonedDayKey(date = new Date(), timeZone = AUTO_BACKUP_TIMEZONE) {
   return `${y}-${m}-${d}`;
 }
 
+/** Solo main / test / sponsor — mai i tenant MultiGuild. */
+function listAutoBackupGuildIds(client) {
+  const protectedIds = getProtectedGuildIds().filter((id) => isViniliProtectedGuild(id));
+  if (protectedIds.length) return protectedIds;
+  const main = String(client?.config?.mainGuildId || "").trim();
+  return /^\d{16,20}$/.test(main) ? [main] : [];
+}
+
+async function resolveAutoBackupGuilds(client) {
+  const out = [];
+  for (const guildId of listAutoBackupGuildIds(client)) {
+    const guild =
+      client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
+    if (guild) out.push(guild);
+  }
+  return out;
+}
+
 function getMarkerPath(guildId) {
-  return path.join(
-    __dirname,
-    "..",
-    "..",
-    "Data",
-    "Backups",
-    String(guildId),
-    "__auto_latest.json",
-  );
+  return path.join(__dirname, "..", "..", "Data", "Backups", String(guildId), "__auto_latest.json");
 }
 
 async function readMarker(guildId) {
@@ -60,6 +91,8 @@ async function writeMarker(guildId, payload) {
 }
 
 async function runGuildAutoBackup(guild) {
+  if (!guild?.id || !isViniliProtectedGuild(guild.id)) return null;
+
   const now = new Date();
   const currentDayKey = getZonedDayKey(now);
   const marker = await readMarker(guild.id);
@@ -99,22 +132,44 @@ async function runGuildAutoBackup(guild) {
 }
 
 function startAutoBackupLoop(client) {
+  const dedicated = String(process.env.AUTO_BACKUP_WORKER || "").trim() === "1";
+  const external = String(process.env.AUTO_BACKUP_EXTERNAL || "").trim() === "1";
+  if (external && !dedicated) {
+    return;
+  }
   if (client._autoBackupLoopStarted) return;
   client._autoBackupLoopStarted = true;
 
-  const runTick = async () => { for (const guild of client.guilds.cache.values()) { try { await validateAndHealGuildBackups(guild.id, { limit: 20 }).catch(() => null); const result = await runGuildAutoBackup(guild); void result; } catch (error) { global.logger?.error?.("[backup.auto] failed:", error); } } };
+  const targets = listAutoBackupGuildIds(client);
+  global.logger?.info?.(
+    `[backup.auto] loop avviato — solo guild protette (${targets.length}): ${targets.join(", ") || "(nessuna)"}`,
+  );
 
-  runTick().catch(() => { });
+  const runTick = async () => {
+    const guilds = await resolveAutoBackupGuilds(client);
+    for (const guild of guilds) {
+      try {
+        await validateAndHealGuildBackups(guild.id, { limit: 20 }).catch(() => null);
+        await runGuildAutoBackup(guild);
+      } catch (error) {
+        global.logger?.error?.(`[backup.auto] failed guild=${guild.id}:`, error);
+      }
+    }
+  };
+
+  runTick().catch(() => {});
 
   client._autoBackupCron = cron.schedule(
     "0 0 * * *",
     () => {
-      void runTick().catch(() => { });
+      void runTick().catch(() => {});
     },
-    {
-      timezone: AUTO_BACKUP_TIMEZONE,
-    },
+    { timezone: AUTO_BACKUP_TIMEZONE },
   );
 }
 
-module.exports = { startAutoBackupLoop };
+module.exports = {
+  startAutoBackupLoop,
+  listAutoBackupGuildIds,
+  isViniliProtectedGuild,
+};

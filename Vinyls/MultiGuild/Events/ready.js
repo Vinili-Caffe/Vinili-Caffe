@@ -7,6 +7,9 @@ const {
   refreshDynamicGuildRowsCache,
 } = require("../core/tenantRegistryStore");
 const { refreshTenantGuildSettingsCache } = require("../core/tenantGuildSettings");
+const { refreshPartnershipConfigCache } = require("../core/tenantPartnershipSettings");
+const { refreshTicketConfigCache } = require("../core/tenantTicketSettings");
+const { leaveAllBlacklistedGuilds } = require("../../Services/Moderation/botUsageBlacklistService");
 
 module.exports = {
   name: "ready",
@@ -22,10 +25,31 @@ module.exports = {
         return;
       }
     }
-    await refreshDynamicGuildRowsCache();
-    await refreshTenantGuildSettingsCache();
+    await Promise.all([
+      refreshDynamicGuildRowsCache(),
+      refreshTenantGuildSettingsCache(),
+      refreshPartnershipConfigCache().catch(() => null),
+      refreshTicketConfigCache().catch(() => null),
+    ]);
+    if (!client.__tenantSettingsCacheRefreshTimer) {
+      client.__tenantSettingsCacheRefreshTimer = setInterval(() => {
+        refreshTenantGuildSettingsCache().catch(() => null);
+        refreshPartnershipConfigCache().catch(() => null);
+        refreshTicketConfigCache().catch(() => null);
+      }, 10_000);
+      client.__tenantSettingsCacheRefreshTimer.unref?.();
+    }
     if (autoRegisterGuildsOnJoin()) {
       await bootstrapTenantRegistryFromClient(client);
+    }
+    const leaveSweep = await leaveAllBlacklistedGuilds(client).catch((err) => {
+      global.logger?.warn?.("[MultiGuild] blacklist leave sweep:", err?.message || err);
+      return null;
+    });
+    if (leaveSweep?.left?.length) {
+      global.logger?.info?.(
+        `[MultiGuild] leave blacklist all’avvio: ${leaveSweep.left.length} server`,
+      );
     }
     const protectedIds = getProtectedGuildIds();
     const tenantIds = listTenantGuildIds();
@@ -33,5 +57,21 @@ module.exports = {
       `[MultiGuild] attivo — protette (main/test/sponsor): ${protectedIds.length} | tenant registry: ${tenantIds.length}`,
     );
     client._multiGuildReadyAt = Date.now();
+
+    // Kick/depex persi mentre offline: recovery immediato al reconnect gateway.
+    // Il loop periodico vive su bot-scheduler (REST); qui solo un tick throttled.
+    setTimeout(() => {
+      try {
+        const { runTenantOfflineRecoveryTick } = require("../../Services/Partner/tenantOfflineRecoveryService");
+        void runTenantOfflineRecoveryTick(client, {
+          minIntervalMs: 60_000,
+          force: false,
+        }).catch((err) => {
+          global.logger?.warn?.("[MultiGuild] tenant offline recovery:", err?.message || err);
+        });
+      } catch (err) {
+        global.logger?.warn?.("[MultiGuild] tenant offline recovery load:", err?.message || err);
+      }
+    }, 15_000).unref?.();
   },
 };

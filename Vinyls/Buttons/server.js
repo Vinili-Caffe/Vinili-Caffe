@@ -1,6 +1,7 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder, MessageFlags, EmbedBuilder } = require("discord.js");
 const { getServerOverviewStats } = require("../Services/Community/activityService");
-const { renderServerActivityCanvas } = require("../Utils/Render/activityCanvas");
+const { renderServerActivityCanvas, prefetchStatsCanvasAvatar } = require("../Utils/Render/activityCanvas");
+const { getOrBuildStatsCanvasBuffer } = require("../Utils/Stats/statsCanvasCache");
 const { guildIconUrl } = require("../Utils/Discord/guildDiscordIdentity");
 const { resolveTopChannelEntries, resolveTopUserEntriesForCanvas } = require("../Prefix/Stats/top");
 const SERVER_REFRESH_CUSTOM_ID_PREFIX = "server_refresh";
@@ -144,19 +145,31 @@ async function execute(interaction) {
 
 async function buildServerOverviewPayload(guild, lookbackDays, authorId) {
   const safeLookback = normalizeLookback(lookbackDays);
-  let stats = null;
-  try {
-    stats = await withServerTimeout(getServerOverviewStats(guild.id, safeLookback, 3), "getServerOverviewStats", SERVER_STATS_TIMEOUT_MS);
-  } catch (err) {
-    global.logger?.error?.("[Buttons/server] stats timeout/failure", err?.stack || err?.message || err);
-    return buildServerFallbackPayload({ guild, safeLookback, authorId, reason: err });
-  }
-  const guildName = guild.name || "Server";
   let guildIconUrlResolved = null;
   if (guild?.icon && typeof guild.iconURL === "function") {
     guildIconUrlResolved = guild.iconURL({ size: 512, extension: "png", forceStatic: true });
   }
   if (!guildIconUrlResolved) guildIconUrlResolved = guildIconUrl(guild, { size: 512 });
+
+  let stats = null;
+  let guildIconPrefetch = null;
+  try {
+    const bundle = await withServerTimeout(
+      Promise.all([
+        getServerOverviewStats(guild.id, safeLookback, 3),
+        guildIconUrlResolved ? prefetchStatsCanvasAvatar(guildIconUrlResolved) : Promise.resolve(null),
+      ]),
+      "getServerOverviewStats",
+      SERVER_STATS_TIMEOUT_MS,
+    );
+    stats = bundle[0];
+    guildIconPrefetch = bundle[1];
+  } catch (err) {
+    global.logger?.error?.("[Buttons/server] stats timeout/failure", err?.stack || err?.message || err);
+    return buildServerFallbackPayload({ guild, safeLookback, authorId, reason: err });
+  }
+
+  const guildName = guild.name || "Server";
   const createdOn = guild.createdAt ?? new Date(0);
   const me = guild.members?.me;
   const invitedBotOn = (me?.joinedAt && me.joinedAt instanceof Date) ? me.joinedAt : (me?.joinedTimestamp ? new Date(me.joinedTimestamp) : createdOn);
@@ -178,20 +191,23 @@ async function buildServerOverviewPayload(guild, lookbackDays, authorId) {
   let buffer = null;
   try {
     buffer = await withServerTimeout(
-      renderServerActivityCanvas({
-        guildName,
-        guildIconUrl: guildIconUrlResolved,
-        createdOn,
-        invitedBotOn,
-        lookbackDays: safeLookback,
-        windows: stats.windows,
-        topUsersText,
-        topUsersVoice,
-        topChannelsText,
-        topChannelsVoice,
-        chart: stats.chart,
-        forceStatic: !SERVER_CANVAS_GIF,
-      }),
+      getOrBuildStatsCanvasBuffer(`server:${guild.id}:${safeLookback}`, () =>
+        renderServerActivityCanvas({
+          guildName,
+          guildIconUrl: guildIconUrlResolved,
+          guildIconPrefetch,
+          createdOn,
+          invitedBotOn,
+          lookbackDays: safeLookback,
+          windows: stats.windows,
+          topUsersText,
+          topUsersVoice,
+          topChannelsText,
+          topChannelsVoice,
+          chart: stats.chart,
+          forceStatic: !SERVER_CANVAS_GIF,
+        }),
+      ),
       "renderServerActivityCanvas",
       SERVER_RENDER_TIMEOUT_MS,
     );

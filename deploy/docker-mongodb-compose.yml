@@ -11,8 +11,17 @@ services:
     ports:
       - "127.0.0.1:27017:27017"
     volumes:
-      - mongodb_data:/data/db
-    command: ["mongod", "--bind_ip_all"]
+      # Volume storico del bot (NON deploy_mongodb_data creato per errore dal compose project).
+      - vc_mongodb_data:/data/db
+    # 640m era troppo stretto: WiredTiger + connessioni bot → OOM thrash / timeout.
+    mem_limit: 1024m
+    memswap_limit: 1280m
+    command:
+      - mongod
+      - --bind_ip_all
+      - --wiredTigerCacheSizeGB
+      - "0.4"
 
 volumes:
-  mongodb_data:
+  vc_mongodb_data:
+    external: true

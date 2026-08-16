@@ -6,7 +6,7 @@
     <title>Privacy Policy | {{SITE_NAME}}</title>
     <meta name="description" content="Informativa sulla privacy per il sito e la community {{SITE_NAME}}." />
     <meta name="robots" content="index, follow" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="{{OG_SITE_NAME}}" />
     <meta property="og:locale" content="it_IT" />
@@ -63,7 +63,7 @@
             <details class="vc-snav-details">
               <summary class="vc-snav-summary"><span>Richieste</span><i class="fa fa-chevron-down vc-snav-chev text-[0.65rem] opacity-80" aria-hidden="true"></i></summary>
               <div class="vc-snav-panel">
-                <a class="vc-snav-row" href="{{RICHIESTE_UNBAN_URL}}"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-unlock"></i></span><span>Unban</span></a>
+                <a class="vc-snav-row" href="{{RICHIESTE_UNBAN_URL}}"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-balance-scale"></i></span><span data-i18n="nav.appeals">Appelli</span></a>
                 <a class="vc-snav-row" href="{{RICHIESTE_CANDIDATURE_URL}}"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-file-text-o"></i></span><span>Candidature</span></a>
                 <a class="vc-snav-row" href="{{RICHIESTE_SUGGERIMENTI_URL}}"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-lightbulb-o"></i></span><span>Suggerimenti</span></a>
               </div>
@@ -112,219 +112,226 @@
 
     <main class="vc-legal-main relative z-10 mx-auto max-w-5xl px-4 pb-16 pt-28 sm:pt-32">
       <section class="vc-legal-hero text-center">
-        <h1 class="vc-legal-hero__title">Privacy Policy</h1>
-        <p class="vc-legal-hero__meta">Ultimo aggiornamento: {{LEGAL_PRIVACY_UPDATED}}</p>
+        <h1 class="vc-legal-hero__title" data-i18n="legal.privacy.h1">Privacy Policy</h1>
+        <p class="vc-legal-hero__meta"><span data-i18n="legal.privacy.updated">Ultimo aggiornamento:</span> <span>{{LEGAL_PRIVACY_UPDATED}}</span></p>
       </section>
 
       <section class="vc-legal-stack" aria-label="Sezioni Privacy Policy">
         <article class="vc-legal-card vc-legal-card--blue">
           <div class="vc-legal-card__head">
             <span class="vc-legal-card__icon" aria-hidden="true"><i class="fa fa-shield"></i></span>
-            <h2 class="vc-legal-card__title">Introduzione</h2>
+            <h2 class="vc-legal-card__title" data-i18n="legal.privacy.s1.title">Introduzione</h2>
           </div>
-          <p>
-            Questa Privacy Policy descrive come <strong>{{SITE_NAME}}</strong> raccoglie, utilizza e protegge i dati personali relativi al sito web, alle funzionalità collegate al login Discord e ai servizi della community associati al Server.
-          </p>
-          <p>
-            Il trattamento avviene nel rispetto del GDPR, della normativa italiana applicabile e delle policy dei servizi terzi utilizzati, come Discord.
-          </p>
+          <div data-i18n-html="legal.privacy.s1.body">
+          <p>Questa Privacy Policy descrive come <strong>{{SITE_NAME}}</strong> raccoglie, utilizza e protegge i dati personali relativi al sito web, ai bot Discord (incluso Vinili e servizi collegati come Caffè), alla dashboard di configurazione e ai servizi della community, anche su server Discord di terzi dove il bot è stato invitato.</p>
+          <p>Il trattamento avviene nel rispetto del GDPR, della normativa italiana applicabile e delle policy dei servizi terzi utilizzati (in particolare Discord).</p>
+          </div>
         </article>
 
         <article class="vc-legal-card vc-legal-card--purple">
           <div class="vc-legal-card__head">
             <span class="vc-legal-card__icon" aria-hidden="true"><i class="fa fa-search"></i></span>
-            <h2 class="vc-legal-card__title">Dati raccolti</h2>
+            <h2 class="vc-legal-card__title" data-i18n="legal.privacy.s2.title">Dati raccolti</h2>
           </div>
-          <p class="vc-legal-card__label">Dati forniti tramite Discord OAuth</p>
+          <div data-i18n-html="legal.privacy.s2.body">
+          <p class="vc-legal-card__label">Dati forniti tramite Discord OAuth (sito)</p>
           <ul class="vc-legal-list">
-            <li>ID Discord univoco.</li>
-            <li>Username, nome visualizzato e avatar.</li>
-            <li>Informazioni minime necessarie alla sessione autenticata sul sito.</li>
+          <li>ID Discord, username, nome visualizzato e avatar (scope <code>identify</code>).</li>
+          <li>Elenco dei server Discord in cui hai permessi di amministrazione/gestione, quando usi la dashboard (scope aggiuntivo <code>guilds</code>).</li>
+          <li>Token OAuth e dati di sessione necessari al login sul sito.</li>
           </ul>
-          <p class="vc-legal-card__label">Dati di utilizzo dei servizi del sito e della community</p>
+          <p class="vc-legal-card__label">Dati trattati sul sito web</p>
           <ul class="vc-legal-list">
-            <li>Preferenze profilo e impostazioni della rank card, quando usi le relative pagine.</li>
-            <li>Statistiche legate a livelli, esperienza, voto, classifiche e attività mostrate nelle pagine utente.</li>
-            <li>Contenuti inviati volontariamente tramite recensioni, candidature, richieste unban, ticket o moduli di contatto.</li>
-            <li>Ruoli e dati necessari a mostrare servizi community come ruoli, leaderboard, notifiche o profilo.</li>
+          <li>Ticket di supporto live sul sito (oggetto, categoria, messaggi, immagini, reazioni, stato e chiusura).</li>
+          <li>Suggerimenti, recensioni, feedback bot e contenuti inviati volontariamente.</li>
+          <li>Dati operativi delle aree riservate (dashboard/staff) per utenti autorizzati.</li>
           </ul>
-          <p class="vc-legal-card__label">Dati tecnici automatici</p>
+          <p class="vc-legal-card__label">Dati trattati dai bot e dalla community Discord</p>
           <ul class="vc-legal-list">
-            <li>Dati di sessione e autenticazione necessari al funzionamento del login.</li>
-            <li>Token OAuth Discord salvato localmente nel browser per mantenere la sessione del sito fino a 90 giorni o fino al logout.</li>
-            <li>Browser, dispositivo, data e ora di accesso e pagine richieste.</li>
-            <li>Cookie tecnici e token tecnici locali per prevenzione abusi e diagnostica.</li>
+          <li>Messaggi, comandi, reazioni e metadati necessari a funzioni come livelli/EXP, ticket Discord, moderazione, minigiochi, eventi, quote/repost/clip e classifiche.</li>
+          <li>Dati partnership, preferenze vocali (TTS/clip/trascrizioni) e dati di voto da piattaforme esterne.</li>
           </ul>
+          <p class="vc-legal-card__label">Trascrizioni vocali e strumenti automatici</p>
+          <ul class="vc-legal-list">
+          <li><strong>Trascrizioni</strong>: l’audio può essere inviato a provider speech-to-text (es. Whisper) solo per ottenere il testo. Non usiamo chatbot IA generativa.</li>
+          <li><strong>Markov</strong>: corpus statistico da messaggi pubblici; non è un LLM e non decide sanzioni.</li>
+          </ul>
+          <p class="vc-legal-card__label">Dati tecnici e memorizzazione locale</p>
+          <ul class="vc-legal-list">
+          <li>Token e cache OAuth, preferenza lingua, conferma banner cookie e altre chiavi tecniche nel <em>localStorage</em> del browser.</li>
+          <li>Log tecnici, indirizzi IP e diagnostica nei limiti necessari a sicurezza e affidabilità.</li>
+          </ul>
+          </div>
         </article>
 
         <article class="vc-legal-card vc-legal-card--green">
           <div class="vc-legal-card__head">
             <span class="vc-legal-card__icon" aria-hidden="true"><i class="fa fa-cogs"></i></span>
-            <h2 class="vc-legal-card__title">Utilizzo dei dati</h2>
+            <h2 class="vc-legal-card__title" data-i18n="legal.privacy.s3.title">Utilizzo dei dati</h2>
           </div>
+          <div data-i18n-html="legal.privacy.s3.body">
           <p>Utilizziamo i tuoi dati personali per:</p>
           <ul class="vc-legal-list">
-            <li>Autenticare e gestire il tuo account sul sito.</li>
-            <li>Fornire servizi come profilo, leaderboard, voto, ruoli, recensioni, candidature, notifiche e pagine collegate.</li>
-            <li>Personalizzare la tua esperienza utente e mostrare dati del tuo account Discord dove necessario.</li>
-            <li>Prevenire frodi, abuso di sistemi, automazioni non autorizzate e comportamenti malevoli.</li>
-            <li>Proteggere il sito, il bot, il server e la community.</li>
-            <li>Adempiere a obblighi legali e gestire richieste di supporto o moderazione.</li>
-            <li>Migliorare stabilità, sicurezza e qualità dei servizi offerti.</li>
+          <li>Autenticare e gestire l’accesso al sito, alla dashboard e alle aree staff autorizzate.</li>
+          <li>Fornire funzioni di community e bot (profilo, livelli, musica, TTS/voice, partnership, ticket Discord e ticket live sul sito, moderazione, eventi, voto).</li>
+          <li>Gestire suggerimenti, recensioni, feedback bot, candidature e richieste di supporto inviate dal sito.</li>
+          <li>Configurare il bot su server Discord gestiti da amministratori autorizzati.</li>
+          <li>Prevenire frodi, abusi, automazioni non autorizzate e comportamenti malevoli.</li>
+          <li>Proteggere sito, bot, infrastruttura e community.</li>
+          <li>Adempiere a obblighi legali e gestire richieste di supporto, moderazione o GDPR.</li>
+          <li>Migliorare stabilità, sicurezza e qualità dei servizi.</li>
           </ul>
+          </div>
         </article>
 
         <article class="vc-legal-card vc-legal-card--gold">
           <div class="vc-legal-card__head">
             <span class="vc-legal-card__icon" aria-hidden="true"><i class="fa fa-balance-scale"></i></span>
-            <h2 class="vc-legal-card__title">Base giuridica (GDPR)</h2>
+            <h2 class="vc-legal-card__title" data-i18n="legal.privacy.s4.title">Base giuridica (GDPR)</h2>
           </div>
+          <div data-i18n-html="legal.privacy.s4.body">
           <p>Il trattamento dei dati si basa su:</p>
           <ul class="vc-legal-list">
-            <li><strong>Esecuzione del servizio</strong> per login, gestione account e funzioni richieste dall&apos;utente.</li>
-            <li><strong>Legittimo interesse</strong> per protezione della community, prevenzione abusi, sicurezza e moderazione.</li>
-            <li><strong>Obbligo legale</strong> quando necessario per adempiere a richieste o obblighi normativi.</li>
-            <li><strong>Consenso</strong> dove richiesto, ad esempio per cookie non essenziali o funzionalità opzionali specifiche.</li>
+          <li>
+          <strong>Esecuzione del servizio</strong> per login, gestione account e funzioni richieste dall'utente.</li>
+          <li>
+          <strong>Legittimo interesse</strong> per protezione della community, prevenzione abusi, sicurezza e moderazione.</li>
+          <li>
+          <strong>Obbligo legale</strong> quando necessario per adempiere a richieste o obblighi normativi.</li>
+          <li>
+          <strong>Consenso</strong> dove richiesto, ad esempio per cookie non essenziali o funzionalità opzionali specifiche.</li>
           </ul>
+          </div>
         </article>
 
         <article class="vc-legal-card vc-legal-card--indigo">
           <div class="vc-legal-card__head">
             <span class="vc-legal-card__icon" aria-hidden="true"><i class="fa fa-share-alt"></i></span>
-            <h2 class="vc-legal-card__title">Condivisione dei dati</h2>
+            <h2 class="vc-legal-card__title" data-i18n="legal.privacy.s5.title">Condivisione dei dati</h2>
           </div>
+          <div data-i18n-html="legal.privacy.s5.body">
           <p>I tuoi dati non vengono venduti. Possono essere condivisi solo con soggetti strettamente necessari al servizio, come:</p>
           <ul class="vc-legal-list">
-            <li>Discord Inc., per autenticazione OAuth e funzioni collegate alla piattaforma.</li>
-            <li>Fornitori di hosting, infrastruttura e servizi tecnici che mantengono online sito, bot o database.</li>
-            <li>Servizi esterni collegati, come piattaforme di voto o provider email, quando richiesto da una funzione che usi volontariamente.</li>
-            <li>Autorità competenti, se richiesto dalla legge o per tutelare la sicurezza del servizio.</li>
+          <li>Discord Inc., per OAuth, hosting del server e API della piattaforma.</li>
+          <li>Fornitori di hosting, database e infrastruttura che mantengono online sito e bot.</li>
+          <li>Piattaforme di voto/listing (es. top.gg, Discadia) quando usi o ricevi funzioni di voto.</li>
+          <li>Provider tecnici di trascrizione vocale (speech-to-text), solo se usi clip/trascrizione.</li>
+          <li>Staff autorizzato, per ticket live sul sito, suggerimenti, moderazione e strumenti operativi.</li>
+          <li>Amministratori del server Discord in cui sei membro, per dati necessari al funzionamento di quel server.</li>
+          <li>Autorità competenti, se richiesto dalla legge o per tutelare la sicurezza del servizio.</li>
           </ul>
-          <p>
-            Non condividiamo dati con inserzionisti o società di marketing per finalità commerciali autonome.
-          </p>
+          <p>Non condividiamo dati con inserzionisti. Non addestriamo modelli di IA generativa di terzi con i tuoi contenuti.</p>
+          </div>
         </article>
 
         <article class="vc-legal-card vc-legal-card--gold">
           <div class="vc-legal-card__head">
             <span class="vc-legal-card__icon" aria-hidden="true"><i class="fa fa-circle-o-notch"></i></span>
-            <h2 class="vc-legal-card__title">Cookie</h2>
+            <h2 class="vc-legal-card__title" data-i18n="legal.privacy.s6.title">Cookie</h2>
           </div>
-          <p>Usiamo cookie e tecnologie simili principalmente per:</p>
+          <div data-i18n-html="legal.privacy.s6.body">
+          <p>Usiamo cookie e tecnologie simili (incluso <em>localStorage</em>) principalmente per:</p>
           <ul class="vc-legal-list">
-            <li>Mantenere la sessione di login e l&apos;autenticazione Discord tramite dati tecnici locali salvati fino a 90 giorni.</li>
-            <li>Proteggere il sito tramite token di sicurezza e controlli tecnici.</li>
-            <li>Ricordare scelte relative al consenso cookie, dove il banner è attivo.</li>
-            <li>Garantire il corretto funzionamento tecnico delle pagine.</li>
+          <li>Mantenere la sessione di login Discord (fino a 90 giorni o fino al logout).</li>
+          <li>Ricordare lingua, preferenze UI e conferma del banner cookie.</li>
+          <li>Proteggere il sito con controlli anti-abuso e token tecnici.</li>
+          <li>Far funzionare correttamente pagine e aree riservate.</li>
           </ul>
-          <p>
-            Per maggiori dettagli consulta la nostra <a href="{{COOKIE_POLICY_URL}}">Cookie Policy</a>.
-          </p>
+          <p>Per l’elenco dettagliato consulta la Cookie Policy.</p>
+          </div>
         </article>
 
         <article class="vc-legal-card vc-legal-card--green">
           <div class="vc-legal-card__head">
             <span class="vc-legal-card__icon" aria-hidden="true"><i class="fa fa-lock"></i></span>
-            <h2 class="vc-legal-card__title">Sicurezza dei dati</h2>
+            <h2 class="vc-legal-card__title" data-i18n="legal.privacy.s7.title">Sicurezza dei dati</h2>
           </div>
+          <div data-i18n-html="legal.privacy.s7.body">
           <p>Adottiamo misure tecniche e organizzative ragionevoli per proteggere i dati trattati, tra cui:</p>
           <ul class="vc-legal-list">
-            <li>Connessioni HTTPS/TLS e protezione delle sessioni.</li>
-            <li>Controlli OAuth (state anti-CSRF) e verifiche contro accessi non autorizzati.</li>
-            <li>Limitazioni di accesso ai dati per il personale autorizzato.</li>
-            <li>Strumenti di logging, monitoraggio e mitigazione abusi ove necessari.</li>
-            <li>Backup e protezioni infrastrutturali nei limiti dei sistemi utilizzati.</li>
+          <li>Connessioni HTTPS/TLS e protezione delle sessioni.</li>
+          <li>Controlli OAuth (state anti-CSRF) e verifiche contro accessi non autorizzati.</li>
+          <li>Limitazioni di accesso ai dati per il personale autorizzato.</li>
+          <li>Strumenti di logging, monitoraggio e mitigazione abusi ove necessari.</li>
+          <li>Backup e protezioni infrastrutturali nei limiti dei sistemi utilizzati.</li>
           </ul>
+          </div>
         </article>
 
         <article class="vc-legal-card vc-legal-card--blue">
           <div class="vc-legal-card__head">
             <span class="vc-legal-card__icon" aria-hidden="true"><i class="fa fa-hand-paper-o"></i></span>
-            <h2 class="vc-legal-card__title">I tuoi diritti (GDPR)</h2>
+            <h2 class="vc-legal-card__title" data-i18n="legal.privacy.s8.title">I tuoi diritti (GDPR)</h2>
           </div>
-          <p>Hai i diritti previsti dal GDPR, nei limiti applicabili al tipo di dato trattato, inclusi:</p>
-          <ul class="vc-legal-list">
-            <li>Accesso ai dati personali.</li>
-            <li>Rettifica dei dati inesatti o incompleti.</li>
-            <li>Cancellazione dei dati, ove possibile.</li>
-            <li>Limitazione o opposizione al trattamento nei casi previsti dalla legge.</li>
-            <li>Portabilità dei dati, ove tecnicamente e giuridicamente applicabile.</li>
-            <li>Revoca del consenso per i trattamenti basati sul consenso.</li>
-          </ul>
-          <p>
-            Per esercitare questi diritti puoi contattarci tramite Discord o email. Hai anche diritto di proporre reclamo al Garante per la Protezione dei Dati Personali.
+          <div data-i18n-html="legal.privacy.s8.body">
+          <p>Hai i diritti previsti dal GDPR, nei limiti applicabili, inclusi accesso, rettifica, cancellazione, limitazione/opposizione, portabilità e revoca del consenso ove applicabile.</p>
+          <p>Puoi esportare o richiedere la cancellazione dei dati gestiti da sito e bot dalla pagina <a href="{{DATI_PAGE_URL}}">I tuoi dati</a> (accesso con Discord), oltre a contattarci via Discord o email.</p>
+          <p>Hai diritto di proporre reclamo al Garante per la Protezione dei Dati Personali.</p>
+          </div>
+          <p class="vc-legal-cta">
+            <a class="vc-dashboard-btn vc-dashboard-btn--primary" href="{{DATI_PAGE_URL}}" data-i18n="footer.yourData">I tuoi dati</a>
           </p>
         </article>
 
         <article class="vc-legal-card vc-legal-card--purple">
           <div class="vc-legal-card__head">
             <span class="vc-legal-card__icon" aria-hidden="true"><i class="fa fa-clock-o"></i></span>
-            <h2 class="vc-legal-card__title">Conservazione dei dati</h2>
+            <h2 class="vc-legal-card__title" data-i18n="legal.privacy.s9.title">Conservazione dei dati</h2>
           </div>
+          <div data-i18n-html="legal.privacy.s9.body">
           <p>Conserviamo i dati per il tempo necessario alle finalità per cui sono trattati, ad esempio:</p>
           <ul class="vc-legal-list">
-            <li>Finché il tuo account o la tua partecipazione ai servizi restano attivi.</li>
-            <li>Fino a 90 giorni per la sessione locale del sito collegata al login Discord, salvo logout o scadenza/invalida del token.</li>
-            <li>Per il tempo necessario a gestire richieste, recensioni, candidature o verifiche collegate a un modulo inviato.</li>
-            <li>Per i tempi tecnici di backup, sicurezza, rotazione log e adempimento legale.</li>
-            <li>Fino alla cancellazione o anonimizzazione quando il dato non è più necessario.</li>
+          <li>Finché resti nel server o usi i servizi collegati, salvo cancellazione o anonimizzazione.</li>
+          <li>Fino a 90 giorni per la sessione locale del sito, salvo logout o scadenza del token.</li>
+          <li>Ticket web, suggerimenti, recensioni, feedback e allegati per supporto, moderazione e sicurezza.</li>
+          <li>Dati di partnership, punti, log e moderazione per gestione community e dispute.</li>
+          <li>Corpus Markov, backup e log tecnici secondo rotazioni ragionevoli.</li>
           </ul>
+          </div>
         </article>
 
         <article class="vc-legal-card vc-legal-card--red">
           <div class="vc-legal-card__head">
             <span class="vc-legal-card__icon" aria-hidden="true"><i class="fa fa-child"></i></span>
-            <h2 class="vc-legal-card__title">Minori</h2>
+            <h2 class="vc-legal-card__title" data-i18n="legal.privacy.s10.title">Minori</h2>
           </div>
-          <p>
-            Il servizio è destinato a utenti che rispettano i requisiti minimi previsti da Discord. Non raccogliamo consapevolmente dati personali di minori al di sotto della soglia minima consentita dalla piattaforma.
-          </p>
-          <p>
-            Se veniamo informati di una raccolta non conforme, possiamo procedere alla rimozione dei dati nei limiti tecnici e organizzativi ragionevoli.
-          </p>
+          <div data-i18n-html="legal.privacy.s10.body">
+          <p>Il servizio è destinato a utenti che rispettano i requisiti minimi previsti da Discord. Non raccogliamo consapevolmente dati personali di minori al di sotto della soglia minima consentita dalla piattaforma.</p>
+          <p>Se veniamo informati di una raccolta non conforme, possiamo procedere alla rimozione dei dati nei limiti tecnici e organizzativi ragionevoli.</p>
+          </div>
         </article>
 
         <article class="vc-legal-card vc-legal-card--cyan">
           <div class="vc-legal-card__head">
             <span class="vc-legal-card__icon" aria-hidden="true"><i class="fa fa-globe"></i></span>
-            <h2 class="vc-legal-card__title">Trasferimenti internazionali</h2>
+            <h2 class="vc-legal-card__title" data-i18n="legal.privacy.s11.title">Trasferimenti internazionali</h2>
           </div>
-          <p>
-            Alcuni servizi utilizzati dal progetto, come Discord o altri provider tecnici, possono trattare dati anche fuori dallo Spazio Economico Europeo.
-          </p>
-          <p>
-            Quando ciò avviene, il trattamento avviene secondo le garanzie offerte dai provider e nei limiti previsti dal GDPR, incluse eventuali clausole contrattuali standard o misure tecniche equivalenti.
-          </p>
+          <div data-i18n-html="legal.privacy.s11.body">
+          <p>Alcuni servizi utilizzati dal progetto, come Discord o altri provider tecnici, possono trattare dati anche fuori dallo Spazio Economico Europeo.</p>
+          <p>Quando ciò avviene, il trattamento avviene secondo le garanzie offerte dai provider e nei limiti previsti dal GDPR, incluse eventuali clausole contrattuali standard o misure tecniche equivalenti.</p>
+          </div>
         </article>
 
         <article class="vc-legal-card vc-legal-card--indigo">
           <div class="vc-legal-card__head">
             <span class="vc-legal-card__icon" aria-hidden="true"><i class="fa fa-file-text-o"></i></span>
-            <h2 class="vc-legal-card__title">Modifiche alla policy</h2>
+            <h2 class="vc-legal-card__title" data-i18n="legal.privacy.s12.title">Modifiche alla policy</h2>
           </div>
-          <p>
-            Possiamo aggiornare questa Privacy Policy per modifiche normative, tecniche o organizzative. La data di ultimo aggiornamento in alto indica la versione corrente.
-          </p>
-          <p>
-            Continuando a usare il sito o i servizi della community dopo la pubblicazione delle modifiche, dichiari di aver preso visione della versione aggiornata.
-          </p>
+          <div data-i18n-html="legal.privacy.s12.body">
+          <p>Possiamo aggiornare questa Privacy Policy per modifiche normative, tecniche o organizzative. La data di ultimo aggiornamento in alto indica la versione corrente.</p>
+          <p>Continuando a usare il sito o i servizi della community dopo la pubblicazione delle modifiche, dichiari di aver preso visione della versione aggiornata.</p>
+          </div>
         </article>
 
         <article class="vc-legal-card vc-legal-card--cyan">
           <div class="vc-legal-card__head">
             <span class="vc-legal-card__icon" aria-hidden="true"><i class="fa fa-envelope-o"></i></span>
-            <h2 class="vc-legal-card__title">Contatti e reclami</h2>
+            <h2 class="vc-legal-card__title" data-i18n="legal.privacy.s13.title">Contatti e reclami</h2>
           </div>
-          <p>Per domande privacy, richieste GDPR o segnalazioni puoi contattarci tramite:</p>
-          <p class="vc-legal-card__contact">
-            <strong>Discord:</strong> <a href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer">{{DISCORD_INVITE_DISPLAY}}</a>
-          </p>
-          <p class="vc-legal-card__contact">
-            <strong>Email:</strong> <a href="{{SUPPORT_MAILTO}}">{{SUPPORT_EMAIL}}</a>
-          </p>
-          <p>
-            Hai inoltre diritto di proporre reclamo al Garante per la Protezione dei Dati Personali tramite <a href="https://www.garanteprivacy.it" target="_blank" rel="noopener noreferrer">www.garanteprivacy.it</a>.
-          </p>
+          <div data-i18n-html="legal.privacy.s13.body">
+          <p>Per domande privacy, richieste GDPR o segnalazioni puoi contattarci tramite Discord o email ({{SUPPORT_EMAIL}}).</p>
+          <p>Hai inoltre diritto di proporre reclamo al Garante per la Protezione dei Dati Personali (www.garanteprivacy.it).</p>
+          </div>
         </article>
       </section>
     </main>
@@ -342,6 +349,7 @@
           <a class="transition hover:text-white" href="{{TERMS_URL}}">Termini di Servizio</a>
           <a class="transition hover:text-white" href="{{PRIVACY_URL}}">Privacy Policy</a>
           <a class="transition hover:text-white" href="{{COOKIE_POLICY_URL}}">Cookie Policy</a>
+          <a class="transition hover:text-white" href="{{DATI_PAGE_URL}}" data-i18n="footer.yourData">I tuoi dati</a>
         </nav>
         <p class="max-w-xl text-sm leading-relaxed text-slate-400">
           © {{YEAR}} {{SITE_NAME}}. Sito realizzato da {{SITE_NAME}} con

@@ -16,14 +16,19 @@ const { initializeCommandCollections } = require("../shared/runtime/clientRuntim
 const { connectMongo, isMongoReady } = require("./Utils/Database/mongoConnect");
 
 loadEnvFiles(APP_ROOT);
+try {
+  require("../shared/scheduling/nodeCronMissFilter").installNodeCronMissFilter();
+} catch (_) {}
 global.logger = require("./Utils/Moderation/logger");
 if (process.env.RUN_UNDER_LOADER !== "1") {
   acquireSingleInstanceLock("vinili-caffe-official-bot");
 }
 
-const { installEmbedFooterPatch } = require("./Utils/Embeds/defaultFooter");
+const { installEmbedFooterPatch, installOutgoingMessageEmbedPatch, applyDefaultFooterToEmbeds } = require("./Utils/Embeds/defaultFooter");
+const { setDefaultFooterApplier, installOutgoingEditBrandingPatch } = require("../shared/discord/replyRuntime");
 const { buildInitialClientPresenceOptions, installBotPresenceHooks, patchClientPresenceGuard } = require("../shared/discord/botPresenceActivity");
 const { installGatewayShardListenerCeiling } = require("../shared/discord/gatewayListenerCeiling");
+const { buildDiscordClientMemoryOptions } = require("../shared/discord/clientMemoryOptions");
 
 const pcommandFolders = listFoldersIfExists(path.join(APP_ROOT, "Prefix"));
 const commandFolders = listFoldersIfExists(path.join(APP_ROOT, "Commands"));
@@ -51,6 +56,11 @@ function applyListenerCeiling(clientRef, configLike) {
 
 try {
   installEmbedFooterPatch();
+  installOutgoingMessageEmbedPatch(discord);
+  installOutgoingEditBrandingPatch(discord);
+  setDefaultFooterApplier((payload, source) =>
+    applyDefaultFooterToEmbeds(payload, source?.guild || source?.channel?.guild || null),
+  );
   const vinylsConfig = require("./config.json");
   const baseIntents = [
     ...new Set(
@@ -69,6 +79,7 @@ try {
   client = new Client({
     intents: baseIntents,
     partials: basePartials,
+    ...buildDiscordClientMemoryOptions(discord),
     presence: buildInitialClientPresenceOptions(vinylsConfig),
     rest: {
       timeout: 30_000,
@@ -85,6 +96,7 @@ try {
 
 client.logs = require("./Utils/Moderation/logs");
 
+const { assertBotTokenIdentity } = require("../shared/config/env");
 const envToken = process.env.DISCORD_TOKEN || process.env.DISCORD_TOKEN_OFFICIAL;
 const envMongoUrl =
   process.env.MONGO_URL_LOCAL ||
@@ -103,6 +115,11 @@ if (!client.config.token) {
   );
   process.exit(1);
 }
+assertBotTokenIdentity(client.config.token, {
+  botLabel: "Vinili (official)",
+  expectedClientId: process.env.DISCORD_CLIENT_ID_OFFICIAL,
+  forbiddenClientId: process.env.DISCORD_CLIENT_ID_TEST,
+});
 
 global.botClient = client;
 
@@ -153,14 +170,23 @@ client.reloadScope = async (scope) => {
 initializeCommandCollections(client, { includeSnipes: true });
 
 (async () => {
+  const bootStartedAt = Date.now();
   try {
-    installHandlers(APP_ROOT, client);
+    // Connetti Mongo prima di caricare Events/Services/Schema: altrimenti mongoose
+    // prova a gestire autoIndex su decine di modelli e il connect può richiedere ~15s.
+    const mongoStartedAt = Date.now();
+    const mongoConnected = await connectMongo(client);
+    if (!mongoConnected || !isMongoReady()) {
+      global.logger.error("[DATABASE] Startup aborted: MongoDB is required before login.");
+      process.exit(1);
+    }
+    global.logger?.info?.(`[BOOT] mongo_connect_ms=${Date.now() - mongoStartedAt}`);
 
+    const handlersStartedAt = Date.now();
+    installHandlers(APP_ROOT, client);
     client.handleEvents(path.join(APP_ROOT, "Events"));
     client.handleTriggers(APP_ROOT);
-    await client.handleCommands(commandFolders, path.join(APP_ROOT, "Commands"));
-    await client.prefixCommands(pcommandFolders, path.join(APP_ROOT, "Prefix"));
-    await client.loadButtonHandlers(path.join(APP_ROOT, "Buttons"));
+    global.logger?.info?.(`[BOOT] handlers_events_ms=${Date.now() - handlersStartedAt}`);
 
     try {
       require("./MultiGuild").attachToClient(client);
@@ -168,24 +194,60 @@ initializeCommandCollections(client, { includeSnipes: true });
       global.logger?.warn?.("[MultiGuild] attach failed:", err?.message || err);
     }
 
+    // Prefix + slash + button PRIMA del login: caricarli in parallelo all'handshake
+    // satura l'event loop (require sync) e fa esplodere login_resolve_ms (20s+).
+    global.__vinylsDiscordClient = client;
+    client.__prefixCommandsReady = false;
+    client.__slashCommandsReady = false;
+    client.__bootCommandsReady = false;
+
+    const commandsStartedAt = Date.now();
+    await client.prefixCommands(pcommandFolders, path.join(APP_ROOT, "Prefix"));
+    client.__prefixCommandsReady = true;
+    global.logger?.info?.(`[BOOT] prefix_commands_ms=${Date.now() - commandsStartedAt}`);
+
+    const slashButtonsStartedAt = Date.now();
+    await Promise.all([
+      client.handleCommands(commandFolders, path.join(APP_ROOT, "Commands")).then(() => {
+        client.__slashCommandsReady = true;
+      }),
+      client.loadButtonHandlers(path.join(APP_ROOT, "Buttons")),
+    ]);
+    client.__bootCommandsReady = true;
+    global.logger?.info?.(`[BOOT] commands_buttons_ms=${Date.now() - slashButtonsStartedAt}`);
+
     if (typeof client.logBootTables === "function") {
       client.logBootTables();
     }
 
-    const mongoConnected = await connectMongo(client);
-    if (!mongoConnected || !isMongoReady()) {
-      global.logger.error("[DATABASE] Startup aborted: MongoDB is required before login.");
-      process.exit(1);
+    const loginStartedAt = Date.now();
+    {
+      const maxAttempts = 10;
+      let loggedIn = false;
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+          await client.login(client.config.token);
+          global.logger?.info?.(`[BOOT] login_resolve_ms=${Date.now() - loginStartedAt}`);
+          loggedIn = true;
+          break;
+        } catch (error) {
+          const status = Number(error?.status || error?.httpStatus || error?.code || 0);
+          const retryable = status === 503 || status === 502 || status === 500 || status === 429;
+          global.logger.error(
+            `[LOGIN] Error while logging in (tentativo ${attempt}/${maxAttempts}).`,
+            error,
+          );
+          if (!retryable || attempt >= maxAttempts) {
+            process.exit(1);
+          }
+          const waitMs = Math.min(45_000, 1500 * attempt * attempt);
+          global.logger?.warn?.(`[LOGIN] Discord API ${status || "error"} — retry tra ${Math.round(waitMs / 1000)}s`);
+          await new Promise((r) => setTimeout(r, waitMs));
+        }
+      }
+      if (!loggedIn) process.exit(1);
     }
-
-    global.__vinylsDiscordClient = client;
-    client.login(client.config.token).catch((error) => {
-      global.logger.error(
-        "[LOGIN] Error while logging in. Check if your token is correct or double check your also using the correct intents.",
-        error,
-      );
-      process.exit(1);
-    });
+    global.logger?.info?.(`[BOOT] pre_ready_ms=${Date.now() - bootStartedAt}`);
   } catch (err) {
     if (global.logger && typeof global.logger.error === "function") {
       global.logger.error("[STARTUP]", err);

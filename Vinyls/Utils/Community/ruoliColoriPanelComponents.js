@@ -129,7 +129,7 @@ function buildMentionsRow() {
       .setCustomId("personality_mentions")
       .setPlaceholder("🔔 Seleziona le notifiche da ricevere")
       .setMinValues(1)
-      .setMaxValues(8)
+      .setMaxValues(13)
       .addOptions(
         { label: "Rimuovi tutti i ping", value: "remove", emoji: "<:vegax:1443934876440068179>", description: "Rimuovi ruoli dal tuo profilo" },
         { label: "༄ Revive Chat", value: IDs.roles.ReviveChat, emoji: "<a:pepedeadchat:1470541176284381226>", description: "Clicca qui per ottenere il ruolo" },
@@ -143,6 +143,8 @@ function buildMentionsRow() {
         { label: "༄ Minigames", value: IDs.roles.Minigames, emoji: "<:health:1470541164363911313>", description: "Clicca qui per ottenere il ruolo" },
         { label: "༄ Notturno", value: IDs.roles.Notturno, emoji: "<:moon:1470064812615667827>", description: "Clicca qui per ottenere il ruolo" },
         { label: "༄ Live", value: IDs.roles.Live, emoji: "<a:VC_Ping:1482694298687246377>", description: "Clicca qui per ottenere il ruolo" },
+        { label: "༄ Status", value: IDs.roles.Status, emoji: "<a:VC_Ping:1482694298687246377>", description: "Clicca qui per ottenere il ruolo" },
+        { label: "༄ Changelogs", value: IDs.roles.Changelogs, emoji: "<:newspaper:1470541170353377290>", description: "Clicca qui per ottenere il ruolo" },
       ),
   );
 }
@@ -243,11 +245,14 @@ function buildRuoliColoriPersonalityMenuRow(categoryKey) {
   }
 }
 
-function buildRolePanelCategoryPickerRow(ownerId, selectedKey) {
+function buildRolePanelCategoryPickerRow(ownerId, selectedKey, viewerId = null) {
   const sel = String(selectedKey || ROLE_PANEL_DEFAULT_CATEGORY).trim();
+  const o = String(ownerId || "");
+  const v = String(viewerId || "").trim();
+  const idCore = /^\d{16,20}$/.test(v) && /^\d{16,20}$/.test(o) ? `${v}:${o}` : o;
   const row = new ActionRowBuilder().addComponents(
     new StringSelectMenuBuilder()
-      .setCustomId(`${PANEL_PREFIX}:rsub:${ownerId}`)
+      .setCustomId(`${PANEL_PREFIX}:rsub:${idCore}`)
       .setPlaceholder("Scegli il pannello ruoli")
       .setMinValues(1)
       .setMaxValues(1)

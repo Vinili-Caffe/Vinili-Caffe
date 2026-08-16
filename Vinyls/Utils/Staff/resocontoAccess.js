@@ -2,27 +2,66 @@ const IDs = require("../Config/ids");
 
 /**
  * Utenti Discord assegnati ai resoconti per segmento (ID utente, non ruolo).
- * Mappatura fornita dallo staff: ogni @ è la persona che revisiona quel segmento.
+ *
+ * 2026-08-03: dopo depex di 1334154605445124121, 778934882671656972 fa
+ * PM/Helper/Mod/Senior Mod. Director resta a chi è sopra.
+ * Admin: nessun resoconto settimanale.
  */
 const RESOCONTO_SEGMENT_REVIEWER_USER_IDS = {
   pm: ["778934882671656972"],
-  helper: ["1334154605445124121"],
-  mod: ["1371740280063135908"],
-  senior_moderator: ["1056898661365317645"],
-  director: ["470373387609571339"],
-  admin: ["295500038401163264"],
+  helper: ["778934882671656972"],
+  mod: ["778934882671656972"],
+  senior_moderator: ["778934882671656972"],
+  director: ["295500038401163264"],
 };
+
+const RESOCONTO_REVIEWER_SHIFT_CHAIN = ["mod", "senior_moderator", "director"];
 
 const STAFF_ROLE_ID_TO_REVIEWER_USER_IDS = {
   [String(IDs.roles?.Helper || "")]: RESOCONTO_SEGMENT_REVIEWER_USER_IDS.helper,
   [String(IDs.roles?.Mod || "")]: RESOCONTO_SEGMENT_REVIEWER_USER_IDS.mod,
   [String(IDs.roles?.SeniorModerator || "")]: RESOCONTO_SEGMENT_REVIEWER_USER_IDS.senior_moderator,
   [String(IDs.roles?.Director || "")]: RESOCONTO_SEGMENT_REVIEWER_USER_IDS.director,
-  [String(IDs.roles?.Admin || "")]: RESOCONTO_SEGMENT_REVIEWER_USER_IDS.admin,
 };
 
 function normalizeUserIds(ids) {
   return [...new Set((Array.isArray(ids) ? ids : []).map((id) => String(id || "").trim()).filter((id) => /^\d{16,22}$/.test(id)))];
+}
+
+/**
+ * Scala i revisori di un livello (es. dopo depex del revisore mod).
+ * Il segmento director in cima va riassegnato con `topSegmentReviewers`.
+ */
+function shiftResocontoReviewersDownOneLevel({ topSegmentReviewers = [] } = {}) {
+  const previous = {};
+  for (const segment of RESOCONTO_REVIEWER_SHIFT_CHAIN) {
+    previous[segment] = normalizeUserIds(RESOCONTO_SEGMENT_REVIEWER_USER_IDS[segment]);
+  }
+  for (let index = 0; index < RESOCONTO_REVIEWER_SHIFT_CHAIN.length - 1; index += 1) {
+    const segment = RESOCONTO_REVIEWER_SHIFT_CHAIN[index];
+    const source = RESOCONTO_REVIEWER_SHIFT_CHAIN[index + 1];
+    RESOCONTO_SEGMENT_REVIEWER_USER_IDS[segment] = [...previous[source]];
+  }
+  const topReviewers = normalizeUserIds(topSegmentReviewers);
+  if (topReviewers.length) {
+    RESOCONTO_SEGMENT_REVIEWER_USER_IDS.director = topReviewers;
+  }
+  return { ...RESOCONTO_SEGMENT_REVIEWER_USER_IDS };
+}
+
+function removeResocontoReviewerUserId(userId) {
+  const uid = String(userId || "").trim();
+  if (!/^\d{16,22}$/.test(uid)) return false;
+  let removed = false;
+  for (const segment of Object.keys(RESOCONTO_SEGMENT_REVIEWER_USER_IDS)) {
+    const before = normalizeUserIds(RESOCONTO_SEGMENT_REVIEWER_USER_IDS[segment]);
+    const after = before.filter((id) => id !== uid);
+    if (after.length !== before.length) {
+      RESOCONTO_SEGMENT_REVIEWER_USER_IDS[segment] = after;
+      removed = true;
+    }
+  }
+  return removed;
 }
 
 function getResocontoReviewerUserIdsForSegment(segment, staffRoleId = null) {
@@ -37,6 +76,15 @@ function getResocontoReviewerUserIdsForSegment(segment, staffRoleId = null) {
   return [];
 }
 
+/** Segmenti per cui `userId` è revisore assegnato. */
+function getResocontoSegmentsForReviewerUserId(userId) {
+  const uid = String(userId || "").trim();
+  if (!/^\d{16,22}$/.test(uid)) return [];
+  return Object.keys(RESOCONTO_SEGMENT_REVIEWER_USER_IDS).filter((segment) =>
+    getResocontoReviewerUserIdsForSegment(segment).includes(uid),
+  );
+}
+
 /** @deprecated usa getResocontoReviewerUserIdsForSegment */
 function getResocontoNotifyRoleIdForSegment(segment, staffRoleId = null) {
   const users = getResocontoReviewerUserIdsForSegment(segment, staffRoleId);
@@ -49,11 +97,16 @@ function memberIsResocontoReviewerForSegment(member, segment, staffRoleId = null
   return getResocontoReviewerUserIdsForSegment(segment, staffRoleId).includes(uid);
 }
 
-/** Founder può revisionare ma non riceve la valutazione automatica del compito. */
+/** Founder/Manager possono revisionare ma non ricevono la valutazione automatica del compito. */
 function memberIsExcludedFromResocontoReviewerReward(member) {
   if (!member?.roles?.cache) return false;
-  const founderId = String(IDs.roles?.Founder || "").trim();
-  return founderId && member.roles.cache.has(founderId);
+  const blockedRoleIds = [
+    IDs.roles?.Founder,
+    IDs.roles?.Manager,
+  ]
+    .map((id) => String(id || "").trim())
+    .filter(Boolean);
+  return blockedRoleIds.some((roleId) => member.roles.cache.has(roleId));
 }
 
 function getResocontoButtonAllowedRoleIds(payload = {}) {
@@ -75,10 +128,6 @@ function memberHasResocontoButtonAccess(member, payload = {}) {
   }
 
   const staffRoleId = String(payload.roleId || "").trim();
-  if (staffRoleId === String(IDs.roles?.Admin || "")) {
-    return memberIsResocontoReviewerForSegment(member, "admin");
-  }
-
   return memberIsResocontoReviewerForSegment(member, null, staffRoleId);
 }
 
@@ -126,14 +175,16 @@ function interactionHasResocontoButtonAccess(interaction) {
 
 function hasCandidatureReviewAccess(interaction) {
   const member = interaction?.member;
-  if (!member?.roles?.cache) return false;
+  const userId = String(interaction?.user?.id || member?.id || "").trim();
+  const ownerId = String(interaction?.guild?.ownerId || "").trim();
+  if (userId && ownerId && userId === ownerId) return true;
 
-  const directorId = String(IDs.roles?.Director || "").trim();
-  if (directorId && member.roles.cache.has(directorId)) return false;
+  if (!member?.roles?.cache) return false;
 
   const allowed = [IDs.roles?.Admin, IDs.roles?.Manager, IDs.roles?.Founder]
     .filter(Boolean)
     .map((id) => String(id));
+  // Admin/Manager/Founder vincono anche se la persona ha anche Director.
   return allowed.some((roleId) => member.roles.cache.has(roleId));
 }
 
@@ -158,7 +209,11 @@ function isCandidatureStaffReviewInteraction(customId) {
 
 module.exports = {
   RESOCONTO_SEGMENT_REVIEWER_USER_IDS,
+  RESOCONTO_REVIEWER_SHIFT_CHAIN,
+  shiftResocontoReviewersDownOneLevel,
+  removeResocontoReviewerUserId,
   getResocontoReviewerUserIdsForSegment,
+  getResocontoSegmentsForReviewerUserId,
   getResocontoNotifyRoleIdForSegment,
   memberIsResocontoReviewerForSegment,
   memberIsExcludedFromResocontoReviewerReward,

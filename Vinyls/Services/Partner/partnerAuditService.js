@@ -4,6 +4,14 @@ const axios = require("axios");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const IDs = require("../../Utils/Config/ids");
 const { getGuildChannelCached, getClientGuildCached } = require("../../Utils/Interaction/interactionEntityCache");
+const {
+  resolvePartnershipConfigSync,
+  getPartnershipChannelId,
+  getPartnershipLogChannelIds,
+  listPartnershipAuditGuildIds,
+  shouldApplyMainPartnershipFilters,
+  memberHasPartnerManagerRole,
+} = require("../../Utils/Partner/partnershipConfigResolver");
 let dailyPartnerAuditTask = null;
 let intradayPartnerAuditTimer = null;
 let intradayPartnerAuditInFlight = false;
@@ -11,6 +19,15 @@ const SAME_DAY_DUPLICATE_REASON = "Non fare partnership con lo stesso server pi�
 const SELF_PARTNERSHIP_DAILY_REASON = "Non fare partnership con se stessi più di una volta al giorno";
 const SAME_MANAGER_DAILY_CAP_REASON = "Non mettere più di 5 partnership con lo stesso utente";
 const MANAGER_LEFT_SERVER_REASON = "Manager fuori dal server";
+
+function isManagerInLeaveGrace(client, guildId, managerUserId) {
+  const map = client?._partnerManagerLeaveGrace;
+  if (!(map instanceof Map)) return false;
+  const gid = String(guildId || "").trim();
+  const uid = String(managerUserId || "").trim();
+  if (!gid || !uid) return false;
+  return map.has(`${gid}:${uid}`);
+}
 
 function getRomeDateKey(date) {
   const fmt = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome", year: "numeric", month: "2-digit", day: "2-digit", });
@@ -65,7 +82,10 @@ function extractDesignatedManagerIdsFromText(sourceText) {
 }
 
 async function fetchPartnerActionText(guild, action) {
-  const channelId = action?.partnershipChannelId || IDs.channels.partnerships;
+  const channelId =
+    action?.partnershipChannelId ||
+    getPartnershipChannelId(guild?.id) ||
+    IDs.channels.partnerships;
   if (!channelId) {
     global.logger?.warn?.("[PARTNER AUDIT] No channel ID for action");
     return "";
@@ -171,8 +191,7 @@ async function resolveTextLogChannel(guild, channelId) {
 }
 
 async function logPointRemoval(guild, staffUserId, reason, action) {
-  const primaryId = IDs.channels.puntiTolti;
-  const fallbackId = IDs.channels.partnerLogs;
+  const { primary: primaryId, fallback: fallbackId } = getPartnershipLogChannelIds(guild?.id);
   if (!primaryId && !fallbackId) return null;
 
   let channel = await resolveTextLogChannel(guild, primaryId);
@@ -184,7 +203,8 @@ async function logPointRemoval(guild, staffUserId, reason, action) {
     return null;
   }
 
-  const msgRef = Array.isArray(action?.partnerMessageIds) && action.partnerMessageIds.length ? `https://discord.com/channels/${guild.id}/${action.partnershipChannelId || IDs.channels.partnerships}/${action.partnerMessageIds[0]}`
+  const msgRef = Array.isArray(action?.partnerMessageIds) && action.partnerMessageIds.length
+    ? `https://discord.com/channels/${guild.id}/${action.partnershipChannelId || getPartnershipChannelId(guild.id)}/${action.partnerMessageIds[0]}`
     : "N/D";
 
   const inviteDb = action?.invite ? String(action.invite).slice(0, 300) : "N/D";
@@ -220,25 +240,6 @@ async function logPointRemoval(guild, staffUserId, reason, action) {
   }
 }
 
-async function deletePointRemovalLog(guild, penaltyLog) {
-  const channelId = String(penaltyLog?.channelId || "").trim();
-  const messageId = String(penaltyLog?.messageId || "").trim();
-  if (!channelId || !messageId) return false;
-
-  const channel = await resolveTextLogChannel(guild, channelId).catch(() => null);
-  if (!channel) return false;
-
-  try {
-    const message = await channel.messages.fetch(messageId).catch(() => null);
-    if (!message) return false;
-    await message.delete().catch(() => {});
-    return true;
-  } catch (err) {
-    global.logger?.warn?.(`[PARTNER AUDIT] delete point-removal log failed: ${err?.message || err}`);
-    return false;
-  }
-}
-
 async function auditSingleProfilePartnerDay(guild, doc, targetDateKey, opts = {}) {
   let checked = 0;
   let removed = 0;
@@ -260,6 +261,12 @@ async function auditSingleProfilePartnerDay(guild, doc, targetDateKey, opts = {}
     .sort((a, b) => a.dateMs - b.dateMs);
 
   if (!dayCreates.length) return { checked, removed, logsSent };
+
+  // Ex Partner Manager: niente rimozione punti (restano come storico).
+  const staffMember = await guild.members.fetch(String(doc.userId || "")).catch(() => null);
+  if (!memberHasPartnerManagerRole(staffMember, guild.id)) {
+    return { checked: dayCreates.length, removed: 0, logsSent: 0 };
+  }
 
   checked = dayCreates.length;
 
@@ -372,7 +379,12 @@ async function auditSingleProfilePartnerDay(guild, doc, targetDateKey, opts = {}
     }
 
     const mgrId = String(item.action?.managerId || "").trim();
-    if (mgrId && /^\d{17,20}$/.test(mgrId) && !managerPresentInGuild.get(mgrId)) {
+    if (
+      mgrId &&
+      /^\d{17,20}$/.test(mgrId) &&
+      !managerPresentInGuild.get(mgrId) &&
+      !isManagerInLeaveGrace(guild?.client, guild?.id, mgrId)
+    ) {
       reasons.push(MANAGER_LEFT_SERVER_REASON);
     }
 
@@ -444,11 +456,12 @@ async function auditSingleProfilePartnerDay(guild, doc, targetDateKey, opts = {}
   return { checked, removed, logsSent };
 }
 
-async function runImmediatePartnerAuditForUser(client, userId) {
-  const guildId = IDs.guilds.main || client.guilds.cache.first()?.id;
+async function runImmediatePartnerAuditForUser(client, userId, guildId) {
+  const gid = String(guildId || IDs.guilds.main || client.guilds.cache.first()?.id || "").trim();
   const uid = String(userId || "").trim();
-  if (!guildId || !uid) return { checked: 0, removed: 0, logsSent: 0 };
-  const guild = await getClientGuildCached(client, guildId);
+  if (!gid || !uid) return { checked: 0, removed: 0, logsSent: 0 };
+  if (!shouldApplyMainPartnershipFilters(gid)) return { checked: 0, removed: 0, logsSent: 0 };
+  const guild = await getClientGuildCached(client, gid);
   if (!guild) return { checked: 0, removed: 0, logsSent: 0 };
   const dateKey = getRomeDateKey(new Date());
   const doc = await ActivityUserProfile.findOne({ guildId: guild.id, userId: uid }).catch(() => null);
@@ -465,93 +478,11 @@ async function runImmediatePartnerAuditForUser(client, userId) {
   }
 }
 
-async function restoreManagerLeftServerPartnerPointsOnRejoin(client, managerUserId) {
-  const guildId = IDs.guilds.main || client.guilds.cache.first()?.id;
-  const managerId = String(managerUserId || "").trim();
-  if (!guildId || !/^\d{17,20}$/.test(managerId)) {
-    return { restored: 0, logsDeleted: 0 };
-  }
-
-  const guild = await getClientGuildCached(client, guildId);
-  if (!guild) return { restored: 0, logsDeleted: 0 };
-
-  const docs = await ActivityUserProfile.find({
-    guildId: guild.id,
-    "staff.partnerActions": {
-      $elemMatch: {
-        managerId,
-        auditPenaltyDates: { $exists: true, $ne: [] },
-      },
-    },
-  }).catch(() => []);
-
-  let restored = 0;
-  let logsDeleted = 0;
-  const logsToDelete = [];
-
-  for (const doc of docs) {
-    if (!doc.staff) continue;
-    const actions = Array.isArray(doc.staff.partnerActions) ? doc.staff.partnerActions : [];
-    let restoredForDoc = 0;
-    const logsToDeleteForDoc = [];
-
-    for (const action of actions) {
-      if (String(action?.managerId || "") !== managerId) continue;
-
-      const penaltyLogs = Array.isArray(action.auditPenaltyLogs) ? action.auditPenaltyLogs : [];
-      const restorableLogs = penaltyLogs.filter((entry) => {
-        const reason = String(entry?.reason || "").trim();
-        return reason === MANAGER_LEFT_SERVER_REASON;
-      });
-      if (!restorableLogs.length) continue;
-
-      const restorableDateKeys = new Set(
-        restorableLogs.map((entry) => String(entry?.dateKey || "").trim()).filter(Boolean),
-      );
-      if (!restorableDateKeys.size) continue;
-
-      action.auditPenaltyDates = (Array.isArray(action.auditPenaltyDates) ? action.auditPenaltyDates : [])
-        .filter((dateKey) => !restorableDateKeys.has(String(dateKey || "").trim()));
-      action.auditPenaltyLogs = penaltyLogs.filter((entry) => {
-        const reason = String(entry?.reason || "").trim();
-        const dateKey = String(entry?.dateKey || "").trim();
-        return reason !== MANAGER_LEFT_SERVER_REASON || !restorableDateKeys.has(dateKey);
-      });
-
-      restoredForDoc += restorableDateKeys.size;
-      logsToDeleteForDoc.push(...restorableLogs);
-    }
-
-    if (restoredForDoc > 0) {
-      doc.staff.partnerCount = Math.max(0, Number(doc.staff.partnerCount || 0)) + restoredForDoc;
-      doc.markModified("staff");
-      try {
-        await doc.save();
-        restored += restoredForDoc;
-        logsToDelete.push(...logsToDeleteForDoc);
-      } catch (saveErr) {
-        global.logger?.error?.(`[PARTNER AUDIT] Restore failed for PM ${doc.userId}: ${saveErr?.message || saveErr}`);
-      }
-    }
-  }
-
-  for (const penaltyLog of logsToDelete) {
-    const deleted = await deletePointRemovalLog(guild, penaltyLog);
-    if (deleted) logsDeleted += 1;
-  }
-
-  if (restored > 0) {
-    global.logger?.info?.(`[PARTNER AUDIT] manager=${managerId} rejoined: restored=${restored} deletedLogs=${logsDeleted}`);
-  }
-
-  return { restored, logsDeleted };
-}
-
-async function runDailyPartnerAudit(client, opts = {}) {
+async function runDailyPartnerAuditForGuild(client, guildId, opts = {}) {
   const jobsDebug = String(process.env.DEBUG_JOBS || "").trim() === "1";
-  const guildId = IDs.guilds.main || client.guilds.cache.first()?.id;
-  if (!guildId) return;
-  const guild = await getClientGuildCached(client, guildId);
+  const gid = String(guildId || "").trim();
+  if (!gid) return;
+  const guild = await getClientGuildCached(client, gid);
   if (!guild) return;
 
   const targetDateKey = opts.dateKey || getPreviousRomeDateKey(new Date());
@@ -576,7 +507,16 @@ async function runDailyPartnerAudit(client, opts = {}) {
   }
 
   if (jobsDebug && (!quiet || totalRemoved > 0 || totalRemovalLogsSent > 0)) {
-    global.logger?.info?.(`[PARTNER AUDIT] date=${targetDateKey} checked=${totalChecked} removed=${totalRemoved} logsSent=${totalRemovalLogsSent}${quiet ? " intraday" : ""}`);
+    global.logger?.info?.(
+      `[PARTNER AUDIT] guild=${gid} date=${targetDateKey} checked=${totalChecked} removed=${totalRemoved} logsSent=${totalRemovalLogsSent}${quiet ? " intraday" : ""}`,
+    );
+  }
+}
+
+async function runDailyPartnerAudit(client, opts = {}) {
+  const guildIds = listPartnershipAuditGuildIds(client);
+  for (const guildId of guildIds) {
+    await runDailyPartnerAuditForGuild(client, guildId, opts);
   }
 }
 
@@ -625,8 +565,10 @@ function startDailyPartnerAuditLoop(client) {
 }
 
 module.exports = {
+  MANAGER_LEFT_SERVER_REASON,
+  logPointRemoval,
   startDailyPartnerAuditLoop,
   runDailyPartnerAudit,
+  runDailyPartnerAuditForGuild,
   runImmediatePartnerAuditForUser,
-  restoreManagerLeftServerPartnerPointsOnRejoin,
 };

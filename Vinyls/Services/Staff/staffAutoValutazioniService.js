@@ -1,5 +1,6 @@
 const cron = require("node-cron");
 const { runCronDetached } = require("../../../shared/scheduling/cronDetached");
+const { isMongoReady } = require("../../Utils/Database/mongoConnect");
 const IDs = require("../../Utils/Config/ids");
 const { ActivityUserProfile, SiteDocument } = require("../../Schemas/Community/communitySchemas");
 const { getGuildChannelCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
@@ -25,10 +26,22 @@ const autoWeeklyLoops = new WeakSet();
 const serataFilmSessions = new Map();
 let autoValutazioniCleanupStarted = false;
 let autoValutazioniSyncRunning = false;
+let autoValutazioniSuspended = false;
 const autoValutazioniLocksByKey = new Map();
 const supportVanityDebounceByKey = new Map();
 const supportAutoRemoveMissByKey = new Map();
 
+function isMongoUnavailableError(err) {
+  if (!err) return false;
+  if (err.name === "MongoNotConnectedError") return true;
+  return /Client must be connected before running operations/i.test(String(err?.message || err || ""));
+}
+
+function warnAutoValutazioni(label, ...args) {
+  if (autoValutazioniSuspended || !isMongoReady()) return;
+  if (args.some((a) => isMongoUnavailableError(a))) return;
+  global.logger?.warn?.(label, ...args);
+}
 function autoValutazioniLockKey(guildId, userId, key) {
   return `${String(guildId || "")}:${String(userId || "")}:${String(key || "")}`;
 }
@@ -59,6 +72,16 @@ function isStaffMember(member) {
     resolveStaffRole(member) ||
     member.roles?.cache?.has(String(IDs.roles?.HighStaff)),
   );
+}
+
+/** Manager esclusi dalla valutazione automatica serata film. */
+function isExemptFromSerataFilmAutoValutazione(member) {
+  const managerId = String(IDs.roles?.Manager || "").trim();
+  return Boolean(managerId && member?.roles?.cache?.has(managerId));
+}
+
+function isSerataFilmTrackableStaff(member) {
+  return isStaffMember(member) && !isExemptFromSerataFilmAutoValutazione(member);
 }
 
 function hasAnyRole(member, roleIds) {
@@ -122,6 +145,27 @@ function findPositiveLogEntryForReason(staff, reason) {
   return log;
 }
 
+/** True se ha già una positiva equivalente (testo esatto o stessa “recensione sito”). */
+function staffAlreadyHasMatchingPositiveReason(staff, reason) {
+  const reasonStr = String(reason || "").trim();
+  if (!reasonStr) return false;
+  const reasons = Array.isArray(staff?.positiveReasons) ? staff.positiveReasons : [];
+  if (reasons.some((row) => String(row || "").trim() === reasonStr)) return true;
+
+  const logs = Array.isArray(staff?.positiveValutazioni) ? staff.positiveValutazioni : [];
+  if (logs.some((row) => String(row?.reason || "").trim() === reasonStr)) return true;
+
+  const lower = reasonStr.toLowerCase();
+  const isSiteReviewReason = lower.includes("recensione") && lower.includes("sito");
+  if (!isSiteReviewReason) return false;
+  const matchSiteReview = (text) => {
+    const s = String(text || "").toLowerCase();
+    return s.includes("recensione") && s.includes("sito");
+  };
+  if (reasons.some(matchSiteReview)) return true;
+  return logs.some((row) => matchSiteReview(row?.reason));
+}
+
 async function relinkExistingPositiveAutoValutazione(profileDoc, staff, key, reason) {
   const log = findPositiveLogEntryForReason(staff, reason);
   if (!log) return null;
@@ -152,9 +196,17 @@ async function syncStaffBoostAutoValutazione(member, options = {}) {
   if (!member?.guild || member.user?.bot) return;
   if (MAIN_GUILD_ID && String(member.guild.id) !== MAIN_GUILD_ID) return;
   if (!isStaffMember(member)) return;
+  const allowCreate = options.allowCreate !== false;
 
   if (memberHasActiveServerBoost(member)) {
-    await ensureAutoValutazione(member.guild, member, STAFF_BOOST_AUTO_KEY, "positive", "Supporta il server con un boost.");
+    await ensureAutoValutazione(
+      member.guild,
+      member,
+      STAFF_BOOST_AUTO_KEY,
+      "positive",
+      "Supporta il server con un boost.",
+      { allowCreate },
+    );
     return;
   }
 
@@ -227,15 +279,19 @@ async function deleteAutoMessage(guild, entry) {
   if (message) await message.delete().catch(() => null);
 }
 
-async function ensureAutoValutazione(guild, member, key, type, reason) {
+async function ensureAutoValutazione(guild, member, key, type, reason, options = {}) {
   if (!guild || !member?.user || !key || !type) return { ok: false };
   if (!isStaffMember(member)) return { ok: false, skipped: "not_staff" };
+  const allowCreate = options.allowCreate !== false;
   return withAutoValutazioneLock(guild.id, member.id, key, async () => {
     let profileDoc = await ensureStaffProfileDoc(await getStaffDoc(guild.id, member.id), guild.id, member.id);
     let staff = ensureStaff(profileDoc);
     if (!Array.isArray(staff.autoValutazioni)) staff.autoValutazioni = [];
     const existing = staff.autoValutazioni.find((entry) => String(entry?.key || "") === String(key));
     if (existing && existing.type === type) {
+      if (existing.spentByTrade) {
+        return { ok: true, skipped: "spent_by_trade" };
+      }
       if (String(existing.reason || "") !== String(reason || "")) {
         existing.reason = String(reason || "");
         existing.updatedAt = new Date();
@@ -252,15 +308,17 @@ async function ensureAutoValutazione(guild, member, key, type, reason) {
     }
 
     if (!existing && type === "positive") {
-      const reasonStr = String(reason || "");
-      const reasons = Array.isArray(staff.positiveReasons) ? staff.positiveReasons : [];
-      if (reasons.includes(reasonStr)) {
+      if (staffAlreadyHasMatchingPositiveReason(staff, reason)) {
         const relinked = await relinkExistingPositiveAutoValutazione(profileDoc, staff, key, reason);
         if (relinked) return relinked;
         return { ok: true, skipped: "reason_exists" };
       }
       const relinked = await relinkExistingPositiveAutoValutazione(profileDoc, staff, key, reason);
       if (relinked) return relinked;
+    }
+
+    if (!allowCreate) {
+      return { ok: true, skipped: "create_disabled" };
     }
 
     const channel = await resolveValutazioniChannel(guild);
@@ -419,42 +477,108 @@ function shouldRemoveSupportAutoValutazione(member) {
 async function syncPersistentAutoValutazioniForMember(member, context = {}) {
   if (!member?.guild || member.user?.bot) return;
   if (MAIN_GUILD_ID && String(member.guild.id) !== MAIN_GUILD_ID) return;
-  if (!isStaffMember(member)) return;
+
+  // Ruoli spesso assenti dalla cache limitata: senza fetch l'auto-valutazione site/review non parte.
+  let staffMember = member;
+  try {
+    const fetched = await member.guild.members.fetch(member.id);
+    if (fetched) staffMember = fetched;
+  } catch {
+    /* keep provided member */
+  }
+  if (!isStaffMember(staffMember)) return;
+
+  // Default sicuro: niente nuove create da sync/cron/presence.
+  // Solo eventi di transizione (ruolo appena preso, vanity appena messa, review nuova) passano allowCreate.
+  const allowCreate = context.allowCreate === true;
+  const allowRemove = context.allowRemove === true;
+  const createKeys =
+    context.createKeys instanceof Set
+      ? context.createKeys
+      : Array.isArray(context.createKeys)
+        ? new Set(context.createKeys.map(String))
+        : null;
+
+  const canCreateKey = (key) => {
+    if (!allowCreate) return false;
+    if (!createKeys) return true;
+    return createKeys.has(String(key));
+  };
 
   const supportKey = "supporto_vanity_supporter_clantag";
-  const supportReason = getSupportAutoValutazioneReason(member);
+  const supportReason = getSupportAutoValutazioneReason(staffMember);
 
   if (supportReason) {
     await ensureAutoValutazione(
-      member.guild,
-      member,
+      staffMember.guild,
+      staffMember,
       supportKey,
       "positive",
       supportReason,
+      { allowCreate: canCreateKey(supportKey) },
     );
-  } else if (shouldRemoveSupportAutoValutazione(member)) {
-    await removeAutoValutazione(member.guild, member.id, supportKey);
+  } else if (allowRemove && shouldRemoveSupportAutoValutazione(staffMember)) {
+    await removeAutoValutazione(staffMember.guild, staffMember.id, supportKey);
   }
 
-
   const followerKey = "ruolo_follower";
-  if (member.roles.cache.has(String(IDs.roles?.Follower))) {
-    await ensureAutoValutazione(member.guild, member, followerKey, "positive", "Mette il follow su una delle nostre pagine social.");
-  } else {
-    await removeAutoValutazione(member.guild, member.id, followerKey);
+  if (staffMember.roles.cache.has(String(IDs.roles?.Follower))) {
+    await ensureAutoValutazione(
+      staffMember.guild,
+      staffMember,
+      followerKey,
+      "positive",
+      "Mette il follow su una delle nostre pagine social.",
+      { allowCreate: canCreateKey(followerKey) },
+    );
+  } else if (allowRemove) {
+    await removeAutoValutazione(staffMember.guild, staffMember.id, followerKey);
   }
 
   const reviewKey = "recensione_sito_4_stelle";
   const hasReview = context.reviewUserIds instanceof Set
-    ? context.reviewUserIds.has(String(member.id))
-    : await hasFourStarSiteReview(member.guild.id, member.id);
+    ? context.reviewUserIds.has(String(staffMember.id))
+    : await hasFourStarSiteReview(staffMember.guild.id, staffMember.id);
   if (hasReview) {
-    await ensureAutoValutazione(member.guild, member, reviewKey, "positive", "Mette una recensione sul nostro sito.");
-  } else {
-    await removeAutoValutazione(member.guild, member.id, reviewKey);
+    await ensureAutoValutazione(
+      staffMember.guild,
+      staffMember,
+      reviewKey,
+      "positive",
+      "Mette una recensione sul nostro sito.",
+      { allowCreate: canCreateKey(reviewKey) },
+    );
+  } else if (allowRemove) {
+    await removeAutoValutazione(staffMember.guild, staffMember.id, reviewKey);
   }
 
-  await syncStaffBoostAutoValutazione(member);
+  await syncStaffBoostAutoValutazione(staffMember, {
+    allowCreate: canCreateKey(STAFF_BOOST_AUTO_KEY),
+  });
+}
+
+/** Ruoli/condizioni appena acquisite → sole chiavi per cui è lecito creare. */
+function resolveAutoValutazioneCreateKeysFromMemberUpdate(oldMember, newMember) {
+  const keys = new Set();
+  if (!oldMember || !newMember) return keys;
+  const followerId = String(IDs.roles?.Follower || "");
+  if (followerId && !oldMember.roles?.cache?.has(followerId) && newMember.roles?.cache?.has(followerId)) {
+    keys.add("ruolo_follower");
+  }
+  const socialId = String(IDs.roles?.SocialSupporter || "");
+  if (socialId && !oldMember.roles?.cache?.has(socialId) && newMember.roles?.cache?.has(socialId)) {
+    keys.add("supporto_vanity_supporter_clantag");
+  }
+  const guildedIds = getGuildedRoleIds(newMember.client);
+  const gainedGuilded = guildedIds.some(
+    (roleId) => roleId && !oldMember.roles?.cache?.has(roleId) && newMember.roles?.cache?.has(roleId),
+  );
+  if (gainedGuilded) keys.add("supporto_vanity_supporter_clantag");
+
+  const oldBoost = memberHasActiveServerBoost(oldMember);
+  const newBoost = memberHasActiveServerBoost(newMember);
+  if (!oldBoost && newBoost) keys.add(STAFF_BOOST_AUTO_KEY);
+  return keys;
 }
 
 async function syncWeeklyAutoValutazioniForMember(member, now = new Date()) {
@@ -477,27 +601,32 @@ async function fetchMainGuildStaffMembers(client, options = {}) {
 }
 
 async function syncAllStaffAutoValutazioni(client, options = {}) {
+  if (autoValutazioniSuspended || !isMongoReady()) return 0;
   const members = await fetchMainGuildStaffMembers(client, {
     withPresences: false,
     preferCache: options.preferCache === true,
   });
+  if (autoValutazioniSuspended || !isMongoReady()) return 0;
   const reviewUserIds = await loadFourStarSiteReviewUserIds(MAIN_GUILD_ID, members.map((member) => member.id));
-  const context = { reviewUserIds };
+  // Mai creare in bulk: dopo un DB incompleto ripubblicherebbe tutto da #1.
+  const context = { reviewUserIds, allowCreate: false, allowRemove: false };
   for (const member of members) {
+    if (autoValutazioniSuspended || !isMongoReady()) break;
     await syncPersistentAutoValutazioniForMember(member, context).catch((err) => {
-      global.logger?.warn?.("[STAFF AUTO VALUTAZIONI] persistent sync failed:", member.id, err?.message || err);
+      warnAutoValutazioni("[STAFF AUTO VALUTAZIONI] persistent sync failed:", member.id, err?.message || err);
     });
     await syncWeeklyAutoValutazioniForMember(member).catch((err) => {
-      global.logger?.warn?.("[STAFF AUTO VALUTAZIONI] weekly sync failed:", member.id, err?.message || err);
+      warnAutoValutazioni("[STAFF AUTO VALUTAZIONI] weekly sync failed:", member.id, err?.message || err);
     });
   }
   return members.length;
 }
 
 async function runStaffAutoValutazioniSyncLocked(client, source = "loop") {
+  if (autoValutazioniSuspended || !isMongoReady()) return;
   if (autoValutazioniSyncRunning) {
     if (source !== "loop") {
-      global.logger?.warn?.(`[STAFF AUTO VALUTAZIONI] ${source} skipped: previous sync still running.`);
+      warnAutoValutazioni(`[STAFF AUTO VALUTAZIONI] ${source} skipped: previous sync still running.`);
     }
     return;
   }
@@ -507,24 +636,26 @@ async function runStaffAutoValutazioniSyncLocked(client, source = "loop") {
   try {
     memberCount = await syncAllStaffAutoValutazioni(client, { preferCache: source === "loop" });
   } catch (err) {
-    global.logger?.warn?.(`[STAFF AUTO VALUTAZIONI] ${source} failed:`, err?.message || err);
+    warnAutoValutazioni(`[STAFF AUTO VALUTAZIONI] ${source} failed:`, err?.message || err);
   } finally {
     const elapsedMs = Date.now() - startedAt;
     autoValutazioniSyncRunning = false;
     if (elapsedMs > 60_000) {
-      global.logger?.warn?.(`[STAFF AUTO VALUTAZIONI] ${source} slow sync: ${elapsedMs}ms (${memberCount} staff).`);
+      warnAutoValutazioni(`[STAFF AUTO VALUTAZIONI] ${source} slow sync: ${elapsedMs}ms (${memberCount} staff).`);
     }
   }
 }
 
 function startStaffAutoValutazioniLoop(client) {
   if (!client || autoWeeklyLoops.has(client)) return;
+  if (autoValutazioniSuspended) return;
   autoWeeklyLoops.add(client);
   if (!autoValutazioniCleanupStarted) {
     autoValutazioniCleanupStarted = true;
     cleanupMalformedAutoValutazioni().catch(() => null);
   }
   const scheduleCron = () => {
+    if (autoValutazioniSuspended) return;
     if (client.__staffAutoValutazioniCronStarted) return;
     client.__staffAutoValutazioniCronStarted = true;
     cron.schedule(
@@ -533,11 +664,26 @@ function startStaffAutoValutazioniLoop(client) {
       { timezone: "Europe/Rome", noOverlap: true },
     );
   };
-  const firstSync = setTimeout(() => {
-    runStaffAutoValutazioniSyncLocked(client, "first_sync")
-      .finally(() => scheduleCron());
-  }, 15_000);
-  firstSync.unref?.();
+  // Mai fare full sync a ogni boot: su DB vuoto/sbagliato ripubblica tutte le valutazioni.
+  // Solo con STAFF_AUTO_VALUTAZIONI_SYNC_ON_STARTUP=1 o FULL_STARTUP_SYNC=1.
+  const forceStartupSync = ["1", "true", "yes"].includes(
+    String(process.env.STAFF_AUTO_VALUTAZIONI_SYNC_ON_STARTUP || process.env.FULL_STARTUP_SYNC || "")
+      .trim()
+      .toLowerCase(),
+  );
+  if (forceStartupSync) {
+    const firstSync = setTimeout(() => {
+      runStaffAutoValutazioniSyncLocked(client, "first_sync").finally(() => scheduleCron());
+    }, 15_000);
+    firstSync.unref?.();
+    return;
+  }
+  scheduleCron();
+}
+
+/** Chiama in shutdown prima di closeMongoGraceful. */
+function suspendStaffAutoValutazioni() {
+  autoValutazioniSuspended = true;
 }
 
 function isSerataFilmEvent(event) {
@@ -569,7 +715,7 @@ async function startSerataFilmSession(event) {
   const channel = guild.channels.cache.get(SERATA_FILM_CHANNEL_ID) || (await getGuildChannelCached(guild, SERATA_FILM_CHANNEL_ID));
   if (channel?.members?.size) {
     for (const member of channel.members.values()) {
-      if (isStaffMember(member)) session.presentSince.set(String(member.id), Date.now());
+      if (isSerataFilmTrackableStaff(member)) session.presentSince.set(String(member.id), Date.now());
     }
   }
 }
@@ -617,6 +763,7 @@ async function finishSerataFilmSession(event) {
     loadSerataFilmStaffAttendanceByUserId(guild.id, memberIds),
   ]);
   for (const member of staffMembers) {
+    if (isExemptFromSerataFilmAutoValutazione(member)) continue;
     const uid = String(member.id);
     const pauses = pausesByUserId.get(uid) || [];
     if (hasActiveAcceptedStaffPause(pauses, evalDateUtc)) continue;
@@ -656,6 +803,8 @@ async function handleSerataFilmVoiceState(oldState, newState) {
   const guildId = String(newState?.guild?.id || oldState?.guild?.id || "");
   const userId = String(newState?.id || oldState?.id || "");
   if (!guildId || !userId || !serataFilmSessions.size) return;
+  const member = newState?.member || oldState?.member || null;
+  if (member && isExemptFromSerataFilmAutoValutazione(member)) return;
   const now = Date.now();
   const oldInChannel = String(oldState?.channelId || "") === SERATA_FILM_CHANNEL_ID;
   const newInChannel = String(newState?.channelId || "") === SERATA_FILM_CHANNEL_ID;
@@ -663,7 +812,7 @@ async function handleSerataFilmVoiceState(oldState, newState) {
   const left = oldInChannel && !newInChannel;
   for (const session of serataFilmSessions.values()) {
     if (String(session.guildId) !== guildId) continue;
-    if (joined) session.presentSince.set(userId, now);
+    if (joined && (!member || isSerataFilmTrackableStaff(member))) session.presentSince.set(userId, now);
     if (left) closeAttendance(session, userId, now);
   }
 }
@@ -683,11 +832,13 @@ module.exports = {
   removeAutoValutazione,
   cleanupMalformedAutoValutazioni,
   syncPersistentAutoValutazioniForMember,
+  resolveAutoValutazioneCreateKeysFromMemberUpdate,
   syncStaffBoostAutoValutazione,
   handleStaffBoostAutoValutazioneMemberUpdate,
   syncWeeklyAutoValutazioniForMember,
   syncAllStaffAutoValutazioni,
   startStaffAutoValutazioniLoop,
+  suspendStaffAutoValutazioni,
   startSerataFilmSession,
   finishSerataFilmSession,
   finishSerataFilmSessionsForChannel,

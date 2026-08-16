@@ -19,6 +19,20 @@ function isTicketCategoryName(name) {
   return false;
 }
 
+/** Dashboard mostra "Tickets"; su Discord creiamo/riusiamo il nome fancy storico. */
+function resolveDiscordTicketCategoryName(dashboardOrDiscordName) {
+  const raw = String(dashboardOrDiscordName || "").trim();
+  if (!raw) return TICKETS_CATEGORY_NAME;
+  const normalized = normalizeCategoryName(raw);
+  if (
+    normalized === "tickets" ||
+    normalized === normalizeCategoryName(TICKETS_CATEGORY_NAME)
+  ) {
+    return TICKETS_CATEGORY_NAME;
+  }
+  return raw.slice(0, 100);
+}
+
 function buildOverflowTicketCategoryName(index) {
   return `${TICKETS_CATEGORY_NAME}${TICKETS_OVERFLOW_SEPARATOR}${index}`;
 }
@@ -46,4 +60,14 @@ function isTicketChannelName(name) {
   return TICKET_CHANNEL_TYPE_MARKERS.some((marker) => normalized.startsWith(`${marker}-`) || normalized.startsWith(`${marker} `));
 }
 
-module.exports = { TICKETS_CATEGORY_NAME, TICKETS_OVERFLOW_SEPARATOR, TICKET_CHANNEL_TYPE_MARKERS, buildOverflowTicketCategoryName, isChannelInTicketCategory, isTicketCategoryName, isTicketChannelName };
+module.exports = {
+  TICKETS_CATEGORY_NAME,
+  TICKETS_OVERFLOW_SEPARATOR,
+  TICKET_CHANNEL_TYPE_MARKERS,
+  buildOverflowTicketCategoryName,
+  isChannelInTicketCategory,
+  isTicketCategoryName,
+  isTicketChannelName,
+  resolveDiscordTicketCategoryName,
+  normalizeCategoryName,
+};

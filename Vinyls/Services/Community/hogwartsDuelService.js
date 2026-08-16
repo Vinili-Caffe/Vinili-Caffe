@@ -13,7 +13,8 @@ const SORTING_DOC = SITE_DOCUMENT_TYPE.HOGWARTS_SORTING;
 const HOUSE_POINTS_DOC = SITE_DOCUMENT_TYPE.HOGWARTS_HOUSE_POINTS;
 const HOUSE_POINTS_OWNER_ID = "__event__";
 const DUEL_PROFILE_PATH = "profile.events.hogwarts.duel";
-const DEFAULT_DUEL_REWARDS = Object.freeze({ cooldownMs: 3 * 60 * 1000, vsBot: { galeoni: 10, housePoints: 15 }, vsUser: { galeoni: 10, housePoints: 15 } });
+const DUEL_COOLDOWN_UNTIL_PATH = `${DUEL_PROFILE_PATH}.cooldownUntil`;
+const DEFAULT_DUEL_REWARDS = Object.freeze({ cooldownMs: 30 * 60 * 1000, vsBot: { galeoni: 10, housePoints: 15 }, vsUser: { galeoni: 10, housePoints: 15 } });
 const WAND_WIN_CHANCE = Object.freeze({ "willow-spark-wand": 58, "ash-moon-wand": 72, "elder-ember-wand": 86, "phoenix-legacy-wand": 100});
 const HOUSE_BONUS = Object.freeze({"gryffindor": 5, "ravenclaw": 4, "hufflepuff": 4, "slytherin": 5});
 const VOLDEMORT = Object.freeze({"userId": "voldemort", "displayName": "Voldemort", "houseId": "slytherin", "wand": getShopItemById("elder-ember-wand"), "power": 94, "winChance": 94, "isBot": true});
@@ -54,14 +55,17 @@ function computeVsBotWinChance(playerWinChance, vsBotCfg = {}) {
   const shopMin = 42;
   const shopMax = 100;
   const t = Math.max(0, Math.min(1, (shop - shopMin) / Math.max(1, shopMax - shopMin)));
-  return Math.round(min + t * (max - min));
+  // Leggera curva favorevole in alto: la Phoenix deve sentirsi meglio della salice.
+  const curved = Math.pow(t, 0.82);
+  return Math.round(min + curved * (max - min));
 }
 
-function buildFighterFromProfile({ userId, displayName, username, houseId, wand, useWandBoost = true }) {
-  const wandId = useWandBoost ? (wand?.id || "") : "";
+function buildFighterFromProfile({ userId, displayName, username, houseId, wand, wandBoostPenalty = 0 }) {
+  const wandId = String(wand?.id || "").trim();
   const base = computeWandWinChance(wandId);
   const bonus = computeHouseBonus(houseId);
-  const winChance = Math.min(100, base + bonus);
+  const penalty = Math.max(0, Math.floor(Number(wandBoostPenalty) || 0));
+  const winChance = Math.max(1, Math.min(100, base + bonus - penalty));
   const meta = getHouseMeta(houseId);
   const uname = String(username || displayName || "Mago").trim() || "Mago";
   return {
@@ -107,7 +111,8 @@ async function loadDuelFighter(client, guildId, userId, displayName, username = 
     username: username || displayName,
     houseId,
     wand: inventory.wand,
-    useWandBoost: wandBoost.useWandBoost,
+    // Boost esaurito = piccola penalità, non bacchetta prestata (bug: Voldemort vinceva troppo).
+    wandBoostPenalty: wandBoost.boostExhausted ? 8 : 0,
   });
   if (wandBoost.boostExhausted) fighter.wandBoostExhausted = true;
   if (Number.isFinite(wandBoost.boostUsesRemaining)) fighter.wandBoostUsesRemaining = wandBoost.boostUsesRemaining;
@@ -136,44 +141,52 @@ function isBotDuelToken(raw) {
 }
 
 /**
+ * PvP: un vincitore c'è sempre (niente pareggio). A parità di roll (tipico con bacchette uguali)
+ * lo spareggio è pesato sulla potenza; se anche quella è uguale, 50/50.
  * @returns {{ winnerId: string, loserId: string, draw: boolean, leftRoll: number, rightRoll: number, leftPower: number, rightPower: number, spellLine: string }}
  */
 function resolveDuelOutcome(left, right, seed = "") {
   const lPow = Math.max(1, Math.min(100, Math.floor(Number(left?.power) || 1)));
   const rPow = Math.max(1, Math.min(100, Math.floor(Number(right?.power) || 1)));
-  const jitter = (String(seed || "").length ? hashSeed(seed) % 17 : randomInt(0, 17)) - 8;
-  const leftRoll = randomInt(1, 36) + lPow + (jitter > 0 ? 1 : 0);
-  const rightRoll = randomInt(1, 36) + rPow;
+  const seedText = String(seed || "");
+  const jitter = (seedText.length ? hashSeed(seedText) % 17 : randomInt(0, 17)) - 8;
+  let leftRoll = randomInt(1, 36) + lPow + (jitter > 0 ? 1 : 0);
+  let rightRoll = randomInt(1, 36) + rPow;
   let winnerId = "";
-  let draw = false;
   if (leftRoll === rightRoll) {
-    draw = true;
+    const totalPow = lPow + rPow;
+    const tieBreak = seedText.length
+      ? (hashSeed(`${seedText}:tie:${leftRoll}`) % totalPow)
+      : randomInt(0, totalPow);
+    const leftWinsTie = tieBreak < lPow;
+    winnerId = leftWinsTie ? String(left.userId || "") : String(right.userId || "");
+    // Differenza minima sui roll mostrati così canvas/animazione non restano in stallo.
+    if (leftWinsTie) leftRoll += 1;
+    else rightRoll += 1;
   } else if (leftRoll > rightRoll) {
     winnerId = String(left.userId || "");
   } else {
     winnerId = String(right.userId || "");
   }
-  const spellLine = pickSpellLine(left, right, winnerId, draw);
+  const spellLine = pickSpellLine(left, right, winnerId, false);
   return {
     winnerId,
-    loserId: draw ? "" : winnerId === String(left.userId) ? String(right.userId) : String(left.userId),
-    draw,
+    loserId: winnerId === String(left.userId) ? String(right.userId) : String(left.userId),
+    draw: false,
     leftRoll,
     rightRoll,
     leftPower: lPow,
     rightPower: rPow,
     spellLine,
-    winnerSide: draw ? "draw" : winnerId === String(left.userId) ? "left" : "right",
+    winnerSide: winnerId === String(left.userId) ? "left" : "right",
   };
 }
 
 function resolveBotDuelOutcome(left, right, seed = "", vsBotCfg = {}) {
-  const lPow = Math.max(1, Math.min(100, Math.floor(Number(left?.power) || 1)));
-  const rPow = Math.max(1, Math.min(100, Math.floor(Number(right?.power) || 94)));
   const winPct = computeVsBotWinChance(left?.winChance, vsBotCfg);
   const roll = randomInt(1, 100);
-  const jitter = String(seed || "").length ? (hashSeed(seed) % 9) - 4 : randomInt(-4, 4);
-  const threshold = Math.max(5, Math.min(95, winPct + jitter));
+  const jitter = String(seed || "").length ? (hashSeed(seed) % 5) - 2 : randomInt(-2, 2);
+  const threshold = Math.max(8, Math.min(92, winPct + jitter));
   const playerWins = roll <= threshold;
   const winnerId = playerWins ? String(left.userId || "") : String(right.userId || "");
   const spellLine = pickSpellLine(left, right, winnerId, false);
@@ -183,8 +196,9 @@ function resolveBotDuelOutcome(left, right, seed = "", vsBotCfg = {}) {
     draw: false,
     leftRoll: roll,
     rightRoll: threshold,
-    leftPower: lPow,
-    rightPower: rPow,
+    // % mostrate = probabilità reale del duello vs bot (non potenza shop).
+    leftPower: winPct,
+    rightPower: Math.max(1, Math.min(99, 100 - winPct)),
     spellLine,
     winnerSide: playerWins ? "left" : "right",
     vsBotWinChance: winPct,
@@ -208,7 +222,7 @@ function pickFrom(arr, seed) {
 }
 
 function duelPublicName(fighter) {
-  return String(fighter?.username || fighter?.displayName || "Mago").trim() || "Mago";
+  return String(fighter?.username || "Mago").trim() || "Mago";
 }
 
 function pickSpellLine(left, right, winnerId, draw) {
@@ -268,6 +282,136 @@ function resolveDuelRewards(client) {
       housePoints: readPositiveInt(vsUser.housePoints, DEFAULT_DUEL_REWARDS.vsUser.housePoints, 0, 500),
     },
   };
+}
+
+function formatDuelCooldownDuration(ms) {
+  const total = Math.ceil(Math.max(0, Number(ms) || 0) / 1000);
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  if (h > 0) return `${h}h ${String(m).padStart(2, "0")}m`;
+  if (m > 0) return `${m}m ${String(s).padStart(2, "0")}s`;
+  return `${s}s`;
+}
+
+function duelCooldownDenyMessage(remainingMs, { untilMs = 0, forOther = false, otherLabel = "Quell'utente" } = {}) {
+  const leftMs = Math.max(0, Math.floor(Number(remainingMs) || 0));
+  const endMs = Math.max(Date.now() + 1000, Math.floor(Number(untilMs) || 0) || (Date.now() + Math.max(leftMs, 1000)));
+  const live = `<t:${Math.floor(endMs / 1000)}:R>`;
+  const exact = formatDuelCooldownDuration(Math.max(leftMs, endMs - Date.now()));
+  if (forOther) {
+    return `<a:VC_pixeltime:1482535344103620771> ${otherLabel} è in cooldown duello · disponibile ${live} (**${exact}**).`;
+  }
+  return `<a:VC_pixeltime:1482535344103620771> Puoi rifare un duello ${live} (**${exact}**).`;
+}
+
+function duelCooldownRemainingMs(until) {
+  if (!until) return 0;
+  const t = until instanceof Date ? until.getTime() : new Date(until).getTime();
+  if (!Number.isFinite(t) || t <= 0) return 0;
+  return Math.max(0, t - Date.now());
+}
+
+function readDuelCooldownUntilMs(doc) {
+  const raw = doc?.profile?.events?.hogwarts?.duel?.cooldownUntil;
+  if (!raw) return 0;
+  const t = raw instanceof Date ? raw.getTime() : new Date(raw).getTime();
+  return Number.isFinite(t) && t > 0 ? t : 0;
+}
+
+async function peekDuelCooldown(client, guildId, userId) {
+  const gid = String(guildId || "").trim();
+  const uid = String(userId || "").trim();
+  if (!isValidGuildUserId(gid, uid)) return { ok: true, remainingMs: 0, untilMs: 0 };
+  const cfg = resolveDuelRewards(client);
+  if (cfg.cooldownMs <= 0) return { ok: true, remainingMs: 0, untilMs: 0 };
+  const doc = await ActivityUserProfile.findOne({ guildId: gid, userId: uid })
+    .select(DUEL_COOLDOWN_UNTIL_PATH)
+    .lean()
+    .catch(() => null);
+  const untilMs = readDuelCooldownUntilMs(doc);
+  const left = Math.max(0, untilMs - Date.now());
+  if (left > 0) {
+    return {
+      ok: false,
+      code: "cooldown",
+      remainingMs: left,
+      untilMs,
+      message: duelCooldownDenyMessage(left, { untilMs }),
+    };
+  }
+  return { ok: true, remainingMs: 0, untilMs: 0 };
+}
+
+async function reserveDuelCooldown(client, guildId, userId) {
+  const gid = String(guildId || "").trim();
+  const uid = String(userId || "").trim();
+  if (!isValidGuildUserId(gid, uid)) return { ok: false, message: "Utente non valido." };
+  const cfg = resolveDuelRewards(client);
+  if (cfg.cooldownMs <= 0) return { ok: true, until: null };
+  const now = new Date();
+  const until = new Date(now.getTime() + cfg.cooldownMs);
+  const doc = await ActivityUserProfile.findOneAndUpdate(
+    {
+      guildId: gid,
+      userId: uid,
+      $or: [
+        { [DUEL_COOLDOWN_UNTIL_PATH]: { $exists: false } },
+        { [DUEL_COOLDOWN_UNTIL_PATH]: { $lte: now } },
+        { [DUEL_COOLDOWN_UNTIL_PATH]: null },
+      ],
+    },
+    {
+      $setOnInsert: { guildId: gid, userId: uid },
+      $set: { [DUEL_COOLDOWN_UNTIL_PATH]: until },
+    },
+    { new: true, upsert: true, setDefaultsOnInsert: true },
+  ).catch(() => null);
+  if (doc) {
+    const savedUntil = readDuelCooldownUntilMs(doc) || until.getTime();
+    return { ok: true, until: new Date(savedUntil) };
+  }
+
+  const live = await ActivityUserProfile.findOne({ guildId: gid, userId: uid })
+    .select(DUEL_COOLDOWN_UNTIL_PATH)
+    .lean()
+    .catch(() => null);
+  const untilMs = readDuelCooldownUntilMs(live);
+  const left = Math.max(0, untilMs - Date.now());
+  if (left <= 0) {
+    // Non inventare 30m finti: riprova a riservare una volta sola.
+    const retry = await ActivityUserProfile.findOneAndUpdate(
+      { guildId: gid, userId: uid },
+      { $set: { [DUEL_COOLDOWN_UNTIL_PATH]: until } },
+      { new: true, upsert: true, setDefaultsOnInsert: true },
+    ).catch(() => null);
+    if (retry) return { ok: true, until };
+    return {
+      ok: false,
+      code: "cooldown",
+      remainingMs: cfg.cooldownMs,
+      untilMs: until.getTime(),
+      message: duelCooldownDenyMessage(cfg.cooldownMs, { untilMs: until.getTime() }),
+    };
+  }
+  return {
+    ok: false,
+    code: "cooldown",
+    remainingMs: left,
+    untilMs,
+    message: duelCooldownDenyMessage(left, { untilMs }),
+  };
+}
+
+async function clearDuelCooldown(client, guildId, userId) {
+  const gid = String(guildId || "").trim();
+  const uid = String(userId || "").trim();
+  if (!isValidGuildUserId(gid, uid)) return { ok: false };
+  await ActivityUserProfile.updateOne(
+    { guildId: gid, userId: uid },
+    { $unset: { [DUEL_COOLDOWN_UNTIL_PATH]: "" } },
+  ).catch(() => null);
+  return { ok: true };
 }
 
 function normalizeHouseId(value) {
@@ -441,4 +585,25 @@ async function settleDuelVictoryRewards(client, { guildId, winnerId, vsBot = fal
   };
 }
 
-module.exports = { BOT_ALIASES, VOLDEMORT, buildFighterFromProfile, computeHouseBonus, computeVsBotWinChance, computeWandWinChance, formatDuelRewardLine, formatFighterStatsLine, getVoldemortFighter, isBotDuelToken, loadDuelFighter, resolveBotDuelOutcome, resolveDuelOutcome, resolveDuelRewards, settleDuelVictoryRewards };
+module.exports = {
+  BOT_ALIASES,
+  VOLDEMORT,
+  buildFighterFromProfile,
+  clearDuelCooldown,
+  computeHouseBonus,
+  computeVsBotWinChance,
+  computeWandWinChance,
+  formatDuelRewardLine,
+  formatFighterStatsLine,
+  getVoldemortFighter,
+  isBotDuelToken,
+  loadDuelFighter,
+  peekDuelCooldown,
+  reserveDuelCooldown,
+  duelCooldownDenyMessage,
+  formatDuelCooldownDuration,
+  resolveBotDuelOutcome,
+  resolveDuelOutcome,
+  resolveDuelRewards,
+  settleDuelVictoryRewards,
+};

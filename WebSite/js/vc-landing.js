@@ -113,77 +113,18 @@
     }
     var cookiePolicyUrl = resolveCookiePolicyUrl();
 
-    var cookieIcon =
-      '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
-      '<path d="M15.8 2.6a3.1 3.1 0 0 0 4 4A8.8 8.8 0 1 1 11 2.2c.2 1.8 1.7 3.1 3.5 3.1.5 0 1-.1 1.3-.3Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>' +
-      '<circle cx="9.1" cy="9.4" r="1.1" fill="currentColor"/>' +
-      '<circle cx="14.8" cy="10.8" r="1" fill="currentColor"/>' +
-      '<circle cx="8.8" cy="14.6" r="1" fill="currentColor"/>' +
-      '<circle cx="13.1" cy="16.2" r=".9" fill="currentColor"/>' +
-      "</svg>";
-    var infoIcon =
-      '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
-      '<circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.9"/>' +
-      '<path d="M12 10.4v5.1" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/>' +
-      '<circle cx="12" cy="7.4" r="1.1" fill="currentColor"/>' +
-      "</svg>";
-    var shieldIcon =
-      '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
-      '<path d="M12 3.4 19 6v5.4c0 4.3-2.7 7.4-7 9.1-4.3-1.7-7-4.8-7-9.1V6l7-2.6Z" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/>' +
-      "</svg>";
-    var lockIcon =
-      '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
-      '<rect x="5" y="10.2" width="14" height="10" rx="2.5" stroke="currentColor" stroke-width="1.9"/>' +
-      '<path d="M8.5 10.2V7.8a3.5 3.5 0 1 1 7 0v2.4" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/>' +
-      "</svg>";
-    var closeIcon =
-      '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
-      '<path d="M7 7l10 10M17 7 7 17" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/>' +
-      "</svg>";
-    var chevIcon =
-      '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
-      '<path d="m6 9 6 6 6-6" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>' +
-      "</svg>";
-
     var root = document.createElement("section");
     root.id = "vc-necessity-banner";
     root.className = "vc-necessity-banner";
     root.setAttribute("aria-label", "Avviso utilizzo cookie");
+    root.style.width = "fit-content";
+    root.style.maxWidth = "calc(100vw - 1.5rem)";
     root.innerHTML =
-      '<div class="vc-necessity-banner__card" role="dialog" aria-modal="false" aria-labelledby="vc-necessity-title">' +
-      '<div class="vc-necessity-banner__head">' +
-      '<span class="vc-necessity-banner__icon" aria-hidden="true">' + cookieIcon + "</span>" +
-      '<div class="vc-necessity-banner__titlewrap">' +
-      '<h2 id="vc-necessity-title">Cookie essenziali</h2>' +
-      '<p>Usiamo solo dati tecnici necessari per login Discord, sicurezza e funzioni base del sito. La sessione locale può durare fino a 90 giorni.</p>' +
-      "</div>" +
-      '<button type="button" class="vc-necessity-banner__close" data-vc-necessity-dismiss aria-label="Chiudi avviso cookie">' + closeIcon + "</button>" +
-      "</div>" +
-      '<div class="vc-necessity-banner__body">' +
-      '<div class="vc-necessity-banner__scroll">' +
-      '<div class="vc-necessity-banner__notice">' +
-      '<span class="vc-necessity-banner__noticeico" aria-hidden="true">' + infoIcon + "</span>" +
-      '<p><strong>Solo tecnici essenziali.</strong> Nessun cookie di marketing o profilazione: solo accesso Discord, sicurezza e preferenze minime.</p>' +
-      "</div>" +
-      '<details class="vc-necessity-banner__details">' +
-      '<summary><span><span class="vc-necessity-banner__summaryico" aria-hidden="true">' + shieldIcon + '</span> Dettagli tecnici</span><span class="vc-necessity-banner__chev" aria-hidden="true">' + chevIcon + "</span></summary>" +
-      '<div class="vc-necessity-banner__tech">' +
-      '<div><span class="vc-necessity-banner__techico" aria-hidden="true">' + lockIcon + '</span><span><strong>Token accesso Discord</strong><small>Salvato nel browser per mantenere la sessione (max 90 giorni)</small></span></div>' +
-      '<div><span class="vc-necessity-banner__techico" aria-hidden="true">' + lockIcon + '</span><span><strong>Stato OAuth + nonce</strong><small>Controlli anti-CSRF per login Discord sicuro</small></span></div>' +
-      '<div><span class="vc-necessity-banner__techico" aria-hidden="true">' + lockIcon + '</span><span><strong>Preferenza banner</strong><small>Ricorda accettazione/chiusura per 180 giorni</small></span></div>' +
-      '<div class="vc-necessity-banner__chips"><span>Tecnici essenziali</span><span>Sicurezza</span><span>No marketing</span><span>No profilazione</span></div>' +
-      '<a href="' + cookiePolicyUrl + '">Leggi la Cookie Policy completa <span aria-hidden="true">&rarr;</span></a>' +
-      "</div>" +
-      "</details>" +
-      "</div>" +
-      '<div class="vc-necessity-banner__dock">' +
-      '<div class="vc-necessity-banner__actions">' +
+      '<div class="vc-necessity-banner__pill" role="dialog" aria-modal="false" aria-labelledby="vc-necessity-text" style="display:inline-flex;width:auto;gap:0.65rem">' +
+      '<p id="vc-necessity-text" class="vc-necessity-banner__text">' +
+      'Questo sito utilizza <a class="vc-necessity-banner__policy" href="' + cookiePolicyUrl + '">cookie essenziali</a>' +
+      "</p>" +
       '<button type="button" class="vc-necessity-banner__accept" data-vc-necessity-confirm>Accetta</button>' +
-      '<a class="vc-necessity-banner__link" href="' + cookiePolicyUrl + '">Cookie Policy</a>' +
-      "</div>" +
-      '<p class="vc-necessity-banner__foot"><strong>Accetta</strong> o <strong>X</strong> salvano la stessa scelta tecnica per 180 giorni. Se non scegli nulla, l’avviso ricompare alla visita successiva.</p>' +
-      "</div>" +
-      "</div>" +
       "</div>";
 
     function dismissFromUserAction(ev) {
@@ -195,9 +136,7 @@
       closeCookieBanner(root);
     }
     var acceptEl = root.querySelector(".vc-necessity-banner__accept");
-    var closeEl = root.querySelector(".vc-necessity-banner__close");
     if (acceptEl) acceptEl.addEventListener("click", dismissFromUserAction);
-    if (closeEl) closeEl.addEventListener("click", dismissFromUserAction);
 
     (document.documentElement || document.body).appendChild(root);
     window.requestAnimationFrame(function () {
@@ -483,12 +422,24 @@
     var localWindowId = String(Date.now()) + "-" + String(Math.random()).slice(2);
     var detailsList = bar.querySelectorAll("details.vc-snav-details");
     var notif = bar.querySelector("details.vc-notif-dropdown");
-    var accountMenu = bar.querySelector(".discord-account-menu");
+    var accountMenuOpen = false;
+    function closeLangMenu() {
+      try {
+        if (window.VcI18n && typeof window.VcI18n.closeLangMenu === "function") {
+          window.VcI18n.closeLangMenu();
+        }
+      } catch (e) {}
+    }
     function syncHeaderDropdownOpenClasses() {
       var root = document.documentElement;
       if (!root) return;
       var notifOpen = Boolean(notif && notif.open);
       root.classList.toggle("vc-notif-dropdown-open", notifOpen);
+      root.classList.toggle("vc-header-account-open", accountMenuOpen);
+    }
+    function setAccountMenuOpen(on) {
+      accountMenuOpen = Boolean(on);
+      syncHeaderDropdownOpenClasses();
     }
     function broadcastHeaderMenuOpen(sourceId) {
       try {
@@ -510,6 +461,7 @@
             if (other !== d) other.open = false;
           });
           if (notif) notif.open = false;
+          closeLangMenu();
         }
         syncHeaderDropdownOpenClasses();
       });
@@ -522,17 +474,80 @@
         detailsList.forEach(function (other) {
           other.open = false;
         });
+        setAccountMenuOpen(false);
+        try {
+          var accBtn = bar.querySelector(".discord-profile-link");
+          if (accBtn && document.activeElement === accBtn) accBtn.blur();
+        } catch (eBlur) {}
+        closeLangMenu();
       });
     }
-    if (accountMenu && notif) {
-      accountMenu.addEventListener("pointerenter", function () {
-        syncHeaderDropdownOpenClasses();
+    document.addEventListener("vc:langmenuopen", function () {
+      detailsList.forEach(function (other) {
+        other.open = false;
       });
-      accountMenu.addEventListener("focusin", function () {
-        if (notif.open) notif.open = false;
-        syncHeaderDropdownOpenClasses();
+      if (notif) notif.open = false;
+      setAccountMenuOpen(false);
+      syncHeaderDropdownOpenClasses();
+    });
+    // Account menu nasce dopo il login: delegation sul bar, non query una tantum.
+    bar.addEventListener("pointerover", function (ev) {
+      var t = ev.target;
+      if (!t || !t.closest) return;
+      var menu = t.closest(".discord-account-menu");
+      if (!menu || !bar.contains(menu)) return;
+      var related = ev.relatedTarget;
+      if (related && menu.contains(related)) return;
+      // Notifiche aperte con click: restano aperte (niente chiusura solo per hover sull’avatar).
+      if (notif && notif.open) return;
+      detailsList.forEach(function (other) {
+        other.open = false;
       });
-    }
+      closeLangMenu();
+      setAccountMenuOpen(true);
+    });
+    bar.addEventListener("pointerout", function (ev) {
+      var t = ev.target;
+      if (!t || !t.closest) return;
+      var menu = t.closest(".discord-account-menu");
+      if (!menu || !bar.contains(menu)) return;
+      var related = ev.relatedTarget;
+      if (related && menu.contains(related)) return;
+      setAccountMenuOpen(false);
+    });
+    bar.addEventListener("focusin", function (ev) {
+      var t = ev.target;
+      if (!t || !t.closest) return;
+      if (!t.closest(".discord-account-menu")) return;
+      if (notif && notif.open) return;
+      detailsList.forEach(function (other) {
+        other.open = false;
+      });
+      closeLangMenu();
+      setAccountMenuOpen(true);
+    });
+    bar.addEventListener("click", function (ev) {
+      var t = ev.target;
+      if (!t || !t.closest) return;
+      if (!t.closest(".discord-account-menu")) return;
+      if (!(notif && notif.open)) return;
+      notif.open = false;
+      detailsList.forEach(function (other) {
+        other.open = false;
+      });
+      closeLangMenu();
+      setAccountMenuOpen(true);
+      syncHeaderDropdownOpenClasses();
+    });
+    bar.addEventListener("focusout", function (ev) {
+      var t = ev.target;
+      if (!t || !t.closest) return;
+      var menu = t.closest(".discord-account-menu");
+      if (!menu) return;
+      var next = ev.relatedTarget;
+      if (next && menu.contains(next)) return;
+      setAccountMenuOpen(false);
+    });
     function pointInside(el, ev) {
       if (!el || typeof ev.clientX !== "number" || typeof ev.clientY !== "number") return false;
       try {
@@ -552,7 +567,9 @@
       detailsList.forEach(function (d) {
         d.open = false;
       });
-      if (notif) notif.open = false;
+      var liveNotif = document.getElementById("vc-notif-dropdown") || notif;
+      if (liveNotif) liveNotif.open = false;
+      closeLangMenu();
       syncHeaderDropdownOpenClasses();
     }
     document.addEventListener(
@@ -561,13 +578,18 @@
         if (typeof ev.button === "number" && ev.button !== 0) return;
         var t = ev.target;
         if (!t || !t.closest) return;
-        var opens = bar.querySelectorAll(
-          "details.vc-snav-details[open], details.vc-notif-dropdown[open]",
+        var opens = Array.prototype.slice.call(
+          bar.querySelectorAll("details.vc-snav-details[open]"),
         );
+        // Dopo il portal mobile lo sheet è su <body>, non più dentro la bar.
+        var liveNotif = document.getElementById("vc-notif-dropdown");
+        if (liveNotif && liveNotif.open) opens.push(liveNotif);
         if (!opens.length) return;
         for (var i = 0; i < opens.length; i++) {
           if (eventInsideOpenDropdown(opens[i], ev)) return;
         }
+        // Tap sulla summary della campanella: lascia aprire/chiudere al <details>.
+        if (t.closest && t.closest("summary.vc-notif-summary, .vc-notif-summary")) return;
         closeAllHeaderDropdowns();
       },
       true,
@@ -1006,6 +1028,11 @@
 (function () {
   var STORAGE_PREFIX = "vc_notifications_v1:";
   var DISMISSED_PREFIX = "vc_notifications_dismissed_v1:";
+  var NOTIF_SYNC_KEY = "vc_notifications_sync_v1";
+  var PENDING_READ_PREFIX = "vc_notifications_pending_read_v1:";
+  var CLICK_READ_KEY = "vc_notifications_click_read_v1";
+  var SW_PENDING_READ_CACHE = "vc-notif-pending-read-v1";
+  var SW_PENDING_READ_URL = "/__vc/pending-notif-read";
   var PENDING_LOGIN_NOTIF_KEY = "vc_pending_login_notification_v1";
   var NOTIFICATIONS_PATH = "/notifications/";
   var DEMO_ID = "__vc_ephemeral_demo__";
@@ -1014,17 +1041,31 @@
   var siteNotifsTimer = null;
   var siteRealtimeWs = null;
   var siteRealtimeWsReconnectTimer = null;
-  var SITE_NOTIFS_POLL_MS = 60000;
+  var SITE_NOTIFS_POLL_MS = 15000;
+  var SITE_NOTIFS_POLL_HIDDEN_MS = 60000;
   var siteNotifsVisibilityTimer = null;
+  var notifPeerSyncTimer = null;
+  var notifSyncBc = null;
   var lastNotifRenderSig = "";
-  /** Milliseconds the toast stays visible before flying to the bell. */
-  var NOTIF_FLY_READ_MS = 4000;
-  /** Fly animation duration (ms); match .vc-notif-fly-card--run in vc-landing.css. */
-  var NOTIF_FLY_ANIM_MS = 1100;
+  var ignoreSelfNotifSync = 0;
+  try {
+    notifSyncBc = new BroadcastChannel("vc_notifications_sync_v1");
+  } catch (eBc) {
+    notifSyncBc = null;
+  }
+  /** Tempo in cui il pop resta leggibile sotto la campanella. */
+  var NOTIF_FLY_READ_MS = 3400;
+  /** Durata animazione di uscita (ms); match .vc-notif-fly-card--out. */
+  var NOTIF_FLY_ANIM_MS = 280;
   var notifFlyActiveCount = 0;
   var notifAudioCtx = null;
   var notifAudioUnlocked = false;
   var DISCORD_ACCESS_TOKEN_KEY = "vc_discord_access_token";
+  var baseDocumentTitle = "";
+  var lastTabUnreadShown = -1;
+  var baseFaviconHref = "";
+  var faviconBadgeGen = 0;
+  var faviconLinkEl = null;
   try {
     if (new URLSearchParams(window.location.search).get("notif") === "demo") {
       ephemeralDemo = {
@@ -1037,6 +1078,151 @@
       };
     }
   } catch (e) {}
+  function captureBaseDocumentTitle() {
+    var raw = String(document.title || "").trim();
+    var cleaned = raw.replace(/^\(\d+\+?\)\s+/, "").trim();
+    if (!baseDocumentTitle) {
+      baseDocumentTitle = cleaned || raw || "Vinili & Caffè";
+      return;
+    }
+    // Se la pagina ha cambiato titolo (navigazione SPA / i18n), aggiorna la base.
+    if (cleaned && cleaned !== baseDocumentTitle && !/^\(\d+\+?\)\s+/.test(raw)) {
+      baseDocumentTitle = cleaned;
+    }
+  }
+
+  function resolveFaviconLink() {
+    if (faviconLinkEl && faviconLinkEl.isConnected) return faviconLinkEl;
+    faviconLinkEl =
+      document.querySelector('link[rel="icon"]') ||
+      document.querySelector('link[rel="shortcut icon"]');
+    if (!faviconLinkEl) {
+      faviconLinkEl = document.createElement("link");
+      faviconLinkEl.rel = "icon";
+      document.head.appendChild(faviconLinkEl);
+    }
+    if (!baseFaviconHref) {
+      baseFaviconHref = String(faviconLinkEl.href || faviconLinkEl.getAttribute("href") || "").trim();
+    }
+    return faviconLinkEl;
+  }
+
+  function drawFaviconBadgeOnCanvas(ctx, size, unread) {
+    var label = unread > 99 ? "99+" : String(unread);
+    var r = size * 0.22;
+    var cx = size - r - size * 0.06;
+    var cy = size - r - size * 0.06;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r + size * 0.04, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(20, 12, 8, 0.92)";
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fillStyle = "#e11d48";
+    ctx.fill();
+    ctx.fillStyle = "#fff7ed";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.font =
+      "700 " +
+      Math.max(10, Math.floor(size * (label.length > 2 ? 0.28 : 0.34))) +
+      "px system-ui,Segoe UI,sans-serif";
+    ctx.fillText(label, cx, cy + size * 0.02);
+  }
+
+  function paintPlainFaviconBadge(unread) {
+    var size = 64;
+    var canvas = document.createElement("canvas");
+    canvas.width = size;
+    canvas.height = size;
+    var ctx = canvas.getContext("2d");
+    if (!ctx) return "";
+    ctx.fillStyle = "#1a120e";
+    ctx.fillRect(0, 0, size, size);
+    ctx.beginPath();
+    ctx.arc(size / 2, size / 2, size * 0.34, 0, Math.PI * 2);
+    ctx.fillStyle = "#0b0908";
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(size / 2, size / 2, size * 0.12, 0, Math.PI * 2);
+    ctx.fillStyle = "#d4a888";
+    ctx.fill();
+    drawFaviconBadgeOnCanvas(ctx, size, unread);
+    try {
+      return canvas.toDataURL("image/png");
+    } catch (e) {
+      return "";
+    }
+  }
+
+  function updateFaviconBadge(unread) {
+    var link = resolveFaviconLink();
+    var n = Math.max(0, Math.floor(Number(unread) || 0));
+    var gen = ++faviconBadgeGen;
+    if (n <= 0) {
+      if (baseFaviconHref) link.href = baseFaviconHref;
+      return;
+    }
+    var size = 64;
+    var applyDataUrl = function (dataUrl) {
+      if (gen !== faviconBadgeGen || !dataUrl) return;
+      link.href = dataUrl;
+    };
+    if (!baseFaviconHref) {
+      applyDataUrl(paintPlainFaviconBadge(n));
+      return;
+    }
+    var img = new Image();
+    img.decoding = "async";
+    try {
+      img.crossOrigin = "anonymous";
+    } catch (eCo) {}
+    img.onload = function () {
+      if (gen !== faviconBadgeGen) return;
+      try {
+        var canvas = document.createElement("canvas");
+        canvas.width = size;
+        canvas.height = size;
+        var ctx = canvas.getContext("2d");
+        if (!ctx) {
+          applyDataUrl(paintPlainFaviconBadge(n));
+          return;
+        }
+        ctx.clearRect(0, 0, size, size);
+        ctx.drawImage(img, 0, 0, size, size);
+        drawFaviconBadgeOnCanvas(ctx, size, n);
+        applyDataUrl(canvas.toDataURL("image/png"));
+      } catch (eDraw) {
+        applyDataUrl(paintPlainFaviconBadge(n));
+      }
+    };
+    img.onerror = function () {
+      applyDataUrl(paintPlainFaviconBadge(n));
+    };
+    img.src = baseFaviconHref;
+  }
+
+  function syncBrowserTabNotifBadge(unread) {
+    var n = Math.max(0, Math.floor(Number(unread) || 0));
+    captureBaseDocumentTitle();
+    if (n === lastTabUnreadShown) {
+      // Titolo potrebbe essere stato resettato da altro script: ripristina se serve.
+      var want =
+        n > 0
+          ? "(" + (n > 99 ? "99+" : String(n)) + ") " + baseDocumentTitle
+          : baseDocumentTitle;
+      if (String(document.title || "") !== want) document.title = want;
+      return;
+    }
+    lastTabUnreadShown = n;
+    if (n > 0) {
+      document.title = "(" + (n > 99 ? "99+" : String(n)) + ") " + baseDocumentTitle;
+    } else {
+      document.title = baseDocumentTitle;
+    }
+    updateFaviconBadge(n);
+  }
+
   function normalizeUserId(value) {
     var id = String(value || "").trim();
     return /^\d{17,20}$/.test(id) ? id : "";
@@ -1070,13 +1256,50 @@
       return new Set();
     }
   }
+  function notifyNotifStorePeers() {
+    try {
+      localStorage.setItem(NOTIF_SYNC_KEY, String(Date.now()) + ":" + Math.random().toString(36).slice(2, 8));
+    } catch (ePing) {}
+    try {
+      if (notifSyncBc) notifSyncBc.postMessage({ t: Date.now() });
+    } catch (eBcPost) {}
+    ignoreSelfNotifSync += 1;
+    try {
+      window.dispatchEvent(new CustomEvent("vc:notifications-sync"));
+    } catch (eEv) {
+    } finally {
+      ignoreSelfNotifSync -= 1;
+    }
+  }
+  function onNotifStorePeerSync() {
+    if (ignoreSelfNotifSync > 0) return;
+    lastNotifRenderSig = "";
+    render({ force: true });
+    if (!normalizeUserId(currentUserId) || !getDiscordAccessToken()) return;
+    if (notifPeerSyncTimer) clearTimeout(notifPeerSyncTimer);
+    notifPeerSyncTimer = setTimeout(function () {
+      notifPeerSyncTimer = null;
+      syncSiteNotificationsFromServer();
+    }, 250);
+  }
+  function isNotifStorageSyncKey(key) {
+    var k = String(key || "");
+    if (!k) return false;
+    if (k === NOTIF_SYNC_KEY) return true;
+    if (k.indexOf(STORAGE_PREFIX) === 0) return true;
+    if (k.indexOf(DISMISSED_PREFIX) === 0) return true;
+    return false;
+  }
   function saveDismissedSet(setLike, userId) {
     var key = userDismissedKey(userId);
     if (!key) return;
     var arr = Array.from(setLike || []).filter(Boolean);
     if (arr.length > 500) arr = arr.slice(arr.length - 500);
+    var next = JSON.stringify(arr);
     try {
-      localStorage.setItem(key, JSON.stringify(arr));
+      if (localStorage.getItem(key) === next) return;
+      localStorage.setItem(key, next);
+      notifyNotifStorePeers();
     } catch (e) {}
   }
   function markDismissed(id, userId) {
@@ -1093,14 +1316,17 @@
     if (!lid) return;
     var set = loadDismissedSet(uid);
     set.add(lid);
-    var fpId = buildNotifFingerprintId(item, uid, String((item && item.kind) || "info"), String((item && item.openUrl) || ""));
-    if (fpId && fpId !== lid) set.add(fpId);
+    if (!isServerBackedNotifId(lid)) {
+      var fpId = buildNotifFingerprintId(item, uid, String((item && item.kind) || "info"), String((item && item.openUrl) || ""));
+      if (fpId && fpId !== lid) set.add(fpId);
+    }
     saveDismissedSet(set, uid);
   }
   function isNotifDismissed(item, uid, dismissed) {
     if (!item) return true;
     var set = dismissed || loadDismissedSet(uid);
     var lid = String((item && item.id) || "").trim();
+    if (isServerBackedNotifId(lid)) return false;
     if (lid && set.has(lid)) return true;
     var fpId = buildNotifFingerprintId(item, uid, String((item && item.kind) || "info"), String((item && item.openUrl) || ""));
     return Boolean(fpId && set.has(fpId));
@@ -1126,13 +1352,15 @@
   function buildNotifFingerprintId(payload, ownerId, kind, openUrl) {
     var p = payload && typeof payload === "object" ? Object.assign({}, payload) : {};
     delete p.id;
-    delete p.at;
     delete p.read;
     delete p.readAt;
     return buildStableNotifId(p, ownerId, kind, openUrl);
   }
   function isAutoClientNotifId(id) {
     return String(id || "").indexOf("auto:") === 0;
+  }
+  function isServerBackedNotifId(id) {
+    return /^[a-f0-9]{24}$/i.test(String(id || "").trim());
   }
   function sameNotifCore(a, b) {
     if (!a || !b) return false;
@@ -1143,6 +1371,158 @@
       String((a && a.openUrl) || "").trim() === String((b && b.openUrl) || "").trim()
     );
   }
+  function pendingReadKey() {
+    var uid = normalizeUserId(currentUserId);
+    return uid ? PENDING_READ_PREFIX + uid : "";
+  }
+  function loadPendingReadMap() {
+    var key = pendingReadKey();
+    if (!key) return {};
+    try {
+      var raw = sessionStorage.getItem(key);
+      var arr = raw ? JSON.parse(raw) : [];
+      var map = {};
+      if (Array.isArray(arr)) {
+        for (var i = 0; i < arr.length; i += 1) {
+          var id = String(arr[i] || "").trim();
+          if (id) map[id] = true;
+        }
+      }
+      return map;
+    } catch (e) {
+      return {};
+    }
+  }
+  function savePendingReadMap(map) {
+    var key = pendingReadKey();
+    if (!key) return;
+    try {
+      sessionStorage.setItem(key, JSON.stringify(Object.keys(map || {})));
+    } catch (e) {}
+  }
+  function isPendingRead(id) {
+    var sid = String(id || "").trim();
+    return Boolean(sid && loadPendingReadMap()[sid]);
+  }
+  function rememberPendingRead(id) {
+    var sid = String(id || "").trim();
+    if (!sid) return;
+    var map = loadPendingReadMap();
+    map[sid] = true;
+    savePendingReadMap(map);
+  }
+  function loadClickReadIds() {
+    try {
+      var arr = JSON.parse(sessionStorage.getItem(CLICK_READ_KEY) || "[]");
+      return Array.isArray(arr)
+        ? arr
+            .map(function (x) {
+              return String(x || "").trim();
+            })
+            .filter(Boolean)
+        : [];
+    } catch (e) {
+      return [];
+    }
+  }
+  function rememberClickRead(id) {
+    var sid = String(id || "").trim();
+    if (!sid) return;
+    var arr = loadClickReadIds();
+    if (arr.indexOf(sid) === -1) arr.push(sid);
+    try {
+      sessionStorage.setItem(CLICK_READ_KEY, JSON.stringify(arr));
+    } catch (e) {}
+    rememberPendingRead(sid);
+  }
+  function clearClickReadIds() {
+    try {
+      sessionStorage.removeItem(CLICK_READ_KEY);
+    } catch (e) {}
+  }
+  function tryFlushClickReads() {
+    var ids = loadClickReadIds();
+    if (!ids.length) return;
+    if (!normalizeUserId(currentUserId) || !getDiscordAccessToken()) return;
+    for (var i = 0; i < ids.length; i += 1) markOneRead(ids[i]);
+    clearClickReadIds();
+  }
+  function consumePendingReadFromSwCache() {
+    if (!("caches" in window)) return Promise.resolve();
+    return caches
+      .open(SW_PENDING_READ_CACHE)
+      .then(function (cache) {
+        return cache.match(SW_PENDING_READ_URL).then(function (res) {
+          if (!res) return;
+          return res.json().then(function (data) {
+            var ids = Array.isArray(data && data.ids) ? data.ids : [];
+            for (var i = 0; i < ids.length; i += 1) rememberClickRead(ids[i]);
+            return cache.delete(SW_PENDING_READ_URL);
+          });
+        });
+      })
+      .catch(function () {})
+      .then(function () {
+        tryFlushClickReads();
+      });
+  }
+  function isWatchingTicketChat(ticketId, openUrl) {
+    var tid = String(ticketId || "").trim().toLowerCase();
+    if (!tid) {
+      try {
+        var u = new URL(String(openUrl || ""), window.location.origin);
+        tid = String(u.hash || "").replace(/^#/, "").toLowerCase();
+      } catch (e0) {
+        tid = "";
+      }
+    }
+    if (!/^[a-f0-9]{24}$/i.test(tid)) return false;
+    if (document.visibilityState !== "visible") return false;
+    try {
+      if (typeof document.hasFocus === "function" && !document.hasFocus()) return false;
+    } catch (eFocus) {}
+    try {
+      var watching = window.__VC_WATCHING_TICKET;
+      if (watching && String(watching.id || "").toLowerCase() === tid) return true;
+    } catch (e1) {}
+    try {
+      var path = String(window.location.pathname || "");
+      if (path.indexOf("/tickets") === -1) return false;
+      var hash = String(window.location.hash || "").replace(/^#/, "").toLowerCase();
+      return hash === tid;
+    } catch (e2) {
+      return false;
+    }
+  }
+  function forgetPendingRead(id) {
+    var sid = String(id || "").trim();
+    if (!sid) return;
+    var map = loadPendingReadMap();
+    if (!map[sid]) return;
+    delete map[sid];
+    savePendingReadMap(map);
+  }
+  function flushPendingReadsToServer() {
+    var map = loadPendingReadMap();
+    var ids = Object.keys(map);
+    for (var fi = 0; fi < ids.length; fi += 1) {
+      (function (id) {
+        markSiteNotificationReadOnServer(id).then(function (ok) {
+          if (ok) forgetPendingRead(id);
+        });
+      })(ids[fi]);
+    }
+  }
+  function applyPendingReads(items) {
+    var map = loadPendingReadMap();
+    var keys = Object.keys(map);
+    if (!keys.length) return Array.isArray(items) ? items : [];
+    return (Array.isArray(items) ? items : []).map(function (x) {
+      var id = String((x && x.id) || "").trim();
+      if (id && map[id] && !x.read) return Object.assign({}, x, { read: true });
+      return x;
+    });
+  }
   function loadStored() {
     var key = userStorageKey();
     if (!key) return [];
@@ -1150,7 +1530,7 @@
       var raw = localStorage.getItem(key);
       if (!raw) return [];
       var arr = JSON.parse(raw);
-      return sortNotifItems(Array.isArray(arr) ? arr : []);
+      return applyPendingReads(sortNotifItems(Array.isArray(arr) ? arr : []));
     } catch (e) {
       return [];
     }
@@ -1169,8 +1549,11 @@
   function saveStored(items) {
     var key = userStorageKey();
     if (!key) return;
+    var next = JSON.stringify(sortNotifItems(items));
     try {
-      localStorage.setItem(key, JSON.stringify(sortNotifItems(items)));
+      if (localStorage.getItem(key) === next) return;
+      localStorage.setItem(key, next);
+      notifyNotifStorePeers();
     } catch (e) {}
   }
   function rows() {
@@ -1184,6 +1567,7 @@
     if (kind === "review") return "fa-star";
     if (kind === "mod") return "fa-shield";
     if (kind === "suggestion") return "fa-magic";
+    if (kind === "web_ticket" || kind === "web_ticket_mention") return "fa-ticket";
     return "fa-bell-o";
   }
   function notificationsPageUrl() {
@@ -1218,27 +1602,57 @@
     return parts.join("\x1f");
   }
 
-  function timeAgoIt(atMs) {
+  function timeAgoLocalized(atMs) {
+    function nt(key, vars, fallback) {
+      try {
+        if (window.VcI18n && typeof window.VcI18n.t === "function") {
+          var v = window.VcI18n.t(key, vars);
+          if (v && v !== key) return v;
+        }
+      } catch (e) {}
+      var out = fallback != null ? fallback : key;
+      if (vars && typeof out === "string") {
+        out = out.replace(/\{(\w+)\}/g, function (_, k) {
+          return vars[k] != null ? String(vars[k]) : "{" + k + "}";
+        });
+      }
+      return out;
+    }
     var s = Math.floor((Date.now() - atMs) / 1000);
-    if (s < 45) return "Ora";
+    if (s < 45) return nt("notif.justNow", null, "Ora");
     var m = Math.floor(s / 60);
-    if (m < 60) return m === 1 ? "1 minuto fa" : m + " minuti fa";
+    if (m < 60) {
+      return m === 1
+        ? nt("notif.minuteAgo", null, "1 minuto fa")
+        : nt("notif.minutesAgo", { n: m }, "{n} minuti fa");
+    }
     var h = Math.floor(m / 60);
-    if (h < 24) return h === 1 ? "1 ora fa" : h + " ore fa";
+    if (h < 24) {
+      return h === 1
+        ? nt("notif.hourAgo", null, "1 ora fa")
+        : nt("notif.hoursAgo", { n: h }, "{n} ore fa");
+    }
     var d = Math.floor(h / 24);
-    if (d < 7) return d === 1 ? "1 giorno fa" : d + " giorni fa";
-    return "Più di una settimana fa";
+    if (d < 7) {
+      return d === 1
+        ? nt("notif.dayAgo", null, "1 giorno fa")
+        : nt("notif.daysAgo", { n: d }, "{n} giorni fa");
+    }
+    return nt("notif.weekPlusAgo", null, "Più di una settimana fa");
   }
   function render(options) {
     var root = document.getElementById("vc-notif-dropdown");
     var listEl = document.getElementById("vc-notif-list");
     var badge = document.getElementById("vc-notif-badge");
     var sub = document.getElementById("vc-notif-unread-sub");
-    if (!root || !listEl || !badge || !sub) return;
     var all = rows();
     var unread = all.filter(function (n) {
       return !n.read;
     }).length;
+    if (!root || !listEl || !badge || !sub) {
+      syncBrowserTabNotifBadge(unread);
+      return;
+    }
     var sig = buildNotifStoreSignature(all) + "|u:" + unread;
     var force = options && options.force === true;
     if (unread > 0) {
@@ -1247,9 +1661,14 @@
     } else {
       badge.hidden = true;
     }
-    sub.textContent = unread + " non lette";
+    syncBrowserTabNotifBadge(unread);
+    sub.textContent =
+      window.VcI18n && typeof window.VcI18n.t === "function"
+        ? window.VcI18n.t("notif.unread", { n: unread })
+        : unread + " non lette";
     if (all.length > 0) root.classList.add("vc-notif-dropdown--has-items");
     else root.classList.remove("vc-notif-dropdown--has-items");
+    syncPushPromptUi();
     if (!force && sig === lastNotifRenderSig) return;
     lastNotifRenderSig = sig;
     listEl.innerHTML = "";
@@ -1281,14 +1700,20 @@
       var time = document.createElement("time");
       time.className = "vc-notif-item-time";
       time.dateTime = new Date(n.at || Date.now()).toISOString();
-      time.textContent = timeAgoIt(n.at || Date.now());
+      time.textContent = timeAgoLocalized(n.at || Date.now());
       main.appendChild(title);
       main.appendChild(desc);
       main.appendChild(time);
       var dot = document.createElement("span");
       dot.className = "vc-notif-item-dot";
       if (n.read) dot.setAttribute("aria-hidden", "true");
-      else dot.setAttribute("aria-label", "Non letta");
+      else
+        dot.setAttribute(
+          "aria-label",
+          window.VcI18n && typeof window.VcI18n.t === "function"
+            ? window.VcI18n.t("notif.unreadDot")
+            : "Non letta",
+        );
       btn.appendChild(ico);
       btn.appendChild(main);
       btn.appendChild(dot);
@@ -1300,11 +1725,19 @@
     if (ephemeralDemo) ephemeralDemo.read = true;
     saveStored(
       loadStored().map(function (x) {
+        if (x && x.id) rememberPendingRead(x.id);
         return Object.assign({}, x, { read: true });
       }),
     );
-    markAllSiteNotificationsReadOnServer();
     render();
+    markAllSiteNotificationsReadOnServer()
+      .then(function (ok) {
+        if (!ok) return;
+        savePendingReadMap({});
+      })
+      .finally(function () {
+        syncSiteNotificationsFromServer();
+      });
   }
   function clearAll() {
     ephemeralDemo = null;
@@ -1325,14 +1758,78 @@
       render();
       return;
     }
+    rememberPendingRead(id);
     saveStored(
       loadStored().map(function (x) {
         if (x.id === id) return Object.assign({}, x, { read: true });
         return x;
       }),
     );
-    markSiteNotificationReadOnServer(id);
     render();
+    markSiteNotificationReadOnServer(id)
+      .then(function (ok) {
+        if (ok) forgetPendingRead(id);
+      })
+      .finally(function () {
+        syncSiteNotificationsFromServer();
+      });
+  }
+  function consumeNotifReadFromUrl() {
+    try {
+      var u = new URL(window.location.href);
+      var id = String(u.searchParams.get("vcNotifRead") || "").trim();
+      if (!id) return;
+      rememberClickRead(id);
+      u.searchParams.delete("vcNotifRead");
+      var cleaned = u.pathname + u.search + u.hash;
+      if (window.history && typeof window.history.replaceState === "function") {
+        window.history.replaceState({}, "", cleaned);
+      }
+    } catch (e) {}
+    tryFlushClickReads();
+  }
+  function wirePushNotifMarkRead() {
+    consumeNotifReadFromUrl();
+    consumePendingReadFromSwCache();
+    try {
+      if (!("serviceWorker" in navigator)) return;
+      navigator.serviceWorker.addEventListener("message", function (ev) {
+        var data = ev && ev.data ? ev.data : null;
+        if (!data || !data.type) return;
+        if (data.type === "vc:push-received") {
+          var p = data.payload && typeof data.payload === "object" ? data.payload : {};
+          if (isWatchingTicketChat(p.ticketId, p.openUrl)) {
+            var seenId = String(p.id || "").trim();
+            if (seenId) {
+              rememberClickRead(seenId);
+              tryFlushClickReads();
+            }
+            return;
+          }
+          playNotifSound();
+          showNotifFlyToast({
+            id: String(p.id || "").trim() || "push-" + Date.now(),
+            title: String(p.title || "Vinili & Caffè"),
+            body: String(p.body || ""),
+            kind: String(p.kind || "info"),
+            openUrl: String(p.openUrl || "").trim(),
+            read: false,
+          });
+          return;
+        }
+        if (data.type === "vc:push-resubscribe") {
+          refreshPushSubscriptionState().then(function (ok) {
+            if (!ok) syncPushPromptUi();
+          });
+          return;
+        }
+        if (data.type !== "vc:notif-mark-read") return;
+        var id = String(data.id || "").trim();
+        if (!id) return;
+        rememberClickRead(id);
+        tryFlushClickReads();
+      });
+    } catch (e2) {}
   }
   function resolveNotifDestUrl(dest) {
     var u = String(dest || "").trim();
@@ -1365,6 +1862,42 @@
         return;
       } catch (e) {}
     }
+    try {
+      var dest = new URL(String(href), window.location.origin);
+      var here = window.location;
+      var destPath = String(dest.pathname || "").replace(/\/+$/, "") || "/";
+      var herePath = String(here.pathname || "").replace(/\/+$/, "") || "/";
+      var isTicketsDest = /\/tickets$/i.test(destPath);
+      var onTicketsPage = /\/tickets$/i.test(herePath);
+      if (isTicketsDest && onTicketsPage) {
+        var ticketId = String(dest.hash || "").replace(/^#/, "").trim();
+        var wantStaff = false;
+        try {
+          wantStaff = dest.searchParams.get("view") === "staff";
+        } catch (eSp) {}
+        if (wantStaff) {
+          var cur = String(here.search || "");
+          if (cur.indexOf("view=staff") < 0) {
+            // Cambia anche la query: serve un reload per allineare lo stato.
+            window.location.href = dest.pathname + "?view=staff" + (ticketId ? "#" + ticketId : "");
+            return;
+          }
+        }
+        if (ticketId && /^[a-f0-9]{24}$/i.test(ticketId)) {
+          if (String(here.hash || "").replace(/^#/, "") !== ticketId) {
+            here.hash = ticketId;
+          }
+          try {
+            window.dispatchEvent(
+              new CustomEvent("vc:web-tickets-open", {
+                detail: { id: ticketId, staff: wantStaff },
+              }),
+            );
+          } catch (eEv) {}
+          return;
+        }
+      }
+    } catch (eNav) {}
     window.location.href = href;
   }
 
@@ -1388,92 +1921,194 @@
   }
 
   function unlockNotifAudio() {
-    if (notifAudioUnlocked) return;
     var AC = window.AudioContext || window.webkitAudioContext;
-    if (!AC) return;
+    if (!AC) return Promise.resolve(false);
     try {
       if (!notifAudioCtx) notifAudioCtx = new AC();
       if (notifAudioCtx.state === "suspended" && typeof notifAudioCtx.resume === "function") {
-        notifAudioCtx.resume();
+        return notifAudioCtx
+          .resume()
+          .then(function () {
+            notifAudioUnlocked = true;
+            return true;
+          })
+          .catch(function () {
+            return false;
+          });
       }
       notifAudioUnlocked = true;
-    } catch (e) {}
+      return Promise.resolve(true);
+    } catch (e) {
+      return Promise.resolve(false);
+    }
   }
 
+  function playNotifTone(ctx, freq, when, dur, peak) {
+    var master = ctx.createGain();
+    master.gain.setValueAtTime(0.0001, when);
+    master.gain.exponentialRampToValueAtTime(Math.max(0.001, peak), when + 0.015);
+    master.gain.exponentialRampToValueAtTime(0.0001, when + dur);
+    master.connect(ctx.destination);
+
+    var filter = ctx.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.frequency.setValueAtTime(3400, when);
+    filter.Q.setValueAtTime(0.65, when);
+    filter.connect(master);
+
+    var sine = ctx.createOscillator();
+    sine.type = "sine";
+    sine.frequency.setValueAtTime(freq, when);
+    sine.connect(filter);
+
+    var sparkle = ctx.createOscillator();
+    var sparkleGain = ctx.createGain();
+    sparkle.type = "triangle";
+    sparkle.frequency.setValueAtTime(freq * 2, when);
+    sparkleGain.gain.setValueAtTime(0.28, when);
+    sparkle.connect(sparkleGain);
+    sparkleGain.connect(filter);
+
+    sine.start(when);
+    sparkle.start(when);
+    sine.stop(when + dur + 0.03);
+    sparkle.stop(when + dur + 0.03);
+  }
+
+  var lastNotifSoundAt = 0;
+  var lastFlyToastId = "";
+  var lastFlyToastAt = 0;
+
   function playNotifSound() {
+    var nowMs = Date.now();
+    if (nowMs - lastNotifSoundAt < 1200) return;
+    lastNotifSoundAt = nowMs;
     var AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return;
-    try {
-      if (!notifAudioCtx) notifAudioCtx = new AC();
-      if (notifAudioCtx.state === "suspended") return;
-      var now = notifAudioCtx.currentTime;
-      var osc = notifAudioCtx.createOscillator();
-      var gain = notifAudioCtx.createGain();
-      osc.type = "sine";
-      osc.frequency.setValueAtTime(880, now);
-      osc.frequency.exponentialRampToValueAtTime(1244, now + 0.12);
-      gain.gain.setValueAtTime(0.0001, now);
-      gain.gain.exponentialRampToValueAtTime(0.05, now + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
-      osc.connect(gain);
-      gain.connect(notifAudioCtx.destination);
-      osc.start(now);
-      osc.stop(now + 0.2);
-    } catch (e) {}
+    unlockNotifAudio().then(function (ok) {
+      if (!ok || !notifAudioCtx) return;
+      try {
+        var ctx = notifAudioCtx;
+        if (ctx.state === "suspended") return;
+        var now = ctx.currentTime + 0.02;
+        // Doppio “ping” tipo Instagram: udibile ma non aggressivo.
+        playNotifTone(ctx, 784.0, now, 0.17, 0.22);
+        playNotifTone(ctx, 1174.7, now + 0.1, 0.22, 0.18);
+      } catch (e) {}
+    });
+  }
+
+  function placeNotifPopNearBell(root, bell) {
+    if (!root || !bell) return;
+    var br = bell.getBoundingClientRect();
+    var gap = 10;
+    var stack = Math.max(0, notifFlyActiveCount - 1) * 10;
+    var rw = Math.min(296, Math.max(220, window.innerWidth - 24));
+    root.style.width = rw + "px";
+    var left = br.right - rw;
+    if (left < 12) left = 12;
+    if (left + rw > window.innerWidth - 12) left = Math.max(12, window.innerWidth - 12 - rw);
+    var top = br.bottom + gap + stack;
+    if (top + 88 > window.innerHeight - 12) {
+      top = Math.max(12, br.top - gap - 72 - stack);
+    }
+    root.style.top = Math.round(top) + "px";
+    root.style.left = Math.round(left) + "px";
+    root.style.right = "auto";
+    root.style.bottom = "auto";
+    var ox = Math.max(16, Math.min(rw - 16, br.left + br.width / 2 - left));
+    root.style.setProperty("--vc-pop-ox", Math.round(ox) + "px");
   }
 
   function showNotifFlyToast(row) {
+    var toastId = String((row && row.id) || "");
+    var nowMs = Date.now();
+    if (toastId && toastId === lastFlyToastId && nowMs - lastFlyToastAt < 2500) return;
+    lastFlyToastId = toastId;
+    lastFlyToastAt = nowMs;
     var bell = document.querySelector("#vc-notif-dropdown summary.vc-notif-summary");
     if (!bell) return;
+    var dd = document.getElementById("vc-notif-dropdown");
+    if (dd && dd.open) {
+      pulseNotifSummary();
+      return;
+    }
     var title = row && row.title ? String(row.title) : "Nuova notifica";
     var body = row && row.body ? String(row.body) : "";
-    if (body.length > 80) body = body.slice(0, 79) + "…";
-    var root = document.createElement("div");
+    if (body.length > 72) body = body.slice(0, 71) + "…";
+    var kind = String((row && row.kind) || "info");
+    var dest = resolveNotifDestUrl(String((row && row.openUrl) || "").trim());
+
+    var root = document.createElement("button");
+    root.type = "button";
     root.className = "vc-notif-fly-card";
     root.setAttribute("role", "status");
+    root.setAttribute("aria-live", "polite");
+
+    var ico = document.createElement("span");
+    ico.className = "vc-notif-fly-card__ico";
+    ico.setAttribute("aria-hidden", "true");
+    var fi = document.createElement("i");
+    fi.className = "fa " + iconClass(kind);
+    ico.appendChild(fi);
+
+    var main = document.createElement("span");
+    main.className = "vc-notif-fly-card__main";
     var t = document.createElement("strong");
     t.className = "vc-notif-fly-card__t";
     t.textContent = title;
     var b = document.createElement("span");
     b.className = "vc-notif-fly-card__b";
     b.textContent = body;
-    root.appendChild(t);
-    root.appendChild(b);
+    main.appendChild(t);
+    if (body) main.appendChild(b);
+
+    root.appendChild(ico);
+    root.appendChild(main);
     document.body.appendChild(root);
     notifFlyActiveCount += 1;
     syncGlobalNotifOverlayClass();
-    function applyFlyVars() {
-      var br = bell.getBoundingClientRect();
-      var cr = root.getBoundingClientRect();
-      var sx = br.left + br.width / 2;
-      var sy = br.top + br.height / 2;
-      var cx = cr.left + cr.width / 2;
-      var cy = cr.top + cr.height / 2;
-      root.style.setProperty("--vc-fly-tx", String(sx - cx) + "px");
-      root.style.setProperty("--vc-fly-ty", String(sy - cy) + "px");
-    }
-    applyFlyVars();
+    placeNotifPopNearBell(root, bell);
+    pulseNotifSummary();
+
+    root.addEventListener("click", function (ev) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      finish(true);
+      if (row && row.id) markOneRead(row.id);
+      if (dest) {
+        openNotifDestination(dest, kind);
+        return;
+      }
+      try {
+        if (dd && !dd.open) dd.setAttribute("open", "");
+      } catch (eOpen) {}
+    });
+
     var finished = false;
-    function finish() {
+    function finish(fromClick) {
       if (finished) return;
       finished = true;
-      try {
-        root.remove();
-      } catch (e2) {}
-      notifFlyActiveCount = Math.max(0, notifFlyActiveCount - 1);
-      syncGlobalNotifOverlayClass();
-      pulseNotifSummary();
+      root.classList.add("vc-notif-fly-card--out");
+      window.setTimeout(function () {
+        try {
+          root.remove();
+        } catch (e2) {}
+        notifFlyActiveCount = Math.max(0, notifFlyActiveCount - 1);
+        syncGlobalNotifOverlayClass();
+        if (!fromClick) pulseNotifSummary();
+      }, NOTIF_FLY_ANIM_MS + 40);
     }
-    window.setTimeout(function () {
+
+    var onResize = function () {
       if (finished) return;
-      applyFlyVars();
-      window.requestAnimationFrame(function () {
-        if (finished) return;
-        root.classList.add("vc-notif-fly-card--run");
-        root.addEventListener("animationend", finish, { once: true });
-      });
+      placeNotifPopNearBell(root, bell);
+    };
+    window.addEventListener("resize", onResize);
+    window.setTimeout(function () {
+      window.removeEventListener("resize", onResize);
+      if (!finished) finish(false);
     }, NOTIF_FLY_READ_MS);
-    window.setTimeout(finish, NOTIF_FLY_READ_MS + NOTIF_FLY_ANIM_MS + 600);
   }
 
   function addNotif(p) {
@@ -1493,6 +2128,8 @@
               ? "mod"
               : kindRaw === "suggestion"
                 ? "suggestion"
+                : kindRaw === "web_ticket" || kindRaw === "web_ticket_mention"
+                  ? "web_ticket"
                 : "info";
     var openUrl = "";
     if (p && typeof p.openUrl === "string") openUrl = String(p.openUrl).trim();
@@ -1611,37 +2248,115 @@
   }
   function isMobileNotifViewport() {
     try {
-      return window.matchMedia("(max-width: 639.98px)").matches;
+      // Telefoni in landscape (>640px) altrimenti aprono il dropdown “desktop”
+      // dentro la pillola header → campanella/sheet rotti (specie homepage).
+      return window.matchMedia(
+        "(max-width: 639.98px), ((pointer: coarse) and (max-width: 920px))",
+      ).matches;
     } catch (e) {
       return (window.innerWidth || 999) <= 640;
     }
   }
 
+  var notifPortalGuardUntil = 0;
+  var notifPortalSyncing = false;
+
+  function portalNotifDropdownToBody(dd, enable) {
+    if (!dd) return;
+    var slotId = "vc-notif-dropdown-slot";
+    var slot = document.getElementById(slotId);
+    if (enable) {
+      if (dd.parentElement !== document.body) {
+        if (!slot) {
+          slot = document.createElement("span");
+          slot.id = slotId;
+          slot.hidden = true;
+          slot.setAttribute("aria-hidden", "true");
+          if (dd.parentNode) dd.parentNode.insertBefore(slot, dd);
+        }
+        document.body.appendChild(dd);
+      }
+      // Safari/iOS: spostare un <details open> nel DOM lo chiude; riforziamo subito + rAF.
+      function forceOpen() {
+        try {
+          dd.open = true;
+          dd.setAttribute("open", "");
+        } catch (eOpen) {}
+      }
+      forceOpen();
+      try {
+        window.requestAnimationFrame(forceOpen);
+      } catch (eRaf) {}
+      notifPortalGuardUntil = Date.now() + 700;
+      return;
+    }
+    if (slot && slot.parentNode && dd.parentElement === document.body) {
+      slot.parentNode.insertBefore(dd, slot);
+      return;
+    }
+    if (dd.parentElement === document.body) {
+      var actions = document.getElementById("header-quick-actions");
+      if (actions) {
+        var promo = document.getElementById("vc-header-promo-btn");
+        var toggle = document.getElementById("vc-mobile-nav-toggle");
+        // Ripristina ordine: promo → campanella → hamburger → login
+        if (promo && promo.parentElement === actions) {
+          if (promo.nextSibling) actions.insertBefore(dd, promo.nextSibling);
+          else actions.appendChild(dd);
+        } else if (toggle && toggle.parentElement === actions) {
+          actions.insertBefore(dd, toggle);
+        } else {
+          actions.appendChild(dd);
+        }
+      }
+    }
+  }
+
   function syncNotifMobileSheetChrome() {
+    if (notifPortalSyncing) return;
     var dd = document.getElementById("vc-notif-dropdown");
     if (!dd) return;
     var root = document.documentElement;
-    if (dd.open && isMobileNotifViewport()) {
+    var mobile = isMobileNotifViewport();
+    // Ignora il toggle "close" spurio subito dopo il portal su body.
+    if (!dd.open && mobile && Date.now() < notifPortalGuardUntil) {
       try {
-        root.classList.add("vc-notif-sheet-open");
-      } catch (e0) {}
-      if (!dd.querySelector(".vc-notif-mobile-backdrop")) {
-        var bd = document.createElement("div");
-        bd.className = "vc-notif-mobile-backdrop";
-        bd.setAttribute("aria-hidden", "true");
-        bd.addEventListener("click", function () {
-          dd.removeAttribute("open");
-        });
-        dd.insertBefore(bd, dd.firstChild);
-      }
-    } else {
-      try {
-        root.classList.remove("vc-notif-sheet-open");
-      } catch (e1) {}
-      var oldBd = dd.querySelector(".vc-notif-mobile-backdrop");
-      if (oldBd) oldBd.remove();
+        dd.open = true;
+        dd.setAttribute("open", "");
+      } catch (eRe) {}
+      return;
     }
-    syncGlobalNotifOverlayClass();
+    notifPortalSyncing = true;
+    try {
+      if (dd.open && mobile) {
+        try {
+          root.classList.add("vc-notif-sheet-open");
+          root.classList.add("vc-notif-dropdown-open");
+        } catch (e0) {}
+        portalNotifDropdownToBody(dd, true);
+        if (!dd.querySelector(".vc-notif-mobile-backdrop")) {
+          var bd = document.createElement("div");
+          bd.className = "vc-notif-mobile-backdrop";
+          bd.setAttribute("aria-hidden", "true");
+          bd.addEventListener("click", function () {
+            notifPortalGuardUntil = 0;
+            dd.removeAttribute("open");
+          });
+          dd.insertBefore(bd, dd.firstChild);
+        }
+      } else {
+        try {
+          root.classList.remove("vc-notif-sheet-open");
+          if (!dd.open) root.classList.remove("vc-notif-dropdown-open");
+        } catch (e1) {}
+        var oldBd = dd.querySelector(".vc-notif-mobile-backdrop");
+        if (oldBd) oldBd.remove();
+        portalNotifDropdownToBody(dd, false);
+      }
+      syncGlobalNotifOverlayClass();
+    } finally {
+      notifPortalSyncing = false;
+    }
   }
 
   function isLocalFrontendOrigin() {
@@ -1669,6 +2384,503 @@
     var base = resolvedSiteNotificationsUrl();
     if (!base) return "/webhooks/site-notifications/clear";
     return String(base).replace(/\/+$/, "") + "/clear";
+  }
+  function resolvedSiteNotificationsPushUrl(suffix) {
+    var base = resolvedSiteNotificationsUrl();
+    var path = String(suffix || "").replace(/^\/+/, "");
+    if (!base) return "/webhooks/site-notifications/push/" + path;
+    return String(base).replace(/\/+$/, "") + "/push/" + path;
+  }
+  var PUSH_NATIVE_ASKED_KEY = "vc_push_native_asked_v1";
+  var PUSH_PROMPT_DISMISS_KEY = "vc_push_prompt_dismissed_v1";
+  var pushSubscribeInFlight = false;
+  /** null = non ancora controllato, true = push attiva, false = non attiva */
+  var pushSubActive = null;
+  var refreshPushInFlight = null;
+  var lastPostedPushEndpoint = "";
+  var lastPostedPushAt = 0;
+  var PUSH_RESYNC_MIN_MS = 10 * 60 * 1000;
+  var cachedPushReg = null;
+  var cachedVapidPublicKey = "";
+  function tNotif(key, fallback) {
+    try {
+      if (window.VcI18n && typeof window.VcI18n.t === "function") {
+        var v = window.VcI18n.t(key);
+        if (v && v !== key) return v;
+      }
+    } catch (e) {}
+    return fallback;
+  }
+  function isStandalonePwa() {
+    try {
+      if (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) return true;
+    } catch (e) {}
+    return Boolean(navigator.standalone);
+  }
+  function isIosLikeDevice() {
+    var ua = String(navigator.userAgent || "");
+    if (/iPad|iPhone|iPod/i.test(ua)) return true;
+    try {
+      return navigator.platform === "MacIntel" && Number(navigator.maxTouchPoints || 0) > 1;
+    } catch (e2) {
+      return false;
+    }
+  }
+  function webPushSupported() {
+    return (
+      typeof window !== "undefined" &&
+      "serviceWorker" in navigator &&
+      "PushManager" in window &&
+      "Notification" in window
+    );
+  }
+  function wasPushPromptDismissed() {
+    try {
+      return sessionStorage.getItem(PUSH_PROMPT_DISMISS_KEY) === "1";
+    } catch (e) {
+      return false;
+    }
+  }
+  function dismissPushPrompt() {
+    try {
+      sessionStorage.setItem(PUSH_PROMPT_DISMISS_KEY, "1");
+    } catch (e) {}
+    clearPushCustomUi();
+  }
+  function shouldShowPushPrompt() {
+    if (!webPushSupported()) return false;
+    if (!normalizeUserId(currentUserId) || !getDiscordAccessToken()) return false;
+    if (typeof Notification !== "undefined" && Notification.permission === "denied") return false;
+    if (wasPushPromptDismissed()) return false;
+    if (pushSubActive === true) return false;
+    // iOS Safari (non Home Screen): spiega che serve la PWA.
+    if (isIosLikeDevice() && !isStandalonePwa()) return true;
+    // Mostra anche se permesso già granted ma subscription non salvata (tipico Windows).
+    return true;
+  }
+  function urlBase64ToUint8Array(base64String) {
+    var padding = "=".repeat((4 - (String(base64String || "").length % 4)) % 4);
+    var base64 = String(base64String || "").replace(/-/g, "+").replace(/_/g, "/") + padding;
+    var raw = atob(base64);
+    var out = new Uint8Array(raw.length);
+    for (var i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+    return out;
+  }
+  function uint8ToBase64Url(bytes) {
+    var bin = "";
+    for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+  }
+  function normalizeVapidKey(s) {
+    return String(s || "")
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=+$/g, "")
+      .trim();
+  }
+  function subscriptionMatchesVapid(sub, publicKey) {
+    if (!sub || !publicKey) return false;
+    try {
+      var opts = typeof sub.options === "object" && sub.options ? sub.options : null;
+      var key = opts && opts.applicationServerKey ? opts.applicationServerKey : null;
+      if (!key) return true; // browser non espone la key → non forzare unsubscribe
+      var have = key instanceof ArrayBuffer ? new Uint8Array(key) : new Uint8Array(key);
+      return normalizeVapidKey(uint8ToBase64Url(have)) === normalizeVapidKey(publicKey);
+    } catch (e) {
+      return true;
+    }
+  }
+  function wasNativePushAsked() {
+    try {
+      return sessionStorage.getItem(PUSH_NATIVE_ASKED_KEY) === "1";
+    } catch (e) {
+      return false;
+    }
+  }
+  function markNativePushAsked() {
+    try {
+      sessionStorage.setItem(PUSH_NATIVE_ASKED_KEY, "1");
+    } catch (e) {}
+  }
+  function ensureServiceWorkerRegistration() {
+    if (!webPushSupported()) return Promise.resolve(null);
+    return navigator.serviceWorker
+      .register("/sw.js", { scope: "/", updateViaCache: "none" })
+      .then(function (reg) {
+        try {
+          if (reg && typeof reg.update === "function") reg.update();
+        } catch (eUp) {}
+        return navigator.serviceWorker.ready;
+      })
+      .catch(function () {
+        return null;
+      });
+  }
+  function prefetchPushPrereqs() {
+    if (!webPushSupported()) return Promise.resolve(null);
+    return Promise.all([ensureServiceWorkerRegistration(), fetchVapidPublicKey()])
+      .then(function (pair) {
+        if (pair[0]) cachedPushReg = pair[0];
+        if (pair[1]) cachedVapidPublicKey = pair[1];
+        return { reg: cachedPushReg, publicKey: cachedVapidPublicKey };
+      })
+      .catch(function () {
+        return { reg: cachedPushReg, publicKey: cachedVapidPublicKey };
+      });
+  }
+  function fetchVapidPublicKey() {
+    if (cachedVapidPublicKey) return Promise.resolve(cachedVapidPublicKey);
+    return fetch(resolvedSiteNotificationsPushUrl("vapid-public-key"), {
+      method: "GET",
+      credentials: "omit",
+      cache: "no-store",
+    })
+      .then(function (r) {
+        return r.json().catch(function () {
+          return null;
+        });
+      })
+      .then(function (j) {
+        if (!j || !j.ok || !j.enabled) return "";
+        var key = String(j.publicKey || "").trim();
+        if (key) cachedVapidPublicKey = key;
+        return key;
+      })
+      .catch(function () {
+        return "";
+      });
+  }
+  function postPushSubscription(subscription, opts) {
+    opts = opts || {};
+    var token = getDiscordAccessToken();
+    if (!token || !subscription) return Promise.resolve(false);
+    var json = typeof subscription.toJSON === "function" ? subscription.toJSON() : subscription;
+    var endpoint = "";
+    try {
+      endpoint = String((json && json.endpoint) || subscription.endpoint || "").trim();
+    } catch (eEp) {}
+    var now = Date.now();
+    if (
+      !opts.force &&
+      endpoint &&
+      endpoint === lastPostedPushEndpoint &&
+      now - lastPostedPushAt < PUSH_RESYNC_MIN_MS
+    ) {
+      return Promise.resolve(true);
+    }
+    return fetch(resolvedSiteNotificationsPushUrl("subscribe"), {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + token,
+        "Content-Type": "application/json",
+      },
+      credentials: "omit",
+      body: JSON.stringify({ subscription: json }),
+    })
+      .then(function (r) {
+        if (r && r.ok && endpoint) {
+          lastPostedPushEndpoint = endpoint;
+          lastPostedPushAt = Date.now();
+        }
+        return r.ok;
+      })
+      .catch(function () {
+        return false;
+      });
+  }
+  function setPushSubActive(active) {
+    pushSubActive = active === true;
+    syncPushPromptUi();
+  }
+  function clearPushCustomUi() {
+    try {
+      var root = document.getElementById("vc-notif-dropdown");
+      if (root) root.classList.remove("vc-notif-dropdown--push-cta");
+      var banner = document.getElementById("vc-notif-push-banner");
+      if (banner) banner.remove();
+      var headBtn = document.getElementById("vc-notif-push-toggle");
+      if (headBtn) headBtn.remove();
+    } catch (e) {}
+  }
+  function syncPushPromptUi() {
+    var root = document.getElementById("vc-notif-dropdown");
+    var body = document.querySelector("#vc-notif-dropdown .vc-notif-panel-body");
+    if (!body) return;
+    var el = document.getElementById("vc-notif-push-banner");
+    if (!shouldShowPushPrompt()) {
+      if (el) el.remove();
+      if (root) root.classList.remove("vc-notif-dropdown--push-cta");
+      return;
+    }
+    if (root) root.classList.add("vc-notif-dropdown--push-cta");
+    if (!el) {
+      el = document.createElement("div");
+      el.id = "vc-notif-push-banner";
+      el.className = "vc-notif-push-banner";
+      el.innerHTML =
+        '<div class="vc-notif-push-banner-text">' +
+        '<strong class="vc-notif-push-banner-title"></strong>' +
+        '<span class="vc-notif-push-banner-sub"></span>' +
+        "</div>" +
+        '<div class="vc-notif-push-banner-actions">' +
+        '<button type="button" class="vc-notif-push-enable"></button>' +
+        '<button type="button" class="vc-notif-push-dismiss" aria-label=""></button>' +
+        "</div>";
+      body.insertBefore(el, body.firstChild);
+      var enableBtn = el.querySelector(".vc-notif-push-enable");
+      var dismissBtn = el.querySelector(".vc-notif-push-dismiss");
+      if (enableBtn) {
+        enableBtn.addEventListener("click", function (ev) {
+          ev.preventDefault();
+          ev.stopPropagation();
+          subscribeWebPushFromUserGesture(enableBtn);
+        });
+      }
+      if (dismissBtn) {
+        dismissBtn.addEventListener("click", function (ev) {
+          ev.preventDefault();
+          ev.stopPropagation();
+          dismissPushPrompt();
+        });
+      }
+    }
+    var titleEl = el.querySelector(".vc-notif-push-banner-title");
+    var subEl = el.querySelector(".vc-notif-push-banner-sub");
+    var enableEl = el.querySelector(".vc-notif-push-enable");
+    var dismissEl = el.querySelector(".vc-notif-push-dismiss");
+    if (titleEl) titleEl.textContent = tNotif("notif.pushTitle", "Notifiche sul dispositivo");
+    if (subEl) {
+      subEl.textContent =
+        isIosLikeDevice() && !isStandalonePwa()
+          ? tNotif(
+              "notif.pushIosHint",
+              "Su iPhone/iPad: aggiungi il sito alla Home, aprilo da lì, poi attiva le notifiche push.",
+            )
+          : tNotif(
+              "notif.pushSub",
+              "Senza questo gli avvisi arrivano solo quando riapri il sito. Attiva le push di sistema.",
+            );
+    }
+    if (enableEl) {
+      enableEl.textContent = tNotif("notif.pushEnable", "Attiva");
+      enableEl.disabled = Boolean(isIosLikeDevice() && !isStandalonePwa()) || pushSubscribeInFlight;
+    }
+    if (dismissEl) {
+      dismissEl.setAttribute("aria-label", tNotif("notif.pushDismiss", "Nascondi"));
+      dismissEl.innerHTML = '<i class="fa fa-times" aria-hidden="true"></i>';
+    }
+  }
+  function subscribeWebPushFromUserGesture(btn) {
+    if (isIosLikeDevice() && !isStandalonePwa()) {
+      syncPushPromptUi();
+      return;
+    }
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = tNotif("notif.pushEnabling", "Attivazione…");
+    }
+    subscribeWebPushNative({ forcePermissionPrompt: true, fromGesture: true })
+      .then(function (ok) {
+        if (!ok) {
+          try {
+            console.warn("[vc-push] subscribe failed", {
+              permission: typeof Notification !== "undefined" ? Notification.permission : "n/a",
+              standalone: isStandalonePwa(),
+            });
+          } catch (e0) {}
+          if (btn) {
+            btn.disabled = false;
+            btn.textContent = tNotif("notif.pushEnable", "Attiva");
+          }
+          try {
+            showNotifFlyToast({
+              id: "push-err-" + Date.now(),
+              title: tNotif("notif.pushTitle", "Notifiche sul dispositivo"),
+              body: tNotif(
+                "notif.pushError",
+                "Non sono riuscito ad attivare le push. Controlla le autorizzazioni del browser.",
+              ),
+              kind: "info",
+              read: true,
+            });
+          } catch (e1) {}
+        } else {
+          syncPushPromptUi();
+        }
+      })
+      .catch(function () {
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = tNotif("notif.pushEnable", "Attiva");
+        }
+      });
+  }
+  function createOrRepairPushSubscription(reg, publicKey) {
+    function doSubscribe() {
+      return reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(publicKey),
+      });
+    }
+    return reg.pushManager.getSubscription().then(function (existing) {
+      if (existing && !subscriptionMatchesVapid(existing, publicKey)) {
+        return existing
+          .unsubscribe()
+          .catch(function () {
+            return false;
+          })
+          .then(function () {
+            return null;
+          });
+      }
+      return existing;
+    }).then(function (existing) {
+      if (existing) return existing;
+      return doSubscribe().catch(function (err) {
+        // Chrome Windows a volte ha uno stato push corrotto: reset e ritenta una volta.
+        return reg.pushManager
+          .getSubscription()
+          .then(function (ghost) {
+            return ghost && typeof ghost.unsubscribe === "function"
+              ? ghost.unsubscribe().catch(function () {
+                  return false;
+                })
+              : false;
+          })
+          .then(function () {
+            return doSubscribe();
+          })
+          .catch(function () {
+            throw err;
+          });
+      });
+    });
+  }
+  function refreshPushSubscriptionState(opts) {
+    opts = opts || {};
+    if (!webPushSupported()) {
+      pushSubActive = false;
+      return Promise.resolve(false);
+    }
+    if (!normalizeUserId(currentUserId) || !getDiscordAccessToken()) {
+      pushSubActive = false;
+      return Promise.resolve(false);
+    }
+    if (refreshPushInFlight) return refreshPushInFlight;
+    refreshPushInFlight = ensureServiceWorkerRegistration()
+      .then(function (reg) {
+        if (!reg || !reg.pushManager) {
+          pushSubActive = false;
+          return false;
+        }
+        return reg.pushManager.getSubscription().then(function (sub) {
+          if (!sub) {
+            pushSubActive = false;
+            return false;
+          }
+          return postPushSubscription(sub, opts).then(function (ok) {
+            pushSubActive = Boolean(ok);
+            return pushSubActive;
+          });
+        });
+      })
+      .catch(function () {
+        pushSubActive = false;
+        return false;
+      })
+      .then(function (ok) {
+        refreshPushInFlight = null;
+        return ok;
+      });
+    return refreshPushInFlight;
+  }
+  /** Crea/ripara la subscription. Su Chrome Windows `pushManager.subscribe` richiede un gesto utente ancora "vivo": niente fetch in mezzo. */
+  function subscribeWebPushNative(opts) {
+    var fromGesture = opts && opts.fromGesture === true;
+    var forcePermissionPrompt = opts && opts.forcePermissionPrompt === true;
+    if (pushSubscribeInFlight) return Promise.resolve(false);
+    if (!webPushSupported()) return Promise.resolve(false);
+    if (!normalizeUserId(currentUserId) || !getDiscordAccessToken()) return Promise.resolve(false);
+    if (isIosLikeDevice() && !isStandalonePwa()) return Promise.resolve(false);
+    if (typeof Notification !== "undefined" && Notification.permission === "denied") {
+      return Promise.resolve(false);
+    }
+
+    function finishSub(sub) {
+      if (!sub) throw new Error("no_subscription");
+      return postPushSubscription(sub, { force: true }).then(function (ok) {
+        if (!ok) throw new Error("subscribe_api");
+        return true;
+      });
+    }
+
+    function subscribeCached() {
+      var reg = cachedPushReg;
+      var publicKey = cachedVapidPublicKey;
+      if (!reg || !reg.pushManager) throw new Error("sw_failed");
+      if (!publicKey) throw new Error("vapid_missing");
+      return createOrRepairPushSubscription(reg, publicKey).then(finishSub);
+    }
+
+    if (!fromGesture) {
+      // Permesso già granted: su Windows si può (ri)creare la sub senza nuovo click.
+      if (typeof Notification === "undefined" || Notification.permission !== "granted") {
+        return refreshPushSubscriptionState();
+      }
+    }
+
+    pushSubscribeInFlight = true;
+    var permNow =
+      typeof Notification !== "undefined" ? String(Notification.permission || "") : "denied";
+    var ask =
+      permNow === "granted"
+        ? Promise.resolve("granted")
+        : forcePermissionPrompt || permNow === "default"
+          ? Notification.requestPermission()
+          : Promise.resolve(permNow);
+
+    return ask
+      .then(function (perm) {
+        if (perm === "granted" || perm === "denied") markNativePushAsked();
+        if (perm !== "granted") throw new Error("permission_" + perm);
+        if (cachedPushReg && cachedVapidPublicKey) return subscribeCached();
+        return prefetchPushPrereqs().then(subscribeCached);
+      })
+      .then(function () {
+        pushSubscribeInFlight = false;
+        setPushSubActive(true);
+        syncPushPromptUi();
+        return true;
+      })
+      .catch(function (err) {
+        try {
+          console.warn("[vc-push] subscribe error", err && err.message ? err.message : err);
+        } catch (eLog) {}
+        pushSubscribeInFlight = false;
+        setPushSubActive(false);
+        syncPushPromptUi();
+        return false;
+      });
+  }
+  function maybeAskNativePush() {
+    if (!webPushSupported()) return;
+    if (!normalizeUserId(currentUserId) || !getDiscordAccessToken()) return;
+    if (typeof Notification !== "undefined" && Notification.permission === "denied") return;
+    if (isIosLikeDevice() && !isStandalonePwa()) return;
+    if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+      subscribeWebPushNative().then(function () {
+        syncPushPromptUi();
+      });
+    }
+  }
+  function syncExistingWebPushSubscription() {
+    if (!webPushSupported()) return;
+    if (!normalizeUserId(currentUserId) || !getDiscordAccessToken()) return;
+    if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+    if (isIosLikeDevice() && !isStandalonePwa()) return;
+    subscribeWebPushNative().then(function () {
+      syncPushPromptUi();
+    });
   }
   function siteRealtimeWsUrl() {
     var c = typeof window !== "undefined" && window.__VC_SITE_NOTIFS ? window.__VC_SITE_NOTIFS : {};
@@ -1736,7 +2948,7 @@
       var ws = new WebSocket(url);
       siteRealtimeWs = ws;
       ws.onopen = function () {
-        stopSiteNotifsPoll();
+        // Poll resta attivo anche con WS (backup se realtime non arriva).
         syncSiteNotificationsFromServer();
       };
       ws.onmessage = function (ev) {
@@ -1750,8 +2962,7 @@
       ws.onclose = function () {
         siteRealtimeWs = null;
         if (normalizeUserId(currentUserId) && getDiscordAccessToken()) {
-          stopSiteNotifsPoll();
-          siteNotifsTimer = setInterval(syncSiteNotificationsFromServer, SITE_NOTIFS_POLL_MS);
+          restartSiteNotifsPollTimer();
           scheduleSiteRealtimeWsReconnect();
         }
       };
@@ -1779,30 +2990,44 @@
     var token = getDiscordAccessToken();
     var uid = normalizeUserId(currentUserId);
     var sid = String(id || "").trim();
-    if (!token || !uid || !sid) return;
-    fetch(resolvedSiteNotificationsReadUrl(), {
+    if (!token || !uid || !sid) return Promise.resolve(false);
+    return fetch(resolvedSiteNotificationsReadUrl(), {
       method: "POST",
       headers: {
         Authorization: "Bearer " + token,
         "Content-Type": "application/json",
       },
       credentials: "omit",
+      keepalive: true,
       body: JSON.stringify({ id: sid }),
-    }).catch(function () {});
+    })
+      .then(function (r) {
+        return r && r.ok;
+      })
+      .catch(function () {
+        return false;
+      });
   }
   function markAllSiteNotificationsReadOnServer() {
     var token = getDiscordAccessToken();
     var uid = normalizeUserId(currentUserId);
-    if (!token || !uid) return;
-    fetch(resolvedSiteNotificationsReadUrl(), {
+    if (!token || !uid) return Promise.resolve(false);
+    return fetch(resolvedSiteNotificationsReadUrl(), {
       method: "POST",
       headers: {
         Authorization: "Bearer " + token,
         "Content-Type": "application/json",
       },
       credentials: "omit",
+      keepalive: true,
       body: JSON.stringify({ all: true }),
-    }).catch(function () {});
+    })
+      .then(function (r) {
+        return r && r.ok;
+      })
+      .catch(function () {
+        return false;
+      });
   }
   function clearAllSiteNotificationsOnServer() {
     var token = getDiscordAccessToken();
@@ -1872,11 +3097,14 @@
     var beforeSig = buildNotifStoreSignature(oldItems);
     var dismissed = loadDismissedSet(uid);
     var oldIdMap = {};
+    var oldReadMap = {};
     for (var oi = 0; oi < oldItems.length; oi += 1) {
       var oix = oldItems[oi];
       var oid = String((oix && oix.id) || "").trim();
       if (oid) oldIdMap[oid] = true;
+      if (oid && oix && oix.read) oldReadMap[oid] = true;
     }
+    var pendingReadMap = loadPendingReadMap();
     var serverIdMap = {};
     var fromServer = [];
     for (var i = 0; i < list.length; i += 1) {
@@ -1886,9 +3114,17 @@
       if (!sid) continue;
       var mapped = mapServerRowToStoredItem(row);
       var fpId = buildNotifFingerprintId(mapped, uid, mapped.kind, mapped.openUrl);
-      if (dismissed.has(sid) || (fpId && dismissed.has(fpId))) continue;
+      // Server = source of truth: dismissed locale non nasconde item ancora presenti in API
+      // (es. "cancella tutto" fallito lato server lasciava gli id in dismissed per sempre).
+      if (!isServerBackedNotifId(sid) && dismissed.has(sid)) continue;
+      if (!isServerBackedNotifId(sid) && fpId && dismissed.has(fpId)) continue;
       serverIdMap[sid] = true;
-      fromServer.unshift(mapped);
+      if (mapped.read) forgetPendingRead(sid);
+      fromServer.push(
+        Object.assign({}, mapped, {
+          read: Boolean(mapped.read) || Boolean(oldReadMap[sid]) || Boolean(pendingReadMap[sid]),
+        }),
+      );
     }
     var keepLocal = [];
     for (var li = 0; li < oldItems.length; li += 1) {
@@ -1913,17 +3149,20 @@
       var frid = String(fr.id || "").trim();
       if (!frid || oldIdMap[frid]) continue;
       if (isNotifDismissed(fr, uid, dismissed)) continue;
-      if (Date.now() - (fr.at || 0) < freshMs) {
-        toastRow = {
-          id: fr.id,
-          title: fr.title,
-          body: fr.body,
-          kind: fr.kind,
-          at: fr.at,
-          read: fr.read,
-          openUrl: fr.openUrl,
-        };
-        break;
+      if (Date.now() - (fr.at || 0) >= freshMs) continue;
+      var candidate = {
+        id: fr.id,
+        title: fr.title,
+        body: fr.body,
+        kind: fr.kind,
+        at: fr.at,
+        read: fr.read,
+        openUrl: fr.openUrl,
+      };
+      // Preferisci "voto completato" rispetto a un promemoria più vecchio nella stessa sync.
+      if (!toastRow || fr.kind === "vote") {
+        toastRow = candidate;
+        if (fr.kind === "vote") break;
       }
     }
     return { toastRow: toastRow, changed: changed };
@@ -1982,25 +3221,48 @@
         } catch (e1) {}
       });
   }
+  function siteNotifsPollDelayMs() {
+    try {
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") {
+        return SITE_NOTIFS_POLL_HIDDEN_MS;
+      }
+    } catch (e) {}
+    return SITE_NOTIFS_POLL_MS;
+  }
+  function restartSiteNotifsPollTimer() {
+    stopSiteNotifsPoll();
+    if (!normalizeUserId(currentUserId) || !getDiscordAccessToken()) return;
+    siteNotifsTimer = setInterval(syncSiteNotificationsFromServer, siteNotifsPollDelayMs());
+  }
   function scheduleSiteNotificationsPolling() {
     stopSiteNotifsPoll();
     disconnectSiteRealtimeWs();
     try {
+      if (document.body && document.body.classList.contains("vc-dashboard-page")) return;
+      if (window.__VC_SITE_DASHBOARD && !window.__VC_SITE_NOTIFS) return;
       if (!document.getElementById("vc-notif-dropdown")) return;
     } catch (eDd) {}
     if (!normalizeUserId(currentUserId) || !getDiscordAccessToken()) return;
     syncSiteNotificationsFromServer();
+    if (pushSubActive !== true) syncExistingWebPushSubscription();
+    // Sempre poll di backup: con SITE_API_EXTERNAL il WS può aprirsi sul processo sbagliato.
+    restartSiteNotifsPollTimer();
     var wsUrl = siteRealtimeWsUrl();
     var rs = siteRealtimeWs ? siteRealtimeWs.readyState : 3;
     if (wsUrl && rs !== 0 && rs !== 1) connectSiteRealtimeWebSocket();
-    if (!siteRealtimeWs || siteRealtimeWs.readyState !== 1) {
-      siteNotifsTimer = setInterval(syncSiteNotificationsFromServer, SITE_NOTIFS_POLL_MS);
-    }
   }
   function wireNotifMobileSheet() {
     var dd = document.getElementById("vc-notif-dropdown");
     if (!dd) return;
-    dd.addEventListener("toggle", syncNotifMobileSheetChrome);
+    dd.addEventListener("toggle", function () {
+      syncNotifMobileSheetChrome();
+      if (dd.open) {
+        syncPushPromptUi();
+        maybeAskNativePush();
+      } else {
+        syncPushPromptUi();
+      }
+    });
     window.addEventListener("resize", function () {
       if (!isMobileNotifViewport()) syncNotifMobileSheetChrome();
     });
@@ -2014,7 +3276,10 @@
       var closeM = document.createElement("button");
       closeM.type = "button";
       closeM.className = "vc-notif-action vc-notif-close-mobile";
-      closeM.setAttribute("aria-label", "Chiudi");
+      closeM.setAttribute(
+        "aria-label",
+        window.VcI18n && typeof window.VcI18n.t === "function" ? window.VcI18n.t("notif.close") : "Chiudi",
+      );
       closeM.innerHTML = '<i class="fa fa-times" aria-hidden="true"></i>';
       closeM.addEventListener("click", function (ev) {
         ev.preventDefault();
@@ -2027,6 +3292,13 @@
 
   function init() {
     setCurrentUser(window.__VC_DISCORD_PROFILE || null);
+    wirePushNotifMarkRead();
+    flushPendingReadsToServer();
+    tryFlushClickReads();
+    window.addEventListener("pageshow", function () {
+      consumeNotifReadFromUrl();
+      consumePendingReadFromSwCache();
+    });
     render();
     syncGlobalNotifOverlayClass();
     document.addEventListener("pointerdown", unlockNotifAudio, true);
@@ -2066,6 +3338,16 @@
     window.vcNotify = { add: addNotif, refresh: render };
     flushPendingLoginNotification();
     scheduleSiteNotificationsPolling();
+    syncPushPromptUi();
+    if (webPushSupported()) {
+      prefetchPushPrereqs().then(function () {
+        if (normalizeUserId(currentUserId) && getDiscordAccessToken()) {
+          syncExistingWebPushSubscription();
+        }
+      });
+    } else if (normalizeUserId(currentUserId) && getDiscordAccessToken()) {
+      syncExistingWebPushSubscription();
+    }
   }
   window.addEventListener("vc-discord-profile", function (ev) {
     setCurrentUser(ev && ev.detail ? ev.detail.user : null);
@@ -2073,26 +3355,53 @@
     render({ force: true });
     syncGlobalNotifOverlayClass();
     flushPendingLoginNotification();
+    consumeNotifReadFromUrl();
+    consumePendingReadFromSwCache();
+    tryFlushClickReads();
+    flushPendingReadsToServer();
+    syncPushPromptUi();
     if (normalizeUserId(currentUserId) && getDiscordAccessToken()) {
       scheduleSiteNotificationsPolling();
+      prefetchPushPrereqs().then(function () {
+        syncExistingWebPushSubscription();
+      });
     } else {
       stopSiteNotifsPoll();
       disconnectSiteRealtimeWs();
     }
+  });
+  document.addEventListener("vc:langchange", function () {
+    lastNotifRenderSig = "";
+    baseDocumentTitle = "";
+    lastTabUnreadShown = -1;
+    render({ force: true });
   });
   window.addEventListener("beforeunload", function () {
     stopSiteNotifsPoll();
     disconnectSiteRealtimeWs();
   });
   document.addEventListener("visibilitychange", function () {
-    if (document.visibilityState !== "visible") return;
     if (!normalizeUserId(currentUserId) || !getDiscordAccessToken()) return;
+    restartSiteNotifsPollTimer();
+    if (document.visibilityState !== "visible") return;
     if (siteNotifsVisibilityTimer) clearTimeout(siteNotifsVisibilityTimer);
     siteNotifsVisibilityTimer = setTimeout(function () {
       siteNotifsVisibilityTimer = null;
       syncSiteNotificationsFromServer();
     }, 400);
   });
+  window.addEventListener("storage", function (ev) {
+    if (!ev || !isNotifStorageSyncKey(ev.key)) return;
+    onNotifStorePeerSync();
+  });
+  window.addEventListener("vc:notifications-sync", function () {
+    onNotifStorePeerSync();
+  });
+  if (notifSyncBc) {
+    notifSyncBc.addEventListener("message", function () {
+      onNotifStorePeerSync();
+    });
+  }
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", init);
   } else {
@@ -2206,6 +3515,14 @@
   }
 
   function mobileProfileHref(userId) {
+    try {
+      var p = String(window.location.pathname || "").toLowerCase().replace(/\/+$/, "") || "/";
+      if (p === "/dashboard" || p.indexOf("/dashboard/") === 0) {
+        var d = window.__VC_SITE_DASHBOARD || {};
+        if (d.profilePageUrl) return String(d.profilePageUrl);
+        return "/dashboard/profilo/";
+      }
+    } catch (e0) {}
     var id = String(userId || "").trim();
     return id ? "/users/" + encodeURIComponent(id) : "/user";
   }
@@ -2217,6 +3534,24 @@
     var profile = window.__VC_DISCORD_PROFILE;
     var logoutBtn = document.getElementById("discord-logout-btn");
     var loginBtn = document.getElementById("discord-login-btn");
+    var loginState = document.getElementById("discord-login-state");
+    var hasToken = false;
+    try {
+      var t = localStorage.getItem("vc_discord_access_token");
+      var exp = Number(localStorage.getItem("vc_discord_expires_at") || "0");
+      hasToken = Boolean(t) && (!exp || exp > Date.now());
+    } catch (eTok) {}
+    var pendingShell = loginState && loginState.querySelector(".vc-auth-pending-shell");
+    if (pendingShell || (hasToken && !profile)) {
+      var pending = document.createElement("div");
+      pending.className = "vc-mobile-nav-footer__account";
+      pending.setAttribute("aria-busy", "true");
+      pending.innerHTML =
+        '<div class="vc-mobile-nav-footer__account-start"><span class="vc-mobile-nav-footer__avatar vc-mobile-nav-footer__avatar--fb" aria-hidden="true"><span class="vc-ui-spinner"></span></span></div>' +
+        '<div class="vc-mobile-nav-footer__meta"><span class="vc-mobile-nav-footer__name">Verifica sessione…</span></div>';
+      foot.appendChild(pending);
+      return;
+    }
     if (profile && logoutBtn) {
       var wrap = document.createElement("div");
       wrap.className = "vc-mobile-nav-footer__account";
@@ -2288,7 +3623,89 @@
       .toUpperCase();
   }
 
+  function navItemHidden(el) {
+    return !el || el.hidden || el.hasAttribute("hidden");
+  }
+
+  function i18nLabel(key, fallback) {
+    try {
+      if (window.VcI18n && typeof window.VcI18n.t === "function") {
+        var v = window.VcI18n.t(key);
+        if (v && v !== key) return v;
+      }
+    } catch (e) {}
+    return fallback;
+  }
+
+  function resolveDashboardHref() {
+    var link = document.getElementById("discord-dashboard-link");
+    if (link) {
+      var h = String(link.getAttribute("href") || "").trim();
+      if (h) return h;
+    }
+    try {
+      var d = window.__VC_SITE_DASHBOARD || {};
+      if (d.pageUrl) return String(d.pageUrl);
+    } catch (e0) {}
+    return "/dashboard/";
+  }
+
+  function isDashboardNavAllowed() {
+    if (window.__VC_DASHBOARD_MENU_BLACKLISTED === true) return false;
+    if (window.__VC_DASHBOARD_ACCESS_OK === true) return true;
+    if (window.__VC_DASHBOARD_MENU_ALLOWED === true) return true;
+    var link = document.getElementById("discord-dashboard-link");
+    return Boolean(link && !navItemHidden(link) && !link.classList.contains("is-blacklisted"));
+  }
+
+  function shouldInjectDashboardTile() {
+    try {
+      if (document.body && document.body.classList.contains("vc-dashboard-page")) return false;
+    } catch (e) {}
+    return isDashboardNavAllowed();
+  }
+
+  function createDashboardTile() {
+    if (!shouldInjectDashboardTile()) return null;
+    var a = document.createElement("a");
+    a.className = "vc-mobile-nav-tile";
+    a.href = resolveDashboardHref();
+    a.setAttribute("data-vc-mobile-dashboard", "1");
+    var ico = document.createElement("span");
+    ico.className = "vc-mobile-nav-tile-ico";
+    ico.setAttribute("aria-hidden", "true");
+    ico.innerHTML = '<i class="fa fa-server"></i>';
+    var lab = document.createElement("span");
+    lab.className = "vc-mobile-nav-tile-label";
+    lab.textContent = i18nLabel("auth.dashboard", "Dashboard");
+    a.appendChild(ico);
+    a.appendChild(lab);
+    a.addEventListener("click", function () {
+      closeDrawer();
+    });
+    return a;
+  }
+
+  function removeHeaderDashboardBtn() {
+    var existing = document.getElementById("vc-mobile-dashboard-btn");
+    if (existing) existing.remove();
+  }
+
+  function markTileActive(a, source) {
+    if (!a || !source) return;
+    if (
+      source.classList.contains("is-active") ||
+      source.classList.contains("vc-snav-item--active") ||
+      source.classList.contains("vc-snav-row--active") ||
+      source.getAttribute("aria-current") === "page"
+    ) {
+      a.classList.add("is-active");
+      a.setAttribute("aria-current", "page");
+    }
+  }
+
   function createTileFromRow(row) {
+    if (navItemHidden(row)) return null;
     var href = row.getAttribute("href");
     if (!href) return null;
     var target = row.getAttribute("target");
@@ -2319,6 +3736,7 @@
     lab.textContent = labelText;
     a.appendChild(ico);
     a.appendChild(lab);
+    markTileActive(a, row);
     a.addEventListener("click", function () {
       closeDrawer();
     });
@@ -2326,6 +3744,7 @@
   }
 
   function createTileFromItem(item) {
+    if (navItemHidden(item)) return null;
     var href = item.getAttribute("href");
     if (!href) return null;
     var a = document.createElement("a");
@@ -2342,6 +3761,7 @@
     lab.textContent = innerSpan ? String(innerSpan.textContent || "").trim() : String(item.textContent || "").trim();
     a.appendChild(ico);
     a.appendChild(lab);
+    markTileActive(a, item);
     a.addEventListener("click", function () {
       closeDrawer();
     });
@@ -2380,6 +3800,7 @@
           if (t) g.appendChild(t);
           i += 1;
         }
+        if (!g.children.length) continue;
         sec.appendChild(h);
         sec.appendChild(g);
         gridRoot.appendChild(sec);
@@ -2405,11 +3826,29 @@
           var tile = createTileFromRow(rows[r]);
           if (tile) g2.appendChild(tile);
         }
+        if (!g2.children.length) {
+          i += 1;
+          continue;
+        }
         sec2.appendChild(h2);
         sec2.appendChild(g2);
         gridRoot.appendChild(sec2);
       }
       i += 1;
+    }
+    var dashTile = createDashboardTile();
+    if (dashTile) {
+      var secDash = document.createElement("section");
+      secDash.className = "vc-mobile-nav-section vc-mobile-nav-section--dashboard";
+      var hDash = document.createElement("h3");
+      hDash.className = "vc-mobile-nav-section-title";
+      hDash.textContent = i18nLabel("footer.dashboard", "Dashboard").toUpperCase();
+      var gDash = document.createElement("div");
+      gDash.className = "vc-mobile-nav-grid";
+      gDash.appendChild(dashTile);
+      secDash.appendChild(hDash);
+      secDash.appendChild(gDash);
+      gridRoot.appendChild(secDash);
     }
   }
 
@@ -2426,6 +3865,11 @@
       walks[w].removeAttribute("id");
     }
     intoEl.appendChild(clone);
+    try {
+      if (typeof window.__vcSyncHeaderSiteNameMarquee === "function") {
+        window.__vcSyncHeaderSiteNameMarquee(intoEl);
+      }
+    } catch (eMarquee) {}
   }
 
   function onMqChange() {
@@ -2484,7 +3928,20 @@
     if (backdrop) backdrop.addEventListener("click", closeDrawer);
     window.addEventListener("vc-discord-profile", function () {
       syncDrawerFooter();
+      rebuildGrid();
+      removeHeaderDashboardBtn();
     });
+    window.addEventListener("vc-dashboard-access", function () {
+      rebuildGrid();
+      removeHeaderDashboardBtn();
+    });
+  }
+
+  function refreshMobileNav() {
+    ensure();
+    rebuildGrid();
+    removeHeaderDashboardBtn();
+    syncDrawerFooter();
   }
 
   function init() {
@@ -2494,7 +3951,12 @@
     var m = getMq();
     if (m.addEventListener) m.addEventListener("change", onMqChange);
     else if (m.addListener) m.addListener(onMqChange);
+    removeHeaderDashboardBtn();
     syncDrawerFooter();
+  }
+
+  if (!window.__vcMobileNavRebuild) {
+    window.__vcMobileNavRebuild = refreshMobileNav;
   }
 
   function mergeForbiddenCollected(extra) {
@@ -2568,7 +4030,7 @@
 
     fetchForbiddenBooksPublicStatus().then(function (status) {
       forbiddenBooksRoundState = status && status.ok === true ? status : null;
-      if (status && status.ok && forbiddenHuntEnded(status)) {
+      if (status && status.ok && (status.enabled === false || forbiddenHuntEnded(status))) {
         removeAllForbiddenBooks();
         return;
       }
@@ -2596,11 +4058,15 @@
       "/evento/smistamento": "evento_smistamento",
       "/evento/coppa": "evento_coppa",
       "/recensioni": "recensioni",
+      "/dashboard/recensioni": "recensioni_bot",
       "/suggerimenti": "suggerimenti",
+      "/supporto": "supporto",
+      "/tickets": "supporto",
       "/user": "user",
       "/perks": "perks",
       "/notifications": "notifications",
-      "/unban": "unban",
+      "/appelli": "appelli",
+      "/unban": "appelli",
       "/privacy": "privacy",
       "/terms": "terms",
       "/cookie": "cookie",

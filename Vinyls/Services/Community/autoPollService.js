@@ -21,6 +21,8 @@ const DEFAULT_DUPLICATE_LOOKBACK_DAYS = 60;
 const DEFAULT_MAX_CANDIDATE_ATTEMPTS = 80;
 const AUTO_POLL_RETRY_MS = 2 * 60 * 1000;
 const AUTO_POLL_RETRY_JITTER_MS = 20_000;
+const AUTO_POLL_NO_PAYLOAD_RETRY_MS = 15 * 60 * 1000;
+const AUTO_POLL_NO_PAYLOAD_LOG_COOLDOWN_MS = 30 * 60 * 1000;
 const AUTO_POLL_CRON_HOUR = 20;
 const AUTO_POLL_CRON_MINUTE = 0;
 const AUTO_POLL_RECOVERY_START_DELAY_MS = 12_000;
@@ -393,7 +395,55 @@ async function pickNonDuplicateLocalPoll(guildId, cfg = {}, forcedTargetOptions 
     if (await isDuplicatePollContent(guildId, candidate)) continue;
     return candidate;
   }
-  return null;
+  return pickLocalPollByOldestReuse(guildId, cfg, forcedTargetOptions);
+}
+
+async function pickLocalPollByOldestReuse(guildId, cfg = {}, forcedTargetOptions = null) {
+  const lookbackStart = getDuplicateLookbackStart(cfg);
+  const rows = await Poll.find(
+    {
+      guildId: String(guildId),
+      domanda: { $ne: COUNTER_FILTER_QUESTION },
+      $or: [{ source: { $in: ["manual", "auto"] } }, { source: { $exists: false } }],
+      createdAt: { $gte: lookbackStart },
+    },
+    { domanda: 1, createdAt: 1 },
+  )
+    .lean()
+    .catch(() => []);
+
+  const lastUsedByQuestion = new Map();
+  for (const row of rows) {
+    const key = normalizeText(String(row?.domanda || "")).toLowerCase();
+    if (!key) continue;
+    const ts = new Date(row?.createdAt || 0).getTime();
+    if (!Number.isFinite(ts)) continue;
+    const prev = lastUsedByQuestion.get(key) || 0;
+    if (ts > prev) lastUsedByQuestion.set(key, ts);
+  }
+
+  const ranked = LOCAL_POLLS_BANK.map((picked, idx) => {
+    const key = normalizeText(String(picked?.question || "")).toLowerCase();
+    return {
+      idx,
+      picked,
+      lastUsed: key ? (lastUsedByQuestion.get(key) || 0) : 0,
+    };
+  }).sort((a, b) => a.lastUsed - b.lastUsed);
+
+  for (const entry of ranked) {
+    const candidate = applyOptionCount(
+      { question: entry.picked.question, answers: entry.picked.answers },
+      cfg,
+      forcedTargetOptions,
+      { shuffleAnswers: false },
+    );
+    if (!candidate?.question || !Array.isArray(candidate.answers) || candidate.answers.length < 4) {
+      continue;
+    }
+    return candidate;
+  }
+  return buildLocalAttualitaPoll(cfg, forcedTargetOptions);
 }
 
 function buildPollSignature(question, answers = []) {
@@ -637,10 +687,13 @@ function clearAutoPollRetryTimer(client) {
   client._autoPollRetryTimer = null;
 }
 
-function scheduleAutoPollRetry(client) {
+function scheduleAutoPollRetry(client, reason = "") {
   clearAutoPollRetryTimer(client);
+  const baseDelay = String(reason || "") === "no_payload"
+    ? AUTO_POLL_NO_PAYLOAD_RETRY_MS
+    : AUTO_POLL_RETRY_MS;
   const jitter = Math.floor(Math.random() * (AUTO_POLL_RETRY_JITTER_MS + 1));
-  const delay = AUTO_POLL_RETRY_MS + jitter;
+  const delay = baseDelay + jitter;
   client._autoPollRetryTimer = setTimeout(() => {
     client._autoPollRetryTimer = null;
     runAutoPollAndMaybeScheduleRetry(client, { catchUp: true }).catch((error) => {
@@ -658,7 +711,7 @@ async function runAutoPollAndMaybeScheduleRetry(client, pollOpts = {}) {
     global.logger?.error?.("[poll.auto] run failed:", error);
     outcome = { retry: true, reason: "exception" };
   }
-  if (outcome?.retry) scheduleAutoPollRetry(client);
+  if (outcome?.retry) scheduleAutoPollRetry(client, outcome?.reason);
   else clearAutoPollRetryTimer(client);
 }
 
@@ -728,9 +781,14 @@ async function runAutoPoll(client, pollOpts = {}) {
   }
 
   if (!payload) {
-    global.logger?.warn?.(
-      "[poll.auto] no valid candidate: tutti i template locali risultano già usati nel lookback o payload non valido, riprovo a breve se resta il giorno.",
-    );
+    const now = Date.now();
+    const lastWarnAt = Number(client?._autoPollNoPayloadWarnAt || 0);
+    if (!Number.isFinite(lastWarnAt) || now - lastWarnAt >= AUTO_POLL_NO_PAYLOAD_LOG_COOLDOWN_MS) {
+      client._autoPollNoPayloadWarnAt = now;
+      global.logger?.warn?.(
+        "[poll.auto] impossibile costruire un poll valido (banco locale vuoto o opzioni non valide), riprovo più tardi se resta la finestra.",
+      );
+    }
     return { retry: true, reason: "no_payload" };
   }
 

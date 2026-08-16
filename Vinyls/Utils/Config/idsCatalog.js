@@ -75,8 +75,12 @@ VC_aquarius -> 1495124437421392124
 VC_ares -> 1495124414168039684
 VC_cancer -> 1495124417091735753
 VC_capricorn -> 1495124425648111768
-VC_Fire1 -> 1509196285796814979
-VC_Fire2 -> 1509196390843023475
+VC_666_1 -> 1528177848890691684
+VC_666_2 -> 1528177905404870828
+VC_Cat1 -> 1528177482807640125
+VC_Cat2 -> 1528177684843073546
+VC_Femboy1 -> 1528177995095867515
+VC_Femboy2 -> 1528178060581671084
 VC_gemini -> 1495124428298916001
 VC_leo -> 1495124442362282095
 VC_libra -> 1495124430177833143
@@ -99,5 +103,5 @@ module.exports = {
   entries: { categories, channels, roles, bots, emojis },
   maps: { categories: toLastValueMap(categories), channels: toLastValueMap(channels), roles: toLastValueMap(roles), bots: toLastValueMap(bots), emojis: toLastValueMap(emojis) },
   multi: { categories: toMultiValueMap(categories), channels: toMultiValueMap(channels), roles: toMultiValueMap(roles), bots: toMultiValueMap(bots), emojis: toMultiValueMap(emojis) },
-  meta: { guildMain: "1471511928739201047", emojis: { loadingAnimatedId: "1448687876018540695", loadingFallbackId: "1462504528774430962" }, links: { vote: "https://www.viniliecaffe.it/vote", invite: "https://discord.gg/viniliecaffe" } }
+  meta: { guildMain: "1329080093599076474", emojis: { loadingAnimatedId: "1448687876018540695", loadingFallbackId: "1462504528774430962" }, links: { vote: "https://www.viniliecaffe.it/vote", invite: "https://discord.gg/viniliecaffe" } }
 };

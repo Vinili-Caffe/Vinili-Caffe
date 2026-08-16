@@ -78,12 +78,58 @@ function pickBestMove(board, botMark, playerMark) {
   return bestMoves[randomInt(0, bestMoves.length)];
 }
 
+function pickImmediateThreatMove(board, mark) {
+  const moves = availableMoves(board);
+  for (const idx of moves) {
+    board[idx] = mark;
+    const won = boardWinner(board) === mark;
+    board[idx] = EMPTY;
+    if (won) return idx;
+  }
+  return -1;
+}
+
+function pickCasualMove(moves) {
+  if (!moves.length) return -1;
+  const edges = moves.filter((i) => i === 1 || i === 3 || i === 5 || i === 7);
+  const corners = moves.filter((i) => i === 0 || i === 2 || i === 6 || i === 8);
+  const roll = randomInt(1, 101);
+  if (edges.length && roll <= 40) return edges[randomInt(0, edges.length)];
+  if (corners.length && roll <= 75) return corners[randomInt(0, corners.length)];
+  if (moves.includes(4)) return 4;
+  return moves[randomInt(0, moves.length)];
+}
+
 function pickBotMove(board, randomPct = 0.35) {
   const moves = availableMoves(board);
   if (!moves.length) return -1;
+  // Vince subito se può.
+  const winNow = pickImmediateThreatMove(board, BOT);
+  if (winNow >= 0) return winNow;
+
   const pct = Math.max(0, Math.min(1, Number(randomPct) || 0));
-  if (pct > 0 && randomInt(1, 101) <= Math.floor(pct * 100)) {
-    return moves[randomInt(0, moves.length)];
+  const chance = (p) => p > 0 && randomInt(1, 101) <= Math.floor(Math.max(0, Math.min(1, p)) * 100);
+
+  // Miss-block leggero: via di mezzo tra imbattibile e regalo.
+  const blockNow = pickImmediateThreatMove(board, PLAYER);
+  if (blockNow >= 0) {
+    const missBlock = Math.min(0.28, 0.08 + pct * 0.35); // ~0.20 a pct=0.35
+    if (chance(missBlock)) {
+      const others = moves.filter((m) => m !== blockNow);
+      if (others.length) return others[randomInt(0, others.length)];
+    }
+    return blockNow;
+  }
+
+  // Fuori minaccia: per lo più solido, a volte quasi-best/casual.
+  const softPlay = Math.min(0.45, 0.12 + pct * 0.5); // ~0.30 a pct=0.35
+  if (chance(softPlay)) {
+    const best = pickBestMove(board, BOT, PLAYER);
+    if (chance(0.55)) {
+      const alternatives = moves.filter((m) => m !== best);
+      if (alternatives.length) return alternatives[randomInt(0, alternatives.length)];
+    }
+    return pickCasualMove(moves);
   }
   return pickBestMove(board, BOT, PLAYER);
 }
@@ -123,4 +169,19 @@ function outcomeLabel(outcome) {
   return "";
 }
 
-module.exports = { BOT, EMPTY, PLAYER, applyMarkMove, applyPlayerMove, availableMoves, boardWinner, cellLabel, cloneBoard, emptyBoard, markForChallenger, markForOpponent, outcomeLabel, pickBotMove };
+module.exports = {
+  BOT,
+  EMPTY,
+  PLAYER,
+  applyMarkMove,
+  applyPlayerMove,
+  availableMoves,
+  boardWinner,
+  cellLabel,
+  cloneBoard,
+  emptyBoard,
+  markForChallenger,
+  markForOpponent,
+  outcomeLabel,
+  pickBotMove,
+};

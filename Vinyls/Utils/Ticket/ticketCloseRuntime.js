@@ -8,6 +8,20 @@ const IDs = require("../Config/ids");
 const { getClientGuildCached, getGuildChannelCached, getGuildMemberCached } = require("./ticketInteractionRuntime");
 const { getClientChannelCached, getUserCached } = require("../Interaction/interactionEntityCache");
 const { findOpenTicketsForGuildUser } = require("./ticketGuildUserQueries");
+const {
+  closeDmFailedNote,
+  TICKET_UX_COLOR,
+} = require("./ticketUxMessages");
+
+/** Testo transcript in Mongo: cap stretto (i ticket vivono in un bucket condiviso da 16MB). */
+const TRANSCRIPT_TXT_DB_MAX_CHARS = 2_000;
+
+function compactTranscriptTextForDb(raw) {
+  const s = typeof raw === "string" ? raw : "";
+  if (!s) return "";
+  if (s.length <= TRANSCRIPT_TXT_DB_MAX_CHARS) return s;
+  return `${s.slice(0, TRANSCRIPT_TXT_DB_MAX_CHARS)}\n…[troncato]`;
+}
 
 function mergeClosedTicketDmRows(transcriptRows, ratingRows) {
   return [...transcriptRows, ...ratingRows].slice(0, 5);
@@ -44,10 +58,11 @@ function buildTicketClosedEmbed(data) {
     fields.push({ name: "<:VC_EXP:1482534670896730143> Valutazione", value: `${stars}${byPart}`, inline: true });
   }
 
+  const embedColor = data?.embedColor || "#6f4e37";
   const embed = new EmbedBuilder()
     .setAuthor({ name: data?.guildName || "Ticket System", iconURL: data?.guildIconURL || undefined, })
     .setTitle("<:VC_Ticket:1482535175283019888> Ticket Chiuso")
-    .setColor("#6f4e37")
+    .setColor(embedColor)
     .addFields(fields.slice(0, 25))
     .setTimestamp();
 
@@ -104,14 +119,22 @@ async function sendTranscriptWithBrowserLink(target, payload, hasHtml, extraRows
 }
 
 async function closeTicket(targetInteraction, motivo, helpers) {
-  const { safeReply, safeEditReply, makeErrorEmbed, LOG_CHANNEL, closedById = null, } = helpers;
+  const { safeReply, safeEditReply, LOG_CHANNEL, closedById = null, } = helpers;
+  const makeErrorEmbed =
+    typeof helpers.makeErrorEmbed === "function"
+      ? helpers.makeErrorEmbed
+      : require("./ticketUxMessages").makeTicketErrorEmbed;
   const closedByUserId = String(closedById || "").trim() || targetInteraction.user?.id || null;
   const closeLockKey = `${targetInteraction?.guildId || "noguild"}:${targetInteraction?.channelId || targetInteraction?.channel?.id || "nochannel"}`;
-  if (!targetInteraction?.client?.ticketCloseLocks) {
-    targetInteraction.client.ticketCloseLocks = new Set();
+  const LOCK_TTL_MS = 90_000;
+  if (!targetInteraction?.client?.ticketCloseLocks || !(targetInteraction.client.ticketCloseLocks instanceof Map)) {
+    targetInteraction.client.ticketCloseLocks = new Map();
   }
 
-  if (targetInteraction.client.ticketCloseLocks.has(closeLockKey)) {
+  const locks = targetInteraction.client.ticketCloseLocks;
+  const now = Date.now();
+  const existingLockAt = Number(locks.get(closeLockKey) || 0);
+  if (existingLockAt && now - existingLockAt < LOCK_TTL_MS) {
     await safeReply(targetInteraction, {
       embeds: [
         makeErrorEmbed(
@@ -119,65 +142,46 @@ async function closeTicket(targetInteraction, motivo, helpers) {
           "<:VC_Attention:1482534443632558151> Chiusura ticket già in corso, attendi un attimo.",
         ),
       ],
-      flags: 1 << 6,
-    });
+    }).catch(() => { });
     return;
   }
 
-  targetInteraction.client.ticketCloseLocks.add(closeLockKey);
+  locks.set(closeLockKey, now);
   try {
     if (!targetInteraction || !targetInteraction.channel) {
       await safeReply(targetInteraction, {
         embeds: [
           makeErrorEmbed("Errore", "<:vegax:1443934876440068179> Interazione non valida"),
         ],
-        flags: 1 << 6,
       });
       return;
     }
 
-    const ticketOpen = await Ticket.findOne({ channelId: targetInteraction.channel.id, open: true });
-    if (!ticketOpen) {
-      await safeReply(targetInteraction, {
-        embeds: [
-          makeErrorEmbed(
-            "Info",
-            "<:VC_Attention:1482534443632558151> Ticket già chiuso o chiusura già in corso.",
-          ),
-        ],
-        flags: 1 << 6,
-      });
-      return;
-    }
-
-    const transcriptTXT = await createTranscript(targetInteraction.channel).catch(() => "");
-    const transcriptHTML = await createTranscriptHtml(targetInteraction.channel).catch(() => "");
-    const secureT = await prepareTicketTranscriptSecureFields(targetInteraction.channel, transcriptHTML).catch(() => ({}));
-    const transcriptHtmlPath = secureT.transcriptHtmlPath || null;
-    const transcriptViewToken = secureT.transcriptViewToken || null;
-    const transcriptHtmlInline = secureT.transcriptHtmlInline || null;
-    const transcriptViewExpiresAt = secureT.transcriptViewExpiresAt || null;
-
-    const existingNum = Number(ticketOpen.ticketNumber);
+    const channelId = String(targetInteraction.channel.id);
+    const existingOpen = await Ticket.findOne({ channelId, open: true }).catch(() => null);
+    const closeGuildId =
+      existingOpen?.guildId ||
+      targetInteraction.guildId ||
+      targetInteraction.guild?.id ||
+      targetInteraction.channel?.guildId ||
+      targetInteraction.channel?.guild?.id;
     let ticketNumber =
-      Number.isFinite(existingNum) && existingNum > 0 ? existingNum : await getNextTicketId();
-
+      Number.isFinite(Number(existingOpen?.ticketNumber)) && Number(existingOpen.ticketNumber) > 0
+        ? Number(existingOpen.ticketNumber)
+        : await getNextTicketId(closeGuildId);
     const closedAt = new Date();
-    const ticket = await Ticket.findOneAndUpdate(
-      { channelId: targetInteraction.channel.id, open: true },
+
+    // Claim atomico PRIMA del transcript (evita false "già chiuso" su update fallito dopo transcript).
+    let ticket = await Ticket.findOneAndUpdate(
+      { channelId, open: true },
       {
         $set: {
           open: false,
           closedAt,
           closedBy: closedByUserId,
           ticketNumber,
-          transcript: transcriptTXT,
-          transcriptHtmlPath: transcriptHtmlPath || null,
-          transcriptViewToken: transcriptViewToken || null,
-          transcriptHtmlInline: transcriptHtmlInline || null,
-          transcriptViewExpiresAt: transcriptViewExpiresAt || null,
           closeReason: motivo || null,
-          claimedBy: ticketOpen.claimedBy || null,
+          claimedBy: existingOpen?.claimedBy || null,
           closeRequestedBy: null,
           closeRequestedAt: null,
         },
@@ -186,6 +190,22 @@ async function closeTicket(targetInteraction, motivo, helpers) {
     );
 
     if (!ticket) {
+      // DB già closed ma canale ancora vivo → completa la chiusura cancellando il canale.
+      const stuck = await Ticket.findOne({ channelId }).catch(() => null);
+      if (stuck && targetInteraction.channel) {
+        await safeEditReply(targetInteraction, {
+          embeds: [
+            new EmbedBuilder()
+              .setDescription("<:VC_close:1478517239136256020> Il ticket verrà chiuso...")
+              .setColor("#6f4e37"),
+          ],
+        }).catch(() => { });
+        const deleteChannelTimer = setTimeout(() => {
+          targetInteraction.channel?.delete?.().catch(() => { });
+        }, 2000);
+        deleteChannelTimer.unref?.();
+        return;
+      }
       await safeReply(targetInteraction, {
         embeds: [
           makeErrorEmbed(
@@ -193,27 +213,106 @@ async function closeTicket(targetInteraction, motivo, helpers) {
             "<:VC_Attention:1482534443632558151> Ticket già chiuso o chiusura già in corso.",
           ),
         ],
-        flags: 1 << 6,
-      });
+      }).catch(() => { });
       return;
     }
 
-    const mainGuildId = IDs?.guilds?.main || null;
-    const centralTicketLogChannelId = LOG_CHANNEL || IDs?.channels?.ticketLogs || "1442569290682208296";
-    const mainGuild = mainGuildId ? await getClientGuildCached(targetInteraction.client, mainGuildId) : null;
-    const logChannel = mainGuild ? await getGuildChannelCached(mainGuild, centralTicketLogChannelId) : null;
+    let ticketSettings = {};
+    try {
+      const { getTicketSettingsSync } = require("../../MultiGuild/core/tenantTicketSettings");
+      ticketSettings = getTicketSettingsSync(targetInteraction.guild?.id) || {};
+    } catch (_) {
+      ticketSettings = {};
+    }
+    const storeTranscripts = ticketSettings.storeTranscripts !== false;
+    const ratingEnabled = ticketSettings.ratingEnabled !== false;
+    const embedColor = "#6f4e37";
 
+    let transcriptTXT = "";
+    let transcriptHtmlPath = null;
+    let transcriptViewToken = null;
+    const transcriptHtmlInline = null;
+    let transcriptViewExpiresAt = null;
+    if (storeTranscripts) {
+      transcriptTXT = compactTranscriptTextForDb(
+        await createTranscript(targetInteraction.channel).catch(() => ""),
+      );
+      const transcriptHTML = await createTranscriptHtml(targetInteraction.channel).catch(() => "");
+      const secureT = await prepareTicketTranscriptSecureFields(targetInteraction.channel, transcriptHTML).catch(() => ({}));
+      transcriptHtmlPath = secureT.transcriptHtmlPath || null;
+      transcriptViewToken = secureT.transcriptViewToken || null;
+      transcriptViewExpiresAt = secureT.transcriptViewExpiresAt || null;
+    }
+    // Sempre una copia testo compatta: se il file HTML viene ripulito dal disco resta un fallback.
+    const transcriptForDb = compactTranscriptTextForDb(transcriptTXT);
+    let userTag = null;
+    try {
+      const opener =
+        (await getGuildMemberCached(targetInteraction.guild, ticket.userId).catch(() => null)) ||
+        (await getUserCached(targetInteraction.client, ticket.userId).catch(() => null));
+      const u = opener?.user || opener;
+      userTag = String(u?.globalName || u?.username || opener?.displayName || "").trim() || null;
+    } catch (_) {
+      userTag = null;
+    }
+
+    ticket =
+      (await Ticket.findOneAndUpdate(
+        { _id: ticket._id },
+        {
+          $set: {
+            transcript: transcriptForDb,
+            transcriptHtmlPath: transcriptHtmlPath || null,
+            transcriptViewToken: transcriptViewToken || null,
+            transcriptHtmlInline: null,
+            transcriptViewExpiresAt: transcriptViewExpiresAt || null,
+            hasTranscript: Boolean(
+              transcriptHtmlPath || transcriptViewToken || String(transcriptForDb || "").trim(),
+            ),
+            ...(userTag ? { userTag } : {}),
+          },
+        },
+        { new: true },
+      ).catch(() => null)) || ticket;
+
+    try {
+      const { invalidateSlimClosedTicketsCache } = require("../Web/siteDashboardTicketsApi");
+      invalidateSlimClosedTicketsCache(targetInteraction.guild?.id);
+    } catch (_) {}
+
+    ticketNumber = Number(ticket.ticketNumber) > 0 ? Number(ticket.ticketNumber) : ticketNumber;
+
+    const mainGuildId = IDs?.guilds?.main || null;
+    const { resolveTranscriptLogChannelId } = require("./ticketGuildOptions");
+    const centralTicketLogChannelId =
+      resolveTranscriptLogChannelId(targetInteraction.guild?.id, ticket, {
+        logChannelId: ticketSettings.logChannelId,
+        ticketLogs: IDs?.channels?.ticketLogs,
+      }) ||
+      LOG_CHANNEL ||
+      "1442569290682208296";
+    let logChannel = targetInteraction.guild
+      ? await getGuildChannelCached(targetInteraction.guild, centralTicketLogChannelId)
+      : null;
+    if (!logChannel?.isTextBased?.() && mainGuildId) {
+      const mainGuild = await getClientGuildCached(targetInteraction.client, mainGuildId);
+      logChannel = mainGuild ? await getGuildChannelCached(mainGuild, centralTicketLogChannelId) : null;
+    }
+    if (!logChannel?.isTextBased?.()) logChannel = null;
+
+    const ticketObj = ticket.toObject?.() || ticket;
     const closeEmbedData = {
-      ...ticket.toObject(),
+      ...ticketObj,
       ticketNumber,
       closeReason: motivo || null,
       closedBy: closedByUserId,
       closedAt: ticket.closedAt || closedAt,
       guildName: targetInteraction.guild?.name || "Ticket System",
       guildIconURL: targetInteraction.guild?.iconURL?.({ size: 128 }) || null,
+      embedColor,
     };
     const closeEmbed = buildTicketClosedEmbed(closeEmbedData);
-    const ratingRows = buildTicketRatingRows(String(ticket._id));
+    const ratingRows = ratingEnabled ? buildTicketRatingRows(String(ticket._id)) : [];
     const transcriptViewUrl = buildTicketTranscriptViewUrl(transcriptViewToken);
     const transcriptRow = buildTicketTranscriptActionRow(ticket._id, transcriptViewUrl);
     const transcriptRows = transcriptHtmlPath || transcriptHtmlInline ? (transcriptRow ? [transcriptRow] : []) : [];
@@ -230,16 +329,19 @@ async function closeTicket(targetInteraction, motivo, helpers) {
 
     const dmActionRows = mergeClosedTicketDmRows(transcriptRows, ratingRows);
     const member = await getGuildMemberCached(targetInteraction.guild, ticket.userId);
+    let dmOk = false;
     if (member) {
       try {
-        await sendTranscriptWithBrowserLink(
+        const dmSent = await sendTranscriptWithBrowserLink(
           member,
           { embeds: [closeEmbed] },
           false,
           dmActionRows,
           { guildId: targetInteraction.guild.id, bypassNoDm: true },
         );
+        dmOk = Boolean(dmSent);
       } catch (err) {
+        dmOk = false;
         if (![50007, 50278].includes(err?.code)) {
           global.logger.error(err);
         }
@@ -263,15 +365,27 @@ async function closeTicket(targetInteraction, motivo, helpers) {
     await safeEditReply(targetInteraction, {
       embeds: [
         new EmbedBuilder()
-          .setDescription("<:VC_close:1478517239136256020> Il ticket verrà chiuso...")
-          .setColor("#6f4e37"),
+          .setDescription(
+            "<:VC_close:1478517239136256020> Il ticket verrà chiuso..." +
+              (dmOk ? "" : closeDmFailedNote()),
+          )
+          .setColor(embedColor || TICKET_UX_COLOR),
       ],
     });
 
+    const parentCategoryId = targetInteraction.channel?.parentId || null;
+    const guildForCleanup = targetInteraction.guild;
     const deleteChannelTimer = setTimeout(() => {
-      if (targetInteraction.channel) {
-        targetInteraction.channel.delete().catch(() => { });
-      }
+      const ch = targetInteraction.channel;
+      if (!ch) return;
+      Promise.resolve(ch.delete())
+        .catch(() => null)
+        .then(() => {
+          if (!parentCategoryId || !guildForCleanup) return null;
+          const { maybeDeleteEmptyCustomTicketCategory } = require("./ticketOpenRuntime");
+          return maybeDeleteEmptyCustomTicketCategory(guildForCleanup, parentCategoryId);
+        })
+        .catch(() => null);
     }, 2000);
     deleteChannelTimer.unref?.();
   } catch (err) {
@@ -283,7 +397,6 @@ async function closeTicket(targetInteraction, motivo, helpers) {
           "<:vegax:1443934876440068179> Errore durante la chiusura del ticket",
         ),
       ],
-      flags: 1 << 6,
     }).catch(() => { });
   } finally {
     targetInteraction.client.ticketCloseLocks.delete(closeLockKey);
@@ -310,21 +423,39 @@ async function closeOpenTicketsForGuildUser(guild, userId, options = {}) {
   const openTickets = await findOpenTicketsForGuildUser(guild.id, userId).catch(() => []);
   if (!openTickets.length) return { closed: 0 };
 
+  let ticketSettings = {};
+  try {
+    const { getTicketSettingsSync } = require("../../MultiGuild/core/tenantTicketSettings");
+    ticketSettings = getTicketSettingsSync(guild.id) || {};
+  } catch (_) {
+    ticketSettings = {};
+  }
+  const storeTranscripts = ticketSettings.storeTranscripts !== false;
+  const embedColor = "#6f4e37";
+
   const closeReason = options.closeReason || "Ticket chiuso automaticamente.";
   const closedBy = options.closedBy || client?.user?.id || null;
   const deleteReason = options.deleteReason || `Ticket auto-chiuso (${userId})`;
   const deleteDelayMs = Number.isFinite(options.deleteDelayMs) ? options.deleteDelayMs : 1500;
-  const centralTicketLogChannelId = options.logChannelId || IDs.channels.ticketLogs || "1442569290682208296";
-  let logChannel =
-    options.logChannel ||
-    client?.channels?.cache?.get(centralTicketLogChannelId) ||
-    (await getClientChannelCached(client, centralTicketLogChannelId).catch(() => null)) ||
-    (await client?.channels?.fetch?.(centralTicketLogChannelId).catch(() => null));
-  if (!logChannel?.isTextBased?.()) logChannel = null;
-
+  const { resolveTranscriptLogChannelId } = require("./ticketGuildOptions");
   let closed = 0;
   for (const ticket of openTickets.slice(0, 30)) {
     try {
+      const centralTicketLogChannelId =
+        options.logChannelId ||
+        resolveTranscriptLogChannelId(guild.id, ticket, {
+          logChannelId: ticketSettings.logChannelId,
+          ticketLogs: IDs.channels.ticketLogs,
+        }) ||
+        "1442569290682208296";
+      let logChannel =
+        options.logChannel ||
+        (await getGuildChannelCached(guild, centralTicketLogChannelId).catch(() => null)) ||
+        client?.channels?.cache?.get(centralTicketLogChannelId) ||
+        (await getClientChannelCached(client, centralTicketLogChannelId).catch(() => null)) ||
+        (await client?.channels?.fetch?.(centralTicketLogChannelId).catch(() => null));
+      if (!logChannel?.isTextBased?.()) logChannel = null;
+
       const ticketGid = String(ticket.guildId || "").trim();
       const ticketGuild =
         !ticketGid || ticketGid === String(guild.id)
@@ -337,30 +468,43 @@ async function closeOpenTicketsForGuildUser(guild, userId, options = {}) {
       let transcriptViewToken = null;
       let transcriptHtmlInline = null;
       let transcriptViewExpiresAt = null;
-      if (channel) {
-        transcriptTXT = await createTranscript(channel).catch(() => "");
+      if (channel && storeTranscripts) {
+        transcriptTXT = compactTranscriptTextForDb(await createTranscript(channel).catch(() => ""));
         const transcriptHTML = await createTranscriptHtml(channel).catch(() => "");
         const secureT = await prepareTicketTranscriptSecureFields(channel, transcriptHTML).catch(() => ({}));
         transcriptHtmlPath = secureT.transcriptHtmlPath || null;
         transcriptViewToken = secureT.transcriptViewToken || null;
-        transcriptHtmlInline = secureT.transcriptHtmlInline || null;
+        transcriptHtmlInline = null;
         transcriptViewExpiresAt = secureT.transcriptViewExpiresAt || null;
       }
 
       let ticketNumber = Number(ticket.ticketNumber || 0);
-      if (!ticketNumber) ticketNumber = await getNextTicketId();
+      if (!ticketNumber) {
+        ticketNumber = await getNextTicketId(ticket.guildId || guild?.id || ticketGuild?.id);
+      }
       const closedAt = new Date();
+      // Sempre una copia testo compatta come fallback se il file HTML sparisce dal disco.
+      const transcriptForDb = compactTranscriptTextForDb(transcriptTXT);
+      let userTag = String(ticket.userTag || "").trim() || null;
+      if (!userTag) {
+        const user = await getUserCached(client, ticket.userId).catch(() => null);
+        userTag = String(user?.globalName || user?.username || "").trim() || null;
+      }
       const updateResult = await Ticket.updateOne(
         { _id: ticket._id, open: true },
         {
           $set: {
             open: false,
             ticketNumber,
-            transcript: transcriptTXT,
+            transcript: transcriptForDb,
             transcriptHtmlPath: transcriptHtmlPath || null,
             transcriptViewToken: transcriptViewToken || null,
-            transcriptHtmlInline: transcriptHtmlInline || null,
+            transcriptHtmlInline: null,
             transcriptViewExpiresAt: transcriptViewExpiresAt || null,
+            hasTranscript: Boolean(
+              transcriptHtmlPath || transcriptViewToken || String(transcriptForDb || "").trim(),
+            ),
+            ...(userTag ? { userTag } : {}),
             closeReason,
             closedAt,
             closedBy,
@@ -383,6 +527,7 @@ async function closeOpenTicketsForGuildUser(guild, userId, options = {}) {
         closedAt,
         guildName: ticketGuild?.name || guild?.name || "Ticket System",
         guildIconURL: ticketGuild?.iconURL?.({ size: 128 }) || guild?.iconURL?.({ size: 128 }) || null,
+        embedColor,
       };
       const closeEmbed = buildTicketClosedEmbed(closeEmbedData);
       const transcriptViewUrl = buildTicketTranscriptViewUrl(transcriptViewToken);
@@ -423,8 +568,17 @@ async function closeOpenTicketsForGuildUser(guild, userId, options = {}) {
       }
 
       if (channel?.deletable) {
+        const parentCategoryId = channel.parentId || null;
+        const guildForCleanup = ticketGuild || guild;
         const channelDeleteTimer = setTimeout(() => {
-          channel.delete(deleteReason).catch(() => { });
+          Promise.resolve(channel.delete(deleteReason))
+            .catch(() => null)
+            .then(() => {
+              if (!parentCategoryId || !guildForCleanup) return null;
+              const { maybeDeleteEmptyCustomTicketCategory } = require("./ticketOpenRuntime");
+              return maybeDeleteEmptyCustomTicketCategory(guildForCleanup, parentCategoryId);
+            })
+            .catch(() => null);
         }, deleteDelayMs);
         channelDeleteTimer.unref?.();
       }
@@ -433,6 +587,10 @@ async function closeOpenTicketsForGuildUser(guild, userId, options = {}) {
       global.logger?.warn?.("[TICKET AUTO CLOSE] failed:", err?.message || err);
     }
   }
+  try {
+    const { invalidateSlimClosedTicketsCache } = require("../Web/siteDashboardTicketsApi");
+    invalidateSlimClosedTicketsCache(guild.id);
+  } catch (_) {}
   return { closed };
 }
 

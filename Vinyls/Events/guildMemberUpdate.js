@@ -6,7 +6,7 @@ const { scheduleStaffListRefresh, didStaffMembershipChange, didStaffListDisplayR
 const { memberHasPartnerManagerRole, memberHasAnyStaffPresenceForDepexSync, buildStaffPartnerManagerIdUnsetUpdate } = require("../Utils/Staff/staffPmUtils");
 const { deleteStaffPauseRequestChannelMessages, deleteStaffRelatedMessagesFromConfiguredChannels, ensureStaff, archiveStaffRolesHistoryThenUnsetStaff, } = require("../Utils/Staff/staffDocUtils");
 const { ActivityUserProfile, CustomRole } = require("../Schemas/Community/communitySchemas");
-const { grantBestStaffPauseBonusYear } = require("../Utils/Pause/pauseHandlersUtils");
+const { grantBestStaffPauseBonusYear, scheduleAcceptedPauseMessagesRefreshAfterRankChange, getMemberStaffRankRoleId } = require("../Utils/Pause/pauseHandlersUtils");
 const { getJoinGateConfigSnapshot, } = require("../Services/Moderation/joinGateService");
 const { resolveJoinGateConfiguredExempt, isSponsorJoinGateGuildId, } = require("../Services/Moderation/joinGateExemptUtils");
 const { ARROW, formatAuditActor, resolveChannelRolesLogChannel, resolveResponsible, } = require("../Utils/Logging/channelRolesLogUtils");
@@ -19,7 +19,7 @@ const { createModCase, getModConfig, logModCase } = require("../Utils/Moderation
 const { buildUnbanRequestRow } = require("../Utils/Moderation/unbanRequestButton");
 const { setWelcomeContextActive } = require("../Utils/Message/officialMessageCommunityHandlers");
 const { syncClanTagRolesForUserEverywhereAfterMemberEvent } = require("../Services/Community/clanTagRoleService");
-const { syncPersistentAutoValutazioniForMember, handleStaffBoostAutoValutazioneMemberUpdate } = require("../Services/Staff/staffAutoValutazioniService");
+const { syncPersistentAutoValutazioniForMember, handleStaffBoostAutoValutazioneMemberUpdate, resolveAutoValutazioneCreateKeysFromMemberUpdate } = require("../Services/Staff/staffAutoValutazioniService");
 const { handleMainGuildMemberUpdate } = require("../Services/Staff/staffAccessMirrorService");
 const { getAnnouncedBoostSlots, setAnnouncedBoostSlots, addAnnouncedBoostSlots, deleteAnnouncedBoostSlots, ensureBoostSlotsSynced, persistAnnouncedBoostSlotsToDb, clearAnnouncedBoostSlotsMemoryForGuild } = require("../Utils/Community/boostSlotAnnounceTracker");
 const { isValidGuildUserId } = require("../Utils/DB/validateWriteIds");
@@ -38,6 +38,7 @@ const { maybeAnnounceManualSocialRolesAndGrantPicPermsBundle } = require("../Uti
 const { maybeSyncPatronRoleForMember } = require("../Utils/Community/patronRoleService");
 const { upsertVerifiedMember, applyTenureForMember } = require("../Services/Community/communityOpsService");
 const { buildBoostEmbed, buildBoostEmbedSecond, buildBoostAnnounceContent } = require("../Utils/Community/boostAnnounceEmbeds");
+const { isViniliFullFeatureGuild } = require("../MultiGuild/core/guildFeatureScope");
 const AUDIT_FETCH_LIMIT = 20;
 const AUDIT_LOOKBACK_MS = 120 * 1000;
 const MAX_UNVERIFIED_ROLE_DIFF = 4;
@@ -278,10 +279,8 @@ async function resolveBoostAnnounceSyncState(guild, userId, channel, opts = {}) 
   const nativeLookbackMs = Math.max(60_000, Number(opts.nativeLookbackMs || 10 * 60 * 1000));
   const knownNative = Math.max(0, Number(opts.knownNativeSlots || 0));
   const seenNative = nativeBoostSeenSince(gid, uid, sinceMs);
-  const skipNativeScan = Boolean(
-    opts.skipNativeScan &&
-    Math.max(knownNative, seenNative) >= 2,
-  );
+  // Se abbiamo già il segnale native (messageCreate / member update), non rifare fetch multi-canale.
+  const skipNativeScan = Boolean(opts.skipNativeScan) || Math.max(knownNative, seenNative) >= 1;
   const scannedNative = channel && !skipNativeScan
     ? await detectRecentNativeBoostEventsForUser(guild, channel, uid, nativeLookbackMs).catch(() => 0)
     : 0;
@@ -407,16 +406,32 @@ function rememberBoostAnnounce(boostKey, guildPremiumCount, premiumSinceTs) {
 }
 
 function resolveBoostSlotTarget(member, announcedSlots, nativeBoostEvents, forcedSlots, opts = {}) {
-  if (Number(member?.premiumSinceTimestamp || 0) <= 0 && !forcedSlots) return 0;
-  const native = Math.min(
+  if (Number(member?.premiumSinceTimestamp || 0) <= 0 && !forcedSlots && !opts.allowSecondRecovery) return 0;
+  const announced = Math.max(0, Number(announcedSlots || 0));
+  let target = Math.min(
     2,
     Math.max(
       Number(forcedSlots || 0),
       Number(nativeBoostEvents || 0),
       Number(opts.nativeSeenSlots || 0),
+      Number(opts.expectedSlots || 0),
+      announced,
     ),
   );
-  return Math.min(2, Math.max(native, Number(announcedSlots || 0)));
+  // Secondo boost a distanza (ore): il native dice ancora "1 volta", non "2 volte".
+  // Va sommato allo slot già annunciato, non confrontato come totale assoluto.
+  if (opts.incrementalNativeEvent) {
+    const eventSlots = Math.max(1, Math.min(2, Number(opts.nativeEventSlots || forcedSlots || 1)));
+    target = Math.min(2, Math.max(target, announced + eventSlots));
+  }
+  if (
+    (opts.secondBoostConfirmed || opts.allowSecondRecovery) &&
+    announced >= 1 &&
+    Number(member?.premiumSinceTimestamp || 0) > 0
+  ) {
+    target = Math.min(2, Math.max(target, 2));
+  }
+  return target;
 }
 
 function boostAnnouncePeriodSinceMs(member, opts = {}, nativeLookbackMs = 10 * 60 * 1000) {
@@ -1175,16 +1190,17 @@ async function resolveBoostNativeScanChannelsAsync(guild, primaryChannel) {
   }
   push(primaryChannel);
   if (!guild) return list;
-  const ids = [guild.systemChannelId, guild.publicUpdatesChannelId, guild.rulesChannelId].filter(
-    (x) => x != null && String(x).length > 10,
-  );
+  // Solo canali dove Discord posta i boost: niente scan di tutta la guild (era la causa del ritardo).
+  const ids = [
+    guild.systemChannelId,
+    guild.publicUpdatesChannelId,
+    guild.rulesChannelId,
+    IDs.channels?.supporters,
+  ].filter((x) => x != null && String(x).length > 10);
   for (const rawId of ids) {
     const sid = String(rawId);
     let ch = guild.channels.cache.get(sid);
     if (!ch) ch = await guild.channels.fetch(sid).catch(() => null);
-    push(ch);
-  }
-  for (const ch of guild.channels.cache.values()) {
     push(ch);
   }
   return list;
@@ -1315,24 +1331,35 @@ async function announceBoostEmbedsAfterNativeWait({
     knownNativeSlots: finalNative,
     skipNativeScan: false,
   });
-  const missingAfter = Number((await resolveBoostAnnounceSyncState(member.guild, member.id, boostAnnounceChannel, {
+  let missingAfter = Number((await resolveBoostAnnounceSyncState(member.guild, member.id, boostAnnounceChannel, {
     sinceMs: startedAt - 1000,
     nativeLookbackMs: lookbackMs,
     knownNativeSlots: finalNative,
     skipNativeScan: false,
   }).catch(() => null))?.missing || 0);
   if (missingAfter > 0) {
-    global.logger?.warn?.(
-      "[guildMemberUpdate] boost native wait scaduto con embed mancanti:",
-      member.id,
-      `expected=${finalNative}`,
-      `missing=${missingAfter}`,
-    );
-    scheduleBoostFollowup(boostAnnounceChannel, member, guildId, boostKey, {
-      expectedSlots: Math.min(2, finalNative + missingAfter),
+    clearBoostAnnounceHandled(boostKey);
+    const forced = await recoverMissingBoostEmbedsForUser(member.guild, member.id, {
+      knownNativeSlots: Math.max(2, finalNative),
+      expectedSlots: Math.max(2, finalNative),
+      startedAt,
+      nativeLookbackMs: Math.max(lookbackMs, 30 * 60 * 1000),
+      allowSecondRecovery: true,
+      skipNativeScan: false,
       currentCount,
-      premiumSinceTs,
-    });
+      maxSend: missingAfter,
+    }).catch(() => ({ ok: false, sent: 0 }));
+    const forcedSent = Math.max(0, Number(forced?.sent || 0));
+    if (forcedSent > 0) {
+      missingAfter = Math.max(0, missingAfter - forcedSent);
+    }
+    if (missingAfter > 0) {
+      scheduleBoostFollowup(boostAnnounceChannel, member, guildId, boostKey, {
+        expectedSlots: Math.min(2, finalNative + missingAfter),
+        currentCount,
+        premiumSinceTs,
+      });
+    }
   }
   return true;
 }
@@ -1344,6 +1371,10 @@ async function tryDispatchBoostAnnounceImmediately(boostAnnounceChannel, member,
     expectedSlots,
     startedAt: Date.now(),
     nativeLookbackMs: 180_000,
+    skipNativeScan: true,
+    currentCount: opts.currentCount,
+    nativeEventIncrement: Boolean(opts.nativeEventIncrement),
+    nativeEventSlots: Number(opts.nativeEventSlots || 0) || undefined,
   }).catch(() => ({ ok: false, sent: 0 }));
 }
 
@@ -1363,6 +1394,8 @@ function scheduleBoostAnnounceAfterNative(boostAnnounceChannel, member, guildId,
     expectedSlots,
     startedAt,
     nativeLookbackMs: 180_000,
+    nativeEventIncrement: Boolean(opts.nativeEventIncrement),
+    nativeEventSlots: Number(opts.nativeEventSlots || 0) || undefined,
   };
 
   recoverMissingBoostEmbedsForUser(member.guild, member.id, recoverOpts).catch(() => null);
@@ -1457,6 +1490,14 @@ async function handleBoostUpdate(oldMember, newMember) {
     await newMember.guild.fetch().catch(() => {});
   }
 
+  // Aggiorna sempre il conteggio boost da Discord prima di calcolare delta/footer.
+  const freshBoostCount = await resolveFreshGuildBoostCount(newMember.guild).catch(() => null);
+  if (Number.isFinite(Number(freshBoostCount))) {
+    try {
+      newMember.guild.premiumSubscriptionCount = Number(freshBoostCount);
+    } catch (ePc) {}
+  }
+
   const { currentCount, countIncreased, boostDelta, guildBoostDecreased, boostDrop } = computeBoostDelta(oldMember, newMember, guildId);
   if (guildBoostDecreased && boostDrop > 0) {
     await maybeRevokeDoubleBoosterAfterSlotLoss({ oldMember, newMember, guildId, drop: boostDrop }).catch((err) => {
@@ -1500,17 +1541,25 @@ async function handleBoostUpdate(oldMember, newMember) {
 
   boostCountCache.set(guildId, currentCount);
   void addPerkRoleIfPossible(newMember).catch(() => null);
-  const expectedSlots = Math.min(
-    2,
-    Math.max(
-      recentNativeSlots,
-      startedBoostingNow ? Math.max(1, boostDelta) : countIncreased ? boostDelta : 1,
-    ),
-  );
+  const alreadyAnnouncedSlots = getAnnouncedBoostSlots(guildId, newMember.id);
+  let expectedSlots;
+  if (startedBoostingNow) {
+    expectedSlots = Math.min(2, Math.max(1, boostDelta, recentNativeSlots));
+  } else {
+    // Già booster: nuovo slot (count↑ o native) → punta a announced+delta, non solo a 1.
+    const delta = Math.max(1, boostDelta || recentNativeSlots || 1);
+    expectedSlots = Math.min(
+      2,
+      Math.max(recentNativeSlots, alreadyAnnouncedSlots + delta, countIncreased ? alreadyAnnouncedSlots + boostDelta : 0),
+    );
+  }
+  expectedSlots = Math.max(1, expectedSlots);
   await announceBoostFromMemberUpdate(boostAnnounceChannel, newMember, guildId, boostKey, {
     expectedSlots,
     currentCount,
     premiumSinceTs: newBoostTs,
+    nativeEventIncrement: !startedBoostingNow,
+    nativeEventSlots: Math.max(1, boostDelta || recentNativeSlots || 1),
   });
   recoverConcurrentNativeBoosts(newMember.guild, boostAnnounceChannel, { windowMs: 3 * 60 * 1000 }).catch(() => null);
 }
@@ -1605,6 +1654,25 @@ async function recoverConcurrentNativeBoosts(guild, primaryChannel, opts = {}) {
   return { ok: true, users: byUser.size, embedsSent };
 }
 
+async function resolveFreshGuildBoostCount(guild, fallbackCount = null) {
+  const gid = String(guild?.id || "");
+  const freshGuild = await guild?.fetch?.().catch(() => null);
+  const fromFresh = Number(freshGuild?.premiumSubscriptionCount);
+  if (Number.isFinite(fromFresh) && fromFresh >= 0) {
+    if (gid) boostCountCache.set(gid, fromFresh);
+    return fromFresh;
+  }
+  const fromGuild = Number(guild?.premiumSubscriptionCount);
+  if (Number.isFinite(fromGuild) && fromGuild >= 0) {
+    if (gid) boostCountCache.set(gid, fromGuild);
+    return fromGuild;
+  }
+  const fromFallback = Number(fallbackCount);
+  if (Number.isFinite(fromFallback) && fromFallback >= 0) return fromFallback;
+  const fromCache = Number(boostCountCache.get(gid));
+  return Number.isFinite(fromCache) && fromCache >= 0 ? fromCache : 0;
+}
+
 async function recoverMissingBoostEmbedsForUser(guild, userId, opts = {}) {
   const gid = String(guild?.id || "");
   const uid = String(userId || "");
@@ -1624,15 +1692,7 @@ async function recoverMissingBoostEmbedsForUser(guild, userId, opts = {}) {
   if (mainId && gid === mainId) {
     await ensureBoostSlotsSynced(gid, uid).catch(() => null);
   }
-  const cachedCount = boostCountCache.get(gid);
-  let latestCount = Number(cachedCount ?? guild.premiumSubscriptionCount ?? 0);
-  if (!Number.isFinite(latestCount) || latestCount <= 0) {
-    const freshGuild = await guild.fetch().catch(() => null);
-    latestCount = Number(
-      freshGuild?.premiumSubscriptionCount ?? guild.premiumSubscriptionCount ?? 0,
-    );
-  }
-  boostCountCache.set(gid, latestCount);
+  const latestCount = await resolveFreshGuildBoostCount(guild, opts.currentCount);
   const nativeLookbackMs = Math.max(
     60_000,
     Math.min(14 * 24 * 60 * 60 * 1000, Number(opts.nativeLookbackMs ?? 10 * 60 * 1000)),
@@ -1671,6 +1731,9 @@ async function recoverMissingBoostEmbedsForUser(guild, userId, opts = {}) {
     nativeSeenSlots: seenNativeSlots,
     expectedSlots: Number(opts.expectedSlots || 0),
     secondBoostConfirmed: Boolean(opts.secondBoostConfirmed || opts.allowSecondRecovery),
+    allowSecondRecovery: Boolean(opts.allowSecondRecovery),
+    incrementalNativeEvent: Boolean(opts.nativeEventIncrement),
+    nativeEventSlots: Number(opts.nativeEventSlots || opts.knownNativeSlots || 0),
   });
   if (slotTarget <= 0) return { ok: true, sent: 0, reason: "not_boosting" };
   const periodSinceMs = boostAnnouncePeriodSinceMs(member, opts, nativeLookbackMs);
@@ -1717,7 +1780,7 @@ async function recoverMissingBoostEmbedsForUser(guild, userId, opts = {}) {
   }
   boostAnnounceSendLocks.add(boostKey);
   try {
-    if (channelSinceStart >= nativeBoostEvents && forcedSlots <= 0) {
+    if (channelSinceStart >= nativeBoostEvents && forcedSlots <= 0 && channelEmbedsInPeriod >= slotTarget) {
       await markBoostAnnounceHandledIfSynced(guild, uid, boostAnnounceChannel, {
         sinceMs,
         nativeLookbackMs,
@@ -2603,6 +2666,7 @@ module.exports = {
   async execute(oldMember, newMember, client) {
     try {
       if (!oldMember || !newMember?.guild || !newMember?.user) return;
+      if (!isViniliFullFeatureGuild(newMember.guild.id)) return;
       if (String(newMember.guild.id) === String(IDs.guilds?.main || "")) {
         await handlePreMemberRoleOnMemberUpdate(oldMember, newMember).catch((err) => {
           global.logger?.warn?.("[guildMemberUpdate] preMember role:", newMember.id, err?.message || err);
@@ -2671,23 +2735,40 @@ module.exports = {
             global.logger?.warn?.("[guildMemberUpdate] manual staff rolesHistory:", newMember.id, err?.message || err);
           });
           scheduleStaffListRefresh(botClient, newMember.guild.id);
+          const oldRank = getMemberStaffRankRoleId(oldMember);
+          const newRank = getMemberStaffRankRoleId(newMember);
+          if (oldRank !== newRank) {
+            void scheduleAcceptedPauseMessagesRefreshAfterRankChange(newMember.guild, newMember.id);
+          }
           if (!memberHasStaffRole(oldMember) && memberHasStaffRole(newMember)) {
             setWelcomeContextActive(newMember.guild.id);
           }
           if (memberHasAnyStaffPresenceForDepexSync(oldMember) && !memberHasAnyStaffPresenceForDepexSync(newMember)) {
-            const staffLean = await ActivityUserProfile.findOne(
-              { guildId: newMember.guild.id, userId: newMember.id },
-              { staff: 1 },
-            ).lean().catch(() => null);
-            await deleteStaffPauseRequestChannelMessages(newMember.guild, newMember.id);
-            await deleteStaffRelatedMessagesFromConfiguredChannels(newMember.guild, newMember.id, staffLean?.staff).catch((err) => {
-              global.logger?.warn?.("[guildMemberUpdate] staff channels scan delete:", newMember.id, err?.message || err);
-            });
-            if (!memberIsInMuteMirrorState(newMember)) {
-              await archiveStaffRolesHistoryThenUnsetStaff(newMember.guild.id, newMember.id);
-              await autoUnclaimOpenTicketsClaimedByUser(newMember.guild, newMember.id).catch((err) => {
-                global.logger?.warn?.("[guildMemberUpdate] ticket auto-unclaim on depex:", newMember.id, err?.message || err);
+            // Critico: con cache membri/ruoli limitata Discord.js può mandare un update
+            // dove newMember sembra senza ruoli staff anche se li ha ancora → wipe valutazioni.
+            const verifiedMember = await newMember.guild.members
+              .fetch({ user: newMember.id, force: true })
+              .catch(() => null);
+            if (!verifiedMember || memberHasAnyStaffPresenceForDepexSync(verifiedMember)) {
+              global.logger?.warn?.(
+                "[guildMemberUpdate] depex abortito (ruoli staff ancora presenti o fetch fallito):",
+                newMember.id,
+              );
+            } else {
+              const staffLean = await ActivityUserProfile.findOne(
+                { guildId: newMember.guild.id, userId: newMember.id },
+                { staff: 1 },
+              ).lean().catch(() => null);
+              await deleteStaffPauseRequestChannelMessages(newMember.guild, newMember.id);
+              await deleteStaffRelatedMessagesFromConfiguredChannels(newMember.guild, newMember.id, staffLean?.staff).catch((err) => {
+                global.logger?.warn?.("[guildMemberUpdate] staff channels scan delete:", newMember.id, err?.message || err);
               });
+              if (!memberIsInMuteMirrorState(verifiedMember)) {
+                await archiveStaffRolesHistoryThenUnsetStaff(newMember.guild.id, newMember.id);
+                await autoUnclaimOpenTicketsClaimedByUser(newMember.guild, newMember.id).catch((err) => {
+                  global.logger?.warn?.("[guildMemberUpdate] ticket auto-unclaim on depex:", newMember.id, err?.message || err);
+                });
+              }
             }
           }
           if (memberHasStaffRole(newMember) && !memberHasPartnerManagerRole(newMember)) {
@@ -2702,9 +2783,16 @@ module.exports = {
       await removePlusColorsIfNotEligible(newMember);
       await maybeAnnounceManualSocialRolesAndGrantPicPermsBundle(oldMember, newMember);
       await maybeSyncPatronRoleForMember(oldMember, newMember);
-      await syncPersistentAutoValutazioniForMember(newMember).catch((err) => {
-        global.logger?.warn?.("[guildMemberUpdate] staff auto valutazioni sync:", newMember.id, err?.message || err);
-      });
+      {
+        const createKeys = resolveAutoValutazioneCreateKeysFromMemberUpdate(oldMember, newMember);
+        await syncPersistentAutoValutazioniForMember(newMember, {
+          allowCreate: createKeys.size > 0,
+          createKeys,
+          allowRemove: true,
+        }).catch((err) => {
+          global.logger?.warn?.("[guildMemberUpdate] staff auto valutazioni sync:", newMember.id, err?.message || err);
+        });
+      }
       await ensureCustomVocAccess(newMember);
       await syncCustomVocEligibilityWindow(newMember);
       await syncCustomRoleEligibilityWindow(newMember);

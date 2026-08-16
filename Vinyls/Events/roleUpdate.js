@@ -2,6 +2,7 @@ const { AuditLogEvent, EmbedBuilder } = require("discord.js");
 const { queueIdsCatalogSync } = require("../Utils/Config/idsAutoSync");
 const { toDiscordTimestamp, formatAuditActor, permissionDiff, buildAuditExtraLines, resolveChannelRolesLogChannel, resolveResponsible, } = require("../Utils/Logging/channelRolesLogUtils");
 const { handleRoleUpdate: antiNukeHandleRoleUpdate } = require("../Services/Moderation/antiNukeService");
+const { isViniliFullFeatureGuild } = require("../MultiGuild/core/guildFeatureScope");
 const ROLE_UPDATE_ACTION = AuditLogEvent?.RoleUpdate ?? 31;
 
 module.exports = {
@@ -9,6 +10,7 @@ module.exports = {
   async execute(oldRole, newRole, client) {
     const guildId=newRole?.guild?.id||oldRole?.guild?.id||newRole?.guildId||oldRole?.guildId;
     if (!guildId) return;
+    if (!isViniliFullFeatureGuild(guildId)) return;
 
     try {
       const nameChanged = oldRole?.name !== newRole?.name;

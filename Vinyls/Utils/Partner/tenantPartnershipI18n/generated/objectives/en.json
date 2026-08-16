@@ -1,0 +1,142 @@
+{
+  "setup_first": {
+    "emoji": "<:39560settings:1525525624628973608>",
+    "title": "Master Key",
+    "desc": "Complete the partnership setup for the first time."
+  },
+  "first_partnership": {
+    "emoji": "<:528443newbie:1525511937721499849>",
+    "title": "First Handshake",
+    "desc": "Complete your first partnership."
+  },
+  "server_description": {
+    "emoji": "<:VC_Quest:1482534879257165865>",
+    "title": "Welcome Window",
+    "desc": "Set your server description."
+  },
+  "thank_you_embed": {
+    "emoji": "<a:VC_ThankYou:1330186319673950401>",
+    "title": "Gratitude Note",
+    "desc": "Customize the thank-you embed."
+  },
+  "privacy_responses": {
+    "emoji": "<:184723locked:1524730533064609812>",
+    "title": "Secret Seal",
+    "desc": "Change command response privacy."
+  },
+  "partnerships_25": {
+    "emoji": "<:853922bronze:1525518301130657874>",
+    "title": "Alliance Weaver I",
+    "desc": "Complete 25 partnerships."
+  },
+  "partnerships_50": {
+    "emoji": "<:829581silver:1525518304150556732>",
+    "title": "Alliance Weaver II",
+    "desc": "Complete 50 partnerships."
+  },
+  "partnerships_100": {
+    "emoji": "<:919633gold:1525518306738442381>",
+    "title": "Alliance Weaver III",
+    "desc": "Complete 100 partnerships."
+  },
+  "partnerships_250": {
+    "emoji": "<:641170diamond:1525518309993353297>",
+    "title": "Alliance Weaver IV",
+    "desc": "Complete 250 partnerships."
+  },
+  "partnerships_500": {
+    "emoji": "<:174112platinum:1525518313843851294>",
+    "title": "Alliance Weaver V",
+    "desc": "Complete 500 partnerships."
+  },
+  "partnerships_1000": {
+    "emoji": "<:310916crimson:1525518317782040757>",
+    "title": "Alliance Weaver VI",
+    "desc": "Complete 1000 partnerships."
+  },
+  "partnerships_5000": {
+    "emoji": "<:716729iridescent:1525518322987307138>",
+    "title": "Alliance Weaver VII",
+    "desc": "Complete 5000 partnerships."
+  },
+  "partnerships_10000": {
+    "emoji": "<:681634top250:1525518324900036648>",
+    "title": "Alliance Weaver VIII",
+    "desc": "Complete 10000 partnerships."
+  },
+  "top_daily_first": {
+    "emoji": "<a:94814firstplacetrophy:1525519444447723571>",
+    "title": "Sunrise Debut",
+    "desc": "Enter the daily top for the first time."
+  },
+  "top_daily_5": {
+    "emoji": "<a:30646secondplacetrophy:1525519446729556139>",
+    "title": "Daily Torch I",
+    "desc": "Enter the daily top 5 times."
+  },
+  "top_daily_10": {
+    "emoji": "<a:22955thirdplacetrophy:1525519449321635850>",
+    "title": "Daily Torch II",
+    "desc": "Enter the daily top 10 times."
+  },
+  "top_weekly_first": {
+    "emoji": "<:14755chaveouro:1525537879500259500>",
+    "title": "Week of Glory",
+    "desc": "Enter the weekly top for the first time."
+  },
+  "top_weekly_5": {
+    "emoji": "<:14755chavemedalhaprata:1525537877880996020>",
+    "title": "Weekly Marathon I",
+    "desc": "Enter the weekly top 5 times."
+  },
+  "top_weekly_10": {
+    "emoji": "<:14755chavebronze:1525537881186242580>",
+    "title": "Weekly Marathon II",
+    "desc": "Enter the weekly top 10 times."
+  },
+  "top_global_first": {
+    "emoji": "<a:76245medalla:1525537883027542116>",
+    "title": "World Echo",
+    "desc": "Enter the global top for the first time."
+  },
+  "top_global_5": {
+    "emoji": "<a:78330medalsilver:1525537884231434433>",
+    "title": "Global Presence I",
+    "desc": "Enter the global top 5 times."
+  },
+  "top_global_10": {
+    "emoji": "<a:720660medalbronze:1525537886026469546>",
+    "title": "Global Presence II",
+    "desc": "Enter the global top 10 times."
+  },
+  "top_global_rank_1": {
+    "emoji": "<:VC_Podio1:1482694399283433582>",
+    "title": "Crown of the Chart",
+    "desc": "Reach #1 on the global top."
+  },
+  "top_global_rank_3": {
+    "emoji": "<:VC_Podio2:1482694424411635712>",
+    "title": "Podium of Excellence",
+    "desc": "Reach a top-3 spot on the global top."
+  },
+  "top_global_rank_10": {
+    "emoji": "<:VC_Podio3:1482694450806259744>",
+    "title": "World Elite",
+    "desc": "Reach a top-10 spot on the global top."
+  },
+  "bug_report_1": {
+    "emoji": "<:2398shinyredbughunter:1525509031651840171>",
+    "title": "Bug Hunter I",
+    "desc": "Report 1 bug."
+  },
+  "bug_report_5": {
+    "emoji": "<:1757bugbusterbadgediscord:1525509035233644614>",
+    "title": "Bug Hunter II",
+    "desc": "Report 5 bugs."
+  },
+  "bug_report_10": {
+    "emoji": "<:5594shinypurplebughunter:1525509033514238112>",
+    "title": "Bug Hunter III",
+    "desc": "Report 10 bugs."
+  }
+}

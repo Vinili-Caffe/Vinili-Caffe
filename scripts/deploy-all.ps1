@@ -3,17 +3,25 @@
 # applica opzionale Lavalink/.env.lavalink caricato in /tmp prima dello script remoto (file locale non nel tarball).
 # PM2: reload ecosystem (lavalink = java -jar + spring.config.additional-location; vedi ecosystem.config.cjs).
 param(
-  [string]$Server = "45.143.196.131",
+  [string]$Server = "vinili",
   [string]$User = "root",
   [string]$SiteRemotePath = "/var/www/viniliecaffe",
   [string]$BotRemotePath = "/opt/bot",
   [string]$Pm2AppName = "bots",
   [switch]$SkipSiteBuild,
+  [switch]$SkipSite,
   [switch]$SkipSiteChown,
   [switch]$SiteFullClean,
   [switch]$SlowSiteScpRecursive,
   [switch]$SkipBackend,
-  [switch]$SkipBackendRestart
+  [switch]$SkipBackendRestart,
+  [switch]$SkipLargeSiteAssets
+)
+
+$SiteLargeAssetUploadSkipPatterns = @(
+  '(?i)(?:^|/)images/evento-hogwarts/ven-web\.mp4$',
+  '(?i)(?:^|/)images/evento-hogwarts/Watch Harry Potter.*\.mp4$',
+  '(?i)(?:^|/)images/Watch Harry Potter.*\.mp4$'
 )
 
 $ErrorActionPreference = "Stop"
@@ -47,6 +55,14 @@ function Get-RemoteFileSize {
   $parsed = 0L
   [void][long]::TryParse((($raw | Out-String).Trim()), [ref]$parsed)
   return $parsed
+}
+
+function Test-SkipSiteLargeAssetUpload {
+  param([string]$Rel)
+  foreach ($pat in $SiteLargeAssetUploadSkipPatterns) {
+    if ($Rel -match $pat) { return $true }
+  }
+  return $false
 }
 
 function Get-SiteLargeAssetRemotePaths {
@@ -111,6 +127,8 @@ function Get-ProcessArgumentString([string[]]$Parts) {
 }
 
 function Invoke-RemoteBashScript([string]$Target, [string]$Script) {
+  # Drain stdout/stderr while ssh runs. Waiting first then reading deadlocks once
+  # the OS pipe buffer fills (common on long remote deploy scripts with lots of output).
   $normalized = ($Script -replace "`r`n", "`n" -replace "`r", "`n").TrimEnd() + "`n"
   $bytes = [System.Text.Encoding]::UTF8.GetBytes($normalized)
   $argParts = @($sshArgs) + @($Target, "bash -s")
@@ -127,6 +145,20 @@ function Invoke-RemoteBashScript([string]$Target, [string]$Script) {
     $psi.Arguments = Get-ProcessArgumentString $argParts
   }
   $proc = [System.Diagnostics.Process]::Start($psi)
+  $stdoutBuilder = New-Object System.Text.StringBuilder
+  $stderrBuilder = New-Object System.Text.StringBuilder
+  $outHandler = [System.Diagnostics.DataReceivedEventHandler] {
+    param($sender, $e)
+    if ($null -ne $e.Data) { [void]$stdoutBuilder.AppendLine($e.Data) }
+  }
+  $errHandler = [System.Diagnostics.DataReceivedEventHandler] {
+    param($sender, $e)
+    if ($null -ne $e.Data) { [void]$stderrBuilder.AppendLine($e.Data) }
+  }
+  $proc.add_OutputDataReceived($outHandler)
+  $proc.add_ErrorDataReceived($errHandler)
+  $proc.BeginOutputReadLine()
+  $proc.BeginErrorReadLine()
   try {
     $stdin = $proc.StandardInput.BaseStream
     $stdin.Write($bytes, 0, $bytes.Length)
@@ -135,15 +167,10 @@ function Invoke-RemoteBashScript([string]$Target, [string]$Script) {
     $proc.StandardInput.Close()
   }
   $proc.WaitForExit()
-  $utf8 = [System.Text.UTF8Encoding]::new($false)
-  $stdoutMs = New-Object System.IO.MemoryStream
-  $stderrMs = New-Object System.IO.MemoryStream
-  try {
-    $proc.StandardOutput.BaseStream.CopyTo($stdoutMs)
-    $proc.StandardError.BaseStream.CopyTo($stderrMs)
-  } catch {}
-  $stdout = $utf8.GetString($stdoutMs.ToArray()).TrimEnd()
-  $stderr = $utf8.GetString($stderrMs.ToArray()).TrimEnd()
+  try { $proc.CancelOutputRead() } catch {}
+  try { $proc.CancelErrorRead() } catch {}
+  $stdout = $stdoutBuilder.ToString().TrimEnd()
+  $stderr = $stderrBuilder.ToString().TrimEnd()
   if ($stdout) { Write-Host $stdout }
   if ($stderr -and $proc.ExitCode -ne 0) { Write-Host $stderr }
   if ($proc.ExitCode -ne 0) {
@@ -209,12 +236,37 @@ function Require-Command([string]$Name) {
   }
 }
 
-function Invoke-BackendConfigValidation([string]$Root) {
-  $script = "const fs=require('fs'); const path=require('path'); for (const f of ['Vinyls/config.json','Coffee/config.json']) JSON.parse(fs.readFileSync(path.join(process.argv[1], f), 'utf8')); console.log('Config JSON OK.');"
-  & node -e $script $Root
-  if ($LASTEXITCODE -ne 0) {
-    throw "Validazione config JSON fallita"
+function Ensure-NodePathInSession {
+  if ((Get-Command node -ErrorAction SilentlyContinue) -and (Get-Command npm -ErrorAction SilentlyContinue)) {
+    return
   }
+  $candidates = @(
+    "$env:ProgramFiles\nodejs",
+    "${env:ProgramFiles(x86)}\nodejs",
+    "$env:LOCALAPPDATA\Programs\node"
+  ) | Where-Object { $_ -and (Test-Path $_) }
+  foreach ($dir in $candidates) {
+    if ($env:Path -notlike "*$dir*") {
+      $env:Path = "$dir;$env:Path"
+    }
+  }
+}
+
+function Invoke-BackendConfigValidation([string]$Root) {
+  if (Get-Command node -ErrorAction SilentlyContinue) {
+    $script = "const fs=require('fs'); const path=require('path'); for (const f of ['Vinyls/config.json','Coffee/config.json']) JSON.parse(fs.readFileSync(path.join(process.argv[1], f), 'utf8')); console.log('Config JSON OK.');"
+    & node -e $script $Root
+    if ($LASTEXITCODE -ne 0) {
+      throw "Validazione config JSON fallita"
+    }
+    return
+  }
+  foreach ($rel in @("Vinyls/config.json", "Coffee/config.json")) {
+    $path = Join-Path $Root $rel
+    if (-not (Test-Path $path)) { throw "Config mancante: $rel" }
+    $null = Get-Content -Raw -Path $path | ConvertFrom-Json
+  }
+  Write-Host "Config JSON OK (validazione PowerShell)."
 }
 
 function Write-DeployPhase([string]$Message) {
@@ -375,6 +427,9 @@ function Invoke-SiteDeploy {
       Clear-DistDirectory ".\dist"
       Write-DeployPhase "Build sito (tailwind + copy + offuscamento)..."
       npm run build
+      if ($LASTEXITCODE -ne 0) {
+        throw "Build sito fallita (npm run build exit code $LASTEXITCODE)"
+      }
       Write-DeployPhase "Build sito completata."
     } else {
       if (-not (Test-Path ".\dist\index.html")) {
@@ -446,6 +501,10 @@ function Invoke-SiteDeploy {
       Write-DeployPhase "Estrazione sito completata."
       foreach ($lf in $largeFiles) {
         $rel = $lf.FullName.Substring($distRoot.Length).TrimStart("\", "/") -replace "\\", "/"
+        if ($SkipLargeSiteAssets -or (Test-SkipSiteLargeAssetUpload $rel)) {
+          Write-Host "Skip upload asset grande: $rel"
+          continue
+        }
         $remoteCandidates = @(Get-SiteLargeAssetRemotePaths $RemotePath $rel)
         $remoteFile = Resolve-SiteLargeAssetUploadPath $RemotePath $rel
         $remoteDir = ($remoteFile -replace "/[^/]+$", "")
@@ -524,21 +583,28 @@ function Invoke-SiteDeploy {
 Require-Command "ssh"
 Require-Command "scp"
 Require-Command "tar"
-Require-Command "npm"
-Require-Command "node"
+Ensure-NodePathInSession
+if (-not $SkipSite -and -not $SkipSiteBuild) {
+  Require-Command "npm"
+  Require-Command "node"
+}
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $script:DeployStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
 
-Write-DeployPhase "==> [1/2] Deploy sito statico"
-$siteArgs = @{
-  Server = $Server
-  User = $User
-  RemotePath = $SiteRemotePath
-  SkipBuild = $SkipSiteBuild
-  SkipRemoteChown = $SkipSiteChown
-  FullClean = $SiteFullClean
-  SlowScpRecursive = $SlowSiteScpRecursive
+if (-not $SkipSite) {
+  Write-DeployPhase "==> [1/2] Deploy sito statico"
+  $siteArgs = @{
+    Server = $Server
+    User = $User
+    RemotePath = $SiteRemotePath
+    SkipBuild = $SkipSiteBuild
+    SkipRemoteChown = $SkipSiteChown
+    FullClean = $SiteFullClean
+    SlowScpRecursive = $SlowSiteScpRecursive
+  }
+} else {
+  Write-DeployPhase "==> [1/2] Deploy sito saltato (-SkipSite)"
 }
 
 $localTgz = $null
@@ -590,7 +656,9 @@ if (-not $SkipBackend) {
   Write-DeployPhase "Archivio backend in background (in parallelo con build/upload sito)..."
 }
 
-Invoke-SiteDeploy @siteArgs
+if (-not $SkipSite) {
+  Invoke-SiteDeploy @siteArgs
+}
 
 if ($SkipBackend) {
   if ($backendTarJob) {
@@ -659,14 +727,10 @@ try {
     'if [ "$LAVALINK_CONFIG_CHANGED" = "1" ]; then rm -f "$LAVALINK_DIR"/plugins/youtube-plugin-*.jar "$LAVALINK_DIR"/plugins/lavasrc-plugin-*.jar; fi'
     'NEW_LOCK_HASH=""'
     "if [ -f '$BotRemotePath/package-lock.json' ]; then NEW_LOCK_HASH=`$(sha256sum '$BotRemotePath/package-lock.json' | awk '{print `$1}'); fi"
-    ('APP_PID=$(pm2 pid ''{0}'' 2>/dev/null | head -n 1 | tr -d ''[:space:]'')' -f $Pm2AppName)
-    'if [ -n "$APP_PID" ] && [ "$APP_PID" != "0" ] && [ -e "/proc/$APP_PID/exe" ]; then NODE_BIN=$(readlink -f "/proc/$APP_PID/exe"); else NODE_BIN=$(command -v node); fi'
-    'if [ -z "$NODE_BIN" ] || [ ! -x "$NODE_BIN" ]; then echo ''Node non trovato sul server'' >&2; exit 1; fi'
-    'NODE_DIR=$(dirname "$NODE_BIN")'
-    'NPM_CLI=$(dirname "$(dirname "$NODE_BIN")")/lib/node_modules/npm/bin/npm-cli.js'
-    'if [ ! -f "$NPM_CLI" ]; then echo ''npm-cli.js non trovato per il runtime selezionato'' >&2; exit 1; fi'
-    'export PATH="$NODE_DIR:$PATH"'
-    'echo "Using Node: $NODE_BIN"'
+    ". '$BotRemotePath/scripts/lib/resolve-bot-node.sh'"
+    "NODE_BIN=`$(resolve_bot_node_bin '$BotRemotePath' '$Pm2AppName')"
+    'setup_bot_npm_cli "$NODE_BIN"'
+    'echo "Using Node (bot runtime): $NODE_BIN"'
     'echo "Using npm-cli: $NPM_CLI"'
     '"$NODE_BIN" -v'
     '"$NODE_BIN" "$NPM_CLI" -v'
@@ -683,16 +747,14 @@ try {
     'elif [ "$(cat node_modules/.vc-installed-node-abi)" != "$NODE_ABI" ]; then echo "Node ABI changed: $(cat node_modules/.vc-installed-node-abi) -> $NODE_ABI"; NEED_INSTALL=1'
     'fi'
     'if [ "$NEED_INSTALL" = "1" ]; then echo "Dependency install required."; rm -rf node_modules/canvas Vinyls/node_modules/canvas Coffee/node_modules/canvas; "$NODE_BIN" "$NPM_CLI" ci --omit=dev --no-audit --no-fund --loglevel=error || "$NODE_BIN" "$NPM_CLI" install --omit=dev --no-audit --no-fund --loglevel=error; printf %s "$NEW_LOCK_HASH" > node_modules/.vc-installed-lock.sha256; printf %s "$NODE_ABI" > node_modules/.vc-installed-node-abi; else echo "Dependencies unchanged, skipping npm install."; fi'
-    "cd '$BotRemotePath/Vinyls'"
-    "if `"`$NODE_BIN`" -e 'require(`"canvas`")' >/dev/null 2>&1; then echo `"Canvas already OK.`"; else echo `"Canvas rebuild required.`"; rm -rf ../node_modules/canvas node_modules/canvas; `"`$NODE_BIN`" `"`$NPM_CLI`" install canvas@2.11.2 --omit=dev --foreground-scripts --no-audit --no-fund --loglevel=error; fi"
-    "`"`$NODE_BIN`" -e 'require(`"canvas`"); console.log(`"canvas-ok`")'"
+    "ensure_vinyls_native_modules '$BotRemotePath' `"`$NODE_BIN`" `"`$NPM_CLI`""
   )
   if (-not $SkipBackendRestart) {
-    $reloadEcosystem = "cd '$BotRemotePath' && if [ -f ecosystem.config.cjs ]; then if ! pm2 describe lavalink >/dev/null 2>&1 || ! pm2 describe '$Pm2AppName' >/dev/null 2>&1; then pm2 start ecosystem.config.cjs --update-env; elif [ ""`$LAVALINK_CONFIG_CHANGED"" = ""1"" ]; then pm2 reload ecosystem.config.cjs --update-env; else pm2 reload '$Pm2AppName' --update-env; fi; else pm2 restart '$Pm2AppName' --update-env || true; fi"
+    $reloadEcosystem = "cd '$BotRemotePath' && if [ -f ecosystem.config.cjs ]; then if ! pm2 describe lavalink >/dev/null 2>&1 || ! pm2 describe '$Pm2AppName' >/dev/null 2>&1; then pm2 start ecosystem.config.cjs --update-env; elif [ ""`$LAVALINK_CONFIG_CHANGED"" = ""1"" ]; then pm2 reload ecosystem.config.cjs --update-env; else pm2 start ecosystem.config.cjs --only '$Pm2AppName' --update-env; fi; else pm2 restart '$Pm2AppName' --update-env || true; fi; for only_app in site-api partnership-migration discadia-votes topgg-votes vote-drain bot-scheduler auto-backup; do if pm2 describe `"`$only_app`" >/dev/null 2>&1; then pm2 reload `"`$only_app`" --update-env || pm2 restart `"`$only_app`" --update-env || true; else pm2 start ecosystem.config.cjs --only `"`$only_app`" --update-env || true; fi; done; echo '[deploy] Attendo site-api…'; for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do if curl -sf --max-time 2 http://127.0.0.1:3020/webhooks/status >/dev/null; then echo '[deploy] site-api ok'; break; fi; sleep 1; done"
     $remoteCmd += $reloadEcosystem
     $remoteCmd += 'printf "[deploy] PM2 status:\n"'
     $remoteCmd += 'if command -v pm2 >/dev/null 2>&1; then'
-    $remoteCmd += "  for pm2_name in lavalink '$Pm2AppName'; do"
+    $remoteCmd += "  for pm2_name in lavalink '$Pm2AppName' site-api partnership-migration discadia-votes topgg-votes vote-drain bot-scheduler auto-backup; do"
     $remoteCmd += '    pm2_pid=$(pm2 pid "$pm2_name" 2>/dev/null | head -n 1 | tr -d "[:space:]")'
     $remoteCmd += '    if [ -n "$pm2_pid" ] && [ "$pm2_pid" != "0" ]; then'
     $remoteCmd += '      echo "  $pm2_name: online pid=$pm2_pid"'
@@ -715,4 +777,4 @@ try {
 }
 
 Write-DeployPhase "Deploy completato su ${User}@${Server} (site + backend)."
-Write-Host "Suggerimenti: solo bot -> -SkipSiteBuild ; solo sito -> -SkipBackend ; salta chown -> -SkipSiteChown ; pulizia completa docroot -> -SiteFullClean"
+Write-Host "Suggerimenti: solo bot -> -SkipSite ; solo bot senza Node locale -> -SkipSite ; solo sito -> -SkipBackend ; salta video grandi -> -SkipLargeSiteAssets ; salta chown -> -SkipSiteChown ; pulizia completa docroot -> -SiteFullClean"

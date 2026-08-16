@@ -3,8 +3,11 @@ const { CustomRole, SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Schemas/
 
 const COOLDOWN = SITE_DOCUMENT_TYPE.ROLE_REQUEST_COOLDOWN;
 const { createSiteRoleJoinRequest } = require("../../Events/interaction/customRoleHandlers");
+const { isHogwartsSystemRoleId } = require("./hogwartsSortingConfig");
+const { collectBlockedSystemRoleIds, isListableUserCustomRole } = require("../Community/userCustomRoleFilter");
 
 const ROLE_REQUEST_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
+const BLOCKED_ROLE_IDS = collectBlockedSystemRoleIds();
 
 function resolveGuildId(client) {
   return String(client?.config?.mainGuildId || IDs.guilds?.main || "").trim();
@@ -93,6 +96,14 @@ async function submitSiteRoleRequest(client, payload) {
   if (!/^\d{17,22}$/.test(roleId)) {
     return { ok: false, status: 400, error: "invalid_role", message: "Ruolo richiesto non valido." };
   }
+  if (isHogwartsSystemRoleId(roleId, client) || BLOCKED_ROLE_IDS.has(roleId)) {
+    return {
+      ok: false,
+      status: 400,
+      error: "system_role",
+      message: "Questo non è un ruolo personalizzato creato da un utente.",
+    };
+  }
   if (reason.length < 10) {
     return { ok: false, status: 400, error: "reason_too_short", message: "Scrivi una motivazione di almeno 10 caratteri." };
   }
@@ -101,7 +112,9 @@ async function submitSiteRoleRequest(client, payload) {
     guildId: resolved.guild.id,
     $or: [{ roleId }, { secondaryRoleId: roleId }],
   }).lean().catch(() => null);
-  if (!doc?.roleId || isExpired(doc)) {
+  const ownsRequested =
+    String(doc?.roleId || "") === roleId || String(doc?.secondaryRoleId || "") === roleId;
+  if (!ownsRequested || isExpired(doc)) {
     return { ok: false, status: 404, error: "role_unavailable", message: "Questo ruolo custom non è più disponibile." };
   }
 
@@ -116,6 +129,14 @@ async function submitSiteRoleRequest(client, payload) {
   const role = resolved.guild.roles.cache.get(roleId) || (await resolved.guild.roles.fetch(roleId).catch(() => null));
   if (!role) {
     return { ok: false, status: 404, error: "role_missing", message: "Il ruolo Discord non esiste più." };
+  }
+  if (!isListableUserCustomRole(role, { blockedRoleIds: BLOCKED_ROLE_IDS })) {
+    return {
+      ok: false,
+      status: 400,
+      error: "not_custom_role",
+      message: "Puoi richiedere solo ruoli personalizzati creati dagli utenti (༄).",
+    };
   }
   if (resolved.member.roles.cache.has(role.id)) {
     return { ok: false, status: 409, error: "already_has_role", message: "Hai già questo ruolo." };

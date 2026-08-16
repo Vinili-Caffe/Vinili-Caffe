@@ -126,7 +126,7 @@ const reminderPool = [
       .setColor("#6f4e37")
       .setTitle("<a:VC_PepeFoto:1479131953100750882> Sblocca subito i PicPerms!")
       .setDescription([
-        '<:VC_Link:1482460590894088222> Stanco di non poter inviare immagini in <#1442569130573303898>? Inserisci “.gg/viniliecaffe" nello tuo stato, boosta il server o raggiungi <@&1442568936423034940> per sbloccare velocemente il permesso!',
+        '<:VC_Link:1482460590894088222> Stanco di non poter inviare immagini in <#1442569130573303898>? Inserisci “.gg/viniliecaffe” o “viniliecaffe.it” nel tuo stato, boosta il server o raggiungi <@&1442568936423034940> per sbloccare velocemente il permesso!',
         `> <a:VC_Arrow:1482706699365257397> Scopri tutte le ricompense di boost & livelli [sul nostro sito](https://viniliecaffe.it/perks)`,
       ].join("\n")),
   () =>

@@ -3,14 +3,15 @@ const { EmbedBuilder } = require("discord.js");
 const { resolveHogwartsEventConfig } = require("../../Utils/Web/hogwartsSortingConfig");
 const { getHouseMeta, HOUSES } = require("../../Utils/Web/hogwartsSortingBank");
 const { housePointPeriodKey, rankHousesForPeriod } = require("../../Utils/Web/hogwartsHousePointPeriods");
-const { findSortingDoc, resolveSortedHouseId } = require("../../Utils/Web/hogwartsSortingResolve");
+const { findSortingDoc, findSortingDocForHouseMember, resolveSortedHouseId, SORTING_DOC_HOUSE_SELECT } = require("../../Utils/Web/hogwartsSortingResolve");
 const { normalizeHouseInput } = require("./hogwartsManualHousePointsService");
 const { resolveHouseChannelId } = require("./hogwartsBasiliskService");
 const { resolveHouseCrestEmbedAssets } = require("../../Utils/Web/hogwartsEventAssets");
 const { getGuildChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { sendDm } = require("../../Utils/noDmList");
-const { accountUsername } = require("../../Utils/Discord/guildDiscordIdentity");
-const { revokeHouseSortingAnnouncesForMember } = require("./hogwartsSortingLogService");
+const { accountUsername, resolveEmbedUserAvatarUrl } = require("../../Utils/Discord/guildDiscordIdentity");
+const { revokeHouseSortingAnnouncesForMember, logHogwartsSortingCompleted } = require("./hogwartsSortingLogService");
+const { assignHouseRoles } = require("./hogwartsSortingRoleService");
 
 const SORTING_DOC = SITE_DOCUMENT_TYPE.HOGWARTS_SORTING;
 const HOUSE_POINTS_DOC = SITE_DOCUMENT_TYPE.HOGWARTS_HOUSE_POINTS;
@@ -59,20 +60,25 @@ async function loadHousePointsDoc(guildId, eventKey) {
     .catch(() => null);
 }
 
-async function countSortedMembersInHouse(guildId, eventKey, houseId) {
+async function fetchSortedHouseMemberDocs(guildId, eventKey, houseId) {
   const gid = String(guildId || "").trim();
   const ek = String(eventKey || "").trim();
   const hid = normalizeHouseInput(houseId);
-  if (!gid || !ek || !hid) return 0;
+  if (!gid || !ek || !hid) return [];
   const docs = await SiteDocument.find({
     docType: SORTING_DOC,
     guildId: gid,
     dedupeKey: ek,
   })
-    .select("status planKey houseId")
+    .select(SORTING_DOC_HOUSE_SELECT)
     .lean()
     .catch(() => []);
-  return (Array.isArray(docs) ? docs : []).filter((doc) => resolveSortedHouseId(doc) === hid).length;
+  return (Array.isArray(docs) ? docs : []).filter((doc) => resolveSortedHouseId(doc) === hid);
+}
+
+async function countSortedMembersInHouse(guildId, eventKey, houseId) {
+  const rows = await fetchSortedHouseMemberDocs(guildId, eventKey, houseId);
+  return rows.length;
 }
 
 async function fetchHouseDashboardData(client, guildId, houseId) {
@@ -147,9 +153,8 @@ async function notifySortedMemberExpulsion(client, guild, eventCfg, { targetUser
       `Decisione del prefetto **${actorName}**.`,
     ]);
     if (channelCrest.thumbnail) houseEmbed.setThumbnail(channelCrest.thumbnail);
-    if (targetUser?.displayAvatarURL) {
-      houseEmbed.setAuthor({ name: targetName, iconURL: targetUser.displayAvatarURL({ extension: "png", size: 256 }) });
-    }
+    const authorIcon = await resolveEmbedUserAvatarUrl(targetMember || targetUser || { id: uid }, { size: 256 });
+    houseEmbed.setAuthor({ name: targetName, iconURL: authorIcon });
     await channel.send({
       content: [uid ? `<@${uid}>` : "", roleId ? `<@&${roleId}>` : ""].filter(Boolean).join(" ") || undefined,
       embeds: [houseEmbed],
@@ -186,7 +191,7 @@ async function expelSortedMemberFromHouse(client, guild, targetUserId, expectedH
   if (!gid || !uid || !hid || !actor) return { ok: false, code: "bad_input" };
   const eventCfg = resolveHogwartsEventConfig(client);
   const eventKey = String(eventCfg?.eventKey || "").trim();
-  const doc = await findSortingDoc(gid, uid, eventKey);
+  const doc = await findSortingDocForHouseMember(gid, uid, eventKey, hid);
   const sortedHouse = resolveSortedHouseId(doc);
   if (!doc || !sortedHouse) return { ok: false, code: "not_sorted" };
   if (sortedHouse !== hid) return { ok: false, code: "wrong_house", sortedHouse };
@@ -222,10 +227,154 @@ function formatRankLabel(rank) {
   return PODIUM_LABELS[n - 1] || `${n}°`;
 }
 
+function floorPts(value) {
+  return Math.max(0, Math.floor(Number(value) || 0));
+}
+
+async function transferMemberHousePointsContribution(guildId, eventKey, userId, fromHouseId, toHouseId) {
+  const gid = String(guildId || "").trim();
+  const ek = String(eventKey || "").trim();
+  const uid = String(userId || "").trim();
+  const from = normalizeHouseInput(fromHouseId);
+  const to = normalizeHouseInput(toHouseId);
+  if (!gid || !ek || !uid || !from || !to || from === to) {
+    return { movedTotal: 0, skipped: true };
+  }
+  const doc = await SiteDocument.findOne({
+    docType: HOUSE_POINTS_DOC,
+    guildId: gid,
+    userId: HOUSE_POINTS_OWNER_ID,
+    dedupeKey: ek,
+  }).catch(() => null);
+  if (!doc) return { movedTotal: 0, missingDoc: true };
+
+  const raw = doc.rawWebhook && typeof doc.rawWebhook === "object" ? { ...doc.rawWebhook } : {};
+  const byMember = raw.byMember && typeof raw.byMember === "object" ? { ...raw.byMember } : {};
+  const row = byMember[uid] && typeof byMember[uid] === "object" ? { ...byMember[uid] } : {};
+  const total = floorPts(row.total);
+  const memberPeriods = row.byPeriod && typeof row.byPeriod === "object" ? { ...row.byPeriod } : {};
+  const totals = raw.totals && typeof raw.totals === "object" ? { ...raw.totals } : {};
+  const periods = raw.byPeriod && typeof raw.byPeriod === "object" ? { ...raw.byPeriod } : {};
+
+  if (total > 0) {
+    totals[from] = floorPts((totals[from] || 0) - total);
+    totals[to] = floorPts((totals[to] || 0) + total);
+  }
+  for (const [pk, ptsRaw] of Object.entries(memberPeriods)) {
+    const pts = floorPts(ptsRaw);
+    if (!pts) continue;
+    const periodRow = periods[pk] && typeof periods[pk] === "object" ? { ...periods[pk] } : {};
+    periodRow[from] = floorPts((periodRow[from] || 0) - pts);
+    periodRow[to] = floorPts((periodRow[to] || 0) + pts);
+    periods[pk] = periodRow;
+  }
+  byMember[uid] = { ...row, houseId: to, total, byPeriod: memberPeriods };
+
+  await SiteDocument.updateOne(
+    { _id: doc._id },
+    {
+      $set: {
+        "rawWebhook.totals": totals,
+        "rawWebhook.byPeriod": periods,
+        [`rawWebhook.byMember.${uid}`]: byMember[uid],
+      },
+    },
+  );
+  return { movedTotal: total, fromHouseId: from, toHouseId: to };
+}
+
+async function transferSortedMemberToHouse(client, guild, targetUserId, targetHouseId, options = {}) {
+  const gid = String(guild?.id || "").trim();
+  const uid = String(targetUserId || "").trim();
+  const toHouse = normalizeHouseInput(targetHouseId);
+  const announce = options.announce !== false;
+  if (!client || !gid || !uid || !toHouse) return { ok: false, code: "bad_input" };
+
+  const eventCfg = resolveHogwartsEventConfig(client);
+  const eventKey = String(eventCfg?.eventKey || "").trim();
+  const doc = await findSortingDoc(gid, uid, eventKey);
+  const fromHouse = resolveSortedHouseId(doc);
+  if (!doc || !fromHouse) return { ok: false, code: "not_sorted" };
+  const alreadyThere = fromHouse === toHouse;
+  if (alreadyThere && !options.force) {
+    return { ok: false, code: "already_there", houseId: toHouse, houseLabel: houseLabel(toHouse, eventCfg) };
+  }
+
+  let points = { movedTotal: 0, skipped: alreadyThere };
+  if (!alreadyThere) {
+    await SiteDocument.updateMany(
+      { docType: SORTING_DOC, guildId: gid, userId: uid },
+      {
+        $set: {
+          status: toHouse,
+          planKey: toHouse,
+          houseId: toHouse,
+          house: toHouse,
+          "rawWebhook.houseId": toHouse,
+        },
+        $unset: { houseAnnounceAt: "", houseAnnounceHouseId: "" },
+      },
+    );
+    revokeHouseSortingAnnouncesForMember({ guildId: gid, userId: uid, eventKey });
+    points = await transferMemberHousePointsContribution(gid, eventKey, uid, fromHouse, toHouse).catch((err) => {
+      global.logger?.warn?.("[hogwarts-house-transfer] points:", err?.message || err);
+      return { movedTotal: 0, error: String(err?.message || err) };
+    });
+  } else {
+    await SiteDocument.updateMany(
+      { docType: SORTING_DOC, guildId: gid, userId: uid },
+      { $unset: { houseAnnounceAt: "", houseAnnounceHouseId: "" } },
+    );
+    revokeHouseSortingAnnouncesForMember({ guildId: gid, userId: uid, eventKey });
+  }
+
+  const member = guild?.members?.cache?.get(uid) || (await guild?.members?.fetch(uid).catch(() => null));
+  let roles = { roleAssigned: false };
+  if (member) {
+    try {
+      roles = await assignHouseRoles(member, eventCfg, toHouse);
+    } catch (err) {
+      roles = { roleAssigned: false, roleError: String(err?.message || err).slice(0, 200) };
+    }
+  }
+
+  let announced = { ok: false, skipped: !announce };
+  if (announce) {
+    announced = await logHogwartsSortingCompleted({
+      client,
+      guild,
+      cfg: eventCfg,
+      member,
+      userId: uid,
+      houseId: toHouse,
+      houseLabel: houseLabel(toHouse, eventCfg),
+    }).catch((err) => {
+      global.logger?.warn?.("[hogwarts-house-transfer] announce:", err?.message || err);
+      return { ok: false, error: String(err?.message || err) };
+    });
+  }
+
+  return {
+    ok: true,
+    userId: uid,
+    fromHouseId: fromHouse,
+    fromHouseLabel: houseLabel(fromHouse, eventCfg),
+    toHouseId: toHouse,
+    toHouseLabel: houseLabel(toHouse, eventCfg),
+    movedHousePoints: Number(points?.movedTotal || 0),
+    roles,
+    announced: Boolean(announced?.ok),
+    memberFound: Boolean(member),
+    forced: Boolean(alreadyThere && options.force),
+  };
+}
+
 module.exports = {
   fetchHouseDashboardData,
   expelSortedMemberFromHouse,
+  transferSortedMemberToHouse,
   countSortedMembersInHouse,
+  fetchSortedHouseMemberDocs,
   formatRankLabel,
   houseLabel,
 };

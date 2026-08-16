@@ -50,7 +50,13 @@ const STAFF_COORDINATOR_ROLE_KEYS = Object.freeze([
   "HighStaff",
 ]);
 
-const STAFF_HIGH_STAFF_ELIGIBLE_KEYS = Object.freeze(["Founder", "Manager", "Admin"]);
+/** Accesso dashboard sito: solo High Staff+ del main (NO Director / Manage Server). */
+const STAFF_HIGH_STAFF_ELIGIBLE_KEYS = Object.freeze([
+  "Founder",
+  "Manager",
+  "Admin",
+  "HighStaff",
+]);
 
 module.exports = {
   STAFF_LADDER_KEYS_HIGH_TO_LOW,

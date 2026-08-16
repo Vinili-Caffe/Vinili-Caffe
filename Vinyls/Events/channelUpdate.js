@@ -4,6 +4,7 @@ const { queueIdsCatalogSync } = require("../Utils/Config/idsAutoSync");
 const { upsertChannelSnapshot, } = require("../Utils/Community/channelSnapshotUtils");
 const { ARROW, toDiscordTimestamp, channelDisplay, channelTypeLabel, formatAuditActor, permissionList, permissionDiff, buildAuditExtraLines, resolveChannelRolesLogChannel, resolveResponsible, } = require("../Utils/Logging/channelRolesLogUtils");
 const { handleChannelOverwrite: antiNukeHandleChannelOverwrite } = require("../Services/Moderation/antiNukeService");
+const { isViniliFullFeatureGuild } = require("../MultiGuild/core/guildFeatureScope");
 const CHANNEL_UPDATE_ACTION = AuditLogEvent?.ChannelUpdate ?? 11;
 const OVERWRITE_CREATE_ACTION = AuditLogEvent?.ChannelOverwriteCreate ?? 13;
 const OVERWRITE_UPDATE_ACTION = AuditLogEvent?.ChannelOverwriteUpdate ?? 14;
@@ -221,6 +222,7 @@ module.exports = {
   async execute(oldChannel, newChannel, client) {
     const guildId = newChannel?.guildId || oldChannel?.guildId;
     if (!guildId) return;
+    if (!isViniliFullFeatureGuild(guildId)) return;
 
     try {
       await sendChannelUpdateLog(oldChannel, newChannel);

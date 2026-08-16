@@ -13,6 +13,7 @@ const {
   formatSortingWindowIt,
 } = require("./hogwartsSortingConfig");
 const { logHogwartsSortingCompleted } = require("../../Services/Community/hogwartsSortingLogService");
+const { assignHouseRoles, ensureSortedMemberHouseRoles } = require("../../Services/Community/hogwartsSortingRoleService");
 const { logHogwartsShopPurchase } = require("../../Services/Community/hogwartsShopLogService");
 const {
   addGaleoni,
@@ -93,6 +94,12 @@ const {
 const { markHogwartsProfileRetainedUntil } = require("../../Services/Community/hogwartsLeaveRetention");
 
 async function gateHogwartsEventParticipation(client, resolved, cfg) {
+  const participation = await assertHogwartsEventParticipationForUser(
+    client,
+    resolved.member,
+    resolved.userId,
+  );
+  if (!participation.ok) return participation;
   if (isHogwartsStaffPreviewViewer(cfg, resolved.member, resolved.userId)) {
     return {
       ok: true,
@@ -100,12 +107,6 @@ async function gateHogwartsEventParticipation(client, resolved, cfg) {
       previewStaff: true,
     };
   }
-  const participation = await assertHogwartsEventParticipationForUser(
-    client,
-    resolved.member,
-    resolved.userId,
-  );
-  if (!participation.ok) return participation;
   const windowState = isEventWindowOpen(cfg, Date.now(), resolved.userId, resolved.member);
   if (windowState.open) return { ok: true, windowState };
   if (!cfg.previewMode) {
@@ -125,6 +126,12 @@ async function gateHogwartsEventParticipation(client, resolved, cfg) {
 }
 
 async function gateHogwartsHubParticipation(client, resolved, cfg) {
+  const participation = await assertHogwartsEventParticipationForUser(
+    client,
+    resolved.member,
+    resolved.userId,
+  );
+  if (!participation.ok) return participation;
   if (isHogwartsStaffPreviewViewer(cfg, resolved.member, resolved.userId)) {
     return {
       ok: true,
@@ -132,12 +139,6 @@ async function gateHogwartsHubParticipation(client, resolved, cfg) {
       previewStaff: true,
     };
   }
-  const participation = await assertHogwartsEventParticipationForUser(
-    client,
-    resolved.member,
-    resolved.userId,
-  );
-  if (!participation.ok) return participation;
   const windowState = resolveSortingWindowForViewer(cfg, Date.now(), resolved.member, resolved.userId);
   if (windowState.open) return { ok: true, windowState };
   if (!cfg.previewMode) {
@@ -226,32 +227,11 @@ async function claimHogwartsSortingRecord({ resolved, cfg, houseId, computed, an
   }
 }
 
-async function assignHouseRoles(member, cfg, houseId) {
-  const houseRoleId = String(cfg.houses?.[houseId]?.roleId || "").trim();
-  const participantRoleId = String(cfg.completionRoleId || "").trim();
-  const otherRoleIds = HOUSES.map((h) => String(cfg.houses?.[h]?.roleId || "").trim()).filter(
-    (id) => id && id !== houseRoleId,
-  );
-  const toAdd = [];
-  if (houseRoleId && !member.roles.cache.has(houseRoleId)) toAdd.push(houseRoleId);
-  if (participantRoleId && !member.roles.cache.has(participantRoleId)) toAdd.push(participantRoleId);
-  const toRemove = otherRoleIds.filter((id) => member.roles.cache.has(id));
-  if (!toAdd.length && !toRemove.length) {
-    return { roleAssigned: false, roleSkippedReason: "roles_not_configured" };
-  }
-  try {
-    if (toRemove.length) await member.roles.remove(toRemove, "Smistamento Evento");
-    if (toAdd.length) await member.roles.add(toAdd, "Smistamento Evento");
-    return {
-      roleAssigned: Boolean(houseRoleId),
-      roleId: houseRoleId || null,
-      participantRoleAssigned: Boolean(participantRoleId && member.roles.cache.has(participantRoleId)),
-      participantRoleId: participantRoleId || null,
-    };
-  } catch (err) {
-    global.logger?.warn?.("[hogwarts-sorting] assign roles:", err?.message || err);
-    return { roleAssigned: false, roleError: String(err?.message || err).slice(0, 200) };
-  }
+async function maybeRepairSortedMemberRoles(member, cfg, existing, houseId) {
+  if (!member || !houseId || existing?.fromRole) return;
+  void ensureSortedMemberHouseRoles(member, cfg, houseId).catch((err) => {
+    global.logger?.warn?.("[hogwarts-sorting] role repair:", err?.message || err);
+  });
 }
 
 async function commitHogwartsSortingSideEffects({ client, resolved, cfg, houseId, houseMeta, computed, answerCount }) {
@@ -336,6 +316,7 @@ async function handleHogwartsSortingEligibility(client, req, res) {
       cfg.eventKey,
       ensureGringott,
     );
+    await maybeRepairSortedMemberRoles(resolved.member, cfg, existing, houseId);
     res.setHeader("Cache-Control", "private, no-store");
     return res.status(200).json({
       ok: true,
@@ -413,6 +394,7 @@ async function handleHogwartsSortingSubmit(client, req, res) {
     if (existingHouse) {
       const meta = houseMetaFromCfg(cfg, existingHouse);
       const gringott = await resolveGringottAfterSorting(client, resolved.guild.id, resolved.userId, cfg.eventKey);
+      await maybeRepairSortedMemberRoles(resolved.member, cfg, existing, existingHouse);
       return res.status(200).json({
         ok: true,
         alreadySorted: true,
@@ -447,6 +429,7 @@ async function handleHogwartsSortingSubmit(client, req, res) {
       const lockedHouse = String(sideEffects.existingHouse || "").trim() || houseId;
       const lockedMeta = houseMetaFromCfg(cfg, lockedHouse);
       const gringott = await resolveGringottAfterSorting(client, resolved.guild.id, resolved.userId, cfg.eventKey);
+      await maybeRepairSortedMemberRoles(resolved.member, cfg, sideEffects.existing, lockedHouse);
       return res.status(200).json({
         ok: true,
         alreadySorted: true,
@@ -1281,6 +1264,14 @@ async function resolveForbiddenBookParticipant(client, req, options = {}) {
   const cfg = resolveHogwartsEventConfig(client);
   const previewViewer = canPreviewForbiddenBooks(client, resolved.member, resolved.userId);
   const runtime = await resolveForbiddenRoundRuntime(client);
+  if (runtime?.mode === "disabled" || runtime?.enabled === false) {
+    return {
+      ok: false,
+      status: 403,
+      error: "feature_disabled",
+      message: "La caccia ai libri proibiti non è attiva.",
+    };
+  }
   if (!previewViewer) {
     const participation = await assertHogwartsEventParticipationForUser(
       client,

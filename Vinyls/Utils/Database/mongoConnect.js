@@ -2,21 +2,32 @@ const net = require("node:net");
 const mongoose = require("mongoose");
 
 const MONGO_CONNECT_OPTIONS = {
-  serverSelectionTimeoutMS: 15_000,
-  connectTimeoutMS: 15_000,
+  serverSelectionTimeoutMS: 8_000,
+  connectTimeoutMS: 8_000,
   socketTimeoutMS: 20_000,
-  maxPoolSize: 25,
-  minPoolSize: 1,
-  maxIdleTimeMS: 60_000,
+  // Pool ridotto: su VPS 4GB ci sono più processi Node sullo stesso mongod.
+  maxPoolSize: 8,
+  minPoolSize: 0,
+  maxIdleTimeMS: 30_000,
+  // Evita rebuild indici a ogni boot (Vinili registra molti schema prima del connect).
+  autoIndex: false,
+  autoCreate: false,
+  family: 4,
 };
 const MONGO_LOCAL_CONNECT_OPTIONS = {
-  serverSelectionTimeoutMS: 15_000,
-  connectTimeoutMS: 15_000,
-  socketTimeoutMS: 45_000,
-  heartbeatFrequencyMS: 10_000,
+  serverSelectionTimeoutMS: 5_000,
+  connectTimeoutMS: 5_000,
+  socketTimeoutMS: 30_000,
+  heartbeatFrequencyMS: 8_000,
+  maxPoolSize: 8,
+  minPoolSize: 0,
+  maxIdleTimeMS: 30_000,
+  autoIndex: false,
+  autoCreate: false,
+  family: 4,
 };
 const MONGO_RETRY_ATTEMPTS = 5;
-const MONGO_RETRY_DELAY_MS = 1000;
+const MONGO_RETRY_DELAY_MS = 400;
 const MONGO_TCP_PROBE_INTERVAL_MS = 400;
 
 let connectInFlight = null;
@@ -179,7 +190,7 @@ function scheduleMongoReconnect(client) {
   if (!boundClient || reconnectTimer) return;
   if (isMongoReady() || isMongoConnecting() || connectInFlight) return;
 
-  const delay = Math.min(60_000, 2000 * Math.pow(2, reconnectBackoffAttempt));
+  const delay = Math.min(15_000, 400 * Math.pow(2, reconnectBackoffAttempt));
   reconnectBackoffAttempt = Math.min(reconnectBackoffAttempt + 1, 6);
 
   reconnectTimer = setTimeout(() => {
@@ -235,7 +246,8 @@ async function ensureMongoReady(opts = {}) {
 }
 
 async function runConnectMongo(client, mongoUrl) {
-  await waitForMongoReachable(mongoUrl);
+  const startedAt = Date.now();
+  await waitForMongoReachable(mongoUrl, 3_000);
 
   const fallbackUrl = mongoUrlWith127(mongoUrl);
   const urlsToTry = [mongoUrl];
@@ -247,25 +259,25 @@ async function runConnectMongo(client, mongoUrl) {
     for (const url of urlsToTry) {
       if (isMongoReady()) return true;
       try {
+        const connectStarted = Date.now();
         await mongoose.connect(url, buildConnectOptions(url));
         installMongoDisconnectHook(client);
         reconnectBackoffAttempt = 0;
-        logDb(client, "info", "[DATABASE] Connected to MongoDB successfully.");
+        logDb(
+          client,
+          "info",
+          `[DATABASE] Connected to MongoDB successfully (${Date.now() - connectStarted}ms, total ${Date.now() - startedAt}ms).`,
+        );
         return true;
       } catch (err) {
         if (isMongoReady()) return true;
         const isLast = attempt === MONGO_RETRY_ATTEMPTS && url === urlsToTry[urlsToTry.length - 1];
-        if (isLast) {
-          logDb(client, "error", `[DATABASE] Error connecting to the database (${err?.message || err})`);
-          return false;
-        }
-        if (attempt > 1 || url !== mongoUrl) {
-          logDb(
-            client,
-            "info",
-            `[DATABASE] Retry ${attempt}/${MONGO_RETRY_ATTEMPTS} (${err?.message || err})`,
-          );
-        }
+        logDb(
+          client,
+          isLast ? "error" : "info",
+          `[DATABASE] ${isLast ? "Error connecting" : `Retry ${attempt}/${MONGO_RETRY_ATTEMPTS}`} (${err?.message || err})`,
+        );
+        if (isLast) return false;
       }
     }
     if (attempt < MONGO_RETRY_ATTEMPTS) {
@@ -307,10 +319,55 @@ async function connectMongo(client) {
   return connectInFlight;
 }
 
+/** Chiude il pool in modo ordinato (PM2 reload / SIGTERM). MongoDB resta su; solo questo processo si scollega. */
+async function closeMongoGraceful(reason = "shutdown") {
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer);
+    reconnectTimer = null;
+  }
+  connectInFlight = null;
+  if (!mongoose.connection || mongoose.connection.readyState === 0) return true;
+  try {
+    await mongoose.connection.close(false);
+    global.logger?.info?.(`[DATABASE] Closed gracefully (${reason}).`);
+    return true;
+  } catch (err) {
+    global.logger?.warn?.("[DATABASE] Close failed:", err?.message || err);
+    return false;
+  }
+}
+
+/** One-shot / weekly: crea indici mancanti senza autoIndex a runtime. */
+async function ensureMongoIndexes({ reason = "manual" } = {}) {
+  if (!isMongoReady()) return { ok: false, reason: "not_ready" };
+  const models = Object.values(mongoose.models || {});
+  let ok = 0;
+  let failed = 0;
+  const startedAt = Date.now();
+  for (const model of models) {
+    try {
+      await model.createIndexes();
+      ok += 1;
+    } catch (err) {
+      failed += 1;
+      global.logger?.warn?.(
+        `[DATABASE] createIndexes ${model?.modelName || "?"}:`,
+        err?.message || err,
+      );
+    }
+  }
+  global.logger?.info?.(
+    `[DATABASE] ensureIndexes (${reason}): models=${models.length} ok=${ok} failed=${failed} in ${Date.now() - startedAt}ms.`,
+  );
+  return { ok: failed === 0, models: models.length, createdOk: ok, failed };
+}
+
 module.exports = {
   buildMongoUrl,
   connectMongo,
+  closeMongoGraceful,
   ensureMongoReady,
+  ensureMongoIndexes,
   isMongoReady,
   isMongoTransientError,
   maskMongoUrlForLog,

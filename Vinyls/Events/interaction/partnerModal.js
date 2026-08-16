@@ -1,77 +1,14 @@
 const { EmbedBuilder } = require("discord.js");
-const axios = require("axios");
-const { getOrCreateStaffDoc, ensureStaff } = require("../../Utils/Staff/staffDocUtils");
-const { initPartnerManagerFieldsIfMissing } = require("../../Utils/Staff/staffPmUtils");
-const IDs = require("../../Utils/Config/ids");
-const { isPartnershipGuildBlacklisted } = require("../../Services/Partner/partnershipBlacklistService");
-const { getGuildMemberCached, getGuildChannelCached, getClientChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
-const { accountUsername, guildIconUrl, guildMemberDisplayAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
 const { partnersChatPartnerCommandDeniedReplyContent } = require("../../Utils/Partner/partnersChatChannelUtils");
-const { resolvePartnerPointsShown } = require("../../Utils/Staff/partnerPointsDisplayUtils");
-const { maybeSendPartnerManagerRewardMilestoneDms } = require("../../Utils/Staff/partnerManagerMilestoneDm");
-const { runImmediatePartnerAuditForUser } = require("../../Services/Partner/partnerAuditService");
-const { checkSamePartnerTargetCooldown } = require("../../Utils/Partner/partnerSameTargetCooldown");
-
-async function partnerModalReply(interaction, payload) {
-  if (interaction.deferred && !interaction.replied) {
-    return interaction.editReply(payload).catch(() => null);
-  }
-  if (interaction.replied) {
-    return interaction.followUp(payload).catch(() => null);
-  }
-  return interaction.reply(payload).catch(() => null);
-}
-
-function extractInviteCode(text) {
-  if (!text) return null;
-  const patterns = [/discord\.gg\/([a-zA-Z0-9-]+)/i, /discord\.com\/invite\/([a-zA-Z0-9-]+)/i, /discordapp\.com\/invite\/([a-zA-Z0-9-]+)/i,];
-  for (const pattern of patterns) {
-    const match = String(text).match(pattern);
-    if (match && match[1]) return match[1];
-  }
-  const fallback = String(text).match(/\b([a-zA-Z0-9-]{6,32})\b/);
-  return fallback ? fallback[1] : null;
-}
-
-function isValidServerName(name) {
-  if (!name) return false;
-  const trimmed = String(name).replace(/\s+/g, " ").trim();
-  if (!trimmed) return false;
-  return /[\p{L}\p{N}]/u.test(trimmed);
-}
-
-function stripLinksFromDescription(text) {
-  const str = String(text || "");
-  const withoutNonInviteUrls = str
-    .replace(
-      /\bhttps?:\/\/(?!discord\.gg\/|discord(?:app)?\.com\/invite\/|discord\.com\/invite\/)\S+/gi,
-      " ",
-    )
-    .replace(/\bwww\.[^\s<>()]+\.[a-z]{2,}(?:\/\S*)?/gi, " ")
-    .replace(
-      /\b(?:[a-z0-9-]+\.)+[a-z]{2,}(?:\/[^\s<>()]*)?/gi,
-      (match) =>
-        /^(?:discord\.gg\/|discord(?:app)?\.com\/invite\/|discord\.com\/invite\/)/i.test(
-          String(match || "").trim(),
-        )
-          ? match
-          : " ",
-    );
-  return withoutNonInviteUrls
-    .replace(/[ \t]+/g, " ")
-    .replace(/ *\n */g, "\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .replace(/^\n+|\n+$/g, "")
-    .trim();
-}
-
-async function getOrCreateStaffPartnerDoc(guildId, userId) {
-  const staffDoc = await getOrCreateStaffDoc(guildId, userId);
-  if (!staffDoc) return null;
-  const s = ensureStaff(staffDoc);
-  initPartnerManagerFieldsIfMissing(s);
-  return staffDoc;
-}
+const {
+  isPartnershipOperational,
+  memberHasPartnerManagerRole,
+} = require("../../Utils/Partner/partnershipConfigResolver");
+const {
+  executeTenantPartnership,
+} = require("../../Services/Partner/tenantPartnershipExecuteService");
+const { replyInteractionSetupRequired } = require("../../Utils/Partner/tenantSetupRequiredReply");
+const { resolvePartnershipDeferOptions } = require("../../Utils/Partner/tenantProfileEphemeral");
 
 async function handlePartnerModal(interaction) {
   if (
@@ -79,7 +16,7 @@ async function handlePartnerModal(interaction) {
     !interaction.customId.startsWith("partnershipModal_")
   )
     return false;
-  const { openerId, managerId } = parsePartnershipModalId(interaction.customId);
+  const { openerId, managerId, skipped } = parsePartnershipModalId(interaction.customId);
   if (openerId && String(openerId) !== String(interaction.user?.id || "")) {
     await interaction.reply({
       embeds: [
@@ -101,9 +38,13 @@ async function handlePartnerModal(interaction) {
     }).catch(() => {});
     return true;
   }
-  await interaction.deferReply().catch(() => {});
-  if (!interaction.member.roles.cache.has(IDs.roles.PartnerManager)) {
-    await partnerModalReply(interaction, {
+  const guildId = interaction.guild?.id;
+  if (!isPartnershipOperational(guildId)) {
+    await replyInteractionSetupRequired(interaction);
+    return true;
+  }
+  if (!memberHasPartnerManagerRole(interaction.member, guildId)) {
+    await interaction.reply({
       embeds: [
         new EmbedBuilder()
           .setDescription(
@@ -111,389 +52,51 @@ async function handlePartnerModal(interaction) {
           )
           .setColor("Red"),
       ],
-    });
+      flags: 1 << 6,
+    }).catch(() => {});
     return true;
   }
+  await interaction.deferReply(await resolvePartnershipDeferOptions(guildId, interaction.user?.id)).catch(() => {});
   const rawDescription = interaction.fields.getTextInputValue("serverDescription");
-  const description = stripOuterCodeBlock(String(rawDescription || "").trim());
-  const PARTNER_BLACKLIST_ROLE = IDs.roles.blackilistPartner;
-  if (!managerId) {
-    await partnerModalReply(interaction, {
-      embeds: [
-        new EmbedBuilder()
-          .setColor("Red")
-          .setDescription(
-            "<a:VC_Alert:1482706673176150077> Errore interno: manager non trovato.",
-          ),
-      ],
-    });
-    return true;
-  }
-  let managerMember = null;
-  managerMember = await getGuildMemberCached(interaction.guild, managerId);
-  if (!managerMember) {
-    await partnerModalReply(interaction, {
-      embeds: [
-        new EmbedBuilder()
-          .setColor("Red")
-          .setDescription(
-            "<a:VC_Alert:1482706673176150077> Manager non trovato nel server.",
-          ),
-      ],
-    });
-    return true;
-  }
-  const memberForRoles = String(managerId) === String(interaction.user?.id) && interaction.member?.roles?.cache
-    ? interaction.member
-    : managerMember;
-  const isVerifiedMember = Boolean(memberForRoles.roles?.cache?.has(IDs.roles.Member));
-  if (!isVerifiedMember) {
-    await partnerModalReply(interaction, {
-      embeds: [
-        new EmbedBuilder()
-          .setColor("Red")
-          .setDescription(
-            "<a:VC_Alert:1482706673176150077> Questo utente non ha completato l'inserimento, farglielo completare prima di riprovare!",
-          ),
-      ],
-    });
-    return true;
-  }
-  if (memberForRoles?.roles?.cache?.has(PARTNER_BLACKLIST_ROLE)) {
-    await partnerModalReply(interaction, {
-      embeds: [
-        new EmbedBuilder()
-          .setColor("#6f4e37")
-          .setDescription(
-            "<a:VC_Alert:1482706673176150077> Non puoi fare partner con questo manager poiché blacklistato!",
-          ),
-      ],
-    });
-    return true;
-  }
-  const inviteCode = extractInviteCode(description);
-  if (!inviteCode) {
-    await partnerModalReply(interaction, {
-      embeds: [
-        new EmbedBuilder()
-          .setColor("Red")
-          .setDescription(
-            "<a:VC_Alert:1482706673176150077> Devi inserire un link di invito Discord valido.",
-          ),
-      ],
-    });
-    return true;
-  }
-  let serverName = "Server Sconosciuto";
-  let serverIcon = null;
-  let resolvedInviteGuildId = "";
-  const inviteUrl = `https://discord.gg/${inviteCode}`;
-  const ourGuildIdForPartnerBlock = String(
-    IDs.guilds?.main || interaction.guild?.id || "",
-  ).trim();
-  try {
-    const res = await axios.get(`https://discord.com/api/v10/invites/${inviteCode}?with_counts=true`,
-      {
-        timeout: 15000,
-        headers: { Accept: "application/json" },
-      },
-    );
-    const data = res?.data || {};
-    if (!data.guild) throw new Error("Invite invalid");
-    resolvedInviteGuildId = String(data.guild.id || "").trim();
-    serverName = data.guild.name;
-    serverIcon = data.guild.icon
-      ? `https://cdn.discordapp.com/icons/${data.guild.id}/${data.guild.icon}.png`
-      : null;
-    if (await isPartnershipGuildBlacklisted(data.guild.id)) {
-      await partnerModalReply(interaction, {
-        embeds: [
-          new EmbedBuilder()
-            .setColor("Red")
-            .setDescription(
-              "<a:VC_Alert:1482706673176150077> Questo server è in **blacklist partnership**: non puoi effettuare partner con lui.",
-            ),
-        ],
-      });
-      return true;
-    }
-  } catch {
-    serverName = "Server Sconosciuto";
-  }
-  if (!isValidServerName(serverName)) {
-    serverName = "Server Sconosciuto";
-  }
-  const inviteTargetsOurGuild =
-    Boolean(resolvedInviteGuildId && ourGuildIdForPartnerBlock) &&
-    resolvedInviteGuildId === ourGuildIdForPartnerBlock;
-  const vanitySlugLooksLikeOurs =
-    !resolvedInviteGuildId && inviteCode.toLowerCase().includes("viniliecaffe");
-  if (inviteTargetsOurGuild || vanitySlugLooksLikeOurs) {
-    const ownGuildActorLabel = accountUsername(interaction.member || interaction.user);
-    const embed = new EmbedBuilder()
-      .setAuthor({
-        name: ownGuildActorLabel,
-        iconURL: guildMemberDisplayAvatarUrlDynamic(interaction.member || interaction.user) || undefined,
-      })
-      .setTitle(`**<:partneredserverowner:1443651871125409812> Partnership con ${serverName} da ${ownGuildActorLabel}**`)
-      .setDescription(`<a:VC_Alert:1482706673176150077> Non puoi fare partner con il tuo server`)
-      .setFooter({ text: serverName, iconURL: serverIcon })
-      .setColor("Red")
-      .setTimestamp()
-      .setThumbnail(guildIconUrl(interaction.guild, { size: 256 }) || undefined);
-    await partnerModalReply(interaction, { embeds: [embed] });
-    return true;
-  }
-
-  const cooldown = await checkSamePartnerTargetCooldown(
-    interaction.guild.id,
-    resolvedInviteGuildId,
-    inviteCode,
-  );
-  if (!cooldown.ok && cooldown.nextAllowedAt) {
-    const ts = Math.floor(cooldown.nextAllowedAt.getTime() / 1000);
-    await partnerModalReply(interaction, {
-      embeds: [
-        new EmbedBuilder()
-          .setColor("Red")
-          .setDescription(
-            `<a:VC_Alert:1482706673176150077> È già stata pubblicata una **partnership con questo server** nelle ultime **12 ore**.\nPuoi ripetere la stessa partner a partire da **<t:${ts}:F>** (<t:${ts}:R>).`,
-          ),
-      ],
-    });
-    return true;
-  }
-
-  const filteredDescription = description.replace(/<@!?\d+>/g, "").replace(/<@&\d+>/g, "").replace(/<#\d+>/g, "").replace(/@everyone/g, "").replace(/@here/g, "").trim();
-  const sanitizedDescription = stripLinksFromDescription(filteredDescription);
-  if (!sanitizedDescription) {
-    await partnerModalReply(interaction, {
-      embeds: [
-        new EmbedBuilder()
-          .setColor("Red")
-          .setDescription(
-            "<a:VC_Alert:1482706673176150077> La descrizione è vuota.",
-          ),
-      ],
-    });
-    return true;
-  }
-
-  try {
-    const guildId = interaction.guild.id;
-    const guild = interaction.guild;
-    const client = interaction.client;
-    const partnershipChannel = guild.channels.cache.get(IDs.channels.partnerships) || (await getGuildChannelCached(guild, IDs.channels.partnerships)) || (await getClientChannelCached(client, IDs.channels.partnerships));
-    if (!partnershipChannel?.isTextBased?.()) {
-      await partnerModalReply(interaction, {
-        embeds: [
-          new EmbedBuilder()
-            .setColor("Red")
-            .setDescription(
-              "<a:VC_Alert:1482706673176150077> Canale partnership non configurato correttamente.",
-            ),
-        ],
-      });
-      return true;
-    }
-    const staffDoc = await getOrCreateStaffPartnerDoc(guildId, interaction.user.id,);
-    if (!staffDoc) {
-      await partnerModalReply(interaction, {
-        embeds: [
-          new EmbedBuilder()
-            .setColor("Red")
-            .setDescription(
-              "<a:VC_Alert:1482706673176150077> Impossibile creare il record staff. Riprova.",
-            ),
-        ],
-      }).catch(() => {});
-      return true;
-    }
-
-    const s = staffDoc.staff;
-    const beforePoints = resolvePartnerPointsShown(s);
-    s.partnerCount++;
-    s.managerId = managerId;
-    const actionEntry = {
-      action: "create",
-      partner: serverName,
-      invite: inviteUrl,
-      partnerGuildId: /^\d{17,20}$/.test(String(resolvedInviteGuildId || "").trim()) ? String(resolvedInviteGuildId).trim() : undefined,
-      managerId,
-      partnershipChannelId: IDs.channels.partnerships,
-      partnerMessageIds: [],
-      date: new Date(),
-    };
-    s.partnerActions.push(actionEntry);
-    const actionIndex = Math.max(0, s.partnerActions.length - 1);
-    staffDoc.markModified("staff");
-    await staffDoc.save();
-
-    const sentMessageIds = [];
-    const contentWithManager = normalizeManagerLine(sanitizedDescription, managerId,);
-    const parts = splitMessage(contentWithManager);
-    for (const part of parts) {
-      const sent = await partnershipChannel.send({ content: part }).catch(() => null);
-      if (sent?.id) sentMessageIds.push(sent.id);
-    }
-    if (sentMessageIds.length === 0) {
-      if (Array.isArray(s.partnerActions) && s.partnerActions.length > actionIndex) {
-        s.partnerActions.splice(actionIndex, 1);
-      }
-      s.partnerCount = Math.max(0, Number(s.partnerCount || 1) - 1);
-      if (s.managerId === managerId) {
-        const lastAction = Array.isArray(s.partnerActions) ? s.partnerActions[s.partnerActions.length - 1] : null;
-        s.managerId = lastAction?.managerId || null;
-      }
-      staffDoc.markModified("staff");
-      await staffDoc.save().catch(() => { });
-      await partnerModalReply(interaction, {
-        embeds: [
-          new EmbedBuilder()
-            .setColor("Red")
-            .setDescription(
-              "<a:VC_Alert:1482706673176150077> Non sono riuscito a pubblicare la partner nel canale configurato.",
-            ),
-        ],
-      });
-      return true;
-    }
-
-    if (s.partnerActions?.[actionIndex]) {
-      s.partnerActions[actionIndex].partnershipChannelId =
-        partnershipChannel.id;
-      s.partnerActions[actionIndex].partnerMessageIds = sentMessageIds.slice();
-      staffDoc.markModified("staff");
-      await staffDoc.save().catch(() => { });
-    }
-
-    await runImmediatePartnerAuditForUser(interaction.client, interaction.user.id);
-
-    const staffAfterAudit = await getOrCreateStaffPartnerDoc(guildId, interaction.user.id);
-    const sAfter = staffAfterAudit && staffAfterAudit.staff ? staffAfterAudit.staff : s;
-    const shownPartnerPoints = resolvePartnerPointsShown(sAfter);
-
-    const partnerActorLabel = accountUsername(interaction.member || interaction.user);
-    const embed = new EmbedBuilder()
-      .setAuthor({
-        name: partnerActorLabel,
-        iconURL: guildMemberDisplayAvatarUrlDynamic(interaction.member || interaction.user) || undefined,
-      })
-      .setTitle(`**<:partneredserverowner:1443651871125409812> __PARTNER EFFETTUATA__**`,)
-      .setDescription(`<a:ThankYou:1329504268369002507> Grazie per aver _effettuato_ una **partner** con \`${interaction.guild.name}\`
-    <:mariolevelup:1443679595084910634> Ora sei a **\`${shownPartnerPoints}\`** partner!
-    <:Money:1330544713463500970> Continua ad __effettuare__ partner per riscattare i **premi** tramite <#1442569095068254219> \`HIGH STAFF\`.`,)
-      .setFooter({ text: serverName, iconURL: serverIcon })
-      .setColor("#6f4e37")
-      .setTimestamp()
-      .setThumbnail(guildIconUrl(interaction.guild, { size: 256 }) || undefined);
-
-    const thankYouMessage = await partnershipChannel.send({ embeds: [embed] }).catch(() => null);
-    if (thankYouMessage?.id && staffAfterAudit?.staff?.partnerActions?.[actionIndex]) {
-      const ids = Array.isArray(staffAfterAudit.staff.partnerActions[actionIndex].partnerMessageIds)
-        ? staffAfterAudit.staff.partnerActions[actionIndex].partnerMessageIds.slice()
-        : sentMessageIds.slice();
-      ids.push(thankYouMessage.id);
-      staffAfterAudit.staff.partnerActions[actionIndex].partnerMessageIds = ids;
-      staffAfterAudit.markModified("staff");
-      await staffAfterAudit.save().catch(() => { });
-    }
-
-    void maybeSendPartnerManagerRewardMilestoneDms(
-      interaction.client,
-      guild,
-      interaction.user.id,
-      beforePoints,
-      resolvePartnerPointsShown(sAfter),
-    ).catch(() => null);
-
-    const doneEmbed = new EmbedBuilder()
-      .setDescription(`<:success:1461731530333229226> Partner inviata in ${partnershipChannel}`,)
-      .setColor("#6f4e37");
-
-    await partnerModalReply(interaction, { embeds: [doneEmbed] });
-  } catch (err) {
-    global.logger.error(err);
-    await partnerModalReply(interaction, {
-      embeds: [
-        new EmbedBuilder()
-          .setColor("#e74c3c")
-          .setDescription(
-            `<a:VC_Alert:1482706673176150077> C'è stato un errore nell'esecuzione del comando.`,
-          ),
-      ],
-    });
-  }
+  await executeTenantPartnership(interaction, {
+    description: rawDescription,
+    managerId,
+    skipped,
+  });
   return true;
 }
 
 function parsePartnershipModalId(customId) {
   const raw = String(customId || "");
+  const skipFormat = raw.match(/^partnershipModal_cmd_(\d{16,20})_skip$/);
+  if (skipFormat) {
+    return {
+      source: "cmd",
+      openerId: skipFormat[1],
+      managerId: null,
+      skipped: true,
+    };
+  }
   const newFormat = raw.match(/^partnershipModal_cmd_(\d{16,20})_(\d{16,20})$/);
   if (newFormat) {
     return {
       source: "cmd",
       openerId: newFormat[1],
       managerId: newFormat[2],
+      skipped: false,
     };
   }
 
   const legacy = raw.match(/^partnershipModal_(\d{16,20})_(\d{16,20})$/);
   if (legacy) {
-    return { source: "legacy", openerId: legacy[1], managerId: legacy[2] };
+    return { source: "legacy", openerId: legacy[1], managerId: legacy[2], skipped: false };
   }
 
   const legacyShort = raw.match(/^partnershipModal_(\d{16,20})$/);
   if (legacyShort) {
-    return { source: "legacy", openerId: null, managerId: legacyShort[1] };
+    return { source: "legacy", openerId: null, managerId: legacyShort[1], skipped: false };
   }
-  return { source: null, openerId: null, managerId: null };
-}
-function splitMessage(message, maxLength = 2000) {
-  if (!message) return [""];
-  const parts = [];
-  let current = "";
-  for (const line of message.split("\n")) {
-    const next = current ? `${current}\n${line}` : line;
-    if (next.length > maxLength) {
-      if (current) {
-        parts.push(current);
-        current = "";
-      }
-      if (line.length > maxLength) {
-        for (let i = 0; i < line.length; i += maxLength) {
-          parts.push(line.slice(i, i + maxLength));
-        }
-      } else {
-        current = line;
-      }
-    } else {
-      current = next;
-    }
-  }
-  if (current) parts.push(current);
-  return parts;
-}
-
-function normalizeManagerLine(text, managerId) {
-  let content = String(text || "").replace(/\r\n/g, "\n").replace(/\r/g, "\n").trim();
-  content = content
-    .replace(/(?:\n*ping:\s*<@&\d+>\s*)+$/gi, "")
-    .replace(/\n*<:VC_Mention:\d+>\s*Manager:\s*<@!?\d+>\s*$/gi, "")
-    .replace(/\n*Manager:\s*(<@!?\d+>)?\s*$/gi, "")
-    .replace(/\n*Partner effettuata con\s*\*\*<@!?\d+>\*\*\s*$/gi, "")
-    .trim();
-  const partnershipRoleId = String(IDs.roles?.Partnership || "").trim();
-  const pingLine = partnershipRoleId ? `\n\nPing: <@&${partnershipRoleId}>` : "";
-  return `${content}\n\n<:VC_Mention:1482526855289634997> Manager: <@${managerId}>${pingLine}`;
-}
-
-function stripOuterCodeBlock(text) {
-  if (!text) return "";
-  const trimmed = text.trim();
-  const match = trimmed.match(/^```(?:[a-zA-Z0-9_-]+)?\n?([\s\S]*?)```$/);
-  if (match?.[1]) return match[1].trim();
-  return trimmed.replace(/^```/, "").replace(/```$/, "").trim();
+  return { source: null, openerId: null, managerId: null, skipped: false };
 }
 
 module.exports = { handlePartnerModal };

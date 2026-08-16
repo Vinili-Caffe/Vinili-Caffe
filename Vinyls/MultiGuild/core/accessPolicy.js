@@ -27,6 +27,18 @@ function shouldUseMultiGuildCommandGate(guildId) {
   return true;
 }
 
+function isTenantFeatureEnabled(guildId, featureKey) {
+  if (isViniliProtectedGuild(guildId)) return false;
+  const key = String(featureKey || "").trim();
+  if (!key) return false;
+  const access = resolveGuildAccess(guildId);
+  return (
+    access?.managed === true &&
+    access?.allowed === true &&
+    access?.entry?.features?.[key] === true
+  );
+}
+
 function canInvokePrefixCommand(guildId, commandCategory) {
   if (isViniliProtectedGuild(guildId)) {
     return { ok: true, managed: false, reason: "vinili_protected" };
@@ -62,6 +74,7 @@ function mapCategoryToFeature(category) {
     staff: "staff_tools",
     admin: "staff_tools",
     dev: "staff_tools",
+    partnership: "partnership",
   };
   return map[String(category || "").toLowerCase()] || null;
 }
@@ -70,4 +83,14 @@ function shouldRunViniliCommunityFeatures(guildId) {
   return isViniliFullFeatureGuild(guildId);
 }
 
-module.exports = { isProtectedAccess, isViniliFullFeatureGuild, shouldRunViniliCommunityFeatures, shouldApplyMultiGuildLayer, shouldRunViniliAutomations, shouldUseMultiGuildCommandGate, canInvokePrefixCommand, mapCategoryToFeature };
+module.exports = {
+  isProtectedAccess,
+  isViniliFullFeatureGuild,
+  shouldRunViniliCommunityFeatures,
+  shouldApplyMultiGuildLayer,
+  shouldRunViniliAutomations,
+  shouldUseMultiGuildCommandGate,
+  canInvokePrefixCommand,
+  mapCategoryToFeature,
+  isTenantFeatureEnabled,
+};

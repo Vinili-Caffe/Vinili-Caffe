@@ -1,74 +1,67 @@
-const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
-const { processDiscadiaVote } = require("../../Utils/Message/officialMessageAutomationHandlers");
 const IDs = require("../../Utils/Config/ids");
+const { processDiscadiaVote } = require("../../Utils/Message/officialMessageAutomationHandlers");
+const { isVoteListingRecordedAtOrAfter } = require("../Bump/bumpService");
+const {
+  listUsersWithPendingDiscadiaVotes,
+  setPendingDiscadiaVotes,
+  DISCADIA_PENDING_VOTES_PATH,
+  normalizeVoteListing,
+} = require("./discadiaVoteInboxService");
 
 let isProcessing = false;
-const DISCADIA_PENDING_VOTES_PATH = "profile.totals.exp.bumpVoteRewards.discadia_vote.pendingVotes";
 
 async function processVoteQueue(client) {
   if (isProcessing) return;
   isProcessing = true;
 
   try {
-    const guildId = client.config.mainGuildId || IDs.guilds.main;
-    const guild = client.guilds.cache.get(guildId) || await client.guilds.fetch(guildId).catch(() => null);
+    const guildId = String(client?.config?.mainGuildId || IDs.guilds.main || "").trim();
+    const guild =
+      client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
+    if (!guild) return;
 
-    if (!guild) {
-      isProcessing = false;
-      return;
-    }
+    const profiles = await listUsersWithPendingDiscadiaVotes(guildId, 25);
+    for (const profile of profiles) {
+      const userId = String(profile.userId || "").trim();
+      if (!userId) continue;
+      const votes = profile?.profile?.totals?.exp?.bumpVoteRewards?.discadia_vote?.pendingVotes || [];
+      if (!Array.isArray(votes) || !votes.length) {
+        await setPendingDiscadiaVotes(guildId, userId, []);
+        continue;
+      }
 
-    // Cerco utenti con voti pendenti nell'array centralizzato.
-    // Selezioniamo solo i profili che hanno almeno un voto nell'array
-    const usersWithVotes = await ActivityUserProfile.find({
-        guildId: guildId,
-        [DISCADIA_PENDING_VOTES_PATH + ".0"]: { $exists: true },
-    }).limit(20);
+      const user = await client.users.fetch(userId).catch(() => null);
+      if (!user) {
+        await setPendingDiscadiaVotes(guildId, userId, []);
+        continue;
+      }
 
-    for (const profile of usersWithVotes) {
-        const userId = profile.userId;
-        const user = await client.users.fetch(userId).catch(() => null);
-        
-        if (!user) {
-            // Se l'utente non è più su Discord, pulisco la sua coda specifica per evitare loop infiniti
-            await ActivityUserProfile.updateOne(
-                { guildId: guildId, userId: userId },
-                { $set: { [DISCADIA_PENDING_VOTES_PATH]: [] } }
-            );
-            continue;
+      const remaining = [];
+      for (const vote of votes) {
+        if (vote?.processed) continue;
+        const listing = normalizeVoteListing(vote.listing);
+        const receivedAtMs = new Date(vote.receivedAt || 0).getTime();
+        const voteAtMs = Number.isFinite(receivedAtMs) ? receivedAtMs : Date.now();
+        // Se è già registrato un voto vicino a questo evento (±5 min), non ridoppiare.
+        if (
+          await isVoteListingRecordedAtOrAfter(
+            guildId,
+            userId,
+            listing,
+            voteAtMs - 5 * 60 * 1000,
+            10 * 60 * 1000,
+          )
+        ) {
+          continue;
         }
-
-        // Processo i voti nell'array
-        const votes = profile?.profile?.totals?.exp?.bumpVoteRewards?.discadia_vote?.pendingVotes || [];
-        if (votes.length === 0) continue;
-
-        let hasProcessedAny = false;
-        const remainingVotes = [];
-
-        for (const vote of votes) {
-            if (vote.processed) continue;
-
-            const handled = await processDiscadiaVote(guild, user, client);
-            if (handled) {
-                hasProcessedAny = true;
-                global.logger?.info?.(`[VOTE QUEUE] Processed recovered vote for ${user.tag} (${userId})`);
-                // Non aggiungiamo a remainingVotes = rimosso dalla coda
-            } else {
-                // Tentativo fallito, incrementiamo attempts o lo conserviamo
-                const attempts = (vote.attempts || 0) + 1;
-                if (attempts <= 5) {
-                    remainingVotes.push({ ...vote, attempts, updatedAt: new Date() });
-                }
-                // Se > 5 tentativi, viene rimosso implicitamente non aggiungendolo a remainingVotes
-            }
+        const handled = await processDiscadiaVote(guild, user, client, { voteListing: listing });
+        if (handled) continue;
+        const attempts = (Number(vote.attempts) || 0) + 1;
+        if (attempts <= 8) {
+          remaining.push({ ...vote, listing, attempts, updatedAt: new Date() });
         }
-
-        if (hasProcessedAny || remainingVotes.length !== votes.length) {
-            await ActivityUserProfile.updateOne(
-                { guildId: guildId, userId: userId },
-                { $set: { [DISCADIA_PENDING_VOTES_PATH]: remainingVotes } }
-            );
-        }
+      }
+      await setPendingDiscadiaVotes(guildId, userId, remaining);
     }
   } catch (err) {
     global.logger?.error?.("[VOTE QUEUE] Error in queue service:", err);
@@ -77,21 +70,26 @@ async function processVoteQueue(client) {
   }
 }
 
-/**
- * Avvia il loop di elaborazione in background.
- * @param {Client} client L'istanza del bot.
- * @param {number} intervalMs Intervallo tra i controlli (default 15s).
- */
 function startVoteQueueLoop(client, intervalMs = 15000) {
-  global.logger?.info?.(`[VOTE QUEUE] Starting background processing loop (interval: ${intervalMs}ms)...`);
-  
-  // Esecuzione immediata al boot
-  processVoteQueue(client).catch(() => {});
+  const dedicated = String(process.env.VOTE_QUEUE_WORKER || "").trim() === "1";
+  const external = String(process.env.VOTE_QUEUE_EXTERNAL || "").trim() === "1";
+  if (external && !dedicated) {
+    return null;
+  }
 
-  const interval = setInterval(() => processVoteQueue(client), intervalMs);
-  if (interval.unref) interval.unref();
-  
+  global.logger?.info?.(
+    `[VOTE QUEUE] Starting inbox drain (interval: ${intervalMs}ms, ${dedicated ? "pm2 dedicato" : "gateway"})...`,
+  );
+  processVoteQueue(client).catch(() => {});
+  const interval = setInterval(() => {
+    processVoteQueue(client).catch(() => {});
+  }, intervalMs);
+  if (typeof interval.unref === "function") interval.unref();
   return interval;
 }
 
-module.exports = { processVoteQueue, startVoteQueueLoop };
+module.exports = {
+  processVoteQueue,
+  startVoteQueueLoop,
+  DISCADIA_PENDING_VOTES_PATH,
+};

@@ -2,19 +2,24 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBu
 const { GuildRepost } = require("../../Schemas/Community/repostSchema");
 const { RepostPrivacy } = require("../../Schemas/Community/communitySchemas");
 const { normalizeQuoteMessageText } = require("../../Utils/Quote/normalizeQuoteMessageText");
-const { resolveQuotePostChannel } = require("../../Utils/Quote/quotePostChannel");
+const { resolveQuoteChannelId, resolveBoardPostChannel } = require("../../Utils/Quote/quotePostChannel");
 const { resolveRoulettePostChannel } = require("../../Utils/Quote/repostRoulettePostChannel");
 const { nextRepostCount } = require("../../Utils/Quote/quoteCounter");
+const { decrementRepostCount, decrementClipCount } = require("../../Utils/Global/globalSettingsBucket");
 const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
 const { isValidGuildUserId } = require("../../Utils/DB/validateWriteIds");
 const { ensureMongoReady, withMongoTimeout } = require("../../Utils/Database/mongoConnect");
 const { getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { DEFAULT_FOOTER_TEXT } = require("../../Utils/Embeds/defaultFooter");
 const { pickRepostAckPhrase } = require("../../Data/Community/repostAckPhrases");
+const IDs = require("../../Utils/Config/ids");
+const { TENANT_EMBED_COLOR } = require("../../MultiGuild/utils/tenantEmbedBranding");
 
-const REPOST_COLOR = 0xeb6ea5;
+const REPOST_COLOR = TENANT_EMBED_COLOR;
 const REPOST_BTN_PREFIX = "repost_btn:";
 const REPOST_SRC_PREFIX = "repost_src:";
+const REPOST_REMOVE_PREFIX = "repost_remove:";
+const MYREPOST_DEL_PREFIX = "myrepost_del:";
 const REPOST_EMOJI = "<a:reddiamond:1443652837346377841>";
 const EPHEMERAL_FLAG = 1 << 6;
 const MAX_EMBED_BODY_CHARS = 3600;
@@ -39,8 +44,13 @@ function timedRepostQuery(queryPromise, label) {
 
 const recentRouletteSourceKeysByGuild = new Map();
 
-function isRepostDisabledInGuild(_guildId) {
-  return false;
+function isRepostDisabledInGuild(guildId) {
+  try {
+    const { isTenantBoardFeatureEnabledSync } = require("../../MultiGuild/core/tenantGuildSettings");
+    return !isTenantBoardFeatureEnabledSync(guildId, "repost");
+  } catch {
+    return false;
+  }
 }
 
 function messageJumpUrl(guildId, channelId, messageId) {
@@ -413,39 +423,576 @@ function buildAckRepostaComponents({ repostId, targetMessage, sourceAuthorId = "
   if (!authorId && targetMessage.author?.bot) {
     authorId = resolveQuotedAuthorIdFromQuoteMessage(targetMessage) || "";
   }
-  if (!authorId && targetMessage.author && !targetMessage.author.bot) {
+  if (!authorId && targetMessage.author) {
     authorId = String(targetMessage.author.id || "");
   }
   const row = buildRepostaSourceButtonRow(targetMessage.channel.id, targetMessage.id, authorId);
   return row ? [row] : [];
 }
 
+function buildRepostaButton(repostId) {
+  return new ButtonBuilder()
+    .setCustomId(`${REPOST_BTN_PREFIX}${repostId}`)
+    .setLabel("Reposta")
+    .setEmoji("1443652837346377841")
+    .setStyle(ButtonStyle.Secondary);
+}
+
 function buildRepostaButtonRow(repostId) {
-  return new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId(`${REPOST_BTN_PREFIX}${repostId}`)
-      .setLabel("Reposta")
-      .setEmoji("1443652837346377841")
-      .setStyle(ButtonStyle.Secondary),
+  return new ActionRowBuilder().addComponents(buildRepostaButton(repostId));
+}
+
+function isClipRepostDoc(doc) {
+  if (!doc) return false;
+  if (String(doc.boardKind || doc.kind || "").trim().toLowerCase() === "clip") return true;
+  const sc = String(doc.sourceChannelId || "").trim();
+  const sm = String(doc.sourceMessageId || "").trim();
+  const bc = String(doc.boardChannelId || "").trim();
+  const bm = String(doc.boardMessageId || "").trim();
+  // Legacy sentinel: tutti gli id uguali.
+  if (sc && sc === sm && bc === bm && sc === bc) return true;
+  // Clip in bacheca: source = messaggio board stesso (anche "pending" pre-send).
+  if (sc && bc && sc === bc && sm && (sm === "pending" || (bm && sm === bm))) {
+    return true;
+  }
+  const files = Array.isArray(doc.mediaFiles) ? doc.mediaFiles : [];
+  for (const entry of files) {
+    const name = String(entry?.name || "").trim().toLowerCase();
+    if (name === "clip.mp3") return true;
+  }
+  return false;
+}
+
+function buildRepostRemoveButton(repostId, doc = null) {
+  const rid = String(repostId || "").trim();
+  if (!rid) return null;
+  const isClip = isClipRepostDoc(doc);
+  return new ButtonBuilder()
+    .setCustomId(`${REPOST_REMOVE_PREFIX}${rid}`)
+    .setLabel(isClip ? "Rimuovi clip" : "Rimuovi repost")
+    .setEmoji("🗑️")
+    .setStyle(ButtonStyle.Danger);
+}
+
+function buildBoardMessageComponents(primaryRepostId, doc) {
+  const rid = String(primaryRepostId || doc?._id || "").trim();
+  if (!rid) return [];
+  const buttons = [buildRepostaButton(rid)];
+  if (doc) {
+    const removeBtn = buildRepostRemoveButton(rid, doc);
+    if (removeBtn) buttons.push(removeBtn);
+  }
+  return [new ActionRowBuilder().addComponents(...buttons.slice(0, 5))];
+}
+
+function flattenBoardCustomIds(rows) {
+  return (rows || [])
+    .flatMap((row) => row.components || [])
+    .map((comp) => String(comp.customId || "").trim())
+    .filter(Boolean);
+}
+
+function boardCustomIdSet(rows) {
+  return new Set(flattenBoardCustomIds(rows));
+}
+
+function componentsMatchBoardState(existingComponents, expectedComponents) {
+  const a = flattenBoardCustomIds(existingComponents).sort().join("|");
+  const b = flattenBoardCustomIds(expectedComponents).sort().join("|");
+  return a === b;
+}
+
+/** Rimuovi obbligatorio in bacheca; formato legacy `repost_remove:<userId>:<id>` va migrato. */
+function boardNeedsRemoveButtonRefresh(existingComponents, expectedComponents) {
+  const existing = boardCustomIdSet(existingComponents);
+  const expected = boardCustomIdSet(expectedComponents);
+  for (const id of expected) {
+    if (!existing.has(id)) return true;
+  }
+  for (const id of existing) {
+    if (id.startsWith(REPOST_REMOVE_PREFIX) && !expected.has(id)) return true;
+  }
+  const hasModernRemove = [...existing].some((id) => /^repost_remove:[a-f0-9]{24}$/i.test(id));
+  const expectsRemove = [...expected].some((id) => id.startsWith(REPOST_REMOVE_PREFIX));
+  if (expectsRemove && !hasModernRemove) return true;
+  // Rileva label sbagliata (clip con "Rimuovi repost" o viceversa).
+  const existingLabels = new Set(
+    (existingComponents || [])
+      .flatMap((row) => row.components || [])
+      .filter((comp) => String(comp.customId || "").startsWith(REPOST_REMOVE_PREFIX))
+      .map((comp) => String(comp.label || "").trim().toLowerCase())
+      .filter(Boolean),
   );
+  const expectedLabels = new Set(
+    (expectedComponents || [])
+      .flatMap((row) => row.components || [])
+      .filter((comp) => String(comp.customId || "").startsWith(REPOST_REMOVE_PREFIX))
+      .map((comp) => String(comp.label || "").trim().toLowerCase())
+      .filter(Boolean),
+  );
+  if (expectedLabels.size) {
+    for (const label of expectedLabels) {
+      if (!existingLabels.has(label)) return true;
+    }
+  }
+  return !componentsMatchBoardState(existingComponents, expectedComponents);
+}
+
+async function resolveBoardMessageComponents(guild, boardChannelId, boardMessageId) {
+  const gid = String(guild?.id || "").trim();
+  const bc = String(boardChannelId || "").trim();
+  const bm = String(boardMessageId || "").trim();
+  if (!gid || !bc || !bm) return [];
+  const docs = await timedRepostQuery(
+    GuildRepost.find({ guildId: gid, boardChannelId: bc, boardMessageId: bm }).sort({ createdAt: -1 }).lean(),
+    "repost board docs",
+  ).catch(() => []);
+  if (!docs?.length) return [];
+  const primary = docs[0];
+  return buildBoardMessageComponents(String(primary._id), primary);
+}
+
+function isUnknownDiscordResourceError(err) {
+  const code = Number(err?.code ?? err?.rawError?.code ?? 0);
+  // 10003 Unknown Channel · 10008 Unknown Message
+  return code === 10003 || code === 10008;
+}
+
+async function clearOrphanBoardPointers(guildId, boardChannelId, boardMessageId) {
+  const gid = String(guildId || "").trim();
+  const bc = String(boardChannelId || "").trim();
+  const bm = String(boardMessageId || "").trim();
+  if (!gid || !bc || !bm) return 0;
+  const res = await timedRepostQuery(
+    GuildRepost.updateMany(
+      { guildId: gid, boardChannelId: bc, boardMessageId: bm },
+      { $set: { boardChannelId: "", boardMessageId: "" } },
+    ),
+    "repost clear orphan board pointers",
+  ).catch(() => null);
+  return Number(res?.modifiedCount || res?.nModified || 0);
+}
+
+function attachmentKeepRefs(message) {
+  const list =
+    typeof message?.attachments?.values === "function"
+      ? [...message.attachments.values()]
+      : Array.isArray(message?.attachments)
+        ? message.attachments
+        : [];
+  return list
+    .map((att) => String(att?.id || "").trim())
+    .filter((id) => /^\d{17,22}$/.test(id))
+    .map((id) => ({ id }));
+}
+
+async function editBoardMessageKeepAttachments(boardMsg, patch) {
+  if (!boardMsg?.edit) return false;
+  const keep = attachmentKeepRefs(boardMsg);
+  const payload = { ...(patch || {}) };
+  // Con file già presenti: elenca gli id da tenere, altrimenti un edit può svuotarli (API v10).
+  if (keep.length) payload.attachments = keep;
+  const edited = await boardMsg.edit(payload).then(() => true).catch(() => false);
+  return edited;
+}
+
+/**
+ * @returns {{ ok: boolean, reason?: string, orphan?: boolean, code?: number }}
+ */
+async function syncBoardMessageComponentsDetailed(guild, boardChannelId, boardMessageId) {
+  const cid = String(boardChannelId || "").trim();
+  const mid = String(boardMessageId || "").trim();
+  if (!guild || !cid || !mid) return { ok: false, reason: "bad_args" };
+
+  let channelErr = null;
+  const channel =
+    guild.channels.cache.get(cid) ||
+    (await guild.channels.fetch(cid).catch((err) => {
+      channelErr = err;
+      return null;
+    }));
+  if (!channel?.isTextBased?.()) {
+    if (channelErr && isUnknownDiscordResourceError(channelErr)) {
+      return { ok: false, reason: "channel_missing", orphan: true, code: Number(channelErr.code || 0) };
+    }
+    return { ok: false, reason: channelErr ? "channel_fetch_failed" : "channel_not_text", code: Number(channelErr?.code || 0) || undefined };
+  }
+
+  let messageErr = null;
+  const boardMsg = await channel.messages.fetch(mid).catch((err) => {
+    messageErr = err;
+    return null;
+  });
+  if (!boardMsg) {
+    if (messageErr && isUnknownDiscordResourceError(messageErr)) {
+      return { ok: false, reason: "message_missing", orphan: true, code: Number(messageErr.code || 0) };
+    }
+    return { ok: false, reason: "message_fetch_failed", code: Number(messageErr?.code || 0) || undefined };
+  }
+
+  const components = await resolveBoardMessageComponents(guild, cid, mid);
+  if (!components.length) return { ok: false, reason: "empty_components" };
+  if (!boardNeedsRemoveButtonRefresh(boardMsg.components, components)) return { ok: true, reason: "already_current" };
+
+  let editErr = null;
+  const edited = await editBoardMessageKeepAttachments(boardMsg, { components })
+    .then((ok) => ok)
+    .catch((err) => {
+      editErr = err;
+      return false;
+    });
+  if (edited) return { ok: true, reason: "edited" };
+  return { ok: false, reason: "edit_failed", code: Number(editErr?.code || 0) || undefined };
+}
+
+async function syncBoardMessageComponents(guild, boardChannelId, boardMessageId) {
+  const result = await syncBoardMessageComponentsDetailed(guild, boardChannelId, boardMessageId);
+  return Boolean(result?.ok);
 }
 
 async function ensureBoardRepostaButton(guild, boardChannelId, boardMessageId, repostId) {
+  await syncBoardMessageComponents(guild, boardChannelId, boardMessageId);
+}
+
+function buildRepostRemovedEmbed({ userId, isClip = false }) {
+  const now = new Date();
+  const dateStr = now.toLocaleDateString("it-IT");
+  const timeStr = now.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
+  return new EmbedBuilder()
+    .setColor(REPOST_COLOR)
+    .setTitle(isClip ? "🗑️ Clip rimossa" : "🗑️ Repost rimosso")
+    .setDescription(
+      isClip
+        ? "Questa clip vocale è stata rimossa dal database."
+        : "Questo repost è stato rimosso dalla bacheca.",
+    )
+    .addFields(
+      { name: "Rimosso da", value: `<@${userId}>`, inline: true },
+      { name: "Data rimozione", value: `${dateStr} ${timeStr}`, inline: true },
+    )
+    .setFooter({ text: `Gestisci i tuoi repost con \`+myrepost\` · Oggi alle ${timeStr}` });
+}
+
+async function applyBoardMessageRemovedState(guild, boardChannelId, boardMessageId, userId, isClip) {
   const cid = String(boardChannelId || "").trim();
   const mid = String(boardMessageId || "").trim();
-  const rid = String(repostId || "").trim();
-  if (!guild || !cid || !mid || !rid) return;
+  if (!guild || !cid || !mid) return;
   const channel =
     guild.channels.cache.get(cid) ||
     (await guild.channels.fetch(cid).catch(() => null));
   if (!channel?.isTextBased?.()) return;
   const boardMsg = await channel.messages.fetch(mid).catch(() => null);
   if (!boardMsg) return;
-  const hasButton = boardMsg.components?.some((row) =>
-    row.components?.some((comp) => String(comp.customId || "").startsWith(REPOST_BTN_PREFIX)),
+  const removedEmbed = buildRepostRemovedEmbed({ userId, isClip });
+  await boardMsg
+    .edit({ embeds: [removedEmbed], components: [], files: [], attachments: [] })
+    .catch(() => boardMsg.delete().catch(() => null));
+}
+
+function memberCanForceDeleteClip(member) {
+  if (!member?.roles?.cache) return false;
+  const highStaffId = String(IDs.roles?.HighStaff || "").trim();
+  const directorId = String(IDs.roles?.Director || "").trim();
+  return Boolean(
+    (highStaffId && member.roles.cache.has(highStaffId)) ||
+      (directorId && member.roles.cache.has(directorId)),
   );
-  if (hasButton) return;
-  await boardMsg.edit({ components: [buildRepostaButtonRow(rid)] }).catch(() => {});
+}
+
+async function deleteClipCompletely(guild, boardChannelId, boardMessageId, userId, options = {}) {
+  const gid = String(guild?.id || "").trim();
+  const bc = String(boardChannelId || "").trim();
+  const bm = String(boardMessageId || "").trim();
+  const uid = String(userId || "").trim();
+  if (!gid || !bc || !bm || !uid) return { ok: false, message: "Clip non trovata." };
+
+  const forceStaff = options.forceStaff === true;
+  const clipQuery = forceStaff
+    ? { guildId: gid, boardChannelId: bc, boardMessageId: bm }
+    : { guildId: gid, boardChannelId: bc, boardMessageId: bm, reposterUserId: uid };
+
+  const clipDoc = await timedRepostQuery(
+    GuildRepost.findOne(clipQuery).lean(),
+    "repost clip find",
+  ).catch(() => null);
+
+  if (!clipDoc?._id || !isClipRepostDoc(clipDoc)) {
+    return {
+      ok: false,
+      message: forceStaff
+        ? "Clip non trovata."
+        : "Solo l'autore della clip (o High Staff) può rimuoverla.",
+    };
+  }
+
+  if (!forceStaff && String(clipDoc.reposterUserId || "") !== uid) {
+    return { ok: false, message: "Solo l'autore della clip (o High Staff) può rimuoverla." };
+  }
+
+  const deleteResult = await timedRepostQuery(
+    GuildRepost.deleteMany({
+      guildId: gid,
+      $or: [
+        { boardChannelId: bc, boardMessageId: bm },
+        { sourceChannelId: bc, sourceMessageId: bm },
+      ],
+    }),
+    "repost clip delete",
+  ).catch(() => null);
+
+  await applyBoardMessageRemovedState(guild, bc, bm, uid, true);
+  if (Number(deleteResult?.deletedCount) > 0) {
+    await decrementClipCount(gid).catch(() => null);
+  }
+  return { ok: true, isClip: true, deletedCount: Number(deleteResult?.deletedCount) || 0 };
+}
+
+async function deleteUserRepostEntry({ guild, client, repostId, userId }) {
+  const gid = String(guild?.id || "").trim();
+  const uid = String(userId || "").trim();
+  const rid = String(repostId || "").trim();
+  if (!gid || !uid || !rid) return { ok: false, message: "Repost non valido." };
+
+  const doc = await timedRepostQuery(GuildRepost.findById(rid).lean(), "repost find by id").catch(() => null);
+  if (!doc?._id || String(doc.guildId) !== gid) {
+    return { ok: false, message: "Repost non trovato." };
+  }
+  if (String(doc.reposterUserId) !== uid) {
+    return { ok: false, message: "Puoi rimuovere solo i tuoi repost." };
+  }
+
+  if (isClipRepostDoc(doc)) {
+    return deleteClipCompletely(guild, doc.boardChannelId, doc.boardMessageId, uid);
+  }
+
+  const bc = String(doc.boardChannelId || "").trim();
+  const bm = String(doc.boardMessageId || "").trim();
+
+  await timedRepostQuery(GuildRepost.deleteOne({ _id: doc._id }), "repost delete one").catch(() => null);
+
+  if (!bc || !bm) return { ok: true, isClip: false };
+
+  const remainingOnBoard = await timedRepostQuery(
+    GuildRepost.countDocuments({ guildId: gid, boardChannelId: bc, boardMessageId: bm }),
+    "repost board remaining",
+  ).catch(() => 0);
+
+  if (remainingOnBoard <= 0) {
+    await applyBoardMessageRemovedState(guild, bc, bm, uid, false);
+    await decrementRepostCount(gid).catch(() => null);
+    return { ok: true, isClip: false, boardRemoved: true };
+  }
+
+  await syncBoardMessageComponents(guild, bc, bm);
+  return { ok: true, isClip: false, boardRemoved: false };
+}
+
+function parseRepostRemoveButton(customId) {
+  const id = String(customId || "");
+  const modern = id.match(/^repost_remove:([a-f0-9]{24})$/i);
+  if (modern) return { repostId: modern[1] };
+  // Formato legacy: repost_remove:<ownerUserId>:<repostId>
+  const legacy = id.match(/^repost_remove:(\d{16,20}):([a-f0-9]{24})$/i);
+  if (!legacy) return null;
+  return { ownerUserId: legacy[1], repostId: legacy[2] };
+}
+
+function isRepostRemoveButton(customId) {
+  return String(customId || "").startsWith(REPOST_REMOVE_PREFIX);
+}
+
+async function findClickerRepostForBoardAnchor(guildId, anchorDoc, clickerUserId) {
+  const gid = String(guildId || "").trim();
+  const uid = String(clickerUserId || "").trim();
+  if (!gid || !uid || !anchorDoc) return null;
+
+  const bc = String(anchorDoc.boardChannelId || "").trim();
+  const bm = String(anchorDoc.boardMessageId || "").trim();
+  if (bc && bm) {
+    const onBoard = await timedRepostQuery(
+      GuildRepost.findOne({
+        guildId: gid,
+        boardChannelId: bc,
+        boardMessageId: bm,
+        reposterUserId: uid,
+      }).lean(),
+      "repost clicker on board",
+    ).catch(() => null);
+    if (onBoard?._id) return onBoard;
+  }
+
+  const sc = String(anchorDoc.sourceChannelId || "").trim();
+  const sm = String(anchorDoc.sourceMessageId || "").trim();
+  if (!sc || !sm) return null;
+  return timedRepostQuery(
+    GuildRepost.findOne({
+      guildId: gid,
+      sourceChannelId: sc,
+      sourceMessageId: sm,
+      reposterUserId: uid,
+    }).lean(),
+    "repost clicker on source",
+  ).catch(() => null);
+}
+
+function parseMyRepostDeleteButton(customId) {
+  const id = String(customId || "");
+  const match = id.match(/^myrepost_del:([a-f0-9]{24}):(\d{16,20}):(\d{16,20}):(\d+):(\d+)$/i);
+  if (!match) return null;
+  return {
+    repostId: match[1],
+    requesterId: match[2],
+    targetUserId: match[3],
+    page: Math.max(1, Number(match[4]) || 1),
+    totalPages: Math.max(1, Number(match[5]) || 1),
+  };
+}
+
+function isMyRepostDeleteButton(customId) {
+  return String(customId || "").startsWith(MYREPOST_DEL_PREFIX);
+}
+
+async function handleRepostRemoveButton(interaction) {
+  const parsed = parseRepostRemoveButton(interaction.customId);
+  if (!parsed || !interaction.guild) return;
+
+  const clickerId = String(interaction.user?.id || "").trim();
+  if (!clickerId) return;
+
+  await interaction.deferReply({ flags: EPHEMERAL_FLAG }).catch(() => null);
+
+  const anchor = await timedRepostQuery(
+    GuildRepost.findById(parsed.repostId).lean(),
+    "repost remove anchor",
+  ).catch(() => null);
+
+  if (!anchor?._id || String(anchor.guildId) !== String(interaction.guild.id)) {
+    return interaction.editReply({
+      content: "<:vegax:1443934876440068179> Repost non trovato.",
+    }).catch(() => null);
+  }
+
+  const isClip = isClipRepostDoc(anchor);
+  const staffForce = isClip && memberCanForceDeleteClip(interaction.member);
+
+  if (isClip) {
+    const isAuthor = String(anchor.reposterUserId || "") === clickerId;
+    if (!isAuthor && !staffForce) {
+      return interaction.editReply({
+        content: "<:vegax:1443934876440068179> Solo l'autore della clip (o High Staff) può rimuoverla.",
+      }).catch(() => null);
+    }
+
+    const result = await deleteClipCompletely(
+      interaction.guild,
+      anchor.boardChannelId,
+      anchor.boardMessageId,
+      clickerId,
+      { forceStaff: staffForce && !isAuthor },
+    );
+
+    if (!result.ok) {
+      return interaction.editReply({
+        content: `<:vegax:1443934876440068179> ${result.message || "Impossibile rimuovere."}`,
+      }).catch(() => null);
+    }
+    return interaction.editReply({
+      content: "<a:VC_Verified:1482532479637127188> Clip rimossa.",
+    }).catch(() => null);
+  }
+
+  const own = await findClickerRepostForBoardAnchor(interaction.guild.id, anchor, clickerId);
+  if (!own?._id) {
+    return interaction.editReply({
+      content: "<:vegax:1443934876440068179> Non hai repostato questo messaggio.",
+    }).catch(() => null);
+  }
+
+  const result = await deleteUserRepostEntry({
+    guild: interaction.guild,
+    client: interaction.client,
+    repostId: String(own._id),
+    userId: clickerId,
+  });
+
+  if (!result.ok) {
+    return interaction.editReply({
+      content: `<:vegax:1443934876440068179> ${result.message || "Impossibile rimuovere."}`,
+    }).catch(() => null);
+  }
+
+  return interaction.editReply({
+    content: "<a:VC_Verified:1482532479637127188> Repost rimosso dai tuoi (`+myrepost`).",
+  }).catch(() => null);
+}
+
+async function syncAllBoardRepostButtons(client, options = {}) {
+  const limit = Math.max(50, Math.min(8000, Number(options.limit) || 2500));
+  const delayMs = Math.max(0, Math.min(2000, Number(options.delayMs) || 250));
+  await ensureRepostDbReady().catch(() => null);
+
+  const groups = await timedRepostQuery(
+    GuildRepost.aggregate([
+      {
+        $match: {
+          boardChannelId: { $nin: ["", null] },
+          boardMessageId: { $nin: ["", null] },
+        },
+      },
+      { $sort: { createdAt: -1 } },
+      {
+        $group: {
+          _id: { guildId: "$guildId", boardChannelId: "$boardChannelId", boardMessageId: "$boardMessageId" },
+          repostId: { $first: "$_id" },
+          lastAt: { $first: "$createdAt" },
+        },
+      },
+      { $sort: { lastAt: -1 } },
+      { $limit: limit },
+    ]),
+    "repost board sync groups",
+  ).catch(() => []);
+
+  let updated = 0;
+  let failed = 0;
+  let scanned = 0;
+  let skipped = 0;
+  let orphaned = 0;
+  let orphanDocsCleared = 0;
+
+  for (const row of groups || []) {
+    scanned += 1;
+    const gid = String(row?._id?.guildId || "").trim();
+    const bc = String(row?._id?.boardChannelId || "").trim();
+    const bm = String(row?._id?.boardMessageId || "").trim();
+    if (!gid || !bc || !bm) {
+      skipped += 1;
+      continue;
+    }
+    const guild = client?.guilds?.cache?.get(gid) || (await client?.guilds?.fetch(gid).catch(() => null));
+    if (!guild) {
+      failed += 1;
+      continue;
+    }
+    const result = await syncBoardMessageComponentsDetailed(guild, bc, bm).catch((err) => ({
+      ok: false,
+      reason: "sync_threw",
+      detail: err?.message || String(err),
+    }));
+    if (result?.ok) {
+      updated += 1;
+    } else if (result?.orphan) {
+      const cleared = await clearOrphanBoardPointers(gid, bc, bm);
+      orphaned += 1;
+      orphanDocsCleared += cleared;
+      skipped += 1;
+    } else {
+      failed += 1;
+    }
+    if (delayMs > 0) await new Promise((resolve) => setTimeout(resolve, delayMs));
+  }
+
+  return { scanned, updated, failed, skipped, orphaned, orphanDocsCleared };
 }
 
 async function checkRepostPrivacyBlocked(guildId, authorId) {
@@ -463,7 +1010,7 @@ async function checkRepostPrivacyBlocked(guildId, authorId) {
 async function resolveBoardChannel(guild, replyChannel, preferBoardChannel = true) {
   const prefersBoard = preferBoardChannel !== false;
   if (!prefersBoard && replyChannel?.isTextBased?.()) return replyChannel;
-  const dedicated = await resolveQuotePostChannel(guild);
+  const dedicated = await resolveBoardPostChannel(guild, "repost");
   if (prefersBoard && dedicated?.isTextBased?.()) return dedicated;
   if (replyChannel?.isTextBased?.()) return replyChannel;
   return null;
@@ -542,8 +1089,8 @@ async function createRepostFromMessage(ctx) {
     if (!quoteAuthorId || !/^\d{16,20}$/.test(quoteAuthorId)) {
       return { ok: false, message: "Impossibile identificare l'autore del clip." };
     }
-  } else if (!fromQuoteCanvas && (!author || author.bot)) {
-    return { ok: false, message: "Non puoi repostare messaggi di bot." };
+  } else if (!fromQuoteCanvas && !author) {
+    return { ok: false, message: "Messaggio non valido." };
   }
 
   const sourceAuthorId = fromClipBoard || fromQuoteCanvas ? quoteAuthorId : String(author.id);
@@ -686,7 +1233,15 @@ async function createRepostFromMessage(ctx) {
   } else {
     const boardSendPayload = {
       embeds: [boardEmbed],
-      components: [buildRepostaButtonRow(repostId)],
+      components: buildBoardMessageComponents(repostId, {
+        _id: repostId,
+        reposterUserId: reposterId,
+        sourceChannelId: String(targetMessage.channel.id),
+        sourceMessageId: String(targetMessage.id),
+        boardChannelId: String(boardChannel.id),
+        boardMessageId: "",
+        mediaFiles: storedMediaFiles,
+      }),
     };
     if (boardSendMedia.files.length) boardSendPayload.files = boardSendMedia.files;
 
@@ -792,7 +1347,22 @@ async function handleRepostaButton(interaction) {
       sourceMessageId,
     );
   }
-  const usePublicAck = isQuoteRepost && !quoteAlreadySaved;
+  // Ack pubblico solo in chat: primo repost che crea la bacheca.
+  // In bacheca quote l'ack resta sempre ephemeral (non deve spammare il canale).
+  const quoteBoardChannelId = resolveQuoteChannelId(interaction.guild.id);
+  const interactionChannelId = String(interaction.channelId || interaction.channel?.id || "").trim();
+  const clickedInQuoteBoard =
+    Boolean(quoteBoardChannelId) && interactionChannelId === quoteBoardChannelId;
+
+  let usePublicAck = false;
+  if (!clickedInQuoteBoard && isQuoteRepost && !quoteAlreadySaved) {
+    const existingBoard = await findExistingBoardPost(
+      interaction.guild.id,
+      sourceChannelId,
+      sourceMessageId,
+    );
+    usePublicAck = !String(existingBoard?.boardMessageId || "").trim();
+  }
 
   await interaction.deferReply({ flags: usePublicAck ? undefined : EPHEMERAL_FLAG }).catch(() => {});
 
@@ -809,6 +1379,20 @@ async function handleRepostaButton(interaction) {
   if (!result.ok) {
     await interaction
       .editReply({ content: result.message || "Repost fallito.", embeds: [], components: [] })
+      .catch(() => {});
+    return { handled: true };
+  }
+
+  // Race: un altro ha creato la bacheca prima di noi → non lasciare un secondo ack pubblico.
+  if (usePublicAck && !result.boardMessage) {
+    await interaction.deleteReply().catch(() => {});
+    await interaction
+      .followUp({
+        embeds: [result.ackEmbed],
+        components: [],
+        flags: EPHEMERAL_FLAG,
+        allowedMentions: { parse: [] },
+      })
       .catch(() => {});
     return { handled: true };
   }
@@ -934,6 +1518,35 @@ async function listRepostsByUser(guildId, userId, opts = {}) {
   const limit = Math.min(25, Math.max(1, Number(opts.limit) || 10));
   const skip = Math.max(0, Number(opts.skip) || 0);
   const filter = { guildId: String(guildId), reposterUserId: String(userId) };
+  const clipFilter = {
+    $or: [
+      {
+        $expr: {
+          $and: [
+            { $eq: ["$sourceChannelId", "$sourceMessageId"] },
+            { $eq: ["$boardChannelId", "$boardMessageId"] },
+            { $eq: ["$sourceChannelId", "$boardChannelId"] },
+          ],
+        },
+      },
+      {
+        $expr: {
+          $and: [
+            { $eq: ["$sourceChannelId", "$boardChannelId"] },
+            { $eq: ["$sourceMessageId", "$boardMessageId"] },
+            { $ne: ["$sourceMessageId", ""] },
+          ],
+        },
+      },
+      { sourceMessageId: "pending" },
+      { "mediaFiles.name": { $regex: /^clip\.mp3$/i } },
+    ],
+  };
+  if (opts.clipsOnly) {
+    Object.assign(filter, clipFilter);
+  } else if (opts.excludeClips) {
+    filter.$nor = [clipFilter];
+  }
   const [rows, total] = await Promise.all([
     GuildRepost.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
     GuildRepost.countDocuments(filter).catch(() => 0),
@@ -951,9 +1564,99 @@ async function registerClipBoardPost(ctx) {
     boardMessage,
     transcription,
     totalPosts,
+    boardEmbed,
+    mp3Path,
+    postChannel,
   } = ctx;
   const gid = String(guildId || guild?.id || "").trim();
   const uid = String(requesterId || "").trim();
+  // Nuovo flusso: un solo send (file + embed + bottoni). Evita edit che toglie clip.mp3.
+  if (mp3Path && postChannel?.send && boardEmbed) {
+    if (isRepostDisabledInGuild(gid) || !gid || !uid) {
+      return { ok: false };
+    }
+    const authorLabel = accountUsername(requester) || "Utente";
+    const doc = await GuildRepost.create({
+      guildId: gid,
+      reposterUserId: uid,
+      sourceAuthorId: uid,
+      sourceChannelId: String(postChannel.id),
+      sourceMessageId: "pending",
+      content: String(transcription || "").trim(),
+      attachmentUrl: "",
+      mediaFiles: [],
+      authorUsername: authorLabel,
+      authorAvatarUrl: guildMemberDisplayAvatarUrlDynamic(requester, { size: 512 }) || "",
+      boardChannelId: String(postChannel.id),
+      boardMessageId: "",
+      totalPosts: Number(totalPosts) || 0,
+    }).catch(() => null);
+    if (!doc?._id) return { ok: false };
+
+    const repostId = String(doc._id);
+    const components = buildBoardMessageComponents(repostId, {
+      _id: repostId,
+      boardKind: "clip",
+      reposterUserId: uid,
+      sourceChannelId: String(postChannel.id),
+      sourceMessageId: "pending",
+      boardChannelId: String(postChannel.id),
+      boardMessageId: "",
+      mediaFiles: [{ url: "", name: "clip.mp3" }],
+    });
+
+    const attachment = new AttachmentBuilder(mp3Path, { name: "clip.mp3" });
+    const boardMsg = await postChannel
+      .send({
+        files: [attachment],
+        embeds: [boardEmbed],
+        components,
+        allowedMentions: { users: [uid] },
+      })
+      .catch((err) => {
+        global.logger?.warn?.("[clip] board send:", err?.message || err);
+        return null;
+      });
+
+    if (!boardMsg?.id) {
+      await GuildRepost.deleteOne({ _id: doc._id }).catch(() => null);
+      return { ok: false };
+    }
+
+    let mp3Url = "";
+    let mp3Name = "clip.mp3";
+    for (const att of boardMsg.attachments?.values() || []) {
+      const url = String(att?.url || "").trim();
+      if (!url) continue;
+      const name = String(att?.name || "").trim();
+      const ct = String(att?.contentType || "").toLowerCase();
+      if (name.toLowerCase() === "clip.mp3" || ct.startsWith("audio/")) {
+        mp3Url = url;
+        mp3Name = name || "clip.mp3";
+        break;
+      }
+    }
+
+    await timedRepostQuery(
+      GuildRepost.updateOne(
+        { _id: doc._id },
+        {
+          $set: {
+            sourceChannelId: String(postChannel.id),
+            sourceMessageId: String(boardMsg.id),
+            boardChannelId: String(postChannel.id),
+            boardMessageId: String(boardMsg.id),
+            mediaFiles: mp3Url ? [{ url: mp3Url, name: mp3Name }] : [],
+          },
+        },
+      ),
+      "clip board update",
+    ).catch(() => null);
+
+    return { ok: true, repostId, boardMessage: boardMsg };
+  }
+
+  // Legacy: messaggio già inviato → aggiungi bottoni senza togliere gli allegati.
   const cid = String(boardChannelId || "").trim();
   const mid = String(boardMessage?.id || "").trim();
   if (isRepostDisabledInGuild(gid) || !gid || !uid || !cid || !mid || !boardMessage) {
@@ -994,22 +1697,68 @@ async function registerClipBoardPost(ctx) {
 
   if (!doc?._id) return { ok: false };
   const repostId = String(doc._id);
-  await boardMessage.edit({ components: [buildRepostaButtonRow(repostId)] }).catch(() => null);
-  return { ok: true, repostId };
+  const components = buildBoardMessageComponents(repostId, {
+    _id: repostId,
+    boardKind: "clip",
+    reposterUserId: uid,
+    sourceChannelId: cid,
+    sourceMessageId: mid,
+    boardChannelId: cid,
+    boardMessageId: mid,
+    mediaFiles: [{ url: mp3Url, name: mp3Name }],
+  });
+  await editBoardMessageKeepAttachments(boardMessage, { components });
+  return { ok: true, repostId, boardMessage };
+}
+
+function resolveRepostPreviewImageUrl(row) {
+  const direct = String(row?.attachmentUrl || "").trim();
+  if (direct && !direct.startsWith("attachment://")) return direct;
+  for (const file of serializableMediaFiles(row?.mediaFiles)) {
+    if (isImageAttachmentMeta(file.name)) return file.url;
+  }
+  return "";
+}
+
+function formatMyRepostPreview(row, boardUrl = "") {
+  const text = String(row?.content || "").trim();
+  if (text) {
+    return text.length > 80 ? `${text.slice(0, 79)}…` : text;
+  }
+  const jump = String(boardUrl || "").trim();
+  const link = (label) => (jump ? `[${label}](${jump})` : label);
+  const imageUrl = resolveRepostPreviewImageUrl(row);
+  if (imageUrl) {
+    const isGif = /\.gif(\?|$)/i.test(imageUrl);
+    return `🖼️ ${link(isGif ? "GIF" : "Immagine")}`;
+  }
+  const files = serializableMediaFiles(row?.mediaFiles);
+  if (files.some((file) => isAudioAttachmentMeta(file.name))) {
+    return `🎵 ${link("Clip audio")}`;
+  }
+  if (files.length) {
+    const name = files[0].name || "Allegato";
+    return `📎 ${link(name)}`;
+  }
+  return "";
 }
 
 module.exports = {
   REPOST_BTN_PREFIX,
   REPOST_SRC_PREFIX,
+  REPOST_REMOVE_PREFIX,
+  MYREPOST_DEL_PREFIX,
   REPOST_COLOR,
   REPOST_DISABLED_MESSAGE,
   isRepostDisabledInGuild,
   createRepostFromMessage,
   handleRepostaButton,
+  handleRepostRemoveButton,
   sendRepostRoulette,
   listRepostsByUser,
   messageJumpUrl,
   buildRepostaButtonRow,
+  buildBoardMessageComponents,
   buildRepostaSourceButtonRow,
   buildAckRepostaComponents,
   extractRepostPayload,
@@ -1020,4 +1769,16 @@ module.exports = {
   prepareRepostSendMedia,
   fetchAttachmentBuilderFromUrl,
   MIN_AUDIO_ATTACHMENT_BYTES,
+  resolveRepostPreviewImageUrl,
+  formatMyRepostPreview,
+  isClipRepostDoc,
+  deleteUserRepostEntry,
+  syncBoardMessageComponents,
+  syncBoardMessageComponentsDetailed,
+  syncAllBoardRepostButtons,
+  clearOrphanBoardPointers,
+  parseRepostRemoveButton,
+  isRepostRemoveButton,
+  parseMyRepostDeleteButton,
+  isMyRepostDeleteButton,
 };

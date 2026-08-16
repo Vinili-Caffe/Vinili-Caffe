@@ -1,5 +1,6 @@
 const { PLB_MODE_PREFIX, PLB_NAV_PREFIX, buildPartnerLeaderboardPayload } = require("../Utils/Partner/partnerLeaderboardRuntime");
 const { partnersChatPartnerCommandDeniedReplyContent, schedulePartnersDeniedDeleteReply } = require("../Utils/Partner/partnersChatChannelUtils");
+const { safePanelMessageUpdate } = require("../../shared/discord/replyRuntime");
 
 function match(interaction) {
   const id = String(interaction?.customId || "");
@@ -31,11 +32,7 @@ async function execute(interaction) {
     mode = modeRaw === "settimanale" ? "settimanale" : "totale";
   }
   const payload = await buildPartnerLeaderboardPayload(interaction.client, guild, mode, 1);
-  if (interaction.deferred || interaction.replied) {
-    await interaction.editReply(payload).catch(() => interaction.followUp({ ...payload, flags: 1 << 6 }).catch(() => {}));
-  } else {
-    await interaction.update(payload).catch(async () => await interaction.reply(payload).catch(() => {}));
-  }
+  await safePanelMessageUpdate(interaction, payload);
   return true;
 }
 

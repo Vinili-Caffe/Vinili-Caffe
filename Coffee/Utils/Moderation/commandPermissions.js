@@ -39,6 +39,12 @@ function normalizeRoleList(roleIds) {
   return roleIds.map((value) => resolveRoleReference(value)).filter(Boolean);
 }
 
+function asRequiredRoles(roles) {
+  if (roles == null) return null;
+  const list = normalizeRoleList(Array.isArray(roles) ? roles : [roles]);
+  return Array.isArray(list) && list.length ? list : null;
+}
+
 function resolveChannelReference(value) {
   if (value == null) return null;
   const raw = String(value).trim();
@@ -399,7 +405,7 @@ function evaluateComponentPolicy(interaction, policy) {
       return {
         allowed: false,
         reason: "not_owner",
-        requiredRoles: policy.roles || null,
+        requiredRoles: asRequiredRoles(policy.roles),
         ownerId,
       };
     }
@@ -411,7 +417,7 @@ function evaluateComponentPolicy(interaction, policy) {
       return {
         allowed: false,
         reason: "not_owner",
-        requiredRoles: policy.roles || null,
+        requiredRoles: asRequiredRoles(policy.roles),
         ownerId: ownerId || null,
       };
     }
@@ -474,7 +480,7 @@ async function checkButtonPermission(interaction) {
       return {
         allowed: false,
         reason: "stanza_actor",
-        requiredRoles: policy?.roles || null,
+        requiredRoles: asRequiredRoles(policy?.roles),
         ownerId: null,
       };
     }
@@ -485,7 +491,7 @@ async function checkButtonPermission(interaction) {
       return {
         allowed: false,
         reason: "missing_role",
-        requiredRoles: policy.roles,
+        requiredRoles: asRequiredRoles(policy.roles),
         ownerId: null,
       };
     }
@@ -493,7 +499,7 @@ async function checkButtonPermission(interaction) {
       return {
         allowed: false,
         reason: "missing_role",
-        requiredRoles: policy.roles,
+        requiredRoles: asRequiredRoles(policy.roles),
         ownerId: null,
       };
     }
@@ -502,7 +508,7 @@ async function checkButtonPermission(interaction) {
   return {
     allowed: true,
     reason: null,
-    requiredRoles: policy?.roles || null,
+    requiredRoles: asRequiredRoles(policy?.roles),
     ownerId: null,
   };
 }
@@ -550,7 +556,7 @@ async function checkStringSelectPermission(interaction) {
       return {
         allowed: false,
         reason: "missing_role",
-        requiredRoles: policy.roles,
+        requiredRoles: asRequiredRoles(policy.roles),
         ownerId: null,
       };
     }
@@ -558,7 +564,7 @@ async function checkStringSelectPermission(interaction) {
       return {
         allowed: false,
         reason: "missing_role",
-        requiredRoles: policy.roles,
+        requiredRoles: asRequiredRoles(policy.roles),
         ownerId: null,
       };
     }
@@ -567,7 +573,7 @@ async function checkStringSelectPermission(interaction) {
   return {
     allowed: true,
     reason: null,
-    requiredRoles: policy?.roles || null,
+    requiredRoles: asRequiredRoles(policy?.roles),
     ownerId: null,
   };
 }
@@ -615,7 +621,7 @@ async function checkModalPermission(interaction) {
       return {
         allowed: false,
         reason: "missing_role",
-        requiredRoles: policy.roles,
+        requiredRoles: asRequiredRoles(policy.roles),
         ownerId: null,
       };
     }
@@ -623,7 +629,7 @@ async function checkModalPermission(interaction) {
       return {
         allowed: false,
         reason: "missing_role",
-        requiredRoles: policy.roles,
+        requiredRoles: asRequiredRoles(policy.roles),
         ownerId: null,
       };
     }
@@ -632,7 +638,7 @@ async function checkModalPermission(interaction) {
   return {
     allowed: true,
     reason: null,
-    requiredRoles: policy?.roles || null,
+    requiredRoles: asRequiredRoles(policy?.roles),
     ownerId: null,
   };
 }
@@ -650,9 +656,9 @@ function getPrefixRequiredRoles(commandName, subcommandName = null) {
 }
 
 function buildGlobalPermissionDeniedEmbed(requiredRoleIds = [], entityLabel = "comando", customDescription = null, guild = null) {
-  let roles = Array.isArray(requiredRoleIds) ? requiredRoleIds.filter(Boolean) : [];
+  let roles = normalizeRoleList(Array.isArray(requiredRoleIds) ? requiredRoleIds : []);
   if (guild?.roles?.cache) {
-    roles = roles.filter((id) => guild.roles.cache.has(id));
+    roles = roles.filter((id) => guild.roles.cache.has(String(id)));
   }
   const rolesText = roles.length
     ? roles.map((id) => `<@&${id}>`).join(", ")
@@ -676,22 +682,33 @@ function buildGlobalPermissionDeniedEmbed(requiredRoleIds = [], entityLabel = "c
   return embed;
 }
 
-function buildGlobalChannelDeniedEmbed(allowedChannelIds = [], entityLabel = "comando") {
-  const channels = Array.isArray(allowedChannelIds)
-    ? allowedChannelIds.filter(Boolean).map(String)
-    : [];
-  const channelsText = channels.length
-    ? channels.map((id) => `<#${id}>`).join(", ")
-    : "<:VC_Attention:1482534443632558151> Nessun canale configurato.";
+function buildGlobalChannelDeniedEmbed(allowedChannelIds = [], entityLabel = "comando", viewer = null) {
+  const { formatVisibleChannelMentionsList } = require("../../../shared/discord/visibleChannelMentions");
+  const rawIds = Array.isArray(allowedChannelIds) ? allowedChannelIds : [];
+  const channelsText = formatVisibleChannelMentionsList(rawIds, viewer, {
+    sep: ", ",
+    emptyFallback: "",
+  });
+  const hasVisibleChannels = Boolean(channelsText);
 
   const embed = new EmbedBuilder()
     .setColor("#6f4e37")
     .setTitle("<:VC_Lock:1482526739044368476> **Non hai i permessi**")
     .setDescription(`<:VC_Lock:1482526739044368476> Questo ${entityLabel} è disponibile solo in canali specifici.`);
-  if (channels.length > 0) {
+  if (hasVisibleChannels) {
     embed.addFields({
       name: "<a:VC_Rocket:1468544312475123753> **Per sbloccarlo:**",
       value: `<a:VC_Arrow:1482706699365257397> Usa il comando in uno dei seguenti canali: ${channelsText}`,
+    });
+  } else if (rawIds.some((id) => /^\d{5,30}$/.test(String(id || "").trim()))) {
+    embed.addFields({
+      name: "<a:VC_Rocket:1468544312475123753> **Per sbloccarlo:**",
+      value: "<a:VC_Arrow:1482706699365257397> Usa il comando in un canale consentito (quelli a cui hai accesso).",
+    });
+  } else {
+    embed.addFields({
+      name: "<a:VC_Rocket:1468544312475123753> **Per sbloccarlo:**",
+      value: "<:VC_Attention:1482534443632558151> Nessun canale configurato.",
     });
   }
   return embed;
@@ -704,4 +721,4 @@ function buildGlobalNotYourControlEmbed() {
     .setDescription("<:VC_Attention:1482534443632558151> Questo controllo non è associato al tuo comando.");
 }
 
-module.exports = { checkSlashPermission, checkPrefixPermission, checkButtonPermission, checkStringSelectPermission, checkModalPermission, getSlashRequiredRoles, getPrefixRequiredRoles, buildGlobalPermissionDeniedEmbed, buildGlobalChannelDeniedEmbed, buildGlobalNotYourControlEmbed, hasAnyRole };
+module.exports = { checkSlashPermission, checkPrefixPermission, checkButtonPermission, checkStringSelectPermission, checkModalPermission, getSlashRequiredRoles, getPrefixRequiredRoles, buildGlobalPermissionDeniedEmbed, buildGlobalChannelDeniedEmbed, buildGlobalNotYourControlEmbed, hasAnyRole, resolveRoleReference, normalizeRoleList };

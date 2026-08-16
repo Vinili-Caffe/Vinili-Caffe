@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8" />
+    <title>Redirect…</title>
+    <meta http-equiv="refresh" content="0;url=/appelli/?tipo=unmute" />
+    <link rel="canonical" href="/appelli/?tipo=unmute" />
+    <script>
+      (function () {
+        try {
+          var u = new URL("/appelli/", location.origin);
+          u.searchParams.set("tipo", "unmute");
+          location.replace(u.pathname + u.search);
+        } catch (e) {
+          location.replace("/appelli/?tipo=unmute");
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <p><a href="/appelli/?tipo=unmute">Vai agli appelli (unmute)</a></p>
+  </body>
+</html>

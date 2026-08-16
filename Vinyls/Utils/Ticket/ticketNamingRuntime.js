@@ -26,7 +26,7 @@ function resolveTicketRenamePrefix(currentName, ticketDoc, fallbackPanelConfig =
 
   const panelConfig = fallbackPanelConfig || ticketDoc;
   if (panelConfig) {
-    return `༄${String(panelConfig.emoji || "")}︲${String(panelConfig.name || "supporto")}᲼`;
+    return `༄${String(panelConfig.emoji || "")}︲${String(panelConfig.name || panelConfig.ticketType || "supporto")}᲼`;
   }
   return null;
 }

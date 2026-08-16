@@ -16,6 +16,7 @@ const KEYWORDS_PER_RULE = 1000;
 const KEYWORD_MAX_LEN = 60;
 const SYNC_DEBOUNCE_MS = 4000;
 const MAX_EXEMPT_CHANNELS = 50;
+const AUTOMOD_DEPLOY_CACHE_KEY = "discord-automod";
 let syncTimer = null;
 let lastSyncSignature = "";
 
@@ -488,6 +489,43 @@ function resolveExistingRuleForSpec(allRules, spec) {
   return null;
 }
 
+function serializeSpecForSignature(spec) {
+  return {
+    name: String(spec?.name || ""),
+    eventType: Number(spec?.eventType),
+    triggerType: Number(spec?.triggerType),
+    triggerMetadata: normalizeTriggerMetadata(spec?.triggerMetadata, spec?.triggerType),
+    actions: (spec?.actions || []).map((a) => ({
+      type: Number(a.type),
+      metadata: normalizeActionMetadata(a.metadata),
+    })),
+    enabled: Boolean(spec?.enabled),
+  };
+}
+
+function buildAutomodDesiredSignaturePayload(guild, options = {}) {
+  const exemptChannels = [...collectExemptChannelIds(guild)].sort();
+  const exemptRoles = [...filterGuildSnowflakeIds(guild, collectExemptRoleIds(guild), "role")].sort();
+  const specs = buildDesiredRuleSpecs({ ...options, guild });
+  return {
+    exemptChannels,
+    exemptRoles,
+    specs: specs.map(serializeSpecForSignature),
+  };
+}
+
+function allAutomodSpecsPresent(allRules, specs) {
+  const desiredNames = new Set(specs.map((s) => String(s.name)));
+  for (const spec of specs) {
+    if (!resolveExistingRuleForSpec(allRules, spec)) return false;
+  }
+  for (const rule of allRules) {
+    if (!String(rule?.name || "").startsWith(RULE_PREFIX)) continue;
+    if (!desiredNames.has(String(rule.name))) return false;
+  }
+  return true;
+}
+
 function rulePayloadMatches(rule, spec, exemptChannels, exemptRoles) {
   const meta = normalizeTriggerMetadata(
     rule.triggerMetadata,
@@ -544,6 +582,28 @@ async function syncGuildDiscordAutomodRules(guild, options = {}) {
   const exemptChannels = collectExemptChannelIds(guild);
   const exemptRoles = filterGuildSnowflakeIds(guild, collectExemptRoleIds(guild), "role");
   const specs = buildDesiredRuleSpecs({ ...options, guild });
+  const signaturePayload = buildAutomodDesiredSignaturePayload(guild, options);
+  const forceSync = options.force === true;
+  const { isCommandDeployRequired, markCommandDeployComplete } = require("../../../shared/runtime/commandDeployCache");
+  const deployCheck = isCommandDeployRequired(
+    AUTOMOD_DEPLOY_CACHE_KEY,
+    { guildId },
+    signaturePayload,
+  );
+  if (!forceSync && !deployCheck.required && allAutomodSpecsPresent(allRules, specs)) {
+    return {
+      ok: true,
+      skipped: true,
+      guildId,
+      total: specs.length,
+      satisfied: specs.length,
+      managed: managed.length,
+      created: 0,
+      updated: 0,
+      removed: 0,
+      failed: [],
+    };
+  }
   const desiredNames = new Set(specs.map((s) => s.name));
   let removed = 0;
   let created = 0;
@@ -652,6 +712,9 @@ async function syncGuildDiscordAutomodRules(guild, options = {}) {
     }
   }
   const ok = failed.length === 0 && specsSatisfied >= specs.length;
+  if (ok) {
+    markCommandDeployComplete(AUTOMOD_DEPLOY_CACHE_KEY, { guildId }, deployCheck.hash);
+  }
   return {
     ok,
     removed,

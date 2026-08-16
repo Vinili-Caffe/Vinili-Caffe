@@ -1,10 +1,16 @@
 const fs = require("fs");
 const fsp = require("fs/promises");
 const path = require("path");
-const { isMarkovEligibleChannel, listMarkovEligibleChannels, listMarkovEligibleThreads } = require("./markovChannelAccess");
+const {
+  isMarkovEligibleChannel,
+  listMarkovEligibleChannels,
+  listMarkovEligibleThreads,
+  getMarkovExcludedChannelIds,
+} = require("./markovChannelAccess");
 const { extractMessageImageUrls, extractMessageStickers } = require("./markovMediaUtils");
 const { looksLikeWrittenCommand, sanitizeMarkovCollectLine } = require("./markovCommandStyleService");
-const { isMarkovScamMessage, isMarkovScamText, filterScamLines } = require("../../../shared/moderation/markovScamFilter");
+const { isMarkovScamMessage } = require("../../../shared/moderation/markovScamFilter");
+const { isMarkovUnsafeText, filterUnsafeMarkovLines, isMarkovBotNoiseMessage } = require("../../../shared/moderation/markovTextSafety");
 
 const COFFEE_ROOT = path.join(__dirname, "..", "..");
 const trimTimers = new Map();
@@ -96,7 +102,8 @@ function passesEligibility(message, client, options = {}) {
 function hasCollectibleText(message, client) {
   const content = String(message?.content || "").trim();
   if (!content) return false;
-  if (isMarkovScamText(content)) return false;
+  if (isMarkovBotNoiseMessage(message)) return false;
+  if (isMarkovUnsafeText(content)) return false;
   if (getMarkovConfig(client).collectPrefixMessages !== false && looksLikeWrittenCommand(content)) {
     return Boolean(sanitizeMarkovCollectLine(client, content));
   }
@@ -120,6 +127,7 @@ function hasCollectibleStickers(message, client) {
 function isCollectibleMessage(message, client, options = {}) {
   if (!passesEligibility(message, client, options)) return false;
   if (isMarkovScamMessage(message)) return false;
+  if (isMarkovBotNoiseMessage(message)) return false;
   return hasCollectibleText(message, client) || hasCollectibleImages(message, client) || hasCollectibleStickers(message, client);
 }
 
@@ -153,7 +161,7 @@ async function readChannelLines(client, channelId, opts = {}) {
   const cleaned = !cleanLinks
     ? sliced
     : sliced.map((line) => line.replace(uriRe, "").replace(/\s+/g, " ").trim()).filter(Boolean);
-  return filterScamLines(cleaned);
+  return filterUnsafeMarkovLines(cleaned);
 }
 
 async function readChannelImages(client, channelId, opts = {}) {
@@ -350,7 +358,7 @@ function scheduleTrimChannelStickers(client, channelId) {
 async function appendMarkovLine(client, channelId, line) {
   const sanitized = sanitizeMarkovCollectLine(client, line);
   const normalized = normalizeMarkovLine(sanitized);
-  if (!normalized || isMarkovScamText(normalized)) return false;
+  if (!normalized || isMarkovUnsafeText(normalized)) return false;
   await ensureMessagesDir(client);
   const filePath = channelFilePath(client, channelId);
   if (!filePath) return false;
@@ -414,6 +422,29 @@ async function removeStickerFromGuildCorpus(client, stickerId) {
       await writeChannelStickers(client, channelId, next);
     } else {
       const filePath = channelStickersFilePath(client, channelId);
+      if (filePath && fs.existsSync(filePath)) {
+        await fsp.unlink(filePath).catch(() => {});
+      }
+    }
+    changed = true;
+  }
+  return changed;
+}
+
+async function removeImageFromGuildCorpus(client, imageUrl) {
+  const target = String(imageUrl || "").trim();
+  if (!target) return false;
+  await ensureImagesDir(client);
+  const channelIds = await listStoredChannelIds(client, "images");
+  let changed = false;
+  for (const channelId of channelIds) {
+    const images = await readChannelImages(client, channelId);
+    const next = images.filter((url) => String(url || "").trim() !== target);
+    if (next.length === images.length) continue;
+    if (next.length) {
+      await writeChannelImages(client, channelId, next);
+    } else {
+      const filePath = channelImagesFilePath(client, channelId);
       if (filePath && fs.existsSync(filePath)) {
         await fsp.unlink(filePath).catch(() => {});
       }
@@ -499,26 +530,35 @@ async function backfillMarkovCorpus(client) {
 }
 
 function startMarkovBackfill(client) {
-  void purgeScamCorpusFromDisk(client).catch((err) => {
-    global.logger?.warn?.("[MARKOV] scam corpus purge failed:", err?.message || err);
+  void purgeUnsafeCorpusFromDisk(client).catch((err) => {
+    global.logger?.warn?.("[MARKOV] unsafe corpus purge failed:", err?.message || err);
   });
   void backfillMarkovCorpus(client).catch((err) => {
     global.logger?.warn?.("[MARKOV] backfill failed:", err?.message || err);
   });
 }
 
-async function purgeScamCorpusFromDisk(client) {
+async function purgeUnsafeCorpusFromDisk(client) {
   if (!isMarkovEnabled(client)) return { files: 0, removed: 0 };
   await ensureMessagesDir(client);
+  const excludedChannels = getMarkovExcludedChannelIds(client?.config || {});
   const channelIds = await listStoredChannelIds(client, "messages");
   let files = 0;
   let removed = 0;
   for (const channelId of channelIds) {
     const filePath = channelFilePath(client, channelId);
     if (!filePath || !fs.existsSync(filePath)) continue;
+    if (excludedChannels.has(String(channelId))) {
+      const raw = await fsp.readFile(filePath, "utf8").catch(() => "");
+      const lines = raw.split("\n").map((line) => line.trim()).filter(Boolean);
+      await fsp.unlink(filePath).catch(() => {});
+      files += 1;
+      removed += lines.length;
+      continue;
+    }
     const raw = await fsp.readFile(filePath, "utf8").catch(() => "");
     const lines = raw.split("\n").map((line) => line.trim()).filter(Boolean);
-    const filtered = filterScamLines(lines);
+    const filtered = filterUnsafeMarkovLines(lines);
     if (filtered.length === lines.length) continue;
     files += 1;
     removed += lines.length - filtered.length;
@@ -529,9 +569,13 @@ async function purgeScamCorpusFromDisk(client) {
     }
   }
   if (removed > 0) {
-    global.logger?.info?.(`[MARKOV] scam corpus purge: removed ${removed} line(s) from ${files} file(s)`);
+    global.logger?.info?.(`[MARKOV] unsafe corpus purge: removed ${removed} line(s) from ${files} file(s)`);
   }
   return { files, removed };
 }
 
-module.exports = { COFFEE_ROOT, getMarkovConfig, isMarkovEnabled, resolveMessagesDir, resolveImagesDir, resolveStickersDir, channelFilePath, channelImagesFilePath, channelStickersFilePath, normalizeMarkovLine, readChannelLines, readChannelImages, readChannelStickers, readGuildCorpus, readGuildImages, readGuildStickers, listStoredChannelIds, appendMarkovLine, appendMarkovImages, appendMarkovStickers, removeStickerFromGuildCorpus, ingestMarkovMessage, ingestMarkovMessageCreate, backfillMarkovCorpus, startMarkovBackfill, purgeScamCorpusFromDisk, ensureMessagesDir, ensureImagesDir, ensureStickersDir, trimChannelFile, trimChannelImages, trimChannelStickers, scheduleTrimChannelFile, scheduleTrimChannelImages, scheduleTrimChannelStickers, extractMessageImageUrls, extractMessageStickers };
+async function purgeScamCorpusFromDisk(client) {
+  return purgeUnsafeCorpusFromDisk(client);
+}
+
+module.exports = { COFFEE_ROOT, getMarkovConfig, isMarkovEnabled, resolveMessagesDir, resolveImagesDir, resolveStickersDir, channelFilePath, channelImagesFilePath, channelStickersFilePath, normalizeMarkovLine, readChannelLines, readChannelImages, readChannelStickers, readGuildCorpus, readGuildImages, readGuildStickers, listStoredChannelIds, appendMarkovLine, appendMarkovImages, appendMarkovStickers, removeStickerFromGuildCorpus, removeImageFromGuildCorpus, ingestMarkovMessage, ingestMarkovMessageCreate, backfillMarkovCorpus, startMarkovBackfill, purgeScamCorpusFromDisk, purgeUnsafeCorpusFromDisk, ensureMessagesDir, ensureImagesDir, ensureStickersDir, trimChannelFile, trimChannelImages, trimChannelStickers, scheduleTrimChannelFile, scheduleTrimChannelImages, scheduleTrimChannelStickers, extractMessageImageUrls, extractMessageStickers };

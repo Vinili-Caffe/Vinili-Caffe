@@ -1,6 +1,16 @@
 const { AuditLogEvent, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionsBitField, } = require("discord.js");
 const IDs = require("../Utils/Config/ids");
-const { getGuildChannelCached, getClientChannelCached } = require("../Utils/Interaction/interactionEntityCache");
+const { getGuildChannelCached } = require("../Utils/Interaction/interactionEntityCache");
+
+function isViniliFullFeatureGuild(guildId) {
+  try {
+    const { isViniliFullFeatureGuild: check } = require("../MultiGuild/core/guildFeatureScope");
+    return check(guildId);
+  } catch {
+    return true;
+  }
+}
+
 const DEDUPE_TTL_MS = 15 * 1000;
 const AUDIT_LOOKBACK_MS = 120 * 1000;
 const AUDIT_FETCH_LIMIT = 10;
@@ -25,8 +35,7 @@ function formatAuditActor(actor) {
 async function resolveLogChannel(guild) {
   const channelId = IDs.channels.activityLogs;
   if (!guild || !channelId) return null;
-  const client = guild.client;
-  return guild.channels.cache.get(channelId) || (await getGuildChannelCached(guild, channelId)) || (client ? (await getClientChannelCached(client, channelId)) : null);
+  return guild.channels.cache.get(channelId) || (await getGuildChannelCached(guild, channelId));
 }
 
 function getDedupeStore(client) {
@@ -91,6 +100,7 @@ module.exports = {
     try {
       const guild = channel?.guild;
       if (!guild || !channel?.isTextBased?.()) return;
+      if (!isViniliFullFeatureGuild(guild.id)) return;
 
       const entry = await fetchRecentPinEntryWithRetry(guild, channel.id);
       if (!entry) return;

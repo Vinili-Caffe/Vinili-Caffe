@@ -13,13 +13,13 @@ const DOC_OWNER_ID = "__event__";
 const DEFAULT_CONFIG = Object.freeze({
   enabled: true,
   onlyDuringHogwartsEvent: true,
-  windowStartHour: 14,
+  windowStartHour: 12,
   windowStartMinute: 0,
-  windowEndHour: 22,
-  windowEndMinute: 0,
+  windowEndHour: 23,
+  windowEndMinute: 59,
   durationMs: 60 * 60 * 1000,
-  maxOccurrencesPerDay: 3,
-  minGapBetweenMs: 30 * 60 * 1000,
+  maxOccurrencesPerDay: 6,
+  minGapBetweenMs: 90 * 60 * 1000,
   channelId: "",
 });
 const loopState = new WeakSet();
@@ -109,7 +109,7 @@ function resolveCfg(client) {
     windowEndHour,
     windowEndMinute,
     durationMs,
-    maxOccurrencesPerDay: safeInt(o.maxOccurrencesPerDay, DEFAULT_CONFIG.maxOccurrencesPerDay, 1, 12),
+    maxOccurrencesPerDay: safeInt(o.maxOccurrencesPerDay, DEFAULT_CONFIG.maxOccurrencesPerDay, 1, 24),
     minGapBetweenMs: safeInt(o.minGapBetweenMs, DEFAULT_CONFIG.minGapBetweenMs, 0, 6 * 60 * 60 * 1000),
     channelId,
   };
@@ -148,6 +148,18 @@ function normalizeSlot(raw) {
     disclaimerSent: Boolean(raw?.disclaimerSent),
     endSent: Boolean(raw?.endSent),
   };
+}
+
+function applyConfiguredSlotDuration(slots, durationMs) {
+  const dur = Math.max(60_000, Math.floor(Number(durationMs) || 0));
+  if (!dur) return { slots: normalizeSlots(slots), changed: false };
+  let changed = false;
+  const next = normalizeSlots(slots).map((slot) => {
+    const endAtMs = slot.startAtMs + dur;
+    if (endAtMs !== slot.endAtMs) changed = true;
+    return { ...slot, endAtMs };
+  });
+  return { slots: next, changed };
 }
 
 function normalizeSlots(rawSlots) {
@@ -219,24 +231,53 @@ async function loadDayDoc(guildId, dateKey) {
     .catch(() => null);
 }
 
-async function ensureDayPlan(client, guildId, dateKey, cfg) {
-  const existing = await loadDayDoc(guildId, dateKey);
-  const version = Number(existing?.rawWebhook?.version || 0);
-  let slots = normalizeSlots(existing?.rawWebhook?.slots);
-  if (!slots.length) slots = migrateLegacyDayDoc(existing?.rawWebhook);
-  const nowMs = Date.now();
-  const allPastAndMissed = slots.length > 0 && slots.every((s) => nowMs >= s.endAtMs && !s.disclaimerSent);
-  const hasUpcoming = slots.some((s) => s.endAtMs > nowMs);
-  if (version >= 2 && slots.length && !allPastAndMissed) return { slots, dateKey, guildId };
-  if (version >= 2 && slots.length && allPastAndMissed && !hasUpcoming) {
-    slots = generateDaySlots(dateKey, cfg, nowMs);
-    if (!slots.length) return { slots: [], dateKey, guildId };
-  } else if (version >= 2 && slots.length) {
-    return { slots, dateKey, guildId };
+function slotsOverlapWithGap(a, b, gapMs) {
+  const gap = Math.max(0, Number(gapMs) || 0);
+  return !(a.startAtMs >= b.endAtMs + gap || b.startAtMs >= a.endAtMs + gap);
+}
+
+/** Aggiunge slot futuri se il piano giornaliero è sotto maxOccurrences (es. dopo aumento config). */
+function topUpDaySlots(existingSlots, dateKey, cfg, nowMs = Date.now()) {
+  const current = normalizeSlots(existingSlots);
+  if (current.length >= cfg.maxOccurrencesPerDay) return { slots: current, changed: false };
+  const generated = generateDaySlots(dateKey, cfg, nowMs);
+  if (!generated.length) return { slots: current, changed: false };
+  const gapMs = Math.max(0, Number(cfg.minGapBetweenMs) || 0);
+  const merged = current.slice();
+  let changed = false;
+  for (const slot of generated) {
+    if (merged.length >= cfg.maxOccurrencesPerDay) break;
+    if (slot.endAtMs <= nowMs) continue;
+    if (merged.some((s) => slotsOverlapWithGap(s, slot, gapMs))) continue;
+    if (merged.some((s) => Math.abs(s.startAtMs - slot.startAtMs) < 60_000)) continue;
+    merged.push({
+      startAtMs: slot.startAtMs,
+      endAtMs: slot.endAtMs,
+      disclaimerSent: false,
+      endSent: false,
+    });
+    changed = true;
   }
-  if (slots.length && findActiveSlot(slots, nowMs)) return { slots, dateKey, guildId };
-  if (!slots.length || allPastAndMissed) slots = generateDaySlots(dateKey, cfg, nowMs);
-  if (!slots.length) return { slots: [], dateKey, guildId };
+  return { slots: normalizeSlots(merged), changed };
+}
+
+/** Se maxOccurrences scende, elimina gli slot futuri in eccesso (non quelli già partiti). */
+function pruneExcessFutureSlots(existingSlots, cfg, nowMs = Date.now()) {
+  const all = normalizeSlots(existingSlots);
+  const started = all.filter((s) => s.startAtMs <= nowMs);
+  const future = all.filter((s) => s.startAtMs > nowMs);
+  const budget = Math.max(0, Number(cfg.maxOccurrencesPerDay) || 0);
+  const futureBudget = Math.max(0, budget - started.length);
+  const keptFuture = future.slice(0, futureBudget);
+  const next = normalizeSlots([...started, ...keptFuture]);
+  const changed =
+    next.length !== all.length ||
+    next.some((slot, idx) => slot.startAtMs !== all[idx]?.startAtMs || slot.endAtMs !== all[idx]?.endAtMs);
+  return { slots: next, changed };
+}
+
+async function persistDaySlots(guildId, dateKey, slots) {
+  if (!slots.length) return;
   const lastEndAtMs = slots[slots.length - 1].endAtMs;
   await SiteDocument.findOneAndUpdate(
     {
@@ -269,6 +310,53 @@ async function ensureDayPlan(client, guildId, dateKey, cfg) {
     },
     { upsert: true, new: true, setDefaultsOnInsert: true },
   ).catch(() => null);
+}
+
+async function ensureDayPlan(client, guildId, dateKey, cfg) {
+  const existing = await loadDayDoc(guildId, dateKey);
+  const version = Number(existing?.rawWebhook?.version || 0);
+  let slots = normalizeSlots(existing?.rawWebhook?.slots);
+  if (!slots.length) slots = migrateLegacyDayDoc(existing?.rawWebhook);
+  const nowMs = Date.now();
+  const durationSynced = applyConfiguredSlotDuration(slots, cfg.durationMs);
+  slots = durationSynced.slots;
+  let dirty = durationSynced.changed;
+  const allPastAndMissed = slots.length > 0 && slots.every((s) => nowMs >= s.endAtMs && !s.disclaimerSent);
+  const hasUpcoming = slots.some((s) => s.endAtMs > nowMs);
+
+  if (version >= 2 && slots.length && !allPastAndMissed) {
+    const pruned = pruneExcessFutureSlots(slots, cfg, nowMs);
+    if (pruned.changed) {
+      slots = pruned.slots;
+      dirty = true;
+    }
+    const topped = topUpDaySlots(slots, dateKey, cfg, nowMs);
+    if (topped.changed) {
+      slots = topped.slots;
+      dirty = true;
+    }
+    if (dirty) await persistDaySlots(guildId, dateKey, slots);
+    return { slots, dateKey, guildId };
+  }
+  if (version >= 2 && slots.length && allPastAndMissed && !hasUpcoming) {
+    slots = generateDaySlots(dateKey, cfg, nowMs);
+    if (!slots.length) return { slots: [], dateKey, guildId };
+  } else if (version >= 2 && slots.length) {
+    if (dirty) await persistDaySlots(guildId, dateKey, slots);
+    return { slots, dateKey, guildId };
+  }
+  if (slots.length && findActiveSlot(slots, nowMs)) {
+    const topped = topUpDaySlots(slots, dateKey, cfg, nowMs);
+    if (topped.changed) {
+      slots = topped.slots;
+      dirty = true;
+    }
+    if (dirty) await persistDaySlots(guildId, dateKey, slots);
+    return { slots, dateKey, guildId };
+  }
+  if (!slots.length || allPastAndMissed) slots = generateDaySlots(dateKey, cfg, nowMs);
+  if (!slots.length) return { slots: [], dateKey, guildId };
+  await persistDaySlots(guildId, dateKey, slots);
   return { slots, dateKey, guildId };
 }
 
@@ -277,7 +365,10 @@ function findActiveSlot(slots, nowMs) {
 }
 
 function findLiveEffectSlot(slots, nowMs) {
-  return slots.find((slot) => slot.disclaimerSent && nowMs >= slot.startAtMs && nowMs < slot.endAtMs) || null;
+  // Resta "live" finché l'end notice non è stato inviato (anche oltre endAtMs se #chat è occupata).
+  return (
+    slots.find((slot) => slot?.disclaimerSent && !slot.endSent && nowMs >= slot.startAtMs) || null
+  );
 }
 
 function buildDisclaimerEmbed(endAtMs) {
@@ -377,6 +468,20 @@ async function markSlotSkipped(guildId, dateKey, startAtMs) {
   ).catch(() => null);
 }
 
+async function markSlotStarted(guildId, dateKey, startAtMs, endAtMs) {
+  await SiteDocument.updateOne(
+    { docType: DOC_TYPE, guildId: normalizeId(guildId), userId: DOC_OWNER_ID, dedupeKey: normalizeId(dateKey) },
+    {
+      $set: {
+        "rawWebhook.slots.$[slot].disclaimerSent": true,
+        "rawWebhook.slots.$[slot].endAtMs": Math.floor(Number(endAtMs) || 0),
+        status: "active",
+      },
+    },
+    { arrayFilters: [{ "slot.startAtMs": Math.floor(Number(startAtMs) || 0) }] },
+  ).catch(() => null);
+}
+
 async function getBurrobirraWindow(client, nowMs = Date.now()) {
   if (!eventGateOpen(client, nowMs)) return null;
   const cfg = resolveCfg(client);
@@ -439,7 +544,6 @@ async function refreshBurrobirraActiveCache(client, nowMs = Date.now()) {
 async function runBurrobirraTick(client) {
   if (!client) return;
   await refreshBurrobirraActiveCache(client);
-  const window = await getBurrobirraWindow(client).catch(() => null);
   if (!eventGateOpen(client)) return;
   const cfg = resolveCfg(client);
   const guildId = normalizeId(IDs.guilds?.main || "");
@@ -449,29 +553,55 @@ async function runBurrobirraTick(client) {
   const plan = await ensureDayPlan(client, guildId, dateKey, cfg);
   if (!plan?.slots?.length) return;
 
+  const romeNow = getRomeParts(new Date(nowMs));
+  const nowMinuteOfDay = romeNow.hour * 60 + romeNow.minute;
+  const { endMin: dayWindowEndMin } = getWindowMinuteBounds(cfg);
+  const withinDayWindow = nowMinuteOfDay <= dayWindowEndMin;
+  const { isMainChatMinigameChannelBusy } = require("./minigameService");
+  const chatBusy = isMainChatMinigameChannelBusy();
+  const hasLiveEffect = plan.slots.some((s) => s.disclaimerSent && !s.endSent && nowMs >= s.startAtMs);
+
   for (const slot of plan.slots) {
-    if (nowMs >= slot.endAtMs && !slot.disclaimerSent && !slot.endSent) {
-      slot.disclaimerSent = true;
-      slot.endSent = true;
-      await markSlotSkipped(guildId, dateKey, slot.startAtMs);
-      continue;
-    }
-    if (!slot.disclaimerSent && nowMs >= slot.startAtMs && nowMs < slot.endAtMs) {
-      const { isMainChatMinigameChannelBusy } = require("./minigameService");
-      if (isMainChatMinigameChannelBusy()) continue;
-      const sent = await publishDisclaimer(client, cfg, slot.endAtMs);
-      if (sent) {
-        slot.disclaimerSent = true;
-        await markSlotFlag(guildId, dateKey, slot.startAtMs, "disclaimerSent", "active");
-      }
-    }
     if (slot.disclaimerSent && !slot.endSent && nowMs >= slot.endAtMs) {
+      // Non chiudere / annunciare a metà minigame: aspetta che #chat sia libera.
+      if (chatBusy) continue;
       const sent = await publishEndNotice(client, cfg);
       if (sent) {
         slot.endSent = true;
         await markSlotFlag(guildId, dateKey, slot.startAtMs, "endSent", "completed");
       }
+      continue;
     }
+
+    if (slot.disclaimerSent) continue;
+
+    if (nowMs < slot.startAtMs) continue;
+
+    // Non parte sopra un minigame in corso.
+    if (chatBusy) {
+      if (withinDayWindow) continue;
+      slot.disclaimerSent = true;
+      slot.endSent = true;
+      await markSlotSkipped(guildId, dateKey, slot.startAtMs);
+      continue;
+    }
+
+    // Un solo effetto live alla volta.
+    if (hasLiveEffect) continue;
+
+    // Durata piena da quando parte davvero.
+    const endAtMs = nowMs + cfg.durationMs;
+    const sent = await publishDisclaimer(client, cfg, endAtMs);
+    if (sent) {
+      slot.disclaimerSent = true;
+      slot.endAtMs = endAtMs;
+      await markSlotStarted(guildId, dateKey, slot.startAtMs, endAtMs);
+      break;
+    }
+    global.logger?.warn?.("[BURROBIRRA EFFECT] publishDisclaimer fallita", {
+      channelId: cfg.channelId,
+      startAtMs: slot.startAtMs,
+    });
   }
 }
 

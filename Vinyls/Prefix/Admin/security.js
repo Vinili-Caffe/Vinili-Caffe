@@ -227,8 +227,11 @@ async function buildStatusEmbeds(guild) {
         `- [E] Strict Member Role Addition: \`${quarantine.strictMemberRoleAddition ? "Enabled" : "Disabled"}\``,
         "",
         "[6] Runtime:",
-        `- Panic **${anti?.panicActive ? "ON" : "OFF"}**, JoinRaid **${raid?.raidActive ? "ON" : "OFF"}**, AutoMod Panic **${autoPanic.active ? "ON" : "OFF"}**`,
-        `- JoinLock **${sec.joinLockActive ? "ON" : "OFF"}**, CmdLock **${sec.commandLockActive ? "ON" : "OFF"}**`,
+        `- Panic **${anti?.panicActive ? "ON" : "OFF"}**`,
+        `- JoinRaid **${raid?.raidActive ? "ON" : "OFF"}**`,
+        `- AutoMod Panic **${autoPanic.active ? "ON" : "OFF"}**`,
+        `- JoinLock **${sec.joinLockActive ? "ON" : "OFF"}**`,
+        `- CmdLock **${sec.commandLockActive ? "ON" : "OFF"}**`,
         `- Warned roles: ${warnedRoles}`,
       ].join("\n"),
     );
@@ -238,8 +241,12 @@ async function buildStatusEmbeds(guild) {
     .setTitle("Join Raid")
     .setDescription(
       [
-        "[1] Status:        [2] Action:        [3] Warned Roles:",
-        `- \`${raid?.enabled ? "Enabled" : "Disabled"}\`        - \`${formatActionLabel(raid?.config?.triggerAction, "ban")}\`        - ${raidWarnedRoles}`,
+        "[1] Status:",
+        `- \`${raid?.enabled ? "Enabled" : "Disabled"}\``,
+        "[2] Action:",
+        `- \`${formatActionLabel(raid?.config?.triggerAction, "ban")}\``,
+        "[3] Warned Roles:",
+        `- ${raidWarnedRoles}`,
         "",
         "[4] Details:",
         `- [X] Lock Commands While Raid: \`${raid?.config?.lockCommands ? "Enabled" : "Disabled"}\``,

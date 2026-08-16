@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="refresh" content="0;url=/tickets/" />
+    <link rel="canonical" href="/tickets/" />
+    <title>Reindirizzamento…</title>
+    <script>
+      (function () {
+        try {
+          var u = new URL("/tickets/", location.origin);
+          if (location.hash) u.hash = location.hash;
+          if (location.search) u.search = location.search;
+          location.replace(u.href);
+        } catch (e) {
+          location.replace("/tickets/");
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <p><a href="/tickets/">Vai ai ticket</a></p>
+  </body>
+</html>

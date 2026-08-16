@@ -7,7 +7,7 @@
     <meta name="description" content="{{SUGGESTIONS_META_DESCRIPTION}}" />
     <meta name="author" content="{{SITE_NAME}}" />
     <meta name="robots" content="index, follow" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta property="og:type" content="website" />
     <meta property="og:title" content="{{SUGGESTIONS_OG_TITLE}}" />
     <meta property="og:description" content="{{SUGGESTIONS_META_DESCRIPTION}}" />
@@ -54,7 +54,8 @@
             else {
               var t = localStorage.getItem("vc_discord_access_token");
               var e = Number(localStorage.getItem("vc_discord_expires_at") || 0);
-              session = Boolean(t && e && Date.now() < e);
+              // Allinea a getToken(): senza expires_at la sessione resta valida.
+              session = Boolean(t && (!e || Date.now() < e));
             }
           } catch (x) {}
           if (session) {
@@ -134,8 +135,7 @@
               <summary class="vc-snav-summary"><span>Richieste</span><i
                   class="fa fa-chevron-down vc-snav-chev text-[0.65rem] opacity-80" aria-hidden="true"></i></summary>
               <div class="vc-snav-panel">
-                <a class="vc-snav-row" href="{{RICHIESTE_UNBAN_URL}}"><span class="vc-snav-row-ico" aria-hidden="true"><i
-                      class="fa fa-unlock"></i></span><span>Unban</span></a>
+                <a class="vc-snav-row" href="{{RICHIESTE_UNBAN_URL}}"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-balance-scale"></i></span><span data-i18n="nav.appeals">Appelli</span></a>
                 <a class="vc-snav-row" href="{{RICHIESTE_CANDIDATURE_URL}}"><span class="vc-snav-row-ico"
                     aria-hidden="true"><i class="fa fa-file-text-o"></i></span><span>Candidature</span></a>
                 <a class="vc-snav-row vc-snav-row--active" href="{{SUGGESTIONS_PAGE_URL}}" aria-current="page"><span class="vc-snav-row-ico"
@@ -196,33 +196,29 @@
             <div class="vc-support-page-hero__icon vc-support-page-hero__icon--start vc-reviews-hero-star vc-suggestions-hero-bulb mb-5" aria-hidden="true">
               <i class="fa fa-lightbulb-o"></i>
             </div>
-            <p class="text-xs font-semibold uppercase tracking-[0.28em] text-[#f7ecdf]/80">Suggerimenti</p>
+            <p class="text-xs font-semibold uppercase tracking-[0.28em] text-[#f7ecdf]/80" data-i18n="sugg.kicker">Suggerimenti</p>
             <h1 id="vc-suggestions-hero-heading" class="mt-4 text-4xl font-extrabold tracking-tight text-white sm:text-5xl lg:text-6xl">
-              Le tue idee per <span class="text-[#f7ecdf]">{{SITE_NAME}}</span>
+              <span data-i18n="sugg.heroBefore">Le tue idee per </span><span class="text-[#f7ecdf]">{{SITE_NAME}}</span>
             </h1>
-            <p class="mt-5 max-w-2xl text-lg leading-8 text-slate-200/88 sm:text-xl">
-              Hai un’idea in mente che potrebbe contribuire alla crescita del server? Condividila argomentando e interagendo con la community!
-            </p>
+            <p class="mt-5 max-w-2xl text-lg leading-8 text-slate-200/88 sm:text-xl" data-i18n="sugg.lead">Hai un’idea in mente che potrebbe contribuire alla crescita del server? Condividila argomentando e interagendo con la community!</p>
           </div>
           <div class="grid gap-4">
             <div class="rounded-[1.6rem] border border-white/10 bg-slate-950/25 p-5 backdrop-blur">
-              <p class="text-xs font-semibold uppercase tracking-[0.22em] text-[#f7ecdf]/78">Come funziona</p>
+              <p class="text-xs font-semibold uppercase tracking-[0.22em] text-[#f7ecdf]/78" data-i18n="sugg.how">Come funziona</p>
               <ul class="mt-4 space-y-3 text-sm leading-6 text-slate-100/90">
                 <li class="flex gap-3">
-                  <i class="fa fa-paper-plane mt-0.5 text-[#f7ecdf]" aria-hidden="true"></i>
-                  <span>Premi su “Nuovo suggerimento” ed esponi nella maniera più dettagliata possibile il tuo pensiero.</span>
+                  <i class="fa fa-paper-plane text-[#f7ecdf]" aria-hidden="true"></i>
+                  <span data-i18n="sugg.how1">Premi su “Nuovo suggerimento” ed esponi nella maniera più dettagliata possibile il tuo pensiero.</span>
                 </li>
                 <li class="flex gap-3">
-                  <i class="fa fa-comments mt-0.5 text-[#f7ecdf]" aria-hidden="true"></i>
-                  <span>Commenta le proposte di altri utenti mentre sono in fase valutazione.</span>
+                  <i class="fa fa-comments text-[#f7ecdf]" aria-hidden="true"></i>
+                  <span data-i18n="sugg.how2">Commenta le proposte di altri utenti mentre sono in fase valutazione.</span>
                 </li>
               </ul>
             </div>
             <div class="rounded-[1.6rem] border border-white/10 bg-white/[0.04] p-5 backdrop-blur">
-              <p class="text-xs font-semibold uppercase tracking-[0.22em] text-slate-300/70">Linee guida</p>
-              <p class="mt-3 text-sm leading-6 text-slate-200/85">
-                Il rispetto è la base per costruire una community. Mantieni dunque un comportamento consono e non promuovere altri progetti.
-              </p>
+              <p class="text-xs font-semibold uppercase tracking-[0.22em] text-slate-300/70" data-i18n="sugg.guidelines">Linee guida</p>
+              <p class="mt-3 text-sm leading-6 text-slate-200/85" data-i18n="sugg.guidelinesBody">Il rispetto è la base per costruire una community. Mantieni dunque un comportamento consono e non promuovere altri progetti.</p>
             </div>
           </div>
         </div>

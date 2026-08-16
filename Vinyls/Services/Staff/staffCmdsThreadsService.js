@@ -9,7 +9,7 @@ const {
   getPartnerPmDailyThreadId,
   setPartnerPmDailyThreadId,
 } = require("../../Utils/Global/globalSettingsBucket");
-const { addAllRoleMembersToThread, addUserIdsToThread, hydrateGuildMembersForRolePings } = require("../../Utils/Discord/threadRoleMembers");
+const { addUserIdsToThread, hydrateGuildMembersForRolePings, collectHumanMemberIdsWithRole } = require("../../Utils/Discord/threadRoleMembers");
 const { setStaffCmdsThreadIdsCache } = require("../../Utils/Staff/staffCmdsChannelUtils");
 const {
   resolveStaffThreadQualifyingRoleIds,
@@ -17,12 +17,15 @@ const {
   memberQualifiesForStaffThreadSpec,
   alwaysAccessStaffThreadRoleIds,
 } = require("../../Utils/Staff/staffThreadQualification");
+const { getResocontoReviewerUserIdsForSegment } = require("../../Utils/Staff/resocontoAccess");
 
 const STAFF_CMDS_THREAD_SPECS = [
   {
     key: "pm",
     name: "Comandi Partner Manager",
     roleIds: () => [IDs.roles?.PartnerManager].filter(Boolean).map(String),
+    // Revisore resoconto PM (anche senza ruolo Partner Manager).
+    reviewerUserIds: () => getResocontoReviewerUserIdsForSegment("pm"),
     introLines: (mentions) => [
       `${mentions} **Comandi Partner Manager**`,
       "Partnership, classifica PM, blacklist, pannello profilo PM e comandi dedicati vanno usati solo qui.",
@@ -116,11 +119,26 @@ async function populateThreadMembers(thread, guild, spec, opts = {}) {
     await hydrateGuildMembersForRolePings(guild, logTag);
   }
   const totals = { added: 0, failed: 0, skipped: 0 };
+  const allowedUserIds = new Set();
   for (const roleId of roleIds) {
-    const stats = await addAllRoleMembersToThread(thread, guild, roleId, { logTag, hydrate: false });
-    totals.added += stats.added;
-    totals.failed += stats.failed;
-    totals.skipped += stats.skipped;
+    const memberIds = await collectHumanMemberIdsWithRole(guild, roleId, { logTag, hydrate: false });
+    for (const userId of memberIds) {
+      let member = guild.members.cache.get(userId) || null;
+      if (!member && String(spec.key) === "high") {
+        member = await guild.members.fetch(userId).catch(() => null);
+      }
+      if (member && !memberQualifiesForSpec(member, spec)) {
+        totals.skipped += 1;
+        continue;
+      }
+      allowedUserIds.add(String(userId));
+    }
+  }
+  if (allowedUserIds.size) {
+    const userStats = await addUserIdsToThread(thread, [...allowedUserIds], { logTag });
+    totals.added += userStats.added;
+    totals.failed += userStats.failed;
+    totals.skipped += userStats.skipped;
   }
   const reviewerUserIds = spec.reviewerUserIds?.() || [];
   if (reviewerUserIds.length) {
@@ -129,6 +147,15 @@ async function populateThreadMembers(thread, guild, spec, opts = {}) {
     totals.failed += userStats.failed;
     totals.skipped += userStats.skipped;
   }
+  // Togli chi non dovrebbe più esserci (Director con HS, ecc.).
+  try {
+    const { pruneUnauthorizedStaffThreadMembers } = require("../../Utils/Staff/staffManagedThreadsGuard");
+    await pruneUnauthorizedStaffThreadMembers(thread, {
+      zone: "cmds",
+      spec,
+      memberQualifiesForSpec,
+    }, null);
+  } catch (_) {}
   return totals;
 }
 

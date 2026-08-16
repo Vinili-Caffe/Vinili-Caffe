@@ -3,7 +3,23 @@ const IDs = require("../Config/ids");
 const { getClientChannelCached, getClientGuildCached, getGuildChannelCached } = require("../Interaction/interactionEntityCache");
 const { embedThumbnailAvatarUrl } = require("../Discord/guildDiscordIdentity");
 const RESOLUTION_CACHE_TTL_MS = 30_000;
+const EMBED_FIELD_MAX = 1024;
 const resolutionCache = new Map();
+
+function truncateEmbedField(value, max = EMBED_FIELD_MAX) {
+  const s = String(value ?? "");
+  if (s.length <= max) return s;
+  return `${s.slice(0, Math.max(0, max - 1))}…`;
+}
+
+/** Campo comando in codeblock, sempre ≤ 1024 (limite Discord embed field). */
+function formatCommandContentField(content) {
+  const raw = String(content ?? "");
+  const overhead = 6; // ```…```
+  const maxInner = Math.max(0, EMBED_FIELD_MAX - overhead);
+  const inner = raw.length <= maxInner ? raw : `${raw.slice(0, Math.max(0, maxInner - 1))}…`;
+  return `\`\`\`${inner}\`\`\``;
+}
 
 function getCacheKey(kind, primaryId, secondaryId) {
   return `${kind}:${String(primaryId || "none")}:${String(secondaryId || "none")}`;
@@ -58,9 +74,9 @@ async function logCommandUsage(client, { channelId, serverName, user, userId, co
   })
     .setTitle(`${client.user.username} - Log Comandi`)
     .addFields(
-      { name: "<a:VC_Channel:1482534583944871996> Server:", value: `${serverName}` },
-      { name: "<:VC_Bot:1482526555174604964> Comando:", value: `\`\`\`${content}\`\`\`` },
-      { name: "<:member_role_icon:1330530086792728618> Utente:", value: `${user} · \`${userId}\`` },
+      { name: "<a:VC_Channel:1482534583944871996> Server:", value: truncateEmbedField(serverName || "—") },
+      { name: "<:VC_Bot:1482526555174604964> Comando:", value: formatCommandContentField(content) },
+      { name: "<:member_role_icon:1330530086792728618> Utente:", value: truncateEmbedField(`${user} · \`${userId}\``) },
     )
     .setTimestamp();
   await channel.send({ embeds: [embed] }).catch((err) => {

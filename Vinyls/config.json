@@ -7,7 +7,7 @@
     "activityName": "viniliecaffe.it | .gg/viniliecaffe | +help",
     "streamUrl": "",
     "forbiddenSectionEvent": {
-      "enabled": true,
+      "enabled": false,
       "startDate": "2026-06-20T12:00:00",
       "endDate": "2026-09-01T10:00:00",
       "bookEmoji": "📖"
@@ -21,7 +21,12 @@
       "enabled": true,
       "startDate": "2026-08-01",
       "endDate": "2026-08-31",
-      "multiplier": 2
+      "multiplier": 2,
+      "announce": {
+        "enabled": true,
+        "channelId": "1481660281032675510",
+        "content": "# <:VC_EXP:1482534670896730143> EVENTO DOUBLE EXP <:VC_EXP:1482534670896730143>  \n\n> <a:VC_Calendar:1482706208149475358> Nella giornata di sabato 1 Agosto , al posto della consueta serata film, il server ospiterà un evento per tutto il mese.\n\n## <:VC_PinkQuestionMark:1471892611026391306> Come funziona?\n<:VC_HarryPotter:1508772790634025030> **A partire dalle ore 12**, sul nostro server Discord, si attiverà un **moltiplicatore globale** del __2x__. Esso funzionerà naturalmente sia in vocale che in testuale.\n\n> <:VC_Mention:1482526855289634997> Seguici sui social per bonus improvvisi:\n- [Instagram](https://www.instagram.com/viniliecaffe)\n- [TikTok](https://www.tiktok.com/@viniliecaffe)\n\n<a:VC_Ping:1482694298687246377>︲<@&1532732097398046801> . <@&1531247315841585162> . @everyone"
+      }
     }
   ],
   "developers": [
@@ -73,7 +78,9 @@
     "reviewsPageUrl": "https://top.gg/discord/servers/832911595289169920/reviews",
     "reminderMessage": null,
     "statsDigestChannelId": null,
-    "statsDigestOnStartup": false
+    "statsDigestOnStartup": false,
+    "voteRecoveryOnStartup": true,
+    "voteRecoveryLookbackHours": 72
   },
   "discadiaVoteReminder": {
     "enabled": true,
@@ -243,9 +250,40 @@
   "threadVote": {
     "enabled": true,
     "threadIds": ["1493625991363432489"],
+    "namedThreads": [
+      {
+        "parentChannelId": "1442569115972669541",
+        "threadName": "Suggerimenti TAGS",
+        "reactionEmoji": "<a:VC_Vote:1482535223001485473>",
+        "preventDuplicates": false
+      }
+    ],
     "reactionEmoji": "<a:VC_Vote:1482535223001485473>",
     "preventDuplicates": true,
     "duplicateLookbackLimit": 100
+  },
+  "staffProofRequestThreads": {
+    "enabled": true,
+    "guildId": "1462458562507964584",
+    "channelId": "1526900797936242718",
+    "channelIds": [
+      "1526900797936242718",
+      "1528439672219500734"
+    ],
+    "mainGuildId": "1329080093599076474",
+    "staffRoleIds": ["1442568894349840435"],
+    "threadName": "Prove richiesta",
+    "prompt": "Manda qui le prove",
+    "autoArchiveDuration": 10080
+  },
+  "mainStaffAlertThreads": {
+    "enabled": true,
+    "guildId": "1462458562507964584",
+    "channelId": "1526909652967751741",
+    "mainGuildId": "1329080093599076474",
+    "staffRoleIds": ["1442568904311570555", "1442568901887000618"],
+    "threadName": "Richiesta staff",
+    "autoArchiveDuration": 10080
   },
   "tts": {
     "enabled": true,
@@ -337,14 +375,14 @@
       "windowEndHour": 23,
       "windowEndMinute": 59,
       "durationMs": 3600000,
-      "maxOccurrencesPerDay": 3,
-      "minGapBetweenMs": 7200000
+      "maxOccurrencesPerDay": 6,
+      "minGapBetweenMs": 5400000
     },
     "hogwartsHouseBurrobirraEffect": {
       "enabled": true,
       "onlyDuringHogwartsEvent": true,
-      "spawnChancePercent": 2.5,
-      "durationMs": 2700000,
+      "spawnChancePercent": 2,
+      "durationMs": 3600000,
       "minGapBetweenMs": 7200000,
       "rollJitterMaxMs": 5400000,
       "avoidRepeatHouses": 2,
@@ -533,13 +571,13 @@
       "unsortedHousePoints": 25
     },
     "memoryEmoji": {
-      "displayMs": 8000,
+      "displayMs": 5000,
       "durationMs": 180000,
       "rewardExp": 250
     },
     "hogwartsMemoryEmoji": {
       "startDate": "2026-06-29T14:00:00",
-      "displayMs": 8000,
+      "displayMs": 5000,
       "durationMs": 180000,
       "rewardExp": 250,
       "housePoints": 10,
@@ -559,6 +597,8 @@
       "minLetters": 5,
       "rewardExp": 150,
       "unsortedHousePoints": 25,
+      "rotationWeight": 3,
+      "cooldownMs": 600000,
       "tiers": [
         { "weight": 1, "targetBricks": 30, "minPlayers": 3, "housePoints": 50 },
         { "weight": 1, "targetBricks": 40, "minPlayers": 4, "housePoints": 100 },
@@ -607,12 +647,13 @@
     }
   },
   "hogwartsForbiddenBooks": {
+    "enabled": false,
     "startDate": "2026-06-20T12:00:00",
     "endDate": "2026-09-01T10:00:00",
     "rewardHousePoints": 250,
     "rewardGaleoni": 100,
     "channelDecor": {
-      "enabled": true,
+      "enabled": false,
       "nameChannelCount": 2,
       "bookEmoji": "📖"
     },
@@ -641,16 +682,30 @@
     "enabled": true,
     "eventKey": "premi_la_react_2026",
     "startDate": "2026-07-11T12:00:00",
-    "endDate": "2026-08-11T10:00:00",
+    "endDate": "2026-08-11T12:00:00",
     "emoji": "⚡",
     "rewardGaleoni": 3,
     "rewardHousePoints": 10,
     "minIntervalMs": 3600000,
     "maxIntervalMs": 3600000,
-    "activeDurationMs": 600000,
+    "activeDurationMs": 1800000,
+    "hintBeforeExpiryMs": 300000,
+    "minChatMessagesBetweenRounds": 10,
     "maxPerDay": 24,
     "minCandidateAgeMs": 120000,
-    "maxCandidateAgeMs": 21600000
+    "maxCandidateAgeMs": 3600000,
+    "spawnMinOffsetMs": 180000,
+    "spawnMaxOffsetMs": 3120000,
+    "channelRepeatCooldown": 12,
+    "maxCandidatesPerChannel": 5,
+    "randomChannelSpawn": true,
+    "messageHistoryLimit": 100,
+    "fallbackMessageLimit": 10,
+    "spawnChannelAttempts": 24,
+    "anyMemberReadableChannel": true,
+    "sortedOnly": true,
+    "nightQuietStartHour": 0,
+    "nightQuietEndHour": 8
   },
   "hogwartsSpellListHunt": {
     "enabled": true,
@@ -679,15 +734,34 @@
   "twitchLiveAlerts": {
     "enabled": true,
     "pollIntervalSec": 90,
+    "reannounceCooldownSec": 2700,
     "streamVoiceChannelId": "1522558362288521226",
     "streamers": [
       {
         "login": "d1unkk",
         "displayName": "d1unkk",
         "discordUserId": "610531025470095390",
+        "deleteAnnouncementOnOffline": true,
         "voiceNameOn": "༄🟢︲Streaming D1unkk: ON",
         "voiceNameOff": "༄🔴︲Streaming D1unkk: OFF",
         "voiceStatusOn": "Sono in live su https://www.twitch.tv/d1unkk"
+      }
+    ]
+  },
+  "kickLiveAlerts": {
+    "enabled": true,
+    "pollIntervalSec": 90,
+    "reannounceCooldownSec": 2700,
+    "streamVoiceChannelId": "1522558362288521226",
+    "streamers": [
+      {
+        "slug": "d1uk",
+        "displayName": "d1uk",
+        "discordUserId": "610531025470095390",
+        "deleteAnnouncementOnOffline": true,
+        "voiceNameOn": "༄🟢︲Streaming D1unkk: ON",
+        "voiceNameOff": "༄🔴︲Streaming D1unkk: OFF",
+        "voiceStatusOn": "Sono in live su https://kick.com/d1uk"
       }
     ]
   },
@@ -704,20 +778,20 @@
     "monthly": { "cooldownMs": 2592000000, "reward": 200, "streakStepPct": 8, "streakMaxBonusPct": 80, "streakGraceMs": 5356800000 },
     "rob": {
       "cooldownMs": 10800000,
-      "successChance": 30,
+      "successChance": 25,
       "minTargetBalance": 25,
       "minSteal": 5,
-      "maxSteal": 35,
-      "failPenalty": 10,
+      "maxSteal": 30,
+      "failPenalty": 15,
       "targetProtectionMs": 43200000
     },
     "roulette": { "cooldownMs": 5000, "numberPayout": 36, "simplePayout": 2 },
     "rps": { "cooldownMs": 5000, "winPayout": 2 },
-    "slots": { "cooldownMs": 5000, "pairPayout": 2, "triplePayout": 5, "jackpotPayout": 10 },
+    "slots": { "cooldownMs": 5000, "pairPayout": 3, "triplePayout": 12, "jackpotPayout": 55 },
     "blackjack": { "cooldownMs": 5000, "winPayout": 2, "blackjackPayout": 2.5 },
     "coinflip": { "cooldownMs": 5000, "winPayout": 2 },
-    "tris": { "cooldownMs": 5000, "winPayout": 2, "botRandomPct": 35 },
-    "scratch": { "cooldownMs": 5000, "pairPayout": 2, "triplePayout": 8, "jackpotPayout": 15 },
+    "tris": { "enabled": false, "cooldownMs": 5000, "winPayout": 2, "botRandomPct": 35 },
+    "scratch": { "cooldownMs": 5000, "pairPayout": 0, "triplePayout": 2, "quadPayout": 3.5, "fivePayout": 7, "jackpotPayout": 15 },
     "shop": { "enabled": false, "purchaseCooldownMs": 3000 },
     "bridge": {
       "enabled": false,
@@ -730,10 +804,12 @@
   "galeoniEconomy": {
     "enabled": true,
     "previewMode": false,
-    "startDate": "2026-08-10T12:00:00",
+    "startDate": "2026-08-10T14:00:00",
+    "channelId": "1505910037665808425",
+    "writerRoleId": "1507000390493798511",
     "minBet": 5,
-    "maxBet": 250,
-    "dailyBetCap": 1000,
+    "maxBet": 0,
+    "dailyBetCap": 0,
     "work": { "cooldownMs": 3600000, "minReward": 8, "maxReward": 24, "streakStepPct": 1, "streakMaxBonusPct": 10, "streakGraceMs": 10800000 },
     "daily": { "cooldownMs": 86400000, "reward": 50, "streakStepPct": 3, "streakMaxBonusPct": 30, "streakGraceMs": 172800000 },
     "weekly": { "cooldownMs": 604800000, "reward": 250, "streakStepPct": 5, "streakMaxBonusPct": 50, "streakGraceMs": 1209600000 },
@@ -743,17 +819,17 @@
       "successChance": 35,
       "minTargetBalance": 80,
       "minSteal": 15,
-      "maxSteal": 120,
-      "failPenalty": 25,
+      "maxSteal": 90,
+      "failPenalty": 35,
       "targetProtectionMs": 43200000
     },
     "roulette": { "cooldownMs": 5000, "numberPayout": 36, "simplePayout": 2 },
     "rps": { "cooldownMs": 5000, "winPayout": 2 },
-    "slots": { "cooldownMs": 5000, "pairPayout": 2, "triplePayout": 5, "jackpotPayout": 10 },
+    "slots": { "cooldownMs": 5000, "pairPayout": 3, "triplePayout": 12, "jackpotPayout": 55 },
     "blackjack": { "cooldownMs": 5000, "winPayout": 2, "blackjackPayout": 2.5 },
     "coinflip": { "cooldownMs": 5000, "winPayout": 2 },
-    "tris": { "cooldownMs": 5000, "winPayout": 2, "botRandomPct": 35 },
-    "scratch": { "cooldownMs": 5000, "pairPayout": 2, "triplePayout": 8, "jackpotPayout": 15 }
+    "tris": { "enabled": false, "cooldownMs": 5000, "winPayout": 2, "botRandomPct": 35 },
+    "scratch": { "cooldownMs": 5000, "pairPayout": 0, "triplePayout": 2, "quadPayout": 3.5, "fivePayout": 7, "jackpotPayout": 15 }
   },
   "categoryNumbering": {
     "enabled": true,
@@ -762,7 +838,8 @@
     "minDigits": 2,
     "separator": " ",
     "channelCategoryIds": [
-      "1442569076902989844"
+      "1442569076902989844",
+      "1519315215102120147"
     ]
   },
   "publicVoiceHubs": {
@@ -829,9 +906,9 @@
       "timezone": "Europe/Rome"
     },
     "duel": {
-      "cooldownMs": 180000,
+      "cooldownMs": 1800000,
       "voldemortPortraitFile": "voldemort.png",
-      "vsBot": { "galeoni": 10, "housePoints": 15, "minPlayerWinChance": 22, "maxPlayerWinChance": 62 },
+      "vsBot": { "galeoni": 10, "housePoints": 15, "minPlayerWinChance": 30, "maxPlayerWinChance": 76 },
       "vsUser": { "galeoni": 10, "housePoints": 15 }
     },
     "staffBypassUserIds": [],

@@ -57,7 +57,10 @@ async function resolveSanctionOutputChannel(guild, interaction, cmd) {
 }
 
 async function replyEphemeral(interaction, content) {
-  const payload = { content: String(content || "").slice(0, 2000), flags: PRIVATE_FLAG };
+  const { buildSimpleNoticePayload } = require("../Embeds/simpleNoticeEmbed");
+  const payload = buildSimpleNoticePayload(String(content || "").slice(0, 2000), interaction.guild, {
+    flags: PRIVATE_FLAG,
+  });
   try {
     if (!interaction.replied && !interaction.deferred) {
       await interaction.reply(payload);

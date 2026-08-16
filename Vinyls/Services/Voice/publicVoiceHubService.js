@@ -12,7 +12,10 @@ const HUB_LOBBY_SPEAK_FLAGS = [
   PermissionsBitField.Flags.Speak,
   PermissionsBitField.Flags.UseVAD,
   PermissionsBitField.Flags.Stream,
+  PermissionsBitField.Flags.UseEmbeddedActivities,
+  PermissionsBitField.Flags.UseExternalApps,
 ];
+const HUB_SPAWN_MEMBER_TEXT_FLAGS = [PermissionsBitField.Flags.SendMessages];
 
 const userCreateLocks = new Set();
 const hubCreateLocks = new Map();
@@ -132,12 +135,15 @@ function listHubGroupChannels(guild, hubChannel) {
 }
 
 function nextSpawnSuffixIndex(groupChannels, hubId) {
-  let max = 0;
+  const used = new Set();
   for (const ch of groupChannels) {
     if (String(ch.id) === String(hubId)) continue;
-    max = Math.max(max, parseVoiceSuffixIndex(ch.name));
+    const n = parseVoiceSuffixIndex(ch.name);
+    if (n > 0) used.add(n);
   }
-  return max + 1;
+  let i = 1;
+  while (used.has(i)) i += 1;
+  return i;
 }
 
 function resolveInsertSlot(hubChannel, guild, client) {
@@ -424,24 +430,68 @@ function hubLobbyRoleIds(guild) {
   return [...ids];
 }
 
-function mergeOverwriteSpeak(overwrite, allowSpeak) {
-  const allow = new PermissionsBitField(overwrite.allow?.bitfield ?? overwrite.allow ?? 0n);
-  const deny = new PermissionsBitField(overwrite.deny?.bitfield ?? overwrite.deny ?? 0n);
-  for (const flag of HUB_LOBBY_SPEAK_FLAGS) {
-    if (allowSpeak) {
-      deny.remove(flag);
-      allow.add(flag);
+function mergeOverwriteFlags(overwrite, flags, allow) {
+  const allowBits = new PermissionsBitField(overwrite.allow?.bitfield ?? overwrite.allow ?? 0n);
+  const denyBits = new PermissionsBitField(overwrite.deny?.bitfield ?? overwrite.deny ?? 0n);
+  for (const flag of flags) {
+    if (allow) {
+      denyBits.remove(flag);
+      allowBits.add(flag);
     } else {
-      allow.remove(flag);
-      deny.add(flag);
+      allowBits.remove(flag);
+      denyBits.add(flag);
     }
   }
   return {
     id: overwrite.id,
     type: overwrite.type,
-    allow: allow.bitfield,
-    deny: deny.bitfield,
+    allow: allowBits.bitfield,
+    deny: denyBits.bitfield,
   };
+}
+
+function mergeOverwriteSpeak(overwrite, allowSpeak) {
+  return mergeOverwriteFlags(overwrite, HUB_LOBBY_SPEAK_FLAGS, allowSpeak);
+}
+
+function mergeSpawnOverwriteForRole(overwrite, lobbyRoles) {
+  const id = String(overwrite.id);
+  let patched = lobbyRoles.has(id) ? mergeOverwriteSpeak(overwrite, true) : overwrite;
+  const memberRoleId = String(IDs.roles?.Member || "").trim();
+  if (memberRoleId && id === memberRoleId) {
+    patched = mergeOverwriteFlags(patched, HUB_SPAWN_MEMBER_TEXT_FLAGS, true);
+  }
+  return patched;
+}
+
+async function ensureSpawnedChannelMemberTextAccess(channel, guild) {
+  if (!channel?.permissionOverwrites?.cache || !channel.manageable) return;
+  const patch = {
+    SendMessages: true,
+    UseEmbeddedActivities: true,
+    UseExternalApps: true,
+  };
+  const targets = [];
+  const memberRoleId = String(IDs.roles?.Member || "").trim();
+  if (memberRoleId) targets.push(memberRoleId);
+  const everyoneId = String(guild?.roles?.everyone?.id || "").trim();
+  if (everyoneId) targets.push(everyoneId);
+  for (const roleId of targets) {
+    const existing = channel.permissionOverwrites.cache.get(roleId);
+    if (existing) {
+      await channel.permissionOverwrites.edit(roleId, patch).catch((err) => {
+        global.logger?.warn?.("[publicVoiceHub] spawn activity/text edit failed:", channel.id, err?.message || err);
+      });
+      continue;
+    }
+    if (roleId === memberRoleId) {
+      await channel.permissionOverwrites
+        .create(roleId, { type: OverwriteType.Role, ...patch })
+        .catch((err) => {
+          global.logger?.warn?.("[publicVoiceHub] spawn activity/text create failed:", channel.id, err?.message || err);
+        });
+    }
+  }
 }
 
 function hubOverwriteSpeakDenied(overwrite) {
@@ -455,23 +505,32 @@ function hubOverwriteSpeakDenied(overwrite) {
 
 function buildSpawnPermissionOverwrites(hubChannel, guild) {
   const lobbyRoles = new Set(hubLobbyRoleIds(guild));
+  const memberRoleId = String(IDs.roles?.Member || "").trim();
   const byId = new Map();
   for (const overwrite of copyPermissionOverwrites(hubChannel)) {
     byId.set(String(overwrite.id), overwrite);
   }
   const result = [];
   for (const overwrite of byId.values()) {
-    const id = String(overwrite.id);
-    result.push(lobbyRoles.has(id) ? mergeOverwriteSpeak(overwrite, true) : overwrite);
+    result.push(mergeSpawnOverwriteForRole(overwrite, lobbyRoles));
   }
   for (const roleId of lobbyRoles) {
     if (byId.has(roleId)) continue;
-    result.push({
+    let entry = {
       id: roleId,
       type: OverwriteType.Role,
-      allow: PermissionsBitField.Flags.Speak | PermissionsBitField.Flags.UseVAD | PermissionsBitField.Flags.Stream,
+      allow:
+        PermissionsBitField.Flags.Speak |
+        PermissionsBitField.Flags.UseVAD |
+        PermissionsBitField.Flags.Stream |
+        PermissionsBitField.Flags.UseEmbeddedActivities |
+        PermissionsBitField.Flags.UseExternalApps,
       deny: 0n,
-    });
+    };
+    if (memberRoleId && roleId === memberRoleId) {
+      entry = mergeOverwriteFlags(entry, HUB_SPAWN_MEMBER_TEXT_FLAGS, true);
+    }
+    result.push(entry);
   }
   return result;
 }
@@ -535,14 +594,25 @@ async function recoverPublicVoiceHubOnStartup(client) {
     for (const ch of listHubGroupChannels(guild, hub)) {
       if (!isHubGroupSpawnChannel(ch, hub, client)) continue;
       rememberSpawnedChannel(ch.id, hubId);
+      await ensureSpawnedChannelMemberTextAccess(ch, guild);
       spawned += 1;
-      if (countHumanMembers(ch) === 0) {
+      if ((await countHumanMembersResolved(ch)) === 0) {
         scheduleSpawnedChannelDelete(ch, client);
       }
     }
 
-    for (const member of hub.members.values()) {
-      if (member.user?.bot) continue;
+    // hub.members dipende dalla GuildMember cache (limitata): usare voiceStates.
+    const lobbyUserIds = [
+      ...new Set(
+        [...guild.voiceStates.cache.values()]
+          .filter((vs) => String(vs.channelId || "") === String(hubId))
+          .map((vs) => String(vs.id || "").trim())
+          .filter(Boolean),
+      ),
+    ];
+    for (const userId of lobbyUserIds) {
+      const member = await guild.members.fetch(userId).catch(() => null);
+      if (!member || member.user?.bot) continue;
       const oldState = buildRecoveryVoiceState(guild, member, null);
       const newState = buildRecoveryVoiceState(guild, member, hubId);
       await handlePublicVoiceHubJoin(oldState, newState, client);
@@ -568,8 +638,20 @@ function startPublicVoiceHubSetup(client) {
       await realignPublicVoiceHubGroupsOnStartup(client).catch((err) =>
         global.logger?.warn?.("[publicVoiceHub] realign failed:", err?.message || err),
       );
+      await sweepEmptySpawnedHubChannels(client).catch((err) =>
+        global.logger?.warn?.("[publicVoiceHub] empty sweep failed:", err?.message || err),
+      );
     })();
   });
+
+  if (!client.__publicVoiceHubEmptySweep) {
+    client.__publicVoiceHubEmptySweep = setInterval(() => {
+      sweepEmptySpawnedHubChannels(client).catch((err) => {
+        global.logger?.warn?.("[publicVoiceHub] empty sweep failed:", err?.message || err);
+      });
+    }, 60_000);
+    client.__publicVoiceHubEmptySweep.unref?.();
+  }
 }
 
 async function withHubCreateLock(hubId, fn) {
@@ -619,9 +701,88 @@ function isSpawnedHubChannel(channel, client) {
   return false;
 }
 
+function resolveVoiceStateUser(guild, vs) {
+  const member = vs?.member || guild?.members?.cache?.get?.(vs?.id);
+  const user = member?.user || guild?.client?.users?.cache?.get?.(vs?.id) || null;
+  return { member: member || null, user };
+}
+
+/**
+ * Conta umani in una vocale hub-spawn.
+ * Non conta bot. Voice state “orfani” (niente User/Member in cache) NON contano:
+ * altrimenti canali vuoti restano eterni (00/02) perché la delete non parte.
+ */
 function countHumanMembers(channel) {
-  if (!channel?.members) return 0;
-  return channel.members.filter((m) => !m.user?.bot).size;
+  const guild = channel?.guild;
+  const channelId = String(channel?.id || "");
+  if (!guild?.voiceStates?.cache || !channelId) return 0;
+  let n = 0;
+  for (const vs of guild.voiceStates.cache.values()) {
+    if (String(vs.channelId || "") !== channelId) continue;
+    const { member, user } = resolveVoiceStateUser(guild, vs);
+    if (user?.bot || member?.user?.bot) continue;
+    if (!user && !member) continue;
+    n += 1;
+  }
+  return n;
+}
+
+/** Come countHumanMembers, ma risolve i voice state senza member in cache. */
+async function countHumanMembersResolved(channel) {
+  const guild = channel?.guild;
+  const channelId = String(channel?.id || "");
+  if (!guild?.voiceStates?.cache || !channelId) return 0;
+  let n = 0;
+  for (const vs of [...guild.voiceStates.cache.values()]) {
+    if (String(vs.channelId || "") !== channelId) continue;
+    let { member, user } = resolveVoiceStateUser(guild, vs);
+    if (!member && vs?.id) {
+      member = await guild.members.fetch(vs.id).catch(() => null);
+      user = member?.user || user;
+    }
+    if (user?.bot || member?.user?.bot) continue;
+    if (!member && !user) continue;
+    // Dopo fetch: se non è più in questo canale, ignora.
+    const stillHere = String(member?.voice?.channelId || guild.voiceStates.cache.get(vs.id)?.channelId || "") === channelId;
+    if (!stillHere) continue;
+    n += 1;
+  }
+  return n;
+}
+
+function resolveMemberVoiceChannelId(guild, userId, member = null) {
+  const uid = String(userId || member?.id || "");
+  if (!uid) return "";
+  const fromCache = guild?.voiceStates?.cache?.get?.(uid);
+  if (fromCache?.channelId) return String(fromCache.channelId);
+  const fromMember = member?.voice?.channelId;
+  return fromMember ? String(fromMember) : "";
+}
+
+function memberStillInVoiceChannel(member, channelId, guild = null) {
+  const expected = String(channelId || "");
+  if (!expected) return false;
+  const current = resolveMemberVoiceChannelId(guild || member?.guild, member?.id, member);
+  return Boolean(current && current === expected);
+}
+
+function isUserDisconnectedVoiceError(err) {
+  const msg = String(err?.message || err || "").toLowerCase();
+  return msg.includes("not connected to voice") || msg.includes("target user is not connected");
+}
+
+async function resolveGuildMemberVoiceState(guild, member, userId) {
+  const uid = String(userId || member?.id || "");
+  if (!guild || !uid) return member || null;
+  const cached = guild.members.cache.get(uid) || member;
+  if (cached?.voice?.channelId) return cached;
+  return guild.members.fetch(uid).catch(() => cached || null);
+}
+
+async function cleanupUnusedSpawnedChannel(created, reason) {
+  if (!created?.id) return;
+  forgetSpawnedChannel(created.id);
+  await created.delete(reason).catch(() => {});
 }
 
 function scheduleSpawnedChannelDelete(channel, client) {
@@ -642,9 +803,17 @@ function scheduleSpawnedChannelDelete(channel, client) {
       forgetSpawnedChannel(channelId);
       return;
     }
-    if (countHumanMembers(fresh) > 0) return;
-    if (!fresh.manageable) return;
-    await fresh.delete("Vocale hub temporanea vuota").catch(() => {});
+    const humans = await countHumanMembersResolved(fresh);
+    if (humans > 0) return;
+    if (!fresh.manageable && !fresh.deletable) {
+      global.logger?.warn?.("[publicVoiceHub] empty spawn not deletable:", channelId, fresh.name);
+      return;
+    }
+    const deleted = await fresh.delete("Vocale hub temporanea vuota").then(() => true).catch((err) => {
+      global.logger?.warn?.("[publicVoiceHub] empty spawn delete failed:", channelId, err?.message || err);
+      return false;
+    });
+    if (!deleted) return;
     forgetSpawnedChannel(channelId);
     queueCategoryRenumber(client, guild.id);
   }, EMPTY_DELETE_DELAY_MS);
@@ -657,15 +826,24 @@ async function handlePublicVoiceHubJoin(oldState, newState, client) {
   if (!joinedId || !isPublicVoiceHubId(joinedId, client)) return;
 
   const guild = newState.guild;
-  const member = newState.member;
-  const hub = newState.channel;
-  if (!guild || !member || member.user?.bot || !hub?.isVoiceBased?.()) return;
+  if (!guild) return;
+  const uid = String(newState.id || newState.member?.id || "").trim();
+  if (!uid) return;
+
+  let member = newState.member || guild.members.cache.get(uid) || null;
+  if (!member) {
+    member = await guild.members.fetch(uid).catch(() => null);
+  }
+  const hub =
+    newState.channel ||
+    guild.channels.cache.get(joinedId) ||
+    (await guild.channels.fetch(joinedId).catch(() => null));
+  if (!member || member.user?.bot || !hub?.isVoiceBased?.()) return;
   if (!(await botCanManageVoiceHubs(guild))) {
     global.logger?.warn?.("[publicVoiceHub] bot missing ManageChannels/MoveMembers");
     return;
   }
 
-  const uid = String(member.id);
   if (userCreateLocks.has(uid)) return;
   userCreateLocks.add(uid);
 
@@ -678,6 +856,8 @@ async function handlePublicVoiceHubJoin(oldState, newState, client) {
       const nextIndex = nextSpawnSuffixIndex(group, joinedId);
       const spawnName = `${resolveHubSpawnBaseName(freshHub)}${toSuperscriptNumber(nextIndex, MIN_SUFFIX_DIGITS)}`;
       const position = resolveInsertSlot(freshHub, guild, client);
+
+      if (!memberStillInVoiceChannel(member, joinedId, guild)) return;
 
       const createOptions = {
         name: spawnName,
@@ -696,6 +876,8 @@ async function handlePublicVoiceHubJoin(oldState, newState, client) {
       });
       if (!created) return;
 
+      await ensureSpawnedChannelMemberTextAccess(created, guild);
+
       if (Number.isFinite(position) && Number(created.rawPosition) !== Number(position)) {
         await created.setPosition(position).catch((err) => {
           global.logger?.warn?.("[publicVoiceHub] setPosition failed:", err?.message || err);
@@ -704,13 +886,20 @@ async function handlePublicVoiceHubJoin(oldState, newState, client) {
 
       rememberSpawnedChannel(created.id, joinedId);
 
-      const moved = await member.voice.setChannel(created).then(() => true).catch((err) => {
-        global.logger?.warn?.("[publicVoiceHub] move failed:", err?.message || err);
+      const freshMember = await resolveGuildMemberVoiceState(guild, member, uid);
+      if (!memberStillInVoiceChannel(freshMember, joinedId, guild)) {
+        await cleanupUnusedSpawnedChannel(created, "Utente non più in lobby hub");
+        return;
+      }
+
+      const moved = await freshMember.voice.setChannel(created).then(() => true).catch((err) => {
+        if (!isUserDisconnectedVoiceError(err)) {
+          global.logger?.warn?.("[publicVoiceHub] move failed:", err?.message || err);
+        }
         return false;
       });
       if (!moved) {
-        forgetSpawnedChannel(created.id);
-        await created.delete("Move utente fallito").catch(() => {});
+        await cleanupUnusedSpawnedChannel(created, "Move utente fallito");
         return;
       }
 
@@ -731,14 +920,42 @@ async function handlePublicVoiceHubJoin(oldState, newState, client) {
 async function handlePublicVoiceHubEmpty(oldState, newState, client) {
   const leftId = String(oldState.channelId || "");
   if (!leftId || isPublicVoiceHubId(leftId, client)) return;
-
-  const channel = oldState.channel;
-  if (!channel?.isVoiceBased?.() || !isSpawnedHubChannel(channel, client)) return;
-
   if (String(newState.channelId || "") === leftId) return;
 
-  if (countHumanMembers(channel) > 0) return;
+  const guild = oldState.guild || newState.guild;
+  let channel = oldState.channel;
+  if (!channel?.isVoiceBased?.()) {
+    channel =
+      guild?.channels?.cache?.get(leftId) ||
+      (await guild?.channels?.fetch?.(leftId).catch(() => null));
+  }
+  if (!channel?.isVoiceBased?.() || !isSpawnedHubChannel(channel, client)) return;
+
+  if ((await countHumanMembersResolved(channel)) > 0) return;
   scheduleSpawnedChannelDelete(channel, client);
+}
+
+/** Sweep periodico: cancella spawn hub rimasti a 00/0x dopo leave persi / reload. */
+async function sweepEmptySpawnedHubChannels(client) {
+  if (client?.config?.publicVoiceHubs?.enabled === false) return 0;
+  const guildId = String(IDs.guilds?.main || "");
+  if (!guildId) return 0;
+  const guild = client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
+  if (!guild || !(await botCanManageVoiceHubs(guild))) return 0;
+
+  let queued = 0;
+  for (const hubId of getHubChannelIds(client)) {
+    const hub = guild.channels.cache.get(hubId) || (await guild.channels.fetch(hubId).catch(() => null));
+    if (!hub?.isVoiceBased?.()) continue;
+    for (const ch of listHubGroupChannels(guild, hub)) {
+      if (!isHubGroupSpawnChannel(ch, hub, client)) continue;
+      rememberSpawnedChannel(ch.id, hubId);
+      if ((await countHumanMembersResolved(ch)) > 0) continue;
+      scheduleSpawnedChannelDelete(ch, client);
+      queued += 1;
+    }
+  }
+  return queued;
 }
 
 module.exports = {
@@ -756,6 +973,7 @@ module.exports = {
   recoverPublicVoiceHubOnStartup,
   ensurePublicVoiceHubChannelsOnReady,
   startPublicVoiceHubSetup,
+  sweepEmptySpawnedHubChannels,
   buildSpawnPermissionOverwrites,
   hubLobbyRoleIds,
   resolveInsertSlot,

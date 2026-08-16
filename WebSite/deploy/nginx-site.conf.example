@@ -15,10 +15,6 @@ server {
     location ~ ^/users?/(\d{17,20})/?$ {
         try_files /user/index.html =404;
     }
-    location / {
-        # Includere $uri/ qui può dare 403 (cartella senza index, autoindex off), es. /regole incompleto.
-        try_files $uri $uri/index.html /index.html;
-    }
     # Stesso codice invite di site.config.json (path /api/v10/invites/CODICE?with_counts=true).
     location = /discord-invite.json {
         proxy_pass https://discord.com/api/v10/invites/viniliecaffe?with_counts=true;
@@ -30,11 +26,36 @@ server {
     add_header X-Content-Type-Options nosniff;
     add_header Referrer-Policy strict-origin-when-cross-origin;
 
+    # HTML: mai in cache (i deploy aggiornano spesso ?v= negli asset).
+    location / {
+        add_header Cache-Control "no-store, no-cache, must-revalidate, max-age=0" always;
+        add_header Pragma "no-cache" always;
+        add_header CDN-Cache-Control "no-store" always;
+        # Includere $uri/ qui può dare 403 (cartella senza index, autoindex off), es. /regole incompleto.
+        try_files $uri $uri/index.html /index.html;
+    }
+
+    # JS/CSS: revalidate subito (il ?v= invalida comunque la cache).
+    location ^~ /js/ {
+        add_header Cache-Control "public, max-age=0, must-revalidate" always;
+        add_header CDN-Cache-Control "max-age=0, must-revalidate" always;
+        try_files $uri =404;
+    }
+    location ^~ /css/ {
+        add_header Cache-Control "public, max-age=0, must-revalidate" always;
+        add_header CDN-Cache-Control "max-age=0, must-revalidate" always;
+        try_files $uri =404;
+    }
+
     # MP4 Serata Film: faststart in upload + cache breve (il file cambia a ogni film).
     location ~* ^/images/evento-hogwarts/.+\.mp4$ {
         types { }
         default_type video/mp4;
         add_header Accept-Ranges bytes always;
         add_header Cache-Control "public, max-age=3600";
+    }
+    location ^~ /images/ {
+        add_header Cache-Control "public, max-age=86400" always;
+        try_files $uri =404;
     }
 }

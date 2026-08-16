@@ -1,8 +1,7 @@
 const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Schemas/Community/communitySchemas");
 const { normalizeHouseInput } = require("./hogwartsManualHousePointsService");
-const { resolveSortedHouseId } = require("../../Utils/Web/hogwartsSortingResolve");
+const { fetchSortedHouseMemberDocs } = require("./hogwartsHouseAdminService");
 
-const SORTING_DOC = SITE_DOCUMENT_TYPE.HOGWARTS_SORTING;
 const HOUSE_POINTS_DOC = SITE_DOCUMENT_TYPE.HOGWARTS_HOUSE_POINTS;
 const HOUSE_POINTS_OWNER_ID = "__event__";
 
@@ -58,25 +57,17 @@ async function fetchHouseMemberPointsLeaderboard(guildId, eventKey, houseId, opt
   const hid = normalizeHouseInput(houseId);
   const periodKey = String(options.periodKey || "").trim();
   if (!gid || !ek || !hid) return [];
-  const [members, pointsDoc] = await Promise.all([
-    SiteDocument.find({
-      docType: SORTING_DOC,
-      guildId: gid,
-      dedupeKey: ek,
-    })
-      .select("userId status planKey houseId")
-      .lean()
-      .catch(() => []),
+  const [sortedDocs, pointsDoc] = await Promise.all([
+    fetchSortedHouseMemberDocs(gid, ek, hid),
     loadHousePointsDocLean(gid, ek),
   ]);
   const byMember = pointsDoc?.rawWebhook?.byMember && typeof pointsDoc.rawWebhook.byMember === "object"
     ? pointsDoc.rawWebhook.byMember
     : {};
   const rows = [];
-  for (const doc of Array.isArray(members) ? members : []) {
+  for (const doc of Array.isArray(sortedDocs) ? sortedDocs : []) {
     const uid = String(doc?.userId || "").trim();
     if (!uid) continue;
-    if (resolveSortedHouseId(doc) !== hid) continue;
     const row = byMember[uid] || {};
     const periodPoints = periodKey
       ? Math.max(0, Math.floor(Number(row?.byPeriod?.[periodKey]) || 0))

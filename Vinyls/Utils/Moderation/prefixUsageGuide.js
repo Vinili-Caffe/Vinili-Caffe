@@ -1,87 +1,64 @@
-const{EmbedBuilder,ActionRowBuilder,StringSelectMenuBuilder,ComponentType,MessageFlags,}=require("discord.js");
-const fs = require("fs");
-const path = require("path");
-const GUIDE_COLOR = "#3498DB";
-const GUIDE_LIFETIME_MS = 10 * 60 * 1000;
-const PERMISSIONS_CANDIDATES=[path.resolve(__dirname,"../../permissions.json"),path.join(process.cwd(),"permissions.json"),];
-let permissionsCache = { filePath: null, mtimeMs: 0, data: {} };
+const { ActionRowBuilder, StringSelectMenuBuilder, EmbedBuilder, MessageFlags, ComponentType } = require("discord.js");
+const { TENANT_EMBED_COLOR, applyTenantPayloadBranding, stripTenantBrandingInternals } = require("../../MultiGuild/utils/tenantEmbedBranding");
+const { buildSimpleNoticePayload } = require("../Embeds/simpleNoticeEmbed");
 
-function loadPrefixPermissions() {
+const GUIDE_LIFETIME_MS = 10 * 60 * 1000;
+const PRIVATE = MessageFlags.Ephemeral || 1 << 6;
+
+function guideEmbedColor(guild) {
   try {
-    const permissionsPath=PERMISSIONS_CANDIDATES.find((p) => fs.existsSync(p))||null;
-    if (!permissionsPath) return {};
-    const stat = fs.statSync(permissionsPath);
-    if (
-      permissionsCache.filePath === permissionsPath &&
-      permissionsCache.mtimeMs === stat.mtimeMs
-    ) {
-      return permissionsCache.data || {};
-    }
-    const raw = fs.readFileSync(permissionsPath, "utf8");
-    const parsed = JSON.parse(raw) || {};
-    const prefix=parsed.prefix&&typeof parsed.prefix==="object"?parsed.prefix:{};
-    permissionsCache = {
-      filePath: permissionsPath,
-      mtimeMs: stat.mtimeMs,
-      data: prefix,
-    };
-    return prefix;
+    const { resolveEmbedColorForGuild } = require("../../MultiGuild/utils/tenantEmbedBranding");
+    return resolveEmbedColorForGuild(guild?.id) || TENANT_EMBED_COLOR;
   } catch {
-    return {};
+    return TENANT_EMBED_COLOR;
   }
 }
 
-function getPermissionSubcommands(commandName) {
-  const safeName = String(commandName || "").trim().toLowerCase();
-  if (!safeName) return [];
-  const prefixPerms = loadPrefixPermissions();
-  const cfg = prefixPerms?.[safeName];
-  const subMap=cfg?.subcommands&&typeof cfg.subcommands==="object"?cfg.subcommands:null;
-  if (!subMap) return [];
-  return Object.keys(subMap)
-    .map((s) => String(s || "").trim().toLowerCase())
-    .filter(Boolean);
+function brandGuidePayload(payload, guild) {
+  if (!guild?.id) return payload;
+  return stripTenantBrandingInternals(
+    applyTenantPayloadBranding(payload, {
+      guildId: guild.id,
+      guild,
+      client: guild.client,
+      includeBanner: false,
+      includeAuthor: true,
+      includeThumbnail: true,
+    }),
+  ) || payload;
 }
 
 function normalizeSubcommands(command) {
-  const direct=Array.isArray(command?.subcommands)?command.subcommands:[];
-  const aliases = command?.subcommandAliases || {};
-  const mapped = Object.values(aliases || {});
-  const fromPermissions = getPermissionSubcommands(command?.name);
-  return Array.from(
-    new Set(
-      [...direct, ...mapped, ...fromPermissions]
-        .map((v) => String(v || "").trim().toLowerCase())
-        .filter(Boolean),
-    ),
-  );
+  const fromField = Array.isArray(command?.subcommands) ? command.subcommands : [];
+  const fromExamples = Array.isArray(command?.examples)
+    ? command.examples
+        .map((ex) => String(ex || "").trim())
+        .map((ex) => ex.replace(/^[+!,.?/-]+/, "").split(/\s+/)[1])
+        .filter(Boolean)
+    : [];
+  return [...new Set([...fromField, ...fromExamples].map((s) => String(s).trim()).filter(Boolean))];
 }
 
 function getSubDescription(command, sub) {
-  const meta=command?.subcommandDescriptions||command?.subcommandsDescriptions||command?.subcommandHelp||command?.subcommandsHelp||{};
-  const value = meta?.[sub];
-  if (String(value || "").trim()) return String(value).trim();
-  return `Mostra come usare il sotto-comando \`${sub}\`.`;
+  if (typeof command?.getSubcommandDescription === "function") {
+    return String(command.getSubcommandDescription(sub) || "").trim() || "Nessuna descrizione.";
+  }
+  if (command?.subcommandDescriptions && typeof command.subcommandDescriptions === "object") {
+    return String(command.subcommandDescriptions[sub] || "").trim() || "Nessuna descrizione.";
+  }
+  return "Nessuna descrizione.";
 }
 
-function getSubUsage(command, prefix, sub) {
-  const usageMap=command?.subcommandUsages||command?.subcommandsUsages||command?.subcommandUsage||command?.subcommandsUsage||{};
-  if (String(usageMap?.[sub] || "").trim()) return String(usageMap[sub]).trim();
-  return `${prefix}${command.name} ${sub} ...`;
-}
-
-function buildDefaultGuideEmbed(command, prefix) {
-  const aliases=Array.isArray(command?.aliases)?command.aliases.map((a) => `${prefix}${a}`).join(", ")
-    : `${prefix}undefined`;
-  const description = String(command?.description || "").trim() || "Nessuna descrizione disponibile.";
-  const usage = String(command?.usage || "").trim() || `${prefix}${command?.name} ...`;
+function buildDefaultGuideEmbed(command, prefix = "+", guild = null) {
+  const name = String(command?.name || "comando");
+  const description = String(command?.description || command?.helpDescription || "Nessuna descrizione.").trim();
+  const usage = String(command?.usage || `${prefix}${name}`).trim();
   return new EmbedBuilder()
-    .setColor(GUIDE_COLOR)
+    .setColor(guideEmbedColor(guild))
+    .setTitle(`Guida: ${prefix}${name}`)
     .setDescription(
       [
-        `**Comando: ${prefix}${command?.name}**`,
         "",
-        `**Alias:** ${aliases || `${prefix}undefined`}`,
         `**Descrizione:** ${description}`,
         "**Uso:**",
         usage,
@@ -89,18 +66,18 @@ function buildDefaultGuideEmbed(command, prefix) {
     );
 }
 
-function buildSubGuideEmbed(command, prefix, sub) {
+function buildSubGuideEmbed(command, prefix, sub, guild = null) {
+  const name = String(command?.name || "comando");
   const description = getSubDescription(command, sub);
-  const usage = getSubUsage(command, prefix, sub);
   return new EmbedBuilder()
-    .setColor(GUIDE_COLOR)
+    .setColor(guideEmbedColor(guild))
+    .setTitle(`Guida: ${prefix}${name} ${sub}`)
     .setDescription(
       [
-        `**Comando: ${prefix}${command?.name} ${sub}**`,
         "",
         `**Descrizione:** ${description}`,
         "**Uso:**",
-        usage,
+        `${prefix}${name} ${sub}`,
       ].join("\n"),
     );
 }
@@ -109,9 +86,11 @@ function buildSubcommandRow(command, ownerId, currentValue = "__default") {
   const subs = normalizeSubcommands(command);
   if (!subs.length) return null;
   const hidden = String(currentValue || "__default").toLowerCase();
-  const filteredSubs=hidden==="__default"?subs:subs.filter((sub) => String(sub).toLowerCase()!==hidden);
+  const filteredSubs =
+    hidden === "__default" ? subs : subs.filter((sub) => String(sub).toLowerCase() !== hidden);
 
-  const menu=new StringSelectMenuBuilder().setCustomId(`usage_guide:${command.name}:${ownerId}`)
+  const menu = new StringSelectMenuBuilder()
+    .setCustomId(`usage_guide:${command.name}:${ownerId}`)
     .setPlaceholder("Vedi sotto - comandi")
     .addOptions(
       ...filteredSubs.slice(0, 24).map((sub) => ({
@@ -128,45 +107,88 @@ function buildSubcommandRow(command, ownerId, currentValue = "__default") {
   return new ActionRowBuilder().addComponents(menu);
 }
 
+function parseUsageGuideCustomId(customId) {
+  const parts = String(customId || "").split(":");
+  if (parts[0] !== "usage_guide" || parts.length < 3) return null;
+  return { commandName: parts[1], ownerId: parts[2] };
+}
+
+function resolvePrefixCommand(client, commandName) {
+  const name = String(commandName || "").toLowerCase();
+  if (!name) return null;
+  const map = client?.prefix || client?.prefixCommands || client?.pcommands;
+  if (map?.get) {
+    return map.get(name) || map.get(commandName) || null;
+  }
+  if (map && typeof map === "object") {
+    return map[name] || map[commandName] || null;
+  }
+  return null;
+}
+
+async function handleUsageGuideInteraction(interaction, { prefix = "+" } = {}) {
+  const parsed = parseUsageGuideCustomId(interaction.customId);
+  if (!parsed) return false;
+  if (String(interaction.user?.id) !== parsed.ownerId) {
+    await interaction
+      .reply(buildSimpleNoticePayload("Questo menu non è tuo.", interaction.guild, { ephemeral: true }))
+      .catch(() => null);
+    return true;
+  }
+  const command = resolvePrefixCommand(interaction.client, parsed.commandName);
+  if (!command) {
+    await interaction
+      .reply(
+        buildSimpleNoticePayload("Comando non disponibile. Rifai il comando.", interaction.guild, {
+          ephemeral: true,
+        }),
+      )
+      .catch(() => null);
+    return true;
+  }
+  const picked = String(interaction.values?.[0] || "__default");
+  const row = buildSubcommandRow(command, parsed.ownerId, picked);
+  const nextEmbed =
+    picked === "__default"
+      ? buildDefaultGuideEmbed(command, prefix, interaction.guild)
+      : buildSubGuideEmbed(command, prefix, picked, interaction.guild);
+  await interaction
+    .update(
+      brandGuidePayload(
+        {
+          embeds: [nextEmbed],
+          components: row ? [row] : [],
+        },
+        interaction.guild,
+      ),
+    )
+    .catch(() => null);
+  return true;
+}
+
 async function showPrefixUsageGuide({ message, command, prefix = "+", deleteCommandMessage = null }) {
   if (!message || !command) return false;
-  const defaultEmbed = buildDefaultGuideEmbed(command, prefix);
-  let currentValue = "__default";
-  let row = buildSubcommandRow(command, message.author.id, currentValue);
+  const defaultEmbed = buildDefaultGuideEmbed(command, prefix, message.guild);
+  const row = buildSubcommandRow(command, message.author.id, "__default");
 
   if (typeof deleteCommandMessage === "function") {
     await deleteCommandMessage().catch(() => {});
   }
 
-  const sent=await message.channel.send({embeds:[defaultEmbed],...(row?{components:[row]}:{}),}).catch(() => null);
-  if (!sent) return false;
-  if (!row) return true;
-
-  const collector=sent.createMessageComponentCollector({componentType:ComponentType.StringSelect,time:GUIDE_LIFETIME_MS,});
-
-  collector.on("collect", async (interaction) => {
-    if (interaction.user.id !== message.author.id) {
-      await interaction
-        .reply({ content: "Questo menu non è tuo.", flags: MessageFlags.Ephemeral })
-        .catch(() => {});
-      return;
-    }
-
-    const picked = String(interaction.values?.[0] || "__default");
-    currentValue = picked;
-    row = buildSubcommandRow(command, message.author.id, currentValue);
-
-    const nextEmbed=picked==="__default"?defaultEmbed:buildSubGuideEmbed(command,prefix,picked);
-
-    await interaction
-      .update({
-        embeds: [nextEmbed],
-        components: [row],
-      })
-      .catch(() => {});
-  });
-
-  return true;
+  const sent = await message.channel
+    .send(
+      brandGuidePayload(
+        { embeds: [defaultEmbed], ...(row ? { components: [row] } : {}) },
+        message.guild,
+      ),
+    )
+    .catch(() => null);
+  return Boolean(sent);
 }
 
-module.exports = { showPrefixUsageGuide };
+module.exports = {
+  showPrefixUsageGuide,
+  parseUsageGuideCustomId,
+  handleUsageGuideInteraction,
+  GUIDE_LIFETIME_MS,
+};

@@ -1,5 +1,6 @@
 const canvasModule = require("canvas");
 const { formatDuration } = require("../../Services/Community/activeEconomyService");
+const { formatEconomyAmountShort, resolveDisplayMode } = require("../Economy/economyDisplayHelpers");
 const { registerCanvasFonts } = require("./canvasFonts");
 const { createCanvas } = canvasModule;
 const TYPE_META = {
@@ -16,9 +17,15 @@ function ensureFonts() {
   fontsReady = true;
 }
 
-function formatRewardShort(amount) {
-  const n = Math.max(0, Math.floor(Number(amount) || 0));
-  return `${n} V&C`;
+function formatRewardShort(amount, client = null) {
+  return formatEconomyAmountShort(amount, client);
+}
+
+function currencyUnitShort(client = null) {
+  const mode = resolveDisplayMode(client);
+  if (mode === "galeoni") return "Galeoni";
+  if (mode === "server") return "Caffè";
+  return "Galeoni";
 }
 
 function roundRect(ctx, x, y, w, h, r) {
@@ -217,14 +224,15 @@ function drawInfoFooter(ctx, width, frameX, frameW, frameBottom, h, leftText, ri
 }
 
 function formatRewardAmount(params, claimed, meta) {
+  const client = params.client || null;
   if (params.incomeType === "work" && !claimed && params.canClaim) {
     const min = Math.max(0, Math.floor(Number(params.totalPreviewMin ?? params.rewardMin) || 0));
     const max = Math.max(min, Math.floor(Number(params.totalPreviewMax ?? params.rewardMax) || 0));
-    if (min > 0 && max > min) return `${min}–${max} V&C`;
-    return formatRewardShort(params.totalPreview);
+    if (min > 0 && max > min) return `${min}–${max} ${currencyUnitShort(client)}`;
+    return formatRewardShort(params.totalPreview, client);
   }
   const amount = claimed ? params.claimedAmount : params.totalPreview;
-  return formatRewardShort(amount);
+  return formatRewardShort(amount, client);
 }
 
 function drawArena(ctx, params) {
@@ -259,14 +267,15 @@ function drawArena(ctx, params) {
   while (amountSize > 22 && measurePlain(ctx, amountStr, amountSize, "900") > fw - 48) amountSize -= 2;
   drawPlainText(ctx, amountStr, cx, amountY, { size: amountSize, color: claimed ? "#4ade80" : meta.accent, weight: "900" });
   const subY = amountY + (isWork ? 24 : 28);
+  const client = params.client || null;
   if (claimed) {
     drawPlainText(ctx, "Accreditato sul saldo", cx, subY, { size: 12, color: "#86efac" });
   } else if (isWork && canClaim && !claimed) {
     drawPlainText(ctx, "Importo casuale", cx, subY, { size: 11, color: "#94a3b8", weight: "600" });
   } else if (params.bonusAmount > 0) {
-    drawPlainText(ctx, `Base ${formatRewardShort(params.baseReward)} + ${formatRewardShort(params.bonusAmount)} bonus`, cx, subY, { size: 12, color: "#94a3b8" });
+    drawPlainText(ctx, `Base ${formatRewardShort(params.baseReward, client)} + ${formatRewardShort(params.bonusAmount, client)} bonus`, cx, subY, { size: 12, color: "#94a3b8" });
   } else if (!isWork) {
-    drawPlainText(ctx, `Ricompensa base ${formatRewardShort(params.baseReward)}`, cx, subY, { size: 12, color: "#94a3b8" });
+    drawPlainText(ctx, `Ricompensa base ${formatRewardShort(params.baseReward, client)}`, cx, subY, { size: 12, color: "#94a3b8" });
   }
   const maxStreak = incomeType === "monthly" ? 8 : incomeType === "weekly" ? 7 : isWork ? 6 : 5;
   const streakY = isWork ? fy + 218 : fy + 198;
@@ -274,7 +283,7 @@ function drawArena(ctx, params) {
   let statusRight = "Pronto";
   let statusColor = "#4ade80";
   if (claimed) {
-    statusRight = `+${formatRewardShort(params.claimedAmount)}`;
+    statusRight = `+${formatRewardShort(params.claimedAmount, client)}`;
     statusColor = "#4ade80";
   } else if (!canClaim) {
     statusRight = isWork ? `Riposo ${formatDuration(params.remainingMs)}` : `Tra ${formatDuration(params.remainingMs)}`;
@@ -296,6 +305,7 @@ async function renderIncomeRewardCanvas(params = {}) {
   drawArena(ctx, {
     width,
     height,
+    client: params.client || null,
     incomeType: TYPE_META[params.incomeType] ? params.incomeType : "daily",
     canClaim: Boolean(params.canClaim),
     claimed: Boolean(params.claimed),

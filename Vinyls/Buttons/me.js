@@ -1,7 +1,8 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder, MessageFlags } = require("discord.js");
 const { getUserOverviewStats } = require("../Services/Community/activityService");
 const { resolveTopChannelEntries } = require("../Prefix/Stats/top");
-const { renderUserActivityCanvas } = require("../Utils/Render/activityCanvas");
+const { renderUserActivityCanvas, prefetchStatsCanvasAvatar } = require("../Utils/Render/activityCanvas");
+const { getOrBuildStatsCanvasBuffer } = require("../Utils/Stats/statsCanvasCache");
 const { accountUsername, guildMemberDisplayAvatarUrlStatic, userAvatarUrlStatic } = require("../Utils/Discord/guildDiscordIdentity");
 const { getEffectiveJoinedAt } = require("../Services/Community/effectiveMemberJoinService");
 const ME_REFRESH_CUSTOM_ID_PREFIX = "me_refresh";
@@ -72,15 +73,18 @@ async function buildMeOverviewPayload(guild, author, member, lookbackDays, view)
   const userId = author?.id;
   if (!guild?.id || !userId) return { embeds: [], components: [], files: [] };
 
-  const stats = await getUserOverviewStats(guild.id, userId, safeLookback);
+  const avatarUrl =
+    guildMemberDisplayAvatarUrlStatic(member || author, { size: 512 }) || userAvatarUrlStatic(author, { size: 512 });
+  const [stats, effectiveJoined, avatarPrefetch] = await Promise.all([
+    getUserOverviewStats(guild.id, userId, safeLookback),
+    member ? getEffectiveJoinedAt(member).catch(() => null) : Promise.resolve(null),
+    avatarUrl ? prefetchStatsCanvasAvatar(avatarUrl) : Promise.resolve(null),
+  ]);
 
   const guildName = guild.name || "Server";
   const userTag = author?.tag || author?.username || "User";
   const displayName = accountUsername(member || author);
-  const avatarUrl =
-    guildMemberDisplayAvatarUrlStatic(member || author, { size: 512 }) || userAvatarUrlStatic(author, { size: 512 });
   const createdOn = author?.createdAt ?? new Date(0);
-  const effectiveJoined = member ? await getEffectiveJoinedAt(member).catch(() => null) : null;
   const joinedOn =
     effectiveJoined ||
     (member?.joinedAt && member.joinedAt instanceof Date ? member.joinedAt : member?.joinedTimestamp ? new Date(member.joinedTimestamp) : createdOn);
@@ -89,7 +93,23 @@ async function buildMeOverviewPayload(guild, author, member, lookbackDays, view)
     resolveTopChannelEntries(guild, stats.topChannelsText || [], emptySnapshot),
     resolveTopChannelEntries(guild, stats.topChannelsVoice || [], emptySnapshot),
   ]);
-  const buffer = await renderUserActivityCanvas({ guildName, userTag, displayName, avatarUrl, createdOn, joinedOn, lookbackDays: safeLookback, windows: stats.windows, ranks: stats.ranks, topChannelsText, topChannelsVoice, chart: stats.chart });
+  const buffer = await getOrBuildStatsCanvasBuffer(`me:${guild.id}:${userId}:${safeLookback}`, () =>
+    renderUserActivityCanvas({
+      guildName,
+      userTag,
+      displayName,
+      avatarUrl,
+      avatarPrefetch,
+      createdOn,
+      joinedOn,
+      lookbackDays: safeLookback,
+      windows: stats.windows,
+      ranks: stats.ranks,
+      topChannelsText,
+      topChannelsVoice,
+      chart: stats.chart,
+    }),
+  );
   const components = buildMeComponents(userId, safeLookback, view);
   const activityExt =
     buffer.length >= 6 && buffer[0] === 0x47 && buffer[1] === 0x49 && buffer[2] === 0x46 ? "gif" : "png";

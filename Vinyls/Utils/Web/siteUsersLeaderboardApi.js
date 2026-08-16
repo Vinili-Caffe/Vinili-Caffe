@@ -8,11 +8,23 @@ const {
 } = require("../../Prefix/Level/classifica");
 const { findCustomVoiceByOwner, findCustomVoiceByRole } = require("../Interaction/customRoleUtils");
 const { getRankCardThemeFromDoc, resolveRankCardWallpaper } = require("../Render/rankCardTheme");
-const { userAvatarUrlDynamic, guildMemberDisplayAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
+const { userAvatarUrlStatic, userAvatarUrlDynamic, guildMemberDisplayAvatarUrlDynamic, guildMemberDisplayAvatarUrlStatic } = require("../Discord/guildDiscordIdentity");
+const { stabilizeDiscordCdnAvatarUrl } = require("./siteLiveAvatars");
 const { getEffectiveJoinedAt } = require("../../Services/Community/effectiveMemberJoinService");
 
 const LIST_CACHE_TTL_MS = 30_000;
 const listCache = new Map();
+
+function siteMemberAvatarUrl(member, size = 128) {
+  return (
+    stabilizeDiscordCdnAvatarUrl(
+      guildMemberDisplayAvatarUrlStatic(member, { size }) ||
+        guildMemberDisplayAvatarUrlDynamic(member, { size }) ||
+        "",
+      { size },
+    ) || ""
+  );
+}
 
 function cacheGet(key) {
   const row = listCache.get(key);
@@ -141,12 +153,14 @@ async function fetchUserIdentity(client, guild, userId) {
   out.displayName = out.username;
   out.avatar = u.avatar ? String(u.avatar) : "";
   out.discriminator = String(u.discriminator || "0");
-  out.avatarUrl = userAvatarUrlDynamic(u, { size: 256 }) || "";
+  out.avatarUrl = stabilizeDiscordCdnAvatarUrl(
+    userAvatarUrlStatic(u, { size: 256 }) || userAvatarUrlDynamic(u, { size: 256 }) || "",
+    { size: 256 },
+  );
   if (!out.avatarUrl && u.id) {
     const h = u.avatar;
     if (h) {
-      const ext = String(h).indexOf("a_") === 0 ? "gif" : "png";
-      out.avatarUrl = `https://cdn.discordapp.com/avatars/${u.id}/${h}.${ext}?size=256`;
+      out.avatarUrl = `https://cdn.discordapp.com/avatars/${u.id}/${h}.png?size=256`;
     } else {
       let idx = 0;
       if (/^\d{5,22}$/.test(String(u.id)))
@@ -206,7 +220,7 @@ async function buildCustomProfileData(guild, userId) {
       id: String(member.id || member.user?.id || ""),
       username: String(member.user?.username || "").trim(),
       displayName: String(member.user?.username || "Utente").trim(),
-      avatarUrl: guildMemberDisplayAvatarUrlDynamic(member, { size: 128 }) || "",
+      avatarUrl: siteMemberAvatarUrl(member, 128),
     }))
     .filter((member) => member.id);
   let secondaryRoleMembers = secondaryRole?.members ? Array.from(secondaryRole.members.values()).filter((m) => !m.user?.bot) : [];
@@ -223,7 +237,7 @@ async function buildCustomProfileData(guild, userId) {
       id: String(member.id || member.user?.id || ""),
       username: String(member.user?.username || "").trim(),
       displayName: String(member.user?.username || "Utente").trim(),
-      avatarUrl: guildMemberDisplayAvatarUrlDynamic(member, { size: 128 }) || "",
+      avatarUrl: siteMemberAvatarUrl(member, 128),
     }))
     .filter((member) => member.id);
   /** Solo utenti aggiunti alla voc (overwrite membro: Connect+ViewChannel, senza Gestisci canali come il proprietario). */
@@ -253,7 +267,7 @@ async function buildCustomProfileData(guild, userId) {
         id: String(member.id || member.user?.id || ""),
         username: String(member.user?.username || "").trim(),
         displayName: String(member.user?.username || "Utente").trim(),
-        avatarUrl: guildMemberDisplayAvatarUrlDynamic(member, { size: 128 }) || "",
+        avatarUrl: siteMemberAvatarUrl(member, 128),
       });
     }
     voiceSharedMembers.sort((a, b) =>
@@ -702,7 +716,7 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
       const member =
         guild?.members?.cache?.get?.(searchId) || (guild ? await guild.members.fetch({ user: searchId, force: true }).catch(() => null) : null);
       const profileAvatarUrl =
-        (member && guildMemberDisplayAvatarUrlDynamic(member, { size: 256 })) || String(row.avatarUrl || "").trim();
+        (member && siteMemberAvatarUrl(member, 256)) || String(row.avatarUrl || "").trim();
       const profileRoles = member?.roles?.cache
         ? [...member.roles.cache.values()]
             .filter((role) => String(role?.id || "") && String(role.id) !== String(guild?.id || ""))

@@ -1,18 +1,27 @@
 const {
   REPOST_BTN_PREFIX,
   REPOST_SRC_PREFIX,
+  REPOST_REMOVE_PREFIX,
   handleRepostaButton,
+  handleRepostRemoveButton,
+  isRepostRemoveButton,
 } = require("../Services/Community/repostService");
 
 function match(interaction) {
   const id = String(interaction?.customId || "");
   return (
     interaction?.isButton?.() &&
-    (id.startsWith(REPOST_BTN_PREFIX) || id.startsWith(REPOST_SRC_PREFIX))
+    (id.startsWith(REPOST_BTN_PREFIX) ||
+      id.startsWith(REPOST_SRC_PREFIX) ||
+      id.startsWith(REPOST_REMOVE_PREFIX) ||
+      isRepostRemoveButton(id))
   );
 }
 
 async function execute(interaction) {
+  if (isRepostRemoveButton(interaction.customId)) {
+    return handleRepostRemoveButton(interaction);
+  }
   await handleRepostaButton(interaction);
 }
 

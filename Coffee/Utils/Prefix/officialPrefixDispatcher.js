@@ -53,6 +53,16 @@ function persistPrefixQueueSnapshotNow(client) {
   } catch { }
 }
 
+function resolvePrefixCommandByName(client, commandName) {
+  const cmdKey = String(commandName || "").trim().toLowerCase();
+  if (!cmdKey || !client?.pcommands) return null;
+  const direct = client.pcommands.get(cmdKey);
+  if (direct) return direct;
+  const aliasTarget = client.aliases?.get?.(cmdKey);
+  if (aliasTarget) return client.pcommands.get(aliasTarget) || null;
+  return null;
+}
+
 function ensurePrefixQueueLoaded(client) {
   if (!client || client._prefixQueueSnapshotLoaded) return;
   armShutdownCheckpoint();
@@ -362,13 +372,15 @@ async function drainPrefixQueue(lockId, resolvedClient) {
     const next = queue.shift();
     persistPrefixQueueSnapshotNow(resolvedClient);
     if (!next?.command && next?.commandName) {
-      const cmdKey = String(next.commandName || "").toLowerCase();
-      next.command =
-        resolvedClient.commands?.get?.(cmdKey) ||
-        [...(resolvedClient.commands?.values?.() || [])].find((c) => String(c?.name || "").toLowerCase() === cmdKey) ||
-        null;
+      next.command = resolvePrefixCommandByName(resolvedClient, next.commandName);
     }
-    if (!next?.command?.execute) continue;
+    if (!next?.command?.execute) {
+      global.logger?.warn?.(
+        "[PREFIX] drainPrefixQueue skip: comando non trovato",
+        String(next?.commandName || ""),
+      );
+      continue;
+    }
     const hydratedMessage = await resolveQueuedMessage(next);
     if (!hydratedMessage?.channel) continue;
     next.message = hydratedMessage;
@@ -496,7 +508,7 @@ async function handleOfficialPrefixMessage({ message, resolvedClient, defaultPre
   if (!permissionResult?.allowed) {
     if (permissionResult?.reason === "channel" && Array.isArray(permissionResult.channels)) {
       await deleteCommandMessage();
-      const embed = buildGlobalChannelDeniedEmbed(permissionResult.channels, "comando");
+      const embed = buildGlobalChannelDeniedEmbed(permissionResult.channels, "comando", message.member);
       await sendTemporaryMessage(message.channel, { embeds: [embed] }, EPHEMERAL_TTL_SHORT_MS);
       return;
     }
@@ -626,4 +638,4 @@ async function handleOfficialPrefixMessage({ message, resolvedClient, defaultPre
   }
 }
 
-module.exports = { handleOfficialPrefixMessage };
+module.exports = { handleOfficialPrefixMessage, ensurePrefixQueueLoaded };

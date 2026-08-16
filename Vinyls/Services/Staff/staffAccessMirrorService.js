@@ -71,14 +71,18 @@ async function syncTargetMemberFromMainMember(targetMember, mainMember) {
   const toRemove = TARGET_ROLE_IDS.filter((roleId) => !desired.has(roleId) && targetMember.roles.cache.has(roleId));
 
   if (toAdd.length) {
-    await targetMember.roles.add(toAdd, "Sync ruoli staff dal server principale").catch((err) => {
-      global.logger?.warn?.("[STAFF ACCESS MIRROR] add roles failed", targetMember.id, err?.message || err);
-    });
+    for (const roleId of toAdd) {
+      await targetMember.roles.add(roleId, "Sync ruoli staff dal server principale").catch((err) => {
+        global.logger?.warn?.("[STAFF ACCESS MIRROR] add roles failed", targetMember.id, roleId, err?.message || err);
+      });
+    }
   }
   if (toRemove.length) {
-    await targetMember.roles.remove(toRemove, "Sync ruoli staff dal server principale").catch((err) => {
-      global.logger?.warn?.("[STAFF ACCESS MIRROR] remove roles failed", targetMember.id, err?.message || err);
-    });
+    for (const roleId of toRemove) {
+      await targetMember.roles.remove(roleId, "Sync ruoli staff dal server principale").catch((err) => {
+        global.logger?.warn?.("[STAFF ACCESS MIRROR] remove roles failed", targetMember.id, roleId, err?.message || err);
+      });
+    }
   }
   return { ok: true, added: toAdd, removed: toRemove };
 }

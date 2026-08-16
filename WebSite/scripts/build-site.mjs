@@ -165,13 +165,13 @@ function formatSponsorPromoUntilLabel(iso) {
 
 function buildPremiumFooterTemplate() {
   return `
-  <footer class="vc-premium-footer" aria-label="Footer">
+  <footer class="vc-premium-footer" aria-label="Footer" data-i18n-attr="aria-label:footer.aria">
     <div class="vc-premium-footer__card">
       <div class="vc-premium-footer__outer">
         <div class="vc-premium-footer__inner">
           <div class="vc-premium-footer__grid">
             <section class="vc-premium-footer__brand" aria-label="{{SITE_NAME}}">
-              <a class="vc-premium-footer__logo-row" href="{{SITE_URL}}" aria-label="Vai alla homepage">
+              <a class="vc-premium-footer__logo-row" href="{{SITE_URL}}" aria-label="Vai alla homepage" data-i18n-attr="aria-label:nav.homeAria">
                 <span class="vc-premium-footer__logo" aria-hidden="true">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path d="M4 20C4 20 4 14 10 10C16 6 20 4 20 4C20 4 18 8 14 14C10 20 4 20 4 20Z" fill="white" />
@@ -180,8 +180,8 @@ function buildPremiumFooterTemplate() {
                 </span>
                 <span class="vc-premium-footer__wordmark">{{SITE_NAME}}</span>
               </a>
-              <p class="vc-premium-footer__desc">Community italiana Discord curata nei dettagli: musica, socialità, ruoli personalizzati, eventi e strumenti sviluppati su misura.</p>
-              <div class="vc-premium-footer__socials" aria-label="Social">
+              <p class="vc-premium-footer__desc" data-i18n="footer.desc">Community italiana Discord curata nei dettagli: musica, socialità, ruoli personalizzati, eventi e strumenti sviluppati su misura.</p>
+              <div class="vc-premium-footer__socials" aria-label="Social" data-i18n-attr="aria-label:footer.social">
                 <a class="vc-premium-footer__social" href="{{INSTAGRAM_URL}}" target="_blank" rel="noopener noreferrer" aria-label="Instagram">
                   <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3.4" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="16.8" cy="7.2" r="1.1" fill="currentColor"/></svg>
                 </a>
@@ -193,50 +193,51 @@ function buildPremiumFooterTemplate() {
                 </a>
               </div>
             </section>
-            <nav class="vc-premium-footer__col" aria-label="Community">
-              <h4>Community</h4>
+            <nav class="vc-premium-footer__col" aria-label="Community" data-i18n-attr="aria-label:footer.community">
+              <h4 data-i18n="footer.community">Community</h4>
               <ul>
-                <li><a href="{{SITE_URL}}">Home</a></li>
-                <li><a href="{{USER_PAGE_URL}}">Users</a></li>
-                <li><a href="{{RUOLI_PAGE_URL}}">Ruoli</a></li>
+                <li><a href="{{SITE_URL}}" data-i18n="footer.home">Home</a></li>
+                <li><a href="{{USER_PAGE_URL}}" data-i18n="footer.users">Users</a></li>
+                <li><a href="{{RUOLI_PAGE_URL}}" data-i18n="footer.roles">Ruoli</a></li>
               </ul>
             </nav>
-            <nav class="vc-premium-footer__col" aria-label="Scopri">
-              <h4>Scopri</h4>
+            <nav class="vc-premium-footer__col" aria-label="Scopri" data-i18n-attr="aria-label:footer.discover">
+              <h4 data-i18n="footer.discover">Scopri</h4>
               <ul>
-                <li><a href="{{WIKI_URL}}">Wiki</a></li>
-                <li><a href="{{COMMUNITY_RULES_URL}}">Regole</a></li>
-                <li><a href="{{FAQ_URL}}">FAQ</a></li>
-                <li><a href="{{SPONSOR_URL}}">Sponsor</a></li>
+                <li><a href="{{WIKI_URL}}" data-i18n="footer.wiki">Wiki</a></li>
+                <li><a href="{{COMMUNITY_RULES_URL}}" data-i18n="footer.rules">Regole</a></li>
+                <li><a href="{{FAQ_URL}}" data-i18n="footer.faq">FAQ</a></li>
+                <li><a href="{{SPONSOR_URL}}" data-i18n="footer.sponsor">Sponsor</a></li>
               </ul>
             </nav>
-            <nav class="vc-premium-footer__col" aria-label="Supporta">
-              <h4>Supporta</h4>
+            <nav class="vc-premium-footer__col" aria-label="Supporta" data-i18n-attr="aria-label:footer.support">
+              <h4 data-i18n="footer.support">Supporta</h4>
               <ul>
-                <li><a href="{{PERKS_URL}}">Perks</a></li>
-                <li><a href="{{VOTE_URL}}">Vota</a></li>
-                <li><a href="{{REVIEWS_PAGE_URL}}">Recensioni</a></li>
-                <li><a href="{{DONATIONS_URL}}">Donazioni</a></li>
+                <li><a href="{{PERKS_URL}}" data-i18n="footer.perks">Perks</a></li>
+                <li><a href="{{VOTE_URL}}" data-i18n="footer.vote">Vota</a></li>
+                <li><a href="{{REVIEWS_PAGE_URL}}" data-i18n="footer.reviews">Recensioni</a></li>
+                <li><a href="{{DONATIONS_URL}}" data-i18n="footer.donations">Donazioni</a></li>
               </ul>
             </nav>
-            <nav class="vc-premium-footer__col" aria-label="Richieste">
-              <h4>Richieste</h4>
+            <nav class="vc-premium-footer__col" aria-label="Richieste" data-i18n-attr="aria-label:footer.requests">
+              <h4 data-i18n="footer.requests">Richieste</h4>
               <ul>
-                <li><a href="{{RICHIESTE_CANDIDATURE_URL}}">Candidature</a></li>
-                <li><a href="{{RICHIESTE_UNBAN_URL}}">Unban</a></li>
-                <li><a href="{{RICHIESTE_SUGGERIMENTI_URL}}">Suggerimenti</a></li>
+                <li><a href="{{RICHIESTE_UNBAN_URL}}" data-i18n="footer.appeals">Appelli</a></li>
+                <li><a href="{{RICHIESTE_CANDIDATURE_URL}}" data-i18n="footer.applications">Candidature</a></li>
+                <li><a href="{{RICHIESTE_SUGGERIMENTI_URL}}" data-i18n="footer.suggestions">Suggerimenti</a></li>
+                <li><a href="{{TICKETS_PAGE_URL}}" data-i18n="footer.tickets">Tickets</a></li>
               </ul>
             </nav>
           </div>
         </div>
         <div class="vc-premium-footer__legal">
-          <p>© {{YEAR}} {{SITE_NAME}}. All rights reserved.</p>
-          <nav aria-label="Link legali">
-            <a href="{{TERMS_URL}}">Termini di Servizio</a>
+          <p><a class="vc-footer-copy-link" href="{{COPYRIGHT_URL}}" data-i18n-attr="aria-label:footer.copyrightAria" aria-label="Copyright e licenza">© {{YEAR}} {{SITE_NAME}}. All rights reserved.</a></p>
+          <nav aria-label="Link legali" data-i18n-attr="aria-label:footer.legalLinks">
+            <a href="{{TERMS_URL}}" data-i18n="footer.terms">Termini di Servizio</a>
             <span aria-hidden="true"></span>
-            <a href="{{PRIVACY_URL}}">Privacy Policy</a>
+            <a href="{{PRIVACY_URL}}" data-i18n="footer.privacy">Privacy Policy</a>
             <span aria-hidden="true"></span>
-            <a href="{{COOKIE_POLICY_URL}}">Cookie Policy</a>
+            <a href="{{COOKIE_POLICY_URL}}" data-i18n="footer.cookies">Cookie Policy</a>
           </nav>
         </div>
       </div>
@@ -244,16 +245,189 @@ function buildPremiumFooterTemplate() {
   </footer>`;
 }
 
-function replaceLegacyFooter(html) {
-  if (!html.includes("vc-footer-brand-row")) return html;
-  return html.replace(
-    /<footer\b(?=[\s\S]*?vc-footer-brand-row)[\s\S]*?<\/footer>/g,
-    buildPremiumFooterTemplate(),
+/** Footer dashboard: stesso look del sito, senza colonne/link community. */
+function buildDashboardFooterTemplate() {
+  return `
+  <footer class="vc-premium-footer vc-premium-footer--dashboard" aria-label="Footer dashboard" data-i18n-attr="aria-label:footer.aria">
+    <div class="vc-premium-footer__card">
+      <div class="vc-premium-footer__outer">
+        <div class="vc-premium-footer__inner">
+          <div class="vc-premium-footer__grid vc-premium-footer__grid--dashboard">
+            <section class="vc-premium-footer__brand" aria-label="{{SITE_NAME}}">
+              <a class="vc-premium-footer__logo-row" href="{{SITE_URL}}" aria-label="Vai alla homepage" data-i18n-attr="aria-label:nav.homeAria">
+                <span class="vc-premium-footer__logo" aria-hidden="true">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M4 20C4 20 4 14 10 10C16 6 20 4 20 4C20 4 18 8 14 14C10 20 4 20 4 20Z" fill="white" />
+                    <path d="M4 20L10 14" stroke="white" stroke-width="2" stroke-linecap="round" />
+                  </svg>
+                </span>
+                <span class="vc-premium-footer__wordmark">{{SITE_NAME}}</span>
+              </a>
+              <p class="vc-premium-footer__desc" data-i18n="footer.dashboardDesc">Da qui configuri Vinili sui tuoi server: identità e prefisso, accesso alla dashboard, partnership, avvisi e le altre impostazioni del bot.</p>
+            </section>
+            <nav class="vc-premium-footer__col" aria-label="Dashboard" data-i18n-attr="aria-label:footer.dashboard">
+              <h4 data-i18n="footer.dashboard">Dashboard</h4>
+              <ul>
+                <li><a href="{{DASHBOARD_PAGE_URL}}" data-i18n="footer.yourServers">I tuoi server</a></li>
+                <li><a href="{{DASHBOARD_PROFILE_PAGE_URL}}" data-i18n="footer.profile">Profilo</a></li>
+                <li><a href="{{DASHBOARD_PREMIUM_PAGE_URL}}" data-i18n="footer.premium">Premium</a></li>
+              </ul>
+            </nav>
+            <nav class="vc-premium-footer__col" aria-label="Risorse" data-i18n-attr="aria-label:footer.resources">
+              <h4 data-i18n="footer.resources">Risorse</h4>
+              <ul>
+                <li><a href="{{DASHBOARD_FAQ_PAGE_URL}}" data-i18n="footer.faq">FAQ</a></li>
+                <li><a href="{{DASHBOARD_SUGGESTIONS_PAGE_URL}}" data-i18n="footer.feedback">Feedback</a></li>
+                <li><a href="{{BOT_REVIEWS_PAGE_URL}}" data-i18n="footer.botReviews">Recensioni</a></li>
+                <li><a href="{{STATUS_PAGE_URL}}" data-i18n="footer.status">Status</a></li>
+                <li><a href="{{SITE_URL}}" data-i18n="footer.site">Sito</a></li>
+              </ul>
+            </nav>
+          </div>
+        </div>
+        <div class="vc-premium-footer__legal">
+          <p><a class="vc-footer-copy-link" href="{{COPYRIGHT_URL}}" data-i18n-attr="aria-label:footer.copyrightAria" aria-label="Copyright e licenza">© {{YEAR}} {{SITE_NAME}}. All rights reserved.</a></p>
+          <nav aria-label="Link legali" data-i18n-attr="aria-label:footer.legalLinks">
+            <a href="{{TERMS_URL}}" data-i18n="footer.terms">Termini di Servizio</a>
+            <span aria-hidden="true"></span>
+            <a href="{{PRIVACY_URL}}" data-i18n="footer.privacy">Privacy Policy</a>
+            <span aria-hidden="true"></span>
+            <a href="{{COOKIE_POLICY_URL}}" data-i18n="footer.cookies">Cookie Policy</a>
+          </nav>
+        </div>
+      </div>
+    </div>
+  </footer>`;
+}
+
+/** Toglie Copyright / I tuoi dati dalla riga legale dei footer premium (anche già embedded). */
+function stripPremiumFooterExtraLegalLinks(html) {
+  return String(html || "").replace(
+    /(<div class="vc-premium-footer__legal">\s*(?:<p>[\s\S]*?<\/p>\s*)?<nav\b[^>]*>)([\s\S]*?)(<\/nav>)/gi,
+    (_full, open, inner, close) => {
+      let next = String(inner || "");
+      // Solo link espliciti della riga legale (data-i18n), mai href generici.
+      next = next.replace(
+        /\s*<span\b[^>]*aria-hidden="true"[^>]*>\s*<\/span>\s*<a\b[^>]*data-i18n="footer\.copyright"[^>]*>[\s\S]*?<\/a>/gi,
+        "",
+      );
+      next = next.replace(
+        /\s*<span\b[^>]*aria-hidden="true"[^>]*>\s*<\/span>\s*<a\b[^>]*data-i18n="footer\.yourData"[^>]*>[\s\S]*?<\/a>/gi,
+        "",
+      );
+      next = next.replace(/\s*<a\b[^>]*data-i18n="footer\.copyright"[^>]*>[\s\S]*?<\/a>/gi, "");
+      next = next.replace(/\s*<a\b[^>]*data-i18n="footer\.yourData"[^>]*>[\s\S]*?<\/a>/gi, "");
+      return `${open}${next}${close}`;
+    },
   );
+}
+
+/** Ripristina il link Tickets in navbar Richieste + colonna footer se manca. */
+function ensureTicketsInRichiesteChrome(html) {
+  let next = String(html || "");
+  const ticketNavRow =
+    '<a class="vc-snav-row" href="{{TICKETS_PAGE_URL}}"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-ticket"></i></span><span data-i18n="nav.tickets">Tickets</span></a>';
+  const ticketFooterLi = '<li><a href="{{TICKETS_PAGE_URL}}" data-i18n="footer.tickets">Tickets</a></li>';
+
+  next = next.replace(
+    /(<summary class="vc-snav-summary"><span[^>]*>\s*Richieste\s*<\/span>[\s\S]*?<div class="vc-snav-panel">)([\s\S]*?)(<\/div>\s*<\/details>)/gi,
+    (full, open, inner, close) => {
+      if (/\{\{(?:TICKETS_PAGE_URL|SUPPORTO_PAGE_URL)\}\}/.test(inner)) return full;
+      let patched = String(inner || "");
+      if (/\{\{RICHIESTE_SUGGERIMENTI_URL\}\}/.test(patched)) {
+        patched = patched.replace(
+          /(<a class="vc-snav-row(?:\s+vc-snav-row--active)?" href="\{\{RICHIESTE_SUGGERIMENTI_URL\}\}"[\s\S]*?<\/a>)/i,
+          `$1\n                ${ticketNavRow}`,
+        );
+      } else {
+        patched = `${patched.replace(/\s*$/, "")}\n                ${ticketNavRow}\n              `;
+      }
+      return `${open}${patched}${close}`;
+    },
+  );
+
+  // Summary con solo data-i18n="nav.requests" senza testo "Richieste" literal in alcuni template.
+  next = next.replace(
+    /(<summary class="vc-snav-summary"><span[^>]*data-i18n="nav\.requests"[^>]*>[\s\S]*?<\/span>[\s\S]*?<div class="vc-snav-panel">)([\s\S]*?)(<\/div>\s*<\/details>)/gi,
+    (full, open, inner, close) => {
+      if (/\{\{(?:TICKETS_PAGE_URL|SUPPORTO_PAGE_URL)\}\}/.test(inner)) return full;
+      let patched = String(inner || "");
+      if (/\{\{RICHIESTE_SUGGERIMENTI_URL\}\}/.test(patched)) {
+        patched = patched.replace(
+          /(<a class="vc-snav-row(?:\s+vc-snav-row--active)?" href="\{\{RICHIESTE_SUGGERIMENTI_URL\}\}"[\s\S]*?<\/a>)/i,
+          `$1\n                ${ticketNavRow}`,
+        );
+      } else {
+        patched = `${patched.replace(/\s*$/, "")}\n                ${ticketNavRow}\n              `;
+      }
+      return `${open}${patched}${close}`;
+    },
+  );
+
+  next = next.replace(
+    /(<nav class="vc-premium-footer__col"[^>]*(?:data-i18n-attr="aria-label:footer\.requests"|aria-label="Richieste")[^>]*>[\s\S]*?<ul>)([\s\S]*?)(<\/ul>\s*<\/nav>)/gi,
+    (full, open, inner, close) => {
+      if (/\{\{(?:TICKETS_PAGE_URL|SUPPORTO_PAGE_URL)\}\}/.test(inner) || /data-i18n="footer\.tickets"/.test(inner)) {
+        return full;
+      }
+      let patched = String(inner || "");
+      if (/\{\{RICHIESTE_SUGGERIMENTI_URL\}\}/.test(patched)) {
+        patched = patched.replace(
+          /(<li><a href="\{\{RICHIESTE_SUGGERIMENTI_URL\}\}"[\s\S]*?<\/li>)/i,
+          `$1\n                  ${ticketFooterLi}`,
+        );
+      } else {
+        patched = `${patched.replace(/\s*$/, "")}\n                  ${ticketFooterLi}\n                `;
+      }
+      return `${open}${patched}${close}`;
+    },
+  );
+
+  return next;
+}
+
+function replaceLegacyFooter(html) {
+  // Pagine immersive / utility: niente upgrade a footer premium.
+  if (
+    html.includes("vc-hw-page") ||
+    html.includes("vc-seratafilm-page") ||
+    html.includes("vc-seratafilm") ||
+    html.includes("vc-dashboard-transcript-page") ||
+    html.includes('data-i18n="status.title"') ||
+    html.includes("seratafilm/accesso-richiesto") ||
+    /Serata Film/i.test(html)
+  ) {
+    return html;
+  }
+  const useDashboardFooter =
+    html.includes("vc-dashboard-page") || html.includes("data-vc-dashboard-footer");
+  const footerTpl = useDashboardFooter ? buildDashboardFooterTemplate() : buildPremiumFooterTemplate();
+  let out = html;
+  // Solo il footer di pagina (contenuto brand-row), mai altri <footer> UI (wizard, modal, …).
+  // Il vecchio lookahead `(?=[\s\S]*?vc-footer-brand-row)` matchava QUALSIASI footer
+  // precedente al brand-row e sostituiva Avanti / footers modal col footer premium.
+  if (out.includes("vc-footer-brand-row")) {
+    out = out.replace(
+      /<footer\b[^>]*>[\s\S]*?vc-footer-brand-row[\s\S]*?<\/footer>/gi,
+      footerTpl,
+    );
+  }
+  // Footer minimale (es. copyright senza brand-row): upgrade al premium.
+  out = out.replace(
+    /<footer\b[^>]*class="[^"]*border-t border-white\/8[^"]*"[^>]*>[\s\S]*?<\/footer>/gi,
+    footerTpl,
+  );
+  out = out.replace(
+    /<footer\b[^>]*data-vc-dashboard-footer[^>]*>[\s\S]*?<\/footer>/gi,
+    footerTpl,
+  );
+  return out;
 }
 
 function applyPlaceholderMap(html, map) {
   html = replaceLegacyFooter(html);
+  html = ensureTicketsInRichiesteChrome(html);
+  html = stripPremiumFooterExtraLegalLinks(html);
   for (const [key, value] of Object.entries(map)) {
     const ph = `{{${key}}}`;
     if (html.includes(ph)) {
@@ -271,7 +445,129 @@ function applyPlaceholderMap(html, map) {
       `src=$1$2?v=${assetVersion}$1`,
     );
   }
-  return html;
+  return ensureDiscordShareMeta(html, map);
+}
+
+/**
+ * Discord embed: niente GIF animate del CDN guild (spesso senza banner),
+ * + theme-color / dimensioni / twitter su tutte le pagine.
+ */
+function isDiscordAnimatedOgUrl(url) {
+  return /cdn\.discordapp\.com\/(?:banners|icons)\/[^"'?\s]+\/a_[^"'?\s]+\.gif/i.test(
+    String(url || ""),
+  );
+}
+
+function ensureDiscordShareMeta(html, map) {
+  let out = String(html || "");
+  const ogImage = String(map?.OG_IMAGE_URL || "").trim();
+  const ogW = String(map?.OG_IMAGE_WIDTH || "1200").trim();
+  const ogH = String(map?.OG_IMAGE_HEIGHT || "630").trim();
+  const ogAlt = String(map?.OG_IMAGE_ALT || "").trim();
+  const theme = String(map?.THEME_COLOR_HEX || "").trim();
+  if (!ogImage) return out;
+
+  out = out.replace(
+    /(<meta\s+property=["']og:image["']\s+content=["'])([^"']+)(["']\s*\/?>)/gi,
+    (full, pre, url, post) => {
+      // Sempre URL WA/Slack-safe (CF challenge su /images/* per alcuni crawler).
+      if (isDiscordAnimatedOgUrl(url) || !/\/(?:og\.jpg|apple-touch-icon\.jpg)/i.test(url)) {
+        return `${pre}${ogImage}${post}`;
+      }
+      return full;
+    },
+  );
+  out = out.replace(
+    /(<meta\s+name=["']twitter:image["']\s+content=["'])([^"']+)(["']\s*\/?>)/gi,
+    `$1${ogImage}$3`,
+  );
+
+  if (!/<meta\s+property=["']og:image["']/i.test(out)) {
+    out = out.replace(
+      /<\/head>/i,
+      `    <meta property="og:image" content="${ogImage}" />\n    <meta property="og:image:secure_url" content="${ogImage}" />\n    <meta property="og:image:type" content="image/jpeg" />\n    <meta property="og:image:width" content="${ogW}" />\n    <meta property="og:image:height" content="${ogH}" />\n    <meta name="twitter:card" content="summary_large_image" />\n    <meta name="twitter:image" content="${ogImage}" />\n  </head>`,
+    );
+  }
+
+  const injectAfterOgImage = (snippet) => {
+    if (!/<meta\s+property=["']og:image["']/i.test(out)) return;
+    out = out.replace(/(<meta\s+property=["']og:image["'][^>]*>)/i, `$1\n    ${snippet}`);
+  };
+
+  if (!/property=["']og:image:width["']/i.test(out)) {
+    injectAfterOgImage(
+      `<meta property="og:image:width" content="${ogW}" />\n    <meta property="og:image:height" content="${ogH}" />` +
+        (ogAlt ? `\n    <meta property="og:image:alt" content="${ogAlt}" />` : ""),
+    );
+  }
+  if (theme && !/name=["']theme-color["']/i.test(out)) {
+    injectAfterOgImage(`<meta name="theme-color" content="${theme}" />`);
+  }
+  if (!/name=["']twitter:card["']/i.test(out)) {
+    injectAfterOgImage(
+      `<meta name="twitter:card" content="summary_large_image" />\n    <meta name="twitter:image" content="${ogImage}" />`,
+    );
+  }
+  // WhatsApp / Slack / iMessage: secure_url + type + image_src (and CF-safe JPEG path).
+  if (!/property=["']og:image:secure_url["']/i.test(out)) {
+    injectAfterOgImage(`<meta property="og:image:secure_url" content="${ogImage}" />`);
+  }
+  if (!/property=["']og:image:type["']/i.test(out)) {
+    const ogType = /\.jpe?g(\?|$)/i.test(ogImage)
+      ? "image/jpeg"
+      : /\.png(\?|$)/i.test(ogImage)
+        ? "image/png"
+        : "image/jpeg";
+    injectAfterOgImage(`<meta property="og:image:type" content="${ogType}" />`);
+  }
+  if (!/rel=["']image_src["']/i.test(out)) {
+    injectAfterOgImage(`<link rel="image_src" href="${ogImage}" />`);
+  }
+  if (!/itemprop=["']image["']/i.test(out)) {
+    injectAfterOgImage(`<meta itemprop="image" content="${ogImage}" />`);
+  }
+  if (!/name=["']twitter:title["']/i.test(out) && map?.OG_TITLE) {
+    injectAfterOgImage(
+      `<meta name="twitter:title" content="${String(map.OG_TITLE)}" />\n    <meta name="twitter:description" content="${String(map.OG_DESCRIPTION || "")}" />`,
+    );
+  }
+  const appleTouchIcon =
+    `<link rel="apple-touch-icon" sizes="180x180" href="/favicon.ico?v=iosfix6" />\n    <link rel="apple-touch-icon" href="/favicon.ico?v=iosfix6" />\n    <link rel="apple-touch-icon-precomposed" sizes="180x180" href="/favicon.ico?v=iosfix6" />\n    <link rel="icon" type="image/png" sizes="180x180" href="/favicon.ico?v=iosfix6" />\n    <link rel="shortcut icon" href="/favicon.ico?v=iosfix6" />`;
+  // Prefer apple-touch early in <head>; strip Discord GIF favicons that steal iOS icon pick.
+  // NOTE: Cloudflare Managed Challenge blocks /apple-touch-icon*.png for Safari's
+  // icon fetcher; only /favicon.ico is allowed without challenge — keep icons there.
+  out = out.replace(
+    /<link[^>]+rel=["'](?:shortcut )?icon["'][^>]*cdn\.discordapp\.com[^>]*>\s*/gi,
+    "",
+  );
+  if (!/rel=["']manifest["']/i.test(out)) {
+    out = out.replace(
+      /<\/head>/i,
+      `  <link rel="manifest" href="/site.webmanifest?v=iosfix6" />\n    <meta name="apple-mobile-web-app-capable" content="yes" />\n    <meta name="mobile-web-app-capable" content="yes" />\n    <meta name="apple-mobile-web-app-title" content="Vinili &amp; Caffè" />\n    ${appleTouchIcon}\n  </head>`,
+    );
+  } else {
+    out = out.replace(
+      /<link[^>]+rel=["']apple-touch-icon(?:-precomposed)?["'][^>]*>\s*/gi,
+      "",
+    );
+    out = out.replace(/<head([^>]*)>/i, `<head$1>\n    ${appleTouchIcon}`);
+    if (!/name=["']apple-mobile-web-app-title["']/i.test(out)) {
+      out = out.replace(
+        /<\/head>/i,
+        `  <meta name="apple-mobile-web-app-title" content="Vinili &amp; Caffè" />\n  </head>`,
+      );
+    } else {
+      out = out.replace(
+        /<meta[^>]+name=["']apple-mobile-web-app-title["'][^>]*>/gi,
+        `<meta name="apple-mobile-web-app-title" content="Vinili &amp; Caffè" />`,
+      );
+    }
+    out = out.replace(
+      /(href=["'])\/site\.webmanifest(?:\?[^"']*)?(["'])/i,
+      `$1/site.webmanifest?v=iosfix6$2`,
+    );
+  }
+  return out;
 }
 
 function warnLeftoverPlaceholders(html, label) {
@@ -345,10 +641,13 @@ function absUrlForMetadata(siteUrl, pathOrUrl) {
   return `${base}/${p.replace(/^\//, "")}`;
 }
 
-/** Normalizza og:image senza riscrivere i GIF animati del CDN Discord (`a_*`): il .png omonimo non esiste → 404 e niente anteprima su Discord. */
+/** Normalizza og:image: niente GIF animate Discord CDN (Discord spesso non mostra il banner). */
 function forceStaticOgImageUrl(url) {
   const raw = String(url || "").trim();
   if (!raw) return "";
+  if (/cdn\.discordapp\.com\/(?:banners|icons)\/[^/]+\/a_[^/?#]+\.gif/i.test(raw)) {
+    return "";
+  }
   try {
     return new URL(raw).toString();
   } catch {
@@ -824,7 +1123,7 @@ function buildMaintenanceBootHtml(cfg, extra = {}) {
     redirectUri: String(cfg.discordOauth?.redirectUri || cfg.siteUrl || "").trim(),
   };
   const json = JSON.stringify(payload).replace(/</g, "\\u003c");
-  const extensionNoiseBoot = `    <script>(function(){function s(x,d){try{d=d||0;if(x&&typeof x==="object"){var p=[];if(x.message!=null)p.push(String(x.message));if(x.stack!=null)p.push(String(x.stack));if(x.name!=null)p.push(String(x.name));if(d<2&&x.reason!=null)p.push(s(x.reason,d+1));if(d<2&&x.error!=null)p.push(s(x.error,d+1));if(p.length)return p.join(" ")}return String(x||"")}catch(e){return""}}function n(x){var m=s(x);return /listener indicated an asynchronous response/i.test(m)||/listener.*returning true.*(?:message )?channel closed/i.test(m)||/asynchronous response by returning true/i.test(m)||/message channel closed before a response was received/i.test(m)||/channel closed before a response was received/i.test(m)||/closed before a response was received/i.test(m)||/could not establish connection\\.?\\s*receiving end does not exist/i.test(m)||/message port closed before a response was received/i.test(m)||/extension context invalidated/i.test(m)||/unchecked runtime\\.lasterror/i.test(m)||/wrappedSendMessageCallback/i.test(m)||/cookieCrumbler\\.js/i.test(m)||/chrome-extension:\\/\\//i.test(m)||/moz-extension:\\/\\//i.test(m)||(/cannot read properties of undefined/i.test(m)&&/useCache/i.test(m))}function h(e){if(!n(e&&e.reason)&&!n(e&&e.message)&&!n(e&&e.error))return;try{e.preventDefault();e.stopImmediatePropagation()}catch(_e){}}window.addEventListener("unhandledrejection",h,true);window.addEventListener("error",h,true);window.onunhandledrejection=h;["error","warn"].forEach(function(l){var o=console[l];if(typeof o!=="function")return;console[l]=function(){var a="";for(var i=0;i<arguments.length;i++)a+=" "+s(arguments[i]);if(n(a)||/forced reflow while executing javascript took/i.test(a))return;return o.apply(console,arguments)}})})();</script>\n`;
+  const extensionNoiseBoot = `    <script>(function(){function s(x,d){try{d=d||0;if(x&&typeof x==="object"){var p=[];if(x.message!=null)p.push(String(x.message));if(x.stack!=null)p.push(String(x.stack));if(x.name!=null)p.push(String(x.name));if(d<2&&x.reason!=null)p.push(s(x.reason,d+1));if(d<2&&x.error!=null)p.push(s(x.error,d+1));if(p.length)return p.join(" ")}return String(x||"")}catch(e){return""}}function n(x){var m=s(x);return /listener indicated an asynchronous response/i.test(m)||/listener.*returning true.*(?:message )?channel closed/i.test(m)||/asynchronous response by returning true/i.test(m)||/message channel closed before a response was received/i.test(m)||/channel closed before a response was received/i.test(m)||/closed before a response was received/i.test(m)||/could not establish connection\\.?\\s*receiving end does not exist/i.test(m)||/message port closed before a response was received/i.test(m)||/extension context invalidated/i.test(m)||/unchecked runtime\\.lasterror/i.test(m)||/wrappedSendMessageCallback/i.test(m)||/cookieCrumbler\\.js/i.test(m)||/chrome-extension:\\/\\//i.test(m)||/moz-extension:\\/\\//i.test(m)||(/cannot read properties of undefined/i.test(m)&&/useCache/i.test(m))||(/font-size:\\s*0;\\s*color:\\s*transparent/i.test(m)&&/NaN/i.test(m))||/challenges\\.cloudflare\\.com/i.test(m)}function tf(a){try{var f=String(a[0]||"");if(/font-size:\\s*0;\\s*color:\\s*transparent/i.test(f))return true;if(/%c%d/i.test(f)&&(a[1]!==a[1]||a[1]==null))return true}catch(e){}return false}function h(e){if(!n(e&&e.reason)&&!n(e&&e.message)&&!n(e&&e.error))return;try{e.preventDefault();e.stopImmediatePropagation()}catch(_e){}}window.addEventListener("unhandledrejection",h,true);window.addEventListener("error",h,true);window.onunhandledrejection=h;["error","warn","log","info","debug"].forEach(function(l){var o=console[l];if(typeof o!=="function")return;console[l]=function(){if(tf(arguments))return;var a="";for(var i=0;i<arguments.length;i++)a+=" "+s(arguments[i]);if(n(a)||/forced reflow while executing javascript took/i.test(a))return;return o.apply(console,arguments)}})})();</script>\n`;
   const trustedTypesBoot = `    <script>(function(){try{if(window.trustedTypes){window.trustedTypes.createPolicy("default",{createHTML:function(s){return String(s)},createScript:function(s){return String(s)},createScriptURL:function(s){return String(s)}})}}catch(e){}})();</script>\n`;
   return (
     extensionNoiseBoot +
@@ -903,12 +1202,14 @@ function buildSiteRouteGuardBoot(routesPayload) {
 
 function applySiteRouteGuardToHtml(html, routeGuardBoot) {
   if (!routeGuardBoot || html.includes("window.__VC_SITE_ROUTES")) return html;
+  // Keep Open Graph / Twitter meta first in <head> for link-preview crawlers
+  // (WhatsApp/Slack often stop parsing after early scripts).
+  if (html.includes("</head>")) {
+    return html.replace("</head>", `${routeGuardBoot}  </head>`);
+  }
   const headOpen = html.match(/<head\b[^>]*>/i);
   if (headOpen) {
     return html.replace(headOpen[0], `${headOpen[0]}\n${routeGuardBoot}`);
-  }
-  if (html.includes("</head>")) {
-    return html.replace("</head>", `${routeGuardBoot}  </head>`);
   }
   return routeGuardBoot + html;
 }
@@ -982,7 +1283,14 @@ function applyHeaderPromoToDist(distDir, promoButtonHtml, headerPromoClientConfi
       }
       if (!name.toLowerCase().endsWith(".html")) continue;
       const html = fs.readFileSync(p, "utf8");
-      if (html.includes("vc-hw-page")) continue;
+      const rel = path.relative(distDir, p).replace(/\\/g, "/").toLowerCase();
+      if (
+        html.includes("vc-hw-page") ||
+        html.includes("vc-dashboard-page") ||
+        rel.startsWith("dashboard/")
+      ) {
+        continue;
+      }
       const scriptPrefix = relativeScriptPrefixFromHtml(p);
       const promoBootHtml = buildHeaderPromoBootHtml(headerPromoClientConfig, scriptPrefix);
       const next = applyHeaderPromoToHtml(html, { promoButtonHtml, promoBootHtml });
@@ -1006,6 +1314,8 @@ function applyLiveStatsBootToDist(distDir, cfg, inviteCode) {
       if (!name.toLowerCase().endsWith(".html")) continue;
       const html = fs.readFileSync(p, "utf8");
       if (html.includes("window.__VC_DISABLE_LIVE_EVENT_UI = true") || html.includes("vc-hw-page") || html.includes("vc-seratafilm-page")) continue;
+      const rel = path.relative(distDir, p).replace(/\\/g, "/").toLowerCase();
+      if (html.includes("vc-dashboard-page") || rel.startsWith("dashboard/")) continue;
       if (html.includes("window.__VC_LIVE") || html.includes("js/live-stats.js")) continue;
       const scriptPrefix = relativeScriptPrefixFromHtml(p);
       const boot = buildLiveStatsBootHtml(cfg, inviteCode, { scriptPrefix });
@@ -1045,6 +1355,31 @@ function applyAvatarFallbackToDist(distDir, assetVersion = "") {
   walk(distDir);
 }
 
+function applyVcDialogToDist(distDir, assetVersion = "") {
+  const suffix = assetVersion ? `?v=${encodeURIComponent(String(assetVersion))}` : "";
+  const walk = (dir) => {
+    for (const name of fs.readdirSync(dir)) {
+      const p = path.join(dir, name);
+      const st = fs.statSync(p);
+      if (st.isDirectory()) {
+        walk(p);
+        continue;
+      }
+      if (!name.toLowerCase().endsWith(".html")) continue;
+      let html = fs.readFileSync(p, "utf8");
+      if (html.includes("vc-dialog.js")) continue;
+      const scriptPrefix = relativeScriptPrefixFromHtml(p);
+      const boot = `  <script src="${scriptPrefix}js/vc-dialog.js${suffix}" defer></script>\n`;
+      let next = html;
+      if (next.includes("</body>")) next = next.replace("</body>", `${boot}  </body>`);
+      else if (next.includes("</head>")) next = next.replace("</head>", `${boot}  </head>`);
+      else next += `\n${boot}`;
+      if (next !== html) fs.writeFileSync(p, next, "utf8");
+    }
+  };
+  walk(distDir);
+}
+
 function applyCursorTrailToDist(distDir, assetVersion = "") {
   const suffix = assetVersion ? `?v=${encodeURIComponent(String(assetVersion))}` : "";
   const walk = (dir) => {
@@ -1058,13 +1393,289 @@ function applyCursorTrailToDist(distDir, assetVersion = "") {
       if (!name.toLowerCase().endsWith(".html")) continue;
       const html = fs.readFileSync(p, "utf8");
       if (html.includes("vc-cursor-trail.js")) continue;
-      if (!html.includes("vc-landing.css")) continue;
-      const scriptPrefix = relativeScriptPrefixFromHtml(p);
-      const boot = `  <script src="${scriptPrefix}js/vc-cursor-trail.js${suffix}" defer></script>\n`;
+      if (!html.includes("vc-landing.css") && !html.includes("discord-auth.js")) continue;
+      const boot = `  <script src="/js/vc-cursor-trail.js${suffix}" defer></script>\n`;
       let next = html;
       if (next.includes("</body>")) next = next.replace("</body>", `${boot}  </body>`);
       else if (next.includes("</head>")) next = next.replace("</head>", `${boot}  </head>`);
       else next += `\n${boot}`;
+      if (next !== html) fs.writeFileSync(p, next, "utf8");
+    }
+  };
+  walk(distDir);
+}
+
+function applyHeaderNameMarqueeToDist(distDir, assetVersion = "") {
+  const suffix = assetVersion ? `?v=${encodeURIComponent(String(assetVersion))}` : "";
+  const walk = (dir) => {
+    for (const name of fs.readdirSync(dir)) {
+      const p = path.join(dir, name);
+      const st = fs.statSync(p);
+      if (st.isDirectory()) {
+        walk(p);
+        continue;
+      }
+      if (!name.toLowerCase().endsWith(".html")) continue;
+      let html = fs.readFileSync(p, "utf8");
+      if (html.includes("vc-header-name-marquee.js")) continue;
+      if (!html.includes("vc-header-bar") && !html.includes("vc-landing.css")) continue;
+      const boot = `  <script src="/js/vc-header-name-marquee.js${suffix}" defer></script>\n`;
+      let next = html;
+      if (next.includes("</body>")) next = next.replace("</body>", `${boot}  </body>`);
+      else if (next.includes("</head>")) next = next.replace("</head>", `${boot}  </head>`);
+      else next += `\n${boot}`;
+      if (next !== html) fs.writeFileSync(p, next, "utf8");
+    }
+  };
+  walk(distDir);
+}
+
+function buildLangSwitcherHtml() {
+  return `<div class="vc-lang-dropdown" id="vc-lang-dropdown">
+              <button type="button" class="vc-lang-toggle" id="vc-lang-toggle" aria-label="Lingua" aria-haspopup="listbox" aria-expanded="false" data-i18n-attr="aria-label:nav.language"><span class="vc-lang-flag vc-lang-flag--it" id="vc-lang-flag" data-vc-lang-flag="it" aria-hidden="true"></span></button>
+              <div class="vc-lang-panel" id="vc-lang-panel" role="listbox" hidden aria-label="Scegli lingua" data-i18n-attr="aria-label:nav.languageList">
+                <button type="button" class="vc-lang-option" data-vc-lang="it" role="option" aria-selected="true"><span class="vc-lang-flag vc-lang-flag--it" aria-hidden="true"></span><span data-i18n="lang.it">Italiano</span></button>
+                <button type="button" class="vc-lang-option" data-vc-lang="en" role="option" aria-selected="false"><span class="vc-lang-flag vc-lang-flag--en" aria-hidden="true"></span><span data-i18n="lang.en">English</span></button>
+              </div>
+            </div>`;
+}
+
+function stripLangSwitcherHtml(html) {
+  let next = String(html || "");
+  next = next.replace(/<details\b[^>]*\bid=["']vc-lang-dropdown["'][^>]*>[\s\S]*?<\/details>\s*/gi, "");
+  const startRe = /<div\b[^>]*\bid=["']vc-lang-dropdown["'][^>]*>/i;
+  const startMatch = startRe.exec(next);
+  if (!startMatch) return next;
+  const start = startMatch.index;
+  let i = start + startMatch[0].length;
+  let depth = 1;
+  while (i < next.length && depth > 0) {
+    const open = next.slice(i).search(/<div\b/i);
+    const close = next.slice(i).search(/<\/div>/i);
+    if (close < 0) break;
+    if (open >= 0 && open < close) {
+      depth += 1;
+      i += open + 4;
+      continue;
+    }
+    depth -= 1;
+    i += close + 6;
+  }
+  if (depth !== 0) return next;
+  let end = i;
+  while (end < next.length && /\s/.test(next[end])) end += 1;
+  return next.slice(0, start) + next.slice(end);
+}
+
+function injectLangSwitcherNearBrand(html) {
+  let next = stripLangSwitcherHtml(html);
+  if (next.includes('id="vc-lang-dropdown"')) return next;
+  const switcher = buildLangSwitcherHtml();
+  // Prefer left brand column (logo + name + flag), as on the main site.
+  const brandColRe =
+    /(<div class="flex min-w-0 items-center gap-2\.5 justify-self-start sm:gap-3">)([\s\S]*?)(<\/div>\s*(?:<nav\b|<div[^>]*id="header-quick-actions"))/i;
+  if (brandColRe.test(next)) {
+    next = next.replace(brandColRe, (_, open, inner, close) => {
+      const trimmed = String(inner).replace(/\s+$/, "");
+      return `${open}${trimmed}\n            ${switcher}\n          ${close}`;
+    });
+    return next;
+  }
+  if (next.includes('id="header-quick-actions"')) {
+    next = next.replace(
+      /(<div[^>]*id="header-quick-actions"[^>]*>)/i,
+      `$1\n            ${switcher}\n            `,
+    );
+  }
+  return next;
+}
+
+function stripBotReviewsFromPublicNav(html) {
+  if (!html || typeof html !== "string") return html;
+  return html.replace(
+    /\s*<a class="vc-snav-row(?:\s+vc-snav-row--active)?" href="\{\{BOT_REVIEWS_PAGE_URL\}\}"[\s\S]*?<\/a>/g,
+    "",
+  );
+}
+
+function annotateSharedChromeI18n(html) {
+  let next = stripBotReviewsFromPublicNav(html);
+  const spanSubs = [
+    [/>\s*<span>\s*Wiki\s*<\/span>/gi, '><span data-i18n="nav.wiki">Wiki</span>'],
+    [/>\s*<span>\s*Sponsor\s*<\/span>/gi, '><span data-i18n="nav.sponsor">Sponsor</span>'],
+    [/<summary class="vc-snav-summary"><span>Supporta<\/span>/g, '<summary class="vc-snav-summary"><span data-i18n="nav.support">Supporta</span>'],
+    [/<summary class="vc-snav-summary"><span>Community<\/span>/g, '<summary class="vc-snav-summary"><span data-i18n="nav.community">Community</span>'],
+    [/<summary class="vc-snav-summary"><span>Richieste<\/span>/g, '<summary class="vc-snav-summary"><span data-i18n="nav.requests">Richieste</span>'],
+    [/<span>Vota il server<\/span>/g, '<span data-i18n="nav.voteServer">Vota il server</span>'],
+    [/<span>Recensioni<\/span>/g, '<span data-i18n="nav.reviews">Recensioni</span>'],
+    [/<span>Recensioni<\/span>/g, '<span data-i18n="nav.botReviews">Recensioni</span>'],
+    [/<span>Donazioni<\/span>/g, '<span data-i18n="nav.donations">Donazioni</span>'],
+    [/<span>Perks<\/span>/g, '<span data-i18n="nav.perks">Perks</span>'],
+    [/<span>Users<\/span>/g, '<span data-i18n="nav.users">Users</span>'],
+    [/<span>Ruoli<\/span>/g, '<span data-i18n="nav.roles">Ruoli</span>'],
+    [/<span>Regole<\/span>/g, '<span data-i18n="nav.rules">Regole</span>'],
+    [/<span>FAQ<\/span>/g, '<span data-i18n="nav.faq">FAQ</span>'],
+    [/<span>Unban<\/span>/g, '<span data-i18n="nav.unban">Unban</span>'],
+    [/<span>Candidature<\/span>/g, '<span data-i18n="nav.applications">Candidature</span>'],
+    [/<span>Suggerimenti<\/span>/g, '<span data-i18n="nav.suggestions">Suggerimenti</span>'],
+    [/<span>Ticket<\/span>/g, '<span data-i18n="nav.tickets">Tickets</span>'],
+    [/<span>Tickets<\/span>/g, '<span data-i18n="nav.tickets">Tickets</span>'],
+    [/<span>tickets<\/span>/g, '<span data-i18n="nav.tickets">Tickets</span>'],
+    [/<span>Supporto<\/span>/g, '<span data-i18n="nav.tickets">Tickets</span>'],
+    [/<span>Status<\/span>/g, '<span data-i18n="nav.status">Status</span>'],
+  ];
+  for (const [re, rep] of spanSubs) {
+    next = next.replace(re, rep);
+  }
+  // Icona biglietto al posto della chat per il link tickets/supporto.
+  next = next.replace(
+    /(<a class="vc-snav-row(?:\s+vc-snav-row--active)?" href="\{\{(?:TICKETS_PAGE_URL|SUPPORTO_PAGE_URL)\}\}"[^>]*>[\s\S]*?<i class=")fa fa-comments-o(")/g,
+    "$1fa fa-ticket$2",
+  );
+  next = next.replace(
+    /aria-label="Collegamenti rapidi"/g,
+    'aria-label="Collegamenti rapidi" data-i18n-attr="aria-label:nav.quickLinks"',
+  );
+  next = next.replace(
+    /aria-label="Entra su Discord"/g,
+    'aria-label="Entra su Discord" data-i18n-attr="aria-label:nav.discordAria"',
+  );
+  next = next.replace(
+    /aria-label="Vai alla homepage"/g,
+    'aria-label="Vai alla homepage" data-i18n-attr="aria-label:nav.homeAria"',
+  );
+  next = next.replace(
+    /(<summary class="vc-icon-btn vc-notif-summary[^"]*" aria-label=")Notifiche(")/g,
+    '$1Notifiche$2 data-i18n-attr="aria-label:notif.aria"',
+  );
+  next = next.replace(
+    /aria-label="Elenco notifiche"/g,
+    'aria-label="Elenco notifiche" data-i18n-attr="aria-label:notif.listAria"',
+  );
+  next = next.replace(
+    /<span class="vc-notif-panel-title">Notifiche<\/span>/g,
+    '<span class="vc-notif-panel-title" data-i18n="notif.title">Notifiche</span>',
+  );
+  next = next.replace(
+    /id="vc-notif-unread-sub">0 non lette<\/span>/g,
+    'id="vc-notif-unread-sub" data-i18n="notif.unreadZero">0 non lette</span>',
+  );
+  next = next.replace(
+    /id="vc-notif-mark-all" title="Segna tutte come lette"\s*aria-label="Segna tutte come lette"/g,
+    'id="vc-notif-mark-all" title="Segna tutte come lette" aria-label="Segna tutte come lette" data-i18n-title="notif.markAll" data-i18n-attr="aria-label:notif.markAll"',
+  );
+  next = next.replace(
+    /id="vc-notif-clear-all" title="Elimina tutte"\s*aria-label="Elimina tutte"/g,
+    'id="vc-notif-clear-all" title="Elimina tutte" aria-label="Elimina tutte" data-i18n-title="notif.clearAll" data-i18n-attr="aria-label:notif.clearAll"',
+  );
+  next = next.replace(
+    /<p class="vc-notif-empty-title">Nessuna notifica<\/p>/g,
+    '<p class="vc-notif-empty-title" data-i18n="notif.emptyTitle">Nessuna notifica</p>',
+  );
+  next = next.replace(
+    /<p class="vc-notif-empty-sub">Sei tutto aggiornato!<\/p>/g,
+    '<p class="vc-notif-empty-sub" data-i18n="notif.emptySub">Sei tutto aggiornato!</p>',
+  );
+  next = next.replace(
+    /(id="vc-notif-see-all"[^>]*>)Vedi tutte le notifiche/g,
+    '$1<span data-i18n="notif.seeAll">Vedi tutte le notifiche</span>',
+  );
+  next = next.replace(
+    /(<button class="vc-header-pill" id="discord-login-btn"[^>]*>)Login(<\/button>)/g,
+    '$1<span data-i18n="auth.login">Login</span>$2',
+  );
+  next = next.replace(
+    /(<button class="vc-header-pill" id="discord-login-btn"[^>]*data-vc-discord-login[^>]*>)Login(<\/button>)/g,
+    '$1<span data-i18n="auth.login">Login</span>$2',
+  );
+  next = next.replace(
+    /(<i class="fa fa-save"[^>]*><\/i>)\s*Salva/g,
+    '$1 <span data-i18n="dash.save">Salva</span>',
+  );
+  next = next.replace(
+    /(<i class="fa fa-cog"[^>]*><\/i>)\s*Impostazioni/g,
+    '$1 <span data-i18n="dash.settings">Impostazioni</span>',
+  );
+  next = next.replace(
+    /<span class="vc-dash-picker__label">Seleziona canale<\/span>/g,
+    '<span class="vc-dash-picker__label" data-i18n="dash.selectChannel">Seleziona canale</span>',
+  );
+  next = next.replace(
+    /<span class="vc-dash-picker__label">Seleziona ruolo<\/span>/g,
+    '<span class="vc-dash-picker__label" data-i18n="dash.selectRole">Seleziona ruolo</span>',
+  );
+  return next;
+}
+
+function applyI18nToHtml(html, { scriptPrefix = "", assetSuffix = "" } = {}) {
+  if (!html.includes("vc-landing.css") && !html.includes("vc-dashboard-page")) return html;
+  let next = injectLangSwitcherNearBrand(html);
+  next = annotateSharedChromeI18n(next);
+  if (next.includes("vc-i18n.js")) return next;
+  const boot =
+    `  <script>(function(){try{var l=String(localStorage.getItem("vc_site_lang")||"").toLowerCase();var ok=["it","en","es","fr","de","pt","ru","zh","ja","ko","ar","nl","pl","tr","hi","id","uk","vi","ro","sv"];if(ok.indexOf(l)>=0){document.documentElement.lang=l;document.documentElement.setAttribute("dir",l==="ar"?"rtl":"ltr");}}catch(e){}})();</script>\n` +
+    `  <script src="${scriptPrefix}js/vc-i18n.js${assetSuffix}"></script>\n` +
+    `  <script src="${scriptPrefix}js/vc-i18n-pages.js${assetSuffix}"></script>\n` +
+    `  <script src="${scriptPrefix}js/vc-i18n-pages-extra.js${assetSuffix}"></script>\n` +
+    `  <script src="${scriptPrefix}js/vc-i18n-locales.js${assetSuffix}"></script>\n`;
+  const headOpen = next.match(/<head\b[^>]*>/i);
+  if (headOpen) next = next.replace(headOpen[0], `${headOpen[0]}\n${boot}`);
+  else if (next.includes("</head>")) next = next.replace("</head>", `${boot}</head>`);
+  else if (next.includes("</body>")) next = next.replace("</body>", `${boot}</body>`);
+  else next += `\n${boot}`;
+  return next;
+}
+
+function ensureI18nPagesScript(html, { scriptPrefix = "", assetSuffix = "" } = {}) {
+  if (!html.includes("vc-i18n.js")) return html;
+  let next = html;
+  if (!next.includes("vc-i18n-pages.js")) {
+    const tag = `  <script src="${scriptPrefix}js/vc-i18n-pages.js${assetSuffix}"></script>\n`;
+    if (next.includes("js/vc-i18n.js")) {
+      next = next.replace(
+        /(<script[^>]*js\/vc-i18n\.js[^>]*><\/script>)/i,
+        `$1\n${tag}`,
+      );
+    }
+  }
+  if (!next.includes("vc-i18n-pages-extra.js") && next.includes("vc-i18n-pages.js")) {
+    const extra = `  <script src="${scriptPrefix}js/vc-i18n-pages-extra.js${assetSuffix}"></script>\n`;
+    next = next.replace(
+      /(<script[^>]*js\/vc-i18n-pages\.js[^>]*><\/script>)/i,
+      `$1\n${extra}`,
+    );
+  }
+  if (!next.includes("vc-i18n-locales.js") && next.includes("vc-i18n-pages-extra.js")) {
+    const locales = `  <script src="${scriptPrefix}js/vc-i18n-locales.js${assetSuffix}"></script>\n`;
+    next = next.replace(
+      /(<script[^>]*js\/vc-i18n-pages-extra\.js[^>]*><\/script>)/i,
+      `$1\n${locales}`,
+    );
+  } else if (!next.includes("vc-i18n-locales.js") && next.includes("vc-i18n-pages.js")) {
+    const locales = `  <script src="${scriptPrefix}js/vc-i18n-locales.js${assetSuffix}"></script>\n`;
+    next = next.replace(
+      /(<script[^>]*js\/vc-i18n-pages\.js[^>]*><\/script>)/i,
+      `$1\n${locales}`,
+    );
+  }
+  return next;
+}
+
+function applyI18nToDist(distDir, assetVersion = "") {
+  const suffix = assetVersion ? `?v=${encodeURIComponent(String(assetVersion))}` : "";
+  const walk = (dir) => {
+    for (const name of fs.readdirSync(dir)) {
+      const p = path.join(dir, name);
+      const st = fs.statSync(p);
+      if (st.isDirectory()) {
+        walk(p);
+        continue;
+      }
+      if (!name.toLowerCase().endsWith(".html")) continue;
+      const html = fs.readFileSync(p, "utf8");
+      const scriptPrefix = relativeScriptPrefixFromHtml(p);
+      let next = applyI18nToHtml(html, { scriptPrefix, assetSuffix: suffix });
+      next = ensureI18nPagesScript(next, { scriptPrefix, assetSuffix: suffix });
       if (next !== html) fs.writeFileSync(p, next, "utf8");
     }
   };
@@ -1489,7 +2100,7 @@ async function main() {
   const buildFast = envFlagTrue("VC_BUILD_FAST");
   if (buildFast) {
     console.log(
-      "[build-site] VC_BUILD_FAST: niente scan membri / guild stats bot / avatar wiki via API (invite pubblico resta per banner·icona). Imposta VC_BUILD_QUIET=1 per meno log.",
+      "[build-site] VC_BUILD_FAST: niente scan membri / guild stats bot via API (invite pubblico resta per banner·icona; avatar bot restano via /users/@me). Imposta VC_BUILD_QUIET=1 per meno log.",
     );
   }
   rmrf(DIST);
@@ -1669,26 +2280,30 @@ async function main() {
     );
   }
 
-  const ogImageOverride = String(cfg.openGraphImageUrl ?? "").trim();
+  const siteOgFallback = "/og.jpg?v=ogwa4";
+  const ogImageOverride = String(cfg.openGraphImageUrl ?? "").trim() || siteOgFallback;
   const ogIconLarge =
     snap?.guildId && snap?.icon && wantIcon ? guildIconCdnUrl(snap.guildId, snap.icon, 1024) : guildIconUrl;
-  const ogImagePathOrUrl = ogImageOverride || guildBannerUrl || ogIconLarge || guildIconUrl;
-  const ogImageUrl = forceStaticOgImageUrl(absUrlForMetadata(siteUrlTrim, ogImagePathOrUrl));
-  let ogImageWidth = "960";
-  let ogImageHeight = "540";
-  if (ogImageOverride) {
-    const w = Number(cfg.openGraphImageWidth);
-    const h = Number(cfg.openGraphImageHeight);
-    if (Number.isFinite(w) && Number.isFinite(h) && w > 0 && h > 0) {
-      ogImageWidth = String(Math.floor(w));
-      ogImageHeight = String(Math.floor(h));
-    } else {
-      ogImageWidth = "1200";
-      ogImageHeight = "630";
+  // Mai usare banner/icon GIF Discord come og:image (Discord non li mostra bene → embed senza banner).
+  const ogCandidates = [ogImageOverride, siteOgFallback, guildBannerUrl, ogIconLarge, guildIconUrl];
+  let ogImageUrl = "";
+  for (const cand of ogCandidates) {
+    const abs = forceStaticOgImageUrl(absUrlForMetadata(siteUrlTrim, cand));
+    if (abs) {
+      ogImageUrl = abs;
+      break;
     }
-  } else if (!guildBannerUrl) {
-    ogImageWidth = "1024";
-    ogImageHeight = "1024";
+  }
+  if (!ogImageUrl) {
+    ogImageUrl = absUrlForMetadata(siteUrlTrim, siteOgFallback);
+  }
+  let ogImageWidth = "1200";
+  let ogImageHeight = "630";
+  const w = Number(cfg.openGraphImageWidth);
+  const h = Number(cfg.openGraphImageHeight);
+  if (Number.isFinite(w) && Number.isFinite(h) && w > 0 && h > 0) {
+    ogImageWidth = String(Math.floor(w));
+    ogImageHeight = String(Math.floor(h));
   }
   const ogTitle = `${siteName} | Community Discord italiana · ${statMembers}+ membri`;
   const ogDesc = String(cfg.metaDescription || "").trim();
@@ -1708,12 +2323,14 @@ async function main() {
   const privacyUrlResolved = String(cfg.privacyUrl ?? "").trim() || defaultLegalPath("privacy");
   const cookiePolicyUrlResolved =
     String(cfg.cookiePolicyUrl ?? "").trim() || defaultLegalPath("cookie");
+  const copyrightUrlResolved =
+    String(cfg.copyrightUrl ?? "").trim() || defaultLegalPath("copyright");
   const legalTermsDate =
-    String(cfg.legalTermsUpdated ?? "").trim() || "17 aprile 2026";
+    String(cfg.legalTermsUpdated ?? "").trim() || "14 agosto 2026";
   const legalPrivacyDate =
-    String(cfg.legalPrivacyUpdated ?? "").trim() || "17 aprile 2026";
+    String(cfg.legalPrivacyUpdated ?? "").trim() || "14 agosto 2026";
   const legalCookieDate =
-    String(cfg.legalCookieUpdated ?? "").trim() || "17 aprile 2026";
+    String(cfg.legalCookieUpdated ?? "").trim() || "14 agosto 2026";
   const discordInviteDisplay = inviteCode ? `discord.gg/${inviteCode}` : "Discord";
   const wikiUrlResolved =
     String(cfg.wikiUrl ?? "").trim() || (siteBaseNoSlash ? `${siteBaseNoSlash}/wiki` : "/wiki");
@@ -1724,7 +2341,11 @@ async function main() {
     String(cfg.communityRulesUrl ?? "").trim() || defaultLegalPath("regole");
   const modEmail = String(cfg.siteModeratorEmail || cfg.supportEmail || "").trim();
   const supEmail = String(cfg.supportEmail || "").trim();
-  const richiesteUnbanUrl = defaultLegalPath("unban");
+  const richiesteUnbanUrl = defaultLegalPath("appelli");
+  const richiesteUnmuteUrl = (() => {
+    const base = String(richiesteUnbanUrl || "/appelli").replace(/\/+$/, "");
+    return `${base}?tipo=unmute`;
+  })();
   const richiesteCandidatureUrl = defaultLegalPath("candidature");
   const richiesteSuggerimentiUrl = defaultLegalPath("suggerimenti");
   const donationsPageUrl = defaultLegalPath("donazioni");
@@ -1747,7 +2368,8 @@ async function main() {
   const tokenCaffe = process.env.DISCORD_TOKEN_TEST?.trim();
   let wikiViniliFromApi = null;
   let wikiCaffeFromApi = null;
-  if (!wikiViniliCfgUrl && tokenVinili && !buildFast) {
+  // Avatar: una sola GET /users/@me — anche in VC_BUILD_FAST (altrimenti resta il placeholder Discord).
+  if (!wikiViniliCfgUrl && tokenVinili) {
     wikiViniliFromApi = await fetchBotSelfAvatarUrl(tokenVinili, "Vinili");
     if (wikiViniliFromApi) {
       buildInfoLog("[build-site] Wiki Vinili: avatar da Discord GET /users/@me (account bot).");
@@ -1757,7 +2379,7 @@ async function main() {
       );
     }
   }
-  if (!wikiCaffeCfgUrl && tokenCaffe && !buildFast) {
+  if (!wikiCaffeCfgUrl && tokenCaffe) {
     wikiCaffeFromApi = await fetchBotSelfAvatarUrl(tokenCaffe, "Caffè");
     if (wikiCaffeFromApi) {
       buildInfoLog("[build-site] Wiki Caffè: avatar da Discord GET /users/@me (account bot).");
@@ -1837,6 +2459,19 @@ async function main() {
     unbanSubmitApiLocalRaw && /^https?:\/\//i.test(unbanSubmitApiLocalRaw)
       ? unbanSubmitApiLocalRaw
       : "";
+  const unmuteSubmitApiFromEnv = String(process.env.VC_UNMUTE_SUBMIT_API_URL ?? "").trim();
+  const unmuteSubmitApiRaw =
+    unmuteSubmitApiFromEnv || String(cfg.unmuteSubmitApiUrl ?? "").trim();
+  const unmuteSubmitApiResolved = resolvePublicWebhookApiUrl(
+    unmuteSubmitApiRaw || "/webhooks/site-unmute",
+  );
+  const unmuteSubmitApiLocalFromEnv = String(process.env.VC_UNMUTE_SUBMIT_API_URL_LOCAL ?? "").trim();
+  const unmuteSubmitApiLocalRaw =
+    unmuteSubmitApiLocalFromEnv || String(cfg.unmuteSubmitApiUrlLocal ?? "").trim();
+  const unmuteSubmitApiLocalResolved =
+    unmuteSubmitApiLocalRaw && /^https?:\/\//i.test(unmuteSubmitApiLocalRaw)
+      ? unmuteSubmitApiLocalRaw
+      : "";
   const communityRulesApiFromEnv = String(process.env.VC_COMMUNITY_RULES_API_URL ?? "").trim();
   const communityRulesApiRaw =
     communityRulesApiFromEnv || String(cfg.communityRulesApiUrl ?? "").trim();
@@ -1891,6 +2526,114 @@ async function main() {
     seratafilmAccessApiLocalRaw && /^https?:\/\//i.test(seratafilmAccessApiLocalRaw)
       ? seratafilmAccessApiLocalRaw
       : "";
+  const staffAccessApiFromEnv = String(process.env.VC_STAFF_ACCESS_API_URL ?? "").trim();
+  const staffAccessApiRaw =
+    staffAccessApiFromEnv || String(cfg.staffAccessApiUrl ?? "").trim();
+  const staffAccessApiResolved = resolvePublicWebhookApiUrl(
+    staffAccessApiRaw,
+    "/webhooks/site-staff-access",
+  );
+  const staffAccessApiLocalFromEnv = String(process.env.VC_STAFF_ACCESS_API_URL_LOCAL ?? "").trim();
+  const staffAccessApiLocalRaw =
+    staffAccessApiLocalFromEnv || String(cfg.staffAccessApiUrlLocal ?? "").trim();
+  const staffAccessApiLocalResolved =
+    staffAccessApiLocalRaw && /^https?:\/\//i.test(staffAccessApiLocalRaw)
+      ? staffAccessApiLocalRaw
+      : "";
+  const staffPauseApiFromEnv = String(process.env.VC_STAFF_PAUSE_API_URL ?? "").trim();
+  const staffPauseApiRaw =
+    staffPauseApiFromEnv || String(cfg.staffPauseApiUrl ?? "").trim();
+  const staffPauseApiResolved = resolvePublicWebhookApiUrl(
+    staffPauseApiRaw,
+    "/webhooks/site-staff-pause",
+  );
+  const staffPauseApiLocalFromEnv = String(process.env.VC_STAFF_PAUSE_API_URL_LOCAL ?? "").trim();
+  const staffPauseApiLocalRaw =
+    staffPauseApiLocalFromEnv || String(cfg.staffPauseApiUrlLocal ?? "").trim();
+  const staffPauseApiLocalResolved =
+    staffPauseApiLocalRaw && /^https?:\/\//i.test(staffPauseApiLocalRaw)
+      ? staffPauseApiLocalRaw
+      : "";
+  const staffProfileApiFromEnv = String(process.env.VC_STAFF_PROFILE_API_URL ?? "").trim();
+  const staffProfileApiRaw =
+    staffProfileApiFromEnv || String(cfg.staffProfileApiUrl ?? "").trim();
+  const staffProfileApiResolved = resolvePublicWebhookApiUrl(
+    staffProfileApiRaw,
+    "/webhooks/site-staff-profile",
+  );
+  const staffProfileApiLocalFromEnv = String(process.env.VC_STAFF_PROFILE_API_URL_LOCAL ?? "").trim();
+  const staffProfileApiLocalRaw =
+    staffProfileApiLocalFromEnv || String(cfg.staffProfileApiUrlLocal ?? "").trim();
+  const staffProfileApiLocalResolved =
+    staffProfileApiLocalRaw && /^https?:\/\//i.test(staffProfileApiLocalRaw)
+      ? staffProfileApiLocalRaw
+      : "";
+  function resolveStaffToolApi(envKey, cfgKey, envLocalKey, cfgLocalKey, fallbackPath) {
+    const fromEnv = String(process.env[envKey] ?? "").trim();
+    const raw = fromEnv || String(cfg[cfgKey] ?? "").trim();
+    const resolved = resolvePublicWebhookApiUrl(raw, fallbackPath);
+    const localFromEnv = String(process.env[envLocalKey] ?? "").trim();
+    const localRaw = localFromEnv || String(cfg[cfgLocalKey] ?? "").trim();
+    const localResolved =
+      localRaw && /^https?:\/\//i.test(localRaw) ? localRaw : "";
+    return { resolved, localResolved };
+  }
+  const staffDirectoryApi = resolveStaffToolApi(
+    "VC_STAFF_DIRECTORY_API_URL",
+    "staffDirectoryApiUrl",
+    "VC_STAFF_DIRECTORY_API_URL_LOCAL",
+    "staffDirectoryApiUrlLocal",
+    "/webhooks/site-staff-directory",
+  );
+  const staffPmHubApi = resolveStaffToolApi(
+    "VC_STAFF_PM_HUB_API_URL",
+    "staffPmHubApiUrl",
+    "VC_STAFF_PM_HUB_API_URL_LOCAL",
+    "staffPmHubApiUrlLocal",
+    "/webhooks/site-staff-pm-hub",
+  );
+  const staffValwarnApi = resolveStaffToolApi(
+    "VC_STAFF_VALWARN_API_URL",
+    "staffValwarnApiUrl",
+    "VC_STAFF_VALWARN_API_URL_LOCAL",
+    "staffValwarnApiUrlLocal",
+    "/webhooks/site-staff-valwarn",
+  );
+  const staffTicketsApi = resolveStaffToolApi(
+    "VC_STAFF_TICKETS_API_URL",
+    "staffTicketsApiUrl",
+    "VC_STAFF_TICKETS_API_URL_LOCAL",
+    "staffTicketsApiUrlLocal",
+    "/webhooks/site-staff-tickets",
+  );
+  const staffSerataFilmApi = resolveStaffToolApi(
+    "VC_STAFF_SERATAFILM_API_URL",
+    "staffSerataFilmApiUrl",
+    "VC_STAFF_SERATAFILM_API_URL_LOCAL",
+    "staffSerataFilmApiUrlLocal",
+    "/webhooks/site-staff-seratafilm",
+  );
+  const staffGuideApi = resolveStaffToolApi(
+    "VC_STAFF_GUIDE_API_URL",
+    "staffGuideApiUrl",
+    "VC_STAFF_GUIDE_API_URL_LOCAL",
+    "staffGuideApiUrlLocal",
+    "/webhooks/site-staff-guide",
+  );
+  const staffDashboardApi = resolveStaffToolApi(
+    "VC_STAFF_DASHBOARD_API_URL",
+    "staffDashboardApiUrl",
+    "VC_STAFF_DASHBOARD_API_URL_LOCAL",
+    "staffDashboardApiUrlLocal",
+    "/webhooks/site-staff-dashboard",
+  );
+  const staffManageApi = resolveStaffToolApi(
+    "VC_STAFF_MANAGE_API_URL",
+    "staffManageApiUrl",
+    "VC_STAFF_MANAGE_API_URL_LOCAL",
+    "staffManageApiUrlLocal",
+    "/webhooks/site-staff-manage",
+  );
   const hogwartsSortingApiFromEnv = String(process.env.VC_HOGWARTS_SORTING_API_URL ?? "").trim();
   const hogwartsSortingApiRaw =
     hogwartsSortingApiFromEnv || String(cfg.hogwartsSortingApiUrl ?? "").trim();
@@ -2358,6 +3101,26 @@ async function main() {
     suggestionsApiLocalRaw && /^https?:\/\//i.test(suggestionsApiLocalRaw)
       ? suggestionsApiLocalRaw
       : "";
+  const botFeedbackApiFromEnv = String(process.env.VC_BOT_FEEDBACK_API_URL ?? "").trim();
+  const botFeedbackApiRaw = botFeedbackApiFromEnv || String(cfg.botFeedbackApiUrl ?? "").trim();
+  const botFeedbackApiResolved = resolvePublicWebhookApiUrl(botFeedbackApiRaw, "/webhooks/site-bot-feedback");
+  const botFeedbackApiLocalFromEnv = String(process.env.VC_BOT_FEEDBACK_API_URL_LOCAL ?? "").trim();
+  const botFeedbackApiLocalRaw =
+    botFeedbackApiLocalFromEnv || String(cfg.botFeedbackApiUrlLocal ?? "").trim();
+  const botFeedbackApiLocalResolved =
+    botFeedbackApiLocalRaw && /^https?:\/\//i.test(botFeedbackApiLocalRaw)
+      ? botFeedbackApiLocalRaw
+      : "";
+  const webTicketsApiFromEnv = String(process.env.VC_WEB_TICKETS_API_URL ?? "").trim();
+  const webTicketsApiRaw = webTicketsApiFromEnv || String(cfg.webTicketsApiUrl ?? "").trim();
+  const webTicketsApiResolved = resolvePublicWebhookApiUrl(webTicketsApiRaw, "/webhooks/site-web-tickets");
+  const webTicketsApiLocalFromEnv = String(process.env.VC_WEB_TICKETS_API_URL_LOCAL ?? "").trim();
+  const webTicketsApiLocalRaw =
+    webTicketsApiLocalFromEnv || String(cfg.webTicketsApiUrlLocal ?? "").trim();
+  const webTicketsApiLocalResolved =
+    webTicketsApiLocalRaw && /^https?:\/\//i.test(webTicketsApiLocalRaw)
+      ? webTicketsApiLocalRaw
+      : "";
   const rolesApiFromEnv = String(process.env.VC_ROLES_API_URL ?? "").trim();
   const rolesApiRaw = rolesApiFromEnv || String(cfg.rolesApiUrl ?? "").trim();
   const rolesApiResolved = resolvePublicWebhookApiUrl(rolesApiRaw, "/webhooks/site-roles");
@@ -2387,6 +3150,65 @@ async function main() {
       : "";
   const reviewsPageUrl = siteBaseNoSlash ? `${siteBaseNoSlash}/recensioni` : "/recensioni";
   const suggestionsPageUrl = siteBaseNoSlash ? `${siteBaseNoSlash}/suggerimenti` : "/suggerimenti";
+  const ticketsPageUrl = siteBaseNoSlash ? `${siteBaseNoSlash}/tickets` : "/tickets";
+  const supportoPageUrl = ticketsPageUrl;
+  const staffTicketPageUrl = ticketsPageUrl;
+  const dashboardPageUrl = siteBaseNoSlash ? `${siteBaseNoSlash}/dashboard` : "/dashboard";
+  const dashboardGuildPageUrl = siteBaseNoSlash ? `${siteBaseNoSlash}/dashboard/guild/` : "/dashboard/guild/";
+  const dashboardFeedbackPageUrl = siteBaseNoSlash
+    ? `${siteBaseNoSlash}/dashboard/feedback/`
+    : "/dashboard/feedback/";
+  const dashboardSuggestionsPageUrl = dashboardFeedbackPageUrl;
+  const dashboardFaqPageUrl = siteBaseNoSlash ? `${siteBaseNoSlash}/dashboard/faq/` : "/dashboard/faq/";
+  const dashboardPremiumPageUrl = siteBaseNoSlash
+    ? `${siteBaseNoSlash}/dashboard/premium/`
+    : "/dashboard/premium/";
+  const dashboardPremiumCreditsPageUrl = siteBaseNoSlash
+    ? `${siteBaseNoSlash}/dashboard/premium/crediti/`
+    : "/dashboard/premium/crediti/";
+  const dashboardProfilePageUrl = siteBaseNoSlash
+    ? `${siteBaseNoSlash}/dashboard/profilo/`
+    : "/dashboard/profilo/";
+  const dashboardProfileSubPageUrl = siteBaseNoSlash
+    ? `${siteBaseNoSlash}/dashboard/profilo/abbonamento/`
+    : "/dashboard/profilo/abbonamento/";
+  const dashboardTranscriptPageUrl = siteBaseNoSlash
+    ? `${siteBaseNoSlash}/dashboard/transcript/`
+    : "/dashboard/transcript/";
+  const datiPageUrl = siteBaseNoSlash ? `${siteBaseNoSlash}/dati/` : "/dati/";
+  const botReviewsPageUrl = siteBaseNoSlash
+    ? `${siteBaseNoSlash}/dashboard/recensioni/`
+    : "/dashboard/recensioni/";
+  const statusPageUrl = siteBaseNoSlash ? `${siteBaseNoSlash}/status/` : "/status/";
+  const premiumCheckoutFromCfg = String(cfg.premiumCheckoutUrl ?? "").trim();
+  const discordAppId = String(cfg.discordOauth?.clientId ?? "").trim();
+  /** SKU Guild subscription — Vinili Premium (Discord Shop). */
+  const premiumStoreSkuId = String(cfg.premiumStoreSkuId ?? "1530970777694896239").trim();
+  const premiumCheckoutUrlResolved =
+    premiumCheckoutFromCfg ||
+    (discordAppId && /^\d{16,22}$/.test(premiumStoreSkuId)
+      ? `https://discord.com/discovery/applications/${discordAppId}/store/${premiumStoreSkuId}`
+      : discordAppId
+        ? `https://discord.com/discovery/applications/${discordAppId}/store`
+        : String(cfg.donationsUrl ?? "").trim() || "#");
+
+  let dashboardBotFaqJson = '{"categories":[],"items":[]}';
+  try {
+    const botFaqPlain = require(path.join(ROOT, "..", "Vinyls", "Utils", "Utility", "botFaqPlainData.js"));
+    dashboardBotFaqJson = JSON.stringify(botFaqPlain.getBotFaqWebPayload());
+  } catch (err) {
+    console.warn("[build-site] FAQ bot non caricata:", err?.message || err);
+  }
+  const dashboardApiFromEnv = String(process.env.VC_DASHBOARD_API_URL ?? "").trim();
+  const dashboardApiRaw = dashboardApiFromEnv || String(cfg.dashboardApiUrl ?? "").trim();
+  const dashboardApiResolved = resolvePublicWebhookApiUrl(dashboardApiRaw, "/webhooks/site-dashboard");
+  const dashboardApiLocalFromEnv = String(process.env.VC_DASHBOARD_API_URL_LOCAL ?? "").trim();
+  const dashboardApiLocalRaw =
+    dashboardApiLocalFromEnv || String(cfg.dashboardApiUrlLocal ?? "").trim();
+  const dashboardApiLocalResolved =
+    dashboardApiLocalRaw && /^https?:\/\//i.test(dashboardApiLocalRaw)
+      ? dashboardApiLocalRaw
+      : "";
   const userPageUrl = siteBaseNoSlash ? `${siteBaseNoSlash}/user` : "/user";
   const ruoliPageUrl = siteBaseNoSlash ? `${siteBaseNoSlash}/ruoli` : "/ruoli";
   if (discordOauthRedirectResolved) {
@@ -2431,6 +3253,11 @@ async function main() {
     TERMS_URL: escAttr(termsUrlResolved),
     PRIVACY_URL: escAttr(privacyUrlResolved),
     COOKIE_POLICY_URL: escAttr(cookiePolicyUrlResolved),
+    COPYRIGHT_URL: escAttr(copyrightUrlResolved),
+    COPYRIGHT_OG_TITLE: escAttr(`Copyright e Licenza | ${siteName}`),
+    COPYRIGHT_OG_DESCRIPTION: escAttr(
+      `Avviso di copyright e licenza proprietaria di ${siteName}.`,
+    ),
     NOTIFICATIONS_URL: escAttr(defaultLegalPath("notifications")),
     USER_PERSONALIZZA_URL: escAttr(defaultLegalPath("user/personalizza")),
     LEGAL_TERMS_UPDATED: escHtml(legalTermsDate),
@@ -2460,12 +3287,14 @@ async function main() {
     DISCORD_OAUTH_CLIENT_ID: String(cfg.discordOauth?.clientId || "").trim(),
     DISCORD_OAUTH_REDIRECT_URI: discordOauthRedirectResolved,
     DISCORD_INVITE_URL: discordInviteResolved,
+    DISCORD_GUILD_ID: escAttr(guildIdResolved || "1329080093599076474"),
     DISCORD_SPONSOR_TICKETS_MESSAGE_URL: escAttr(discordSponsorTicketsMessageResolved),
     WIKI_URL: escAttr(wikiUrlResolved),
     SPONSOR_URL: escAttr(sponsorUrlResolved),
     FAQ_URL: escAttr(faqUrlResolved),
     COMMUNITY_RULES_URL: escAttr(communityRulesUrlResolved),
     RICHIESTE_UNBAN_URL: escAttr(richiesteUnbanUrl),
+    RICHIESTE_UNMUTE_URL: escAttr(richiesteUnmuteUrl),
     RICHIESTE_CANDIDATURE_URL: escAttr(richiesteCandidatureUrl),
     RICHIESTE_SUGGERIMENTI_URL: escAttr(richiesteSuggerimentiUrl),
     CANDIDATURE_PAGE_TITLE: `${siteName} | Candidature staff`,
@@ -2478,6 +3307,8 @@ async function main() {
     CANDIDATURE_SUBMIT_API_URL_LOCAL: escAttr(distApiLocal(candidatureSubmitApiLocalResolved)),
     UNBAN_SUBMIT_API_URL: escAttr(unbanSubmitApiResolved),
     UNBAN_SUBMIT_API_URL_LOCAL: escAttr(distApiLocal(unbanSubmitApiLocalResolved)),
+    UNMUTE_SUBMIT_API_URL: escAttr(unmuteSubmitApiResolved),
+    UNMUTE_SUBMIT_API_URL_LOCAL: escAttr(distApiLocal(unmuteSubmitApiLocalResolved)),
     COMMUNITY_RULES_API_URL: escAttr(communityRulesApiResolved),
     COMMUNITY_RULES_API_URL_LOCAL: escAttr(distApiLocal(communityRulesApiLocalResolved)),
     USER_PAGE_URL: escAttr(userPageUrl),
@@ -2490,6 +3321,28 @@ async function main() {
     SITE_NOTIFICATIONS_API_URL_LOCAL: escAttr(distApiLocal(siteNotifsApiLocalResolved)),
     SERATAFILM_ACCESS_API_URL: escAttr(seratafilmAccessApiResolved),
     SERATAFILM_ACCESS_API_URL_LOCAL: escAttr(distApiLocal(seratafilmAccessApiLocalResolved)),
+    STAFF_ACCESS_API_URL: escAttr(staffAccessApiResolved),
+    STAFF_ACCESS_API_URL_LOCAL: escAttr(distApiLocal(staffAccessApiLocalResolved)),
+    STAFF_PAUSE_API_URL: escAttr(staffPauseApiResolved),
+    STAFF_PAUSE_API_URL_LOCAL: escAttr(distApiLocal(staffPauseApiLocalResolved)),
+    STAFF_PROFILE_API_URL: escAttr(staffProfileApiResolved),
+    STAFF_PROFILE_API_URL_LOCAL: escAttr(distApiLocal(staffProfileApiLocalResolved)),
+    STAFF_DIRECTORY_API_URL: escAttr(staffDirectoryApi.resolved),
+    STAFF_DIRECTORY_API_URL_LOCAL: escAttr(distApiLocal(staffDirectoryApi.localResolved)),
+    STAFF_PM_HUB_API_URL: escAttr(staffPmHubApi.resolved),
+    STAFF_PM_HUB_API_URL_LOCAL: escAttr(distApiLocal(staffPmHubApi.localResolved)),
+    STAFF_VALWARN_API_URL: escAttr(staffValwarnApi.resolved),
+    STAFF_VALWARN_API_URL_LOCAL: escAttr(distApiLocal(staffValwarnApi.localResolved)),
+    STAFF_TICKETS_API_URL: escAttr(staffTicketsApi.resolved),
+    STAFF_TICKETS_API_URL_LOCAL: escAttr(distApiLocal(staffTicketsApi.localResolved)),
+    STAFF_SERATAFILM_API_URL: escAttr(staffSerataFilmApi.resolved),
+    STAFF_SERATAFILM_API_URL_LOCAL: escAttr(distApiLocal(staffSerataFilmApi.localResolved)),
+    STAFF_GUIDE_API_URL: escAttr(staffGuideApi.resolved),
+    STAFF_GUIDE_API_URL_LOCAL: escAttr(distApiLocal(staffGuideApi.localResolved)),
+    STAFF_DASHBOARD_API_URL: escAttr(staffDashboardApi.resolved),
+    STAFF_DASHBOARD_API_URL_LOCAL: escAttr(distApiLocal(staffDashboardApi.localResolved)),
+    STAFF_MANAGE_API_URL: escAttr(staffManageApi.resolved),
+    STAFF_MANAGE_API_URL_LOCAL: escAttr(distApiLocal(staffManageApi.localResolved)),
     HOGWARTS_SORTING_API_URL: escAttr(hogwartsSortingApiResolved),
     HOGWARTS_SORTING_API_URL_LOCAL: escAttr(distApiLocal(hogwartsSortingApiLocalResolved)),
     HOGWARTS_SHOP_API_URL: escAttr(`${hogwartsSortingApiResolved.replace(/\/+$/, "")}/shop`),
@@ -2548,11 +3401,46 @@ async function main() {
     SERATAFILM_BGM_URI: seratafilmBgmUri,
     SERATAFILM_EVENT_URI: seratafilmEventUri,
     REVIEWS_PAGE_URL: escAttr(reviewsPageUrl),
+    BOT_REVIEWS_PAGE_URL: escAttr(botReviewsPageUrl),
     REVIEWS_API_URL: escAttr(reviewsApiResolved),
     REVIEWS_API_URL_LOCAL: escAttr(distApiLocal(reviewsApiLocalResolved)),
     SUGGESTIONS_PAGE_URL: escAttr(suggestionsPageUrl),
     SUGGESTIONS_API_URL: escAttr(suggestionsApiResolved),
     SUGGESTIONS_API_URL_LOCAL: escAttr(distApiLocal(suggestionsApiLocalResolved)),
+    BOT_FEEDBACK_API_URL: escAttr(botFeedbackApiResolved),
+    BOT_FEEDBACK_API_URL_LOCAL: escAttr(distApiLocal(botFeedbackApiLocalResolved)),
+    WEB_TICKETS_API_URL: escAttr(webTicketsApiResolved),
+    WEB_TICKETS_API_URL_LOCAL: escAttr(distApiLocal(webTicketsApiLocalResolved)),
+    TICKETS_PAGE_URL: escAttr(ticketsPageUrl),
+    SUPPORTO_PAGE_URL: escAttr(supportoPageUrl),
+    STAFF_TICKET_PAGE_URL: escAttr(staffTicketPageUrl),
+    TICKETS_PAGE_TITLE: escAttr(`${siteName} | Ticket`),
+    TICKETS_META_DESCRIPTION: escAttr(
+      "Apri un ticket live sul sito e chatta con lo staff in tempo reale con il tuo account Discord.",
+    ),
+    TICKETS_OG_TITLE: escAttr(`${siteName} | Ticket live`),
+    TICKETS_OG_URL: escAttr(ticketsPageUrl),
+    SUPPORTO_PAGE_TITLE: escAttr(`${siteName} | Ticket`),
+    SUPPORTO_META_DESCRIPTION: escAttr(
+      `Apri un ticket e parla in tempo reale con lo staff di ${siteName} direttamente dal sito.`,
+    ),
+    SUPPORTO_OG_TITLE: escAttr(`${siteName} | Supporto live`),
+    SUPPORTO_OG_URL: escAttr(supportoPageUrl),
+    DASHBOARD_PAGE_URL: escAttr(dashboardPageUrl),
+    DASHBOARD_GUILD_PAGE_URL: escAttr(dashboardGuildPageUrl),
+    DASHBOARD_SUGGESTIONS_PAGE_URL: escAttr(dashboardSuggestionsPageUrl),
+    DASHBOARD_FAQ_PAGE_URL: escAttr(dashboardFaqPageUrl),
+    DASHBOARD_PREMIUM_PAGE_URL: escAttr(dashboardPremiumPageUrl),
+    DASHBOARD_PREMIUM_CREDITS_PAGE_URL: escAttr(dashboardPremiumCreditsPageUrl),
+    DASHBOARD_PREMIUM_CHECKOUT_URL: escAttr(premiumCheckoutUrlResolved),
+    DASHBOARD_PROFILE_PAGE_URL: escAttr(dashboardProfilePageUrl),
+    DASHBOARD_PROFILE_SUB_PAGE_URL: escAttr(dashboardProfileSubPageUrl),
+    DATI_PAGE_URL: escAttr(datiPageUrl),
+    DASHBOARD_BOT_FAQ_JSON: dashboardBotFaqJson,
+    STATUS_URL: escAttr(statusPageUrl),
+    STATUS_PAGE_URL: escAttr(statusPageUrl),
+    DASHBOARD_API_URL: escAttr(dashboardApiResolved),
+    DASHBOARD_API_URL_LOCAL: escAttr(distApiLocal(dashboardApiLocalResolved)),
     ROLES_API_URL: escAttr(rolesApiResolved),
     ROLES_API_URL_LOCAL: escAttr(distApiLocal(rolesApiLocalResolved)),
     RANK_CARD_API_URL: escAttr(rankCardApiResolved),
@@ -2597,12 +3485,71 @@ async function main() {
     ),
     REVIEWS_OG_TITLE: escAttr(`${siteName} | Recensioni`),
     REVIEWS_OG_URL: escAttr(reviewsPageUrl),
+    BOT_REVIEWS_PAGE_TITLE: `${siteName} | Recensioni`,
+    BOT_REVIEWS_META_DESCRIPTION: escAttr(
+      `Recensioni di ViniliCaffeBot: feedback su musica, partnership e strumenti, filtrabili per lingua.`,
+    ),
+    BOT_REVIEWS_OG_TITLE: escAttr(`${siteName} | Recensioni`),
+    BOT_REVIEWS_OG_URL: escAttr(botReviewsPageUrl),
     SUGGESTIONS_PAGE_TITLE: `${siteName} | Suggerimenti`,
     SUGGESTIONS_META_DESCRIPTION: escAttr(
       `Suggerimenti per ${siteName}: proponi idee, commenta le proposte e segui le decisioni dell'High Staff.`,
     ),
     SUGGESTIONS_OG_TITLE: escAttr(`${siteName} | Suggerimenti`),
     SUGGESTIONS_OG_URL: escAttr(suggestionsPageUrl),
+    DASHBOARD_PAGE_TITLE: `${siteName} | Dashboard`,
+    DASHBOARD_META_DESCRIPTION: escAttr(`Dashboard bot di ${siteName}.`),
+    DASHBOARD_OG_TITLE: escAttr(`${siteName} | Dashboard`),
+    DASHBOARD_OG_URL: escAttr(dashboardPageUrl),
+    DASHBOARD_GUILD_PAGE_TITLE: `${siteName} | Dashboard server`,
+    DASHBOARD_GUILD_META_DESCRIPTION: escAttr(`Configurazione server — dashboard ${siteName}.`),
+    DASHBOARD_GUILD_OG_TITLE: escAttr(`${siteName} | Dashboard server`),
+    DASHBOARD_GUILD_OG_URL: escAttr(dashboardGuildPageUrl),
+    DASHBOARD_SUGGESTIONS_PAGE_TITLE: `${siteName} | Feedback bot`,
+    DASHBOARD_SUGGESTIONS_META_DESCRIPTION: escAttr(
+      `Feedback su Vinili: idee, miglioramenti e segnalazioni bug — dashboard ${siteName}.`,
+    ),
+    DASHBOARD_SUGGESTIONS_OG_TITLE: escAttr(`${siteName} | Feedback bot`),
+    DASHBOARD_SUGGESTIONS_OG_URL: escAttr(dashboardSuggestionsPageUrl),
+    DASHBOARD_FAQ_PAGE_TITLE: `${siteName} | FAQ bot`,
+    DASHBOARD_FAQ_META_DESCRIPTION: escAttr(
+      `FAQ di ViniliCaffeBot: setup, settings, partnership, punti e status — dashboard ${siteName}.`,
+    ),
+    DASHBOARD_FAQ_OG_TITLE: escAttr(`${siteName} | FAQ bot`),
+    DASHBOARD_FAQ_OG_URL: escAttr(dashboardFaqPageUrl),
+    DASHBOARD_PREMIUM_PAGE_TITLE: `${siteName} | Premium`,
+    DASHBOARD_PREMIUM_META_DESCRIPTION: escAttr(
+      `Vinili Premium — personalizza avatar, banner, nome e embed di ringraziamento su ${siteName}.`,
+    ),
+    DASHBOARD_PREMIUM_OG_TITLE: escAttr(`${siteName} | Premium`),
+    DASHBOARD_PREMIUM_OG_URL: escAttr(dashboardPremiumPageUrl),
+    DASHBOARD_PREMIUM_CREDITS_PAGE_TITLE: `${siteName} | Crediti Premium`,
+    DASHBOARD_PREMIUM_CREDITS_META_DESCRIPTION: escAttr(
+      `Acquista pacchetti crediti Premium (20, 30, 40) per Vinili su ${siteName}.`,
+    ),
+    DASHBOARD_PREMIUM_CREDITS_OG_TITLE: escAttr(`${siteName} | Crediti Premium`),
+    DASHBOARD_PREMIUM_CREDITS_OG_URL: escAttr(dashboardPremiumCreditsPageUrl),
+    DASHBOARD_PROFILE_PAGE_TITLE: `${siteName} | Profilo`,
+    DASHBOARD_PROFILE_META_DESCRIPTION: escAttr(
+      `Il tuo profilo sulla dashboard ${siteName}: punti, obiettivi, badge e preferenze.`,
+    ),
+    DASHBOARD_PROFILE_OG_TITLE: escAttr(`${siteName} | Profilo`),
+    DASHBOARD_PROFILE_OG_URL: escAttr(dashboardProfilePageUrl),
+    DASHBOARD_PROFILE_SUB_PAGE_TITLE: `${siteName} | Abbonamento`,
+    DASHBOARD_PROFILE_SUB_META_DESCRIPTION: escAttr(
+      `Stato, rinnovo e dettagli abbonamento Vinili Premium su ${siteName}.`,
+    ),
+    DASHBOARD_PROFILE_SUB_OG_TITLE: escAttr(`${siteName} | Abbonamento`),
+    DASHBOARD_PROFILE_SUB_OG_URL: escAttr(dashboardProfileSubPageUrl),
+    DASHBOARD_TRANSCRIPT_PAGE_TITLE: `${siteName} | Transcript`,
+    DASHBOARD_TRANSCRIPT_META_DESCRIPTION: escAttr(`Transcript del ticket — accesso riservato su ${siteName}.`),
+    DASHBOARD_TRANSCRIPT_OG_TITLE: escAttr(`${siteName} | Transcript`),
+    DASHBOARD_TRANSCRIPT_OG_URL: escAttr(dashboardTranscriptPageUrl),
+    DATI_PAGE_TITLE: `${siteName} | I tuoi dati`,
+    DATI_META_DESCRIPTION: escAttr(
+      `Esporta o richiedi la cancellazione dei tuoi dati (GDPR) su ${siteName}.`,
+    ),
+    DATI_OG_TITLE: escAttr(`${siteName} | I tuoi dati`),
     FAQ_PAGE_TITLE: `${siteName} | FAQ`,
     FAQ_META_DESCRIPTION: escAttr(
       `Domande frequenti su ${siteName}: EXP e livelli, vocali, giochi, eventi e come entrare nello staff.`,
@@ -2681,6 +3628,24 @@ async function main() {
   } else {
     console.warn("[build-site] Manca unban/index.html (saltato placeholder).");
   }
+  const appelliIndexPath = path.join(DIST, "appelli", "index.html");
+  if (fs.existsSync(appelliIndexPath)) {
+    let appelliHtml = fs.readFileSync(appelliIndexPath, "utf8");
+    appelliHtml = applyPlaceholderMap(appelliHtml, map);
+    warnLeftoverPlaceholders(appelliHtml, "appelli/index.html");
+    fs.writeFileSync(appelliIndexPath, appelliHtml, "utf8");
+  } else {
+    console.warn("[build-site] Manca appelli/index.html (saltato placeholder).");
+  }
+  const unmuteIndexPath = path.join(DIST, "unmute", "index.html");
+  if (fs.existsSync(unmuteIndexPath)) {
+    let unmuteHtml = fs.readFileSync(unmuteIndexPath, "utf8");
+    unmuteHtml = applyPlaceholderMap(unmuteHtml, map);
+    warnLeftoverPlaceholders(unmuteHtml, "unmute/index.html");
+    fs.writeFileSync(unmuteIndexPath, unmuteHtml, "utf8");
+  } else {
+    console.warn("[build-site] Manca unmute/index.html (saltato placeholder).");
+  }
   const candidatureAccessRequiredPath = path.join(DIST, "candidature", "accesso-richiesto", "index.html");
   if (fs.existsSync(candidatureAccessRequiredPath)) {
     let arHtml = fs.readFileSync(candidatureAccessRequiredPath, "utf8");
@@ -2694,6 +3659,20 @@ async function main() {
     arHtml = applyPlaceholderMap(arHtml, map);
     warnLeftoverPlaceholders(arHtml, "unban/accesso-richiesto/index.html");
     fs.writeFileSync(unbanAccessRequiredPath, arHtml, "utf8");
+  }
+  const appelliAccessRequiredPath = path.join(DIST, "appelli", "accesso-richiesto", "index.html");
+  if (fs.existsSync(appelliAccessRequiredPath)) {
+    let arHtml = fs.readFileSync(appelliAccessRequiredPath, "utf8");
+    arHtml = applyPlaceholderMap(arHtml, map);
+    warnLeftoverPlaceholders(arHtml, "appelli/accesso-richiesto/index.html");
+    fs.writeFileSync(appelliAccessRequiredPath, arHtml, "utf8");
+  }
+  const unmuteAccessRequiredPath = path.join(DIST, "unmute", "accesso-richiesto", "index.html");
+  if (fs.existsSync(unmuteAccessRequiredPath)) {
+    let arHtml = fs.readFileSync(unmuteAccessRequiredPath, "utf8");
+    arHtml = applyPlaceholderMap(arHtml, map);
+    warnLeftoverPlaceholders(arHtml, "unmute/accesso-richiesto/index.html");
+    fs.writeFileSync(unmuteAccessRequiredPath, arHtml, "utf8");
   }
   const notificationsIndexPath = path.join(DIST, "notifications", "index.html");
   if (fs.existsSync(notificationsIndexPath)) {
@@ -2779,6 +3758,50 @@ async function main() {
     fs.writeFileSync(suggestionsIndexPath, suggestionsHtml, "utf8");
   } else {
     console.warn("[build-site] Manca suggerimenti/index.html (saltato placeholder).");
+  }
+
+  const ticketsIndexPath = path.join(DIST, "tickets", "index.html");
+  if (fs.existsSync(ticketsIndexPath)) {
+    let ticketsHtml = fs.readFileSync(ticketsIndexPath, "utf8");
+    ticketsHtml = applyPlaceholderMap(ticketsHtml, map);
+    warnLeftoverPlaceholders(ticketsHtml, "tickets/index.html");
+    fs.writeFileSync(ticketsIndexPath, ticketsHtml, "utf8");
+  } else {
+    console.warn("[build-site] Manca tickets/index.html (saltato placeholder).");
+  }
+
+  const supportoIndexPath = path.join(DIST, "supporto", "index.html");
+  if (fs.existsSync(supportoIndexPath)) {
+    let supportoHtml = fs.readFileSync(supportoIndexPath, "utf8");
+    supportoHtml = applyPlaceholderMap(supportoHtml, map);
+    warnLeftoverPlaceholders(supportoHtml, "supporto/index.html");
+    fs.writeFileSync(supportoIndexPath, supportoHtml, "utf8");
+  } else {
+    console.warn("[build-site] Manca supporto/index.html (saltato placeholder).");
+  }
+
+  const dashboardRel = [
+    "dashboard/index.html",
+    "dashboard/guild/index.html",
+    "dashboard/feedback/index.html",
+    "dashboard/faq/index.html",
+    "dashboard/premium/index.html",
+    "dashboard/premium/crediti/index.html",
+    "dashboard/profilo/index.html",
+    "dashboard/profilo/abbonamento/index.html",
+    "dashboard/recensioni/index.html",
+    "dashboard/transcript/index.html",
+  ];
+  for (const rel of dashboardRel) {
+    const dashboardPath = path.join(DIST, ...rel.split("/"));
+    if (!fs.existsSync(dashboardPath)) {
+      console.warn("[build-site] Manca pagina dashboard:", rel);
+      continue;
+    }
+    let dashboardHtml = fs.readFileSync(dashboardPath, "utf8");
+    dashboardHtml = applyPlaceholderMap(dashboardHtml, map);
+    warnLeftoverPlaceholders(dashboardHtml, rel);
+    fs.writeFileSync(dashboardPath, dashboardHtml, "utf8");
   }
 
   const hogwartsHubIndexPath = path.join(DIST, "evento", "index.html");
@@ -2867,6 +3890,15 @@ async function main() {
     console.warn("[build-site] Manca evento/pozioni/index.html (saltato placeholder).");
   }
 
+  for (const statusRel of ["status/index.html", "stato/index.html"]) {
+    const statusPath = path.join(DIST, statusRel);
+    if (!fs.existsSync(statusPath)) continue;
+    let statusHtml = fs.readFileSync(statusPath, "utf8");
+    statusHtml = applyPlaceholderMap(statusHtml, map);
+    warnLeftoverPlaceholders(statusHtml, statusRel);
+    fs.writeFileSync(statusPath, statusHtml, "utf8");
+  }
+
   const seratafilmIndexPath = path.join(DIST, "seratafilm", "index.html");
   if (fs.existsSync(seratafilmIndexPath)) {
     let seratafilmHtml = fs.readFileSync(seratafilmIndexPath, "utf8");
@@ -2891,6 +3923,30 @@ async function main() {
     seratafilmAccessoHtml = applyPlaceholderMap(seratafilmAccessoHtml, map);
     warnLeftoverPlaceholders(seratafilmAccessoHtml, "seratafilm/accesso-richiesto/index.html");
     fs.writeFileSync(seratafilmAccessoPath, seratafilmAccessoHtml, "utf8");
+  }
+
+  const staffPageRels = [
+    "staff/index.html",
+    "staff/pause/index.html",
+    "staff/profilo/index.html",
+    "staff/accesso-richiesto/index.html",
+    "staff/directory/index.html",
+    "staff/pm/index.html",
+    "staff/valutazioni/index.html",
+    "staff/ticket/index.html",
+    "staff/guida/index.html",
+    "staff/gestione/index.html",
+  ];
+  for (const rel of staffPageRels) {
+    const staffPath = path.join(DIST, rel);
+    if (!fs.existsSync(staffPath)) {
+      console.warn("[build-site] Manca pagina staff:", rel);
+      continue;
+    }
+    let staffHtml = fs.readFileSync(staffPath, "utf8");
+    staffHtml = applyPlaceholderMap(staffHtml, map);
+    warnLeftoverPlaceholders(staffHtml, rel);
+    fs.writeFileSync(staffPath, staffHtml, "utf8");
   }
 
   const faqIndexPath = path.join(DIST, "faq", "index.html");
@@ -2926,7 +3982,13 @@ async function main() {
     fs.writeFileSync(customizePath, customizeHtml, "utf8");
   }
 
-  const legalRel = ["terms/index.html", "privacy/index.html", "cookie/index.html"];
+  const legalRel = [
+    "terms/index.html",
+    "privacy/index.html",
+    "cookie/index.html",
+    "dati/index.html",
+    "copyright/index.html",
+  ];
   for (const rel of legalRel) {
     const legalPath = path.join(DIST, rel);
     if (!fs.existsSync(legalPath)) {
@@ -2940,7 +4002,10 @@ async function main() {
   }
 
   applyAvatarFallbackToDist(DIST, buildAssetVersion);
+  applyVcDialogToDist(DIST, buildAssetVersion);
   applyCursorTrailToDist(DIST, buildAssetVersion);
+  applyHeaderNameMarqueeToDist(DIST, buildAssetVersion);
+  applyI18nToDist(DIST, buildAssetVersion);
   applyLiveStatsBootToDist(DIST, cfg, inviteCode);
   applySiteSponsorAdToDist(DIST, cfg);
   applyMaintenanceGateToDist(DIST, maintenanceBoot);

@@ -26,7 +26,9 @@ const REOPEN_CLEAR_FIELDS = {
 function parseTicketTypeFromChannelName(name) {
   const raw = String(name || "");
   const match = raw.match(/︲([^᲼]+)᲼/i);
-  const token = match ? String(match[1]).trim().toLowerCase() : "supporto";
+  let token = match ? String(match[1]).trim().toLowerCase() : "supporto";
+  // Nuovo formato: type-123 → togli la numerazione
+  token = token.replace(/-\d+$/, "");
   return getTicketPanelConfig(token)?.type || "supporto";
 }
 
@@ -69,10 +71,12 @@ async function findTicketPanelMessage(channel) {
   return null;
 }
 
-async function backfillTicketNumberIfMissing(ticketDoc) {
-  if (!ticketDoc?._id || Number(ticketDoc.ticketNumber) > 0) return ticketDoc;
+async function backfillTicketNumberIfMissing(ticketDoc, channel = null) {
+  if (!ticketDoc?._id || Number(ticketDoc.ticketNumber) > 0) {
+    return ticketDoc;
+  }
   try {
-    const ticketNumber = await getNextTicketId();
+    const ticketNumber = await getNextTicketId(ticketDoc.guildId || channel?.guildId || channel?.guild?.id);
     await Ticket.updateOne({ _id: ticketDoc._id }, { $set: { ticketNumber } });
     return { ...ticketDoc, ticketNumber };
   } catch {
@@ -90,7 +94,7 @@ async function reconcileSingleTicketChannel(channel, guild, botId) {
   const existing = await Ticket.findOne({ channelId }).lean().catch(() => null);
   if (existing?.open === true) {
     if (!Number(existing.ticketNumber)) {
-      await backfillTicketNumberIfMissing(existing);
+      await backfillTicketNumberIfMissing(existing, channel);
       return { status: "backfilled_number", channelId };
     }
     return { status: "ok", channelId };
@@ -115,7 +119,7 @@ async function reconcileSingleTicketChannel(channel, guild, botId) {
         },
       },
     ).catch(() => null);
-    await backfillTicketNumberIfMissing(existing);
+    await backfillTicketNumberIfMissing(existing, channel);
     global.logger?.info?.(`[TICKET RECONCILE] Riaperto ticket orfano #${channelId}`);
     return { status: "reopened", channelId };
   }
@@ -165,15 +169,6 @@ async function reconcileOrphanTicketsForGuild(guild) {
     }
   }
 
-  if (summary.created || summary.reopened || summary.backfilled_number) {
-    global.logger?.info?.("[TICKET RECONCILE] Completato:", summary);
-  }
-  try {
-    const { syncOpenPartnershipTicketReviewerAccess } = require("../../Utils/Ticket/ticketPartnershipStaffRoles");
-    await syncOpenPartnershipTicketReviewerAccess(guild.client);
-  } catch (err) {
-    global.logger?.warn?.("[TICKET RECONCILE] Partnership reviewer sync:", err?.message || err);
-  }
   return { ok: true, ...summary };
 }
 

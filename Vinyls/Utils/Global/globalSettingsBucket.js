@@ -35,11 +35,18 @@ async function ensureBucketArrays() {
 }
 
 async function pingDbLatencyMs() {
-  const coll = getCollection();
-  if (!coll || mongoose.connection?.readyState !== 1) return null;
-  const t = Date.now();
-  await coll.findOne({ _counterKey: TICKET_COUNTER_KEY }, { projection: { _id: 1 } });
-  return Math.max(0, Date.now() - t);
+  const db = mongoose.connection?.db;
+  if (!db || mongoose.connection?.readyState !== 1) return null;
+  const startedAt = Date.now();
+  try {
+    await db.admin().ping();
+    return Math.max(0, Date.now() - startedAt);
+  } catch {
+    const coll = getCollection();
+    if (!coll) return null;
+    await coll.findOne({ _counterKey: TICKET_COUNTER_KEY }, { projection: { _id: 1 } });
+    return Math.max(0, Date.now() - startedAt);
+  }
 }
 
 async function getPartnershipBlacklistEntries() {
@@ -295,20 +302,21 @@ async function saveCountingRow(row) {
   const coll = getCollection();
   if (!coll) return;
   await ensureBucketArrays();
-  const doc = await coll.findOne({ _counterKey: TICKET_COUNTER_KEY });
-  const arr = [...(doc?.countschemas || [])];
-  const i = arr.findIndex((x) => String(x.Guild) === g);
   const payload = {
     Guild: row.Guild,
     Channel: row.Channel,
     Count: row.Count,
     LastUser: row.LastUser,
   };
-  if (i >= 0) arr[i] = payload;
-  else arr.push(payload);
+  // Update posizionale: evita di riscrivere tutto l'array (race tra guild / save concorrenti).
+  const updated = await coll.updateOne(
+    { _counterKey: TICKET_COUNTER_KEY, "countschemas.Guild": g },
+    { $set: { "countschemas.$": payload } },
+  );
+  if ((updated?.matchedCount || 0) > 0) return;
   await coll.updateOne(
     { _counterKey: TICKET_COUNTER_KEY },
-    { $set: { countschemas: arr } },
+    { $push: { countschemas: payload } },
   );
 }
 
@@ -430,6 +438,14 @@ async function decrementQuoteCount(guildId) {
   return decrementGuildPostCounter(guildId, "quotecounts");
 }
 
+async function decrementRepostCount(guildId) {
+  return decrementGuildPostCounter(guildId, "repostcounts");
+}
+
+async function decrementClipCount(guildId) {
+  return decrementGuildPostCounter(guildId, "clipcounts");
+}
+
 async function setGuildPostCounter(guildId, arrayKey, count) {
   const g = String(guildId || "").trim();
   if (!g) throw new Error("invalid guildId");
@@ -451,4 +467,4 @@ async function setGuildPostCounter(guildId, arrayKey, count) {
   return c;
 }
 
-module.exports = { TICKET_COUNTER_KEY, COUNTER_COLLECTION, LEGACY_QUOTECOUNTS_COLLECTION, LEGACY_COUNTSCHEMAS_COLLECTION, ensureBucketArrays, getCountingConfigFromBucket, nextQuoteCount, nextRepostCount, nextClipCount, decrementQuoteCount, setGuildPostCounter, readGuildCounterFromDoc, pingDbLatencyMs, getPartnershipBlacklistEntries, setPartnershipBlacklistEntries, isPartnershipGuildBlacklistedBucket, addPartnershipBlacklistGuildBucket, removePartnershipBlacklistGuildBucket, listPartnershipBlacklistGuildsBucket, getPartnerPmDailyThreadId, setPartnerPmDailyThreadId, getStaffChatThreadIds, setStaffChatThreadId, getStaffChatHubMessageId, setStaffChatHubMessageId, getStaffCmdsThreadIds, setStaffCmdsThreadId, getStaffCmdsHubMessageId, setStaffCmdsHubMessageId };
+module.exports = { TICKET_COUNTER_KEY, COUNTER_COLLECTION, LEGACY_QUOTECOUNTS_COLLECTION, LEGACY_COUNTSCHEMAS_COLLECTION, ensureBucketArrays, getCountingConfigFromBucket, nextQuoteCount, nextRepostCount, nextClipCount, decrementQuoteCount, decrementRepostCount, decrementClipCount, setGuildPostCounter, readGuildCounterFromDoc, pingDbLatencyMs, getPartnershipBlacklistEntries, setPartnershipBlacklistEntries, isPartnershipGuildBlacklistedBucket, addPartnershipBlacklistGuildBucket, removePartnershipBlacklistGuildBucket, listPartnershipBlacklistGuildsBucket, getPartnerPmDailyThreadId, setPartnerPmDailyThreadId, getStaffChatThreadIds, setStaffChatThreadId, getStaffChatHubMessageId, setStaffChatHubMessageId, getStaffCmdsThreadIds, setStaffCmdsThreadId, getStaffCmdsHubMessageId, setStaffCmdsHubMessageId };

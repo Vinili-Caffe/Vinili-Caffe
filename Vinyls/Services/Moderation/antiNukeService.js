@@ -52,6 +52,16 @@ const ANTINUKE_CONFIG = { enabled: true, detectPrune: false, vanityGuard: true, 
 const ANTINUKE_PRESETS = { safe: { kickBanFilter: { minuteLimit: 6, hourLimit: 18, heatPerAction: 18 }, roleCreationFilter: { minuteLimit: 6, hourLimit: 16, heatPerAction: 9 }, roleDeletionFilter: { minuteLimit: 4, hourLimit: 10, heatPerAction: 22 }, channelCreationFilter: { minuteLimit: 5, hourLimit: 12, heatPerAction: 14 }, channelDeletionFilter: { minuteLimit: 3, hourLimit: 8, heatPerAction: 24 }, webhookCreationFilter: { minuteLimit: 4, hourLimit: 12, heatPerAction: 12 }, webhookUpdateFilter: { minuteLimit: 5, hourLimit: 14, heatPerAction: 10 }, webhookDeletionFilter: { minuteLimit: 4, hourLimit: 10, heatPerAction: 10 }, inviteCreationFilter: { minuteLimit: 5, hourLimit: 16, heatPerAction: 10 }, panicMode: { thresholdHeat: 140, decayPerSec: 5, durationMs: 8 * 60_000, maxDurationMs: 30 * 60_000, extendByMsOnTrigger: 90_000, autoBackupSync: { enabled: true, restoreDeletedRoles: true, deleteNewRoles: true, restoreDeletedChannels: true, deleteNewChannels: true, deleteNewWebhooks: true, }, }, }, balanced: { kickBanFilter: { minuteLimit: 5, hourLimit: 15, heatPerAction: 20 }, roleCreationFilter: { minuteLimit: 5, hourLimit: 15, heatPerAction: 10 }, roleDeletionFilter: { minuteLimit: 3, hourLimit: 10, heatPerAction: 25 }, channelCreationFilter: { minuteLimit: 4, hourLimit: 12, heatPerAction: 16 }, channelDeletionFilter: { minuteLimit: 3, hourLimit: 8, heatPerAction: 25 }, webhookCreationFilter: { minuteLimit: 3, hourLimit: 10, heatPerAction: 15 }, webhookUpdateFilter: { minuteLimit: 4, hourLimit: 12, heatPerAction: 12 }, webhookDeletionFilter: { minuteLimit: 3, hourLimit: 8, heatPerAction: 10 }, inviteCreationFilter: { minuteLimit: 4, hourLimit: 15, heatPerAction: 12 }, panicMode: { thresholdHeat: 130, decayPerSec: 5, durationMs: 10 * 60_000, maxDurationMs: 45 * 60_000, extendByMsOnTrigger: 2 * 60_000, autoBackupSync: { enabled: true, restoreDeletedRoles: true, deleteNewRoles: true, restoreDeletedChannels: true, deleteNewChannels: true, deleteNewWebhooks: true, }, }, }, strict: { kickBanFilter: { minuteLimit: 4, hourLimit: 12, heatPerAction: 25 }, roleCreationFilter: { minuteLimit: 4, hourLimit: 12, heatPerAction: 12 }, roleDeletionFilter: { minuteLimit: 2, hourLimit: 8, heatPerAction: 30 }, channelCreationFilter: { minuteLimit: 3, hourLimit: 10, heatPerAction: 18 }, channelDeletionFilter: { minuteLimit: 2, hourLimit: 6, heatPerAction: 30 }, webhookCreationFilter: { minuteLimit: 2, hourLimit: 8, heatPerAction: 18 }, webhookUpdateFilter: { minuteLimit: 3, hourLimit: 9, heatPerAction: 16 }, webhookDeletionFilter: { minuteLimit: 2, hourLimit: 6, heatPerAction: 14 }, inviteCreationFilter: { minuteLimit: 3, hourLimit: 10, heatPerAction: 15 }, panicMode: { thresholdHeat: 110, decayPerSec: 4, durationMs: 12 * 60_000, maxDurationMs: 60 * 60_000, extendByMsOnTrigger: 3 * 60_000, autoBackupSync: { enabled: true, restoreDeletedRoles: true, deleteNewRoles: true, restoreDeletedChannels: true, deleteNewChannels: true, deleteNewWebhooks: true, }, }, }, };
 const ANTINUKE_MAX_HEAT = 100;
 
+/** Anti-nuke / panic solo su guild full-feature (main/test/sponsor), non sui tenant MultiGuild. */
+function isAntiNukeScopeGuild(guildId) {
+  try {
+    const { isViniliFullFeatureGuild } = require("../../MultiGuild/core/guildFeatureScope");
+    return isViniliFullFeatureGuild(guildId);
+  } catch {
+    return true;
+  }
+}
+
 function percentToHeat(percent) {
   return (Number(percent) / 100) * ANTINUKE_MAX_HEAT;
 }
@@ -808,21 +818,29 @@ async function sendPanicModeDetailedReport(
     `<:VC_reason:1478517122929004544>${backupLabel}`,
     "",
     `<:VC_Mention:1482526855289634997> **Roles**`,
-    `<:cancel:1461730653677551691> Deleted: ${Number(report.roles.deleted || 0)} | <:success:1461731530333229226> Recovered: ${Number(report.roles.recovered || 0)} | Edited: ${Number(report.roles.edited || 0)}`,
-    `<:channeltext:1443247596922470551> **Channels**`,
-    `<:cancel:1461730653677551691> Deleted: ${Number(report.channels.deleted || 0)} | <:success:1461731530333229226> Recovered: ${Number(report.channels.recovered || 0)} | <:VC_right_arrow:1482459908245815296> Edited: ${Number(report.channels.edited || 0)}`,
+    `<:cancel:1461730653677551691> Deleted: ${Number(report.roles.deleted || 0)}`,
+    `<:success:1461731530333229226> Recovered: ${Number(report.roles.recovered || 0)}`,
+    `Edited: ${Number(report.roles.edited || 0)}`,
+    `<:channeltext:1443247599752470551> **Channels**`,
+    `<:cancel:1461730653677551691> Deleted: ${Number(report.channels.deleted || 0)}`,
+    `<:success:1461731530333229226> Recovered: ${Number(report.channels.recovered || 0)}`,
+    `<:VC_right_arrow:1482459908245815296> Edited: ${Number(report.channels.edited || 0)}`,
     `<:VC_category:1478836096669581505> **Categories**`,
-    `<:cancel:1461730653677551691> Deleted: ${Number(report.categories.deleted || 0)} | <:success:1461731530333229226> Recovered: ${Number(report.categories.recovered || 0)} | <:VC_right_arrow:1482459908245815296> Edited: ${Number(report.categories.edited || 0)}`,
+    `<:cancel:1461730653677551691> Deleted: ${Number(report.categories.deleted || 0)}`,
+    `<:success:1461731530333229226> Recovered: ${Number(report.categories.recovered || 0)}`,
+    `<:VC_right_arrow:1482459908245815296> Edited: ${Number(report.categories.edited || 0)}`,
     `<:VC_webhooks:1478515450769047704> **Webhooks**`,
     `<:cancel:1461730653677551691> Deleted: ${Number(report.webhooks.deleted || 0)}`,
     `<:VC_tools:1478862265305272364> **Settings**`,
-    `<:VC_tools:1478862265305272364> Server: ${report.settings.server ? "ON" : "OFF"} | Bot: ${report.settings.wick ? "ON" : "OFF"}`,
+    `<:VC_tools:1478862265305272364> Server: ${report.settings.server ? "ON" : "OFF"}`,
+    `Bot: ${report.settings.wick ? "ON" : "OFF"}`,
   ];
 
   await sendAntiNukeLog(guild, "<a:VC_Alert:1482706673176150077> AntiNuke Panic Mode Report", lines, "#57F287");
 }
 
 function isAntiNukePanicActive(guildId) {
+  if (!isAntiNukeScopeGuild(guildId)) return false;
   if (!ANTINUKE_CONFIG.enabled || !ANTINUKE_CONFIG.panicMode.enabled) return false;
   const state = getPanicState(guildId);
   return Number(state.activeUntil || 0) > Date.now();
@@ -899,7 +917,7 @@ function scheduleAntiNukePanicUnlock(guild, state) {
 }
 
 function rehydrateAntiNukePanicForGuild(guild) {
-  if (!guild?.id) return;
+  if (!guild?.id || !isAntiNukeScopeGuild(guild.id)) return;
   const state = getPanicState(guild.id);
   if (Number(state?.activeUntil || 0) <= Date.now()) return;
   if (state.unlockTimer) return;
@@ -1323,6 +1341,9 @@ async function enableAntiNukePanic(guild, reason, addedHeat = 0, options = {}) {
   if (!ANTINUKE_CONFIG.enabled || !ANTINUKE_CONFIG.panicMode.enabled || !guild) {
     return { activated: false, active: false };
   }
+  if (!isAntiNukeScopeGuild(guild.id)) {
+    return { activated: false, active: false };
+  }
   const now = Date.now();
   const state = getPanicState(guild.id);
   if (state.restoreRetryTimer) {
@@ -1732,6 +1753,7 @@ function trimKickBanState(state, at = Date.now()) {
 }
 
 async function handleKickBanAction({ guild, executorId, action = "unknown", targetId = "" }) {
+  if (!guild?.id || !isAntiNukeScopeGuild(guild.id)) return;
   if (!ANTINUKE_CONFIG.enabled || !ANTINUKE_CONFIG.kickBanFilter.enabled) return;
   if (!guild) return;
   const actorId = normalizeExecutorId(executorId);
@@ -1815,6 +1837,7 @@ function trimRoleCreationState(state, at = Date.now()) {
 }
 
 async function handleRoleCreationAction({ guild, executorId, roleId = "" }) {
+  if (!guild?.id || !isAntiNukeScopeGuild(guild.id)) return;
   if (!ANTINUKE_CONFIG.enabled || !ANTINUKE_CONFIG.roleCreationFilter.enabled) return;
   if (!guild) return;
   const actorId = normalizeExecutorId(executorId);
@@ -1935,6 +1958,7 @@ function trimRoleDeletionState(state, at = Date.now()) {
 }
 
 async function handleRoleDeletionAction({ guild, executorId, roleName = "", roleId = "", roleSnapshot = null }) {
+  if (!guild?.id || !isAntiNukeScopeGuild(guild.id)) return;
   if (!ANTINUKE_CONFIG.enabled || !ANTINUKE_CONFIG.roleDeletionFilter.enabled) return;
   if (!guild) return;
   const actorId = normalizeExecutorId(executorId);
@@ -2029,6 +2053,7 @@ function trimChannelCreationState(state, at = Date.now()) {
 }
 
 async function handleChannelCreationAction({ guild, executorId, channelId = "", channel = null }) {
+  if (!guild?.id || !isAntiNukeScopeGuild(guild.id)) return;
   if (!ANTINUKE_CONFIG.enabled || !ANTINUKE_CONFIG.channelCreationFilter.enabled) return;
   if (!guild) return;
   const actorId = normalizeExecutorId(executorId);
@@ -2146,6 +2171,7 @@ function trimChannelDeletionState(state, at = Date.now()) {
 }
 
 async function handleChannelDeletionAction({ guild, executorId, channelName = "", channelId = "", channel = null }) {
+  if (!guild?.id || !isAntiNukeScopeGuild(guild.id)) return;
   if (!ANTINUKE_CONFIG.enabled || !ANTINUKE_CONFIG.channelDeletionFilter.enabled) return;
   if (!guild) return;
   const actorId = normalizeExecutorId(executorId);
@@ -2244,6 +2270,7 @@ function trimWebhookCreationState(state, at = Date.now()) {
 }
 
 async function handleWebhookCreationAction({ guild, executorId, webhookId = "", channelId = "" }) {
+  if (!guild?.id || !isAntiNukeScopeGuild(guild.id)) return;
   if (!ANTINUKE_CONFIG.enabled || !ANTINUKE_CONFIG.webhookCreationFilter.enabled) return;
   if (!guild) return;
   const actorId = normalizeExecutorId(executorId);
@@ -2371,6 +2398,7 @@ function trimWebhookUpdateState(state, at = Date.now()) {
 }
 
 async function handleWebhookUpdateAction({ guild, executorId, webhookId = "" }) {
+  if (!guild?.id || !isAntiNukeScopeGuild(guild.id)) return;
   if (!ANTINUKE_CONFIG.enabled || !ANTINUKE_CONFIG.webhookUpdateFilter.enabled) return;
   if (!guild) return;
   const actorId = normalizeExecutorId(executorId);
@@ -2448,6 +2476,7 @@ function trimWebhookDeletionState(state, at = Date.now()) {
 }
 
 async function handleWebhookDeletionAction({ guild, executorId, webhookId = "" }) {
+  if (!guild?.id || !isAntiNukeScopeGuild(guild.id)) return;
   if (!ANTINUKE_CONFIG.enabled || !ANTINUKE_CONFIG.webhookDeletionFilter.enabled) return;
   if (!guild) return;
   const actorId = normalizeExecutorId(executorId);
@@ -2536,6 +2565,7 @@ function trimInviteCreationState(state, at = Date.now()) {
 }
 
 async function handleInviteCreationAction({ guild, executorId, inviteCode = "", channelId = "" }) {
+  if (!guild?.id || !isAntiNukeScopeGuild(guild.id)) return;
   if (!ANTINUKE_CONFIG.enabled || !ANTINUKE_CONFIG.inviteCreationFilter.enabled) return;
   if (!guild) return;
   const actorId = normalizeExecutorId(executorId);
@@ -2608,6 +2638,7 @@ async function handleRoleUpdate({ oldRole, newRole, executorId }) {
   if (!ANTINUKE_CONFIG.enabled || !ANTINUKE_CONFIG.autoQuarantine.strictMode) return;
   if (!ANTINUKE_CONFIG.autoQuarantine.monitorPublicRoles) return;
   const guild = newRole?.guild || oldRole?.guild;
+  if (!guild?.id || !isAntiNukeScopeGuild(guild.id)) return;
   if (!guild) return;
   const monitoredRoleIds = getMainRoleIds(guild);
   if (!monitoredRoleIds.has(String(newRole?.id || oldRole?.id || ""))) return;
@@ -2643,6 +2674,7 @@ async function handleRoleUpdate({ oldRole, newRole, executorId }) {
 }
 
 async function handleMemberRoleAddition({ guild, targetMember, addedRoles, executorId }) {
+  if (!guild?.id || !isAntiNukeScopeGuild(guild.id)) return;
   if (!ANTINUKE_CONFIG.enabled || !ANTINUKE_CONFIG.autoQuarantine.strictMemberRoleAddition) return;
   if (!guild || !targetMember || !Array.isArray(addedRoles) || !addedRoles.length) return;
   const actorId = normalizeExecutorId(executorId);
@@ -2696,6 +2728,7 @@ async function handleMemberRoleAddition({ guild, targetMember, addedRoles, execu
 }
 
 async function handleChannelOverwrite({ guild, channel, overwrite, beforeAllow = 0n, afterAllow = 0n, executorId }) {
+  if (!guild?.id || !isAntiNukeScopeGuild(guild.id)) return;
   if (!ANTINUKE_CONFIG.enabled || !ANTINUKE_CONFIG.autoQuarantine.monitorChannelPermissions) return;
   if (!guild || !channel || !overwrite) return;
   const actorId = normalizeExecutorId(executorId);
@@ -2743,6 +2776,7 @@ async function handleChannelOverwrite({ guild, channel, overwrite, beforeAllow =
 async function handleVanityGuard({ oldGuild, newGuild, executorId }) {
   if (!ANTINUKE_CONFIG.enabled || !ANTINUKE_CONFIG.vanityGuard) return;
   const guild = newGuild || oldGuild;
+  if (!guild?.id || !isAntiNukeScopeGuild(guild.id)) return;
   if (!guild) return;
   const actorId = normalizeExecutorId(executorId);
   const oldVanity = String(oldGuild?.vanityURLCode || "");
@@ -2780,6 +2814,7 @@ async function handleVanityGuard({ oldGuild, newGuild, executorId }) {
 }
 
 async function handlePruneAction({ guild, executorId, removedCount = 0 }) {
+  if (!guild?.id || !isAntiNukeScopeGuild(guild.id)) return;
   if (!ANTINUKE_CONFIG.enabled || !ANTINUKE_CONFIG.detectPrune) return;
   if (!guild) return;
   const actorId = normalizeExecutorId(executorId);
@@ -3069,6 +3104,7 @@ function listMaintenanceAllowlist(guildId) {
 }
 
 async function shouldBlockModerationCommands(guild, userId) {
+  if (!guild?.id || !isAntiNukeScopeGuild(guild.id)) return false;
   if (!ANTINUKE_CONFIG.enabled) return false;
   if (!ANTINUKE_CONFIG.panicMode.enabled) return false;
   if (!ANTINUKE_CONFIG.panicMode.lockdown.lockModerationCommands) return false;
@@ -3099,6 +3135,7 @@ function invalidateCommandLockCache(guildId) {
 
 async function shouldBlockAllCommands(guild, options = {}) {
   if (!guild?.id) return false;
+  if (!isAntiNukeScopeGuild(guild.id)) return false;
   const cacheKey = String(guild.id || "");
   for (const [k, payload] of COMMAND_LOCK_CACHE.entries()) {
     if (Date.now() - Number(payload?.ts || 0) > COMMAND_LOCK_CACHE_TTL_MS * 4) {

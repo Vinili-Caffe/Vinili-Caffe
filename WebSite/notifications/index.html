@@ -7,7 +7,7 @@
     <meta name="description" content="Visualizza tutte le notifiche del tuo account {{SITE_NAME}}." />
     <meta name="author" content="{{SITE_NAME}}" />
     <meta name="robots" content="index, follow" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta property="og:type" content="website" />
     <meta property="og:title" content="Notifiche - {{SITE_NAME}}" />
     <meta property="og:description" content="Visualizza tutte le notifiche del tuo account {{SITE_NAME}}." />
@@ -92,8 +92,7 @@
             <details class="vc-snav-details">
               <summary class="vc-snav-summary"><span>Richieste</span><i class="fa fa-chevron-down vc-snav-chev text-[0.65rem] opacity-80" aria-hidden="true"></i></summary>
               <div class="vc-snav-panel">
-                <a class="vc-snav-row" href="{{RICHIESTE_UNBAN_URL}}"
-                  ><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-unlock"></i></span><span>Unban</span></a>
+                <a class="vc-snav-row" href="{{RICHIESTE_UNBAN_URL}}"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-balance-scale"></i></span><span data-i18n="nav.appeals">Appelli</span></a>
                 <a class="vc-snav-row" href="{{RICHIESTE_CANDIDATURE_URL}}"
                   ><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-file-text-o"></i></span><span>Candidature</span></a>
                 <a class="vc-snav-row" href="{{RICHIESTE_SUGGERIMENTI_URL}}"
@@ -151,46 +150,46 @@
       <section class="vc-notify-hero w-full">
         <div class="flex w-full min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
           <div class="min-w-0 flex-1">
-            <h1 class="text-4xl font-extrabold tracking-tight text-white">Notifiche</h1>
+            <h1 class="text-4xl font-extrabold tracking-tight text-white" data-i18n="notif.title">Notifiche</h1>
             <p id="vc-notify-subtitle" class="mt-2 text-sm text-slate-300">Tutte lette - 0 totali</p>
           </div>
           <a class="vc-notify-home-btn shrink-0 self-start sm:mt-1" href="{{SITE_URL}}">
-            <i class="fa fa-chevron-left" aria-hidden="true"></i> Home
+            <i class="fa fa-chevron-left" aria-hidden="true"></i> <span data-i18n="footer.home">Home</span>
           </a>
         </div>
       </section>
 
       <section class="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <article class="vc-notify-stat vc-notify-stat--a">
-          <p class="vc-notify-stat-label">Totali</p>
+          <p class="vc-notify-stat-label" data-i18n="notifPage.statTotal">Totali</p>
           <p class="vc-notify-stat-value" id="vc-stat-total" data-vc-countup="true" data-vc-count-kind="int" data-vc-count-value="0">0</p>
         </article>
         <article class="vc-notify-stat vc-notify-stat--b">
-          <p class="vc-notify-stat-label">Non lette</p>
+          <p class="vc-notify-stat-label" data-i18n="notifPage.unreadLabel">Non lette</p>
           <p class="vc-notify-stat-value" id="vc-stat-unread" data-vc-countup="true" data-vc-count-kind="int" data-vc-count-value="0">0</p>
         </article>
         <article class="vc-notify-stat vc-notify-stat--c">
-          <p class="vc-notify-stat-label">Lette</p>
+          <p class="vc-notify-stat-label" data-i18n="notifPage.statRead">Lette</p>
           <p class="vc-notify-stat-value" id="vc-stat-read" data-vc-countup="true" data-vc-count-kind="int" data-vc-count-value="0">0</p>
         </article>
         <article class="vc-notify-stat vc-notify-stat--d">
-          <p class="vc-notify-stat-label">Filtrate</p>
+          <p class="vc-notify-stat-label" data-i18n="notifPage.statFiltered">Filtrate</p>
           <p class="vc-notify-stat-value" id="vc-stat-filtered" data-vc-countup="true" data-vc-count-kind="int" data-vc-count-value="0">0</p>
         </article>
       </section>
 
       <section class="vc-notify-toolbar mt-8 flex flex-wrap items-center justify-between gap-3">
         <div class="vc-notify-filter-bar inline-flex gap-2 rounded-xl p-1.5">
-          <button id="vc-filter-all" type="button" class="vc-notify-filter-btn vc-notify-filter-btn--on"><i class="fa fa-bell-o" aria-hidden="true"></i> Tutte</button>
-          <button id="vc-filter-unread" type="button" class="vc-notify-filter-btn"><i class="fa fa-dot-circle-o" aria-hidden="true"></i> Non lette</button>
+          <button id="vc-filter-all" type="button" class="vc-notify-filter-btn vc-notify-filter-btn--on"><i class="fa fa-bell-o" aria-hidden="true"></i> <span data-i18n="notifPage.filterAll">Tutte</span></button>
+          <button id="vc-filter-unread" type="button" class="vc-notify-filter-btn"><i class="fa fa-dot-circle-o" aria-hidden="true"></i> <span data-i18n="notifPage.unreadLabel">Non lette</span></button>
         </div>
-        <button id="vc-notify-clear-all-page" type="button" class="vc-notify-clear-btn"><i class="fa fa-trash-o" aria-hidden="true"></i> Elimina tutte le notifiche</button>
+        <button id="vc-notify-clear-all-page" type="button" class="vc-notify-clear-btn"><i class="fa fa-trash-o" aria-hidden="true"></i> <span data-i18n="notifPage.clearAllLabel">Elimina tutte le notifiche</span></button>
       </section>
 
       <section class="mt-5">
         <div id="vc-notify-empty" class="vc-notify-empty" hidden>
           <i class="fa fa-bell-slash-o" aria-hidden="true"></i>
-          <p>Nessuna notifica da mostrare.</p>
+          <p data-i18n="notifPage.emptyText">Nessuna notifica da mostrare.</p>
         </div>
         <ul id="vc-notify-list" class="space-y-3" role="list"></ul>
       </section>

@@ -29,7 +29,17 @@ function parseComponentId(customId) {
   if (parts[0] === PREFIX) {
     const kind = parts[1] || "";
     if (kind === "pick" || kind === "switch") {
-      return { root: PREFIX, kind, action: "", houseId: "", ownerId: parts[2] || "" };
+      const viewTok = String(parts[3] || "").trim();
+      return {
+        root: PREFIX,
+        kind,
+        action: "",
+        houseId: "",
+        ownerId: parts[2] || "",
+        view: viewTok === "mem" ? "members" : "dashboard",
+        page: parts[4] || "0",
+        periodKey: parts[5] || "",
+      };
     }
     if (kind === "btn") {
       return {
@@ -65,6 +75,18 @@ function parseComponentId(customId) {
     };
   }
   return null;
+}
+
+function buildHouseSwitchCustomId(ownerId, view = "dashboard", page = 0, periodKey = "") {
+  const safeOwner = String(ownerId || "");
+  if (view === "members") {
+    const p = Math.max(0, Math.floor(Number(page) || 0));
+    const pk = String(periodKey || "").trim();
+    return pk
+      ? `${PREFIX}:switch:${safeOwner}:mem:${p}:${pk}`
+      : `${PREFIX}:switch:${safeOwner}:mem:${p}`;
+  }
+  return `${PREFIX}:switch:${safeOwner}`;
 }
 
 function assertOwner(interaction, ownerId) {
@@ -213,7 +235,7 @@ async function buildHouseDashboardPayload(client, guild, houseId, ownerId, optio
   );
   const rowNav = new ActionRowBuilder().addComponents(
     new StringSelectMenuBuilder()
-      .setCustomId(`${PREFIX}:switch:${safeOwner}`)
+      .setCustomId(buildHouseSwitchCustomId(safeOwner, "dashboard"))
       .setPlaceholder("Cambia casata…")
       .addOptions(houseSelectOptions(eventCfg).map((opt) => ({
         ...opt,
@@ -286,7 +308,7 @@ async function buildHouseMembersPayload(client, guild, houseId, ownerId, page = 
   const rowPeriod = buildPeriodSelectRow(hid, safeOwner, paged.page, viewPeriodKey);
   const rowNav = new ActionRowBuilder().addComponents(
     new StringSelectMenuBuilder()
-      .setCustomId(`${PREFIX}:switch:${safeOwner}`)
+      .setCustomId(buildHouseSwitchCustomId(safeOwner, "members", paged.page, viewPeriodKey))
       .setPlaceholder("Cambia casata…")
       .addOptions(houseSelectOptions(eventCfg).map((opt) => ({
         ...opt,
@@ -405,6 +427,8 @@ async function execute(interaction) {
 
   if (parsed.root === MODAL_PREFIX) {
     if (!(await denyUnlessPanelAccess(interaction, parsed.ownerId, parsed.houseId))) return true;
+    // Modal Discord: risposta entro 3s. Espulsione/punti fanno DB+ruoli+DM → defer subito.
+    const deferred = await interaction.deferUpdate().then(() => true).catch(() => false);
     if (parsed.action === "expel") {
       const outcome = await applyExpelFromModal(interaction, parsed.houseId, parsed.ownerId);
       const payload = await buildHouseDashboardPayload(
@@ -414,9 +438,15 @@ async function execute(interaction) {
         parsed.ownerId,
         { footerNote: outcome.message },
       );
-      await interaction.update(payload).catch(async () => {
-        await interaction.reply({ ...payload, flags: 1 << 6 }).catch(() => null);
-      });
+      if (deferred) {
+        await interaction.editReply(payload).catch(async () => {
+          await interaction.message?.edit?.(payload).catch(() => null);
+        });
+      } else {
+        await interaction.update(payload).catch(async () => {
+          await interaction.reply({ ...payload, flags: 1 << 6 }).catch(() => null);
+        });
+      }
       return true;
     }
     const outcome = await applyPointsFromModal(interaction, parsed.action, parsed.houseId, parsed.ownerId);
@@ -425,11 +455,17 @@ async function execute(interaction) {
       interaction.guild,
       parsed.houseId,
       parsed.ownerId,
-      { footerNote: outcome.ok ? outcome.message : outcome.message },
+      { footerNote: outcome.message },
     );
-    await interaction.update(payload).catch(async () => {
-      await interaction.reply({ ...payload, flags: 1 << 6 }).catch(() => null);
-    });
+    if (deferred) {
+      await interaction.editReply(payload).catch(async () => {
+        await interaction.message?.edit?.(payload).catch(() => null);
+      });
+    } else {
+      await interaction.update(payload).catch(async () => {
+        await interaction.reply({ ...payload, flags: 1 << 6 }).catch(() => null);
+      });
+    }
     return true;
   }
 
@@ -440,7 +476,17 @@ async function execute(interaction) {
     }
     const houseId = String(interaction.values?.[0] || "").trim();
     if (!(await denyUnlessPanelAccess(interaction, parsed.ownerId, houseId))) return true;
-    const payload = await buildHouseDashboardPayload(interaction.client, interaction.guild, houseId, parsed.ownerId);
+    const keepMembers = parsed.kind === "switch" && parsed.view === "members";
+    const payload = keepMembers
+      ? await buildHouseMembersPayload(
+          interaction.client,
+          interaction.guild,
+          houseId,
+          parsed.ownerId,
+          0,
+          { periodKey: parsed.periodKey },
+        )
+      : await buildHouseDashboardPayload(interaction.client, interaction.guild, houseId, parsed.ownerId);
     await interaction.update(payload).catch(async () => {
       await interaction.reply({ ...payload, flags: 1 << 6 }).catch(() => null);
     });

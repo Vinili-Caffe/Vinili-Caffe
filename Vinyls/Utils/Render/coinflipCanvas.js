@@ -92,49 +92,180 @@ function paramsSpinScale(spinT) {
   return Math.max(0.16, Math.abs(Math.cos((Number(spinT) || 0) * Math.PI * 5)));
 }
 
-function drawCrownMark(ctx, s) {
-  const w = s * 0.48;
-  ctx.fillStyle = "#4a3810";
-  ctx.strokeStyle = "#2d2208";
-  ctx.lineWidth = Math.max(2, s * 0.035);
+function drawCoinRings(ctx, radius) {
+  ctx.save();
+  ctx.strokeStyle = "rgba(61, 46, 8, 0.22)";
+  ctx.lineWidth = Math.max(1.2, radius * 0.022);
   ctx.beginPath();
-  ctx.moveTo(-w / 2, s * 0.1);
-  ctx.lineTo(-w * 0.32, -s * 0.2);
-  ctx.lineTo(-w * 0.1, s * 0.04);
-  ctx.lineTo(0, -s * 0.28);
-  ctx.lineTo(w * 0.1, s * 0.04);
-  ctx.lineTo(w * 0.32, -s * 0.2);
-  ctx.lineTo(w / 2, s * 0.1);
-  ctx.closePath();
-  ctx.fill();
+  ctx.arc(0, 0, radius * 0.94, 0, Math.PI * 2);
   ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(0, 0, radius * 0.82, 0, Math.PI * 2);
+  ctx.stroke();
+  // Beaded rim
+  const beads = 28;
+  for (let i = 0; i < beads; i += 1) {
+    const a = (i / beads) * Math.PI * 2;
+    const br = radius * 0.88;
+    ctx.beginPath();
+    ctx.arc(Math.cos(a) * br, Math.sin(a) * br, Math.max(0.9, radius * 0.018), 0, Math.PI * 2);
+    ctx.fillStyle = i % 2 === 0 ? "rgba(61,46,8,0.35)" : "rgba(248,231,160,0.35)";
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawEmbossedPath(ctx, buildPath, s) {
+  ctx.save();
+  ctx.translate(s * 0.02, s * 0.03);
+  buildPath();
+  ctx.fillStyle = "rgba(26, 20, 5, 0.45)";
+  ctx.fill();
+  ctx.restore();
+  buildPath();
+  const body = ctx.createLinearGradient(-s, -s, s, s);
+  body.addColorStop(0, "#5a4312");
+  body.addColorStop(0.45, "#3d2e08");
+  body.addColorStop(1, "#2a1e06");
+  ctx.fillStyle = body;
+  ctx.fill();
+  ctx.strokeStyle = "#1a1405";
+  ctx.lineWidth = Math.max(1.4, s * 0.03);
+  ctx.lineJoin = "round";
+  ctx.stroke();
+  ctx.save();
+  buildPath();
+  ctx.clip();
+  ctx.translate(-s * 0.015, -s * 0.02);
+  buildPath();
+  ctx.strokeStyle = "rgba(248, 231, 160, 0.35)";
+  ctx.lineWidth = Math.max(1.2, s * 0.025);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawCrownMark(ctx, s) {
+  const w = s * 0.98;
+  const baseY = s * 0.22;
+  const topY = -s * 0.42;
+  const build = () => {
+    ctx.beginPath();
+    ctx.moveTo(-w / 2, baseY);
+    ctx.lineTo(-w * 0.4, -s * 0.02);
+    ctx.lineTo(-w * 0.26, topY + s * 0.16);
+    ctx.lineTo(-w * 0.1, s * 0.0);
+    ctx.lineTo(0, topY);
+    ctx.lineTo(w * 0.1, s * 0.0);
+    ctx.lineTo(w * 0.26, topY + s * 0.16);
+    ctx.lineTo(w * 0.4, -s * 0.02);
+    ctx.lineTo(w / 2, baseY);
+    ctx.closePath();
+  };
+  drawEmbossedPath(ctx, build, s);
+  fillRoundRect(ctx, -w * 0.48, baseY - s * 0.01, w * 0.96, s * 0.15, s * 0.04, "#2d2208");
+  strokeRoundRect(ctx, -w * 0.48, baseY - s * 0.01, w * 0.96, s * 0.15, s * 0.04, "#1a1405", Math.max(1, s * 0.02));
+  for (const x of [-w * 0.28, 0, w * 0.28]) {
+    const g = ctx.createRadialGradient(x - s * 0.02, baseY + s * 0.02, 0, x, baseY + s * 0.06, s * 0.07);
+    g.addColorStop(0, "#fff6c8");
+    g.addColorStop(0.55, "#d4af37");
+    g.addColorStop(1, "#6b5210");
+    ctx.beginPath();
+    ctx.arc(x, baseY + s * 0.06, Math.max(1.8, s * 0.055), 0, Math.PI * 2);
+    ctx.fillStyle = g;
+    ctx.fill();
+  }
+  ctx.fillStyle = "#f0dfa0";
+  for (const x of [-w * 0.26, 0, w * 0.26]) {
+    ctx.beginPath();
+    ctx.arc(x, topY + (x === 0 ? 0 : s * 0.16), Math.max(1.5, s * 0.045), 0, Math.PI * 2);
+    ctx.fill();
+  }
 }
 
 function drawCrossMark(ctx, s) {
-  ctx.strokeStyle = "#4a3810";
-  ctx.lineWidth = Math.max(2, s * 0.07);
-  const arm = s * 0.2;
+  const arm = s * 0.44;
+  const thick = Math.max(4, s * 0.17);
+  const r = thick * 0.42;
+  const vert = () => {
+    roundRect(ctx, -thick / 2, -arm, thick, arm * 2, r);
+  };
+  const horiz = () => {
+    roundRect(ctx, -arm, -thick / 2, arm * 2, thick, r);
+  };
+  drawEmbossedPath(ctx, vert, s);
+  drawEmbossedPath(ctx, horiz, s);
+  const jewel = ctx.createRadialGradient(-s * 0.03, -s * 0.05, 0, 0, 0, s * 0.16);
+  jewel.addColorStop(0, "#fff6c8");
+  jewel.addColorStop(0.45, "#e8c547");
+  jewel.addColorStop(1, "#6b5210");
   ctx.beginPath();
-  ctx.moveTo(0, -arm);
-  ctx.lineTo(0, arm);
-  ctx.moveTo(-arm, 0);
-  ctx.lineTo(arm, 0);
+  ctx.arc(0, 0, s * 0.145, 0, Math.PI * 2);
+  ctx.fillStyle = jewel;
+  ctx.fill();
+  ctx.strokeStyle = "#1a1405";
+  ctx.lineWidth = Math.max(1.2, s * 0.028);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(0, 0, s * 0.07, 0, Math.PI * 2);
+  ctx.strokeStyle = "rgba(45,34,8,0.45)";
+  ctx.lineWidth = Math.max(1, s * 0.02);
+  ctx.stroke();
+}
+
+function drawGaleoneMark(ctx, s) {
+  drawCoinRings(ctx, s);
+  ctx.save();
+  ctx.strokeStyle = "rgba(61, 46, 8, 0.2)";
+  ctx.lineWidth = Math.max(1, s * 0.016);
+  for (let i = 0; i < 12; i += 1) {
+    const a = (i / 12) * Math.PI * 2 + Math.PI / 12;
+    ctx.beginPath();
+    ctx.moveTo(Math.cos(a) * s * 0.38, Math.sin(a) * s * 0.38);
+    ctx.lineTo(Math.cos(a) * s * 0.7, Math.sin(a) * s * 0.7);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // Preview both faces: crown left · gem · cross right
+  ctx.save();
+  ctx.translate(-s * 0.34, -s * 0.02);
+  drawCrownMark(ctx, s * 0.42);
+  ctx.restore();
+  ctx.save();
+  ctx.translate(s * 0.34, -s * 0.02);
+  drawCrossMark(ctx, s * 0.4);
+  ctx.restore();
+
+  const gem = ctx.createRadialGradient(-s * 0.03, -s * 0.04, 0, 0, 0, s * 0.16);
+  gem.addColorStop(0, "#fff8d6");
+  gem.addColorStop(0.45, "#e8c547");
+  gem.addColorStop(1, "#6b5210");
+  ctx.beginPath();
+  ctx.arc(0, 0, s * 0.15, 0, Math.PI * 2);
+  ctx.fillStyle = gem;
+  ctx.fill();
+  ctx.strokeStyle = "#2d2208";
+  ctx.lineWidth = Math.max(1.4, s * 0.028);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(0, 0, s * 0.08, 0, Math.PI * 2);
+  ctx.strokeStyle = "rgba(45,34,8,0.4)";
+  ctx.lineWidth = Math.max(1, s * 0.018);
   ctx.stroke();
 }
 
 function drawCoinFace(ctx, side, radius) {
-  const ink = "#3d2e08";
   if (side === "testa") {
-    drawCrownMark(ctx, radius * 0.55);
-    drawPlainText(ctx, "T", 0, radius * 0.02, { size: Math.floor(radius * 0.38), color: ink, weight: "900" });
+    drawCoinRings(ctx, radius);
+    drawCrownMark(ctx, radius * 0.86);
     return;
   }
   if (side === "croce") {
-    drawCrossMark(ctx, radius * 0.5);
-    drawPlainText(ctx, "C", 0, radius * 0.05, { size: Math.floor(radius * 0.36), color: ink, weight: "900" });
+    drawCoinRings(ctx, radius);
+    drawCrossMark(ctx, radius * 0.82);
     return;
   }
-  drawPlainText(ctx, "?", 0, 0, { size: Math.floor(radius * 0.42), color: "#5c4510", weight: "900" });
+  drawGaleoneMark(ctx, radius * 0.94);
 }
 
 function drawCoin(ctx, cx, cy, radius, side, spinT) {

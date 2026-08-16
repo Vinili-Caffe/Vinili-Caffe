@@ -48,7 +48,8 @@ module.exports = (client) => {
       table.addRow(folderLabel, file, status);
     }
 
-    global.logger.info(table.toString());
+    const LOG_EVENTS = String(process.env.LOG_EVENTS || process.env.LOG_COMMANDS || "0") === "1";
+    if (LOG_EVENTS) global.logger.info(table.toString());
     global.logger.info(`[EVENTS] Loaded ${loaded} events.`);
   };
 };

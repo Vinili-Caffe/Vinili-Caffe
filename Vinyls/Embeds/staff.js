@@ -3,13 +3,13 @@ const { getClientChannelCached, getClientGuildCached, getGuildChannelCached } = 
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const { buildStaffGuideMenuRow } = require("../Utils/Staff/staffGuideMenuComponents");
 const { upsertPanelMessage } = require("../../shared/discord/panelUpsertRuntime");
-const { DIVIDER_URL } = require("../../shared/discord/constants");
+const { DEFAULT_FOOTER_TEXT } = require("../Utils/Embeds/defaultFooter");
 const SHOW_SANZIONI_IN_GUIDA_STAFF = true;
 
 function buildStaffGuideEmbed() {
   const ch = IDs.channels;
 
-  return new EmbedBuilder()
+  const embed = new EmbedBuilder()
     .setColor("#6f4e37")
     .setDescription(
       [
@@ -31,6 +31,25 @@ function buildStaffGuideEmbed() {
         inline: false,
       },
     )
+    .setFooter({ text: DEFAULT_FOOTER_TEXT });
+
+  // Niente banner/thumbnail/icona footer su questo pannello.
+  embed.__skipFooterIcon = true;
+  return embed;
+}
+
+/** Payload upsert/update senza GIF branding né allegati residui. */
+function buildStaffGuidePanelPayload(extra = {}) {
+  return {
+    embeds: [buildStaffGuideEmbed()],
+    components: [buildStaffGuideMenuRow()],
+    includeBanner: false,
+    includeThumbnail: false,
+    includeAuthor: false,
+    files: [],
+    attachments: [],
+    ...extra,
+  };
 }
 
 async function resolveBestStaffChannel(client) {
@@ -74,12 +93,10 @@ async function run(client) {
       ].join("\n"),
     )
 
-  const embeds = [
-    buildStaffGuideEmbed(),
-    new EmbedBuilder()
-      .setColor("#6f4e37")
-      .setDescription(
-        `<a:VC_Alarm:1482706641618079816> Per **applicare** le __sanzioni__, è necessario __attenersi__ alle **indicazioni** riportate di seguito e **consultare** le procedure disponibili __cliccando__ sui **bottoni** alla fine del messaggio.
+  const moderationEmbed = new EmbedBuilder()
+    .setColor("#6f4e37")
+    .setDescription(
+      `<a:VC_Alarm:1482706641618079816> Per **applicare** le __sanzioni__, è necessario __attenersi__ alle **indicazioni** riportate di seguito e **consultare** le procedure disponibili __cliccando__ sui **bottoni** alla fine del messaggio.
 
 <:VC_1:1482706338021642333> <a:VC_Arrow:1482706699365257397> Bisogna **__sempre__** allegare le **prove** (screen, video, link di messaggi).
 
@@ -92,10 +109,8 @@ async function run(client) {
 <:VC_5:1482706459765637272> <a:VC_Arrow:1482706699365257397> Bisogna **__sempre__** sanzionare nel canale <#1442569245878648924> usando i comandi di <@1329118940110127204>
 
 <:VC_6:1482706490769801327> <a:VC_Arrow:1482706699365257397> Ogni volta che si __oltrepassa__ il numero di **sanzioni ottenibili** si **ricomincia** il __ciclo__ di sanzioni per quella **specifica __regola__**.`,
-      )
-  ];
+    );
 
-  const staffGuideMenuRow = buildStaffGuideMenuRow();
   const rowModeration = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId("generalimoderazione").setLabel("︲GENERALI").setEmoji("<:appdirectoryallwhite:1443308556995788840>").setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId("testualimoderazione").setLabel("︲TESTUALI").setEmoji("<:discordchannelwhite:1443308552536985810>").setStyle(ButtonStyle.Secondary),
@@ -117,18 +132,21 @@ async function run(client) {
     });
   }
   if (guideChannel?.isTextBased?.()) {
-    await upsertPanelMessage(guideChannel, client, {
-      embeds: [embeds[0]],
-      components: [staffGuideMenuRow],
-    });
+    await upsertPanelMessage(guideChannel, client, buildStaffGuidePanelPayload());
   }
   if (moderationChannel?.isTextBased?.()) {
     await upsertPanelMessage(moderationChannel, client, {
-      embeds: [embeds[1]],
+      embeds: [moderationEmbed],
       components: [rowModeration],
     });
   }
 }
 
 module.exports = {
-  name: "staff", order: 30, section: "embedWithButtons", run, buildStaffGuideEmbed };
+  name: "staff",
+  order: 30,
+  section: "embedWithButtons",
+  run,
+  buildStaffGuideEmbed,
+  buildStaffGuidePanelPayload,
+};

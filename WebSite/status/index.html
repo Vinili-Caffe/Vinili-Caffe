@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8" />
+    <title>Status - Vinili &amp; Caffè</title>
+    <meta name="description" content="Controlla se il sito, i bot Discord e i servizi backend sono online." />
+    <meta name="robots" content="noindex, follow" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="canonical" href="https://www.viniliecaffe.it/status/" />
+    <link rel="icon" href="/favicon.ico" />
+    <script>(function(){try{var l=String(localStorage.getItem("vc_site_lang")||"").toLowerCase();var ok=["it","en","es","fr","de","pt","ru","zh","ja","ko","ar","nl","pl","tr","hi","id","uk","vi","ro","sv"];if(ok.indexOf(l)>=0){document.documentElement.lang=l;document.documentElement.setAttribute("dir",l==="ar"?"rtl":"ltr");}}catch(e){}})();</script>
+    <script src="../js/vc-i18n.js"></script>
+    <script src="../js/vc-i18n-pages.js"></script>
+    <script src="../js/vc-i18n-pages-extra.js"></script>
+    <script src="../js/vc-i18n-locales.js"></script>
+    <style>
+      :root {
+        --bg0: #0c0a09;
+        --bg1: #1a120d;
+        --card: rgba(26, 18, 13, 0.88);
+        --line: rgba(212, 168, 136, 0.22);
+        --text: #f5efe8;
+        --muted: #b9a99a;
+        --ok: #3ecf8e;
+        --bad: #f07178;
+        --warn: #e6b450;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: Georgia, "Times New Roman", serif;
+        color: var(--text);
+        background:
+          radial-gradient(900px 500px at 20% 0%, rgba(212, 168, 136, 0.14), transparent 55%),
+          linear-gradient(165deg, var(--bg0), var(--bg1));
+      }
+      main {
+        width: min(640px, calc(100% - 2rem));
+        margin: 0 auto;
+        padding: 3.5rem 0 4rem;
+      }
+      h1 {
+        margin: 0 0 0.35rem;
+        font-size: clamp(1.8rem, 4vw, 2.5rem);
+      }
+      .lead {
+        margin: 0 0 1.5rem;
+        color: var(--muted);
+        font-family: system-ui, sans-serif;
+        font-size: 0.95rem;
+        line-height: 1.45;
+      }
+      .overall {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 1rem 1.15rem;
+        border: 1px solid var(--line);
+        border-radius: 1rem;
+        background: var(--card);
+        margin-bottom: 1rem;
+        font-family: system-ui, sans-serif;
+      }
+      .dot {
+        width: 0.75rem;
+        height: 0.75rem;
+        border-radius: 50%;
+        background: var(--warn);
+        flex-shrink: 0;
+      }
+      .dot.ok { background: var(--ok); box-shadow: 0 0 12px rgba(62, 207, 142, 0.45); }
+      .dot.bad { background: var(--bad); box-shadow: 0 0 12px rgba(240, 113, 120, 0.45); }
+      ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.65rem; }
+      li {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+        padding: 0.95rem 1.1rem;
+        border: 1px solid var(--line);
+        border-radius: 0.9rem;
+        background: var(--card);
+        font-family: system-ui, sans-serif;
+      }
+      .name { font-weight: 600; }
+      .meta { color: var(--muted); font-size: 0.82rem; margin-top: 0.2rem; }
+      .badge {
+        font-size: 0.78rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        padding: 0.35rem 0.55rem;
+        border-radius: 999px;
+        border: 1px solid transparent;
+        white-space: nowrap;
+      }
+      .badge.ok { color: var(--ok); border-color: rgba(62, 207, 142, 0.35); }
+      .badge.bad { color: var(--bad); border-color: rgba(240, 113, 120, 0.35); }
+      footer {
+        margin-top: 1.75rem;
+        color: var(--muted);
+        font-family: system-ui, sans-serif;
+        font-size: 0.85rem;
+        line-height: 1.5;
+      }
+      footer a { color: #e8c9a8; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1 data-i18n="status.title">Status</h1>
+      <p class="lead" data-i18n="status.lead">Stato di sito, bot Discord e servizi backend. Verde = tutto ok.</p>
+      <div class="overall" id="overall">
+        <span class="dot" id="overall-dot" aria-hidden="true"></span>
+        <div>
+          <strong id="overall-label" data-i18n="status.checking">Controllo in corso…</strong>
+          <div class="meta" id="overall-meta"></div>
+        </div>
+      </div>
+      <ul id="checks" aria-live="polite"></ul>
+      <footer>
+        <span data-i18n="status.historyDetails">Cronologia e dettagli:</span>
+        <a href="https://status.viniliecaffe.it/status/vinili">status.viniliecaffe.it</a><br />
+        <a href="/" data-i18n="status.backToSite">Torna al sito</a>
+      </footer>
+    </main>
+<script>
+      (function () {
+        var checksEl = document.getElementById("checks");
+        var overallLabel = document.getElementById("overall-label");
+        var overallMeta = document.getElementById("overall-meta");
+        var overallDot = document.getElementById("overall-dot");
+
+        function t(key, vars) {
+          if (window.VcI18n && typeof window.VcI18n.t === "function") {
+            return window.VcI18n.t(key, vars);
+          }
+          return key;
+        }
+
+        function lang() {
+          if (window.VcI18n && typeof window.VcI18n.getLang === "function") {
+            return window.VcI18n.getLang();
+          }
+          return "it";
+        }
+
+        function jsonFetch(url) {
+          return fetch(url, { cache: "no-store" }).then(function (r) {
+            return r.json().then(
+              function (j) {
+                return { httpOk: r.ok, status: r.status, json: j || {} };
+              },
+              function () {
+                return { httpOk: r.ok, status: r.status, json: {} };
+              },
+            );
+          });
+        }
+
+        var TARGETS = [
+          {
+            nameKey: "status.target.website.name",
+            hintKey: "status.target.website.hint",
+            run: function () {
+              return fetch("/", { method: "HEAD", cache: "no-store" }).then(function (r) {
+                var ok = r.ok || r.status === 403;
+                return { ok: ok, detail: ok ? t("status.reachable") : "HTTP " + r.status };
+              });
+            },
+          },
+          {
+            nameKey: "status.target.botVinili.name",
+            hintKey: "status.target.botVinili.hint",
+            run: function () {
+              return jsonFetch("/webhooks/status").then(function (r) {
+                var ok = r.httpOk && r.json && r.json.status === "online";
+                return {
+                  ok: ok,
+                  detail: ok ? r.json.bot || t("status.online") : t("status.unreachable"),
+                };
+              });
+            },
+          },
+          {
+            nameKey: "status.target.botCaffe.name",
+            hintKey: "status.target.botCaffe.hint",
+            run: function () {
+              return jsonFetch("/webhooks/coffee/health").then(function (r) {
+                var ok = Boolean(r.httpOk && r.json && (r.json.ok === true || r.json.status === "online"));
+                return {
+                  ok: ok,
+                  detail: ok ? r.json.bot || t("status.online") : t("status.unreachable"),
+                };
+              });
+            },
+          },
+          {
+            nameKey: "status.target.mongo.name",
+            hintKey: "status.target.mongo.hint",
+            run: function () {
+              return jsonFetch("/webhooks/health").then(function (r) {
+                var checks = (r.json && r.json.checks) || {};
+                var ok = Boolean(checks.mongo);
+                var ping =
+                  r.json && Number.isFinite(r.json.mongoPingMs)
+                    ? r.json.mongoPingMs + " ms"
+                    : null;
+                return {
+                  ok: ok,
+                  detail: ok ? ping || t("status.online") : t("status.unreachable"),
+                };
+              });
+            },
+          },
+          {
+            nameKey: "status.target.lavalink.name",
+            hintKey: "status.target.lavalink.hint",
+            run: function () {
+              return jsonFetch("/webhooks/health").then(function (r) {
+                var checks = (r.json && r.json.checks) || {};
+                var ok = Boolean(checks.lavalink);
+                return { ok: ok, detail: ok ? t("status.online") : t("status.unreachable") };
+              });
+            },
+          },
+          {
+            nameKey: "status.target.siteApi.name",
+            hintKey: "status.target.siteApi.hint",
+            run: function () {
+              return jsonFetch("/webhooks/site-api/health").then(function (r) {
+                var ok = Boolean(r.json && r.json.ok);
+                var mongoOk = r.json && r.json.checks ? r.json.checks.mongo : null;
+                var detail = ok
+                  ? mongoOk === false
+                    ? t("status.onlineMongoDegraded")
+                    : t("status.online")
+                  : t("status.unreachable");
+                return { ok: ok, detail: detail };
+              });
+            },
+          },
+          {
+            nameKey: "status.target.discadia.name",
+            hintKey: "status.target.discadia.hint",
+            optional: true,
+            run: function () {
+              return jsonFetch("/webhooks/discadia/health").then(function (r) {
+                if (r.status === 404) {
+                  return { ok: true, skip: true, detail: "" };
+                }
+                var ok = Boolean(r.httpOk && r.json && (r.json.ok === true || r.json.status === "online"));
+                return {
+                  ok: ok,
+                  detail: ok ? t("status.online") : t("status.unreachable"),
+                };
+              });
+            },
+          },
+        ];
+
+        function badge(ok) {
+          return ok
+            ? '<span class="badge ok">' + t("status.badgeOnline") + "</span>"
+            : '<span class="badge bad">' + t("status.badgeOffline") + "</span>";
+        }
+
+        function paint(results) {
+          var html = "";
+          var allOk = true;
+          var shown = 0;
+          for (var i = 0; i < results.length; i += 1) {
+            var row = results[i];
+            if (row.skip) continue;
+            shown += 1;
+            if (!row.ok) allOk = false;
+            html +=
+              "<li><div><div class=\"name\">" +
+              row.name +
+              '</div><div class="meta">' +
+              (row.hint || row.detail || "") +
+              (row.detail && row.hint ? " · " + row.detail : "") +
+              "</div></div>" +
+              badge(row.ok) +
+              "</li>";
+          }
+          checksEl.innerHTML = html;
+          overallDot.className = "dot " + (allOk ? "ok" : "bad");
+          overallLabel.removeAttribute("data-i18n");
+          overallLabel.textContent = allOk ? t("status.allOnline") : t("status.someDown");
+          var timeStr = new Date().toLocaleTimeString(lang() === "en" ? "en-GB" : "it-IT");
+          overallMeta.textContent = shown
+            ? t("status.updatedAtCount", { time: timeStr, n: shown })
+            : t("status.updatedAtNoCount", { time: timeStr });
+        }
+
+        function tick() {
+          Promise.all(
+            TARGETS.map(function (tgt) {
+              return tgt.run().then(
+                function (r) {
+                  return {
+                    name: t(tgt.nameKey),
+                    hint: t(tgt.hintKey),
+                    optional: Boolean(tgt.optional),
+                    ok: Boolean(r && r.ok),
+                    skip: Boolean(r && r.skip),
+                    detail: (r && r.detail) || "",
+                  };
+                },
+                function () {
+                  return {
+                    name: t(tgt.nameKey),
+                    hint: t(tgt.hintKey),
+                    optional: Boolean(tgt.optional),
+                    ok: false,
+                    skip: Boolean(tgt.optional),
+                    detail: t("status.networkError"),
+                  };
+                },
+              );
+            }),
+          ).then(paint);
+        }
+
+        tick();
+        setInterval(tick, 30000);
+        document.addEventListener("vc:langchange", function () {
+          if (window.VcI18n && typeof window.VcI18n.apply === "function") {
+            window.VcI18n.apply(document);
+          }
+          tick();
+        });
+      })();
+    </script>
+    <script src="/js/vc-cursor-trail.js?v={{BUILD_ASSET_VERSION}}" defer></script>
+  </body>
+</html>

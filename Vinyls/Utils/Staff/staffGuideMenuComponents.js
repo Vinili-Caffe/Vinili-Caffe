@@ -44,6 +44,7 @@ function buildStaffGuideMenuRow() {
 
 module.exports = {
   STAFF_GUIDE_MENU_ID,
+  STAFF_GUIDE_SECTIONS,
   STAFF_GUIDE_SECTION_IDS,
   buildStaffGuideMenuRow,
 };

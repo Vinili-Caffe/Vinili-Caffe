@@ -205,115 +205,14 @@ module.exports = {
     await message.delete().catch(() => {});
     const targetMentions=targets.map((member) => member.user?.username||member.displayName||member.id,);
     const promptMsg=await message.channel.send({embeds:[buildPromptEmbed(targetMentions)],components:[buildConfirmRow(yesId,noId)],});
-    const filter=(i) => i.user.id===message.author.id&&(i.customId===yesId||i.customId===noId);
-    const collector=promptMsg.createMessageComponentCollector({filter,time:10_000,max:1,});
-    collector.on("collect", async (i) => {
-      if (i.customId === noId) {
-        try {
-          await i.update({ embeds: [buildCancelledEmbed()], components: [] });
-        } catch (err) {
-          global.logger?.warn?.("[verify] collector:", err?.message || err);
-        }
-        return;
-      }
-      const success = [];
-      const fail = [];
-      const guild = message.guild;
-      const guildId = guild?.id;
-      const modLogId = IDs.channels?.modLogs;
-      const logChannel=modLogId&&guild?(guild.channels.cache.get(modLogId)||(await getGuildChannelCached(guild,modLogId))||(await getClientChannelCached(message.client,modLogId))||(await guild.channels.fetch(modLogId).catch(() => null))):null;
-      const sanitizeEmbed=(v) => String(v||"").replace(/[\\`*_~|>]/g, "\\$&").replace(/\n/g, " ").trim();
-      for (const member of targets) {
-        const fresh=guildId&&member?.id?await guild.members.fetch(member.id).catch(() => null):member;
-        const targetMember = fresh || member;
-        const cache = targetMember?.roles?.cache;
-        const rolesToAdd=cache&&validVerifyRoleIds.filter((id) => !cache.has(id));
-        const displayName=targetMember?.user?.username||targetMember?.displayName||targetMember?.id;
-        try {
-          if (rolesToAdd?.length > 0) {
-            const resolvedMember = await addRolesAndGetMember(guild, targetMember.id, rolesToAdd);
-            if (!resolvedMember) {
-              throw new Error("Failed to add roles or fetch member");
-            }
-            const missingRoleIds = requiredVerifyRoleIds.filter((id) => !resolvedMember.roles.cache.has(id));
-            if (missingRoleIds.length > 0) {
-              throw new Error(`Verify roles not applied: ${missingRoleIds.join(",")}`);
-            }
-            const missingOptional = rolesToAdd.filter((id) => !resolvedMember.roles.cache.has(id));
-            if (missingOptional.length > 0) {
-              global.logger?.warn?.("[+verify] optional layout roles not assigned", guildId, missingOptional.join(","));
-            }
-            success.push(displayName);
-            try {
-              const record=await upsertVerifiedMember(guildId,targetMember.id,new Date(),);
-              await applyTenureForMember(resolvedMember, record);
-            } catch (dbErr) {
-              global.logger?.warn?.("[+verify] upsertVerifiedMember/applyTenureForMember:", dbErr);
-            }
-            if (logChannel?.isTextBased?.() && resolvedMember?.user) {
-              const user = resolvedMember.user;
-              const createdAtUnix = Math.floor((user.createdTimestamp || 0) / 1000);
-              const createdAtText = createdAtUnix ? `<t:${createdAtUnix}:F>` : "-";
-              const safeUsername = sanitizeEmbed(user.username);
-              const resultEmbed = new EmbedBuilder()
-                .setColor("#6f4e37")
-                .setTitle(`**${safeUsername}'s Verification Result:**`)
-                .setDescription(
-                  `<:profile:1461732907508039834> **Member**: ${safeUsername} **[${user.id}]**\n` +
-                    `<:creation:1461732905016492220> Creation: ${createdAtText}\n\n` +
-                    "Status:\n" +
-                    `<:VC_Space:1482459974667075685><:success:1461731530333229226> \`${safeUsername}\` has passed verification successfully.\n` +
-                    "<:VC_Space:1482459974667075685><:VC_Space:1482459974667075685><:rightSort:1461726104422453298> Auto roles have been assigned as well.",
-                )
-                .setThumbnail(userAvatarUrlDynamic(user, { size: 256 }) || undefined);
-              await logChannel.send({ embeds: [resultEmbed] }).catch(() => {});
-            }
-          } else if (validVerifyRoleIds.every((id) => cache.has(id))) {
-            success.push(displayName);
-            try {
-              const record = await upsertVerifiedMember(
-                guildId,
-                targetMember.id,
-                new Date(),
-              );
-              const memberForTenure = await guild.members.fetch(targetMember.id).catch(() => targetMember);
-              await applyTenureForMember(memberForTenure, record);
-            } catch (dbErr) {
-              global.logger?.warn?.(
-                "[+verify] upsertVerifiedMember:",
-                dbErr?.message || dbErr,
-              );
-            }
-          } else {
-            fail.push(displayName);
-          }
-        } catch (err) {
-          global.logger?.error?.(err);
-          fail.push(displayName);
-        }
-      }
-      try {
-        if (!i.deferred && !i.replied) {
-          await i.deferUpdate();
-        }
-      } catch (err) {
-        if (err?.code !== 10062) {
-          global.logger?.warn?.("[verify] deferUpdate:", err?.message || err);
-        }
-      }
-      await promptMsg.delete().catch(() => {});
-      await message.delete().catch(() => {});
-      const resultMsg=await message.channel.send({embeds:[buildResultEmbed(message.author.id,message.guild?.ownerId,success,fail,),],allowedMentions:{users:[]},});
-      const timer=setTimeout(() => {
-        resultMsg.delete().catch(() => {});
-      }, 5000);
-      timer.unref?.();
+    const { storePendingVerify } = require("../../Utils/Moderation/verifyPendingStore");
+    storePendingVerify(message.author.id, promptMsg.id, {
+      guildId: message.guild.id,
+      channelId: message.channel.id,
+      targetIds: targets.map((m) => String(m.id)),
+      validVerifyRoleIds,
+      requiredVerifyRoleIds,
     });
-    collector.on("end", async (collected) => {
-      if (collected.size > 0) return;
-      await promptMsg
-        .edit({ embeds: [buildTimeoutEmbed()], components: [] })
-        .catch(() => {});
-    });
+    // Confirm buttons handled by Buttons/verifyConfirm.js (survives restart until TTL).
   },
 };

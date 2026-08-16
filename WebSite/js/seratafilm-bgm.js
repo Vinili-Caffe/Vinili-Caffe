@@ -22,10 +22,43 @@
   var baseVol = 0.34;
   var fadeWindowMs = 120000;
   var started = false;
+  var HINT_AUTO_HIDE_MS = 4500;
   var hintEl = null;
+  var hintHideTimer = null;
   var detachFirst = null;
+  var lockedOffForFilm = false;
+
+  function isProjectionBlockingBgm() {
+    try {
+      var b = document.body;
+      if (!b) return false;
+      return (
+        b.classList.contains("vc-seratafilm-film-active") ||
+        b.classList.contains("vc-seratafilm-ad-break-active") ||
+        b.classList.contains("vc-seratafilm-ad-spot-playing")
+      );
+    } catch (eB) {
+      return false;
+    }
+  }
+
+  function clearHintAutoHide() {
+    if (hintHideTimer) {
+      clearTimeout(hintHideTimer);
+      hintHideTimer = null;
+    }
+  }
+
+  function scheduleHintAutoHide() {
+    clearHintAutoHide();
+    hintHideTimer = setTimeout(function () {
+      hintHideTimer = null;
+      hideHint();
+    }, HINT_AUTO_HIDE_MS);
+  }
 
   function hideHint() {
+    clearHintAutoHide();
     if (!hintEl) return;
     hintEl.classList.add("vc-seratafilm-bgm-hint--hide");
     setTimeout(function () {
@@ -37,13 +70,26 @@
   }
 
   function ensureHint() {
-    if (hintEl) return;
+    if (hintEl) {
+      scheduleHintAutoHide();
+      return;
+    }
     hintEl = document.createElement("div");
     hintEl.className = "vc-seratafilm-bgm-hint";
     hintEl.setAttribute("role", "status");
-    hintEl.textContent =
-      "Playlist in loop: tocca un punto qualsiasi della pagina per avviare l'audio (richiesto dal browser).";
+    var ico = document.createElement("span");
+    ico.className = "vc-seratafilm-bgm-hint__ico";
+    ico.setAttribute("aria-hidden", "true");
+    var fi = document.createElement("i");
+    fi.className = "fa fa-music";
+    ico.appendChild(fi);
+    var label = document.createElement("span");
+    label.className = "vc-seratafilm-bgm-hint__txt";
+    label.textContent = "Tocca per avviare la musica";
+    hintEl.appendChild(ico);
+    hintEl.appendChild(label);
     document.body.appendChild(hintEl);
+    scheduleHintAutoHide();
   }
 
   function applyCrossOriginForUrl(url) {
@@ -75,6 +121,7 @@
   }
 
   function startFromUserGesture() {
+    if (lockedOffForFilm || isProjectionBlockingBgm()) return;
     var urls = trackUrls();
     if (!urls.length || started) return;
     if (!audio) {
@@ -134,6 +181,21 @@
   };
 
   window.__vcSeratafilmBgmOnTick = function (remainingMs) {
+    if (lockedOffForFilm || isProjectionBlockingBgm()) {
+      if (mode === "youtube") {
+        if (typeof window.__vcSeratafilmYoutubeOnTick === "function") {
+          window.__vcSeratafilmYoutubeOnTick(0);
+        }
+        return;
+      }
+      if (audio && started) {
+        try {
+          audio.pause();
+          audio.volume = 0;
+        } catch (eLock) {}
+      }
+      return;
+    }
     if (mode === "youtube") {
       if (typeof window.__vcSeratafilmYoutubeOnTick === "function") {
         window.__vcSeratafilmYoutubeOnTick(remainingMs);
@@ -162,6 +224,7 @@
   };
 
   window.__vcSeratafilmBgmStop = function () {
+    lockedOffForFilm = true;
     if (mode === "youtube") {
       if (typeof window.__vcSeratafilmYoutubeStop === "function") {
         window.__vcSeratafilmYoutubeStop();

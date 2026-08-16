@@ -68,6 +68,37 @@ async function registerTenantGuild(guildId, label) {
   return true;
 }
 
+async function unregisterTenantGuild(guildId) {
+  const gid = normalizeGuildId(guildId);
+  if (!gid || isViniliProtectedGuild(gid)) return false;
+  if (!isMongoReady()) return false;
+  const map = await loadTenantRegistryMap();
+  if (!Object.prototype.hasOwnProperty.call(map, gid)) return false;
+  delete map[gid];
+  await setBotState(BOT_STATE_KEY, map);
+  await refreshDynamicGuildRowsCache();
+  return true;
+}
+
+/** Aggiorna una feature tenant (es. ticket) nel registry dinamico Mongo. */
+async function setTenantGuildFeature(guildId, featureKey, enabled) {
+  const gid = normalizeGuildId(guildId);
+  const key = String(featureKey || "").trim();
+  if (!gid || !key || isViniliProtectedGuild(gid)) return false;
+  if (!isMongoReady()) return false;
+  const map = await loadTenantRegistryMap();
+  const prev = map[gid] && typeof map[gid] === "object" ? map[gid] : { l: normalizeLabel(null, gid), t: Date.now() };
+  const features =
+    prev.features && typeof prev.features === "object" && !Array.isArray(prev.features)
+      ? { ...prev.features }
+      : {};
+  features[key] = enabled === true;
+  map[gid] = { ...prev, features, t: Date.now() };
+  await setBotState(BOT_STATE_KEY, map);
+  await refreshDynamicGuildRowsCache();
+  return true;
+}
+
 async function bootstrapTenantRegistryFromClient(client) {
   if (!client?.guilds?.cache) return [];
   const added = [];
@@ -83,6 +114,9 @@ module.exports = {
   BOT_STATE_KEY,
   getDynamicGuildRowsCache,
   refreshDynamicGuildRowsCache,
+  loadTenantRegistryMap,
   registerTenantGuild,
+  unregisterTenantGuild,
+  setTenantGuildFeature,
   bootstrapTenantRegistryFromClient,
 };

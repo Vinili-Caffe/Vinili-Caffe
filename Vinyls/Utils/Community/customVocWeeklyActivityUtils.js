@@ -277,7 +277,7 @@ function buildCustomVocWeeklyActivityEmbedLines(activityState) {
     } else if (activityState.meetsRequirement) {
       lines.push("<:VC_OnlineStatus:1482527088912240650> Requisito settimanale attuale raggiunto");
     }
-    lines.push("<:VC_Info:1482526956703580372> Minimo **5 ore/settimana** nella tua vocale (periodo: domenica 21:00 → domenica 21:00, ora di Roma).");
+    lines.push("<:VC_Info:1482526956703580372> Minimo **5 ore/settimana** nella tua vocale.");
     return lines;
   }
   if (CUSTOM_VOC_RECREATION_COOLDOWN_MS > 0) {

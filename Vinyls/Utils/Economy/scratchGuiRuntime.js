@@ -1,25 +1,22 @@
 const { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const { buildImageButtonPayload } = require("./guiPanelPayload");
-const { formatCurrency } = require("../../Services/Community/serverWalletService");
-const { economyConfig, payScratchWin, playScratchBet } = require("../../Services/Community/activeEconomyService");
+const { formatEconomyAmount } = require("./economyDisplayHelpers");
+const { buildBetAmountButton, betBounds, clampBetAmount } = require("./economyBetModal");
+const { economyConfig, payScratchWin, playScratchBet, refundEconomyStake } = require("../../Services/Community/activeEconomyService");
+const { markSessionStakeCooldown, sessionSpendOptions } = require("./economyCommandHelpers");
+const { createPersistedGuiSessionApi, SESSION_DB_TTL_MS } = require("../../Services/Community/economyGuiSessionStore");
 const { allRevealed, emptyRevealed, evaluateCard, generateCard, symbolLabel } = require("./scratchEngine");
+const { runEconomyRender } = require("../../../shared/render/economyRenderQueue");
 const PREFIX = "scratch_gui";
-const SESSION_TTL_MS = 10 * 60 * 1000;
-const sessions = new Map();
+const SESSION_TTL_MS = SESSION_DB_TTL_MS;
+const { setSession, getSession, deleteSession } = createPersistedGuiSessionApi("scratch", { ttlMs: SESSION_TTL_MS });
 
 function now() {
   return Date.now();
 }
 
-function sessionKey(messageId) {
-  return String(messageId || "").trim();
-}
-
-function clampBet(value, cfg) {
-  const min = Math.max(1, Math.floor(Number(cfg?.minBet) || 1));
-  const max = Math.max(min, Math.floor(Number(cfg?.maxBet) || min));
-  const n = Math.floor(Number(value) || min);
-  return Math.max(min, Math.min(max, n));
+function clampBet(value, cfg, balance = null) {
+  return clampBetAmount(value, cfg, balance);
 }
 
 function betStep(cfg) {
@@ -41,25 +38,6 @@ function makeSession({ ownerId, guildId, bet, cfg }) {
   };
 }
 
-function setSession(messageId, session) {
-  sessions.set(sessionKey(messageId), { ...session, updatedAt: now() });
-}
-
-function getSession(messageId) {
-  const key = sessionKey(messageId);
-  const cached = sessions.get(key);
-  if (!cached) return null;
-  if (now() - Number(cached.updatedAt || cached.createdAt || 0) > SESSION_TTL_MS) {
-    sessions.delete(key);
-    return null;
-  }
-  return cached;
-}
-
-function deleteSession(messageId) {
-  sessions.delete(sessionKey(messageId));
-}
-
 function controlId(action, ownerId) {
   return `${PREFIX}:${action}:${ownerId}`;
 }
@@ -76,11 +54,10 @@ function parseScratchGuiCustomId(customId) {
   return { action, ownerId: parts[2] };
 }
 
-function buildRows(session, cfg, panelClosed = false) {
+function buildRows(session, cfg, panelClosed = false, balance = null) {
   const ownerId = session.ownerId;
   const step = betStep(cfg);
-  const min = Math.max(1, Math.floor(Number(cfg?.minBet) || 1));
-  const max = Math.max(min, Math.floor(Number(cfg?.maxBet) || min));
+  const { min, max } = betBounds(cfg, balance);
   const locked = Boolean(panelClosed) || Boolean(session.panelAnimating);
   const idle = session.phase === "idle";
   const scratching = session.phase === "ready" && !session.panelAnimating;
@@ -108,6 +85,7 @@ function buildRows(session, cfg, panelClosed = false) {
   rows.push(
     new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId(controlId("minus", ownerId)).setLabel(`-${step}`).setStyle(canAdjustBet && session.bet > min ? ButtonStyle.Primary : ButtonStyle.Secondary).setDisabled(!canAdjustBet || session.bet <= min),
+      buildBetAmountButton(controlId("bet", ownerId), { disabled: !canAdjustBet }),
       new ButtonBuilder().setCustomId(controlId("plus", ownerId)).setLabel(`+${step}`).setStyle(canAdjustBet && session.bet < max ? ButtonStyle.Primary : ButtonStyle.Secondary).setDisabled(!canAdjustBet || session.bet >= max),
       new ButtonBuilder().setCustomId(controlId("buy", ownerId)).setLabel(done ? "Nuovo biglietto" : "Compra").setEmoji("🎫").setStyle(ButtonStyle.Success).setDisabled(locked || (!idle && !done)),
       new ButtonBuilder().setCustomId(controlId("close", ownerId)).setLabel("Chiudi").setEmoji("<a:VC_Cross:1482532424570376253>").setStyle(ButtonStyle.Danger).setDisabled(panelClosed),
@@ -120,7 +98,8 @@ async function renderPanel(session) {
   const last = session.lastResult;
   try {
     const renderScratchCanvas = require("../Render/scratchCanvas");
-    const rendered = await renderScratchCanvas({
+    const rendered = await runEconomyRender(() =>
+      renderScratchCanvas({
       phase: session.phase,
       bet: session.bet,
       symbols: session.symbols,
@@ -128,7 +107,8 @@ async function renderPanel(session) {
       eval: last?.eval || null,
       payout: last?.payout || 0,
       animating: Boolean(session.panelAnimating),
-    });
+    }),
+    );
     const fileName = rendered.format === "gif" ? "scratch-card.gif" : "scratch-card.png";
     const files = [new AttachmentBuilder(Buffer.from(rendered.buffer), { name: fileName })];
     return { files, image: `attachment://${fileName}`, isGif: rendered.format === "gif" };
@@ -138,12 +118,12 @@ async function renderPanel(session) {
   }
 }
 
-async function buildScratchGuiPayload(session, cfg, notice = "", panelClosed = false, animating = false) {
+async function buildScratchGuiPayload(session, cfg, notice = "", panelClosed = false, animating = false, balance = null) {
   const live = { ...session, panelAnimating: Boolean(animating || session.panelAnimating) };
   const attachment = await renderPanel(live);
   return buildImageButtonPayload({
     files: attachment.files || [],
-    components: buildRows(session, cfg, panelClosed),
+    components: buildRows(session, cfg, panelClosed, balance),
   });
 }
 
@@ -161,13 +141,14 @@ function scheduleScratchRevealPanel(message, session, cfg, notice = "") {
   const messageId = String(message?.id || "");
   if (!message?.edit || !messageId) return;
   setTimeout(() => {
-    const live = getSession(messageId);
-    if (!live) return;
-    live.panelAnimating = false;
-    setSession(messageId, live);
-    buildScratchGuiPayload(live, cfg, notice, false, false)
-      .then((payload) => message.edit(payload).catch(() => {}))
-      .catch(() => {});
+    void getSession(messageId, session?.guildId, session?.ownerId).then((live) => {
+      if (!live) return;
+      live.panelAnimating = false;
+      setSession(messageId, live);
+      buildScratchGuiPayload(live, cfg, notice, false, false)
+        .then((payload) => message.edit(payload).catch(() => {}))
+        .catch(() => {});
+    });
   }, spinAnimationDurationMs());
 }
 
@@ -196,6 +177,28 @@ function resetForNewTicket(session) {
   session.updatedAt = now();
 }
 
+async function refundOpenTicket(client, session, actorId) {
+  if (session.phase !== "ready") return { ok: true, amount: 0 };
+  const amount = Math.max(0, Math.floor(Number(session.bet) || 0));
+  if (!amount) {
+    resetForNewTicket(session);
+    return { ok: true, amount: 0, abortedRound: true };
+  }
+  const paid = await refundEconomyStake(
+    client,
+    session.guildId,
+    session.ownerId,
+    amount,
+    actorId || session.ownerId,
+    null,
+    "scratch: rimborso chiusura",
+    "economy_scratch_refund",
+  );
+  if (!paid?.ok) return { ok: false, message: paid?.message || "Rimborso non riuscito.", amount: 0, abortedRound: true };
+  resetForNewTicket(session);
+  return { ok: true, amount, abortedRound: true };
+}
+
 async function settleTicket(client, messageLike, session, cfg) {
   const evalResult = evaluateCard(session.symbols, cfg);
   const payoutAmount = Math.floor(session.bet * evalResult.multiplier);
@@ -219,8 +222,9 @@ async function settleTicket(client, messageLike, session, cfg) {
 async function buyTicket(client, messageLike, session) {
   if (session.phase === "done") resetForNewTicket(session);
   if (session.phase !== "idle") return { ok: false, message: "Hai già un biglietto attivo." };
-  const spent = await playScratchBet(client, messageLike, session.bet);
+  const spent = await playScratchBet(client, messageLike, session.bet, null, sessionSpendOptions(session));
   if (!spent.ok) return spent;
+  markSessionStakeCooldown(session);
   session.symbols = generateCard();
   session.revealed = emptyRevealed();
   session.lastResult = null;
@@ -254,8 +258,8 @@ async function revealAll(client, messageLike, session, cfg) {
 
 function formatScratchNotice(result) {
   if (!result?.ok) return "";
-  if (result.win) return `🏆 Hai vinto **${formatCurrency("caffe",result.payout)}** (${result.eval.max}× ${symbolLabel(result.eval.best)}).`;
-  return "<a:VC_Cross:1482532424570376253> Biglietto senza premio.\n<a:VC_pixeltime:1482535344103620771> Puoi comprare un altro biglietto quando il cooldown lo permette.";
+  if (result.win) return `🏆 Hai vinto **${formatEconomyAmount(result.payout)}** (${result.eval.max}× ${symbolLabel(result.eval.best)}).`;
+  return "<a:VC_Cross:1482532424570376253> Nessun premio: servono **3 simboli uguali**.\n<a:VC_pixeltime:1482535344103620771> Puoi comprare un altro biglietto quando il cooldown lo permette.";
 }
 
-module.exports = { buildScratchGuiPayload, buyTicket, clampBet, deleteSession, economyConfig, formatScratchNotice, getSession, interactionMessageAdapter, isScratchGuiCustomId, makeSession, parseScratchGuiCustomId, resetForNewTicket, revealAll, revealCell, scheduleScratchRevealPanel, setSession, warmupScratchPanel };
+module.exports = { buildScratchGuiPayload, buyTicket, clampBet, deleteSession, economyConfig, formatScratchNotice, getSession, interactionMessageAdapter, isScratchGuiCustomId, makeSession, parseScratchGuiCustomId, refundOpenTicket, resetForNewTicket, revealAll, revealCell, scheduleScratchRevealPanel, setSession, warmupScratchPanel };

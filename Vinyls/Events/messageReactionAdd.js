@@ -4,13 +4,41 @@ const { handleMinigameReaction } = require("../Services/Minigames/minigameServic
 const { handleReactPressReaction } = require("../Services/Community/hogwartsReactPressService");
 const IDs = require("../Utils/Config/ids");
 const { getGuildChannelCached, getGuildMemberCached } = require("../Utils/Interaction/interactionEntityCache");
-const renderSkullboardCanvas = require("../Utils/Render/skullboardCanvas");
 const { cacheRoleIcon } = require("../Utils/Cache/roleIconCache");
 const { guildMemberDisplayAvatarUrlDynamic, accountUsername } = require("../Utils/Discord/guildDiscordIdentity");
 const { resolveCanvasDiscordMarkup } = require("../Utils/Discord/resolveCanvasDiscordText");
+
+function isViniliFullFeatureGuild(guildId) {
+  try {
+    const { isViniliFullFeatureGuild: check } = require("../MultiGuild/core/guildFeatureScope");
+    return check(guildId);
+  } catch {
+    return true;
+  }
+}
+
 const SKULL_EMOJI = "\u{1F480}";
-const SKULLBOARD_CHANNEL_ID = IDs.channels.quotes;
-const SKULL_SOURCE_WHITELIST_CHANNEL_IDS=new Set([IDs.channels.chat,IDs.channels.media,IDs.channels.commands,IDs.channels.selfieVerificati].filter(Boolean).map((id) => String(id)));
+const SKULL_SOURCE_WHITELIST_CHANNEL_IDS = new Set(
+  [IDs.channels.chat, IDs.channels.media, IDs.channels.commands, IDs.channels.selfieVerificati]
+    .filter(Boolean)
+    .map((id) => String(id)),
+);
+
+function resolveSkullboardChannelId(guildId) {
+  const gid = String(guildId || "").trim();
+  try {
+    const {
+      isTenantBoardFeatureEnabledSync,
+      resolveTenantBoardChannelIdSync,
+    } = require("../MultiGuild/core/tenantGuildSettings");
+    if (gid && !isTenantBoardFeatureEnabledSync(gid, "skull")) return null;
+    const fromTenant = gid ? resolveTenantBoardChannelIdSync(gid, "skull") : null;
+    if (fromTenant) return fromTenant;
+  } catch {
+    /* fallback catalog */
+  }
+  return IDs.channels.quotes ? String(IDs.channels.quotes) : null;
+}
 
 function isSkullboardSourceChannel(channel) {
   if (!channel) return false;
@@ -175,9 +203,10 @@ async function resolveReactionMessage(reaction) {
   return message || null;
 }
 
-async function findSkullboardChannel(guild) {
-  if (!guild || !SKULLBOARD_CHANNEL_ID) return null;
-  return guild.channels.cache.get(SKULLBOARD_CHANNEL_ID) || (await getGuildChannelCached(guild, SKULLBOARD_CHANNEL_ID));
+async function findSkullboardChannel(guild, channelId) {
+  const id = String(channelId || "").trim();
+  if (!guild || !id) return null;
+  return guild.channels.cache.get(id) || (await getGuildChannelCached(guild, id));
 }
 
 async function findAuthorMember(message) {
@@ -193,6 +222,7 @@ async function renderSkullCanvas(
   hasMedia,
   hasEmbedOnly,
 ) {
+  const renderSkullboardCanvas = require("../Utils/Render/skullboardCanvas");
   return renderSkullboardCanvas({
     avatarUrl: guildMemberDisplayAvatarUrlDynamic(member || message.author, { size: 256 }) || "",
     username: sanitizeUsername(member, message.author),
@@ -250,6 +280,12 @@ module.exports = {
     let inFlightSet = null;
     try {
       if (user?.bot) return;
+
+      const tenantGuildId = String(
+        reaction?.message?.guildId || reaction?.message?.guild?.id || "",
+      ).trim();
+      if (tenantGuildId && !isViniliFullFeatureGuild(tenantGuildId)) return;
+
       try {
         const client = reaction.client || reaction.message?.client || user?.client;
         const reactPressHandled = await handleReactPressReaction(client, reaction, user);
@@ -264,10 +300,13 @@ module.exports = {
       const message = await resolveReactionMessage(reaction);
       if (!message || !message.guild || !message.author) return;
       if ((message.embeds?.length || 0) > 0) return;
+
+      const skullChannelId = resolveSkullboardChannelId(message.guild.id);
+      if (!skullChannelId) return;
       if (!isSkullboardSourceChannel(message.channel)) {
         return;
       }
-      if (message.channel?.id === SKULLBOARD_CHANNEL_ID) return;
+      if (String(message.channel?.id || "") === String(skullChannelId)) return;
 
       if (message.client) {
         if (!message.client._skullboardInFlight) {
@@ -282,7 +321,7 @@ module.exports = {
       const existing = await skullboardFindOneLean(message.guild.id, message.id).catch(() => null);
       if (existing?.postMessageId) return;
 
-      const skullboardChannel = await findSkullboardChannel(message.guild);
+      const skullboardChannel = await findSkullboardChannel(message.guild, skullChannelId);
       if (!skullboardChannel?.isTextBased?.()) return;
 
       const member = await findAuthorMember(message);
@@ -326,7 +365,7 @@ module.exports = {
 
       await skullboardUpsert(message.guild.id, message.id, postMessage.id).catch(() => null);
 
-      const confirmEmbed=new EmbedBuilder().setColor("#6f4e37").setDescription(`<:VC_Skully:1331591939094614057> Il messaggio è stato pubblicato nel canale <#${SKULLBOARD_CHANNEL_ID}>.`);
+      const confirmEmbed=new EmbedBuilder().setColor("#6f4e37").setDescription(`<:VC_Skully:1331591939094614057> Il messaggio è stato pubblicato nel canale <#${skullChannelId}>.`);
 
       const row=new ActionRowBuilder().addComponents(new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel("Vai al Post").setEmoji(SKULL_EMOJI).setURL(postMessage.url),);
 

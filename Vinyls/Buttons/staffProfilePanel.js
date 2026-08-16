@@ -1,20 +1,8 @@
-const IDs = require("../Utils/Config/ids");
 const { isPartnerPmDailyCommandsThread } = require("../Utils/Partner/partnersChatChannelUtils");
 const { PANEL_PREFIX, parseStaffProfileSelectCustomId, parseStaffProfileCloseCustomId, parseStaffProfileNextCustomId, buildStaffProfilePayload, SECTION_HOME, resolveNextStaffPanelTargetId } = require("../Utils/Staff/staffProfilePanelRuntime");
 const { parseSerataFilmAttendanceCustomId, setSerataFilmWillAttend } = require("../Utils/Staff/serataFilmAttendanceUtils");
+const { safePanelMessageUpdate } = require("../../shared/discord/replyRuntime");
 const PRIVATE_FLAG = 1 << 6;
-
-async function safeUpdatePanelInteraction(interaction, payload) {
-  const updated = await interaction.update(payload).then(() => true).catch(() => false);
-  if (updated) return true;
-  if (!interaction.deferred && !interaction.replied) {
-    await interaction.deferUpdate().catch(() => {});
-  }
-  if (interaction.message?.edit) {
-    await interaction.message.edit(payload).catch(() => {});
-  }
-  return true;
-}
 
 async function deleteMessageInSameChannel(channel, messageId) {
   const mid = String(messageId || "").trim();
@@ -50,7 +38,7 @@ async function execute(interaction) {
       const result = await setSerataFilmWillAttend(interaction.guild.id, parsed.targetId, parsed.willAttend);
       if (!result?.ok) {
         const msg = result?.code === "closed"
-          ? "<a:VC_Cross:1482532424570376253> Il termine per segnalare l'assenza è scaduto (sabato 00:00, ora di Roma)."
+          ? "<a:VC_Cross:1482532424570376253> Il termine per segnalare l'assenza è scaduto."
           : "<a:VC_Cross:1482532424570376253> Impossibile aggiornare la presenza.";
         await interaction.reply({ content: msg, flags: PRIVATE_FLAG }).catch(() => {});
         return true;
@@ -62,9 +50,9 @@ async function execute(interaction) {
         parsed.viewerId,
         interaction.client,
         SECTION_HOME,
-        { sourceMessageId: parsed.sourceMessageId, partnersChatPanel },
+        { sourceMessageId: parsed.sourceMessageId, partnersChatPanel, sourceChannel: interaction.channel },
       );
-      await safeUpdatePanelInteraction(interaction, payload);
+      await safePanelMessageUpdate(interaction, payload);
       return true;
     }
     if (String(interaction.customId || "").startsWith(`${PANEL_PREFIX}:next:`)) {
@@ -80,8 +68,15 @@ async function execute(interaction) {
         await interaction.reply({ content: "<a:VC_Cross:1482532424570376253> Nessun altro staffer disponibile in questo pannello.", flags: PRIVATE_FLAG }).catch(() => {});
         return true;
       }
-      const payload = await buildStaffProfilePayload( interaction.guild, nextTargetId, nextParsed.viewerId, interaction.client, SECTION_HOME, { sourceMessageId: nextParsed.sourceMessageId, partnersChatPanel });
-      await safeUpdatePanelInteraction(interaction, payload);
+      const payload = await buildStaffProfilePayload(
+        interaction.guild,
+        nextTargetId,
+        nextParsed.viewerId,
+        interaction.client,
+        nextParsed.section || SECTION_HOME,
+        { sourceMessageId: nextParsed.sourceMessageId, partnersChatPanel, sourceChannel: interaction.channel },
+      );
+      await safePanelMessageUpdate(interaction, payload);
       return true;
     }
     if (!String(interaction.customId || "").startsWith(`${PANEL_PREFIX}:close:`)) return false;
@@ -107,14 +102,9 @@ async function execute(interaction) {
     return true;
   }
   const section = String(interaction.values?.[0] || SECTION_HOME);
-  const deferred = await interaction.deferUpdate().then(() => true).catch(() => false);
   const partnersChatPanel = await isPartnerPmDailyCommandsThread(interaction.channel);
-  const payload = await buildStaffProfilePayload( interaction.guild, parsed.targetId, parsed.viewerId, interaction.client, section, { sourceMessageId: parsed.sourceMessageId, partnersChatPanel });
-  if (deferred && interaction.message) {
-    await interaction.message.edit(payload).catch(() => {});
-  } else {
-    await safeUpdatePanelInteraction(interaction, payload);
-  }
+  const payload = await buildStaffProfilePayload( interaction.guild, parsed.targetId, parsed.viewerId, interaction.client, section, { sourceMessageId: parsed.sourceMessageId, partnersChatPanel, sourceChannel: interaction.channel });
+  await safePanelMessageUpdate(interaction, payload);
   return true;
 }
 

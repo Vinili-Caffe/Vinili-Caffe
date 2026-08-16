@@ -6,7 +6,7 @@ const { spawnSync } = require("child_process");
 const ffmpegPath = require("ffmpeg-static");
 const { createCanvas } = canvasModule;
 const { registerCanvasFonts, drawTextWithSpecialFallback } = require("./canvasFonts");
-const { normalizeTextForCanvas } = require("./canvasUtils");
+const { normalizeTextForCanvas, sanitizeCanvasDisplayName } = require("./canvasUtils");
 const { safeLoadImage, fetchHttpImageBuffer } = require("./safeLoadImage");
 const { getShopItemById } = require("../Web/hogwartsShopCatalog");
 const DUEL_CANVAS_USE_PNG = String(process.env.VC_DUEL_CANVAS_PNG ?? "0").trim() === "1";
@@ -72,6 +72,10 @@ function sanitizeDuelCaption(text) {
       .replace(/\s+/g, " ")
       .trim(),
   );
+}
+
+function sanitizeDuelName(name, fallback = "Giocatore") {
+  return sanitizeCanvasDisplayName(name, 18, fallback);
 }
 
 const missingAssetWarned = new Set();
@@ -591,16 +595,28 @@ function drawDominantSpellWash(ctx, layout, cy, wandY, pushT, dir, meet, pulse, 
   }
 }
 
+function normalizeDuelPower(value) {
+  const n = Math.floor(Number(value));
+  if (!Number.isFinite(n)) return null;
+  return Math.max(0, Math.min(100, n));
+}
+
+function formatDuelPowerLabel(value) {
+  const n = normalizeDuelPower(value);
+  return n == null ? "—" : `${n}%`;
+}
+
 function animatedDuelPower(basePower, frameIndex, totalFrames, side, winnerSide, leftPower, rightPower) {
-  const pushT = duelClashPushProgress(frameIndex, totalFrames);
-  if (pushT <= 0) return basePower;
-  const dir = clashPushDirection(winnerSide, leftPower, rightPower);
-  const gap = clashPowerGap(leftPower, rightPower);
-  const swing = pushT * (14 + gap * 22);
-  if (dir === 0) return basePower;
-  const isWinnerSide = (dir > 0 && side === "left") || (dir < 0 && side === "right");
-  const delta = isWinnerSide ? swing * 0.35 : -swing;
-  return Math.max(4, Math.min(99, Math.round(basePower + delta)));
+  // Le % sulle barre = probabilità/potenza reale del duello.
+  // Non driftare col push del clash: in vittoria sembrava 76% e in sconfitta ~30%
+  // con la stessa bacchetta (solo teatro dell'animazione).
+  void frameIndex;
+  void totalFrames;
+  void side;
+  void winnerSide;
+  void leftPower;
+  void rightPower;
+  return normalizeDuelPower(basePower);
 }
 
 function drawMagicClash(ctx, centerX, cy, frameIndex, totalFrames, winnerSide, leftPower, rightPower) {
@@ -700,17 +716,22 @@ function getCaptions(params) {
   const { messageSeed, spellLine, winnerSide, leftName, rightName } = params;
   const introLine = pickFrom(INTRO_LINES, hashSeed(messageSeed || "duel"));
   const cleanSpell = sanitizeDuelCaption(spellLine).slice(0, 72);
+  const safeLeft = sanitizeDuelName(leftName, "Wizard");
+  const safeRight = sanitizeDuelName(rightName, "Rivale");
   let resultMain = "";
   let resultSub = "";
   if (winnerSide === "draw") {
     resultMain = "PAREGGIO";
     resultSub = "Le bacchette restano in equilibrio";
   } else if (winnerSide === "left") {
-    resultMain = `${leftName} vince`;
+    resultMain = `${safeLeft} vince`;
     resultSub = cleanSpell;
   } else if (winnerSide === "right") {
-    resultMain = `${rightName} vince`;
+    resultMain = `${safeRight} vince`;
     resultSub = cleanSpell;
+  } else if (winnerSide === "pending" || winnerSide === "closed") {
+    resultMain = winnerSide === "closed" ? "SFIDA CHIUSA" : "IN ATTESA";
+    resultSub = cleanSpell || (winnerSide === "closed" ? "Duello annullato o scaduto" : "Accetta o rifiuta la sfida");
   }
   return { introLine, clashLine: "Gli incantesimi si scontrano…", resultMain, resultSub };
 }
@@ -771,7 +792,8 @@ function drawResultCard(ctx, width, captions, reveal) {
 }
 
 function drawPowerBar(ctx, x, y, w, h, percent, accent, anim, bright) {
-  const p = Math.max(0, Math.min(1, percent / 100)) * Math.max(0, Math.min(1, anim));
+  const raw = normalizeDuelPower(percent);
+  const p = raw == null ? 0 : Math.max(0, Math.min(1, raw / 100)) * Math.max(0, Math.min(1, anim));
   drawRoundedRect(ctx, x, y, w, h, h / 2);
   ctx.fillStyle = "rgba(15,20,40,0.65)";
   ctx.fill();
@@ -844,21 +866,19 @@ function drawDuelFrame(ctx, params) {
   drawFramedAvatar(ctx, leftAvatar, 95, 118, 188, visualLeft, -2);
   drawWandSprite(ctx, leftWandImg, 200, 318, visualLeft, true);
   drawWandSprite(ctx, rightWandImg, 800, 318, visualRight, false);
-  drawTextWithSpecialFallback(ctx, leftName, 189, 348, {
+  drawTextWithSpecialFallback(ctx, sanitizeDuelName(leftName, "Wizard"), 189, 348, {
     size: 28,
     weight: "700",
     color: "#ffffff",
     align: "center",
     baseline: "middle",
-    forcePrimaryFont: true,
   });
-  drawTextWithSpecialFallback(ctx, rightName, 799, 348, {
+  drawTextWithSpecialFallback(ctx, sanitizeDuelName(rightName, "Rivale"), 799, 348, {
     size: 28,
     weight: "700",
     color: "#ffffff",
     align: "center",
     baseline: "middle",
-    forcePrimaryFont: true,
   });
   const showLeftPower = animatedDuelPower(
     leftPower,
@@ -880,7 +900,7 @@ function drawDuelFrame(ctx, params) {
   );
   drawPowerBar(ctx, 72, 388, 235, 18, showLeftPower, visualLeft, barAnim, DUEL_SPELL.left.bright);
   drawPowerBar(ctx, 693, 388, 235, 18, showRightPower, visualRight, barAnim, DUEL_SPELL.right.bright);
-  drawTextWithSpecialFallback(ctx, `${showLeftPower}%`, 189, 418, {
+  drawTextWithSpecialFallback(ctx, formatDuelPowerLabel(showLeftPower), 189, 418, {
     size: 20,
     weight: "600",
     color: phase === "intro" ? "#d4af37" : DUEL_SPELL.left.bright,
@@ -888,7 +908,7 @@ function drawDuelFrame(ctx, params) {
     baseline: "middle",
     forcePrimaryFont: true,
   });
-  drawTextWithSpecialFallback(ctx, `${showRightPower}%`, 799, 418, {
+  drawTextWithSpecialFallback(ctx, formatDuelPowerLabel(showRightPower), 799, 418, {
     size: 20,
     weight: "600",
     color: phase === "intro" ? "#d4af37" : DUEL_SPELL.right.bright,
@@ -980,19 +1000,25 @@ async function renderSinglePngBuffer(params) {
   return canvas.toBuffer("image/png");
 }
 
-async function renderDuelCanvas(params) {
-  if (!canvasModule) throw new Error("Canvas module not available");
-  registerCanvasFonts(canvasModule);
-  if (DUEL_CANVAS_USE_PNG) {
-    const buf = await renderSinglePngBuffer(params);
-    return { buffer: buf, format: "png" };
-  }
-  if (!ffmpegPath) {
-    const buf = await renderSinglePngBuffer(params);
-    return { buffer: buf, format: "png" };
-  }
+function duelGifTiming() {
   const FRAME_COUNT = Math.max(28, Math.min(48, Math.floor(Number(process.env.VC_DUEL_GIF_FRAMES ?? 42))));
   const FRAMERATE = Math.max(6, Math.min(10, Math.floor(Number(process.env.VC_DUEL_GIF_FPS ?? 8))));
+  return {
+    FRAME_COUNT,
+    FRAMERATE,
+    durationMs: Math.ceil((FRAME_COUNT / FRAMERATE) * 1000) + 250,
+  };
+}
+
+async function renderDuelCanvas(params, options = {}) {
+  if (!canvasModule) throw new Error("Canvas module not available");
+  registerCanvasFonts(canvasModule);
+  const animating = options.animating === true;
+  if (!animating || DUEL_CANVAS_USE_PNG || !ffmpegPath) {
+    const buf = await renderSinglePngBuffer(params);
+    return { buffer: buf, format: "png" };
+  }
+  const { FRAME_COUNT, FRAMERATE } = duelGifTiming();
   let tmpDir = "";
   try {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "vc-duel-gif-"));
@@ -1098,9 +1124,13 @@ function warmupDuelCanvas() {
       spellLine: "warmup",
       winnerSide: "left",
       messageSeed: "warmup",
-    }).catch(() => {});
+    }, { animating: false }).catch(() => {});
   });
 }
 
+renderDuelCanvas.spinAnimationDurationMs = function spinAnimationDurationMs() {
+  return duelGifTiming().durationMs;
+};
+renderDuelCanvas.warmup = warmupDuelCanvas;
+
 module.exports = renderDuelCanvas;
-module.exports.warmup = warmupDuelCanvas;

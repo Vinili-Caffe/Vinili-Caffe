@@ -12,10 +12,24 @@ async function exitAfterFlush(signal) {
   if (shutdownRunning) return;
   shutdownRunning = true;
   error(`${signal}: Flushing recovery snapshots and exiting...`);
+  try {
+    require("../Services/Community/activityService").suspendAllLiveVoiceExp();
+  } catch {
+  }
+  try {
+    require("../Services/Staff/staffAutoValutazioniService").suspendStaffAutoValutazioni();
+  } catch {
+  }
   await flushAllRecoverySnapshots(signal).catch((err) => {
     error(`Recovery flush failed: ${err?.stack || err}`);
   });
-  setTimeout(() => process.exit(0), 200).unref?.();
+  try {
+    const { closeMongoGraceful } = require("../Utils/Database/mongoConnect");
+    await closeMongoGraceful(signal);
+  } catch (err) {
+    error(`Mongo close failed: ${err?.stack || err}`);
+  }
+  setTimeout(() => process.exit(0), 150).unref?.();
 }
 
 module.exports = () => {

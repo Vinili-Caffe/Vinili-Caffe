@@ -19,20 +19,46 @@
                 "roles.Staff"
             ]
         },
-        "rimuovi": {
+        "delete": {
+            "roles": [
+                "roles.HighStaff"
+            ],
+            "subcommands": {
+                "partnership": [
+                    "roles.HighStaff"
+                ]
+            }
+        },
+        "elimina partnership": {
             "roles": [
                 "roles.HighStaff"
             ],
             "channels": [
-                "channels.partnerships"
+                "channels.partnerships",
+                "channels.partnerLogs"
             ]
+        },
+        "aggiungi punti": {
+            "permissions": "Administrator"
+        },
+        "rimuovi punti": {
+            "permissions": "Administrator"
         },
         "giveaway": {
             "roles": [
                 "roles.HighStaff"
             ],
             "subcommands": {
-                "start": [
+                "create": [
+                    "roles.HighStaff"
+                ],
+                "end": [
+                    "roles.HighStaff"
+                ],
+                "edit": [
+                    "roles.HighStaff"
+                ],
+                "delete": [
                     "roles.HighStaff"
                 ],
                 "reroll": [
@@ -107,11 +133,38 @@
                 "channels.commands",
                 "channels.staffCmds",
                 "channels.highCmds"
-            ]
+            ],
+            "subcommands": {
+                "pm": [
+                    "roles.PartnerManager"
+                ]
+            }
         },
-        "desc": [
+        "description": [
             "roles.PartnerManager"
         ],
+        "history": [
+            "roles.PartnerManager"
+        ],
+        "points": [
+            "roles.PartnerManager"
+        ],
+        "badges": [
+            "roles.PartnerManager"
+        ],
+        "leaderboard": [
+            "roles.PartnerManager"
+        ],
+        "random": {
+            "roles": [
+                "roles.PartnerManager"
+            ],
+            "subcommands": {
+                "server": [
+                    "roles.PartnerManager"
+                ]
+            }
+        },
         "help": {
             "roles": [
                 "roles.Member"
@@ -176,7 +229,12 @@
                 "channels.commands",
                 "channels.staffCmds",
                 "channels.highCmds"
-            ]
+            ],
+            "subcommands": {
+                "info": [
+                    "roles.PartnerManager"
+                ]
+            }
         },
         "membercount": {
             "roles": [
@@ -209,29 +267,26 @@
                 "channels.highCmds"
             ]
         },
-        "live": {
+        "invite": {
             "roles": [
                 "roles.Member"
             ],
             "channels": [
                 "channels.commands",
-                "channels.chat",
-                "channels.news",
+                "channels.staffCmds",
+                "channels.highCmds",
+                "channels.partnersChat"
+            ]
+        },
+        "invites": {
+            "roles": [
+                "roles.Member"
+            ],
+            "channels": [
+                "channels.commands",
                 "channels.staffCmds",
                 "channels.highCmds"
-            ],
-            "subcommands": {
-                "on": {
-                    "roles": [
-                        "roles.Member"
-                    ]
-                },
-                "off": {
-                    "roles": [
-                        "roles.Member"
-                    ]
-                }
-            }
+            ]
         },
         "clear": {
             "roles": [
@@ -760,6 +815,32 @@
                 "channels.highCmds"
             ]
         },
+        "myclip": {
+            "roles": [
+                "roles.ServerBooster",
+                "roles.donator",
+                "roles.VIP",
+                "roles.Level10"
+            ],
+            "channels": [
+                "channels.commands",
+                "channels.staffCmds",
+                "channels.highCmds"
+            ]
+        },
+        "myquote": {
+            "roles": [
+                "roles.ServerBooster",
+                "roles.donator",
+                "roles.VIP",
+                "roles.Level10"
+            ],
+            "channels": [
+                "channels.commands",
+                "channels.staffCmds",
+                "channels.highCmds"
+            ]
+        },
         "rank": {
             "roles": [
                 "roles.Member"
@@ -809,7 +890,12 @@
                 "channels.commands",
                 "channels.staffCmds",
                 "channels.highCmds"
-            ]
+            ],
+            "subcommands": {
+                "info": [
+                    "roles.PartnerManager"
+                ]
+            }
         },
         "channel": {
             "roles": [
@@ -1491,6 +1577,12 @@
         "blacklist_ui:*": {
             "ownerSegment": 2
         },
+        "psetup:*": {
+            "ownerSegment": 1
+        },
+        "psettings:*": {
+            "ownerSegment": 1
+        },
         "profile_panel:select:*": {
             "roles": [
                 "roles.Member"
@@ -1603,6 +1695,15 @@
         ],
         "help_next_*": [
             "roles.Member"
+        ],
+        "help_home_*": [
+            "roles.Member"
+        ],
+        "badges_prev_*": [
+            "roles.PartnerManager"
+        ],
+        "badges_next_*": [
+            "roles.PartnerManager"
         ],
         "help_prev_*": [
             "roles.Member"
@@ -1752,15 +1853,6 @@
             "ownerSegment": 3
         },
         "ping": [
-            "roles.Member"
-        ],
-        "live": [
-            "roles.Member"
-        ],
-        "live on": [
-            "roles.Member"
-        ],
-        "live off": [
             "roles.Member"
         ],
         "plb_*": [
@@ -2009,8 +2101,22 @@
         "quote_remove:*": {
             "ownerSegment": 1
         },
-        "repost_btn:*": {},
-        "repost_src:*": {},
+        "repost_btn:*": {
+            "roles": [
+                "roles.ServerBooster",
+                "roles.donator",
+                "roles.VIP",
+                "roles.Level10"
+            ]
+        },
+        "repost_src:*": {
+            "roles": [
+                "roles.ServerBooster",
+                "roles.donator",
+                "roles.VIP",
+                "roles.Level10"
+            ]
+        },
         "myrepost_page_first:*": {
             "ownerSegment": 1
         },
@@ -2021,6 +2127,39 @@
             "ownerSegment": 1
         },
         "myrepost_page_last:*": {
+            "ownerSegment": 1
+        },
+        "myclip_page_first:*": {
+            "ownerSegment": 1
+        },
+        "myclip_page_prev:*": {
+            "ownerSegment": 1
+        },
+        "myclip_page_next:*": {
+            "ownerSegment": 1
+        },
+        "myclip_page_last:*": {
+            "ownerSegment": 1
+        },
+        "myquote_page_first:*": {
+            "ownerSegment": 1
+        },
+        "myquote_page_prev:*": {
+            "ownerSegment": 1
+        },
+        "myquote_page_next:*": {
+            "ownerSegment": 1
+        },
+        "myquote_page_last:*": {
+            "ownerSegment": 1
+        },
+        "myrepost_close:*": {
+            "ownerSegment": 1
+        },
+        "myclip_close:*": {
+            "ownerSegment": 1
+        },
+        "myquote_close:*": {
             "ownerSegment": 1
         },
         "server_refresh*": {
@@ -2299,6 +2438,12 @@
         },
         "blacklist_ui_modal:*": {
             "ownerSegment": 2
+        },
+        "psetup_modal:*": {
+            "ownerSegment": 1
+        },
+        "psettings_modal:*": {
+            "ownerSegment": 1
         },
         "profile_panel:*": {
             "ownerSegment": 2

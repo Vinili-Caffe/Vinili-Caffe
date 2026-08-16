@@ -1,5 +1,5 @@
 const mongoose = require("mongoose");
-const { ensureMongoReady } = require("../../Utils/Database/mongoConnect");
+const { ensureMongoReady, isMongoReady, isMongoTransientError } = require("../../Utils/Database/mongoConnect");
 const { ActivityUserProfile, ActivityGuildHourly } = require("../../Schemas/Community/communitySchemas");
 const { isValidGuildUserId, isValidGuildUserIdChannelId } = require("../../Utils/DB/validateWriteIds");
 const { addExpWithLevel, MESSAGE_EXP, VOICE_EXP_PER_MINUTE, shouldIgnoreExpForMember, isLevelExpGuild, } = require("./expService");
@@ -13,7 +13,7 @@ const BACKFILL_HOUR_SUFFIX = "T12";
 const HOURLY_BACKFILL_BATCH = 500;
 const HOURLY_BACKFILL_PREFIX_MAX_WAIT_MS = Math.max(
   0,
-  Math.min(120_000, Number(process.env.HOURLY_BACKFILL_PREFIX_MAX_WAIT_MS ?? 2_500)),
+  Math.min(120_000, Number(process.env.HOURLY_BACKFILL_PREFIX_MAX_WAIT_MS ?? 0)),
 );
 const ACTIVITY_GUILD_HOURLY_QUERY_MAX_MS = Math.max(
   0,
@@ -45,6 +45,27 @@ function getOverviewStatsCache(key) {
 function setOverviewStatsCache(key, value) {
   if (!OVERVIEW_STATS_CACHE_TTL_MS) return;
   overviewStatsCache.set(key, { value, expiresAt: Date.now() + OVERVIEW_STATS_CACHE_TTL_MS });
+}
+
+function kickHourlyBackfillForGuild(guildId) {
+  ensureHourlyBackfillForGuild(guildId).catch(() => {});
+}
+
+async function maybeAwaitHourlyBackfillForGuild(guildId) {
+  if (HOURLY_BACKFILL_PREFIX_MAX_WAIT_MS > 0) {
+    let timer;
+    try {
+      const timeoutP = new Promise((resolve) => {
+        timer = setTimeout(() => resolve(null), HOURLY_BACKFILL_PREFIX_MAX_WAIT_MS);
+        timer.unref?.();
+      });
+      await Promise.race([ensureHourlyBackfillForGuild(guildId), timeoutP]);
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+    return;
+  }
+  kickHourlyBackfillForGuild(guildId);
 }
 
 function shouldSkipBackfillRow(hourKey, hourSet) {
@@ -136,7 +157,16 @@ function getHourKey(date) {
   return `${map.year}-${map.month}-${map.day}T${map.hour}`;
 }
 
+function isMongoUnavailableError(err) {
+  if (!err) return false;
+  if (err.name === "MongoNotConnectedError") return true;
+  const msg = String(err.message || err || "");
+  return /Client must be connected before running operations/i.test(msg);
+}
+
 function logActivityBumpError(label, err) {
+  // Shutdown / reconnect: non spammare stack inutili.
+  if (isMongoUnavailableError(err) || !isMongoReady()) return;
   const msg = err instanceof Error ? err.stack || err.message : String(err);
   const line = `[ACTIVITY] ${label}: ${msg}`;
   try {
@@ -419,11 +449,14 @@ async function loadHourlyRows(guildId, hourKeys = null, userId = null) {
     const cached = guildHourlyRowsCache.get(cacheKey);
     if (cached && cached.expiresAt > Date.now()) return cached.value;
   }
-  const [profileRows, guildRows] = await Promise.all([
-    loadHourlyRowsFromProfile(guildId, hourKeys, null),
-    loadGuildHourlyRows(guildId, hourKeys),
-  ]);
-  const merged = mergeGuildPreferHourlyRows(profileRows, guildRows);
+  const guildRows = await loadGuildHourlyRows(guildId, hourKeys);
+  let merged;
+  if (guildRows.length > 0) {
+    merged = guildRows;
+  } else {
+    const profileRows = await loadHourlyRowsFromProfile(guildId, hourKeys, null);
+    merged = profileRows;
+  }
   if (OVERVIEW_STATS_CACHE_TTL_MS > 0) {
     guildHourlyRowsCache.set(cacheKey, {
       value: merged,
@@ -750,14 +783,56 @@ function ensureTimedCounters(target, now, keys) {
   }
 }
 
+function isMongoDuplicateKeyError(err) {
+  if (!err) return false;
+  if (Number(err.code) === 11000) return true;
+  const msg = String(err.message || err);
+  return msg.includes("E11000") || msg.includes("duplicate key");
+}
+
 async function getOrCreateActivityUser(guildId, userId) {
   if (!isValidGuildUserId(guildId, userId)) return null;
-  const doc = await ActivityUserProfile.findOneAndUpdate(
-    { guildId: String(guildId), userId: String(userId) },
-    { $setOnInsert: { guildId: String(guildId), userId: String(userId) } },
-    { upsert: true, new: true, setDefaultsOnInsert: true },
-  ).catch(() => null);
-  return doc;
+  const gid = String(guildId);
+  const uid = String(userId);
+  const filter = { guildId: gid, userId: uid };
+  const update = { $setOnInsert: { guildId: gid, userId: uid } };
+  const options = { upsert: true, new: true, setDefaultsOnInsert: true };
+  let lastErr = null;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      const doc = await ActivityUserProfile.findOneAndUpdate(filter, update, options);
+      if (doc) return doc;
+      // Alcune race/upsert restituiscono null senza throw: rileggi o crea.
+      const existing = await ActivityUserProfile.findOne(filter).catch(() => null);
+      if (existing) return existing;
+      try {
+        const created = await ActivityUserProfile.create({ guildId: gid, userId: uid });
+        if (created) return created;
+      } catch (createErr) {
+        lastErr = createErr;
+        if (isMongoDuplicateKeyError(createErr)) {
+          const again = await ActivityUserProfile.findOne(filter).catch(() => null);
+          if (again) return again;
+        }
+      }
+    } catch (err) {
+      lastErr = err;
+      if (isMongoDuplicateKeyError(err)) {
+        const existing = await ActivityUserProfile.findOne(filter).catch(() => null);
+        if (existing) return existing;
+        continue;
+      }
+      if (isMongoTransientError(err) && attempt < 2) {
+        await new Promise((r) => setTimeout(r, 40 * (attempt + 1)));
+        continue;
+      }
+      break;
+    }
+  }
+  if (lastErr) {
+    logActivityBumpError(`getOrCreateActivityUser failed guild=${gid} user=${uid}`, lastErr);
+  }
+  return null;
 }
 
 async function recordMessageActivity(message) {
@@ -1428,20 +1503,7 @@ async function getServerOverviewStats(guildId, lookbackDays = 14, topLimit = 3) 
   const cacheKey = `server:${guildId}:${safeLookback}:${safeTopLimit}`;
   const cached = getOverviewStatsCache(cacheKey);
   if (cached) return cached;
-  if (HOURLY_BACKFILL_PREFIX_MAX_WAIT_MS > 0) {
-    let timer;
-    try {
-      const timeoutP = new Promise((resolve) => {
-        timer = setTimeout(() => resolve(null), HOURLY_BACKFILL_PREFIX_MAX_WAIT_MS);
-        timer.unref?.();
-      });
-      await Promise.race([ensureHourlyBackfillForGuild(guildId), timeoutP]);
-    } finally {
-      if (timer) clearTimeout(timer);
-    }
-  } else {
-    await ensureHourlyBackfillForGuild(guildId);
-  }
+  await maybeAwaitHourlyBackfillForGuild(guildId);
   const hourKeys1 = getLastNHourKeys(24);
   const hourKeys7 = getLastNHourKeys(24 * 7);
   const hourKeys14 = getLastNHourKeys(24 * 14);
@@ -1626,20 +1688,7 @@ async function getUserOverviewStats(guildId, userId, lookbackDays = 14, excludeV
   const cacheKey = `user:${guildId}:${userId}:${safeLookback}`;
   const cached = getOverviewStatsCache(cacheKey);
   if (cached) return cached;
-  if (HOURLY_BACKFILL_PREFIX_MAX_WAIT_MS > 0) {
-    let timer;
-    try {
-      const timeoutP = new Promise((resolve) => {
-        timer = setTimeout(() => resolve(null), HOURLY_BACKFILL_PREFIX_MAX_WAIT_MS);
-        if (typeof timer.unref === "function") timer.unref();
-      });
-      await Promise.race([ensureHourlyBackfillForGuild(guildId), timeoutP]);
-    } finally {
-      if (timer) clearTimeout(timer);
-    }
-  } else {
-    await ensureHourlyBackfillForGuild(guildId);
-  }
+  await maybeAwaitHourlyBackfillForGuild(guildId);
   const lookbackKey = `d${safeLookback}`;
   const hourKeys1 = getLastNHourKeys(24);
   const hourKeys7 = getLastNHourKeys(24 * 7);
@@ -1859,6 +1908,7 @@ const VOICE_ACTIVITY_BUCKET_FLUSH_SEC = Math.max(5, Math.min(120, Number(process
 
 async function runLiveVoiceExpTick(client) {
   if (!client?.guilds?.cache) return;
+  if (!isMongoReady()) return;
   const nowMs = Date.now();
   const rows = await ActivityUserProfile.find({ "profile.totals.sessionStartedAt": { $ne: null } })
     .select("guildId userId profile.totals.sessionStartedAt profile.totals.sessionChannelId profile.totals.expAwardedSeconds profile.totals.voiceActivityBucketFlushSeconds")
@@ -1867,6 +1917,7 @@ async function runLiveVoiceExpTick(client) {
     .lean()
     .catch(() => []);
 
+  if (!isMongoReady()) return;
   for (const row of rows) {
     const guildId = String(row?.guildId || "");
     const userId = String(row?.userId || "");
@@ -1920,16 +1971,44 @@ async function runLiveVoiceExpTick(client) {
 }
 
 const LIVE_VOICE_EXP_DEFAULT_INTERVAL_MS = Number(process.env.LIVE_VOICE_EXP_INTERVAL_MS) || 30_000;
+let liveVoiceExpSuspended = false;
+const liveVoiceExpClients = new Set();
 
 function startLiveVoiceExpLoop(client, intervalMs) {
   const resolved = Number(intervalMs ?? LIVE_VOICE_EXP_DEFAULT_INTERVAL_MS) || LIVE_VOICE_EXP_DEFAULT_INTERVAL_MS;
   const safeInterval = Math.max(10_000, Math.min(300_000, resolved));
   if (client?._liveVoiceExpInterval) return client._liveVoiceExpInterval;
-  const runner = () => runLiveVoiceExpTick(client).catch((error) => { global.logger?.warn?.("[LIVE VOICE EXP] Tick failed:", error?.message || error,); });
+  if (client) liveVoiceExpClients.add(client);
+  const runner = () => {
+    if (liveVoiceExpSuspended || !isMongoReady()) return;
+    runLiveVoiceExpTick(client).catch((error) => {
+      if (liveVoiceExpSuspended || isMongoUnavailableError(error) || !isMongoReady()) return;
+      global.logger?.warn?.("[LIVE VOICE EXP] Tick failed:", error?.message || error);
+    });
+  };
   runner();
   client._liveVoiceExpInterval = setInterval(runner, safeInterval);
   client._liveVoiceExpInterval.unref?.();
   return client._liveVoiceExpInterval;
+}
+
+function stopLiveVoiceExpLoop(client) {
+  const timer = client?._liveVoiceExpInterval;
+  if (!timer) return false;
+  clearInterval(timer);
+  client._liveVoiceExpInterval = null;
+  return true;
+}
+
+/** Chiama in shutdown prima di closeMongoGraceful. */
+function suspendAllLiveVoiceExp() {
+  liveVoiceExpSuspended = true;
+  for (const client of liveVoiceExpClients) {
+    try {
+      stopLiveVoiceExpLoop(client);
+    } catch {
+    }
+  }
 }
 
 async function getChannelOverviewStats(guildId, channelId, lookbackDays = 14) {
@@ -2066,6 +2145,8 @@ module.exports = {
   syncLiveVoiceSessionsFromGateway,
   runLiveVoiceExpTick,
   startLiveVoiceExpLoop,
+  stopLiveVoiceExpLoop,
+  suspendAllLiveVoiceExp,
   isExcludedActivityChannel,
   isChannelInExcludedActivityCategory,
 };

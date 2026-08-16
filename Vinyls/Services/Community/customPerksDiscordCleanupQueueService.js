@@ -1,6 +1,5 @@
 const {
   ActivityUserProfile,
-  CustomPerksDiscordCleanupQueue,
   UserLeaveBackup,
   CustomRole,
 } = require("../../Schemas/Community/communitySchemas");
@@ -28,18 +27,16 @@ async function enqueueCustomPerksDiscordCleanupAfterLeave(guildId, userId) {
   const hasReactions = reactions.some((x) => String(x || "").trim());
   if (!hasRole && !hasVoc && !hasReactions) return;
   const runAt = await resolveNextLeaveBackupExpiryClock(gid, uid);
-  await CustomPerksDiscordCleanupQueue.findOneAndUpdate(
+  await ActivityUserProfile.updateOne(
     { guildId: gid, userId: uid },
     {
       $set: {
-        guildId: gid,
-        userId: uid,
-        runAt,
-        roleId: cr.roleId || null,
-        secondaryRoleId: cr.secondaryRoleId || null,
-        customVocChannelId: cr.customVocChannelId || null,
-        customVocEmoji: cr.customVocEmoji || null,
-        clearMentionReactions: hasReactions,
+        "profile.customPerksDiscordCleanup.runAt": runAt,
+        "profile.customPerksDiscordCleanup.roleId": cr.roleId || null,
+        "profile.customPerksDiscordCleanup.secondaryRoleId": cr.secondaryRoleId || null,
+        "profile.customPerksDiscordCleanup.customVocChannelId": cr.customVocChannelId || null,
+        "profile.customPerksDiscordCleanup.customVocEmoji": cr.customVocEmoji || null,
+        "profile.customPerksDiscordCleanup.clearMentionReactions": hasReactions,
       },
     },
     { upsert: true },
@@ -50,21 +47,29 @@ async function cancelCustomPerksDiscordCleanupQueue(guildId, userId) {
   const gid = String(guildId || "");
   const uid = String(userId || "");
   if (!isValidGuildUserId(gid, uid)) return;
-  await CustomPerksDiscordCleanupQueue.deleteOne({ guildId: gid, userId: uid }).catch(() => {});
+  await ActivityUserProfile.updateOne(
+    { guildId: gid, userId: uid },
+    { $unset: { "profile.customPerksDiscordCleanup": "" } },
+  ).catch(() => {});
 }
 
 async function processOneCustomPerksDiscordCleanupQueueRow(client, row) {
   const gid = String(row.guildId || "");
   const uid = String(row.userId || "");
+  const clearQueue = () =>
+    ActivityUserProfile.updateOne(
+      { guildId: gid, userId: uid },
+      { $unset: { "profile.customPerksDiscordCleanup": "" } },
+    ).catch(() => {});
   if (!gid || !uid) {
-    await CustomPerksDiscordCleanupQueue.deleteOne({ _id: row._id }).catch(() => {});
+    await clearQueue();
     return;
   }
   const guild = client.guilds.cache.get(gid) || (await getClientGuildCached(client, gid));
   if (guild) {
     const mem = await guild.members.fetch(uid).catch(() => null);
     if (mem) {
-      await CustomPerksDiscordCleanupQueue.deleteOne({ _id: row._id }).catch(() => {});
+      await clearQueue();
       return;
     }
   }
@@ -87,18 +92,29 @@ async function processOneCustomPerksDiscordCleanupQueueRow(client, row) {
       { $set: { "profile.mentionReaction.reactions": [] } },
     ).catch(() => {});
   }
-  await CustomPerksDiscordCleanupQueue.deleteOne({ _id: row._id }).catch(() => {});
+  await clearQueue();
 }
 
 async function runCustomPerksDiscordCleanupQueueSweep(client) {
   if (!client) return;
   const now = new Date();
-  const rows = await CustomPerksDiscordCleanupQueue.find({ runAt: { $lte: now } })
-    .sort({ runAt: 1 })
+  const docs = await ActivityUserProfile.find({ "profile.customPerksDiscordCleanup.runAt": { $lte: now } })
+    .select("guildId userId profile.customPerksDiscordCleanup")
+    .sort({ "profile.customPerksDiscordCleanup.runAt": 1 })
     .limit(QUEUE_SWEEP_BATCH)
     .lean()
     .catch(() => []);
-  for (const row of rows) {
+  for (const doc of docs) {
+    const cleanup = doc?.profile?.customPerksDiscordCleanup || {};
+    const row = {
+      guildId: doc.guildId,
+      userId: doc.userId,
+      roleId: cleanup.roleId,
+      secondaryRoleId: cleanup.secondaryRoleId,
+      customVocChannelId: cleanup.customVocChannelId,
+      customVocEmoji: cleanup.customVocEmoji,
+      clearMentionReactions: cleanup.clearMentionReactions,
+    };
     await processOneCustomPerksDiscordCleanupQueueRow(client, row).catch(() => {});
   }
 }

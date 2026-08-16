@@ -8,6 +8,9 @@
     deepLinkAppliedId: "",
     reviewsWs: null,
     reviewsWsReconnectTimer: null,
+    renderFingerprint: "",
+    langFilter: "it",
+    draftLang: "it",
     reviewsPager: {
       page: 1,
       perPage: 9,
@@ -19,8 +22,54 @@
     },
   };
 
+  function pageKind() {
+    try {
+      var k = String((cfg().kind || "server")).trim().toLowerCase();
+      return k === "bot" ? "bot" : "server";
+    } catch (e) {
+      return "server";
+    }
+  }
+
+  function isBotReviewsPage() {
+    return pageKind() === "bot";
+  }
+
+  function viewerOwnReview(viewer) {
+    if (!viewer) return null;
+    if (isBotReviewsPage()) return viewer.botReview || null;
+    return viewer.serverReview || null;
+  }
+
+  function currentSiteLang() {
+    try {
+      if (window.VcI18n && typeof window.VcI18n.getLang === "function") {
+        var lang = String(window.VcI18n.getLang() || "it").toLowerCase();
+        return lang.indexOf("en") === 0 ? "en" : "it";
+      }
+    } catch (e) {}
+    return "it";
+  }
+
+  function normalizeLang(value) {
+    var raw = String(value || "").trim().toLowerCase();
+    if (raw === "en" || raw.indexOf("en-") === 0) return "en";
+    if (raw === "all") return "all";
+    return "it";
+  }
+
   function byId(id) {
     return document.getElementById(id);
+  }
+
+  function t(key, fallback) {
+    try {
+      if (window.VcI18n) {
+        var v = window.VcI18n.t(key);
+        if (v && v !== key) return v;
+      }
+    } catch (e) {}
+    return fallback;
   }
 
   function getDiscordUserSync() {
@@ -169,6 +218,20 @@
     return String(a.id).indexOf("vc-reviews-reply-") === 0;
   }
 
+  function reviewsPayloadFingerprint(body) {
+    try {
+      return JSON.stringify({
+        reviews: (body && body.reviews) || null,
+        viewer: (body && body.viewer) || null,
+        staffers: (body && body.staffers) || null,
+        langFilter: state.langFilter,
+        page: state.reviewsPager.page,
+      });
+    } catch (e) {
+      return "";
+    }
+  }
+
   function refreshReviewsPayloadQuiet() {
     if (state.editModalOpen || isTypingInReviewField()) return Promise.resolve();
     if (!byId("vc-reviews-server-list")) return Promise.resolve();
@@ -182,6 +245,11 @@
       })
       .then(function (body) {
         if (!body || body.ok !== true) return;
+        var fp = reviewsPayloadFingerprint(body);
+        if (fp && fp === state.renderFingerprint && !state.replyOpenId) {
+          state.payload = body;
+          return;
+        }
         state.payload = body;
         syncDraftFromPayload();
         render();
@@ -254,9 +322,20 @@
     }
   }
 
-  function setStatus(text, isError) {
+  var statusTimer = null;
+  var STATUS_AUTO_MS = 6000;
+
+  function clearStatusTimer() {
+    if (statusTimer) {
+      clearTimeout(statusTimer);
+      statusTimer = null;
+    }
+  }
+
+  function setStatus(text, isError, opts) {
     var node = byId("vc-reviews-status");
     if (!node) return;
+    clearStatusTimer();
     if (!text) {
       node.hidden = true;
       node.textContent = "";
@@ -266,6 +345,12 @@
     node.hidden = false;
     node.textContent = text;
     node.className = "vc-reviews-status" + (isError ? " is-error" : "");
+    if (!(opts && opts.sticky)) {
+      statusTimer = setTimeout(function () {
+        statusTimer = null;
+        setStatus("");
+      }, STATUS_AUTO_MS);
+    }
   }
 
   function reviewCardMarkup(review) {
@@ -288,7 +373,7 @@
       '<div class="vc-reviews-card__head">' +
       '<div class="vc-reviews-card__author">' +
       (review.authorAvatarUrl
-        ? '<img class="vc-reviews-card__avatar" src="' + esc(review.authorAvatarUrl) + '" alt="" loading="lazy" decoding="async" />'
+        ? '<img class="vc-reviews-card__avatar" src="' + esc(review.authorAvatarUrl) + '" alt="" width="40" height="40" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-vc-avatar="1" />'
         : '<span class="vc-reviews-card__avatar vc-reviews-card__avatar--fallback"><i class="fa fa-user"></i></span>') +
       '<div><strong>' +
       esc(review.authorName || "Utente") +
@@ -302,10 +387,14 @@
       "</span>" +
       (isOwn
         ? '<div class="vc-reviews-card__own-actions">' +
-          '<button type="button" class="vc-reviews-card__icon-btn" data-review-edit-open aria-label="Modifica la tua recensione"><i class="fa fa-pencil" aria-hidden="true"></i></button>' +
+          '<button type="button" class="vc-reviews-card__icon-btn" data-review-edit-open aria-label="' +
+          esc(t("reviews.editBtn", "Modifica la tua recensione")) +
+          '"><i class="fa fa-pencil" aria-hidden="true"></i></button>' +
           '<button type="button" class="vc-reviews-card__icon-btn vc-reviews-card__icon-btn--danger" data-review-delete="' +
           rid +
-          '" aria-label="Elimina la tua recensione"><i class="fa fa-trash-o" aria-hidden="true"></i></button>' +
+          '" aria-label="' +
+          esc(t("reviews.deleteBtn", "Elimina la tua recensione")) +
+          '"><i class="fa fa-trash-o" aria-hidden="true"></i></button>' +
           "</div>"
         : "") +
       "</div></div>" +
@@ -315,7 +404,9 @@
     if (sr) {
       out +=
         '<div class="vc-reviews-card__reply">' +
-        '<span class="vc-reviews-card__reply-label">Risposta del server</span>' +
+        '<span class="vc-reviews-card__reply-label">' +
+        esc(t("reviews.serverReply", "Risposta del server")) +
+        "</span>" +
         '<p class="vc-reviews-card__reply-text">' +
         esc(sr.content) +
         "</p>" +
@@ -331,7 +422,7 @@
       '" data-review-like="' +
       rid +
       '"' +
-      (tokenOk ? "" : ' disabled title="Accedi con Discord per mettere like"') +
+      (tokenOk ? "" : ' disabled title="' + esc(t("reviews.likeAria", "Accedi con Discord per mettere like")) + '"') +
       '><i class="fa ' +
       (liked ? "fa-heart" : "fa-heart-o") +
       '" aria-hidden="true"></i><span class="vc-reviews-like__n">' +
@@ -341,7 +432,9 @@
       out +=
         '<button type="button" class="vc-reviews-reply-toggle" data-review-reply-toggle="' +
         rid +
-        '"><i class="fa fa-reply" aria-hidden="true"></i> Rispondi</button>';
+        '"><i class="fa fa-reply" aria-hidden="true"></i> ' +
+        esc(t("reviews.reply", "Rispondi")) +
+        "</button>";
     }
     out += "</div>";
     if (state.replyOpenId === review.id && canReply) {
@@ -357,7 +450,9 @@
         "</textarea>" +
         '<div class="vc-reviews-reply-form__actions"><button type="button" class="vc-reviews-submit" data-review-reply-submit="' +
         rid +
-        '">Pubblica risposta</button></div></div>';
+        '">' +
+        esc(t("reviews.replyPublish", "Pubblica risposta")) +
+        "</button></div></div>";
     }
     out += "</article>";
     return out;
@@ -539,10 +634,13 @@
 
   function syncDraftFromPayload() {
     var viewer = state.payload && state.payload.viewer;
-    var serverReview = viewer && viewer.serverReview ? viewer.serverReview : null;
-    if (serverReview) {
-      state.draft.server.rating = Math.max(1, Math.min(5, Math.round(Number(serverReview.rating) || 5)));
-      state.draft.server.content = String(serverReview.content || "");
+    var own = viewerOwnReview(viewer);
+    if (own) {
+      state.draft.server.rating = Math.max(1, Math.min(5, Math.round(Number(own.rating) || 5)));
+      state.draft.server.content = String(own.content || "");
+      state.draftLang = normalizeLang(own.contentLang || currentSiteLang());
+    } else {
+      state.draftLang = currentSiteLang();
     }
   }
 
@@ -557,8 +655,15 @@
   }
 
   function reviewFormModalInnerMarkup(isUpdate) {
-    var title = isUpdate ? "Modifica la tua recensione" : "Scrivi una recensione";
-    var submitLabel = isUpdate ? "Aggiorna recensione" : "Invia recensione";
+    var title = isUpdate
+      ? t("reviews.editTitle", "Modifica la tua recensione")
+      : t("reviews.writeTitle", "Scrivi una recensione");
+    var submitLabel = isUpdate
+      ? t("reviews.update", "Aggiorna recensione")
+      : t("reviews.submit", "Invia recensione");
+    var placeholder = isBotReviewsPage()
+      ? t("botReviews.placeholder", "Cosa ti piace di Vinili: musica, partnership, strumenti…")
+      : t("reviews.placeholder", "Scrivi cosa ti piace del server, dell'ambiente o delle attività...");
     return (
       '<div class="vc-reviews-modal__backdrop" data-review-modal-dismiss tabindex="-1"></div>' +
       '<div class="vc-reviews-modal__panel" role="dialog" aria-modal="true" aria-labelledby="vc-reviews-modal-title">' +
@@ -572,7 +677,9 @@
       '<div class="vc-reviews-field"><label>Valutazione</label>' +
       ratingInputMarkup("server", state.draft.server.rating) +
       "</div>" +
-      '<div class="vc-reviews-field"><label for="vc-review-modal-content">Recensione</label><textarea id="vc-review-modal-content" class="vc-reviews-textarea" rows="5" placeholder="Scrivi cosa ti piace del server, dell&apos;ambiente o delle attività...">' +
+      '<div class="vc-reviews-field"><label for="vc-review-modal-content">Recensione</label><textarea id="vc-review-modal-content" class="vc-reviews-textarea" rows="5" placeholder="' +
+      esc(placeholder) +
+      '">' +
       esc(state.draft.server.content) +
       "</textarea></div>" +
       '<div class="vc-reviews-formcard__actions">' +
@@ -595,7 +702,7 @@
       return;
     }
     var viewer = state.payload && state.payload.viewer;
-    var serverExisting = viewer && viewer.serverReview ? viewer.serverReview : null;
+    var serverExisting = viewerOwnReview(viewer);
     root.hidden = false;
     root.innerHTML = reviewFormModalInnerMarkup(Boolean(serverExisting));
     root.className = "vc-reviews-modal vc-reviews-modal--open";
@@ -608,7 +715,7 @@
     var token = getToken();
     var viewer = state.payload && state.payload.viewer;
     if (!token || !viewer || !viewer.id) {
-      setStatus("Devi effettuare il login con Discord per scrivere una recensione.", true);
+      setStatus(t("reviews.loginToWrite", "Devi effettuare il login con Discord per scrivere una recensione."), true);
       var lb = byId("discord-login-btn");
       if (lb) {
         try {
@@ -617,12 +724,20 @@
       }
       return;
     }
-    var serverExisting = viewer.serverReview ? viewer.serverReview : null;
+    var serverExisting = viewerOwnReview(viewer);
     if (serverExisting) {
       syncDraftFromPayload();
     } else {
       state.draft.server.rating = 5;
       state.draft.server.content = "";
+      state.draftLang = currentSiteLang();
+      if (window.VcFormDrafts) {
+        var saved = window.VcFormDrafts.load("reviews:" + pageKind());
+        if (saved && typeof saved === "object") {
+          if (typeof saved.content === "string") state.draft.server.content = saved.content;
+          if (saved.rating != null) state.draft.server.rating = Math.max(1, Math.min(5, Math.round(Number(saved.rating) || 5)));
+        }
+      }
     }
     state.editModalOpen = true;
     render();
@@ -644,17 +759,17 @@
     var viewer = state.payload && state.payload.viewer;
     var tokenOk = Boolean(getToken());
     var isLogged = Boolean(viewer && viewer.id);
-    var serverExisting = viewer && viewer.serverReview ? viewer.serverReview : null;
+    var serverExisting = viewerOwnReview(viewer);
     btn.hidden = false;
     if (!isLogged || !tokenOk) {
-      btn.textContent = "Scrivi recensione";
-      btn.setAttribute("aria-label", "Accedi con Discord per scrivere una recensione");
+      btn.textContent = t("reviews.write", "Scrivi recensione");
+      btn.setAttribute("aria-label", t("reviews.writeAriaLogin", "Accedi con Discord per scrivere una recensione"));
     } else if (serverExisting) {
-      btn.textContent = "Modifica recensione";
-      btn.setAttribute("aria-label", "Modifica la tua recensione");
+      btn.textContent = t("reviews.edit", "Modifica recensione");
+      btn.setAttribute("aria-label", t("reviews.editBtn", "Modifica la tua recensione"));
     } else {
-      btn.textContent = "Scrivi recensione";
-      btn.setAttribute("aria-label", "Scrivi una nuova recensione");
+      btn.textContent = t("reviews.write", "Scrivi recensione");
+      btn.setAttribute("aria-label", t("reviews.writeAriaNew", "Scrivi una nuova recensione"));
     }
     btn.onclick = function () {
       openReviewFormModal();
@@ -686,18 +801,46 @@
     } catch (e1) {}
   }
 
+  function syncLangFilterFromSite() {
+    if (!isBotReviewsPage()) return;
+    var next = currentSiteLang();
+    if (normalizeLang(state.langFilter) === next) return;
+    state.langFilter = next;
+    state.draftLang = next;
+    state.reviewsPager.page = 1;
+    state.reviewsPager.userControlled = false;
+  }
+
   function render() {
-    var payload = state.payload || { reviews: { server: [], staff: [] }, staffers: [], viewer: null };
+    var payload = state.payload || { reviews: { server: [], staff: [], bot: [] }, staffers: [], viewer: null };
     var serverWrap = byId("vc-reviews-server-list");
     if (!serverWrap) return;
 
-    var serverReviews = Array.isArray(payload.reviews && payload.reviews.server) ? payload.reviews.server : [];
-    var orderedReviews = sortedReviewsNewestFirst(serverReviews);
+    if (isBotReviewsPage()) {
+      state.langFilter = currentSiteLang();
+    }
+
+    var listKey = isBotReviewsPage() ? "bot" : "server";
+    var allReviews = Array.isArray(payload.reviews && payload.reviews[listKey]) ? payload.reviews[listKey] : [];
+    if (isBotReviewsPage()) {
+      var want = normalizeLang(state.langFilter || currentSiteLang());
+      allReviews = allReviews.filter(function (row) {
+        return normalizeLang(row && row.contentLang) === want;
+      });
+    }
+    var orderedReviews = sortedReviewsNewestFirst(allReviews);
     ensurePageIncludesDeepLink(orderedReviews);
     var pageReviews = getPagedReviews(orderedReviews);
     serverWrap.innerHTML = orderedReviews.length
       ? pageReviews.map(function (review) { return reviewCardMarkup(review); }).join("")
-      : emptyMarkup("fa-commenting-o", "Ancora nessuna recensione", "Sarai tu a inaugurare questa sezione.");
+      : emptyMarkup(
+          "fa-commenting-o",
+          t("reviews.empty", "Ancora nessuna recensione"),
+          isBotReviewsPage()
+            ? t("botReviews.emptyHint", "Scrivi la prima recensione su Vinili.")
+            : t("reviews.emptyHint", "Sarai tu a inaugurare questa sezione."),
+        );
+    state.renderFingerprint = reviewsPayloadFingerprint(state.payload || payload);
     renderReviewsPagerUserStyle(orderedReviews.length);
     syncReviewFormModal();
     syncReviewHeadButton();
@@ -743,6 +886,12 @@
     if (taModal) {
       taModal.addEventListener("input", function () {
         state.draft.server.content = taModal.value;
+        if (window.VcFormDrafts) {
+          window.VcFormDrafts.save("reviews:" + pageKind(), {
+            content: String(taModal.value || ""),
+            rating: Number(state.draft.server.rating) || 5,
+          });
+        }
       });
     }
 
@@ -834,7 +983,7 @@
     })
       .then(function (response) { return response.json(); })
       .then(function (body) {
-        if (!body || body.ok !== true) throw new Error((body && body.message) || "Impossibile caricare le recensioni.");
+        if (!body || body.ok !== true) throw new Error((body && body.message) || t("reviews.loadError", "Impossibile caricare le recensioni."));
         state.payload = body;
         syncDraftFromPayload();
         render();
@@ -844,22 +993,26 @@
         }
       })
       .catch(function (err) {
-        setStatus(err && err.message ? err.message : "Impossibile caricare le recensioni.", true);
+        setStatus(err && err.message ? err.message : t("reviews.loadError", "Impossibile caricare le recensioni."), true);
       });
   }
 
   function submitReview() {
     var token = getToken();
     if (!token) {
-      setStatus("Devi effettuare il login con Discord per inviare una recensione.", true);
+      setStatus(t("reviews.loginToSubmit", "Devi effettuare il login con Discord per inviare una recensione."), true);
       return;
     }
     var payload = {
-      kind: "server",
+      kind: pageKind(),
       rating: state.draft.server.rating,
       content: state.draft.server.content,
     };
-    setStatus("Invio recensione in corso...", false);
+    payload.contentLang = currentSiteLang();
+    if (isBotReviewsPage()) {
+      state.draftLang = payload.contentLang;
+    }
+    setStatus(t("reviews.submitting", "Invio recensione in corso..."), false);
     fetch(apiUrl(), {
       method: "POST",
       headers: {
@@ -871,21 +1024,22 @@
       .then(function (response) { return response.json(); })
       .then(function (body) {
         if (!body || body.ok !== true) {
-          throw new Error((body && body.message) || "Non sono riuscito a salvare la recensione.");
+          throw new Error((body && body.message) || t("reviews.saveError", "Errore durante il salvataggio."));
         }
         state.editModalOpen = false;
-        setStatus(body.message || "Recensione salvata.", false);
+        if (window.VcFormDrafts) window.VcFormDrafts.clear("reviews:" + pageKind());
+        setStatus(body.message || t("reviews.saved", "Recensione salvata."), false);
         return fetchPayload();
       })
       .catch(function (err) {
-        setStatus(err && err.message ? err.message : "Errore durante il salvataggio.", true);
+        setStatus(err && err.message ? err.message : t("reviews.saveError", "Errore durante il salvataggio."), true);
       });
   }
 
   function toggleReviewLike(reviewId, buttonEl) {
     var token = getToken();
     if (!token) {
-      setStatus("Accedi con Discord per mettere like.", true);
+      setStatus(t("reviews.loginToLike", "Accedi con Discord per mettere like."), true);
       return;
     }
     if (buttonEl) buttonEl.disabled = true;
@@ -901,13 +1055,13 @@
       })
       .then(function (body) {
         if (!body || body.ok !== true) {
-          throw new Error((body && body.message) || "Operazione like non riuscita.");
+          throw new Error((body && body.message) || t("reviews.likeError", "Errore like."));
         }
         setStatus(body.message || "Ok.", false);
         return fetchPayload();
       })
       .catch(function (err) {
-        setStatus(err && err.message ? err.message : "Errore like.", true);
+        setStatus(err && err.message ? err.message : t("reviews.likeError", "Errore like."), true);
       })
       .then(function () {
         if (buttonEl) buttonEl.disabled = false;
@@ -941,14 +1095,14 @@
       })
       .then(function (body) {
         if (!body || body.ok !== true) {
-          throw new Error((body && body.message) || "Impossibile pubblicare la risposta.");
+          throw new Error((body && body.message) || t("reviews.replyError", "Errore risposta."));
         }
         state.replyOpenId = null;
         setStatus(body.message || "Risposta pubblicata.", false);
         return fetchPayload();
       })
       .catch(function (err) {
-        setStatus(err && err.message ? err.message : "Errore risposta.", true);
+        setStatus(err && err.message ? err.message : t("reviews.replyError", "Errore risposta."), true);
       })
       .then(function () {
         if (buttonEl) buttonEl.disabled = false;
@@ -958,34 +1112,52 @@
   function deleteReview(reviewId) {
     var token = getToken();
     if (!token) {
-      setStatus("Devi effettuare il login con Discord per eliminare una recensione.", true);
+      setStatus(t("reviews.loginToDelete", "Devi effettuare il login con Discord per eliminare una recensione."), true);
       return;
     }
-    if (!window.confirm("Vuoi davvero eliminare la tua recensione?")) return;
-    state.editModalOpen = false;
-    setStatus("Eliminazione recensione in corso...", false);
-    fetch(apiUrl() + "/" + encodeURIComponent(reviewId), {
-      method: "DELETE",
-      headers: {
-        Authorization: "Bearer " + token,
-      },
-    })
-      .then(function (response) { return response.json(); })
-      .then(function (body) {
-        if (!body || body.ok !== true) {
-          throw new Error((body && body.message) || "Non sono riuscito a eliminare la recensione.");
-        }
-        setStatus(body.message || "Recensione eliminata.", false);
-        return fetchPayload();
+    var run = function () {
+      state.editModalOpen = false;
+      setStatus(t("reviews.deleting", "Eliminazione recensione in corso..."), false);
+      fetch(apiUrl() + "/" + encodeURIComponent(reviewId), {
+        method: "DELETE",
+        headers: {
+          Authorization: "Bearer " + token,
+        },
       })
-      .catch(function (err) {
-        setStatus(err && err.message ? err.message : "Errore durante l'eliminazione.", true);
-      });
+        .then(function (response) { return response.json(); })
+        .then(function (body) {
+          if (!body || body.ok !== true) {
+            throw new Error((body && body.message) || t("reviews.deleteError", "Errore durante l'eliminazione."));
+          }
+          setStatus(body.message || t("reviews.deleted", "Recensione eliminata."), false);
+          return fetchPayload();
+        })
+        .catch(function (err) {
+          setStatus(err && err.message ? err.message : t("reviews.deleteError", "Errore durante l'eliminazione."), true);
+        });
+    };
+    var confirmP = window.VcDialog
+      ? window.VcDialog.confirm({
+          title: t("reviews.confirmDeleteTitle", "Eliminare la recensione?"),
+          message: t("reviews.confirmDelete", "Vuoi davvero eliminare la tua recensione?"),
+          confirmLabel: t("reviews.delete", "Elimina"),
+          cancelLabel: t("reviews.cancel", "Annulla"),
+          danger: true,
+          icon: "fa-trash-o",
+        })
+      : Promise.resolve(window.confirm(t("reviews.confirmDelete", "Vuoi davvero eliminare la tua recensione?")));
+    confirmP.then(function (ok) {
+      if (ok) run();
+    });
   }
 
   function main() {
     wireGateLoginCta();
     bindReviewsPagerOnce();
+    if (isBotReviewsPage()) {
+      state.langFilter = currentSiteLang();
+      state.draftLang = currentSiteLang();
+    }
     if (shouldUnlockReviewsPage()) {
       hideReviewsGate();
       fetchPayload();
@@ -1007,6 +1179,12 @@
     }
     clearReviewsContent();
     showReviewsLoginGate();
+  });
+
+  document.addEventListener("vc:langchange", function () {
+    if (!isBotReviewsPage()) return;
+    syncLangFilterFromSite();
+    if (state.payload) render();
   });
 
   document.addEventListener("keydown", function (ev) {

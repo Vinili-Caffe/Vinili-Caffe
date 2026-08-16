@@ -1,15 +1,55 @@
 const { randomInt } = require("node:crypto");
 
-const SYMBOLS = ["coin", "star", "seven", "gem", "gift", "jackpot"];
+/**
+ * Stile Gratta e Vinci: "Trova 3 simboli uguali".
+ * Più simboli tengono l'RTP ~94% con triple a 2× (premio sensato).
+ */
+const SYMBOLS = [
+  "coin",
+  "star",
+  "seven",
+  "gem",
+  "gift",
+  "clover",
+  "moon",
+  "heart",
+  "bell",
+  "cherry",
+  "lemon",
+  "orb",
+  "jackpot",
+];
 const SYMBOL_LABEL = {
   coin: "Galeone",
   star: "Stella",
   seven: "7",
   gem: "Diamante",
   gift: "Regalo",
+  clover: "Quadrifoglio",
+  moon: "Luna",
+  heart: "Cuore",
+  bell: "Campana",
+  cherry: "Ciliegia",
+  lemon: "Limone",
+  orb: "Sfera",
   jackpot: "VC",
 };
-const WEIGHTS = { coin: 28, star: 22, seven: 18, gem: 14, gift: 12, jackpot: 6 };
+/** Pesi relativi. Jackpot raro. */
+const WEIGHTS = {
+  coin: 16,
+  star: 15,
+  seven: 14,
+  gem: 13,
+  gift: 12,
+  clover: 12,
+  moon: 11,
+  heart: 10,
+  bell: 9,
+  cherry: 9,
+  lemon: 8,
+  orb: 8,
+  jackpot: 3,
+};
 
 function pickSymbol() {
   const pool = [];
@@ -34,6 +74,15 @@ function emptyProgress() {
   return Array(9).fill(0);
 }
 
+function readPayout(cfg, key, fallback) {
+  const n = Number(cfg?.[key]);
+  return Number.isFinite(n) && n >= 0 ? n : fallback;
+}
+
+/**
+ * Vincita da 3 simboli uguali (come i Gratta e Vinci "Trova 3").
+ * 3+ VC = jackpot.
+ */
 function evaluateCard(cells, cfg) {
   const list = Array.isArray(cells) ? cells : [];
   const counts = new Map();
@@ -48,13 +97,16 @@ function evaluateCard(cells, cfg) {
   }
   const scratchCfg = cfg?.scratch || {};
   const jackpot = max >= 3 && best === "jackpot";
-  const multiplier = jackpot
-    ? Number(scratchCfg.jackpotPayout) || 15
-    : max >= 3
-      ? Number(scratchCfg.triplePayout) || 8
-      : max >= 2
-        ? Number(scratchCfg.pairPayout) || 2
-        : 0;
+  let multiplier = 0;
+  if (jackpot) {
+    multiplier = readPayout(scratchCfg, "jackpotPayout", 15);
+  } else if (max >= 5) {
+    multiplier = readPayout(scratchCfg, "fivePayout", 7);
+  } else if (max >= 4) {
+    multiplier = readPayout(scratchCfg, "quadPayout", 3.5);
+  } else if (max >= 3) {
+    multiplier = readPayout(scratchCfg, "triplePayout", 2);
+  }
   return {
     max,
     best,

@@ -13,11 +13,25 @@
   },
   "botAdditions": {
     "enabled": true,
-    "action": "kick"
+    "action": "ban"
   },
   "unverifiedBotAdditions": {
     "enabled": true,
     "action": "kick"
+  },
+  "trustedBotOnly": {
+    "enabled": true,
+    "action": "ban",
+    "punishAdder": true,
+    "punishAdderAction": "ban",
+    "extraBotIds": []
+  },
+  "untrustedBotMessages": {
+    "enabled": true
+  },
+  "untrustedUserInstallApps": {
+    "enabled": true,
+    "punishActorAction": "ban"
   },
   "suspiciousAccount": {
     "enabled": true,

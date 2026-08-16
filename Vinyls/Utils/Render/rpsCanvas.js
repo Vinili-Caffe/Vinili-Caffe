@@ -2,6 +2,7 @@ const canvasModule = require("canvas");
 const GIFEncoder = require("gif-encoder-2");
 const { formatGaleoni } = require("../../Services/Community/gringottService");
 const { registerCanvasFonts, drawTextWithSpecialFallback } = require("./canvasFonts");
+const { sanitizeCanvasDisplayName, normalizeTextForCanvas } = require("./canvasUtils");
 const { createCanvas } = canvasModule;
 const CHOICES = ["sasso", "carta", "forbici"];
 const CHOICE_LABEL = { sasso: "Sasso", carta: "Carta", forbici: "Forbici" };
@@ -208,9 +209,7 @@ function drawHand(ctx, cx, cy, choice, mirror, bounce, pending) {
 }
 
 function truncateName(name, max = 12) {
-  const n = String(name || "Giocatore").trim();
-  if (n.length <= max) return n;
-  return `${n.slice(0, max - 1)}…`;
+  return sanitizeCanvasDisplayName(name, max, "Giocatore");
 }
 
 function cycleChoice(frameIndex, offset = 0) {
@@ -262,7 +261,7 @@ function drawPlayerPod(ctx, x, y, w, h, name, borderColor) {
   strokeRoundRect(ctx, x, y, w, h, 26, borderColor, 3);
   fillRoundRect(ctx, x + 14, y + 50, w - 28, h - 64, 20, "rgba(255,255,255,0.03)");
   fillRoundRect(ctx, x + 16, y + 14, w - 32, 34, 14, "rgba(0,0,0,0.35)");
-  drawText(ctx, truncateName(name), x + w / 2, y + 31, { size: 20, color: "#f8fafc", weight: "800", forcePrimaryFont: true });
+  drawText(ctx, truncateName(name), x + w / 2, y + 31, { size: 20, color: "#f8fafc", weight: "800" });
 }
 
 function drawArena(ctx, params) {
@@ -310,7 +309,9 @@ function drawArena(ctx, params) {
     footer = params.statusLine;
     footerColor = "#f8d875";
   } else if (params.phase === "pending") {
-    footer = "Accetta o rifiuta la sfida";
+    footer = params.bet > 0
+      ? `Sfida PvP · ${formatGaleoni(params.bet)} ciascuno · Accetta o rifiuta`
+      : "Accetta o rifiuta la sfida";
     footerColor = "#f8d875";
   } else if (animating && frameIndex >= COUNTDOWN_END_FRAME && !hasResult) {
     footer = "Le mosse si rivelano...";
@@ -339,15 +340,15 @@ function drawArena(ctx, params) {
   }
   const footerY = height - 48;
   fillRoundRect(ctx, 48, footerY, width - 96, 36, 16, "rgba(0,0,0,0.45)");
-  drawText(ctx, footer, width / 2, footerY + 18, { size: 18, color: footerColor, forcePrimaryFont: true });
+  drawText(ctx, normalizeTextForCanvas(footer), width / 2, footerY + 18, { size: 18, color: footerColor, forcePrimaryFont: true });
 }
 
 function normalizeParams(params = {}) {
   return {
     bet: Math.max(0, Math.floor(Number(params.bet) || 0)),
     phase: String(params.phase || ""),
-    playerName: String(params.playerName || "Tu").trim() || "Tu",
-    opponentName: String(params.opponentName || "Rivale").trim() || "Rivale",
+    playerName: sanitizeCanvasDisplayName(params.playerName || "Tu", 0, "Tu"),
+    opponentName: sanitizeCanvasDisplayName(params.opponentName || "Rivale", 0, "Rivale"),
     playerChoice: normalizeChoice(params.playerChoice),
     botChoice: normalizeChoice(params.botChoice),
     win: Boolean(params.win),
@@ -355,8 +356,8 @@ function normalizeParams(params = {}) {
     hasResult: Boolean(params.hasResult),
     animating: Boolean(params.animating),
     isPvp: Boolean(params.isPvp),
-    winnerName: String(params.winnerName || "").trim(),
-    statusLine: String(params.statusLine || "").trim(),
+    winnerName: sanitizeCanvasDisplayName(params.winnerName || "", 0, ""),
+    statusLine: normalizeTextForCanvas(String(params.statusLine || "").trim()),
   };
 }
 

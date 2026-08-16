@@ -3,6 +3,7 @@ const IDs = require("../Utils/Config/ids");
 const { handleInviteCreationAction: antiNukeHandleInviteCreationAction, isAntiNukePanicActive, isWhitelistedExecutorAsync, } = require("../Services/Moderation/antiNukeService");
 const { getSecurityLockState } = require("../Services/Moderation/securityOrchestratorService");
 const { toDiscordTimestamp } = require("../Utils/Logging/channelRolesLogUtils");
+const { isViniliFullFeatureGuild } = require("../MultiGuild/core/guildFeatureScope");
 const INVITE_CREATE_ACTION = AuditLogEvent?.InviteCreate ?? 40;
 const AUDIT_FETCH_LIMIT = 20;
 const AUDIT_LOOKBACK_MS = 120 * 1000;
@@ -20,7 +21,7 @@ function formatMaxAge(seconds) {
   const safe = Math.max(0, Number(seconds || 0));
   if (!safe) return "Mai";
   const days = safe / 86400;
-  if (Number.isInteger(days)) return `${days} giorno${days === 1 ? "" : "i"}`;
+  if (Number.isInteger(days)) return days === 1 ? "1 giorno" : `${days} giorni`;
   const hours = safe / 3600;
   if (Number.isInteger(hours)) return hours === 1 ? "1 ora" : `${hours} ore`;
   const mins = Math.floor(safe / 60);
@@ -86,6 +87,8 @@ module.exports = {
         uses: normalizeCount(invite.uses, 0),
         inviterId: invite.inviter?.id || null,
       });
+
+      if (!isViniliFullFeatureGuild(guild.id)) return;
 
       const logChannel = await resolveLogChannel(guild);
 

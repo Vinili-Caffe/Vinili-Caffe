@@ -150,6 +150,7 @@ function buildWinnerSuccessEmbed(result, targetUser, client) {
 
 module.exports = {
   name: "sezioneproibita",
+  skipLoad: true,
   hideFromHelp: true,
   allowEmptyArgs: false,
   subcommands: ["check", "winner"],

@@ -7,6 +7,7 @@ const {
 } = require("../Services/Partner/partnershipBlacklistService");
 const { extractInviteCode, fetchInviteGuildMeta } = require("../Utils/Partner/partnershipBlacklistDisplay");
 const blacklistCommand = require("../Prefix/Staff/blacklist");
+const { safePanelMessageUpdate, safeMessageEdit } = require("../../shared/discord/replyRuntime");
 const { partnersChatPartnerCommandDeniedReplyContent, schedulePartnersDeniedDeleteReply } = require("../Utils/Partner/partnersChatChannelUtils");
 const PREFIX = "blacklist_ui";
 const MODAL_PREFIX = "blacklist_ui_modal";
@@ -51,8 +52,9 @@ async function refreshBlacklistPanelMessage(interaction, ownerId, panelMessageId
     canManage,
     rows,
     safeIndex,
+    interaction.guild,
   );
-  await msg.edit(payload).catch(() => null);
+  await safeMessageEdit(msg, payload, interaction).catch(() => null);
 }
 
 async function ensureOwnerAndRole(interaction, ownerId, mode = "view") {
@@ -114,8 +116,9 @@ async function execute(interaction) {
         canManage,
         rows,
         nextIndex,
+        interaction.guild,
       );
-      await interaction.update(payload).catch(() => interaction.message?.edit?.(payload).catch(() => {}));
+      await safePanelMessageUpdate(interaction, payload);
       return true;
     }
 

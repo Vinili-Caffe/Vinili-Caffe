@@ -1,11 +1,14 @@
 const { ActivityUserProfile, GlobalSettings, LEVEL_HISTORY_MAX_ENTRIES, ACTIVITY_MAIN_GUILD_ID } = require("../../Schemas/Community/communitySchemas");
 const { isValidGuildUserId } = require("../../Utils/DB/validateWriteIds");
+const { isMongoReady } = require("../../Utils/Database/mongoConnect");
 const IDs = require("../../Utils/Config/ids");
 const { shouldBlockDm } = require("../../Utils/noDmList");
 const { sendUserDirectMessage } = require("../../../shared/discord/dmPrivacyNotice");
 const botConfig = require("../../config.json");
 const { getGuildChannelCached, getGuildMemberCached, getGuildRoleCached, getClientGuildCached, getClientChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { sendLevelMilestoneSupportersAnnouncement } = require("../../Utils/Community/levelMilestoneSupportersAnnounceEmbeds");
+const { applyDefaultFooterToEmbeds } = require("../../Utils/Embeds/defaultFooter");
+const VINILI_EMBED_COLOR_INT = 0x826bc2;
 const { guildMemberDisplayAvatarUrlDynamic, accountUsername, resolveEmbedUserAvatarUrl } = require("../../Utils/Discord/guildDiscordIdentity");
 const { parseScheduleMs, parseScheduleEndMs } = require("../../Utils/Web/hogwartsEventSchedule");
 const EXP_EXCLUDED_CATEGORY_IDS = new Set([].filter(Boolean).map((id) => String(id)),);
@@ -32,6 +35,17 @@ function isLevelExpGuild(guildOrId) {
   const gid = normalizeExpGuildId(guildOrId);
   const mainId = String(ACTIVITY_MAIN_GUILD_ID || IDs.guilds?.main || "").trim();
   return Boolean(gid && mainId && gid === mainId);
+}
+
+/** Mention sicura: `${member}` può diventare "[object Object]" se manca il prototype Discord.js. */
+function formatMemberMention(member) {
+  const id = String(member?.id || member?.user?.id || "").trim();
+  if (/^\d{16,22}$/.test(id)) return `<@${id}>`;
+  if (typeof member?.toString === "function") {
+    const asText = String(member.toString());
+    if (asText && asText !== "[object Object]") return asText;
+  }
+  return "Utente";
 }
 
 function pad2(value) {
@@ -361,6 +375,7 @@ async function recordLevelHistory(guildId, userId, actorId = null, action = "upd
 }
 
 async function addExp(guildId, userId, amount, applyMultiplier = false, weeklyAmountOverride = null, options = {}) {
+  if (!isMongoReady()) return null;
   if (!isLevelExpGuild(guildId)) return null;
   if (!isValidGuildUserId(guildId, userId) || !Number.isFinite(amount)) return null;
   const now = new Date();
@@ -438,6 +453,12 @@ async function addExp(guildId, userId, amount, applyMultiplier = false, weeklyAm
       { upsert: true, new: true, setDefaultsOnInsert: true },
     );
   } catch (err) {
+    if (
+      err?.name === "MongoNotConnectedError" ||
+      /Client must be connected before running operations/i.test(String(err?.message || err || ""))
+    ) {
+      return null;
+    }
     global.logger?.warn?.("[expService] addExp atomic failed, fallback:", err?.message || err);
     let fallback = await ActivityUserProfile.findOne({ guildId: gid, userId: uid });
     if (!fallback) fallback = new ActivityUserProfile({ guildId: gid, userId: uid });
@@ -553,12 +574,12 @@ async function buildLevelUpEmbed(member, level) {
   return {
     embeds: [
       {
-        color: 0x6f4e37,
+        color: VINILI_EMBED_COLOR_INT,
         title: `${name} leveled up!`,
         thumbnail: { url: avatarUrl },
         author: { name, icon_url: avatarUrl },
         description: [
-          `<a:VC_PandaClap:1331620157398712330> **Complimenti ${member}!**`,
+          `<a:VC_PandaClap:1331620157398712330> **Complimenti ${formatMemberMention(member)}!**`,
           `<:VC_LevelUp2:1482527047871107143> Hai appena __raggiunto__ il **livello** \`${level}\``,
           `<a:VC_HelloKittyGift:1329447876857958471> __Continua__ ad essere **attivo** in __chat__ e in __vocale__ per avanzare di _livello_!`,
         ].join("\n"),
@@ -592,12 +613,12 @@ async function buildPerksLevelEmbed(member, level, roleId) {
   return {
     embeds: [
       {
-        color: 0x6f4e37,
+        color: VINILI_EMBED_COLOR_INT,
         title: `${accountUsername(member)} leveled up!`,
         thumbnail: { url: avatarUrl },
         author: { name: accountUsername(member), icon_url: avatarUrl },
         description: [
-          `<a:VC_PandaClap:1331620157398712330> **Complimenti ${member}!**`,
+          `<a:VC_PandaClap:1331620157398712330> **Complimenti ${formatMemberMention(member)}!**`,
           `<:VC_LevelUp2:1482527047871107143> Hai appena __raggiunto__ il <@&${roleId}>`,
           `<a:VC_HelloKittyGift:1329447876857958471> __Controlla__ <#${PERKS_CHANNEL_ID}> per sapere i nuovi **vantaggi** che hai _sbloccato_!`,
         ].join("\n"),
@@ -621,7 +642,7 @@ async function buildPerkNearDmEmbed(member, targetLevel, roleLabel, missingExp) 
   return {
     embeds: [
       {
-        color: 0x6f4e37,
+        color: VINILI_EMBED_COLOR_INT,
         title: "<:VC_InactiveStatus:1482526984234860574> Sei vicino a un nuovo perk!",
         thumbnail: { url: perkThumb },
         description: [
@@ -725,12 +746,15 @@ function scheduleEventLevelUpMessage(clientOrGuild, guildId, userId, level, prev
 async function sendLevelUpPayload(channel, member, payload) {
   if (!channel || !member || !payload) return;
   const { applyPronounGenderToPayload } = require("../../Utils/Community/pronounGenderUtils");
-  const outgoing = applyPronounGenderToPayload(
-    {
-      content: `<a:VC_LevelUp:1482527020641419415> ${member} sei salito/a di livello!`,
-      ...payload,
-    },
-    member,
+  const outgoing = applyDefaultFooterToEmbeds(
+    applyPronounGenderToPayload(
+      {
+        content: `<a:VC_LevelUp:1482527020641419415> ${formatMemberMention(member)} sei salito/a di livello!`,
+        ...payload,
+      },
+      member,
+    ),
+    channel.guild,
   );
   await channel.send(outgoing).catch(() => { });
 }
@@ -789,12 +813,20 @@ async function addLevelRoleIfPossible(member, roleId) {
   if (!me) return false;
   if (!me.permissions.has("ManageRoles")) return false;
   const role = member.guild.roles.cache.get(roleId) || (await getGuildRoleCached(member.guild, roleId));
-  if (!role) return false;
+  if (!role || role.managed) return false;
   if (role.position >= me.roles.highest.position) return false;
   if (member.roles.cache.has(roleId)) return true;
-  await member.roles.add(role).catch(() => { });
+  let addErr = null;
+  await member.roles.add(role).catch((err) => { addErr = err; });
+  if (addErr) {
+    if (isMemberGoneError(addErr)) return false;
+    return false;
+  }
+  // API ok → cache locale aggiornata; un force-fetch fallito non è un fail di assign.
+  if (member.roles.cache.has(roleId)) return true;
   const refreshedMember = await getGuildMemberCached(member.guild, member.id, { preferFresh: true });
-  return Boolean(refreshedMember?.roles?.cache?.has(roleId));
+  if (!refreshedMember) return true;
+  return Boolean(refreshedMember.roles?.cache?.has(roleId));
 }
 
 function isMemberGoneError(err) {
@@ -804,25 +836,41 @@ function isMemberGoneError(err) {
 }
 
 async function addPerkRoleIfPossible(member) {
-  if (!member?.guild) return;
+  if (!member?.guild || !PERK_ROLE_ID) return;
   const me = member.guild.members.me;
   if (!me) return;
   if (!me.permissions.has("ManageRoles")) return;
   const role = member.guild.roles.cache.get(PERK_ROLE_ID) || (await getGuildRoleCached(member.guild, PERK_ROLE_ID));
-  if (!role) return;
+  if (!role || role.managed) return;
   if (role.position >= me.roles.highest.position) return;
   if (member.roles.cache.has(PERK_ROLE_ID)) return;
   let addErr = null;
   await member.roles.add(role).catch((err) => { addErr = err; });
-  if (addErr && isMemberGoneError(addErr)) return;
-  const refreshedMember = await getGuildMemberCached(member.guild, member.id, { preferFresh: true });
-  if (!refreshedMember?.roles?.cache?.has(PERK_ROLE_ID)) {
+  if (addErr) {
+    if (isMemberGoneError(addErr)) return;
     global.logger?.warn?.(
       "[EXP] perk role assign failed:",
       member.guild.id,
       member.id,
       PERK_ROLE_ID,
-      addErr ? addErr?.message || String(addErr) : "role not present after add",
+      addErr?.message || String(addErr),
+    );
+    return;
+  }
+  if (member.roles.cache.has(PERK_ROLE_ID)) return;
+  const refreshedMember = await getGuildMemberCached(member.guild, member.id, { preferFresh: true });
+  // Fetch fresco fallito (rate limit / blip): non loggare come assign fail.
+  if (!refreshedMember) return;
+  if (refreshedMember.roles?.cache?.has(PERK_ROLE_ID)) return;
+  await member.roles.add(role).catch(() => null);
+  const again = await getGuildMemberCached(member.guild, member.id, { preferFresh: true });
+  if (again && !again.roles?.cache?.has(PERK_ROLE_ID)) {
+    global.logger?.warn?.(
+      "[EXP] perk role assign failed:",
+      member.guild.id,
+      member.id,
+      PERK_ROLE_ID,
+      "role not present after add+retry",
     );
   }
 }
@@ -872,8 +920,11 @@ async function syncLevelRolesForMember(guild, userId, level) {
   for (const perkLevel of reachedPerkLevels) {
     const roleId = LEVEL_ROLE_MAP.get(perkLevel);
     if (!roleId) continue;
+    const alreadyHad = Boolean(mem?.roles?.cache?.has(roleId));
     const ok = await addLevelRoleIfPossible(mem, roleId);
-    if (ok) awarded.push(roleId);
+    // Solo ruoli davvero aggiunti: altrimenti i sweep post-mute/restart
+    // pensano sempre di aver "cambiato" qualcosa e rilanciano il restore.
+    if (ok && !alreadyHad) awarded.push(roleId);
     mem = (await getGuildMemberCached(guild, userId, { preferFresh: true })) || mem;
   }
   const freshMember = await getGuildMemberCached(guild, userId, { preferFresh: true });

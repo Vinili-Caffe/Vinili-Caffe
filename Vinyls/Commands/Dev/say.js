@@ -2,6 +2,7 @@ const { safeEditReply } = require("../../../shared/discord/replyRuntime");
 const { SlashCommandBuilder } = require("discord.js");
 const { getGuildChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
 const EPHEMERAL_FLAG = 1 << 6;
+const DISCORD_CONTENT_MAX = 2000;
 const MESSAGE_LINK_REGEX = /https?:\/\/(?:ptb\.|canary\.)?discord(?:app)?\.com\/channels\/(\d+)\/(\d+)\/(\d+)/;
 
 function parseMessageLink(link) {
@@ -14,6 +15,23 @@ function parseMessageLink(link) {
     channelId: match[2],
     messageId: match[3],
   };
+}
+
+/** Spezza il testo in chunk ≤ 2000 (limite Discord), preferendo tagli su spazi. */
+function splitDiscordContent(text, max = DISCORD_CONTENT_MAX) {
+  const raw = String(text || "");
+  if (!raw) return [];
+  if (raw.length <= max) return [raw];
+  const chunks = [];
+  let rest = raw;
+  while (rest.length > max) {
+    let cut = rest.lastIndexOf(" ", max);
+    if (cut < Math.floor(max * 0.6)) cut = max;
+    chunks.push(rest.slice(0, cut).trimEnd());
+    rest = rest.slice(cut).trimStart();
+  }
+  if (rest) chunks.push(rest);
+  return chunks;
 }
 
 async function resolveReplyTarget(interaction, messageId, messageLink) {
@@ -111,23 +129,70 @@ module.exports = {
         });
       }
 
-      await safeEditReply(interaction, {
-        content: "<:success:1461731530333229226> Messaggio inviato",
-        flags: EPHEMERAL_FLAG,
-      });
-
-      const payload = {};
-      if (messageText) payload.content = messageText;
-      if (attachment) payload.files = [attachment];
-      if (target.replyTo) {
-        payload.reply = {
-          messageReference: target.replyTo.id,
-          failIfNotExists: false,
-        };
-        payload.allowedMentions = { repliedUser: true };
+      const textChunks = messageText ? splitDiscordContent(messageText) : [];
+      if (!textChunks.length && !attachment) {
+        return safeEditReply(interaction, {
+          content: "<:vegax:1443934876440068179> Messaggio vuoto.",
+          flags: EPHEMERAL_FLAG,
+        });
       }
 
-      await target.channel.send(payload).catch(() => null);
+      let sent = 0;
+      for (let i = 0; i < textChunks.length; i += 1) {
+        const payload = { content: textChunks[i] };
+        if (i === 0 && attachment) payload.files = [attachment];
+        if (i === 0 && target.replyTo) {
+          payload.reply = {
+            messageReference: target.replyTo.id,
+            failIfNotExists: false,
+          };
+          payload.allowedMentions = { repliedUser: true };
+        }
+        const msg = await target.channel.send(payload).catch((err) => {
+          global.logger?.warn?.("[say] send failed:", err?.message || err);
+          return null;
+        });
+        if (!msg) {
+          return safeEditReply(interaction, {
+            content:
+              sent > 0
+                ? `<:vegax:1443934876440068179> Inviata solo la parte ${sent}/${textChunks.length}.`
+                : "<:vegax:1443934876440068179> Impossibile inviare il messaggio.",
+            flags: EPHEMERAL_FLAG,
+          });
+        }
+        sent += 1;
+      }
+
+      if (!textChunks.length && attachment) {
+        const payload = { files: [attachment] };
+        if (target.replyTo) {
+          payload.reply = {
+            messageReference: target.replyTo.id,
+            failIfNotExists: false,
+          };
+          payload.allowedMentions = { repliedUser: true };
+        }
+        const msg = await target.channel.send(payload).catch((err) => {
+          global.logger?.warn?.("[say] send failed:", err?.message || err);
+          return null;
+        });
+        if (!msg) {
+          return safeEditReply(interaction, {
+            content: "<:vegax:1443934876440068179> Impossibile inviare l'allegato.",
+            flags: EPHEMERAL_FLAG,
+          });
+        }
+        sent = 1;
+      }
+
+      return safeEditReply(interaction, {
+        content:
+          sent > 1
+            ? `<:success:1461731530333229226> Messaggio inviato (${sent} parti).`
+            : "<:success:1461731530333229226> Messaggio inviato",
+        flags: EPHEMERAL_FLAG,
+      });
     } catch (err) {
       global.logger.error(err);
       return safeEditReply(interaction, {

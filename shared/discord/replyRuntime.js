@@ -98,6 +98,9 @@ function scheduleDeleteMessage(messageLike, ttlMs = AUTO_CLEANUP_ERROR_TTL_MS) {
 }
 
 function maybeAutoCleanupErrorReply(sourceMessage, replyMessage, payload) {
+  if (payload && typeof payload === "object" && !Array.isArray(payload)) {
+    if (payload.skipAutoCleanup || payload.keepCommandMessage) return;
+  }
   if (!payloadLooksLikeError(payload)) return;
   if (replyMessage) scheduleDeleteMessage(replyMessage, AUTO_CLEANUP_ERROR_TTL_MS);
   if (sourceMessage?.deletable) scheduleDeleteMessage(sourceMessage, AUTO_CLEANUP_ERROR_TTL_MS);
@@ -110,24 +113,24 @@ function logReplyError(scope, err) {
 
 async function safeReply(interaction, payload) {
   if (!interaction) return null;
-  const resolvedPayload = maybeApplyPronounGender(payload, resolveInteractionMember(interaction));
+  const finalized = finalizeOutgoingPayload(payload, interaction);
 
   if (interaction.deferred && !interaction.replied) {
     try {
-      return await interaction.editReply(sanitizeEditPayload(resolvedPayload));
+      return await interaction.editReply(sanitizeEditPayload(prepareDiscordPayload(finalized)));
     } catch (err) {
       if (isUnknownInteractionError(err)) return null;
       logReplyError("editReply(primary)", err);
       if (interaction.deferred || interaction.replied) {
         try {
-          return await interaction.followUp(resolvedPayload);
+          return await interaction.followUp(prepareFreshCreatePayload(finalized));
         } catch (followUpErr) {
           if (isUnknownInteractionError(followUpErr) || isAlreadyAcknowledgedError(followUpErr)) return null;
           logReplyError("followUp(fallback)", followUpErr);
         }
       }
       try {
-        return await interaction.reply(resolvedPayload);
+        return await interaction.reply(prepareFreshCreatePayload(finalized));
       } catch (replyErr) {
         if (isUnknownInteractionError(replyErr) || isAlreadyAcknowledgedError(replyErr)) return null;
         logReplyError("reply(final-fallback)", replyErr);
@@ -138,7 +141,7 @@ async function safeReply(interaction, payload) {
 
   if (interaction.replied) {
     try {
-      return await interaction.followUp(resolvedPayload);
+      return await interaction.followUp(prepareFreshCreatePayload(finalized));
     } catch (err) {
       if (isUnknownInteractionError(err) || isAlreadyAcknowledgedError(err)) return null;
       logReplyError("followUp(primary)", err);
@@ -147,7 +150,7 @@ async function safeReply(interaction, payload) {
   }
 
   try {
-    return await interaction.reply(resolvedPayload);
+    return await interaction.reply(prepareFreshCreatePayload(finalized));
   } catch (err) {
     if (isUnknownInteractionError(err) || isAlreadyAcknowledgedError(err)) return null;
     logReplyError("reply(primary)", err);
@@ -157,7 +160,7 @@ async function safeReply(interaction, payload) {
 
 async function safeEditReply(interaction, payload) {
   if (!interaction) return null;
-  const resolvedPayload = maybeApplyPronounGender(payload, resolveInteractionMember(interaction));
+  const resolvedPayload = prepareDiscordPayload(finalizeOutgoingPayload(payload, interaction));
   if (!interaction.deferred && !interaction.replied) return safeReply(interaction, resolvedPayload);
 
   if (interaction.deferred || interaction.replied) {
@@ -203,9 +206,19 @@ function payloadWithReplyReference(payload, message) {
 }
 
 let pronounGenderApplier = null;
+let tenantEmbedBrandingApplier = null;
+let defaultFooterApplier = null;
 
 function setPronounGenderApplier(fn) {
   pronounGenderApplier = typeof fn === "function" ? fn : null;
+}
+
+function setTenantEmbedBrandingApplier(fn) {
+  tenantEmbedBrandingApplier = typeof fn === "function" ? fn : null;
+}
+
+function setDefaultFooterApplier(fn) {
+  defaultFooterApplier = typeof fn === "function" ? fn : null;
 }
 
 function resolveMessageMember(message) {
@@ -243,13 +256,355 @@ function maybeApplyPronounGender(payload, member) {
   }
 }
 
+function resolvePayloadGuildId(source) {
+  if (!source || typeof source !== "object") return null;
+  return (
+    source.guild?.id ||
+    source.guildId ||
+    source.channel?.guild?.id ||
+    source.channel?.guildId ||
+    null
+  );
+}
+
+function maybeApplyTenantEmbedBranding(payload, source) {
+  if (
+    payload &&
+    typeof payload === "object" &&
+    !Array.isArray(payload) &&
+    payload.__tenantBrandingApplied
+  ) {
+    return payload;
+  }
+  if (!tenantEmbedBrandingApplier || !payload || typeof payload !== "object" || Array.isArray(payload)) {
+    return payload;
+  }
+  const guildId = resolvePayloadGuildId(source);
+  if (!guildId) return payload;
+  const guild = source?.guild || source?.channel?.guild || null;
+  const client = source?.client || guild?.client || source?.channel?.client || null;
+  try {
+    return tenantEmbedBrandingApplier(payload, { guildId, guild, client }) || payload;
+  } catch {
+    return payload;
+  }
+}
+
+function stripTenantBrandingInternals(payload) {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return payload;
+  const next = { ...payload };
+  let changed = false;
+  for (const key of [
+    "__tenantBrandingApplied",
+    "__prefixDispatchBrandingDone",
+    "includeBanner",
+    "includeThumbnail",
+    "includeAuthor",
+    "__skipNoticeEmbed",
+    "skipNoticeEmbed",
+  ]) {
+    if (Object.prototype.hasOwnProperty.call(next, key)) {
+      delete next[key];
+      changed = true;
+    }
+  }
+  return changed ? next : payload;
+}
+
+function maybeApplyDefaultFooter(payload, source) {
+  if (!defaultFooterApplier || !payload || typeof payload !== "object" || Array.isArray(payload)) {
+    return payload;
+  }
+  if (payload.__skipDefaultEmbedFooter) return payload;
+  if (!Array.isArray(payload.embeds) || payload.embeds.length === 0) return payload;
+  try {
+    return defaultFooterApplier(payload, source) || payload;
+  } catch {
+    return payload;
+  }
+}
+
+function stripDefaultFooterInternals(payload) {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return payload;
+  const next = { ...payload };
+  let changed = false;
+  if (Object.prototype.hasOwnProperty.call(next, "__defaultFooterApplied")) {
+    delete next.__defaultFooterApplied;
+    changed = true;
+  }
+  if (Object.prototype.hasOwnProperty.call(next, "__skipDefaultEmbedFooter")) {
+    delete next.__skipDefaultEmbedFooter;
+    changed = true;
+  }
+  return changed ? next : payload;
+}
+
+function markPrefixDispatchBrandingDone(payload) {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return payload;
+  return { ...payload, __prefixDispatchBrandingDone: true };
+}
+
+function prepareDiscordPayload(payload) {
+  return stripTenantBrandingInternals(stripDefaultFooterInternals(payload));
+}
+
+/**
+ * discord.js MessagePayload mutates `options.attachments` in-place:
+ *   if (Array.isArray(attachments)) attachments.push(...fileDescriptors)
+ * Reusing the same payload after a failed reply/send therefore duplicates ids
+ * (files:1, attachments:[{0},{0}]) → DiscordAPIError 50035 ATTACHMENT_NOT_FOUND.
+ * Per i CREATE: clona e lascia che d.js ricostruisca attachments dai files.
+ */
+function prepareFreshCreatePayload(payload, { stripReference = false } = {}) {
+  let next = prepareDiscordPayload(payload);
+  if (stripReference) next = stripMessageReference(next);
+  if (!next || typeof next !== "object" || Array.isArray(next)) return next;
+  next = { ...next };
+  if (Array.isArray(next.files)) next.files = [...next.files];
+  if (Array.isArray(next.embeds)) next.embeds = [...next.embeds];
+  if (Array.isArray(next.components)) next.components = [...next.components];
+  if (Array.isArray(next.stickers)) next.stickers = [...next.stickers];
+  delete next.attachments;
+  return next;
+}
+
+function resolveTenantBrandingHelpers() {
+  try {
+    return require("../../Vinyls/MultiGuild/utils/tenantEmbedBranding");
+  } catch {
+    return null;
+  }
+}
+
+function collectExistingAttachmentRefs(source, { excludeNames = [] } = {}) {
+  const message = source?.attachments ? source : source?.message || null;
+  if (!message?.attachments) return [];
+  const list =
+    typeof message.attachments.values === "function"
+      ? [...message.attachments.values()]
+      : Array.isArray(message.attachments)
+        ? message.attachments
+        : [];
+  const exclude = new Set(
+    (excludeNames || [])
+      .map((n) => String(n || "").trim().toLowerCase())
+      .filter(Boolean),
+  );
+  return list
+    .filter((att) => {
+      const name = String(att?.name || "").trim().toLowerCase();
+      if (exclude.size && name && exclude.has(name)) return false;
+      return /^\d{17,22}$/.test(String(att?.id || "").trim());
+    })
+    .map((att) => ({ id: String(att.id) }));
+}
+
+function resolveOutgoingFileName(file) {
+  if (!file) return "";
+  const json = typeof file?.toJSON === "function" ? file.toJSON() : file;
+  return String(file?.name || file?.data?.name || json?.name || "").trim();
+}
+
+/**
+ * Discord sostituisce l'array attachments su edit: `attachments: []` cancella TUTTI i file
+ * (es. quote.png appena inviata da +quote quando si aggiunge il bottone Reposta).
+ * Omettere il campo = lasciare gli allegati esistenti.
+ *
+ * Se si ri-caricano `files`, i file omonimi già presenti vanno esclusi altrimenti
+ * Discord li tiene E aggiunge i nuovi (GIF banner duplicate su ticket/claim/pannelli).
+ *
+ * Banner brand = attachment://tenant-standard.gif (URL sito bloccato dal proxy Discord/CF).
+ * Su edit: tieni il ref del GIF già allegato; ri-caricalo solo se manca.
+ */
+function prepareMessageEditPayload(payload, source = null) {
+  const outbound = prepareDiscordPayload(payload);
+  if (!outbound || typeof outbound !== "object" || Array.isArray(outbound)) return outbound;
+
+  const branding = resolveTenantBrandingHelpers();
+  const bannerName = branding?.BRANDING_IMAGE_NAME || "tenant-standard.gif";
+  const bannerAliases = [bannerName, "tenant-standard.gif", "standard.gif"];
+  const hasFiles = Array.isArray(outbound.files) && outbound.files.length > 0;
+  const hasBannerEmbed = branding?.payloadHasTenantBannerEmbed?.(outbound) ?? false;
+  const hasExplicitAttachments = Object.prototype.hasOwnProperty.call(outbound, "attachments");
+  const explicitAttachments = hasExplicitAttachments
+    ? (Array.isArray(outbound.attachments) ? outbound.attachments : [])
+    : null;
+
+  const sourceHasBannerFile = (() => {
+    const refs = collectExistingAttachmentRefs(source);
+    if (!refs.length || !source) return false;
+    const message = source?.attachments ? source : source?.message || null;
+    const list =
+      typeof message?.attachments?.values === "function"
+        ? [...message.attachments.values()]
+        : Array.isArray(message?.attachments)
+          ? message.attachments
+          : [];
+    return list.some((att) => {
+      const name = String(att?.name || "").trim().toLowerCase();
+      return bannerAliases.some((alias) => name === String(alias).toLowerCase());
+    });
+  })();
+
+  // Caller chiede esplicitamente di azzerare: resta solo eventuali `files` nuovi.
+  if (hasExplicitAttachments && explicitAttachments.length === 0) {
+    return { ...outbound, attachments: [] };
+  }
+
+  if (hasFiles) {
+    const incomingNames = outbound.files.map(resolveOutgoingFileName).filter(Boolean);
+    const incomingHasBanner = incomingNames.some((n) =>
+      bannerAliases.includes(String(n || "").trim().toLowerCase()),
+    );
+    // Se stiamo ri-caricando il banner, escludi il vecchio omonimo (evita doppio fuori embed).
+    // Altrimenti tieni i file esistenti (incluso banner se l'embed lo usa ancora).
+    const excludeNames = incomingHasBanner
+      ? [...incomingNames, ...bannerAliases]
+      : [...incomingNames];
+    return {
+      ...outbound,
+      attachments:
+        explicitAttachments ||
+        collectExistingAttachmentRefs(source, { excludeNames }),
+    };
+  }
+
+  // Banner richiesto ma file assente sul messaggio: ri-allega il GIF locale.
+  if (hasBannerEmbed && source && !sourceHasBannerFile && branding?.createStandardGifAttachment) {
+    const bannerFile = branding.createStandardGifAttachment();
+    if (bannerFile) {
+      const kept = collectExistingAttachmentRefs(source);
+      return {
+        ...outbound,
+        files: [bannerFile],
+        attachments: kept,
+      };
+    }
+  }
+
+  // Banner presente: lascia gli allegati (incluso tenant-standard.gif) intatti.
+  if (hasBannerEmbed) {
+    return outbound;
+  }
+
+  // Embed senza banner: togli tenant-standard.gif residuo (Discord lo mostrerebbe fuori dall'embed).
+  if (!hasBannerEmbed && !hasFiles && source) {
+    const kept = collectExistingAttachmentRefs(source, { excludeNames: bannerAliases });
+    const allRefs = collectExistingAttachmentRefs(source);
+    if (allRefs.length > kept.length) {
+      return { ...outbound, attachments: kept };
+    }
+  }
+
+  // Solo components/content/embeds: omettere attachments = Discord li lascia intatti.
+  return outbound;
+}
+
+function maybeCoercePlainNoticeEmbed(payload, source) {
+  if (payload == null) return payload;
+  try {
+    const { coercePlainContentToNoticePayload } = require("../../Vinyls/Utils/Embeds/simpleNoticeEmbed");
+    const guild = source?.guild || source?.channel?.guild || null;
+    return coercePlainContentToNoticePayload(payload, guild) || payload;
+  } catch {
+    return payload;
+  }
+}
+
+function finalizeOutgoingPayload(payload, source) {
+  let next = maybeCoercePlainNoticeEmbed(payload, source);
+  next = maybeApplyPronounGender(next, resolveMessageMember(source) || resolveInteractionMember(source));
+  next = maybeApplyDefaultFooter(next, source);
+  next = maybeApplyTenantEmbedBranding(next, source);
+  return markPrefixDispatchBrandingDone(next);
+}
+
+function finalizeEditPayload(payload, source) {
+  return prepareMessageEditPayload(
+    sanitizeEditPayload(finalizeOutgoingPayload(payload, source)),
+    source,
+  );
+}
+
+function wrapPrototypeMethod(prototype, methodName, transformPayload, patchKey) {
+  if (!prototype || typeof prototype[methodName] !== "function") return;
+  if (prototype[patchKey]) return;
+  const original = prototype[methodName];
+  prototype[methodName] = function wrappedOutgoingEditMethod(payload, ...rest) {
+    const resolved = transformPayload(payload, this);
+    return original.call(this, resolved, ...rest);
+  };
+  prototype[patchKey] = true;
+}
+
+/** Evita che attachment:// del banner finisca fuori dall'embed su edit/update grezzi. */
+function installOutgoingEditBrandingPatch(discord) {
+  if (!discord || discord.__viniliEditBrandingPatchInstalled) return;
+  const { Message, Interaction } = discord;
+  wrapPrototypeMethod(
+    Message?.prototype,
+    "edit",
+    finalizeEditPayload,
+    "__viniliEditBrandingPatched",
+  );
+  wrapPrototypeMethod(
+    Interaction?.prototype,
+    "update",
+    finalizeEditPayload,
+    "__viniliUpdateBrandingPatched",
+  );
+  discord.__viniliEditBrandingPatchInstalled = true;
+}
+
+async function findBotReplyToSourceMessage(message) {
+  const channel = message?.channel;
+  const clientId = message?.client?.user?.id;
+  const sourceId = message?.id;
+  if (!channel?.messages?.fetch || !clientId || !sourceId) return null;
+
+  const recent = await channel.messages.fetch({ limit: 30 }).catch(() => null);
+  if (!recent) return null;
+
+  let best = null;
+  for (const msg of recent.values()) {
+    if (String(msg.author?.id) !== String(clientId)) continue;
+    const refId = msg.reference?.messageId;
+    if (String(refId) !== String(sourceId)) continue;
+    if (!best || msg.createdTimestamp > best.createdTimestamp) best = msg;
+  }
+  return best;
+}
+
+async function safePrefixPanelReply(message, payload) {
+  if (!message) return null;
+  const resolvedPayload = finalizeOutgoingPayload(payload, message);
+
+  if (message.__fromMessageUpdatePrefix) {
+    const existing = await findBotReplyToSourceMessage(message);
+    if (existing?.editable) {
+      const editPayload = sanitizeEditPayload(
+        prepareMessageEditPayload(stripMessageReference(resolvedPayload), existing),
+      );
+      const edited = await existing.edit(editPayload).catch(() => null);
+      if (edited) {
+        maybeAutoCleanupErrorReply(message, edited, resolvedPayload);
+        return edited;
+      }
+    }
+  }
+
+  return safeMessageReply(message, resolvedPayload);
+}
+
 async function safeMessageReply(message, payload) {
   if (!message) return null;
-  const resolvedPayload = maybeApplyPronounGender(payload, resolveMessageMember(message));
+  const resolvedPayload = finalizeOutgoingPayload(payload, message);
   if (typeof message.reply !== "function") {
     if (message.channel?.send) {
       try {
-        const sent = await message.channel.send(payloadWithReplyReference(stripMessageReference(resolvedPayload), message));
+        const sent = await message.channel.send(
+          payloadWithReplyReference(prepareFreshCreatePayload(resolvedPayload), message),
+        );
         maybeAutoCleanupErrorReply(message, sent, resolvedPayload);
         return sent;
       } catch (err) {
@@ -261,19 +616,36 @@ async function safeMessageReply(message, payload) {
     return null;
   }
   try {
-    const sent = await message.reply(resolvedPayload);
+    const sent = await message.reply(prepareFreshCreatePayload(resolvedPayload));
     maybeAutoCleanupErrorReply(message, sent, resolvedPayload);
     return sent;
   } catch (err) {
     if (err?.code === 10008) return null;
-    if (isUnknownMessageReferenceError(err)) {
+    const canFallbackSend =
+      isUnknownMessageReferenceError(err) ||
+      err?.code === 50013 ||
+      Number(err?.rawError?.code) === 50013;
+    if (canFallbackSend && message.channel?.send) {
       try {
-        const sent = await message.channel.send(payloadWithReplyReference(stripMessageReference(resolvedPayload), message));
+        const sent = await message.channel.send(prepareFreshCreatePayload(resolvedPayload));
         maybeAutoCleanupErrorReply(message, sent, resolvedPayload);
         return sent;
       } catch (fallbackErr) {
         if (fallbackErr?.code === 10008) return null;
-        logReplyError("message.reply(reference-fallback)", fallbackErr);
+        logReplyError("message.reply(send-fallback)", fallbackErr);
+        // Ultimo tentativo: DM all'autore (canale senza Send/Embed).
+        if (
+          (fallbackErr?.code === 50013 || Number(fallbackErr?.rawError?.code) === 50013) &&
+          message.author &&
+          typeof message.author.send === "function"
+        ) {
+          try {
+            const dm = await message.author.send(prepareFreshCreatePayload(resolvedPayload));
+            return dm;
+          } catch (dmErr) {
+            logReplyError("message.reply(dm-fallback)", dmErr);
+          }
+        }
         return null;
       }
     }
@@ -295,15 +667,72 @@ async function safeDeferReply(interaction, payload) {
   }
 }
 
+async function safeMessageEdit(targetMessage, payload, source = null) {
+  if (!targetMessage?.edit) return null;
+  const brandingSource = source || targetMessage;
+  const resolvedPayload = prepareMessageEditPayload(
+    sanitizeEditPayload(finalizeOutgoingPayload(payload, brandingSource)),
+    targetMessage,
+  );
+  try {
+    return await targetMessage.edit(resolvedPayload);
+  } catch (err) {
+    if (err?.code === 10008) return null;
+    logReplyError("message.edit", err);
+    return null;
+  }
+}
+
+async function safeInteractionUpdate(interaction, payload) {
+  if (!interaction) return false;
+  const resolvedPayload = prepareMessageEditPayload(
+    finalizeOutgoingPayload(payload, interaction),
+    interaction.message || interaction,
+  );
+  return interaction.update(resolvedPayload).then(() => true).catch(() => false);
+}
+
+async function safePanelMessageUpdate(interaction, payload) {
+  if (!interaction) return false;
+  const resolvedPayload = prepareMessageEditPayload(
+    finalizeOutgoingPayload(payload, interaction),
+    interaction.message || interaction,
+  );
+
+  if (interaction.deferred || interaction.replied) {
+    if (interaction.message?.edit) {
+      return Boolean(await safeMessageEdit(interaction.message, payload, interaction));
+    }
+    if (interaction.editReply) {
+      try {
+        await interaction.editReply(sanitizeEditPayload(resolvedPayload));
+        return true;
+      } catch (err) {
+        logReplyError("panel.editReply", err);
+        return false;
+      }
+    }
+    return false;
+  }
+
+  const updated = await safeInteractionUpdate(interaction, payload);
+  if (updated) return true;
+  if (interaction.message?.edit) {
+    return Boolean(await safeMessageEdit(interaction.message, payload, interaction));
+  }
+  return false;
+}
+
 async function safeChannelSend(channel, payload) {
   if (!channel) return null;
+  const resolvedPayload = finalizeOutgoingPayload(payload, channel);
   try {
-    return await channel.send(payload);
+    return await channel.send(prepareFreshCreatePayload(resolvedPayload));
   } catch (err) {
     if (err?.code === 10008) return null;
     if (isUnknownMessageReferenceError(err)) {
       try {
-        return await channel.send(stripMessageReference(payload));
+        return await channel.send(prepareFreshCreatePayload(resolvedPayload, { stripReference: true }));
       } catch (fallbackErr) {
         if (fallbackErr?.code === 10008) return null;
         logReplyError("channel.send(reference-fallback)", fallbackErr);
@@ -320,6 +749,13 @@ module.exports = {
   safeEditReply,
   safeDeferReply,
   safeMessageReply,
+  safeMessageEdit,
+  safeInteractionUpdate,
+  safePanelMessageUpdate,
+  safePrefixPanelReply,
   safeChannelSend,
+  installOutgoingEditBrandingPatch,
   setPronounGenderApplier,
+  setTenantEmbedBrandingApplier,
+  setDefaultFooterApplier,
 };

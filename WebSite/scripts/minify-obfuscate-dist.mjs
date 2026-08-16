@@ -4,7 +4,30 @@ import path from "path";
 import { Worker } from "worker_threads";
 import { createRequire } from "module";
 const require = createRequire(import.meta.url);
-const SKIP_JS_OBFUSCATION = new Set(["jquery-2.1.3.min.js", "pace.min.js", "modernizr.js", "plugins.js", "vc-suppress-extension-errors.js", "vc-youtube-iframe-api.js", "seratafilm-access-gate.js", "seratafilm-countdown.js", "seratafilm-event-utils.js", "discord-auth.js", "site-maintenance.js", "roles-page.js"]);
+const SKIP_JS_OBFUSCATION = new Set([
+  "jquery-2.1.3.min.js",
+  "pace.min.js",
+  "modernizr.js",
+  "plugins.js",
+  "vc-suppress-extension-errors.js",
+  "vc-youtube-iframe-api.js",
+  "seratafilm-access-gate.js",
+  "seratafilm-countdown.js",
+  "seratafilm-event-utils.js",
+  "discord-auth.js",
+  "vc-landing.js",
+  "vc-mobile-nav.js",
+  "dashboard-access-gate.js",
+  // Dashboard guild: file enorme + race loader/overview; l'offuscamento ha lasciato UI “solo footer”.
+  "dashboard-guild-page.js",
+  "site-maintenance.js",
+  "roles-page.js",
+  // Dictionary + apply must keep literal i18n keys (stringArray breaks lookups).
+  "vc-i18n.js",
+  "vc-i18n-pages.js",
+  "vc-i18n-pages-extra.js",
+  "vc-i18n-locales.js",
+]);
 const OBF_OPTIONS = {
   compact: true,
   controlFlowFlattening: false,

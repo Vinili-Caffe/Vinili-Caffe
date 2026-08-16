@@ -131,6 +131,9 @@ async function handleStaffManagedThreadRoleMentionMessage(message) {
   if (!ctx) return false;
 
   if (areRoleMentionsAllowedForStaffThread(ctx, message.mentions.roles)) {
+    // Discord aggiunge da solo i membri del ruolo pingato (es. @HighStaff):
+    // ripulisci subito chi non dovrebbe stare in quel thread (es. Director con HS residuo).
+    await pruneUnauthorizedStaffThreadMembers(message.channel, ctx, null);
     return false;
   }
 

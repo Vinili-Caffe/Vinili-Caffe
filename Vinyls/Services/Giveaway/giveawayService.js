@@ -6,6 +6,11 @@ const GIVEAWAY_LEAVE_PREFIX = "giveaway_leave:";
 const GIVEAWAY_COUNT_PREFIX = "giveaway_count:";
 const GIVEAWAY_REROLL_PREFIX = "giveaway_reroll:";
 
+/** Timeout max di Node (~24.8g): oltre si riprogramma. */
+const MAX_TIMEOUT_MS = 2_147_483_647;
+/** @type {Map<string, NodeJS.Timeout>} */
+const pendingEndTimers = new Map();
+
 function parseDuration(input) {
   const str = String(input || "").trim().toLowerCase();
   const match = str.match(/^(\d+)(m|h|d|s)$/);
@@ -23,28 +28,33 @@ function discordRelativeEndTimestamp(endAt) {
 }
 
 function buildGiveawayEmbed(giveaway, options = {}) {
-  const { prize, endAt, winnerCount, hostId, hostTag, participants = [], ended, winnerIds = [] } = giveaway;
+  const { prize, endAt, winnerCount, hostId, hostTag, participants = [], ended, cancelled, winnerIds = [] } = giveaway;
   const endDate = new Date(endAt);
   const dateStr = endDate.toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric" });
   const hostDisplay = hostId ? `<@${hostId}>` : (hostTag || "—");
+  const isCancelled = Boolean(cancelled);
 
   const embed = new EmbedBuilder()
-    .setColor("#5865F2")
+    .setColor(isCancelled ? "#992d22" : "#5865F2")
     .setTitle(`<a:VC_Events:1482706144953897223> ${prize}`)
     .addFields(
       {
         name: "<a:VC_Calendar:1482706208149475358> Tempo rimanente",
-        value: ended ? "Terminato" : discordRelativeEndTimestamp(endAt),
+        value: isCancelled ? "Annullato" : ended ? "Terminato" : discordRelativeEndTimestamp(endAt),
         inline: true,
       },
       {
         name: "<:VC_EXP:1482534670896730143> Hosted by",
-        value: hostTag || "—",
+        value: hostTag || hostDisplay || "—",
         inline: true,
       }
     )
     .setFooter({
-      text: ended ? `Terminato il ${dateStr}` : `${winnerCount} vincitor${winnerCount !== 1 ? "i" : "e"} | Termina il ${dateStr}`,
+      text: isCancelled
+        ? `Annullato il ${dateStr}`
+        : ended
+          ? `Terminato il ${dateStr}`
+          : `${winnerCount} vincitor${winnerCount !== 1 ? "i" : "e"} | Termina il ${dateStr}`,
     });
 
   if (options.imageUrl) embed.setImage(options.imageUrl);
@@ -127,11 +137,16 @@ async function enterGiveaway(interaction, client) {
     await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Giveaway non trovato o già terminato.", flags: 1 << 6 }).catch(() => { });
     return true;
   }
+  if (giveaway.cancelled) {
+    await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Questo giveaway è stato annullato.", flags: 1 << 6 }).catch(() => { });
+    return true;
+  }
   if (giveaway.ended) {
     await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Questo giveaway è già terminato.", flags: 1 << 6 }).catch(() => { });
     return true;
   }
   if (new Date(giveaway.endAt).getTime() <= Date.now()) {
+    void endGiveaway(giveawayId, client).catch(() => null);
     await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Il tempo per partecipare è scaduto.", flags: 1 << 6 }).catch(() => { });
     return true;
   }
@@ -171,11 +186,16 @@ async function leaveGiveaway(interaction, client) {
     await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Giveaway non trovato o già terminato.", flags: 1 << 6 }).catch(() => { });
     return true;
   }
+  if (giveaway.cancelled) {
+    await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Questo giveaway è stato annullato.", flags: 1 << 6 }).catch(() => { });
+    return true;
+  }
   if (giveaway.ended) {
     await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Questo giveaway è già terminato.", flags: 1 << 6 }).catch(() => { });
     return true;
   }
   if (new Date(giveaway.endAt).getTime() <= Date.now()) {
+    void endGiveaway(giveawayId, client).catch(() => null);
     await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Il tempo per modificare la partecipazione è scaduto.", flags: 1 << 6 }).catch(() => { });
     return true;
   }
@@ -229,19 +249,37 @@ function pickWinners(participants, winnerCount) {
   return list.slice(0, count);
 }
 
-const GIVEAWAY_READ_PROJECTION = { participants: 1, winnerCount: 1, channelId: 1, messageId: 1, _id: 1, prize: 1, endAt: 1, hostId: 1, hostTag: 1, ended: 1, winnerIds: 1 };
+const GIVEAWAY_READ_PROJECTION = {
+  participants: 1,
+  winnerCount: 1,
+  channelId: 1,
+  messageId: 1,
+  _id: 1,
+  prize: 1,
+  endAt: 1,
+  hostId: 1,
+  hostTag: 1,
+  ended: 1,
+  cancelled: 1,
+  winnerIds: 1,
+  guildId: 1,
+};
 
 async function endGiveaway(giveawayId, client) {
-  const giveaway = await Giveaway.findOne({ _id: giveawayId }, GIVEAWAY_READ_PROJECTION).lean();
-  if (!giveaway || giveaway.ended) return null;
+  const id = String(giveawayId || "").trim();
+  clearScheduledGiveawayEnd(id);
+
+  const giveaway = await Giveaway.findOne({ _id: id, ended: false, cancelled: { $ne: true } }, GIVEAWAY_READ_PROJECTION).lean();
+  if (!giveaway) return null;
 
   const participants = Array.isArray(giveaway.participants) ? giveaway.participants : [];
   const winnerIds = pickWinners(participants, giveaway.winnerCount);
 
-  await Giveaway.updateOne(
-    { _id: giveawayId },
+  const claimed = await Giveaway.updateOne(
+    { _id: id, ended: false },
     { $set: { ended: true, winnerIds } },
   );
+  if (!claimed?.modifiedCount) return null;
 
   const channel = await getClientChannelCached(client, giveaway.channelId);
   if (channel?.isTextBased?.()) {
@@ -267,6 +305,68 @@ async function endGiveaway(giveawayId, client) {
   }
 
   return { winnerIds, participants: participants.length };
+}
+
+function clearScheduledGiveawayEnd(giveawayId) {
+  const id = String(giveawayId || "").trim();
+  if (!id) return;
+  const timer = pendingEndTimers.get(id);
+  if (timer) {
+    clearTimeout(timer);
+    pendingEndTimers.delete(id);
+  }
+}
+
+/**
+ * Programma la fine esatta del giveaway (non aspetta il poll ogni minuto).
+ */
+function scheduleGiveawayEnd(client, giveawayId, endAt) {
+  const id = String(giveawayId || "").trim();
+  if (!client || !id) return;
+  clearScheduledGiveawayEnd(id);
+
+  const atMs = endAt instanceof Date ? endAt.getTime() : new Date(endAt).getTime();
+  if (!Number.isFinite(atMs)) return;
+
+  const delay = atMs - Date.now();
+  if (delay <= 0) {
+    void endGiveaway(id, client).catch((err) =>
+      global.logger?.warn?.("[Giveaway] scheduled end failed:", id, err?.message || err),
+    );
+    return;
+  }
+
+  if (delay > MAX_TIMEOUT_MS) {
+    const timer = setTimeout(() => scheduleGiveawayEnd(client, id, atMs), MAX_TIMEOUT_MS - 60_000);
+    timer.unref?.();
+    pendingEndTimers.set(id, timer);
+    return;
+  }
+
+  const timer = setTimeout(() => {
+    pendingEndTimers.delete(id);
+    void endGiveaway(id, client).catch((err) =>
+      global.logger?.warn?.("[Giveaway] scheduled end failed:", id, err?.message || err),
+    );
+  }, delay);
+  timer.unref?.();
+  pendingEndTimers.set(id, timer);
+}
+
+async function scheduleActiveGiveawayEnds(client) {
+  if (!client) return { scheduled: 0 };
+  const now = new Date();
+  const due = await Giveaway.find({ ended: false, endAt: { $lte: now } }, { _id: 1 }).lean();
+  for (const g of due) {
+    await endGiveaway(g._id.toString(), client).catch((err) =>
+      global.logger?.warn?.("[Giveaway] endGiveaway failed:", g._id, err?.message),
+    );
+  }
+  const upcoming = await Giveaway.find({ ended: false, endAt: { $gt: now } }, { _id: 1, endAt: 1 }).lean();
+  for (const g of upcoming) {
+    scheduleGiveawayEnd(client, g._id.toString(), g.endAt);
+  }
+  return { scheduled: upcoming.length, endedDue: due.length };
 }
 
 function pickOneExcluding(participants, excludeIds) {
@@ -335,13 +435,143 @@ async function rerollGiveaway(interaction, client) {
 }
 
 /**
- * Esegue un re-roll per giveaway identificato dal messageId. Usabile dal comando /giveaway reroll.
- * @returns {{ ok: boolean, newWinnerId?: string, error?: string }}
+ * Termina forzatamente un giveaway attivo (estrazione vincitori) via messageId.
+ * @returns {{ ok: boolean, winnerIds?: string[], error?: string }}
+ */
+async function endGiveawayByMessageId(messageId, client) {
+  if (!messageId || !client) return { ok: false, error: "Parametri mancanti." };
+  const giveaway = await Giveaway.findOne({ messageId: String(messageId) }, GIVEAWAY_READ_PROJECTION).lean();
+  if (!giveaway) return { ok: false, error: "Giveaway non trovato (messaggio non valido)." };
+  if (giveaway.cancelled) return { ok: false, error: "Questo giveaway è già stato annullato." };
+  if (giveaway.ended) return { ok: false, error: "Il giveaway è già terminato." };
+
+  const result = await endGiveaway(giveaway._id.toString(), client);
+  if (!result) return { ok: false, error: "Impossibile terminare il giveaway." };
+  return { ok: true, winnerIds: result.winnerIds || [] };
+}
+
+/**
+ * Modifica campi di un giveaway attivo via messageId.
+ * @returns {{ ok: boolean, giveaway?: object, error?: string }}
+ */
+async function editGiveawayByMessageId(messageId, client, patch = {}) {
+  if (!messageId || !client) return { ok: false, error: "Parametri mancanti." };
+  const giveaway = await Giveaway.findOne({ messageId: String(messageId) }, GIVEAWAY_READ_PROJECTION).lean();
+  if (!giveaway) return { ok: false, error: "Giveaway non trovato (messaggio non valido)." };
+  if (giveaway.cancelled) return { ok: false, error: "Questo giveaway è già stato annullato." };
+  if (giveaway.ended) return { ok: false, error: "Non puoi modificare un giveaway già terminato." };
+
+  const $set = {};
+  if (patch.prize != null) {
+    const prize = String(patch.prize || "").trim();
+    if (!prize) return { ok: false, error: "Premio non valido." };
+    $set.prize = prize;
+  }
+  if (patch.winnerCount != null) {
+    const n = Math.max(1, Math.min(Number(patch.winnerCount) || 1, 20));
+    $set.winnerCount = n;
+  }
+  if (patch.hostId != null) {
+    $set.hostId = String(patch.hostId);
+    $set.hostTag = String(patch.hostTag || "").trim();
+  }
+  if (patch.durationMs != null) {
+    const durationMs = Number(patch.durationMs);
+    if (!Number.isFinite(durationMs) || durationMs < 60 * 1000) {
+      return { ok: false, error: "Durata non valida. Usa ad es. `1h`, `24h`, `7d`." };
+    }
+    $set.endAt = new Date(Date.now() + durationMs);
+  }
+
+  if (!Object.keys($set).length) {
+    return { ok: false, error: "Specifica almeno un campo da modificare (premio, durata, vincitori o host)." };
+  }
+
+  const updated = await Giveaway.findOneAndUpdate(
+    { _id: giveaway._id, ended: false },
+    { $set },
+    { new: true },
+  );
+  if (!updated) return { ok: false, error: "Impossibile aggiornare il giveaway." };
+
+  const plain = updated.toObject ? updated.toObject() : { ...giveaway, ...$set };
+  if ($set.endAt) {
+    scheduleGiveawayEnd(client, String(giveaway._id), $set.endAt);
+  }
+
+  const channel = await getClientChannelCached(client, plain.channelId || giveaway.channelId);
+  if (channel?.isTextBased?.()) {
+    try {
+      const msg = await channel.messages.fetch(String(messageId)).catch(() => null);
+      if (msg?.editable) {
+        await msg
+          .edit({
+            embeds: [buildGiveawayEmbed(plain)],
+            components: [buildEnterButton(String(giveaway._id))],
+          })
+          .catch(() => {});
+      }
+    } catch (err) {
+      global.logger?.warn?.("[giveawayService] edit message:", err?.message || err);
+    }
+  }
+
+  return { ok: true, giveaway: plain };
+}
+
+/**
+ * Cancella un giveaway attivo (senza vincitori) via messageId.
+ * @returns {{ ok: boolean, deletedMessage?: boolean, error?: string }}
+ */
+async function deleteGiveawayByMessageId(messageId, client, options = {}) {
+  const deleteMessage = options.deleteMessage !== false;
+  if (!messageId || !client) return { ok: false, error: "Parametri mancanti." };
+  const giveaway = await Giveaway.findOne({ messageId: String(messageId) }, GIVEAWAY_READ_PROJECTION).lean();
+  if (!giveaway) return { ok: false, error: "Giveaway non trovato (messaggio non valido)." };
+  if (giveaway.cancelled) return { ok: false, error: "Questo giveaway è già stato annullato." };
+  if (giveaway.ended) return { ok: false, error: "Il giveaway è già terminato: usa il reroll se serve." };
+
+  clearScheduledGiveawayEnd(String(giveaway._id));
+  const claimed = await Giveaway.updateOne(
+    { _id: giveaway._id, ended: false },
+    { $set: { ended: true, cancelled: true, winnerIds: [] } },
+  );
+  if (!claimed?.modifiedCount) return { ok: false, error: "Impossibile cancellare il giveaway." };
+
+  let deletedMessage = false;
+  const channel = await getClientChannelCached(client, giveaway.channelId);
+  if (channel?.isTextBased?.()) {
+    try {
+      const msg = await channel.messages.fetch(String(messageId)).catch(() => null);
+      if (msg) {
+        if (deleteMessage && msg.deletable) {
+          await msg.delete().catch(() => null);
+          deletedMessage = true;
+        } else if (msg.editable) {
+          await msg
+            .edit({
+              embeds: [buildGiveawayEmbed({ ...giveaway, ended: true, cancelled: true, winnerIds: [] })],
+              components: [],
+            })
+            .catch(() => {});
+        }
+      }
+    } catch (err) {
+      global.logger?.warn?.("[giveawayService] delete message:", err?.message || err);
+    }
+  }
+
+  return { ok: true, deletedMessage };
+}
+
+/**
+ * Reroll via messageId (comando slash). Restituisce { ok, newWinnerId?, error? }.
  */
 async function rerollGiveawayByMessageId(messageId, client) {
   if (!messageId || !client) return { ok: false, error: "<a:VC_Alert:1482706673176150077> Parametri mancanti." };
   const giveaway = await Giveaway.findOne({ messageId: String(messageId) }, GIVEAWAY_READ_PROJECTION).lean();
   if (!giveaway) return { ok: false, error: "<a:VC_Alert:1482706673176150077> Giveaway non trovato (messaggio non valido)." };
+  if (giveaway.cancelled) return { ok: false, error: "<a:VC_Alert:1482706673176150077> Questo giveaway è stato annullato." };
   if (!giveaway.ended) return { ok: false, error: "<a:VC_Alert:1482706673176150077> Il giveaway non è ancora terminato." };
 
   const participants = Array.isArray(giveaway.participants) ? giveaway.participants : [];
@@ -378,17 +608,24 @@ async function rerollGiveawayByMessageId(messageId, client) {
 
 async function runScheduledEnds(client) {
   const now = new Date();
-  const list = await Giveaway.find({ ended: false, endAt: { $lte: now } }).lean();
+  const list = await Giveaway.find({ ended: false, cancelled: { $ne: true }, endAt: { $lte: now } }).lean();
   for (const g of list) {
     await endGiveaway(g._id.toString(), client).catch((err) =>
       global.logger?.warn?.("[Giveaway] endGiveaway failed:", g._id, err?.message),
     );
   }
+  // Riprogramma gli attivi (utile dopo restart / timeout lunghi).
+  const upcoming = await Giveaway.find({ ended: false, cancelled: { $ne: true }, endAt: { $gt: now } }, { _id: 1, endAt: 1 }).lean();
+  for (const g of upcoming) {
+    if (!pendingEndTimers.has(String(g._id))) {
+      scheduleGiveawayEnd(client, g._id.toString(), g.endAt);
+    }
+  }
 }
 
 async function syncActiveGiveawayButtons(client) {
   const now = new Date();
-  const activeGiveaways = await Giveaway.find({ ended: false, endAt: { $gt: now } }, GIVEAWAY_READ_PROJECTION).lean();
+  const activeGiveaways = await Giveaway.find({ ended: false, cancelled: { $ne: true }, endAt: { $gt: now } }, GIVEAWAY_READ_PROJECTION).lean();
   let updated = 0;
   let failed = 0;
   for (const giveaway of activeGiveaways) {
@@ -413,4 +650,30 @@ async function syncActiveGiveawayButtons(client) {
   return { scanned: activeGiveaways.length, updated, failed };
 }
 
-module.exports = { GIVEAWAY_ENTER_PREFIX, GIVEAWAY_LEAVE_PREFIX, GIVEAWAY_COUNT_PREFIX, GIVEAWAY_REROLL_PREFIX, parseDuration, buildGiveawayEmbed, buildEnterButton, buildRerollButton, createGiveaway, setGiveawayMessageId, getGiveawayByMessageId, getGiveawayById, enterGiveaway, leaveGiveaway, showGiveawayJoinCount, endGiveaway, rerollGiveaway, rerollGiveawayByMessageId, runScheduledEnds, syncActiveGiveawayButtons };
+module.exports = {
+  GIVEAWAY_ENTER_PREFIX,
+  GIVEAWAY_LEAVE_PREFIX,
+  GIVEAWAY_COUNT_PREFIX,
+  GIVEAWAY_REROLL_PREFIX,
+  parseDuration,
+  buildGiveawayEmbed,
+  buildEnterButton,
+  buildRerollButton,
+  createGiveaway,
+  setGiveawayMessageId,
+  getGiveawayByMessageId,
+  getGiveawayById,
+  enterGiveaway,
+  leaveGiveaway,
+  showGiveawayJoinCount,
+  endGiveaway,
+  endGiveawayByMessageId,
+  editGiveawayByMessageId,
+  deleteGiveawayByMessageId,
+  rerollGiveaway,
+  rerollGiveawayByMessageId,
+  runScheduledEnds,
+  scheduleGiveawayEnd,
+  scheduleActiveGiveawayEnds,
+  syncActiveGiveawayButtons,
+};

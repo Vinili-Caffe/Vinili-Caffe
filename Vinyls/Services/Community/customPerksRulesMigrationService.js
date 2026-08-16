@@ -89,54 +89,9 @@ async function migrateGuildCustomPerks(guild, client) {
       touched += 1;
     }
 
-    if (canVoc && customVocChannelId) {
-      const channel =
-        guild.channels.cache.get(customVocChannelId) ||
-        (await guild.channels.fetch(customVocChannelId).catch(() => null));
-      const me = guild.members.me;
-      if (channel?.type === ChannelType.GuildVoice && me?.permissions?.has(PermissionsBitField.Flags.ManageChannels)) {
-        await channel.permissionOverwrites
-          .edit(
-            guild.roles.everyone.id,
-            { ViewChannel: false, Connect: false, Speak: false },
-            { reason: "Custom voc rules migration: sync @everyone" },
-          )
-          .catch(() => {});
-        if (roleId) {
-          await channel.permissionOverwrites
-            .edit(
-              roleId,
-              { ViewChannel: true, Connect: true, Speak: true, UseVAD: true, Stream: true },
-              { reason: "Custom voc rules migration: sync custom role access" },
-            )
-            .catch(() => {});
-        }
-        if (secondaryRoleId) {
-          await channel.permissionOverwrites
-            .edit(
-              secondaryRoleId,
-              { ViewChannel: true, Connect: true, Speak: true, UseVAD: true, Stream: true },
-              { reason: "Custom voc rules migration: sync secondary role access" },
-            )
-            .catch(() => {});
-        }
-        await channel.permissionOverwrites
-          .edit(
-            userId,
-            {
-              ViewChannel: true,
-              Connect: true,
-              Speak: true,
-              UseVAD: true,
-              Stream: true,
-              MoveMembers: true,
-              ManageChannels: true,
-            },
-            { reason: "Custom voc rules migration: owner overwrite sync" },
-          )
-          .catch(() => {});
-      }
-    }
+    // I permessi sul canale vocale custom li gestisce solo customVocPermissionsService
+    // (baseline + strip ruoli custom). Non ri-editare overwrite qui: a ogni restart
+    // creava audit spam e litigava col repair ("sync secondary role access" → strip).
 
     if (Object.keys(updateSet).length) {
       await CustomRole.updateOne({ guildId, userId }, { $set: updateSet }).catch(() => {});
@@ -154,6 +109,7 @@ async function migrateGuildCustomPerks(guild, client) {
     const userId = String(row?.userId || "").trim();
     if (!userId) continue;
     const member = await guild.members.fetch(userId).catch(() => null);
+    if (!member) continue;
     const maxAllowed = Math.max(1, Number(getCustomReactionMax(member) || 3));
     const reactions = Array.isArray(row?.reactions) ? row.reactions : [];
     if (reactions.length <= maxAllowed) continue;

@@ -1,5 +1,6 @@
 const { assertEconomyGamblingAccess } = require("../../Services/Community/activeEconomyService");
 const { buildBlackjackGuiPayload, clampBet, formatRoundNotice, makeSession, setSession, startHand, warmupBlackjackPanel } = require("../../Utils/Economy/blackjackGuiRuntime");
+const { fetchSpendableBalance } = require("../../Utils/Economy/economyBetModal");
 const { postGuiPanel, replyDeny, runEconomyPanelCommand } = require("../../Utils/Economy/economyCommandHelpers");
 
 module.exports = {
@@ -17,10 +18,11 @@ module.exports = {
         await deny(msg, access.message, { gambling: true });
         return;
       }
+      const balance = await fetchSpendableBalance(c, { guildId: msg.guild.id, ownerId: msg.author.id });
       const session = makeSession({
         ownerId: msg.author.id,
         guildId: msg.guild.id,
-        bet: clampBet(rawBet == null ? access.cfg.minBet : rawBet, access.cfg),
+        bet: clampBet(rawBet == null ? access.cfg.minBet : rawBet, access.cfg, balance),
         cfg: access.cfg,
       });
       await warmupBlackjackPanel();
@@ -35,7 +37,7 @@ module.exports = {
           ? formatRoundNotice(dealt.result)
           : "<a:VC_Verified:1482532479637127188> Mano in corso — Carta, Stai o Raddoppia.";
       }
-      const payload = await buildBlackjackGuiPayload(session, access.cfg, notice, false);
+      const payload = await buildBlackjackGuiPayload(session, access.cfg, notice, false, balance);
       await post(msg, { payload, session, setSession, label: "blackjack" });
     });
   },

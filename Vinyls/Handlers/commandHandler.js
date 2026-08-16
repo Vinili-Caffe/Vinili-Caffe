@@ -4,8 +4,18 @@ const fs = require("fs");
 const path = require("path");
 const ascii = require("ascii-table");
 const IDs = require("../Utils/Config/ids");
-const{isCommandDeployRequired,markCommandDeployComplete,}=require("../../shared/runtime/commandDeployCache");
+const { getProtectedGuildIds, isViniliProtectedGuild } = require("../MultiGuild/core/viniliProtectedGuilds");
+const { isMultiGuildLayerEnabled } = require("../MultiGuild/core/env");
+const { isTenantFeatureEnabled } = require("../MultiGuild/core/accessPolicy");
+const { resolveGuildAccess } = require("../MultiGuild/core/guildRegistry");
+const { isCommandDeployRequired, markCommandDeployComplete } = require("../../shared/runtime/commandDeployCache");
 const { purgeObsoleteApplicationCommands } = require("../../shared/discord/purgeObsoleteApplicationCommands");
+const {
+  splitApplicationCommandsForDeploy,
+  deployGlobalApplicationCommands,
+  deployGuildApplicationCommands,
+  clearGuildApplicationCommands,
+} = require("../../shared/discord/applicationCommandDeployScopes");
 
 const LOG_COMMANDS = String(process.env.LOG_COMMANDS || "0") === "1";
 const BOT_DEPLOY_CACHE_KEY = "official";
@@ -13,6 +23,12 @@ const BOT_DEPLOY_CACHE_KEY = "official";
 function shouldForceSlashDeploy() {
   const value = String(process.env.FORCE_SLASH_DEPLOY || process.env.FORCE_COMMAND_DEPLOY || "").trim().toLowerCase();
   return value === "1" || value === "true" || value === "yes";
+}
+
+function findGiveawayDeployCommand(commands = []) {
+  return (Array.isArray(commands) ? commands : []).find(
+    (cmd) => String(cmd?.name || "").trim().toLowerCase() === "giveaway",
+  ) || null;
 }
 
 module.exports = (client) => {
@@ -76,6 +92,10 @@ module.exports = (client) => {
       global.logger.info(`[COMMANDS] Loaded ${client.commands.size} SlashCommands.`);
     }
 
+    if (String(process.env.SITE_API_PROCESS || "").trim() === "1") {
+      return;
+    }
+
     const token=process.env.DISCORD_TOKEN||process.env.DISCORD_TOKEN_OFFICIAL||client?.config?.token;
     const clientId=process.env.DISCORD_CLIENT_ID||process.env.DISCORD_CLIENT_ID_OFFICIAL||IDs.bots.ViniliCaffeBot;
     const isPrimary = !client.shard || client.shard.ids?.[0] === 0;
@@ -83,12 +103,25 @@ module.exports = (client) => {
       if (LOG_COMMANDS) global.logger.info(`[COMMANDS] Deploy slash eseguito solo sul primary shard, skip su questo processo.`);
       return;
     }
-    const deployCheck=isCommandDeployRequired(BOT_DEPLOY_CACHE_KEY,{clientId},client.commandArray,);
+    const { globalCommands, mainGuildCommands } = splitApplicationCommandsForDeploy(client.commandArray);
+    const protectedGuildIds = getProtectedGuildIds();
+
+    const deployCheck = isCommandDeployRequired(BOT_DEPLOY_CACHE_KEY, { clientId }, globalCommands);
+    const mainGuildDeployChecks = protectedGuildIds.map((guildId) => ({
+      guildId,
+      ...isCommandDeployRequired(BOT_DEPLOY_CACHE_KEY, { clientId, guildId }, mainGuildCommands),
+    }));
     const forceDeploy = shouldForceSlashDeploy();
+    const mainGuildDeployRequired =
+      forceDeploy || mainGuildDeployChecks.some((row) => row.required);
     const rest = new REST({ version: "10" }).setToken(token);
 
     if (deployCheck.required || forceDeploy) {
-      if (LOG_COMMANDS) global.logger.info(`[COMMANDS] Deploy slash richiesto. scope=${deployCheck.scopeKey} prev=${deployCheck.previousHash || "none"} next=${deployCheck.hash}${forceDeploy ? " force=true" : ""}`);
+      if (LOG_COMMANDS) {
+        global.logger.info(
+          `[COMMANDS] Deploy globali richiesto. scope=${deployCheck.scopeKey} prev=${deployCheck.previousHash || "none"} next=${deployCheck.hash}${forceDeploy ? " force=true" : ""} count=${globalCommands.length}`,
+        );
+      }
       try {
         const me = await rest.get(Routes.currentApplication());
         const tokenAppId = me?.id || null;
@@ -100,18 +133,16 @@ module.exports = (client) => {
       }
 
       try {
-        if (LOG_COMMANDS) client.logs.info("[FUNCTION] Refreshing application (/) commands...");
-        await rest.put(Routes.applicationCommands(clientId), {
-          body: client.commandArray,
-        });
-        markCommandDeployComplete(
-          BOT_DEPLOY_CACHE_KEY,
-          { clientId },
-          deployCheck.hash,
-        );
-        if (LOG_COMMANDS) client.logs.success("[FUNCTION] Successfully reloaded application (/) commands.");
+        if (LOG_COMMANDS) client.logs.info("[FUNCTION] Refreshing global application (/) commands...");
+        await deployGlobalApplicationCommands(rest, clientId, globalCommands);
+        markCommandDeployComplete(BOT_DEPLOY_CACHE_KEY, { clientId }, deployCheck.hash);
+        if (LOG_COMMANDS) {
+          client.logs.success(
+            `[FUNCTION] Global commands deployed (${globalCommands.map((c) => c.name).join(", ") || "none"}).`,
+          );
+        }
       } catch (error) {
-        global.logger.error("[COMMANDS] Failed to deploy commands:", error);
+        global.logger.error("[COMMANDS] Failed to deploy global commands:", error);
         if (error?.code === 20012 || error?.status === 403) {
           global.logger.error(
             '[COMMANDS] 20012/403: Se token e ID sono giusti, controlla su Developer Portal che l\'app NON sia in un Team, oppure che il tuo account abbia permesso "Admin" sul Team. Le app in Team possono registrare comandi solo da chi ha i permessi sul Team.',
@@ -123,11 +154,69 @@ module.exports = (client) => {
       global.logger.info(`[COMMANDS] Nessuna modifica ai comandi globali, deploy REST saltato. scope=${deployCheck.scopeKey} hash=${deployCheck.hash}`);
     }
 
+    if (mainGuildDeployRequired) {
+      for (const row of mainGuildDeployChecks) {
+        if (!forceDeploy && !row.required) continue;
+        try {
+          if (LOG_COMMANDS) {
+            global.logger.info(
+              `[COMMANDS] Deploy guild ${row.guildId}: ${mainGuildCommands.length} comandi (main/protected).`,
+            );
+          }
+          await deployGuildApplicationCommands(rest, clientId, row.guildId, mainGuildCommands);
+          markCommandDeployComplete(BOT_DEPLOY_CACHE_KEY, { clientId, guildId: row.guildId }, row.hash);
+        } catch (error) {
+          global.logger.error(
+            `[COMMANDS] Failed to deploy guild commands for ${row.guildId}:`,
+            error?.message || error,
+          );
+        }
+      }
+    } else if (LOG_COMMANDS) {
+      global.logger.info("[COMMANDS] Nessuna modifica ai comandi guild main/protected, deploy saltato.");
+    }
+
     try {
-      const guildIds = [IDs?.guilds?.main, IDs?.guilds?.test].filter(Boolean).map(String);
-      await purgeObsoleteApplicationCommands(rest, clientId, guildIds);
+      await purgeObsoleteApplicationCommands(rest, clientId, protectedGuildIds);
     } catch (e) {
       global.logger?.warn?.("[COMMANDS] Purge comandi slash obsoleti:", e?.message || e);
+    }
+
+    if (isMultiGuildLayerEnabled()) {
+      const giveawayCmd = findGiveawayDeployCommand(mainGuildCommands);
+      for (const guild of client.guilds.cache.values()) {
+        if (isViniliProtectedGuild(guild.id)) continue;
+        try {
+          if (giveawayCmd && isTenantFeatureEnabled(guild.id, "giveaway")) {
+            const tenantGiveawayBody = [giveawayCmd];
+            const deployRow = isCommandDeployRequired(
+              BOT_DEPLOY_CACHE_KEY,
+              { clientId, guildId: guild.id, scope: "tenant-giveaway" },
+              tenantGiveawayBody,
+            );
+            if (forceDeploy || deployRow.required) {
+              await deployGuildApplicationCommands(rest, clientId, guild.id, tenantGiveawayBody);
+              markCommandDeployComplete(
+                BOT_DEPLOY_CACHE_KEY,
+                { clientId, guildId: guild.id, scope: "tenant-giveaway" },
+                deployRow.hash,
+              );
+              if (LOG_COMMANDS) {
+                global.logger.info(
+                  `[COMMANDS] Deploy /giveaway su tenant ${guild.id} (${resolveGuildAccess(guild.id)?.entry?.label || guild.name || "?"}).`,
+                );
+              }
+            }
+          } else {
+            await clearGuildApplicationCommands(rest, clientId, guild.id).catch(() => null);
+          }
+        } catch (error) {
+          global.logger?.warn?.(
+            `[COMMANDS] Tenant slash sync failed for ${guild.id}:`,
+            error?.message || error,
+          );
+        }
+      }
     }
   };
 };

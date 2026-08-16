@@ -1,4 +1,22 @@
 (function () {
+  (function ensureSiteHelperScripts() {
+    try {
+      function appendScript(path) {
+        var file = String(path || "").split("/").pop().replace(/\?.*$/, "");
+        if (!file) return;
+        if (document.querySelector('script[src*="' + file + '"]')) return;
+        var s = document.createElement("script");
+        var existing = document.querySelector('script[src*="discord-auth.js"]');
+        var ver = existing && existing.getAttribute("src") && existing.getAttribute("src").match(/[?&]v=([^&]+)/);
+        s.src = path + (ver && ver[1] ? "?v=" + ver[1] : "?t=" + Date.now());
+        s.defer = true;
+        (document.head || document.documentElement).appendChild(s);
+      }
+      if (!window.__VC_CURSOR_TRAIL_INIT) appendScript("/js/vc-cursor-trail.js");
+      if (!window.VcFormDrafts) appendScript("/js/vc-form-drafts.js");
+    } catch (eHelper) {}
+  })();
+
   var ACCESS_TOKEN_KEY = "vc_discord_access_token";
   var EXPIRES_AT_KEY = "vc_discord_expires_at";
   var PENDING_LOGIN_NOTIF_KEY = "vc_pending_login_notification_v1";
@@ -10,15 +28,210 @@
   var OAUTH_PENDING_RETURN_KEY = "vc_oauth_pending_return_v1";
   /** Profilo `@me` in sessione: evita round-trip Discord a ogni navigazione. */
   var ME_CACHE_KEY = "vc_discord_me_cache_v1";
+  var OAUTH_SCOPES_KEY = "vc_discord_oauth_scopes_v1";
 
   function cfg() {
     return (typeof window !== "undefined" && window.__VC_AUTH) || {};
   }
 
+  function i18n(key, fallback) {
+    try {
+      if (window.VcI18n && typeof window.VcI18n.t === "function") {
+        var v = window.VcI18n.t(key);
+        if (v && v !== key) return v;
+      }
+    } catch (e) {}
+    return fallback;
+  }
+
   var SESSION_OVERLAY_ID = "vc-session-verify-overlay";
+  /** Hard stop: @me / site-verify appesi non devono bloccare la pagina. */
+  var SESSION_VERIFY_HARD_MS = 8000;
+  var sessionVerifyWatchdog = null;
 
   function byId(id) {
     return document.getElementById(id);
+  }
+
+  function clearSessionVerifyWatchdog() {
+    if (!sessionVerifyWatchdog) return;
+    try {
+      clearTimeout(sessionVerifyWatchdog);
+    } catch (eW) {}
+    sessionVerifyWatchdog = null;
+  }
+
+  function forceUnlockSessionVerifyUi() {
+    clearSessionVerifyWatchdog();
+    try {
+      document.documentElement.classList.remove("vc-session-verify-pending");
+    } catch (e0) {}
+    try {
+      var el = byId(SESSION_OVERLAY_ID);
+      if (el) {
+        el.classList.add("vc-session-verify-overlay--hidden");
+        el.setAttribute("aria-busy", "false");
+        if (el.parentNode) el.parentNode.removeChild(el);
+      }
+    } catch (e1) {}
+    if (window.__VC_DISCORD_PROFILE) return;
+    try {
+      var state = byId("discord-login-state");
+      if (state && state.querySelector(".vc-auth-pending-shell")) {
+        state.hidden = true;
+        state.innerHTML = "";
+      }
+      var loginBtns = queryDiscordLoginButtons();
+      for (var i = 0; i < loginBtns.length; i += 1) {
+        loginBtns[i].hidden = false;
+      }
+    } catch (e2) {}
+  }
+
+  function armSessionVerifyWatchdog() {
+    clearSessionVerifyWatchdog();
+    sessionVerifyWatchdog = setTimeout(function () {
+      sessionVerifyWatchdog = null;
+      forceUnlockSessionVerifyUi();
+    }, SESSION_VERIFY_HARD_MS);
+  }
+
+  /** Chiude campanella notifiche (e classi overlay) se aperta. */
+  function closeVcNotifDropdown() {
+    try {
+      var n = document.getElementById("vc-notif-dropdown");
+      if (n && n.open) n.open = false;
+      document.documentElement.classList.remove(
+        "vc-notif-dropdown-open",
+        "vc-notif-sheet-open",
+        "vc-notif-overlay-active",
+      );
+    } catch (eN) {}
+  }
+
+  /** Chiude menu account header (hover/focus class + blur). */
+  function closeVcAccountMenu() {
+    try {
+      document.documentElement.classList.remove("vc-header-account-open");
+      var menu = document.querySelector(".discord-account-menu");
+      if (!menu) return;
+      var active = document.activeElement;
+      if (active && menu.contains(active) && typeof active.blur === "function") active.blur();
+    } catch (eA) {}
+  }
+
+  function closeVcHeaderSnavDetails() {
+    try {
+      var list = document.querySelectorAll("header details.vc-snav-details[open], .vc-header-bar details.vc-snav-details[open]");
+      for (var i = 0; i < list.length; i += 1) list[i].open = false;
+    } catch (eS) {}
+  }
+
+  /**
+   * Un solo pannello header alla volta (notifiche ↔ account) su tutte le pagine.
+   * Deve vivere in discord-auth perché il menu account nasce dopo il login.
+   * Notifiche: click-to-pin — non chiudere solo perché il cursore passa sull’avatar.
+   */
+  var headerMenusMutexWired = false;
+  function ensureHeaderMenusMutex() {
+    if (headerMenusMutexWired) return;
+    headerMenusMutexWired = true;
+
+    function notifDropdownIsOpen() {
+      try {
+        var n = document.getElementById("vc-notif-dropdown");
+        return Boolean(n && n.open);
+      } catch (e) {
+        return false;
+      }
+    }
+
+    document.addEventListener(
+      "toggle",
+      function (ev) {
+        var t = ev.target;
+        if (!t || t.id !== "vc-notif-dropdown") return;
+        if (t.open) {
+          closeVcAccountMenu();
+          closeVcHeaderSnavDetails();
+          try {
+            document.documentElement.classList.add("vc-notif-dropdown-open");
+          } catch (e1) {}
+        } else {
+          try {
+            document.documentElement.classList.remove("vc-notif-dropdown-open");
+          } catch (e2) {}
+        }
+      },
+      true,
+    );
+
+    document.addEventListener(
+      "pointerover",
+      function (ev) {
+        var t = ev.target;
+        if (!t || !t.closest) return;
+        var menu = t.closest(".discord-account-menu");
+        if (!menu) return;
+        var related = ev.relatedTarget;
+        if (related && menu.contains(related)) return;
+        // Se le notifiche sono aperte (click), restano aperte finché non si clicca fuori / sull’account.
+        if (notifDropdownIsOpen()) return;
+        closeVcHeaderSnavDetails();
+        try {
+          document.documentElement.classList.add("vc-header-account-open");
+        } catch (e3) {}
+      },
+      true,
+    );
+
+    document.addEventListener(
+      "pointerout",
+      function (ev) {
+        var t = ev.target;
+        if (!t || !t.closest) return;
+        var menu = t.closest(".discord-account-menu");
+        if (!menu) return;
+        var related = ev.relatedTarget;
+        if (related && menu.contains(related)) return;
+        try {
+          document.documentElement.classList.remove("vc-header-account-open");
+        } catch (e4) {}
+      },
+      true,
+    );
+
+    document.addEventListener(
+      "focusin",
+      function (ev) {
+        var t = ev.target;
+        if (!t || !t.closest) return;
+        if (!t.closest(".discord-account-menu")) return;
+        if (notifDropdownIsOpen()) return;
+        closeVcHeaderSnavDetails();
+        try {
+          document.documentElement.classList.add("vc-header-account-open");
+        } catch (e5) {}
+      },
+      true,
+    );
+
+    document.addEventListener(
+      "click",
+      function (ev) {
+        var t = ev.target;
+        if (!t || !t.closest) return;
+        var profile = t.closest(".discord-profile-link, .discord-account-menu");
+        if (!profile || !profile.closest || !profile.closest(".discord-account-menu")) return;
+        // Click esplicito sull’account: chiudi notifiche e apri il menu account.
+        if (!notifDropdownIsOpen()) return;
+        closeVcNotifDropdown();
+        try {
+          document.documentElement.classList.add("vc-header-account-open");
+        } catch (e6) {}
+      },
+      true,
+    );
   }
 
   /** Header + CTA “Accedi con Discord”: più pulsanti sulla stessa pagina (es. accesso-richiesto). */
@@ -70,9 +283,8 @@
 
   function showSessionVerifyOverlay() {
     if (!isBlockingSessionVerifyPage()) {
-      try {
-        document.documentElement.classList.remove("vc-session-verify-pending");
-      } catch (e0) {}
+      // Eventuale overlay early (bfcache / race) va comunque rimosso.
+      forceUnlockSessionVerifyUi();
       return;
     }
     var el = ensureSessionVerifyOverlay();
@@ -81,9 +293,11 @@
     } catch (e) {}
     el.classList.remove("vc-session-verify-overlay--hidden");
     el.setAttribute("aria-busy", "true");
+    armSessionVerifyWatchdog();
   }
 
   function hideSessionVerifyOverlay() {
+    clearSessionVerifyWatchdog();
     try {
       document.documentElement.classList.remove("vc-session-verify-pending");
     } catch (e0) {}
@@ -91,6 +305,9 @@
     if (!el) return;
     el.classList.add("vc-session-verify-overlay--hidden");
     el.setAttribute("aria-busy", "false");
+    try {
+      if (el.parentNode) el.parentNode.removeChild(el);
+    } catch (eRm) {}
   }
 
   function escAttr(s) {
@@ -212,6 +429,10 @@
         : Date.now() + SITE_SESSION_TTL_MS;
     localStorage.setItem(ACCESS_TOKEN_KEY, t);
     localStorage.setItem(EXPIRES_AT_KEY, String(exp));
+    try {
+      var scopeRaw = String(p.get("scope") || "").trim();
+      if (scopeRaw) localStorage.setItem(OAUTH_SCOPES_KEY, scopeRaw);
+    } catch (eSc) {}
     if (history && history.replaceState) {
       history.replaceState({}, document.title, window.location.pathname + window.location.search);
     }
@@ -221,20 +442,50 @@
   function getToken() {
     var t = localStorage.getItem(ACCESS_TOKEN_KEY);
     var exp = Number(localStorage.getItem(EXPIRES_AT_KEY) || "0");
-    if (!t || !exp || Date.now() >= exp) return "";
+    if (!t) return "";
+    // Sessioni legacy senza expires_at: non forzare logout.
+    if (exp && Date.now() >= exp) return "";
     return t;
   }
 
   try {
     window.__vcDiscordGetAccessToken = getToken;
+    window.__vcDiscordTokenHasScope = tokenHasOAuthScope;
+    window.__vcDiscordGetStoredScopes = getStoredOAuthScopes;
+    window.__vcDiscordHasCommandPermissionsScope = hasCommandPermissionsScope;
+    window.__vcDiscordReauthorizeForCommandPermissions = reauthorizeForCommandPermissions;
   } catch (eGt) {}
 
   function clearToken() {
     localStorage.removeItem(ACCESS_TOKEN_KEY);
     localStorage.removeItem(EXPIRES_AT_KEY);
     try {
+      localStorage.removeItem(OAUTH_SCOPES_KEY);
       sessionStorage.removeItem(ME_CACHE_KEY);
     } catch (eCt) {}
+  }
+
+  function resolveOAuthScopes() {
+    var c = cfg();
+    var fromCfg = String(c.scopes || c.oauthScopes || "").trim();
+    if (fromCfg) return fromCfg;
+    return "identify";
+  }
+
+  function getStoredOAuthScopes() {
+    try {
+      return String(localStorage.getItem(OAUTH_SCOPES_KEY) || "").trim();
+    } catch (e) {
+      return "";
+    }
+  }
+
+  function tokenHasOAuthScope(scopeName) {
+    var need = String(scopeName || "").trim().toLowerCase();
+    if (!need) return true;
+    var stored = getStoredOAuthScopes().toLowerCase();
+    if (!stored) return need === "identify";
+    return stored.split(/\s+/).indexOf(need) !== -1;
   }
 
   function resolveOAuthRedirectUri() {
@@ -250,7 +501,8 @@
     }
   }
 
-  function authUrl() {
+  function authUrl(options) {
+    var opts = options && typeof options === "object" ? options : {};
     var c = cfg();
     var clientId = String(c.clientId || "").trim();
     if (!clientId) return "";
@@ -259,10 +511,30 @@
       client_id: clientId,
       redirect_uri: redirect,
       response_type: "token",
-      scope: "identify",
+      scope: String(opts.scopes || resolveOAuthScopes()).trim() || "identify",
     });
     q.set("state", buildOAuthState(currentPathPlusQuery() || "/"));
+    // Senza prompt=consent Discord spesso riusa l’auth vecchia e non aggiunge i nuovi scope.
+    if (opts.prompt) q.set("prompt", String(opts.prompt));
     return "https://discord.com/oauth2/authorize?" + q.toString();
+  }
+
+  var CMD_PERMS_SCOPE = "applications.commands.permissions.update";
+
+  function hasCommandPermissionsScope() {
+    return tokenHasOAuthScope(CMD_PERMS_SCOPE);
+  }
+
+  /** Logout + OAuth con consent obbligatorio (serve per sync permessi slash). */
+  function reauthorizeForCommandPermissions(visualBtn) {
+    clearToken();
+    startDiscordOAuthFromUserGesture(
+      visualBtn || null,
+      authUrl({
+        prompt: "consent",
+        scopes: "identify guilds " + CMD_PERMS_SCOPE,
+      }),
+    );
   }
 
   function avatarUrl(u) {
@@ -299,18 +571,143 @@
   }
 
   function profileHref(userId) {
+    if (isStaffContextPath()) {
+      return "/staff/profilo/";
+    }
+    if (isDashboardContextPath()) {
+      try {
+        var d = window.__VC_SITE_DASHBOARD || {};
+        if (d.profilePageUrl) return String(d.profilePageUrl);
+      } catch (e0) {}
+      return "/dashboard/profilo/";
+    }
     var id = String(userId || "").trim();
     return id ? "/users/" + encodeURIComponent(id) : "/user";
+  }
+
+  function dashboardPageHref() {
+    var raw = String(cfg().dashboardUrl || "/dashboard/").trim() || "/dashboard/";
+    if (!raw.endsWith("/")) raw += "/";
+    return raw;
+  }
+
+  function dashboardApiBase() {
+    var c = cfg();
+    var isLocal = false;
+    try {
+      isLocal = /^(localhost|127\.0\.0\.1)$/i.test(String(window.location.hostname || ""));
+    } catch (e) {}
+    var siteDash = {};
+    try {
+      siteDash = window.__VC_SITE_DASHBOARD || {};
+    } catch (e2) {}
+    var raw = String(
+      isLocal && (c.dashboardApiUrlLocal || siteDash.apiUrlLocal)
+        ? c.dashboardApiUrlLocal || siteDash.apiUrlLocal
+        : c.dashboardApiUrl || siteDash.apiUrl || "",
+    ).trim();
+    return raw.replace(/\/+$/, "") || "/webhooks/site-dashboard";
+  }
+
+  function isStaffContextPath() {
+    try {
+      var p = String(window.location.pathname || "").toLowerCase().replace(/\/+$/, "") || "/";
+      return p === "/staff" || p.indexOf("/staff/") === 0;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function isDashboardContextPath() {
+    try {
+      var p = String(window.location.pathname || "").toLowerCase().replace(/\/+$/, "") || "/";
+      if (p === "/dashboard/profilo" || p.indexOf("/dashboard/profilo/") === 0) return false;
+      if (p === "/dashboard/transcript" || p.indexOf("/dashboard/transcript/") === 0) return false;
+      return p === "/dashboard" || p.indexOf("/dashboard/") === 0;
+    } catch (e) {
+      return false;
+    }
   }
 
   function isProfileContextPath() {
     try {
       var p = String(window.location.pathname || "").toLowerCase().replace(/\/+$/, "") || "/";
+      if (p === "/staff/profilo" || p.indexOf("/staff/profilo/") === 0) return true;
+      if (p === "/dashboard/profilo" || p.indexOf("/dashboard/profilo/") === 0) return true;
+      if (p === "/dashboard/transcript" || p.indexOf("/dashboard/transcript/") === 0) return true;
       if (p === "/user" || p === "/user/customize" || p === "/user/personalizza") return true;
       return /^\/users\/\d{17,22}$/.test(p);
     } catch (e) {
       return false;
     }
+  }
+
+  async function fetchDashboardMenuAccess(token) {
+    var t = String(token || "").trim();
+    if (!t) return { allowed: false, blacklisted: false };
+    try {
+      var res = await fetch(dashboardApiBase() + "/access", {
+        headers: { Authorization: "Bearer " + t },
+        cache: "no-store",
+      });
+      if (!res.ok) return { allowed: false, blacklisted: false };
+      var data = await res.json().catch(function () {
+        return {};
+      });
+      if (!data || data.ok !== true) return { allowed: false, blacklisted: false };
+      return {
+        allowed: Boolean(data.allowed),
+        blacklisted: Boolean(data.blacklisted),
+      };
+    } catch (e) {
+      return { allowed: false, blacklisted: false };
+    }
+  }
+
+  function revealDashboardMenuItem(access) {
+    var allowed = Boolean(access && access.allowed);
+    var blacklisted = Boolean(access && access.blacklisted);
+    window.__VC_DASHBOARD_MENU_ALLOWED = allowed;
+    window.__VC_DASHBOARD_MENU_BLACKLISTED = blacklisted;
+    var link = byId("discord-dashboard-link");
+    if (link) {
+      var labelEl = link.querySelector("span");
+      if (blacklisted) {
+        link.removeAttribute("hidden");
+        link.classList.add("is-blacklisted");
+        link.setAttribute("aria-disabled", "true");
+        link.setAttribute("tabindex", "-1");
+        link.removeAttribute("href");
+        link.removeAttribute("aria-current");
+        link.classList.remove("is-current");
+        if (labelEl) labelEl.textContent = i18n("auth.dashboardBlacklisted", "Blacklistato");
+        if (!link.__vcBlacklistBound) {
+          link.__vcBlacklistBound = true;
+          link.addEventListener("click", function (ev) {
+            ev.preventDefault();
+            ev.stopPropagation();
+          });
+        }
+      } else if (allowed) {
+        link.classList.remove("is-blacklisted");
+        link.removeAttribute("aria-disabled");
+        link.removeAttribute("tabindex");
+        link.setAttribute("href", dashboardPageHref());
+        if (labelEl) labelEl.textContent = i18n("auth.dashboard", "Dashboard");
+        link.removeAttribute("hidden");
+      } else {
+        link.classList.remove("is-blacklisted");
+        link.removeAttribute("aria-disabled");
+        link.removeAttribute("tabindex");
+        if (labelEl) labelEl.textContent = i18n("auth.dashboard", "Dashboard");
+        link.setAttribute("hidden", "");
+      }
+    }
+    try {
+      if (typeof window.__vcMobileNavRebuild === "function") {
+        window.__vcMobileNavRebuild();
+      }
+    } catch (eRebuild) {}
   }
 
   /**
@@ -321,7 +718,16 @@
   function startDiscordOAuthFromUserGesture(visualBtn, url) {
     var u = url || authUrl();
     if (!u) {
-      alert("Configura discordOauth.clientId in site.config.json");
+      if (window.VcDialog && typeof window.VcDialog.alert === "function") {
+        void window.VcDialog.alert({
+          title: "Configurazione mancante",
+          message: "Configura discordOauth.clientId in site.config.json",
+          danger: true,
+          icon: "fa-exclamation-triangle",
+        });
+      } else {
+        alert("Configura discordOauth.clientId in site.config.json");
+      }
       return;
     }
     try {
@@ -366,6 +772,11 @@
       window.__VC_DISCORD_PROFILE = user || null;
       window.dispatchEvent(new CustomEvent("vc-discord-profile", { detail: { user: user || null } }));
     } catch (e) {}
+    try {
+      if (typeof window.__vcMobileNavRebuild === "function") {
+        window.__vcMobileNavRebuild();
+      }
+    } catch (eRebuild) {}
   }
 
   function readOAuthLoginCount() {
@@ -436,7 +847,7 @@
       countBefore >= 1
         ? {
           id: notifId,
-          title: "Login effettuato con successo!",
+          title: i18n("notif.loginOk", "Login effettuato con successo!"),
           body: "Bentornato " + displayName + "! Sei ora connesso a " + site + ".",
           kind: "success",
           at: Date.now(),
@@ -484,11 +895,72 @@
     emitProfile(null);
   }
 
+  /** Token presente ma @me ancora in corso: nasconde Login subito (niente flash “logged out”). */
+  function renderAuthPendingShell() {
+    var loginBtns = queryDiscordLoginButtons();
+    for (var li = 0; li < loginBtns.length; li += 1) {
+      loginBtns[li].hidden = true;
+    }
+    var state = byId("discord-login-state");
+    if (!state) return;
+    state.hidden = false;
+    if (state.querySelector(".discord-login-row:not(.vc-auth-pending-shell)")) return;
+    state.innerHTML =
+      '<div class="discord-login-row vc-auth-pending-shell" aria-busy="true" title="' +
+      escAttr(i18n("auth.sessionChecking", "Verifica sessione…")) +
+      '">' +
+      '<span class="discord-avatar-clip">' +
+      '<span class="discord-avatar-img discord-avatar-img--fallback" aria-hidden="true">' +
+      '<span class="vc-ui-spinner" aria-hidden="true"></span>' +
+      "</span></span></div>";
+  }
+
   function postOAuthAccessoRedirectPath() {
     try {
       var p = String(window.location.pathname || "").replace(/\/+$/, "") || "/";
-      if (p.endsWith("/unban/accesso-richiesto")) return "/unban/";
+      if (p.endsWith("/appelli/accesso-richiesto") || p.endsWith("/unban/accesso-richiesto")) {
+        try {
+          var fromUnban = String(new URLSearchParams(window.location.search || "").get("from") || "").trim();
+          if (fromUnban) {
+            fromUnban = fromUnban.replace(/^\/unban(\/|\?|$)/i, "/appelli$1");
+          }
+          if (
+            fromUnban &&
+            fromUnban.charAt(0) === "/" &&
+            /^\/appelli(\/|$|\?)/i.test(fromUnban) &&
+            fromUnban.indexOf("//") === -1 &&
+            fromUnban.indexOf("/accesso-richiesto") === -1
+          ) {
+            return fromUnban;
+          }
+        } catch (eFromUnban) {}
+        return "/appelli/";
+      }
       if (p.endsWith("/candidature/accesso-richiesto")) return "/candidature/";
+      if (p.endsWith("/seratafilm/accesso-richiesto")) {
+        try {
+          var from = String(new URLSearchParams(window.location.search || "").get("from") || "").trim();
+          if (from && from.charAt(0) === "/" && /^\/seratafilm(\/|$)/i.test(from) && from.indexOf("//") === -1) {
+            return from;
+          }
+        } catch (eFrom) {}
+        return "/seratafilm/";
+      }
+      if (p.endsWith("/staff/accesso-richiesto")) {
+        try {
+          var fromStaff = String(new URLSearchParams(window.location.search || "").get("from") || "").trim();
+          if (
+            fromStaff &&
+            fromStaff.charAt(0) === "/" &&
+            /^\/staff(\/|$|\?)/i.test(fromStaff) &&
+            fromStaff.indexOf("//") === -1 &&
+            fromStaff.indexOf("/accesso-richiesto") === -1
+          ) {
+            return fromStaff;
+          }
+        } catch (eFromStaff) {}
+        return "/staff/";
+      }
     } catch (e) {}
     return "";
   }
@@ -514,7 +986,9 @@
     var img = avatarUrl(user);
     var label = escAttr(name);
     var href = escAttr(profileHref(user && user.id));
+    var dashHref = escAttr(dashboardPageHref());
     var isProfileCurrent = isProfileContextPath();
+    var isDashCurrent = isDashboardContextPath();
     var avatarVisual = img
       ? '<img class="discord-avatar-img" src="' +
         img +
@@ -524,9 +998,11 @@
       : '<span class="discord-avatar-img discord-avatar-img--fallback" aria-label="' +
         label +
         '"><i class="fa fa-user" aria-hidden="true"></i></span>';
-    var avatarBlock =
+    var accountMenuBlock =
       '<div class="discord-account-menu">' +
-      '<button type="button" class="discord-profile-link" aria-label="Menu account di ' +
+      '<button type="button" class="discord-profile-link" aria-label="' +
+      escAttr(i18n("auth.accountMenu", "Menu account")) +
+      " " +
       label +
       '" aria-haspopup="true">' +
       '<span class="discord-avatar-clip">' +
@@ -539,20 +1015,41 @@
       '</span><span class="discord-account-popover__name">' +
       label +
       "</span></div>" +
+      '<div class="discord-account-popover__nav" role="none">' +
       '<a class="discord-account-popover__item' +
       (isProfileCurrent ? " is-current" : "") +
       '" role="menuitem" href="' +
       href +
       '"' +
       (isProfileCurrent ? ' aria-current="page"' : "") +
-      '"><i class="fa fa-user-o" aria-hidden="true"></i><span>Vai al profilo</span></a>' +
-      '<button type="button" class="discord-account-popover__item discord-account-popover__item--danger" role="menuitem" id="discord-logout-btn"><i class="fa fa-sign-out" aria-hidden="true"></i><span>Logout</span></button>' +
-      "</div></div>";
+      '"><i class="fa fa-user-o" aria-hidden="true"></i><span>' +
+      escAttr(i18n("auth.profile", "Vai al profilo")) +
+      "</span></a>" +
+      '<a id="discord-dashboard-link" class="discord-account-popover__item' +
+      (isDashCurrent ? " is-current" : "") +
+      '" role="menuitem" href="' +
+      dashHref +
+      '"' +
+      (isDashCurrent ? ' aria-current="page"' : "") +
+      ' hidden><i class="fa fa-server" aria-hidden="true"></i><span>' +
+      escAttr(i18n("auth.dashboard", "Dashboard")) +
+      "</span></a>" +
+      "</div>" +
+      "</div>" +
+      "</div>";
+    var logoutBlock =
+      '<button type="button" class="vc-icon-btn discord-logout-btn" id="discord-logout-btn" aria-label="' +
+      escAttr(i18n("auth.logout", "Logout")) +
+      '" title="' +
+      escAttr(i18n("auth.logout", "Logout")) +
+      '"><i class="fa fa-sign-out" aria-hidden="true"></i></button>';
     state.innerHTML =
       '<div class="discord-login-row">' +
-      avatarBlock +
+      accountMenuBlock +
+      logoutBlock +
       "</div>";
     state.hidden = false;
+    ensureHeaderMenusMutex();
     var out = byId("discord-logout-btn");
     if (out) {
       out.addEventListener("click", function () {
@@ -561,6 +1058,9 @@
       });
     }
     var token = getToken();
+    fetchDashboardMenuAccess(token).then(function (allowed) {
+      revealDashboardMenuItem(allowed);
+    });
     fetchServerAvatarUrl(token).then(function (serverAvatar) {
       if (!serverAvatar) return;
       try {
@@ -685,6 +1185,12 @@
         return Promise.resolve(null);
       }
     } catch (e0) {}
+    var ac = new AbortController();
+    var tid = setTimeout(function () {
+      try {
+        ac.abort();
+      } catch (eAb) {}
+    }, 6000);
     return fetch("/webhooks/site-verify/complete", {
       method: "POST",
       headers: {
@@ -693,8 +1199,12 @@
       },
       body: JSON.stringify({ guildId: gid }),
       cache: "no-store",
+      signal: ac.signal,
     })
       .then(function (res) {
+        try {
+          clearTimeout(tid);
+        } catch (eCl) {}
         return res.json().catch(function () { return {}; }).then(function (data) {
           if (!res.ok || !data || data.ok !== true) return null;
           try {
@@ -714,6 +1224,9 @@
         });
       })
       .catch(function () {
+        try {
+          clearTimeout(tid);
+        } catch (eCl2) {}
         return null;
       });
   }
@@ -819,21 +1332,47 @@
         });
       return;
     }
+    // Cold open (es. link DM voti): niente cache sessionStorage → @me async.
+    // Mostra subito shell account così non sembra logout fino al refresh.
+    renderAuthPendingShell();
     showSessionVerifyOverlay();
     fetchMe(t)
       .then(function (user) {
+        // Sblocca subito la UI: site-verify non deve tenere lo spinner a tutto schermo.
+        hideSessionVerifyOverlay();
+        writeCachedDiscordMe(t, user);
+        renderLoggedIn(user);
+        if (freshLogin) queueLoginWelcomeNotification(user);
         return maybeCompleteSiteVerify(t).then(function () {
           return user;
         });
       })
-      .then(function (user) {
-        writeCachedDiscordMe(t, user);
-        renderLoggedIn(user);
-        if (freshLogin) queueLoginWelcomeNotification(user);
-      })
-      .catch(function () {
-        clearToken();
-        renderLoggedOut();
+      .catch(function (err) {
+        var st = err && err.status;
+        if (st === 401) {
+          clearToken();
+          renderLoggedOut();
+          return;
+        }
+        // Timeout/rete: NON cancellare il token (prima sembrava logout finché non ricaricavi).
+        forceUnlockSessionVerifyUi();
+        renderAuthPendingShell();
+        setTimeout(function () {
+          if (!getToken() || window.__VC_DISCORD_PROFILE) return;
+          fetchMe(t, 8000)
+            .then(function (user) {
+              writeCachedDiscordMe(t, user);
+              renderLoggedIn(user);
+            })
+            .catch(function (err2) {
+              if (err2 && err2.status === 401) {
+                clearToken();
+                renderLoggedOut();
+                return;
+              }
+              forceUnlockSessionVerifyUi();
+            });
+        }, 900);
       });
   }
 
@@ -845,9 +1384,21 @@
     } catch (eVis) {}
   });
 
+
+  document.addEventListener("vc:langchange", function () {
+    try {
+      var profile = window.__VC_DISCORD_PROFILE;
+      if (profile && profile.id) renderLoggedIn(profile);
+    } catch (eLang) {}
+  });
+
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", main);
+    document.addEventListener("DOMContentLoaded", function () {
+      ensureHeaderMenusMutex();
+      main();
+    });
   } else {
+    ensureHeaderMenusMutex();
     main();
   }
 })();

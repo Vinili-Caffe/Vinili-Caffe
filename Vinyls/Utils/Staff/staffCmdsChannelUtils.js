@@ -37,14 +37,23 @@ function isStaffCmdsMainChannel(channel) {
   return String(channel.id) === cmds;
 }
 
+function isPmCommandsThreadName(channel) {
+  const name = String(channel?.name || "").trim().toLowerCase();
+  return name.includes("partner manager") || name.includes("comandi partner");
+}
+
+function isHighCommandsThreadName(channel) {
+  const name = String(channel?.name || "").trim().toLowerCase();
+  return name.includes("high staff") || name.includes("comandi high");
+}
+
 function isStaffCmdsPmCommandsThreadSync(channel) {
   if (!channel || typeof channel.isThread !== "function" || !channel.isThread()) return false;
   const parentId = staffCmdsChannelId();
   if (!parentId || String(channel.parentId || "") !== parentId) return false;
   const cached = getStaffCmdsThreadIdsCache().pm;
   if (cached && String(channel.id) === String(cached)) return true;
-  const name = String(channel.name || "").trim().toLowerCase();
-  return name.includes("partner manager") || name.includes("comandi partner");
+  return isPmCommandsThreadName(channel);
 }
 
 function isHighStaffCommandsThread(channel) {
@@ -53,8 +62,7 @@ function isHighStaffCommandsThread(channel) {
   if (!parentId || String(channel.parentId || "") !== parentId) return false;
   const cached = getStaffCmdsThreadIdsCache().high;
   if (cached && String(channel.id) === String(cached)) return true;
-  const name = String(channel.name || "").trim().toLowerCase();
-  return name.includes("high staff") || name.includes("comandi high");
+  return isHighCommandsThreadName(channel);
 }
 
 async function isStaffCmdsPmCommandsThread(channel) {
@@ -62,9 +70,13 @@ async function isStaffCmdsPmCommandsThread(channel) {
   const parentId = staffCmdsChannelId();
   if (!parentId || String(channel.parentId || "") !== parentId) return false;
   const cached = getStaffCmdsThreadIdsCache().pm;
-  if (cached) return String(channel.id) === String(cached);
-  const ids = await getStaffCmdsThreadIds();
-  return String(channel.id) === String(ids.pm || "");
+  if (cached && String(channel.id) === String(cached)) return true;
+  if (isPmCommandsThreadName(channel)) return true;
+  try {
+    const ids = await getStaffCmdsThreadIds();
+    if (ids?.pm && String(channel.id) === String(ids.pm)) return true;
+  } catch (_) {}
+  return false;
 }
 
 async function isStaffCmdsHighCommandsThread(channel) {
@@ -72,9 +84,13 @@ async function isStaffCmdsHighCommandsThread(channel) {
   const parentId = staffCmdsChannelId();
   if (!parentId || String(channel.parentId || "") !== parentId) return false;
   const cached = getStaffCmdsThreadIdsCache().high;
-  if (cached) return String(channel.id) === String(cached);
-  const ids = await getStaffCmdsThreadIds();
-  return String(channel.id) === String(ids.high || "");
+  if (cached && String(channel.id) === String(cached)) return true;
+  if (isHighCommandsThreadName(channel)) return true;
+  try {
+    const ids = await getStaffCmdsThreadIds();
+    if (ids?.high && String(channel.id) === String(ids.high)) return true;
+  } catch (_) {}
+  return false;
 }
 
 async function isStaffCmdsManagedCommandsThread(channel) {

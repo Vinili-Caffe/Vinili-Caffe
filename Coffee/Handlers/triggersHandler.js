@@ -48,7 +48,8 @@ module.exports = (client) => {
       }
     }
 
-    if (statusMap.size > 0) {
+    const LOG_TRIGGERS = String(process.env.LOG_TRIGGERS || process.env.LOG_COMMANDS || "0") === "1";
+    if (statusMap.size > 0 && LOG_TRIGGERS) {
       const table = new ascii().setHeading("Folder", "File", "Status");
       for (const [rel, status] of Array.from(statusMap.entries()).sort((a, b) => a[0].localeCompare(b[0]))) {
         const folder = path.dirname(rel).replace(/\\/g, "/");

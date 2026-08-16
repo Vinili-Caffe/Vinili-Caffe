@@ -792,7 +792,10 @@ async function applyPunishment(member, reasons) {
       `<:member_role_icon:1330530086792728618> **JoinRaid Filter:** ${reasons.map((x) => x.label).join(", ") || "N/A"}`,
       `<:VC_reason:1478517122929004544> **Member:** ${member.user} [\`${member.id}\`]`,
       `<:VC_BanHammer:1482534474502897795> **Action:** ${appliedAction}${punished ? "" : " (fallback)"}`,
-      `<:VC_PinkQuestionMark:1471892611026391306> **Can Ban:** ${canBan ? "Yes" : "No"} | **Can Kick:** ${canKick ? "Yes" : "No"} | **Can Timeout:** ${canTimeout ? "Yes" : "No"} | **Can Quarantine:** ${canQuarantine ? "Yes" : "No"}`,
+      `<:VC_PinkQuestionMark:1471892611026391306> **Can Ban:** ${canBan ? "Yes" : "No"}`,
+      `**Can Kick:** ${canKick ? "Yes" : "No"}`,
+      `**Can Timeout:** ${canTimeout ? "Yes" : "No"}`,
+      `**Can Quarantine:** ${canQuarantine ? "Yes" : "No"}`,
       appliedAction === "ban"
         ? `${ARROW} **Duration:** ${Math.round(
           JOIN_RAID_CONFIG.raidDurationMs / 60_000,

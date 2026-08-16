@@ -192,6 +192,16 @@
     return document.getElementById(id);
   }
 
+  function t(key, fallback) {
+    try {
+      if (window.VcI18n) {
+        var v = window.VcI18n.t(key);
+        if (v && v !== key) return v;
+      }
+    } catch (e) {}
+    return fallback;
+  }
+
   function hydratePartnerManagerRewardIntro(root) {
     if (!root || !window.VCPartnerManagerRewards) return;
     var tiers = root.querySelector("#vc-pm-reward-tiers");
@@ -470,18 +480,27 @@
     var hm = String((h && h.message) || "").trim();
     var pm = String((p && p.message) || "").trim();
     if (hc === "already_role" && pc === "already_role") {
-      return "Sei già Helper e Partner Manager: non puoi inviare nuove candidature da questo modulo.";
+      return t(
+        "cand.eligibility.alreadyBoth",
+        "Sei già Helper e Partner Manager: non puoi inviare nuove candidature da questo modulo.",
+      );
     }
     if (hc === "helper_blocked" && pc === "already_role") {
-      return "Sei già Partner Manager e, con i ruoli che hai sul server, non puoi inviare una candidatura Helper: da qui non risultano candidature possibili.";
+      return t(
+        "cand.eligibility.pmBlocksHelper",
+        "Sei già Partner Manager e, con i ruoli che hai sul server, non puoi inviare una candidatura Helper: da qui non risultano candidature possibili.",
+      );
     }
     if (hm && pm && hm === pm) return hm;
     if (hm && pm) {
-      return "Non puoi inviare candidature Helper né candidarti come Partner Manager con questo account.";
+      return t(
+        "cand.eligibility.nonePossible",
+        "Non puoi inviare candidature Helper né candidarti come Partner Manager con questo account.",
+      );
     }
     if (hm) return hm;
     if (pm) return pm;
-    return "Non puoi inviare candidature con questo account.";
+    return t("cand.eligibility.cannotSubmit", "Non puoi inviare candidature con questo account.");
   }
 
   function syncTabDisabledState() {
@@ -577,7 +596,10 @@
       if (currentUser && eligibilityApiUrl()) {
         showGateMessage(
           "amber",
-          "Non è stato possibile verificare se puoi inviare la candidatura (API non raggiungibile). Ricarica la pagina o riprova tra poco.",
+          t(
+            "cand.eligibility.checkFailed",
+            "Non è stato possibile verificare se puoi inviare la candidatura (API non raggiungibile). Ricarica la pagina o riprova tra poco.",
+          ),
         );
         setFormInnerAndModuloTitleHidden(inner, false);
         syncTabDisabledState();
@@ -596,7 +618,7 @@
     if (hasGlobalBlock(d)) {
       showGateMessage(
         "amber",
-        globalBlockMessage(d) || "Non puoi usare il modulo candidature con questo account.",
+        globalBlockMessage(d) || t("cand.eligibility.blocked", "Non puoi usare il modulo candidature con questo account."),
       );
       setFormInnerAndModuloTitleHidden(inner, false);
       syncTabDisabledState();
@@ -637,7 +659,10 @@
         showGateMessage(
           "slate",
           (row && row.message) ||
-          "Per il ruolo selezionato non puoi inviare una candidatura con questo account.",
+            t(
+              "cand.eligibility.roleBlocked",
+              "Per il ruolo selezionato non puoi inviare una candidatura con questo account.",
+            ),
         );
       }
       renderFields();
@@ -686,9 +711,9 @@
   function clientSubmitBlockMessage() {
     var d = eligibilityState.data;
     if (!d || d.ok !== true) return "";
-    if (hasGlobalBlock(d)) return globalBlockMessage(d) || "Blocco candidature.";
+    if (hasGlobalBlock(d)) return globalBlockMessage(d) || t("cand.eligibility.blockShort", "Blocco candidature.");
     var row = rowForActiveKind(d);
-    if (row && row.eligible === false) return row.message || "Non idoneo per questo ruolo.";
+    if (row && row.eligible === false) return row.message || t("cand.eligibility.notEligible", "Non idoneo per questo ruolo.");
     return "";
   }
 
@@ -698,12 +723,18 @@
     if (!user) {
       setShuffleText(
         el,
-        "Accedi con Discord (in alto a destra) per compilare il modulo: l’ID viene preso dal tuo profilo e non è modificabile.",
+        t(
+          "cand.loginRequired",
+          "Accedi con Discord (in alto a destra) per compilare il modulo: l’ID viene preso dal tuo profilo e non è modificabile.",
+        ),
       );
       return;
     }
     var name = String(user.username || "utente").trim() || "utente";
-    setShuffleText(el, "Benvenuto " + name + "! Scegli il ruolo e compila tutti i campi.");
+    setShuffleText(
+      el,
+      t("cand.welcomeUser", "Benvenuto {name}! Scegli il ruolo e compila tutti i campi.").replace(/\{name\}/g, name),
+    );
   }
 
   function showFormWrap(show) {
@@ -823,9 +854,118 @@
         root.appendChild(wrap);
       }
     });
+    restoreCandidatureDraft();
+  }
+
+  function candidatureDraftKey(kind) {
+    return "candidature:" + (kind === "partnermanager" ? "partnermanager" : "helper");
+  }
+
+  function collectDraftAnswers() {
+    var cfg = APPLICATIONS[activeKind];
+    var fieldsRoot = byId("vc-candidature-fields");
+    var out = {};
+    if (!cfg || !fieldsRoot) return out;
+    cfg.questions.forEach(function (q) {
+      if (q.id === "id_discord") return;
+      if (isMultiChoiceQuestion(q)) {
+        var pickedMulti = fieldsRoot.querySelectorAll(
+          'input[type="checkbox"][data-qid="' + q.id + '"]:checked',
+        );
+        var multiVals = [];
+        for (var mvi = 0; mvi < pickedMulti.length; mvi++) {
+          var mv = String(pickedMulti[mvi].value || "").trim();
+          if (mv) multiVals.push(mv);
+        }
+        out[q.id] = multiVals;
+        return;
+      }
+      if (isSingleChoiceQuestion(q)) {
+        var picked = fieldsRoot.querySelector(
+          'input[type="radio"][name="vc-cf-' + q.id + '"]:checked',
+        );
+        out[q.id] = picked ? String(picked.value || "").trim() : "";
+        return;
+      }
+      var el = byId("vc-cf-" + q.id);
+      if (!el) return;
+      out[q.id] = String(el.value || "");
+    });
+    return out;
+  }
+
+  function applyDraftAnswers(draft) {
+    if (!draft || typeof draft !== "object") return;
+    var cfg = APPLICATIONS[activeKind];
+    var fieldsRoot = byId("vc-candidature-fields");
+    if (!cfg || !fieldsRoot) return;
+    cfg.questions.forEach(function (q) {
+      if (q.id === "id_discord") return;
+      var saved = draft[q.id];
+      if (saved == null || saved === "") return;
+      if (isMultiChoiceQuestion(q)) {
+        var vals = Array.isArray(saved)
+          ? saved
+          : String(saved)
+              .split(/\n+/)
+              .map(function (s) {
+                return String(s || "")
+                  .replace(/^•\s*/, "")
+                  .trim();
+              })
+              .filter(Boolean);
+        var boxes = fieldsRoot.querySelectorAll('input[type="checkbox"][data-qid="' + q.id + '"]');
+        for (var bi = 0; bi < boxes.length; bi++) {
+          boxes[bi].checked = vals.indexOf(String(boxes[bi].value || "")) >= 0;
+        }
+        return;
+      }
+      if (isSingleChoiceQuestion(q)) {
+        var radios = fieldsRoot.querySelectorAll('input[type="radio"][name="vc-cf-' + q.id + '"]');
+        for (var ri = 0; ri < radios.length; ri++) {
+          if (String(radios[ri].value || "") === String(saved)) {
+            radios[ri].checked = true;
+            break;
+          }
+        }
+        return;
+      }
+      var el = byId("vc-cf-" + q.id);
+      if (el && !el.readOnly) el.value = String(saved);
+    });
+  }
+
+  function persistCandidatureDraft() {
+    if (!window.VcFormDrafts || !currentUser) return;
+    window.VcFormDrafts.save(candidatureDraftKey(activeKind), collectDraftAnswers());
+    window.VcFormDrafts.save("candidature:ui", { kind: activeKind });
+  }
+
+  function restoreCandidatureDraft() {
+    if (!window.VcFormDrafts || !currentUser) return;
+    applyDraftAnswers(window.VcFormDrafts.load(candidatureDraftKey(activeKind)));
+  }
+
+  function clearCandidatureDraft(kind) {
+    if (!window.VcFormDrafts) return;
+    window.VcFormDrafts.clear(candidatureDraftKey(kind || activeKind));
+  }
+
+  function wireCandidatureDraftPersistence() {
+    var wrap = byId("vc-candidature-form-wrap");
+    if (!wrap || wrap._vcDraftBound) return;
+    var persist =
+      window.VcFormDrafts && typeof window.VcFormDrafts.debounce === "function"
+        ? window.VcFormDrafts.debounce(persistCandidatureDraft, 200)
+        : persistCandidatureDraft;
+    wrap.addEventListener("input", persist);
+    wrap.addEventListener("change", persist);
+    window.addEventListener("beforeunload", persistCandidatureDraft);
+    wrap._vcDraftBound = true;
   }
 
   function setKind(kind) {
+    persistCandidatureDraft();
     activeKind = kind === "partnermanager" ? "partnermanager" : "helper";
     var b1 = byId("vc-candidature-tab-helper");
     var b2 = byId("vc-candidature-tab-pm");
@@ -833,6 +973,7 @@
     if (b2) b2.classList.toggle("vc-candidature-tab--on", activeKind === "partnermanager");
     renderFields();
     syncEligibilityToDom();
+    persistCandidatureDraft();
   }
 
   function collectAnswers() {
@@ -907,11 +1048,15 @@
     if (loading) {
       sub.disabled = true;
       sub.classList.add("vc-candidature-submit--loading");
-      sub.innerHTML = '<span class="vc-submit-spinner" aria-hidden="true"></span><span>Invio in corso...</span>';
+      sub.innerHTML =
+        '<span class="vc-submit-spinner" aria-hidden="true"></span><span>' +
+        t("cand.submitting", "Invio in corso...") +
+        "</span>";
       return;
     }
     sub.classList.remove("vc-candidature-submit--loading");
-    var fallback = '<i class="fa fa-paper-plane-o" aria-hidden="true"></i> Invia candidatura';
+    var fallback =
+      '<i class="fa fa-paper-plane-o" aria-hidden="true"></i> ' + t("cand.submit", "Invia candidatura");
     sub.innerHTML = sub.getAttribute("data-default-html") || fallback;
     sub.disabled = false;
   }
@@ -940,11 +1085,17 @@
   }
 
   function applyLocalCooldown(type, untilMs) {
-    var t = type === "partnermanager" ? "partnermanager" : "helper";
+    var kind = type === "partnermanager" ? "partnermanager" : "helper";
     var untilText = formatCooldownUntil(untilMs);
     var msg = untilText
-      ? "Hai già inviato una candidatura di questo tipo: attendi fino al " + untilText + "."
-      : "Hai già inviato una candidatura di questo tipo di recente: attendi il cooldown di 15 giorni.";
+      ? t(
+          "cand.eligibility.cooldownUntil",
+          "Hai già inviato una candidatura di questo tipo: attendi fino al {date}.",
+        ).replace(/\{date\}/g, untilText)
+      : t(
+          "cand.eligibility.cooldownGeneric",
+          "Hai già inviato una candidatura di questo tipo di recente: attendi il cooldown di 15 giorni.",
+        );
     var base =
       eligibilityState && eligibilityState.data && eligibilityState.data.ok === true
         ? eligibilityState.data
@@ -955,7 +1106,7 @@
           helper: { eligible: true, code: "", message: "" },
           partnermanager: { eligible: true, code: "", message: "" },
         };
-    base[t] = {
+    base[kind] = {
       eligible: false,
       code: "cooldown",
       message: msg,
@@ -966,10 +1117,27 @@
   }
 
   async function submitCandidature() {
+    function notify(message, opts) {
+      var text = String(message || "").trim();
+      if (!text) return Promise.resolve();
+      if (window.VcDialog && typeof window.VcDialog.alert === "function") {
+        return window.VcDialog.alert({
+          title: (opts && opts.title) || t("cand.alertTitle", "Avviso"),
+          message: text,
+          okLabel: "OK",
+          danger: Boolean(opts && opts.danger),
+          icon: (opts && opts.icon) || "fa-info-circle",
+        });
+      }
+      window.alert(text);
+      return Promise.resolve();
+    }
+
     var api = resolvedSubmitApiUrl();
     if (!api) {
-      alert(
+      await notify(
         "Manca l’URL API candidature: in site.config.json imposta candidatureSubmitApiUrl (produzione) e, per provare da localhost, anche candidatureSubmitApiUrlLocal (stessa base URL del bot, es. http://127.0.0.1:3000/webhooks/site-candidature). Poi rifai il build del sito.",
+        { danger: true },
       );
       return;
     }
@@ -979,12 +1147,12 @@
     }
     var token = getToken();
     if (!token) {
-      alert("Sessione scaduta: effettua di nuovo il login.");
+      await notify(t("cand.error.session", "Sessione scaduta: effettua di nuovo il login."));
       return;
     }
     var blockMsg = clientSubmitBlockMessage();
     if (blockMsg) {
-      alert(blockMsg);
+      await notify(blockMsg);
       return;
     }
     var ans = collectAnswers();
@@ -992,7 +1160,13 @@
     if (missingQ) {
       var fieldEl = validationFocusControlForQuestion(missingQ.id);
       if (window.vcFieldValidationTip) window.vcFieldValidationTip.show(fieldEl);
-      else alert("Compila tutti i campi obbligatori.\n\nManca: " + (missingQ.text || missingQ.id));
+      else {
+        await notify(
+          t("cand.error.fillRequired", "Compila tutti i campi obbligatori.") +
+            "\n\nManca: " +
+            (missingQ.text || missingQ.id),
+        );
+      }
       return;
     }
     setSubmitSuccessVisible(false);
@@ -1017,7 +1191,10 @@
           redirectToAccessRequired();
           return;
         }
-        var baseMsg = data.message || data.error || "Invio non riuscito (" + res.status + ").";
+        var baseMsg =
+          data.message ||
+          data.error ||
+          t("cand.error.sendFailed", "Invio non riuscito ({status}).").replace(/\{status\}/g, String(res.status));
         if (data.field) {
           var cfgErr = APPLICATIONS[activeKind];
           if (cfgErr && cfgErr.questions) {
@@ -1042,10 +1219,11 @@
             (origin || "?") +
             ".";
         }
-        alert(baseMsg + hint404);
+        await notify(baseMsg + hint404, { danger: true });
         return;
       }
       setSubmitSuccessVisible(true);
+      clearCandidatureDraft(activeKind);
       var okBox = byId("vc-candidature-submit-success");
       if (okBox && typeof okBox.scrollIntoView === "function") {
         try {
@@ -1060,8 +1238,9 @@
         pageOrigin = window.location.origin;
       } catch (e2) { }
       var statusBase = String(api || "").replace(/\/webhooks\/site-candidature\/?$/i, "");
-      alert(
-        "Impossibile contattare l’API (" +
+      await notify(
+        t("cand.error.network", "Impossibile contattare l’API. Riprova più tardi.") +
+        " (" +
         String(api || "") +
         "). Origine: " +
         (pageOrigin || "?") +
@@ -1071,6 +1250,7 @@
         statusBase +
         "/webhooks/status (deve dare JSON). Ricarica con Ctrl+F5 dopo ogni build." +
         hintLocalApiHostnameMismatch(api),
+        { danger: true },
       );
       if (typeof console !== "undefined" && console.warn) {
         console.warn("[candidatura] POST fallita", api, e && e.message);
@@ -1096,6 +1276,17 @@
   }
 
   function init() {
+    if (window.VcFormDrafts) {
+      var ui = window.VcFormDrafts.load("candidature:ui");
+      if (ui && (ui.kind === "helper" || ui.kind === "partnermanager")) {
+        activeKind = ui.kind;
+      }
+    }
+    var b1Init = byId("vc-candidature-tab-helper");
+    var b2Init = byId("vc-candidature-tab-pm");
+    if (b1Init) b1Init.classList.toggle("vc-candidature-tab--on", activeKind === "helper");
+    if (b2Init) b2Init.classList.toggle("vc-candidature-tab--on", activeKind === "partnermanager");
+    wireCandidatureDraftPersistence();
     var tabH = byId("vc-candidature-tab-helper");
     var tabPm = byId("vc-candidature-tab-pm");
     var sub = byId("vc-candidature-submit");

@@ -1,10 +1,33 @@
 (function () {
   var ACCESS_TOKEN_KEY = "vc_discord_access_token";
   var ACCESS_EXPIRES_KEY = "vc_discord_expires_at";
-  var ACCESS_REQUIRED_PATH = "/unban/accesso-richiesto/";
+  var ACCESS_REQUIRED_PATH = "/appelli/accesso-richiesto/";
 
   function byId(id) {
     return document.getElementById(id);
+  }
+
+  function t(key, vars) {
+    if (window.VcI18n && typeof window.VcI18n.t === "function") {
+      var v = window.VcI18n.t(key, vars);
+      if (v && v !== key) return v;
+    }
+    var fallbacks = {
+      "unban.welcomeBack": "Benvenuto {name}.",
+      "unban.welcomeDefault": "Accedi con Discord per inviare la richiesta.",
+      "unban.notBanned": "Non sei bannato",
+      "unban.canSubmit": "Puoi inviare la richiesta unban.",
+      "unban.alreadySubmitted": "Richiesta già inviata. Prossimo invio disponibile: {date}",
+      "unban.checkError": "Impossibile verificare lo stato unban. Riprova più tardi.",
+      "unban.submitting": "Invio in corso...",
+      "unban.userFallback": "utente",
+      "unban.statusLoading": "Caricamento stato...",
+    };
+    var raw = fallbacks[key] || key;
+    if (!vars || typeof vars !== "object") return raw;
+    return String(raw).replace(/\{(\w+)\}/g, function (_, k) {
+      return vars[k] != null ? String(vars[k]) : "{" + k + "}";
+    });
   }
 
   function setShuffleText(el, finalText) {
@@ -67,7 +90,11 @@
     return fetch("https://discord.com/api/v10/users/@me", {
       headers: { Authorization: "Bearer " + token },
     }).then(function (r) {
-      if (!r.ok) throw new Error(String(r.status));
+      if (!r.ok) {
+        var err = new Error(String(r.status));
+        err.status = r.status;
+        throw err;
+      }
       return r.json();
     });
   }
@@ -114,7 +141,7 @@
     try {
       path = String(window.location.pathname || "");
     } catch (e) {}
-    if (path.indexOf("/unban/accesso-richiesto") !== -1) return;
+    if (path.indexOf("/appelli/accesso-richiesto") !== -1 || path.indexOf("/unban/accesso-richiesto") !== -1) return;
     var dest = accessRequiredUrl();
     try {
       window.location.replace(dest);
@@ -139,7 +166,7 @@
     if (loading) {
       btn.disabled = true;
       btn.classList.add("vc-candidature-submit--loading");
-      btn.innerHTML = '<span class="vc-submit-spinner" aria-hidden="true"></span><span>Invio in corso...</span>';
+      btn.innerHTML = '<span class="vc-submit-spinner" aria-hidden="true"></span><span>' + t("unban.submitting") + "</span>";
       return;
     }
     btn.disabled = false;
@@ -172,7 +199,8 @@
     var ts = Number(ms || 0);
     if (!ts || !isFinite(ts) || ts <= 0) return "";
     try {
-      return new Date(ts).toLocaleString("it-IT", {
+      var lang = window.VcI18n && typeof window.VcI18n.getLang === "function" ? window.VcI18n.getLang() : "it";
+      return new Date(ts).toLocaleString(lang === "en" ? "en-GB" : "it-IT", {
         timeZone: "Europe/Rome",
         year: "numeric",
         month: "2-digit",
@@ -204,23 +232,44 @@
       if (!res.ok || !data.ok) return null;
       lastEligibility = data;
       if (!data.is_banned) {
-        setStatus("Non sei bannato", true);
+        setStatus(t("unban.notBanned"), true);
         toggleForm(false);
         return data;
       }
       if (data.cooldown_until_ms) {
-        setStatus("Richiesta già inviata. Prossimo invio disponibile: " + formatUntil(data.cooldown_until_ms), false);
+        setStatus(t("unban.alreadySubmitted", { date: formatUntil(data.cooldown_until_ms) }), false);
         toggleForm(false);
         return data;
       }
-      setStatus("Puoi inviare la richiesta unban.", true);
+      setStatus(t("unban.canSubmit"), true);
       toggleForm(true);
       return data;
     } catch (e2) {
-      setStatus("Impossibile verificare lo stato unban. Riprova più tardi.", false);
+      setStatus(t("unban.checkError"), false);
       toggleForm(false);
       return null;
     }
+  }
+
+  function notify(message, opts) {
+    var text = String(message || "").trim();
+    if (!text) return Promise.resolve();
+    if (window.VcDialog && typeof window.VcDialog.alert === "function") {
+      return window.VcDialog.alert(
+        Object.assign(
+          {
+            title: (opts && opts.title) || t("unban.alertTitle", "Avviso"),
+            message: text,
+            okLabel: (opts && opts.okLabel) || "OK",
+            danger: Boolean(opts && opts.danger),
+            icon: (opts && opts.icon) || "fa-info-circle",
+          },
+          opts || {},
+        ),
+      );
+    }
+    window.alert(text);
+    return Promise.resolve();
   }
 
   async function submitUnban() {
@@ -231,7 +280,7 @@
     }
     var api = resolvedSubmitApiUrl();
     if (!api) {
-      alert("API unban non configurata.");
+      await notify(t("unban.apiNotConfigured"));
       return;
     }
     if (!lastEligibility || !lastEligibility.is_banned || lastEligibility.cooldown_until_ms) {
@@ -241,22 +290,22 @@
     var form = readForm();
     if (!form.reason) {
       if (window.vcFieldValidationTip) window.vcFieldValidationTip.show(byId("unban-reason"));
-      else alert("Compila i campi obbligatori.");
+      else await notify(t("unban.fillRequired"));
       return;
     }
     if (!form.apology) {
       if (window.vcFieldValidationTip) window.vcFieldValidationTip.show(byId("unban-apology"));
-      else alert("Compila i campi obbligatori.");
+      else await notify(t("unban.fillRequired"));
       return;
     }
     if (!form.acceptedRules) {
       if (window.vcFieldValidationTip) {
         window.vcFieldValidationTip.show(
           byId("unban-rules-accepted"),
-          "Accetta le regole del server per inviare la richiesta.",
+          t("unban.acceptRulesTip"),
         );
       } else {
-        alert("Devi accettare le regole del server per inviare la richiesta.");
+        await notify(t("unban.acceptRulesAlert"));
       }
       return;
     }
@@ -287,13 +336,19 @@
           redirectToAccessRequired();
           return;
         }
-        alert(data.message || "Invio non riuscito.");
+        await notify(data.message || t("unban.sendFailed"), { danger: true });
         return;
       }
       setSuccess(true);
+      if (window.VcFormDrafts) {
+        window.VcFormDrafts.clear("unban:unban-reason");
+        window.VcFormDrafts.clear("unban:unban-apology");
+        window.VcFormDrafts.clear("unban:unban-extra");
+        window.VcFormDrafts.clear("unban:rules");
+      }
       await refreshEligibility();
     } catch (e3) {
-      alert("Errore di rete durante l'invio.");
+      await notify(t("unban.networkError"), { danger: true });
     } finally {
       setSubmitLoading(false);
     }
@@ -308,13 +363,14 @@
       var welcome = byId("unban-welcome");
       if (welcome) {
         if (!currentUser) {
-          setShuffleText(welcome, "Accedi con Discord per inviare la richiesta.");
+          setShuffleText(welcome, t("unban.welcomeDefault"));
         } else {
-          setShuffleText(welcome, "Benvenuto " + String(currentUser.username || "utente") + ".");
+          setShuffleText(welcome, t("unban.welcomeBack", { name: String(currentUser.username || t("unban.userFallback")) }));
         }
       }
       if (!currentUser) {
-        redirectToAccessRequired();
+        // Solo se la sessione non c’è davvero: un emit null temporaneo non deve far bounce.
+        if (!getToken()) redirectToAccessRequired();
         return;
       }
       refreshEligibility();
@@ -324,24 +380,45 @@
       return;
     }
 
-    var t = getToken();
-    if (!t) {
+    var accessToken = getToken();
+    if (!accessToken) {
       redirectToAccessRequired();
       return;
     }
-    fetchMe(t)
+    fetchMe(accessToken)
       .then(function (u) {
         currentUser = u;
+        var welcome = byId("unban-welcome");
+        if (welcome && currentUser) {
+          setShuffleText(welcome, t("unban.welcomeBack", { name: String(currentUser.username || t("unban.userFallback")) }));
+        }
         refreshEligibility();
       })
-      .catch(function () {
-        redirectToAccessRequired();
+      .catch(function (err) {
+        var status = err && err.status;
+        if (status === 401 || !getToken()) {
+          redirectToAccessRequired();
+        }
       });
   }
 
+  function bindUnbanDraftFields() {
+    if (!window.VcFormDrafts) return;
+    ["unban-reason", "unban-apology", "unban-extra"].forEach(function (id) {
+      var el = byId(id);
+      if (el) window.VcFormDrafts.bindField(el, "unban:" + id);
+    });
+    var rules = byId("unban-rules-accepted");
+    if (rules) window.VcFormDrafts.bindField(rules, "unban:rules");
+  }
+
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init);
+    document.addEventListener("DOMContentLoaded", function () {
+      bindUnbanDraftFields();
+      init();
+    });
   } else {
+    bindUnbanDraftFields();
     init();
   }
 })();

@@ -1,7 +1,6 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const { isValidGuildUserId } = require("../DB/validateWriteIds");
-
 const TIME_ZONE = "Europe/Rome";
 const TARGET_WEEKDAY = 6;
 const PANEL_PREFIX = "staff_profile_panel";
@@ -39,6 +38,45 @@ function toDateKey(year, month, day) {
   return `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
+const ATTENDANCE_DEADLINE_HOUR = 20;
+const ATTENDANCE_DEADLINE_MINUTE = 45;
+
+function getRomeOffsetMs(utcDate) {
+  const dtf = new Intl.DateTimeFormat("en-US", {
+    timeZone: TIME_ZONE,
+    timeZoneName: "shortOffset",
+    hour: "2-digit",
+  });
+  const zoneName = dtf.formatToParts(utcDate).find((part) => part.type === "timeZoneName")?.value;
+  const match = String(zoneName || "GMT+0").match(/^GMT([+-])(\d{1,2})(?::?(\d{2}))?$/i);
+  if (!match) return 0;
+  const sign = match[1] === "-" ? -1 : 1;
+  const hours = Number(match[2] || 0);
+  const minutes = Number(match[3] || 0);
+  return sign * (hours * 60 + minutes) * 60 * 1000;
+}
+
+function createUtcFromRomeLocal(year, month, day, hour, minute) {
+  const baseUtcMs = Date.UTC(year, month - 1, day, hour, minute, 0, 0);
+  const firstOffsetMs = getRomeOffsetMs(new Date(baseUtcMs));
+  let utcMs = baseUtcMs - firstOffsetMs;
+  const secondOffsetMs = getRomeOffsetMs(new Date(utcMs));
+  if (secondOffsetMs !== firstOffsetMs) utcMs = baseUtcMs - secondOffsetMs;
+  return utcMs;
+}
+
+function getSerataFilmAttendanceDeadlineMs(saturdayKey) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(saturdayKey || "").trim());
+  if (!m) return 0;
+  return createUtcFromRomeLocal(
+    Number(m[1]),
+    Number(m[2]),
+    Number(m[3]),
+    ATTENDANCE_DEADLINE_HOUR,
+    ATTENDANCE_DEADLINE_MINUTE,
+  );
+}
+
 function getRomeSaturdayKeyForWeek(date = new Date()) {
   const parts = getRomeParts(date);
   const utcDate = Date.UTC(parts.year, parts.month - 1, parts.day);
@@ -53,9 +91,8 @@ function getSerataFilmSaturdayKeyForSession(session) {
 }
 
 function canEditSerataFilmAttendance(now = new Date(), saturdayKey = getRomeSaturdayKeyForWeek(now)) {
-  const parts = getRomeParts(now);
-  const todayKey = toDateKey(parts.year, parts.month, parts.day);
-  return todayKey < String(saturdayKey || "");
+  const deadlineMs = getSerataFilmAttendanceDeadlineMs(saturdayKey);
+  return Number.isFinite(deadlineMs) && deadlineMs > 0 && now.getTime() < deadlineMs;
 }
 
 function resolveSerataFilmAttendanceForWeek(staff, now = new Date()) {
@@ -85,7 +122,7 @@ function buildSerataFilmAttendanceDescriptionLine(state, isSelfView = false) {
     `<a:VC_Calendar:1482706208149475358> **Serata film:** Presenza prevista ${status}`,
   ];
   if (isSelfView && state?.editable) {
-    lines.push("_Puoi segnalare l'assenza fino a sabato 00:00 (ora di Roma)._");
+    lines.push("_Puoi segnalare l'assenza fino alle 20:45 di sabato._");
   }
   return lines.join("\n");
 }

@@ -1,25 +1,22 @@
 const { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const { buildImageButtonPayload } = require("./guiPanelPayload");
-const { formatCurrency } = require("../../Services/Community/serverWalletService");
-const { economyConfig, payBlackjackWin, playBlackjackBet } = require("../../Services/Community/activeEconomyService");
+const { formatEconomyAmount, formatEconomyAmountShort } = require("./economyDisplayHelpers");
+const { buildBetAmountButton, betBounds, clampBetAmount } = require("./economyBetModal");
+const { economyConfig, payBlackjackWin, playBlackjackBet, refundEconomyStake } = require("../../Services/Community/activeEconomyService");
+const { markSessionStakeCooldown, sessionSpendOptions } = require("./economyCommandHelpers");
+const { createPersistedGuiSessionApi, SESSION_DB_TTL_MS } = require("../../Services/Community/economyGuiSessionStore");
 const { compareOutcome, dealerShouldHit, drawCard, freshShoe, handLabel, handValue, isNaturalBlackjack, payoutMultiplier } = require("./blackjackEngine");
+const { runEconomyRender } = require("../../../shared/render/economyRenderQueue");
 const PREFIX = "blackjack_gui";
-const SESSION_TTL_MS = 10 * 60 * 1000;
-const sessions = new Map();
+const SESSION_TTL_MS = SESSION_DB_TTL_MS;
+const { setSession, getSession, deleteSession } = createPersistedGuiSessionApi("blackjack", { ttlMs: SESSION_TTL_MS });
 
 function now() {
   return Date.now();
 }
 
-function sessionKey(messageId) {
-  return String(messageId || "").trim();
-}
-
-function clampBet(value, cfg) {
-  const min = Math.max(1, Math.floor(Number(cfg?.minBet) || 1));
-  const max = Math.max(min, Math.floor(Number(cfg?.maxBet) || min));
-  const n = Math.floor(Number(value) || min);
-  return Math.max(min, Math.min(max, n));
+function clampBet(value, cfg, balance = null) {
+  return clampBetAmount(value, cfg, balance);
 }
 
 function betStep(cfg) {
@@ -45,25 +42,6 @@ function makeSession({ ownerId, guildId, bet, cfg }) {
   };
 }
 
-function setSession(messageId, session) {
-  sessions.set(sessionKey(messageId), { ...session, updatedAt: now() });
-}
-
-function getSession(messageId) {
-  const key = sessionKey(messageId);
-  const cached = sessions.get(key);
-  if (!cached) return null;
-  if (now() - Number(cached.updatedAt || cached.createdAt || 0) > SESSION_TTL_MS) {
-    sessions.delete(key);
-    return null;
-  }
-  return cached;
-}
-
-function deleteSession(messageId) {
-  sessions.delete(sessionKey(messageId));
-}
-
 function controlId(action, ownerId) {
   return `${PREFIX}:${action}:${ownerId}`;
 }
@@ -82,16 +60,22 @@ function totalWager(session) {
   return Math.max(0, Math.floor(Number(session.totalWager) || session.bet * (session.doubled ? 2 : 1)));
 }
 
-function buildRows(session, cfg, panelClosed = false) {
+function displayBet(session) {
+  // In gioco: stake della mano. Idle/done: puntata impostata per la prossima.
+  if (session.phase === "playing" || session.phase === "dealer") return totalWager(session);
+  return Math.max(0, Math.floor(Number(session.bet) || 0));
+}
+
+function buildRows(session, cfg, panelClosed = false, balance = null) {
   const ownerId = session.ownerId;
   const step = betStep(cfg);
-  const min = Math.max(1, Math.floor(Number(cfg?.minBet) || 1));
-  const max = Math.max(min, Math.floor(Number(cfg?.maxBet) || min));
+  const { min, max } = betBounds(cfg, balance);
   const canConfigure = session.phase === "idle" || session.phase === "done";
   const playing = session.phase === "playing";
   const locked = Boolean(panelClosed);
   const rowBet = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId(controlId("minus", ownerId)).setLabel(`-${step}`).setEmoji("➖").setStyle(ButtonStyle.Secondary).setDisabled(locked || !canConfigure || session.bet <= min),
+    buildBetAmountButton(controlId("bet", ownerId), { disabled: locked || !canConfigure }),
     new ButtonBuilder().setCustomId(controlId("plus", ownerId)).setLabel(`+${step}`).setEmoji("➕").setStyle(ButtonStyle.Secondary).setDisabled(locked || !canConfigure || session.bet >= max),
     new ButtonBuilder().setCustomId(controlId("deal", ownerId)).setLabel(session.phase === "done" ? "Nuova mano" : "Distribuisci").setEmoji("🃏").setStyle(ButtonStyle.Success).setDisabled(locked || !canConfigure),
     new ButtonBuilder().setCustomId(controlId("close", ownerId)).setLabel("Chiudi").setEmoji("<a:VC_Cross:1482532424570376253>").setStyle(ButtonStyle.Danger).setDisabled(locked),
@@ -112,16 +96,17 @@ async function renderPanel(session, cfg) {
   const hideDealerHole = session.hideDealerHole && session.phase !== "done";
   let resultLabel = "";
   if (session.phase === "done" && last) {
-    if (last.outcome === "blackjack") resultLabel = `Blackjack! +${formatCurrency("caffe",last.payout)}`;
-    else if (last.outcome === "win") resultLabel = `Vittoria +${formatCurrency("caffe",last.payout)}`;
-    else if (last.outcome === "push") resultLabel = `Pareggio ${formatCurrency("caffe",last.payout)}`;
+    if (last.outcome === "blackjack") resultLabel = `Blackjack! +${formatEconomyAmountShort(last.payout)}`;
+    else if (last.outcome === "win") resultLabel = `Vittoria +${formatEconomyAmountShort(last.payout)}`;
+    else if (last.outcome === "push") resultLabel = `Pareggio ${formatEconomyAmountShort(last.payout)}`;
     else resultLabel = "Sconfitta";
   }
   try {
     const renderBlackjackCanvas = require("../Render/blackjackCanvas");
-    const rendered = await renderBlackjackCanvas({
-      bet: totalWager(session),
-      doubled: session.doubled,
+    const rendered = await runEconomyRender(() =>
+      renderBlackjackCanvas({
+      bet: displayBet(session),
+      doubled: session.doubled && (session.phase === "playing" || session.phase === "dealer"),
       phase: session.phase,
       playerHand: session.playerHand,
       dealerHand: session.dealerHand,
@@ -129,7 +114,8 @@ async function renderPanel(session, cfg) {
       resultLabel,
       win: last?.outcome === "win" || last?.outcome === "blackjack",
       draw: last?.outcome === "push",
-    });
+    }),
+    );
     const fileName = "blackjack-panel.png";
     const image = `attachment://${fileName}`;
     const files = [new AttachmentBuilder(Buffer.from(rendered.buffer), { name: fileName })];
@@ -140,11 +126,11 @@ async function renderPanel(session, cfg) {
   }
 }
 
-async function buildBlackjackGuiPayload(session, cfg, notice = "", panelClosed = false) {
+async function buildBlackjackGuiPayload(session, cfg, notice = "", panelClosed = false, balance = null) {
   const attachment = await renderPanel(session, cfg);
   return buildImageButtonPayload({
     files: attachment.files || [],
-    components: buildRows(session, cfg, panelClosed),
+    components: buildRows(session, cfg, panelClosed, balance),
   });
 }
 
@@ -216,8 +202,9 @@ async function checkInstantBlackjack(client, messageLike, session, cfg) {
 async function startHand(client, messageLike, session) {
   if (session.phase === "done") resetSessionForNewRound(session);
   if (session.phase !== "idle") return { ok: false, message: "La mano è già in corso." };
-  const spent = await playBlackjackBet(client, messageLike, session.bet);
+  const spent = await playBlackjackBet(client, messageLike, session.bet, null, sessionSpendOptions(session));
   if (!spent.ok) return spent;
+  markSessionStakeCooldown(session);
   let shoe = freshShoe();
   const draw = () => {
     const out = drawCard(shoe);
@@ -256,7 +243,7 @@ async function hitHand(client, messageLike, session, cfg) {
   const total = handValue(session.playerHand).total;
   if (total > 21) {
     session.hideDealerHole = false;
-    await runDealerTurn(session);
+    session.phase = "dealer";
     const result = await settleHand(client, messageLike, session, cfg);
     return { ok: true, bust: true, result };
   }
@@ -277,8 +264,9 @@ async function standHand(client, messageLike, session, cfg) {
 async function doubleHand(client, messageLike, session, cfg) {
   if (session.phase !== "playing" || !session.canDouble) return { ok: false, message: "Non puoi raddoppiare ora." };
   if (session.playerHand.length !== 2) return { ok: false, message: "Il raddoppio è solo sulla mano iniziale." };
-  const extra = await playBlackjackBet(client, messageLike, session.bet);
+  const extra = await playBlackjackBet(client, messageLike, session.bet, null, sessionSpendOptions(session));
   if (!extra.ok) return extra;
+  markSessionStakeCooldown(session);
   session.totalWager = session.bet + extra.amount;
   session.doubled = true;
   session.canDouble = false;
@@ -288,7 +276,7 @@ async function doubleHand(client, messageLike, session, cfg) {
   const total = handValue(session.playerHand).total;
   session.hideDealerHole = false;
   if (total > 21) {
-    await runDealerTurn(session);
+    session.phase = "dealer";
     const result = await settleHand(client, messageLike, session, cfg);
     return { ok: true, bust: true, result };
   }
@@ -298,10 +286,10 @@ async function doubleHand(client, messageLike, session, cfg) {
 
 function formatRoundNotice(result) {
   if (!result?.ok) return "";
-  if (result.outcome === "blackjack") return `🃏 **Blackjack!** Hai vinto **${formatCurrency("caffe",result.payout)}**.`;
-  if (result.outcome === "win") return `🏆 Hai vinto **${formatCurrency("caffe",result.payout)}**.`;
-  if (result.outcome === "push") return `🤝 Pareggio: ti tornano **${formatCurrency("caffe",result.payout)}**.`;
-  return `<a:VC_Cross:1482532424570376253> Hai perso **${formatCurrency("caffe",result.wager)}**.\n<a:VC_pixeltime:1482535344103620771> Puoi rigiocare quando il cooldown lo permette.`;
+  if (result.outcome === "blackjack") return `🃏 **Blackjack!** Hai vinto **${formatEconomyAmount(result.payout)}**.`;
+  if (result.outcome === "win") return `🏆 Hai vinto **${formatEconomyAmount(result.payout)}**.`;
+  if (result.outcome === "push") return `🤝 Pareggio: ti tornano **${formatEconomyAmount(result.payout)}**.`;
+  return `<a:VC_Cross:1482532424570376253> Hai perso **${formatEconomyAmount(result.wager)}**.\n<a:VC_pixeltime:1482535344103620771> Puoi rigiocare quando il cooldown lo permette.`;
 }
 
 function resetSessionForNewRound(session) {
@@ -317,4 +305,26 @@ function resetSessionForNewRound(session) {
   session.updatedAt = now();
 }
 
-module.exports = { SESSION_TTL_MS, buildBlackjackGuiPayload, clampBet, deleteSession, doubleHand, economyConfig, formatRoundNotice, getSession, hitHand, interactionMessageAdapter, isBlackjackGuiCustomId, makeSession, parseBlackjackGuiCustomId, resetSessionForNewRound, setSession, standHand, startHand, warmupBlackjackPanel };
+async function refundOpenHand(client, session, actorId) {
+  if (session.phase !== "playing" && session.phase !== "dealer") return { ok: true, amount: 0 };
+  const amount = totalWager(session);
+  if (!amount) {
+    resetSessionForNewRound(session);
+    return { ok: true, amount: 0, abortedRound: true };
+  }
+  const paid = await refundEconomyStake(
+    client,
+    session.guildId,
+    session.ownerId,
+    amount,
+    actorId || session.ownerId,
+    null,
+    "blackjack: rimborso chiusura",
+    "economy_blackjack_refund",
+  );
+  if (!paid?.ok) return { ok: false, message: paid?.message || "Rimborso non riuscito.", amount: 0, abortedRound: true };
+  resetSessionForNewRound(session);
+  return { ok: true, amount, abortedRound: true };
+}
+
+module.exports = { SESSION_TTL_MS, buildBlackjackGuiPayload, clampBet, deleteSession, doubleHand, economyConfig, formatRoundNotice, getSession, hitHand, interactionMessageAdapter, isBlackjackGuiCustomId, makeSession, parseBlackjackGuiCustomId, refundOpenHand, resetSessionForNewRound, setSession, standHand, startHand, warmupBlackjackPanel };

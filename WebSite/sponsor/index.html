@@ -7,7 +7,7 @@
     <meta name="description" content="{{SPONSOR_META_DESCRIPTION}}" />
     <meta name="author" content="{{SITE_NAME}}" />
     <meta name="robots" content="index, follow" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta property="og:type" content="website" />
     <meta property="og:title" content="{{SPONSOR_OG_TITLE}}" />
     <meta property="og:description" content="{{SPONSOR_META_DESCRIPTION}}" />
@@ -84,8 +84,7 @@
               <summary class="vc-snav-summary"><span>Richieste</span><i
                   class="fa fa-chevron-down vc-snav-chev text-[0.65rem] opacity-80" aria-hidden="true"></i></summary>
               <div class="vc-snav-panel">
-                <a class="vc-snav-row" href="{{RICHIESTE_UNBAN_URL}}"><span class="vc-snav-row-ico" aria-hidden="true"><i
-                      class="fa fa-unlock"></i></span><span>Unban</span></a>
+                <a class="vc-snav-row" href="{{RICHIESTE_UNBAN_URL}}"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-balance-scale"></i></span><span data-i18n="nav.appeals">Appelli</span></a>
                 <a class="vc-snav-row" href="{{RICHIESTE_CANDIDATURE_URL}}"><span class="vc-snav-row-ico"
                     aria-hidden="true"><i class="fa fa-file-text-o"></i></span><span>Candidature</span></a>
                 <a class="vc-snav-row" href="{{RICHIESTE_SUGGERIMENTI_URL}}"><span class="vc-snav-row-ico"
@@ -150,11 +149,11 @@
             <div class="vc-support-page-hero__icon vc-support-page-hero__icon--start vc-sponsor-hero-handshake mb-5" aria-hidden="true">
               <i class="fa fa-handshake-o"></i>
             </div>
-            <p class="text-xs font-semibold uppercase tracking-[0.28em] text-emerald-200/70">Collaborazioni</p>
+            <p class="text-xs font-semibold uppercase tracking-[0.28em] text-emerald-200/70" data-i18n="sponsor.kicker">Collaborazioni</p>
             <h1 id="vc-sponsor-hero-heading" class="mt-4 text-4xl font-extrabold tracking-tight text-white sm:text-5xl">
-              Sponsor su<br /><span class="text-emerald-300">Vinili &amp; Caffè</span><span class="vc-forbidden-book" data-vc-forbidden-book="sponsor" hidden role="img" aria-label="libro proibito">📖</span>
+              <span data-i18n-html="sponsor.heroTitle">Sponsor su<br /><span class="text-emerald-300">Vinili &amp; Caffè</span></span><span class="vc-forbidden-book" data-vc-forbidden-book="sponsor" hidden role="img" aria-label="libro proibito">📖</span>
             </h1>
-            <p class="mt-5 max-w-2xl text-lg leading-8 text-slate-200/88 sm:text-xl">
+            <p class="mt-5 max-w-2xl text-lg leading-8 text-slate-200/88 sm:text-xl" data-i18n-html="sponsor.lead">
               Tipologie, durate e prezzi delle sponsor: apri un ticket <strong class="text-white">High Staff</strong> per maggiori dettagli.
             </p>
             <div class="mt-6 flex flex-wrap items-center gap-3">
@@ -163,114 +162,114 @@
                 href="{{DISCORD_SPONSOR_TICKETS_MESSAGE_URL}}"
                 target="_blank"
                 rel="noopener noreferrer"
-                aria-label="Apri Discord sul messaggio dei ticket (High Staff)"><i class="fa fa-ticket" aria-hidden="true"></i> Entra nel server Discord</a>
+                aria-label="Apri Discord sul messaggio dei ticket (High Staff)" data-i18n-attr="aria-label:sponsor.ctaDiscordAria"><i class="fa fa-ticket" aria-hidden="true"></i> <span data-i18n="sponsor.ctaDiscord">Entra nel server Discord</span></a>
               <a
                 class="inline-flex min-h-[3.3rem] items-center justify-center gap-2.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-cyan-400 px-6 py-3 text-sm font-extrabold text-slate-950 shadow-[0_14px_34px_rgba(16,185,129,0.24)] transition hover:-translate-y-0.5 hover:brightness-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300/60"
                 href="{{PAYPAL_DONATIONS_URL}}"
                 target="_blank"
-                rel="noopener noreferrer"><i class="fa fa-paypal" aria-hidden="true"></i> Paga con PayPal</a>
+                rel="noopener noreferrer"><i class="fa fa-paypal" aria-hidden="true"></i> <span data-i18n="sponsor.ctaPaypal">Paga con PayPal</span></a>
             </div>
             <p class="vc-support-donate-refund-note mt-4 mb-0 max-w-2xl text-sm leading-relaxed text-slate-300/85">
               <i class="fa fa-exclamation-circle mr-1.5 text-amber-400/90" aria-hidden="true"></i>
-              <strong class="font-semibold text-slate-200/95">Importante:</strong> i pagamenti per le sponsor <strong class="text-slate-100">non sono rimborsabili</strong>. Se esci dal server principale, la sponsor verrà rimossa e <strong class="text-slate-100">non verrà messa nuovamente</strong>.
+              <span data-i18n-html="sponsor.refundNote"><strong class="font-semibold text-slate-200/95">Importante:</strong> i pagamenti per le sponsor <strong class="text-slate-100">non sono rimborsabili</strong>. Se esci dal server principale, la sponsor verrà rimossa e <strong class="text-slate-100">non verrà messa nuovamente</strong>.</span>
             </p>
           </div>
           <div class="vc-sponsor-hero-aside min-w-0">
             <article class="vc-sponsor-embed vc-sponsor-embed--in-hero" aria-labelledby="sponsor-intro-title">
-              <h2 id="sponsor-intro-title" class="sr-only">Introduzione e requisiti</h2>
-              <p class="vc-sponsor-line"><span class="vc-sponsor-line__ico" aria-hidden="true">⚡</span><span class="vc-sponsor-line__sep" aria-hidden="true">|</span><span>Le <strong>Sponsor</strong> sono delle collaborazioni a pagamento dove puoi mettere in mostra il tuo server.</span></p>
-              <p class="vc-sponsor-line"><span class="vc-sponsor-line__ico" aria-hidden="true">📜</span><span class="vc-sponsor-line__sep" aria-hidden="true">|</span><span><strong>Requisiti</strong></span></p>
+              <h2 id="sponsor-intro-title" class="sr-only" data-i18n="sponsor.introTitle">Introduzione e requisiti</h2>
+              <p class="vc-sponsor-line"><span class="vc-sponsor-line__ico" aria-hidden="true">⚡</span><span class="vc-sponsor-line__sep" aria-hidden="true">|</span><span data-i18n-html="sponsor.introLine">Le <strong>Sponsor</strong> sono delle collaborazioni a pagamento dove puoi mettere in mostra il tuo server.</span></p>
+              <p class="vc-sponsor-line"><span class="vc-sponsor-line__ico" aria-hidden="true">📜</span><span class="vc-sponsor-line__sep" aria-hidden="true">|</span><span data-i18n-html="sponsor.requirementsLabel"><strong>Requisiti</strong></span></p>
               <ul class="vc-sponsor-list">
-                <li><strong>Rispettare le</strong> <a class="vc-palette-link" href="{{COMMUNITY_RULES_URL}}">Regole</a></li>
-                <li><strong>Non avere il server in Blacklist</strong></li>
+                <li data-i18n-html="sponsor.reqRules"><strong>Rispettare le</strong> <a class="vc-palette-link" href="{{COMMUNITY_RULES_URL}}">Regole</a></li>
+                <li data-i18n-html="sponsor.reqBlacklist"><strong>Non avere il server in Blacklist</strong></li>
               </ul>
-              <p class="vc-sponsor-line"><span class="vc-sponsor-line__ico" aria-hidden="true">✨</span><span class="vc-sponsor-line__sep" aria-hidden="true">|</span><span>La <strong>visibilità</strong> si divide su:</span></p>
+              <p class="vc-sponsor-line"><span class="vc-sponsor-line__ico" aria-hidden="true">✨</span><span class="vc-sponsor-line__sep" aria-hidden="true">|</span><span data-i18n-html="sponsor.visibilityLabel">La <strong>visibilità</strong> si divide su:</span></p>
               <ul class="vc-sponsor-list">
-                <li><strong>Sito</strong></li>
-                <li><strong>Eventi</strong></li>
-                <li><strong>Canale testuale privato</strong></li>
+                <li data-i18n-html="sponsor.visibilitySite"><strong>Sito</strong></li>
+                <li data-i18n-html="sponsor.visibilityEvents"><strong>Eventi</strong></li>
+                <li data-i18n-html="sponsor.visibilityPrivate"><strong>Canale testuale privato</strong></li>
               </ul>
               </article>
           </div>
         </div>
       </section>
 
-      <div class="vc-sponsor-pricing-grid min-w-0" aria-label="Tariffe sponsor per tipologia di canale">
+      <div class="vc-sponsor-pricing-grid min-w-0" aria-label="Tariffe sponsor per tipologia di canale" data-i18n-attr="aria-label:sponsor.pricingAria">
         <article class="vc-sponsor-embed vc-sponsor-embed--popular" aria-labelledby="sponsor-priv-title">
-          <span class="vc-sponsor-embed__badge vc-sponsor-embed__badge--popular" role="status">Più scelto</span>
-          <h2 id="sponsor-priv-title" class="vc-sponsor-embed__kicker">💖 <span class="vc-sponsor-embed__underline">Canale testuale privato</span></h2>
-          <p class="vc-sponsor-line"><span class="vc-sponsor-line__ico" aria-hidden="true">⚡</span><span class="vc-sponsor-line__sep" aria-hidden="true">|</span><span>Un canale riservato per pubblicizzare il tuo server.</span></p>
+          <span class="vc-sponsor-embed__badge vc-sponsor-embed__badge--popular" role="status" data-i18n="sponsor.badgePopular">Più scelto</span>
+          <h2 id="sponsor-priv-title" class="vc-sponsor-embed__kicker">💖 <span class="vc-sponsor-embed__underline" data-i18n="sponsor.privateTitle">Canale testuale privato</span></h2>
+          <p class="vc-sponsor-line"><span class="vc-sponsor-line__ico" aria-hidden="true">⚡</span><span class="vc-sponsor-line__sep" aria-hidden="true">|</span><span data-i18n="sponsor.privateDesc">Un canale riservato per pubblicizzare il tuo server.</span></p>
           <section class="vc-sponsor-tier" aria-label="Prezzi canale privato 7 giorni">
-            <p class="vc-sponsor-tier__head"><span aria-hidden="true">»</span> <span class="vc-sponsor-embed__underline">Durata: 7 giorni</span></p>
+            <p class="vc-sponsor-tier__head"><span aria-hidden="true">»</span> <span class="vc-sponsor-embed__underline" data-i18n="sponsor.duration7">Durata: 7 giorni</span></p>
             <ul class="vc-sponsor-prices">
-              <li><span class="vc-sponsor-bullet" aria-hidden="true">✦</span><span class="vc-sponsor-prices__mid">x1 ping <span class="vc-sponsor-mention">@everyone</span></span><span class="vc-sponsor-price">5,00€</span></li>
-              <li><span class="vc-sponsor-bullet" aria-hidden="true">✦</span><span class="vc-sponsor-prices__mid">x2 ping <span class="vc-sponsor-mention">@everyone</span></span><span class="vc-sponsor-price">8,00€</span></li>
+              <li><span class="vc-sponsor-bullet" aria-hidden="true">✦</span><span class="vc-sponsor-prices__mid" data-i18n-html="sponsor.pingX1">x1 ping <span class="vc-sponsor-mention">@everyone</span></span><span class="vc-sponsor-price">5,00€</span></li>
+              <li><span class="vc-sponsor-bullet" aria-hidden="true">✦</span><span class="vc-sponsor-prices__mid" data-i18n-html="sponsor.pingX2">x2 ping <span class="vc-sponsor-mention">@everyone</span></span><span class="vc-sponsor-price">8,00€</span></li>
             </ul>
           </section>
           <section class="vc-sponsor-tier" aria-label="Prezzi canale privato 14 giorni">
-            <p class="vc-sponsor-tier__head"><span aria-hidden="true">»</span> <span class="vc-sponsor-embed__underline">Durata: 14 giorni</span></p>
+            <p class="vc-sponsor-tier__head"><span aria-hidden="true">»</span> <span class="vc-sponsor-embed__underline" data-i18n="sponsor.duration14">Durata: 14 giorni</span></p>
             <ul class="vc-sponsor-prices">
-              <li><span class="vc-sponsor-bullet" aria-hidden="true">✦</span><span class="vc-sponsor-prices__mid">x1 ping <span class="vc-sponsor-mention">@everyone</span></span><span class="vc-sponsor-price">9,00€</span></li>
-              <li><span class="vc-sponsor-bullet" aria-hidden="true">✦</span><span class="vc-sponsor-prices__mid">x2 ping <span class="vc-sponsor-mention">@everyone</span></span><span class="vc-sponsor-price">12,00€</span></li>
+              <li><span class="vc-sponsor-bullet" aria-hidden="true">✦</span><span class="vc-sponsor-prices__mid" data-i18n-html="sponsor.pingX1">x1 ping <span class="vc-sponsor-mention">@everyone</span></span><span class="vc-sponsor-price">9,00€</span></li>
+              <li><span class="vc-sponsor-bullet" aria-hidden="true">✦</span><span class="vc-sponsor-prices__mid" data-i18n-html="sponsor.pingX2">x2 ping <span class="vc-sponsor-mention">@everyone</span></span><span class="vc-sponsor-price">12,00€</span></li>
             </ul>
           </section>
           <section class="vc-sponsor-tier" aria-label="Prezzi canale privato 30 giorni">
-            <p class="vc-sponsor-tier__head"><span aria-hidden="true">»</span> <span class="vc-sponsor-embed__underline">Durata: 30 giorni</span></p>
+            <p class="vc-sponsor-tier__head"><span aria-hidden="true">»</span> <span class="vc-sponsor-embed__underline" data-i18n="sponsor.duration30">Durata: 30 giorni</span></p>
             <ul class="vc-sponsor-prices">
-              <li><span class="vc-sponsor-bullet" aria-hidden="true">✦</span><span class="vc-sponsor-prices__mid">x1 ping <span class="vc-sponsor-mention">@everyone</span></span><span class="vc-sponsor-price">17,00€</span></li>
-              <li><span class="vc-sponsor-bullet" aria-hidden="true">✦</span><span class="vc-sponsor-prices__mid">x2 ping <span class="vc-sponsor-mention">@everyone</span></span><span class="vc-sponsor-price">19,00€</span></li>
+              <li><span class="vc-sponsor-bullet" aria-hidden="true">✦</span><span class="vc-sponsor-prices__mid" data-i18n-html="sponsor.pingX1">x1 ping <span class="vc-sponsor-mention">@everyone</span></span><span class="vc-sponsor-price">17,00€</span></li>
+              <li><span class="vc-sponsor-bullet" aria-hidden="true">✦</span><span class="vc-sponsor-prices__mid" data-i18n-html="sponsor.pingX2">x2 ping <span class="vc-sponsor-mention">@everyone</span></span><span class="vc-sponsor-price">19,00€</span></li>
             </ul>
           </section>
-          <p class="vc-sponsor-foot"><span class="vc-sponsor-line__ico" aria-hidden="true">!</span><span><strong class="vc-sponsor-embed__underline">Ping <span class="vc-sponsor-mention">@everyone</span> aggiuntivo: 5,00€.</strong></span></p>
+          <p class="vc-sponsor-foot"><span class="vc-sponsor-line__ico" aria-hidden="true">!</span><span><strong class="vc-sponsor-embed__underline" data-i18n-html="sponsor.extraEveryone">Ping <span class="vc-sponsor-mention">@everyone</span> aggiuntivo: 5,00€.</strong></span></p>
         </article>
 
         <article class="vc-sponsor-embed vc-sponsor-embed--novita" aria-labelledby="sponsor-news-title">
-          <span class="vc-sponsor-embed__badge vc-sponsor-embed__badge--novita" role="status">Novità</span>
-          <h2 id="sponsor-news-title" class="vc-sponsor-embed__kicker">💗 <span class="vc-sponsor-embed__underline">Sito Web</span></h2>
-          <p class="vc-sponsor-line"><span class="vc-sponsor-line__ico" aria-hidden="true">🌐</span><span class="vc-sponsor-line__sep" aria-hidden="true">|</span><span>Il tuo progretto sponsorizzato alla portata di tutti</span></p>
+          <span class="vc-sponsor-embed__badge vc-sponsor-embed__badge--novita" role="status" data-i18n="sponsor.badgeNew">Novità</span>
+          <h2 id="sponsor-news-title" class="vc-sponsor-embed__kicker">💗 <span class="vc-sponsor-embed__underline" data-i18n="sponsor.siteTitle">Sito Web</span></h2>
+          <p class="vc-sponsor-line"><span class="vc-sponsor-line__ico" aria-hidden="true">🌐</span><span class="vc-sponsor-line__sep" aria-hidden="true">|</span><span data-i18n="sponsor.siteDesc">Il tuo progretto sponsorizzato alla portata di tutti</span></p>
           <section class="vc-sponsor-tier" aria-label="Prezzi sponsor sul sito 7 giorni">
-            <p class="vc-sponsor-tier__head"><span aria-hidden="true">»</span> <span class="vc-sponsor-embed__underline">Durata: 7 giorni</span></p>
+            <p class="vc-sponsor-tier__head"><span aria-hidden="true">»</span> <span class="vc-sponsor-embed__underline" data-i18n="sponsor.duration7">Durata: 7 giorni</span></p>
             <ul class="vc-sponsor-prices">
-              <li><span class="vc-sponsor-bullet" aria-hidden="true">✦</span><span class="vc-sponsor-prices__mid">Pubblicazione su sito e annuncio sul server</span><span class="vc-sponsor-price">7,00€</span></li>
+              <li><span class="vc-sponsor-bullet" aria-hidden="true">✦</span><span class="vc-sponsor-prices__mid" data-i18n="sponsor.sitePackage">Pubblicazione su sito e annuncio sul server</span><span class="vc-sponsor-price">7,00€</span></li>
             </ul>
           </section>
           <section class="vc-sponsor-tier" aria-label="Prezzi sponsor sul sito 14 giorni">
-            <p class="vc-sponsor-tier__head"><span aria-hidden="true">»</span> <span class="vc-sponsor-embed__underline">Durata: 14 giorni</span></p>
+            <p class="vc-sponsor-tier__head"><span aria-hidden="true">»</span> <span class="vc-sponsor-embed__underline" data-i18n="sponsor.duration14">Durata: 14 giorni</span></p>
             <ul class="vc-sponsor-prices">
-              <li><span class="vc-sponsor-bullet" aria-hidden="true">✦</span><span class="vc-sponsor-prices__mid">Pubblicazione su sito e annuncio sul server</span><span class="vc-sponsor-price">12,00€</span></li>
+              <li><span class="vc-sponsor-bullet" aria-hidden="true">✦</span><span class="vc-sponsor-prices__mid" data-i18n="sponsor.sitePackage">Pubblicazione su sito e annuncio sul server</span><span class="vc-sponsor-price">12,00€</span></li>
             </ul>
           </section>
           <section class="vc-sponsor-tier" aria-label="Prezzi sponsor sul sito 30 giorni">
-            <p class="vc-sponsor-tier__head"><span aria-hidden="true">»</span> <span class="vc-sponsor-embed__underline">Durata: 30 giorni</span></p>
+            <p class="vc-sponsor-tier__head"><span aria-hidden="true">»</span> <span class="vc-sponsor-embed__underline" data-i18n="sponsor.duration30">Durata: 30 giorni</span></p>
             <ul class="vc-sponsor-prices">
-              <li><span class="vc-sponsor-bullet" aria-hidden="true">✦</span><span class="vc-sponsor-prices__mid">Pubblicazione su sito e annuncio sul server</span><span class="vc-sponsor-price">18,00€</span></li>
+              <li><span class="vc-sponsor-bullet" aria-hidden="true">✦</span><span class="vc-sponsor-prices__mid" data-i18n="sponsor.sitePackage">Pubblicazione su sito e annuncio sul server</span><span class="vc-sponsor-price">18,00€</span></li>
             </ul>
           </section>
           <section class="vc-sponsor-tier" aria-label="Statistiche sponsor sito web">
-            <p class="vc-sponsor-tier__head"><span aria-hidden="true">»</span> <span class="vc-sponsor-embed__underline">Statistiche (Trimestrale)</span></p>
+            <p class="vc-sponsor-tier__head"><span aria-hidden="true">»</span> <span class="vc-sponsor-embed__underline" data-i18n="sponsor.siteStats">Statistiche (Trimestrale)</span></p>
             <ul class="vc-sponsor-prices">
-              <li><span class="vc-sponsor-bullet" aria-hidden="true">✦</span><span class="vc-sponsor-prices__mid">Click: 7.994
+              <li><span class="vc-sponsor-bullet" aria-hidden="true">✦</span><span class="vc-sponsor-prices__mid" data-i18n-html="sponsor.siteStatsBody">Click: 7.994
                 <br>Impression: 284.577
                 <br>CTR: 2.81%</span>
             </ul>
           </section>
-          <p class="vc-sponsor-foot"><span class="vc-sponsor-line__ico" aria-hidden="true">!</span><span><strong class="vc-sponsor-embed__underline">Ping <span class="vc-sponsor-mention">@everyone</span> aggiuntivo: 5,00€.</strong></span></p>
+          <p class="vc-sponsor-foot"><span class="vc-sponsor-line__ico" aria-hidden="true">!</span><span><strong class="vc-sponsor-embed__underline" data-i18n-html="sponsor.extraEveryone">Ping <span class="vc-sponsor-mention">@everyone</span> aggiuntivo: 5,00€.</strong></span></p>
         </article>
       </div>
 
       <div class="vc-sponsor-page__eventi-mini">
         <article class="vc-sponsor-embed vc-sponsor-embed--eventi-mini vc-sponsor-embed--novita" aria-labelledby="sponsor-eventi-title">
-          <span class="vc-sponsor-embed__badge vc-sponsor-embed__badge--novita" role="status">Novità</span>
-          <h2 id="sponsor-eventi-title" class="vc-sponsor-embed__kicker">💖 <span class="vc-sponsor-embed__underline">Eventi</span></h2>
+          <span class="vc-sponsor-embed__badge vc-sponsor-embed__badge--novita" role="status" data-i18n="sponsor.badgeNew">Novità</span>
+          <h2 id="sponsor-eventi-title" class="vc-sponsor-embed__kicker">💖 <span class="vc-sponsor-embed__underline" data-i18n="sponsor.eventsTitle">Eventi</span></h2>
           <p class="vc-sponsor-line vc-sponsor-line--eventi-mini">
             <span class="vc-sponsor-line__ico" aria-hidden="true">⚡</span>
             <span class="vc-sponsor-line__sep" aria-hidden="true">|</span>
-            <span>Un messaggio promozionale studiato ad hoc per le tue esigenze, divulgato durante le nostre attività con la community.</span>
+            <span data-i18n="sponsor.eventsDesc">Un messaggio promozionale studiato ad hoc per le tue esigenze, divulgato durante le nostre attività con la community.</span>
           </p>
           <ul class="vc-sponsor-prices vc-sponsor-prices--eventi-mini" aria-label="Prezzo passaggio promozionale eventi">
             <li>
               <span class="vc-sponsor-bullet" aria-hidden="true">✦</span>
-              <span class="vc-sponsor-prices__mid">Passaggio promozionale</span>
+              <span class="vc-sponsor-prices__mid" data-i18n="sponsor.eventsPackage">Passaggio promozionale</span>
               <span class="vc-sponsor-price">2,50€</span>
             </li>
           </ul>

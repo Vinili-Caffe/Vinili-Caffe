@@ -47,6 +47,11 @@ function buildApi() {
 
 function attachToClient(client) {
   if (!client) return null;
+  try {
+    require("./utils/tenantEmbedBranding").registerTenantEmbedBrandingApplier();
+  } catch (err) {
+    global.logger?.warn?.("[MultiGuild] tenant embed branding init failed:", err?.message || err);
+  }
   const api = buildApi();
   client.multiGuild = api;
   if (!api.enabled) {

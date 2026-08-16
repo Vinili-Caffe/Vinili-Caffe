@@ -7,19 +7,22 @@ const {
   getStaffChatHubMessageId,
   setStaffChatHubMessageId,
 } = require("../../Utils/Global/globalSettingsBucket");
-const { addAllRoleMembersToThread, addUserIdsToThread, hydrateGuildMembersForRolePings } = require("../../Utils/Discord/threadRoleMembers");
+const { addUserIdsToThread, hydrateGuildMembersForRolePings, collectHumanMemberIdsWithRole } = require("../../Utils/Discord/threadRoleMembers");
 const {
   resolveStaffThreadQualifyingRoleIds,
   memberHasStaffThreadAccess,
   memberQualifiesForStaffThreadSpec,
   alwaysAccessStaffThreadRoleIds,
 } = require("../../Utils/Staff/staffThreadQualification");
+const { getResocontoReviewerUserIdsForSegment } = require("../../Utils/Staff/resocontoAccess");
 
 const STAFF_CHAT_THREAD_SPECS = [
   {
     key: "pm",
     name: "Chat Partner Manager",
     roleIds: () => [IDs.roles?.PartnerManager].filter(Boolean).map(String),
+    // Revisore resoconto PM (anche senza ruolo Partner Manager).
+    reviewerUserIds: () => getResocontoReviewerUserIdsForSegment("pm"),
     introLines: (mentions) => [
       `${mentions} **Chat Partner Manager**`,
       "Thread dedicato ai Partner Manager: coordinamento, aggiornamenti e comunicazione interna PM.",
@@ -126,13 +129,33 @@ async function populateThreadMembers(thread, guild, spec, opts = {}) {
   if (opts.hydrate !== false) {
     await hydrateGuildMembersForRolePings(guild, logTag);
   }
+  const allowedUserIds = new Set();
   for (const roleId of roleIds) {
-    await addAllRoleMembersToThread(thread, guild, roleId, { logTag, hydrate: false });
+    const memberIds = await collectHumanMemberIdsWithRole(guild, roleId, { logTag, hydrate: false });
+    for (const userId of memberIds) {
+      let member = guild.members.cache.get(userId) || null;
+      if (!member && String(spec.key) === "highStaff") {
+        member = await guild.members.fetch(userId).catch(() => null);
+      }
+      if (member && !memberQualifiesForSpec(member, spec)) continue;
+      allowedUserIds.add(String(userId));
+    }
+  }
+  if (allowedUserIds.size) {
+    await addUserIdsToThread(thread, [...allowedUserIds], { logTag });
   }
   const reviewerUserIds = spec.reviewerUserIds?.() || [];
   if (reviewerUserIds.length) {
     await addUserIdsToThread(thread, reviewerUserIds, { logTag });
   }
+  try {
+    const { pruneUnauthorizedStaffThreadMembers } = require("../../Utils/Staff/staffManagedThreadsGuard");
+    await pruneUnauthorizedStaffThreadMembers(
+      thread,
+      { zone: "chat", spec, memberQualifiesForSpec },
+      null,
+    );
+  } catch (_) {}
 }
 
 async function sendThreadIntro(thread, spec) {

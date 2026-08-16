@@ -1,14 +1,15 @@
 const { EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder } = require("discord.js");
-const { recordDiscadiaBump, recordDiscadiaVote, recordBump, awardBumpVoteExp, getVoteCooldownMs } = require("../../Services/Bump/bumpService");
+const { recordDiscadiaBump, recordDiscadiaVote, recordBump, awardBumpVoteExp, getVoteCooldownMs, isVoteListingRecordedAtOrAfter } = require("../../Services/Bump/bumpService");
 const { addExpWithLevel, shouldIgnoreExpForMember } = require("../../Services/Community/expService");
 const { upsertVoteRole } = require("../../Services/Community/communityOpsService");
 const { PAUSE_REQUEST_ROLE_IDS, parsePauseChannelMessageContent } = require("../Pause/pauseRequestRuntime");
 const { submitPauseRequestForMember } = require("../Pause/pauseRequestSubmitRuntime");
-const { maybeRepositionPauseSticky } = require("../Pause/pauseStickyPanelRuntime");
+const { maybeRepositionPauseSticky, isPauseStickyPanelMessage } = require("../Pause/pauseStickyPanelRuntime");
 const IDs = require("../Config/ids");
 const { getGuildChannelCached, getGuildMemberCached } = require("../Interaction/interactionEntityCache");
 const { EPHEMERAL_TTL_NORMAL_MS, scheduleMessageDeletion } = require("../Config/ephemeralMessageTtl");
 const { normalizeMovieNightProposalForCompare } = require("../Community/movieNightProposal");
+const { TENANT_EMBED_COLOR } = require("../../MultiGuild/utils/tenantEmbedBranding");
 const VOTE_CHANNEL_ID = IDs.channels.supporters;
 const COMMANDS_CHANNEL_ID = IDs.channels.commands;
 const PAUSE_CHANNEL_ID = IDs.channels.pause;
@@ -104,6 +105,68 @@ function normalizeThreadVoteText(raw) {
     .trim();
 }
 
+function normalizeNamedVoteThreadName(raw) {
+  return String(raw || "")
+    .normalize("NFKC")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toUpperCase();
+}
+
+function normalizeNamedThreadRule(rule, fallbackReactionEmoji) {
+  if (!rule || typeof rule !== "object") return null;
+  const parentChannelId = String(rule.parentChannelId || "").trim();
+  const threadName = normalizeNamedVoteThreadName(rule.threadName || "");
+  if (!/^\d{16,20}$/.test(parentChannelId) || !threadName) return null;
+  const reactionEmoji =
+    String(rule.reactionEmoji || fallbackReactionEmoji || DEFAULT_THREAD_VOTE_REACTION).trim()
+    || DEFAULT_THREAD_VOTE_REACTION;
+  return {
+    parentChannelId,
+    threadName,
+    reactionEmoji,
+    preventDuplicates: rule.preventDuplicates === true,
+    lookbackLimit: Math.max(
+      20,
+      Math.min(200, Number(rule.duplicateLookbackLimit || DEFAULT_THREAD_VOTE_LOOKBACK_LIMIT)),
+    ),
+  };
+}
+
+function threadMatchesNamedVoteRule(thread, rule) {
+  if (!thread?.isThread?.() || !rule) return false;
+  if (String(thread.parentId || "") !== rule.parentChannelId) return false;
+  const currentName = normalizeNamedVoteThreadName(thread.name || "");
+  return currentName === rule.threadName || currentName.includes(rule.threadName);
+}
+
+async function ensureBotJoinedVoteThread(thread) {
+  const me = String(thread?.guild?.members?.me?.id || thread?.client?.user?.id || "").trim();
+  if (!me || !thread?.members?.add) return;
+  await thread.members.add(me).catch(() => null);
+}
+
+function resolveThreadVoteRule(message, cfg) {
+  if (!message?.channel?.isThread?.() || !cfg) return null;
+  const threadId = String(message.channelId || "");
+  if (cfg.threadIds.includes(threadId)) {
+    return {
+      reactionEmoji: cfg.reactionEmoji,
+      preventDuplicates: cfg.preventDuplicates,
+      lookbackLimit: cfg.lookbackLimit,
+    };
+  }
+  for (const rule of cfg.namedThreads || []) {
+    if (!threadMatchesNamedVoteRule(message.channel, rule)) continue;
+    return {
+      reactionEmoji: rule.reactionEmoji,
+      preventDuplicates: rule.preventDuplicates,
+      lookbackLimit: rule.lookbackLimit,
+    };
+  }
+  return null;
+}
+
 function normalizeMovieNightThreadName(raw) {
   return String(raw || "")
     .normalize("NFKC")
@@ -194,15 +257,21 @@ function getThreadVoteConfig(client) {
   const threadIds = Array.isArray(cfg.threadIds)
     ? cfg.threadIds.map((id) => String(id || "").trim()).filter((id) => /^\d{16,20}$/.test(id))
     : [];
+  const fallbackReaction =
+    String(cfg.reactionEmoji || DEFAULT_THREAD_VOTE_REACTION).trim() || DEFAULT_THREAD_VOTE_REACTION;
+  const namedThreads = (Array.isArray(cfg.namedThreads) ? cfg.namedThreads : [])
+    .map((rule) => normalizeNamedThreadRule(rule, fallbackReaction))
+    .filter(Boolean);
   return {
     enabled: cfg.enabled !== false,
     preventDuplicates: cfg.preventDuplicates !== false,
-    reactionEmoji: String(cfg.reactionEmoji || DEFAULT_THREAD_VOTE_REACTION).trim() || DEFAULT_THREAD_VOTE_REACTION,
+    reactionEmoji: fallbackReaction,
     lookbackLimit: Math.max(
       20,
       Math.min(200, Number(cfg.duplicateLookbackLimit || DEFAULT_THREAD_VOTE_LOOKBACK_LIMIT)),
     ),
     threadIds,
+    namedThreads,
   };
 }
 
@@ -212,13 +281,14 @@ async function handleThreadVoteMessage(message, client) {
   if (!message.channel?.isThread?.()) return false;
   const cfg = getThreadVoteConfig(client);
   if (!cfg?.enabled) return false;
-  const threadId = String(message.channelId || "");
-  if (!cfg.threadIds.includes(threadId)) return false;
+  const rule = resolveThreadVoteRule(message, cfg);
+  if (!rule) return false;
 
   const normalizedCurrent = normalizeThreadVoteText(message.content);
-  if (cfg.preventDuplicates && normalizedCurrent) {
+  if (rule.preventDuplicates && normalizedCurrent) {
+    const lookback = Math.max(20, Math.min(200, Number(rule.lookbackLimit || cfg.lookbackLimit)));
     const recent = await message.channel.messages
-      .fetch({ limit: cfg.lookbackLimit })
+      .fetch({ limit: lookback })
       .catch(() => null);
     const duplicate = recent?.find((msg) => {
       if (!msg || String(msg.id) === String(message.id)) return false;
@@ -237,8 +307,9 @@ async function handleThreadVoteMessage(message, client) {
     }
   }
 
-  const reacted = await message.react(cfg.reactionEmoji).then(() => true).catch(() => false);
-  if (!reacted && cfg.reactionEmoji !== DEFAULT_THREAD_VOTE_REACTION) {
+  await ensureBotJoinedVoteThread(message.channel);
+  const reacted = await message.react(rule.reactionEmoji).then(() => true).catch(() => false);
+  if (!reacted && rule.reactionEmoji !== DEFAULT_THREAD_VOTE_REACTION) {
     await message.react(DEFAULT_THREAD_VOTE_REACTION).catch(() => {});
   }
   return false;
@@ -506,7 +577,7 @@ function getVoteManagerBotIds(client) {
   );
 }
 
-async function handleVoteManagerMessage(message, client) {
+async function handleVoteManagerMessage(message, client, options = {}) {
   if (!message.guild) return false;
   if (message.channel?.id !== VOTE_CHANNEL_ID) return false;
   const isAutomatedSource = Boolean(message.author?.bot || message.applicationId || message.webhookId,);
@@ -529,7 +600,13 @@ async function handleVoteManagerMessage(message, client) {
   const looksLikeVote =
     /has voted|voted for|just voted|cast (?:a )?vote|thank you for voting/i.test(voteText) ||
     /ha votato|votato|ha espresso (?:il )?voto/i.test(voteText) ||
-    (voteText.includes("discadia") && /(vote|voto|votato|voting)/i.test(voteText));
+    /gave?\s+(?:\d+\s+)?gems?|sent?\s+(?:\d+\s+)?gems?|boost(?:ed)?\s+with\s+gems?/i.test(voteText) ||
+    /ha (?:dato|regalato|inviato)\s+(?:\d+\s+)?gemme?|gemme?\s+(?:inviate|donate|ricevute)/i.test(voteText) ||
+    /grazie(?:\s+\w+){0,8}\s+(?:per\s+)?(?:aver\s+)?votat/i.test(voteText) ||
+    /thank(?:s| you)?(?:\s+\w+){0,8}\s+for\s+(?:your\s+)?(?:vote|voting|gems?)/i.test(voteText) ||
+    /(?:^|\n)\s*(?:💎|gem|gems|gemme)\b/i.test(voteText) ||
+    (voteText.includes("discadia") && /(vote|voto|votato|voting|gem)/i.test(voteText)) ||
+    (voteText.includes("disurl") && /(vote|voto|votato|voting|gem)/i.test(voteText));
   if (!looksLikeVote) return false;
   const looksLikeBumpSuccess = /(server has been bumped|has been successfully bumped|bump(?:ed)?\s*successfully|successfully bumped|bump complete|bump done|thanks for bumping|you can bump again)/i.test(voteText);
   if (looksLikeBumpSuccess) return false;
@@ -539,11 +616,19 @@ async function handleVoteManagerMessage(message, client) {
   if (!user) return false;
 
   const voteListing = /top\.gg|\btopgg\b/i.test(voteText) ? "topgg" : "discadia";
+  if (options?.skipIfAlreadyRecorded) {
+    const voteAtMs = Number(options.voteAtMs ?? message.createdTimestamp);
+    if (await isVoteListingRecordedAtOrAfter(message.guild.id, user.id, voteListing, voteAtMs)) {
+      return false;
+    }
+  }
   const handled = await processDiscadiaVote(message.guild, user, client, { voteListing });
   if (handled) {
-    await message.delete().catch(() => { });
+    if (!options?.keepSourceMessage) {
+      await message.delete().catch(() => { });
+    }
   }
-  return true;
+  return handled;
 }
 
 function resolvePublicVoteHubUrl(client) {
@@ -557,16 +642,19 @@ async function processDiscadiaVote(guild, user, client, options = {}) {
   if (!guild || !user || !client) return false;
   const voteListing = options?.voteListing === "topgg" ? "topgg" : "discadia";
   const voteCooldownMs = getVoteCooldownMs(client, voteListing);
+  const userId = String(user?.id || "").trim();
+  // REST/worker: `${user}` → "[object Object]" (niente User#toString di discord.js).
+  const userMention = /^\d{16,22}$/.test(userId) ? `<@${userId}>` : "Utente";
 
   let expValue = 0;
   let resolvedVoteCount = null;
   const voteRewardExtras = [];
 
   try {
-    const result = await recordDiscadiaVote(client, guild.id, user.id, { voteListing });
+    const result = await recordDiscadiaVote(client, guild.id, userId, { voteListing });
     if (result && typeof result.voteCount === "number") resolvedVoteCount = result.voteCount;
     const baseExpRandom = resolvedVoteCount === 1 ? 250 : getRandomExp();
-    const reward = await awardBumpVoteExp(client, guild, user.id, "discadia_vote", result?.previousLastVoteAt ?? null, voteCooldownMs, baseExpRandom);
+    const reward = await awardBumpVoteExp(client, guild, userId, "discadia_vote", result?.previousLastVoteAt ?? null, voteCooldownMs, baseExpRandom);
     if (reward?.effectiveExp != null) {
       expValue = reward.effectiveExp;
     }
@@ -577,6 +665,7 @@ async function processDiscadiaVote(guild, user, client, options = {}) {
   }
 
   const { DIVIDER_URL: dividerUrl } = require("../../../shared/discord/constants");
+  const { userAvatarUrlStatic } = require("../Discord/guildDiscordIdentity");
   const voteCooldownHours = Math.max(1, Math.round(voteCooldownMs / (60 * 60 * 1000)));
   const voteAgainHoursLabel = voteCooldownHours === 1 ? "1 ora" : `${voteCooldownHours} ore`;
   const voteLabel = typeof resolvedVoteCount === "number" ? `${resolvedVoteCount}°` : "";
@@ -586,8 +675,8 @@ async function processDiscadiaVote(guild, user, client, options = {}) {
     : `<a:VC_Money:1482724694699278487> <a:VC_Arrow:1482706699365257397> Reward voto assegnata per ${voteAgainHoursLabel}`;
   const thankLine =
     voteListing === "topgg"
-      ? `<a:VC_ThankYou:1330186319673950401> Grazie ${user} per aver votato su **Top.gg**!`
-      : `<a:VC_ThankYou:1330186319673950401> Grazie ${user} per aver votato su **Discadia**!`;
+      ? `<a:VC_ThankYou:1330186319673950401> Grazie ${userMention} per aver votato su **Top.gg**!`
+      : `<a:VC_ThankYou:1330186319673950401> Grazie ${userMention} per aver votato su **Discadia**!`;
   const descriptionLines = [
     thankLine,
     "",
@@ -598,11 +687,20 @@ async function processDiscadiaVote(guild, user, client, options = {}) {
     "",
     `<:VC_update:1478721333096349817> Vota di nuovo tra __${voteAgainHoursLabel}__ per ottenere **altri exp** dal **bottone sottostante**.`,
   ];
+  const botFooterIcon =
+    userAvatarUrlStatic(client?.user, { size: 64 }) ||
+    (typeof client?.user?.displayAvatarURL === "function"
+      ? client.user.displayAvatarURL({ size: 64, extension: "png", forceStatic: true })
+      : null);
   const embed = new EmbedBuilder()
-    .setColor("#6f4e37")
+    .setColor(TENANT_EMBED_COLOR)
     .setTitle("<a:VC_Vote:1482535223001485473> **Un nuovo voto!**")
     .setDescription(descriptionLines.join("\n"))
-    .setFooter({ text: "Ogni volta che voterai il valore dell'exp guadagnata varierà: a volte sarà più alto, altre volte più basso, mentre altre ancora uguale al precedente", }).setImage(dividerUrl);
+    .setFooter({
+      text: "Ogni volta che voterai il valore dell'exp guadagnata varierà",
+      iconURL: botFooterIcon || undefined,
+    })
+    .setImage(dividerUrl);
 
   const components = [];
   const linkVoteUrl = resolvePublicVoteHubUrl(client) || VOTE_URL;
@@ -620,38 +718,19 @@ async function processDiscadiaVote(guild, user, client, options = {}) {
 
   const channel = client.channels.cache.get(VOTE_CHANNEL_ID) || await client.channels.fetch(VOTE_CHANNEL_ID).catch(() => null);
   if (channel?.isTextBased?.()) {
-    await channel.send({ content: `${user}`, embeds: [embed], components, }).catch(() => { });
+    await channel.send({ content: userMention, embeds: [embed], components, }).catch(() => { });
   }
 
   void (async () => {
     try {
       const expiresAt = new Date(Date.now() + voteCooldownMs);
-      await upsertVoteRole(guild.id, user.id, expiresAt);
-      const member = await getCachedOrFetchMember(guild, user.id);
+      await upsertVoteRole(guild.id, userId, expiresAt);
+      const member = await getCachedOrFetchMember(guild, userId);
       if (member && !member.roles.cache.has(VOTE_ROLE_ID)) {
         await member.roles.add(VOTE_ROLE_ID).catch(() => { });
       }
     } catch (err) {
       global.logger?.warn?.("[officialMessageAutomation] role/event error: ", err?.message || err);
-    }
-  })();
-
-  void (async () => {
-    try {
-      const { enqueueSiteInAppNotification } = require("../Web/siteInAppNotificationsService");
-      const platformLabel = voteListing === "topgg" ? "Top.gg" : "Discadia";
-      await enqueueSiteInAppNotification({
-        guildId: guild.id,
-        userId: user.id,
-        title: voteListing === "topgg" ? "Voto su Top.gg registrato" : "Voto su Discadia registrato",
-        body: `Il voto su ${platformLabel} è stato registrato: hai ricevuto EXP e ricompense sul server. Grazie per il supporto!`,
-        kind: "vote",
-        openUrl: "/vote",
-        dedupeKey: `vote:${voteListing}:${user.id}`,
-        dedupeWindowMs: 120_000,
-      });
-    } catch (eN) {
-      global.logger?.warn?.("[officialMessageAutomation] site notification vote:", eN?.message || eN);
     }
   })();
 
@@ -942,11 +1021,20 @@ async function handleDiscadiaBump(message, client) {
 
 async function handlePauseChannelMessage(message) {
   if (!message?.guild) return false;
-  if (message.author?.bot || message.webhookId || message.system) return false;
 
   const pauseChannelId = String(IDs.channels.pause || "");
   const isPauseChannel = Boolean(pauseChannelId && String(message.channelId) === pauseChannelId);
   if (!isPauseChannel) return false;
+
+  // Bot notices (annullo/accetta testo) devono riposizionare lo sticky in fondo.
+  // Lo sticky stesso non riposiziona (evita loop). La richiesta Accetta/Rifiuta sì:
+  // serve quando la richiesta arriva da site-api (REST non ripubblica lo sticky).
+  if (message.author?.bot || message.webhookId || message.system) {
+    if (!isPauseStickyPanelMessage(message)) {
+      void maybeRepositionPauseSticky(message.channel, message.client).catch(() => null);
+    }
+    return false;
+  }
 
   const finish = () => {
     void maybeRepositionPauseSticky(message.channel, message.client).catch(() => null);
@@ -998,35 +1086,104 @@ async function handlePauseChannelMessage(message) {
   return true;
 }
 
-const RECENT_VOTE_LOOKBACK_MS = 24 * 60 * 60 * 1000;
-const RECENT_VOTE_FETCH_LIMIT = 80;
+const RECENT_VOTE_LOOKBACK_MS = 72 * 60 * 60 * 1000;
+const RECENT_VOTE_FETCH_LIMIT = 100;
+const RECENT_VOTE_MAX_PAGES = 5;
 
 const RECENT_BUMP_LOOKBACK_MS = 24 * 60 * 60 * 1000;
 
+async function fetchRecentChannelMessages(channel, { lookbackMs, pageLimit, maxPages }) {
+  if (!channel?.messages?.fetch) return [];
+  const cutoff = Date.now() - lookbackMs;
+  const byId = new Map();
+  let before;
+  for (let page = 0; page < maxPages; page += 1) {
+    const batch = await channel.messages
+      .fetch({ limit: pageLimit, ...(before ? { before } : {}) })
+      .catch(() => null);
+    if (!batch?.size) break;
+    let oldestTs = Number.POSITIVE_INFINITY;
+    let oldestId = null;
+    for (const msg of batch.values()) {
+      byId.set(String(msg.id), msg);
+      const ts = Number(msg.createdTimestamp || 0);
+      if (ts && ts < oldestTs) {
+        oldestTs = ts;
+        oldestId = String(msg.id);
+      }
+    }
+    if (!oldestId || oldestTs < cutoff) break;
+    before = oldestId;
+  }
+  return [...byId.values()];
+}
+
+function isOurDiscadiaThankYouMessage(message, client) {
+  if (!message || String(message.author?.id || "") !== String(client?.user?.id || "")) return false;
+  const { content, embedText, embedTitle, fieldsText } = getMessageTextParts(message);
+  const voteText = `${content}${embedText}${embedTitle}${fieldsText}`;
+  if (/top\.gg|\btopgg\b/i.test(voteText)) return false;
+  return /votato su\s+\*?\*?Discadia\*?\*?|Un nuovo voto/i.test(voteText) && /Discadia/i.test(voteText);
+}
+
+async function tryRecoverVoteFromOurThankYou(message, client) {
+  if (!isOurDiscadiaThankYouMessage(message, client)) return false;
+  let user = await resolveUserFromMessage(message);
+  if (user?.bot) user = null;
+  if (!user) {
+    const mentioned = message.mentions?.users?.first?.();
+    if (mentioned && !mentioned.bot) user = mentioned;
+  }
+  if (!user) return false;
+  const voteAtMs = Number(message.createdTimestamp || 0);
+  if (await isVoteListingRecordedAtOrAfter(message.guild.id, user.id, "discadia", voteAtMs)) {
+    return false;
+  }
+  return processDiscadiaVote(message.guild, user, client, { voteListing: "discadia" });
+}
+
 async function processRecentVoteChannelMessages(client) {
-  if (!client || !VOTE_CHANNEL_ID) return;
+  if (!client || !VOTE_CHANNEL_ID) return { recovered: 0, scanned: 0 };
   const channel = client.channels.cache.get(VOTE_CHANNEL_ID) || (await client.channels.fetch(VOTE_CHANNEL_ID).catch(() => null));
-  if (!channel?.isTextBased?.() || !channel.messages) return;
+  if (!channel?.isTextBased?.() || !channel.messages) return { recovered: 0, scanned: 0 };
   const cutoff = Date.now() - RECENT_VOTE_LOOKBACK_MS;
   let messages = [];
   try {
-    messages = await channel.messages.fetch({ limit: RECENT_VOTE_FETCH_LIMIT });
+    messages = await fetchRecentChannelMessages(channel, {
+      lookbackMs: RECENT_VOTE_LOOKBACK_MS,
+      pageLimit: RECENT_VOTE_FETCH_LIMIT,
+      maxPages: RECENT_VOTE_MAX_PAGES,
+    });
   } catch (err) {
     global.logger?.warn?.("[VOTE EMBED] Failed to fetch recent messages for startup:", err?.message || err);
-    return;
+    return { recovered: 0, scanned: 0 };
   }
-  const ourId = client.user?.id;
-  const sorted = [...messages.values()].sort((a, b) => (b.createdTimestamp || 0) - (a.createdTimestamp || 0));
+  const ourId = String(client.user?.id || "");
+  const sorted = [...messages.values()]
+    .filter((m) => (m.createdTimestamp || 0) >= cutoff)
+    .sort((a, b) => (a.createdTimestamp || 0) - (b.createdTimestamp || 0));
+  let recovered = 0;
   for (const message of sorted) {
-    if ((message.createdTimestamp || 0) < cutoff) continue;
-    if (message.author?.id === ourId) continue;
     try {
-      const handled = await handleVoteManagerMessage(message, client);
-      if (handled) return;
+      if (String(message.author?.id || "") === ourId) {
+        const handledThankYou = await tryRecoverVoteFromOurThankYou(message, client);
+        if (handledThankYou) recovered += 1;
+        continue;
+      }
+      const handled = await handleVoteManagerMessage(message, client, {
+        skipIfAlreadyRecorded: true,
+        voteAtMs: message.createdTimestamp,
+        keepSourceMessage: true,
+      });
+      if (handled) recovered += 1;
     } catch (err) {
       global.logger?.warn?.("[VOTE EMBED] Startup process message error:", err?.message || err);
     }
   }
+  if (recovered > 0) {
+    global.logger?.info?.(`[VOTE EMBED] Recuperati ${recovered} voti da #supporters (scansionati ${sorted.length} messaggi)`);
+  }
+  return { recovered, scanned: sorted.length };
 }
 
 async function processRecentCommandsChannelMessages(client) {

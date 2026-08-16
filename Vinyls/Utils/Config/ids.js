@@ -65,6 +65,7 @@ const ids = {
     categoryPerks: "1442569069613289595",
     categoryGames: "1442569074310643845",
     categoryPublics: "1442569076902989844",
+    categoryLimitate: "1519315215102120147",
     categoryPrivate: "1442569078379118755",
     categoryPrivateAnchor: "1442569079931146240",
     categorySponsor: "1442569081214599223",
@@ -140,11 +141,14 @@ const ids = {
     resocontiStaff: "1442569270784692306",
     guidaMid: "1442569266066096309",
     regolamentoPartner: "1442569199229730836",
+    partnerRewards: "1442579412280410194",
     guidaStaff: "1442569237142044773",
     descriptionPartner: "1442569194905534494",
     candidatureStaff: "1442569232507473951",
     visioneModuli: "1442569278049095913",
     news: "1442569115972669541",
+    /** Canale news sorgente: messaggi pubblicati → relay ai tenant (canale aggiornamenti). */
+    botUpdatesSource: "1525817647210561711",
     eventAnnouncements: "1481660281032675510",
     contestBonusVotesAnnounce: "1497360710500618381",
     staffNews: "1442569239063167139",
@@ -158,7 +162,7 @@ const ids = {
     stanzaLobbyVoice: "1499754530076626964",
     staffCmds: "1442569262689554444",
     partnerships: "1442569193470824448",
-    partnerLogs: "1467533670129729680",
+    partnerLogs: "1526160188661432330",
     trio2: "1442569125753913498",
     vocPrivata3: "1442569152614367262",
     infoSponsor: "1442569211611185323",
@@ -339,6 +343,8 @@ const ids = {
     Minigames: "1443955529352478830",
     Notturno: "1521564636929855581",
     Live: "1522594136006594580",
+    Status: "1525971150297895065",
+    Changelogs: "1525971161761058826",
     HobbyAnimeManga: "1522300283693039736",
     HobbyLettura: "1522300334683455680",
     HobbyScrittura: "1522300393860759613",
@@ -417,6 +423,11 @@ const ids = {
 let sponsorConfig = {};
 try {
   const config = require(path.join(__dirname, "..", "..", "config.json"));
+  const cfgMain = String(config.mainGuildId || "").trim();
+  if (/^\d{16,20}$/.test(cfgMain)) {
+    ids.guilds.main = cfgMain;
+    if (ids.raw?.guilds) ids.raw.guilds.main = cfgMain;
+  }
   sponsorConfig = {
     sponsorGuildIds: Array.isArray(config.sponsorGuildIds)
       ? config.sponsorGuildIds
@@ -493,14 +504,14 @@ ids.sponsorRoles = {
 ids.sponsorGuildTagConfig = {
   [ids.guilds.luna]: {
     channelId: ids.sponsorChannels.lunaTag,
-    tagName: "ʟᴜɴᴀ",
-    emoji: "🌙",
+    tagName: "Fe㏔ѹ",
+    emoji: "<:VC_Femboy1:1528177995095867515><:VC_Femboy2:1528178060581671084>",
     boosterRoleId: ids.sponsorRoles.lunaBooster,
   },
   [ids.guilds.cash]: {
     channelId: ids.sponsorChannels.cashTag,
-    tagName: "ꜰɪʀᴇ",
-    emoji: "<a:VC_Flame:1482725674711126140>",
+    tagName: "⁶⁶⁶",
+    emoji: "<:VC_666_1:1528177848890691684><:VC_666_2:1528177905404870828>",
     boosterRoleId: ids.sponsorRoles.cashBooster,
   },
   [ids.guilds.porn]: {
@@ -511,8 +522,8 @@ ids.sponsorGuildTagConfig = {
   },
   [ids.guilds[69]]: {
     channelId: ids.sponsorChannels["69Tag"],
-    tagName: "ꜱᴛᴀʀ",
-    emoji: "<:VC_EXP:1482534670896730143>",
+    tagName: "ᓚᘏᗢ",
+    emoji: "<:VC_Cat1:1528177482807640125><:VC_Cat2:1528177684843073546>",
     boosterRoleId: ids.sponsorRoles["69Booster"],
   },
   [ids.guilds.weed]: {
@@ -533,14 +544,14 @@ ids.sponsorTicketConfig = {
   [ids.guilds.luna]: {
     ticketChannelId: ids.sponsorChannels.lunaTicket,
     guildedRoleId: ids.sponsorRoles.lunaGuilded,
-    tagName: "Luna",
-    emoji: "🌙",
+    tagName: "Fe㏔ѹ",
+    emoji: "<:VC_Femboy1:1528177995095867515><:VC_Femboy2:1528178060581671084>",
   },
   [ids.guilds.cash]: {
     ticketChannelId: ids.sponsorChannels.cashTicket,
     guildedRoleId: ids.sponsorRoles.cashGuilded,
-    tagName: "Fire",
-    emoji: "<a:VC_Flame:1482725674711126140>",
+    tagName: "⁶⁶⁶",
+    emoji: "<:VC_666_1:1528177848890691684><:VC_666_2:1528177905404870828>",
   },
   [ids.guilds.porn]: {
     ticketChannelId: ids.sponsorChannels.pornTicket,
@@ -551,8 +562,8 @@ ids.sponsorTicketConfig = {
   [ids.guilds[69]]: {
     ticketChannelId: ids.sponsorChannels["69Ticket"],
     guildedRoleId: ids.sponsorRoles["69Guilded"],
-    tagName: "Star",
-    emoji: "<:VC_EXP:1482534670896730143>",
+    tagName: "ᓚᘏᗢ",
+    emoji: "<:VC_Cat1:1528177482807640125><:VC_Cat2:1528177684843073546>",
   },
   [ids.guilds.weed]: {
     ticketChannelId: ids.sponsorChannels.weedTicket,

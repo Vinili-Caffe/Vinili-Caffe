@@ -6,7 +6,6 @@ module.exports = {
   allowEmptyArgs: true,
 
   async execute(message, args = []) {
-    await message.channel.sendTyping();
     const { channel, lookbackDays } = await channelButton.resolveChannelAndLookback(message, args);
     if (!channel || !message.guild) {
       await safeMessageReply(message, {
@@ -15,6 +14,7 @@ module.exports = {
       });
       return;
     }
+
     const payload = await channelButton.buildChannelOverviewPayload(
       message.guild,
       channel,

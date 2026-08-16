@@ -41,33 +41,45 @@ function splitTokenCore(token) {
   return { lead: m[1] || "", core: m[2] || "", trail: m[3] || "" };
 }
 
+function shuffleWithRnd(arr, rnd) {
+  const out = Array.isArray(arr) ? arr.slice() : [];
+  for (let i = out.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(rnd() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
 function scrambleWord(word, rnd) {
   const w = String(word || "");
   if (w.length <= 1) return w;
   if (w.length === 2) return w[1] + w[0];
-  const chars = w.split("");
-  if (w.length >= 4 && rnd() < 0.72) {
-    const reversed = chars.slice().reverse().join("");
-    if (reversed !== w) return rnd() < 0.12 ? reversed.toUpperCase() : reversed;
-  }
-  const copy = chars.slice();
-  const swapCount = Math.min(copy.length - 1, Math.max(2, Math.floor(copy.length / 2)));
-  for (let s = 0; s < swapCount; s += 1) {
-    const i = Math.floor(rnd() * (copy.length - 1));
-    [copy[i], copy[i + 1]] = [copy[i + 1], copy[i]];
-  }
-  let out = copy.join("");
+  // Burrobirra strong: anagramma completo (non solo swap adiacenti).
+  let chars = shuffleWithRnd(w.split(""), rnd);
+  let out = chars.join("");
   if (out === w) {
-    [copy[0], copy[copy.length - 1]] = [copy[copy.length - 1], copy[0]];
-    out = copy.join("");
+    chars = chars.slice().reverse();
+    out = chars.join("");
   }
-  if (rnd() < 0.12) return out.toUpperCase();
+  if (out === w && chars.length > 2) {
+    [chars[0], chars[chars.length - 1]] = [chars[chars.length - 1], chars[0]];
+    out = chars.join("");
+  }
+  if (rnd() < 0.35) return out.toUpperCase();
+  if (rnd() < 0.2) {
+    return out
+      .split("")
+      .map((ch) => (rnd() < 0.45 ? ch.toUpperCase() : ch.toLowerCase()))
+      .join("");
+  }
   return out;
 }
 
 function scrambleWordToken(token, rnd) {
   const { lead, core, trail } = splitTokenCore(token);
   if (!core) return token;
+  // Non rimescolare cifre pure (es. "12" → "21" rovina i codici); le gestiamo a token.
+  if (/^\d+$/.test(core)) return token;
   const scrambledCore = core.includes("'")
     ? core.split("'").map((part) => scrambleWord(part, rnd)).join("'")
     : scrambleWord(core, rnd);
@@ -83,8 +95,74 @@ function distortPlainSegment(text, rnd) {
     words[i] = scrambleWordToken(words[i], rnd);
   }
   let out = words.join("");
-  if (rnd() < 0.2) out = out.replace(/\./g, "…");
+  if (rnd() < 0.45) out = out.replace(/\./g, "…");
+  if (rnd() < 0.25) out = out.replace(/,/g, "‚");
+  // Ogni tanto inverte l'ordine delle parole (oltre alle lettere).
+  if (rnd() < 0.22) {
+    const parts = out.split(/(\s+)/);
+    const wordIdx = [];
+    for (let i = 0; i < parts.length; i += 1) {
+      if (parts[i].trim() && !/^\s+$/.test(parts[i])) wordIdx.push(i);
+    }
+    if (wordIdx.length >= 3) {
+      const values = wordIdx.map((i) => parts[i]);
+      const shuffled = shuffleWithRnd(values, rnd);
+      wordIdx.forEach((idx, n) => {
+        parts[idx] = shuffled[n];
+      });
+      out = parts.join("");
+    }
+  }
   return out;
+}
+
+/** Mischia token separati da spazio (emoji o numeri cifrario), seed-stabile. */
+function shuffleSpacedTokens(text, seed = "") {
+  const raw = String(text || "").trim();
+  if (!raw) return raw;
+  const parts = raw.split(/\s+/).filter(Boolean);
+  if (parts.length <= 1) return raw;
+  const rnd = mulberry32(hashSeed(`shuffle:${seed || raw}`));
+  let next = shuffleWithRnd(parts, rnd);
+  if (next.join(" ") === parts.join(" ") && parts.length > 1) {
+    next = parts.slice().reverse();
+  }
+  return next.join(" ");
+}
+
+function isNumericCipherLine(text) {
+  const t = String(text || "").trim();
+  return t.length > 0 && /^[\d\s]+$/.test(t);
+}
+
+function extractEmojiTokens(text) {
+  const raw = String(text || "");
+  const ordered = [];
+  const re = /<a?:\w+:\d{16,22}>|\p{Extended_Pictographic}(?:\uFE0F|\u200D\p{Extended_Pictographic})*/gu;
+  let m;
+  while ((m = re.exec(raw)) !== null) ordered.push(m[0]);
+  if (ordered.length) return ordered;
+  return raw.split(/\s+/).filter(Boolean);
+}
+
+/** Mischia l'ordine delle emoji (per sequenza memory in Burrobirra). */
+function scrambleEmojiSequenceText(text, seed = "") {
+  const tokens = extractEmojiTokens(text);
+  if (tokens.length <= 1) return String(text || "").trim();
+  const rnd = mulberry32(hashSeed(`emoji:${seed || text}`));
+  let next = shuffleWithRnd(tokens, rnd);
+  if (next.join("") === tokens.join("")) next = tokens.slice().reverse();
+  const sep = rnd() < 0.55 ? "" : rnd() < 0.5 ? "·" : " ";
+  return next.join(sep);
+}
+
+/** Tiene l'ordine ma rende il blocco più illeggibile (spazi/separatori). */
+function chaosEmojiSequenceKeepOrder(text, seed = "") {
+  const tokens = extractEmojiTokens(text);
+  if (tokens.length <= 1) return String(text || "").trim();
+  const rnd = mulberry32(hashSeed(`chaos:${seed || text}`));
+  const sep = rnd() < 0.4 ? "" : rnd() < 0.5 ? "·" : "•";
+  return tokens.join(sep);
 }
 
 function distortMinigameText(text, seed = "") {
@@ -135,7 +213,8 @@ async function pixelateImageBuffer(inputBuffer, seed = "") {
   const w = img.width;
   const h = img.height;
   const rnd = mulberry32(hashSeed(seed || "pixel"));
-  const scale = 0.16 + rnd() * 0.14;
+  // Burrobirra strong: pixel più grossolani (immagini quasi illeggibili).
+  const scale = 0.07 + rnd() * 0.09;
   const sw = Math.max(10, Math.floor(w * scale));
   const sh = Math.max(10, Math.floor(h * scale));
   const small = createCanvas(sw, sh);
@@ -217,7 +296,8 @@ function distortQuestionDescriptionLine(line, seed) {
   }
   const wordMatch = raw.match(/^([\s\S]*?parola da queste lettere:\s*)\*\*([^*]+)\*\*([\s\S]*)$/i);
   if (wordMatch) {
-    return `${wordMatch[1]}**${distortMinigameText(wordMatch[2], `${seed}:word`)}**${wordMatch[3]}`;
+    // Le lettere sono già lo scramble del puzzle: non rimescolarle (rischio di ricomporre la parola).
+    return raw;
   }
   const rangeMatch = raw.match(/^([\s\S]*?tra\s*)\*\*([^*]+)\*\*(\s+e\s*)\*\*([^*]+)\*\*([\s\S]*)$/i);
   if (rangeMatch) {
@@ -229,7 +309,11 @@ function distortQuestionDescriptionLine(line, seed) {
   }
   const hashMatch = raw.match(/^(\#\s+)([\s\S]+)$/);
   if (hashMatch) {
-    if (isEmojiOnlySequenceText(hashMatch[2])) return raw;
+    // Numeri cifrario: già mescolati a monte del game — non invertire le cifre.
+    if (isNumericCipherLine(hashMatch[2])) return raw;
+    if (isEmojiOnlySequenceText(hashMatch[2])) {
+      return `${hashMatch[1]}${scrambleEmojiSequenceText(hashMatch[2], `${seed}:hash-emoji`)}`;
+    }
     return `${hashMatch[1]}${distortMinigameText(hashMatch[2], `${seed}:hash`)}`;
   }
   const completaMatch = raw.match(/^([\s\S]*?Completa:\s*)\*\*([^*]+)\*\*([\s\S]*)$/i);
@@ -266,18 +350,28 @@ function distortQuestionDescriptionLine(line, seed) {
 function distortEmbedJsonQuestionOnly(embedJson, seed) {
   if (!embedJson || typeof embedJson !== "object") return embedJson;
   const out = { ...embedJson };
+  if (out.title) out.title = distortMinigameText(String(out.title), `${seed}:title`);
   if (out.description) {
     const lines = String(out.description).split("\n");
     out.description = lines.map((line, idx) => distortQuestionDescriptionLine(line, `${seed}:l${idx}`)).join("\n");
   }
   if (Array.isArray(out.fields)) {
-    out.fields = out.fields.map((field) => {
+    out.fields = out.fields.map((field, idx) => {
       const name = String(field?.name || "");
       const value = String(field?.value || "");
       if (/^sequenza$/i.test(name.trim()) && isEmojiOnlySequenceText(value)) {
-        return { ...field };
+        // Ordine già deciso dal game: caos solo visivo (separatori), senza riordinare.
+        return {
+          ...field,
+          name: distortMinigameText(name, `${seed}:f${idx}:n`) || name,
+          value: chaosEmojiSequenceKeepOrder(value, `${seed}:f${idx}:seq`),
+        };
       }
-      return field;
+      return {
+        ...field,
+        name: field?.name ? distortMinigameText(name, `${seed}:f${idx}:n`) : field?.name,
+        value: field?.value ? distortMinigameText(value, `${seed}:f${idx}:v`) : field?.value,
+      };
     });
   }
   return out;
@@ -297,6 +391,17 @@ function distortEmbedJson(embedJson, seed) {
     }));
   }
   return out;
+}
+
+function shouldSkipBurrobirraFileDistort(file) {
+  const name = String(file?.name || "").toLowerCase();
+  // Puzzle payload: non pixelare/flippare (invertirebbe l'ordine dei numeri/lettere).
+  return (
+    name === "hogwarts_cipher.png" ||
+    name === "guess_word.png" ||
+    name.startsWith("hogwarts_cipher") ||
+    name.startsWith("guess_word")
+  );
 }
 
 async function applyBurrobirraToPayload(payload, seed = "minigame", options = null) {
@@ -330,17 +435,29 @@ async function applyBurrobirraToPayload(payload, seed = "minigame", options = nu
     } else if (imageUrl.startsWith("attachment://")) {
       const attName = imageUrl.slice("attachment://".length);
       const idx = files.findIndex((f) => String(f?.name || "") === attName);
-      if (idx >= 0) files[idx] = await distortAttachmentBuilder(files[idx], `${seed}:att${idx}`);
+      if (idx >= 0 && !shouldSkipBurrobirraFileDistort(files[idx])) {
+        files[idx] = await distortAttachmentBuilder(files[idx], `${seed}:att${idx}`);
+      }
     }
     nextEmbeds.push(distorted);
   }
   out.embeds = nextEmbeds;
-  if (questionOnly) {
-    out.files = await Promise.all(files.map((file, idx) => distortAttachmentBuilder(file, `${seed}:file${idx}`)));
-  } else {
-    out.files = await Promise.all(files.map((file, idx) => distortAttachmentBuilder(file, `${seed}:file${idx}`)));
-  }
+  out.files = await Promise.all(
+    files.map((file, idx) =>
+      shouldSkipBurrobirraFileDistort(file)
+        ? file
+        : distortAttachmentBuilder(file, `${seed}:file${idx}`),
+    ),
+  );
   return out;
 }
 
-module.exports = { distortMinigameText, applyBurrobirraToPayload, distortAttachmentBuilder, fetchAndFlipUrlImage };
+module.exports = {
+  distortMinigameText,
+  applyBurrobirraToPayload,
+  distortAttachmentBuilder,
+  fetchAndFlipUrlImage,
+  shuffleSpacedTokens,
+  scrambleEmojiSequenceText,
+  chaosEmojiSequenceKeepOrder,
+};

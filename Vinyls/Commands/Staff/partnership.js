@@ -1,9 +1,27 @@
-const { SlashCommandBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, } = require("discord.js");
+const {
+  SlashCommandBuilder,
+  ModalBuilder,
+  TextInputBuilder,
+  TextInputStyle,
+  ActionRowBuilder,
+} = require("discord.js");
 const { safeReply } = require("../../../shared/discord/replyRuntime");
 const {
   partnersChatPartnerCommandDeniedReplyContent,
 } = require("../../Utils/Partner/partnersChatChannelUtils");
+const {
+  isPartnershipOperational,
+  resolvePartnershipConfigSync,
+  isPartnershipSkipManagerAllowed,
+  buildSkipDeniedEmbed,
+} = require("../../Utils/Partner/partnershipConfigResolver");
+const { replyInteractionSetupRequired } = require("../../Utils/Partner/tenantSetupRequiredReply");
 const EPHEMERAL_FLAG = 1 << 6;
+
+function buildPartnershipModalCustomId(openerId, managerId, skipped) {
+  if (skipped) return `partnershipModal_cmd_${openerId}_skip`;
+  return `partnershipModal_cmd_${openerId}_${managerId}`;
+}
 
 module.exports = {
   expectsModal: true,
@@ -14,11 +32,17 @@ module.exports = {
       option
         .setName("manager")
         .setDescription("L'utente con cui stai facendo la partnership.")
-        .setRequired(true),
+        .setRequired(false),
     ),
 
   async execute(interaction) {
-    const denied = await partnersChatPartnerCommandDeniedReplyContent(interaction.channel, { allowPartnership: true });
+    if (!isPartnershipOperational(interaction.guild?.id)) {
+      await replyInteractionSetupRequired(interaction);
+      return;
+    }
+    const denied = await partnersChatPartnerCommandDeniedReplyContent(interaction.channel, {
+      allowPartnership: true,
+    });
     if (denied) {
       await safeReply(interaction, {
         content: denied,
@@ -26,17 +50,36 @@ module.exports = {
       });
       return;
     }
+
+    const partnershipCfg = resolvePartnershipConfigSync(interaction.guild?.id);
+    const isMainServer = Boolean(partnershipCfg?.legacy);
+    const skipAllowed = isPartnershipSkipManagerAllowed(interaction.guild?.id);
     const manager = interaction.options.getUser("manager");
-    if (!manager?.id) {
+    const skipped = Boolean(!isMainServer && skipAllowed && !manager?.id);
+
+    if (!skipped && !manager?.id) {
+      if (isMainServer) {
+        await safeReply(interaction, {
+          content: "<:vegax:1443934876440068179> Devi indicare un **manager** valido.",
+          flags: EPHEMERAL_FLAG,
+        });
+        return;
+      }
       await safeReply(interaction, {
-        content: "<:vegax:1443934876440068179> Manager non valido.",
+        embeds: [buildSkipDeniedEmbed()],
         flags: EPHEMERAL_FLAG,
       });
       return;
     }
 
     const modal = new ModalBuilder()
-      .setCustomId(`partnershipModal_cmd_${interaction.user.id}_${manager.id}`)
+      .setCustomId(
+        buildPartnershipModalCustomId(
+          interaction.user.id,
+          manager?.id || null,
+          skipped,
+        ),
+      )
       .setTitle("Invia Partnership");
 
     const descriptionInput = new TextInputBuilder()

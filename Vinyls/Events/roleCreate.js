@@ -2,6 +2,7 @@ const { AuditLogEvent, EmbedBuilder } = require("discord.js");
 const { queueIdsCatalogSync } = require("../Utils/Config/idsAutoSync");
 const { ARROW, toDiscordTimestamp, yesNo, formatAuditActor, buildAuditExtraLines, resolveChannelRolesLogChannel, resolveResponsible, } = require("../Utils/Logging/channelRolesLogUtils");
 const { handleRoleCreationAction: antiNukeHandleRoleCreationAction } = require("../Services/Moderation/antiNukeService");
+const { isViniliFullFeatureGuild } = require("../MultiGuild/core/guildFeatureScope");
 const ROLE_CREATE_ACTION = AuditLogEvent?.RoleCreate ?? 30;
 
 function sleep(ms) {
@@ -25,6 +26,7 @@ module.exports = {
   async execute(role, client) {
     const guildId = role?.guild?.id || role?.guildId;
     if (!guildId) return;
+    if (!isViniliFullFeatureGuild(guildId)) return;
 
     try {
       const guild=role?.guild||client?.guilds?.cache?.get?.(guildId)||(await client?.guilds?.fetch?.(guildId).catch(() => null));

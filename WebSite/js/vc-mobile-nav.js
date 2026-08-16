@@ -11,7 +11,11 @@
 
   function getMq() {
     if (!mq) {
-      mq = window.matchMedia("(max-width: 639.98px)");
+      var max = 639.98;
+      try {
+        if (document.body && document.body.classList.contains("vc-dashboard-page")) max = 720;
+      } catch (eMq) {}
+      mq = window.matchMedia("(max-width: " + max + "px)");
     }
     return mq;
   }
@@ -95,6 +99,14 @@
   }
 
   function mobileProfileHref(userId) {
+    try {
+      var p = String(window.location.pathname || "").toLowerCase().replace(/\/+$/, "") || "/";
+      if (p === "/dashboard" || p.indexOf("/dashboard/") === 0) {
+        var d = window.__VC_SITE_DASHBOARD || {};
+        if (d.profilePageUrl) return String(d.profilePageUrl);
+        return "/dashboard/profilo/";
+      }
+    } catch (e0) {}
     var id = String(userId || "").trim();
     return id ? "/users/" + encodeURIComponent(id) : "/user";
   }
@@ -106,6 +118,24 @@
     var profile = window.__VC_DISCORD_PROFILE;
     var logoutBtn = document.getElementById("discord-logout-btn");
     var loginBtn = document.getElementById("discord-login-btn");
+    var loginState = document.getElementById("discord-login-state");
+    var hasToken = false;
+    try {
+      var t = localStorage.getItem("vc_discord_access_token");
+      var exp = Number(localStorage.getItem("vc_discord_expires_at") || "0");
+      hasToken = Boolean(t) && (!exp || exp > Date.now());
+    } catch (eTok) {}
+    var pendingShell = loginState && loginState.querySelector(".vc-auth-pending-shell");
+    if (pendingShell || (hasToken && !profile)) {
+      var pending = document.createElement("div");
+      pending.className = "vc-mobile-nav-footer__account";
+      pending.setAttribute("aria-busy", "true");
+      pending.innerHTML =
+        '<div class="vc-mobile-nav-footer__account-start"><span class="vc-mobile-nav-footer__avatar vc-mobile-nav-footer__avatar--fb" aria-hidden="true"><span class="vc-ui-spinner"></span></span></div>' +
+        '<div class="vc-mobile-nav-footer__meta"><span class="vc-mobile-nav-footer__name">Verifica sessione…</span></div>';
+      foot.appendChild(pending);
+      return;
+    }
     if (profile && logoutBtn) {
       var wrap = document.createElement("div");
       wrap.className = "vc-mobile-nav-footer__account";
@@ -181,6 +211,83 @@
     return !el || el.hidden || el.hasAttribute("hidden");
   }
 
+  function i18nLabel(key, fallback) {
+    try {
+      if (window.VcI18n && typeof window.VcI18n.t === "function") {
+        var v = window.VcI18n.t(key);
+        if (v && v !== key) return v;
+      }
+    } catch (e) {}
+    return fallback;
+  }
+
+  function resolveDashboardHref() {
+    var link = document.getElementById("discord-dashboard-link");
+    if (link) {
+      var h = String(link.getAttribute("href") || "").trim();
+      if (h) return h;
+    }
+    try {
+      var d = window.__VC_SITE_DASHBOARD || {};
+      if (d.pageUrl) return String(d.pageUrl);
+    } catch (e0) {}
+    return "/dashboard/";
+  }
+
+  function isDashboardNavAllowed() {
+    if (window.__VC_DASHBOARD_MENU_BLACKLISTED === true) return false;
+    if (window.__VC_DASHBOARD_ACCESS_OK === true) return true;
+    if (window.__VC_DASHBOARD_MENU_ALLOWED === true) return true;
+    var link = document.getElementById("discord-dashboard-link");
+    return Boolean(link && !navItemHidden(link) && !link.classList.contains("is-blacklisted"));
+  }
+
+  function shouldInjectDashboardTile() {
+    try {
+      if (document.body && document.body.classList.contains("vc-dashboard-page")) return false;
+    } catch (e) {}
+    return isDashboardNavAllowed();
+  }
+
+  function createDashboardTile() {
+    if (!shouldInjectDashboardTile()) return null;
+    var a = document.createElement("a");
+    a.className = "vc-mobile-nav-tile";
+    a.href = resolveDashboardHref();
+    a.setAttribute("data-vc-mobile-dashboard", "1");
+    var ico = document.createElement("span");
+    ico.className = "vc-mobile-nav-tile-ico";
+    ico.setAttribute("aria-hidden", "true");
+    ico.innerHTML = '<i class="fa fa-server"></i>';
+    var lab = document.createElement("span");
+    lab.className = "vc-mobile-nav-tile-label";
+    lab.textContent = i18nLabel("auth.dashboard", "Dashboard");
+    a.appendChild(ico);
+    a.appendChild(lab);
+    a.addEventListener("click", function () {
+      closeDrawer();
+    });
+    return a;
+  }
+
+  function removeHeaderDashboardBtn() {
+    var existing = document.getElementById("vc-mobile-dashboard-btn");
+    if (existing) existing.remove();
+  }
+
+  function markTileActive(a, source) {
+    if (!a || !source) return;
+    if (
+      source.classList.contains("is-active") ||
+      source.classList.contains("vc-snav-item--active") ||
+      source.classList.contains("vc-snav-row--active") ||
+      source.getAttribute("aria-current") === "page"
+    ) {
+      a.classList.add("is-active");
+      a.setAttribute("aria-current", "page");
+    }
+  }
+
   function createTileFromRow(row) {
     if (navItemHidden(row)) return null;
     var href = row.getAttribute("href");
@@ -213,6 +320,7 @@
     lab.textContent = labelText;
     a.appendChild(ico);
     a.appendChild(lab);
+    markTileActive(a, row);
     a.addEventListener("click", function () {
       closeDrawer();
     });
@@ -237,6 +345,7 @@
     lab.textContent = innerSpan ? String(innerSpan.textContent || "").trim() : String(item.textContent || "").trim();
     a.appendChild(ico);
     a.appendChild(lab);
+    markTileActive(a, item);
     a.addEventListener("click", function () {
       closeDrawer();
     });
@@ -321,6 +430,20 @@
       }
       i += 1;
     }
+    var dashTile = createDashboardTile();
+    if (dashTile) {
+      var secDash = document.createElement("section");
+      secDash.className = "vc-mobile-nav-section vc-mobile-nav-section--dashboard";
+      var hDash = document.createElement("h3");
+      hDash.className = "vc-mobile-nav-section-title";
+      hDash.textContent = i18nLabel("footer.dashboard", "Dashboard").toUpperCase();
+      var gDash = document.createElement("div");
+      gDash.className = "vc-mobile-nav-grid";
+      gDash.appendChild(dashTile);
+      secDash.appendChild(hDash);
+      secDash.appendChild(gDash);
+      gridRoot.appendChild(secDash);
+    }
   }
 
   function cloneBrand(intoEl) {
@@ -336,6 +459,11 @@
       walks[w].removeAttribute("id");
     }
     intoEl.appendChild(clone);
+    try {
+      if (typeof window.__vcSyncHeaderSiteNameMarquee === "function") {
+        window.__vcSyncHeaderSiteNameMarquee(intoEl);
+      }
+    } catch (eMarquee) {}
   }
 
   function onMqChange() {
@@ -343,61 +471,112 @@
   }
 
   function ensure() {
-    if (document.getElementById(TOGGLE_ID)) return;
+    var existingToggle = document.getElementById(TOGGLE_ID);
+    var existingDrawer = document.getElementById(DRAWER_ID);
+    if (existingToggle && existingDrawer && toggle && drawer) return;
+
     var quick = document.getElementById("header-quick-actions");
     var bar = document.querySelector(".vc-header-bar");
     if (!quick || !bar) return;
-    toggle = document.createElement("button");
-    toggle.type = "button";
-    toggle.id = TOGGLE_ID;
-    toggle.className = "vc-mobile-nav-toggle vc-icon-btn";
-    toggle.setAttribute("aria-label", "Apri menu di navigazione");
-    toggle.setAttribute("aria-controls", DRAWER_ID);
-    toggle.setAttribute("aria-expanded", "false");
-    toggle.innerHTML =
-      '<span class="vc-mobile-nav-toggle-bars" aria-hidden="true"><span></span><span></span><span></span></span>';
-    var notif = document.getElementById("vc-notif-dropdown");
-    if (notif) {
-      if (notif.nextSibling) quick.insertBefore(toggle, notif.nextSibling);
-      else quick.appendChild(toggle);
+
+    if (existingToggle) {
+      toggle = existingToggle;
     } else {
-      quick.insertBefore(toggle, quick.firstChild);
+      toggle = document.createElement("button");
+      toggle.type = "button";
+      toggle.id = TOGGLE_ID;
+      toggle.className = "vc-mobile-nav-toggle vc-icon-btn";
+      toggle.setAttribute("aria-label", "Apri menu di navigazione");
+      toggle.setAttribute("aria-controls", DRAWER_ID);
+      toggle.setAttribute("aria-expanded", "false");
+      toggle.innerHTML =
+        '<span class="vc-mobile-nav-toggle-bars" aria-hidden="true"><span></span><span></span><span></span></span>';
+      var notif = document.getElementById("vc-notif-dropdown");
+      if (notif) {
+        if (notif.nextSibling) quick.insertBefore(toggle, notif.nextSibling);
+        else quick.appendChild(toggle);
+      } else {
+        quick.appendChild(toggle);
+      }
     }
-    drawer = document.createElement("div");
-    drawer.id = DRAWER_ID;
-    drawer.className = "vc-mobile-nav-drawer";
-    drawer.setAttribute("role", "dialog");
-    drawer.setAttribute("aria-modal", "true");
-    drawer.setAttribute("aria-label", "Menu di navigazione");
-    drawer.setAttribute("aria-hidden", "true");
-    drawer.innerHTML =
-      '<div class="vc-mobile-nav-drawer__backdrop" tabindex="-1"></div>' +
-      '<div class="vc-mobile-nav-drawer__panel">' +
-      '<div class="vc-mobile-nav-drawer__top">' +
-      '<div class="vc-mobile-nav-drawer__brand" id="vc-mobile-nav-drawer-brand"></div>' +
-      '<div class="vc-mobile-nav-drawer__top-actions">' +
-      '<button type="button" class="vc-mobile-nav-drawer__close vc-icon-btn" id="vc-mobile-nav-close" aria-label="Chiudi menu"><i class="fa fa-times" aria-hidden="true"></i></button>' +
-      "</div></div>" +
-      '<div class="vc-mobile-nav-drawer__scroll" id="vc-mobile-nav-drawer-grid"></div>' +
-      '<div class="vc-mobile-nav-drawer__footer" id="vc-mobile-nav-drawer-footer"></div>' +
-      "</div>";
-    document.body.appendChild(drawer);
+    toggle.setAttribute("aria-controls", DRAWER_ID);
+    if (!toggle.getAttribute("aria-label")) {
+      toggle.setAttribute("aria-label", "Apri menu di navigazione");
+    }
+    if (!toggle.innerHTML || !String(toggle.innerHTML).trim()) {
+      toggle.innerHTML =
+        '<span class="vc-mobile-nav-toggle-bars" aria-hidden="true"><span></span><span></span><span></span></span>';
+    }
+
+    if (existingDrawer) {
+      drawer = existingDrawer;
+    } else {
+      drawer = document.createElement("div");
+      drawer.id = DRAWER_ID;
+      drawer.className = "vc-mobile-nav-drawer";
+      drawer.setAttribute("role", "dialog");
+      drawer.setAttribute("aria-modal", "true");
+      drawer.setAttribute("aria-label", "Menu di navigazione");
+      drawer.setAttribute("aria-hidden", "true");
+      drawer.innerHTML =
+        '<div class="vc-mobile-nav-drawer__backdrop" tabindex="-1"></div>' +
+        '<div class="vc-mobile-nav-drawer__panel">' +
+        '<div class="vc-mobile-nav-drawer__top">' +
+        '<div class="vc-mobile-nav-drawer__brand" id="vc-mobile-nav-drawer-brand"></div>' +
+        '<div class="vc-mobile-nav-drawer__top-actions">' +
+        '<button type="button" class="vc-mobile-nav-drawer__close vc-icon-btn" id="vc-mobile-nav-close" aria-label="Chiudi menu"><i class="fa fa-times" aria-hidden="true"></i></button>' +
+        "</div></div>" +
+        '<div class="vc-mobile-nav-drawer__scroll" id="vc-mobile-nav-drawer-grid"></div>' +
+        '<div class="vc-mobile-nav-drawer__footer" id="vc-mobile-nav-drawer-footer"></div>' +
+        "</div>";
+      document.body.appendChild(drawer);
+    }
     backdrop = drawer.querySelector(".vc-mobile-nav-drawer__backdrop");
     cloneBrand(document.getElementById("vc-mobile-nav-drawer-brand"));
     rebuildGrid();
-    toggle.addEventListener("click", function () {
-      if (drawer.classList.contains("vc-mobile-nav-drawer--open")) closeDrawer();
-      else openDrawer();
-    });
+    if (toggle.getAttribute("data-vc-mobile-nav-bound") !== "1") {
+      toggle.setAttribute("data-vc-mobile-nav-bound", "1");
+      toggle.addEventListener("click", function () {
+        if (drawer.classList.contains("vc-mobile-nav-drawer--open")) closeDrawer();
+        else openDrawer();
+      });
+    }
     var closeBtn = document.getElementById("vc-mobile-nav-close");
-    if (closeBtn) closeBtn.addEventListener("click", closeDrawer);
-    if (backdrop) backdrop.addEventListener("click", closeDrawer);
-    window.addEventListener("vc-discord-profile", function () {
-      syncDrawerFooter();
-    });
-    document.addEventListener("vc-hogwarts-staff-preview-unlock", function () {
-      if (drawer && drawer.classList.contains("vc-mobile-nav-drawer--open")) rebuildGrid();
-    });
+    if (closeBtn && closeBtn.getAttribute("data-vc-mobile-nav-bound") !== "1") {
+      closeBtn.setAttribute("data-vc-mobile-nav-bound", "1");
+      closeBtn.addEventListener("click", closeDrawer);
+    }
+    if (backdrop && backdrop.getAttribute("data-vc-mobile-nav-bound") !== "1") {
+      backdrop.setAttribute("data-vc-mobile-nav-bound", "1");
+      backdrop.addEventListener("click", closeDrawer);
+    }
+    if (window.__vcMobileNavListenersBound !== true) {
+      window.__vcMobileNavListenersBound = true;
+      window.addEventListener("vc-discord-profile", function () {
+        syncDrawerFooter();
+        rebuildGrid();
+        removeHeaderDashboardBtn();
+      });
+      window.addEventListener("vc-dashboard-access", function () {
+        rebuildGrid();
+        removeHeaderDashboardBtn();
+      });
+      document.addEventListener("vc-hogwarts-staff-preview-unlock", function () {
+        if (drawer && drawer.classList.contains("vc-mobile-nav-drawer--open")) rebuildGrid();
+      });
+    }
+  }
+
+  function refreshMobileNav() {
+    ensure();
+    rebuildGrid();
+    removeHeaderDashboardBtn();
+    syncDrawerFooter();
+    try {
+      if (window.VcI18n && typeof window.VcI18n.ensureLangSwitcher === "function") {
+        window.VcI18n.ensureLangSwitcher();
+      }
+    } catch (eLang) {}
   }
 
   function init() {
@@ -405,8 +584,11 @@
     var m = getMq();
     if (m.addEventListener) m.addEventListener("change", onMqChange);
     else if (m.addListener) m.addListener(onMqChange);
+    removeHeaderDashboardBtn();
     syncDrawerFooter();
   }
+
+  window.__vcMobileNavRebuild = refreshMobileNav;
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", init);

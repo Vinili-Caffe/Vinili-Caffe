@@ -6,16 +6,24 @@ server:
 
 logging:
   level:
-    root: ERROR
-    lavalink: ERROR
+    root: WARN
+    lavalink: WARN
+    # OAuth: INFO al boot per vedere refresh ok / need re-auth.
+    # Dopo un refresh ok puoi rimettere WARN.
+    dev.lavalink.youtube: WARN
+    dev.lavalink.youtube.http.YoutubeOauth2Handler: INFO
   request:
     enabled: false
 
 plugins:
   lavasrc:
+    # ytmsearch prima: ytsearch spesso empty. ISRC senza virgolette (match più stabile).
     providers:
+      - "ytmsearch:\"%ISRC%\""
+      - "ytmsearch:\"%QUERY%\""
       - "ytsearch:\"%ISRC%\""
       - "ytsearch:%QUERY%"
+      - "scsearch:%QUERY%"
     sources:
       spotify: true
     spotify:
@@ -29,26 +37,47 @@ plugins:
     allowSearch: true
     allowDirectVideoIds: true
     allowDirectPlaylistIds: true
+    # YouTube cambia spesso lo script signature: senza remote cipher → loadfailed a stream.
+    remoteCipher:
+      url: "https://cipher.kikkia.dev/"
+      userAgent: "vinili-caffe-bots"
+    # Video age-restricted / explicit spesso: "This video requires login" → OAuth obbligatorio.
+    # Al primo boot Lavalink stampa un link + codice; dopo salva refreshToken sotto.
+    oauth:
+      enabled: true
+      # Persistito dopo device-login (non rifare OAuth a ogni restart).
+      refreshToken: "1//098cQCzO4Ej4sCgYIARAAGAkSNwF-L9IrzaWojR_YL51oRTGLnMyNFZyu646jsr721EMlzKIZjuqXWw7obdRTehacEwP0tORhFRk"
     clients:
-      - MUSIC
-      - TVHTML5_SIMPLY
+      # TV + OAuth sblocca age-gate (itag 18 fix nello snapshot sotto).
+      # WEBEMBEDDED: age-gate limitato + Opus. WEB/MWEB spesso "requires login" su explicit.
+      - TV
+      - WEBEMBEDDED
       - ANDROID_VR
       - WEB
+      - MWEB
+      - ANDROID_MUSIC
+      - TVHTML5_SIMPLY
+      - MUSIC
     clientOptions:
-      WEB:
+      MUSIC:
         playback: false
 
 lavalink:
   server:
     password: "youshallnotpass"
-    bufferDurationMs: 2000
-    frameBufferDurationMs: 2500
+    bufferDurationMs: 1000
+    frameBufferDurationMs: 1500
     trackStuckThresholdMs: 15000
     playerUpdateInterval: 5
+    timeouts:
+      connectTimeoutMs: 10000
+      connectionRequestTimeoutMs: 10000
+      socketTimeoutMs: 10000
     sources:
       youtube: false
   plugins:
-    - dependency: "dev.lavalink.youtube:youtube-plugin:1.18.1"
+    # 1.18.2: fix itag=18 + ResponseStatusException (ex snapshot post-1.18.1).
+    - dependency: "dev.lavalink.youtube:youtube-plugin:1.18.2"
       repository: "https://maven.lavalink.dev/releases"
-    - dependency: "com.github.topi314.lavasrc:lavasrc-plugin:4.8.1"
+    - dependency: "com.github.topi314.lavasrc:lavasrc-plugin:4.8.3"
       repository: "https://maven.lavalink.dev/releases"

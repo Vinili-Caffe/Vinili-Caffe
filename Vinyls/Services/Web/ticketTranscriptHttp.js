@@ -121,9 +121,14 @@ function setTranscriptPageHeaders(res) {
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("X-Robots-Tag", "noindex, nofollow");
   res.setHeader("Cache-Control", "private, no-store");
+  res.setHeader(
+    "Access-Control-Expose-Headers",
+    "X-Ticket-Number, X-Ticket-User-Tag, X-Ticket-Type",
+  );
   const csp =
     "default-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'; " +
     "img-src 'self' data: blob: https:; " +
+    "media-src 'self' data: blob: https:; " +
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; " +
     "font-src 'self' data: https://fonts.gstatic.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; " +
     "script-src 'self' 'unsafe-inline'; connect-src 'self' https://discord.com";
@@ -180,32 +185,75 @@ function buildTranscriptGateHtml(loginUrl, returnPath, options = {}) {
     "if(r.status===403)throw new Error('forbidden');throw new Error('http');})" +
     ".then(function(html){document.open('text/html','replace');document.write(html);document.close();})" +
     ".catch(function(e){if(wait)wait.style.display='none';if(String(e&&e.message)==='forbidden'){" +
-    "clearTok();showErr('Accesso negato con la sessione Discord salvata. Premi Accedi con Discord e usa l\\'account staff corretto.');}else if(String(e&&e.message)==='sessione'){" +
+    "showErr('Accesso negato: con questo account Discord non risulta un ruolo staff adatto per questo transcript. Se hai appena ricevuto il ruolo, riprova tra qualche secondo oppure riesegui Accedi con Discord.');}else if(String(e&&e.message)==='sessione'){" +
     "showErr('Sessione scaduta. Usa «Accedi con Discord».');}else{showErr('Impossibile caricare il transcript. Riprova.');}});}" +
     "if(CLEAR)clearTok();if(MSG)showErr(MSG);if(AUTO)loadTx();})();<\/script></body></html>"
   );
 }
 
+function buildPlainTranscriptFallbackHtml(ticketDoc) {
+  const text = String(ticketDoc?.transcript || "").trim();
+  if (!text) return "";
+  const num = ticketDoc?.ticketNumber != null ? String(ticketDoc.ticketNumber) : "?";
+  const safe = text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+  return (
+    "<!doctype html><html lang=\"it\"><head><meta charset=\"utf-8\">" +
+    `<title>Transcript #${escHtml(num)}</title>` +
+    "<meta name=\"robots\" content=\"noindex,nofollow\">" +
+    "<style>body{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:#0f172a;color:#e2e8f0;padding:1.5rem;white-space:pre-wrap;line-height:1.45}" +
+    ".note{color:#94a3b8;font-size:.85rem;margin:0 0 1rem;font-family:system-ui,sans-serif}</style></head><body>" +
+    '<p class="note">Copia testo (HTML completo non più sul server).</p>' +
+    `<pre>${safe}</pre></body></html>`
+  );
+}
+
 function sendTranscriptHtmlResponse(ticketDoc, res) {
+  const { upgradeLegacyTranscriptHtml, resolveExistingTranscriptHtmlPath } = require("../../Utils/Ticket/transcriptUtils");
+  const num = ticketDoc?.ticketNumber != null ? String(ticketDoc.ticketNumber) : "";
+  const tag = String(ticketDoc?.userTag || "").trim();
+  const type = String(ticketDoc?.ticketType || "").trim();
+  if (num) res.setHeader("X-Ticket-Number", num);
+  if (tag) res.setHeader("X-Ticket-User-Tag", encodeURIComponent(tag));
+  if (type) res.setHeader("X-Ticket-Type", type);
+
   const inline = typeof ticketDoc.transcriptHtmlInline === "string" ? ticketDoc.transcriptHtmlInline : "";
   if (inline) {
     setTranscriptPageHeaders(res);
-    return res.status(200).send(inline);
+    return res.status(200).send(upgradeLegacyTranscriptHtml(inline));
   }
-  const fp = String(ticketDoc.transcriptHtmlPath || "").trim();
-  if (!fp || !fs.existsSync(fp)) {
-    return res.status(404).type("text/plain").send("Transcript non disponibile.");
-  }
-  setTranscriptPageHeaders(res);
-  return res.status(200).sendFile(fp, (err) => {
-    if (err) {
-      global.logger?.warn?.("[TICKET TRANSCRIPT HTTP] sendFile:", err?.message || err);
+  const fp = resolveExistingTranscriptHtmlPath(ticketDoc);
+  if (fp) {
+    setTranscriptPageHeaders(res);
+    try {
+      const html = upgradeLegacyTranscriptHtml(fs.readFileSync(fp, "utf8"));
+      return res.status(200).type("html").send(html);
+    } catch (err) {
+      global.logger?.warn?.("[TICKET TRANSCRIPT HTTP] read:", err?.message || err);
       if (!res.headersSent) res.status(500).type("text/plain").send("Errore interno.");
+      return undefined;
     }
-  });
+  }
+  const fallback = buildPlainTranscriptFallbackHtml(ticketDoc);
+  if (fallback) {
+    setTranscriptPageHeaders(res);
+    return res.status(200).send(upgradeLegacyTranscriptHtml(fallback));
+  }
+  return res
+    .status(404)
+    .type("text/plain")
+    .send("Transcript non disponibile (file rimosso o assente sul server).");
 }
 
 function mountTicketTranscriptRoutes(app, client) {
+  const {
+    fetchDiscordUserIdFromUserAccessToken,
+    canUserViewTicketTranscript,
+    parseAuthorizationBearer,
+  } = require("./ticketTranscriptAccess");
+
   const handleTicketTranscriptGet = async (req, res) => {
     const ip = transcriptClientIp(req);
     if (!allowTranscriptRate(ip)) {
@@ -215,7 +263,7 @@ function mountTicketTranscriptRoutes(app, client) {
 
     const param = normalizeTranscriptViewTokenParam(req.params?.token);
     if (!param) {
-      return res.status(404).type("text/plain").send("Non trovato.");
+      return res.status(404).type("text/plain").send("Link transcript non valido o scaduto.");
     }
 
     let ticketDoc;
@@ -227,18 +275,59 @@ function mountTicketTranscriptRoutes(app, client) {
     }
 
     if (!ticketDoc) {
-      return res.status(404).type("text/plain").send("Non trovato.");
+      return res.status(404).type("text/plain").send("Link transcript non valido o scaduto.");
     }
 
     const storedTok = String(ticketDoc.transcriptViewToken || "").toLowerCase();
     if (!timingSafeHexEq(storedTok, param)) {
-      return res.status(404).type("text/plain").send("Non trovato.");
+      return res.status(404).type("text/plain").send("Link transcript non valido o scaduto.");
     }
 
     const exp = ticketDoc.transcriptViewExpiresAt ? new Date(ticketDoc.transcriptViewExpiresAt).getTime() : 0;
     if (Number.isFinite(exp) && exp > 0 && exp < Date.now()) {
       res.setHeader("X-Robots-Tag", "noindex, nofollow");
       return res.status(410).type("text/plain").send("Transcript scaduto.");
+    }
+
+    const returnPath = transcriptReturnPath(req, param);
+    const loginUrl = buildTranscriptLoginUrl(req, returnPath);
+    const bearer = parseAuthorizationBearer(req);
+    const wantHtml = wantsTranscriptGateHtml(req);
+
+    if (!bearer) {
+      if (wantHtml) {
+        setTranscriptPageHeaders(res);
+        return res.status(401).send(buildTranscriptGateHtml(loginUrl, returnPath));
+      }
+      return res.status(401).json({ ok: false, error: "login_required", message: "Accedi con Discord." });
+    }
+
+    const who = await fetchDiscordUserIdFromUserAccessToken(bearer);
+    if (!who.ok) {
+      if (wantHtml) {
+        setTranscriptPageHeaders(res);
+        return res.status(401).send(
+          buildTranscriptGateHtml(loginUrl, returnPath, {
+            message: who.message || "Sessione non valida.",
+            clearToken: true,
+          }),
+        );
+      }
+      return res.status(who.status || 401).json(who);
+    }
+
+    const access = await canUserViewTicketTranscript(client, who.userId, ticketDoc);
+    if (!access.ok) {
+      if (wantHtml) {
+        setTranscriptPageHeaders(res);
+        return res.status(403).send(
+          buildTranscriptGateHtml(loginUrl, returnPath, {
+            message: access.message || "Accesso negato.",
+            autoLoad: false,
+          }),
+        );
+      }
+      return res.status(access.status || 403).json(access);
     }
 
     return sendTranscriptHtmlResponse(ticketDoc, res);

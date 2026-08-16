@@ -110,7 +110,12 @@
       "allowStickerOnly": false,
       "preventBackToBackImages": true,
       "commandStyleEnabled": false,
-      "commandStyleChance": 0
+      "commandStyleChance": 0,
+      "replyToMarkovMessage": true,
+      "replyToBotMessage": false,
+      "replyToMention": true,
+      "replyCooldownMs": 8000,
+      "maxTrackedMessageIds": 500
     }
   }
 }

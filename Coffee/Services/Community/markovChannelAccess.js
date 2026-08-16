@@ -78,7 +78,10 @@ function getMarkovExcludedCategoryIds(config = {}) {
 function getMarkovExcludedChannelIds(config = {}) {
   const markov = config?.markov || {};
   const fromConfig = Array.isArray(markov.excludedChannelIds) ? markov.excludedChannelIds : [];
-  return new Set(fromConfig.map(String).filter(Boolean));
+  const vinyls = getVinylsIds();
+  const poketwo = String(vinyls?.channels?.poketwo || IDs.channels?.poketwo || "").trim();
+  const extras = poketwo ? [poketwo] : [];
+  return new Set([...fromConfig, ...extras].map(String).filter(Boolean));
 }
 
 function resolveMemberRole(guild) {

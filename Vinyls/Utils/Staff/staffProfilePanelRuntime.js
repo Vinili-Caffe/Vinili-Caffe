@@ -8,7 +8,7 @@ const { buildPauseListPayload } = require("../Pause/pauseListRuntime");
 const { roleChoiceAppliesTo, PAUSE_ROLE_PM, getValPosTradedPauseBonusDays } = require("../Pause/pauseHandlersUtils");
 const { memberHasStaffRole } = require("../Community/staffListUtils");
 const { getStaffRoleEmojiByRoleId } = require("../Community/staffRoleEmoji");
-const { resolvePartnerPointsShown } = require("./partnerPointsDisplayUtils");
+const { resolvePartnerPointsShown, resolvePartnerTotalEarned } = require("./partnerPointsDisplayUtils");
 const { PARTNER_MANAGER_REDEEM_TIERS, partnerManagerRedeemButtonLabel, partnerManagerCanAffordReward, getPartnerRewardPointCost } = require("./partnerPointsUtils");
 const { PARTNER_MILESTONE_REWARD_LABELS } = require("./partnerManagerMilestoneDm");
 const { buildPartnerRewardDiscountBanner } = require("../../../shared/partner/partnerManagerRewardTiers");
@@ -18,6 +18,11 @@ const {
   buildSerataFilmAttendanceDescriptionLine,
   buildSerataFilmAttendanceButtonRow,
 } = require("./serataFilmAttendanceUtils");
+const { reconcileStaffValutazioneCounters } = require("./staffDocUtils");
+const {
+  resolvePmCommandsChannelMention,
+  formatChannelMentionFromChannel,
+} = require("../Partner/partnersChatChannelUtils");
 const PANEL_PREFIX = "staff_profile_panel";
 const STAFF_HP_PREFIX = "staff_hp";
 const STAFF_HP_SELECT_PREFIX = "staff_hp_select";
@@ -42,8 +47,9 @@ const STAFF_LADDER_ROLE_IDS_FOR_PANEL = [String(IDs.roles.Helper), String(IDs.ro
 const STAFF_PANEL_NON_PM_ROLE_IDS = [String(IDs.roles?.Founder), String(IDs.roles?.Manager), String(IDs.roles?.Admin), String(IDs.roles?.Director), String(IDs.roles?.HighStaff), String(IDs.roles?.SeniorModerator), String(IDs.roles?.Mod), String(IDs.roles?.Helper), String(IDs.roles?.Staff)].filter(Boolean).map((id) => String(id));
 const STAFF_PANEL_NAV_ROLE_PRIORITY = [String(IDs.roles?.Founder), String(IDs.roles?.Manager), String(IDs.roles?.Admin), String(IDs.roles?.Director), String(IDs.roles?.HighStaff), String(IDs.roles?.SeniorModerator), String(IDs.roles?.Mod), String(IDs.roles?.Helper), String(IDs.roles?.Staff)].filter(Boolean).map((id) => String(id));
 
+/** Totale partnership in profilo (non sottrae i riscatti shop). */
 function resolveStaffPartnerPointsDisplay(staffObj) {
-  return resolvePartnerPointsShown(staffObj);
+  return resolvePartnerTotalEarned(staffObj);
 }
 
 function buildPartnerManagerHubSelectRow(viewerId, targetId, section = SECTION_HOME, sourceMessageId = null, hubOptions = []) {
@@ -69,6 +75,8 @@ function buildPartnerManagerHubSelectRow(viewerId, targetId, section = SECTION_H
 
 function buildPmPartnerShopDescription(balance, opts = {}) {
   const pts = Math.max(0, Math.floor(Number(balance || 0)));
+  const earned = Math.max(pts, Math.floor(Number(opts.earned ?? pts)));
+  const redeemed = Math.max(0, Math.floor(Number(opts.redeemed ?? Math.max(0, earned - pts))));
   const ticketCh = String(IDs.channels?.ticket || "").trim();
   const ticketLine = ticketCh
     ? `Per **consumare i punti** e ottenere il premio serve un **High Staff**.`
@@ -84,7 +92,13 @@ function buildPmPartnerShopDescription(balance, opts = {}) {
       "",
     );
   }
-  lines.push(`<:VC_Partner:1482527213780729896> **Saldo:** **${pts}** punti`, "");
+  lines.push(`<:VC_Partner:1482527213780729896> **Saldo spendibile:** **${pts}** punti`);
+  if (earned > pts || redeemed > 0) {
+    lines.push(
+      `<:VC_Reply:1482532158080942191> Partnership totali **${earned}** · già riscattati in shop **${redeemed}**`,
+    );
+  }
+  lines.push("");
   for (const tier of PARTNER_MANAGER_REDEEM_TIERS) {
     const cost = getPartnerRewardPointCost(tier);
     const reward = PARTNER_MILESTONE_REWARD_LABELS[tier] || partnerManagerRedeemButtonLabel(tier);
@@ -364,8 +378,9 @@ function formatStaffProfileCloseCustomId(viewerId, targetId, sourceMessageId = n
   return withSourceSuffix(`${PANEL_PREFIX}:close:${viewerId}:${targetId}`, sourceMessageId);
 }
 
-function formatStaffProfileNextCustomId(viewerId, targetId, sourceMessageId = null) {
-  return withSourceSuffix(`${PANEL_PREFIX}:next:${viewerId}:${targetId}`, sourceMessageId);
+function formatStaffProfileNextCustomId(viewerId, targetId, sourceMessageId = null, section = SECTION_HOME) {
+  const secTok = staffHpSectionToken(section);
+  return withSourceSuffix(`${PANEL_PREFIX}:next:${viewerId}:${targetId}:${secTok}`, sourceMessageId);
 }
 
 function parseStaffProfileSelectCustomId(customId) {
@@ -383,7 +398,20 @@ function parseStaffProfileCloseCustomId(customId) {
 function parseStaffProfileNextCustomId(customId) {
   const parts = String(customId || "").split(":");
   if (parts.length < 4 || parts[0] !== PANEL_PREFIX || parts[1] !== "next") return null;
-  return { viewerId: parts[2], targetId: parts[3], sourceMessageId: normalizeSourceMessageId(parts[4]) };
+  const viewerId = parts[2];
+  const targetId = parts[3];
+  let section = SECTION_HOME;
+  let sourceMessageId = null;
+  if (parts.length === 5) {
+    // Legacy: next:viewer:target:sourceMessageId
+    // New without source: next:viewer:target:sectionTok
+    if (/^\d{16,20}$/.test(String(parts[4] || ""))) sourceMessageId = parts[4];
+    else section = parseStaffHpButtonSectionToken(parts[4]);
+  } else if (parts.length >= 6) {
+    section = parseStaffHpButtonSectionToken(parts[4]);
+    sourceMessageId = normalizeSourceMessageId(parts[5]);
+  }
+  return { viewerId, targetId, sourceMessageId, section };
 }
 
 function normalizeSourceMessageId(raw) {
@@ -460,9 +488,9 @@ function parseStaffValPauseTradeModalCustomId(customId) {
   return { viewerId, targetId, sourceMessageId };
 }
 
-function buildHsValutazioniTradeButtonRows(viewerId, targetId, sourceMessageId, { pos, neg }) {
+function buildHsValutazioniTradeButtonRows(viewerId, targetId, sourceMessageId, { pos, neg, includePauseTrade = true, includeNegTrade = true }) {
   const row = new ActionRowBuilder();
-  if (Math.max(0, Number(pos || 0)) >= 1) {
+  if (includePauseTrade && Math.max(0, Number(pos || 0)) >= 1) {
     row.addComponents(
       new ButtonBuilder()
         .setCustomId(formatStaffValPauseTradeOpenCustomId(viewerId, targetId, sourceMessageId))
@@ -471,7 +499,7 @@ function buildHsValutazioniTradeButtonRows(viewerId, targetId, sourceMessageId, 
         .setEmoji("<a:VC_Calendar:1482706208149475358>"),
     );
   }
-  if (Math.max(0, Number(pos || 0)) >= 3 && Math.max(0, Number(neg || 0)) >= 1) {
+  if (includeNegTrade && Math.max(0, Number(pos || 0)) >= 3 && Math.max(0, Number(neg || 0)) >= 1) {
     row.addComponents(
       new ButtonBuilder()
         .setCustomId(formatStaffValNegTradeOpenCustomId(viewerId, targetId, sourceMessageId))
@@ -548,19 +576,46 @@ function formatStaffHpSelectCustomId(action, viewerId, targetId, section = SECTI
 }
 
 function shouldOmitPexDepexHomeRow(viewerId, targetUserId, targetMember) {
-  if (String(viewerId) === String(targetUserId)) return true;
-  const founderId = IDs.roles?.Founder;
-  if (founderId && targetMember?.roles?.cache?.has(founderId)) return true;
-  return false;
+  return String(viewerId) === String(targetUserId);
 }
 
-function buildHighStaffActionRows(viewerId, targetId, section, dualPmStaffDepex = false, targetHasPartnerManager = false, sourceMessageId = null, omitPexDepexHome = false) {
+function targetMayReceivePartnerManagerPex(member) {
+  const pmId = String(IDs.roles?.PartnerManager || "").trim();
+  if (!pmId || !member?.roles?.cache) return false;
+  return !member.roles.cache.has(pmId);
+}
+
+function shouldOmitStaffLadderPexDepexForTarget(targetMember) {
+  return targetIsFounder(targetMember);
+}
+
+function buildHighStaffActionRows(
+  viewerId,
+  targetId,
+  section,
+  dualPmStaffDepex = false,
+  targetHasPartnerManager = false,
+  sourceMessageId = null,
+  omitPexDepexHome = false,
+  options = {},
+) {
   const v = String(viewerId);
   const t = String(targetId);
   let sec = String(section || "").toLowerCase();
   if (sec === SECTION_WARN) sec = SECTION_VALUTAZIONI;
   if (sec === SECTION_HOME) {
     if (omitPexDepexHome) return [];
+    if (options.pmPexOnly === true) {
+      return [
+        new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setCustomId(formatStaffHpButtonCustomId("pex_pm", v, t, sec, sourceMessageId))
+            .setLabel("Pex Partner Manager")
+            .setEmoji("<:VC_PartnerManager:1494286911286808576>")
+            .setStyle(ButtonStyle.Success),
+        ),
+      ];
+    }
     const homeComps = [
       new ButtonBuilder()
         .setCustomId(formatStaffHpButtonCustomId("pex_menu", v, t, sec, sourceMessageId))
@@ -666,11 +721,12 @@ function mergeProfileComponents(selectRow, highStaffRows, extraRows) {
 
 function buildProfileCloseRow(viewerId, targetId, sourceMessageId = null, options = {}) {
   const components = [];
+  const section = String(options.section || SECTION_HOME).toLowerCase();
   if (options.enableNextTargetButton) {
     components.push(
       new ButtonBuilder()
-        .setCustomId(formatStaffProfileNextCustomId(String(viewerId), String(targetId), sourceMessageId))
-        .setEmoji("➡️")
+        .setCustomId(formatStaffProfileNextCustomId(String(viewerId), String(targetId), sourceMessageId, section))
+        .setEmoji("<:1343arrowright:1525249880728145970>")
         .setStyle(ButtonStyle.Secondary),
     );
   }
@@ -774,20 +830,42 @@ function warnResetLine(firstWarnStaffAt) {
 }
 
 async function fetchStaffLean(guildId, userId) {
-  return ActivityUserProfile.findOne({ guildId: String(guildId), userId: String(userId) })
+  const gid = String(guildId || "");
+  const uid = String(userId || "");
+  const doc = await ActivityUserProfile.findOne({ guildId: gid, userId: uid })
     .select("staff")
     .lean()
     .catch(() => null);
+  if (doc?.staff && reconcileStaffValutazioneCounters(doc.staff)) {
+    ActivityUserProfile.updateOne(
+      { guildId: gid, userId: uid },
+      {
+        $set: {
+          "staff.positiveCount": doc.staff.positiveCount,
+          "staff.negativeCount": doc.staff.negativeCount,
+          "staff.valutazioniCount": doc.staff.valutazioniCount,
+        },
+      },
+    ).catch(() => null);
+  }
+  return doc;
 }
 
 async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, section = SECTION_HOME, options = {}) {
   const gid = String(guild?.id || "");
   const tid = String(targetUserId || "");
-  const member = (await getGuildMemberCached(guild, tid, { preferFresh: true }).catch(() => null)) || (await guild.members.fetch({ user: tid, force: true }).catch(() => null));
+  const member =
+    (await getGuildMemberCached(guild, tid).catch(() => null)) ||
+    (await guild.members.fetch({ user: tid }).catch(() => null));
   const targetUser = member?.user || (await client.users.fetch(tid).catch(() => null));
   const name = (member ? accountUsername(member) : accountUsername(targetUser)) || tid;
-  const viewerMemForPanel = (await getGuildMemberCached(guild, String(viewerId), { preferFresh: true }).catch(() => null)) || (await guild.members.fetch({ user: String(viewerId), force: true }).catch(() => null));
-  const viewerIsHighStaff = Boolean(viewerMemForPanel?.roles?.cache?.has(IDs.roles.HighStaff) || viewerMemForPanel?.roles?.cache?.has(IDs.roles.Director));
+  const viewerMemForPanel =
+    (await getGuildMemberCached(guild, String(viewerId)).catch(() => null)) ||
+    (await guild.members.fetch({ user: String(viewerId) }).catch(() => null));
+  const viewerIsHighStaff = Boolean(viewerMemForPanel?.roles?.cache?.has(IDs.roles.HighStaff));
+  const viewerIsDirector = Boolean(
+    IDs.roles.Director && viewerMemForPanel?.roles?.cache?.has(IDs.roles.Director),
+  );
   const viewerCanFullDepex = viewerIsCoordinatorOrAbove(viewerMemForPanel);
   const viewerCanPartnerPointsPanel = viewerCanUsePartnerPointsPanel(viewerMemForPanel);
   const profileKind = resolveStaffProfileKind(member);
@@ -797,19 +875,6 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
   const partnersChatPanelMode = options?.partnersChatPanel === true;
   const usePartnersChatPmPanel = partnersChatPanelMode && hasPm;
   const enableNextTargetButton = Boolean(resolveNextStaffPanelTargetId(guild, tid, { partnersChatPanel: partnersChatPanelMode }));
-
-  if (partnersChatPanelMode && !hasPm) {
-    return {
-      embeds: [
-        new EmbedBuilder()
-          .setColor("#992d22")
-          .setDescription(
-            "<:VC_Attention:1482534443632558151> In <#1495544523848286340> puoi consultare solo utenti con ruolo Partner Manager.",
-          ),
-      ],
-      components: withCloseProfileComponents([], viewerId, tid, sourceMessageId, { enableNextTargetButton }),
-    };
-  }
 
   if (profileKind === PROFILE_PROSPECT) {
     const pexComps =
@@ -831,7 +896,10 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
           )
           .setThumbnail(userAvatarUrlDynamic(targetUser, { size: 128 }) || null),
       ],
-      components: withCloseProfileComponents(mergeProfileComponents(null, pexComps), viewerId, tid, sourceMessageId, { enableNextTargetButton }),
+      components: withCloseProfileComponents(mergeProfileComponents(null, pexComps), viewerId, tid, sourceMessageId, {
+        enableNextTargetButton,
+        section: SECTION_HOME,
+      }),
     };
   }
 
@@ -876,12 +944,20 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
     (profileKind === PROFILE_PM_ONLY ||
       usePartnersChatPmPanel ||
       (profileKind === PROFILE_FULL && hasPm));
+  const targetHasStaffLadderRole = Boolean(getHighestStaffLadderRoleIdForPanel(member));
+  // Nel pannello PM chat nascondiamo Pex/Depex solo per PM senza scala staff (usa i pulsanti prospect).
+  // PM + Helper/Mod/… deve mantenere Pex/Depex standard.
+  const suppressPexDepexInPmPanel = usePartnersChatPmPanel && !targetHasStaffLadderRole;
   const omitPexDepexHome = shouldOmitPexDepexHomeRow(viewerId, tid, member);
+  const omitStaffLadderPexDepex = shouldOmitStaffLadderPexDepexForTarget(member);
+  const pmPexOnlyHome = omitStaffLadderPexDepex && targetMayReceivePartnerManagerPex(member);
+  const omitStandardPexDepexHome = omitPexDepexHome || (omitStaffLadderPexDepex && !pmPexOnlyHome);
   const showHsPexDepexOnHome =
     sec === SECTION_HOME &&
-    shouldAttachHighStaffActions(sec, viewerId, tid, viewerIsHighStaff, profileKind, viewerMemForPanel, usePartnersChatPmPanel, member) &&
+    shouldAttachHighStaffActions(sec, viewerId, tid, viewerIsHighStaff, profileKind, viewerMemForPanel, suppressPexDepexInPmPanel, member) &&
     !omitPexDepexHome;
-  const partnerPtsForRedeem = resolveStaffPartnerPointsDisplay(s);
+  const partnerPtsForRedeem = resolvePartnerPointsShown(s);
+  const partnerPtsTotal = resolveStaffPartnerPointsDisplay(s);
   const partnerHubOpts = buildPartnerManagerHubOptions(sec, canHsPartnerPoints, usePartnersChatPmPanel, omitPexDepexHome, showHsPexDepexOnHome, profileKind, hasPm, viewerId, tid, viewerCanPartnerPointsPanel, partnerPtsForRedeem);
   const partnerHubRow = partnerHubOpts.length > 0
     ? buildPartnerManagerHubSelectRow(viewerId, tid, SECTION_HOME, sourceMessageId, partnerHubOpts)
@@ -891,11 +967,11 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
   const profileKindForSelect = usePartnersChatPmPanel ? PROFILE_PM_ONLY : profileKind;
   const selectRow = buildProfileSelectRow(viewerId, tid, sec, profileKindForSelect, sourceMessageId, { partnersChatHomeLabel: usePartnersChatPmPanel, hideValutazioniWarn: hideValutazioniWarnForTarget });
   const dualPmStaffDepex = profileKind === PROFILE_FULL && memberHasPmAndStaffLadderForDualDepex(member);
-  const highStaffRows = shouldAttachHighStaffActions(sec, viewerId, tid, viewerIsHighStaff, profileKind, viewerMemForPanel, usePartnersChatPmPanel, member)
-    ? buildHighStaffActionRows(String(viewerId), tid, sec, dualPmStaffDepex, hasPm, sourceMessageId, omitPexDepexHome)
+  const highStaffRows = shouldAttachHighStaffActions(sec, viewerId, tid, viewerIsHighStaff, profileKind, viewerMemForPanel, suppressPexDepexInPmPanel, member)
+    ? buildHighStaffActionRows(String(viewerId), tid, sec, dualPmStaffDepex, hasPm, sourceMessageId, omitStandardPexDepexHome, { pmPexOnly: pmPexOnlyHome })
     : [];
   const hsRows = [...highStaffRows];
-  if (sec === SECTION_HOME && profileKind === PROFILE_FULL && !usePartnersChatPmPanel && String(viewerId) !== tid && viewerCanFullDepex && !viewerIsHighStaff) {
+  if (sec === SECTION_HOME && profileKind === PROFILE_FULL && !usePartnersChatPmPanel && String(viewerId) !== tid && viewerCanFullDepex && !viewerIsHighStaff && !viewerIsDirector) {
     hsRows.push(new ActionRowBuilder().addComponents(new ButtonBuilder()
       .setCustomId(formatStaffHpButtonCustomId("depex_full", String(viewerId), tid, sec, sourceMessageId))
       .setLabel("Depex completo")
@@ -917,6 +993,8 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
           .setDescription(
             buildPmPartnerShopDescription(partnerPtsForRedeem, {
               selfShop: hasPm && String(viewerId) === String(tid),
+              earned: partnerPtsTotal,
+              redeemed: Math.max(0, Math.floor(Number(s?.partnerRedeemSpend || 0))),
             }),
           )
           .setThumbnail(userAvatarUrlDynamic(targetUser, { size: 128 }) || null),
@@ -926,16 +1004,22 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
         viewerId,
         tid,
         sourceMessageId,
-        { enableNextTargetButton },
+        { enableNextTargetButton, section: sec },
       ),
     };
   }
 
   if ((profileKind === PROFILE_PM_ONLY || usePartnersChatPmPanel) && sec === SECTION_HOME) {
     const pauseShort = getStaffPauseLine(s, { pmOnly: true });
-    const punti = partnerPtsForRedeem;
+    const punti = partnerPtsTotal;
+    const spendable = partnerPtsForRedeem;
+    const redeemed = Math.max(0, Math.floor(Number(s?.partnerRedeemSpend || 0)));
+    const puntiLine =
+      redeemed > 0
+        ? `<:VC_Partner:1482527213780729896> **Punti:** ${punti} totali · **${spendable}** spendibili (riscattati ${redeemed})`
+        : `<:VC_Partner:1482527213780729896> **Punti:** ${punti}`;
     const pmStaffPexRows =
-      profileKind === PROFILE_PM_ONLY &&
+      (profileKind === PROFILE_PM_ONLY || (usePartnersChatPmPanel && !targetHasStaffLadderRole)) &&
       viewerIsHighStaff &&
       String(viewerId) !== tid
         ? buildProspectPexRows(
@@ -951,8 +1035,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
       "",
       `<a:VC_Calendar:1482706208149475358> **Pause:** ${pauseShort}`,
       "",
-      `<:VC_Partner:1482527213780729896> **Punti:** ${punti}`,
-      ...(pmStaffPexRows.length
+      puntiLine,      ...(pmStaffPexRows.length
         ? [
           "",
           "<a:VC_Verified:1482532479637127188> Usa i pulsanti qui sotto per aggiungere un ruolo **Staff** mantenendo **Partner Manager**.",
@@ -975,7 +1058,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
         viewerId,
         tid,
         sourceMessageId,
-        { enableNextTargetButton },
+        { enableNextTargetButton, section: sec },
       ),
     };
   }
@@ -1008,13 +1091,21 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
     }
     bodyParts.push("", ...warnBlock);
     const viewerCanValTrade = Boolean(IDs.roles.HighStaff && viewerMemForPanel?.roles?.cache?.has(IDs.roles.HighStaff));
-    const canHsValTrade =
-      viewerCanValTrade &&
-      String(viewerId) !== String(tid) &&
-      profileKind === PROFILE_FULL &&
-      !hideValutazioniWarnForTarget &&
-      !usePartnersChatPmPanel;
-    const valTradeRows = canHsValTrade ? buildHsValutazioniTradeButtonRows(viewerId, tid, sourceMessageId, { pos, neg }) : [];
+    const isSelfProfile = String(viewerId) === String(tid);
+    const valTradeBaseOk =
+      profileKind === PROFILE_FULL && !hideValutazioniWarnForTarget && !usePartnersChatPmPanel;
+    const canHsValTrade = valTradeBaseOk && viewerCanValTrade && !isSelfProfile;
+    const canSelfNegTrade = valTradeBaseOk && isSelfProfile;
+    const valTradeRows = canHsValTrade
+      ? buildHsValutazioniTradeButtonRows(viewerId, tid, sourceMessageId, { pos, neg })
+      : canSelfNegTrade
+        ? buildHsValutazioniTradeButtonRows(viewerId, tid, sourceMessageId, {
+            pos,
+            neg,
+            includePauseTrade: false,
+            includeNegTrade: true,
+          })
+        : [];
     const chunks = chunkString(bodyParts.join("\n"), 3800);
     const embeds = chunks.map((desc, i) =>
       new EmbedBuilder()
@@ -1023,7 +1114,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
         .setThumbnail(userAvatarUrlDynamic(targetUser, { size: 128 }) || null),
     );
     const valExtraRows = [...valTradeRows, ...homeBottomRows];
-    return { embeds, components: withCloseProfileComponents(mergeProfileComponents(selectRow, hsRows, valExtraRows), viewerId, tid, sourceMessageId, { enableNextTargetButton }) };
+    return { embeds, components: withCloseProfileComponents(mergeProfileComponents(selectRow, hsRows, valExtraRows), viewerId, tid, sourceMessageId, { enableNextTargetButton, section: sec }) };
   }
 
   if (sec === SECTION_PAUSE) {
@@ -1031,7 +1122,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
     const pauseRoleFilter = profileKind === PROFILE_PM_ONLY || usePartnersChatPmPanel ? "pm" : undefined;
     const listPayload = await buildPauseListPayload({ guildId: gid, requesterId: String(viewerId), targetUser: targetUserObj, isHighStaff: viewerIsHighStaff, client, pauseRoleFilter });
     if (!listPayload.ok) {
-      return { embeds: [new EmbedBuilder().setColor("Red").setDescription(listPayload.error || "Errore caricamento pause.")], components: withCloseProfileComponents(mergeProfileComponents(selectRow, hsRows, homeBottomRows), viewerId, tid, sourceMessageId, { enableNextTargetButton }) };
+      return { embeds: [new EmbedBuilder().setColor("Red").setDescription(listPayload.error || "Errore caricamento pause.")], components: withCloseProfileComponents(mergeProfileComponents(selectRow, hsRows, homeBottomRows), viewerId, tid, sourceMessageId, { enableNextTargetButton, section: sec }) };
     }
     return {
       embeds: [...listPayload.embeds],
@@ -1040,7 +1131,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
         viewerId,
         tid,
         sourceMessageId,
-        { enableNextTargetButton },
+        { enableNextTargetButton, section: sec },
       ),
     };
   }
@@ -1086,7 +1177,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
           .setFooter({ text: `ID: ${modId}` })
           .setTimestamp(),
       ],
-      components: withCloseProfileComponents(mergeProfileComponents(selectRow, hsRows, homeBottomRows), viewerId, tid, sourceMessageId, { enableNextTargetButton }),
+      components: withCloseProfileComponents(mergeProfileComponents(selectRow, hsRows, homeBottomRows), viewerId, tid, sourceMessageId, { enableNextTargetButton, section: sec }),
     };
   }
 
@@ -1104,7 +1195,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
     }
   }
 
-  const puntiPartner = resolveStaffPartnerPointsDisplay(s);
+  const puntiPartner = partnerPtsTotal;
   const sfAttState =
     profileKind === PROFILE_FULL && !usePartnersChatPmPanel
       ? resolveSerataFilmAttendanceForWeek(s)
@@ -1150,9 +1241,58 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
       viewerId,
       tid,
       sourceMessageId,
-      { enableNextTargetButton },
+      { enableNextTargetButton, section: sec },
     ),
   };
 }
 
-module.exports = { PANEL_PREFIX, STAFF_HP_PREFIX, STAFF_HP_SELECT_PREFIX, STAFF_PM_SHOP_PREFIX, STAFF_VAL_NEG_TRADE_PREFIX, STAFF_VAL_PAUSE_TRADE_PREFIX, SECTION_HOME, SECTION_VALUTAZIONI, SECTION_WARN, SECTION_PAUSE, SECTION_MODSTATS, SECTION_SHOP, formatStaffProfileSelectCustomId, parseStaffProfileSelectCustomId, formatStaffProfileCloseCustomId, parseStaffProfileCloseCustomId, formatStaffProfileNextCustomId, parseStaffProfileNextCustomId, formatStaffValNegTradeOpenCustomId, parseStaffValNegTradeOpenCustomId, formatStaffValNegTradeModalCustomId, parseStaffValNegTradeModalCustomId, formatStaffValPauseTradeOpenCustomId, parseStaffValPauseTradeOpenCustomId, formatStaffValPauseTradeModalCustomId, parseStaffValPauseTradeModalCustomId, formatStaffHpButtonCustomId, encodeStaffHpButtonAction, decodeStaffHpButtonActionToken, staffHpSectionToken, parseStaffHpButtonSectionToken, buildStaffProfilePayload, resolveStaffPartnerPointsDisplay, viewerCanUsePartnerPointsPanel, viewerIsCoordinatorOrAbove, viewerIsFounder, shouldOmitPexDepexHomeRow, resolveNextStaffPanelTargetId };
+module.exports = {
+  PANEL_PREFIX,
+  STAFF_HP_PREFIX,
+  STAFF_HP_SELECT_PREFIX,
+  STAFF_PM_SHOP_PREFIX,
+  STAFF_VAL_NEG_TRADE_PREFIX,
+  STAFF_VAL_PAUSE_TRADE_PREFIX,
+  SECTION_HOME,
+  SECTION_VALUTAZIONI,
+  SECTION_WARN,
+  SECTION_PAUSE,
+  SECTION_MODSTATS,
+  SECTION_SHOP,
+  PROFILE_FULL,
+  PROFILE_PM_ONLY,
+  PROFILE_PROSPECT,
+  formatStaffProfileSelectCustomId,
+  parseStaffProfileSelectCustomId,
+  formatStaffProfileCloseCustomId,
+  parseStaffProfileCloseCustomId,
+  formatStaffProfileNextCustomId,
+  parseStaffProfileNextCustomId,
+  formatStaffValNegTradeOpenCustomId,
+  parseStaffValNegTradeOpenCustomId,
+  formatStaffValNegTradeModalCustomId,
+  parseStaffValNegTradeModalCustomId,
+  formatStaffValPauseTradeOpenCustomId,
+  parseStaffValPauseTradeOpenCustomId,
+  formatStaffValPauseTradeModalCustomId,
+  parseStaffValPauseTradeModalCustomId,
+  formatStaffHpButtonCustomId,
+  encodeStaffHpButtonAction,
+  decodeStaffHpButtonActionToken,
+  staffHpSectionToken,
+  parseStaffHpButtonSectionToken,
+  buildStaffProfilePayload,
+  buildProspectPexRows,
+  resolveStaffPartnerPointsDisplay,
+  resolveStaffProfileKind,
+  buildFullProfileRoleLabelForEmbed,
+  resolveStaffProfileDisplayRoleId,
+  viewerCanUsePartnerPointsPanel,
+  viewerIsCoordinatorOrAbove,
+  viewerIsFounder,
+  targetIsFounder,
+  shouldOmitPexDepexHomeRow,
+  shouldOmitStaffLadderPexDepexForTarget,
+  targetMayReceivePartnerManagerPex,
+  resolveNextStaffPanelTargetId,
+};

@@ -123,8 +123,9 @@ function resolveHogwartsEventConfig(client) {
   const houses = {};
   for (const id of HOUSES) {
     const entry = housesRaw[id] && typeof housesRaw[id] === "object" ? housesRaw[id] : {};
+    const roleRaw = String(process.env[`HOGWARTS_ROLE_${id.toUpperCase()}`] || entry.roleId || "").trim();
     houses[id] = {
-      roleId: String(process.env[`HOGWARTS_ROLE_${id.toUpperCase()}`] || entry.roleId || "").trim(),
+      roleId: roleRaw.split(/[,\s]+/).map((p) => p.trim()).find((p) => /^\d{17,22}$/.test(p)) || "",
       label: String(entry.label || "").trim(),
       crestUrl: String(entry.crestUrl || "").trim(),
     };
@@ -136,7 +137,12 @@ function resolveHogwartsEventConfig(client) {
   const gringott = {
     sortingReward: readPositiveInt(process.env.HOGWARTS_GRINGOTT_SORTING_REWARD ?? gringottRaw.sortingReward, 250),
   };
-  const completionRoleId = String(process.env.HOGWARTS_COMPLETION_ROLE_ID || raw.completionRoleId || "1507000390493798511").trim();
+  const completionRoleRaw = String(
+    process.env.HOGWARTS_COMPLETION_ROLE_ID || raw.completionRoleId || "1507000390493798511",
+  ).trim();
+  const completionRoleId =
+    completionRoleRaw.split(/[,\s]+/).map((p) => p.trim()).find((p) => /^\d{17,22}$/.test(p)) ||
+    "1507000390493798511";
   const sortingLogChannelId = String(process.env.HOGWARTS_SORTING_LOG_CHANNEL_ID || raw.sortingLogChannelId || "").trim();
   const punticasaPrefectHousesRaw = raw.punticasaPrefectHouses && typeof raw.punticasaPrefectHouses === "object"
     ? raw.punticasaPrefectHouses
@@ -272,6 +278,38 @@ function formatEventWindowIt(cfg) {
   }
 }
 
+function collectHogwartsSystemRoleIds(client = null) {
+  const cfg = resolveHogwartsEventConfig(client);
+  const ids = new Set();
+  const pushExpanded = (raw) => {
+    for (const part of String(raw || "").split(/[,\s]+/)) {
+      const id = part.trim();
+      if (/^\d{17,22}$/.test(id)) ids.add(id);
+    }
+  };
+  for (const house of Object.values(cfg.houses || {})) {
+    pushExpanded(house?.roleId);
+  }
+  pushExpanded(cfg.completionRoleId);
+  // Fallback hardcoded IDs if config empty on a cold client
+  for (const id of [
+    "1504791825657888898", // Grifondoro
+    "1504791921246339072", // Corvonero
+    "1504791899100155987", // Tassorosso
+    "1504791872671973537", // Serpeverde
+    "1507000390493798511", // Evento Hogwarts
+  ]) {
+    ids.add(id);
+  }
+  return ids;
+}
+
+function isHogwartsSystemRoleId(roleId, client = null) {
+  const id = String(roleId || "").trim();
+  if (!id) return false;
+  return collectHogwartsSystemRoleIds(client).has(id);
+}
+
 module.exports = {
   resolveHogwartsEventConfig,
   resolveHubStartMs,
@@ -286,4 +324,6 @@ module.exports = {
   resolveSortingWindowForViewer,
   formatEventWindowIt,
   formatSortingWindowIt,
+  collectHogwartsSystemRoleIds,
+  isHogwartsSystemRoleId,
 };

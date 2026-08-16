@@ -94,7 +94,9 @@
     if (!rules.length) {
       var empty = document.createElement("p");
       empty.className = "vc-regole-state";
-      empty.textContent = "Nessuna regola in questa categoria.";
+      empty.textContent = window.VcI18n && typeof window.VcI18n.t === "function"
+        ? window.VcI18n.t("rules.empty")
+        : "Nessuna regola in questa categoria.";
       root.appendChild(empty);
       return;
     }
@@ -137,7 +139,9 @@
       inner.className = "vc-regole-card-body-inner";
       var lab = document.createElement("span");
       lab.className = "vc-regole-body-label";
-      lab.textContent = "DESCRIZIONE";
+      lab.textContent = window.VcI18n && typeof window.VcI18n.t === "function"
+        ? window.VcI18n.t("rules.description")
+        : "DESCRIZIONE";
       var p = document.createElement("p");
       p.className = "vc-regole-body-text";
       p.textContent = bodyStr;
@@ -181,6 +185,16 @@
     });
   }
 
+  function t(key, fallback) {
+    try {
+      if (window.VcI18n && typeof window.VcI18n.t === "function") {
+        var v = window.VcI18n.t(key);
+        if (v && v !== key) return v;
+      }
+    } catch (e) {}
+    return fallback != null ? fallback : key;
+  }
+
   function applyDisclaimer() {
     var el = byId("vc-regole-disclaimer");
     if (!el || !payload) return;
@@ -190,10 +204,10 @@
   async function load() {
     var url = resolvedApiUrl();
     if (!url) {
-      setState("API regole non configurata: imposta communityRulesApiUrl in site.config.json.", true);
+      setState(t("rules.errApi", "API regole non configurata."), true);
       return;
     }
-    setState("Caricamento regole…", false);
+    setState(t("rules.loading", "Caricamento regole…"), false);
     try {
       var res = await fetch(url, { method: "GET", credentials: "omit" });
       var data = {};
@@ -203,10 +217,7 @@
         data = {};
       }
       if (!res.ok || !data.ok) {
-        setState(
-          "Impossibile caricare le regole dal bot. Verifica WEBSITE_CANDIDATURE_HTTP e CORS, oppure l’URL in site.config.",
-          true,
-        );
+        setState(t("rules.errLoad", "Impossibile caricare le regole dal bot."), true);
         return;
       }
       payload = data;
@@ -215,13 +226,19 @@
       renderTabs();
       renderList();
     } catch (e2) {
-      setState("Errore di rete nel caricamento delle regole.", true);
+      setState(t("rules.errNetwork", "Errore di rete nel caricamento delle regole."), true);
     }
   }
 
   function init() {
     load();
   }
+
+  document.addEventListener("vc:langchange", function () {
+    if (!payload) return;
+    renderTabs();
+    renderList();
+  });
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", init);

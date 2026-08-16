@@ -3,11 +3,12 @@ const fs = require("fs");
 const path = require("path");
 const Ticket = require("../../Schemas/Ticket/ticketSchema");
 const { getClientChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
+const { getTicketSettingsSync } = require("../../MultiGuild/core/tenantTicketSettings");
+const { TRANSCRIPT_VIEW_TTL_MS } = require("../../Utils/Ticket/ticketTranscriptSecure");
 const BOT_ROOT = path.resolve(__dirname, "..", "..");
-const OPEN_FOR_MS = 24 * 60 * 60 * 1000;
-const INACTIVE_FOR_MS = 2 * 60 * 60 * 1000;
 const TRANSCRIPTS_ROOT = path.join(BOT_ROOT, "local_transcripts");
-const MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
+/** Allineato al TTL del link pubblico: non cancellare file ancora raggiungibili via token. */
+const MAX_AGE_MS = Number(TRANSCRIPT_VIEW_TTL_MS) > 0 ? Number(TRANSCRIPT_VIEW_TTL_MS) : 90 * 24 * 60 * 60 * 1000;
 const CLEANUP_INTERVAL_MS = 6 * 60 * 60 * 1000;
 let promptLoopHandle = null;
 let promptLoopRunning = false;
@@ -37,11 +38,9 @@ async function getLatestHumanMessageTimestamp(channel, fallbackDate) {
 
 async function processTickets(client) {
   const now = Date.now();
-  const openBefore = new Date(now - OPEN_FOR_MS);
   const tickets = await Ticket.find(
     {
       open: true,
-      createdAt: { $lte: openBefore },
     },
     {
       _id: 1,
@@ -53,20 +52,54 @@ async function processTickets(client) {
       autoClosePromptSentAt: 1,
     },
   )
-    .limit(100)
+    .limit(150)
     .lean()
     .catch(() => []);
 
   for (const ticket of tickets) {
     try {
+      const settings = getTicketSettingsSync(ticket.guildId);
+      if (settings.autoCloseEnabled === false) continue;
+      // 0 = timer spento (non ricade sui default 24h / 2h).
+      const openForMs = Number(settings.autoCloseSinceOpenMs);
+      const inactiveForMs = Number(settings.autoCloseSinceLastMessageMs);
+      if (!(openForMs > 0) || !(inactiveForMs > 0)) continue;
+      const createdMs = ticket.createdAt ? new Date(ticket.createdAt).getTime() : 0;
+      if (!createdMs || now - createdMs < openForMs) continue;
+
       const channel = client.channels?.cache?.get(ticket.channelId) || (await getClientChannelCached(client, ticket.channelId));
       if (!channel || !channel.isTextBased?.()) continue;
 
       const lastActiveAt = await getLatestHumanMessageTimestamp(channel, ticket.createdAt,);
-      if (!lastActiveAt || now - lastActiveAt < INACTIVE_FOR_MS) continue;
+      if (!lastActiveAt || now - lastActiveAt < inactiveForMs) continue;
 
-      const promptAt = ticket.autoClosePromptSentAt ? new Date(ticket.autoClosePromptSentAt).getTime() : 0;
-      if (Number.isFinite(promptAt) && promptAt > 0 && lastActiveAt <= promptAt) continue;
+      if (ticket.autoClosePromptSentAt) continue;
+
+      // Claim del "slot" PRIMA del messaggio: se il $set fallisce (arrayFilter/BSON)
+      // non inviamo nulla e ritentiamo al tick successivo, invece di spammare ogni 10m.
+      const promptSentAt = new Date();
+      const claimed = await Ticket.findOneAndUpdate(
+        { _id: ticket._id, open: true },
+        { $set: { autoClosePromptSentAt: promptSentAt } },
+        { new: true },
+      ).catch((err) => {
+        global.logger?.warn?.(
+          "[TICKET AUTO CLOSE PROMPT] Persist failed",
+          ticket?.channelId,
+          err?.message || err,
+        );
+        return null;
+      });
+      const claimedAt = claimed?.autoClosePromptSentAt
+        ? new Date(claimed.autoClosePromptSentAt).getTime()
+        : 0;
+      if (!claimed || !claimedAt || Math.abs(claimedAt - promptSentAt.getTime()) > 5000) {
+        global.logger?.warn?.(
+          "[TICKET AUTO CLOSE PROMPT] Skip send: autoClosePromptSentAt non persistito",
+          ticket?.channelId,
+        );
+        continue;
+      }
 
       const mentions = new Set([ticket.userId, ticket.claimedBy].filter(Boolean),);
       const mentionText = Array.from(mentions).map((id) => `<@${id}>`)
@@ -75,7 +108,7 @@ async function processTickets(client) {
       const embed = new EmbedBuilder()
         .setColor("#6f4e37")
         .setTitle("<:VC_PinkQuestionMark:1471892611026391306> Richiesta di chiusura")
-        .setDescription("<a:VC_Alert:1482706673176150077> Il ticket è aperto da più di 24 ore e non ci sono messaggi recenti. È stato risolto?");
+        .setDescription("<a:VC_Alert:1482706673176150077> Il ticket è aperto da troppo tempo e non ci sono messaggi recenti. È stato risolto?");
 
       await channel
         .send({
@@ -83,12 +116,14 @@ async function processTickets(client) {
           embeds: [embed],
           components: [buildCloseRequestRow()],
         })
-        .catch(() => null);
-
-      await Ticket.updateOne(
-        { _id: ticket._id, open: true },
-        { $set: { autoClosePromptSentAt: new Date() } },
-      ).catch(() => { });
+        .catch((err) => {
+          global.logger?.warn?.(
+            "[TICKET AUTO CLOSE PROMPT] Send failed after claim",
+            ticket?.channelId,
+            err?.message || err,
+          );
+          return null;
+        });
     } catch (err) {
       global.logger.error(
         "[TICKET AUTO CLOSE PROMPT] Failed on ticket",

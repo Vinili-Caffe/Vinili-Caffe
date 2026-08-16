@@ -3,18 +3,43 @@ const path = require("path");
 const IDs = require("../../Utils/Config/ids");
 const { getBotState, setBotState } = require("../../Utils/BotState/botStateStore");
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ApplicationCommandType, ComponentType, MessageFlags, } = require("discord.js");
-const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
+const { safeMessageReply, safeInteractionUpdate } = require("../../../shared/discord/replyRuntime");
 const { isViniliFullFeatureGuild } = require("../../MultiGuild/core/guildFeatureScope");
 const { executeTenantHelp } = require("../../MultiGuild/utils/tenantHelp");
+const {
+  resolveEmbedColorForGuild,
+  normalizeEmbedColorInt,
+} = require("../../MultiGuild/utils/tenantEmbedBranding");
 const { DEFAULT_OBSOLETE_SLASH_NAMES } = require("../../../shared/discord/purgeObsoleteApplicationCommands");
 const { getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
 const PERMISSIONS_PATH = path.join(__dirname, "..", "..", "permissions.json");
-const MAX_HELP_COLLECTOR_MS = 24 * 60 * 60 * 1000;
-const HELP_EMBED_COLOR = "#6f4e37";
+
+function resolveHelpEmbedColor(context = {}, guildId = "") {
+  const gid = String(context.guildId || context.guild?.id || guildId || "").trim();
+  return resolveEmbedColorForGuild(gid);
+}
+
+function resolveHelpAccentColorInt(context = {}, guildId = "") {
+  return normalizeEmbedColorInt(resolveHelpEmbedColor(context, guildId)) || 0x826bc2;
+}
 const ERROR_EMBED_COLOR = "Red";
 const PRIVATE_FLAG = 1 << 6;
 const NO_REPLY_MENTIONS = { repliedUser: false, parse: [] };
-const { isEconomyCommandsVisible, isServerEconomyEnabled } = require("../../Services/Community/activeEconomyService");
+const { isEconomyCommandsVisible, isEconomyGameEnabled, isServerEconomyEnabled } = require("../../Services/Community/activeEconomyService");
+const { getDevIds } = require("../../Utils/Moderation/commandPermissions");
+const {
+  PREFIX_COMMAND_DESCRIPTIONS: PREFIX_HELP_DESCRIPTIONS,
+  PREFIX_SUBCOMMAND_DESCRIPTIONS: PREFIX_SUBCOMMAND_HELP_DESCRIPTIONS,
+  APPLICATION_COMMAND_DESCRIPTIONS: CONTEXT_HELP_DESCRIPTIONS_RAW,
+} = require("../../Utils/Prefix/prefixCommandDescriptions");
+const CONTEXT_HELP_DESCRIPTIONS = Object.freeze({
+  "Aggiungi punti": CONTEXT_HELP_DESCRIPTIONS_RAW["Aggiungi punti"],
+  "Rimuovi punti": CONTEXT_HELP_DESCRIPTIONS_RAW["Rimuovi punti"],
+  Partnership: CONTEXT_HELP_DESCRIPTIONS_RAW.Partnership,
+  "Elimina partnership": CONTEXT_HELP_DESCRIPTIONS_RAW["Elimina partnership"],
+  Segnala: CONTEXT_HELP_DESCRIPTIONS_RAW.Segnala,
+  Sanziona: CONTEXT_HELP_DESCRIPTIONS_RAW.Sanziona,
+});
 const PAGE_ROLE_IDS = [IDs.roles.Member, IDs.roles.Staff, IDs.roles.HighStaff, IDs.roles.Founder,].filter(Boolean);
 const PAGE_TITLES = { [IDs.roles.Member]: "Comandi Utente", [IDs.roles.Staff]: "Comandi Staff", [IDs.roles.HighStaff]: "Comandi High Staff", [IDs.roles.Founder]: "Comandi Dev", all: "Comandi Disponibili", };
 const CATEGORY_LABELS = { utility: "Utility", music: "Musica", tts: "TTS", level: "Level", minigames: "Minigames", stats: "Stats", economy: "Economy", moderation: "Moderation", admin: "Admin", staff: "Staff", vip: "VIP", dev: "Dev", };
@@ -24,103 +49,19 @@ const PREFIX_MUSIC_SESSION_OWNER_NOTE = " *Solo chi ha avviato la riproduzione p
 const HELP_NEW_EMOJI = "<:VC_New:1471891729471770819>";
 const HELP_NEW_DAYS = 14;
 const HELP_NEW_CATEGORIES = new Set(["music"]);
-const HELP_NEW_INVOKES = new Set();
+const HELP_NEW_INVOKES = new Set(["invites"]);
 const HELP_PAGE_SIZE = 18;
 const MAX_HELP_TEXT_LENGTH = 3900;
 const HELP_CHANNEL_PUBLIC_COMMANDS_ID = String(IDs.channels?.commands || "1442569138114662490");
 const HELP_CHANNEL_PM_ONLY_ID = "1495544523848286340";
 const HELP_CHANNEL_STAFF_COMMANDS_ID = String(IDs.channels?.staffCmds || "1442569262689554444");
 const HELP_PRIVILEGED_ROLE_IDS = [ IDs.roles.Founder, IDs.roles.Manager, IDs.roles.HighStaff, IDs.roles.Admin, IDs.roles.Director, IDs.roles.SeniorModerator, IDs.roles.Mod, IDs.roles.Helper, IDs.roles.Staff, IDs.roles.PartnerManager].filter(Boolean);
-const PREFIX_HELP_DESCRIPTIONS = {
-  help: "Mostra tutti i comandi disponibili con il bot.",
-  afk: "Imposta il tuo stato AFK con un messaggio personalizzato.",
-  avatar: "Mostra l'avatar di un utente.",
-  banner: "Mostra il banner di un utente.",
-  voices: "Mostra le voci TTS disponibili.",
-  membercount: "Mostra il numero totale di membri del server.",
-  ping: "Mostra latenza bot, database e informazioni di uptime.",
-  profile: "Hub profilo interattivo.",
-  ship: "Calcola la compatibilità tra due utenti.",
-  duel: "Riservato all'evento Hogwarts (non disponibile).",
-  snipe: "Recupera l'ultimo messaggio eliminato nel canale.",
-  join: "Fa entrare il bot nel tuo canale vocale.",
-  leave: "Fa uscire il bot dal canale vocale.",
-  classifica: "Mostra la classifica livelli.",
-  mstats: "Mostra statistiche minigiochi di un utente.",
-  me: "Mostra le tue statistiche attività.",
-  user: "Mostra le statistiche attività di un utente.",
-  server: "Mostra statistiche attività del server.",
-  channel: "Mostra le statistiche attività di un canale.",
-  top: "Mostra la top completa utenti/canali.",
-  rank: "Mostra il tuo livello e posizione in classifica.",
-  bal: "Mostra Vinili, Caffè e Galeoni (evento) con pannello interattivo.",
-  work: "Turno di lavoro: guadagni Vinili e Caffè con streak.",
-  daily: "Ricompensa giornaliera in Vinili e Caffè.",
-  weekly: "Ricompensa settimanale in Vinili e Caffè.",
-  monthly: "Ricompensa mensile in Vinili e Caffè.",
-  pay: "Non disponibile nell'economia server.",
-  rob: "Furto contro cassaforte o utente (valuta: vinili/caffe).",
-  shop: "Shop Vinili e Caffè con boost per economia server.",
-  roulette: "Roulette interattiva.",
-  rps: "Morra cinese vs bot o PvP.",
-  slots: "Slots interattive.",
-  blackjack: "Blackjack vs banco.",
-  coinflip: "Testa o croce con moneta animata.",
-  tris: "Tris vs bot o PvP.",
-  scratch: "Gratta e vinci con biglietto realistico.",
-  info: "Mostra una scheda completa di un utente.",
-  desc: "Invia nel ticket la descrizione ufficiale del server.",
-  purge: "Elimina messaggi da un canale.",
-  ban: "Banna un utente.",
-  unban: "Rimuove il ban di un utente.",
-  kick: "Kicka un utente dal server.",
-  mute: "Applica timeout a un utente.",
-  unmute: "Rimuove il timeout da un utente.",
-  warn: "Warna un utente.",
-  warnings: "Mostra i warn attivi di un utente.",
-  delwarn: "Rimuove un warn attivo da un utente.",
-  clearwarn: "Rimuove tutti i warning attivi da un utente.",
-  case: "Mostra una singola case moderazione.",
-  reason: "Aggiorna il motivo di una case.",
-  duration: "Aggiorna la durata di una case temporanea.",
-  modlogs: "Mostra gli ultimi log moderazione di un utente.",
-  moderations: "Mostra tutte le moderazioni temporanee attive.",
-  lock: "Blocca un canale.",
-  unlock: "Sblocca un canale.",
-  blacklist: "Mostra i server blacklistati uno alla volta con navigazione.",
-  ticket: "Pannello gestione ticket.",
-  security: "Pannello sicurezza con toggle moduli istantanei (Founder).",
-  level: "Pannello gestione livelli.",
-  quote: "Genera una quote da un messaggio.",
-  repost: "Condivide un messaggio sulla bacheca (testo, immagini, vocali, audio, video e allegati).",
-  myrepost: "Elenco dei repost che hai pubblicato sulla bacheca.",
-  pause: "Mette in pausa la traccia in riproduzione.",
-  resume: "Riprende la traccia in pausa.",
-  skip: "Salta la traccia in riproduzione e passa alla successiva in coda.",
-  stop: "Ferma la musica, svuota la coda e fa uscire il bot dal canale vocale.",
-  volume: "Imposta il volume della musica.",
-  shuffle: "Mescola l'ordine dei brani in coda.",
-  clear: "Svuota la coda dei brani in attesa.",
-  repeat: "Ripetizione traccia, ripetizione della coda, disattiva tutto.",
-  previous: "Torna al brano riprodotto prima di quello attuale.",
-  sezioneproibita: "Verifica libri proibiti sul sito o assegna vincitori evento.",
-  live: "Gestisce annuncio live Twitch e stato del canale vocale streaming (solo streamer configurato).",
+const CONTEXT_CATEGORY_OVERRIDES = {
+  "aggiungi punti": "staff",
+  "rimuovi punti": "staff",
+  partnership: "staff",
+  "elimina partnership": "staff",
 };
-
-const PREFIX_SUBCOMMAND_HELP_DESCRIPTIONS = {
-  "set.autojoin": "Attiva o disattiva autojoin TTS.",
-  "set.voice": "Imposta la lingua TTS personale.",
-  "now.playing": "Mostra il brano in riproduzione.",
-  "next.up": "Mostra il prossimo brano in coda.",
-  "repeat.disable": "Disattiva la ripetizione della traccia.",
-  "repeat.enable": "Attiva la ripetizione della traccia.",
-  "repeat.queue": "Attiva la ripetizione della coda.",
-  "repeat.all": "Disattiva tutto.",
-  "live.on": "Attiva la live: verifica Twitch, aggiorna il canale vocale e annuncia in #news.",
-  "live.off": "Disattiva la live: ripristina il canale vocale e rimuove lo status.",
-};
-const CONTEXT_HELP_DESCRIPTIONS = {};
-const CONTEXT_CATEGORY_OVERRIDES = {};
 const PERMISSIONS_CACHE_TTL_MS = 30_000;
 const HELP_STATE_TIMEOUT_MS = Math.max(500, Math.min(10_000, Number(process.env.HELP_STATE_TIMEOUT_MS ?? 2_500)));
 const HELP_MEMBER_TIMEOUT_MS = Math.max(500, Math.min(10_000, Number(process.env.HELP_MEMBER_TIMEOUT_MS ?? 3_000)));
@@ -314,7 +255,8 @@ function prettifySubcommandName(name) {
 
 function getPrefixSubcommandDescription(command, subcommandName) {
   const commandName = String(command?.name || "").toLowerCase();
-  const key = `${String(commandName || "").toLowerCase()}.${String(subcommandName || "").toLowerCase()}`;
+  const sub = String(subcommandName || "").toLowerCase();
+  const key = `${commandName}.${sub}`;
   const withOwnerNote = (text) =>
     PREFIX_MUSIC_SESSION_OWNER_COMMANDS.has(commandName)
       ? `${String(text || "").trim()}${PREFIX_MUSIC_SESSION_OWNER_NOTE}`
@@ -322,6 +264,8 @@ function getPrefixSubcommandDescription(command, subcommandName) {
   if (PREFIX_SUBCOMMAND_HELP_DESCRIPTIONS[key]) {
     return withOwnerNote(PREFIX_SUBCOMMAND_HELP_DESCRIPTIONS[key]);
   }
+  const fromMeta = String(command?.subcommandDescriptions?.[sub] || "").trim();
+  if (fromMeta) return withOwnerNote(fromMeta);
   const fromCommand = String(command?.description || "").trim();
   if (fromCommand) return withOwnerNote(fromCommand);
   return withOwnerNote("Descrizione non disponibile.");
@@ -412,6 +356,16 @@ function normalizePermissionRoles(value) {
   return null;
 }
 
+function resolveHelpPermissionRoles(perm) {
+  const roles = normalizePermissionRoles(perm);
+  if (Array.isArray(roles) && roles.length) return roles;
+  const permission = String(perm?.permissions || "").trim().toLowerCase();
+  if (permission === "administrator") {
+    return [IDs.roles.Founder, IDs.roles.Admin, IDs.roles.Manager].filter(Boolean);
+  }
+  return null;
+}
+
 function getSubcommandEntries(commandName, dataJson, permissionConfig, commandType, category) {
   const entries = [];
   const options = Array.isArray(dataJson?.options) ? dataJson.options : [];
@@ -463,22 +417,19 @@ const OBSOLETE_PREFIX_HELP_NAMES = new Set([
   "no-dm-list",
   "recensione",
   "evento",
+  "live",
 ]);
 
-function isConfiguredTwitchStreamer(client, userId) {
-  try {
-    const { resolveStreamerByDiscordUserId } = require("../../Services/Community/twitchLiveAlertService");
-    return Boolean(resolveStreamerByDiscordUserId(client, userId));
-  } catch {
-    return false;
-  }
+function isBotDevUser(client, userId) {
+  return getDevIds(client).includes(String(userId || ""));
 }
 
 function shouldIncludePrefixCommandInHelp(command, client, userId) {
   if (!command?.name) return false;
   if (command.tenantOnly) return false;
   if (command.hideFromHelp) {
-    if (String(command.name).toLowerCase() === "live" && isConfiguredTwitchStreamer(client, userId)) {
+    const name = String(command.name).toLowerCase();
+    if (name === "notify" && isBotDevUser(client, userId)) {
       return true;
     }
     return false;
@@ -504,6 +455,7 @@ function buildEntries(client, permissions, options = {}) {
     if (!shouldIncludePrefixCommandInHelp(command, client, helpUserId)) continue;
     if (normalizeCategoryKey(command.folder || "misc") === "economy" && !showEconomyHelp) continue;
     if (normalizeCategoryKey(command.folder || "misc") === "economy" && command.name === "shop" && !isServerEconomyEnabled(client)) continue;
+    if (normalizeCategoryKey(command.folder || "misc") === "economy" && !isEconomyGameEnabled(client, command.name)) continue;
 
     const perm = permissions.prefix?.[command.name];
     const commandRoles = Array.isArray(perm) ? perm : Array.isArray(perm?.roles) ? perm.roles : null;
@@ -512,8 +464,26 @@ function buildEntries(client, permissions, options = {}) {
     const prefixBase = getPrefixBase(command);
     const base = { type: "prefix", description: getPrefixDescription(command), aliases, prefixBase, category: normalizeCategoryKey(command.folder || "misc"), roles: commandRoles, };
 
-    const canonicalSubs = Array.isArray(command?.canonicalSubcommands) ? Array.from(new Set(command.canonicalSubcommands.map((s) => String(s || "").trim().toLowerCase()).filter(Boolean),),) : Array.isArray(command?.subcommands) ? Array.from(new Set(command.subcommands.map((s) => String(s || "").trim().toLowerCase()).filter(Boolean),),) : [];
+    const declaredSubs = Array.isArray(command?.canonicalSubcommands)
+      ? command.canonicalSubcommands
+      : null;
+    // Solo i subcomandi dichiarati finiscono in help (non quelli inferiti dal codice).
+    const canonicalSubs = Array.isArray(declaredSubs)
+      ? Array.from(
+          new Set(
+            declaredSubs
+              .map((s) => String(s || "").trim().toLowerCase())
+              .filter(Boolean),
+          ),
+        )
+      : [];
     if (canonicalSubs.length) {
+      if (command.allowEmptyArgs) {
+        entries.push({
+          ...base,
+          invoke: `${prefixBase}${command.name}`,
+        });
+      }
       for (const sub of canonicalSubs) {
         entries.push({
           ...base,
@@ -585,7 +555,7 @@ function buildEntries(client, permissions, options = {}) {
       continue;
 
     const perm = getCommandPermissionNode(permissions.slash, dataJson.name);
-    const roles = normalizePermissionRoles(perm);
+    const roles = resolveHelpPermissionRoles(perm);
 
     entries.push({
       invoke: `${dataJson.name}`,
@@ -685,13 +655,20 @@ function entryHasAnyRole(entry, roleIds) {
   return roles.some((roleId) => roleIds.includes(roleId));
 }
 
-function filterEntriesByHelpChannel(entries, channelId) {
+function filterEntriesByHelpChannel(entries, channelId, memberRoles = null) {
   const ch = String(channelId || "");
   const list = Array.isArray(entries) ? entries : [];
   if (!ch) return list;
   if (ch === HELP_CHANNEL_STAFF_COMMANDS_ID) return list;
   if (ch === HELP_CHANNEL_PUBLIC_COMMANDS_ID) {
-    return list.filter((entry) => !entryHasAnyRole(entry, HELP_PRIVILEGED_ROLE_IDS));
+    // Nei comandi pubblici nascondi staff/mod, ma mostra i comandi Partner Manager
+    // a chi ha quel ruolo (+profile pm, +points, +server info, …).
+    return list.filter((entry) => {
+      if (!entryHasAnyRole(entry, HELP_PRIVILEGED_ROLE_IDS)) return true;
+      if (!memberRoles) return false;
+      if (!hasAnyRole(memberRoles, [IDs.roles.PartnerManager].filter(Boolean))) return false;
+      return entryHasAnyRole(entry, [IDs.roles.PartnerManager].filter(Boolean));
+    });
   }
   if (ch === HELP_CHANNEL_PM_ONLY_ID) {
     return list.filter((entry) => {
@@ -899,25 +876,111 @@ function expandHelpDisplayPages(basePages, newUntilMap = null) {
 }
 
 function buildNavigationRow(state) {
+  const base = `mhelp:${state.ownerId}:${state.channelId}:${state.currentIndex}:${state.total}`;
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setCustomId(state.prevId)
+      .setCustomId(`${base}:prev`)
       .setEmoji(`<a:vegaleftarrow:1462914743416131816>`)
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(state.currentIndex <= 0),
     new ButtonBuilder()
-      .setCustomId(state.nextId)
+      .setCustomId(`${base}:next`)
       .setEmoji(`<a:vegarightarrow:1443673039156936837>`)
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(state.currentIndex >= state.total - 1),
     new ButtonBuilder()
-      .setCustomId(state.closeId)
+      .setCustomId(`${base}:close`)
       .setEmoji("<:cancel:1461730653677551691>")
       .setStyle(ButtonStyle.Danger),
   );
 }
 
-function buildHelpV2Container(page, navState) {
+function parseMainHelpCustomId(customId) {
+  const parts = String(customId || "").split(":");
+  if (parts[0] !== "mhelp" || parts.length < 6) return null;
+  const [, ownerId, channelId, pageRaw, totalRaw, action] = parts;
+  if (!/^\d{16,20}$/.test(ownerId) || !/^\d{16,20}$/.test(channelId)) return null;
+  if (!["prev", "next", "close"].includes(action)) return null;
+  return {
+    ownerId,
+    channelId,
+    page: Math.max(0, Math.floor(Number(pageRaw) || 0)),
+    total: Math.max(1, Math.floor(Number(totalRaw) || 1)),
+    action,
+  };
+}
+
+async function buildMainHelpDisplayPages(guild, member, client, channelId) {
+  const permissions = loadPermissions();
+  const allEntries = buildEntries(client, permissions, { userId: member?.user?.id || member?.id });
+  const newUntilMap = await ensureHelpNewUntilForEntries(allEntries, await loadHelpNewUntilMap());
+  const memberRoles = member?.roles?.cache || new Map();
+  const memberVisibleEntries = allEntries.filter((entry) => canMemberSeeEntry(entry, memberRoles));
+  const channelScopedEntries = filterEntriesByHelpChannel(memberVisibleEntries, String(channelId || ""), memberRoles);
+  const sortedVisible = dedupeAndSortEntries(channelScopedEntries);
+  const chunks = mergeAdjacentHelpChunks(
+    chunkEntriesByCategory(sortedVisible, HELP_PAGE_SIZE),
+    HELP_PAGE_SIZE,
+  );
+  const groupedPages = chunks.map((items) => ({
+    roleId: "all",
+    items,
+    indexLabel: "",
+    groupLabel: PAGE_TITLES.all || "Comandi Disponibili",
+  }));
+  return expandHelpDisplayPages(groupedPages, newUntilMap);
+}
+
+async function handleMainHelpNavInteraction(interaction) {
+  const parsed = parseMainHelpCustomId(interaction.customId);
+  if (!parsed) return false;
+  if (String(interaction.user?.id) !== parsed.ownerId) {
+    await interaction
+      .reply({
+        content: "<:vegax:1443934876440068179> Puoi usare i bottoni solo sul tuo help.",
+        flags: PRIVATE_FLAG,
+      })
+      .catch(() => null);
+    return true;
+  }
+  if (parsed.action === "close") {
+    await interaction.deferUpdate().catch(() => null);
+    await interaction.message?.delete?.().catch(() => null);
+    return true;
+  }
+  const member =
+    interaction.member ||
+    (await interaction.guild.members.fetch(interaction.user.id).catch(() => null));
+  const displayPages = await buildMainHelpDisplayPages(
+    interaction.guild,
+    member,
+    interaction.client,
+    parsed.channelId,
+  );
+  if (!displayPages.length) {
+    await interaction.deferUpdate().catch(() => null);
+    return true;
+  }
+  let page = parsed.page;
+  if (parsed.action === "prev") page = Math.max(0, page - 1);
+  else if (parsed.action === "next") page = Math.min(displayPages.length - 1, page + 1);
+  page = Math.min(displayPages.length - 1, Math.max(0, page));
+  const navState = {
+    currentIndex: page,
+    total: displayPages.length,
+    ownerId: parsed.ownerId,
+    channelId: parsed.channelId,
+    guildId: interaction.guild.id,
+  };
+  await safeInteractionUpdate(interaction, {
+    components: [buildHelpV2Container(displayPages[page], navState, interaction.guild.id)],
+    flags: MessageFlags.IsComponentsV2,
+    allowedMentions: NO_REPLY_MENTIONS,
+  });
+  return true;
+}
+
+function buildHelpV2Container(page, navState, guildId = "") {
   let content = page?.renderedText;
   if (content == null) {
     const r = renderPageText(page);
@@ -929,7 +992,7 @@ function buildHelpV2Container(page, navState) {
   }
   return {
     type: ComponentType.Container,
-    accentColor: 0x6f4e37,
+    accentColor: resolveHelpAccentColorInt({}, guildId),
     components,
   };
 }
@@ -963,8 +1026,9 @@ function dedupeAndSortEntries(entries) {
 
 function formatRoleMentions(roleIds) {
   if (!Array.isArray(roleIds)) return "Tutti";
-  if (!roleIds.length) return "Nessun ruolo configurato";
-  return roleIds.map((roleId) => `<@&${roleId}>`).join(", ");
+  const roles = normalizeRoleList(roleIds);
+  if (!roles.length) return "Nessun ruolo configurato";
+  return roles.map((roleId) => `<@&${roleId}>`).join(", ");
 }
 
 function getPrefixPermissionConfig(permissions, commandName) {
@@ -1178,7 +1242,7 @@ function buildPrefixDetailedHelpEmbed(query, entries, context = {}) {
 
   const snippetLines = collectPrefixExampleLines(command, commandName, prefixBase, subEntries.map((entry) => ({ invoke: entry.invoke })), requestedSub,);
 
-  const embed = new EmbedBuilder().setColor("#6f4e37").setTitle(`Guida comando: ${prefixBase}${commandName}`)
+  const embed = new EmbedBuilder().setColor(resolveHelpEmbedColor(context)).setTitle(`Guida comando: ${prefixBase}${commandName}`)
     .setDescription(getPrefixDescription(command));
 
   const fields = [];
@@ -1353,7 +1417,7 @@ function buildSlashDetailedHelpEmbed(query, entries, context = {}) {
   const perm = context?.permissions?.slash?.[commandName];
   const roleIds = Array.isArray(perm) ? perm : Array.isArray(perm?.roles) ? perm.roles : null;
   const effectiveSyntax = syntaxLines.length ? syntaxLines : [`\`/${commandName}\``];
-  const embed = new EmbedBuilder().setColor("#6f4e37").setTitle(`Guida comando: /${commandName}`)
+  const embed = new EmbedBuilder().setColor(resolveHelpEmbedColor(context)).setTitle(`Guida comando: /${commandName}`)
     .setDescription(
       normalizeDescription(hit.dataJson.description, "Comando slash."),
     );
@@ -1463,7 +1527,7 @@ function buildSubcommandFallbackEmbed(query, visibleEntries, context = {}) {
         return `-\`${invoke}\`${subAliasPart}-${getPrefixSubcommandDescription(prefixCommand, sub)}${lock}`;
       });
       return new EmbedBuilder()
-        .setColor(HELP_EMBED_COLOR)
+        .setColor(resolveHelpEmbedColor(context))
         .setTitle(`Subcommands: ${prefixBase}${commandName}`)
         .setDescription(lines.join("\n"));
     }
@@ -1510,7 +1574,7 @@ function buildSubcommandFallbackEmbed(query, visibleEntries, context = {}) {
     }
     if (subLines.length) {
       return new EmbedBuilder()
-        .setColor(HELP_EMBED_COLOR)
+        .setColor(resolveHelpEmbedColor(context))
         .setTitle(`Subcommands: /${commandName}`)
         .setDescription(subLines.join("\n"));
     }
@@ -1549,7 +1613,7 @@ function buildMiniHelpEmbed(query, entries, context = {}) {
     : "";
 
   return new EmbedBuilder()
-    .setColor(HELP_EMBED_COLOR)
+    .setColor(resolveHelpEmbedColor(context))
     .setTitle(`Mini Help: ${query}`.replace(/^(Mini Help:)(\S)/, "$1 $2"))
     .setDescription(`${lines.join("\n")}${extra}`);
 }
@@ -1572,7 +1636,12 @@ function buildHelpNewUntilPayload(client, untilMs) {
 module.exports = {
   name: "help",
   allowEmptyArgs: true,
+  description: "Apre la guida ai comandi disponibili su questo server.",
+  usage: "+help [comando]",
+  examples: ["+help", "+help setup", "+help points"],
   buildHelpNewUntilPayload,
+  parseMainHelpCustomId,
+  handleMainHelpNavInteraction,
   async execute(message, args, client) {
     if (!message.guild || !message.member) return;
     if (!isViniliFullFeatureGuild(message.guild.id)) {
@@ -1602,12 +1671,16 @@ module.exports = {
     }
     const channelId = String(message.channel?.id || "");
     const memberVisibleEntries = allEntries.filter((entry) => canMemberSeeEntry(entry, memberRoles));
-    const channelScopedEntries = filterEntriesByHelpChannel(memberVisibleEntries, channelId);
+    const channelScopedEntries = filterEntriesByHelpChannel(memberVisibleEntries, channelId, memberRoles);
     const visibleEntriesForQuery = dedupeAndSortEntries(channelScopedEntries);
 
     const query = Array.isArray(args) ? args.join(" ").trim() : "";
     if (query.length) {
-      const embed = buildMiniHelpEmbed(query, visibleEntriesForQuery, { client, permissions, });
+      const embed = buildMiniHelpEmbed(query, visibleEntriesForQuery, {
+        client,
+        permissions,
+        guildId: message.guild.id,
+      });
       await safeMessageReply(message, {
         embeds: [embed],
         allowedMentions: NO_REPLY_MENTIONS,
@@ -1630,55 +1703,19 @@ module.exports = {
       });
     }
 
-    const initialPageIndex = 0;
-
-    const uniqueToken = `${message.id}_${Date.now()}`;
+    const channelIdForNav = String(message.channel?.id || "");
     const navState = {
-      currentIndex: initialPageIndex, total: displayPages.length, prevId: `help_prev_${uniqueToken}`,
-      nextId: `help_next_${uniqueToken}`,
-      closeId: `help_close_${uniqueToken}`,
+      currentIndex: 0,
+      total: displayPages.length,
+      ownerId: message.author.id,
+      channelId: channelIdForNav,
+      guildId: message.guild.id,
     };
 
-    const sent = await safeMessageReply(message, { components: [buildHelpV2Container(displayPages[navState.currentIndex], navState)], flags: MessageFlags.IsComponentsV2, allowedMentions: NO_REPLY_MENTIONS, });
-    if (!sent) return;
-
-    const collector = sent.createMessageComponentCollector({ time: MAX_HELP_COLLECTOR_MS, idle: MAX_HELP_COLLECTOR_MS, });
-
-    collector.on("collect", async (interaction) => {
-      if (interaction.user.id !== message.author.id) {
-        await interaction
-          .reply({
-            content:
-              "<:vegax:1443934876440068179> Puoi usare i bottoni solo sul tuo help.",
-            flags: PRIVATE_FLAG,
-          })
-          .catch(() => { });
-        return;
-      }
-
-      const prevIndex = navState.currentIndex;
-      if (interaction.customId === navState.closeId) {
-        collector.stop("closed_by_user");
-        await interaction.message?.delete?.().catch(() => {});
-        if (message?.deletable) {
-          await message.delete().catch(() => {});
-        }
-        return;
-      }
-      if (interaction.customId === navState.prevId && navState.currentIndex > 0) {
-        navState.currentIndex -= 1;
-      } else if (
-        interaction.customId === navState.nextId &&
-        navState.currentIndex < navState.total - 1
-      ) {
-        navState.currentIndex += 1;
-      }
-
-      const page = displayPages[navState.currentIndex];
-      const updated = await interaction.update({ components: [buildHelpV2Container(page, navState)], allowedMentions: NO_REPLY_MENTIONS, }).then(() => true).catch(() => false);
-      if (!updated) {
-        navState.currentIndex = prevIndex;
-      }
+    await safeMessageReply(message, {
+      components: [buildHelpV2Container(displayPages[0], navState, message.guild.id)],
+      flags: MessageFlags.IsComponentsV2,
+      allowedMentions: NO_REPLY_MENTIONS,
     });
   },
 };

@@ -4,7 +4,6 @@ const { DEFAULT_OBSOLETE_SLASH_NAMES } = require("../../../shared/discord/purgeO
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const { getGuildMemberCached } = require("../../Utils/Interaction/entityCache");
 const { loadPermissions } = require("../../Utils/Moderation/permissionsStore");
-const MAX_HELP_COLLECTOR_MS = 24 * 60 * 60 * 1000;
 const HELP_EMBED_COLOR = "#6f4e37";
 const ERROR_EMBED_COLOR = "Red";
 const PRIVATE_FLAG = 1 << 6;
@@ -474,7 +473,7 @@ function renderPageText(page) {
     sections.push(`**${categoryLabel}**\n${rows.join("\n")}`);
   }
 
-  const raw=page.items.length?["## Comandi Disponibili","",`###${PAGE_TITLES[page.roleId]||"Comandi Disponibili"}`,
+  const raw=page.items.length?["## Comandi Disponibili","",`### ${PAGE_TITLES[page.roleId]||"Comandi Disponibili"}`,
       "",
       "Ecco la lista dei comandi disponibili.",
       "Usa il prefix o slash in base al comando.",
@@ -547,22 +546,99 @@ function expandHelpDisplayPages(basePages) {
 }
 
 function buildNavigationRow(state) {
+  const base = `chelp:${state.ownerId}:${state.currentIndex}:${state.total}`;
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setCustomId(state.prevId)
+      .setCustomId(`${base}:prev`)
       .setEmoji(`<a:vegaleftarrow:1462914743416131816>`)
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(state.currentIndex <= 0),
     new ButtonBuilder()
-      .setCustomId(state.nextId)
+      .setCustomId(`${base}:next`)
       .setEmoji(`<a:vegarightarrow:1443673039156936837>`)
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(state.currentIndex >= state.total - 1),
     new ButtonBuilder()
-      .setCustomId(state.closeId)
+      .setCustomId(`${base}:close`)
       .setEmoji("<a:VC_Cross:1482532424570376253>")
       .setStyle(ButtonStyle.Danger),
   );
+}
+
+function parseCoffeeHelpCustomId(customId) {
+  const parts = String(customId || "").split(":");
+  if (parts[0] !== "chelp" || parts.length < 5) return null;
+  const [, ownerId, pageRaw, totalRaw, action] = parts;
+  if (!/^\d{16,20}$/.test(ownerId)) return null;
+  if (!["prev", "next", "close"].includes(action)) return null;
+  return {
+    ownerId,
+    page: Math.max(0, Math.floor(Number(pageRaw) || 0)),
+    total: Math.max(1, Math.floor(Number(totalRaw) || 1)),
+    action,
+  };
+}
+
+async function buildCoffeeHelpDisplayPages(client, member) {
+  const permissions = loadPermissions();
+  const allEntries = buildEntries(client, permissions);
+  const memberRoles = member?.roles?.cache || new Map();
+  const allVisibleEntries = allEntries.filter((entry) => canMemberSeeEntry(entry, memberRoles));
+  const sortedVisible = dedupeAndSortEntries(allVisibleEntries);
+  const chunks = chunkEntriesByCategory(sortedVisible, HELP_PAGE_SIZE);
+  const groupedPages = chunks.map((items) => ({
+    roleId: "all",
+    items,
+    indexLabel: "",
+    groupLabel: PAGE_TITLES.all || "Comandi Disponibili",
+  }));
+  return expandHelpDisplayPages(groupedPages);
+}
+
+async function handleCoffeeHelpNavInteraction(interaction) {
+  const parsed = parseCoffeeHelpCustomId(interaction.customId);
+  if (!parsed) return false;
+  if (String(interaction.user?.id) !== parsed.ownerId) {
+    await interaction
+      .reply({
+        content: "<:vegax:1443934876440068179> Puoi usare i bottoni solo sul tuo help.",
+        flags: PRIVATE_FLAG,
+      })
+      .catch(() => null);
+    return true;
+  }
+  if (parsed.action === "close") {
+    await interaction.deferUpdate().catch(() => null);
+    await interaction.message?.delete?.().catch(() => null);
+    return true;
+  }
+  const member =
+    interaction.member ||
+    (await interaction.guild.members.fetch(interaction.user.id).catch(() => null));
+  const displayPages = await buildCoffeeHelpDisplayPages(interaction.client, member);
+  if (!displayPages.length) {
+    await interaction.deferUpdate().catch(() => null);
+    return true;
+  }
+  let page = parsed.page;
+  if (parsed.action === "prev") page = Math.max(0, page - 1);
+  else if (parsed.action === "next") page = Math.min(displayPages.length - 1, page + 1);
+  page = Math.min(displayPages.length - 1, Math.max(0, page));
+  const navState = {
+    currentIndex: page,
+    total: displayPages.length,
+    ownerId: parsed.ownerId,
+  };
+  try {
+    await interaction.update({
+      components: [buildHelpV2Container(displayPages[page], navState)],
+      flags: MessageFlags.IsComponentsV2,
+      allowedMentions: NO_REPLY_MENTIONS,
+    });
+  } catch {
+    await interaction.deferUpdate().catch(() => null);
+  }
+  return true;
 }
 
 function buildHelpV2Container(page, navState) {
@@ -614,8 +690,20 @@ function dedupeAndSortEntries(entries) {
 
 function formatRoleMentions(roleIds) {
   if (!Array.isArray(roleIds)) return "Tutti";
-  if (!roleIds.length) return "Nessun ruolo configurato";
-  return roleIds.map((roleId) => `<@&${roleId}>`).join(", ");
+  const roles = roleIds
+    .map((value) => {
+      const raw = String(value || "").trim();
+      if (!raw) return null;
+      if (/^\d{16,20}$/.test(raw)) return raw;
+      let key = raw;
+      if (key.startsWith("ids.roles.")) key = key.slice("ids.roles.".length);
+      else if (key.startsWith("roles.")) key = key.slice("roles.".length);
+      const resolved = IDs?.roles?.[key];
+      return resolved ? String(resolved) : null;
+    })
+    .filter(Boolean);
+  if (!roles.length) return "Nessun ruolo configurato";
+  return roles.map((roleId) => `<@&${roleId}>`).join(", ");
 }
 
 function getPrefixPermissionConfig(permissions, commandName) {
@@ -1053,6 +1141,8 @@ function buildMiniHelpEmbed(query, entries, context = {}) {
 module.exports = {
   name: "help",
   allowEmptyArgs: true,
+  parseCoffeeHelpCustomId,
+  handleCoffeeHelpNavInteraction,
   async execute(message, args, client) {
     if (!message.guild) return;
     if (!message.member && message.guild.members?.fetch) {
@@ -1124,78 +1214,23 @@ module.exports = {
       });
     }
 
-    const uniqueToken = `${message.id}_${Date.now()}`;
-    const navState={currentIndex:initialPageIndex,total:displayPages.length,prevId:`help_prev_${uniqueToken}`,
-      nextId: `help_next_${uniqueToken}`,
-      closeId: `help_close_${uniqueToken}`,
+    const navState = {
+      currentIndex: 0,
+      total: displayPages.length,
+      ownerId: message.author.id,
     };
 
-    let helpUsesComponentsV2 = true;
     let sent = await safeMessageReply(message, {
-      components: [buildHelpV2Container(displayPages[navState.currentIndex], navState)],
+      components: [buildHelpV2Container(displayPages[0], navState)],
       flags: MessageFlags.IsComponentsV2,
       allowedMentions: NO_REPLY_MENTIONS,
     });
     if (!sent) {
-      helpUsesComponentsV2 = false;
       sent = await safeMessageReply(message, {
-        embeds: [buildHelpFallbackEmbed(displayPages[navState.currentIndex])],
+        embeds: [buildHelpFallbackEmbed(displayPages[0])],
         components: navState.total > 1 ? [buildNavigationRow(navState)] : [],
         allowedMentions: NO_REPLY_MENTIONS,
       });
     }
-    if (!sent) return;
-
-    const collector=sent.createMessageComponentCollector({time:MAX_HELP_COLLECTOR_MS,idle:MAX_HELP_COLLECTOR_MS,});
-
-    collector.on("collect", async (interaction) => {
-      if (interaction.user.id !== message.author.id) {
-        await interaction
-          .reply({
-            content: "<a:VC_Cross:1482532424570376253> Puoi usare i bottoni solo sul tuo help.",
-            flags: PRIVATE_FLAG,
-          })
-          .catch(() => { });
-        return;
-      }
-
-      const prevIndex = navState.currentIndex;
-      if (interaction.customId === navState.closeId) {
-        collector.stop("closed_by_user");
-        await interaction.message?.delete?.().catch(() => {});
-        if (message?.deletable) {
-          await message.delete().catch(() => {});
-        }
-        return;
-      }
-      if (interaction.customId === navState.prevId && navState.currentIndex > 0) {
-        navState.currentIndex -= 1;
-      } else if (
-        interaction.customId === navState.nextId &&
-        navState.currentIndex < navState.total - 1
-      ) {
-        navState.currentIndex += 1;
-      }
-
-      const page = displayPages[navState.currentIndex];
-      let updated = false;
-      if (helpUsesComponentsV2) {
-        updated = await interaction
-          .update({ components: [buildHelpV2Container(page, navState)] })
-          .then(() => true)
-          .catch(() => false);
-      } else {
-        updated = await interaction
-          .update({
-            embeds: [buildHelpFallbackEmbed(page)],
-            components: navState.total > 1 ? [buildNavigationRow(navState)] : [],
-          })
-          .then(() => true)
-          .catch(() => false);
-      }
-      if (!updated) {
-        navState.currentIndex = prevIndex;
-      }
-    });
   },
 };

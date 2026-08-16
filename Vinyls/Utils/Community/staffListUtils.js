@@ -7,8 +7,10 @@ const { wasRoleRestoredByMuteMirror } = require("../Moderation/muteRestoreAnnoun
 const STAFF_LIST_HASH_SPLIT = "\n---STAFF_LIST_SPLIT---\n";
 const STAFF_LIST_STARTUP_REFRESH_MS = 4500;
 const STAFF_LIST_DISCORD_MAX = 2000;
+/** Sotto questa soglia si può ricompattare in un solo messaggio (isteresi anti-flap). */
+const STAFF_LIST_REJOIN_MAX = 1850;
 const BOT_STATE_KEY_STAFF_LIST_SYNC_PREFIX = "staffListSync";
-const STAFF_LIST_LAYOUT_REV = "helper-with-pm-v8";
+const STAFF_LIST_LAYOUT_REV = "helper-with-pm-v12-msg-gap";
 
 function normalizeStaffListContent(raw) {
   return String(raw || "")
@@ -47,6 +49,7 @@ function staffListFirstLine(content) {
 function isMainStaffListMessageContent(content) {
   const firstLine = staffListFirstLine(content);
   if (!/^##\s*staff\s*list\b/i.test(firstLine)) return false;
+  if (/[·•]\s*_?continua_?/i.test(firstLine)) return false;
   if (/[·•]\s*partner\s*manager/i.test(firstLine)) return false;
   return true;
 }
@@ -54,6 +57,7 @@ function isMainStaffListMessageContent(content) {
 function isPmStaffListMessageContent(content) {
   if (isMainStaffListMessageContent(content)) return false;
   const c = String(content || "").trimStart();
+  // Vecchi msg con header "continua" (da aggiornare al prossimo sync).
   if (/^##\s*staff\s*list\s*·\s*_?continua_?/i.test(c)) return true;
   if (/^##\s*partner manager/i.test(c)) return true;
   if (/[·•]\s*partner\s*manager/i.test(c)) return true;
@@ -64,6 +68,7 @@ function isPmStaffListMessageContent(content) {
   return false;
 }
 const STAFF_NEW_EMOJI = "<:VC_New:1471891729471770819>";
+const STAFF_PAUSE_EMOJI = "<:VC_PausedStatus:1482527157283455086>";
 const STAFF_NEW_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 const ROLE_EMOJIS = {
   [IDs.roles.PartnerManager]: { emoji: "<:VC_PartnerManager:1494286911286808576>" },
@@ -269,7 +274,30 @@ async function getStaffListNewBadgeRoleIdsByUser(guildId) {
   return out;
 }
 
-function buildRoleSection(roleId, guild, membersSource, newBadgeRoleIdsByUser) {
+async function getStaffListPausedUserIds(guildId) {
+  const { hasActiveAcceptedStaffPause, getTodayUtc } = require("../Pause/pauseHandlersUtils");
+  const today = getTodayUtc();
+  const docs = await ActivityUserProfile.find(
+    {
+      guildId: String(guildId),
+      "staff.pauses": { $elemMatch: { status: "accepted" } },
+    },
+    { userId: 1, "staff.pauses": 1 },
+  )
+    .lean()
+    .catch(() => []);
+
+  const out = new Set();
+  for (const doc of docs || []) {
+    const uid = doc?.userId != null ? String(doc.userId) : "";
+    if (!uid) continue;
+    const pauses = Array.isArray(doc?.staff?.pauses) ? doc.staff.pauses : [];
+    if (hasActiveAcceptedStaffPause(pauses, today)) out.add(uid);
+  }
+  return out;
+}
+
+function buildRoleSection(roleId, guild, membersSource, newBadgeRoleIdsByUser, pausedUserIds = new Set()) {
   const role = guild.roles.cache.get(roleId);
   if (!role) return "";
   const excludedMembers = new Set(ROLE_EXCLUSIONS[roleId] || []);
@@ -298,9 +326,11 @@ function buildRoleSection(roleId, guild, membersSource, newBadgeRoleIdsByUser) {
   const rid = String(roleId);
   const membersList = filteredMembers
     .map((member) => {
-      const rolesWithNew = newBadgeRoleIdsByUser.get(String(member.id));
+      const uid = String(member.id);
+      const rolesWithNew = newBadgeRoleIdsByUser.get(uid);
       const newBadge = rolesWithNew?.has(rid) ? ` ${STAFF_NEW_EMOJI}` : "";
-      return `<:VC_Dot:1482532364222595303> <@${member.id}>${newBadge}`;
+      const pauseBadge = pausedUserIds.has(uid) ? ` ${STAFF_PAUSE_EMOJI}` : "";
+      return `<:VC_Dot:1482532364222595303> <@${member.id}>${newBadge}${pauseBadge}`;
     })
     .join("\n") || "<:VC_Dot:1482532364222595303>";
   return `${emoji} **<@&${roleId}>︲\`${memberCount}\`**\n\n${membersList}\n\n`;
@@ -328,15 +358,27 @@ function buildRoleSectionWithCustomEmoji(roleId, emoji, guild, membersSource) {
   return `${String(emoji || "")} **<@&${roleId}>︲\`${memberCount}\`**\n\n${membersList}\n\n`;
 }
 
-function finalizeStaffListMain(text, { hasContinuation = false } = {}) {
+function finalizeStaffListMain(text, { hasContinuation = false, leadingGap = false } = {}) {
   const raw = String(text || "");
   if (!raw.trim()) return "";
   const withoutTrailingSpaces = raw.replace(/[ \t\u00A0]+$/g, "");
-  if (hasContinuation) return withoutTrailingSpaces;
-  return `${withoutTrailingSpaces.trimEnd()}\n\n`;
+  let body = hasContinuation ? withoutTrailingSpaces : `${withoutTrailingSpaces.trimEnd()}\n\n`;
+  if (leadingGap) {
+    // Riga vuota visibile prima del primo ruolo nel 2° messaggio staff list.
+    const trimmed = body.replace(/^\u200b?\r?\n*/, "");
+    body = `\u200b\n${trimmed}`;
+  }
+  return body;
 }
 
-function buildStaffListParts(guild, membersSource = guild.members.cache, newBadgeRoleIdsByUser = new Map()) {
+function buildStaffListParts(
+  guild,
+  membersSource = guild.members.cache,
+  newBadgeRoleIdsByUser = new Map(),
+  opts = {},
+  pausedUserIds = new Set(),
+) {
+  const preferSplit = opts?.preferSplit === true;
   const staffRoleIds = STAFF_LIST_SECTION_ROLE_IDS.slice().reverse();
   const pmRoleId = String(IDs.roles.PartnerManager || "");
   const helperRoleId = String(IDs.roles.Helper || "");
@@ -345,7 +387,7 @@ function buildStaffListParts(guild, membersSource = guild.members.cache, newBadg
   let pm = "";
 
   for (const roleId of staffRoleIds) {
-    const section = buildRoleSection(roleId, guild, membersSource, newBadgeRoleIdsByUser);
+    const section = buildRoleSection(roleId, guild, membersSource, newBadgeRoleIdsByUser, pausedUserIds);
     if (!section) continue;
     const rid = String(roleId);
     if (rid === pmRoleId) {
@@ -375,12 +417,15 @@ function buildStaffListParts(guild, membersSource = guild.members.cache, newBadg
 
   const fullCombined = hasContinuation ? joinStaffListMainWithPm(main, continuationBody) : main;
   const fullSingle = finalizeStaffListMain(fullCombined);
-  if (fullSingle.length <= STAFF_LIST_DISCORD_MAX) {
+  const mustSplit =
+    fullSingle.length > STAFF_LIST_DISCORD_MAX ||
+    (preferSplit && hasContinuation && fullSingle.length > STAFF_LIST_REJOIN_MAX);
+  if (!mustSplit) {
     return { main: fullSingle, pm: "" };
   }
 
   const mainPart = finalizeStaffListMain(main, { hasContinuation });
-  const pmPart = finalizeStaffListMain(continuationBody);
+  const pmPart = finalizeStaffListMain(continuationBody, { leadingGap: true });
 
   if (mainPart.length <= STAFF_LIST_DISCORD_MAX && pmPart.length <= STAFF_LIST_DISCORD_MAX) {
     return { main: mainPart, pm: pmPart };
@@ -453,6 +498,11 @@ async function resolveStaffListMessages(channel, client, guildId) {
     const main = await fetchChannelMessage(channel, known[0]);
     const pm = known[1] ? await fetchChannelMessage(channel, known[1]) : null;
     if (main && (!known[1] || pm)) return { main, pm };
+    // Se manca solo il 2° messaggio, tieni comunque il main (niente wipe totale).
+    if (main && known[1] && !pm) {
+      state.messageIdsByGuild.set(gk, [main.id]);
+      return { main, pm: null };
+    }
     state.messageIdsByGuild.delete(gk);
   }
 
@@ -472,6 +522,8 @@ async function resolveStaffListMessages(channel, client, guildId) {
   );
   if (mainMsg && pmMsg) {
     state.messageIdsByGuild.set(gk, [mainMsg.id, pmMsg.id]);
+  } else if (mainMsg) {
+    state.messageIdsByGuild.set(gk, [mainMsg.id]);
   }
   return { main: mainMsg || null, pm: pmMsg || null };
 }
@@ -590,17 +642,22 @@ async function refreshStaffList(client, guildId = IDs.guilds.main, opts = {}) {
   try {
   await hydrateStaffListPersistedState(client, gidKey);
 
+  let { main: mainMsg, pm: pmMsg } = await resolveStaffListMessages(channel, client, gidKey);
+  const preferSplit = Boolean(mainMsg && pmMsg);
+
   const membersSource = await fetchMembersForStaffList(guild);
-  const newBadgeRoleIdsByUser = await getStaffListNewBadgeRoleIdsByUser(guild.id);
-  const parts = buildStaffListParts(guild, membersSource, newBadgeRoleIdsByUser);
+  const [newBadgeRoleIdsByUser, pausedUserIds] = await Promise.all([
+    getStaffListNewBadgeRoleIdsByUser(guild.id),
+    getStaffListPausedUserIds(guild.id),
+  ]);
+  const parts = buildStaffListParts(guild, membersSource, newBadgeRoleIdsByUser, { preferSplit }, pausedUserIds);
   const serial = buildStaffListSerial(parts);
   const needsPmMessage = Boolean(String(parts.pm || "").trim());
 
   if (bootstrapOnly && !force) {
-    const { main: existingMain, pm: existingPm } = await resolveStaffListMessages(channel, client, gidKey);
-    if (existingMain && (!needsPmMessage || existingPm)) {
-      if (staffListContentMatches(existingMain.content, existingPm?.content || "", parts)) {
-        const syncedIds = needsPmMessage ? [existingMain.id, existingPm.id] : [existingMain.id];
+    if (mainMsg && (!needsPmMessage || pmMsg)) {
+      if (staffListContentMatches(mainMsg.content, pmMsg?.content || "", parts)) {
+        const syncedIds = needsPmMessage ? [mainMsg.id, pmMsg.id] : [mainMsg.id];
         state.messageIdsByGuild.set(gidKey, syncedIds);
         state.contentHashByGuild.set(gidKey, serial);
         await persistStaffListSyncState(gidKey, serial, syncedIds);
@@ -624,14 +681,13 @@ async function refreshStaffList(client, guildId = IDs.guilds.main, opts = {}) {
     });
   }
 
-  let { main: mainMsg, pm: pmMsg } = await resolveStaffListMessages(channel, client, gidKey);
   if (!mainMsg) {
     state.contentHashByGuild.delete(gidKey);
   }
 
   const previousHash = state.contentHashByGuild.get(gidKey);
+  // Anche con force: se il testo Discord è già uguale non editare (evita history spam ai riavvii).
   const contentAlreadySynced =
-    !force &&
     mainMsg &&
     staffListContentEquals(mainMsg.content, parts.main) &&
     (!needsPmMessage || (pmMsg && staffListContentEquals(pmMsg.content, parts.pm)));
@@ -665,9 +721,9 @@ async function refreshStaffList(client, guildId = IDs.guilds.main, opts = {}) {
   let mainId = null;
   let pmId = null;
 
-  const mainChanged = !mainMsg || force || !staffListContentEquals(mainMsg.content, parts.main);
+  const mainChanged = !mainMsg || !staffListContentEquals(mainMsg.content, parts.main);
   const pmChanged =
-    needsPmMessage && (!pmMsg || force || !staffListContentEquals(pmMsg.content, parts.pm));
+    needsPmMessage && (!pmMsg || !staffListContentEquals(pmMsg.content, parts.pm));
 
   async function resendStaffListTogether() {
     await deleteStaffListMessages(mainMsg, pmMsg);
@@ -678,25 +734,52 @@ async function refreshStaffList(client, guildId = IDs.guilds.main, opts = {}) {
     pmId = sent.pmId;
   }
 
+  async function editOrResendMain() {
+    if (!mainMsg) return false;
+    const edited = await mainMsg.edit(parts.main).catch((err) => {
+      global.logger?.error?.("[STAFF LIST] main message.edit failed:", err?.message || err, {
+        code: err?.code,
+        guildId: gidKey,
+      });
+      return null;
+    });
+    if (edited) {
+      mainId = edited.id;
+      return true;
+    }
+    return false;
+  }
+
   if (!mainMsg) {
     const sent = await sendStaffListParts(channel, parts, needsPmMessage);
     mainId = sent.mainId;
     pmId = sent.pmId;
   } else if (needsPmMessage && !pmMsg) {
-    await resendStaffListTogether();
-  } else if (needsPmMessage && (mainChanged || pmChanged)) {
-    if (mainChanged) {
-      const edited = await mainMsg.edit(parts.main).catch((err) => {
-        global.logger?.error?.("[STAFF LIST] main message.edit failed:", err?.message || err, {
+    // Prima: wipe totale. Ora: aggiorna il main e aggiungi solo il 2° messaggio.
+    const mainOk = mainChanged ? await editOrResendMain() : true;
+    if (!mainOk) {
+      await resendStaffListTogether();
+    } else {
+      if (!mainChanged) mainId = mainMsg.id;
+      const sentPm = await channel.send(parts.pm).catch((err) => {
+        global.logger?.error?.("[STAFF LIST] pm channel.send failed:", err?.message || err, {
           code: err?.code,
-          guildId: gidKey,
+          channelId: String(channel?.id || ""),
         });
         return null;
       });
-      if (!edited) {
+      pmId = sentPm?.id || null;
+      if (!pmId) {
+        // Ultimo fallback: solo se non riusciamo ad aggiungere il 2° messaggio.
+        await resendStaffListTogether();
+      }
+    }
+  } else if (needsPmMessage && (mainChanged || pmChanged)) {
+    if (mainChanged) {
+      const mainOk = await editOrResendMain();
+      if (!mainOk) {
         await resendStaffListTogether();
       } else {
-        mainId = edited.id;
         if (pmChanged && pmMsg) {
           const editedPm = await pmMsg.edit(parts.pm).catch((err) => {
             global.logger?.warn?.("[STAFF LIST] pm message.edit failed:", err?.message || err);
@@ -721,13 +804,8 @@ async function refreshStaffList(client, guildId = IDs.guilds.main, opts = {}) {
       }
     }
   } else if (mainChanged) {
-    const edited = await mainMsg.edit(parts.main).catch((err) => {
-      global.logger?.error?.("[STAFF LIST] main message.edit failed:", err?.message || err, { guildId: gidKey });
-      return null;
-    });
-    if (edited) {
-      mainId = edited.id;
-    } else {
+    const mainOk = await editOrResendMain();
+    if (!mainOk) {
       await deleteStaffListMessages(mainMsg, pmMsg);
       const sent = await channel.send(parts.main).catch(() => null);
       if (sent) mainId = sent.id;
@@ -772,7 +850,8 @@ async function refreshStaffList(client, guildId = IDs.guilds.main, opts = {}) {
 function startStaffListPeriodicRefreshLoop(client) {
   if (!client || client._staffListPeriodicRefreshStarted) return;
   client._staffListPeriodicRefreshStarted = true;
-  scheduleStaffListRefresh(client, IDs.guilds.main, STAFF_LIST_STARTUP_REFRESH_MS, { force: true });
+  // Bootstrap senza force: se il contenuto è già allineato non fa edit Discord.
+  scheduleStaffListRefresh(client, IDs.guilds.main, STAFF_LIST_STARTUP_REFRESH_MS, { bootstrapOnly: true });
 }
 
 function scheduleStaffListRefresh(client, guildId = IDs.guilds.main, delayMs = 500, opts = {}) {
@@ -803,11 +882,14 @@ function queueStaffListRefreshAfterRoleMutation(client, guildId = IDs.guilds.mai
 
 module.exports = {
   STAFF_NEW_EMOJI,
+  STAFF_PAUSE_EMOJI,
   STAFF_LIST_SECTION_ROLE_IDS,
   STAFF_ROLE_IDS,
   memberHasStaffRole,
   didStaffMembershipChange,
   didStaffListDisplayRolesChange,
+  getStaffListPausedUserIds,
+  fetchMembersForStaffList,
   refreshStaffList,
   scheduleStaffListRefresh,
   queueStaffListRefreshAfterRoleMutation,

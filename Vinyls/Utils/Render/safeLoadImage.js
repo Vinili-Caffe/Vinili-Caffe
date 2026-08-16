@@ -1,11 +1,87 @@
 const axios = require("axios");
+const fs = require("fs");
+const os = require("os");
+const path = require("path");
+const { spawnSync } = require("child_process");
 let _canvas = null;
+let _ffmpegPath = undefined;
 const warnDedupe = new Map();
 const WARN_TTL_MS = 10 * 60 * 1000;
 
 function getCanvas() {
   if (!_canvas) _canvas = require("canvas");
   return _canvas;
+}
+
+function resolveFfmpegPath() {
+  if (_ffmpegPath !== undefined) return _ffmpegPath;
+  try {
+    _ffmpegPath = require("ffmpeg-static") || null;
+  } catch {
+    _ffmpegPath = null;
+  }
+  if (!_ffmpegPath) {
+    try {
+      const which = spawnSync("ffmpeg", ["-version"], { stdio: "ignore", windowsHide: true });
+      if (Number(which?.status) === 0) _ffmpegPath = "ffmpeg";
+    } catch {
+      /* ignore */
+    }
+  }
+  return _ffmpegPath;
+}
+
+function isWebpImageBuffer(buf) {
+  if (!Buffer.isBuffer(buf) || buf.length < 12) return false;
+  return (
+    buf.subarray(0, 4).toString("ascii") === "RIFF" &&
+    buf.subarray(8, 12).toString("ascii") === "WEBP"
+  );
+}
+
+/** node-canvas non decodifica WebP: primo frame → PNG via ffmpeg. */
+function convertWebpBufferToPng(buf) {
+  const ffmpegBin = resolveFfmpegPath();
+  if (!ffmpegBin || !isWebpImageBuffer(buf)) return null;
+  let tmpIn = "";
+  let tmpOut = "";
+  try {
+    const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    tmpIn = path.join(os.tmpdir(), `vc-webp-${stamp}.webp`);
+    tmpOut = path.join(os.tmpdir(), `vc-webp-${stamp}.png`);
+    fs.writeFileSync(tmpIn, buf);
+    const out = spawnSync(
+      ffmpegBin,
+      ["-y", "-i", tmpIn, "-frames:v", "1", tmpOut],
+      { stdio: "ignore", windowsHide: true },
+    );
+    if (Number(out?.status) !== 0 || !fs.existsSync(tmpOut)) return null;
+    const png = fs.readFileSync(tmpOut);
+    return png?.length ? png : null;
+  } catch {
+    return null;
+  } finally {
+    for (const p of [tmpIn, tmpOut]) {
+      if (!p) continue;
+      try {
+        fs.unlinkSync(p);
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+}
+
+async function loadImageFromBuffer(loadImage, buf) {
+  if (!Buffer.isBuffer(buf) || !buf.length) return null;
+  try {
+    return await loadImage(buf);
+  } catch (err) {
+    if (!isLoadImageDecodeError(err) || !isWebpImageBuffer(buf)) throw err;
+    const png = convertWebpBufferToPng(buf);
+    if (!png) throw err;
+    return await loadImage(png);
+  }
 }
 
 function isHttpUrl(value) {
@@ -64,10 +140,13 @@ function buildDiscordCdnImageCandidates(url) {
   const seen = new Set();
   const candidates = [];
 
-  const add = (pathname, { format = null } = {}) => {
+  const add = (pathname, { format = null, dropLossless = false } = {}) => {
     const c = new URL(u.toString());
     c.pathname = pathname;
     c.searchParams.delete("format");
+    if (dropLossless || String(pathname).toLowerCase().endsWith(".gif")) {
+      c.searchParams.delete("quality");
+    }
     if (format) c.searchParams.set("format", format);
     if (!c.searchParams.get("size")) c.searchParams.set("size", size);
     const s = c.toString();
@@ -80,12 +159,15 @@ function buildDiscordCdnImageCandidates(url) {
   const extMatch = path.match(/^(.*)\.(gif|webp|png|jpe?g)$/i);
   const basePath = extMatch ? extMatch[1] : path;
   const ext = extMatch ? extMatch[2].toLowerCase() : "";
+  const isEmojiAsset = /\/emojis\/\d+/i.test(path);
 
-  if (animated) {
-    add(`${basePath}.webp`);
-    add(`${basePath}.gif`);
-    add(path);
-    add(`${basePath}.png`, { format: "png" });
+  if (animated || ext === "gif" || isEmojiAsset) {
+    // Discord ora serve spesso solo WebP per hash `a_…` (PNG/GIF → 404).
+    // WebP viene convertito a PNG via ffmpeg in loadImageFromBuffer.
+    add(`${basePath}.webp`, { dropLossless: true });
+    add(`${basePath}.png`, { format: "png", dropLossless: true });
+    add(`${basePath}.gif`, { dropLossless: true });
+    add(path, { dropLossless: true });
   } else {
     if (ext === "webp") add(`${basePath}.png`, { format: "png" });
     else if (!ext) add(`${path}.png`, { format: "png" });
@@ -156,14 +238,14 @@ async function safeLoadImage(source, opts = {}) {
 
   try {
     if (Buffer.isBuffer(source)) {
-      return await loadImage(source);
+      return await loadImageFromBuffer(loadImage, source);
     }
 
     const src = String(source);
     if (/^data:/i.test(src)) {
       const dataBuf = decodeDataUrlToBuffer(src);
       if (!dataBuf || !dataBuf.length) return null;
-      return await loadImage(dataBuf);
+      return await loadImageFromBuffer(loadImage, dataBuf);
     }
     if (!isHttpUrl(src)) {
       return await loadImage(src);
@@ -177,7 +259,7 @@ async function safeLoadImage(source, opts = {}) {
         headers: {
           "User-Agent":
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-          Accept: "image/*,*/*;q=0.8",
+          Accept: "image/webp,image/png,image/*,*/*;q=0.8",
         },
         maxRedirects: 3,
       });
@@ -195,7 +277,7 @@ async function safeLoadImage(source, opts = {}) {
         const buf = Buffer.from(res.data);
         if (!buf.length) continue;
         try {
-          return await loadImage(buf);
+          return await loadImageFromBuffer(loadImage, buf);
         } catch (loadErr) {
           if (isLoadImageDecodeError(loadErr)) {
             lastDecodeErr = loadErr;
@@ -207,7 +289,7 @@ async function safeLoadImage(source, opts = {}) {
         const status = e?.response?.status || null;
         const ct = String(e?.response?.headers?.["content-type"] || "").toLowerCase();
         lastErr = e;
-        if (isDiscordCdnRewritableHost(host) && (Number(status) === 415 || (ct && !ct.startsWith("image/")))) {
+        if (isDiscordCdnRewritableHost(host) && (Number(status) === 415 || Number(status) === 404 || (ct && !ct.startsWith("image/")))) {
           continue;
         }
         if (isLoadImageDecodeError(e)) {
@@ -312,10 +394,13 @@ function buildDiscordCdnAnimatedCandidates(url) {
   const size = u.searchParams.get("size") || "256";
   const seen = new Set();
   const candidates = [];
-  const add = (pathname, { format = null } = {}) => {
+  const add = (pathname, { format = null, dropLossless = false } = {}) => {
     const c = new URL(u.toString());
     c.pathname = pathname;
     c.searchParams.delete("format");
+    if (dropLossless || String(pathname).toLowerCase().endsWith(".gif")) {
+      c.searchParams.delete("quality");
+    }
     if (format) c.searchParams.set("format", format);
     if (!c.searchParams.get("size")) c.searchParams.set("size", size);
     const s = c.toString();
@@ -326,10 +411,11 @@ function buildDiscordCdnAnimatedCandidates(url) {
   };
   const extMatch = path.match(/^(.*)\.(gif|webp|png|jpe?g)$/i);
   const basePath = extMatch ? extMatch[1] : path;
-  add(`${basePath}.webp`);
-  add(`${basePath}.gif`);
-  add(path);
-  add(`${basePath}.png`, { format: "png" });
+  // GIF prima: Discord WebP su `a_` è spesso un singolo frame → quote “gif” ferma.
+  add(`${basePath}.gif`, { dropLossless: true });
+  add(`${basePath}.webp`, { dropLossless: true });
+  add(path, { dropLossless: true });
+  add(`${basePath}.png`, { format: "png", dropLossless: true });
   return candidates.length ? candidates : [raw];
 }
 
@@ -362,7 +448,9 @@ function buildDiscordCdnStaticCandidates(url) {
   };
   const extMatch = path.match(/^(.*)\.(gif|webp|png|jpe?g)$/i);
   const basePath = extMatch ? extMatch[1] : path;
+  // PNG statico spesso 404 su hash animati: prova anche WebP (convertito in safeLoadImage).
   add(`${basePath}.png`, { format: "png" });
+  add(`${basePath}.webp`);
   if (extMatch && extMatch[2].toLowerCase() !== "png") add(path);
   if (!extMatch) add(`${path}.png`, { format: "png" });
   return candidates.length ? candidates : [raw];
@@ -431,10 +519,12 @@ function discordCdnStaticAvatarUrl(url) {
   const size = u.searchParams.get("size") || "256";
   const extMatch = path.match(/^(.*)\.(gif|webp|png|jpe?g)$/i);
   const basePath = extMatch ? extMatch[1] : path;
+  const animated = discordCdnPathLooksAnimatedAsset(path);
   const c = new URL(u.toString());
-  c.pathname = `${basePath}.png`;
+  // Hash `a_…`: Discord espone spesso solo WebP; PNG → 404.
+  c.pathname = animated ? `${basePath}.webp` : `${basePath}.png`;
   c.searchParams.delete("format");
-  c.searchParams.set("format", "png");
+  if (!animated) c.searchParams.set("format", "png");
   if (!c.searchParams.get("size")) c.searchParams.set("size", size);
   return c.toString();
 }

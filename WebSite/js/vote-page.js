@@ -10,6 +10,11 @@
     return document.getElementById(id);
   }
 
+  function t(key, vars) {
+    if (window.VcI18n && typeof window.VcI18n.t === "function") return window.VcI18n.t(key, vars);
+    return key;
+  }
+
   function cfg() {
     return (typeof window !== "undefined" && window.__VC_VOTE) || {};
   }
@@ -104,7 +109,7 @@
       esc(defaultEmbedAvatarUrl(row.userId)) +
       '\'" />' +
       '<span class="vc-vote-list-name">' +
-      esc(row.username || "Utente") +
+      esc(row.username || t("vote.userFallback")) +
       "</span>" +
       '<span class="vc-vote-list-score">' +
       esc(formatIntIt(row.votes || 0)) +
@@ -130,11 +135,13 @@
       esc(defaultEmbedAvatarUrl(row.userId)) +
       '\'" />' +
       '<span class="vc-vote-podium-name">' +
-      esc(row.username || "Utente") +
+      esc(row.username || t("vote.userFallback")) +
       "</span>" +
       '<span class="vc-vote-podium-score">' +
       esc(formatIntIt(row.votes || 0)) +
-      '<small>voti</small></span>' +
+      "<small>" +
+      esc(t("vote.votesSuffix")) +
+      "</small></span>" +
       "</a>"
     );
   }
@@ -145,7 +152,7 @@
 
     var top3 = allRows.slice(0, 3);
     var remaining = allRows.slice(3);
-    byId("vc-vote-top-chip").textContent = "Top " + String(allRows.length || 0);
+    byId("vc-vote-top-chip").textContent = t("vote.topN", { n: allRows.length || 0 });
     byId("vc-vote-top3").innerHTML = top3
       .map(function (row, idx) {
         return podiumRowHtml(row, idx + 1);
@@ -157,13 +164,13 @@
   function renderVoteError(message) {
     var top3 = byId("vc-vote-top3");
     var chip = byId("vc-vote-top-chip");
-    if (chip) chip.textContent = "Non disponibile";
+    if (chip) chip.textContent = t("vote.notAvailable");
     if (top3) {
       top3.innerHTML =
         '<div class="vc-vote-empty-state">' +
         '<i class="fa fa-exclamation-triangle" aria-hidden="true"></i>' +
         '<span>' +
-        esc(message || "Statistiche voti temporaneamente non disponibili.") +
+        esc(message || t("vote.statsUnavailable")) +
         "</span></div>";
     }
   }
@@ -200,9 +207,9 @@
       }
       if (!allExtraLoaded) {
         loadBtn.innerHTML =
-          '<i class="fa fa-angle-down" aria-hidden="true"></i> Carica altri ' +
-          String(nextChunk) +
-          ' <span class="vc-vote-more-badge" id="vc-vote-more-badge">+' +
+          '<i class="fa fa-angle-down" aria-hidden="true"></i> <span id="vc-vote-load-more-text">' +
+          esc(t("vote.loadMore", { n: nextChunk })) +
+          '</span> <span class="vc-vote-more-badge" id="vc-vote-more-badge">+' +
           String(nextChunk) +
           "</span>";
       }
@@ -246,7 +253,7 @@
       .then(function (out) {
         var body = out && out.body;
         if (!out || !out.ok) {
-          renderVoteError("Non riesco a caricare i voti in questo momento.");
+          renderVoteError(t("vote.loadError"));
           return;
         }
         if (!body || body.ok !== true) return;
@@ -254,7 +261,7 @@
         renderTop(Array.isArray(body.rows) ? body.rows : []);
       })
       .catch(function () {
-        renderVoteError("Non riesco a caricare i voti in questo momento.");
+        renderVoteError(t("vote.loadError"));
       });
   }
 
@@ -291,6 +298,14 @@
   });
 
   window.addEventListener("beforeunload", stopLiveVotesPolling);
+
+  document.addEventListener("vc:langchange", function () {
+    if (!byId("vc-vote-live-shell")) return;
+    var keepExtra = loadedExtra;
+    renderTop(allRows);
+    loadedExtra = keepExtra;
+    renderMore();
+  });
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", main);

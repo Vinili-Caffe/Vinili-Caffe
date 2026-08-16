@@ -1,8 +1,9 @@
-const { getGuildChannelCached, getClientGuildCached } = require("../../Utils/Interaction/interactionEntityCache");
+const { getGuildChannelCached, getClientGuildCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { findLifecycleCandidates, closeCaseByRef } = require("../../Utils/Moderation/modCaseStore");
 const {
   restoreRolesAfterCommunicationTimeoutEnd,
   sweepExpiredCommunicationTimeoutMirrors,
+  reconcileIncompleteActiveMuteMirrors,
 } = require("./mutedMirrorRoleService");
 const LOOP_MS = 60 * 1000;
 const BATCH_SIZE = 50;
@@ -59,7 +60,9 @@ async function closeExpiredMuteCases(client, now) {
       await closeCaseByRef(guildId, userId, caseId, "<:cancel:1461730653677551691> Mute scaduto").catch(() => null);
       continue;
     }
-    const member = await guild.members.fetch(userId).catch(() => null);
+    const member =
+      (await getGuildMemberCached(guild, userId, { preferFresh: true }).catch(() => null)) ||
+      (await guild.members.fetch(userId).catch(() => null));
     if (!member) {
       await closeCaseByRef(guildId, userId, caseId, "Mute scaduto automaticamente").catch(() => null);
       continue;
@@ -150,12 +153,22 @@ async function runModCaseLifecycleTick(client) {
     }).catch((err) => {
       global.logger?.warn?.("[mutedMirrorRole] lifecycle sweep failed:", err?.message || err);
     });
+    await reconcileIncompleteActiveMuteMirrors(client, {
+      limit: 25,
+    }).catch((err) => {
+      global.logger?.warn?.("[mutedMirrorRole] active mute reconcile failed:", err?.message || err);
+    });
   } finally {
     lifecycleTickInFlight = false;
   }
 }
 
 function startModCaseLifecycleLoop(client) {
+  const dedicated = String(process.env.BOT_SCHEDULER_WORKER || "").trim() === "1";
+  const external = String(process.env.BOT_SCHEDULER_EXTERNAL || "").trim() === "1";
+  if (external && !dedicated) {
+    return null;
+  }
   if (loopHandle) return loopHandle;
   const runner = async () => {
     await runModCaseLifecycleTick(client).catch((error) => {

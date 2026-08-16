@@ -1,5 +1,7 @@
 const IDs = require("../Config/ids");
 const { getGuildMemberCached } = require("../Interaction/interactionEntityCache");
+const { isUserHogwartsEventBlacklisted } = require("../../Services/Community/hogwartsEventBlacklistService");
+
 const HOGWARTS_EXCLUDED_STAFF_ROLE_IDS = [];
 const HOGWARTS_PREVIEW_STAFF_ROLE_IDS = [
   IDs.roles?.Founder,
@@ -12,6 +14,7 @@ const HOGWARTS_PREVIEW_STAFF_ROLE_IDS = [
 const HIGH_STAFF_ROLE_ID = String(IDs.roles?.HighStaff || "").trim();
 const MAIN_GUILD_ID = String(IDs.guilds?.main || "").trim();
 const HOGWARTS_HIGH_STAFF_EXCLUDED_MESSAGE = "";
+const HOGWARTS_BLACKLISTED_MESSAGE = "Sei escluso dall'evento Hogwarts e non puoi partecipare.";
 
 function memberIsHogwartsExcludedStaff() {
   return false;
@@ -37,8 +40,14 @@ async function resolveMainGuildMember(client, userId, member = null) {
   return getGuildMemberCached(guild, uid, { preferFresh: true }).catch(() => null);
 }
 
-async function isUserHighStaffExcludedFromHogwartsEvent() {
-  return false;
+/**
+ * True se l'utente non deve guadagnare / partecipare alle superfici Discord Hogwarts.
+ * Include blacklist evento (+ eventuali esclusioni staff future).
+ */
+async function isUserHighStaffExcludedFromHogwartsEvent(_client, userId, _member = null) {
+  const uid = String(userId || "").trim();
+  if (!uid) return false;
+  return isUserHogwartsEventBlacklisted(uid);
 }
 
 function hogwartsHighStaffExcludedPayload() {
@@ -49,7 +58,20 @@ function hogwartsHighStaffExcludedPayload() {
   };
 }
 
-async function assertHogwartsEventParticipationForUser() {
+function hogwartsBlacklistedPayload() {
+  return {
+    ok: false,
+    status: 403,
+    error: "hogwarts_blacklisted",
+    message: HOGWARTS_BLACKLISTED_MESSAGE,
+  };
+}
+
+async function assertHogwartsEventParticipationForUser(_client, member, userId) {
+  const uid = String(userId || member?.id || "").trim();
+  if (uid && (await isUserHogwartsEventBlacklisted(uid))) {
+    return hogwartsBlacklistedPayload();
+  }
   return { ok: true };
 }
 
@@ -81,12 +103,14 @@ module.exports = {
   HOGWARTS_EXCLUDED_STAFF_ROLE_IDS,
   HOGWARTS_PREVIEW_STAFF_ROLE_IDS,
   HOGWARTS_HIGH_STAFF_EXCLUDED_MESSAGE,
+  HOGWARTS_BLACKLISTED_MESSAGE,
   memberIsHogwartsExcludedStaff,
   memberHasHighStaffRole,
   memberHasHogwartsPreviewStaffRole,
   resolveMainGuildMember,
   isUserHighStaffExcludedFromHogwartsEvent,
   hogwartsHighStaffExcludedPayload,
+  hogwartsBlacklistedPayload,
   assertHogwartsEventParticipationForUser,
   isStaffBypassUserId,
   memberHasHogwartsEventStaffAccess,

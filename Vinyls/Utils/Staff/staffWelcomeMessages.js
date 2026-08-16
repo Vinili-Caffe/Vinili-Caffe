@@ -11,6 +11,8 @@ const HELPER_STAFF_WELCOME_BODY = `# Benvenutx nello staff <:VC_Staff:1494286904
 <:VC_DoubleReply:1482532332509466797> <#1442569239063167139>
 <:VC_Reply:1482532158080942191> <#1442569253281730653>
 
+Ricordati di entrare in [questo server](https://discord.gg/7eUKb48tPW), è __**obbligatorio**__
+
 __Per qualsiasi cosa l'High Staff è disponibile__ <:VC_Staff:1494286904089247754>`;
 
 function buildStaffWelcomeContent(member, body) {

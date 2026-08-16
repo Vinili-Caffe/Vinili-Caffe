@@ -134,8 +134,19 @@ async function ensureGringottCanonicalFromLegacy(guildId, userId) {
   const hw = readHogwartsEvent(doc);
   const nested = hw.gringott && typeof hw.gringott === "object" ? hw.gringott : {};
   const nestedBalance = Math.max(0, Math.floor(Number(nested.balance) || 0));
+  const nestedEarned = Math.max(0, Math.floor(Number(nested.earned) || 0));
+  const nestedSpent = Math.max(0, Math.floor(Number(nested.spent) || 0));
+  const nestedHasData =
+    nestedBalance > 0 ||
+    nestedEarned > 0 ||
+    nestedSpent > 0 ||
+    (Array.isArray(nested.ledger) && nested.ledger.length > 0) ||
+    (Array.isArray(nested.rewardKeys) && nested.rewardKeys.length > 0);
+  // Se Gringott nested è già attivo, NON rialzare mai il saldo dal vecchio flat:
+  // altrimenti ogni spend (blackjack ecc.) veniva annullato al read successivo.
+  if (nestedHasData) return;
   const flatBalance = Math.max(0, Math.floor(Number(hw.balance) || 0));
-  if (flatBalance <= 0 || nestedBalance >= flatBalance) return;
+  if (flatBalance <= 0) return;
   const $set = {
     [`${GRINGOTT_PATH}.balance`]: flatBalance,
     [`${GRINGOTT_PATH}.earned`]: Math.max(flatBalance, Math.max(0, Math.floor(Number(hw.earned) || 0))),

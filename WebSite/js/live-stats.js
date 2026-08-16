@@ -368,8 +368,15 @@
   function applyHeaderGuildIcon(url) {
     var u = String(url || "").trim();
     if (!u) return;
+    // Dashboard: il logo header è del server selezionato, non del server principale Vinili.
+    try {
+      if (document.body && document.body.classList.contains("vc-dashboard-page")) return;
+    } catch (e0) {}
     var imgs = document.querySelectorAll("img.vc-header-logo-img");
     for (var i = 0; i < imgs.length; i += 1) {
+      // Non sovrascrivere logo del server sulla dashboard guild.
+      if (imgs[i].getAttribute("data-vc-guild-brand") === "1") continue;
+      if (imgs[i].id === "vc-dashboard-header-guild-icon") continue;
       if (imgs[i].getAttribute("src") !== u) imgs[i].setAttribute("src", u);
     }
   }

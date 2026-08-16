@@ -1,38 +1,4 @@
 const mongoose = require("mongoose");
-const {
-  TICKET_COUNTER_KEY,
-  COUNTER_COLLECTION,
-} = require("../Global/globalSettingsBucket");
-
-async function getNextTicketId() {
-  const db = mongoose.connection?.db;
-  if (!db) throw new Error("MongoDB connection not ready for ticket counter");
-  const collection = db.collection(COUNTER_COLLECTION);
-  const counter = await collection.findOneAndUpdate(
-    { _counterKey: TICKET_COUNTER_KEY },
-    {
-      $inc: { _counterValue: 1 },
-      $setOnInsert: { countschemas: [], quotecounts: [] },
-    },
-    { upsert: true, returnDocument: "after" },
-  );
-  const fromResult = Number(counter?.value?._counterValue);
-  const fromDirect = Number(counter?._counterValue);
-  const parsed = Number.isFinite(fromResult) && fromResult > 0
-    ? fromResult
-    : Number.isFinite(fromDirect) && fromDirect > 0
-      ? fromDirect
-      : NaN;
-  if (Number.isFinite(parsed) && parsed > 0) return parsed;
-
-  // Fallback for driver variants that don't expose `.value`.
-  const persisted = await collection.findOne({ _counterKey: TICKET_COUNTER_KEY });
-  const persistedValue = Number(persisted?._counterValue);
-  if (Number.isFinite(persistedValue) && persistedValue > 0) {
-    return persistedValue;
-  }
-  throw new Error("Ticket counter returned an invalid value");
-}
 
 function isDuplicateKeyError(err) {
   return Boolean(
@@ -47,34 +13,116 @@ function isTicketNumberDuplicate(err) {
   return msg.includes("ticketNumber");
 }
 
-async function reseedCounterFromTickets(_TicketModel) {
+function normalizeTicketGuildId(guildId) {
+  const gid = String(guildId || "").trim();
+  return /^\d{16,20}$/.test(gid) ? gid : "";
+}
+
+async function maxTicketNumberForGuild(guildId) {
+  const gid = normalizeTicketGuildId(guildId);
+  if (!gid) return 0;
   const db = mongoose.connection?.db;
-  if (!db) throw new Error("MongoDB connection not ready for ticket counter reseed");
-  const { GuildFeatureBucket } = require("../../Schemas/Guild/guildFeatureBucketSchema");
-  const agg = await GuildFeatureBucket.aggregate([
-    { $unwind: "$tickets" },
-    { $match: { "tickets.ticketNumber": { $type: "number" } } },
-    { $group: { _id: null, maxTicketNumber: { $max: "$tickets.ticketNumber" } } },
-  ]).catch(() => []);
-  let maxTicketNumber = Number(agg?.[0]?.maxTicketNumber || 0);
-  if (!maxTicketNumber) {
+  let maxTicketNumber = 0;
+
+  try {
+    const { GuildFeatureBucket } = require("../../Schemas/Guild/guildFeatureBucketSchema");
+    const agg = await GuildFeatureBucket.aggregate([
+      { $match: { guildId: gid } },
+      { $unwind: "$tickets" },
+      { $match: { "tickets.ticketNumber": { $type: "number" } } },
+      { $group: { _id: null, maxTicketNumber: { $max: "$tickets.ticketNumber" } } },
+    ]).catch(() => []);
+    maxTicketNumber = Math.max(maxTicketNumber, Number(agg?.[0]?.maxTicketNumber || 0) || 0);
+  } catch {
+    /* ignore */
+  }
+
+  if (db) {
     const legacy = await db
       .collection("tickets")
-      .findOne(
-        { ticketNumber: { $type: "number" } },
-        { sort: { ticketNumber: -1 }, projection: { ticketNumber: 1 } },
-      )
+      .find({ guildId: gid, ticketNumber: { $type: "number" } })
+      .project({ ticketNumber: 1 })
+      .sort({ ticketNumber: -1 })
+      .limit(1)
+      .next()
       .catch(() => null);
-    maxTicketNumber = Number(legacy?.ticketNumber || 0);
+    maxTicketNumber = Math.max(maxTicketNumber, Number(legacy?.ticketNumber || 0) || 0);
   }
-  const baseline = Number.isFinite(maxTicketNumber) && maxTicketNumber > 0 ? maxTicketNumber : 0;
-  await db.collection(COUNTER_COLLECTION).updateOne(
-    { _counterKey: TICKET_COUNTER_KEY },
+
+  return Number.isFinite(maxTicketNumber) && maxTicketNumber > 0 ? maxTicketNumber : 0;
+}
+
+/**
+ * Contatore ticket per-guild (riparte da 1 su ogni server).
+ * Seed = max(ticketNumber esistenti in quella guild) così i server già attivi non collide.
+ */
+async function getNextTicketId(guildId) {
+  const gid = normalizeTicketGuildId(guildId);
+  if (!gid) throw new Error("guildId required for per-guild ticket counter");
+  if (mongoose.connection?.readyState !== 1) {
+    throw new Error("MongoDB connection not ready for ticket counter");
+  }
+
+  const {
+    GuildFeatureBucket,
+    ensureGuildFeatureBucket,
+  } = require("../../Schemas/Guild/guildFeatureBucketSchema");
+  await ensureGuildFeatureBucket(gid);
+
+  // Path caldo: counter già inizializzato.
+  let updated = await GuildFeatureBucket.findOneAndUpdate(
+    { guildId: gid, ticketCounter: { $gte: 1 } },
+    { $inc: { ticketCounter: 1 } },
+    { new: true },
+  ).catch(() => null);
+  if (updated) {
+    const n = Number(updated.ticketCounter);
+    if (Number.isFinite(n) && n > 0) return n;
+  }
+
+  // Prima allocazione: parti da max esistente + 1 (0 → 1 su guild nuove).
+  const baseline = await maxTicketNumberForGuild(gid);
+  const next = baseline + 1;
+  updated = await GuildFeatureBucket.findOneAndUpdate(
     {
-      $set: { _counterValue: baseline },
-      $setOnInsert: { countschemas: [], quotecounts: [] },
+      guildId: gid,
+      $or: [
+        { ticketCounter: { $exists: false } },
+        { ticketCounter: null },
+        { ticketCounter: { $lt: 1 } },
+      ],
     },
-    { upsert: true },
+    { $set: { ticketCounter: next } },
+    { new: true },
+  ).catch(() => null);
+  if (updated) {
+    const n = Number(updated.ticketCounter);
+    if (Number.isFinite(n) && n > 0) return n;
+  }
+
+  // Race: un altro processo ha inizializzato nel frattempo.
+  updated = await GuildFeatureBucket.findOneAndUpdate(
+    { guildId: gid },
+    { $inc: { ticketCounter: 1 } },
+    { new: true },
+  ).catch(() => null);
+  const parsed = Number(updated?.ticketCounter);
+  if (Number.isFinite(parsed) && parsed > 0) return parsed;
+  throw new Error("Ticket counter returned an invalid value");
+}
+
+async function reseedCounterFromTickets(_TicketModel, guildId) {
+  const gid = normalizeTicketGuildId(guildId);
+  if (!gid) throw new Error("guildId required for ticket counter reseed");
+  const {
+    GuildFeatureBucket,
+    ensureGuildFeatureBucket,
+  } = require("../../Schemas/Guild/guildFeatureBucketSchema");
+  await ensureGuildFeatureBucket(gid);
+  const baseline = await maxTicketNumberForGuild(gid);
+  await GuildFeatureBucket.updateOne(
+    { guildId: gid },
+    { $set: { ticketCounter: baseline } },
   );
   return baseline;
 }
@@ -83,6 +131,7 @@ function isCounterUnavailableError(err) {
   const msg = String(err?.message || "").toLowerCase();
   return (
     msg.includes("mongodb connection not ready for ticket counter") ||
+    msg.includes("guildid required for") ||
     msg.includes("topology is closed") ||
     msg.includes("client must be connected")
   );
@@ -91,23 +140,31 @@ function isCounterUnavailableError(err) {
 async function createTicketDocWithGlobalId(TicketModel, payload = {}, maxRetries = 12) {
   let lastError = null;
   let reseedAttempted = false;
+  const guildId = normalizeTicketGuildId(payload?.guildId);
+  const presetNumber = Number(payload?.ticketNumber);
+  const hasPreset = Number.isFinite(presetNumber) && presetNumber > 0;
   for (let i = 0; i < maxRetries; i += 1) {
     try {
-      const ticketNumber = await getNextTicketId();
-      const doc = await TicketModel.create({ ...payload, ticketNumber });
+      const ticketNumber = hasPreset
+        ? Math.floor(presetNumber)
+        : await getNextTicketId(guildId);
+      const doc = await TicketModel.create({ ...payload, ticketNumber, guildId: guildId || payload?.guildId });
       return doc;
     } catch (err) {
       lastError = err;
       if (!isTicketNumberDuplicate(err)) throw err;
+      // Se il numero era già scelto e collide, riprova solo se non era preset.
+      if (hasPreset) throw err;
       if (!reseedAttempted) {
         reseedAttempted = true;
-        await reseedCounterFromTickets(TicketModel).catch(() => null);
+        await reseedCounterFromTickets(TicketModel, guildId).catch(() => null);
       }
     }
   }
   if (isCounterUnavailableError(lastError)) {
     // Fallback: create ticket without number; will be backfilled later.
-    return TicketModel.create({ ...payload });
+    const { ticketNumber: _ignored, ...rest } = payload || {};
+    return TicketModel.create({ ...rest });
   }
   throw lastError || new Error("Unable to allocate unique ticketNumber");
 }
@@ -117,4 +174,5 @@ module.exports = {
   createTicketDocWithGlobalId,
   isCounterUnavailableError,
   isTicketNumberDuplicate,
+  maxTicketNumberForGuild,
 };

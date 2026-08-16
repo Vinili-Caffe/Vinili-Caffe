@@ -10,7 +10,7 @@
     <meta name="description" content="{{HOGWARTS_POTIONS_META_DESCRIPTION}}" />
     <meta name="author" content="{{SITE_NAME}}" />
     <meta name="robots" content="index, follow" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta property="og:type" content="website" />
     <meta property="og:title" content="{{HOGWARTS_POTIONS_OG_TITLE}}" />
     <meta property="og:description" content="{{HOGWARTS_POTIONS_META_DESCRIPTION}}" />
@@ -84,8 +84,7 @@
         <p>© {{YEAR}} {{SITE_NAME}}. All rights reserved.</p>
       </div>
     </footer>
-
-    <script>
+<script>
       window.__VC_SITE_HOME_URL = "{{SITE_URL}}";
       window.__VC_DISABLE_LIVE_EVENT_UI = true;
       window.__VC_DISABLE_RANK_CARD_FETCH = true;
@@ -109,5 +108,6 @@
     <script src="../../js/hogwarts-potions-page.js"></script>
     <script src="../../js/vc-landing.js" defer></script>
     <script src="../../js/discord-auth.js" defer></script>
+      <script src="/js/vc-cursor-trail.js?v={{BUILD_ASSET_VERSION}}" defer></script>
   </body>
 </html>

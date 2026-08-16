@@ -16,7 +16,6 @@ const { pickPrimaryAutomodRegolaBucket, getAutomodRegolaSanction, formatRegolaDo
 const { formatItalianMinutesPlain } = require("../../Utils/Text/italianDurationLabels");
 const { isChannelInTicketCategory } = require("../../Utils/Ticket/ticketCategoryUtils");
 const { isMinigameFloodExemptChannel } = require("../Minigames/minigameService");
-const { isHogwartsHouseChannelId } = require("../Community/hogwartsHouseChannelMinigameService");
 const { loadAutomodScamConfig } = require("../../Utils/Moderation/automodScamConfig");
 const { createModCase, getModConfig, logModCase, formatDuration } = require("../../Utils/Moderation/moderation");
 const { getGuildChannelCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
@@ -24,6 +23,7 @@ const { accountUsername } = require("../../Utils/Discord/guildDiscordIdentity");
 const USER_STATE = new Map();
 const ACTION_COOLDOWN = new Map();
 const ACTION_CHANNEL_LOG_COOLDOWN = new Map();
+const NATIVE_STAFF_PING_COOLDOWN = new Map();
 const GUILD_PANIC_STATE = new Map();
 const BAD_USER_CACHE = new Map();
 const GUILD_INSTANT_EVENTS = new Map();
@@ -39,6 +39,8 @@ let TIMEOUT_THRESHOLD = 100;
 const ACTION_COOLDOWN_MS = 12_000;
 const ACTION_CHANNEL_LOG_COOLDOWN_MS = 6_000;
 const ACTION_CHANNEL_NOTICE_DELETE_MS = 10_000;
+/** Evita spam @Staff in raid sullo stesso utente (canale sanzioni Discord AutoMod). */
+const NATIVE_STAFF_PING_COOLDOWN_MS = 8_000;
 const RUNTIME_CLEANUP_INTERVAL_MS = 30_000;
 let AUTO_TIMEOUTS_ENABLED = true;
 let AUTO_TIMEOUT_REGULAR_MS = 1 * 60_000;
@@ -1502,6 +1504,11 @@ function cleanupRuntimeMaps(at = nowMs()) {
     }
   }
 
+  const staleNativePingCutoff = at - NATIVE_STAFF_PING_COOLDOWN_MS * 4;
+  for (const [key, ts] of NATIVE_STAFF_PING_COOLDOWN.entries()) {
+    if (Number(ts || 0) < staleNativePingCutoff) NATIVE_STAFF_PING_COOLDOWN.delete(key);
+  }
+
   for (const [key, state] of USER_STATE.entries()) {
     if (!state || typeof state !== "object") {
       USER_STATE.delete(key);
@@ -1687,7 +1694,9 @@ const SCAM_CRYPTO_PATTERNS = [
   /\b(vyro\s+project|linked to our)\b/i,
   /\b(riftroll|betchoco|nozawin|serowin)\b/i,
   /\b(activate\s+code|special\s+promocode|promocode)\b/i,
-  /\b(congratulations|your reward has been|reward has been successfully)\b/i,
+  // Non matchare bare "congratulations" (path GIF tipo laughing-congratulations).
+  /\bcongratulations\b.{0,40}\b(reward|bonus|withdraw|crypto|casino|usdt|gift|nitro)\b/i,
+  /\b(your reward has been|reward has been successfully)\b/i,
   /\b(give(?:away|ing)\s+(?:away\s+)?\$?\d[\d,.]*\b)/,
   /\b(promo\s+code|special\s+promo)\b/,
   /\b(withdraw(?:al)?\s+success(?:ful)?)\b/,
@@ -1704,14 +1713,22 @@ const SCAM_CRYPTO_PATTERNS = [
   /\b7884\s*893\s*099\b/,
 ];
 
-const SCAM_IMAGE_BAIT_PATTERNS = [
+/** Segnali deboli: da soli non bastano (es. selfie + "omg"/"wow"/😳). */
+const SCAM_IMAGE_SOFT_BAIT_PATTERNS = [
   /^omg\b/i,
-  /\b(wow|look at this|check this|free money|guadagn)\b/i,
-  /[\u{1F4B0}\u{1F911}\u{1F633}\u{1F4B5}]/u,
+  /\bwow\b/i,
+  /\u{1F633}/u,
+  /\b(guarda questo|look at this|check this)\b/i,
+];
+
+/** Segnali forti tipici degli screenshot scam. */
+const SCAM_IMAGE_STRONG_BAIT_PATTERNS = [
+  /\b(free money|guadagn)\b/i,
+  /[\u{1F4B0}\u{1F911}\u{1F4B5}]/u,
   /\b(mrbeast|mr\s*beast)\b/i,
   /\b(bonus|promocode|promo\s*code|activate\s+code)\b/i,
   /\b(withdraw(?:al)?|casino|crypto)\b/i,
-  /\b(guarda questo|clicca qui|claim|redeem|vinci)\b/i,
+  /\b(clicca qui|claim|redeem)\b/i,
   /\b(soldi facili|soldi gratis|guadagna)\b/i,
   /\$\d{2,5}\b/,
   /\b(riftroll|betchoco|nozawin|serowin)\b/i,
@@ -1725,6 +1742,14 @@ function detectScam(content) {
   return domains.some((domain) => domain && text.includes(String(domain).toLowerCase()));
 }
 
+function isYoungScamAccount(options = {}) {
+  const youngDays = Number(AUTOMOD_SCAM_CONFIG.youngAccountMaxDays || 14);
+  const accountAgeMs = Number(options.accountAgeMs || 0);
+  const youngMs = youngDays * 24 * 60 * 60_000;
+  if (options.youngAccount) return true;
+  return accountAgeMs > 0 && accountAgeMs < youngMs;
+}
+
 function detectScamImageBait(message, moderationContent, options = {}) {
   const attachmentList = [...(message?.attachments?.values?.() || [])];
   const imageCount = attachmentList.filter((att) => isImageAttachment(att)).length;
@@ -1732,16 +1757,27 @@ function detectScamImageBait(message, moderationContent, options = {}) {
   const text = String(moderationContent || "").trim();
   const maxLen = Number(AUTOMOD_SCAM_CONFIG.imageBaitMaxTextLength || 48);
   if (!text || text.length > maxLen) return false;
+  // Pattern/domini scam certi + immagine → sempre
   if (detectScam(text)) return true;
-  const hasBait = SCAM_IMAGE_BAIT_PATTERNS.some((re) => re.test(text));
-  if (!hasBait) return false;
-  if (options.suspicious) return true;
-  const youngDays = Number(AUTOMOD_SCAM_CONFIG.youngAccountMaxDays || 14);
-  const accountAgeMs = Number(options.accountAgeMs || 0);
-  const youngMs = youngDays * 24 * 60 * 60_000;
-  if (options.youngAccount && text.length <= 28) return true;
-  if (accountAgeMs > 0 && accountAgeMs < youngMs && text.length <= 28) return true;
-  return text.length <= 16;
+
+  const hasStrong = SCAM_IMAGE_STRONG_BAIT_PATTERNS.some((re) => re.test(text));
+  const hasSoft = SCAM_IMAGE_SOFT_BAIT_PATTERNS.some((re) => re.test(text));
+  if (!hasStrong && !hasSoft) return false;
+
+  const young = isYoungScamAccount(options);
+  const suspicious = Boolean(options.suspicious);
+
+  // Soft bait (omg/wow/😳/"guarda questo"): mai su account maturi; solo young+suspicious
+  if (!hasStrong) {
+    return young && suspicious && text.length <= 16;
+  }
+
+  // Strong bait: profilo sospetto, oppure account giovane con caption corta.
+  // Non bannare account maturi solo perché la caption è ≤16 caratteri.
+  if (suspicious) return true;
+  if (young && text.length <= 28) return true;
+  const strongHits = SCAM_IMAGE_STRONG_BAIT_PATTERNS.filter((re) => re.test(text)).length;
+  return strongHits >= 2 && text.length <= 28;
 }
 
 /** Esclude host tipo `do...lo` (puntini sospensivi) che `URL` accetta ma non sono domini reali. */
@@ -1751,21 +1787,52 @@ function hostnameHasNoEmptyDnsLabels(hostname) {
   return !labels.some((label) => !label || label.length > 63);
 }
 
+/**
+ * Senza schema esplicito, "Italia.Studio" / "futuro.Ma" sono fine frase + nuova parola,
+ * non URL (la regex li interpreta come host.tld).
+ */
+function isAutomodBareDomainSentenceFalsePositive(raw) {
+  const match = String(raw || "").trim().replace(/^[*_~|`]+|[*_~|`]+$/g, "");
+  if (!match) return false;
+  if (/^https?:\/\//i.test(match) || /^www\./i.test(match)) return false;
+  return /[a-zà-öø-ÿ]\.[A-ZÀ-ÖØ-Þ]/.test(match);
+}
+
+/** TLD accettati solo se il dominio è scritto senza http(s):// (es. example.com). */
+const AUTOMOD_BARE_DOMAIN_TRUSTED_TLDS = new Set([
+  "com", "org", "net", "edu", "gov", "mil", "int", "it", "io", "me", "tv", "co", "uk", "de", "fr", "es", "eu",
+  "app", "dev", "xyz", "info", "biz", "gg", "ly", "to", "cc", "ws", "fm", "ru", "br", "jp", "cn", "au", "ca",
+  "nl", "pl", "pt", "ch", "at", "be", "se", "no", "dk", "fi", "ie", "us", "online", "shop", "store", "tech",
+  "cloud", "live", "ai", "pro", "link", "click", "site", "vip",
+]);
+
+function isAutomodUntrustedBareDomain(raw, url) {
+  const match = String(raw || "").trim().replace(/^[*_~|`]+|[*_~|`]+$/g, "");
+  if (!match || /^https?:\/\//i.test(match) || /^www\./i.test(match)) return false;
+  const labels = String(url?.hostname || "").toLowerCase().split(".").filter(Boolean);
+  if (labels.length < 2) return true;
+  const tld = labels[labels.length - 1];
+  return !AUTOMOD_BARE_DOMAIN_TRUSTED_TLDS.has(tld);
+}
+
 function extractUrls(content) {
   const text = String(content || "");
   const matches =
     text.match(/(?:https?:\/\/)?(?:www\.)?[^\s/$.?#]+\.[^\s]+/gi) || [];
   return matches
+    .filter((raw) => !isAutomodBareDomainSentenceFalsePositive(raw))
     .map((raw) => {
       const value = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
       try {
-        return new URL(value);
+        return { url: new URL(value), raw };
       } catch {
         return null;
       }
     })
     .filter(Boolean)
-    .filter((url) => hostnameHasNoEmptyDnsLabels(url.hostname));
+    .filter((entry) => hostnameHasNoEmptyDnsLabels(entry.url.hostname))
+    .filter((entry) => !isAutomodUntrustedBareDomain(entry.raw, entry.url))
+    .map((entry) => entry.url);
 }
 
 /** Esclusi dal conteggio attachment_link (2.4); invite/scam/NSFW/blacklist usano extractUrls completo. */
@@ -1778,6 +1845,8 @@ function isAutomodMediaEmbedUrl(url) {
   if (host === "tenor.googleapis.com" || host.endsWith(".tenor.googleapis.com")) return true;
   if (/(?:^|\.)giphy\.com$/i.test(host)) return true;
   if (/(?:^|\.)gfycat\.com$/i.test(host)) return true;
+  // GIF library (Discord embed / share links) — come Tenor/Giphy.
+  if (/(?:^|\.)klipy\.com$/i.test(host)) return true;
   if (/\.(gif|webm|mp4|png|jpe?g|jpeg|webp|avif)(?:\?|#|$)/i.test(path)) return true;
   return false;
 }
@@ -2195,13 +2264,15 @@ async function detectViolations(message, state, profile) {
   const parentChannelId = String(message.channel?.parentId || "");
   const statics = getSecurityStaticsSnapshot(String(message?.guild?.id || ""));
   const dynamicPartneringChannels = Array.isArray(statics?.partneringChannelIds) ? statics.partneringChannelIds.map((id) => String(id || "").trim()).filter(Boolean) : [];
-  const inviteWhitelistSet = new Set([...INVITE_WHITELIST_CHANNEL_IDS, ...dynamicPartneringChannels,]);
-  const mentionWhitelistSet = new Set([...MENTION_WHITELIST_CHANNEL_IDS, ...dynamicPartneringChannels,]);
-  const everyoneWhitelistSet = new Set([...EVERYONE_WHITELIST_CHANNEL_IDS, ...dynamicPartneringChannels,]);
+  const { getPartnershipChannelId } = require("../../Utils/Partner/partnershipConfigResolver");
+  const tenantPartnershipChannel = getPartnershipChannelId(message?.guild?.id);
+  const tenantPartnerChannels = tenantPartnershipChannel ? [tenantPartnershipChannel] : [];
+  const inviteWhitelistSet = new Set([...INVITE_WHITELIST_CHANNEL_IDS, ...dynamicPartneringChannels, ...tenantPartnerChannels,]);
+  const mentionWhitelistSet = new Set([...MENTION_WHITELIST_CHANNEL_IDS, ...dynamicPartneringChannels, ...tenantPartnerChannels,]);
+  const everyoneWhitelistSet = new Set([...EVERYONE_WHITELIST_CHANNEL_IDS, ...dynamicPartneringChannels, ...tenantPartnerChannels,]);
   const spamWhitelisted = isWhitelistedByCategory(message.channel, SPAM_WHITELIST_CATEGORY_IDS);
-  const minigameFloodExempt = isMinigameFloodExemptChannel(message);
-  const houseChannelFloodExempt = isHogwartsHouseChannelId(channelId);
-  const antiSpamFloodExempt = spamWhitelisted || minigameFloodExempt || houseChannelFloodExempt;
+  const minigameFloodExempt = await isMinigameFloodExemptChannel(message);
+  const antiSpamFloodExempt = spamWhitelisted || minigameFloodExempt;
   const inviteWhitelisted = isWhitelistedByChannel(channelId, parentChannelId, inviteWhitelistSet,);
   const mentionWhitelisted = isWhitelistedByChannel(channelId, parentChannelId, mentionWhitelistSet,);
   const everyoneWhitelisted = isWhitelistedByChannel(channelId, parentChannelId, everyoneWhitelistSet,);
@@ -2707,6 +2778,53 @@ async function resolveLogChannel(guild) {
   return guild.channels.cache.get(channelId) || (await getGuildChannelCached(guild, channelId));
 }
 
+/** Canale alert Discord AutoMod (Send Alert) — stesso di discordAutomodRulesService. */
+async function resolveDiscordNativeAutomodAlertChannel(guild) {
+  const channelId = String(IDs.channels?.sanzioniUtenti || "").trim();
+  if (!guild || !channelId) return null;
+  return guild.channels.cache.get(channelId) || (await getGuildChannelCached(guild, channelId));
+}
+
+/**
+ * Ping @Staff nel canale sanzioni (non nel thread/canale del messaggio bloccato).
+ * Solo percorso nativo; cooldown per utente anti-spam in raid.
+ */
+async function pingStaffDiscordNativeAutomodAlert(message) {
+  const roleId = String(IDs.roles?.Staff || "").trim();
+  if (!message?.guild || !roleId) {
+    global.logger?.warn?.("[automod] staff ping skipped: missing Staff role id");
+    return false;
+  }
+  const authorId = String(message.author?.id || "").trim() || "unknown";
+  const cdKey = `${message.guild.id}:${authorId}`;
+  const last = NATIVE_STAFF_PING_COOLDOWN.get(cdKey) || 0;
+  if (nowMs() - last < NATIVE_STAFF_PING_COOLDOWN_MS) return false;
+  NATIVE_STAFF_PING_COOLDOWN.set(cdKey, nowMs());
+
+  const channel = await resolveDiscordNativeAutomodAlertChannel(message.guild);
+  if (!channel?.isTextBased?.()) {
+    global.logger?.warn?.("[automod] staff ping skipped: sanzioniUtenti channel missing");
+    return false;
+  }
+
+  const who = message.author ? `${message.author}` : "un utente";
+  const where = message.channel ? `${message.channel}` : "un canale";
+  try {
+    const sent = await channel.send({
+      content: `<@&${roleId}> AutoMod ha bloccato un messaggio di ${who} in ${where}.`,
+      allowedMentions: { parse: [], roles: [roleId], users: [] },
+    });
+    return Boolean(sent);
+  } catch (err) {
+    global.logger?.warn?.(
+      "[automod] staff ping failed:",
+      err?.message || err,
+      `| channel=${channel.id} role=${roleId}`,
+    );
+    return false;
+  }
+}
+
 function truncateText(input, max = 700) {
   const text = String(input || "").trim();
   if (!text) return "";
@@ -3002,7 +3120,6 @@ async function sendAutomodActionInChannel(message, action, violations, context =
   if (nowMs() - lastSentAt < ACTION_CHANNEL_LOG_COOLDOWN_MS) return;
   ACTION_CHANNEL_LOG_COOLDOWN.set(cooldownKey, nowMs());
   const embed = buildAutomodChannelEmbed(message, action, violations, context);
-
   const sent = await message.channel.send({ embeds: [embed] }).catch(() => null);
   if (sent) {
     const timer = setTimeout(() => {
@@ -3232,6 +3349,12 @@ async function timeoutMember(message, state, violations, options = {}) {
     .then(() => true)
     .catch(() => false);
   if (!timedOut) return false;
+  try {
+    const { applyActiveMuteMirror } = require("./mutedMirrorRoleService");
+    await applyActiveMuteMirror(member, { reason: timeoutReason || "AutoMod timeout" });
+  } catch (err) {
+    global.logger?.warn?.("[automod] active mute mirror after timeout:", err?.message || err);
+  }
   computeNextAutoTimeoutDuration(message, nowMs(), { dryRun: false });
   const heatBeforeReset = Number(state.heat || 0);
   if (primaryBucket) {
@@ -3595,6 +3718,12 @@ async function runDiscordNativeAutomodExecution(execution, ruleHint = null) {
   if (messageId) markDiscordNativeHandled(messageId);
   if (!AUTOMOD_ENABLED) return { handled: false, action: "automod_disabled" };
   if (await isVerifiedBotMessage(message)) return { handled: false };
+  if (message.author?.bot || message.system) return { handled: false };
+
+  // Ping staff subito: l'alert nativo Discord non menziona ruoli.
+  // Non dipendere da member/exempt (altrimenti il blocco c'è ma nessuno viene taggato).
+  await pingStaffDiscordNativeAutomodAlert(message);
+
   if (!message.member) {
     const fetchedMember = await getGuildMemberCached(message.guild, message.author.id);
     if (fetchedMember) {
@@ -3603,9 +3732,8 @@ async function runDiscordNativeAutomodExecution(execution, ruleHint = null) {
       } catch (_) {}
     }
   }
-  if (!message.member) return { handled: false, reason: "no_member" };
-  if (message.author?.bot || message.system) return { handled: false };
-  if (isExempt(message)) return { handled: false, action: "exempt" };
+  if (!message.member) return { handled: true, action: "staff_pinged_no_member" };
+  if (isExempt(message)) return { handled: true, action: "staff_pinged_exempt" };
 
   const mapped = mapRuleNameToViolationKey(
     ruleName,

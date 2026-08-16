@@ -1,0 +1,36 @@
+{
+  "name": "Vinili & Caffè",
+  "short_name": "Vinili & Caffè",
+  "description": "Community Discord Vinili & Caffè",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#120e0b",
+  "theme_color": "#2a1f18",
+  "icons": [
+    {
+      "src": "/images/pwa-icon-192-v5.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/images/pwa-icon-512-v5.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/apple-touch-icon-v5.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

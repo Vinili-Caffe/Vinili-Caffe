@@ -124,14 +124,17 @@ module.exports = (client) => {
     for (const [k, v] of newPcommands) client.pcommands.set(k, v);
     for (const [k, v] of newAliases) client.aliases.set(k, v);
 
-    const table = new ascii().setHeading("Folder", "File", "Status");
-    for (const [key, status] of Array.from(statusMap.entries()).sort((a, b) =>
-      a[0].localeCompare(b[0]),
-    )) {
-      const [folder, file] = key.split("/");
-      table.addRow(folder, file, status);
+    const LOG_PREFIX = String(process.env.LOG_PREFIX || process.env.LOG_COMMANDS || "0") === "1";
+    if (LOG_PREFIX) {
+      const table = new ascii().setHeading("Folder", "File", "Status");
+      for (const [key, status] of Array.from(statusMap.entries()).sort((a, b) =>
+        a[0].localeCompare(b[0]),
+      )) {
+        const [folder, file] = key.split("/");
+        table.addRow(folder, file, status);
+      }
+      global.logger?.info?.(table.toString());
     }
-    global.logger?.info?.(table.toString());
     global.logger?.info?.(
       `[PREFIX] Loaded ${client.pcommands.size} prefix command(s).`,
     );

@@ -1,12 +1,13 @@
 const { assertEconomyGamblingAccess, economyConfig } = require("../../Services/Community/activeEconomyService");
-const { buildCoinflipGuiPayload, clampBet, formatCoinflipNotice, getSession, makeSession, normalizeQuickChoice, playCoinflipSession, scheduleCoinflipIdlePanel, setSession, warmupCoinflipPanel } = require("../../Utils/Economy/coinflipGuiRuntime");
+const { buildCoinflipGuiPayload, clampBet, formatCoinflipNotice, makeSession, normalizeQuickChoice, playCoinflipSession, scheduleCoinflipIdlePanel, setSession, warmupCoinflipPanel } = require("../../Utils/Economy/coinflipGuiRuntime");
+const { fetchSpendableBalance } = require("../../Utils/Economy/economyBetModal");
 const { postGuiPanel, replyDeny, runEconomyPanelCommand } = require("../../Utils/Economy/economyCommandHelpers");
 
-function parseBetArg(raw, cfg, fallback) {
-  if (raw == null || raw === "") return clampBet(fallback, cfg);
+function parseBetArg(raw, cfg, fallback, balance = null) {
+  if (raw == null || raw === "") return clampBet(fallback, cfg, balance);
   const n = Math.floor(Number(raw));
   if (!Number.isFinite(n) || n <= 0) return null;
-  return clampBet(n, cfg);
+  return clampBet(n, cfg, balance);
 }
 
 module.exports = {
@@ -19,12 +20,13 @@ module.exports = {
   async execute(message, args, client) {
     await runEconomyPanelCommand(message, client, "COINFLIP", async ({ message: msg, client: c, replyDeny: deny, postGuiPanel: post }) => {
       const cfg = economyConfig(c);
+      const balance = await fetchSpendableBalance(c, { guildId: msg.guild.id, ownerId: msg.author.id });
       const quickFromFirst = normalizeQuickChoice(args?.[0]);
       const quickSecond = normalizeQuickChoice(args?.[1]);
       let rawBet = cfg.minBet;
       if (quickFromFirst && !quickSecond) rawBet = cfg.minBet;
-      else if (args?.[0] != null && parseBetArg(args[0], cfg, cfg.minBet) != null) {
-        rawBet = parseBetArg(args[0], cfg, cfg.minBet);
+      else if (args?.[0] != null && parseBetArg(args[0], cfg, cfg.minBet, balance) != null) {
+        rawBet = parseBetArg(args[0], cfg, cfg.minBet, balance);
       }
       const access = await assertEconomyGamblingAccess(msg, c, rawBet);
       if (!access.ok) {
@@ -35,7 +37,7 @@ module.exports = {
       const session = makeSession({
         ownerId: msg.author.id,
         guildId: msg.guild.id,
-        bet: clampBet(rawBet, access.cfg),
+        bet: clampBet(rawBet, access.cfg, balance),
         cfg: access.cfg,
       });
       await warmupCoinflipPanel();
@@ -52,16 +54,16 @@ module.exports = {
       if (didFlip) session.panelAnimating = true;
       if (didFlip) {
         const sent = await post(msg, {
-          payload: await buildCoinflipGuiPayload(session, access.cfg, "🪙 La moneta è in aria…", false, true),
+          payload: await buildCoinflipGuiPayload(session, access.cfg, "🪙 La moneta è in aria…", false, true, balance),
           session,
           setSession,
           label: "coinflip",
         });
-        if (sent?.id) scheduleCoinflipIdlePanel(sent, getSession(sent.id) || session, access.cfg, notice);
+        if (sent?.id) scheduleCoinflipIdlePanel(sent, session, access.cfg, notice);
         return;
       }
       await post(msg, {
-        payload: await buildCoinflipGuiPayload(session, access.cfg, notice, false, false),
+        payload: await buildCoinflipGuiPayload(session, access.cfg, notice, false, false, balance),
         session,
         setSession,
         label: "coinflip",

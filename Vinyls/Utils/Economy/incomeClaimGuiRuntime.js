@@ -2,10 +2,11 @@ const { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle } = requ
 const { buildImageButtonPayload } = require("./guiPanelPayload");
 const { formatEconomyAmount } = require("./economyDisplayHelpers");
 const { claimFixed, claimWork, formatDuration, peekFixedClaim, peekWorkClaim } = require("../../Services/Community/activeEconomyService");
+const { createPersistedGuiSessionApi, SESSION_DB_TTL_MS } = require("../../Services/Community/economyGuiSessionStore");
 
 const PREFIX = "income_gui";
-const SESSION_TTL_MS = 8 * 60 * 1000;
-const sessions = new Map();
+const SESSION_TTL_MS = SESSION_DB_TTL_MS;
+const { setSession, getSession, deleteSession } = createPersistedGuiSessionApi("income", { ttlMs: SESSION_TTL_MS });
 
 const TYPE_LABELS = {
   daily: { title: "Ricompensa giornaliera", cmd: "+daily", emoji: "☀️", claimLabel: "Riscuoti" },
@@ -16,10 +17,6 @@ const TYPE_LABELS = {
 
 function now() {
   return Date.now();
-}
-
-function sessionKey(messageId) {
-  return String(messageId || "").trim();
 }
 
 function validIncomeType(type) {
@@ -37,25 +34,6 @@ function makeSession({ ownerId, guildId, incomeType, peek }) {
     createdAt: now(),
     updatedAt: now(),
   };
-}
-
-function setSession(messageId, session) {
-  sessions.set(sessionKey(messageId), { ...session, updatedAt: now() });
-}
-
-function getSession(messageId) {
-  const key = sessionKey(messageId);
-  const cached = sessions.get(key);
-  if (!cached) return null;
-  if (now() - Number(cached.updatedAt || cached.createdAt || 0) > SESSION_TTL_MS) {
-    sessions.delete(key);
-    return null;
-  }
-  return cached;
-}
-
-function deleteSession(messageId) {
-  sessions.delete(sessionKey(messageId));
 }
 
 function controlId(incomeType, action, ownerId) {
@@ -96,13 +74,14 @@ function buildRows(session, panelClosed = false) {
   ];
 }
 
-async function renderPanel(session) {
+async function renderPanel(session, client = null) {
   const peek = session.peek || {};
   const claim = session.lastClaim || {};
   const claimed = session.phase === "done" && claim.ok;
   try {
     const renderIncomeRewardCanvas = require("../Render/incomeRewardCanvas");
     const rendered = await renderIncomeRewardCanvas({
+      client,
       incomeType: session.incomeType,
       canClaim: Boolean(peek.canClaim) && !claimed,
       claimed,
@@ -126,8 +105,8 @@ async function renderPanel(session) {
   }
 }
 
-async function buildIncomeClaimPayload(session, notice = "", panelClosed = false) {
-  const attachment = await renderPanel(session);
+async function buildIncomeClaimPayload(session, notice = "", panelClosed = false, client = null) {
+  const attachment = await renderPanel(session, client);
   return buildImageButtonPayload({
     files: attachment.files || [],
     components: buildRows(session, panelClosed),
@@ -186,7 +165,7 @@ async function openIncomePanel(client, message, incomeType) {
       ? `La ricompensa è pronta — premi **${meta.claimLabel || "Riscuoti"}**.`
       : `<a:VC_pixeltime:1482535344103620771> In cooldown — attendi **${formatDuration(peek.remainingMs)}**.`;
   }
-  return { ok: true, session, payload: await buildIncomeClaimPayload(session, notice, false) };
+  return { ok: true, session, payload: await buildIncomeClaimPayload(session, notice, false, client) };
 }
 
 async function claimFromPanel(client, messageLike, session) {

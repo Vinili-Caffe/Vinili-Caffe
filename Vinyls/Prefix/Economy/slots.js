@@ -1,6 +1,7 @@
 const { formatGaleoni } = require("../../Services/Community/gringottService");
 const { assertEconomyGamblingAccess, flushSlotsGuiPendingBank } = require("../../Services/Community/activeEconomyService");
 const { buildSlotsGuiPayload, clampBet, formatSlotsSpinNotice, getSession, makeSession, scheduleSlotsIdlePanel, setSession, spinSession, warmupSlotsPanel } = require("../../Utils/Economy/slotsGuiRuntime");
+const { fetchSpendableBalance } = require("../../Utils/Economy/economyBetModal");
 const { postGuiPanel, replyDeny, runEconomyPanelCommand } = require("../../Utils/Economy/economyCommandHelpers");
 
 module.exports = {
@@ -22,11 +23,12 @@ module.exports = {
       if (flushed?.ok && flushed.amount > 0) {
         noticePrefix = `🪙 Accreditati **${formatGaleoni(flushed.amount)}** da una sessione precedente.\n\n`;
       }
+      const balance = await fetchSpendableBalance(c, { guildId: msg.guild.id, ownerId: msg.author.id });
       const rawBet = args?.[0] == null ? access.cfg.minBet : args[0];
       const session = makeSession({
         ownerId: msg.author.id,
         guildId: msg.guild.id,
-        bet: clampBet(rawBet, access.cfg),
+        bet: clampBet(rawBet, access.cfg, balance),
         cfg: access.cfg,
       });
       let notice = noticePrefix;
@@ -36,13 +38,13 @@ module.exports = {
           await deny(msg, spin.message, { gambling: true });
           return;
         }
-        notice = formatSlotsSpinNotice(spin.result, session);
+        notice = formatSlotsSpinNotice(spin.result);
       }
       await warmupSlotsPanel();
       const didSpin = Boolean(session.lastResult);
       if (didSpin) session.panelAnimating = true;
       if (didSpin) {
-        const gifPayload = await buildSlotsGuiPayload(session, access.cfg, "🎰 I rulli stanno girando...", false, true);
+        const gifPayload = await buildSlotsGuiPayload(session, access.cfg, "🎰 I rulli stanno girando...", false, true, balance);
         const sent = await post(msg, { payload: gifPayload, session, setSession, label: "slot" });
         if (sent?.id) {
           const live = (await getSession(sent.id, msg.guild.id)) || session;
@@ -50,7 +52,7 @@ module.exports = {
         }
         return;
       }
-      const payload = await buildSlotsGuiPayload(session, access.cfg, notice || noticePrefix, false, false);
+      const payload = await buildSlotsGuiPayload(session, access.cfg, notice || noticePrefix, false, false, balance);
       await post(msg, { payload, session, setSession, label: "slot" });
     });
   },

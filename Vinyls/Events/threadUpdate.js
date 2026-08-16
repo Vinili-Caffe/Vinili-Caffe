@@ -1,5 +1,6 @@
 const { AuditLogEvent, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, } = require("discord.js");
 const { toDiscordTimestamp, yesNo, formatAuditActor, buildAuditExtraLines, resolveChannelRolesLogChannel, resolveResponsible, } = require("../Utils/Logging/channelRolesLogUtils");
+const { isViniliFullFeatureGuild } = require("../MultiGuild/core/guildFeatureScope");
 const THREAD_UPDATE_ACTION = AuditLogEvent?.ThreadUpdate ?? 111;
 
 function sleep(ms) {
@@ -35,6 +36,7 @@ module.exports = {
       const guild = newThread?.guild || oldThread?.guild;
       const threadId = String(newThread?.id || oldThread?.id || "");
       if (!guild || !threadId) return;
+      if (!isViniliFullFeatureGuild(guild.id)) return;
 
       const nameChanged = oldThread?.name !== newThread?.name;
       const archivedChanged = Boolean(oldThread?.archived) !== Boolean(newThread?.archived);

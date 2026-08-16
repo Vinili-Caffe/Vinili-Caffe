@@ -5,8 +5,14 @@ const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Schemas/Community/co
 const SG = SITE_DOCUMENT_TYPE.SUGGESTION;
 const { broadcastSiteSuggestionsChanged } = require("./siteSuggestionsBroadcast");
 const { resolveWebsiteGuildMember } = require("./siteRoleRequestApi");
-const { guildMemberDisplayAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
+const { guildMemberDisplayAvatarUrlDynamic, guildMemberDisplayAvatarUrlStatic } = require("../Discord/guildDiscordIdentity");
 const { enqueueSiteInAppNotification, deleteSiteInAppNotifications } = require("./siteInAppNotificationsService");
+const {
+  applyLiveAvatarToSuggestionLike,
+  collectUserIdsFromSuggestionLikeDocs,
+  prefetchGuildMembersForIds,
+  resolveSiteAvatarUrl,
+} = require("./siteLiveAvatars");
 
 const HIGH_STAFF_ROLE_ID = String(IDs?.roles?.HighStaff || "").trim();
 const MAX_SUGGESTION_LEN = 2000;
@@ -240,10 +246,21 @@ async function getSiteSuggestions(client, payload = {}) {
     .lean()
     .catch(() => []);
 
+  await prefetchGuildMembersForIds(guild, collectUserIdsFromSuggestionLikeDocs(docs));
+
+  const seenIds = new Set();
+  const suggestions = [];
+  for (const d of docs) {
+    const id = String(d && d._id ? d._id : "").trim();
+    if (!id || seenIds.has(id)) continue;
+    seenIds.add(id);
+    suggestions.push(applyLiveAvatarToSuggestionLike(serializeSuggestion(d, viewerId), guild, { size: 128 }));
+  }
+
   return {
     ok: true,
     status: 200,
-    suggestions: docs.map((d) => serializeSuggestion(d, viewerId)),
+    suggestions,
     viewer,
   };
 }
@@ -258,12 +275,40 @@ async function createSiteSuggestion(client, payload = {}) {
     return { ok: false, status: 400, error: "content_too_short", message: "Scrivi almeno 12 caratteri." };
   }
 
+  // Evita doppi click / doppio POST: stesso testo pending, o stesso testo creato di recente.
+  const duplicateWindowMs = 24 * 60 * 60 * 1000;
+  const existingDup = await SiteDocument.findOne({
+    docType: SG,
+    guildId: resolved.guild.id,
+    userId: resolved.userId,
+    content,
+    $or: [
+      { status: "pending" },
+      { createdAt: { $gte: new Date(Date.now() - duplicateWindowMs) } },
+    ],
+  })
+    .select({ _id: 1 })
+    .lean()
+    .catch(() => null);
+
+  if (existingDup) {
+    return {
+      ok: false,
+      status: 409,
+      error: "duplicate_suggestion",
+      message: "Hai già inviato questo suggerimento. Attendi una decisione staff o modifica il testo.",
+    };
+  }
+
   const doc = await SiteDocument.create({
     docType: SG,
     guildId: resolved.guild.id,
     userId: resolved.userId,
     authorName: displayNameForMember(resolved.member),
-    authorAvatarUrl: guildMemberDisplayAvatarUrlDynamic(resolved.member, { size: 128 }) || "",
+    authorAvatarUrl:
+      guildMemberDisplayAvatarUrlStatic(resolved.member, { size: 128 }) ||
+      guildMemberDisplayAvatarUrlDynamic(resolved.member, { size: 128 }) ||
+      resolveSiteAvatarUrl(resolved.guild, resolved.userId, "", { size: 128 }),
     content,
     status: "pending",
     comments: [],
@@ -347,7 +392,10 @@ async function addSiteSuggestionComment(client, payload = {}) {
   const comment = {
     userId: resolved.userId,
     authorName: displayNameForMember(resolved.member),
-    authorAvatarUrl: guildMemberDisplayAvatarUrlDynamic(resolved.member, { size: 128 }) || "",
+    authorAvatarUrl:
+      guildMemberDisplayAvatarUrlStatic(resolved.member, { size: 128 }) ||
+      guildMemberDisplayAvatarUrlDynamic(resolved.member, { size: 128 }) ||
+      resolveSiteAvatarUrl(resolved.guild, resolved.userId, "", { size: 128 }),
     content,
     ...(parentOid ? { parentCommentId: parentOid } : {}),
   };

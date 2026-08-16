@@ -108,14 +108,69 @@ async function loadCustomVocGuildContext(guildId) {
   return { ownerByChannelId, customRoleIds };
 }
 
-async function applyOverwrite(channel, targetId, permsObject, reason) {
+function resolveOverwriteFlag(value) {
+  if (value === true) return true;
+  if (value === false) return false;
+  return null;
+}
+
+function overwriteAlreadyMatches(channel, targetId, permsObject) {
+  const existing = channel?.permissionOverwrites?.cache?.get?.(String(targetId || ""));
+  if (!existing) return false;
+  for (const [permName, desired] of Object.entries(permsObject || {})) {
+    const flag = PermissionsBitField.Flags[permName];
+    if (flag == null) continue;
+    const want = resolveOverwriteFlag(desired);
+    const allowed = Boolean(existing.allow?.has?.(flag));
+    const denied = Boolean(existing.deny?.has?.(flag));
+    if (want === true && !allowed) return false;
+    if (want === false && !denied) return false;
+    if (want == null && (allowed || denied)) return false;
+  }
+  return true;
+}
+
+function resolveOverwriteType(channel, targetId, explicitType = null) {
+  if (explicitType === OverwriteType.Role || explicitType === OverwriteType.Member) return explicitType;
+  const id = String(targetId || "").trim();
+  const guild = channel?.guild;
+  if (!id || !guild) return OverwriteType.Member;
+  if (id === String(guild.id) || id === String(guild.roles?.everyone?.id || "")) return OverwriteType.Role;
+  if (guild.roles?.cache?.has?.(id)) return OverwriteType.Role;
+  const cached = channel.permissionOverwrites?.cache?.get?.(id);
+  if (cached?.type === OverwriteType.Role || cached?.type === OverwriteType.Member) return cached.type;
+  return OverwriteType.Member;
+}
+
+function isUnknownOverwriteError(err) {
+  const code = err?.code ?? err?.rawError?.code;
+  return Number(code) === 10009 || /unknown overwrite/i.test(String(err?.message || ""));
+}
+
+async function applyOverwrite(channel, targetId, permsObject, reason, overwriteType = null) {
   const id = String(targetId || "").trim();
   if (!channel?.permissionOverwrites || !id) return false;
+  const type = resolveOverwriteType(channel, id, overwriteType);
   try {
+    if (overwriteAlreadyMatches(channel, id, permsObject)) return false;
+    const extras = { reason, type };
     if (channel.permissionOverwrites.cache.has(id)) {
-      await channel.permissionOverwrites.edit(id, permsObject, { reason });
+      try {
+        await channel.permissionOverwrites.edit(id, permsObject, extras);
+      } catch (err) {
+        // Stale cache or wrong type: Discord has no overwrite to edit → create instead.
+        if (!isUnknownOverwriteError(err)) throw err;
+        channel.permissionOverwrites.cache.delete(id);
+        await channel.permissionOverwrites.create(id, permsObject, extras);
+      }
     } else {
-      await channel.permissionOverwrites.create(id, permsObject, { reason });
+      try {
+        await channel.permissionOverwrites.create(id, permsObject, extras);
+      } catch (err) {
+        // Race: overwrite appeared between cache check and create.
+        if (isUnknownOverwriteError(err)) throw err;
+        await channel.permissionOverwrites.edit(id, permsObject, extras);
+      }
     }
     return true;
   } catch (err) {
@@ -129,18 +184,20 @@ async function collectGuildCustomRoleIds(guildId) {
   return ctx.customRoleIds;
 }
 
-async function stripLinkedCustomRolesFromChannel(channel, _guildCustomRoleIds = null) {
+async function stripLinkedCustomRolesFromChannel(channel, guildCustomRoleIds = null) {
   if (!channel?.permissionOverwrites?.cache || !channel.guild) return 0;
-  const everyoneId = String(channel.guild.roles.everyone.id || "");
+  const customRoleIds =
+    guildCustomRoleIds instanceof Set
+      ? guildCustomRoleIds
+      : new Set([...(await collectGuildCustomRoleIds(channel.guild.id))]);
+  if (!customRoleIds.size) return 0;
   let removed = 0;
   for (const ow of [...channel.permissionOverwrites.cache.values()]) {
     if (ow.type !== OverwriteType.Role) continue;
     const rid = String(ow.id || "");
-    if (!rid || rid === everyoneId) continue;
-    if (MEMBER_ROLE_ID && rid === MEMBER_ROLE_ID) continue;
-    if (MUTED_ROLE_ID && rid === MUTED_ROLE_ID) continue;
+    if (!rid || !customRoleIds.has(rid)) continue;
     const ok = await channel.permissionOverwrites
-      .delete(ow.id, "Custom voc: rimuovi override ruolo non collegato")
+      .delete(ow.id, "Custom voc: rimuovi override ruolo custom perk")
       .then(() => true)
       .catch(() => false);
     if (ok) removed += 1;
@@ -155,18 +212,19 @@ async function ensureCustomVocChannelBaseline(channel, ownerId, botUserId) {
   const botId = String(botUserId || channel.client?.user?.id || "").trim();
   if (!owner) return false;
 
-  await applyOverwrite(channel, guild.roles.everyone.id, CUSTOM_VOC_EVERYONE_DENY, "Custom voc baseline");
+  await applyOverwrite(channel, guild.roles.everyone.id, CUSTOM_VOC_EVERYONE_DENY, "Custom voc baseline", OverwriteType.Role);
   if (MEMBER_ROLE_ID) {
-    await applyOverwrite(channel, MEMBER_ROLE_ID, CUSTOM_VOC_MEMBER_ROLE_PERMS, "Custom voc baseline");
+    await applyOverwrite(channel, MEMBER_ROLE_ID, CUSTOM_VOC_MEMBER_ROLE_PERMS, "Custom voc baseline", OverwriteType.Role);
   }
   if (MUTED_ROLE_ID) {
-    await applyOverwrite(channel, MUTED_ROLE_ID, CUSTOM_VOC_MUTED_ROLE_PERMS, "Custom voc baseline muted");
+    await applyOverwrite(channel, MUTED_ROLE_ID, CUSTOM_VOC_MUTED_ROLE_PERMS, "Custom voc baseline muted", OverwriteType.Role);
   }
   if (botId) {
-    await applyOverwrite(channel, botId, CUSTOM_VOC_BOT_PERMS, "Custom voc baseline");
+    await applyOverwrite(channel, botId, CUSTOM_VOC_BOT_PERMS, "Custom voc baseline", OverwriteType.Member);
   }
-  await applyOverwrite(channel, owner, CUSTOM_VOC_OWNER_BASE_PERMS, "Custom voc baseline owner");
-  await stripLinkedCustomRolesFromChannel(channel);
+  await applyOverwrite(channel, owner, CUSTOM_VOC_OWNER_BASE_PERMS, "Custom voc baseline owner", OverwriteType.Member);
+  const { customRoleIds } = await loadCustomVocGuildContext(channel.guild.id).catch(() => ({ customRoleIds: new Set() }));
+  await stripLinkedCustomRolesFromChannel(channel, customRoleIds);
   await refreshGrantedMemberOverwrites(channel, owner, botId);
   return true;
 }
@@ -198,6 +256,7 @@ function buildCustomVocCreateOverwrites(guild, ownerId, botUserId) {
   const rows = [
     {
       id: guild.roles.everyone.id,
+      type: OverwriteType.Role,
       deny: [
         PermissionsBitField.Flags.ViewChannel,
         PermissionsBitField.Flags.Connect,
@@ -209,6 +268,7 @@ function buildCustomVocCreateOverwrites(guild, ownerId, botUserId) {
     },
     {
       id: ownerId,
+      type: OverwriteType.Member,
       allow: [
         PermissionsBitField.Flags.ViewChannel,
         PermissionsBitField.Flags.Connect,
@@ -221,6 +281,7 @@ function buildCustomVocCreateOverwrites(guild, ownerId, botUserId) {
     },
     {
       id: botUserId,
+      type: OverwriteType.Member,
       allow: [
         PermissionsBitField.Flags.ViewChannel,
         PermissionsBitField.Flags.Connect,
@@ -271,7 +332,13 @@ async function syncCustomVocChannelForOwner(guild, ownerId) {
   const channelId = String(doc?.customVocChannelId || "").trim();
   if (!channelId) return;
   const channel = guild.channels.cache.get(channelId) || (await getGuildChannelCached(guild, channelId));
-  if (!isCustomPrivateVoiceChannel(channel, guild)) return;
+  if (!channel?.isVoiceBased?.() || !isCustomPrivateVoiceChannel(channel, guild)) {
+    await CustomRole.updateOne(
+      { guildId: gid, userId: uid },
+      { $set: { customVocChannelId: null } },
+    ).catch(() => {});
+    return;
+  }
   await ensureCustomVocChannelBaseline(channel, uid, guild.client?.user?.id);
   const member = guild.members.cache.get(uid) || (await guild.members.fetch(uid).catch(() => null));
   if (member?.voice?.channelId && String(member.voice.channelId) === String(channel.id)) {
@@ -298,13 +365,13 @@ async function collectCustomPrivateVoiceChannels(guild) {
 
 async function repairGuildCustomVocPermissions(guild) {
   if (!guild?.id) return { channels: 0, rolesStripped: 0 };
-  const { ownerByChannelId } = await loadCustomVocGuildContext(guild.id);
+  const { ownerByChannelId, customRoleIds } = await loadCustomVocGuildContext(guild.id);
   const voiceChannels = await collectCustomPrivateVoiceChannels(guild);
   let channels = 0;
   let rolesStripped = 0;
   for (const channel of voiceChannels) {
     channels += 1;
-    rolesStripped += await stripLinkedCustomRolesFromChannel(channel);
+    rolesStripped += await stripLinkedCustomRolesFromChannel(channel, customRoleIds);
     const ownerId = resolveCustomVocOwnerId(channel, ownerByChannelId);
     if (ownerId) {
       await ensureCustomVocChannelBaseline(channel, ownerId, guild.client?.user?.id);
@@ -324,9 +391,9 @@ async function repairCustomVocPermissionsOnStartup(client) {
   if (!guild) return;
   try {
     const result = await repairGuildCustomVocPermissions(guild);
-    if (result.channels > 0) {
+    if (result.rolesStripped > 0) {
       global.logger?.info?.(
-        `[CUSTOM VOC PERMS] repaired ${result.channels} channel(s), stripped ${result.rolesStripped} custom role overwrite(s)`,
+        `[CUSTOM VOC PERMS] stripped ${result.rolesStripped} custom role overwrite(s) on ${result.channels} channel(s)`,
       );
     }
   } catch (err) {
@@ -341,7 +408,10 @@ async function handleCustomVocVoiceStateUpdate(oldState, newState) {
   const userId = String(newState.id || oldState.id || "");
   if (!userId || newState.member?.user?.bot || oldState.member?.user?.bot) return;
 
-  const { ownerByChannelId } = await loadCustomVocGuildContext(guild.id).catch(() => ({ ownerByChannelId: new Map() }));
+  const { ownerByChannelId, customRoleIds } = await loadCustomVocGuildContext(guild.id).catch(() => ({
+    ownerByChannelId: new Map(),
+    customRoleIds: new Set(),
+  }));
 
   const oldChannelId = oldState.channelId ? String(oldState.channelId) : "";
   const newChannelId = newState.channelId ? String(newState.channelId) : "";
@@ -360,7 +430,7 @@ async function handleCustomVocVoiceStateUpdate(oldState, newState) {
   if (newChannelId) {
     const newChannel = guild.channels.cache.get(newChannelId) || (await guild.channels.fetch(newChannelId).catch(() => null));
     if (isCustomPrivateVoiceChannel(newChannel, guild)) {
-      await stripLinkedCustomRolesFromChannel(newChannel);
+      await stripLinkedCustomRolesFromChannel(newChannel, customRoleIds);
       const ownerId = resolveCustomVocOwnerId(newChannel, ownerByChannelId);
       if (ownerId && ownerId === userId) {
         await applyCustomVocOwnerPrivilegedOverwrite(newChannel, ownerId);
@@ -377,6 +447,7 @@ module.exports = {
   resolveCustomVocOwnerId,
   buildCustomVocCreateOverwrites,
   ensureCustomVocChannelBaseline,
+  applyOverwrite,
   applyCustomVocOwnerPrivilegedOverwrite,
   stripCustomVocOwnerPrivilegedOverwrite,
   stripLinkedCustomRolesFromChannel,

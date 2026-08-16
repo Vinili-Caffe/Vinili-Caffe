@@ -5,8 +5,8 @@ const { resolveHogwartsEventConfig } = require("../../Utils/Web/hogwartsSortingC
 const { housePointPeriodKey, resolvePeriodBounds } = require("../../Utils/Web/hogwartsHousePointPeriods");
 const MINIGAME_EXP_PER_WIN_ESTIMATE = 100;
 const PET_HOUSE_POINTS_MULTIPLIER = Object.freeze({ "tabby-cat-pet": 2, "snowy-owl-pet": 3, "moon-toad-pet": 4, "mini-phoenix-pet": 5 });
-const BROOM_ROB_SUCCESS_BONUS = Object.freeze({ "school-sweeper-broom": 10, "comet-copper-broom": 18, "stormchaser-broom": 26, "aurora-3000-broom": 35 });
-const ROB_SUCCESS_CAP = 80;
+const BROOM_ROB_SUCCESS_BONUS = Object.freeze({ "school-sweeper-broom": 18, "comet-copper-broom": 32, "stormchaser-broom": 50, "aurora-3000-broom": 60 });
+const ROB_SUCCESS_CAP = 95;
 const SHOP_DURABLE_BOOST_MAX_USES = 750;
 const SHOP_BOOST_USAGE_FIELDS = Object.freeze({
   [SHOP_CATEGORIES.PET]: "minigame",
@@ -396,6 +396,15 @@ function broomRobSuccessBonus(broomItem) {
   return BROOM_ROB_SUCCESS_BONUS[id] ?? 0;
 }
 
+/** Multa più bassa se la chance (con scopa) è alta: Aurora ~5, base piena a ~35%. */
+function scaleRobFailPenalty(basePenalty, chance) {
+  const penalty = Math.max(0, Math.floor(Number(basePenalty) || 0));
+  if (penalty <= 0) return 0;
+  const c = Math.max(1, Math.min(99, Math.floor(Number(chance) || 35)));
+  const factor = Math.max(0.12, Math.min(1, (100 - c) / 65));
+  return Math.max(5, Math.floor(penalty * factor));
+}
+
 /**
  * Applica moltiplicatore animale ai punti casa (solo se evento live).
  * @returns {Promise<{ points: number, multiplier: number, petName: string }>}
@@ -437,9 +446,10 @@ async function applyPetHousePointsBoost(client, guildId, userId, basePoints) {
 }
 
 /**
- * @returns {Promise<{ chance: number, bonus: number, broomName: string }>}
+ * Calcola chance furto con bonus scopa (senza consumare usi).
+ * @returns {Promise<{ chance: number, bonus: number, broomName: string, boostUsesRemaining: number|null, boostExhausted: boolean }>}
  */
-async function resolveRobSuccessChance(client, guildId, userId, baseChance) {
+async function peekRobSuccessChance(client, guildId, userId, baseChance) {
   const base = Math.max(1, Math.min(ROB_SUCCESS_CAP, Math.floor(Number(baseChance) || 35)));
   if (!isHogwartsShopBoostActive(client)) {
     return { chance: base, bonus: 0, broomName: "", boostUsesRemaining: null, boostExhausted: false };
@@ -450,18 +460,48 @@ async function resolveRobSuccessChance(client, guildId, userId, baseChance) {
   let boostUsesRemaining = null;
   let boostExhausted = false;
   if (bonus > 0) {
-    const consume = await tryConsumeShopDurableBoostUse(client, guildId, userId, SHOP_CATEGORIES.BROOM);
-    boostUsesRemaining = consume.remaining;
-    boostExhausted = Boolean(consume.exhausted);
-    if (!consume.ok) bonus = 0;
+    const usage = await getShopDurableBoostUsage(client, guildId, userId, SHOP_CATEGORIES.BROOM);
+    boostUsesRemaining = Number.isFinite(Number(usage?.remaining)) ? Number(usage.remaining) : null;
+    boostExhausted = Boolean(usage?.exhausted);
+    if (boostExhausted) bonus = 0;
   }
   if (bonus <= 0) {
-    return { chance: base, bonus: 0, broomName: "", boostUsesRemaining, boostExhausted };
+    return { chance: base, bonus: 0, broomName: broom?.name || "", boostUsesRemaining, boostExhausted };
   }
   return {
     chance: Math.min(ROB_SUCCESS_CAP, base + bonus),
     bonus,
     broomName: broom?.name || "",
+    boostUsesRemaining,
+    boostExhausted,
+  };
+}
+
+/**
+ * @returns {Promise<{ chance: number, bonus: number, broomName: string }>}
+ */
+async function resolveRobSuccessChance(client, guildId, userId, baseChance) {
+  const peeked = await peekRobSuccessChance(client, guildId, userId, baseChance);
+  if (peeked.bonus <= 0) {
+    return {
+      chance: peeked.chance,
+      bonus: 0,
+      broomName: peeked.broomName || "",
+      boostUsesRemaining: peeked.boostUsesRemaining,
+      boostExhausted: peeked.boostExhausted,
+    };
+  }
+  const consume = await tryConsumeShopDurableBoostUse(client, guildId, userId, SHOP_CATEGORIES.BROOM);
+  const boostUsesRemaining = consume.remaining;
+  const boostExhausted = Boolean(consume.exhausted);
+  if (!consume.ok) {
+    const base = Math.max(1, Math.min(ROB_SUCCESS_CAP, Math.floor(Number(baseChance) || 35)));
+    return { chance: base, bonus: 0, broomName: "", boostUsesRemaining, boostExhausted };
+  }
+  return {
+    chance: peeked.chance,
+    bonus: peeked.bonus,
+    broomName: peeked.broomName || "",
     boostUsesRemaining,
     boostExhausted,
   };
@@ -498,10 +538,12 @@ module.exports = {
   isHogwartsShopBoostActive,
   loadShopInventory,
   normalizeShopInventory,
+  peekRobSuccessChance,
   petHousePointsMultiplier,
   recordHogwartsMinigameHousePointWin,
   resolveDuelWandBoost,
   resolveRobSuccessChance,
+  scaleRobFailPenalty,
   syncShopBoostMinigameUsageBackfillOnStartup,
   tryConsumeShopDurableBoostUse,
   isShopBoostAcademicPeriodRollover,

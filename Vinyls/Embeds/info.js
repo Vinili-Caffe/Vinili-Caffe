@@ -2,15 +2,25 @@ const path = require("path");
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, AttachmentBuilder } = require("discord.js");
 const { personalityPanelFindOneAndUpdate, personalityPanelUpdateOne } = require("../Utils/Global/globalSettingsGuildStores");
 const IDs = require("../Utils/Config/ids");
-const { upsertPanelMessage } = require("../../shared/discord/panelUpsertRuntime");
 const INFO_CHANNEL_ID = IDs.channels.info;
 const { getClientChannelCached } = require("../Utils/Interaction/interactionEntityCache");
+const { upsertPanelMessage } = require("../../shared/discord/panelUpsertRuntime");
 const INFO_MEDIA_NAME = "info.gif";
 const INFO_MEDIA_PATH = path.join(__dirname, "..", "Photos", INFO_MEDIA_NAME);
 
+async function deleteMessageIfPresent(channel, messageId) {
+  const mid = String(messageId || "").trim();
+  if (!mid || !channel?.messages?.fetch) return;
+  const msg = await channel.messages.fetch(mid).catch(() => null);
+  if (msg) await msg.delete().catch(() => null);
+}
+
 async function run(client) {
   const channel = await getClientChannelCached(client, INFO_CHANNEL_ID);
-  if (!channel?.isTextBased?.()) return;
+  if (!channel?.isTextBased?.()) {
+    global.logger?.warn?.("[embeds] info: channel missing or not text");
+    return;
+  }
   const infoIntroText = [
     "<a:VC_HeartsBlue:1468686100045369404> Benvenuto/a su **Vinili & Caffè**, l'unico server in Italia non tossico e __incentrato sulla socializzazione__.",
     "",
@@ -20,17 +30,17 @@ async function run(client) {
     `Dubbi o problemi? <#${IDs.channels.ticket}> sarà la vostra bussola, lo staff vi risponderà il prima possibile!`,
   ].join("\n");
   const infoGuildTagsText = [
-    "<:VC_Luna1:1482497618289496117><:VC_Luna2:1482497653387427902> <a:VC_Arrow:1482706699365257397> <https://discord.com/invite/E6vrm5zE6B>",
-    "<:VC_Fire1:1509196285796814979><:VC_Fire2:1509196390843023475> <a:VC_Arrow:1482706699365257397> <https://discord.com/invite/QnTN5P578g>",
+    "<:VC_Femboy1:1528177995095867515><:VC_Femboy2:1528178060581671084> <a:VC_Arrow:1482706699365257397> <https://discord.com/invite/E6vrm5zE6B>",
+    "<:VC_666_1:1528177848890691684><:VC_666_2:1528177905404870828> <a:VC_Arrow:1482706699365257397> <https://discord.com/invite/QnTN5P578g>",
     "<:VC_Porn1:1482497744513011944><:VC_Porn2:1482497774892089547> <a:VC_Arrow:1482706699365257397> <https://discord.com/invite/WMuZ4EMAkc>",
-    "<:VC_Star1:1509196523810980051><:VC_Star2:1509196760722182155> <a:VC_Arrow:1482706699365257397> <https://discord.com/invite/uqUNS9f5m5>",
+    "<:VC_Cat1:1528177482807640125><:VC_Cat2:1528177684843073546> <a:VC_Arrow:1482706699365257397> <https://discord.com/invite/uqUNS9f5m5>",
     "<:VC_Weed1:1482497951686201534><:VC_Weed2:1482497986910097592> <a:VC_Arrow:1482706699365257397> <https://discord.com/invite/SzBwnxHXNv>",
     "<:VC_Figa1:1482495980275499169><:VC_Figa2:1482496046222544937> <a:VC_Arrow:1482706699365257397> <https://discord.com/invite/z3EXtJwvQH>",
   ].join("\n");
   const infoLinksText = [
     "<:VC_Instagram:1482526710426767360> [Seguici su Instagram](https://www.instagram.com/viniliecaffe/)",
     "<:VC_TikTok:1498017166060949525> [Seguici su TikTok](https://www.tiktok.com/@viniliecaffe)",
-    "<:VC_Logo:1498073401317916803> [Sito Ufficiale](https://www.viniliecaffe.it)",
+    "<:VC_Link:1482460590894088222> [Sito Ufficiale](https://www.viniliecaffe.it)",
   ].join("\n");
   const infoMetaText = [
     "<:exp:1470067108543987846> Owner: <@295500038401163264>",
@@ -61,18 +71,15 @@ async function run(client) {
   );
   const row2 = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-    .setLabel("︲CANDIDATURE")
-    .setEmoji("<:VC_Collab:1482534540089098260>")
-    .setStyle(ButtonStyle.Link)
-    .setURL("https://viniliecaffe.it/candidature"),
+      .setLabel("︲CANDIDATURE")
+      .setEmoji("<:VC_Collab:1482534540089098260>")
+      .setStyle(ButtonStyle.Link)
+      .setURL("https://viniliecaffe.it/candidature"),
   );
 
-  const infoSecondText = [
-    "## <:VC_PurpleFlower:1469463879149944943> **Sblocca dei vantaggi, permessi e ruoli:**",
-    "",
-    "Scopri tramite i bottoni sottostanti come sbloccare permessi, ad esempio: mandare link e immagini in chat, poter cambiare il nickname e molti altri.",
-  ].join("\n");
   const infoFooterText = "Usa i bottoni sottostanti per accedere ad altre categorie del server.";
+  const gifAttachment = new AttachmentBuilder(INFO_MEDIA_PATH, { name: INFO_MEDIA_NAME });
+  // Nessun setImage: GIF allegata fuori dall'embed, stesso messaggio.
   const infoEmbedPrimary = new EmbedBuilder()
     .setColor("#6f4e37")
     .setTitle("Ti diamo il benvenuto nella nostra community!")
@@ -83,8 +90,10 @@ async function run(client) {
       { name: "<:VC_Info:1482526956703580372> Informazioni", value: infoMetaText, inline: true },
     )
     .setFooter({ text: infoFooterText });
+
   const guildId = channel.guild?.id;
   if (!guildId) return;
+
   let panel = null;
   try {
     panel = await personalityPanelFindOneAndUpdate(
@@ -96,100 +105,46 @@ async function run(client) {
     global.logger?.warn?.("[embeds] info panel findOneAndUpdate error:", err?.message || err);
   }
 
-  const id1 = panel?.infoMessageId1 || null;
-  const id2 = panel?.infoMessageId2 || null;
-  const idGif = panel?.infoGifMessageId || null;
-  const gifAttachment = new AttachmentBuilder(INFO_MEDIA_PATH, { name: INFO_MEDIA_NAME });
-  const candidateIds = [...new Set([id1, id2, idGif].filter(Boolean).map((v) => String(v)))];
-  const fetched = await Promise.all(candidateIds.map((mid) => channel.messages.fetch(mid).then((m) => [mid, m]).catch(() => [mid, null])));
-  const messageById = new Map(fetched);
-  const hasButtonCustomId = (message, customId) => {
-    if (!message?.components?.length) return false;
-    for (const row of message.components) {
-      for (const comp of row?.components || []) {
-        if (comp?.customId === customId) return true;
-      }
-    }
-    return false;
-  };
-  const isGifMessage = (message) => {
-    if (!message) return false;
-    for (const att of message.attachments?.values?.() || []) {
-      const name = String(att?.name || "").toLowerCase();
-      if (name === INFO_MEDIA_NAME || name.endsWith(".gif")) return true;
-    }
-    return false;
-  };
-  const welcomeTitle = "Ti diamo il benvenuto nella nostra community!";
-  const isPrimaryInfoPanel = (message) => {
-    if (!message || isGifMessage(message)) return false;
-    const t = String(message.embeds?.[0]?.title ?? "").trim();
-    if (t === welcomeTitle) return true;
-    return hasButtonCustomId(message, "info_tags");
-  };
-
-  let normalizedGifId = null;
-  let normalizedPrimaryId = null;
-  const staleIds = [];
-  for (const mid of candidateIds) {
-    const message = messageById.get(mid) || null;
-    if (!message) continue;
-    if (isGifMessage(message)) {
-      if (!normalizedGifId) normalizedGifId = mid;
-      else staleIds.push(mid);
-      continue;
-    }
-    if (isPrimaryInfoPanel(message)) {
-      if (!normalizedPrimaryId) normalizedPrimaryId = mid;
-      else staleIds.push(mid);
-      continue;
-    }
-    staleIds.push(mid);
-  }
-  for (const staleId of staleIds) {
-    await channel.messages.fetch(staleId).then((m) => m.delete()).catch(() => { });
+  // Legacy: messaggi gif/secondari separati — pulisci una volta, non ricreare il pannello.
+  const primaryId = String(panel?.infoMessageId1 || "").trim();
+  const orphanIds = [
+    ...new Set(
+      [panel?.infoGifMessageId, panel?.infoMessageId2]
+        .map((v) => String(v || "").trim())
+        .filter((id) => id && id !== primaryId),
+    ),
+  ];
+  for (const mid of orphanIds) {
+    await deleteMessageIfPresent(channel, mid);
   }
 
-  const msgGif = normalizedGifId
-    ? await upsertPanelMessage(channel, client, {
-      messageId: normalizedGifId,
-      content: "",
-      files: [gifAttachment],
-      embeds: [],
-      components: [],
-      attachmentName: INFO_MEDIA_NAME,
-    })
-    : await channel.send({
-      content: "",
-      files: [gifAttachment],
-      embeds: [],
-      components: [],
-    }).catch(() => null);
-  const msgPanel = normalizedPrimaryId
-    ? await upsertPanelMessage(channel, client, {
-      messageId: normalizedPrimaryId,
-      content: "",
-      embeds: [infoEmbedPrimary],
-      components: [row1, row2],
-    })
-    : await channel.send({
-      content: "",
-      embeds: [infoEmbedPrimary],
-      components: [row1, row2],
-    }).catch(() => null);
+  const panelMessage = await upsertPanelMessage(channel, client, {
+    messageId: primaryId || null,
+    content: "",
+    embeds: [infoEmbedPrimary],
+    components: [row1, row2],
+    files: [gifAttachment],
+    attachmentName: INFO_MEDIA_NAME,
+    includeBanner: false,
+  });
 
-  if (msgGif?.id || msgPanel?.id) {
-    await personalityPanelUpdateOne(
-      { guildId, channelId: INFO_CHANNEL_ID },
-      {
-        $set: {
-          infoGifMessageId: msgGif?.id ?? panel?.infoGifMessageId ?? null,
-          infoMessageId1: msgPanel?.id ?? panel?.infoMessageId1 ?? null,
-          infoMessageId2: null,
-        },
+  if (!panelMessage?.id) {
+    global.logger?.error?.("[embeds] info: upsert failed");
+    return;
+  }
+
+  await personalityPanelUpdateOne(
+    { guildId, channelId: INFO_CHANNEL_ID },
+    {
+      $set: {
+        infoGifMessageId: null,
+        infoMessageId1: panelMessage.id,
+        infoMessageId2: null,
       },
-    ).catch(() => { });
-  }
+    },
+  ).catch((err) => {
+    global.logger?.warn?.("[embeds] info panel id save failed:", err?.message || err);
+  });
 }
 
-module.exports = { name: "info", order: 20, section: "embedWithButtons", run }
+module.exports = { name: "info", order: 20, section: "embedWithButtons", run };

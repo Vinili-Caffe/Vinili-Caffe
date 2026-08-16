@@ -28,7 +28,7 @@ async function execute(interaction, client) {
     await replyPrivate(interaction, "<a:VC_Cross:1482532424570376253> Questo pannello non è tuo.");
     return true;
   }
-  const session = getSession(interaction.message?.id);
+  const session = await getSession(interaction.message?.id, interaction.guild?.id, parsed.ownerId);
   if (!session) {
     await replyPrivate(interaction, `<a:VC_Cross:1482532424570376253> Sessione scaduta. Usa di nuovo \`+${parsed.incomeType}\`.`);
     return true;
@@ -49,14 +49,14 @@ async function execute(interaction, client) {
       session.phase = "idle";
       await syncSessionPeek(client, messageLike, session);
       setSession(interaction.message.id, session);
-      const payload = await buildIncomeClaimPayload(session, "", false);
+      const payload = await buildIncomeClaimPayload(session, "", false, client);
       await interaction.message?.edit?.(payload).catch(() => {});
       await interaction.followUp({ content: `<:vegax:1443934876440068179> ${claimed.message}`, flags: PRIVATE_FLAG }).catch(() => {});
       return true;
     }
     setSession(interaction.message.id, session);
     const notice = formatClaimNotice(claimed.result, session.incomeType, client);
-    const payload = await buildIncomeClaimPayload(session, notice, false);
+    const payload = await buildIncomeClaimPayload(session, notice, false, client);
     await interaction.message?.edit?.(payload).catch(() => {});
     return true;
   }
@@ -64,7 +64,7 @@ async function execute(interaction, client) {
   if (parsed.action === "close") {
     if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate().catch(() => {});
     deleteSession(interaction.message?.id);
-    const payload = await buildIncomeClaimPayload(session, "Sessione chiusa.", true);
+    const payload = await buildIncomeClaimPayload(session, "Sessione chiusa.", true, client);
     await interaction.message?.edit?.(payload).catch(() => {});
     return true;
   }

@@ -3,6 +3,7 @@ const { DEFAULT_OBSOLETE_SLASH_NAMES } = require("../../../shared/discord/purgeO
 const { safeReply: safeReplyHelper } = require("../../../shared/discord/replyRuntime");
 const{applyDefaultFooterToEmbeds,}=require("../../Utils/Embeds/defaultFooter");
 const { checkSlashPermission, getSlashRequiredRoles, buildGlobalPermissionDeniedEmbed, buildGlobalChannelDeniedEmbed, } = require("../../Utils/Moderation/commandPermissions");
+const { replyInteractionSetupRequired } = require("../../Utils/Partner/tenantSetupRequiredReply");
 const { getUserCommandCooldownSeconds, consumeUserCooldown, } = require("../../Utils/Moderation/commandCooldown");
 const { buildCooldownErrorEmbed, buildBusyCommandErrorEmbed, buildInternalCommandErrorEmbed, } = require("../../Utils/Moderation/commandErrorEmbeds");
 const { buildErrorLogEmbed } = require("../../../shared/discord/errorLogEmbed");
@@ -119,13 +120,67 @@ async function handleSlashCommand(interaction, client) {
       return interaction.reply({ content: deniedStaffChat, flags: 1 << 6 });
     }
   }
+  if (interaction.channel) {
+    const { partnershipPublishChannelCommandsDeniedReplyContent } = require("../../Utils/Partner/partnersChatChannelUtils");
+    const deniedPublishChannel = partnershipPublishChannelCommandsDeniedReplyContent(interaction.channel, {
+      commandName: interaction.commandName,
+    });
+    if (deniedPublishChannel) {
+      return interaction.reply({ content: deniedPublishChannel, flags: 1 << 6 });
+    }
+  }
   const expectsModal = command?.expectsModal === true;
   const isAdminCommand=String(command?.category||"").toLowerCase()==="admin";
+  /** Conferme pubbliche di default; se privacy +profile → ephemeral (main e tenant). */
+  let forceEphemeralDefer = !isAdminCommand && command?.publicReply !== true;
+  if (command?.publicReply === true) {
+    const { userWantsPartnershipCommandPrivacy } = require("../../Utils/Partner/tenantProfileEphemeral");
+    const wantsPrivate = await userWantsPartnershipCommandPrivacy(
+      interaction.guildId || interaction.guild?.id,
+      interaction.user?.id,
+    );
+    forceEphemeralDefer = wantsPrivate === true;
+  }
   if (!client.interactionCommandLocks) client.interactionCommandLocks = new Set();
   const interactionLockId = `${interaction.guildId || "dm"}:${interaction.user.id}`;
   const slashPermission=await checkSlashPermission(interaction,{returnDetails:true,});
   if (!slashPermission?.allowed) {
-    if (slashPermission?.reason === "channel" && Array.isArray(slashPermission.channels)) return interaction.reply({ embeds: [buildGlobalChannelDeniedEmbed(slashPermission.channels,"comando")], flags: 1 << 6 });
+    if (
+      slashPermission?.silent === true ||
+      slashPermission?.reason === "bot_usage_blacklisted_user" ||
+      slashPermission?.reason === "bot_usage_blacklisted_guild"
+    ) {
+      return;
+    }
+    if (slashPermission?.reason === "partnership_not_configured") {
+      return replyInteractionSetupRequired(interaction);
+    }
+    if (slashPermission?.reason === "tenant_partnership_only" && slashPermission?.message) {
+      const { buildSimpleNoticePayload } = require("../../Utils/Embeds/simpleNoticeEmbed");
+      return interaction.reply({
+        ...buildSimpleNoticePayload(slashPermission.message, interaction.guild, { ephemeral: true }),
+        flags: 1 << 6,
+      });
+    }
+    if (slashPermission?.reason === "main_guild_only") {
+      const { buildSimpleNoticePayload } = require("../../Utils/Embeds/simpleNoticeEmbed");
+      return interaction.reply({
+        ...buildSimpleNoticePayload(
+          slashPermission.message || "<:vegax:1443934876440068179> Comando disponibile solo sul server principale.",
+          interaction.guild,
+          { ephemeral: true },
+        ),
+        flags: 1 << 6,
+      });
+    }
+    if (slashPermission?.message) {
+      const { buildSimpleNoticePayload } = require("../../Utils/Embeds/simpleNoticeEmbed");
+      return interaction.reply({
+        ...buildSimpleNoticePayload(slashPermission.message, interaction.guild, { ephemeral: true }),
+        flags: 1 << 6,
+      });
+    }
+    if (slashPermission?.reason === "channel" && Array.isArray(slashPermission.channels)) return interaction.reply({ embeds: [buildGlobalChannelDeniedEmbed(slashPermission.channels,"comando", interaction.member)], flags: 1 << 6 });
     const requiredRoles = getSlashRequiredRoles(interaction);
     return interaction.reply({ embeds: [buildGlobalPermissionDeniedEmbed(requiredRoles)], flags: 1 << 6 });
   }
@@ -161,7 +216,7 @@ async function handleSlashCommand(interaction, client) {
   const originalChannelSend=interaction.channel?.send?.bind(interaction.channel,);
   const wrappedInteraction = Object.create(interaction);
   wrappedInteraction.deferReply = (...args) => {
-    const runDefer = isAdminCommand
+    const runDefer = !forceEphemeralDefer
       ? interaction.deferReply(...args)
       : (() => {
           const first = args?.[0];
@@ -240,7 +295,7 @@ async function handleSlashCommand(interaction, client) {
     if (!expectsModal) {
       deferTimer = setTimeout(() => {
         if (!interaction.replied && !interaction.deferred) {
-          const deferPayload = isAdminCommand ? {} : { flags: 1 << 6 };
+          const deferPayload = forceEphemeralDefer ? { flags: 1 << 6 } : {};
           interaction
             .deferReply(deferPayload)
             .then(() => markInteractionDeferred(interaction))
@@ -288,40 +343,7 @@ async function handleSlashCommand(interaction, client) {
         );
       }
     }
-    if (msg) {
-      const collector=msg.createMessageComponentCollector({time:1000*60*60*6,max:30,filter:(i) => i.isButton(),});
-      collector.on("collect", async (btn) => {
-        try {
-          if (!btn.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
-            return btn.reply({ content: "<:vegax:1443934876440068179> Non hai i permessi per fare questo comando.", flags: 1 << 6 }).catch(() => null);
-          }
-          await btn.deferUpdate();
-          const data = staffEmbed.toJSON ? staffEmbed.toJSON() : staffEmbed.data;
-          const updatedEmbed = new EmbedBuilder(data);
-          let statusText = "";
-          if (btn.customId === "error_pending") {
-            updatedEmbed.setColor(0xf1c40f);
-            statusText = "In risoluzione";
-          }
-          if (btn.customId === "error_solved") {
-            updatedEmbed.setColor(0x2ecc71);
-            statusText = "Risolto";
-          }
-          if (btn.customId === "error_unsolved") {
-            updatedEmbed.setColor(0xe74c3c);
-            statusText = "Irrisolto";
-          }
-          if (statusText) updatedEmbed.setFooter({ text: `Stato: ${statusText}` });
-          await msg.edit({ embeds: [updatedEmbed], components: [row] }).catch(() => null);
-        } catch (collectorErr) {
-          global.logger?.error?.("[commandHandlers] error collector failure", collectorErr);
-        }
-      });
-      collector.on("end", async () => {
-        row.components.forEach((b) => b.setDisabled(true));
-        await msg.edit({ components: [row] }).catch(() => null);
-      });
-    }
+    // Error status buttons: Buttons/errorLogStatus.js
     const userEmbed = buildInternalCommandErrorEmbed(errorText);
     await safeReply({ embeds: [userEmbed], flags: 1 << 6 });
     userErrorResponseSent = true;

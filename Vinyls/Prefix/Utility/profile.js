@@ -1,11 +1,16 @@
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
+const { EmbedBuilder } = require("discord.js");
+const { isViniliFullFeatureGuild } = require("../../MultiGuild/core/guildFeatureScope");
+const { shouldApplyMultiGuildLayer } = require("../../MultiGuild/core/accessPolicy");
+const { isPartnershipOperational, shouldRouteTenantPartnershipProfile, isProfilePmModeArg } = require("../../Utils/Partner/partnershipConfigResolver");
+const { buildTenantProfilePayload } = require("../../Utils/Partner/tenantProfileRuntime");
+const { TENANT_PROFILE_SECTIONS } = require("../../Utils/Partner/tenantProfileConstants");
+const { resolveTenantLanguageForMessage,
+  replyTenantMessage, tenantNoticePayload } = require("../../Utils/Partner/tenantPartnershipPrefixMessages");
+const { replyPrefixSetupRequired } = require("../../Utils/Partner/tenantSetupRequiredReply");
 const profileButton = require("../../Buttons/profile");
-const IDs = require("../../Utils/Config/ids");
 const { buildStaffProfilePayload, SECTION_HOME } = require("../../Utils/Staff/staffProfilePanelRuntime");
-const {
-  isChannelOrThreadUnderStaffCmds,
-  isStaffCmdsPmCommandsThread,
-} = require("../../Utils/Staff/staffCmdsChannelUtils");
+const { isChannelOrThreadUnderStaffCmds, isStaffCmdsPmCommandsThread } = require("../../Utils/Staff/staffCmdsChannelUtils");
 
 function withDiscordTimeout(promise, ms = 8000, label = "discord") {
   const limit = Math.max(500, Number(ms) || 8000);
@@ -32,6 +37,17 @@ async function resolveTargetUser(message, args = []) {
   return message?.author || null;
 }
 
+async function replyProfileBotDenied(message) {
+  await safeMessageReply(message, {
+    embeds: [
+      new EmbedBuilder()
+        .setColor(0xed4245)
+        .setDescription(await replyTenantMessage(message, "profile_botNotAllowed")),
+    ],
+    allowedMentions: { repliedUser: false },
+  });
+}
+
 async function upsertProfileReply(message, payload) {
   const normalizedPayload = {
     ...(payload && typeof payload === "object" ? payload : {}),
@@ -53,46 +69,99 @@ async function upsertProfileReply(message, payload) {
       msg?.editable,
   );
   if (existing) {
-    const updated = await existing.edit(normalizedPayload).catch(() => null);
-    if (updated) return updated;
+    await existing.delete().catch(() => null);
   }
   return safeMessageReply(message, normalizedPayload);
 }
 
 module.exports = {
   name: "profile",
+  keepCommandMessage: true,
   allowEmptyArgs: true,
-  usage: "`+profile` · `+profile @utente`",
-  examples: ["+profile", "+profile @Lore"],
+  subcommands: ["pm"],
+  description: "Apre il profilo (su tenant: partnership PM; su main: profilo utente, oppure `pm` per partnership).",
+  usage: "+profile [@utente] · +profile pm [@utente] (solo main)",
+  examples: ["+profile", "+profile @Utente", "+profile pm", "+profile pm @Utente"],
+  subcommandUsages: {
+    pm: "+profile pm [@utente] (solo server main)",
+  },
+  subcommandDescriptions: {
+    pm: "Profilo partnership Partner Manager (solo server main).",
+  },
 
   async execute(message, args = []) {
     if (!message?.guild || !message?.author) return;
     await message.channel.sendTyping().catch(() => {});
-    const targetUser = await resolveTargetUser(message, args);
+    const pmMode = isProfilePmModeArg(args);
+    const resolveArgs = pmMode ? args.slice(1) : args;
+    const targetUser = await resolveTargetUser(message, resolveArgs);
     if (!targetUser) {
       await safeMessageReply(message, {
-        content: "<:vegax:1443934876440068179> Utente non trovato.",
+        ...(await tenantNoticePayload(message, "profile_userNotFound")),
         allowedMentions: { repliedUser: false },
       });
       return;
     }
-    const targetMember = await message.guild.members.fetch(targetUser.id).catch(() => null);
-    const targetHasPm = Boolean(IDs.roles?.PartnerManager && targetMember?.roles?.cache?.has(IDs.roles.PartnerManager));
-
-    if (await isStaffCmdsPmCommandsThread(message.channel)) {
-      if (!targetHasPm) {
-        await upsertProfileReply(message, {
-          content: "<:VC_Attention:1482534443632558151> Qui `+profile` mostra solo profili **Partner Manager**.",
+    if (targetUser.bot) {
+      await replyProfileBotDenied(message);
+      return;
+    }
+    const guildId = message.guild.id;
+    if (pmMode) {
+      // Tenant: solo `+profile`. `+profile pm` è riservato al server main.
+      if (!isViniliFullFeatureGuild(guildId)) {
+        const { buildSimpleNoticePayload } = require("../../Utils/Embeds/simpleNoticeEmbed");
+        await safeMessageReply(message, {
+          ...buildSimpleNoticePayload(
+            "<:vegax:1443934876440068179> Qui usa solo `+profile` (senza `pm`).",
+            message.guild,
+          ),
+          allowedMentions: { repliedUser: false },
         });
         return;
       }
+      if (!isPartnershipOperational(guildId)) {
+        return replyPrefixSetupRequired(message, { keepCommandMessage: true });
+      }
+      if (!(await shouldRouteTenantPartnershipProfile(message, { forcePmMode: true }))) {
+        const { buildSimpleNoticePayload } = require("../../Utils/Embeds/simpleNoticeEmbed");
+        await safeMessageReply(message, {
+          ...buildSimpleNoticePayload(
+            "<:vegax:1443934876440068179> Il profilo partnership PM è riservato ai Partner Manager.",
+            message.guild,
+          ),
+          allowedMentions: { repliedUser: false },
+        });
+        return;
+      }
+      const payload = await buildTenantProfilePayload(message.client, message.guild, {
+        ownerId: message.author.id,
+        targetUserId: targetUser.id,
+        section: TENANT_PROFILE_SECTIONS.HOME,
+        discordLocale: message.author?.locale,
+      });
+      await upsertProfileReply(message, payload);
+      return;
+    }
+    if (await shouldRouteTenantPartnershipProfile(message)) {
+      const payload = await buildTenantProfilePayload(message.client, message.guild, {
+        ownerId: message.author.id,
+        targetUserId: targetUser.id,
+        section: TENANT_PROFILE_SECTIONS.HOME,
+        discordLocale: message.author?.locale,
+      });
+      await upsertProfileReply(message, payload);
+      return;
+    }
+
+    if (await isStaffCmdsPmCommandsThread(message.channel)) {
       const staffPayload = await buildStaffProfilePayload(
         message.guild,
         targetUser.id,
         message.author.id,
         message.client,
         SECTION_HOME,
-        { sourceMessageId: message.id, partnersChatPanel: true },
+        { sourceMessageId: message.id, partnersChatPanel: true, sourceChannel: message.channel },
       );
       await upsertProfileReply(message, staffPayload);
       return;
@@ -105,10 +174,14 @@ module.exports = {
         message.author.id,
         message.client,
         SECTION_HOME,
-        { sourceMessageId: message.id, partnersChatPanel: false },
+        { sourceMessageId: message.id, partnersChatPanel: false, sourceChannel: message.channel },
       );
       await upsertProfileReply(message, staffPayload);
       return;
+    }
+
+    if (!isViniliFullFeatureGuild(guildId) && shouldApplyMultiGuildLayer(guildId)) {
+      return replyPrefixSetupRequired(message, { keepCommandMessage: true });
     }
 
     const payload = await profileButton.buildPanelPayload(

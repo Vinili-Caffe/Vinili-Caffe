@@ -9,23 +9,59 @@ const { userAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
 const { getGuildMemberCached } = require("../Interaction/interactionEntityCache");
 const STAFF_ROLE_ID = IDs.roles.Staff;
 const HIGHSTAFF_ROLE_ID = IDs.roles.HighStaff;
-const PARTNERMANAGER_ROLE_ID = IDs.roles.PartnerManager;
+/** Supporto web/Discord: ladder staff (non solo il ruolo generico Staff). PM escluso. */
+const SUPPORT_TICKET_STAFF_ROLE_IDS = [
+  IDs.roles.Founder,
+  IDs.roles.Manager,
+  IDs.roles.Admin,
+  IDs.roles.Director,
+  IDs.roles.HighStaff,
+  IDs.roles.SeniorModerator,
+  IDs.roles.Mod,
+  IDs.roles.Helper,
+  IDs.roles.Staff,
+]
+  .map((id) => String(id || "").trim())
+  .filter(Boolean);
 
 function hasStaffTicketRole(member, ticketType) {
   if (!member?.roles?.cache) return false;
-  const type = String(ticketType || "").toLowerCase();
+  const type = String(ticketType || "")
+    .trim()
+    .toLowerCase();
+  // Stesso gating dei canali Discord (permission overwrites + canClaimTicket).
   if (type === "perks") {
     return memberCanAccessPerksTicket(member);
   }
   if (type === "partnership") {
     return memberCanAccessPartnershipTicket(member);
   }
-  return [STAFF_ROLE_ID, HIGHSTAFF_ROLE_ID, PARTNERMANAGER_ROLE_ID].some(
-    (id) => id && member.roles.cache.has(id),
-  );
+  if (type === "high" || type === "highstaff") {
+    return Boolean(HIGHSTAFF_ROLE_ID && member.roles.cache.has(HIGHSTAFF_ROLE_ID));
+  }
+  // supporto (default): ladder staff. Partner Manager escluso.
+  return SUPPORT_TICKET_STAFF_ROLE_IDS.some((id) => member.roles.cache.has(id));
+}
+
+/** Apertore del ticket: mai azioni staff sul proprio ticket, anche con ruoli staff/HS. */
+function isTicketOpenedByMember(ticketDoc, memberOrUserId) {
+  const openerId = String(ticketDoc?.userId || "").trim();
+  const actorId = String(memberOrUserId?.id || memberOrUserId || "").trim();
+  return Boolean(openerId && actorId && openerId === actorId);
+}
+
+function memberCanActAsTicketStaff(member, ticketDoc) {
+  if (isTicketOpenedByMember(ticketDoc, member)) return false;
+  return hasStaffTicketRole(member, ticketDoc?.ticketType);
+}
+
+function memberCanActAsTicketHighStaff(member, ticketDoc) {
+  if (isTicketOpenedByMember(ticketDoc, member)) return false;
+  return Boolean(HIGHSTAFF_ROLE_ID && member?.roles?.cache?.has(HIGHSTAFF_ROLE_ID));
 }
 
 function canSeeTransferPanel(member, ticketDoc) {
+  if (isTicketOpenedByMember(ticketDoc, member)) return false;
   const claimer = String(ticketDoc?.claimedBy || "").trim();
   if (!claimer) return false;
   if (String(member?.id || "") === claimer) return true;
@@ -33,7 +69,7 @@ function canSeeTransferPanel(member, ticketDoc) {
 }
 
 function canSeeCloseRequestPanel(member, ticketDoc) {
-  if (!ticketDoc) return false;
+  if (!ticketDoc || isTicketOpenedByMember(ticketDoc, member)) return false;
   const claimer = String(ticketDoc.claimedBy || "").trim();
   if (claimer && String(member?.id || "") === claimer) return true;
   return Boolean(HIGHSTAFF_ROLE_ID && member?.roles?.cache?.has(HIGHSTAFF_ROLE_ID));
@@ -65,8 +101,8 @@ function buildRemoveMemberOptions(channel) {
 }
 
 function buildTicketStaffPanelPayload(member, channel, ticketDoc) {
-  const isHighStaff = Boolean(HIGHSTAFF_ROLE_ID && member?.roles?.cache?.has(HIGHSTAFF_ROLE_ID));
-  const staffTicket = hasStaffTicketRole(member, ticketDoc?.ticketType);
+  const isHighStaff = memberCanActAsTicketHighStaff(member, ticketDoc);
+  const staffTicket = memberCanActAsTicketStaff(member, ticketDoc);
   const remOptsLen = staffTicket ? buildRemoveMemberOptions(channel).length : 0;
   const claimedTrim = String(ticketDoc?.claimedBy || "").trim();
   const showTransfer = Boolean(claimedTrim && canSeeTransferPanel(member, ticketDoc));
@@ -430,11 +466,23 @@ async function buildTicketReopenOutsidePanelPayload(guild, closedTicketDocs, opt
   return { embed, components: rows, meta: { page: safePage, maxPage } };
 }
 
+async function resolveClosedTicketByNumber(guildId, ticketNumber) {
+  const gid = String(guildId || "").trim();
+  const num = Number(ticketNumber);
+  if (!gid || !Number.isInteger(num) || num <= 0) return null;
+  const docs = await fetchClosedTicketsOrdered(gid);
+  return docs.find((row) => Number(row?.ticketNumber) === num) || null;
+}
+
 module.exports = {
   buildTicketStaffPanelPayload,
   buildTicketReopenOutsidePanelPayload,
   fetchClosedTicketsOrdered,
+  resolveClosedTicketByNumber,
   hasStaffTicketRole,
+  isTicketOpenedByMember,
+  memberCanActAsTicketStaff,
+  memberCanActAsTicketHighStaff,
   canSeeTransferPanel,
   canSeeCloseRequestPanel,
   buildRemoveMemberOptions,

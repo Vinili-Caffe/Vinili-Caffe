@@ -8,11 +8,29 @@ const { getGuildChannelCached, getGuildMemberCached } = require("../Utils/Intera
 const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../Utils/Discord/guildDiscordIdentity");
 const { applyPronounGenderToEmbedForMember } = require("../Utils/Community/pronounGenderUtils");
 const { syncPersistentAutoValutazioniForMember } = require("../Services/Staff/staffAutoValutazioniService");
+const {
+  textHasSupporterStatusLink,
+  normalizeSupporterStatusText,
+  SUPPORTER_STATUS_LINK_HINT_IT,
+} = require("../Utils/Community/supporterStatusLink");
 const MAIN_GUILD_ID = String(IDs.guilds?.main || "");
 const ROLE_ID = IDs.roles.Fan;
 const PERK_ROLE_ID = IDs.roles.PicPerms;
 const CHANNEL_ID = IDs.channels.supporters;
-const INVITE_REGEX = /(?:discord\.gg|dsc\.gg|\.gg|discord\.com\/invite|discord\.me)\s*(?:\/|\\)?\s*viniliecaff[eèé]/i;
+const KNOWN_BOT_IDS = new Set(
+  Object.values(IDs.bots || {})
+    .map((id) => String(id || "").trim())
+    .filter(Boolean),
+);
+
+function isBotMember(member) {
+  if (!member) return true;
+  if (KNOWN_BOT_IDS.has(String(member.id || ""))) return true;
+  const user = member.user || member.client?.users?.cache?.get(member.id);
+  if (user?.bot) return true;
+  return false;
+}
+
 const statusCache = new Map();
 const pendingChecks = new Map();
 const removalChecks = new Map();
@@ -99,10 +117,7 @@ function collectActivitySearchStrings(activity) {
 }
 
 function normalizeStatusForMatch(text) {
-  return String(text || "")
-    .replace(/\u2044|\u2215/g, "/")
-    .replace(/[\u200B-\u200D\uFEFF]/g, "")
-    .toLowerCase();
+  return normalizeSupporterStatusText(text);
 }
 
 function allActivitiesSearchText(presence) {
@@ -113,16 +128,45 @@ function allActivitiesSearchText(presence) {
 
 function hasInvite(presence) {
   const blob = normalizeStatusForMatch(allActivitiesSearchText(presence));
-  return INVITE_REGEX.test(blob);
+  return textHasSupporterStatusLink(blob);
 }
 
+function hasCustomActivity(presence) {
+  return getActivitiesArray(presence).some((a) => Number(a?.type) === ActivityType.Custom);
+}
+
+/** Custom presente ma senza testo utile (solo emoji / state null): tipico durante cambio online/idle/dnd. */
+function isCustomStatusTextMissing(presence) {
+  const customs = getActivitiesArray(presence).filter((a) => Number(a?.type) === ActivityType.Custom);
+  if (!customs.length) return false;
+  for (const a of customs) {
+    for (const raw of collectActivitySearchStrings(a)) {
+      const t = normalizeStatusForMatch(raw).replace(/[^a-z0-9./]/g, "");
+      if (!t || t === "customstatus") continue;
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * true = invite visto, false = assente in modo affidabile, null = presence incompleta/ambigua
+ * (non usare come “tolto”: Discord spesso svuota le activities al cambio status).
+ */
 function getInviteState(presence, prevHas = false) {
   if (!presence) return null;
   if (isOfflinePresence(presence)) return null;
   if (hasInvite(presence)) return true;
   if (!getActivitiesArray(presence).length && prevHas) return null;
   if (prevHas && hasRichPresenceWithoutCustom(presence)) return null;
+  // Custom “vuoto” o solo emoji: non è una rimozione del link.
+  if (prevHas && hasCustomActivity(presence) && isCustomStatusTextMissing(presence)) return null;
   return false;
+}
+
+/** true solo se l'invite è visibile ora; false se assente certo; null se non si può decidere. */
+function readInvitePresence(presence, assumeHadLink = false) {
+  return getInviteState(presence, assumeHadLink);
 }
 
 function resolveInviteState(presence, fallback = false) {
@@ -221,6 +265,143 @@ function cancelScheduledRemoval(guildId, userId) {
   deleteRemovalState(guildId, userId);
 }
 
+async function clearRemovalDue(guildId, userId) {
+  cancelScheduledRemoval(guildId, userId);
+  const info = getCachedState(guildId, userId);
+  if (info && info.removalDueAt != null) {
+    setCachedState(guildId, userId, { ...info, removalDueAt: null });
+  }
+  if (!isDbReady()) return;
+  await ActivityUserProfile.updateOne(
+    { guildId, userId },
+    { $set: { "profile.supporterStatus.removalDueAt": null } },
+  ).catch(() => null);
+}
+
+async function ensureRemovalDueAt(guildId, userId, existingDueAt = null) {
+  const fromCache = getCachedState(guildId, userId)?.removalDueAt;
+  let dueAt = Number(existingDueAt || fromCache || 0) || 0;
+  if (dueAt > 0) return dueAt;
+  dueAt = Date.now() + REMOVE_CONFIRM_MS;
+  const info = getCachedState(guildId, userId) || {};
+  setCachedState(guildId, userId, { ...info, hasLink: false, removalDueAt: dueAt });
+  await persistStatus(guildId, userId, {
+    hasLink: false,
+    lastMessageId: info.lastMessageId || null,
+    removalDueAt: dueAt,
+  });
+  return dueAt;
+}
+
+async function executeFanRemoval(member, channel) {
+  if (!member || isBotMember(member)) return false;
+  const guildId = member.guild.id;
+  const userId = member.id;
+  cancelScheduledRemoval(guildId, userId);
+
+  const liveChannel = channel?.isTextBased?.() ? channel : await resolveSupportersChannel(member.guild);
+  const cached = getCachedState(guildId, userId);
+  // Offline: scadenza wall-clock vale comunque. Online: solo assenza CERTA del link.
+  if (!isOfflinePresence(member.presence)) {
+    const inviteState = readInvitePresence(member.presence, true);
+    if (inviteState === true) {
+      const info = cached || {};
+      setCachedState(guildId, userId, {
+        hasLink: true,
+        lastAnnounced: info.lastAnnounced || 0,
+        lastMessageId: info.lastMessageId || null,
+        lastSeenOnlineAt: info.lastSeenOnlineAt || Date.now(),
+        inviteMissSince: null,
+        removalDueAt: null,
+      });
+      await clearRemovalDue(guildId, userId);
+      await persistStatus(guildId, userId, { hasLink: true, lastMessageId: info.lastMessageId || null });
+      return false;
+    }
+    if (inviteState === null) {
+      // Activities vuote/incompleti (cambio status Discord): non togliere i perks.
+      const dueAt = Date.now() + REMOVE_CONFIRM_MS;
+      const info = cached || getCachedState(guildId, userId) || {};
+      setCachedState(guildId, userId, {
+        ...info,
+        hasLink: true,
+        inviteMissSince: null,
+        removalDueAt: dueAt,
+      });
+      await persistStatus(guildId, userId, {
+        hasLink: true,
+        lastMessageId: info.lastMessageId || null,
+        removalDueAt: dueAt,
+      });
+      scheduleRemovalConfirm(member, liveChannel, { forceReschedule: true, removalDueAt: dueAt });
+      return false;
+    }
+  }
+
+  const removed = await removeRoleIfPossible(member);
+  if (!removed && !(await hasFanRole(member))) {
+    // già senza ruolo
+  } else if (!removed) {
+    return false;
+  }
+
+  try {
+    await member.send(
+      "Hai rimosso il link dallo status: hai perso i tuoi perks. Per riaverli, rimetti il link nel tuo status.",
+    );
+  } catch (err) {
+    if (!isExpectedSupporterDmFailure(err)) {
+      global.logger?.warn?.("[presenceUpdate] dm send:", err?.message || err);
+    }
+  }
+  const info = cached || getCachedState(guildId, userId);
+  if (info?.lastMessageId && liveChannel?.isTextBased?.()) {
+    await liveChannel.messages.delete(info.lastMessageId).catch(() => { });
+  }
+  setCachedState(guildId, userId, {
+    hasLink: false,
+    lastAnnounced: info?.lastAnnounced || 0,
+    lastMessageId: null,
+    lastSeenOnlineAt: info?.lastSeenOnlineAt || 0,
+    inviteMissSince: null,
+    removalDueAt: null,
+  });
+  await clearPersistedStatus(guildId, userId);
+  return true;
+}
+
+function scheduleRemovalConfirm(member, channel, opts = {}) {
+  const guildId = member.guild.id;
+  const userId = member.id;
+  if (hasRemovalState(guildId, userId) && !opts.forceReschedule) return;
+
+  void (async () => {
+    const dueAt = await ensureRemovalDueAt(guildId, userId, opts.removalDueAt);
+    const waitMs = Math.max(0, dueAt - Date.now());
+
+    if (hasRemovalState(guildId, userId) && !opts.forceReschedule) return;
+
+    const run = async () => {
+      deleteRemovalState(guildId, userId);
+      const freshMember = await refreshMember(member.guild, userId);
+      if (!freshMember) return;
+      await executeFanRemoval(freshMember, channel);
+    };
+
+    // Scadenza già passata (flash online / restart): togli subito, non aspettarne altri 5.
+    if (waitMs <= 0) {
+      await run();
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      void run();
+    }, waitMs);
+    timeout.unref?.();
+    setRemovalState(guildId, userId, { timeout, dueAt });
+  })();
+}
+
 function getBootstrapKey(guildId, userId) {
   return makeStateKey(guildId, userId);
 }
@@ -232,6 +413,7 @@ function canManageRoles(member) {
 }
 
 async function addRoleIfPossible(member) {
+  if (!member || isBotMember(member)) return false;
   if (!ROLE_ID) return false;
   const me = member.guild.members.me;
   if (!me) {
@@ -270,6 +452,7 @@ async function addRoleIfPossible(member) {
 }
 
 async function addPerkRoleIfPossible(member) {
+  if (!member || isBotMember(member)) return false;
   if (!PERK_ROLE_ID) return false;
   const me = member.guild.members.me;
   if (!me) return false;
@@ -354,57 +537,23 @@ async function refreshMember(guild, userId) {
   return getGuildMemberCached(guild, userId);
 }
 
-function scheduleRemovalConfirm(member, channel) {
-  const guildId = member.guild.id;
-  const userId = member.id;
-  if (hasRemovalState(guildId, userId)) return;
-
-  const timeout = setTimeout(async () => {
-    deleteRemovalState(guildId, userId);
-    const freshMember = await refreshMember(member.guild, userId);
-    if (!freshMember) return;
-    const liveChannel = channel?.isTextBased?.() ? channel : await resolveSupportersChannel(member.guild);
-    const cached = getCachedState(guildId, userId);
-    const stillHasInvite = computeSupporterLinkState(cached || { hasLink: true }, freshMember.presence).newHas;
-    if (stillHasInvite) return;
-    await removeRoleIfPossible(freshMember);
-    try {
-      await freshMember.send(
-        "Hai rimosso il link dallo status: hai perso i tuoi perks. Per riaverli, rimetti il link nel tuo status.",
-      );
-    } catch (err) {
-      if (!isExpectedSupporterDmFailure(err)) {
-        global.logger?.warn?.("[presenceUpdate] dm send:", err?.message || err);
-      }
-    }
-    const info = getCachedState(guildId, userId);
-    if (info?.lastMessageId && liveChannel?.isTextBased?.()) {
-      await liveChannel.messages.delete(info.lastMessageId).catch(() => { });
-    }
-    setCachedState(guildId, userId, {
-      hasLink: false,
-      lastAnnounced: info?.lastAnnounced || 0,
-      lastMessageId: null,
-      lastSeenOnlineAt: info?.lastSeenOnlineAt || 0,
-      inviteMissSince: null,
-    });
-    await clearPersistedStatus(guildId, userId);
-  }, REMOVE_CONFIRM_MS);
-  timeout.unref?.();
-  setRemovalState(guildId, userId, { timeout });
-}
-
 async function persistStatus(guildId, userId, payload) {
   if (!isDbReady()) return;
+  const $set = {
+    "profile.supporterStatus.hasLink": Boolean(payload?.hasLink),
+    "profile.supporterStatus.lastMessageId": payload?.lastMessageId || null,
+  };
+  if (payload?.lastSentAt) $set["profile.supporterStatus.lastSentAt"] = payload.lastSentAt;
+  if (payload?.removalDueAt === null) {
+    $set["profile.supporterStatus.removalDueAt"] = null;
+  } else if (payload?.removalDueAt != null) {
+    $set["profile.supporterStatus.removalDueAt"] = new Date(payload.removalDueAt);
+  }
   const update = () => ActivityUserProfile.updateOne(
     { guildId, userId },
     {
       $setOnInsert: { guildId, userId },
-      $set: {
-        "profile.supporterStatus.hasLink": Boolean(payload?.hasLink),
-        "profile.supporterStatus.lastMessageId": payload?.lastMessageId || null,
-        ...(payload?.lastSentAt ? { "profile.supporterStatus.lastSentAt": payload.lastSentAt } : {}),
-      },
+      $set,
     },
     { upsert: true },
   );
@@ -433,7 +582,14 @@ async function clearPersistedStatus(guildId, userId) {
   if (!isDbReady()) return;
   const update = () => ActivityUserProfile.updateOne(
     { guildId, userId },
-    { $set: { "profile.supporterStatus.hasLink": false, "profile.supporterStatus.lastMessageId": null, "profile.supporterStatus.lastSentAt": null } },
+    {
+      $set: {
+        "profile.supporterStatus.hasLink": false,
+        "profile.supporterStatus.lastMessageId": null,
+        "profile.supporterStatus.lastSentAt": null,
+        "profile.supporterStatus.removalDueAt": null,
+      },
+    },
   );
   try {
     await update();
@@ -463,10 +619,13 @@ async function getPersistedStatus(guildId, userId) {
       .select("profile.supporterStatus")
       .lean();
     if (!doc?.profile?.supporterStatus) return null;
+    const dueRaw = doc.profile.supporterStatus.removalDueAt;
+    const dueMs = dueRaw ? new Date(dueRaw).getTime() : 0;
     return {
       hasLink: Boolean(doc.profile.supporterStatus.hasLink),
       lastMessageId: doc.profile.supporterStatus.lastMessageId || null,
       lastSentAt: doc.profile.supporterStatus.lastSentAt || null,
+      removalDueAt: Number.isFinite(dueMs) && dueMs > 0 ? dueMs : null,
     };
   } catch {
     return null;
@@ -490,7 +649,7 @@ function buildPendingEmbed(member) {
         "<a:VC_Infinity:1448687797266288832> - Permesso di allegare immagini e link in chat",
         "<a:VC_HeartWhite:1448673535253024860> - Permesso di cambiare nickname",
         "",
-        "<a:VC_Arrow:1482706699365257397> Metti `.gg/viniliecaffe` o `discord.gg/viniliecaffe` nel tuo status.",
+        `<a:VC_Arrow:1482706699365257397> Metti ${SUPPORTER_STATUS_LINK_HINT_IT} nel tuo status.`,
       ].join("\n"),
     )
     .setFooter({ text: "Grazie per il tuo supporto!" });
@@ -498,6 +657,7 @@ function buildPendingEmbed(member) {
 }
 
 async function scheduleSupporterRoleGrantWithoutChannelEmbed(member) {
+  if (!member || isBotMember(member)) return;
   const guildId = member.guild.id;
   const userId = member.id;
   if (hasPendingState(guildId, userId)) return;
@@ -542,6 +702,7 @@ async function scheduleSupporterRoleGrantWithoutChannelEmbed(member) {
 }
 
 async function startPendingFlow(member, channel) {
+  if (!member || isBotMember(member)) return;
   const guildId = member.guild.id;
   const userId = member.id;
   if (hasPendingState(guildId, userId)) return;
@@ -671,7 +832,7 @@ async function recoverSupporterStatusAnnouncesOnStartup(client, opts = {}) {
       continue;
     }
     const member = await getGuildMemberCached(guild, uid, { preferFresh: true }).catch(() => null);
-    if (!member || member.user?.bot) continue;
+    if (!member || isBotMember(member)) continue;
     if (isOfflinePresence(member.presence)) continue;
     if (!hasInvite(member.presence)) continue;
     if (hasPendingState(guild.id, uid)) continue;
@@ -714,6 +875,7 @@ async function bootstrapSupporter(client) {
         $or: [
           { "profile.supporterStatus.hasLink": true },
           { "profile.supporterStatus.lastMessageId": { $ne: null } },
+          { "profile.supporterStatus.removalDueAt": { $ne: null } },
         ],
       })
         .select("userId profile.supporterStatus")
@@ -727,21 +889,65 @@ async function bootstrapSupporter(client) {
     if (!doc?.userId) continue;
     const userId = String(doc.userId);
     bootstrappedUsers.add(getBootstrapKey(guildId, userId));
-    setCachedState(guildId, userId, { hasLink: Boolean(doc?.profile?.supporterStatus?.hasLink), lastAnnounced: doc?.profile?.supporterStatus?.lastSentAt ? new Date(doc.profile.supporterStatus.lastSentAt).getTime() : 0, lastMessageId: doc?.profile?.supporterStatus?.lastMessageId || null, lastSeenOnlineAt: 0 });
+    const dueRaw = doc?.profile?.supporterStatus?.removalDueAt;
+    const dueMs = dueRaw ? new Date(dueRaw).getTime() : 0;
+    setCachedState(guildId, userId, {
+      hasLink: Boolean(doc?.profile?.supporterStatus?.hasLink),
+      lastAnnounced: doc?.profile?.supporterStatus?.lastSentAt ? new Date(doc.profile.supporterStatus.lastSentAt).getTime() : 0,
+      lastMessageId: doc?.profile?.supporterStatus?.lastMessageId || null,
+      lastSeenOnlineAt: 0,
+      removalDueAt: Number.isFinite(dueMs) && dueMs > 0 ? dueMs : null,
+    });
   }
 
   await guild.members.fetch({ withPresences: true }).catch(() => null);
   for (const member of guild.members.cache.values()) {
-    if (member.user?.bot) continue;
-    const freshMember = await getGuildMemberCached(guild, member.id, { preferFresh: true }).catch(() => member);
-    if (!freshMember || freshMember.user?.bot) continue;
+    if (isBotMember(member)) continue;
+    // Dopo il bulk fetch con presenze, non rifare preferFresh per ogni membro:
+    // ~1.6k fetch sequenziali finiscono in ~8–9 minuti di rate-limit Discord.
+    const freshMember = member;
+    if (!freshMember || isBotMember(freshMember)) continue;
 
-    if (isOfflinePresence(freshMember.presence) || !hasInvite(freshMember.presence)) continue;
+    const online = !isOfflinePresence(freshMember.presence);
+    // Fan in DB: assumevano il link → presence incompleta ≠ tolto.
+    const inviteState = readInvitePresence(freshMember.presence, true);
+    const inviteOk = inviteState === true;
+    const inviteMissing = inviteState === false;
+    const hasFan = freshMember.roles.cache.has(ROLE_ID);
+    const existing = getCachedState(guildId, freshMember.id) || {};
+    const dueAt = Number(existing.removalDueAt || 0) || 0;
 
-    if (freshMember.roles.cache.has(ROLE_ID)) continue;
+    // Scadenza wall-clock già passata: togli solo se link assente in modo affidabile (o offline).
+    if (hasFan && dueAt > 0 && dueAt <= Date.now() && !(online && !inviteMissing)) {
+      await executeFanRemoval(freshMember, channel);
+      continue;
+    }
+
+    // Fan online senza link (certo): marca dueAt e schedula (persistente).
+    if (online && hasFan && inviteMissing) {
+      setCachedState(guildId, freshMember.id, {
+        hasLink: false,
+        lastAnnounced: existing.lastAnnounced || 0,
+        lastMessageId: existing.lastMessageId || null,
+        lastSeenOnlineAt: existing.lastSeenOnlineAt || Date.now(),
+        inviteMissSince: existing.inviteMissSince != null ? existing.inviteMissSince : Date.now(),
+        removalDueAt: existing.removalDueAt || null,
+      });
+      if (!hasPendingState(guildId, freshMember.id)) {
+        scheduleRemovalConfirm(freshMember, channel, { removalDueAt: existing.removalDueAt || null });
+      }
+      continue;
+    }
+
+    if (online && inviteOk) {
+      await clearRemovalDue(guildId, freshMember.id);
+    }
+
+    if (!online || !inviteOk) continue;
+
+    if (hasFan) continue;
     if (hasPendingState(guildId, freshMember.id)) continue;
 
-    const existing = getCachedState(guildId, freshMember.id);
     if (existing?.lastMessageId) continue;
 
     if (await shouldSendPublicMemberAnnouncement(freshMember)) {
@@ -750,6 +956,7 @@ async function bootstrapSupporter(client) {
       await scheduleSupporterRoleGrantWithoutChannelEmbed(freshMember);
     }
   }
+  startCleanupClock(client, guildId);
 }
 
 function startCleanupClock(client, guildId) {
@@ -760,6 +967,48 @@ function startCleanupClock(client, guildId) {
     const guild = client.guilds.cache.get(guildId);
     if (!guild) return;
     const channel = await resolveSupportersChannel(guild);
+
+    // Sweep ruolo Fan: chi ha il ruolo senza invite (o scadenza già passata).
+    if (ROLE_ID) {
+      for (const member of guild.members.cache.values()) {
+        if (isBotMember(member)) continue;
+        if (!member.roles?.cache?.has(ROLE_ID)) continue;
+        if (hasPendingState(guildId, member.id)) continue;
+
+        const online = !isOfflinePresence(member.presence);
+        // Chi ha già Fan: presence senza activities ≠ link tolto (cambio status Discord).
+        const inviteState = readInvitePresence(member.presence, true);
+        if (inviteState === true) {
+          await clearRemovalDue(guildId, member.id);
+          continue;
+        }
+        // Presence incompleta (es. cambio online→idle): non schedulare rimozione.
+        if (inviteState === null) continue;
+
+        const existing = getCachedState(guildId, member.id) || {};
+        const dueAt = Number(existing.removalDueAt || 0) || 0;
+
+        // Offline con due già scaduta: togli senza aspettarli online 5 min di fila.
+        if (!online && dueAt > 0 && dueAt <= Date.now()) {
+          await executeFanRemoval(member, channel);
+          continue;
+        }
+        if (!online) continue;
+
+        // Online senza link (certo): niente warmup — la due è wall-clock persistita.
+        setCachedState(guildId, member.id, {
+          hasLink: false,
+          lastAnnounced: existing.lastAnnounced || 0,
+          lastMessageId: existing.lastMessageId || null,
+          lastSeenOnlineAt: Date.now(),
+          inviteMissSince: existing.inviteMissSince != null ? existing.inviteMissSince : Date.now(),
+          removalDueAt: existing.removalDueAt || null,
+        });
+        await clearPending(guildId, member.id, channel);
+        scheduleRemovalConfirm(member, channel, { removalDueAt: existing.removalDueAt || null });
+      }
+    }
+
     for (const [stateKey, info] of statusCache.entries()) {
       if (!stateKey.startsWith(`${guildId}:`)) continue;
       const [, userId] = stateKey.split(":");
@@ -786,14 +1035,23 @@ function startCleanupClock(client, guildId) {
 }
 
 async function applyOnlineState(member, userId, prev, prevHas, presenceFresh) {
+  if (!member || isBotMember(member)) return;
   const guildId = member.guild.id;
   const presence = presenceFresh || member.presence;
   const effectivePrev = prev != null ? prev : { hasLink: Boolean(prevHas) };
-  const { newHas, inviteMissSince } = computeSupporterLinkState(effectivePrev, presence);
+  // Ruolo Fan già assegnato: tratta presence ambigua come “link ancora presente”.
+  const linkPrev = {
+    ...effectivePrev,
+    hasLink:
+      Boolean(effectivePrev?.hasLink) ||
+      Boolean(prevHas) ||
+      Boolean(member.roles?.cache?.has(ROLE_ID)),
+  };
+  const { newHas, inviteMissSince } = computeSupporterLinkState(linkPrev, presence);
   const lastSeenOnlineAt = Date.now();
 
   if (newHas) {
-    cancelScheduledRemoval(guildId, userId);
+    await clearRemovalDue(guildId, userId);
   }
 
   if (newHas && member.roles.cache.has(ROLE_ID)) {
@@ -847,6 +1105,22 @@ async function applyOnlineState(member, userId, prev, prevHas, presenceFresh) {
     return;
   }
 
+  // Fan già assegnato ma status senza link (cache/DB non marcati hasLink): togli comunque.
+  if (!newHas && (member.roles.cache.has(ROLE_ID) || (await hasFanRole(member)))) {
+    const channel = await resolveSupportersChannel(member.guild);
+    await clearPending(guildId, userId, channel);
+    setCachedState(guildId, userId, {
+      hasLink: false,
+      lastAnnounced: prev?.lastAnnounced || 0,
+      lastMessageId: prev?.lastMessageId || null,
+      lastSeenOnlineAt,
+      inviteMissSince: inviteMissSince != null ? inviteMissSince : Date.now(),
+    });
+    await persistStatus(guildId, userId, { hasLink: false, lastMessageId: prev?.lastMessageId || null });
+    scheduleRemovalConfirm(member, channel);
+    return;
+  }
+
   setCachedState(guildId, userId, { hasLink: newHas, lastAnnounced: prev?.lastAnnounced || 0, lastMessageId: prev?.lastMessageId || null, lastSeenOnlineAt, inviteMissSince: inviteMissSince != null ? inviteMissSince : null });
   await persistStatus(guildId, userId, { hasLink: newHas, lastMessageId: prev?.lastMessageId || null });
 }
@@ -856,7 +1130,7 @@ module.exports = {
   async execute(oldPresence, newPresence) {
     try {
       const member = newPresence?.member || oldPresence?.member;
-      if (!member || member.user?.bot) return;
+      if (!member || isBotMember(member)) return;
       if (MAIN_GUILD_ID && String(member.guild.id) !== MAIN_GUILD_ID) return;
 
       startCleanupClock(member.client, member.guild.id);
@@ -875,6 +1149,7 @@ module.exports = {
             lastMessageId: persisted.lastMessageId || null,
             lastSeenOnlineAt: 0,
             inviteMissSince: null,
+            removalDueAt: persisted.removalDueAt || null,
           };
           setCachedState(guildId, userId, prev);
         }
@@ -898,9 +1173,17 @@ module.exports = {
       }
 
       await applyOnlineState(member, userId, prev, prevHas, newPresence);
-      await syncPersistentAutoValutazioniForMember(member).catch((err) => {
-        global.logger?.warn?.("[presenceUpdate] staff auto valutazioni sync:", member.id, err?.message || err);
-      });
+      {
+        const nowHasVanity = resolveInviteState(newPresence, false);
+        const vanityJustAdded = !prevHas && nowHasVanity;
+        await syncPersistentAutoValutazioniForMember(member, {
+          allowCreate: vanityJustAdded,
+          createKeys: vanityJustAdded ? new Set(["supporto_vanity_supporter_clantag"]) : null,
+          allowRemove: false,
+        }).catch((err) => {
+          global.logger?.warn?.("[presenceUpdate] staff auto valutazioni sync:", member.id, err?.message || err);
+        });
+      }
     } catch (error) {
       global.logger?.error?.("[presenceUpdate] failed:", error);
     }

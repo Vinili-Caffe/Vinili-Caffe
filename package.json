@@ -14,6 +14,8 @@
     "start:official": "npm run start --workspace=Vinyls",
     "start:test": "npm run start --workspace=Coffee",
     "install:bots": "npm install --legacy-peer-deps --prefix Vinyls && npm install --legacy-peer-deps --prefix Coffee",
+    "i18n:site": "npm run i18n:sync --prefix WebSite",
+    "i18n:tenant": "node Vinyls/Utils/Partner/tenantPartnershipI18n/scripts/generate-tenant-i18n.cjs",
     "votes:backfill": "node scripts/backfill-votes-from-supporters.js",
     "dm:banned-unban": "node scripts/dm-banned-unban-link.js"
   },

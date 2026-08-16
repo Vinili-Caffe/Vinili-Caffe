@@ -31,8 +31,8 @@ function resolveCfg(client) {
   return {
     enabled: o.enabled !== false,
     onlyDuringHogwartsEvent: o.onlyDuringHogwartsEvent !== false,
-    spawnChancePercent: Math.min(100, Math.max(0, Number(o.spawnChancePercent) || 2.5)),
-    durationMs: safeInt(o.durationMs, 45 * 60 * 1000, 10 * 60 * 1000, 3 * 60 * 60 * 1000),
+    spawnChancePercent: Math.min(100, Math.max(0, Number.isFinite(Number(o.spawnChancePercent)) ? Number(o.spawnChancePercent) : 2)),
+    durationMs: safeInt(o.durationMs, 60 * 60 * 1000, 10 * 60 * 1000, 3 * 60 * 60 * 1000),
     minGapBetweenMs: safeInt(o.minGapBetweenMs, 2 * 60 * 60 * 1000, 0, 12 * 60 * 60 * 1000),
     rollJitterMaxMs: safeInt(o.rollJitterMaxMs, 90 * 60 * 1000, 0, 8 * 60 * 60 * 1000),
     avoidRepeatHouses: safeInt(o.avoidRepeatHouses, 2, 0, 3),
@@ -68,8 +68,11 @@ function readActive(client, nowMs = Date.now()) {
   const row = activeByClient.get(client);
   if (!row) return null;
   const endAtMs = Math.floor(Number(row.endAtMs) || 0);
-  if (!row.houseId || !endAtMs || nowMs >= endAtMs) return null;
-  return row;
+  if (!row.houseId || !endAtMs) return null;
+  // Ancora nella finestra, oppure scaduto ma end notice non ancora inviato (attesa minigame).
+  if (nowMs < endAtMs) return row;
+  if (!row.endSent) return row;
+  return null;
 }
 
 function buildStartEmbed(houseId, endAtMs, inHouseChannel = false) {
@@ -168,7 +171,7 @@ async function rollHouseBurrobirraForMinigameStart(client, channelId, houseId, g
   const cfg = resolveCfg(client);
   if (!passRollWindow(client, cfg, nowMs)) return false;
   if (Math.random() * 100 >= cfg.spawnChancePercent) return false;
-  const durationMs = Math.max(60_000, Math.floor(Number(cfg.durationMs) || 45 * 60 * 1000));
+  const durationMs = Math.max(60_000, Math.floor(Number(cfg.durationMs) || 60 * 60 * 1000));
   const endAtMs = nowMs + durationMs;
   lastStrikeAtByClient.set(client, nowMs);
   scheduleNextHouseBurrobirraRoll(client, cfg, nowMs);
@@ -181,12 +184,6 @@ function isHouseBurrobirraLiveForChannel(client, channelId, nowMs = Date.now()) 
   if (!eventGateOpen(client, nowMs)) return false;
   const chId = String(channelId || "").trim();
   if (!chId) return false;
-  try {
-    const { isMinigameChannelBusy } = require("./minigameService");
-    if (!isMinigameChannelBusy(chId)) return false;
-  } catch (_) {
-    return false;
-  }
   const active = readActive(client, nowMs);
   if (!active?.houseId) return false;
   const houseId = getHouseIdForChannel(chId);
@@ -205,6 +202,14 @@ async function runHouseBurrobirraTick(client) {
   const cfg = resolveCfg(client);
   const active = readActive(client, nowMs);
   if (active && nowMs >= active.endAtMs && !active.endSent) {
+    // Non chiudere a metà minigame di casata: aspetta che la sala comune sia libera.
+    try {
+      const { getActiveGameForChannel, isMinigameChannelBusy } = require("./minigameService");
+      const houseChannelId = resolveHouseChannelId(active.houseId);
+      if (houseChannelId && isMinigameChannelBusy(houseChannelId)) return;
+      // Anche se il busy flag non è allineato, evita di chiudere sopra un game attivo.
+      if (houseChannelId && getActiveGameForChannel(houseChannelId)) return;
+    } catch (_) {}
     await publishEndNotices(client, cfg, active.houseId);
     active.endSent = true;
     activeByClient.delete(client);

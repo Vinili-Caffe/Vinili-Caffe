@@ -54,11 +54,27 @@ const MentionReaction = {
       const gid = String(filter?.guildId || "");
       const uid = String(filter?.userId || "");
       const safeFilter = { guildId: gid, userId: uid };
+      // Never wipe reactions when caller omits `$set.reactions` (previous default `[]` erased data).
+      if (!Object.prototype.hasOwnProperty.call(setPayload, "reactions")) {
+        const existing = await ActivityUserProfile.findOne(safeFilter)
+          .select("guildId userId profile.mentionReaction.reactions")
+          .lean()
+          .catch(() => null);
+        if (!existing) return null;
+        return {
+          guildId: existing.guildId,
+          userId: existing.userId,
+          reactions: Array.isArray(existing?.profile?.mentionReaction?.reactions)
+            ? existing.profile.mentionReaction.reactions
+            : [],
+        };
+      }
+      const nextReactions = Array.isArray(setPayload.reactions) ? setPayload.reactions : [];
       const doc = await ActivityUserProfile.findOneAndUpdate(
         safeFilter,
         {
           $setOnInsert: { guildId: gid, userId: uid },
-          $set: { "profile.mentionReaction.reactions": Array.isArray(setPayload?.reactions) ? setPayload.reactions : [] },
+          $set: { "profile.mentionReaction.reactions": nextReactions },
         },
         { upsert: Boolean(options?.upsert), new: options?.new !== false, setDefaultsOnInsert: true },
       ).lean().catch((err) => {

@@ -9,13 +9,18 @@ function buildStatsLoadingEmbed(title, lookbackDays) {
     .setDescription(`<a:VC_pixeltime:1482535344103620771> Caricamento ultimi **${days}** giorni…`);
 }
 
-async function replyStatsLoadingThenEdit(message, { title, lookbackDays, buildPayload }) {
+async function replyStatsLoadingThenEdit(message, { title, lookbackDays, buildPayload, deliverPayload }) {
   const loadingMsg = await safeMessageReply(message, {
     embeds: [buildStatsLoadingEmbed(title, lookbackDays)],
     allowedMentions: { repliedUser: false },
   });
 
   const payload = await buildPayload();
+
+  if (typeof deliverPayload === "function") {
+    await deliverPayload(loadingMsg, payload, message);
+    return loadingMsg;
+  }
 
   if (loadingMsg?.edit) {
     await loadingMsg.edit({

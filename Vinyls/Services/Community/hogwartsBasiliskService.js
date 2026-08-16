@@ -909,14 +909,29 @@ function attachBasiliskToGame(game, plan) {
     blockedUserIds: (plan.blockedUserIds || []).slice(),
     struckHouseId: plan.announceHouseId || "",
     announceHouseId: plan.announceHouseId || "",
+    announceEndOnFinish: plan.announceEndOnFinish === true,
+    endedAnnounceHouseId: String(plan.endedAnnounceHouseId || plan.announceHouseId || "").trim(),
+    endedAnnounceScope: plan.endedAnnounceScope || plan.scope || SCOPE_GLOBAL,
   };
 }
 
-function isBasiliskBlockActiveForGame(game) {
-  if (!game?.basilisk) return false;
-  const endsAt = Number(game.endsAt || 0);
-  if (Number.isFinite(endsAt) && endsAt > 0) return Date.now() < endsAt;
+async function maybeAnnouncePersistentCurseEndAfterMinigame(client, game) {
+  const basilisk = game?.basilisk;
+  if (!basilisk?.announceEndOnFinish) return false;
+  if (basilisk._endAnnounced) return false;
+  basilisk._endAnnounced = true;
+  basilisk.announceEndOnFinish = false;
+  const houseId = String(basilisk.endedAnnounceHouseId || basilisk.announceHouseId || "").trim();
+  if (!houseId) return false;
+  const scope = basilisk.endedAnnounceScope || basilisk.scope || SCOPE_GLOBAL;
+  await announcePersistentCurseEnd(client, houseId, scope);
   return true;
+}
+
+function isBasiliskBlockActiveForGame(game) {
+  // Non legare a game.endsAt: a fine round (es. Torre) il riconteggio deve
+  // ancora escludere i pietrificati anche dopo lo scadere del timer.
+  return Boolean(game?.basilisk);
 }
 
 async function resolvePhoenixPetOwnerIds(guildId, userIds) {
@@ -1040,16 +1055,10 @@ async function attemptPhoenixBasiliskCure(client, cfg, plan) {
 async function isBasiliskBlockedForUser(client, guildId, userId, game) {
   const basilisk = game?.basilisk;
   if (!basilisk || !isBasiliskBlockActiveForGame(game)) return false;
-  if (basilisk.mode === "persistent_players") {
-    const scope = basilisk.scope || SCOPE_GLOBAL;
-    const houseId = normalizeHouseId(basilisk.announceHouseId || basilisk.struckHouseId);
-    const active = scope === SCOPE_HOUSE
-      ? readActivePersistentCurse(client, scope, houseId)
-      : readActivePersistentCurse(client, scope);
-    if (!active) return false;
-  }
   const uid = String(userId || "").trim();
   if (!uid) return false;
+  // Snapshot sul game = verità per questo round (anche se la maledizione persistente
+  // è già stata consumata/annunciata come terminata all'avvio).
   if (basilisk.mode === "whole_house") {
     const blockedHouseIds = Array.isArray(basilisk.blockedHouseIds) && basilisk.blockedHouseIds.length
       ? basilisk.blockedHouseIds
@@ -1097,11 +1106,14 @@ async function runMinigameStartWithBasilisk(client, cfg, gameType, startFn, opti
       const ended = planScope === SCOPE_HOUSE
         ? consumePersistentCurseRound(client, planScope, curseHouseId)
         : consumePersistentCurseRound(client, planScope);
+      // Anche l'ultimo round della maledizione deve bloccare i pietrificati.
+      // L'annuncio "terminata" va a FINE minigioco, non all'avvio (sennò sembra già liberi).
       if (ended) {
-        await announcePersistentCurseEnd(client, ended.announceHouseId, planScope);
-      } else if (game) {
-        attachBasiliskToGame(game, plan);
+        plan.announceEndOnFinish = true;
+        plan.endedAnnounceHouseId = ended.announceHouseId || plan.announceHouseId;
+        plan.endedAnnounceScope = planScope;
       }
+      if (game) attachBasiliskToGame(game, plan);
     } else if (game) {
       attachBasiliskToGame(game, plan);
     }
@@ -1109,4 +1121,4 @@ async function runMinigameStartWithBasilisk(client, cfg, gameType, startFn, opti
   return result;
 }
 
-module.exports = { attachBasiliskToGame, filterUserIdsInGuild, hydrateBasiliskScopeState, isBasiliskBlockedForUser, planBasiliskStrike, announceBasiliskStrike, runMinigameStartWithBasilisk, resolveHouseChannelId };
+module.exports = { attachBasiliskToGame, filterUserIdsInGuild, hydrateBasiliskScopeState, isBasiliskBlockedForUser, maybeAnnouncePersistentCurseEndAfterMinigame, planBasiliskStrike, announceBasiliskStrike, runMinigameStartWithBasilisk, resolveHouseChannelId };

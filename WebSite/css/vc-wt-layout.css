@@ -1,0 +1,139 @@
+/* Tickets layout — full-bleed, hero compatto, chat alta (anti-cache). */
+body.vc-web-tickets-page main.vc-reviews-page {
+  width: 100% !important;
+  max-width: none !important;
+  padding-left: clamp(0.65rem, 1.6vw, 1.35rem) !important;
+  padding-right: clamp(0.65rem, 1.6vw, 1.35rem) !important;
+  padding-top: 6.25rem !important;
+  padding-bottom: 1.15rem !important;
+}
+@media (min-width: 640px) {
+  body.vc-web-tickets-page main.vc-reviews-page {
+    padding-top: 6.75rem !important;
+  }
+}
+
+body.vc-web-tickets-page .vc-reviews-page-layout,
+body.vc-web-tickets-page .vc-reviews-page-main,
+body.vc-web-tickets-page .vc-wt-board {
+  width: 100% !important;
+  max-width: none !important;
+  margin-top: 0 !important;
+}
+
+/* Niente titolo "Assistenza / I tuoi ticket": più spazio alla board. */
+body.vc-web-tickets-page .vc-wt-board > .vc-reviews-section__head {
+  display: none !important;
+}
+
+/* Toggle I miei / Inbox sempre visibile in cima alla sidebar staff. */
+body.vc-web-tickets-page .vc-wt-sidebar__top--staff {
+  flex-wrap: wrap !important;
+  gap: 0.55rem 0.75rem !important;
+}
+body.vc-web-tickets-page .vc-wt-sidebar__actions {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 0.45rem !important;
+  margin-left: auto !important;
+  min-width: 0 !important;
+}
+body.vc-web-tickets-page .vc-wt-seg--header {
+  min-width: 9.5rem !important;
+  max-width: 12.5rem !important;
+  flex: 1 1 auto !important;
+}
+
+body.vc-web-tickets-page .vc-support-page-hero {
+  display: block !important;
+  width: 100% !important;
+  max-width: none !important;
+  /* Stessa scala delle card hero “grandi” (suggerimenti / support default). */
+  padding: 2.5rem 1.5rem !important;
+  margin-bottom: 2rem !important;
+  border-radius: 2rem !important;
+  overflow: hidden !important;
+}
+@media (min-width: 640px) {
+  body.vc-web-tickets-page .vc-support-page-hero {
+    padding: 3.5rem 2.5rem !important;
+    margin-bottom: 2.5rem !important;
+  }
+}
+body.vc-web-tickets-page .vc-support-page-hero .vc-support-page-hero__icon,
+body.vc-web-tickets-page .vc-support-page-hero .vc-wt-hero-icon {
+  width: 4rem !important;
+  height: 4rem !important;
+  font-size: 1.65rem !important;
+  margin-bottom: 1.25rem !important;
+}
+@media (min-width: 640px) {
+  body.vc-web-tickets-page .vc-support-page-hero .vc-support-page-hero__icon,
+  body.vc-web-tickets-page .vc-support-page-hero .vc-wt-hero-icon {
+    width: 4.25rem !important;
+    height: 4.25rem !important;
+    font-size: 1.85rem !important;
+  }
+}
+body.vc-web-tickets-page .vc-support-page-hero h1 {
+  font-size: clamp(2.25rem, 4.5vw, 3.75rem) !important;
+  margin-top: 1rem !important;
+  line-height: 1.05 !important;
+}
+body.vc-web-tickets-page .vc-support-page-hero p.max-w-2xl {
+  margin-top: 1.25rem !important;
+  font-size: clamp(1.05rem, 1.4vw, 1.25rem) !important;
+  line-height: 1.55 !important;
+}
+
+/* Hero: titolo a sinistra, Come funziona + Nota a destra (full width). */
+body.vc-web-tickets-page .vc-wt-hero-grid {
+  display: grid !important;
+  gap: 2.5rem !important;
+  align-items: center !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+@media (min-width: 64rem) {
+  body.vc-web-tickets-page .vc-wt-hero-grid {
+    grid-template-columns: minmax(0, 1.35fr) minmax(18rem, 22rem) !important;
+    gap: 2.5rem !important;
+  }
+}
+body.vc-web-tickets-page .vc-wt-hero-aside {
+  display: grid !important;
+  gap: 1rem !important;
+}
+
+/* Card laterali sempre arrotondate (Tailwind arbitrary rounded-[] a volte manca dal build). */
+body.vc-web-tickets-page .vc-wt-hero-card,
+body.vc-web-tickets-page .vc-wt-hero-aside > div {
+  border-radius: 1.6rem !important;
+  overflow: hidden !important;
+}
+
+body.vc-web-tickets-page .vc-wt-app {
+  margin-top: 0 !important;
+}
+
+.vc-wt-layout {
+  width: 100% !important;
+  height: max(46rem, calc(100dvh - 10.5rem)) !important;
+  max-height: max(46rem, calc(100dvh - 10.5rem)) !important;
+  min-height: 46rem !important;
+}
+@media (max-width: 900px) {
+  .vc-wt-layout {
+    height: auto !important;
+    max-height: none !important;
+    min-height: 0 !important;
+  }
+  .vc-wt-sidebar {
+    height: min(62dvh, 34rem) !important;
+    max-height: min(62dvh, 34rem) !important;
+    min-height: 24rem !important;
+  }
+  .vc-wt-main {
+    height: min(78vh, 760px) !important;
+    max-height: min(78vh, 760px) !important;
+  }
+}

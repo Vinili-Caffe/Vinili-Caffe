@@ -6,6 +6,16 @@ const { trackVoiceEngagement } = require("../Services/Community/dailyEngagementS
 const { handleSerataFilmVoiceState } = require("../Services/Staff/staffAutoValutazioniService");
 const { handleSerataFilmHouseAttendanceVoiceState } = require("../Services/Community/hogwartsSerataFilmHouseLeaderboardService");
 const IDs = require("../Utils/Config/ids");
+
+function isViniliFullFeatureGuild(guildId) {
+  try {
+    const { isViniliFullFeatureGuild: check } = require("../MultiGuild/core/guildFeatureScope");
+    return check(guildId);
+  } catch {
+    return true;
+  }
+}
+
 const AUDIT_FETCH_LIMIT = 20;
 const AUDIT_LOOKBACK_MS = 120 * 1000;
 
@@ -292,6 +302,9 @@ async function sendMemberVoiceFlagsUpdateLog(oldState, newState) {
 module.exports = {
   name: "voiceStateUpdate",
   async execute(oldState, newState, client) {
+    const guildId = String(newState?.guild?.id || oldState?.guild?.id || "").trim();
+    if (guildId && !isViniliFullFeatureGuild(guildId)) return;
+
     try {
       await sendMemberMoveLog(oldState, newState);
     } catch (error) {

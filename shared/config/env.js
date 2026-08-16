@@ -24,4 +24,53 @@ function ensureToken(token, botLabel = "Bot") {
   return token;
 }
 
-module.exports = { getToken, getMongoUrl, ensureToken };
+/** Client ID encoded in a Discord bot token (base64 of the part before the first `.`). */
+function clientIdFromBotToken(token) {
+  const raw = String(token || "").trim();
+  const head = raw.split(".")[0];
+  if (!head) return null;
+  try {
+    const pad = "=".repeat((4 - (head.length % 4)) % 4);
+    const decoded = Buffer.from(head + pad, "base64").toString("utf8").trim();
+    return /^\d{17,20}$/.test(decoded) ? decoded : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Abort boot if the resolved token is not the expected bot (e.g. Vinyls loading Coffee's token).
+ * `expectedClientId` / `forbiddenClientId` come from env when set.
+ */
+function assertBotTokenIdentity(token, {
+  botLabel = "Bot",
+  expectedClientId = null,
+  forbiddenClientId = null,
+} = {}) {
+  const got = clientIdFromBotToken(token);
+  const expected = String(expectedClientId || "").trim() || null;
+  const forbidden = String(forbiddenClientId || "").trim() || null;
+  const log = global.logger?.error?.bind(global.logger) || console.error;
+
+  if (forbidden && got && got === forbidden) {
+    log(
+      `[LOGIN] ${botLabel}: token resolves to forbidden clientId=${got} (likely swapped with the other bot). Refusing to start.`,
+    );
+    process.exit(1);
+  }
+  if (expected && got && got !== expected) {
+    log(
+      `[LOGIN] ${botLabel}: token clientId=${got} != expected ${expected}. Refusing to start.`,
+    );
+    process.exit(1);
+  }
+  return got;
+}
+
+module.exports = {
+  getToken,
+  getMongoUrl,
+  ensureToken,
+  clientIdFromBotToken,
+  assertBotTokenIdentity,
+};

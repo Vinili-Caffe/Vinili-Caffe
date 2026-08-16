@@ -170,6 +170,15 @@ async function applySponsorGuildAutoVerificato(member) {
 async function applyTenureForMember(member, record) {
   if (!member || !record) return;
   if (mongoose.connection?.readyState !== 1) return;
+  // Durante mute/timeout non assegnare NuovoUtente/Veterano/OG (rompe lo strip mute).
+  const mutedRoleId = String(IDs.roles?.Muted || "").trim();
+  if (mutedRoleId && member.roles?.cache?.has?.(mutedRoleId)) return;
+  const timeoutUntil =
+    Number(member?.communicationDisabledUntilTimestamp || 0) ||
+    (member?.communicationDisabledUntil
+      ? new Date(member.communicationDisabledUntil).getTime()
+      : 0);
+  if (Number.isFinite(timeoutUntil) && timeoutUntil > Date.now()) return;
   const guildId = String(member.guild?.id || "");
   const hasVerifiedRole = VERIFIED_ROLE_IDS.some((roleId) => member.roles.cache.has(roleId));
   const me = member.guild?.members?.me || (await member.guild?.members?.fetchMe?.().catch(() => null));
@@ -220,13 +229,13 @@ async function applyTenureForMember(member, record) {
   }
 
   if (now >= stage1At) {
-    if (!has2 || has1) {
+    if (!has2 || has1 || has3) {
       if (canManageRoles) {
-        await member.roles.remove([ROLE_STAGE_1].filter(Boolean)).catch(() => { });
+        await member.roles.remove([ROLE_STAGE_1, ROLE_STAGE_3].filter(Boolean)).catch(() => { });
         const refreshedMember = ROLE_STAGE_2
           ? (await addRolesAndGetMember(member.guild, member.id, [ROLE_STAGE_2])) || member
           : member;
-        if ((ROLE_STAGE_1 && refreshedMember.roles.cache.has(ROLE_STAGE_1)) || (ROLE_STAGE_2 && !refreshedMember.roles.cache.has(ROLE_STAGE_2))) return;
+        if ((ROLE_STAGE_1 && refreshedMember.roles.cache.has(ROLE_STAGE_1)) || (ROLE_STAGE_3 && refreshedMember.roles.cache.has(ROLE_STAGE_3)) || (ROLE_STAGE_2 && !refreshedMember.roles.cache.has(ROLE_STAGE_2))) return;
       }
     }
     if (stageValue !== 2) {
@@ -238,6 +247,11 @@ async function applyTenureForMember(member, record) {
     return;
   }
 
+  if (has2 || has3) {
+    if (canManageRoles) {
+      await member.roles.remove([ROLE_STAGE_2, ROLE_STAGE_3].filter(Boolean)).catch(() => { });
+    }
+  }
   if (!has1) {
     if (canManageRoles && ROLE_STAGE_1) {
       const refreshedMember = (await addRolesAndGetMember(member.guild, member.id, [ROLE_STAGE_1])) || member;
@@ -249,6 +263,12 @@ async function applyTenureForMember(member, record) {
         );
       }
     }
+  }
+  if (stageValue !== 1) {
+    await ActivityUserProfile.updateOne(
+      { guildId: record.guildId, userId: record.userId },
+      { $set: { "profile.verificationTenure.stage": 1 } },
+    );
   }
 }
 
@@ -330,6 +350,11 @@ async function backfillVerificationTenure(client) {
       await applyTenureForMember(member, record);
     }
   }
+}
+
+function isCategoryNumberingGuild(guildId) {
+  const mainId = String(MAIN_GUILD_ID || IDs.guilds?.main || "").trim();
+  return Boolean(mainId) && String(guildId || "").trim() === mainId;
 }
 
 function getCategorySettings(client) {
@@ -645,8 +670,49 @@ function isTicketsCategoryName(name) {
     .includes("tickets");
 }
 
+function stripCategoryIndexPrefix(name) {
+  return String(name || "").replace(INDEX_PREFIX_RE, "").replace(/^\s+/, "");
+}
+
+function ticketsCategoryCoreLabel(name) {
+  return String(name || "")
+    .replace(INDEX_PREFIX_RE, "")
+    .replace(/\s*[•·]\s*\d+\s*$/, "")
+    .replace(/[・·]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+/** Tickets usano schema proprio `⁰⁰・TICKETS・` — non vanno strippate né rinumerate. */
+function resolveRestoredTicketsCategoryName(name) {
+  const {
+    TICKETS_CATEGORY_NAME,
+    TICKETS_OVERFLOW_SEPARATOR,
+  } = require("../../Utils/Ticket/ticketCategoryUtils");
+  const raw = String(name || "");
+  if (!isTicketsCategoryName(raw)) return null;
+  if (ticketsCategoryCoreLabel(raw) !== "tickets") return null;
+
+  if (raw === TICKETS_CATEGORY_NAME) return null;
+  if (raw.startsWith(`${TICKETS_CATEGORY_NAME}${TICKETS_OVERFLOW_SEPARATOR}`)) return null;
+
+  const overflowTail = raw.match(/[•·]\s*(\d+)\s*$/);
+  const overflowIdx = overflowTail ? Number(overflowTail[1]) : NaN;
+  if (Number.isFinite(overflowIdx) && overflowIdx >= 2) {
+    return `${TICKETS_CATEGORY_NAME}${TICKETS_OVERFLOW_SEPARATOR}${overflowIdx}`;
+  }
+  return TICKETS_CATEGORY_NAME;
+}
+
+function shouldSkipCategoryNumbering(category) {
+  if (!category) return true;
+  // Solo tickets restano fuori (usano schema proprio ⁰⁰・TICKETS・).
+  if (isTicketsCategoryName(category.name)) return true;
+  return false;
+}
+
 async function renumberGuildCategoryNames(guild, options) {
-  const { isCustomPrivateCategory } = require("../../Utils/Community/customPrivateCategoryUtils");
   const categories = guild.channels.cache
     .filter((channel) => channel.type === ChannelType.GuildCategory)
     .sort((a, b) => a.rawPosition - b.rawPosition || a.id.localeCompare(b.id))
@@ -656,8 +722,14 @@ async function renumberGuildCategoryNames(guild, options) {
   for (let index = 0; index < categories.length; index += 1) {
     const category = categories[index];
     if (!category?.manageable) continue;
-    if (isTicketsCategoryName(category.name)) continue;
-    if (isCustomPrivateCategory(category)) continue;
+    if (shouldSkipCategoryNumbering(category)) {
+      // Non togliere ⁰⁰: al massimo ripristina il nome fancy se era stato corrotto.
+      const restored = resolveRestoredTicketsCategoryName(category.name);
+      if (restored && restored !== category.name) {
+        await renameChannelNameForNumbering(category, restored, "category");
+      }
+      continue;
+    }
 
     const nextNumber = toSuperscriptNumber(nonTicketIndex++, options.minDigits);
     const expectedName = replaceNumberPrefixOnly(category.name, nextNumber, options.separator,);
@@ -670,6 +742,8 @@ async function renumberGuildCategories(guild, options, client = null) {
   if (!guild) return { pending: 0 };
   const guildId = String(guild.id || "");
   if (!guildId) return { pending: 0 };
+  // Solo server principale Vinili: mai sui tenant / altri guild.
+  if (!isCategoryNumberingGuild(guildId)) return { pending: 0 };
   if (guildRenumberInflight.has(guildId)) {
     guildRenumberPending.add(guildId);
     return { pending: 0, skipped: true };
@@ -719,6 +793,7 @@ async function renumberGuildCategories(guild, options, client = null) {
 
 function queueCategoryRenumber(client, guildId, delayMs = null) {
   if (!client || !guildId) return;
+  if (!isCategoryNumberingGuild(guildId)) return;
   const options = getCategorySettings(client);
   if (!options.enabled) return;
 
@@ -753,28 +828,24 @@ async function runAllGuilds(client) {
   if (!client) return;
   const options = getCategorySettings(client);
   if (!options.enabled) return;
-  const mainGuildId = String(IDs.guilds?.main || "");
-  const guilds = [...client.guilds.cache.values()].sort((a, b) => {
-    const aMain = String(a.id) === mainGuildId ? 0 : 1;
-    const bMain = String(b.id) === mainGuildId ? 0 : 1;
-    return aMain - bMain;
-  });
-  for (const guild of guilds) {
-    await guild.channels.fetch().catch(() => { });
-    await resolveGuildMembersMe(guild).catch(() => null);
-    let result = { pending: 0 };
-    try {
-      result = await renumberGuildCategories(guild, options, client);
-    } catch (err) {
-      global.logger?.warn?.(
-        "[CATEGORY NUMBERING] guild renumber failed:",
-        guild.id,
-        err?.message || err,
-      );
-    }
-    if (Number(result?.pending || 0) > 0) {
-      queueCategoryRenumber(client, guild.id, Math.max(options.debounceMs, 15_000));
-    }
+  const mainGuildId = String(MAIN_GUILD_ID || IDs.guilds?.main || "").trim();
+  if (!mainGuildId) return;
+  const guild = await getClientGuildCached(client, mainGuildId);
+  if (!guild) return;
+  await guild.channels.fetch().catch(() => { });
+  await resolveGuildMembersMe(guild).catch(() => null);
+  let result = { pending: 0 };
+  try {
+    result = await renumberGuildCategories(guild, options, client);
+  } catch (err) {
+    global.logger?.warn?.(
+      "[CATEGORY NUMBERING] guild renumber failed:",
+      guild.id,
+      err?.message || err,
+    );
+  }
+  if (Number(result?.pending || 0) > 0) {
+    queueCategoryRenumber(client, guild.id, Math.max(options.debounceMs, 15_000));
   }
 }
 

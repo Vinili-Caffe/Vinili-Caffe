@@ -3,6 +3,26 @@ const path = require("path");
 const { readSnapshotWithMeta, writeSnapshotWithMeta } = require("../../../shared/recovery/snapshotStore");
 const { registerShutdownFlush, armShutdownCheckpoint } = require("../../../shared/recovery/shutdownCheckpoint");
 const { applyDefaultFooterToEmbeds } = require("../Embeds/defaultFooter");
+const {
+  applyTenantPayloadBranding,
+  stripTenantBrandingInternals,
+  shouldSkipPrefixDispatcherBranding,
+} = require("../../MultiGuild/utils/tenantEmbedBranding");
+
+function finalizePrefixOutgoingPayload(payload, guild) {
+  const withFooter = applyDefaultFooterToEmbeds(payload, guild);
+  if (!guild?.id || shouldSkipPrefixDispatcherBranding(withFooter)) {
+    return stripTenantBrandingInternals(withFooter);
+  }
+  return stripTenantBrandingInternals(
+    applyTenantPayloadBranding(withFooter, {
+      guildId: guild.id,
+      guild,
+      client: guild.client,
+      partnershipBranding: true,
+    }),
+  );
+}
 const { checkPrefixPermission, getPrefixRequiredRoles, buildGlobalPermissionDeniedEmbed, buildGlobalChannelDeniedEmbed, } = require("../Moderation/commandPermissions");
 const { getUserCommandCooldownSeconds, consumeUserCooldown, } = require("../Moderation/commandCooldown");
 const { buildCooldownErrorEmbed, buildBusyCommandErrorEmbed, buildMissingArgumentsErrorEmbed, buildInternalCommandErrorEmbed, } = require("../Moderation/commandErrorEmbeds");
@@ -14,12 +34,19 @@ const { showPrefixUsageGuide } = require("../Moderation/prefixUsageGuide");
 const IDs = require("../Config/ids");
 const { EPHEMERAL_TTL_SHORT_MS } = require("../Config/ephemeralMessageTtl");
 const PREFIX_COOLDOWN_BYPASS_ROLE_ID = IDs.roles.Staff;
-const PREFIX_PRECHECK_TIMEOUT_MS = 4000;
+const PREFIX_PRECHECK_TIMEOUT_MS = 12_000;
 const PREFIX_EXECUTION_TIMEOUT_MS = Math.max(15_000, Number(process.env.PREFIX_EXECUTION_TIMEOUT_MS || 120_000),);
 const PREFIX_QUEUE_SNAPSHOT_PATH = path.join(__dirname, "..", "..", "Data", "prefixQueueSnapshot.json");
 const PREFIX_QUEUE_MAX_ITEMS_PER_LOCK = 100;
 const PREFIX_QUEUE_MAX_AGE_MS = 20 * 60 * 1000;
-const REMOVED_PREFIX_COMMANDS = new Set(["colors", "staff", "ai"]);
+const REMOVED_PREFIX_COMMANDS = new Set([
+  "colors",
+  "staff",
+  "sezioneproibita",
+  "libriproibiti",
+  "forbiddenbooks",
+  "live",
+]);
 const FIRE_AND_FORGET_PREFIX_COMMANDS = new Set([]);
 
 function serializePrefixQueuePayload(row) {
@@ -80,6 +107,16 @@ function persistPrefixQueueSnapshotNow(client) {
   }
 }
 
+function resolvePrefixCommandByName(client, commandName) {
+  const cmdKey = String(commandName || "").trim().toLowerCase();
+  if (!cmdKey || !client?.pcommands) return null;
+  const direct = client.pcommands.get(cmdKey);
+  if (direct) return direct;
+  const aliasTarget = client.aliases?.get?.(cmdKey);
+  if (aliasTarget) return client.pcommands.get(aliasTarget) || null;
+  return null;
+}
+
 function ensurePrefixQueueLoaded(client) {
   if (!client || client._prefixQueueSnapshotLoaded) return;
   armShutdownCheckpoint();
@@ -135,7 +172,12 @@ function hasSendablePayload(data) {
 }
 
 async function sendTemporaryMessage(channel, payload, ttlMs) {
-  const sent = await channel.send(payload).catch(() => null);
+  const { coercePlainContentToNoticePayload } = require("../Embeds/simpleNoticeEmbed");
+  let out = coercePlainContentToNoticePayload(payload, channel?.guild) || payload;
+  if (channel?.guild) {
+    out = finalizePrefixOutgoingPayload(out, channel.guild) || out;
+  }
+  const sent = await channel.send(out).catch(() => null);
   if (sent) {
     const timer = setTimeout(() => sent.delete().catch(() => { }), ttlMs);
     timer.unref?.();
@@ -144,7 +186,12 @@ async function sendTemporaryMessage(channel, payload, ttlMs) {
 }
 
 async function sendTemporaryReply(message, payload, ttlMs) {
-  const sent = await message.reply(payload).catch(() => null);
+  const { coercePlainContentToNoticePayload } = require("../Embeds/simpleNoticeEmbed");
+  let out = coercePlainContentToNoticePayload(payload, message?.guild) || payload;
+  if (message?.guild) {
+    out = finalizePrefixOutgoingPayload(out, message.guild) || out;
+  }
+  const sent = await message.reply(out).catch(() => null);
   if (sent) {
     const timer = setTimeout(() => sent.delete().catch(() => { }), ttlMs);
     timer.unref?.();
@@ -184,13 +231,19 @@ async function removeLoadingReaction(message, resolvedClient) {
 async function resolveWithTimeout(task, fallbackValue, label, timeoutMs = PREFIX_PRECHECK_TIMEOUT_MS) {
   let timer = null;
   try {
-    return await Promise.race([
-      Promise.resolve().then(task),
+    const raced = await Promise.race([
+      Promise.resolve()
+        .then(task)
+        .then((value) => ({ timedOut: false, value })),
       new Promise((resolve) => {
-        timer = setTimeout(() => resolve(fallbackValue), timeoutMs);
+        timer = setTimeout(() => resolve({ timedOut: true, value: fallbackValue }), timeoutMs);
         timer.unref?.();
       }),
     ]);
+    if (raced?.timedOut) {
+      global.logger?.warn?.(`[PREFIX] ${label} timed out after ${timeoutMs}ms`);
+    }
+    return raced?.value;
   } catch (error) {
     global.logger?.warn?.(`[PREFIX] ${label} failed:`, error);
     return fallbackValue;
@@ -274,7 +327,7 @@ async function executePrefixCommandRuntime({
   const originalReply = execMessage.reply.bind(execMessage);
   const commandMessage = Object.create(execMessage);
   commandMessage.reply = (replyPayload) => {
-    const withFooter = applyDefaultFooterToEmbeds(replyPayload, execMessage.guild);
+    const withFooter = finalizePrefixOutgoingPayload(replyPayload, execMessage.guild);
     if (!hasSendablePayload(withFooter)) return Promise.resolve(null);
     return originalReply(withFooter).then((result) => {
       stopTyping();
@@ -290,7 +343,7 @@ async function executePrefixCommandRuntime({
 
   if (originalChannelSend) {
     commandChannel.send = (sendPayload) => {
-      const withFooter = applyDefaultFooterToEmbeds(sendPayload, execMessage.guild);
+      const withFooter = finalizePrefixOutgoingPayload(sendPayload, execMessage.guild);
       if (!hasSendablePayload(withFooter)) return Promise.resolve(null);
 
       const sendWithReferenceFallback = async (primaryPayload, fallbackPayload) => { try { return await originalChannelSend(primaryPayload); } catch (error) { const hasUnknownRef = error?.code === 50035 && Boolean(error?.rawError?.errors?.message_reference); if (!hasUnknownRef) throw error; return originalChannelSend(fallbackPayload); } };
@@ -366,7 +419,8 @@ async function executePrefixCommandRuntime({
 
   const cmdName = String(execCommand?.name || "").toLowerCase();
   const fireAndForget =
-    FIRE_AND_FORGET_PREFIX_COMMANDS.has(cmdName) || execCommand?.fireAndForget === true;
+    !execMessage?.__webTicketSync &&
+    (FIRE_AND_FORGET_PREFIX_COMMANDS.has(cmdName) || execCommand?.fireAndForget === true);
   if (fireAndForget) {
     void Promise.resolve(execCommand.execute(commandMessage, execArgs, resolvedClient)).catch((err) => {
       global.logger?.error?.(
@@ -396,6 +450,10 @@ async function executePrefixCommandRuntime({
         timer.unref?.();
       }),
     ]);
+    try {
+      const { maybeApplyTenantEphemeralCommandCleanup } = require("../Partner/tenantProfileEphemeral");
+      void maybeApplyTenantEphemeralCommandCleanup(execMessage, cmdName);
+    } catch (_) {}
   } catch (error) {
     global.logger?.error?.(
       `[PREFIX COMMAND ERROR] command=${String(execCommand?.name || "unknown")} guild=${String(execMessage?.guild?.id || "dm")} user=${String(execMessage?.author?.id || "unknown")}`,
@@ -412,47 +470,14 @@ async function executePrefixCommandRuntime({
       const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId("error_pending").setEmoji(`<:VC_InactiveStatus:1482526984234860574>`).setStyle(ButtonStyle.Primary), new ButtonBuilder().setCustomId("error_solved").setEmoji(`<:VC_OnlineStatus:1482527088912240650>`).setStyle(ButtonStyle.Success), new ButtonBuilder().setCustomId("error_unsolved").setEmoji(`<:VC_OfflineStatus:1482527117051957380>`).setStyle(ButtonStyle.Danger),);
       const sentError = await errorChannel.send({ embeds: [errorEmbed], components: [row] }).catch(() => null);
 
-      if (sentError) {
-        const collector = sentError.createMessageComponentCollector({ time: 1000 * 60 * 60 * 24, });
-        collector.on("collect", async (btn) => {
-          if (
-            !["error_pending", "error_solved", "error_unsolved"].includes(
-              btn.customId,
-            )
-          ) return;
-          if (!btn.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
-            await btn.reply({
-              content:
-                "<:vegax:1443934876440068179> Non hai i permessi per fare questo comando.",
-              flags: 1 << 6,
-            }).catch(() => null);
-            return;
-          }
+      // Error status buttons: Buttons/errorLogStatus.js
 
-          await btn.deferUpdate();
-          const embedData = errorEmbed.toJSON ? errorEmbed.toJSON() : errorEmbed.data;
-          const updatedEmbed = new EmbedBuilder(embedData);
-          let statusText = "";
-          if (btn.customId === "error_pending") {
-            updatedEmbed.setColor(0xf1c40f);
-            statusText = "In risoluzione";
-          }
-          if (btn.customId === "error_solved") {
-            updatedEmbed.setColor(0x2ecc71);
-            statusText = "Risolto";
-          }
-          if (btn.customId === "error_unsolved") {
-            updatedEmbed.setColor(0xe74c3c);
-            statusText = "Irrisolto";
-          }
-          if (statusText) updatedEmbed.setFooter({ text: `Stato: ${statusText}` });
-          await sentError.edit({ embeds: [updatedEmbed], components: [row] }).catch(() => null);
-        });
-      }
     }
 
     const feedback = buildInternalCommandErrorEmbed(error);
-    await execMessage.delete().catch(() => null);
+    if (!execCommand?.keepCommandMessage) {
+      await execMessage.delete().catch(() => null);
+    }
     return sendTemporaryReply(execMessage, { embeds: [feedback] }, EPHEMERAL_TTL_SHORT_MS);
   } finally {
     commandFinished = true;
@@ -469,13 +494,15 @@ async function drainPrefixQueue(lockId, resolvedClient) {
     const next = queue.shift();
     persistPrefixQueueSnapshotNow(resolvedClient);
     if (!next?.command && next?.commandName) {
-      const cmdKey = String(next.commandName || "").toLowerCase();
-      next.command =
-        resolvedClient.commands?.get?.(cmdKey) ||
-        [...(resolvedClient.commands?.values?.() || [])].find((entry) => String(entry?.name || "").toLowerCase() === cmdKey) ||
-        null;
+      next.command = resolvePrefixCommandByName(resolvedClient, next.commandName);
     }
-    if (!next?.command?.execute) continue;
+    if (!next?.command?.execute) {
+      global.logger?.warn?.(
+        "[PREFIX] drainPrefixQueue skip: comando non trovato",
+        String(next?.commandName || ""),
+      );
+      continue;
+    }
     const hydratedMessage = await resolveQueuedMessage(next);
     if (!hydratedMessage?.channel) continue;
     next.message = hydratedMessage;
@@ -562,10 +589,16 @@ async function handleOfficialPrefixMessage({ message, resolvedClient, defaultPre
   rewriteCustomPrefixAliases(message, resolvedClient, defaultPrefix);
   const isEditedPrefixExecution = Boolean(message?.__fromMessageUpdatePrefix);
   const startsWithDefault = message.content.startsWith(defaultPrefix);
-  const deleteCommandMessage = async () => { await message.delete().catch(() => { }); };
+  let resolvedCommandRef = overrideCommand || null;
+  const deleteCommandMessage = async () => {
+    if (resolvedCommandRef?.keepCommandMessage) return;
+    await message.delete().catch(() => {});
+  };
 
   if (!startsWithDefault) {
-    await maybeSendWrongPrefixHint(message, resolvedClient, defaultPrefix);
+    if (typeof maybeSendWrongPrefixHint === "function") {
+      await maybeSendWrongPrefixHint(message, resolvedClient, defaultPrefix);
+    }
     return;
   }
 
@@ -589,10 +622,38 @@ async function handleOfficialPrefixMessage({ message, resolvedClient, defaultPre
     return;
   }
 
-  const command = overrideCommand || resolvedClient.pcommands.get(cmd) || resolvedClient.pcommands.get(resolvedClient.aliases.get(cmd));
+  const command =
+    overrideCommand ||
+    resolvedClient?.pcommands?.get?.(cmd) ||
+    resolvedClient?.pcommands?.get?.(resolvedClient?.aliases?.get?.(cmd));
+  resolvedCommandRef = command;
   if (!command) {
-
+    if (resolvedClient.__prefixCommandsReady === false) {
+      await sendTemporaryMessage(
+        message.channel,
+        {
+          content:
+            "<:VC_Attention:1482534443632558151> Bot ancora in avvio dopo il riavvio: riprova tra qualche secondo.",
+        },
+        EPHEMERAL_TTL_SHORT_MS,
+      );
+    }
     return;
+  }
+
+  {
+    const {
+      partnershipPublishChannelCommandsDeniedReplyContent,
+      sendPartnersChatDeniedPrefixCleanup,
+    } = require("../Partner/partnersChatChannelUtils");
+    const deniedPublishChannel = partnershipPublishChannelCommandsDeniedReplyContent(message.channel, {
+      commandName: command?.name,
+    });
+    if (deniedPublishChannel) {
+      await deleteCommandMessage();
+      await sendPartnersChatDeniedPrefixCleanup(message, deniedPublishChannel);
+      return;
+    }
   }
 
   const isAntiNukeRecoveryCommand = ["antinuke", "security"].includes(String(command?.name || "").toLowerCase(),);
@@ -644,12 +705,25 @@ async function handleOfficialPrefixMessage({ message, resolvedClient, defaultPre
   const commandFolder = String(command.folder || "").toLowerCase();
   if (["staff", "admin"].includes(commandFolder)) {
     const { staffChatCommandsDeniedReplyContent } = require("../Staff/staffChatChannelUtils");
-    const { sendPartnersChatDeniedPrefixCleanup } = require("../Partner/partnersChatChannelUtils");
+    const { sendPartnersChatDeniedPrefixCleanup, partnersChatPartnerCommandDeniedReplyContent } = require("../Partner/partnersChatChannelUtils");
     const deniedStaffChat = await staffChatCommandsDeniedReplyContent(message.channel).catch(() => null);
     if (deniedStaffChat) {
       await deleteCommandMessage();
       await sendPartnersChatDeniedPrefixCleanup(message, deniedStaffChat);
       return;
+    }
+
+    const cmdName = String(command.name || cmd || "").toLowerCase();
+    if (cmdName !== "setup") {
+      const { resolveTenantPrefixFeatureCategory } = require("../../MultiGuild/core/openMediaCommands");
+      if (resolveTenantPrefixFeatureCategory(cmdName) === "partnership") {
+        const deniedPartnerZone = await partnersChatPartnerCommandDeniedReplyContent(message.channel).catch(() => null);
+        if (deniedPartnerZone) {
+          await deleteCommandMessage();
+          await sendPartnersChatDeniedPrefixCleanup(message, deniedPartnerZone);
+          return;
+        }
+      }
     }
   }
 
@@ -693,7 +767,7 @@ async function handleOfficialPrefixMessage({ message, resolvedClient, defaultPre
     () => checkPrefixPermission(message, command.name, prefixSubcommand, { returnDetails: true, }),
     {
       allowed: false,
-      reason: "missing_permission",
+      reason: "permission_precheck_timeout",
       requiredRoles: null,
       channels: null,
     },
@@ -701,12 +775,22 @@ async function handleOfficialPrefixMessage({ message, resolvedClient, defaultPre
   );
   if (!permissionResult?.allowed) {
     if (permissionResult?.reason === "multi_guild_tenant_only_media") {
+      return;
+    }
+    if (
+      permissionResult?.silent === true ||
+      permissionResult?.reason === "bot_usage_blacklisted_user" ||
+      permissionResult?.reason === "bot_usage_blacklisted_guild"
+    ) {
+      return;
+    }
+    if (permissionResult?.reason === "permission_precheck_timeout") {
       await deleteCommandMessage();
       await sendTemporaryMessage(
         message.channel,
         {
           content:
-            "<:VC_Lock:1482526739044368476> Comando non disponibile su questo server tenant. Usa `+help` per l'elenco dei comandi attivi.",
+            "<:VC_Attention:1482534443632558151> Verifica permessi in ritardo. Riprova tra un attimo.",
         },
         EPHEMERAL_TTL_SHORT_MS,
       );
@@ -714,26 +798,19 @@ async function handleOfficialPrefixMessage({ message, resolvedClient, defaultPre
     }
     if (permissionResult?.reason === "multi_guild_tenant_mod_permission") {
       await deleteCommandMessage();
+      const { buildSimpleNoticePayload } = require("../Embeds/simpleNoticeEmbed");
       await sendTemporaryMessage(
         message.channel,
-        {
-          content:
-            "<:VC_Lock:1482526739044368476> Ti servono i permessi Discord adatti (es. **Banna membri**, **Espelli**, **Modera membri**, **Gestisci messaggi** o **Amministratore**).",
-        },
+        buildSimpleNoticePayload(
+          "<:VC_Lock:1482526739044368476> Ti servono i permessi Discord adatti (es. **Banna membri**, **Espelli**, **Modera membri**, **Gestisci messaggi** o **Amministratore**).",
+          message.guild,
+          { title: "<:VC_Lock:1482526739044368476> **Non hai i permessi**" },
+        ),
         EPHEMERAL_TTL_SHORT_MS,
       );
       return;
     }
     if (String(permissionResult?.reason || "").startsWith("feature_disabled:")) {
-      await deleteCommandMessage();
-      await sendTemporaryMessage(
-        message.channel,
-        {
-          content:
-            "<:vegax:1443934876440068179> Questa funzione non è attiva su questo server tenant.",
-        },
-        EPHEMERAL_TTL_SHORT_MS,
-      );
       return;
     }
     if (
@@ -741,12 +818,34 @@ async function handleOfficialPrefixMessage({ message, resolvedClient, defaultPre
       Array.isArray(permissionResult.channels)
     ) {
       await deleteCommandMessage();
-      const embed = buildGlobalChannelDeniedEmbed(permissionResult.channels, "comando",);
+      const embed = buildGlobalChannelDeniedEmbed(permissionResult.channels, "comando", message.member);
       await sendTemporaryMessage(message.channel, { embeds: [embed] }, EPHEMERAL_TTL_SHORT_MS);
       return;
     }
-    const requiredRoles = getPrefixRequiredRoles(command.name, prefixSubcommand);
-    const embed = buildGlobalPermissionDeniedEmbed(requiredRoles);
+    if (
+      permissionResult?.reason === "tenant_command_channel" &&
+      Array.isArray(permissionResult.channels)
+    ) {
+      await deleteCommandMessage();
+      const embed = buildGlobalChannelDeniedEmbed(permissionResult.channels, "comando", message.member);
+      await sendTemporaryMessage(message.channel, { embeds: [embed] }, EPHEMERAL_TTL_SHORT_MS);
+      return;
+    }
+    const roleDenyReasons = new Set(["missing_role", "tenant_command_role"]);
+    const isRoleDeny = roleDenyReasons.has(String(permissionResult?.reason || ""));
+    const requiredRoles = isRoleDeny
+      ? Array.isArray(permissionResult?.requiredRoles)
+        ? permissionResult.requiredRoles
+        : getPrefixRequiredRoles(command.name, prefixSubcommand)
+      : null;
+    const embed = buildGlobalPermissionDeniedEmbed(
+      requiredRoles,
+      "comando",
+      isRoleDeny
+        ? null
+        : "<:VC_Lock:1482526739044368476> Non hai i permessi per usare questo comando.",
+      message.guild,
+    );
     await deleteCommandMessage();
     await sendTemporaryMessage(message.channel, { embeds: [embed] }, EPHEMERAL_TTL_SHORT_MS);
     return;
@@ -766,21 +865,27 @@ async function handleOfficialPrefixMessage({ message, resolvedClient, defaultPre
 
   let hasPrefixCooldownBypass = Boolean(
     message.member?.roles?.cache?.has(PREFIX_COOLDOWN_BYPASS_ROLE_ID) ||
-    hasAnyStaffBypassPermission(message.member?.permissions) ||
+    (typeof hasAnyStaffBypassPermission === "function" && hasAnyStaffBypassPermission(message.member?.permissions)) ||
     String(message.guild?.ownerId || "") === String(message.author?.id || ""),
   );
-  const needsFreshMemberForCooldownBypass = !hasPrefixCooldownBypass && (!message.member?.permissions || !message.member?.roles?.cache);
-  if (needsFreshMemberForCooldownBypass) {
-    const fetchedMember = await getCachedOrFetchMember(message.guild, message.author.id,);
+  let cooldownMember = message.member || null;
+  if (message.guild && !hasPrefixCooldownBypass && typeof getCachedOrFetchMember === "function") {
+    const fetchedMember = await getCachedOrFetchMember(message.guild, message.author.id);
+    if (fetchedMember) cooldownMember = fetchedMember;
     hasPrefixCooldownBypass = Boolean(
       fetchedMember?.roles?.cache?.has(PREFIX_COOLDOWN_BYPASS_ROLE_ID) ||
-      hasAnyStaffBypassPermission(fetchedMember?.permissions) ||
+      (typeof hasAnyStaffBypassPermission === "function" && hasAnyStaffBypassPermission(fetchedMember?.permissions)) ||
       String(message.guild?.ownerId || "") === String(message.author?.id || ""),
     );
   }
 
-  if (!hasPrefixCooldownBypass && !isEditedPrefixExecution && !command.skipCommandCooldown) {
-    const cooldownSeconds = await resolveWithTimeout(() => getUserCommandCooldownSeconds({ guildId: message.guild.id, userId: message.author.id, member: message.member, }), 0, `cooldown lookup for ${command.name}`,
+  if (
+    message.guild &&
+    !hasPrefixCooldownBypass &&
+    !isEditedPrefixExecution &&
+    !command.skipCommandCooldown
+  ) {
+    const cooldownSeconds = await resolveWithTimeout(() => getUserCommandCooldownSeconds({ guildId: message.guild.id, userId: message.author.id, member: cooldownMember, }), 30, `cooldown lookup for ${command.name}`,
     );
     const cooldownResult = consumeUserCooldown({ client: resolvedClient, guildId: message.guild.id, userId: message.author.id, cooldownSeconds, });
     if (!cooldownResult.ok) {
@@ -800,7 +905,7 @@ async function handleOfficialPrefixMessage({ message, resolvedClient, defaultPre
   }
 
   const userId = message.author.id;
-  const queueLockId = `${message.guild.id}:${userId}`;
+  const queueLockId = message.guild ? `${message.guild.id}:${userId}` : `dm:${userId}`;
   const sendBusyQueueNotice = async () => { const now = Date.now(); const lastNoticeAt = resolvedClient.prefixCommandBusyNoticeAt.get(queueLockId) || 0; if (now - lastNoticeAt < EPHEMERAL_TTL_SHORT_MS) return; resolvedClient.prefixCommandBusyNoticeAt.set(queueLockId, now); const embed = buildBusyCommandErrorEmbed(); await sendTemporaryMessage(message.channel, { embeds: [embed] }, EPHEMERAL_TTL_SHORT_MS); };
   const commandPayload = {
     message,
@@ -865,4 +970,4 @@ async function handleOfficialPrefixMessage({ message, resolvedClient, defaultPre
   }
 }
 
-module.exports = { handleOfficialPrefixMessage };
+module.exports = { handleOfficialPrefixMessage, ensurePrefixQueueLoaded };

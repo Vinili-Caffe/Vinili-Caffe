@@ -7,6 +7,7 @@ const { resolveModLogChannel, sendStaffActionToModLogs, sendModCommandUsageToMod
 const { sendDm } = require("../noDmList");
 const { userAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
 const { buildUnbanRequestRow } = require("./unbanRequestButton");
+const { buildUnmuteRequestRow } = require("./unmuteRequestButton");
 const { isViniliProtectedGuild } = require("../../MultiGuild/core/viniliProtectedGuilds");
 
 function embed(client, title, description, color = null) {
@@ -33,6 +34,31 @@ function successText(subject, verb, reason) {
   const left = `<:success:1461731530333229226> ***${safeSubject} ${safeVerb}.***`;
   if (!reason) return left;
   return `${left} • ${String(reason).trim()}`;
+}
+
+/** Nuova durata totale dal momento della case: il tempo già passato viene scontato. */
+function resolveCaseDurationChange(row, nextDurationMs) {
+  const now = Date.now();
+  const next = Math.max(0, Math.floor(Number(nextDurationMs) || 0));
+  let startedAt = row?.createdAt ? new Date(row.createdAt).getTime() : NaN;
+  if (!Number.isFinite(startedAt)) {
+    const prevExp = row?.expiresAt ? new Date(row.expiresAt).getTime() : NaN;
+    const prevDur = Number(row?.durationMs);
+    if (Number.isFinite(prevExp) && Number.isFinite(prevDur) && prevDur > 0) {
+      startedAt = prevExp - prevDur;
+    }
+  }
+  if (!Number.isFinite(startedAt) || startedAt <= 0) startedAt = now;
+  const elapsedMs = Math.max(0, now - startedAt);
+  const remainingMs = Math.max(0, next - elapsedMs);
+  const expiresAt = next > 0 ? new Date(startedAt + next) : null;
+  return {
+    durationMs: next > 0 ? next : null,
+    expiresAt,
+    remainingMs,
+    elapsedMs,
+    startedAt,
+  };
 }
 
 function formatTargetLabel(target) {
@@ -154,41 +180,55 @@ async function validateModerationTarget(message, member, actionLabel, targetUser
 
 async function successReply(message, subject, verb, reason = "") {
   const description = successText(subject, verb, String(reason || "").trim());
-  return message.channel
-    .send({
-      embeds: [
-        new EmbedBuilder()
-          .setColor("#57F287")
-          .setDescription(description),
-      ],
-    })
-    .catch(() => null);
+  const { PREFIX_DISPATCH_BRANDING_DONE_KEY } = require("../../MultiGuild/utils/tenantEmbedBranding");
+  const payload = {
+    embeds: [
+      new EmbedBuilder()
+        .setColor("#57F287")
+        .setDescription(description),
+    ],
+    // Conferme mod: solo testo + footer. Niente author/banner/thumbnail brand.
+    includeAuthor: false,
+    includeBanner: false,
+    includeThumbnail: false,
+    [PREFIX_DISPATCH_BRANDING_DONE_KEY]: true,
+  };
+  // Prefer reply so pending-prefix recovery can detect completion via message.reference.
+  // Interaction proxies (Sanziona modal) only expose channel.send.
+  if (typeof message?.reply === "function") {
+    const replied = await message.reply(payload).catch(() => null);
+    if (replied) return replied;
+  }
+  return message?.channel?.send?.(payload)?.catch?.(() => null) ?? null;
 }
 
 async function sendModerationDm({ user, guildId, guildName, action, reason = "", durationText = "" }) {
   if (!user) return false;
   const safeReason = String(reason || "").trim();
   const safeDuration = String(durationText || "").trim();
+  // Il nome server può contenere `|` (es. "Hogwarts | Nitro"): sostituiscilo così
+  // l'unico `|` nel DM resta il separatore del motivo, come nei mute.
+  const safeGuildName = String(guildName || "").replace(/\|/g, "•").trim() || "questo server";
   const actionKey = String(action || "").toLowerCase();
-  const withReason = safeReason ? ` | ${safeReason}` : "";
+  const withReason = safeReason ? ` | **${safeReason}**` : "";
   let baseText = "";
   if (actionKey === "warn") {
-    baseText = `<a:VC_Alert:1482706673176150077> Sei stato warnato in ${guildName}.${withReason}`;
+    baseText = `<a:VC_Alert:1482706673176150077> Sei stato warnato in ${safeGuildName}.${withReason}`;
   } else if (actionKey === "ban") {
-    baseText = `<a:VC_Alert:1482706673176150077> Sei stato bannato da ${guildName}.${withReason}`;
+    baseText = `<a:VC_Alert:1482706673176150077> Sei stato bannato da ${safeGuildName}.${withReason}`;
   } else if (actionKey === "kick") {
-    baseText = `<a:VC_Alert:1482706673176150077> Sei stato kickato da ${guildName}.${withReason}`;
+    baseText = `<a:VC_Alert:1482706673176150077> Sei stato kickato da ${safeGuildName}.${withReason}`;
   } else if (actionKey === "mute") {
     const durationPart = safeDuration ? ` per ${safeDuration}` : "";
-    baseText = `<a:VC_Alert:1482706673176150077> Sei stato mutato in ${guildName}${durationPart}.${withReason}`;
+    baseText = `<a:VC_Alert:1482706673176150077> Sei stato mutato in ${safeGuildName}${durationPart}.${withReason}`;
   } else if (actionKey === "unban") {
-    baseText = `<a:VC_Alert:1482706673176150077> Il tuo ban in ${guildName} è stato revocato.${withReason}`;
+    baseText = `<a:VC_Alert:1482706673176150077> Il tuo ban in ${safeGuildName} è stato revocato.${withReason}`;
   } else if (actionKey === "unmute") {
-    baseText = `<a:VC_Alert:1482706673176150077> Il tuo mute in ${guildName} è stato revocato.${withReason}`;
+    baseText = `<a:VC_Alert:1482706673176150077> Il tuo mute in ${safeGuildName} è stato revocato.${withReason}`;
   } else if (actionKey === "delwarn") {
-    baseText = `<a:VC_Alert:1482706673176150077> Un warn ti è stato rimosso in ${guildName}.${withReason}`;
+    baseText = `<a:VC_Alert:1482706673176150077> Un warn ti è stato rimosso in ${safeGuildName}.${withReason}`;
   } else if (actionKey === "clearwarn") {
-    baseText = `<a:VC_Alert:1482706673176150077> Tutti i tuoi warn sono stati rimossi in ${guildName}.${withReason}`;
+    baseText = `<a:VC_Alert:1482706673176150077> Tutti i tuoi warn sono stati rimossi in ${safeGuildName}.${withReason}`;
   } else {
     return false;
   }
@@ -198,6 +238,8 @@ async function sendModerationDm({ user, guildId, guildName, action, reason = "",
   const viniliGuild = isViniliProtectedGuild(guildId);
   if (actionKey === "ban" && viniliGuild) {
     components = [buildUnbanRequestRow()];
+  } else if (actionKey === "mute" && viniliGuild) {
+    components = [buildUnmuteRequestRow()];
   } else if (actionKey === "unban" && viniliGuild) {
     const rawInvite = String(IDs?.links?.invite || "").trim();
     const inviteUrl = /^https?:\/\//i.test(rawInvite) ? rawInvite : rawInvite ? `https://${rawInvite.replace(/^\/+/, "")}` : "";
@@ -266,7 +308,7 @@ function formatRemainingWords(ms) {
   const minutes = Math.floor((total % 3600) / 60);
   const seconds = total % 60;
   const parts = [];
-  if (days > 0) parts.push(`${days} giorno${days === 1 ? "" : "i"}`);
+  if (days > 0) parts.push(days === 1 ? "1 giorno" : `${days} giorni`);
   if (hours > 0) parts.push(hours === 1 ? "1 ora" : `${hours} ore`);
   if (minutes > 0) parts.push(minutes === 1 ? "1 minuto" : `${minutes} minuti`);
   if (seconds > 0 || !parts.length) parts.push(seconds === 1 ? "1 secondo" : `${seconds} secondi`);
@@ -281,7 +323,7 @@ function formatDurationWords(ms) {
   const minutes = Math.floor((total % 3600) / 60);
   const seconds = total % 60;
   const parts = [];
-  if (days > 0) parts.push(`${days} giorno${days === 1 ? "" : "i"}`);
+  if (days > 0) parts.push(days === 1 ? "1 giorno" : `${days} giorni`);
   if (hours > 0) parts.push(hours === 1 ? "1 ora" : `${hours} ore`);
   if (minutes > 0) parts.push(minutes === 1 ? "1 minuto" : `${minutes} minuti`);
   if (seconds > 0 && !parts.length) parts.push(seconds === 1 ? "1 secondo" : `${seconds} secondi`);
@@ -414,12 +456,24 @@ async function updateCaseFromEditedModerationCommand(commandName, message, args)
     const prevDuration = row.durationMs == null ? null : Number(row.durationMs);
     const nextDuration = payload.durationMs == null ? null : Number(payload.durationMs);
     if ((prevDuration || null) !== (nextDuration || null)) {
-      const expiresAt = nextDuration ? new Date(Date.now() + nextDuration) : null;
-      await appendCaseEditStore(refGuildId, refUserId, caseId, "durationMs", prevDuration == null ? "" : prevDuration, nextDuration == null ? "" : nextDuration, editedBy);
-      await setCaseDurationStore(refGuildId, refUserId, caseId, nextDuration, expiresAt);
-      appendCaseEdit(row, "durationMs", prevDuration == null ? "" : prevDuration, nextDuration == null ? "" : nextDuration, editedBy);
-      row.durationMs = nextDuration;
-      row.expiresAt = expiresAt;
+      const changed = nextDuration
+        ? resolveCaseDurationChange(row, nextDuration)
+        : { durationMs: null, expiresAt: null, remainingMs: 0 };
+      await appendCaseEditStore(refGuildId, refUserId, caseId, "durationMs", prevDuration == null ? "" : prevDuration, changed.durationMs == null ? "" : changed.durationMs, editedBy);
+      await setCaseDurationStore(refGuildId, refUserId, caseId, changed.durationMs, changed.expiresAt);
+      appendCaseEdit(row, "durationMs", prevDuration == null ? "" : prevDuration, changed.durationMs == null ? "" : changed.durationMs, editedBy);
+      row.durationMs = changed.durationMs;
+      row.expiresAt = changed.expiresAt;
+      if (action === "MUTE") {
+        const member = await message.guild.members.fetch(String(row.userId || "")).catch(() => null);
+        if (member) {
+          if (changed.remainingMs > 0) {
+            await member.timeout(changed.remainingMs, `Caso #${caseId} aggiornato`).catch(() => null);
+          } else {
+            await member.timeout(null, `Caso #${caseId}: durata scaduta dopo aggiornamento`).catch(() => null);
+          }
+        }
+      }
     }
   }
 
@@ -555,8 +609,22 @@ async function runNamed(name, message, args, client) {
     if (!reason || !reason.trim()) {
       return reply(message, client, "Mute", "Il motivo è obbligatorio per il mute. Uso: `+mute [utente] [durata] [motivo]`", "Red");
     }
+    // Snapshot PRIMA del timeout: dopo timeout/strip i ruoli non sono più recuperabili.
+    try {
+      const { captureMuteRoleSnapshot } = require("../../Services/Moderation/mutedMirrorRoleService");
+      await captureMuteRoleSnapshot(member, { reason: "Timeout Discord / +mute (pre-timeout)" });
+    } catch (err) {
+      global.logger?.warn?.("[mute] pre-timeout snapshot:", err?.message || err);
+    }
     const ok = await member.timeout(duration, reason).then(() => true).catch(() => false);
     if (!ok) return reply(message, client, "Mute", "Operazione fallita.", "Red");
+    try {
+      const { applyActiveMuteMirror } = require("../../Services/Moderation/mutedMirrorRoleService");
+      const fresh = (await message.guild.members.fetch(userId).catch(() => null)) || member;
+      await applyActiveMuteMirror(fresh, { reason: "Timeout Discord / +mute" });
+    } catch (err) {
+      global.logger?.warn?.("[mute] active mirror after timeout:", err?.message || err);
+    }
     await sendModerationDm({
       user,
       guildId: message.guild.id,
@@ -577,6 +645,17 @@ async function runNamed(name, message, args, client) {
     const reason = reasonFrom(args, 1);
     const ok = await member.timeout(null, reason).then(() => true).catch(() => false);
     if (!ok) return reply(message, client, "Unmute", "Operazione fallita.", "Red");
+    try {
+      const { restoreRolesAfterCommunicationTimeoutEnd } = require("../../Services/Moderation/mutedMirrorRoleService");
+      const fresh = (await message.guild.members.fetch(userId).catch(() => null)) || member;
+      await restoreRolesAfterCommunicationTimeoutEnd(fresh, {
+        reason: `Unmute manuale da ${message.author.id}`,
+        wasUnmuteFlow: true,
+        client: message.client,
+      });
+    } catch (err) {
+      global.logger?.warn?.("[unmute] role restore after timeout:", err?.message || err);
+    }
     await sendModerationDm({
       user,
       guildId: message.guild.id,
@@ -908,32 +987,64 @@ async function runNamed(name, message, args, client) {
         })
         .catch(() => null);
     }
-    const expiresAt = new Date(Date.now() + duration);
-    await appendCaseEditStore(refGuildId, refUserId, caseId, "durationMs", row.durationMs == null ? "" : row.durationMs, duration, message.author.id);
-    await setCaseDurationStore(refGuildId, refUserId, caseId, duration, expiresAt);
-    appendCaseEdit(row, "durationMs", row.durationMs == null ? "" : row.durationMs, duration, message.author.id);
-    row.durationMs = duration;
-    row.expiresAt = expiresAt;
-    row.active = true;
+    const changed = resolveCaseDurationChange(row, duration);
+    await appendCaseEditStore(refGuildId, refUserId, caseId, "durationMs", row.durationMs == null ? "" : row.durationMs, changed.durationMs, message.author.id);
+    await setCaseDurationStore(refGuildId, refUserId, caseId, changed.durationMs, changed.expiresAt);
+    appendCaseEdit(row, "durationMs", row.durationMs == null ? "" : row.durationMs, changed.durationMs, message.author.id);
+    row.durationMs = changed.durationMs;
+    row.expiresAt = changed.expiresAt;
+    row.active = changed.remainingMs > 0;
     await sendStaffActionToModLogs(message.guild, row, {
       actionLabel: "Durata Aggiornata",
       moderatorId: message.author.id,
-      extraFields: [{ name: "Nuova durata", value: formatDuration(row.durationMs), inline: true }],
+      extraFields: [
+        { name: "Nuova durata", value: formatDuration(row.durationMs), inline: true },
+        { name: "Rimanente", value: formatDuration(changed.remainingMs), inline: true },
+      ],
     }).catch(() => null);
     if (String(row.action || "").toUpperCase() === "MUTE") {
       const member = await message.guild.members.fetch(String(row.userId || "")).catch(() => null);
       if (member) {
-        await member.timeout(duration, `Caso #${caseId} aggiornato`).catch(() => null);
+        if (changed.remainingMs > 0) {
+          await member.timeout(changed.remainingMs, `Caso #${caseId} aggiornato`).catch(() => null);
+        } else {
+          await member.timeout(null, `Caso #${caseId}: durata scaduta dopo aggiornamento`).catch(() => null);
+        }
       }
     }
-    return successReply(message, `case #${caseId}`, "durata aggiornata");
+    if (changed.remainingMs <= 0) {
+      row.guildId = row.guildId || refGuildId;
+      row.userId = row.userId || refUserId;
+      await closeCasePersist(row, "Durata aggiornata: tempo già scaduto").catch(() => null);
+      return successReply(message, `case #${caseId}`, "durata aggiornata (già scaduta: sanzione rimossa)");
+    }
+    return successReply(message, `case #${caseId}`, `durata aggiornata (rimangono ${formatDuration(changed.remainingMs)})`);
   }
 
   if (cmd === "modlogs" || cmd === "moderations") {
     const target = await pickUser(message, args, 0);
     if (cmd === "moderations") {
       const limit = target.userId ? 10 : 25;
-      const rows = await findActiveModerations(message.guild.id, target.userId || null, limit);
+      // Fetch extra: i mute di chi ha lasciato il server restano in DB ma non si mostrano.
+      const candidates = await findActiveModerations(message.guild.id, target.userId || null, Math.max(limit * 4, 50));
+      const rows = [];
+      for (const row of candidates) {
+        if (rows.length >= limit) break;
+        const action = String(row.action || "").toUpperCase();
+        if (action === "BAN") {
+          rows.push(row);
+          continue;
+        }
+        if (action !== "MUTE") continue;
+        const uid = String(row.userId || "").trim();
+        if (!uid) continue;
+        const inGuild = Boolean(
+          message.guild.members.cache.get(uid) ||
+          (await message.guild.members.fetch(uid).catch(() => null)),
+        );
+        if (!inGuild) continue;
+        rows.push(row);
+      }
       if (!rows.length) {
         const msg = target.userId ? "<:cancel:1461730653677551691> Non ci sono mute/ban attivi per questo utente." : "<:cancel:1461730653677551691> Non ci sono mute/ban attive al momento.";
         return message.channel
@@ -966,7 +1077,7 @@ async function runNamed(name, message, args, client) {
       const title = singleUserId ? `Moderazioni attive per ${singleUsername || singleUserId}`
         : "Moderazioni attive";
       const activeEmbed = new EmbedBuilder().setColor("#3498DB").setTitle(title).setDescription(lines.join("\n\n")).setFooter({
-        text: rows.length === 1 ? "1 moderazione attiva" : `${rows.length}moderazioni attive`,
+        text: rows.length === 1 ? "1 moderazione attiva" : `${rows.length} moderazioni attive`,
       });
       return message.channel.send({ embeds: [activeEmbed] }).catch(() => null);
     }

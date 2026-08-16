@@ -3,7 +3,8 @@ const { ButtonBuilder, ActionRowBuilder, ButtonStyle } = require("discord.js");
 const { saveTranscriptHtml } = require("./transcriptUtils");
 
 const TRANSCRIPT_VIEW_TOKEN_BYTES = 32;
-const TRANSCRIPT_INLINE_MAX_CHARS = 1_200_000;
+/** Solo fallback se il file non si salva: mai in Mongo se esiste path (bucket 16MB). */
+const TRANSCRIPT_INLINE_MAX_CHARS = 48_000;
 const TRANSCRIPT_VIEW_TTL_MS = 90 * 24 * 60 * 60 * 1000;
 
 function generateTranscriptViewToken() {
@@ -24,6 +25,15 @@ function resolveTranscriptPublicBaseUrl() {
 }
 
 function buildTicketTranscriptViewUrl(viewToken) {
+  const base = resolveTranscriptPublicBaseUrl();
+  const tok = String(viewToken || "").trim().toLowerCase();
+  if (!base || !/^[a-f0-9]{64}$/.test(tok)) return "";
+  // Vista dashboard (login Discord + ACL autore/staff), non il file grezzo.
+  return `${base}/dashboard/transcript/?t=${encodeURIComponent(tok)}`;
+}
+
+/** Endpoint API HTML (Bearer) usato dalla pagina dashboard/transcript. */
+function buildTicketTranscriptApiUrl(viewToken) {
   const base = resolveTranscriptPublicBaseUrl();
   const tok = String(viewToken || "").trim().toLowerCase();
   if (!base || !/^[a-f0-9]{64}$/.test(tok)) return "";
@@ -48,8 +58,9 @@ async function prepareTicketTranscriptSecureFields(channel, html) {
     };
   }
   const transcriptHtmlPath = await saveTranscriptHtml(channel, trimmed).catch(() => null);
-  const transcriptHtmlInline = trimmed.length <= TRANSCRIPT_INLINE_MAX_CHARS ? trimmed : null;
-  if (!transcriptHtmlPath && !transcriptHtmlInline) {
+  // Mai inline nel bucket Mongo (16MB): solo file su disco.
+  const transcriptHtmlInline = null;
+  if (!transcriptHtmlPath) {
     return {
       transcriptHtmlPath: null,
       transcriptViewToken: null,
@@ -102,6 +113,7 @@ module.exports = {
   normalizeTranscriptViewTokenParam,
   resolveTranscriptPublicBaseUrl,
   buildTicketTranscriptViewUrl,
+  buildTicketTranscriptApiUrl,
   transcriptViewExpired,
   prepareTicketTranscriptSecureFields,
   buildTicketTranscriptActionRow,

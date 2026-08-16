@@ -1,6 +1,7 @@
 const canvasModule = require("canvas");
 const { formatGaleoni } = require("../../Services/Community/gringottService");
 const { registerCanvasFonts } = require("./canvasFonts");
+const { normalizeTextForCanvas, sanitizeCanvasDisplayName } = require("./canvasUtils");
 const { createCanvas } = canvasModule;
 const ACCENT = "#fbbf24";
 const ACCENT_GLOW = "rgba(251,191,36,0.4)";
@@ -55,12 +56,12 @@ function drawPlainText(ctx, text, x, y, opts = {}) {
   ctx.fillStyle = opts.color || "#ffffff";
   ctx.textAlign = opts.align || "center";
   ctx.textBaseline = opts.baseline || "middle";
-  ctx.fillText(String(text ?? ""), x, y);
+  ctx.fillText(normalizeTextForCanvas(String(text ?? "")), x, y);
   ctx.restore();
 }
 
 function fitPlainText(ctx, text, maxW, size, weight = "700") {
-  const s = String(text ?? "");
+  const s = normalizeTextForCanvas(String(text ?? ""));
   if (measurePlain(ctx, s, size, weight) <= maxW) return s;
   let cut = s;
   while (cut.length > 2 && measurePlain(ctx, `${cut}…`, size, weight) > maxW) cut = cut.slice(0, -1);
@@ -160,8 +161,8 @@ async function renderPayCanvas(params = {}) {
     width,
     height,
     amount: Math.max(0, Math.floor(Number(params.amount) || 0)),
-    senderName: String(params.senderName || "Mittente").trim() || "Mittente",
-    recipientName: String(params.recipientName || "Destinatario").trim() || "Destinatario",
+    senderName: sanitizeCanvasDisplayName(params.senderName || "Mittente", 20, "Mittente"),
+    recipientName: sanitizeCanvasDisplayName(params.recipientName || "Destinatario", 20, "Destinatario"),
     senderBalance: Math.max(0, Math.floor(Number(params.senderBalance) || 0)),
     recipientBalance: Math.max(0, Math.floor(Number(params.recipientBalance) || 0)),
   });

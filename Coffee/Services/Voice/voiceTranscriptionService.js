@@ -100,13 +100,32 @@ function looksLikeVoiceMessage(message) {
 async function downloadAttachmentToTemp(attachment) {
   const ext = path.extname(String(attachment.name || "")) || ".ogg";
   const tmpPath = path.join(os.tmpdir(), `vc-voice-${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`);
-  const res = await axios.get(attachment.url, {
-    responseType: "arraybuffer",
-    timeout: 60000,
-    maxContentLength: 25 * 1024 * 1024,
-  });
-  fs.writeFileSync(tmpPath, Buffer.from(res.data));
-  return tmpPath;
+  try {
+    const res = await axios.get(attachment.url, {
+      responseType: "arraybuffer",
+      timeout: 60000,
+      maxContentLength: 25 * 1024 * 1024,
+    });
+    fs.writeFileSync(tmpPath, Buffer.from(res.data));
+    return tmpPath;
+  } catch (err) {
+    const status = Number(err?.response?.status || 0);
+    const host = (() => {
+      try {
+        return new URL(String(attachment.url || "")).host;
+      } catch {
+        return "";
+      }
+    })();
+    const wrapped = new Error(
+      status
+        ? `attachment_download_failed status=${status}${host ? ` host=${host}` : ""}`
+        : `attachment_download_failed ${err?.message || err}`,
+    );
+    wrapped.code = status === 404 ? "ATTACHMENT_GONE" : "ATTACHMENT_DOWNLOAD_FAILED";
+    wrapped.cause = err;
+    throw wrapped;
+  }
 }
 
 function runFfmpegToMp3(inputPath, outputPath) {
@@ -149,29 +168,48 @@ function resolveTranscriptionProvider(preferred) {
 
 async function postTranscriptionRequest({ provider, apiKey, filePath, language }) {
   const form = new FormData();
-  form.append("file", fs.createReadStream(filePath));
+  const baseName = path.basename(filePath) || "audio.mp3";
+  form.append("file", fs.createReadStream(filePath), {
+    filename: baseName,
+    contentType: "audio/mpeg",
+  });
   form.append("response_format", "json");
   if (language) form.append("language", language);
 
+  const endpoint =
+    provider === "groq"
+      ? "https://api.groq.com/openai/v1/audio/transcriptions"
+      : "https://api.openai.com/v1/audio/transcriptions";
   if (provider === "groq") {
     form.append("model", "whisper-large-v3-turbo");
-    const res = await axios.post("https://api.groq.com/openai/v1/audio/transcriptions", form, {
+  } else {
+    form.append("model", "whisper-1");
+  }
+
+  try {
+    const res = await axios.post(endpoint, form, {
       headers: { Authorization: `Bearer ${apiKey}`, ...form.getHeaders() },
       timeout: 120000,
       maxBodyLength: Infinity,
       maxContentLength: Infinity,
     });
     return String(res.data?.text || "").trim();
+  } catch (err) {
+    const status = Number(err?.response?.status || 0);
+    const body =
+      typeof err?.response?.data === "string"
+        ? err.response.data
+        : err?.response?.data
+          ? JSON.stringify(err.response.data)
+          : "";
+    const detail = String(body || err?.message || err).slice(0, 300);
+    const wrapped = new Error(
+      `transcription_api_failed provider=${provider} status=${status || "n/a"} ${detail}`,
+    );
+    wrapped.code = "TRANSCRIPTION_API_FAILED";
+    wrapped.cause = err;
+    throw wrapped;
   }
-
-  form.append("model", "whisper-1");
-  const res = await axios.post("https://api.openai.com/v1/audio/transcriptions", form, {
-    headers: { Authorization: `Bearer ${apiKey}`, ...form.getHeaders() },
-    timeout: 120000,
-    maxBodyLength: Infinity,
-    maxContentLength: Infinity,
-  });
-  return String(res.data?.text || "").trim();
 }
 
 async function transcribeAudioFile(filePath, language, providerPref) {
@@ -244,11 +282,15 @@ async function processVoiceTranscriptionMessage(message, client, cfg, options = 
     saveVoiceTranscriptionCheckpoint(message.channelId, message.id, message.createdTimestamp);
     return true;
   } catch (err) {
-    const code = String(err?.message || err || "");
-    if (code === "transcription_not_configured") {
+    const code = String(err?.code || err?.message || err || "");
+    if (code === "transcription_not_configured" || String(err?.message) === "transcription_not_configured") {
       global.logger?.warn?.(
         "[VOICE TRANSCRIBE] Nessuna API configurata: imposta OPENAI_API_KEY o GROQ_API_KEY nel .env",
       );
+    } else if (err?.code === "ATTACHMENT_GONE" || /attachment_download_failed status=404/.test(code)) {
+      // CDN Discord scaduto / allegato rimosso (tipico su catchup di messaggi vecchi).
+      saveVoiceTranscriptionCheckpoint(message.channelId, message.id, message.createdTimestamp);
+      global.logger?.info?.("[VOICE TRANSCRIBE] Skip: allegato vocale non più scaricabile (404 CDN).");
     } else {
       global.logger?.warn?.("[VOICE TRANSCRIBE]", err?.message || err);
     }

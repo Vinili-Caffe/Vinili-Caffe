@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="it">
+  <head>
+{{COOKIEYES_BLOCK}}{{GA_BLOCK}}
+    <meta charset="utf-8" />
+    <title>{{DASHBOARD_TRANSCRIPT_PAGE_TITLE}}</title>
+    <meta name="description" content="{{DASHBOARD_TRANSCRIPT_META_DESCRIPTION}}" />
+    <meta name="author" content="{{SITE_NAME}}" />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="{{DASHBOARD_TRANSCRIPT_OG_TITLE}}" />
+    <meta property="og:description" content="{{DASHBOARD_TRANSCRIPT_META_DESCRIPTION}}" />
+    <meta property="og:url" content="{{DASHBOARD_TRANSCRIPT_OG_URL}}" />
+    <meta property="og:image" content="{{OG_IMAGE_URL}}" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&amp;family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="stylesheet" href="../../css/tw-build.css?v={{BUILD_ASSET_VERSION}}" />
+    <link rel="stylesheet" href="../../css/vc-landing.css?v={{BUILD_ASSET_VERSION}}" />
+    <script>
+      window.__VC_REQUIRE_BLOCKING_SESSION_VERIFY = true;
+    </script>
+    <script src="../../js/vc-auth-pending.js"></script>
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem("vc_discord_access_token");
+          var e = Number(localStorage.getItem("vc_discord_expires_at") || 0);
+          var ok =
+            Boolean(t && (!e || Date.now() < e)) ||
+            String(location.hash || "").indexOf("access_token=") !== -1;
+          if (ok) document.documentElement.classList.add("vc-tx-session-known");
+        } catch (err) {}
+      })();
+    </script>
+    <style id="vc-tx-direct-load">
+      html.vc-tx-session-known #vc-tx-gate,
+      html.vc-session-verify-pending #vc-tx-gate {
+        display: none !important;
+        visibility: hidden !important;
+        pointer-events: none !important;
+      }
+      html.vc-tx-session-known #vc-tx-gate-login,
+      html.vc-tx-session-known .vc-tx-gate__login,
+      html.vc-session-verify-pending #vc-tx-gate-login,
+      html.vc-session-verify-pending .vc-tx-gate__login,
+      .vc-tx-gate.is-verifying .vc-tx-gate__login,
+      .vc-tx-gate__login[hidden] {
+        display: none !important;
+        visibility: hidden !important;
+        pointer-events: none !important;
+      }
+      html.vc-tx-session-known .vc-tx-session__switch,
+      html.vc-session-verify-pending .vc-tx-session__switch,
+      .vc-tx-gate.is-verifying .vc-tx-session__switch {
+        display: none !important;
+      }
+    </style>
+    <script>
+      window.__VC_SITE_DASHBOARD = {
+        apiUrl: "{{DASHBOARD_API_URL}}",
+        apiUrlLocal: "{{DASHBOARD_API_URL_LOCAL}}",
+        pageUrl: "{{DASHBOARD_PAGE_URL}}",
+        guildPageUrl: "{{DASHBOARD_GUILD_PAGE_URL}}",
+        profilePageUrl: "{{DASHBOARD_PROFILE_PAGE_URL}}",
+        premiumPageUrl: "{{DASHBOARD_PREMIUM_PAGE_URL}}"
+      };
+      window.__VC_AUTH = {
+        clientId: "{{DISCORD_OAUTH_CLIENT_ID}}",
+        redirectUri: "{{DISCORD_OAUTH_REDIRECT_URI}}",
+        homeUrl: "{{SITE_URL}}",
+        scopes: "identify guilds applications.commands.permissions.update"
+      };
+    </script>
+    <script src="../../js/dashboard-access-gate.js?v={{BUILD_ASSET_VERSION}}"></script>
+    <link rel="icon" href="{{GUILD_ICON_URL}}" />
+  </head>
+  <body id="top" class="vc-body vc-dashboard-page vc-dashboard-transcript-page relative min-h-screen overflow-x-hidden font-sans text-slate-100 antialiased">
+    <div class="vc-blob vc-blob-a" aria-hidden="true"></div>
+    <div class="vc-blob vc-blob-b" aria-hidden="true"></div>
+    <div class="vc-blob vc-blob-c" aria-hidden="true"></div>
+
+    <header class="vc-tx-topbar fixed inset-x-0 top-0 z-50 px-4 pt-4">
+      <div class="vc-tx-topbar__shell vc-glass mx-auto flex max-w-3xl items-center justify-between gap-3 overflow-visible rounded-2xl border border-white/[0.08] bg-[#140f0c]/92 px-4 py-3 shadow-[0_8px_40px_rgba(0,0,0,0.48)] sm:px-5">
+        <a class="vc-tx-topbar__brand flex min-w-0 items-center gap-2.5" href="{{SITE_URL}}" aria-label="Home {{SITE_NAME}}">
+          <span class="vc-header-logo-link shrink-0 rounded-2xl ring-1 ring-[#d4a888]/35">
+            <img src="{{WIKI_BOT_VINILI_AVATAR_URL}}" width="40" height="40" class="vc-header-logo-img" alt="" loading="eager" decoding="async" />
+          </span>
+          <span class="vc-tx-topbar__label min-w-0 truncate">Transcript</span>
+        </a>
+        <div class="flex shrink-0 items-center gap-2" id="header-quick-actions">
+          <a class="vc-tx-topbar__home" href="{{SITE_URL}}"><i class="fa fa-home" aria-hidden="true"></i><span>Home</span></a>
+          <div class="header-login-state" id="discord-login-state" hidden></div>
+          <div id="discord-login-mount"></div>
+        </div>
+      </div>
+    </header>
+
+    <main class="vc-tx-main relative z-10 mx-auto w-full max-w-5xl px-4 pb-16 pt-28 sm:pt-32">
+      <div id="vc-tx-gate" class="vc-tx-gate" role="dialog" aria-modal="true" aria-labelledby="vc-tx-gate-title">
+        <div class="vc-tx-gate__card">
+          <div class="vc-tx-gate__icon" aria-hidden="true"><i class="fa fa-file-text-o"></i></div>
+          <p class="vc-tx-gate__eyebrow">Ticket · accesso riservato</p>
+          <h1 class="vc-tx-gate__title" id="vc-tx-gate-title">Accedi per vedere il transcript</h1>
+          <p class="vc-tx-gate__body" id="vc-tx-gate-body">
+            Solo l’autore del ticket o lo staff con i permessi giusti possono aprirlo. Accedi con Discord per confermare la tua identità.
+          </p>
+          <button type="button" class="vc-tx-gate__login" id="vc-tx-gate-login">
+            <svg class="vc-tx-gate__discord" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path fill="currentColor" d="M20.317 4.37a19.79 19.79 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.873-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
+            </svg>
+            <span>Accedi con Discord</span>
+          </button>
+          <div class="vc-tx-session" id="vc-tx-session" hidden>
+            <div>
+              <p class="vc-tx-session__label">Sessione Discord</p>
+              <p class="vc-tx-session__name" id="vc-tx-session-name">—</p>
+            </div>
+            <button type="button" class="vc-tx-session__switch" id="vc-tx-session-switch">Cambia account</button>
+          </div>
+          <p class="vc-tx-gate__error" id="vc-tx-gate-error" hidden></p>
+        </div>
+      </div>
+
+      <section id="vc-tx-viewer" class="vc-dash-tk-tx-viewer" hidden>
+        <div class="vc-dash-tk-tx-viewer__card">
+          <header class="vc-dash-tk-tx-viewer__head">
+            <div class="vc-dash-tk-tx-viewer__title-wrap">
+              <span class="vc-dash-tk-tx-viewer__hash" aria-hidden="true">#</span>
+              <h1 class="vc-dash-tk-tx-viewer__title" id="vc-tx-title">ticket</h1>
+            </div>
+            <p class="vc-dash-tk-tx-viewer__meta" id="vc-tx-meta"></p>
+          </header>
+          <div class="vc-dash-tk-tx-viewer__frame-wrap">
+            <iframe
+              id="vc-tx-frame"
+              class="vc-dash-tk-tx-viewer__frame"
+              title="Transcript"
+              sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin"
+              referrerpolicy="no-referrer"
+            ></iframe>
+            <div class="vc-dash-tk-tx-viewer__loading" id="vc-tx-loading" hidden>
+              <span class="vc-ui-spinner" aria-hidden="true"></span>
+              <span>Caricamento transcript…</span>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+<script src="../../js/discord-auth.js?v={{BUILD_ASSET_VERSION}}"></script>
+    <script src="../../js/dashboard-transcript-page.js?v={{BUILD_ASSET_VERSION}}"></script>
+      <script src="/js/vc-cursor-trail.js?v={{BUILD_ASSET_VERSION}}" defer></script>
+  </body>
+</html>

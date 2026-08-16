@@ -1,5 +1,9 @@
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const { EmbedBuilder } = require("discord.js");
+const {
+  pickSnipeEntryForChannel,
+  redactSnipeContentForMinigame,
+} = require("../../Services/Minigames/minigameService");
 
 module.exports = {
   name: "snipe",
@@ -14,21 +18,29 @@ module.exports = {
     const channelId = targetChannel.id;
     const raw = client.snipes.get(channelId);
     const history = Array.isArray(raw) ? raw : raw ? [raw] : [];
-    const snipe = history.find((item) => !item?.isEmbedOnly) || null;
+    const snipe = pickSnipeEntryForChannel(client, channelId, history);
 
     if (!snipe) {
       const where = targetChannel.id !== message.channel.id ? ` in ${targetChannel}` : "";
+      const hiddenByMinigame = history.some((item) => item && !item.isEmbedOnly);
       return safeMessageReply(message, {
-        content:
-          `<:vegax:1443934876440068179> Nessun messaggio eliminato recentemente${where}.`,
+        content: hiddenByMinigame
+          ? `<:vegax:1443934876440068179> Nessun messaggio snipabile${where} (risposte minigame nascoste).`
+          : `<:vegax:1443934876440068179> Nessun messaggio eliminato recentemente${where}.`,
         allowedMentions: { repliedUser: false },
       });
     }
-    const rawContent = String(snipe.content || "").trim();
-    const safeContent=rawContent?rawContent.replace(/```/g, "\\`\\`\\`"):"*<:vegax:1443934876440068179> Nessun contenuto*";
+    const rawContent = redactSnipeContentForMinigame(
+      client,
+      channelId,
+      String(snipe.content || "").trim(),
+    );
+    const safeContent = rawContent
+      ? rawContent.replace(/```/g, "\\`\\`\\`")
+      : "*<:vegax:1443934876440068179> Nessun contenuto*";
     const maxFieldPayload = 980;
-    const clippedContent=safeContent.length>maxFieldPayload?`${safeContent.slice(0,maxFieldPayload)}...`
-        : safeContent;
+    const clippedContent =
+      safeContent.length > maxFieldPayload ? `${safeContent.slice(0, maxFieldPayload)}...` : safeContent;
     const embed = new EmbedBuilder()
       .setColor("#6f4e37")
       .addFields(
@@ -48,7 +60,7 @@ module.exports = {
         },
       )
       .setTimestamp();
-    if (snipe.attachment) {
+    if (snipe.attachment && !String(rawContent).includes("nascosto")) {
       embed.setImage(snipe.attachment);
     }
     return safeMessageReply(message, {

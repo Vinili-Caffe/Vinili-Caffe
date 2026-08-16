@@ -1,15 +1,18 @@
 const { ModalBuilder, ActionRowBuilder, TextInputBuilder, TextInputStyle, ButtonBuilder, ButtonStyle } = require("discord.js");
 const IDs = require("../Utils/Config/ids");
 const { STAFF_HP_PREFIX, STAFF_HP_SELECT_PREFIX, SECTION_HOME, SECTION_VALUTAZIONI, SECTION_WARN, SECTION_PAUSE, SECTION_MODSTATS, SECTION_SHOP, buildStaffProfilePayload, resolveStaffPartnerPointsDisplay, parseStaffProfileCloseCustomId, parseStaffProfileSelectCustomId, encodeStaffHpButtonAction, decodeStaffHpButtonActionToken, staffHpSectionToken, parseStaffHpButtonSectionToken } = require("../Utils/Staff/staffProfilePanelRuntime");
-const { viewerCanUsePartnerPointsPanel, viewerIsCoordinatorOrAbove, viewerIsFounder, shouldOmitPexDepexHomeRow, buildProspectPexRows } = require("../Utils/Staff/staffProfilePanelRuntime");
+const { viewerCanUsePartnerPointsPanel, viewerIsCoordinatorOrAbove, viewerIsFounder, targetIsFounder, shouldOmitPexDepexHomeRow, shouldOmitStaffLadderPexDepexForTarget, buildProspectPexRows } = require("../Utils/Staff/staffProfilePanelRuntime");
 const { runProfileStaffPex, runProspectStaffPex, runProspectStaffPexToPartnerManager, runProfileStaffDepex, runProfileStaffCompleteDepex, runProfileStaffWarnAdd, runProfileStaffWarnRemove, getHighestLadderRole } = require("../Utils/Staff/staffPanelActions");
 const valutazioneCmd = require("../Utils/Staff/valutazionePanelActions");
 const { addPartnerPoints, removePartnerPoints, formatPartnerPointsChange, partnerManagerRedeemTierFromAction } = require("../Utils/Staff/partnerPointsUtils");
 const { completePartnerManagerRedeemForGuild } = require("../Utils/Staff/partnerManagerRedeemRuntime");
 const { isPartnerPmDailyCommandsThread } = require("../Utils/Partner/partnersChatChannelUtils");
+const { safeMessageEdit } = require("../../shared/discord/replyRuntime");
 const MODAL_PREFIX = "vcsm";
 const IN_REASON = "staff_hp_reason";
 const IN_IDX = "staff_hp_idx";
+const IN_TRADE_POS = "staff_hp_trade_pos";
+const MAX_WARN_REMOVE_POS_TRADE = 100;
 const IN_PPM_AMOUNT = "staff_hp_ppm_amount";
 const IN_PPM_LINK = "staff_hp_ppm_link";
 const PRIVATE_FLAG = 1 << 6;
@@ -199,7 +202,7 @@ async function tryRefreshStaffPanelMessage(interaction, parsed, client) {
   try {
     const payload = await buildStaffProfilePayload(guild, parsed.targetId, parsed.viewerId, client, section, opts);
     if (msg && typeof msg.edit === "function") {
-      await msg.edit(payload);
+      await safeMessageEdit(msg, payload, interaction);
       return;
     }
     global.logger?.warn?.("[staffProfileHighStaff] tryRefreshStaffPanelMessage: nessun messaggio da aggiornare", guild?.id, parsed?.targetId, panelMid || null);
@@ -210,11 +213,7 @@ async function tryRefreshStaffPanelMessage(interaction, parsed, client) {
 
 async function ensureHighStaffViewer(interaction) {
   const roleId = IDs.roles?.HighStaff;
-  const directorId = IDs.roles?.Director;
-  const has = Boolean(
-    (roleId && interaction.member?.roles?.cache?.has(roleId)) ||
-    (directorId && interaction.member?.roles?.cache?.has(directorId)),
-  );
+  const has = Boolean(roleId && interaction.member?.roles?.cache?.has(roleId));
   if (has) return true;
   await interaction.reply({ content: "<a:VC_Cross:1482532424570376253> Solo l'**High Staff** può usare questi pulsanti.", flags: PRIVATE_FLAG }).catch(() => { });
   return false;
@@ -228,6 +227,14 @@ async function ensurePartnerPointsViewer(interaction) {
 
 function viewerMayRunDepexFull(member) {
   if (!member?.roles?.cache) return false;
+  // Director senza High Staff: niente pex/depex (né depex completo).
+  if (
+    IDs.roles.Director &&
+    member.roles.cache.has(IDs.roles.Director) &&
+    !(IDs.roles.HighStaff && member.roles.cache.has(IDs.roles.HighStaff))
+  ) {
+    return false;
+  }
   if (viewerIsCoordinatorOrAbove(member)) return true;
   if (Boolean(IDs.roles.Helper) && member.roles.cache.has(IDs.roles.Helper)) return true;
   if (Boolean(IDs.roles.SeniorModerator) && member.roles.cache.has(IDs.roles.SeniorModerator)) return true;
@@ -332,7 +339,9 @@ async function openStaffHpReasonModalFromButton(interaction, parsed) {
   const modalId = buildStaffHpModalCustomId(parsed.action, parsed.viewerId, parsed.targetId, parsed.section, parsed.sourceMessageId, panelForModal);
   const title = TITLE_BY_ACTION[parsed.action] || "Azione staff";
   let modal;
-  if (parsed.action === "valpos_rm" || parsed.action === "valneg_rm" || parsed.action === "warn_rm") {
+  if (parsed.action === "warn_rm") {
+    modal = buildWarnRemoveModal(modalId, title);
+  } else if (parsed.action === "valpos_rm" || parsed.action === "valneg_rm") {
     modal = buildIdReasonModal(modalId, title);
   } else if (parsed.action === "ppm_add") {
     modal = buildPpmAddModal(modalId, title);
@@ -383,7 +392,7 @@ function buildIdReasonModal(customId, title) {
   const modal = new ModalBuilder().setCustomId(customId).setTitle(String(title).slice(0, 45));
   const idInput = new TextInputBuilder()
     .setCustomId(IN_IDX)
-    .setLabel("Numero")
+    .setLabel("ID dal log (# o footer)")
     .setStyle(TextInputStyle.Short)
     .setRequired(true)
     .setMaxLength(4);
@@ -397,6 +406,20 @@ function buildIdReasonModal(customId, title) {
     new ActionRowBuilder().addComponents(idInput),
     new ActionRowBuilder().addComponents(reasonInput),
   );
+  return modal;
+}
+
+/** Rimuovi warn: stessi campi ID/motivo + n. positive da scambiare (facoltativo). */
+function buildWarnRemoveModal(customId, title) {
+  const modal = buildIdReasonModal(customId, title);
+  const tradeInput = new TextInputBuilder()
+    .setCustomId(IN_TRADE_POS)
+    .setLabel("N. positive da scambiare")
+    .setStyle(TextInputStyle.Short)
+    .setRequired(false)
+    .setPlaceholder("vuoto = nessuna (es. 10)")
+    .setMaxLength(3);
+  modal.addComponents(new ActionRowBuilder().addComponents(tradeInput));
   return modal;
 }
 
@@ -508,6 +531,7 @@ async function execute(interaction) {
     const redeemTierBtn = partnerManagerRedeemTierFromAction(parsed.action);
     if (redeemTierBtn != null) return handlePartnerRedeemStaffHp(interaction, parsed);
     if (parsed.action === "pex_menu" || parsed.action === "depex_menu") {
+      if (!(await ensureHighStaffViewer(interaction))) return true;
       const targetMember = await interaction.guild?.members?.fetch?.(parsed.targetId).catch(() => null);
       if (shouldOmitPexDepexHomeRow(parsed.viewerId, parsed.targetId, targetMember)) {
         await interaction.reply({ content: "<a:VC_Cross:1482532424570376253> **Pex** e **Depex** non sono disponibili sul **tuo** profilo.", flags: PRIVATE_FLAG }).catch(() => { });
@@ -544,6 +568,13 @@ async function execute(interaction) {
             .setDisabled(hasPartnerManager),
         );
         await interaction.reply({ content: "Scegli il tipo di pex:", components: [pexRow], flags: PRIVATE_FLAG }).catch(() => { });
+        return true;
+      }
+      if (shouldOmitStaffLadderPexDepexForTarget(targetMember)) {
+        await interaction.reply({
+          content: "<a:VC_Cross:1482532424570376253> **Depex** non è disponibile su un **Founder**. Puoi usare **Pex Partner Manager** se non ha ancora PM.",
+          flags: PRIVATE_FLAG,
+        }).catch(() => { });
         return true;
       }
       if (!targetShouldChooseDepexMode(targetMember)) {
@@ -768,30 +799,27 @@ async function execute(interaction) {
           res = await runProspectStaffPex(guild, interaction.client, targetUser, interaction.user, reason, selectedRoleId);
         }
       }
-    } else if (parsed.action === "depex") {
+    } else if (parsed.action === "depex" || parsed.action === "depex_full" || parsed.action === "depex_staff" || parsed.action === "depex_pm_only") {
+      const targetMemberDepex = await guild.members.fetch(parsed.targetId).catch(() => null);
+      if (shouldOmitStaffLadderPexDepexForTarget(targetMemberDepex) && parsed.action !== "depex_pm_only") {
+        await sendModalReply({
+          content: "<a:VC_Cross:1482532424570376253> **Depex** non è disponibile su un **Founder** (solo rimozione PM se applicabile).",
+        });
+        return true;
+      }
       if (!reason) {
         await sendModalReply({ content: "<a:VC_Cross:1482532424570376253> Motivo obbligatorio." });
         return true;
       }
-      res = await runProfileStaffDepex(guild, interaction.client, targetUser, interaction.user, reason, "auto");
-    } else if (parsed.action === "depex_full") {
-      if (!reason) {
-        await sendModalReply({ content: "<a:VC_Cross:1482532424570376253> Motivo obbligatorio." });
-        return true;
+      if (parsed.action === "depex") {
+        res = await runProfileStaffDepex(guild, interaction.client, targetUser, interaction.user, reason, "auto");
+      } else if (parsed.action === "depex_full") {
+        res = await runProfileStaffCompleteDepex(guild, interaction.client, targetUser, interaction.member, reason);
+      } else if (parsed.action === "depex_staff") {
+        res = await runProfileStaffDepex(guild, interaction.client, targetUser, interaction.user, reason, "ladder");
+      } else {
+        res = await runProfileStaffDepex(guild, interaction.client, targetUser, interaction.user, reason, "partner_manager");
       }
-      res = await runProfileStaffCompleteDepex(guild, interaction.client, targetUser, interaction.member, reason);
-    } else if (parsed.action === "depex_staff") {
-      if (!reason) {
-        await sendModalReply({ content: "<a:VC_Cross:1482532424570376253> Motivo obbligatorio." });
-        return true;
-      }
-      res = await runProfileStaffDepex(guild, interaction.client, targetUser, interaction.user, reason, "ladder");
-    } else if (parsed.action === "depex_pm_only") {
-      if (!reason) {
-        await sendModalReply({ content: "<a:VC_Cross:1482532424570376253> Motivo obbligatorio." });
-        return true;
-      }
-      res = await runProfileStaffDepex(guild, interaction.client, targetUser, interaction.user, reason, "partner_manager");
     } else if (parsed.action === "valpos") {
       if (!reason) {
         await sendModalReply({ content: "<a:VC_Cross:1482532424570376253> Motivo obbligatorio." });
@@ -822,7 +850,22 @@ async function execute(interaction) {
       } else if (parsed.action === "valneg_rm") {
         res = await valutazioneCmd.runValutazioneNegativeRemoveForPanel(guild, interaction.member, targetUser, removeId, reason);
       } else {
-        res = await runProfileStaffWarnRemove(guild, interaction.client, targetUser, interaction.user, removeId, reason);
+        const tradeRaw = getModalTextInputTrimmed(interaction, IN_TRADE_POS, 3);
+        let positiveTradeCount = 0;
+        if (tradeRaw) {
+          positiveTradeCount = parseInt(tradeRaw, 10);
+          if (!Number.isInteger(positiveTradeCount) || positiveTradeCount < 1) {
+            await sendModalReply({ content: "<a:VC_Cross:1482532424570376253> Numero positive non valido (usa un intero ≥ 1, oppure lascia vuoto)." });
+            return true;
+          }
+          if (positiveTradeCount > MAX_WARN_REMOVE_POS_TRADE) {
+            await sendModalReply({ content: `<a:VC_Cross:1482532424570376253> Massimo \`${MAX_WARN_REMOVE_POS_TRADE}\` positive per scambio.` });
+            return true;
+          }
+        }
+        res = await runProfileStaffWarnRemove(guild, interaction.client, targetUser, interaction.user, removeId, reason, {
+          positiveTradeCount,
+        });
       }
     } else {
       await sendModalReply({ content: "<a:VC_Cross:1482532424570376253> Azione non riconosciuta." });
@@ -833,7 +876,9 @@ async function execute(interaction) {
       return true;
     }
     await tryRefreshStaffPanelMessage(interaction, parsed, interaction.client);
-    await sendModalReply({ content: "<a:VC_Verified:1482532479637127188> Azione registrata." });
+    await sendModalReply({
+      content: res.message || "<a:VC_Verified:1482532479637127188> Azione registrata.",
+    });
     return true;
   }
 

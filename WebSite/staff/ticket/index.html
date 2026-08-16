@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="refresh" content="0;url=/tickets/" />
+    <link rel="canonical" href="/tickets/" />
+    <title>Reindirizzamento…</title>
+    <script>
+      (function () {
+        try {
+          var u = new URL("/tickets/", location.origin);
+          u.searchParams.set("view", "staff");
+          if (location.hash) u.hash = location.hash;
+          location.replace(u.href);
+        } catch (e) {
+          location.replace("/tickets/?view=staff");
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <p><a href="/tickets/?view=staff">Vai all'inbox ticket</a></p>
+  </body>
+</html>

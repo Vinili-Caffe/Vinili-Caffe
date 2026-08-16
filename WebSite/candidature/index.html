@@ -7,7 +7,7 @@
     <meta name="description" content="{{CANDIDATURE_META_DESCRIPTION}}" />
     <meta name="author" content="{{SITE_NAME}}" />
     <meta name="robots" content="index, follow" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <script>
       (function () {
         try {
@@ -106,8 +106,7 @@
             <details class="vc-snav-details vc-snav-details--current">
               <summary class="vc-snav-summary"><span>Richieste</span><i class="fa fa-chevron-down vc-snav-chev text-[0.65rem] opacity-80" aria-hidden="true"></i></summary>
               <div class="vc-snav-panel">
-                <a class="vc-snav-row" href="{{RICHIESTE_UNBAN_URL}}"
-                  ><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-unlock"></i></span><span>Unban</span></a>
+                <a class="vc-snav-row" href="{{RICHIESTE_UNBAN_URL}}"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-balance-scale"></i></span><span data-i18n="nav.appeals">Appelli</span></a>
                 <a class="vc-snav-row vc-snav-row--active" href="{{RICHIESTE_CANDIDATURE_URL}}" aria-current="page"
                   ><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-file-text-o"></i></span><span>Candidature</span></a>
                 <a class="vc-snav-row" href="{{RICHIESTE_SUGGERIMENTI_URL}}"
@@ -168,11 +167,11 @@
             <div class="vc-support-page-hero__icon vc-support-page-hero__icon--start vc-candidature-hero-users mb-5" aria-hidden="true">
               <i class="fa fa-users"></i>
             </div>
-            <p class="text-xs font-semibold uppercase tracking-[0.28em] text-[#c9a88e]/90">Richieste allo staff</p>
+            <p class="text-xs font-semibold uppercase tracking-[0.28em] text-[#c9a88e]/90" data-i18n="cand.kicker">Richieste allo staff</p>
             <h1 id="vc-candidature-hero-heading" class="mt-4 text-4xl font-extrabold tracking-tight text-white sm:text-5xl lg:text-6xl">
-              Candidatura <span class="text-[#e8c9a8]">staff</span>
+              <span data-i18n="cand.heroBefore">Candidatura </span><span class="text-[#e8c9a8]" data-i18n="cand.heroAccent">staff</span>
             </h1>
-            <p id="candidature-welcome" class="mt-5 max-w-2xl text-lg leading-8 text-slate-200/88 sm:text-xl">
+            <p id="candidature-welcome" class="mt-5 max-w-2xl text-lg leading-8 text-slate-200/88 sm:text-xl" data-i18n="cand.welcome">
               Accedi con Discord per compilare il modulo.
             </p>
             <div class="mt-8 flex flex-wrap gap-3">
@@ -223,20 +222,17 @@
           <li>
             <span class="vc-candidature-req-body">Non essere mai stato <strong class="text-white">sanzionato</strong> nel server</span>
           </li>
-          <li>
-            <span class="vc-candidature-req-body">Aver raggiunto almeno il <strong class="text-white">livello 10</strong> ed essere nel server da almeno <strong class="text-white">2 settimane</strong> (solo per Helper)</span>
-          </li>
         </ol>
       </section>
 
       <section id="vc-candidature-form-wrap" class="mt-10" hidden aria-labelledby="candidature-modulo-title">
-        <h2 id="candidature-modulo-title" class="text-lg font-bold text-white">Modulo di candidatura</h2>
+        <h2 id="candidature-modulo-title" class="text-lg font-bold text-white" data-i18n="cand.formTitle">Modulo di candidatura</h2>
 
         <div id="vc-candidature-submit-success" class="vc-candidature-success mt-6" hidden role="status" aria-live="polite">
           <i class="fa fa-check-circle-o vc-candidature-success-ico" aria-hidden="true"></i>
           <div>
-            <p class="vc-candidature-success-title">Candidatura inviata con successo!</p>
-            <p class="vc-candidature-success-text">Il nostro staff esaminerà attentamente la tua candidatura. Se non ricevi risposta entro 15 giorni, potrai riprovare la candidatura.</p>
+            <p class="vc-candidature-success-title" data-i18n="cand.successTitle">Candidatura inviata con successo!</p>
+            <p class="vc-candidature-success-text" data-i18n="cand.successText">Il nostro staff esaminerà attentamente la tua candidatura. Se non ricevi risposta entro 15 giorni, potrai riprovare la candidatura.</p>
           </div>
         </div>
 
@@ -263,12 +259,12 @@
           id="vc-candidature-submit"
           class="vc-candidature-submit mt-8 flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3.5 text-sm font-bold shadow-lg transition hover:brightness-105"
         >
-          <i class="fa fa-paper-plane-o" aria-hidden="true"></i> Invia candidatura
+          <i class="fa fa-paper-plane-o" aria-hidden="true"></i> <span data-i18n="cand.submit">Invia candidatura</span>
         </button>
 
         <div class="mt-6 rounded-[1.6rem] border border-[#d4a888]/22 bg-[#1a120d]/72 p-4 text-sm text-slate-100">
           <p class="m-0 flex gap-2 font-semibold text-[#e8c9a8]">
-            <i class="fa fa-exclamation-circle mt-0.5 shrink-0" aria-hidden="true"></i> Informazioni importanti
+            <i class="fa fa-exclamation-circle shrink-0" aria-hidden="true"></i> Informazioni importanti
           </p>
           <p class="mb-0 mt-2 leading-relaxed text-slate-200/90">
             Non aprire ticket e non pingare lo staff per chiedere l’esito della candidatura.
@@ -340,6 +336,7 @@
     </script>
     <script src="../js/partner-manager-reward-tiers.js" defer></script>
     <script src="../js/form-field-validation-tip.js" defer></script>
+    <script src="../js/vc-form-drafts.js" defer></script>
     <script src="../js/candidature-page.js" defer></script>
     <script src="../js/discord-auth.js" defer></script>  <script src="../js/vc-cursor-trail.js" defer></script>
 

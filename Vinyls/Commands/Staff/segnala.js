@@ -1,7 +1,9 @@
 const { ContextMenuCommandBuilder, ApplicationCommandType, MessageFlags, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require("discord.js");
-const { isPartnershipDescriptionMessage, resolvePartnerManagerUserIdFromMessage } = require("../../Utils/Partner/partnerPointContextUtils");
+const { isPartnershipDescriptionMessage, resolvePartnerManagerUserIdFromMessage, buildPartnerPointModalCustomId } = require("../../Utils/Partner/partnerPointContextUtils");
+const { shouldApplyMainPartnershipFilters } = require("../../Utils/Partner/partnershipConfigResolver");
 const EPHEMERAL = MessageFlags.Ephemeral;
 const IN_RULE = "regolaViolata";
+const SEGNALA_MODAL_PREFIX = "psig_m:";
 
 module.exports = {
   expectsModal: true,
@@ -10,6 +12,13 @@ module.exports = {
     .setType(ApplicationCommandType.Message),
 
   async execute(interaction) {
+    if (!shouldApplyMainPartnershipFilters(interaction.guild?.id)) {
+      await interaction.reply({
+        content: "<a:VC_Cross:1482532424570376253> **Segnala** è disponibile solo sul server principale.",
+        flags: EPHEMERAL,
+      });
+      return;
+    }
     const targetMessage = interaction.targetMessage;
     if (!targetMessage?.id || !interaction.guild) {
       await interaction.reply({
@@ -37,7 +46,13 @@ module.exports = {
     }
     const modal = new ModalBuilder()
       .setCustomId(
-        `partner_segnala_m:${interaction.user.id}:${pmUserId}:${targetMessage.id}:${targetMessage.channelId}`,
+        buildPartnerPointModalCustomId(
+          SEGNALA_MODAL_PREFIX,
+          interaction.user.id,
+          pmUserId,
+          targetMessage.id,
+          targetMessage.channelId,
+        ),
       )
       .setTitle("Segnala partner");
     modal.addComponents(

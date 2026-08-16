@@ -1,4 +1,4 @@
-const { ChannelType, PermissionsBitField } = require("discord.js");
+const { ChannelType, PermissionsBitField, AuditLogEvent } = require("discord.js");
 const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Schemas/Community/communitySchemas");
 const { resolveHogwartsEventConfig } = require("../../Utils/Web/hogwartsSortingConfig");
 const {
@@ -133,17 +133,77 @@ async function restoreOrphanedBookNameDecor(guild, decor, payload, options = {})
     ...(Array.isArray(payload?.nameChannelsHistory) ? payload.nameChannelsHistory : []),
   ]);
   let restored = 0;
-  for (const channel of listBookDecoratedChannels(guild, decor.bookEmoji)) {
-    if (activeIds.has(channel.id)) continue;
-    const originalName = String(catalog[channel.id] || "").trim();
-    if (!originalName) {
-      global.logger?.warn?.("[FORBIDDEN CHANNELS] orphan without original:", channel.id, channel.name);
-      continue;
-    }
+  // Solo canali tracciati dall'evento (catalogo/history). Non scansionare tutti i 📖:
+  // può includere canali già ripristinati o non-evento.
+  for (const [channelId, originalNameRaw] of Object.entries(catalog)) {
+    if (activeIds.has(channelId)) continue;
+    const originalName = String(originalNameRaw || "").trim();
+    if (!originalName) continue;
+    const channel = await fetchGuildChannel(guild, channelId);
+    if (!channel || !isStrictTextChannel(channel)) continue;
+    if (String(channel.name || "") === originalName) continue;
     if (await setChannelNameSafe(channel, originalName)) restored += 1;
     await sleep(RENAME_GAP_MS);
   }
+
+  // Fallback: canali ancora con emoji libro ma fuori catalogo → ultimo nome pre-📖 dagli audit log.
+  const leftovers = listBookDecoratedChannels(guild, decor.bookEmoji).filter((channel) => {
+    if (activeIds.has(channel.id)) return false;
+    const known = String(catalog[channel.id] || "").trim();
+    return !known || known !== String(channel.name || "");
+  });
+  if (leftovers.length) {
+    const fromAudit = await resolveOriginalNamesFromAuditLogs(
+      guild,
+      leftovers.map((channel) => channel.id),
+      decor.bookEmoji,
+    );
+    for (const channel of leftovers) {
+      const originalName = String(fromAudit.get(channel.id) || "").trim();
+      if (!originalName || originalName === String(channel.name || "")) continue;
+      if (await setChannelNameSafe(channel, originalName)) restored += 1;
+      await sleep(RENAME_GAP_MS);
+    }
+  }
   return restored;
+}
+
+async function resolveOriginalNamesFromAuditLogs(guild, channelIds, bookEmoji) {
+  const wanted = new Set((Array.isArray(channelIds) ? channelIds : []).map((id) => String(id || "").trim()).filter(Boolean));
+  const out = new Map();
+  if (!guild?.fetchAuditLogs || !wanted.size) return out;
+  const emoji = String(bookEmoji || "").trim();
+  let before;
+  for (let page = 0; page < 12 && out.size < wanted.size; page += 1) {
+    const logs = await guild
+      .fetchAuditLogs({
+        type: AuditLogEvent.ChannelUpdate,
+        limit: 100,
+        ...(before ? { before } : {}),
+      })
+      .catch(() => null);
+    if (!logs?.entries?.size) break;
+    const entries = [...logs.entries.values()];
+    before = entries[entries.length - 1]?.id;
+    for (const entry of entries) {
+      const targetId = String(entry.targetId || entry.target?.id || "").trim();
+      if (!wanted.has(targetId) || out.has(targetId)) continue;
+      for (const change of entry.changes || []) {
+        if (change.key !== "name") continue;
+        const oldName = String(change.old || "").trim();
+        const newName = String(change.new || "").trim();
+        if (!oldName || !newName) continue;
+        const oldParsed = parseVcChannelName(oldName);
+        const newParsed = parseVcChannelName(newName);
+        if (!oldParsed || !newParsed) continue;
+        if (newParsed.emoji !== emoji) continue;
+        if (oldParsed.emoji === emoji) continue;
+        out.set(targetId, oldName);
+        break;
+      }
+    }
+  }
+  return out;
 }
 
 function guildHasBookTopicDecor(guild, bookEmoji) {
@@ -181,7 +241,9 @@ async function restoreAllForbiddenSectionTopics(guild, decor, payload) {
     const channel = await fetchGuildChannel(guild, String(topicEntry.channelId));
     if (channel) {
       const originalTopic = topicEntry.originalTopic == null ? null : String(topicEntry.originalTopic);
-      if (await setChannelTopicSafe(channel, originalTopic || null)) restored += 1;
+      const expected = originalTopic || null;
+      const current = channel?.topic ?? null;
+      if (current !== expected && (await setChannelTopicSafe(channel, expected))) restored += 1;
     }
   }
   for (const channel of guild.channels.cache.values()) {
@@ -190,6 +252,8 @@ async function restoreAllForbiddenSectionTopics(guild, decor, payload) {
     const topic = String(channel.topic || "").trim();
     if (!topic.startsWith(emoji)) continue;
     const cleaned = topic.slice(emoji.length).trim() || null;
+    const current = channel?.topic ?? null;
+    if (current === cleaned) continue;
     if (await setChannelTopicSafe(channel, cleaned)) restored += 1;
   }
   return restored;
@@ -753,12 +817,14 @@ async function restoreForbiddenSectionChannelDecor(client, reason = "event_close
 
   setHuntActiveCache(client, false);
   await applyBotPresence(client).catch(() => null);
-  global.logger?.info?.(
-    "[FORBIDDEN CHANNELS] restored:",
-    reason,
-    `names=${namesRestored}`,
-    `topics=${topicsRestored}`,
-  );
+  if (namesRestored > 0 || topicsRestored > 0) {
+    global.logger?.info?.(
+      "[FORBIDDEN CHANNELS] restored:",
+      reason,
+      `names=${namesRestored}`,
+      `topics=${topicsRestored}`,
+    );
+  }
   return { ok: true, code: "restored", namesRestored, topicsRestored };
 }
 
@@ -780,6 +846,24 @@ async function syncForbiddenSectionChannelDecor(client) {
   const huntActive = runtime.roundActive === true;
 
   if (!huntActive) {
+    // Evento chiuso: evita restore ogni minuto, ma se restano canali 📖 ripristina (catalogo/audit).
+    if (docStatus === "restored" || docStatus === "") {
+      await guild.channels.fetch().catch(() => null);
+      const leftovers = listBookDecoratedChannels(guild, decor.bookEmoji);
+      const hasBookTopic = guildHasBookTopicDecor(guild, decor.bookEmoji);
+      if (!leftovers.length && !hasBookTopic) {
+        setHuntActiveCache(client, false);
+        return;
+      }
+      const lastCleanupAt = Number(client._forbiddenLeftoverCleanupAt || 0);
+      if (Date.now() - lastCleanupAt < 6 * 60 * 60 * 1000) {
+        setHuntActiveCache(client, false);
+        return;
+      }
+      client._forbiddenLeftoverCleanupAt = Date.now();
+      await restoreForbiddenSectionChannelDecor(client, "leftover_cleanup");
+      return;
+    }
     await restoreForbiddenSectionChannelDecor(client, runtime.betweenRounds ? "between_rounds" : "winners_closed");
     return;
   }

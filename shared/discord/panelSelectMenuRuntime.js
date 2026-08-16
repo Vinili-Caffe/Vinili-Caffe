@@ -46,11 +46,19 @@ async function resetPanelSelectMenu(interaction, rebuildComponents, options = {}
   const components = await resolvePanelComponents(rebuildComponents, interaction);
   if (!Array.isArray(components)) return false;
   const embeds = await resolvePanelEmbeds(options.rebuildEmbeds, interaction);
+  const updatePayload = {
+    ...(embeds ? { embeds } : {}),
+    components,
+  };
+  if (options.includeBanner === false) updatePayload.includeBanner = false;
+  if (options.includeThumbnail === false) updatePayload.includeThumbnail = false;
+  if (options.includeAuthor === false) updatePayload.includeAuthor = false;
+  if (options.clearAttachments) {
+    updatePayload.files = [];
+    updatePayload.attachments = [];
+  }
   await interaction
-    .update({
-      ...(embeds ? { embeds } : {}),
-      components,
-    })
+    .update(updatePayload)
     .catch(() => null);
   return true;
 }

@@ -10,7 +10,7 @@
     <meta name="description" content="{{HOGWARTS_HUB_META_DESCRIPTION}}" />
     <meta name="author" content="{{SITE_NAME}}" />
     <meta name="robots" content="index, follow" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta property="og:type" content="website" />
     <meta property="og:title" content="{{HOGWARTS_HUB_OG_TITLE}}" />
     <meta property="og:description" content="{{HOGWARTS_HUB_META_DESCRIPTION}}" />
@@ -32,13 +32,13 @@
 
     {{HOGWARTS_EVENT_HEADER}}
 
-    <button type="button" class="vc-hw-music-fab vc-hw-music-btn" id="vc-hw-music-btn" hidden aria-label="Musica di sottofondo"><i class="fa fa-volume-up" aria-hidden="true"></i></button>
+    <button type="button" class="vc-hw-music-fab vc-hw-music-btn" id="vc-hw-music-btn" hidden aria-label="Musica di sottofondo" data-i18n-attr="aria-label:hw.hub.musicAria"><i class="fa fa-volume-up" aria-hidden="true"></i></button>
 
     <main class="relative z-10 mx-auto max-w-6xl px-4 pb-20 pt-28 sm:pt-32">
       <section class="vc-hw-hero text-center" aria-labelledby="vc-hw-hub-title">
-        <p class="vc-hw-eyebrow">Evento Stagionale</p>
-        <h1 id="vc-hw-hub-title" class="vc-hw-title">Hogwarts</h1>
-        <p class="vc-hw-subtitle">Calendario settimanale delle attività: si aggiorna automaticamente in base alla data.</p>
+        <p class="vc-hw-eyebrow" data-i18n="hw.hub.kicker">Evento Stagionale</p>
+        <h1 id="vc-hw-hub-title" class="vc-hw-title" data-i18n="hw.hub.title">Hogwarts</h1>
+        <p class="vc-hw-subtitle" data-i18n="hw.hub.subtitle">Calendario settimanale delle attività: si aggiorna automaticamente in base alla data.</p>
         <p id="vc-hw-hub-window" class="vc-hw-window mt-3">{{HOGWARTS_EVENT_WINDOW_LABEL}}</p>
       </section>
 
@@ -52,20 +52,20 @@
       <div id="vc-hw-hub-app" hidden>
       <section class="vc-hw-hub-current mt-10" aria-labelledby="vc-hw-hub-current-title">
         <div class="vc-hw-hub-current__head">
-          <h2 id="vc-hw-hub-current-title" class="vc-hw-hub-section-title">Questa settimana</h2>
+          <h2 id="vc-hw-hub-current-title" class="vc-hw-hub-section-title" data-i18n="hw.hub.thisWeek">Questa settimana</h2>
           <p id="vc-hw-hub-current-range" class="vc-hw-hub-current__range"></p>
         </div>
         <div id="vc-hw-hub-current-activities" class="vc-hw-hub-activity-grid mt-6"></div>
       </section>
 
       <div id="vc-hw-hub-preview-tools" class="vc-hw-hub-preview-tools mt-8 text-center" hidden>
-        <p class="vc-hw-hub-preview-tools__label"><i class="fa fa-eye" aria-hidden="true"></i> Anteprima staff</p>
+        <p class="vc-hw-hub-preview-tools__label"><i class="fa fa-eye" aria-hidden="true"></i> <span data-i18n="hw.hub.previewLabel">Anteprima staff</span></p>
         <button type="button" id="vc-hw-hub-toggle-all" class="vc-hw-btn vc-hw-btn--ghost mt-3">
-          <i class="fa fa-calendar" aria-hidden="true"></i> Mostra tutte le settimane
+          <i class="fa fa-calendar" aria-hidden="true"></i> <span data-i18n="hw.hub.showAllWeeks">Mostra tutte le settimane</span>
         </button>
       </div>
 
-      <section id="vc-hw-hub-all-weeks" class="vc-hw-hub-all mt-10" hidden aria-label="Calendario completo anteprima"></section>
+      <section id="vc-hw-hub-all-weeks" class="vc-hw-hub-all mt-10" hidden aria-label="Calendario completo anteprima" data-i18n-attr="aria-label:hw.hub.allWeeksAria"></section>
       </div>
     </main>
 
@@ -74,8 +74,7 @@
         <p>© {{YEAR}} {{SITE_NAME}}. All rights reserved.</p>
       </div>
     </footer>
-
-    <script>
+<script>
       window.__VC_SITE_HOME_URL = "{{SITE_URL}}";
       window.__VC_AUTH = {
         clientId: "{{DISCORD_OAUTH_CLIENT_ID}}",
@@ -94,5 +93,6 @@
     <script>if(window.__vcHogwartsYoutubeSetupIfConfigured)window.__vcHogwartsYoutubeSetupIfConfigured();</script>
     <script src="../js/discord-auth.js" defer></script>
     <script src="../js/hogwarts-event-hub-page.js?v={{BUILD_ASSET_VERSION}}" defer></script>
+      <script src="/js/vc-cursor-trail.js?v={{BUILD_ASSET_VERSION}}" defer></script>
   </body>
 </html>

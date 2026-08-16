@@ -7,6 +7,16 @@
     }
   }
 
+  function t(key, fallback) {
+    try {
+      if (window.VcI18n && typeof window.VcI18n.t === "function") {
+        var v = window.VcI18n.t(key);
+        if (v != null && String(v) !== "" && String(v) !== key) return String(v);
+      }
+    } catch (e) {}
+    return fallback;
+  }
+
   function parseStartMs(value) {
     var d = String(value || "").trim();
     if (!/^\d{4}-\d{2}-\d{2}/.test(d)) return NaN;
@@ -60,12 +70,21 @@
     btn.removeAttribute("hidden");
     var isEvent = mode === "event";
     var href = isEvent ? cfg.eventUrl : cfg.candidatureUrl;
-    var label = isEvent ? "Evento" : "Candidature";
-    var badge = isEvent ? "ATTIVO" : "APERTE";
+    var label = isEvent
+      ? t("header.promo.eventLabel", "Evento")
+      : t("header.promo.appsLabel", "Candidature");
+    var badge = isEvent
+      ? t("header.promo.eventBadge", "ATTIVO")
+      : t("header.promo.appsBadge", "APERTE");
     btn.href = href || (isEvent ? "/evento" : "/candidature");
     btn.classList.remove("vc-header-promo-btn--event", "vc-header-promo-btn--candidature");
     btn.classList.add(isEvent ? "vc-header-promo-btn--event" : "vc-header-promo-btn--candidature");
-    btn.setAttribute("aria-label", isEvent ? "Evento Hogwarts attivo – vai al calendario" : "Candidature staff aperte");
+    btn.setAttribute(
+      "aria-label",
+      isEvent
+        ? t("header.promo.eventAria", "Evento Hogwarts attivo – vai al calendario")
+        : t("header.promo.appsAria", "Candidature staff aperte")
+    );
     var labelEl = btn.querySelector(".vc-header-promo-btn__label");
     var badgeEl = btn.querySelector(".vc-header-promo-btn__badge");
     if (labelEl) labelEl.textContent = label;
@@ -90,4 +109,5 @@
   } else {
     boot();
   }
+  window.addEventListener("vc:langchange", boot);
 })();

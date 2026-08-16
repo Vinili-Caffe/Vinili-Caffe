@@ -1,14 +1,17 @@
 const { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const { buildImageButtonPayload, canvasStatusLine } = require("./guiPanelPayload");
-const { formatCurrency } = require("../../Services/Community/serverWalletService");
+const { formatEconomyAmount, formatEconomyAmountShort } = require("./economyDisplayHelpers");
+const { buildBetAmountButton, betBounds, clampBetAmount } = require("./economyBetModal");
 const {
   economyConfig,
   lockTrisPvpStakes,
   payTrisWin,
   playTrisBet,
+  refundEconomyStake,
   refundTrisPvpStake,
   settleTrisPvp,
 } = require("../../Services/Community/activeEconomyService");
+const { markSessionStakeCooldown, sessionSpendOptions } = require("./economyCommandHelpers");
 const {
   BOT,
   PLAYER,
@@ -21,12 +24,17 @@ const {
   outcomeLabel,
   pickBotMove,
 } = require("./trisEngine");
+const { runEconomyRender } = require("../../../shared/render/economyRenderQueue");
+const { createPersistedGuiSessionApi, SESSION_DB_TTL_MS, listEconomyGuiSessions } = require("../../Services/Community/economyGuiSessionStore");
 
 const PREFIX = "tris_gui";
-const SESSION_TTL_MS = 10 * 60 * 1000;
+const SESSION_TTL_MS = SESSION_DB_TTL_MS;
 const PVP_INVITE_TTL_MS = 90 * 1000;
-const sessions = new Map();
 const pvpUserLocks = new Map();
+const sessionApi = createPersistedGuiSessionApi("tris", {
+  ttlMs: SESSION_TTL_MS,
+  onEvict: (session) => releasePvpUsers(session),
+});
 
 function now() {
   return Date.now();
@@ -36,11 +44,8 @@ function sessionKey(messageId) {
   return String(messageId || "").trim();
 }
 
-function clampBet(value, cfg) {
-  const min = Math.max(1, Math.floor(Number(cfg?.minBet) || 1));
-  const max = Math.max(min, Math.floor(Number(cfg?.maxBet) || min));
-  const n = Math.floor(Number(value) || min);
-  return Math.max(min, Math.min(max, n));
+function clampBet(value, cfg, balance = null) {
+  return clampBetAmount(value, cfg, balance);
 }
 
 function betStep(cfg) {
@@ -76,6 +81,9 @@ function bindPvpUsers(session, messageId) {
   const gid = String(session?.guildId || "");
   const mid = String(messageId || "");
   if (!gid || !mid || session.mode !== "pvp") return;
+  const phase = String(session.phase || "");
+  // Non rilockare partite finite: altrimenti +tris resta bloccato dopo il risultato.
+  if (phase !== "pending" && phase !== "playing") return;
   pvpUserLocks.set(userLockKey(gid, session.ownerId), mid);
   pvpUserLocks.set(userLockKey(gid, session.opponentId), mid);
 }
@@ -87,8 +95,29 @@ function releasePvpUsers(session) {
   pvpUserLocks.delete(userLockKey(gid, session.opponentId));
 }
 
+function releasePvpLocksByMessageId(messageId) {
+  const mid = String(messageId || "").trim();
+  if (!mid) return;
+  for (const [key, value] of [...pvpUserLocks.entries()]) {
+    if (value === mid) pvpUserLocks.delete(key);
+  }
+}
+
 function findActiveTrisPvpMessageId(guildId, userId) {
-  return pvpUserLocks.get(userLockKey(guildId, userId)) || "";
+  const key = userLockKey(guildId, userId);
+  const mid = pvpUserLocks.get(key) || "";
+  if (!mid) return "";
+  const live = sessionApi.sessions?.get?.(mid);
+  if (live) {
+    const phase = String(live.phase || "");
+    if (live.mode === "pvp" && (phase === "pending" || phase === "playing")) return mid;
+    releasePvpUsers(live);
+    releasePvpLocksByMessageId(mid);
+    return "";
+  }
+  // Lock orfano (partita già cancellata dalla memoria).
+  releasePvpLocksByMessageId(mid);
+  return "";
 }
 
 function isParticipant(session, userId) {
@@ -109,25 +138,22 @@ function displayNameForTurn(session) {
 }
 
 function setSession(messageId, session) {
-  sessions.set(sessionKey(messageId), { ...session, updatedAt: now() });
-  bindPvpUsers(session, messageId);
+  const live = sessionApi.setSession(messageId, session);
+  bindPvpUsers(live, messageId);
+  return live;
 }
 
-function getSession(messageId) {
-  const key = sessionKey(messageId);
-  const cached = sessions.get(key);
-  if (!cached) return null;
-  if (now() - Number(cached.updatedAt || cached.createdAt || 0) > SESSION_TTL_MS) {
-    sessions.delete(key);
-    return null;
-  }
-  return cached;
+async function getSession(messageId, guildId = "", ownerIdHint = "") {
+  const live = await sessionApi.getSession(messageId, guildId, ownerIdHint);
+  if (live) bindPvpUsers(live, live.messageId || messageId);
+  return live;
 }
 
-function deleteSession(messageId) {
-  const live = sessions.get(sessionKey(messageId));
-  if (live) releasePvpUsers(live);
-  sessions.delete(sessionKey(messageId));
+function deleteSession(messageId, session = null) {
+  const mid = String(messageId || "").trim();
+  if (session) releasePvpUsers(session);
+  releasePvpLocksByMessageId(mid);
+  return sessionApi.deleteSession(messageId, session);
 }
 
 function controlId(action, ownerId) {
@@ -162,7 +188,7 @@ function cellButton(ownerId, index, board, locked, mark) {
     .setLabel(label)
     .setStyle(style)
     .setDisabled(locked || Boolean(cellMark));
-  if (cellMark === PLAYER) btn.setEmoji("❌");
+  if (cellMark === PLAYER) btn.setEmoji("<:vegax:1443934876440068179>");
   else if (cellMark === BOT) btn.setEmoji("⭕");
   return btn;
 }
@@ -178,11 +204,10 @@ function buildPvpInviteRows(session, disabled = false) {
   ];
 }
 
-function buildRows(session, cfg, panelClosed = false) {
+function buildRows(session, cfg, panelClosed = false, balance = null) {
   const ownerId = session.ownerId;
   const step = betStep(cfg);
-  const min = Math.max(1, Math.floor(Number(cfg?.minBet) || 1));
-  const max = Math.max(min, Math.floor(Number(cfg?.maxBet) || min));
+  const { min, max } = betBounds(cfg, balance);
   const locked = Boolean(panelClosed);
   if (session.mode === "pvp") {
     if (session.phase === "pending") return buildPvpInviteRows(session, locked);
@@ -217,6 +242,7 @@ function buildRows(session, cfg, panelClosed = false) {
     return [
       new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId(controlId("minus", ownerId)).setLabel(`-${step}`).setEmoji("➖").setStyle(ButtonStyle.Secondary).setDisabled(locked || !canConfigure || session.bet <= min),
+        buildBetAmountButton(controlId("bet", ownerId), { disabled: locked || !canConfigure }),
         new ButtonBuilder().setCustomId(controlId("plus", ownerId)).setLabel(`+${step}`).setEmoji("➕").setStyle(ButtonStyle.Secondary).setDisabled(locked || !canConfigure || session.bet >= max),
         new ButtonBuilder().setCustomId(controlId("start", ownerId)).setLabel(session.phase === "done" ? "Nuova partita" : "Inizia").setEmoji("🎮").setStyle(ButtonStyle.Success).setDisabled(locked || !canConfigure),
         new ButtonBuilder().setCustomId(controlId("close", ownerId)).setLabel("Chiudi").setEmoji("<a:VC_Cross:1482532424570376253>").setStyle(ButtonStyle.Danger).setDisabled(locked),
@@ -249,16 +275,22 @@ async function renderPanel(session, notice = "") {
   let resultLabel = "";
   if (session.phase === "done" && last) {
     if (last.game === "tris_pvp") {
-      if (last.draw) resultLabel = `Pareggio ${formatCurrency("caffe",last.payout)}`;
-      else resultLabel = `Vittoria ${formatCurrency("caffe",last.payout)}`;
-    } else if (last.outcome === "win") resultLabel = `Vittoria +${formatCurrency("caffe",last.payout)}`;
-    else if (last.outcome === "draw") resultLabel = `Pareggio ${formatCurrency("caffe",last.payout)}`;
+      if (last.draw) resultLabel = `Pareggio ${formatEconomyAmountShort(last.payout)}`;
+      else resultLabel = `Vittoria ${formatEconomyAmountShort(last.payout)}`;
+    } else if (last.outcome === "win") resultLabel = `Vittoria +${formatEconomyAmountShort(last.payout)}`;
+    else if (last.outcome === "draw") resultLabel = `Pareggio ${formatEconomyAmountShort(last.payout)}`;
     else resultLabel = "Sconfitta";
   }
+  // Invite lunghe + mention restano nel content Discord, non nel footer canvas.
+  const canvasNotice =
+    session.mode === "pvp" && session.phase === "pending" ? "" : notice;
   try {
     const renderTrisCanvas = require("../Render/trisCanvas");
-    const rendered = await renderTrisCanvas({
-      bet: session.wager || session.bet,
+    const rendered = await runEconomyRender(() =>
+      renderTrisCanvas({
+      // A partita finita/idle si mostra la puntata della prossima mano (session.bet),
+      // non lo stake bloccato della mano appena chiusa (session.wager).
+      bet: session.phase === "playing" ? (session.wager || session.bet) : session.bet,
       board: session.board,
       phase: session.phase,
       resultLabel,
@@ -268,8 +300,9 @@ async function renderPanel(session, notice = "") {
       playerName: session.playerName,
       opponentName: session.opponentName,
       turnName: session.phase === "playing" ? displayNameForTurn(session) : "",
-      statusLine: canvasStatusLine(notice),
-    });
+      statusLine: canvasStatusLine(canvasNotice),
+    }),
+    );
     const fileName = "tris-panel.png";
     const files = [new AttachmentBuilder(Buffer.from(rendered.buffer), { name: fileName })];
     return { files, image: `attachment://${fileName}` };
@@ -279,12 +312,17 @@ async function renderPanel(session, notice = "") {
   }
 }
 
-async function buildTrisGuiPayload(session, cfg, notice = "", panelClosed = false) {
+async function buildTrisGuiPayload(session, cfg, notice = "", panelClosed = false, balance = null) {
   const attachment = await renderPanel(session, notice);
-  return buildImageButtonPayload({
+  const payload = buildImageButtonPayload({
     files: attachment.files || [],
-    components: buildRows(session, cfg, panelClosed),
+    components: buildRows(session, cfg, panelClosed, balance),
   });
+  if (session.mode === "pvp" && session.phase === "pending" && notice) {
+    payload.content = String(notice).slice(0, 1800);
+    payload.allowedMentions = { repliedUser: false, users: [String(session.opponentId || "")].filter(Boolean) };
+  }
+  return payload;
 }
 
 async function warmupTrisPanel() {
@@ -361,28 +399,139 @@ async function settlePvpRound(client, guild, session, winnerMark, actorId) {
 }
 
 async function refundLockedPvpStakes(client, session, actorId, reason) {
-  if (!session.stakesLocked) return;
-  await refundTrisPvpStake(client, session.guildId, session.ownerId, session.bet, actorId, reason);
-  await refundTrisPvpStake(client, session.guildId, session.opponentId, session.bet, actorId, reason);
+  if (!session.stakesLocked) return { ok: true, amount: 0 };
+  const amount = Math.max(0, Math.floor(Number(session.wager || session.bet) || 0));
+  await refundTrisPvpStake(client, session.guildId, session.ownerId, amount || session.bet, actorId, reason);
+  await refundTrisPvpStake(client, session.guildId, session.opponentId, amount || session.bet, actorId, reason);
   session.stakesLocked = false;
+  return { ok: true, amount: amount || Math.max(0, Math.floor(Number(session.bet) || 0)) };
+}
+
+async function refundOnClose(client, session, actorId) {
+  if (session.mode === "pvp" && session.stakesLocked) {
+    const out = await refundLockedPvpStakes(client, session, actorId, "tris: rimborso chiusura");
+    resetSessionForNewRound(session);
+    return out;
+  }
+  if (session.mode !== "pvp" && session.phase === "playing") {
+    const amount = Math.max(0, Math.floor(Number(session.wager || session.bet) || 0));
+    if (!amount) {
+      resetSessionForNewRound(session);
+      return { ok: true, amount: 0, abortedRound: true };
+    }
+    const paid = await refundEconomyStake(
+      client,
+      session.guildId,
+      session.ownerId,
+      amount,
+      actorId || session.ownerId,
+      null,
+      "tris: rimborso chiusura",
+      "economy_tris_refund",
+    );
+    if (!paid?.ok) return { ok: false, message: paid?.message || "Rimborso non riuscito.", amount: 0, abortedRound: true };
+    resetSessionForNewRound(session);
+    return { ok: true, amount, abortedRound: true };
+  }
+  resetSessionForNewRound(session);
+  return { ok: true, amount: 0 };
+}
+
+/**
+ * Chiude forzatamente una sessione tris SENZA rimborsare le puntate.
+ * Usato quando il gioco è disabilitato.
+ */
+async function forceKillTrisSession(client, session, actorId = "") {
+  if (!session) return { ok: true, amount: 0 };
+  // Intenzionale: niente refund — le puntate restano perse alla disattivazione.
+  session.stakesLocked = false;
+  session.wager = 0;
+  session.phase = session.mode === "pvp" ? "done" : "idle";
+  session.currentTurnId = "";
+  session.lastResult = null;
+  session.updatedAt = now();
+  releasePvpUsers(session);
+  const mid = String(session.messageId || "").trim();
+  if (mid) await deleteSession(mid, session);
+  else if (session.guildId && session.ownerId) {
+    const { clearEconomyGuiSession } = require("../../Services/Community/economyGuiSessionStore");
+    await clearEconomyGuiSession("tris", session.guildId, session.ownerId, "").catch(() => null);
+  }
+  return { ok: true, amount: 0, refunded: false };
+}
+
+async function tryDisableTrisPanelMessage(client, session, notice) {
+  const mid = String(session?.messageId || "").trim();
+  const gid = String(session?.guildId || "").trim();
+  if (!mid || !gid || !client?.guilds?.fetch) return;
+  const guild = await client.guilds.fetch(gid).catch(() => null);
+  if (!guild) return;
+  const cfg = economyConfig(client);
+  const payload = await buildTrisGuiPayload(session, cfg, notice, true, false).catch(() => null);
+  if (!payload) return;
+  let channel = null;
+  const chId = String(session.channelId || "").trim();
+  if (chId) {
+    channel = await guild.channels.fetch(chId).catch(() => null);
+  }
+  if (!channel?.messages?.fetch) return;
+  const msg = await channel.messages.fetch(mid).catch(() => null);
+  if (msg?.editable) await msg.edit(payload).catch(() => {});
+}
+
+/**
+ * Svuota tutte le sessioni tris persistite (e in memoria) quando il gioco è off.
+ */
+async function purgeDisabledTrisSessions(client) {
+  const cfg = economyConfig(client);
+  if (cfg?.tris?.enabled !== false) return { ok: true, purged: 0, skipped: true };
+  const notice =
+    "<a:VC_Cross:1482532424570376253> Tris disattivato: sessione chiusa. Le puntate non vengono rimborsate.";
+  const byMessage = new Map();
+  for (const live of sessionApi.listMemorySessions?.() || []) {
+    const mid = String(live?.messageId || "").trim();
+    if (mid) byMessage.set(mid, live);
+  }
+  const persisted = await listEconomyGuiSessions("tris", { limit: 1000 }).catch(() => []);
+  for (const row of persisted) {
+    const mid = String(row?.messageId || "").trim();
+    if (mid && !byMessage.has(mid)) byMessage.set(mid, row);
+  }
+  let purged = 0;
+  for (const session of byMessage.values()) {
+    await forceKillTrisSession(client, session, session.ownerId).catch(() => null);
+    await tryDisableTrisPanelMessage(client, session, notice).catch(() => null);
+    purged += 1;
+  }
+  if (purged > 0) {
+    global.logger?.info?.(`[TRIS] purged ${purged} disabled session(s)`);
+  }
+  return { ok: true, purged };
 }
 
 function schedulePvpInviteExpiry(message, session, cfg) {
   const messageId = String(message?.id || "");
   if (!message?.edit || !messageId) return;
   setTimeout(() => {
-    const live = getSession(messageId);
-    if (!live || live.mode !== "pvp" || live.phase !== "pending") return;
-    deleteSession(messageId);
-    buildTrisGuiPayload(live, cfg, "<a:VC_pixeltime:1482535344103620771> Sfida scaduta: nessuna risposta.", true, false)
-      .then((payload) => message.edit(payload).catch(() => {}))
-      .catch(() => {});
+    void getSession(messageId, session?.guildId, session?.ownerId).then((live) => {
+      if (!live || live.mode !== "pvp" || live.phase !== "pending") return;
+      deleteSession(messageId, live);
+      buildTrisGuiPayload(live, cfg, "<a:VC_pixeltime:1482535344103620771> Sfida scaduta: nessuna risposta.", true, false)
+        .then((payload) => message.edit(payload).catch(() => {}))
+        .catch(() => {});
+    });
   }, PVP_INVITE_TTL_MS);
 }
 
 async function acceptPvpChallenge(client, interaction, session, cfg) {
   const opponentId = String(interaction.user?.id || "");
   if (opponentId !== session.opponentId) return { ok: false, message: "Solo l'avversario sfidato può accettare." };
+  if (session.phase !== "pending") return { ok: false, message: "Questa sfida non è più in attesa." };
+  const { assertDifferentHouses } = require("../../Services/Community/galeoniEconomyService");
+  const houseGate = await assertDifferentHouses(client, session.guildId || interaction.guild?.id, session.ownerId, session.opponentId, {
+    actionLabel: "le sfide PvP",
+  });
+  if (!houseGate.ok) return { ok: false, message: houseGate.message };
   const locked = await lockTrisPvpStakes(client, interaction.guild, session.ownerId, session.opponentId, session.bet, opponentId);
   if (!locked.ok) return locked;
   session.stakesLocked = true;
@@ -399,14 +548,14 @@ async function acceptPvpChallenge(client, interaction, session, cfg) {
 async function declinePvpChallenge(interaction, session) {
   if (String(interaction.user?.id || "") !== session.opponentId) return { ok: false, message: "Solo l'avversario può rifiutare la sfida." };
   if (session.phase !== "pending") return { ok: false, message: "Questa sfida non è più in attesa." };
-  deleteSession(interaction.message.id);
+  deleteSession(interaction.message.id, session);
   return { ok: true, notice: `<a:VC_Cross:1482532424570376253> **${session.opponentName}** ha rifiutato la sfida.`, disabled: true };
 }
 
 async function cancelPvpChallenge(interaction, session) {
   if (String(interaction.user?.id || "") !== session.ownerId) return { ok: false, message: "Solo chi ha lanciato la sfida può annullarla." };
   if (session.phase !== "pending") return { ok: false, message: "Non puoi annullare ora." };
-  deleteSession(interaction.message.id);
+  deleteSession(interaction.message.id, session);
   return { ok: true, notice: "🚫 Sfida annullata.", disabled: true };
 }
 
@@ -419,8 +568,9 @@ async function startGame(client, messageLike, session) {
     session.lastResult = null;
   }
   if (session.phase !== "idle") return { ok: false, message: "La partita è già in corso." };
-  const spent = await playTrisBet(client, messageLike, session.bet);
+  const spent = await playTrisBet(client, messageLike, session.bet, null, sessionSpendOptions(session));
   if (!spent.ok) return spent;
+  markSessionStakeCooldown(session);
   session.board = emptyBoard();
   session.wager = spent.amount;
   session.lastResult = null;
@@ -473,19 +623,19 @@ async function playCell(client, messageLike, session, cellIndex, cfg, actorUserI
 function formatTrisPvpNotice(result, session, viewerId) {
   if (!result?.ok) return result?.message || "";
   const youWon = String(result.winnerId) === String(viewerId);
-  if (result.draw) return `🤝 **Pareggio** — ti tornano **${formatCurrency("caffe",result.payout)}**.`;
-  if (youWon) return `🏆 **Vittoria!** Hai vinto **${formatCurrency("caffe",result.payout)}**.`;
+  if (result.draw) return `🤝 **Pareggio** — ti tornano **${formatEconomyAmount(result.payout)}**.`;
+  if (youWon) return `🏆 **Vittoria!** Hai vinto **${formatEconomyAmount(result.payout)}**.`;
   const winnerName = String(result.winnerId) === String(session.ownerId) ? session.playerName : session.opponentName;
-  return `<a:VC_Cross:1482532424570376253> **Sconfitta.** Vince **${winnerName}** (**${formatCurrency("caffe",result.payout)}**).`;
+  return `<a:VC_Cross:1482532424570376253> **Sconfitta.** Vince **${winnerName}** (**${formatEconomyAmount(result.payout)}**).`;
 }
 
 function formatRoundNotice(result, session, viewerId) {
   if (!result?.ok) return "";
   if (result.game === "tris_pvp") return formatTrisPvpNotice(result, session, viewerId);
   const label = outcomeLabel(result.outcome);
-  if (result.outcome === "win") return `🏆 **${label}!** Hai vinto **${formatCurrency("caffe",result.payout)}**.`;
-  if (result.outcome === "draw") return `🤝 **${label}** — ti tornano **${formatCurrency("caffe",result.payout)}**.`;
-  return `<a:VC_Cross:1482532424570376253> **${label}**. Hai perso **${formatCurrency("caffe",result.wager)}**.\n<a:VC_pixeltime:1482535344103620771> Puoi rigiocare quando il cooldown lo permette.`;
+  if (result.outcome === "win") return `🏆 **${label}!** Hai vinto **${formatEconomyAmount(result.payout)}**.`;
+  if (result.outcome === "draw") return `🤝 **${label}** — ti tornano **${formatEconomyAmount(result.payout)}**.`;
+  return `<a:VC_Cross:1482532424570376253> **${label}**. Hai perso **${formatEconomyAmount(result.wager)}**.\n<a:VC_pixeltime:1482535344103620771> Puoi rigiocare quando il cooldown lo permette.`;
 }
 
 module.exports = {
@@ -498,6 +648,7 @@ module.exports = {
   deleteSession,
   economyConfig,
   findActiveTrisPvpMessageId,
+  forceKillTrisSession,
   formatRoundNotice,
   getSession,
   interactionMessageAdapter,
@@ -506,7 +657,9 @@ module.exports = {
   makeSession,
   parseTrisGuiCustomId,
   playCell,
+  purgeDisabledTrisSessions,
   refundLockedPvpStakes,
+  refundOnClose,
   resetSessionForNewRound,
   schedulePvpInviteExpiry,
   setSession,

@@ -12,7 +12,7 @@ function normalizeUserId(userId) {
 
 function normalizeKind(kind) {
   const k = String(kind || "info").trim().toLowerCase();
-  if (["vote", "vote_reminder", "success", "info", "review", "mod", "suggestion"].includes(k)) return k;
+  if (["vote", "vote_reminder", "success", "info", "review", "mod", "suggestion", "web_ticket", "web_ticket_mention"].includes(k)) return k;
   return "info";
 }
 
@@ -145,6 +145,146 @@ function itemMatchesDedupeWindow(item, dedupeKeyRaw, since) {
 }
 
 /**
+ * Append atomico (evita VersionError su inbox condivisa tra bot e site-api).
+ * Se `dedupeKey` + `since` sono valorizzati, inserisce solo se non c’è già
+ * un item con la stessa chiave nella finestra (anti doppio reminder).
+ * @param {string} userId
+ * @param {object} newItem
+ * @param {{ dedupeKey?: string, since?: Date }} [dedupe]
+ */
+async function pushInboxItemAtomic(userId, newItem, dedupe = null) {
+  const uid = normalizeUserId(userId);
+  if (!uid || !newItem) return false;
+  const dedupeKey = dedupe?.dedupeKey ? String(dedupe.dedupeKey).trim() : "";
+  const since = dedupe?.since instanceof Date ? dedupe.since : null;
+
+  // Crea l’inbox se manca, SENZA filtro dedupe (upsert+$nor creerebbe un secondo doc).
+  await SiteDocument.updateOne(
+    inboxQuery(uid),
+    {
+      $setOnInsert: {
+        docType: NOTIF,
+        userId: uid,
+        guildId: "",
+        inAppNotifAggregate: true,
+        inAppNotifItems: [],
+      },
+    },
+    { upsert: true },
+  ).catch(() => null);
+
+  const filter = { ...inboxQuery(uid) };
+  if (dedupeKey && since) {
+    filter.$nor = [
+      {
+        inAppNotifItems: {
+          $elemMatch: {
+            dedupeKey,
+            createdAt: { $gte: since },
+          },
+        },
+      },
+    ];
+  }
+  // No $sort here: mixed/legacy items without createdAt can make $push+$sort fail.
+  // Ordering is applied on read in listSiteInAppNotificationsForUser.
+  const res = await SiteDocument.findOneAndUpdate(
+    filter,
+    {
+      $push: {
+        inAppNotifItems: {
+          $each: [newItem],
+          $slice: -MAX_PER_USER,
+        },
+      },
+    },
+    { new: true },
+  ).catch((err) => {
+    global.logger?.warn?.("[siteInAppNotifications] atomic push failed:", err?.message || err);
+    return null;
+  });
+  if (res) return true;
+
+  if (dedupeKey && since) {
+    const inbox = await SiteDocument.findOne(inboxQuery(uid)).select("inAppNotifItems").lean().catch(() => null);
+    const items = Array.isArray(inbox?.inAppNotifItems) ? inbox.inAppNotifItems : [];
+    if (items.some((it) => itemMatchesDedupeWindow(it, dedupeKey, since))) return true;
+  }
+
+  // Fallback non-atomico se $push fallisce (schema legacy / cast).
+  const inbox = await SiteDocument.findOne(inboxQuery(uid)).catch(() => null);
+  const existing = Array.isArray(inbox?.inAppNotifItems) ? inbox.inAppNotifItems : [];
+  if (dedupeKey && since && existing.some((it) => itemMatchesDedupeWindow(it, dedupeKey, since))) {
+    return true;
+  }
+  return saveInboxItems(uid, [...existing, newItem]);
+}
+
+function broadcastInboxChanged() {
+  try {
+    const { broadcastSiteNotificationsChanged } = require("./siteSuggestionsBroadcast");
+    broadcastSiteNotificationsChanged();
+  } catch (_) {}
+}
+
+function fireNotificationPush(userId, { title, body, openUrl, kind, id, ticketId }, { push = true } = {}) {
+  broadcastInboxChanged();
+  if (push === false) return;
+  try {
+    const { sendWebPushToUser } = require("./siteWebPushService");
+    void sendWebPushToUser(userId, {
+      title,
+      body,
+      openUrl: openUrl || "",
+      kind,
+      id: String(id || ""),
+      ticketId: String(ticketId || "").trim(),
+    });
+  } catch (_) {}
+}
+
+async function replaceInboxItemByDedupeKey(userId, dedupeKey, patch) {
+  const uid = normalizeUserId(userId);
+  const key = String(dedupeKey || "").trim();
+  if (!uid || !key) return null;
+  const now = new Date();
+  const $set = {
+    "inAppNotifItems.$.title": patch.title,
+    "inAppNotifItems.$.body": patch.body,
+    "inAppNotifItems.$.openUrl": patch.openUrl,
+    "inAppNotifItems.$.notifKind": patch.notifKind,
+    "inAppNotifItems.$.guildId": patch.guildId,
+    "inAppNotifItems.$.updatedAt": now,
+  };
+  if (patch.resetRead !== false) {
+    $set["inAppNotifItems.$.readAt"] = null;
+    $set["inAppNotifItems.$.createdAt"] = now;
+  }
+  const out = await SiteDocument.findOneAndUpdate(
+    { ...inboxQuery(uid), "inAppNotifItems.dedupeKey": key },
+    { $set },
+    { new: true },
+  ).catch(() => null);
+  if (!out) return null;
+  const item = (Array.isArray(out.inAppNotifItems) ? out.inAppNotifItems : []).find(
+    (it) => String(it?.dedupeKey || "") === key,
+  );
+  return item?._id ? { id: String(item._id) } : { id: "" };
+}
+
+async function removeInboxItemByDedupeKey(userId, dedupeKey) {
+  const uid = normalizeUserId(userId);
+  const key = String(dedupeKey || "").trim();
+  if (!uid || !key) return false;
+  const res = await SiteDocument.updateOne(inboxQuery(uid), {
+    $pull: { inAppNotifItems: { dedupeKey: key } },
+  }).catch(() => null);
+  const changed = Number(res?.modifiedCount ?? res?.nModified ?? 0) > 0;
+  if (changed) broadcastInboxChanged();
+  return changed;
+}
+
+/**
  * @param {object} opts
  * @param {string} opts.guildId
  * @param {string} opts.userId destinatario Discord
@@ -154,24 +294,49 @@ function itemMatchesDedupeWindow(item, dedupeKeyRaw, since) {
  * @param {string} [opts.openUrl] path o URL assoluto
  * @param {string} [opts.dedupeKey]
  * @param {number} [opts.dedupeWindowMs]
+ * @param {boolean} [opts.replaceDedupe] aggiorna l’item esistente con la stessa dedupeKey (chat)
+ * @param {boolean} [opts.push] se false aggiorna solo la campanella, senza push di sistema
+ * @param {string} [opts.ticketId]
+ * @returns {Promise<boolean>}
  */
 async function enqueueSiteInAppNotification(opts = {}) {
   const userId = normalizeUserId(opts.userId);
-  if (!userId) return;
+  if (!userId) return false;
   await migrateLegacyInAppNotificationsForUser(userId).catch(() => null);
   const guildId = String(opts.guildId || "").trim() || "global";
   const title = String(opts.title || "").trim().slice(0, 120);
   const body = String(opts.body || "").trim().slice(0, 500);
-  if (!title || !body) return;
+  if (!title || !body) return false;
   const kind = normalizeKind(opts.kind);
   const openUrl = String(opts.openUrl || "").trim().slice(0, 400);
+  const ticketId = String(opts.ticketId || "").trim();
   const dedupeKeyRaw = opts.dedupeKey != null ? String(opts.dedupeKey).trim().slice(0, DEDUPE_KEY_MAX) : "";
   const dedupeWindowMs = Number(opts.dedupeWindowMs) || 0;
-  if (dedupeKeyRaw && dedupeWindowMs > 0) {
+  const replaceDedupe = opts.replaceDedupe === true && Boolean(dedupeKeyRaw);
+  const sendPush = opts.push !== false;
+  const pushOpts = { push: sendPush };
+
+  if (replaceDedupe) {
+    const replaced = await replaceInboxItemByDedupeKey(userId, dedupeKeyRaw, {
+      title,
+      body,
+      openUrl: openUrl || "",
+      notifKind: kind,
+      guildId,
+      resetRead: sendPush,
+    });
+    if (replaced) {
+      fireNotificationPush(userId, { title, body, openUrl, kind, id: replaced.id, ticketId }, pushOpts);
+      return true;
+    }
+  }
+
+  if (dedupeKeyRaw && dedupeWindowMs > 0 && !replaceDedupe) {
     const since = new Date(Date.now() - dedupeWindowMs);
     const inbox = await SiteDocument.findOne(inboxQuery(userId)).select("inAppNotifItems").lean().catch(() => null);
     const items = Array.isArray(inbox?.inAppNotifItems) ? inbox.inAppNotifItems : [];
-    if (items.some((it) => itemMatchesDedupeWindow(it, dedupeKeyRaw, since))) return;
+    // Già presente = successo idempotente (evita warn sul retry dopo recordDiscadiaVote).
+    if (items.some((it) => itemMatchesDedupeWindow(it, dedupeKeyRaw, since))) return true;
     const dupLegacy = await SiteDocument.findOne({
       ...legacyFlatQuery(userId),
       dedupeKey: dedupeKeyRaw,
@@ -180,7 +345,7 @@ async function enqueueSiteInAppNotification(opts = {}) {
       .select("_id")
       .lean()
       .catch(() => null);
-    if (dupLegacy) return;
+    if (dupLegacy) return true;
   }
   const newItem = {
     _id: new mongoose.Types.ObjectId(),
@@ -194,17 +359,28 @@ async function enqueueSiteInAppNotification(opts = {}) {
     createdAt: new Date(),
     updatedAt: new Date(),
   };
-  const inbox = await SiteDocument.findOne(inboxQuery(userId)).select("inAppNotifItems").lean().catch(() => null);
-  const currentItems = Array.isArray(inbox?.inAppNotifItems) ? inbox.inAppNotifItems : [];
-  const saved = await saveInboxItems(userId, [...currentItems, newItem]);
+  const dedupeOpts =
+    dedupeKeyRaw && dedupeWindowMs > 0 && !replaceDedupe
+      ? { dedupeKey: dedupeKeyRaw, since: new Date(Date.now() - dedupeWindowMs) }
+      : null;
+  const saved = await pushInboxItemAtomic(userId, newItem, dedupeOpts);
   if (saved) {
-    try {
-      const { broadcastSiteNotificationsChanged } = require("./siteSuggestionsBroadcast");
-      broadcastSiteNotificationsChanged();
-    } catch (_) {}
-  } else {
-    global.logger?.warn?.("[siteInAppNotifications] enqueue failed:", { userId, kind, title });
+    fireNotificationPush(
+      userId,
+      {
+        title,
+        body,
+        openUrl,
+        kind,
+        id: String(newItem._id || ""),
+        ticketId,
+      },
+      pushOpts,
+    );
+    return true;
   }
+  global.logger?.warn?.("[siteInAppNotifications] enqueue failed:", { userId, kind, title });
+  return false;
 }
 
 async function pruneSiteInAppNotificationsForUser(userId) {
@@ -370,6 +546,7 @@ async function deleteAllSiteInAppNotificationsForUser(userId) {
 
 module.exports = {
   enqueueSiteInAppNotification,
+  removeInboxItemByDedupeKey,
   listSiteInAppNotificationsForUser,
   pruneSiteInAppNotificationsForUser,
   deleteSiteInAppNotifications,

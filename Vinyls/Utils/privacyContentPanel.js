@@ -1,13 +1,14 @@
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType } = require("discord.js");
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const { PRIVACY_CONTENT_KINDS, PRIVACY_CONTENT_LABELS, privacyContentModel } = require("./privacyContentKinds");
 
-const PREFIX = "privacy_panel_";
+const PREFIX = "privacy_panel";
 const KINDS = PRIVACY_CONTENT_KINDS;
 const LABELS = PRIVACY_CONTENT_LABELS;
 const EMOJI_OFF = "<:VC_OfflineStatus:1482527117051957380>";
 const EMOJI_ON = "<:VC_OnlineStatus:1482527088912240650>";
 const BTN_EMOJI_OFF = "<:VC_OfflineStatus:1482527117051957380>";
 const BTN_EMOJI_ON = "<:VC_OnlineStatus:1482527088912240650>";
+const PRIVATE = 1 << 6;
 
 function _stripRef(p) {
   if (!p || typeof p !== "object") return p;
@@ -98,13 +99,13 @@ function buildPanelEmbed(states) {
     .setFooter({ text: "Usa +profile per riaprire questo pannello." });
 }
 
-function buildRows(states, uniqueKey) {
+function buildRows(states, ownerId) {
   const row1 = new ActionRowBuilder();
   for (const key of KINDS) {
     const hidden = states[key];
     row1.addComponents(
       new ButtonBuilder()
-        .setCustomId(`${PREFIX}toggle_${key}_${uniqueKey}`)
+        .setCustomId(`${PREFIX}:toggle:${key}:${ownerId}`)
         .setLabel(String(LABELS[key]).slice(0, 80))
         .setStyle(hidden ? ButtonStyle.Secondary : ButtonStyle.Success)
         .setEmoji(hidden ? BTN_EMOJI_OFF : BTN_EMOJI_ON),
@@ -114,17 +115,17 @@ function buildRows(states, uniqueKey) {
   const allVisible = KINDS.every((k) => !states[k]);
   const row2 = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setCustomId(`${PREFIX}all_${uniqueKey}`)
+      .setCustomId(`${PREFIX}:all:${ownerId}`)
       .setLabel("Blocca tutto")
       .setStyle(allBlocked ? ButtonStyle.Danger : ButtonStyle.Secondary)
       .setEmoji("<:cancel:1461730653677551691>"),
     new ButtonBuilder()
-      .setCustomId(`${PREFIX}none_${uniqueKey}`)
+      .setCustomId(`${PREFIX}:none:${ownerId}`)
       .setLabel("Sblocca tutto")
       .setStyle(allVisible ? ButtonStyle.Success : ButtonStyle.Secondary)
       .setEmoji("<:success:1461731530333229226>"),
     new ButtonBuilder()
-      .setCustomId(`${PREFIX}done_${uniqueKey}`)
+      .setCustomId(`${PREFIX}:done:${ownerId}`)
       .setLabel("Fine")
       .setStyle(ButtonStyle.Primary)
       .setEmoji("<:vegacheckmark:1443666279058772028>"),
@@ -132,111 +133,80 @@ function buildRows(states, uniqueKey) {
   return [row1, row2];
 }
 
-function matchesSession(customId, uniqueKey) {
-  return typeof customId === "string" && customId.endsWith(`_${uniqueKey}`);
+function parsePrivacyCustomId(customId) {
+  const parts = String(customId || "").split(":");
+  if (parts[0] !== PREFIX || parts.length < 3) return null;
+  if (parts[1] === "toggle") {
+    if (parts.length < 4) return null;
+    return { action: "toggle", kind: parts[2], ownerId: parts[3] };
+  }
+  return { action: parts[1], ownerId: parts[2] };
 }
 
-function parseToggleKind(customId, uniqueKey) {
-  const p = `${PREFIX}toggle_`;
-  if (!customId.startsWith(p) || !matchesSession(customId, uniqueKey)) return null;
-  const suffix = `_${uniqueKey}`;
-  const mid = customId.slice(p.length, -suffix.length);
-  return KINDS.includes(mid) ? mid : null;
+async function handlePrivacyPanelInteraction(interaction) {
+  const parsed = parsePrivacyCustomId(interaction.customId);
+  if (!parsed) return false;
+  if (String(interaction.user?.id) !== String(parsed.ownerId)) {
+    await interaction
+      .reply({ content: "<:vegax:1443934876440068179> Questo pannello non è tuo.", flags: PRIVATE })
+      .catch(() => null);
+    return true;
+  }
+  const guildId = interaction.guild?.id;
+  const userId = parsed.ownerId;
+  if (!guildId) return true;
+
+  if (parsed.action === "done") {
+    await interaction
+      .update({
+        embeds: [
+          new EmbedBuilder()
+            .setColor("#6f4e37")
+            .setTitle("<:success:1461731530333229226> Privacy aggiornata")
+            .setDescription(
+              "<:VC_InactiveStatus:1482526984234860574> Le impostazioni sono salvate. Usa `+profile` per modificarle in futuro.",
+            ),
+        ],
+        components: [],
+      })
+      .catch(() => null);
+    return true;
+  }
+
+  if (parsed.action === "toggle" && KINDS.includes(parsed.kind)) {
+    const states = await loadStates(guildId, userId);
+    await setKindBlocked(guildId, userId, parsed.kind, !states[parsed.kind]);
+  } else if (parsed.action === "all") {
+    await setAllBlocked(guildId, userId, true);
+  } else if (parsed.action === "none") {
+    await setAllBlocked(guildId, userId, false);
+  } else {
+    return false;
+  }
+
+  const next = await loadStates(guildId, userId);
+  await interaction
+    .update({
+      embeds: [buildPanelEmbed(next)],
+      components: buildRows(next, userId),
+    })
+    .catch(() => null);
+  return true;
 }
 
-/**
- * Pannello interattivo: blocca/sblocca avatar, banner e quote (come +dm-filters).
- * @param {import("discord.js").Message} message
- */
 async function runPrivacyPanel(message) {
   const guildId = message.guild.id;
   const userId = message.author.id;
-  let states = await loadStates(guildId, userId);
-  const uniqueKey = `u${Date.now()}${Math.floor(Math.random() * 1e6)}`;
-
-  const promptMessage = await _reply(message, {
+  const states = await loadStates(guildId, userId);
+  await _reply(message, {
     embeds: [buildPanelEmbed(states)],
-    components: buildRows(states, uniqueKey),
+    components: buildRows(states, userId),
     allowedMentions: { repliedUser: false },
-  });
-  if (!promptMessage) return;
-
-  const collector = promptMessage.createMessageComponentCollector({
-    componentType: ComponentType.Button,
-    time: 120_000,
-    filter: (i) => i.user.id === userId && matchesSession(i.customId, uniqueKey),
-  });
-
-  collector.on("collect", async (interaction) => {
-    const id = interaction.customId;
-    const kind = parseToggleKind(id, uniqueKey);
-    if (kind) {
-      const nextBlocked = !states[kind];
-      await setKindBlocked(guildId, userId, kind, nextBlocked);
-      Object.assign(states, await loadStates(guildId, userId));
-      await interaction
-        .update({
-          embeds: [buildPanelEmbed(states)],
-          components: buildRows(states, uniqueKey),
-        })
-        .catch(() => {});
-      return;
-    }
-    if (id === `${PREFIX}all_${uniqueKey}`) {
-      await setAllBlocked(guildId, userId, true);
-      Object.assign(states, await loadStates(guildId, userId));
-      await interaction
-        .update({
-          embeds: [buildPanelEmbed(states)],
-          components: buildRows(states, uniqueKey),
-        })
-        .catch(() => {});
-      return;
-    }
-    if (id === `${PREFIX}none_${uniqueKey}`) {
-      await setAllBlocked(guildId, userId, false);
-      Object.assign(states, await loadStates(guildId, userId));
-      await interaction
-        .update({
-          embeds: [buildPanelEmbed(states)],
-          components: buildRows(states, uniqueKey),
-        })
-        .catch(() => {});
-      return;
-    }
-    if (id === `${PREFIX}done_${uniqueKey}`) {
-      collector.stop("done");
-      await interaction
-        .update({
-          embeds: [
-            new EmbedBuilder()
-              .setColor("#6f4e37")
-              .setTitle("<:success:1461731530333229226> Privacy aggiornata")
-              .setDescription(
-                "<:VC_InactiveStatus:1482526984234860574> Le impostazioni sono salvate. Usa `+profile` per modificarle in futuro.",
-              ),
-          ],
-          components: [],
-        })
-        .catch(() => {});
-    }
-  });
-
-  collector.on("end", async (_, reason) => {
-    if (reason === "done") return;
-    try {
-      const rows = buildRows(await loadStates(guildId, userId), uniqueKey);
-      const disabledRows = rows.map(
-        (row) =>
-          new ActionRowBuilder().addComponents(
-            ...row.components.map((c) => ButtonBuilder.from(c).setDisabled(true)),
-          ),
-      );
-      await promptMessage.edit({ components: disabledRows }).catch(() => {});
-    } catch (err) {
-      global.logger?.warn?.("[privacyContentPanel] end edit:", err?.message || err);
-    }
   });
 }
 
-module.exports = { runPrivacyPanel };
+module.exports = {
+  runPrivacyPanel,
+  parsePrivacyCustomId,
+  handlePrivacyPanelInteraction,
+};

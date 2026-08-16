@@ -5,6 +5,10 @@ const {
   parseClipDurationSec,
 } = require("../../Services/Voice/voiceClipService");
 const { EPHEMERAL_TTL_SHORT_MS, scheduleMessageDeletion } = require("../../Utils/Config/ephemeralMessageTtl");
+const { TENANT_EMBED_COLOR } = require("../../MultiGuild/utils/tenantEmbedBranding");
+const { isTenantBoardFeatureEnabledSync } = require("../../MultiGuild/core/tenantGuildSettings");
+
+const CLIP_DISABLED_MESSAGE = "Le clip sono disattivate su questo server.";
 
 module.exports = {
   name: "clip",
@@ -16,6 +20,17 @@ module.exports = {
           new EmbedBuilder()
             .setColor("Red")
             .setDescription("<:vegax:1443934876440068179> Questo comando funziona solo in un server."),
+        ],
+        allowedMentions: { repliedUser: false },
+      });
+    }
+
+    if (!isTenantBoardFeatureEnabledSync(message.guild.id, "clip")) {
+      return safeMessageReply(message, {
+        embeds: [
+          new EmbedBuilder()
+            .setColor("Red")
+            .setDescription(`<:vegax:1443934876440068179> ${CLIP_DISABLED_MESSAGE}`),
         ],
         allowedMentions: { repliedUser: false },
       });
@@ -52,7 +67,7 @@ module.exports = {
     const pending = await safeMessageReply(message, {
       embeds: [
         new EmbedBuilder()
-          .setColor("#5865F2")
+          .setColor(TENANT_EMBED_COLOR)
           .setDescription(`🎙️ Estrazione ultimi **${parsed.seconds}s** in corso…`),
       ],
       allowedMentions: { repliedUser: false },

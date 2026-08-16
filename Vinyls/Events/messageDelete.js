@@ -1,9 +1,20 @@
 const { EmbedBuilder, MessageFlagsBitField } = require("discord.js");
 const IDs = require("../Utils/Config/ids");
-const { getGuildChannelCached, getClientChannelCached } = require("../Utils/Interaction/interactionEntityCache");
+const { getGuildChannelCached } = require("../Utils/Interaction/interactionEntityCache");
 const { maybePunishCountingOnDelete } = require("../Utils/Message/officialMessageCommunityHandlers");
 const { toDiscordTimestamp } = require("../Utils/Logging/channelRolesLogUtils");
 const { handlePartnerDescriptionMessageDelete } = require("../Services/Partner/partnerDescriptionSyncService");
+const { handleTenantPartnerDescriptionMessageDelete } = require("../Services/Partner/tenantPartnerDescriptionService");
+
+function isViniliFullFeatureGuild(guildId) {
+  try {
+    const { isViniliFullFeatureGuild: check } = require("../MultiGuild/core/guildFeatureScope");
+    return check(guildId);
+  } catch {
+    return true;
+  }
+}
+
 const MAX_CONTENT_LOG_LENGTH = 1800;
 const VERIFICATION_EXCLUDED_CHANNEL_IDS=new Set([IDs.channels.verify,IDs.channels.clickMe,IDs.channels.activityLogs].filter(Boolean).map((id) => String(id)));
 
@@ -19,9 +30,19 @@ async function resolveMessage(message) {
 function buildSnipePayload(message, channelId) {
   const firstAttachment = message.attachments?.first?.() || null;
   const firstEmbed = Array.isArray(message?.embeds) ? message.embeds[0] : null;
-  const embedPreview=String(firstEmbed?.description||firstEmbed?.title||firstEmbed?.author?.name||"",).trim();
+  const embedPreview = String(
+    firstEmbed?.description || firstEmbed?.title || firstEmbed?.author?.name || "",
+  ).trim();
+  const embedFieldAnswers = Array.isArray(firstEmbed?.fields)
+    ? firstEmbed.fields.map((f) => String(f?.value || "").trim()).filter(Boolean).join("\n")
+    : "";
+  const content =
+    message.content ||
+    [embedPreview, embedFieldAnswers].filter(Boolean).join("\n") ||
+    "Nessun contenuto.";
   return {
-    content: message.content || embedPreview || "Nessun contenuto.",
+    messageId: String(message.id || "").trim() || null,
+    content,
     authorId: message.author?.id || null,
     authorTag: message.author?.tag || "Sconosciuto",
     channel: message.channel?.toString?.() || `<#${channelId}>`,
@@ -120,10 +141,8 @@ function hasMeaningfulDeleteData(message) {
 async function resolveLogChannel(guild) {
   const channelId = IDs.channels.activityLogs;
   if (!guild || !channelId) return null;
-  const client = guild.client;
   return guild.channels.cache.get(channelId) ||
     (await getGuildChannelCached(guild, channelId)) ||
-    (client ? (await getClientChannelCached(client, channelId)) : null) ||
     (await guild.channels.fetch(channelId).catch(() => null));
 }
 
@@ -195,7 +214,14 @@ module.exports = {
 
       resolved = await resolveMessage(message);
       if (!resolved?.guild) return;
+
+      if (!isViniliFullFeatureGuild(resolved.guild.id)) {
+        void handleTenantPartnerDescriptionMessageDelete(resolvedClient, resolved).catch(() => null);
+        return;
+      }
+
       void handlePartnerDescriptionMessageDelete(resolvedClient, resolved).catch(() => null);
+      void handleTenantPartnerDescriptionMessageDelete(resolvedClient, resolved).catch(() => null);
       await maybePunishCountingOnDelete(resolved, resolvedClient);
       if (!hasMeaningfulDeleteData(resolved)) return;
 
@@ -206,8 +232,12 @@ module.exports = {
       if (!resolvedClient.snipes) resolvedClient.snipes = new Map();
 
       const payload = buildSnipePayload(resolved, channelId);
+      try {
+        const { shouldSkipStoringSnipe } = require("../Services/Minigames/minigameService");
+        if (shouldSkipStoringSnipe(resolvedClient, channelId, payload)) return;
+      } catch (_) {}
       const existing = resolvedClient.snipes.get(channelId);
-      const history=Array.isArray(existing)?existing.slice(0,9):existing?[existing]:[];
+      const history = Array.isArray(existing) ? existing.slice(0, 9) : existing ? [existing] : [];
       history.unshift(payload);
       resolvedClient.snipes.set(channelId, history.slice(0, 10));
     } catch (error) {

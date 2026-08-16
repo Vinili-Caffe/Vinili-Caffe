@@ -3,6 +3,7 @@ const { AuditLogEvent, ChannelType, EmbedBuilder, ActionRowBuilder, ButtonBuilde
 const { toDiscordTimestamp, yesNo, formatAuditActor, buildAuditExtraLines, resolveChannelRolesLogChannel, resolveResponsible, } = require("../Utils/Logging/channelRolesLogUtils");
 const { handleThreadCreationAction: antiNukeHandleThreadCreationAction } = require("../Services/Moderation/antiNukeService");
 const { handleIdeaBugCategoryThreadCreate } = require("../Services/Community/ideaBugThreadService");
+const { isViniliFullFeatureGuild } = require("../MultiGuild/core/guildFeatureScope");
 const THREAD_CREATE_ACTION = AuditLogEvent?.ThreadCreate ?? 110;
 
 function sleep(ms) {
@@ -33,6 +34,7 @@ module.exports = {
   async execute(thread) {
     try {
       if (!thread?.guild || !thread?.id) return;
+      if (!isViniliFullFeatureGuild(thread.guild.id)) return;
       await handleIdeaBugCategoryThreadCreate(thread).catch((err) => {
         global.logger?.warn?.("[threadCreate] idea bug category ping failed:", err?.message || err);
       });

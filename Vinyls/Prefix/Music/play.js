@@ -3,6 +3,33 @@ const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const { applyDefaultFooterToEmbeds } = require("../../Utils/Embeds/defaultFooter");
 const { playMusicRequest } = require("../../Services/Music/lavalinkMusicService");
 
+function extractSpotifyMetaFromDiscordEmbeds(embeds) {
+  if (!Array.isArray(embeds) || !embeds.length) return null;
+  for (const e of embeds) {
+    const provider = String(e?.provider?.name || "").toLowerCase();
+    const url = String(e?.url || "").trim();
+    const looksSpotify = provider.includes("spotify") || /open\.spotify\.com/i.test(url);
+    if (!looksSpotify && embeds.length > 1) continue;
+    const title = String(e?.title || "").trim();
+    if (!title) continue;
+    let author = String(e?.author?.name || "").trim();
+    if (!author) {
+      const desc = String(e?.description || "").trim();
+      author = desc.split(/\n|•|·|\|/)[0].trim();
+    }
+    author = author.replace(/\s+[•·].*$/, "").trim();
+    return { title, author };
+  }
+  return null;
+}
+
+async function resolveSpotifyMetaHint(message, query) {
+  const q = String(query || "").trim();
+  if (!/open\.spotify\.com/i.test(q) && !/^spotify:/i.test(q)) return null;
+  // Solo embed già presenti: niente sleep — LavaSrc risolve i link Spotify da solo.
+  return extractSpotifyMetaFromDiscordEmbeds(message?.embeds);
+}
+
 module.exports = {
   name: "play",
   args: true,
@@ -16,6 +43,7 @@ module.exports = {
   async execute(message, args) {
     const query = Array.isArray(args) ? args.join(" ").trim() : "";
     if (!query) return;
+    const metaHint = await resolveSpotifyMetaHint(message, query);
     const result = await playMusicRequest(
       {
         client: message.client,
@@ -23,6 +51,7 @@ module.exports = {
         member: message.member,
         textChannelId: message.channelId,
         requesterUser: message.author,
+        metaHint,
       },
       query,
     );

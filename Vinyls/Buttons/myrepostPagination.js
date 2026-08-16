@@ -1,14 +1,28 @@
+const { safePanelMessageUpdate } = require("../../shared/discord/replyRuntime");
 const {
   buildMyRepostPanel,
   isMyRepostPageButton,
+  isMyRepostCloseButton,
   parseMyRepostPageButton,
+  parseMyRepostCloseButton,
 } = require("../Utils/Community/myrepostPanel");
 
 function match(interaction) {
-  return interaction?.isButton?.() && isMyRepostPageButton(interaction.customId);
+  if (!interaction?.isButton?.()) return false;
+  const id = String(interaction.customId || "");
+  return isMyRepostPageButton(id) || isMyRepostCloseButton(id);
 }
 
 async function execute(interaction) {
+  if (isMyRepostCloseButton(interaction.customId)) {
+    const parsed = parseMyRepostCloseButton(interaction.customId);
+    if (!parsed?.requesterId) return;
+    if (String(interaction.user?.id || "") !== String(parsed.requesterId)) return;
+    await interaction.deferUpdate().catch(() => null);
+    await interaction.message?.delete?.().catch(() => null);
+    return;
+  }
+
   const parsed = parseMyRepostPageButton(interaction.customId);
   if (!parsed?.requesterId || !parsed?.targetUserId || !interaction.guild) return;
   if (String(interaction.user?.id || "") !== String(parsed.requesterId)) return;
@@ -24,13 +38,12 @@ async function execute(interaction) {
     commandPrefix: prefix,
   });
 
-  await interaction
-    .editReply({
-      embeds: payload.embeds,
-      components: payload.components,
-      allowedMentions: { users: payload.allowedUserIds || [] },
-    })
-    .catch(() => null);
+  await safePanelMessageUpdate(interaction, {
+    embeds: payload.embeds,
+    components: payload.components,
+    allowedMentions: { users: payload.allowedUserIds || [] },
+    includeBanner: false,
+  });
 }
 
 module.exports = { name: "myrepostPagination", order: 47, match, execute };

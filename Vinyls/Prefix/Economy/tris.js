@@ -1,7 +1,8 @@
 const { assertEconomyGamblingAccess, assertEconomyGamblingAccessForUser, economyConfig } = require("../../Services/Community/activeEconomyService");
 const { formatGaleoni } = require("../../Services/Community/gringottService");
-const { buildTrisGuiPayload, clampBet, findActiveTrisPvpMessageId, getSession, makeSession, schedulePvpInviteExpiry, setSession, startGame, warmupTrisPanel } = require("../../Utils/Economy/trisGuiRuntime");
-const { postGuiPanel, runEconomyPanelCommand } = require("../../Utils/Economy/economyCommandHelpers");
+const { buildTrisGuiPayload, clampBet, findActiveTrisPvpMessageId, makeSession, schedulePvpInviteExpiry, setSession, startGame, warmupTrisPanel } = require("../../Utils/Economy/trisGuiRuntime");
+const { postGuiPanel, resolveEconomyOpponentArg, runEconomyPanelCommand } = require("../../Utils/Economy/economyCommandHelpers");
+const { economyUsername } = require("../../Utils/Economy/economyDisplayHelpers");
 
 function extractUserId(value) {
   const clean = String(value || "").replace(/[<@!>]/g, "").trim();
@@ -15,23 +16,34 @@ function parseBetArg(raw, cfg, fallback) {
   return clampBet(n, cfg);
 }
 
+function isNonUserToken(token, cfg) {
+  const t = String(token || "").trim();
+  if (!t) return true;
+  if (parseBetArg(t, cfg, null) != null && /^\d+$/.test(t)) return true;
+  return false;
+}
+
 module.exports = {
   name: "tris",
   allowEmptyArgs: true,
   description: "Tris vs bot o PvP con pannello interattivo.",
-  usage: "+tris [puntata] · +tris @utente [puntata]",
-  examples: ["+tris", "+tris 10", "+tris @utente", "+tris @utente 25"],
+  usage: "+tris [puntata] · +tris <@utente|username> [puntata]",
+  examples: ["+tris", "+tris 10", "+tris @utente", "+tris username 25"],
   async execute(message, args, client) {
     await runEconomyPanelCommand(message, client, "TRIS", async ({ message: msg, client: c, replyDeny: deny, postGuiPanel: post }) => {
       const cfg = economyConfig(c);
-      const targetUser = msg.mentions.users.first()
-        || (extractUserId(args?.[0]) ? await c.users.fetch(extractUserId(args[0])).catch(() => null) : null)
-        || (extractUserId(args?.[1]) ? await c.users.fetch(extractUserId(args[1])).catch(() => null) : null);
+      if (cfg?.tris?.enabled === false) {
+        await deny(msg, "Il tris è temporaneamente disattivato.");
+        return;
+      }
+      const targetUser = await resolveEconomyOpponentArg(msg, args, {
+        skipToken: (token) => isNonUserToken(token, cfg),
+      });
       let rawBet = cfg.minBet;
       if (targetUser) {
-        if (args?.[0] && extractUserId(args[0]) && parseBetArg(args[1], cfg, cfg.minBet) != null) {
+        if (args?.[0] && (extractUserId(args[0]) || String(args[0]).trim()) && parseBetArg(args[1], cfg, cfg.minBet) != null) {
           rawBet = parseBetArg(args[1], cfg, cfg.minBet);
-        } else if (args?.[0] && !extractUserId(args[0]) && parseBetArg(args[0], cfg, cfg.minBet) != null) {
+        } else if (args?.[0] && !extractUserId(args[0]) && parseBetArg(args[0], cfg, cfg.minBet) != null && isNonUserToken(args[0], cfg)) {
           rawBet = parseBetArg(args[0], cfg, cfg.minBet);
         }
       } else if (args?.[0] != null && parseBetArg(args[0], cfg, cfg.minBet) != null) {
@@ -49,6 +61,14 @@ module.exports = {
         }
         if (targetUser.id === msg.author.id) {
           await deny(msg, "Non puoi sfidare te stesso.");
+          return;
+        }
+        const { assertDifferentHouses } = require("../../Services/Community/galeoniEconomyService");
+        const houseGate = await assertDifferentHouses(c, msg.guild.id, msg.author.id, targetUser.id, {
+          actionLabel: "le sfide PvP",
+        });
+        if (!houseGate.ok) {
+          await deny(msg, houseGate.message);
           return;
         }
         const opponentMember = msg.mentions.members?.first()
@@ -71,10 +91,10 @@ module.exports = {
           guildId: msg.guild.id,
           bet: clampBet(rawBet, access.cfg),
           cfg: access.cfg,
-          playerName: msg.member?.displayName || msg.author.username,
+          playerName: economyUsername(msg.author),
           mode: "pvp",
           opponentId: targetUser.id,
-          opponentName: opponentMember?.displayName || targetUser.globalName || targetUser.username,
+          opponentName: economyUsername(targetUser),
         });
         await warmupTrisPanel();
         const notice = `<:VC_Info:1482526956703580372> **${session.playerName}** sfida **${session.opponentName}** a tris per **${formatGaleoni(session.bet)}** ciascuno.\n${targetUser}, accetta o rifiuta entro 90 secondi.`;
@@ -84,7 +104,7 @@ module.exports = {
           setSession,
           label: "tris",
         });
-        if (sent?.id) schedulePvpInviteExpiry(sent, getSession(sent.id) || session, access.cfg);
+        if (sent?.id) schedulePvpInviteExpiry(sent, session, access.cfg);
         return;
       }
       const session = makeSession({
@@ -92,7 +112,7 @@ module.exports = {
         guildId: msg.guild.id,
         bet: clampBet(rawBet, access.cfg),
         cfg: access.cfg,
-        playerName: msg.member?.displayName || msg.author.username,
+        playerName: economyUsername(msg.author),
       });
       await warmupTrisPanel();
       let notice = "Regola la puntata e premi **Inizia** per giocare vs bot.";

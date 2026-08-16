@@ -1,4 +1,5 @@
 const { EmbedBuilder } = require("discord.js");
+const { safeMessageEdit } = require("../../shared/discord/replyRuntime");
 const { parseBackupPanelSelectCustomId, buildBackupPanelNavRow, SECTION_HOME } = require("../Utils/Backup/backupPanelNav");
 const {
   buildBackupPanelPayload,
@@ -27,11 +28,13 @@ const {
 const PRIVATE = 1 << 6;
 
 async function applyPanelUpdate(interaction, payload) {
+  const { safeInteractionUpdate, safeMessageEdit } = require("../../shared/discord/replyRuntime");
   if (interaction.deferred && interaction.message?.edit) {
-    await interaction.message.edit(payload);
+    await safeMessageEdit(interaction.message, payload, interaction);
     return;
   }
-  await interaction.update(payload);
+  const updated = await safeInteractionUpdate(interaction, payload);
+  if (!updated) throw new Error("interaction_update_failed");
 }
 
 function match(interaction) {
@@ -78,10 +81,14 @@ async function execute(interaction) {
         const result = await readBackupByIdGlobal(rawRef);
         const backupId = String(result?.payload?.backupId || "").toUpperCase();
         const nav = buildBackupPanelNavRow(parsed.ownerId, "info");
-        await interaction.message.edit({
-          embeds: [buildInfoEmbed(guild, backupId, result.payload, result.sizeBytes, result.checksum)],
-          components: [nav, buildInfoButtons(backupId, parsed.ownerId, result.guildId)],
-        }).catch(() => {});
+        await safeMessageEdit(
+          interaction.message,
+          {
+            embeds: [buildInfoEmbed(guild, backupId, result.payload, result.sizeBytes, result.checksum)],
+            components: [nav, buildInfoButtons(backupId, parsed.ownerId, result.guildId)],
+          },
+          interaction,
+        ).catch(() => {});
         await interaction.editReply({ content: "<:success:1461731530333229226> Dettagli aggiornati nel messaggio del pannello." }).catch(() => {});
       } catch (error) {
         global.logger?.error?.("[backupPanel] info modal", error);
@@ -113,10 +120,14 @@ async function execute(interaction) {
           sourceGuildId: globalRef.guildId,
           messagesLimit,
         });
-        await interaction.message.edit({
-          embeds: [buildLoadWarningEmbed(backupId, messagesLimit)],
-          components: buildLoadComponents(sessionId, null, messagesLimit),
-        }).catch(() => {});
+        await safeMessageEdit(
+          interaction.message,
+          {
+            embeds: [buildLoadWarningEmbed(backupId, messagesLimit)],
+            components: buildLoadComponents(sessionId, null, messagesLimit),
+          },
+          interaction,
+        ).catch(() => {});
         await interaction.editReply({ content: "<:success:1461731530333229226> Wizard di caricamento mostrato nel messaggio del pannello." }).catch(() => {});
       } catch (error) {
         global.logger?.error?.("[backupPanel] load modal", error);
@@ -134,10 +145,14 @@ async function execute(interaction) {
         const globalRef = await readBackupByIdGlobal(rawRef);
         const backupId = String(globalRef?.payload?.backupId || "").toUpperCase();
         const nav = buildBackupPanelNavRow(parsed.ownerId, "delete");
-        await interaction.message.edit({
-          embeds: [buildDeleteWarningEmbed()],
-          components: [nav, buildDeleteConfirmButtons(backupId, parsed.ownerId, globalRef.guildId)],
-        }).catch(() => {});
+        await safeMessageEdit(
+          interaction.message,
+          {
+            embeds: [buildDeleteWarningEmbed()],
+            components: [nav, buildDeleteConfirmButtons(backupId, parsed.ownerId, globalRef.guildId)],
+          },
+          interaction,
+        ).catch(() => {});
         await interaction.editReply({ content: "<:success:1461731530333229226> Conferma l’eliminazione nel messaggio del pannello." }).catch(() => {});
       } catch (error) {
         global.logger?.error?.("[backupPanel] delete modal", error);
@@ -190,16 +205,24 @@ async function execute(interaction) {
       void (async () => {
         try {
           const result = await createGuildBackup(guild);
-          await interaction.message.edit({
-            embeds: [buildSuccessEmbed(guild, result)],
-            components: [buildBackupPanelNavRow(parsed.ownerId, "create")],
-          }).catch(() => {});
+          await safeMessageEdit(
+            interaction.message,
+            {
+              embeds: [buildSuccessEmbed(guild, result)],
+              components: [buildBackupPanelNavRow(parsed.ownerId, "create")],
+            },
+            interaction,
+          ).catch(() => {});
         } catch (error) {
           global.logger?.error?.("[backupPanel] create", error);
-          await interaction.message.edit({
-            embeds: [buildErrorEmbed(error)],
-            components: [buildBackupPanelNavRow(parsed.ownerId, "create")],
-          }).catch(() => {});
+          await safeMessageEdit(
+            interaction.message,
+            {
+              embeds: [buildErrorEmbed(error)],
+              components: [buildBackupPanelNavRow(parsed.ownerId, "create")],
+            },
+            interaction,
+          ).catch(() => {});
         }
       })();
       return true;

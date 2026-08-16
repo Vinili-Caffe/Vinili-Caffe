@@ -2,6 +2,22 @@ const { ChannelType, PermissionFlagsBits } = require("discord.js");
 const IDs = require("../Config/ids");
 
 const CUSTOM_PRIVATE_CATEGORY_NAME = "・ 　　　　    　    PRIVATE 　　      　    　・";
+const CATEGORY_INDEX_PREFIX_RE = /^[⁰¹²³⁴⁵⁶⁷⁸⁹]+(\s*)?/;
+
+function extractCategoryIndexPrefix(name) {
+  const match = String(name || "").match(/^([⁰¹²³⁴⁵⁶⁷⁸⁹]+)(\s*)/);
+  if (!match) return "";
+  return `${match[1]}${match[2] || " "}`;
+}
+
+function stripCategoryIndexPrefix(name) {
+  return String(name || "").replace(CATEGORY_INDEX_PREFIX_RE, "");
+}
+
+function isCanonicalCustomPrivateCategoryName(name) {
+  const core = stripCategoryIndexPrefix(name);
+  return normalizeCategoryName(core) === normalizeCategoryName(CUSTOM_PRIVATE_CATEGORY_NAME);
+}
 
 function normalizeCategoryName(name) {
   return String(name || "")
@@ -140,8 +156,11 @@ async function placePrivateCategoryAbovePartner(guild, category) {
 
 async function syncCustomPrivateCategoryLayout(guild, category) {
   if (!guild || !category || category.type !== ChannelType.GuildCategory) return category;
-  if (category.name !== CUSTOM_PRIVATE_CATEGORY_NAME) {
-    await category.setName(CUSTOM_PRIVATE_CATEGORY_NAME, "Allinea nome categoria vocali private").catch(() => { });
+  // Mantieni eventuale prefisso apice (category numbering); riallinea solo il core PRIVATE.
+  const prefix = extractCategoryIndexPrefix(category.name);
+  const desired = `${prefix}${CUSTOM_PRIVATE_CATEGORY_NAME}`;
+  if (String(category.name || "") !== desired) {
+    await category.setName(desired, "Allinea nome categoria vocali private").catch(() => { });
   }
   await placePrivateCategoryAbovePartner(guild, category);
   return category;
@@ -211,6 +230,10 @@ async function ensureCustomPrivateCategory(guild, client) {
 
 module.exports = {
   CUSTOM_PRIVATE_CATEGORY_NAME,
+  CATEGORY_INDEX_PREFIX_RE,
+  extractCategoryIndexPrefix,
+  stripCategoryIndexPrefix,
+  isCanonicalCustomPrivateCategoryName,
   isCustomPrivateCategoryName,
   isCustomPrivateCategory,
   listCustomPrivateCategories,

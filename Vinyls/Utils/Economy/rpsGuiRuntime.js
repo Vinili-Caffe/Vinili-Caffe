@@ -1,16 +1,23 @@
 const { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const { buildImageButtonPayload, canvasStatusLine } = require("./guiPanelPayload");
-const { formatCurrency } = require("../../Services/Community/serverWalletService");
+const { formatEconomyAmount } = require("./economyDisplayHelpers");
+const { buildBetAmountButton, betBounds, clampBetAmount } = require("./economyBetModal");
 const { economyConfig, lockRpsPvpStakes, normalizeRps, playRps, refundRpsPvpStake, settleRpsPvp } = require("../../Services/Community/activeEconomyService");
+const { markSessionStakeCooldown, sessionSpendOptions } = require("./economyCommandHelpers");
+const { createPersistedGuiSessionApi, SESSION_DB_TTL_MS } = require("../../Services/Community/economyGuiSessionStore");
+const { runEconomyRender } = require("../../../shared/render/economyRenderQueue");
 
 const PREFIX = "rps_gui";
-const SESSION_TTL_MS = 10 * 60 * 1000;
+const SESSION_TTL_MS = SESSION_DB_TTL_MS;
 const PVP_INVITE_TTL_MS = 90 * 1000;
 const PVP_PICK_TTL_MS = 3 * 60 * 1000;
 const RENDER_CACHE_MAX = 64;
 const IDLE_CACHE_KEY = "png:idle";
-const sessions = new Map();
 const pvpUserLocks = new Map();
+const sessionApi = createPersistedGuiSessionApi("rps", {
+  ttlMs: SESSION_TTL_MS,
+  onEvict: (session) => releasePvpUsers(session),
+});
 const renderCache = new Map();
 let defaultIdleCache = null;
 let warmupPromise = null;
@@ -23,11 +30,8 @@ function sessionKey(messageId) {
   return String(messageId || "").trim();
 }
 
-function clampBet(value, cfg) {
-  const min = Math.max(1, Math.floor(Number(cfg?.minBet) || 1));
-  const max = Math.max(min, Math.floor(Number(cfg?.maxBet) || min));
-  const n = Math.floor(Number(value) || min);
-  return Math.max(min, Math.min(max, n));
+function clampBet(value, cfg, balance = null) {
+  return clampBetAmount(value, cfg, balance);
 }
 
 function betStep(cfg) {
@@ -62,6 +66,8 @@ function bindPvpUsers(session, messageId) {
   const gid = String(session?.guildId || "");
   const mid = String(messageId || "");
   if (!gid || !mid || session.mode !== "pvp") return;
+  const phase = String(session.phase || "");
+  if (phase !== "pending" && phase !== "pick" && phase !== "playing") return;
   pvpUserLocks.set(userLockKey(gid, session.ownerId), mid);
   pvpUserLocks.set(userLockKey(gid, session.opponentId), mid);
 }
@@ -73,8 +79,28 @@ function releasePvpUsers(session) {
   pvpUserLocks.delete(userLockKey(gid, session.opponentId));
 }
 
+function releasePvpLocksByMessageId(messageId) {
+  const mid = String(messageId || "").trim();
+  if (!mid) return;
+  for (const [key, value] of [...pvpUserLocks.entries()]) {
+    if (value === mid) pvpUserLocks.delete(key);
+  }
+}
+
 function findActivePvpMessageId(guildId, userId) {
-  return pvpUserLocks.get(userLockKey(guildId, userId)) || "";
+  const key = userLockKey(guildId, userId);
+  const mid = pvpUserLocks.get(key) || "";
+  if (!mid) return "";
+  const live = sessionApi.sessions?.get?.(mid);
+  if (live) {
+    const phase = String(live.phase || "");
+    if (live.mode === "pvp" && (phase === "pending" || phase === "pick" || phase === "playing")) return mid;
+    releasePvpUsers(live);
+    releasePvpLocksByMessageId(mid);
+    return "";
+  }
+  releasePvpLocksByMessageId(mid);
+  return "";
 }
 
 function isParticipant(session, userId) {
@@ -83,25 +109,22 @@ function isParticipant(session, userId) {
 }
 
 function setSession(messageId, session) {
-  sessions.set(sessionKey(messageId), { ...session, updatedAt: now() });
-  bindPvpUsers(session, messageId);
+  const live = sessionApi.setSession(messageId, session);
+  bindPvpUsers(live, messageId);
+  return live;
 }
 
-function getSession(messageId) {
-  const key = sessionKey(messageId);
-  const cached = sessions.get(key);
-  if (!cached) return null;
-  if (now() - Number(cached.updatedAt || cached.createdAt || 0) > SESSION_TTL_MS) {
-    sessions.delete(key);
-    return null;
-  }
-  return cached;
+async function getSession(messageId, guildId = "", ownerIdHint = "") {
+  const live = await sessionApi.getSession(messageId, guildId, ownerIdHint);
+  if (live) bindPvpUsers(live, live.messageId || messageId);
+  return live;
 }
 
-function deleteSession(messageId) {
-  const live = sessions.get(sessionKey(messageId));
-  if (live) releasePvpUsers(live);
-  sessions.delete(sessionKey(messageId));
+function deleteSession(messageId, session = null) {
+  const mid = String(messageId || "").trim();
+  if (session) releasePvpUsers(session);
+  releasePvpLocksByMessageId(mid);
+  return sessionApi.deleteSession(messageId, session);
 }
 
 function controlId(action, ownerId) {
@@ -118,11 +141,10 @@ function parseRpsGuiCustomId(customId) {
   return { action: parts[1], ownerId: parts[2] };
 }
 
-function buildBotRows(session, cfg, disabled = false) {
+function buildBotRows(session, cfg, disabled = false, balance = null) {
   const ownerId = session.ownerId;
   const step = betStep(cfg);
-  const min = Math.max(1, Math.floor(Number(cfg?.minBet) || 1));
-  const max = Math.max(min, Math.floor(Number(cfg?.maxBet) || min));
+  const { min, max } = betBounds(cfg, balance);
   const locked = disabled || Boolean(session.panelAnimating);
   return [
     new ActionRowBuilder().addComponents(
@@ -132,12 +154,15 @@ function buildBotRows(session, cfg, disabled = false) {
         .setEmoji("➖")
         .setStyle(ButtonStyle.Secondary)
         .setDisabled(locked || session.bet <= min),
+      buildBetAmountButton(controlId("bet", ownerId), { disabled: locked }),
       new ButtonBuilder()
         .setCustomId(controlId("plus", ownerId))
         .setLabel(`+${step}`)
         .setEmoji("➕")
         .setStyle(ButtonStyle.Secondary)
         .setDisabled(locked || session.bet >= max),
+    ),
+    new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId(controlId("sasso", ownerId))
         .setLabel("Sasso")
@@ -206,13 +231,13 @@ function buildPvpPickRows(session, disabled = false) {
   ];
 }
 
-function buildRows(session, cfg, disabled = false) {
+function buildRows(session, cfg, disabled = false, balance = null) {
   if (session.mode === "pvp") {
     if (session.phase === "pending") return buildPvpInviteRows(session, disabled);
     if (session.phase === "pick") return buildPvpPickRows(session, disabled);
     return [];
   }
-  return buildBotRows(session, cfg, disabled);
+  return buildBotRows(session, cfg, disabled, balance);
 }
 
 function spinAnimationDurationMs() {
@@ -229,9 +254,13 @@ function renderCacheKey(session, animating) {
   const last = session.lastResult;
   const player = last?.result?.player || "";
   const bot = last?.result?.bot || "";
-  if (!last) return IDLE_CACHE_KEY;
-  if (animating && last) return `gif:${player}|${bot}:${last.win ? 1 : 0}:${last.draw ? 1 : 0}`;
-  return `png:${player}|${bot}:${last.win ? 1 : 0}:${last.draw ? 1 : 0}`;
+  const bet = Math.max(0, Math.floor(Number(session.bet) || 0));
+  const mode = String(session.mode || "bot");
+  const phase = String(session.phase || "");
+  const names = `${String(session.playerName || "")}|${String(session.opponentName || "")}`;
+  if (!last) return `idle:${mode}:${phase}:${bet}:${names}`;
+  if (animating && last) return `gif:${mode}:${player}|${bot}:${last.win ? 1 : 0}:${last.draw ? 1 : 0}:${bet}:${names}`;
+  return `png:${mode}:${player}|${bot}:${last.win ? 1 : 0}:${last.draw ? 1 : 0}:${bet}:${names}`;
 }
 
 function attachmentFromCache(entry) {
@@ -261,7 +290,11 @@ async function renderRpsAttachment(session, { animating = false, notice = "" } =
   if (hit) return attachmentFromCache(hit);
   try {
     const renderRpsCanvas = require("../Render/rpsCanvas");
-    const rendered = await renderRpsCanvas({
+    // Invite lunghe + mention restano nel content Discord, non nel footer canvas.
+    const canvasNotice =
+      session.mode === "pvp" && session.phase === "pending" ? "" : notice;
+    const rendered = await runEconomyRender(() =>
+      renderRpsCanvas({
       bet: session.bet,
       phase: session.phase,
       playerName: session.playerName,
@@ -274,8 +307,9 @@ async function renderRpsAttachment(session, { animating = false, notice = "" } =
       animating: Boolean(animating && last),
       isPvp: session.mode === "pvp",
       winnerName: last?.winnerId === session.ownerId ? session.playerName : last?.winnerId === session.opponentId ? session.opponentName : "",
-      statusLine: canvasStatusLine(notice),
-    });
+      statusLine: canvasStatusLine(canvasNotice),
+    }),
+    );
     const fileName = rendered.format === "gif" ? "rps-match.gif" : "rps-panel.png";
     rememberRenderCache(key, rendered.buffer, fileName);
     return attachmentFromCache(renderCache.get(key));
@@ -287,9 +321,6 @@ async function renderRpsAttachment(session, { animating = false, notice = "" } =
 }
 
 async function resolvePanelAttachment(session, animating = false, notice = "") {
-  if (!session.lastResult && !animating && !notice && session.phase !== "pending" && defaultIdleCache) {
-    return attachmentFromCache(defaultIdleCache);
-  }
   const out = await renderRpsAttachment(session, { animating, notice });
   if (out.files?.length) return out;
   if (defaultIdleCache) return attachmentFromCache(defaultIdleCache);
@@ -327,46 +358,57 @@ function scheduleRpsIdlePanel(message, session, cfg, notice = "", disabled = fal
   if (!message?.edit || !messageId) return;
   const delayMs = spinAnimationDurationMs();
   setTimeout(() => {
-    const live = getSession(messageId);
-    if (!live) return;
-    live.panelAnimating = false;
-    const pvpDone = live.mode === "pvp";
-    if (pvpDone) live.phase = "done";
-    setSession(messageId, live);
-    buildRpsGuiPayload(live, cfg, notice, disabled || pvpDone, false)
-      .then((payload) => message.edit(payload).catch(() => {}))
-      .then(() => { if (pvpDone) deleteSession(messageId); })
-      .catch(() => {});
+    void getSession(messageId, session?.guildId, session?.ownerId).then((live) => {
+      if (!live) return;
+      live.panelAnimating = false;
+      const pvpDone = live.mode === "pvp";
+      if (pvpDone) live.phase = "done";
+      setSession(messageId, live);
+      buildRpsGuiPayload(live, cfg, notice, disabled || pvpDone, false)
+        .then((payload) => message.edit(payload).catch(() => {}))
+        .then(() => {
+          if (pvpDone) deleteSession(messageId, live);
+        })
+        .catch(() => {});
+    });
   }, delayMs);
 }
 
 function formatRpsRoundNotice(result) {
   if (!result?.ok) return "";
   if (result.game === "rps_pvp") return formatRpsPvpNotice(result);
-  if (result.draw) return `🤝 Pareggio: ti tornano **${formatCurrency("caffe",result.payout)}**.`;
-  if (result.win) return `🏆 Hai vinto **${formatCurrency("caffe",result.payout)}**.`;
+  if (result.draw) return `🤝 Pareggio: ti tornano **${formatEconomyAmount(result.payout)}**.`;
+  if (result.win) return `🏆 Hai vinto **${formatEconomyAmount(result.payout)}**.`;
   return `<a:VC_Cross:1482532424570376253> Hai perso.\n<a:VC_pixeltime:1482535344103620771> Puoi rigiocare quando il cooldown lo permette.`;
 }
 
 function formatRpsPvpNotice(result) {
   if (result.draw) return `🤝 **Pareggio!** Le puntate tornano a entrambi i giocatori.`;
   const winnerName = result.winnerId === result.challengerId ? result.challengerName : result.opponentName;
-  return `🏆 **${winnerName}** vince il montepremi: **${formatCurrency("caffe",result.payout)}**.`;
+  return `🏆 **${winnerName}** vince il montepremi: **${formatEconomyAmount(result.payout)}**.`;
 }
 
-async function buildRpsGuiPayload(session, cfg, notice = "", disabled = false, animating = false) {
+async function buildRpsGuiPayload(session, cfg, notice = "", disabled = false, animating = false, balance = null) {
   const attachment = await resolvePanelAttachment(session, animating, notice);
-  return buildImageButtonPayload({
+  const payload = buildImageButtonPayload({
     files: attachment.files || [],
-    components: buildRows(session, cfg, disabled),
+    components: buildRows(session, cfg, disabled, balance),
   });
+  if (session.mode === "pvp" && session.phase === "pending" && notice) {
+    payload.content = String(notice).slice(0, 1800);
+    payload.allowedMentions = {
+      repliedUser: false,
+      users: [String(session.opponentId || "")].filter(Boolean),
+    };
+  }
+  return payload;
 }
 
-async function buildRpsBetPayload(session, cfg, notice = "") {
-  const attachment = defaultIdleCache ? attachmentFromCache(defaultIdleCache) : await resolvePanelAttachment(session, false, notice);
+async function buildRpsBetPayload(session, cfg, notice = "", balance = null) {
+  const attachment = await resolvePanelAttachment(session, false, notice);
   return buildImageButtonPayload({
     files: attachment.files || [],
-    components: buildRows(session, cfg, false),
+    components: buildRows(session, cfg, false, balance),
   });
 }
 
@@ -379,8 +421,9 @@ function interactionMessageAdapter(interaction) {
 }
 
 async function playRpsSession(client, messageLike, session, choice) {
-  const result = await playRps(client, messageLike, String(session.bet), choice);
+  const result = await playRps(client, messageLike, String(session.bet), choice, null, sessionSpendOptions(session));
   if (!result.ok) return { ok: false, message: result.message };
+  markSessionStakeCooldown(session);
   session.lastResult = result;
   session.updatedAt = now();
   return { ok: true, result };
@@ -430,22 +473,39 @@ async function finalizePvpMatch(client, guild, session, actorId) {
 }
 
 async function refundLockedPvpStakes(client, session, actorId, reason) {
-  if (!session.stakesLocked) return;
-  await refundRpsPvpStake(client, session.guildId, session.ownerId, session.bet, actorId, reason);
-  await refundRpsPvpStake(client, session.guildId, session.opponentId, session.bet, actorId, reason);
+  if (!session.stakesLocked) return { ok: true, amount: 0 };
+  const amount = Math.max(0, Math.floor(Number(session.bet) || 0));
+  await refundRpsPvpStake(client, session.guildId, session.ownerId, amount, actorId, reason);
+  await refundRpsPvpStake(client, session.guildId, session.opponentId, amount, actorId, reason);
   session.stakesLocked = false;
+  return { ok: true, amount };
+}
+
+async function refundOnClose(client, session, actorId) {
+  if (session.mode === "pvp" && session.stakesLocked && (session.phase === "pick" || session.phase === "playing")) {
+    const out = await refundLockedPvpStakes(client, session, actorId, "rps: rimborso chiusura");
+    session.phase = "done";
+    session.panelAnimating = false;
+    session.challengerChoice = null;
+    session.opponentChoice = null;
+    session.updatedAt = now();
+    return out;
+  }
+  session.panelAnimating = false;
+  return { ok: true, amount: 0 };
 }
 
 function schedulePvpInviteExpiry(message, session, cfg) {
   const messageId = String(message?.id || "");
   if (!message?.edit || !messageId) return;
   setTimeout(() => {
-    const live = getSession(messageId);
-    if (!live || live.mode !== "pvp" || live.phase !== "pending") return;
-    deleteSession(messageId);
-    buildRpsGuiPayload(live, cfg, "<a:VC_pixeltime:1482535344103620771> Sfida scaduta: nessuna risposta.", true, false)
-      .then((payload) => message.edit(payload).catch(() => {}))
-      .catch(() => {});
+    void getSession(messageId, session?.guildId, session?.ownerId).then((live) => {
+      if (!live || live.mode !== "pvp" || live.phase !== "pending") return;
+      deleteSession(messageId, live);
+      buildRpsGuiPayload(live, cfg, "<a:VC_pixeltime:1482535344103620771> Sfida scaduta: nessuna risposta.", true, false)
+        .then((payload) => message.edit(payload).catch(() => {}))
+        .catch(() => {});
+    });
   }, PVP_INVITE_TTL_MS);
 }
 
@@ -453,11 +513,11 @@ function schedulePvpPickExpiry(message, session, cfg, client) {
   const messageId = String(message?.id || "");
   if (!message?.edit || !messageId) return;
   setTimeout(async () => {
-    const live = getSession(messageId);
+    const live = await getSession(messageId, session?.guildId, session?.ownerId);
     if (!live || live.mode !== "pvp" || live.phase !== "pick") return;
     if (live.challengerChoice && live.opponentChoice) return;
     await refundLockedPvpStakes(client, live, live.ownerId, "rps: timeout scelta pvp");
-    deleteSession(messageId);
+    deleteSession(messageId, live);
     buildRpsGuiPayload(live, cfg, "<a:VC_pixeltime:1482535344103620771> Tempo scaduto: puntate rimborsate.", true, false)
       .then((payload) => message.edit(payload).catch(() => {}))
       .catch(() => {});
@@ -517,6 +577,8 @@ module.exports = {
   makeSession,
   parseRpsGuiCustomId,
   playRpsSession,
+  refundLockedPvpStakes,
+  refundOnClose,
   schedulePvpInviteExpiry,
   scheduleRpsIdlePanel,
   setPvpChoice,

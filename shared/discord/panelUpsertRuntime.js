@@ -225,10 +225,73 @@ function preparePanelDiscordPayload(payload) {
   const p = payload && typeof payload === "object" ? { ...payload } : {};
   delete p.messageId;
   delete p.attachmentName;
+  delete p.forceNew;
+  // includeBanner / includeThumbnail / includeAuthor restano fino al patch edit
+  // (replyRuntime li toglie dopo aver applicato il branding).
   if (!("content" in p) || p.content === undefined) {
     p.content = "";
   }
+  // In edit Discord *appende* i nuovi `files` agli allegati già presenti.
+  // Per sostituire (es. 1 sola GIF pannello) bisogna azzerare quelli da tenere.
+  // Nota: alcuni payload con `attachments: []` + files invalidi danno 50035 — l’edit
+  // fa retry senza `attachments` se serve (vedi upsertPanelMessage).
+  if (Array.isArray(p.files) && p.files.length > 0) {
+    p.attachments = [];
+  }
   return p;
+}
+
+/** Se il messaggio ha già la GIF del pannello, non ri-caricarla a ogni edit/startup. */
+function omitPanelFilesIfAttachmentPresent(message, payload) {
+  if (!message || !payload || typeof payload !== "object") return payload;
+  const attachmentName = String(payload.attachmentName || "").trim().toLowerCase();
+  if (!attachmentName) return payload;
+  if (!Array.isArray(payload.files) || payload.files.length === 0) return payload;
+  if (!messageHasAttachmentName(message, attachmentName)) return payload;
+  const next = { ...payload };
+  delete next.files;
+  return next;
+}
+
+async function editPanelMessageSafe(message, editPayload) {
+  if (!message?.edit) return { ok: false, code: null };
+  const tryEdit = async (payload) => {
+    try {
+      const edited = await message.edit(payload);
+      return { ok: true, message: edited };
+    } catch (error) {
+      return { ok: false, error, code: Number(error?.code) || null };
+    }
+  };
+
+  let result = await tryEdit(editPayload);
+  if (result.ok) return result;
+
+  // 50035 su attachments: riprova senza clear esplicito.
+  if (
+    Number(result.code) === 50035 &&
+    editPayload &&
+    Object.prototype.hasOwnProperty.call(editPayload, "attachments")
+  ) {
+    const retry = { ...editPayload };
+    delete retry.attachments;
+    result = await tryEdit(retry);
+    if (result.ok) return result;
+  }
+
+  // Ultimo tentativo: solo embeds/components/content (niente files/attachments).
+  if (editPayload && (editPayload.files || editPayload.attachments)) {
+    const soft = { ...editPayload };
+    delete soft.files;
+    delete soft.attachments;
+    result = await tryEdit(soft);
+    if (result.ok) return result;
+  }
+
+  if (result.error && Number(result.code) !== 50005) {
+    global.logger?.error?.("[panelUpsert] edit failed:", result.error);
+  }
+  return { ok: false, code: result.code, error: result.error };
 }
 
 async function shouldEditMessage(message, payload) {
@@ -236,27 +299,92 @@ async function shouldEditMessage(message, payload) {
   if (String(message.content ?? "") !== String(payload?.content ?? "")) return true;
   if (toComparableEmbeds(message?.embeds || []) !== toComparableEmbeds(payload?.embeds || [])) return true;
   if (toComparableComponents(message?.components || []) !== toComparableComponents(payload?.components || [])) return true;
+  const expectedFiles = Array.isArray(payload?.files) ? payload.files.length : 0;
+  const actualAttachments = Number(message?.attachments?.size || 0);
+  // Pannelli con media: forza replace se Discord ha accumulato allegati multipli.
+  if (expectedFiles > 0 && actualAttachments !== expectedFiles) return true;
   return false;
 }
 
 async function upsertPanelMessage(channel, client, payload) {
   const messageId = payload?.messageId || null;
   const attachmentName = String(payload?.attachmentName || "").trim().toLowerCase();
+  const forceNew = payload?.forceNew === true;
+  const editOnly = payload?.editOnly === true;
+
+  async function editExisting(existing) {
+    const editPayload = preparePanelDiscordPayload(omitPanelFilesIfAttachmentPresent(existing, payload));
+    const needsEdit = await shouldEditMessage(existing, editPayload);
+    if (!needsEdit) return { ok: true, message: existing };
+    const edited = await editPanelMessageSafe(existing, editPayload);
+    if (edited.ok && edited.message) {
+      upsertCachedBotPanelMessage(channel, client, edited.message);
+      return { ok: true, message: edited.message };
+    }
+    // Unknown Message: non fingere successo e non re-persistare lo stesso id.
+    if (Number(edited.code) === 10008) {
+      global.logger?.warn?.(
+        `[panelUpsert] stale message ${existing.id} in #${channel?.id} (10008); clearing.`,
+      );
+      return { ok: false, staleMessageId: String(existing.id) };
+    }
+    global.logger?.warn?.(
+      `[panelUpsert] edit failed for ${existing.id} in #${channel?.id}; no resend.`,
+    );
+    return { ok: false, code: edited.code };
+  }
+
+  async function sendNew() {
+    if (editOnly) return { ok: false, reason: "edit_only" };
+    const cleanPayload = preparePanelDiscordPayload(payload);
+    const sent = await channel.send(cleanPayload).catch((error) => {
+      global.logger?.error?.("[panelUpsert] send failed:", error);
+      return null;
+    });
+    if (sent) {
+      upsertCachedBotPanelMessage(channel, client, sent);
+      return { ok: true, message: sent };
+    }
+    return { ok: false, reason: "send_failed" };
+  }
+
+  async function finalize(outcome) {
+    if (outcome?.staleMessageId && payload && typeof payload === "object") {
+      payload.__staleMessageId = String(outcome.staleMessageId);
+    }
+    if (outcome?.ok && outcome.message) return outcome.message;
+    return null;
+  }
+
+  // Manda esplicito: non riusare messaggi simili già in canale.
+  if (forceNew) return finalize(await sendNew());
+
   if (messageId) {
-    const direct = await channel.messages.fetch(messageId).catch(() => null);
+    const direct = await channel.messages.fetch(messageId).catch((error) => {
+      if (Number(error?.code) === 10008) return { __stale: true };
+      return null;
+    });
+    if (direct?.__stale) {
+      global.logger?.warn?.(
+        `[panelUpsert] stored messageId ${messageId} missing in #${channel?.id} (10008).`,
+      );
+      if (editOnly) return finalize({ ok: false, staleMessageId: String(messageId) });
+      // Publish esplicito: ricrea invece di restare bloccati sull'id morto.
+      return finalize(await sendNew());
+    }
     if (direct) {
-      const editPayload = preparePanelDiscordPayload(payload);
-      const needsEdit = await shouldEditMessage(direct, editPayload);
-      if (needsEdit) {
-        const edited = await direct.edit(editPayload).catch((error) => { if (error?.code !== 50005) global.logger?.error?.("[panelUpsert] edit by messageId failed:", error); return null; });
-        if (!edited) {
-          const sent = await channel.send(editPayload).catch((error) => { global.logger?.error?.("[panelUpsert] send fallback after edit failure failed:", error); return null; });
-          return sent || null;
-        }
+      const edited = await editExisting(direct);
+      if (edited.ok) return finalize(edited);
+      if (edited.staleMessageId) {
+        if (editOnly) return finalize(edited);
+        return finalize(await sendNew());
       }
-      return direct;
+      // Altri errori edit: non creare duplicati.
+      return finalize(edited);
     }
   }
+
+  if (editOnly) return finalize({ ok: false, reason: "edit_only_no_message" });
 
   const historyLimit = resolvePanelHistoryLimit(client);
   let botMessages = readCachedBotPanelMessages(channel, client, historyLimit);
@@ -278,9 +406,18 @@ async function upsertPanelMessage(channel, client, payload) {
     }) || null;
   }
 
-  if (!existing && payloadComponentsComparable && payloadComponentsComparable !== "[]") existing = botMessages.find((msg) => toComparableComponents(msg.components || []) === payloadComponentsComparable) || null;
-  if (!existing && payloadSignature) existing = botMessages.find((msg) => buildEmbedSignatureFromMessage(msg.embeds || []) === payloadSignature) || null;
-  if (!existing && attachmentName) existing = botMessages.find((msg) => messageHasAttachmentName(msg, attachmentName)) || null;
+  if (!existing && payloadComponentsComparable && payloadComponentsComparable !== "[]") {
+    existing =
+      botMessages.find((msg) => toComparableComponents(msg.components || []) === payloadComponentsComparable) ||
+      null;
+  }
+  if (!existing && payloadSignature) {
+    existing =
+      botMessages.find((msg) => buildEmbedSignatureFromMessage(msg.embeds || []) === payloadSignature) || null;
+  }
+  if (!existing && attachmentName) {
+    existing = botMessages.find((msg) => messageHasAttachmentName(msg, attachmentName)) || null;
+  }
 
   if (!existing) {
     const payloadEmbedsCount = Array.isArray(payload?.embeds) ? payload.embeds.length : 0;
@@ -294,30 +431,24 @@ async function upsertPanelMessage(channel, client, payload) {
   }
 
   if (!existing && botMessages.length) {
-    const ranked = botMessages.map((msg) => ({ msg, score: scoreEmbedSimilarity(msg, payload) })).sort((a, b) => b.score !== a.score ? b.score - a.score : Number(b.msg?.createdTimestamp || 0) - Number(a.msg?.createdTimestamp || 0));
+    const ranked = botMessages
+      .map((msg) => ({ msg, score: scoreEmbedSimilarity(msg, payload) }))
+      .sort((a, b) =>
+        b.score !== a.score
+          ? b.score - a.score
+          : Number(b.msg?.createdTimestamp || 0) - Number(a.msg?.createdTimestamp || 0),
+      );
     if (ranked[0]?.score >= 3) existing = ranked[0].msg;
   }
 
-  const cleanPayload = preparePanelDiscordPayload(payload);
-
-  if (!existing) {
-    const sent = await channel.send(cleanPayload).catch((error) => { global.logger?.error?.("[panelUpsert] send failed:", error); return null; });
-    if (sent) upsertCachedBotPanelMessage(channel, client, sent);
-    return sent;
+  if (existing) {
+    const edited = await editExisting(existing);
+    if (edited.ok) return finalize(edited);
+    if (edited.staleMessageId) return finalize(await sendNew());
+    return finalize(edited);
   }
 
-  const needsEdit = await shouldEditMessage(existing, cleanPayload);
-  if (needsEdit) {
-    const edited = await existing.edit(cleanPayload).catch((error) => { global.logger?.error?.("[panelUpsert] edit failed:", error); return null; });
-    if (edited) upsertCachedBotPanelMessage(channel, client, edited);
-    if (!edited) {
-      const sent = await channel.send(cleanPayload).catch((error) => { global.logger?.error?.("[panelUpsert] send fallback after edit failure failed:", error); return null; });
-      if (sent) upsertCachedBotPanelMessage(channel, client, sent);
-      return sent || existing;
-    }
-  }
-
-  return existing;
+  return finalize(await sendNew());
 }
 
 module.exports = { shouldEditMessage, upsertPanelMessage, normalizeDiscordAttachmentUrl, resolvePayloadFileName, readPayloadFileBuffer, fetchAttachmentHash };

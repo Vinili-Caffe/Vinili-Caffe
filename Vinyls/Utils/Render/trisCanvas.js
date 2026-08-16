@@ -1,6 +1,7 @@
 const canvasModule = require("canvas");
 const { formatGaleoni } = require("../../Services/Community/gringottService");
 const { registerCanvasFonts, drawTextWithSpecialFallback } = require("./canvasFonts");
+const { sanitizeCanvasDisplayName, normalizeTextForCanvas } = require("./canvasUtils");
 const { BOT, PLAYER, cellLabel } = require("../Economy/trisEngine");
 const { createCanvas } = canvasModule;
 let fontsReady = false;
@@ -59,6 +60,28 @@ function drawPlainText(ctx, text, x, y, opts = {}) {
   ctx.textBaseline = opts.baseline || "middle";
   ctx.fillText(String(text ?? ""), x, y);
   ctx.restore();
+}
+
+function truncateChars(name, max = 16) {
+  return sanitizeCanvasDisplayName(name, max, "—");
+}
+
+function fitPlainText(ctx, text, maxWidth, size = 14, weight = "700") {
+  const raw = String(text || "");
+  if (!raw) return "";
+  ctx.save();
+  ctx.font = `${weight} ${Math.max(10, Math.floor(size))}px Arial, Helvetica, sans-serif`;
+  if (ctx.measureText(raw).width <= maxWidth) {
+    ctx.restore();
+    return raw;
+  }
+  const ellipsis = "…";
+  let out = raw;
+  while (out.length > 1 && ctx.measureText(`${out}${ellipsis}`).width > maxWidth) {
+    out = out.slice(0, -1);
+  }
+  ctx.restore();
+  return `${out}${ellipsis}`;
 }
 
 const TRIS_WIDTH = 760;
@@ -129,24 +152,35 @@ function drawArena(ctx, params) {
   const board = Array.isArray(params.board) ? params.board : Array(9).fill("");
   drawBg(ctx, width, height, layout);
   drawText(ctx, "TRIS", width / 2, 34, { size: 26, color: "#f8d875", weight: "900", forcePrimaryFont: true });
+  const subtitleMax = width - 96;
   let subtitle = "Tu = X  ·  Bot = O";
   if (params.isPvp) {
-    const p1 = String(params.playerName || "X").slice(0, 14);
-    const p2 = String(params.opponentName || "O").slice(0, 14);
+    const nameBudget = Math.floor(subtitleMax / 2) - 48;
+    const p1 = fitPlainText(ctx, truncateChars(params.playerName || "X", 18), nameBudget, 14, "700");
+    const p2 = fitPlainText(ctx, truncateChars(params.opponentName || "O", 18), nameBudget, 14, "700");
     subtitle = `${p1} = X  ·  ${p2} = O`;
     if (params.phase === "playing" && params.turnName) {
-      subtitle += `  ·  Turno: ${String(params.turnName).slice(0, 12)}`;
+      const turn = fitPlainText(ctx, truncateChars(params.turnName, 14), 120, 14, "700");
+      subtitle = fitPlainText(ctx, `${subtitle}  ·  Turno: ${turn}`, subtitleMax, 14, "700");
+    } else {
+      subtitle = fitPlainText(ctx, subtitle, subtitleMax, 14, "700");
     }
   }
   drawPlainText(ctx, subtitle, width / 2, 78, { size: 14, color: "#94a3b8", weight: "700" });
   drawBoard(ctx, board, layout);
-  let footer = "Premi **Inizia** per giocare";
+  let footer = "Premi Inizia per giocare";
   let footerColor = "#e2e8f0";
-  if (params.statusLine) {
-    footer = params.statusLine;
+  // Evita notice lunghe (invite/mention) nel footer canvas: escono dalla pillola.
+  const status = String(params.statusLine || "").trim();
+  const statusIsInviteNoise =
+    /sfida|accetta o rifiuta|Galeoni|@\d{5,}/i.test(status) || status.length > 42;
+  if (status && !statusIsInviteNoise) {
+    footer = status;
     footerColor = "#e2e8f0";
   } else if (params.phase === "pending") {
-    footer = "Accetta o rifiuta la sfida";
+    footer = params.bet > 0
+      ? `Sfida PvP · ${formatGaleoni(params.bet)} ciascuno · Accetta o rifiuta`
+      : "Accetta o rifiuta la sfida";
     footerColor = "#f8d875";
   } else if (params.phase === "playing") {
     footer = "Tocca una casella libera";
@@ -158,13 +192,15 @@ function drawArena(ctx, params) {
   const betLine = params.bet > 0 ? `Puntata: ${formatGaleoni(params.bet)}` : "";
   const footerH = layout.footerH;
   const footerY = layout.footerY;
+  const footerInnerW = width - 120;
   fillRoundRect(ctx, 48, footerY, width - 96, footerH, 16, "rgba(0,0,0,0.45)");
   const footerMid = footerY + footerH / 2;
+  const footerDraw = fitPlainText(ctx, footer.replace(/\*\*/g, ""), footerInnerW, 17, "700");
   if (betLine) {
     drawPlainText(ctx, betLine, width / 2, footerMid - 12, { size: 14, color: "#cbd5e1" });
-    drawText(ctx, footer, width / 2, footerMid + 12, { size: 17, color: footerColor, forcePrimaryFont: true });
+    drawText(ctx, footerDraw, width / 2, footerMid + 12, { size: 17, color: footerColor, forcePrimaryFont: true });
   } else {
-    drawText(ctx, footer, width / 2, footerMid, { size: 17, color: footerColor, forcePrimaryFont: true });
+    drawText(ctx, footerDraw, width / 2, footerMid, { size: 17, color: footerColor, forcePrimaryFont: true });
   }
 }
 
@@ -185,10 +221,10 @@ async function renderTrisCanvas(params = {}) {
     win: Boolean(params.win),
     draw: Boolean(params.draw),
     isPvp: Boolean(params.isPvp),
-    playerName: String(params.playerName || ""),
-    opponentName: String(params.opponentName || ""),
-    turnName: String(params.turnName || ""),
-    statusLine: String(params.statusLine || "").trim(),
+    playerName: sanitizeCanvasDisplayName(params.playerName || "", 0, "X"),
+    opponentName: sanitizeCanvasDisplayName(params.opponentName || "", 0, "O"),
+    turnName: sanitizeCanvasDisplayName(params.turnName || "", 0, ""),
+    statusLine: normalizeTextForCanvas(String(params.statusLine || "").trim()),
   });
   return { buffer: canvas.toBuffer("image/png"), format: "png" };
 }

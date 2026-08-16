@@ -56,7 +56,8 @@ module.exports = (client) => {
       table.addRow(folderLabel, file, status);
     }
 
-    global.logger.info(table.toString());
+    const LOG_TRIGGERS = String(process.env.LOG_TRIGGERS || process.env.LOG_COMMANDS || "0") === "1";
+    if (LOG_TRIGGERS) global.logger.info(table.toString());
     global.logger.info(`[TRIGGERS] Loaded ${loaded} triggers.`);
   };
 };

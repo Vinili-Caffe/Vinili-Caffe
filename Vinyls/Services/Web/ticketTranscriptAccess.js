@@ -1,5 +1,9 @@
 const { PermissionFlagsBits, Routes } = require("discord.js");
 const IDs = require("../../Utils/Config/ids");
+const {
+  STAFF_HIGH_STAFF_ELIGIBLE_KEYS,
+  memberHasAnyRoleKey,
+} = require("../../Utils/Staff/staffRoleHierarchy");
 
 function resolveMainGuildId(client) {
   return String(client?.config?.mainGuildId || IDs.guilds?.main || "").trim();
@@ -55,24 +59,50 @@ function roleNameLooksTicketStaff(name) {
   return /(^|[\s༄|·-])(staff|helper|mod|moderator|admin|founder|owner|partner manager)([\s༄|·-]|$)/i.test(String(name || "").toLowerCase());
 }
 
+function memberHasElevatedGuildPerms(member) {
+  if (!member?.permissions?.has) return false;
+  try {
+    return (
+      member.permissions.has(PermissionFlagsBits.Administrator) ||
+      member.permissions.has(PermissionFlagsBits.ManageGuild) ||
+      member.permissions.has(PermissionFlagsBits.ManageChannels) ||
+      member.permissions.has(PermissionFlagsBits.ManageMessages)
+    );
+  } catch {
+    return false;
+  }
+}
+
 function memberHasTicketStaffRoles(member, guildId) {
   if (!member?.roles?.cache) return false;
-  try {
-    if (
-      member.permissions?.has?.(PermissionFlagsBits.Administrator) ||
-      member.permissions?.has?.(PermissionFlagsBits.ManageGuild) ||
-      member.permissions?.has?.(PermissionFlagsBits.ManageChannels) ||
-      member.permissions?.has?.(PermissionFlagsBits.ManageMessages)
-    ) {
-      return true;
-    }
-  } catch {}
+  if (memberHasElevatedGuildPerms(member)) return true;
   const staffIds = ticketStaffRoleIdsForGuild(guildId);
   if (uniqueIds(staffIds).some((rid) => member.roles.cache.has(rid))) return true;
   for (const role of member.roles.cache.values()) {
     if (roleNameLooksTicketStaff(role?.name)) return true;
   }
   return false;
+}
+
+function memberHasConfiguredTicketTypeRoles(member, guildId, ticketType) {
+  if (!member?.roles?.cache) return false;
+  try {
+    const { getTicketTypeStaffRoleIds } = require("../../MultiGuild/core/tenantTicketSettings");
+    const ids = uniqueIds(getTicketTypeStaffRoleIds(guildId, ticketType));
+    return ids.some((rid) => member.roles.cache.has(rid));
+  } catch {
+    return false;
+  }
+}
+
+function rawMemberHasConfiguredTicketTypeRoles(guildId, ticketType, rawRoleIds) {
+  try {
+    const { getTicketTypeStaffRoleIds } = require("../../MultiGuild/core/tenantTicketSettings");
+    const ids = new Set(uniqueIds(getTicketTypeStaffRoleIds(guildId, ticketType)));
+    return uniqueIds(rawRoleIds).some((rid) => ids.has(rid));
+  } catch {
+    return false;
+  }
 }
 
 async function resolveTicketGuildId(client, ticketDoc) {
@@ -96,11 +126,6 @@ async function findMemberInGuild(client, guildId, userId) {
   return (await guild.members.fetch({ user: uid, force: true }).catch(() => null)) || guild.members.cache.get(uid) || null;
 }
 
-function resolveVisibleGuildIds(client) {
-  const cacheIds = client?.guilds?.cache ? [...client.guilds.cache.keys()] : [];
-  return uniqueIds(cacheIds);
-}
-
 async function fetchRawGuildMember(client, guildId, userId) {
   const gid = String(guildId || "").trim();
   const uid = String(userId || "").trim();
@@ -108,9 +133,10 @@ async function fetchRawGuildMember(client, guildId, userId) {
   return client.rest.get(Routes.guildMember(gid, uid)).catch(() => null);
 }
 
-async function rawMemberHasTicketStaffRoles(client, guildId, rawMember) {
+async function rawMemberHasTicketStaffRoles(client, guildId, rawMember, ticketType = null) {
   const rawRoleIds = uniqueIds(rawMember?.roles || []);
   if (!rawRoleIds.length) return false;
+  if (rawMemberHasConfiguredTicketTypeRoles(guildId, ticketType, rawRoleIds)) return true;
   const staffIds = ticketStaffRoleIdsForGuild(guildId);
   if (staffIds.some((rid) => rawRoleIds.includes(rid))) return true;
 
@@ -134,11 +160,32 @@ async function rawMemberHasTicketStaffRoles(client, guildId, rawMember) {
   });
 }
 
-async function userHasTicketStaffInGuild(client, guildId, userId) {
+async function userHasTicketStaffInGuild(client, guildId, userId, ticketType = null) {
   const member = await findMemberInGuild(client, guildId, userId);
-  if (memberHasTicketStaffRoles(member, guildId)) return true;
+  if (member) {
+    if (memberHasConfiguredTicketTypeRoles(member, guildId, ticketType)) return true;
+    if (memberHasTicketStaffRoles(member, guildId)) return true;
+    try {
+      const { hasStaffTicketRole } = require("../../Utils/Ticket/ticketStaffPanelBuild");
+      if (hasStaffTicketRole(member, ticketType)) return true;
+    } catch (_) {}
+  }
   const rawMember = await fetchRawGuildMember(client, guildId, userId);
-  return rawMemberHasTicketStaffRoles(client, guildId, rawMember);
+  return rawMemberHasTicketStaffRoles(client, guildId, rawMember, ticketType);
+}
+
+async function userIsDashboardHighStaff(client, userId) {
+  const mainId = resolveMainGuildId(client);
+  if (!mainId) return false;
+  const member = await findMemberInGuild(client, mainId, userId);
+  if (member && memberHasAnyRoleKey(member, STAFF_HIGH_STAFF_ELIGIBLE_KEYS)) return true;
+  const raw = await fetchRawGuildMember(client, mainId, userId);
+  const rawRoleIds = uniqueIds(raw?.roles || []);
+  if (!rawRoleIds.length) return false;
+  const highStaffIds = uniqueIds(
+    STAFF_HIGH_STAFF_ELIGIBLE_KEYS.map((key) => IDs.roles?.[key]).filter(Boolean),
+  );
+  return highStaffIds.some((rid) => rawRoleIds.includes(rid));
 }
 
 async function canUserViewTicketTranscript(client, userId, ticketDoc) {
@@ -153,20 +200,33 @@ async function canUserViewTicketTranscript(client, userId, ticketDoc) {
     return { ok: true };
   }
 
+  // Chi apre la dashboard High Staff può sempre leggere i transcript.
+  if (await userIsDashboardHighStaff(client, uid)) {
+    return { ok: true };
+  }
+
+  try {
+    const { refreshTicketConfigCache } = require("../../MultiGuild/core/tenantTicketSettings");
+    await refreshTicketConfigCache().catch(() => null);
+  } catch (_) {}
+
   const ticketGuildId = await resolveTicketGuildId(client, ticketDoc);
-  const guildIds = uniqueIds([ticketGuildId, resolveMainGuildId(client), ...resolveVisibleGuildIds(client)]);
-  if (!guildIds.length) {
+  if (!ticketGuildId) {
     return { ok: false, status: 503, message: "Server Discord non configurato." };
   }
 
+  const ticketType = ticketDoc?.ticketType;
+  const mainId = resolveMainGuildId(client);
+  const guildIds = uniqueIds([ticketGuildId, mainId]);
   for (const guildId of guildIds) {
-    if (await userHasTicketStaffInGuild(client, guildId, uid)) return { ok: true };
+    if (await userHasTicketStaffInGuild(client, guildId, uid, ticketType)) return { ok: true };
   }
 
   global.logger?.warn?.("[TICKET TRANSCRIPT ACCESS] denied", {
     userId: uid,
     ticketGuildId,
     checkedGuildIds: guildIds,
+    ticketType: String(ticketType || ""),
     ticketUserId: String(ticketDoc?.userId || ""),
     claimedBy: String(ticketDoc?.claimedBy || ""),
     closedBy: String(ticketDoc?.closedBy || ""),

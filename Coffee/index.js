@@ -14,6 +14,20 @@ const {acquireSingleInstanceLock,installHandlers,listFoldersIfExists,loadEnvFile
 const { initializeCommandCollections } = require("../shared/runtime/clientRuntime");
 
 loadEnvFiles(APP_ROOT);
+try {
+  require("../shared/scheduling/nodeCronMissFilter").installNodeCronMissFilter();
+} catch (_) {}
+try {
+  const {
+    installEmbedFooterPatch,
+    installOutgoingMessageEmbedPatch,
+    setEmbedBrandDefaultColor,
+  } = require("../Vinyls/Utils/Embeds/defaultFooter");
+  // Caffè keeps the shared copyright footer, but uses coffee brown — not tenant purple.
+  setEmbedBrandDefaultColor("#6f4e37");
+  installEmbedFooterPatch();
+  installOutgoingMessageEmbedPatch(discord);
+} catch (_) {}
 global.logger = require("./Utils/Moderation/logger");
 if (process.env.RUN_UNDER_LOADER !== "1") {
   acquireSingleInstanceLock("vinili-caffe-test-bot");
@@ -22,6 +36,7 @@ if (process.env.RUN_UNDER_LOADER !== "1") {
 const installProcessHandlers = require("./Handlers/processHandler");
 const { buildInitialClientPresenceOptions, installBotPresenceHooks, patchClientPresenceGuard } = require("../shared/discord/botPresenceActivity");
 const { installGatewayShardListenerCeiling } = require("../shared/discord/gatewayListenerCeiling");
+const { buildDiscordClientMemoryOptions } = require("../shared/discord/clientMemoryOptions");
 installProcessHandlers();
 
 const intentList = [...new Set(Object.values(GatewayIntentBits).filter((x) => typeof x === "number" && x > 0))];
@@ -31,6 +46,7 @@ const coffeeConfig = require("./config.json");
 const client = new Client({
   intents: intentList,
   partials: partialList,
+  ...buildDiscordClientMemoryOptions(discord),
   presence: buildInitialClientPresenceOptions(coffeeConfig),
   rest: { timeout: 30_000, offset: 50, retries: 3 },
 });
@@ -65,11 +81,16 @@ try {
   process.exit(1);
 }
 
-const { getToken, getMongoUrl, ensureToken } = require("../shared/config/env");
+const { getToken, getMongoUrl, ensureToken, assertBotTokenIdentity } = require("../shared/config/env");
 const { connectMongo, isMongoReady } = require("../Vinyls/Utils/Database/mongoConnect");
 client.config.token = getToken(client.config, "DISCORD_TOKEN_TEST");
 client.config.mongoURL = getMongoUrl(client.config);
 ensureToken(client.config.token, "Bot Test (DISCORD_TOKEN_TEST)");
+assertBotTokenIdentity(client.config.token, {
+  botLabel: "Caffè (test)",
+  expectedClientId: process.env.DISCORD_CLIENT_ID_TEST,
+  forbiddenClientId: process.env.DISCORD_CLIENT_ID_OFFICIAL,
+});
 applyListenerCeiling(client, client.config);
 installGatewayShardListenerCeiling(client);
 installBotPresenceHooks(client);
@@ -128,8 +149,25 @@ const commandFolders = listFoldersIfExists(commandsDir);
 
   global.__coffeeDiscordClient = client;
 
-  client.login(client.config.token).catch((err) => {
-    global.logger.error("Login fallito:", err);
-    process.exit(1);
-  });
+  const loginWithRetry = async () => {
+    const maxAttempts = 10;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        await client.login(client.config.token);
+        return;
+      } catch (err) {
+        const status = Number(err?.status || err?.httpStatus || err?.code || 0);
+        const retryable = status === 503 || status === 502 || status === 500 || status === 429;
+        global.logger.error(`Login fallito (tentativo ${attempt}/${maxAttempts}):`, err);
+        if (!retryable || attempt >= maxAttempts) {
+          process.exit(1);
+          return;
+        }
+        const waitMs = Math.min(45_000, 1500 * attempt * attempt);
+        global.logger.warn?.(`[LOGIN] Discord API ${status || "error"} — retry tra ${Math.round(waitMs / 1000)}s`);
+        await new Promise((r) => setTimeout(r, waitMs));
+      }
+    }
+  };
+  void loginWithRetry();
 })();

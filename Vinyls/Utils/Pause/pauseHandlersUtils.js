@@ -6,7 +6,6 @@ const IDs = require("../Config/ids");
 const { getGuildChannelCached } = require("../Interaction/interactionEntityCache");
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const MAX_SET_TIMEOUT_MS = 2147483647;
-const PAUSE_MESSAGE_SYNC_INTERVAL_MS = 15 * 60 * 1000;
 const pauseStatusRefreshScheduled = new Map();
 const PAUSE_FESTIVI_TIMEZONE = "Europe/Rome";
 const STAFF_ROLE_PRIORITY = [
@@ -30,6 +29,23 @@ function getRomeDateKey(date) {
   const month = parts.find((p) => p.type === "month")?.value;
   const day = parts.find((p) => p.type === "day")?.value;
   return year && month && day ? `${year}-${month}-${day}` : "";
+}
+
+/** Primo istante (UTC ms) in cui Europe/Rome è sul giorno di calendario di `dayUtc` (Date.UTC y/m/d). */
+function getRomeDayStartUtcMs(dayUtc) {
+  if (!dayUtc || !Number.isFinite(dayUtc.getTime?.())) return null;
+  const y = dayUtc.getUTCFullYear();
+  const m = dayUtc.getUTCMonth();
+  const d = dayUtc.getUTCDate();
+  const targetKey = `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+  let lo = Date.UTC(y, m, d) - 14 * 60 * 60 * 1000;
+  let hi = Date.UTC(y, m, d) + 14 * 60 * 60 * 1000;
+  while (lo < hi) {
+    const mid = Math.floor((lo + hi) / 2);
+    if (getRomeDateKey(new Date(mid)) >= targetKey) hi = mid;
+    else lo = mid + 1;
+  }
+  return lo;
 }
 
 function getEasterSunday(year) {
@@ -66,6 +82,7 @@ function getFestiviSetForYear(year) {
   set.add(`${y}-04-25`);
   set.add(`${y}-05-01`);
   set.add(`${y}-06-02`);
+  set.add(`${y}-08-15`);
   const pasqua = getEasterSunday(y);
   if (pasqua) {
     set.add(`${y}-${pad(pasqua.month)}-${pad(pasqua.day)}`);
@@ -98,6 +115,7 @@ const PAUSE_ROLE_LIMITS = {
   Director: 1,
   HighStaff: 1,
   Admin: 1,
+  Manager: 1,
   Founder: 1,
   Staff: null,
   PartnerManager: null,
@@ -105,6 +123,19 @@ const PAUSE_ROLE_LIMITS = {
 const PAUSE_ROLE_STAFF = "Staff";
 const PAUSE_ROLE_PM = "PartnerManager";
 const PAUSE_ROLE_BOTH = "Entrambi";
+const STAFF_RANK_LIMIT_KEY_BY_ROLE_ID = {
+  [String(IDs.roles.Helper || "")]: "Helper",
+  [String(IDs.roles.Mod || "")]: "Mod",
+  [String(IDs.roles.SeniorModerator || "")]: "SeniorModerator",
+  [String(IDs.roles.HighStaff || "")]: "HighStaff",
+  [String(IDs.roles.Director || "")]: "Director",
+  [String(IDs.roles.Admin || "")]: "Admin",
+  [String(IDs.roles.Manager || "")]: "Manager",
+  [String(IDs.roles.Founder || "")]: "Founder",
+  [String(IDs.roles.Staff || "")]: "Staff",
+  [String(IDs.roles.PartnerManager || "")]: "PartnerManager",
+};
+const pauseRankChangeSyncTimers = new Map();
 
 function parseItalianDate(value) {
   if (!value || typeof value !== "string") return null;
@@ -229,6 +260,206 @@ async function computeStaffersInPauseByRoleForRange(guildId, roleLabel, rangeSta
   }
 
   return userIds.size;
+}
+
+function getMemberStaffRankRoleId(member) {
+  if (!member?.roles?.cache) return null;
+  for (const roleId of STAFF_ROLE_PRIORITY) {
+    const id = String(roleId || "").trim();
+    if (id && member.roles.cache.has(id)) return id;
+  }
+  return null;
+}
+
+function getStaffRankLimitKey(rankRoleId) {
+  const id = String(rankRoleId || "").trim();
+  if (!id) return null;
+  return STAFF_RANK_LIMIT_KEY_BY_ROLE_ID[id] || null;
+}
+
+function resolvePauseStaffRankRoleId(member, pause) {
+  const live = getMemberStaffRankRoleId(member);
+  if (live) return live;
+  const stored = String(pause?.ruoloGradeId || "").trim();
+  return stored || null;
+}
+
+/**
+ * Conta staffer con pausa accettata sovrapposta e stesso grado Discord (Mod/Director/…),
+ * non l’intero bucket Staff/PM.
+ */
+async function computeStaffersInPauseByStaffRankForRange(
+  guild,
+  guildId,
+  targetRankRoleId,
+  rangeStartRaw,
+  rangeEndRaw,
+  excludeUserId = null,
+  pauseTrack = PAUSE_ROLE_STAFF,
+) {
+  const targetRank = String(targetRankRoleId || "").trim();
+  if (!targetRank) return 0;
+  const track = normalizePauseRoleChoice(pauseTrack) || PAUSE_ROLE_STAFF;
+  const targetStart = parseItalianDate(rangeStartRaw);
+  const targetEnd = parseItalianDate(rangeEndRaw);
+  if (!targetStart || !targetEnd) return 0;
+
+  const g = String(guildId ?? guild?.id ?? "").trim();
+  if (!g) return 0;
+  const excluded = String(excludeUserId ?? "").trim();
+  const docs = await ActivityUserProfile.find({ guildId: g, staff: { $exists: true } }, { userId: 1, "staff.pauses": 1 })
+    .lean()
+    .catch(() => []);
+
+  const candidates = [];
+  for (const doc of docs) {
+    const uid = String(doc?.userId ?? "").trim();
+    if (!uid || (excluded && uid === excluded)) continue;
+    const pauses = Array.isArray(doc?.staff?.pauses) ? doc.staff.pauses : [];
+    const matching = pauses.find((pause) => {
+      if (!pause || pause.status !== "accepted") return false;
+      if (!roleChoiceAppliesTo(track, pause.ruolo)) return false;
+      const pStart = parseItalianDate(pause.dataRichiesta);
+      const pEnd = parseItalianDate(pause.dataRitorno);
+      return rangesOverlap(targetStart, targetEnd, pStart, pEnd);
+    });
+    if (matching) candidates.push({ userId: uid, pause: matching });
+  }
+  if (!candidates.length) return 0;
+
+  let matched = 0;
+  for (const { userId, pause } of candidates) {
+    let member = guild?.members?.cache?.get(userId) || null;
+    if (!member && guild?.members?.fetch) {
+      member = await guild.members.fetch(userId).catch(() => null);
+    }
+    const rankId = resolvePauseStaffRankRoleId(member, pause);
+    if (rankId && rankId === targetRank) matched += 1;
+  }
+  return matched;
+}
+
+function buildAcceptedPauseLogContent({
+  roleLabel,
+  effectiveUserId,
+  pauseTimingText,
+  dataRichiesta,
+  dataRitorno,
+  giorniUsati,
+  maxGiorni,
+  giorniRimanenti,
+  sameRoleActiveCount,
+  roleLimitWarning,
+}) {
+  return `<a:VC_Calendar:1482706208149475358> **\`${roleLabel}\`** - **<@${effectiveUserId}>** ${pauseTimingText}.\n<:VC_Clock:1473359204189474886> Dal **\`${dataRichiesta}\`** al **\`${dataRitorno}\`**\n<:VC_update:1478721333096349817> __\`${giorniUsati}/${maxGiorni}\`__ giorni utilizzati (\`${giorniRimanenti}\` rimanenti) - <:VC_Staff:1494286904089247754> __\`${sameRoleActiveCount}\`__ staffer in pausa in quel ruolo${roleLimitWarning || ""}`;
+}
+
+function buildCancelledPauseLogContent({
+  roleLabel,
+  effectiveUserId,
+  dataRichiesta,
+  dataRitorno,
+  giorniScalati,
+  giorniTotaliUsati,
+  maxGiorni,
+  giorniRimanenti,
+}) {
+  return [
+    `<a:VC_Calendar:1482706208149475358> **\`${roleLabel}\`** - **<@${effectiveUserId}>** aveva una pausa **annullata**.`,
+    `<:VC_Clock:1473359204189474886> Dal **\`${dataRichiesta}\`** al **\`${dataRitorno}\`**`,
+    `<:VC_update:1478721333096349817> Giorni scalati: __\`${giorniScalati}\`__ · Totale usati: __\`${giorniTotaliUsati}/${maxGiorni}\`__ (\`${giorniRimanenti}\` rimanenti)`,
+    "",
+    "<:cancel:1461730653677551691> **__`ANNULLATA`__**",
+  ].join("\n");
+}
+
+function formatPauseRoleLabelForMessage(guild, roleChoice, member) {
+  const normalized = normalizePauseRoleChoice(roleChoice) || PAUSE_ROLE_STAFF;
+  const pmRole = guild?.roles?.cache?.get(String(IDs.roles?.PartnerManager || ""));
+  const pmLabel = pmRole?.name || "Partner Manager";
+  const staffRole = guild?.roles?.cache?.get(String(IDs.roles?.Staff || ""));
+  const staffFallback = staffRole?.name || "Staff";
+
+  if (normalized === PAUSE_ROLE_PM) return pmLabel;
+  if (member) return getMemberRoleLabel(member);
+  return staffFallback;
+}
+
+async function buildAcceptedPauseMessageContent(guild, userId, pause, { forPm = false } = {}) {
+  const uid = String(userId || "").trim();
+  if (!guild || !uid || !pause) return null;
+  let member = guild.members?.cache?.get(uid) || null;
+  if (!member && guild.members?.fetch) {
+    member = await guild.members.fetch(uid).catch(() => null);
+  }
+  const staffDoc = await getStaffPauseRecord(guild.id, uid);
+  const roleChoice = normalizePauseRoleChoice(pause.ruolo || pause.ruoloRichiesto) || PAUSE_ROLE_STAFF;
+  const pauseTimingText = getPauseTimingText(pause.dataRichiesta, pause.dataRitorno);
+  const baseLimit = getBasePauseLimit(member, forPm ? PAUSE_ROLE_PM : roleChoice === PAUSE_ROLE_BOTH ? PAUSE_ROLE_STAFF : roleChoice);
+  const bonusPause = getStaffPauseBonusDaysTotal(member, staffDoc);
+  const maxGiorni = baseLimit + bonusPause;
+  const giorniUsati = Number(pause.giorniUsati);
+  const used = Number.isFinite(giorniUsati) ? giorniUsati : 0;
+  const giorniRimanenti = maxGiorni - used;
+
+  let roleLabel;
+  let sameRoleActiveCount = 1;
+  let roleLimitWarning = "";
+
+  if (forPm || roleChoice === PAUSE_ROLE_PM) {
+    roleLabel = formatPauseRoleLabelForMessage(guild, PAUSE_ROLE_PM, member);
+    const overlapPm = await computeStaffersInPauseByRoleForRange(
+      guild.id,
+      PAUSE_ROLE_PM,
+      pause.dataRichiesta,
+      pause.dataRitorno,
+      uid,
+    );
+    sameRoleActiveCount = overlapPm + 1;
+  } else {
+    roleLabel = formatPauseRoleLabelForMessage(guild, PAUSE_ROLE_STAFF, member);
+    const rankId = resolvePauseStaffRankRoleId(member, pause);
+    if (rankId) {
+      const overlap = await computeStaffersInPauseByStaffRankForRange(
+        guild,
+        guild.id,
+        rankId,
+        pause.dataRichiesta,
+        pause.dataRitorno,
+        uid,
+        PAUSE_ROLE_STAFF,
+      );
+      sameRoleActiveCount = overlap + 1;
+      const limitKey = getStaffRankLimitKey(rankId);
+      const roleLimit = getPauseRoleLimit(limitKey);
+      if (roleLimit != null && sameRoleActiveCount > roleLimit) {
+        const shown = guild.roles?.cache?.get(rankId)?.name || limitKey;
+        roleLimitWarning = `\n\n⚠️ Limite ruolo \`${shown}\` superato (max ${roleLimit} in pausa). Accettata comunque da High Staff.`;
+      }
+    } else {
+      const overlapStaff = await computeStaffersInPauseByRoleForRange(
+        guild.id,
+        PAUSE_ROLE_STAFF,
+        pause.dataRichiesta,
+        pause.dataRitorno,
+        uid,
+      );
+      sameRoleActiveCount = overlapStaff + 1;
+    }
+  }
+
+  return buildAcceptedPauseLogContent({
+    roleLabel,
+    effectiveUserId: uid,
+    pauseTimingText,
+    dataRichiesta: pause.dataRichiesta,
+    dataRitorno: pause.dataRitorno,
+    giorniUsati: used,
+    maxGiorni,
+    giorniRimanenti,
+    sameRoleActiveCount,
+    roleLimitWarning,
+  });
 }
 
 async function getStaffPauseRecord(guildId, userId) {
@@ -621,20 +852,20 @@ function hasActiveAcceptedStaffPause(pauses, atDate) {
   });
 }
 
-async function applyAcceptedPausePhaseToDiscordMessage(channel, messageId, userId, pauseId, phase, withControls) {
+async function applyAcceptedPausePhaseToDiscordMessage(channel, messageId, userId, pauseId, phase, withControls, rebuiltContent = null) {
   const msg = await channel.messages.fetch(messageId).catch(() => null);
   if (!msg) return false;
   const currentContent = String(msg.content || "");
-  let nextContent = currentContent;
-  let nextComponents = [];
   const phrase =
     phase === "planned" ? "andrà in pausa" : phase === "active" ? "è in pausa" : "era in pausa";
+  let nextContent = rebuiltContent
+    ? normalizePauseStatusPhrase(String(rebuiltContent), phrase)
+    : normalizePauseStatusPhrase(currentContent, phrase);
+  let nextComponents = [];
   if (withControls) {
-    nextContent = normalizePauseStatusPhrase(currentContent, phrase);
     if (phase === "ended") nextComponents = [];
     else nextComponents = [buildAcceptedButtonsRow(userId, pauseId, { hideCancel: false, disableCancel: phase === "ended" })];
   } else {
-    nextContent = normalizePauseStatusPhrase(currentContent, phrase);
     nextComponents = [];
   }
   const sameContent = nextContent === currentContent;
@@ -646,6 +877,24 @@ async function applyAcceptedPausePhaseToDiscordMessage(channel, messageId, userI
     return null;
   });
   return Boolean(edited);
+}
+
+/** Solo frase fase + pulsanti: niente rebuild conteggi staffer/giorni (evita edit inutili a ogni restart). */
+async function syncAcceptedPauseMessagePhaseOnly(guild, userId, pause) {
+  const channelId = String(pause?.requestChannelId || IDs.channels?.pause || "").trim();
+  const messageId = String(pause?.requestMessageId || "").trim();
+  const messageIdPm = String(pause?.requestMessageIdPm || "").trim();
+  const pauseId = String(pause?._id || "").trim();
+  if (!guild || !channelId || !messageId || !pauseId) return false;
+  const phase = getPausePhase(pause?.dataRichiesta, pause?.dataRitorno);
+  const channel = await getGuildChannelCached(guild, channelId);
+  if (!channel?.isTextBased?.()) return false;
+  let ok = await applyAcceptedPausePhaseToDiscordMessage(channel, messageId, userId, pauseId, phase, true, null);
+  if (messageIdPm) {
+    ok =
+      (await applyAcceptedPausePhaseToDiscordMessage(channel, messageIdPm, userId, pauseId, phase, true, null)) || ok;
+  }
+  return ok;
 }
 
 async function syncSingleAcceptedPauseMessage(guild, userId, pause) {
@@ -665,12 +914,60 @@ async function syncSingleAcceptedPauseMessage(guild, userId, pause) {
     global.logger?.warn?.("[PAUSE] sync skip: channel unavailable", channelId);
     return false;
   }
+
+  let member = guild.members?.cache?.get(String(userId)) || null;
+  if (guild.members?.fetch) {
+    member = await guild.members.fetch({ user: String(userId), force: true }).catch(() => member);
+  }
+  const liveRankId = getMemberStaffRankRoleId(member);
+  if (liveRankId && String(pause?.ruoloGradeId || "").trim() !== liveRankId) {
+    await updatePauseInDb(guild.id, userId, pauseId, { ruoloGradeId: liveRankId });
+    pause.ruoloGradeId = liveRankId;
+  }
+
+  const roleChoice = normalizePauseRoleChoice(pause.ruolo || pause.ruoloRichiesto) || PAUSE_ROLE_STAFF;
+  const primaryIsPm = roleChoice === PAUSE_ROLE_PM;
+  const primaryContent = await buildAcceptedPauseMessageContent(guild, userId, pause, { forPm: primaryIsPm });
+  const pmContent = messageIdPm
+    ? await buildAcceptedPauseMessageContent(guild, userId, pause, { forPm: true })
+    : null;
+
   let ok = false;
-  ok = (await applyAcceptedPausePhaseToDiscordMessage(channel, messageId, userId, pauseId, phase, true)) || ok;
+  ok = (await applyAcceptedPausePhaseToDiscordMessage(channel, messageId, userId, pauseId, phase, true, primaryContent)) || ok;
   if (messageIdPm) {
-    ok = (await applyAcceptedPausePhaseToDiscordMessage(channel, messageIdPm, userId, pauseId, phase, true)) || ok;
+    ok = (await applyAcceptedPausePhaseToDiscordMessage(channel, messageIdPm, userId, pauseId, phase, true, pmContent)) || ok;
+  }
+  const countMatch = String(primaryContent || "").match(/__`(\d+)`__ staffer in pausa/);
+  if (countMatch) {
+    const nextCount = Number(countMatch[1]);
+    if (Number.isFinite(nextCount) && nextCount !== Number(pause.stafferInPausa)) {
+      await updatePauseInDb(guild.id, userId, pauseId, { stafferInPausa: nextCount });
+      pause.stafferInPausa = nextCount;
+    }
   }
   return ok;
+}
+
+async function scheduleAcceptedPauseMessagesRefreshAfterRankChange(guild, userId) {
+  const guildId = String(guild?.id || "").trim();
+  const uid = String(userId || "").trim();
+  if (!guildId || !uid || !guild?.client) return;
+  const inAcceptedPause = await ActivityUserProfile.exists({
+    guildId,
+    userId: uid,
+    "staff.pauses": { $elemMatch: { status: "accepted" } },
+  }).catch(() => null);
+  if (!inAcceptedPause) return;
+  const prev = pauseRankChangeSyncTimers.get(guildId);
+  if (prev) clearTimeout(prev);
+  const timer = setTimeout(() => {
+    pauseRankChangeSyncTimers.delete(guildId);
+    restorePauseMessageStatusSync(guild.client).catch((err) => {
+      global.logger?.warn?.("[PAUSE] rank-change pause message sync failed:", err?.message || err);
+    });
+  }, 2500);
+  if (typeof timer?.unref === "function") timer.unref();
+  pauseRankChangeSyncTimers.set(guildId, timer);
 }
 
 function scheduleDelayedCallback(runAtMs, callback) {
@@ -701,18 +998,43 @@ function schedulePauseStatusRefresh(guild, userId, pause) {
   if (!guild || !pause || !start || !end || !pauseId) return;
   const key = pauseStatusRefreshKey(guild.id, userId, pauseId);
   const flags = pauseStatusRefreshScheduled.get(key) || { start: false, end: false };
-  const runSync = () => {
-    syncSingleAcceptedPauseMessage(guild, userId, pause).catch(() => null);
+  const runPhaseSync = () => {
+    // Solo frase/pulsanti: niente rebuild conteggi (altrimenti ogni restart riscrive i messaggi).
+    syncAcceptedPauseMessagePhaseOnly(guild, userId, pause).catch(() => null);
+    try {
+      const { scheduleStaffListRefresh } = require("../Community/staffListUtils");
+      scheduleStaffListRefresh(guild.client, guild.id, 800);
+    } catch {
+      /* ignore */
+    }
   };
+  // Transizioni allineate a mezzanotte Europe/Rome (come getPausePhase / getTodayUtc),
+  // non a UTC midnight: altrimenti «è in pausa» resta 2h dopo la fine calendario.
+  const startAt = getRomeDayStartUtcMs(start) ?? start.getTime();
+  const dayAfterEnd = new Date(end.getTime() + MS_PER_DAY);
+  const endAt = getRomeDayStartUtcMs(dayAfterEnd) ?? dayAfterEnd.getTime();
+  const now = Date.now();
+  const phase = getPausePhase(pause?.dataRichiesta, pause?.dataRitorno);
+
   if (!flags.start) {
     flags.start = true;
-    scheduleDelayedCallback(start.getTime(), runSync);
+    if (now < startAt) {
+      scheduleDelayedCallback(startAt, runPhaseSync);
+    }
   }
   if (!flags.end) {
     flags.end = true;
-    scheduleDelayedCallback(end.getTime() + MS_PER_DAY, runSync);
+    if (now < endAt) {
+      scheduleDelayedCallback(endAt, runPhaseSync);
+    }
   }
   pauseStatusRefreshScheduled.set(key, flags);
+
+  // Catch-up solo pause già finite: se il bot era spento al passaggio, restano «è in pausa» + Annulla.
+  // (Le active non si toccano al restart: sync no-op comunque, ma fetch Discord inutili.)
+  if (phase === "ended" && now >= endAt) {
+    runPhaseSync();
+  }
 }
 
 function pauseHistoryImpliesBestStaffBonusForYear(pauses, year) {
@@ -785,23 +1107,250 @@ async function restorePauseMessageStatusSync(client) {
     for (const pause of pauses) {
       if (!pause || pause.status !== "accepted") continue;
       examined += 1;
-      if (await syncSingleAcceptedPauseMessage(guild, userId, pause)) synced += 1;
+      if (await syncAcceptedPauseMessagePhaseOnly(guild, userId, pause)) synced += 1;
       schedulePauseStatusRefresh(guild, userId, pause);
     }
   }
   return { ok: true, examined, synced };
 }
 
+/** All’avvio: solo timer inizio/fine pausa. Niente sync/edit Discord (niente loop). */
+async function scheduleAcceptedPauseStatusTimersOnly(client) {
+  const guildId = String(IDs.guilds?.main || client?.guilds?.cache?.first?.()?.id || "").trim();
+  if (!guildId) return { ok: false, reason: "no_guild" };
+  const guild = client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
+  if (!guild) return { ok: false, reason: "guild_not_found" };
+  const docs = await ActivityUserProfile.find(
+    { guildId, "staff.pauses.status": "accepted" },
+    { userId: 1, "staff.pauses": 1 },
+  )
+    .lean()
+    .catch(() => []);
+  let scheduled = 0;
+  for (const doc of docs) {
+    const userId = String(doc?.userId || "").trim();
+    if (!userId) continue;
+    const pauses = Array.isArray(doc?.staff?.pauses) ? doc.staff.pauses : [];
+    for (const pause of pauses) {
+      if (!pause || pause.status !== "accepted") continue;
+      schedulePauseStatusRefresh(guild, userId, pause);
+      scheduled += 1;
+    }
+  }
+  return { ok: true, scheduled };
+}
+
+function computeConsumedDaysForCancelledPause(pause) {
+  const todayUtc = getTodayUtc();
+  const start = parseItalianDate(pause?.dataRichiesta);
+  const end = parseItalianDate(pause?.dataRitorno);
+  const totalScheduledDays = getPauseDaysBetween(pause?.dataRichiesta, pause?.dataRitorno) || 0;
+  if (!start || !end) return 0;
+  if (todayUtc < start) return 0;
+  if (todayUtc > end) return totalScheduledDays;
+  return Math.max(1, Math.floor((todayUtc - start) / MS_PER_DAY) + 1);
+}
+
+/**
+ * Annulla pause accepted/pending ancora aperte quando lo staffer esce dal server
+ * e cancella i messaggi nel canale pause (niente tag ANNULLATA).
+ */
+async function cancelOpenPausesOnMemberLeave(guild, userId, options = {}) {
+  const guildId = String(guild?.id || "").trim();
+  const uid = String(userId || "").trim();
+  if (!guildId || !uid) return { cancelled: 0 };
+  const stafferRecord = await getStaffPauseRecord(guildId, uid);
+  if (!stafferRecord) return { cancelled: 0 };
+  const pauses = Array.isArray(stafferRecord.staff?.pauses) ? stafferRecord.staff.pauses : [];
+  if (!pauses.length) return { cancelled: 0 };
+
+  let cancelled = 0;
+
+  async function deletePauseDiscordMessages(pause) {
+    const channelId = String(pause?.requestChannelId || IDs.channels?.pause || "").trim();
+    const channel = channelId ? await getGuildChannelCached(guild, channelId) : null;
+    if (!channel?.isTextBased?.()) return;
+    const messageIds = [pause?.requestMessageId, pause?.requestMessageIdPm]
+      .map((id) => String(id || "").trim())
+      .filter(Boolean);
+    for (const mid of messageIds) {
+      const msg = await channel.messages.fetch(mid).catch(() => null);
+      if (msg) await msg.delete().catch(() => null);
+    }
+    const threadId = String(pause?.requestThreadId || "").trim();
+    if (threadId) {
+      let thread = await guild.channels.fetch(threadId).catch(() => null);
+      if (!thread && guild.client) thread = await guild.client.channels.fetch(threadId).catch(() => null);
+      if (thread?.isThread?.()) await thread.delete().catch(() => null);
+    }
+  }
+
+  for (const pause of pauses) {
+    const status = String(pause?.status || "");
+    const pauseId = String(pause?._id || "").trim();
+    if (!pauseId) continue;
+
+    if (status === "pending") {
+      await updatePauseInDb(guildId, uid, pauseId, { status: "rejected", cancelledAt: new Date() });
+      pause.status = "rejected";
+      pause.cancelledAt = new Date();
+      cancelled += 1;
+      await deletePauseDiscordMessages(pause);
+      continue;
+    }
+
+    if (status !== "accepted") continue;
+    if (getPausePhase(pause.dataRichiesta, pause.dataRitorno) === "ended") continue;
+
+    const consumed = computeConsumedDaysForCancelledPause(pause);
+    await updatePauseInDb(guildId, uid, pauseId, {
+      status: "cancelled",
+      giorniUsati: consumed,
+      cancelledAt: new Date(),
+    });
+    pause.status = "cancelled";
+    pause.giorniUsati = consumed;
+    pause.cancelledAt = new Date();
+    cancelled += 1;
+    await deletePauseDiscordMessages(pause);
+  }
+
+  if (cancelled > 0) {
+    try {
+      const { scheduleStaffListRefresh } = require("../Community/staffListUtils");
+      scheduleStaffListRefresh(guild.client || options.client, guildId, 800);
+    } catch {
+    }
+    try {
+      const { broadcastSiteStaffPausesChanged } = require("../Web/siteSuggestionsBroadcast");
+      broadcastSiteStaffPausesChanged();
+    } catch {
+    }
+  }
+  return { cancelled };
+}
+
+function cancelledPauseMessageLooksStale(content) {
+  const text = String(content || "");
+  if (!text) return false;
+  if (/aveva una pausa \*\*annullata\*\*/i.test(text)) return false;
+  // Vecchio formato: frase attiva + tag ANNULLATA (o warning limite ancora presente).
+  if (/ANNULLATA/i.test(text) && /(è in pausa|andrà in pausa|era in pausa)/i.test(text)) return true;
+  if (/ANNULLATA/i.test(text) && /Limite ruolo/i.test(text)) return true;
+  return false;
+}
+
+async function applyCancelledPauseContentToMessage(channel, messageId, content, userId, pauseId) {
+  const msg = await channel.messages.fetch(String(messageId)).catch(() => null);
+  if (!msg) return false;
+  if (!cancelledPauseMessageLooksStale(msg.content) && String(msg.content || "") === String(content || "")) {
+    return false;
+  }
+  if (!cancelledPauseMessageLooksStale(msg.content) && /aveva una pausa \*\*annullata\*\*/i.test(String(msg.content || ""))) {
+    return false;
+  }
+  const components = [buildAcceptedButtonsRow(userId, pauseId, { hideCancel: true })];
+  const edited = await msg.edit({ content, components }).catch((err) => {
+    global.logger?.warn?.("[PAUSE] cancelled message rewrite failed:", String(messageId), err?.message || err);
+    return null;
+  });
+  return Boolean(edited);
+}
+
+/** One-shot: riscrive i messaggi cancellati ancora nel formato vecchio (append ANNULLATA). */
+async function rewriteStaleCancelledPauseMessages(client) {
+  const guildId = String(IDs.guilds?.main || client?.guilds?.cache?.first?.()?.id || "").trim();
+  if (!guildId) return { ok: false, reason: "no_guild", rewritten: 0 };
+  const guild = client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
+  if (!guild) return { ok: false, reason: "guild_not_found", rewritten: 0 };
+
+  const docs = await ActivityUserProfile.find(
+    { guildId, "staff.pauses.status": "cancelled" },
+    { userId: 1, staff: 1 },
+  )
+    .lean()
+    .catch(() => []);
+
+  let examined = 0;
+  let rewritten = 0;
+  for (const doc of docs) {
+    const userId = String(doc?.userId || "").trim();
+    if (!userId) continue;
+    const pauses = Array.isArray(doc?.staff?.pauses) ? doc.staff.pauses : [];
+    let member = guild.members?.cache?.get(userId) || null;
+    if (!member && guild.members?.fetch) {
+      member = await guild.members.fetch({ user: userId }).catch(() => null);
+    }
+    for (const pause of pauses) {
+      if (!pause || pause.status !== "cancelled") continue;
+      const pauseId = String(pause._id || "").trim();
+      const channelId = String(pause.requestChannelId || IDs.channels?.pause || "").trim();
+      const messageId = String(pause.requestMessageId || "").trim();
+      const messageIdPm = String(pause.requestMessageIdPm || "").trim();
+      if (!pauseId || !channelId || !messageId) continue;
+      examined += 1;
+
+      const channel = await getGuildChannelCached(guild, channelId);
+      if (!channel?.isTextBased?.()) continue;
+
+      const roleChoice = normalizePauseRoleChoice(pause.ruolo || pause.ruoloRichiesto) || PAUSE_ROLE_STAFF;
+      const baseLimit = getBasePauseLimit(member, roleChoice);
+      const bonusPause = member
+        ? getStaffPauseBonusDaysTotal(member, doc)
+        : getValPosTradedPauseBonusDays(doc);
+      const maxGiorni = baseLimit + bonusPause;
+      const giorniTotaliUsati = computeConsumedPauseDays(doc?.staff?.pauses);
+      const giorniRimanenti = Math.max(0, maxGiorni - giorniTotaliUsati);
+      const giorniScalati = Number.isFinite(Number(pause.giorniUsati))
+        ? Math.max(0, Number(pause.giorniUsati))
+        : computeConsumedDaysForCancelledPause(pause);
+
+      const roleLabel = formatPauseRoleLabelForMessage(
+        guild,
+        roleChoice === PAUSE_ROLE_BOTH ? PAUSE_ROLE_STAFF : roleChoice,
+        member,
+      );
+      const staffContent = buildCancelledPauseLogContent({
+        roleLabel,
+        effectiveUserId: userId,
+        dataRichiesta: pause.dataRichiesta,
+        dataRitorno: pause.dataRitorno,
+        giorniScalati,
+        giorniTotaliUsati,
+        maxGiorni,
+        giorniRimanenti,
+      });
+      if (await applyCancelledPauseContentToMessage(channel, messageId, staffContent, userId, pauseId)) {
+        rewritten += 1;
+      }
+
+      if (messageIdPm) {
+        const pmRole = guild.roles?.cache?.get(String(IDs.roles?.PartnerManager || ""));
+        const pmContent = buildCancelledPauseLogContent({
+          roleLabel: pmRole?.name || "Partner Manager",
+          effectiveUserId: userId,
+          dataRichiesta: pause.dataRichiesta,
+          dataRitorno: pause.dataRitorno,
+          giorniScalati,
+          giorniTotaliUsati,
+          maxGiorni,
+          giorniRimanenti,
+        });
+        if (await applyCancelledPauseContentToMessage(channel, messageIdPm, pmContent, userId, pauseId)) {
+          rewritten += 1;
+        }
+      }
+    }
+  }
+  return { ok: true, examined, rewritten };
+}
+
 function startPauseMessageStatusMaintenance(client) {
   if (!client || client.__vcPauseMessageStatusMaintenanceStarted) return;
   client.__vcPauseMessageStatusMaintenanceStarted = true;
-  const run = () => {
-    restorePauseMessageStatusSync(client).catch((err) => {
-      global.logger?.warn?.("[PAUSE] periodic pause message status sync failed:", err?.message || err);
-    });
-  };
-  const interval = setInterval(run, PAUSE_MESSAGE_SYNC_INTERVAL_MS);
-  if (typeof interval?.unref === "function") interval.unref();
+  void scheduleAcceptedPauseStatusTimersOnly(client).catch((err) => {
+    global.logger?.warn?.("[PAUSE] schedule pause status timers failed:", err?.message || err);
+  });
 }
 
-module.exports = { MS_PER_DAY, parseItalianDate, getPauseDaysBetween, getTodayUtc, getCurrentYearBoundsUtc, getMonthBoundsUtc, filterPausesByMonth, countOverlapDays, countEffectiveOverlapDays, rangesOverlap, computeStaffersInPauseByRoleForRange, getStaffPauseRecord, getStaffAndPauseByRequestMessageId, updatePauseInDb, computeConsumedPauseDays, getMemberRoleLabel, getBasePauseLimit, getPauseRoleLimit, getPauseStatusLabel, getPauseTimingText, computePauseScaledDaysThisYear, buildRequestButtonsRow, buildAcceptedButtonsRow, schedulePauseButtonsRemoval, restorePauseMessageStatusSync, startPauseMessageStatusMaintenance, syncSingleAcceptedPauseMessage, getRomeMonthKey, getOnePausePerMonthWarning, getOneWeekBetweenWarning, getPauseReasonFromMessage, PAUSE_ROLE_STAFF, PAUSE_ROLE_PM, PAUSE_ROLE_BOTH, normalizePauseRoleChoice, getMemberPauseRoleChoices, getPauseRoleTargets, roleChoiceAppliesTo, getBestStaffPauseBonusDays, getValPosTradedPauseBonusDays, getStaffPauseBonusDaysTotal, grantBestStaffPauseBonusYear, getPausePhase, hasActiveAcceptedStaffPause };
+module.exports = { MS_PER_DAY, parseItalianDate, getPauseDaysBetween, getTodayUtc, getCurrentYearBoundsUtc, getMonthBoundsUtc, filterPausesByMonth, countOverlapDays, countEffectiveOverlapDays, rangesOverlap, computeStaffersInPauseByRoleForRange, computeStaffersInPauseByStaffRankForRange, getMemberStaffRankRoleId, getStaffRankLimitKey, resolvePauseStaffRankRoleId, buildAcceptedPauseLogContent, buildCancelledPauseLogContent, formatPauseRoleLabelForMessage, buildAcceptedPauseMessageContent, getStaffPauseRecord, getStaffAndPauseByRequestMessageId, updatePauseInDb, computeConsumedPauseDays, getMemberRoleLabel, getBasePauseLimit, getPauseRoleLimit, getPauseStatusLabel, getPauseTimingText, computePauseScaledDaysThisYear, buildRequestButtonsRow, buildAcceptedButtonsRow, schedulePauseButtonsRemoval, restorePauseMessageStatusSync, startPauseMessageStatusMaintenance, rewriteStaleCancelledPauseMessages, syncSingleAcceptedPauseMessage, scheduleAcceptedPauseMessagesRefreshAfterRankChange, getRomeMonthKey, getOnePausePerMonthWarning, getOneWeekBetweenWarning, getPauseReasonFromMessage, cancelOpenPausesOnMemberLeave, computeConsumedDaysForCancelledPause, PAUSE_ROLE_STAFF, PAUSE_ROLE_PM, PAUSE_ROLE_BOTH, normalizePauseRoleChoice, getMemberPauseRoleChoices, getPauseRoleTargets, roleChoiceAppliesTo, getBestStaffPauseBonusDays, getValPosTradedPauseBonusDays, getStaffPauseBonusDaysTotal, grantBestStaffPauseBonusYear, getPausePhase, hasActiveAcceptedStaffPause };

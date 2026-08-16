@@ -18,7 +18,8 @@
     var paths = cfg.paths;
     if (!Array.isArray(paths)) return false;
     for (var i = 0; i < paths.length; i++) {
-      if (paths[i] === p) return true;
+      var allowed = normPath(paths[i]);
+      if (allowed === p) return true;
     }
     var patterns = cfg.patterns;
     if (!Array.isArray(patterns)) return false;
@@ -36,7 +37,7 @@
     var hidden = cfg.hidden;
     if (!Array.isArray(hidden)) return false;
     for (var i = 0; i < hidden.length; i++) {
-      if (hidden[i] === p) return true;
+      if (normPath(hidden[i]) === p) return true;
     }
     return false;
   }

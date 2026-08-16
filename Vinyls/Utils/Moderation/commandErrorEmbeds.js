@@ -1,9 +1,10 @@
 const { EmbedBuilder } = require("discord.js");
 const IDs = require("../Config/ids");
+const { TENANT_EMBED_COLOR } = require("../../MultiGuild/utils/tenantEmbedBranding");
 
 function buildBaseErrorEmbed(title, description) {
   return new EmbedBuilder()
-    .setColor("Red")
+    .setColor(TENANT_EMBED_COLOR)
     .setTitle(title)
     .setDescription(description);
 }
@@ -16,7 +17,7 @@ function buildCooldownErrorEmbed(remainingSeconds) {
       `<:VC_Attention:1482534443632558151> Aspetta **${remaining}s** prima di usare un altro comando.`,
       "",
       "<a:VC_Timer:1482527426557775954> Il cooldown si riduce con i ruoli:",
-      `<:VC_Dot:1482532364222595303> <@&${IDs.roles.Level30}> <a:VC_Arrow:1482706699365257397> **15s**`,
+      `<:VC_Dot:1482532364222595303> <@&${IDs.roles.Level30}>, <@&${IDs.roles.ServerBooster}> o <@&${IDs.roles.VIP}> <a:VC_Arrow:1482706699365257397> **15s**`,
       `<:VC_Dot:1482532364222595303> <@&${IDs.roles.Level50}>, <@&${IDs.roles.VIPplus}> o <@&${IDs.roles.DoubleBooster}> <a:VC_Arrow:1482706699365257397> **5s**`,
     ].join("\n"),
   );

@@ -15,8 +15,6 @@ async function run(client) {
     return;
   }
   await ensurePauseStickyPanel(client, channel);
-  const { maybeRepositionPauseSticky } = require("../Utils/Pause/pauseStickyPanelRuntime");
-  await maybeRepositionPauseSticky(channel, client).catch(() => null);
 }
 
 module.exports = { name: "pause", order: 42, section: "embedWithButtons", run };

@@ -16,6 +16,12 @@ module.exports = {
   async execute(_readyClient, client) {
     const activeClient = client || _readyClient;
     logBotReady(activeClient);
+    try {
+      const { startCoffeeHealthHttpServer } = require("../Utils/Web/coffeeHealthHttp");
+      startCoffeeHealthHttpServer(activeClient);
+    } catch (err) {
+      global.logger?.warn?.("[HEALTH] Coffee init:", err?.message || err);
+    }
 
     if (!isMongoReady()) {
       global.logger?.error?.("[DATABASE] Startup aborted: MongoDB not connected.");
@@ -59,6 +65,12 @@ module.exports = {
       startMarkovBackfill(activeClient);
     } catch (err) {
       global.logger?.warn?.("[MARKOV] init:", err?.message || err);
+    }
+    try {
+      const { ensurePrefixQueueLoaded } = require("../Utils/Prefix/officialPrefixDispatcher");
+      ensurePrefixQueueLoaded(activeClient);
+    } catch (err) {
+      global.logger?.warn?.("[PREFIX] queue restore:", err?.message || err);
     }
     printRecoveryHealthOnce("COFFEE_RECOVERY_HEALTH");
   },

@@ -1,7 +1,27 @@
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
-const dotenv = require("dotenv");
+
+function requireDotenv() {
+  try {
+    return require("dotenv");
+  } catch {
+    const candidates = [
+      path.join(__dirname, "..", "..", "WebSite", "node_modules", "dotenv"),
+      path.join(__dirname, "..", "..", "node_modules", "dotenv"),
+    ];
+    for (const modPath of candidates) {
+      try {
+        return require(modPath);
+      } catch {
+        // try next candidate
+      }
+    }
+    throw new Error("Modulo dotenv mancante: esegui npm install in WebSite/");
+  }
+}
+
+const dotenv = requireDotenv();
 
 function loadEnvFiles(appRoot = process.cwd()) {
   const safeAppRoot = typeof appRoot === "string" && appRoot.trim().length > 0 ? appRoot : process.cwd();

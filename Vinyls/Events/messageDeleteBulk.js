@@ -2,6 +2,7 @@ const { EmbedBuilder, AttachmentBuilder, AuditLogEvent, PermissionsBitField, Mes
 const IDs = require("../Utils/Config/ids");
 const { maybePunishCountingOnBulkDelete } = require("../Utils/Message/officialMessageCommunityHandlers");
 const { toDiscordTimestamp } = require("../Utils/Logging/channelRolesLogUtils");
+const { isViniliFullFeatureGuild } = require("../MultiGuild/core/guildFeatureScope");
 const VERIFICATION_EXCLUDED_CHANNEL_IDS=new Set([IDs.channels.verify,IDs.channels.clickMe,IDs.channels.activityLogs].filter(Boolean).map((id) => String(id)));
 const AUDIT_LOOKBACK_MS = 120 * 1000;
 
@@ -198,6 +199,8 @@ module.exports = {
     try {
       void client;
       if (!messages?.size) return;
+      const guildProbe = messages.first()?.guild;
+      if (guildProbe?.id && !isViniliFullFeatureGuild(guildProbe.id)) return;
       const meaningful = messages.filter((msg) => isMeaningfulDeletedMessage(msg));
       if (!meaningful.size) return;
       await maybePunishCountingOnBulkDelete(meaningful, client);

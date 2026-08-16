@@ -2,6 +2,7 @@ const { AuditLogEvent, EmbedBuilder, PermissionsBitField } = require("discord.js
 const IDs = require("../Utils/Config/ids");
 const { getGuildChannelCached, getGuildMemberCached } = require("../Utils/Interaction/interactionEntityCache");
 const { handleWebhookCreationAction: antiNukeHandleWebhookCreationAction, handleWebhookUpdateAction: antiNukeHandleWebhookUpdateAction, handleWebhookDeletionAction: antiNukeHandleWebhookDeletionAction, } = require("../Services/Moderation/antiNukeService");
+const { isViniliFullFeatureGuild } = require("../MultiGuild/core/guildFeatureScope");
 const WEBHOOK_CREATE_ACTION = AuditLogEvent?.WebhookCreate ?? 50;
 const WEBHOOK_UPDATE_ACTION = AuditLogEvent?.WebhookUpdate ?? 51;
 const WEBHOOK_DELETE_ACTION = AuditLogEvent?.WebhookDelete ?? 52;
@@ -127,6 +128,7 @@ module.exports = {
     try {
       const guild = channel?.guild;
       if (!guild) return;
+      if (!isViniliFullFeatureGuild(guild.id)) return;
 
       const match = await waitForWebhookAuditEntry(guild, channel?.id || null);
       if (!match?.item) return;

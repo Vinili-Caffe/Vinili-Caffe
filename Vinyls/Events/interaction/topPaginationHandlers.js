@@ -1,4 +1,4 @@
-﻿const { TOP_CHANNEL_PAGE_MODAL_CUSTOM_ID_PREFIX, TOP_CHANNEL_PAGE_MODAL_INPUT_CUSTOM_ID, buildTopChannelPayload, normalizeLookbackDays, normalizeTopView, normalizeControlsView, normalizePage, } = require("../../Prefix/Stats/top");
+const { TOP_CHANNEL_PAGE_MODAL_CUSTOM_ID_PREFIX, TOP_CHANNEL_PAGE_MODAL_INPUT_CUSTOM_ID, buildTopChannelPayload, normalizeLookbackDays, normalizeTopView, normalizeControlsView, normalizePage, } = require("../../Prefix/Stats/top");
 const SNOWFLAKE_RE = /^\d{16,20}$/;
 
 function parseTopPageModalCustomId(rawCustomId) {
@@ -52,8 +52,14 @@ module.exports = {
 
       await interaction.deferUpdate();
       const payload = await buildTopChannelPayload({ guild: interaction.guild }, parsed.lookbackDays, parsed.controlsView, parsed.selectedView, requestedPage, parsed.ownerId || interaction.user?.id,);
-
-      await interaction.message.edit({ ...payload, content: payload.content || null }).catch(() => { });
+      const files = Array.isArray(payload.files) ? payload.files.filter(Boolean) : [];
+      await interaction.message.edit({
+        files,
+        attachments: [],
+        embeds: payload.embeds || [],
+        content: payload.content || null,
+        components: payload.components || [],
+      }).catch(() => { });
     } catch (error) {
       global.logger?.error?.("[TOP CHANNEL PAGE MODAL] Failed:", error);
       if (interaction.deferred || interaction.replied) {

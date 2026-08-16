@@ -2,6 +2,7 @@ const { AuditLogEvent, EmbedBuilder, PermissionsBitField } = require("discord.js
 const IDs = require("../Utils/Config/ids");
 const { getGuildChannelCached } = require("../Utils/Interaction/interactionEntityCache");
 const { toDiscordTimestamp } = require("../Utils/Logging/channelRolesLogUtils");
+const { isViniliFullFeatureGuild } = require("../MultiGuild/core/guildFeatureScope");
 const INVITE_DELETE_ACTION = AuditLogEvent?.InviteDelete ?? 42;
 const AUDIT_FETCH_LIMIT = 20;
 const AUDIT_LOOKBACK_MS = 120 * 1000;
@@ -18,7 +19,7 @@ function formatMaxAge(seconds) {
   const safe = Math.max(0, Number(seconds || 0));
   if (!safe) return "Mai";
   const days = safe / 86400;
-  if (Number.isInteger(days)) return `${days} giorno${days === 1 ? "" : "i"}`;
+  if (Number.isInteger(days)) return days === 1 ? "1 giorno" : `${days} giorni`;
   const hours = safe / 3600;
   if (Number.isInteger(hours)) return hours === 1 ? "1 ora" : `${hours} ore`;
   const mins = Math.floor(safe / 60);
@@ -77,6 +78,8 @@ module.exports = {
       if (cache) {
         cache.delete(code);
       }
+
+      if (!isViniliFullFeatureGuild(guild.id)) return;
 
       const logChannel = await resolveLogChannel(guild);
       if (!logChannel?.isTextBased?.()) return;

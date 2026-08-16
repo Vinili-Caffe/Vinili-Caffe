@@ -111,7 +111,16 @@ function isForbiddenEventClosed(closureDoc) {
   return houses.size >= FORBIDDEN_MAX_WINNERS;
 }
 
+function isForbiddenBooksFeatureEnabled(client) {
+  const books = client?.config?.hogwartsForbiddenBooks;
+  if (books && typeof books === "object" && books.enabled === false) return false;
+  const presence = client?.config?.presence?.forbiddenSectionEvent;
+  if (presence && typeof presence === "object" && presence.enabled === false) return false;
+  return true;
+}
+
 function forbiddenEventOpen(client, nowMs = Date.now()) {
+  if (!isForbiddenBooksFeatureEnabled(client)) return false;
   const { startMs, endMs } = resolveForbiddenBooksSchedule(client);
   const now = Number(nowMs || Date.now());
   if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || now < startMs || now > endMs) return false;
@@ -200,6 +209,29 @@ async function resolveForbiddenRoundRuntime(client, nowMs = Date.now()) {
   const guildId = String(client?.config?.mainGuildId || "").trim();
   const { startMs, endMs } = resolveForbiddenBooksSchedule(client);
   const now = Number(nowMs || Date.now());
+  if (!isForbiddenBooksFeatureEnabled(client)) {
+    return {
+      mode: "disabled",
+      round: null,
+      roundId: null,
+      roundLabel: null,
+      roundActive: false,
+      roundClosed: false,
+      bookIds: [],
+      dedupeKey: null,
+      closure: null,
+      nextRound: null,
+      nextRoundId: null,
+      nextRoundStartMs: null,
+      roundStartMs: null,
+      roundEndMs: null,
+      betweenRounds: false,
+      open: false,
+      startMs,
+      endMs,
+      enabled: false,
+    };
+  }
   const { rounds, active, next, mode } = resolveForbiddenRoundByTime(client, nowMs);
   if (mode === "legacy") {
     const dedupeKey = forbiddenEventDedupeKey(cfg);
@@ -277,6 +309,32 @@ async function resolveForbiddenRoundRuntime(client, nowMs = Date.now()) {
 }
 
 function buildForbiddenPublicStatusPayload(runtime) {
+  if (runtime?.mode === "disabled" || runtime?.enabled === false) {
+    return {
+      ok: true,
+      enabled: false,
+      open: false,
+      startMs: runtime.startMs ?? null,
+      endMs: runtime.endMs ?? null,
+      betweenRounds: false,
+      roundId: null,
+      roundLabel: null,
+      roundActive: false,
+      roundStartMs: null,
+      roundEndMs: null,
+      nextRoundId: null,
+      nextRoundStartMs: null,
+      bookIds: [],
+      collectedBookIds: [],
+      collectedCount: 0,
+      requiredCount: 0,
+      missingBookIds: [],
+      completed: false,
+      closed: true,
+      closedAt: null,
+      winners: [],
+    };
+  }
   const progressOpts = {
     roundId: runtime.roundId,
     roundLabel: runtime.roundLabel,
@@ -289,6 +347,7 @@ function buildForbiddenPublicStatusPayload(runtime) {
   };
   return {
     ok: true,
+    enabled: true,
     open: runtime.open === true,
     startMs: runtime.startMs,
     endMs: runtime.endMs,
@@ -401,6 +460,7 @@ async function assignForbiddenSectionWinner(client, guildId, userId, actorId) {
   const uid = String(userId || "").trim();
   const actor = String(actorId || "").trim();
   if (!gid || !uid || !actor) return { ok: false, code: "bad_input" };
+  if (!isForbiddenBooksFeatureEnabled(client)) return { ok: false, code: "feature_disabled" };
   const runtime = await resolveForbiddenRoundRuntime(client);
   if (!runtime.round || !runtime.dedupeKey) {
     return { ok: false, code: "round_inactive", nextRoundId: runtime.nextRoundId, nextRoundStartMs: runtime.nextRoundStartMs };
@@ -524,6 +584,7 @@ module.exports = {
   resolveForbiddenBooksSchedule,
   forbiddenEventDedupeKey,
   forbiddenEventOpen,
+  isForbiddenBooksFeatureEnabled,
   isForbiddenEventClosed,
   canPreviewForbiddenBooks,
   forbiddenProgressPayload,

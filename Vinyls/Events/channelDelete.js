@@ -9,7 +9,18 @@ const { finishSerataFilmSessionsForChannel } = require("../Services/Staff/staffA
 const { isTicketCategoryName } = require("../Utils/Ticket/ticketCategoryUtils");
 const { tryDeleteEmptyCustomPrivateCategory } = require("../Utils/Community/customPrivateCategoryUtils");
 const { shouldResyncAutomodForChannel, scheduleDiscordAutomodRulesResync } = require("../Services/Moderation/discordAutomodRulesService");
+const { handleCustomPrivateVoiceChannelDelete } = require("../Services/Community/customVocChannelCleanupService");
 const { ChannelType } = require("discord.js");
+
+function isViniliFullFeatureGuild(guildId) {
+  try {
+    const { isViniliFullFeatureGuild: check } = require("../MultiGuild/core/guildFeatureScope");
+    return check(guildId);
+  } catch {
+    return true;
+  }
+}
+
 const CHANNEL_DELETE_ACTION = AuditLogEvent?.ChannelDelete ?? 12;
 const AUDIT_RETRY_ATTEMPTS = 3;
 const AUDIT_RETRY_DELAY_MS = 700;
@@ -42,6 +53,8 @@ module.exports = {
   name: "channelDelete",
   async execute(channel, client) {
     if (!channel?.guildId) return;
+    if (!isViniliFullFeatureGuild(channel.guildId)) return;
+
     const guild = channel.guild || client?.guilds?.cache?.get(channel.guildId) || (await client?.guilds?.fetch?.(channel.guildId).catch(() => null));
     if (!guild) return;
 
@@ -107,6 +120,11 @@ module.exports = {
 
     try {
       const isVoiceDelete = channel.type === ChannelType.GuildVoice;
+      if (isVoiceDelete) {
+        await handleCustomPrivateVoiceChannelDelete(channel, guild).catch((err) => {
+          global.logger?.warn?.("[channelDelete] custom voc DB cleanup failed:", err?.message || err);
+        });
+      }
       if (isVoiceDelete || channel.parentId) {
         await tryDeleteEmptyCustomPrivateCategory(guild, {
           excludeChannelId: channel.id,

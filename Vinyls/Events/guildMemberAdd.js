@@ -15,6 +15,10 @@ const { markJoinGateKick } = require("../Utils/Moderation/joinGateKickCache");
 const { createModCase, getModConfig, logModCase } = require("../Utils/Moderation/moderation");
 const { buildUnbanRequestRow } = require("../Utils/Moderation/unbanRequestButton");
 const { markJoinGateSuspiciousAccount, } = require("../Services/Moderation/joinGateSuspiciousService");
+const {
+  enforceUntrustedBotMember,
+  punishMemberForBotAbuse,
+} = require("../Services/Moderation/trustedBotGuardService");
 const { hasEventWeekWinnerGrant } = require("../Services/Community/weekWinnerGrantsService");
 const { hasExtraCustomPerksUnlock } = require("../Utils/Community/customPerksUnlock");
 const { addRolesAndGetMember, getClientGuildCached, getGuildChannelCached, getGuildMemberCached, getGuildRoleCached } = require("../Utils/Interaction/interactionEntityCache");
@@ -23,7 +27,12 @@ const { activateWelcomeContextForGuild, refreshWelcomeContextForGuild } = requir
 const { restoreUserOnJoin } = require("../Services/Community/userLeaveBackupService");
 const { syncMutedMirrorOnMemberJoin } = require("../Services/Moderation/mutedMirrorRoleService");
 const { cancelCustomPerksDiscordCleanupQueue } = require("../Services/Community/customPerksDiscordCleanupQueueService");
-const { restoreManagerLeftServerPartnerPointsOnRejoin } = require("../Services/Partner/partnerAuditService");
+const {
+  handleTenantPartnerManagerRejoin,
+} = require("../Services/Partner/partnerManagerLeaveService");
+const { shouldApplyMainPartnershipFilters } = require("../Utils/Partner/partnershipConfigResolver");
+const { getPartnershipConfigSync } = require("../MultiGuild/core/tenantPartnershipSettings");
+const { recordPartnershipInviteJoin } = require("../Services/Partner/tenantPartnershipJoinStatsService");
 const sponsorVerifiedRequiresMain = require("../Services/Community/sponsorVerifiedRequiresMainService");
 const { handleAccessGuildMemberAdd } = require("../Services/Staff/staffAccessMirrorService");
 const { guildIconUrl, guildMemberDisplayAvatarUrlDynamic, accountUsername } = require("../Utils/Discord/guildDiscordIdentity");
@@ -38,6 +47,16 @@ const { trackMemberJoin } = require("../Services/Community/dailyMemberStatsServi
 const { maybeAssignHogwartsCompletionRoleOnJoin } = require("../Services/Community/hogwartsEventEndService");
 const { buildMemberWelcomePhrase } = require("../Utils/Community/pronounWelcomeUtils");
 const { isMongoReady } = require("../Utils/Database/mongoConnect");
+
+function isViniliFullFeatureGuild(guildId) {
+  try {
+    const { isViniliFullFeatureGuild: check } = require("../MultiGuild/core/guildFeatureScope");
+    return check(guildId);
+  } catch {
+    return true;
+  }
+}
+
 const INVITE_LOG_CHANNEL_ID = IDs.channels.chat;
 const THANKS_CHANNEL_ID = IDs.channels.supporters;
 const INFO_PERKS_CHANNEL_ID = IDs.channels.info;
@@ -269,14 +288,32 @@ async function resolveInviteInfo(member) {
       .reduce((sum, invite) => sum + (invite.uses || 0), 0);
   }
 
-  return { link, inviterTag, totalInvites, isVanity: false, inviterId };
+  return { link, inviterTag, totalInvites, isVanity: false, inviterId, code: usedInvite?.code || null };
 }
 
-async function trackInviteJoin(member, inviterId) {
+function inviteCodeFromInfo(info) {
+  if (info?.code) return String(info.code).trim();
+  const link = String(info?.link || "").trim();
+  const match = link.match(/discord(?:\.gg|\.com\/invite)\/([A-Za-z0-9-]+)/i);
+  return match ? match[1] : null;
+}
+
+async function tryRecordTenantPartnershipInviteJoin(member, inviteInfo) {
+  const guildId = String(member?.guild?.id || "").trim();
+  if (!guildId || shouldApplyMainPartnershipFilters(guildId)) return;
+  const usedCode = inviteCodeFromInfo(inviteInfo);
+  const expectedCode = String(getPartnershipConfigSync(guildId)?.invite?.code || "").trim().toLowerCase();
+  if (!usedCode || !expectedCode || usedCode.toLowerCase() !== expectedCode) return;
+  await recordPartnershipInviteJoin(guildId).catch(() => {});
+}
+
+async function trackInviteJoin(member, inviterId, inviteCode = null) {
   if (!inviterId || inviterId === member.id) return;
 
   const inviterMember = await getGuildMemberCached(member.guild, inviterId);
   if (!inviterMember || inviterMember.user?.bot) return;
+
+  const code = String(inviteCode || "").trim() || null;
 
   await ActivityUserProfile.findOneAndUpdate(
     { guildId: member.guild.id, userId: member.id },
@@ -284,6 +321,7 @@ async function trackInviteJoin(member, inviterId) {
       $setOnInsert: { guildId: member.guild.id, userId: member.id },
       $set: {
         "profile.inviteTrack.inviterId": inviterId,
+        "profile.inviteTrack.inviteCode": code,
         "profile.inviteTrack.active": true,
         "profile.inviteTrack.leftAt": null,
         "profile.inviteTrack.joinedAt": new Date(),
@@ -455,8 +493,8 @@ function buildDmWelcomeEmbed(member) {
         "<a:VC_Arrow:1482706699365257397> <https://discord.com/channels/1329080093599076474/1442569111119990887/1470102236527853661>",
         "------------------------------",
         "<:VC_Dot:1482532364222595303> Controlla le nostre GUILD TAGS",
-        "<a:VC_Moon:1482724651430838406>[⭑.ᐟ](<https://discord.gg/E6vrm5zE6B>)<:VC_Luna1:1482497618289496117><:VC_Luna2:1482497653387427902> & [⭑.ᐟ](<https://discord.gg/QnTN5P578g>)<:VC_Fire1:1509196285796814979><:VC_Fire2:1509196390843023475>",
-        "<:VC_Firework:1470796227913322658>[⭑.ᐟ](<https://discord.gg/WMuZ4EMAkc>)<:VC_Porn1:1482497744513011944><:VC_Porn2:1482497774892089547> & <a:VC_PepeEggPlant:1331622686014570588>[⭑.ᐟ](<https://discord.gg/uqUNS9f5m5>)<:VC_Star1:1509196523810980051><:VC_Star2:1509196760722182155>",
+        "<a:VC_Moon:1482724651430838406>[⭑.ᐟ](<https://discord.gg/E6vrm5zE6B>)<:VC_Femboy1:1528177995095867515><:VC_Femboy2:1528178060581671084> & [⭑.ᐟ](<https://discord.gg/QnTN5P578g>)<:VC_666_1:1528177848890691684><:VC_666_2:1528177905404870828>",
+        "<:VC_Firework:1470796227913322658>[⭑.ᐟ](<https://discord.gg/WMuZ4EMAkc>)<:VC_Porn1:1482497744513011944><:VC_Porn2:1482497774892089547> & <a:VC_PepeEggPlant:1331622686014570588>[⭑.ᐟ](<https://discord.gg/uqUNS9f5m5>)<:VC_Cat1:1528177482807640125><:VC_Cat2:1528177684843073546>",
         "<a:VC_PepeSmoke:1331590685673132103>[⭑.ᐟ](<https://discord.gg/SzBwnxHXNv>)<:VC_Weed1:1482497951686201534><:VC_Weed2:1482497986910097592> & <a:VC_PepeExcited:1331621719093284956>[⭑.ᐟ](<https://discord.gg/z3EXtJwvQH>)<:VC_Figa1:1482495980275499169><:VC_Figa2:1482496046222544937>",
         "<a:VC_Arrow:1482706699365257397> <https://discord.com/channels/1329080093599076474/1442569111119990887/1470102239094767699>",
         //"------------------------------",
@@ -472,25 +510,12 @@ function buildDmWelcomeEmbed(member) {
 }
 
 function getVerifiedPlusBotsCount(guild) {
-  if (!guild?.members?.cache) return Number(guild?.memberCount || 0);
-  const memberRoleId = String(IDs.roles?.Member || "").trim();
-  const unverifiedRoleId = String(IDs.roles?.preMember || "").trim();
-  if (!memberRoleId && !unverifiedRoleId) return Number(guild.memberCount || 0);
-  let total = 0;
-  for (const m of guild.members.cache.values()) {
-    if (m?.user?.bot) {
-      total += 1;
-      continue;
-    }
-    const roles = m?.roles?.cache;
-    if (!roles) continue;
-    if (memberRoleId && roles.has(memberRoleId)) {
-      total += 1;
-      continue;
-    }
-    if (unverifiedRoleId && roles.has(unverifiedRoleId)) total += 1;
-  }
-  return total;
+  // Sempre guild.memberCount: con GuildMemberManager limitato (~250) il conteggio
+  // dalla cache oscillava (es. 149 → 139) e non rifletteva i membri reali.
+  const reported = Math.max(0, Number(guild?.memberCount || 0));
+  if (reported > 0) return reported;
+  if (!guild?.members?.cache?.size) return 0;
+  return guild.members.cache.size;
 }
 
 async function sendBotAddLog(member) {
@@ -593,10 +618,21 @@ async function handleBotJoin(member, joinGateConfig) {
           `<:VC_Rules:1482527309868040393> **Regola:** Aggiunta di bot`,
           `<:VC_Staff:1494286904089247754> **Responsabile:** ${executorText}`,
         ], joinGateConfig?.botAdditions?.action || "kick");
+        if (result?.blocked && executorId) {
+          await punishMemberForBotAbuse(
+            member.guild,
+            executorId,
+            `Ha aggiunto un bot non autorizzato: ${member.user?.tag || member.user?.id || "sconosciuto"}`,
+            "ban",
+          );
+        }
         if (result?.blocked) return;
       }
     }
   }
+
+  const trustedOnly = await enforceUntrustedBotMember(member, { executorId });
+  if (trustedOnly?.blocked) return;
 
   try {
     await addBotRoles(member);
@@ -1266,6 +1302,11 @@ async function restoreDiscadiaVoteRoleOnRejoin(member) {
   if (!member?.guild || !member?.id || !VOTE_ROLE_ID) return;
   const guildId = String(member.guild.id);
   if (String(guildId) !== String(IDs.guilds.main || "")) return;
+  try {
+    const { memberIsInMuteMirrorState, shouldDeferRoleRestoreForMuteMirror } = require("../Services/Moderation/mutedMirrorRoleService");
+    if (memberIsInMuteMirrorState(member)) return;
+    if (await shouldDeferRoleRestoreForMuteMirror(member).catch(() => false)) return;
+  } catch (_) {}
 
   const doc = await ActivityUserProfile.findOne({ guildId, userId: String(member.id) })
     .select(VOTE_ROLE_EXPIRES_AT_PATH)
@@ -1294,6 +1335,11 @@ async function restoreDiscadiaVoteRoleOnRejoin(member) {
 
 async function restoreCustomRoleOnRejoin(member) {
   if (!member?.guild || !member?.id) return;
+  try {
+    const { memberIsInMuteMirrorState, shouldDeferRoleRestoreForMuteMirror } = require("../Services/Moderation/mutedMirrorRoleService");
+    if (memberIsInMuteMirrorState(member)) return;
+    if (await shouldDeferRoleRestoreForMuteMirror(member).catch(() => false)) return;
+  } catch (_) {}
   const guildId = String(member.guild.id);
   const userId = String(member.id);
   const doc = await CustomRole.findOne({ guildId, userId }).lean().catch(() => null);
@@ -1543,7 +1589,7 @@ async function dispatchPublicJoinAnnouncements(member) {
   }
 
   if (info && !info.isVanity && info.inviterId) {
-    await trackInviteJoin(fresh, info.inviterId).catch(() => { });
+    await trackInviteJoin(fresh, info.inviterId, inviteCodeFromInfo(info)).catch(() => { });
   }
   await maybeSendInviteNearRewardReminder(fresh, info);
   await maybeSendInviteReward(fresh, info);
@@ -1627,6 +1673,9 @@ async function maybeApplyVerificationTenureOnJoin(member) {
   const guild = member.guild;
   if (!isAlreadyVerifiedInThisGuild(member, guild.id)) return;
   try {
+    const { shouldDeferRoleRestoreForMuteMirror, memberIsInMuteMirrorState } = require("../Services/Moderation/mutedMirrorRoleService");
+    if (memberIsInMuteMirrorState(member)) return;
+    if (await shouldDeferRoleRestoreForMuteMirror(member).catch(() => false)) return;
     const record = await upsertVerifiedMember(guild.id, member.id, new Date());
     await applyTenureForMember(member, record);
   } catch (err) {
@@ -1644,6 +1693,16 @@ module.exports = { name: "guildMemberAdd", kickForJoinGate, runDeferredJoinAnnou
       })) {
         return;
       }
+
+      if (member.guild?.id && !isViniliFullFeatureGuild(member.guild.id)) {
+        await handleTenantPartnerManagerRejoin(member, member.client).catch((err) => {
+          global.logger?.warn?.("[guildMemberAdd] handleTenantPartnerManagerRejoin:", err?.message || err);
+        });
+        const tenantInviteInfo = await resolveInviteInfo(member).catch(() => null);
+        await tryRecordTenantPartnershipInviteJoin(member, tenantInviteInfo).catch(() => {});
+        return;
+      }
+
       await trackMemberJoin(member).catch((err) => {
         global.logger?.warn?.("[guildMemberAdd] daily member stats:", err?.message || err);
       });
@@ -1777,10 +1836,13 @@ module.exports = { name: "guildMemberAdd", kickForJoinGate, runDeferredJoinAnnou
 
       await sendDmWelcome(member).catch(() => {});
 
-      if (String(member.guild?.id || "") === String(IDs.guilds?.main || "")) {
-        await restoreManagerLeftServerPartnerPointsOnRejoin(member.client, member.id).catch((err) => {
-          global.logger?.warn?.("[guildMemberAdd] restoreManagerLeftServerPartnerPointsOnRejoin:", err?.message || err);
-        });
+      await handleTenantPartnerManagerRejoin(member, member.client).catch((err) => {
+        global.logger?.warn?.("[guildMemberAdd] handleTenantPartnerManagerRejoin:", err?.message || err);
+      });
+
+      if (member.guild?.id && !shouldApplyMainPartnershipFilters(member.guild.id)) {
+        const tenantInviteInfo = await resolveInviteInfo(member).catch(() => null);
+        await tryRecordTenantPartnershipInviteJoin(member, tenantInviteInfo).catch(() => {});
       }
 
       await syncMutedMirrorOnMemberJoin(member).catch((err) => {
@@ -1894,7 +1956,7 @@ module.exports = { name: "guildMemberAdd", kickForJoinGate, runDeferredJoinAnnou
 
             if (canAnnounce) {
               if (info && !info.isVanity && info.inviterId) {
-                await trackInviteJoin(member, info.inviterId).catch(() => { });
+                await trackInviteJoin(member, info.inviterId, inviteCodeFromInfo(info)).catch(() => { });
               }
               await maybeSendInviteNearRewardReminder(member, info);
               await maybeSendInviteReward(member, info);

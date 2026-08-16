@@ -12,10 +12,13 @@ const {
   scheduleCoinflipIdlePanel,
   setSession,
 } = require("../Utils/Economy/coinflipGuiRuntime");
+const { handleEconomyBetButton, handleEconomyBetModal, clampBetAmount, fetchSpendableBalance } = require("../Utils/Economy/economyBetModal");
 const PRIVATE_FLAG = MessageFlags.Ephemeral;
 
 function match(interaction) {
-  return Boolean(interaction?.isButton?.() && isCoinflipGuiCustomId(interaction.customId));
+  if (interaction?.isButton?.() && isCoinflipGuiCustomId(interaction.customId)) return true;
+  if (interaction?.isModalSubmit?.() && isCoinflipGuiCustomId(interaction.customId)) return true;
+  return false;
 }
 
 async function replyPrivate(interaction, content) {
@@ -29,13 +32,49 @@ async function execute(interaction, client) {
     await replyPrivate(interaction, "<a:VC_Cross:1482532424570376253> Questo pannello non è tuo.");
     return true;
   }
-  const session = getSession(interaction.message?.id);
+  const session = await getSession(interaction.message?.id, interaction.guild?.id, parsed.ownerId);
   if (!session) {
     await replyPrivate(interaction, "<a:VC_Cross:1482532424570376253> Sessione scaduta. Usa di nuovo `+testaocroce`.");
     return true;
   }
   const cfg = economyConfig(client);
   const msg = interactionMessageAdapter(interaction);
+  const balance = await fetchSpendableBalance(client, session);
+
+  if (
+    await handleEconomyBetModal({
+      interaction,
+      parsed,
+      session,
+      cfg,
+      setSession,
+      balance,
+      beforeApply: (s) => {
+        s.lastResult = null;
+      },
+      onApplied: async (notice) => {
+        const payload = await buildCoinflipGuiPayload(session, cfg, notice, false, false, balance);
+        await interaction.update(payload).catch(() => {});
+      },
+    })
+  ) {
+    return true;
+  }
+
+  if (
+    await handleEconomyBetButton({
+      interaction,
+      parsed,
+      session,
+      cfg,
+      controlId: (action, ownerId) => `coinflip_gui:${action}:${ownerId}`,
+      balance,
+      canAdjust: !session.panelAnimating,
+      denyMessage: "<a:VC_Cross:1482532424570376253> Attendi la fine del lancio.",
+    })
+  ) {
+    return true;
+  }
 
   if (parsed.action === "minus" || parsed.action === "plus") {
     if (session.panelAnimating) {
@@ -44,22 +83,25 @@ async function execute(interaction, client) {
     }
     if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate().catch(() => {});
     const step = Math.max(1, Math.floor(Number(cfg.minBet) || 5));
-    session.bet = parsed.action === "minus"
-      ? Math.max(cfg.minBet, session.bet - step)
-      : Math.min(cfg.maxBet, session.bet + step);
+    session.bet = clampBetAmount(
+      parsed.action === "minus" ? session.bet - step : session.bet + step,
+      cfg,
+      balance,
+    );
     session.lastResult = null;
     setSession(interaction.message.id, session);
     const notice = parsed.action === "minus"
       ? "<a:VC_Verified:1482532479637127188> Puntata abbassata."
       : "<a:VC_Verified:1482532479637127188> Puntata aumentata.";
-    const payload = await buildCoinflipGuiPayload(session, cfg, notice, false, false);
+    const payload = await buildCoinflipGuiPayload(session, cfg, notice, false, false, balance);
     await interaction.message?.edit?.(payload).catch(() => {});
     return true;
   }
 
   if (parsed.action === "close") {
     if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate().catch(() => {});
-    deleteSession(interaction.message?.id);
+    const cleared = deleteSession(interaction.message?.id);
+    if (cleared && typeof cleared.then === "function") await cleared.catch(() => null);
     session.lastResult = null;
     session.panelAnimating = false;
     const payload = await buildCoinflipGuiPayload(session, cfg, "Sessione chiusa.", true, false);
@@ -83,7 +125,7 @@ async function execute(interaction, client) {
     const notice = formatCoinflipNotice(flipped.result);
     const spinPayload = await buildCoinflipGuiPayload(session, cfg, "🪙 La moneta è in aria…", false, true);
     await interaction.message?.edit?.(spinPayload).catch(() => {});
-    scheduleCoinflipIdlePanel(interaction.message, getSession(interaction.message.id) || session, cfg, notice);
+    scheduleCoinflipIdlePanel(interaction.message, session, cfg, notice);
     return true;
   }
 

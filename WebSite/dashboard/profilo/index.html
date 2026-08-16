@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="it">
+  <head>
+{{COOKIEYES_BLOCK}}{{GA_BLOCK}}
+    <meta charset="utf-8" />
+    <title>{{DASHBOARD_PROFILE_PAGE_TITLE}}</title>
+    <meta name="description" content="{{DASHBOARD_PROFILE_META_DESCRIPTION}}" />
+    <meta name="author" content="{{SITE_NAME}}" />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="{{DASHBOARD_PROFILE_OG_TITLE}}" />
+    <meta property="og:description" content="{{DASHBOARD_PROFILE_META_DESCRIPTION}}" />
+    <meta property="og:url" content="{{DASHBOARD_PROFILE_OG_URL}}" />
+    <meta property="og:image" content="{{OG_IMAGE_URL}}" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600&amp;family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="stylesheet" href="../../css/tw-build.css?v={{BUILD_ASSET_VERSION}}" />
+    <link rel="stylesheet" href="../../css/vc-landing.css?v={{BUILD_ASSET_VERSION}}" />
+    <script>
+      window.__VC_REQUIRE_BLOCKING_SESSION_VERIFY = true;
+    </script>
+    <script src="../../js/vc-auth-pending.js"></script>
+    <script>
+      window.__VC_SITE_DASHBOARD = {
+        apiUrl: "{{DASHBOARD_API_URL}}",
+        apiUrlLocal: "{{DASHBOARD_API_URL_LOCAL}}",
+        pageUrl: "{{DASHBOARD_PAGE_URL}}",
+        guildPageUrl: "{{DASHBOARD_GUILD_PAGE_URL}}",
+        profilePageUrl: "{{DASHBOARD_PROFILE_PAGE_URL}}",
+        profileSubPageUrl: "{{DASHBOARD_PROFILE_SUB_PAGE_URL}}",
+        premiumPageUrl: "{{DASHBOARD_PREMIUM_PAGE_URL}}"
+      };
+      window.__VC_AUTH = {
+        clientId: "{{DISCORD_OAUTH_CLIENT_ID}}",
+        redirectUri: "{{DISCORD_OAUTH_REDIRECT_URI}}",
+        homeUrl: "{{SITE_URL}}",
+        scopes: "identify guilds applications.commands.permissions.update"
+      };
+    </script>
+    <script src="../../js/dashboard-access-gate.js?v={{BUILD_ASSET_VERSION}}"></script>
+    <link rel="icon" href="{{GUILD_ICON_URL}}" />
+  </head>
+  <body id="top" class="vc-body vc-dashboard-page vc-dashboard-profile-page relative min-h-screen overflow-x-hidden font-sans text-slate-100 antialiased">
+    <div class="vc-blob vc-blob-a" aria-hidden="true"></div>
+    <div class="vc-blob vc-blob-b" aria-hidden="true"></div>
+    <div class="vc-blob vc-blob-c" aria-hidden="true"></div>
+
+    <header class="fixed inset-x-0 top-0 z-50 px-4 pt-4">
+      <div class="vc-nav-shell vc-glass mx-auto flex max-w-6xl flex-col gap-0 overflow-visible rounded-2xl border border-white/[0.08] bg-[#140f0c] shadow-[0_8px_40px_rgba(0,0,0,0.48),0_0_48px_rgba(212,168,136,0.07)]">
+        <div class="vc-header-bar grid w-full grid-cols-1 items-center gap-y-2.5 gap-x-2 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:gap-x-3 sm:px-5">
+          <div class="flex min-w-0 items-center gap-2.5 justify-self-start sm:gap-3">
+            <a class="vc-header-logo-link shrink-0 rounded-2xl ring-1 ring-[#d4a888]/35 transition hover:ring-[#d4a888]/55" href="{{DASHBOARD_PAGE_URL}}" aria-label="Dashboard">
+              <img src="{{WIKI_BOT_VINILI_AVATAR_URL}}" width="40" height="40" class="vc-header-logo-img" alt="" loading="eager" decoding="async" />
+            </a>
+            <a class="min-w-0 truncate text-[0.7rem] font-bold uppercase tracking-[0.18em] text-white underline-offset-4 transition hover:text-[#e8c9a8] hover:underline sm:text-xs" href="{{DASHBOARD_PAGE_URL}}" data-i18n="footer.dashboard">Dashboard</a>
+            <div class="vc-lang-dropdown" id="vc-lang-dropdown">
+              <button type="button" class="vc-lang-toggle" id="vc-lang-toggle" aria-label="Lingua" aria-haspopup="listbox" aria-expanded="false" data-i18n-attr="aria-label:nav.language"><span class="vc-lang-flag vc-lang-flag--it" id="vc-lang-flag" data-vc-lang-flag="it" aria-hidden="true"></span></button>
+              <div class="vc-lang-panel" id="vc-lang-panel" role="listbox" hidden aria-label="Scegli lingua" data-i18n-attr="aria-label:nav.languageList">
+                <button type="button" class="vc-lang-option" data-vc-lang="it" role="option" aria-selected="true"><span class="vc-lang-flag vc-lang-flag--it" aria-hidden="true"></span><span data-i18n="lang.it">Italiano</span></button>
+                <button type="button" class="vc-lang-option" data-vc-lang="en" role="option" aria-selected="false"><span class="vc-lang-flag vc-lang-flag--en" aria-hidden="true"></span><span data-i18n="lang.en">English</span></button>
+              </div>
+            </div>
+          </div>
+          <nav class="vc-header-snav vc-glass flex max-w-full flex-wrap items-center justify-center justify-self-center gap-0.5 px-1.5 py-1 sm:min-w-0 sm:gap-1 sm:px-2" aria-label="Collegamenti rapidi" data-i18n-attr="aria-label:nav.quickLinks">
+            <a class="vc-snav-item" href="{{DASHBOARD_FAQ_PAGE_URL}}"><i class="fa fa-question-circle" aria-hidden="true"></i><span data-i18n="nav.faq">FAQ</span></a>
+            <a class="vc-snav-item" href="{{STATUS_PAGE_URL}}"><i class="fa fa-heartbeat" aria-hidden="true"></i><span data-i18n="nav.status">Status</span></a>
+            <a class="vc-snav-item" href="{{DASHBOARD_PREMIUM_PAGE_URL}}"><i class="fa fa-diamond" aria-hidden="true"></i><span data-i18n="nav.premium">Premium</span></a>
+            <a class="vc-snav-item" href="{{DASHBOARD_SUGGESTIONS_PAGE_URL}}"><i class="fa fa-lightbulb-o" aria-hidden="true"></i><span data-i18n="nav.suggestions">Feedback</span></a>
+            <a class="vc-snav-item" href="{{BOT_REVIEWS_PAGE_URL}}"><i class="fa fa-star" aria-hidden="true"></i><span data-i18n="nav.botReviews">Recensioni</span></a>
+          </nav>
+          <div class="flex shrink-0 flex-nowrap items-center justify-end gap-2 justify-self-end" id="header-quick-actions">
+            <details class="vc-notif-dropdown" id="vc-notif-dropdown">
+              <summary class="vc-icon-btn vc-notif-summary relative inline-flex" aria-label="Notifiche" data-i18n-attr="aria-label:notif.aria"><i class="fa fa-bell-o" aria-hidden="true"></i><span class="vc-notif-badge" id="vc-notif-badge" hidden aria-live="polite">0</span></summary>
+              <div class="vc-notif-panel" role="region" aria-label="Elenco notifiche" data-i18n-attr="aria-label:notif.listAria">
+                <div class="vc-notif-panel-head">
+                  <div class="vc-notif-panel-head-start">
+                    <span class="vc-notif-panel-head-ico" aria-hidden="true"><i class="fa fa-bell-o"></i></span>
+                    <div class="vc-notif-panel-head-text">
+                      <span class="vc-notif-panel-title" data-i18n="notif.title">Notifiche</span>
+                      <span class="vc-notif-panel-sub" id="vc-notif-unread-sub" data-i18n="notif.unreadZero">0 non lette</span>
+                    </div>
+                  </div>
+                  <div class="vc-notif-panel-head-actions">
+                    <button type="button" class="vc-notif-action" id="vc-notif-mark-all" title="Segna tutte come lette" aria-label="Segna tutte come lette" data-i18n-attr="title:notif.markAll,aria-label:notif.markAll"><i class="fa fa-check" aria-hidden="true"></i></button>
+                  </div>
+                </div>
+                <div class="vc-notif-panel-body">
+                  <div class="vc-notif-empty-wrap" id="vc-notif-empty-wrap">
+                    <div class="vc-notif-empty">
+                      <div class="vc-notif-empty-ico" aria-hidden="true"><i class="fa fa-bell-o"></i></div>
+                      <p class="vc-notif-empty-title" data-i18n="notif.emptyTitle">Nessuna notifica</p>
+                      <p class="vc-notif-empty-sub" data-i18n="notif.emptySub">Sei tutto aggiornato!</p>
+                    </div>
+                  </div>
+                  <div class="vc-notif-list-wrap" id="vc-notif-list-wrap" hidden>
+                    <ul class="vc-notif-list" id="vc-notif-list" role="list"></ul>
+                  </div>
+                </div>
+                <div class="vc-notif-panel-foot" id="vc-notif-panel-foot" hidden></div>
+              </div>
+            </details>
+            <button class="vc-header-pill" id="discord-login-btn" type="button" data-vc-discord-login data-i18n="auth.login">Login</button>
+            <div class="header-login-state" id="discord-login-state" hidden></div>
+            <button type="button" id="vc-mobile-nav-toggle" class="vc-mobile-nav-toggle vc-icon-btn" aria-label="Apri menu di navigazione" aria-controls="vc-mobile-nav-drawer" aria-expanded="false">
+              <span class="vc-mobile-nav-toggle-bars" aria-hidden="true"><span></span><span></span><span></span></span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <aside class="vc-dashboard-sidebar vc-profile-sidebar" id="vc-profile-sidebar" aria-label="Menu account" data-i18n-attr="aria-label:dashAcc.menuAria">
+      <nav class="vc-dashboard-sidebar__nav">
+        <a class="vc-dashboard-sidebar__link is-active" href="{{DASHBOARD_PROFILE_PAGE_URL}}" aria-current="page" title="Profilo" data-i18n-title="dashAcc.navProfile" data-tprof-sidebar="home">
+          <span class="vc-dashboard-sidebar__ico" aria-hidden="true"><i class="fa fa-user"></i></span>
+          <span class="vc-dashboard-sidebar__label" data-i18n="dashAcc.navProfile">Profilo</span>
+        </a>
+        <a class="vc-dashboard-sidebar__link" href="{{DASHBOARD_PROFILE_SUB_PAGE_URL}}" title="Abbonamento" data-i18n-title="dashAcc.navSub">
+          <span class="vc-dashboard-sidebar__ico" aria-hidden="true"><i class="fa fa-calendar"></i></span>
+          <span class="vc-dashboard-sidebar__label" data-i18n="dashAcc.navSub">Abbonamento</span>
+        </a>
+      </nav>
+    </aside>
+
+    <main class="vc-dashboard-profile-main relative z-10 px-4 pb-20 pt-28 sm:pt-32">
+      <nav class="vc-profile-mobile-acc" aria-label="Sezioni account" data-i18n-attr="aria-label:dashAcc.menuAria">
+        <a class="vc-profile-mobile-acc__link is-active" href="{{DASHBOARD_PROFILE_PAGE_URL}}" aria-current="page" data-tprof-sidebar="home">
+          <i class="fa fa-user" aria-hidden="true"></i>
+          <span data-i18n="dashAcc.navProfile">Profilo</span>
+        </a>
+        <a class="vc-profile-mobile-acc__link" href="{{DASHBOARD_PROFILE_SUB_PAGE_URL}}">
+          <i class="fa fa-calendar" aria-hidden="true"></i>
+          <span data-i18n="dashAcc.navSub">Abbonamento</span>
+        </a>
+      </nav>
+      <header class="vc-dash-page-intro vc-tprof-page-head mb-5">
+        <p class="vc-dash-page-intro__kicker" data-i18n="dashProf.kicker">Profilo</p>
+        <h1 id="vc-dash-profile-hero-heading" class="vc-dash-page-intro__title" data-i18n="dashProf.title">Profilo</h1>
+        <p class="vc-dash-page-intro__text" data-i18n="dashProf.lead">Il tuo profilo: punti, obiettivi, badge e preferenze.</p>
+      </header>
+
+      <p id="vc-dash-profile-status" class="vc-dash-profile-status" hidden aria-live="polite"></p>
+      <div id="vc-dash-profile-app" class="vc-dash-profile" hidden>
+        <nav class="vc-tprof-nav" role="tablist" aria-label="Sezioni profilo">
+          <button type="button" class="vc-tprof-nav__btn is-active" data-tprof-tab="home" role="tab" aria-selected="true" title="Home"><i class="fa fa-home" aria-hidden="true"></i><span data-i18n="dashProf.tabHome">Home</span></button>
+          <button type="button" class="vc-tprof-nav__btn" data-tprof-tab="objectives" role="tab" aria-selected="false" title="Obiettivi"><i class="fa fa-trophy" aria-hidden="true"></i><span data-i18n="dashProf.tabObjectives">Obiettivi</span></button>
+          <button type="button" class="vc-tprof-nav__btn" data-tprof-tab="badges" role="tab" aria-selected="false" title="Badge"><i class="fa fa-star" aria-hidden="true"></i><span data-i18n="dashProf.tabBadges">Badge</span></button>
+          <button type="button" class="vc-tprof-nav__btn" data-tprof-tab="blacklist" role="tab" aria-selected="false" title="Blacklist"><i class="fa fa-ban" aria-hidden="true"></i><span data-i18n="dashProf.tabBlacklist">Blacklist</span></button>
+          <button type="button" class="vc-tprof-nav__btn" data-tprof-tab="dev" role="tab" aria-selected="false" title="Dev" hidden data-tprof-dev-only><i class="fa fa-terminal" aria-hidden="true"></i><span data-i18n="dashProf.tabDev">Dev</span></button>
+          <button type="button" class="vc-tprof-nav__btn" data-tprof-tab="settings" role="tab" aria-selected="false" title="Impostazioni"><i class="fa fa-cog" aria-hidden="true"></i><span data-i18n="dashProf.tabSettings">Impostazioni</span></button>
+        </nav>
+        <div id="vc-dash-profile-panels" class="vc-dash-profile__panels"></div>
+      </div>
+    </main>
+
+    <footer class="relative z-10 border-t border-white/8 bg-slate-950/20">
+      <div class="mx-auto flex max-w-6xl flex-col items-center gap-5 px-4 py-10 text-center">
+        <div class="vc-footer-brand-row flex flex-wrap items-center justify-center gap-3 sm:gap-5" aria-label="Social e home">
+{{FOOTER_SOCIAL_LEFT}}
+          <a class="inline-flex items-center rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-3 text-lg font-extrabold tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]" href="{{SITE_URL}}">{{SITE_NAME}}</a>
+{{FOOTER_SOCIAL_RIGHT}}
+        </div>
+        <nav class="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-slate-300/80" aria-label="Link legali" data-i18n-attr="aria-label:footer.legalLinks">
+          <a class="transition hover:text-white" href="{{TERMS_URL}}" data-i18n="footer.terms">Termini di Servizio</a>
+          <a class="transition hover:text-white" href="{{PRIVACY_URL}}" data-i18n="footer.privacy">Privacy Policy</a>
+          <a class="transition hover:text-white" href="{{COOKIE_POLICY_URL}}" data-i18n="footer.cookies">Cookie Policy</a>
+        </nav>
+        <p class="max-w-xl text-sm leading-relaxed text-slate-400">
+          © {{YEAR}} {{SITE_NAME}}. <span data-i18n="dash.footerTag">Dashboard Vinili.</span>
+        </p>
+      </div>
+</footer>
+
+    <nav id="vc-dash-server-switcher" class="vc-dash-server-switcher" hidden aria-label="Cambia server" data-i18n-attr="aria-label:dash.switcherAria">
+      <div class="vc-dash-server-switcher__inner">
+        <span class="vc-dash-server-switcher__tip" id="vc-dash-server-switcher-tip" aria-hidden="true" hidden></span>
+        <a class="vc-dash-server-switcher__all" href="{{DASHBOARD_PAGE_URL}}" aria-label="Tutti i server" data-server-name="Tutti i server" data-i18n-attr="aria-label:dash.switcherAll,data-server-name:dash.switcherAll">
+          <i class="fa fa-th-large" aria-hidden="true"></i>
+        </a>
+        <div class="vc-dash-server-switcher__scroller" id="vc-dash-server-switcher-list" role="list"></div>
+      </div>
+    </nav>
+    <script src="../../js/discord-auth.js?v={{BUILD_ASSET_VERSION}}"></script>
+    <script src="../../js/vc-mobile-nav.js?v={{BUILD_ASSET_VERSION}}"></script>
+    <script src="../../js/dashboard-staff-notifs.js?v={{BUILD_ASSET_VERSION}}"></script>
+    <script src="../../js/dashboard-premium-credits-nav.js?v={{BUILD_ASSET_VERSION}}"></script>
+    <script src="../../js/dashboard-server-switcher.js?v={{BUILD_ASSET_VERSION}}"></script>
+    <script src="../../js/dashboard-profile-shell.js?v={{BUILD_ASSET_VERSION}}"></script>
+    <script src="../../js/dashboard-tenant-profile-page.js?v={{BUILD_ASSET_VERSION}}"></script>
+      <script src="/js/vc-cursor-trail.js?v={{BUILD_ASSET_VERSION}}" defer></script>
+  </body>
+</html>

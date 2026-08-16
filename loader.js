@@ -7,14 +7,14 @@ const child_process = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-require('dotenv').config({ path: path.join(__dirname, '.env'), quiet: true });
+require('dotenv').config({ path: path.join(__dirname, '.env'), quiet: true, override: true });
 const baseDir = __dirname;
 // Default: disabilitato. Attivabile via env quando vuoi.
 const ENABLE_LOADER_GIT_PULL =
   ["1", "true", "yes", "on"].includes(String(process.env.ENABLE_LOADER_GIT_PULL || "").trim().toLowerCase());
 const ENABLE_LOADER_NPM_INSTALL =
   ["1", "true", "yes", "on"].includes(String(process.env.ENABLE_LOADER_NPM_INSTALL || "").trim().toLowerCase());
-const BOTS=[{key:'vinyls',label:'Vinyls',folderSuffix:'Vinyls',startupDelayMs:0},{key:'Coffee',label:'Coffee',folderSuffix:'Coffee',startupDelayMs:7000}];
+const BOTS=[{key:'vinyls',label:'Vinyls',folderSuffix:'Vinyls',startupDelayMs:0},{key:'Coffee',label:'Coffee',folderSuffix:'Coffee',startupDelayMs:0}];
 const NPM_CACHE_DIR = path.join(os.tmpdir(), '.npm-global');
 const processRefs = {};
 const npmInstallInProgressByDir = {};
@@ -422,7 +422,7 @@ async function bootBots() {
     const mongoUrl = buildMongoUrl(null);
     if (mongoUrl) {
       console.log("[Loader] Attesa MongoDB...");
-      const ready = await waitForMongoReachable(mongoUrl, 30_000);
+      const ready = await waitForMongoReachable(mongoUrl, 8_000);
       if (!ready) {
         console.warn("[Loader] MongoDB non raggiungibile entro 30s, avvio bot comunque.");
       }

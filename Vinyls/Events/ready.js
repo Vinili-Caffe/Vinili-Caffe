@@ -5,6 +5,7 @@ const { runCronDetached } = require("../../shared/scheduling/cronDetached");
 const { restorePendingVoteReminders, restorePendingDiscadiaReminders, restorePendingReminders, startBumpDueReminderSweepLoop, startDiscadiaVoteReminderLoop, } = require("../Services/Bump/bumpService");
 const { shouldRunDiscadiaVoteMonthRepairOnStartup, repairDiscadiaVoteMonthRowsForMainGuild, startDiscadiaVoteMonthRolloverCron } = require("../Services/Bump/discadiaVoteMonthRepairOnStartupService");
 const { processAllRecentAutomationMessages } = require("../Utils/Message/officialMessageAutomationHandlers");
+const { recoverMissedTopggVotesOnStartup } = require("../Services/Bump/topggVoteRecoveryOnStartupService");
 const { processPendingCountingMessages, restoreWelcomeSessionsFromDb } = require("../Utils/Message/officialMessageCommunityHandlers");
 const { rehydrateCountingChannelBans } = require("../Utils/Community/countingChannelBanService");
 const {
@@ -23,21 +24,27 @@ const { startDailyMemberStatsLoop } = require("../Services/Community/dailyMember
 const { startDailyEngagementStatsLoop } = require("../Services/Community/dailyEngagementStatsService");
 const { startDailyChannelMessageStatsLoop } = require("../Services/Community/dailyChannelMessageStatsService");
 const { startReactPressEventLoop } = require("../Services/Community/hogwartsReactPressService");
+const { startGaleoniEconomyChannelUnlockLoop } = require("../Services/Community/galeoniEconomyChannelUnlockService");
+const { purgeDisabledTrisSessions } = require("../Utils/Economy/trisGuiRuntime");
 const { startPremiLaReactEndLoop } = require("../Services/Community/hogwartsReactPressEndService");
 const { startHogwartsSpellListHuntLoop } = require("../Services/Community/hogwartsSpellListHuntService");
 const { startHogwartsSpellListHuntEndLoop } = require("../Services/Community/hogwartsSpellListHuntEndService");
 const { startPotionReminderLoop } = require("../Services/Community/hogwartsPotionReminderService");
 const { startHogwartsEventEndLoop } = require("../Services/Community/hogwartsEventEndService");
+const { startConsumableBoostExpiryLoop } = require("../Services/Community/hogwartsConsumableBoostsService");
 const { migrateLegacyDailyStatsCollections } = require("../Services/Community/dailyStatsStore");
 const { restoreTempBans } = require("../Services/Moderation/joinRaidService");
-const { sweepExpiredCommunicationTimeoutMirrors } = require("../Services/Moderation/mutedMirrorRoleService");
+const { sweepExpiredCommunicationTimeoutMirrors, reconcileIncompleteActiveMuteMirrors } = require("../Services/Moderation/mutedMirrorRoleService");
+const { sweepStalePreMemberRoles, startPreMemberRoleSweepLoop } = require("../Utils/Community/preMemberRoleService");
 const { sendBannedUnbanLinkDms, shouldRunBannedUnbanDmOnStartup } = require("../Services/Moderation/bannedUnbanDmService");
 const { rehydrateAntiNukePanicForGuild } = require("../Services/Moderation/antiNukeService");
+const { isViniliFullFeatureGuild } = require("../MultiGuild/core/guildFeatureScope");
 const { syncLiveVoiceSessionsFromGateway, startLiveVoiceExpLoop, } = require("../Services/Community/activityService");
 const { syncPmVoiceAfkWatchFromGateway, startPmVoiceAfkWatchLoop, } = require("../Services/Staff/pmVoiceAfkWatchService");
 const { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop, } = require("../Services/Community/customRoleExpiryService");
 const { startDailyPartnerAuditLoop, } = require("../Services/Partner/partnerAuditService");
 const { syncPartnerDescription } = require("../Services/Partner/partnerDescriptionSyncService");
+const { syncAllTenantPartnerDescriptions } = require("../Services/Partner/tenantPartnerDescriptionService");
 const { startStaffChatThreadsLoop } = require("../Services/Staff/staffChatThreadsService");
 const { startStaffCmdsThreadsLoop } = require("../Services/Staff/staffCmdsThreadsService");
 const { startResocontoStaffChannelAccessLoop } = require("../Services/Staff/resocontoStaffChannelAccessService");
@@ -48,21 +55,23 @@ const { startModCaseLifecycleLoop } = require("../Services/Moderation/modCaseLif
 const { startWeeklyStaffResocontoLoop } = require("../Services/Staff/weeklyStaffResocontoService");
 const { startWeeklyActivityWinnersLoop } = require("../Services/Community/weeklyActivityWinnersService");
 const { startTwitchLiveAlertLoop } = require("../Services/Community/twitchLiveAlertService");
+const { startKickLiveAlertLoop } = require("../Services/Community/kickLiveAlertService");
 const { startHogwartsHouseCupLoop } = require("../Services/Community/hogwartsHouseCupPublishService");
 const { syncHogwartsShopLogsOnStartup } = require("../Services/Community/hogwartsShopLogService");
 const { syncShopBoostMinigameUsageBackfillOnStartup } = require("../Services/Community/hogwartsShopBoostsService");
 const { syncHogwartsMinigameHousePointsBackfillOnStartup } = require("../Services/Community/hogwartsMinigameHousePointsBackfillService");
 const { syncHouseSortingAnnouncesOnStartup } = require("../Services/Community/hogwartsSortingLogService");
+const { syncSortingRolesOnStartup } = require("../Services/Community/hogwartsSortingRoleService");
 const { startContestPrizeMaintenanceCron } = require("../Services/Community/contestPrizeMaintenanceService");
 const { startStaffWarnResetLoop } = require("../Services/Staff/staffWarnService");
 const { runStaffWarnChannelMigrationOnStartup } = require("../Services/Staff/staffWarnChannelMigrationService");
+const { runStaffNegativesWarnConversionMigrationOnStartup } = require("../Services/Staff/staffNegativesWarnConversionMigrationService");
 const { startStaffAutoValutazioniLoop, syncAllStaffAutoValutazioni, restoreActiveSerataFilmSessions, cleanupMalformedAutoValutazioni } = require("../Services/Staff/staffAutoValutazioniService");
 const { reconcileResocontoReviewerRewardAutoValutazioni } = require("../Services/Staff/resocontoReviewerRewardService");
 const { purgeDuplicateCompitoSettimanaleValutazioni } = require("../Services/Staff/compitoSettimanaleDuplicatePurgeService");
-const { runScheduledEnds, syncActiveGiveawayButtons } = require("../Services/Giveaway/giveawayService");
+const { runScheduledEnds, syncActiveGiveawayButtons, scheduleActiveGiveawayEnds } = require("../Services/Giveaway/giveawayService");
 const { retroSyncGuildLevels } = require("../Services/Community/expService");
 const { runFullCleanupUsersNotInServer } = require("../Services/Community/cleanupUsersNotInServerService");
-const { runCustomPerksRulesMigration } = require("../Services/Community/customPerksRulesMigrationService");
 const { startStaffGracePurgeLoop } = require("../Services/Community/userLeaveBackupService");
 const { startDbMaintenanceLoop } = require("../Services/Community/dbMaintenanceService");
 const { startVoteQueueLoop } = require("../Services/Web/discadiaVoteQueueService");
@@ -70,6 +79,7 @@ const { startWebhookServer, shouldStartBotHttpServer } = require("../Services/We
 const { checkAndInstallPackages } = require("../Utils/Moderation/checkPackages");
 const { startAutoPollLoop } = require("../Services/Community/autoPollService");
 const { startMovieNightAnnouncementLoop, recoverMovieNightAnnouncementsOnStartup, ensureMovieNightStaffCommunicationOnStartup } = require("../Services/Community/movieNightAnnouncementService");
+const { startGlobalExpEventAnnouncementLoop } = require("../Services/Community/globalExpEventAnnouncementService");
 const { printRecoveryHealthOnce } = require("../../shared/recovery/recoveryHealth");
 const IDs = require("../Utils/Config/ids");
 const guildMemberUpdateExtras = require("./guildMemberUpdate");
@@ -77,6 +87,8 @@ const guildMemberAddExtras = require("./guildMemberAdd");
 const { recoverDonationPackageAnnouncesOnStartup } = require("../Utils/Community/donationPackageSupportersAnnounce");
 const { recoverManualSocialRoleAnnouncesOnStartup } = require("../Utils/Community/manualSocialRoleAnnounceAndPicPerms");
 const { reconcilePatronRolesOnStartup, recoverPatronAnnouncesOnStartup } = require("../Utils/Community/patronRoleService");
+const { revokeAllPremiumBySource } = require("../MultiGuild/core/tenantPremium");
+const { startPremiumExpiryReminderLoop } = require("../MultiGuild/services/premiumExpiryReminderService");
 const { recoverLevelMilestoneSupportersAnnouncesOnStartup } = require("../Utils/Community/levelMilestoneSupportersAnnounceEmbeds");
 const startupPanelsTrigger = require("../Triggers/embeds");
 const { queueIdsCatalogSync } = require("../Utils/Config/idsAutoSync");
@@ -84,11 +96,32 @@ const { syncAllMembersClanTags } = require("../Services/Community/clanTagRoleSer
 const { syncZodiacRolesFromStoredBirthdays } = require("../Utils/Community/zodiacRoles");
 const { syncAgeBracketRolesFromStoredBirthdays } = require("../Utils/Community/ageBracketRoles");
 const { postTopggStatsDigestIfConfigured } = require("../Services/Web/topggDigestService");
-const { restorePauseMessageStatusSync, startPauseMessageStatusMaintenance } = require("../Utils/Pause/pauseHandlersUtils");
+const {
+  restorePauseMessageStatusSync,
+  startPauseMessageStatusMaintenance,
+  rewriteStaleCancelledPauseMessages,
+} = require("../Utils/Pause/pauseHandlersUtils");
 const { formatDurationMs, runPhasedStartupTasks, } = require("../Utils/Startup/readyStartupRuntime");
 const { logBotReady } = require("../../shared/discord/readyLog");
 const { sweepExpiredPartnerManagerTimedPerks } = require("../Utils/Staff/partnerManagerTimedPerks");
+const {
+  shouldRunStartupWork,
+  markStartupThrottle,
+  isStartupThrottleDue,
+  isFullStartupSyncEnabled,
+  envFlagEnabled,
+} = require("../../shared/runtime/startupThrottleCache");
+const STARTUP_THROTTLE_NS = "vinyls";
+const STARTUP_PANELS_TTL_MS = Math.max(
+  0,
+  Number(process.env.STARTUP_PANELS_TTL_MS) || 6 * 60 * 60 * 1000,
+);
+const STARTUP_MEDIUM_TTL_MS = Math.max(
+  0,
+  Number(process.env.STARTUP_MEDIUM_TTL_MS) || 60 * 60 * 1000,
+);
 const STARTUP_PANELS_RETRY_MS = 15000;
+const LOOP_STAGGER_MS = Math.max(0, Number(process.env.LOOP_STAGGER_MS) || 250);
 const ENGAGEMENT_INTERVAL_MS = Number(process.env.ENGAGEMENT_INTERVAL_MS) || 60 * 1000;
 const JOIN_RAID_RESTORE_INTERVAL_MS = Number(process.env.JOIN_RAID_RESTORE_INTERVAL_MS) || 10 * 60 * 1000;
 const CLEANUP_USERS_NOT_IN_SERVER_DELAY_MS = Number(process.env.CLEANUP_USERS_NOT_IN_SERVER_DELAY_MS) || 3 * 60 * 1000;
@@ -182,7 +215,16 @@ function createStartupHooks(client) {
   };
 }
 
+function shouldRunMediumStartup(key, ttlMs = STARTUP_MEDIUM_TTL_MS) {
+  return shouldRunStartupWork(STARTUP_THROTTLE_NS, key, { ttlMs }).run;
+}
+
+function markMediumStartup(key) {
+  markStartupThrottle(STARTUP_THROTTLE_NS, key);
+}
+
 function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
+  const fullSync = isFullStartupSyncEnabled();
   const mainGuildId = IDs.guilds.main || null;
   const resolveMainGuild = async () => {
     if (!mainGuildId) return client.guilds.cache.first() || null;
@@ -200,9 +242,32 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
         }),
     },
     {
+      label: "incomplete active mute mirror reconcile",
+      weight: 5,
+      enabled: primaryScheduler,
+      run: () =>
+        reconcileIncompleteActiveMuteMirrors(client, {
+          limit: 80,
+          // Evita guild.members.fetch() a startup: opcode 8 rate-limit.
+          // I casi MUTE attivi + snapshot coprono i mute incompleti.
+          scanTimedOutMembers: true,
+        }),
+    },
+    {
+      label: "stale Unverified (preMember) role sweep",
+      weight: 6,
+      enabled: primaryScheduler,
+      run: () =>
+        sweepStalePreMemberRoles(client, {
+          // Full member fetch solo col sync completo: altrimenti usa cache + role.members.
+          fetchMembers: fullSync,
+          limit: fullSync ? 500 : 200,
+        }),
+    },
+    {
       label: "run due one-time reminders",
       weight: 8,
-      enabled: true,
+      enabled: String(process.env.BOT_SCHEDULER_EXTERNAL || "").trim() !== "1",
       run: () => runDueOneTimeReminders(client),
     },
     {
@@ -214,10 +279,11 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
     {
       label: "reconcile orphan ticket channels",
       weight: 11,
-      enabled: primaryScheduler,
+      enabled: primaryScheduler && (fullSync || shouldRunMediumStartup("orphan-tickets", STARTUP_MEDIUM_TTL_MS)),
       run: async () => {
         const { reconcileOrphanTicketsOnStartup } = require("../Services/Ticket/ticketOrphanReconcileService");
-        return reconcileOrphanTicketsOnStartup(client);
+        await reconcileOrphanTicketsOnStartup(client);
+        markMediumStartup("orphan-tickets");
       },
     },
     {
@@ -229,8 +295,20 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
     {
       label: "sync partner description cache",
       weight: 16,
-      enabled: true,
-      run: () => syncPartnerDescription(client),
+      enabled: primaryScheduler && (fullSync || shouldRunMediumStartup("partner-desc")),
+      run: async () => {
+        await syncPartnerDescription(client);
+        markMediumStartup("partner-desc");
+      },
+    },
+    {
+      label: "sync tenant partner description cache",
+      weight: 16,
+      enabled: primaryScheduler && (fullSync || shouldRunMediumStartup("tenant-partner-desc")),
+      run: async () => {
+        await syncAllTenantPartnerDescriptions(client);
+        markMediumStartup("tenant-partner-desc");
+      },
     },
     {
       label: "restore bump reminders",
@@ -241,14 +319,37 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
     {
       label: "process recent automation messages (vote, bump)",
       weight: 18,
-      enabled: primaryScheduler,
+      enabled: primaryScheduler && fullSync,
       run: () => processAllRecentAutomationMessages(client),
+    },
+    {
+      label: "recover missed Top.gg votes (API backfill)",
+      weight: 18.5,
+      enabled: primaryScheduler && fullSync,
+      run: () => recoverMissedTopggVotesOnStartup(client),
     },
     {
       label: "sync staff pause message status (accepted)",
       weight: 19,
-      enabled: primaryScheduler,
+      enabled: false,
       run: () => restorePauseMessageStatusSync(client),
+    },
+    {
+      label: "rewrite stale cancelled pause messages (legacy ANNULLATA)",
+      weight: 19.5,
+      // Una tantum / TTL lungo: sistema i messaggi cancellati ancora nel formato vecchio.
+      enabled:
+        primaryScheduler &&
+        (fullSync || shouldRunMediumStartup("cancelled-pause-msg-rewrite", 30 * 24 * 60 * 60 * 1000)),
+      run: async () => {
+        const result = await rewriteStaleCancelledPauseMessages(client);
+        markMediumStartup("cancelled-pause-msg-rewrite");
+        if (result?.rewritten > 0) {
+          global.logger?.info?.(
+            `[PAUSE] cancelled message rewrite: examined=${result.examined} rewritten=${result.rewritten}`,
+          );
+        }
+      },
     },
     {
       label: "engagement tick",
@@ -257,15 +358,15 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
       run: () => engagementTick(),
     },
     {
-      label: "discadia vote month DB repair (solo 1° mese Roma, stale month key)",
+      label: "discadia vote month recovery (solo se mezzanotte 1° non ha rollover)",
       weight: 25,
       enabled: primaryScheduler && shouldRunDiscadiaVoteMonthRepairOnStartup(client),
-      run: () => repairDiscadiaVoteMonthRowsForMainGuild(client),
+      run: () => repairDiscadiaVoteMonthRowsForMainGuild(client, "startup"),
     },
     {
       label: "sync Discord AutoMod rules (Vinili)",
       weight: 28,
-      enabled: primaryScheduler,
+      enabled: primaryScheduler && (fullSync || shouldRunMediumStartup("discord-automod", STARTUP_MEDIUM_TTL_MS)),
       run: async () => {
         global.__vinylsDiscordClient = client;
         const {
@@ -274,8 +375,10 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
         } = require("../Services/Moderation/discordAutomodRulesService");
         if (!shouldSyncOnStartup()) return;
         const result = await syncDiscordAutomodRulesForClient(client);
+        markMediumStartup("discord-automod");
         const rows = Array.isArray(result?.results) ? result.results : [];
         for (const row of rows) {
+          if (row?.skipped) continue;
           if (!row?.ok) {
             global.logger?.warn?.(
               "[discordAutomod] startup sync:",
@@ -285,6 +388,8 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
             continue;
           }
           const failedN = Array.isArray(row.failed) ? row.failed.length : 0;
+          const changed = (row.created || 0) + (row.updated || 0) + (row.removed || 0);
+          if (!changed && !failedN) continue;
           global.logger?.info?.(
             `[discordAutomod] guild ${row.guildId || "?"}: ${row.satisfied ?? row.managed ?? "?"}/${row.total ?? "?"} regole ok (${row.managed ?? "?"} [VC]), +${row.created || 0} ~${row.updated || 0} -${row.removed || 0}${failedN ? ` errori=${failedN}` : ""}`,
           );
@@ -300,7 +405,7 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
     {
       label: "reconcile double booster roles from stored boost slots",
       weight: 35,
-      enabled: primaryScheduler,
+      enabled: primaryScheduler && fullSync,
       run: () =>
         guildMemberUpdateExtras.reconcileDoubleBoosterRolesOnStartup(client, {
           maxUsers: 400,
@@ -331,7 +436,7 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
     {
       label: "recover missed join welcome announcements",
       weight: 43,
-      enabled: primaryScheduler,
+      enabled: primaryScheduler && fullSync,
       run: () =>
         guildMemberAddExtras.recoverJoinAnnouncementsOnStartup(client, {
           limit: 25,
@@ -341,17 +446,19 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
     {
       label: "recover missed donation package supporter announces",
       weight: 44,
+      // Anche sul fast path: se il ruolo arriva mentre il bot è offline, guildMemberUpdate si perde.
       enabled: primaryScheduler,
       run: () =>
         recoverDonationPackageAnnouncesOnStartup(client, {
-          limit: 20,
+          limit: fullSync ? 20 : 12,
+          // Audit log è già limitato (~100 entry): lookback ampio anche sul fast path.
           lookbackMs: 24 * 60 * 60 * 1000,
         }),
     },
     {
       label: "recover missed social role supporter announces",
       weight: 45,
-      enabled: primaryScheduler,
+      enabled: primaryScheduler && fullSync,
       run: () =>
         recoverManualSocialRoleAnnouncesOnStartup(client, {
           limit: 20,
@@ -359,15 +466,27 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
         }),
     },
     {
+      label: "revoke Discord Store Premium (migrated to credits)",
+      weight: 45.1,
+      enabled: primaryScheduler && (fullSync || shouldRunMediumStartup("revoke-discord-store-premium", STARTUP_MEDIUM_TTL_MS)),
+      run: async () => {
+        await revokeAllPremiumBySource("discord_store", {
+          updatedBy: "migration:credits",
+          note: "Revoked Discord Store Premium",
+        });
+        markMediumStartup("revoke-discord-store-premium");
+      },
+    },
+    {
       label: "reconcile patron roles from social prerequisites",
       weight: 45.2,
-      enabled: primaryScheduler,
+      enabled: primaryScheduler && fullSync,
       run: () => reconcilePatronRolesOnStartup(client, { limit: 300 }),
     },
     {
       label: "recover missed patron role announces",
       weight: 45.4,
-      enabled: primaryScheduler,
+      enabled: primaryScheduler && fullSync,
       run: () =>
         recoverPatronAnnouncesOnStartup(client, {
           limit: 15,
@@ -377,7 +496,7 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
     {
       label: "recover missed level milestone supporter announces",
       weight: 46,
-      enabled: primaryScheduler,
+      enabled: primaryScheduler && fullSync,
       run: () =>
         recoverLevelMilestoneSupportersAnnouncesOnStartup(client, {
           limit: 25,
@@ -387,7 +506,7 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
     {
       label: "recover missed supporter status embeds",
       weight: 47,
-      enabled: primaryScheduler,
+      enabled: primaryScheduler && fullSync,
       run: () =>
         recoverSupporterStatusAnnouncesOnStartup(client, {
           limit: 15,
@@ -396,13 +515,16 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
     {
       label: "ensure Serata Film staff news communication",
       weight: 47,
-      enabled: primaryScheduler,
-      run: () => ensureMovieNightStaffCommunicationOnStartup(client),
+      enabled: primaryScheduler && (fullSync || shouldRunMediumStartup("movie-night-staff", STARTUP_PANELS_TTL_MS)),
+      run: async () => {
+        await ensureMovieNightStaffCommunicationOnStartup(client);
+        markMediumStartup("movie-night-staff");
+      },
     },
     {
       label: "recover missed Serata Film cron announcements",
       weight: 48,
-      enabled: primaryScheduler,
+      enabled: primaryScheduler && fullSync,
       run: () => recoverMovieNightAnnouncementsOnStartup(client),
     },
     {
@@ -414,13 +536,13 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
     {
       label: "backfill boost announce slot counts from supporters history",
       weight: 50,
-      enabled: primaryScheduler,
+      enabled: primaryScheduler && fullSync,
       run: () => guildMemberUpdateExtras.backfillAnnouncedBoostSlotsFromSupportersHistory(client),
     },
     {
       label: "recover unannounced boosters (member + native scan)",
       weight: 50.5,
-      enabled: primaryScheduler,
+      enabled: primaryScheduler && fullSync,
       run: () =>
         guildMemberUpdateExtras.recoverUnannouncedBoostersOnStartup(client, {
           lookbackMs: 48 * 60 * 60 * 1000,
@@ -430,7 +552,7 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
     {
       label: "recover missing second boost embeds (native vs supporters)",
       weight: 51,
-      enabled: primaryScheduler,
+      enabled: primaryScheduler && fullSync,
       run: () =>
         guildMemberUpdateExtras.recoverMissingSecondBoostEmbedsOnStartup(client, {
           lookbackMs: 7 * 24 * 60 * 60 * 1000,
@@ -471,28 +593,38 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
     {
       label: "staff warn channel migration",
       weight: 74,
-      enabled: primaryScheduler,
+      enabled: primaryScheduler && fullSync,
       run: () => runStaffWarnChannelMigrationOnStartup(client),
     },
     {
-      label: "custom perks rules migration",
+      label: "staff negatives→warn conversion migration",
       weight: 75,
-      enabled: primaryScheduler,
-      run: () => runCustomPerksRulesMigration(client),
-    },
-    {
-      label: "repair custom voc channel permissions",
-      weight: 75.2,
-      enabled: primaryScheduler,
-      run: () => {
-        const { repairCustomVocPermissionsOnStartup } = require("../Services/Community/customVocPermissionsService");
-        return repairCustomVocPermissionsOnStartup(client);
+      enabled: primaryScheduler && (fullSync || shouldRunMediumStartup("staff-neg-warn-migration", STARTUP_MEDIUM_TTL_MS)),
+      run: async () => {
+        await runStaffNegativesWarnConversionMigrationOnStartup(client);
+        markMediumStartup("staff-neg-warn-migration");
       },
     },
     {
+      label: "ensure MongoDB indexes (weekly / full sync)",
+      weight: 76,
+      // TTL diretto: shouldRunMediumStartup ignora il TTL se FULL_STARTUP_SYNC=1.
+      enabled:
+        primaryScheduler &&
+        fullSync &&
+        isStartupThrottleDue(STARTUP_THROTTLE_NS, "mongo-indexes", 7 * 24 * 60 * 60 * 1000).due,
+      run: async () => {
+        const { ensureMongoIndexes } = require("../Utils/Database/mongoConnect");
+        await ensureMongoIndexes({ reason: "full_startup_sync" });
+        markMediumStartup("mongo-indexes");
+      },
+    },
+    // custom perks migration + custom voc startup repair: non più a ogni boot.
+    // Gli overwrite ruolo custom vengono tolti on-demand (voiceStateUpdate / sync canale).
+    {
       label: "custom private category empty cleanup",
       weight: 54,
-      enabled: primaryScheduler,
+      enabled: primaryScheduler && fullSync,
       run: async () => {
         const guildId = String(IDs?.guilds?.main || "").trim();
         if (!guildId) return;
@@ -513,19 +645,19 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
     {
       label: "startup sync zodiac roles from birthday profiles",
       weight: 78,
-      enabled: primaryScheduler,
+      enabled: primaryScheduler && fullSync,
       run: () => syncZodiacRolesFromStoredBirthdays(client),
     },
     {
       label: "startup sync age bracket roles from birthday profiles",
       weight: 78,
-      enabled: primaryScheduler,
+      enabled: primaryScheduler && fullSync,
       run: () => syncAgeBracketRolesFromStoredBirthdays(client),
     },
     {
       label: "startup sync staff auto valutazioni",
       weight: 80,
-      enabled: primaryScheduler,
+      enabled: primaryScheduler && fullSync,
       run: async () => {
         await cleanupMalformedAutoValutazioni();
         await syncAllStaffAutoValutazioni(client);
@@ -534,44 +666,50 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
     {
       label: "reconcile resoconto reviewer compito settimanale",
       weight: 81,
-      enabled: primaryScheduler,
+      enabled: primaryScheduler && fullSync,
       run: () => reconcileResocontoReviewerRewardAutoValutazioni(client),
     },
     {
       label: "purge duplicate compito settimanale valutazioni",
       weight: 82,
-      enabled: primaryScheduler,
-      run: () => purgeDuplicateCompitoSettimanaleValutazioni(client, { dryRun: false }),
+      enabled: false,
+      run: () => purgeDuplicateCompitoSettimanaleValutazioni(client, { dryRun: true }),
     },
     {
       label: "verification tenure backfill",
       weight: 85,
-      enabled: primaryScheduler && shouldRunVerificationTenureBackfill(client),
+      enabled: primaryScheduler && fullSync && shouldRunVerificationTenureBackfill(client),
       run: () => backfillVerificationTenure(client),
     },
     {
       label: "hogwarts shop purchase log backfill",
       weight: 86,
-      enabled: primaryScheduler,
+      enabled: primaryScheduler && fullSync,
       run: () => syncHogwartsShopLogsOnStartup(client),
     },
     {
       label: "hogwarts shop boost minigame usage backfill",
       weight: 86,
-      enabled: primaryScheduler,
+      enabled: primaryScheduler && fullSync,
       run: () => syncShopBoostMinigameUsageBackfillOnStartup(client),
     },
     {
       label: "hogwarts minigame house points backfill",
       weight: 86,
-      enabled: primaryScheduler,
+      enabled: primaryScheduler && fullSync,
       run: () => syncHogwartsMinigameHousePointsBackfillOnStartup(client),
     },
     {
       label: "hogwarts house sorting announce backfill",
       weight: 87,
-      enabled: primaryScheduler,
+      enabled: primaryScheduler && fullSync,
       run: () => syncHouseSortingAnnouncesOnStartup(client),
+    },
+    {
+      label: "hogwarts sorting role repair",
+      weight: 87,
+      enabled: primaryScheduler && fullSync,
+      run: () => syncSortingRolesOnStartup(client),
     },
     {
       label: "hogwarts basilisk curse state hydrate",
@@ -585,13 +723,13 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
     {
       label: "renumber categories",
       weight: 88,
-      enabled: primaryScheduler,
+      enabled: primaryScheduler && fullSync,
       run: () => renumberAllCategories(client),
     },
     {
       label: "retro sync guild levels",
       weight: 90,
-      enabled: primaryScheduler,
+      enabled: primaryScheduler && fullSync,
       run: async () => {
         const mainGuild = await resolveMainGuild();
         if (!mainGuild) return;
@@ -601,7 +739,7 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
     {
       label: "startup sync clan tag roles",
       weight: 92,
-      enabled: primaryScheduler,
+      enabled: primaryScheduler && fullSync,
       run: () => syncAllMembersClanTags(client),
     },
   ];
@@ -610,23 +748,185 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
 const { getClientChannelCached } = require("../Utils/Interaction/interactionEntityCache");
 const getChannelSafe = async (client, channelId) => { if (!channelId) return null; return client.channels.cache.get(channelId) || (await getClientChannelCached(client, channelId)); };
 
-const PENDING_COMMANDS_LOOKBACK_MS = 5 * 60 * 1000;
-const PENDING_COMMANDS_FETCH_LIMIT = 25;
+const PENDING_COMMANDS_LOOKBACK_MS = 10 * 60 * 1000;
+const PENDING_COMMANDS_FETCH_LIMIT = 40;
+const PENDING_ORPHAN_LOOKBACK_MS = 10 * 60 * 1000;
+/** Solo per comandi che rispondono con channel.send senza reference (moderation). */
+const PENDING_REPLY_WINDOW_MS = 2 * 60 * 1000;
+const PENDING_SCAN_CONCURRENCY = 4;
+const PENDING_EXEC_GAP_MS = 250;
+
+function pendingPriorityChannelIds() {
+  return [
+    IDs.channels?.ship,
+    IDs.channels?.commands,
+    IDs.channels?.staffCmds,
+    IDs.channels?.counting,
+    IDs.channels?.media,
+    IDs.channels?.economy,
+  ]
+    .map((id) => String(id || "").trim())
+    .filter(Boolean);
+}
+
+async function mapWithConcurrency(items, concurrency, worker) {
+  const list = Array.isArray(items) ? items : [];
+  const limit = Math.max(1, Math.min(Number(concurrency) || 1, list.length || 1));
+  let idx = 0;
+  const runners = Array.from({ length: limit }, async () => {
+    while (idx < list.length) {
+      const current = idx;
+      idx += 1;
+      await worker(list[current], current);
+    }
+  });
+  await Promise.all(runners);
+}
+
+function resolvePendingPrefixCommandToken(client, message, prefix) {
+  const content = String(message?.content || "").trim();
+  const safePrefix = String(prefix || "+");
+  if (!content.startsWith(safePrefix)) return null;
+  const args = content.slice(safePrefix.length).trim().split(/\s+/).filter(Boolean);
+  const raw = String(args[0] || "")
+    .replace(/[\u200B-\u200D\uFEFF]/g, "")
+    .replace(/[\u2010\u2011\u2012\u2013\u2014\u2212]/g, "-")
+    .trim()
+    .toLowerCase();
+  if (!raw) return null;
+  return (
+    client?.pcommands?.get?.(raw) ||
+    client?.pcommands?.get?.(client?.aliases?.get?.(raw)) ||
+    null
+  );
+}
+
+async function botAlreadyRepliedToPrefixMessage(message, client) {
+  const botId = String(client?.user?.id || "");
+  if (!botId || !message?.id || !message?.channel?.messages?.fetch) return false;
+  const cmdTs = Number(message.createdTimestamp || 0);
+  const authorId = String(message.author?.id || "");
+  try {
+    const newer = await message.channel.messages.fetch({ after: message.id, limit: 25 });
+    for (const reply of newer.values()) {
+      if (String(reply.author?.id || "") !== botId) continue;
+      // Match diretto: il bot ha risposto a QUESTO messaggio.
+      if (String(reply.reference?.messageId || "") === String(message.id)) return true;
+      // Heuristic stretta solo per risposte senza reference (ban/mute via channel.send):
+      // deve menzionare l'autore del comando, altrimenti un altro embed in canale
+      // (es. altro +rob) faceva saltare il recovery a caso.
+      if (reply.reference?.messageId) continue;
+      const replyTs = Number(reply.createdTimestamp || 0);
+      if (!cmdTs || !replyTs || replyTs - cmdTs < 0 || replyTs - cmdTs > PENDING_REPLY_WINDOW_MS) continue;
+      if (!authorId) continue;
+      const mentionsAuthor =
+        Boolean(reply.mentions?.users?.has?.(authorId)) ||
+        String(reply.content || "").includes(`<@${authorId}>`) ||
+        String(reply.content || "").includes(`<@!${authorId}>`);
+      if (!mentionsAuthor) continue;
+      if (reply.embeds?.length || String(reply.content || "").trim()) return true;
+    }
+  } catch {
+    /* ignore */
+  }
+  return false;
+}
+
+function isPrefixLoadingReaction(reaction) {
+  if (!reaction) return false;
+  const loadingId = String(IDs.emojis?.loadingAnimatedId || "");
+  const fallbackId = String(IDs.emojis?.loadingFallbackId || "");
+  const emojiId = String(reaction.emoji?.id || "");
+  if (loadingId && emojiId === loadingId) return true;
+  if (fallbackId && emojiId === fallbackId) return true;
+  const name = String(reaction.emoji?.name || "");
+  return name === "\u23F3" || name === "⏳" || name === "VC_Loading";
+}
 
 function messageHasBotLoadingReaction(message, client) {
   const botId = String(client?.user?.id || "");
-  if (!botId || !message?.reactions?.cache?.size) return false;
-  const loadingId = String(IDs.emojis?.loadingAnimatedId || "");
-  const fallbackId = String(IDs.emojis?.loadingFallbackId || "");
+  if (!message?.reactions?.cache?.size) return false;
   for (const reaction of message.reactions.cache.values()) {
-    if (!reaction?.users?.cache?.has(botId)) continue;
-    const emojiId = String(reaction.emoji?.id || "");
-    if (loadingId && emojiId === loadingId) return true;
-    if (fallbackId && emojiId === fallbackId) return true;
-    if (reaction.emoji?.name === "\u23F3" || reaction.emoji?.name === "⏳") return true;
-    if (reaction.emoji?.name === "VC_Loading") return true;
+    if (!isPrefixLoadingReaction(reaction)) continue;
+    // `me` arriva dal fetch messaggio; dopo restart `users.cache` è spesso vuoto.
+    if (reaction.me === true) return true;
+    if (botId && reaction.users?.cache?.has(botId)) return true;
   }
   return false;
+}
+
+async function messageHasBotLoadingReactionAsync(message, client) {
+  if (messageHasBotLoadingReaction(message, client)) return true;
+  const botId = String(client?.user?.id || "");
+  if (!botId || !message?.reactions?.cache?.size) return false;
+  for (const reaction of message.reactions.cache.values()) {
+    if (!isPrefixLoadingReaction(reaction)) continue;
+    try {
+      const users = await reaction.users.fetch();
+      if (users?.has?.(botId)) return true;
+    } catch {
+    }
+  }
+  return false;
+}
+
+function isPendingDeepScanGuild(guildId) {
+  const id = String(guildId || "").trim();
+  if (!id) return false;
+  const main = String(IDs.guilds?.main || "").trim();
+  const test = String(IDs.guilds?.test || "").trim();
+  return id === main || (test && id === test);
+}
+
+async function collectPendingPrefixScanChannels(guild, { deep = false } = {}) {
+  const { ChannelType } = require("discord.js");
+  const byId = new Map();
+  const isScannableChannel = (ch) =>
+    ch?.messages?.fetch &&
+    (ch?.isTextBased?.() || ch?.type === ChannelType.GuildVoice || ch?.type === ChannelType.GuildStageVoice) &&
+    !(ch?.isThread?.() && ch.archived);
+
+  const priorityIds = pendingPriorityChannelIds();
+
+  // Deep fetch solo main/test: su 60+ tenant un channels.fetch() massivo esaurisce RAM e rate-limit.
+  if (deep) {
+    await guild.channels.fetch().catch(() => null);
+  } else {
+    for (const id of priorityIds) {
+      if (guild.channels.cache.has(id)) continue;
+      await guild.channels.fetch(id).catch(() => null);
+    }
+  }
+
+  for (const channel of guild.channels.cache.values()) {
+    if (isScannableChannel(channel)) byId.set(channel.id, channel);
+  }
+  if (deep && typeof guild.channels.fetchActiveThreads === "function") {
+    try {
+      const active = await guild.channels.fetchActiveThreads();
+      const threads = active?.threads;
+      const list = threads ? (typeof threads.values === "function" ? [...threads.values()] : [...threads]) : [];
+      for (const thread of list) {
+        if (isScannableChannel(thread)) byId.set(thread.id, thread);
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  const priority = new Set(priorityIds);
+  let all = [...byId.values()];
+  if (!deep) {
+    all = all.filter((ch) => priority.has(String(ch.id)) || ch.messages?.cache?.size > 0);
+    if (!all.length) all = [...byId.values()].slice(0, 8);
+  }
+  all.sort((a, b) => {
+    const ap = priority.has(String(a.id)) ? 0 : 1;
+    const bp = priority.has(String(b.id)) ? 0 : 1;
+    if (ap !== bp) return ap - bp;
+    return String(a.id).localeCompare(String(b.id));
+  });
+  return all;
 }
 
 async function processPendingPrefixCommands(client) {
@@ -635,57 +935,144 @@ async function processPendingPrefixCommands(client) {
     ? ["1", "true", "yes", "on"].includes(envValue)
     : client?.config?.processPendingCommands === true;
   if (!enabled) return;
-  const { handleOfficialPrefixMessage } = require("../Utils/Prefix/officialPrefixDispatcher");
+  if (client.__prefixCommandsReady === false || !client?.pcommands?.size) {
+    global.logger?.warn?.("[READY] pending prefix skip: pcommands non pronti");
+    return;
+  }
+  const { handleOfficialPrefixMessage, ensurePrefixQueueLoaded } = require("../Utils/Prefix/officialPrefixDispatcher");
+  // Ripristina subito la coda snapshot (in-flight/queued al crash), senza aspettare il primo +comando.
+  try {
+    ensurePrefixQueueLoaded(client);
+  } catch (err) {
+    global.logger?.warn?.("[READY] prefix queue restore:", err?.message || err);
+  }
   const { getCachedOrFetchMember } = require("../Utils/Message/officialMessageAutomationHandlers");
-  const { PermissionFlagsBits, ChannelType } = require("discord.js");
-  const prefix = String(client?.config?.prefix || "+").trim();
-  const cutoff = Date.now() - PENDING_COMMANDS_LOOKBACK_MS;
+  const { resolveCommandPrefixForGuildFresh } = require("../MultiGuild/core/tenantGuildSettings");
+  const { PermissionFlagsBits } = require("discord.js");
+  const fallbackPrefix = String(client?.config?.prefix || "+").trim();
   const hasAnyStaffBypassPermission = (permissions) => permissions && typeof permissions.has === "function" && [PermissionFlagsBits.Administrator, PermissionFlagsBits.ManageGuild, PermissionFlagsBits.ManageChannels, PermissionFlagsBits.ManageRoles, PermissionFlagsBits.ManageMessages, PermissionFlagsBits.KickMembers, PermissionFlagsBits.BanMembers, PermissionFlagsBits.ModerateMembers].some((p) => permissions.has(p));
   const noopWrongPrefixHint = () => Promise.resolve(false);
-  const isScannableChannel = (ch) =>
-    ch?.messages?.fetch &&
-    (ch?.isTextBased?.() || ch?.type === ChannelType.GuildVoice || ch?.type === ChannelType.GuildStageVoice);
 
   const collected = [];
-  for (const guild of client.guilds.cache.values()) {
-    const me = guild.members.me;
-    for (const channel of guild.channels.cache.values()) {
-      if (!isScannableChannel(channel)) continue;
-      const perms = me ? channel.permissionsFor(me) : null;
-      if (!perms?.has(PermissionFlagsBits.ViewChannel) || !perms?.has(PermissionFlagsBits.ReadMessageHistory)) continue;
+  const seenIds = new Set();
+  const scanStartedAt = Date.now();
+  global.logger?.info?.("[READY] Avvio scan prefix in sospeso…");
+
+  const scanChannel = async (channel, guildPrefix, me) => {
+    const perms = me ? channel.permissionsFor(me) : null;
+    if (!perms?.has(PermissionFlagsBits.ViewChannel) || !perms?.has(PermissionFlagsBits.ReadMessageHistory)) return;
+    try {
+      const messages = await channel.messages.fetch({ limit: PENDING_COMMANDS_FETCH_LIMIT }).catch(() => null);
+      if (!messages) return;
+      const now = Date.now();
+      const cutoffLoading = now - PENDING_COMMANDS_LOOKBACK_MS;
+      const cutoffOrphan = now - PENDING_ORPHAN_LOOKBACK_MS;
+      for (const msg of messages.values()) {
+        if (msg.author?.bot || !msg.content?.trim().startsWith(guildPrefix)) continue;
+        const msgId = String(msg.id || "");
+        if (!msgId || seenIds.has(msgId)) continue;
+
+        // Solo check sync: fetch reaction.users su ogni messaggio saturava Discord.
+        const hasLoading = messageHasBotLoadingReaction(msg, client);
+        if (hasLoading) {
+          if (msg.createdTimestamp < cutoffLoading) continue;
+          seenIds.add(msgId);
+          collected.push({ message: msg, ts: msg.createdTimestamp, reason: "loading", prefix: guildPrefix });
+          continue;
+        }
+
+        if (msg.createdTimestamp < cutoffOrphan) continue;
+        const command = resolvePendingPrefixCommandToken(client, msg, guildPrefix);
+        if (!command) continue;
+        seenIds.add(msgId);
+        collected.push({ message: msg, ts: msg.createdTimestamp, reason: "orphan", prefix: guildPrefix });
+      }
+    } catch (err) {
+      global.logger?.warn?.("[READY] pending commands fetch failed:", channel?.id, err?.message || err);
+    }
+  };
+
+  const executeCollected = async (rows, label) => {
+    rows.sort((a, b) => a.ts - b.ts);
+    if (!rows.length) {
+      global.logger?.info?.(`[READY] ${label}: nessun prefix da recuperare.`);
+      return;
+    }
+    const loadingN = rows.filter((row) => row.reason === "loading").length;
+    global.logger?.info?.(
+      `[READY] ${label}: recupero ${rows.length} prefix (loading=${loadingN}, orphan=${rows.length - loadingN}).`,
+    );
+    for (const { message, prefix: msgPrefix } of rows) {
       try {
-        const messages = await channel.messages.fetch({ limit: PENDING_COMMANDS_FETCH_LIMIT }).catch(() => null);
-        if (!messages) continue;
-        for (const msg of messages.values()) {
-          if (msg.author?.bot || !msg.content?.trim().startsWith(prefix)) continue;
-          if (msg.createdTimestamp < cutoff) continue;
-          if (!messageHasBotLoadingReaction(msg, client)) continue;
-          collected.push({ message: msg, ts: msg.createdTimestamp });
+        if (await botAlreadyRepliedToPrefixMessage(message, client)) continue;
+        try {
+          const loadingEmojiId = IDs.emojis?.loadingAnimatedId;
+          const fallbackEmojiId = IDs.emojis?.loadingFallbackId;
+          const emoji = loadingEmojiId ? message.client?.emojis?.cache?.get(loadingEmojiId) : null;
+          if (emoji) await message.react(emoji).catch(() => { });
+          else if (fallbackEmojiId) await message.react(fallbackEmojiId).catch(() => { });
+          else await message.react("\u23F3").catch(() => { });
+        } catch (_) { }
+        message.__fromPendingPrefixRecovery = true;
+        await handleOfficialPrefixMessage({
+          message,
+          resolvedClient: client,
+          defaultPrefix: msgPrefix || fallbackPrefix,
+          overrideCommand: null,
+          maybeSendWrongPrefixHint: noopWrongPrefixHint,
+          getCachedOrFetchMember,
+          hasAnyStaffBypassPermission,
+        });
+        if (PENDING_EXEC_GAP_MS > 0) {
+          await new Promise((resolve) => setTimeout(resolve, PENDING_EXEC_GAP_MS));
         }
       } catch (err) {
-        global.logger?.warn?.("[READY] pending commands fetch failed:", channel?.id, err?.message || err);
+        global.logger?.warn?.("[READY] pending command execution failed:", message?.id, err?.message || err);
       }
     }
-  }
-  collected.sort((a, b) => a.ts - b.ts);
-  if (collected.length) {
-    global.logger?.info?.(`[READY] Recupero ${collected.length} prefix command in sospeso (reazione loading attiva).`);
-  }
-  for (const { message } of collected) {
-    try {
-      try {
-        const loadingEmojiId = IDs.emojis?.loadingAnimatedId;
-        const fallbackEmojiId = IDs.emojis?.loadingFallbackId;
-        const emoji = loadingEmojiId ? message.client?.emojis?.cache?.get(loadingEmojiId) : null;
-        if (emoji) await message.react(emoji).catch(() => { });
-        else if (fallbackEmojiId) await message.react(fallbackEmojiId).catch(() => { });
-        else await message.react("\u23F3").catch(() => { });
-      } catch (_) { }
-      await handleOfficialPrefixMessage({ message, resolvedClient: client, defaultPrefix: prefix, overrideCommand: null, maybeSendWrongPrefixHint: noopWrongPrefixHint, getCachedOrFetchMember, hasAnyStaffBypassPermission });
-    } catch (err) {
-      global.logger?.warn?.("[READY] pending command execution failed:", message?.id, err?.message || err);
+  };
+
+  client.__pendingPrefixRecoveryActive = true;
+  try {
+    const priorityIds = new Set(pendingPriorityChannelIds());
+    const guilds = [...client.guilds.cache.values()].filter((g) => isPendingDeepScanGuild(g.id));
+    // Tenant: niente history-scan (69 guild × canali = OOM/rate-limit). Resta solo la coda snapshot.
+    if (!guilds.length) {
+      global.logger?.warn?.("[READY] pending prefix: nessun guild main/test da scansionare");
     }
+
+    for (const guild of guilds) {
+      const me = guild.members.me;
+      let guildPrefix = fallbackPrefix;
+      try {
+        guildPrefix = String(await resolveCommandPrefixForGuildFresh(guild.id, client) || fallbackPrefix).trim() || fallbackPrefix;
+      } catch {
+        guildPrefix = fallbackPrefix;
+      }
+
+      const channels = await collectPendingPrefixScanChannels(guild, { deep: true });
+      const priorityChannels = channels.filter((ch) => priorityIds.has(String(ch.id)));
+      const restChannels = channels.filter((ch) => !priorityIds.has(String(ch.id)));
+
+      // Fase 1: ship/commands/… subito, così +ship non resta orfano minuti.
+      const phase1 = [];
+      const prevCollected = collected.length;
+      await mapWithConcurrency(priorityChannels, PENDING_SCAN_CONCURRENCY, (channel) => scanChannel(channel, guildPrefix, me));
+      phase1.push(...collected.slice(prevCollected));
+      await executeCollected(phase1, `priority ${guild.name || guild.id}`);
+
+      // Fase 2: resto dei canali main (background rispetto ai live command: gap + concurrency bassa).
+      const phase2Start = collected.length;
+      await mapWithConcurrency(restChannels, Math.min(2, PENDING_SCAN_CONCURRENCY), (channel) => scanChannel(channel, guildPrefix, me));
+      await executeCollected(collected.slice(phase2Start), `rest ${guild.name || guild.id}`);
+    }
+  } finally {
+    client.__pendingPrefixRecoveryActive = false;
   }
+
+  global.logger?.info?.(
+    `[READY] Scan prefix in sospeso completato (total=${collected.length}, scanMs=${Date.now() - scanStartedAt}).`,
+  );
 }
 
 function isPrimaryScheduler(client) {
@@ -727,7 +1114,9 @@ async function restoreCoreStartupState(client) {
     syncLiveVoiceSessionsFromGateway(client),
     syncPmVoiceAfkWatchFromGateway(client),
     Promise.allSettled(
-      [...client.guilds.cache.values()].map((guild) => restoreTempBans(guild, { force: true })),
+      [...client.guilds.cache.values()]
+        .filter((guild) => isViniliFullFeatureGuild(guild.id))
+        .map((guild) => restoreTempBans(guild, { force: true })),
     ),
   ]);
 
@@ -744,6 +1133,7 @@ async function restoreCoreStartupState(client) {
 
   await restoreTtsConnections(client);
   for (const guild of client.guilds.cache.values()) {
+    if (!isViniliFullFeatureGuild(guild.id)) continue;
     rehydrateAntiNukePanicForGuild(guild);
   }
   printRecoveryHealthOnce("VINYLS_RECOVERY_HEALTH");
@@ -756,12 +1146,28 @@ async function restoreCoreStartupState(client) {
 async function runStartupPanels(client, label = "immediate") {
   if (client._startupPanelsRefreshRunning) return;
 
+  const decision = shouldRunStartupWork(STARTUP_THROTTLE_NS, "startup-panels", {
+    ttlMs: STARTUP_PANELS_TTL_MS,
+    forceEnv: "STARTUP_PANELS",
+  });
+  if (!decision.run) {
+    global.logger?.info?.(
+      `[STARTUP] Panels skipped (${decision.reason}; TTL ${Math.round(STARTUP_PANELS_TTL_MS / 3600000)}h). STARTUP_PANELS=1 o FULL_STARTUP_SYNC=1 per forzare.`,
+    );
+    return;
+  }
+
   client._startupPanelsRefreshRunning = true;
+  const panelsStartedAt = Date.now();
   try {
     client._panelUpsertMessageCache = new Map();
     if (typeof startupPanelsTrigger?.execute === "function") {
       await startupPanelsTrigger.execute(client);
     }
+    markStartupThrottle(STARTUP_THROTTLE_NS, "startup-panels");
+    global.logger?.info?.(
+      `[STARTUP] Panels refresh (${label}, ${decision.reason}) in ${formatDurationMs(Date.now() - panelsStartedAt)}.`,
+    );
   } catch (err) {
     global.logger?.error?.(
       `[CLIENT READY] Startup panels refresh failed (${label}):`,
@@ -777,9 +1183,12 @@ async function runDeferredStartup(client, primaryScheduler, engagementTick) {
   const startupTasks = buildDeferredStartupTasks(client, primaryScheduler, engagementTick);
   const hooks = createStartupHooks(client);
   const startedAt = Date.now();
-  const summary = await runPhasedStartupTasks(startupTasks, hooks);
-  logInfo(
-    client,
+  const fullSync = isFullStartupSyncEnabled();
+  if (!fullSync) {
+    global.logger?.info?.("[STARTUP] Fast path: recovery/sync pesanti saltati (FULL_STARTUP_SYNC=1 per forzarli).");
+  }
+  const summary = await runPhasedStartupTasks(startupTasks, hooks, { mediumConcurrency: 4 });
+  global.logger?.info?.(
     `[STARTUP] phased startup queued: fast=${summary.fastResults.length} medium=${summary.mediumResults.length} heavy=${summary.heavyCount} in ${formatDurationMs(Date.now() - startedAt)}.`,
   );
 }
@@ -804,6 +1213,7 @@ function startPrimaryLoops(client, engagementTick) {
     ["[HOUSE BURROBIRRA] Failed to start loop", () => startHouseBurrobirraEffectLoop(client)],
     ["[VOTE ROLE] Failed to start cleanup loop", () => startVoteRoleCleanupLoop(client)],
     ["[VERIFY TENURE] Failed to start loop", () => startVerificationTenureLoop(client)],
+    ["[PREMEMBER] Failed to start Unverified sweep loop", () => startPreMemberRoleSweepLoop(client)],
     ["[CATEGORY NUMBERING] Failed to start loop", () => startCategoryNumberingLoop(client)],
     ["[SPONSOR 24H KICK] Failed to start loop", () => startSponsorKickLoop(client)],
     ["[SPONSOR NICK SWEEP] Failed to start loop", () => startSponsorGuildNicknameSweepLoop(client)],
@@ -812,15 +1222,29 @@ function startPrimaryLoops(client, engagementTick) {
     ["[DAILY ENGAGEMENT STATS] Failed to start loop", () => startDailyEngagementStatsLoop(client)],
     ["[DAILY CHANNEL MESSAGE STATS] Failed to start loop", () => startDailyChannelMessageStatsLoop(client)],
     ["[PREMI LA REACT] Failed to start loop", () => startReactPressEventLoop(client)],
+    ["[GALEONI ECONOMY CHANNEL] Failed to start unlock loop", () => startGaleoniEconomyChannelUnlockLoop(client)],
+    ["[TRIS] Failed to purge disabled sessions", () => {
+      void purgeDisabledTrisSessions(client).catch((err) =>
+        global.logger?.warn?.("[TRIS] purge disabled sessions:", err?.message || err),
+      );
+    }],
     ["[PREMI LA REACT END] Failed to start leaderboard loop", () => startPremiLaReactEndLoop(client)],
     ["[HOGWARTS FORBIDDEN CHANNELS] Failed to start loop", () => {
-      const { startForbiddenSectionChannelDecorLoop } = require("../Services/Community/hogwartsForbiddenSectionChannelService");
+      const booksCfg = client?.config?.hogwartsForbiddenBooks;
+      const presenceCfg = client?.config?.presence?.forbiddenSectionEvent;
+      const {
+        startForbiddenSectionChannelDecorLoop,
+      } = require("../Services/Community/hogwartsForbiddenSectionChannelService");
+      if (booksCfg?.enabled === false || presenceCfg?.enabled === false) {
+        return;
+      }
       startForbiddenSectionChannelDecorLoop(client);
     }],
     ["[HOGWARTS SPELL LIST HUNT] Failed to start loop", () => startHogwartsSpellListHuntLoop(client)],
     ["[HOGWARTS SPELL LIST HUNT END] Failed to start leaderboard loop", () => startHogwartsSpellListHuntEndLoop(client)],
     ["[HOGWARTS POTIONS] Failed to start reminder loop", () => startPotionReminderLoop(client)],
     ["[HOGWARTS EVENT END] Failed to start completion loop", () => startHogwartsEventEndLoop(client)],
+    ["[HOGWARTS CONSUMABLE BOOST EXPIRY] Failed to start loop", () => startConsumableBoostExpiryLoop(client)],
     ["[CUSTOM ROLE EXPIRY] Failed to start cleanup loop", () => startCustomRoleExpiryLoop(client)],
     ["[MOD CASE LIFECYCLE] Failed to start loop", () => startModCaseLifecycleLoop(client)],
     ["[TICKET AUTO CLOSE PROMPT] Failed to start loop", () => startTicketAutoClosePromptLoop(client)],
@@ -836,8 +1260,11 @@ function startPrimaryLoops(client, engagementTick) {
       const { startRepostRouletteCron } = require("../Services/Community/repostRouletteService");
       startRepostRouletteCron(client);
     }],
+    ["[PREMIUM EXPIRY REMINDER] Failed to start loop", () => startPremiumExpiryReminderLoop(client)],
     ["[MOVIE NIGHT ANNOUNCE] Failed to start loop", () => startMovieNightAnnouncementLoop(client)],
+    ["[EXP EVENT ANNOUNCE] Failed to start loop", () => startGlobalExpEventAnnouncementLoop(client)],
     ["[TWITCH LIVE] Failed to start loop", () => startTwitchLiveAlertLoop(client)],
+    ["[KICK LIVE] Failed to start loop", () => startKickLiveAlertLoop(client)],
     ["[DB MAINTENANCE] Failed to start loop", () => startDbMaintenanceLoop(client)],
     ["[STAFF GRACE PURGE] Failed to start loop", () => startStaffGracePurgeLoop(client)],
     ["[JOIN RAID RESTORE] Failed to start loop", () => {
@@ -851,10 +1278,24 @@ function startPrimaryLoops(client, engagementTick) {
       client._joinRaidRestoreInterval = timer;
     }],
     ["[GIVEAWAY] Failed to start scheduled end loop", () => {
+      if (String(process.env.BOT_SCHEDULER_EXTERNAL || "").trim() === "1") {
+        return;
+      }
       const tick = () =>
         runScheduledEnds(client).catch((e) => {
           const isMongoNetwork = e?.name === "MongoNetworkTimeoutError" || e?.name === "MongoServerSelectionError";
           global.logger?.warn?.("[GIVEAWAY] runScheduledEnds", isMongoNetwork ? "MongoDB timeout, will retry next run." : (e?.message || e));
+        });
+      scheduleActiveGiveawayEnds(client)
+        .then((result) => {
+          if (result?.scheduled || result?.endedDue) {
+            global.logger?.info?.(
+              `[GIVEAWAY] end timers: scheduled=${result.scheduled || 0} endedDue=${result.endedDue || 0}`,
+            );
+          }
+        })
+        .catch((e) => {
+          global.logger?.warn?.("[GIVEAWAY] scheduleActiveGiveawayEnds", e?.message || e);
         });
       syncActiveGiveawayButtons(client)
         .then((result) => {
@@ -865,7 +1306,7 @@ function startPrimaryLoops(client, engagementTick) {
           const isMongoNetwork = e?.name === "MongoNetworkTimeoutError" || e?.name === "MongoServerSelectionError";
           global.logger?.warn?.("[GIVEAWAY] syncActiveGiveawayButtons", isMongoNetwork ? "MongoDB timeout, will retry next run." : (e?.message || e));
         });
-      tick();
+      // Backup: recupera giveaway persi (restart/timer lunghi). La fine puntuale è via setTimeout.
       const timer = setInterval(tick, 60 * 1000);
       if (typeof timer.unref === "function") timer.unref();
       client._giveawayScheduledEndInterval = timer;
@@ -891,8 +1332,15 @@ function startPrimaryLoops(client, engagementTick) {
   ];
 
 
-  for (const [label, starter] of loopStarters) {
-    startLoopSafely(label, starter);
+  for (let i = 0; i < loopStarters.length; i += 1) {
+    const [label, starter] = loopStarters[i];
+    const delayMs = LOOP_STAGGER_MS > 0 ? i * LOOP_STAGGER_MS : 0;
+    if (delayMs <= 0) {
+      startLoopSafely(label, starter);
+      continue;
+    }
+    const timer = setTimeout(() => startLoopSafely(label, starter), delayMs);
+    timer.unref?.();
   }
 }
 
@@ -1000,6 +1448,14 @@ module.exports = {
         global.logger?.error?.("[DAILY PARTNER AUDIT ERROR]", err);
       }
       try {
+        const {
+          startPartnershipHistoryMigrationWorker,
+        } = require("../Services/Partner/tenantPartnershipHistoryMigrationService");
+        startPartnershipHistoryMigrationWorker(client);
+      } catch (err) {
+        global.logger?.error?.("[PARTNERSHIP HISTORY MIGRATION WORKER]", err);
+      }
+      try {
         startStaffCmdsThreadsLoop(client);
       } catch (err) {
         global.logger?.error?.("[STAFF CMDS THREAD INIT ERROR]", err);
@@ -1025,6 +1481,22 @@ module.exports = {
       } catch (err) {
         global.logger?.error?.("[STANZA VOICE INIT ERROR]", err);
       }
+      try {
+        const { sweepUntrustedBotsInGuild } = require("../Services/Moderation/trustedBotGuardService");
+        const mainGuildId = String(require("../Utils/Config/ids").guilds?.main || "").trim();
+        if (mainGuildId) {
+          setTimeout(() => {
+            const guild = client.guilds.cache.get(mainGuildId);
+            if (guild) {
+              sweepUntrustedBotsInGuild(guild, client).catch((err) =>
+                global.logger?.warn?.("[trustedBotGuard] startup sweep failed:", err?.message || err),
+              );
+            }
+          }, 20_000).unref?.();
+        }
+      } catch (err) {
+        global.logger?.error?.("[TRUSTED BOT GUARD INIT ERROR]", err);
+      }
     }
 
     if (primaryScheduler) {
@@ -1037,17 +1509,19 @@ module.exports = {
 
     if (primaryScheduler) {
       let engagementTickRunning = false;
-      const engagementTick = async () => { if (engagementTickRunning) return; engagementTickRunning = true; try { await runDueOneTimeReminders(client); } catch (err) { global.logger?.error?.(err); } finally { engagementTickRunning = false; } };
-      client._engagementTick = engagementTick;
-
-      void (async () => {
+      const engagementTick = async () => {
+        if (String(process.env.BOT_SCHEDULER_EXTERNAL || "").trim() === "1") return;
+        if (engagementTickRunning) return;
+        engagementTickRunning = true;
         try {
-          const { repairCustomVocPermissionsOnStartup } = require("../Services/Community/customVocPermissionsService");
-          await repairCustomVocPermissionsOnStartup(client);
+          await runDueOneTimeReminders(client);
         } catch (err) {
-          global.logger?.warn?.("[CUSTOM VOC PERMS] early repair failed:", err?.message || err);
+          global.logger?.error?.(err);
+        } finally {
+          engagementTickRunning = false;
         }
-      })();
+      };
+      client._engagementTick = engagementTick;
 
       if (!client._deferredStartupRunning) {
         client._deferredStartupRunning = true;
@@ -1100,27 +1574,37 @@ module.exports = {
     countingCatchUpRetry.unref?.();
 
     if (primaryScheduler) {
-      void restorePauseMessageStatusSync(client).catch((err) => {
-        global.logger?.warn?.("[PAUSE] restore pause message status sync failed:", err);
-      });
+      // Solo timer inizio/fine: niente sync/edit dei messaggi pausa ad ogni restart.
       startPauseMessageStatusMaintenance(client);
-    }
-    if (primaryScheduler) {
+      // Staff list: bootstrap leggero anche se i pannelli sono in TTL skip (no force edit).
+      try {
+        const { startStaffListPeriodicRefreshLoop } = require("../Utils/Community/staffListUtils");
+        startStaffListPeriodicRefreshLoop(client);
+      } catch (err) {
+        global.logger?.warn?.("[STAFF LIST] startup bootstrap failed:", err?.message || err);
+      }
       void runStartupPanels(client, "ready").catch(() => { });
-      const retryPanels = setTimeout(() => {
-        void runStartupPanels(client, "ready-retry").catch(() => { });
-      }, STARTUP_PANELS_RETRY_MS);
-      retryPanels.unref?.();
+      // Retry solo se forzato: di default raddoppiava fetch/edit Discord inutili.
+      if (envFlagEnabled("STARTUP_PANELS_RETRY")) {
+        const retryPanels = setTimeout(() => {
+          void runStartupPanels(client, "ready-retry").catch(() => { });
+        }, STARTUP_PANELS_RETRY_MS);
+        retryPanels.unref?.();
+      }
     }
 
     const cleanupDisabled = String(process.env.CLEANUP_USERS_NOT_IN_SERVER_ON_STARTUP || "1").trim().toLowerCase() === "0";
-    if (!cleanupDisabled) {
+    if (!cleanupDisabled && (isFullStartupSyncEnabled() || shouldRunMediumStartup("cleanup-users", CLEANUP_USERS_NOT_IN_SERVER_INTERVAL_MS || 24 * 60 * 60 * 1000))) {
       const t = setTimeout(() => {
-        runFullCleanupUsersNotInServer(client).catch((err) => {
-          global.logger?.warn?.("[CLEANUP USERS NOT IN SERVER] Startup cleanup failed:", err);
-        });
+        runFullCleanupUsersNotInServer(client)
+          .then(() => markMediumStartup("cleanup-users"))
+          .catch((err) => {
+            global.logger?.warn?.("[CLEANUP USERS NOT IN SERVER] Startup cleanup failed:", err);
+          });
       }, CLEANUP_USERS_NOT_IN_SERVER_DELAY_MS);
       if (t?.unref) t.unref();
+    } else if (!cleanupDisabled) {
+      global.logger?.info?.("[STARTUP] Cleanup utenti non in server saltato (throttle); FULL_STARTUP_SYNC=1 per forzare.");
     }
     if (CLEANUP_USERS_NOT_IN_SERVER_INTERVAL_MS > 0) {
       const iv = setInterval(() => {

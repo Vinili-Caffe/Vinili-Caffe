@@ -1,4 +1,4 @@
-const { EmbedBuilder, PermissionsBitField } = require("discord.js");
+const { ChannelType, EmbedBuilder, PermissionsBitField } = require("discord.js");
 const { getBotState, setBotState } = require("../../Utils/BotState/botStateStore");
 const { getClientChannelCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { isViniliProtectedGuild } = require("../core/viniliProtectedGuilds");
@@ -7,6 +7,8 @@ const joinAlertConfig = require("../config/joinAlert.json");
 
 const BOT_STATE_KEY = "multiGuildManagedInvites";
 const RECREATE_LOCKS = new Map();
+/** Solo canali testo/annunci: niente vocali (né text-in-voice). */
+const INVITE_CHANNEL_TYPES = new Set([ChannelType.GuildText, ChannelType.GuildAnnouncement]);
 
 function isJoinAlertEnabled() {
   return isMultiGuildLayerEnabled();
@@ -45,6 +47,16 @@ async function getManagedInvite(guildId) {
   return { guildId: gid, ...row };
 }
 
+async function removeManagedInvite(guildId) {
+  const gid = normalizeGuildId(guildId);
+  if (!gid) return false;
+  const map = await loadManagedInvitesMap();
+  if (!Object.prototype.hasOwnProperty.call(map, gid)) return false;
+  delete map[gid];
+  await setBotState(BOT_STATE_KEY, map);
+  return true;
+}
+
 function verificationLevelLabel(level) {
   const map = {
     0: "Nessuna",
@@ -56,30 +68,69 @@ function verificationLevelLabel(level) {
   return map[Number(level)] || String(level ?? "?");
 }
 
+function isInviteEligibleTextChannel(channel) {
+  return Boolean(
+    channel &&
+      INVITE_CHANNEL_TYPES.has(Number(channel.type)) &&
+      typeof channel.createInvite === "function",
+  );
+}
+
+function canCreateInviteInChannel(channel, me) {
+  if (!isInviteEligibleTextChannel(channel) || !me) return false;
+  return Boolean(channel.permissionsFor(me)?.has(PermissionsBitField.Flags.CreateInstantInvite));
+}
+
 function pickInviteChannel(guild, me) {
   if (!guild || !me) return null;
-  const flag = PermissionsBitField.Flags.CreateInstantInvite;
-  const canInvite = (ch) =>
-    ch &&
-    typeof ch.createInvite === "function" &&
-    ch.permissionsFor(me)?.has(flag);
-  if (canInvite(guild.systemChannel)) return guild.systemChannel;
+  if (canCreateInviteInChannel(guild.systemChannel, me)) return guild.systemChannel;
   const sorted = [...guild.channels.cache.values()]
-    .filter((ch) => ch.isTextBased?.() && canInvite(ch))
+    .filter((ch) => canCreateInviteInChannel(ch, me))
     .sort((a, b) => (a.rawPosition ?? 0) - (b.rawPosition ?? 0));
   return sorted[0] || null;
 }
 
-async function createPermanentInvite(guild, reason) {
+async function deleteGuildInviteByCode(guild, code, reason = "MultiGuild invite relocate") {
+  const want = String(code || "").trim();
+  if (!guild?.id || !want) return false;
+  try {
+    const invites = await guild.invites.fetch().catch(() => null);
+    const existing = invites?.get?.(want) || null;
+    if (existing && typeof existing.delete === "function") {
+      await existing.delete(String(reason || "MultiGuild invite relocate"));
+      return true;
+    }
+  } catch (err) {
+    global.logger?.warn?.(
+      "[MultiGuild joinAlert] deleteInvite failed:",
+      guild.id,
+      want,
+      err?.message || err,
+    );
+  }
+  return false;
+}
+
+async function createPermanentInvite(guild, reason, preferredChannelId = null) {
   const me = guild.members.me || (await getGuildMemberCached(guild, guild.client.user.id).catch(() => null));
   if (!me) return null;
-  const channel = pickInviteChannel(guild, me);
+  let channel = null;
+  const preferredId = String(preferredChannelId || "").trim();
+  if (/^\d{16,20}$/.test(preferredId)) {
+    const preferred =
+      guild.channels.cache.get(preferredId) ||
+      (await guild.channels.fetch(preferredId).catch(() => null));
+    if (canCreateInviteInChannel(preferred, me)) {
+      channel = preferred;
+    }
+  }
+  if (!channel) channel = pickInviteChannel(guild, me);
   if (!channel) return null;
   const invite = await channel
     .createInvite({
       maxAge: 0,
       maxUses: 0,
-      unique: false,
+      unique: true,
       temporary: false,
       reason: String(reason || joinAlertConfig.inviteReason || "MultiGuild permanent invite"),
     })
@@ -194,10 +245,11 @@ async function handleBotJoinedGuild(client, guild) {
       ...inviteRow,
       logMessageId: logMessage?.id || null,
     });
+    try {
+      const { maybeSyncPartnershipInviteFromManaged } = require("../../Services/Partner/partnershipInviteService");
+      await maybeSyncPartnershipInviteFromManaged(guild.id, inviteRow);
+    } catch (_) {}
   }
-  global.logger?.info?.(
-    `[MultiGuild joinAlert] guild ${guild.id} (${guild.name}) invite=${inviteRow?.code || "none"}`,
-  );
   return { invite: inviteRow, logMessageId: logMessage?.id || null };
 }
 
@@ -215,7 +267,19 @@ async function handleManagedInviteDeleted(client, invite) {
   RECREATE_LOCKS.set(guild.id, Date.now() + cooldown);
 
   const fresh = await guild.fetch().catch(() => guild);
-  const recreated = await createPermanentInvite(fresh, `${joinAlertConfig.inviteReason} (rigenerato)`);
+  let preferredChannelId = null;
+  try {
+    const { getPartnershipConfig } = require("../core/tenantPartnershipSettings");
+    const cfg = await getPartnershipConfig(guild.id).catch(() => null);
+    preferredChannelId = cfg?.partnershipsChannelId || managed.channelId || null;
+  } catch (_) {
+    preferredChannelId = managed.channelId || null;
+  }
+  const recreated = await createPermanentInvite(
+    fresh,
+    `${joinAlertConfig.inviteReason} (rigenerato)`,
+    preferredChannelId,
+  );
   if (!recreated) {
     global.logger?.warn?.("[MultiGuild joinAlert] recreate failed:", guild.id);
     return;
@@ -227,6 +291,11 @@ async function handleManagedInviteDeleted(client, invite) {
     url: recreated.url,
     logMessageId: managed.logMessageId,
   });
+
+  try {
+    const { maybeSyncPartnershipInviteFromManaged } = require("../../Services/Partner/partnershipInviteService");
+    await maybeSyncPartnershipInviteFromManaged(guild.id, recreated);
+  } catch (_) {}
 
   await sendOrUpdateJoinLog(client, fresh, recreated, { regenerated: true });
 
@@ -249,5 +318,10 @@ module.exports = {
   handleBotJoinedGuild,
   handleManagedInviteDeleted,
   getManagedInvite,
+  removeManagedInvite,
   createPermanentInvite,
+  saveManagedInvite,
+  deleteGuildInviteByCode,
+  isInviteEligibleTextChannel,
+  sendOrUpdateJoinLog,
 };

@@ -7,20 +7,34 @@ const { clearVoiceSession, getVoiceSession } = require("../../Services/Voice/voi
 
 module.exports = {
   name: "leave",
+  // `+leave partnership` è tenant-only: non dichiararlo come subcomando TTS
+  // (altrimenti finisce nell'help main sotto TTS al posto di `+leave`).
   allowEmptyArgs: true,
-  async execute(message) {
+  async execute(message, args = []) {
+    const sub = String(args[0] || "").toLowerCase();
+    if (sub === "partnership") {
+      const { executeLeavePartnership } = require("../../Utils/Partner/tenantPartnershipLeaveRuntime");
+      return executeLeavePartnership(message);
+    }
+
     await message.channel.sendTyping();
 
     const session = getVoiceSession(message.guild?.id);
     const ownerId = session?.ownerId ? String(session.ownerId) : "";
-    const botChannelId = message.guild?.members?.me?.voice?.channelId ? String(message.guild.members.me.voice.channelId) : "";
+    const botChannelId = message.guild?.members?.me?.voice?.channelId
+      ? String(message.guild.members.me.voice.channelId)
+      : "";
     if (ownerId && botChannelId && String(message.author?.id || "") !== ownerId) {
       const ownerMember = await message.guild.members.fetch(ownerId).catch(() => null);
-      const ownerInBotChannel = Boolean(ownerMember?.voice?.channelId && String(ownerMember.voice.channelId) === botChannelId);
+      const ownerInBotChannel = Boolean(
+        ownerMember?.voice?.channelId && String(ownerMember.voice.channelId) === botChannelId,
+      );
       if (ownerInBotChannel) {
         const denied = new EmbedBuilder()
           .setColor("#ED4245")
-          .setDescription(`Solo chi ha avviato la sessione può usare \`+leave\` finché è in vocale: <@${ownerId}>.`);
+          .setDescription(
+            `Solo chi ha avviato la sessione può usare \`+leave\` finché è in vocale: <@${ownerId}>.`,
+          );
         return safeMessageReply(message, { embeds: [denied], allowedMentions: { users: [] } });
       }
     }
@@ -42,14 +56,14 @@ module.exports = {
 
     if (!ttsResult.ok && ttsResult.reason === "not_connected" && !wasInVoice) {
       const notConnectedEmbed = new EmbedBuilder()
-      .setColor("#ED4245")
-      .setDescription("Il bot non è connesso a nessun canale vocale.");
+        .setColor("#ED4245")
+        .setDescription("Il bot non è connesso a nessun canale vocale.");
       return safeMessageReply(message, { embeds: [notConnectedEmbed] });
     }
 
     const okEmbed = new EmbedBuilder()
-    .setColor("#ED4245")
-    .setDescription("Grazie per aver usato il servizio.");
+      .setColor("#ED4245")
+      .setDescription("Grazie per aver usato il servizio.");
     return safeMessageReply(message, { embeds: [okEmbed] });
   },
 };

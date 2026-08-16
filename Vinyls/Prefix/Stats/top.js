@@ -6,6 +6,7 @@ const { ActivityUserProfile } = require("../../Schemas/Community/communitySchema
 const { getLevelInfo, getTopExpGainsInPeriod, PERIOD_LOOKBACK_DAYS } = require("../../Services/Community/expService");
 const { voteCountMonthKeyRome } = require("../../Utils/romeVoteMonthKey");
 const { renderTopStatisticsCanvas, renderTopLeaderboardPageCanvas } = require("../../Utils/Render/activityCanvas");
+const { getOrBuildStatsCanvasBuffer } = require("../../Utils/Stats/statsCanvasCache");
 const { upsertChannelSnapshot, syncGuildChannelSnapshots, getChannelSnapshotMap } = require("../../Utils/Community/channelSnapshotUtils");
 const { getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
 const topComponents = require("../../Buttons/topChannel/components");
@@ -561,31 +562,37 @@ async function buildTopChannelPayload(
     let buffer = null;
 
     if (isOverview) {
-      buffer = await renderTopStatisticsCanvas({
-        guildName: message.guild?.name || "Server",
-        guildIconUrl: message.guild?.iconURL?.({ extension: "png", size: 256 }),
-        lookbackDays: effectiveLookback,
-        ...source,
-      });
+      buffer = await getOrBuildStatsCanvasBuffer(`top:overview:${message.guild.id}:${effectiveLookback}`, () =>
+        renderTopStatisticsCanvas({
+          guildName: message.guild?.name || "Server",
+          guildIconUrl: message.guild?.iconURL?.({ extension: "png", size: 256 }),
+          lookbackDays: effectiveLookback,
+          ...source,
+        }),
+      );
     } else {
       const monthKey = voteCountMonthKeyRome(new Date());
       const votesFooter =
         safeView === "votes_users"
           ? `Page ${safePage}/${totalPages} | Voti: mese corrente (${monthKey}) · Europe/Rome`
           : null;
-      buffer = await renderTopLeaderboardPageCanvas({
-        guildName: message.guild?.name || "Server",
-        guildIconUrl: message.guild?.iconURL?.({ extension: "png", size: 256 }),
-        lookbackDays: effectiveLookback,
-        title: viewConfig.title,
-        page: safePage,
-        totalPages,
-        rows: pageRows,
-        unit: viewConfig.unit,
-        mode: viewConfig.mode,
-        allTime: ALL_TIME_TOP_VIEWS.has(safeView),
-        customFooterLine: votesFooter,
-      });
+      buffer = await getOrBuildStatsCanvasBuffer(
+        `top:${safeView}:${message.guild.id}:${effectiveLookback}:p${safePage}`,
+        () =>
+          renderTopLeaderboardPageCanvas({
+            guildName: message.guild?.name || "Server",
+            guildIconUrl: message.guild?.iconURL?.({ extension: "png", size: 256 }),
+            lookbackDays: effectiveLookback,
+            title: viewConfig.title,
+            page: safePage,
+            totalPages,
+            rows: pageRows,
+            unit: viewConfig.unit,
+            mode: viewConfig.mode,
+            allTime: ALL_TIME_TOP_VIEWS.has(safeView),
+            customFooterLine: votesFooter,
+          }),
+      );
     }
 
     return {
@@ -641,10 +648,7 @@ async function sendTopPayload(message, payload) {
     TOP_CHANNEL_DIRECT_CHANNEL_IDS.has(channelId) ||
     (channel?.isThread?.() && TOP_CHANNEL_DIRECT_CHANNEL_IDS.has(parentId));
   if (isDirectTopChannel) {
-    await safeMessageReply(message, {
-      ...payload,
-      allowedMentions: { repliedUser: false },
-    });
+    await safeMessageReply(message, { ...payload, allowedMentions: { repliedUser: false } });
     return;
   }
 
@@ -671,6 +675,9 @@ async function sendTopPayload(message, payload) {
     content:
       `Per evitare di intasare la chat, la classifica è stata generata in <#${IDs.channels.commands}>.\n` +
       `[Clicca qui per vederla](${sent.url}).`,
+    embeds: [],
+    files: [],
+    components: [],
     allowedMentions: { repliedUser: false },
   });
 }
@@ -703,10 +710,9 @@ module.exports = {
   resolveRequestedPage,
 
   async execute(message, args = []) {
-    await message.channel.sendTyping().catch(() => {});
     const dayToken=Array.isArray(args)?args.find((x) => /^\d+d?$/i.test(String(x||"").trim())):null;
     const lookbackDays = normalizeLookbackDays(dayToken || "14");
-    const payload=await buildTopChannelPayload(message,lookbackDays,"main","overview",1,message.author?.id,);
+    const payload = await buildTopChannelPayload(message, lookbackDays, "main", "overview", 1, message.author?.id);
     await sendTopPayload(message, payload);
   },
 };

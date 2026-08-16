@@ -100,18 +100,31 @@ function parseReactionTokens(input, max = MAX_REACTIONS, guild = null) {
   return Array.from(new Set(out)).slice(0, max);
 }
 
-function toDisplay(token) {
-  if (String(token).startsWith("custom:")) {
-    const id = token.slice("custom:".length);
-    return `<:emoji:${id}>`;
+function toDisplay(token, clientOrGuild = null) {
+  const raw = String(token || "");
+  if (raw.startsWith("custom:")) {
+    const id = raw.slice("custom:".length);
+    const client = clientOrGuild?.client || clientOrGuild;
+    const guild = clientOrGuild?.emojis ? clientOrGuild : null;
+    const emoji =
+      (guild?.emojis?.cache?.get?.(id) || null) ||
+      resolveStoredCustomEmojiFromClient(client, id) ||
+      null;
+    if (emoji?.id) {
+      const name = String(emoji.name || "emoji").replace(/[^\w]/g, "").slice(0, 32) || "emoji";
+      return `<${emoji.animated ? "a" : ""}:${name}:${emoji.id}>`;
+    }
+    // Senza cache: Discord spesso non renderizza `<:emoji:id>` (nome finto) → mostra ":emoji:".
+    // Meglio non inventare un nome: lascia un hint leggibile.
+    return `\`custom:${id}\``;
   }
-  if (String(token).startsWith("unicode:")) {
-    return token.slice("unicode:".length);
+  if (raw.startsWith("unicode:")) {
+    return raw.slice("unicode:".length);
   }
-  return token;
+  return raw;
 }
 
-function buildCustomReactionPanelEmbed(reactions, maxReactions = MAX_REACTIONS) {
+function buildCustomReactionPanelEmbed(reactions, maxReactions = MAX_REACTIONS, clientOrGuild = null) {
   const current = Array.isArray(reactions) ? reactions : [];
   const safeMax = Math.max(1, Number(maxReactions) || MAX_REACTIONS);
   return new EmbedBuilder()
@@ -119,7 +132,7 @@ function buildCustomReactionPanelEmbed(reactions, maxReactions = MAX_REACTIONS) 
     .setTitle("Reaction alle menzioni")
     .setDescription(
       current.length
-        ? `Le tue reaction (${current.length}/${safeMax}): ${current.map(toDisplay).join(" ")}`
+        ? `Le tue reaction (${current.length}/${safeMax}): ${current.map((t) => toDisplay(t, clientOrGuild)).join(" ")}`
         : `Nessuna reaction attiva. Usa **Aggiungi** per impostarne fino a ${safeMax}.`,
     )
     .setFooter({ text: "Il bot aggiunge queste reaction solo quando sei menzionato nel messaggio." });

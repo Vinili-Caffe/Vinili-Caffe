@@ -9,11 +9,22 @@ function giveawayMatchesFilter(g, filter) {
   if (filter._id !== undefined && String(g._id) !== String(filter._id)) return false;
   if (filter.messageId !== undefined && String(g.messageId || "") !== String(filter.messageId || "")) return false;
   if (filter.ended !== undefined && Boolean(g.ended) !== Boolean(filter.ended)) return false;
+  if (filter.cancelled !== undefined) {
+    if (filter.cancelled && typeof filter.cancelled === "object" && filter.cancelled.$ne !== undefined) {
+      if (Boolean(g.cancelled) === Boolean(filter.cancelled.$ne)) return false;
+    } else if (Boolean(g.cancelled) !== Boolean(filter.cancelled)) {
+      return false;
+    }
+  }
   if (filter.guildId !== undefined && String(g.guildId || "") !== String(filter.guildId || "")) return false;
   if (filter.channelId !== undefined && String(g.channelId || "") !== String(filter.channelId || "")) return false;
   if (filter.endAt?.$lte) {
     const t = g.endAt ? new Date(g.endAt).getTime() : 0;
     if (t > filter.endAt.$lte.getTime()) return false;
+  }
+  if (filter.endAt?.$gt) {
+    const t = g.endAt ? new Date(g.endAt).getTime() : 0;
+    if (t <= filter.endAt.$gt.getTime()) return false;
   }
   return true;
 }
@@ -30,6 +41,12 @@ function projectGiveawayFields(row, projection) {
 function toPlainGiveaway(g) {
   if (!g) return null;
   return g.toObject ? g.toObject() : { ...g };
+}
+
+function toObjectId(id) {
+  const raw = String(id || "").trim();
+  if (!mongoose.Types.ObjectId.isValid(raw)) return null;
+  return new mongoose.Types.ObjectId(raw);
 }
 
 async function findBucketsForGiveawayFilter(filter) {
@@ -66,6 +83,63 @@ function isScheduledDueFilter(filter) {
   );
 }
 
+function isUpcomingActiveFilter(filter) {
+  if (!filter || typeof filter !== "object") return false;
+  return (
+    filter.ended === false &&
+    filter.endAt &&
+    typeof filter.endAt === "object" &&
+    filter.endAt.$gt instanceof Date
+  );
+}
+
+/**
+ * Build atomic update for one giveaway subdoc via arrayFilters.
+ * Avoids load-modify-save VersionError under concurrent joins.
+ */
+function buildAtomicGiveawayUpdate(filter, update) {
+  const oid = toObjectId(filter?._id);
+  if (!oid) return null;
+
+  const arrayFilter = { "g._id": oid };
+  if (filter.ended !== undefined) arrayFilter["g.ended"] = Boolean(filter.ended);
+  if (filter.cancelled !== undefined) arrayFilter["g.cancelled"] = Boolean(filter.cancelled);
+  if (filter.messageId !== undefined) arrayFilter["g.messageId"] = String(filter.messageId);
+
+  const mongoUpdate = {};
+  const $set = update?.$set && typeof update.$set === "object" ? update.$set : null;
+  const $addToSet = update?.$addToSet && typeof update.$addToSet === "object" ? update.$addToSet : null;
+  const $pull = update?.$pull && typeof update.$pull === "object" ? update.$pull : null;
+
+  if ($set && Object.keys($set).length) {
+    mongoUpdate.$set = {};
+    for (const [key, value] of Object.entries($set)) {
+      mongoUpdate.$set[`giveaways.$[g].${key}`] = value;
+    }
+  }
+  if ($addToSet?.participants != null) {
+    mongoUpdate.$addToSet = {
+      ...(mongoUpdate.$addToSet || {}),
+      "giveaways.$[g].participants": String($addToSet.participants),
+    };
+  }
+  if ($pull?.participants != null) {
+    mongoUpdate.$pull = {
+      ...(mongoUpdate.$pull || {}),
+      "giveaways.$[g].participants": String($pull.participants),
+    };
+  }
+
+  if (!Object.keys(mongoUpdate).length) return null;
+
+  return {
+    query: { "giveaways._id": oid },
+    update: mongoUpdate,
+    arrayFilters: [arrayFilter],
+    oid,
+  };
+}
+
 class GiveawayFindQuery {
   constructor(filter, projection) {
     this.filter = filter;
@@ -85,15 +159,21 @@ class GiveawayFindQuery {
   }
 
   async exec() {
-    if (isScheduledDueFilter(this.filter)) {
-      const cutoff = this.filter.endAt.$lte;
+    if (isScheduledDueFilter(this.filter) || isUpcomingActiveFilter(this.filter)) {
+      const elem = { ended: false };
+      if (this.filter.endAt?.$lte) elem.endAt = { $lte: this.filter.endAt.$lte };
+      if (this.filter.endAt?.$gt) elem.endAt = { ...(elem.endAt || {}), $gt: this.filter.endAt.$gt };
+      if (this.filter.cancelled?.$ne != null) elem.cancelled = { $ne: this.filter.cancelled.$ne };
+      else if (this.filter.cancelled !== undefined) elem.cancelled = Boolean(this.filter.cancelled);
+
       const buckets = await GuildFeatureBucket.find({
-        giveaways: { $elemMatch: { ended: false, endAt: { $lte: cutoff } } },
+        giveaways: { $elemMatch: elem },
       }).catch(() => []);
       const rows = [];
       for (const bucket of buckets) {
         for (const g of bucket.giveaways || []) {
           if (!giveawayMatchesFilter(g, this.filter)) continue;
+          if (this.filter.cancelled?.$ne === true && g.cancelled) continue;
           const plain = toPlainGiveaway(g);
           rows.push(this._lean ? projectGiveawayFields(plain, this.projection) : g);
           if (this._limit != null && rows.length >= this._limit) return rows;
@@ -207,50 +287,58 @@ const Giveaway = {
   },
 
   async findOneAndUpdate(filter, update, opts = {}) {
-    const buckets = await findBucketsForGiveawayFilter(filter);
-    const $set = update?.$set && typeof update.$set === "object" ? update.$set : {};
-    const $addToSet = update?.$addToSet;
-    for (const bucket of buckets) {
-      const g = findGiveawaySubdocInBucket(bucket, filter);
-      if (!g) continue;
-      if ($addToSet?.participants != null) {
-        const uid = String($addToSet.participants);
-        if (!Array.isArray(g.participants)) g.participants = [];
-        if (!g.participants.includes(uid)) g.participants.push(uid);
-      }
-      Object.assign(g, $set);
-      await bucket.save();
-      return opts.new !== false ? g : null;
-    }
-    return null;
+    const built = buildAtomicGiveawayUpdate(filter, update);
+    if (!built) return null;
+
+    const bucket = await GuildFeatureBucket.findOneAndUpdate(built.query, built.update, {
+      arrayFilters: built.arrayFilters,
+      new: true,
+    }).catch((err) => {
+      global.logger?.warn?.("[giveawayModel] findOneAndUpdate:", err?.message || err);
+      return null;
+    });
+    if (!bucket) return null;
+
+    const g = bucket.giveaways?.id?.(built.oid) || bucket.giveaways?.find((row) => String(row._id) === String(built.oid));
+    if (!g) return null;
+    if (opts.new === false) return null;
+    return toPlainGiveaway(g);
   },
 
   async updateOne(filter, update) {
-    const buckets = await findBucketsForGiveawayFilter(filter);
-    const $set = update?.$set && typeof update.$set === "object" ? update.$set : {};
-    const $pull = update?.$pull && typeof update.$pull === "object" ? update.$pull : {};
-    for (const bucket of buckets) {
-      const g = findGiveawaySubdocInBucket(bucket, filter);
-      if (!g) continue;
-      if ($pull.participants != null && Array.isArray(g.participants)) {
-        const uid = String($pull.participants);
-        g.participants = g.participants.filter((id) => String(id) !== uid);
-      }
-      Object.assign(g, $set);
-      await bucket.save();
-      return { modifiedCount: 1, matchedCount: 1 };
-    }
-    return { modifiedCount: 0, matchedCount: 0 };
+    const built = buildAtomicGiveawayUpdate(filter, update);
+    if (!built) return { modifiedCount: 0, matchedCount: 0 };
+
+    const result = await GuildFeatureBucket.updateOne(built.query, built.update, {
+      arrayFilters: built.arrayFilters,
+    }).catch((err) => {
+      global.logger?.warn?.("[giveawayModel] updateOne:", err?.message || err);
+      return null;
+    });
+
+    const modifiedCount = Number(result?.modifiedCount || 0);
+    const matchedCount = Number(result?.matchedCount || 0);
+    return { modifiedCount, matchedCount };
   },
 
   async create(payload) {
     const guildId = String(payload.guildId || "");
     if (!guildId) throw new Error("Giveaway.create: guildId required");
-    const bucket = await ensureGuildFeatureBucket(guildId);
+    await ensureGuildFeatureBucket(guildId);
     const { guildId: _g, ...rest } = payload;
-    bucket.giveaways.push({ ...rest, guildId });
-    await bucket.save();
-    return bucket.giveaways[bucket.giveaways.length - 1];
+    const entry = { ...rest, guildId, _id: new mongoose.Types.ObjectId() };
+
+    const bucket = await GuildFeatureBucket.findOneAndUpdate(
+      { guildId },
+      { $push: { giveaways: entry } },
+      { new: true },
+    );
+    if (!bucket) throw new Error("Giveaway.create: bucket update failed");
+    const created =
+      bucket.giveaways?.id?.(entry._id) ||
+      bucket.giveaways?.find((row) => String(row._id) === String(entry._id)) ||
+      entry;
+    return toPlainGiveaway(created);
   },
 };
 

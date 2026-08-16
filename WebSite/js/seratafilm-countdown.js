@@ -153,12 +153,44 @@
     }
   }
 
+  /** Cache-bust stabile per lo spot (versione asset pagina), senza ricaricare a ogni tick. */
+  function withAdAssetVersion(url) {
+    var ver = "";
+    try {
+      ver = String(window.__vcSeratafilmAssetVersion || "").trim();
+    } catch (eVer) {}
+    if (!url || !ver) return url;
+    try {
+      var u = new URL(url, window.location.href);
+      if (!u.searchParams.get("v")) u.searchParams.set("v", ver);
+      return u.href;
+    } catch (eU) {
+      return url;
+    }
+  }
+
   function sameMediaUrl(a, b) {
     try {
       return new URL(String(a || ""), window.location.href).href === new URL(String(b || ""), window.location.href).href;
     } catch (eSame) {
       return String(a || "") === String(b || "");
     }
+  }
+
+  /** Confronta URL media ignorando cache-bust (?vcadb=…) così non si ricarica in loop. */
+  function sameMediaUrlIgnoreCacheBust(a, b) {
+    function strip(u) {
+      try {
+        var parsed = new URL(String(u || ""), window.location.href);
+        parsed.searchParams.delete("vcadb");
+        parsed.searchParams.delete("v");
+        parsed.hash = "";
+        return parsed.href;
+      } catch (eStrip) {
+        return String(u || "").replace(/([?&])vcadb=\d+/g, "").replace(/([?&])v=\d+/g, "").replace(/[?&]$/, "");
+      }
+    }
+    return strip(a) === strip(b);
   }
 
   function injectFilmPreloadLink(url) {
@@ -197,9 +229,28 @@
 
   var adBreakDone = false;
   var adBreakRunning = false;
+  var adBreakFailCount = 0;
+  var adBreakRetryAfter = 0;
   var adBreakCardTimer = 0;
   var adBreakMaxTimer = 0;
-  var AD_SEEN_LS_PREFIX = "vc_seratafilm_ad_seen:";
+  var adVideoLoadLocked = false;
+  var adBreakLastCurrentTime = 0;
+  var AD_SEEN_LS_PREFIX = "vc_seratafilm_ad_seen_v10:";
+  var AD_PRELOAD_LINK_ID = "vc-seratafilm-ad-preload";
+  /** True after a real user gesture (click/tap/key) during the countdown page. */
+  var playbackGestureArmed = false;
+  var filmPostAdGraceUntil = 0;
+  var filmSeenCurrentTime = 0;
+  var filmGestureTapEl = null;
+  var filmGestureTapAction = null;
+
+  try {
+    if (/(?:^|[?&])resetAd=1(?:&|$)/.test(String(window.location.search || ""))) {
+      Object.keys(localStorage).forEach(function (k) {
+        if (String(k).indexOf("vc_seratafilm_ad_seen") === 0) localStorage.removeItem(k);
+      });
+    }
+  } catch (eResetAd) {}
 
   function resolveAdBreakSeenStorageKey() {
     var dateKey = "unknown";
@@ -233,11 +284,11 @@
   function resolveAdBreakConfig() {
     var raw = eventCfg().adBreak;
     if (!raw || raw.enabled === false) return null;
-    var videoUrl = resolveFilmUrl(String(raw.videoUrl || "").trim());
+    var videoUrl = withAdAssetVersion(resolveFilmUrl(String(raw.videoUrl || "").trim()));
     if (!videoUrl) return null;
     var totalMs = Number.isFinite(Number(raw.totalMs)) ? Math.max(30000, Math.floor(Number(raw.totalMs))) : 60000;
-    var introMs = Number.isFinite(Number(raw.introMs)) ? Math.max(5000, Math.floor(Number(raw.introMs))) : 15000;
-    var outroMs = Number.isFinite(Number(raw.outroMs)) ? Math.max(5000, Math.floor(Number(raw.outroMs))) : 15000;
+    var introMs = Number.isFinite(Number(raw.introMs)) ? Math.max(2000, Math.floor(Number(raw.introMs))) : 5000;
+    var outroMs = Number.isFinite(Number(raw.outroMs)) ? Math.max(2000, Math.floor(Number(raw.outroMs))) : 5000;
     if (introMs + outroMs >= totalMs) {
       introMs = Math.floor(totalMs * 0.25);
       outroMs = Math.floor(totalMs * 0.25);
@@ -269,20 +320,26 @@
       } catch (eMt) {}
       adBreakMaxTimer = 0;
     }
+    try {
+      destroyLiveAdPlayer();
+    } catch (eDes) {}
   }
 
   function setAdBreakUi(active) {
     var root = document.getElementById("vc-seratafilm-ad-break");
     try {
       document.body.classList.toggle("vc-seratafilm-ad-break-active", Boolean(active));
+      if (!active) document.body.classList.remove("vc-seratafilm-ad-spot-playing");
     } catch (eB) {}
     if (!root) return;
     if (active) {
+      root.classList.remove("is-warming");
       root.hidden = false;
       root.removeAttribute("hidden");
       root.setAttribute("aria-hidden", "false");
       return;
     }
+    root.classList.remove("is-warming");
     root.hidden = true;
     root.setAttribute("hidden", "");
     root.setAttribute("aria-hidden", "true");
@@ -291,20 +348,127 @@
       card.hidden = true;
       card.setAttribute("hidden", "");
     }
-    var adVideo = document.getElementById("vc-seratafilm-ad-video");
-    if (adVideo) {
-      adVideo.hidden = true;
-      adVideo.setAttribute("hidden", "");
-      try {
-        adVideo.pause();
-      } catch (eP) {}
+    setAdVideoStage(document.getElementById("vc-seratafilm-ad-video"), "idle");
+  }
+
+  /** Preload prima del break: toglie [hidden]/display:none] senza coprire il film. */
+  function setAdBreakWarming(active) {
+    var root = document.getElementById("vc-seratafilm-ad-break");
+    if (!root) return;
+    try {
+      if (document.body.classList.contains("vc-seratafilm-ad-break-active")) {
+        root.classList.remove("is-warming");
+        return;
+      }
+    } catch (eAct) {}
+    if (active) {
+      root.classList.add("is-warming");
+      root.hidden = false;
+      root.removeAttribute("hidden");
+      root.setAttribute("aria-hidden", "true");
+      return;
     }
+    root.classList.remove("is-warming");
+    root.hidden = true;
+    root.setAttribute("hidden", "");
+    root.setAttribute("aria-hidden", "true");
+  }
+
+  /** idle | preload | play — evita [hidden] in preload (blocca il download dello spot). */
+  function setAdVideoStage(adVideo, stage) {
+    if (!adVideo) return;
+    var mode = String(stage || "idle");
+    adVideo.classList.remove("is-preloading", "is-playing");
+    if (mode === "preload") {
+      adVideo.hidden = false;
+      adVideo.removeAttribute("hidden");
+      adVideo.classList.add("is-preloading");
+      return;
+    }
+    if (mode === "play") {
+      adVideo.hidden = false;
+      adVideo.removeAttribute("hidden");
+      adVideo.classList.add("is-playing");
+      return;
+    }
+    try {
+      adVideo.pause();
+    } catch (eP) {}
+    adVideo.classList.remove("is-preloading", "is-playing");
+    adVideo.hidden = true;
+    adVideo.setAttribute("hidden", "");
   }
 
   function waitMs(ms) {
     return new Promise(function (resolve) {
       setTimeout(resolve, Math.max(0, Math.floor(Number(ms) || 0)));
     });
+  }
+
+  function injectAdPreloadLink(url) {
+    if (!url) return;
+    var existing = document.getElementById(AD_PRELOAD_LINK_ID);
+    if (existing) {
+      if (sameMediaUrl(existing.getAttribute("href"), url)) return;
+      try {
+        existing.parentNode.removeChild(existing);
+      } catch (eRm) {}
+    }
+    try {
+      var link = document.createElement("link");
+      link.id = AD_PRELOAD_LINK_ID;
+      link.rel = "preload";
+      link.as = "video";
+      link.href = url;
+      document.head.appendChild(link);
+    } catch (ePre) {}
+  }
+
+  function forceAssignAdVideoSrc(adVideo, url, cacheBust) {
+    if (!adVideo || !url) return;
+    var finalUrl = url;
+    if (cacheBust) {
+      try {
+        var u = new URL(url, window.location.href);
+        u.searchParams.set("vcadb", String(Date.now()));
+        finalUrl = u.href;
+      } catch (eCb) {
+        finalUrl = url + (url.indexOf("?") >= 0 ? "&" : "?") + "vcadb=" + Date.now();
+      }
+    }
+    try {
+      adVideo.removeAttribute("src");
+      adVideo.removeAttribute("srcObject");
+    } catch (eRm) {}
+    try {
+      adVideo.pause();
+    } catch (eP) {}
+    adVideo.preload = "auto";
+    adVideo.src = finalUrl;
+    adVideoLoadLocked = true;
+    try {
+      adVideo.load();
+    } catch (eL) {}
+  }
+
+  function ensureAdVideoSrc(adVideo, url, forceReload) {
+    if (!adVideo || !url) return;
+    var hasSrc = Boolean(adVideo.currentSrc || adVideo.src);
+    var same = hasSrc && sameMediaUrlIgnoreCacheBust(adVideo.currentSrc || adVideo.src, url);
+    // readyState 0 = ancora in caricamento, NON “rotto”. Network 3 = NETWORK_NO_SOURCE.
+    var broken = Boolean(adVideo.error) || Number(adVideo.networkState) === 3;
+    var reallyReady = Number(adVideo.readyState) >= 2 && !adVideo.error;
+    if (!forceReload && same && !broken && reallyReady) return;
+    if (forceReload || !same || broken) {
+      forceAssignAdVideoSrc(adVideo, url, Boolean(forceReload || broken));
+      return;
+    }
+    // Stesso URL ma mai bufferizzato (es. era in parent [hidden]): ricarica senza cache-bust.
+    adVideo.preload = "auto";
+    adVideoLoadLocked = true;
+    try {
+      adVideo.load();
+    } catch (eL) {}
   }
 
   function showAdBreakCard(title, text, durationMs) {
@@ -314,18 +478,18 @@
     var countdownEl = document.getElementById("vc-seratafilm-ad-countdown");
     var adVideo = document.getElementById("vc-seratafilm-ad-video");
     if (!card || !titleEl || !textEl || !countdownEl) return waitMs(durationMs);
-    if (adVideo) {
-      adVideo.hidden = true;
-      adVideo.setAttribute("hidden", "");
-      try {
-        adVideo.pause();
-      } catch (eAv) {}
-    }
+    // Mantieni lo spot in preload (opaco) sotto la card: niente pause/hidden.
+    if (adVideo) setAdVideoStage(adVideo, "preload");
     titleEl.textContent = String(title || "");
     textEl.textContent = String(text || "");
     card.hidden = false;
     card.removeAttribute("hidden");
-    clearAdBreakTimers();
+    if (adBreakCardTimer) {
+      try {
+        clearInterval(adBreakCardTimer);
+      } catch (eCt) {}
+      adBreakCardTimer = 0;
+    }
     var totalMs = Math.max(1000, Math.floor(Number(durationMs) || 0));
     var endsAt = Date.now() + totalMs;
     function paint() {
@@ -335,204 +499,383 @@
     paint();
     adBreakCardTimer = setInterval(paint, 250);
     return waitMs(totalMs).then(function () {
-      clearAdBreakTimers();
+      if (adBreakCardTimer) {
+        try {
+          clearInterval(adBreakCardTimer);
+        } catch (eCt2) {}
+        adBreakCardTimer = 0;
+      }
       card.hidden = true;
       card.setAttribute("hidden", "");
     });
   }
 
+  var adTapAction = null;
+  var liveAdPlayer = null;
+  var liveAdBlobUrl = null;
+  var cachedAdObjectUrl = null;
+  var cachedAdSourceUrl = "";
+
+  function getAdTapButton() {
+    var id = "vc-seratafilm-ad-tap";
+    var btn = document.getElementById(id);
+    if (btn) return btn;
+    btn = document.createElement("button");
+    btn.id = id;
+    btn.type = "button";
+    btn.className = "vc-seratafilm-ad-tap";
+    btn.hidden = true;
+    btn.addEventListener("click", function () {
+      if (typeof adTapAction === "function") adTapAction();
+    });
+    document.body.appendChild(btn);
+    return btn;
+  }
+
+  function hideAdTapToPlay() {
+    var btn = getAdTapButton();
+    btn.hidden = true;
+    btn.disabled = false;
+    adTapAction = null;
+  }
+
+  function revokeAdBlobUrl(url) {
+    if (!url) return;
+    try {
+      URL.revokeObjectURL(url);
+    } catch (eRev) {}
+  }
+
+  function destroyLiveAdPlayer() {
+    var el = liveAdPlayer;
+    liveAdPlayer = null;
+    var blob = liveAdBlobUrl;
+    liveAdBlobUrl = null;
+    if (!el) {
+      revokeAdBlobUrl(blob);
+      return;
+    }
+    try {
+      el.onended = null;
+      el.onerror = null;
+      el.onplaying = null;
+      el.ontimeupdate = null;
+      el.pause();
+    } catch (eP) {}
+    try {
+      el.removeAttribute("src");
+    } catch (eRmSrc) {}
+    try {
+      if (el.parentNode) el.parentNode.removeChild(el);
+    } catch (eRm) {}
+    // Non revocare cachedAdObjectUrl: riusiamo lo stesso blob tra i tap.
+    if (blob && blob !== cachedAdObjectUrl) revokeAdBlobUrl(blob);
+  }
+
+  function looksLikeMp4(bytes) {
+    if (!bytes || bytes.length < 12) return false;
+    // ....ftyp........
+    return (
+      bytes[4] === 0x66 &&
+      bytes[5] === 0x74 &&
+      bytes[6] === 0x79 &&
+      bytes[7] === 0x70
+    );
+  }
+
+  function looksLikeHtmlText(text) {
+    var s = String(text || "").slice(0, 80).toLowerCase();
+    return s.indexOf("<!doctype") >= 0 || s.indexOf("<html") >= 0;
+  }
+
+  /**
+   * Scarica lo spot via fetch (stesso canale della pagina/JS).
+   * Il tag <video src="/images/..."> sul nuovo file spesso non arriva a nginx
+   * (challenge CF → HTML → player nero a 0:00 senza errori console).
+   */
+  function fetchAdObjectUrl(url) {
+    var abs = url;
+    try {
+      abs = new URL(url, window.location.href).href;
+    } catch (eAbs) {}
+    if (cachedAdObjectUrl && cachedAdSourceUrl === abs) {
+      return Promise.resolve({ ok: true, objectUrl: cachedAdObjectUrl, via: "cache" });
+    }
+    return fetch(abs, {
+      method: "GET",
+      credentials: "same-origin",
+      cache: "force-cache",
+      headers: { Accept: "video/mp4,video/*,*/*" },
+    })
+      .then(function (res) {
+        if (!res.ok) {
+          return { ok: false, status: res.status, detail: "HTTP " + res.status };
+        }
+        var ctype = String(res.headers.get("content-type") || "").toLowerCase();
+        return res.arrayBuffer().then(function (buf) {
+          var bytes = new Uint8Array(buf);
+          if (!looksLikeMp4(bytes)) {
+            var head = "";
+            try {
+              head = new TextDecoder("utf-8").decode(bytes.subarray(0, 64));
+            } catch (eDec) {}
+            if (looksLikeHtmlText(head) || ctype.indexOf("text/html") >= 0) {
+              return {
+                ok: false,
+                status: res.status,
+                detail: "CF/HTML al posto del video",
+              };
+            }
+            return { ok: false, status: res.status, detail: "file non-MP4" };
+          }
+          var blob = new Blob([buf], { type: "video/mp4" });
+          if (cachedAdObjectUrl) revokeAdBlobUrl(cachedAdObjectUrl);
+          cachedAdObjectUrl = URL.createObjectURL(blob);
+          cachedAdSourceUrl = abs;
+          return { ok: true, objectUrl: cachedAdObjectUrl, via: "fetch", bytes: bytes.length };
+        });
+      })
+      .catch(function (err) {
+        return {
+          ok: false,
+          detail: err && err.message ? err.message : "fetch fallita",
+        };
+      });
+  }
+
+  function createLiveAdPlayerFromSrc(src) {
+    destroyLiveAdPlayer();
+    var adVideo = document.createElement("video");
+    adVideo.id = "vc-seratafilm-ad-live";
+    adVideo.className = "vc-seratafilm-ad-video--fs";
+    adVideo.setAttribute("playsinline", "");
+    adVideo.setAttribute("webkit-playsinline", "");
+    adVideo.setAttribute("muted", "");
+    adVideo.playsInline = true;
+    adVideo.muted = true;
+    adVideo.autoplay = true;
+    adVideo.controls = false;
+    adVideo.disablePictureInPicture = true;
+    adVideo.preload = "auto";
+    adVideo.volume = 1;
+    adVideo.setAttribute("controlslist", "nodownload noplaybackrate noremoteplayback");
+    adVideo.src = src;
+    if (String(src).indexOf("blob:") === 0) liveAdBlobUrl = src;
+    document.body.appendChild(adVideo);
+    liveAdPlayer = adVideo;
+    return adVideo;
+  }
+
   function playAdBreakVideo(url, maxMs) {
-    var adVideo = document.getElementById("vc-seratafilm-ad-video");
-    if (!adVideo || !url) return waitMs(0);
+    if (!url) {
+      return waitMs(0).then(function () {
+        return { playedMs: 0, completed: false };
+      });
+    }
     var card = document.getElementById("vc-seratafilm-ad-card");
     if (card) {
       card.hidden = true;
       card.setAttribute("hidden", "");
     }
-    adVideo.hidden = false;
-    adVideo.removeAttribute("hidden");
-    adVideo.controls = false;
-    adVideo.playsInline = true;
-    adVideo.preload = "auto";
-    adVideo.muted = false;
-    if (!sameMediaUrl(adVideo.currentSrc || adVideo.src, url)) {
-      adVideo.src = url;
-      try {
-        adVideo.load();
-      } catch (eL) {}
-    }
-    return waitForAdVideoReady(adVideo, 20000).then(function (ready) {
-      if (!ready) {
-        try {
-          adVideo.load();
-        } catch (eReload) {}
-      }
+
+    setAdSpotPlaying(true);
+    hideAdTapToPlay();
+
+    var adVideo = null;
+    var usedUrl = url;
+    // Finestra play: almeno ~52s (spot ~48s) anche se totalMs è stretto.
+    var maxMsSafe = Math.max(52000, Math.floor(Number(maxMs) || 0));
+
+    return fetchAdObjectUrl(url).then(function (fetched) {
       return new Promise(function (resolve) {
         var done = false;
         var playStartedAt = 0;
-        var lastProgressAt = Date.now();
         var lastProgressTime = 0;
-        var stallWatchTimer = 0;
-        var stallRecoveries = 0;
-        var maxMsSafe = Math.max(1000, Math.floor(Number(maxMs) || 0));
+        var tapTries = 0;
+        var maxTapTries = 1;
+        var gaveUpTimer = 0;
+        var playSrc = null;
 
-        function cleanupAdVideoListeners() {
+        if (fetched && fetched.ok && fetched.objectUrl) {
+          playSrc = fetched.objectUrl;
+          usedUrl = playSrc;
+        } else {
           try {
-            adVideo.onended = null;
-            adVideo.onerror = null;
-            adVideo.removeEventListener("timeupdate", onAdProgress);
-            adVideo.removeEventListener("playing", onAdPlaying);
+            console.warn("[seratafilm] ad fetch failed", fetched);
+          } catch (eF) {}
+          playSrc = url;
+          usedUrl = url;
+        }
+
+        function cleanup() {
+          try {
+            if (adVideo) {
+              adVideo.onended = null;
+              adVideo.onerror = null;
+              adVideo.removeEventListener("timeupdate", onProgress);
+              adVideo.removeEventListener("playing", onPlaying);
+            }
           } catch (eCl) {}
-          if (stallWatchTimer) {
+          if (adBreakMaxTimer) {
             try {
-              clearInterval(stallWatchTimer);
-            } catch (eSw) {}
-            stallWatchTimer = 0;
+              clearTimeout(adBreakMaxTimer);
+            } catch (eMt) {}
+            adBreakMaxTimer = 0;
           }
+          if (gaveUpTimer) {
+            try {
+              clearTimeout(gaveUpTimer);
+            } catch (eGt) {}
+            gaveUpTimer = 0;
+          }
+          hideAdTapToPlay();
         }
 
         function finish(result) {
           if (done) return;
           done = true;
-          clearAdBreakTimers();
-          cleanupAdVideoListeners();
-          try {
-            adVideo.pause();
-          } catch (eP) {}
-          adVideo.hidden = true;
-          adVideo.setAttribute("hidden", "");
-          var playedMs = playStartedAt ? Math.max(0, Date.now() - playStartedAt) : 0;
+          cleanup();
+          setAdSpotPlaying(false);
+          var playedMs = playStartedAt
+            ? Math.max(0, Date.now() - playStartedAt)
+            : Math.max(0, (Number(adVideo && adVideo.currentTime) || 0) * 1000);
+          destroyLiveAdPlayer();
           resolve({
             playedMs: playedMs,
             completed: Boolean(result && result.completed),
           });
         }
 
-        function onAdPlaying() {
-          if (!playStartedAt) playStartedAt = Date.now();
-          lastProgressAt = Date.now();
-        }
-
-        function onAdProgress() {
-          var t = Number(adVideo.currentTime) || 0;
-          if (t > lastProgressTime + 0.04) {
-            lastProgressTime = t;
-            lastProgressAt = Date.now();
-          }
-        }
-
-        function recoverAdPlayback() {
-          stallRecoveries += 1;
+        function tryUnmute() {
+          if (!adVideo) return;
           try {
-            adVideo.play();
-          } catch (ePlay) {}
-          if (stallRecoveries >= 3) {
-            try {
-              var resumeAt = Math.max(0, lastProgressTime - 0.05);
-              adVideo.load();
-              adVideo.currentTime = resumeAt;
-              adVideo.play();
-            } catch (eReload) {}
+            adVideo.muted = false;
+            adVideo.removeAttribute("muted");
+            adVideo.volume = 1;
+          } catch (eUm) {}
+        }
+
+        function onPlaying() {
+          if (!playStartedAt) playStartedAt = Date.now();
+          hideAdTapToPlay();
+          tryUnmute();
+        }
+
+        function onProgress() {
+          if (!adVideo) return;
+          var cur = Number(adVideo.currentTime) || 0;
+          if (cur > lastProgressTime + 0.05) {
+            lastProgressTime = cur;
+            if (!playStartedAt) playStartedAt = Date.now();
+            hideAdTapToPlay();
+            tryUnmute();
           }
         }
 
-        function startStallWatch() {
-          if (stallWatchTimer) return;
-          stallWatchTimer = setInterval(function () {
-            if (done || adVideo.ended) return;
-            var stallMs = Date.now() - lastProgressAt;
-            if (stallMs < 10000) return;
-            if (stallRecoveries < 4) {
-              recoverAdPlayback();
-              return;
-            }
-            finish({ completed: false });
-          }, 2500);
+        function wirePlayer(el) {
+          adVideo = el;
+          adVideo.onended = function () {
+            finish({ completed: true });
+          };
+          adVideo.onerror = function () {
+            try {
+              console.warn(
+                "[seratafilm] ad media error",
+                adVideo.error && adVideo.error.code,
+                usedUrl
+              );
+            } catch (eLog) {}
+            armTap("Tocca per avviare lo spot");
+          };
+          adVideo.addEventListener("timeupdate", onProgress);
+          adVideo.addEventListener("playing", onPlaying);
         }
 
-        adVideo.onended = function () {
-          finish({ completed: true });
-        };
-        adVideo.onerror = function () {
-          if (stallRecoveries < 2) {
-            stallRecoveries += 1;
-            try {
-              adVideo.load();
-              adVideo.play();
-            } catch (eErr) {
-              finish({ completed: false });
-            }
-            return;
-          }
-          finish({ completed: false });
-        };
-        adVideo.addEventListener("timeupdate", onAdProgress);
-        adVideo.addEventListener("playing", onAdPlaying);
-        adBreakMaxTimer = setTimeout(function () {
-          finish({ completed: Number(adVideo.currentTime) > 1 });
-        }, maxMsSafe);
-
-        function tryPlay(attempt) {
+        function attemptPlay() {
+          if (done || !adVideo) return Promise.resolve(false);
+          adVideo.muted = true;
+          adVideo.setAttribute("muted", "");
           var p = adVideo.play();
           if (!p || typeof p.then !== "function") {
-            startStallWatch();
-            return;
+            hideAdTapToPlay();
+            tryUnmute();
+            return Promise.resolve(true);
           }
-          p.then(function () {
-            startStallWatch();
-          }).catch(function () {
-            adVideo.muted = true;
-            var p2 = adVideo.play();
-            if (!p2 || typeof p2.then !== "function") {
-              startStallWatch();
-              return;
-            }
-            p2.then(function () {
-              startStallWatch();
-            }).catch(function () {
-              if ((attempt || 0) < 2) {
-                waitMs(400).then(function () {
-                  tryPlay((attempt || 0) + 1);
-                });
-                return;
-              }
-              finish({ completed: false });
+          return p
+            .then(function () {
+              hideAdTapToPlay();
+              waitMs(250).then(tryUnmute);
+              return true;
+            })
+            .catch(function (err) {
+              try {
+                console.warn(
+                  "[seratafilm] ad play blocked",
+                  err && err.name,
+                  adVideo.readyState,
+                  usedUrl
+                );
+              } catch (eW) {}
+              return false;
             });
-          });
         }
 
-        if (!ready) {
-          waitForAdVideoReady(adVideo, 12000).then(function (ready2) {
-            if (!ready2) {
+        function armTap(label) {
+          if (done) return;
+          if (tapTries >= maxTapTries) {
+            finish({ completed: false });
+            return;
+          }
+          var tap = getAdTapButton();
+          tap.hidden = false;
+          tap.disabled = false;
+          tap.textContent = label || "Tocca per avviare lo spot";
+          adTapAction = function () {
+            if (done) return;
+            tapTries += 1;
+            tap.disabled = true;
+            tap.textContent = "Avvio…";
+            if (!adVideo) wirePlayer(createLiveAdPlayerFromSrc(playSrc));
+            attemptPlay().then(function (ok) {
+              if (ok || done) return;
               finish({ completed: false });
-              return;
-            }
-            tryPlay(0);
-          });
-          return;
+            });
+          };
         }
-        tryPlay(0);
+
+        // Soft cap: lascia finire lo spot; non tagliare a 45s.
+        adBreakMaxTimer = setTimeout(function () {
+          finish({ completed: adVideo && Number(adVideo.currentTime) > 1 });
+        }, maxMsSafe + 3000);
+
+        // Auto: crea player senza controlli e parte da solo (muted → unmute).
+        wirePlayer(createLiveAdPlayerFromSrc(playSrc));
+        attemptPlay().then(function (ok) {
+          if (ok || done) return;
+          // Solo se il browser blocca l’autoplay mostriamo il tap.
+          armTap("Tocca per avviare lo spot");
+          gaveUpTimer = setTimeout(function () {
+            if (done || (adVideo && Number(adVideo.currentTime) > 0.5)) return;
+            finish({ completed: false });
+          }, 15000);
+        });
       });
     });
   }
 
   function preloadAdBreakVideo(url) {
-    var cfg = resolveAdBreakConfig();
-    if (!cfg || !url) return;
-    var adVideo = document.getElementById("vc-seratafilm-ad-video");
-    if (!adVideo) return;
-    adVideo.preload = filmStarted ? "auto" : "metadata";
-    if (!sameMediaUrl(adVideo.currentSrc || adVideo.src, url)) {
-      adVideo.src = url;
+    if (!url) return;
+    setAdBreakWarming(true);
+    fetchAdObjectUrl(url).then(function (r) {
       try {
-        adVideo.load();
+        if (!(r && r.ok)) console.warn("[seratafilm] ad preload", r);
       } catch (eP) {}
-    }
+    });
   }
 
   function waitForAdVideoReady(adVideo, timeoutMs) {
     if (!adVideo) return Promise.resolve(false);
-    if (Number(adVideo.readyState) >= 2) return Promise.resolve(true);
+    if (Number(adVideo.readyState) >= 2 && !adVideo.error) return Promise.resolve(true);
     return new Promise(function (resolve) {
       var settled = false;
       function finish(ok) {
@@ -541,6 +884,7 @@
         try {
           adVideo.removeEventListener("canplay", onReady);
           adVideo.removeEventListener("loadeddata", onReady);
+          adVideo.removeEventListener("canplaythrough", onReady);
           adVideo.removeEventListener("error", onErr);
         } catch (eRm) {}
         if (timer) {
@@ -551,18 +895,25 @@
         resolve(Boolean(ok));
       }
       function onReady() {
-        finish(Number(adVideo.readyState) >= 2);
+        finish(Number(adVideo.readyState) >= 2 && !adVideo.error);
       }
       function onErr() {
         finish(false);
       }
       var timer = setTimeout(function () {
-        finish(Number(adVideo.readyState) >= 2);
+        finish(Number(adVideo.readyState) >= 2 && !adVideo.error);
       }, Math.max(2000, Math.floor(Number(timeoutMs) || 12000)));
       adVideo.addEventListener("canplay", onReady);
       adVideo.addEventListener("loadeddata", onReady);
+      adVideo.addEventListener("canplaythrough", onReady);
       adVideo.addEventListener("error", onErr);
     });
+  }
+
+  function setAdSpotPlaying(active) {
+    try {
+      document.body.classList.toggle("vc-seratafilm-ad-spot-playing", Boolean(active));
+    } catch (eSp) {}
   }
 
   async function runAdBreakSequence(video) {
@@ -573,60 +924,114 @@
       return;
     }
     adBreakRunning = true;
-    adBreakDone = true;
     var resumeAt = Number(video.currentTime) || 0;
     try {
       video.pause();
     } catch (ePause) {}
+    // Durante lo spot la BGM di pagina non deve ripartire.
+    if (typeof window.__vcSeratafilmBgmStop === "function") {
+      window.__vcSeratafilmBgmStop();
+    }
+    // MAI toccare video.src del film (file enorme): solo pausa + overlay spot dedicato.
+    setAdSpotPlaying(false);
     setAdBreakUi(true);
     var breakStart = Date.now();
+    var adPlayedMs = 0;
+    var adCompleted = false;
     try {
+      try {
+        preloadAdBreakVideo(cfg.videoUrl);
+      } catch (ePre) {}
       await showAdBreakCard(cfg.introTitle, cfg.introText, cfg.introMs);
-      var adMaxMs = Math.max(5000, cfg.totalMs - cfg.introMs - cfg.outroMs);
+      var adMaxMs = Math.max(12000, cfg.totalMs - cfg.introMs - cfg.outroMs);
       var adResult = await playAdBreakVideo(cfg.videoUrl, adMaxMs);
-      var adPlayedMs = adResult && Number.isFinite(Number(adResult.playedMs)) ? Number(adResult.playedMs) : 0;
-      var adCompleted = Boolean(adResult && adResult.completed);
+      adPlayedMs = adResult && Number.isFinite(Number(adResult.playedMs)) ? Number(adResult.playedMs) : 0;
+      adCompleted = Boolean(adResult && adResult.completed);
       var elapsed = Date.now() - breakStart;
       var outroMs = cfg.outroMs;
-      if (adCompleted || adPlayedMs >= Math.min(adMaxMs * 0.45, 12000)) {
-        outroMs = Math.max(cfg.outroMs, cfg.totalMs - elapsed);
+      if (!(adCompleted || adPlayedMs >= 2500)) {
+        outroMs = 1500;
+      } else if (adCompleted || adPlayedMs >= 3000) {
+        outroMs = Math.max(cfg.outroMs, Math.min(8000, cfg.totalMs - elapsed));
       }
+      setAdSpotPlaying(false);
+      setAdBreakUi(true);
       await showAdBreakCard(cfg.outroTitle, cfg.outroText, outroMs);
-      markAdBreakSeenThisScreening();
     } catch (eRun) {
       try {
-        console.warn("[seratafilm] ad break error:", eRun?.message || eRun);
+        console.warn("[seratafilm] ad break error:", eRun && eRun.message ? eRun.message : eRun);
       } catch (eLog) {}
     }
     clearAdBreakTimers();
+    setAdSpotPlaying(false);
     setAdBreakUi(false);
     adBreakRunning = false;
+    if (typeof window.__vcSeratafilmBgmStop === "function") {
+      window.__vcSeratafilmBgmStop();
+    }
+    var playedEnough = adCompleted || adPlayedMs >= 2500;
+    if (playedEnough) {
+      adBreakDone = true;
+      adBreakFailCount = 0;
+      adBreakRetryAfter = 0;
+      markAdBreakSeenThisScreening();
+    } else {
+      adBreakFailCount += 1;
+      adBreakRetryAfter = Date.now() + 20000;
+      adBreakDone = adBreakFailCount >= 3;
+      if (adBreakDone) {
+        try {
+          console.warn("[seratafilm] ad break skipped after failed loads");
+        } catch (eSkip) {}
+      }
+    }
     if (!filmStarted || !video) return;
     try {
-      if (Number.isFinite(resumeAt) && resumeAt >= 0) video.currentTime = resumeAt;
+      if (Number.isFinite(resumeAt) && resumeAt >= 0 && Math.abs((Number(video.currentTime) || 0) - resumeAt) > 0.5) {
+        video.currentTime = resumeAt;
+      }
     } catch (eSeek) {}
+    try {
+      video.muted = false;
+      video.removeAttribute("muted");
+      video.controls = true;
+    } catch (eMu) {}
+    // Reset stall clock after midroll — otherwise the ~60s ad pause looks like an 8s stall.
+    filmPostAdGraceUntil = Date.now() + 45000;
+    filmLastProgressAt = Date.now();
+    filmLastProgressTime = Number(video.currentTime) || resumeAt || 0;
+    filmSeenCurrentTime = filmLastProgressTime;
+    filmStallRecoveries = 0;
+    adBreakLastCurrentTime = filmLastProgressTime;
+    setFilmLoading(false);
     kickInlineFilmPlayback(video);
   }
 
   function shouldTriggerAdBreak(video) {
     var cfg = resolveAdBreakConfig();
     if (!cfg || adBreakDone || adBreakRunning || !video || video.paused || video.ended) return false;
+    if (video.seeking) return false;
+    if (adBreakRetryAfter && Date.now() < adBreakRetryAfter) return false;
     var duration = Number(video.duration);
     var current = Number(video.currentTime);
     if (!Number.isFinite(duration) || duration <= 0 || !Number.isFinite(current)) return false;
-    return current >= duration * (cfg.atPercent / 100);
+    var threshold = duration * (cfg.atPercent / 100);
+    var prev = Number(adBreakLastCurrentTime) || 0;
+    // Solo attraversamento della soglia (play naturale o seek avanti), non "sempre sopra 50%".
+    var crossed = prev < threshold && current >= threshold;
+    adBreakLastCurrentTime = current;
+    return crossed;
   }
 
   function bindAdBreakWatcher(video) {
     if (!video || video.dataset.vcSeratafilmAdBreakBound === "1") return;
     if (!resolveAdBreakConfig()) return;
     video.dataset.vcSeratafilmAdBreakBound = "1";
+    adBreakLastCurrentTime = Number(video.currentTime) || 0;
     video.addEventListener("timeupdate", function () {
       if (shouldTriggerAdBreak(video)) runAdBreakSequence(video);
     });
-    video.addEventListener("seeked", function () {
-      if (shouldTriggerAdBreak(video)) runAdBreakSequence(video);
-    });
+    // Niente listener "seeked": dopo un fail il seek di ripresa riapriva lo spot a vuoto.
   }
 
   var filmStarted = false;
@@ -706,6 +1111,84 @@
     el.setAttribute("hidden", "");
   }
 
+  function hideFilmGestureTap() {
+    filmGestureTapAction = null;
+    if (!filmGestureTapEl) return;
+    filmGestureTapEl.hidden = true;
+    filmGestureTapEl.setAttribute("hidden", "");
+  }
+
+  function showFilmGestureTap(label, onTap) {
+    filmGestureTapAction = typeof onTap === "function" ? onTap : null;
+    if (!filmGestureTapEl) {
+      filmGestureTapEl = document.createElement("button");
+      filmGestureTapEl.id = "vc-seratafilm-film-tap";
+      filmGestureTapEl.type = "button";
+      filmGestureTapEl.className = "vc-seratafilm-ad-tap";
+      filmGestureTapEl.addEventListener("click", function () {
+        var fn = filmGestureTapAction;
+        hideFilmGestureTap();
+        armPlaybackGesture();
+        if (typeof fn === "function") fn();
+      });
+      document.body.appendChild(filmGestureTapEl);
+    }
+    filmGestureTapEl.textContent = String(label || "Tocca per avviare");
+    filmGestureTapEl.hidden = false;
+    filmGestureTapEl.removeAttribute("hidden");
+  }
+
+  function armPlaybackGesture() {
+    playbackGestureArmed = true;
+  }
+
+  function bindPlaybackGestureArm() {
+    if (document.documentElement.dataset.vcSfGestureBound === "1") return;
+    document.documentElement.dataset.vcSfGestureBound = "1";
+    function onGesture() {
+      armPlaybackGesture();
+    }
+    ["pointerdown", "keydown", "touchstart"].forEach(function (evName) {
+      document.addEventListener(evName, onGesture, { capture: true, passive: true });
+    });
+  }
+
+  function requestFilmFullscreen(video) {
+    try {
+      if (document.fullscreenElement || document.webkitFullscreenElement) return Promise.resolve();
+    } catch (e0) {}
+    var root = document.getElementById("vc-seratafilm-film");
+    var target = root || document.documentElement;
+    try {
+      if (video && typeof video.webkitEnterFullscreen === "function") {
+        video.webkitEnterFullscreen();
+        return Promise.resolve();
+      }
+    } catch (eWeb) {}
+    var req =
+      (target && (target.requestFullscreen || target.webkitRequestFullscreen || target.msRequestFullscreen)) ||
+      (document.documentElement.requestFullscreen ||
+        document.documentElement.webkitRequestFullscreen ||
+        document.documentElement.msRequestFullscreen);
+    if (typeof req !== "function") return Promise.resolve();
+    try {
+      var out = req.call(target || document.documentElement);
+      if (out && typeof out.catch === "function") return out.catch(function () {});
+      return Promise.resolve();
+    } catch (eFs) {
+      return Promise.resolve();
+    }
+  }
+
+  function ensureFilmFullscreen(video) {
+    try {
+      if (document.fullscreenElement || document.webkitFullscreenElement) return;
+    } catch (eChk) {}
+    // Fullscreen richiede user gesture: se già armato (click durante countdown / openNow) ok.
+    // Altrimenti il tap post-autoplay muted lo chiede in tryPlayInlineFilm.
+    if (playbackGestureArmed) requestFilmFullscreen(video);
+  }
+
   function kickInlineFilmPlayback(video) {
     if (!video || !filmStarted || video.ended) return;
     if (!video.paused) return;
@@ -714,18 +1197,52 @@
 
   function tryPlayInlineFilm(video) {
     if (!video) return;
+    function unmuteIfArmed() {
+      if (!playbackGestureArmed) return;
+      try {
+        video.muted = false;
+        video.removeAttribute("muted");
+      } catch (eMu) {}
+    }
+    // Timer auto-start: muted first (browser policy). Unmute only with a prior gesture.
+    try {
+      video.muted = !playbackGestureArmed;
+      if (video.muted) video.setAttribute("muted", "");
+    } catch (eM0) {}
     var p = video.play();
     if (p && typeof p.then === "function") {
-      p.catch(function () {
-        video.muted = true;
+      p.then(function () {
+        unmuteIfArmed();
+        hideFilmGestureTap();
+        setFilmLoading(false);
+      }).catch(function () {
+        try {
+          video.muted = true;
+          video.setAttribute("muted", "");
+        } catch (eM1) {}
         var p2 = video.play();
         if (p2 && typeof p2.then === "function") {
           p2.then(function () {
-            try {
-              video.muted = false;
-            } catch (eMu) {}
+            unmuteIfArmed();
+            hideFilmGestureTap();
+            setFilmLoading(false);
+            if (!playbackGestureArmed) {
+              showFilmGestureTap("Tocca per audio e schermo intero", function () {
+                unmuteIfArmed();
+                requestFilmFullscreen(video);
+              });
+            }
           }).catch(function () {
-            setFilmLoading(true, "Premi play per avviare la proiezione.");
+            setFilmLoading(true, "Tocca per avviare la proiezione.");
+            showFilmGestureTap("Tocca per avviare la proiezione", function () {
+              requestFilmFullscreen(video);
+              try {
+                video.muted = false;
+                video.removeAttribute("muted");
+              } catch (eMu2) {}
+              var p3 = video.play();
+              if (p3 && typeof p3.catch === "function") p3.catch(function () {});
+            });
           });
         }
       });
@@ -745,27 +1262,49 @@
     filmStallWatchTimer = 0;
   }
 
+  function syncFilmProgressClock(video) {
+    if (!video) return;
+    var t = Number(video.currentTime) || 0;
+    filmSeenCurrentTime = t;
+    filmLastProgressTime = t;
+    filmLastProgressAt = Date.now();
+    filmStallRecoveries = 0;
+  }
+
   function noteFilmProgress(video) {
     if (!video) return;
     var t = Number(video.currentTime) || 0;
-    if (t > filmLastProgressTime + 0.04) {
+    var prev = Number(filmSeenCurrentTime) || 0;
+    var delta = Math.abs(t - prev);
+    // Qualsiasi avanzamento O seek (anche indietro) aggiorna l'orologio stall — mai high-water only.
+    if (delta > 0.04) {
+      filmSeenCurrentTime = t;
       filmLastProgressTime = t;
       filmLastProgressAt = Date.now();
-      filmStallRecoveries = 0;
+      if (delta < 2.5) filmStallRecoveries = 0;
       setFilmLoading(false);
     }
   }
 
   function recoverInlineFilmPlayback(video, hard) {
     if (!video || !filmStarted || video.ended) return;
+    var duration = Number(video.duration);
+    var cur = Number(video.currentTime) || 0;
+    var nearEnd = Number.isFinite(duration) && duration > 30 && cur >= Math.max(0, duration - 120);
     filmStallRecoveries += 1;
-    var resumeAt = Math.max(0, filmLastProgressTime - 0.25);
+    // Vicino alla fine: niente hard load()+seek (salta minuti avanti). Solo play soft.
+    if (nearEnd || Date.now() < filmPostAdGraceUntil) {
+      tryPlayInlineFilm(video);
+      return;
+    }
+    // Mai riportare avanti a un vecchio high-water mark dopo un seek indietro.
+    var resumeAt = Math.max(0, cur - 0.25);
     try {
       if (hard) {
         video.load();
         video.currentTime = resumeAt;
-      } else if (Number(video.currentTime) > 0.2) {
-        video.currentTime = Math.max(0, Number(video.currentTime) - 0.15);
+      } else if (cur > 0.2) {
+        video.currentTime = Math.max(0, cur - 0.15);
       }
     } catch (eSeek) {}
     tryPlayInlineFilm(video);
@@ -774,12 +1313,30 @@
   function bindFilmStallWatch(video) {
     if (!video) return;
     clearFilmStallWatch();
-    filmLastProgressAt = Date.now();
-    filmLastProgressTime = Number(video.currentTime) || 0;
+    syncFilmProgressClock(video);
     filmStallWatchTimer = setInterval(function () {
       if (!filmStarted || !video || video.paused || video.ended || adBreakRunning) return;
       var stallMs = Date.now() - filmLastProgressAt;
       if (stallMs < 8000) return;
+      var duration = Number(video.duration);
+      var cur = Number(video.currentTime) || 0;
+      var nearEnd = Number.isFinite(duration) && duration > 30 && cur >= Math.max(0, duration - 120);
+      var inGrace = Date.now() < filmPostAdGraceUntil;
+      if (inGrace) {
+        setFilmLoading(true, "Buffering…");
+        tryPlayInlineFilm(video);
+        return;
+      }
+      if (nearEnd) {
+        if (filmStallRecoveries < 3) {
+          setFilmLoading(true, "Buffering…");
+          recoverInlineFilmPlayback(video, false);
+          return;
+        }
+        setFilmLoading(true, "Buffering in corso vicino alla fine…");
+        tryPlayInlineFilm(video);
+        return;
+      }
       if (filmStallRecoveries < 2) {
         setFilmLoading(true, "Buffering…");
         recoverInlineFilmPlayback(video, false);
@@ -798,7 +1355,7 @@
     if (!video || video.dataset.vcSeratafilmPlaybackBound === "1") return;
     video.dataset.vcSeratafilmPlaybackBound = "1";
     video.addEventListener("error", function () {
-      if (!filmStarted) return;
+      if (!filmStarted || adBreakRunning) return;
       setFilmLoading(true, "Impossibile caricare il film. Ricarica la pagina o contatta lo staff.");
     });
     video.addEventListener("waiting", function () {
@@ -815,6 +1372,15 @@
     });
     video.addEventListener("canplay", function () {
       if (filmStarted) setFilmLoading(false);
+    });
+    video.addEventListener("seeking", function () {
+      if (!filmStarted || adBreakRunning) return;
+      syncFilmProgressClock(video);
+    });
+    video.addEventListener("seeked", function () {
+      if (!filmStarted || adBreakRunning) return;
+      syncFilmProgressClock(video);
+      adBreakLastCurrentTime = Number(video.currentTime) || 0;
     });
     video.addEventListener("timeupdate", function () {
       if (!filmStarted) return;
@@ -852,13 +1418,25 @@
     filmStarted = true;
     adBreakDone = false;
     adBreakRunning = false;
+    adBreakFailCount = 0;
+    adBreakRetryAfter = 0;
+    adVideoLoadLocked = false;
+    adBreakLastCurrentTime = 0;
+    filmPostAdGraceUntil = 0;
     filmStallRecoveries = 0;
     filmLastProgressAt = Date.now();
     filmLastProgressTime = 0;
+    filmSeenCurrentTime = 0;
     clearFilmStallWatch();
     syncAdBreakDoneFromStorage();
     clearAdBreakTimers();
     setAdBreakUi(false);
+    hideFilmGestureTap();
+    clearCountdownAudioArm();
+    clearCountdownAudioFastGuard();
+    try {
+      if (countdownAudioEl) countdownAudioEl.pause();
+    } catch (eAud) {}
     var root = document.getElementById("vc-seratafilm-film");
     var video = document.getElementById("vc-seratafilm-film-video");
     if (!root || !video) {
@@ -882,7 +1460,7 @@
     root.hidden = false;
     root.removeAttribute("hidden");
     root.setAttribute("aria-hidden", "false");
-    setFilmLoading(false);
+    setFilmLoading(true, "Avvio proiezione…");
     video.playsInline = true;
     video.controls = true;
     video.preload = "auto";
@@ -898,12 +1476,10 @@
         video.load();
       } catch (eV) {}
     }
-    if (document.documentElement.requestFullscreen) {
-      document.documentElement.requestFullscreen().catch(function () {});
-    }
     try {
       video.currentTime = 0;
     } catch (eT) {}
+    ensureFilmFullscreen(video);
     kickInlineFilmPlayback(video);
     video.addEventListener(
       "loadedmetadata",
@@ -1018,7 +1594,8 @@
     }
   }
 
-  function clearFinalCountdownUi() {
+  function clearFinalCountdownUi(options) {
+    var keepFullscreen = Boolean(options && options.keepFullscreen);
     try {
       document.body.classList.remove("vc-seratafilm-final10", "vc-seratafilm-final-fullscreen");
     } catch (eC) {}
@@ -1026,12 +1603,14 @@
       var fsRoot = document.getElementById("vc-seratafilm-fs-countdown");
       if (fsRoot) fsRoot.setAttribute("aria-hidden", "true");
     } catch (eA) {}
-    try {
-      if (document.fullscreenElement && document.exitFullscreen) {
-        document.exitFullscreen().catch(function () {});
-      }
-    } catch (eF) {}
-    fsRequested = false;
+    if (!keepFullscreen) {
+      try {
+        if ((document.fullscreenElement || document.webkitFullscreenElement) && document.exitFullscreen) {
+          document.exitFullscreen().catch(function () {});
+        }
+      } catch (eF) {}
+      fsRequested = false;
+    }
   }
 
   window.__vcSeratafilmStartCountdown = function () {
@@ -1040,7 +1619,15 @@
     filmStarted = false;
     adBreakDone = false;
     adBreakRunning = false;
+    adBreakFailCount = 0;
+    adBreakRetryAfter = 0;
+    adVideoLoadLocked = false;
+    adBreakLastCurrentTime = 0;
+    filmPostAdGraceUntil = 0;
     filmStallRecoveries = 0;
+    filmSeenCurrentTime = 0;
+    hideFilmGestureTap();
+    bindPlaybackGestureArm();
     clearFilmStallWatch();
     clearAdBreakTimers();
     setAdBreakUi(false);
@@ -1077,13 +1664,15 @@
     if (openNow && !openNow.dataset.vcSeratafilmOpenBound) {
       openNow.dataset.vcSeratafilmOpenBound = "1";
       openNow.addEventListener("click", function () {
+        armPlaybackGesture();
         if (window.__vcSeratafilmCountdownInterval) {
           clearInterval(window.__vcSeratafilmCountdownInterval);
           window.__vcSeratafilmCountdownInterval = 0;
         }
         clearCountdownAudioArm();
         clearCountdownAudioFastGuard();
-        clearFinalCountdownUi();
+        // Keep FS if already active — exiting here burns the user gesture for play/FS.
+        clearFinalCountdownUi({ keepFullscreen: true });
         if (isInlineFilmUrl(filmUrl)) preloadInlineFilm(filmUrl, { forceAuto: true });
         openFilm(true);
       });
@@ -1170,9 +1759,9 @@
         } catch (eFsA) {}
         if (fsRoot) fsRoot.setAttribute("aria-hidden", "false");
         if (fsNum) fsNum.textContent = String(Math.max(0, Math.ceil(distanza / 1000)));
-        if (!fsRequested && document.documentElement.requestFullscreen) {
+        if (!fsRequested && playbackGestureArmed) {
           fsRequested = true;
-          document.documentElement.requestFullscreen().catch(function () {});
+          requestFilmFullscreen(null);
         }
       } else {
         try {

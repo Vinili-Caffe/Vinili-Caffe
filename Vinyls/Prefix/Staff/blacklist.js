@@ -2,11 +2,33 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const IDs = require("../../Utils/Config/ids");
 const { listPartnershipBlacklistGuilds } = require("../../Services/Partner/partnershipBlacklistService");
+const {
+  listTenantPartnershipBlacklistGuilds,
+  addTenantPartnershipBlacklistGuild,
+  removeTenantPartnershipBlacklistGuild,
+  normalizeTargetGuildId,
+} = require("../../Services/Partner/tenantPartnershipBlacklistService");
 const { resolvePartnershipBlacklistEntryDisplay } = require("../../Utils/Partner/partnershipBlacklistDisplay");
 const {
   partnersChatPartnerCommandDeniedReplyContent,
   sendPartnersChatDeniedPrefixCleanup,
 } = require("../../Utils/Partner/partnersChatChannelUtils");
+const {
+  shouldApplyMainPartnershipFilters,
+  isPartnershipOperational,
+  memberHasPartnerManagerRole,
+  shouldBlockTenantPartnershipPrefixCommands,
+} = require("../../Utils/Partner/partnershipConfigResolver");
+const { memberCanManageTenantPartnershipSettings } = require("../../Utils/Partner/tenantPartnershipAdminAccess");
+const { fetchInviteGuildMeta } = require("../../Utils/Partner/partnershipBlacklistDisplay");
+const { resolveTenantLanguageForMessage,
+  tenantOnlyError,
+  tenantNoPermissionError,
+  replyTenantMessage, tenantNoticePayload } = require("../../Utils/Partner/tenantPartnershipPrefixMessages");
+const { replyPrefixSetupRequired } = require("../../Utils/Partner/tenantSetupRequiredReply");
+const { applyPartnershipPayloadBranding } = require("../../MultiGuild/utils/tenantEmbedBranding");
+const { applyDefaultFooterToEmbeds } = require("../../Utils/Embeds/defaultFooter");
+const { t } = require("../../Utils/Partner/tenantPartnershipI18n");
 
 const PANEL_PREFIX = "blacklist_ui";
 
@@ -20,14 +42,31 @@ function hasBlacklistManageRole(member) {
 function hasBlacklistViewRole(member) {
   const roles = member?.roles?.cache;
   if (!roles) return false;
+  const guildId = member?.guild?.id;
+  const { getPartnerManagerRoleId } = require("../../Utils/Partner/partnershipConfigResolver");
+  const partnerManagerRoleId = getPartnerManagerRoleId(guildId);
   const staffRoleId = IDs?.roles?.Staff;
   const highStaffRoleId = IDs?.roles?.HighStaff;
-  const partnerManagerRoleId = IDs?.roles?.PartnerManager;
+  const legacyPartnerManagerRoleId = IDs?.roles?.PartnerManager;
   return Boolean(
     (staffRoleId && roles.has(staffRoleId)) ||
       (highStaffRoleId && roles.has(highStaffRoleId)) ||
+      (legacyPartnerManagerRoleId && roles.has(legacyPartnerManagerRoleId)) ||
       (partnerManagerRoleId && roles.has(partnerManagerRoleId)),
   );
+}
+
+function memberCanUseTenantBlacklist(member, guild) {
+  const guildId = String(guild?.id || "").trim();
+  if (!guildId || !member) return false;
+  return (
+    memberHasPartnerManagerRole(member, guildId) ||
+    memberCanManageTenantPartnershipSettings(member, guild)
+  );
+}
+
+function memberCanManageTenantBlacklist(member, guild) {
+  return memberCanManageTenantPartnershipSettings(member, guild);
 }
 
 function normalizePageIndex(pageIndex, total) {
@@ -104,9 +143,10 @@ function buildBlacklistPanelComponents(ownerId, canManage, pageIndex, total) {
   return components;
 }
 
-async function buildBlacklistPanelPayload(client, ownerId, canView, canManage, rows = [], pageIndex = 0) {
+async function buildBlacklistPanelPayload(client, ownerId, canView, canManage, rows = [], pageIndex = 0, guild = null) {
+  let payload;
   if (!canView) {
-    return {
+    payload = {
       embeds: [
         new EmbedBuilder()
           .setColor("Red")
@@ -115,9 +155,8 @@ async function buildBlacklistPanelPayload(client, ownerId, canView, canManage, r
       ],
       components: [],
     };
-  }
-  if (!rows.length) {
-    return {
+  } else if (!rows.length) {
+    payload = {
       embeds: [
         new EmbedBuilder()
           .setColor("#6f4e37")
@@ -126,23 +165,237 @@ async function buildBlacklistPanelPayload(client, ownerId, canView, canManage, r
       ],
       components: buildBlacklistPanelComponents(ownerId, canManage, 0, 0),
     };
+  } else {
+    const safeIndex = normalizePageIndex(pageIndex, rows.length);
+    const embed = await buildBlacklistEntryEmbed(client, rows[safeIndex], safeIndex, rows.length);
+    payload = {
+      embeds: [embed],
+      components: buildBlacklistPanelComponents(ownerId, canManage, safeIndex, rows.length),
+    };
   }
-  const safeIndex = normalizePageIndex(pageIndex, rows.length);
-  const embed = await buildBlacklistEntryEmbed(client, rows[safeIndex], safeIndex, rows.length);
+
+  if (!guild?.id) return payload;
+  return applyPartnershipPayloadBranding(payload, {
+    guildId: guild.id,
+    guild,
+    client: client || guild.client,
+  });
+}
+
+async function buildTenantBlacklistListPayload(client, guild, rows, lang) {
+  if (!rows.length) {
+    return applyPartnershipPayloadBranding(
+      applyDefaultFooterToEmbeds(
+        {
+          embeds: [
+            new EmbedBuilder()
+              .setColor("#6f4e37")
+              .setTitle(t(lang, "blacklist_listTitle"))
+              .setDescription(t(lang, "blacklist_empty")),
+          ],
+          allowedMentions: { repliedUser: false },
+        },
+        guild,
+      ),
+      { guildId: guild.id, guild, client },
+    );
+  }
+
+  const lines = [];
+  for (const entry of rows.slice(0, 25)) {
+    const display = await resolvePartnershipBlacklistEntryDisplay(client, entry);
+    const note = display.note ? ` — ${display.note.slice(0, 80)}` : "";
+    lines.push(`• **${display.guildName}** (\`${display.guildId}\`)${note}`);
+  }
+
+  return applyPartnershipPayloadBranding(
+    applyDefaultFooterToEmbeds(
+      {
+        embeds: [
+          new EmbedBuilder()
+            .setColor("#6f4e37")
+            .setTitle(t(lang, "blacklist_listTitle"))
+            .setDescription(lines.join("\n").slice(0, 4000)),
+        ],
+        allowedMentions: { repliedUser: false },
+      },
+      guild,
+    ),
+    { guildId: guild.id, guild, client },
+  );
+}
+
+async function resolveTenantBlacklistTarget(rawInput, guildId) {
+  const input = String(rawInput || "").trim();
+  if (!input) return null;
+
+  const directId = normalizeTargetGuildId(input);
+  if (directId) {
+    if (directId === String(guildId || "").trim()) {
+      return { error: "self" };
+    }
+    return { guildId: directId, meta: {} };
+  }
+
+  const meta = await fetchInviteGuildMeta(input);
+  if (!meta?.guildId) return { error: "invalid" };
+  if (meta.guildId === String(guildId || "").trim()) {
+    return { error: "self" };
+  }
   return {
-    embeds: [embed],
-    components: buildBlacklistPanelComponents(ownerId, canManage, safeIndex, rows.length),
+    guildId: meta.guildId,
+    meta: {
+      invite: meta.invite,
+      guildName: meta.guildName,
+      iconUrl: meta.iconUrl,
+    },
+    displayName: meta.guildName,
   };
+}
+
+async function executeTenantBlacklist(message, args = []) {
+  await message.channel.sendTyping().catch(() => null);
+  const guildId = message.guild.id;
+  const lang = await resolveTenantLanguageForMessage(message);
+
+  if (shouldBlockTenantPartnershipPrefixCommands(guildId)) {
+    return safeMessageReply(message, {
+      ...(await tenantOnlyError(message, "`+blacklist`")),
+      allowedMentions: { repliedUser: false },
+    });
+  }
+
+  if (!isPartnershipOperational(guildId)) {
+    return replyPrefixSetupRequired(message);
+  }
+
+  const denied = await partnersChatPartnerCommandDeniedReplyContent(message.channel).catch(() => null);
+  if (denied) {
+    return sendPartnersChatDeniedPrefixCleanup(message, denied);
+  }
+
+  if (!memberCanUseTenantBlacklist(message.member, message.guild)) {
+    return safeMessageReply(message, {
+      ...(await tenantNoPermissionError(message, "`+blacklist`")),
+      allowedMentions: { repliedUser: false },
+    });
+  }
+
+  const action = String(args[0] || "").trim().toLowerCase();
+  const canManage = memberCanManageTenantBlacklist(message.member, message.guild);
+
+  if (action === "add") {
+    if (!canManage) {
+      return safeMessageReply(message, {
+        ...(await tenantNoPermissionError(message, "`+blacklist add`")),
+        allowedMentions: { repliedUser: false },
+      });
+    }
+    const targetInput = String(args[1] || "").trim();
+    if (!targetInput) {
+      return safeMessageReply(message, {
+        ...(await tenantNoticePayload(message, "blacklist_usage")),
+        allowedMentions: { repliedUser: false },
+      });
+    }
+    const note = args.slice(2).join(" ").trim();
+    const resolved = await resolveTenantBlacklistTarget(targetInput, guildId);
+    if (!resolved) {
+      return safeMessageReply(message, {
+        ...(await tenantNoticePayload(message, "blacklist_invalidTarget")),
+        allowedMentions: { repliedUser: false },
+      });
+    }
+    if (resolved.error === "self") {
+      return safeMessageReply(message, {
+        ...(await tenantNoticePayload(message, "blacklist_self")),
+        allowedMentions: { repliedUser: false },
+      });
+    }
+    if (resolved.error === "invalid" || !resolved.guildId) {
+      return safeMessageReply(message, {
+        ...(await tenantNoticePayload(message, "blacklist_invalidTarget")),
+        allowedMentions: { repliedUser: false },
+      });
+    }
+
+    const result = await addTenantPartnershipBlacklistGuild(
+      guildId,
+      resolved.guildId,
+      message.author.id,
+      note,
+      resolved.meta || {},
+    );
+    if (!result?.ok) {
+      return safeMessageReply(message, {
+        ...(await tenantNoticePayload(message, "blacklist_invalidTarget")),
+        allowedMentions: { repliedUser: false },
+      });
+    }
+
+    const displayName =
+      resolved.displayName ||
+      resolved.meta?.guildName ||
+      `Server ${resolved.guildId}`;
+    return safeMessageReply(message, {
+      ...(await tenantNoticePayload(message, "blacklist_added", { guildName: displayName })),
+      allowedMentions: { repliedUser: false },
+    });
+  }
+
+  if (action === "remove") {
+    if (!canManage) {
+      return safeMessageReply(message, {
+        ...(await tenantNoPermissionError(message, "`+blacklist remove`")),
+        allowedMentions: { repliedUser: false },
+      });
+    }
+    const targetId = normalizeTargetGuildId(args[1]);
+    if (!targetId) {
+      return safeMessageReply(message, {
+        ...(await tenantNoticePayload(message, "blacklist_usage")),
+        allowedMentions: { repliedUser: false },
+      });
+    }
+    const result = await removeTenantPartnershipBlacklistGuild(guildId, targetId);
+    if (!result?.ok || !result.deleted) {
+      return safeMessageReply(message, {
+        ...(await tenantNoticePayload(message, "blacklist_notFound")),
+        allowedMentions: { repliedUser: false },
+      });
+    }
+    return safeMessageReply(message, {
+      ...(await tenantNoticePayload(message, "blacklist_removed", { guildId: targetId })),
+      allowedMentions: { repliedUser: false },
+    });
+  }
+
+  if (args.length > 0 && action !== "list") {
+    return safeMessageReply(message, {
+      ...(await tenantNoticePayload(message, "blacklist_usage")),
+      allowedMentions: { repliedUser: false },
+    });
+  }
+
+  const rows = await listTenantPartnershipBlacklistGuilds(guildId, 200).catch(() => []);
+  const payload = await buildTenantBlacklistListPayload(message.client, message.guild, rows, lang);
+  return safeMessageReply(message, payload);
 }
 
 module.exports = {
   name: "blacklist",
   allowEmptyArgs: true,
+  description: "Gestisce l’elenco dei server esclusi dalle partnership.",
+  usage: "+blacklist | +blacklist add <invito|guildId> [motivo] | +blacklist remove <guildId>",
+  examples: ["+blacklist", "+blacklist add discord.gg/esempio motivo", "+blacklist remove 123456789012345678"],
   buildBlacklistPanelPayload,
   hasBlacklistManageRole,
   hasBlacklistViewRole,
   normalizePageIndex,
   async execute(message, args) {
+    if (!shouldApplyMainPartnershipFilters(message.guild?.id)) {
+      return executeTenantBlacklist(message, args);
+    }
     const denied = await partnersChatPartnerCommandDeniedReplyContent(message.channel);
     if (denied) {
       return sendPartnersChatDeniedPrefixCleanup(message, denied);
@@ -150,7 +403,15 @@ module.exports = {
     const canView = hasBlacklistViewRole(message.member);
     const canManage = hasBlacklistManageRole(message.member);
     const rows = canView ? await listPartnershipBlacklistGuilds(200).catch(() => []) : [];
-    const payload = await buildBlacklistPanelPayload(message.client, message.author.id, canView, canManage, rows, 0);
+    const payload = await buildBlacklistPanelPayload(
+      message.client,
+      message.author.id,
+      canView,
+      canManage,
+      rows,
+      0,
+      message.guild,
+    );
     return safeMessageReply(message, {
       ...payload,
       allowedMentions: { repliedUser: false },

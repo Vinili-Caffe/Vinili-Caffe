@@ -8,6 +8,7 @@
     draftContent: "",
     pendingReply: null,
     editingComment: null,
+    submitInFlight: false,
     livePollTimer: null,
     suggestionsWs: null,
     wsReconnectTimer: null,
@@ -18,10 +19,21 @@
       userControlled: false,
     },
     deepLinkAppliedId: "",
+    renderFingerprint: "",
   };
 
   function byId(id) {
     return document.getElementById(id);
+  }
+
+  function t(key, fallback) {
+    try {
+      if (window.VcI18n) {
+        var v = window.VcI18n.t(key);
+        if (v && v !== key) return v;
+      }
+    } catch (e) {}
+    return fallback;
   }
 
   function getDiscordUserSync() {
@@ -79,6 +91,7 @@
     state.suggestionsPager.totalPages = 1;
     state.suggestionsPager.userControlled = false;
     state.deepLinkAppliedId = "";
+    state.renderFingerprint = "";
     var wrap = byId("vc-suggestions-list");
     if (wrap) wrap.innerHTML = "";
     var pager = byId("vc-suggestions-pager");
@@ -127,6 +140,24 @@
     return false;
   }
 
+  function payloadFingerprint(body) {
+    try {
+      return JSON.stringify({
+        suggestions: (body && body.suggestions) || [],
+        viewer: (body && body.viewer) || null,
+      });
+    } catch (e) {
+      return "";
+    }
+  }
+
+  function shouldSkipDomRender(body) {
+    if (!body || state.editModalOpen || state.editingComment || state.pendingReply) return false;
+    var fp = payloadFingerprint(body);
+    if (!fp || !state.renderFingerprint) return false;
+    return fp === state.renderFingerprint;
+  }
+
   function refreshPayloadQuiet() {
     if (state.editModalOpen || state.editingComment || isTypingInSuggestionField()) return Promise.resolve();
     if (!byId("vc-suggestions-list")) return Promise.resolve();
@@ -138,6 +169,10 @@
       .then(parseSuggestionsApiJson)
       .then(function (body) {
         if (!body || body.ok !== true) return;
+        if (shouldSkipDomRender(body)) {
+          state.payload = body;
+          return;
+        }
         state.payload = body;
         render();
       })
@@ -325,9 +360,20 @@
     return out;
   }
 
-  function setStatus(text, isError) {
+  var statusTimer = null;
+  var STATUS_AUTO_MS = 6000;
+
+  function clearStatusTimer() {
+    if (statusTimer) {
+      clearTimeout(statusTimer);
+      statusTimer = null;
+    }
+  }
+
+  function setStatus(text, isError, opts) {
     var node = byId("vc-suggestions-status");
     if (!node) return;
+    clearStatusTimer();
     if (!text) {
       node.hidden = true;
       node.textContent = "";
@@ -337,6 +383,12 @@
     node.hidden = false;
     node.textContent = text;
     node.className = "vc-reviews-status" + (isError ? " is-error" : "");
+    if (!(opts && opts.sticky)) {
+      statusTimer = setTimeout(function () {
+        statusTimer = null;
+        setStatus("");
+      }, STATUS_AUTO_MS);
+    }
   }
 
   function suggestionCardMarkup(s) {
@@ -462,7 +514,7 @@
             (c.authorAvatarUrl
               ? '<img class="h-7 w-7 rounded-full object-cover" src="' +
                 esc(c.authorAvatarUrl) +
-                '" alt="" loading="lazy" />'
+                '" alt="" width="28" height="28" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-vc-avatar="1" />'
               : '<span class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white/10"><i class="fa fa-user text-slate-300"></i></span>') +
             "<strong>" +
             esc(c.authorName || "Utente") +
@@ -507,20 +559,16 @@
     if (pending && tokenOk) {
       threadHtml +=
         prLine +
-        '<div class="mt-3">' +
-        '<label class="mb-1 block text-xs font-medium text-slate-400" for="vc-sug-comment-' +
+        '<div class="vc-sug-comment-compose">' +
+        '<input id="vc-sug-comment-' +
         esc(rawSid) +
-        '">Il tuo commento</label>' +
-        '<textarea id="vc-sug-comment-' +
-        esc(rawSid) +
-        '" class="vc-reviews-textarea" rows="2" placeholder="Scrivi un commento o una risposta..."></textarea>' +
-        '<div class="mt-2">' +
-        '<button type="button" class="vc-reviews-submit" data-suggestion-comment-submit="' +
+        '" class="vc-sug-comment-compose__input" type="text" maxlength="1200" placeholder="Scrivi un commento..." />' +
+        '<button type="button" class="vc-sug-comment-compose__btn" data-suggestion-comment-submit="' +
         esc(rawSid) +
         '">Pubblica</button>' +
-        "</div></div>";
+        "</div>";
     } else if (pending && !tokenOk) {
-      threadHtml += '<p class="text-sm text-slate-500">Accedi con Discord per commentare.</p>';
+      threadHtml += '<p class="text-sm text-slate-500">' + esc(t("sugg.comment", "Accedi con Discord per commentare.")) + "</p>";
     }
     threadHtml += "</div>";
 
@@ -528,40 +576,29 @@
     if (canMod) {
       var reasonPrefill = String(s.staffReason || "");
       staffActions =
-        '<div class="vc-suggestions-staff-card mt-4 rounded-xl border border-amber-500/25 bg-amber-500/5 p-4">' +
-        '<p class="vc-suggestions-staff-card__title text-xs font-semibold uppercase tracking-wider text-amber-200/80">High Staff</p>' +
-        '<label class="vc-suggestions-staff-card__label mt-2 mb-1 block text-xs text-slate-400" for="vc-sug-staff-reason-' +
+        '<div class="vc-sug-mod" role="group" aria-label="Azioni High Staff">' +
+        '<input id="vc-sug-staff-reason-' +
         esc(rawSid) +
-        '">Risposta / motivo (min. 3 caratteri per Accetta o Rifiuta)</label>' +
-        '<textarea id="vc-sug-staff-reason-' +
-        esc(rawSid) +
-        '" class="vc-reviews-textarea" rows="2" placeholder="Motivazione visibile nella scheda...">' +
+        '" class="vc-sug-mod__reason" type="text" maxlength="1000" placeholder="Motivo (min. 3 per Accetta/Rifiuta)" value="' +
         esc(reasonPrefill) +
-        "</textarea>" +
-        '<div class="mt-3 flex flex-wrap gap-2">' +
-        '<button type="button" class="vc-reviews-submit" data-suggestion-decision-id="' +
+        '" />' +
+        '<div class="vc-sug-mod__actions">' +
+        '<button type="button" class="vc-sug-mod__btn vc-sug-mod__btn--ok" data-suggestion-decision-id="' +
         esc(rawSid) +
         '" data-suggestion-decision-status="accepted">Accetta</button>' +
-        '<button type="button" class="vc-reviews-submit vc-suggestions-btn-danger" data-suggestion-decision-id="' +
+        '<button type="button" class="vc-sug-mod__btn vc-sug-mod__btn--no" data-suggestion-decision-id="' +
         esc(rawSid) +
         '" data-suggestion-decision-status="rejected">Rifiuta</button>' +
-        '<button type="button" class="vc-reviews-submit vc-suggestions-btn-muted" data-suggestion-decision-id="' +
+        '<button type="button" class="vc-sug-mod__btn" data-suggestion-decision-id="' +
         esc(rawSid) +
-        '" data-suggestion-decision-status="pending">In valutazione</button>' +
+        '" data-suggestion-decision-status="pending">Valuta</button>' +
+        '<button type="button" class="vc-sug-mod__btn vc-sug-mod__btn--del" data-suggestion-staff-delete="' +
+        esc(rawSid) +
+        '" title="Elimina definitivamente">Elimina</button>' +
         "</div></div>";
     }
 
     var staffDelete = "";
-    if (canMod) {
-      staffDelete =
-        '<div class="vc-suggestions-staff-delete-card mt-4 rounded-xl border border-slate-500/30 bg-slate-900/40 p-3">' +
-        '<p class="vc-suggestions-staff-delete-card__title text-xs font-semibold uppercase tracking-wider text-slate-300/90">High Staff</p>' +
-        '<button type="button" class="vc-reviews-submit vc-suggestions-btn-muted mt-2" data-suggestion-staff-delete="' +
-        esc(rawSid) +
-        '">Elimina definitivamente</button>' +
-        '<p class="vc-suggestions-staff-delete-card__note mt-1 text-xs text-slate-500">Rimuove il suggerimento dal database.</p>' +
-        "</div>";
-    }
 
     var ownActions = "";
     if (pending && tokenOk && isOwnSuggestion) {
@@ -591,7 +628,11 @@
     var upOn = Boolean(s.upvotedByViewer);
     var downOn = Boolean(s.downvotedByViewer);
     var voteLocked = !pending || !tokenOk;
-    var voteTitle = !pending ? "Votazione chiusa" : !tokenOk ? "Accedi con Discord per votare" : "";
+    var voteTitle = !pending
+      ? t("sugg.voteClosed", "Votazione chiusa")
+      : !tokenOk
+        ? t("sugg.voteTitle", "Accedi con Discord per votare")
+        : "";
     var voteExtras = voteLocked ? ' disabled title="' + esc(voteTitle) + '"' : "";
     var voteHtml =
       '<div class="vc-reviews-card__foot">' +
@@ -627,7 +668,7 @@
       '<div class="vc-reviews-card__head">' +
       '<div class="vc-reviews-card__author">' +
       (s.authorAvatarUrl
-        ? '<img class="vc-reviews-card__avatar" src="' + esc(s.authorAvatarUrl) + '" alt="" loading="lazy" decoding="async" />'
+        ? '<img class="vc-reviews-card__avatar" src="' + esc(s.authorAvatarUrl) + '" alt="" width="40" height="40" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-vc-avatar="1" />'
         : '<span class="vc-reviews-card__avatar vc-reviews-card__avatar--fallback"><i class="fa fa-user"></i></span>') +
       '<div><strong>' +
       esc(s.authorName || "Utente") +
@@ -659,8 +700,12 @@
     return (
       '<article class="vc-reviews-empty">' +
       '<span class="vc-reviews-empty__icon"><i class="fa fa-lightbulb-o" aria-hidden="true"></i></span>' +
-      "<strong>Nessun suggerimento</strong>" +
-      "<p>Sii il primo a proporre un&apos;idea per la community.</p>" +
+      "<strong>" +
+      esc(t("sugg.empty", "Nessun suggerimento")) +
+      "</strong>" +
+      "<p>" +
+      esc(t("sugg.emptyHint", "Sii il primo a proporre un'idea per la community.")) +
+      "</p>" +
       "</article>"
     );
   }
@@ -778,8 +823,8 @@
 
   function modalInnerMarkup() {
     var isEdit = Boolean(state.editSuggestionId);
-    var title = isEdit ? "Modifica suggerimento" : "Nuovo suggerimento";
-    var btnLabel = isEdit ? "Salva modifiche" : "Invia suggerimento";
+    var title = isEdit ? t("sugg.editTitle", "Modifica suggerimento") : t("sugg.new", "Nuovo suggerimento");
+    var btnLabel = isEdit ? t("sugg.saveEdits", "Salva modifiche") : t("sugg.submit", "Invia suggerimento");
     return (
       '<div class="vc-reviews-modal__backdrop" data-suggestion-modal-dismiss tabindex="-1"></div>' +
       '<div class="vc-reviews-modal__panel" role="dialog" aria-modal="true" aria-labelledby="vc-suggestions-modal-title">' +
@@ -825,7 +870,7 @@
     var token = getToken();
     var viewer = state.payload && state.payload.viewer;
     if (!token || !viewer || !viewer.id) {
-      setStatus("Devi effettuare il login con Discord per pubblicare un suggerimento.", true);
+      setStatus(t("sugg.loginToSuggest", "Devi effettuare il login con Discord per pubblicare un suggerimento."), true);
       return;
     }
     state.editSuggestionId = null;
@@ -852,11 +897,11 @@
     var isLogged = Boolean(viewer && viewer.id);
     btn.hidden = false;
     if (!isLogged || !tokenOk) {
-      btn.textContent = "Nuovo suggerimento";
-      btn.setAttribute("aria-label", "Accedi con Discord per pubblicare un suggerimento");
+      btn.textContent = t("sugg.new", "Nuovo suggerimento");
+      btn.setAttribute("aria-label", t("sugg.loginToSuggestAria", "Accedi con Discord per pubblicare un suggerimento"));
     } else {
-      btn.textContent = "Nuovo suggerimento";
-      btn.setAttribute("aria-label", "Apri modulo nuovo suggerimento");
+      btn.textContent = t("sugg.new", "Nuovo suggerimento");
+      btn.setAttribute("aria-label", t("sugg.openFormAria", "Apri modulo nuovo suggerimento"));
     }
     btn.onclick = function () {
       openFormModal();
@@ -892,12 +937,22 @@
     var wrap = byId("vc-suggestions-list");
     if (!wrap) return;
     var list = (state.payload && state.payload.suggestions) || [];
-    var ordered = sortedSuggestionsNewestFirst(list);
+    var seen = Object.create(null);
+    var unique = [];
+    for (var i = 0; i < list.length; i += 1) {
+      var row = list[i];
+      var sid = String((row && row.id) || "").trim();
+      if (!sid || seen[sid]) continue;
+      seen[sid] = true;
+      unique.push(row);
+    }
+    var ordered = sortedSuggestionsNewestFirst(unique);
     ensurePageIncludesDeepLink(ordered);
     var pageItems = getPagedSuggestions(ordered);
     wrap.innerHTML = ordered.length
       ? pageItems.map(function (s) { return suggestionCardMarkup(s); }).join("")
       : emptyMarkup();
+    state.renderFingerprint = payloadFingerprint(state.payload);
     renderSuggestionsPager(ordered.length);
     syncModal();
     syncHeadButton();
@@ -951,6 +1006,9 @@
     if (taModal) {
       taModal.addEventListener("input", function () {
         state.draftContent = taModal.value;
+        if (window.VcFormDrafts && !state.editSuggestionId) {
+          window.VcFormDrafts.save("suggestions:new", String(taModal.value || ""));
+        }
       });
     }
 
@@ -999,7 +1057,7 @@
           .then(parseSuggestionsApiJson)
           .then(function (body) {
             if (!body || body.ok !== true) {
-              throw new Error((body && body.message) || "Errore commento.");
+              throw new Error((body && body.message) || t("sugg.errorComment", "Errore commento."));
             }
             if (ta) ta.value = "";
             state.pendingReply = null;
@@ -1007,7 +1065,7 @@
             return fetchPayload();
           })
           .catch(function (err) {
-            setStatus(err && err.message ? err.message : "Errore.", true);
+            setStatus(err && err.message ? err.message : t("sugg.error", "Errore."), true);
           })
           .then(function () {
             btn.disabled = false;
@@ -1069,34 +1127,48 @@
       btn.addEventListener("click", function () {
         var id = String(btn.getAttribute("data-suggestion-author-delete") || "").trim();
         if (!id || !getToken()) return;
-        if (!window.confirm("Eliminare il tuo suggerimento? Non potrai ripristinarlo.")) return;
-        btn.disabled = true;
-        setStatus("Eliminazione in corso...", false);
-        fetch(apiUrl() + "/" + encodeURIComponent(id), {
-          method: "DELETE",
-          headers: { Authorization: "Bearer " + getToken() },
-        })
-          .then(parseSuggestionsApiJson)
-          .then(function (body) {
-            if (!body || body.ok !== true) {
-              throw new Error((body && body.message) || "Eliminazione non riuscita.");
-            }
-            setStatus(body.message || "Eliminato.", false);
-            return fetchPayload();
+        var run = function () {
+          btn.disabled = true;
+          setStatus("Eliminazione in corso...", false);
+          fetch(apiUrl() + "/" + encodeURIComponent(id), {
+            method: "DELETE",
+            headers: { Authorization: "Bearer " + getToken() },
           })
-          .catch(function (err) {
-            setStatus(err && err.message ? err.message : "Errore.", true);
-          })
-          .then(function () {
-            btn.disabled = false;
-          });
+            .then(parseSuggestionsApiJson)
+            .then(function (body) {
+              if (!body || body.ok !== true) {
+                throw new Error((body && body.message) || t("sugg.errorDelete", "Eliminazione non riuscita."));
+              }
+              setStatus(body.message || "Eliminato.", false);
+              return fetchPayload();
+            })
+            .catch(function (err) {
+              setStatus(err && err.message ? err.message : t("sugg.error", "Errore."), true);
+            })
+            .then(function () {
+              btn.disabled = false;
+            });
+        };
+        var confirmP = window.VcDialog
+          ? window.VcDialog.confirm({
+              title: "Eliminare il suggerimento?",
+              message: "Eliminare il tuo suggerimento? Non potrai ripristinarlo.",
+              confirmLabel: "Elimina",
+              cancelLabel: "Annulla",
+              danger: true,
+              icon: "fa-trash-o",
+            })
+          : Promise.resolve(window.confirm("Eliminare il tuo suggerimento? Non potrai ripristinarlo."));
+        confirmP.then(function (ok) {
+          if (ok) run();
+        });
       });
     });
 
     function submitCommentVote(suggestionId, commentId, direction, buttonEl) {
       var token = getToken();
       if (!token) {
-        setStatus("Accedi con Discord per votare.", true);
+        setStatus(t("sugg.vote", "Accedi con Discord per votare."), true);
         return;
       }
       if (buttonEl) buttonEl.disabled = true;
@@ -1120,7 +1192,7 @@
           return fetchPayload();
         })
         .catch(function (err) {
-          setStatus(err && err.message ? err.message : "Errore voto.", true);
+          setStatus(err && err.message ? err.message : t("sugg.errorVote", "Errore voto."), true);
         })
         .then(function () {
           if (buttonEl) buttonEl.disabled = false;
@@ -1200,7 +1272,7 @@
             return fetchPayload();
           })
           .catch(function (err) {
-            setStatus(err && err.message ? err.message : "Errore.", true);
+            setStatus(err && err.message ? err.message : t("sugg.error", "Errore."), true);
           })
           .then(function () {
             btn.disabled = false;
@@ -1213,28 +1285,42 @@
         var sid = String(btn.getAttribute("data-suggestion-comment-delete") || "").trim();
         var cid = String(btn.getAttribute("data-suggestion-comment-delete-id") || "").trim();
         if (!sid || !cid || !getToken()) return;
-        if (!window.confirm("Eliminare questo commento?")) return;
-        btn.disabled = true;
-        setStatus("Eliminazione commento...", false);
-        fetch(apiUrl() + "/" + encodeURIComponent(sid) + "/comments/" + encodeURIComponent(cid), {
-          method: "DELETE",
-          headers: { Authorization: "Bearer " + getToken() },
-        })
-          .then(parseSuggestionsApiJson)
-          .then(function (body) {
-            if (!body || body.ok !== true) {
-              throw new Error((body && body.message) || "Eliminazione non riuscita.");
-            }
-            state.editingComment = null;
-            setStatus(body.message || "Commento eliminato.", false);
-            return fetchPayload();
+        var run = function () {
+          btn.disabled = true;
+          setStatus("Eliminazione commento...", false);
+          fetch(apiUrl() + "/" + encodeURIComponent(sid) + "/comments/" + encodeURIComponent(cid), {
+            method: "DELETE",
+            headers: { Authorization: "Bearer " + getToken() },
           })
-          .catch(function (err) {
-            setStatus(err && err.message ? err.message : "Errore.", true);
-          })
-          .then(function () {
-            btn.disabled = false;
-          });
+            .then(parseSuggestionsApiJson)
+            .then(function (body) {
+              if (!body || body.ok !== true) {
+                throw new Error((body && body.message) || t("sugg.errorDelete", "Eliminazione non riuscita."));
+              }
+              state.editingComment = null;
+              setStatus(body.message || "Commento eliminato.", false);
+              return fetchPayload();
+            })
+            .catch(function (err) {
+              setStatus(err && err.message ? err.message : t("sugg.error", "Errore."), true);
+            })
+            .then(function () {
+              btn.disabled = false;
+            });
+        };
+        var confirmP = window.VcDialog
+          ? window.VcDialog.confirm({
+              title: "Eliminare il commento?",
+              message: "Eliminare questo commento?",
+              confirmLabel: "Elimina",
+              cancelLabel: "Annulla",
+              danger: true,
+              icon: "fa-trash-o",
+            })
+          : Promise.resolve(window.confirm("Eliminare questo commento?"));
+        confirmP.then(function (ok) {
+          if (ok) run();
+        });
       });
     });
 
@@ -1259,39 +1345,51 @@
 
   function staffDeleteSuggestion(id, btn) {
     if (!id || !getToken()) return;
-    if (
-      !window.confirm(
-        "Eliminare permanentemente questo suggerimento dal sito? L'operazione non è annullabile.",
-      )
-    ) {
-      return;
-    }
-    if (btn) btn.disabled = true;
-    setStatus("Eliminazione in corso...", false);
-    fetch(apiUrl() + "/" + encodeURIComponent(id) + "/delete", {
-      method: "POST",
-      headers: { Authorization: "Bearer " + getToken() },
-    })
-      .then(parseSuggestionsApiJson)
-      .then(function (body) {
-        if (!body || body.ok !== true) {
-          throw new Error((body && body.message) || "Eliminazione non riuscita.");
-        }
-        setStatus(body.message || "Eliminato.", false);
-        return fetchPayload();
+    var run = function () {
+      if (btn) btn.disabled = true;
+      setStatus("Eliminazione in corso...", false);
+      fetch(apiUrl() + "/" + encodeURIComponent(id) + "/delete", {
+        method: "POST",
+        headers: { Authorization: "Bearer " + getToken() },
       })
-      .catch(function (err) {
-        setStatus(err && err.message ? err.message : "Errore.", true);
-      })
-      .then(function () {
-        if (btn) btn.disabled = false;
-      });
+        .then(parseSuggestionsApiJson)
+        .then(function (body) {
+          if (!body || body.ok !== true) {
+            throw new Error((body && body.message) || "Eliminazione non riuscita.");
+          }
+          setStatus(body.message || "Eliminato.", false);
+          return fetchPayload();
+        })
+        .catch(function (err) {
+          setStatus(err && err.message ? err.message : "Errore.", true);
+        })
+        .then(function () {
+          if (btn) btn.disabled = false;
+        });
+    };
+    var confirmP = window.VcDialog
+      ? window.VcDialog.confirm({
+          title: "Eliminare il suggerimento?",
+          message: "Eliminare permanentemente questo suggerimento dal sito? L'operazione non è annullabile.",
+          confirmLabel: "Elimina",
+          cancelLabel: "Annulla",
+          danger: true,
+          icon: "fa-trash-o",
+        })
+      : Promise.resolve(
+          window.confirm(
+            "Eliminare permanentemente questo suggerimento dal sito? L'operazione non è annullabile.",
+          ),
+        );
+    confirmP.then(function (ok) {
+      if (ok) run();
+    });
   }
 
   function submitSuggestionVote(suggestionId, direction, buttonEl) {
     var token = getToken();
     if (!token) {
-      setStatus("Accedi con Discord per votare.", true);
+      setStatus(t("sugg.vote", "Accedi con Discord per votare."), true);
       return;
     }
     if (buttonEl) buttonEl.disabled = true;
@@ -1312,7 +1410,7 @@
         return fetchPayload();
       })
       .catch(function (err) {
-        setStatus(err && err.message ? err.message : "Errore voto.", true);
+        setStatus(err && err.message ? err.message : t("sugg.errorVote", "Errore voto."), true);
       })
       .then(function () {
         if (buttonEl) buttonEl.disabled = false;
@@ -1402,7 +1500,7 @@
     })
       .then(parseSuggestionsApiJson)
       .then(function (body) {
-        if (!body || body.ok !== true) throw new Error((body && body.message) || "Impossibile caricare i suggerimenti.");
+        if (!body || body.ok !== true) throw new Error((body && body.message) || t("sugg.errorLoad", "Impossibile caricare i suggerimenti."));
         state.payload = body;
         render();
         startLiveSuggestionsPoll();
@@ -1412,14 +1510,15 @@
         }
       })
       .catch(function (err) {
-        setStatus(err && err.message ? err.message : "Impossibile caricare i suggerimenti.", true);
+        setStatus(err && err.message ? err.message : t("sugg.errorLoad", "Impossibile caricare i suggerimenti."), true);
       });
   }
 
   function submitNewSuggestion() {
+    if (state.submitInFlight) return;
     var token = getToken();
     if (!token) {
-      setStatus("Devi effettuare il login con Discord.", true);
+      setStatus(t("sugg.loginToSuggest", "Devi effettuare il login con Discord per pubblicare un suggerimento."), true);
       return;
     }
     var ta = byId("vc-suggestion-modal-content");
@@ -1429,9 +1528,12 @@
       return;
     }
     var editId = state.editSuggestionId ? String(state.editSuggestionId).trim() : "";
-    setStatus(editId ? "Salvataggio in corso..." : "Invio in corso...", false);
+    setStatus(editId ? t("sugg.saving", "Salvataggio in corso...") : t("sugg.submitting", "Invio in corso..."), false);
     var url = editId ? apiUrl() + "/" + encodeURIComponent(editId) : apiUrl();
     var method = editId ? "PATCH" : "POST";
+    var submitBtn = document.querySelector("[data-suggestion-submit]");
+    state.submitInFlight = true;
+    if (submitBtn) submitBtn.disabled = true;
     fetch(url, {
       method: method,
       headers: {
@@ -1448,17 +1550,26 @@
         state.editModalOpen = false;
         state.editSuggestionId = null;
         state.draftContent = "";
-        setStatus(body.message || (editId ? "Suggerimento aggiornato." : "Suggerimento pubblicato."), false);
+        if (window.VcFormDrafts) window.VcFormDrafts.clear("suggestions:new");
+        setStatus(body.message || (editId ? t("sugg.updated", "Suggerimento aggiornato.") : t("sugg.published", "Suggerimento pubblicato.")), false);
         return fetchPayload();
       })
       .catch(function (err) {
-        setStatus(err && err.message ? err.message : "Errore durante l'invio.", true);
+        setStatus(err && err.message ? err.message : t("sugg.errorSave", "Errore durante l'invio."), true);
+      })
+      .finally(function () {
+        state.submitInFlight = false;
+        if (submitBtn) submitBtn.disabled = false;
       });
   }
 
   function main() {
     wireGateLoginCta();
     bindSuggestionsPagerOnce();
+    if (window.VcFormDrafts) {
+      var saved = window.VcFormDrafts.load("suggestions:new");
+      if (typeof saved === "string" && saved.trim()) state.draftContent = saved;
+    }
     if (shouldUnlockPage()) {
       hideGate();
       fetchPayload();

@@ -6,21 +6,31 @@ const { personalityPanelUpdateOne } = require("../Global/globalSettingsGuildStor
 
 const PAUSE_REQUEST_OPEN_ID = "pause_request:open";
 const PAUSE_STICKY_EMBED_SIGNATURE = "richiesta pausa|vinili & caffè";
+const MAIN_GUILD_ID = String(IDs.guilds?.main || "1329080093599076474").trim();
 const pauseStickyLocks = new Map();
 
 function getPauseChannelId() {
   return String(IDs.channels?.pause || "").trim();
 }
 
-function isPauseStickyPanelMessage(message) {
-  if (!message?.author?.bot) return false;
+function iterMessageComponents(message) {
   const rows = message?.components || [];
+  const out = [];
   for (const row of rows) {
     const children = row?.components || [];
-    for (const c of children) {
-      const id = String(c?.customId || c?.custom_id || "");
-      if (id === PAUSE_REQUEST_OPEN_ID) return true;
-    }
+    for (const c of children) out.push(c);
+  }
+  return out;
+}
+
+function componentCustomId(c) {
+  return String(c?.customId || c?.custom_id || "");
+}
+
+function isPauseStickyPanelMessage(message) {
+  if (!message?.author?.bot) return false;
+  for (const c of iterMessageComponents(message)) {
+    if (componentCustomId(c) === PAUSE_REQUEST_OPEN_ID) return true;
   }
   const sig = String(
     message?.embeds?.[0]?.title || message?.embeds?.[0]?.data?.title || "",
@@ -30,9 +40,19 @@ function isPauseStickyPanelMessage(message) {
   return sig.includes("richiesta pausa");
 }
 
+/** Messaggio richiesta Accetta/Rifiuta — non deve triggerare un nuovo sticky. */
+function isPauseDecisionRequestMessage(message) {
+  if (!message?.author?.bot) return false;
+  for (const c of iterMessageComponents(message)) {
+    const id = componentCustomId(c);
+    if (id.startsWith("pause_accept:") || id.startsWith("pause_reject:")) return true;
+  }
+  return false;
+}
+
 async function getPausePanelRow(channelId) {
   const { GlobalSettings } = require("../../Schemas/Community/communitySchemas");
-  const guildId = String(IDs.guildId || IDs.guild || "").trim() || "1329080093599076474";
+  const guildId = MAIN_GUILD_ID;
   const doc = await GlobalSettings.findOne({ guildId }).select("personalityPanels").lean().catch(() => null);
   const row = (doc?.personalityPanels || []).find((x) => String(x?.channelId) === String(channelId));
   return row || null;
@@ -83,6 +103,19 @@ async function resolvePauseChannel(client, channelRef) {
   return client?.channels?.cache?.get(pauseChannelId) || (await getClientChannelCached(client, pauseChannelId));
 }
 
+async function deleteRecentPauseStickies(channel, keepId = "") {
+  const keep = String(keepId || "").trim();
+  const recent = await channel.messages.fetch({ limit: 20 }).catch(() => null);
+  if (!recent?.size) return;
+  const deletions = [];
+  for (const message of recent.values()) {
+    if (!isPauseStickyPanelMessage(message)) continue;
+    if (keep && String(message.id) === keep) continue;
+    deletions.push(message.delete().catch(() => null));
+  }
+  if (deletions.length) await Promise.all(deletions);
+}
+
 async function ensurePauseStickyPanel(client, channelRef) {
   const channel = await resolvePauseChannel(client, channelRef);
   if (!channel?.isTextBased?.()) return null;
@@ -92,7 +125,10 @@ async function ensurePauseStickyPanel(client, channelRef) {
     messageId: panelRow?.pausePanelMessageId || null,
     ...payload,
   });
-  if (sent?.id) await savePausePanelMessageId(channel.id, sent.id);
+  if (sent?.id) {
+    await deleteRecentPauseStickies(channel, sent.id);
+    await savePausePanelMessageId(channel.id, sent.id);
+  }
   return sent;
 }
 
@@ -114,19 +150,24 @@ async function maybeRepositionPauseSticky(channelRef, client) {
     const panelRow = await getPausePanelRow(channel.id);
     const stickyId = String(panelRow?.pausePanelMessageId || "").trim();
     const latest = await channel.messages.fetch({ limit: 1 }).catch(() => null);
-    const last = latest?.first?.() || null;
-    if (last && stickyId && String(last.id) === stickyId && isPauseStickyPanelMessage(last)) return;
-
-    if (stickyId) {
-      const old = await channel.messages.fetch(stickyId).catch(() => null);
-      if (old && isPauseStickyPanelMessage(old)) {
-        await old.delete().catch(() => null);
-      }
+    const last = latest?.first?.() || [...(latest?.values?.() || [])][0] || null;
+    if (last && stickyId && String(last.id) === stickyId && isPauseStickyPanelMessage(last)) {
+      await deleteRecentPauseStickies(channel, stickyId);
+      return;
     }
 
+    // Prima pubblica il nuovo sticky, poi cancella i vecchi (se send fallisce resta almeno uno).
     const payload = buildPauseStickyPanelPayload();
-    const sent = await channel.send(payload).catch(() => null);
-    if (sent?.id) await savePausePanelMessageId(channel.id, sent.id);
+    const sent = await channel
+      .send({ ...payload, __skipNoticeEmbed: true })
+      .catch((err) => {
+        global.logger?.warn?.("[PAUSE STICKY] send failed:", err?.message || err);
+        return null;
+      });
+    if (!sent?.id) return;
+
+    await savePausePanelMessageId(channel.id, sent.id);
+    await deleteRecentPauseStickies(channel, sent.id);
   } finally {
     pauseStickyLocks.delete(lockKey);
     release?.();
@@ -140,5 +181,6 @@ module.exports = {
   ensurePauseStickyPanel,
   maybeRepositionPauseSticky,
   isPauseStickyPanelMessage,
+  isPauseDecisionRequestMessage,
   getPauseChannelId,
 };

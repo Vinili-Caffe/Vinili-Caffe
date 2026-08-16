@@ -27,7 +27,7 @@ function buildBoostEmbed(member, boostCount) {
       "\n" +
       `<a:flyingnitroboost:1443652205705170986> Tutto lo **staff** ti _ringrazia_ per averci __supportato__.\n` +
       "\n" +
-      "<:VC_Logo:1498073401317916803> Trovate tutti i vantaggi del nostro server sul nostro sito [viniliecaffe.it](<https://viniliecaffe.it>)!",
+      "<:VC_Link:1482460590894088222> Trovate tutti i vantaggi del nostro server sul nostro sito [viniliecaffe.it](<https://viniliecaffe.it>)!",
     )
     .setColor("#6f4e37")
     .setFooter({ text: `Ora siamo a ${boostCount} boost!` })
@@ -56,7 +56,7 @@ function buildBoostEmbedSecond(member, boostCount) {
       "\n" +
       `<a:flyingnitroboost:1443652205705170986> Tutto lo **staff** ti _ringrazia_ per averci __supportato__.\n` +
       "\n" +
-      "<:VC_Logo:1498073401317916803> Trovate tutti i vantaggi del nostro server sul nostro sito [viniliecaffe.it](<https://viniliecaffe.it>)!",
+      "<:VC_Link:1482460590894088222> Trovate tutti i vantaggi del nostro server sul nostro sito [viniliecaffe.it](<https://viniliecaffe.it>)!",
     )
     .setColor("#6f4e37")
     .setFooter({ text: `Ora siamo a ${boostCount} boost!` })

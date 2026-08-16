@@ -1,4 +1,5 @@
 const { drawTextWithSpecialFallback, fontStack } = require("./canvasFonts");
+const { normalizeTextForCanvas, replaceCanvasCompatChars } = require("./canvasUtils");
 const { safeLoadImage } = require("./safeLoadImage");
 
 const emojiImageCache = new Map();
@@ -12,26 +13,13 @@ function prepareVisibleText(value) {
     ["\u00B2", "__VC_KEEP_SUP_2__"],
     ["\u00B3", "__VC_KEEP_SUP_3__"],
   ]);
-  const compatibilityMap = new Map([
-    ["\u0F04", "\u2736"],
-    ["\uFE32", "\u2502"],
-    ["\u1CBC", "\u00B7"],
-  ]);
 
   let out = raw;
   for (const [char, token] of protectedMap.entries()) {
     out = out.split(char).join(token);
   }
-  for (const [char, replacement] of compatibilityMap.entries()) {
-    out = out.split(char).join(replacement);
-  }
-
-  out = out
-    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "")
-    .replace(/\uFFFD/g, "")
-    .normalize("NFC")
-    .trim();
-
+  out = replaceCanvasCompatChars(out);
+  out = normalizeTextForCanvas(out);
   out = out.replace(/[\u{1D400}-\u{1D7FF}]/gu, (ch) => ch.normalize("NFKC"));
 
   for (const [char, token] of protectedMap.entries()) {
@@ -258,8 +246,10 @@ function emojiToTwemojiUrls(emoji) {
 }
 
 function customEmojiUrl(id, animated = false) {
-  const ext = animated ? "gif" : "png";
-  return `https://cdn.discordapp.com/emojis/${id}.${ext}?size=96&quality=lossless`;
+  // Canvas wants a static raster. `quality=lossless` is WebP-only and returns 415 on .gif.
+  const ext = "png";
+  void animated;
+  return `https://cdn.discordapp.com/emojis/${id}.${ext}?size=96`;
 }
 
 function drawEmojiPlaceholder(ctx, x, y, drawSize) {
@@ -298,6 +288,7 @@ async function getEmojiImage(token) {
     if (typeof token !== "string") {
       return safeLoadImage(customEmojiUrl(token.id, Boolean(token.animated)), {
         timeoutMs: 10000,
+        suppressWarning: true,
       }).catch(() => null);
     }
     const sources = emojiToTwemojiUrls(token);
@@ -559,4 +550,6 @@ module.exports = {
   drawLabelWithEmoji,
   wrapRichTextToLines,
   textWidth,
+  getEmojiImage,
+  emojiDrawSizeForFont,
 };

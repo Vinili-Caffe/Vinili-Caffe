@@ -3,6 +3,7 @@ const IDs = require("../Utils/Config/ids");
 const { getGuildChannelCached } = require("../Utils/Interaction/interactionEntityCache");
 const { handleSerataFilmScheduledEventUpdate } = require("../Services/Staff/staffAutoValutazioniService");
 const { handleMovieNightEventStart } = require("../Services/Community/movieNightAnnouncementService");
+const { isViniliFullFeatureGuild } = require("../MultiGuild/core/guildFeatureScope");
 const AUDIT_FETCH_LIMIT = 20;
 const AUDIT_LOOKBACK_MS = 120 * 1000;
 const CHANGE_LABELS=new Map([["name","Name"],["description","Description"],["scheduled_start_time","Start Time"],["scheduled_end_time","End Time"],["privacy_level","Privacy Level"],["status","Status"],["entity_type","Entity Type"],["channel_id","Channel"],["location","Location"],["entity_metadata.location","Location"],]);
@@ -152,6 +153,8 @@ module.exports = {
   name: "guildScheduledEventUpdate",
   async execute(oldEvent, newEvent) {
     try {
+      const guildEarly = newEvent?.guild || oldEvent?.guild;
+      if (guildEarly?.id && !isViniliFullFeatureGuild(guildEarly.id)) return;
       await handleSerataFilmScheduledEventUpdate(oldEvent, newEvent).catch((err) => {
         global.logger?.warn?.("[guildScheduledEventUpdate] serata film auto:", err?.message || err);
       });

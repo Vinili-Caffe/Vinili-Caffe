@@ -1,7 +1,23 @@
+const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require("discord.js");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
-const IDs = require("../Config/ids");
+const { getPartnershipChannelId } = require("./partnershipConfigResolver");
+const {
+  findPartnerActionByGlobalLogId,
+  findPartnerActionByMessage,
+} = require("../../Services/Partner/tenantPartnershipDeleteService");
+const { extractPartnershipLogIdFromMessage } = require("./partnershipLogMessageUtils");
 
-const PARTNERSHIP_CHANNEL_ID = String(IDs.channels?.partnerships || "").trim();
+const MAIN_PARTNERSHIP_REMOVE_MODAL_PREFIX = "pem_m:";
+const MAIN_PARTNERSHIP_REMOVE_RULE_INPUT = "regolaViolata";
+const DISCORD_CUSTOM_ID_MAX = 100;
+
+function buildPartnerPointModalCustomId(prefix, actorId, pmUserId, messageId, channelId) {
+  const id = `${prefix}${actorId}:${pmUserId}:${messageId}:${channelId}`;
+  if (id.length > DISCORD_CUSTOM_ID_MAX) {
+    throw new Error(`partner modal customId too long (${id.length}>${DISCORD_CUSTOM_ID_MAX})`);
+  }
+  return id;
+}
 
 function buildPartnershipMessageLink(guildId, channelId, messageId) {
   const g = String(guildId || "").trim();
@@ -13,9 +29,15 @@ function buildPartnershipMessageLink(guildId, channelId, messageId) {
 
 function isPartnershipDescriptionMessage(message) {
   if (!message) return false;
-  if (PARTNERSHIP_CHANNEL_ID && String(message.channelId || message.channel?.id || "") !== PARTNERSHIP_CHANNEL_ID) {
+  const guildId = String(message.guild?.id || message.guildId || "").trim();
+  const partnershipChannelId = getPartnershipChannelId(guildId);
+  if (
+    partnershipChannelId &&
+    String(message.channelId || message.channel?.id || "") !== partnershipChannelId
+  ) {
     return false;
   }
+  if (!partnershipChannelId) return false;
   if (Array.isArray(message.embeds) && message.embeds.length > 0) return false;
   return Boolean(String(message.content || "").trim());
 }
@@ -44,12 +66,14 @@ async function resolvePartnerManagerUserIdFromMessage(guildId, messageId) {
 }
 
 function buildPartnerPointHighStaffPingLine() {
+  const IDs = require("../Config/ids");
   const roleId = String(IDs.roles?.HighStaff || "").trim();
   if (!/^\d{16,20}$/.test(roleId)) return "";
   return `<@&${roleId}>`;
 }
 
 function getPartnerPointHighStaffPingRoleIds() {
+  const IDs = require("../Config/ids");
   const roleId = String(IDs.roles?.HighStaff || "").trim();
   return /^\d{16,20}$/.test(roleId) ? [roleId] : [];
 }
@@ -97,28 +121,103 @@ function parsePartnerPointModalId(customId, prefix) {
 
 function memberIsHighStaffForPointReview(member) {
   if (!member?.roles?.cache) return false;
+  const IDs = require("../Config/ids");
   const ids = [IDs.roles?.HighStaff, IDs.roles?.Founder, IDs.roles?.Manager, IDs.roles?.Admin].filter(Boolean).map(String);
   return ids.some((rid) => member.roles.cache.has(rid));
 }
 
-function shouldDeleteHumanPartnershipsChannelMessage(message) {
-  if (!PARTNERSHIP_CHANNEL_ID) return false;
+function isHumanPartnershipChannelMessage(message) {
+  const guildId = String(message?.guild?.id || message?.guildId || "").trim();
+  const partnershipChannelId = getPartnershipChannelId(guildId);
+  if (!partnershipChannelId) return false;
   const channelId = String(message?.channelId || message?.channel?.id || "");
-  if (channelId !== PARTNERSHIP_CHANNEL_ID) return false;
+  if (channelId !== partnershipChannelId) return false;
   if (!message || message.system) return false;
   if (message.author?.bot || message.webhookId || message.applicationId) return false;
   return true;
 }
 
+function shouldDeleteHumanPartnershipsChannelMessage(message) {
+  if (!isHumanPartnershipChannelMessage(message)) return false;
+  try {
+    const { resolvePartnershipConfigSync } = require("./partnershipConfigResolver");
+    const cfg = resolvePartnershipConfigSync(String(message?.guild?.id || message?.guildId || "").trim());
+    if (cfg && !cfg.legacy && cfg.manualPartnershipEnabled) return false;
+  } catch {
+    // ignore config lookup errors
+  }
+  return true;
+}
+
+async function resolveMainPartnershipRemoveTarget(guild, message) {
+  if (!guild?.id || !message?.id) return null;
+
+  const logId = extractPartnershipLogIdFromMessage(message);
+  if (logId) {
+    const match = await findPartnerActionByGlobalLogId(guild.id, logId);
+    if (match?.doc?.userId) {
+      return { pmUserId: String(match.doc.userId), message, match };
+    }
+  }
+
+  const byMessage = await findPartnerActionByMessage(guild.id, message);
+  if (byMessage?.doc?.userId) {
+    return { pmUserId: String(byMessage.doc.userId), message, match: byMessage };
+  }
+
+  const pmUserId = await resolvePartnerManagerUserIdFromMessage(guild.id, message.id);
+  if (pmUserId) return { pmUserId, message, match: null };
+  return null;
+}
+
+function buildMainPartnershipRemoveModal(interaction, target) {
+  const modal = new ModalBuilder()
+    .setCustomId(
+      buildPartnerPointModalCustomId(
+        MAIN_PARTNERSHIP_REMOVE_MODAL_PREFIX,
+        interaction.user.id,
+        target.pmUserId,
+        target.message.id,
+        target.message.channelId,
+      ),
+    )
+    .setTitle("Elimina partnership");
+  modal.addComponents(
+    new ActionRowBuilder().addComponents(
+      new TextInputBuilder()
+        .setCustomId(MAIN_PARTNERSHIP_REMOVE_RULE_INPUT)
+        .setLabel("Regola violata")
+        .setStyle(TextInputStyle.Paragraph)
+        .setPlaceholder("Indica la regola violata dalla partner")
+        .setRequired(true)
+        .setMaxLength(500),
+    ),
+  );
+  return modal;
+}
+
+function parseMainPartnershipRemoveModalId(customId) {
+  return (
+    parsePartnerPointModalId(customId, MAIN_PARTNERSHIP_REMOVE_MODAL_PREFIX) ||
+    parsePartnerPointModalId(customId, "partner_elimina_main_m:")
+  );
+}
+
 module.exports = {
-  PARTNERSHIP_CHANNEL_ID,
+  MAIN_PARTNERSHIP_REMOVE_MODAL_PREFIX,
+  MAIN_PARTNERSHIP_REMOVE_RULE_INPUT,
   buildPartnershipMessageLink,
   isPartnershipDescriptionMessage,
   resolvePartnerManagerUserIdFromMessage,
+  resolveMainPartnershipRemoveTarget,
+  buildMainPartnershipRemoveModal,
+  parseMainPartnershipRemoveModalId,
+  buildPartnerPointModalCustomId,
   buildPartnerPointLogContent,
   buildPartnerPointHighStaffPingLine,
   getPartnerPointHighStaffPingRoleIds,
   parsePartnerPointModalId,
   memberIsHighStaffForPointReview,
+  isHumanPartnershipChannelMessage,
   shouldDeleteHumanPartnershipsChannelMessage,
 };

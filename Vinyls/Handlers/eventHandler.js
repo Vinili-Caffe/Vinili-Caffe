@@ -59,8 +59,11 @@ module.exports = (client) => {
       table.addRow(folderLabel, fileShort, statusShort);
     }
 
-    const tableStr = table.toString();
-    tableStr.split("\n").forEach((line) => global.logger.info(line));
+    const LOG_EVENTS = String(process.env.LOG_EVENTS || process.env.LOG_COMMANDS || "0") === "1";
+    if (LOG_EVENTS) {
+      const tableStr = table.toString();
+      tableStr.split("\n").forEach((line) => global.logger.info(line));
+    }
     global.logger.info(`[EVENTS] Loaded ${loaded} events.`);
   };
 };

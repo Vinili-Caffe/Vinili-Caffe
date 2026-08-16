@@ -371,6 +371,7 @@ async function runProspectStaffPex(guild, client, targetUser, actorUser, reason,
       content: `**<:success:1461731530333229226> PEX** ${targetUser}
 ${actionEmoji} \`${rb?.name || "Member"}\` <a:VC_Arrow:1482706699365257397> \`${ra?.name || roleAfter}\`
 <:VC_reason:1478517122929004544> __${reason}__`,
+    __skipNoticeEmbed: true,
     })
     .catch(() => null);
   return { ok: true };
@@ -443,6 +444,7 @@ async function runProspectStaffPexToPartnerManager(guild, client, targetUser, ac
       content: `**<:success:1461731530333229226> PEX** ${targetUser}
 ${actionEmoji} \`${rb?.name || "Member"}\` <a:VC_Arrow:1482706699365257397> \`${ra?.name || roleAfter}\`
 <:VC_reason:1478517122929004544> __${reason}__`,
+    __skipNoticeEmbed: true,
     })
     .catch(() => null);
   return { ok: true };
@@ -515,6 +517,7 @@ async function runProfileStaffPex(guild, client, targetUser, actorUser, reason) 
       content: `**<:success:1461731530333229226> PEX** ${targetUser}
 ${actionEmoji} \`${rb?.name || roleBefore}\` <a:VC_Arrow:1482706699365257397> \`${ra?.name || roleAfter}\`
 <:VC_reason:1478517122929004544> __${reason}__`,
+    __skipNoticeEmbed: true,
     })
     .catch(() => null);
   return { ok: true };
@@ -623,6 +626,7 @@ async function runProfileStaffDepex(guild, client, targetUser, actorUser, reason
       content: `**<:cancel:1461730653677551691> DEPEX** ${targetUser}
 ${actionEmoji} \`${oldRoleObj?.name || oldRoleForLog}\` <a:VC_Arrow:1482706699365257397> \`${newLabel}\`
 <:VC_reason:1478517122929004544> __${reason}__`,
+    __skipNoticeEmbed: true,
     })
     .catch(() => null);
   return { ok: true };
@@ -664,33 +668,81 @@ async function runProfileStaffWarnAdd(guild, client, targetUser, actorUser, reas
   return { ok: true };
 }
 
-async function runProfileStaffWarnRemove(guild, client, targetUser, actorUser, removeId, reason) {
+const WARN_REMOVE_POS_TRADE_MAX = 100;
+
+async function runProfileStaffWarnRemove(guild, client, targetUser, actorUser, removeId, reason, options = {}) {
+  const tradeCountRaw = Math.floor(Number(options?.positiveTradeCount || 0));
+  const tradeCount = Number.isFinite(tradeCountRaw) && tradeCountRaw > 0 ? tradeCountRaw : 0;
   const profileDoc = await getOrCreateStaffDoc(guild.id, targetUser.id);
   const s = ensureStaff(profileDoc);
   const idx = removeId - 1;
   if (!Number.isInteger(removeId) || removeId < 1 || !s.warnReasons?.[idx]) {
     return { ok: false, message: "<:VC_Attention:1482534443632558151> ID warn non valido (usa il numero dalla lista in **Warn staff**)." };
   }
+  if (tradeCount > 0) {
+    if (tradeCount > WARN_REMOVE_POS_TRADE_MAX) {
+      return {
+        ok: false,
+        message: `<:VC_Attention:1482534443632558151> Massimo \`${WARN_REMOVE_POS_TRADE_MAX}\` positive per scambio.`,
+      };
+    }
+    const available = Array.isArray(s.positiveReasons) ? s.positiveReasons.length : 0;
+    if (available < tradeCount) {
+      return {
+        ok: false,
+        message: `<:VC_Attention:1482534443632558151> Servono **almeno ${tradeCount} valutazioni positive** per lo scambio (ne ha \`${available}\`).`,
+      };
+    }
+  }
+
+  const warnChannel = await resolveStaffValutazioniChannel(guild, client);
+  let tradedPositives = 0;
+  if (tradeCount > 0) {
+    const { removeOldestPositiveValutazioni } = require("./valutazionePanelActions");
+    const tradeReason = `Scambio: ${tradeCount} positive → rimozione warn staff #${removeId}`;
+    const posResult = await removeOldestPositiveValutazioni(
+      s,
+      tradeCount,
+      actorUser,
+      targetUser,
+      warnChannel,
+      guild,
+      tradeReason,
+      (finalPos) =>
+        `<:VC_OnlineStatus:1482527088912240650> Ora ${targetUser?.id ? `<@${targetUser.id}>` : "lo staffer"} è a \`${finalPos}\` valutazioni positive!`,
+    );
+    tradedPositives = Number(posResult?.removed || tradeCount);
+  }
+
   s.warnReasons.splice(idx, 1);
   s.warnCount = Math.max(0, Number(s.warnCount || 0) - 1);
   profileDoc.markModified("staff");
   await profileDoc.save();
-  const warnChannel = await resolveStaffValutazioniChannel(guild, client);
+
   if (warnChannel?.isTextBased?.()) {
+    const tradeLine = tradedPositives
+      ? `\n<:thumbsup:1471292172145004768> **Scambio:** rimosse **${tradedPositives}** positive più vecchie.`
+      : "";
     const embed = new EmbedBuilder()
       .setAuthor({
-        name: `<:cancel:1461730653677551691> Warn staff rimosso da ${actorUser.username}`,
+        name: `Warn staff rimosso da ${actorUser.username}`,
         iconURL: guildMemberDisplayAvatarUrlDynamic(actorUser) || undefined,
       })
       .setTitle(`<a:VC_Alert:1482706673176150077> • **__WARN STAFF RIMOSSO__**`)
       .setThumbnail(guildMemberDisplayAvatarUrlDynamic(targetUser) || undefined)
       .setDescription(
-        `<:VC_Staff:1494286904089247754> ${targetUser}\n<:VC_reason:1478517122929004544> __${String(reason).slice(0, 500)}__\n**Rimosso warn #${removeId}**`,
+        `<:VC_Staff:1494286904089247754> ${targetUser}\n<:VC_reason:1478517122929004544> __${String(reason).slice(0, 500)}__\n**Rimosso warn #${removeId}**${tradeLine}`,
       )
       .setColor(SUCCESS_COLOR);
     await warnChannel.send({ content: `${targetUser}`, embeds: [embed] }).catch(() => null);
   }
-  return { ok: true };
+  return {
+    ok: true,
+    tradedPositives,
+    message: tradedPositives
+      ? `<a:VC_Verified:1482532479637127188> Warn rimosso. Scambiate anche **${tradedPositives}** positive.`
+      : null,
+  };
 }
 
 function actorIsHighStaffOrAbove(member) {
@@ -767,6 +819,7 @@ async function runProfileStaffCompleteDepex(guild, client, targetUser, actorMemb
       content: `**<:cancel:1461730653677551691> DEPEX** ${targetUser}
 ${actionEmoji} \`${oldRoleObj?.name || roleToRemove}\` <a:VC_Arrow:1482706699365257397> \`${guild.roles.cache.get(ROLE_MEMBER)?.name || "Member"}\`
 <:VC_reason:1478517122929004544> __${String(reason || "").slice(0, 500)}__`,
+    __skipNoticeEmbed: true,
     })
     .catch(() => null);
   return { ok: true };

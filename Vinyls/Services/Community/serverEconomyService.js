@@ -27,15 +27,17 @@ const DEFAULT_CONFIG = Object.freeze({
   daily: { cooldownMs: 24 * 60 * 60 * 1000, reward: 15, streakStepPct: 2, streakMaxBonusPct: 20, streakGraceMs: 48 * 60 * 60 * 1000 },
   weekly: { cooldownMs: 7 * 24 * 60 * 60 * 1000, reward: 70, streakStepPct: 4, streakMaxBonusPct: 40, streakGraceMs: 14 * 24 * 60 * 60 * 1000 },
   monthly: { cooldownMs: 30 * 24 * 60 * 60 * 1000, reward: 200, streakStepPct: 8, streakMaxBonusPct: 80, streakGraceMs: 62 * 24 * 60 * 60 * 1000 },
-  rob: { cooldownMs: 3 * 60 * 60 * 1000, successChance: 30, minTargetBalance: 25, minSteal: 5, maxSteal: 35, failPenalty: 10, targetProtectionMs: 12 * 60 * 60 * 1000 },
+  rob: { cooldownMs: 3 * 60 * 60 * 1000, successChance: 25, minTargetBalance: 25, minSteal: 5, maxSteal: 30, failPenalty: 15, targetProtectionMs: 12 * 60 * 60 * 1000 },
   roulette: { cooldownMs: 5 * 1000, numberPayout: 36, simplePayout: 2 },
   rps: { cooldownMs: 5 * 1000, winPayout: 2 },
-  slots: { cooldownMs: 5 * 1000, pairPayout: 1, triplePayout: 5, jackpotPayout: 10 },
-  blackjack: { cooldownMs: 5 * 1000, winPayout: 2, blackjackPayout: 2.5 },
+  slots: { cooldownMs: 5 * 1000, pairPayout: 3, triplePayout: 12, jackpotPayout: 55 },
+  blackjack: { cooldownMs: 20 * 1000, winPayout: 2, blackjackPayout: 2.2 },
   coinflip: { cooldownMs: 5 * 1000, winPayout: 2 },
-  tris: { cooldownMs: 5 * 1000, winPayout: 2, botRandomPct: 35 },
-  scratch: { cooldownMs: 5 * 1000, pairPayout: 2, triplePayout: 8, jackpotPayout: 15 },
+  tris: { enabled: true, cooldownMs: 5 * 1000, winPayout: 2, botRandomPct: 35 },
+  scratch: { cooldownMs: 5 * 1000, pairPayout: 0, triplePayout: 2, quadPayout: 3.5, fivePayout: 7, jackpotPayout: 15 },
 });
+
+const GAMBLING_ACTIONS = new Set(["roulette", "rps", "slots", "blackjack", "coinflip", "tris", "scratch"]);
 
 function normalizeId(value) {
   return String(value || "").trim();
@@ -77,6 +79,19 @@ function economyConfig(client) {
   raw.dailyBetCap = int(raw.dailyBetCap, DEFAULT_CONFIG.dailyBetCap, raw.maxBet, 1000000);
   for (const action of ["work", "daily", "weekly", "monthly", "rob", "roulette", "rps", "slots", "blackjack", "coinflip", "tris", "scratch"]) {
     raw[action].cooldownMs = int(raw[action].cooldownMs, DEFAULT_CONFIG[action].cooldownMs, 0, 365 * 24 * 60 * 60 * 1000);
+  }
+  {
+    const bj = raw.blackjack || (raw.blackjack = {});
+    const cd = Number(bj.cooldownMs);
+    if (!Number.isFinite(cd) || cd <= 5_000) bj.cooldownMs = DEFAULT_CONFIG.blackjack.cooldownMs;
+    const win = Number(bj.winPayout);
+    bj.winPayout = Number.isFinite(win) && win >= 1 ? win : DEFAULT_CONFIG.blackjack.winPayout;
+    const bjPay = Number(bj.blackjackPayout);
+    if (!Number.isFinite(bjPay) || bjPay >= 2.5) bj.blackjackPayout = DEFAULT_CONFIG.blackjack.blackjackPayout;
+    else bj.blackjackPayout = Math.max(bj.winPayout, bjPay);
+  }
+  for (const action of GAMBLING_ACTIONS) {
+    raw[action].enabled = raw[action].enabled !== false;
   }
   raw.work.minReward = int(raw.work.minReward, DEFAULT_CONFIG.work.minReward, 1, 100000);
   raw.work.maxReward = int(raw.work.maxReward, DEFAULT_CONFIG.work.maxReward, raw.work.minReward, 100000);

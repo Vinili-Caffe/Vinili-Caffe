@@ -7,7 +7,8 @@ const lastColon = raw.lastIndexOf(":");
 const host = lastColon > 0 ? raw.slice(0, lastColon) : raw;
 const port = parseInt(lastColon > 0 ? raw.slice(lastColon + 1) : "2333", 10) || 2333;
 const intervalMs = 2000;
-const settleMs = 4000;
+const blockUntilReady = String(process.env.LAVALINK_BLOCK_STARTUP || "").trim() === "1";
+const settleMs = Math.max(0, Number(process.env.LAVALINK_SETTLE_MS || (blockUntilReady ? 4000 : 3000)) || 0);
 let loaderChild = null;
 let stopping = false;
 let lavalinkReady = false;
@@ -40,7 +41,7 @@ function requestStop(exitCode = 0, reason = "") {
   process.exit(exitCode);
 }
 
-function check() {
+function checkTcp() {
   return new Promise((resolve) => {
     const socket = net.connect({ host, port });
     let settled = false;
@@ -61,8 +62,31 @@ function check() {
   });
 }
 
+async function checkHttpReady() {
+  const password = process.env.LAVALINK_PASSWORD || "youshallnotpass";
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 2500);
+  try {
+    const res = await fetch(`http://${host}:${port}/version`, {
+      headers: { Authorization: password },
+      signal: ctrl.signal,
+    });
+    return Boolean(res?.ok);
+  } catch (_) {
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function check() {
+  if (!(await checkTcp())) return false;
+  return checkHttpReady();
+}
+
 function runLoader() {
-  if (loaderChild?.pid) return;
+  if (loaderChild?.pid || loaderStarted) return;
+  loaderStarted = true;
   const node = process.execPath || "node";
   const loader = path.join(__dirname, "loader.js");
   console.log("[wait-for-lavalink] Esecuzione: " + node + " loader.js");
@@ -97,10 +121,20 @@ function checkLavalinkStatus() {
         lavalinkUnavailableLogged = true;
         console.warn("[wait-for-lavalink] Lavalink non raggiungibile al momento. Il backend resta attivo, la musica no.");
       }
+      if (!blockUntilReady && !loaderStarted) runLoader();
       scheduleNextCheck(intervalMs);
       return;
     }
     if (lavalinkReady || settleTimer) {
+      if (!blockUntilReady && !loaderStarted) runLoader();
+      scheduleNextCheck(intervalMs);
+      return;
+    }
+    if (settleMs <= 0) {
+      lavalinkReady = true;
+      lavalinkUnavailableLogged = false;
+      console.log("[wait-for-lavalink] Lavalink raggiungibile.");
+      if (!loaderStarted) runLoader();
       scheduleNextCheck(intervalMs);
       return;
     }
@@ -109,29 +143,39 @@ function checkLavalinkStatus() {
       settleTimer = null;
       check().then((stillOk) => {
         if (!stillOk) {
+          if (!blockUntilReady && !loaderStarted) runLoader();
           scheduleNextCheck(intervalMs);
           return;
         }
         lavalinkReady = true;
         lavalinkUnavailableLogged = false;
         console.log("[wait-for-lavalink] Lavalink pronto.");
-        if (!loaderStarted) {
-          loaderStarted = true;
-          runLoader();
-        }
+        if (!loaderStarted) runLoader();
         scheduleNextCheck(intervalMs);
       });
     }, settleMs);
   });
 }
 
-console.log(
-  "[wait-for-lavalink] Controllo Lavalink su " +
-    host +
-    ":" +
-    port +
-    "; il backend parte solo dopo il primo check TCP+stabilizzazione OK (così Shoukaku non prova il WebSocket su nodo non pronto).",
-);
+if (blockUntilReady) {
+  console.log(
+    "[wait-for-lavalink] Controllo Lavalink su " +
+      host +
+      ":" +
+      port +
+      "; il backend parte solo dopo il primo check TCP OK (LAVALINK_BLOCK_STARTUP=1).",
+  );
+} else {
+  console.log(
+    "[wait-for-lavalink] Avvio immediato del backend; Lavalink su " +
+      host +
+      ":" +
+      port +
+      " viene monitorato in background (musica si collega quando pronto).",
+  );
+  runLoader();
+}
+
 ["SIGINT", "SIGTERM", "SIGHUP", "SIGBREAK"].forEach((signalName) => {
   process.on(signalName, () => requestStop(0, "segnale " + signalName + " ricevuto"));
 });

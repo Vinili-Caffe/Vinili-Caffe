@@ -1,8 +1,27 @@
-function parseProfilePanelOwnerIdFromCustomId(customId) {
+function parseProfilePanelPartsFromCustomId(customId) {
   const parts = String(customId || "").split(":");
-  if (!String(parts[0] || "").startsWith("profile_panel")) return null;
-  const ownerId = String(parts[2] || "");
-  return /^\d{16,20}$/.test(ownerId) ? ownerId : null;
+  if (!String(parts[0] || "").startsWith("profile_panel")) {
+    return { viewerId: null, ownerId: null };
+  }
+  const a = String(parts[2] || "");
+  const b = String(parts[3] || "");
+  // Nuovo: profile_panel:kind:viewerId:ownerId:...
+  if (/^\d{16,20}$/.test(a) && /^\d{16,20}$/.test(b)) {
+    return { viewerId: a, ownerId: b };
+  }
+  // Legacy: profile_panel:kind:ownerId:...
+  if (/^\d{16,20}$/.test(a)) {
+    return { viewerId: null, ownerId: a };
+  }
+  return { viewerId: null, ownerId: null };
+}
+
+function parseProfilePanelOwnerIdFromCustomId(customId) {
+  return parseProfilePanelPartsFromCustomId(customId).ownerId;
+}
+
+function parseProfilePanelViewerIdFromCustomId(customId) {
+  return parseProfilePanelPartsFromCustomId(customId).viewerId;
 }
 
 async function resolveProfileCommandTargetUserId(client, commandMessage) {
@@ -21,37 +40,59 @@ async function resolveProfileCommandTargetUserId(client, commandMessage) {
   return String(commandMessage.author.id);
 }
 
+/**
+ * Controlla chi può usare i componenti del pannello profilo.
+ * - Soggetto del profilo → ok + canManage
+ * - Viewer nel customId (chi ha aperto +profile) → ok; canManage solo sul proprio
+ * - Autore del `+profile` (messaggio referenziato, legacy) → ok; canManage solo sul proprio
+ * - Altri → negato
+ */
 async function resolveProfilePanelControl(interaction, ownerIdFromCustomId = null) {
   const userId = String(interaction?.user?.id || "");
-  if (!userId) return { ok: false, ownerId: ownerIdFromCustomId };
+  if (!userId) {
+    return { ok: false, ownerId: ownerIdFromCustomId || null, canManage: false };
+  }
 
-  const ownerFromCustomId =
-    ownerIdFromCustomId || parseProfilePanelOwnerIdFromCustomId(interaction?.customId);
-  if (ownerFromCustomId && userId === String(ownerFromCustomId)) {
-    return { ok: true, ownerId: String(ownerFromCustomId) };
+  const parsed = parseProfilePanelPartsFromCustomId(interaction?.customId);
+  const profileOwnerId = ownerIdFromCustomId || parsed.ownerId;
+  const profileOwner = profileOwnerId ? String(profileOwnerId) : null;
+  const viewerId = parsed.viewerId ? String(parsed.viewerId) : null;
+
+  if (profileOwner && userId === profileOwner) {
+    return { ok: true, ownerId: profileOwner, canManage: true };
+  }
+
+  // Preferisci viewer nel customId: non dipende dal fetch del messaggio +profile (API flaky).
+  if (viewerId && userId === viewerId) {
+    return {
+      ok: true,
+      ownerId: profileOwner || userId,
+      canManage: Boolean(profileOwner && profileOwner === userId),
+    };
   }
 
   const refId = interaction?.message?.reference?.messageId;
   const channel = interaction?.channel;
   if (!refId || !channel?.messages?.fetch) {
-    return { ok: false, ownerId: ownerFromCustomId || null };
+    return { ok: false, ownerId: profileOwner, canManage: false };
   }
 
   const cmdMsg = await channel.messages.fetch(refId).catch(() => null);
-  if (!cmdMsg || String(cmdMsg.author?.id || "") !== userId) {
-    return { ok: false, ownerId: ownerFromCustomId || null };
+  if (cmdMsg && String(cmdMsg.author?.id || "") === userId) {
+    return {
+      ok: true,
+      ownerId: profileOwner || userId,
+      canManage: Boolean(profileOwner && profileOwner === userId),
+    };
   }
 
-  const targetId = await resolveProfileCommandTargetUserId(interaction?.client, cmdMsg);
-  if (targetId && userId === String(targetId)) {
-    return { ok: true, ownerId: String(targetId) };
-  }
-
-  return { ok: false, ownerId: ownerFromCustomId || targetId || null };
+  return { ok: false, ownerId: profileOwner, canManage: false };
 }
 
 module.exports = {
   parseProfilePanelOwnerIdFromCustomId,
+  parseProfilePanelViewerIdFromCustomId,
+  parseProfilePanelPartsFromCustomId,
   resolveProfileCommandTargetUserId,
   resolveProfilePanelControl,
 };

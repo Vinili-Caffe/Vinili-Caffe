@@ -8,20 +8,41 @@ function resolveUserFromLike(userLike) {
 }
 
 /**
- * @param {import("discord.js").Guild|null|undefined} guild
+ * @param {import("discord.js").Guild|{ id?: string, icon?: string|null, iconURL?: Function|string }|null|undefined} guild
  * @param {{ size?: number }} [opts]
  * @returns {string|null}
  */
+function guildIconUrlFromCdn(guild, size = 256) {
+  const icon = String(guild?.icon || "").trim();
+  const guildId = String(guild?.id || "").trim();
+  if (!icon || !/^\d{16,22}$/.test(guildId)) return null;
+  const animated = icon.startsWith("a_");
+  const ext = animated ? "webp" : "png";
+  return `https://cdn.discordapp.com/icons/${guildId}/${icon}.${ext}?size=${size}`;
+}
+
 function guildIconUrl(guild, { size = 256 } = {}) {
-  if (!guild?.icon) return null;
-  const animated = String(guild.icon).startsWith("a_");
-  return (
-    guild.iconURL({
-      size,
-      extension: animated ? "webp" : "png",
-      forceStatic: animated ? false : true,
-    }) || null
-  );
+  if (!guild) return null;
+  // site-api REST stub: iconURL può esistere ma non essere una funzione Guild reale.
+  if (typeof guild.iconURL === "function") {
+    try {
+      if (!guild.icon) return null;
+      const animated = String(guild.icon).startsWith("a_");
+      const fromMethod =
+        guild.iconURL({
+          size,
+          extension: animated ? "webp" : "png",
+          forceStatic: animated ? false : true,
+        }) || null;
+      if (fromMethod) return fromMethod;
+    } catch (_) {
+      /* fall through to CDN */
+    }
+  }
+  if (typeof guild.iconURL === "string" && /^https?:\/\//i.test(guild.iconURL)) {
+    return guild.iconURL;
+  }
+  return guildIconUrlFromCdn(guild, size);
 }
 
 /**
@@ -72,7 +93,7 @@ function guildMemberServerAvatarUrlDynamic(memberLike, { size = 256 } = {}) {
     return (
       memberLike.displayAvatarURL({
         size,
-        extension: animated ? "webp" : "png",
+        extension: animated ? "gif" : "png",
         forceStatic: false,
       }) || null
     );
@@ -99,17 +120,16 @@ function userGlobalAvatarUrlDynamic(userLike, { size = 256 } = {}) {
   );
 }
 
-/**
- * URL avatar per embed: server → globale → predefinito Discord.
- * @param {import("discord.js").User|import("discord.js").GuildMember|null|undefined} userLike
- * @param {{ size?: number }} [opts]
- * @returns {string}
- */
+/** URL avatar per embed: PNG statico (server → globale → default). Mai null se c’è un id. */
 function embedUserAvatarUrlDynamic(userLike, { size = 256 } = {}) {
+  const staticServer = guildMemberDisplayAvatarUrlStatic(userLike, { size });
+  if (staticServer) return staticServer;
+  const staticGlobal = userAvatarUrlStatic(userLike, { size });
+  if (staticGlobal) return staticGlobal;
   const server = guildMemberServerAvatarUrlDynamic(userLike, { size });
   if (server) return server;
-  const global = userGlobalAvatarUrlDynamic(userLike, { size });
-  if (global) return global;
+  const globalAv = userGlobalAvatarUrlDynamic(userLike, { size });
+  if (globalAv) return globalAv;
   return discordDefaultAvatarUrl(userLike, { size });
 }
 

@@ -2,15 +2,7 @@
 <html lang="it">
 
 <head>
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-KPF6425N60"></script>
-  <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag() { dataLayer.push(arguments); }
-    gtag('js', new Date());
-
-    gtag('config', 'G-KPF6425N60');
-  </script>
-  {{COOKIEYES_BLOCK}}{{GA_BLOCK}}
+{{COOKIEYES_BLOCK}}{{GA_BLOCK}}
   <meta charset="utf-8" />
   <title>{{SITE_NAME}} | Discord</title>
   <meta name="description" content="{{META_DESCRIPTION}}" />
@@ -24,7 +16,7 @@
   <meta name="summary" content="{{META_DESCRIPTION}}" />
   <meta name="url" content="{{SITE_URL}}" />
   <meta name="identifier-URL" content="{{SITE_URL}}" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="{{OG_SITE_NAME}}" />
   <meta property="og:locale" content="it_IT" />
@@ -67,8 +59,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css"
     crossorigin="anonymous" referrerpolicy="no-referrer" />
   <link rel="stylesheet" href="/css/tw-build.css" />
-  <link rel="stylesheet" href="/css/vc-landing.css" />
-  <script src="/js/vc-auth-pending.js"></script>
+  <link rel="stylesheet" href="/css/vc-landing.css?v={{BUILD_ASSET_VERSION}}" />
   {{HERO_BANNER_BLOCK}}
   <link rel="icon" href="{{GUILD_ICON_URL}}" />
 </head>
@@ -133,12 +124,13 @@
             <summary class="vc-snav-summary"><span>Richieste</span><i
                 class="fa fa-chevron-down vc-snav-chev text-[0.65rem] opacity-80" aria-hidden="true"></i></summary>
             <div class="vc-snav-panel">
-              <a class="vc-snav-row" href="{{RICHIESTE_UNBAN_URL}}"><span class="vc-snav-row-ico" aria-hidden="true"><i
-                    class="fa fa-unlock"></i></span><span>Unban</span></a>
+              <a class="vc-snav-row" href="{{RICHIESTE_UNBAN_URL}}"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-balance-scale"></i></span><span data-i18n="nav.appeals">Appelli</span></a>
               <a class="vc-snav-row" href="{{RICHIESTE_CANDIDATURE_URL}}"><span class="vc-snav-row-ico"
                   aria-hidden="true"><i class="fa fa-file-text-o"></i></span><span>Candidature</span></a>
               <a class="vc-snav-row" href="{{RICHIESTE_SUGGERIMENTI_URL}}"><span class="vc-snav-row-ico"
                   aria-hidden="true"><i class="fa fa-lightbulb-o"></i></span><span>Suggerimenti</span></a>
+              <a class="vc-snav-row" href="{{SUPPORTO_PAGE_URL}}"><span class="vc-snav-row-ico"
+                  aria-hidden="true"><i class="fa fa-ticket"></i></span><span data-i18n="nav.tickets">Tickets</span></a>
             </div>
           </details>
         </nav>
@@ -190,16 +182,16 @@
   </header>
 
   <section id="vc-live-event-home" class="vc-live-event-home" hidden aria-live="polite" role="region"
-    aria-label="Evento Discord in corso">
+    aria-label="Evento Discord in corso" data-i18n-attr="aria-label:home.liveEvent">
     <div class="vc-live-event-inline">
       <p class="vc-live-event-inline__badge">
-        <i class="fa fa-bolt" aria-hidden="true"></i> Evento live su Discord
+        <i class="fa fa-bolt" aria-hidden="true"></i> <span data-i18n="home.liveBadge">Evento live su Discord</span>
       </p>
-      <h2 id="vc-live-event-title" class="vc-live-event-inline__title">Evento in corso</h2>
+      <h2 id="vc-live-event-title" class="vc-live-event-inline__title" data-i18n="home.liveTitle">Evento in corso</h2>
       <p id="vc-live-event-desc" class="vc-live-event-inline__desc"></p>
       <div class="vc-live-event-inline__actions">
         <a id="vc-live-event-primary" class="vc-live-event-inline__btn" href="{{DISCORD_INVITE_URL}}" target="_blank"
-          rel="noopener noreferrer">Partecipa</a>
+          rel="noopener noreferrer" data-i18n="home.participate">Partecipa</a>
       </div>
     </div>
   </section>
@@ -208,15 +200,15 @@
     <div class="relative z-10 mx-auto max-w-6xl px-4 pb-0 pt-2 text-center">
       <div class="vc-support-intro-shell mx-auto max-w-full text-center">
         <div class="vc-hero-head vc-glass mx-auto max-w-full rounded-[2rem] border border-white/[0.08] px-4 py-5 text-center sm:px-7 sm:py-7">
-          <p class="vc-hero-kicker">Benvenuto su</p>
+          <p class="vc-hero-kicker" data-i18n="home.welcome">Benvenuto su</p>
           <h1
             class="vc-brand-glow mt-1 text-center text-5xl font-extrabold tracking-tight text-white md:text-7xl lg:text-8xl">
             <span class="text-emerald-300"><span class="vc-hero-brand-pre">Vinili &amp; </span><span class="vc-hero-brand-caffe">Caffè</span></span><span class="vc-forbidden-book" data-vc-forbidden-book="home" hidden role="img" aria-label="libro proibito">📖</span></h1>
-          <p class="vc-hero-about">{{ABOUT_DESCRIPTION}}</p>
+          <p class="vc-hero-about" data-i18n="home.about">{{ABOUT_DESCRIPTION}}</p>
           <div class="mt-5 flex flex-wrap items-center justify-center gap-3">
-            <a class="vc-header-pill" href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer">Entra su Discord</a>
-            <a class="vc-header-pill" href="{{USER_PAGE_URL}}">Esplora la Community</a>
-            <a class="vc-header-pill" href="{{PERKS_URL}}">Scopri i Perks</a>
+            <a class="vc-header-pill" href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer" data-i18n="home.joinDiscord">Entra su Discord</a>
+            <a class="vc-header-pill" href="{{USER_PAGE_URL}}" data-i18n="home.exploreCommunity">Esplora la Community</a>
+            <a class="vc-header-pill" href="{{PERKS_URL}}" data-i18n="home.discoverPerks">Scopri i Perks</a>
           </div>
         </div>
       </div>
@@ -228,18 +220,18 @@
       <div class="vc-home-highlights">
         <article class="vc-home-highlight-card">
           <span class="vc-home-highlight-ico" aria-hidden="true"><i class="fa fa-line-chart"></i></span>
-          <h2 class="vc-home-highlight-title">In Crescita Costante</h2>
-          <p class="vc-home-highlight-desc">Espansione continua con pubblico italiano giovane e coinvolto</p>
+          <h2 class="vc-home-highlight-title" data-i18n="home.hGrowth">In Crescita Costante</h2>
+          <p class="vc-home-highlight-desc" data-i18n="home.hGrowthDesc">Espansione continua con pubblico italiano giovane e coinvolto</p>
         </article>
         <article class="vc-home-highlight-card">
           <span class="vc-home-highlight-ico" aria-hidden="true"><i class="fa fa-magic"></i></span>
-          <h2 class="vc-home-highlight-title">Eventi &amp; Giveaway</h2>
-          <p class="vc-home-highlight-desc">Eventi e giveaway frequenti per la nostra community</p>
+          <h2 class="vc-home-highlight-title" data-i18n="home.hEvents">Eventi &amp; Giveaway</h2>
+          <p class="vc-home-highlight-desc" data-i18n="home.hEventsDesc">Eventi e giveaway frequenti per la nostra community</p>
         </article>
         <article class="vc-home-highlight-card">
           <span class="vc-home-highlight-ico" aria-hidden="true"><i class="fa fa-bolt"></i></span>
-          <h2 class="vc-home-highlight-title">Bot Personalizzati</h2>
-          <p class="vc-home-highlight-desc">Bot personalizzati, moderazione avanzata e funzioni esclusive</p>
+          <h2 class="vc-home-highlight-title" data-i18n="home.hBots">Bot Personalizzati</h2>
+          <p class="vc-home-highlight-desc" data-i18n="home.hBotsDesc">Bot personalizzati, moderazione avanzata e funzioni esclusive</p>
         </article>
       </div>
     </section>
@@ -249,17 +241,17 @@
         <div class="vc-home-linkpanel">
           <div class="vc-home-linkpanel__head">
             <span class="vc-home-linkpanel__badge" aria-hidden="true"><i class="fa fa-comment-o"></i></span>
-            <h2 class="vc-home-linkpanel__title">Risorse</h2>
+            <h2 class="vc-home-linkpanel__title" data-i18n="home.resources">Risorse</h2>
           </div>
           <div class="vc-home-linkpanel__list">
             <a class="vc-home-linkitem" href="{{WIKI_URL}}">
               <span class="vc-home-linkitem__icon" aria-hidden="true"><i class="fa fa-map-o"></i></span>
-              <span class="vc-home-linkitem__copy"><strong>Wiki</strong><small>Guide e documentazione</small></span>
+              <span class="vc-home-linkitem__copy"><strong data-i18n="home.wikiStrong">Wiki</strong><small data-i18n="home.wikiSmall">Guide e documentazione</small></span>
               <i class="fa fa-angle-right vc-home-linkitem__arrow" aria-hidden="true"></i>
             </a>
             <a class="vc-home-linkitem" href="{{SPONSOR_URL}}">
               <span class="vc-home-linkitem__icon" aria-hidden="true"><i class="fa fa-handshake-o"></i></span>
-              <span class="vc-home-linkitem__copy"><strong>Sponsor</strong><small>Tipologie, durate e prezzi</small></span>
+              <span class="vc-home-linkitem__copy"><strong data-i18n="home.sponsorStrong">Sponsor</strong><small data-i18n="home.sponsorSmall">Tipologie, durate e prezzi</small></span>
               <i class="fa fa-angle-right vc-home-linkitem__arrow" aria-hidden="true"></i>
             </a>
           </div>
@@ -267,17 +259,17 @@
         <div class="vc-home-linkpanel">
           <div class="vc-home-linkpanel__head">
             <span class="vc-home-linkpanel__badge" aria-hidden="true"><i class="fa fa-users"></i></span>
-            <h2 class="vc-home-linkpanel__title">Community</h2>
+            <h2 class="vc-home-linkpanel__title" data-i18n="home.community">Community</h2>
           </div>
           <div class="vc-home-linkpanel__list">
             <a class="vc-home-linkitem" href="{{USER_PAGE_URL}}">
               <span class="vc-home-linkitem__icon" aria-hidden="true"><i class="fa fa-user-o"></i></span>
-              <span class="vc-home-linkitem__copy"><strong>Users</strong><small>Membri della community</small></span>
+              <span class="vc-home-linkitem__copy"><strong data-i18n="home.usersStrong">Users</strong><small data-i18n="home.usersSmall">Membri della community</small></span>
               <i class="fa fa-angle-right vc-home-linkitem__arrow" aria-hidden="true"></i>
             </a>
             <a class="vc-home-linkitem" href="{{RUOLI_PAGE_URL}}">
               <span class="vc-home-linkitem__icon" aria-hidden="true"><i class="fa fa-shield"></i></span>
-              <span class="vc-home-linkitem__copy"><strong>Ruoli</strong><small>Sistema dei ruoli</small></span>
+              <span class="vc-home-linkitem__copy"><strong data-i18n="home.rolesStrong">Ruoli</strong><small data-i18n="home.rolesSmall">Sistema dei ruoli</small></span>
               <i class="fa fa-angle-right vc-home-linkitem__arrow" aria-hidden="true"></i>
             </a>
           </div>
@@ -285,22 +277,22 @@
         <div class="vc-home-linkpanel">
           <div class="vc-home-linkpanel__head">
             <span class="vc-home-linkpanel__badge" aria-hidden="true"><i class="fa fa-trophy"></i></span>
-            <h2 class="vc-home-linkpanel__title">Supporta</h2>
+            <h2 class="vc-home-linkpanel__title" data-i18n="home.support">Supporta</h2>
           </div>
           <div class="vc-home-linkpanel__list">
             <a class="vc-home-linkitem" href="{{VOTE_URL}}" data-vc-loading="vote">
               <span class="vc-home-linkitem__icon" aria-hidden="true"><i class="fa fa-thumbs-o-up"></i></span>
-              <span class="vc-home-linkitem__copy"><strong>Voti</strong><small>Vota e ottieni ricompense</small></span>
+              <span class="vc-home-linkitem__copy"><strong data-i18n="home.votesStrong">Voti</strong><small data-i18n="home.votesSmall">Vota e ottieni ricompense</small></span>
               <i class="fa fa-angle-right vc-home-linkitem__arrow" aria-hidden="true"></i>
             </a>
             <a class="vc-home-linkitem" href="{{REVIEWS_PAGE_URL}}">
               <span class="vc-home-linkitem__icon" aria-hidden="true"><i class="fa fa-star-o"></i></span>
-              <span class="vc-home-linkitem__copy"><strong>Recensioni</strong><small>Leggi e lascia feedback</small></span>
+              <span class="vc-home-linkitem__copy"><strong data-i18n="home.reviewsStrong">Recensioni</strong><small data-i18n="home.reviewsSmall">Leggi e lascia feedback</small></span>
               <i class="fa fa-angle-right vc-home-linkitem__arrow" aria-hidden="true"></i>
             </a>
             <a class="vc-home-linkitem" href="{{DONATIONS_URL}}">
               <span class="vc-home-linkitem__icon" aria-hidden="true"><i class="fa fa-heart-o"></i></span>
-              <span class="vc-home-linkitem__copy"><strong>Donazioni</strong><small>Supporta il progetto</small></span>
+              <span class="vc-home-linkitem__copy"><strong data-i18n="home.donationsStrong">Donazioni</strong><small data-i18n="home.donationsSmall">Supporta il progetto</small></span>
               <i class="fa fa-angle-right vc-home-linkitem__arrow" aria-hidden="true"></i>
             </a>
           </div>
@@ -313,22 +305,22 @@
         <div class="vc-home-linkpanel">
           <div class="vc-home-linkpanel__head">
             <span class="vc-home-linkpanel__badge" aria-hidden="true"><i class="fa fa-question-circle-o"></i></span>
-            <h2 class="vc-home-linkpanel__title">Info</h2>
+            <h2 class="vc-home-linkpanel__title" data-i18n="home.info">Info</h2>
           </div>
           <div class="vc-home-linkpanel__list">
             <a class="vc-home-linkitem" href="{{COMMUNITY_RULES_URL}}">
               <span class="vc-home-linkitem__icon" aria-hidden="true"><i class="fa fa-list-alt"></i></span>
-              <span class="vc-home-linkitem__copy"><strong>Regole</strong><small>Regolamento del server</small></span>
+              <span class="vc-home-linkitem__copy"><strong data-i18n="home.rulesStrong">Regole</strong><small data-i18n="home.rulesSmallAlt">Regolamento del server</small></span>
               <i class="fa fa-angle-right vc-home-linkitem__arrow" aria-hidden="true"></i>
             </a>
             <a class="vc-home-linkitem" href="{{FAQ_URL}}">
               <span class="vc-home-linkitem__icon" aria-hidden="true"><i class="fa fa-question-circle-o"></i></span>
-              <span class="vc-home-linkitem__copy"><strong>FAQ</strong><small>Domande frequenti</small></span>
+              <span class="vc-home-linkitem__copy"><strong data-i18n="home.faqStrong">FAQ</strong><small data-i18n="home.faqSmall">Domande frequenti</small></span>
               <i class="fa fa-angle-right vc-home-linkitem__arrow" aria-hidden="true"></i>
             </a>
             <a class="vc-home-linkitem" href="{{PERKS_URL}}">
               <span class="vc-home-linkitem__icon" aria-hidden="true"><i class="fa fa-diamond"></i></span>
-              <span class="vc-home-linkitem__copy"><strong>Perks</strong><small>Benefici e vantaggi supporto</small></span>
+              <span class="vc-home-linkitem__copy"><strong data-i18n="home.perksStrong">Perks</strong><small data-i18n="home.perksSmall">Benefici e vantaggi supporto</small></span>
               <i class="fa fa-angle-right vc-home-linkitem__arrow" aria-hidden="true"></i>
             </a>
           </div>
@@ -336,22 +328,27 @@
         <div class="vc-home-linkpanel">
           <div class="vc-home-linkpanel__head">
             <span class="vc-home-linkpanel__badge" aria-hidden="true"><i class="fa fa-file-text-o"></i></span>
-            <h2 class="vc-home-linkpanel__title">Richieste</h2>
+            <h2 class="vc-home-linkpanel__title" data-i18n="home.requests">Richieste</h2>
           </div>
           <div class="vc-home-linkpanel__list">
             <a class="vc-home-linkitem" href="{{RICHIESTE_UNBAN_URL}}">
-              <span class="vc-home-linkitem__icon" aria-hidden="true"><i class="fa fa-unlock-alt"></i></span>
-              <span class="vc-home-linkitem__copy"><strong>Unban</strong><small>Richiedi un appello</small></span>
+              <span class="vc-home-linkitem__icon" aria-hidden="true"><i class="fa fa-balance-scale"></i></span>
+              <span class="vc-home-linkitem__copy"><strong data-i18n="home.appealsStrong">Appelli</strong><small data-i18n="home.appealsSmall">Unban e unmute</small></span>
               <i class="fa fa-angle-right vc-home-linkitem__arrow" aria-hidden="true"></i>
             </a>
             <a class="vc-home-linkitem" href="{{RICHIESTE_CANDIDATURE_URL}}">
               <span class="vc-home-linkitem__icon" aria-hidden="true"><i class="fa fa-file-text-o"></i></span>
-              <span class="vc-home-linkitem__copy"><strong>Candidature</strong><small>Entra nel nostro staff</small></span>
+              <span class="vc-home-linkitem__copy"><strong data-i18n="home.appsStrong">Candidature</strong><small data-i18n="home.appsSmallAlt">Entra nel nostro staff</small></span>
               <i class="fa fa-angle-right vc-home-linkitem__arrow" aria-hidden="true"></i>
             </a>
             <a class="vc-home-linkitem" href="{{RICHIESTE_SUGGERIMENTI_URL}}">
               <span class="vc-home-linkitem__icon" aria-hidden="true"><i class="fa fa-lightbulb-o"></i></span>
-              <span class="vc-home-linkitem__copy"><strong>Suggerimenti</strong><small>Proponi idee per la community</small></span>
+              <span class="vc-home-linkitem__copy"><strong data-i18n="home.suggestionsStrong">Suggerimenti</strong><small data-i18n="home.suggestionsSmallAlt">Proponi idee per la community</small></span>
+              <i class="fa fa-angle-right vc-home-linkitem__arrow" aria-hidden="true"></i>
+            </a>
+            <a class="vc-home-linkitem" href="{{SUPPORTO_PAGE_URL}}">
+              <span class="vc-home-linkitem__icon" aria-hidden="true"><i class="fa fa-ticket"></i></span>
+              <span class="vc-home-linkitem__copy"><strong data-i18n="nav.tickets">Tickets</strong><small>Ticket live con lo staff</small></span>
               <i class="fa fa-angle-right vc-home-linkitem__arrow" aria-hidden="true"></i>
             </a>
           </div>
@@ -367,25 +364,25 @@
               data-stat-target="{{STAT_MEMBERS}}">
               <span class="vc-stat-num-inner">0</span>
             </p>
-            <p class="vc-stat-label">Membri</p>
+            <p class="vc-stat-label" data-i18n="home.statMembers">Membri</p>
           </div>
           <div class="vc-stat-cell text-center">
             <p class="vc-stat-num text-3xl font-bold tabular-nums tracking-tight sm:text-4xl" data-live-stat="boosts"
               data-stat-target="{{STAT_BOOSTS}}">
               <span class="vc-stat-num-inner">0</span>
             </p>
-            <p class="vc-stat-label">Boost</p>
+            <p class="vc-stat-label" data-i18n="home.statBoosts">Boost</p>
           </div>
           <div class="vc-stat-cell text-center">
             <p class="vc-stat-num text-3xl font-bold tabular-nums tracking-tight sm:text-4xl" data-live-stat="staff"
               data-stat-target="{{STAT_STAFF}}">
               <span class="vc-stat-num-inner">0</span>
             </p>
-            <p class="vc-stat-label">Staff</p>
+            <p class="vc-stat-label" data-i18n="home.statStaff">Staff</p>
           </div>
           <div class="vc-stat-cell text-center">
             <p class="vc-stat-num vc-stat-247 text-3xl font-bold tabular-nums tracking-tight sm:text-4xl">24/7</p>
-            <p class="vc-stat-label">Community</p>
+            <p class="vc-stat-label" data-i18n="home.statCommunity">Community</p>
           </div>
         </div>
       </div>
@@ -448,7 +445,8 @@
     };
   </script>
   <script src="/js/discord-auth.js" defer></script>
-  <script src="/js/vc-cursor-trail.js" defer></script>
+  <script src="/js/vc-header-name-marquee.js?v={{BUILD_ASSET_VERSION}}" defer></script>
+  <script src="/js/vc-cursor-trail.js?v={{BUILD_ASSET_VERSION}}" defer></script>
   <script src="/js/vc-landing.js" defer></script>
 </body>
 

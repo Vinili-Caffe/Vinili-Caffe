@@ -1,42 +1,46 @@
 const { EmbedBuilder } = require("discord.js");
+const {
+  DEFAULT_TICKET_WELCOME_COLOR,
+  getDefaultWelcomeDescription,
+} = require("./ticketUiDefaults");
+const { DEFAULT_LANGUAGE } = require("../Partner/tenantPartnershipI18n/languages");
 
-function buildTicketPanelEmbed(kind) {
-  if (kind === "supporto") {
-    return new EmbedBuilder()
-      .setTitle("<:VC_Ticket:1482535175283019888> • **__TICKET SUPPORTO__**")
-      .setDescription(
-        `<a:ThankYou:1329504268369002507> • __Grazie per aver aperto un ticket!__\n\n<a:loading:1443934440614264924> ➥ Attendi un membro dello **__\`STAFF\`__**.\n\n<:reportmessage:1443670575376765130> ➥ Descrivi supporto, segnalazione o problema in modo chiaro.`,
-      )
-      .setColor("#6f4e37");
-  }
-  if (kind === "partnership") {
-    return new EmbedBuilder()
-      .setTitle("<:VC_Ticket:1482535175283019888> • **__TICKET PARTNERSHIP__**")
-      .setDescription(
-        `<a:ThankYou:1329504268369002507> • __Grazie per aver aperto un ticket!__\n\n<a:loading:1443934440614264924> ➥ Attendi un **__\`PARTNER MANAGER\`__**.\n\n<:reportmessage:1443670575376765130> ➥ Invia direttamente qui la tua descrizione.`,
-      )
-      .setColor("#6f4e37");
-  }
-  if (kind === "high") {
-    return new EmbedBuilder()
-      .setTitle("<:VC_Ticket:1482535175283019888> • **__TICKET HIGH STAFF__**")
-      .setDescription(
-        `<a:ThankYou:1329504268369002507> • __Grazie per aver aperto un ticket!__\n\n<a:loading:1443934440614264924> ➥ Attendi un **__\`HIGH STAFF\`__**.\n\n<:reportmessage:1443670575376765130> ➥ Specifica se riguarda Donazioni, Sponsor o High Staff.`,
-      )
-      .setColor("#6f4e37");
-  }
-  if (kind === "perks") {
-    return new EmbedBuilder()
-      .setTitle("<:VC_Ticket:1482535175283019888> • **__TICKET PERKS__**")
-      .setDescription(
-        `<a:ThankYou:1329504268369002507> • __Grazie per aver aperto un ticket!__\n\n<a:loading:1443934440614264924> ➥ Attendi **__\`SENIOR MODERATOR\`__** o **__\`DIRECTOR\`__**.\n\n<:reportmessage:1443670575376765130> ➥ Specifica se riguarda verifica selfie, riscatto ruolo Supporter o Follower.`,
-      )
-      .setColor("#6f4e37");
-  }
-  return null;
+function buildDefaultWelcomeContent(lang = DEFAULT_LANGUAGE) {
+  return Object.freeze({
+    color: DEFAULT_TICKET_WELCOME_COLOR,
+    title: "",
+    description: getDefaultWelcomeDescription(lang),
+  });
 }
 
-function getTicketPanelConfig(raw) {
+function resolveWelcomeKind(raw) {
+  const key = String(raw || "").toLowerCase();
+  if (key === "highstaff" || key === "high" || key === "terza" || key === "3" || key === "third") {
+    return "high";
+  }
+  if (key === "partnership" || key === "partner" || key === "seconda" || key === "2" || key === "second") {
+    return "partnership";
+  }
+  if (key === "perks" || key === "quarta" || key === "4" || key === "fourth") {
+    return "perks";
+  }
+  return "supporto";
+}
+
+function getTicketWelcomeContent(kindOrType, lang = DEFAULT_LANGUAGE) {
+  resolveWelcomeKind(kindOrType);
+  return buildDefaultWelcomeContent(lang);
+}
+
+function buildTicketPanelEmbed(kind, lang = DEFAULT_LANGUAGE) {
+  const content = getTicketWelcomeContent(kind, lang);
+  if (!content) return null;
+  const embed = new EmbedBuilder().setDescription(content.description).setColor(content.color);
+  if (content.title) embed.setTitle(content.title);
+  return embed;
+}
+
+function getTicketPanelConfig(raw, lang = DEFAULT_LANGUAGE) {
   const key = String(raw || "").toLowerCase();
   const aliases = {
     supporto: "supporto",
@@ -65,7 +69,7 @@ function getTicketPanelConfig(raw) {
       emoji: "⭐",
       name: "supporto",
       label: "Supporto",
-      embed: buildTicketPanelEmbed("supporto"),
+      embed: buildTicketPanelEmbed("supporto", lang),
     };
   }
   if (resolved === "partnership") {
@@ -74,7 +78,7 @@ function getTicketPanelConfig(raw) {
       emoji: "🤝",
       name: "partnership",
       label: "Partnership",
-      embed: buildTicketPanelEmbed("partnership"),
+      embed: buildTicketPanelEmbed("partnership", lang),
     };
   }
   if (resolved === "highstaff") {
@@ -83,7 +87,7 @@ function getTicketPanelConfig(raw) {
       emoji: "✨",
       name: "highstaff",
       label: "High Staff",
-      embed: buildTicketPanelEmbed("high"),
+      embed: buildTicketPanelEmbed("high", lang),
     };
   }
   if (resolved === "perks") {
@@ -92,10 +96,21 @@ function getTicketPanelConfig(raw) {
       emoji: "🎁",
       name: "perks",
       label: "Perks",
-      embed: buildTicketPanelEmbed("perks"),
+      embed: buildTicketPanelEmbed("perks", lang),
     };
   }
   return null;
 }
 
-module.exports = { getTicketPanelConfig, buildTicketPanelEmbed };
+module.exports = {
+  TICKET_WELCOME_BY_KIND: Object.freeze({
+    supporto: buildDefaultWelcomeContent(DEFAULT_LANGUAGE),
+    partnership: buildDefaultWelcomeContent(DEFAULT_LANGUAGE),
+    high: buildDefaultWelcomeContent(DEFAULT_LANGUAGE),
+    perks: buildDefaultWelcomeContent(DEFAULT_LANGUAGE),
+  }),
+  resolveWelcomeKind,
+  getTicketWelcomeContent,
+  getTicketPanelConfig,
+  buildTicketPanelEmbed,
+};

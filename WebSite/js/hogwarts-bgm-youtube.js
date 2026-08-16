@@ -1,9 +1,13 @@
 (function () {
   var BGM_PREF_KEY = "vc_hogwarts_bgm_enabled_v1";
+  var VOL_PREF_KEY = "vc_hogwarts_bgm_volume_v1";
+  var HINT_AUTO_HIDE_MS = 4500;
   var hintEl = null;
+  var hintHideTimer = null;
   var started = false;
   var mutedByUser = false;
   var baseVol = 0.35;
+  var userVol = 0.35;
   var player = null;
   var playerReady = false;
   var booting = false;
@@ -14,6 +18,7 @@
   /** Se true dopo unduck, la BGM torna a suonare (rispetta anche mutedByUser e il tap sul FAB). */
   var shouldResumeAfterEmbeddedVideo = false;
   var detachFirst = null;
+  var volumeUiBound = false;
 
   function youtubePublicCfg() {
     try {
@@ -76,10 +81,140 @@
   }
 
   function readVolume() {
+    var cfgVol = 0.35;
     try {
       var c = window.__VC_HOGWARTS_BGM || {};
-      baseVol = Math.min(1, Math.max(0.05, Number(c.baseVolume) || 0.35));
+      cfgVol = Math.min(1, Math.max(0.05, Number(c.baseVolume) || 0.35));
     } catch (eV) {}
+    try {
+      var raw = localStorage.getItem(VOL_PREF_KEY);
+      if (raw != null && raw !== "") {
+        var n = Number(raw);
+        if (Number.isFinite(n)) {
+          userVol = Math.min(1, Math.max(0, n > 1 ? n / 100 : n));
+          baseVol = userVol;
+          return;
+        }
+      }
+    } catch (eLs) {}
+    userVol = cfgVol;
+    baseVol = cfgVol;
+  }
+
+  function persistVolume(vol) {
+    userVol = Math.min(1, Math.max(0, Number(vol) || 0));
+    baseVol = userVol;
+    try {
+      localStorage.setItem(VOL_PREF_KEY, String(Math.round(userVol * 100) / 100));
+    } catch (eP) {}
+  }
+
+  function applyPlayerVolume() {
+    if (!player || !playerReady) return;
+    try {
+      player.setVolume(Math.round(Math.min(1, Math.max(0, baseVol)) * 100));
+    } catch (eAv) {}
+  }
+
+  function ensurePlayerShell() {
+    var existing = document.getElementById("vc-hw-music-player");
+    if (existing) {
+      syncVolumeSliderUi();
+      return existing;
+    }
+    var btn = document.getElementById("vc-hw-music-btn");
+    if (!btn || !btn.parentNode) return null;
+
+    var wrap = document.createElement("div");
+    wrap.id = "vc-hw-music-player";
+    wrap.className = "vc-bgm-player vc-bgm-player--hogwarts vc-hw-music-fab";
+    if (btn.hasAttribute("hidden") || btn.hidden) {
+      wrap.hidden = true;
+      wrap.setAttribute("hidden", "");
+    }
+
+    btn.className = "vc-bgm-player__toggle";
+    btn.removeAttribute("hidden");
+    btn.hidden = false;
+    if (!btn.querySelector(".fa")) {
+      var ico = document.createElement("i");
+      ico.className = "fa fa-volume-up";
+      ico.setAttribute("aria-hidden", "true");
+      btn.appendChild(ico);
+    }
+
+    var meta = document.createElement("div");
+    meta.className = "vc-bgm-player__meta";
+    var label = document.createElement("span");
+    label.className = "vc-bgm-player__label";
+    label.textContent = "Musica Hogwarts";
+    var row = document.createElement("div");
+    row.className = "vc-bgm-player__slider-row";
+    var icoLo = document.createElement("i");
+    icoLo.className = "fa fa-volume-down";
+    icoLo.setAttribute("aria-hidden", "true");
+    var range = document.createElement("input");
+    range.type = "range";
+    range.id = "vc-hw-music-vol";
+    range.className = "vc-bgm-player__range";
+    range.min = "0";
+    range.max = "100";
+    range.step = "1";
+    range.setAttribute("aria-label", "Volume musica Hogwarts");
+    var icoHi = document.createElement("i");
+    icoHi.className = "fa fa-volume-up";
+    icoHi.setAttribute("aria-hidden", "true");
+    row.appendChild(icoLo);
+    row.appendChild(range);
+    row.appendChild(icoHi);
+    meta.appendChild(label);
+    meta.appendChild(row);
+
+    btn.parentNode.insertBefore(wrap, btn);
+    wrap.appendChild(btn);
+    wrap.appendChild(meta);
+    bindVolumeUi();
+    syncVolumeSliderUi();
+    return wrap;
+  }
+
+  function syncVolumeSliderUi() {
+    var range = document.getElementById("vc-hw-music-vol");
+    if (!range) return;
+    range.value = String(Math.round(Math.min(1, Math.max(0, userVol)) * 100));
+  }
+
+  function bindVolumeUi() {
+    if (volumeUiBound) return;
+    var range = document.getElementById("vc-hw-music-vol");
+    if (!range) return;
+    volumeUiBound = true;
+    function onVolInput() {
+      var pct = Math.min(100, Math.max(0, Number(range.value) || 0));
+      persistVolume(pct / 100);
+      if (pct <= 0) {
+        if (!mutedByUser) pauseAudible();
+        else applyPlayerVolume();
+        updateMusicButtonUi();
+        return;
+      }
+      applyPlayerVolume();
+      if (mutedByUser || !isAudiblePlaying()) {
+        rememberBgmEnabled(true);
+        mutedByUser = false;
+        hideHint();
+        detachFirstPointer();
+        playAudible(true);
+      }
+      updateMusicButtonUi();
+    }
+    range.addEventListener("input", onVolInput);
+    range.addEventListener("change", onVolInput);
+    range.addEventListener("pointerdown", function (ev) {
+      try {
+        ev.stopPropagation();
+      } catch (eS) {}
+    });
   }
 
   function isAudiblePlaying() {
@@ -97,6 +232,7 @@
   }
 
   function updateMusicButtonUi() {
+    ensurePlayerShell();
     var btn = document.getElementById("vc-hw-music-btn");
     if (!btn) return;
     var ico = btn.querySelector(".fa");
@@ -110,17 +246,40 @@
       btn.setAttribute("aria-label", "Attiva musica di sottofondo");
       btn.title = "Attiva musica Hogwarts";
     }
+    syncVolumeSliderUi();
   }
 
   function showMusicButton() {
+    var wrap = ensurePlayerShell();
+    if (wrap) {
+      wrap.hidden = false;
+      wrap.removeAttribute("hidden");
+    }
     var btn = document.getElementById("vc-hw-music-btn");
-    if (!btn) return;
-    btn.hidden = false;
-    btn.removeAttribute("hidden");
+    if (btn) {
+      btn.hidden = false;
+      btn.removeAttribute("hidden");
+    }
     updateMusicButtonUi();
   }
 
+  function clearHintAutoHide() {
+    if (hintHideTimer) {
+      clearTimeout(hintHideTimer);
+      hintHideTimer = null;
+    }
+  }
+
+  function scheduleHintAutoHide() {
+    clearHintAutoHide();
+    hintHideTimer = setTimeout(function () {
+      hintHideTimer = null;
+      hideHint();
+    }, HINT_AUTO_HIDE_MS);
+  }
+
   function hideHint() {
+    clearHintAutoHide();
     if (!hintEl) return;
     hintEl.classList.add("vc-hw-bgm-hint--hide");
     setTimeout(function () {
@@ -175,7 +334,7 @@
       document.removeEventListener("keydown", onKey, true);
     };
     function onPointer(ev) {
-      if (ev && ev.target && ev.target.closest && ev.target.closest("#vc-hw-cinema, #vc-hw-cinema-start, #vc-hw-cinema-skip")) return;
+      if (ev && ev.target && ev.target.closest && ev.target.closest("#vc-hw-cinema, #vc-hw-cinema-start, #vc-hw-cinema-skip, #vc-hw-music-player")) return;
       startFromUserGesture();
     }
     function onKey(ev) {
@@ -189,16 +348,32 @@
 
   function ensureHint(msg) {
     if (cinemaIntroActive()) return;
+    var text =
+      msg ||
+      "Tocca per avviare la musica";
     if (hintEl) {
-      hintEl.textContent = msg || hintEl.textContent;
+      var txt = hintEl.querySelector(".vc-hw-bgm-hint__txt");
+      if (txt) txt.textContent = text;
+      else hintEl.textContent = text;
+      scheduleHintAutoHide();
       return;
     }
-    hintEl = document.createElement("p");
+    hintEl = document.createElement("button");
+    hintEl.type = "button";
     hintEl.className = "vc-hw-bgm-hint";
     hintEl.setAttribute("role", "status");
-    hintEl.textContent =
-      msg ||
-      "Tocca un punto qualsiasi della pagina per avviare l'audio. Puoi anche usare il pulsante volume in basso a destra.";
+    hintEl.setAttribute("aria-label", text);
+    var ico = document.createElement("span");
+    ico.className = "vc-hw-bgm-hint__ico";
+    ico.setAttribute("aria-hidden", "true");
+    var fi = document.createElement("i");
+    fi.className = "fa fa-music";
+    ico.appendChild(fi);
+    var label = document.createElement("span");
+    label.className = "vc-hw-bgm-hint__txt";
+    label.textContent = text;
+    hintEl.appendChild(ico);
+    hintEl.appendChild(label);
     hintEl.addEventListener("click", function (ev) {
       if (ev) {
         try {
@@ -208,6 +383,7 @@
       startFromUserGesture();
     });
     document.body.appendChild(hintEl);
+    scheduleHintAutoHide();
   }
 
   function stopOtherSiteBgm() {
@@ -245,7 +421,7 @@
 
   function onYoutubeBlocked() {
     ytLoadFailed = true;
-    ensureHint("Musica YouTube bloccata (ad-blocker). Consenti youtube-nocookie.com per questo sito o usa l'icona audio dopo averlo fatto.");
+    ensureHint("Musica bloccata dall’ad-blocker. Consenti youtube-nocookie.com.");
   }
 
   function tryNextYoutubeVideo() {
@@ -289,7 +465,7 @@
     activeVideoIdx = 0;
     booting = true;
     player = new window.YT.Player("vc-hw-yt-player", {
-      host: window.__vcYoutubePlayerHost || "https://www.youtube-nocookie.com",
+      host: window.__vcYoutubePlayerHost || "https://www.youtube.com",
       videoId: bootstrapId || pub.videoIds[0],
       height: "180",
       width: "320",
@@ -306,7 +482,7 @@
             }
           } catch (eCue) {}
           try {
-            player.setVolume(Math.round(baseVol * 100));
+            applyPlayerVolume();
           } catch (eV) {}
         },
         onError: function (ev) {
@@ -426,7 +602,7 @@
           clearInterval(waitIv);
           try {
             player.unMute();
-            player.setVolume(Math.round(baseVol * 100));
+            applyPlayerVolume();
             player.playVideo();
             started = true;
           } catch (eR) {}
@@ -437,7 +613,7 @@
     }
     try {
       player.unMute();
-      player.setVolume(Math.round(baseVol * 100));
+      applyPlayerVolume();
       player.playVideo();
       started = true;
     } catch (ePl) {
@@ -488,7 +664,7 @@
     }
     try {
       player.unMute();
-      player.setVolume(Math.round(baseVol * 100));
+      applyPlayerVolume();
       player.playVideo();
       started = true;
       updateMusicButtonUi();
@@ -593,6 +769,8 @@
 
   document.addEventListener("DOMContentLoaded", function () {
     stopOtherSiteBgm();
+    readVolume();
+    ensurePlayerShell();
     var btn = document.getElementById("vc-hw-music-btn");
     if (btn) {
       btn.addEventListener("click", function (ev) {

@@ -3,6 +3,7 @@ const { buildAuditExtraLines } = require("../Utils/Logging/channelRolesLogUtils"
 const { resolveModLogChannel, fetchRecentAuditEntry, formatResponsible, nowDiscordTs, } = require("../Utils/Logging/modAuditLogUtils");
 const { handleKickBanAction: antiNukeHandleKickBanAction } = require("../Services/Moderation/antiNukeService");
 const { closeOpenTicketsForGuildUser } = require("../Utils/Ticket/ticketCloseRuntime");
+const { isViniliFullFeatureGuild } = require("../MultiGuild/core/guildFeatureScope");
 
 function sleep(ms) {
   return new Promise((resolve) => {
@@ -41,6 +42,7 @@ module.exports = {
     try {
       const guild = ban?.guild;
       if (!guild) return;
+      if (!isViniliFullFeatureGuild(guild.id)) return;
       const targetId = String(ban?.user?.id || "");
       if (!targetId) return;
 

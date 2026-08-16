@@ -1,6 +1,5 @@
 const { CustomRole } = require("../../Schemas/Community/communitySchemas");
-const { runExpiredCustomRolesSweep, } = require("../../Services/Community/customRoleExpiryService");
-const { getGuildRoleCached } = require("../Interaction/interactionEntityCache");
+const { runExpiredCustomRolesSweep } = require("../../Services/Community/customRoleExpiryService");
 
 function isExpired(doc) {
   const expiresAt = doc?.expiresAt ? new Date(doc.expiresAt) : null;
@@ -8,46 +7,92 @@ function isExpired(doc) {
   return expiresAt.getTime() <= Date.now();
 }
 
+function isUnknownRoleError(err) {
+  const code = err?.code ?? err?.rawError?.code;
+  return Number(code) === 10011;
+}
+
+/**
+ * Resolve a guild role without caching null on transient failures.
+ * @returns {Promise<{ role: import("discord.js").Role|null, gone: boolean }>}
+ */
+async function fetchRoleStrict(guild, roleId) {
+  const id = String(roleId || "").trim();
+  if (!guild || !id) return { role: null, gone: false };
+  const cached = guild.roles?.cache?.get(id) || null;
+  if (cached) return { role: cached, gone: false };
+  try {
+    const role = await guild.roles.fetch(id);
+    return { role: role || null, gone: false };
+  } catch (err) {
+    if (isUnknownRoleError(err)) return { role: null, gone: true };
+    return { role: null, gone: false };
+  }
+}
+
 async function resolveCustomRoleState({ guild, userId, client = null, cleanupExpired = true }) {
   if (!guild || !userId) {
     return { status: "invalid", doc: null, role: null };
   }
 
-  const doc = await CustomRole.findOne({ guildId: guild.id, userId: String(userId), }).lean().catch(() => null);
+  const doc = await CustomRole.findOne({ guildId: guild.id, userId: String(userId) }).lean().catch(() => null);
   if (!doc?.roleId && !doc?.secondaryRoleId) {
     return { status: "none", doc: null, role: null };
   }
 
   if (isExpired(doc)) {
     if (cleanupExpired && client) {
-      runExpiredCustomRolesSweep(client).catch(() => { });
+      runExpiredCustomRolesSweep(client).catch(() => {});
     }
     return { status: "expired", doc, role: null };
   }
 
   let role = null;
   let secondaryRole = null;
+  let primaryGone = false;
+  let secondaryGone = false;
+
   if (doc?.roleId) {
-    role = guild.roles.cache.get(doc.roleId) || (await getGuildRoleCached(guild, doc.roleId));
+    const primary = await fetchRoleStrict(guild, doc.roleId);
+    role = primary.role;
+    primaryGone = primary.gone;
   }
   if (doc?.secondaryRoleId) {
-    secondaryRole = guild.roles.cache.get(doc.secondaryRoleId) || (await getGuildRoleCached(guild, doc.secondaryRoleId));
+    const secondary = await fetchRoleStrict(guild, doc.secondaryRoleId);
+    secondaryRole = secondary.role;
+    secondaryGone = secondary.gone;
   }
-  if (doc?.roleId && !role && doc?.secondaryRoleId && secondaryRole) {
+
+  // Promote secondary → primary if primary Discord role is confirmed gone.
+  if (doc?.roleId && !role && primaryGone && doc?.secondaryRoleId && secondaryRole) {
     await CustomRole.updateOne(
       { guildId: guild.id, userId: String(userId) },
       { $set: { roleId: secondaryRole.id, secondaryRoleId: null } },
-    ).catch(() => { });
+    ).catch(() => {});
     role = secondaryRole;
     secondaryRole = null;
+    primaryGone = false;
+    secondaryGone = false;
   }
+
+  // Soft-clear only IDs Discord confirms as deleted. Never wipe customVoc / eligibility / whole blob.
+  const softClear = {};
+  if (doc?.roleId && !role && primaryGone) softClear.roleId = null;
+  if (doc?.secondaryRoleId && !secondaryRole && secondaryGone) softClear.secondaryRoleId = null;
+  if (Object.keys(softClear).length) {
+    await CustomRole.updateOne({ guildId: guild.id, userId: String(userId) }, { $set: softClear }).catch(() => {});
+  }
+
   if (!role && !secondaryRole) {
-    await CustomRole.deleteOne({
-      guildId: guild.id,
-      userId: String(userId),
-    }).catch(() => { });
-    return { status: "missing_role", doc, role: null };
+    // Keep Mongo links on transient fetch failures so +profile can recover next time.
+    return {
+      status: primaryGone && secondaryGone ? "missing_role" : "unavailable",
+      doc,
+      role: null,
+      secondaryRole: null,
+    };
   }
+
   return { status: "active", doc, role: role || null, secondaryRole: secondaryRole || null };
 }
 
@@ -58,4 +103,4 @@ function buildExpiryText(doc) {
   return `<t:${ts}:F> (<t:${ts}:R>)`;
 }
 
-module.exports = { resolveCustomRoleState, buildExpiryText };
+module.exports = { resolveCustomRoleState, buildExpiryText, fetchRoleStrict };

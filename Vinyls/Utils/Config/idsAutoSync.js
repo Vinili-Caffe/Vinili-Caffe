@@ -8,6 +8,22 @@ const pendingReasons = new Map();
 const runningGuilds = new Set();
 const rerunGuilds = new Set();
 
+function getMainGuildId() {
+  try {
+    const IDs = require("./ids");
+    return String(IDs.guilds?.main || "").trim();
+  } catch {
+    return "";
+  }
+}
+
+function isIdsCatalogGuild(guildId) {
+  const mainId = getMainGuildId();
+  const gid = String(guildId || "").trim();
+  // Il file idsCatalog.js è unico e descrive solo la main Vinili.
+  return Boolean(mainId && gid && gid === mainId);
+}
+
 function getCatalogPath(baseDir) {
   return path.join(baseDir, "Utils", "Config", "idsCatalog.js");
 }
@@ -29,6 +45,10 @@ function consumeReasons(guildId) {
 async function runIdsCatalogSync(client, guildId) {
   const gid = String(guildId || "");
   if (!gid) return { changed: false, reason: "missing-guild-id" };
+  if (!isIdsCatalogGuild(gid)) {
+    pendingReasons.delete(gid);
+    return { changed: false, reason: "not-main-guild" };
+  }
 
   if (runningGuilds.has(gid)) {
     rerunGuilds.add(gid);
@@ -46,11 +66,16 @@ async function runIdsCatalogSync(client, guildId) {
     const payload = await collectGuildCatalog(guild, IDs);
     const baseDir = BOT_ROOT;
     const catalogPath = getCatalogPath(baseDir);
-    const previous = fs.existsSync(catalogPath) ? fs.readFileSync(catalogPath, "utf8") : "";
+    let previous = "";
+    try {
+      previous = await fs.promises.readFile(catalogPath, "utf8");
+    } catch {
+      previous = "";
+    }
 
     if (previous === payload.catalogSource) return { changed: false, reason: "no-diff", triggers: reasons };
 
-    writeCatalogFiles(baseDir, payload);
+    await writeCatalogFiles(baseDir, payload);
     delete require.cache[require.resolve("./idsCatalog")];
     delete require.cache[require.resolve("./ids")];
 
@@ -70,6 +95,7 @@ async function runIdsCatalogSync(client, guildId) {
 function queueIdsCatalogSync(client, guildId, reason = "event", options = {}) {
   const gid = String(guildId || "");
   if (!gid) return;
+  if (!isIdsCatalogGuild(gid)) return;
   addReason(gid, reason);
 
   const delayMs = Number.isFinite(options.delayMs) ? Math.max(0, options.delayMs) : DEFAULT_DELAY_MS;

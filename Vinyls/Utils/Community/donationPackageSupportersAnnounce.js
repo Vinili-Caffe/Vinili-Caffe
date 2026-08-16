@@ -90,7 +90,7 @@ function buildDonationPackageEmbed(tier, member, isPurchase = false) {
       "\n" +
       `<a:flyingnitroboost:1443652205705170986> Tutto lo **staff** ti _ringrazia_ per averci __supportato__.\n` +
       "\n" +
-      "<:VC_Logo:1498073401317916803> Trovate tutti i vantaggi del nostro server sul nostro sito [viniliecaffe.it](<https://viniliecaffe.it>)!";
+      "<:VC_Link:1482460590894088222> Trovate tutti i vantaggi del nostro server sul nostro sito [viniliecaffe.it](<https://viniliecaffe.it>)!";
   } else if (tier === "vip") {
     perkBlock =
       `${heading}\n` +
@@ -108,7 +108,7 @@ function buildDonationPackageEmbed(tier, member, isPurchase = false) {
       "\n" +
       `<a:flyingnitroboost:1443652205705170986> Tutto lo **staff** ti _ringrazia_ per averci __supportato__.\n` +
       "\n" +
-      "<:VC_Logo:1498073401317916803> Trovate tutti i vantaggi del nostro server sul nostro sito [viniliecaffe.it](<https://viniliecaffe.it>)!";
+      "<:VC_Link:1482460590894088222> Trovate tutti i vantaggi del nostro server sul nostro sito [viniliecaffe.it](<https://viniliecaffe.it>)!";
   } else {
     perkBlock =
       `${heading}\n` +
@@ -126,7 +126,7 @@ function buildDonationPackageEmbed(tier, member, isPurchase = false) {
       "\n" +
       `<a:flyingnitroboost:1443652205705170986> Tutto lo **staff** ti _ringrazia_ per averci __supportato__.\n` +
       "\n" +
-      "<:VC_Logo:1498073401317916803> Trovate tutti i vantaggi del nostro server sul nostro sito [viniliecaffe.it](<https://viniliecaffe.it>)!";
+      "<:VC_Link:1482460590894088222> Trovate tutti i vantaggi del nostro server sul nostro sito [viniliecaffe.it](<https://viniliecaffe.it>)!";
   }
 
   return new EmbedBuilder()
@@ -246,11 +246,28 @@ async function sendDonationPackageAnnounceNow(member, tier, opts = {}) {
   return { ok: true, messageId: String(sent.id) };
 }
 
+function donationAnnounceBlobMatchesTier(blob, tier) {
+  const text = String(blob || "");
+  if (tier === "vipPlus") {
+    return /PACCHETTO\s+VIP\+/i.test(text) || /HAI RICEVUTO IL RUOLO VIP\+/i.test(text);
+  }
+  if (tier === "vip") {
+    // VIP ma non VIP+
+    return /PACCHETTO\s+VIP(?!\+)/i.test(text) || /HAI RICEVUTO IL RUOLO VIP(?!\+)/i.test(text);
+  }
+  if (tier === "donator") {
+    return /PACCHETTO\s+DONATOR/i.test(text) || /HAI RICEVUTO IL RUOLO DONATOR/i.test(text);
+  }
+  return (
+    /PACCHETTO\s+(DONATOR|VIP\+|VIP)/i.test(text) ||
+    /HAI RICEVUTO IL RUOLO (DONATOR|VIP\+|VIP)/i.test(text)
+  );
+}
+
 async function recoverDonationPackageAnnouncesOnStartup(client, opts = {}) {
   const {
     isRecoveryPrimaryShard,
     DEFAULT_RECOVERY_LOOKBACK_MS,
-    EMBED_DEDUPE_LOOKBACK_MS,
     collectRecentRoleAddsFromAudit,
     botSupportersEmbedExistsForUser,
     recoverySleep,
@@ -267,7 +284,6 @@ async function recoverDonationPackageAnnouncesOnStartup(client, opts = {}) {
   const channel = guild.channels.cache.get(channelId) || (await getGuildChannelCached(guild, channelId));
   if (!channel?.isTextBased?.()) return { ok: false, reason: "channel_not_text" };
   const botId = String(client.user?.id || "");
-  const embedSinceMs = Date.now() - EMBED_DEDUPE_LOOKBACK_MS;
   const roleIds = Object.values(ROLE_ID_BY_TIER).filter(Boolean);
   const adds = await collectRecentRoleAddsFromAudit(guild, roleIds, lookbackMs);
   const seen = new Set();
@@ -287,13 +303,16 @@ async function recoverDonationPackageAnnouncesOnStartup(client, opts = {}) {
       }
     }
     if (!tier) continue;
-    const exists = await botSupportersEmbedExistsForUser(channel, uid, botId, embedSinceMs, (blob) =>
-      /PACCHETTO\s+(DONATOR|VIP)/i.test(blob) || /HAI RICEVUTO IL RUOLO (DONATOR|VIP)/i.test(blob),
-    );
-    if (exists) continue;
     const member = await getGuildMemberCached(guild, uid, { preferFresh: true }).catch(() => null);
     if (!member?.roles?.cache?.has(rid)) continue;
     const bestTier = tierForMemberRoles(member) || tier;
+    // Solo announce dopo questo role-add (evita di saltare per un VIP+/VIP vecchio di settimane).
+    const roleAddMs = Number(row.createdMs || 0);
+    const embedSinceMs = Math.max(0, (roleAddMs || Date.now()) - 5 * 60 * 1000);
+    const exists = await botSupportersEmbedExistsForUser(channel, uid, botId, embedSinceMs, (blob) =>
+      donationAnnounceBlobMatchesTier(blob, bestTier),
+    );
+    if (exists) continue;
     const executorId = String(row.executorId || "").trim();
     const isPurchase =
       Boolean(executorId) &&
@@ -321,4 +340,9 @@ async function maybeAnnounceDonationPackageInSupporters(oldMember, newMember) {
   mergePendingDonationAnnounce(memberAnnounceKey(newMember.guild.id, newMember.id), tier, newMember);
 }
 
-module.exports = { maybeAnnounceDonationPackageInSupporters, sendDonationPackageAnnounceNow, recoverDonationPackageAnnouncesOnStartup };
+module.exports = {
+  maybeAnnounceDonationPackageInSupporters,
+  sendDonationPackageAnnounceNow,
+  recoverDonationPackageAnnouncesOnStartup,
+  donationAnnounceBlobMatchesTier,
+};

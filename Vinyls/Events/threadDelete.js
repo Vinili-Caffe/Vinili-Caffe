@@ -2,6 +2,7 @@ const { formatItalianMinutesPlain } = require("../Utils/Text/italianDurationLabe
 const { AuditLogEvent, EmbedBuilder } = require("discord.js");
 const { ARROW, toDiscordTimestamp, yesNo, formatAuditActor, buildAuditExtraLines, resolveChannelRolesLogChannel, resolveResponsible, } = require("../Utils/Logging/channelRolesLogUtils");
 const { handleThreadDeletionAction: antiNukeHandleThreadDeletionAction } = require("../Services/Moderation/antiNukeService");
+const { isViniliFullFeatureGuild } = require("../MultiGuild/core/guildFeatureScope");
 const THREAD_DELETE_ACTION = AuditLogEvent?.ThreadDelete ?? 112;
 
 function sleep(ms) {
@@ -35,6 +36,7 @@ module.exports = {
       const guild = thread?.guild;
       const threadId = String(thread?.id || "");
       if (!guild || !threadId) return;
+      if (!isViniliFullFeatureGuild(guild.id)) return;
       const audit = await resolveResponsibleWithRetry(guild, threadId);
       const executorId = String(audit?.executor?.id || "");
       const responsible = formatAuditActor(audit.executor);

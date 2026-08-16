@@ -18,7 +18,9 @@ const RESOCONTO_REJECT_PREFIX = "resoconto_reject";
 const RESOCONTO_OVERRIDE_PREFIX = "resoconto_override";
 const RESOCONTO_REASON_MODAL_PREFIX = "resoconto_reason";
 const RESOCONTO_REASON_INPUT_ID = "reason";
-const STAFF_ACTIONS = new Set(["px", "dp", "vp", "vn", "nl"]);
+const WEEKLY_LIMITS_POSITIVE_REASON = "Limiti settimanali completati.";
+const WEEKLY_LIMITS_NEGATIVE_REASON = "Limiti settimanali non raggiunti.";
+const STAFF_ACTIONS = new Set(["px", "dp", "vp", "vn", "nl", "batch"]);
 const PM_ACTIONS = new Set(["dp", "rc", "nl"]);
 const ROLE_UP = {
   [String(IDs.roles.Helper)]: String(IDs.roles.Mod),
@@ -36,6 +38,7 @@ const ROLE_SENIOR_MODERATOR = String(IDs.roles.SeniorModerator);
 const ROLE_DIRECTOR = String(IDs.roles.Director);
 const ROLE_ADMIN = String(IDs.roles.Admin);
 const ROLE_MANAGER = String(IDs.roles.Manager || "");
+const ROLE_HIGH_STAFF = String(IDs.roles.HighStaff || "");
 const ROLE_CO_OWNER = "";
 const ROLE_OWNER = String(IDs.roles.Founder);
 
@@ -91,11 +94,11 @@ function parseResocontoOverrideCustomId(customId) {
   if (!/^\d{16,20}$/.test(userId) || !/^\d{16,20}$/.test(messageId)) return null;
   if (kind === "s") {
     if (!/^\d{16,20}$/.test(roleIdRaw) || !STAFF_ACTIONS.has(actionKey)) return null;
-    return { mode: "apply", kind, userId, roleId: roleIdRaw, actionKey, messageId };
+    return { mode: "apply", kind, userId, roleId: roleIdRaw, actionKey, messageId, explicitChoice: true };
   }
   if (kind === "p") {
     if (!PM_ACTIONS.has(actionKey)) return null;
-    return { mode: "apply", kind, userId, roleId: null, actionKey, messageId };
+    return { mode: "apply", kind, userId, roleId: null, actionKey, messageId, explicitChoice: true };
   }
   return null;
 }
@@ -120,7 +123,10 @@ function isModOrAboveRoleId(roleId) {
 
 function resolveAutoReasonForResocontoAction(payload) {
   if (String(payload?.actionKey || "") === "vp" && String(payload?.kind || "") === "s") {
-    return "Limiti settimanali rispettati";
+    return String(payload?.resocontoReason || "").trim() || WEEKLY_LIMITS_POSITIVE_REASON;
+  }
+  if (String(payload?.actionKey || "") === "vn" && String(payload?.kind || "") === "s") {
+    return String(payload?.resocontoReason || "").trim() || WEEKLY_LIMITS_NEGATIVE_REASON;
   }
   if (String(payload?.actionKey || "") === "px" && String(payload?.kind || "") === "s") {
     const roleId = String(payload?.roleId || "");
@@ -162,7 +168,7 @@ function parseResocontoModalCustomId(customId) {
   if (kind !== "s" || !STAFF_ACTIONS.has(actionKey) || !/^\d{16,20}$/.test(roleId)) {
     return null;
   }
-  if (!["px", "dp", "vp", "vn"].includes(actionKey)) return null;
+  if (!["px", "dp", "vp", "vn", "batch"].includes(actionKey)) return null;
   return { kind, userId, roleId, actionKey, messageId };
 }
 
@@ -192,7 +198,7 @@ async function sendValutazioneLogEmbed(guild, actor, targetUser, reason, positiv
   if (!channel?.isTextBased?.()) return;
 
   const ord = Math.max(0, Math.floor(Number(sectionOrdinal || 0)));
-  const vid = Math.max(0, Math.floor(Number(valutazioniCount || 0)));
+  const vid = Math.max(0, Math.floor(Number(sectionOrdinal || 0)));
   const actorUser = actor?.user || actor;
   const iconSource = actor?.user ? actor : actorUser;
   const actorName = String(actorUser?.username || actor?.username || "Staff");
@@ -330,6 +336,7 @@ async function sendPexDepexLog(guild, type, targetUser, oldRoleId, newRoleId, re
       content: `${typeLabel} <@${targetUser.id}>
 ${actionEmoji} \`${oldRole?.name || oldRoleId}\` <a:VC_Arrow:1482706699365257397> \`${newRole?.name || newRoleId || "Nessuno"}\`
 <:VC_reason:1478517122929004544> __${reason}__`,
+    __skipNoticeEmbed: true,
     })
     .catch(() => null);
 }
@@ -366,7 +373,18 @@ async function applyStaffAction(guild, actor, payload, reasonOverride = null) {
   const targetUser = member.user;
   if (payload.actionKey === "vp") {
     const profileDoc = await getOrCreateStaffDoc(guild.id, payload.userId);
-    const reason = String(reasonOverride || "").trim() || "<:success:1461731530333229226> Limiti settimanali rispettati";
+    const {
+      shouldSkipManualResocontoVp,
+      resolveResocontoWeekKey,
+    } = require("../../Services/Staff/weeklyStaffResocontoService");
+    const staffDoc = ensureStaff(profileDoc);
+    const reason = String(reasonOverride || "").trim() || WEEKLY_LIMITS_POSITIVE_REASON;
+    if (
+      staffDoc &&
+      shouldSkipManualResocontoVp(staffDoc, resolveResocontoWeekKey(), payload.roleId, reason)
+    ) {
+      return "<:success:1461731530333229226> Valutazione Positiva già registrata.";
+    }
     const channel = await getGuildChannelCached(guild, IDs.channels.valutazioniStaff);
     if (!channel?.isTextBased?.()) return "<a:VC_Alert:1482706673176150077> Canale valutazioni non disponibile.";
     const { valutazionePositiveAddCore } = require("../../Utils/Staff/valutazionePanelActions");
@@ -377,7 +395,7 @@ async function applyStaffAction(guild, actor, payload, reasonOverride = null) {
 
   if (payload.actionKey === "vn") {
     const profileDoc = await getOrCreateStaffDoc(guild.id, payload.userId);
-    const reason = String(reasonOverride || "").trim() || "<:cancel:1461730653677551691> Limiti settimanali non rispettati";
+    const reason = String(reasonOverride || "").trim() || WEEKLY_LIMITS_NEGATIVE_REASON;
     const channel = await getGuildChannelCached(guild, IDs.channels.valutazioniStaff);
     if (!channel?.isTextBased?.()) return "<a:VC_Alert:1482706673176150077> Canale valutazioni non disponibile.";
     const { valutazioneNegativeAddCore } = require("../../Utils/Staff/valutazionePanelActions");
@@ -492,6 +510,156 @@ async function applyPmAction(guild, payload, reasonOverride = null) {
   return "<:success:1461731530333229226> Depex PM applicato e dati partner rimossi.";
 }
 
+async function applyStaffResocontoPendingValutazioni(
+  guild,
+  actor,
+  payload,
+  pendingActions,
+  reasonOverride = null,
+  reasonActionKey = null,
+) {
+  const {
+    shouldSkipManualResocontoVp,
+    resolveResocontoWeekKey,
+  } = require("../../Services/Staff/weeklyStaffResocontoService");
+  const actions = Array.isArray(pendingActions) ? pendingActions : [];
+  if (!actions.length) {
+    return "<:success:1461731530333229226> Valutazioni già registrate dal sistema.";
+  }
+
+  const resocontoWeekKey = resolveResocontoWeekKey();
+  const profileDoc = await getOrCreateStaffDoc(guild.id, payload.userId).catch(() => null);
+  const staffDoc = profileDoc ? ensureStaff(profileDoc) : null;
+  const actionPriority = { px: 0, dp: 0, vp: 1, vn: 1, nl: 2 };
+  const sortedActions = [...actions].sort(
+    (left, right) =>
+      (actionPriority[String(left?.actionKey || "")] ?? 9) -
+      (actionPriority[String(right?.actionKey || "")] ?? 9),
+  );
+
+  const lines = [];
+  for (const action of sortedActions) {
+    const actionKey = String(action?.actionKey || "").trim();
+    if (!actionKey) continue;
+    if (
+      actionKey === "vp" &&
+      staffDoc &&
+      shouldSkipManualResocontoVp(staffDoc, resocontoWeekKey, payload.roleId, action?.reason)
+    ) {
+      lines.push("<:success:1461731530333229226> Valutazione Positiva già registrata.");
+      continue;
+    }
+    const useOverride = Boolean(
+      reasonOverride &&
+        (!reasonActionKey || actionKey === String(reasonActionKey || "").trim()),
+    );
+    const reason = useOverride
+      ? String(reasonOverride).trim()
+      : String(action?.reason || "").trim() ||
+        resolveAutoReasonForResocontoAction({
+          ...payload,
+          actionKey,
+          resocontoReason: action?.reason,
+        });
+    const line = await applyStaffAction(guild, actor, { ...payload, actionKey }, reason);
+    if (line) lines.push(line);
+  }
+  return lines.length ? lines.join(" ") : "<a:VC_Alert:1482706673176150077> Nessuna operazione eseguita.";
+}
+
+async function resolveStaffResocontoApplyExecution(guild, payload) {
+  if (payload?.kind !== "s") {
+    return {
+      pendingManualActions: [],
+      requiresModal: shouldOpenReasonModalForResocontoApply(payload),
+      autoReason: resolveAutoReasonForResocontoAction(payload),
+    };
+  }
+
+  // Scelta esplicita dal menu dopo la X (Pex/Depex/Val+/Val-/Nulla): non ricalcolare
+  // il piano automatico, altrimenti "Nulla" viene sovrascritto da un Pex in coda e apre Motivo Pex.
+  if (payload?.explicitChoice === true || String(payload?.actionKey || "") === "nl") {
+    const actionKey = String(payload.actionKey || "").trim();
+    if (actionKey === "nl") {
+      return {
+        pendingManualActions: [],
+        requiresModal: false,
+        autoReason: null,
+        mergedPayload: payload,
+      };
+    }
+    return {
+      pendingManualActions: [{ actionKey, reason: resolveAutoReasonForResocontoAction(payload) || "" }],
+      requiresModal: shouldOpenReasonModalForResocontoApply(payload),
+      autoReason: resolveAutoReasonForResocontoAction(payload),
+      mergedPayload: payload,
+    };
+  }
+
+  const { buildStaffResocontoApplyPlanForMember } = require("../../Services/Staff/weeklyStaffResocontoService");
+  const plan = await buildStaffResocontoApplyPlanForMember(
+    guild,
+    payload.userId,
+    payload.roleId,
+  );
+  const pendingManualActions = Array.isArray(plan?.pendingManualActions) ? plan.pendingManualActions : [];
+
+  const findModalPendingAction = (actions) =>
+    actions.find((action) =>
+      shouldOpenReasonModalForResocontoApply({
+        ...payload,
+        actionKey: action.actionKey,
+        resocontoReason: action.reason,
+      }),
+    ) || null;
+
+  if (payload.actionKey === "batch" || pendingManualActions.length > 1) {
+    const modalAction = findModalPendingAction(pendingManualActions);
+    return {
+      pendingManualActions,
+      requiresModal: Boolean(modalAction),
+      autoReason: null,
+      plan,
+      mergedPayload: modalAction
+        ? { ...payload, actionKey: modalAction.actionKey, resocontoReason: modalAction.reason }
+        : null,
+    };
+  }
+
+  if (pendingManualActions.length === 1) {
+    const only = pendingManualActions[0];
+    const mergedPayload = {
+      ...payload,
+      actionKey: only.actionKey,
+      resocontoReason: only.reason,
+    };
+    return {
+      pendingManualActions,
+      requiresModal: shouldOpenReasonModalForResocontoApply(mergedPayload),
+      autoReason: resolveAutoReasonForResocontoAction(mergedPayload),
+      plan,
+      mergedPayload,
+    };
+  }
+
+  if (["vp", "vn", "batch"].includes(String(payload?.actionKey || "")) && !pendingManualActions.length) {
+    return {
+      pendingManualActions: [],
+      requiresModal: false,
+      autoReason: null,
+      plan,
+      alreadyHandled: true,
+    };
+  }
+
+  return {
+    pendingManualActions: [],
+    requiresModal: shouldOpenReasonModalForResocontoApply(payload),
+    autoReason: resolveAutoReasonForResocontoAction(payload),
+    plan,
+  };
+}
+
 function buildResocontoOverrideRows(payload, messageId) {
   const mid = String(messageId || "");
   const base = {
@@ -536,7 +704,7 @@ async function showReasonModal(interaction, payload, sourceMessageId = null) {
   const modal = new ModalBuilder().setCustomId(modalId).setTitle(String(rawTitle).slice(0, 45));
   const input = new TextInputBuilder().setCustomId(RESOCONTO_REASON_INPUT_ID).setLabel("Inserisci il motivo").setStyle(TextInputStyle.Paragraph).setRequired(true).setMaxLength(500);
   if (payload.actionKey === "vp") {
-    input.setPlaceholder("Es: Limiti settimanali rispettati");
+    input.setPlaceholder("Es: Limiti settimanali completati");
   }
   if (payload.actionKey === "vn") {
     input.setPlaceholder("Es: Limiti settimanali non rispettati");
@@ -597,15 +765,54 @@ async function handleResocontoButton(interaction) {
   }
 
   const autoReason = resolveAutoReasonForResocontoAction(payload);
-  if (shouldOpenReasonModalForResocontoApply(payload)) {
-    await showReasonModal(interaction, payload, payload.messageId || interaction.message?.id);
+  const execution = await resolveStaffResocontoApplyExecution(interaction.guild, payload);
+
+  if (execution.alreadyHandled) {
+    await interaction.deferUpdate().catch(() => null);
+    await appendOutcomeToMessage(
+      interaction.guild,
+      interaction.channelId,
+      payload.messageId || interaction.message.id,
+      interaction.user.id,
+      true,
+      "<:success:1461731530333229226> Valutazioni già registrate dal sistema.",
+    );
+    await onResocontoOutcomeRecorded(
+      interaction.guild,
+      interaction.channel,
+      interaction.user.id,
+      payload,
+    );
     return true;
   }
+
+  if (execution.requiresModal) {
+    const modalPayload = execution.mergedPayload || payload;
+    await showReasonModal(interaction, modalPayload, payload.messageId || interaction.message?.id);
+    return true;
+  }
+
   await interaction.deferUpdate().catch(() => null);
 
-  const statusText = payload.kind === "s"
-    ? await applyStaffAction(interaction.guild, interaction.member || interaction.user, payload, autoReason || null)
-    : await applyPmAction(interaction.guild, payload, autoReason || null);
+  let statusText;
+  if (execution.pendingManualActions?.length) {
+    statusText = await applyStaffResocontoPendingValutazioni(
+      interaction.guild,
+      interaction.member || interaction.user,
+      payload,
+      execution.pendingManualActions,
+      null,
+    );
+  } else if (payload.kind === "s") {
+    statusText = await applyStaffAction(
+      interaction.guild,
+      interaction.member || interaction.user,
+      payload,
+      autoReason || execution.autoReason || null,
+    );
+  } else {
+    statusText = await applyPmAction(interaction.guild, payload, autoReason || null);
+  }
 
   await appendOutcomeToMessage(
     interaction.guild,
@@ -671,7 +878,17 @@ async function handleResocontoModal(interaction) {
   }
   await interaction.deferReply({ flags: 1 << 6 }).catch(() => null);
 
-  const statusText = await applyStaffAction(interaction.guild, interaction.member || interaction.user, parsed, reason);
+  const execution = await resolveStaffResocontoApplyExecution(interaction.guild, parsed);
+  const statusText = execution.pendingManualActions?.length
+    ? await applyStaffResocontoPendingValutazioni(
+        interaction.guild,
+        interaction.member || interaction.user,
+        parsed,
+        execution.pendingManualActions,
+        reason,
+        parsed.actionKey,
+      )
+    : await applyStaffAction(interaction.guild, interaction.member || interaction.user, parsed, reason);
   await appendOutcomeToMessage(
     interaction.guild,
     interaction.channelId,

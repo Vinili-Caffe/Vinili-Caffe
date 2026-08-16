@@ -1,10 +1,37 @@
 const { isMultiGuildLayerEnabled } = require("./env");
 const { isViniliProtectedGuild } = require("./viniliProtectedGuilds");
 const { canInvokePrefixCommand, mapCategoryToFeature } = require("./accessPolicy");
+const { resolveGuildAccess } = require("./guildRegistry");
 const MUSIC_PREFIX_COMMANDS = new Set(["play", "pause", "resume", "skip", "stop", "volume", "shuffle", "clear", "repeat", "previous", "rewind", "restart", "now", "next", "queue", "lyrics", "requested", "upcoming"]);
 const TTS_PREFIX_COMMANDS = new Set(["join", "leave", "set", "voices"]);
-const UTILITY_PREFIX_COMMANDS = new Set(["help", "settings", "ping", "avatar", "banner", "afk", "snipe", "quote", "repost", "myrepost"]);
+const UTILITY_PREFIX_COMMANDS = new Set(["ping", "avatar", "banner", "afk", "snipe", "quote", "repost", "clip", "myrepost", "myclip", "myquote", "invite", "invites"]);
+/** Sempre disponibili sui tenant gestiti (anche senza feature pack utility). */
+const TENANT_ALWAYS_PREFIX_COMMANDS = new Set([
+  "ping",
+  "invite",
+  "quote",
+  "repost",
+  "clip",
+  "myquote",
+  "myrepost",
+  "myclip",
+]);
 const MINIGAMES_PREFIX_COMMANDS = new Set(["ship"]);
+const PARTNERSHIP_PREFIX_COMMANDS = new Set([
+  "help",
+  "settings",
+  "profile",
+  "description",
+  "blacklist",
+  "setup",
+  "history",
+  "leaderboard",
+  "server",
+  "random",
+  "user",
+  "points",
+  "badges",
+]);
 const { MODERATION_PREFIX_COMMANDS } = require("./tenantModerationPermissions");
 
 function normalizeCommandName(commandName) {
@@ -18,6 +45,7 @@ function resolveTenantPrefixFeatureCategory(commandName) {
   if (UTILITY_PREFIX_COMMANDS.has(cmd)) return "utility";
   if (MINIGAMES_PREFIX_COMMANDS.has(cmd)) return "minigames";
   if (MODERATION_PREFIX_COMMANDS.has(cmd)) return "moderation";
+  if (PARTNERSHIP_PREFIX_COMMANDS.has(cmd)) return "partnership";
   return null;
 }
 
@@ -53,6 +81,16 @@ function resolveTenantFeaturePrefixBypass(guildId, commandName, options = {}) {
   if (!gid) return null;
   if (isViniliProtectedGuild(gid)) return null;
 
+  const cmd = normalizeCommandName(commandName);
+  if (TENANT_ALWAYS_PREFIX_COMMANDS.has(cmd)) {
+    const access = resolveGuildAccess(gid);
+    if (!access?.managed) return null;
+    if (!access.allowed) {
+      return buildDenyResult(options, access.reason || "tenant_disabled");
+    }
+    return buildAllowResult(options, "multi_guild_tenant_always");
+  }
+
   const category = resolveTenantPrefixFeatureCategory(commandName);
   if (!category) return null;
 
@@ -70,4 +108,4 @@ function resolveOpenMediaPrefixBypass(guildId, commandName, options = {}) {
   return resolveTenantFeaturePrefixBypass(guildId, commandName, options);
 }
 
-module.exports = { MUSIC_PREFIX_COMMANDS, TTS_PREFIX_COMMANDS, UTILITY_PREFIX_COMMANDS, MINIGAMES_PREFIX_COMMANDS, MODERATION_PREFIX_COMMANDS, resolveTenantPrefixFeatureCategory, resolveOpenMediaCategory, isTenantFeaturePrefixCommand, isOpenMediaPrefixCommand, resolveTenantFeaturePrefixBypass, resolveOpenMediaPrefixBypass };
+module.exports = { MUSIC_PREFIX_COMMANDS, TTS_PREFIX_COMMANDS, UTILITY_PREFIX_COMMANDS, TENANT_ALWAYS_PREFIX_COMMANDS, MINIGAMES_PREFIX_COMMANDS, PARTNERSHIP_PREFIX_COMMANDS, MODERATION_PREFIX_COMMANDS, resolveTenantPrefixFeatureCategory, resolveOpenMediaCategory, isTenantFeaturePrefixCommand, isOpenMediaPrefixCommand, resolveTenantFeaturePrefixBypass, resolveOpenMediaPrefixBypass };

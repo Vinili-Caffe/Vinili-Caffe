@@ -3,6 +3,27 @@ const IDs = require("../Config/ids");
 const { isValidGuildUserId } = require("../DB/validateWriteIds");
 const { getGuildChannelCached } = require("../Interaction/interactionEntityCache");
 
+function reconcileStaffValutazioneCounters(staff) {
+  if (!staff || typeof staff !== "object") return false;
+  const posLen = Array.isArray(staff.positiveReasons) ? staff.positiveReasons.length : 0;
+  const negLen = Array.isArray(staff.negativeReasons) ? staff.negativeReasons.length : 0;
+  const total = posLen + negLen;
+  let changed = false;
+  if (Math.floor(Number(staff.positiveCount) || 0) !== posLen) {
+    staff.positiveCount = posLen;
+    changed = true;
+  }
+  if (Math.floor(Number(staff.negativeCount) || 0) !== negLen) {
+    staff.negativeCount = negLen;
+    changed = true;
+  }
+  if (Math.floor(Number(staff.valutazioniCount) || 0) !== total) {
+    staff.valutazioniCount = total;
+    changed = true;
+  }
+  return changed;
+}
+
 function ensureStaff(profileDoc) {
   if (!profileDoc) return null;
   if (!profileDoc.staff) {
@@ -15,6 +36,7 @@ function ensureStaff(profileDoc) {
       return key && (type === "positive" || type === "negative");
     });
   }
+  reconcileStaffValutazioneCounters(profileDoc.staff);
   return profileDoc.staff;
 }
 
@@ -204,13 +226,68 @@ async function deleteUserRelatedMessagesInChannel(guild, channelId, userId) {
 
 const STAFF_ROLES_HISTORY_RETENTION_CAP = 400;
 
-/** Prima di rimuovere `staff` dal profilo (depex), salva `rolesHistory` in `staffRolesHistoryRetention` per audit / top weekly. */
+/** Campi partnership da conservare al depex completo (cronologia +profile pm / classifica storica). */
+const PARTNERSHIP_STAFF_RETENTION_KEYS = Object.freeze([
+  "partnerActions",
+  "partnerCount",
+  "partnerRedeemSpend",
+  "partnerServerResetAt",
+  "partnerMilestoneDmSent",
+  "partnerManagerCustomPerksUntil",
+  "partnerManagerVipUntil",
+]);
+
+function extractPartnershipStaffRetention(staff) {
+  if (!staff || typeof staff !== "object") return null;
+  const out = {};
+  let keep = false;
+  for (const key of PARTNERSHIP_STAFF_RETENTION_KEYS) {
+    if (!Object.prototype.hasOwnProperty.call(staff, key)) continue;
+    const value = staff[key];
+    if (key === "partnerActions") {
+      const actions = Array.isArray(value) ? value : [];
+      if (actions.length) {
+        out.partnerActions = actions;
+        keep = true;
+      }
+      continue;
+    }
+    if (key === "partnerMilestoneDmSent") {
+      const arr = Array.isArray(value) ? value : [];
+      if (arr.length) {
+        out.partnerMilestoneDmSent = arr;
+        keep = true;
+      }
+      continue;
+    }
+    if (key === "partnerCount" || key === "partnerRedeemSpend") {
+      const n = Math.max(0, Math.floor(Number(value) || 0));
+      if (n > 0) {
+        out[key] = n;
+        keep = true;
+      }
+      continue;
+    }
+    if (value != null && value !== "") {
+      out[key] = value;
+      keep = true;
+    }
+  }
+  return keep ? out : null;
+}
+
+/**
+ * Prima di rimuovere il tracciamento staff al depex:
+ * - archivia `rolesHistory` in `staffRolesHistoryRetention`
+ * - conserva cronologia/punti partnership (`partnerActions`, ecc.)
+ * - elimina valutazioni/warn/pause e il resto di `staff`
+ */
 async function archiveStaffRolesHistoryThenUnsetStaff(guildId, userId) {
   const gid = String(guildId || "").trim();
   const uid = String(userId || "").trim();
   if (!gid || !uid || !isValidGuildUserId(gid, uid)) return;
   const prev = await ActivityUserProfile.findOne({ guildId: gid, userId: uid })
-    .select("staff.rolesHistory staffRolesHistoryRetention")
+    .select("staff staffRolesHistoryRetention")
     .lean()
     .catch(() => null);
   if (!prev) return;
@@ -219,13 +296,22 @@ async function archiveStaffRolesHistoryThenUnsetStaff(guildId, userId) {
     await ActivityUserProfile.updateOne({ guildId: gid, userId: uid }, { $unset: { staff: "" } }).catch(() => null);
     return;
   }
+
   const incoming = Array.isArray(prev.staff?.rolesHistory) ? prev.staff.rolesHistory : [];
   const existing = Array.isArray(prev.staffRolesHistoryRetention) ? prev.staffRolesHistoryRetention : [];
   const merged = [...existing, ...incoming].slice(-STAFF_ROLES_HISTORY_RETENTION_CAP);
-  await ActivityUserProfile.updateOne(
-    { guildId: gid, userId: uid, staff: { $exists: true } },
-    { $set: { staffRolesHistoryRetention: merged }, $unset: { staff: "" } },
-  ).catch(() => null);
+  const partnerRetention = extractPartnershipStaffRetention(prev.staff);
+
+  const update = { $set: { staffRolesHistoryRetention: merged } };
+  if (partnerRetention) {
+    update.$set.staff = partnerRetention;
+  } else {
+    update.$unset = { staff: "" };
+  }
+
+  await ActivityUserProfile.updateOne({ guildId: gid, userId: uid, staff: { $exists: true } }, update).catch(
+    () => null,
+  );
 }
 
 async function deleteStaffRelatedMessagesFromConfiguredChannels(guild, userId, staffObj = null) {
@@ -267,6 +353,8 @@ const STAFF_LADDER_TRACK_RESET_SET = {
   "staff.negativeValutazioni": [],
   "staff.valutazioniCount": 0,
   "staff.autoValutazioni": [],
+  "staff.webTicketRatingSum": 0,
+  "staff.webTicketRatingCount": 0,
   "staff.valPosTradedPauseBonusDays": 0,
   "staff.bestStaffPauseBonusYears": [],
   "staff.serataFilmAttendanceSaturdayKey": null,
@@ -292,6 +380,8 @@ function applyStaffLadderTrackResetToObject(staffObj) {
   staffObj.negativeValutazioni = [];
   staffObj.valutazioniCount = 0;
   staffObj.autoValutazioni = [];
+  staffObj.webTicketRatingSum = 0;
+  staffObj.webTicketRatingCount = 0;
   staffObj.valPosTradedPauseBonusDays = 0;
   staffObj.bestStaffPauseBonusYears = [];
   staffObj.serataFilmAttendanceSaturdayKey = null;
@@ -321,7 +411,9 @@ module.exports = {
   deleteStaffRelatedMessagesFromConfiguredChannels,
   purgeStaffChannelMessagesForUser,
   ensureStaff,
+  reconcileStaffValutazioneCounters,
   archiveStaffRolesHistoryThenUnsetStaff,
+  extractPartnershipStaffRetention,
   buildStaffLadderTrackResetUpdate,
   applyStaffLadderTrackResetToObject,
   resetStaffLadderTrackInDb,

@@ -7,7 +7,7 @@
     <meta name="description" content="{{FAQ_META_DESCRIPTION}}" />
     <meta name="author" content="{{SITE_NAME}}" />
     <meta name="robots" content="index, follow" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta property="og:type" content="website" />
     <meta property="og:title" content="{{FAQ_OG_TITLE}}" />
     <meta property="og:description" content="{{FAQ_META_DESCRIPTION}}" />
@@ -58,7 +58,7 @@
             <details class="vc-snav-details">
               <summary class="vc-snav-summary"><span>Richieste</span><i class="fa fa-chevron-down vc-snav-chev text-[0.65rem] opacity-80" aria-hidden="true"></i></summary>
               <div class="vc-snav-panel">
-                <a class="vc-snav-row" href="{{RICHIESTE_UNBAN_URL}}"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-unlock"></i></span><span>Unban</span></a>
+                <a class="vc-snav-row" href="{{RICHIESTE_UNBAN_URL}}"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-balance-scale"></i></span><span data-i18n="nav.appeals">Appelli</span></a>
                 <a class="vc-snav-row" href="{{RICHIESTE_CANDIDATURE_URL}}"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-file-text-o"></i></span><span>Candidature</span></a>
                 <a class="vc-snav-row" href="{{RICHIESTE_SUGGERIMENTI_URL}}"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-lightbulb-o"></i></span><span>Suggerimenti</span></a>
               </div>
@@ -112,39 +112,39 @@
             <div class="vc-support-page-hero__icon vc-support-page-hero__icon--start vc-regole-hero-book mb-5" aria-hidden="true">
               <i class="fa fa-question-circle"></i>
             </div>
-            <p class="text-xs font-semibold uppercase tracking-[0.28em] text-[rgba(212,168,136,0.78)]">Supporto</p>
+            <p class="text-xs font-semibold uppercase tracking-[0.28em] text-[rgba(212,168,136,0.78)]" data-i18n="faq.kicker">Supporto</p>
             <h1 id="vc-faq-hero-heading" class="mt-4 text-4xl font-extrabold tracking-tight text-white sm:text-5xl lg:text-6xl">
               <span class="text-[#ead4c0]">FAQ</span><span class="vc-forbidden-book" data-vc-forbidden-book="faq" hidden role="img" aria-label="libro proibito">📖</span>
             </h1>
-            <p class="mt-5 max-w-2xl text-lg leading-8 text-slate-200/88 sm:text-xl">
+            <p class="mt-5 max-w-2xl text-lg leading-8 text-slate-200/88 sm:text-xl" data-i18n="faq.lead">
               Risposte rapide su livelli, vocali, giochi ed eventi.
             </p>
           </div>
           <div class="grid gap-4">
             <div class="rounded-[1.6rem] border border-white/10 bg-slate-950/25 p-5 backdrop-blur">
-              <p class="text-xs font-semibold uppercase tracking-[0.22em] text-[rgba(212,168,136,0.78)]">Come usarla</p>
+              <p class="text-xs font-semibold uppercase tracking-[0.22em] text-[rgba(212,168,136,0.78)]" data-i18n="faq.how">Come usarla</p>
               <ul class="mt-4 space-y-3 text-sm leading-6 text-slate-100/90">
                 <li class="flex items-center gap-3">
                   <i class="fa fa-list-alt shrink-0 text-[#d4a888]" aria-hidden="true"></i>
-                  <span>Scegli una categoria con le linguette qui sotto.</span>
+                  <span data-i18n="faq.how1">Scegli una categoria con le linguette qui sotto.</span>
                 </li>
                 <li class="flex items-center gap-3">
                   <i class="fa fa-chevron-down shrink-0 text-[#d4a888]" aria-hidden="true"></i>
-                  <span>Apri una domanda per leggere la risposta.</span>
+                  <span data-i18n="faq.how2">Apri una domanda per leggere la risposta.</span>
                 </li>
               </ul>
             </div>
             <div class="rounded-[1.6rem] border border-white/10 bg-white/[0.04] p-5 backdrop-blur">
-              <p class="text-xs font-semibold uppercase tracking-[0.22em] text-slate-300/70">Altrove sul sito</p>
+              <p class="text-xs font-semibold uppercase tracking-[0.22em] text-slate-300/70" data-i18n="faq.elsewhere">Altrove sul sito</p>
               <p class="mt-3 text-sm leading-6 text-slate-200/85">
-                Comandi dei nostri bot: <a class="vc-palette-link" href="{{WIKI_URL}}">Wiki</a>.
-                <br>Perks di tutti i ruoli: <a class="vc-palette-link" href="{{PERKS_URL}}">Perks</a>.
+                <span data-i18n="faq.elsewhereCommands">Comandi dei nostri bot:</span> <a class="vc-palette-link" href="{{WIKI_URL}}">Wiki</a>.
+                <br><span data-i18n="faq.elsewherePerks">Perks di tutti i ruoli:</span> <a class="vc-palette-link" href="{{PERKS_URL}}">Perks</a>.
               </p>
             </div>
           </div>
         </div>
       </section>
-      <div id="vc-regole-tabs" class="vc-regole-tabs" role="tablist" aria-label="Categorie FAQ"></div>
+      <div id="vc-regole-tabs" class="vc-regole-tabs" role="tablist" aria-label="Categorie FAQ" data-i18n-attr="aria-label:faq.catsAria"></div>
       <div id="vc-regole-list" class="vc-regole-list" aria-live="polite"></div>
     </main>
 

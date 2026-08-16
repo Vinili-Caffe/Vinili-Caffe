@@ -384,6 +384,14 @@ async function createModCaseStore({
   const caseId = cfg.caseCounter;
   const expiresAt = normalizedDurationMs ? new Date(Date.now() + normalizedDurationMs) : null;
 
+  // Un solo mute attivo per utente: ban o nuovo mute chiudono i mute precedenti (il log resta salvato).
+  if (normalizedAction === "BAN" || normalizedAction === "MUTE") {
+    const closeReason = normalizedAction === "BAN"
+      ? "Mute chiuso: utente bannato"
+      : "Mute sostituito da nuova sanzione";
+    await closeOpenMuteCases(guildId, userId, closeReason).catch(() => null);
+  }
+
   let legacyDoc = null;
   if (useLegacyModCase()) {
     legacyDoc = await ModCase.create({
@@ -456,6 +464,19 @@ async function closeCaseByRef(guildId, userId, caseId, closeReason) {
       { $set: { active: false, closedAt: now, closeReason: reason } },
     ).catch(() => null);
   }
+}
+
+async function closeOpenMuteCases(guildId, userId, closeReason) {
+  const openMutes = await findOpenCases(guildId, userId, "MUTE");
+  for (const item of openMutes) {
+    await closeCaseByRef(
+      String(guildId),
+      String(userId),
+      Number(item.caseId),
+      closeReason || "Mute chiuso",
+    ).catch(() => null);
+  }
+  return openMutes.length;
 }
 
 async function findOpenCases(guildId, userId, action) {
@@ -834,6 +855,7 @@ module.exports = {
   resolveCaseByContextMessageId,
   closeCaseByRef,
   findOpenCases,
+  closeOpenMuteCases,
   findActiveWarns,
   findActiveModerations,
   countModLogsForUser,

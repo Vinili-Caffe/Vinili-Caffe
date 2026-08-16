@@ -105,8 +105,9 @@ function drawTicketBg(ctx, width, height) {
   foil.addColorStop(0, "rgba(212,175,55,0.55)");
   foil.addColorStop(0.5, "rgba(255,248,220,0.35)");
   foil.addColorStop(1, "rgba(184,134,11,0.5)");
-  fillRoundRect(ctx, 40, 52, width - 80, 28, 8, foil);
-  drawText(ctx, "GRATTA E VINCI", width / 2, 66, { size: 20, color: "#5c4510", weight: "900", forcePrimaryFont: true });
+  fillRoundRect(ctx, 40, 52, width - 80, 36, 8, foil);
+  drawText(ctx, "GRATTA E VINCI", width / 2, 62, { size: 17, color: "#5c4510", weight: "900", forcePrimaryFont: true });
+  drawPlainText(ctx, "Trova 3 simboli uguali", width / 2, 80, { size: 11, color: "rgba(92,69,16,0.72)", weight: "700" });
   const shine = ctx.createLinearGradient(50, 90, width - 50, height - 70);
   shine.addColorStop(0, "rgba(255,255,255,0.35)");
   shine.addColorStop(0.15, "rgba(255,255,255,0)");
@@ -171,6 +172,127 @@ function drawSymbolIcon(ctx, sym, cx, cy, size) {
     fillRoundRect(ctx, cx - s * 0.34, cy - s * 0.32, s * 0.68, s * 0.22, 4, "#fbbf24");
     ctx.fillStyle = "#b91c1c";
     ctx.fillRect(cx - 3, cy - s * 0.32, 6, s * 0.62);
+    return;
+  }
+  if (sym === "clover") {
+    ctx.fillStyle = "#22c55e";
+    ctx.strokeStyle = "#166534";
+    ctx.lineWidth = 2;
+    for (const [ox, oy] of [
+      [0, -0.22],
+      [0.2, 0.05],
+      [-0.2, 0.05],
+      [0, 0.22],
+    ]) {
+      ctx.beginPath();
+      ctx.ellipse(cx + ox * s, cy + oy * s, s * 0.16, s * 0.2, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    }
+    return;
+  }
+  if (sym === "moon") {
+    ctx.beginPath();
+    ctx.arc(cx, cy, s * 0.38, 0, Math.PI * 2);
+    ctx.fillStyle = "#e2e8f0";
+    ctx.fill();
+    ctx.strokeStyle = "#64748b";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(cx + s * 0.14, cy - s * 0.06, s * 0.32, 0, Math.PI * 2);
+    ctx.fillStyle = "#0f172a";
+    ctx.fill();
+    return;
+  }
+  if (sym === "heart") {
+    ctx.fillStyle = "#f43f5e";
+    ctx.strokeStyle = "#9f1239";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    const top = cy - s * 0.12;
+    ctx.moveTo(cx, cy + s * 0.38);
+    ctx.bezierCurveTo(cx + s * 0.48, cy + s * 0.05, cx + s * 0.42, top - s * 0.18, cx, top + s * 0.08);
+    ctx.bezierCurveTo(cx - s * 0.42, top - s * 0.18, cx - s * 0.48, cy + s * 0.05, cx, cy + s * 0.38);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    return;
+  }
+  if (sym === "bell") {
+    ctx.fillStyle = "#fbbf24";
+    ctx.strokeStyle = "#b45309";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(cx - s * 0.28, cy + s * 0.18);
+    ctx.quadraticCurveTo(cx - s * 0.3, cy - s * 0.2, cx, cy - s * 0.38);
+    ctx.quadraticCurveTo(cx + s * 0.3, cy - s * 0.2, cx + s * 0.28, cy + s * 0.18);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    fillRoundRect(ctx, cx - s * 0.34, cy + s * 0.14, s * 0.68, s * 0.14, 4, "#f59e0b");
+    ctx.beginPath();
+    ctx.arc(cx, cy - s * 0.42, s * 0.08, 0, Math.PI * 2);
+    ctx.fillStyle = "#fde68a";
+    ctx.fill();
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(cx, cy + s * 0.32, s * 0.08, 0, Math.PI * 2);
+    ctx.fillStyle = "#92400e";
+    ctx.fill();
+    return;
+  }
+  if (sym === "cherry") {
+    for (const [ox, oy] of [
+      [-0.14, 0.08],
+      [0.16, 0.12],
+    ]) {
+      ctx.beginPath();
+      ctx.arc(cx + ox * s, cy + oy * s, s * 0.2, 0, Math.PI * 2);
+      ctx.fillStyle = "#dc2626";
+      ctx.fill();
+      ctx.strokeStyle = "#7f1d1d";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+    ctx.strokeStyle = "#166534";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(cx - s * 0.14, cy - s * 0.02);
+    ctx.quadraticCurveTo(cx - s * 0.05, cy - s * 0.28, cx + s * 0.02, cy - s * 0.34);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(cx + s * 0.16, cy + s * 0.02);
+    ctx.quadraticCurveTo(cx + s * 0.08, cy - s * 0.22, cx + s * 0.02, cy - s * 0.34);
+    ctx.stroke();
+    return;
+  }
+  if (sym === "lemon") {
+    ctx.fillStyle = "#facc15";
+    ctx.strokeStyle = "#a16207";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, s * 0.34, s * 0.26, -0.35, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.ellipse(cx - s * 0.08, cy - s * 0.08, s * 0.1, s * 0.06, -0.4, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(255,255,255,0.45)";
+    ctx.fill();
+    return;
+  }
+  if (sym === "orb") {
+    const g = ctx.createRadialGradient(cx - s * 0.15, cy - s * 0.15, s * 0.05, cx, cy, s * 0.42);
+    g.addColorStop(0, "#a5f3fc");
+    g.addColorStop(0.55, "#0ea5e9");
+    g.addColorStop(1, "#075985");
+    ctx.beginPath();
+    ctx.arc(cx, cy, s * 0.4, 0, Math.PI * 2);
+    ctx.fillStyle = g;
+    ctx.fill();
+    ctx.strokeStyle = "#0c4a6e";
+    ctx.lineWidth = 2;
+    ctx.stroke();
     return;
   }
   drawPlainText(ctx, "VC", cx, cy, { size: Math.floor(s * 0.34), color: "#7c3aed", weight: "900" });
@@ -249,8 +371,8 @@ function resolveProgress(revealed, progress, index, animating, frameIndex, total
 }
 
 function buildStatus(params) {
-  if (params.phase === "idle") return { left: "", right: "Compra un biglietto e gratta le 9 zone", color: "#64748b" };
-  if (params.phase === "ready") return { left: params.bet > 0 ? `Biglietto: ${formatGaleoni(params.bet)}` : "", right: "Gratta le caselle o premi Gratta tutto", color: "#f8d875" };
+  if (params.phase === "idle") return { left: "Regola: 3 uguali", right: "Compra un biglietto e gratta", color: "#64748b" };
+  if (params.phase === "ready") return { left: params.bet > 0 ? `Biglietto: ${formatGaleoni(params.bet)}` : "", right: "Cerca 3 simboli uguali", color: "#f8d875" };
   if (params.animating) return { left: params.bet > 0 ? `Biglietto: ${formatGaleoni(params.bet)}` : "", right: "Grattata in corso…", color: "#f8d875" };
   if (params.phase === "done" && params.eval) {
     const e = params.eval;

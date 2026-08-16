@@ -24,9 +24,13 @@ function readRegistryFile() {
     const parsed = JSON.parse(fs.readFileSync(REGISTRY_PATH, "utf8"));
     const base = parsed && typeof parsed === "object" ? parsed : { ...DEFAULT_REGISTRY, guilds: {} };
     const dynamicGuilds = getDynamicGuildRowsCache();
+    // File registry overrides Mongo auto-rows (features/label/enabled stay under operator control).
     cache = {
       ...base,
-      guilds: { ...(base.guilds && typeof base.guilds === "object" ? base.guilds : {}), ...dynamicGuilds },
+      guilds: {
+        ...dynamicGuilds,
+        ...(base.guilds && typeof base.guilds === "object" ? base.guilds : {}),
+      },
     };
     cacheMtimeMs = stat.mtimeMs;
     warnProtectedGuildsInRegistry(cache);

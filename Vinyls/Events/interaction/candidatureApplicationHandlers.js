@@ -4,9 +4,9 @@ const IDs = require("../../Utils/Config/ids");
 const { getGuildChannelCached, getGuildMemberCached, } = require("../../Utils/Interaction/interactionEntityCache");
 const { getOrCreateStaffDoc, deleteThreadForMessage, ensureStaff } = require("../../Utils/Staff/staffDocUtils");
 const { scheduleStaffListRefresh } = require("../../Utils/Community/staffListUtils");
-const { getStaffRoleEmojiByRoleId } = require("../../Utils/Community/staffRoleEmoji");
 const { clearStaffPendingPurgeAt } = require("../../Services/Community/userLeaveBackupService");
 const { applyDefaultFooterToEmbeds } = require("../../Utils/Embeds/defaultFooter");
+const { TENANT_EMBED_COLOR } = require("../../MultiGuild/utils/tenantEmbedBranding");
 const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
 const { getBotState, setBotState } = require("../../Utils/BotState/botStateStore");
 const { sendPartnerManagerWelcome, sendHelperWelcome } = require("../../Utils/Staff/staffWelcomeMessages");
@@ -26,7 +26,7 @@ const STATE_TTL_MS = 30 * 60 * 1000;
 const DRAFT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const APPLICATION_COOLDOWN_MS = 15 * 24 * 60 * 60 * 1000;
 const APPLICATION_REACTIONS = ["<:thumbsup:1471292172145004768>", "<:thumbsdown:1471292163957457013>",];
-const APPLICATION_PENDING_COLOR = "#6f4e37";
+const APPLICATION_PENDING_COLOR = TENANT_EMBED_COLOR;
 const APPLICATION_ACCEPTED_COLOR = "#2ECC71";
 const APPLICATION_REJECTED_COLOR = "#ED4245";
 const NOMODULI_ROLE_ID = IDs.roles.blacklistModuli;
@@ -416,7 +416,7 @@ function buildCooldownDeniedEmbed(untilTs, type) {
 function buildIntroEmbed(type) {
   if (type === "partnermanager") {
     return new EmbedBuilder()
-      .setColor("#6f4e37")
+      .setColor(APPLICATION_PENDING_COLOR)
       .setTitle("<:VC_PartnerManager:1494286911286808576> Candidatura Partner Manager")
       .setDescription(
         [
@@ -428,7 +428,7 @@ function buildIntroEmbed(type) {
       );
   }
   return new EmbedBuilder()
-    .setColor("#6f4e37")
+    .setColor(APPLICATION_PENDING_COLOR)
     .setTitle("<:VC_Helper:1502328751638450426> Candidatura Helper")
     .setDescription(
       [
@@ -782,8 +782,10 @@ async function postCandidatureToVisioneModuli(client, guild, user, type, answers
       .catch(() => null);
   }
 
-  for (const emoji of APPLICATION_REACTIONS) {
-    await sent.react(emoji).catch(() => { });
+  if (typeof sent.react === "function") {
+    for (const emoji of APPLICATION_REACTIONS) {
+      await sent.react(emoji).catch(() => { });
+    }
   }
 
   const nextAllowedAt = Date.now() + APPLICATION_COOLDOWN_MS;
@@ -829,10 +831,10 @@ async function checkMemberCandidatureEligibility(member, type) {
   }
   const targetRoleId = getTargetRoleIdByType(type);
   if (targetRoleId && hasAnyRoleMember(member, [targetRoleId])) {
-    return { ok: false, code: "already_role", message: "Sei già in questo ruolo: non puoi ricandidarti." };
+    return { ok: false, code: "already_role", message: "Sei già Partner Manager." };
   }
   if (type === "helper" && hasAnyRoleMember(member, HELPER_REAPPLY_BLOCK_ROLE_IDS)) {
-    return { ok: false, code: "helper_blocked", message: "Con i tuoi ruoli attuali non puoi inviare una nuova candidatura Helper." };
+    return { ok: false, code: "helper_blocked", message: "Sei già Helper." };
   }
   const until = await getCooldownUntil(member.user.id, type);
   if (until) {
@@ -1036,22 +1038,18 @@ async function sendCandidatePexWelcome(guild, member, targetRoleId) {
 }
 
 async function sendCandidatePexLog(guild, member, targetRoleId, roleBeforeId, reason) {
-  const pexDepexChannel =
-    guild.channels.cache.get(IDs.channels.pexDepex) ||
-    (await getGuildChannelCached(guild, IDs.channels.pexDepex));
-  if (!pexDepexChannel?.isTextBased?.()) return;
-  const oldRole = guild.roles.cache.get(roleBeforeId);
-  const newRole = guild.roles.cache.get(String(targetRoleId));
-  const actionEmoji = getStaffRoleEmojiByRoleId(targetRoleId);
-  await pexDepexChannel
-    .send({
-      content: `**<a:VC_Verified:1482532479637127188> PEX** <@${member.id}>
-${actionEmoji} \`${oldRole?.name || roleBeforeId || "N/A"}\` <a:VC_Arrow:1482706699365257397> \`${newRole?.name || targetRoleId}\`
-<:VC_reason:1478517122929004544> __${reason}__`,
-    })
-    .catch((err) => {
-      global.logger?.warn?.("[candidature] pex log failed:", err?.message || err);
-    });
+  // Stesso formato/emoji dei comandi e del resoconto (`<:success:…>` / `<:cancel:…>`).
+  const { sendPexDepexLog } = require("./resocontoHandlers");
+  await sendPexDepexLog(
+    guild,
+    "pex",
+    member.user || member,
+    roleBeforeId,
+    targetRoleId,
+    reason,
+  ).catch((err) => {
+    global.logger?.warn?.("[candidature] pex log failed:", err?.message || err);
+  });
 }
 
 async function completeCandidatePexAfterRole(guild, member, type, reason, sourceMessage, opts = {}) {

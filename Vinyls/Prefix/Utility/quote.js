@@ -4,13 +4,21 @@ const renderQuoteCanvas = require("../../Utils/Render/quoteCanvas");
 const { nextQuoteCount } = require("../../Utils/Quote/quoteCounter");
 const { resolveQuotePostChannel } = require("../../Utils/Quote/quotePostChannel");
 const { normalizeQuoteMessageText } = require("../../Utils/Quote/normalizeQuoteMessageText");
+const { registerQuoteBoardPost, buildQuoteBoardComponents } = require("../../Utils/Quote/quoteBoardService");
 const { QuotePrivacy } = require("../../Schemas/Community/communitySchemas");
-const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
+const { accountUsername, guildMemberDisplayAvatarUrlDynamic, guildMemberDisplayAvatarUrlStatic } = require("../../Utils/Discord/guildDiscordIdentity");
 const { isRepostDisabledInGuild } = require("../../Services/Community/repostService");
+const { TENANT_EMBED_COLOR } = require("../../MultiGuild/utils/tenantEmbedBranding");
+const {
+  getTenantBoardsSync,
+  isTenantBoardFeatureEnabledSync,
+} = require("../../MultiGuild/core/tenantGuildSettings");
+
+const QUOTE_DISABLED_MESSAGE = "Le quote sono disattivate su questo server.";
 
 function buildQuotePostEmbed({ messageAuthorId, creatorId, totalPosts }) {
   return new EmbedBuilder()
-    .setColor("#6f4e37")
+    .setColor(TENANT_EMBED_COLOR)
     .setTitle("<a:VC_Sparkles:1468546911936974889> Nuova quotazione ✨")
     .setDescription("<:VC_Reply:1482532158080942191> Crea un post usando il comando **+quote** rispondendo al messaggio di un utente.")
     .addFields(
@@ -32,6 +40,17 @@ module.exports = {
             .setDescription(
               "<:vegax:1443934876440068179> Questo comando può essere usato solo in un server.",
             ),
+        ],
+        allowedMentions: { repliedUser: false },
+      });
+    }
+
+    if (!isTenantBoardFeatureEnabledSync(message.guild.id, "quote")) {
+      return safeMessageReply(message, {
+        embeds: [
+          new EmbedBuilder()
+            .setColor("Red")
+            .setDescription(`<:vegax:1443934876440068179> ${QUOTE_DISABLED_MESSAGE}`),
         ],
         allowedMentions: { repliedUser: false },
       });
@@ -114,15 +133,19 @@ module.exports = {
     let buffer;
     let quoteFormat = "png";
     try {
-      const footerText = String(message.client?.config?.botServerInvite || "").replace(/^https?:\/\//i, "").trim();
       const guild = message.guild;
+      const boards = getTenantBoardsSync(guild?.id);
+      const style = boards?.quoteStyle;
+      const avatarMode = String(style?.avatarMode || "dynamic").toLowerCase() === "static" ? "static" : "dynamic";
       const coverImageUrl =
-        guildMemberDisplayAvatarUrlDynamic(targetMessage.member || author, { size: 512 }) || "";
+        (avatarMode === "dynamic"
+          ? guildMemberDisplayAvatarUrlDynamic(targetMessage.member || author, { size: 512 })
+          : guildMemberDisplayAvatarUrlStatic(targetMessage.member || author, { size: 512 })) || "";
       const out = await renderQuoteCanvas({
         coverImageUrl,
         message: text,
         username: quoteUserLabel,
-        footerText,
+        style,
       });
       buffer = out.buffer;
       quoteFormat = out.format === "gif" ? "gif" : "png";
@@ -162,7 +185,7 @@ module.exports = {
       ? `<a:VC_Sparkles:1468546911936974889> Puoi trovare il post creato nel canale: <#${quoteChannel.id}>!`
       : "<a:VC_Sparkles:1468546911936974889> Quote pubblicata in questo canale.";
     const embed = new EmbedBuilder()
-      .setColor("#6f4e37")
+      .setColor(TENANT_EMBED_COLOR)
       .setDescription(embedDescription)
       .addFields({
         name: "📸 Totale immagini generate:",
@@ -192,21 +215,61 @@ module.exports = {
       const postEmbed=buildQuotePostEmbed({messageAuthorId:author.id,creatorId:message.author.id,totalPosts,});
       const originChannelId = message.channel.id;
       const originMessageId = replyMsg?.id || "0";
-      const rowButtons = [
-        new ButtonBuilder()
-          .setCustomId(`quote_remove:${message.author.id}:${originChannelId}:${originMessageId}`)
-          .setLabel("Rimuovi questa quote")
-          .setEmoji("🗑️")
-          .setStyle(ButtonStyle.Danger),
-      ];
-      const removeRow = new ActionRowBuilder().addComponents(...rowButtons);
-      await quoteChannel
+      const removeOnly = buildQuoteBoardComponents({
+        guildId: message.guild.id,
+        creatorUserId: message.author.id,
+        originChannelId,
+        originMessageId,
+        boardChannelId: "",
+        boardMessageId: "",
+        quotedUserId: author.id,
+      });
+      const boardMsg = await quoteChannel
         .send({
           files: [postAttachment],
           embeds: [postEmbed],
-          components: [removeRow],
+          components: removeOnly,
         })
-        .catch(() => {});
+        .catch(() => null);
+      if (boardMsg?.id) {
+        const boardComponents = buildQuoteBoardComponents({
+          guildId: message.guild.id,
+          creatorUserId: message.author.id,
+          originChannelId,
+          originMessageId,
+          boardChannelId: quoteChannel.id,
+          boardMessageId: boardMsg.id,
+          quotedUserId: author.id,
+        });
+        if (boardComponents.length) {
+          const attachments = [...(boardMsg.attachments?.values() || [])]
+            .map((att) => String(att?.id || "").trim())
+            .filter((id) => /^\d{16,20}$/.test(id))
+            .map((id) => ({ id }));
+          await boardMsg
+            .edit({
+              components: boardComponents,
+              ...(attachments.length ? { attachments } : {}),
+            })
+            .catch(() => null);
+        }
+        const imageUrl =
+          [...(boardMsg.attachments?.values() || [])].find((att) =>
+            /\.(png|jpe?g|gif|webp)(\?|$)/i.test(String(att?.name || att?.url || "")),
+          )?.url || "";
+        await registerQuoteBoardPost({
+          guildId: message.guild.id,
+          creatorUserId: message.author.id,
+          quotedUserId: author.id,
+          boardChannelId: quoteChannel.id,
+          boardMessageId: boardMsg.id,
+          originChannelId,
+          originMessageId,
+          imageUrl,
+          quotedUsername: quoteUserLabel,
+          totalPosts,
+        }).catch(() => null);
+      }
     }
 
     return replyMsg;

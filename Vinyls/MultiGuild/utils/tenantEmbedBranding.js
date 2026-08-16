@@ -1,0 +1,424 @@
+const fs = require("fs");
+const path = require("path");
+const { AttachmentBuilder, EmbedBuilder } = require("discord.js");
+const { isMultiGuildLayerEnabled } = require("../core/env");
+const { isViniliProtectedGuild } = require("../core/viniliProtectedGuilds");
+const { shouldApplyMultiGuildLayer } = require("../core/accessPolicy");
+const { guildIconUrl, userAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
+
+const TENANT_EMBED_COLOR = "#826bc2";
+const LEGACY_VINILI_EMBED_COLOR = "#6f4e37";
+const LEGACY_VINILI_EMBED_COLOR_INT = 0x6f4e37;
+
+const BRANDING_IMAGE_NAME = "tenant-standard.gif";
+const STANDARD_GIF_PATH = path.resolve(__dirname, "../../Photos/standard.gif");
+/** Evita doppia applicazione (es. comando + safeMessageReply). Non inviare a Discord. */
+const TENANT_BRANDING_APPLIED_KEY = "__tenantBrandingApplied";
+/** Set da replyRuntime: il prefix dispatcher non deve ri-brandizzare. */
+const PREFIX_DISPATCH_BRANDING_DONE_KEY = "__prefixDispatchBrandingDone";
+
+/**
+ * URL pubblico del banner (sito). Cloudflare spesso blocca il proxy immagini Discord
+ * (403) → icona rotta. Preferire sempre attachment:// + file locale.
+ */
+function resolveBrandingImagePublicUrl() {
+  const base = String(
+    process.env.WEBSITE_PUBLIC_URL ||
+      process.env.WEBSITE_PUBLIC_ORIGIN ||
+      process.env.SITE_URL ||
+      "https://www.viniliecaffe.it",
+  )
+    .trim()
+    .replace(/\/+$/, "");
+  return `${base || "https://www.viniliecaffe.it"}/images/${BRANDING_IMAGE_NAME}`;
+}
+
+const BRANDING_IMAGE_URL = resolveBrandingImagePublicUrl();
+const BRANDING_IMAGE_ATTACHMENT_URL = `attachment://${BRANDING_IMAGE_NAME}`;
+const BRANDING_IMAGE_ALIASES = [BRANDING_IMAGE_NAME, "standard.gif", "tenant-standard.gif"];
+
+function standardGifFileExists() {
+  try {
+    return fs.existsSync(STANDARD_GIF_PATH);
+  } catch {
+    return false;
+  }
+}
+
+function stripTenantBrandingInternals(payload) {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return payload;
+  const next = { ...payload };
+  let changed = false;
+  if (Object.prototype.hasOwnProperty.call(next, TENANT_BRANDING_APPLIED_KEY)) {
+    delete next[TENANT_BRANDING_APPLIED_KEY];
+    changed = true;
+  }
+  if (Object.prototype.hasOwnProperty.call(next, PREFIX_DISPATCH_BRANDING_DONE_KEY)) {
+    delete next[PREFIX_DISPATCH_BRANDING_DONE_KEY];
+    changed = true;
+  }
+  if (Object.prototype.hasOwnProperty.call(next, "includeBanner")) {
+    delete next.includeBanner;
+    changed = true;
+  }
+  if (Object.prototype.hasOwnProperty.call(next, "includeThumbnail")) {
+    delete next.includeThumbnail;
+    changed = true;
+  }
+  if (Object.prototype.hasOwnProperty.call(next, "includeAuthor")) {
+    delete next.includeAuthor;
+    changed = true;
+  }
+  return changed ? next : payload;
+}
+
+function isTenantBannerImageUrl(url) {
+  const imageUrl = String(url || "").trim().toLowerCase();
+  if (!imageUrl) return false;
+  if (imageUrl === String(BRANDING_IMAGE_URL || "").trim().toLowerCase()) return true;
+  if (imageUrl.startsWith("attachment://")) {
+    const name = imageUrl.slice("attachment://".length);
+    return BRANDING_IMAGE_ALIASES.some((alias) => name === String(alias).toLowerCase());
+  }
+  return BRANDING_IMAGE_ALIASES.some((alias) => imageUrl.includes(String(alias).toLowerCase()));
+}
+
+function payloadHasTenantBannerEmbed(payload) {
+  const embeds = Array.isArray(payload?.embeds) ? payload.embeds : [];
+  return embeds.some((embed) => isTenantBannerImageUrl(embedImageUrl(embed)));
+}
+
+function shouldSkipPrefixDispatcherBranding(payload) {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return false;
+  if (payload[PREFIX_DISPATCH_BRANDING_DONE_KEY] || payload[TENANT_BRANDING_APPLIED_KEY]) {
+    return true;
+  }
+  return payloadHasTenantBannerEmbed(payload);
+}
+
+function normalizeEmbedColorInt(color) {
+  if (color == null || color === "") return null;
+  if (typeof color === "number" && Number.isFinite(color)) return color;
+  const raw = String(color).trim().toLowerCase();
+  if (!raw) return null;
+  if (raw === "red") return 0xed4245;
+  if (raw.startsWith("#")) {
+    const value = Number.parseInt(raw.slice(1), 16);
+    return Number.isFinite(value) ? value : null;
+  }
+  const value = Number.parseInt(raw, 10);
+  return Number.isFinite(value) ? value : null;
+}
+
+function isLegacyDefaultEmbedColor(color) {
+  const normalized = normalizeEmbedColorInt(color);
+  return normalized === LEGACY_VINILI_EMBED_COLOR_INT;
+}
+
+function shouldUseTenantEmbedBranding(guildId) {
+  const gid = String(guildId || "").trim();
+  if (!gid || isViniliProtectedGuild(gid) || !isMultiGuildLayerEnabled()) return false;
+  if (shouldApplyMultiGuildLayer(gid)) return true;
+  try {
+    const { isPartnershipOperational } = require("../../Utils/Partner/partnershipConfigResolver");
+    return isPartnershipOperational(gid);
+  } catch {
+    return false;
+  }
+}
+
+function shouldUsePartnershipEmbedBranding(guildId) {
+  const gid = String(guildId || "").trim();
+  if (!gid || !isMultiGuildLayerEnabled()) return false;
+  if (isViniliProtectedGuild(gid)) return true;
+  return shouldUseTenantEmbedBranding(gid);
+}
+
+function shouldApplyPayloadBranding(guildId, context = {}) {
+  if (context.partnershipBranding === true) {
+    return shouldUsePartnershipEmbedBranding(guildId);
+  }
+  return shouldUseTenantEmbedBranding(guildId);
+}
+
+function isTenantManagedGuild(guildId) {
+  return shouldUseTenantEmbedBranding(guildId);
+}
+
+function isPartnershipBrandedGuild(guildId) {
+  return shouldUsePartnershipEmbedBranding(guildId);
+}
+
+function shouldUseViniliBrandEmbedColor(guildId) {
+  return shouldUsePartnershipEmbedBranding(guildId);
+}
+
+function resolveEmbedColorForGuild(guildId) {
+  return shouldUseViniliBrandEmbedColor(guildId) ? TENANT_EMBED_COLOR : LEGACY_VINILI_EMBED_COLOR;
+}
+
+/** Colore brand (#826bc2) su main e tenant partnership; marrone legacy altrove. */
+function resolvePartnershipEmbedColorForGuild(guildId) {
+  return resolveEmbedColorForGuild(guildId);
+}
+
+function shouldApplyTenantEmbedColor(guildId, color, context = {}) {
+  const useBrandColor =
+    context.partnershipBranding === true
+      ? shouldUsePartnershipEmbedBranding(guildId)
+      : shouldUseViniliBrandEmbedColor(guildId);
+  if (!useBrandColor) return false;
+  if (color == null || color === "") return true;
+  // Solo default/legacy → brand. Rifiuti/errori rossi e successi verdi restano intatti.
+  return isLegacyDefaultEmbedColor(color);
+}
+
+function createStandardGifAttachment() {
+  if (!standardGifFileExists()) return null;
+  return new AttachmentBuilder(STANDARD_GIF_PATH, { name: BRANDING_IMAGE_NAME });
+}
+
+/** Imposta il banner brand via allegato locale (affidabile; evita URL sito bloccato da CF). */
+function applyBrandingBannerImage(embed) {
+  if (!embed) return embed;
+  const builder = embed instanceof EmbedBuilder ? embed : EmbedBuilder.from(embed);
+  if (!standardGifFileExists()) {
+    // Ultimo resort: URL pubblico (può risultare rotto se CF mitiga il proxy Discord).
+    return builder.setImage(BRANDING_IMAGE_URL);
+  }
+  return builder.setImage(BRANDING_IMAGE_ATTACHMENT_URL);
+}
+
+function payloadFilesIncludeBrandingBanner(files) {
+  if (!Array.isArray(files) || !files.length) return false;
+  return files.some((file) => {
+    const name = String(file?.name || file?.attachment?.name || "").trim().toLowerCase();
+    return BRANDING_IMAGE_ALIASES.some((alias) => name === String(alias).toLowerCase());
+  });
+}
+
+/** Assicura `files` con il GIF brand se l'embed usa attachment://tenant-standard.gif. */
+function ensureBrandingBannerFiles(payload) {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return payload;
+  if (!payloadHasTenantBannerEmbed(payload)) return payload;
+  const imageUrl = embedImageUrl(Array.isArray(payload.embeds) ? payload.embeds[0] : null);
+  if (!isTenantBannerImageUrl(imageUrl) || !imageUrl.toLowerCase().startsWith("attachment://")) {
+    return payload;
+  }
+  if (payloadFilesIncludeBrandingBanner(payload.files)) return payload;
+  const file = createStandardGifAttachment();
+  if (!file) return payload;
+  const files = Array.isArray(payload.files) ? [...payload.files, file] : [file];
+  return { ...payload, files };
+}
+
+function embedData(embed) {
+  return embed?.data || embed || {};
+}
+
+function embedImageUrl(embed) {
+  return String(embedData(embed)?.image?.url || "").trim();
+}
+
+function embedThumbnailUrl(embed) {
+  return String(embedData(embed)?.thumbnail?.url || "").trim();
+}
+
+function embedHasAuthor(embed) {
+  const author = embedData(embed)?.author;
+  return Boolean(
+    String(author?.name || "").trim() ||
+      String(author?.icon_url || author?.iconURL || "").trim(),
+  );
+}
+
+function embedNeedsImage(embed) {
+  return !embedImageUrl(embed);
+}
+
+function shouldIncludeTenantBanner(payload, context = {}) {
+  if (context.includeBanner === true) return true;
+  if (context.includeBanner === false) return false;
+  if (payload && payload.includeBanner === true) return true;
+  if (payload && payload.includeBanner === false) return false;
+  // Opt-in: non appiccicare banner su ogni reply/edit/bottone.
+  return false;
+}
+
+function shouldIncludeTenantThumbnail(payload, context = {}) {
+  if (context.includeThumbnail === true) return true;
+  if (context.includeThumbnail === false) return false;
+  if (payload && payload.includeThumbnail === true) return true;
+  if (payload && payload.includeThumbnail === false) return false;
+  return false;
+}
+
+function shouldIncludeTenantAuthor(payload, context = {}) {
+  if (context.includeAuthor === true) return true;
+  if (context.includeAuthor === false) return false;
+  if (payload && payload.includeAuthor === true) return true;
+  if (payload && payload.includeAuthor === false) return false;
+  return false;
+}
+
+function resolveBrandingContext(context = {}) {
+  const guild = context?.guild || null;
+  const guildId = String(context?.guildId || guild?.id || "").trim() || null;
+  const client = context?.client || guild?.client || null;
+  return { guildId, guild, client };
+}
+
+function applyTenantEmbedColor(embed, guildId, context = {}) {
+  if (!embed || !shouldApplyPayloadBranding(guildId, context)) return embed;
+  const currentColor = embedData(embed)?.color;
+  if (!shouldApplyTenantEmbedColor(guildId, currentColor)) return embed;
+  const builder = embed instanceof EmbedBuilder ? embed : EmbedBuilder.from(embed);
+  return builder.setColor(TENANT_EMBED_COLOR);
+}
+
+function applyBrandingToEmbed(embed, context) {
+  if (!embed) return { embed, needsFile: false };
+  const {
+    guild,
+    guildId,
+    client,
+    includeBanner = false,
+    includeThumbnail = false,
+    includeAuthor = false,
+  } = context;
+  let builder = embed instanceof EmbedBuilder ? embed : EmbedBuilder.from(embed);
+  let needsFile = false;
+
+  builder = applyTenantEmbedColor(builder, guildId, context);
+
+  if (includeThumbnail && !embedThumbnailUrl(builder)) {
+    const botAvatar = userAvatarUrlDynamic(client?.user, { size: 256 });
+    if (botAvatar) builder = builder.setThumbnail(botAvatar);
+  }
+
+  if (includeAuthor && !embedHasAuthor(builder) && guild) {
+    const authorName = String(guild.name || "Server").trim() || "Server";
+    const authorIcon = guildIconUrl(guild, { size: 256 });
+    builder = builder.setAuthor(
+      authorIcon ? { name: authorName, iconURL: authorIcon } : { name: authorName },
+    );
+  }
+
+  if (includeBanner && embedNeedsImage(builder)) {
+    // Allegato locale: Discord lo hosta sulla propria CDN (CF sul sito non rompe l'immagine).
+    builder = applyBrandingBannerImage(builder);
+    needsFile = standardGifFileExists();
+  }
+
+  return { embed: builder, needsFile };
+}
+
+function applyPartnershipPayloadBranding(payload, context = {}) {
+  return applyTenantPayloadBranding(payload, { ...context, partnershipBranding: true });
+}
+
+function applyTenantPayloadBranding(payload, context = {}) {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return payload;
+  if (payload[TENANT_BRANDING_APPLIED_KEY]) return stripTenantBrandingInternals(payload);
+
+  const { guildId, guild, client } = resolveBrandingContext(context);
+  if (!guildId || !shouldApplyPayloadBranding(guildId, context)) return payload;
+
+  const embeds = Array.isArray(payload.embeds) ? payload.embeds : [];
+  if (!embeds.length) return payload;
+
+  const includeBanner = shouldIncludeTenantBanner(payload, context);
+  const includeThumbnail = shouldIncludeTenantThumbnail(payload, context);
+  const includeAuthor = shouldIncludeTenantAuthor(payload, context);
+  const brandingContext = {
+    guildId,
+    guild,
+    client,
+    includeBanner,
+    includeThumbnail,
+    includeAuthor,
+    partnershipBranding: context.partnershipBranding === true,
+  };
+
+  let needsBannerFile = false;
+  const nextEmbeds = embeds.map((embed, index) => {
+    const embedBrandingContext = {
+      ...brandingContext,
+      // Un solo banner sul primo embed.
+      includeBanner: includeBanner && index === 0,
+    };
+    const result = applyBrandingToEmbed(embed, embedBrandingContext);
+    if (result.needsFile) needsBannerFile = true;
+    return result.embed;
+  });
+
+  let files = Array.isArray(payload.files) ? [...payload.files] : payload.files;
+  if (needsBannerFile) {
+    if (!payloadFilesIncludeBrandingBanner(files)) {
+      const bannerFile = createStandardGifAttachment();
+      if (bannerFile) {
+        files = Array.isArray(files) ? [...files, bannerFile] : [bannerFile];
+      }
+    }
+  } else if (Array.isArray(files) && files.length) {
+    // Nessun banner richiesto: togli eventuali tenant-standard.gif residui (evita GIF fuori embed).
+    files = files.filter((file) => {
+      const name = String(file?.name || file?.attachment?.name || "").trim().toLowerCase();
+      return !BRANDING_IMAGE_ALIASES.some((alias) => name === String(alias).toLowerCase());
+    });
+  }
+
+  return {
+    ...payload,
+    embeds: nextEmbeds,
+    ...(Array.isArray(files) ? { files } : {}),
+    [TENANT_BRANDING_APPLIED_KEY]: true,
+  };
+}
+
+function registerTenantEmbedBrandingApplier() {
+  try {
+    const replyRuntime = require("../../../shared/discord/replyRuntime");
+    if (typeof replyRuntime.setTenantEmbedBrandingApplier !== "function") return;
+    replyRuntime.setTenantEmbedBrandingApplier((payload, context) =>
+      applyTenantPayloadBranding(payload, { ...context, partnershipBranding: true }),
+    );
+  } catch {
+    // reply runtime not available in this process
+  }
+}
+
+module.exports = {
+  TENANT_EMBED_COLOR,
+  LEGACY_VINILI_EMBED_COLOR,
+  LEGACY_VINILI_EMBED_COLOR_INT,
+  BRANDING_IMAGE_NAME,
+  BRANDING_IMAGE_URL,
+  BRANDING_IMAGE_ATTACHMENT_URL,
+  BRANDING_IMAGE_ALIASES,
+  resolveBrandingImagePublicUrl,
+  isTenantBannerImageUrl,
+  normalizeEmbedColorInt,
+  isLegacyDefaultEmbedColor,
+  isTenantManagedGuild,
+  isPartnershipBrandedGuild,
+  shouldUseViniliBrandEmbedColor,
+  resolveEmbedColorForGuild,
+  resolvePartnershipEmbedColorForGuild,
+  shouldApplyTenantEmbedColor,
+  applyTenantEmbedColor,
+  applyBrandingToEmbed,
+  applyTenantPayloadBranding,
+  applyPartnershipPayloadBranding,
+  stripTenantBrandingInternals,
+  TENANT_BRANDING_APPLIED_KEY,
+  PREFIX_DISPATCH_BRANDING_DONE_KEY,
+  payloadHasTenantBannerEmbed,
+  shouldSkipPrefixDispatcherBranding,
+  shouldUseTenantEmbedBranding,
+  shouldUsePartnershipEmbedBranding,
+  createStandardGifAttachment,
+  applyBrandingBannerImage,
+  ensureBrandingBannerFiles,
+  registerTenantEmbedBrandingApplier,
+};

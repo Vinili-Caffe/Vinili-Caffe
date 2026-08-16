@@ -1,12 +1,13 @@
 (function () {
   if (window.__vcLoadYoutubeIframeApi) return;
 
+  // Stesso host per iframe_api e YT.Player: mix youtube.com + nocookie → postMessage origin mismatch.
   var API_SOURCES = [
-    "https://www.youtube-nocookie.com/iframe_api",
-    "https://www.youtube.com/iframe_api",
+    { api: "https://www.youtube.com/iframe_api", host: "https://www.youtube.com" },
+    { api: "https://www.youtube-nocookie.com/iframe_api", host: "https://www.youtube-nocookie.com" },
   ];
 
-  window.__vcYoutubePlayerHost = "https://www.youtube-nocookie.com";
+  window.__vcYoutubePlayerHost = "https://www.youtube.com";
 
   function hasIframeApiScript() {
     try {
@@ -19,15 +20,31 @@
     return false;
   }
 
+  function detectPlayerHostFromDom() {
+    try {
+      var nodes = document.getElementsByTagName("script");
+      for (var i = 0; i < nodes.length; i += 1) {
+        var s = String(nodes[i].src || "");
+        if (/youtube-nocookie\.com\/iframe_api/i.test(s)) return "https://www.youtube-nocookie.com";
+        if (/youtube\.com\/iframe_api/i.test(s)) return "https://www.youtube.com";
+      }
+    } catch (eD) {}
+    return "https://www.youtube.com";
+  }
+
   window.__vcLoadYoutubeIframeApi = function () {
     return new Promise(function (resolve, reject) {
       if (window.YT && window.YT.Player) {
+        try {
+          window.__vcYoutubePlayerHost = detectPlayerHostFromDom();
+        } catch (eH) {}
         resolve();
         return;
       }
       var prev = window.onYouTubeIframeAPIReady;
       var settled = false;
       var pollIv = null;
+      var activeHost = window.__vcYoutubePlayerHost;
 
       function finish(err) {
         if (settled) return;
@@ -43,6 +60,7 @@
         } else {
           try {
             window.__vcYoutubeApiBlocked = false;
+            window.__vcYoutubePlayerHost = activeHost || detectPlayerHostFromDom();
           } catch (eOk) {}
           resolve();
         }
@@ -73,16 +91,19 @@
           return;
         }
         if (hasIframeApiScript()) {
+          activeHost = detectPlayerHostFromDom();
           waitForYt(function () {
             finish(new Error("yt_api_timeout"));
           });
           return;
         }
+        var entry = API_SOURCES[idx];
+        activeHost = entry.host;
         var tag = document.createElement("script");
         tag.src =
           typeof window.__vcTrustedScriptURL === "function"
-            ? window.__vcTrustedScriptURL(API_SOURCES[idx])
-            : API_SOURCES[idx];
+            ? window.__vcTrustedScriptURL(entry.api)
+            : entry.api;
         tag.async = true;
         tag.onerror = function () {
           try {

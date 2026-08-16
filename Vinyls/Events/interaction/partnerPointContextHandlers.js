@@ -1,22 +1,56 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } = require("discord.js");
-const IDs = require("../../Utils/Config/ids");
 const { getGuildChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { removePartnerPoints, formatPartnerPointsChange } = require("../../Utils/Staff/partnerPointsUtils");
-const { resolvePartnerPointsShown } = require("../../Utils/Staff/partnerPointsDisplayUtils");
-const { buildPartnershipMessageLink, buildPartnerPointLogContent, getPartnerPointHighStaffPingRoleIds, parsePartnerPointModalId } = require("../../Utils/Partner/partnerPointContextUtils");
+const { resolvePartnerTotalEarned, resolvePartnerPointsShown } = require("../../Utils/Staff/partnerPointsDisplayUtils");
+const {
+  buildPartnershipMessageLink,
+  buildPartnerPointLogContent,
+  getPartnerPointHighStaffPingRoleIds,
+  parsePartnerPointModalId,
+  parseMainPartnershipRemoveModalId,
+  MAIN_PARTNERSHIP_REMOVE_MODAL_PREFIX,
+  MAIN_PARTNERSHIP_REMOVE_RULE_INPUT,
+} = require("../../Utils/Partner/partnerPointContextUtils");
+const { deletePartnershipFromContextMessage } = require("../../Services/Partner/tenantPartnershipDeleteService");
+const { memberHasPartnerManagerRole, getPartnershipLogChannelIds, shouldApplyMainPartnershipFilters } = require("../../Utils/Partner/partnershipConfigResolver");
+const { recordTenantBugReport } = require("../../Services/Partner/tenantObjectiveService");
+const { safeReply, safeDeferReply } = require("../../../shared/discord/replyRuntime");
 
 const IN_RULE = "regolaViolata";
 const EPHEMERAL = MessageFlags.Ephemeral;
+
+async function resolvePartnerLogChannel(guild) {
+  const IDs = require("../../Utils/Config/ids");
+  const { primary, fallback } = getPartnershipLogChannelIds(guild?.id);
+  const hardFallback = String(IDs.channels?.puntiTolti || "").trim();
+  for (const channelId of [primary, fallback, hardFallback]) {
+    if (!channelId) continue;
+    const channel =
+      guild.channels.cache.get(channelId) ||
+      (await getGuildChannelCached(guild, channelId).catch(() => null));
+    if (channel?.isTextBased?.()) return channel;
+  }
+  return null;
+}
 
 function getModalText(interaction, customId) {
   return String(interaction.fields?.getTextInputValue?.(customId) || "").trim();
 }
 
 async function handlePartnerSegnalaModal(interaction) {
-  const parsed = parsePartnerPointModalId(interaction.customId, "partner_segnala_m:");
+  const parsed =
+    parsePartnerPointModalId(interaction.customId, "psig_m:") ||
+    parsePartnerPointModalId(interaction.customId, "partner_segnala_m:");
   if (!parsed) return false;
+  if (!shouldApplyMainPartnershipFilters(interaction.guild?.id)) {
+    await safeReply(interaction, {
+      content: "<a:VC_Cross:1482532424570376253> Le segnalazioni partnership sono disponibili solo sul server principale.",
+      flags: EPHEMERAL,
+    });
+    return true;
+  }
   if (String(interaction.user.id) !== parsed.actorId) {
-    await interaction.reply({
+    await safeReply(interaction, {
       content: "<a:VC_Cross:1482532424570376253> Solo chi ha aperto la segnalazione può inviarla.",
       flags: EPHEMERAL,
     });
@@ -24,26 +58,28 @@ async function handlePartnerSegnalaModal(interaction) {
   }
   const rule = getModalText(interaction, IN_RULE);
   if (!rule) {
-    await interaction.reply({ content: "<a:VC_Cross:1482532424570376253> Indica la regola violata.", flags: EPHEMERAL });
-    return true;
-  }
-  const guild = interaction.guild;
-  if (!guild) return true;
-  const pmMember = await guild.members.fetch(parsed.pmUserId).catch(() => null);
-  if (!pmMember?.roles?.cache?.has?.(IDs.roles?.PartnerManager)) {
-    await interaction.reply({
-      content: "<a:VC_Cross:1482532424570376253> L'utente non è più Partner Manager.",
+    await safeReply(interaction, {
+      content: "<a:VC_Cross:1482532424570376253> Indica la regola violata.",
       flags: EPHEMERAL,
     });
     return true;
   }
-  const logChannel =
-    guild.channels.cache.get(IDs.channels?.puntiTolti) ||
-    (await getGuildChannelCached(guild, IDs.channels?.puntiTolti));
-  if (!logChannel?.isTextBased?.()) {
-    await interaction.reply({
-      content: "<a:VC_Cross:1482532424570376253> Canale punti tolti non disponibile.",
-      flags: EPHEMERAL,
+  const guild = interaction.guild;
+  if (!guild) return true;
+
+  if (!(await safeDeferReply(interaction, { flags: EPHEMERAL }))) return true;
+
+  const pmMember = await guild.members.fetch(parsed.pmUserId).catch(() => null);
+  if (!memberHasPartnerManagerRole(pmMember, guild.id)) {
+    await safeReply(interaction, {
+      content: "<a:VC_Cross:1482532424570376253> L'utente non è più Partner Manager.",
+    });
+    return true;
+  }
+  const logChannel = await resolvePartnerLogChannel(guild);
+  if (!logChannel) {
+    await safeReply(interaction, {
+      content: "<a:VC_Cross:1482532424570376253> Canale log partnership non disponibile.",
     });
     return true;
   }
@@ -73,18 +109,150 @@ async function handlePartnerSegnalaModal(interaction) {
       allowedMentions: { roles: getPartnerPointHighStaffPingRoleIds() },
     })
     .catch(() => null);
-  await interaction.reply({
-    content: "<:success:1461731530333229226> Segnalazione inviata in <#" + String(IDs.channels?.puntiTolti || "") + ">.",
-    flags: EPHEMERAL,
+  await safeReply(interaction, {
+    content: `<:success:1461731530333229226> Segnalazione inviata in ${logChannel}.`,
+  });
+  void recordTenantBugReport(interaction.client, guild.id, parsed.actorId, {
+    discordLocale: interaction.locale,
+  }).catch(() => null);
+  return true;
+}
+
+async function handlePartnerEliminaMainModal(interaction) {
+  const parsed = parseMainPartnershipRemoveModalId(interaction.customId);
+  if (!parsed) return false;
+  if (!shouldApplyMainPartnershipFilters(interaction.guild?.id)) {
+    await safeReply(interaction, {
+      content: "<a:VC_Cross:1482532424570376253> Questa azione è disponibile solo sul server principale.",
+      flags: EPHEMERAL,
+    });
+    return true;
+  }
+  if (String(interaction.user.id) !== parsed.actorId) {
+    await safeReply(interaction, {
+      content: "<a:VC_Cross:1482532424570376253> Solo chi ha aperto l'eliminazione può confermarla.",
+      flags: EPHEMERAL,
+    });
+    return true;
+  }
+
+  const rule = getModalText(interaction, MAIN_PARTNERSHIP_REMOVE_RULE_INPUT);
+  if (!rule) {
+    await safeReply(interaction, {
+      content: "<a:VC_Cross:1482532424570376253> Indica la regola violata.",
+      flags: EPHEMERAL,
+    });
+    return true;
+  }
+
+  const guild = interaction.guild;
+  if (!guild) return true;
+
+  // Delete + log can exceed Discord's 3s interaction window → defer immediately.
+  if (!(await safeDeferReply(interaction, { flags: EPHEMERAL }))) return true;
+
+  const channel =
+    guild.channels.cache.get(parsed.channelId) ||
+    (await getGuildChannelCached(guild, parsed.channelId).catch(() => null));
+  const targetMessage = channel?.messages
+    ? await channel.messages.fetch(parsed.partnershipMsgId).catch(() => null)
+    : null;
+  if (!targetMessage?.id) {
+    await safeReply(interaction, {
+      content: "<a:VC_Cross:1482532424570376253> Messaggio partnership non trovato.",
+    });
+    return true;
+  }
+
+  const pmMember = await guild.members.fetch(parsed.pmUserId).catch(() => null);
+  if (!memberHasPartnerManagerRole(pmMember, guild.id)) {
+    await safeReply(interaction, {
+      content: "<a:VC_Cross:1482532424570376253> L'utente non è più Partner Manager.",
+    });
+    return true;
+  }
+
+  const deleteResult = await deletePartnershipFromContextMessage(
+    guild,
+    targetMessage,
+    parsed.actorId,
+    interaction.client,
+    "context_menu_main_unified",
+  );
+  if (!deleteResult?.ok) {
+    await safeReply(interaction, {
+      content:
+        "<a:VC_Cross:1482532424570376253> Non riesco a eliminare la **partnership** da questo messaggio.",
+    });
+    return true;
+  }
+
+  // I punti sono già aggiornati da executePartnershipDeletion (partnerActions + partnerCount).
+  // removePartnerPoints qui faceva falso errore a saldo 0 e poteva doppia-penalizzare.
+  // "Totale" = partner attribuite (come profilo staff), non il saldo shop dopo i riscatti.
+  const pointsUserId = String(deleteResult.pmUserId || parsed.pmUserId || "").trim() || parsed.pmUserId;
+  const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
+  const staffLean = await ActivityUserProfile.findOne({
+    guildId: guild.id,
+    userId: pointsUserId,
+  })
+    .select("staff")
+    .lean()
+    .catch(() => null);
+  const total = resolvePartnerTotalEarned(staffLean?.staff);
+  const spendable = resolvePartnerPointsShown(staffLean?.staff);
+
+  const logChannel = await resolvePartnerLogChannel(guild);
+  const messageLink = buildPartnershipMessageLink(guild.id, parsed.channelId, parsed.partnershipMsgId);
+  const content = buildPartnerPointLogContent({
+    pmUserId: pointsUserId,
+    rule,
+    messageLink,
+    actorUserId: parsed.actorId,
+  });
+  if (logChannel?.isTextBased?.()) {
+    const sent = await logChannel.send({ content }).catch((err) => {
+      global.logger?.warn?.(
+        "[partnerElimina] puntiTolti send failed:",
+        err?.message || err,
+        `channel=${logChannel.id}`,
+      );
+      return null;
+    });
+    if (!sent) {
+      global.logger?.warn?.("[partnerElimina] puntiTolti log non inviato dopo delete partnership");
+    }
+  } else {
+    global.logger?.warn?.("[partnerElimina] canale puntiTolti non trovato");
+  }
+
+  const saldoHint =
+    Number(spendable) !== Number(total) ? ` · Saldo shop: \`${spendable}\`` : "";
+  const pointsLine = deleteResult.pointsAdjusted
+    ? `<:success:1461731530333229226> **${formatPartnerPointsChange("remove", 1)}** a <@${pointsUserId}>. Totale: \`${total}\`${saldoHint}.`
+    : `<:success:1461731530333229226> Totale punti di <@${pointsUserId}>: \`${total}\`${saldoHint}.`;
+  await safeReply(interaction, {
+    content:
+      `<a:VC_Events:1482706144953897223> **Partner** eliminata con **successo**!\n` +
+      pointsLine,
   });
   return true;
 }
 
 async function handlePartnerRimuoviModal(interaction) {
-  const parsed = parsePartnerPointModalId(interaction.customId, "partner_rimuovi_m:");
+  const parsed =
+    parsePartnerPointModalId(interaction.customId, "prm_m:") ||
+    parsePartnerPointModalId(interaction.customId, "partner_rimuovi_m:");
   if (!parsed) return false;
+  if (!shouldApplyMainPartnershipFilters(interaction.guild?.id)) {
+    await safeReply(interaction, {
+      content: "<a:VC_Cross:1482532424570376253> La rimozione punti partnership è disponibile solo sul server principale.",
+      flags: EPHEMERAL,
+    });
+    return true;
+  }
   if (String(interaction.user.id) !== parsed.actorId) {
-    await interaction.reply({
+    await safeReply(interaction, {
       content: "<a:VC_Cross:1482532424570376253> Solo chi ha aperto la rimozione può confermarla.",
       flags: EPHEMERAL,
     });
@@ -92,30 +260,32 @@ async function handlePartnerRimuoviModal(interaction) {
   }
   const rule = getModalText(interaction, IN_RULE);
   if (!rule) {
-    await interaction.reply({ content: "<a:VC_Cross:1482532424570376253> Indica la regola violata.", flags: EPHEMERAL });
+    await safeReply(interaction, {
+      content: "<a:VC_Cross:1482532424570376253> Indica la regola violata.",
+      flags: EPHEMERAL,
+    });
     return true;
   }
   const guild = interaction.guild;
   if (!guild) return true;
+
+  if (!(await safeDeferReply(interaction, { flags: EPHEMERAL }))) return true;
+
   const pmMember = await guild.members.fetch(parsed.pmUserId).catch(() => null);
-  if (!pmMember?.roles?.cache?.has?.(IDs.roles?.PartnerManager)) {
-    await interaction.reply({
+  if (!memberHasPartnerManagerRole(pmMember, guild.id)) {
+    await safeReply(interaction, {
       content: "<a:VC_Cross:1482532424570376253> L'utente non è più Partner Manager.",
-      flags: EPHEMERAL,
     });
     return true;
   }
   const staffData = await removePartnerPoints(guild.id, parsed.pmUserId, 1);
   if (!staffData) {
-    await interaction.reply({
+    await safeReply(interaction, {
       content: "<a:VC_Cross:1482532424570376253> Impossibile aggiornare i punti partner.",
-      flags: EPHEMERAL,
     });
     return true;
   }
-  const logChannel =
-    guild.channels.cache.get(IDs.channels?.puntiTolti) ||
-    (await getGuildChannelCached(guild, IDs.channels?.puntiTolti));
+  const logChannel = await resolvePartnerLogChannel(guild);
   const messageLink = buildPartnershipMessageLink(guild.id, parsed.channelId, parsed.partnershipMsgId);
   const content = buildPartnerPointLogContent({
     pmUserId: parsed.pmUserId,
@@ -127,23 +297,34 @@ async function handlePartnerRimuoviModal(interaction) {
     await logChannel.send({ content }).catch(() => null);
   }
   const changeLabel = formatPartnerPointsChange("remove", staffData?._partnerPointsRemoved ?? 1);
-  const total = resolvePartnerPointsShown(staffData?.staff);
-  await interaction.reply({
-    content: `<:success:1461731530333229226> **${changeLabel}** a <@${parsed.pmUserId}>. Totale: \`${total}\`.`,
-    flags: EPHEMERAL,
+  const total = resolvePartnerTotalEarned(staffData?.staff);
+  const spendable = resolvePartnerPointsShown(staffData?.staff);
+  const saldoHint =
+    Number(spendable) !== Number(total) ? ` · Saldo shop: \`${spendable}\`` : "";
+  await safeReply(interaction, {
+    content: `<:success:1461731530333229226> **${changeLabel}** a <@${parsed.pmUserId}>. Totale: \`${total}\`${saldoHint}.`,
   });
   return true;
 }
 
 async function handlePartnerPointContextModal(interaction) {
-  if (!interaction?.isModalSubmit?.()) return false;
+  if (!interaction.isModalSubmit?.()) return false;
   const id = String(interaction.customId || "");
-  if (id.startsWith("partner_segnala_m:")) return handlePartnerSegnalaModal(interaction);
-  if (id.startsWith("partner_rimuovi_m:")) return handlePartnerRimuoviModal(interaction);
+  if (id.startsWith(MAIN_PARTNERSHIP_REMOVE_MODAL_PREFIX)) {
+    return handlePartnerEliminaMainModal(interaction);
+  }
+  if (id.startsWith("psig_m:") || id.startsWith("partner_segnala_m:")) {
+    return handlePartnerSegnalaModal(interaction);
+  }
+  if (id.startsWith("prm_m:") || id.startsWith("partner_rimuovi_m:")) {
+    return handlePartnerRimuoviModal(interaction);
+  }
   return false;
 }
 
 module.exports = {
   handlePartnerPointContextModal,
-  parsePartnerPointModalId,
+  handlePartnerEliminaMainModal,
+  handlePartnerSegnalaModal,
+  handlePartnerRimuoviModal,
 };

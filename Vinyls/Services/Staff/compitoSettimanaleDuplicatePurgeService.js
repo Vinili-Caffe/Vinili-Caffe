@@ -7,13 +7,15 @@ const {
   getStaffDoc,
   valutazionePositiveRemoveCore,
   makeRemovalEmbed,
+  makeLogEmbed,
 } = require("../../Utils/Staff/valutazionePanelActions");
 
 const { getResocontoReviewerUserIdsForSegment } = require("../../Utils/Staff/resocontoAccess");
 
 const COMPITO_SETTIMANALE_REASON = "Compito settimanale completato.";
 const PURGE_REASON = "Ripulizia duplicato automatico (compito settimanale resoconti).";
-const RESOCONTO_SEGMENTS = ["pm", "helper", "mod", "senior_moderator", "director", "admin"];
+const ORPHAN_PURGE_FOOTER = "Messaggio duplicato rimosso dal log (orphan).";
+const RESOCONTO_SEGMENTS = ["pm", "helper", "mod", "senior_moderator", "director"];
 const CHANNEL_SCAN_PAGE = 100;
 const CHANNEL_SCAN_MAX = 1500;
 
@@ -68,8 +70,17 @@ function assignCompitoSegments(staff, userId) {
         new Date(a.entry.createdAt || 0).getTime() - new Date(b.entry.createdAt || 0).getTime(),
     );
 
-  for (let i = 0; i < Math.min(unassignedIndices.length, orphanAutos.length); i += 1) {
-    assignments.set(unassignedIndices[i].index, orphanAutos[i].parsed.segment);
+  const usedOrphanKeys = new Set();
+  for (const idxEntry of unassignedIndices) {
+    const logWeek = weekKeyFromCreatedAtMs(idxEntry.createdAt);
+    const orphan = orphanAutos.find(
+      (row) =>
+        !usedOrphanKeys.has(String(row.entry.key || "")) &&
+        String(row.parsed.weekKey || "") === String(logWeek || ""),
+    );
+    if (!orphan) continue;
+    assignments.set(idxEntry.index, orphan.parsed.segment);
+    usedOrphanKeys.add(String(orphan.entry.key || ""));
   }
 
   return assignments;
@@ -82,9 +93,9 @@ function getResocontoReviewerSegmentsForUser(userId) {
   );
 }
 
-function maxCompitoAllowedForUser(userId) {
-  const segments = getResocontoReviewerSegmentsForUser(userId);
-  return Math.max(1, segments.length);
+function weekKeyFromCreatedAtMs(createdAtMs) {
+  const weeklyResocontoService = require("./weeklyStaffResocontoService");
+  return weeklyResocontoService.getResocontoCycleWeekKey(new Date(createdAtMs || Date.now()));
 }
 
 function parseCompitoValutazioneMessage(message) {
@@ -93,8 +104,14 @@ function parseCompitoValutazioneMessage(message) {
   if (!embed) return null;
   const title = String(embed.title || "");
   if (/RIMOSSA/i.test(title)) return null;
-  const description = String(embed.description || "");
-  if (!description.includes(COMPITO_SETTIMANALE_REASON)) return null;
+  const blob = [
+    title,
+    String(embed.description || ""),
+    ...(Array.isArray(embed.fields)
+      ? embed.fields.flatMap((field) => [String(field?.name || ""), String(field?.value || "")])
+      : []),
+  ].join("\n");
+  if (!blob.includes(COMPITO_SETTIMANALE_REASON)) return null;
   const content = String(message.content || "");
   const mention = content.match(/<@!?(\d{17,20})>/);
   const userId = mention ? String(mention[1]) : null;
@@ -143,74 +160,176 @@ async function collectActiveCompitoMessagesFromChannel(channel, sinceMs = 0) {
   return byUser;
 }
 
-function findChannelDuplicateCompitoMessageIds(byUser, userId) {
-  const entries = byUser.get(String(userId || "")) || [];
-  const maxAllowed = maxCompitoAllowedForUser(userId);
-  if (entries.length <= maxAllowed) return [];
-  return entries.slice(maxAllowed).map((row) => row.messageId).filter(Boolean);
+function buildProtectedCompitoRefs(staff, userId) {
+  const protectedIndices = new Set();
+  const protectedMessageIds = new Set();
+  const auto = Array.isArray(staff?.autoValutazioni) ? staff.autoValutazioni : [];
+  const uid = String(userId || "");
+  for (const entry of auto) {
+    const parsed = parseResocontoReviewerTaskKey(String(entry?.key || ""));
+    if (!parsed || parsed.userId !== uid) continue;
+    if (String(entry?.reason || "") !== COMPITO_SETTIMANALE_REASON) continue;
+    const messageId = String(entry?.messageId || "");
+    if (messageId) protectedMessageIds.add(messageId);
+    const index = findPositiveIndexByMessageId(staff, messageId);
+    if (index >= 0) protectedIndices.add(index);
+  }
+  return { protectedIndices, protectedMessageIds };
 }
 
-function findDuplicateCompitoMessageIds(staff, userId) {
+function findChannelDuplicateCompitoMessageIds(byUser, userId, staff = null) {
+  const entries = byUser.get(String(userId || "")) || [];
+  if (entries.length <= 1) return [];
+
+  const { protectedMessageIds } = staff ? buildProtectedCompitoRefs(staff, userId) : { protectedMessageIds: new Set() };
+
+  const segmentAssignments = staff ? assignCompitoSegments(staff, userId) : new Map();
+  const segments = getResocontoReviewerSegmentsForUser(userId);
+  const defaultSegment = segments.length === 1 ? segments[0] : null;
+  const auto = Array.isArray(staff?.autoValutazioni) ? staff.autoValutazioni : [];
+  const logs = Array.isArray(staff?.positiveValutazioni) ? staff.positiveValutazioni : [];
+
+  const enriched = entries.map((row) => {
+    let segment = defaultSegment;
+    const weekKey = weekKeyFromCreatedAtMs(row.createdAt);
+    const dbIndex = staff ? findPositiveIndexByMessageId(staff, row.messageId) : -1;
+    if (dbIndex >= 0) {
+      segment = segmentAssignments.get(dbIndex) || segment;
+      const messageId = String(logs[dbIndex]?.messageId || "");
+      const autoEntry = auto.find((entry) => String(entry?.messageId || "") === messageId);
+      const autoParsed = autoEntry ? parseResocontoReviewerTaskKey(String(autoEntry.key || "")) : null;
+      if (autoParsed?.segment) segment = autoParsed.segment;
+    }
+    return {
+      ...row,
+      weekKey,
+      segment: segment || "_",
+    };
+  });
+
+  const byWeekSegment = new Map();
+  for (const entry of enriched) {
+    const bucketKey = `${entry.weekKey}:${entry.segment}`;
+    if (!byWeekSegment.has(bucketKey)) byWeekSegment.set(bucketKey, []);
+    byWeekSegment.get(bucketKey).push(entry);
+  }
+
+  const duplicateMessageIds = [];
+  for (const bucket of byWeekSegment.values()) {
+    if (bucket.length <= 1) continue;
+    bucket.sort((a, b) => {
+      const aProtected = protectedMessageIds.has(String(a.messageId || "")) ? 0 : 1;
+      const bProtected = protectedMessageIds.has(String(b.messageId || "")) ? 0 : 1;
+      if (aProtected !== bProtected) return aProtected - bProtected;
+      return a.createdAt - b.createdAt || a.messageId.localeCompare(b.messageId);
+    });
+    duplicateMessageIds.push(...bucket.slice(1).map((row) => row.messageId).filter(Boolean));
+  }
+  return duplicateMessageIds.filter(Boolean);
+}
+
+async function resolveCompitoCreatedAtMs(guild, log, autoEntry, index) {
+  if (log?.createdAt) {
+    const parsed = new Date(log.createdAt).getTime();
+    if (Number.isFinite(parsed) && parsed > 0) return parsed;
+  }
+  if (autoEntry?.createdAt) {
+    const parsed = new Date(autoEntry.createdAt).getTime();
+    if (Number.isFinite(parsed) && parsed > 0) return parsed;
+  }
+  const channelId = String(log?.channelId || "");
+  const messageId = String(log?.messageId || "");
+  if (guild && channelId && messageId) {
+    const channel =
+      guild.channels.cache.get(channelId) || (await getGuildChannelCached(guild, channelId));
+    const message = await channel?.messages?.fetch?.(messageId).catch(() => null);
+    const created = Number(message?.createdTimestamp || 0);
+    if (Number.isFinite(created) && created > 0) return created;
+  }
+  return Number(index) || 0;
+}
+
+async function findDuplicateCompitoRemovals(guild, staff, userId) {
   const reasons = Array.isArray(staff?.positiveReasons) ? staff.positiveReasons : [];
   const logs = Array.isArray(staff?.positiveValutazioni) ? staff.positiveValutazioni : [];
   const segmentAssignments = assignCompitoSegments(staff, userId);
+  const auto = Array.isArray(staff?.autoValutazioni) ? staff.autoValutazioni : [];
   const compitoEntries = [];
 
   for (let index = 0; index < reasons.length; index += 1) {
     if (String(reasons[index] || "") !== COMPITO_SETTIMANALE_REASON) continue;
     const log = logs[index] || {};
+    const messageId = String(log.messageId || "");
+    const autoEntry = auto.find((row) => String(row?.messageId || "") === messageId);
+    const autoParsed = autoEntry ? parseResocontoReviewerTaskKey(String(autoEntry.key || "")) : null;
+    const createdAt = await resolveCompitoCreatedAtMs(guild, log, autoEntry, index);
+    const weekKey = autoParsed?.weekKey || weekKeyFromCreatedAtMs(createdAt);
+    const segment = segmentAssignments.get(index) || autoParsed?.segment || "_";
     compitoEntries.push({
       index,
-      segment: segmentAssignments.get(index) || null,
-      messageId: String(log.messageId || ""),
-      createdAt: log.createdAt ? new Date(log.createdAt).getTime() : index,
+      segment,
+      messageId,
+      createdAt,
+      weekKey,
     });
   }
   if (!compitoEntries.length) return [];
 
-  const duplicateMessageIds = [];
-  const bySegment = new Map();
-  const unassigned = [];
+  const { protectedIndices } = buildProtectedCompitoRefs(staff, userId);
+  const byWeekSegment = new Map();
   for (const entry of compitoEntries) {
-    if (entry.segment) {
-      if (!bySegment.has(entry.segment)) bySegment.set(entry.segment, []);
-      bySegment.get(entry.segment).push(entry);
-    } else {
-      unassigned.push(entry);
+    const bucketKey = `${entry.weekKey}:${entry.segment}`;
+    if (!byWeekSegment.has(bucketKey)) byWeekSegment.set(bucketKey, []);
+    byWeekSegment.get(bucketKey).push(entry);
+  }
+
+  const duplicateRemovals = [];
+  for (const bucket of byWeekSegment.values()) {
+    if (bucket.length <= 1) continue;
+    bucket.sort((a, b) => {
+      const aProtected = protectedIndices.has(a.index) ? 0 : 1;
+      const bProtected = protectedIndices.has(b.index) ? 0 : 1;
+      if (aProtected !== bProtected) return aProtected - bProtected;
+      return a.createdAt - b.createdAt || a.index - b.index;
+    });
+    for (const row of bucket.slice(1)) {
+      if (protectedIndices.has(row.index)) continue;
+      if (row.segment === "_" && protectedIndices.has(bucket[0]?.index)) continue;
+      duplicateRemovals.push({
+        index: row.index,
+        messageId: row.messageId,
+        sectionId: resolveCompitoRemoveId(staff, row.index),
+      });
     }
   }
 
-  for (const entries of bySegment.values()) {
-    if (entries.length <= 1) continue;
-    entries.sort((a, b) => a.createdAt - b.createdAt || a.index - b.index);
-    duplicateMessageIds.push(...entries.slice(1).map((row) => row.messageId).filter(Boolean));
-  }
-
-  if (unassigned.length > 1) {
-    unassigned.sort((a, b) => a.createdAt - b.createdAt || a.index - b.index);
-    duplicateMessageIds.push(...unassigned.slice(1).map((row) => row.messageId).filter(Boolean));
-  }
-
-  const maxAllowed = maxCompitoAllowedForUser(userId);
-  if (compitoEntries.length > maxAllowed) {
-    compitoEntries.sort((a, b) => a.createdAt - b.createdAt || a.index - b.index);
-    duplicateMessageIds.push(...compitoEntries.slice(maxAllowed).map((row) => row.messageId).filter(Boolean));
-  }
-
-  return [...new Set(duplicateMessageIds.filter(Boolean))];
+  const seen = new Set();
+  return duplicateRemovals.filter((row) => {
+    if (seen.has(row.index)) return false;
+    seen.add(row.index);
+    return true;
+  });
 }
 
-function findDuplicateResocontoAutoKeys(staff, userId) {
+function findDuplicateCompitoMessageIds(guild, staff, userId) {
+  return findDuplicateCompitoRemovals(guild, staff, userId)
+    .then((rows) => rows.map((row) => row.messageId).filter(Boolean));
+}
+
+function findDuplicateResocontoAutoKeys(staff, userId, weekKey = null) {
   const auto = Array.isArray(staff?.autoValutazioni) ? staff.autoValutazioni : [];
-  const bySegment = new Map();
+  const byWeekSegment = new Map();
   for (const entry of auto) {
     const parsed = parseResocontoReviewerTaskKey(String(entry?.key || ""));
     if (!parsed || parsed.userId !== String(userId)) continue;
-    if (!bySegment.has(parsed.segment)) bySegment.set(parsed.segment, []);
-    bySegment.get(parsed.segment).push(entry);
+    if (String(entry?.reason || "") !== COMPITO_SETTIMANALE_REASON) continue;
+    if (weekKey && parsed.weekKey !== weekKey) continue;
+    const bucketKey = `${parsed.weekKey}:${parsed.segment}`;
+    if (!byWeekSegment.has(bucketKey)) byWeekSegment.set(bucketKey, []);
+    byWeekSegment.get(bucketKey).push(entry);
   }
   const duplicateKeys = [];
-  for (const entries of bySegment.values()) {
+  for (const entries of byWeekSegment.values()) {
     if (entries.length <= 1) continue;
     entries.sort(
       (a, b) =>
@@ -222,15 +341,20 @@ function findDuplicateResocontoAutoKeys(staff, userId) {
 }
 
 function findPositiveIndexByMessageId(staff, messageId) {
-  const reasons = Array.isArray(staff?.positiveReasons) ? staff.positiveReasons : [];
   const logs = Array.isArray(staff?.positiveValutazioni) ? staff.positiveValutazioni : [];
   const target = String(messageId || "");
   if (!target) return -1;
-  for (let index = 0; index < reasons.length; index += 1) {
-    if (String(reasons[index] || "") !== COMPITO_SETTIMANALE_REASON) continue;
+  for (let index = 0; index < logs.length; index += 1) {
     if (String(logs[index]?.messageId || "") === target) return index;
   }
   return -1;
+}
+
+function resolveCompitoRemoveId(staff, removeIndex) {
+  const logs = Array.isArray(staff?.positiveValutazioni) ? staff.positiveValutazioni : [];
+  const sectionId = Number(logs[removeIndex]?.sectionId);
+  if (Number.isInteger(sectionId) && sectionId > 0) return sectionId;
+  return removeIndex + 1;
 }
 
 async function removeDuplicateResocontoAutoKeys(profileDoc, duplicateKeys) {
@@ -247,27 +371,119 @@ async function removeDuplicateResocontoAutoKeys(profileDoc, duplicateKeys) {
   return before - staff.autoValutazioni.length;
 }
 
-async function removeOrphanCompitoDiscordMessage(guild, member, messageId, channel, actor) {
+async function repairWronglyOrphanedCompitoLogs(guild, member, channel, actor, duplicateMessageIds = []) {
+  const skipIds = new Set(duplicateMessageIds.map(String));
+  const profileDoc = await ensureStaffProfileDoc(
+    await getStaffDoc(guild.id, member.id),
+    guild.id,
+    member.id,
+  );
+  const staff = ensureStaff(profileDoc);
+  const reasons = Array.isArray(staff?.positiveReasons) ? staff.positiveReasons : [];
+  const logs = Array.isArray(staff?.positiveValutazioni) ? staff.positiveValutazioni : [];
+  let repaired = 0;
+
+  for (let index = 0; index < reasons.length; index += 1) {
+    if (String(reasons[index] || "") !== COMPITO_SETTIMANALE_REASON) continue;
+    const entry = logs[index] || {};
+    const messageId = String(entry?.messageId || "");
+    if (skipIds.has(messageId)) continue;
+
+    const sectionId = Number(entry?.sectionId) || index + 1;
+    const channelId = String(entry?.channelId || channel?.id || "");
+    const logChannel =
+      guild.channels.cache.get(channelId) || (await getGuildChannelCached(guild, channelId));
+    if (!logChannel?.messages?.fetch) continue;
+
+    let message = messageId ? await logChannel.messages.fetch(messageId).catch(() => null) : null;
+    if (!message) {
+      let before = null;
+      const mention = `<@${member.id}>`;
+      for (let scanned = 0; scanned < 800; scanned += 100) {
+        const batch = await logChannel.messages.fetch({ limit: 100, before }).catch(() => null);
+        if (!batch?.size) break;
+        for (const candidate of batch.values()) {
+          const content = String(candidate.content || "");
+          if (!content.includes(mention) && !content.includes(member.id)) continue;
+          const candidateEmbed = candidate.embeds?.[0];
+          if (!candidateEmbed) continue;
+          const title = String(candidateEmbed.title || "");
+          const titleMatch = title.match(/#(\d+)/);
+          if (!titleMatch || Number(titleMatch[1]) !== sectionId) continue;
+          message = candidate;
+          break;
+        }
+        if (message) break;
+        before = batch.last()?.id;
+        if (!before) break;
+      }
+    }
+    const embed = message?.embeds?.[0];
+    if (!embed) continue;
+    if (!/RIMOSSA/i.test(String(embed.title || ""))) continue;
+    const embedBlob = JSON.stringify(embed.toJSON?.() || embed.data || embed);
+    if (!embedBlob.includes(PURGE_REASON) && !embedBlob.includes(ORPHAN_PURGE_FOOTER)) continue;
+
+    const restored = await makeLogEmbed(
+      actor,
+      member.user,
+      `<:thumbsup:1471292172145004768> **__VALUTAZIONE POSITIVA__** #${sectionId}`,
+      COMPITO_SETTIMANALE_REASON,
+      sectionId,
+      "#6f4e37",
+      guild,
+    );
+    const edited = await message
+      .edit({ content: `<@${member.id}>`, embeds: [restored], components: [] })
+      .catch(() => null);
+    if (edited) repaired += 1;
+  }
+
+  return repaired;
+}
+
+async function removeDuplicateCompitoRemoval(guild, member, channel, actor, removal) {
+  const profileDoc = await ensureStaffProfileDoc(
+    await getStaffDoc(guild.id, member.id),
+    guild.id,
+    member.id,
+  );
+  const staff = ensureStaff(profileDoc);
+  const reasons = Array.isArray(staff?.positiveReasons) ? staff.positiveReasons : [];
+  let index = Number(removal?.index);
+  if (!Number.isInteger(index) || index < 0 || String(reasons[index] || "") !== COMPITO_SETTIMANALE_REASON) {
+    const messageId = String(removal?.messageId || "");
+    index = messageId ? findPositiveIndexByMessageId(staff, messageId) : -1;
+  }
+  if (index < 0 || String(reasons[index] || "") !== COMPITO_SETTIMANALE_REASON) {
+    return { ok: false, skipped: "not_found" };
+  }
+
+  const removeId = Number(removal?.sectionId) || resolveCompitoRemoveId(staff, index);
+  const result = await valutazionePositiveRemoveCore(
+    profileDoc,
+    member.user,
+    removeId,
+    PURGE_REASON,
+    actor,
+    channel,
+  );
+  return { ok: Boolean(result?.ok), via: "db" };
+}
+
+async function removeChannelOnlyOrphanCompito(guild, member, messageId, channel, actor) {
   const id = String(messageId || "");
   if (!guild || !member?.user || !id || !channel?.messages?.fetch) {
     return { ok: false, skipped: "invalid_args" };
   }
   const message = await channel.messages.fetch(id).catch(() => null);
   if (!message) return { ok: false, skipped: "message_missing" };
+  if (!parseCompitoValutazioneMessage(message)) return { ok: false, skipped: "not_active_compito" };
 
   const profileDoc = await ensureStaffProfileDoc(await getStaffDoc(guild.id, member.id), guild.id, member.id);
   const staff = ensureStaff(profileDoc);
-  const removeIndex = findPositiveIndexByMessageId(staff, id);
-  if (removeIndex >= 0) {
-    const result = await valutazionePositiveRemoveCore(
-      profileDoc,
-      member.user,
-      removeIndex + 1,
-      PURGE_REASON,
-      actor,
-      channel,
-    );
-    return { ok: Boolean(result?.ok), via: "db" };
+  if (findPositiveIndexByMessageId(staff, id) >= 0) {
+    return { ok: false, skipped: "linked_in_db" };
   }
 
   const embed = makeRemovalEmbed(
@@ -281,16 +497,6 @@ async function removeOrphanCompitoDiscordMessage(guild, member, messageId, chann
   );
   const edited = await message.edit({ content: "", embeds: [embed], components: [] }).catch(() => null);
   if (!edited) return { ok: false, skipped: "edit_failed" };
-
-  const reasons = Array.isArray(staff.positiveReasons) ? staff.positiveReasons : [];
-  const compitoCount = reasons.filter((row) => row === COMPITO_SETTIMANALE_REASON).length;
-  const positiveCount = Math.max(0, Number(staff.positiveCount || 0));
-  if (compitoCount < positiveCount && positiveCount > 0) {
-    staff.positiveCount = Math.max(0, positiveCount - 1);
-    staff.valutazioniCount = Math.max(0, Number(staff.valutazioniCount || 0) - 1);
-    profileDoc.markModified("staff");
-    await profileDoc.save();
-  }
   return { ok: true, via: "orphan" };
 }
 
@@ -302,14 +508,17 @@ async function purgeDuplicateCompitoSettimanaleForMember(guild, member, channel,
 
   let profileDoc = await ensureStaffProfileDoc(await getStaffDoc(guild.id, userId), guild.id, userId);
   let staff = ensureStaff(profileDoc);
-  const messageIds = new Set(findDuplicateCompitoMessageIds(staff, userId));
-  if (channelByUser) {
-    for (const messageId of findChannelDuplicateCompitoMessageIds(channelByUser, userId)) {
-      messageIds.add(String(messageId || ""));
-    }
-  }
-  const autoKeys = findDuplicateResocontoAutoKeys(staff, userId);
-  const planned = [...messageIds].filter(Boolean);
+  const dbRemovals = await findDuplicateCompitoRemovals(guild, staff, userId);
+  const channelMessageIds = channelByUser
+    ? findChannelDuplicateCompitoMessageIds(channelByUser, userId, staff)
+    : [];
+  const dbMessageIds = new Set(dbRemovals.map((row) => String(row.messageId || "")).filter(Boolean));
+  const channelOnlyIds = channelMessageIds.filter((messageId) => !dbMessageIds.has(String(messageId || "")));
+  const autoKeys = findDuplicateResocontoAutoKeys(staff, userId, null);
+  const planned = [
+    ...dbRemovals.map((row) => `db:${row.sectionId || row.index}`),
+    ...channelOnlyIds.map((messageId) => `channel:${messageId}`),
+  ];
 
   if (!planned.length && !autoKeys.length) {
     return { userId, removed: 0, autoRemoved: 0, planned: [] };
@@ -322,19 +531,43 @@ async function purgeDuplicateCompitoSettimanaleForMember(guild, member, channel,
       autoRemoved: 0,
       planned,
       autoKeys,
+      dbRemovals,
+      channelOnlyIds,
     };
   }
 
   let removed = 0;
-  for (const messageId of planned) {
-    const result = await removeOrphanCompitoDiscordMessage(guild, member, messageId, channel, actor);
+  const repaired = await repairWronglyOrphanedCompitoLogs(
+    guild,
+    member,
+    channel,
+    actor,
+    dbRemovals.map((row) => row.messageId).filter(Boolean),
+  );
+
+  const sortedDbRemovals = [...dbRemovals].sort((a, b) => Number(b.index) - Number(a.index));
+  for (const removal of sortedDbRemovals) {
+    const result = await removeDuplicateCompitoRemoval(guild, member, channel, actor, removal);
+    if (result?.ok) removed += 1;
+  }
+
+  for (const messageId of channelOnlyIds) {
+    const result = await removeChannelOnlyOrphanCompito(guild, member, messageId, channel, actor);
     if (result?.ok) removed += 1;
   }
 
   profileDoc = await ensureStaffProfileDoc(await getStaffDoc(guild.id, userId), guild.id, userId);
   const autoRemoved = await removeDuplicateResocontoAutoKeys(profileDoc, autoKeys);
 
-  return { userId, removed, autoRemoved, planned, autoKeys };
+  return { userId, removed, autoRemoved, repaired, planned, autoKeys };
+}
+
+function resolveCompitoPurgeSinceMs(referenceNow = new Date()) {
+  const weeklyResocontoService = require("./weeklyStaffResocontoService");
+  const window = weeklyResocontoService.getCurrentResocontoPexWeekWindowUtc(referenceNow);
+  const fromWindow = window?.windowStart?.getTime?.();
+  if (Number.isFinite(fromWindow) && fromWindow > 0) return fromWindow;
+  return Date.now() - 7 * 24 * 60 * 60 * 1000;
 }
 
 async function purgeDuplicateCompitoSettimanaleValutazioni(client, opts = {}) {
@@ -350,10 +583,7 @@ async function purgeDuplicateCompitoSettimanaleValutazioni(client, opts = {}) {
     (await getGuildChannelCached(guild, IDs.channels?.valutazioniStaff));
   if (!channel?.isTextBased?.()) return { ok: false, skipped: "no_channel" };
 
-  const weeklyResocontoService = require("./weeklyStaffResocontoService");
-  const since = weeklyResocontoService.getResocontoCycleMessagesSince();
-  const sinceMs = since?.getTime?.() || (Date.now() - 7 * 24 * 60 * 60 * 1000);
-  const channelByUser = await collectActiveCompitoMessagesFromChannel(channel, sinceMs);
+  const channelByUser = await collectActiveCompitoMessagesFromChannel(channel, 0);
 
   const reviewerIds = new Set(
     RESOCONTO_SEGMENTS.flatMap((segment) => getResocontoReviewerUserIdsForSegment(segment).map(String)),
@@ -388,26 +618,43 @@ async function purgeDuplicateCompitoSettimanaleValutazioni(client, opts = {}) {
   for (const userId of userIds) {
     const member = await getGuildMemberCached(guild, userId).catch(() => null);
     if (!member?.user) continue;
-    const channelEntries = channelByUser.get(String(userId)) || [];
-    const hasChannelDupes = channelEntries.length > maxCompitoAllowedForUser(userId);
     const hasDbDoc = dbUserIds.has(String(userId));
-    if (!hasDbDoc && !hasChannelDupes) continue;
+    let staffForChannel = null;
+    if (hasDbDoc) {
+      const profileDoc = await ensureStaffProfileDoc(
+        await getStaffDoc(guild.id, userId),
+        guild.id,
+        userId,
+      );
+      staffForChannel = ensureStaff(profileDoc);
+    }
+    const hasChannelDupes =
+      findChannelDuplicateCompitoMessageIds(channelByUser, userId, staffForChannel).length > 0;
+    const hasDbDupes = staffForChannel
+      ? (await findDuplicateCompitoRemovals(guild, staffForChannel, userId)).length > 0
+      : false;
+    if (!hasDbDoc && !hasChannelDupes && !hasDbDupes) continue;
 
     const result = await purgeDuplicateCompitoSettimanaleForMember(guild, member, channel, actor, {
       dryRun,
       channelByUser,
     });
-    const hadWork = (result.planned?.length || 0) > 0 || (result.autoKeys?.length || 0) > 0 || result.removed > 0;
+    const hadWork =
+      (result.planned?.length || 0) > 0 ||
+      (result.autoKeys?.length || 0) > 0 ||
+      result.removed > 0 ||
+      result.repaired > 0;
     if (!hadWork) continue;
     summary.affectedUsers += 1;
     summary.removedValutazioni += Number(result.removed || 0);
     summary.removedAutoEntries += Number(result.autoRemoved || 0);
+    summary.repairedOrphanLogs = (summary.repairedOrphanLogs || 0) + Number(result.repaired || 0);
     summary.details.push(result);
   }
 
-  if (summary.removedValutazioni > 0 || summary.removedAutoEntries > 0 || (dryRun && summary.details.length)) {
+  if (summary.removedValutazioni > 0 || summary.removedAutoEntries > 0 || summary.details.length > 0) {
     global.logger?.info?.(
-      `[COMPITO PURGE] dryRun=${dryRun} users=${summary.affectedUsers} removed=${summary.removedValutazioni} auto=${summary.removedAutoEntries}`,
+      `[COMPITO PURGE] dryRun=${dryRun} users=${summary.affectedUsers} removed=${summary.removedValutazioni} auto=${summary.removedAutoEntries} repaired=${summary.repairedOrphanLogs || 0} planned=${summary.details.reduce((n, row) => n + (row.planned?.length || 0), 0)}`,
     );
   }
 
@@ -419,4 +666,7 @@ module.exports = {
   purgeDuplicateCompitoSettimanaleValutazioni,
   purgeDuplicateCompitoSettimanaleForMember,
   findDuplicateCompitoMessageIds,
+  resolveCompitoPurgeSinceMs,
+  collectActiveCompitoMessagesFromChannel,
+  weekKeyFromCreatedAtMs,
 };

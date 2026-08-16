@@ -1,19 +1,14 @@
 const { assertServerEconomyAccess, isHighStaff } = require("../../Services/Community/activeEconomyService");
 const { openBalPanel, setSession } = require("../../Utils/Economy/balGuiRuntime");
-const { postGuiPanel, replyDeny, runEconomyPanelCommand } = require("../../Utils/Economy/economyCommandHelpers");
-
-function extractUserId(value) {
-  const clean = String(value || "").replace(/[<@!>]/g, "").trim();
-  return /^\d{16,20}$/.test(clean) ? clean : "";
-}
+const { postGuiPanel, replyDeny, resolveEconomyUserArg, runEconomyPanelCommand } = require("../../Utils/Economy/economyCommandHelpers");
+const { economyUsername } = require("../../Utils/Economy/economyDisplayHelpers");
 
 module.exports = {
   name: "bal",
-  aliases: ["balance", "saldo", "vinili", "caffe", "caffè"],
   allowEmptyArgs: true,
   description: "Mostra il saldo Vinili e Caffè con pannello interattivo.",
-  usage: "+bal [@utente]",
-  examples: ["+bal", "+bal @utente"],
+  usage: "+bal [@utente|username]",
+  examples: ["+bal", "+bal @utente", "+bal username"],
   async execute(message, args, client) {
     await runEconomyPanelCommand(message, client, "BAL", async ({ message: msg, client: c, replyDeny: deny, postGuiPanel: post }) => {
       const access = await assertServerEconomyAccess(msg, c);
@@ -21,12 +16,18 @@ module.exports = {
         await deny(msg, access.message);
         return;
       }
-      const targetId = msg.mentions.users.first()?.id || extractUserId(args?.[0]) || msg.author.id;
-      let targetName = msg.author.displayName || msg.author.username;
-      if (targetId !== msg.author.id) {
-        const targetUser = msg.mentions.users.first() || (await c.users.fetch(targetId).catch(() => null));
-        targetName = targetUser?.displayName || targetUser?.username || `Utente ${targetId.slice(-4)}`;
+      const rawTarget = String(args?.[0] || "").trim();
+      let targetUser = msg.author;
+      if (rawTarget) {
+        const resolved = await resolveEconomyUserArg(msg, rawTarget);
+        if (!resolved) {
+          await deny(msg, "Utente non trovato. Usa `@menzione`, ID o username.");
+          return;
+        }
+        targetUser = resolved;
       }
+      const targetId = targetUser.id;
+      const targetName = economyUsername(targetUser);
       const showStaffControls = await isHighStaff(msg.member, c, msg.author.id);
       const opened = await openBalPanel(c, msg, { targetId, targetName, showStaffControls });
       if (!opened.ok) {

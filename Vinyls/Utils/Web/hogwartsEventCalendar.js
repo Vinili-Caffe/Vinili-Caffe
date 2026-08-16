@@ -138,9 +138,9 @@ const DEFAULT_WEEKS = Object.freeze([
     start: "2026-08-10",
     end: "2026-08-16",
     activities: [
-      { title: "Inizio 6º anno", summary: "Lunedì 10 Agosto | Economia Galeoni attiva: +daily, +weekly, +monthly, +work, +bal, +rob, +pay, +duel, +roulette, +blackjack, +slots, +rps, +scratch, +coinflip, +tris.", pageId: "shop", icon: "fa-money" },
-      { title: "Shop 6º anno", summary: "Boost exp e punti casa disponibili nell'Emporio Gringott.", pageId: "shop", icon: "fa-shopping-bag" },
-      { title: "Fine Premi la reaction", summary: "Martedì 11 Agosto | Termine dell'evento: classifica top 3 vincitori pubblicata in #events.", pageId: "points", icon: "fa-trophy" },
+      { title: "Inizio 6º anno", summary: "Lunedì 10 Agosto ore 14 | Economia Galeoni attiva: +daily, +weekly, +monthly, +work, +bal, +rob, +pay, +duel, +roulette, +blackjack, +slots, +rps, +scratch, +coinflip, +tris.", pageId: "shop", icon: "fa-money" },
+      { title: "Shop 6º anno", summary: "Lunedì 10 Agosto ore 14 | Boost exp e punti casa disponibili nell'Emporio Gringott.", pageId: "shop", icon: "fa-shopping-bag" },
+      { title: "Fine Premi la reaction", summary: "Martedì 11 Agosto ore 12 | Termine dell'evento: classifica top 3 vincitori pubblicata in #events, con premi automatici.", pageId: "points", icon: "fa-trophy" },
       { title: "Giveaway", summary: "Dal 10 al 15 Agosto | Giveaway sostitutivo.", icon: "fa-gift" },
       { title: "Termine giveaway", summary: "Sabato 15 Agosto | Chiusura giveaway.", icon: "fa-gift" },
     ],

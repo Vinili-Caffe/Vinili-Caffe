@@ -22,6 +22,7 @@ function resolveSortedHouseId(doc) {
     doc.planKey,
     doc.houseId,
     doc.house,
+    doc.houseAnnounceHouseId,
     doc.rawWebhook?.houseId,
     doc.rawWebhook?.house,
   ];
@@ -31,6 +32,9 @@ function resolveSortedHouseId(doc) {
   }
   return "";
 }
+
+const SORTING_DOC_HOUSE_SELECT =
+  "userId guildId dedupeKey status planKey houseId house houseAnnounceHouseId rawWebhook.houseId rawWebhook.house createdAt updatedAt";
 
 function resolveHouseIdFromMemberRoles(member, cfg) {
   if (!member?.roles?.cache) return "";
@@ -50,22 +54,43 @@ async function findSortingDoc(guildId, userId, eventKey) {
   const g = String(guildId || "").trim();
   const u = String(userId || "").trim();
   if (!isValidGuildUserId(g, u)) return null;
+  const ek = String(eventKey || "").trim();
+  if (ek) {
+    const primary = await SiteDocument.findOne({ docType: SORTING_DOC, guildId: g, userId: u, dedupeKey: ek })
+      .select(SORTING_DOC_HOUSE_SELECT)
+      .lean()
+      .catch(() => null);
+    if (resolveSortedHouseId(primary)) return primary;
+  }
   for (const dedupeKey of sortingDedupeKeys(eventKey)) {
+    if (dedupeKey === ek) continue;
     const keyed = await SiteDocument.findOne({ docType: SORTING_DOC, guildId: g, userId: u, dedupeKey })
+      .select(SORTING_DOC_HOUSE_SELECT)
       .lean()
       .catch(() => null);
     if (resolveSortedHouseId(keyed)) return keyed;
   }
   const fallback = await SiteDocument.findOne({ docType: SORTING_DOC, guildId: g, userId: u })
+    .select(SORTING_DOC_HOUSE_SELECT)
     .sort({ updatedAt: -1 })
     .lean()
     .catch(() => null);
   if (resolveSortedHouseId(fallback)) return fallback;
   const byUser = await SiteDocument.findOne({ docType: SORTING_DOC, userId: u })
+    .select(SORTING_DOC_HOUSE_SELECT)
     .sort({ updatedAt: -1 })
     .lean()
     .catch(() => null);
   return resolveSortedHouseId(byUser) ? byUser : null;
+}
+
+async function findSortingDocForHouseMember(guildId, userId, eventKey, houseId) {
+  const hid = normalizeHogwartsHouseId(houseId);
+  const u = String(userId || "").trim();
+  if (!hid || !u) return null;
+  const doc = await findSortingDoc(guildId, userId, eventKey);
+  if (!doc) return null;
+  return resolveSortedHouseId(doc) === hid ? doc : null;
 }
 
 async function hasSortingRecord(guildId, userId, eventKey) {
@@ -98,10 +123,12 @@ async function findExistingSort(guildId, userId, eventKey, options = {}) {
 module.exports = {
   findExistingSort,
   findSortingDoc,
+  findSortingDocForHouseMember,
   hasSortingRecord,
   normalizeHogwartsHouseId,
   resolveHouseIdFromMemberRoles,
   resolveSortedHouseId,
   shouldEnsureSortingGringott,
   sortingDedupeKeys,
+  SORTING_DOC_HOUSE_SELECT,
 };

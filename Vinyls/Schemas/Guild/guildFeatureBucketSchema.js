@@ -43,6 +43,8 @@ const ticketEntrySchema = new Schema(
     userId: { type: String, required: true },
     channelId: { type: String, required: true },
     ticketType: { type: String, default: "supporto" },
+    panelId: { type: String, default: null },
+    userTag: { type: String, default: null },
     open: { type: Boolean, required: true, default: true },
     claimedBy: { type: String, default: null },
     createdAt: { type: Date, default: Date.now },
@@ -51,6 +53,7 @@ const ticketEntrySchema = new Schema(
     transcriptViewToken: { type: String, default: null },
     transcriptHtmlInline: { type: String, default: null },
     transcriptViewExpiresAt: { type: Date, default: null },
+    hasTranscript: { type: Boolean, default: null },
     messageId: { type: String, default: null },
     descriptionPromptMessageId: { type: String, default: null },
     descriptionSubmitted: { type: Boolean, default: false },
@@ -85,6 +88,7 @@ const giveawayEntrySchema = new Schema(
     hostTag: { type: String, default: "" },
     participants: { type: [String], default: [] },
     ended: { type: Boolean, default: false },
+    cancelled: { type: Boolean, default: false },
     winnerIds: { type: [String], default: [] },
   },
   { timestamps: true },
@@ -97,6 +101,7 @@ const guildFeatureBucketSchema = new Schema(
     polls: { type: [pollEntrySchema], default: [] },
     suggestionCounter: { type: Number, default: 0 },
     suggestions: { type: [suggestionEntrySchema], default: [] },
+    ticketCounter: { type: Number, default: 0 },
     tickets: { type: [ticketEntrySchema], default: [] },
     giveaways: { type: [giveawayEntrySchema], default: [] },
   },
@@ -105,7 +110,8 @@ const guildFeatureBucketSchema = new Schema(
 
 guildFeatureBucketSchema.index({ "tickets.transcriptViewToken": 1 }, { unique: true, sparse: true });
 guildFeatureBucketSchema.index({ "tickets.channelId": 1 }, { unique: true, sparse: true });
-guildFeatureBucketSchema.index({ "tickets.ticketNumber": 1 }, { unique: true, sparse: true });
+// Unicità per-guild: #1 può esistere su server diversi.
+guildFeatureBucketSchema.index({ guildId: 1, "tickets.ticketNumber": 1 }, { unique: true, sparse: true });
 guildFeatureBucketSchema.index({ "tickets.open": 1, "tickets.createdAt": 1 });
 guildFeatureBucketSchema.index({ "giveaways.messageId": 1 }, { unique: true, sparse: true });
 guildFeatureBucketSchema.index({ "giveaways.ended": 1, "giveaways.endAt": 1 });
@@ -125,6 +131,7 @@ async function ensureGuildFeatureBucket(guildId) {
         polls: [],
         suggestionCounter: 0,
         suggestions: [],
+        ticketCounter: 0,
         tickets: [],
         giveaways: [],
       },

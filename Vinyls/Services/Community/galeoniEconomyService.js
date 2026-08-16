@@ -3,32 +3,45 @@ const { ActivityUserProfile, SiteDocument, SITE_DOCUMENT_TYPE } = require("../..
 const { isValidGuildUserId } = require("../../Utils/DB/validateWriteIds");
 const IDs = require("../../Utils/Config/ids");
 const { getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
-const { resolveHogwartsEventConfig } = require("../../Utils/Web/hogwartsSortingConfig");
-const { resolveMainGuildMember, hasHogwartsSortingPreviewAccess, isStaffBypassUserId } = require("../../Utils/Web/hogwartsEventParticipation");
+const { parseDateStartMs, resolveHogwartsEventConfig } = require("../../Utils/Web/hogwartsSortingConfig");
+const {
+  resolveMainGuildMember,
+  hasHogwartsSortingPreviewAccess,
+  isStaffBypassUserId,
+  isUserHighStaffExcludedFromHogwartsEvent,
+  HOGWARTS_BLACKLISTED_MESSAGE,
+} = require("../../Utils/Web/hogwartsEventParticipation");
 const { addGaleoni, formatGaleoni, getGringottBalance, spendGaleoni } = require("./gringottService");
 const ECONOMY_PATH = "profile.events.hogwarts.economy";
 const DEFAULT_CONFIG = Object.freeze({
   enabled: true,
   previewMode: false,
-  startDate: "2026-08-10T12:00:00",
+  startDate: "2026-08-10T14:00:00",
   minBet: 5,
-  maxBet: 250,
-  dailyBetCap: 1000,
+  /** 0 = nessun tetto fisso: la puntata massima è il saldo disponibile. */
+  maxBet: 0,
+  dailyBetCap: 0,
   work: { cooldownMs: 60 * 60 * 1000, minReward: 8, maxReward: 24, streakStepPct: 1, streakMaxBonusPct: 10, streakGraceMs: 3 * 60 * 60 * 1000 },
   daily: { cooldownMs: 24 * 60 * 60 * 1000, reward: 50, streakStepPct: 3, streakMaxBonusPct: 30, streakGraceMs: 48 * 60 * 60 * 1000 },
   weekly: { cooldownMs: 7 * 24 * 60 * 60 * 1000, reward: 250, streakStepPct: 5, streakMaxBonusPct: 50, streakGraceMs: 14 * 24 * 60 * 60 * 1000 },
   monthly: { cooldownMs: 30 * 24 * 60 * 60 * 1000, reward: 500, streakStepPct: 10, streakMaxBonusPct: 100, streakGraceMs: 62 * 24 * 60 * 60 * 1000 },
-  rob: { cooldownMs: 3 * 60 * 60 * 1000, successChance: 35, minTargetBalance: 80, minSteal: 15, maxSteal: 120, failPenalty: 25, targetProtectionMs: 12 * 60 * 60 * 1000 },
+  rob: { cooldownMs: 3 * 60 * 60 * 1000, successChance: 35, minTargetBalance: 80, minSteal: 15, maxSteal: 90, failPenalty: 35, targetProtectionMs: 12 * 60 * 60 * 1000 },
   roulette: { cooldownMs: 5 * 1000, numberPayout: 36, simplePayout: 2 },
   rps: { cooldownMs: 5 * 1000, winPayout: 2 },
-  slots: { cooldownMs: 5 * 1000, pairPayout: 1, triplePayout: 5, jackpotPayout: 10 },
-  blackjack: { cooldownMs: 5 * 1000, winPayout: 2, blackjackPayout: 2.5 },
+  slots: { cooldownMs: 5 * 1000, pairPayout: 3, triplePayout: 12, jackpotPayout: 55 },
+  blackjack: { cooldownMs: 20 * 1000, winPayout: 2, blackjackPayout: 2.2 },
   coinflip: { cooldownMs: 5 * 1000, winPayout: 2 },
-  tris: { cooldownMs: 5 * 1000, winPayout: 2, botRandomPct: 35 },
-  scratch: { cooldownMs: 5 * 1000, pairPayout: 2, triplePayout: 8, jackpotPayout: 15 },
+  tris: { enabled: true, cooldownMs: 5 * 1000, winPayout: 2, botRandomPct: 35 },
+  scratch: { cooldownMs: 5 * 1000, pairPayout: 0, triplePayout: 2, quadPayout: 3.5, fivePayout: 7, jackpotPayout: 15 },
 });
 const GAMBLING_ACTIONS = new Set(["roulette", "rps", "slots", "blackjack", "coinflip", "tris", "scratch"]);
 const SORTED_HOUSE_IDS = ["gryffindor", "hufflepuff", "ravenclaw", "slytherin"];
+const SORTED_HOUSE_LABELS = Object.freeze({
+  gryffindor: "Grifondoro",
+  hufflepuff: "Tassorosso",
+  ravenclaw: "Corvonero",
+  slytherin: "Serpeverde",
+});
 const ROB_BANK_TARGET_ID = "gringott";
 
 function isRobBankTarget(targetId) {
@@ -90,12 +103,29 @@ function economyConfig(client) {
   raw.enabled = raw.enabled !== false;
   raw.previewMode = raw.previewMode === true;
   raw.startDate = normalizeId(raw.startDate) || DEFAULT_CONFIG.startDate;
-  raw.startMs = new Date(raw.startDate).getTime();
+  // Orario locale Europe/Rome (es. 14:00), indipendente dal timezone del VPS.
+  const parsedStartMs = parseDateStartMs(raw.startDate, "Europe/Rome");
+  raw.startMs = Number.isFinite(parsedStartMs) ? parsedStartMs : new Date(raw.startDate).getTime();
   raw.minBet = int(raw.minBet, DEFAULT_CONFIG.minBet, 1, 100000);
-  raw.maxBet = int(raw.maxBet, DEFAULT_CONFIG.maxBet, raw.minBet, 100000);
-  raw.dailyBetCap = int(raw.dailyBetCap, DEFAULT_CONFIG.dailyBetCap, raw.maxBet, 1000000);
+  // 0 = illimitato (solo saldo); altrimenti tetto configurato.
+  raw.maxBet = int(raw.maxBet, DEFAULT_CONFIG.maxBet, 0, 1000000);
+  raw.dailyBetCap = int(raw.dailyBetCap, DEFAULT_CONFIG.dailyBetCap, 0, 1000000);
   for (const action of ["work", "daily", "weekly", "monthly", "rob", "roulette", "rps", "slots", "blackjack", "coinflip", "tris", "scratch"]) {
     raw[action].cooldownMs = int(raw[action].cooldownMs, DEFAULT_CONFIG[action].cooldownMs, 0, 365 * 24 * 60 * 60 * 1000);
+  }
+  // Blackjack anti-farm: se in config c’è ancora il vecchio 5s / BJ 3:2, forza i nuovi default.
+  {
+    const bj = raw.blackjack || (raw.blackjack = {});
+    const cd = Number(bj.cooldownMs);
+    if (!Number.isFinite(cd) || cd <= 5_000) bj.cooldownMs = DEFAULT_CONFIG.blackjack.cooldownMs;
+    const win = Number(bj.winPayout);
+    bj.winPayout = Number.isFinite(win) && win >= 1 ? win : DEFAULT_CONFIG.blackjack.winPayout;
+    const bjPay = Number(bj.blackjackPayout);
+    if (!Number.isFinite(bjPay) || bjPay >= 2.5) bj.blackjackPayout = DEFAULT_CONFIG.blackjack.blackjackPayout;
+    else bj.blackjackPayout = Math.max(bj.winPayout, bjPay);
+  }
+  for (const action of GAMBLING_ACTIONS) {
+    raw[action].enabled = raw[action].enabled !== false;
   }
   raw.work.minReward = int(raw.work.minReward, DEFAULT_CONFIG.work.minReward, 1, 100000);
   raw.work.maxReward = int(raw.work.maxReward, DEFAULT_CONFIG.work.maxReward, raw.work.minReward, 100000);
@@ -154,8 +184,15 @@ async function isMember(member, client, userId) {
 async function assertEconomyAccess(message, client) {
   const cfg = economyConfig(client);
   if (!cfg.enabled) return { ok: false, message: "L'economia Galeoni è disattivata." };
-  if (!message?.guild || !message?.member || message.author?.bot) return { ok: false, message: "Comando disponibile solo nel server." };
-  const userId = normalizeId(message.author.id);
+  const author = message?.author || message?.user || null;
+  if (!message?.guild || !message?.member || author?.bot) {
+    return { ok: false, message: "Comando disponibile solo nel server." };
+  }
+  const userId = normalizeId(author?.id);
+  if (!userId) return { ok: false, message: "Comando disponibile solo nel server." };
+  if (await isUserHighStaffExcludedFromHogwartsEvent(client, userId, message.member)) {
+    return { ok: false, message: HOGWARTS_BLACKLISTED_MESSAGE || "Sei escluso dall'evento Hogwarts." };
+  }
   const previewAccess = hasGaleoniEconomyPreviewAccess(client, message.member, userId, cfg);
   const live = isEconomyLive(cfg);
   if (!live && !previewAccess) {
@@ -184,6 +221,38 @@ async function assertSortedEconomyAccess(message, client) {
 function normalizeSortedHouseId(value) {
   const house = normalizeId(value).toLowerCase();
   return SORTED_HOUSE_IDS.includes(house) ? house : "";
+}
+
+function sortedHouseLabel(houseId) {
+  const id = normalizeSortedHouseId(houseId);
+  return SORTED_HOUSE_LABELS[id] || "la stessa casata";
+}
+
+/**
+ * Anti-abuso: niente rob/PvP tra membri della stessa casata.
+ * +pay è consentito (collette / scambi in casa).
+ * In preview staff lo skippa (come gli altri gate di smistamento).
+ */
+async function assertDifferentHouses(client, guildId, actorId, targetId, opts = {}) {
+  if (opts.preview) return { ok: true, skipped: true };
+  const gid = normalizeId(guildId);
+  const actor = normalizeId(actorId);
+  const target = normalizeId(targetId);
+  if (!gid || !actor || !target || actor === target) return { ok: true };
+  const [actorHouse, targetHouse] = await Promise.all([
+    resolveSortedHouseForUser(gid, actor, client),
+    resolveSortedHouseForUser(gid, target, client),
+  ]);
+  if (!actorHouse || !targetHouse || actorHouse !== targetHouse) {
+    return { ok: true, actorHouse, targetHouse };
+  }
+  const action = String(opts.actionLabel || "azioni economy").trim() || "azioni economy";
+  return {
+    ok: false,
+    code: "same_house",
+    houseId: actorHouse,
+    message: `Non puoi usare ${action} contro qualcuno della tua stessa casata (**${sortedHouseLabel(actorHouse)}**).`,
+  };
 }
 
 async function resolveSortedHouseForUser(guildId, userId, client) {
@@ -251,6 +320,11 @@ async function getEconomyState(guildId, userId) {
   return doc?.profile?.events?.hogwarts?.economy && typeof doc.profile.events.hogwarts.economy === "object" ? doc.profile.events.hogwarts.economy : {};
 }
 
+async function getGamblingSpendableBalance(client, guildId, userId) {
+  const state = await getGringottBalance(guildId, userId, eventKey(client));
+  return Math.max(0, Math.floor(Number(state?.balance) || 0));
+}
+
 function remainingMs(dateValue) {
   const until = new Date(dateValue || 0).getTime();
   return Number.isFinite(until) ? Math.max(0, until - Date.now()) : 0;
@@ -297,6 +371,32 @@ async function releaseCooldown(guildId, userId, action) {
     { guildId: normalizeId(guildId), userId: normalizeId(userId) },
     { $unset: { [path]: "" }, $set: { [`${ECONOMY_PATH}.updatedAt`]: new Date() } },
   ).catch(() => null);
+}
+
+async function peekRobCooldown(guildId, userId) {
+  const state = await getEconomyState(guildId, userId);
+  const left = remainingMs(state?.cooldowns?.rob);
+  if (left > 0) {
+    return {
+      ok: false,
+      code: "cooldown",
+      remainingMs: left,
+      message: `Puoi riprovare un furto tra ${formatDuration(left)}.`,
+    };
+  }
+  return { ok: true, remainingMs: 0 };
+}
+
+async function clearRobCooldown(guildId, userId) {
+  await releaseCooldown(guildId, userId, "rob");
+  return { ok: true };
+}
+
+function isSoftRobTargetFail(result) {
+  const code = String(result?.code || "").trim();
+  if (code === "protected" || code === "same_house") return true;
+  const msg = String(result?.message || result?.error || "").toLowerCase();
+  return msg.includes("protetto da un furto") || msg.includes("stessa casata");
 }
 
 function incomeCreditErrorMessage(action, out) {
@@ -456,10 +556,18 @@ async function peekFixedClaim(client, message, action) {
 }
 
 function parseBet(raw, cfg) {
-  const amount = int(raw, 0, 0, cfg.maxBet);
-  if (!amount) return { ok: false, message: `Inserisci una puntata valida tra ${formatGaleoni(cfg.minBet)} e ${formatGaleoni(cfg.maxBet)}.` };
-  if (amount < cfg.minBet) return { ok: false, message: `La puntata minima è ${formatGaleoni(cfg.minBet)}.` };
-  if (amount > cfg.maxBet) return { ok: false, message: `La puntata massima è ${formatGaleoni(cfg.maxBet)}.` };
+  const min = Math.max(1, Math.floor(Number(cfg?.minBet) || 1));
+  const configuredMax = Math.max(0, Math.floor(Number(cfg?.maxBet) || 0));
+  const hardCeiling = configuredMax > 0 ? configuredMax : Number.MAX_SAFE_INTEGER;
+  const amount = int(raw, 0, 0, hardCeiling);
+  if (!amount) {
+    const maxLabel = configuredMax > 0 ? formatGaleoni(configuredMax) : "il tuo saldo";
+    return { ok: false, message: `Inserisci una puntata valida tra ${formatGaleoni(min)} e ${maxLabel}.` };
+  }
+  if (amount < min) return { ok: false, message: `La puntata minima è ${formatGaleoni(min)}.` };
+  if (configuredMax > 0 && amount > configuredMax) {
+    return { ok: false, message: `La puntata massima è ${formatGaleoni(configuredMax)}.` };
+  }
   return { ok: true, amount };
 }
 
@@ -468,8 +576,10 @@ async function checkBetCap(guildId, userId, amount, cfg) {
   const state = await getEconomyState(guildId, userId);
   const sameDay = state?.gambling?.dayKey === key;
   const current = sameDay ? int(state?.gambling?.wageredToday, 0) : 0;
-  if (current + amount > cfg.dailyBetCap) {
-    return { ok: false, message: `Hai raggiunto il limite giornaliero di puntate (${formatGaleoni(cfg.dailyBetCap)}).` };
+  const cap = Math.max(0, Math.floor(Number(cfg?.dailyBetCap) || 0));
+  // 0 = nessun limite giornaliero.
+  if (cap > 0 && current + amount > cap) {
+    return { ok: false, message: `Hai raggiunto il limite giornaliero di puntate (${formatGaleoni(cap)}).` };
   }
   return { ok: true, key, sameDay };
 }
@@ -498,9 +608,12 @@ async function recordBet(guildId, userId, amount, capState) {
   ).catch(() => null);
 }
 
-async function spendBet(client, message, action, bet) {
+async function spendBet(client, message, action, bet, options = {}) {
   const access = await assertEconomyAccess(message, client);
   if (!access.ok) return { ok: false, message: access.message };
+  if (GAMBLING_ACTIONS.has(action) && access.cfg?.[action]?.enabled === false) {
+    return { ok: false, code: "game_disabled", message: "Questo gioco è temporaneamente disattivato." };
+  }
   let parsed;
   if (GAMBLING_ACTIONS.has(action)) {
     const gamb = await checkGamblingUserEligibility(message, client, bet, access);
@@ -514,8 +627,10 @@ async function spendBet(client, message, action, bet) {
   }
   const cap = await checkBetCap(message.guild.id, message.author.id, parsed.amount, access.cfg);
   if (!cap.ok) return cap;
-  const reserve = await reserveCooldown(message.guild.id, message.author.id, action, access.cfg[action].cooldownMs);
-  if (!reserve.ok) return { ok: false, code: "cooldown", message: `Puoi rigiocare tra ${formatDuration(reserve.remainingMs)}.` };
+  if (!options?.skipCooldown) {
+    const reserve = await reserveCooldown(message.guild.id, message.author.id, action, access.cfg[action].cooldownMs);
+    if (!reserve.ok) return { ok: false, code: "cooldown", message: `Puoi rigiocare tra ${formatDuration(reserve.remainingMs)}.` };
+  }
   const spent = await spendGaleoni({ guildId: message.guild.id, userId: message.author.id, amount: parsed.amount, reason: `${action}: puntata`, actorId: message.author.id, source: `economy_${action}`, eventKey: eventKey(client) });
   if (!spent?.ok) return { ok: false, message: "Non hai abbastanza Galeoni per questa puntata.", state: spent?.state };
   await recordBet(message.guild.id, message.author.id, parsed.amount, cap);
@@ -554,10 +669,10 @@ function evaluateRouletteWin(parsedChoice, spin) {
   return win;
 }
 
-async function playRouletteBanked(client, message, betRaw, choiceRaw) {
+async function playRouletteBanked(client, message, betRaw, choiceRaw, options = {}) {
   const parsed = normalizeRouletteChoice(choiceRaw);
   if (!parsed.ok) return parsed;
-  const bet = await spendBet(client, message, "roulette", betRaw);
+  const bet = await spendBet(client, message, "roulette", betRaw, options);
   if (!bet.ok) return bet;
   const spin = spinRouletteResult();
   const win = evaluateRouletteWin(parsed, spin);
@@ -575,8 +690,8 @@ async function playRouletteBanked(client, message, betRaw, choiceRaw) {
   };
 }
 
-async function playRoulette(client, message, betRaw, choiceRaw) {
-  const result = await playRouletteBanked(client, message, betRaw, choiceRaw);
+async function playRoulette(client, message, betRaw, choiceRaw, options = {}) {
+  const result = await playRouletteBanked(client, message, betRaw, choiceRaw, options);
   if (!result.ok) return result;
   const paid = await payout(client, message, "roulette", result.payout, "roulette: vincita");
   return { ...result, paid };
@@ -614,6 +729,10 @@ async function lockRpsPvpStakes(client, guild, challengerId, opponentId, betAmou
   const guildId = normalizeId(guild?.id);
   const challenger = normalizeId(challengerId);
   const opponent = normalizeId(opponentId);
+  const houseGate = await assertDifferentHouses(client, guildId, challenger, opponent, {
+    actionLabel: "le sfide PvP",
+  });
+  if (!houseGate.ok) return houseGate;
   const evt = eventKey(client);
   const stakes = [];
   for (const uid of [challenger, opponent]) {
@@ -734,16 +853,16 @@ async function settleRpsPvp(client, guild, challengerId, opponentId, challengerC
   };
 }
 
-async function playBlackjackBet(client, message, betRaw) {
-  return spendBet(client, message, "blackjack", betRaw);
+async function playBlackjackBet(client, message, betRaw, options = {}) {
+  return spendBet(client, message, "blackjack", betRaw, options);
 }
 
 async function payBlackjackWin(client, message, amount, reason = "blackjack: vincita") {
   return payout(client, message, "blackjack", amount, reason);
 }
 
-async function playTrisBet(client, message, betRaw) {
-  return spendBet(client, message, "tris", betRaw);
+async function playTrisBet(client, message, betRaw, options = {}) {
+  return spendBet(client, message, "tris", betRaw, options);
 }
 
 async function payTrisWin(client, message, amount, reason = "tris: vincita") {
@@ -752,11 +871,18 @@ async function payTrisWin(client, message, amount, reason = "tris: vincita") {
 
 async function lockTrisPvpStakes(client, guild, challengerId, opponentId, betAmount, actorId) {
   const cfg = economyConfig(client);
+  if (cfg?.tris?.enabled === false) {
+    return { ok: false, code: "game_disabled", message: "Il tris è temporaneamente disattivato." };
+  }
   const parsed = parseBet(String(betAmount), cfg);
   if (!parsed.ok) return parsed;
   const guildId = normalizeId(guild?.id);
   const challenger = normalizeId(challengerId);
   const opponent = normalizeId(opponentId);
+  const houseGate = await assertDifferentHouses(client, guildId, challenger, opponent, {
+    actionLabel: "le sfide PvP",
+  });
+  if (!houseGate.ok) return houseGate;
   const evt = eventKey(client);
   const stakes = [];
   for (const uid of [challenger, opponent]) {
@@ -816,6 +942,22 @@ async function refundTrisPvpStake(client, guildId, userId, amount, actorId, reas
   return paid?.ok ? { ok: true, amount: value } : { ok: false, message: "Rimborso non riuscito." };
 }
 
+/** Rimborso puntata aperta (chiusura pannello / annullo partita). */
+async function refundEconomyStake(client, guildId, userId, amount, actorId, reason = "economy: rimborso chiusura", source = "economy_refund") {
+  const value = Math.max(0, Math.floor(Number(amount) || 0));
+  if (!value) return { ok: true, amount: 0 };
+  const paid = await addGaleoni({
+    guildId: normalizeId(guildId),
+    userId: normalizeId(userId),
+    amount: value,
+    reason,
+    actorId: normalizeId(actorId) || normalizeId(userId),
+    source: String(source || "economy_refund").slice(0, 48),
+    eventKey: eventKey(client),
+  });
+  return paid?.ok ? { ok: true, amount: value } : { ok: false, message: "Rimborso non riuscito." };
+}
+
 async function applyTrisCooldown(client, guildId, userId, cfg) {
   await reserveCooldown(normalizeId(guildId), normalizeId(userId), "tris", cfg?.tris?.cooldownMs ?? DEFAULT_CONFIG.tris.cooldownMs);
 }
@@ -865,8 +1007,8 @@ async function settleTrisPvp(client, guild, challengerId, opponentId, winnerId, 
   };
 }
 
-async function playScratchBet(client, message, betRaw) {
-  return spendBet(client, message, "scratch", betRaw);
+async function playScratchBet(client, message, betRaw, options = {}) {
+  return spendBet(client, message, "scratch", betRaw, options);
 }
 
 async function payScratchWin(client, message, amount, reason = "scratch: vincita") {
@@ -880,10 +1022,10 @@ function normalizeCoinChoice(value) {
   return ["testa", "croce"].includes(v) ? v : "";
 }
 
-async function playCoinflip(client, message, betRaw, choiceRaw) {
+async function playCoinflip(client, message, betRaw, choiceRaw, options = {}) {
   const player = normalizeCoinChoice(choiceRaw);
   if (!player) return { ok: false, message: "Scegli `testa` o `croce`." };
-  const bet = await spendBet(client, message, "coinflip", betRaw);
+  const bet = await spendBet(client, message, "coinflip", betRaw, options);
   if (!bet.ok) return bet;
   const flip = ["testa", "croce"][randomInt(0, 2)];
   const win = player === flip;
@@ -892,12 +1034,14 @@ async function playCoinflip(client, message, betRaw, choiceRaw) {
   return { ok: true, game: "coinflip", bet: bet.amount, win, payout: payoutAmount, paid, result: { player, flip } };
 }
 
-async function playRps(client, message, betRaw, choiceRaw) {
+async function playRps(client, message, betRaw, choiceRaw, options = {}) {
   const player = normalizeRps(choiceRaw);
   if (!player) return { ok: false, message: "Scegli `sasso`, `carta` o `forbici`." };
-  const bet = await spendBet(client, message, "rps", betRaw);
+  const bet = await spendBet(client, message, "rps", betRaw, options);
   if (!bet.ok) return bet;
-  const bot = ["sasso", "carta", "forbici"][randomInt(0, 3)];
+  // ~4% house tilt: soft counter bias (near-fair, not scammy).
+  const counter = { sasso: "carta", carta: "forbici", forbici: "sasso" };
+  const bot = randomInt(1, 101) <= 4 ? counter[player] : ["sasso", "carta", "forbici"][randomInt(0, 3)];
   const draw = player === bot;
   const win = !draw && ((player === "sasso" && bot === "forbici") || (player === "carta" && bot === "sasso") || (player === "forbici" && bot === "carta"));
   const payoutAmount = draw ? bet.amount : win ? bet.amount * bet.cfg.rps.winPayout : 0;
@@ -905,23 +1049,29 @@ async function playRps(client, message, betRaw, choiceRaw) {
   return { ok: true, game: "rps", bet: bet.amount, win, draw, payout: payoutAmount, paid, result: { player, bot } };
 }
 
-async function playSlots(client, message, betRaw) {
-  const result = await playSlotsBanked(client, message, betRaw);
+async function playSlots(client, message, betRaw, options = {}) {
+  const result = await playSlotsBanked(client, message, betRaw, options);
   if (!result.ok) return result;
   const paid = await payout(client, message, "slots", result.payout, "slots: vincita");
   return { ...result, paid };
 }
 
-async function playSlotsBanked(client, message, betRaw) {
-  const bet = await spendBet(client, message, "slots", betRaw);
+async function playSlotsBanked(client, message, betRaw, options = {}) {
+  const bet = await spendBet(client, message, "slots", betRaw, options);
   if (!bet.ok) return bet;
   const symbols = ["🍒", "🍋", "🔔", "⭐", "💎", "7️⃣"];
   const reels = [symbols[randomInt(0, symbols.length)], symbols[randomInt(0, symbols.length)], symbols[randomInt(0, symbols.length)]];
-  const counts = new Map();
-  for (const s of reels) counts.set(s, (counts.get(s) || 0) + 1);
-  const max = Math.max(...counts.values());
-  const jackpot = max === 3 && reels[0] === "7️⃣";
-  const multiplier = jackpot ? bet.cfg.slots.jackpotPayout : max === 3 ? bet.cfg.slots.triplePayout : max === 2 ? bet.cfg.slots.pairPayout : 0;
+  // Linea classica L→R: coppia solo sui primi due rulli; 💎🍒💎 e 🍒💎💎 non pagano.
+  const triple = reels[0] === reels[1] && reels[1] === reels[2];
+  const adjacentPair = !triple && reels[0] === reels[1];
+  const jackpot = triple && reels[0] === "7️⃣";
+  const multiplier = jackpot
+    ? bet.cfg.slots.jackpotPayout
+    : triple
+      ? bet.cfg.slots.triplePayout
+      : adjacentPair
+        ? bet.cfg.slots.pairPayout
+        : 0;
   const payoutAmount = bet.amount * multiplier;
   return { ok: true, game: "slots", bet: bet.amount, win: payoutAmount > 0, payout: payoutAmount, result: { reels, multiplier } };
 }
@@ -948,6 +1098,62 @@ async function flushSlotsGuiPendingBank(client, message) {
   return { ok: true, amount: out.amount, auto: true };
 }
 
+/**
+ * Candidati rob da DB (saldo / casata / protezione), non da sample casuale del member cache.
+ * @returns {Promise<string[]>}
+ */
+async function listRobCandidateUserIds(client, guildId, robberId, cfg) {
+  const gid = normalizeId(guildId);
+  const robber = normalizeId(robberId);
+  const minBal = Math.max(1, Math.floor(Number(cfg?.rob?.minTargetBalance) || DEFAULT_CONFIG.rob.minTargetBalance));
+  if (!gid || !robber) return [];
+  const robberHouse = await resolveSortedHouseForUser(gid, robber, client);
+  const now = new Date();
+  const rich = await ActivityUserProfile.find({
+    guildId: gid,
+    userId: { $ne: robber },
+    $or: [
+      { "profile.events.hogwarts.gringott.balance": { $gte: minBal } },
+      { "profile.events.hogwarts.balance": { $gte: minBal } },
+    ],
+  })
+    .select({ userId: 1, [`${ECONOMY_PATH}.robProtectionUntil`]: 1 })
+    .lean()
+    .catch(() => []);
+  if (!Array.isArray(rich) || !rich.length) return [];
+  const uids = rich.map((row) => normalizeId(row?.userId)).filter(Boolean);
+  const sortings = await SiteDocument.find({
+    docType: SITE_DOCUMENT_TYPE.HOGWARTS_SORTING,
+    guildId: gid,
+    userId: { $in: uids },
+    dedupeKey: eventKey(client),
+  })
+    .select({ userId: 1, status: 1, planKey: 1 })
+    .lean()
+    .catch(() => []);
+  const houseByUser = new Map();
+  for (const doc of Array.isArray(sortings) ? sortings : []) {
+    const house = normalizeSortedHouseId(doc?.status || doc?.planKey);
+    if (house) houseByUser.set(normalizeId(doc.userId), house);
+  }
+  const out = [];
+  for (const row of rich) {
+    const uid = normalizeId(row?.userId);
+    if (!uid) continue;
+    const house = houseByUser.get(uid) || "";
+    if (!house) continue;
+    if (robberHouse && house === robberHouse) continue;
+    const prot = row?.profile?.events?.hogwarts?.economy?.robProtectionUntil;
+    if (prot && remainingMs(prot) > 0) continue;
+    out.push(uid);
+  }
+  for (let i = out.length - 1; i > 0; i -= 1) {
+    const j = randomInt(0, i + 1);
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
 async function evaluateRobTarget(client, guild, targetUserId, cfg, robberId) {
   const guildId = normalizeId(guild?.id);
   const uid = normalizeId(targetUserId);
@@ -963,12 +1169,22 @@ async function evaluateRobTarget(client, guild, targetUserId, cfg, robberId) {
   if (!await isMember(member, client, uid)) return { ok: false, message: "Puoi derubare solo membri con economia Galeoni attiva." };
   const house = await resolveSortedHouseForUser(guildId, uid, client);
   if (!house) return { ok: false, message: "Questo utente non ha completato lo smistamento Hogwarts." };
+  const robberHouse = await resolveSortedHouseForUser(guildId, robber, client);
+  if (robberHouse && robberHouse === house) {
+    return {
+      ok: false,
+      code: "same_house",
+      message: `Non puoi derubare qualcuno della tua stessa casata (**${sortedHouseLabel(house)}**).`,
+    };
+  }
   const targetState = await getEconomyState(guildId, uid);
-  if (remainingMs(targetState?.robProtectionUntil) > 0) return { ok: false, message: "Questo utente è protetto da un furto recente." };
+  if (remainingMs(targetState?.robProtectionUntil) > 0) {
+    return { ok: false, code: "protected", message: "Questo utente è protetto da un furto recente." };
+  }
   const targetBalance = await getGringottBalance(guildId, uid, eventKey(client));
   const balance = Math.max(0, Math.floor(Number(targetBalance?.balance) || 0));
   if (balance < minBal) {
-    return { ok: false, message: `Il bersaglio deve avere almeno ${formatGaleoni(minBal)} (saldo ${formatGaleoni(balance)}).` };
+    return { ok: false, code: "low_balance", message: `Il bersaglio deve avere almeno ${formatGaleoni(minBal)} (saldo ${formatGaleoni(balance)}).` };
   }
   return { ok: true, balance, house };
 }
@@ -991,11 +1207,12 @@ async function robBank(client, message) {
   if (!access.ok) return { ok: false, message: access.message };
   const reserve = await reserveCooldown(message.guild.id, message.author.id, "rob", access.cfg.rob.cooldownMs);
   if (!reserve.ok) return { ok: false, code: "cooldown", message: `Puoi riprovare un furto tra ${formatDuration(reserve.remainingMs)}.` };
-  const { resolveRobSuccessChance } = require("./hogwartsShopBoostsService");
+  const { resolveRobSuccessChance, scaleRobFailPenalty } = require("./hogwartsShopBoostsService");
   const robChance = await resolveRobSuccessChance(client, message.guild.id, message.author.id, access.cfg.rob.successChance);
   const success = randomInt(1, 101) <= robChance.chance;
   if (!success) {
-    const penalty = Math.min(access.cfg.rob.failPenalty, (await getGringottBalance(message.guild.id, message.author.id, eventKey(client)))?.balance || 0);
+    const scaled = scaleRobFailPenalty(access.cfg.rob.failPenalty, robChance.chance);
+    const penalty = Math.min(scaled, (await getGringottBalance(message.guild.id, message.author.id, eventKey(client)))?.balance || 0);
     if (penalty > 0) {
       await spendGaleoni({ guildId: message.guild.id, userId: message.author.id, amount: penalty, reason: "rob: multa fallimento cassaforte", actorId: message.author.id, source: "economy_rob", eventKey: eventKey(client) });
     }
@@ -1012,15 +1229,27 @@ async function rob(client, message, targetUser) {
   if (!access.ok) return { ok: false, message: access.message };
   if (!targetUser || targetUser.bot) return { ok: false, message: "Scegli un utente valido da derubare." };
   const targetCheck = await evaluateRobTarget(client, message.guild, targetUser.id, access.cfg, message.author.id);
-  if (!targetCheck.ok) return { ok: false, message: targetCheck.message };
+  if (!targetCheck.ok) {
+    if (isSoftRobTargetFail(targetCheck)) {
+      await releaseCooldown(message.guild.id, message.author.id, "rob");
+    }
+    return { ok: false, code: targetCheck.code || "target_blocked", message: targetCheck.message };
+  }
   const reserve = await reserveCooldown(message.guild.id, message.author.id, "rob", access.cfg.rob.cooldownMs);
   if (!reserve.ok) return { ok: false, code: "cooldown", message: `Puoi riprovare un furto tra ${formatDuration(reserve.remainingMs)}.` };
-  const targetBalance = { balance: targetCheck.balance };
-  const { resolveRobSuccessChance } = require("./hogwartsShopBoostsService");
+  // Evita di bruciare il cooldown se lo scudo arriva tra check e reserve.
+  const liveCheck = await evaluateRobTarget(client, message.guild, targetUser.id, access.cfg, message.author.id);
+  if (!liveCheck.ok) {
+    await releaseCooldown(message.guild.id, message.author.id, "rob");
+    return { ok: false, code: liveCheck.code || "target_blocked", message: liveCheck.message };
+  }
+  const targetBalance = { balance: liveCheck.balance };
+  const { resolveRobSuccessChance, scaleRobFailPenalty } = require("./hogwartsShopBoostsService");
   const robChance = await resolveRobSuccessChance(client, message.guild.id, message.author.id, access.cfg.rob.successChance);
   const success = randomInt(1, 101) <= robChance.chance;
   if (!success) {
-    const penalty = Math.min(access.cfg.rob.failPenalty, (await getGringottBalance(message.guild.id, message.author.id, eventKey(client)))?.balance || 0);
+    const scaled = scaleRobFailPenalty(access.cfg.rob.failPenalty, robChance.chance);
+    const penalty = Math.min(scaled, (await getGringottBalance(message.guild.id, message.author.id, eventKey(client)))?.balance || 0);
     if (penalty > 0) {
       await spendGaleoni({ guildId: message.guild.id, userId: message.author.id, amount: penalty, reason: "rob: multa fallimento", actorId: message.author.id, source: "economy_rob", eventKey: eventKey(client) });
     }
@@ -1028,7 +1257,10 @@ async function rob(client, message, targetUser) {
   }
   const steal = Math.min(randomBetween(access.cfg.rob.minSteal, access.cfg.rob.maxSteal), targetBalance.balance);
   const taken = await spendGaleoni({ guildId: message.guild.id, userId: targetUser.id, amount: steal, reason: `Furto subito da ${message.author.id}`, actorId: message.author.id, source: "economy_rob", eventKey: eventKey(client) });
-  if (!taken?.ok) return { ok: false, message: "Il furto è fallito: saldo bersaglio non disponibile." };
+  if (!taken?.ok) {
+    await releaseCooldown(message.guild.id, message.author.id, "rob");
+    return { ok: false, message: "Il furto è fallito: saldo bersaglio non disponibile." };
+  }
   const gained = await addGaleoni({ guildId: message.guild.id, userId: message.author.id, amount: steal, reason: `Furto riuscito su ${targetUser.id}`, actorId: message.author.id, source: "economy_rob", eventKey: eventKey(client) });
   await ActivityUserProfile.updateOne(
     { guildId: message.guild.id, userId: targetUser.id },
@@ -1039,7 +1271,8 @@ async function rob(client, message, targetUser) {
 }
 
 function parsePayAmount(raw) {
-  const amount = int(raw, 0, 1, 1000000);
+  // Nessun tetto fisso: il limite è solo il saldo del mittente.
+  const amount = int(raw, 0, 1);
   if (!amount) return { ok: false, message: "Inserisci un importo valido (minimo 1 Galeone)." };
   return { ok: true, amount };
 }
@@ -1099,4 +1332,4 @@ async function transferGaleoni(client, message, targetUser, amountRaw) {
   };
 }
 
-module.exports = { ROB_BANK_TARGET_ID, assertEconomyAccess, assertEconomyAccessForUser, assertEconomyGamblingAccess, assertEconomyGamblingAccessForUser, assertSortedEconomyAccess, applyRpsCooldown, applyTrisCooldown, cashoutSlotsBank, claimFixed, claimWork, economyConfig, evaluateRobTarget, evaluateRouletteWin, evaluateRpsOutcome, eventKey, flushSlotsGuiPendingBank, formatDuration, isGaleoniEconomyUnlocked, isHighStaff, isRobBankTarget, lockRpsPvpStakes, lockTrisPvpStakes, normalizeCoinChoice, normalizeRouletteChoice, normalizeRps, parsePayAmount, payBlackjackWin, payScratchWin, payTrisWin, payout, peekFixedClaim, peekWorkClaim, playBlackjackBet, playCoinflip, playRoulette, playRouletteBanked, playRps, playScratchBet, playSlots, playSlotsBanked, playTrisBet, refundRpsPvpStake, refundTrisPvpStake, rob, robBank, RED_NUMBERS, resolveSortedHouseForUser, settleRpsPvp, settleTrisPvp, spendBet, spinRouletteResult, transferGaleoni };
+module.exports = { ROB_BANK_TARGET_ID, assertDifferentHouses, assertEconomyAccess, assertEconomyAccessForUser, assertEconomyGamblingAccess, assertEconomyGamblingAccessForUser, assertSortedEconomyAccess, applyRpsCooldown, applyTrisCooldown, cashoutSlotsBank, claimFixed, claimWork, clearRobCooldown, economyConfig, evaluateRobTarget, evaluateRouletteWin, evaluateRpsOutcome, eventKey, flushSlotsGuiPendingBank, formatDuration, getGamblingSpendableBalance, isGaleoniEconomyUnlocked, isHighStaff, isRobBankTarget, isSoftRobTargetFail, listRobCandidateUserIds, lockRpsPvpStakes, lockTrisPvpStakes, normalizeCoinChoice, normalizeRouletteChoice, normalizeRps, parsePayAmount, payBlackjackWin, payScratchWin, payTrisWin, payout, peekFixedClaim, peekRobCooldown, peekWorkClaim, playBlackjackBet, playCoinflip, playRoulette, playRouletteBanked, playRps, playScratchBet, playSlots, playSlotsBanked, playTrisBet, refundEconomyStake, refundRpsPvpStake, refundTrisPvpStake, rob, robBank, RED_NUMBERS, resolveSortedHouseForUser, settleRpsPvp, settleTrisPvp, spendBet, spinRouletteResult, sortedHouseLabel, transferGaleoni };

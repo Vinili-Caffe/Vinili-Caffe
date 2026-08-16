@@ -28,7 +28,7 @@ async function execute(interaction, client) {
     await replyPrivate(interaction, "<a:VC_Cross:1482532424570376253> Questo shop non è tuo.");
     return true;
   }
-  const session = getSession(interaction.message?.id);
+  const session = await getSession(interaction.message?.id, interaction.guild?.id, parsed.ownerId);
   if (!session) {
     await replyPrivate(interaction, "<a:VC_Cross:1482532424570376253> Sessione scaduta. Usa di nuovo `+shop`.");
     return true;

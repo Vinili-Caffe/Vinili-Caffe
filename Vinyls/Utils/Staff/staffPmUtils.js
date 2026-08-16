@@ -32,13 +32,9 @@ function initPartnerManagerFieldsIfMissing(staffObj) {
 }
 
 function buildStaffPartnerFieldsUnsetUpdate() {
-  return {
-    $unset: {
-      "staff.partnerCount": "",
-      "staff.partnerActions": "",
-      "staff.managerId": "",
-    },
-  };
+  // Non usare in depex: la cronologia partnership deve restare.
+  // Tenuto solo per compatibilità export; azzera solo l'assegnazione manager corrente.
+  return buildStaffPartnerManagerIdUnsetUpdate();
 }
 
 /** Solo assegnazione PM corrente: non tocca conteggio né storico (serve per classifica e audit). */
@@ -51,7 +47,8 @@ function memberHasStaffLadderRole(member) {
 }
 
 /**
- * Dopo un depex (o equivalente): se non resta nessun ruolo staff list → elimina tutto `staff`.
+ * Dopo un depex (o equivalente): se non resta nessun ruolo staff list → archivia rolesHistory,
+ * rimuove valutazioni/warn/pause ma **conserva** cronologia partnership (`partnerActions`).
  * Se resta solo PM (senza scala staff) → azzera tracciamento staff (valutazioni/warn/pause) ma tiene punti partner.
  * Se resta staff ma non più PM → rimuove solo `managerId` (storico partner e punti restano nel DB).
  */
@@ -85,12 +82,18 @@ async function syncStaffDbAndPauseChannelAfterDepex(guild, userId, member) {
   const uid = String(userId || "").trim();
   if (!gid || !uid) return;
   if (!member) return;
-  if (!memberHasAnyStaffPresenceForDepexSync(member)) {
-    const doc = await ActivityUserProfile.findOne({ guildId: gid, userId: uid }, { staff: 1 }).lean().catch(() => null);
-    await deleteStaffPauseRequestChannelMessages(guild, uid);
-    await deleteStaffRelatedMessagesFromConfiguredChannels(guild, uid, doc?.staff);
+  // Mai depexare su cache incompleta: rifetch obbligatorio.
+  const verified =
+    (await guild.members.fetch({ user: uid, force: true }).catch(() => null)) || member;
+  if (memberHasAnyStaffPresenceForDepexSync(verified)) {
+    await applyStaffDatabaseAfterDepex(gid, uid, verified);
+    queueStaffListRefreshAfterRoleMutation(guild.client, gid);
+    return;
   }
-  await applyStaffDatabaseAfterDepex(gid, uid, member);
+  const doc = await ActivityUserProfile.findOne({ guildId: gid, userId: uid }, { staff: 1 }).lean().catch(() => null);
+  await deleteStaffPauseRequestChannelMessages(guild, uid);
+  await deleteStaffRelatedMessagesFromConfiguredChannels(guild, uid, doc?.staff);
+  await applyStaffDatabaseAfterDepex(gid, uid, verified);
   queueStaffListRefreshAfterRoleMutation(guild.client, gid);
 }
 

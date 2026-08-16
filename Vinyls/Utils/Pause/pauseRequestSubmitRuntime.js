@@ -34,39 +34,7 @@ async function resolveRequestedPauseRole(member, channel, authorMention) {
   const hasStaff = Boolean(member?.roles?.cache?.has(IDs.roles.Staff));
   const hasPm = Boolean(member?.roles?.cache?.has(IDs.roles.PartnerManager));
   if (hasStaff && hasPm) {
-    const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(PAUSE_ROLE_PICK_PM).setLabel("PM").setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId(PAUSE_ROLE_PICK_STAFF).setLabel("Staff").setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId(PAUSE_ROLE_PICK_BOTH).setLabel("Entrambi").setStyle(ButtonStyle.Primary),
-    );
-    const prompt = await channel
-      .send({
-        content: `${authorMention} scegli per quale ruolo vuoi chiedere la pausa:`,
-        components: [row],
-      })
-      .catch(() => null);
-    if (!prompt) {
-      return { ok: false, error: "<:vegax:1443934876440068179> Non riesco a chiederti il ruolo pausa. Riprova." };
-    }
-    const picked = await prompt
-      .awaitMessageComponent({
-        time: PAUSE_ROLE_PICK_TIMEOUT_MS,
-        filter: (i) => i.user?.id === member?.id,
-      })
-      .catch(() => null);
-    if (!picked) {
-      await prompt.edit({ content: `${authorMention} selezione ruolo pausa scaduta. Riinvia la richiesta.`, components: [] }).catch(() => { });
-      scheduleMessageDeletion(prompt, EPHEMERAL_TTL_NORMAL_MS);
-      return { ok: false, error: "Selezione ruolo scaduta." };
-    }
-    let requestedRole = "Staff";
-    if (picked.customId === PAUSE_ROLE_PICK_PM) requestedRole = "PartnerManager";
-    else if (picked.customId === PAUSE_ROLE_PICK_BOTH) requestedRole = "Entrambi";
-    await picked.deferUpdate().catch(() => { });
-    const ruoloSelLabel = formatRuoloPausaRichiestoInMessage(member?.guild, requestedRole);
-    await prompt.edit({ content: `${authorMention} ruolo pausa selezionato: **${ruoloSelLabel}**`, components: [] }).catch(() => { });
-    scheduleMessageDeletion(prompt, EPHEMERAL_TTL_NORMAL_MS);
-    return { ok: true, requestedRole };
+    return { ok: false, needsRolePick: true };
   }
   if (hasPm && !hasStaff) return { ok: true, requestedRole: "PartnerManager" };
   return { ok: true, requestedRole: "Staff" };
@@ -79,21 +47,48 @@ async function submitPauseRequestForMember({ guild, member, rawStart, rawEnd, re
   if (!memberCanRequestPause(member)) {
     return { ok: false, error: "<a:VC_Alert:1482706673176150077> Non hai i permessi per richiedere una pausa." };
   }
-  const authorMention = String(member);
+  const authorMention =
+    typeof member?.toString === "function" ? String(member) : `<@${member.id}>`;
+  const safeMention = /<@!?\d+>/.test(authorMention) ? authorMention : `<@${member.id}>`;
   let role = requestedRole;
   if (!role) {
     const channel = replyChannel || guild.channels.cache.get(IDs.channels?.pause);
     if (!channel?.isTextBased?.()) {
       return { ok: false, error: "<a:VC_Alert:1482706673176150077> Canale pause non disponibile." };
     }
-    const rolePick = await resolveRequestedPauseRole(member, channel, authorMention);
+    const rolePick = await resolveRequestedPauseRole(member, channel, safeMention);
+    if (rolePick.needsRolePick) {
+      storePendingPauseRolePick(member.id, {
+        guildId: guild.id,
+        rawStart,
+        rawEnd,
+        reason,
+      });
+      const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId(PAUSE_ROLE_PICK_PM).setLabel("PM").setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId(PAUSE_ROLE_PICK_STAFF).setLabel("Staff").setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId(PAUSE_ROLE_PICK_BOTH).setLabel("Entrambi").setStyle(ButtonStyle.Primary),
+      );
+      await channel
+        .send({
+          content: `${safeMention} scegli per quale ruolo vuoi chiedere la pausa:`,
+          components: [row],
+          __skipNoticeEmbed: true,
+        })
+        .catch(() => null);
+      return {
+        ok: false,
+        pendingRolePick: true,
+        error: "Scegli il ruolo dai bottoni sotto per completare la richiesta.",
+      };
+    }
     if (!rolePick.ok) return rolePick;
     role = rolePick.requestedRole;
   }
   const result = await createPauseRequest({
     guild,
     userId: member.id,
-    requesterMention: authorMention,
+    requesterMention: safeMention,
     rawStart,
     rawEnd,
     reason,

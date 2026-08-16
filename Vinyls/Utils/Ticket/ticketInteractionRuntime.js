@@ -9,6 +9,8 @@ const HANDLED_TICKET_BUTTONS = new Set([
   "ticket_supporto",
   "claim_ticket",
   "close_ticket",
+  "close_ticket_confirm",
+  "close_ticket_cancel",
   "close_ticket_motivo",
   "accetta",
   "rifiuta",
@@ -88,93 +90,94 @@ async function warmGuildChannels(guild) {
   return resolved;
 }
 
-async function findOpenTicketByUser(guildId, userId, guild = null) {
+async function countOpenTicketsByUser(guildId, userId, guild = null) {
   const gid = String(guildId || "");
   const uid = String(userId || "");
-  if (!uid) return null;
+  if (!uid) return { count: 0, tickets: [] };
 
-  let existing = await Ticket.findOne({ guildId: gid, userId: uid, open: true }).catch(
-    () => null,
-  );
-  if (!existing) {
-    // Legacy/fault-tolerant fallback: block duplicates even if an old ticket has missing guildId.
-    const openByUser = await Ticket.find({ userId: uid, open: true })
-      .limit(25)
-      .lean()
-      .catch(() => []);
-    if (Array.isArray(openByUser) && openByUser.length > 0) {
-      const exactGuild = openByUser.find(
-        (doc) => String(doc?.guildId || "") === gid,
-      );
-      if (exactGuild) {
-        existing = exactGuild;
-      } else if (guild) {
-        await warmGuildChannels(guild).catch(() => null);
-        for (const doc of openByUser) {
-          const cid = String(doc?.channelId || "");
-          if (!cid) continue;
-          const cached = guild.channels?.cache?.get?.(cid) || null;
-          if (cached) {
-            existing = doc;
-            break;
-          }
-          const fetched = await guild.channels.fetch(cid).catch(() => null);
-          if (fetched?.id) {
-            existing = doc;
-            break;
-          }
-        }
-      } else {
-        existing = openByUser[0];
-      }
+  const seen = new Set();
+  const list = [];
+  const pushDoc = (doc) => {
+    const id = String(doc?._id || "");
+    if (!id || seen.has(id)) return;
+    seen.add(id);
+    list.push(doc);
+  };
+
+  const byGuild = await Ticket.find({ guildId: gid, userId: uid, open: true })
+    .limit(30)
+    .catch(() => []);
+  for (const doc of Array.isArray(byGuild) ? byGuild : []) pushDoc(doc);
+
+  // Legacy: open tickets with missing/wrong guildId but channel still in this guild.
+  const openByUser = await Ticket.find({ userId: uid, open: true }).limit(30).catch(() => []);
+  for (const doc of Array.isArray(openByUser) ? openByUser : []) {
+    const docGid = String(doc?.guildId || "").trim();
+    if (docGid && docGid === gid) {
+      pushDoc(doc);
+      continue;
+    }
+    if (!guild || docGid) continue;
+    const cid = String(doc?.channelId || "").trim();
+    if (!cid) continue;
+    const inGuild =
+      guild.channels?.cache?.get?.(cid) ||
+      (await guild.channels.fetch(cid).catch(() => null));
+    if (inGuild?.id) {
+      pushDoc(doc);
+      await Ticket.updateOne(
+        { _id: doc._id, open: true },
+        { $set: { guildId: gid } },
+      ).catch(() => null);
     }
   }
-  if (!existing) return null;
-  if (!guild || !existing.channelId) return existing;
+
+  if (!list.length) return { count: 0, tickets: [] };
+  if (!guild) return { count: list.length, tickets: list };
 
   await warmGuildChannels(guild).catch(() => null);
-  const cid = String(existing.channelId);
-  const cached = guild.channels?.cache?.get?.(cid) || null;
-  if (cached) {
-    if (String(existing.guildId || "") !== gid) {
-      await Ticket.updateOne(
-        { _id: existing._id, open: true },
-        { $set: { guildId: gid } },
-      ).catch(() => null);
+  const valid = [];
+  for (const doc of list) {
+    const cid = String(doc?.channelId || "").trim();
+    if (!cid) continue;
+    const cached = guild.channels?.cache?.get?.(cid) || null;
+    if (cached) {
+      valid.push(doc);
+      continue;
     }
-    return existing;
-  }
-
-  const fetched = await guild.channels.fetch(cid).catch((err) => err);
-  if (fetched && typeof fetched.id === "string") {
-    if (String(existing.guildId || "") !== gid) {
-      await Ticket.updateOne(
-        { _id: existing._id, open: true },
-        { $set: { guildId: gid } },
-      ).catch(() => null);
+    const fetched = await guild.channels.fetch(cid).catch((err) => err);
+    if (fetched && typeof fetched.id === "string") {
+      valid.push(doc);
+      continue;
     }
-    return existing;
-  }
-
-  const code = Number(fetched?.code ?? fetched?.rawError?.code);
-  if (code === 10003) {
-    await Ticket.updateOne(
-      { _id: existing._id, open: true },
-      {
-        $set: {
-          open: false,
-          closedAt: new Date(),
-          closeReason: "Auto-closed stale open ticket (missing channel)",
+    const code = Number(fetched?.code ?? fetched?.rawError?.code);
+    if (code === 10003) {
+      await Ticket.updateOne(
+        { _id: doc._id, open: true },
+        {
+          $set: {
+            open: false,
+            closedAt: new Date(),
+            closeReason: "Auto-closed stale open ticket (missing channel)",
+          },
         },
-      },
-    ).catch(() => null);
-    return null;
+      ).catch(() => null);
+    }
   }
-  return existing;
+  return { count: valid.length, tickets: valid };
+}
+
+async function findOpenTicketByUser(guildId, userId, guild = null) {
+  const counted = await countOpenTicketsByUser(guildId, userId, guild);
+  return counted.tickets[0] || null;
 }
 
 async function findTicketByChannel(channelId) {
-  return Ticket.findOne({ channelId }).catch(() => null);
+  const cid = String(channelId || "").trim();
+  if (!cid) return null;
+  const open = await Ticket.findOne({ channelId: cid, open: true }).catch(() => null);
+  if (open) return open;
+  return Ticket.findOne({ channelId: cid }).catch(() => null);
 }
 
 function isTicketOwnedByUser(ticketDoc, userId) {
@@ -197,23 +200,46 @@ function canUserHandleCloseRequest(ticketDoc, userId, highStaff) {
   );
 }
 
-async function loadTicketForChannelOrReply({ interaction, safeReply, makeErrorEmbed, channelId, missingDescription = "<a:VC_Alert:1482706673176150077> Ticket non trovato" }) {
+async function loadTicketForChannelOrReply({
+  interaction,
+  safeReply,
+  makeErrorEmbed,
+  channelId,
+  missingDescription = "<:vegax:1443934876440068179> Ticket non trovato",
+}) {
   const ticketDoc = await findTicketByChannel(channelId);
   if (ticketDoc) return ticketDoc;
+  const errEmbed =
+    typeof makeErrorEmbed === "function"
+      ? makeErrorEmbed
+      : require("./ticketUxMessages").makeTicketErrorEmbed;
   await safeReply(interaction, {
-    embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", missingDescription)],
+    embeds: [errEmbed("Errore", missingDescription)],
     flags: 1 << 6,
   });
   return null;
 }
 
-async function ensureClosableTicketOrReply({ interaction, safeReply, makeErrorEmbed, ticketDoc, highStaff, requireClaimed = true }) {
+async function ensureClosableTicketOrReply({
+  interaction,
+  safeReply,
+  makeErrorEmbed,
+  ticketDoc,
+  highStaff,
+  requireClaimed = true,
+  allowUserClose = false,
+}) {
+  const errEmbed =
+    typeof makeErrorEmbed === "function"
+      ? makeErrorEmbed
+      : require("./ticketUxMessages").makeTicketErrorEmbed;
   if (!ticketDoc) return false;
-  if (isTicketOwnedByUser(ticketDoc, interaction.user.id) && !highStaff) {
+  const isOwner = isTicketOwnedByUser(ticketDoc, interaction.user.id);
+  if (isOwner && !highStaff && !allowUserClose) {
     await safeReply(interaction, {
       embeds: [
-        makeErrorEmbed(
-          "<a:VC_Alert:1482706673176150077> Errore",
+        errEmbed(
+          "Errore",
           "<:VC_close:1478517239136256020> Non puoi chiudere da solo il ticket che hai aperto.",
         ),
       ],
@@ -221,11 +247,14 @@ async function ensureClosableTicketOrReply({ interaction, safeReply, makeErrorEm
     });
     return false;
   }
-  if (requireClaimed && !hasActiveTicketClaimer(ticketDoc)) {
+  if (isOwner && allowUserClose && !highStaff) {
+    return true;
+  }
+  if (requireClaimed && !hasActiveTicketClaimer(ticketDoc) && !highStaff) {
     await safeReply(interaction, {
       embeds: [
-        makeErrorEmbed(
-          "<a:VC_Alert:1482706673176150077> Errore",
+        errEmbed(
+          "Errore",
           "<:VC_claim:1478517202016669887> Questo ticket non è claimato.",
         ),
       ],
@@ -240,8 +269,8 @@ async function ensureClosableTicketOrReply({ interaction, safeReply, makeErrorEm
   ) {
     await safeReply(interaction, {
       embeds: [
-        makeErrorEmbed(
-          "<a:VC_Alert:1482706673176150077> Errore",
+        errEmbed(
+          "Errore",
           "<:VC_claim:1478517202016669887> Solo chi ha claimato il ticket può chiuderlo.",
         ),
       ],
@@ -267,7 +296,8 @@ function isHandledTicketModalId(id) {
     s.startsWith("modal_close_ticket:") ||
     s === "modal_ticket_panel_rename" ||
     s === "modal_ticket_panel_closerequest" ||
-    s === "modal_ticket_panel_reopen_search"
+    s === "modal_ticket_panel_reopen_search" ||
+    s.startsWith("tkform:")
   );
 }
 
@@ -279,12 +309,26 @@ function getSelectedTicketAction(interaction) {
   return interaction.values?.[0] || null;
 }
 
+function isTicketOpenButtonCustomId(id) {
+  const s = String(id || "");
+  return (
+    HANDLED_TICKET_BUTTONS.has(s) &&
+    (s === "ticket_partnership" ||
+      s === "ticket_highstaff" ||
+      s === "ticket_perks" ||
+      s === "ticket_supporto")
+  ) || s.startsWith("tkp:");
+}
+
 function isHandledTicketInteraction(interaction) {
   const cid = String(interaction.customId || "");
   const isTicketButton =
     interaction.isButton &&
     interaction.isButton() &&
-    (HANDLED_TICKET_BUTTONS.has(cid) || isTicketRatingButton(cid) || isTicketTranscriptButton(cid));
+    (HANDLED_TICKET_BUTTONS.has(cid) ||
+      cid.startsWith("tkp:") ||
+      isTicketRatingButton(cid) ||
+      isTicketTranscriptButton(cid));
   const isTicketSelect =
     interaction.isStringSelectMenu &&
     interaction.isStringSelectMenu() &&
@@ -297,6 +341,7 @@ function isHandledTicketInteraction(interaction) {
 
 module.exports = {
   canUserHandleCloseRequest,
+  countOpenTicketsByUser,
   ensureClosableTicketOrReply,
   findOpenTicketByUser,
   findTicketByChannel,
@@ -306,6 +351,7 @@ module.exports = {
   getSelectedTicketAction,
   hasActiveTicketClaimer,
   isHandledTicketInteraction,
+  isTicketOpenButtonCustomId,
   isTicketClaimedByUser,
   isTicketOwnedByUser,
   isTicketRatingButton,

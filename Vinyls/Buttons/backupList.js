@@ -37,10 +37,11 @@ function parseBackupListTail(customId, prefix) {
 }
 
 async function respondListUpdate(interaction, payload) {
+  const { safeInteractionUpdate, safeMessageEdit } = require("../../shared/discord/replyRuntime");
   const body = { embeds: payload.embeds, components: payload.components };
   if (interaction.deferred && interaction.message?.edit) {
     try {
-      await interaction.message.edit(body);
+      await safeMessageEdit(interaction.message, body, interaction);
       return;
     } catch (err) {
       global.logger?.warn?.("[Buttons/backupList] message.edit (deferred)", err);
@@ -51,15 +52,8 @@ async function respondListUpdate(interaction, payload) {
     !interaction.deferred &&
     !interaction.replied;
   if (canUpdate) {
-    try {
-      await interaction.update(body);
-      return;
-    } catch (err) {
-      const code = err?.code;
-      if (code !== 10062 && code !== 40060) {
-        global.logger?.warn?.("[Buttons/backupList] interaction.update", err);
-      }
-    }
+    const updated = await safeInteractionUpdate(interaction, body);
+    if (updated) return;
   }
   const { safeReply } = require("../../shared/discord/replyRuntime");
   await safeReply(interaction, { ...body, flags: EPHEMERAL }).catch(() => {});
@@ -163,12 +157,12 @@ async function renderList(userId, page = 1, withPanelNav = false, selectedRef = 
     new ButtonBuilder()
       .setCustomId(`${PREFIX_PREV}${userId}:${currentPage}${panelSuffix}`)
       .setStyle(ButtonStyle.Secondary)
-      .setEmoji("<:VC_page5:1482459835042762752> ")
+      .setEmoji("<:1343arrowleft:1525249879151083621> ")
       .setDisabled(currentPage <= 1),
     new ButtonBuilder()
       .setCustomId(`${PREFIX_NEXT}${userId}:${currentPage}${panelSuffix}`)
       .setStyle(ButtonStyle.Secondary)
-      .setEmoji("<:VC_page4:1482459791975645226>")
+      .setEmoji("<:1343arrowright:1525249880728145970>")
       .setDisabled(currentPage >= totalPages),
   );
 

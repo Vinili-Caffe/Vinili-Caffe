@@ -1,11 +1,12 @@
 const { assertEconomyGamblingAccess } = require("../../Services/Community/activeEconomyService");
-const { buildScratchGuiPayload, buyTicket, clampBet, formatScratchNotice, getSession, makeSession, revealAll, scheduleScratchRevealPanel, setSession, warmupScratchPanel } = require("../../Utils/Economy/scratchGuiRuntime");
+const { buildScratchGuiPayload, buyTicket, clampBet, formatScratchNotice, makeSession, revealAll, scheduleScratchRevealPanel, setSession, warmupScratchPanel } = require("../../Utils/Economy/scratchGuiRuntime");
+const { fetchSpendableBalance } = require("../../Utils/Economy/economyBetModal");
 const { postGuiPanel, replyDeny, runEconomyPanelCommand } = require("../../Utils/Economy/economyCommandHelpers");
 
 module.exports = {
   name: "scratch",
   allowEmptyArgs: true,
-  description: "Gratta e vinci interattivo con biglietto realistico.",
+  description: "Gratta e vinci: trova 3 simboli uguali.",
   usage: "+scratch [puntata]",
   examples: ["+scratch", "+scratch 10"],
   async execute(message, args, client) {
@@ -16,14 +17,15 @@ module.exports = {
         await deny(msg, access.message, { gambling: true });
         return;
       }
+      const balance = await fetchSpendableBalance(c, { guildId: msg.guild.id, ownerId: msg.author.id });
       const session = makeSession({
         ownerId: msg.author.id,
         guildId: msg.guild.id,
-        bet: clampBet(rawBet == null ? access.cfg.minBet : rawBet, access.cfg),
+        bet: clampBet(rawBet == null ? access.cfg.minBet : rawBet, access.cfg, balance),
         cfg: access.cfg,
       });
       await warmupScratchPanel();
-      let notice = "Premi **Compra** per il biglietto, poi gratta le 9 zone.";
+      let notice = "Regola: **trova 3 simboli uguali**. Premi **Compra**, poi gratta.";
       if (rawBet != null) {
         const bought = await buyTicket(c, msg, session);
         if (!bought.ok) {
@@ -37,16 +39,16 @@ module.exports = {
         }
         notice = formatScratchNotice(all.result);
         const sent = await post(msg, {
-          payload: await buildScratchGuiPayload(session, access.cfg, "✨ Grattata in corso…", false, true),
+          payload: await buildScratchGuiPayload(session, access.cfg, "✨ Grattata in corso…", false, true, balance),
           session,
           setSession,
           label: "gratta e vinci",
         });
-        if (sent?.id) scheduleScratchRevealPanel(sent, getSession(sent.id) || session, access.cfg, notice);
+        if (sent?.id) scheduleScratchRevealPanel(sent, session, access.cfg, notice);
         return;
       }
       await post(msg, {
-        payload: await buildScratchGuiPayload(session, access.cfg, notice, false, false),
+        payload: await buildScratchGuiPayload(session, access.cfg, notice, false, false, balance),
         session,
         setSession,
         label: "gratta e vinci",

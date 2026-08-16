@@ -8,7 +8,7 @@
   <meta name="description" content="{{RUOLI_META_DESCRIPTION}}" />
   <meta name="author" content="{{SITE_NAME}}" />
   <meta name="robots" content="index, follow" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta property="og:type" content="website" />
   <meta property="og:title" content="{{RUOLI_OG_TITLE}}" />
   <meta property="og:description" content="{{RUOLI_META_DESCRIPTION}}" />
@@ -87,8 +87,7 @@
             <summary class="vc-snav-summary"><span>Richieste</span><i
                 class="fa fa-chevron-down vc-snav-chev text-[0.65rem] opacity-80" aria-hidden="true"></i></summary>
             <div class="vc-snav-panel">
-              <a class="vc-snav-row" href="{{RICHIESTE_UNBAN_URL}}"><span class="vc-snav-row-ico" aria-hidden="true"><i
-                    class="fa fa-unlock"></i></span><span>Unban</span></a>
+              <a class="vc-snav-row" href="{{RICHIESTE_UNBAN_URL}}"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-balance-scale"></i></span><span data-i18n="nav.appeals">Appelli</span></a>
               <a class="vc-snav-row" href="{{RICHIESTE_CANDIDATURE_URL}}"><span class="vc-snav-row-ico"
                   aria-hidden="true"><i class="fa fa-file-text-o"></i></span><span>Candidature</span></a>
               <a class="vc-snav-row" href="{{RICHIESTE_SUGGERIMENTI_URL}}"><span class="vc-snav-row-ico"
@@ -157,24 +156,24 @@
     <section class="w-full">
       <div class="flex w-full min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
         <div class="min-w-0 flex-1">
-          <a class="vc-notify-home-btn vc-roles-back" href="{{USER_PAGE_URL}}" aria-label="Vai alla home"><i class="fa fa-chevron-left" aria-hidden="true"></i> Home</a>
-          <h1 class="vc-roles-title"><i class="fa fa-shield" aria-hidden="true"></i> Ruoli Personalizzati <span class="vc-forbidden-book" data-vc-forbidden-book="ruoli" hidden role="img" aria-label="libro proibito">📖</span></h1>
-          <p class="vc-roles-sub" id="vc-roles-sub">Esplora i ruoli custom creati con +profile.</p>
+          <a class="vc-notify-home-btn vc-roles-back" href="{{USER_PAGE_URL}}" aria-label="Vai alla home"><i class="fa fa-chevron-left" aria-hidden="true"></i> <span data-i18n="roles.backHome">Home</span></a>
+          <h1 class="vc-roles-title"><i class="fa fa-shield" aria-hidden="true"></i> <span data-i18n="roles.title">Ruoli Personalizzati</span> <span class="vc-forbidden-book" data-vc-forbidden-book="ruoli" hidden role="img" aria-label="libro proibito">📖</span></h1>
+          <p class="vc-roles-sub" id="vc-roles-sub" data-i18n="roles.sub">Esplora i ruoli custom creati con +profile.</p>
         </div>
       </div>
     </section>
 
     <section class="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-3">
       <article class="vc-notify-stat vc-notify-stat--a">
-        <p class="vc-notify-stat-label">Ruoli custom</p>
+        <p class="vc-notify-stat-label" data-i18n="roles.statCustom">Ruoli custom</p>
         <p class="vc-notify-stat-value" id="vc-roles-stat-total" data-vc-countup="true" data-vc-count-kind="int" data-vc-count-value="0">—</p>
       </article>
       <article class="vc-notify-stat vc-notify-stat--b">
-        <p class="vc-notify-stat-label">Ruoli permanenti</p>
+        <p class="vc-notify-stat-label" data-i18n="roles.statPerm">Ruoli permanenti</p>
         <p class="vc-notify-stat-value" id="vc-roles-stat-perm" data-vc-countup="true" data-vc-count-kind="int" data-vc-count-value="0">—</p>
       </article>
       <article class="vc-notify-stat vc-notify-stat--c">
-        <p class="vc-notify-stat-label">Assegnazioni totali</p>
+        <p class="vc-notify-stat-label" data-i18n="roles.statAssign">Assegnazioni totali</p>
         <p class="vc-notify-stat-value vc-ul-stat-topname text-xl sm:text-2xl" id="vc-roles-stat-members" data-vc-countup="true" data-vc-count-kind="int" data-vc-count-value="0">—</p>
       </article>
     </section>
@@ -183,14 +182,14 @@
       <div class="vc-roles-search">
         <i class="fa fa-search vc-roles-search-ico" aria-hidden="true"></i>
         <input id="vc-roles-search-input" class="vc-roles-search-input" type="text"
-          placeholder="Cerca ruoli o utenti..." autocomplete="off" spellcheck="false" />
+          placeholder="Cerca ruoli o utenti..." data-i18n-placeholder="roles.searchPh" autocomplete="off" spellcheck="false" />
       </div>
 
       <article class="vc-roles-info">
         <div class="vc-roles-info-head">
           <span class="vc-roles-info-badge" aria-hidden="true"><i class="fa fa-info-circle"></i></span>
           <div>
-            <h2 class="vc-roles-info-title">Come funzionano i ruoli personalizzati</h2>
+            <h2 class="vc-roles-info-title" data-i18n="roles.howTitle">Come funzionano i ruoli personalizzati</h2>
             <ul class="vc-roles-info-list">
               <li><strong>Proprietario:</strong> ogni ruolo ha un creatore che può gestirlo dal suo pannello profilo.
               </li>
@@ -215,7 +214,7 @@
       <div id="vc-roles-empty" class="vc-notify-empty vc-ul-empty-state" hidden>
         <i id="vc-roles-empty-ico" class="fa fa-shield vc-ul-empty-ico" aria-hidden="true"></i>
         <div class="vc-ul-empty-text">
-          <p id="vc-roles-empty-title" class="vc-ul-empty-title">Nessun ruolo personalizzato disponibile.</p>
+          <p id="vc-roles-empty-title" class="vc-ul-empty-title" data-i18n="roles.empty">Nessun ruolo personalizzato disponibile.</p>
           <p id="vc-roles-empty-msg" class="vc-ul-empty-sub"></p>
         </div>
       </div>

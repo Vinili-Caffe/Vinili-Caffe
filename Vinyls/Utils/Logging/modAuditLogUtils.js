@@ -2,7 +2,6 @@ const { PermissionsBitField, EmbedBuilder } = require("discord.js");
 const { getGuildChannelCached } = require("../Interaction/interactionEntityCache");
 const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
 const { resolveModLogChannelId } = require("../Moderation/tenantModLogChannel");
-const IDs = require("../Config/ids");
 
 function logModLogSendFailure(guild, channel, err, context) {
   global.logger?.warn?.("[modLogs] invio fallito:", {
@@ -13,18 +12,10 @@ function logModLogSendFailure(guild, channel, err, context) {
   });
 }
 
-async function resolveTextChannelInGuildOrMain(guild, channelId) {
+async function resolveTextChannelInGuild(guild, channelId) {
   const cid = String(channelId || "").trim();
   if (!guild || !cid) return null;
-  let channel = guild.channels.cache.get(cid) || (await getGuildChannelCached(guild, cid));
-  if (channel?.isTextBased?.()) return channel;
-  const mainId = String(IDs.guilds?.main || "").trim();
-  if (!mainId || String(guild.id) === mainId) return null;
-  const client = guild.client;
-  if (!client) return null;
-  const mainGuild = client.guilds.cache.get(mainId) || (await client.guilds.fetch(mainId).catch(() => null));
-  if (!mainGuild) return null;
-  channel = mainGuild.channels.cache.get(cid) || (await getGuildChannelCached(mainGuild, cid));
+  const channel = guild.channels.cache.get(cid) || (await getGuildChannelCached(guild, cid));
   if (channel?.isTextBased?.()) return channel;
   return null;
 }
@@ -32,7 +23,7 @@ async function resolveTextChannelInGuildOrMain(guild, channelId) {
 async function resolveModLogChannel(guild) {
   const channelId = resolveModLogChannelId(guild?.id);
   if (!guild || !channelId) return null;
-  const channel = await resolveTextChannelInGuildOrMain(guild, channelId);
+  const channel = await resolveTextChannelInGuild(guild, channelId);
   if (!channel?.isTextBased?.()) {
     global.logger?.warn?.("[modLogs] canale non valido o non testuale:", { guildId: guild.id, channelId });
     return null;

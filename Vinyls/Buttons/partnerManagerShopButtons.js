@@ -5,7 +5,7 @@ const { completePartnerManagerRedeemForGuild } = require("../Utils/Staff/partner
 const { parsePartnerManagerShopAckCustomId, matchPartnerManagerShopAckInteraction, memberCanAckPartnerManagerShopRedeem } = require("../Utils/Staff/partnerManagerShopAckRuntime");
 const { openPartnerManagerShopManualTicket } = require("../Utils/Ticket/partnerManagerShopTicketOpen");
 const { closeTicket } = require("../Utils/Ticket/ticketCloseRuntime");
-const { safeReply: safeReplyHelper, safeEditReply: safeEditReplyHelper } = require("../../shared/discord/replyRuntime");
+const { safeReply: safeReplyHelper, safeEditReply: safeEditReplyHelper, safeMessageEdit } = require("../../shared/discord/replyRuntime");
 const { STAFF_PM_SHOP_PREFIX, buildStaffProfilePayload, SECTION_SHOP, parseStaffProfileSelectCustomId, parseStaffProfileCloseCustomId } = require("../Utils/Staff/staffProfilePanelRuntime");
 const { isPartnerPmDailyCommandsThread } = require("../Utils/Partner/partnersChatChannelUtils");
 const PRIVATE_FLAG = 1 << 6;
@@ -67,7 +67,7 @@ async function refreshShopPanelMessage(interaction, viewerId, targetId) {
     sourceMessageId: sourceMessageId || undefined,
     partnersChatPanel,
   });
-  await interaction.message.edit(payload).catch(() => null);
+  await safeMessageEdit(interaction.message, payload, interaction).catch(() => null);
 }
 
 async function handlePartnerManagerShopAck(interaction) {
@@ -123,7 +123,7 @@ async function handlePartnerManagerShopAck(interaction) {
       { $set: { partnerManagerShopRedeemAckResult: "declined", partnerManagerShopRedeemAckAt: new Date() } },
     ).catch(() => {});
     await interaction.followUp({ content: "<:VC_Info:1482526956703580372> Ok: **Nessun punto** è stato scalato per questo premio.", flags: PRIVATE_FLAG }).catch(() => {});
-    const ticketForClose = await Ticket.findById(parsed.ticketId).lean().catch(() => null);
+    const ticketForClose = await Ticket.findById(parsed.ticketId).catch(() => null);
     if (ticketForClose?.open) await closeTicketAfterPartnerManagerShopAck(interaction, ticketForClose);
     return true;
   }
@@ -145,7 +145,7 @@ async function handlePartnerManagerShopAck(interaction) {
     { $set: { partnerManagerShopRedeemAckResult: "completed", partnerManagerShopRedeemAckAt: new Date() } },
   ).catch(() => {});
   await interaction.followUp({ content: res.userMessage, flags: PRIVATE_FLAG }).catch(() => {});
-  const ticketForClose = await Ticket.findById(parsed.ticketId).lean().catch(() => null);
+  const ticketForClose = await Ticket.findById(parsed.ticketId).catch(() => null);
   if (ticketForClose?.open) await closeTicketAfterPartnerManagerShopAck(interaction, ticketForClose);
   return true;
 }

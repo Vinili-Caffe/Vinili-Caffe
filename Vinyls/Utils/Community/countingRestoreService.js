@@ -2,7 +2,9 @@ const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require("
 const mongoose = require("mongoose");
 const IDs = require("../Config/ids");
 const { getCountingConfigFromBucket } = require("../Global/globalSettingsBucket");
-const { ActivityUserProfile, CountingRestoreToken } = require("../../Schemas/Community/communitySchemas");
+const { ActivityUserProfile, SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Schemas/Community/communitySchemas");
+
+const COUNTING_RESTORE_DOC_TYPE = SITE_DOCUMENT_TYPE.COUNTING_RESTORE_TOKEN;
 const { isValidGuildUserId } = require("../DB/validateWriteIds");
 
 const COUNTING_RESTORE_PREFIX = "vc_counting_restore:";
@@ -35,17 +37,18 @@ function getCountingRestoreRomeDayKey(date = new Date()) {
 function entryFromDoc(doc) {
   if (!doc) return null;
   const expiresAtMs = new Date(doc.expiresAt || 0).getTime();
+  const status = String(doc.status || "active");
   return {
-    token: String(doc.token || ""),
+    token: String(doc.requestToken || ""),
     guildId: String(doc.guildId || ""),
-    lostCount: Math.max(0, Math.floor(Number(doc.lostCount || 0))),
-    lostLastUser: String(doc.lostLastUser ?? " ").trim() || " ",
-    channelId: String(doc.channelId || ""),
-    messageId: String(doc.messageId || ""),
+    lostCount: Math.max(0, Math.floor(Number(doc.rawOrder?.lostCount || 0))),
+    lostLastUser: String(doc.rawOrder?.lostLastUser ?? " ").trim() || " ",
+    channelId: String(doc.dmChannelId || ""),
+    messageId: String(doc.dmMessageId || ""),
     createdAt: new Date(doc.createdAt || Date.now()).getTime(),
     expiresAt: expiresAtMs,
-    used: Boolean(doc.used),
-    buttonDisabled: Boolean(doc.buttonDisabled),
+    used: status === "used",
+    buttonDisabled: status === "disabled",
   };
 }
 
@@ -91,20 +94,24 @@ function clearExpiryTimer(token) {
   expiryTimers.delete(key);
 }
 
+function statusFromEntry(entry) {
+  if (entry?.used) return "used";
+  if (entry?.buttonDisabled) return "disabled";
+  return "active";
+}
+
 async function persistRestoreToken(entry) {
   if (!entry?.token || mongoose.connection?.readyState !== 1) return;
-  await CountingRestoreToken.updateOne(
-    { token: entry.token },
+  await SiteDocument.updateOne(
+    { docType: COUNTING_RESTORE_DOC_TYPE, requestToken: entry.token },
     {
       $set: {
         guildId: entry.guildId,
-        lostCount: entry.lostCount,
-        lostLastUser: entry.lostLastUser,
-        channelId: entry.channelId,
-        messageId: entry.messageId,
-        used: Boolean(entry.used),
+        dmChannelId: entry.channelId,
+        dmMessageId: entry.messageId,
+        status: statusFromEntry(entry),
         expiresAt: new Date(Number(entry.expiresAt || Date.now())),
-        buttonDisabled: Boolean(entry.buttonDisabled),
+        rawOrder: { lostCount: entry.lostCount, lostLastUser: entry.lostLastUser },
       },
     },
     { upsert: true },
@@ -119,13 +126,16 @@ async function consumeRestoreToken(token) {
   clearExpiryTimer(key);
   restoreTokens.delete(key);
   if (mongoose.connection?.readyState !== 1) return;
-  await CountingRestoreToken.updateOne({ token: key }, { $set: { used: true } }).catch(() => null);
+  await SiteDocument.updateOne(
+    { docType: COUNTING_RESTORE_DOC_TYPE, requestToken: key },
+    { $set: { status: "used" } },
+  ).catch(() => null);
 }
 
 async function lookupRestoreTokenDoc(token) {
   const key = String(token || "");
   if (!key || mongoose.connection?.readyState !== 1) return null;
-  return CountingRestoreToken.findOne({ token: key }).lean().catch(() => null);
+  return SiteDocument.findOne({ docType: COUNTING_RESTORE_DOC_TYPE, requestToken: key }).lean().catch(() => null);
 }
 
 function buildCountingRestoreRow(token, { disabled = false } = {}) {
@@ -162,11 +172,29 @@ async function fetchRestoreMessage(client, entry) {
 async function updateFailureEmbedAfterRestore(client, entry, { restoredByUserId, restoredCount }) {
   const message = await fetchRestoreMessage(client, entry);
   if (!message?.editable) return;
-  await message.edit({
-    embeds: [buildCountingRestoredEmbed(restoredByUserId, restoredCount)],
-    components: [],
-    allowedMentions: { users: restoredByUserId ? [String(restoredByUserId)] : [] },
-  }).catch(() => null);
+  // safeMessageEdit ri-applica banner + files e svuota attachments orfani
+  // (un edit grezzo lasciava standard.gif fuori dall'embed).
+  try {
+    const { safeMessageEdit } = require("../../../shared/discord/replyRuntime");
+    await safeMessageEdit(
+      message,
+      {
+        embeds: [buildCountingRestoredEmbed(restoredByUserId, restoredCount)],
+        components: [],
+        allowedMentions: { users: restoredByUserId ? [String(restoredByUserId)] : [] },
+      },
+      message,
+    );
+  } catch {
+    await message
+      .edit({
+        embeds: [buildCountingRestoredEmbed(restoredByUserId, restoredCount)],
+        components: [],
+        attachments: [],
+        allowedMentions: { users: restoredByUserId ? [String(restoredByUserId)] : [] },
+      })
+      .catch(() => null);
+  }
 }
 
 async function clearRestoreButtonOnMessage(client, entry) {
@@ -198,7 +226,10 @@ async function expireCountingRestoreToken(client, token, entry) {
     await persistRestoreToken(active);
     await disableRestoreButtonOnMessage(client, active);
   } else if (mongoose.connection?.readyState === 1) {
-    await CountingRestoreToken.updateOne({ token: key }, { $set: { buttonDisabled: true } }).catch(() => null);
+    await SiteDocument.updateOne(
+      { docType: COUNTING_RESTORE_DOC_TYPE, requestToken: key },
+      { $set: { status: "disabled" } },
+    ).catch(() => null);
   }
 }
 
@@ -287,20 +318,21 @@ async function sweepExpiredRestoreTokens(client) {
   if (mongoose.connection?.readyState !== 1) return;
 
   const now = new Date();
-  const expired = await CountingRestoreToken.find({
-    used: false,
-    buttonDisabled: false,
+  const expired = await SiteDocument.find({
+    docType: COUNTING_RESTORE_DOC_TYPE,
+    status: "active",
     expiresAt: { $lte: now },
   }).lean().catch(() => []);
 
   for (const doc of expired) {
-    await expireCountingRestoreToken(client, doc.token, entryFromDoc(doc));
+    await expireCountingRestoreToken(client, doc.requestToken, entryFromDoc(doc));
   }
 
   const retentionCutoff = new Date(Date.now() - RESTORE_TOKEN_RETENTION_MS);
-  await CountingRestoreToken.deleteMany({
+  await SiteDocument.deleteMany({
+    docType: COUNTING_RESTORE_DOC_TYPE,
     $or: [
-      { used: true, updatedAt: { $lt: retentionCutoff } },
+      { status: "used", updatedAt: { $lt: retentionCutoff } },
       { expiresAt: { $lt: retentionCutoff } },
     ],
   }).catch(() => null);
@@ -310,8 +342,9 @@ async function hydrateCountingRestoreTokens(client) {
   if (mongoose.connection?.readyState !== 1) return;
 
   const now = new Date();
-  const active = await CountingRestoreToken.find({
-    used: false,
+  const active = await SiteDocument.find({
+    docType: COUNTING_RESTORE_DOC_TYPE,
+    status: "active",
     expiresAt: { $gt: now },
   }).lean().catch(() => []);
 

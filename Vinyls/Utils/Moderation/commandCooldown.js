@@ -91,16 +91,20 @@ function getBucket(client) {
 
 function hasRole(member, roleId) {
   if (!member || !roleId) return false;
+  const id = String(roleId);
   const roles = member.roles;
   if (!roles) return false;
   if (roles.cache && typeof roles.cache.has === "function") {
-    return roles.cache.has(roleId);
+    return roles.cache.has(id);
+  }
+  if (typeof roles.has === "function") {
+    return roles.has(id);
   }
   if (Array.isArray(roles)) {
-    return roles.includes(roleId);
+    return roles.map(String).includes(id);
   }
   if (Array.isArray(roles._roles)) {
-    return roles._roles.includes(roleId);
+    return roles._roles.map(String).includes(id);
   }
   return false;
 }
@@ -110,13 +114,16 @@ function computeCooldownSeconds(member, level) {
   const hasRole100 = hasRole(member, ROLE_LEVEL_100);
   const hasRole50 = hasRole(member, ROLE_LEVEL_50);
   const hasRole30 = hasRole(member, ROLE_LEVEL_30);
-  const hasVipPlus = hasRole(member, ROLE_VIP_PLUS);
+  const hasVipPlus = hasRole(member, ROLE_VIP_PLUS) || hasRole(member, IDs.roles?.["VIP+"]);
+  const hasDoubleBooster = hasRole(member, ROLE_DOUBLE_BOOSTER);
+  const hasServerBooster = hasRole(member, ROLE_SERVER_BOOSTER);
+  const hasVip = hasRole(member, ROLE_VIP);
   if (hasBypassRole) return 0;
   if (hasRole100 || level >= 100) return 0;
-  if (hasRole(member, ROLE_DOUBLE_BOOSTER)) return 5;
-  if (hasRole(member, ROLE_SERVER_BOOSTER) || hasRole(member, ROLE_VIP)) return 15;
-  if (hasRole50 || level >= 50) return 5;
-  if (hasRole30 || level >= 30) return 15;
+  // 5s: VIP+, Double Booster, Level 50
+  if (hasVipPlus || hasDoubleBooster || hasRole50 || level >= 50) return 5;
+  // 15s: Server Booster, VIP, Level 30
+  if (hasServerBooster || hasVip || hasRole30 || level >= 30) return 15;
   return 30;
 }
 
@@ -145,7 +152,8 @@ async function getUserCommandCooldownSeconds({ guildId, userId, member }) {
 }
 
 function consumeUserCooldown({ client, guildId, userId, cooldownSeconds }) {
-  const seconds = Number(cooldownSeconds || 30);
+  const parsed = Number(cooldownSeconds);
+  const seconds = Number.isFinite(parsed) ? parsed : 30;
   ensureCooldownBucketLoaded(client);
   if (seconds <= 0) {
     return { ok: true, remainingMs: 0 };

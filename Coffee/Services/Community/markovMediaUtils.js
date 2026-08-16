@@ -18,7 +18,8 @@ function buildAllowedMentionsForText(text, config = {}) {
 
 function isLikelyImageUrl(url) {
   const raw = String(url || "").trim();
-  if (!/^https?:\/\//i.test(raw)) return false;
+  // Solo https: http viene poi strippato dal sanitize embed → riquadro vuoto col solo footer.
+  if (!/^https:\/\//i.test(raw)) return false;
   if (/\.(png|jpe?g|gif|webp|bmp|avif)(\?|$)/i.test(raw)) return true;
   if (/cdn\.discordapp\.com\/attachments\//i.test(raw)) return true;
   if (/media\.discordapp\.net\//i.test(raw)) return true;
@@ -134,19 +135,31 @@ function fileNameFromImageUrl(url, fallback = "markov.jpg") {
 }
 
 async function validateMarkovImageUrl(url, minBytes = MIN_MARKOV_IMAGE_BYTES) {
+  const file = await resolveMarkovImageAttachment(url, minBytes);
+  return Boolean(file);
+}
+
+async function resolveMarkovImageAttachment(url, minBytes = MIN_MARKOV_IMAGE_BYTES) {
   const trimmed = String(url || "").trim();
-  if (!isLikelyImageUrl(trimmed)) return false;
+  if (!isLikelyImageUrl(trimmed)) return null;
   try {
-    const res = await fetch(trimmed, { redirect: "follow" });
-    if (!res.ok) return false;
+    const res = await fetch(trimmed, {
+      redirect: "follow",
+      signal: AbortSignal.timeout(12000),
+    });
+    if (!res.ok) return null;
     const ct = String(res.headers.get("content-type") || "").toLowerCase();
-    if (ct && !ct.startsWith("image/")) return false;
-    const len = Number(res.headers.get("content-length") || 0);
-    if (len > 0 && len < minBytes) return false;
+    if (ct && !ct.startsWith("image/") && !ct.includes("octet-stream")) return null;
     const buf = Buffer.from(await res.arrayBuffer());
-    return buf.length >= minBytes;
+    if (buf.length < minBytes) return null;
+    // Evita allegati enormi (limite soft sotto il cap Discord).
+    if (buf.length > 8 * 1024 * 1024) return null;
+    return {
+      attachment: buf,
+      name: fileNameFromImageUrl(trimmed, "markov.jpg"),
+    };
   } catch {
-    return false;
+    return null;
   }
 }
 
@@ -189,6 +202,7 @@ module.exports = {
   clampMarkovOutput,
   fileNameFromImageUrl,
   validateMarkovImageUrl,
+  resolveMarkovImageAttachment,
   resolveMarkovImageEmbed,
   resolveMarkovStickerEmbed,
 };

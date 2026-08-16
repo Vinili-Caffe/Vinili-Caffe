@@ -80,16 +80,23 @@ async function run(root) {
   if (hasJoinRaid) {
     const securityPerms = prefix.security?.subcommands || {};
     let securityCmd = null;
+    let securityRequireError = null;
     try {
       securityCmd = require(path.join(root, "Prefix", "Admin", "security.js"));
-    } catch {
+    } catch (err) {
+      securityRequireError = err;
       try {
         securityCmd = require(path.join(root, "Prefix", "Staff", "security.js"));
-      } catch {
+        securityRequireError = null;
+      } catch (err2) {
+        securityRequireError = err2;
         securityCmd = null;
       }
     }
-    assert(securityCmd, "security.js (Admin o Staff) mancante");
+    assert(
+      securityCmd,
+      `security.js (Admin o Staff) non caricabile: ${securityRequireError?.message || securityRequireError || "mancante"}`,
+    );
     const requiredSecuritySubs = Array.isArray(securityCmd?.subcommands)
       ? [...new Set(securityCmd.subcommands.map((sub) => String(sub || "").trim().split(/\s+/)[0]).filter(Boolean))]
       : [];
@@ -183,7 +190,31 @@ async function run(root) {
         "Omg 😳💰",
         { accountAgeMs: 2 * 24 * 60 * 60_000 },
       ) === true,
-      "detectScamImageBait omg + image",
+      "detectScamImageBait omg + money emoji + young",
+    );
+    assert(
+      detectScamImageBait(
+        {
+          attachments: new Map([
+            ["1", { contentType: "image/png", name: "selfie.png" }],
+          ]),
+        },
+        "omg 😳",
+        { accountAgeMs: 400 * 24 * 60 * 60_000 },
+      ) === false,
+      "detectScamImageBait selfie omg non banna account maturo",
+    );
+    assert(
+      detectScamImageBait(
+        {
+          attachments: new Map([
+            ["1", { contentType: "image/png", name: "selfie.png" }],
+          ]),
+        },
+        "wow",
+        { accountAgeMs: 2 * 24 * 60 * 60_000 },
+      ) === false,
+      "detectScamImageBait solo wow non banna",
     );
     assert(
       detectScamImageBait(
@@ -554,17 +585,26 @@ async function run(root) {
   assert(staffRegolamento.normalizeRuleDot("2_3") === "2.3", "sanziona normalize rule 2_3");
   assert(staffRegolamento.normalizeRuleDot("foo") === null, "sanziona reject invalid rule");
   const r13 = staffRegolamento.resolveStaffRegolaSanction("1.3", 0);
-  assert(r13?.step?.type === "warn", "sanziona 1.3 first step warn");
+  assert(r13?.step?.type === "mute" && r13.step.duration === "4h", "sanziona 1.3 first step mute 4h");
   const r13b = staffRegolamento.resolveStaffRegolaSanction("1.3", 1);
-  assert(r13b?.step?.type === "mute" && r13b.step.duration === "4h", "sanziona 1.3 second step mute 4h");
+  assert(r13b?.step?.type === "mute" && r13b.step.duration === "8h", "sanziona 1.3 second step mute 8h");
   const r13max = staffRegolamento.resolveStaffRegolaSanction("1.3", 99);
   assert(r13max?.step?.duration === "18h", "sanziona 1.3 caps at last step");
+  const r23 = staffRegolamento.resolveStaffRegolaSanction("2.3", 0);
+  assert(r23?.step?.type === "mute" && r23.step.duration === "3h", "sanziona 2.3 first step mute 3h (no staff warn)");
+  const r23b = staffRegolamento.resolveStaffRegolaSanction("2.3", 1);
+  assert(r23b?.step?.type === "mute" && r23b.step.duration === "6h", "sanziona 2.3 second step mute 6h");
+  assert(
+    !Array.isArray(staffRegolamento.STAFF_REGOLA_STEPS["2.3"]) ||
+      !staffRegolamento.STAFF_REGOLA_STEPS["2.3"].some((s) => String(s?.type || "").toLowerCase() === "warn"),
+    "sanziona 2.3 ladder has no warn (automod keeps warn)",
+  );
   assert(
     staffRegolamento.isMatchingRuleCase({ reason: "Violazione della regola 1.2 (2°)" }, "1.2"),
     "sanziona modlog match violazione regola",
   );
-  const dynoWarn = staffRegolamento.buildDynoArgs("123", r13, "Violazione della regola 1.3 (1°)", "");
-  assert(dynoWarn?.cmd === "warn" && dynoWarn.args[0] === "123", "sanziona dyno warn args");
+  const dynoMute = staffRegolamento.buildDynoArgs("123", r13, "Violazione della regola 1.3 (1°)", "");
+  assert(dynoMute?.cmd === "mute" && dynoMute.args[0] === "123" && dynoMute.args[1] === "4h", "sanziona dyno mute args");
   const { MENTION_RESPONSE_ROLE_IDS } = mentionResponseAccess;
   assert(Array.isArray(MENTION_RESPONSE_ROLE_IDS) && MENTION_RESPONSE_ROLE_IDS.length >= 5, "mentionResponse role ids");
   const fakeMember = (roleIds) => ({

@@ -2,6 +2,13 @@ const { PermissionFlagsBits } = require("discord.js");
 const IDs = require("../Config/ids");
 const { getResocontoReviewerUserIdsForSegment } = require("../Staff/resocontoAccess");
 
+const { getPartnerManagerRoleId } = require("../Partner/partnershipConfigResolver");
+const {
+  applyTicketStaffRoleOverwrites,
+  buildTicketMemberCreateOverwrite,
+  editTicketMemberOverwrite,
+  editTicketRoleOverwrite,
+} = require("./ticketHighStaffOverwrites");
 const PARTNERMANAGER_ROLE_ID = IDs.roles.PartnerManager;
 const HIGHSTAFF_ROLE_ID = IDs.roles.HighStaff;
 const RESOCONTO_PM_REVIEWER_USER_IDS = getResocontoReviewerUserIdsForSegment("pm");
@@ -10,19 +17,19 @@ const PARTNERSHIP_TICKET_STAFF_ROLE_IDS = [PARTNERMANAGER_ROLE_ID, HIGHSTAFF_ROL
   .filter(Boolean)
   .map(String);
 
-const PARTNERSHIP_TICKET_SPECTATE_ALLOW = [
+const PARTNERSHIP_TICKET_REVIEWER_ALLOW = [
   PermissionFlagsBits.ViewChannel,
+  PermissionFlagsBits.SendMessages,
   PermissionFlagsBits.EmbedLinks,
   PermissionFlagsBits.AttachFiles,
   PermissionFlagsBits.ReadMessageHistory,
   PermissionFlagsBits.AddReactions,
 ];
 
-const PARTNERSHIP_TICKET_SPECTATE_DENY = [PermissionFlagsBits.SendMessages];
-
-const PARTNERSHIP_TICKET_REVIEWER_SPECTATE = Object.freeze({
+/** Gestore PM (revisore resoconto): può leggere e scrivere nei ticket partnership anche senza claim. */
+const PARTNERSHIP_TICKET_REVIEWER_OVERWRITES = Object.freeze({
   ViewChannel: true,
-  SendMessages: false,
+  SendMessages: true,
   ReadMessageHistory: true,
   EmbedLinks: true,
   AttachFiles: true,
@@ -30,20 +37,37 @@ const PARTNERSHIP_TICKET_REVIEWER_SPECTATE = Object.freeze({
 });
 
 function buildPartnershipTicketReviewerCreateOverwrites() {
-  return RESOCONTO_PM_REVIEWER_USER_IDS.map((userId) => ({
-    id: userId,
-    allow: PARTNERSHIP_TICKET_SPECTATE_ALLOW,
-    deny: PARTNERSHIP_TICKET_SPECTATE_DENY,
-  }));
+  return RESOCONTO_PM_REVIEWER_USER_IDS
+    .map((userId) =>
+      buildTicketMemberCreateOverwrite(userId, { allow: PARTNERSHIP_TICKET_REVIEWER_ALLOW }),
+    )
+    .filter(Boolean);
+}
+
+async function clearPartnershipTicketPermissionOverwrites(channel) {
+  if (!channel?.permissionOverwrites?.edit) return;
+  const roleHideFromTicket = { ViewChannel: false };
+  for (const roleId of PARTNERSHIP_TICKET_STAFF_ROLE_IDS) {
+    if (roleId === HIGHSTAFF_ROLE_ID) continue;
+    await editTicketRoleOverwrite(channel, roleId, roleHideFromTicket);
+  }
+  for (const userId of RESOCONTO_PM_REVIEWER_USER_IDS) {
+    await channel.permissionOverwrites.delete(userId).catch(() => null);
+  }
 }
 
 async function applyPartnershipTicketReviewerOverwrites(channel) {
   if (!channel?.permissionOverwrites?.edit) return;
   for (const userId of RESOCONTO_PM_REVIEWER_USER_IDS) {
-    await channel.permissionOverwrites
-      .edit(userId, PARTNERSHIP_TICKET_REVIEWER_SPECTATE)
-      .catch(() => null);
+    await editTicketMemberOverwrite(channel, userId, PARTNERSHIP_TICKET_REVIEWER_OVERWRITES);
   }
+}
+
+async function applyPartnershipTicketRoleOverwrites(channel) {
+  if (!channel?.permissionOverwrites?.edit) return;
+  const guildId = channel.guild?.id;
+  await applyTicketStaffRoleOverwrites(channel, getPartnershipTicketStaffRoleIds(guildId));
+  await applyPartnershipTicketReviewerOverwrites(channel);
 }
 
 async function syncOpenPartnershipTicketReviewerAccess(client) {
@@ -71,7 +95,7 @@ async function syncOpenPartnershipTicketReviewerAccess(client) {
     const channel =
       guild.channels.cache.get(channelId) || (await getGuildChannelCached(guild, channelId).catch(() => null));
     if (!channel?.permissionOverwrites?.edit) continue;
-    await applyPartnershipTicketReviewerOverwrites(channel);
+    await applyPartnershipTicketRoleOverwrites(channel);
     synced += 1;
   }
   if (synced > 0) {
@@ -80,11 +104,37 @@ async function syncOpenPartnershipTicketReviewerAccess(client) {
   return { ok: true, synced };
 }
 
+function getPartnershipTicketStaffRoleIds(guildId) {
+  const pmRoleId = getPartnerManagerRoleId(guildId) || PARTNERMANAGER_ROLE_ID;
+  return [pmRoleId, HIGHSTAFF_ROLE_ID].filter(Boolean).map(String);
+}
+
+function memberIsResocontoPmReviewer(member) {
+  const uid = String(member?.id || "").trim();
+  return Boolean(uid && RESOCONTO_PM_REVIEWER_USER_IDS.includes(uid));
+}
+
+function memberHasTicketElevatedClosePrivileges(member, ticketDoc = null) {
+  // Chi ha aperto il ticket non chiude “da staff”, anche se High Staff / reviewer.
+  if (
+    ticketDoc &&
+    String(ticketDoc?.userId || "").trim() &&
+    String(ticketDoc.userId) === String(member?.id || "")
+  ) {
+    return false;
+  }
+  if (HIGHSTAFF_ROLE_ID && member?.roles?.cache?.has(HIGHSTAFF_ROLE_ID)) return true;
+  if (!memberIsResocontoPmReviewer(member)) return false;
+  if (!ticketDoc) return true;
+  return String(ticketDoc?.ticketType || "").trim() === "partnership";
+}
+
 function memberCanAccessPartnershipTicket(member) {
   const uid = String(member?.id || "").trim();
   if (uid && RESOCONTO_PM_REVIEWER_USER_IDS.includes(uid)) return true;
   if (!member?.roles?.cache) return false;
-  return PARTNERSHIP_TICKET_STAFF_ROLE_IDS.some((roleId) => member.roles.cache.has(roleId));
+  const roleIds = getPartnershipTicketStaffRoleIds(member?.guild?.id);
+  return roleIds.some((roleId) => member.roles.cache.has(roleId));
 }
 
 module.exports = {
@@ -92,9 +142,14 @@ module.exports = {
   HIGHSTAFF_ROLE_ID,
   RESOCONTO_PM_REVIEWER_USER_IDS,
   PARTNERSHIP_TICKET_STAFF_ROLE_IDS,
-  PARTNERSHIP_TICKET_REVIEWER_SPECTATE,
+  PARTNERSHIP_TICKET_REVIEWER_OVERWRITES,
   buildPartnershipTicketReviewerCreateOverwrites,
   applyPartnershipTicketReviewerOverwrites,
+  applyPartnershipTicketRoleOverwrites,
+  clearPartnershipTicketPermissionOverwrites,
   syncOpenPartnershipTicketReviewerAccess,
+  getPartnershipTicketStaffRoleIds,
+  memberIsResocontoPmReviewer,
+  memberHasTicketElevatedClosePrivileges,
   memberCanAccessPartnershipTicket,
 };

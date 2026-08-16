@@ -6,7 +6,7 @@ const STAFF_EMBED_ROLE_SELECT_IDS = new Set(["personality_pronouns", "personalit
 function match(interaction) {
   const id = String(interaction?.customId || "");
   if (interaction?.isButton?.()) {
-    if (id.startsWith("staff_") || id.startsWith("middle_") || id.startsWith("avatar_unblock:") || id.startsWith("banner_unblock:") || id.startsWith("quote_remove:")) return true;
+    if (id.startsWith("staff_") || id.startsWith("middle_") || id.startsWith("avatar_unblock:") || id.startsWith("banner_unblock:") || id.startsWith("quote_remove:") || id.startsWith("repost_remove:") || id.startsWith("myrepost_del:") || id.startsWith("myclip_del:") || id.startsWith("myquote_del:")) return true;
     if (STAFF_IDS.has(id)) return true;
   }
   if (interaction?.isStringSelectMenu?.()) {

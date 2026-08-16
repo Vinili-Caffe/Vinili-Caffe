@@ -13,9 +13,14 @@ module.exports = {
   normalizeLookbackDays: meButton.normalizeLookbackDays,
 
   async execute(message, args = []) {
-    await message.channel.sendTyping();
     const { lookbackDays } = meButton.parseMyActivityArgs(args);
-    const payload = await meButton.buildMeOverviewPayload(message.guild, message.author, message.member, lookbackDays, "main");
+    const payload = await meButton.buildMeOverviewPayload(
+      message.guild,
+      message.author,
+      message.member,
+      lookbackDays,
+      "main",
+    );
     await safeMessageReply(message, { ...payload, allowedMentions: { repliedUser: false } });
   },
 };

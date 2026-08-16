@@ -6,6 +6,7 @@ const { ARROW, toDiscordTimestamp, channelDisplay, channelTypeLabel, yesNo, form
 const{handleChannelCreationAction:antiNukeHandleChannelCreationAction,}=require("../Services/Moderation/antiNukeService");
 const IDs = require("../Utils/Config/ids");
 const { shouldResyncAutomodForChannel, scheduleDiscordAutomodRulesResync } = require("../Services/Moderation/discordAutomodRulesService");
+const { isViniliFullFeatureGuild } = require("../MultiGuild/core/guildFeatureScope");
 const CHANNEL_CREATE_ACTION = AuditLogEvent?.ChannelCreate ?? 10;
 const AUDIT_RETRY_ATTEMPTS = 3;
 const AUDIT_RETRY_DELAY_MS = 700;
@@ -62,6 +63,7 @@ module.exports = {
   name: "channelCreate",
   async execute(channel, client) {
     if (!channel?.guildId) return;
+    if (!isViniliFullFeatureGuild(channel.guildId)) return;
     await forceQuarantineOverwrite(channel).catch(() => {});
     let executorId = "";
     

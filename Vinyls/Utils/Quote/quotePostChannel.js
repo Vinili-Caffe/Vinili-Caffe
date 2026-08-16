@@ -1,6 +1,9 @@
 const { isViniliProtectedGuild } = require("../../MultiGuild/core/viniliProtectedGuilds");
 const { resolveGuildAccess } = require("../../MultiGuild/core/guildRegistry");
-const { getTenantChannelMapSync } = require("../../MultiGuild/core/tenantGuildSettings");
+const {
+  getTenantChannelMapSync,
+  resolveTenantBoardChannelIdSync,
+} = require("../../MultiGuild/core/tenantGuildSettings");
 const { getGuildChannelCached } = require("../Interaction/interactionEntityCache");
 const IDs = require("../Config/ids");
 
@@ -9,25 +12,39 @@ function normalizeQuoteChannelId(value) {
   return id && /^\d{16,20}$/.test(id) ? id : null;
 }
 
-function resolveQuoteChannelId(guildId) {
+function normalizeBoardKind(kind) {
+  const k = String(kind || "quote").trim().toLowerCase();
+  if (k === "repost" || k === "clip" || k === "quote") return k;
+  return "quote";
+}
+
+function resolveBoardChannelId(guildId, kind = "quote") {
   const gid = String(guildId || "").trim();
   if (!gid) return null;
   if (isViniliProtectedGuild(gid)) {
     return normalizeQuoteChannelId(IDs.channels?.quotes);
   }
+  const boardKind = normalizeBoardKind(kind);
+  const fromBoards = normalizeQuoteChannelId(resolveTenantBoardChannelIdSync(gid, boardKind));
+  if (fromBoards) return fromBoards;
   const fromTenantSettings = normalizeQuoteChannelId(getTenantChannelMapSync(gid).quotes);
   if (fromTenantSettings) return fromTenantSettings;
   try {
     const access = resolveGuildAccess(gid);
     return normalizeQuoteChannelId(access?.entry?.channelMap?.quotes);
   } catch {
+    // registry unavailable
   }
   return null;
 }
 
-async function resolveQuotePostChannel(guild) {
+function resolveQuoteChannelId(guildId) {
+  return resolveBoardChannelId(guildId, "quote");
+}
+
+async function resolveBoardPostChannel(guild, kind = "quote") {
   if (!guild?.id) return null;
-  const channelId = resolveQuoteChannelId(guild.id);
+  const channelId = resolveBoardChannelId(guild.id, kind);
   if (!channelId) return null;
   const channel =
     guild.channels.cache.get(channelId) ||
@@ -36,4 +53,13 @@ async function resolveQuotePostChannel(guild) {
   return channel;
 }
 
-module.exports = { resolveQuoteChannelId, resolveQuotePostChannel };
+async function resolveQuotePostChannel(guild) {
+  return resolveBoardPostChannel(guild, "quote");
+}
+
+module.exports = {
+  resolveQuoteChannelId,
+  resolveQuotePostChannel,
+  resolveBoardChannelId,
+  resolveBoardPostChannel,
+};

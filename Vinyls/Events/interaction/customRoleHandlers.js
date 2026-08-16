@@ -1,15 +1,16 @@
-const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, UserSelectMenuBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, PermissionsBitField, ChannelType, InteractionWebhook, } = require("discord.js");
-const { CustomRole } = require("../../Schemas/Community/communitySchemas");
+const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, UserSelectMenuBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, PermissionsBitField, ChannelType, InteractionWebhook, OverwriteType, } = require("discord.js");
+const { CustomRole, SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Schemas/Community/communitySchemas");
 const { MentionReaction } = require("../../Schemas/Community/autoInteractionSchemas");
-const { MAX_REACTIONS, getCustomReactionMax, parseReactionTokens, buildCustomReactionPanelEmbed, buildCustomReactionPanelRows, memberHasCustomReactionRoleAccess, findEmojiByShortName, resolveStoredCustomEmojiFromClient } = require("../../Utils/Community/mentionReactionPanelUtils");
+const { MAX_REACTIONS, getCustomReactionMax, parseReactionTokens, memberHasCustomReactionRoleAccess, findEmojiByShortName, resolveStoredCustomEmojiFromClient } = require("../../Utils/Community/mentionReactionPanelUtils");
+const { safeMessageEdit } = require("../../../shared/discord/replyRuntime");
 const axios = require("axios");
 const crypto = require("crypto");
 const path = require("path");
 const { resolveCustomRoleState, buildExpiryText, } = require("../../Utils/Community/customRoleState");
 const { getClientGuildCached, getGuildMemberCached, getGuildChannelCached, getUserCached, } = require("../../Utils/Interaction/interactionEntityCache");
 const { userAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
-const { fetchGuildChannel, fetchGuildMember, fetchGuildRole, replyEphemeral, parseRoleActionId, parseVoiceActionId, findCustomVoiceByRole, canManageRole, refreshEmbedRoleLine, sanitizeVoiceBaseName, parseCustomVocName, buildCustomVocName, extractCustomVocEmojiFromMessage, normalizeCustomVocEmojiValue } = require("../../Utils/Interaction/customRoleUtils");
-const { CUSTOM_VOC_MEMBER_PERMS } = require("../../Services/Community/customVocPermissionsService");
+const { fetchGuildChannel, fetchGuildMember, fetchGuildRole, replyEphemeral, parseRoleActionId, parseVoiceActionId, canManageRole, refreshEmbedRoleLine, sanitizeVoiceBaseName, parseCustomVocName, buildCustomVocName, extractCustomVocEmojiFromMessage, normalizeCustomVocEmojiValue } = require("../../Utils/Interaction/customRoleUtils");
+const { CUSTOM_VOC_MEMBER_PERMS, CUSTOM_VOC_OWNER_BASE_PERMS, applyOverwrite } = require("../../Services/Community/customVocPermissionsService");
 const { buildPanelPayload } = require("../../Buttons/profile");
 const { readSnapshotWithMeta, writeSnapshotWithMeta } = require("../../../shared/recovery/snapshotStore");
 const pendingRoleGrants = new Map();
@@ -23,6 +24,85 @@ const PROFILE_PROMPT_TTL_MS = 90_000;
 const IDs = require("../../Utils/Config/ids");
 const CUSTOM_ROLE_GRADIENT_HOLO_ROLE_IDS = [ IDs?.roles?.VIP, IDs?.roles?.ServerBooster, IDs?.roles?.DoubleBooster, IDs?.roles?.VIPplus, ].filter(Boolean);
 const GRADIENT_HOLO_DENIED_MSG = "<:VC_Attention:1482534443632558151> **Gradiente** e **olografico** sono riservati a chi ha ruolo **VIP**, **Server Booster**, **Double Booster** o **VIP+**. Gli altri possono usare solo il **colore solido** (stesso menu → Solido).";
+const PENDING_SITE_ROLE_DOC = SITE_DOCUMENT_TYPE.ROLE_REQUEST_PENDING;
+
+function mapPendingSiteRoleDoc(doc) {
+  if (!doc) return null;
+  const expiresAt = doc.expiresAt ? new Date(doc.expiresAt).getTime() : 0;
+  if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) return null;
+  return {
+    guildId: String(doc.guildId || ""),
+    requesterId: String(doc.requesterId || ""),
+    ownerId: String(doc.ownerId || ""),
+    roleId: String(doc.roleId || ""),
+    reason: String(doc.reason || doc.content || ""),
+    dmChannelId: String(doc.dmChannelId || ""),
+    dmMessageId: String(doc.dmMessageId || ""),
+    expiresAt,
+  };
+}
+
+async function persistPendingSiteRoleRequest(token, row) {
+  const t = String(token || "").trim();
+  if (!t || !row) return;
+  await SiteDocument.findOneAndUpdate(
+    { docType: PENDING_SITE_ROLE_DOC, requestToken: t },
+    {
+      $set: {
+        guildId: String(row.guildId || ""),
+        requesterId: String(row.requesterId || ""),
+        ownerId: String(row.ownerId || ""),
+        roleId: String(row.roleId || ""),
+        reason: String(row.reason || "").slice(0, 500),
+        dmChannelId: String(row.dmChannelId || ""),
+        dmMessageId: String(row.dmMessageId || ""),
+        expiresAt: new Date(Number(row.expiresAt) || Date.now()),
+        status: "pending",
+      },
+      $setOnInsert: {
+        docType: PENDING_SITE_ROLE_DOC,
+        requestToken: t,
+      },
+    },
+    { upsert: true, new: true, setDefaultsOnInsert: true },
+  ).catch((err) => {
+    global.logger?.warn?.("[site-role-request] persist pending:", err?.message || err);
+  });
+}
+
+async function loadPendingSiteRoleRequest(token) {
+  const t = String(token || "").trim();
+  if (!t) return null;
+  const doc = await SiteDocument.findOne({ docType: PENDING_SITE_ROLE_DOC, requestToken: t })
+    .lean()
+    .catch(() => null);
+  const mapped = mapPendingSiteRoleDoc(doc);
+  if (!mapped) {
+    if (doc) {
+      await SiteDocument.deleteOne({ docType: PENDING_SITE_ROLE_DOC, requestToken: t }).catch(() => {});
+    }
+    return null;
+  }
+  return mapped;
+}
+
+async function deletePendingSiteRoleRequest(token) {
+  const t = String(token || "").trim();
+  if (!t) return;
+  pendingSiteRoleRequests.delete(t);
+  await SiteDocument.deleteOne({ docType: PENDING_SITE_ROLE_DOC, requestToken: t }).catch(() => {});
+}
+
+async function resolvePendingSiteRoleRequest(token) {
+  const t = String(token || "").trim();
+  if (!t) return null;
+  ensurePendingLoaded();
+  let request = pendingSiteRoleRequests.get(t) || null;
+  if (request && Number(request.expiresAt || 0) > Date.now()) return request;
+  request = await loadPendingSiteRoleRequest(t);
+  if (request) pendingSiteRoleRequests.set(t, request);
+  return request;
+}
 
 function persistPendingNow() {
   const now = Date.now();
@@ -249,6 +329,19 @@ async function resolvePromptRole(message, pending) {
   return { ok: true, role, state };
 }
 
+/** Sezione +profile da ripristinare dopo un'azione sul custom role (primario vs secondario). */
+function customRolePanelSectionForRoleId(docOrState, roleId) {
+  const rid = String(roleId || "").trim();
+  if (!rid) return "customrole";
+  const secondaryId = String(
+    docOrState?.secondaryRoleId ||
+      docOrState?.doc?.secondaryRoleId ||
+      docOrState?.secondaryRole?.id ||
+      "",
+  ).trim();
+  return secondaryId && rid === secondaryId ? "customrole_secondary" : "customrole";
+}
+
 async function applyRoleIconValue(message, role, rawValue) {
   const value = String(rawValue || "").trim();
   const actor = message.author?.tag || message.author?.id || "profile prompt";
@@ -438,7 +531,11 @@ async function createCustomRoleGrantRequest({ client, guildId, channelId, reques
       `${requesterMember} vuole aggiungerti il ruolo **${role.name}** nel server. Accetti?`,
     );
 
-  const dmSent = await targetMember.send({ embeds: [dmEmbed], components: [dmRow] }).catch(() => null);
+  const targetUser = targetMember.user || (await getUserCached(client, targetId));
+  const dmSent =
+    targetUser && typeof targetUser.send === "function"
+      ? await targetUser.send({ embeds: [dmEmbed], components: [dmRow] }).catch(() => null)
+      : null;
   if (!dmSent) {
     await promptMsg
       .edit({
@@ -533,11 +630,11 @@ async function createSiteRoleJoinRequest({ client, guildId, requesterId, ownerId
   }
 
   const now = Date.now();
-  for (const [token, request] of pendingSiteRoleRequests.entries()) {
+  for (const [pendingToken, request] of pendingSiteRoleRequests.entries()) {
     if (!request) continue;
     if (Number(request.expiresAt || 0) <= now) {
       ensurePendingLoaded();
-      pendingSiteRoleRequests.delete(token);
+      await deletePendingSiteRoleRequest(pendingToken);
       persistPendingNow();
       continue;
     }
@@ -550,19 +647,35 @@ async function createSiteRoleJoinRequest({ client, guildId, requesterId, ownerId
       return { ok: false, error: "already_pending" };
     }
   }
+  const mongoPending = await SiteDocument.findOne({
+    docType: PENDING_SITE_ROLE_DOC,
+    guildId: String(guildId),
+    requesterId: String(requesterId),
+    ownerId: String(ownerId),
+    roleId: String(roleId),
+    expiresAt: { $gt: new Date(now) },
+  })
+    .lean()
+    .catch(() => null);
+  if (mongoPending) return { ok: false, error: "already_pending" };
 
   const token = crypto.randomBytes(16).toString("hex");
   const ownerUser = ownerMember.user || (await getUserCached(client, ownerId));
   const requesterUser = requesterMember.user || (await getUserCached(client, requesterId));
+  if (!ownerUser || typeof ownerUser.send !== "function") {
+    return { ok: false, error: "dm_closed" };
+  }
+  const requesterMention = `<@${requesterId}>`;
   const dmEmbed = new EmbedBuilder()
     .setColor("#8b5cf6")
     .setTitle("<:VC_PinkQuestionMark:1471892611026391306> Richiesta di accesso al tuo ruolo")
     .setDescription(
       [
-        `${requesterMember} vuole ottenere il tuo ruolo personalizzato **${role.name}**.`,
+        `${requesterMention} vuole ottenere il tuo ruolo personalizzato **${role.name}**.`,
         "",
-        `**Utente:** ${requesterMember} (\`${requesterId}\`)`,
-        `**Ruolo:** ${role.name}`,
+        `**Utente:** ${requesterMention} (\`${requesterId}\`)`,
+        // In DM le mention <@&role> non si risolvono → "@ruolo sconosciuto".
+        `**Ruolo:** **${role.name}** (\`${role.id}\`)`,
         "",
         "**Motivazione**",
         String(reason || "Nessuna motivazione."),
@@ -573,7 +686,8 @@ async function createSiteRoleJoinRequest({ client, guildId, requesterId, ownerId
   const reqThumb = userAvatarUrlDynamic(requesterUser, { size: 256 });
   if (reqThumb) dmEmbed.setThumbnail(reqThumb);
 
-  const dmSent = await ownerMember
+  // site-api REST: GuildMember may lack .send — DM always via User.
+  const dmSent = await ownerUser
     .send({
       embeds: [dmEmbed],
       components: [buildSiteRoleRequestButtons(token, false)],
@@ -586,18 +700,35 @@ async function createSiteRoleJoinRequest({ client, guildId, requesterId, ownerId
   ensurePendingLoaded();
   pendingSiteRoleRequests.set(token, { guildId, requesterId, ownerId, roleId, reason: String(reason || ""), dmChannelId: dmSent.channelId, dmMessageId: dmSent.id, expiresAt: now + Math.max(15_000, Number(timeoutMs || 0)), });
   persistPendingNow();
+  await persistPendingSiteRoleRequest(token, pendingSiteRoleRequests.get(token));
 
   const expiryTimer = setTimeout(async () => {
     ensurePendingLoaded();
-    const request = pendingSiteRoleRequests.get(token);
+    const request = (await resolvePendingSiteRoleRequest(token)) || pendingSiteRoleRequests.get(token);
     if (!request) return;
-    pendingSiteRoleRequests.delete(token);
+    await deletePendingSiteRoleRequest(token);
     persistPendingNow();
-    const owner = await getUserCached(client, request.ownerId);
-    const dmChannel = owner?.dmChannel || (await owner?.createDM().catch(() => null));
-    const dmMsg =
-      dmChannel?.messages?.cache?.get(request.dmMessageId) ||
-      (await dmChannel?.messages?.fetch(request.dmMessageId).catch(() => null));
+    let dmMsg = null;
+    const channelId = String(request.dmChannelId || "").trim();
+    const messageId = String(request.dmMessageId || "").trim();
+    if (channelId && messageId) {
+      const dmChannel =
+        (await getGuildChannelCached(client, channelId).catch(() => null)) ||
+        (typeof client?.channels?.fetch === "function" ? await client.channels.fetch(channelId).catch(() => null) : null);
+      dmMsg =
+        dmChannel?.messages?.cache?.get(messageId) ||
+        (await dmChannel?.messages?.fetch?.(messageId).catch(() => null));
+    }
+    if (!dmMsg) {
+      const owner = await getUserCached(client, request.ownerId);
+      const dmChannel =
+        owner?.dmChannel ||
+        (typeof owner?.createDM === "function" ? await owner.createDM().catch(() => null) : null) ||
+        (typeof client?.users?.createDM === "function" ? await client.users.createDM(request.ownerId).catch(() => null) : null);
+      dmMsg =
+        dmChannel?.messages?.cache?.get(request.dmMessageId) ||
+        (await dmChannel?.messages?.fetch?.(request.dmMessageId).catch(() => null));
+    }
     if (dmMsg) {
       await dmMsg
         .edit({
@@ -717,16 +848,9 @@ async function handleRoleActionButton(interaction) {
     }
 
     const ownerDoc = await CustomRole.findOne({ guildId: interaction.guild.id, userId: ownerId, }).lean().catch(() => null);
-    const me = interaction.guild?.members?.me || interaction.guild?.members?.cache?.get(interaction.client.user.id);
-    const canManageChannels = Boolean(me?.permissions?.has(PermissionsBitField.Flags.ManageChannels),);
-    if (canManageChannels) {
-      const linkedVoice = (ownerDoc?.customVocChannelId ? await getGuildChannelCached(interaction.guild, ownerDoc.customVocChannelId) : null) || findCustomVoiceByRole(interaction.guild, role.id);
-      if (linkedVoice) {
-        await linkedVoice
-          .delete(`Vocale privata personalizzata eliminato da ${interaction.user.tag}`)
-          .catch(() => { });
-      }
-    }
+    const isSecondary = String(roleId) === String(ownerDoc?.secondaryRoleId || "");
+    const hadSecondary = Boolean(ownerDoc?.secondaryRoleId);
+    // La vocale è indipendente (Elimina Vocale): non cascata su delete ruolo.
 
     const roleName = role.name;
     const roleDeleted = await role
@@ -737,8 +861,6 @@ async function handleRoleActionButton(interaction) {
       await interaction.reply({ content: "<:VC_Attention:1482534443632558151> Non sono riuscito a eliminare il ruolo. Controlla gerarchia e permessi.", flags: 1 << 6 }).catch(() => { });
       return true;
     }
-    const isSecondary = String(roleId) === String(ownerDoc?.secondaryRoleId || "");
-    const hadSecondary = Boolean(ownerDoc?.secondaryRoleId);
     const updatePayload = isSecondary
       ? { $set: { secondaryRoleId: null } }
       : hadSecondary
@@ -749,7 +871,8 @@ async function handleRoleActionButton(interaction) {
       updatePayload,
     ).catch(() => { });
 
-    const panelPayload = await buildPanelPayload(interaction.guild, ownerId, interaction.client, "customrole");
+    const panelSection = isSecondary ? "customrole_secondary" : "customrole";
+    const panelPayload = await buildPanelPayload(interaction.guild, ownerId, interaction.client, panelSection);
     const deferred = await interaction.deferUpdate().then(() => true).catch(() => false);
     if (deferred) {
       await interaction.message?.edit?.(panelPayload).catch(() => { });
@@ -920,7 +1043,7 @@ async function handleRoleActionModal(interaction) {
 
   if (action === "name") {
     const cleaned = String(value).replace(/\s+/g, " ").trim();
-    const name = (cleaned.startsWith("༄") ? cleaned : `༄ ${cleaned}`).slice(0, 32).trim();
+    const name = (cleaned.startsWith("༄") ? cleaned : `༄ ${cleaned}`).slice(0, 100).trim();
     if (!name) {
       await interaction
         .reply({
@@ -1494,7 +1617,10 @@ async function handleAddRemoveSelectMenus(interaction) {
     await channel.permissionOverwrites.edit(
       targetId,
       CUSTOM_VOC_MEMBER_PERMS,
-      { reason: `Custom voc grant by ${interaction.user?.tag || interaction.user?.id}` },
+      {
+        reason: `Custom voc grant by ${interaction.user?.tag || interaction.user?.id}`,
+        type: OverwriteType.Member,
+      },
     ).catch(() => {});
     await interaction.update({
       embeds: [
@@ -1546,6 +1672,28 @@ async function handleAddRemoveSelectMenus(interaction) {
   }
 
   return false;
+}
+
+async function refreshProfileCustomReactionPanel(interaction, ownerId, { updateInteraction = false } = {}) {
+  const payload = await buildPanelPayload(
+    interaction.guild,
+    ownerId,
+    interaction.client,
+    "customreaction",
+  ).catch(() => null);
+  if (!payload) return false;
+  if (updateInteraction) {
+    await interaction.update(payload).catch(async () => {
+      if (interaction.message) {
+        await safeMessageEdit(interaction.message, payload, interaction).catch(() => {});
+      }
+    });
+    return true;
+  }
+  if (interaction.message) {
+    await safeMessageEdit(interaction.message, payload, interaction).catch(() => {});
+  }
+  return true;
 }
 
 async function handleCustomReactionButton(interaction) {
@@ -1609,12 +1757,8 @@ async function handleCustomReactionButton(interaction) {
         ).catch(() => {});
       }
 
-      // Update Panel
-      if (interaction.message) {
-        const embed = buildCustomReactionPanelEmbed(next, maxReactions);
-        const rows = buildCustomReactionPanelRows(ownerId);
-        await interaction.message.edit({ embeds: [embed], components: rows }).catch(() => {});
-      }
+      // Refresh del pannello +profile completo (non solo l'embed reaction).
+      await refreshProfileCustomReactionPanel(interaction, ownerId);
 
       // Cleanup
       await m.delete().catch(() => {});
@@ -1634,9 +1778,7 @@ async function handleCustomReactionButton(interaction) {
 
   if (action === "clear") {
     await MentionReaction.deleteOne({ guildId, userId: ownerId }).catch(() => {});
-    const embed = buildCustomReactionPanelEmbed([], Number(ownerState.maxReactions) || MAX_REACTIONS);
-    const rows = buildCustomReactionPanelRows(ownerId);
-    await interaction.update({ embeds: [embed], components: rows }).catch(() => {});
+    await refreshProfileCustomReactionPanel(interaction, ownerId, { updateInteraction: true });
     return true;
   }
 
@@ -1699,11 +1841,7 @@ async function handleCustomReactionModal(interaction) {
     content: "<:vegacheckmark:1443666279058772028> Reaction aggiornate.",
   }).catch(() => {});
 
-  if (interaction.message) {
-    const embed = buildCustomReactionPanelEmbed(next, maxReactions);
-    const rows = buildCustomReactionPanelRows(ownerId);
-    await interaction.message.edit({ embeds: [embed], components: rows }).catch(() => {});
-  }
+  await refreshProfileCustomReactionPanel(interaction, ownerId);
   return true;
 }
 
@@ -1762,9 +1900,13 @@ async function handleCustomReactionSelect(interaction) {
   if (ch?.messages?.fetch) {
     const panelMessage = await ch.messages.fetch(panelMessageId).catch(() => null);
     if (panelMessage) {
-      const embed = buildCustomReactionPanelEmbed(next, maxReactions);
-      const rows = buildCustomReactionPanelRows(ownerId);
-      await panelMessage.edit({ embeds: [embed], components: rows }).catch(() => {});
+      const payload = await buildPanelPayload(
+        interaction.guild,
+        ownerId,
+        interaction.client,
+        "customreaction",
+      ).catch(() => null);
+      if (payload) await safeMessageEdit(panelMessage, payload, interaction).catch(() => {});
     }
   }
   return true;
@@ -2203,8 +2345,7 @@ async function handleSiteRoleRequestButtons(interaction) {
   const parts = String(interaction.customId || "").split(":");
   const token = String(parts[1] || "").trim();
   const action = String(parts[2] || "").trim().toLowerCase();
-  ensurePendingLoaded();
-  const request = pendingSiteRoleRequests.get(token);
+  const request = await resolvePendingSiteRoleRequest(token);
   if (!request) {
     await interaction
       .reply({ content: "<:VC_Refresh:1473359252276904203> Questa richiesta non è più disponibile.", flags: PRIVATE_FLAG })
@@ -2233,7 +2374,7 @@ async function handleSiteRoleRequestButtons(interaction) {
   };
 
   if (Date.now() > Number(request.expiresAt || 0)) {
-    pendingSiteRoleRequests.delete(token);
+    await deletePendingSiteRoleRequest(token);
     persistPendingNow();
     await updateMessage({
       embeds: [
@@ -2256,7 +2397,7 @@ async function handleSiteRoleRequestButtons(interaction) {
   const requesterUser = await getUserCached(interaction.client, request.requesterId);
 
   if (action === "reject") {
-    pendingSiteRoleRequests.delete(token);
+    await deletePendingSiteRoleRequest(token);
     persistPendingNow();
     await updateMessage({
       embeds: [
@@ -2285,7 +2426,7 @@ async function handleSiteRoleRequestButtons(interaction) {
   }
 
   if (!guild || !role || !requesterMember || !ownerMember) {
-    pendingSiteRoleRequests.delete(token);
+    await deletePendingSiteRoleRequest(token);
     persistPendingNow();
     await updateMessage({
       embeds: [
@@ -2300,14 +2441,14 @@ async function handleSiteRoleRequestButtons(interaction) {
   }
 
   if (requesterMember.roles.cache.has(role.id)) {
-    pendingSiteRoleRequests.delete(token);
+    await deletePendingSiteRoleRequest(token);
     persistPendingNow();
     await updateMessage({
       embeds: [
         new EmbedBuilder()
           .setColor("#60a5fa")
           .setTitle("<:VC_Refresh:1473359252276904203> Richiesta già soddisfatta")
-          .setDescription(`${requesterMember} possiede già il ruolo **${role.name}**.`),
+          .setDescription(`<@${request.requesterId}> possiede già il ruolo **${role.name}**.`),
       ],
       components: [disabledRow],
     });
@@ -2319,7 +2460,7 @@ async function handleSiteRoleRequestButtons(interaction) {
     !me?.permissions?.has(PermissionsBitField.Flags.ManageRoles) ||
     role.position >= me.roles.highest.position
   ) {
-    pendingSiteRoleRequests.delete(token);
+    await deletePendingSiteRoleRequest(token);
     persistPendingNow();
     await updateMessage({
       embeds: [
@@ -2337,7 +2478,7 @@ async function handleSiteRoleRequestButtons(interaction) {
     .add(role.id, `Custom role request approved by ${ownerMember.user?.tag || request.ownerId}`)
     .then(() => true)
     .catch(() => false);
-  pendingSiteRoleRequests.delete(token);
+  await deletePendingSiteRoleRequest(token);
   persistPendingNow();
 
   if (!granted) {
@@ -2358,7 +2499,7 @@ async function handleSiteRoleRequestButtons(interaction) {
       new EmbedBuilder()
         .setColor("#2ecc71")
         .setTitle("<:success:1461731530333229226> Richiesta approvata")
-        .setDescription(`${requesterMember} ha ricevuto il ruolo **${role.name}**.`),
+        .setDescription(`<@${request.requesterId}> ha ricevuto il ruolo **${role.name}**.`),
     ],
     components: [disabledRow],
   });
@@ -2426,12 +2567,13 @@ async function handleCustomProfilePromptMessage(message) {
       return done(resolved.reason === "no_manage_role" ? "<:VC_Attention:1482534443632558151> Non posso modificare questo ruolo." : "<:VC_Attention:1482534443632558151> Ruolo non trovato, riapri `+profile`.");
     }
     const role = resolved.role;
+    const refreshSection = customRolePanelSectionForRoleId(resolved.state, pending.roleId);
     if (type === "role_name") {
       const cleaned = rawLine.replace(/\s+/g, " ").trim();
-      const name = (cleaned.startsWith("༄") ? cleaned : `༄ ${cleaned}`).slice(0, 32).trim();
+      const name = (cleaned.startsWith("༄") ? cleaned : `༄ ${cleaned}`).slice(0, 100).trim();
       if (!name) return false;
       const edited = await role.edit({ name }, `Custom role rename by ${message.author?.tag || message.author?.id}`).then(() => true).catch(() => false);
-      return done(edited ? `<:success:1461731530333229226> Nome aggiornato: **${name}**` : "<:VC_Attention:1482534443632558151> Non sono riuscito ad aggiornare il nome del ruolo.", "customrole");
+      return done(edited ? `<:success:1461731530333229226> Nome aggiornato: **${name}**` : "<:VC_Attention:1482534443632558151> Non sono riuscito ad aggiornare il nome del ruolo.", refreshSection);
     }
     if (type === "role_color") {
       const member = await message.guild.members.fetch(pending.ownerId).catch(() => null);
@@ -2439,7 +2581,7 @@ async function handleCustomProfilePromptMessage(message) {
         if (!memberHasCustomRoleGradientHoloAccess(member)) return done(GRADIENT_HOLO_DENIED_MSG);
         const HOLO = { primaryColor: 11127295, secondaryColor: 16759788, tertiaryColor: 16761760 };
         const edited = await role.edit({ colors: HOLO }, `Custom role holographic by ${message.author?.tag || message.author?.id}`).then(() => true).catch(() => false);
-        return done(edited ? "<:success:1461731530333229226> Stile olografico applicato." : "<:VC_Attention:1482534443632558151> Non sono riuscito ad applicare lo stile olografico.", "customrole");
+        return done(edited ? "<:success:1461731530333229226> Stile olografico applicato." : "<:VC_Attention:1482534443632558151> Non sono riuscito ad applicare lo stile olografico.", refreshSection);
       }
       const hexes = rawLine.match(/#?[0-9a-fA-F]{6}/g) || [];
       const hex1 = normalizeHex(hexes[0]);
@@ -2448,16 +2590,16 @@ async function handleCustomProfilePromptMessage(message) {
       if (hex2) {
         if (!memberHasCustomRoleGradientHoloAccess(member)) return done(GRADIENT_HOLO_DENIED_MSG);
         const edited = await role.edit({ colors: { primaryColor: hex1, secondaryColor: hex2 } }, `Custom role gradient by ${message.author?.tag || message.author?.id}`).then(() => true).catch(() => false);
-        return done(edited ? `<:success:1461731530333229226> Gradiente aggiornato: \`${hex1}\` → \`${hex2}\`` : "<:VC_Attention:1482534443632558151> Non sono riuscito ad applicare il gradiente.", "customrole");
+        return done(edited ? `<:success:1461731530333229226> Gradiente aggiornato: \`${hex1}\` → \`${hex2}\`` : "<:VC_Attention:1482534443632558151> Non sono riuscito ad applicare il gradiente.", refreshSection);
       }
       const edited = await role.edit({ colors: { primaryColor: hex1 } }, `Custom role color by ${message.author?.tag || message.author?.id}`).then(() => true).catch(() => false);
-      return done(edited ? `<:success:1461731530333229226> Colore aggiornato: \`${hex1}\`` : "<:VC_Attention:1482534443632558151> Non sono riuscito ad aggiornare il colore del ruolo.", "customrole");
+      return done(edited ? `<:success:1461731530333229226> Colore aggiornato: \`${hex1}\`` : "<:VC_Attention:1482534443632558151> Non sono riuscito ad aggiornare il colore del ruolo.", refreshSection);
     }
     if (type === "role_emoji") {
       const input = extractRoleIconInputFromMessage(message) || rawLine;
       if (!input) return false;
       const result = await applyRoleIconValue(message, role, input);
-      return done(result.content, "customrole");
+      return done(result.content, refreshSection);
     }
     if (type === "role_add" || type === "role_remove") {
       const targetId = extractMentionOrId(message);
@@ -2494,13 +2636,21 @@ async function handleCustomProfilePromptMessage(message) {
     const channelId = String(pending.vocChannelId || "");
     const channel = message.guild?.channels?.cache?.get(channelId) || (await message.guild?.channels?.fetch(channelId).catch(() => null));
     if (!channel || channel.type !== ChannelType.GuildVoice) return done("<:VC_Attention:1482534443632558151> Canale vocale non trovato.", "customvoc");
+    const ownerDoc = await CustomRole.findOne({ guildId: message.guild.id, userId: ownerId }, { customVocEmoji: 1, customVocChannelId: 1 }).lean().catch(() => null);
+    const linkedInDb = String(ownerDoc?.customVocChannelId || "").trim() === channelId;
     const ownerOverwrite = channel.permissionOverwrites?.cache?.get?.(ownerId);
-    if (!ownerOverwrite?.allow?.has(PermissionsBitField.Flags.ManageChannels)) {
+    const looksLikeOwner =
+      Boolean(ownerOverwrite?.allow?.has(PermissionsBitField.Flags.ManageChannels)) ||
+      Boolean(ownerOverwrite?.allow?.has(PermissionsBitField.Flags.MoveMembers));
+    // ManageChannels è solo mentre il creatore è in vocale; fuori resta MoveMembers (baseline).
+    if (!linkedInDb && !looksLikeOwner) {
       return done("<:VC_Attention:1482534443632558151> Questa vocale non risulta più collegata al tuo profilo.", "customvoc");
+    }
+    if (linkedInDb && !looksLikeOwner) {
+      await applyOverwrite(channel, ownerId, CUSTOM_VOC_OWNER_BASE_PERMS, "Custom voc: ripristino permessi proprietario").catch(() => false);
     }
     const me = message.guild?.members?.me || message.guild?.members?.cache?.get(message.client.user.id);
     if (!me?.permissions?.has(PermissionsBitField.Flags.ManageChannels)) return done("<:VC_Attention:1482534443632558151> Mi serve il permesso Gestisci Canali.");
-    const ownerDoc = await CustomRole.findOne({ guildId: message.guild.id, userId: ownerId }, { customVocEmoji: 1 }).lean().catch(() => null);
     if (type === "voc_name") {
       const parsedCurrent = parseCustomVocName(channel.name || "");
       const preservedEmoji = parsedCurrent.emoji || ownerDoc?.customVocEmoji || "🎧";
@@ -2536,7 +2686,10 @@ async function handleCustomProfilePromptMessage(message) {
       if (!targetId) return false;
       if (targetId === ownerId || targetId === String(message.client.user?.id || "")) return done("<:VC_Attention:1482534443632558151> Non puoi usare questa azione su proprietario o bot.");
       if (type === "voc_add") {
-        await channel.permissionOverwrites.edit(targetId, CUSTOM_VOC_MEMBER_PERMS, { reason: `Custom voc grant by ${message.author?.tag || message.author?.id}` }).catch(() => {});
+        await channel.permissionOverwrites.edit(targetId, CUSTOM_VOC_MEMBER_PERMS, {
+          reason: `Custom voc grant by ${message.author?.tag || message.author?.id}`,
+          type: OverwriteType.Member,
+        }).catch(() => {});
         return done(`<:thumbsup:1471292172145004768> <@${targetId}> ora può accedere alla tua custom voc.`);
       }
       await channel.permissionOverwrites.delete(targetId, `Custom voc revoke by ${message.author?.tag || message.author?.id}`).catch(() => {});

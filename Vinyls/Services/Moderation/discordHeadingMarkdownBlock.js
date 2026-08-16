@@ -32,6 +32,8 @@ function memberHasPatronRole(member) {
  */
 async function maybeBlockDiscordHeadingMarkdown(message) {
   if (!message?.guild || message.system) return false;
+  // Server test: niente blocco titoli `#` (usato per bozze / annunci).
+  if (String(message.guild.id) === String(IDs.guilds?.test || "")) return false;
   if (message.author?.bot || message.webhookId) return false;
   const channel = message.channel;
   if (!channel?.isTextBased?.()) return false;

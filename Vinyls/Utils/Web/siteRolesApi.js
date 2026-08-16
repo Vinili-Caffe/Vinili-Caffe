@@ -1,9 +1,12 @@
 const IDs = require("../Config/ids");
 const { CustomRole } = require("../../Schemas/Community/communitySchemas");
 const { userAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
+const { isHogwartsSystemRoleId } = require("./hogwartsSortingConfig");
+const { collectBlockedSystemRoleIds, isListableUserCustomRole } = require("../Community/userCustomRoleFilter");
 
 const CACHE_TTL_MS = 30_000;
 let cache = { at: 0, payload: null };
+const BLOCKED_ROLE_IDS = collectBlockedSystemRoleIds();
 
 function resolveGuildId(client) {
   return String(client?.config?.mainGuildId || IDs.guilds?.main || "").trim();
@@ -166,7 +169,15 @@ async function handleSiteRolesGet(client, req, res) {
     }
 
     await guild.roles.fetch().catch(() => null);
-    await guild.members.fetch().catch(() => null);
+    const membersFetchResult = await guild.members.fetch().catch((err) => {
+      global.logger?.warn?.("[WEBHOOK] site-roles members.fetch failed:", err?.message || err);
+      return null;
+    });
+    if (!membersFetchResult || !(guild.members?.cache?.size > 1)) {
+      global.logger?.warn?.(
+        `[WEBHOOK] site-roles members cache thin: size=${guild.members?.cache?.size || 0}`,
+      );
+    }
 
     const docs = await CustomRole.find({ guildId }).lean().catch(() => []);
     const filtered = (Array.isArray(docs) ? docs : []).filter((doc) => (doc?.roleId || doc?.secondaryRoleId) && !isExpired(doc));
@@ -178,8 +189,10 @@ async function handleSiteRolesGet(client, req, res) {
         { roleId: String(doc.secondaryRoleId || "").trim(), slot: "secondary" },
       ].filter((entry) => entry.roleId);
       for (const entry of roleEntries) {
+        if (isHogwartsSystemRoleId(entry.roleId, client) || BLOCKED_ROLE_IDS.has(entry.roleId)) continue;
         const role = guild.roles.cache.get(entry.roleId) || (await guild.roles.fetch(entry.roleId).catch(() => null));
         if (!role) continue;
+        if (!isListableUserCustomRole(role, { blockedRoleIds: BLOCKED_ROLE_IDS })) continue;
 
         const identity = await fetchUserIdentity(client, guild, doc.userId);
         const createdAt =
@@ -187,22 +200,29 @@ async function handleSiteRolesGet(client, req, res) {
           snowflakeDateIso(role.id) ||
           null;
         const expiresAt = doc.expiresAt ? new Date(doc.expiresAt).toISOString() : null;
-        const memberCount = role.members ? role.members.filter((m) => !m.user?.bot).size : 0;
-        const iconUrl = typeof role.iconURL === "function" ? role.iconURL({ size: 256 }) : "";
-        const members = role.members
-          ? Array.from(role.members.values())
-            .filter((m) => !m.user?.bot)
-            .map((m) => memberIdentityFromGuildMember(m, doc.userId, guild))
-            .sort((a, b) => {
-              if (a.isOwner && !b.isOwner) return -1;
-              if (!a.isOwner && b.isOwner) return 1;
-              return String(a.username || "").localeCompare(
-                String(b.username || ""),
-                "it",
-                { sensitivity: "base" },
-              );
-            })
+        let humanMembers = role.members
+          ? Array.from(role.members.values()).filter((m) => !m.user?.bot)
           : [];
+        // Fallback: indicizza dalla cache membri se role.members è vuota (REST client / race).
+        if (humanMembers.length === 0 && guild.members?.cache?.size) {
+          humanMembers = Array.from(guild.members.cache.values()).filter(
+            (m) => !m.user?.bot && m.roles?.cache?.has?.(role.id),
+          );
+          for (const m of humanMembers) {
+            role.members?.set?.(m.id, m);
+          }
+        }
+        const memberCount = humanMembers.length;
+        const iconUrl = typeof role.iconURL === "function" ? role.iconURL({ size: 256 }) : "";
+        const members = humanMembers
+          .map((m) => memberIdentityFromGuildMember(m, doc.userId, guild))
+          .sort((a, b) => {
+            if (a.isOwner && !b.isOwner) return -1;
+            if (!a.isOwner && b.isOwner) return 1;
+            return String(a.username || "").localeCompare(String(b.username || ""), "it", {
+              sensitivity: "base",
+            });
+          });
 
         rows.push({
           roleId: role.id,

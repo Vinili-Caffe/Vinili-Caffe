@@ -67,7 +67,12 @@
       }
       if (typeof window.__vcHogwartsYoutubeSetupIfConfigured === "function") {
         if (window.__vcHogwartsYoutubeSetupIfConfigured()) {
+          var musicPlayer = document.getElementById("vc-hw-music-player");
           var musicBtn = document.getElementById("vc-hw-music-btn");
+          if (musicPlayer) {
+            musicPlayer.hidden = false;
+            musicPlayer.removeAttribute("hidden");
+          }
           if (musicBtn) {
             musicBtn.hidden = false;
             musicBtn.removeAttribute("hidden");

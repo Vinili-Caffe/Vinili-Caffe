@@ -17,14 +17,27 @@ function buildResocontoStaffChannelMemberOverwrite() {
 
 async function ensureResocontoStaffChannelMemberOverwrite(channel, userId) {
   if (!channel?.permissionOverwrites?.edit || !userId) return;
+  const uid = String(userId).trim();
+  if (!/^\d{16,22}$/.test(uid)) return;
+
+  const guild = channel.guild;
+  if (!guild?.members?.fetch) return;
+
+  // Discord richiede User/Role/Member risolvibile: un snowflake “nudo” di chi non è più
+  // nel server (o non in cache) → "Supplied parameter is not a User nor a Role."
+  const member =
+    guild.members.cache.get(uid) ||
+    (await guild.members.fetch(uid).catch(() => null));
+  if (!member) return;
+
   await channel.permissionOverwrites
-    .edit(String(userId), buildResocontoStaffChannelMemberOverwrite(), {
+    .edit(member, buildResocontoStaffChannelMemberOverwrite(), {
       reason: "Accesso canale resoconti staff per revisore segmento",
     })
     .catch((err) => {
       global.logger?.warn?.(
         "[RESOCONTO STAFF CHANNEL] Overwrite utente fallito:",
-        userId,
+        uid,
         err?.message || err,
       );
     });

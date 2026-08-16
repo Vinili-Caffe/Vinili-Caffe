@@ -281,7 +281,7 @@ async function publishPremiLaReactLeaderboard(client) {
   const sent = await channel
     .send({
       content:
-        "<a:VC_Events:1482706144953897223> L'evento **Premi la reaction** è terminato. Podio e premi assegnati ai maghi più veloci:",
+        "<@&1536086666169684074>\n <a:VC_Events:1482706144953897223> L'evento **Premi la reaction** è terminato. Podio e premi assegnati ai maghi più veloci:",
       embeds: [embed],
       allowedMentions: { parse: [] },
     })

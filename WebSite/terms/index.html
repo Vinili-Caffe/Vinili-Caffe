@@ -6,7 +6,7 @@
     <title>Termini di Servizio | {{SITE_NAME}}</title>
     <meta name="description" content="Termini di Servizio del sito e del server Discord {{SITE_NAME}}." />
     <meta name="robots" content="index, follow" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="{{OG_SITE_NAME}}" />
     <meta property="og:locale" content="it_IT" />
@@ -63,7 +63,7 @@
             <details class="vc-snav-details">
               <summary class="vc-snav-summary"><span>Richieste</span><i class="fa fa-chevron-down vc-snav-chev text-[0.65rem] opacity-80" aria-hidden="true"></i></summary>
               <div class="vc-snav-panel">
-                <a class="vc-snav-row" href="{{RICHIESTE_UNBAN_URL}}"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-unlock"></i></span><span>Unban</span></a>
+                <a class="vc-snav-row" href="{{RICHIESTE_UNBAN_URL}}"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-balance-scale"></i></span><span data-i18n="nav.appeals">Appelli</span></a>
                 <a class="vc-snav-row" href="{{RICHIESTE_CANDIDATURE_URL}}"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-file-text-o"></i></span><span>Candidature</span></a>
                 <a class="vc-snav-row" href="{{RICHIESTE_SUGGERIMENTI_URL}}"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-lightbulb-o"></i></span><span>Suggerimenti</span></a>
               </div>
@@ -112,191 +112,183 @@
 
     <main class="vc-legal-main relative z-10 mx-auto max-w-5xl px-4 pb-16 pt-28 sm:pt-32">
       <section class="vc-legal-hero text-center">
-        <h1 class="vc-legal-hero__title">Termini di Servizio</h1>
-        <p class="vc-legal-hero__meta">Ultimo aggiornamento: {{LEGAL_TERMS_UPDATED}}</p>
+        <h1 class="vc-legal-hero__title" data-i18n="legal.terms.h1">Termini di Servizio</h1>
+        <p class="vc-legal-hero__meta"><span data-i18n="legal.terms.updated">Ultimo aggiornamento:</span> <span>{{LEGAL_TERMS_UPDATED}}</span></p>
       </section>
 
       <section class="vc-legal-stack" aria-label="Sezioni Termini di Servizio">
         <article class="vc-legal-card vc-legal-card--blue">
           <div class="vc-legal-card__head">
             <span class="vc-legal-card__icon" aria-hidden="true"><i class="fa fa-file-text-o"></i></span>
-            <h2 class="vc-legal-card__title">Accettazione dei termini</h2>
+            <h2 class="vc-legal-card__title" data-i18n="legal.terms.s1.title">Accettazione dei termini</h2>
           </div>
-          <p>
-            Utilizzando il sito web <strong>{{SITE_NAME}}</strong> (&quot;Sito&quot;) e il server Discord associato (&quot;Server&quot;), accetti i presenti Termini di Servizio. Se non accetti questi termini, non utilizzare il Sito, il Server o le funzioni collegate come profilo, ruoli, voto, recensioni, candidature, unban, notifiche e moduli.
-          </p>
-          <p>
-            L&apos;uso continuato del Sito o del Server dopo la pubblicazione di aggiornamenti costituisce accettazione delle modifiche.
-          </p>
+          <div data-i18n-html="legal.terms.s1.body">
+          <p>Utilizzando il sito web <strong>{{SITE_NAME}}</strong> ("Sito"), i bot Discord collegati ("Bot") e i server Discord associati o ospiti dove i Bot sono presenti ("Server"), accetti i presenti Termini di Servizio. Se non li accetti, non usare Sito, Bot, Server, dashboard o funzioni collegate.</p>
+          <p>L’uso continuato dopo la pubblicazione di aggiornamenti costituisce accettazione delle modifiche.</p>
+          </div>
         </article>
 
         <article class="vc-legal-card vc-legal-card--cyan">
           <div class="vc-legal-card__head">
             <span class="vc-legal-card__icon" aria-hidden="true"><i class="fa fa-gamepad"></i></span>
-            <h2 class="vc-legal-card__title">Descrizione del servizio</h2>
+            <h2 class="vc-legal-card__title" data-i18n="legal.terms.s2.title">Descrizione del servizio</h2>
           </div>
-          <p>{{SITE_NAME}} offre una community Discord e un sito di supporto con funzioni come:</p>
+          <div data-i18n-html="legal.terms.s2.body">
+          <p>{{SITE_NAME}} offre una community Discord e servizi collegati, tra cui:</p>
           <ul class="vc-legal-list">
-            <li>Server Discord per socializzazione, attivit&agrave; di community, eventi e supporto.</li>
-            <li>Bot e automazioni per livelli, statistiche, ruoli, ticket, moderazione e funzioni interne.</li>
-            <li>Pagine web per voto, leaderboard utenti, ruoli, profilo, personalizzazione rank, recensioni e wiki.</li>
-            <li>Moduli o sezioni dedicate a candidature staff, richieste unban, notifiche e contatti.</li>
-            <li>Integrazioni con servizi terzi come Discord, piattaforme di voto, email o directory esterne.</li>
+          <li>Server Discord per socializzazione, eventi, supporto e attività di community.</li>
+          <li>Bot pubblici/multi-server (musica, TTS/voice, livelli, ticket, moderazione, partnership, utility) configurabili anche da dashboard web.</li>
+          <li>Pagine web per voto, profilo, ruoli, wiki, candidature, unban, notifiche, suggerimenti, recensioni, feedback bot e ticket di supporto live.</li>
+          <li>Aree riservate per staff e amministratori (strumenti operativi e configurazione).</li>
+          <li>Integrazioni con Discord, piattaforme di voto e altri provider tecnici necessari al servizio.</li>
           </ul>
-          <p>
-            Possiamo modificare, sospendere o rimuovere in qualsiasi momento parti del servizio, del sito, dei bot o del Server.
-          </p>
+          <p>Possiamo modificare, sospendere o rimuovere in qualsiasi momento parti del servizio, del sito, dei bot o dei Server.</p>
+          </div>
         </article>
 
         <article class="vc-legal-card vc-legal-card--green">
           <div class="vc-legal-card__head">
             <span class="vc-legal-card__icon" aria-hidden="true"><i class="fa fa-check-circle-o"></i></span>
-            <h2 class="vc-legal-card__title">Requisiti di accesso</h2>
+            <h2 class="vc-legal-card__title" data-i18n="legal.terms.s3.title">Requisiti di accesso</h2>
           </div>
+          <div data-i18n-html="legal.terms.s3.body">
           <p>Per usare i nostri servizi devi:</p>
           <ul class="vc-legal-list">
-            <li>Avere l&apos;et&agrave; minima richiesta da Discord e rispettare i <a href="https://discord.com/terms" target="_blank" rel="noopener noreferrer">Termini di servizio di Discord</a>.</li>
-            <li>Usare un account Discord valido e non compromesso.</li>
-            <li>Fornire dati corretti quando invii candidature, richieste, recensioni o altri moduli.</li>
-            <li>Mantenere sicuro il tuo account e non condividerlo per aggirare controlli o limitazioni.</li>
-            <li>Rispettare questi termini, la <a href="{{PRIVACY_URL}}">Privacy Policy</a>, la <a href="{{COOKIE_POLICY_URL}}">Cookie Policy</a> e le regole del server.</li>
+          <li>Avere l'età minima richiesta da Discord e rispettare i Termini di servizio di Discord.</li>
+          <li>Usare un account Discord valido e non compromesso.</li>
+          <li>Fornire dati corretti quando invii candidature, richieste, recensioni o altri moduli.</li>
+          <li>Mantenere sicuro il tuo account e non condividerlo per aggirare controlli o limitazioni.</li>
+          <li>Rispettare questi termini, la Privacy Policy, la Cookie Policy e le regole del server.</li>
           </ul>
+          </div>
         </article>
 
         <article class="vc-legal-card vc-legal-card--red">
           <div class="vc-legal-card__head">
             <span class="vc-legal-card__icon" aria-hidden="true"><i class="fa fa-exclamation-triangle"></i></span>
-            <h2 class="vc-legal-card__title">Regole di comportamento</h2>
+            <h2 class="vc-legal-card__title" data-i18n="legal.terms.s4.title">Regole di comportamento</h2>
           </div>
+          <div data-i18n-html="legal.terms.s4.body">
           <p class="vc-legal-card__label">È vietato</p>
           <ul class="vc-legal-list">
-            <li>Violare leggi applicabili o le policy della piattaforma Discord.</li>
-            <li>Pubblicare contenuti offensivi, discriminatori, illegali o dannosi.</li>
-            <li>Molestare, minacciare, intimidire o impersonare altri utenti o membri dello staff.</li>
-            <li>Usare bot, script, macro, VPN abusive o account multipli per falsare voti, statistiche, livelli o accessi.</li>
-            <li>Tentare di compromettere sito, bot, pannelli, API, sistema notifiche o sicurezza del server.</li>
-            <li>Spammare, fare phishing, pubblicit&agrave; non autorizzata o diffondere dati personali di terzi.</li>
-            <li>Sfruttare bug o vulnerabilit&agrave; invece di segnalarli allo staff.</li>
-            <li>Aggirare ban, timeout, limitazioni o controlli di integrit&agrave; del sistema.</li>
+          <li>Violare leggi applicabili o le policy Discord.</li>
+          <li>Pubblicare contenuti offensivi, discriminatori, illegali o dannosi.</li>
+          <li>Molestare, minacciare, intimidire o impersonare altri utenti o staff.</li>
+          <li>Usare bot, script, multiaccount o VPN abusive per falsare voti, partnership, livelli, statistiche o accessi.</li>
+          <li>Abusare della dashboard, delle API, dei webhook di voto, dei ticket live sul sito o dei sistemi di migrazione/configurazione.</li>
+          <li>Registrare o diffondere audio altrui senza base legittima, o usare TTS/voice per molestie.</li>
+          <li>Tentare di compromettere sito, bot, pannelli o sicurezza dei server.</li>
+          <li>Spammare, fare phishing, pubblicità non autorizzata o diffondere dati personali di terzi.</li>
+          <li>Sfruttare bug invece di segnalarli allo staff, o aggirare ban/timeout/limitazioni.</li>
           </ul>
+          </div>
         </article>
 
         <article class="vc-legal-card vc-legal-card--purple">
           <div class="vc-legal-card__head">
             <span class="vc-legal-card__icon" aria-hidden="true"><i class="fa fa-check-square-o"></i></span>
-            <h2 class="vc-legal-card__title">Sistema di voto</h2>
+            <h2 class="vc-legal-card__title" data-i18n="legal.terms.s5.title">Sistema di voto</h2>
           </div>
+          <div data-i18n-html="legal.terms.s5.body">
           <ul class="vc-legal-list">
-            <li>I voti devono essere reali, leciti e conformi alle regole delle piattaforme esterne collegate.</li>
-            <li>Non &egrave; consentito usare bot, multiaccount, VPN abusive o metodi automatici per ottenere ricompense.</li>
-            <li>I punti, i progressi, le ricompense o le classifiche possono essere corretti, annullati o revocati in caso di abuso.</li>
-            <li>I servizi di voto possono dipendere da provider terzi e potrebbero cambiare senza preavviso.</li>
+          <li>I voti devono essere reali e conformi alle regole delle piattaforme esterne (es. top.gg, Discadia).</li>
+          <li>Non è consentito usare bot, multiaccount, VPN abusive o metodi automatici per ottenere ricompense.</li>
+          <li>I punti/progressi/ricompense possono essere corretti o annullati in caso di abuso.</li>
+          <li>I webhook di voto possono elaborare il tuo ID Discord per assegnare ricompense; i servizi terzi possono cambiare senza preavviso.</li>
           </ul>
+          </div>
         </article>
 
         <article class="vc-legal-card vc-legal-card--teal">
           <div class="vc-legal-card__head">
             <span class="vc-legal-card__icon" aria-hidden="true"><i class="fa fa-shield"></i></span>
-            <h2 class="vc-legal-card__title">Candidature staff</h2>
+            <h2 class="vc-legal-card__title" data-i18n="legal.terms.s6.title">Candidature staff</h2>
           </div>
+          <div data-i18n-html="legal.terms.s6.body">
           <ul class="vc-legal-list">
-            <li>Le candidature sono valutate dallo staff a propria discrezione.</li>
-            <li>L&apos;invio di una candidatura non garantisce risposta, accettazione o ingresso nello staff.</li>
-            <li>Informazioni false, spam o abusi nei moduli possono comportare rifiuto o sanzioni.</li>
-            <li>I ruoli staff possono essere rimossi in qualsiasi momento per organizzazione interna o violazioni.</li>
-            <li>I ruoli staff non attribuiscono diritti legali, economici o propriet&agrave; sul server o sul sito.</li>
+          <li>Le candidature sono valutate dallo staff a propria discrezione.</li>
+          <li>L'invio di una candidatura non garantisce risposta, accettazione o ingresso nello staff.</li>
+          <li>Informazioni false, spam o abusi nei moduli possono comportare rifiuto o sanzioni.</li>
+          <li>I ruoli staff possono essere rimossi in qualsiasi momento per organizzazione interna o violazioni.</li>
+          <li>I ruoli staff non attribuiscono diritti legali, economici o proprietà sul server o sul sito.</li>
           </ul>
+          </div>
         </article>
 
         <article class="vc-legal-card vc-legal-card--cyan">
           <div class="vc-legal-card__head">
             <span class="vc-legal-card__icon" aria-hidden="true"><i class="fa fa-copyright"></i></span>
-            <h2 class="vc-legal-card__title">Proprietà intellettuale</h2>
+            <h2 class="vc-legal-card__title" data-i18n="legal.terms.s7.title">Proprietà intellettuale</h2>
           </div>
-          <p>Tutti i contenuti del sito, inclusi:</p>
-          <ul class="vc-legal-list">
-            <li>Design, grafica, testo, interfacce e componenti del sito.</li>
-            <li>Codice sorgente, script, API, bot e automazioni proprietarie.</li>
-            <li>Nomi, loghi, marchi, asset visivi e materiali pubblicati dallo staff.</li>
-            <li>Documentazione, wiki e materiali informativi interni.</li>
-          </ul>
-          <p>
-            Restano di propriet&agrave; di {{SITE_NAME}} o dei rispettivi titolari. Non puoi copiare, rivendere, distribuire o riutilizzare tali contenuti senza autorizzazione.
-          </p>
+          <div data-i18n-html="legal.terms.s7.body">
+          <p>Tutti i contenuti del sito (design, grafica, testo, codice, bot, loghi, wiki) restano di proprietà di {{SITE_NAME}} o dei rispettivi titolari. Non puoi copiare, rivendere, distribuire o riutilizzare tali contenuti senza autorizzazione.</p>
+          </div>
         </article>
 
         <article class="vc-legal-card vc-legal-card--indigo">
           <div class="vc-legal-card__head">
             <span class="vc-legal-card__icon" aria-hidden="true"><i class="fa fa-comment-o"></i></span>
-            <h2 class="vc-legal-card__title">Contenuti utente</h2>
+            <h2 class="vc-legal-card__title" data-i18n="legal.terms.s8.title">Contenuti utente</h2>
           </div>
-          <p>Pubblicando messaggi, recensioni, candidature o altri contenuti sul server o sul sito:</p>
+          <div data-i18n-html="legal.terms.s8.body">
+          <p>Pubblicando messaggi, media, recensioni, suggerimenti, feedback, ticket, candidature o altri contenuti sul Server o sul Sito:</p>
           <ul class="vc-legal-list">
-            <li>Mantieni la titolarit&agrave; dei tuoi contenuti, salvo limiti di legge o policy della piattaforma.</li>
-            <li>Ci concedi una licenza limitata al funzionamento del servizio, alla moderazione e alla pubblicazione tecnica necessaria.</li>
-            <li>Garantisci di avere il diritto di condividere ci&ograve; che pubblichi.</li>
-            <li>Resti responsabile del contenuto che invii o rendi visibile agli altri utenti.</li>
+          <li>Mantieni la titolarità dei tuoi contenuti, salvo limiti di legge o policy Discord.</li>
+          <li>Ci concedi una licenza limitata al funzionamento del servizio, moderazione, pubblicazione tecnica e, dove attivo, generazione automatica di contenuti (sistema Markov statistico) a partire da messaggi pubblici della community.</li>
+          <li>Accetti che i ticket e i contenuti di supporto sul sito siano visibili allo staff autorizzato per gestire la richiesta.</li>
+          <li>Garantisci di avere il diritto di condividere ciò che pubblichi.</li>
+          <li>Resti responsabile del contenuto che invii.</li>
           </ul>
+          </div>
         </article>
 
         <article class="vc-legal-card vc-legal-card--green">
           <div class="vc-legal-card__head">
             <span class="vc-legal-card__icon" aria-hidden="true"><i class="fa fa-shield"></i></span>
-            <h2 class="vc-legal-card__title">Moderazione e sanzioni</h2>
+            <h2 class="vc-legal-card__title" data-i18n="legal.terms.s9.title">Moderazione e sanzioni</h2>
           </div>
-          <p>Lo staff pu&ograve;:</p>
-          <ul class="vc-legal-list">
-            <li>Moderare, nascondere, modificare o rimuovere contenuti inappropriati o contrari alle regole.</li>
-            <li>Applicare warn, timeout, kick, ban, revoca di ruoli o limitazioni di accesso.</li>
-            <li>Bloccare o invalidare accessi a sistemi, funzioni web, richieste o vantaggi ottenuti abusivamente.</li>
-            <li>Prendere decisioni finali sulle dispute interne relative al servizio.</li>
-          </ul>
-          <p>
-            Le sanzioni possono essere temporanee o permanenti e dipendono dalla gravit&agrave;, dal contesto e dalla recidiva.
-          </p>
+          <div data-i18n-html="legal.terms.s9.body">
+          <p>Lo staff può moderare o rimuovere contenuti, applicare warn/timeout/kick/ban, bloccare accessi ottenuti abusivamente e decidere sulle dispute interne. Le sanzioni possono essere temporanee o permanenti in base a gravità, contesto e recidiva.</p>
+          </div>
         </article>
 
         <article class="vc-legal-card vc-legal-card--gold">
           <div class="vc-legal-card__head">
             <span class="vc-legal-card__icon" aria-hidden="true"><i class="fa fa-balance-scale"></i></span>
-            <h2 class="vc-legal-card__title">Limitazione di responsabilità</h2>
+            <h2 class="vc-legal-card__title" data-i18n="legal.terms.s10.title">Limitazione di responsabilità</h2>
           </div>
+          <div data-i18n-html="legal.terms.s10.body">
           <p class="vc-legal-card__label">{{SITE_NAME}} non è responsabile per</p>
           <ul class="vc-legal-list">
-            <li>Perdita di dati, statistiche, progressi, livelli, preferenze o contenuti.</li>
-            <li>Interruzioni del servizio, manutenzioni, downtime o modifiche ai sistemi.</li>
-            <li>Azioni di altri utenti, contenuti di terze parti o servizi esterni collegati.</li>
-            <li>Danni indiretti, consequenziali o derivanti da uso improprio del servizio.</li>
-            <li>Limitazioni, modifiche o indisponibilit&agrave; imposte da Discord o da provider terzi.</li>
+          <li>Perdita di dati, statistiche, progressi, livelli, preferenze o contenuti.</li>
+          <li>Interruzioni del servizio, manutenzioni, downtime o modifiche ai sistemi.</li>
+          <li>Azioni di altri utenti, contenuti di terze parti o servizi esterni collegati.</li>
+          <li>Errori o imprecisioni di trascrizioni automatiche, messaggi Markov o altri strumenti automatici.</li>
+          <li>Danni indiretti, consequenziali o derivanti da uso improprio del servizio.</li>
+          <li>Limitazioni, modifiche o indisponibilità imposte da Discord o da provider terzi.</li>
           </ul>
-          <p class="vc-legal-card__strong">Il servizio è fornito &quot;così com&apos;è&quot;, senza garanzie di disponibilità continua o risultati specifici.</p>
+          <p class="vc-legal-card__strong">Il servizio è fornito "così com'è", senza garanzie di disponibilità continua o risultati specifici.</p>
+          </div>
         </article>
 
         <article class="vc-legal-card vc-legal-card--indigo">
           <div class="vc-legal-card__head">
             <span class="vc-legal-card__icon" aria-hidden="true"><i class="fa fa-commenting-o"></i></span>
-            <h2 class="vc-legal-card__title">Termini di servizio Discord</h2>
+            <h2 class="vc-legal-card__title" data-i18n="legal.terms.s11.title">Termini di servizio Discord</h2>
           </div>
-          <p>
-            Il nostro server &egrave; ospitato su Discord. Usandolo accetti anche i <a href="https://discord.com/terms" target="_blank" rel="noopener noreferrer">Termini di servizio di Discord</a> e la loro <a href="https://discord.com/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a>. Se una funzione dipende da Discord, prevalgono le loro regole e limitazioni tecniche.
-          </p>
-          <p>
-            La durata della sessione di accesso al sito dipende dal token OAuth rilasciato da Discord e pu&ograve; variare nel tempo in base alle policy del provider.
-          </p>
+          <div data-i18n-html="legal.terms.s11.body">
+          <p>Il nostro server è ospitato su Discord. Usandolo accetti anche i Termini di servizio di Discord e la loro Privacy Policy. Se una funzione dipende da Discord, prevalgono le loro regole e limitazioni tecniche. La durata della sessione di accesso al sito dipende dal token OAuth rilasciato da Discord.</p>
+          </div>
         </article>
 
         <article class="vc-legal-card vc-legal-card--cyan">
           <div class="vc-legal-card__head">
             <span class="vc-legal-card__icon" aria-hidden="true"><i class="fa fa-envelope-o"></i></span>
-            <h2 class="vc-legal-card__title">Contatti</h2>
+            <h2 class="vc-legal-card__title" data-i18n="legal.terms.s12.title">Contatti</h2>
           </div>
-          <p>Per domande sui Termini di Servizio puoi contattarci tramite:</p>
-          <p class="vc-legal-card__contact">
-            <strong>Discord:</strong> <a href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer">{{DISCORD_INVITE_DISPLAY}}</a>
-          </p>
-          <p class="vc-legal-card__contact">
-            <strong>Email:</strong> <a href="{{SUPPORT_MAILTO}}">{{SUPPORT_EMAIL}}</a>
-          </p>
+          <div data-i18n-html="legal.terms.s12.body">
+          <p>Per domande sui Termini di Servizio puoi contattarci tramite Discord o email ({{SUPPORT_EMAIL}}).</p>
+          </div>
         </article>
       </section>
     </main>

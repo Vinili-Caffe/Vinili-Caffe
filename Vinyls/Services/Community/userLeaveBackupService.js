@@ -1,10 +1,15 @@
 const { ActivityUserProfile, UserLeaveBackup } = require("../../Schemas/Community/communitySchemas");
-const { addRolesAndGetMember, getClientGuildCached, getGuildChannelCached, getGuildMemberCached, getGuildRoleCached } = require("../../Utils/Interaction/interactionEntityCache");
+const { addRolesAndGetMember, getClientGuildCached, getGuildMemberCached, getGuildRoleCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { isValidGuildUserId } = require("../../Utils/DB/validateWriteIds");
-const { deleteStaffPauseRequestChannelMessages, deleteStaffRelatedMessagesFromConfiguredChannels } = require("../../Utils/Staff/staffDocUtils");
+const { deleteStaffPauseRequestChannelMessages, deleteStaffRelatedMessagesFromConfiguredChannels, archiveStaffRolesHistoryThenUnsetStaff } = require("../../Utils/Staff/staffDocUtils");
 const IDs = require("../../Utils/Config/ids");
 const { isCommunicationTimeoutActive, hasPendingMuteMirrorSnapshot, shouldDeferRoleRestoreForMuteMirror } = require("../Moderation/mutedMirrorRoleService");
 const { filterRoleIdsEligibleForRejoinRestore, sanitizeConditionalRolesAfterRejoin, resetBoostSlotsIfNotBoosting } = require("../../Utils/Community/rejoinConditionalRoleEligibility");
+const { applyTenureForMember } = require("./communityOpsService");
+const TENURE_RESTORE_EXCLUDED_ROLE_IDS = new Set(
+  [IDs.roles?.NuovoUtente, IDs.roles?.Veterano, IDs.roles?.OG].filter(Boolean).map((id) => String(id)),
+);
+const { REJOIN_EXCLUDED_PERSONALITY_ROLE_IDS } = require("../../Utils/Community/personalityRolePersistence");
 const MUTED_ROLE_ID = String(IDs.roles?.Muted || "").trim();
 const RESTORE_ON_REJOIN_ROLE_IDS = ["1463248874725576879", "1463248847768785038", "1443252279477272647"];
 const DEFAULT_RETENTION_DAYS = 7;
@@ -16,8 +21,23 @@ function filterRestoreRoleIdsExcludingStaffPm(roleIds) {
 }
 function filterRolesExcludedFromRejoinRestore(roleIds) {
   const withoutStaffPm = filterRestoreRoleIdsExcludingStaffPm(roleIds);
-  if (!MUTED_ROLE_ID) return withoutStaffPm;
-  return withoutStaffPm.filter((id) => id !== MUTED_ROLE_ID);
+  const withoutMuted = MUTED_ROLE_ID ? withoutStaffPm.filter((id) => id !== MUTED_ROLE_ID) : withoutStaffPm;
+  return withoutMuted.filter(
+    (id) => !REJOIN_EXCLUDED_PERSONALITY_ROLE_IDS.has(id) && !TENURE_RESTORE_EXCLUDED_ROLE_IDS.has(id),
+  );
+}
+
+async function reconcileTenureRolesAfterRejoin(member) {
+  if (!member?.guild?.id || member.user?.bot) return;
+  if (String(member.guild.id) !== String(IDs.guilds?.main || "")) return;
+  if (await shouldDeferRoleRestoreForMuteMirror(member).catch(() => false)) return;
+  const mutedRoleId = String(IDs.roles?.Muted || "").trim();
+  if (mutedRoleId && member.roles?.cache?.has?.(mutedRoleId)) return;
+  const record = await ActivityUserProfile.findOne({ guildId: member.guild.id, userId: member.id }).catch(() => null);
+  if (!record) return;
+  await applyTenureForMember(member, record).catch((err) => {
+    global.logger?.warn?.("[USER LEAVE BACKUP] tenure reconcile after rejoin:", member.guild.id, member.id, err?.message || err);
+  });
 }
 
 function isStaffGraceActive(staffPendingPurgeAt) {
@@ -75,41 +95,9 @@ function getRestorableRoleIdsFromMember(member) {
   );
 }
 
-function normalizeLeaveDepexMessageRefs(refs) {
-  return Array.from(
-    new Map(
-      (Array.isArray(refs) ? refs : [])
-        .map((ref) => {
-          const channelId = String(ref?.channelId || "").trim();
-          const messageId = String(ref?.messageId || "").trim();
-          if (!channelId || !messageId) return null;
-          return [`${channelId}:${messageId}`, { channelId, messageId }];
-        })
-        .filter(Boolean),
-    ).values(),
-  ).slice(-10);
-}
-
-async function recordLeaveDepexMessages(guildId, userId, refs) {
-  const gid = String(guildId || "");
-  const uid = String(userId || "");
-  if (!isValidGuildUserId(gid, uid)) return false;
-  const leaveDepexMessages = normalizeLeaveDepexMessageRefs(refs);
-  if (!leaveDepexMessages.length) return false;
-  await UserLeaveBackup.updateOne(
-    { guildId: gid, userId: uid },
-    {
-      $set: {
-        guildId: gid,
-        userId: uid,
-        leaveDepexMessages,
-        expiresAt: resolveExpiryDate(),
-      },
-      $setOnInsert: { leftAt: new Date() },
-    },
-    { upsert: true },
-  ).catch(() => null);
-  return true;
+/** @deprecated I DEPEX per uscita restano in canale anche dopo il rientro. */
+async function recordLeaveDepexMessages() {
+  return false;
 }
 
 async function backupUserOnLeave(guildId, userId, member = null) {
@@ -202,21 +190,6 @@ async function restoreRolesOnJoin(member, roleIds) {
   };
 }
 
-async function deleteLeaveDepexMessages(guild, refs) {
-  if (!guild) return 0;
-  const rows = normalizeLeaveDepexMessageRefs(refs);
-  let deleted = 0;
-  for (const ref of rows) {
-    const channel = guild.channels?.cache?.get(ref.channelId) || (await getGuildChannelCached(guild, ref.channelId).catch(() => null));
-    if (!channel?.messages?.fetch) continue;
-    const message = await channel.messages.fetch(ref.messageId).catch(() => null);
-    if (!message) continue;
-    const ok = await message.delete().then(() => true).catch(() => false);
-    if (ok) deleted += 1;
-  }
-  return deleted;
-}
-
 function schedulePendingRoleRestoreRetry(guildId, userId, client) {
   const gid = String(guildId || "");
   const uid = String(userId || "");
@@ -264,6 +237,7 @@ async function retryRestoreRolesFromBackup(guildId, userId, client) {
   const outcome = await restoreRolesOnJoin(member, eligibleRoleIds).catch(() => null);
   if (!outcome?.ok) return false;
   await sanitizeConditionalRolesAfterRejoin(member).catch(() => null);
+  await reconcileTenureRolesAfterRejoin(member);
   await UserLeaveBackup.deleteOne({ _id: backup._id }).catch(() => null);
   return true;
 }
@@ -276,7 +250,6 @@ async function restoreUserOnJoin(guildId, userId, member = null) {
   const backup = await UserLeaveBackup.findOne({ guildId: gid, userId: uid }).lean().catch(() => null);
   const roleIdsFromMemory = Array.isArray(backup?.rejoinTrackedRoleIds) ? backup.rejoinTrackedRoleIds : [];
   const roleIdsFallback = Array.isArray(backup?.restoreRoleIds) ? backup.restoreRoleIds : [];
-  let leaveDepexMessages = Array.isArray(backup?.leaveDepexMessages) ? backup.leaveDepexMessages : [];
   const currentBeforeRestore = await ActivityUserProfile.findOne({ guildId: gid, userId: uid })
     .select("staffPendingPurgeAt")
     .lean()
@@ -297,9 +270,8 @@ async function restoreUserOnJoin(guildId, userId, member = null) {
   if (backup?.expiresAt && new Date(backup.expiresAt).getTime() <= Date.now()) {
     await UserLeaveBackup.deleteOne({ guildId: gid, userId: uid }).catch(() => null);
     payload = null;
-    leaveDepexMessages = [];
   }
-  if ((!payload || typeof payload !== "object") && restoreRoleIds.length === 0 && leaveDepexMessages.length === 0) return false;
+  if ((!payload || typeof payload !== "object") && restoreRoleIds.length === 0) return false;
 
   let restoredProfile = false;
   if (payload && typeof payload === "object") {
@@ -362,16 +334,17 @@ async function restoreUserOnJoin(guildId, userId, member = null) {
   }
   if (member) {
     await sanitizeConditionalRolesAfterRejoin(member).catch(() => null);
-  }
-  if (member && leaveDepexMessages.length > 0) {
-    await deleteLeaveDepexMessages(member.guild, leaveDepexMessages).catch(() => 0);
+    if (!skipRoleRestore) {
+      await reconcileTenureRolesAfterRejoin(member);
+    }
   }
 
   const hasPendingRoleRestore = filteredRestoreRoleIds.length > 0 && !restoredRoles;
   if (hasPendingRoleRestore && member?.client) {
     schedulePendingRoleRestoreRetry(gid, uid, member.client);
   }
-  if (backup?._id && !hasPendingRoleRestore) {
+  // Con mute attivo non cancellare il leave backup (ruoli deferred al mute mirror).
+  if (backup?._id && !hasPendingRoleRestore && !skipRoleRestore) {
     await UserLeaveBackup.deleteOne({ _id: backup._id }).catch(() => null);
   }
   return restoredProfile || restoredRoles;
@@ -397,9 +370,10 @@ async function purgeDueStaffGraceProfiles(client = null) {
         global.logger?.warn?.("[STAFF GRACE PURGE] staff channel cleanup:", uid, err?.message || err);
       });
     }
+    await archiveStaffRolesHistoryThenUnsetStaff(gid, uid);
     await ActivityUserProfile.updateOne(
       { guildId: gid, userId: uid },
-      { $unset: { staff: "", staffPendingPurgeAt: "" } },
+      { $unset: { staffPendingPurgeAt: "" } },
     ).catch(() => null);
   }
 }

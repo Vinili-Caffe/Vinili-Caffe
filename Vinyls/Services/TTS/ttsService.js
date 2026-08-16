@@ -6,16 +6,18 @@ const fs = require("fs");
 const path = require("path");
 const os = require("os");
 const axios = require("axios");
+const crypto = require("crypto");
+const WebSocket = require("ws");
 const prism = require("prism-media");
 const ffmpegStatic = require("ffmpeg-static");
 const { readSnapshotWithMeta, writeSnapshotWithMeta } = require("../../../shared/recovery/snapshotStore");
 const { registerShutdownFlush, armShutdownCheckpoint } = require("../../../shared/recovery/shutdownCheckpoint");
 const { voiceFindOneAndUpdate, voiceDeleteOne, voiceFindManyLeanForBot, ttsUserLangFindManyLean, ttsUserLangFindOneLean, ttsUserLangUpsert } = require("../../Utils/BotState/domainStatesStore");
-const IDs = require("../../Utils/Config/ids");
 const { isCoffeePrefixCommandToken } = require("../../../shared/discord/coffeePrefixCommandTokens");
 const { getClientChannelCached, getClientGuildCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { accountUsername } = require("../../Utils/Discord/guildDiscordIdentity");
 const { EPHEMERAL_TTL_SHORT_MS, scheduleMessageDeletion } = require("../../Utils/Config/ephemeralMessageTtl");
+const { filterScriptsForTtsLang } = require("../../../shared/discord/ttsTextSanitize");
 const MAX_TTS_QUEUE = 10000;
 const TTS_CATCHUP_FETCH_LIMIT = 100;
 const TTS_CATCHUP_DEFAULT_LOOKBACK_MS = 30 * 1000;
@@ -137,7 +139,7 @@ function booleanFromConfig(value, fallback = false) {
   return fallback;
 }
 
-function shouldHandleMessage(message, config, prefix) {
+function passesTtsContentFilters(message, config, prefix) {
   if (!config?.tts?.enabled) return false;
   if (!message?.channel) return false;
   const rawContent = String(message.content ?? "");
@@ -145,29 +147,37 @@ function shouldHandleMessage(message, config, prefix) {
   if (rawContent.startsWith("-")) return false;
   const coffeeCmd = rawContent.trim().match(/^,\s*([a-z0-9][\w-]*)/i);
   if (coffeeCmd && isCoffeePrefixCommandToken(coffeeCmd[1])) return false;
-  const isVoiceChannel = message.channel.isVoiceBased?.() && !message.channel.isThread?.();
-  const isVoiceChannelThread = message.channel.isThread?.() && message.channel.parent?.isVoiceBased?.();
-  const extraTextIds = [IDs.channels.noMic].filter(Boolean).map((id) => String(id));
-  const channelIdStr = String(message.channel?.id ?? "");
-  const parentIdStr = message.channel?.parentId ? String(message.channel.parentId) : "";
-  const isExtraText = extraTextIds.some((id) => id === channelIdStr || id === parentIdStr,);
-  return isVoiceChannel || isVoiceChannelThread || isExtraText;
+  return true;
 }
 
-/** Canale vocale per leggere il messaggio: se sei in duo ma scrivi nella chat di lounge, usa duo. */
-function resolveTtsVoiceChannel(message) {
-  const memberVoice = message.member?.voice?.channel ?? null;
-  if (!memberVoice) return null;
+/** Chat testuale collegata a un canale vocale (o thread figlio). */
+function resolveTtsMessageVoiceChannel(message) {
+  if (!message?.channel) return null;
   if (message.channel.isVoiceBased?.() && !message.channel.isThread?.()) {
-    if (String(memberVoice.id) !== String(message.channel.id)) return memberVoice;
     return message.channel;
   }
   if (message.channel.isThread?.() && message.channel.parent?.isVoiceBased?.()) {
-    const parent = message.channel.parent;
-    if (String(memberVoice.id) !== String(parent.id)) return memberVoice;
-    return parent;
+    return message.channel.parent;
   }
-  return memberVoice;
+  return null;
+}
+
+function resolveBotTtsVoiceChannelId(guildId, client) {
+  if (!guildId) return null;
+  const gid = String(guildId);
+  const fromLock = getLockedChannelId(gid) || findLockedChannelIdByGuild(gid);
+  if (fromLock) return String(fromLock);
+  // Se c’è una sessione musica attiva, la presenza in vocale è della musica: non trattarla come TTS.
+  if (resolveMusicBlocksTtsForGuild(client, gid).blocked) return null;
+  const me = client?.guilds?.cache?.get(gid)?.members?.me;
+  const fromVoice = me?.voice?.channelId;
+  return fromVoice ? String(fromVoice) : null;
+}
+
+function shouldHandleMessage(message, botVoiceChannelId) {
+  const messageVoiceChannel = resolveTtsMessageVoiceChannel(message);
+  if (!messageVoiceChannel || !botVoiceChannelId) return false;
+  return String(messageVoiceChannel.id) === String(botVoiceChannelId);
 }
 
 async function authorIsInVoiceChannel(message, voiceChannel) {
@@ -509,16 +519,69 @@ function readTtsErrorPreview(buffer) {
   return buffer.subarray(0, 240).toString("utf8").replace(/\s+/g, " ").trim();
 }
 
-function extractGoogleBatchexecuteMp3FromLine(line) {
-  const audioSearch = String(line || "").match(/jQ1olc","\[\\"(.*)\\"]/);
-  if (!audioSearch?.[1]) return null;
-  const b64 = String(audioSearch[1]).replace(/\\\//g, "/").replace(/\s+/g, "").trim();
-  if (!b64) return null;
+function decodeGoogleTtsBase64Candidate(rawB64) {
+  const b64 = String(rawB64 || "")
+    .replace(/\\\//g, "/")
+    .replace(/\\u003d/gi, "=")
+    .replace(/\s+/g, "")
+    .trim();
+  if (!b64 || b64.length < 32) return null;
   try {
     const audio = Buffer.from(b64, "base64");
     if (audio.length && looksLikeMpegAudio(audio)) return audio;
   } catch {
     return null;
+  }
+  return null;
+}
+
+function extractGoogleBatchexecuteMp3FromLine(line) {
+  const s = String(line || "");
+  // Formato classico gTTS / wrb.fr
+  const audioSearch = s.match(/jQ1olc","\[\\"(.*)\\"]/);
+  if (audioSearch?.[1]) {
+    const mp3 = decodeGoogleTtsBase64Candidate(audioSearch[1]);
+    if (mp3) return mp3;
+  }
+  // Variante senza escape doppio
+  const loose = s.match(/jQ1olc","\["([A-Za-z0-9+/=_\-]{32,})"\]/);
+  if (loose?.[1]) {
+    const mp3 = decodeGoogleTtsBase64Candidate(loose[1]);
+    if (mp3) return mp3;
+  }
+  return null;
+}
+
+function extractGoogleBatchexecuteMp3FromRaw(raw) {
+  const text = String(raw || "");
+  for (const line of text.split("\n")) {
+    if (!line.includes("jQ1olc") && !line.includes("//OE")) continue;
+    const fromLine = extractGoogleBatchexecuteMp3FromLine(line);
+    if (fromLine) return fromLine;
+  }
+  // MP3 base64 Google spesso inizia con //OE…
+  const oe = text.match(/\/\/OE[A-Za-z0-9+/=]+/);
+  if (oe?.[0]) {
+    const mp3 = decodeGoogleTtsBase64Candidate(oe[0]);
+    if (mp3) return mp3;
+  }
+  // Fallback: parse JSON wrb.fr → payload → base64
+  try {
+    let body = text;
+    if (body.startsWith(")]}'")) body = body.slice(4).trimStart();
+    const first = body.split("\n").find((l) => l.trim().startsWith("["));
+    if (first) {
+      const parsed = JSON.parse(first);
+      const payload = parsed?.[0]?.[2];
+      if (typeof payload === "string") {
+        const inner = JSON.parse(payload);
+        const b64 = Array.isArray(inner) ? inner[0] : null;
+        const mp3 = decodeGoogleTtsBase64Candidate(b64);
+        if (mp3) return mp3;
+      }
+    }
+  } catch {
+    /* ignore */
   }
   return null;
 }
@@ -541,11 +604,8 @@ async function fetchGoogleTtsBatchexecuteChunk(text, langBase) {
   }
   let raw = String(res.data || "");
   if (raw.startsWith(")]}'")) raw = raw.slice(4).trimStart();
-  for (const line of raw.split("\n")) {
-    if (!line.includes("jQ1olc")) continue;
-    const mp3 = extractGoogleBatchexecuteMp3FromLine(line);
-    if (mp3) return mp3;
-  }
+  const mp3 = extractGoogleBatchexecuteMp3FromRaw(raw);
+  if (mp3) return mp3;
   throw new Error("GoogleTTS-batchexecute: nessun audio nella risposta");
 }
 
@@ -565,6 +625,134 @@ async function fetchGoogleTtsBatchexecuteConcat(textStr, langBase) {
     }
   }
   return chunks.length ? Buffer.concat(chunks) : null;
+}
+
+const EDGE_TTS_TRUSTED_TOKEN = "6A5AA1D4EAFF4E9FB37E23D68491D6F4";
+const EDGE_TTS_CHROMIUM_FULL = "143.0.3650.75";
+const EDGE_TTS_VOICE_BY_LANG = {
+  it: "it-IT-ElsaNeural",
+  en: "en-US-JennyNeural",
+  es: "es-ES-ElviraNeural",
+  fr: "fr-FR-DeniseNeural",
+  de: "de-DE-KatjaNeural",
+  pt: "pt-BR-FranciscaNeural",
+  ru: "ru-RU-SvetlanaNeural",
+  pl: "pl-PL-ZofiaNeural",
+  nl: "nl-NL-FennaNeural",
+  tr: "tr-TR-EmelNeural",
+  ja: "ja-JP-NanamiNeural",
+  zh: "zh-CN-XiaoxiaoNeural",
+};
+
+function edgeTtsSecMsGec() {
+  const windowsEpoch = 11644473600n;
+  const ticks = BigInt(Math.floor(Date.now() / 1000) + Number(windowsEpoch)) * 10000000n;
+  const rounded = ticks - (ticks % 3000000000n);
+  return crypto.createHash("sha256").update(`${rounded}${EDGE_TTS_TRUSTED_TOKEN}`, "ascii").digest("hex").toUpperCase();
+}
+
+function escapeXmlForSsml(text) {
+  return String(text || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
+function resolveEdgeTtsVoice(langBase) {
+  const key = String(langBase || "it").toLowerCase();
+  return EDGE_TTS_VOICE_BY_LANG[key] || EDGE_TTS_VOICE_BY_LANG.it;
+}
+
+async function fetchEdgeTtsMp3(text, langBase) {
+  const voice = resolveEdgeTtsVoice(langBase);
+  const outputFormat = "audio-24khz-48kbitrate-mono-mp3";
+  const chromeMajor = EDGE_TTS_CHROMIUM_FULL.split(".")[0];
+  const gec = edgeTtsSecMsGec();
+  const url =
+    "wss://speech.platform.bing.com/consumer/speech/synthesize/readaloud/edge/v1" +
+    `?TrustedClientToken=${EDGE_TTS_TRUSTED_TOKEN}` +
+    `&Sec-MS-GEC=${gec}` +
+    `&Sec-MS-GEC-Version=1-${EDGE_TTS_CHROMIUM_FULL}`;
+  const chunks = [];
+  await new Promise((resolve, reject) => {
+    let settled = false;
+    let ws;
+    const fail = (err) => {
+      if (settled) return;
+      settled = true;
+      try {
+        ws?.close();
+      } catch (_) {}
+      reject(err instanceof Error ? err : new Error(String(err || "EdgeTTS error")));
+    };
+    const done = () => {
+      if (settled) return;
+      settled = true;
+      try {
+        ws?.close();
+      } catch (_) {}
+      resolve();
+    };
+    const timer = setTimeout(() => fail(new Error("EdgeTTS: timeout")), 20000);
+    timer.unref?.();
+    ws = new WebSocket(url, {
+      host: "speech.platform.bing.com",
+      origin: "chrome-extension://jdiccldimpdaibmpdkjnbmckianbfold",
+      headers: {
+        Pragma: "no-cache",
+        "Cache-Control": "no-cache",
+        "User-Agent": `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${chromeMajor}.0.0.0 Safari/537.36 Edg/${chromeMajor}.0.0.0`,
+      },
+    });
+    ws.on("error", (err) => {
+      clearTimeout(timer);
+      fail(err);
+    });
+    ws.on("open", () => {
+      ws.send(
+        "Content-Type:application/json; charset=utf-8\r\nPath:speech.config\r\n\r\n" +
+          JSON.stringify({
+            context: {
+              synthesis: {
+                audio: {
+                  metadataoptions: {
+                    sentenceBoundaryEnabled: "false",
+                    wordBoundaryEnabled: "false",
+                  },
+                  outputFormat,
+                },
+              },
+            },
+          }),
+      );
+      const requestId = crypto.randomBytes(16).toString("hex");
+      const ssml =
+        `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="${String(langBase || "it")}">` +
+        `<voice name="${voice}">${escapeXmlForSsml(text)}</voice></speak>`;
+      ws.send(
+        `X-RequestId:${requestId}\r\nContent-Type:application/ssml+xml\r\nPath:ssml\r\n\r\n${ssml}`,
+      );
+    });
+    ws.on("message", (data, isBinary) => {
+      if (isBinary) {
+        const buf = Buffer.isBuffer(data) ? data : Buffer.from(data);
+        const sep = Buffer.from("Path:audio\r\n");
+        const idx = buf.indexOf(sep);
+        if (idx !== -1) chunks.push(buf.subarray(idx + sep.length));
+        return;
+      }
+      const message = Buffer.isBuffer(data) ? data.toString("utf8") : String(data || "");
+      if (message.includes("Path:turn.end")) {
+        clearTimeout(timer);
+        done();
+      }
+    });
+  });
+  const out = Buffer.concat(chunks);
+  if (!out.length) throw new Error("EdgeTTS: nessun audio nella risposta");
+  return out;
 }
 
 function safeUnlinkTtsFile(filePath) {
@@ -607,6 +795,13 @@ function disableVoiceRssIfInactiveHint(text) {
 function logTtsPlayFailure(err) {
   const msg = String(err?.message || err);
   if (/inactive|voicerss/i.test(msg) && /non audio|risposta non audio/i.test(msg)) {
+    const now = Date.now();
+    if (now - lastTtsInactivePlayLogAt < TTS_INACTIVE_PLAY_LOG_COOLDOWN_MS) return;
+    lastTtsInactivePlayLogAt = now;
+    global.logger?.warn?.("[TTS PLAY SKIP]", msg.slice(0, 220));
+    return;
+  }
+  if (/GoogleTTS-batchexecute: nessun audio|EdgeTTS:|nessuna sorgente disponibile/i.test(msg)) {
     const now = Date.now();
     if (now - lastTtsInactivePlayLogAt < TTS_INACTIVE_PLAY_LOG_COOLDOWN_MS) return;
     lastTtsInactivePlayLogAt = now;
@@ -710,6 +905,12 @@ async function createTtsStreamOnce(textStr, lang) {
   } catch (err) {
     lastErr = err;
   }
+  try {
+    const edgeBuf = await fetchEdgeTtsMp3(textStr, langBase);
+    if (edgeBuf?.length) return Readable.from(Buffer.from(edgeBuf));
+  } catch (err) {
+    lastErr = err;
+  }
   const voicerssKey = typeof process !== "undefined" && process.env && process.env.TTS_VOICERSS_KEY;
   if (voicerssKey && !voicerssDisabledByInactive) {
     try {
@@ -723,7 +924,7 @@ async function createTtsStreamOnce(textStr, lang) {
     }
   }
   throw (
-    lastErr || new Error("TTS: nessuna sorgente disponibile (Google/VoiceRSS).")
+    lastErr || new Error("TTS: nessuna sorgente disponibile (Google/Edge/VoiceRSS).")
   );
 }
 
@@ -1104,7 +1305,7 @@ async function handleTtsMessage(message, client, prefix) {
   const config = client?.config;
   if (message?.author?.bot) return;
   const guildId = message.guild?.id;
-  if (!shouldHandleMessage(message, config, prefix)) return;
+  if (!guildId || !passesTtsContentFilters(message, config, prefix)) return;
   if (!message.member && message.guild?.members?.fetch) {
     try {
       message.member =
@@ -1115,35 +1316,31 @@ async function handleTtsMessage(message, client, prefix) {
       global.logger?.warn?.("[TTS] member fetch:", err?.message || err);
     }
   }
-  const voiceChannel = resolveTtsVoiceChannel(message);
-  const lockedChannelId = guildId ? getLockedChannelId(guildId) : null;
+
+  const messageVoiceChannel = resolveTtsMessageVoiceChannel(message);
+  if (!messageVoiceChannel) return;
+  if (!(await authorIsInVoiceChannel(message, messageVoiceChannel))) return;
+
   const autojoin = booleanFromConfig(config?.tts?.autojoin, false);
-  if (!autojoin && !lockedChannelId) return;
-  const activeConnectedChannelId = guildId ? findLockedChannelIdByGuild(guildId) : null;
-  const canWarnMissingVoice = Boolean(activeConnectedChannelId || (guildId && isTtsPostJoinVoiceGraceActive(guildId)));
-  if (!voiceChannel) {
-    if (!canWarnMissingVoice) return;
-    const warn = await message.reply("<a:VC_Alert:1482706673176150077> Devi essere in un canale vocale per usare il TTS.",);
-    if (warn) scheduleMessageDeletion(warn, EPHEMERAL_TTL_SHORT_MS);
-    return;
+  let botVoiceChannelId = resolveBotTtsVoiceChannelId(guildId, client);
+  if (!botVoiceChannelId) {
+    if (!autojoin) return;
+    botVoiceChannelId = String(messageVoiceChannel.id);
   }
+  if (!shouldHandleMessage(message, botVoiceChannelId)) return;
+
+  const voiceChannel = messageVoiceChannel;
   if (!voiceChannel.joinable) return;
-  if (lockedChannelId && lockedChannelId !== voiceChannel.id) {
-    return;
-  }
   const includeUsername = booleanFromConfig(config?.tts?.includeUsername, false,);
   await hydrateUserTtsLangForUser(message.author?.id);
   const lang = getUserTtsLang(message.author?.id) || config?.tts?.lang || "it";
   const rawMessageText = message.cleanContent ?? message.content ?? "";
   let baseText = sanitizeText(typeof rawMessageText === "string" ? rawMessageText : String(rawMessageText),);
+  baseText = filterScriptsForTtsLang(baseText, lang);
   if (!baseText || !baseText.trim()) return;
   const musicBlock = resolveMusicBlocksTtsForGuild(client, guildId);
   if (musicBlock.blocked) {
-    const { buildMusicBlocksTtsUserMessage } = require("../../../shared/discord/musicTtsVoiceGuard");
-    const warn = await message.reply(
-      `<a:VC_Alert:1482706673176150077> ${buildMusicBlocksTtsUserMessage(musicBlock.channelId, prefix)}`,
-    );
-    if (warn) scheduleMessageDeletion(warn, EPHEMERAL_TTL_SHORT_MS);
+    // Non spammare in chat: la musica ha il vocale. L’avviso resta solo su +tts join.
     return;
   }
   const state = getState(voiceChannel);
@@ -1357,13 +1554,15 @@ async function saveTtsLastMessageProgress(guildId, channelId, messageId, created
 async function enqueueTtsMessageFromHistory(message, client, voiceChannel, state, prefix) {
   const config = client?.config;
   if (!message || !client || !voiceChannel || !state) return;
-  if (!shouldHandleMessage(message, config, prefix)) return;
+  if (!passesTtsContentFilters(message, config, prefix)) return;
+  if (!shouldHandleMessage(message, voiceChannel.id)) return;
   if (!(await authorIsInVoiceChannel(message, voiceChannel))) return;
   const includeUsername = booleanFromConfig(config?.tts?.includeUsername, false);
   await hydrateUserTtsLangForUser(message.author?.id);
   const lang = getUserTtsLang(message.author?.id) || config?.tts?.lang || "it";
   const rawMessageText = message.cleanContent ?? message.content ?? "";
   let baseText = sanitizeText(typeof rawMessageText === "string" ? rawMessageText : String(rawMessageText));
+  baseText = filterScriptsForTtsLang(baseText, lang);
   if (!baseText || !baseText.trim()) return;
   baseText = expandAbbreviationsForTts(baseText, lang);
   const name = message.author?.username || "Utente";

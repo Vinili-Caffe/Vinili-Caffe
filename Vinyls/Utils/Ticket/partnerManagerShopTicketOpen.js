@@ -2,27 +2,24 @@ const { EmbedBuilder, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, Butt
 const Ticket = require("../../Schemas/Ticket/ticketSchema");
 const IDs = require("../Config/ids");
 const { createTicketsCategory } = require("./ticketOpenRuntime");
-const { createTicketDocWithGlobalId } = require("./ticketIdUtils");
-const { findOpenTicketByUser: runtimeFindOpenTicketByUser } = require("./ticketInteractionRuntime");
+const { createTicketDocWithGlobalId, getNextTicketId } = require("./ticketIdUtils");
+const {
+  countOpenTicketsByUser: runtimeCountOpenTicketsByUser,
+  findOpenTicketByUser: runtimeFindOpenTicketByUser,
+} = require("./ticketInteractionRuntime");
 const { buildTicketChannelName } = require("./ticketNamingRuntime");
 const { getTicketPanelConfig } = require("./ticketPanelConfig");
 const { partnerManagerRedeemButtonLabel, getPartnerRewardPointCost } = require("../Staff/partnerPointsUtils");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const { resolvePartnerPointsShown } = require("../Staff/partnerPointsDisplayUtils");
+const {
+  buildTicketEveryoneDenyViewCreateOverwrite,
+  buildTicketOpenerCreateOverwrite,
+  buildTicketRoleDenyViewCreateOverwrite,
+  toTicketRoleCreateOverwrite,
+} = require("./ticketHighStaffOverwrites");
 const TICKET_PERMISSIONS = [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.EmbedLinks, PermissionFlagsBits.AttachFiles, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.AddReactions];
 const TICKET_ROLE_SPECTATE = { ViewChannel: true, SendMessages: false, ReadMessageHistory: true, EmbedLinks: true, AttachFiles: true, AddReactions: true };
-
-function toCreateOverwrite(id, options) {
-  const allow = [];
-  const deny = [];
-  for (const [key, value] of Object.entries(options || {})) {
-    const bit = PermissionFlagsBits[key];
-    if (bit == null) continue;
-    if (value === true) allow.push(bit);
-    else if (value === false) deny.push(bit);
-  }
-  return { id, allow, deny };
-}
 
 async function pinFirstTicketMessage(channel, message) {
   if (!channel || !message?.pin) return;
@@ -74,11 +71,24 @@ async function openPartnerManagerShopManualTicket(interaction, tier) {
     };
   }
 
-  const existing = await runtimeFindOpenTicketByUser(guild.id, interaction.user.id, guild).catch(() => null);
-  if (existing?.channelId) {
+  let maxOpen = 1;
+  try {
+    const { getTicketSettingsSync } = require("../../MultiGuild/core/tenantTicketSettings");
+    maxOpen = Math.max(1, Math.min(25, Number(getTicketSettingsSync(guild.id)?.maxOpenTicketsPerUser) || 1));
+  } catch (_) {
+    maxOpen = 1;
+  }
+  const openCounted = await runtimeCountOpenTicketsByUser(guild.id, interaction.user.id, guild).catch(
+    () => ({ count: 0, tickets: [] }),
+  );
+  if (openCounted.count >= maxOpen) {
+    const existing = openCounted.tickets[0];
     return {
       ok: false,
-      userMessage: `<a:VC_Cross:1482532424570376253> Hai già un ticket aperto: <#${existing.channelId}>.`,
+      userMessage:
+        maxOpen <= 1
+          ? `<a:VC_Cross:1482532424570376253> Hai già un ticket aperto${existing?.channelId ? `: <#${existing.channelId}>` : "."}`
+          : `<a:VC_Cross:1482532424570376253> Hai già ${openCounted.count}/${maxOpen} ticket aperti.`,
     };
   }
 
@@ -97,18 +107,29 @@ async function openPartnerManagerShopManualTicket(interaction, tier) {
       return { ok: false, userMessage: "<a:VC_Cross:1482532424570376253> Impossibile creare la categoria ticket." };
     }
 
+    let reservedTicketNumber = null;
+    try {
+      reservedTicketNumber = await getNextTicketId(guild.id);
+    } catch (_) {
+      reservedTicketNumber = null;
+    }
+
     const channel = await guild.channels
       .create({
-        name: buildTicketChannelName(panelConfig, interaction.user?.username, interaction.user?.id || "utente"),
+        name: buildTicketChannelName(
+          panelConfig,
+          interaction.user?.username,
+          interaction.user?.id || "utente",
+        ),
         type: 0,
         parent: ticketsCategory.id,
         permissionOverwrites: [
-          { id: guild.roles.everyone, deny: [PermissionFlagsBits.ViewChannel] },
-          { id: interaction.user.id, allow: TICKET_PERMISSIONS },
-          toCreateOverwrite(ROLE_HIGHSTAFF, TICKET_ROLE_SPECTATE),
-          { id: ROLE_STAFF, deny: [PermissionFlagsBits.ViewChannel] },
-          { id: ROLE_PARTNERMANAGER, deny: [PermissionFlagsBits.ViewChannel] },
-        ],
+          buildTicketEveryoneDenyViewCreateOverwrite(guild.roles.everyone.id),
+          buildTicketOpenerCreateOverwrite(interaction.user.id, TICKET_PERMISSIONS),
+          toTicketRoleCreateOverwrite(ROLE_HIGHSTAFF, TICKET_ROLE_SPECTATE),
+          buildTicketRoleDenyViewCreateOverwrite(ROLE_STAFF),
+          buildTicketRoleDenyViewCreateOverwrite(ROLE_PARTNERMANAGER),
+        ].filter(Boolean),
       })
       .catch(() => null);
 
@@ -134,16 +155,30 @@ async function openPartnerManagerShopManualTicket(interaction, tier) {
     const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId("close_ticket")
-        .setEmoji("<:VC_Lock:1482526739044368476>")
+        .setEmoji("🔒")
         .setLabel("Chiudi")
         .setStyle(ButtonStyle.Danger),
       new ButtonBuilder()
         .setCustomId("close_ticket_motivo")
-        .setEmoji("<:VC_reason:1478517122929004544>")
+        .setEmoji("🔒")
         .setLabel("Chiudi Con Motivo")
         .setStyle(ButtonStyle.Danger),
-      new ButtonBuilder().setCustomId("claim_ticket").setEmoji("<:VC_claim:1478517202016669887>").setLabel("Claim").setStyle(ButtonStyle.Success),
+      new ButtonBuilder().setCustomId("claim_ticket").setEmoji("🙋‍♂️").setLabel("Claim").setStyle(ButtonStyle.Success),
     );
+
+    const { wrapMentionsInSpoiler } = require("./ticketUiDefaults");
+    const tagRole = ROLE_HIGHSTAFF;
+    const mentionRaw = `<@${interaction.user.id}>${tagRole ? `<@&${tagRole}>` : ""}`;
+    await channel
+      .send({
+        content: wrapMentionsInSpoiler(mentionRaw),
+        allowedMentions: {
+          parse: [],
+          users: [String(interaction.user.id)],
+          roles: tagRole ? [String(tagRole)] : [],
+        },
+      })
+      .catch(() => null);
 
     const mainMsg = await channel.send({ embeds: [embed], components: [row] }).catch(() => null);
     if (mainMsg) {
@@ -151,8 +186,9 @@ async function openPartnerManagerShopManualTicket(interaction, tier) {
     }
 
     let ticketCreated = false;
+    let createdTicketDoc = null;
     try {
-      await createTicketDocWithGlobalId(Ticket, {
+      createdTicketDoc = await createTicketDocWithGlobalId(Ticket, {
         guildId: guild.id,
         userId: interaction.user.id,
         channelId: channel.id,
@@ -164,6 +200,7 @@ async function openPartnerManagerShopManualTicket(interaction, tier) {
         partnerManagerShopRedeemTier: tierN,
         partnerManagerShopRedeemAckResult: null,
         partnerManagerShopRedeemAckAt: null,
+        ...(Number(reservedTicketNumber) > 0 ? { ticketNumber: reservedTicketNumber } : {}),
       });
       ticketCreated = true;
     } catch (err) {
@@ -182,13 +219,6 @@ async function openPartnerManagerShopManualTicket(interaction, tier) {
     if (!ticketCreated) {
       await channel.delete().catch(() => {});
       return { ok: false, userMessage: "<a:VC_Cross:1482532424570376253> Impossibile registrare il ticket. Riprova." };
-    }
-
-    const tagRole = ROLE_HIGHSTAFF;
-    const mentionMsg = await channel.send(`<@${interaction.user.id}>${tagRole ? `<@&${tagRole}>` : ""}`).catch(() => null);
-    if (mentionMsg) {
-      const mentionCleanupTimer = setTimeout(() => mentionMsg.delete().catch(() => {}), 100);
-      mentionCleanupTimer.unref?.();
     }
 
     return { ok: true, channel };

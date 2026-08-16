@@ -2,7 +2,7 @@
   "version": 1,
   "features": {
     "utility": {
-      "label": "Utility (help, ping, avatar, afk, snipe, quote, repost)",
+      "label": "Utility (help, ping, avatar, afk, snipe, quote, repost, clip, invites)",
       "tier": 1
     },
     "music": {
@@ -19,6 +19,10 @@
     },
     "moderation": {
       "label": "Moderazione (ban, kick, mute, warn, purge)",
+      "tier": 1
+    },
+    "partnership": {
+      "label": "Partnership multi-guild (+setup, /partnership)",
       "tier": 1
     },
     "level": {
@@ -52,6 +56,10 @@
     "staff_tools": {
       "label": "Staff (candidature, partner, resoconti, backup)",
       "tier": 3
+    },
+    "giveaway": {
+      "label": "Giveaway (/giveaway + pulsanti)",
+      "tier": 2
     }
   }
 }

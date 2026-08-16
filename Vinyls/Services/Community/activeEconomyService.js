@@ -11,6 +11,15 @@ function isEconomyCommandsVisible(client, nowMs = Date.now()) {
   return resolveEconomyMode(client, nowMs) !== null;
 }
 
+function isEconomyGameEnabled(client, action) {
+  const key = String(action || "").trim().toLowerCase();
+  if (!key) return false;
+  const cfg = economyConfig(client);
+  const game = cfg?.[key];
+  if (!game || typeof game !== "object") return true;
+  return game.enabled !== false;
+}
+
 function pick(client, nowMs = Date.now()) {
   const mode = resolveEconomyMode(client, nowMs);
   if (mode === "galeoni") return galeoniSvc();
@@ -116,40 +125,85 @@ function gamblingCall(client, name, args, trimCurrencyAt = null) {
   return svc[name](...args);
 }
 
-async function playRoulette(client, message, betRaw, choiceRaw, currency) {
-  return gamblingCall(client, "playRoulette", [client, message, betRaw, choiceRaw, currency], 4);
+async function playRoulette(client, message, betRaw, choiceRaw, currency, options = {}) {
+  const svc = pick(client);
+  if (!svc) return economyDisabledAccess(client);
+  if (resolveEconomyMode(client) === "galeoni") {
+    return svc.playRoulette(client, message, betRaw, choiceRaw, options);
+  }
+  return svc.playRoulette(client, message, betRaw, choiceRaw, currency, options);
 }
 
-async function playRouletteBanked(client, message, betRaw, choiceRaw, currency) {
-  return gamblingCall(client, "playRouletteBanked", [client, message, betRaw, choiceRaw, currency], 4);
+async function playRouletteBanked(client, message, betRaw, choiceRaw, currency, options = {}) {
+  const svc = pick(client);
+  if (!svc) return economyDisabledAccess(client);
+  if (resolveEconomyMode(client) === "galeoni") {
+    return svc.playRouletteBanked(client, message, betRaw, choiceRaw, options);
+  }
+  return svc.playRouletteBanked(client, message, betRaw, choiceRaw, currency, options);
 }
 
-async function playCoinflip(client, message, betRaw, choiceRaw, currency) {
-  return gamblingCall(client, "playCoinflip", [client, message, betRaw, choiceRaw, currency], 4);
+async function playCoinflip(client, message, betRaw, choiceRaw, currency, options = {}) {
+  const svc = pick(client);
+  if (!svc) return economyDisabledAccess(client);
+  if (resolveEconomyMode(client) === "galeoni") {
+    return svc.playCoinflip(client, message, betRaw, choiceRaw, options);
+  }
+  return svc.playCoinflip(client, message, betRaw, choiceRaw, currency, options);
 }
 
-async function playRps(client, message, betRaw, choiceRaw, currency) {
-  return gamblingCall(client, "playRps", [client, message, betRaw, choiceRaw, currency], 4);
+async function playRps(client, message, betRaw, choiceRaw, currency, options = {}) {
+  const svc = pick(client);
+  if (!svc) return economyDisabledAccess(client);
+  if (resolveEconomyMode(client) === "galeoni") {
+    return svc.playRps(client, message, betRaw, choiceRaw, options);
+  }
+  return svc.playRps(client, message, betRaw, choiceRaw, currency, options);
 }
 
-async function playBlackjackBet(client, message, betRaw, currency) {
-  return gamblingCall(client, "playBlackjackBet", [client, message, betRaw, currency], 3);
+async function playBlackjackBet(client, message, betRaw, currency, options = {}) {
+  const svc = pick(client);
+  if (!svc) return economyDisabledAccess(client);
+  if (resolveEconomyMode(client) === "galeoni") {
+    return svc.playBlackjackBet(client, message, betRaw, options);
+  }
+  return svc.playBlackjackBet(client, message, betRaw, currency, options);
 }
 
-async function playTrisBet(client, message, betRaw, currency) {
-  return gamblingCall(client, "playTrisBet", [client, message, betRaw, currency], 3);
+async function playTrisBet(client, message, betRaw, currency, options = {}) {
+  const svc = pick(client);
+  if (!svc) return economyDisabledAccess(client);
+  if (resolveEconomyMode(client) === "galeoni") {
+    return svc.playTrisBet(client, message, betRaw, options);
+  }
+  return svc.playTrisBet(client, message, betRaw, currency, options);
 }
 
-async function playScratchBet(client, message, betRaw, currency) {
-  return gamblingCall(client, "playScratchBet", [client, message, betRaw, currency], 3);
+async function playScratchBet(client, message, betRaw, currency, options = {}) {
+  const svc = pick(client);
+  if (!svc) return economyDisabledAccess(client);
+  if (resolveEconomyMode(client) === "galeoni") {
+    return svc.playScratchBet(client, message, betRaw, options);
+  }
+  return svc.playScratchBet(client, message, betRaw, currency, options);
 }
 
-async function playSlots(client, message, betRaw, currency) {
-  return gamblingCall(client, "playSlots", [client, message, betRaw, currency], 3);
+async function playSlots(client, message, betRaw, currency, options = {}) {
+  const svc = pick(client);
+  if (!svc) return economyDisabledAccess(client);
+  if (resolveEconomyMode(client) === "galeoni") {
+    return svc.playSlots(client, message, betRaw, options);
+  }
+  return svc.playSlots(client, message, betRaw, currency, options);
 }
 
-async function playSlotsBanked(client, message, betRaw, currency) {
-  return gamblingCall(client, "playSlotsBanked", [client, message, betRaw, currency], 3);
+async function playSlotsBanked(client, message, betRaw, currency, options = {}) {
+  const svc = pick(client);
+  if (!svc) return economyDisabledAccess(client);
+  if (resolveEconomyMode(client) === "galeoni") {
+    return svc.playSlotsBanked(client, message, betRaw, options);
+  }
+  return svc.playSlotsBanked(client, message, betRaw, currency, options);
 }
 
 async function payBlackjackWin(client, message, amount, currency, reason) {
@@ -170,6 +224,24 @@ async function cashoutSlotsBank(client, message, amount, currency) {
 
 async function flushSlotsGuiPendingBank(client, message, currency) {
   return gamblingCall(client, "flushSlotsGuiPendingBank", [client, message, currency], 2);
+}
+
+async function peekRobCooldown(client, guildId, userId) {
+  const svc = pick(client);
+  if (!svc?.peekRobCooldown) return { ok: true, remainingMs: 0 };
+  return svc.peekRobCooldown(guildId, userId);
+}
+
+async function clearRobCooldown(client, guildId, userId) {
+  const svc = pick(client);
+  if (!svc?.clearRobCooldown) {
+    if (typeof svc?.releaseCooldown === "function") {
+      await svc.releaseCooldown(guildId, userId, "rob");
+      return { ok: true };
+    }
+    return { ok: true, skipped: true };
+  }
+  return svc.clearRobCooldown(guildId, userId);
 }
 
 async function robBank(client, message, currency) {
@@ -196,6 +268,15 @@ async function refundTrisPvpStake(client, guildId, userId, amount, actorId, curr
   return gamblingCall(client, "refundTrisPvpStake", [client, guildId, userId, amount, actorId, currency, reason], 6);
 }
 
+async function refundEconomyStake(client, guildId, userId, amount, actorId, currency, reason, source) {
+  const svc = pick(client);
+  if (!svc?.refundEconomyStake) return economyDisabledAccess(client);
+  if (resolveEconomyMode(client) === "galeoni") {
+    return svc.refundEconomyStake(client, guildId, userId, amount, actorId, reason, source);
+  }
+  return svc.refundEconomyStake(client, guildId, userId, amount, actorId, currency, reason, source);
+}
+
 async function settleRpsPvp(client, guild, challengerId, opponentId, challengerChoice, opponentChoice, betAmount, actorId, currency) {
   return gamblingCall(client, "settleRpsPvp", [client, guild, challengerId, opponentId, challengerChoice, opponentChoice, betAmount, actorId, currency], 8);
 }
@@ -208,11 +289,27 @@ async function evaluateRobTarget(client, guild, targetUserId, cfg, robberId, cur
   return gamblingCall(client, "evaluateRobTarget", [client, guild, targetUserId, cfg, robberId, currency], 5);
 }
 
-async function spendBet(client, message, action, bet, currency) {
+async function listRobCandidateUserIds(client, guildId, robberId, cfg) {
+  if (resolveEconomyMode(client) !== "galeoni") return [];
+  const fn = galeoniSvc().listRobCandidateUserIds;
+  if (typeof fn !== "function") return [];
+  return fn(client, guildId, robberId, cfg);
+}
+
+async function spendBet(client, message, action, bet, currency, options = {}) {
   const svc = pick(client);
   if (!svc) return economyDisabledAccess(client);
-  if (resolveEconomyMode(client) === "galeoni") return svc.spendBet(client, message, action, bet);
-  return svc.spendBet(client, message, action, bet, currency);
+  if (resolveEconomyMode(client) === "galeoni") return svc.spendBet(client, message, action, bet, options);
+  return svc.spendBet(client, message, action, bet, currency, options);
+}
+
+async function getGamblingSpendableBalance(client, guildId, userId, currency) {
+  const svc = pick(client);
+  if (!svc || typeof svc.getGamblingSpendableBalance !== "function") return 0;
+  if (resolveEconomyMode(client) === "galeoni") {
+    return svc.getGamblingSpendableBalance(client, guildId, userId);
+  }
+  return svc.getGamblingSpendableBalance(client, guildId, userId, currency);
 }
 
 async function applyRpsCooldown(client, guildId, userId, cfg) {
@@ -239,6 +336,10 @@ module.exports = {
   applyTrisCooldown,
   assertEconomyGamblingAccess,
   assertEconomyGamblingAccessForUser,
+  assertDifferentHouses: (...args) => {
+    if (resolveEconomyMode(args[0]) !== "galeoni") return Promise.resolve({ ok: true, skipped: true });
+    return galeoniSvc().assertDifferentHouses(...args);
+  },
   assertServerEconomyAccess,
   cashoutSlotsBank,
   claimFixed,
@@ -246,6 +347,7 @@ module.exports = {
   defaultBetCurrency: (...args) => server.defaultBetCurrency(...args),
   economyConfig,
   evaluateRobTarget,
+  listRobCandidateUserIds,
   evaluateRouletteWin: (...args) => server.evaluateRouletteWin(...args),
   evaluateRpsOutcome: (...args) => server.evaluateRpsOutcome(...args),
   flushSlotsGuiPendingBank,
@@ -254,7 +356,9 @@ module.exports = {
   formatDuration: (...args) => server.formatDuration(...args),
   formatEconomyAmount: (...args) => server.formatEconomyAmount(...args),
   formatVinili: (...args) => server.formatVinili(...args),
+  getGamblingSpendableBalance,
   isEconomyCommandsVisible,
+  isEconomyGameEnabled,
   isHighStaff,
   isMember: (...args) => server.isMember(...args),
   isGaleoniEconomyUnlocked: (...args) => galeoniSvc().isGaleoniEconomyUnlocked(...args),
@@ -271,6 +375,8 @@ module.exports = {
   payScratchWin,
   payTrisWin,
   peekFixedClaim,
+  peekRobCooldown,
+  clearRobCooldown,
   peekWorkClaim,
   playBlackjackBet,
   playCoinflip,
@@ -280,6 +386,8 @@ module.exports = {
   playScratchBet,
   playSlots,
   playSlotsBanked,
+  playTrisBet,
+  refundEconomyStake,
   refundRpsPvpStake,
   refundTrisPvpStake,
   resolveEconomyMode,

@@ -1,6 +1,7 @@
 const { AuditLogEvent, EmbedBuilder, PermissionsBitField } = require("discord.js");
 const IDs = require("../Utils/Config/ids");
 const { getGuildChannelCached } = require("../Utils/Interaction/interactionEntityCache");
+const { isViniliFullFeatureGuild } = require("../MultiGuild/core/guildFeatureScope");
 const EMOJI_DELETE_ACTION = AuditLogEvent?.EmojiDelete ?? 62;
 const AUDIT_FETCH_LIMIT = 20;
 const AUDIT_LOOKBACK_MS = 120 * 1000;
@@ -63,6 +64,7 @@ module.exports = {
       const guild = emoji?.guild;
       const emojiId = String(emoji?.id || "").trim();
       if (!guild || !emojiId) return;
+      if (!isViniliFullFeatureGuild(guild.id)) return;
       const logChannel = await resolveLogChannel(guild);
       if (!logChannel?.isTextBased?.()) return;
 

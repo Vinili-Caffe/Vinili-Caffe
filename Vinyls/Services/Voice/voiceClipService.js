@@ -5,12 +5,13 @@ const { spawn } = require("child_process");
 const { AttachmentBuilder } = require("discord.js");
 const { getVoiceConnection, VoiceConnectionStatus } = require("@discordjs/voice");
 const ffmpegStatic = require("ffmpeg-static");
-const { resolveQuotePostChannel } = require("../../Utils/Quote/quotePostChannel");
+const { resolveBoardPostChannel } = require("../../Utils/Quote/quotePostChannel");
 const { nextClipCount } = require("../../Utils/Quote/quoteCounter");
 const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
 const { DEFAULT_FOOTER_TEXT } = require("../../Utils/Embeds/defaultFooter");
 const { transcribeClipAudioFile } = require("./voiceClipTranscribe");
 const { registerClipBoardPost } = require("../Community/repostService");
+const { TENANT_EMBED_COLOR } = require("../../MultiGuild/utils/tenantEmbedBranding");
 const {
   CAPTURE_MAX_SEC,
   PCM_CHANNELS,
@@ -19,10 +20,11 @@ const {
   getVoiceCaptureInfo,
   isVoiceCaptureActive,
 } = require("./voiceContinuousCaptureService");
+const { isTenantClipTranscriptionEnabledSync } = require("../../MultiGuild/core/tenantGuildSettings");
 
 const CLIP_MIN_SEC = 3;
 const CLIP_DEFAULT_SEC = 30;
-const CLIP_COLOR = 0x57f287;
+const CLIP_COLOR = TENANT_EMBED_COLOR;
 const MIN_MP3_BYTES = 8_192;
 const exportingClipByGuild = new Set();
 
@@ -100,8 +102,12 @@ async function pcmBufferToMp3(pcmBuffer, outPath) {
     String(PCM_CHANNELS),
     "-i",
     pcmPath,
+    "-af",
+    "highpass=f=80",
     "-ac",
     "1",
+    "-ar",
+    "48000",
     "-c:a",
     "libmp3lame",
     "-b:a",
@@ -238,7 +244,24 @@ async function exportClipFromCommand(ctx) {
     if (extracted.reason === "silent") {
       return {
         ok: false,
-        message: "Nessun audio utile negli ultimi secondi richiesti. Riprova parlando in vocale.",
+        message:
+          "Nessun audio utile negli ultimi secondi richiesti. Dopo un riavvio il buffer riparte da zero: parla un momento in vocale e riprova.",
+      };
+    }
+    if (extracted.reason === "not_capturing") {
+      return {
+        ok: false,
+        message:
+          "Il bot non sta ancora registrando questo vocale (spesso dopo un riavvio). Resta in call qualche secondo e riprova.",
+      };
+    }
+    if (extracted.reason === "empty") {
+      const avail = Math.floor(Number(extracted.availableSec) || 0);
+      return {
+        ok: false,
+        message: avail > 0
+          ? `Buffer audio ancora troppo corto (${avail}s). Parla un momento e riprova.`
+          : "Buffer audio vuoto (dopo un riavvio riparte da zero). Parla un momento in vocale e riprova.",
       };
     }
     return { ok: false, message: "Impossibile estrarre il clip dal buffer vocale." };
@@ -253,13 +276,16 @@ async function exportClipFromCommand(ctx) {
     await pcmBufferToMp3(extracted.pcm, mp3Path);
 
     const cfg = resolveClipConfig(client);
-    const transcribed = await transcribeClipAudioFile(mp3Path, {
-      language: cfg.language,
-      provider: cfg.provider,
-    });
-    const transcription = transcribed.ok ? transcribed.text : "";
+    let transcription = "";
+    if (isTenantClipTranscriptionEnabledSync(guildId)) {
+      const transcribed = await transcribeClipAudioFile(mp3Path, {
+        language: cfg.language,
+        provider: cfg.provider,
+      });
+      transcription = transcribed.ok ? transcribed.text : "";
+    }
 
-    const quoteChannel = await resolveQuotePostChannel(guild);
+    const quoteChannel = await resolveBoardPostChannel(guild, "clip");
     const postChannel = quoteChannel || commandChannel;
     if (!postChannel?.isTextBased?.()) {
       return { ok: false, message: "Impossibile pubblicare la clip." };
@@ -273,7 +299,10 @@ async function exportClipFromCommand(ctx) {
       return { ok: false, message: "Contatore clip non disponibile. Riprova tra poco." };
     }
 
-    const prefix = String(client?.config?.prefix || "+").trim() || "+";
+    const {
+      resolveCommandPrefixForGuild,
+    } = require("../../MultiGuild/core/tenantGuildSettings");
+    const prefix = resolveCommandPrefixForGuild(guildId, client);
     const voiceChannelName = extracted.voiceChannelName || voiceChannel.name;
     const boardEmbed = buildClipBoardEmbed({
       requester,
@@ -284,26 +313,34 @@ async function exportClipFromCommand(ctx) {
       totalPosts,
       prefix,
     });
-    const attachment = new AttachmentBuilder(mp3Path, { name: "clip.mp3" });
-    const boardMsg = await postChannel.send({
-      files: [attachment],
-      embeds: [boardEmbed],
-      allowedMentions: { users: [requesterId] },
-    });
 
-    if (boardMsg?.id) {
-      await registerClipBoardPost({
-        guild,
-        guildId,
-        requesterId,
-        requester,
-        boardChannelId: postChannel.id,
-        boardMessage: boardMsg,
-        transcription,
-        totalPosts,
-      }).catch((err) => {
-        global.logger?.warn?.("[clip] repost register:", err?.message || err);
-      });
+    let boardMsg = null;
+    const registered = await registerClipBoardPost({
+      guild,
+      guildId,
+      requesterId,
+      requester,
+      postChannel,
+      boardEmbed,
+      mp3Path,
+      transcription,
+      totalPosts,
+    }).catch((err) => {
+      global.logger?.warn?.("[clip] repost register:", err?.message || err);
+      return null;
+    });
+    if (registered?.ok && registered.boardMessage) {
+      boardMsg = registered.boardMessage;
+    } else {
+      // Fallback: pubblica senza bottoni piuttosto che perdere la clip.
+      const attachment = new AttachmentBuilder(mp3Path, { name: "clip.mp3" });
+      boardMsg = await postChannel
+        .send({
+          files: [attachment],
+          embeds: [boardEmbed],
+          allowedMentions: { users: [requesterId] },
+        })
+        .catch(() => null);
     }
 
     const boardUrl = messageJumpUrl(guildId, postChannel.id, boardMsg?.id);

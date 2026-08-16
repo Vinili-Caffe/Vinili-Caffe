@@ -49,10 +49,29 @@ async function clearGlobalAutomodBadUserForUsersNotIn(memberIds, dryRun) {
  * @param {{ dryRun?: boolean, includeUserScoped?: boolean }} options - dryRun: true solo conta, false esegue deleteMany
  * @returns {{ total: number, details: Array<{ name: string, count: number }> }}
  */
-async function unsetStaffForUsersNotInGuild(guildId, memberIds, dryRun) {
+async function unsetStaffForUsersNotInGuild(guildId, memberIds, dryRun, memberCountHint = 0) {
+  const keep = [...new Set((Array.isArray(memberIds) ? memberIds : []).map((id) => String(id || "").trim()).filter(Boolean))];
+  // Safety: lista deve essere ~completa rispetto a memberCount.
+  if (!dryRun) {
+    const reported = Math.max(0, Number(memberCountHint || 0));
+    const completeEnough =
+      reported > 0
+        ? keep.length >= Math.max(1, Math.floor(reported * 0.9))
+        : keep.length >= 500;
+    if (!completeEnough) {
+      global.logger?.warn?.(
+        "[CLEANUP USERS NOT IN SERVER] unset staff saltato: memberIds incompleti (",
+        keep.length,
+        "/",
+        reported || "?",
+        ") — skip pericoloso.",
+      );
+      return 0;
+    }
+  }
   const filter = {
     guildId: String(guildId),
-    userId: { $nin: memberIds },
+    userId: { $nin: keep },
     $expr: {
       $not: {
         $regexMatch: {
@@ -71,7 +90,7 @@ async function unsetStaffForUsersNotInGuild(guildId, memberIds, dryRun) {
   return res?.modifiedCount ?? 0;
 }
 
-async function runCleanupUsersNotInServer(guildId, memberIds, { dryRun = false, includeUserScoped = true, client = null } = {}) {
+async function runCleanupUsersNotInServer(guildId, memberIds, { dryRun = false, includeUserScoped = true, client = null, memberCount = 0 } = {}) {
   let total = 0;
   const details = [];
   const keepUserIds = await resolveHogwartsCleanupExcludeUserIds(client, guildId);
@@ -115,7 +134,7 @@ async function runCleanupUsersNotInServer(guildId, memberIds, { dryRun = false, 
       details.push({ name, count: n });
     }
   }
-  const staffUnset = await unsetStaffForUsersNotInGuild(guildId, memberIds, dryRun);
+  const staffUnset = await unsetStaffForUsersNotInGuild(guildId, memberIds, dryRun, memberCount);
   if (staffUnset > 0) {
     total += staffUnset;
     details.push({ name: "ActivityUserProfile.staff", count: staffUnset });
@@ -154,7 +173,12 @@ async function runFullCleanupUsersNotInServer(client) {
       continue;
     }
     for (const memberId of memberIds) allMemberIds.add(memberId);
-    await runCleanupUsersNotInServer(guildId, memberIds, { dryRun: false, includeUserScoped: false, client });
+    await runCleanupUsersNotInServer(guildId, memberIds, {
+      dryRun: false,
+      includeUserScoped: false,
+      client,
+      memberCount: guild.memberCount,
+    });
   }
   await runCleanupUserScopedNotInAnyServer(Array.from(allMemberIds), { dryRun: false });
 }
@@ -176,7 +200,12 @@ async function runCleanupAfterMemberLeave(client, guild) {
       global.logger?.info?.("[CLEANUP USERS NOT IN SERVER] Leave cleanup skipped: member list unavailable.", guildId);
       return;
     }
-    await runCleanupUsersNotInServer(guildId, memberIds, { dryRun: false, includeUserScoped: false, client });
+    await runCleanupUsersNotInServer(guildId, memberIds, {
+      dryRun: false,
+      includeUserScoped: false,
+      client,
+      memberCount: guild.memberCount,
+    });
     const allIds = [];
     for (const g of client.guilds.cache.values()) {
       const ids = String(g?.id || "") === guildId ? memberIds : await fetchCompleteGuildMemberIds(g);

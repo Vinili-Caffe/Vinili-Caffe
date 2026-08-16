@@ -1,7 +1,8 @@
 /**
  * Hub WebSocket (stessa porta degli altri /webhooks/*).
  * Path canonico: /webhooks/site-realtime-ws — alias: /webhooks/site-suggestions-ws (nginx già configurato).
- * Messaggi: suggestions_changed, notifications_changed, reviews_changed, + hello iniziali.
+ * Messaggi: suggestions_changed, notifications_changed, reviews_changed, staff_pauses_changed,
+ * web_ticket_*, web_tickets_list_changed, + hello iniziali.
  */
 const SITE_REALTIME_WS_PATH = "/webhooks/site-realtime-ws";
 const LEGACY_SUGGESTIONS_WS_PATH = "/webhooks/site-suggestions-ws";
@@ -55,6 +56,10 @@ function attachSiteSuggestionsWsServer(server) {
   return true;
 }
 
+function isTruthyEnv(name) {
+  return ["1", "true", "yes", "on"].includes(String(process.env[name] || "").trim().toLowerCase());
+}
+
 function broadcastSiteRealtime(payload) {
   if (!wssSingleton || !payload || typeof payload !== "object") return;
   const OPEN = 1;
@@ -75,16 +80,64 @@ function broadcastSiteRealtime(payload) {
   }
 }
 
+/**
+ * Con SITE_API_EXTERNAL i browser WS sono su site-api (3020), mentre bot scrive voti/reminder.
+ * Notifica localhost così il realtime arriva comunque ai client collegati a site-api.
+ */
+function notifyExternalSiteRealtime(payload) {
+  if (!isTruthyEnv("SITE_API_EXTERNAL")) return;
+  if (isTruthyEnv("SITE_API_PROCESS")) return;
+  if (!payload || typeof payload !== "object") return;
+  const port = Number(process.env.SITE_API_PORT || 3020) || 3020;
+  const secret = String(process.env.SITE_REALTIME_NOTIFY_SECRET || "local").trim() || "local";
+  const body = JSON.stringify(payload);
+  void fetch(`http://127.0.0.1:${port}/webhooks/site-realtime/notify`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Internal-Notify": secret,
+    },
+    body,
+  }).catch(() => null);
+}
+
 function broadcastSiteSuggestionsChanged() {
-  broadcastSiteRealtime({ type: "suggestions_changed", at: new Date().toISOString() });
+  const payload = { type: "suggestions_changed", at: new Date().toISOString() };
+  broadcastSiteRealtime(payload);
+  notifyExternalSiteRealtime(payload);
 }
 
 function broadcastSiteNotificationsChanged() {
-  broadcastSiteRealtime({ type: "notifications_changed", at: new Date().toISOString() });
+  const payload = { type: "notifications_changed", at: new Date().toISOString() };
+  broadcastSiteRealtime(payload);
+  notifyExternalSiteRealtime(payload);
 }
 
 function broadcastSiteReviewsChanged() {
-  broadcastSiteRealtime({ type: "reviews_changed", at: new Date().toISOString() });
+  const payload = { type: "reviews_changed", at: new Date().toISOString() };
+  broadcastSiteRealtime(payload);
+  notifyExternalSiteRealtime(payload);
+}
+
+function broadcastSiteStaffPausesChanged() {
+  const payload = { type: "staff_pauses_changed", at: new Date().toISOString() };
+  try {
+    const { invalidateStaffPauseCalendarCache } = require("./siteStaffPauseApi");
+    invalidateStaffPauseCalendarCache();
+  } catch {
+    /* ignore */
+  }
+  broadcastSiteRealtime(payload);
+  notifyExternalSiteRealtime(payload);
+}
+
+function broadcastSiteWebTicketsEvent(payload) {
+  if (!payload || typeof payload !== "object") return;
+  const body = { ...payload };
+  if (!body.at) body.at = new Date().toISOString();
+  if (!body.type) body.type = "web_tickets_list_changed";
+  broadcastSiteRealtime(body);
+  notifyExternalSiteRealtime(body);
 }
 
 module.exports = {
@@ -92,6 +145,8 @@ module.exports = {
   broadcastSiteSuggestionsChanged,
   broadcastSiteNotificationsChanged,
   broadcastSiteReviewsChanged,
+  broadcastSiteStaffPausesChanged,
+  broadcastSiteWebTicketsEvent,
   broadcastSiteRealtime,
   SUGGESTIONS_WS_PATH: LEGACY_SUGGESTIONS_WS_PATH,
   SITE_REALTIME_WS_PATH,

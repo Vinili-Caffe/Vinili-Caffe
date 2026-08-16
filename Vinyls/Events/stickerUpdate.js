@@ -1,5 +1,6 @@
 const { AuditLogEvent, EmbedBuilder, PermissionsBitField } = require("discord.js");
 const IDs = require("../Utils/Config/ids");
+const { isViniliFullFeatureGuild } = require("../MultiGuild/core/guildFeatureScope");
 const STICKER_UPDATE_ACTION = AuditLogEvent?.StickerUpdate ?? 91;
 const AUDIT_FETCH_LIMIT = 20;
 const AUDIT_LOOKBACK_MS = 120 * 1000;
@@ -63,6 +64,7 @@ module.exports = {
       const guild = newSticker?.guild || oldSticker?.guild;
       const stickerId = String(newSticker?.id || oldSticker?.id || "");
       if (!guild || !stickerId) return;
+      if (!isViniliFullFeatureGuild(guild.id)) return;
       const logChannel = await resolveLogChannel(guild);
       if (!logChannel?.isTextBased?.()) return;
 

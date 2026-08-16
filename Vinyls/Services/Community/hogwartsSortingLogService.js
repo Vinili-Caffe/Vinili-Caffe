@@ -4,7 +4,7 @@ const { AttachmentBuilder, EmbedBuilder } = require("discord.js");
 const IDs = require("../../Utils/Config/ids");
 const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Schemas/Community/communitySchemas");
 const { getGuildChannelCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
-const { accountUsername } = require("../../Utils/Discord/guildDiscordIdentity");
+const { accountUsername, resolveEmbedUserAvatarUrl } = require("../../Utils/Discord/guildDiscordIdentity");
 const { resolveHogwartsEventConfig } = require("../../Utils/Web/hogwartsSortingConfig");
 const { getHouseMeta, HOUSE_META } = require("../../Utils/Web/hogwartsSortingBank");
 
@@ -68,13 +68,143 @@ function loadHouseAnnounceLogRows() {
   return rows;
 }
 
-function loadHouseAnnounceDedupeKeys() {
+function loadHouseAnnounceDedupeKeysFromJsonl() {
   const keys = new Set();
   for (const row of loadHouseAnnounceLogRows()) {
     const key = String(row?.dedupeKey || buildHouseAnnounceDedupeKey(row) || "").trim();
     if (key) keys.add(key);
   }
   return keys;
+}
+
+function loadHouseAnnounceDedupeKeys() {
+  return loadHouseAnnounceDedupeKeysFromJsonl();
+}
+
+function isHouseAnnounceBackfillSendEnabled() {
+  const raw = String(process.env.HOGWARTS_SORTING_ANNOUNCE_BACKFILL || "").trim().toLowerCase();
+  return raw === "1" || raw === "true" || raw === "yes";
+}
+
+async function loadHouseAnnounceDedupeKeysFromMongo(guildId, eventKey) {
+  const keys = new Set();
+  const g = String(guildId || "").trim();
+  const e = String(eventKey || "").trim();
+  if (!g || !e) return keys;
+  const docs = await SiteDocument.find({
+    docType: SORT_DOC,
+    guildId: g,
+    dedupeKey: e,
+    houseAnnounceAt: { $ne: null },
+  })
+    .select("userId guildId dedupeKey houseAnnounceHouseId")
+    .lean()
+    .catch(() => []);
+  for (const doc of Array.isArray(docs) ? docs : []) {
+    const uid = String(doc?.userId || "").trim();
+    if (!uid) continue;
+    const key = buildHouseAnnounceDedupeKey({ guildId: g, userId: uid, eventKey: e });
+    if (key) keys.add(key);
+  }
+  return keys;
+}
+
+async function loadHouseAnnounceDedupeKeysMerged(guildId, eventKey) {
+  const keys = loadHouseAnnounceDedupeKeysFromJsonl();
+  for (const key of await loadHouseAnnounceDedupeKeysFromMongo(guildId, eventKey)) {
+    keys.add(key);
+  }
+  return keys;
+}
+
+async function findSortingDocForAnnounce(guildId, userId, eventKey) {
+  const g = String(guildId || "").trim();
+  const u = String(userId || "").trim();
+  const e = String(eventKey || "").trim();
+  if (!g || !u || !e) return null;
+  return SiteDocument.findOne({ docType: SORT_DOC, guildId: g, userId: u, dedupeKey: e })
+    .select("_id userId guildId dedupeKey houseAnnounceAt houseAnnounceHouseId status planKey")
+    .lean()
+    .catch(() => null);
+}
+
+async function persistHouseAnnounceOnSortingDoc({
+  guildId,
+  userId,
+  eventKey,
+  houseId,
+  announcedAtMs,
+}) {
+  const g = String(guildId || "").trim();
+  const u = String(userId || "").trim();
+  const e = String(eventKey || "").trim();
+  const house = normalizeHouseId(houseId);
+  if (!g || !u || !e || !house) return { ok: false, reason: "invalid_entry" };
+  const announcedAt = new Date(Number(announcedAtMs || Date.now()));
+  if (Number.isNaN(announcedAt.getTime())) return { ok: false, reason: "invalid_date" };
+  const updated = await SiteDocument.updateOne(
+    { docType: SORT_DOC, guildId: g, userId: u, dedupeKey: e },
+    { $set: { houseAnnounceAt: announcedAt, houseAnnounceHouseId: house } },
+  ).catch(() => null);
+  if (!updated?.matchedCount) return { ok: false, reason: "doc_not_found" };
+  return { ok: true };
+}
+
+async function hydrateHouseAnnounceDedupeFromJsonlToMongo(guildId, eventKey) {
+  const g = String(guildId || "").trim();
+  const e = String(eventKey || "").trim();
+  if (!g || !e) return { ok: false, reason: "invalid_scope", hydrated: 0 };
+  let hydrated = 0;
+  for (const row of loadHouseAnnounceLogRows()) {
+    if (String(row?.guildId || "").trim() !== g) continue;
+    if (String(row?.eventKey || e).trim() !== e) continue;
+    const uid = String(row?.userId || "").trim();
+    const houseId = normalizeHouseId(row?.houseId);
+    if (!uid || !houseId) continue;
+    const doc = await findSortingDocForAnnounce(g, uid, e);
+    if (!doc || doc.houseAnnounceAt) continue;
+    const ms = Number(row?.sortedAtMs || 0);
+    const result = await persistHouseAnnounceOnSortingDoc({
+      guildId: g,
+      userId: uid,
+      eventKey: e,
+      houseId,
+      announcedAtMs: Number.isFinite(ms) && ms > 0 ? ms : Date.now(),
+    });
+    if (result.ok) hydrated += 1;
+  }
+  return { ok: true, hydrated };
+}
+
+async function seedHouseAnnounceDedupeFromSortingDocs(guildId, eventKey) {
+  const g = String(guildId || "").trim();
+  const e = String(eventKey || "").trim();
+  if (!g || !e) return { ok: false, reason: "invalid_scope", seeded: 0 };
+  const docs = await SiteDocument.find({
+    docType: SORT_DOC,
+    guildId: g,
+    dedupeKey: e,
+    houseAnnounceAt: null,
+  })
+    .select("userId status planKey createdAt updatedAt")
+    .lean()
+    .catch(() => []);
+  let seeded = 0;
+  for (const doc of Array.isArray(docs) ? docs : []) {
+    const uid = String(doc?.userId || "").trim();
+    const houseId = resolveSortedHouseFromDoc(doc);
+    if (!uid || !houseId) continue;
+    const sortedAtMs = new Date(doc?.createdAt || doc?.updatedAt || 0).getTime();
+    const result = await persistHouseAnnounceOnSortingDoc({
+      guildId: g,
+      userId: uid,
+      eventKey: e,
+      houseId,
+      announcedAtMs: Number.isFinite(sortedAtMs) && sortedAtMs > 0 ? sortedAtMs : Date.now(),
+    });
+    if (result.ok) seeded += 1;
+  }
+  return { ok: true, seeded };
 }
 
 function rewriteHouseAnnounceLogFile(shouldRemoveRow) {
@@ -108,10 +238,21 @@ function rewriteHouseAnnounceLogFile(shouldRemoveRow) {
   }
 }
 
-function revokeHouseSortingAnnouncesForMember({ guildId, userId }) {
+async function clearHouseAnnounceOnSortingDocs(guildId, userId, eventKey) {
   const g = String(guildId || "").trim();
   const u = String(userId || "").trim();
   if (!g || !u) return { ok: false, reason: "invalid_member" };
+  const filter = { docType: SORT_DOC, guildId: g, userId: u };
+  if (eventKey) filter.dedupeKey = String(eventKey).trim();
+  await SiteDocument.updateMany(filter, { $unset: { houseAnnounceAt: "", houseAnnounceHouseId: "" } }).catch(() => null);
+  return { ok: true };
+}
+
+function revokeHouseSortingAnnouncesForMember({ guildId, userId, eventKey }) {
+  const g = String(guildId || "").trim();
+  const u = String(userId || "").trim();
+  if (!g || !u) return { ok: false, reason: "invalid_member" };
+  void clearHouseAnnounceOnSortingDocs(g, u, eventKey);
   return rewriteHouseAnnounceLogFile((row) => {
     const rowGuild = String(row?.guildId || "").trim();
     const rowUser = String(row?.userId || "").trim();
@@ -150,9 +291,10 @@ function revokeHouseSortingAnnounce({ guildId, userId, eventKey }) {
       const key = String(row?.dedupeKey || buildHouseAnnounceDedupeKey(row) || "").trim();
       return key === dedupeKey;
     });
+    void clearHouseAnnounceOnSortingDocs(guildId, userId, eventKey);
     if (exact.removed > 0) return exact;
   }
-  return revokeHouseSortingAnnouncesForMember({ guildId, userId });
+  return revokeHouseSortingAnnouncesForMember({ guildId, userId, eventKey });
 }
 
 function hogwartsImageDirs() {
@@ -296,10 +438,9 @@ async function sendHouseSortingLogDiscord(client, guild, cfg, entry, member) {
     const crestUrl = resolveHouseCrestThumbnailUrl(client, cfg, houseId);
     if (crestUrl) embed.setThumbnail(crestUrl);
   }
-  const avatarUrl = member?.user?.displayAvatarURL?.({ extension: "png", size: 256 });
-  if (avatarUrl) {
-    embed.setAuthor({ name: String(entry.username || uid), iconURL: avatarUrl });
-  }
+  // Verifica CDN (avatar server/hash morti → icona spezzata su Discord). Fallback default sempre valido.
+  const avatarUrl = await resolveEmbedUserAvatarUrl(member || member?.user || { id: uid }, { size: 256 });
+  embed.setAuthor({ name: String(entry.username || uid), iconURL: avatarUrl });
   const roleId = String(cfg?.houses?.[houseId]?.roleId || "").trim();
   const contentParts = [];
   if (uid) contentParts.push(`<@${uid}>`);
@@ -340,7 +481,14 @@ async function announceHouseSorting({
   const eventKey = String(cfg?.eventKey || "").trim();
   const dedupeKey = buildHouseAnnounceDedupeKey({ guildId: guild.id, userId: uid, eventKey });
   if (!dedupeKey) return { ok: false, reason: "invalid_dedupe" };
-  const keys = knownDedupeKeys || loadHouseAnnounceDedupeKeys();
+  const sortingDoc = await findSortingDocForAnnounce(guild.id, uid, eventKey);
+  if (sortingDoc?.houseAnnounceAt) {
+    const storedHouse = normalizeHouseId(sortingDoc.houseAnnounceHouseId) || findStoredAnnounceHouseForMember(guild.id, uid);
+    if (!storedHouse || storedHouse === sortedHouse) {
+      return { ok: false, reason: "duplicate", dedupeKey };
+    }
+  }
+  const keys = knownDedupeKeys || (await loadHouseAnnounceDedupeKeysMerged(guild.id, eventKey));
   if (keys.has(dedupeKey)) {
     const storedHouse = findStoredAnnounceHouseForMember(guild.id, uid);
     if (!storedHouse || storedHouse === sortedHouse) {
@@ -368,6 +516,13 @@ async function announceHouseSorting({
   const sent = await sendHouseSortingLogDiscord(client, guild, cfg, entry, member);
   if (!sent?.ok) return sent;
   appendHouseAnnounceLogFile(entry);
+  await persistHouseAnnounceOnSortingDoc({
+    guildId: guild.id,
+    userId: uid,
+    eventKey,
+    houseId: sortedHouse,
+    announcedAtMs: sortedAt,
+  }).catch(() => null);
   keys.add(dedupeKey);
   return { ok: true, entry, dedupeKey };
 }
@@ -393,7 +548,7 @@ async function logHogwartsSortingCompleted({ client, guild, cfg, member, userId,
   };
   appendSortingLogFile(entry);
   if (client && guild) {
-    revokeHouseSortingAnnouncesForMember({ guildId: guild.id, userId: uid });
+    revokeHouseSortingAnnouncesForMember({ guildId: guild.id, userId: uid, eventKey: String(cfg?.eventKey || "") });
     await announceHouseSorting({
       client,
       guild,
@@ -422,13 +577,29 @@ async function syncHouseSortingAnnouncesOnStartup(client) {
     client.guilds.cache.get(guildId) ||
     (await client.guilds.fetch(guildId).catch(() => null));
   if (!guild) return { ok: false, reason: "guild_unavailable" };
-  const keys = loadHouseAnnounceDedupeKeys();
+
+  const hydrated = await hydrateHouseAnnounceDedupeFromJsonlToMongo(guildId, eventKey);
+  const seeded = await seedHouseAnnounceDedupeFromSortingDocs(guildId, eventKey);
+  if (!isHouseAnnounceBackfillSendEnabled()) {
+    return {
+      ok: true,
+      announced: 0,
+      skipped: seeded.seeded || 0,
+      hydrated: hydrated.hydrated || 0,
+      seeded: seeded.seeded || 0,
+      sendDisabled: true,
+      total: seeded.seeded || 0,
+    };
+  }
+
+  const keys = await loadHouseAnnounceDedupeKeysMerged(guildId, eventKey);
   const docs = await SiteDocument.find({
     docType: SORT_DOC,
     guildId,
     dedupeKey: eventKey,
+    houseAnnounceAt: null,
   })
-    .select("guildId userId status planKey createdAt updatedAt")
+    .select("guildId userId status planKey createdAt updatedAt houseAnnounceAt")
     .lean()
     .catch(() => []);
   let announced = 0;
@@ -459,7 +630,14 @@ async function syncHouseSortingAnnouncesOnStartup(client) {
       skipped += 1;
     }
   }
-  return { ok: true, announced, skipped, total: docs.length };
+  return {
+    ok: true,
+    announced,
+    skipped,
+    hydrated: hydrated.hydrated || 0,
+    seeded: seeded.seeded || 0,
+    total: docs.length,
+  };
 }
 
 module.exports = {

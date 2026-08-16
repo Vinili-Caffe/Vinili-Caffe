@@ -1,7 +1,8 @@
 const { assertEconomyGamblingAccess, assertEconomyGamblingAccessForUser, economyConfig } = require("../../Services/Community/activeEconomyService");
 const { formatGaleoni } = require("../../Services/Community/gringottService");
-const { buildRpsGuiPayload, clampBet, findActivePvpMessageId, formatRpsRoundNotice, getSession, makeSession, playRpsSession, schedulePvpInviteExpiry, scheduleRpsIdlePanel, setSession, warmupRpsPanel } = require("../../Utils/Economy/rpsGuiRuntime");
-const { postGuiPanel, replyDeny, runEconomyPanelCommand } = require("../../Utils/Economy/economyCommandHelpers");
+const { buildRpsGuiPayload, clampBet, findActivePvpMessageId, formatRpsRoundNotice, makeSession, playRpsSession, schedulePvpInviteExpiry, scheduleRpsIdlePanel, setSession, warmupRpsPanel } = require("../../Utils/Economy/rpsGuiRuntime");
+const { postGuiPanel, replyDeny, resolveEconomyOpponentArg, runEconomyPanelCommand } = require("../../Utils/Economy/economyCommandHelpers");
+const { economyUsername } = require("../../Utils/Economy/economyDisplayHelpers");
 
 function extractUserId(value) {
   const clean = String(value || "").replace(/[<@!>]/g, "").trim();
@@ -23,24 +24,31 @@ function parseBetArg(raw, cfg, fallback) {
   return clampBet(n, cfg);
 }
 
+function isNonUserToken(token, cfg) {
+  const t = String(token || "").trim();
+  if (!t) return true;
+  if (normalizeQuickChoice(t)) return true;
+  if (parseBetArg(t, cfg, null) != null && /^\d+$/.test(t)) return true;
+  return false;
+}
+
 module.exports = {
   name: "rps",
-  aliases: ["morra"],
   allowEmptyArgs: true,
   description: "Gioca a sasso carta forbici con pannello animato (puntata in Vinili o Caffè).",
-  usage: "+rps [puntata] [sasso|carta|forbici] · +rps @utente [puntata]",
-  examples: ["+rps", "+rps 10", "+rps 20 carta", "+rps @utente 25"],
+  usage: "+rps [puntata] [sasso|carta|forbici] · +rps <@utente|username> [puntata]",
+  examples: ["+rps", "+rps 10", "+rps 20 carta", "+rps @utente 25", "+rps username 25"],
   async execute(message, args, client) {
     await runEconomyPanelCommand(message, client, "RPS", async ({ message: msg, client: c, replyDeny: deny, postGuiPanel: post }) => {
       const cfg = economyConfig(c);
-      const targetUser = msg.mentions.users.first()
-        || (extractUserId(args?.[0]) ? await c.users.fetch(extractUserId(args[0])).catch(() => null) : null)
-        || (extractUserId(args?.[1]) ? await c.users.fetch(extractUserId(args[1])).catch(() => null) : null);
+      const targetUser = await resolveEconomyOpponentArg(msg, args, {
+        skipToken: (token) => isNonUserToken(token, cfg),
+      });
       let rawBet = cfg.minBet;
       if (targetUser) {
-        if (args?.[0] && extractUserId(args[0]) && parseBetArg(args[1], cfg, cfg.minBet) != null) {
+        if (args?.[0] && (extractUserId(args[0]) || String(args[0]).trim()) && parseBetArg(args[1], cfg, cfg.minBet) != null) {
           rawBet = parseBetArg(args[1], cfg, cfg.minBet);
-        } else if (args?.[0] && !extractUserId(args[0]) && parseBetArg(args[0], cfg, cfg.minBet) != null) {
+        } else if (args?.[0] && !extractUserId(args[0]) && parseBetArg(args[0], cfg, cfg.minBet) != null && isNonUserToken(args[0], cfg)) {
           rawBet = parseBetArg(args[0], cfg, cfg.minBet);
         }
       } else {
@@ -66,7 +74,7 @@ module.exports = {
             guildId: msg.guild.id,
             bet: clampBet(rawBet, access.cfg),
             cfg: access.cfg,
-            playerName: msg.member?.displayName || msg.author.username,
+            playerName: economyUsername(msg.author),
           });
           const spin = await playRpsSession(c, msg, session, quickChoice);
           if (!spin.ok) {
@@ -82,7 +90,7 @@ module.exports = {
             setSession,
             label: "morra",
           });
-          if (sent?.id) scheduleRpsIdlePanel(sent, getSession(sent.id) || session, access.cfg, notice);
+          if (sent?.id) scheduleRpsIdlePanel(sent, session, access.cfg, notice);
           return;
         }
       }
@@ -93,6 +101,14 @@ module.exports = {
         }
         if (targetUser.id === msg.author.id) {
           await deny(msg, "Non puoi sfidare te stesso.");
+          return;
+        }
+        const { assertDifferentHouses } = require("../../Services/Community/galeoniEconomyService");
+        const houseGate = await assertDifferentHouses(c, msg.guild.id, msg.author.id, targetUser.id, {
+          actionLabel: "le sfide PvP",
+        });
+        if (!houseGate.ok) {
+          await deny(msg, houseGate.message);
           return;
         }
         const opponentMember = msg.mentions.members?.first()
@@ -115,10 +131,10 @@ module.exports = {
           guildId: msg.guild.id,
           bet: clampBet(rawBet, access.cfg),
           cfg: access.cfg,
-          playerName: msg.member?.displayName || msg.author.username,
+          playerName: economyUsername(msg.author),
           mode: "pvp",
           opponentId: targetUser.id,
-          opponentName: opponentMember?.displayName || targetUser.globalName || targetUser.username,
+          opponentName: economyUsername(targetUser),
         });
         await warmupRpsPanel();
         const notice = `<:VC_Info:1482526956703580372> **${session.playerName}** sfida **${session.opponentName}** per **${formatGaleoni(session.bet)}** ciascuno.\n${targetUser}, accetta o rifiuta entro 90 secondi.`;
@@ -128,7 +144,7 @@ module.exports = {
           setSession,
           label: "morra",
         });
-        if (sent?.id) schedulePvpInviteExpiry(sent, getSession(sent.id) || session, access.cfg);
+        if (sent?.id) schedulePvpInviteExpiry(sent, session, access.cfg);
         return;
       }
       const session = makeSession({
@@ -136,7 +152,7 @@ module.exports = {
         guildId: msg.guild.id,
         bet: clampBet(rawBet, access.cfg),
         cfg: access.cfg,
-        playerName: msg.member?.displayName || msg.author.username,
+        playerName: economyUsername(msg.author),
       });
       await warmupRpsPanel();
       await post(msg, {

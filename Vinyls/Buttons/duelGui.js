@@ -13,7 +13,7 @@ async function replyPrivate(interaction, content) {
 async function execute(interaction) {
   const parsed = parseDuelGuiCustomId(interaction.customId);
   if (!parsed) return false;
-  const session = getSession(interaction.message?.id);
+  const session = await getSession(interaction.message?.id, interaction.guild?.id, parsed.ownerId);
   if (!session) {
     await replyPrivate(interaction, "<a:VC_Cross:1482532424570376253> Sessione scaduta. Usa di nuovo `+duel`.");
     return true;
@@ -25,7 +25,6 @@ async function execute(interaction) {
       await interaction.followUp({ content: `<:vegax:1443934876440068179> ${out.message}`, flags: PRIVATE_FLAG }).catch(() => {});
       return true;
     }
-    await interaction.message?.edit?.(out.payload).catch(() => {});
     return true;
   }
   if (parsed.action === "decline") {

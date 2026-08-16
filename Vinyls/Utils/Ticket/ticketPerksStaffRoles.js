@@ -11,7 +11,7 @@ function memberCanAccessPerksTicket(member) {
 }
 
 function buildPerksPingMention() {
-  return PERKS_PING_ROLE_IDS.map((roleId) => `<@&${roleId}>`).join("");
+  return PERKS_PING_ROLE_IDS.map((roleId) => `<@&${roleId}>`).join(" ");
 }
 
 module.exports = { SENIOR_MODERATOR_ROLE_ID, DIRECTOR_ROLE_ID, HIGHSTAFF_ROLE_ID, PERKS_STAFF_ROLE_IDS, PERKS_PING_ROLE_IDS, memberCanAccessPerksTicket, buildPerksPingMention };

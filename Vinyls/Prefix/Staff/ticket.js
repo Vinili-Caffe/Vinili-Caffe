@@ -1,23 +1,104 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits, } = require("discord.js");
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const Ticket = require("../../Schemas/Ticket/ticketSchema");
+const { makeTicketErrorEmbed } = require("../../Utils/Ticket/ticketUxMessages");
 const { TICKETS_CATEGORY_NAME, isChannelInTicketCategory } = require("../../Utils/Ticket/ticketCategoryUtils");
 const { buildTicketChannelName, resolveTicketRenamePrefix, sanitizeTicketChannelTail } = require("../../Utils/Ticket/ticketNamingRuntime");
 const { getTicketPanelConfig } = require("../../Utils/Ticket/ticketPanelConfig");
 const { PERKS_STAFF_ROLE_IDS, PERKS_PING_ROLE_IDS, memberCanAccessPerksTicket, buildPerksPingMention } = require("../../Utils/Ticket/ticketPerksStaffRoles");
-const { PARTNERSHIP_TICKET_STAFF_ROLE_IDS, memberCanAccessPartnershipTicket, buildPartnershipTicketReviewerCreateOverwrites } = require("../../Utils/Ticket/ticketPartnershipStaffRoles");
+const { PARTNERSHIP_TICKET_STAFF_ROLE_IDS, memberCanAccessPartnershipTicket, buildPartnershipTicketReviewerCreateOverwrites, clearPartnershipTicketPermissionOverwrites, applyPartnershipTicketRoleOverwrites } = require("../../Utils/Ticket/ticketPartnershipStaffRoles");
+const {
+  TICKET_STAFF_SPECTATE_OVERWRITES,
+  buildTicketStaffRoleCreateOverwrite,
+  buildTicketEveryoneDenyViewCreateOverwrite,
+  buildTicketOpenerCreateOverwrite,
+  buildTicketRoleDenyViewCreateOverwrite,
+  buildTicketRoleCreateOverwrite,
+  applyHighStaffTicketWriteOverwrite,
+  applyTicketStaffRoleOverwrites,
+} = require("../../Utils/Ticket/ticketHighStaffOverwrites");
+const { buildTicketPanelUnclaimedButtonRow } = require("../../Utils/Ticket/ticketAutoUnclaimOnStaffLoss");
+const { buildClaimedControlButtons, resolveTicketPanel } = require("../../Utils/Ticket/ticketGuildOptions");
 const IDs = require("../../Utils/Config/ids");
 const { getClientGuildCached, getGuildChannelCached, getGuildMemberCached, } = require("../../Utils/Interaction/interactionEntityCache");
 const STAFF_ROLE_ID = IDs.roles.Staff;
 const HIGHSTAFF_ROLE_ID = IDs.roles.HighStaff;
 const PARTNERMANAGER_ROLE_ID = IDs.roles.PartnerManager;
-const STAFF_ROLE_IDS = [STAFF_ROLE_ID, HIGHSTAFF_ROLE_ID].filter(Boolean);
+const STAFF_ROLE_IDS = [
+  IDs.roles.Founder,
+  IDs.roles.Manager,
+  IDs.roles.Admin,
+  IDs.roles.Director,
+  HIGHSTAFF_ROLE_ID,
+  IDs.roles.SeniorModerator,
+  IDs.roles.Mod,
+  IDs.roles.Helper,
+  STAFF_ROLE_ID,
+].filter(Boolean);
 const NO_REPLY_MENTIONS = { repliedUser: false };
 const TICKET_SPECTATE_STAFF_ALLOW = [ PermissionFlagsBits.ViewChannel, PermissionFlagsBits.EmbedLinks, PermissionFlagsBits.AttachFiles, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.AddReactions ];
 const TICKET_SPECTATE_STAFF_DENY = [PermissionFlagsBits.SendMessages];
 
+function buildTicketPanelButtonRow(guildId, ticketDoc) {
+  const panel = resolveTicketPanel(guildId, ticketDoc);
+  if (ticketDoc?.claimedBy) {
+    return (
+      buildClaimedControlButtons(guildId, panel) ||
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId("close_ticket").setEmoji("🔒").setLabel("Chiudi").setStyle(ButtonStyle.Danger),
+        new ButtonBuilder().setCustomId("close_ticket_motivo").setEmoji("🔒").setLabel("Chiudi Con Motivo").setStyle(ButtonStyle.Danger),
+        new ButtonBuilder().setCustomId("unclaim").setEmoji("<a:VC_Unlock:1482532082466029608>").setLabel("Unclaim").setStyle(ButtonStyle.Secondary),
+      )
+    );
+  }
+  return buildTicketPanelUnclaimedButtonRow(guildId, ticketDoc);
+}
+
 function hasAnyRole(member, roleIds = []) {
   return roleIds.some((roleId) => member?.roles?.cache?.has(roleId));
+}
+
+function memberCanAccessTicketPanelType(member, ticketType) {
+  const type = String(ticketType || "")
+    .trim()
+    .toLowerCase();
+  if (type === "perks") return memberCanAccessPerksTicket(member);
+  if (type === "partnership") return memberCanAccessPartnershipTicket(member);
+  if (type === "high" || type === "highstaff") {
+    return Boolean(HIGHSTAFF_ROLE_ID && member?.roles?.cache?.has(HIGHSTAFF_ROLE_ID));
+  }
+  return STAFF_ROLE_IDS.some((id) => id && member?.roles?.cache?.has(id));
+}
+
+function messageIsPlusTicketStaffPanel(message) {
+  if (!message?.components?.length) return false;
+  for (const row of message.components) {
+    for (const c of row.components || []) {
+      const id = String(c.customId || "");
+      if (id.startsWith("ticket_panel_nav_")) return true;
+    }
+  }
+  return false;
+}
+
+async function refreshTicketStaffPanelsInChannel(channel, ticketDoc) {
+  if (!channel?.messages?.fetch || !ticketDoc) return;
+  const { buildTicketStaffPanelPayload } = require("../../Utils/Ticket/ticketStaffPanelBuild");
+  const recent = await channel.messages.fetch({ limit: 40 }).catch(() => null);
+  if (!recent) return;
+
+  for (const panelMsg of recent.values()) {
+    if (!messageIsPlusTicketStaffPanel(panelMsg) || !panelMsg.editable) continue;
+    const refId = panelMsg.reference?.messageId;
+    if (!refId) continue;
+    const refMsg = recent.get(refId) || (await channel.messages.fetch(refId).catch(() => null));
+    const authorId = refMsg?.author?.id;
+    if (!authorId || refMsg?.author?.bot) continue;
+    const member = await getGuildMemberCached(channel.guild, authorId).catch(() => null);
+    if (!member) continue;
+    const { embed, components } = buildTicketStaffPanelPayload(member, channel, ticketDoc);
+    await panelMsg.edit({ embeds: [embed], components }).catch(() => {});
+  }
 }
 
 function canClaimTicket(member, ticketType, _guildId = null) {
@@ -30,10 +111,7 @@ function canClaimTicket(member, ticketType, _guildId = null) {
 }
 
 function makeErrorEmbed(title, description) {
-  return new EmbedBuilder()
-    .setTitle(title)
-    .setDescription(description)
-    .setColor("#6f4e37");
+  return makeTicketErrorEmbed(title, description);
 }
 
 async function pinFirstTicketMessage(channel, message) {
@@ -57,77 +135,52 @@ async function fetchTicketMessage(channel, messageId) {
 }
 
 function getTicketChannelPermissionOverwrites(guild, userId, ticketType) {
-  const base = [{ id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel], }, { id: userId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.EmbedLinks, PermissionFlagsBits.AttachFiles, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.AddReactions,], },];
+  const base = [
+    buildTicketEveryoneDenyViewCreateOverwrite(guild.roles.everyone.id),
+    buildTicketOpenerCreateOverwrite(userId, [
+      PermissionFlagsBits.ViewChannel,
+      PermissionFlagsBits.SendMessages,
+      PermissionFlagsBits.EmbedLinks,
+      PermissionFlagsBits.AttachFiles,
+      PermissionFlagsBits.ReadMessageHistory,
+      PermissionFlagsBits.AddReactions,
+    ]),
+  ];
 
   if (ticketType === "supporto") {
     base.push(
-      {
-        id: STAFF_ROLE_ID,
-        allow: TICKET_SPECTATE_STAFF_ALLOW,
-        deny: TICKET_SPECTATE_STAFF_DENY,
-      },
-      {
-        id: HIGHSTAFF_ROLE_ID,
-        allow: TICKET_SPECTATE_STAFF_ALLOW,
-        deny: TICKET_SPECTATE_STAFF_DENY,
-      },
-      {
-        id: PARTNERMANAGER_ROLE_ID,
-        deny: [PermissionFlagsBits.ViewChannel],
-      },
+      buildTicketStaffRoleCreateOverwrite(STAFF_ROLE_ID),
+      buildTicketStaffRoleCreateOverwrite(HIGHSTAFF_ROLE_ID),
+      buildTicketRoleDenyViewCreateOverwrite(PARTNERMANAGER_ROLE_ID),
     );
   } else if (ticketType === "partnership") {
     for (const roleId of PARTNERSHIP_TICKET_STAFF_ROLE_IDS) {
-      base.push({
-        id: roleId,
-        allow: TICKET_SPECTATE_STAFF_ALLOW,
-        deny: TICKET_SPECTATE_STAFF_DENY,
-      });
+      const entry = buildTicketStaffRoleCreateOverwrite(roleId);
+      if (entry) base.push(entry);
     }
     base.push(...buildPartnershipTicketReviewerCreateOverwrites());
-    base.push(
-      {
-        id: STAFF_ROLE_ID,
-        deny: [PermissionFlagsBits.ViewChannel],
-      },
-    );
+    base.push(buildTicketRoleDenyViewCreateOverwrite(STAFF_ROLE_ID));
   } else if (ticketType === "high") {
     base.push(
-      {
-        id: HIGHSTAFF_ROLE_ID,
+      buildTicketRoleCreateOverwrite(HIGHSTAFF_ROLE_ID, {
         allow: TICKET_SPECTATE_STAFF_ALLOW,
         deny: TICKET_SPECTATE_STAFF_DENY,
-      },
-      {
-        id: STAFF_ROLE_ID,
-        deny: [PermissionFlagsBits.ViewChannel],
-      },
-      {
-        id: PARTNERMANAGER_ROLE_ID,
-        deny: [PermissionFlagsBits.ViewChannel],
-      },
+      }),
+      buildTicketRoleDenyViewCreateOverwrite(STAFF_ROLE_ID),
+      buildTicketRoleDenyViewCreateOverwrite(PARTNERMANAGER_ROLE_ID),
     );
   } else if (ticketType === "perks") {
     for (const roleId of PERKS_STAFF_ROLE_IDS) {
-      base.push({
-        id: roleId,
-        allow: TICKET_SPECTATE_STAFF_ALLOW,
-        deny: TICKET_SPECTATE_STAFF_DENY,
-      });
+      const entry = buildTicketStaffRoleCreateOverwrite(roleId);
+      if (entry) base.push(entry);
     }
     base.push(
-      {
-        id: STAFF_ROLE_ID,
-        deny: [PermissionFlagsBits.ViewChannel],
-      },
-      {
-        id: PARTNERMANAGER_ROLE_ID,
-        deny: [PermissionFlagsBits.ViewChannel],
-      },
+      buildTicketRoleDenyViewCreateOverwrite(STAFF_ROLE_ID),
+      buildTicketRoleDenyViewCreateOverwrite(PARTNERMANAGER_ROLE_ID),
     );
   }
 
-  return base.filter((entry) => Boolean(entry?.id));
+  return base.filter((entry) => Boolean(entry?.id && entry?.type != null));
 }
 
 async function ensureTicketsCategory(guild) {
@@ -143,11 +196,10 @@ async function ensureTicketsCategory(guild) {
     name: TICKETS_CATEGORY_NAME,
     type: 4,
     permissionOverwrites: [
-      {
-        id: guild.roles.everyone.id,
+      buildTicketRoleCreateOverwrite(guild.roles.everyone.id, {
         deny: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages],
-      },
-    ],
+      }),
+    ].filter(Boolean),
   }).catch(() => null);
 
   if (created) {
@@ -235,11 +287,55 @@ async function ticketSwitchPanelExecute(message, categoryToken) {
           return false;
         }
         const previousTicketType = String(ticketDoc.ticketType || "");
+        const previousClaimedBy = String(ticketDoc.claimedBy || "").trim();
+        const categoryChanged = previousTicketType !== panelConfig.type;
+        let panelSwitchBehavior = "auto_unclaim";
+        try {
+          const { getTicketSettingsSync } = require("../../MultiGuild/core/tenantTicketSettings");
+          panelSwitchBehavior = String(
+            getTicketSettingsSync(message.guild?.id)?.panelSwitchBehavior || "auto_unclaim",
+          )
+            .trim()
+            .toLowerCase();
+          if (panelSwitchBehavior === "keep_claim") panelSwitchBehavior = "keep_access";
+        } catch (_) {
+          panelSwitchBehavior = "auto_unclaim";
+        }
+
+        let claimRemovedForSwitch = false;
+        if (categoryChanged && previousClaimedBy) {
+          const claimerMember = await getGuildMemberCached(message.guild, previousClaimedBy);
+          const claimerHasNewAccess = memberCanAccessTicketPanelType(
+            claimerMember,
+            panelConfig.type,
+          );
+          if (panelSwitchBehavior === "deny_switch" && !claimerHasNewAccess) {
+            await safeMessageReply(message, {
+              embeds: [
+                makeErrorEmbed(
+                  "Switch bloccato",
+                  `<:vegax:1443934876440068179> Chi ha claimato (<@${previousClaimedBy}>) non ha accesso al pannello **${panelConfig.label || panelConfig.name || panelConfig.type}**.`,
+                ),
+              ],
+              allowedMentions: { repliedUser: false },
+            });
+            return false;
+          }
+          // auto_unclaim: unclaim se il claimer non ha accesso al nuovo pannello.
+          // remove_on_unclaim / keep_access: consentono sempre il cambio e mantengono il claim.
+          if (panelSwitchBehavior === "auto_unclaim" && !claimerHasNewAccess) {
+            ticketDoc.claimedBy = null;
+            claimRemovedForSwitch = true;
+          }
+        }
 
         const openerMember = await getGuildMemberCached(message.guild, ticketDoc.userId);
         const openerName = openerMember?.user?.username || "utente";
-        const safeOpenerName = String(openerName).replace(/[^\w.-]/g, "").slice(0, 20) || "utente";
-        const newChannelName = `༄${panelConfig.emoji}︲${panelConfig.name}᲼${safeOpenerName}`;
+        const newChannelName = buildTicketChannelName(
+          panelConfig,
+          openerName,
+          ticketDoc.userId || "utente",
+        );
         if (targetChannel.name !== newChannelName) {
           await targetChannel.setName(newChannelName).catch(() => { });
         }
@@ -255,54 +351,25 @@ async function ticketSwitchPanelExecute(message, categoryToken) {
           })
           .catch(() => { });
 
-        const previousClaimedBy = String(ticketDoc.claimedBy || "").trim();
-        if (ticketDoc.claimedBy) {
-          const claimerMember = await getGuildMemberCached(message.guild, ticketDoc.claimedBy);
-          if (!canClaimTicket(claimerMember, panelConfig.type, message.guild?.id)) {
-            ticketDoc.claimedBy = null;
-          }
+        if (previousTicketType === "partnership" && panelConfig.type !== "partnership") {
+          await clearPartnershipTicketPermissionOverwrites(targetChannel);
         }
 
-        const applyReadOnly = {
-          ViewChannel: true,
-          SendMessages: false,
-          ReadMessageHistory: true,
-          EmbedLinks: true,
-          AttachFiles: true,
-          AddReactions: true,
-        };
-        const applyFull = { ViewChannel: true, SendMessages: true, EmbedLinks: true, AttachFiles: true, ReadMessageHistory: true, AddReactions: true, };
+        const applyReadOnly = TICKET_STAFF_SPECTATE_OVERWRITES;
         const roleHideFromTicket = { ViewChannel: false };
 
         if (panelConfig.type === "supporto") {
-          if (ticketDoc.claimedBy) {
-            await targetChannel.permissionOverwrites
-              .edit(STAFF_ROLE_ID, applyReadOnly)
-              .catch(() => { });
-            await targetChannel.permissionOverwrites
-              .edit(HIGHSTAFF_ROLE_ID, applyReadOnly)
-              .catch(() => { });
-          } else {
-            await targetChannel.permissionOverwrites
-              .edit(STAFF_ROLE_ID, applyReadOnly)
-              .catch(() => { });
-            await targetChannel.permissionOverwrites
-              .edit(HIGHSTAFF_ROLE_ID, applyReadOnly)
-              .catch(() => { });
-          }
+          await targetChannel.permissionOverwrites
+            .edit(STAFF_ROLE_ID, applyReadOnly)
+            .catch(() => { });
+          await applyHighStaffTicketWriteOverwrite(targetChannel, HIGHSTAFF_ROLE_ID);
           await targetChannel.permissionOverwrites
             .edit(PARTNERMANAGER_ROLE_ID, roleHideFromTicket)
             .catch(() => { });
         }
 
         if (panelConfig.type === "partnership") {
-          for (const roleId of PARTNERSHIP_TICKET_STAFF_ROLE_IDS) {
-            await targetChannel.permissionOverwrites
-              .edit(roleId, applyReadOnly)
-              .catch(() => { });
-          }
-          const { applyPartnershipTicketReviewerOverwrites } = require("../../Utils/Ticket/ticketPartnershipStaffRoles");
-          await applyPartnershipTicketReviewerOverwrites(targetChannel);
+          await applyPartnershipTicketRoleOverwrites(targetChannel);
           await targetChannel.permissionOverwrites
             .edit(STAFF_ROLE_ID, roleHideFromTicket)
             .catch(() => { });
@@ -327,11 +394,7 @@ async function ticketSwitchPanelExecute(message, categoryToken) {
         }
 
         if (panelConfig.type === "perks") {
-          for (const roleId of PERKS_STAFF_ROLE_IDS) {
-            await targetChannel.permissionOverwrites
-              .edit(roleId, applyReadOnly)
-              .catch(() => { });
-          }
+          await applyTicketStaffRoleOverwrites(targetChannel, PERKS_STAFF_ROLE_IDS);
           await targetChannel.permissionOverwrites
             .edit(STAFF_ROLE_ID, roleHideFromTicket)
             .catch(() => { });
@@ -361,10 +424,23 @@ async function ticketSwitchPanelExecute(message, categoryToken) {
               AddReactions: true,
             })
             .catch(() => { });
-        } else if (previousClaimedBy) {
-          await targetChannel.permissionOverwrites
-            .delete(previousClaimedBy)
-            .catch(() => { });
+        } else if (previousClaimedBy && claimRemovedForSwitch) {
+          if (panelSwitchBehavior === "keep_access") {
+            await targetChannel.permissionOverwrites
+              .edit(previousClaimedBy, {
+                ViewChannel: true,
+                SendMessages: false,
+                EmbedLinks: true,
+                AttachFiles: true,
+                ReadMessageHistory: true,
+                AddReactions: true,
+              })
+              .catch(() => { });
+          } else {
+            await targetChannel.permissionOverwrites
+              .delete(previousClaimedBy)
+              .catch(() => { });
+          }
         }
 
         ticketDoc.ticketType = panelConfig.type;
@@ -392,18 +468,31 @@ async function ticketSwitchPanelExecute(message, categoryToken) {
     });
 
         const msg = await fetchTicketMessage(targetChannel, ticketDoc.messageId,);
+        const panelEmbed = panelConfig.embed
+          ? EmbedBuilder.from(panelConfig.embed)
+          : new EmbedBuilder().setColor("#6f4e37");
+        if (claimRemovedForSwitch) {
+          panelEmbed.setFooter({ text: "Claim rimosso per cambio categoria" });
+        }
         if (msg) {
-          const row = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId("close_ticket").setEmoji("<:VC_Lock:1482526739044368476>").setLabel("Chiudi").setStyle(ButtonStyle.Danger),
-            new ButtonBuilder().setCustomId("close_ticket_motivo").setEmoji("<:VC_reason:1478517122929004544>").setLabel("Chiudi Con Motivo").setStyle(ButtonStyle.Danger),
-            ticketDoc.claimedBy
-              ? new ButtonBuilder().setCustomId("unclaim").setEmoji("<a:VC_Unlock:1482532082466029608>").setLabel("Unclaim").setStyle(ButtonStyle.Secondary)
-              : new ButtonBuilder().setCustomId("claim_ticket").setEmoji("<:VC_claim:1478517202016669887>").setLabel("Claim").setStyle(ButtonStyle.Success),
-          );
           await msg
-            .edit({ embeds: [panelConfig.embed], components: [row] })
+            .edit({
+              embeds: [panelEmbed],
+              components: [buildTicketPanelButtonRow(message.guild?.id || ticketDoc.guildId, ticketDoc)],
+            })
             .catch(() => { });
         }
+
+        const refreshedTicketDoc = {
+          channelId: targetChannel.id,
+          open: true,
+          userId: ticketDoc.userId,
+          claimedBy: persistSet.claimedBy,
+          guildId: ticketDoc.guildId,
+          ticketNumber: ticketDoc.ticketNumber,
+          ticketType: panelConfig.type,
+        };
+        await refreshTicketStaffPanelsInChannel(targetChannel, refreshedTicketDoc);
 
         await safeMessageReply(message, {
           embeds: [
@@ -411,7 +500,12 @@ async function ticketSwitchPanelExecute(message, categoryToken) {
               .setColor("#6f4e37")
               .setTitle("Switch Panel")
               .setDescription(
-                `<:vegacheckmark:1443666279058772028> Ticket aggiornato in **${panelConfig.label || panelConfig.name || panelConfig.type}** nel canale ${targetChannel}.`,
+                [
+                  `<:vegacheckmark:1443666279058772028> Ticket aggiornato in **${panelConfig.label || panelConfig.name || panelConfig.type}** nel canale ${targetChannel}.`,
+                  claimRemovedForSwitch
+                    ? `<:VC_claim:1478517202016669887> Il claim di <@${previousClaimedBy}> è stato rimosso.`
+                    : null,
+                ].filter(Boolean).join("\n"),
               ),
           ],
           allowedMentions: { repliedUser: false },
@@ -429,7 +523,12 @@ async function ticketReopenByNumber(ctx, ticketNumber) {
   const { guild, reply } = ctx;
   if (!guild || typeof reply !== "function") return false;
 
-  const ticketDoc = await Ticket.findOne({ guildId: guild.id, ticketNumber }, TICKET_REOPEN_BY_NUMBER_PROJECTION).lean().catch(() => null);
+  let ticketDoc = await Ticket.findOne({ guildId: guild.id, ticketNumber }, TICKET_REOPEN_BY_NUMBER_PROJECTION).lean().catch(() => null);
+  if (!ticketDoc) {
+    const { resolveClosedTicketByNumber } = require("../../Utils/Ticket/ticketStaffPanelBuild");
+    ticketDoc = await resolveClosedTicketByNumber(guild.id, ticketNumber);
+  }
+  if (ticketDoc && !ticketDoc.guildId) ticketDoc.guildId = guild.id;
 
   if (!ticketDoc) {
     await reply({
@@ -509,7 +608,11 @@ async function ticketReopenByNumber(ctx, ticketNumber) {
         return false;
       }
 
-  const channelName = buildTicketChannelName(config, ticketMember.user.username, ticketMember.id,);
+  const channelName = buildTicketChannelName(
+    config,
+    ticketMember.user.username,
+    ticketMember.id,
+  );
 
   const channel = await guild.channels.create({ name: channelName, type: 0, parent: category.id, permissionOverwrites: getTicketChannelPermissionOverwrites(guild, ticketDoc.userId, config.type,), }).catch(() => null);
 
@@ -532,9 +635,9 @@ async function ticketReopenByNumber(ctx, ticketNumber) {
   } catch (_) {}
 
   const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId("close_ticket").setEmoji("<:VC_Lock:1482526739044368476>").setLabel("Chiudi").setStyle(ButtonStyle.Danger),
-    new ButtonBuilder().setCustomId("close_ticket_motivo").setEmoji("<:VC_reason:1478517122929004544>").setLabel("Chiudi Con Motivo").setStyle(ButtonStyle.Danger),
-    new ButtonBuilder().setCustomId("claim_ticket").setEmoji("<:VC_claim:1478517202016669887>").setLabel("Claim").setStyle(ButtonStyle.Success),
+    new ButtonBuilder().setCustomId("close_ticket").setEmoji("🔒").setLabel("Chiudi").setStyle(ButtonStyle.Danger),
+    new ButtonBuilder().setCustomId("close_ticket_motivo").setEmoji("🔒").setLabel("Chiudi Con Motivo").setStyle(ButtonStyle.Danger),
+    new ButtonBuilder().setCustomId("claim_ticket").setEmoji("🙋‍♂️").setLabel("Claim").setStyle(ButtonStyle.Success),
   );
 
   const mainMsg = await channel.send({ embeds: [config.embed], components: [row] }).catch(() => null);

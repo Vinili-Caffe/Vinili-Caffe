@@ -81,6 +81,41 @@ function registerCanvasFonts(canvasModule) {
       global.logger?.warn?.("[canvasFonts] registerFont:", err?.message || err);
     }
   }
+
+  // Make-it-a-Quote style fonts for +quote canvas
+  const quoteFontsDir = path.join(__dirname, "..", "..", "UI", "Fonts", "quote");
+  const quoteFontFiles = [
+    ["mplus.ttf", "M PLUS Rounded 1c"],
+    ["dela.ttf", "Dela Gothic One"],
+    ["dot.ttf", "DotGothic16"],
+    ["pop.ttf", "Hachi Maru Pop"],
+    ["rampart.ttf", "Rampart One"],
+    ["reggae.ttf", "Reggae One"],
+    ["rocknroll.ttf", "RocknRoll One"],
+    ["yuji.ttf", "Yuji Syuku"],
+    ["yusei.ttf", "Yusei Magic"],
+    ["jiyu.ttf", "JiyunoTsubasa"],
+    ["serif.ttf", "Shippori Mincho"],
+    ["bruno.ttf", "Bruno Ace SC"],
+    ["castoro.ttf", "Castoro Titling"],
+    ["exo2.ttf", "Exo 2"],
+    ["inconsolata.ttf", "Inconsolata"],
+    ["poltawski.ttf", "Poltawski Nowy"],
+    ["script.ttf", "Dancing Script"],
+    ["vina.ttf", "Vina Sans"],
+  ];
+  if (fs.existsSync(quoteFontsDir)) {
+    for (const [file, family] of quoteFontFiles) {
+      const fp = path.join(quoteFontsDir, file);
+      if (!fs.existsSync(fp)) continue;
+      try {
+        canvasModule.registerFont(fp, { family });
+      } catch (err) {
+        global.logger?.warn?.("[canvasFonts] quote font:", family, err?.message || err);
+      }
+    }
+  }
+
   registered = true;
 }
 
@@ -116,11 +151,13 @@ function drawTextWithSpecialFallback(ctx, text, x, y, options = {}) {
   const color = options.color || ctx.fillStyle;
   const useNumericFont = options.useNumericFont === true;
   const forcePrimaryFont = options.forcePrimaryFont === true;
-  const normalFont = forcePrimaryFont
-    ? fontStackPrimaryOnly(size, weight)
-    : useNumericFont
-      ? fontStackNumeric(size, weight)
-      : fontStack(size, weight);
+  const normalFont = options.fontCss
+    ? String(options.fontCss)
+    : forcePrimaryFont
+      ? fontStackPrimaryOnly(size, weight)
+      : useNumericFont
+        ? fontStackNumeric(size, weight)
+        : fontStack(size, weight);
   const tibetanFont = fontStackWithPrimary(TIBETAN_FONT, size, weight);
   const hasTibetan = !forcePrimaryFont && /[\u0F00-\u0FFF]/.test(value);
   ctx.save();

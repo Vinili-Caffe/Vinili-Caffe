@@ -150,10 +150,11 @@ function formatConsumableDurationMs(durationMs) {
 }
 
 function resolveConsumableBoostPublic(item) {
-  const boostType = item?.boostType === CONSUMABLE_BOOST_TYPES.EXP ? "EXP" : "Punti casa";
+  const isExp = item?.boostType === CONSUMABLE_BOOST_TYPES.EXP;
   const mult = Math.max(1, Math.floor(Number(item?.multiplier) || 0));
   return {
-    boostType,
+    boostType: isExp ? CONSUMABLE_BOOST_TYPES.EXP : CONSUMABLE_BOOST_TYPES.HOUSE_POINTS,
+    boostTypeLabel: isExp ? "EXP" : "Punti casa",
     boostMultiplier: mult > 1 ? `×${mult}` : "",
     boostDuration: formatConsumableDurationMs(item?.durationMs),
   };

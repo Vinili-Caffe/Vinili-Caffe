@@ -1,13 +1,13 @@
 const IDs = require("../../Utils/Config/ids");
+const {
+  normalizeDescriptionText,
+  extractPartnershipMessageText,
+} = require("../../Utils/Partner/partnershipMessageBody");
 
 const DESCRIPTION_CHANNEL_ID = String(IDs.channels?.descriptionPartner || "").trim();
 
 let cachedText = "";
 let cachedMessageId = null;
-
-function normalizeDescriptionText(value) {
-  return String(value || "").replace(/\r\n/g, "\n").trim();
-}
 
 function isPartnerDescriptionChannel(channelId) {
   return Boolean(DESCRIPTION_CHANNEL_ID) && String(channelId || "") === DESCRIPTION_CHANNEL_ID;
@@ -20,12 +20,12 @@ function pickDescriptionFromMessages(messages, preferredMessageId = null) {
   const preferred = String(preferredMessageId || "").trim();
   if (preferred) {
     const hit = list.find((message) => String(message?.id || "") === preferred);
-    const text = normalizeDescriptionText(hit?.content);
+    const text = extractPartnershipMessageText(hit);
     if (text) return { text, messageId: hit.id };
   }
 
   const withContent = list
-    .map((message) => ({ message, text: normalizeDescriptionText(message?.content) }))
+    .map((message) => ({ message, text: extractPartnershipMessageText(message) }))
     .filter((entry) => entry.text)
     .sort((a, b) => a.message.createdTimestamp - b.message.createdTimestamp);
 
@@ -88,7 +88,7 @@ async function getPartnerDescriptionTextOrSync(client) {
 
 async function handlePartnerDescriptionMessageUpsert(client, message) {
   if (!message || !isPartnerDescriptionChannel(message.channelId || message.channel?.id)) return false;
-  const text = normalizeDescriptionText(message.content);
+  const text = extractPartnershipMessageText(message);
   if (!text) return false;
   setPartnerDescriptionCache(text, message.id);
   return true;

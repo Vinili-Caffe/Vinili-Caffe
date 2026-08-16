@@ -8,6 +8,7 @@ const { VERIFY_UNAVAILABLE, VERIFY_LOAD_MEMBER, VERIFY_CONFIG, VERIFY_ROLES_FAIL
 const { upsertVerifiedMember, applyTenureForMember } = require("../../Services/Community/communityOpsService");
 const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
 const { buildSiteVerifyOAuthStartUrl } = require("../../Utils/Web/verifyOauthPublicUrl");
+const { removePreMemberRoleIfPresent } = require("../../Utils/Community/preMemberRoleService");
 
 const CONTEST_DISEGNI_VERIFY_FLOW_CHANNEL_ID = String(IDs.channels?.contestDisegniEventVerifyPing || "").trim();
 const VERIFY_GHOST_PING_DELETE_MS = 2500;
@@ -103,6 +104,10 @@ async function finalizeVerification(interaction, member) {
   } catch (err) {
     global.logger?.warn?.("[VERIFY] upsertVerifiedMember/applyTenureForMember:", err);
   }
+
+  await removePreMemberRoleIfPresent(memberAfterAdd, "Verifica completata: ruolo Member assegnato.").catch((err) => {
+    global.logger?.warn?.("[VERIFY] preMember role remove:", memberAfterAdd?.id, err?.message || err);
+  });
 
   const mainGuild = await getMainGuild(interaction.client);
   let logChannel = mainGuild ? await getGuildChannelCached(mainGuild, CENTRAL_VERIFY_LOG_CHANNEL_ID) : null;

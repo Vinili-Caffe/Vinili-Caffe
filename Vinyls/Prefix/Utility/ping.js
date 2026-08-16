@@ -1,62 +1,37 @@
-const { EmbedBuilder } = require("discord.js");
-const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const { pingDbLatencyMs } = require("../../Utils/Global/globalSettingsBucket");
-
-function formatUptime(uptime) {
-  const minutes = Math.floor((uptime / 60) % 60);
-  const hours = Math.floor((uptime / (60 * 60)) % 24);
-  const days = Math.floor(uptime / (60 * 60 * 24));
-  return `${days}d ${hours}h ${minutes}m`;
-}
-
-function getShardLabel(client) {
-  const shardIds=Array.isArray(client?.shard?.ids)?client.shard.ids.map((id) => Number(id)).filter((id) => Number.isInteger(id)&&id>=0):[];
-  if (!shardIds.length) return "single";
-  const totalShards = Number(client?.shard?.count || 0);
-  const current = shardIds.join(", ");
-  return totalShards > 0 ? `${current}/${totalShards}` : current;
-}
+const { executePingCommand } = require("../../../shared/discord/pingRuntime");
+const { isViniliFullFeatureGuild } = require("../../MultiGuild/core/guildFeatureScope");
+const { resolveEmbedColorForGuild } = require("../../MultiGuild/utils/tenantEmbedBranding");
+const { t } = require("../../Utils/Partner/tenantPartnershipI18n");
+const { resolveTenantLanguageForMessage } = require("../../Utils/Partner/tenantPartnershipPrefixMessages");
 
 module.exports = {
   name: "ping",
   allowEmptyArgs: true,
+  description: "Verifica la latenza del bot, del database e lo stato della connessione.",
+  usage: "+ping",
+  examples: ["+ping"],
   async execute(message) {
     try {
-      const gatewayPing = Number(message.client.ws.ping || 0);
-      const shardLabel = getShardLabel(message.client);
-      const uptime = process.uptime();
-      const uptimeString = formatUptime(uptime);
-      const getDatabasePing = async () => {
-        if (typeof pingDbLatencyMs !== "function") return null;
-        const ms = await pingDbLatencyMs();
-        return Number.isFinite(ms) ? ms : null;
-      };
-      const databasePing = await getDatabasePing();
-      const databaseLabel=Number.isFinite(databasePing)&&databasePing>=0?`\`${databasePing}ms\``:"`offline`";
-      const empty = "​";
-      const pingEmbed = new EmbedBuilder()
-        .setColor("#6f4e37")
-        .setDescription(`<:VC_Status_5:1472011474909008017> Ping: **\`${gatewayPing}ms\`**`,)
-        .addFields(
-          { name: `<:Clock:1330530065133338685> **Uptime:** \`${uptimeString}\``, value: empty, inline: true },
-          { name: `<a:VC_Loading:1482526772862914776> **API:** \`...\``, value: empty, inline: true },
-          { name: empty, value: empty, inline: true },
-          { name: `<:DatabaseCheck:1330543470259212329> **Database:** ${databaseLabel}`, value: empty, inline: true },
-          { name: `<a:VC_Calendar:1482706208149475358> **Shard:** \`${shardLabel}\``, value: empty, inline: true },
-          { name: empty, value: empty, inline: true },
-        );
-      const sent = await safeMessageReply(message, { embeds: [pingEmbed], allowedMentions: { repliedUser: false } });
-      if (sent?.editable) {
-        const apiStart = Date.now();
-        const updatedEmbed = EmbedBuilder.from(pingEmbed).spliceFields(1, 1, { name: `<a:VC_Loading:1482526772862914776> **API:** \`...\``, value: empty, inline: true });
-        await sent.edit({
-          embeds: [updatedEmbed],
-          allowedMentions: { repliedUser: false },
-        }).catch(() => null);
-        const apiMs = Math.max(0, Date.now() - apiStart);
-        const finalEmbed = EmbedBuilder.from(updatedEmbed).spliceFields(1, 1, { name: `<a:VC_Loading:1482526772862914776> **API:** \`${apiMs}ms\``, value: empty, inline: true });
-        await sent.edit({ embeds: [finalEmbed], allowedMentions: { repliedUser: false } }).catch(() => null);
+      const guildId = message.guild?.id;
+      if (guildId && !isViniliFullFeatureGuild(guildId)) {
+        const lang = await resolveTenantLanguageForMessage(message);
+        await executePingCommand(message, {
+          pingDbLatencyMs,
+          color: resolveEmbedColorForGuild(guildId),
+          formatLatencyText: (ms) => t(lang, "ping_latency", { ms }),
+          offlineLabel: t(lang, "ping_offline"),
+          ndLabel: t(lang, "ping_nd"),
+          labels: {
+            uptime: t(lang, "ping_label_uptime"),
+            database: t(lang, "ping_label_database"),
+            api: t(lang, "ping_label_api"),
+            shard: t(lang, "ping_label_shard"),
+          },
+        });
+        return;
       }
+      await executePingCommand(message, { pingDbLatencyMs });
     } catch (error) {
       global.logger.error(error);
     }

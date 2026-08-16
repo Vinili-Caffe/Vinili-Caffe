@@ -2,6 +2,7 @@ const canvasModule = require("canvas");
 const GIFEncoder = require("gif-encoder-2");
 const { formatEconomyAmountShort } = require("../Economy/economyDisplayHelpers");
 const { registerCanvasFonts, drawTextWithSpecialFallback } = require("./canvasFonts");
+const { sanitizeCanvasDisplayName } = require("./canvasUtils");
 const { createCanvas } = canvasModule;
 const USE_PNG = String(process.env.VC_ROB_CANVAS_PNG ?? "0").trim() === "1";
 const HOLD_FRAMES = 8;
@@ -64,9 +65,7 @@ function drawPlainText(ctx, text, x, y, opts = {}) {
 }
 
 function truncateName(name, max = 16) {
-  const s = String(name || "Bersaglio").trim() || "Bersaglio";
-  if (s.length <= max) return s;
-  return `${s.slice(0, max - 1)}…`;
+  return sanitizeCanvasDisplayName(name, max, "Bersaglio");
 }
 
 function drawBg(ctx, width, height) {
@@ -190,14 +189,15 @@ function drawTargetBadge(ctx, x, y, name) {
   drawPlainText(ctx, label, x + 118, y + 34, { size: 14, color: "#fef3c7", weight: "800" });
 }
 
-function drawBankBadge(ctx, x, y) {
+function drawBankBadge(ctx, x, y, bankName) {
+  const label = truncateName(bankName || "Gringott", 14);
   fillRoundRect(ctx, x, y, 200, 52, 12, "rgba(15,10,6,0.72)");
   strokeRoundRect(ctx, x, y, 200, 52, 12, "rgba(212,175,55,0.65)", 2);
   drawGaleone(ctx, x + 28, y + 28, 18);
   drawGaleone(ctx, x + 48, y + 22, 11);
   drawGaleone(ctx, x + 48, y + 36, 10);
   drawPlainText(ctx, "CASSAFORTE", x + 118, y + 16, { size: 10, color: "#a8a29e", weight: "800" });
-  drawPlainText(ctx, "Server", x + 118, y + 34, { size: 14, color: "#fef3c7", weight: "800" });
+  drawPlainText(ctx, label, x + 118, y + 34, { size: 14, color: "#fef3c7", weight: "800" });
 }
 
 function drawBankVaultMeter(ctx, x, y, w) {
@@ -369,13 +369,14 @@ function drawThief(ctx, x, y, progress, frameIndex) {
 }
 
 function buildStatus(params) {
+  const bankLabel = String(params.targetName || params.bankLabel || "Gringott").trim() || "Gringott";
   if (params.statusLine) return { right: params.statusLine, color: "#f8d875" };
   if (params.animating) return { right: "Infiltrazione in corso…", color: "#f8d875" };
   if (params.phase === "done" && params.hasResult) {
     if (params.success) return { right: `Bottino ${formatEconomyAmountShort(params.amount)}`, color: "#4ade80" };
     return { right: `Multa ${formatEconomyAmountShort(params.penalty)}`, color: "#f87171" };
   }
-  if (params.isBank) return { right: "Cassaforte · premi Colpo", color: "#f8d875" };
+  if (params.isBank) return { right: `${bankLabel} · premi Colpo`, color: "#f8d875" };
   return { right: "Premi Colpo per tentare", color: "#e2e8f0" };
 }
 
@@ -393,12 +394,19 @@ function drawArena(ctx, params) {
   const success = Boolean(params.success);
   const failed = params.phase === "done" && !success && params.hasResult;
   const animating = Boolean(params.animating);
+  const bankLabel = String(params.targetName || params.bankLabel || "Gringott").trim() || "Gringott";
   drawBg(ctx, width, height);
-  drawText(ctx, "COLPO A GRINGOTT", width / 2, 66, { size: 22, color: "#3d2e08", weight: "900", forcePrimaryFont: true });
+  drawText(
+    ctx,
+    params.isBank ? `COLPO A ${bankLabel.toUpperCase()}` : "COLPO",
+    width / 2,
+    66,
+    { size: 22, color: "#3d2e08", weight: "900", forcePrimaryFont: true },
+  );
   drawPillar(ctx, 58, 100, height - 175);
   drawPillar(ctx, width - 86, 100, height - 175);
   if (params.isBank) {
-    drawBankBadge(ctx, 72, 98);
+    drawBankBadge(ctx, 72, 98, bankLabel);
     drawBankVaultMeter(ctx, width - 72, 98, 168);
   } else {
     drawTargetBadge(ctx, 72, 98, params.targetName);
@@ -432,7 +440,7 @@ function drawArena(ctx, params) {
   if (!success) drawThief(ctx, thiefX, vaultCy + 42, progress, params.frameIndex || 0);
   drawCoinScatter(ctx, width, height, success ? "success" : "idle", params.frameIndex || 0);
   const status = buildStatus(params);
-  const leftInfo = params.isBank ? "Furto · Cassaforte" : `Furto · ${truncateName(params.targetName, 12)}`;
+  const leftInfo = `Furto · ${truncateName(params.targetName || (params.isBank ? bankLabel : "Bersaglio"), 12)}`;
   drawInfoRow(ctx, width, height - 42, leftInfo, status.right, status.color);
 }
 
@@ -454,6 +462,7 @@ function renderPng(params) {
     height,
     phase: params.phase,
     targetName: params.targetName,
+    bankLabel: params.bankLabel,
     successChance: params.successChance,
     success: params.success,
     hasResult: params.hasResult,
@@ -486,6 +495,7 @@ async function renderRobGif(params) {
       height,
       phase: "animating",
       targetName: params.targetName,
+      bankLabel: params.bankLabel,
       successChance: params.successChance,
       success: params.success,
       hasResult: true,
@@ -510,6 +520,7 @@ async function renderRobCanvas(params = {}) {
   const normalized = {
     phase: String(params.phase || "idle"),
     targetName: String(params.targetName || ""),
+    bankLabel: String(params.bankLabel || params.targetName || "Gringott"),
     successChance: Math.max(1, Math.min(99, Math.floor(Number(params.successChance) || 35))),
     success: Boolean(params.success),
     hasResult: Boolean(params.hasResult),
@@ -541,7 +552,7 @@ renderRobCanvas.warmup = function warmup() {
   if (!canvasModule) return;
   ensureFonts();
   try {
-    renderPng({ phase: "idle", targetName: "?" });
+    renderPng({ phase: "idle", targetName: "Gringott", bankLabel: "Gringott", isBank: true });
   } catch (_) {}
 };
 

@@ -1,6 +1,6 @@
 const { readChannelLines, readGuildCorpus, getMarkovConfig, isMarkovEnabled } = require("./markovMessageCollectorService");
 const { isMarkovEligibleChannel } = require("./markovChannelAccess");
-const { filterScamLines } = require("../../../shared/moderation/markovScamFilter");
+const { filterUnsafeMarkovLines } = require("../../../shared/moderation/markovTextSafety");
 const generateCooldowns = new Map();
 
 function parseGeneratorUrl(client) {
@@ -156,8 +156,8 @@ async function generateMarkovLines(client, channel, options = {}) {
       cleanLinks: genOptions.filterLinks,
     };
     const corpus = Array.isArray(options.corpusLines) && options.corpusLines.length
-      ? filterScamLines(options.corpusLines)
-      : filterScamLines(
+      ? filterUnsafeMarkovLines(options.corpusLines)
+      : filterUnsafeMarkovLines(
           useGuildCorpus
             ? await readGuildCorpus(client, readOpts)
             : await readChannelLines(client, channelId, readOpts),
@@ -166,7 +166,7 @@ async function generateMarkovLines(client, channel, options = {}) {
     lines = generateLocalMarkov(corpus, genOptions);
     source = useGuildCorpus ? "local-guild" : "local";
   }
-  lines = filterScamLines(lines);
+  lines = filterUnsafeMarkovLines(lines);
   if (!lines.length) return { ok: false, reason: "generation_failed", lines: [] };
   return { ok: true, reason: null, lines, source };
 }
