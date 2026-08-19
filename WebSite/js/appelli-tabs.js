@@ -44,6 +44,63 @@
     btn.setAttribute("aria-selected", on ? "true" : "false");
   }
 
+  function setShuffleText(el, finalText) {
+    if (!el) return;
+    var target = String(finalText || "");
+    el.__vcShuffleFinal = target;
+    if (!target) {
+      el.textContent = "";
+      return;
+    }
+    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      el.textContent = target;
+      return;
+    }
+    var root = document.documentElement;
+    if (root && root.classList.contains("vc-page-cine-boot") && !root.classList.contains("vc-page-cine-ready")) {
+      el.textContent = target;
+      return;
+    }
+    if (el.__vcShuffleTimer) {
+      clearInterval(el.__vcShuffleTimer);
+      el.__vcShuffleTimer = null;
+    }
+    var chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
+    var frame = 0;
+    var totalFrames = Math.max(8, Math.min(26, target.length + 8));
+    el.__vcShuffleTimer = setInterval(function () {
+      frame += 1;
+      var fixed = Math.floor((frame / totalFrames) * target.length);
+      var out = "";
+      for (var i = 0; i < target.length; i++) {
+        var ch = target.charAt(i);
+        if (ch === " ") out += " ";
+        else if (i < fixed) out += ch;
+        else out += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      el.textContent = out;
+      if (frame >= totalFrames) {
+        clearInterval(el.__vcShuffleTimer);
+        el.__vcShuffleTimer = null;
+        el.textContent = target;
+      }
+    }, 22);
+  }
+
+  function shineHeroCopy(next) {
+    var heading = byId("vc-appelli-hero-heading");
+    var kicker = document.querySelector(".vc-page-cine-hero-copy > .vc-hero-kicker, .vc-support-page-hero .vc-hero-kicker");
+    var welcome = byId(next === TAB_UNMUTE ? "unmute-welcome" : "unban-welcome");
+    var nodes = [heading, kicker, welcome];
+    for (var i = 0; i < nodes.length; i++) {
+      if (!nodes[i]) continue;
+      nodes[i].classList.add("vc-home-rise", "is-in");
+    }
+    if (heading) heading.classList.add("vc-brand-glow");
+    if (kicker) kicker.classList.add("vc-hero-kicker");
+    if (welcome) welcome.classList.add("vc-hero-about");
+  }
+
   function applyTab(tipo, opts) {
     var next = tipo === TAB_UNMUTE ? TAB_UNMUTE : TAB_UNBAN;
     var panelUnban = byId("vc-appelli-panel-unban");
@@ -55,6 +112,7 @@
     var tabUnban = byId("vc-appelli-tab-unban");
     var tabUnmute = byId("vc-appelli-tab-unmute");
     var accent = byId("vc-appelli-hero-accent");
+    var before = accent && accent.previousElementSibling;
     var iconI = byId("vc-appelli-hero-icon-i");
 
     if (panelUnban) panelUnban.hidden = next !== TAB_UNBAN;
@@ -67,23 +125,40 @@
     setTabOn(tabUnban, next === TAB_UNBAN);
     setTabOn(tabUnmute, next === TAB_UNMUTE);
 
+    if (before && before.tagName === "SPAN") {
+      before.setAttribute(
+        "data-i18n",
+        next === TAB_UNMUTE ? "unmute.heroTitleBefore" : "unban.heroTitleBefore",
+      );
+      before.textContent = t(
+        next === TAB_UNMUTE ? "unmute.heroTitleBefore" : "unban.heroTitleBefore",
+        "Richiesta ",
+      );
+    }
     if (accent) {
       accent.setAttribute(
         "data-i18n",
         next === TAB_UNMUTE ? "unmute.heroTitleAccent" : "unban.heroTitleAccent",
       );
-      accent.textContent = t(
+      var accentText = t(
         next === TAB_UNMUTE ? "unmute.heroTitleAccent" : "unban.heroTitleAccent",
         next === TAB_UNMUTE ? "unmute" : "unban",
       );
+      setShuffleText(accent, accentText);
     }
     if (iconI) {
       iconI.className = next === TAB_UNMUTE ? "fa fa-microphone-slash" : "fa fa-unlock";
     }
 
+    shineHeroCopy(next);
+
     if (!opts || opts.updateUrl !== false) {
       setUrl(next, !!(opts && opts.replace));
     }
+
+    try {
+      document.dispatchEvent(new CustomEvent("vc:appelli-tab", { detail: { tipo: next } }));
+    } catch (eTab) {}
   }
 
   function init() {
@@ -103,6 +178,11 @@
     }
     window.addEventListener("popstate", function () {
       applyTab(resolveTipo(), { updateUrl: false });
+    });
+    document.addEventListener("vc:page-cine-ready", function () {
+      var accent = byId("vc-appelli-hero-accent");
+      if (accent && accent.__vcShuffleFinal) setShuffleText(accent, accent.__vcShuffleFinal);
+      shineHeroCopy(resolveTipo());
     });
   }
 

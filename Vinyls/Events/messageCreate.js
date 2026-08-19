@@ -317,16 +317,19 @@ module.exports = {
       try {
         const nativeBoost = guildMemberUpdateExtras.handleNativeBoostSystemMessage?.(message);
         if (nativeBoost?.userId) {
-          // slots del messaggio native (spesso 1 anche al secondo boost a distanza).
-          // recover somma allo slot già annunciato via nativeEventIncrement.
+          const nativeSlots = Math.max(1, Number(nativeBoost.slots || 1));
+          const combinedBurst = nativeSlots >= 2;
+          const nativeTs = Number(message.createdTimestamp || Date.now());
+          // Un solo avviso Discord "2 volte" = due slot, non un incremento +1.
           void guildMemberUpdateExtras
             .recoverMissingBoostEmbedsForUser(message.guild, nativeBoost.userId, {
-              knownNativeSlots: nativeBoost.slots,
-              expectedSlots: nativeBoost.slots,
-              nativeEventSlots: nativeBoost.slots,
-              nativeEventIncrement: true,
-              startedAt: Date.now(),
-              skipNativeScan: true,
+              knownNativeSlots: nativeSlots,
+              expectedSlots: nativeSlots,
+              nativeEventSlots: nativeSlots,
+              nativeEventIncrement: !combinedBurst,
+              allowSecondRecovery: combinedBurst,
+              startedAt: Math.max(0, nativeTs - 30_000),
+              skipNativeScan: combinedBurst,
             })
             .catch(() => null);
           const boostChannelId = require("../Utils/Config/ids").channels?.supporters;

@@ -10,6 +10,8 @@ const require = createRequire(import.meta.url);
 import { buildWikiCommandPanesInnerHtml } from "./wiki-command-discovery.mjs";
 import { loadGaleoniEconomyUnlockMs } from "./wiki-help-visibility.mjs";
 import { minifyHtmlFilesInDist, obfuscateProjectJsInDist } from "./minify-obfuscate-dist.mjs";
+import { fetchStaffListStatusFlags } from "./staff-list-status.mjs";
+import { fetchCommunityPulse } from "./live-community-pulse.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, "..");
@@ -171,7 +173,7 @@ function buildPremiumFooterTemplate() {
         <div class="vc-premium-footer__inner">
           <div class="vc-premium-footer__grid">
             <section class="vc-premium-footer__brand" aria-label="{{SITE_NAME}}">
-              <a class="vc-premium-footer__logo-row" href="{{SITE_URL}}" aria-label="Vai alla homepage" data-i18n-attr="aria-label:nav.homeAria">
+              <a class="vc-premium-footer__logo-row" href="{{SITE_URL}}">
                 <span class="vc-premium-footer__logo" aria-hidden="true">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path d="M4 20C4 20 4 14 10 10C16 6 20 4 20 4C20 4 18 8 14 14C10 20 4 20 4 20Z" fill="white" />
@@ -231,7 +233,7 @@ function buildPremiumFooterTemplate() {
           </div>
         </div>
         <div class="vc-premium-footer__legal">
-          <p><a class="vc-footer-copy-link" href="{{COPYRIGHT_URL}}" data-i18n-attr="aria-label:footer.copyrightAria" aria-label="Copyright e licenza">© {{YEAR}} {{SITE_NAME}}. All rights reserved.</a></p>
+          <p><a class="vc-footer-copy-link" href="{{COPYRIGHT_URL}}">© {{YEAR}} {{SITE_NAME}}. All rights reserved.</a></p>
           <nav aria-label="Link legali" data-i18n-attr="aria-label:footer.legalLinks">
             <a href="{{TERMS_URL}}" data-i18n="footer.terms">Termini di Servizio</a>
             <span aria-hidden="true"></span>
@@ -254,7 +256,7 @@ function buildDashboardFooterTemplate() {
         <div class="vc-premium-footer__inner">
           <div class="vc-premium-footer__grid vc-premium-footer__grid--dashboard">
             <section class="vc-premium-footer__brand" aria-label="{{SITE_NAME}}">
-              <a class="vc-premium-footer__logo-row" href="{{SITE_URL}}" aria-label="Vai alla homepage" data-i18n-attr="aria-label:nav.homeAria">
+              <a class="vc-premium-footer__logo-row" href="{{SITE_URL}}">
                 <span class="vc-premium-footer__logo" aria-hidden="true">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path d="M4 20C4 20 4 14 10 10C16 6 20 4 20 4C20 4 18 8 14 14C10 20 4 20 4 20Z" fill="white" />
@@ -286,7 +288,7 @@ function buildDashboardFooterTemplate() {
           </div>
         </div>
         <div class="vc-premium-footer__legal">
-          <p><a class="vc-footer-copy-link" href="{{COPYRIGHT_URL}}" data-i18n-attr="aria-label:footer.copyrightAria" aria-label="Copyright e licenza">© {{YEAR}} {{SITE_NAME}}. All rights reserved.</a></p>
+          <p><a class="vc-footer-copy-link" href="{{COPYRIGHT_URL}}">© {{YEAR}} {{SITE_NAME}}. All rights reserved.</a></p>
           <nav aria-label="Link legali" data-i18n-attr="aria-label:footer.legalLinks">
             <a href="{{TERMS_URL}}" data-i18n="footer.terms">Termini di Servizio</a>
             <span aria-hidden="true"></span>
@@ -445,7 +447,41 @@ function applyPlaceholderMap(html, map) {
       `src=$1$2?v=${assetVersion}$1`,
     );
   }
-  return ensureDiscordShareMeta(html, map);
+  return ensureSeoEnhancements(ensureDiscordShareMeta(html, map), map);
+}
+
+/** Canonical + JSON-LD (homepage) per SEO / Lighthouse. */
+function ensureSeoEnhancements(html, map) {
+  let out = String(html || "");
+  const canonical = String(map?.OG_URL || map?.SITE_URL || "").trim();
+  if (canonical && !/<link\s+rel=["']canonical["']/i.test(out)) {
+    out = out.replace(/<\/head>/i, `    <link rel="canonical" href="${canonical}" />\n  </head>`);
+  }
+  if (!/<script[^>]+type=["']application\/ld\+json["']/i.test(out) && /vc-body--home|id=["']intro["']/i.test(out)) {
+    const siteName = String(map?.SITE_NAME || "Vinili & Caffè");
+    const desc = String(map?.META_DESCRIPTION || map?.OG_DESCRIPTION || "").trim();
+    const siteUrl = String(map?.SITE_URL || canonical || "").replace(/\/+$/, "");
+    const jsonLd = {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "WebSite",
+          name: siteName,
+          url: `${siteUrl}/`,
+          description: desc,
+          inLanguage: "it-IT",
+        },
+        {
+          "@type": "Organization",
+          name: siteName,
+          url: `${siteUrl}/`,
+        },
+      ],
+    };
+    const blob = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
+    out = out.replace(/<\/head>/i, `    <script type="application/ld+json">${blob}</script>\n  </head>`);
+  }
+  return out;
 }
 
 /**
@@ -461,17 +497,22 @@ function isDiscordAnimatedOgUrl(url) {
 function ensureDiscordShareMeta(html, map) {
   let out = String(html || "");
   const ogImage = String(map?.OG_IMAGE_URL || "").trim();
-  const ogW = String(map?.OG_IMAGE_WIDTH || "1200").trim();
-  const ogH = String(map?.OG_IMAGE_HEIGHT || "630").trim();
+  const ogW = String(map?.OG_IMAGE_WIDTH || "128").trim();
+  const ogH = String(map?.OG_IMAGE_HEIGHT || "128").trim();
   const ogAlt = String(map?.OG_IMAGE_ALT || "").trim();
   const theme = String(map?.THEME_COLOR_HEX || "").trim();
   if (!ogImage) return out;
+  const ogType = /\.gif(\?|$)/i.test(ogImage)
+    ? "image/gif"
+    : /\.png(\?|$)/i.test(ogImage)
+      ? "image/png"
+      : "image/jpeg";
 
   out = out.replace(
     /(<meta\s+property=["']og:image["']\s+content=["'])([^"']+)(["']\s*\/?>)/gi,
     (full, pre, url, post) => {
       // Sempre URL WA/Slack-safe (CF challenge su /images/* per alcuni crawler).
-      if (isDiscordAnimatedOgUrl(url) || !/\/(?:og\.jpg|apple-touch-icon\.jpg)/i.test(url)) {
+      if (isDiscordAnimatedOgUrl(url) || !/\/og\.(?:gif|jpg)(?:\?|$)/i.test(url)) {
         return `${pre}${ogImage}${post}`;
       }
       return full;
@@ -485,7 +526,7 @@ function ensureDiscordShareMeta(html, map) {
   if (!/<meta\s+property=["']og:image["']/i.test(out)) {
     out = out.replace(
       /<\/head>/i,
-      `    <meta property="og:image" content="${ogImage}" />\n    <meta property="og:image:secure_url" content="${ogImage}" />\n    <meta property="og:image:type" content="image/jpeg" />\n    <meta property="og:image:width" content="${ogW}" />\n    <meta property="og:image:height" content="${ogH}" />\n    <meta name="twitter:card" content="summary_large_image" />\n    <meta name="twitter:image" content="${ogImage}" />\n  </head>`,
+      `    <meta property="og:image" content="${ogImage}" />\n    <meta property="og:image:secure_url" content="${ogImage}" />\n    <meta property="og:image:type" content="${ogType}" />\n    <meta property="og:image:width" content="${ogW}" />\n    <meta property="og:image:height" content="${ogH}" />\n    <meta name="twitter:card" content="summary" />\n    <meta name="twitter:image" content="${ogImage}" />\n  </head>`,
     );
   }
 
@@ -499,13 +540,31 @@ function ensureDiscordShareMeta(html, map) {
       `<meta property="og:image:width" content="${ogW}" />\n    <meta property="og:image:height" content="${ogH}" />` +
         (ogAlt ? `\n    <meta property="og:image:alt" content="${ogAlt}" />` : ""),
     );
+  } else {
+    out = out.replace(
+      /(<meta\s+property=["']og:image:width["']\s+content=["'])([^"']+)/gi,
+      `$1${ogW}`,
+    );
+    out = out.replace(
+      /(<meta\s+property=["']og:image:height["']\s+content=["'])([^"']+)/gi,
+      `$1${ogH}`,
+    );
   }
-  if (theme && !/name=["']theme-color["']/i.test(out)) {
-    injectAfterOgImage(`<meta name="theme-color" content="${theme}" />`);
-  }
+  out = out.replace(
+    /(<meta\s+name=["']twitter:card["']\s+content=["'])([^"']+)(["']\s*\/?>)/gi,
+    `$1summary$3`,
+  );
+  // Browser/PWA chrome only. Discord embed sidebar is swapped at nginx
+  // for Discordbot (see deploy/patch-nginx-discord-embed-theme.py).
+  const browserTheme = theme || "#140f0c";
+  out = out.replace(/\s*<meta[^>]+name=["']theme-color["'][^>]*>/gi, "");
+  out = out.replace(
+    /<head([^>]*)>/i,
+    `<head$1>\n    <meta name="theme-color" content="${browserTheme}" />`,
+  );
   if (!/name=["']twitter:card["']/i.test(out)) {
     injectAfterOgImage(
-      `<meta name="twitter:card" content="summary_large_image" />\n    <meta name="twitter:image" content="${ogImage}" />`,
+      `<meta name="twitter:card" content="summary" />\n    <meta name="twitter:image" content="${ogImage}" />`,
     );
   }
   // WhatsApp / Slack / iMessage: secure_url + type + image_src (and CF-safe JPEG path).
@@ -513,12 +572,12 @@ function ensureDiscordShareMeta(html, map) {
     injectAfterOgImage(`<meta property="og:image:secure_url" content="${ogImage}" />`);
   }
   if (!/property=["']og:image:type["']/i.test(out)) {
-    const ogType = /\.jpe?g(\?|$)/i.test(ogImage)
-      ? "image/jpeg"
-      : /\.png(\?|$)/i.test(ogImage)
-        ? "image/png"
-        : "image/jpeg";
     injectAfterOgImage(`<meta property="og:image:type" content="${ogType}" />`);
+  } else {
+    out = out.replace(
+      /(<meta\s+property=["']og:image:type["']\s+content=["'])([^"']+)/gi,
+      `$1${ogType}`,
+    );
   }
   if (!/rel=["']image_src["']/i.test(out)) {
     injectAfterOgImage(`<link rel="image_src" href="${ogImage}" />`);
@@ -543,7 +602,7 @@ function ensureDiscordShareMeta(html, map) {
   if (!/rel=["']manifest["']/i.test(out)) {
     out = out.replace(
       /<\/head>/i,
-      `  <link rel="manifest" href="/site.webmanifest?v=iosfix6" />\n    <meta name="apple-mobile-web-app-capable" content="yes" />\n    <meta name="mobile-web-app-capable" content="yes" />\n    <meta name="apple-mobile-web-app-title" content="Vinili &amp; Caffè" />\n    ${appleTouchIcon}\n  </head>`,
+      `  <link rel="manifest" href="/site.webmanifest?v=pwabar2" />\n    <meta name="apple-mobile-web-app-capable" content="yes" />\n    <meta name="mobile-web-app-capable" content="yes" />\n    <meta name="apple-mobile-web-app-title" content="Vinili" />\n    ${appleTouchIcon}\n  </head>`,
     );
   } else {
     out = out.replace(
@@ -554,17 +613,17 @@ function ensureDiscordShareMeta(html, map) {
     if (!/name=["']apple-mobile-web-app-title["']/i.test(out)) {
       out = out.replace(
         /<\/head>/i,
-        `  <meta name="apple-mobile-web-app-title" content="Vinili &amp; Caffè" />\n  </head>`,
+        `  <meta name="apple-mobile-web-app-title" content="Vinili" />\n  </head>`,
       );
     } else {
       out = out.replace(
         /<meta[^>]+name=["']apple-mobile-web-app-title["'][^>]*>/gi,
-        `<meta name="apple-mobile-web-app-title" content="Vinili &amp; Caffè" />`,
+        `<meta name="apple-mobile-web-app-title" content="Vinili" />`,
       );
     }
     out = out.replace(
       /(href=["'])\/site\.webmanifest(?:\?[^"']*)?(["'])/i,
-      `$1/site.webmanifest?v=iosfix6$2`,
+      `$1/site.webmanifest?v=pwabar2$2`,
     );
   }
   return out;
@@ -810,7 +869,11 @@ async function fetchGuildLiveStatsCountsFromBot(guildId, botToken) {
     g.premium_subscription_count != null && Number.isFinite(Number(g.premium_subscription_count))
       ? Math.floor(Number(g.premium_subscription_count))
       : null;
-  return { memberCount, boostCount };
+  const presenceCount =
+    g.approximate_presence_count != null && Number.isFinite(Number(g.approximate_presence_count))
+      ? Math.floor(Number(g.approximate_presence_count))
+      : null;
+  return { memberCount, boostCount, presenceCount };
 }
 
 async function fetchGuildRoleMetas(guildId, botToken) {
@@ -828,6 +891,7 @@ async function fetchGuildRoleMetas(guildId, botToken) {
     map.set(id, {
       name: String(r?.name || id),
       position: Number(r?.position ?? 0),
+      premiumSubscriber: Boolean(r?.tags && Object.prototype.hasOwnProperty.call(r.tags, "premium_subscriber")),
     });
   }
   return { ok: true, map };
@@ -920,16 +984,65 @@ function memberStaffLineName(m) {
 }
 
 function memberStaffDisplayName(m, ownerUserId = "") {
-  const base = memberStaffLineName(m);
-  const uid = String(m?.user?.id || "").trim();
-  if (uid && ownerUserId && uid === ownerUserId) return base;
-  return base;
+  void ownerUserId;
+  return memberBoostDisplayName(m);
+}
+
+/** Nick / global name come in Discord; salta nick “vuoti” (spazi invisibili, una lettera). */
+function memberBoostDisplayName(m) {
+  const cleanup = (v) =>
+    String(v || "")
+      .replace(/[\u200B-\u200D\u2060\uFEFF]/g, "")
+      .trim();
+  const usable = (v) => {
+    const s = cleanup(v);
+    if (!s) return "";
+    const compact = s.replace(/[\s\u3164\u2800\u115F\u1160\u1CB0\uFFA0]/g, "");
+    const chars = compact.match(/\p{L}|\p{N}/gu) || [];
+    return chars.length >= 2 ? s : "";
+  };
+  return (
+    usable(m?.nick) ||
+    usable(m?.user?.global_name) ||
+    usable(m?.user?.globalName) ||
+    usable(m?.user?.username) ||
+    memberStaffLineName(m)
+  );
 }
 
 function memberStaffProfileHref(m) {
   const uid = String(m?.user?.id || "").trim();
   if (!/^\d{16,22}$/.test(uid)) return "#";
   return `/user/?id=${encodeURIComponent(uid)}`;
+}
+
+function memberStaffAvatarUrl(m, guildId = "") {
+  const uid = String(m?.user?.id || "").trim();
+  if (!uid) return "";
+  const gid = String(guildId || "").trim();
+  const guildHash = m?.avatar != null ? String(m.avatar).trim() : "";
+  if (gid && guildHash) {
+    return `https://cdn.discordapp.com/guilds/${gid}/users/${uid}/avatars/${guildHash}.webp?size=80`;
+  }
+  const userHash = m?.user?.avatar != null ? String(m.user.avatar).trim() : "";
+  if (userHash) {
+    return `https://cdn.discordapp.com/avatars/${uid}/${userHash}.webp?size=80`;
+  }
+  return discordCdnUserAvatarUrl(uid, "") || "";
+}
+
+function staffHoverMemberPayload(mem, roleId, roleLabel, ownerUserId, guildId, flags = {}) {
+  return {
+    name: memberStaffDisplayName(mem, ownerUserId),
+    userId: String(mem?.user?.id || "").trim(),
+    avatarUrl: memberStaffAvatarUrl(mem, guildId) || "",
+    profileUrl: memberStaffProfileHref(mem),
+    isOwner: isServerOwnerMember(mem, ownerUserId),
+    isNew: flags.isNew === true,
+    isPaused: flags.isPaused === true,
+    roleId: String(roleId || "").trim(),
+    roleLabel: String(roleLabel || "").trim(),
+  };
 }
 
 function isServerOwnerMember(m, ownerUserId = "") {
@@ -939,6 +1052,14 @@ function isServerOwnerMember(m, ownerUserId = "") {
 
 function ownerBadgeHtml() {
   return '<span class="vc-owner-badge" title="Server Owner" aria-label="Server Owner">Owner</span>';
+}
+
+function staffNewBadgeHtml() {
+  return '<span class="vc-staff-new-badge" title="Nuovo staff" aria-label="Nuovo staff">Nuovo</span>';
+}
+
+function staffPauseBadgeHtml() {
+  return '<span class="vc-staff-pause-badge" title="In pausa" aria-label="In pausa">Pausa</span>';
 }
 
 function hueFromDiscordRoleId(roleId) {
@@ -969,7 +1090,7 @@ function isGenericStaffRoleLabel(label) {
 }
 
 function staffListFallback() {
-  return { html: STAFF_LIST_FALLBACK_HTML, staffCount: null };
+  return { html: STAFF_LIST_FALLBACK_HTML, staffCount: null, staffHoverGroups: [], boostHoverMembers: [] };
 }
 
 function parseSiteSponsorAdMs(value, endOfDay) {
@@ -1074,6 +1195,15 @@ function buildLiveStatsBootHtml(cfg, inviteCode, opts) {
   if (Array.isArray(opts.staffHoverGroups) && opts.staffHoverGroups.length) {
     payload.staffHoverGroups = opts.staffHoverGroups;
   }
+  if (Array.isArray(opts.boostHoverMembers) && opts.boostHoverMembers.length) {
+    payload.boostHoverMembers = opts.boostHoverMembers;
+  }
+  if (opts.memberPulse && typeof opts.memberPulse === "object") {
+    payload.memberPulse = opts.memberPulse;
+  }
+  if (opts.communityHours && typeof opts.communityHours === "object") {
+    payload.communityHours = opts.communityHours;
+  }
   if (opts.staffNoPm != null && Number.isFinite(Number(opts.staffNoPm))) {
     payload.staffNoPm = Math.floor(Number(opts.staffNoPm));
   }
@@ -1128,20 +1258,20 @@ function buildMaintenanceBootHtml(cfg, extra = {}) {
   return (
     extensionNoiseBoot +
     trustedTypesBoot +
-    `    <script src="/js/vc-suppress-extension-errors.js"></script>\n` +
+    `    <script src="/js/vc-suppress-extension-errors.js" defer></script>\n` +
     `    <script>(function(){var w=window;w.__VC_MAINTENANCE=${json};var m=w.__VC_MAINTENANCE;if(!m||m.enabled!==true)return;var de=w.document.documentElement;de.classList.add("vc-maintenance-pending");try{de.style.overflow="hidden";de.style.height="100%";}catch(e1){}})();</script>\n` +
-    `    <script src="/js/site-maintenance.js"></script>\n`
+    `    <script src="/js/site-maintenance.js" defer></script>\n`
   );
 }
 
 function applyMaintenanceGateToHtml(html, maintenanceBoot) {
   if (!maintenanceBoot || html.includes("window.__VC_MAINTENANCE")) return html;
+  if (html.includes("</head>")) {
+    return html.replace("</head>", `${maintenanceBoot}  </head>`);
+  }
   const headOpen = html.match(/<head\b[^>]*>/i);
   if (headOpen) {
     return html.replace(headOpen[0], `${headOpen[0]}\n${maintenanceBoot}`);
-  }
-  if (html.includes("</head>")) {
-    return html.replace("</head>", `${maintenanceBoot}  </head>`);
   }
   return maintenanceBoot + html;
 }
@@ -1184,6 +1314,45 @@ function collectDistHtmlRoutes(distDir) {
   return [...paths].sort();
 }
 
+const ROBOTS_DISALLOW_PREFIXES = [
+  "/dashboard",
+  "/staff",
+  "/seratafilm/accesso-richiesto",
+  "/candidature/accesso-richiesto",
+  "/appelli/accesso-richiesto",
+  "/unban",
+  "/unmute",
+  "/supporto",
+  "/stato",
+  "/staff/ticket",
+];
+
+function writeRobotsAndSitemap(distDir, cfg) {
+  const siteBase = String(cfg?.siteUrl || "https://www.viniliecaffe.it").trim().replace(/\/+$/, "");
+  const routes = collectDistHtmlRoutes(distDir);
+  const robotsLines = ["User-agent: *", "Allow: /"];
+  for (const prefix of ROBOTS_DISALLOW_PREFIXES) {
+    robotsLines.push(`Disallow: ${prefix}`);
+  }
+  robotsLines.push("", `Sitemap: ${siteBase}/sitemap.xml`, "");
+  fs.writeFileSync(path.join(distDir, "robots.txt"), `${robotsLines.join("\n")}\n`, "utf8");
+
+  const publicRoutes = routes.filter(
+    (route) => !ROBOTS_DISALLOW_PREFIXES.some((prefix) => route === prefix || route.startsWith(`${prefix}/`)),
+  );
+  const urlEntries = publicRoutes.map((route) => {
+    const loc = route === "/" ? `${siteBase}/` : `${siteBase}${route}/`;
+    const priority = route === "/" ? "1.0" : route.split("/").length <= 2 ? "0.8" : "0.6";
+    return `  <url><loc>${loc}</loc><changefreq>weekly</changefreq><priority>${priority}</priority></url>`;
+  });
+  const sitemap =
+    `<?xml version="1.0" encoding="UTF-8"?>\n` +
+    `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
+    `${urlEntries.join("\n")}\n` +
+    `</urlset>\n`;
+  fs.writeFileSync(path.join(distDir, "sitemap.xml"), sitemap, "utf8");
+}
+
 const SITE_ROUTE_GUARD_PATTERNS = Object.freeze([
   { s: "^/users?/\\d{17,20}$", f: "" },
   { s: "^/users/\\d{17,20}/customize$", f: "" },
@@ -1196,7 +1365,7 @@ function buildSiteRouteGuardBoot(routesPayload) {
   const json = JSON.stringify(routesPayload).replace(/</g, "\\u003c");
   return (
     `    <script>window.__VC_SITE_ROUTES=${json};</script>\n` +
-    `    <script src="/js/vc-site-route-guard.js"></script>\n`
+    `    <script src="/js/vc-site-route-guard.js" defer></script>\n`
   );
 }
 
@@ -1284,11 +1453,7 @@ function applyHeaderPromoToDist(distDir, promoButtonHtml, headerPromoClientConfi
       if (!name.toLowerCase().endsWith(".html")) continue;
       const html = fs.readFileSync(p, "utf8");
       const rel = path.relative(distDir, p).replace(/\\/g, "/").toLowerCase();
-      if (
-        html.includes("vc-hw-page") ||
-        html.includes("vc-dashboard-page") ||
-        rel.startsWith("dashboard/")
-      ) {
+      if (html.includes("vc-dashboard-page") || rel.startsWith("dashboard/")) {
         continue;
       }
       const scriptPrefix = relativeScriptPrefixFromHtml(p);
@@ -1399,6 +1564,72 @@ function applyCursorTrailToDist(distDir, assetVersion = "") {
       if (next.includes("</body>")) next = next.replace("</body>", `${boot}  </body>`);
       else if (next.includes("</head>")) next = next.replace("</head>", `${boot}  </head>`);
       else next += `\n${boot}`;
+      if (next !== html) fs.writeFileSync(p, next, "utf8");
+    }
+  };
+  walk(distDir);
+}
+
+function applyPtrToDist(distDir, assetVersion = "") {
+  const suffix = assetVersion ? `?v=${encodeURIComponent(String(assetVersion))}` : "";
+  const walk = (dir) => {
+    for (const name of fs.readdirSync(dir)) {
+      const p = path.join(dir, name);
+      const st = fs.statSync(p);
+      if (st.isDirectory()) {
+        walk(p);
+        continue;
+      }
+      if (!name.toLowerCase().endsWith(".html")) continue;
+      const html = fs.readFileSync(p, "utf8");
+      if (html.includes("vc-ptr.js")) continue;
+      if (
+        !html.includes("vc-landing.js") &&
+        !html.includes("vc-landing.css") &&
+        !html.includes("vc-cursor-trail.js") &&
+        !html.includes("discord-auth.js") &&
+        !html.includes("vc-dashboard-page") &&
+        !html.includes("vc-seratafilm-page")
+      ) {
+        continue;
+      }
+      const boot = `  <script src="/js/vc-ptr.js${suffix}" defer></script>\n`;
+      let next = html;
+      if (next.includes("</body>")) next = next.replace("</body>", `${boot}  </body>`);
+      else if (next.includes("</head>")) next = next.replace("</head>", `${boot}  </head>`);
+      else next += `\n${boot}`;
+      if (next !== html) fs.writeFileSync(p, next, "utf8");
+    }
+  };
+  walk(distDir);
+}
+
+function applyMobileNavToDist(distDir, assetVersion = "") {
+  const suffix = assetVersion ? `?v=${encodeURIComponent(String(assetVersion))}` : "";
+  const walk = (dir) => {
+    for (const name of fs.readdirSync(dir)) {
+      const p = path.join(dir, name);
+      const st = fs.statSync(p);
+      if (st.isDirectory()) {
+        walk(p);
+        continue;
+      }
+      if (!name.toLowerCase().endsWith(".html")) continue;
+      const html = fs.readFileSync(p, "utf8");
+      if (html.includes("vc-mobile-nav.js")) continue;
+      if (!html.includes("vc-mobile-nav-toggle") && !html.includes("header-quick-actions")) continue;
+      const boot = `  <script src="/js/vc-mobile-nav.js${suffix}" defer></script>\n`;
+      let next = html;
+      if (next.includes("vc-landing.js")) {
+        next = next.replace(
+          /(<script[^>]*src="[^"]*vc-landing\.js[^"]*"[^>]*><\/script>)/i,
+          `$1\n${boot.trimEnd()}`,
+        );
+      } else if (next.includes("</body>")) {
+        next = next.replace("</body>", `${boot}  </body>`);
+      } else {
+        next += `\n${boot}`;
+      }
       if (next !== html) fs.writeFileSync(p, next, "utf8");
     }
   };
@@ -1541,8 +1772,8 @@ function annotateSharedChromeI18n(html) {
     'aria-label="Entra su Discord" data-i18n-attr="aria-label:nav.discordAria"',
   );
   next = next.replace(
-    /aria-label="Vai alla homepage"/g,
-    'aria-label="Vai alla homepage" data-i18n-attr="aria-label:nav.homeAria"',
+    /aria-label="Vai alla homepage"(?: data-i18n-attr="aria-label:nav.homeAria")?/g,
+    "",
   );
   next = next.replace(
     /(<summary class="vc-icon-btn vc-notif-summary[^"]*" aria-label=")Notifiche(")/g,
@@ -1614,13 +1845,11 @@ function applyI18nToHtml(html, { scriptPrefix = "", assetSuffix = "" } = {}) {
   if (next.includes("vc-i18n.js")) return next;
   const boot =
     `  <script>(function(){try{var l=String(localStorage.getItem("vc_site_lang")||"").toLowerCase();var ok=["it","en","es","fr","de","pt","ru","zh","ja","ko","ar","nl","pl","tr","hi","id","uk","vi","ro","sv"];if(ok.indexOf(l)>=0){document.documentElement.lang=l;document.documentElement.setAttribute("dir",l==="ar"?"rtl":"ltr");}}catch(e){}})();</script>\n` +
-    `  <script src="${scriptPrefix}js/vc-i18n.js${assetSuffix}"></script>\n` +
-    `  <script src="${scriptPrefix}js/vc-i18n-pages.js${assetSuffix}"></script>\n` +
-    `  <script src="${scriptPrefix}js/vc-i18n-pages-extra.js${assetSuffix}"></script>\n` +
-    `  <script src="${scriptPrefix}js/vc-i18n-locales.js${assetSuffix}"></script>\n`;
-  const headOpen = next.match(/<head\b[^>]*>/i);
-  if (headOpen) next = next.replace(headOpen[0], `${headOpen[0]}\n${boot}`);
-  else if (next.includes("</head>")) next = next.replace("</head>", `${boot}</head>`);
+    `  <script src="${scriptPrefix}js/vc-i18n.js${assetSuffix}" defer></script>\n` +
+    `  <script src="${scriptPrefix}js/vc-i18n-pages.js${assetSuffix}" defer></script>\n` +
+    `  <script src="${scriptPrefix}js/vc-i18n-pages-extra.js${assetSuffix}" defer></script>\n` +
+    `  <script src="${scriptPrefix}js/vc-i18n-locales.js${assetSuffix}" defer></script>\n`;
+  if (next.includes("</head>")) next = next.replace("</head>", `${boot}</head>`);
   else if (next.includes("</body>")) next = next.replace("</body>", `${boot}</body>`);
   else next += `\n${boot}`;
   return next;
@@ -1730,7 +1959,10 @@ async function buildStaffListBlock(cfg, guildId) {
   }
 
   const maxScan = Number.isFinite(Number(b.maxMembersToScan)) ? Number(b.maxMembersToScan) : 10000;
-  const members = await fetchGuildMembersUpTo(gid, botToken, maxScan);
+  const [members, staffStatusFlags] = await Promise.all([
+    fetchGuildMembersUpTo(gid, botToken, maxScan),
+    fetchStaffListStatusFlags(gid),
+  ]);
   if (!members.length) {
     console.warn("[build-site] Nessun membro scaricato per la staff list.");
     return staffListFallback();
@@ -1920,12 +2152,17 @@ async function buildStaffListBlock(cfg, guildId) {
             .map((mem) => {
               const name = escHtml(memberStaffDisplayName(mem, ownerUserId));
               const href = escAttr(memberStaffProfileHref(mem));
+              const uid = String(mem?.user?.id || "").trim();
               const ownerB = isServerOwnerMember(mem, ownerUserId) ? ownerBadgeHtml() : "";
+              const newB = staffStatusFlags.newRolesByUser.get(uid)?.has(String(g.roleId))
+                ? staffNewBadgeHtml()
+                : "";
+              const pauseB = staffStatusFlags.paused.has(uid) ? staffPauseBadgeHtml() : "";
               const roleB = staffRoleBadgeHtml(g.roleLabel, g.roleId);
-              const badges =
-                ownerB || roleB
-                  ? `<span class="vc-staff-member-chip__badges">${ownerB}${ownerB && roleB ? " " : ""}${roleB}</span>`
-                  : "";
+              const badgeBits = [ownerB, newB, pauseB, roleB].filter(Boolean).join("");
+              const badges = badgeBits
+                ? `<span class="vc-staff-member-chip__badges">${badgeBits}</span>`
+                : "";
               return `<span class="vc-staff-member-chip"><a href="${href}">${name}</a>${badges}</span>`;
             })
             .join(" | ")
@@ -1947,13 +2184,13 @@ async function buildStaffListBlock(cfg, guildId) {
       roleId: String(g.roleId || "").trim(),
       role: String(g.roleLabel || "").trim(),
       members: g.members
-        .map((mem) => ({
-          name: memberStaffDisplayName(mem, ownerUserId),
-          profileUrl: memberStaffProfileHref(mem),
-          isOwner: isServerOwnerMember(mem, ownerUserId),
-          roleId: String(g.roleId || "").trim(),
-          roleLabel: String(g.roleLabel || "").trim(),
-        }))
+        .map((mem) => {
+          const uid = String(mem?.user?.id || "").trim();
+          return staffHoverMemberPayload(mem, g.roleId, g.roleLabel, ownerUserId, gid, {
+            isNew: staffStatusFlags.newRolesByUser.get(uid)?.has(String(g.roleId)) === true,
+            isPaused: staffStatusFlags.paused.has(uid),
+          });
+        })
         .filter((mem) => mem.name),
     }))
     .filter((g) => g.role && Array.isArray(g.members) && g.members.length > 0);
@@ -1965,13 +2202,13 @@ async function buildStaffListBlock(cfg, guildId) {
     const roleMembers = members
       .filter((m) => !m?.user?.bot)
       .filter((m) => memberRoleIds(m).includes(rid))
-      .map((m) => ({
-        name: memberStaffDisplayName(m, ownerUserId),
-        profileUrl: memberStaffProfileHref(m),
-        isOwner: isServerOwnerMember(m, ownerUserId),
-        roleId: rid,
-        roleLabel: String(targetRoleLabel || "").trim() || "Staff",
-      }))
+      .map((m) => {
+        const uid = String(m?.user?.id || "").trim();
+        return staffHoverMemberPayload(m, rid, targetRoleLabel, ownerUserId, gid, {
+          isNew: staffStatusFlags.newRolesByUser.get(uid)?.has(rid) === true,
+          isPaused: staffStatusFlags.paused.has(uid),
+        });
+      })
       .filter((m) => m.name)
       .sort((a, b) => String(a.name).localeCompare(String(b.name), "it", { sensitivity: "base" }));
     if (!roleMembers.length) return;
@@ -2001,12 +2238,91 @@ async function buildStaffListBlock(cfg, guildId) {
     }
     appendRoleGroupIfMissing(communityManagerRoleId, communityManagerRoleLabel);
   }
+  const serverBoosterRoleId = String(b.serverBoosterRoleId || "1329497467481493607").trim();
+  const doubleBoosterRoleId = String(b.doubleBoosterRoleId || "1494996567214788818").trim();
+  const boosterRoleIds = new Set([serverBoosterRoleId, doubleBoosterRoleId].filter(Boolean));
+  for (const [rid, meta] of roleMetas.entries()) {
+    const name = String(meta?.name || "")
+      .toLowerCase()
+      .replace(/^༄\s*/, "")
+      .trim();
+    if (
+      meta?.premiumSubscriber ||
+      name === "server booster" ||
+      name === "booster" ||
+      name.includes("server booster")
+    ) {
+      boosterRoleIds.add(String(rid));
+    }
+  }
+  let premiumSinceN = 0;
+  let roleOnlyN = 0;
+  const boostByUserId = new Map();
+  for (const m of members) {
+    if (m?.user?.bot) continue;
+    const uid = String(m?.user?.id || "").trim();
+    if (!uid) continue;
+    const rids = memberRoleIds(m);
+    const hasBoosterRole = rids.some((rid) => boosterRoleIds.has(String(rid)));
+    const hasPremium = Boolean(m?.premium_since || m?.premiumSince);
+    if (hasPremium) premiumSinceN += 1;
+    else if (hasBoosterRole) roleOnlyN += 1;
+    const isBooster = hasPremium || hasBoosterRole;
+    if (!isBooster) continue;
+    const boostCount = doubleBoosterRoleId && rids.includes(doubleBoosterRoleId) ? 2 : 1;
+    boostByUserId.set(uid, {
+      name: memberBoostDisplayName(m),
+      userId: uid,
+      avatarUrl: memberStaffAvatarUrl(m, gid) || "",
+      profileUrl: memberStaffProfileHref(m),
+      boostCount,
+    });
+  }
+  const boostHoverMembers = [...boostByUserId.values()]
+    .filter((m) => m.name)
+    .sort((a, b) => {
+      const dc = Number(b.boostCount || 0) - Number(a.boostCount || 0);
+      if (dc) return dc;
+      return String(a.name).localeCompare(String(b.name), "it", { sensitivity: "base" });
+    });
+  console.log(
+    "[build-site] boosters",
+    boostHoverMembers.length,
+    "premium_since",
+    premiumSinceN,
+    "role_only",
+    roleOnlyN,
+    "roles",
+    [...boosterRoleIds]
+      .map((id) => String((roleMetas.get(id) && roleMetas.get(id).name) || id))
+      .join(", "),
+  );
   const staffCount = countedStaffUserIds.size;
+  console.log(
+    "[build-site] staff badges",
+    `paused=${staffStatusFlags.paused.size}`,
+    `new=${staffStatusFlags.newRolesByUser.size}`,
+  );
   const maintenanceBypassUserIds = maintenanceBypassUserIdsFromMembers(
     members,
     botIds.websiteMaintenanceBypassRoleIds,
   );
-  return { html, staffCount, staffHoverGroups, maintenanceBypassUserIds };
+  return { html, staffCount, staffHoverGroups, boostHoverMembers, maintenanceBypassUserIds };
+}
+
+function mergeLivePulseIntoPayload(payload, pulse, presenceCount) {
+  if (!payload || !pulse || typeof pulse !== "object") return payload;
+  const mp = pulse.memberPulse && typeof pulse.memberPulse === "object" ? { ...pulse.memberPulse } : null;
+  if (mp) {
+    if (presenceCount != null && Number.isFinite(Number(presenceCount))) {
+      mp.onlineNow = Math.max(0, Math.floor(Number(presenceCount)));
+    }
+    payload.memberPulse = mp;
+  }
+  if (pulse.communityHours && typeof pulse.communityHours === "object") {
+    payload.communityHours = pulse.communityHours;
+  }
+  return payload;
 }
 
 /** Solo `live-stats-extra.json` (nessun rebuild HTML). Utile con cron sul VPS. */
@@ -2044,22 +2360,44 @@ async function mainLiveStatsExtraOnly() {
     );
   }
   const botTok = String(process.env.DISCORD_WEBSITE_BUILD_BOT_TOKEN || "").trim();
-  const guildLiveCounts =
+  const [guildLiveCounts, communityPulse] = await Promise.all([
     !envFlagTrue("VC_BUILD_FAST") && guildIdResolved && botTok
-      ? await fetchGuildLiveStatsCountsFromBot(guildIdResolved, botTok)
-      : null;
+      ? fetchGuildLiveStatsCountsFromBot(guildIdResolved, botTok)
+      : Promise.resolve(null),
+    fetchCommunityPulse(guildIdResolved),
+  ]);
   const payload = { staffNoPm: n };
   if (Array.isArray(staffResult.staffHoverGroups) && staffResult.staffHoverGroups.length) {
     payload.staffHoverGroups = staffResult.staffHoverGroups;
   }
+  if (Array.isArray(staffResult.boostHoverMembers) && staffResult.boostHoverMembers.length) {
+    payload.boostHoverMembers = staffResult.boostHoverMembers;
+  }
   if (guildLiveCounts?.memberCount != null) payload.guildMemberCount = guildLiveCounts.memberCount;
   if (guildLiveCounts?.boostCount != null) payload.guildBoostCount = guildLiveCounts.boostCount;
+  mergeLivePulseIntoPayload(payload, communityPulse, guildLiveCounts?.presenceCount);
   const outRaw = process.env.VC_LIVE_STATS_JSON_OUT?.trim();
   const out = outRaw || path.join(DIST, "live-stats-extra.json");
   fs.mkdirSync(path.dirname(out), { recursive: true });
   fs.writeFileSync(out, JSON.stringify(payload), "utf8");
   const memLog = guildLiveCounts?.memberCount != null ? ` guildMemberCount=${guildLiveCounts.memberCount}` : "";
-  console.log("[live-stats-extra] OK", out, "staffNoPm:", n + memLog);
+  const boostN = Array.isArray(payload.boostHoverMembers) ? payload.boostHoverMembers.length : 0;
+  const boostSlots = Array.isArray(payload.boostHoverMembers)
+    ? payload.boostHoverMembers.reduce((s, row) => s + Math.max(1, Math.floor(Number(row?.boostCount || 1))), 0)
+    : 0;
+  const pulseLog = payload.memberPulse
+    ? ` msgs7d=${payload.memberPulse.messages7d} voice7d=${payload.memberPulse.voiceSeconds7d} active7d=${payload.memberPulse.activeMembers7d} online=${payload.memberPulse.onlineNow ?? "—"}`
+    : "";
+  console.log(
+    "[live-stats-extra] OK",
+    out,
+    "staffNoPm:",
+    n + memLog,
+    `boosters=${boostN}`,
+    `boostSlots=${boostSlots}`,
+    payload.guildBoostCount != null ? `guildBoostCount=${payload.guildBoostCount}` : "",
+    pulseLog,
+  );
 }
 
 /** Entry CLI Tailwind (evita `.cmd` in PATH con `&` nel percorso su Windows). */
@@ -2212,10 +2550,12 @@ async function main() {
   const lsForProxy = cfg.liveStats || {};
   const staffResult = await buildStaffListBlock(cfg, guildIdResolved);
   const buildBotTok = String(process.env.DISCORD_WEBSITE_BUILD_BOT_TOKEN || "").trim();
-  const guildLiveCounts =
+  const [guildLiveCounts, communityPulse] = await Promise.all([
     !buildFast && guildIdResolved && buildBotTok
-      ? await fetchGuildLiveStatsCountsFromBot(guildIdResolved, buildBotTok)
-      : null;
+      ? fetchGuildLiveStatsCountsFromBot(guildIdResolved, buildBotTok)
+      : Promise.resolve(null),
+    fetchCommunityPulse(guildIdResolved),
+  ]);
 
   const statMembers =
     guildLiveCounts?.memberCount != null
@@ -2236,8 +2576,10 @@ async function main() {
 
   const liveStatsBootOpts = {
     staffHoverGroups: staffResult.staffHoverGroups,
+    boostHoverMembers: staffResult.boostHoverMembers,
     staffNoPm: staffResult.staffCount,
   };
+  mergeLivePulseIntoPayload(liveStatsBootOpts, communityPulse, guildLiveCounts?.presenceCount);
   const liveStatsBoot =
     buildLiveStatsBootHtml(cfg, inviteCode, liveStatsBootOpts) +
     buildSiteSponsorAdBootHtml(cfg, { scriptPrefix: "" });
@@ -2259,8 +2601,12 @@ async function main() {
     if (Array.isArray(staffResult.staffHoverGroups) && staffResult.staffHoverGroups.length) {
       extraObj.staffHoverGroups = staffResult.staffHoverGroups;
     }
+    if (Array.isArray(staffResult.boostHoverMembers) && staffResult.boostHoverMembers.length) {
+      extraObj.boostHoverMembers = staffResult.boostHoverMembers;
+    }
     if (guildLiveCounts?.memberCount != null) extraObj.guildMemberCount = guildLiveCounts.memberCount;
     if (guildLiveCounts?.boostCount != null) extraObj.guildBoostCount = guildLiveCounts.boostCount;
+    mergeLivePulseIntoPayload(extraObj, communityPulse, guildLiveCounts?.presenceCount);
     fs.writeFileSync(extraPath, JSON.stringify(extraObj), "utf8");
   }
 
@@ -2280,7 +2626,7 @@ async function main() {
     );
   }
 
-  const siteOgFallback = "/og.jpg?v=ogwa4";
+  const siteOgFallback = "/og.gif?v=oggif1";
   const ogImageOverride = String(cfg.openGraphImageUrl ?? "").trim() || siteOgFallback;
   const ogIconLarge =
     snap?.guildId && snap?.icon && wantIcon ? guildIconCdnUrl(snap.guildId, snap.icon, 1024) : guildIconUrl;
@@ -2297,8 +2643,8 @@ async function main() {
   if (!ogImageUrl) {
     ogImageUrl = absUrlForMetadata(siteUrlTrim, siteOgFallback);
   }
-  let ogImageWidth = "1200";
-  let ogImageHeight = "630";
+  let ogImageWidth = "128";
+  let ogImageHeight = "128";
   const w = Number(cfg.openGraphImageWidth);
   const h = Number(cfg.openGraphImageHeight);
   if (Number.isFinite(w) && Number.isFinite(h) && w > 0 && h > 0) {
@@ -3254,7 +3600,7 @@ async function main() {
     PRIVACY_URL: escAttr(privacyUrlResolved),
     COOKIE_POLICY_URL: escAttr(cookiePolicyUrlResolved),
     COPYRIGHT_URL: escAttr(copyrightUrlResolved),
-    COPYRIGHT_OG_TITLE: escAttr(`Copyright e Licenza | ${siteName}`),
+    COPYRIGHT_OG_TITLE: escAttr(`${siteName} | Copyright e Licenza`),
     COPYRIGHT_OG_DESCRIPTION: escAttr(
       `Avviso di copyright e licenza proprietaria di ${siteName}.`,
     ),
@@ -3263,13 +3609,13 @@ async function main() {
     LEGAL_TERMS_UPDATED: escHtml(legalTermsDate),
     LEGAL_PRIVACY_UPDATED: escHtml(legalPrivacyDate),
     LEGAL_COOKIE_UPDATED: escHtml(legalCookieDate),
-    COOKIE_OG_TITLE: escAttr(`Cookie Policy | ${siteName}`),
+    COOKIE_OG_TITLE: escAttr(`${siteName} | Cookie Policy`),
     COOKIE_OG_DESCRIPTION: escAttr(
       `Cookie Policy del sito ${siteName}: cookie tecnici, sicurezza, durata e gestione.`,
     ),
-    TERMS_OG_TITLE: escAttr(`Termini di Servizio | ${siteName}`),
+    TERMS_OG_TITLE: escAttr(`${siteName} | Termini di Servizio`),
     TERMS_OG_DESCRIPTION: escAttr(`Termini di Servizio del sito e del server Discord ${siteName}.`),
-    PRIVACY_OG_TITLE: escAttr(`Privacy Policy | ${siteName}`),
+    PRIVACY_OG_TITLE: escAttr(`${siteName} | Privacy Policy`),
     PRIVACY_OG_DESCRIPTION: escAttr(`Informativa sulla privacy per il sito e la community ${siteName}.`),
     USER_RANK_CUSTOMIZE_OG_TITLE: escAttr(`${siteName} | Personalizza rank card`),
     USER_RANK_CUSTOMIZE_OG_DESCRIPTION: escAttr(`Personalizza la tua rank card direttamente dal sito.`),
@@ -3580,7 +3926,7 @@ async function main() {
     FOOTER_SOCIAL_RIGHT: footerSocialRight,
     INSTAGRAM_URL: escAttr(instagramUrlResolved || "#"),
     TIKTOK_URL: escAttr(tiktokUrlResolved || "#"),
-    WIKI_PAGE_TITLE: `${siteName} Wiki`,
+    WIKI_PAGE_TITLE: `${siteName} | Wiki`,
     WIKI_META_DESCRIPTION: escAttr(
       `Documentazione, comandi e guide del server ${siteName} su Discord.`,
     ),
@@ -4004,6 +4350,8 @@ async function main() {
   applyAvatarFallbackToDist(DIST, buildAssetVersion);
   applyVcDialogToDist(DIST, buildAssetVersion);
   applyCursorTrailToDist(DIST, buildAssetVersion);
+  applyPtrToDist(DIST, buildAssetVersion);
+  applyMobileNavToDist(DIST, buildAssetVersion);
   applyHeaderNameMarqueeToDist(DIST, buildAssetVersion);
   applyI18nToDist(DIST, buildAssetVersion);
   applyLiveStatsBootToDist(DIST, cfg, inviteCode);
@@ -4022,6 +4370,8 @@ async function main() {
   }
 
   assertDistHasNoTemplatePlaceholders(DIST);
+
+  writeRobotsAndSitemap(DIST, cfg);
 
   console.log("Build OK:", path.relative(process.cwd(), DIST));
 }

@@ -724,7 +724,8 @@ function mountSiteWebhookRoutes(app, client, deps) {
   app.get("/webhooks/site-reviews", async (req, res) => {
     try {
       const accessToken = normalizeHeaderSecret(req.headers.authorization);
-      const out = await getSiteReviews(client, { accessToken });
+      const kind = String((req.query && req.query.kind) || "").trim();
+      const out = await getSiteReviews(client, { accessToken, kind });
       return res.status(Number(out.status) || 500).json(out);
     } catch (err) {
       global.logger?.error?.("[WEBHOOK] site-reviews get:", err);

@@ -9,11 +9,30 @@ html:not(.vc-staff-app-revealed) .vc-staff-app {
   inset: 0;
   z-index: 10060;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  background:
-    radial-gradient(ellipse 90% 70% at 50% 35%, rgba(90, 58, 36, 0.45), rgba(8, 6, 5, 0.96) 55%),
-    #080605;
+  padding: 1.5rem;
+  overflow: hidden;
+  background-color: #0b0806;
+  background-image:
+    radial-gradient(ellipse 92% 74% at 50% 38%, rgba(232, 196, 156, 0.16) 0%, rgba(28, 20, 14, 0.94) 52%, #0a0706 100%);
+}
+
+.vc-staff-loading::after {
+  content: "";
+  position: absolute;
+  top: max(1.4rem, 7vh);
+  right: max(1.4rem, 8vw);
+  width: 2.05rem;
+  height: 2.05rem;
+  border-radius: 9999px;
+  border: 1.5px solid rgba(247, 236, 223, 0.18);
+  box-shadow:
+    0 0 0 5px rgba(247, 236, 223, 0.06),
+    inset 0 0 0 4px rgba(247, 236, 223, 0.1);
+  opacity: 0.62;
+  pointer-events: none;
 }
 
 .vc-staff-loading[hidden],
@@ -22,21 +41,49 @@ html:not(.vc-staff-app-revealed) .vc-staff-app {
 }
 
 .vc-staff-loading__card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.95rem;
   text-align: center;
-  padding: 1.5rem 1.75rem;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+.vc-staff-loading__card::before {
+  content: "";
+  width: 2.35rem;
+  height: 2.35rem;
+  border-radius: 9999px;
+  border: 2px solid rgba(245, 232, 216, 0.16);
+  border-top-color: rgba(247, 236, 223, 0.96);
+  box-shadow: 0 0 22px rgba(232, 196, 156, 0.28);
+  animation: vc-staff-load-spin 0.9s linear infinite;
+}
+
+@keyframes vc-staff-load-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .vc-staff-loading__text {
-  margin: 0;
-  font-size: 1.05rem;
-  font-weight: 700;
-  color: #f5ebe0;
+  margin: 0.15rem 0 0;
+  font-size: clamp(1.85rem, 4vw, 2.85rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.08;
+  color: #f6eadc;
 }
 
 .vc-staff-loading__hint {
-  margin: 0.45rem 0 0;
-  font-size: 0.88rem;
-  color: rgba(232, 201, 168, 0.72);
+  margin: 0.15rem 0 0;
+  font-size: 1.02rem;
+  font-weight: 500;
+  line-height: 1.55;
+  color: rgba(247, 236, 223, 0.78);
 }
 
 .vc-staff-denied {

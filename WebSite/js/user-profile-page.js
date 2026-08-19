@@ -177,14 +177,33 @@
       .replace(/'/g, "\\'");
   }
 
+  function isUnexpandedPlaceholder(s) {
+    return /^\{\{[A-Z0-9_]+\}\}$/.test(String(s || "").trim());
+  }
+
   function siteName() {
     try {
+      var metaSite = document.querySelector('meta[name="author"]');
+      if (metaSite) {
+        var mv = String(metaSite.getAttribute("content") || "").trim();
+        if (mv && !isUnexpandedPlaceholder(mv)) return mv;
+      }
+      var brand = document.querySelector('header a[aria-label*="homepage"]');
+      if (brand) {
+        var bn = String(brand.textContent || "").replace(/\s+/g, " ").trim();
+        if (bn && !isUnexpandedPlaceholder(bn)) return bn;
+      }
       var t = String(document.title || "").trim();
-      if (t.indexOf("|") > -1) return t.split("|")[0].trim();
-      return t || "Community";
-    } catch (e) {
-      return "Community";
-    }
+      if (t.indexOf("|") > -1) {
+        var parts = t.split("|");
+        for (var i = 0; i < parts.length; i++) {
+          var piece = String(parts[i] || "").trim();
+          if (piece && !isUnexpandedPlaceholder(piece) && !/^\{\{/.test(piece)) return piece;
+        }
+      }
+      if (t && !isUnexpandedPlaceholder(t) && !/^\{\{/.test(t)) return t;
+    } catch (e) {}
+    return "Vinili & Caffè";
   }
 
   function parseProfileId() {
@@ -358,13 +377,31 @@
     var nodes = document.querySelectorAll("[data-vc-leader-only]");
     for (var i = 0; i < nodes.length; i += 1) {
       nodes[i].hidden = true;
-      nodes[i].style.display = "none";
+      nodes[i].style.setProperty("display", "none", "important");
     }
-    document.body.classList.add("vc-user-profile-page");
+    document.documentElement.classList.add("vc-user-profile-route");
+    document.documentElement.classList.remove("vc-page-cine-boot");
+    document.documentElement.classList.add("vc-page-cine-ready");
+    document.body.classList.add("vc-user-profile-page", "vc-user-profile-route");
+    document.body.classList.remove("vc-page-cine-layout");
+    try {
+      delete document.body.dataset.vcPageCineLayout;
+    } catch (eData) {}
+    var cineHeroes = document.querySelectorAll(".vc-page-cine-hero, .vc-home-cine-hero");
+    for (var h = 0; h < cineHeroes.length; h += 1) {
+      cineHeroes[h].classList.remove("vc-page-cine-hero", "vc-home-cine-hero");
+      cineHeroes[h].style.setProperty("display", "none", "important");
+      cineHeroes[h].style.setProperty("min-height", "0", "important");
+    }
+    var leftover = document.getElementById("vc-page-content");
+    if (leftover && leftover.querySelector("[data-vc-leader-only]")) {
+      leftover.hidden = true;
+      leftover.style.setProperty("display", "none", "important");
+    }
     var pager = byId("vc-ul-pager");
     if (pager) {
       pager.hidden = true;
-      pager.style.display = "none";
+      pager.style.setProperty("display", "none", "important");
     }
   }
 
@@ -401,17 +438,37 @@
       });
   }
 
-  function renderLoading(root) {
+  function clearProfilePending() {
+    try {
+      document.documentElement.classList.remove("vc-user-profile-pending");
+    } catch (e) {}
+  }
+
+  function clearProfileLoading() {
+    var overlay = byId("vc-user-profile-loading");
+    if (overlay) overlay.remove();
+  }
+
+  function renderInlineLoading(root) {
+    if (!root) return;
+    root.hidden = false;
+    if (root.querySelector("[data-vc-profile-boot]")) return;
     root.innerHTML =
-      '<section class="vc-user-profile-shell">' +
-      '<div class="vc-user-profile-loader">' +
+      '<div class="vc-user-profile-loader vc-user-profile-boot vc-user-profile-boot--inline" data-vc-profile-boot role="status" aria-live="polite" aria-label="Caricamento profilo">' +
       '<span class="vc-user-profile-loader__spin" aria-hidden="true"></span>' +
       '<p class="vc-user-profile-loader__title">Caricamento profilo</p>' +
       '<p class="vc-user-profile-loader__sub">Sto recuperando le statistiche dell\'utente...</p>' +
-      "</div></section>";
+      "</div>";
+  }
+
+  function renderLoading(root) {
+    clearProfileLoading();
+    renderInlineLoading(root);
   }
 
   function renderError(root) {
+    clearProfilePending();
+    clearProfileLoading();
     root.innerHTML =
       '<section class="vc-user-profile-shell">' +
       '<div class="vc-user-profile-empty">' +
@@ -423,7 +480,9 @@
   }
 
   function renderEmpty(root, userId) {
-    document.title = "Profilo " + userId + " | " + siteName();
+    clearProfilePending();
+    clearProfileLoading();
+    document.title = siteName() + " | Profilo " + userId;
     root.innerHTML =
       '<section class="vc-user-profile-shell vc-user-profile-shell--notfound">' +
       '<div class="vc-user-profile-notfound">' +
@@ -436,6 +495,31 @@
   function includesAnyRole(roleText, terms) {
     for (var i = 0; i < terms.length; i += 1) {
       if (roleText.indexOf(terms[i]) !== -1) return true;
+    }
+    return false;
+  }
+
+  function normalizeRoleName(name) {
+    return String(name || "")
+      .toLowerCase()
+      .replace(/<a?:[^:]+:\d+>/g, " ")
+      .replace(/[^a-z0-9\s]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function hasRoleId(roles, id) {
+    var want = String(id || "");
+    if (!want || !Array.isArray(roles)) return false;
+    for (var i = 0; i < roles.length; i += 1) {
+      if (String((roles[i] && roles[i].id) || "") === want) return true;
+    }
+    return false;
+  }
+
+  function hasNormalizedRole(roleNames, matcher) {
+    for (var i = 0; i < roleNames.length; i += 1) {
+      if (matcher(roleNames[i])) return true;
     }
     return false;
   }
@@ -491,10 +575,29 @@
       add(leaderboardBadgeClass(rank), "fa-trophy", leaderboardBadgeLabel(rank));
     }
 
+    var roleNames = Array.isArray(roles)
+      ? roles
+          .map(function (role) {
+            return normalizeRoleName(role && role.name);
+          })
+          .filter(Boolean)
+      : [];
     var hasFounder = includesAnyRole(names, ["founder", "fondatore"]);
     if (hasFounder) add("founder", "fa-star-o", "Founder");
 
-    if (includesAnyRole(names, ["manager"])) add("manager", "fa-briefcase", "Manager");
+    var hasPartnerManager =
+      hasRoleId(roles, "1442568905582317740") ||
+      hasNormalizedRole(roleNames, function (name) {
+        return name.indexOf("partner manager") !== -1;
+      });
+    var hasStaffManager =
+      hasRoleId(roles, "1521562607339704442") ||
+      (!hasPartnerManager &&
+        hasNormalizedRole(roleNames, function (name) {
+          return name === "manager";
+        }));
+    if (hasPartnerManager) add("pm", "fa-handshake-o", "Partner Manager");
+    if (hasStaffManager) add("manager", "fa-briefcase", "Manager");
 
     if (includesAnyRole(names, ["high staff", "staff", "admin", "mod", "moderator", "helper", "community manager"])) {
       add("staff", "fa-shield", "Staff");
@@ -518,6 +621,8 @@
   }
 
   function renderProfile(root, userId, payload) {
+    clearProfilePending();
+    clearProfileLoading();
     var level = payload.level || {};
     var weekly = payload.weekly || {};
     var messages = payload.messages || {};
@@ -612,22 +717,27 @@
       var vid = String(voice.id || "").trim();
       var count = Math.max(0, Number(voice.memberCount || 0));
       var created = voice.createdAt ? formatDateIt(voice.createdAt) : "—";
+      var name = String(voice.name || customVoiceName || "Canale vocale privato").trim() || "Canale vocale privato";
       return (
-        '<div class="vc-user-profile-customgrid" aria-label="Dettagli canale vocale">' +
-        '<div class="vc-user-profile-customgrid__row">' +
-        '<span class="vc-user-profile-customgrid__label"><i class="fa fa-hashtag" aria-hidden="true"></i> Channel ID</span>' +
-        '<span class="vc-user-profile-customgrid__value">' +
+        '<article class="vc-user-profile-customcard">' +
+        '<div class="vc-user-profile-customcard__main">' +
+        '<span class="vc-user-profile-customcard__dot vc-user-profile-customcard__dot--voice">' +
+        '<i class="fa fa-microphone" aria-hidden="true"></i>' +
+        "</span>" +
+        '<div class="vc-user-profile-customcard__copy">' +
+        '<strong class="vc-user-profile-customcard__title">' +
+        esc(name) +
+        "</strong>" +
+        '<span class="vc-user-profile-customcard__meta vc-user-profile-customcard__meta--id">ID ' +
         esc(vid || "—") +
         "</span>" +
         "</div>" +
-        sharedMembersMarkup(voice.sharedMembers, count, "Utenti con accesso") +
-        '<div class="vc-user-profile-customgrid__row">' +
-        '<span class="vc-user-profile-customgrid__label"><i class="fa fa-calendar-o" aria-hidden="true"></i> Creato</span>' +
-        '<span class="vc-user-profile-customgrid__value">' +
-        esc(created) +
-        "</span>" +
         "</div>" +
-        "</div>"
+        '<span class="vc-user-profile-customcard__date"><i class="fa fa-calendar-o" aria-hidden="true"></i>Creato<br><strong>' +
+        esc(created) +
+        "</strong></span>" +
+        "</article>" +
+        sharedMembersMarkup(voice.sharedMembers, count, "Utenti con accesso")
       );
     }
 
@@ -736,28 +846,31 @@
               "</details>"
             : "") +
           (customVoice
-            ? '<div class="vc-user-profile-accordion vc-user-profile-accordion--voice">' +
-              '<div class="vc-user-profile-accordion__summary vc-user-profile-accordion__summary--static">' +
+            ? '<details class="vc-user-profile-accordion vc-user-profile-accordion--voice"' +
+              (viewerOwns ? " open" : "") +
+              ">" +
+              '<summary class="vc-user-profile-accordion__summary">' +
               '<span class="vc-user-profile-accordion__icon"><i class="fa fa-microphone" aria-hidden="true"></i></span>' +
               '<span class="vc-user-profile-accordion__copy">' +
               '<span class="vc-user-profile-accordion__title">Canale vocale privato</span>' +
               '<span class="vc-user-profile-accordion__sub">' +
-              esc(customVoiceName) +
+              esc(customVoiceName || "1 canale vocale") +
               "</span>" +
               "</span>" +
-              "</div>" +
+              '<span class="vc-user-profile-accordion__badge">1</span>' +
+              '<i class="fa fa-angle-down vc-user-profile-accordion__chev" aria-hidden="true"></i>' +
+              "</summary>" +
+              '<div class="vc-user-profile-accordion__body">' +
               voiceStatsHtml(customVoice) +
-              "</div>"
+              "</div>" +
+              "</details>"
             : "") +
           "</section>"
         : "";
 
-    document.title = "Profilo " + userId + " | " + siteName();
+    document.title = siteName() + " | Profilo " + userId;
     root.innerHTML =
       '<section class="vc-user-profile-shell">' +
-      '<div class="vc-user-profile-backrow">' +
-      '<a class="vc-user-profile-backbtn" href="/user" aria-label="Torna indietro"><i class="fa fa-chevron-left" aria-hidden="true"></i></a>' +
-      "</div>" +
       '<section class="vc-user-profile-hero">' +
       '<div class="vc-user-profile-hero__head">' +
       '<div class="vc-user-profile-avatarwrap">' +
@@ -779,11 +892,6 @@
       esc(userId) +
       "</p>" +
       "</div>" +
-      (viewerOwns
-        ? '<a class="vc-user-profile-customize" href="' +
-          esc(profileCustomizeUrl(userId)) +
-          '" aria-label="Personalizza profilo e rank card" title="Personalizza"><i class="fa fa-paint-brush" aria-hidden="true"></i></a>'
-        : "") +
       "</div>" +
       badgesHtml +
       '<div class="vc-user-profile-stats">' +
@@ -841,12 +949,20 @@
       (viewerOwns
         ? '<a class="vc-user-profile-customize" href="' +
           esc(profileCustomizeUrl(userId)) +
-          '" aria-label="Personalizza rank card" title="Personalizza rank card"><i class="fa fa-sliders" aria-hidden="true"></i></a>'
+          '" aria-label="Personalizza rank card" title="Personalizza"><i class="fa fa-paint-brush" aria-hidden="true"></i></a>'
         : "") +
       "</div>" +
-      '<div class="vc-user-rankcard-preview vc-rank-editor-preview__imagewrap">' +
-      '<img id="vc-user-rankcard-image" class="vc-rank-editor-preview__image" alt="Rank card profilo" loading="lazy" decoding="async" />' +
-      '<p id="vc-user-rankcard-image-status" class="vc-rank-editor-preview__imagestatus">Render rank card in corso...</p>' +
+      '<div id="vc-user-rankcard-wrap" class="vc-user-rankcard-preview vc-rank-editor-preview__imagewrap">' +
+      '<div class="vc-rankcard-ph" aria-hidden="true">' +
+      '<div class="vc-rankcard-ph__hero">' +
+      '<span class="vc-rankcard-ph__avatar"></span>' +
+      '<span class="vc-rankcard-ph__copy"><span></span><span></span></span>' +
+      '<span class="vc-rankcard-ph__rank"></span>' +
+      "</div>" +
+      '<div class="vc-rankcard-ph__stats"><span></span><span></span><span></span></div>' +
+      "</div>" +
+      '<img id="vc-user-rankcard-image" class="vc-rank-editor-preview__image" alt="" decoding="async" hidden />' +
+      '<p id="vc-user-rankcard-image-status" class="vc-rank-editor-preview__imagestatus" hidden></p>' +
       "</div></section>" +
       customEconomyHtml +
       '<section class="vc-user-profile-block vc-user-profile-block--roles">' +
@@ -867,28 +983,59 @@
     profileRankObjectUrl = "";
   }
 
+  function setRankCardPreviewReady(img, ready) {
+    var wrap = img && img.closest ? img.closest(".vc-rank-editor-preview__imagewrap") : null;
+    if (wrap) wrap.classList.toggle("is-ready", Boolean(ready));
+    if (img) {
+      if (ready) img.removeAttribute("hidden");
+      else img.setAttribute("hidden", "");
+    }
+  }
+
   function loadProfileRankCardPreview(userId) {
     var img = byId("vc-user-rankcard-image");
     var status = byId("vc-user-rankcard-image-status");
     if (!img || !status) return;
     var url = resolvedPublicRankPreviewUrl(userId);
     if (!url) {
+      status.hidden = false;
       status.textContent = "Anteprima non disponibile.";
       status.className = "vc-rank-editor-preview__imagestatus is-error";
       return;
     }
     var myToken = ++profileRankRenderToken;
+    function showImage(src) {
+      if (myToken !== profileRankRenderToken) return;
+      img.onload = function () {
+        if (myToken !== profileRankRenderToken) return;
+        img.classList.remove("is-rendering");
+        setRankCardPreviewReady(img, true);
+        status.hidden = true;
+        status.textContent = "";
+        status.className = "vc-rank-editor-preview__imagestatus";
+      };
+      img.onerror = function () {
+        if (myToken !== profileRankRenderToken) return;
+        img.classList.remove("is-rendering");
+        setRankCardPreviewReady(img, false);
+        status.hidden = false;
+        status.textContent = "Anteprima non disponibile al momento.";
+        status.className = "vc-rank-editor-preview__imagestatus is-error";
+      };
+      img.alt = "Rank card";
+      img.src = src;
+    }
     var cachedDataUrl = loadCachedProfileRankPreview(userId);
     if (cachedDataUrl) {
       releaseProfileRankObjectUrl();
-      img.src = cachedDataUrl;
-      img.classList.remove("is-rendering");
-      status.textContent = "";
+      showImage(cachedDataUrl);
     } else {
-      status.textContent = "Render rank card in corso...";
+      setRankCardPreviewReady(img, false);
+      status.hidden = true;
+      status.textContent = "";
+      status.className = "vc-rank-editor-preview__imagestatus";
+      img.classList.add("is-rendering");
     }
-    status.className = "vc-rank-editor-preview__imagestatus";
-    if (!cachedDataUrl) img.classList.add("is-rendering");
     fetch(url, { cache: "no-store" })
       .then(function (r) {
         if (!r.ok) throw new Error("http_" + r.status);
@@ -907,9 +1054,7 @@
         var nextObjectUrl = window.URL.createObjectURL(blob);
         var prevObjectUrl = profileRankObjectUrl;
         profileRankObjectUrl = nextObjectUrl;
-        img.src = nextObjectUrl;
-        img.classList.remove("is-rendering");
-        status.textContent = "";
+        showImage(nextObjectUrl);
         if (dataUrl) saveCachedProfileRankPreview(userId, dataUrl);
         if (prevObjectUrl) {
           try {
@@ -920,22 +1065,36 @@
       .catch(function () {
         if (myToken !== profileRankRenderToken) return;
         img.classList.remove("is-rendering");
+        if (img.getAttribute("src")) {
+          setRankCardPreviewReady(img, true);
+          status.hidden = true;
+          status.textContent = "";
+          return;
+        }
+        setRankCardPreviewReady(img, false);
+        status.hidden = false;
         status.textContent = "Anteprima non disponibile al momento.";
         status.className = "vc-rank-editor-preview__imagestatus is-error";
       });
   }
 
-  function main() {
-    var userId = parseProfileId();
-    if (!userId) return;
-    var root = byId("vc-user-profile-view");
-    if (!root) return;
-    currentViewer = (typeof window !== "undefined" && window.__VC_DISCORD_PROFILE) || currentViewer;
-    hideLeaderOnlySections();
-    root.hidden = false;
-    renderLoading(root);
+  var profileInitialLoadDone = false;
 
-    Promise.all([
+  function loadProfile(options) {
+    options = options || {};
+    var silent = Boolean(options.silent);
+    var userId = parseProfileId();
+    if (!userId) return Promise.resolve();
+    var root = byId("vc-user-profile-view");
+    if (!root) return Promise.resolve();
+
+    if (!silent) {
+      currentViewer = (typeof window !== "undefined" && window.__VC_DISCORD_PROFILE) || currentViewer;
+      hideLeaderOnlySections();
+      renderLoading(root);
+    }
+
+    return Promise.all([
       fetchBoard("level", userId),
       fetchBoard("weekly", userId),
       fetchBoard("messages", userId),
@@ -974,6 +1133,7 @@
           Boolean(profile.customProfile));
 
       if (!hasAny) {
+        if (silent) return;
         renderEmpty(root, userId);
         return;
       }
@@ -990,9 +1150,22 @@
         },
       };
 
+      profileInitialLoadDone = true;
       renderProfile(root, userId, lastRenderedProfile.payload);
       loadProfileRankCardPreview(userId);
+    }).catch(function () {
+      if (silent) return;
+      renderError(root);
     });
+  }
+
+  function main(options) {
+    return loadProfile(options || {});
+  }
+
+  function refreshProfileSilently() {
+    if (!profileInitialLoadDone || !lastRenderedProfile) return;
+    loadProfile({ silent: true });
   }
 
   function stopLiveProfilePolling() {
@@ -1007,7 +1180,7 @@
     liveProfilePollTimer = setInterval(function () {
       if (document.visibilityState !== "visible") return;
       if (!parseProfileId()) return;
-      main();
+      refreshProfileSilently();
     }, LIVE_PROFILE_POLL_MS);
   }
 
@@ -1029,6 +1202,7 @@
 
   window.addEventListener("pageshow", function (ev) {
     if (ev && ev.persisted && parseProfileId()) {
+      profileInitialLoadDone = false;
       main();
     }
   });

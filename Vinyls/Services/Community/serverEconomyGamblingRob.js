@@ -53,6 +53,32 @@ function remainingMs(dateValue) {
   return Number.isFinite(until) ? Math.max(0, until - Date.now()) : 0;
 }
 
+async function resolveActiveRobProtection(guildId, userId, cfg, untilRaw) {
+  const left = remainingMs(untilRaw);
+  if (left <= 0) {
+    if (untilRaw) {
+      await ActivityUserProfile.updateOne(
+        { guildId: normalizeId(guildId), userId: normalizeId(userId) },
+        { $unset: { [`${SERVER_ECONOMY_PATH}.robProtectionUntil`]: "" }, $set: { [`${SERVER_ECONOMY_PATH}.updatedAt`]: new Date() } },
+      ).catch(() => null);
+    }
+    return { blocked: false, remainingMs: 0 };
+  }
+  const cap = Math.max(0, Number(cfg?.rob?.targetProtectionMs) || 12 * 60 * 60 * 1000) + 60 * 60 * 1000;
+  if (left > cap) {
+    await ActivityUserProfile.updateOne(
+      { guildId: normalizeId(guildId), userId: normalizeId(userId) },
+      { $unset: { [`${SERVER_ECONOMY_PATH}.robProtectionUntil`]: "" }, $set: { [`${SERVER_ECONOMY_PATH}.updatedAt`]: new Date() } },
+    ).catch(() => null);
+    return { blocked: false, remainingMs: 0 };
+  }
+  return {
+    blocked: true,
+    remainingMs: left,
+    message: `Questo utente è protetto da un furto recente (ancora ${svc().formatDuration(left)}).`,
+  };
+}
+
 async function reserveCooldown(guildId, userId, action, cooldownMs) {
   const path = `${SERVER_ECONOMY_PATH}.cooldowns.${action}`;
   const now = new Date();
@@ -727,8 +753,9 @@ async function evaluateRobTarget(client, guild, targetUserId, cfg, robberId, cur
   if (!member?.user || member.user.bot) return { ok: false, message: "Scegli un utente valido da derubare." };
   if (!await svc().isMember(member)) return { ok: false, message: "Puoi derubare solo membri con economia attiva." };
   const targetState = await getEconomyState(guildId, uid);
-  if (remainingMs(targetState?.robProtectionUntil) > 0) {
-    return { ok: false, code: "protected", message: "Questo utente è protetto da un furto recente." };
+  const prot = await resolveActiveRobProtection(guildId, uid, cfg, targetState?.robProtectionUntil);
+  if (prot.blocked) {
+    return { ok: false, code: "protected", message: prot.message };
   }
   const balance = await walletBalance(guildId, uid, cur);
   if (balance < minBal) {

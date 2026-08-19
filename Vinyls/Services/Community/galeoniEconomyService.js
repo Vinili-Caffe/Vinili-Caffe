@@ -330,6 +330,32 @@ function remainingMs(dateValue) {
   return Number.isFinite(until) ? Math.max(0, until - Date.now()) : 0;
 }
 
+async function resolveActiveRobProtection(guildId, userId, cfg, untilRaw) {
+  const left = remainingMs(untilRaw);
+  if (left <= 0) {
+    if (untilRaw) {
+      await ActivityUserProfile.updateOne(
+        { guildId: normalizeId(guildId), userId: normalizeId(userId) },
+        { $unset: { [`${ECONOMY_PATH}.robProtectionUntil`]: "" }, $set: { [`${ECONOMY_PATH}.updatedAt`]: new Date() } },
+      ).catch(() => null);
+    }
+    return { blocked: false, remainingMs: 0 };
+  }
+  const cap = Math.max(0, Number(cfg?.rob?.targetProtectionMs) || DEFAULT_CONFIG.rob.targetProtectionMs) + 60 * 60 * 1000;
+  if (left > cap) {
+    await ActivityUserProfile.updateOne(
+      { guildId: normalizeId(guildId), userId: normalizeId(userId) },
+      { $unset: { [`${ECONOMY_PATH}.robProtectionUntil`]: "" }, $set: { [`${ECONOMY_PATH}.updatedAt`]: new Date() } },
+    ).catch(() => null);
+    return { blocked: false, remainingMs: 0 };
+  }
+  return {
+    blocked: true,
+    remainingMs: left,
+    message: `Questo utente è protetto da un furto recente (ancora ${formatDuration(left)}).`,
+  };
+}
+
 function formatDuration(ms) {
   const total = Math.ceil(Math.max(0, Number(ms) || 0) / 1000);
   const h = Math.floor(total / 3600);
@@ -1178,8 +1204,9 @@ async function evaluateRobTarget(client, guild, targetUserId, cfg, robberId) {
     };
   }
   const targetState = await getEconomyState(guildId, uid);
-  if (remainingMs(targetState?.robProtectionUntil) > 0) {
-    return { ok: false, code: "protected", message: "Questo utente è protetto da un furto recente." };
+  const prot = await resolveActiveRobProtection(guildId, uid, cfg, targetState?.robProtectionUntil);
+  if (prot.blocked) {
+    return { ok: false, code: "protected", message: prot.message };
   }
   const targetBalance = await getGringottBalance(guildId, uid, eventKey(client));
   const balance = Math.max(0, Math.floor(Number(targetBalance?.balance) || 0));

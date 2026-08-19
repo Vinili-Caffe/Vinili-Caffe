@@ -1,7 +1,10 @@
 <!DOCTYPE html>
-<html lang="it">
+<html class="vc-site-polish" lang="it">
 
 <head>
+    <style id="vc-page-cine-boot-css">html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready),html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready) body{background:#100c09!important;overflow:hidden!important;overscroll-behavior:none!important}html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready)::before{content:"";position:fixed;inset:0;z-index:2147483000;background:#100c09;pointer-events:none}html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready) body.vc-body>main,html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready) body.vc-body>footer{opacity:0!important;visibility:hidden!important;pointer-events:none!important}html.vc-site-polish.vc-page-cine-boot .vc-home-cine{position:fixed;inset:0;z-index:0;pointer-events:none;background:#100c09}</style>
+<noscript><style>html.vc-page-cine-boot body.vc-body>main,html.vc-page-cine-boot body.vc-body>footer{opacity:1!important;visibility:visible!important}</style></noscript>
+
   {{COOKIEYES_BLOCK}}{{GA_BLOCK}}
   <meta charset="utf-8" />
   <title>{{USER_PAGE_TITLE}}</title>
@@ -9,6 +12,9 @@
   <meta name="author" content="{{SITE_NAME}}" />
   <meta name="robots" content="index, follow" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="preload" as="font" type="font/woff2" href="/fonts/cormorant/cormorant-garamond-latin.woff2" crossorigin />
+    <link rel="preload" as="font" type="font/woff2" href="/fonts/inter/inter-latin.woff2" crossorigin />
+    <link rel="stylesheet" href="/css/vc-fonts.css?v=siteFonts1" />
   <meta property="og:type" content="website" />
   <meta property="og:title" content="{{USER_OG_TITLE}}" />
   <meta property="og:description" content="{{USER_META_DESCRIPTION}}" />
@@ -17,18 +23,133 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link
-    href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600&amp;family=Inter:wght@400;500;600;700;800&amp;display=swap"
+    href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600&amp;family=Inter:wght@400;500;600;700;800&amp;display=optional"
     rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css"
     crossorigin="anonymous" referrerpolicy="no-referrer" />
   <link rel="stylesheet" href="../css/tw-build.css" />
   <link rel="stylesheet" href="../css/vc-landing.css" />
+  <script>
+    (function () {
+      function profileIdFromUrl() {
+        try {
+          var q = new URLSearchParams(window.location.search || "");
+          var fromQuery = String(q.get("id") || q.get("userId") || q.get("uid") || "").trim();
+          if (/^\d{17,20}$/.test(fromQuery)) return fromQuery;
+          var m = String(window.location.pathname || "").match(/^\/users?\/(\d{17,20})\/?$/);
+          if (m) return m[1];
+        } catch (e) {}
+        return "";
+      }
+      if (profileIdFromUrl()) {
+        document.documentElement.classList.add("vc-user-profile-pending");
+        document.documentElement.classList.add("vc-user-profile-route");
+        document.documentElement.classList.add("vc-page-cine-ready");
+      } else {
+        document.documentElement.classList.add("vc-user-leader-pending");
+        document.documentElement.classList.add("vc-page-cine-boot");
+      }
+    })();
+  </script>
+  <style id="vc-user-community-boot-css">
+    html.vc-user-profile-pending [data-vc-leader-only],
+    html.vc-user-profile-pending #vc-ul-pager,
+    html.vc-user-leader-pending #vc-user-profile-view {
+      display: none !important;
+    }
+
+    html.vc-user-profile-pending #vc-user-profile-view,
+    html.vc-user-profile-pending #vc-user-profile-view[hidden] {
+      display: block !important;
+    }
+
+    html.vc-user-profile-pending .vc-user-profile-boot,
+    html.vc-user-leader-pending #vc-ul-loading,
+    html.vc-user-leader-pending #vc-ul-loading[hidden] {
+      position: fixed !important;
+      inset: 0 !important;
+      z-index: 110000 !important;
+      display: flex !important;
+      visibility: visible !important;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.95rem;
+      margin: 0 !important;
+      width: 100vw !important;
+      max-width: none !important;
+      height: 100dvh !important;
+      min-height: 100dvh !important;
+      padding: 1.5rem !important;
+      border: 0 !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+      pointer-events: auto !important;
+      background-color: #0b0806 !important;
+      background-image:
+        radial-gradient(ellipse 92% 74% at 50% 38%, rgba(232, 196, 156, 0.16) 0%, rgba(28, 20, 14, 0.94) 52%, #0a0706 100%) !important;
+    }
+
+    html.vc-user-profile-pending,
+    html.vc-user-profile-pending body,
+    html.vc-user-leader-pending,
+    html.vc-user-leader-pending body {
+      overflow: hidden !important;
+      overflow-x: hidden !important;
+      overflow-y: hidden !important;
+      overscroll-behavior: none !important;
+      height: 100% !important;
+      max-height: 100dvh !important;
+      touch-action: none;
+    }
+
+    html.vc-user-profile-pending body,
+    html.vc-user-leader-pending body {
+      position: fixed !important;
+      inset: 0 !important;
+      width: 100% !important;
+    }
+
+    html.vc-user-profile-pending .vc-home-cine,
+    html.vc-user-profile-pending .vc-blob,
+    html.vc-user-profile-pending body > header,
+    html.vc-user-profile-pending body > footer,
+    html.vc-user-leader-pending .vc-home-cine,
+    html.vc-user-leader-pending .vc-blob,
+    html.vc-user-leader-pending body > header,
+    html.vc-user-leader-pending body > footer,
+    html.vc-user-leader-pending main {
+      display: none !important;
+      visibility: hidden !important;
+      pointer-events: none !important;
+    }
+
+    html.vc-user-profile-pending main > :not(#vc-user-profile-view) {
+      display: none !important;
+    }
+
+    html:has(#vc-user-profile-view:not([hidden]) .vc-user-profile-loader) body > header,
+    html:has(#vc-user-profile-view:not([hidden]) .vc-user-profile-loader) body > footer,
+    html:has(#vc-user-profile-view:not([hidden]) .vc-user-profile-loader) .vc-home-cine,
+    html:has(#vc-user-profile-view:not([hidden]) .vc-user-profile-loader) .vc-blob {
+      display: none !important;
+      visibility: hidden !important;
+      pointer-events: none !important;
+    }
+  </style>
+  <script src="../js/vc-page-cine-boot.js"></script>
   <script src="../js/vc-auth-pending.js"></script>
   <link rel="icon" href="{{GUILD_ICON_URL}}" />
 </head>
 
 <body id="top"
   class="vc-body vc-users-page relative min-h-screen overflow-x-hidden font-sans text-slate-100 antialiased">
+    <div class="vc-home-cine" aria-hidden="true">
+      <canvas class="vc-home-cine__canvas"></canvas>
+      <div class="vc-home-cine__veil"></div>
+      <div class="vc-home-cine__grain"></div>
+    </div>
+
   <div class="vc-blob vc-blob-a" aria-hidden="true"></div>
   <div class="vc-blob vc-blob-b" aria-hidden="true"></div>
   <div class="vc-blob vc-blob-c" aria-hidden="true"></div>
@@ -37,7 +158,7 @@
     <div
       class="vc-nav-shell vc-glass mx-auto flex max-w-6xl flex-col gap-0 overflow-visible rounded-2xl border border-white/[0.08] bg-[#140f0c]/78 shadow-[0_8px_40px_rgba(0,0,0,0.48),0_0_48px_rgba(212,168,136,0.07)]">
       <div
-        class="vc-header-bar grid w-full grid-cols-1 items-center gap-y-2.5 gap-x-2 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:gap-x-3 sm:px-5">
+        class="vc-header-bar grid w-full grid-cols-1 items-center gap-y-2.5 gap-x-2 px-4 py-3 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:gap-x-3 sm:px-5">
         <div class="flex min-w-0 items-center gap-2.5 justify-self-start sm:gap-3">
           <a class="vc-header-logo-link shrink-0 rounded-2xl ring-1 ring-[#d4a888]/35 transition hover:ring-[#d4a888]/55 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#d4a888]/60"
             href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer" aria-label="Entra su Discord"><img
@@ -111,8 +232,6 @@
                   </div>
                 </div>
                 <div class="vc-notif-panel-head-actions">
-                  <button type="button" class="vc-notif-action" id="vc-notif-mark-all" title="Segna tutte come lette"
-                    aria-label="Segna tutte come lette"><i class="fa fa-check" aria-hidden="true"></i></button>
                   <button type="button" class="vc-notif-action" id="vc-notif-clear-all" title="Elimina tutte"
                     aria-label="Elimina tutte"><i class="fa fa-trash-o" aria-hidden="true"></i></button>
                 </div>
@@ -136,6 +255,7 @@
               </div>
             </div>
           </details>
+          <button type="button" id="vc-mobile-nav-toggle" class="vc-mobile-nav-toggle vc-icon-btn" aria-label="Apri menu di navigazione" aria-controls="vc-mobile-nav-drawer" aria-expanded="false"><span class="vc-mobile-nav-toggle-bars" aria-hidden="true"><span></span><span></span><span></span></span></button>
           <button class="vc-header-pill" id="discord-login-btn" type="button">Login</button>
           <div class="header-login-state" id="discord-login-state" hidden></div>
         </div>
@@ -143,7 +263,7 @@
     </div>
   </header>
 
-  <div id="vc-ul-loading" class="vc-ul-loading" data-vc-leader-only role="status" aria-live="polite" aria-label="Caricamento classifica">
+  <div id="vc-ul-loading" class="vc-ul-loading" data-vc-leader-only role="status" aria-live="polite" aria-label="Caricamento classifica" hidden>
     <div class="vc-ul-loading-card">
       <span class="vc-ul-loading-spinner" aria-hidden="true"></span>
       <p class="vc-ul-loading-title">Caricamento classifica</p>
@@ -153,16 +273,40 @@
 
   <main class="relative z-10 mx-auto max-w-6xl px-4 pb-24 pt-28 sm:pt-32">
     <p id="vc-user-leader-state" class="vc-user-leader-state" data-vc-leader-only hidden role="status"></p>
-    <section id="vc-user-profile-view" hidden></section>
-    <section class="vc-notify-hero w-full" data-vc-leader-only>
-      <div class="flex w-full min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-        <div class="min-w-0 flex-1">
-          <h1 class="vc-users-title" data-i18n="user.community">Community</h1>
-          <p id="vc-user-leader-sub" class="vc-users-sub" data-i18n="user.subLevel">Classifica per livello (EXP totale)</p>
+    <section id="vc-user-profile-view" hidden>
+      <div class="vc-user-profile-loader vc-user-profile-boot" data-vc-profile-boot role="status" aria-live="polite" aria-label="Caricamento profilo">
+        <span class="vc-user-profile-loader__spin" aria-hidden="true"></span>
+        <p class="vc-user-profile-loader__title">Caricamento profilo</p>
+        <p class="vc-user-profile-loader__sub">Sto recuperando le statistiche dell'utente...</p>
+      </div>
+    </section>
+    <section class="vc-support-page-hero" data-vc-leader-only aria-labelledby="vc-user-hero-heading">
+      <div class="grid gap-10 lg:grid-cols-[minmax(0,1.2fr)_20rem] lg:items-center">
+        <div class="max-w-3xl">
+          <div class="vc-support-page-hero__icon vc-support-page-hero__icon--start mb-5" aria-hidden="true">
+            <i class="fa fa-users"></i>
+          </div>
+          <p class="text-xs font-semibold uppercase tracking-[0.28em] text-[rgba(212,168,136,0.78)]">Classifica</p>
+          <h1 id="vc-user-hero-heading" class="mt-4 text-4xl font-extrabold tracking-tight text-white sm:text-5xl lg:text-6xl">
+            <span data-i18n="user.community">Community</span>
+          </h1>
+          <p id="vc-user-leader-sub" class="mt-5 max-w-2xl text-lg leading-8 text-slate-200/88 sm:text-xl" data-i18n="user.subLevel">Classifica per livello (EXP totale)</p>
         </div>
-        <a class="vc-notify-home-btn shrink-0 self-start sm:mt-1" href="{{SITE_URL}}">
-          <i class="fa fa-chevron-left" aria-hidden="true"></i> Home
-        </a>
+        <div class="grid gap-4">
+          <div class="rounded-[1.6rem] border border-white/10 bg-slate-950/25 p-5 backdrop-blur">
+            <p class="text-xs font-semibold uppercase tracking-[0.22em] text-[rgba(212,168,136,0.78)]">Come usarla</p>
+            <ul class="mt-4 space-y-3 text-sm leading-6 text-slate-100/90">
+              <li class="flex items-center gap-3">
+                <i class="fa fa-trophy shrink-0 text-[#d4a888]" aria-hidden="true"></i>
+                <span>Passa tra livello, settimanale, messaggi e voice.</span>
+              </li>
+              <li class="flex items-center gap-3">
+                <i class="fa fa-filter shrink-0 text-[#d4a888]" aria-hidden="true"></i>
+                <span>Usa i filtri per cercare un utente specifico.</span>
+              </li>
+            </ul>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -248,13 +392,8 @@
       <div id="vc-ul-grid" class="vc-ul-grid" role="list"></div>
     </section>
 
-    <nav class="vc-ul-pager mt-10 flex flex-wrap items-center justify-center gap-3" id="vc-ul-pager" data-vc-leader-only
-      aria-label="Paginazione classifica" hidden>
-      <button type="button" class="vc-notify-home-btn" id="vc-ul-prev">Precedente</button>
-      <span class="vc-notify-filter-btn vc-notify-filter-btn--on cursor-default px-4" id="vc-ul-page-label"
-        aria-live="polite"></span>
-      <button type="button" class="vc-notify-home-btn" id="vc-ul-next">Successiva</button>
-    </nav>
+    <nav class="vc-ul-pager vc-mini-pager mt-10 flex flex-wrap items-center justify-center gap-3" id="vc-ul-pager" data-vc-leader-only
+      aria-label="Paginazione classifica" hidden></nav>
   </main>
 
   <footer class="relative z-10 border-t border-white/8 bg-slate-950/20">
@@ -296,9 +435,13 @@
   </script>
   <script src="../js/discord-auth.js" defer></script>  <script src="../js/vc-cursor-trail.js" defer></script>
 
+  <script src="../js/vc-mini-pager.js" defer></script>
   <script src="../js/vc-landing.js" defer></script>
   <script src="../js/user-profile-page.js" defer></script>
   <script src="../js/user-leader-page.js" defer></script>
+  <script src="/js/vc-ptr.js" defer></script>
+  <script src="/js/vc-site-polish.js" defer></script>
+  <script src="../js/vc-home-cine.js" defer></script>
 </body>
 
 </html>

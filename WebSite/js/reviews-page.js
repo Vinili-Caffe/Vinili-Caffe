@@ -157,8 +157,9 @@
 
   function getToken() {
     var token = localStorage.getItem(ACCESS_TOKEN_KEY);
+    if (!token) return "";
     var exp = Number(localStorage.getItem(ACCESS_EXPIRES_KEY) || "0");
-    if (!token || !exp || Date.now() >= exp) return "";
+    if (exp && Date.now() >= exp) return "";
     return token;
   }
 
@@ -167,8 +168,16 @@
     var host = String(window.location.hostname || "").toLowerCase();
     var local = String(conf.apiUrlLocal || "").trim();
     var remote = String(conf.apiUrl || "").trim();
-    if ((host === "localhost" || host === "127.0.0.1") && local) return local;
-    return remote || local;
+    var base = (host === "localhost" || host === "127.0.0.1") && local ? local : remote || local;
+    if (!base) return "";
+    var kind = pageKind();
+    try {
+      var u = new URL(base, window.location.origin);
+      u.searchParams.set("kind", kind);
+      return u.href;
+    } catch (e) {
+      return base + (base.indexOf("?") >= 0 ? "&" : "?") + "kind=" + encodeURIComponent(kind);
+    }
   }
 
   function reviewsRealtimeWsUrl() {
@@ -278,7 +287,7 @@
       ws.onmessage = function (ev) {
         try {
           var data = JSON.parse(String(ev.data || "{}"));
-          if (data.type === "reviews_changed" || data.type === "realtime_hello") {
+          if (data.type === "reviews_changed") {
             void refreshReviewsPayloadQuiet();
           }
         } catch (e4) {}
@@ -587,6 +596,28 @@
       return;
     }
     pager.hidden = false;
+    var mp = window.__vcMiniPager;
+    if (mp && typeof mp.fill === "function") {
+      mp.fill(pager, page, totalPages, { aria: "Paginazione recensioni" }, {
+        go: function (nextPage) {
+          var cap = Math.max(1, Number(state.reviewsPager.totalPages) || 1);
+          var next = Math.max(1, Math.min(cap, Number(nextPage) || 1));
+          if (next === Number(state.reviewsPager.page || 1)) return;
+          state.reviewsPager.userControlled = true;
+          state.reviewsPager.page = next;
+          render();
+          var list = byId("vc-reviews-server-list");
+          if (list && typeof list.scrollIntoView === "function") {
+            window.requestAnimationFrame(function () {
+              try {
+                list.scrollIntoView({ behavior: "smooth", block: "start" });
+              } catch (eScroll) {}
+            });
+          }
+        },
+      });
+      return;
+    }
     pager.innerHTML =
       '<button type="button" class="vc-reviews-pager__btn vc-notify-home-btn" data-reviews-page-prev' +
       (page <= 1 ? " disabled" : "") +
@@ -1158,16 +1189,12 @@
       state.langFilter = currentSiteLang();
       state.draftLang = currentSiteLang();
     }
-    if (shouldUnlockReviewsPage()) {
+    if (shouldUnlockReviewsPage() || getToken()) {
       hideReviewsGate();
       fetchPayload();
       return;
     }
-    if (!getToken()) {
-      showReviewsLoginGate();
-      return;
-    }
-    hideReviewsGate();
+    showReviewsLoginGate();
   }
 
   window.addEventListener("vc-discord-profile", function (ev) {

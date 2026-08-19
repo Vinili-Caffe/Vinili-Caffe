@@ -1007,14 +1007,23 @@ function rememberBotUserId(client) {
   return cachedBotUserId;
 }
 
+function authorHasStaffSignals(doc, staffRoles = null) {
+  if (String(doc?.authorKind || "") === "staff") return true;
+  const authorId = String(doc?.authorId || "").trim();
+  if (!authorId || !staffRoles) return false;
+  const bucket = staffRoles[authorId];
+  return Boolean(bucket?.staff);
+}
+
 function resolveMessageAuthorKind(doc, ticket = null, staffRoles = null) {
   const kind = String(doc?.authorKind || "user");
   if (kind === "bot" || kind === "system") return kind;
   const authorId = String(doc?.authorId || "");
   if (authorId === "bot") return "bot";
   if (cachedBotUserId && authorId === cachedBotUserId) return "bot";
-  // Opener / aggiunti: sempre cliente, anche se hanno ruoli staff Discord
+  // Opener / aggiunti: sempre cliente in chat, anche se hanno ruoli staff Discord
   if (ticket && isTicketCustomerAuthor(doc, ticket)) return "user";
+  if (authorHasStaffSignals(doc, staffRoles)) return "staff";
   // Transcript `discord:nome`: staff solo se risolto con ruolo staff reale
   if (authorId.startsWith("discord:")) {
     const bucket = staffRoles && staffRoles[authorId] ? staffRoles[authorId] : null;
@@ -1059,7 +1068,7 @@ function personNamesLooselyEqual(a, b) {
   return false;
 }
 
-/** Opener o utente aggiunto al ticket (mai "staff" in UI/API). */
+/** Opener o utente aggiunto al ticket (sempre lato cliente in chat). */
 function isTicketCustomerAuthor(doc, ticket) {
   if (!doc || !ticket) return false;
   const kind = String(doc.authorKind || "");
@@ -1080,7 +1089,40 @@ function isTicketCustomerAuthor(doc, ticket) {
   return false;
 }
 
-function serializeMessage(doc, nameMap, staffRatings, staffRoles, ticket = null) {
+/** Staff operativo (non opener, non ospite aggiunto). Automod skip anche sull’opener staff. */
+function webTicketMessageKindForActor(actor, loaded = {}) {
+  if (loaded.isOwner || loaded.isAdded) return "user";
+  if (actor && actor.isStaff) return "staff";
+  return "user";
+}
+
+function serializeReplyTo(targetDoc, fallbackId) {
+  const id = String((targetDoc && (targetDoc._id || targetDoc.id)) || fallbackId || "").trim();
+  if (!targetDoc) {
+    return {
+      id,
+      deleted: true,
+      authorId: "",
+      authorName: "",
+      content: "",
+      hasMedia: false,
+    };
+  }
+  const content = String(targetDoc.content || "").replace(/\s+/g, " ").trim();
+  const images = Array.isArray(targetDoc.imageUrls)
+    ? targetDoc.imageUrls.map((u) => String(u || "").trim()).filter(Boolean)
+    : [];
+  return {
+    id: String(targetDoc._id || id),
+    deleted: false,
+    authorId: String(targetDoc.authorId || ""),
+    authorName: String(targetDoc.authorName || "").trim() || "Utente",
+    content: content.slice(0, 140),
+    hasMedia: images.length > 0,
+  };
+}
+
+function serializeMessage(doc, nameMap, staffRatings, staffRoles, ticket = null, replyTarget = undefined) {
   if (!doc) return null;
   const authorId = String(doc.authorId || "");
   const authorKind = resolveMessageAuthorKind(doc, ticket, staffRoles);
@@ -1097,6 +1139,12 @@ function serializeMessage(doc, nameMap, staffRatings, staffRoles, ticket = null)
     editedAt: doc.editedAt ? new Date(doc.editedAt).toISOString() : null,
     createdAt: doc.createdAt ? new Date(doc.createdAt).toISOString() : null,
   };
+  const replyToId = doc.replyToId ? String(doc.replyToId) : "";
+  if (replyToId) {
+    if (replyTarget === null) out.replyTo = serializeReplyTo(null, replyToId);
+    else if (replyTarget && typeof replyTarget === "object") out.replyTo = serializeReplyTo(replyTarget, replyToId);
+    else out.replyTo = { id: replyToId, deleted: false };
+  }
   if (authorKind === "staff" || authorKind === "user") {
     const bucket = staffRoles && staffRoles[authorId] ? staffRoles[authorId] : null;
     const live =
@@ -1105,16 +1153,28 @@ function serializeMessage(doc, nameMap, staffRatings, staffRoles, ticket = null)
         : bucket?.community || null;
     // Non iniettare l'avatar Discord attuale: i messaggi storici restano
     // con la foto salvata (o fallback UI). Solo ruoli live.
-    const roleId = String(live?.id || doc.authorRoleId || "").trim() || null;
-    const roleKey = String(live?.key || doc.authorRoleKey || "").trim() || null;
-    let roleName = String(live?.name || doc.authorRoleName || "").trim();
+    let roleId = String(live?.id || "").trim() || null;
+    let roleKey = String(live?.key || "").trim() || null;
+    let roleName = String(live?.name || "").trim();
     if (authorKind === "staff") {
+      if (!roleId) roleId = String(doc.authorRoleId || "").trim() || null;
+      if (!roleKey) roleKey = String(doc.authorRoleKey || "").trim() || null;
+      if (!roleName) roleName = String(doc.authorRoleName || "").trim();
       roleName = roleName ? cleanStaffRoleDisplayName(roleName) : "";
-      // Solo ruoli staff specifici; niente fallback generico "Staff"
       if (/^staff$/i.test(roleName) && !live?.key) roleName = "";
     } else {
-      // Utente: tieni Member/VIP/… da Discord o DB; scarta solo finto "Staff"
-      if (/^staff$/i.test(roleName)) {
+      if (!roleName) roleName = String(doc.authorRoleName || "").trim();
+      if (!roleKey) roleKey = String(doc.authorRoleKey || "").trim();
+      if (!roleId) roleId = String(doc.authorRoleId || "").trim() || null;
+      const storedKey = String(roleKey || "").toLowerCase();
+      const staffish =
+        /^(founder|manager|admin|director|high-staff|highstaff|senior-mod|mod|trial|pm)$/i.test(storedKey) ||
+        /^(founder|director|manager|admin|high.?staff)$/i.test(roleName);
+      if (staffish && !live) {
+        roleId = null;
+        roleKey = "";
+        roleName = "";
+      } else if (/^staff$/i.test(roleName)) {
         roleName = live?.name && !/^staff$/i.test(String(live.name)) ? String(live.name).trim().slice(0, 48) : "";
       } else if (live?.name) {
         roleName = String(live.name).trim().slice(0, 48);
@@ -1158,7 +1218,29 @@ async function staffAvgRatingMap(guildId, userIds) {
   return map;
 }
 
-async function serializeMessageWithStaffRating(doc, nameMap, guildId, client = null, ticket = null) {
+async function resolveReplyTargetForTicket(ticketId, rawId) {
+  const id = String(rawId || "").trim();
+  if (!id || !mongoose.isValidObjectId(id) || !ticketId) return null;
+  const target = await SiteWebTicketMessage.findOne({ _id: id, ticketId })
+    .select({ authorId: 1, authorName: 1, authorKind: 1, content: 1, imageUrls: 1 })
+    .lean()
+    .catch(() => null);
+  if (!target) return null;
+  if (String(target.authorKind || "") === "system") return null;
+  return target;
+}
+
+function serializeMessagesWithReplies(messages, nameMap, staffRatings, staffRoles, ticket) {
+  const list = Array.isArray(messages) ? messages : [];
+  const byId = new Map(list.map((m) => [String(m && m._id), m]));
+  return list.map((m) => {
+    const rid = m && m.replyToId ? String(m.replyToId) : "";
+    const target = rid ? byId.get(rid) || null : undefined;
+    return serializeMessage(m, nameMap, staffRatings, staffRoles, ticket, rid ? target : undefined);
+  });
+}
+
+async function serializeMessageWithStaffRating(doc, nameMap, guildId, client = null, ticket = null, replyTarget = undefined) {
   const authorId = String(doc?.authorId || "").trim();
   const nameHints =
     authorId.startsWith("discord:")
@@ -1167,10 +1249,18 @@ async function serializeMessageWithStaffRating(doc, nameMap, guildId, client = n
   const roles = client
     ? await buildStaffRoleMapForUserIds(client, guildId, authorId ? [authorId] : [], { nameHints })
     : {};
+  let target = replyTarget;
+  if (target === undefined && doc?.replyToId) {
+    const found = await SiteWebTicketMessage.findById(doc.replyToId)
+      .select({ authorId: 1, authorName: 1, authorKind: 1, content: 1, imageUrls: 1 })
+      .lean()
+      .catch(() => null);
+    target = found || null;
+  }
   const kind = resolveMessageAuthorKind(doc, ticket, roles);
-  if (kind !== "staff" && kind !== "user") return serializeMessage(doc, nameMap, null, null, ticket);
+  if (kind !== "staff" && kind !== "user") return serializeMessage(doc, nameMap, null, null, ticket, target);
   const ratings = kind === "staff" ? await staffAvgRatingMap(guildId, [authorId]) : {};
-  return serializeMessage(doc, nameMap, ratings, roles, ticket);
+  return serializeMessage(doc, nameMap, ratings, roles, ticket, target);
 }
 
 async function resolveRateableStaffer(ticket) {
@@ -1455,8 +1545,8 @@ async function refreshStaffTicketQueueNotif(client, guildId, category, { push = 
   const sid = String(latest?._id || "");
   const author = String(latest?.authorName || "Un utente").trim() || "Un utente";
   const subject = String(latest?.subject || "").trim() || label;
-  const title = count === 1 ? `Nuovo ticket · ${label}` : `${count} ticket da claimare · ${label}`;
-  const body = count === 1 ? `${author}: ${subject}` : `Ultimo: ${author} · ${subject}`;
+  const title = count === 1 ? author : `${count} ticket da claimare`;
+  const body = count === 1 ? `${label} · ${subject}` : `Ultimo: ${author} · ${subject}`;
   await Promise.all(
     recipients.map(async (userId) => {
       const dedupeKey = `web_ticket:queue:${cat}:${userId}`;
@@ -1470,7 +1560,7 @@ async function refreshStaffTicketQueueNotif(client, guildId, category, { push = 
         title,
         body,
         kind: "web_ticket",
-        openUrl: `/tickets/?view=staff#${sid}`,
+        openUrl: `/tickets/?view=staff&ticketId=${sid}#${sid}`,
         ticketId: sid,
         dedupeKey,
         replaceDedupe: true,
@@ -1534,8 +1624,8 @@ async function notifyMentionedUsers(
         return enqueueSiteInAppNotification({
           guildId: gid,
           userId,
-          title: "Menzione nel ticket",
-          body: `${safeAuthor}: ${preview}`,
+          title: safeAuthor,
+          body: preview,
           kind: "web_ticket_mention",
           openUrl: ticketChatOpenUrl(ticket, userId),
           ticketId: sid,
@@ -1558,7 +1648,7 @@ async function notifyUserTicketEvent(guildId, ticket, title, body, targetUserId 
     title,
     body,
     kind: "web_ticket",
-    openUrl: openUrl || `/tickets/#${sid}`,
+    openUrl: openUrl || `/tickets/?ticketId=${sid}#${sid}`,
     ticketId: sid,
     dedupeKey: key,
     dedupeWindowMs: 86_400_000,
@@ -1570,17 +1660,16 @@ function ticketChatOpenUrl(ticket, userId) {
   const sid = String(ticket?._id || ticket?.id || "");
   const owner = String(ticket?.userId || "").trim();
   const added = ticketHasAddedUser(ticket, userId);
-  if (String(userId) === owner || added) return `/tickets/#${sid}`;
-  return `/tickets/?view=staff#${sid}`;
+  if (String(userId) === owner || added) return `/tickets/?ticketId=${sid}#${sid}`;
+  return `/tickets/?view=staff&ticketId=${sid}#${sid}`;
 }
 
-async function notifyTicketChatMessage(ticket, { authorId, authorName, preview, kind } = {}) {
+async function notifyTicketChatMessage(ticket, { authorId, authorName, preview, kind, messageId } = {}) {
   if (!ticket) return;
   const guildId = String(ticket.guildId || "").trim();
   const sid = String(ticket._id || ticket.id || "");
   const author = String(authorId || "").trim();
   if (!guildId || !sid || !author) return;
-  const msgKind = String(kind || "user");
   const recipients = new Set();
   const claimer = String(ticket.claimedBy || "").trim();
   const owner = String(ticket.userId || "").trim();
@@ -1593,25 +1682,23 @@ async function notifyTicketChatMessage(ticket, { authorId, authorName, preview, 
   if (!recipients.size) return;
   const subject = String(ticket.subject || ticket.channelName || "").trim() || "Ticket";
   const safeAuthor = String(authorName || "Qualcuno").trim() || "Qualcuno";
-  const body = `${safeAuthor}: ${String(preview || "Nuovo messaggio").trim() || "Nuovo messaggio"}`;
-  const title =
-    msgKind === "staff"
-      ? `Risposta staff · ${subject}`
-      : claimer
-        ? `Nuovo messaggio · ${subject}`
-        : `Ticket · ${subject}`;
+  const previewText = String(preview || "Nuovo messaggio").trim() || "Nuovo messaggio";
   await Promise.all(
     [...recipients].map((userId) =>
       enqueueSiteInAppNotification({
         guildId,
         userId,
-        title,
-        body,
+        title: safeAuthor,
+        body: previewText,
         kind: "web_ticket",
         openUrl: ticketChatOpenUrl(ticket, userId),
         ticketId: sid,
         dedupeKey: `web_ticket:chat:${sid}:${userId}`,
         replaceDedupe: true,
+        fromName: safeAuthor,
+        ticketLabel: subject,
+        preview: previewText,
+        messageId,
       }),
     ),
   ).catch(() => null);
@@ -3378,8 +3465,8 @@ async function handleSiteWebTicketsCreatePost(client, req, res) {
   }
 
   const category = normalizeCategory(req.body?.category);
+  const openerIsStaff = Boolean(actor.isStaff);
   let content = sanitizeText(req.body?.content, MAX_CONTENT);
-  // Apertura ticket = sempre messaggio utente: niente ping ruoli / canali nascosti.
   content = sanitizeWebTicketUserMentions(content);
   {
     const guild = await resolveClientGuild(client, guildId);
@@ -3410,7 +3497,7 @@ async function handleSiteWebTicketsCreatePost(client, req, res) {
     const rate = consumeWebTicketMessageRateLimit({
       guildId,
       userId: actor.userId,
-      kind: "user",
+      kind: openerIsStaff ? "staff" : "user",
     });
     if (!rate.ok) {
       return res.status(429).json({
@@ -3420,18 +3507,20 @@ async function handleSiteWebTicketsCreatePost(client, req, res) {
         retryAfterMs: rate.retryAfterMs,
       });
     }
-    const auto = checkWebTicketUserMessageAutomod({
-      content,
-      guildId,
-      userId: actor.userId,
-      ticketId: "new",
-    });
-    if (!auto.ok) {
-      return res.status(400).json({
-        ok: false,
-        error: auto.error || "automod",
-        message: auto.message,
+    if (!openerIsStaff) {
+      const auto = checkWebTicketUserMessageAutomod({
+        content,
+        guildId,
+        userId: actor.userId,
+        ticketId: "new",
       });
+      if (!auto.ok) {
+        return res.status(400).json({
+          ok: false,
+          error: auto.error || "automod",
+          message: auto.message,
+        });
+      }
     }
   }
 
@@ -3574,7 +3663,7 @@ async function handleSiteWebTicketsDetailGet(client, req, res) {
       permissions: perms,
       rateableStaffer,
     }),
-    messages: messages.map((m) => serializeMessage(m, nameMap, staffRatings, staffRoles, loaded.ticket)),
+    messages: serializeMessagesWithReplies(messages, nameMap, staffRatings, staffRoles, loaded.ticket),
     staffRoles: staffRolesOut,
   });
 }
@@ -3616,7 +3705,6 @@ async function handleSiteWebTicketsMessagePost(client, req, res) {
     }
   }
 
-  // Staff answering their own ticket as user stays "user".
   // Staff invitati come «utente aggiunto» restano ospiti.
   if (!loaded.isOwner && !perms.canReply) {
     const claimer = String(ticket.claimedBy || "").trim();
@@ -3636,7 +3724,7 @@ async function handleSiteWebTicketsMessagePost(client, req, res) {
     }
     return res.status(403).json({ ok: false, error: "forbidden", message: "Non puoi rispondere a questo ticket." });
   }
-  const kind = actor.isStaff && !loaded.isOwner && !loaded.isAdded ? "staff" : "user";
+  const kind = webTicketMessageKindForActor(actor, loaded);
   if (kind !== "staff") {
     content = sanitizeWebTicketUserMentions(content);
   }
@@ -3668,7 +3756,7 @@ async function handleSiteWebTicketsMessagePost(client, req, res) {
       retryAfterMs: rate.retryAfterMs,
     });
   }
-  if (kind !== "staff" && content) {
+  if (kind !== "staff" && content && !(actor.isStaff && !loaded.isAdded)) {
     const auto = checkWebTicketUserMessageAutomod({
       content,
       guildId: String(ticket.guildId),
@@ -3689,6 +3777,8 @@ async function handleSiteWebTicketsMessagePost(client, req, res) {
       ? resolveStaffRoleForMember(actor.member, ticket.guildId)
       : resolveCommunityRoleForMember(actor.member);
 
+  const replyTarget = await resolveReplyTargetForTicket(ticket._id, req.body?.replyToId || req.body?.replyTo);
+
   const msg = await SiteWebTicketMessage.create({
     guildId: String(ticket.guildId),
     ticketId: ticket._id,
@@ -3701,6 +3791,7 @@ async function handleSiteWebTicketsMessagePost(client, req, res) {
     authorRoleKey: staffRole?.key || "",
     content,
     imageUrls,
+    replyToId: replyTarget ? replyTarget._id : null,
   });
 
   ticket.lastMessageAt = msg.createdAt || new Date();
@@ -3715,7 +3806,7 @@ async function handleSiteWebTicketsMessagePost(client, req, res) {
     includeStaffFields: true,
   });
   const broadcastTicket = ticketBroadcastPayload(serializedTicket);
-  const serializedMsg = await serializeMessageWithStaffRating(msg, null, ticket.guildId, client, ticket);
+  const serializedMsg = await serializeMessageWithStaffRating(msg, null, ticket.guildId, client, ticket, replyTarget || undefined);
   emitTicketEvent({
     type: "web_ticket_message",
     ticketId: serializedTicket.id,
@@ -3729,6 +3820,7 @@ async function handleSiteWebTicketsMessagePost(client, req, res) {
     authorName: displayNameForMember(actor.member),
     preview: previewFromContent(content, imageUrls.length),
     kind,
+    messageId: String(msg._id || ""),
   });
 
   void notifyMentionedUsers(
@@ -3942,7 +4034,7 @@ async function handleSiteWebTicketsMessagePatch(client, req, res) {
     });
   }
 
-  if (String(msg.authorKind || "") !== "staff" && content) {
+  if (String(msg.authorKind || "") !== "staff" && content && !(actor.isStaff && !loaded.isAdded)) {
     const auto = checkWebTicketUserMessageAutomod({
       content,
       guildId: String(ticket.guildId),
@@ -4250,7 +4342,7 @@ async function handleSiteWebTicketsClosePost(client, req, res) {
       "Ticket chiuso",
       `${ticket.closedByName || "Qualcuno"} ha chiuso il ticket #${ticket.ticketNumber} che avevi in carico.`,
       claimerId,
-      { mode: "closed", openUrl: `/tickets/?view=staff#${String(ticket._id)}` },
+      { mode: "closed", openUrl: `/tickets/?view=staff&ticketId=${String(ticket._id)}#${String(ticket._id)}` },
     );
   }
   if (!claimerId) {
@@ -4489,7 +4581,7 @@ async function handleSiteWebTicketsTransferPost(client, req, res) {
     "Ticket assegnato a te",
     `Ti è stato trasferito il ticket #${ticket.ticketNumber}.`,
     userId,
-    { mode: "transfer", openUrl: `/tickets/?view=staff#${String(ticket._id)}` },
+    { mode: "transfer", openUrl: `/tickets/?view=staff&ticketId=${String(ticket._id)}#${String(ticket._id)}` },
   );
   void sendWebTicketDiscordLog(client, "transferred", ticket, {
     actorId: actor.userId,
@@ -4715,7 +4807,7 @@ async function handleSiteWebTicketsCloseRequestAcceptPost(client, req, res) {
       "Ticket chiuso",
       `L'utente ha accettato la chiusura del ticket #${ticket.ticketNumber}.`,
       claimerId,
-      { mode: "closed", openUrl: `/tickets/?view=staff#${String(ticket._id)}` },
+      { mode: "closed", openUrl: `/tickets/?view=staff&ticketId=${String(ticket._id)}#${String(ticket._id)}` },
     );
   }
   return jsonTicketMutation(res, actor, loaded, ticket, sys);
@@ -4755,7 +4847,7 @@ async function handleSiteWebTicketsCloseRequestRejectPost(client, req, res) {
       "Chiusura rifiutata",
       `L'utente ha rifiutato la chiusura del ticket #${ticket.ticketNumber}. Il ticket resta aperto.`,
       requestedBy,
-      { mode: "close-rejected", openUrl: `/tickets/?view=staff#${String(ticket._id)}` },
+      { mode: "close-rejected", openUrl: `/tickets/?view=staff&ticketId=${String(ticket._id)}#${String(ticket._id)}` },
     );
   }
   return jsonTicketMutation(res, actor, loaded, ticket, sys);

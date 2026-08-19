@@ -61,13 +61,27 @@ function unwrapDiscordForwardQuoteDump(text) {
     .trim();
 }
 
+function embedPayload(embed) {
+  if (embed?.data && typeof embed.data === "object" && !Array.isArray(embed.data)) {
+    return embed.data;
+  }
+  return embed && typeof embed === "object" ? embed : null;
+}
+
+function isAutoPreviewEmbed(embed) {
+  const data = embedPayload(embed);
+  if (!data) return false;
+  const type = String(data.type || "").toLowerCase();
+  if (type === "article" || type === "link" || type === "gifv" || type === "image" || type === "video") {
+    return true;
+  }
+  const url = String(data.url || "");
+  if (/discord(?:app)?\.com\/invite\/|discord\.gg\//i.test(url)) return true;
+  return false;
+}
+
 function flattenEmbedText(embed) {
-  const data =
-    embed?.data && typeof embed.data === "object" && !Array.isArray(embed.data)
-      ? embed.data
-      : embed && typeof embed === "object"
-        ? embed
-        : null;
+  const data = embedPayload(embed);
   if (!data) return "";
 
   const parts = [];
@@ -81,7 +95,11 @@ function flattenEmbedText(embed) {
       if (name || value) parts.push([name, value].filter(Boolean).join("\n"));
     }
   }
-  if (data.url) parts.push(String(data.url));
+  const url = String(data.url || "").trim();
+  const joined = parts.join("\n");
+  if (/^https?:\/\/[^\s<>()[\]\"]+$/i.test(url) && !joined.includes(url)) {
+    parts.push(url);
+  }
   if (data.footer?.text) parts.push(String(data.footer.text));
   return parts.join("\n\n").trim();
 }
@@ -113,20 +131,26 @@ function flattenComponentsText(message) {
   return parts.join("\n\n").trim();
 }
 
-function collectMessageTextLayers(message) {
+function collectMessageTextLayers(message, { forHaystack = false } = {}) {
   if (!message) return [];
   const layers = [];
   const content = unwrapDiscordForwardQuoteDump(message.content || "");
   if (content) layers.push(content);
 
-  const embeds = Array.isArray(message.embeds) ? message.embeds : [];
-  for (const embed of embeds) {
-    const flat = unwrapDiscordForwardQuoteDump(flattenEmbedText(embed));
-    if (flat) layers.push(flat);
-  }
-
   const components = unwrapDiscordForwardQuoteDump(flattenComponentsText(message));
-  if (components) layers.push(components);
+  if (components && components !== content) layers.push(components);
+
+  const hasBody = Boolean(content || components);
+  // +desc deve copiare solo il testo scritto. Le anteprime Discord (articolo/invite)
+  // attaccano URL spezzati tipo `https://sito.it/)__**`.
+  if (forHaystack || !hasBody) {
+    const embeds = Array.isArray(message.embeds) ? message.embeds : [];
+    for (const embed of embeds) {
+      if (!forHaystack && isAutoPreviewEmbed(embed)) continue;
+      const flat = unwrapDiscordForwardQuoteDump(flattenEmbedText(embed));
+      if (flat) layers.push(flat);
+    }
+  }
 
   return layers;
 }
@@ -158,9 +182,9 @@ function extractPartnershipMessageHaystack(message) {
   if (!message) return "";
   const parts = [];
   const source = resolvePartnershipSourceMessage(message);
-  parts.push(...collectMessageTextLayers(source));
+  parts.push(...collectMessageTextLayers(source, { forHaystack: true }));
   if (source !== message) {
-    parts.push(...collectMessageTextLayers(message));
+    parts.push(...collectMessageTextLayers(message, { forHaystack: true }));
   }
   // Deduplicate while keeping order
   const seen = new Set();

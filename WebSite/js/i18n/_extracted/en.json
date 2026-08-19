@@ -45,6 +45,7 @@
   "notif.itemTitle": "Notification",
   "notif.unreadDot": "Unread",
   "notif.close": "Close",
+  "notif.goThere": "Go there",
   "notif.justNow": "Just now",
   "notif.minuteAgo": "1 minute ago",
   "notif.minutesAgo": "{n} minutes ago",

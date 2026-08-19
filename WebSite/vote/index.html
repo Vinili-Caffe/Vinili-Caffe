@@ -1,6 +1,9 @@
 <!DOCTYPE html>
-<html lang="it">
+<html class="vc-site-polish vc-page-cine-boot" lang="it">
   <head>
+    <style id="vc-page-cine-boot-css">html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready),html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready) body{background:#100c09!important;overflow:hidden!important;overscroll-behavior:none!important}html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready)::before{content:"";position:fixed;inset:0;z-index:2147483000;background:#100c09;pointer-events:none}html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready) body.vc-body>main,html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready) body.vc-body>footer{opacity:0!important;visibility:hidden!important;pointer-events:none!important}html.vc-site-polish.vc-page-cine-boot .vc-home-cine{position:fixed;inset:0;z-index:0;pointer-events:none;background:#100c09}</style>
+<noscript><style>html.vc-page-cine-boot body.vc-body>main,html.vc-page-cine-boot body.vc-body>footer{opacity:1!important;visibility:visible!important}</style></noscript>
+
 {{COOKIEYES_BLOCK}}{{GA_BLOCK}}
     <meta charset="utf-8" />
     <title>{{VOTE_PAGE_TITLE}}</title>
@@ -8,6 +11,9 @@
     <meta name="author" content="{{SITE_NAME}}" />
     <meta name="robots" content="index, follow" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="preload" as="font" type="font/woff2" href="/fonts/cormorant/cormorant-garamond-latin.woff2" crossorigin />
+    <link rel="preload" as="font" type="font/woff2" href="/fonts/inter/inter-latin.woff2" crossorigin />
+    <link rel="stylesheet" href="/css/vc-fonts.css?v=siteFonts1" />
     <meta property="og:type" content="website" />
     <meta property="og:title" content="{{VOTE_OG_TITLE}}" />
     <meta property="og:description" content="{{VOTE_META_DESCRIPTION}}" />
@@ -16,20 +22,22 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600&amp;family=Inter:wght@400;500;600;700;800&amp;display=swap"
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600&amp;family=Inter:wght@400;500;600;700;800&amp;display=optional"
       rel="stylesheet" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css"
       crossorigin="anonymous" referrerpolicy="no-referrer" />
     <link rel="stylesheet" href="../css/tw-build.css" />
     <link rel="stylesheet" href="../css/vc-landing.css" />
-    <script>
-      window.__VC_REQUIRE_BLOCKING_SESSION_VERIFY = true;
-    </script>
-    <script src="../js/vc-auth-pending.js"></script>
     <link rel="icon" href="{{GUILD_ICON_URL}}" />
   </head>
   <body id="top"
     class="vc-body vc-vote-page relative min-h-screen overflow-x-hidden font-sans text-slate-100 antialiased">
+    <div class="vc-home-cine" aria-hidden="true">
+      <canvas class="vc-home-cine__canvas"></canvas>
+      <div class="vc-home-cine__veil"></div>
+      <div class="vc-home-cine__grain"></div>
+    </div>
+
     <div class="vc-blob vc-blob-a" aria-hidden="true"></div>
     <div class="vc-blob vc-blob-b" aria-hidden="true"></div>
     <div class="vc-blob vc-blob-c" aria-hidden="true"></div>
@@ -38,7 +46,7 @@
       <div
         class="vc-nav-shell vc-glass mx-auto flex max-w-6xl flex-col gap-0 overflow-visible rounded-2xl border border-white/[0.08] bg-[#140f0c]/78 shadow-[0_8px_40px_rgba(0,0,0,0.48),0_0_48px_rgba(212,168,136,0.07)]">
         <div
-          class="vc-header-bar grid w-full grid-cols-1 items-center gap-y-2.5 gap-x-2 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:gap-x-3 sm:px-5">
+          class="vc-header-bar grid w-full grid-cols-1 items-center gap-y-2.5 gap-x-2 px-4 py-3 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:gap-x-3 sm:px-5">
           <div class="flex min-w-0 items-center gap-2.5 justify-self-start sm:gap-3">
             <a class="vc-header-logo-link shrink-0 rounded-2xl ring-1 ring-[#d4a888]/35 transition hover:ring-[#d4a888]/55 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#d4a888]/60"
               href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer" aria-label="Entra su Discord"><img
@@ -110,8 +118,6 @@
                     </div>
                   </div>
                   <div class="vc-notif-panel-head-actions">
-                    <button type="button" class="vc-notif-action" id="vc-notif-mark-all" title="Segna tutte come lette"
-                      aria-label="Segna tutte come lette"><i class="fa fa-check" aria-hidden="true"></i></button>
                     <button type="button" class="vc-notif-action" id="vc-notif-clear-all" title="Elimina tutte"
                       aria-label="Elimina tutte"><i class="fa fa-trash-o" aria-hidden="true"></i></button>
                   </div>
@@ -134,6 +140,7 @@
                 </div>
               </div>
             </details>
+            <button type="button" id="vc-mobile-nav-toggle" class="vc-mobile-nav-toggle vc-icon-btn" aria-label="Apri menu di navigazione" aria-controls="vc-mobile-nav-drawer" aria-expanded="false"><span class="vc-mobile-nav-toggle-bars" aria-hidden="true"><span></span><span></span><span></span></span></button>
             <button class="vc-header-pill" id="discord-login-btn" type="button">Login</button>
             <div class="header-login-state" id="discord-login-state" hidden></div>
           </div>
@@ -159,9 +166,9 @@
           </div>
           <div id="vote-platforms" class="vc-vote-page-hero-platforms">
             <a href="{{DISCADIA_VOTE_URL}}" target="_blank" rel="noopener noreferrer"
-              class="group flex min-h-0 flex-col rounded-[1.6rem] border border-[#d4a888]/28 bg-[#221810]/42 p-5 text-left shadow-[0_14px_40px_rgba(0,0,0,0.2)] backdrop-blur transition hover:border-[#d4a888]/42 hover:bg-[#1a120d]/62">
+              class="vc-vote-platform-card group flex min-h-0 flex-col rounded-[1.6rem] border border-[#d4a888]/28 bg-[#221810]/42 p-5 text-left shadow-[0_14px_40px_rgba(0,0,0,0.2)] backdrop-blur transition hover:border-[#d4a888]/42 hover:bg-[#1a120d]/62">
               <div class="flex items-start gap-3">
-                <span class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#6f4e37]/25 text-lg text-[#f7ecdf] ring-1 ring-[#d4a888]/35">
+                <span class="vc-vote-platform-ico inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#6f4e37]/25 text-lg text-[#f7ecdf] ring-1 ring-[#d4a888]/35">
                   <i class="fa fa-thumbs-o-up" aria-hidden="true"></i>
                 </span>
                 <div class="min-w-0 flex-1">
@@ -171,15 +178,14 @@
               <p class="mt-4 flex-1 text-sm leading-6 text-slate-100/90" data-i18n="vote.discadiaDesc">
                 Aiutaci a salire in classifica.
               </p>
-              <span
-                class="mt-5 inline-flex min-h-[2.85rem] w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#6f4e37] to-[#4a3425] px-4 py-2.5 text-sm font-extrabold text-[#f7ecdf] shadow-[0_12px_28px_rgba(212,168,136,0.24)] transition group-hover:brightness-105">
+              <span class="vc-vote-platform-cta mt-5 inline-flex min-h-[2.85rem] w-full items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-extrabold">
                 Discadia <i class="fa fa-external-link text-[0.9em] opacity-90" aria-hidden="true"></i>
               </span>
             </a>
             <a href="{{TOPGG_VOTE_URL}}" target="_blank" rel="noopener noreferrer"
-              class="group flex min-h-0 flex-col rounded-[1.6rem] border border-[#d4a888]/28 bg-[#221810]/42 p-5 text-left shadow-[0_14px_40px_rgba(0,0,0,0.2)] backdrop-blur transition hover:border-[#d4a888]/42 hover:bg-[#1a120d]/62">
+              class="vc-vote-platform-card group flex min-h-0 flex-col rounded-[1.6rem] border border-[#d4a888]/28 bg-[#221810]/42 p-5 text-left shadow-[0_14px_40px_rgba(0,0,0,0.2)] backdrop-blur transition hover:border-[#d4a888]/42 hover:bg-[#1a120d]/62">
               <div class="flex items-start gap-3">
-                <span class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#6f4e37]/25 text-lg text-[#f7ecdf] ring-1 ring-[#d4a888]/35">
+                <span class="vc-vote-platform-ico inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#6f4e37]/25 text-lg text-[#f7ecdf] ring-1 ring-[#d4a888]/35">
                   <i class="fa fa-star-o" aria-hidden="true"></i>
                 </span>
                 <div class="min-w-0 flex-1">
@@ -189,9 +195,8 @@
               <p class="mt-4 flex-1 text-sm leading-6 text-slate-100/90" data-i18n="vote.topggDesc">
                 Supporta concretamente il progetto.
               </p>
-              <span
-                class="mt-5 inline-flex min-h-[2.85rem] w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#7a5943] to-[#4f3828] px-4 py-2.5 text-sm font-extrabold text-[#f7ecdf] shadow-[0_12px_28px_rgba(212,168,136,0.24)] transition group-hover:brightness-105">
-               Top.gg<i class="fa fa-external-link text-[0.9em] opacity-90" aria-hidden="true"></i>
+              <span class="vc-vote-platform-cta mt-5 inline-flex min-h-[2.85rem] w-full items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-extrabold">
+               Top.gg <i class="fa fa-external-link text-[0.9em] opacity-90" aria-hidden="true"></i>
               </span>
             </a>
           </div>
@@ -339,5 +344,7 @@
 
     <script src="../js/vc-landing.js" defer></script>
     <script src="../js/vote-page.js" defer></script>
-  </body>
+    <script src="/js/vc-ptr.js" defer></script>
+    <script src="/js/vc-home-cine.js" defer></script>
+</body>
 </html>

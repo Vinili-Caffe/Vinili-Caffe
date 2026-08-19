@@ -3,12 +3,12 @@
   <head>
 {{COOKIEYES_BLOCK}}{{GA_BLOCK}}
     <meta charset="utf-8" />
-    <title>Accesso richiesto - {{SITE_NAME}}</title>
+    <title>{{SITE_NAME}} | Accesso richiesto</title>
     <meta name="description" content="Accedi con Discord per aprire l'area staff." />
     <meta name="robots" content="noindex, nofollow" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="Accesso richiesto - {{SITE_NAME}}" />
+    <meta property="og:title" content="{{SITE_NAME}} | Accesso richiesto" />
     <meta property="og:url" content="{{SITE_URL}}staff/accesso-richiesto/" />
     <meta property="og:image" content="{{OG_IMAGE_URL}}" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -44,6 +44,7 @@
         <div class="mt-6 rounded-xl border border-[#d4a888]/22 bg-[#1a120d]/72 p-3 text-sm text-slate-100">
           <p class="m-0 flex items-center gap-2"><i class="fa fa-lock text-[#d4a888]" aria-hidden="true"></i> <span>Area riservata allo staff del server</span></p>
         </div>
+        <button type="button" id="vc-mobile-nav-toggle" class="vc-mobile-nav-toggle vc-icon-btn" aria-label="Apri menu di navigazione" aria-controls="vc-mobile-nav-drawer" aria-expanded="false"><span class="vc-mobile-nav-toggle-bars" aria-hidden="true"><span></span><span></span><span></span></span></button>
         <button id="discord-login-btn" type="button" data-vc-discord-login class="vc-auth-required-login mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-base font-bold text-white">
           <i class="fa fa-sign-in" aria-hidden="true"></i> <span>Accedi con Discord</span>
         </button>
@@ -62,5 +63,6 @@
     <script src="../../js/discord-auth.js" defer></script>
     <script src="../../js/vc-landing.js" defer></script>
       <script src="/js/vc-cursor-trail.js?v={{BUILD_ASSET_VERSION}}" defer></script>
-  </body>
+    <script src="/js/vc-ptr.js?v={{BUILD_ASSET_VERSION}}" defer></script>
+</body>
 </html>

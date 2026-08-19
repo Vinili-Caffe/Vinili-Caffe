@@ -4199,6 +4199,17 @@
     if (pager) {
       if (totalPages > 1) pager.removeAttribute("hidden");
       else pager.setAttribute("hidden", "");
+      var mp = window.__vcMiniPager;
+      if (mp && typeof mp.fill === "function" && totalPages > 1) {
+        mp.fill(pager, page, totalPages, { aria: "Paginazione storico" }, {
+          go: function (p) {
+            if (state.historyLoading) return;
+            state.historyPage = Math.max(1, Number(p) || 1);
+            state.historyEntries = null;
+            refreshHistoryList();
+          },
+        });
+      }
     }
   }
 
@@ -4624,11 +4635,20 @@
     if (pager) {
       if (totalPages > 1) pager.removeAttribute("hidden");
       else pager.setAttribute("hidden", "");
+      var mp = window.__vcMiniPager;
+      if (mp && typeof mp.fill === "function" && totalPages > 1) {
+        mp.fill(pager, page, totalPages, { aria: "Paginazione classifica" }, {
+          go: function (p) {
+            state.lbPage = Math.max(1, Number(p) || 1);
+            refreshLeaderboard();
+          },
+        });
+      } else {
+        if (pageEl) pageEl.textContent = String(page) + " / " + String(totalPages);
+        if (prev) prev.disabled = page <= 1;
+        if (next) next.disabled = page >= totalPages;
+      }
     }
-    if (pageEl) pageEl.textContent = String(page) + " / " + String(totalPages);
-    if (prev) prev.disabled = page <= 1;
-    if (next) next.disabled = page >= totalPages;
-  }
 
   async function refreshLeaderboard(opts) {
     var options = opts || {};
@@ -10584,26 +10604,28 @@
       if (countShown) countShown.textContent = String(state.openTicketsList.length);
       if (countTotal) countTotal.textContent = String(state.openTicketsTotal);
       var pager = byId("tk-open-pager");
-      var first = byId("tk-open-first");
-      var prev = byId("tk-open-prev");
-      var next = byId("tk-open-next");
-      var last = byId("tk-open-last");
-      var pageCur = byId("tk-open-page-cur");
-      var pageTot = byId("tk-open-page-tot");
       var pageNum = Math.floor(offset / pageSize) + 1;
       var pageTotal = Math.max(1, Math.ceil(Number(state.openTicketsTotal || 0) / pageSize) || 1);
-      var atStart = offset <= 0;
-      var atEnd = !(data.nextOffset != null);
+      var mp = window.__vcMiniPager;
       if (pager) {
-        if (state.openTicketsTotal > pageSize) pager.removeAttribute("hidden");
-        else pager.setAttribute("hidden", "");
+        if (state.openTicketsTotal > pageSize && mp && typeof mp.fill === "function") {
+          pager.removeAttribute("hidden");
+          mp.fill(pager, pageNum, pageTotal, { aria: "Paginazione ticket aperti" }, {
+            go: function (p) {
+              var size = Number(state.openTicketsPageSize || 30);
+              var tot = Math.max(1, Number(state.openTicketsTotal || 0));
+              var pages = Math.max(1, Math.ceil(tot / size) || 1);
+              var next = Math.max(1, Math.min(pages, Number(p) || 1));
+              state.openTicketsOffset = (next - 1) * size;
+              refreshOpenTicketsList({ silent: true });
+            },
+          });
+        } else if (state.openTicketsTotal > pageSize) {
+          pager.removeAttribute("hidden");
+        } else {
+          pager.setAttribute("hidden", "");
+        }
       }
-      if (first) first.disabled = atStart;
-      if (prev) prev.disabled = atStart;
-      if (next) next.disabled = atEnd;
-      if (last) last.disabled = atEnd;
-      if (pageCur) pageCur.textContent = String(pageNum);
-      if (pageTot) pageTot.textContent = String(pageTotal);
       if (!opts.silent) enhanceAllDashFancySelects(byId("tk-open-root") || document);
     } catch (_) {
       if (requestId !== state.openTicketsRequestId) return;
@@ -10731,35 +10753,27 @@
         );
       }
       var pager = byId("tk-tx-pager");
-      var first = byId("tk-tx-first");
-      var prev = byId("tk-tx-prev");
-      var next = byId("tk-tx-next");
-      var last = byId("tk-tx-last");
-      var pageCur = byId("tk-tx-page-cur");
-      var pageTot = byId("tk-tx-page-tot");
       var pageNum = Math.floor(offset / pageSize) + 1;
       var pageTotal = Math.max(1, Math.ceil(Number(state.transcriptsTotal || 0) / pageSize) || 1);
-      var atStart = offset <= 0;
-      var atEnd = !(out.data.nextOffset != null);
+      var mp = window.__vcMiniPager;
       if (pager) {
-        if (state.transcriptsTotal > pageSize) pager.removeAttribute("hidden");
-        else pager.setAttribute("hidden", "");
-      }
-      if (first) first.disabled = atStart;
-      if (prev) prev.disabled = atStart;
-      if (next) next.disabled = atEnd;
-      if (last) last.disabled = atEnd;
-      if (pageCur) pageCur.textContent = String(pageNum);
-      if (pageTot) pageTot.textContent = String(pageTotal);
-      var pageMeta = byId("tk-tx-page");
-      if (pageMeta) {
-        pageMeta.setAttribute(
-          "aria-label",
-          i18n("dash.tickets.txPageOf", "Pagina {page} di {pages}", {
-            page: String(pageNum),
-            pages: String(pageTotal),
-          }),
-        );
+        if (state.transcriptsTotal > pageSize && mp && typeof mp.fill === "function") {
+          pager.removeAttribute("hidden");
+          mp.fill(pager, pageNum, pageTotal, { aria: "Paginazione transcript" }, {
+            go: function (p) {
+              var size = Number(state.transcriptsPageSize || 25);
+              var tot = Math.max(1, Number(state.transcriptsTotal || 0));
+              var pages = Math.max(1, Math.ceil(tot / size) || 1);
+              var next = Math.max(1, Math.min(pages, Number(p) || 1));
+              state.transcriptsOffset = (next - 1) * size;
+              refreshTranscriptsList({ silent: true });
+            },
+          });
+        } else if (state.transcriptsTotal > pageSize) {
+          pager.removeAttribute("hidden");
+        } else {
+          pager.setAttribute("hidden", "");
+        }
       }
       if (!options.silent) enhanceAllDashFancySelects(byId("tk-tx-root") || document);
     } catch (_) {

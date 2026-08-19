@@ -280,10 +280,32 @@
     }, LIVE_POLL_MS);
   }
 
+  function markVoteResume() {
+    try {
+      localStorage.setItem("vc-pwa-resume", JSON.stringify({ p: "/vote/", t: Date.now() }));
+    } catch (e) {}
+  }
+
+  function initVoteResume() {
+    var wrap = byId("vote-platforms");
+    if (wrap) {
+      wrap.addEventListener("click", function (ev) {
+        var a = ev.target && ev.target.closest ? ev.target.closest("a[href]") : null;
+        if (!a) return;
+        markVoteResume();
+      });
+    }
+    window.addEventListener("pagehide", markVoteResume);
+    document.addEventListener("visibilitychange", function () {
+      if (document.visibilityState === "hidden") markVoteResume();
+    });
+  }
+
   function main() {
     if (!byId("vc-vote-live-shell")) return;
     currentUser = (typeof window !== "undefined" && window.__VC_DISCORD_PROFILE) || null;
     initButtons();
+    initVoteResume();
     fetchVotes();
     startLiveVotesPolling();
   }

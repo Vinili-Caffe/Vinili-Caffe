@@ -101,6 +101,7 @@ const siteWebTicketMessageSchema = new Schema(
     authorRoleKey: { type: String, default: "", trim: true, maxlength: 40 },
     content: { type: String, default: "", trim: true, maxlength: 8000 },
     imageUrls: { type: [String], default: [] },
+    replyToId: { type: Schema.Types.ObjectId, default: null, ref: "SiteWebTicketMessage", index: true },
     editedAt: { type: Date, default: null },
     reactions: {
       type: [

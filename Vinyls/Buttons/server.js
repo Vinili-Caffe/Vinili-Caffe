@@ -8,8 +8,20 @@ const SERVER_REFRESH_CUSTOM_ID_PREFIX = "server_refresh";
 const ALLOWED_LOOKBACK = [7, 14, 21, 30];
 const SERVER_STATS_TIMEOUT_MS = Math.max(5_000, Math.min(60_000, Number(process.env.SERVER_STATS_TIMEOUT_MS ?? 18_000)));
 const SERVER_RESOLVE_TIMEOUT_MS = Math.max(2_000, Math.min(30_000, Number(process.env.SERVER_RESOLVE_TIMEOUT_MS ?? 8_000)));
-const SERVER_RENDER_TIMEOUT_MS = Math.max(5_000, Math.min(60_000, Number(process.env.SERVER_RENDER_TIMEOUT_MS ?? 35_000)));
+const SERVER_RENDER_TIMEOUT_MS = Math.max(5_000, Math.min(60_000, Number(process.env.SERVER_RENDER_TIMEOUT_MS ?? 12_000)));
 const SERVER_CANVAS_GIF = String(process.env.VC_SERVER_CANVAS_GIF ?? "0").trim() === "1";
+const serverRenderEpochByGuild = new Map();
+
+function beginServerRenderEpoch(guildId) {
+  const key = String(guildId || "");
+  const n = (serverRenderEpochByGuild.get(key) || 0) + 1;
+  serverRenderEpochByGuild.set(key, n);
+  return n;
+}
+
+function isCurrentServerRenderEpoch(guildId, epoch) {
+  return serverRenderEpochByGuild.get(String(guildId || "")) === epoch;
+}
 
 function normalizeLookback(value) {
   const n = Number.parseInt(String(value || "14"), 10);
@@ -55,7 +67,7 @@ function formatVoice(seconds) {
   return `${minutes}m`;
 }
 
-function buildServerFallbackPayload({ guild, safeLookback, authorId, stats = null, reason = null }) {
+function buildServerFallbackPayload({ guild, safeLookback, authorId, stats = null, reason = null, pending = false }) {
   const windowKey = `d${safeLookback}`;
   const selected = stats?.windows?.[windowKey] || stats?.windows?.d14 || stats?.windows?.d7 || stats?.windows?.d1 || null;
   const fields = [];
@@ -67,7 +79,9 @@ function buildServerFallbackPayload({ guild, safeLookback, authorId, stats = nul
     );
   }
   const lines = [`Periodo: ultimi **${safeLookback}** giorni`];
-  if (reason) {
+  if (pending) {
+    lines.push("", "<a:VC_pixeltime:1482535344103620771> Sto ancora generando il grafico…");
+  } else if (reason) {
     lines.push("", "<a:VC_pixeltime:1482535344103620771> Grafico non generato in tempo. Premi ↻ per riprovare.");
   }
   const embed = new EmbedBuilder()
@@ -133,7 +147,9 @@ async function execute(interaction) {
     await interaction.deferUpdate().catch(() => {});
     const safeLookback = normalizeLookback(parsed.lookbackDays);
     const authorId = parsed.ownerId || interaction.user?.id;
-    const payload = await buildServerOverviewPayload(guild, safeLookback, authorId);
+    const payload = await buildServerOverviewPayload(guild, safeLookback, authorId, {
+      onLateImage: (finalPayload) => editServerPanel(interaction, finalPayload),
+    });
     await editServerPanel(interaction, payload);
     return true;
   } catch (err) {
@@ -143,7 +159,18 @@ async function execute(interaction) {
   }
 }
 
-async function buildServerOverviewPayload(guild, lookbackDays, authorId) {
+function buildServerImagePayload(buffer, authorId, safeLookback) {
+  const row = buildRefreshRow(authorId, safeLookback);
+  const overviewExt =
+    Buffer.isBuffer(buffer) && buffer.length >= 6 && buffer[0] === 0x47 && buffer[1] === 0x49 && buffer[2] === 0x46
+      ? "gif"
+      : "png";
+  const file = new AttachmentBuilder(buffer, { name: `server-overview.${overviewExt}` });
+  return { files: [file], embeds: [], components: [row] };
+}
+
+async function buildServerOverviewPayload(guild, lookbackDays, authorId, hooks = {}) {
+  const epoch = beginServerRenderEpoch(guild?.id);
   const safeLookback = normalizeLookback(lookbackDays);
   let guildIconUrlResolved = null;
   if (guild?.icon && typeof guild.iconURL === "function") {
@@ -188,39 +215,56 @@ async function buildServerOverviewPayload(guild, lookbackDays, authorId) {
   } catch (err) {
     global.logger?.warn?.("[Buttons/server] top entries fallback", err?.message || err);
   }
+
+  const renderPromise = getOrBuildStatsCanvasBuffer(`server:${guild.id}:${safeLookback}`, () =>
+    renderServerActivityCanvas({
+      guildName,
+      guildIconUrl: guildIconUrlResolved,
+      guildIconPrefetch,
+      createdOn,
+      invitedBotOn,
+      lookbackDays: safeLookback,
+      windows: stats.windows,
+      topUsersText,
+      topUsersVoice,
+      topChannelsText,
+      topChannelsVoice,
+      chart: stats.chart,
+      forceStatic: !SERVER_CANVAS_GIF,
+    }),
+  );
+
+  const deliverLate = (payload) => {
+    if (!isCurrentServerRenderEpoch(guild?.id, epoch)) return;
+    if (typeof hooks.onLateImage !== "function") return;
+    Promise.resolve(hooks.onLateImage(payload)).catch((err) => {
+      global.logger?.warn?.("[Buttons/server] late image", err?.message || err);
+    });
+  };
+
   let buffer = null;
   try {
-    buffer = await withServerTimeout(
-      getOrBuildStatsCanvasBuffer(`server:${guild.id}:${safeLookback}`, () =>
-        renderServerActivityCanvas({
-          guildName,
-          guildIconUrl: guildIconUrlResolved,
-          guildIconPrefetch,
-          createdOn,
-          invitedBotOn,
-          lookbackDays: safeLookback,
-          windows: stats.windows,
-          topUsersText,
-          topUsersVoice,
-          topChannelsText,
-          topChannelsVoice,
-          chart: stats.chart,
-          forceStatic: !SERVER_CANVAS_GIF,
-        }),
-      ),
-      "renderServerActivityCanvas",
-      SERVER_RENDER_TIMEOUT_MS,
-    );
+    buffer = await withServerTimeout(renderPromise, "renderServerActivityCanvas", SERVER_RENDER_TIMEOUT_MS);
   } catch (err) {
-    global.logger?.error?.("[Buttons/server] render timeout/failure", err?.stack || err?.message || err);
-    return buildServerFallbackPayload({ guild, safeLookback, authorId, stats, reason: err });
+    global.logger?.warn?.("[Buttons/server] render timeout, keeping background render", err?.message || err);
+    renderPromise.then(
+      (buf) => {
+        if (!Buffer.isBuffer(buf) || !buf.length) {
+          deliverLate(buildServerFallbackPayload({ guild, safeLookback, authorId, stats, reason: err, pending: false }));
+          return;
+        }
+        deliverLate(buildServerImagePayload(buf, authorId, safeLookback));
+      },
+      (lateErr) => {
+        deliverLate(buildServerFallbackPayload({ guild, safeLookback, authorId, stats, reason: lateErr || err, pending: false }));
+      },
+    );
+    return buildServerFallbackPayload({ guild, safeLookback, authorId, stats, reason: err, pending: true });
   }
-  const row = buildRefreshRow(authorId, safeLookback);
-
-  const overviewExt =
-    buffer.length >= 6 && buffer[0] === 0x47 && buffer[1] === 0x49 && buffer[2] === 0x46 ? "gif" : "png";
-  const file = new AttachmentBuilder(buffer, { name: `server-overview.${overviewExt}` });
-  return { files: [file], components: [row] };
+  if (!Buffer.isBuffer(buffer) || !buffer.length) {
+    return buildServerFallbackPayload({ guild, safeLookback, authorId, stats, reason: new Error("empty canvas"), pending: false });
+  }
+  return buildServerImagePayload(buffer, authorId, safeLookback);
 }
 
 function parseServerActivityArgs(args) {

@@ -73,7 +73,7 @@
 
     <header class="fixed inset-x-0 top-0 z-50 px-4 pt-4">
       <div class="vc-nav-shell vc-glass mx-auto flex max-w-6xl flex-col gap-0 overflow-visible rounded-2xl border border-white/[0.08] bg-[#140f0c] shadow-[0_8px_40px_rgba(0,0,0,0.48),0_0_48px_rgba(212,168,136,0.07)]">
-        <div class="vc-header-bar grid w-full grid-cols-1 items-center gap-y-2.5 gap-x-2 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:gap-x-3 sm:px-5">
+        <div class="vc-header-bar grid w-full grid-cols-1 items-center gap-y-2.5 gap-x-2 px-4 py-3 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:gap-x-3 sm:px-5">
           <div class="flex min-w-0 items-center gap-2.5 justify-self-start sm:gap-3">
             <a class="vc-header-logo-link shrink-0 rounded-2xl ring-1 ring-[#d4a888]/35 transition hover:ring-[#d4a888]/55" href="{{DASHBOARD_PAGE_URL}}" aria-label="Dashboard">
               <img src="{{WIKI_BOT_VINILI_AVATAR_URL}}" width="40" height="40" class="vc-header-logo-img" alt="" loading="eager" decoding="async" />
@@ -107,7 +107,6 @@
                     </div>
                   </div>
                   <div class="vc-notif-panel-head-actions">
-                    <button type="button" class="vc-notif-action" id="vc-notif-mark-all" title="Segna tutte come lette" aria-label="Segna tutte come lette"><i class="fa fa-check" aria-hidden="true"></i></button>
                   </div>
                 </div>
                 <div class="vc-notif-panel-body">
@@ -215,5 +214,6 @@
     <script src="../../js/dashboard-server-switcher.js?v={{BUILD_ASSET_VERSION}}"></script>
     <script src="../../js/bot-feedback-page.js?v={{BUILD_ASSET_VERSION}}"></script>
       <script src="/js/vc-cursor-trail.js?v={{BUILD_ASSET_VERSION}}" defer></script>
-  </body>
+    <script src="/js/vc-ptr.js?v={{BUILD_ASSET_VERSION}}" defer></script>
+</body>
 </html>

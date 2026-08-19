@@ -9,7 +9,10 @@ const { isMultiGuildLayerEnabled } = require("../MultiGuild/core/env");
 const { isTenantFeatureEnabled } = require("../MultiGuild/core/accessPolicy");
 const { resolveGuildAccess } = require("../MultiGuild/core/guildRegistry");
 const { isCommandDeployRequired, markCommandDeployComplete } = require("../../shared/runtime/commandDeployCache");
-const { purgeObsoleteApplicationCommands } = require("../../shared/discord/purgeObsoleteApplicationCommands");
+const {
+  purgeObsoleteApplicationCommands,
+  DEFAULT_OBSOLETE_SLASH_NAMES,
+} = require("../../shared/discord/purgeObsoleteApplicationCommands");
 const {
   splitApplicationCommandsForDeploy,
   deployGlobalApplicationCommands,
@@ -51,6 +54,18 @@ module.exports = (client) => {
           if (!meta.name) {
             global.logger.error(`[COMMANDS] Invalid command file ${file}`);
             statusMap.set(key, "Invalid");
+            continue;
+          }
+
+          const obsoleteName = String(meta.name || "")
+            .trim()
+            .toLowerCase();
+          if (
+            (Array.isArray(DEFAULT_OBSOLETE_SLASH_NAMES) ? DEFAULT_OBSOLETE_SLASH_NAMES : []).some(
+              (n) => String(n || "").trim().toLowerCase() === obsoleteName,
+            )
+          ) {
+            statusMap.set(key, "Skipped");
             continue;
           }
 

@@ -142,6 +142,7 @@
       "auth.sessionChecking": "Verifica sessione…",
       "auth.dashboard": "Dashboard",
       "auth.dashboardBlacklisted": "Blacklistato",
+      "auth.staffArea": "Area Staff",
       "auth.accountMenu": "Menu account",
       "notif.aria": "Notifiche",
       "notif.listAria": "Elenco notifiche",
@@ -205,7 +206,8 @@
       "footer.cookies": "Cookie Policy",
       "footer.yourData": "I tuoi dati",
       "footer.social": "Social",
-      "home.welcome": "Benvenuto su",
+      "home.welcome": "Benvenut* su",
+      "home.scrollMore": "Scorri per continuare",
       "home.joinDiscord": "Entra su Discord",
       "home.exploreCommunity": "Esplora la Community",
       "home.discoverPerks": "Scopri i Perks",
@@ -665,6 +667,7 @@
       "auth.sessionChecking": "Checking session…",
       "auth.dashboard": "Dashboard",
       "auth.dashboardBlacklisted": "Blacklisted",
+      "auth.staffArea": "Staff area",
       "auth.accountMenu": "Account menu",
       "notif.aria": "Notifications",
       "notif.listAria": "Notification list",
@@ -729,6 +732,7 @@
       "footer.yourData": "Your data",
       "footer.social": "Social",
       "home.welcome": "Welcome to",
+      "home.scrollMore": "Scroll to keep reading",
       "home.joinDiscord": "Join Discord",
       "home.exploreCommunity": "Explore the Community",
       "home.discoverPerks": "Discover Perks",
@@ -1211,19 +1215,29 @@
     });
   }
 
+  function isUnexpandedPlaceholder(s) {
+    return /^\{\{[A-Z0-9_]+\}\}$/.test(String(s || "").trim());
+  }
+
   function siteTemplateVars() {
     var siteName = "";
     var supportEmail = "";
     try {
       var brand = document.querySelector('a[href][aria-label*="homepage"], .vc-footer-brand-row a, header a[href="/"], header a[href$="/"]');
-      if (brand) siteName = String(brand.textContent || "").replace(/\s+/g, " ").trim();
+      if (brand) {
+        var brandName = String(brand.textContent || "").replace(/\s+/g, " ").trim();
+        if (brandName && !isUnexpandedPlaceholder(brandName)) siteName = brandName;
+      }
     } catch (e) {}
     try {
       if (!siteName && window.__VC_AUTH && window.__VC_AUTH.homeUrl) {
         /* keep empty — filled from meta below */
       }
       var metaSite = document.querySelector('meta[name="author"]');
-      if (!siteName && metaSite) siteName = String(metaSite.getAttribute("content") || "").trim();
+      if (!siteName && metaSite) {
+        var metaName = String(metaSite.getAttribute("content") || "").trim();
+        if (metaName && !isUnexpandedPlaceholder(metaName)) siteName = metaName;
+      }
     } catch (e2) {}
     if (!siteName) siteName = "Vinili & Caffè";
     try {

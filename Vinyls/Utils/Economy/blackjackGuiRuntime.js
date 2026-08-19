@@ -60,9 +60,20 @@ function totalWager(session) {
   return Math.max(0, Math.floor(Number(session.totalWager) || session.bet * (session.doubled ? 2 : 1)));
 }
 
+function netProfit(result) {
+  const payout = Math.max(0, Math.floor(Number(result?.payout) || 0));
+  const wager = Math.max(0, Math.floor(Number(result?.wager) || 0));
+  return Math.max(0, payout - wager);
+}
+
 function displayBet(session) {
-  // In gioco: stake della mano. Idle/done: puntata impostata per la prossima.
   if (session.phase === "playing" || session.phase === "dealer") return totalWager(session);
+  // Fine mano: mostra lo stake reale (incluso raddoppio), non la puntata della prossima.
+  if (session.phase === "done") {
+    const lastWager = Math.floor(Number(session.lastResult?.wager) || 0);
+    if (lastWager > 0) return lastWager;
+    return totalWager(session);
+  }
   return Math.max(0, Math.floor(Number(session.bet) || 0));
 }
 
@@ -96,8 +107,8 @@ async function renderPanel(session, cfg) {
   const hideDealerHole = session.hideDealerHole && session.phase !== "done";
   let resultLabel = "";
   if (session.phase === "done" && last) {
-    if (last.outcome === "blackjack") resultLabel = `Blackjack! +${formatEconomyAmountShort(last.payout)}`;
-    else if (last.outcome === "win") resultLabel = `Vittoria +${formatEconomyAmountShort(last.payout)}`;
+    if (last.outcome === "blackjack") resultLabel = `Blackjack! +${formatEconomyAmountShort(netProfit(last))}`;
+    else if (last.outcome === "win") resultLabel = `Vittoria +${formatEconomyAmountShort(netProfit(last))}`;
     else if (last.outcome === "push") resultLabel = `Pareggio ${formatEconomyAmountShort(last.payout)}`;
     else resultLabel = "Sconfitta";
   }
@@ -106,7 +117,7 @@ async function renderPanel(session, cfg) {
     const rendered = await runEconomyRender(() =>
       renderBlackjackCanvas({
       bet: displayBet(session),
-      doubled: session.doubled && (session.phase === "playing" || session.phase === "dealer"),
+      doubled: Boolean(session.doubled) && session.phase !== "idle",
       phase: session.phase,
       playerHand: session.playerHand,
       dealerHand: session.dealerHand,
@@ -164,6 +175,7 @@ async function settleHand(client, messageLike, session, cfg) {
     outcome: cmp.outcome,
     payout: payoutAmount,
     wager,
+    profit: Math.max(0, payoutAmount - wager),
     win: mult > 1,
     draw: cmp.outcome === "push",
     paid,
@@ -267,7 +279,7 @@ async function doubleHand(client, messageLike, session, cfg) {
   const extra = await playBlackjackBet(client, messageLike, session.bet, null, sessionSpendOptions(session));
   if (!extra.ok) return extra;
   markSessionStakeCooldown(session);
-  session.totalWager = session.bet + extra.amount;
+  session.totalWager = Math.max(0, Number(session.totalWager) || 0) + extra.amount;
   session.doubled = true;
   session.canDouble = false;
   const drawn = drawCard(session.shoe);
@@ -286,8 +298,8 @@ async function doubleHand(client, messageLike, session, cfg) {
 
 function formatRoundNotice(result) {
   if (!result?.ok) return "";
-  if (result.outcome === "blackjack") return `🃏 **Blackjack!** Hai vinto **${formatEconomyAmount(result.payout)}**.`;
-  if (result.outcome === "win") return `🏆 Hai vinto **${formatEconomyAmount(result.payout)}**.`;
+  if (result.outcome === "blackjack") return `🃏 **Blackjack!** Hai vinto **${formatEconomyAmount(netProfit(result))}**.`;
+  if (result.outcome === "win") return `🏆 Hai vinto **${formatEconomyAmount(netProfit(result))}**.`;
   if (result.outcome === "push") return `🤝 Pareggio: ti tornano **${formatEconomyAmount(result.payout)}**.`;
   return `<a:VC_Cross:1482532424570376253> Hai perso **${formatEconomyAmount(result.wager)}**.\n<a:VC_pixeltime:1482535344103620771> Puoi rigiocare quando il cooldown lo permette.`;
 }

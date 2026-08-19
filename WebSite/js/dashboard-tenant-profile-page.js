@@ -223,6 +223,13 @@
 
   function renderPager(page, totalPages, attr) {
     if (totalPages <= 1) return "";
+    var mp = window.__vcMiniPager;
+    if (mp && typeof mp.html === "function") {
+      return mp.html(page, totalPages, { aria: "Paginazione" }).replace(
+        'class="vc-mini-pager"',
+        'class="vc-tprof-pager vc-mini-pager" data-tprof-pager="' + attr + '"'
+      );
+    }
     return (
       '<div class="vc-tprof-pager">' +
       '<button type="button" class="vc-tprof-pager__btn" data-' +
@@ -1680,6 +1687,35 @@
     else if (state.tab === "dev") html = renderDev();
     else html = renderSettings(state.data);
     panels.innerHTML = html;
+    bindTprofMiniPagers();
+  }
+
+  function bindTprofMiniPagers() {
+    var mp = window.__vcMiniPager;
+    if (!mp || typeof mp.bind !== "function") return;
+    var nodes = document.querySelectorAll(".vc-tprof-pager.vc-mini-pager");
+    for (var i = 0; i < nodes.length; i++) {
+      (function (el) {
+        mp.bind(el, {
+          go: function (page) {
+            var key = String(el.getAttribute("data-tprof-pager") || "");
+            var n = Math.max(1, Number(page) || 1);
+            if (key === "tprof-dev-credits-page") {
+              state.dev.creditsPage = n;
+              loadDevCreditsList();
+              return;
+            }
+            if (key === "tprof-dev-page") {
+              state.dev.page = n;
+              render();
+              return;
+            }
+            state.objPage = n;
+            render();
+          },
+        });
+      })(nodes[i]);
+    }
   }
 
   async function load() {

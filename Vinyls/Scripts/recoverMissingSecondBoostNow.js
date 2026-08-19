@@ -74,18 +74,24 @@ async function main() {
   const targets = new Map();
   for (const msg of recent.values()) {
     const text = String(msg.content || "");
-    if (!/ha\s+appena\s+potenziato\s+il\s+server/i.test(text)) continue;
+    const plain = text.replace(/\*/g, " ").replace(/\s+/g, " ").trim();
+    const isBoostType = [8, 9, 10, 11].includes(Number(msg.type));
+    if (!isBoostType && !/ha\s+appena\s+potenziato\s+il\s+server|just\s+boosted\s+the\s+server/i.test(plain)) {
+      continue;
+    }
     const slots =
-      /\b2\s+volte\b/i.test(text) || /\bdue\s+volte\b/i.test(text) || /\btwice\b/i.test(text)
+      /\b2\s+volte\b/i.test(plain) || /\bdue\s+volte\b/i.test(plain) || /\btwice\b/i.test(plain)
         ? 2
-        : /\b(\d+)\s+volte\b/i.test(text)
+        : /\b(\d+)\s+volte\b/i.test(plain)
           ? Math.min(2, Number(RegExp.$1) || 1)
-          : 1;
+          : /^\d+$/.test(plain)
+            ? Math.min(2, Number(plain) || 1)
+            : 1;
     if (slots < 2) continue;
     const uid =
       msg.mentions?.users?.first()?.id ||
       (text.match(/<@!?(\d{5,30})>/) || [])[1] ||
-      null;
+      (msg.author && !msg.author.bot ? msg.author.id : null);
     if (!uid) continue;
     if (Date.now() - Number(msg.createdTimestamp || 0) > lookbackMs) continue;
     targets.set(String(uid), Math.max(targets.get(String(uid)) || 0, Number(msg.createdTimestamp || Date.now())));

@@ -285,21 +285,21 @@ async function getEmojiImage(token) {
   if (emojiImagePending.has(key)) return emojiImagePending.get(key);
 
   const promise = (async () => {
+    const timeoutMs = 2500;
     if (typeof token !== "string") {
       return safeLoadImage(customEmojiUrl(token.id, Boolean(token.animated)), {
-        timeoutMs: 10000,
+        timeoutMs,
         suppressWarning: true,
       }).catch(() => null);
     }
-    const sources = emojiToTwemojiUrls(token);
-    for (const sourceUrl of sources) {
-      const img = await safeLoadImage(sourceUrl, {
-        timeoutMs: 12000,
-        suppressWarning: true,
-      }).catch(() => null);
-      if (img) return img;
-    }
-    return null;
+    const sources = emojiToTwemojiUrls(token).slice(0, 2);
+    if (!sources.length) return null;
+    const img = await Promise.any(
+      sources.map((sourceUrl) =>
+        safeLoadImage(sourceUrl, { timeoutMs, suppressWarning: true }),
+      ),
+    ).catch(() => null);
+    return img || null;
   })();
 
   emojiImagePending.set(key, promise);

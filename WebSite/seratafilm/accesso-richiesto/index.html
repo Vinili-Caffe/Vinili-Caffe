@@ -3,13 +3,13 @@
   <head>
 {{COOKIEYES_BLOCK}}{{GA_BLOCK}}
     <meta charset="utf-8" />
-    <title>Accesso richiesto - {{SITE_NAME}}</title>
+    <title>{{SITE_NAME}} | Accesso richiesto</title>
     <meta name="description" content="Accedi con Discord per aprire la Serata Film (High Staff)." />
     <meta name="author" content="{{SITE_NAME}}" />
     <meta name="robots" content="noindex, nofollow" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="Accesso richiesto - {{SITE_NAME}}" />
+    <meta property="og:title" content="{{SITE_NAME}} | Accesso richiesto" />
     <meta property="og:description" content="Accedi con Discord per aprire la Serata Film (High Staff)." />
     <meta property="og:url" content="{{SITE_URL}}seratafilm/accesso-richiesto/" />
     <meta property="og:image" content="{{OG_IMAGE_URL}}" />
@@ -31,7 +31,7 @@
     <div class="vc-blob vc-blob-c" aria-hidden="true"></div>
     <header class="fixed inset-x-0 top-0 z-50 px-4 pt-4">
       <div class="vc-nav-shell vc-glass mx-auto flex max-w-6xl flex-col gap-0 overflow-visible rounded-2xl border border-white/[0.08] bg-[#140f0c]/78 shadow-[0_8px_40px_rgba(0,0,0,0.48),0_0_48px_rgba(212,168,136,0.07)]">
-        <div class="vc-header-bar grid w-full grid-cols-1 items-center gap-y-2.5 gap-x-2 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:gap-x-3 sm:px-5">
+        <div class="vc-header-bar grid w-full grid-cols-1 items-center gap-y-2.5 gap-x-2 px-4 py-3 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:gap-x-3 sm:px-5">
           <div class="flex min-w-0 items-center gap-2.5 justify-self-start sm:gap-3">
             <a class="vc-header-logo-link shrink-0 rounded-2xl ring-1 ring-[#d4a888]/35 transition hover:ring-[#d4a888]/55 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#d4a888]/60" href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer" aria-label="Entra su Discord"><img src="{{GUILD_ICON_URL}}" width="40" height="40" class="vc-header-logo-img" alt="" loading="eager" decoding="async" /></a>
             <a class="min-w-0 truncate text-[0.7rem] font-bold uppercase tracking-[0.18em] text-white underline-offset-4 transition hover:text-[#e8c9a8] hover:underline sm:text-xs" href="{{SITE_URL}}" aria-label="Vai alla homepage">{{SITE_NAME}}</a>
@@ -80,7 +80,6 @@
                     </div>
                   </div>
                   <div class="vc-notif-panel-head-actions">
-                    <button type="button" class="vc-notif-action" id="vc-notif-mark-all" title="Segna tutte come lette" aria-label="Segna tutte come lette"><i class="fa fa-check" aria-hidden="true"></i></button>
                     <button type="button" class="vc-notif-action" id="vc-notif-clear-all" title="Elimina tutte" aria-label="Elimina tutte"><i class="fa fa-trash-o" aria-hidden="true"></i></button>
                   </div>
                 </div>
@@ -119,6 +118,7 @@
         <div class="mt-6 rounded-xl border border-[#d4a888]/22 bg-[#1a120d]/72 p-3 text-sm text-slate-100">
           <p class="m-0 flex items-center gap-2"><i class="fa fa-lock text-[#d4a888]" aria-hidden="true"></i> <span data-i18n="gate.seratafilm.staffOnly">Area riservata High Staff · serve il login Discord</span></p>
         </div>
+        <button type="button" id="vc-mobile-nav-toggle" class="vc-mobile-nav-toggle vc-icon-btn" aria-label="Apri menu di navigazione" aria-controls="vc-mobile-nav-drawer" aria-expanded="false"><span class="vc-mobile-nav-toggle-bars" aria-hidden="true"><span></span><span></span><span></span></span></button>
         <button id="discord-login-btn" type="button" data-vc-discord-login class="vc-auth-required-login mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-base font-bold text-white">
           <i class="fa fa-sign-in" aria-hidden="true"></i> <span data-i18n="dash.gateLogin">Accedi con Discord</span>
         </button>
@@ -163,5 +163,6 @@
 
     <script src="../../js/vc-landing.js" defer></script>
     <script src="../../js/vc-i18n-pages.js" defer></script>
-  </body>
+    <script src="/js/vc-ptr.js" defer></script>
+</body>
 </html>

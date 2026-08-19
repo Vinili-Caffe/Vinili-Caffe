@@ -6,6 +6,7 @@ const { shouldBlockDm } = require("../Utils/noDmList");
 const { notifyDmPrivacyBlockedInCommands } = require("../../shared/discord/dmPrivacyNotice");
 const { queueIdsCatalogSync } = require("../Utils/Config/idsAutoSync");
 const { scheduleStaffListRefresh, memberHasStaffRole } = require("../Utils/Community/staffListUtils");
+const { scheduleMemberCounterRefresh, updateMemberCounterNow } = require("../Utils/Community/memberCounterUtils");
 const { processJoinRaidForMember, registerJoinRaidSecuritySignal, } = require("../Services/Moderation/joinRaidService");
 const { getJoinGateConfigSnapshot, } = require("../Services/Moderation/joinGateService");
 const { resolveJoinGateConfiguredExempt, isSponsorJoinGateGuildId, } = require("../Services/Moderation/joinGateExemptUtils");
@@ -27,9 +28,7 @@ const { activateWelcomeContextForGuild, refreshWelcomeContextForGuild } = requir
 const { restoreUserOnJoin } = require("../Services/Community/userLeaveBackupService");
 const { syncMutedMirrorOnMemberJoin } = require("../Services/Moderation/mutedMirrorRoleService");
 const { cancelCustomPerksDiscordCleanupQueue } = require("../Services/Community/customPerksDiscordCleanupQueueService");
-const {
-  handleTenantPartnerManagerRejoin,
-} = require("../Services/Partner/partnerManagerLeaveService");
+const { handleTenantPartnerManagerRejoin } = require("../Services/Partner/partnerManagerLeaveService");
 const { shouldApplyMainPartnershipFilters } = require("../Utils/Partner/partnershipConfigResolver");
 const { getPartnershipConfigSync } = require("../MultiGuild/core/tenantPartnershipSettings");
 const { recordPartnershipInviteJoin } = require("../Services/Partner/tenantPartnershipJoinStatsService");
@@ -95,7 +94,6 @@ function extractInviteCodeFromLink(link) {
   return tail && /^[A-Za-z0-9-]+$/.test(tail) ? tail : null;
 }
 
-/** Solo codice in backtick: evita l'anteprima embed Discord sugli inviti (anche con SuppressEmbeds). */
 function formatInviteLinkForJoinMessage(link) {
   const code = extractInviteCodeFromLink(link);
   return code ? `\`${code}\`` : "`—`";
@@ -1965,6 +1963,7 @@ module.exports = { name: "guildMemberAdd", kickForJoinGate, runDeferredJoinAnnou
             if (member.guild?.id === IDs.guilds.main && member.client && memberHasStaffRole(member)) {
               scheduleStaffListRefresh(member.client, member.guild.id);
             }
+            scheduleMemberCounterRefresh(member.guild, { delayMs: 250, secondPassMs: 1800 });
           } catch (err) {
             global.logger?.warn?.("[guildMemberAdd] background post-welcome failed:", member.guild?.id, member?.id, err?.message || err);
           }

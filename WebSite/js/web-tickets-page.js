@@ -42,6 +42,7 @@
     draftImages: [],
     composerImages: [],
     composerText: "",
+    replyTo: null,
     rateDraftTicket: 0,
     rateDraftStaffer: 0,
     busy: false,
@@ -232,6 +233,33 @@
     }
   }
 
+  function formatBubbleTime(iso) {
+    if (!iso) return { label: "", title: "", datetime: "" };
+    try {
+      var d = new Date(iso);
+      var now = new Date();
+      var sameDay =
+        d.getFullYear() === now.getFullYear() &&
+        d.getMonth() === now.getMonth() &&
+        d.getDate() === now.getDate();
+      var clock = d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
+      var title = d.toLocaleString("it-IT", {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+      var label = sameDay
+        ? clock
+        : d.toLocaleDateString("it-IT", { day: "2-digit", month: "short" }) + " " + clock;
+      return { label: label, title: title, datetime: d.toISOString() };
+    } catch (e) {
+      return { label: "", title: "", datetime: "" };
+    }
+  }
+
   function statusLabel(t) {
     if (!t) return "";
     if (t.status === "closed") return "Chiuso";
@@ -304,8 +332,11 @@
 
   function resolveHashTicketId() {
     var h = String(location.hash || "").replace(/^#/, "").trim();
-    if (!h || h.indexOf("access_token=") >= 0) return "";
-    if (/^[a-f0-9]{24}$/i.test(h)) return h;
+    if (h && h.indexOf("access_token=") < 0 && /^[a-f0-9]{24}$/i.test(h)) return h;
+    try {
+      var q = String(new URLSearchParams(location.search || "").get("ticketId") || "").trim();
+      if (/^[a-f0-9]{24}$/i.test(q)) return q;
+    } catch (eQ) {}
     return "";
   }
 
@@ -488,6 +519,7 @@
     state.composeOpen = false;
     state.composerText = "";
     state.composerImages = [];
+    state.replyTo = null;
     if (opts.keepHash !== true) setHashTicket("");
     sendTicketPresence({ force: true });
   }
@@ -649,6 +681,22 @@
       });
   }
 
+  function markOpenTicketNotificationsRead(ticketId) {
+    var id = String(ticketId || "").trim();
+    if (!id) return;
+    function run() {
+      try {
+        if (typeof window.__vcMarkTicketNotificationsRead === "function") {
+          window.__vcMarkTicketNotificationsRead(id);
+          return true;
+        }
+      } catch (e) {}
+      return false;
+    }
+    if (run()) return;
+    window.setTimeout(run, 400);
+  }
+
   function openTicket(id, quiet) {
     if (!id || !getToken()) return Promise.resolve();
     if (state.selectedId && state.selectedId !== id) {
@@ -658,10 +706,12 @@
     state.selectedId = id;
     state.composerText = loadTicketComposerDraft(id);
     state.composerImages = [];
+    state.replyTo = null;
     state.rateDraftTicket = 0;
     state.rateDraftStaffer = 0;
     setHashTicket(id);
     saveTicketComposerDraft();
+    markOpenTicketNotificationsRead(id);
     if (!quiet) setStatus("Apertura chat…", false);
     return fetchJson(apiBase() + "/" + encodeURIComponent(id), {
       method: "GET",
@@ -697,6 +747,7 @@
         state.composeOpen = false;
         setStatus("");
         renderShell();
+        applyPendingReplyAfterOpen();
         settleRateDockSoon();
         sendTicketPresence({ force: true });
         scrollChatBottom(true);
@@ -756,7 +807,10 @@
     if (log) {
       log.insertAdjacentHTML("beforeend", messageHtml(msg));
       var node = log.querySelector('[data-msg-id="' + msg.id + '"]');
-      if (node) wireMessageReactions(node);
+      if (node) {
+        wireMessageReactions(node);
+        wireMessageTools(node);
+      }
       scrollChatBottom(false);
     } else {
       renderShell();
@@ -1058,6 +1112,13 @@
     }
     var prevDisabled = page <= 1 ? " disabled" : "";
     var nextDisabled = page >= totalPages ? " disabled" : "";
+    var mp = window.__vcMiniPager;
+    if (mp && typeof mp.html === "function") {
+      return mp.html(page, totalPages, { aria: "Paginazione ticket" }).replace(
+        'class="vc-mini-pager"',
+        'class="vc-wt-pager vc-mini-pager"'
+      );
+    }
     return (
       '<div class="vc-wt-pager" aria-label="Paginazione ticket">' +
       '<button type="button" class="vc-wt-pager__btn" data-list-page="' +
@@ -3100,17 +3161,14 @@
   /** Opener o utente aggiunto (lato cliente). Mai staff/PM. */
   function isTicketCustomerMessage(m) {
     if (!m) return false;
-    if (hasStaffRoleSignals(m)) return false;
+    if (isFakeUrlAuthorMessage(m)) return true;
     return isTicketOpenerMessage(m) || isTicketAddedUserMessage(m);
   }
 
   /** True se il messaggio ha un ruolo staff Discord risolto (PM, Mod, …). */
   function isResolvedStaffAuthor(m) {
     if (!m) return false;
-    if (isTicketOpenerMessage(m) || isTicketAddedUserMessage(m)) {
-      // Opener/added restano clienti anche se hanno ruoli staff Discord
-      return false;
-    }
+    if (isTicketOpenerMessage(m) || isTicketAddedUserMessage(m)) return false;
     return hasStaffRoleSignals(m);
   }
 
@@ -3118,11 +3176,11 @@
   function effectiveAuthorKind(m) {
     var kind = String((m && m.authorKind) || "user");
     if (kind === "system" || kind === "bot") return kind;
-    // Opener = sempre cliente
+    if (isFakeUrlAuthorMessage(m)) return "user";
+    // Opener = sempre cliente, anche con ruoli staff
     if (isTicketOpenerMessage(m)) return "user";
-    // Staff/PM (anche se finito per errore in addedUsers)
-    if (kind === "staff" || hasStaffRoleSignals(m)) return "staff";
     if (isTicketAddedUserMessage(m)) return "user";
+    if (kind === "staff" || hasStaffRoleSignals(m)) return "staff";
     return kind === "user" ? "user" : kind;
   }
 
@@ -3152,6 +3210,9 @@
     if (!m) return false;
     var kind = effectiveAuthorKind(m);
     if (kind === "system" || kind === "bot") return false;
+    // Inbox staff: l'opener sta SEMPRE a sinistra, anche se ha ruoli staff.
+    if (isStaffMode && isTicketOpenerMessage(m)) return false;
+    if (isStaffMode && isTicketAddedUserMessage(m) && !isTicketOpenerMessage(m)) return false;
     // Prima i tuoi: staff che risponde non deve finire a sinistra
     if (isOwnMessage(m)) return true;
     if (isStaffMode && (kind === "staff" || hasStaffRoleSignals(m))) return true;
@@ -3169,17 +3230,172 @@
     return false;
   }
 
+  function replySnippetFromMessage(m) {
+    if (!m || !m.id) return null;
+    if (m.pending) return null;
+    if (String(m.authorKind || "") === "system") return null;
+    return {
+      id: String(m.id),
+      authorId: String(m.authorId || ""),
+      authorName: displayMessageAuthorName(m),
+      content: String(m.content || "").replace(/\s+/g, " ").trim().slice(0, 140),
+      hasMedia: Array.isArray(m.imageUrls) && m.imageUrls.length > 0,
+      deleted: false,
+    };
+  }
+
+  function resolveReplySnippet(m) {
+    if (!m) return null;
+    if (m.replyTo && m.replyTo.id) {
+      if (m.replyTo.deleted) return m.replyTo;
+      if (m.replyTo.authorName || m.replyTo.content || m.replyTo.hasMedia) return m.replyTo;
+      var local = (state.messages || []).find(function (x) {
+        return x && String(x.id) === String(m.replyTo.id);
+      });
+      return local ? replySnippetFromMessage(local) || m.replyTo : m.replyTo;
+    }
+    return null;
+  }
+
+  function replyPreviewText(reply) {
+    if (!reply) return "";
+    if (reply.deleted) return "Messaggio originale eliminato";
+    var text = String(reply.content || "").replace(/\s+/g, " ").trim();
+    if (text) return text;
+    if (reply.hasMedia) return "Allegato";
+    return "Messaggio";
+  }
+
+  function replyPreviewHtml(m) {
+    var reply = resolveReplySnippet(m);
+    if (!reply || !reply.id) return "";
+    var name = reply.deleted ? "Messaggio originale" : String(reply.authorName || "Utente");
+    return (
+      '<button type="button" class="vc-wt-msg__quote" data-jump-msg="' +
+      esc(reply.id) +
+      '" title="Vai al messaggio originale">' +
+      "<strong>" +
+      esc(name) +
+      "</strong>" +
+      "<span>" +
+      esc(replyPreviewText(reply)) +
+      "</span></button>"
+    );
+  }
+
+  function jumpToMessage(id) {
+    var targetId = String(id || "").trim();
+    if (!targetId) return;
+    var log = byId("vc-wt-chat-log");
+    var node = log && log.querySelector('[data-msg-id="' + targetId + '"]');
+    if (!node) return;
+    node.scrollIntoView({ behavior: "smooth", block: "center" });
+    node.classList.remove("vc-wt-msg--flash");
+    void node.offsetWidth;
+    node.classList.add("vc-wt-msg--flash");
+    window.setTimeout(function () {
+      node.classList.remove("vc-wt-msg--flash");
+    }, 1400);
+  }
+
+  function startReplyToMessage(id) {
+    var msg = (state.messages || []).find(function (m) {
+      return m && String(m.id) === String(id || "");
+    });
+    var snippet = replySnippetFromMessage(msg);
+    if (!snippet) return;
+    if (composerLockedReason()) return;
+    state.replyTo = snippet;
+    syncComposerReplyBar();
+    focusComposerSoon();
+  }
+
+  function clearReplyTarget() {
+    state.replyTo = null;
+    syncComposerReplyBar();
+  }
+
+  var pendingReplyToId = "";
+
+  function consumeReplyToFromUrl() {
+    try {
+      var params = new URLSearchParams(location.search || "");
+      var rid = String(params.get("vcReplyTo") || "").trim();
+      if (!/^[a-f0-9]{24}$/i.test(rid)) return "";
+      params.delete("vcReplyTo");
+      var q = params.toString();
+      var next = location.pathname + (q ? "?" + q : "") + location.hash;
+      if (window.history && typeof window.history.replaceState === "function") {
+        window.history.replaceState({}, "", next);
+      }
+      return rid;
+    } catch (e) {
+      return "";
+    }
+  }
+
+  function applyPendingReplyAfterOpen() {
+    var rid = pendingReplyToId || consumeReplyToFromUrl();
+    pendingReplyToId = "";
+    if (!rid) return;
+    window.setTimeout(function () {
+      startReplyToMessage(rid);
+    }, 80);
+  }
+
+  function composerReplyBarHtml() {
+    var reply = state.replyTo;
+    if (!reply || !reply.id) {
+      return '<div id="vc-wt-composer-reply" class="vc-wt-composer__reply" hidden></div>';
+    }
+    return (
+      '<div id="vc-wt-composer-reply" class="vc-wt-composer__reply">' +
+      '<i class="fa fa-reply" aria-hidden="true"></i>' +
+      '<div class="vc-wt-composer__reply-main">' +
+      "<strong>Rispondi a " +
+      esc(String(reply.authorName || "Utente")) +
+      "</strong>" +
+      "<span>" +
+      esc(replyPreviewText(reply)) +
+      "</span></div>" +
+      '<button type="button" class="vc-wt-composer__reply-close" data-reply-cancel title="Annulla risposta" aria-label="Annulla risposta">&times;</button></div>'
+    );
+  }
+
+  function syncComposerReplyBar() {
+    var form = byId("vc-wt-composer");
+    if (!form) return;
+    var bar = byId("vc-wt-composer-reply");
+    if (!bar) {
+      form.insertAdjacentHTML("afterbegin", composerReplyBarHtml());
+      bar = byId("vc-wt-composer-reply");
+    } else {
+      var tmp = document.createElement("div");
+      tmp.innerHTML = composerReplyBarHtml();
+      var next = tmp.firstElementChild;
+      if (next) bar.replaceWith(next);
+    }
+    form.classList.toggle("is-replying", Boolean(state.replyTo && state.replyTo.id));
+  }
+
   function messageHtml(m) {
     var kind = effectiveAuthorKind(m);
     if (isUselessMessageContent(m && m.content) && !(m.imageUrls && m.imageUrls.length)) {
       return "";
     }
     var mine = isOwnMessage(m);
+    var pending = Boolean(m.pending);
     var alignRight = isMessageRightAligned(m);
     var closed = state.detail && state.detail.status === "closed";
-    var canEdit = mine && !closed;
-    var canDelete = !closed && kind !== "system" && (mine || isStaffMode);
-    var cls = "vc-wt-msg vc-wt-msg--" + kind + (alignRight ? " is-mine" : "");
+    var canEdit = mine && !closed && !pending;
+    var canDelete = !closed && !pending && kind !== "system" && (mine || isStaffMode);
+    var canReply = !pending && kind !== "system" && composerLockedReason() === "";
+    var cls =
+      "vc-wt-msg vc-wt-msg--" +
+      kind +
+      (alignRight ? " is-mine" : "") +
+      (pending ? " vc-wt-msg--pending" : "") +
+      (resolveReplySnippet(m) ? " has-reply" : "");
     if (kind === "system") {
       return (
         '<div class="' +
@@ -3215,9 +3431,14 @@
       .join("");
     var canCopy = Boolean(String(m.content || "").trim());
     var tools = "";
-    if (canCopy || canEdit || canDelete) {
+    if (canCopy || canEdit || canDelete || canReply) {
       tools =
         '<div class="vc-wt-msg__tools">' +
+        (canReply
+          ? '<button type="button" class="vc-wt-msg__tool" data-msg-reply="' +
+            esc(m.id) +
+            '" title="Rispondi" aria-label="Rispondi"><i class="fa fa-reply" aria-hidden="true"></i></button>'
+          : "") +
         (canCopy
           ? '<button type="button" class="vc-wt-msg__tool" data-msg-copy="' +
             esc(m.id) +
@@ -3235,6 +3456,9 @@
           : "") +
         "</div>";
     }
+    var when = pending
+      ? { label: "Invio…", title: "", datetime: "" }
+      : formatBubbleTime(m.createdAt);
     return (
       '<div class="' +
       cls +
@@ -3242,7 +3466,10 @@
       esc(m.id) +
       '">' +
       avatarHtml(resolveMessageAvatarUrl(m), displayMessageAuthorName(m), "vc-wt-msg__avatar") +
+      '<div class="vc-wt-msg__main">' +
+      '<div class="vc-wt-msg__stack">' +
       '<div class="vc-wt-msg__bubble">' +
+      replyPreviewHtml(m) +
       '<div class="vc-wt-msg__meta"><strong>' +
       esc(displayMessageAuthorName(m)) +
       "</strong>" +
@@ -3250,16 +3477,20 @@
         ? authorRoleBadgeHtml(m, kind)
         : "") +
       (kind === "staff" ? staffAvgStarsHtml(m.authorAvgRating) : "") +
-      "<time>" +
-      esc(formatTime(m.createdAt)) +
+      "<time" +
+      (when.datetime ? ' datetime="' + esc(when.datetime) + '"' : "") +
+      (when.title ? ' title="' + esc(when.title) + '"' : "") +
+      ">" +
+      esc(when.label) +
       "</time>" +
       (m.editedAt ? '<span class="vc-wt-msg__edited">(modificato)</span>' : "") +
-      tools +
       "</div>" +
       (m.content ? '<div class="vc-wt-msg__text">' + formatMessageContent(m.content) + "</div>" : "") +
       (imgs ? '<div class="vc-wt-msg__gallery">' + imgs + "</div>" : "") +
-      reactionsBarHtml(m, closed) +
-      "</div></div>"
+      (pending ? "" : reactionsBarHtml(m, closed)) +
+      "</div>" +
+      tools +
+      "</div></div></div>"
     );
   }
 
@@ -3433,7 +3664,10 @@
       );
     }
     return (
-      '<form id="vc-wt-composer" class="vc-wt-composer" autocomplete="off">' +
+      '<form id="vc-wt-composer" class="vc-wt-composer' +
+      (state.replyTo && state.replyTo.id ? " is-replying" : "") +
+      '" autocomplete="off">' +
+      composerReplyBarHtml() +
       '<div id="vc-wt-composer-previews" class="vc-wt-composer__previews" hidden></div>' +
       '<div class="vc-wt-composer__row">' +
       '<label class="vc-wt-composer__attach" title="Allega immagine, GIF o video">' +
@@ -3890,6 +4124,16 @@
   function wireListPager() {
     var wrap = byId("vc-wt-pager-wrap");
     if (!wrap) return;
+    var mp = window.__vcMiniPager;
+    var mini = wrap.querySelector(".vc-mini-pager");
+    if (mp && mini && typeof mp.bind === "function") {
+      mp.bind(mini, {
+        go: function (page) {
+          goToListPage(page);
+        },
+      });
+      return;
+    }
     wrap.querySelectorAll("[data-list-page]").forEach(function (btn) {
       if (btn._vcWired) return;
       btn._vcWired = true;
@@ -5732,6 +5976,24 @@
         deleteMessage(btn.getAttribute("data-msg-del"));
       });
     });
+    root.querySelectorAll("[data-msg-reply]").forEach(function (btn) {
+      if (btn._vcWired) return;
+      btn._vcWired = true;
+      btn.addEventListener("click", function (ev) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        startReplyToMessage(btn.getAttribute("data-msg-reply"));
+      });
+    });
+    root.querySelectorAll("[data-jump-msg]").forEach(function (btn) {
+      if (btn._vcWired) return;
+      btn._vcWired = true;
+      btn.addEventListener("click", function (ev) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        jumpToMessage(btn.getAttribute("data-jump-msg"));
+      });
+    });
   }
 
   function patchComposerHtml() {
@@ -5740,6 +6002,11 @@
     var lock = composerLockedReason();
     chat.classList.toggle("vc-wt-chat--closed", lock === "closed");
     var existing = chat.querySelector(".vc-wt-composer, form.vc-wt-composer");
+    if (!lock && existing && existing.id === "vc-wt-composer") {
+      syncComposerReplyBar();
+      wireComposer();
+      return;
+    }
     if (existing) {
       var tmp = document.createElement("div");
       tmp.innerHTML = composerHtml();
@@ -5902,6 +6169,14 @@
       ev.preventDefault();
       sendMessage();
     });
+    form.addEventListener("click", function (ev) {
+      var t = ev.target;
+      if (!t || !t.closest) return;
+      if (t.closest("[data-reply-cancel]")) {
+        ev.preventDefault();
+        clearReplyTarget();
+      }
+    });
     var ta = byId("vc-wt-composer-text");
     if (ta && !ta._vcWired) {
       ta._vcWired = true;
@@ -5996,6 +6271,11 @@
             hideMentionMenu();
             return;
           }
+        }
+        if (ev.key === "Escape" && state.replyTo) {
+          ev.preventDefault();
+          clearReplyTarget();
+          return;
         }
         if (!ev.ctrlKey && !ev.metaKey && !ev.altKey && (ev.key === "@" || ev.key === "#" || ev.key === "+" || ev.key === "!" || ev.key === "/")) {
           setTimeout(function () {
@@ -6179,8 +6459,61 @@
       });
   }
 
+  function focusComposerSoon() {
+    function run() {
+      var ta = byId("vc-wt-composer-text");
+      if (!ta) return;
+      try {
+        ta.focus({ preventScroll: true });
+      } catch (e1) {
+        try {
+          ta.focus();
+        } catch (e2) {}
+      }
+    }
+    run();
+    setTimeout(run, 0);
+    setTimeout(run, 50);
+  }
+
+  function resetComposerUi() {
+    state.composerText = "";
+    state.composerImages = [];
+    state.replyTo = null;
+    clearTicketComposerDraft(state.selectedId);
+    fillRichInput(byId("vc-wt-composer-text"), "");
+    renderPreviews("vc-wt-composer-previews", []);
+    hideCommandMenu();
+    hideMentionMenu();
+    syncComposerReplyBar();
+  }
+
+  function restoreComposerIfEmpty(text, images) {
+    var ta = byId("vc-wt-composer-text");
+    var current = serializeRichInput(ta).trim();
+    if (current || (state.composerImages && state.composerImages.length)) return;
+    state.composerText = String(text || "");
+    state.composerImages = Array.isArray(images) ? images.slice() : [];
+    fillRichInput(ta, state.composerText);
+    renderPreviews("vc-wt-composer-previews", state.composerImages);
+    if (state.composerText.trim()) saveTicketComposerDraft();
+  }
+
+  function removePendingMessage(pendingId) {
+    var id = String(pendingId || "");
+    if (!id) return;
+    state.messages = (state.messages || []).filter(function (m) {
+      return String((m && m.id) || "") !== id;
+    });
+    delete state.seenMessageIds[id];
+    var log = byId("vc-wt-chat-log");
+    if (!log) return;
+    var node = log.querySelector('[data-msg-id="' + id + '"]');
+    if (node) node.remove();
+  }
+
   function sendMessage() {
-    if (!state.selectedId || state.busy) return;
+    if (!state.selectedId) return;
     var perms = effectivePermissions();
     if (perms.canReply === false) {
       var lock = composerLockedReason();
@@ -6193,13 +6526,12 @@
       return;
     }
     var text = serializeRichInput(byId("vc-wt-composer-text")).trim();
-    var images = state.composerImages || [];
+    var images = (state.composerImages || []).slice();
     if (!text && !images.length) return;
-    var perms = effectivePermissions();
+    var replyTo = state.replyTo && state.replyTo.id ? Object.assign({}, state.replyTo) : null;
     if (text && looksLikeStaffCommand(text) && perms.canUseCommands && !images.length) {
-      state.composerText = "";
-      clearTicketComposerDraft(state.selectedId);
-      fillRichInput(byId("vc-wt-composer-text"), "");
+      resetComposerUi();
+      focusComposerSoon();
       if (needsPartnershipForm(text)) {
         runPartnershipCommandFlow(text);
         return;
@@ -6207,31 +6539,59 @@
       runTicketCommand(text);
       return;
     }
-    state.busy = true;
+    var pendingId = "pending-" + Date.now() + "-" + Math.random().toString(36).slice(2, 7);
+    var pending = {
+      id: pendingId,
+      pending: true,
+      content: text,
+      imageUrls: images,
+      authorId: state.viewerId || "",
+      authorName: state.viewerName || "Tu",
+      authorAvatarUrl: state.viewerAvatarUrl || "",
+      authorKind: isStaffMode && perms.isStaffViewer ? "staff" : "user",
+      createdAt: new Date().toISOString(),
+      replyTo: replyTo || undefined,
+    };
+    resetComposerUi();
+    appendMessage(pending);
+    scrollChatBottom(true);
+    focusComposerSoon();
     fetchJson(apiBase() + "/" + encodeURIComponent(state.selectedId) + "/messages", {
       method: "POST",
       headers: authHeaders(true),
-      body: JSON.stringify({ content: text, images: images }),
+      body: JSON.stringify({
+        content: text,
+        images: images,
+        replyToId: replyTo ? replyTo.id : undefined,
+      }),
     })
       .then(function (out) {
-        state.busy = false;
+        removePendingMessage(pendingId);
         if (!out.res.ok || !out.data || !out.data.ok) {
+          restoreComposerIfEmpty(text, images);
+          if (replyTo) {
+            state.replyTo = replyTo;
+            syncComposerReplyBar();
+          }
           setStatus((out.data && out.data.message) || "Invio fallito.", true);
+          focusComposerSoon();
           return;
         }
-        state.composerText = "";
-        state.composerImages = [];
-        clearTicketComposerDraft(state.selectedId);
-        fillRichInput(byId("vc-wt-composer-text"), "");
-        renderPreviews("vc-wt-composer-previews", []);
         if (out.data.claimMessage) appendMessage(out.data.claimMessage, out.data.ticket);
         if (out.data.message) appendMessage(out.data.message, out.data.ticket);
         else if (!out.data.claimMessage && out.data.ticket) refreshTicketInList(out.data.ticket);
         scrollChatBottom(true);
+        focusComposerSoon();
       })
       .catch(function () {
-        state.busy = false;
+        removePendingMessage(pendingId);
+        restoreComposerIfEmpty(text, images);
+        if (replyTo) {
+          state.replyTo = replyTo;
+          syncComposerReplyBar();
+        }
         setStatus("Errore di rete.", true);
+        focusComposerSoon();
       });
   }
 
@@ -6389,6 +6749,7 @@
     wireOpenCatCards();
     wireRatingPanel();
     wireMessageReactions(document);
+    wireMessageTools(document);
     void ensureGuildEmojis();
   }
 
@@ -6423,6 +6784,18 @@
     state.ws = null;
   }
 
+  function tryRequestTicketWindowAttention(msg) {
+    if (!msg || msg.pending) return;
+    if (isOwnMessage(msg)) return;
+    if (String(msg.authorKind || "") === "system") return;
+    if (typeof window.vcRequestWindowAttention !== "function") return;
+    var name = String(msg.authorName || "Ticket").replace(/\s+/g, " ").trim() || "Ticket";
+    var body = String(msg.content || "").replace(/\s+/g, " ").trim();
+    window.vcRequestWindowAttention({
+      title: body ? name + ": " + body.slice(0, 40) : name,
+    });
+  }
+
   function connectWs() {
     if (typeof WebSocket === "undefined") return;
     var url = wsUrl();
@@ -6446,6 +6819,7 @@
             } else {
               void scheduleLoadListQuiet();
             }
+            tryRequestTicketWindowAttention(data.message);
             return;
           }
           if (type === "web_ticket_reaction") {
@@ -6557,9 +6931,20 @@
     if (!opts.force && key === state.presenceLastSent && !clear) return;
     state.presenceLastSent = key;
     try {
+      var focused = false;
+      try {
+        focused =
+          document.visibilityState === "visible" &&
+          (typeof document.hasFocus !== "function" || document.hasFocus());
+      } catch (eFocus) {
+        focused = document.visibilityState === "visible";
+      }
       window.__VC_WATCHING_TICKET = {
-        id: document.visibilityState === "visible" && !clear ? String(ticketId || "") : "",
+        id: focused && !clear ? String(ticketId || "") : "",
       };
+      if (typeof window.__vcPingSwClientFocus === "function") {
+        window.__vcPingSwClientFocus();
+      }
     } catch (eWatch) {}
     var body = clear
       ? { clear: true }
@@ -6616,7 +7001,10 @@
           if (log) {
             log.insertAdjacentHTML("beforeend", messageHtml(m));
             var node = log.querySelector('[data-msg-id="' + m.id + '"]');
-            if (node) wireMessageReactions(node);
+            if (node) {
+        wireMessageReactions(node);
+        wireMessageTools(node);
+      }
           }
           return;
         }
@@ -6644,6 +7032,8 @@
 
   function applyTicketsUrlState(opts) {
     opts = opts || {};
+    var fromUrl = consumeReplyToFromUrl();
+    if (fromUrl) pendingReplyToId = fromUrl;
     var forceStaff = false;
     try {
       var params = new URLSearchParams(location.search || "");
@@ -6707,6 +7097,8 @@
         return;
       }
       hideGate();
+      var rebootReply = consumeReplyToFromUrl();
+      if (rebootReply) pendingReplyToId = rebootReply;
       loadList().then(function () {
         connectWs();
         startPoll();
@@ -6731,6 +7123,8 @@
     }
     hideGate();
     showTicketsLoadingShell("Caricamento ticket…");
+    var bootReply = consumeReplyToFromUrl();
+    if (bootReply) pendingReplyToId = bootReply;
     loadList().then(function () {
       connectWs();
       startPoll();

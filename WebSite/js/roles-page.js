@@ -234,6 +234,11 @@
     if (title) title.textContent = label || "Caricamento ruoli";
     if (subtitle) subtitle.textContent = state.loading ? sub || "Sto recuperando tutti i ruoli personalizzati della community…" : "";
     if (grid) grid.setAttribute("aria-busy", state.loading ? "true" : "false");
+    if (!state.loading) {
+      try {
+        document.dispatchEvent(new Event("vc:roles-ready"));
+      } catch (eReady) {}
+    }
   }
 
   function setState(msg, isErr) {
@@ -808,52 +813,30 @@
 
   function renderPager() {
     var nav = byId("vc-roles-pager");
-    var chips = byId("vc-roles-pagechips");
-    var prev = byId("vc-roles-prev");
-    var next = byId("vc-roles-next");
-    if (!nav || !chips || !prev || !next) return;
+    var mp = window.__vcMiniPager;
+    if (!nav) return;
     if (state.totalPages <= 1) {
       nav.hidden = true;
       return;
     }
     nav.hidden = false;
-    prev.disabled = state.page <= 1;
-    next.disabled = state.page >= state.totalPages;
-    var html = "";
-    for (var i = 1; i <= state.totalPages; i += 1) {
-      html += '<button type="button" class="vc-roles-pagechip' + (i === state.page ? ' vc-roles-pagechip--on' : "") + '" data-page="' + i + '">' + i + "</button>";
+    if (mp && typeof mp.fill === "function") {
+      mp.fill(nav, state.page, state.totalPages, { aria: "Paginazione ruoli" }, {
+        go: function (page) {
+          var cap = Math.max(1, Number(state.totalPages) || 1);
+          var next = Math.max(1, Math.min(cap, Number(page) || 1));
+          if (next === state.page) return;
+          state.page = next;
+          renderGrid();
+        },
+      });
+      return;
     }
-    chips.innerHTML = html;
+    nav.textContent = "Pagina " + state.page + " di " + state.totalPages;
   }
 
   function bindPager() {
-    var prev = byId("vc-roles-prev");
-    var next = byId("vc-roles-next");
-    var chips = byId("vc-roles-pagechips");
-    if (prev) {
-      prev.addEventListener("click", function () {
-        if (state.page <= 1) return;
-        state.page -= 1;
-        renderGrid();
-      });
-    }
-    if (next) {
-      next.addEventListener("click", function () {
-        if (state.page >= state.totalPages) return;
-        state.page += 1;
-        renderGrid();
-      });
-    }
-    if (chips) {
-      chips.addEventListener("click", function (ev) {
-        var btn = ev.target && ev.target.closest ? ev.target.closest("[data-page]") : null;
-        if (!btn) return;
-        var page = parseInt(String(btn.getAttribute("data-page") || ""), 10);
-        if (!isFinite(page) || page < 1) return;
-        state.page = page;
-        renderGrid();
-      });
-    }
+    renderPager();
   }
 
   function bindSearch() {

@@ -796,6 +796,28 @@
       return;
     }
     pager.hidden = false;
+    var mp = window.__vcMiniPager;
+    if (mp && typeof mp.fill === "function") {
+      mp.fill(pager, page, totalPages, { aria: "Paginazione suggerimenti" }, {
+        go: function (nextPage) {
+          var cap = Math.max(1, Number(state.suggestionsPager.totalPages) || 1);
+          var next = Math.max(1, Math.min(cap, Number(nextPage) || 1));
+          if (next === Number(state.suggestionsPager.page || 1)) return;
+          state.suggestionsPager.userControlled = true;
+          state.suggestionsPager.page = next;
+          render();
+          var list = byId("vc-suggestions-list");
+          if (list && typeof list.scrollIntoView === "function") {
+            window.requestAnimationFrame(function () {
+              try {
+                list.scrollIntoView({ behavior: "smooth", block: "start" });
+              } catch (eScroll) {}
+            });
+          }
+        },
+      });
+      return;
+    }
     pager.innerHTML =
       '<button type="button" class="vc-reviews-pager__btn vc-notify-home-btn" data-suggestions-page-prev' +
       (page <= 1 ? " disabled" : "") +

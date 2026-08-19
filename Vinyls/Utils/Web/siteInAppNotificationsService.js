@@ -16,6 +16,104 @@ function normalizeKind(kind) {
   return "info";
 }
 
+const TICKET_ID_RE = /^[a-f0-9]{24}$/i;
+
+function normalizeTicketId(raw) {
+  const tid = String(raw || "").trim().toLowerCase();
+  return TICKET_ID_RE.test(tid) ? tid : "";
+}
+
+function ticketIdFromOpenUrl(openUrl) {
+  const raw = String(openUrl || "").trim();
+  if (!raw) return "";
+  try {
+    const u = new URL(raw, "https://www.viniliecaffe.it");
+    const hash = String(u.hash || "").replace(/^#/, "").trim().toLowerCase();
+    if (TICKET_ID_RE.test(hash)) return hash;
+    const q = String(u.searchParams.get("ticketId") || "").trim().toLowerCase();
+    if (TICKET_ID_RE.test(q)) return q;
+  } catch (_) {
+    const m = raw.match(/#([a-f0-9]{24})\b/i);
+    if (m) return String(m[1]).toLowerCase();
+  }
+  return "";
+}
+
+function inboxItemMatchesTicket(it, ticketId) {
+  const tid = normalizeTicketId(ticketId);
+  if (!tid || !it) return false;
+  if (normalizeTicketId(it.ticketId) === tid) return true;
+  return ticketIdFromOpenUrl(it.openUrl) === tid;
+}
+
+function normalizeFromName(raw) {
+  return String(raw || "").trim().slice(0, 80);
+}
+
+function mergeNotifFromNames(existing, incoming) {
+  const next = [];
+  const seen = new Set();
+  const add = (name) => {
+    const s = normalizeFromName(name);
+    if (!s) return;
+    const k = s.toLowerCase();
+    if (seen.has(k)) return;
+    seen.add(k);
+    next.push(s);
+  };
+  add(incoming);
+  for (const n of Array.isArray(existing) ? existing : []) add(n);
+  return next.slice(0, 8);
+}
+
+function formatNotifFromNames(names) {
+  const list = mergeNotifFromNames(names, "");
+  if (!list.length) return "qualcuno";
+  if (list.length === 1) return list[0];
+  if (list.length === 2) return `${list[0]} e ${list[1]}`;
+  return `${list[0]} e altri`;
+}
+
+function buildCollapsedTicketChatCopy({ count, fromNames, ticketLabel, fallbackTitle, fallbackBody, preview }) {
+  const from = formatNotifFromNames(fromNames);
+  const rawPreview = String(preview || fallbackBody || "").trim();
+  const fromPrefix = from && from !== "qualcuno" ? `${from}: ` : "";
+  const text =
+    rawPreview && fromPrefix && rawPreview.toLowerCase().startsWith(fromPrefix.toLowerCase())
+      ? rawPreview.slice(fromPrefix.length).trim()
+      : rawPreview;
+  return {
+    title: (from !== "qualcuno" ? from : String(fallbackTitle || "Nuovo messaggio").trim()).slice(0, 120),
+    body: (text || rawPreview || "Nuovo messaggio").slice(0, 500),
+  };
+}
+
+const lastDismissPushAt = new Map();
+
+function fireNotifDismissPush(userId, spec = {}) {
+  try {
+    const uid = normalizeUserId(userId);
+    if (!uid) return;
+    const key = spec.all === true ? `${uid}:all` : `${uid}:${String(spec.ticketId || spec.id || "").trim() || "x"}`;
+    const now = Date.now();
+    const prev = Number(lastDismissPushAt.get(key) || 0);
+    if (now - prev < 12000) return;
+    lastDismissPushAt.set(key, now);
+    if (lastDismissPushAt.size > 400) {
+      for (const [k, at] of lastDismissPushAt) {
+        if (now - Number(at || 0) > 120000) lastDismissPushAt.delete(k);
+      }
+    }
+    const { sendWebPushToUser } = require("./siteWebPushService");
+    void sendWebPushToUser(uid, {
+      type: "dismiss",
+      ticketId: String(spec.ticketId || "").trim(),
+      id: String(spec.id || "").trim(),
+      all: spec.all === true,
+    });
+  } catch (_) {}
+}
+
 async function saveInboxItems(userId, items) {
   const uid = normalizeUserId(userId);
   if (!uid) return false;
@@ -144,6 +242,13 @@ function itemMatchesDedupeWindow(item, dedupeKeyRaw, since) {
   return t >= since.getTime();
 }
 
+function isReminderNotificationKind(kind, title, body) {
+  const k = normalizeKind(kind);
+  if (k === "vote_reminder" || k === "vote") return true;
+  const hay = `${String(title || "")} ${String(body || "")}`.toLowerCase();
+  return /promemoria|reminder|puoi votare|pozioni disponibili|puoi tornare in aula/.test(hay);
+}
+
 /**
  * Append atomico (evita VersionError su inbox condivisa tra bot e site-api).
  * Se `dedupeKey` + `since` sono valorizzati, inserisce solo se non c’è già
@@ -227,7 +332,7 @@ function broadcastInboxChanged() {
   } catch (_) {}
 }
 
-function fireNotificationPush(userId, { title, body, openUrl, kind, id, ticketId }, { push = true } = {}) {
+function fireNotificationPush(userId, { title, body, openUrl, kind, id, ticketId, messageId }, { push = true } = {}) {
   broadcastInboxChanged();
   if (push === false) return;
   try {
@@ -239,6 +344,7 @@ function fireNotificationPush(userId, { title, body, openUrl, kind, id, ticketId
       kind,
       id: String(id || ""),
       ticketId: String(ticketId || "").trim(),
+      messageId: String(messageId || "").trim(),
     });
   } catch (_) {}
 }
@@ -248,14 +354,46 @@ async function replaceInboxItemByDedupeKey(userId, dedupeKey, patch) {
   const key = String(dedupeKey || "").trim();
   if (!uid || !key) return null;
   const now = new Date();
+  const inbox = await SiteDocument.findOne({ ...inboxQuery(uid), "inAppNotifItems.dedupeKey": key })
+    .select("inAppNotifItems")
+    .lean()
+    .catch(() => null);
+  const existing = (Array.isArray(inbox?.inAppNotifItems) ? inbox.inAppNotifItems : []).find(
+    (it) => String(it?.dedupeKey || "") === key,
+  );
+  let title = patch.title;
+  let body = patch.body;
+  let msgCount = 1;
+  let fromNames = patch.fromName ? mergeNotifFromNames([], patch.fromName) : [];
+  if (patch.collapseChat === true) {
+    const wasUnread = Boolean(existing && !existing.readAt);
+    if (wasUnread) {
+      msgCount = Math.min(99, Math.max(1, Number(existing.notifMsgCount) || 1) + 1);
+      fromNames = mergeNotifFromNames(existing.notifFromNames, patch.fromName);
+    }
+    const copy = buildCollapsedTicketChatCopy({
+      count: msgCount,
+      fromNames,
+      ticketLabel: patch.ticketLabel,
+      fallbackTitle: patch.title,
+      fallbackBody: patch.body,
+      preview: patch.preview,
+    });
+    title = copy.title;
+    body = copy.body;
+  }
   const $set = {
-    "inAppNotifItems.$.title": patch.title,
-    "inAppNotifItems.$.body": patch.body,
+    "inAppNotifItems.$.title": title,
+    "inAppNotifItems.$.body": body,
     "inAppNotifItems.$.openUrl": patch.openUrl,
     "inAppNotifItems.$.notifKind": patch.notifKind,
     "inAppNotifItems.$.guildId": patch.guildId,
     "inAppNotifItems.$.updatedAt": now,
+    "inAppNotifItems.$.notifMsgCount": msgCount,
+    "inAppNotifItems.$.notifFromNames": fromNames,
   };
+  const patchTicketId = normalizeTicketId(patch.ticketId) || ticketIdFromOpenUrl(patch.openUrl);
+  if (patchTicketId) $set["inAppNotifItems.$.ticketId"] = patchTicketId;
   if (patch.resetRead !== false) {
     $set["inAppNotifItems.$.readAt"] = null;
     $set["inAppNotifItems.$.createdAt"] = now;
@@ -269,7 +407,14 @@ async function replaceInboxItemByDedupeKey(userId, dedupeKey, patch) {
   const item = (Array.isArray(out.inAppNotifItems) ? out.inAppNotifItems : []).find(
     (it) => String(it?.dedupeKey || "") === key,
   );
-  return item?._id ? { id: String(item._id) } : { id: "" };
+  return item?._id
+    ? {
+        id: String(item._id),
+        title: String(item.title || title || ""),
+        body: String(item.body || body || ""),
+        ticketId: String(item.ticketId || patchTicketId || ""),
+      }
+    : { id: "", title, body };
 }
 
 async function removeInboxItemByDedupeKey(userId, dedupeKey) {
@@ -309,7 +454,10 @@ async function enqueueSiteInAppNotification(opts = {}) {
   if (!title || !body) return false;
   const kind = normalizeKind(opts.kind);
   const openUrl = String(opts.openUrl || "").trim().slice(0, 400);
-  const ticketId = String(opts.ticketId || "").trim();
+  const ticketId = normalizeTicketId(opts.ticketId) || ticketIdFromOpenUrl(openUrl);
+  const messageId = /^[a-f0-9]{24}$/i.test(String(opts.messageId || "").trim())
+    ? String(opts.messageId).trim().toLowerCase()
+    : "";
   const dedupeKeyRaw = opts.dedupeKey != null ? String(opts.dedupeKey).trim().slice(0, DEDUPE_KEY_MAX) : "";
   const dedupeWindowMs = Number(opts.dedupeWindowMs) || 0;
   const replaceDedupe = opts.replaceDedupe === true && Boolean(dedupeKeyRaw);
@@ -323,10 +471,28 @@ async function enqueueSiteInAppNotification(opts = {}) {
       openUrl: openUrl || "",
       notifKind: kind,
       guildId,
+      ticketId,
       resetRead: sendPush,
+      collapseChat: opts.collapseChat === true,
+      fromName: opts.fromName,
+      ticketLabel: opts.ticketLabel,
+      preview: opts.preview,
+      messageId,
     });
     if (replaced) {
-      fireNotificationPush(userId, { title, body, openUrl, kind, id: replaced.id, ticketId }, pushOpts);
+      fireNotificationPush(
+        userId,
+        {
+          title,
+          body,
+          openUrl,
+          kind,
+          id: replaced.id,
+          ticketId,
+          messageId,
+        },
+        pushOpts,
+      );
       return true;
     }
   }
@@ -335,8 +501,31 @@ async function enqueueSiteInAppNotification(opts = {}) {
     const since = new Date(Date.now() - dedupeWindowMs);
     const inbox = await SiteDocument.findOne(inboxQuery(userId)).select("inAppNotifItems").lean().catch(() => null);
     const items = Array.isArray(inbox?.inAppNotifItems) ? inbox.inAppNotifItems : [];
-    // Già presente = successo idempotente (evita warn sul retry dopo recordDiscadiaVote).
-    if (items.some((it) => itemMatchesDedupeWindow(it, dedupeKeyRaw, since))) return true;
+    const existing = items.find((it) => itemMatchesDedupeWindow(it, dedupeKeyRaw, since));
+    if (existing) {
+      // Idempotente in DB, ma se la push è fallita (es. PWA chiusa) ritenta per reminder/non lette.
+      const shouldRetryPush =
+        sendPush &&
+        !existing.readAt &&
+        (isReminderNotificationKind(existing.notifKind || kind, existing.title || title, existing.body || body) ||
+          isReminderNotificationKind(kind, title, body));
+      if (shouldRetryPush) {
+        fireNotificationPush(
+          userId,
+          {
+            title: String(existing.title || title || ""),
+            body: String(existing.body || body || ""),
+            openUrl: String(existing.openUrl || openUrl || ""),
+            kind: normalizeKind(existing.notifKind || kind),
+            id: String(existing._id || ""),
+            ticketId,
+            messageId,
+          },
+          pushOpts,
+        );
+      }
+      return true;
+    }
     const dupLegacy = await SiteDocument.findOne({
       ...legacyFlatQuery(userId),
       dedupeKey: dedupeKeyRaw,
@@ -347,13 +536,30 @@ async function enqueueSiteInAppNotification(opts = {}) {
       .catch(() => null);
     if (dupLegacy) return true;
   }
+  let itemTitle = title;
+  let itemBody = body;
+  if (opts.collapseChat === true) {
+    const copy = buildCollapsedTicketChatCopy({
+      count: 1,
+      fromNames: opts.fromName ? mergeNotifFromNames([], opts.fromName) : [],
+      ticketLabel: opts.ticketLabel,
+      fallbackTitle: title,
+      fallbackBody: body,
+      preview: opts.preview,
+    });
+    itemTitle = copy.title;
+    itemBody = copy.body;
+  }
   const newItem = {
     _id: new mongoose.Types.ObjectId(),
     guildId,
-    title,
-    body,
+    title: itemTitle,
+    body: itemBody,
     notifKind: kind,
     openUrl: openUrl || "",
+    ticketId: ticketId || "",
+    notifMsgCount: 1,
+    notifFromNames: opts.collapseChat === true && opts.fromName ? mergeNotifFromNames([], opts.fromName) : [],
     dedupeKey: dedupeKeyRaw || null,
     readAt: null,
     createdAt: new Date(),
@@ -368,12 +574,13 @@ async function enqueueSiteInAppNotification(opts = {}) {
     fireNotificationPush(
       userId,
       {
-        title,
-        body,
+        title: itemTitle,
+        body: itemBody,
         openUrl,
         kind,
         id: String(newItem._id || ""),
         ticketId,
+        messageId,
       },
       pushOpts,
     );
@@ -443,6 +650,11 @@ async function markSiteInAppNotificationRead(userId, notificationId) {
   if (!uid || !isValidNotificationId(nid)) return false;
   await migrateLegacyInAppNotificationsForUser(uid).catch(() => null);
   const oid = new mongoose.Types.ObjectId(nid);
+  const inbox = await SiteDocument.findOne(inboxQuery(uid)).select("inAppNotifItems").lean().catch(() => null);
+  const item = (Array.isArray(inbox?.inAppNotifItems) ? inbox.inAppNotifItems : []).find(
+    (it) => String(it?._id || "") === nid,
+  );
+  const ticketId = item ? normalizeTicketId(item.ticketId) || ticketIdFromOpenUrl(item.openUrl) : "";
   const out = await SiteDocument.updateOne(
     inboxQuery(uid),
     { $set: { "inAppNotifItems.$[i].readAt": new Date() } },
@@ -450,6 +662,7 @@ async function markSiteInAppNotificationRead(userId, notificationId) {
   ).catch(() => null);
   const modified = Number(out?.modifiedCount ?? out?.nModified ?? 0) > 0;
   if (modified) {
+    fireNotifDismissPush(uid, { id: nid, ticketId });
     try {
       const { broadcastSiteNotificationsChanged } = require("./siteSuggestionsBroadcast");
       broadcastSiteNotificationsChanged();
@@ -479,6 +692,36 @@ async function markAllSiteInAppNotificationsRead(userId) {
       const { broadcastSiteNotificationsChanged } = require("./siteSuggestionsBroadcast");
       broadcastSiteNotificationsChanged();
     } catch (_) {}
+    fireNotifDismissPush(uid, { all: true });
+  }
+  return n;
+}
+
+async function markSiteInAppNotificationsReadForTicket(userId, ticketId) {
+  const uid = normalizeUserId(userId);
+  const tid = normalizeTicketId(ticketId);
+  if (!uid || !tid) return 0;
+  await migrateLegacyInAppNotificationsForUser(uid).catch(() => null);
+  const doc = await SiteDocument.findOne(inboxQuery(uid)).catch(() => null);
+  if (!doc || !Array.isArray(doc.inAppNotifItems) || !doc.inAppNotifItems.length) {
+    return 0;
+  }
+  let n = 0;
+  const now = new Date();
+  for (let i = 0; i < doc.inAppNotifItems.length; i += 1) {
+    const it = doc.inAppNotifItems[i];
+    if (!it || it.readAt) continue;
+    if (!inboxItemMatchesTicket(it, tid)) continue;
+    it.readAt = now;
+    n += 1;
+  }
+  if (n > 0) {
+    await doc.save().catch(() => null);
+    try {
+      const { broadcastSiteNotificationsChanged } = require("./siteSuggestionsBroadcast");
+      broadcastSiteNotificationsChanged();
+    } catch (_) {}
+    fireNotifDismissPush(uid, { ticketId: tid });
   }
   return n;
 }
@@ -510,11 +753,12 @@ async function listSiteInAppNotificationsForUser(userId, limit = 50) {
       title,
       body,
       kind,
-    at: doc.createdAt ? new Date(doc.createdAt).getTime() : Date.now(),
-    openUrl: String(doc.openUrl || "").trim(),
-    read: Boolean(doc.readAt),
-    readAt: doc.readAt ? new Date(doc.readAt).getTime() : null,
-  };
+      at: doc.createdAt ? new Date(doc.createdAt).getTime() : Date.now(),
+      openUrl: String(doc.openUrl || "").trim(),
+      ticketId: normalizeTicketId(doc.ticketId) || ticketIdFromOpenUrl(doc.openUrl),
+      read: Boolean(doc.readAt),
+      readAt: doc.readAt ? new Date(doc.readAt).getTime() : null,
+    };
   });
 }
 
@@ -541,7 +785,28 @@ async function deleteSiteInAppNotificationForUser(userId, notificationId) {
 async function deleteAllSiteInAppNotificationsForUser(userId) {
   const uid = normalizeUserId(userId);
   if (!uid) return 0;
-  return deleteSiteInAppNotifications({ userId: uid });
+  await migrateLegacyInAppNotificationsForUser(uid).catch(() => null);
+  let count = 0;
+  const inbox = await SiteDocument.findOne(inboxQuery(uid)).select("inAppNotifItems").catch(() => null);
+  if (inbox) {
+    count += Array.isArray(inbox.inAppNotifItems) ? inbox.inAppNotifItems.length : 0;
+    inbox.inAppNotifItems = [];
+    await inbox.save().catch(() => null);
+    await SiteDocument.deleteOne({ _id: inbox._id }).catch(() => null);
+  } else {
+    const emptied = await SiteDocument.updateOne(inboxQuery(uid), { $set: { inAppNotifItems: [] } }).catch(() => null);
+    count += Number(emptied?.modifiedCount ?? emptied?.nModified ?? 0);
+    await SiteDocument.deleteOne(inboxQuery(uid)).catch(() => null);
+  }
+  const delLegacy = await SiteDocument.deleteMany(legacyFlatQuery(uid)).catch(() => null);
+  count += Number(delLegacy?.deletedCount ?? delLegacy?.n ?? 0);
+  if (count > 0) {
+    try {
+      const { broadcastSiteNotificationsChanged } = require("./siteSuggestionsBroadcast");
+      broadcastSiteNotificationsChanged();
+    } catch (_) {}
+  }
+  return count;
 }
 
 module.exports = {
@@ -554,5 +819,6 @@ module.exports = {
   deleteSiteInAppNotificationForUser,
   markSiteInAppNotificationRead,
   markAllSiteInAppNotificationsRead,
+  markSiteInAppNotificationsReadForTicket,
   migrateLegacyInAppNotificationsForUser,
 };

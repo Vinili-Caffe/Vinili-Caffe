@@ -46,7 +46,7 @@
 
   var SESSION_OVERLAY_ID = "vc-session-verify-overlay";
   /** Hard stop: @me / site-verify appesi non devono bloccare la pagina. */
-  var SESSION_VERIFY_HARD_MS = 8000;
+  var SESSION_VERIFY_HARD_MS = 2000;
   var sessionVerifyWatchdog = null;
 
   function byId(id) {
@@ -59,6 +59,22 @@
       clearTimeout(sessionVerifyWatchdog);
     } catch (eW) {}
     sessionVerifyWatchdog = null;
+  }
+
+  function resetScrollAfterSessionOverlay() {
+    try {
+      var h = String(location.hash || "").replace(/^#/, "");
+      if (h && h.indexOf("access_token=") !== 0) return;
+      var y =
+        window.pageYOffset ||
+        (document.documentElement && document.documentElement.scrollTop) ||
+        (document.body && document.body.scrollTop) ||
+        0;
+      if (y > 8) return;
+      window.scrollTo(0, 0);
+      if (document.documentElement) document.documentElement.scrollTop = 0;
+      if (document.body) document.body.scrollTop = 0;
+    } catch (eScr) {}
   }
 
   function forceUnlockSessionVerifyUi() {
@@ -74,6 +90,7 @@
         if (el.parentNode) el.parentNode.removeChild(el);
       }
     } catch (e1) {}
+    resetScrollAfterSessionOverlay();
     if (window.__VC_DISCORD_PROFILE) return;
     try {
       var state = byId("discord-login-state");
@@ -255,9 +272,30 @@
     } catch (e) {}
   }
 
+  function sessionPath() {
+    return String(location.pathname || "").replace(/\/+$/, "") || "/";
+  }
+
+  function isStandalonePwa() {
+    try {
+      if (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) return true;
+    } catch (e) {}
+    try {
+      if (window.matchMedia && window.matchMedia("(display-mode: fullscreen)").matches) return true;
+    } catch (e2) {}
+    return Boolean(navigator.standalone);
+  }
+
   function isBlockingSessionVerifyPage() {
     try {
-      return Boolean(window.__VC_REQUIRE_BLOCKING_SESSION_VERIFY);
+      if (isStandalonePwa()) return false;
+      if (!window.__VC_REQUIRE_BLOCKING_SESSION_VERIFY) return false;
+      var p = sessionPath();
+      if (p.indexOf("/dashboard") === 0) return true;
+      if (p.indexOf("/staff") === 0) return true;
+      if (p === "/tickets" || p.indexOf("/tickets/") === 0) return true;
+      if (p.indexOf("/accesso-richiesto") !== -1) return true;
+      return false;
     } catch (e) {
       return false;
     }
@@ -283,7 +321,6 @@
 
   function showSessionVerifyOverlay() {
     if (!isBlockingSessionVerifyPage()) {
-      // Eventuale overlay early (bfcache / race) va comunque rimosso.
       forceUnlockSessionVerifyUi();
       return;
     }
@@ -302,12 +339,16 @@
       document.documentElement.classList.remove("vc-session-verify-pending");
     } catch (e0) {}
     var el = byId(SESSION_OVERLAY_ID);
-    if (!el) return;
+    if (!el) {
+      resetScrollAfterSessionOverlay();
+      return;
+    }
     el.classList.add("vc-session-verify-overlay--hidden");
     el.setAttribute("aria-busy", "false");
     try {
       if (el.parentNode) el.parentNode.removeChild(el);
     } catch (eRm) {}
+    resetScrollAfterSessionOverlay();
   }
 
   function escAttr(s) {
@@ -429,6 +470,7 @@
         : Date.now() + SITE_SESSION_TTL_MS;
     localStorage.setItem(ACCESS_TOKEN_KEY, t);
     localStorage.setItem(EXPIRES_AT_KEY, String(exp));
+    syncTokenToServiceWorker(t);
     try {
       var scopeRaw = String(p.get("scope") || "").trim();
       if (scopeRaw) localStorage.setItem(OAUTH_SCOPES_KEY, scopeRaw);
@@ -463,7 +505,34 @@
       localStorage.removeItem(OAUTH_SCOPES_KEY);
       sessionStorage.removeItem(ME_CACHE_KEY);
     } catch (eCt) {}
+    syncTokenToServiceWorker("");
   }
+
+  function syncTokenToServiceWorker(token) {
+    try {
+      if (!("serviceWorker" in navigator)) return;
+      var payload = { type: "vc:sw-auth", token: String(token || "") };
+      if (navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage(payload);
+        return;
+      }
+      navigator.serviceWorker.ready
+        .then(function () {
+          if (navigator.serviceWorker.controller) {
+            navigator.serviceWorker.controller.postMessage(payload);
+          }
+        })
+        .catch(function () {});
+    } catch (eSw) {}
+  }
+  try {
+    syncTokenToServiceWorker(getToken());
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.addEventListener("controllerchange", function () {
+        syncTokenToServiceWorker(getToken());
+      });
+    }
+  } catch (eBootSw) {}
 
   function resolveOAuthScopes() {
     var c = cfg();
@@ -591,6 +660,25 @@
     return raw;
   }
 
+  function staffPageHref() {
+    return "/staff/";
+  }
+
+  function staffApiBase() {
+    var isLocal = false;
+    try {
+      isLocal = /^(localhost|127\.0\.0\.1)$/i.test(String(window.location.hostname || ""));
+    } catch (e) {}
+    var staffCfg = {};
+    try {
+      staffCfg = window.__VC_STAFF_ACCESS || {};
+    } catch (e2) {}
+    var raw = String(
+      isLocal && staffCfg.apiUrlLocal ? staffCfg.apiUrlLocal : staffCfg.apiUrl || "",
+    ).trim();
+    return raw.replace(/\/+$/, "") || "/webhooks/site-staff-access";
+  }
+
   function dashboardApiBase() {
     var c = cfg();
     var isLocal = false;
@@ -612,6 +700,17 @@
   function isStaffContextPath() {
     try {
       var p = String(window.location.pathname || "").toLowerCase().replace(/\/+$/, "") || "/";
+      return p === "/staff" || p.indexOf("/staff/") === 0;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function isStaffAreaContextPath() {
+    try {
+      var p = String(window.location.pathname || "").toLowerCase().replace(/\/+$/, "") || "/";
+      if (p === "/staff/profilo" || p.indexOf("/staff/profilo/") === 0) return false;
+      if (p === "/staff/accesso-richiesto" || p.indexOf("/staff/accesso-richiesto/") === 0) return false;
       return p === "/staff" || p.indexOf("/staff/") === 0;
     } catch (e) {
       return false;
@@ -708,6 +807,42 @@
         window.__vcMobileNavRebuild();
       }
     } catch (eRebuild) {}
+  }
+
+  async function fetchStaffMenuAccess(token) {
+    var t = String(token || "").trim();
+    if (!t) return false;
+    try {
+      var res = await fetch(staffApiBase(), {
+        headers: { Authorization: "Bearer " + t },
+        cache: "no-store",
+      });
+      if (!res.ok) return false;
+      var data = await res.json().catch(function () {
+        return {};
+      });
+      return Boolean(data && data.ok === true);
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function revealStaffMenuItem(allowed) {
+    window.__VC_STAFF_MENU_ALLOWED = Boolean(allowed);
+    var link = byId("discord-staff-link");
+    if (link) {
+      if (allowed) {
+        link.setAttribute("href", staffPageHref());
+        link.removeAttribute("hidden");
+      } else {
+        link.setAttribute("hidden", "");
+      }
+    }
+    try {
+      if (typeof window.__vcMobileNavRebuild === "function") {
+        window.__vcMobileNavRebuild();
+      }
+    } catch (eRebuild2) {}
   }
 
   /**
@@ -856,11 +991,11 @@
         }
         : {
           id: notifId,
-          title: "Benvenuto",
+          title: "Benvenut*",
           body:
             "Ciao " +
             displayName +
-            "! Benvenuto su " +
+            "! Benvenut* su " +
             site +
             ": il login con Discord è andato a buon fine. Da qui puoi esplorare il sito e le funzioni riservate agli utenti collegati.",
           kind: "success",
@@ -987,8 +1122,10 @@
     var label = escAttr(name);
     var href = escAttr(profileHref(user && user.id));
     var dashHref = escAttr(dashboardPageHref());
+    var staffHref = escAttr(staffPageHref());
     var isProfileCurrent = isProfileContextPath();
     var isDashCurrent = isDashboardContextPath();
+    var isStaffAreaCurrent = isStaffAreaContextPath();
     var avatarVisual = img
       ? '<img class="discord-avatar-img" src="' +
         img +
@@ -1034,19 +1171,24 @@
       ' hidden><i class="fa fa-server" aria-hidden="true"></i><span>' +
       escAttr(i18n("auth.dashboard", "Dashboard")) +
       "</span></a>" +
+      '<a id="discord-staff-link" class="discord-account-popover__item' +
+      (isStaffAreaCurrent ? " is-current" : "") +
+      '" role="menuitem" href="' +
+      staffHref +
+      '"' +
+      (isStaffAreaCurrent ? ' aria-current="page"' : "") +
+      ' hidden><i class="fa fa-shield" aria-hidden="true"></i><span>' +
+      escAttr(i18n("auth.staffArea", "Area Staff")) +
+      "</span></a>" +
+      '<button type="button" class="discord-account-popover__item discord-account-popover__item--danger" role="menuitem" id="discord-logout-btn"><i class="fa fa-sign-out" aria-hidden="true"></i><span>' +
+      escAttr(i18n("auth.logout", "Logout")) +
+      "</span></button>" +
       "</div>" +
       "</div>" +
       "</div>";
-    var logoutBlock =
-      '<button type="button" class="vc-icon-btn discord-logout-btn" id="discord-logout-btn" aria-label="' +
-      escAttr(i18n("auth.logout", "Logout")) +
-      '" title="' +
-      escAttr(i18n("auth.logout", "Logout")) +
-      '"><i class="fa fa-sign-out" aria-hidden="true"></i></button>';
     state.innerHTML =
-      '<div class="discord-login-row">' +
+      '<div class="discord-login-row discord-login-row--profile">' +
       accountMenuBlock +
-      logoutBlock +
       "</div>";
     state.hidden = false;
     ensureHeaderMenusMutex();
@@ -1060,6 +1202,9 @@
     var token = getToken();
     fetchDashboardMenuAccess(token).then(function (allowed) {
       revealDashboardMenuItem(allowed);
+    });
+    fetchStaffMenuAccess(token).then(function (allowed) {
+      revealStaffMenuItem(allowed);
     });
     fetchServerAvatarUrl(token).then(function (serverAvatar) {
       if (!serverAvatar) return;
@@ -1276,6 +1421,7 @@
     window.addEventListener(
       "pageshow",
       function (ev) {
+        if (!isBlockingSessionVerifyPage()) forceUnlockSessionVerifyUi();
         if (!ev.persisted) return;
         try {
           var nodes = queryDiscordLoginButtons();

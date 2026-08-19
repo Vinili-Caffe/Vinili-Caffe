@@ -296,6 +296,20 @@ async function run(root) {
       nativeBoostSeenSince("g1", "u1", Date.now() - 60_000) === 2,
       "noteNativeBoostSeen accumula doppio boost",
     );
+    const parseNativeBoostSlotCount = guildMemberUpdate?.__test?.parseNativeBoostSlotCount;
+    assert(typeof parseNativeBoostSlotCount === "function", "parseNativeBoostSlotCount export");
+    assert(
+      parseNativeBoostSlotCount({ type: 8, content: "Diuk ha appena potenziato il server **2** volte!" }) === 2,
+      "parseNativeBoostSlotCount markdown 2 volte",
+    );
+    assert(
+      parseNativeBoostSlotCount({ type: 8, content: "2" }) === 2,
+      "parseNativeBoostSlotCount content numerico 2",
+    );
+    assert(
+      parseNativeBoostSlotCount({ type: 8, content: "Diuk ha appena potenziato il server 1 volta!" }) === 1,
+      "parseNativeBoostSlotCount 1 volta",
+    );
     const pokeNameBlock = require("../Vinyls/Services/Moderation/pokeNameChannelBlockService");
     assert(pokeNameBlock.isPokeNameBotMessage({ author: { id: pokeNameBlock.POKE_NAME_BOT_ID } }) === true, "Poke-Name author id");
     assert(pokeNameBlock.isPokeNameBotMessage({ applicationId: pokeNameBlock.POKE_NAME_BOT_ID }) === true, "Poke-Name application id");

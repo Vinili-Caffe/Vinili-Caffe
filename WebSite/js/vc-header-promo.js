@@ -59,6 +59,93 @@
     return "event";
   }
 
+  function isCompactPromoViewport() {
+    try {
+      return window.matchMedia("(max-width: 639.98px)").matches;
+    } catch (e) {
+      return Number(window.innerWidth || 0) < 640;
+    }
+  }
+
+  function ensureClone(trackEl, unitEl) {
+    var clone = trackEl.querySelector(".vc-header-promo-btn__unit.is-clone");
+    if (!clone) {
+      clone = unitEl.cloneNode(true);
+      clone.classList.add("is-clone");
+      clone.setAttribute("aria-hidden", "true");
+      trackEl.appendChild(clone);
+    }
+    return clone;
+  }
+
+  function applyMarqueeMetrics(btn, clip, unitEl) {
+    if (!btn || btn.hidden) return;
+    if (isCompactPromoViewport()) {
+      btn.classList.remove("is-marquee");
+      btn.style.removeProperty("--vc-promo-marquee-distance");
+      btn.style.removeProperty("--vc-promo-marquee-duration");
+      unitEl.style.paddingInlineEnd = "";
+      return;
+    }
+    var clipW = Math.floor(clip.clientWidth || clip.getBoundingClientRect().width || 0);
+    var unitW = Math.ceil(unitEl.getBoundingClientRect().width || unitEl.scrollWidth || 0);
+    var overflow = clipW >= 4 && unitW > clipW + 2;
+    if (!overflow) {
+      btn.classList.remove("is-marquee");
+      btn.style.removeProperty("--vc-promo-marquee-distance");
+      btn.style.removeProperty("--vc-promo-marquee-duration");
+      unitEl.style.paddingInlineEnd = "";
+      return;
+    }
+    unitEl.style.paddingInlineEnd = "2rem";
+    var segmentW = Math.ceil(unitEl.getBoundingClientRect().width || unitW);
+    if (segmentW < 8) segmentW = unitW;
+    if (segmentW < 8) segmentW = 96;
+    btn.style.setProperty("--vc-promo-marquee-distance", segmentW + "px");
+    var duration = Math.max(8, Math.min(22, segmentW / 22));
+    btn.style.setProperty("--vc-promo-marquee-duration", duration.toFixed(1) + "s");
+    btn.classList.add("is-marquee");
+  }
+
+  function ensureMarquee(btn) {
+    if (!btn || btn.hidden) return;
+    var clip = btn.querySelector(".vc-header-promo-btn__clip");
+    var label = btn.querySelector(".vc-header-promo-btn__label");
+    var badge = btn.querySelector(".vc-header-promo-btn__badge");
+    if (!label || !badge) return;
+    if (!clip) {
+      clip = document.createElement("span");
+      clip.className = "vc-header-promo-btn__clip";
+      var track = document.createElement("span");
+      track.className = "vc-header-promo-btn__track";
+      var unit = document.createElement("span");
+      unit.className = "vc-header-promo-btn__unit";
+      unit.appendChild(label);
+      unit.appendChild(badge);
+      track.appendChild(unit);
+      clip.appendChild(track);
+      var dot = btn.querySelector(".vc-header-promo-btn__dot");
+      if (dot && dot.nextSibling) btn.insertBefore(clip, dot.nextSibling);
+      else btn.appendChild(clip);
+    }
+    var trackEl = clip.querySelector(".vc-header-promo-btn__track");
+    var unitEl = clip.querySelector(".vc-header-promo-btn__unit:not(.is-clone)");
+    if (!trackEl || !unitEl) return;
+    ensureClone(trackEl, unitEl);
+    unitEl.style.paddingInlineEnd = "";
+    btn.classList.remove("is-marquee");
+
+    function measure() {
+      applyMarqueeMetrics(btn, clip, unitEl);
+    }
+    window.requestAnimationFrame(function () {
+      window.requestAnimationFrame(measure);
+    });
+    window.setTimeout(measure, 80);
+    window.setTimeout(measure, 240);
+    window.setTimeout(measure, 640);
+  }
+
   function applyMode(btn, cfg, mode) {
     if (!btn || !cfg) return;
     if (!mode) {
@@ -79,29 +166,51 @@
     btn.href = href || (isEvent ? "/evento" : "/candidature");
     btn.classList.remove("vc-header-promo-btn--event", "vc-header-promo-btn--candidature");
     btn.classList.add(isEvent ? "vc-header-promo-btn--event" : "vc-header-promo-btn--candidature");
-    btn.setAttribute(
-      "aria-label",
-      isEvent
-        ? t("header.promo.eventAria", "Evento Hogwarts attivo – vai al calendario")
-        : t("header.promo.appsAria", "Candidature staff aperte")
-    );
-    var labelEl = btn.querySelector(".vc-header-promo-btn__label");
-    var badgeEl = btn.querySelector(".vc-header-promo-btn__badge");
-    if (labelEl) labelEl.textContent = label;
-    if (badgeEl) badgeEl.textContent = badge;
+    btn.setAttribute("aria-label", isEvent ? label + " " + badge : label + " " + badge);
+    var labelEls = btn.querySelectorAll(".vc-header-promo-btn__label");
+    var badgeEls = btn.querySelectorAll(".vc-header-promo-btn__badge");
+    var i;
+    for (i = 0; i < labelEls.length; i += 1) labelEls[i].textContent = label;
+    for (i = 0; i < badgeEls.length; i += 1) badgeEls[i].textContent = badge;
     try {
       var path = String(window.location.pathname || "").replace(/\/index\.html$/i, "").replace(/\/+$/, "") || "/";
       var target = String(href || "").replace(/^https?:\/\/[^/]+/i, "").replace(/\/index\.html$/i, "").replace(/\/+$/, "") || "/";
       if (path === target) btn.setAttribute("aria-current", "page");
       else btn.removeAttribute("aria-current");
     } catch (eCur) {}
+    ensureMarquee(btn);
   }
 
   function boot() {
     var cfg = readCfg();
     var btn = document.getElementById("vc-header-promo-btn");
-    if (!cfg || !btn) return;
-    applyMode(btn, cfg, resolveMode(cfg));
+    if (!btn) return;
+    if (cfg) applyMode(btn, cfg, resolveMode(cfg));
+    else ensureMarquee(btn);
+    if (!btn.__vcPromoMarqueeResize) {
+      btn.__vcPromoMarqueeResize = true;
+      var resizeTimer = 0;
+      var onResize = function () {
+        if (resizeTimer) window.clearTimeout(resizeTimer);
+        resizeTimer = window.setTimeout(function () {
+          ensureMarquee(btn);
+        }, 80);
+      };
+      window.addEventListener("resize", onResize, { passive: true });
+      if (typeof ResizeObserver === "function") {
+        try {
+          var ro = new ResizeObserver(onResize);
+          ro.observe(btn);
+          var clip = btn.querySelector(".vc-header-promo-btn__clip");
+          if (clip) ro.observe(clip);
+        } catch (eRo) {}
+      }
+      if (document.fonts && document.fonts.ready) {
+        document.fonts.ready.then(function () {
+          ensureMarquee(btn);
+        }).catch(function () {});
+      }
+    }
   }
 
   if (document.readyState === "loading") {

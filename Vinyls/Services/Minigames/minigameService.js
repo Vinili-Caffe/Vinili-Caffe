@@ -36,6 +36,7 @@ const { TENANT_EMBED_COLOR } = require("../../MultiGuild/utils/tenantEmbedBrandi
 const MINIGAME_EMBED_COLOR = TENANT_EMBED_COLOR;
 const activeGames = new Map();
 const channelWinClosing = new Set();
+const treasureHuntReactLocks = new Set();
 const channelNoRehydrateUntil = new Map();
 const MINIGAME_NO_REHYDRATE_MS = 300_000;
 
@@ -12442,6 +12443,26 @@ function getTreasureHuntCfg(cfg) {
     : null;
 }
 
+function normalizeTreasureEmojiKey(value) {
+  return String(value || "")
+    .replace(/\uFE0F|\uFE0E/g, "")
+    .trim();
+}
+
+function unicodeTreasureReactVariants(token) {
+  const s = String(token || "").trim();
+  if (!s || s.startsWith("<") || /^\d{16,20}$/.test(s) || /^:[a-zA-Z0-9_]+:$/.test(s)) {
+    return s ? [s] : [];
+  }
+  const stripped = normalizeTreasureEmojiKey(s);
+  const withVs = stripped ? `${stripped}\uFE0F` : "";
+  const out = [];
+  for (const v of [s, stripped, withVs]) {
+    if (v && !out.includes(v)) out.push(v);
+  }
+  return out;
+}
+
 function parseTreasureEmojiToken(raw) {
   const s = String(raw || "").trim();
   if (!s) return { display: "", react: "", id: "", name: "", animated: false };
@@ -12542,7 +12563,9 @@ function treasureEmojiMatches(reactionEmoji, token) {
   const rid = String(reactionEmoji?.id || "");
   const rname = String(reactionEmoji?.name || "");
   if (parsed.id && rid) return parsed.id === rid;
-  if (parsed.name && rname) return parsed.name === rname;
+  const tokenKey = normalizeTreasureEmojiKey(parsed.name || token);
+  const reactKey = normalizeTreasureEmojiKey(rname);
+  if (tokenKey && reactKey && tokenKey === reactKey) return true;
   return rname === String(token || "").trim();
 }
 
@@ -12576,19 +12599,40 @@ async function botPlacedTreasureReaction(message, token, client) {
   return false;
 }
 
+function isTreasureReactAlreadyPresentError(err) {
+  const code = Number(err?.code ?? err?.rawError?.code);
+  if ([10014, 90001].includes(code)) return false;
+  const msg = String(err?.message || err?.rawError?.message || "");
+  return /already\s+(reacted|added)|reaction\s+already/i.test(msg);
+}
+
 async function reactTreasureHuntEmojiWithFallbacks(message, token) {
+  const intended = String(token || "").trim();
+  if (!intended || typeof message?.react !== "function") return null;
+  const client = message.client;
+  if (await botPlacedTreasureReaction(message, intended, client).catch(() => false)) return intended;
+
+  if (await reactTreasureHuntEmoji(message, intended, { quiet: true })) return intended;
+  const afterPrimary = await message.fetch().catch(() => message);
+  if (findMessageReactionByToken(afterPrimary || message, intended)) return intended;
+
   const candidates = [];
-  const seen = new Set();
+  const seen = new Set([intended, normalizeTreasureEmojiKey(intended)]);
   const add = (t) => {
     const key = String(t || "").trim();
-    if (!key || seen.has(key)) return;
+    if (!key || seen.has(key) || seen.has(normalizeTreasureEmojiKey(key))) return;
     seen.add(key);
     candidates.push(key);
   };
-  add(token);
   for (const fb of TREASURE_HUNT_REACT_FALLBACKS) add(fb);
   for (const candidate of candidates) {
+    if (findMessageReactionByToken(afterPrimary || message, candidate)) return candidate;
     if (await reactTreasureHuntEmoji(message, candidate, { quiet: true })) return candidate;
+  }
+  const latest = await message.fetch().catch(() => afterPrimary || message);
+  if (findMessageReactionByToken(latest, intended)) return intended;
+  for (const candidate of candidates) {
+    if (findMessageReactionByToken(latest, candidate)) return candidate;
   }
   return null;
 }
@@ -12602,6 +12646,11 @@ async function reactTreasureHuntEmoji(message, token, options = {}) {
   const logReactError = (err) => {
     if (!quiet && !isBenignDiscordMinigameError(err)) warnMinigame(err);
   };
+  const acceptIfPresent = async (err) => {
+    if (isTreasureReactAlreadyPresentError(err)) return true;
+    const live = await message.fetch().catch(() => message);
+    return Boolean(findMessageReactionByToken(live, token));
+  };
   if (parsed.id) {
     let emoji =
       guild?.emojis?.cache?.get(parsed.id) ||
@@ -12614,6 +12663,7 @@ async function reactTreasureHuntEmoji(message, token, options = {}) {
         await message.react(emoji);
         return true;
       } catch (err) {
+        if (await acceptIfPresent(err)) return true;
         logReactError(err);
       }
     }
@@ -12629,18 +12679,22 @@ async function reactTreasureHuntEmoji(message, token, options = {}) {
         });
         return true;
       } catch (errB) {
+        if (await acceptIfPresent(errB)) return true;
         logReactError(errB);
         return false;
       }
     }
   }
-  try {
-    await message.react(parsed.react);
-    return true;
-  } catch (err) {
-    logReactError(err);
-    return false;
+  for (const variant of unicodeTreasureReactVariants(parsed.react)) {
+    try {
+      await message.react(variant);
+      return true;
+    } catch (err) {
+      if (await acceptIfPresent(err)) return true;
+      logReactError(err);
+    }
   }
+  return false;
 }
 
 async function catchUpTreasureHuntReactions(channel, game) {
@@ -12934,6 +12988,12 @@ async function handleTreasureHuntIncomingMessage(message, client, cfg) {
   if (message.author?.bot) return false;
   const msgId = String(message.id);
   if (live.introMessageId && msgId === String(live.introMessageId)) return false;
+  if (Array.isArray(live.candidateIds) && live.candidateIds.some((id) => String(id) === msgId)) {
+    return true;
+  }
+  if (treasureHuntReactLocks.has(msgId)) return false;
+  treasureHuntReactLocks.add(msgId);
+  try {
   const nextCount = Number(live.collectedCount || 0) + 1;
   const winnerIndex = Math.max(1, Number(live.winnerIndex || 1));
   const isWinner = nextCount === winnerIndex;
@@ -12945,7 +13005,9 @@ async function handleTreasureHuntIncomingMessage(message, client, cfg) {
   }
   if (!placedToken) {
     const stillThere = await message.fetch().catch(() => null);
-    if (stillThere) {
+    if (stillThere && findMessageReactionByToken(stillThere, emoji)) {
+      placedToken = emoji;
+    } else if (stillThere) {
       warnMinigame(new Error(`treasure_hunt_react_failed:${isWinner ? "winner" : "decoy"}:${emoji}`));
     }
   } else {
@@ -12961,6 +13023,9 @@ async function handleTreasureHuntIncomingMessage(message, client, cfg) {
   }
   await persistTreasureHuntState(client, cfg, live);
   return Boolean(placedToken);
+  } finally {
+    treasureHuntReactLocks.delete(msgId);
+  }
 }
 
 async function primeTreasureHuntRecentMessages(channel, client, cfg, game) {

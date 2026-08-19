@@ -831,10 +831,10 @@ async function checkMemberCandidatureEligibility(member, type) {
   }
   const targetRoleId = getTargetRoleIdByType(type);
   if (targetRoleId && hasAnyRoleMember(member, [targetRoleId])) {
-    return { ok: false, code: "already_role", message: "Sei già Partner Manager." };
+    return { ok: false, code: "already_role", message: "Sei già un Partner Manager." };
   }
   if (type === "helper" && hasAnyRoleMember(member, HELPER_REAPPLY_BLOCK_ROLE_IDS)) {
-    return { ok: false, code: "helper_blocked", message: "Sei già Helper." };
+    return { ok: false, code: "helper_blocked", message: "Sei già un membro dello Staff." };
   }
   const until = await getCooldownUntil(member.user.id, type);
   if (until) {

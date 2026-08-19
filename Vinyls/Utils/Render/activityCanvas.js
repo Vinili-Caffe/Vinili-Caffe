@@ -1921,7 +1921,7 @@ async function renderServerActivityCanvas(props) {
     const canvas = getCanvasModule().createCanvas(width, height);
     const ctx = canvas.getContext("2d");
     await paintServerActivityCanvas(ctx, props, null, guildIconResolved);
-    return canvas.toBuffer("image/png");
+    return canvas.toBuffer("image/png", { compressionLevel: 1 });
   }
 
   const animFrames = ACTIVITY_CANVAS_ANIM_FRAMES;

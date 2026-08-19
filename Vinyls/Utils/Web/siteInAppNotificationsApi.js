@@ -2,6 +2,7 @@ const {
   listSiteInAppNotificationsForUser,
   markSiteInAppNotificationRead,
   markAllSiteInAppNotificationsRead,
+  markSiteInAppNotificationsReadForTicket,
   deleteAllSiteInAppNotificationsForUser,
   deleteSiteInAppNotificationForUser,
 } = require("./siteInAppNotificationsService");
@@ -87,6 +88,11 @@ async function handleSiteNotificationsMarkReadPost(client, req, res) {
     const body = req.body && typeof req.body === "object" ? req.body : {};
     if (body.all === true) {
       const modified = await markAllSiteInAppNotificationsRead(resolved.userId);
+      return res.status(200).json({ ok: true, modified });
+    }
+    const ticketId = String(body.ticketId || "").trim();
+    if (/^[a-f0-9]{24}$/i.test(ticketId)) {
+      const modified = await markSiteInAppNotificationsReadForTicket(resolved.userId, ticketId);
       return res.status(200).json({ ok: true, modified });
     }
     const id = String(body.id || "").trim();

@@ -1,14 +1,20 @@
 /* Tickets layout — full-bleed, hero compatto, chat alta (anti-cache). */
-body.vc-web-tickets-page main.vc-reviews-page {
-  width: 100% !important;
-  max-width: none !important;
+body.vc-web-tickets-page:not(.vc-page-cine-layout) main.vc-reviews-page {
+  width: min(100%, 86rem) !important;
+  max-width: 86rem !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
   padding-left: clamp(0.65rem, 1.6vw, 1.35rem) !important;
   padding-right: clamp(0.65rem, 1.6vw, 1.35rem) !important;
   padding-top: 6.25rem !important;
   padding-bottom: 1.15rem !important;
+  display: flex !important;
+  flex-direction: column !important;
+  min-height: 100dvh !important;
+  box-sizing: border-box !important;
 }
 @media (min-width: 640px) {
-  body.vc-web-tickets-page main.vc-reviews-page {
+  body.vc-web-tickets-page:not(.vc-page-cine-layout) main.vc-reviews-page {
     padding-top: 6.75rem !important;
   }
 }
@@ -19,6 +25,10 @@ body.vc-web-tickets-page .vc-wt-board {
   width: 100% !important;
   max-width: none !important;
   margin-top: 0 !important;
+  flex: 1 1 auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+  min-height: 0 !important;
 }
 
 /* Niente titolo "Assistenza / I tuoi ticket": più spazio alla board. */
@@ -44,62 +54,72 @@ body.vc-web-tickets-page .vc-wt-seg--header {
   flex: 1 1 auto !important;
 }
 
-body.vc-web-tickets-page .vc-support-page-hero {
+body.vc-web-tickets-page:not(.vc-page-cine-layout) .vc-support-page-hero {
   display: block !important;
   width: 100% !important;
   max-width: none !important;
-  /* Stessa scala delle card hero “grandi” (suggerimenti / support default). */
+  flex: 0 0 auto !important;
   padding: 2.5rem 1.5rem !important;
-  margin-bottom: 2rem !important;
+  margin-bottom: 0.9rem !important;
   border-radius: 2rem !important;
   overflow: hidden !important;
 }
 @media (min-width: 640px) {
-  body.vc-web-tickets-page .vc-support-page-hero {
+  body.vc-web-tickets-page:not(.vc-page-cine-layout) .vc-support-page-hero {
     padding: 3.5rem 2.5rem !important;
-    margin-bottom: 2.5rem !important;
+    margin-bottom: 1rem !important;
   }
 }
-body.vc-web-tickets-page .vc-support-page-hero .vc-support-page-hero__icon,
-body.vc-web-tickets-page .vc-support-page-hero .vc-wt-hero-icon {
+@media (max-width: 639.98px) {
+  body.vc-web-tickets-page:not(.vc-page-cine-layout) .vc-support-page-hero {
+    padding: 1.2rem 1.05rem !important;
+    margin-bottom: 0.75rem !important;
+  }
+  body.vc-web-tickets-page:not(.vc-page-cine-layout) .vc-support-page-hero h1 {
+    font-size: clamp(1.55rem, 7vw, 2.1rem) !important;
+    margin-top: 0.45rem !important;
+  }
+}
+body.vc-web-tickets-page:not(.vc-page-cine-layout) .vc-support-page-hero .vc-support-page-hero__icon,
+body.vc-web-tickets-page:not(.vc-page-cine-layout) .vc-support-page-hero .vc-wt-hero-icon {
   width: 4rem !important;
   height: 4rem !important;
   font-size: 1.65rem !important;
   margin-bottom: 1.25rem !important;
 }
 @media (min-width: 640px) {
-  body.vc-web-tickets-page .vc-support-page-hero .vc-support-page-hero__icon,
-  body.vc-web-tickets-page .vc-support-page-hero .vc-wt-hero-icon {
+  body.vc-web-tickets-page:not(.vc-page-cine-layout) .vc-support-page-hero .vc-support-page-hero__icon,
+  body.vc-web-tickets-page:not(.vc-page-cine-layout) .vc-support-page-hero .vc-wt-hero-icon {
     width: 4.25rem !important;
     height: 4.25rem !important;
     font-size: 1.85rem !important;
   }
 }
-body.vc-web-tickets-page .vc-support-page-hero h1 {
+body.vc-web-tickets-page:not(.vc-page-cine-layout) .vc-support-page-hero h1 {
   font-size: clamp(2.25rem, 4.5vw, 3.75rem) !important;
   margin-top: 1rem !important;
   line-height: 1.05 !important;
 }
-body.vc-web-tickets-page .vc-support-page-hero p.max-w-2xl {
+body.vc-web-tickets-page:not(.vc-page-cine-layout) .vc-support-page-hero p.max-w-2xl {
   margin-top: 1.25rem !important;
   font-size: clamp(1.05rem, 1.4vw, 1.25rem) !important;
   line-height: 1.55 !important;
 }
 
 /* Hero: titolo a sinistra, Come funziona + Nota a destra (full width). */
-body.vc-web-tickets-page .vc-wt-hero-grid {
+body.vc-web-tickets-page:not(.vc-page-cine-layout) .vc-wt-hero-grid {
   display: grid !important;
   gap: 2.5rem !important;
   align-items: center !important;
   grid-template-columns: minmax(0, 1fr) !important;
 }
 @media (min-width: 64rem) {
-  body.vc-web-tickets-page .vc-wt-hero-grid {
+  body.vc-web-tickets-page:not(.vc-page-cine-layout) .vc-wt-hero-grid {
     grid-template-columns: minmax(0, 1.35fr) minmax(18rem, 22rem) !important;
     gap: 2.5rem !important;
   }
 }
-body.vc-web-tickets-page .vc-wt-hero-aside {
+body.vc-web-tickets-page:not(.vc-page-cine-layout) .vc-wt-hero-aside {
   display: grid !important;
   gap: 1rem !important;
 }
@@ -117,9 +137,37 @@ body.vc-web-tickets-page .vc-wt-app {
 
 .vc-wt-layout {
   width: 100% !important;
-  height: max(46rem, calc(100dvh - 10.5rem)) !important;
-  max-height: max(46rem, calc(100dvh - 10.5rem)) !important;
-  min-height: 46rem !important;
+  flex: 1 1 auto !important;
+  min-height: 28rem !important;
+  height: auto !important;
+  max-height: none !important;
+  overflow: hidden !important;
+}
+
+/* Layout cine: board sotto l'hero a schermo intero, come homepage. */
+body.vc-web-tickets-page.vc-page-cine-layout main.vc-page-cine-main {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  min-height: 0 !important;
+  display: block !important;
+}
+body.vc-web-tickets-page.vc-page-cine-layout .vc-page-cine-body,
+body.vc-web-tickets-page.vc-page-cine-layout #vc-page-content {
+  width: min(100%, 86rem) !important;
+  max-width: 86rem !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  padding-left: max(1rem, env(safe-area-inset-left, 0px)) !important;
+  padding-right: max(1rem, env(safe-area-inset-right, 0px)) !important;
+  box-sizing: border-box !important;
+}
+body.vc-web-tickets-page.vc-page-cine-layout .vc-wt-layout {
+  height: max(42rem, calc(100dvh - 6rem)) !important;
+  max-height: none !important;
+  min-height: 36rem !important;
+  overflow: hidden !important;
+  flex: none !important;
 }
 @media (max-width: 900px) {
   .vc-wt-layout {
@@ -136,4 +184,12 @@ body.vc-web-tickets-page .vc-wt-app {
     height: min(78vh, 760px) !important;
     max-height: min(78vh, 760px) !important;
   }
+}
+
+.vc-wt-msg--pending {
+  opacity: 0.62;
+  pointer-events: none;
+}
+.vc-wt-msg--pending .vc-wt-msg__bubble {
+  filter: saturate(0.85);
 }

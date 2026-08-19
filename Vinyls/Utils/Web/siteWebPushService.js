@@ -109,10 +109,6 @@ async function upsertWebPushSubscription(userId, subscription, meta = {}) {
       },
       { upsert: true, new: true, setDefaultsOnInsert: true },
     );
-    try {
-      const host = new URL(endpoint).host;
-      global.logger?.info?.("[siteWebPush] subscription saved", { userId: uid, host });
-    } catch (_) {}
     return { ok: true };
   } catch (err) {
     global.logger?.warn?.("[siteWebPush] upsert failed:", err?.message || err);
@@ -135,19 +131,67 @@ async function removeWebPushByEndpoint(endpointRaw) {
   return Number(res?.deletedCount) || 0;
 }
 
+function looksLikeSiteName(title) {
+  const t = String(title || "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+  if (!t) return true;
+  return /^(vinili\s*[&e]\s*caff[eè]?|viniliecaffe|vinili)$/i.test(t);
+}
+
+function pushDisplayTitle(title, body) {
+  const t = String(title || "").trim();
+  if (t && !looksLikeSiteName(t)) return t.slice(0, 120);
+  const b = String(body || "").trim().split("\n")[0];
+  if (b) return (b.length > 72 ? `${b.slice(0, 71)}…` : b).slice(0, 120);
+  return "Nuova notifica";
+}
+
 async function listSubscriptionsForUser(userId) {
   const uid = normalizeUserId(userId);
   if (!uid) return [];
   const docs = await SiteDocument.find({ docType: DOC, userId: uid })
-    .select("pushEndpoint pushP256dh pushAuth")
+    .select("pushEndpoint pushP256dh pushAuth pushUserAgent")
     .lean()
     .catch(() => []);
   return Array.isArray(docs) ? docs : [];
 }
 
+function isMobilePushSubscription(sub) {
+  const ua = String(sub?.pushUserAgent || "");
+  if (/iPhone|iPad|iPod|Android|Mobile/i.test(ua)) return true;
+  try {
+    const host = new URL(String(sub?.pushEndpoint || "")).host;
+    if (/web\.push\.apple\.com|push\.apple\.com/i.test(host)) return true;
+  } catch (_) {}
+  return false;
+}
+
+function isApplePushSubscription(sub) {
+  try {
+    const host = new URL(String(sub?.pushEndpoint || "")).host;
+    if (/web\.push\.apple\.com|push\.apple\.com/i.test(host)) return true;
+  } catch (_) {}
+  const ua = String(sub?.pushUserAgent || "");
+  if (/iPhone|iPad|iPod/i.test(ua)) return true;
+  if (/Macintosh/i.test(ua) && /Safari/i.test(ua) && !/Chrome|Chromium|Firefox|Android|CriOS|FxiOS/i.test(ua)) {
+    return true;
+  }
+  return false;
+}
+
+function isDesktopPushSubscription(sub) {
+  if (isMobilePushSubscription(sub)) return false;
+  if (isApplePushSubscription(sub)) return false;
+  const ua = String(sub?.pushUserAgent || "");
+  if (/Windows|Macintosh|Linux|X11/i.test(ua) && !/Mobile/i.test(ua)) return true;
+  return false;
+}
+
 /**
  * @param {string} userId
- * @param {{ title?: string, body?: string, openUrl?: string, kind?: string }} payload
+ * @param {{ title?: string, body?: string, openUrl?: string, kind?: string, id?: string, ticketId?: string, type?: string, all?: boolean }} payload
  */
 async function sendWebPushToUser(userId, payload = {}) {
   if (!ensureVapidConfigured()) return { ok: false, skipped: true, reason: "vapid_missing" };
@@ -156,26 +200,50 @@ async function sendWebPushToUser(userId, payload = {}) {
   const subs = await listSubscriptionsForUser(uid);
   if (!subs.length) return { ok: true, sent: 0 };
 
-  const title = String(payload.title || "Vinili & Caffè").trim().slice(0, 120) || "Vinili & Caffè";
+  const isDismiss = String(payload.type || "").trim().toLowerCase() === "dismiss";
+  const ticketId = String(payload.ticketId || "").trim().slice(0, 40);
+  const title = pushDisplayTitle(payload.title, payload.body);
   const body = String(payload.body || "").trim().slice(0, 500);
   const openUrl = absoluteOpenUrl(payload.openUrl);
   const kind = String(payload.kind || "info").trim().slice(0, 24);
   const origin = resolveSitePublicOrigin().replace("://viniliecaffe.it", "://www.viniliecaffe.it");
   const icon = `${origin}/apple-touch-icon.png`;
-  const data = JSON.stringify({
-    title,
-    body,
-    openUrl,
-    kind,
-    id: String(payload.id || "").trim().slice(0, 40),
-    ticketId: String(payload.ticketId || "").trim().slice(0, 40),
-    icon,
-    badge: icon,
-  });
+  const data = JSON.stringify(
+    isDismiss
+      ? {
+          type: "dismiss",
+          ticketId,
+          id: String(payload.id || "").trim().slice(0, 40),
+          all: payload.all === true,
+        }
+      : {
+          title,
+          body,
+          openUrl,
+          kind,
+          id: String(payload.id || "").trim().slice(0, 40),
+          ticketId,
+          messageId: /^[a-f0-9]{24}$/i.test(String(payload.messageId || "").trim())
+            ? String(payload.messageId).trim().toLowerCase()
+            : "",
+          icon,
+          badge: icon,
+        },
+  );
+
+  const pushOpts = {
+    TTL: isDismiss ? 60 * 30 : 60 * 60 * 24,
+    urgency: isDismiss ? "normal" : "high",
+  };
 
   let sent = 0;
   let failed = 0;
   for (const sub of subs) {
+    // iOS/Android: un push "dismiss" diventa una notifica vuota (Apple obbliga
+    // uno show, Chrome mostra "updated in the background"). Solo desktop.
+    // iOS: un push "dismiss" senza show diventa toast di sistema / vuota.
+    // Android: close() nel SW basta. Desktop: close() ok.
+    if (isDismiss && isApplePushSubscription(sub)) continue;
     const endpoint = normalizeEndpoint(sub.pushEndpoint);
     const p256dh = normalizeKey(sub.pushP256dh);
     const auth = normalizeKey(sub.pushAuth, 256);
@@ -187,14 +255,24 @@ async function sendWebPushToUser(userId, payload = {}) {
           keys: { p256dh, auth },
         },
         data,
-        {
-          // high: migliore consegna in background su iOS/Android (Apple throttla di più “normal”).
-          TTL: 60 * 60 * 24,
-          urgency: "high",
-        },
+        pushOpts,
       );
       sent += 1;
     } catch (err) {
+      let retried = false;
+      if (pushOpts.headers && Number(err?.statusCode) !== 404 && Number(err?.statusCode) !== 410) {
+        try {
+          const { headers: _topic, ...withoutTopic } = pushOpts;
+          await webpush.sendNotification(
+            { endpoint, keys: { p256dh, auth } },
+            data,
+            withoutTopic,
+          );
+          sent += 1;
+          retried = true;
+        } catch (_) {}
+      }
+      if (retried) continue;
       failed += 1;
       const status = Number(err?.statusCode) || 0;
       let host = "";
@@ -203,7 +281,6 @@ async function sendWebPushToUser(userId, payload = {}) {
       } catch (_) {}
       if (status === 404 || status === 410) {
         await removeWebPushByEndpoint(endpoint);
-        global.logger?.info?.("[siteWebPush] removed stale endpoint", { host, status });
       } else {
         global.logger?.warn?.("[siteWebPush] send failed:", {
           host,
@@ -212,9 +289,6 @@ async function sendWebPushToUser(userId, payload = {}) {
         });
       }
     }
-  }
-  if (sent || failed) {
-    global.logger?.info?.("[siteWebPush] deliver", { userId: uid, sent, failed, subs: subs.length });
   }
   return { ok: true, sent, failed };
 }

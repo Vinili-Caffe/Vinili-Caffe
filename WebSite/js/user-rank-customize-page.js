@@ -320,14 +320,26 @@
   }
 
   function previewMarkup(data, theme) {
-    var initialPreviewSrc = previewObjectUrl || loadLatestCachedPreview(true);
+    var signature = previewSignatureForTheme(theme);
+    var matchingCache = loadCachedPreview(signature, true);
+    var initialPreviewSrc = "";
+    if (matchingCache) initialPreviewSrc = matchingCache;
+    else if (previewObjectUrl && previewLastSignature === signature) initialPreviewSrc = previewObjectUrl;
     return (
-      '<div class="vc-rank-editor-preview__imagewrap">' +
+      '<div class="vc-rank-editor-preview__imagewrap' + (initialPreviewSrc ? " is-ready" : "") + '">' +
+      '<div class="vc-rankcard-ph" aria-hidden="true">' +
+      '<div class="vc-rankcard-ph__hero">' +
+      '<span class="vc-rankcard-ph__avatar"></span>' +
+      '<span class="vc-rankcard-ph__copy"><span></span><span></span></span>' +
+      '<span class="vc-rankcard-ph__rank"></span>' +
+      "</div>" +
+      '<div class="vc-rankcard-ph__stats"><span></span><span></span><span></span></div>' +
+      "</div>" +
       '<span id="vc-rank-editor-preview-live-overlay" class="vc-rank-editor-preview__liveoverlay" aria-hidden="true"></span>' +
-      '<img id="vc-rank-editor-preview-image" class="vc-rank-editor-preview__image" alt="Anteprima rank card" loading="eager" decoding="async"' +
-      (initialPreviewSrc ? ' src="' + esc(initialPreviewSrc) + '"' : "") +
+      '<img id="vc-rank-editor-preview-image" class="vc-rank-editor-preview__image" alt="" loading="eager" decoding="async"' +
+      (initialPreviewSrc ? ' src="' + esc(initialPreviewSrc) + '"' : " hidden") +
       " />" +
-      '<p id="vc-rank-editor-preview-image-status" class="vc-rank-editor-preview__imagestatus">Render anteprima in corso...</p>' +
+      '<p id="vc-rank-editor-preview-image-status" class="vc-rank-editor-preview__imagestatus" hidden></p>' +
       "</div>"
     );
   }
@@ -432,6 +444,36 @@
     });
   }
 
+  function markCustomizePreviewReady(img, ready) {
+    var wrap = img && img.closest ? img.closest(".vc-rank-editor-preview__imagewrap") : null;
+    if (wrap) wrap.classList.toggle("is-ready", Boolean(ready));
+    if (img) {
+      if (ready) {
+        img.removeAttribute("hidden");
+        img.alt = "Anteprima rank card";
+      } else if (!img.getAttribute("src")) {
+        img.setAttribute("hidden", "");
+      }
+    }
+  }
+
+  function setCustomizePreviewStatus(status, text, isError) {
+    if (!status) return;
+    status.textContent = text || "";
+    status.className = "vc-rank-editor-preview__imagestatus" + (isError ? " is-error" : "");
+    status.hidden = !text;
+  }
+
+  function applyCustomizePreviewSrc(img, src) {
+    if (!img || !src) return;
+    img.onload = function () {
+      img.classList.remove("is-rendering");
+      markCustomizePreviewReady(img, true);
+    };
+    img.src = src;
+    img.removeAttribute("hidden");
+  }
+
   function refreshServerPreview() {
     if (previewRenderInFlight) {
       previewRefreshQueued = true;
@@ -449,46 +491,44 @@
     }
     var latestCachedDataUrlAtBoot = loadLatestCachedPreview(true);
     if (latestCachedDataUrlAtBoot && !img.getAttribute("src")) {
-      img.src = latestCachedDataUrlAtBoot;
+      applyCustomizePreviewSrc(img, latestCachedDataUrlAtBoot);
       img.classList.remove("is-rendering");
-      status.textContent = "Aggiorno anteprima...";
-      status.className = "vc-rank-editor-preview__imagestatus";
+      setCustomizePreviewStatus(status, "", false);
       setLocalOpacityDragPreview(false);
     }
     if (!token || !url || !draft) {
-      status.textContent = img.getAttribute("src") ? "" : "Anteprima non disponibile.";
+      if (!img.getAttribute("src")) setCustomizePreviewStatus(status, "Anteprima non disponibile.", true);
+      else setCustomizePreviewStatus(status, "", false);
       previewRenderInFlight = false;
       return;
     }
     var signature = previewSignatureForTheme(draft);
     if (signature === previewLastSignature && img.getAttribute("src")) {
-      status.textContent = "";
-      status.className = "vc-rank-editor-preview__imagestatus";
+      setCustomizePreviewStatus(status, "", false);
+      markCustomizePreviewReady(img, true);
       previewRenderInFlight = false;
       return;
     }
     var cachedDataUrl = loadCachedPreview(signature, true);
     var latestCachedDataUrl = cachedDataUrl || loadLatestCachedPreview(true);
     if (latestCachedDataUrl && (!img.getAttribute("src") || img.classList.contains("is-rendering"))) {
-      img.src = latestCachedDataUrl;
+      applyCustomizePreviewSrc(img, latestCachedDataUrl);
       img.classList.remove("is-rendering");
-      status.textContent = cachedDataUrl ? "" : "Aggiorno anteprima...";
-      status.className = "vc-rank-editor-preview__imagestatus";
+      setCustomizePreviewStatus(status, "", false);
       setLocalOpacityDragPreview(false);
     }
     if (cachedDataUrl) {
-      img.src = cachedDataUrl;
+      applyCustomizePreviewSrc(img, cachedDataUrl);
       img.classList.remove("is-rendering");
-      status.textContent = "";
-      status.className = "vc-rank-editor-preview__imagestatus";
+      setCustomizePreviewStatus(status, "", false);
       previewLastSignature = signature;
       previewRenderInFlight = false;
       setLocalOpacityDragPreview(false);
       return;
     }
     var myToken = ++previewRenderToken;
-    if (!img.getAttribute("src")) status.textContent = "Render anteprima in corso...";
-    status.className = "vc-rank-editor-preview__imagestatus";
+    setCustomizePreviewStatus(status, "", false);
+    if (!img.getAttribute("src")) markCustomizePreviewReady(img, false);
     img.classList.add("is-rendering");
     fetchWithTimeout(url, {
       method: "POST",
@@ -534,7 +574,8 @@
         previewObjectUrl = nextObjectUrl;
         img.src = previewObjectUrl;
         img.classList.remove("is-rendering");
-        status.textContent = "";
+        markCustomizePreviewReady(img, true);
+        setCustomizePreviewStatus(status, "", false);
         previewLastSignature = signature;
         if (nextDataUrl) saveCachedPreview(signature, nextDataUrl);
         if (prevObjectUrl) {
@@ -547,8 +588,13 @@
       .catch(function (err) {
         if (myToken !== previewRenderToken) return;
         img.classList.remove("is-rendering");
-        status.textContent = "Anteprima non disponibile al momento.";
-        status.className = "vc-rank-editor-preview__imagestatus is-error";
+        if (img.getAttribute("src")) {
+          markCustomizePreviewReady(img, true);
+          setCustomizePreviewStatus(status, "", false);
+        } else {
+          markCustomizePreviewReady(img, false);
+          setCustomizePreviewStatus(status, "Anteprima non disponibile al momento.", true);
+        }
         setLocalOpacityDragPreview(false);
       })
       .finally(function () {
@@ -686,7 +732,7 @@
       '<aside class="vc-rank-editor-side">' +
       '<div class="vc-rank-editor-previewcard"><div class="vc-rank-editor-previewcard__head"><span class="vc-rank-editor-previewcard__icon"><i class="fa fa-eye" aria-hidden="true"></i></span><div><strong>Anteprima Live</strong></div></div>' +
       previewMarkup(loaded, draft) +
-      '<div class="vc-rank-editor-previewnote"><strong>Aggiornamento</strong><span>L\'opacità si aggiorna in tempo reale. Per i colori, usa "Aggiorna Anteprima". Per salvare clicca su "Salva Modifiche".</span></div>' +
+      '<div class="vc-rank-editor-previewnote"><strong>Anteprima live</strong><span>Wallpaper, opacità e colori si vedono subito qui. "Salva Modifiche" le conferma su Discord (+rank).</span></div>' +
       '<div class="vc-rank-editor-previewbadge">Preview identica a <code>+rank</code> su Discord</div>' +
       "</div></aside></div>";
 
@@ -788,6 +834,7 @@
     if (field === "labelColor") {
       draft.secondaryTextColor = draft[field];
     }
+    previewLastSignature = "";
     render();
   }
 
@@ -896,6 +943,7 @@
       button.addEventListener("click", function () {
         draft.wallpaperKey = String(button.getAttribute("data-rank-wallpaper") || "default");
         draft.wallpaperUrl = "";
+        previewLastSignature = "";
         render();
       });
     });
@@ -909,8 +957,9 @@
         try {
           draft.wallpaperKey = "default";
           draft.wallpaperUrl = await optimizeWallpaperFile(file);
+          previewLastSignature = "";
           render();
-          setStatus("Wallpaper pronto. Salva le modifiche per applicarlo.", false);
+          setStatus("");
         } catch (err) {
           setStatus(
             err && err.message === "file_too_large"
@@ -928,6 +977,7 @@
     if (clearWallpaperBtn) {
       clearWallpaperBtn.addEventListener("click", function () {
         draft.wallpaperUrl = "";
+        previewLastSignature = "";
         render();
       });
     }

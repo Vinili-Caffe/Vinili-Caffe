@@ -8,10 +8,12 @@ logging:
   level:
     root: WARN
     lavalink: WARN
-    # OAuth: INFO al boot per vedere refresh ok / need re-auth.
-    # Dopo un refresh ok puoi rimettere WARN.
-    dev.lavalink.youtube: WARN
-    dev.lavalink.youtube.http.YoutubeOauth2Handler: INFO
+    # YouTube clients (TVHTML5 / WEBEMBEDDED) falliscono spesso e ritentano:
+    # AllClientsFailedException + dump formati itag inquinano PM2 senza essere crash.
+    dev.lavalink.youtube: ERROR
+    dev.lavalink.youtube.http.YoutubeOauth2Handler: WARN
+    com.sedmelluq.discord.lavaplayer: ERROR
+    com.sedmelluq.discord.lavaplayer.track.playback: ERROR
   request:
     enabled: false
 

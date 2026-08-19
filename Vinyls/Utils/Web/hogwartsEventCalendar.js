@@ -379,7 +379,8 @@ function buildHeaderPromoButtonHtml({ mode, eventUrl, candidatureUrl }) {
   const badge = isEvent ? "ATTIVO" : "APERTE";
   const modClass = isEvent ? "vc-header-promo-btn--event" : "vc-header-promo-btn--candidature";
   const aria = isEvent ? "Evento Hogwarts attivo – vai al calendario" : "Candidature staff aperte";
-  return `<a class="vc-header-promo-btn ${modClass}" id="vc-header-promo-btn" href="${escHtml(href)}" aria-label="${escHtml(aria)}"><span class="vc-header-promo-btn__dot" aria-hidden="true"></span><span class="vc-header-promo-btn__label">${escHtml(label)}</span><span class="vc-header-promo-btn__badge">${escHtml(badge)}</span></a>`;
+  const unitInner = `<span class="vc-header-promo-btn__label">${escHtml(label)}</span><span class="vc-header-promo-btn__badge">${escHtml(badge)}</span>`;
+  return `<a class="vc-header-promo-btn ${modClass}" id="vc-header-promo-btn" href="${escHtml(href)}" aria-label="${escHtml(aria)}"><span class="vc-header-promo-btn__dot" aria-hidden="true"></span><span class="vc-header-promo-btn__clip"><span class="vc-header-promo-btn__track"><span class="vc-header-promo-btn__unit">${unitInner}</span><span class="vc-header-promo-btn__unit is-clone" aria-hidden="true">${unitInner}</span></span></span></a>`;
 }
 
 function buildHeaderPromoClientConfig({ eventRaw = {}, eventUrl, candidatureUrl }) {

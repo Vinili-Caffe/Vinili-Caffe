@@ -506,15 +506,6 @@ async function createCustomRoleGrantRequest({ client, guildId, channelId, reques
   if (!guild || !channel || !targetMember || !requesterMember || !role)
     return { ok: false };
 
-  const waitingEmbed = new EmbedBuilder()
-    .setColor("#f1c40f")
-    .setTitle("<a:VC_pixeltime:1482535344103620771> In attesa di conferma")
-    .setDescription(
-      `<a:VC_Timer:1482527426557775954> Sto aspettando che ${targetMember} accetti di ricevere il ruolo **${role.name}**.`,
-  );
-  const promptMsg = await channel.send({ embeds: [waitingEmbed] }).catch(() => null);
-  if (!promptMsg) return { ok: false };
-
   const token = crypto.randomBytes(16).toString("hex");
   const dmRow = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`customrole_grant:${token}:yes`)
     .setEmoji("<:vegacheckmark:1443666279058772028>")
@@ -537,8 +528,8 @@ async function createCustomRoleGrantRequest({ client, guildId, channelId, reques
       ? await targetUser.send({ embeds: [dmEmbed], components: [dmRow] }).catch(() => null)
       : null;
   if (!dmSent) {
-    await promptMsg
-      .edit({
+    await channel
+      .send({
         embeds: [
           new EmbedBuilder()
             .setColor("Red")
@@ -548,7 +539,19 @@ async function createCustomRoleGrantRequest({ client, guildId, channelId, reques
             ),
         ],
       })
-      .catch(() => { });
+      .catch(() => null);
+    return { ok: false };
+  }
+
+  const waitingEmbed = new EmbedBuilder()
+    .setColor("#f1c40f")
+    .setTitle("<a:VC_pixeltime:1482535344103620771> In attesa di conferma")
+    .setDescription(
+      `<a:VC_Timer:1482527426557775954> Sto aspettando che ${targetMember} accetti di ricevere il ruolo **${role.name}**.`,
+    );
+  const promptMsg = await channel.send({ embeds: [waitingEmbed] }).catch(() => null);
+  if (!promptMsg) {
+    await dmSent.edit({ components: [] }).catch(() => {});
     return { ok: false };
   }
 

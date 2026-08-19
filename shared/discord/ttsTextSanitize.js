@@ -132,7 +132,40 @@ function filterScriptsForTtsLang(text, lang) {
   return out;
 }
 
+const LONG_URL_TLD =
+  "com|net|org|gg|io|dev|app|xyz|ly|ai|info|biz|online|site|store|cloud|edu|gov";
+const SHORT_URL_TLD = "it|me|to|es|tv|co|uk|de|fr|ru|jp|br|us|ca|au";
+
+/** Toglie URL veri, non le parole con il punto attaccato (me.ne, ca.zzo). */
+function stripUrlsForTts(text) {
+  return String(text || "")
+    .replace(/https?:\/\/\S+/gi, " ")
+    .replace(/\bdiscord\.gg\/\S+/gi, " ")
+    .replace(/\bwww\.[a-z0-9.-]+(?:\/\S*)?/gi, " ")
+    .replace(new RegExp(`\\b[a-z0-9-]+(?:\\.[a-z0-9-]+)*\\.(?:${LONG_URL_TLD})(?:\\/\\S*)?`, "gi"), " ")
+    .replace(new RegExp(`\\b[a-z0-9-]{5,}(?:\\.[a-z0-9-]+)*\\.(?:${SHORT_URL_TLD})(?:\\/\\S*)?`, "gi"), " ")
+    .replace(
+      /\b[a-z0-9-]+\s*(?:\[\s*(?:dot|punto)\s*\]|\(\s*(?:dot|punto)\s*\)|\{\s*(?:dot|punto)\s*\})\s*[a-z]{2,}(?:\/\S*)?/gi,
+      " ",
+    )
+    .replace(/\b[a-z0-9-]+\s+(?:dot|punto)\s+[a-z]{2,}(?:\/\S*)?/gi, " ")
+    .replace(/\b[a-z]{2,}:\/\/\S+/gi, " ");
+}
+
+/** `ora me.ne vado` / `ora.me.ne.vado` → punti tra lettere diventano spazi. */
+function softenAttachedDotsForTts(text) {
+  let s = String(text || "");
+  for (let n = 0; n < 12; n += 1) {
+    const next = s.replace(/(\p{L}{1,16})\.(\p{L}{1,16})/gu, "$1 $2");
+    if (next === s) break;
+    s = next;
+  }
+  return s;
+}
+
 module.exports = {
   filterScriptsForTtsLang,
   langBase,
+  stripUrlsForTts,
+  softenAttachedDotsForTts,
 };

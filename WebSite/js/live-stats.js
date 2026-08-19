@@ -6,7 +6,11 @@
   var pollStarted = false;
   var ioFallbackTimer = null;
   var staffHoverGroups = [];
+  var boostHoverMembers = [];
+  var memberPulse = null;
+  var communityHours = { slots: [], blurb: "" };
   var staffLoadPending = false;
+  var rosterKind = null;
 
   function el(key) {
     return document.querySelector('[data-live-stat="' + key + '"]');
@@ -142,16 +146,24 @@
               if (entry && typeof entry === "object") {
                 return {
                   name: String(entry.name || "").trim(),
+                  userId: String(entry.userId || "").trim(),
+                  avatarUrl: String(entry.avatarUrl || "").trim(),
                   profileUrl: String(entry.profileUrl || "").trim(),
                   isOwner: entry.isOwner === true,
+                  isNew: entry.isNew === true,
+                  isPaused: entry.isPaused === true,
                   roleId: String(entry.roleId || "").trim(),
                   roleLabel: String(entry.roleLabel || "").trim(),
                 };
               }
               return {
                 name: String(entry || "").trim(),
+                userId: "",
+                avatarUrl: "",
                 profileUrl: "",
                 isOwner: false,
+                isNew: false,
+                isPaused: false,
                 roleId: "",
                 roleLabel: "",
               };
@@ -169,6 +181,86 @@
       });
   }
 
+  function normalizeBoostHoverMembers(raw) {
+    if (!Array.isArray(raw)) return [];
+    return raw
+      .map(function (entry) {
+        if (!entry || typeof entry !== "object") return null;
+        var boostCount = Math.floor(Number(entry.boostCount || 0));
+        if (boostCount < 1) boostCount = 1;
+        if (boostCount > 2) boostCount = 2;
+        return {
+          name: String(entry.name || "").trim(),
+          userId: String(entry.userId || "").trim(),
+          avatarUrl: String(entry.avatarUrl || "").trim(),
+          profileUrl: String(entry.profileUrl || "").trim(),
+          boostCount: boostCount,
+        };
+      })
+      .filter(function (entry) {
+        return entry && entry.name;
+      })
+      .sort(function (a, b) {
+        var dc = Number(b.boostCount || 0) - Number(a.boostCount || 0);
+        if (dc) return dc;
+        return String(a.name).localeCompare(String(b.name), "it");
+      });
+  }
+
+  function normalizeMemberPulse(raw) {
+    if (!raw || typeof raw !== "object") return null;
+    var online = raw.onlineNow != null && Number.isFinite(Number(raw.onlineNow)) ? Math.max(0, Math.floor(Number(raw.onlineNow))) : null;
+    return {
+      messages7d: Math.max(0, Math.floor(Number(raw.messages7d || 0))),
+      voiceSeconds7d: Math.max(0, Math.floor(Number(raw.voiceSeconds7d || 0))),
+      activeMembers7d: Math.max(0, Math.floor(Number(raw.activeMembers7d || 0))),
+      onlineNow: online,
+    };
+  }
+
+  function normalizeCommunityHours(raw) {
+    if (!raw || typeof raw !== "object") return { slots: [], blurb: "" };
+    var slots = Array.isArray(raw.slots)
+      ? raw.slots
+          .slice(0, 4)
+          .map(function (row) {
+            if (!row || typeof row !== "object") return null;
+            var pct = Math.max(32, Math.min(100, Math.round(Number(row.pct || 0) || 32)));
+            return {
+              id: String(row.id || "").trim(),
+              label: String(row.label || "").trim(),
+              range: String(row.range || "").trim(),
+              hint: String(row.hint || "").trim(),
+              pct: pct,
+              hottest: row.hottest === true,
+            };
+          })
+          .filter(function (row) {
+            return row && row.label;
+          })
+      : [];
+    return {
+      slots: slots,
+      blurb: String(raw.blurb || "").trim(),
+    };
+  }
+
+  function formatItInt(n) {
+    n = Math.max(0, Math.floor(Number(n) || 0));
+    return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  }
+
+  function formatVoiceHours(seconds) {
+    var hours = Math.max(0, Number(seconds) || 0) / 3600;
+    if (hours >= 100) return formatItInt(Math.round(hours)) + " h";
+    var rounded = Math.round(hours * 10) / 10;
+    return String(rounded).replace(".", ",") + " h";
+  }
+
+  function hasPulseNumbers(pulse) {
+    return !!(pulse && (pulse.messages7d > 0 || pulse.voiceSeconds7d > 0 || pulse.activeMembers7d > 0));
+  }
+
   function applyExtraStats(extra) {
     if (!extra || typeof extra !== "object") return false;
     var changed = false;
@@ -178,9 +270,21 @@
     }
     if (Array.isArray(extra.staffHoverGroups)) {
       staffHoverGroups = normalizeStaffHoverGroups(extra.staffHoverGroups);
-      updateStaffHoverUi();
       changed = true;
     }
+    if (Array.isArray(extra.boostHoverMembers)) {
+      boostHoverMembers = normalizeBoostHoverMembers(extra.boostHoverMembers);
+      changed = true;
+    }
+    if (extra.memberPulse && typeof extra.memberPulse === "object") {
+      memberPulse = normalizeMemberPulse(extra.memberPulse);
+      changed = true;
+    }
+    if (extra.communityHours && typeof extra.communityHours === "object") {
+      communityHours = normalizeCommunityHours(extra.communityHours);
+      changed = true;
+    }
+    if (changed) updateStatRosterUi();
     return changed;
   }
 
@@ -193,142 +297,644 @@
       })
       .finally(function () {
         staffLoadPending = false;
-        updateStaffHoverUi();
+        updateStatRosterUi();
       });
   }
 
-  function requestStaffPopoverOpen(cell) {
-    if (!cell) return;
-    if (!staffHoverGroups.length) {
-      var body = cell.querySelector(".vc-stat-staff-popover__body");
-      if (body) body.textContent = "Caricamento...";
-      if (!staffLoadPending) prefetchStaffData();
-    }
-    cell.classList.add("vc-stat-cell--staff-open");
+  function statsRoot() {
+    return document.getElementById("stats");
   }
 
-  function ensureStaffHoverUi() {
+  function staffCell() {
     var staffNode = el("staff");
-    if (!staffNode) return;
-    var cell = staffNode.closest(".vc-stat-cell");
+    if (!staffNode) return null;
+    return staffNode.closest(".vc-stat-cell");
+  }
+
+  function boostCell() {
+    var boostNode = el("boosts");
+    if (!boostNode) return null;
+    return boostNode.closest(".vc-stat-cell");
+  }
+
+  function membersCell() {
+    var membersNode = el("members");
+    if (!membersNode) return null;
+    return membersNode.closest(".vc-stat-cell");
+  }
+
+  function hoursCell() {
+    var hoursNode = document.querySelector(".vc-stat-247");
+    if (!hoursNode) return null;
+    return hoursNode.closest(".vc-stat-cell");
+  }
+
+  function rosterEl() {
+    return document.getElementById("vc-home-staff-roster");
+  }
+
+  function isRosterKind(kind) {
+    return kind === "staff" || kind === "boost" || kind === "members" || kind === "hours";
+  }
+
+  function rosterMeta(kind) {
+    if (kind === "boost") {
+      return { cls: "boost", show: "Mostra i booster", hide: "Nascondi i booster" };
+    }
+    if (kind === "members") {
+      return { cls: "members", show: "Mostra l’attività dei membri", hide: "Nascondi l’attività dei membri" };
+    }
+    if (kind === "hours") {
+      return { cls: "hours", show: "Mostra le fasce più attive", hide: "Nascondi le fasce più attive" };
+    }
+    return { cls: "staff", show: "Mostra lo staff", hide: "Nascondi lo staff" };
+  }
+
+  function isStaffOpen() {
+    return rosterKind === "staff";
+  }
+
+  function isBoostOpen() {
+    return rosterKind === "boost";
+  }
+
+  function cellVisibleName(cell) {
+    var numEl = cell.querySelector(".vc-stat-num-inner") || cell.querySelector(".vc-stat-num");
+    var labelEl = cell.querySelector(".vc-stat-label");
+    var parts = [];
+    if (numEl) parts.push(String(numEl.textContent || "").replace(/\s+/g, " ").trim());
+    if (labelEl) parts.push(String(labelEl.textContent || "").replace(/\s+/g, " ").trim());
+    return parts.filter(Boolean).join(" ");
+  }
+
+  function syncRosterCell(cell, open, showLabel, hideLabel) {
     if (!cell) return;
-    cell.classList.add("vc-stat-cell--staff");
-    if (cell.querySelector(".vc-stat-staff-popover")) return;
-    var pop = document.createElement("div");
-    pop.className = "vc-stat-staff-popover";
-    pop.setAttribute("role", "tooltip");
-    pop.innerHTML =
-      '<p class="vc-stat-staff-popover__title">Staff List</p>' +
-      '<div class="vc-stat-staff-popover__body">Caricamento...</div>';
-    cell.appendChild(pop);
-    cell.setAttribute("tabindex", "0");
-    var closeTimer = null;
-    function clearCloseTimer() {
-      if (closeTimer) {
-        clearTimeout(closeTimer);
-        closeTimer = null;
-      }
+    cell.setAttribute("aria-expanded", open ? "true" : "false");
+    var visible = cellVisibleName(cell);
+    var action = open ? hideLabel : showLabel;
+    cell.setAttribute("aria-label", visible ? visible + ". " + action : action);
+  }
+
+  function setRosterOpen(kind) {
+    var next = isRosterKind(kind) ? kind : null;
+    var wasOpen = isRosterKind(rosterKind);
+    rosterKind = next;
+    var root = statsRoot();
+    var staff = staffCell();
+    var boost = boostCell();
+    var members = membersCell();
+    var hours = hoursCell();
+    var roster = rosterEl();
+    if (root) {
+      root.classList.toggle("is-staff-open", next === "staff");
+      root.classList.toggle("is-boost-open", next === "boost");
+      root.classList.toggle("is-members-open", next === "members");
+      root.classList.toggle("is-hours-open", next === "hours");
+      root.classList.toggle("is-roster-open", next != null);
     }
-    function open() {
-      clearCloseTimer();
-      requestStaffPopoverOpen(cell);
+    if (staff) staff.classList.toggle("vc-stat-cell--staff-open", next === "staff");
+    if (boost) boost.classList.toggle("vc-stat-cell--boost-open", next === "boost");
+    if (members) members.classList.toggle("vc-stat-cell--members-open", next === "members");
+    if (hours) hours.classList.toggle("vc-stat-cell--hours-open", next === "hours");
+    syncRosterCell(staff, next === "staff", "Mostra lo staff", "Nascondi lo staff");
+    syncRosterCell(boost, next === "boost", "Mostra i booster", "Nascondi i booster");
+    syncRosterCell(members, next === "members", "Mostra l’attività dei membri", "Nascondi l’attività dei membri");
+    syncRosterCell(hours, next === "hours", "Mostra le fasce più attive", "Nascondi le fasce più attive");
+    if (roster) roster.setAttribute("aria-hidden", next ? "false" : "true");
+    updateStatRosterBody();
+    if (next && !wasOpen && roster && typeof roster.scrollIntoView === "function") {
+      window.setTimeout(function () {
+        try {
+          roster.scrollIntoView({ behavior: prefersReducedMotion() ? "auto" : "smooth", block: "nearest" });
+        } catch (e) {}
+      }, 80);
     }
-    function closeWithDelay() {
-      clearCloseTimer();
-      closeTimer = setTimeout(function () {
-        cell.classList.remove("vc-stat-cell--staff-open");
-      }, 180);
-    }
-    cell.addEventListener("mouseenter", open);
-    cell.addEventListener("mouseleave", closeWithDelay);
-    pop.addEventListener("mouseenter", open);
-    pop.addEventListener("mouseleave", closeWithDelay);
-    cell.addEventListener("focus", open);
-    cell.addEventListener("blur", closeWithDelay);
-    cell.addEventListener("click", function (ev) {
-      if (ev && typeof ev.preventDefault === "function") ev.preventDefault();
-      if (!staffHoverGroups.length) {
-        requestStaffPopoverOpen(cell);
+  }
+
+  function toggleRoster(kind) {
+    if (rosterKind === kind) {
+      setRosterOpen(null);
         return;
       }
-      cell.classList.toggle("vc-stat-cell--staff-open");
-    });
-    document.addEventListener("click", function (ev) {
-      var t = ev && ev.target;
-      if (!t || !t.closest) return;
-      if (t.closest(".vc-stat-cell--staff")) return;
-      cell.classList.remove("vc-stat-cell--staff-open");
-    });
-    document.addEventListener("keydown", function (ev) {
-      if (String(ev && ev.key || "") === "Escape") {
-        cell.classList.remove("vc-stat-cell--staff-open");
+    if ((kind === "staff" && !staffHoverGroups.length && !staffLoadPending) ||
+        (kind === "boost" && !boostHoverMembers.length && !staffLoadPending) ||
+        (kind === "members" && !hasPulseNumbers(memberPulse) && !staffLoadPending) ||
+        (kind === "hours" && !(communityHours && communityHours.slots && communityHours.slots.length) && !staffLoadPending)) {
+      prefetchStaffData();
+    }
+    setRosterOpen(kind);
+  }
+
+  function staffInitial(name) {
+    var s = String(name || "").trim();
+    if (!s) return "?";
+    var ch = s.charAt(0);
+    return /[a-z0-9]/i.test(ch) ? ch.toUpperCase() : ch;
+  }
+
+  function userIdFromStaffMember(member) {
+    var id = String((member && member.userId) || "").trim();
+    if (/^\d{16,22}$/.test(id)) return id;
+    var href = String((member && member.profileUrl) || "").trim();
+    var m = href.match(/[?&]id=(\d{16,22})/);
+    return m ? m[1] : "";
+  }
+
+  function safeDiscordAvatarUrl(url) {
+    var u = String(url || "").trim();
+    if (/^https:\/\/(?:cdn\.discordapp\.com|media\.discordapp\.net)\//i.test(u)) return u;
+    return "";
+  }
+
+  function defaultDiscordAvatarUrl(userId) {
+    var id = String(userId || "").trim();
+    var idx = 0;
+    if (/^\d{5,24}$/.test(id)) {
+      try {
+        idx = Number((BigInt(id) >> 22n) % 6n);
+      } catch (e) {
+        var n = 0;
+        for (var i = 0; i < id.length; i += 1) n = (n + id.charCodeAt(i)) % 6;
+        idx = n;
       }
+    }
+    return "https://cdn.discordapp.com/embed/avatars/" + idx + ".png";
+  }
+
+  function renderStaffAvatarHtml(member, hue) {
+    var uid = userIdFromStaffMember(member);
+    var src = safeDiscordAvatarUrl(member && member.avatarUrl) || (uid ? defaultDiscordAvatarUrl(uid) : "");
+    var initial = escText(staffInitial(member && member.name));
+    if (!src) {
+        return (
+        '<span class="vc-home-staff-roster__avatar" style="--vc-staff-badge-h:' +
+        hue +
+        '" aria-hidden="true">' +
+        initial +
+        "</span>"
+      );
+    }
+    return (
+      '<span class="vc-home-staff-roster__avatar vc-home-staff-roster__avatar--img" style="--vc-staff-badge-h:' +
+      hue +
+      '" aria-hidden="true">' +
+      '<img src="' +
+      escText(src) +
+      '" alt="" width="40" height="40" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-vc-avatar="1"' +
+      (uid ? ' data-user-id="' + escText(uid) + '"' : "") +
+      ' onerror="this.onerror=null;this.remove();" />' +
+      '<span class="vc-home-staff-roster__avatar-fallback">' +
+      initial +
+      "</span></span>"
+    );
+  }
+
+  function renderMarqueeNameHtml(name) {
+    return (
+      '<span class="vc-home-staff-roster__name vc-marquee" data-vc-marquee>' +
+      '<span class="vc-marquee__track">' +
+      '<span class="vc-marquee__text">' +
+      escText(name) +
+      "</span></span></span>"
+    );
+  }
+
+  function rosterNameAvailableWidth(nameEl) {
+    var person = nameEl && nameEl.closest ? nameEl.closest(".vc-home-staff-roster__person") : null;
+    if (!person) return Math.floor(nameEl.clientWidth || 0);
+    var cs = window.getComputedStyle(person);
+    var pad = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
+    var gap = parseFloat(cs.columnGap || cs.gap) || 0;
+    var used = 0;
+    var extra = 0;
+    for (var i = 0; i < person.children.length; i += 1) {
+      var child = person.children[i];
+      if (child === nameEl) continue;
+      used += child.getBoundingClientRect().width;
+      extra += 1;
+    }
+    return Math.max(0, Math.floor(person.clientWidth - pad - used - gap * extra));
+  }
+
+  function applyRosterNameMarquee(nameEl) {
+    if (!nameEl) return;
+    var trackEl = nameEl.querySelector(".vc-marquee__track");
+    var textEl = trackEl && trackEl.querySelector(".vc-marquee__text");
+    if (!trackEl || !textEl) return;
+    var clones = trackEl.querySelectorAll(".vc-marquee__text.is-clone");
+    for (var i = 0; i < clones.length; i += 1) clones[i].parentNode.removeChild(clones[i]);
+    if (trackEl._vcMarqueeRaf) {
+      cancelAnimationFrame(trackEl._vcMarqueeRaf);
+      trackEl._vcMarqueeRaf = null;
+    }
+    nameEl.classList.remove("is-marquee");
+    nameEl.style.removeProperty("--vc-marquee-distance");
+    nameEl.style.removeProperty("--vc-marquee-duration");
+    textEl.style.paddingInlineEnd = "";
+    trackEl.style.transform = "";
+
+    window.requestAnimationFrame(function () {
+      if (!nameEl.isConnected) return;
+      var containerW = rosterNameAvailableWidth(nameEl);
+      if (containerW <= 8) return;
+      var textW = Math.ceil(textEl.scrollWidth || textEl.offsetWidth || 0);
+      if (textW <= containerW + 2) return;
+      var clone = textEl.cloneNode(true);
+      clone.setAttribute("aria-hidden", "true");
+      clone.classList.add("is-clone");
+      trackEl.appendChild(clone);
+      textEl.style.paddingInlineEnd = "1.6rem";
+      window.requestAnimationFrame(function () {
+        if (!nameEl.isConnected) return;
+        var segmentW = Math.ceil(textEl.getBoundingClientRect().width || textEl.scrollWidth || textW);
+        if (segmentW <= 0) segmentW = textW + 26;
+        nameEl.style.setProperty("--vc-marquee-distance", segmentW + "px");
+        nameEl.style.setProperty(
+          "--vc-marquee-duration",
+          Math.max(7, Math.min(22, segmentW / 28)).toFixed(1) + "s",
+        );
+        nameEl.classList.add("is-marquee");
+        startRosterMarqueeTick(trackEl, segmentW, Math.max(7, Math.min(22, segmentW / 28)));
+      });
     });
   }
 
-  function updateStaffHoverUi() {
-    ensureStaffHoverUi();
-    var staffNode = el("staff");
-    if (!staffNode) return;
-    var cell = staffNode.closest(".vc-stat-cell");
-    if (!cell) return;
-    var body = cell.querySelector(".vc-stat-staff-popover__body");
-    if (!body) return;
-    if (!staffHoverGroups.length) {
-      body.textContent = staffLoadPending ? "Caricamento..." : "Nessun membro staff disponibile.";
-      cell.classList.add("vc-stat-cell--staff");
-      cell.setAttribute("tabindex", "0");
-      return;
+  function startRosterMarqueeTick(trackEl, distance, durationSec) {
+    if (!trackEl) return;
+    if (trackEl._vcMarqueeRaf) {
+      cancelAnimationFrame(trackEl._vcMarqueeRaf);
+      trackEl._vcMarqueeRaf = null;
     }
-    cell.classList.add("vc-stat-cell--staff");
-    cell.setAttribute("tabindex", "0");
-    body.innerHTML =
-      staffHoverGroups.map(function (group) {
-        if (isGenericStaffGroupRole(group && group.role)) return "";
-        var members = Array.isArray(group && group.members) ? group.members : [];
-        if (!members.length) return "";
-        return (
-          '<section class="vc-stat-staff-popover__group">' +
-          '<p class="vc-stat-staff-popover__group-title">' + escText(group.role || "Staff") + "</p>" +
-          '<ul class="vc-stat-staff-popover__list">' +
-          members.map(function (member) {
-            var name = String(member && member.name || member || "").trim();
-            var href = String(member && member.profileUrl || "").trim();
+    var dist = Math.max(1, Number(distance) || 1);
+    var dur = Math.max(5000, Number(durationSec) * 1000);
+    var t0 = performance.now();
+    function frame(now) {
+      if (!trackEl.isConnected) return;
+      var p = ((now - t0) % dur) / dur;
+      trackEl.style.transform = "translateX(" + (-dist * p).toFixed(2) + "px)";
+      trackEl._vcMarqueeRaf = requestAnimationFrame(frame);
+    }
+    trackEl._vcMarqueeRaf = requestAnimationFrame(frame);
+  }
+
+  function syncRosterNameMarquees() {
+    var roster = rosterEl();
+    if (!roster) return;
+    function run() {
+      var nodes = roster.querySelectorAll(".vc-home-staff-roster__name[data-vc-marquee]");
+      for (var i = 0; i < nodes.length; i += 1) applyRosterNameMarquee(nodes[i]);
+    }
+    window.requestAnimationFrame(function () {
+      run();
+      window.setTimeout(run, 120);
+      window.setTimeout(run, 560);
+    });
+  }
+
+  function renderStaffMember(member, group) {
+    var name = String((member && member.name) || member || "").trim();
+    var href = String((member && member.profileUrl) || "").trim();
             var isOwner = Boolean(member && member.isOwner === true);
-            var rlab =
-              String(member && member.roleLabel || "").trim() || String(group && group.role || "").trim();
-            var rid =
-              String(member && member.roleId || "").trim() || String(group && group.roleId || "").trim();
+    var rlab = String((member && member.roleLabel) || "").trim() || String((group && group.role) || "").trim();
+    var rid = String((member && member.roleId) || "").trim() || String((group && group.roleId) || "").trim();
             if (!name) return "";
+    var hue = hueFromRoleId(rid || rlab);
             var ownerB = isOwner
               ? '<span class="vc-owner-badge" title="Server Owner" aria-label="Server Owner">Owner</span>'
               : "";
-            var roleB = "";
-            if (rlab) {
-              var hue = hueFromRoleId(rid || rlab);
-              var rUpper = rlab.toUpperCase();
-              roleB =
-                '<span class="vc-staff-role-badge" style="--vc-staff-badge-h:' +
+    var newB = Boolean(member && member.isNew === true)
+      ? '<span class="vc-staff-new-badge" title="Nuovo staff" aria-label="Nuovo staff">Nuovo</span>'
+      : "";
+    var pauseB = Boolean(member && member.isPaused === true)
+      ? '<span class="vc-staff-pause-badge" title="In pausa" aria-label="In pausa">Pausa</span>'
+      : "";
+    var groupRole = String((group && group.role) || "").replace(/^༄\s*/, "").trim().toLowerCase();
+    var memberRole = String((member && member.roleLabel) || "").replace(/^༄\s*/, "").trim();
+    var roleB = memberRole && memberRole.toLowerCase() !== groupRole
+      ? '<span class="vc-staff-role-badge" style="--vc-staff-badge-h:' +
                 hue +
                 '" title="' +
-                escText(rlab) +
-                '" aria-label="' +
-                escText(rlab) +
+        escText(memberRole) +
                 '">' +
-                escText(rUpper) +
-                "</span>";
-            }
-            var badgesInner = (ownerB ? ownerB + (roleB ? " " : "") : "") + roleB;
-            var badges = badgesInner ? '<span class="vc-staff-member-chip__badges">' + badgesInner + "</span>" : "";
-            if (/^\/user\/\?id=\d{16,22}$/i.test(href)) {
-              return '<li><span class="vc-staff-member-chip vc-staff-member-chip--popover"><a href="' + escText(href) + '">' + escText(name) + "</a>" + badges + "</span></li>";
-            }
-            return '<li><span class="vc-staff-member-chip vc-staff-member-chip--popover">' + escText(name) + badges + "</span></li>";
+        escText(memberRole) +
+        "</span>"
+      : "";
+    var badges =
+      ownerB || newB || pauseB || roleB
+        ? '<span class="vc-staff-member-chip__badges">' + ownerB + newB + pauseB + roleB + "</span>"
+        : "";
+    var inner =
+      renderStaffAvatarHtml(member, hue) +
+      renderMarqueeNameHtml(name) +
+      badges;
+    var person = /^\/user\/\?id=\d{16,22}$/i.test(href)
+      ? '<a class="vc-home-staff-roster__person" href="' + escText(href) + '">' + inner + "</a>"
+      : '<span class="vc-home-staff-roster__person">' + inner + "</span>";
+    return "<li>" + person + "</li>";
+  }
+
+  function renderStaffRosterHtml() {
+    if (!staffHoverGroups.length) {
+      return (
+        '<p class="vc-home-staff-roster__empty">' +
+        (staffLoadPending ? "Caricamento…" : "Nessun membro staff disponibile.") +
+        "</p>"
+      );
+    }
+    var shown = "";
+    var staffNum = el("staff");
+    if (staffNum) {
+      shown = String(((staffNum.querySelector(".vc-stat-num-inner") || staffNum).textContent || "")).replace(/\D/g, "");
+    }
+    var groups = staffHoverGroups
+      .map(function (group) {
+        if (isGenericStaffGroupRole(group && group.role)) return "";
+        var members = Array.isArray(group && group.members) ? group.members : [];
+        if (!members.length) return "";
+        var hue = hueFromRoleId(String((group && group.roleId) || group.role || ""));
+        var role = String((group && group.role) || "Staff").replace(/^༄\s*/, "");
+        return (
+          '<section class="vc-home-staff-roster__group" style="--vc-staff-badge-h:' +
+          hue +
+          '">' +
+          '<p class="vc-home-staff-roster__group-title">' +
+          escText(role) +
+          "</p>" +
+          '<ul class="vc-home-staff-roster__list">' +
+          members.map(function (member) {
+            return renderStaffMember(member, group);
           }).join("") +
-          "</ul>" +
-          "</section>"
+          "</ul></section>"
         );
-      }).join("");
+      })
+      .join("");
+    return (
+      '<div class="vc-home-staff-roster__head">' +
+      '<p class="vc-home-staff-roster__kicker">Lo staff</p>' +
+      '<p class="vc-home-staff-roster__count">' +
+      escText(shown || "—") +
+      " persone</p>" +
+      "</div>" +
+      '<div class="vc-home-staff-roster__groups">' +
+      groups +
+      "</div>"
+    );
+  }
+
+  function renderBoostMember(member) {
+    var name = String((member && member.name) || "").trim();
+    var href = String((member && member.profileUrl) || "").trim();
+    if (!name) return "";
+    var count = Math.max(1, Math.min(2, Math.floor(Number((member && member.boostCount) || 1))));
+    var hue = count >= 2 ? 28 : 36;
+    var badge =
+      '<span class="vc-home-boost-count">' +
+      count +
+      (count === 1 ? " boost" : " boost") +
+      "</span>";
+    var inner =
+      renderStaffAvatarHtml(member, hue) +
+      renderMarqueeNameHtml(name) +
+      badge;
+    var person = /^\/user\/\?id=\d{16,22}$/i.test(href)
+      ? '<a class="vc-home-staff-roster__person" href="' + escText(href) + '">' + inner + "</a>"
+      : '<span class="vc-home-staff-roster__person">' + inner + "</span>";
+    return "<li>" + person + "</li>";
+  }
+
+  function renderBoostRosterHtml() {
+    if (!boostHoverMembers.length) {
+      return (
+        '<p class="vc-home-staff-roster__empty">' +
+        (staffLoadPending ? "Caricamento…" : "Nessun booster disponibile.") +
+        "</p>"
+      );
+    }
+    var people = String(boostHoverMembers.length);
+    var boosts = 0;
+    for (var i = 0; i < boostHoverMembers.length; i += 1) {
+      boosts += Math.max(1, Math.floor(Number(boostHoverMembers[i].boostCount || 1)));
+    }
+    var shown = "";
+    var boostNum = el("boosts");
+    if (boostNum) {
+      shown = String(((boostNum.querySelector(".vc-stat-num-inner") || boostNum).textContent || "")).replace(/\D/g, "");
+    }
+    if (!shown) shown = String(boosts);
+    var rows = boostHoverMembers
+      .map(function (member) {
+        return renderBoostMember(member);
+      })
+      .join("");
+    return (
+      '<div class="vc-home-staff-roster__head">' +
+      '<p class="vc-home-staff-roster__kicker">I booster</p>' +
+      '<p class="vc-home-staff-roster__count">' +
+      escText(people) +
+      " persone · " +
+      escText(shown) +
+      " boost</p>" +
+      "</div>" +
+      '<section class="vc-home-staff-roster__group vc-home-boost-roster__panel" style="--vc-staff-badge-h:32">' +
+      '<ul class="vc-home-staff-roster__list vc-home-boost-roster__list">' +
+      rows +
+      "</ul></section>"
+    );
+  }
+
+  function renderPulseCard(value, label, hint) {
+    return (
+      '<article class="vc-home-pulse__card">' +
+      '<p class="vc-home-pulse__value">' +
+      escText(value) +
+      "</p>" +
+      '<p class="vc-home-pulse__label">' +
+      escText(label) +
+      "</p>" +
+      (hint ? '<p class="vc-home-pulse__hint">' + escText(hint) + "</p>" : "") +
+      "</article>"
+    );
+  }
+
+  function renderMembersPulseHtml() {
+    if (!hasPulseNumbers(memberPulse)) {
+      return (
+        '<p class="vc-home-staff-roster__empty">' +
+        (staffLoadPending ? "Caricamento…" : "Stiamo aggiornando i numeri della settimana.") +
+        "</p>"
+      );
+    }
+    var cards = "";
+    if (memberPulse.messages7d > 0) {
+      cards += renderPulseCard(formatItInt(memberPulse.messages7d), "Messaggi", "in chat, negli ultimi 7 giorni");
+    }
+    if (memberPulse.voiceSeconds7d > 0) {
+      cards += renderPulseCard(formatVoiceHours(memberPulse.voiceSeconds7d), "Vocali", "ore passate insieme");
+    }
+    if (memberPulse.activeMembers7d > 0) {
+      cards += renderPulseCard(formatItInt(memberPulse.activeMembers7d), "Membri attivi", "hanno scritto o sono stati in vocale");
+    }
+    if (memberPulse.onlineNow != null && memberPulse.onlineNow >= 50) {
+      cards += renderPulseCard(formatItInt(memberPulse.onlineNow), "Online ora", "già in giro in questo momento");
+    }
+    return (
+      '<div class="vc-home-staff-roster__head">' +
+      '<p class="vc-home-staff-roster__kicker">Statistiche server</p>' +
+      '<p class="vc-home-staff-roster__count">ultimi 7 giorni</p>' +
+      "</div>" +
+      '<div class="vc-home-pulse">' +
+      cards +
+      "</div>"
+    );
+  }
+
+  function renderHoursSlot(slot) {
+    if (!slot || !slot.label) return "";
+    var hot = slot.hottest ? " vc-home-hours__row--hot" : "";
+    var badge = slot.hottest ? '<span class="vc-home-hours__hot">Il momento clou</span>' : "";
+    return (
+      '<li class="vc-home-hours__row' +
+      hot +
+      '">' +
+      '<div class="vc-home-hours__meta">' +
+      '<span class="vc-home-hours__label">' +
+      escText(slot.label) +
+      "</span>" +
+      '<span class="vc-home-hours__range">' +
+      escText(slot.range || "") +
+      "</span>" +
+      badge +
+      "</div>" +
+      '<div class="vc-home-hours__track" aria-hidden="true"><span class="vc-home-hours__bar" style="width:' +
+      String(slot.pct || 32) +
+      '%"></span></div>' +
+      (slot.hint ? '<p class="vc-home-hours__hint">' + escText(slot.hint) + "</p>" : "") +
+      "</li>"
+    );
+  }
+
+  function renderHoursPulseHtml() {
+    var slots = communityHours && Array.isArray(communityHours.slots) ? communityHours.slots : [];
+    var blurb =
+      (communityHours && communityHours.blurb) ||
+      "C’è sempre qualcuno in giro: chat di giorno, vocal di sera.";
+    if (!slots.length) {
+      return (
+        '<div class="vc-home-staff-roster__head">' +
+        '<p class="vc-home-staff-roster__kicker">Sempre aperti</p>' +
+        '<p class="vc-home-staff-roster__count">24/7</p>' +
+        "</div>" +
+        '<p class="vc-home-hours__blurb">' +
+        escText(staffLoadPending ? "Caricamento…" : blurb) +
+        "</p>"
+      );
+    }
+    return (
+      '<div class="vc-home-staff-roster__head">' +
+      '<p class="vc-home-staff-roster__kicker">Quando ci trovi</p>' +
+      '<p class="vc-home-staff-roster__count">le fasce più vive</p>' +
+      "</div>" +
+      '<p class="vc-home-hours__blurb">' +
+      escText(blurb) +
+      "</p>" +
+      '<ul class="vc-home-hours">' +
+      slots
+        .map(function (slot) {
+          return renderHoursSlot(slot);
+        })
+        .join("") +
+      "</ul>"
+    );
+  }
+
+  function bindToggleCell(cell, kind) {
+    if (!cell || cell.dataset.vcStatToggle === "1") return;
+    var meta = rosterMeta(kind);
+    cell.dataset.vcStatToggle = "1";
+    cell.classList.add("vc-stat-cell--" + meta.cls);
+    cell.setAttribute("role", "button");
+    cell.setAttribute("tabindex", "0");
+    cell.setAttribute("aria-controls", "vc-home-staff-roster");
+    if (!cell.getAttribute("aria-expanded")) cell.setAttribute("aria-expanded", "false");
+    syncRosterCell(cell, false, meta.show, meta.hide);
+    if (!cell.querySelector(".vc-stat-staff-chev")) {
+      var chev = document.createElement("span");
+      chev.className = "vc-stat-staff-chev";
+      chev.setAttribute("aria-hidden", "true");
+      cell.appendChild(chev);
+    }
+    cell.addEventListener("click", function (ev) {
+      if (ev && ev.target && ev.target.closest && ev.target.closest("a")) return;
+      toggleRoster(kind);
+    });
+    cell.addEventListener("keydown", function (ev) {
+      var key = String((ev && ev.key) || "");
+      if (key !== "Enter" && key !== " ") return;
+      if (ev && typeof ev.preventDefault === "function") ev.preventDefault();
+      cell.click();
+    });
+  }
+
+  function ensureStatRosterUi() {
+    var staff = staffCell();
+    var boost = boostCell();
+    var members = membersCell();
+    var hours = hoursCell();
+    var strip =
+      (staff && staff.closest(".vc-stat-strip")) ||
+      (boost && boost.closest(".vc-stat-strip")) ||
+      (members && members.closest(".vc-stat-strip")) ||
+      (hours && hours.closest(".vc-stat-strip"));
+    bindToggleCell(staff, "staff");
+    bindToggleCell(boost, "boost");
+    bindToggleCell(members, "members");
+    bindToggleCell(hours, "hours");
+    var roster = rosterEl();
+    if (!roster && strip) {
+      roster = document.createElement("div");
+      roster.id = "vc-home-staff-roster";
+      roster.className = "vc-home-staff-roster";
+      roster.setAttribute("aria-hidden", "true");
+      roster.innerHTML =
+        '<div class="vc-home-staff-roster__clip"><div class="vc-home-staff-roster__inner" data-staff-roster-body></div></div>';
+      strip.appendChild(roster);
+    }
+    var root = statsRoot();
+    if (root && root.dataset.vcStatRosterUi === "1") return;
+    if (root) root.dataset.vcStatRosterUi = "1";
+    document.addEventListener("click", function (ev) {
+      var t = ev && ev.target;
+      if (!t || !t.closest) return;
+      if (
+        t.closest(".vc-stat-cell--staff") ||
+        t.closest(".vc-stat-cell--boost") ||
+        t.closest(".vc-stat-cell--members") ||
+        t.closest(".vc-stat-cell--hours") ||
+        t.closest("#vc-home-staff-roster")
+      ) {
+        return;
+      }
+      setRosterOpen(null);
+    });
+    document.addEventListener("keydown", function (ev) {
+      if (String((ev && ev.key) || "") === "Escape") setRosterOpen(null);
+    });
+  }
+
+  function updateStatRosterBody() {
+    var roster = rosterEl();
+    var body = roster && roster.querySelector("[data-staff-roster-body]");
+    if (!body) return;
+    if (rosterKind === "boost") body.innerHTML = renderBoostRosterHtml();
+    else if (rosterKind === "staff") body.innerHTML = renderStaffRosterHtml();
+    else if (rosterKind === "members") body.innerHTML = renderMembersPulseHtml();
+    else if (rosterKind === "hours") body.innerHTML = renderHoursPulseHtml();
+    if (rosterKind === "staff" || rosterKind === "boost") syncRosterNameMarquees();
+  }
+
+  function updateStatRosterUi() {
+    ensureStatRosterUi();
+    updateStatRosterBody();
   }
 
   function fetchNoStore(url) {
@@ -552,12 +1158,14 @@
   }
 
   function bootstrapStaffList() {
-    ensureStaffHoverUi();
-    if (Array.isArray(cfg.staffHoverGroups) && cfg.staffHoverGroups.length) {
-      applyExtraStats({ staffHoverGroups: cfg.staffHoverGroups, staffNoPm: cfg.staffNoPm });
-    } else {
-      updateStaffHoverUi();
-    }
+    ensureStatRosterUi();
+    applyExtraStats({
+      staffHoverGroups: cfg.staffHoverGroups,
+      boostHoverMembers: cfg.boostHoverMembers,
+      staffNoPm: cfg.staffNoPm,
+      memberPulse: cfg.memberPulse,
+      communityHours: cfg.communityHours,
+    });
     prefetchStaffData();
   }
 

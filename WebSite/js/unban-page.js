@@ -30,11 +30,29 @@
     });
   }
 
+  function isShuffleHidden(el) {
+    if (!el) return true;
+    if (el.hidden || el.hasAttribute("hidden")) return true;
+    if (el.closest && el.closest("[hidden]")) return true;
+    try {
+      var root = document.documentElement;
+      if (root && root.classList.contains("vc-page-cine-boot") && !root.classList.contains("vc-page-cine-ready")) {
+        return true;
+      }
+    } catch (eReady) {}
+    return false;
+  }
+
   function setShuffleText(el, finalText) {
     if (!el) return;
     var target = String(finalText || "");
+    el.__vcShuffleFinal = target;
     if (!target) {
       el.textContent = "";
+      return;
+    }
+    if (isShuffleHidden(el)) {
+      el.textContent = target;
       return;
     }
     if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
@@ -65,6 +83,13 @@
         el.textContent = target;
       }
     }, 22);
+  }
+
+  function replayShuffle(el) {
+    if (!el || isShuffleHidden(el)) return;
+    var target = el.__vcShuffleFinal != null ? el.__vcShuffleFinal : String(el.textContent || "");
+    if (!target) return;
+    setShuffleText(el, target);
   }
 
   function getToken() {
@@ -354,7 +379,22 @@
     }
   }
 
+  function replayUnbanFx() {
+    var welcome = byId("unban-welcome");
+    if (welcome && !isShuffleHidden(welcome)) {
+      welcome.classList.add("vc-hero-about", "vc-home-rise", "is-in");
+    }
+    replayShuffle(welcome);
+    replayShuffle(byId("unban-status-box"));
+  }
+
   function init() {
+    document.addEventListener("vc:appelli-tab", function (ev) {
+      var tipo = ev && ev.detail && ev.detail.tipo;
+      if (tipo && tipo !== "unban") return;
+      replayUnbanFx();
+    });
+    document.addEventListener("vc:page-cine-ready", replayUnbanFx);
     var sub = byId("unban-submit");
     if (sub) sub.addEventListener("click", submitUnban);
     window.addEventListener("vc-discord-profile", function (ev) {

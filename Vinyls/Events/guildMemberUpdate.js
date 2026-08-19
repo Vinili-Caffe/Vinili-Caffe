@@ -21,7 +21,7 @@ const { setWelcomeContextActive } = require("../Utils/Message/officialMessageCom
 const { syncClanTagRolesForUserEverywhereAfterMemberEvent } = require("../Services/Community/clanTagRoleService");
 const { syncPersistentAutoValutazioniForMember, handleStaffBoostAutoValutazioneMemberUpdate, resolveAutoValutazioneCreateKeysFromMemberUpdate } = require("../Services/Staff/staffAutoValutazioniService");
 const { handleMainGuildMemberUpdate } = require("../Services/Staff/staffAccessMirrorService");
-const { getAnnouncedBoostSlots, setAnnouncedBoostSlots, addAnnouncedBoostSlots, deleteAnnouncedBoostSlots, ensureBoostSlotsSynced, persistAnnouncedBoostSlotsToDb, clearAnnouncedBoostSlotsMemoryForGuild } = require("../Utils/Community/boostSlotAnnounceTracker");
+const { getAnnouncedBoostSlots, setAnnouncedBoostSlots, deleteAnnouncedBoostSlots, ensureBoostSlotsSynced, persistAnnouncedBoostSlotsToDb, clearAnnouncedBoostSlotsMemoryForGuild } = require("../Utils/Community/boostSlotAnnounceTracker");
 const { isValidGuildUserId } = require("../Utils/DB/validateWriteIds");
 const { shouldSendPublicMemberAnnouncement, normalVerificationCompletedBetween } = require("../Utils/Community/memberPublicAnnouncementGate");
 const { runDeferredJoinAnnouncements } = require("./guildMemberAdd");
@@ -68,19 +68,32 @@ function clearBoostAnnounceHandled(boostKey) {
   boostAnnounceHandledUntil.delete(String(boostKey));
 }
 
-function noteNativeBoostSeen(guildId, userId, slotCount = 1) {
+function noteNativeBoostSeen(guildId, userId, slotCount = 1, messageId = "") {
   const gid = String(guildId || "").trim();
   const uid = String(userId || "").trim();
   if (!gid || !uid) return;
   const key = `${gid}:${uid}`;
   const at = Date.now();
-  const slots = Math.max(1, Number(slotCount || 1));
+  const slots = Math.max(1, Math.min(2, Number(slotCount || 1)));
+  const mid = String(messageId || "").trim();
   const prev = nativeBoostSeenByKey.get(key);
+  const ids = new Set(Array.isArray(prev?.ids) ? prev.ids : []);
   let nextSlots = slots;
-  if (prev && at - Number(prev.at || 0) < NATIVE_BOOST_ACCUMULATE_MS) {
-    nextSlots = Math.min(2, Number(prev.slots || 0) + slots);
+  if (mid && ids.has(mid)) {
+    nextSlots = Math.max(Number(prev?.slots || 0), slots);
+  } else if (prev && at - Number(prev.at || 0) < NATIVE_BOOST_ACCUMULATE_MS) {
+    if (mid) ids.add(mid);
+    const dt = at - Number(prev.at || 0);
+    if (slots >= 2) nextSlots = 2;
+    else if (dt < 5000) nextSlots = Math.max(Number(prev.slots || 0), slots);
+    else nextSlots = Math.min(2, Number(prev.slots || 0) + slots);
+  } else {
+    ids.clear();
+    if (mid) ids.add(mid);
+    nextSlots = slots;
   }
-  nativeBoostSeenByKey.set(key, { at, slots: nextSlots });
+  if (mid) ids.add(mid);
+  nativeBoostSeenByKey.set(key, { at, slots: nextSlots, ids: [...ids].slice(-8) });
   clearBoostAnnounceHandled(key);
 }
 
@@ -179,7 +192,7 @@ function handleNativeBoostSystemMessage(message) {
   const userId = resolveNativeBoostMessageUserId(message, message?.guild || null);
   if (!userId) return null;
   const slots = parseNativeBoostSlotCount(message);
-  noteNativeBoostSeen(guildId, userId, slots);
+  noteNativeBoostSeen(guildId, userId, slots, message?.id);
   const accumulated = nativeBoostSeenSince(guildId, userId, Date.now() - NATIVE_BOOST_ACCUMULATE_MS);
   return { guildId, userId, slots: Math.max(slots, accumulated) };
 }
@@ -279,8 +292,8 @@ async function resolveBoostAnnounceSyncState(guild, userId, channel, opts = {}) 
   const nativeLookbackMs = Math.max(60_000, Number(opts.nativeLookbackMs || 10 * 60 * 1000));
   const knownNative = Math.max(0, Number(opts.knownNativeSlots || 0));
   const seenNative = nativeBoostSeenSince(gid, uid, sinceMs);
-  // Se abbiamo già il segnale native (messageCreate / member update), non rifare fetch multi-canale.
-  const skipNativeScan = Boolean(opts.skipNativeScan) || Math.max(knownNative, seenNative) >= 1;
+  // Skip solo se già sappiamo di un doppio boost: un native "2 volte" va letto dal canale.
+  const skipNativeScan = Boolean(opts.skipNativeScan) || Math.max(knownNative, seenNative) >= 2;
   const scannedNative = channel && !skipNativeScan
     ? await detectRecentNativeBoostEventsForUser(guild, channel, uid, nativeLookbackMs).catch(() => 0)
     : 0;
@@ -854,13 +867,13 @@ async function sendBoostEmbeds(channel, member, times, boostCount, priorAnnounce
   return sentCount;
 }
 
-async function trackBoostSlotsAnnouncedAndMaybeGrantDoubleBooster(member, guildId, times) {
+async function trackBoostSlotsAnnouncedAndMaybeGrantDoubleBooster(member, guildId, nextCount) {
   const mainId = String(IDs.guilds.main || "");
   if (!mainId || String(member?.guild?.id || "") !== mainId) return;
   if (member.user?.bot) return;
-  const add = Math.max(0, Number(times || 0));
-  if (!add) return;
-  const next = await addAnnouncedBoostSlots(guildId, member.id, add);
+  const next = Math.min(2, Math.max(0, Math.floor(Number(nextCount || 0))));
+  setAnnouncedBoostSlots(guildId, member.id, next);
+  await persistAnnouncedBoostSlotsToDb(guildId, member.id).catch(() => null);
 
   const doubleId = IDs?.roles?.DoubleBooster;
   if (!doubleId || !member?.roles?.add) return;
@@ -1057,17 +1070,19 @@ async function enforceJoinGatePostJoinUsername(oldMember, newMember) {
   await logChannel.send({ embeds: [embed] }).catch(() => { });
 }
 
-function computeBoostDelta(oldMember, newMember, guildId) {
+function computeBoostDelta(oldMember, newMember, guildId, opts = {}) {
   const currentCount = Number(newMember.guild.premiumSubscriptionCount || 0);
   const oldCountFromEvent = Number(oldMember?.guild?.premiumSubscriptionCount || 0);
+  const snapshot = opts.prevCachedCount;
   const prevCount =
-    typeof boostCountCache.get(guildId) === "number"
-      ? boostCountCache.get(guildId)
-      : oldCountFromEvent;
-  const effectivePrev = Math.min(
-    prevCount,
-    oldCountFromEvent > 0 ? oldCountFromEvent : prevCount,
-  );
+    typeof snapshot === "number" && Number.isFinite(snapshot)
+      ? snapshot
+      : typeof boostCountCache.get(guildId) === "number"
+        ? boostCountCache.get(guildId)
+        : oldCountFromEvent;
+  // Non usare min(cache, guild.premiumSubscriptionCount): old/new condividono lo
+  // stesso Guild, e un fetch() precedente azzera il delta (1 solo embed sul "2 volte").
+  const effectivePrev = Number.isFinite(Number(prevCount)) ? Number(prevCount) : 0;
   const countIncreased = currentCount > effectivePrev;
   const boostDelta = countIncreased ? Math.max(1, currentCount - effectivePrev) : 0;
   const guildBoostDecreased = currentCount < effectivePrev;
@@ -1153,17 +1168,72 @@ function getBoostSystemMessageTypes() {
 function parseNativeBoostSlotCount(message) {
   const boostTypes = getBoostSystemMessageTypes();
   const isBoostType = boostTypes.has(Number(message?.type));
-  const text = String(message?.content || "");
+  const raw = String(message?.content || "");
+  // Il client mostra "2 volte"; in API il numero è spesso `**2**` o solo `"2"`.
+  const text = raw.replace(/\*/g, " ").replace(/\s+/g, " ").trim();
   const isBoostText = /(ha\s+appena\s+potenziato\s+il\s+server|just\s+boosted\s+the\s+server)/i.test(text);
   if (!isBoostType && !isBoostText) return 0;
 
+  if (/\b(due\s+volte|twice)\b/i.test(text)) return 2;
   const countMatch =
     text.match(/\b(\d{1,2})\s+volte\b/i) ||
-    text.match(/\b(\d{1,2})\s+times\b/i);
-  if (!countMatch && /\b(due\s+volte|twice)\b/i.test(text)) return 2;
-  const parsed = countMatch ? Number(countMatch[1]) : 1;
-  if (!Number.isFinite(parsed) || parsed <= 0) return 1;
-  return Math.max(1, Math.min(10, Math.floor(parsed)));
+    text.match(/\b(\d{1,2})\s+times\b/i) ||
+    text.match(/\b(\d{1,2})\s+time\b/i);
+  if (countMatch) {
+    const parsed = Number(countMatch[1]);
+    if (Number.isFinite(parsed) && parsed > 0) return Math.max(1, Math.min(10, Math.floor(parsed)));
+  }
+  if (isBoostType && /^\d{1,2}$/.test(text)) {
+    const parsed = Number(text);
+    if (Number.isFinite(parsed) && parsed > 0) return Math.max(1, Math.min(10, Math.floor(parsed)));
+  }
+  return 1;
+}
+
+function mergeNativeBoostSlotEvents(events) {
+  const list = Array.isArray(events) ? events.slice() : [];
+  list.sort((a, b) => Number(a?.ts || 0) - Number(b?.ts || 0));
+  const merged = [];
+  const seenIds = new Set();
+  for (const ev of list) {
+    const id = String(ev?.id || "");
+    if (id) {
+      if (seenIds.has(id)) continue;
+      seenIds.add(id);
+    }
+    const slots = Math.max(0, Math.min(2, Number(ev?.slots || 0)));
+    const ts = Number(ev?.ts || 0);
+    if (slots <= 0) continue;
+    const last = merged[merged.length - 1];
+    if (last && ts && last.ts && Math.abs(ts - last.ts) <= 5000) {
+      last.slots = Math.max(last.slots, slots);
+      last.ts = Math.max(last.ts, ts);
+      continue;
+    }
+    merged.push({ id, ts, slots });
+  }
+  return Math.min(2, merged.reduce((sum, row) => sum + Number(row.slots || 0), 0));
+}
+
+async function collectNativeBoostSlotEventsForUser(guild, primaryChannel, userId, opts = {}) {
+  if (!userId) return [];
+  const minTs = Math.max(0, Number(opts.minTs || 0));
+  const limit = Math.max(20, Math.min(100, Number(opts.limit || 80)));
+  const channels = await resolveBoostNativeScanChannelsAsync(guild, primaryChannel);
+  const events = [];
+  for (const channel of channels) {
+    const recent = await channel.messages.fetch({ limit }).catch(() => null);
+    if (!recent) continue;
+    for (const m of recent.values()) {
+      const messageUserId = resolveNativeBoostMessageUserId(m, guild);
+      if (!messageUserId || String(messageUserId) !== String(userId)) continue;
+      const ts = Number(m.createdTimestamp || 0);
+      if (minTs > 0 && ts && ts < minTs) continue;
+      const slots = parseNativeBoostSlotCount(m);
+      if (slots > 0) events.push({ id: String(m.id || ""), ts, slots });
+    }
+  }
+  return events;
 }
 
 function channelIdIsBoostNativeRecoveryTarget(guild, channelId) {
@@ -1208,42 +1278,22 @@ async function resolveBoostNativeScanChannelsAsync(guild, primaryChannel) {
 
 async function detectRecentNativeBoostEventsForUser(guild, primaryChannel, userId, windowMs = 10 * 60 * 1000) {
   if (!primaryChannel?.isTextBased?.() || !userId) return 0;
-  const channels = await resolveBoostNativeScanChannelsAsync(guild, primaryChannel);
   const minTs = Date.now() - Math.max(60 * 1000, Number(windowMs || 0));
-  let totalSlots = 0;
-  for (const channel of channels) {
-    const recent = await channel.messages.fetch({ limit: 80 }).catch(() => null);
-    if (!recent) continue;
-    for (const m of recent.values()) {
-      const messageUserId = resolveNativeBoostMessageUserId(m, guild);
-      if (!messageUserId || String(messageUserId) !== String(userId)) continue;
-      const ts = Number(m.createdTimestamp || 0);
-      if (!ts || ts < minTs) continue;
-      const slotCount = parseNativeBoostSlotCount(m);
-      if (slotCount > 0) totalSlots = Math.min(2, totalSlots + slotCount);
-    }
-  }
-  return totalSlots;
+  const events = await collectNativeBoostSlotEventsForUser(guild, primaryChannel, userId, {
+    minTs,
+    limit: 80,
+  }).catch(() => []);
+  return mergeNativeBoostSlotEvents(events);
 }
 
 async function countNativeBoostEventsSince(guild, primaryChannel, userId, sinceMs) {
   if (!primaryChannel?.isTextBased?.() || !userId) return 0;
-  const channels = await resolveBoostNativeScanChannelsAsync(guild, primaryChannel);
   const minTs = Math.max(0, Number(sinceMs || 0) - 2000);
-  let totalSlots = 0;
-  for (const channel of channels) {
-    const recent = await channel.messages.fetch({ limit: 40 }).catch(() => null);
-    if (!recent) continue;
-    for (const m of recent.values()) {
-      const messageUserId = resolveNativeBoostMessageUserId(m, guild);
-      if (!messageUserId || String(messageUserId) !== String(userId)) continue;
-      const ts = Number(m.createdTimestamp || 0);
-      if (!ts || ts < minTs) continue;
-      const slotCount = parseNativeBoostSlotCount(m);
-      if (slotCount > 0) totalSlots = Math.min(2, totalSlots + slotCount);
-    }
-  }
-  return totalSlots;
+  const events = await collectNativeBoostSlotEventsForUser(guild, primaryChannel, userId, {
+    minTs,
+    limit: 40,
+  }).catch(() => []);
+  return mergeNativeBoostSlotEvents(events);
 }
 
 async function resolveNativeBoostSignalsSince(guild, primaryChannel, userId, sinceMs, opts = {}) {
@@ -1287,29 +1337,45 @@ async function announceBoostEmbedsAfterNativeWait({
   if (nativeSinceStart > 0 || Date.now() - startedAt >= 400) {
     const recovered = await tryRecover(Math.max(expectedNew, nativeSinceStart));
     if (Math.max(0, Number(recovered?.sent || 0)) > 0) {
-      await markBoostAnnounceHandledIfSynced(member.guild, member.id, boostAnnounceChannel, {
-        sinceMs: startedAt - 1000,
-        nativeLookbackMs: lookbackMs,
-        knownNativeSlots: Math.max(expectedNew, nativeSinceStart),
-      });
-      return true;
+      nativeSinceStart = Math.max(
+        nativeSinceStart,
+        nativeBoostSeenSince(guildId, member.id, startedAt),
+      );
+      if (nativeSinceStart >= 2 && Number(recovered.sent || 0) >= 2) {
+        await markBoostAnnounceHandledIfSynced(member.guild, member.id, boostAnnounceChannel, {
+          sinceMs: startedAt - 1000,
+          nativeLookbackMs: lookbackMs,
+          knownNativeSlots: Math.max(expectedNew, nativeSinceStart),
+        });
+        return true;
+      }
     }
     const syncAfter = await resolveBoostAnnounceSyncState(member.guild, member.id, boostAnnounceChannel, {
       sinceMs: startedAt - 1000,
       nativeLookbackMs: lookbackMs,
       knownNativeSlots: Math.max(expectedNew, nativeSinceStart),
     }).catch(() => null);
-    if (syncAfter && syncAfter.missing <= 0) {
+    const announcedAfter = Number(syncAfter?.announcedSlots || 0);
+    const nativeAfter = Math.max(nativeSinceStart, Number(syncAfter?.nativeBoostEvents || 0));
+    if (syncAfter && syncAfter.missing <= 0 && (announcedAfter >= 2 || nativeAfter >= 2)) {
       await markBoostAnnounceHandledIfSynced(member.guild, member.id, boostAnnounceChannel, {
         sinceMs: startedAt - 1000,
         nativeLookbackMs: lookbackMs,
-        knownNativeSlots: Math.max(expectedNew, nativeSinceStart),
+        knownNativeSlots: Math.max(expectedNew, nativeAfter),
       });
       return true;
     }
+    nativeSinceStart = Math.max(nativeSinceStart, nativeAfter);
   }
 
-  const maxWaitMs = expectedNew >= 2 ? BOOST_NATIVE_WAIT_MAX_MS : BOOST_NATIVE_WAIT_SINGLE_MS;
+  const announcedSoFar = Math.max(
+    getAnnouncedBoostSlots(guildId, member.id),
+    Number(sync?.announcedSlots || 0),
+  );
+  const maxWaitMs =
+    expectedNew >= 2 || nativeSinceStart >= 2 || announcedSoFar >= 1
+      ? BOOST_NATIVE_WAIT_MAX_MS
+      : BOOST_NATIVE_WAIT_SINGLE_MS;
   if (Date.now() - startedAt < maxWaitMs) return false;
 
   const finalSync = await resolveBoostAnnounceSyncState(member.guild, member.id, boostAnnounceChannel, {
@@ -1371,7 +1437,7 @@ async function tryDispatchBoostAnnounceImmediately(boostAnnounceChannel, member,
     expectedSlots,
     startedAt: Date.now(),
     nativeLookbackMs: 180_000,
-    skipNativeScan: true,
+    skipNativeScan: expectedSlots >= 2,
     currentCount: opts.currentCount,
     nativeEventIncrement: Boolean(opts.nativeEventIncrement),
     nativeEventSlots: Number(opts.nativeEventSlots || 0) || undefined,
@@ -1380,7 +1446,9 @@ async function tryDispatchBoostAnnounceImmediately(boostAnnounceChannel, member,
 
 async function announceBoostFromMemberUpdate(boostAnnounceChannel, member, guildId, boostKey, opts = {}) {
   const result = await tryDispatchBoostAnnounceImmediately(boostAnnounceChannel, member, guildId, boostKey, opts);
-  if (Number(result?.sent || 0) > 0) return;
+  const sent = Math.max(0, Number(result?.sent || 0));
+  // Un solo avviso native "2 volte": il primo embed parte subito, il secondo arriva dal follow-up.
+  if (sent >= 2) return;
   scheduleBoostFollowup(boostAnnounceChannel, member, guildId, boostKey, opts);
 }
 
@@ -1413,10 +1481,15 @@ function scheduleBoostAnnounceAfterNative(boostAnnounceChannel, member, guildId,
         sinceMs: startedAt - 1000,
         knownNativeSlots: expectedSlots,
       }).catch(() => null);
-      if (sync && sync.missing <= 0 && isBoostAnnounceHandled(boostKey)) {
+      if (sync && Number(sync.announcedSlots || 0) >= 2) {
         release();
         return;
       }
+      const seenNative = nativeBoostSeenSince(guildId, member.id, startedAt);
+      const maxWaitMs =
+        expectedSlots >= 2 || seenNative >= 2 || Number(sync?.announcedSlots || 0) >= 1
+          ? BOOST_NATIVE_WAIT_MAX_MS
+          : BOOST_NATIVE_WAIT_SINGLE_MS;
       const done = await announceBoostEmbedsAfterNativeWait({
         boostAnnounceChannel,
         member,
@@ -1431,7 +1504,6 @@ function scheduleBoostAnnounceAfterNative(boostAnnounceChannel, member, guildId,
         release();
         return;
       }
-      const maxWaitMs = expectedSlots >= 2 ? BOOST_NATIVE_WAIT_MAX_MS : BOOST_NATIVE_WAIT_SINGLE_MS;
       if (Date.now() - startedAt >= maxWaitMs) {
         release();
         return;
@@ -1486,11 +1558,17 @@ async function handleBoostUpdate(oldMember, newMember) {
     }
   }
 
+  const prevCachedBoostCount =
+    typeof boostCountCache.get(guildId) === "number"
+      ? boostCountCache.get(guildId)
+      : Number(oldMember?.guild?.premiumSubscriptionCount || 0);
+
   if (mainIdForBoost && String(guildId) === mainIdForBoost && oldBoostTs > 0 && newBoostTs > 0) {
     await newMember.guild.fetch().catch(() => {});
   }
 
-  // Aggiorna sempre il conteggio boost da Discord prima di calcolare delta/footer.
+  // Aggiorna il conteggio boost da Discord per il footer, ma il delta usa lo snapshot
+  // precedente: fetch() muta lo stesso Guild di oldMember e azzererebbe +2 → +0.
   const freshBoostCount = await resolveFreshGuildBoostCount(newMember.guild).catch(() => null);
   if (Number.isFinite(Number(freshBoostCount))) {
     try {
@@ -1498,7 +1576,12 @@ async function handleBoostUpdate(oldMember, newMember) {
     } catch (ePc) {}
   }
 
-  const { currentCount, countIncreased, boostDelta, guildBoostDecreased, boostDrop } = computeBoostDelta(oldMember, newMember, guildId);
+  const { currentCount, countIncreased, boostDelta, guildBoostDecreased, boostDrop } = computeBoostDelta(
+    oldMember,
+    newMember,
+    guildId,
+    { prevCachedCount: prevCachedBoostCount },
+  );
   if (guildBoostDecreased && boostDrop > 0) {
     await maybeRevokeDoubleBoosterAfterSlotLoss({ oldMember, newMember, guildId, drop: boostDrop }).catch((err) => {
       global.logger?.warn?.("[guildMemberUpdate] Double Booster partial revoke:", newMember?.id, err?.message || err);
@@ -1532,7 +1615,7 @@ async function handleBoostUpdate(oldMember, newMember) {
   if (boostAnnounceSendLocks.has(boostKey)) {
     boostCountCache.set(guildId, currentCount);
     scheduleBoostFollowup(boostAnnounceChannel, newMember, guildId, boostKey, {
-      expectedSlots: Math.min(2, Math.max(1, boostDelta, recentNativeSlots)),
+      expectedSlots: Math.min(2, Math.max(1, recentNativeSlots || 1)),
       currentCount,
       premiumSinceTs: newBoostTs,
     });
@@ -1541,16 +1624,19 @@ async function handleBoostUpdate(oldMember, newMember) {
 
   boostCountCache.set(guildId, currentCount);
   void addPerkRoleIfPossible(newMember).catch(() => null);
-  const alreadyAnnouncedSlots = getAnnouncedBoostSlots(guildId, newMember.id);
+  let alreadyAnnouncedSlots = getAnnouncedBoostSlots(guildId, newMember.id);
+  if (startedBoostingNow && alreadyAnnouncedSlots > 0) {
+    setAnnouncedBoostSlots(guildId, newMember.id, 0);
+    await persistAnnouncedBoostSlotsToDb(guildId, newMember.id).catch(() => null);
+    alreadyAnnouncedSlots = 0;
+  }
   let expectedSlots;
   if (startedBoostingNow) {
-    expectedSlots = Math.min(2, Math.max(1, boostDelta, recentNativeSlots));
+    expectedSlots = Math.min(2, Math.max(1, recentNativeSlots || 1));
   } else {
-    // Già booster: nuovo slot (count↑ o native) → punta a announced+delta, non solo a 1.
-    const delta = Math.max(1, boostDelta || recentNativeSlots || 1);
     expectedSlots = Math.min(
       2,
-      Math.max(recentNativeSlots, alreadyAnnouncedSlots + delta, countIncreased ? alreadyAnnouncedSlots + boostDelta : 0),
+      Math.max(alreadyAnnouncedSlots + 1, recentNativeSlots || 0, 1),
     );
   }
   expectedSlots = Math.max(1, expectedSlots);
@@ -1559,7 +1645,7 @@ async function handleBoostUpdate(oldMember, newMember) {
     currentCount,
     premiumSinceTs: newBoostTs,
     nativeEventIncrement: !startedBoostingNow,
-    nativeEventSlots: Math.max(1, boostDelta || recentNativeSlots || 1),
+    nativeEventSlots: Math.max(1, recentNativeSlots >= 2 ? 2 : 1),
   });
   recoverConcurrentNativeBoosts(newMember.guild, boostAnnounceChannel, { windowMs: 3 * 60 * 1000 }).catch(() => null);
 }
@@ -1572,7 +1658,7 @@ async function collectRecentNativeBoosterCandidates(guild, primaryChannel, opts 
   const fetchLimit = Math.max(60, Math.min(100, Number(opts.messageLimit || 100)));
   const minTs = Date.now() - windowMs;
   const channels = await resolveBoostNativeScanChannelsAsync(guild, primaryChannel);
-  const byUser = new Map();
+  const eventsByUser = new Map();
   for (const channel of channels) {
     const recent = await channel.messages.fetch({ limit: fetchLimit }).catch(() => null);
     if (!recent) continue;
@@ -1583,12 +1669,28 @@ async function collectRecentNativeBoosterCandidates(guild, primaryChannel, opts 
       if (slots <= 0) continue;
       const uid = resolveNativeBoostMessageUserId(message, guild);
       if (!uid) continue;
-      const row = byUser.get(uid) || { slots: 0, lastTs: 0, firstTs: ts };
-      row.slots = Math.min(2, row.slots + slots);
-      row.lastTs = Math.max(row.lastTs, ts);
-      row.firstTs = Math.min(row.firstTs, ts);
-      byUser.set(uid, row);
+      const list = eventsByUser.get(uid) || [];
+      list.push({ id: String(message.id || ""), ts, slots });
+      eventsByUser.set(uid, list);
     }
+  }
+  const byUser = new Map();
+  for (const [uid, events] of eventsByUser.entries()) {
+    const slots = mergeNativeBoostSlotEvents(events);
+    if (slots <= 0) continue;
+    let firstTs = Number.POSITIVE_INFINITY;
+    let lastTs = 0;
+    for (const ev of events) {
+      const ts = Number(ev?.ts || 0);
+      if (!ts) continue;
+      firstTs = Math.min(firstTs, ts);
+      lastTs = Math.max(lastTs, ts);
+    }
+    byUser.set(uid, {
+      slots,
+      lastTs,
+      firstTs: Number.isFinite(firstTs) ? firstTs : lastTs,
+    });
   }
   return { byUser, windowMs, minTs };
 }
@@ -1795,7 +1897,7 @@ async function recoverMissingBoostEmbedsForUser(guild, userId, opts = {}) {
     if (sentNow <= 0) {
       return { ok: true, sent: 0, reason: "send_failed" };
     }
-    await trackBoostSlotsAnnouncedAndMaybeGrantDoubleBooster(member, gid, sentNow);
+    await trackBoostSlotsAnnouncedAndMaybeGrantDoubleBooster(member, gid, channelEmbedsInPeriod + sentNow);
     rememberBoostAnnounce(boostKey, latestCount, member.premiumSinceTimestamp);
     await markBoostAnnounceHandledIfSynced(guild, uid, boostAnnounceChannel, {
       sinceMs,
@@ -2319,21 +2421,11 @@ async function countNativeBoostSlotsInRecentMessages(guild, primaryChannel, user
   if (!primaryChannel?.isTextBased?.() || !userId) return 0;
   const perChannelLimit = Math.max(20, Math.min(100, Number(opts.perChannelLimit || 100)));
   const minTs = Number.isFinite(Number(opts.sinceMs)) ? Math.max(0, Number(opts.sinceMs)) : 0;
-  const channels = await resolveBoostNativeScanChannelsAsync(guild, primaryChannel);
-  let totalSlots = 0;
-  for (const channel of channels) {
-    const recent = await channel.messages.fetch({ limit: perChannelLimit }).catch(() => null);
-    if (!recent) continue;
-    for (const m of recent.values()) {
-      const messageUserId = resolveNativeBoostMessageUserId(m, guild);
-      if (!messageUserId || String(messageUserId) !== String(userId)) continue;
-      const ts = Number(m.createdTimestamp || 0);
-      if (minTs > 0 && ts && ts < minTs) continue;
-      const slotCount = parseNativeBoostSlotCount(m);
-      if (slotCount > 0) totalSlots = Math.min(2, totalSlots + slotCount);
-    }
-  }
-  return totalSlots;
+  const events = await collectNativeBoostSlotEventsForUser(guild, primaryChannel, userId, {
+    minTs,
+    limit: perChannelLimit,
+  }).catch(() => []);
+  return mergeNativeBoostSlotEvents(events);
 }
 
 async function buildBoostAnnounceEmbedIndex(channel, botUid, fetchLimit = 200) {
@@ -2662,7 +2754,16 @@ module.exports = {
   reconcileDoubleBoosterRolesOnStartup,
   recoverMissingSecondBoostEmbedsOnStartup,
   recoverUnannouncedBoostersOnStartup,
-  __test: { resolveBoostSlotTarget, noteNativeBoostSeen, nativeBoostSeenSince, resolveBoosterUserIdFromBoostContent },
+  countNativeBoostSlotsInRecentMessages,
+  countRecentBotBoostAnnouncesForUser,
+  __test: {
+    resolveBoostSlotTarget,
+    noteNativeBoostSeen,
+    nativeBoostSeenSince,
+    resolveBoosterUserIdFromBoostContent,
+    parseNativeBoostSlotCount,
+    computeBoostDelta,
+  },
   async execute(oldMember, newMember, client) {
     try {
       if (!oldMember || !newMember?.guild || !newMember?.user) return;

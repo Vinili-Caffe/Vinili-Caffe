@@ -12,8 +12,6 @@ const { syncPersistentAutoValutazioniForMember, removeAutoValutazione } = requir
 const { userAvatarUrlDynamic, guildMemberDisplayAvatarUrlDynamic, guildMemberDisplayAvatarUrlStatic } = require("../Discord/guildDiscordIdentity");
 const {
   applyLiveAvatarToSuggestionLike,
-  collectUserIdsFromSuggestionLikeDocs,
-  prefetchGuildMembersForIds,
   resolveSiteAvatarUrl,
   stabilizeDiscordCdnAvatarUrl,
 } = require("./siteLiveAvatars");
@@ -107,7 +105,10 @@ async function getStaffTargets(client, guild) {
     return staffCache;
   }
 
-  await guild.members.fetch().catch(() => null);
+  try {
+    const { ensureGuildMembersLoaded } = require("./siteStaffRosterCache");
+    await ensureGuildMembersLoaded(guild);
+  } catch (_) {}
   const role = guild.roles.cache.get(STAFF_ROLE_ID) || (await guild.roles.fetch(STAFF_ROLE_ID).catch(() => null));
   const members = role ? Array.from(role.members.values()) : [];
   const list = members
@@ -138,7 +139,10 @@ async function getHighStaffUserIds(guild) {
     highStaffCache = { guildId, expiresAt: Date.now() + STAFF_CACHE_TTL_MS, userIds: [] };
     return [];
   }
-  await guild.members.fetch().catch(() => null);
+  try {
+    const { ensureGuildMembersLoaded } = require("./siteStaffRosterCache");
+    await ensureGuildMembersLoaded(guild);
+  } catch (_) {}
   const role = guild.roles.cache.get(HIGH_STAFF_ROLE_ID) || (await guild.roles.fetch(HIGH_STAFF_ROLE_ID).catch(() => null));
   const userIds = role
     ? Array.from(role.members.values())
@@ -390,74 +394,64 @@ async function getSiteReviews(client, payload = {}) {
     return { ok: false, status: 503, error: "guild_unavailable", message: "Server Discord non disponibile." };
   }
 
-  const staff = await cleanupOrphanStaffReviews(client, guild);
-  const staffMap = new Map(staff.list.map((entry) => [entry.id, entry]));
-  const [serverDocs, staffDocs, botDocs] = await Promise.all([
-    SiteDocument.find({ docType: RV, guildId: guild.id, reviewKind: "server" }).sort({ createdAt: -1, _id: -1 }).limit(80).lean().catch(() => []),
-    SiteDocument.find({ docType: RV, guildId: guild.id, reviewKind: "staff" }).sort({ createdAt: -1, _id: -1 }).limit(80).lean().catch(() => []),
-    SiteDocument.find({ docType: RV, guildId: guild.id, reviewKind: "bot" }).sort({ createdAt: -1, _id: -1 }).limit(120).lean().catch(() => []),
-  ]);
+  const wantKind = String(payload.kind || "server").trim().toLowerCase();
+  const reviewKind = wantKind === "bot" ? "bot" : "server";
+  const accessToken = String(payload.accessToken || "").trim();
+  const staffMap = new Map();
 
-  await prefetchGuildMembersForIds(
-    guild,
-    collectUserIdsFromSuggestionLikeDocs([].concat(serverDocs, staffDocs, botDocs)),
-  );
+  const docsP = SiteDocument.find({ docType: RV, guildId: guild.id, reviewKind })
+    .sort({ createdAt: -1, _id: -1 })
+    .limit(reviewKind === "bot" ? 120 : 80)
+    .lean()
+    .catch(() => []);
+  const viewerP = accessToken
+    ? resolveWebsiteGuildMember(client, accessToken).catch(() => null)
+    : Promise.resolve(null);
+  const [kindDocs, resolved] = await Promise.all([docsP, viewerP]);
 
   let viewer = null;
   let viewerUserId = "";
-  const accessToken = String(payload.accessToken || "").trim();
-  if (accessToken) {
-    const resolved = await resolveWebsiteGuildMember(client, accessToken);
-    if (resolved.ok) {
-      viewerUserId = String(resolved.userId || "");
-      const viewerDocs = await SiteDocument.find({
-        docType: RV,
-        guildId: guild.id,
-        userId: resolved.userId,
-      }).lean().catch(() => []);
-      viewer = {
-        id: resolved.userId,
-        name: displayNameForMember(resolved.member),
-        canReplyAsServer: memberCanReplyAsServer(resolved.member),
-        serverReview: null,
-        botReview: null,
-        staffReviews: [],
-      };
-      viewerDocs.forEach((doc) => {
-        const rk = doc.reviewKind || doc.kind;
-        if (rk === "server" || rk === "bot") {
-          const entry = applyLiveAvatarToSuggestionLike(enrichPublicReviewDoc(doc, staffMap, viewerUserId), guild, {
-            size: 128,
-          });
-          if (entry.kind === "server") viewer.serverReview = entry;
-          if (entry.kind === "bot") viewer.botReview = entry;
-          return;
-        }
-        viewer.staffReviews.push(
-          applyLiveAvatarToSuggestionLike(serializeReview(doc, staffMap), guild, { size: 128 }),
-        );
+  if (resolved && resolved.ok) {
+    viewerUserId = String(resolved.userId || "");
+    const viewerDocs = await SiteDocument.find({
+      docType: RV,
+      guildId: guild.id,
+      userId: resolved.userId,
+      reviewKind,
+    })
+      .lean()
+      .catch(() => []);
+    viewer = {
+      id: resolved.userId,
+      name: displayNameForMember(resolved.member),
+      canReplyAsServer: memberCanReplyAsServer(resolved.member),
+      serverReview: null,
+      botReview: null,
+      staffReviews: [],
+    };
+    viewerDocs.forEach((doc) => {
+      const entry = applyLiveAvatarToSuggestionLike(enrichPublicReviewDoc(doc, staffMap, viewerUserId), guild, {
+        size: 128,
       });
-    }
+      if (entry.kind === "server") viewer.serverReview = entry;
+      if (entry.kind === "bot") viewer.botReview = entry;
+    });
   }
 
   function enrichPublicReview(doc) {
     return applyLiveAvatarToSuggestionLike(enrichPublicReviewDoc(doc, staffMap, viewerUserId), guild, { size: 128 });
   }
 
+  const serialized = sortSerializedReviewsNewestFirst((Array.isArray(kindDocs) ? kindDocs : []).map((doc) => enrichPublicReview(doc)));
   return {
     ok: true,
     status: 200,
     externalReviewsUrl: String(client?.config?.disboardReviews?.reviewUrl || client?.config?.reviewsUrl || "").trim(),
-    staffers: staff.list.map((entry) => ({
-      ...entry,
-      avatarUrl: resolveSiteAvatarUrl(guild, entry.id, entry.avatarUrl, { size: 128 }),
-    })),
+    staffers: [],
     reviews: {
-      server: sortSerializedReviewsNewestFirst(serverDocs.map((doc) => enrichPublicReview(doc))),
-      staff: sortSerializedReviewsNewestFirst(
-        staffDocs.map((doc) => applyLiveAvatarToSuggestionLike(serializeReview(doc, staffMap), guild, { size: 128 })),
-      ),
-      bot: sortSerializedReviewsNewestFirst(botDocs.map((doc) => enrichPublicReview(doc))),
+      server: reviewKind === "server" ? serialized : [],
+      staff: [],
+      bot: reviewKind === "bot" ? serialized : [],
     },
     viewer,
   };

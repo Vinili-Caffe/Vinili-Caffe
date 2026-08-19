@@ -3,6 +3,7 @@
   var DISMISSED_PREFIX = "vc_notifications_dismissed_v1:";
   var NOTIF_SYNC_KEY = "vc_notifications_sync_v1";
   var PENDING_READ_PREFIX = "vc_notifications_pending_read_v1:";
+  var CLEAR_ALL_AT_PREFIX = "vc_notifications_clear_all_at_v1:";
   var PENDING_LOGIN_NOTIF_KEY = "vc_pending_login_notification_v1";
   var DISCORD_ACCESS_TOKEN_KEY = "vc_discord_access_token";
   var filterMode = "all";
@@ -66,12 +67,20 @@
       var onTicketsPage = /\/tickets$/i.test(herePath);
       if (isTicketsDest && onTicketsPage) {
         var ticketId = String(dest.hash || "").replace(/^#/, "").trim();
+        if (!/^[a-f0-9]{24}$/i.test(ticketId)) {
+          try {
+            ticketId = String(dest.searchParams.get("ticketId") || "").trim();
+          } catch (eTid) {}
+        }
         var wantStaff = false;
         try {
           wantStaff = dest.searchParams.get("view") === "staff";
         } catch (eSp) {}
         if (wantStaff && String(here.search || "").indexOf("view=staff") < 0) {
-          window.location.href = dest.pathname + "?view=staff" + (ticketId ? "#" + ticketId : "");
+          window.location.href =
+            dest.pathname +
+            "?view=staff" +
+            (ticketId ? "&ticketId=" + encodeURIComponent(ticketId) + "#" + ticketId : "");
           return;
         }
         if (ticketId && /^[a-f0-9]{24}$/i.test(ticketId)) {
@@ -232,6 +241,39 @@
     saveDismissedSet(set, userId);
   }
 
+  function clearAllStampKey() {
+    var uid = normalizeUserId(currentUserId);
+    return CLEAR_ALL_AT_PREFIX + (uid || "anon");
+  }
+  function rememberClearAllStamp() {
+    try {
+      localStorage.setItem(clearAllStampKey(), String(Date.now()));
+    } catch (e) {}
+  }
+  function getClearAllAt() {
+    try {
+      return Number(localStorage.getItem(clearAllStampKey()) || 0) || 0;
+    } catch (e2) {
+      return 0;
+    }
+  }
+  function isClearedAwayServerRow(mapped, dismissed) {
+    if (!mapped) return true;
+    var sid = String(mapped.id || "").trim();
+    if (sid && dismissed && dismissed.has(sid)) return true;
+    var fpId = buildNotifFingerprintId(
+      mapped,
+      normalizeUserId(currentUserId),
+      String(mapped.kind || "info"),
+      String(mapped.openUrl || ""),
+    );
+    if (fpId && dismissed && dismissed.has(fpId)) return true;
+    var clearedAt = getClearAllAt();
+    var at = Number(mapped.at || 0) || 0;
+    if (clearedAt && at && at <= clearedAt) return true;
+    return false;
+  }
+
   function hashText(input) {
     var s = String(input || "");
     var h = 5381;
@@ -273,35 +315,66 @@
       String((a && a.openUrl) || "").trim() === String((b && b.openUrl) || "").trim()
     );
   }
+  function sameNotifPayload(a, b) {
+    if (!a || !b) return false;
+    return (
+      String((a && a.title) || "").trim() === String((b && b.title) || "").trim() &&
+      String((a && a.body) || "").trim() === String((b && b.body) || "").trim() &&
+      String((a && a.openUrl) || "").trim() === String((b && b.openUrl) || "").trim()
+    );
+  }
 
   function pendingReadKey() {
     var uid = normalizeUserId(currentUserId);
-    return uid ? PENDING_READ_PREFIX + uid : "";
+    return uid ? PENDING_READ_PREFIX + uid : PENDING_READ_PREFIX + "anon";
   }
-  function loadPendingReadMap() {
-    var key = pendingReadKey();
-    if (!key) return {};
+  function readPendingRaw(key) {
+    var raw = "";
     try {
-      var raw = sessionStorage.getItem(key);
+      raw = sessionStorage.getItem(key) || "";
+    } catch (eS) {}
+    if (!raw) {
+      try {
+        raw = localStorage.getItem(key) || "";
+      } catch (eL) {}
+    }
+    return raw;
+  }
+  function writePendingRaw(key, json) {
+    try {
+      sessionStorage.setItem(key, json);
+    } catch (eS) {}
+    try {
+      localStorage.setItem(key, json);
+    } catch (eL) {}
+  }
+  function parsePendingIdMap(raw) {
+    var map = {};
+    try {
       var arr = raw ? JSON.parse(raw) : [];
-      var map = {};
       if (Array.isArray(arr)) {
         for (var i = 0; i < arr.length; i += 1) {
           var id = String(arr[i] || "").trim();
           if (id) map[id] = true;
         }
       }
-      return map;
-    } catch (e) {
-      return {};
+    } catch (e) {}
+    return map;
+  }
+  function loadPendingReadMap() {
+    var map = parsePendingIdMap(readPendingRaw(pendingReadKey()));
+    var anon = parsePendingIdMap(readPendingRaw(PENDING_READ_PREFIX + "anon"));
+    var k;
+    for (k in anon) {
+      if (Object.prototype.hasOwnProperty.call(anon, k)) map[k] = true;
     }
+    return map;
   }
   function savePendingReadMap(map) {
-    var key = pendingReadKey();
-    if (!key) return;
-    try {
-      sessionStorage.setItem(key, JSON.stringify(Object.keys(map || {})));
-    } catch (e) {}
+    writePendingRaw(pendingReadKey(), JSON.stringify(Object.keys(map || {})));
+    if (normalizeUserId(currentUserId)) {
+      writePendingRaw(PENDING_READ_PREFIX + "anon", "[]");
+    }
   }
   function rememberPendingRead(id) {
     var sid = String(id || "").trim();
@@ -322,9 +395,18 @@
     var map = loadPendingReadMap();
     var keys = Object.keys(map);
     if (!keys.length) return Array.isArray(items) ? items : [];
+    var uid = normalizeUserId(currentUserId);
     return (Array.isArray(items) ? items : []).map(function (x) {
       var id = String((x && x.id) || "").trim();
-      if (id && map[id] && !x.read) return Object.assign({}, x, { read: true });
+      var fp = buildNotifFingerprintId(
+        x,
+        uid,
+        String((x && x.kind) || "info"),
+        String((x && x.openUrl) || ""),
+      );
+      if ((id && map[id] && !x.read) || (fp && map[fp] && !x.read)) {
+        return Object.assign({}, x, { read: true });
+      }
       return x;
     });
   }
@@ -579,11 +661,26 @@
     }
   }
 
-  function markRead(id) {
-    rememberPendingRead(id);
+  function markRead(id, extra) {
+    var sid = String(id || "").trim();
+    var dest = String((extra && extra.openUrl) || "").trim();
+    if (sid) rememberPendingRead(sid);
     var next = loadStored().map(function (x) {
-      if (x.id === id) return Object.assign({}, x, { read: true });
-      return x;
+      if (!x || x.read) return x;
+      var xid = String((x && x.id) || "").trim();
+      var xDest = String((x && x.openUrl) || "").trim();
+      var match = Boolean(sid && xid === sid);
+      if (!match && dest && xDest && dest === xDest && dest !== "/") match = true;
+      if (!match) return x;
+      if (xid) rememberPendingRead(xid);
+      var fp = buildNotifFingerprintId(
+        x,
+        normalizeUserId(currentUserId),
+        String((x && x.kind) || "info"),
+        xDest,
+      );
+      if (fp) rememberPendingRead(fp);
+      return Object.assign({}, x, { read: true });
     });
     saveStored(next);
   }
@@ -685,7 +782,9 @@
                 ? "mod"
                 : kindRaw === "suggestion"
                   ? "suggestion"
-                  : "info";
+                  : kindRaw === "web_ticket" || kindRaw === "web_ticket_mention"
+                    ? "web_ticket"
+                    : "info";
     var titleRaw = String((row && row.title) || "").toLowerCase();
     var bodyRaw = String((row && row.body) || "").toLowerCase();
     if (
@@ -735,10 +834,12 @@
     var beforeSig = buildNotifyPageSignature(oldItems, filteredRows(oldItems).length);
     var dismissed = loadDismissedSet(uid);
     var oldReadMap = {};
+    var oldById = {};
     var serverIdMap = {};
     var fromServer = [];
     for (var ori = 0; ori < oldItems.length; ori += 1) {
       var oid = String((oldItems[ori] && oldItems[ori].id) || "").trim();
+      if (oid) oldById[oid] = oldItems[ori];
       if (oid && oldItems[ori] && oldItems[ori].read) oldReadMap[oid] = true;
     }
     var pendingReadMap = loadPendingReadMap();
@@ -749,14 +850,30 @@
       if (!sid) continue;
       var mapped = mapServerRowToStoredItemPage(row);
       var fpId = buildNotifFingerprintId(mapped, uid, mapped.kind, mapped.openUrl);
-      // Server = source of truth (dismissed locale non nasconde item ancora in API).
-      if (!isServerBackedNotifId(sid) && dismissed.has(sid)) continue;
-      if (!isServerBackedNotifId(sid) && fpId && dismissed.has(fpId)) continue;
+      if (isClearedAwayServerRow(mapped, dismissed)) continue;
       serverIdMap[sid] = true;
-      if (mapped.read) forgetPendingRead(sid);
+      var oldSame = oldById[sid];
+      if (mapped.read) {
+        forgetPendingRead(sid);
+        if (fpId) forgetPendingRead(fpId);
+      } else if (
+        (pendingReadMap[sid] || (fpId && pendingReadMap[fpId]) || oldReadMap[sid]) &&
+        oldSame &&
+        !sameNotifPayload(oldSame, mapped)
+      ) {
+        delete pendingReadMap[sid];
+        if (fpId) delete pendingReadMap[fpId];
+        delete oldReadMap[sid];
+        forgetPendingRead(sid);
+        if (fpId) forgetPendingRead(fpId);
+      }
       fromServer.push(
         Object.assign({}, mapped, {
-          read: Boolean(mapped.read) || Boolean(oldReadMap[sid]) || Boolean(pendingReadMap[sid]),
+          read:
+            Boolean(mapped.read) ||
+            Boolean(oldReadMap[sid]) ||
+            Boolean(pendingReadMap[sid]) ||
+            Boolean(fpId && pendingReadMap[fpId]),
         }),
       );
     }
@@ -808,7 +925,7 @@
     var dismissed = loadDismissedSet(uid);
     var sid = String(id || "").trim();
     if (sid) dismissed.add(sid);
-    if (item && !isServerBackedNotifId(sid)) {
+    if (item) {
       var fpId = buildNotifFingerprintId(item, uid, String(item.kind || "info"), String(item.openUrl || ""));
       if (fpId) dismissed.add(fpId);
     }
@@ -827,30 +944,33 @@
       var it = items[ci];
       var lid = String((it && it.id) || "").trim();
       if (lid) dismissed.add(lid);
-      if (!isServerBackedNotifId(lid)) {
-        var fpId = buildNotifFingerprintId(it, uid, String((it && it.kind) || "info"), String((it && it.openUrl) || ""));
-        if (fpId) dismissed.add(fpId);
-      }
+      var fpId = buildNotifFingerprintId(it, uid, String((it && it.kind) || "info"), String((it && it.openUrl) || ""));
+      if (fpId) dismissed.add(fpId);
     }
     saveDismissedSet(dismissed, uid);
+    rememberClearAllStamp();
     saveStored([]);
+    lastNotifyListRenderSig = "";
+    renderList();
     clearAllSiteNotificationsOnServer().finally(function () {
-      syncSiteNotificationsFromServer();
+      window.setTimeout(function () {
+        syncSiteNotificationsFromServer();
+      }, 600);
     });
   }
 
   function openAndMarkRead(n, destRaw) {
-    if (!n || !n.id) return;
-    markRead(n.id);
-    markReadOnServer(n.id)
-      .then(function (ok) {
-        if (ok) forgetPendingRead(n.id);
-      })
-      .finally(function () {
-        syncSiteNotificationsFromServer();
-      });
+    if (!n) return;
+    var dest = String(destRaw || (n && n.openUrl) || "").trim();
+    markRead(n.id, { openUrl: dest });
+    lastNotifyListRenderSig = "";
     renderList();
-    if (destRaw) openNotifDestination(resolveNotifDestUrl(destRaw), n.kind);
+    markReadOnServer(n.id).finally(function () {
+      window.setTimeout(function () {
+        syncSiteNotificationsFromServer();
+      }, 400);
+    });
+    if (dest) openNotifDestination(resolveNotifDestUrl(dest), n.kind);
   }
 
   function renderList() {

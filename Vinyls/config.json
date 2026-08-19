@@ -732,7 +732,7 @@
     "redirectUrl": "/evento/shop"
   },
   "twitchLiveAlerts": {
-    "enabled": true,
+    "enabled": false,
     "pollIntervalSec": 90,
     "reannounceCooldownSec": 2700,
     "streamVoiceChannelId": "1522558362288521226",
@@ -752,7 +752,7 @@
     "enabled": true,
     "pollIntervalSec": 90,
     "reannounceCooldownSec": 2700,
-    "streamVoiceChannelId": "1522558362288521226",
+    "streamVoiceChannelId": "1539417055391121440",
     "streamers": [
       {
         "slug": "d1uk",

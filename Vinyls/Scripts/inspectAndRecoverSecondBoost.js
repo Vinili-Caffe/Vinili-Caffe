@@ -59,11 +59,12 @@ async function main() {
       const desc = String(m.embeds?.[0]?.description || "");
       const text = `${content}\n${desc}`;
 
-      if (/ha\s+appena\s+potenziato\s+il\s+server|just\s+boosted\s+the\s+server/i.test(content)) {
+      const plain = content.replace(/\*/g, " ").replace(/\s+/g, " ");
+      if (/ha\s+appena\s+potenziato\s+il\s+server|just\s+boosted\s+the\s+server/i.test(plain) || (Number(m.type) >= 8 && Number(m.type) <= 11)) {
         const slots =
-          /\b2\s+volte\b|\bdue\s+volte\b|\btwice\b/i.test(content)
+          /\b2\s+volte\b|\bdue\s+volte\b|\btwice\b/i.test(plain)
             ? 2
-            : Number((content.match(/\b(\d{1,2})\s+volte\b/i) || content.match(/\b(\d{1,2})\s+times\b/i) || [])[1] || 1);
+            : Number((plain.match(/\b(\d{1,2})\s+volte\b/i) || plain.match(/\b(\d{1,2})\s+times\b/i) || (/^\d{1,2}$/.test(plain) ? [plain, plain] : []))[1] || 1);
         let uid = m.mentions?.users?.first()?.id || null;
         if (!uid) {
           const mm = content.match(/<@!?(\d{5,30})>/);

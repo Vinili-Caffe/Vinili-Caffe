@@ -44,7 +44,7 @@ module.exports = {
       const lockedEmbed = new EmbedBuilder()
         .setColor("#ED4245")
         .setDescription(
-          "Il TTS è già attivo in un altro canale vocale. Usa `+leave` lì o nel canale attuale, poi `+join` qui.",
+          "Il TTS è già attivo in un altro canale vocale. Usa `+leave` in quel vocale, poi `+join` qui.",
         );
       const w = await safeMessageReply(message, { embeds: [lockedEmbed] });
       if (w) scheduleMessageDeletion(w, EPHEMERAL_TTL_SHORT_MS);

@@ -131,7 +131,6 @@ const APPLICATION_COMMAND_DESCRIPTIONS = Object.freeze({
   copy: "Ruba e aggiungi sul tuo server.",
   music: "Controlla la riproduzione musicale del bot.",
   say: "Fa dire al bot un messaggio al posto tuo.",
-  gringott: "Gestisci il conto Gringott e i Galeoni.",
 });
 
 const DASHBOARD_PREFIX_DESCRIPTION_OVERRIDES = Object.freeze({

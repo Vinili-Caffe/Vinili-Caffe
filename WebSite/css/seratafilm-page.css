@@ -1524,3 +1524,83 @@ body.vc-seratafilm-hogwarts-event.vc-seratafilm-final10 #vc-seratafilm-app .tile
 .vc-seratafilm-ad-tap[hidden] {
   display: none !important;
 }
+
+#vc-seratafilm-loading,
+body.vc-seratafilm-hogwarts-event #vc-seratafilm-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  overflow: hidden;
+  background-color: #0b0806 !important;
+  background-image:
+    radial-gradient(ellipse 92% 74% at 50% 38%, rgba(232, 196, 156, 0.16) 0%, rgba(28, 20, 14, 0.94) 52%, #0a0706 100%) !important;
+}
+
+#vc-seratafilm-loading::after {
+  content: "";
+  position: absolute;
+  top: max(1.4rem, 7vh);
+  right: max(1.4rem, 8vw);
+  width: 2.05rem;
+  height: 2.05rem;
+  border-radius: 9999px;
+  border: 1.5px solid rgba(247, 236, 223, 0.18);
+  box-shadow:
+    0 0 0 5px rgba(247, 236, 223, 0.06),
+    inset 0 0 0 4px rgba(247, 236, 223, 0.1);
+  opacity: 0.62;
+  pointer-events: none;
+}
+
+#vc-seratafilm-loading .vc-seratafilm-loading__card,
+body.vc-seratafilm-hogwarts-event #vc-seratafilm-loading .vc-seratafilm-loading__card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.95rem;
+  max-width: 40rem;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  text-align: center;
+}
+
+#vc-seratafilm-loading .vc-seratafilm-loading__card::before {
+  content: "";
+  display: block;
+  width: 2.35rem;
+  height: 2.35rem;
+  border-radius: 9999px;
+  border: 2px solid rgba(245, 232, 216, 0.16);
+  border-top-color: rgba(247, 236, 223, 0.96);
+  box-shadow: 0 0 22px rgba(232, 196, 156, 0.28);
+  animation: vc-seratafilm-load-spin 0.9s linear infinite;
+}
+
+@keyframes vc-seratafilm-load-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+#vc-seratafilm-loading .vc-seratafilm-loading__text {
+  margin: 0.15rem 0 0;
+  font-family: Inter, "Segoe UI", sans-serif;
+  font-size: clamp(1.85rem, 4vw, 2.85rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.08;
+  color: #f6eadc !important;
+}
+
+#vc-seratafilm-loading .vc-seratafilm-loading__hint {
+  margin: 0.15rem 0 0;
+  font-size: 1.02rem;
+  font-weight: 500;
+  line-height: 1.55;
+  color: rgba(247, 236, 223, 0.78) !important;
+}

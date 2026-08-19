@@ -92,6 +92,7 @@
         </a>
         <div class="flex shrink-0 items-center gap-2" id="header-quick-actions">
           <a class="vc-tx-topbar__home" href="{{SITE_URL}}"><i class="fa fa-home" aria-hidden="true"></i><span>Home</span></a>
+          <button type="button" id="vc-mobile-nav-toggle" class="vc-mobile-nav-toggle vc-icon-btn" aria-label="Apri menu di navigazione" aria-controls="vc-mobile-nav-drawer" aria-expanded="false"><span class="vc-mobile-nav-toggle-bars" aria-hidden="true"><span></span><span></span><span></span></span></button>
           <div class="header-login-state" id="discord-login-state" hidden></div>
           <div id="discord-login-mount"></div>
         </div>
@@ -152,5 +153,6 @@
 <script src="../../js/discord-auth.js?v={{BUILD_ASSET_VERSION}}"></script>
     <script src="../../js/dashboard-transcript-page.js?v={{BUILD_ASSET_VERSION}}"></script>
       <script src="/js/vc-cursor-trail.js?v={{BUILD_ASSET_VERSION}}" defer></script>
-  </body>
+    <script src="/js/vc-ptr.js?v={{BUILD_ASSET_VERSION}}" defer></script>
+</body>
 </html>

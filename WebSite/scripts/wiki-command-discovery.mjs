@@ -1,11 +1,12 @@
 /**
  * Legge i file dei bot Vinyls / Coffee e genera l'HTML degli accordion comandi per la wiki.
  * Slash / menu contestuale: stessa categoria della cartella Commands (Admin, Staff, Dev…), insieme ai prefix.
- * Prefix: cartella Prefix, esclusi skipLoad / skipPrefix. Slash senza skipDeploy.
+ * Prefix: cartella Prefix, esclusi skipLoad / skipPrefix. Slash senza skipDeploy / hideFromHelp.
  * Categorie admin e dev: omesse dalla wiki pubblica.
  * Visibilità comandi (prefix/slash/context): come +help per un utente con solo ruolo Member
  * (permissions.json + canMemberSeeEntry). Cartella Prefix "misc" esclusa come in help.
  * Comandi tenantOnly / hideFromHelp (es. +settings multi-guild): esclusi dalla wiki pubblica.
+ * Slash già in DEFAULT_OBSOLETE_SLASH_NAMES: esclusi (non esistono più su Discord).
  */
 import fs from "fs";
 import path from "path";
@@ -31,7 +32,7 @@ const PREFIX_FOLDER_LABELS = {
   minigames: "Minigiochi",
   stats: "Statistiche",
   moderation: "Moderazione",
-  economy: "Economia Galeoni",
+  economy: "Economia",
   admin: "Admin",
   staff: "Staff",
   event: "Eventi",
@@ -217,8 +218,25 @@ function parsePrefixCommandFile(filePath, src) {
   };
 }
 
+function loadObsoleteSlashNames() {
+  try {
+    const req = createRequire(path.join(REPO_ROOT, "package.json"));
+    const mod = req("./shared/discord/purgeObsoleteApplicationCommands.js");
+    return new Set(
+      (Array.isArray(mod.DEFAULT_OBSOLETE_SLASH_NAMES) ? mod.DEFAULT_OBSOLETE_SLASH_NAMES : []).map((n) =>
+        String(n || "")
+          .trim()
+          .toLowerCase(),
+      ),
+    );
+  } catch {
+    return new Set(["music", "gringott", "squalifica", "dmbroadcast"]);
+  }
+}
+
 function parseSlashFromSrc(src, categoryFolder) {
   if (/\bskipDeploy:\s*true/.test(src)) return null;
+  if (/\bhideFromHelp:\s*true/.test(src)) return null;
   const slashIdx = src.search(/\bdata:\s*new\s+SlashCommandBuilder\s*\(\s*\)/);
   const ctxIdx = src.search(/\bdata:\s*new\s+ContextMenuCommandBuilder\s*\(\s*\)/);
   if (slashIdx !== -1 && (ctxIdx === -1 || slashIdx < ctxIdx)) {
@@ -327,6 +345,7 @@ function collectVinili() {
   const prefix = String(cfg.prefix ?? "+");
 
   const categories = new Map();
+  const obsoleteSlashNames = loadObsoleteSlashNames();
 
   function ensureCat(id) {
     if (!categories.has(id)) {
@@ -339,6 +358,7 @@ function collectVinili() {
     const src = read(file);
     const parsed = parseSlashFromSrc(src, folder);
     if (!parsed) continue;
+    if (obsoleteSlashNames.has(String(parsed.name || "").trim().toLowerCase())) continue;
     if (permFilter) {
       const node = getCommandPermissionNode(permFilter.permissions.slash, parsed.name);
       if (!isSlashOrContextVisibleOnWiki(node, permFilter.memberRoleSet, permFilter.ids)) {

@@ -6,6 +6,7 @@ const { sponsorMainLeave } = require("../Utils/Community/activityUserProfilePath
 const IDs = require("../Utils/Config/ids");
 const { getGuildChannelCached, getClientGuildCached } = require("../Utils/Interaction/interactionEntityCache");
 const { scheduleStaffListRefresh, memberHasStaffRole, } = require("../Utils/Community/staffListUtils");
+const { scheduleMemberCounterRefresh } = require("../Utils/Community/memberCounterUtils");
 const { getStaffRoleEmojiByRoleId } = require("../Utils/Community/staffRoleEmoji");
 const { queueIdsCatalogSync } = require("../Utils/Config/idsAutoSync");
 const { runCleanupAfterMemberLeave } = require("../Services/Community/cleanupUsersNotInServerService");
@@ -475,6 +476,7 @@ module.exports = {
       await markInviteInactive(member);
 
       const guild = member.guild;
+      scheduleMemberCounterRefresh(guild, { delayMs: 300, secondPassMs: 2200 });
 
       let autoCloseOnLeave = true;
       try {

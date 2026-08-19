@@ -28,7 +28,19 @@
 
   function isBlockingSessionVerifyPage() {
     try {
-      return Boolean(window.__VC_REQUIRE_BLOCKING_SESSION_VERIFY);
+      try {
+        if (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) return false;
+      } catch (ePwa) {}
+      try {
+        if (navigator.standalone) return false;
+      } catch (eIos) {}
+      if (!window.__VC_REQUIRE_BLOCKING_SESSION_VERIFY) return false;
+      var p = String(location.pathname || "").replace(/\/+$/, "") || "/";
+      if (p.indexOf("/dashboard") === 0) return true;
+      if (p.indexOf("/staff") === 0) return true;
+      if (p === "/tickets" || p.indexOf("/tickets/") === 0) return true;
+      if (p.indexOf("/accesso-richiesto") !== -1) return true;
+      return false;
     } catch (e) {
       return false;
     }
@@ -142,7 +154,7 @@
       } catch (eFs) {
         clearSessionPendingUi();
       }
-    }, 8000);
+    }, 1800);
   }
 
   function armSessionPendingUi() {

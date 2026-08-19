@@ -17,7 +17,7 @@ const { isCoffeePrefixCommandToken } = require("../../../shared/discord/coffeePr
 const { getClientChannelCached, getClientGuildCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { accountUsername } = require("../../Utils/Discord/guildDiscordIdentity");
 const { EPHEMERAL_TTL_SHORT_MS, scheduleMessageDeletion } = require("../../Utils/Config/ephemeralMessageTtl");
-const { filterScriptsForTtsLang } = require("../../../shared/discord/ttsTextSanitize");
+const { filterScriptsForTtsLang, stripUrlsForTts, softenAttachedDotsForTts } = require("../../../shared/discord/ttsTextSanitize");
 const MAX_TTS_QUEUE = 10000;
 const TTS_CATCHUP_FETCH_LIMIT = 100;
 const TTS_CATCHUP_DEFAULT_LOOKBACK_MS = 30 * 1000;
@@ -193,21 +193,8 @@ async function authorIsInVoiceChannel(message, voiceChannel) {
 
 function sanitizeText(text) {
   if (!text) return "";
-  let cleaned = text
-    .replace(/https?:\/\/\S+/gi, "")
-    .replace(/\b(?:www\.)?[a-z0-9-]+\.[a-z]{2,}(?:\/\S*)?/gi, "")
-    .replace(/\bdiscord\.gg\/\S+/gi, "")
-    .replace(
-      /\b[a-z0-9-]+\s*(?:\[\s*(?:dot|punto)\s*\]|\(\s*(?:dot|punto)\s*\)|\{\s*(?:dot|punto)\s*\}|dot|punto)\s*[a-z]{2,}(?:\/\S*)?/gi,
-      "",
-    )
-    .replace(/\b[a-z]{2,}:\/\/\S+/gi, "")
-    .replace(
-      /\b\S+\.(?:com|net|org|gg|it|io|co|dev|app|me|xyz|ly|to|ai|tv|uk|de|fr|es|ru|jp|br|us|ca|au)\b\S*/gi,
-      "",
-    )
-    .replace(/`{1,3}[^`]*`{1,3}/g, "")
-    .trim();
+  let cleaned = softenAttachedDotsForTts(stripUrlsForTts(text));
+  cleaned = cleaned.replace(/`{1,3}[^`]*`{1,3}/g, "").trim();
   cleaned = cleaned.replace(/<a?:([a-zA-Z0-9_]+):\d+>/g, (_, name) => ` emoji ${name} `);
   cleaned = cleaned.replace(/\p{Extended_Pictographic}/gu, (m) => {
     const name = getUnicodeEmojiName(m);
@@ -1458,9 +1445,12 @@ async function leaveTtsGuild(guildId, client) {
         global.logger?.warn?.("[TTS] disconnect cleanup:", err?.message || err);
       }
       cleanupAllTtsStateForGuild(guildId);
+      await clearVoiceState(guildId, String(client?.user?.id || ""));
+      return { ok: true };
     }
     await clearVoiceState(guildId, String(client?.user?.id || ""));
-    return { ok: true };
+    persistTtsQueueSnapshotNow();
+    return { ok: false, reason: "not_connected" };
   }
   if (!lockedChannelId) {
     await clearVoiceState(guildId, String(client?.user?.id || ""));

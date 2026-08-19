@@ -1,7 +1,10 @@
 <!DOCTYPE html>
-<html lang="it">
+<html class="vc-site-polish vc-page-cine-boot" lang="it">
 
 <head>
+    <style id="vc-page-cine-boot-css">html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready),html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready) body{background:#100c09!important;overflow:hidden!important;overscroll-behavior:none!important}html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready)::before{content:"";position:fixed;inset:0;z-index:2147483000;background:#100c09;pointer-events:none}html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready) body.vc-body>main,html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready) body.vc-body>footer{opacity:0!important;visibility:hidden!important;pointer-events:none!important}html.vc-site-polish.vc-page-cine-boot .vc-home-cine{position:fixed;inset:0;z-index:0;pointer-events:none;background:#100c09}</style>
+<noscript><style>html.vc-page-cine-boot body.vc-body>main,html.vc-page-cine-boot body.vc-body>footer{opacity:1!important;visibility:visible!important}</style></noscript>
+
   {{COOKIEYES_BLOCK}}{{GA_BLOCK}}
   <meta charset="utf-8" />
   <title>{{RUOLI_PAGE_TITLE}}</title>
@@ -9,6 +12,9 @@
   <meta name="author" content="{{SITE_NAME}}" />
   <meta name="robots" content="index, follow" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="preload" as="font" type="font/woff2" href="/fonts/cormorant/cormorant-garamond-latin.woff2" crossorigin />
+    <link rel="preload" as="font" type="font/woff2" href="/fonts/inter/inter-latin.woff2" crossorigin />
+    <link rel="stylesheet" href="/css/vc-fonts.css?v=siteFonts1" />
   <meta property="og:type" content="website" />
   <meta property="og:title" content="{{RUOLI_OG_TITLE}}" />
   <meta property="og:description" content="{{RUOLI_META_DESCRIPTION}}" />
@@ -17,18 +23,51 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link
-    href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600&amp;family=Inter:wght@400;500;600;700;800&amp;display=swap"
+    href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600&amp;family=Inter:wght@400;500;600;700;800&amp;display=optional"
     rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css"
     crossorigin="anonymous" referrerpolicy="no-referrer" />
   <link rel="stylesheet" href="../css/tw-build.css" />
   <link rel="stylesheet" href="../css/vc-landing.css" />
+  <style id="vc-roles-loading-boot-css">
+    html:has(#vc-roles-loading:not([hidden])),
+    html:has(#vc-roles-loading:not([hidden])) body {
+      overflow: hidden !important;
+      overflow-x: hidden !important;
+      overflow-y: hidden !important;
+      overscroll-behavior: none !important;
+      height: 100% !important;
+      max-height: 100dvh !important;
+      touch-action: none;
+    }
+    html:has(#vc-roles-loading:not([hidden])) body {
+      position: fixed !important;
+      inset: 0 !important;
+      width: 100% !important;
+    }
+    html:has(#vc-roles-loading:not([hidden])) .vc-home-cine,
+    html:has(#vc-roles-loading:not([hidden])) .vc-blob,
+    html:has(#vc-roles-loading:not([hidden])) body > header,
+    html:has(#vc-roles-loading:not([hidden])) body > footer,
+    html:has(#vc-roles-loading:not([hidden])) main {
+      display: none !important;
+      visibility: hidden !important;
+      pointer-events: none !important;
+    }
+  </style>
+  <script src="../js/vc-page-cine-boot.js"></script>
   <script src="../js/vc-auth-pending.js"></script>
   <link rel="icon" href="{{GUILD_ICON_URL}}" />
 </head>
 
 <body id="top"
   class="vc-body vc-users-page vc-roles-page relative min-h-screen overflow-x-hidden font-sans text-slate-100 antialiased">
+    <div class="vc-home-cine" aria-hidden="true">
+      <canvas class="vc-home-cine__canvas"></canvas>
+      <div class="vc-home-cine__veil"></div>
+      <div class="vc-home-cine__grain"></div>
+    </div>
+
   <div class="vc-blob vc-blob-a" aria-hidden="true"></div>
   <div class="vc-blob vc-blob-b" aria-hidden="true"></div>
   <div class="vc-blob vc-blob-c" aria-hidden="true"></div>
@@ -37,7 +76,7 @@
     <div
       class="vc-nav-shell vc-glass mx-auto flex max-w-6xl flex-col gap-0 overflow-visible rounded-2xl border border-white/[0.08] bg-[#140f0c]/78 shadow-[0_8px_40px_rgba(0,0,0,0.48),0_0_48px_rgba(212,168,136,0.07)]">
       <div
-        class="vc-header-bar grid w-full grid-cols-1 items-center gap-y-2.5 gap-x-2 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:gap-x-3 sm:px-5">
+        class="vc-header-bar grid w-full grid-cols-1 items-center gap-y-2.5 gap-x-2 px-4 py-3 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:gap-x-3 sm:px-5">
         <div class="flex min-w-0 items-center gap-2.5 justify-self-start sm:gap-3">
           <a class="vc-header-logo-link shrink-0 rounded-2xl ring-1 ring-[#d4a888]/35 transition hover:ring-[#d4a888]/55 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#d4a888]/60"
             href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer" aria-label="Entra su Discord"><img
@@ -110,8 +149,6 @@
                   </div>
                 </div>
                 <div class="vc-notif-panel-head-actions">
-                  <button type="button" class="vc-notif-action" id="vc-notif-mark-all" title="Segna tutte come lette"
-                    aria-label="Segna tutte come lette"><i class="fa fa-check" aria-hidden="true"></i></button>
                   <button type="button" class="vc-notif-action" id="vc-notif-clear-all" title="Elimina tutte"
                     aria-label="Elimina tutte"><i class="fa fa-trash-o" aria-hidden="true"></i></button>
                 </div>
@@ -134,6 +171,7 @@
               </div>
             </div>
           </details>
+          <button type="button" id="vc-mobile-nav-toggle" class="vc-mobile-nav-toggle vc-icon-btn" aria-label="Apri menu di navigazione" aria-controls="vc-mobile-nav-drawer" aria-expanded="false"><span class="vc-mobile-nav-toggle-bars" aria-hidden="true"><span></span><span></span><span></span></span></button>
           <button class="vc-header-pill" id="discord-login-btn" type="button">Login</button>
           <div class="header-login-state" id="discord-login-state" hidden></div>
         </div>
@@ -153,12 +191,67 @@
   <main class="relative z-10 mx-auto max-w-6xl px-4 pb-24 pt-28 sm:pt-32">
     <p id="vc-roles-state" class="vc-user-leader-state" hidden role="status"></p>
 
-    <section class="w-full">
-      <div class="flex w-full min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-        <div class="min-w-0 flex-1">
-          <a class="vc-notify-home-btn vc-roles-back" href="{{USER_PAGE_URL}}" aria-label="Vai alla home"><i class="fa fa-chevron-left" aria-hidden="true"></i> <span data-i18n="roles.backHome">Home</span></a>
-          <h1 class="vc-roles-title"><i class="fa fa-shield" aria-hidden="true"></i> <span data-i18n="roles.title">Ruoli Personalizzati</span> <span class="vc-forbidden-book" data-vc-forbidden-book="ruoli" hidden role="img" aria-label="libro proibito">📖</span></h1>
-          <p class="vc-roles-sub" id="vc-roles-sub" data-i18n="roles.sub">Esplora i ruoli custom creati con +profile.</p>
+    <section class="vc-support-page-hero" aria-labelledby="vc-roles-hero-heading">
+      <div class="grid gap-10 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:items-start">
+        <div class="max-w-3xl">
+          <div class="vc-support-page-hero__icon vc-support-page-hero__icon--start mb-5" aria-hidden="true">
+            <i class="fa fa-shield"></i>
+          </div>
+          <p class="text-xs font-semibold uppercase tracking-[0.28em] text-[rgba(212,168,136,0.78)]" data-i18n="roles.kicker">Community</p>
+          <h1 id="vc-roles-hero-heading" class="mt-4 text-4xl font-extrabold tracking-tight text-white sm:text-5xl lg:text-6xl">
+            <span data-i18n="roles.title">Ruoli Personalizzati</span><span class="vc-forbidden-book" data-vc-forbidden-book="ruoli" hidden role="img" aria-label="libro proibito">📖</span>
+          </h1>
+          <p id="vc-roles-sub" class="mt-5 max-w-2xl text-lg leading-8 text-slate-200/88 sm:text-xl" data-i18n="roles.sub">
+            Esplora i ruoli custom creati con +profile.
+          </p>
+        </div>
+        <div class="vc-roles-hero-aside">
+          <div class="vc-roles-hero-guide rounded-[1.6rem] border border-white/10 bg-slate-950/25 p-5 backdrop-blur sm:p-6">
+            <div class="vc-roles-hero-guide__block">
+              <p class="text-xs font-semibold uppercase tracking-[0.22em] text-[rgba(212,168,136,0.78)]" data-i18n="roles.how">Come usarli</p>
+              <ul class="vc-roles-hero-guide__list mt-3 space-y-2.5 text-sm leading-6 text-slate-100/90">
+                <li class="flex items-start gap-3">
+                  <i class="fa fa-search shrink-0 mt-0.5 text-[#d4a888]" aria-hidden="true"></i>
+                  <span data-i18n="roles.how1">Cerca un ruolo o un utente nella barra sotto.</span>
+                </li>
+                <li class="flex items-start gap-3">
+                  <i class="fa fa-th-large shrink-0 mt-0.5 text-[#d4a888]" aria-hidden="true"></i>
+                  <span data-i18n="roles.how2">Apri una card per vedere i membri o richiedere il ruolo.</span>
+                </li>
+              </ul>
+            </div>
+            <div class="vc-roles-hero-guide__sep" aria-hidden="true"></div>
+            <div class="vc-roles-hero-guide__block">
+              <p class="text-xs font-semibold uppercase tracking-[0.22em] text-[rgba(212,168,136,0.78)]" data-i18n="roles.howTitle">Come funzionano i ruoli personalizzati</p>
+              <ul class="vc-roles-hero-guide__list mt-3 space-y-2.5 text-sm leading-6 text-slate-100/88">
+                <li class="flex items-start gap-3">
+                  <i class="fa fa-user shrink-0 mt-0.5 text-[#d4a888]" aria-hidden="true"></i>
+                  <span><strong class="font-semibold text-white/95">Proprietario:</strong> ogni ruolo ha un creatore che può gestirlo dal suo pannello profilo.</span>
+                </li>
+                <li class="flex items-start gap-3">
+                  <i class="fa fa-clock-o shrink-0 mt-0.5 text-[#d4a888]" aria-hidden="true"></i>
+                  <span><strong class="font-semibold text-white/95">Scadenza:</strong> alcuni ruoli sono permanenti, altri temporanei con una data limite.</span>
+                </li>
+                <li class="flex items-start gap-3">
+                  <i class="fa fa-users shrink-0 mt-0.5 text-[#d4a888]" aria-hidden="true"></i>
+                  <span><strong class="font-semibold text-white/95">Membri:</strong> il contatore mostra quante persone hanno il ruolo in questo momento.</span>
+                </li>
+              </ul>
+            </div>
+            <div class="vc-roles-hero-guide__callout mt-4 rounded-xl border border-[rgba(212,168,136,0.18)] bg-black/20 p-4">
+              <p class="vc-roles-hero-guide__callout-title text-sm font-bold text-[#f6eadc]"><i class="fa fa-star text-[#d4a888]" aria-hidden="true"></i><span>Come ottenere i ruoli custom</span></p>
+              <ul class="vc-roles-hero-guide__list mt-3 space-y-2.5 text-sm leading-6 text-slate-100/88">
+                <li class="flex items-start gap-3">
+                  <i class="fa fa-bolt shrink-0 mt-0.5 text-[#d4a888]" aria-hidden="true"></i>
+                  <span><strong class="font-semibold text-white/95">Gratis:</strong> Arrivando al livello 50 si avrà diritto a creare un ruolo custom.</span>
+                </li>
+                <li class="flex items-start gap-3">
+                  <i class="fa fa-handshake-o shrink-0 mt-0.5 text-[#d4a888]" aria-hidden="true"></i>
+                  <span><strong class="font-semibold text-white/95">Donazioni:</strong> Ottieni ruoli permanenti supportando il server.</span>
+                </li>
+              </ul>
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -184,30 +277,6 @@
         <input id="vc-roles-search-input" class="vc-roles-search-input" type="text"
           placeholder="Cerca ruoli o utenti..." data-i18n-placeholder="roles.searchPh" autocomplete="off" spellcheck="false" />
       </div>
-
-      <article class="vc-roles-info">
-        <div class="vc-roles-info-head">
-          <span class="vc-roles-info-badge" aria-hidden="true"><i class="fa fa-info-circle"></i></span>
-          <div>
-            <h2 class="vc-roles-info-title" data-i18n="roles.howTitle">Come funzionano i ruoli personalizzati</h2>
-            <ul class="vc-roles-info-list">
-              <li><strong>Proprietario:</strong> ogni ruolo ha un creatore che può gestirlo dal suo pannello profilo.
-              </li>
-              <li><i class="fa fa-clock-o" aria-hidden="true"></i><strong>Scadenza:</strong> alcuni ruoli sono permanenti, altri temporanei con una data limite.</li>
-              <li><i class="fa fa-users" aria-hidden="true"></i><strong>Membri:</strong> il contatore mostra quante persone hanno il ruolo in questo momento.</li>
-            </ul>
-          </div>
-        </div>
-        <div class="vc-roles-info-callout">
-          <p class="vc-roles-info-callout-title"><i class="fa fa-star" aria-hidden="true"></i> Come ottenere i ruoli
-            custom</p>
-          <ul class="vc-roles-info-list">
-            <li><strong>Gratis:</strong> Arrivando al livello 50 si avrà diritto a creare un ruolo custom.
-            </li>
-            <li><i class="fa fa-handshake-o" aria-hidden="true"></i><strong>Donazioni:</strong> Ottieni ruoli permanenti supportando il server.</li>
-          </ul>
-        </div>
-      </article>
     </section>
 
     <section class="mt-8">
@@ -221,13 +290,7 @@
       <div id="vc-roles-grid" class="vc-roles-grid" role="list"></div>
     </section>
 
-    <nav class="vc-roles-pager" id="vc-roles-pager" aria-label="Paginazione ruoli" hidden>
-      <button type="button" class="vc-roles-pagebtn" id="vc-roles-prev" aria-label="Pagina precedente"><i
-          class="fa fa-angle-left" aria-hidden="true"></i></button>
-      <div class="vc-roles-pagechips" id="vc-roles-pagechips"></div>
-      <button type="button" class="vc-roles-pagebtn" id="vc-roles-next" aria-label="Pagina successiva"><i
-          class="fa fa-angle-right" aria-hidden="true"></i></button>
-    </nav>
+    <nav class="vc-roles-pager vc-mini-pager" id="vc-roles-pager" aria-label="Paginazione ruoli" hidden></nav>
   </main>
 
   <div class="vc-role-modal" id="vc-role-modal" hidden aria-hidden="true">
@@ -335,8 +398,12 @@
   </script>
   <script src="../js/discord-auth.js" defer></script>  <script src="../js/vc-cursor-trail.js" defer></script>
 
+  <script src="../js/vc-mini-pager.js" defer></script>
   <script src="../js/vc-landing.js" defer></script>
   <script src="../js/roles-page.js" defer></script>
+  <script src="/js/vc-ptr.js" defer></script>
+  <script src="/js/vc-site-polish.js" defer></script>
+    <script src="/js/vc-home-cine.js" defer></script>
 </body>
 
 </html>

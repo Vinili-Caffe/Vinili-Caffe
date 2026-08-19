@@ -1,4 +1,122 @@
 (function () {
+  var RESUME_KEY = "vc-pwa-resume";
+  var WANT_HOME_KEY = "vc-pwa-want-home";
+
+  function isStandalonePwa() {
+    try {
+      if (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) return true;
+    } catch (e0) {}
+    try {
+      if (window.matchMedia && window.matchMedia("(display-mode: fullscreen)").matches) return true;
+    } catch (e1) {}
+    return Boolean(navigator.standalone);
+  }
+
+  function currentPath() {
+    try {
+      var p = String(window.location.pathname || "/").replace(/\/index\.html$/i, "") || "/";
+      if (p !== "/" && p.charAt(p.length - 1) !== "/") p += "/";
+      if (p === "//") p = "/";
+      return p;
+    } catch (e) {
+      return "/";
+    }
+  }
+
+  function safeResumePath(path) {
+    var p = String(path || "");
+    if (!p || p.charAt(0) !== "/" || p.indexOf("//") !== -1 || p.indexOf("\\") !== -1) return "";
+    if (p.length > 180) return "";
+    return p;
+  }
+
+  function saveResume(path) {
+    var p = safeResumePath(path);
+    if (!p) return;
+    try {
+      localStorage.setItem(RESUME_KEY, JSON.stringify({ p: p, t: Date.now() }));
+    } catch (e) {}
+  }
+
+  function isVotePlatformHref(href) {
+    try {
+      var u = new URL(String(href || ""), window.location.href);
+      var host = String(u.hostname || "").toLowerCase();
+      return host.indexOf("top.gg") !== -1 || host.indexOf("discadia.com") !== -1;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function isHomeHref(href) {
+    try {
+      var u = new URL(String(href || ""), window.location.origin);
+      if (u.origin !== window.location.origin) return false;
+      var p = String(u.pathname || "/").replace(/\/+$/, "") || "/";
+      return p === "/";
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function maybeRestoreFromHome() {
+    if (!isStandalonePwa()) return false;
+    var here = currentPath();
+    if (here !== "/") return false;
+    try {
+      var search = String(window.location.search || "");
+      if (/[?&]code=/.test(search) || /[?&]state=/.test(search)) return false;
+    } catch (eQ) {}
+    try {
+      if (sessionStorage.getItem(WANT_HOME_KEY) === "1") {
+        sessionStorage.removeItem(WANT_HOME_KEY);
+        saveResume("/");
+        return false;
+      }
+    } catch (eH) {}
+    try {
+      var data = JSON.parse(localStorage.getItem(RESUME_KEY) || "null");
+      var path = safeResumePath(data && data.p);
+      var at = Number(data && data.t) || 0;
+      if (!path || path === "/" || Date.now() - at > 2 * 60 * 60 * 1000) return false;
+      if (path === here) return false;
+      window.location.replace(path);
+      return true;
+    } catch (eR) {}
+    return false;
+  }
+
+  if (!maybeRestoreFromHome() && isStandalonePwa()) saveResume(currentPath());
+
+  document.addEventListener(
+    "click",
+    function (ev) {
+      var a = ev.target && ev.target.closest ? ev.target.closest("a[href]") : null;
+      if (!a) return;
+      var href = a.getAttribute("href") || "";
+      if (isVotePlatformHref(href)) {
+        saveResume("/vote/");
+        return;
+      }
+      if (!isStandalonePwa()) return;
+      if (isHomeHref(href)) {
+        try {
+          sessionStorage.setItem(WANT_HOME_KEY, "1");
+        } catch (eW) {}
+        saveResume("/");
+      }
+    },
+    true
+  );
+
+  window.addEventListener("pagehide", function () {
+    if (!isStandalonePwa()) return;
+    if (currentPath() === "/vote/" || currentPath() === "/vote") saveResume("/vote/");
+    else saveResume(currentPath());
+  });
+})();
+
+(function () {
   var CONSENT_KEY = "vc_cookie_banner_ack_v3";
   var CONSENT_COOKIE = "vc_cookie_banner_ack_v3";
   var DISCORD_ACCESS_TOKEN_KEY = "vc_discord_access_token";
@@ -267,6 +385,9 @@
     ov.classList.remove("vc-page-transition--on");
     void ov.offsetHeight;
     ov.classList.add("vc-page-transition--on");
+    try {
+      if (typeof window.__vcHideNotifsForLoader === "function") window.__vcHideNotifsForLoader();
+    } catch (eHide) {}
   }
 
   try {
@@ -288,14 +409,7 @@
       var a = t.closest("a[href]");
       if (!a) return;
       if (isVoteLoadingLink(a)) {
-        ev.preventDefault();
-        var voteHref = a.href;
-        showTransitionOverlay("vote");
-        afterOverlayPaint(function () {
-          window.setTimeout(function () {
-            navigateToHref(voteHref);
-          }, 180);
-        });
+        /* Overlay full-screen + cine/PWA = flash Chromium. Vai dritto alla pagina. */
         return;
       }
     });
@@ -810,7 +924,7 @@
 
     function applyScrollState() {
       ticking = false;
-      navShell.classList.toggle("vc-nav-shell--scrolled", window.scrollY > 16);
+      navShell.classList.toggle("vc-nav-shell--scrolled", window.scrollY > 8);
     }
 
     applyScrollState();
@@ -1030,9 +1144,15 @@
   var DISMISSED_PREFIX = "vc_notifications_dismissed_v1:";
   var NOTIF_SYNC_KEY = "vc_notifications_sync_v1";
   var PENDING_READ_PREFIX = "vc_notifications_pending_read_v1:";
+  var MARK_ALL_AT_PREFIX = "vc_notifications_mark_all_at_v1:";
+  var CLEAR_ALL_AT_PREFIX = "vc_notifications_clear_all_at_v1:";
   var CLICK_READ_KEY = "vc_notifications_click_read_v1";
   var SW_PENDING_READ_CACHE = "vc-notif-pending-read-v1";
   var SW_PENDING_READ_URL = "/__vc/pending-notif-read";
+  var SW_PENDING_NAV_CACHE = "vc-pending-nav-v1";
+  var SW_PENDING_NAV_URL = "/__vc/pending-nav";
+  var pendingNavPollTimer = 0;
+  var pendingNavApplying = false;
   var PENDING_LOGIN_NOTIF_KEY = "vc_pending_login_notification_v1";
   var NOTIFICATIONS_PATH = "/notifications/";
   var DEMO_ID = "__vc_ephemeral_demo__";
@@ -1058,6 +1178,169 @@
   /** Durata animazione di uscita (ms); match .vc-notif-fly-card--out. */
   var NOTIF_FLY_ANIM_MS = 280;
   var notifFlyActiveCount = 0;
+  var notifInterruptQueue = [];
+  var notifInterruptOpen = false;
+  var notifInterruptCurrent = null;
+  var notifInterruptKeyHandler = null;
+
+  function isBlockingLoaderVisible() {
+    try {
+      var root = document.documentElement;
+      if (root.classList.contains("vc-session-verify-pending")) return true;
+      if (root.classList.contains("vc-dash-access-pending")) return true;
+      if (root.classList.contains("vc-user-leader-pending")) return true;
+      if (root.classList.contains("vc-user-profile-pending")) return true;
+    } catch (e0) {}
+    var tr = document.getElementById("vc-page-transition");
+    if (tr && tr.classList.contains("vc-page-transition--on")) return true;
+    var ov = document.querySelector(".vc-session-verify-overlay:not(.vc-session-verify-overlay--hidden)");
+    if (ov) return true;
+    if (document.querySelector(".vc-ul-loading:not([hidden])")) return true;
+    if (document.querySelector(".vc-rank-customize-loading:not([hidden])")) return true;
+    if (document.getElementById("vc-user-profile-loading")) return true;
+    if (document.querySelector("body > .vc-user-profile-loader")) return true;
+    if (document.querySelector("#vc-user-profile-view:not([hidden]) .vc-user-profile-loader")) return true;
+    if (document.querySelector(".vc-reviews-gate:not([hidden]):not(.vc-reviews-gate--dismissed)")) return true;
+    return false;
+  }
+
+  function resetScrollAfterOverlay() {
+    try {
+      var h = String(location.hash || "").replace(/^#/, "");
+      if (h && h.indexOf("access_token=") !== 0) return;
+      var y =
+        window.pageYOffset ||
+        (document.documentElement && document.documentElement.scrollTop) ||
+        (document.body && document.body.scrollTop) ||
+        0;
+      if (y > 8) return;
+      window.scrollTo(0, 0);
+      if (document.documentElement) document.documentElement.scrollTop = 0;
+      if (document.body) document.body.scrollTop = 0;
+    } catch (eScr) {}
+  }
+
+  var wasPageLoaderVisible = false;
+  var loaderScrollLockSideEffects = false;
+  var loaderScrollLockMoTimer = 0;
+  var loaderScrollListenersBound = false;
+
+  function isLoaderScrollLocked() {
+    try {
+      var root = document.documentElement;
+      if (root.classList.contains("vc-loading-scroll-lock")) return true;
+      if (root.classList.contains("vc-user-leader-pending")) return true;
+      if (root.classList.contains("vc-user-profile-pending")) return true;
+      if (root.classList.contains("vc-page-cine-boot") && !root.classList.contains("vc-page-cine-ready")) return true;
+    } catch (eLockCls) {}
+    return false;
+  }
+
+  function blockLoaderScroll(e) {
+    if (!isLoaderScrollLocked()) return;
+    try {
+      e.preventDefault();
+    } catch (ePrev) {}
+  }
+
+  function bindLoaderScrollGuards() {
+    if (loaderScrollListenersBound) return;
+    loaderScrollListenersBound = true;
+    var opts = { capture: true, passive: false };
+    try {
+      document.addEventListener("wheel", blockLoaderScroll, opts);
+      document.addEventListener("touchmove", blockLoaderScroll, opts);
+    } catch (eBind) {}
+  }
+
+  function syncLoaderScrollLock() {
+    var on = false;
+    try {
+      on = isBlockingLoaderVisible();
+    } catch (eVis) {}
+    try {
+      document.documentElement.classList.toggle("vc-loading-scroll-lock", on);
+    } catch (eLock) {}
+    if (on || isLoaderScrollLocked()) bindLoaderScrollGuards();
+    if (wasPageLoaderVisible && !on) resetScrollAfterOverlay();
+    wasPageLoaderVisible = on;
+    if (on) {
+      if (!loaderScrollLockSideEffects) {
+        loaderScrollLockSideEffects = true;
+        hideNotifsForLoader();
+      }
+    } else {
+      loaderScrollLockSideEffects = false;
+      try {
+        flushNotifInterruptQueue();
+      } catch (eFlush) {}
+    }
+  }
+
+  function scheduleLoaderScrollLock() {
+    if (loaderScrollLockMoTimer) return;
+    loaderScrollLockMoTimer = setTimeout(function () {
+      loaderScrollLockMoTimer = 0;
+      syncLoaderScrollLock();
+    }, 0);
+  }
+
+  function closeNotifDropdownForLoader() {
+    var dd = document.getElementById("vc-notif-dropdown");
+    if (dd && dd.open) {
+      try {
+        dd.open = false;
+        dd.removeAttribute("open");
+      } catch (e0) {}
+    }
+    try {
+      document.documentElement.classList.remove(
+        "vc-notif-dropdown-open",
+        "vc-notif-sheet-open",
+        "vc-notif-overlay-active",
+      );
+    } catch (e1) {}
+  }
+
+  function dismissNotifFlyToasts() {
+    var cards = document.querySelectorAll(".vc-notif-fly-card");
+    var i;
+    for (i = 0; i < cards.length; i += 1) {
+      try {
+        cards[i].remove();
+      } catch (e0) {}
+    }
+    notifFlyActiveCount = 0;
+    try {
+      hideNotifInterruptForLoader();
+    } catch (eHideInt) {}
+    try {
+      syncGlobalNotifOverlayClass();
+    } catch (e1) {}
+  }
+
+  function hideNotifsForLoader() {
+    dismissNotifFlyToasts();
+    closeNotifDropdownForLoader();
+  }
+  try {
+    window.__vcHideNotifsForLoader = hideNotifsForLoader;
+  } catch (eHideFn) {}
+  try {
+    var loaderClassMo = new MutationObserver(function () {
+      scheduleLoaderScrollLock();
+    });
+    loaderClassMo.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+    if (document.body) {
+      loaderClassMo.observe(document.body, {
+        subtree: true,
+        childList: true,
+        attributes: true,
+        attributeFilter: ["hidden", "class"],
+      });
+    }
+    syncLoaderScrollLock();
+  } catch (eMo) {}
   var notifAudioCtx = null;
   var notifAudioUnlocked = false;
   var DISCORD_ACCESS_TOKEN_KEY = "vc_discord_access_token";
@@ -1066,6 +1349,11 @@
   var baseFaviconHref = "";
   var faviconBadgeGen = 0;
   var faviconLinkEl = null;
+  var windowAttentionTimer = 0;
+  var windowAttentionOn = false;
+  var windowAttentionTitle = "";
+  var lastUnreadForAttention = 0;
+  var attentionFaviconHref = "";
   try {
     if (new URLSearchParams(window.location.search).get("notif") === "demo") {
       ephemeralDemo = {
@@ -1080,15 +1368,19 @@
   } catch (e) {}
   function captureBaseDocumentTitle() {
     var raw = String(document.title || "").trim();
-    var cleaned = raw.replace(/^\(\d+\+?\)\s+/, "").trim();
+    var cleaned = raw.replace(/^\(\d+\+?\)\s+/, "").replace(/^●\s+/, "").trim();
+    if (windowAttentionTimer && windowAttentionTitle && cleaned === windowAttentionTitle) {
+      return baseDocumentTitle;
+    }
     if (!baseDocumentTitle) {
       baseDocumentTitle = cleaned || raw || "Vinili & Caffè";
-      return;
+      return baseDocumentTitle;
     }
     // Se la pagina ha cambiato titolo (navigazione SPA / i18n), aggiorna la base.
-    if (cleaned && cleaned !== baseDocumentTitle && !/^\(\d+\+?\)\s+/.test(raw)) {
+    if (cleaned && cleaned !== baseDocumentTitle && !/^\(\d+\+?\)\s+/.test(raw) && !/^●\s+/.test(raw)) {
       baseDocumentTitle = cleaned;
     }
+    return baseDocumentTitle;
   }
 
   function resolveFaviconLink() {
@@ -1204,6 +1496,8 @@
 
   function syncBrowserTabNotifBadge(unread) {
     var n = Math.max(0, Math.floor(Number(unread) || 0));
+    lastUnreadForAttention = n;
+    if (windowAttentionTimer) return;
     captureBaseDocumentTitle();
     if (n === lastTabUnreadShown) {
       // Titolo potrebbe essere stato resettato da altro script: ripristina se serve.
@@ -1217,11 +1511,115 @@
     lastTabUnreadShown = n;
     if (n > 0) {
       document.title = "(" + (n > 99 ? "99+" : String(n)) + ") " + baseDocumentTitle;
+      if (typeof navigator.setAppBadge === "function") {
+        try {
+          navigator.setAppBadge(n > 99 ? 99 : n);
+        } catch (eBadge) {}
+      }
     } else {
       document.title = baseDocumentTitle;
+      if (typeof navigator.clearAppBadge === "function") {
+        try {
+          navigator.clearAppBadge();
+        } catch (eClear) {}
+      }
     }
     updateFaviconBadge(n);
   }
+
+  function pageNeedsWindowAttention() {
+    if (typeof document.hidden === "boolean" && document.hidden) return true;
+    if (document.visibilityState && document.visibilityState !== "visible") return true;
+    try {
+      if (typeof document.hasFocus === "function" && !document.hasFocus()) return true;
+    } catch (eFocus) {}
+    return false;
+  }
+
+  function paintAttentionFavicon() {
+    if (attentionFaviconHref) return attentionFaviconHref;
+    try {
+      var c = document.createElement("canvas");
+      c.width = 64;
+      c.height = 64;
+      var ctx = c.getContext("2d");
+      if (!ctx) return "";
+      ctx.fillStyle = "#1a120c";
+      ctx.beginPath();
+      ctx.arc(32, 32, 28, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#e8b86d";
+      ctx.beginPath();
+      ctx.arc(32, 32, 16, 0, Math.PI * 2);
+      ctx.fill();
+      attentionFaviconHref = c.toDataURL("image/png");
+    } catch (ePaint) {
+      attentionFaviconHref = "";
+    }
+    return attentionFaviconHref;
+  }
+
+  function applyAttentionFavicon(on) {
+    var href = on ? paintAttentionFavicon() : baseFaviconHref;
+    if (!href) return;
+    var link = resolveFaviconLink();
+    if (link) link.href = href;
+  }
+
+  function stopWindowAttention() {
+    if (windowAttentionTimer) {
+      clearInterval(windowAttentionTimer);
+      windowAttentionTimer = 0;
+    }
+    windowAttentionOn = false;
+    windowAttentionTitle = "";
+    lastTabUnreadShown = -1;
+    syncBrowserTabNotifBadge(lastUnreadForAttention);
+  }
+
+  function requestWindowAttention(opts) {
+    var title = String((opts && opts.title) || "Nuova notifica")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (title.length > 48) title = title.slice(0, 47) + "…";
+    if (!pageNeedsWindowAttention()) return;
+    windowAttentionTitle = title;
+    if (windowAttentionTimer) return;
+    windowAttentionOn = false;
+    var tick = function () {
+      if (!pageNeedsWindowAttention()) {
+        stopWindowAttention();
+        return;
+      }
+      windowAttentionOn = !windowAttentionOn;
+      var base = captureBaseDocumentTitle() || "Vinili & Caffè";
+      if (windowAttentionOn) {
+        document.title = "● " + windowAttentionTitle;
+        applyAttentionFavicon(true);
+        if (typeof navigator.setAppBadge === "function") {
+          try {
+            navigator.setAppBadge(Math.max(1, lastUnreadForAttention || 1));
+          } catch (eOn) {}
+        }
+      } else {
+        document.title = base;
+        applyAttentionFavicon(false);
+        if (typeof navigator.clearAppBadge === "function") {
+          try {
+            navigator.clearAppBadge();
+          } catch (eOff) {}
+        }
+      }
+    };
+    tick();
+    windowAttentionTimer = setInterval(tick, 850);
+  }
+
+  window.vcRequestWindowAttention = requestWindowAttention;
+  window.addEventListener("focus", stopWindowAttention);
+  document.addEventListener("visibilitychange", function () {
+    if (!pageNeedsWindowAttention()) stopWindowAttention();
+  });
 
   function normalizeUserId(value) {
     var id = String(value || "").trim();
@@ -1280,7 +1678,7 @@
     notifPeerSyncTimer = setTimeout(function () {
       notifPeerSyncTimer = null;
       syncSiteNotificationsFromServer();
-    }, 250);
+    }, 450);
   }
   function isNotifStorageSyncKey(key) {
     var k = String(key || "");
@@ -1288,6 +1686,7 @@
     if (k === NOTIF_SYNC_KEY) return true;
     if (k.indexOf(STORAGE_PREFIX) === 0) return true;
     if (k.indexOf(DISMISSED_PREFIX) === 0) return true;
+    if (k.indexOf(PENDING_READ_PREFIX) === 0) return true;
     return false;
   }
   function saveDismissedSet(setLike, userId) {
@@ -1316,17 +1715,14 @@
     if (!lid) return;
     var set = loadDismissedSet(uid);
     set.add(lid);
-    if (!isServerBackedNotifId(lid)) {
-      var fpId = buildNotifFingerprintId(item, uid, String((item && item.kind) || "info"), String((item && item.openUrl) || ""));
-      if (fpId && fpId !== lid) set.add(fpId);
-    }
+    var fpId = buildNotifFingerprintId(item, uid, String((item && item.kind) || "info"), String((item && item.openUrl) || ""));
+    if (fpId && fpId !== lid) set.add(fpId);
     saveDismissedSet(set, uid);
   }
   function isNotifDismissed(item, uid, dismissed) {
     if (!item) return true;
     var set = dismissed || loadDismissedSet(uid);
     var lid = String((item && item.id) || "").trim();
-    if (isServerBackedNotifId(lid)) return false;
     if (lid && set.has(lid)) return true;
     var fpId = buildNotifFingerprintId(item, uid, String((item && item.kind) || "info"), String((item && item.openUrl) || ""));
     return Boolean(fpId && set.has(fpId));
@@ -1371,34 +1767,65 @@
       String((a && a.openUrl) || "").trim() === String((b && b.openUrl) || "").trim()
     );
   }
+  function sameNotifPayload(a, b) {
+    if (!a || !b) return false;
+    return (
+      String((a && a.title) || "").trim() === String((b && b.title) || "").trim() &&
+      String((a && a.body) || "").trim() === String((b && b.body) || "").trim() &&
+      String((a && a.openUrl) || "").trim() === String((b && b.openUrl) || "").trim()
+    );
+  }
   function pendingReadKey() {
     var uid = normalizeUserId(currentUserId);
-    return uid ? PENDING_READ_PREFIX + uid : "";
+    return uid ? PENDING_READ_PREFIX + uid : PENDING_READ_PREFIX + "anon";
   }
-  function loadPendingReadMap() {
-    var key = pendingReadKey();
-    if (!key) return {};
+  function readPendingRaw(key) {
+    var raw = "";
     try {
-      var raw = sessionStorage.getItem(key);
+      raw = sessionStorage.getItem(key) || "";
+    } catch (eS) {}
+    if (!raw) {
+      try {
+        raw = localStorage.getItem(key) || "";
+      } catch (eL) {}
+    }
+    return raw;
+  }
+  function writePendingRaw(key, json) {
+    try {
+      sessionStorage.setItem(key, json);
+    } catch (eS) {}
+    try {
+      localStorage.setItem(key, json);
+    } catch (eL) {}
+  }
+  function parsePendingIdMap(raw) {
+    var map = {};
+    try {
       var arr = raw ? JSON.parse(raw) : [];
-      var map = {};
       if (Array.isArray(arr)) {
         for (var i = 0; i < arr.length; i += 1) {
           var id = String(arr[i] || "").trim();
           if (id) map[id] = true;
         }
       }
-      return map;
-    } catch (e) {
-      return {};
+    } catch (e) {}
+    return map;
+  }
+  function loadPendingReadMap() {
+    var map = parsePendingIdMap(readPendingRaw(pendingReadKey()));
+    var anon = parsePendingIdMap(readPendingRaw(PENDING_READ_PREFIX + "anon"));
+    var k;
+    for (k in anon) {
+      if (Object.prototype.hasOwnProperty.call(anon, k)) map[k] = true;
     }
+    return map;
   }
   function savePendingReadMap(map) {
-    var key = pendingReadKey();
-    if (!key) return;
-    try {
-      sessionStorage.setItem(key, JSON.stringify(Object.keys(map || {})));
-    } catch (e) {}
+    writePendingRaw(pendingReadKey(), JSON.stringify(Object.keys(map || {})));
+    if (normalizeUserId(currentUserId)) {
+      writePendingRaw(PENDING_READ_PREFIX + "anon", "[]");
+    }
   }
   function isPendingRead(id) {
     var sid = String(id || "").trim();
@@ -1412,33 +1839,49 @@
     savePendingReadMap(map);
   }
   function loadClickReadIds() {
-    try {
-      var arr = JSON.parse(sessionStorage.getItem(CLICK_READ_KEY) || "[]");
-      return Array.isArray(arr)
-        ? arr
-            .map(function (x) {
-              return String(x || "").trim();
-            })
-            .filter(Boolean)
-        : [];
-    } catch (e) {
-      return [];
+    var merged = [];
+    var seen = {};
+    function addFrom(raw) {
+      try {
+        var arr = raw ? JSON.parse(raw) : [];
+        if (!Array.isArray(arr)) return;
+        for (var i = 0; i < arr.length; i += 1) {
+          var id = String(arr[i] || "").trim();
+          if (!id || seen[id]) continue;
+          seen[id] = true;
+          merged.push(id);
+        }
+      } catch (e) {}
     }
+    try {
+      addFrom(sessionStorage.getItem(CLICK_READ_KEY));
+    } catch (eS) {}
+    try {
+      addFrom(localStorage.getItem(CLICK_READ_KEY));
+    } catch (eL) {}
+    return merged;
   }
   function rememberClickRead(id) {
     var sid = String(id || "").trim();
     if (!sid) return;
     var arr = loadClickReadIds();
     if (arr.indexOf(sid) === -1) arr.push(sid);
+    var json = JSON.stringify(arr);
     try {
-      sessionStorage.setItem(CLICK_READ_KEY, JSON.stringify(arr));
-    } catch (e) {}
+      sessionStorage.setItem(CLICK_READ_KEY, json);
+    } catch (eS) {}
+    try {
+      localStorage.setItem(CLICK_READ_KEY, json);
+    } catch (eL) {}
     rememberPendingRead(sid);
   }
   function clearClickReadIds() {
     try {
       sessionStorage.removeItem(CLICK_READ_KEY);
-    } catch (e) {}
+    } catch (eS) {}
+    try {
+      localStorage.removeItem(CLICK_READ_KEY);
+    } catch (eL) {}
   }
   function tryFlushClickReads() {
     var ids = loadClickReadIds();
@@ -1466,16 +1909,113 @@
         tryFlushClickReads();
       });
   }
+  function ticketIdFromLocation() {
+    try {
+      var h = String(location.hash || "").replace(/^#/, "").trim();
+      if (/^[a-f0-9]{24}$/i.test(h)) return h.toLowerCase();
+      var q = String(new URLSearchParams(location.search || "").get("ticketId") || "").trim();
+      if (/^[a-f0-9]{24}$/i.test(q)) return q.toLowerCase();
+    } catch (e) {}
+    return "";
+  }
+  function ticketIdFromOpenDest(url, ticketId) {
+    var tid = String(ticketId || "").trim().toLowerCase();
+    if (/^[a-f0-9]{24}$/i.test(tid)) return tid;
+    try {
+      var u = new URL(String(url || ""), window.location.origin);
+      tid = String(u.searchParams.get("ticketId") || "").trim().toLowerCase();
+      if (/^[a-f0-9]{24}$/i.test(tid)) return tid;
+      tid = String(u.hash || "").replace(/^#/, "").trim().toLowerCase();
+      if (/^[a-f0-9]{24}$/i.test(tid)) return tid;
+    } catch (e2) {}
+    return "";
+  }
+  function alreadyOnOpenDest(url, ticketId) {
+    var tid = ticketIdFromOpenDest(url, ticketId);
+    if (!tid) return false;
+    try {
+      var path = String(location.pathname || "").replace(/\/+$/, "") || "/";
+      if (!/\/tickets$/i.test(path)) return false;
+      return ticketIdFromLocation() === tid;
+    } catch (e) {
+      return false;
+    }
+  }
+  function fallbackTicketDest(ticketId) {
+    var tid = String(ticketId || "").trim();
+    if (!/^[a-f0-9]{24}$/i.test(tid)) return "";
+    return "/tickets/?ticketId=" + encodeURIComponent(tid) + "#" + tid;
+  }
+  function applyOpenDest(url, ticketId) {
+    if (pendingNavApplying) return;
+    var dest = String(url || "").trim() || fallbackTicketDest(ticketId);
+    if (!dest) return;
+    if (alreadyOnOpenDest(dest, ticketId)) return;
+    pendingNavApplying = true;
+    try {
+      if (pendingNavPollTimer) {
+        clearInterval(pendingNavPollTimer);
+        pendingNavPollTimer = 0;
+      }
+    } catch (eT) {}
+    openNotifDestination(resolveNotifDestUrl(dest), "ticket");
+  }
+  function consumePendingNavFromSwCache() {
+    if (!("caches" in window)) return Promise.resolve(false);
+    return caches
+      .open(SW_PENDING_NAV_CACHE)
+      .then(function (cache) {
+        return cache.match(SW_PENDING_NAV_URL).then(function (res) {
+          if (!res) return false;
+          return res.json().then(function (data) {
+            var at = Number(data && data.at) || 0;
+            if (at && Date.now() - at > 120000) {
+              return cache.delete(SW_PENDING_NAV_URL).then(function () {
+                return false;
+              });
+            }
+            var url = String((data && data.url) || "").trim();
+            var ticketId = String((data && data.ticketId) || "").trim();
+            if (!url) url = fallbackTicketDest(ticketId);
+            if (!url) {
+              return cache.delete(SW_PENDING_NAV_URL).then(function () {
+                return false;
+              });
+            }
+            if (alreadyOnOpenDest(url, ticketId)) {
+              return cache.delete(SW_PENDING_NAV_URL).then(function () {
+                return false;
+              });
+            }
+            return cache.delete(SW_PENDING_NAV_URL).then(function () {
+              applyOpenDest(url, ticketId);
+              return true;
+            });
+          });
+        });
+      })
+      .catch(function () {
+        return false;
+      });
+  }
+  function startPendingNavPoll() {
+    if (pendingNavPollTimer) return;
+    var n = 0;
+    pendingNavPollTimer = setInterval(function () {
+      n += 1;
+      consumePendingNavFromSwCache().then(function (moved) {
+        if (moved || n >= 16) {
+          try {
+            clearInterval(pendingNavPollTimer);
+          } catch (eC) {}
+          pendingNavPollTimer = 0;
+        }
+      });
+    }, 250);
+  }
   function isWatchingTicketChat(ticketId, openUrl) {
     var tid = String(ticketId || "").trim().toLowerCase();
-    if (!tid) {
-      try {
-        var u = new URL(String(openUrl || ""), window.location.origin);
-        tid = String(u.hash || "").replace(/^#/, "").toLowerCase();
-      } catch (e0) {
-        tid = "";
-      }
-    }
+    if (!tid) tid = extractTicketIdFromOpenUrl(openUrl);
     if (!/^[a-f0-9]{24}$/i.test(tid)) return false;
     if (document.visibilityState !== "visible") return false;
     try {
@@ -1489,10 +2029,35 @@
       var path = String(window.location.pathname || "");
       if (path.indexOf("/tickets") === -1) return false;
       var hash = String(window.location.hash || "").replace(/^#/, "").toLowerCase();
-      return hash === tid;
+      if (hash === tid) return true;
+      var q = "";
+      try {
+        q = String(new URLSearchParams(window.location.search || "").get("ticketId") || "").toLowerCase();
+      } catch (eQ) {}
+      return q === tid;
     } catch (e2) {
       return false;
     }
+  }
+  function extractTicketIdFromOpenUrl(openUrl) {
+    var raw = String(openUrl || "").trim();
+    if (!raw) return "";
+    try {
+      var u = new URL(raw, window.location.origin);
+      var h = String(u.hash || "").replace(/^#/, "").trim().toLowerCase();
+      if (/^[a-f0-9]{24}$/i.test(h)) return h;
+      var q = String(u.searchParams.get("ticketId") || "").trim().toLowerCase();
+      if (/^[a-f0-9]{24}$/i.test(q)) return q;
+    } catch (e) {
+      var m = raw.match(/#([a-f0-9]{24})\b/i);
+      if (m) return String(m[1]).toLowerCase();
+    }
+    return "";
+  }
+  function extractTicketIdFromNotif(n) {
+    var tid = String((n && n.ticketId) || "").trim().toLowerCase();
+    if (/^[a-f0-9]{24}$/i.test(tid)) return tid;
+    return extractTicketIdFromOpenUrl(n && n.openUrl);
   }
   function forgetPendingRead(id) {
     var sid = String(id || "").trim();
@@ -1506,20 +2071,99 @@
     var map = loadPendingReadMap();
     var ids = Object.keys(map);
     for (var fi = 0; fi < ids.length; fi += 1) {
-      (function (id) {
-        markSiteNotificationReadOnServer(id).then(function (ok) {
-          if (ok) forgetPendingRead(id);
-        });
-      })(ids[fi]);
+      markSiteNotificationReadOnServer(ids[fi]);
+    }
+  }
+  function rememberPendingForItem(item) {
+    if (!item) return;
+    var xid = String(item.id || "").trim();
+    if (xid) rememberPendingRead(xid);
+    var uid = normalizeUserId(currentUserId);
+    var fp = buildNotifFingerprintId(
+      item,
+      uid,
+      String((item && item.kind) || "info"),
+      String((item && item.openUrl) || ""),
+    );
+    if (fp) rememberPendingRead(fp);
+  }
+  function markAllReadStampKey() {
+    var uid = normalizeUserId(currentUserId);
+    return MARK_ALL_AT_PREFIX + (uid || "anon");
+  }
+  function rememberMarkAllReadStamp() {
+    try {
+      localStorage.setItem(markAllReadStampKey(), String(Date.now()));
+    } catch (e) {}
+  }
+  function isRecentMarkAllRead() {
+    try {
+      var at = Number(localStorage.getItem(markAllReadStampKey()) || 0);
+      return Boolean(at && Date.now() - at < 20000);
+    } catch (e) {
+      return false;
+    }
+  }
+  function clearAllStampKey() {
+    var uid = normalizeUserId(currentUserId);
+    return CLEAR_ALL_AT_PREFIX + (uid || "anon");
+  }
+  function rememberClearAllStamp() {
+    try {
+      localStorage.setItem(clearAllStampKey(), String(Date.now()));
+    } catch (e) {}
+  }
+  function getClearAllAt() {
+    try {
+      return Number(localStorage.getItem(clearAllStampKey()) || 0) || 0;
+    } catch (e2) {
+      return 0;
+    }
+  }
+  function isClearedAwayServerRow(mapped, dismissed) {
+    if (!mapped) return true;
+    var sid = String(mapped.id || "").trim();
+    if (sid && dismissed && dismissed.has(sid)) return true;
+    var fpId = buildNotifFingerprintId(
+      mapped,
+      normalizeUserId(currentUserId),
+      String(mapped.kind || "info"),
+      String(mapped.openUrl || ""),
+    );
+    if (fpId && dismissed && dismissed.has(fpId)) return true;
+    var clearedAt = getClearAllAt();
+    var at = Number(mapped.at || 0) || 0;
+    if (clearedAt && at && at <= clearedAt) return true;
+    return false;
+  }
+  function notifDestIsSpecific(dest) {
+    var d = String(dest || "").trim();
+    if (!d) return false;
+    try {
+      var u = new URL(d, window.location.origin);
+      var path = String(u.pathname || "/").replace(/\/+$/, "") || "/";
+      if (path === "/") return Boolean(u.hash && u.hash.length > 1);
+      return true;
+    } catch (e) {
+      return d !== "/";
     }
   }
   function applyPendingReads(items) {
     var map = loadPendingReadMap();
     var keys = Object.keys(map);
     if (!keys.length) return Array.isArray(items) ? items : [];
+    var uid = normalizeUserId(currentUserId);
     return (Array.isArray(items) ? items : []).map(function (x) {
       var id = String((x && x.id) || "").trim();
-      if (id && map[id] && !x.read) return Object.assign({}, x, { read: true });
+      var fp = buildNotifFingerprintId(
+        x,
+        uid,
+        String((x && x.kind) || "info"),
+        String((x && x.openUrl) || ""),
+      );
+      if ((id && map[id] && !x.read) || (fp && map[fp] && !x.read)) {
+        return Object.assign({}, x, { read: true });
+      }
       return x;
     });
   }
@@ -1558,6 +2202,11 @@
   }
   function rows() {
     var s = loadStored();
+    var uid = normalizeUserId(currentUserId);
+    var dismissed = loadDismissedSet(uid);
+    s = s.filter(function (n) {
+      return !isClearedAwayServerRow(n, dismissed);
+    });
     return ephemeralDemo ? [ephemeralDemo].concat(s) : s;
   }
   function iconClass(kind) {
@@ -1576,6 +2225,41 @@
     } catch (e) {
       return NOTIFICATIONS_PATH;
     }
+  }
+
+  function ensureNotifSeeAllLink() {
+    var dd = document.getElementById("vc-notif-dropdown");
+    if (!dd) return null;
+    var panel = dd.querySelector(".vc-notif-panel");
+    var foot = document.getElementById("vc-notif-panel-foot");
+    if (!foot) {
+      foot = document.createElement("div");
+      foot.className = "vc-notif-panel-foot";
+      foot.id = "vc-notif-panel-foot";
+      if (panel) panel.appendChild(foot);
+      else return null;
+    }
+    foot.hidden = false;
+    var seeAll = document.getElementById("vc-notif-see-all");
+    if (!seeAll) {
+      seeAll = document.createElement("a");
+      seeAll.id = "vc-notif-see-all";
+      seeAll.className = "vc-notif-see-all";
+      var label = document.createElement("span");
+      label.setAttribute("data-i18n", "notif.seeAll");
+      label.textContent = nt("notif.seeAll", null, "Vedi tutte le notifiche");
+      seeAll.appendChild(label);
+      seeAll.appendChild(document.createTextNode(" "));
+      var chev = document.createElement("i");
+      chev.className = "fa fa-chevron-right";
+      chev.setAttribute("aria-hidden", "true");
+      seeAll.appendChild(chev);
+      foot.appendChild(seeAll);
+    }
+    seeAll.href = notificationsPageUrl();
+    seeAll.setAttribute("aria-label", nt("notif.seeAll", null, "Vedi tutte le notifiche"));
+    if (isStandalonePwa()) dd.classList.add("vc-notif-dropdown--pwa");
+    return seeAll;
   }
 
   function buildNotifStoreSignature(items) {
@@ -1641,6 +2325,7 @@
     return nt("notif.weekPlusAgo", null, "Più di una settimana fa");
   }
   function render(options) {
+    bindClearAllButton();
     var root = document.getElementById("vc-notif-dropdown");
     var listEl = document.getElementById("vc-notif-list");
     var badge = document.getElementById("vc-notif-badge");
@@ -1660,6 +2345,7 @@
       badge.textContent = unread > 99 ? "99+" : String(unread);
     } else {
       badge.hidden = true;
+      if (windowAttentionTimer) stopWindowAttention();
     }
     syncBrowserTabNotifBadge(unread);
     sub.textContent =
@@ -1671,6 +2357,7 @@
     syncPushPromptUi();
     if (!force && sig === lastNotifRenderSig) return;
     lastNotifRenderSig = sig;
+    bindClearAllButton();
     listEl.innerHTML = "";
     all.forEach(function (n) {
       var li = document.createElement("li");
@@ -1717,62 +2404,183 @@
       btn.appendChild(ico);
       btn.appendChild(main);
       btn.appendChild(dot);
+      li.className = "vc-notif-row";
+      var dismiss = document.createElement("button");
+      dismiss.type = "button";
+      dismiss.className = "vc-notif-dismiss";
+      dismiss.setAttribute("data-id", n.id);
+      dismiss.setAttribute("aria-label", "Elimina notifica");
+      dismiss.title = "Elimina";
+      dismiss.innerHTML = '<i class="fa fa-times" aria-hidden="true"></i>';
       li.appendChild(btn);
+      li.appendChild(dismiss);
       listEl.appendChild(li);
     });
   }
   function markAllRead() {
     if (ephemeralDemo) ephemeralDemo.read = true;
+    try {
+      stopWindowAttention();
+    } catch (eStopAll) {}
+    rememberMarkAllReadStamp();
     saveStored(
       loadStored().map(function (x) {
-        if (x && x.id) rememberPendingRead(x.id);
+        rememberPendingForItem(x);
         return Object.assign({}, x, { read: true });
       }),
     );
     render();
-    markAllSiteNotificationsReadOnServer()
-      .then(function (ok) {
-        if (!ok) return;
-        savePendingReadMap({});
-      })
-      .finally(function () {
+    dismissOsNotifications({ all: true });
+    markAllSiteNotificationsReadOnServer().finally(function () {
+      window.setTimeout(function () {
         syncSiteNotificationsFromServer();
-      });
+      }, 400);
+    });
   }
-  function clearAll() {
+  function hasUnreadNotifs() {
+    if (ephemeralDemo && !ephemeralDemo.read) return true;
+    return rows().some(function (n) {
+      return !n.read;
+    });
+  }
+  function markAllReadOnBellOpen() {
+    if (!hasUnreadNotifs()) return;
+    markAllRead();
+  }
+  function removeMarkAllButton() {
+    var markBtn = document.getElementById("vc-notif-mark-all");
+    if (markBtn && markBtn.parentNode) markBtn.parentNode.removeChild(markBtn);
+  }
+  var lastClearAllCallAt = 0;
+  function clearAll(ev) {
+    if (ev && typeof ev.preventDefault === "function") {
+      ev.preventDefault();
+      ev.stopPropagation();
+      if (typeof ev.stopImmediatePropagation === "function") ev.stopImmediatePropagation();
+    }
+    var now = Date.now();
+    if (now - lastClearAllCallAt < 500) return;
+    lastClearAllCallAt = now;
     ephemeralDemo = null;
     var uid = normalizeUserId(currentUserId);
     var items = loadStored();
     for (var ci = 0; ci < items.length; ci += 1) {
       rememberDismissedNotif(items[ci], uid);
     }
+    rememberClearAllStamp();
     saveStored([]);
-    render();
+    render({ force: true });
     clearAllSiteNotificationsOnServer().finally(function () {
-      syncSiteNotificationsFromServer();
+      window.setTimeout(function () {
+        syncSiteNotificationsFromServer();
+      }, 600);
     });
   }
-  function markOneRead(id) {
-    if (ephemeralDemo && ephemeralDemo.id === id) {
+  window.__vcClearAllNotifs = clearAll;
+  function clearAllEventTarget(ev) {
+    var t = ev && ev.target;
+    if (!t) return null;
+    if (t.nodeType === 3) t = t.parentElement;
+    if (t && !t.closest && t.parentElement) t = t.parentElement;
+    return t && t.closest ? t : null;
+  }
+  function onClearAllGesture(ev) {
+    var t = clearAllEventTarget(ev);
+    if (!t || !t.closest || !t.closest("#vc-notif-clear-all")) return;
+    if (ev.type === "pointerup" && Number(ev.button) > 0) return;
+    if (ev.type === "touchend" && ev.cancelable) ev.preventDefault();
+    clearAll(ev);
+  }
+  function bindClearAllButton() {
+    var btn = document.getElementById("vc-notif-clear-all");
+    if (!btn) return;
+    btn.onclick = function (ev) {
+      clearAll(ev);
+      return false;
+    };
+    if (btn.__vcClearBound) return;
+    btn.__vcClearBound = true;
+    btn.addEventListener("click", clearAll);
+    btn.addEventListener("pointerup", onClearAllGesture);
+    btn.addEventListener("touchend", onClearAllGesture, { passive: false });
+  }
+  if (!window.__vcNotifClearAllWired) {
+    window.__vcNotifClearAllWired = true;
+    document.addEventListener("click", onClearAllGesture, true);
+    document.addEventListener("pointerup", onClearAllGesture, true);
+    document.addEventListener("touchend", onClearAllGesture, true);
+  }
+  function onDismissOneGesture(ev) {
+    var t = ev && ev.target;
+    if (!t) return;
+    if (t.nodeType === 3) t = t.parentElement;
+    if (!t || !t.closest) return;
+    var btn = t.closest("button.vc-notif-dismiss");
+    if (!btn) return;
+    if (ev.type === "pointerup" && Number(ev.button) > 0) return;
+    if (ev.type === "touchend" && ev.cancelable) ev.preventDefault();
+    if (ev.preventDefault) ev.preventDefault();
+    if (ev.stopPropagation) ev.stopPropagation();
+    if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
+    dismissOneSiteNotification(btn.getAttribute("data-id") || "");
+  }
+  if (!window.__vcNotifDismissWired) {
+    window.__vcNotifDismissWired = true;
+    document.addEventListener("click", onDismissOneGesture, true);
+    document.addEventListener("pointerup", onDismissOneGesture, true);
+    document.addEventListener("touchend", onDismissOneGesture, true);
+  }
+  function markOneRead(id, extra) {
+    var sid = String(id || "").trim();
+    var dest = String((extra && extra.openUrl) || "").trim();
+    if (ephemeralDemo && String(ephemeralDemo.id || "") === sid) {
       ephemeralDemo.read = true;
       render();
+      stopWindowAttention();
       return;
     }
-    rememberPendingRead(id);
+    if (!sid && !dest) return;
+    try {
+      stopWindowAttention();
+    } catch (eStop) {}
+    if (sid) {
+      rememberPendingRead(sid);
+      rememberClickRead(sid);
+    }
+    var ticketIds = {};
+    var idsToPost = sid ? [sid] : [];
+    var destMatch = notifDestIsSpecific(dest);
     saveStored(
       loadStored().map(function (x) {
-        if (x.id === id) return Object.assign({}, x, { read: true });
-        return x;
+        if (!x || x.read) return x;
+        var xid = String((x && x.id) || "").trim();
+        var xDest = String((x && x.openUrl) || "").trim();
+        var match = Boolean(sid && xid === sid);
+        if (!match && destMatch && xDest && xDest === dest) match = true;
+        if (!match) return x;
+        rememberPendingForItem(x);
+        if (xid && idsToPost.indexOf(xid) === -1) idsToPost.push(xid);
+        var tid = extractTicketIdFromNotif(x);
+        if (tid) ticketIds[tid] = true;
+        return Object.assign({}, x, { read: true });
       }),
     );
     render();
-    markSiteNotificationReadOnServer(id)
-      .then(function (ok) {
-        if (ok) forgetPendingRead(id);
-      })
-      .finally(function () {
+    dismissOsNotifications({ id: sid, ticketIds: Object.keys(ticketIds) });
+    function afterMark() {
+      window.setTimeout(function () {
         syncSiteNotificationsFromServer();
-      });
+      }, 400);
+    }
+    if (!idsToPost.length) {
+      afterMark();
+      return;
+    }
+    Promise.all(
+      idsToPost.map(function (nid) {
+        return markSiteNotificationReadOnServer(nid);
+      }),
+    ).then(afterMark, afterMark);
   }
   function consumeNotifReadFromUrl() {
     try {
@@ -1788,6 +2596,45 @@
     } catch (e) {}
     tryFlushClickReads();
   }
+  function pingSwClientFocus() {
+    try {
+      if (!navigator.serviceWorker || !navigator.serviceWorker.controller) return;
+      var watching = {};
+      try {
+        watching = window.__VC_WATCHING_TICKET || {};
+      } catch (eW) {}
+      var focused = false;
+      try {
+        focused =
+          document.visibilityState === "visible" &&
+          (typeof document.hasFocus !== "function" || document.hasFocus());
+      } catch (eF) {
+        focused = document.visibilityState === "visible";
+      }
+      navigator.serviceWorker.controller.postMessage({
+        type: "vc:client-focus",
+        focused: focused,
+        standalone: isStandalonePwa(),
+        ticketId: focused ? String(watching.id || "") : "",
+        token: getDiscordAccessToken(),
+      });
+    } catch (e) {}
+  }
+  function wireSwClientFocusPing() {
+    pingSwClientFocus();
+    window.addEventListener("focus", pingSwClientFocus);
+    window.addEventListener("blur", pingSwClientFocus);
+    document.addEventListener("visibilitychange", pingSwClientFocus);
+    window.setInterval(pingSwClientFocus, 4000);
+    try {
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.addEventListener("controllerchange", pingSwClientFocus);
+      }
+    } catch (e2) {}
+    try {
+      window.__vcPingSwClientFocus = pingSwClientFocus;
+    } catch (e3) {}
+  }
   function wirePushNotifMarkRead() {
     consumeNotifReadFromUrl();
     consumePendingReadFromSwCache();
@@ -1798,6 +2645,14 @@
         if (!data || !data.type) return;
         if (data.type === "vc:push-received") {
           var p = data.payload && typeof data.payload === "object" ? data.payload : {};
+          if (String(p.type || "") === "dismiss") {
+            dismissOsNotifications({
+              ticketId: p.ticketId,
+              id: p.id,
+              all: p.all === true,
+            });
+            return;
+          }
           if (isWatchingTicketChat(p.ticketId, p.openUrl)) {
             var seenId = String(p.id || "").trim();
             if (seenId) {
@@ -1806,15 +2661,9 @@
             }
             return;
           }
+          rememberRecentOsPush(String(p.id || "").trim());
           playNotifSound();
-          showNotifFlyToast({
-            id: String(p.id || "").trim() || "push-" + Date.now(),
-            title: String(p.title || "Vinili & Caffè"),
-            body: String(p.body || ""),
-            kind: String(p.kind || "info"),
-            openUrl: String(p.openUrl || "").trim(),
-            read: false,
-          });
+          pulseNotifSummary();
           return;
         }
         if (data.type === "vc:push-resubscribe") {
@@ -1823,11 +2672,22 @@
           });
           return;
         }
+        if (data.type === "vc:open-dest") {
+          var openId = String(data.id || "").trim();
+          var openTid = String(data.ticketId || "").trim();
+          if (openTid) markTicketNotificationsRead(openTid);
+          if (openId) markOneRead(openId, { openUrl: String(data.url || "").trim() });
+          applyOpenDest(String(data.url || "").trim(), openTid);
+          return;
+        }
         if (data.type !== "vc:notif-mark-read") return;
         var id = String(data.id || "").trim();
-        if (!id) return;
-        rememberClickRead(id);
-        tryFlushClickReads();
+        var ticketId = String(data.ticketId || "").trim();
+        if (ticketId) markTicketNotificationsRead(ticketId);
+        if (id) {
+          rememberClickRead(id);
+          tryFlushClickReads();
+        }
       });
     } catch (e2) {}
   }
@@ -1871,6 +2731,11 @@
       var onTicketsPage = /\/tickets$/i.test(herePath);
       if (isTicketsDest && onTicketsPage) {
         var ticketId = String(dest.hash || "").replace(/^#/, "").trim();
+        if (!/^[a-f0-9]{24}$/i.test(ticketId)) {
+          try {
+            ticketId = String(dest.searchParams.get("ticketId") || "").trim();
+          } catch (eTid) {}
+        }
         var wantStaff = false;
         try {
           wantStaff = dest.searchParams.get("view") === "staff";
@@ -1879,7 +2744,10 @@
           var cur = String(here.search || "");
           if (cur.indexOf("view=staff") < 0) {
             // Cambia anche la query: serve un reload per allineare lo stato.
-            window.location.href = dest.pathname + "?view=staff" + (ticketId ? "#" + ticketId : "");
+            window.location.href =
+              dest.pathname +
+              "?view=staff" +
+              (ticketId ? "&ticketId=" + encodeURIComponent(ticketId) + "#" + ticketId : "");
             return;
           }
         }
@@ -1916,7 +2784,7 @@
     var root = document.documentElement;
     if (!root) return;
     var isDropdownOpen = Boolean(dd && dd.open);
-    var hasFlyToast = notifFlyActiveCount > 0;
+    var hasFlyToast = notifFlyActiveCount > 0 || notifInterruptOpen;
     root.classList.toggle("vc-notif-overlay-active", isDropdownOpen || hasFlyToast);
   }
 
@@ -1978,6 +2846,68 @@
   var lastNotifSoundAt = 0;
   var lastFlyToastId = "";
   var lastFlyToastAt = 0;
+  var recentOsPushAt = {};
+
+  function rememberRecentOsPush(id) {
+    var sid = String(id || "").trim();
+    if (!sid) return;
+    recentOsPushAt[sid] = Date.now();
+  }
+
+  function showNativeOsBanner(item) {
+    if (!item || item.read) return;
+    if (isWatchingTicketChat(item.ticketId, item.openUrl)) return;
+    if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+    var sid = String(item.id || "").trim();
+    var nowMs = Date.now();
+    if (sid && recentOsPushAt[sid] && nowMs - recentOsPushAt[sid] < 12000) return;
+    if (sid) recentOsPushAt[sid] = nowMs;
+    var title = String(item.title || "Vinili & Caffè").replace(/\s+/g, " ").trim().slice(0, 120) || "Nuova notifica";
+    var body = String(item.body || "").trim().slice(0, 500);
+    var tag = sid ? "vc-site-" + sid : "vc-site-" + String(nowMs);
+    var opts = {
+      body: body || "Nuova notifica",
+      tag: tag,
+      renotify: true,
+      silent: false,
+      lang: "it",
+      icon: "/apple-touch-icon.png",
+      badge: "/apple-touch-icon.png",
+      data: {
+        openUrl: String(item.openUrl || "/").trim() || "/",
+        kind: String(item.kind || "info"),
+        id: sid,
+        ticketId: String(item.ticketId || "").trim(),
+      },
+    };
+    function viaPage() {
+      try {
+        var n = new Notification(title, opts);
+        n.onclick = function () {
+          try {
+            window.focus();
+          } catch (eF) {}
+          var href = resolveNotifDestUrl(opts.data.openUrl);
+          if (href) openNotifDestination(href, opts.data.kind);
+          try {
+            n.close();
+          } catch (eC) {}
+        };
+      } catch (eN) {}
+    }
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.ready
+        .then(function (reg) {
+          if (reg && typeof reg.showNotification === "function") {
+            return reg.showNotification(title, opts);
+          }
+          viaPage();
+        })
+        .catch(viaPage);
+    } else {
+      viaPage();
+    }
+  }
 
   function playNotifSound() {
     var nowMs = Date.now();
@@ -2020,95 +2950,195 @@
     root.style.setProperty("--vc-pop-ox", Math.round(ox) + "px");
   }
 
-  function showNotifFlyToast(row) {
-    var toastId = String((row && row.id) || "");
-    var nowMs = Date.now();
-    if (toastId && toastId === lastFlyToastId && nowMs - lastFlyToastAt < 2500) return;
-    lastFlyToastId = toastId;
-    lastFlyToastAt = nowMs;
-    var bell = document.querySelector("#vc-notif-dropdown summary.vc-notif-summary");
-    if (!bell) return;
-    var dd = document.getElementById("vc-notif-dropdown");
-    if (dd && dd.open) {
-      pulseNotifSummary();
-      return;
+  function escNotifDialog(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  function detachNotifInterruptKey() {
+    if (notifInterruptKeyHandler) {
+      document.removeEventListener("keydown", notifInterruptKeyHandler, true);
+      notifInterruptKeyHandler = null;
     }
-    var title = row && row.title ? String(row.title) : "Nuova notifica";
+  }
+
+  function hideNotifInterruptUi() {
+    var root = document.getElementById("vc-notif-interrupt");
+    detachNotifInterruptKey();
+    if (root) {
+      root.classList.remove("is-open");
+      root.setAttribute("hidden", "");
+    }
+    notifInterruptOpen = false;
+    notifInterruptCurrent = null;
+    try {
+      syncGlobalNotifOverlayClass();
+    } catch (eSync) {}
+  }
+
+  function hideNotifInterruptForLoader() {
+    if (!notifInterruptOpen && !notifInterruptCurrent) return;
+    if (notifInterruptCurrent) {
+      notifInterruptQueue.unshift(notifInterruptCurrent);
+      if (notifInterruptQueue.length > 8) notifInterruptQueue.length = 8;
+    }
+    hideNotifInterruptUi();
+  }
+
+  function enqueueNotifInterrupt(row) {
+    if (!row) return;
+    var id = String(row.id || "").trim();
+    if (id && notifInterruptCurrent && String(notifInterruptCurrent.id || "") === id) return;
+    var i;
+    for (i = 0; i < notifInterruptQueue.length; i += 1) {
+      if (id && String((notifInterruptQueue[i] && notifInterruptQueue[i].id) || "") === id) return;
+    }
+    notifInterruptQueue.push(row);
+    if (notifInterruptQueue.length > 8) notifInterruptQueue.shift();
+  }
+
+  function ensureNotifInterruptRoot() {
+    var existing = document.getElementById("vc-notif-interrupt");
+    if (existing) return existing;
+    var root = document.createElement("div");
+    root.id = "vc-notif-interrupt";
+    root.className = "vc-dialog vc-notif-interrupt";
+    root.style.zIndex = "100800";
+    root.setAttribute("hidden", "");
+    root.innerHTML =
+      '<button type="button" class="vc-dialog__backdrop" data-vc-notif-dialog="cancel" aria-label="Chiudi"></button>' +
+      '<div class="vc-dialog__panel vc-notif-interrupt__panel" role="dialog" aria-modal="true" aria-labelledby="vc-notif-interrupt-title">' +
+      '<p class="vc-notif-interrupt__kicker" id="vc-notif-interrupt-kicker">Notifica</p>' +
+      '<div class="vc-dialog__icon is-info" id="vc-notif-interrupt-icon" aria-hidden="true"><i class="fa fa-bell-o"></i></div>' +
+      '<h3 class="vc-dialog__title vc-notif-interrupt__title" id="vc-notif-interrupt-title"></h3>' +
+      '<div class="vc-dialog__text vc-notif-interrupt__text" id="vc-notif-interrupt-text"></div>' +
+      '<div class="vc-dialog__actions vc-notif-interrupt__actions" id="vc-notif-interrupt-actions"></div>' +
+      "</div>";
+    document.body.appendChild(root);
+    root.addEventListener("click", function (ev) {
+      var btn = ev.target && ev.target.closest ? ev.target.closest("[data-vc-notif-dialog]") : null;
+      if (!btn || !notifInterruptOpen) return;
+      var action = btn.getAttribute("data-vc-notif-dialog");
+      if (action === "cancel") finishNotifInterrupt("close");
+      else if (action === "ok") finishNotifInterrupt("go");
+    });
+    return root;
+  }
+
+  function finishNotifInterrupt(action) {
+    var row = notifInterruptCurrent;
+    var dest = row ? resolveNotifDestUrl(String(row.openUrl || "").trim()) : "";
+    var kind = row ? String(row.kind || "info") : "info";
+    var alreadyRead = Boolean(row && row.read === true);
+    hideNotifInterruptUi();
+    if (row && !alreadyRead && (row.id || dest)) {
+      try {
+        markOneRead(row.id, { openUrl: dest });
+      } catch (eMark) {}
+    }
+    if (action === "go") {
+      if (dest) openNotifDestination(dest, kind);
+      else {
+        var dd = document.getElementById("vc-notif-dropdown");
+        try {
+          if (dd && !dd.open) dd.setAttribute("open", "");
+        } catch (eOpen) {}
+      }
+    }
+    window.setTimeout(function () {
+      flushNotifInterruptQueue();
+    }, 80);
+  }
+
+  function openNotifInterrupt(row) {
+    var title = row && row.title ? String(row.title) : tNotif("notif.itemTitle", "Notifica");
     var body = row && row.body ? String(row.body) : "";
-    if (body.length > 72) body = body.slice(0, 71) + "…";
+    if (body.length > 280) body = body.slice(0, 279) + "…";
     var kind = String((row && row.kind) || "info");
     var dest = resolveNotifDestUrl(String((row && row.openUrl) || "").trim());
+    var alreadyRead = Boolean(row && row.read === true);
+    var closeLabel = tNotif("notif.close", "Chiudi");
+    var goLabel = dest
+      ? tNotif("notif.goThere", "Vai lì")
+      : tNotif("notif.seeAll", "Vedi tutte le notifiche");
+    var showGo = Boolean(dest) || !alreadyRead;
 
-    var root = document.createElement("button");
-    root.type = "button";
-    root.className = "vc-notif-fly-card";
-    root.setAttribute("role", "status");
-    root.setAttribute("aria-live", "polite");
-
-    var ico = document.createElement("span");
-    ico.className = "vc-notif-fly-card__ico";
-    ico.setAttribute("aria-hidden", "true");
-    var fi = document.createElement("i");
-    fi.className = "fa " + iconClass(kind);
-    ico.appendChild(fi);
-
-    var main = document.createElement("span");
-    main.className = "vc-notif-fly-card__main";
-    var t = document.createElement("strong");
-    t.className = "vc-notif-fly-card__t";
-    t.textContent = title;
-    var b = document.createElement("span");
-    b.className = "vc-notif-fly-card__b";
-    b.textContent = body;
-    main.appendChild(t);
-    if (body) main.appendChild(b);
-
-    root.appendChild(ico);
-    root.appendChild(main);
-    document.body.appendChild(root);
-    notifFlyActiveCount += 1;
+    var root = ensureNotifInterruptRoot();
+    var kickerEl = document.getElementById("vc-notif-interrupt-kicker");
+    var titleEl = document.getElementById("vc-notif-interrupt-title");
+    var textEl = document.getElementById("vc-notif-interrupt-text");
+    var iconWrap = document.getElementById("vc-notif-interrupt-icon");
+    var actions = document.getElementById("vc-notif-interrupt-actions");
+    if (kickerEl) kickerEl.textContent = tNotif("notif.itemTitle", "Notifica");
+    if (titleEl) titleEl.textContent = title;
+    if (textEl) {
+      textEl.textContent = body;
+      textEl.hidden = !body;
+    }
+    if (iconWrap) {
+      iconWrap.className = "vc-dialog__icon is-info";
+      iconWrap.innerHTML = '<i class="fa ' + escNotifDialog(iconClass(kind)) + '"></i>';
+    }
+    if (actions) {
+      var html =
+        '<button type="button" class="vc-dialog__btn vc-header-pill" data-vc-notif-dialog="cancel">' +
+        escNotifDialog(closeLabel) +
+        "</button>";
+      if (showGo) {
+        html +=
+          '<button type="button" class="vc-dialog__btn vc-dialog__btn--primary vc-header-pill vc-home-cine-cta" data-vc-notif-dialog="ok">' +
+          escNotifDialog(goLabel) +
+          "</button>";
+      }
+      actions.innerHTML = html;
+    }
+    var dd = document.getElementById("vc-notif-dropdown");
+    if (dd && dd.open) {
+      try {
+        dd.open = false;
+        dd.removeAttribute("open");
+      } catch (eDd) {}
+    }
+    notifInterruptCurrent = row;
+    notifInterruptOpen = true;
+    root.classList.add("is-open");
+    root.removeAttribute("hidden");
     syncGlobalNotifOverlayClass();
-    placeNotifPopNearBell(root, bell);
     pulseNotifSummary();
-
-    root.addEventListener("click", function (ev) {
+    detachNotifInterruptKey();
+    notifInterruptKeyHandler = function (ev) {
+      if (!ev || ev.key !== "Escape") return;
       ev.preventDefault();
       ev.stopPropagation();
-      finish(true);
-      if (row && row.id) markOneRead(row.id);
-      if (dest) {
-        openNotifDestination(dest, kind);
-        return;
-      }
-      try {
-        if (dd && !dd.open) dd.setAttribute("open", "");
-      } catch (eOpen) {}
-    });
-
-    var finished = false;
-    function finish(fromClick) {
-      if (finished) return;
-      finished = true;
-      root.classList.add("vc-notif-fly-card--out");
-      window.setTimeout(function () {
-        try {
-          root.remove();
-        } catch (e2) {}
-        notifFlyActiveCount = Math.max(0, notifFlyActiveCount - 1);
-        syncGlobalNotifOverlayClass();
-        if (!fromClick) pulseNotifSummary();
-      }, NOTIF_FLY_ANIM_MS + 40);
-    }
-
-    var onResize = function () {
-      if (finished) return;
-      placeNotifPopNearBell(root, bell);
+      finishNotifInterrupt("close");
     };
-    window.addEventListener("resize", onResize);
+    document.addEventListener("keydown", notifInterruptKeyHandler, true);
     window.setTimeout(function () {
-      window.removeEventListener("resize", onResize);
-      if (!finished) finish(false);
-    }, NOTIF_FLY_READ_MS);
+      try {
+        var focusBtn = root.querySelector('[data-vc-notif-dialog="ok"]') || root.querySelector('[data-vc-notif-dialog="cancel"]');
+        if (focusBtn) focusBtn.focus();
+      } catch (eF) {}
+    }, 20);
+  }
+
+  function flushNotifInterruptQueue() {
+    if (notifInterruptOpen) return;
+    if (isBlockingLoaderVisible()) return;
+    while (notifInterruptQueue.length) {
+      var next = notifInterruptQueue.shift();
+      if (!next) continue;
+      if (isWatchingTicketChat(next.ticketId, next.openUrl)) continue;
+      openNotifInterrupt(next);
+      return;
+    }
+  }
+
+  function showNotifFlyToast(row) {
+    /* Solo notifica nativa di sistema: niente riquadro custom. */
+    pulseNotifSummary();
   }
 
   function addNotif(p) {
@@ -2147,6 +3177,7 @@
     var dismissed = loadDismissedSet(ownerId);
     if ((stableId && dismissed.has(stableId)) || (fpId && dismissed.has(fpId))) return { added: false };
     var incomingRead = Boolean(p && (p.read === true || p.readAt));
+    var ticketId = extractTicketIdFromNotif(p);
     var item = {
       id: stableId || String(Date.now()) + "-" + String(Math.floor(Math.random() * 1e9)),
       title: String((p && p.title) || ""),
@@ -2155,6 +3186,7 @@
       read: incomingRead,
       kind: kind,
       openUrl: openUrl,
+      ticketId: ticketId,
     };
     var key = userStorageKey(ownerId);
     var s = [];
@@ -2216,6 +3248,7 @@
       localStorage.setItem(key, JSON.stringify(s));
     } catch (e2) {}
     if (!p || !p.__noRender) render();
+    if (!incomingRead && !p.__skipOsBanner) showNativeOsBanner(item);
     return { added: true };
   }
   function flushPendingLoginNotification() {
@@ -2244,7 +3277,7 @@
     try {
       localStorage.removeItem(PENDING_LOGIN_NOTIF_KEY);
     } catch (e3) {}
-    addNotif(data);
+    addNotif(Object.assign({}, data, { __skipOsBanner: true }));
   }
   function isMobileNotifViewport() {
     try {
@@ -2385,6 +3418,11 @@
     if (!base) return "/webhooks/site-notifications/clear";
     return String(base).replace(/\/+$/, "") + "/clear";
   }
+  function resolvedSiteNotificationsDeleteUrl() {
+    var base = resolvedSiteNotificationsUrl();
+    if (!base) return "/webhooks/site-notifications/delete";
+    return String(base).replace(/\/+$/, "") + "/delete";
+  }
   function resolvedSiteNotificationsPushUrl(suffix) {
     var base = resolvedSiteNotificationsUrl();
     var path = String(suffix || "").replace(/^\/+/, "");
@@ -2392,13 +3430,19 @@
     return String(base).replace(/\/+$/, "") + "/push/" + path;
   }
   var PUSH_NATIVE_ASKED_KEY = "vc_push_native_asked_v1";
-  var PUSH_PROMPT_DISMISS_KEY = "vc_push_prompt_dismissed_v1";
+  var PUSH_PROMPT_DISMISS_KEY = "vc_push_prompt_dismissed_v2";
+  var PUSH_OK_KEY = "vc_push_ok_v1";
+  var PUSH_PERM_KEY = "vc_push_perm_v1";
+  var PUSH_DISMISS_MS = 180 * 24 * 60 * 60 * 1000;
+  var pushAutoRecoverWired = false;
+  var pushAutoRecoverDone = false;
   var pushSubscribeInFlight = false;
   /** null = non ancora controllato, true = push attiva, false = non attiva */
   var pushSubActive = null;
   var refreshPushInFlight = null;
   var lastPostedPushEndpoint = "";
   var lastPostedPushAt = 0;
+  var lastPushErrorHint = "";
   var PUSH_RESYNC_MIN_MS = 10 * 60 * 1000;
   var cachedPushReg = null;
   var cachedVapidPublicKey = "";
@@ -2417,14 +3461,27 @@
     } catch (e) {}
     return Boolean(navigator.standalone);
   }
+  function isBraveLike() {
+    try {
+      if (navigator.brave) return true;
+    } catch (e) {}
+    return /Brave/i.test(String(navigator.userAgent || ""));
+  }
   function isIosLikeDevice() {
     var ua = String(navigator.userAgent || "");
     if (/iPad|iPhone|iPod/i.test(ua)) return true;
     try {
-      return navigator.platform === "MacIntel" && Number(navigator.maxTouchPoints || 0) > 1;
-    } catch (e2) {
-      return false;
+      if (navigator.platform === "MacIntel" && Number(navigator.maxTouchPoints || 0) > 1) return true;
+    } catch (e2) {}
+    if (
+      /Macintosh/i.test(ua) &&
+      /Safari/i.test(ua) &&
+      !/Chrome|Chromium|Firefox|Android|CriOS|FxiOS/i.test(ua) &&
+      isStandalonePwa()
+    ) {
+      return true;
     }
+    return false;
   }
   function webPushSupported() {
     return (
@@ -2434,29 +3491,83 @@
       "Notification" in window
     );
   }
-  function wasPushPromptDismissed() {
+  function storageGet(key) {
     try {
-      return sessionStorage.getItem(PUSH_PROMPT_DISMISS_KEY) === "1";
+      return String(localStorage.getItem(key) || sessionStorage.getItem(key) || "");
     } catch (e) {
-      return false;
+      return "";
     }
   }
-  function dismissPushPrompt() {
+  function storageSet(key, value) {
     try {
-      sessionStorage.setItem(PUSH_PROMPT_DISMISS_KEY, "1");
-    } catch (e) {}
+      localStorage.setItem(key, value);
+    } catch (eL) {}
+    try {
+      sessionStorage.setItem(key, value);
+    } catch (eS) {}
+  }
+  function wasPushPromptDismissed() {
+    var raw = storageGet(PUSH_PROMPT_DISMISS_KEY);
+    if (!raw) return false;
+    if (raw === "1") return true;
+    var ts = Number(raw);
+    if (!ts) return true;
+    return Date.now() - ts < PUSH_DISMISS_MS;
+  }
+  function dismissPushPrompt() {
+    storageSet(PUSH_PROMPT_DISMISS_KEY, String(Date.now()));
     clearPushCustomUi();
+  }
+  function currentPushPermission() {
+    return typeof Notification !== "undefined" ? String(Notification.permission || "") : "";
+  }
+  function isBravePermissionReset() {
+    var perm = currentPushPermission();
+    return perm !== "granted" && perm !== "denied" && (hadPushOk() || lastStoredPushPerm() === "granted");
+  }
+  function needsPushPermissionRecover() {
+    if (!webPushSupported()) return false;
+    if (!normalizeUserId(currentUserId) || !getDiscordAccessToken()) return false;
+    if (isIosLikeDevice() && !isStandalonePwa()) return false;
+    return isBravePermissionReset();
+  }
+  function tryRecoverPushFromGesture() {
+    if (pushAutoRecoverDone || pushSubscribeInFlight) return;
+    if (!needsPushPermissionRecover()) return;
+    if (!(cachedPushReg && cachedVapidPublicKey)) {
+      prefetchPushPrereqs();
+      return;
+    }
+    pushAutoRecoverDone = true;
+    subscribeWebPushNative({ fromGesture: true }).then(function (ok) {
+      notePushPermission();
+      if (ok) {
+        clearPushCustomUi();
+        return;
+      }
+      if (currentPushPermission() === "denied") dismissPushPrompt();
+    });
+  }
+  function wirePushAutoRecover() {
+    if (pushAutoRecoverWired) return;
+    pushAutoRecoverWired = true;
+    var run = function () {
+      tryRecoverPushFromGesture();
+    };
+    document.addEventListener("pointerdown", run, true);
+    document.addEventListener("keydown", run, true);
   }
   function shouldShowPushPrompt() {
     if (!webPushSupported()) return false;
     if (!normalizeUserId(currentUserId) || !getDiscordAccessToken()) return false;
-    if (typeof Notification !== "undefined" && Notification.permission === "denied") return false;
-    if (wasPushPromptDismissed()) return false;
+    var perm = currentPushPermission() || "denied";
+    if (perm === "denied") return false;
     if (pushSubActive === true) return false;
-    // iOS Safari (non Home Screen): spiega che serve la PWA.
+    if (wasPushPromptDismissed()) return false;
+    // Già attivate una volta: Brave le azzera, le recuperiamo al click senza nagarle.
+    if (needsPushPermissionRecover()) return false;
     if (isIosLikeDevice() && !isStandalonePwa()) return true;
-    // Mostra anche se permesso già granted ma subscription non salvata (tipico Windows).
-    return true;
+    return perm === "default" || perm === "granted";
   }
   function urlBase64ToUint8Array(base64String) {
     var padding = "=".repeat((4 - (String(base64String || "").length % 4)) % 4);
@@ -2488,6 +3599,37 @@
       return normalizeVapidKey(uint8ToBase64Url(have)) === normalizeVapidKey(publicKey);
     } catch (e) {
       return true;
+    }
+  }
+  function rememberPushOk() {
+    try {
+      localStorage.setItem(PUSH_OK_KEY, String(Date.now()));
+    } catch (e) {}
+    try {
+      localStorage.removeItem(PUSH_PROMPT_DISMISS_KEY);
+      sessionStorage.removeItem(PUSH_PROMPT_DISMISS_KEY);
+    } catch (e2) {}
+    notePushPermission();
+  }
+  function hadPushOk() {
+    try {
+      return Boolean(localStorage.getItem(PUSH_OK_KEY));
+    } catch (e) {
+      return false;
+    }
+  }
+  function notePushPermission() {
+    try {
+      if (typeof Notification !== "undefined") {
+        localStorage.setItem(PUSH_PERM_KEY, String(Notification.permission || ""));
+      }
+    } catch (e) {}
+  }
+  function lastStoredPushPerm() {
+    try {
+      return String(localStorage.getItem(PUSH_PERM_KEY) || "");
+    } catch (e) {
+      return "";
     }
   }
   function wasNativePushAsked() {
@@ -2550,15 +3692,45 @@
         return "";
       });
   }
+  function subscriptionPayload(subscription) {
+    var json = {};
+    try {
+      json = typeof subscription.toJSON === "function" ? subscription.toJSON() : {};
+    } catch (eJ) {
+      json = {};
+    }
+    if (!json || typeof json !== "object") json = {};
+    try {
+      if (!json.endpoint) json.endpoint = String(subscription.endpoint || "");
+    } catch (eEp) {}
+    json.keys = json.keys && typeof json.keys === "object" ? json.keys : {};
+    function keyOf(name) {
+      if (json.keys[name]) return String(json.keys[name]);
+      try {
+        if (!subscription.getKey) return "";
+        var buf = subscription.getKey(name);
+        if (!buf) return "";
+        return uint8ToBase64Url(new Uint8Array(buf));
+      } catch (eK) {
+        return "";
+      }
+    }
+    json.keys.p256dh = keyOf("p256dh");
+    json.keys.auth = keyOf("auth");
+    return json;
+  }
   function postPushSubscription(subscription, opts) {
     opts = opts || {};
     var token = getDiscordAccessToken();
     if (!token || !subscription) return Promise.resolve(false);
-    var json = typeof subscription.toJSON === "function" ? subscription.toJSON() : subscription;
-    var endpoint = "";
-    try {
-      endpoint = String((json && json.endpoint) || subscription.endpoint || "").trim();
-    } catch (eEp) {}
+    var json = subscriptionPayload(subscription);
+    var endpoint = String((json && json.endpoint) || "").trim();
+    if (!endpoint || !json.keys || !json.keys.p256dh || !json.keys.auth) {
+      try {
+        console.warn("[vc-push] incomplete subscription payload");
+      } catch (eInc) {}
+      return Promise.resolve(false);
+    }
     var now = Date.now();
     if (
       !opts.force &&
@@ -2578,13 +3750,19 @@
       body: JSON.stringify({ subscription: json }),
     })
       .then(function (r) {
+        try {
+          console.warn("[vc-push] subscribe POST", r && r.status);
+        } catch (eSt) {}
         if (r && r.ok && endpoint) {
           lastPostedPushEndpoint = endpoint;
           lastPostedPushAt = Date.now();
         }
-        return r.ok;
+        return Boolean(r && r.ok);
       })
-      .catch(function () {
+      .catch(function (err) {
+        try {
+          console.warn("[vc-push] subscribe POST failed", err && err.message ? err.message : err);
+        } catch (eC) {}
         return false;
       });
   }
@@ -2650,16 +3828,36 @@
     var dismissEl = el.querySelector(".vc-notif-push-dismiss");
     if (titleEl) titleEl.textContent = tNotif("notif.pushTitle", "Notifiche sul dispositivo");
     if (subEl) {
-      subEl.textContent =
-        isIosLikeDevice() && !isStandalonePwa()
-          ? tNotif(
-              "notif.pushIosHint",
-              "Su iPhone/iPad: aggiungi il sito alla Home, aprilo da lì, poi attiva le notifiche push.",
-            )
-          : tNotif(
-              "notif.pushSub",
-              "Senza questo gli avvisi arrivano solo quando riapri il sito. Attiva le push di sistema.",
-            );
+      var permNow =
+        typeof Notification !== "undefined" ? String(Notification.permission || "") : "default";
+      if (isIosLikeDevice() && !isStandalonePwa()) {
+        subEl.textContent = tNotif(
+          "notif.pushIosHint",
+          "Su iPhone/iPad: aggiungi il sito alla Home, aprilo da lì, poi attiva le notifiche push.",
+        );
+      } else if (lastPushErrorHint) {
+        subEl.textContent = lastPushErrorHint;
+      } else if (permNow === "granted" && hadPushOk()) {
+        subEl.textContent = tNotif(
+          "notif.pushReconnect",
+          "Il permesso c’è già. Clicca Attiva per riattaccare questo PC — non dovrebbe più chiedere Consenti.",
+        );
+      } else if (permNow === "granted") {
+        subEl.textContent = tNotif(
+          "notif.pushGrantedNeedClick",
+          "Il permesso c’è, ma questo PC non è ancora registrato. Clicca di nuovo Attiva.",
+        );
+      } else if (isBraveLike()) {
+        subEl.textContent = tNotif(
+          "notif.pushBraveHint",
+          "Su Brave le push spesso non partono. Usa Chrome o Edge, poi clicca Attiva.",
+        );
+      } else {
+        subEl.textContent = tNotif(
+          "notif.pushSub",
+          "Senza questo gli avvisi arrivano solo quando riapri il sito. Attiva le push di sistema.",
+        );
+      }
     }
     if (enableEl) {
       enableEl.textContent = tNotif("notif.pushEnable", "Attiva");
@@ -2679,7 +3877,7 @@
       btn.disabled = true;
       btn.textContent = tNotif("notif.pushEnabling", "Attivazione…");
     }
-    subscribeWebPushNative({ forcePermissionPrompt: true, fromGesture: true })
+    subscribeWebPushNative({ fromGesture: true })
       .then(function (ok) {
         if (!ok) {
           try {
@@ -2696,10 +3894,12 @@
             showNotifFlyToast({
               id: "push-err-" + Date.now(),
               title: tNotif("notif.pushTitle", "Notifiche sul dispositivo"),
-              body: tNotif(
-                "notif.pushError",
-                "Non sono riuscito ad attivare le push. Controlla le autorizzazioni del browser.",
-              ),
+              body:
+                lastPushErrorHint ||
+                tNotif(
+                  "notif.pushError",
+                  "Non sono riuscito a registrare questo PC. Clicca di nuovo Attiva. Se resta così, usa Chrome o Edge.",
+                ),
               kind: "info",
               read: true,
             });
@@ -2715,45 +3915,84 @@
         }
       });
   }
-  function createOrRepairPushSubscription(reg, publicKey) {
+  function describePushError(err) {
+    var name = String((err && err.name) || "").toLowerCase();
+    var msg = String((err && err.message) || err || "").toLowerCase();
+    if (
+      isBraveLike() &&
+      (name === "aborterror" ||
+        msg.indexOf("push service") >= 0 ||
+        msg.indexOf("registration failed") >= 0 ||
+        msg.indexOf("gcm") >= 0)
+    ) {
+      return tNotif(
+        "notif.pushBraveServices",
+        "Brave blocca Google FCM. Apri brave://settings/privacy, attiva “Use Google services for push messaging”, poi clicca di nuovo Attiva.",
+      );
+    }
+    if (msg.indexOf("vapid") >= 0) {
+      return tNotif("notif.pushError", "Chiave push assente. Ricarica la pagina e clicca di nuovo Attiva.");
+    }
+    if (msg.indexOf("subscribe_api") >= 0) {
+      return tNotif(
+        "notif.pushError",
+        "Il permesso c’è, ma il salvataggio sul server è fallito. Clicca di nuovo Attiva.",
+      );
+    }
+    return tNotif(
+      "notif.pushError",
+      "Non sono riuscito a registrare questo PC. Clicca di nuovo Attiva. Se resta così, usa Chrome o Edge.",
+    );
+  }
+  function createOrRepairPushSubscription(reg, publicKey, opts) {
+    var fromGesture = opts && opts.fromGesture === true;
     function doSubscribe() {
       return reg.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(publicKey),
       });
     }
-    return reg.pushManager.getSubscription().then(function (existing) {
-      if (existing && !subscriptionMatchesVapid(existing, publicKey)) {
-        return existing
-          .unsubscribe()
-          .catch(function () {
-            return false;
-          })
-          .then(function () {
-            return null;
-          });
-      }
-      return existing;
-    }).then(function (existing) {
-      if (existing) return existing;
-      return doSubscribe().catch(function (err) {
-        // Chrome Windows a volte ha uno stato push corrotto: reset e ritenta una volta.
-        return reg.pushManager
-          .getSubscription()
-          .then(function (ghost) {
-            return ghost && typeof ghost.unsubscribe === "function"
-              ? ghost.unsubscribe().catch(function () {
-                  return false;
-                })
-              : false;
-          })
-          .then(function () {
-            return doSubscribe();
-          })
-          .catch(function () {
-            throw err;
-          });
+    function existingThenSubscribe() {
+      return reg.pushManager.getSubscription().then(function (existing) {
+        if (existing && !subscriptionMatchesVapid(existing, publicKey)) {
+          return existing
+            .unsubscribe()
+            .catch(function () {
+              return false;
+            })
+            .then(function () {
+              return doSubscribe();
+            });
+        }
+        if (existing) return existing;
+        return doSubscribe();
       });
+    }
+    // Dal click: subscribe() subito (è lui che apre “Consenti”).
+    // getSubscription() / requestPermission() prima bruciano il gesto su Chrome/Brave Windows.
+    if (fromGesture) {
+      return doSubscribe().catch(function (err) {
+        return existingThenSubscribe().catch(function () {
+          throw err;
+        });
+      });
+    }
+    return existingThenSubscribe().catch(function (err) {
+      return reg.pushManager
+        .getSubscription()
+        .then(function (ghost) {
+          return ghost && typeof ghost.unsubscribe === "function"
+            ? ghost.unsubscribe().catch(function () {
+                return false;
+              })
+            : false;
+        })
+        .then(function () {
+          return doSubscribe();
+        })
+        .catch(function () {
+          throw err;
+        });
     });
   }
   function refreshPushSubscriptionState(opts) {
@@ -2779,8 +4018,9 @@
             return false;
           }
           return postPushSubscription(sub, opts).then(function (ok) {
-            pushSubActive = Boolean(ok);
-            return pushSubActive;
+            pushSubActive = ok === true;
+            if (ok) rememberPushOk();
+            return ok === true;
           });
         });
       })
@@ -2794,58 +4034,91 @@
       });
     return refreshPushInFlight;
   }
-  /** Crea/ripara la subscription. Su Chrome Windows `pushManager.subscribe` richiede un gesto utente ancora "vivo": niente fetch in mezzo. */
+  function recreateGrantedPush() {
+    if (typeof Notification === "undefined" || Notification.permission !== "granted") {
+      return Promise.resolve(false);
+    }
+    if (pushSubscribeInFlight) return Promise.resolve(false);
+    return prefetchPushPrereqs()
+      .then(function (pair) {
+        var reg = pair && pair.reg;
+        var publicKey = pair && pair.publicKey;
+        if (!reg || !reg.pushManager || !publicKey) return false;
+        return createOrRepairPushSubscription(reg, publicKey, { fromGesture: false }).then(function (sub) {
+          if (!sub) return false;
+          return postPushSubscription(sub, { force: true }).then(function (ok) {
+            if (ok) {
+              lastPushErrorHint = "";
+              rememberPushOk();
+              setPushSubActive(true);
+            }
+            return ok === true;
+          });
+        });
+      })
+      .catch(function (err) {
+        try {
+          console.warn("[vc-push] recreate granted", err && err.message ? err.message : err);
+        } catch (e) {}
+        return false;
+      });
+  }
+  /** Crea/ripara la subscription. Su Chrome/Brave Windows `subscribe()` deve partire dal click, senza requestPermission() prima. */
   function subscribeWebPushNative(opts) {
     var fromGesture = opts && opts.fromGesture === true;
-    var forcePermissionPrompt = opts && opts.forcePermissionPrompt === true;
-    if (pushSubscribeInFlight) return Promise.resolve(false);
     if (!webPushSupported()) return Promise.resolve(false);
     if (!normalizeUserId(currentUserId) || !getDiscordAccessToken()) return Promise.resolve(false);
     if (isIosLikeDevice() && !isStandalonePwa()) return Promise.resolve(false);
     if (typeof Notification !== "undefined" && Notification.permission === "denied") {
       return Promise.resolve(false);
     }
+    // Senza click: riallinea la sub esistente; se Brave l’ha droppata ma il permesso c’è, ricreala.
+    if (!fromGesture) {
+      return refreshPushSubscriptionState().then(function (ok) {
+        if (ok) return true;
+        if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+          return recreateGrantedPush();
+        }
+        return false;
+      }).then(function (ok) {
+        syncPushPromptUi();
+        return ok;
+      });
+    }
+    if (pushSubscribeInFlight) return Promise.resolve(false);
 
     function finishSub(sub) {
       if (!sub) throw new Error("no_subscription");
       return postPushSubscription(sub, { force: true }).then(function (ok) {
         if (!ok) throw new Error("subscribe_api");
+        lastPushErrorHint = "";
+        rememberPushOk();
         return true;
       });
     }
 
-    function subscribeCached() {
-      var reg = cachedPushReg;
-      var publicKey = cachedVapidPublicKey;
+    function withPrereqs(reg, publicKey) {
       if (!reg || !reg.pushManager) throw new Error("sw_failed");
       if (!publicKey) throw new Error("vapid_missing");
-      return createOrRepairPushSubscription(reg, publicKey).then(finishSub);
-    }
-
-    if (!fromGesture) {
-      // Permesso già granted: su Windows si può (ri)creare la sub senza nuovo click.
-      if (typeof Notification === "undefined" || Notification.permission !== "granted") {
-        return refreshPushSubscriptionState();
-      }
+      markNativePushAsked();
+      return createOrRepairPushSubscription(reg, publicKey, { fromGesture: true }).then(finishSub);
     }
 
     pushSubscribeInFlight = true;
-    var permNow =
-      typeof Notification !== "undefined" ? String(Notification.permission || "") : "denied";
-    var ask =
-      permNow === "granted"
-        ? Promise.resolve("granted")
-        : forcePermissionPrompt || permNow === "default"
-          ? Notification.requestPermission()
-          : Promise.resolve(permNow);
+    var start;
+    if (cachedPushReg && cachedVapidPublicKey) {
+      try {
+        start = withPrereqs(cachedPushReg, cachedVapidPublicKey);
+      } catch (eStart) {
+        start = Promise.reject(eStart);
+      }
+    } else {
+      start = prefetchPushPrereqs().then(function (pair) {
+        return withPrereqs(pair && pair.reg, pair && pair.publicKey);
+      });
+    }
 
-    return ask
-      .then(function (perm) {
-        if (perm === "granted" || perm === "denied") markNativePushAsked();
-        if (perm !== "granted") throw new Error("permission_" + perm);
-        if (cachedPushReg && cachedVapidPublicKey) return subscribeCached();
-        return prefetchPushPrereqs().then(subscribeCached);
-      })
+    return start
       .then(function () {
         pushSubscribeInFlight = false;
         setPushSubActive(true);
@@ -2856,6 +4129,7 @@
         try {
           console.warn("[vc-push] subscribe error", err && err.message ? err.message : err);
         } catch (eLog) {}
+        lastPushErrorHint = describePushError(err);
         pushSubscribeInFlight = false;
         setPushSubActive(false);
         syncPushPromptUi();
@@ -2865,13 +4139,34 @@
   function maybeAskNativePush() {
     if (!webPushSupported()) return;
     if (!normalizeUserId(currentUserId) || !getDiscordAccessToken()) return;
-    if (typeof Notification !== "undefined" && Notification.permission === "denied") return;
+    if (currentPushPermission() === "denied") return;
     if (isIosLikeDevice() && !isStandalonePwa()) return;
-    if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+    if (needsPushPermissionRecover()) {
+      tryRecoverPushFromGesture();
+      return;
+    }
+    if (currentPushPermission() === "granted") {
       subscribeWebPushNative().then(function () {
         syncPushPromptUi();
       });
     }
+  }
+  function wirePushPermissionWatch() {
+    if (!webPushSupported()) return;
+    try {
+      if (!navigator.permissions || typeof navigator.permissions.query !== "function") return;
+      navigator.permissions.query({ name: "notifications" }).then(function (status) {
+        if (!status) return;
+        status.addEventListener("change", function () {
+          syncPushPromptUi();
+          if (String(status.state || "") === "granted") {
+            refreshPushSubscriptionState().then(function () {
+              syncPushPromptUi();
+            });
+          }
+        });
+      }).catch(function () {});
+    } catch (e) {}
   }
   function syncExistingWebPushSubscription() {
     if (!webPushSupported()) return;
@@ -2986,6 +4281,54 @@
       return "";
     }
   }
+  function deleteSiteNotificationOnServer(id) {
+    var token = getDiscordAccessToken();
+    var uid = normalizeUserId(currentUserId);
+    var sid = String(id || "").trim();
+    if (!token || !uid || !sid || !/^[a-f0-9]{24}$/i.test(sid)) return Promise.resolve(false);
+    var url = resolvedSiteNotificationsDeleteUrl();
+    return fetch(url, {
+      method: "POST",
+      credentials: "omit",
+      headers: {
+        Authorization: "Bearer " + token,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ id: sid }),
+    })
+      .then(function (res) {
+        return res.ok;
+      })
+      .catch(function () {
+        return false;
+      });
+  }
+  function dismissOneSiteNotification(id) {
+    var sid = String(id || "").trim();
+    if (!sid) return;
+    var now = Date.now();
+    if (window.__vcLastDismissNotif === sid && now - (window.__vcLastDismissAt || 0) < 400) return;
+    window.__vcLastDismissNotif = sid;
+    window.__vcLastDismissAt = now;
+    if (ephemeralDemo && String(ephemeralDemo.id || "") === sid) {
+      rememberDismissedNotif(ephemeralDemo);
+      ephemeralDemo = null;
+    }
+    var items = loadStored();
+    var item = null;
+    for (var di = 0; di < items.length; di += 1) {
+      if (items[di] && String(items[di].id) === sid) {
+        item = items[di];
+        break;
+      }
+    }
+    if (item) rememberDismissedNotif(item);
+    else markDismissed(sid);
+    saveStored(items.filter(function (n) { return String((n && n.id) || "") !== sid; }));
+    render({ force: true });
+    deleteSiteNotificationOnServer(sid);
+  }
+  window.__vcDismissNotif = dismissOneSiteNotification;
   function markSiteNotificationReadOnServer(id) {
     var token = getDiscordAccessToken();
     var uid = normalizeUserId(currentUserId);
@@ -3002,7 +4345,15 @@
       body: JSON.stringify({ id: sid }),
     })
       .then(function (r) {
-        return r && r.ok;
+        if (!r || !r.ok) return false;
+        return r
+          .json()
+          .then(function (j) {
+            return Boolean(j && (j.updated === true || Number(j.modified) > 0));
+          })
+          .catch(function () {
+            return false;
+          });
       })
       .catch(function () {
         return false;
@@ -3054,6 +4405,171 @@
         return false;
       });
   }
+  function markSiteNotificationsReadForTicketOnServer(ticketId) {
+    var token = getDiscordAccessToken();
+    var uid = normalizeUserId(currentUserId);
+    var tid = String(ticketId || "").trim().toLowerCase();
+    if (!token || !uid || !/^[a-f0-9]{24}$/i.test(tid)) return Promise.resolve(false);
+    return fetch(resolvedSiteNotificationsReadUrl(), {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + token,
+        "Content-Type": "application/json",
+      },
+      credentials: "omit",
+      keepalive: true,
+      body: JSON.stringify({ ticketId: tid }),
+    })
+      .then(function (r) {
+        return r && r.ok;
+      })
+      .catch(function () {
+        return false;
+      });
+  }
+  function dismissOsNotifications(spec) {
+    spec = spec || {};
+    var ticketId = String(spec.ticketId || "").trim().toLowerCase();
+    var id = String(spec.id || "").trim();
+    var ticketIds = Array.isArray(spec.ticketIds) ? spec.ticketIds : [];
+    var ids = Array.isArray(spec.ids) ? spec.ids : [];
+    var all = spec.all === true;
+    var ticketMap = {};
+    var idMap = {};
+    if (ticketId) ticketMap[ticketId] = true;
+    if (id) idMap[id] = true;
+    for (var ti = 0; ti < ticketIds.length; ti += 1) {
+      var t = String(ticketIds[ti] || "").trim().toLowerCase();
+      if (t) ticketMap[t] = true;
+    }
+    for (var ii = 0; ii < ids.length; ii += 1) {
+      var n = String(ids[ii] || "").trim();
+      if (n) idMap[n] = true;
+    }
+    function matches(notif) {
+      if (!notif) return false;
+      if (all) return true;
+      var d = notif.data && typeof notif.data === "object" ? notif.data : {};
+      var nTid = String(d.ticketId || "").toLowerCase();
+      var nId = String(d.id || "");
+      var nMsg = String(d.messageId || "");
+      var nTag = String(notif.tag || "");
+      if (nTid && ticketMap[nTid]) return true;
+      if (nId && idMap[nId]) return true;
+      if (nMsg && (idMap[nMsg] || idMap[nId])) return true;
+      for (var tk in ticketMap) {
+        if (!ticketMap[tk]) continue;
+        if (nTag === "vc-site-ticket-" + tk) return true;
+        if (nTag.indexOf("vc-site-ticket-" + tk + "-") === 0) return true;
+      }
+      for (var ik in idMap) {
+        if (!idMap[ik]) continue;
+        if (nTag === "vc-site-" + ik || nTag.indexOf("vc-site-" + ik) === 0) return true;
+        if (nTag === "vc-site-msg-" + ik) return true;
+      }
+      return false;
+    }
+    var payload = {
+      type: "vc:dismiss-notifs",
+      ticketId: ticketId,
+      id: id,
+      ticketIds: Object.keys(ticketMap),
+      ids: Object.keys(idMap),
+      all: all,
+    };
+    function postDismiss(sw) {
+      try {
+        if (sw) sw.postMessage(payload);
+      } catch (ePost) {}
+    }
+    try {
+      postDismiss(navigator.serviceWorker && navigator.serviceWorker.controller);
+    } catch (eMsg) {}
+    if (!("serviceWorker" in navigator)) return;
+    var retry = Number(spec.retry || 0);
+    navigator.serviceWorker.ready
+      .then(function (reg) {
+        postDismiss(reg && reg.active);
+        if (!reg || typeof reg.getNotifications !== "function") return;
+        function closeListed(list) {
+          (list || []).forEach(function (notif) {
+            try {
+              if (matches(notif)) notif.close();
+            } catch (eClose) {}
+          });
+        }
+        var jobs = [reg.getNotifications()];
+        try {
+          jobs.push(reg.getNotifications({ includeTriggered: true }));
+        } catch (eInc) {}
+        return Promise.all(
+          jobs.map(function (p) {
+            return Promise.resolve(p).then(closeListed).catch(function () {});
+          }),
+        );
+      })
+      .then(function () {
+        if (!all || retry >= 2) return;
+        window.setTimeout(function () {
+          dismissOsNotifications({ all: true, retry: retry + 1 });
+        }, 350 * (retry + 1));
+      })
+      .catch(function () {});
+  }
+  function isPhoneOrInstalledPwa() {
+    if (isStandalonePwa()) return true;
+    if (isIosLikeDevice()) return true;
+    try {
+      return /Android/i.test(String(navigator.userAgent || ""));
+    } catch (e) {
+      return false;
+    }
+  }
+  function clearMobileOsToastsOnAppOpen() {
+    dismissOsNotificationsForReadItems(loadStored());
+  }
+  function dismissOsNotificationsForReadItems(items) {
+    var ticketIds = [];
+    var ids = [];
+    for (var i = 0; i < (items || []).length; i += 1) {
+      var it = items[i];
+      if (!it || !it.read) continue;
+      var tid = String(it.ticketId || "").trim().toLowerCase();
+      if (tid) ticketIds.push(tid);
+      var nid = String(it.id || "").trim();
+      if (nid) ids.push(nid);
+    }
+    if (!ticketIds.length && !ids.length) return;
+    dismissOsNotifications({ ticketIds: ticketIds, ids: ids });
+  }
+  var lastTicketNotifMark = { id: "", at: 0 };
+  function markTicketNotificationsRead(ticketId) {
+    var tid = String(ticketId || "").trim().toLowerCase();
+    if (!/^[a-f0-9]{24}$/i.test(tid)) return;
+    var now = Date.now();
+    var localUnread = 0;
+    saveStored(
+      loadStored().map(function (x) {
+        if (!x || x.read) return x;
+        if (extractTicketIdFromNotif(x) !== tid) return x;
+        localUnread += 1;
+        rememberPendingRead(x.id);
+        return Object.assign({}, x, { read: true });
+      }),
+    );
+    if (localUnread) render();
+    dismissOsNotifications({ ticketId: tid });
+    if (!localUnread && lastTicketNotifMark.id === tid && now - lastTicketNotifMark.at < 4000) return;
+    lastTicketNotifMark = { id: tid, at: now };
+    markSiteNotificationsReadForTicketOnServer(tid).finally(function () {
+      window.setTimeout(function () {
+        syncSiteNotificationsFromServer();
+      }, 400);
+    });
+  }
+  try {
+    window.__vcMarkTicketNotificationsRead = markTicketNotificationsRead;
+  } catch (eMarkTicket) {}
   function mapServerRowToStoredItem(row) {
     var kindRaw = row && row.kind;
     var kind =
@@ -3067,8 +4583,10 @@
               ? "review"
               : kindRaw === "mod"
                 ? "mod"
-                : kindRaw === "suggestion"
-                  ? "suggestion"
+              : kindRaw === "suggestion"
+                ? "suggestion"
+                : kindRaw === "web_ticket" || kindRaw === "web_ticket_mention"
+                  ? "web_ticket"
                   : "info";
     var titleRaw = String((row && row.title) || "").toLowerCase();
     var bodyRaw = String((row && row.body) || "").toLowerCase();
@@ -3082,6 +4600,7 @@
     var openUrl = "";
     if (row && typeof row.openUrl === "string") openUrl = String(row.openUrl).trim();
     var atMs = typeof row.at === "number" ? row.at : Date.now();
+    var ticketId = extractTicketIdFromNotif(row) || extractTicketIdFromOpenUrl(openUrl);
     return {
       id: String(row.id || "").trim(),
       title: String((row && row.title) || ""),
@@ -3090,6 +4609,7 @@
       read: Boolean(row.read === true || row.readAt),
       kind: kind,
       openUrl: openUrl,
+      ticketId: ticketId,
     };
   }
   function mergeStoredWithServerNotificationList(list, uid) {
@@ -3097,14 +4617,17 @@
     var beforeSig = buildNotifStoreSignature(oldItems);
     var dismissed = loadDismissedSet(uid);
     var oldIdMap = {};
-    var oldReadMap = {};
+    var oldById = {};
     for (var oi = 0; oi < oldItems.length; oi += 1) {
       var oix = oldItems[oi];
       var oid = String((oix && oix.id) || "").trim();
-      if (oid) oldIdMap[oid] = true;
-      if (oid && oix && oix.read) oldReadMap[oid] = true;
+      if (oid) {
+        oldIdMap[oid] = true;
+        oldById[oid] = oix;
+      }
     }
     var pendingReadMap = loadPendingReadMap();
+    var markAllRecent = isRecentMarkAllRead();
     var serverIdMap = {};
     var fromServer = [];
     for (var i = 0; i < list.length; i += 1) {
@@ -3114,15 +4637,37 @@
       if (!sid) continue;
       var mapped = mapServerRowToStoredItem(row);
       var fpId = buildNotifFingerprintId(mapped, uid, mapped.kind, mapped.openUrl);
-      // Server = source of truth: dismissed locale non nasconde item ancora presenti in API
-      // (es. "cancella tutto" fallito lato server lasciava gli id in dismissed per sempre).
-      if (!isServerBackedNotifId(sid) && dismissed.has(sid)) continue;
-      if (!isServerBackedNotifId(sid) && fpId && dismissed.has(fpId)) continue;
+      if (isClearedAwayServerRow(mapped, dismissed)) continue;
       serverIdMap[sid] = true;
-      if (mapped.read) forgetPendingRead(sid);
+      var oldSame = oldById[sid];
+      if (mapped.read) {
+        forgetPendingRead(sid);
+        if (fpId) forgetPendingRead(fpId);
+      } else if (
+        !markAllRecent &&
+        (pendingReadMap[sid] || (fpId && pendingReadMap[fpId])) &&
+        oldSame &&
+        !sameNotifPayload(oldSame, mapped)
+      ) {
+        delete pendingReadMap[sid];
+        if (fpId) delete pendingReadMap[fpId];
+        forgetPendingRead(sid);
+        if (fpId) forgetPendingRead(fpId);
+      }
+      var watchingThis =
+        !mapped.read && isWatchingTicketChat(mapped.ticketId, mapped.openUrl);
+      if (watchingThis) {
+        mapped.read = true;
+        rememberPendingRead(sid);
+        rememberClickRead(sid);
+      }
       fromServer.push(
         Object.assign({}, mapped, {
-          read: Boolean(mapped.read) || Boolean(oldReadMap[sid]) || Boolean(pendingReadMap[sid]),
+          read:
+            Boolean(mapped.read) ||
+            Boolean(markAllRecent) ||
+            Boolean(pendingReadMap[sid]) ||
+            Boolean(fpId && pendingReadMap[fpId]),
         }),
       );
     }
@@ -3140,6 +4685,7 @@
     }
     var merged = keepLocal.concat(fromServer);
     saveStored(merged);
+    dismissOsNotificationsForReadItems(merged);
     var changed = beforeSig !== buildNotifStoreSignature(merged);
     var freshMs = 600000;
     var toastRow = null;
@@ -3150,6 +4696,8 @@
       if (!frid || oldIdMap[frid]) continue;
       if (isNotifDismissed(fr, uid, dismissed)) continue;
       if (Date.now() - (fr.at || 0) >= freshMs) continue;
+      if (fr.read) continue;
+      if (isWatchingTicketChat(fr.ticketId, fr.openUrl)) continue;
       var candidate = {
         id: fr.id,
         title: fr.title,
@@ -3207,11 +4755,11 @@
         var list = j.items.slice().reverse();
         var mergeResult = mergeStoredWithServerNotificationList(list, uid);
         if (mergeResult.changed) render();
+        tryFlushClickReads();
         if (mergeResult.toastRow) {
           playNotifSound();
-          window.requestAnimationFrame(function () {
-            showNotifFlyToast(mergeResult.toastRow);
-          });
+          showNativeOsBanner(mergeResult.toastRow);
+          pulseNotifSummary();
         }
       })
       .catch(function () {})
@@ -3257,6 +4805,7 @@
     dd.addEventListener("toggle", function () {
       syncNotifMobileSheetChrome();
       if (dd.open) {
+        markAllReadOnBellOpen();
         syncPushPromptUi();
         maybeAskNativePush();
       } else {
@@ -3293,23 +4842,41 @@
   function init() {
     setCurrentUser(window.__VC_DISCORD_PROFILE || null);
     wirePushNotifMarkRead();
+    wirePushPermissionWatch();
+    wirePushAutoRecover();
+    consumePendingNavFromSwCache();
+    startPendingNavPoll();
+    wireSwClientFocusPing();
     flushPendingReadsToServer();
     tryFlushClickReads();
     window.addEventListener("pageshow", function () {
       consumeNotifReadFromUrl();
       consumePendingReadFromSwCache();
+      consumePendingNavFromSwCache();
+      startPendingNavPoll();
+      clearMobileOsToastsOnAppOpen();
+      if (normalizeUserId(currentUserId) && getDiscordAccessToken()) {
+        syncExistingWebPushSubscription();
+      }
+    });
+    document.addEventListener("visibilitychange", function () {
+      if (document.visibilityState === "visible") {
+        clearMobileOsToastsOnAppOpen();
+        if (normalizeUserId(currentUserId) && getDiscordAccessToken()) {
+          syncExistingWebPushSubscription();
+        }
+      }
     });
     render();
     syncGlobalNotifOverlayClass();
     document.addEventListener("pointerdown", unlockNotifAudio, true);
     document.addEventListener("keydown", unlockNotifAudio, true);
     wireNotifMobileSheet();
-    var markBtn = document.getElementById("vc-notif-mark-all");
-    var clearBtn = document.getElementById("vc-notif-clear-all");
+    ensureNotifSeeAllLink();
+    removeMarkAllButton();
     var seeAll = document.getElementById("vc-notif-see-all");
     var listEl = document.getElementById("vc-notif-list");
-    if (markBtn) markBtn.addEventListener("click", markAllRead);
-    if (clearBtn) clearBtn.addEventListener("click", clearAll);
+    bindClearAllButton();
     if (seeAll) {
       seeAll.addEventListener("click", function (ev) {
         ev.preventDefault();
@@ -3320,12 +4887,19 @@
       listEl.addEventListener("click", function (ev) {
         var t = ev.target;
         if (!t || !t.closest) return;
+        var dismissBtn = t.closest("button.vc-notif-dismiss");
+        if (dismissBtn && listEl.contains(dismissBtn)) {
+          ev.preventDefault();
+          ev.stopPropagation();
+          dismissOneSiteNotification(dismissBtn.getAttribute("data-id") || "");
+          return;
+        }
         var btn = t.closest("button.vc-notif-item");
         if (!btn || !listEl.contains(btn)) return;
         var id = btn.getAttribute("data-id");
         var dest = String(btn.getAttribute("data-open-url") || "").trim();
         var kind = String(btn.getAttribute("data-kind") || "info").toLowerCase();
-        if (id) markOneRead(id);
+        if (id || dest) markOneRead(id, { openUrl: dest });
         var href = resolveNotifDestUrl(dest);
         if (href) {
           ev.preventDefault();
@@ -3335,7 +4909,7 @@
         }
       });
     }
-    window.vcNotify = { add: addNotif, refresh: render };
+    window.vcNotify = { add: addNotif, refresh: render, clearAll: clearAll };
     flushPendingLoginNotification();
     scheduleSiteNotificationsPolling();
     syncPushPromptUi();
@@ -3360,6 +4934,7 @@
     tryFlushClickReads();
     flushPendingReadsToServer();
     syncPushPromptUi();
+    wirePushAutoRecover();
     if (normalizeUserId(currentUserId) && getDiscordAccessToken()) {
       scheduleSiteNotificationsPolling();
       prefetchPushPrereqs().then(function () {
@@ -3374,6 +4949,7 @@
     lastNotifRenderSig = "";
     baseDocumentTitle = "";
     lastTabUnreadShown = -1;
+    stopWindowAttention();
     render({ force: true });
   });
   window.addEventListener("beforeunload", function () {
@@ -3431,7 +5007,7 @@
 
   function getMq() {
     if (!mq) {
-      mq = window.matchMedia("(max-width: 639.98px)");
+      mq = window.matchMedia("(max-width: 1199.98px)");
     }
     return mq;
   }
@@ -3440,7 +5016,7 @@
     try {
       return getMq().matches;
     } catch (e) {
-      return (window.innerWidth || 999) <= 640;
+      return (window.innerWidth || 999) <= 1200;
     }
   }
 
@@ -3471,6 +5047,7 @@
 
   function openDrawer() {
     if (!drawer) return;
+    mountDrawer(drawer);
     closeNotifDropdown();
     rebuildGrid();
     syncDrawerFooter();
@@ -3691,6 +5268,50 @@
     if (existing) existing.remove();
   }
 
+  function resolveStaffHref() {
+    var link = document.getElementById("discord-staff-link");
+    if (link) {
+      var h = String(link.getAttribute("href") || "").trim();
+      if (h) return h;
+    }
+    return "/staff/";
+  }
+
+  function isStaffNavAllowed() {
+    if (window.__VC_STAFF_MENU_ALLOWED === true) return true;
+    var link = document.getElementById("discord-staff-link");
+    return Boolean(link && !navItemHidden(link));
+  }
+
+  function shouldInjectStaffTile() {
+    try {
+      var p = String(window.location.pathname || "").toLowerCase();
+      if (p === "/staff" || p === "/staff/" || p.indexOf("/staff/") === 0) return false;
+    } catch (e) {}
+    return isStaffNavAllowed();
+  }
+
+  function createStaffTile() {
+    if (!shouldInjectStaffTile()) return null;
+    var a = document.createElement("a");
+    a.className = "vc-mobile-nav-tile";
+    a.href = resolveStaffHref();
+    a.setAttribute("data-vc-mobile-staff", "1");
+    var ico = document.createElement("span");
+    ico.className = "vc-mobile-nav-tile-ico";
+    ico.setAttribute("aria-hidden", "true");
+    ico.innerHTML = '<i class="fa fa-shield"></i>';
+    var lab = document.createElement("span");
+    lab.className = "vc-mobile-nav-tile-label";
+    lab.textContent = i18nLabel("auth.staffArea", "Area Staff");
+    a.appendChild(ico);
+    a.appendChild(lab);
+    a.addEventListener("click", function () {
+      closeDrawer();
+    });
+    return a;
+  }
+
   function markTileActive(a, source) {
     if (!a || !source) return;
     if (
@@ -3837,18 +5458,27 @@
       i += 1;
     }
     var dashTile = createDashboardTile();
-    if (dashTile) {
-      var secDash = document.createElement("section");
-      secDash.className = "vc-mobile-nav-section vc-mobile-nav-section--dashboard";
-      var hDash = document.createElement("h3");
-      hDash.className = "vc-mobile-nav-section-title";
-      hDash.textContent = i18nLabel("footer.dashboard", "Dashboard").toUpperCase();
-      var gDash = document.createElement("div");
-      gDash.className = "vc-mobile-nav-grid";
-      gDash.appendChild(dashTile);
-      secDash.appendChild(hDash);
-      secDash.appendChild(gDash);
-      gridRoot.appendChild(secDash);
+    var staffTile = createStaffTile();
+    if (dashTile || staffTile) {
+      var secAreas = document.createElement("section");
+      secAreas.className = "vc-mobile-nav-section vc-mobile-nav-section--account-areas";
+      var pair = document.createElement("div");
+      pair.className = "vc-mobile-nav-pair";
+      if (dashTile && staffTile) pair.classList.add("is-split");
+      function makeAreaCol(titleKey, titleFallback, tile) {
+        var col = document.createElement("div");
+        col.className = "vc-mobile-nav-pair__col";
+        var h = document.createElement("h3");
+        h.className = "vc-mobile-nav-section-title";
+        h.textContent = i18nLabel(titleKey, titleFallback).toUpperCase();
+        col.appendChild(h);
+        col.appendChild(tile);
+        return col;
+      }
+      if (dashTile) pair.appendChild(makeAreaCol("footer.dashboard", "Dashboard", dashTile));
+      if (staffTile) pair.appendChild(makeAreaCol("auth.staffArea", "Area Staff", staffTile));
+      secAreas.appendChild(pair);
+      gridRoot.appendChild(secAreas);
     }
   }
 
@@ -3876,35 +5506,43 @@
     if (!isMobile()) closeDrawer();
   }
 
-  function ensure() {
-    if (document.getElementById(TOGGLE_ID)) return;
-    var quick = document.getElementById("header-quick-actions");
-    var bar = document.querySelector(".vc-header-bar");
-    if (!quick || !bar) return;
-    toggle = document.createElement("button");
-    toggle.type = "button";
-    toggle.id = TOGGLE_ID;
-    toggle.className = "vc-mobile-nav-toggle vc-icon-btn";
-    toggle.setAttribute("aria-label", "Apri menu di navigazione");
-    toggle.setAttribute("aria-controls", DRAWER_ID);
-    toggle.setAttribute("aria-expanded", "false");
-    toggle.innerHTML =
-      '<span class="vc-mobile-nav-toggle-bars" aria-hidden="true"><span></span><span></span><span></span></span>';
-    var notif = document.getElementById("vc-notif-dropdown");
-    if (notif) {
-      if (notif.nextSibling) quick.insertBefore(toggle, notif.nextSibling);
-      else quick.appendChild(toggle);
-    } else {
-      quick.insertBefore(toggle, quick.firstChild);
+  var lastToggleAt = 0;
+
+  function isToggleEventTarget(ev) {
+    var t = ev && ev.target;
+    if (!t) return false;
+    if (t.nodeType === 3) t = t.parentElement;
+    return Boolean(t && t.closest && t.closest("#" + TOGGLE_ID));
+  }
+
+  function onDelegatedToggle(ev) {
+    if (!isToggleEventTarget(ev)) return;
+    if (ev.type === "pointerup") {
+      if (typeof ev.button === "number" && ev.button !== 0) return;
+      if (ev.pointerType === "mouse") return;
     }
-    drawer = document.createElement("div");
-    drawer.id = DRAWER_ID;
-    drawer.className = "vc-mobile-nav-drawer";
-    drawer.setAttribute("role", "dialog");
-    drawer.setAttribute("aria-modal", "true");
-    drawer.setAttribute("aria-label", "Menu di navigazione");
-    drawer.setAttribute("aria-hidden", "true");
-    drawer.innerHTML =
+    var now = Date.now();
+    if (now - lastToggleAt < 350) {
+      if (ev.preventDefault) ev.preventDefault();
+      return;
+    }
+    lastToggleAt = now;
+    ensure();
+    if (!drawer) return;
+    if (ev.preventDefault) ev.preventDefault();
+    if (drawer.classList.contains("vc-mobile-nav-drawer--open")) closeDrawer();
+    else openDrawer();
+  }
+
+  function bindGlobalToggle() {
+    if (window.__vcMobileNavDelegated) return;
+    window.__vcMobileNavDelegated = true;
+    document.addEventListener("click", onDelegatedToggle, true);
+    document.addEventListener("pointerup", onDelegatedToggle, true);
+  }
+
+  function drawerMarkup() {
+    return (
       '<div class="vc-mobile-nav-drawer__backdrop" tabindex="-1"></div>' +
       '<div class="vc-mobile-nav-drawer__panel">' +
       '<div class="vc-mobile-nav-drawer__top">' +
@@ -3914,27 +5552,103 @@
       "</div></div>" +
       '<div class="vc-mobile-nav-drawer__scroll" id="vc-mobile-nav-drawer-grid"></div>' +
       '<div class="vc-mobile-nav-drawer__footer" id="vc-mobile-nav-drawer-footer"></div>' +
-      "</div>";
-    document.body.appendChild(drawer);
+      "</div>"
+    );
+  }
+
+  function mountDrawer(el) {
+    if (!el) return;
+    if (!el.querySelector(".vc-mobile-nav-drawer__panel")) {
+      el.className = "vc-mobile-nav-drawer";
+      el.setAttribute("role", "dialog");
+      el.setAttribute("aria-modal", "true");
+      el.setAttribute("aria-label", "Menu di navigazione");
+      el.setAttribute("aria-hidden", "true");
+      el.innerHTML = drawerMarkup();
+    }
+    try {
+      if (document.body && el.parentElement !== document.body) document.body.appendChild(el);
+    } catch (eMove) {}
+  }
+
+  function ensure() {
+    bindGlobalToggle();
+    var existingToggle = document.getElementById(TOGGLE_ID);
+    var existingDrawer = document.getElementById(DRAWER_ID);
+    if (existingToggle && existingDrawer && toggle && drawer) {
+      mountDrawer(drawer);
+      return;
+    }
+
+    var quick = document.getElementById("header-quick-actions");
+    var bar = document.querySelector(".vc-header-bar");
+    if (!quick || !bar) return;
+
+    if (existingToggle) {
+      toggle = existingToggle;
+    } else {
+      toggle = document.createElement("button");
+      toggle.type = "button";
+      toggle.id = TOGGLE_ID;
+      toggle.className = "vc-mobile-nav-toggle vc-icon-btn";
+      toggle.setAttribute("aria-label", "Apri menu di navigazione");
+      toggle.setAttribute("aria-controls", DRAWER_ID);
+      toggle.setAttribute("aria-expanded", "false");
+      toggle.innerHTML =
+        '<span class="vc-mobile-nav-toggle-bars" aria-hidden="true"><span></span><span></span><span></span></span>';
+      var notif = document.getElementById("vc-notif-dropdown");
+      var loginBtn = document.getElementById("discord-login-btn");
+      if (notif && notif.parentElement === quick) {
+        if (notif.nextSibling) quick.insertBefore(toggle, notif.nextSibling);
+        else quick.appendChild(toggle);
+      } else if (loginBtn && loginBtn.parentElement === quick) {
+        quick.insertBefore(toggle, loginBtn);
+      } else {
+        quick.appendChild(toggle);
+      }
+    }
+    toggle.setAttribute("aria-controls", DRAWER_ID);
+    if (!toggle.getAttribute("aria-label")) {
+      toggle.setAttribute("aria-label", "Apri menu di navigazione");
+    }
+    if (!toggle.innerHTML || !String(toggle.innerHTML).trim()) {
+      toggle.innerHTML =
+        '<span class="vc-mobile-nav-toggle-bars" aria-hidden="true"><span></span><span></span><span></span></span>';
+    }
+
+    if (existingDrawer) {
+      drawer = existingDrawer;
+    } else {
+      drawer = document.createElement("div");
+      drawer.id = DRAWER_ID;
+    }
+    mountDrawer(drawer);
     backdrop = drawer.querySelector(".vc-mobile-nav-drawer__backdrop");
-    cloneBrand(document.getElementById("vc-mobile-nav-drawer-brand"));
-    rebuildGrid();
-    toggle.addEventListener("click", function () {
-      if (drawer.classList.contains("vc-mobile-nav-drawer--open")) closeDrawer();
-      else openDrawer();
-    });
+    try {
+      cloneBrand(document.getElementById("vc-mobile-nav-drawer-brand"));
+      rebuildGrid();
+    } catch (eBuild) {}
     var closeBtn = document.getElementById("vc-mobile-nav-close");
-    if (closeBtn) closeBtn.addEventListener("click", closeDrawer);
-    if (backdrop) backdrop.addEventListener("click", closeDrawer);
-    window.addEventListener("vc-discord-profile", function () {
-      syncDrawerFooter();
-      rebuildGrid();
-      removeHeaderDashboardBtn();
-    });
-    window.addEventListener("vc-dashboard-access", function () {
-      rebuildGrid();
-      removeHeaderDashboardBtn();
-    });
+    if (closeBtn && closeBtn.getAttribute("data-vc-mobile-nav-bound") !== "1") {
+      closeBtn.setAttribute("data-vc-mobile-nav-bound", "1");
+      closeBtn.addEventListener("click", closeDrawer);
+    }
+    if (backdrop && backdrop.getAttribute("data-vc-mobile-nav-bound") !== "1") {
+      backdrop.setAttribute("data-vc-mobile-nav-bound", "1");
+      backdrop.addEventListener("click", closeDrawer);
+    }
+    if (window.__vcLandingMobileNavListenersBound !== true) {
+      window.__vcLandingMobileNavListenersBound = true;
+      window.addEventListener("vc-discord-profile", function () {
+        syncDrawerFooter();
+        rebuildGrid();
+        removeHeaderDashboardBtn();
+      });
+      window.addEventListener("vc-dashboard-access", function () {
+        rebuildGrid();
+        removeHeaderDashboardBtn();
+      });
+    }
   }
 
   function refreshMobileNav() {
@@ -3947,6 +5661,7 @@
   function init() {
     revealForbiddenSectionBooks();
     window.setInterval(revealForbiddenSectionBooks, 30000);
+    bindGlobalToggle();
     ensure();
     var m = getMq();
     if (m.addEventListener) m.addEventListener("change", onMqChange);
@@ -4420,4 +6135,256 @@
   } else {
     init();
   }
+})();
+
+(function loadPtr() {
+  if (window.__vcPtrBooted) return;
+  try {
+    if (document.querySelector('script[src*="vc-ptr.js"]')) return;
+  } catch (e) {}
+  var s = document.createElement("script");
+  s.src = "/js/vc-ptr.js?v=20260816ptr2";
+  s.defer = true;
+  (document.body || document.documentElement).appendChild(s);
+})();
+
+(function loadSitePolish() {
+  try {
+    if (document.querySelector('script[src*="vc-site-polish.js"]')) return;
+  } catch (e0) {}
+  var s = document.createElement("script");
+  s.src = "/js/vc-site-polish.js?v=20260817hwSkip1";
+  s.defer = true;
+  (document.body || document.documentElement).appendChild(s);
+})();
+
+(function loadHeaderPromo() {
+  try {
+    if (!document.getElementById("vc-header-promo-btn")) return;
+    if (document.querySelector('script[src*="vc-header-promo.js"]')) return;
+  } catch (e0) {
+    return;
+  }
+  var s = document.createElement("script");
+  s.src = "/js/vc-header-promo.js?v=20260817promoMq1";
+  s.defer = true;
+  (document.body || document.documentElement).appendChild(s);
+})();
+
+(function vcMiniPager() {
+  if (window.__vcMiniPager) return;
+
+  function langEn() {
+    try {
+      return String(document.documentElement.lang || "").toLowerCase().indexOf("en") === 0;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function closePop(root) {
+    if (!root) return;
+    var pop = root.querySelector(".vc-mini-pager__pop");
+    var jump = root.querySelector("[data-pager-jump]");
+    if (pop) pop.hidden = true;
+    if (jump) jump.setAttribute("aria-expanded", "false");
+  }
+
+  function closeAll(except) {
+    var nodes = document.querySelectorAll(".vc-mini-pager__pop:not([hidden])");
+    for (var i = 0; i < nodes.length; i++) {
+      var root = nodes[i].closest(".vc-mini-pager") || nodes[i].parentElement;
+      if (except && root === except) continue;
+      closePop(root);
+    }
+  }
+
+  function clampPage(raw, total) {
+    var n = parseInt(String(raw || ""), 10);
+    var tp = Math.max(1, Number(total) || 1);
+    if (!isFinite(n)) return 0;
+    if (n < 1) n = 1;
+    if (n > tp) n = tp;
+    return n;
+  }
+
+  function html(page, total, opts) {
+    opts = opts || {};
+    var p = Math.max(1, Number(page) || 1);
+    var tp = Math.max(1, Number(total) || 1);
+    if (p > tp) p = tp;
+    var prevAttr = opts.prevAttr || "data-pager-prev";
+    var nextAttr = opts.nextAttr || "data-pager-next";
+    var aria = opts.aria || (langEn() ? "Pagination" : "Paginazione");
+    var jumpAria = langEn() ? "Go to page" : "Vai a pagina";
+    var goLbl = langEn() ? "Go to" : "Vai a";
+    var prevAria = langEn() ? "Previous page" : "Pagina precedente";
+    var nextAria = langEn() ? "Next page" : "Pagina successiva";
+    var inner =
+      '<button type="button" class="vc-mini-pager__arrow" ' +
+      prevAttr +
+      (p <= 1 ? " disabled" : "") +
+      ' aria-label="' +
+      prevAria +
+      '"><i class="fa fa-chevron-left" aria-hidden="true"></i></button>' +
+      '<div class="vc-mini-pager__jump">' +
+      '<button type="button" class="vc-mini-pager__now" data-pager-jump aria-haspopup="dialog" aria-expanded="false" aria-label="' +
+      jumpAria +
+      '">' +
+      String(p) +
+      "</button>" +
+      '<div class="vc-mini-pager__pop" hidden role="dialog" aria-label="' +
+      jumpAria +
+      '">' +
+      '<span class="vc-mini-pager__lbl">' +
+      goLbl +
+      "</span>" +
+      '<input class="vc-mini-pager__input" type="number" inputmode="numeric" min="1" max="' +
+      tp +
+      '" value="' +
+      p +
+      '" data-pager-input>' +
+      '<span class="vc-mini-pager__of">/ ' +
+      tp +
+      "</span>" +
+      "</div></div>" +
+      '<button type="button" class="vc-mini-pager__arrow" ' +
+      nextAttr +
+      (p >= tp ? " disabled" : "") +
+      ' aria-label="' +
+      nextAria +
+      '"><i class="fa fa-chevron-right" aria-hidden="true"></i></button>';
+    if (opts.innerOnly) return inner;
+    return (
+      '<nav class="vc-mini-pager" data-pager-page="' +
+      p +
+      '" data-pager-total="' +
+      tp +
+      '" aria-label="' +
+      aria +
+      '">' +
+      inner +
+      "</nav>"
+    );
+  }
+
+  function commit(root, handlers) {
+    if (!root || !handlers || typeof handlers.go !== "function") return;
+    var input = root.querySelector("[data-pager-input]");
+    var total = Number(root.getAttribute("data-pager-total") || (input && input.max) || 1);
+    var current = Number(root.getAttribute("data-pager-page") || 1);
+    var next = clampPage(input ? input.value : "", total);
+    closePop(root);
+    if (!next || next === current) return;
+    handlers.go(next);
+  }
+
+  function bind(root, handlers) {
+    if (!root || !handlers) return;
+    if (root.dataset.vcMiniPager === "1") return;
+    root.dataset.vcMiniPager = "1";
+    root.classList.add("vc-mini-pager");
+
+    root.addEventListener("click", function (ev) {
+      var t = ev.target && ev.target.closest ? ev.target.closest("button, input") : null;
+      if (!t || !root.contains(t)) return;
+      if (t.matches("[data-pager-jump]")) {
+        ev.preventDefault();
+        var pop = root.querySelector(".vc-mini-pager__pop");
+        var input = root.querySelector("[data-pager-input]");
+        var open = pop && pop.hidden;
+        closeAll(root);
+        if (pop) pop.hidden = !open;
+        t.setAttribute("aria-expanded", open ? "true" : "false");
+        if (open && input) {
+          input.value = String(root.getAttribute("data-pager-page") || input.value || "1");
+          window.setTimeout(function () {
+            try {
+              input.focus();
+              input.select();
+            } catch (eF) {}
+          }, 0);
+        }
+        return;
+      }
+      if (t.matches("[data-pager-prev]")) {
+        if (t.disabled) return;
+        var cur = Number(root.getAttribute("data-pager-page") || 1);
+        if (typeof handlers.prev === "function") handlers.prev();
+        else if (typeof handlers.go === "function") handlers.go(Math.max(1, cur - 1));
+        return;
+      }
+      if (t.matches("[data-pager-next]")) {
+        if (t.disabled) return;
+        var curN = Number(root.getAttribute("data-pager-page") || 1);
+        var tot = Number(root.getAttribute("data-pager-total") || 1);
+        if (typeof handlers.next === "function") handlers.next();
+        else if (typeof handlers.go === "function") handlers.go(Math.min(tot, curN + 1));
+      }
+    });
+
+    root.addEventListener("keydown", function (ev) {
+      if (!ev || ev.key !== "Enter") return;
+      if (!ev.target || !ev.target.matches || !ev.target.matches("[data-pager-input]")) return;
+      ev.preventDefault();
+      commit(root, handlers);
+    });
+    root.addEventListener("focusout", function (ev) {
+      if (!ev || !ev.target || !ev.target.matches || !ev.target.matches("[data-pager-input]")) return;
+      window.setTimeout(function () {
+        if (root.contains(document.activeElement)) return;
+        commit(root, handlers);
+      }, 0);
+    });
+  }
+
+  if (!window.__vcMiniPagerDocBound) {
+    window.__vcMiniPagerDocBound = true;
+    document.addEventListener("pointerdown", function (ev) {
+      var pop = ev.target && ev.target.closest ? ev.target.closest(".vc-mini-pager") : null;
+      closeAll(pop);
+    });
+    document.addEventListener("keydown", function (ev) {
+      if (ev && ev.key === "Escape") closeAll(null);
+    });
+  }
+
+  window.__vcMiniPager = {
+    html: html,
+    bind: bind,
+    closeAll: closeAll,
+    sync: function (root, page, total) {
+      if (!root) return;
+      var p = Math.max(1, Number(page) || 1);
+      var tp = Math.max(1, Number(total) || 1);
+      if (p > tp) p = tp;
+      root.setAttribute("data-pager-page", String(p));
+      root.setAttribute("data-pager-total", String(tp));
+      var now = root.querySelector("[data-pager-jump]");
+      if (now) now.textContent = String(p);
+      var input = root.querySelector("[data-pager-input]");
+      if (input) {
+        input.max = String(tp);
+        input.value = String(p);
+      }
+      var of = root.querySelector(".vc-mini-pager__of");
+      if (of) of.textContent = "/ " + tp;
+      var prev = root.querySelector("[data-pager-prev]");
+      var next = root.querySelector("[data-pager-next]");
+      if (prev) prev.disabled = p <= 1;
+      if (next) next.disabled = p >= tp;
+    },
+    fill: function (root, page, total, opts, handlers) {
+      if (!root) return;
+      opts = opts || {};
+      opts.innerOnly = true;
+      var p = Math.max(1, Number(page) || 1);
+      var tp = Math.max(1, Number(total) || 1);
+      root.classList.add("vc-mini-pager");
+      root.setAttribute("data-pager-page", String(p));
+      root.setAttribute("data-pager-total", String(tp));
+      root.innerHTML = html(p, tp, opts);
+      if (handlers) bind(root, handlers);
+    },
+  };
 })();

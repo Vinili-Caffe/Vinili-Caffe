@@ -168,11 +168,13 @@
       if (isTurnstileFormatNoise(arguments)) return;
       var all = "";
       for (var i = 0; i < arguments.length; i += 1) all += " " + msgOf(arguments[i]);
-      if (isExtensionNoise(all)) return;
-      /forced reflow while executing javascript took/i.test(all) ||
-      /failed to execute ['"]?postmessage['"]? on ['"]?domwindow['"]?/i.test(all) ||
-      (/target origin provided/i.test(all) && /youtube(-nocookie)?\.com/i.test(all))
-    ) return;
+      if (
+        isExtensionNoise(all) ||
+        /forced reflow while executing javascript took/i.test(all) ||
+        /failed to execute ['"]?postmessage['"]? on ['"]?domwindow['"]?/i.test(all) ||
+        (/target origin provided/i.test(all) && /youtube(-nocookie)?\.com/i.test(all))
+      )
+        return;
       return orig.apply(console, arguments);
     };
   });

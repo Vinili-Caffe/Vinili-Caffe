@@ -1,12 +1,18 @@
 {
-  "name": "Vinili & Caffè",
-  "short_name": "Vinili & Caffè",
+  "id": "/",
+  "name": "Vinili",
+  "short_name": "Vinili",
   "description": "Community Discord Vinili & Caffè",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "launch_handler": {
+    "client_mode": ["navigate-existing", "auto"]
+  },
+  "handle_links": "preferred",
   "background_color": "#120e0b",
-  "theme_color": "#2a1f18",
+  "theme_color": "#140f0c",
   "icons": [
     {
       "src": "/images/pwa-icon-192-v5.png",

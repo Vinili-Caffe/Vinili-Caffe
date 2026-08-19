@@ -107,14 +107,28 @@ module.exports = {
 
     // Stats attività (main sempre; tenant senza override partnership).
     const { lookbackDays } = serverButton.parseServerActivityArgs(args);
+    const { safeMessageEdit } = require("../../../shared/discord/replyRuntime");
+    const loading = await safeMessageReply(
+      message,
+      serverButton.normalizeServerMessageEdit(
+        serverButton.buildServerLoadingPayload(lookbackDays, message.author?.id),
+        { repliedUser: false },
+      ),
+    );
+    const applyPanel = async (payload) => {
+      const body = serverButton.normalizeServerMessageEdit(payload, { repliedUser: false });
+      if (loading?.edit) {
+        await safeMessageEdit(loading, body, message);
+        return;
+      }
+      await safeMessageReply(message, body);
+    };
     const payload = await serverButton.buildServerOverviewPayload(
       message.guild,
       lookbackDays,
       message.author?.id,
+      { onLateImage: applyPanel },
     );
-    await safeMessageReply(
-      message,
-      serverButton.normalizeServerMessageEdit(payload, { repliedUser: false }),
-    );
+    await applyPanel(payload);
   },
 };

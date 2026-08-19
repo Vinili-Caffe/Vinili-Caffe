@@ -292,7 +292,26 @@
   var liveUsersPollTimer = null;
   var LIVE_USERS_POLL_MS = 45000;
   var USERS_CACHE_TTL_MS = 30000;
+  var USERS_FETCH_TIMEOUT_MS = 25000;
   var usersMemoryCache = new Map();
+
+  function fetchWithTimeout(url, options, timeoutMs) {
+    var ms = Math.max(1000, Number(timeoutMs) || USERS_FETCH_TIMEOUT_MS);
+    var opts = options || {};
+    if (typeof AbortController === "undefined") {
+      return fetch(url, opts);
+    }
+    var ctrl = new AbortController();
+    var timer = setTimeout(function () {
+      try {
+        ctrl.abort();
+      } catch (e) {}
+    }, ms);
+    var merged = Object.assign({}, opts, { signal: ctrl.signal });
+    return fetch(url, merged).finally(function () {
+      clearTimeout(timer);
+    });
+  }
 
   function usersCacheKey(url) {
     return "vc:userscache:" + String(url || "");
@@ -325,7 +344,7 @@
   function cachedUsersFetch(url, opts) {
     var useCache = Boolean(opts && opts.useCache);
     if (!useCache) {
-      return fetch(url, { credentials: "omit", cache: "no-store" })
+      return fetchWithTimeout(url, { credentials: "omit", cache: "no-store" }, USERS_FETCH_TIMEOUT_MS)
         .then(function (r) {
           return r.json().then(function (j) {
             return { ok: r.ok, status: r.status, body: j };
@@ -344,7 +363,7 @@
       usersMemoryCache.set(key, { expireAt: now + ttl, value: sess });
       return Promise.resolve(sess);
     }
-    return fetch(url, { credentials: "omit" })
+    return fetchWithTimeout(url, { credentials: "omit" }, USERS_FETCH_TIMEOUT_MS)
       .then(function (r) {
         return r.json().then(function (j) {
           return { ok: r.ok, status: r.status, body: j };
@@ -357,6 +376,28 @@
       });
   }
 
+  function clearLeaderPending() {
+    try {
+      document.documentElement.classList.remove("vc-user-leader-pending");
+      if (isProfileMode()) {
+        document.documentElement.classList.add("vc-page-cine-ready");
+        document.documentElement.classList.remove("vc-page-cine-boot");
+        return;
+      }
+      var body = document.body;
+      if (body && body.dataset.vcPageCineLayout === "1") {
+        document.documentElement.classList.add("vc-page-cine-ready");
+        document.documentElement.classList.remove("vc-page-cine-boot");
+        return;
+      }
+      if (typeof window.__vcPageHeroLayout === "function") {
+        window.__vcPageHeroLayout();
+      } else {
+        document.documentElement.classList.add("vc-page-cine-ready");
+      }
+    } catch (ePending) {}
+  }
+
   function setLoading(on, label) {
     state.loading = Boolean(on);
     var overlay = byId("vc-ul-loading");
@@ -367,6 +408,7 @@
     if (title) title.textContent = label || "Caricamento classifica";
     if (sub) sub.textContent = state.loading ? "Sto aggiornando i dati della community…" : "";
     if (grid) grid.setAttribute("aria-busy", state.loading ? "true" : "false");
+    if (!state.loading) clearLeaderPending();
   }
 
   function setState(msg, isErr) {
@@ -597,10 +639,8 @@
 
   function updatePager() {
     var nav = byId("vc-ul-pager");
-    var prev = byId("vc-ul-prev");
-    var next = byId("vc-ul-next");
-    var lab = byId("vc-ul-page-label");
-    if (!nav || !prev || !next || !lab) return;
+    var mp = window.__vcMiniPager;
+    if (!nav) return;
     if (state.searchUserId || state.totalPages <= 1) {
       nav.hidden = true;
       nav.style.display = "none";
@@ -608,10 +648,26 @@
     }
     var tp = Math.max(1, state.totalPages);
     nav.hidden = false;
+    nav.removeAttribute("hidden");
     nav.style.display = "flex";
-    prev.disabled = state.page <= 1;
-    next.disabled = state.page >= tp;
-    lab.textContent = "Pagina " + state.page + " di " + tp;
+    if (mp && typeof mp.fill === "function") {
+      mp.fill(nav, state.page, tp, { aria: "Paginazione classifica" }, {
+        go: function (page) {
+          var cap = Math.max(1, Number(state.totalPages) || 1);
+          var next = Math.max(1, Math.min(cap, Number(page) || 1));
+          if (next === state.page) return;
+          state.page = next;
+          load();
+        },
+      });
+      return;
+    }
+    var prev = byId("vc-ul-prev");
+    var next = byId("vc-ul-next");
+    var lab = byId("vc-ul-page-label");
+    if (prev) prev.disabled = state.page <= 1;
+    if (next) next.disabled = state.page >= tp;
+    if (lab) lab.textContent = "Pagina " + state.page + " di " + tp;
   }
 
   function applyStats(data) {
@@ -787,6 +843,7 @@
     var silent = Boolean(opts && opts.silent);
     var base = resolvedApiUrl();
     if (!base) {
+      if (!silent) setLoading(false);
       setState("Manca l’URL API classifica: in site.config.json imposta usersLeaderboardApiUrl (stesso host dei webhook del bot).", true);
       return;
     }
@@ -813,8 +870,7 @@
     }
     cachedUsersFetch(url, { useCache: !state.searchUserId, ttlMs: USERS_CACHE_TTL_MS })
       .then(function (out) {
-        if (!silent) setLoading(false);
-        if (!out.ok || !out.body || out.body.ok !== true) {
+        if (!out || !out.ok || !out.body || out.body.ok !== true) {
           var msg =
             (out.body && (out.body.message || out.body.error)) ||
             ("HTTP " + String(out.status || "") + " — dati non disponibili.");
@@ -868,14 +924,24 @@
         render(body);
         syncSearchUi();
       })
-      .catch(function () {
-        if (!silent) setLoading(false);
+      .catch(function (err) {
+        var timedOut =
+          err &&
+          (err.name === "AbortError" ||
+            String(err.message || "")
+              .toLowerCase()
+              .indexOf("abort") >= 0);
         setState(
-          "Impossibile contattare l’API classifica (rete, proxy verso il bot, risposta non JSON o CORS). Verifica GET /webhooks/site-users e che l’HTTP del bot sia attivo (WEBSITE_PUBLIC_HTTP se lo disabiliti esplicitamente).",
+          timedOut
+            ? "La classifica impiega troppo tempo a rispondere. Riprova tra qualche secondo."
+            : "Impossibile contattare l’API classifica (rete, proxy verso il bot, risposta non JSON o CORS). Verifica GET /webhooks/site-users e che l’HTTP del bot sia attivo (WEBSITE_PUBLIC_HTTP se lo disabiliti esplicitamente).",
           true,
         );
         render({ rows: [], total: 0, totalPages: 1, board: state.board, loadError: true });
         syncSearchUi();
+      })
+      .finally(function () {
+        if (!silent) setLoading(false);
       });
   }
 
@@ -896,24 +962,7 @@
   }
 
   function initPager() {
-    var prev = byId("vc-ul-prev");
-    var next = byId("vc-ul-next");
-    if (prev) {
-      prev.addEventListener("click", function () {
-        if (state.page > 1) {
-          state.page -= 1;
-          load();
-        }
-      });
-    }
-    if (next) {
-      next.addEventListener("click", function () {
-        if (state.page < state.totalPages) {
-          state.page += 1;
-          load();
-        }
-      });
-    }
+    updatePager();
   }
 
   function initBoardTabs() {
@@ -1001,7 +1050,10 @@
   }
 
   function main() {
-    if (isProfileMode()) return;
+    if (isProfileMode()) {
+      setLoading(false);
+      return;
+    }
     initPager();
     initBoardTabs();
     initFilters();

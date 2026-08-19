@@ -183,6 +183,11 @@
   async function markAllRead() {
     var token = getToken();
     if (!token) return;
+    state.items = (Array.isArray(state.items) ? state.items : []).map(function (x) {
+      return Object.assign({}, x, { read: true });
+    });
+    state.unread = 0;
+    render();
     try {
       var res = await fetch(resolveApiBase() + "/notifications/read", {
         method: "POST",
@@ -324,24 +329,49 @@
     head.appendChild(closeM);
   }
 
+  function ensureNotifSeeAllLink() {
+    var foot = byId("vc-notif-panel-foot");
+    if (!foot) return null;
+    foot.hidden = false;
+    var seeAll = byId("vc-notif-see-all");
+    if (!seeAll) {
+      seeAll = document.createElement("a");
+      seeAll.id = "vc-notif-see-all";
+      seeAll.className = "vc-notif-see-all";
+      seeAll.innerHTML =
+        '<span data-i18n="notif.seeAll">' +
+        t("notif.seeAll", null, "Vedi tutte le notifiche") +
+        '</span> <i class="fa fa-chevron-right" aria-hidden="true"></i>';
+      foot.appendChild(seeAll);
+      seeAll.addEventListener("click", function (ev) {
+        ev.preventDefault();
+        try {
+          window.location.href = new URL("/notifications/", window.location.origin).toString();
+        } catch (eNav) {
+          window.location.href = "/notifications/";
+        }
+      });
+    }
+    try {
+      seeAll.href = new URL("/notifications/", window.location.origin).toString();
+    } catch (eHref) {
+      seeAll.href = "/notifications/";
+    }
+    seeAll.setAttribute("aria-label", t("notif.seeAll", null, "Vedi tutte le notifiche"));
+    return seeAll;
+  }
+
   function wire() {
     var markBtn = byId("vc-notif-mark-all");
     var clearBtn = byId("vc-notif-clear-all");
-    var foot = byId("vc-notif-panel-foot");
     var title = document.querySelector("#vc-notif-dropdown .vc-notif-panel-title");
     var emptySub = document.querySelector("#vc-notif-dropdown .vc-notif-empty-sub");
 
     if (title) title.textContent = t("notif.title", null, "Notifiche");
     if (emptySub) emptySub.textContent = t("notif.emptySub", null, "Sei tutto aggiornato!");
-    if (foot) foot.hidden = true;
+    ensureNotifSeeAllLink();
     if (clearBtn) clearBtn.hidden = true;
-
-    if (markBtn) {
-      markBtn.addEventListener("click", function (ev) {
-        ev.preventDefault();
-        markAllRead();
-      });
-    }
+    if (markBtn && markBtn.parentNode) markBtn.parentNode.removeChild(markBtn);
 
     var dd = byId("vc-notif-dropdown");
     if (dd) {
@@ -354,7 +384,8 @@
             var accBtn = document.querySelector(".discord-profile-link");
             if (accBtn && document.activeElement === accBtn) accBtn.blur();
           } catch (eAcc) {}
-          fetchNotifications();
+          if (state.unread > 0) markAllRead();
+          else fetchNotifications();
         }
       });
       window.addEventListener("resize", function () {
@@ -381,6 +412,12 @@
     document.addEventListener("vc:langchange", function () {
       if (title) title.textContent = t("notif.title", null, "Notifiche");
       if (emptySub) emptySub.textContent = t("notif.emptySub", null, "Sei tutto aggiornato!");
+      var seeAll = byId("vc-notif-see-all");
+      if (seeAll) {
+        var seeLabel = seeAll.querySelector("[data-i18n='notif.seeAll']");
+        if (seeLabel) seeLabel.textContent = t("notif.seeAll", null, "Vedi tutte le notifiche");
+        seeAll.setAttribute("aria-label", t("notif.seeAll", null, "Vedi tutte le notifiche"));
+      }
       render();
     });
 
