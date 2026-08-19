@@ -107,8 +107,15 @@
               href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer" aria-label="Entra su Discord"><img
                 src="{{GUILD_ICON_URL}}" width="40" height="40" class="vc-header-logo-img" alt=""
                 loading="eager" decoding="async" /></a>
-            <a class="min-w-0 truncate text-[0.7rem] font-bold uppercase tracking-[0.18em] text-white underline-offset-4 transition hover:text-[#e8c9a8] hover:underline sm:text-xs"
+            <a class="vc-header-site-name min-w-0 truncate text-[0.7rem] font-bold uppercase tracking-[0.18em] text-white underline-offset-4 transition hover:text-[#e8c9a8] hover:underline sm:text-xs"
               href="{{SITE_URL}}" aria-label="Vai alla homepage"><span class="text-emerald-300">{{SITE_NAME}}</span></a>
+            <div class="vc-lang-dropdown" id="vc-lang-dropdown">
+              <button type="button" class="vc-lang-toggle" id="vc-lang-toggle" aria-label="Lingua" aria-haspopup="listbox" aria-expanded="false" data-i18n-attr="aria-label:nav.language"><span class="vc-lang-flag vc-lang-flag--it" id="vc-lang-flag" data-vc-lang-flag="it" aria-hidden="true"></span></button>
+              <div class="vc-lang-panel" id="vc-lang-panel" role="listbox" hidden aria-label="Scegli lingua" data-i18n-attr="aria-label:nav.languageList">
+                <button type="button" class="vc-lang-option" data-vc-lang="it" role="option" aria-selected="true"><span class="vc-lang-flag vc-lang-flag--it" aria-hidden="true"></span><span data-i18n="lang.it">Italiano</span></button>
+                <button type="button" class="vc-lang-option" data-vc-lang="en" role="option" aria-selected="false"><span class="vc-lang-flag vc-lang-flag--en" aria-hidden="true"></span><span data-i18n="lang.en">English</span></button>
+              </div>
+            </div>
           </div>
           <nav
             class="vc-header-snav vc-glass flex max-w-full flex-wrap items-center justify-center justify-self-center gap-0.5 px-1.5 py-1 sm:min-w-0 sm:gap-1 sm:px-2"
@@ -341,6 +348,10 @@
         apiUrlLocal: "{{SITE_NOTIFICATIONS_API_URL_LOCAL}}",
       };
     </script>
+    <script src="../js/vc-i18n.js?v={{BUILD_ASSET_VERSION}}" defer></script>
+    <script src="../js/vc-i18n-pages.js?v={{BUILD_ASSET_VERSION}}" defer></script>
+    <script src="../js/vc-i18n-pages-extra.js?v={{BUILD_ASSET_VERSION}}" defer></script>
+    <script src="../js/vc-i18n-locales.js?v={{BUILD_ASSET_VERSION}}" defer></script>
     <script src="../js/discord-auth.js?v={{BUILD_ASSET_VERSION}}" defer></script>
     <script src="../js/vc-dialog.js?v={{BUILD_ASSET_VERSION}}" defer></script>
     <script src="../js/vc-emoji-picker.js?v={{BUILD_ASSET_VERSION}}" defer></script>

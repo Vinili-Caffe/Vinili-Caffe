@@ -144,6 +144,12 @@ async function syncSessionPeek(client, messageLike, session) {
   return peek;
 }
 
+function incomeCooldownDenyMessage(incomeType, remainingMs) {
+  const wait = formatDuration(remainingMs);
+  if (incomeType === "work") return `Puoi lavorare di nuovo tra **${wait}**.`;
+  return `<a:VC_pixeltime:1482535344103620771> In cooldown — attendi **${wait}**.`;
+}
+
 async function openIncomePanel(client, message, incomeType) {
   if (!validIncomeType(incomeType)) return { ok: false, message: "Tipo ricompensa non valido." };
   const peek =
@@ -163,9 +169,36 @@ async function openIncomePanel(client, message, incomeType) {
   if (incomeType !== "work") {
     notice = peek.canClaim
       ? `La ricompensa è pronta — premi **${meta.claimLabel || "Riscuoti"}**.`
-      : `<a:VC_pixeltime:1482535344103620771> In cooldown — attendi **${formatDuration(peek.remainingMs)}**.`;
+      : incomeCooldownDenyMessage(incomeType, peek.remainingMs);
   }
   return { ok: true, session, payload: await buildIncomeClaimPayload(session, notice, false, client) };
+}
+
+/** Esegue subito la riscossione (senza conferma bottoni), come +duel vs bot. */
+async function runIncomeDirect(client, message, incomeType) {
+  if (!validIncomeType(incomeType)) return { ok: false, message: "Tipo ricompensa non valido." };
+  const peek =
+    incomeType === "work"
+      ? await peekWorkClaim(client, message)
+      : await peekFixedClaim(client, message, incomeType);
+  if (!peek.ok) return peek;
+  if (!peek.canClaim) {
+    return { ok: false, message: incomeCooldownDenyMessage(incomeType, peek.remainingMs) };
+  }
+  const session = makeSession({
+    ownerId: message.author.id,
+    guildId: message.guild.id,
+    incomeType,
+    peek,
+  });
+  const claimed = await claimFromPanel(client, message, session);
+  if (!claimed.ok) return claimed;
+  await warmupIncomePanel(incomeType);
+  const notice = formatClaimNotice(claimed.result, incomeType, client);
+  return {
+    ok: true,
+    payload: await buildIncomeClaimPayload(session, notice, true, client),
+  };
 }
 
 async function claimFromPanel(client, messageLike, session) {
@@ -212,8 +245,10 @@ module.exports = {
   interactionMessageAdapter,
   syncSessionPeek,
   isIncomeGuiCustomId,
+  incomeCooldownDenyMessage,
   openIncomePanel,
   parseIncomeGuiCustomId,
+  runIncomeDirect,
   setSession,
   validIncomeType,
   warmupIncomePanel,

@@ -100,16 +100,16 @@ async function runEconomyPanelCommand(message, client, logTag, fn) {
 async function runIncomeCommand(client, message, incomeType) {
   const labels = { daily: "giornaliera", weekly: "settimanale", monthly: "mensile", work: "lavoro" };
   await runEconomyPanelCommand(message, client, incomeType.toUpperCase(), async ({ message: msg, client: c, replyDeny: deny, postGuiPanel: post }) => {
-    const { openIncomePanel, setSession } = require("./incomeClaimGuiRuntime");
-    const opened = await openIncomePanel(c, msg, incomeType);
-    if (!opened.ok) {
-      await deny(msg, opened.message);
+    const { runIncomeDirect } = require("./incomeClaimGuiRuntime");
+    const result = await runIncomeDirect(c, msg, incomeType);
+    if (!result.ok) {
+      await deny(msg, result.message);
       return;
     }
     await post(msg, {
-      payload: opened.payload,
-      session: opened.session,
-      setSession,
+      payload: result.payload,
+      session: null,
+      setSession: null,
       label: labels[incomeType] || incomeType,
     });
   });

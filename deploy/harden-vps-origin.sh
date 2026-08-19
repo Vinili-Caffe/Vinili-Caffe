@@ -67,7 +67,26 @@ EOF
 systemctl enable --now fail2ban
 systemctl restart fail2ban
 
-echo "=== D) Verifica finale ==="
+echo "=== D) Fail2ban: ban flood HTTP 429 (nginx rate limit) ==="
+install -d -m 0755 /etc/fail2ban/filter.d /etc/fail2ban/jail.d
+cat >/etc/fail2ban/filter.d/nginx-limit-req.conf <<'EOF'
+[Definition]
+failregex = ^<HOST> -.* "(GET|POST|PATCH|DELETE|PUT|HEAD|OPTIONS).*" 429
+ignoreregex =
+EOF
+cat >/etc/fail2ban/jail.d/nginx-limit-req.local <<'EOF'
+[nginx-limit-req]
+enabled = true
+port = http,https
+filter = nginx-limit-req
+logpath = /var/log/nginx/access.log
+maxretry = 40
+findtime = 120
+bantime = 30m
+EOF
+systemctl restart fail2ban
+
+echo "=== E) Verifica finale ==="
 ufw status verbose | head -30
 echo "---"
 ss -tlnp | awk 'NR==1 || /:22 |:80 |:443 |:3000 |:8080 /'

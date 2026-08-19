@@ -1702,21 +1702,23 @@ function injectLangSwitcherNearBrand(html) {
   let next = stripLangSwitcherHtml(html);
   if (next.includes('id="vc-lang-dropdown"')) return next;
   const switcher = buildLangSwitcherHtml();
-  // Prefer left brand column (logo + name + flag), as on the main site.
-  const brandColRe =
-    /(<div class="flex min-w-0 items-center gap-2\.5 justify-self-start sm:gap-3">)([\s\S]*?)(<\/div>\s*(?:<nav\b|<div[^>]*id="header-quick-actions"))/i;
-  if (brandColRe.test(next)) {
+  const brandColRes = [
+    /(<div class="flex min-w-0 items-center gap-2\.5 justify-self-start sm:gap-3">)([\s\S]*?)(<\/div>\s*(?:<nav\b|<div[^>]*id="header-quick-actions"))/i,
+    /(<div class="flex min-w-0 items-center gap-2(?:\.5)?[^"]*"[^>]*>)([\s\S]*?)(<\/div>\s*(?:<nav\b|<div[^>]*id="header-quick-actions"))/i,
+  ];
+  for (const brandColRe of brandColRes) {
+    if (!brandColRe.test(next)) continue;
     next = next.replace(brandColRe, (_, open, inner, close) => {
       const trimmed = String(inner).replace(/\s+$/, "");
+      const siteNameRe = /(<a\b[^>]*class="[^"]*vc-header-site-name[^"]*"[^>]*>[\s\S]*?<\/a>)/i;
+      const siteNameMatch = siteNameRe.exec(trimmed);
+      if (siteNameMatch) {
+        const idx = siteNameMatch.index + siteNameMatch[0].length;
+        return `${open}${trimmed.slice(0, idx)}\n            ${switcher}${trimmed.slice(idx)}\n          ${close}`;
+      }
       return `${open}${trimmed}\n            ${switcher}\n          ${close}`;
     });
     return next;
-  }
-  if (next.includes('id="header-quick-actions"')) {
-    next = next.replace(
-      /(<div[^>]*id="header-quick-actions"[^>]*>)/i,
-      `$1\n            ${switcher}\n            `,
-    );
   }
   return next;
 }

@@ -363,32 +363,117 @@ function ticketFieldFromSetKey(setKey) {
   return String(setKey || "").startsWith(prefix) ? String(setKey).slice(prefix.length) : String(setKey || "");
 }
 
+function fieldValueMatches(current, desired) {
+  if (desired == null) {
+    return current == null || String(current).trim() === "";
+  }
+  if (desired instanceof Date || current instanceof Date) {
+    const a = current ? new Date(current).getTime() : NaN;
+    const b = new Date(desired).getTime();
+    return Number.isFinite(a) && Number.isFinite(b) && a === b;
+  }
+  if (typeof desired === "boolean" || typeof current === "boolean") {
+    return Boolean(current) === Boolean(desired);
+  }
+  return String(current ?? "") === String(desired);
+}
+
 function ticketReflectsDesiredSet(ticket, $set) {
   if (!ticket || !$set) return false;
   for (const [setKey, desired] of Object.entries($set)) {
     const field = ticketFieldFromSetKey(setKey);
     if (!field) continue;
-    const current = ticket[field];
-    if (desired == null) {
-      if (current != null && String(current).trim() !== "") return false;
-      continue;
-    }
-    if (desired instanceof Date || current instanceof Date) {
-      const a = current ? new Date(current).getTime() : NaN;
-      const b = new Date(desired).getTime();
-      if (!(Number.isFinite(a) && Number.isFinite(b) && a === b)) return false;
-      continue;
-    }
-    if (typeof desired === "boolean" || typeof current === "boolean") {
-      if (Boolean(current) !== Boolean(desired)) return false;
-      continue;
-    }
-    if (String(current ?? "") !== String(desired)) return false;
+    if (!fieldValueMatches(ticket[field], desired)) return false;
   }
   return true;
 }
 
+/** Chiusura ticket: basta path/token/scadenza se il body transcript è stato slimato per BSON. */
+function ticketReflectsTranscriptCloseSet($set, ticket) {
+  if (!ticket || !$set) return false;
+  const desired = {};
+  for (const [setKey, value] of Object.entries($set)) {
+    const field = ticketFieldFromSetKey(setKey);
+    if (field) desired[field] = value;
+  }
+  const transcriptKeys = [
+    "transcript",
+    "transcriptHtmlPath",
+    "transcriptViewToken",
+    "transcriptHtmlInline",
+    "transcriptViewExpiresAt",
+    "hasTranscript",
+    "userTag",
+  ];
+  if (!transcriptKeys.some((k) => Object.prototype.hasOwnProperty.call(desired, k))) return false;
+
+  for (const field of ["transcriptHtmlPath", "transcriptViewToken", "transcriptViewExpiresAt", "hasTranscript", "userTag"]) {
+    if (!Object.prototype.hasOwnProperty.call(desired, field)) continue;
+    if (!fieldValueMatches(ticket[field], desired[field])) return false;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(desired, "transcriptHtmlInline")) {
+    const want = desired.transcriptHtmlInline;
+    const got = ticket.transcriptHtmlInline;
+    if (want == null || want === "") {
+      if (got != null && String(got).trim() !== "") return false;
+    } else if (!fieldValueMatches(got, want)) {
+      return false;
+    }
+  }
+
+  if (Object.prototype.hasOwnProperty.call(desired, "transcript")) {
+    const want = String(desired.transcript ?? "");
+    const got = String(ticket.transcript ?? "");
+    if (want && got !== want) {
+      const hasFileMeta =
+        String(ticket.transcriptHtmlPath || "").trim() &&
+        String(desired.transcriptHtmlPath || "").trim() &&
+        String(ticket.transcriptHtmlPath) === String(desired.transcriptHtmlPath);
+      const hasTokenMeta =
+        String(ticket.transcriptViewToken || "").trim() &&
+        String(desired.transcriptViewToken || "").trim() &&
+        String(ticket.transcriptViewToken).toLowerCase() === String(desired.transcriptViewToken).toLowerCase();
+      if (!(hasFileMeta || hasTokenMeta)) return false;
+    }
+  }
+
+  const wantsTranscript = Boolean(
+    String(desired.transcriptHtmlPath || "").trim() ||
+      String(desired.transcriptViewToken || "").trim() ||
+      String(desired.transcript || "").trim() ||
+      desired.hasTranscript,
+  );
+  if (!wantsTranscript) return false;
+  return Boolean(
+    String(ticket.transcriptHtmlPath || "").trim() ||
+      String(ticket.transcriptViewToken || "").trim() ||
+      String(ticket.transcript || "").trim() ||
+      ticket.hasTranscript,
+  );
+}
+
+function ticketUpdateSatisfied(ticket, $set) {
+  return ticketReflectsDesiredSet(ticket, $set) || ticketReflectsTranscriptCloseSet($set, ticket);
+}
+
 async function readTicketByRef(bucketId, ticketId) {
+  const idQuery = ticketIdMongoQuery(ticketId);
+  const raw = await GuildFeatureBucket.collection
+    .findOne(
+      { _id: bucketId, "tickets._id": idQuery },
+      { projection: { guildId: 1, tickets: { $elemMatch: { _id: idQuery } } } },
+    )
+    .catch(() => null);
+  if (raw?.tickets?.length) {
+    const hit =
+      raw.tickets.find((t) => String(t?._id) === String(ticketId)) || raw.tickets[0];
+    if (hit) {
+      const plain = { ...hit };
+      plain.guildId = String(plain.guildId || raw.guildId || "").trim();
+      return plain;
+    }
+  }
   const fresh = await GuildFeatureBucket.findById(bucketId).catch(() => null);
   if (!fresh?.tickets) return null;
   return (
@@ -797,7 +882,7 @@ const Ticket = {
     // matchedCount può essere 1 anche se arrayFilters non hanno matchato nulla.
     if (result && Number(result.modifiedCount || 0) < 1) {
       const current = await readTicketByRef(ref.bucketId, ref.ticketId);
-      if (current && ticketReflectsDesiredSet(current, $set)) {
+      if (current && ticketUpdateSatisfied(current, $set)) {
         // Idempotente: valore già allineato.
         return opts.new !== false ? current : null;
       }
@@ -817,33 +902,34 @@ const Ticket = {
     }
     if (!result || (Number(result.modifiedCount || 0) < 1 && Number(result.matchedCount || 0) < 1)) {
       const current = await readTicketByRef(ref.bucketId, ref.ticketId);
-      if (current && ticketReflectsDesiredSet(current, $set)) {
+      if (current && ticketUpdateSatisfied(current, $set)) {
         return opts.new !== false ? current : null;
       }
       return null;
     }
     const fresh = opts.new !== false ? await readTicketByRef(ref.bucketId, ref.ticketId) : null;
     if (opts.new !== false) {
-      if (!fresh) return null;
-      // matchedCount parent ≠ update applicato: non restituire doc stale come successo.
-      if (!ticketReflectsDesiredSet(fresh, $set)) {
-        let forced = await updateBucketTicketSet(ref.bucketId, $set, {
-          "t._id": ticketIdArrayFilterClause(ref.ticketId),
-        });
-        if (forced && Number(forced.modifiedCount || 0) < 1 && filter.channelId) {
-          forced = await updateBucketTicketSet(ref.bucketId, $set, {
-            "t.channelId": String(filter.channelId),
-          });
-        }
-        const again = await readTicketByRef(ref.bucketId, ref.ticketId);
-        if (again && ticketReflectsDesiredSet(again, $set)) return again;
-        if (forced && Number(forced.modifiedCount || 0) > 0 && again) return again;
+      if (!fresh) {
         global.logger?.warn?.(
-          `[Ticket.findOneAndUpdate] $set non persistito ticket=${String(ref.ticketId)} keys=${Object.keys($set).join(",")}`,
+          `[Ticket.findOneAndUpdate] ticket non leggibile bucket=${String(ref.bucketId)} ticket=${String(ref.ticketId)}`,
         );
         return null;
       }
-      return fresh;
+      if (ticketUpdateSatisfied(fresh, $set)) return fresh;
+      let forced = await updateBucketTicketSet(ref.bucketId, $set, {
+        "t._id": ticketIdArrayFilterClause(ref.ticketId),
+      });
+      if (forced && Number(forced.modifiedCount || 0) < 1 && filter.channelId) {
+        forced = await updateBucketTicketSet(ref.bucketId, $set, {
+          "t.channelId": String(filter.channelId),
+        });
+      }
+      const again = await readTicketByRef(ref.bucketId, ref.ticketId);
+      if (again && ticketUpdateSatisfied(again, $set)) return again;
+      global.logger?.warn?.(
+        `[Ticket.findOneAndUpdate] $set non persistito ticket=${String(ref.ticketId)} keys=${Object.keys($set).join(",")} matched=${Number(result?.matchedCount || 0)} modified=${Number(result?.modifiedCount || 0)}`,
+      );
+      return null;
     }
     return null;
   },

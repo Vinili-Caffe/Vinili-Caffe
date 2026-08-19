@@ -1370,14 +1370,17 @@
     try {
       on = isBlockingLoaderVisible();
     } catch (eVis2) {}
+
+    // Always reconcile pin state — do not skip when frozen/on are unchanged.
+    if (frozen && !scrollPinned) pinPageScroll();
+    else if (!frozen && scrollPinned) unpinPageScroll();
+
     if (frozen === lastScrollLockFrozen && on === lastScrollLockOverlay) return;
     lastScrollLockFrozen = frozen;
     lastScrollLockOverlay = on;
     try {
       document.documentElement.classList.toggle("vc-loading-scroll-lock", on);
     } catch (eLock) {}
-    if (frozen && !scrollPinned) pinPageScroll();
-    if (!frozen && scrollPinned) unpinPageScroll();
     if (on || isLoaderScrollLocked()) bindLoaderScrollGuards();
     if (wasPageLoaderVisible && !on) resetScrollAfterOverlay();
     wasPageLoaderVisible = on;
@@ -6265,13 +6268,25 @@
   }
 })();
 
+function vcPageAssetVer() {
+  try {
+    var nodes = document.querySelectorAll('script[src*="/js/"], link[href*="/css/"]');
+    for (var i = nodes.length - 1; i >= 0; i--) {
+      var url = nodes[i].src || nodes[i].href || "";
+      var m = String(url).match(/[?&]v=([^&"'#]+)/);
+      if (m && m[1]) return m[1];
+    }
+  } catch (eVer) {}
+  return String(Date.now());
+}
+
 (function loadPtr() {
   if (window.__vcPtrBooted) return;
   try {
     if (document.querySelector('script[src*="vc-ptr.js"]')) return;
   } catch (e) {}
   var s = document.createElement("script");
-  s.src = "/js/vc-ptr.js?v=20260816ptr2";
+  s.src = "/js/vc-ptr.js?v=" + vcPageAssetVer();
   s.defer = true;
   (document.body || document.documentElement).appendChild(s);
 })();
@@ -6281,20 +6296,20 @@
     if (document.querySelector('script[src*="vc-site-polish.js"]')) return;
   } catch (e0) {}
   var s = document.createElement("script");
-  s.src = "/js/vc-site-polish.js?v=20260819mobileGlassFix1";
+  s.src = "/js/vc-site-polish.js?v=" + vcPageAssetVer();
   s.defer = true;
   (document.body || document.documentElement).appendChild(s);
 })();
 
 (function loadHeaderPromo() {
   try {
-    if (!document.getElementById("vc-header-promo-btn")) return;
+    if (!document.getElementById("vc-header-promo-btn") && !window.__VC_HEADER_PROMO) return;
     if (document.querySelector('script[src*="vc-header-promo.js"]')) return;
   } catch (e0) {
     return;
   }
   var s = document.createElement("script");
-  s.src = "/js/vc-header-promo.js?v=20260817promoMq1";
+  s.src = "/js/vc-header-promo.js?v=" + vcPageAssetVer();
   s.defer = true;
   (document.body || document.documentElement).appendChild(s);
 })();

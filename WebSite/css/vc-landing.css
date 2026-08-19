@@ -8301,7 +8301,7 @@ body.vc-body.vc-sponsor-page .vc-sponsor-embed--popular:hover {
   }
 
   .vc-header-bar > div:first-child {
-    flex: 1 1 auto;
+    flex: 0 1 auto;
     min-width: 0;
     justify-self: auto !important;
   }
@@ -9142,7 +9142,7 @@ a.vc-header-logo-link+a[href]:not(.vc-dashboard-header-guild-name) {
 .vc-lang-dropdown {
   position: relative;
   flex-shrink: 0;
-  z-index: 40;
+  z-index: 2;
   pointer-events: auto;
   -webkit-tap-highlight-color: transparent;
 }
@@ -9317,8 +9317,11 @@ a.vc-header-logo-link+a[href]:not(.vc-dashboard-header-guild-name) {
   gap: 0.15rem;
 }
 
-.vc-lang-panel[hidden] {
+.vc-lang-panel[hidden],
+.vc-lang-dropdown:not(.is-open) .vc-lang-panel {
   display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
 }
 
 .vc-lang-option {
@@ -42529,24 +42532,63 @@ header .vc-lang-toggle,
 
 @media (max-width: 639.98px) {
   .vc-header-bar > div:first-child {
-    flex: 1 1 auto !important;
+    flex: 0 1 auto !important;
     min-width: 0 !important;
     max-width: none !important;
+    overflow: visible !important;
+    gap: 0.35rem !important;
   }
 
   .vc-header-bar > div:first-child > a.vc-header-logo-link + a,
   .vc-header-bar > div:first-child a.vc-header-site-name,
   .vc-mobile-nav-drawer__brand a.vc-header-logo-link + a,
   .vc-mobile-nav-drawer__brand a.vc-header-site-name {
-    flex: 1 1 auto !important;
-    flex-grow: 1 !important;
+    flex: 0 1 auto !important;
+    flex-grow: 0 !important;
     min-width: 0 !important;
-    max-width: none !important;
+    max-width: min(52vw, 11.5rem) !important;
+    overflow: hidden !important;
   }
 
   .vc-header-bar > div:first-child .vc-lang-dropdown,
   .vc-mobile-nav-drawer__brand .vc-lang-dropdown {
+    flex: 0 0 2.15rem !important;
+    width: 2.15rem !important;
+    min-width: 2.15rem !important;
+    margin-inline-start: 0.12rem !important;
+    overflow: visible !important;
+  }
+
+  #header-quick-actions .vc-lang-dropdown {
+    display: none !important;
+  }
+
+  #header-quick-actions {
+    position: relative;
+    z-index: 2;
     flex: 0 0 auto !important;
+    flex-wrap: nowrap !important;
+    gap: 0.4rem !important;
+    max-width: none !important;
+    margin-left: auto !important;
+  }
+
+  .vc-lang-dropdown.is-open .vc-lang-panel {
+    position: fixed;
+    left: max(0.75rem, env(safe-area-inset-left));
+    right: max(0.75rem, env(safe-area-inset-right));
+    bottom: max(0.85rem, env(safe-area-inset-bottom));
+    top: auto;
+    width: auto;
+    min-width: 0;
+    max-height: min(46vh, 18rem);
+    z-index: 10260;
+    visibility: visible !important;
+    pointer-events: auto !important;
+  }
+
+  body.vc-body--home #vc-header-promo-btn {
+    max-width: min(22vw, 4.35rem);
   }
 }
 

@@ -59,18 +59,27 @@
     return "event";
   }
 
-  function applyMarqueeMetrics(btn, clip, unitEl) {
+  function clearPromoClone(trackEl) {
+    if (!trackEl) return;
+    var clone = trackEl.querySelector(".vc-header-promo-btn__unit.is-clone");
+    if (clone) clone.remove();
+  }
+
+  function applyMarqueeMetrics(btn, clip, unitEl, trackEl) {
     if (!btn || btn.hidden) return;
     var clipW = Math.floor(clip.clientWidth || clip.getBoundingClientRect().width || 0);
     var unitW = Math.ceil(unitEl.getBoundingClientRect().width || unitEl.scrollWidth || 0);
-    var overflow = clipW >= 4 && unitW > clipW + 2;
+    var active = btn.classList.contains("is-marquee");
+    var overflow = clipW >= 4 && unitW > clipW + (active ? 4 : 8);
     if (!overflow) {
       btn.classList.remove("is-marquee");
       btn.style.removeProperty("--vc-promo-marquee-distance");
       btn.style.removeProperty("--vc-promo-marquee-duration");
       unitEl.style.paddingInlineEnd = "";
+      clearPromoClone(trackEl);
       return;
     }
+    ensureClone(trackEl, unitEl);
     unitEl.style.paddingInlineEnd = "2rem";
     var segmentW = Math.ceil(unitEl.getBoundingClientRect().width || unitW);
     if (segmentW < 8) segmentW = unitW;
@@ -116,12 +125,12 @@
     var trackEl = clip.querySelector(".vc-header-promo-btn__track");
     var unitEl = clip.querySelector(".vc-header-promo-btn__unit:not(.is-clone)");
     if (!trackEl || !unitEl) return;
-    ensureClone(trackEl, unitEl);
     unitEl.style.paddingInlineEnd = "";
     btn.classList.remove("is-marquee");
+    clearPromoClone(trackEl);
 
     function measure() {
-      applyMarqueeMetrics(btn, clip, unitEl);
+      applyMarqueeMetrics(btn, clip, unitEl, trackEl);
     }
     window.requestAnimationFrame(function () {
       window.requestAnimationFrame(measure);
@@ -166,11 +175,45 @@
     ensureMarquee(btn);
   }
 
+  function buildPromoButtonShell(mode) {
+    var isEvent = mode === "event";
+    var modClass = isEvent ? "vc-header-promo-btn--event" : "vc-header-promo-btn--candidature";
+    var label = isEvent ? t("header.promo.eventLabel", "Evento") : t("header.promo.appsLabel", "Candidature");
+    var badge = isEvent ? t("header.promo.eventBadge", "ATTIVO") : t("header.promo.appsBadge", "APERTE");
+    var btn = document.createElement("a");
+    btn.className = "vc-header-promo-btn " + modClass;
+    btn.id = "vc-header-promo-btn";
+    btn.setAttribute("aria-label", label + " " + badge);
+    btn.innerHTML =
+      '<span class="vc-header-promo-btn__dot" aria-hidden="true"></span>' +
+      '<span class="vc-header-promo-btn__clip"><span class="vc-header-promo-btn__track">' +
+      '<span class="vc-header-promo-btn__unit"><span class="vc-header-promo-btn__label">' +
+      label +
+      '</span><span class="vc-header-promo-btn__badge">' +
+      badge +
+      "</span></span></span></span>";
+    return btn;
+  }
+
+  function ensurePromoButton(cfg, mode) {
+    var existing = document.getElementById("vc-header-promo-btn");
+    if (existing) return existing;
+    if (!cfg || !mode) return null;
+    var actions = document.getElementById("header-quick-actions");
+    if (!actions) return null;
+    var btn = buildPromoButtonShell(mode);
+    var notif = document.getElementById("vc-notif-dropdown");
+    if (notif && notif.parentElement === actions) actions.insertBefore(btn, notif);
+    else actions.insertBefore(btn, actions.firstChild);
+    return btn;
+  }
+
   function boot() {
     var cfg = readCfg();
-    var btn = document.getElementById("vc-header-promo-btn");
+    var mode = cfg ? resolveMode(cfg) : "";
+    var btn = ensurePromoButton(cfg, mode) || document.getElementById("vc-header-promo-btn");
     if (!btn) return;
-    if (cfg) applyMode(btn, cfg, resolveMode(cfg));
+    if (cfg) applyMode(btn, cfg, mode);
     else ensureMarquee(btn);
     if (!btn.__vcPromoMarqueeResize) {
       btn.__vcPromoMarqueeResize = true;
@@ -178,16 +221,15 @@
       var onResize = function () {
         if (resizeTimer) window.clearTimeout(resizeTimer);
         resizeTimer = window.setTimeout(function () {
+          resizeTimer = 0;
           ensureMarquee(btn);
-        }, 80);
+        }, 150);
       };
       window.addEventListener("resize", onResize, { passive: true });
       if (typeof ResizeObserver === "function") {
         try {
           var ro = new ResizeObserver(onResize);
           ro.observe(btn);
-          var clip = btn.querySelector(".vc-header-promo-btn__clip");
-          if (clip) ro.observe(clip);
         } catch (eRo) {}
       }
       if (document.fonts && document.fonts.ready) {

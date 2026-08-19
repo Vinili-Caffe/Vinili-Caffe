@@ -3992,7 +3992,9 @@
       '<div id="vc-wt-pager-wrap">' +
       ticketListPagerHtml() +
       "</div></aside>" +
-      '<section class="vc-wt-main">' +
+      '<section class="vc-wt-main' +
+      (state.selectedId ? " vc-wt-main--active" : "") +
+      '">' +
       chatPaneHtml() +
       "</section></div>";
     wireAll();

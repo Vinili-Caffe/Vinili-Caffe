@@ -1504,12 +1504,81 @@
     });
   }
 
+  var langHomeParent = null;
+  var langHomeNext = null;
+
+  function rememberLangHome(drop) {
+    if (!drop || langHomeParent) return;
+    langHomeParent = drop.parentElement;
+    langHomeNext = drop.nextSibling;
+  }
+
+  function restoreLangHome(drop) {
+    if (!drop || !langHomeParent) return;
+    if (langHomeNext && langHomeNext.parentNode === langHomeParent) {
+      langHomeParent.insertBefore(drop, langHomeNext);
+    } else {
+      langHomeParent.appendChild(drop);
+    }
+  }
+
+  function findBrandColumn() {
+    return document.querySelector(".vc-header-bar > div:first-child");
+  }
+
+  function findBrandSiteNameLink(brand) {
+    if (!brand) return null;
+    return (
+      brand.querySelector("a.vc-header-site-name") ||
+      brand.querySelector("a.vc-header-logo-link + a") ||
+      brand.querySelector("a[href]:not(.vc-header-logo-link)")
+    );
+  }
+
+  function placeLangAfterSiteName(drop) {
+    var brand = findBrandColumn();
+    if (!brand || !drop) return false;
+    var siteName = findBrandSiteNameLink(brand);
+    if (siteName) {
+      if (siteName.nextElementSibling === drop) return true;
+      brand.insertBefore(drop, siteName.nextSibling);
+      return true;
+    }
+    if (drop.parentElement !== brand) brand.appendChild(drop);
+    return true;
+  }
+
+  function syncLangChromePlacement() {
+    var drop = document.getElementById("vc-lang-dropdown");
+    if (!drop) return;
+    rememberLangHome(drop);
+    drop.classList.remove("vc-lang-dropdown--mobile-actions");
+    var actions = document.getElementById("header-quick-actions");
+    if (actions && drop.parentElement === actions) {
+      placeLangAfterSiteName(drop);
+      rememberLangHome(drop);
+      return;
+    }
+    if (langHomeParent && drop.parentElement !== langHomeParent) restoreLangHome(drop);
+    placeLangAfterSiteName(drop);
+  }
+
+  var langPlacementTimer = 0;
+  function scheduleLangChromePlacement() {
+    if (langPlacementTimer) window.clearTimeout(langPlacementTimer);
+    langPlacementTimer = window.setTimeout(function () {
+      langPlacementTimer = 0;
+      syncLangChromePlacement();
+    }, 120);
+  }
+
   /**
    * Se la navbar viene ricostruita (mobile/drawer) o lo script arriva prima del DOM,
    * ripeti bind senza duplicare i listener sul root già marcato.
    */
   function ensureSwitcherReady() {
     try {
+      scheduleLangChromePlacement();
       bindSwitcher();
     } catch (eBind) {}
   }
@@ -1529,6 +1598,11 @@
   }
 
   window.addEventListener("vc-mobile-nav-ready", ensureSwitcherReady);
+  try {
+    var langMq = window.matchMedia("(max-width: 639.98px)");
+    if (langMq.addEventListener) langMq.addEventListener("change", scheduleLangChromePlacement);
+    else if (langMq.addListener) langMq.addListener(scheduleLangChromePlacement);
+  } catch (eLangMq) {}
   window.addEventListener("vc:langmenuopen", function () {
     /* no-op hook for other chrome to close competing menus */
   });

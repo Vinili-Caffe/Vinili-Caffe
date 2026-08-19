@@ -46,6 +46,7 @@ const {
   captureSitePaymentOrder,
   handleSitePayPalWebhook,
 } = require("../../Utils/Web/sitePaymentsApi");
+const { mountSiteApiRateLimit } = require("../../Utils/Web/siteApiRateLimit");
 
 function normalizeHeaderSecret(raw) {
   if (raw == null) return "";
@@ -193,7 +194,9 @@ async function main() {
   }
 
   const app = express();
-  app.set("trust proxy", true);
+  // Un solo hop (nginx → site-api); evita ERR_ERL_PERMISSIVE_TRUST_PROXY con express-rate-limit.
+  app.set("trust proxy", 1);
+  mountSiteApiRateLimit(app);
   app.use(express.json({ limit: "12mb" }));
   app.use(express.urlencoded({ extended: true, limit: "256kb" }));
 

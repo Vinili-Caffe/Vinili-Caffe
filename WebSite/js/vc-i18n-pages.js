@@ -477,7 +477,6 @@
   "cand.home": "Home",
   "cand.outcome": "Esito",
   "cand.requirements": "Requisiti",
-  "cand.formTitle": "Modulo di candidatura",
   "cand.submit": "Invia candidatura",
   "cand.submitting": "Invio in corso...",
   "cand.loginRequired": "Accedi con Discord (in alto a destra) per compilare il modulo: l’ID viene preso dal tuo profilo e non è modificabile.",

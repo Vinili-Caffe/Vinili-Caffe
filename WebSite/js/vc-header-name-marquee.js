@@ -114,7 +114,10 @@
     var textW = Math.ceil(probe.scrollWidth || probe.offsetWidth || 0);
     probe.parentNode.removeChild(probe);
 
+    var active = nameEl.classList.contains("is-marquee");
     if (textW <= containerW + 2) return;
+    if (active && textW <= containerW + 6) return;
+    if (!active && textW <= containerW + 8) return;
 
     var clone = textEl.cloneNode(true);
     clone.setAttribute("aria-hidden", "true");
@@ -140,7 +143,7 @@
     timer = setTimeout(function () {
       timer = null;
       syncAll(root);
-    }, 60);
+    }, 150);
   }
 
   window.__vcSyncHeaderSiteNameMarquee = function (root) {

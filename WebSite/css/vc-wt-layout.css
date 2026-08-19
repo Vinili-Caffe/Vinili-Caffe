@@ -36,6 +36,36 @@ body.vc-web-tickets-page .vc-wt-board > .vc-reviews-section__head {
   display: none !important;
 }
 
+/* Solo i due pannelli interni (lista + chat): niente card esterna attorno al layout. */
+body.vc-web-tickets-page .vc-wt-board,
+body.vc-web-tickets-page .vc-wt-app,
+html.vc-site-polish body.vc-web-tickets-page .vc-wt-board,
+html.vc-site-polish body.vc-body.vc-web-tickets-page main .vc-wt-board,
+html.vc-site-polish body.vc-body.vc-web-tickets-page .vc-wt-board.is-tilting {
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  padding: 0 !important;
+  overflow: visible !important;
+  isolation: auto !important;
+}
+
+body.vc-web-tickets-page .vc-wt-layout {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  overflow: visible !important;
+}
+
+@media (min-width: 901px) {
+  body.vc-web-tickets-page .vc-wt-layout {
+    overflow: visible !important;
+  }
+}
+
 /* Toggle I miei / Inbox sempre visibile in cima alla sidebar staff. */
 body.vc-web-tickets-page .vc-wt-sidebar__top--staff {
   flex-wrap: wrap !important;
@@ -141,7 +171,7 @@ body.vc-web-tickets-page .vc-wt-app {
   min-height: 28rem !important;
   height: auto !important;
   max-height: none !important;
-  overflow: hidden !important;
+  overflow: visible !important;
 }
 
 /* Layout cine: board sotto l'hero a schermo intero, come homepage. */
@@ -174,6 +204,35 @@ body.vc-web-tickets-page.vc-page-cine-layout .vc-wt-layout {
     height: auto !important;
     max-height: none !important;
     min-height: 0 !important;
+    overflow: visible !important;
+  }
+  body.vc-web-tickets-page .vc-wt-sidebar {
+    display: flex !important;
+    flex-direction: column !important;
+    height: min(72dvh, calc(100dvh - 10.5rem)) !important;
+    max-height: min(72dvh, calc(100dvh - 10.5rem)) !important;
+    min-height: 16rem !important;
+    overflow: hidden !important;
+  }
+  body.vc-web-tickets-page .vc-wt-toolbar,
+  body.vc-web-tickets-page .vc-wt-sidebar__top,
+  body.vc-web-tickets-page #vc-wt-pager-wrap {
+    flex: 0 0 auto !important;
+  }
+  body.vc-web-tickets-page .vc-wt-list {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+  body.vc-web-tickets-page .vc-wt-main:not(.vc-wt-main--active) {
+    display: none !important;
+  }
+  body.vc-web-tickets-page .vc-wt-main.vc-wt-main--active {
+    height: min(78dvh, 760px) !important;
+    max-height: min(78dvh, 760px) !important;
+    min-height: 20rem !important;
   }
   .vc-wt-sidebar {
     height: min(62dvh, 34rem) !important;
@@ -183,6 +242,21 @@ body.vc-web-tickets-page.vc-page-cine-layout .vc-wt-layout {
   .vc-wt-main {
     height: min(78vh, 760px) !important;
     max-height: min(78vh, 760px) !important;
+  }
+}
+
+html.vc-site-polish body.vc-web-tickets-page main .vc-wt-sidebar {
+  overflow: hidden !important;
+}
+
+html.vc-site-polish body.vc-web-tickets-page main .vc-wt-list {
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+}
+
+@media (max-width: 900px) {
+  body.vc-web-tickets-page:not(.vc-page-cine-layout) .vc-support-page-hero {
+    display: none !important;
   }
 }
 
