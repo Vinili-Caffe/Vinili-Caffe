@@ -109,9 +109,47 @@
     return base.replace(/\/site-rank-card\/?$/i, "/site-rank-card-preview");
   }
 
+  function clearRankCustomizePending() {
+    try {
+      document.documentElement.classList.remove("vc-rank-customize-pending");
+      document.documentElement.classList.remove("vc-loading-scroll-lock");
+    } catch (e) {}
+    try {
+      var html = document.documentElement;
+      var body = document.body;
+      if (html) {
+        html.style.removeProperty("overflow");
+        html.style.removeProperty("overflow-x");
+        html.style.removeProperty("overflow-y");
+        html.style.removeProperty("height");
+        html.style.removeProperty("max-height");
+        html.style.removeProperty("touch-action");
+      }
+      if (body) {
+        body.style.removeProperty("position");
+        body.style.removeProperty("inset");
+        body.style.removeProperty("top");
+        body.style.removeProperty("right");
+        body.style.removeProperty("bottom");
+        body.style.removeProperty("left");
+        body.style.removeProperty("width");
+        body.style.removeProperty("overflow");
+        body.style.removeProperty("overflow-x");
+        body.style.removeProperty("overflow-y");
+        body.style.removeProperty("height");
+        body.style.removeProperty("max-height");
+        body.style.removeProperty("touch-action");
+      }
+    } catch (eStyle) {}
+  }
+
   function hideRankCustomizeLoading() {
     var loading = byId("vc-rank-customize-loading");
-    if (loading) loading.hidden = true;
+    if (loading) {
+      loading.hidden = true;
+      loading.setAttribute("aria-hidden", "true");
+    }
+    clearRankCustomizePending();
   }
 
   function showRankFatalError(message) {
@@ -136,7 +174,8 @@
   }
 
   function profileUrl(userId) {
-    return "/users/" + encodeURIComponent(String(userId || "").trim());
+    var id = String(userId || "").trim();
+    return /^\d{17,20}$/.test(id) ? "/user/?id=" + encodeURIComponent(id) : "/user";
   }
 
   function redirectToProfile(userId) {
@@ -938,6 +977,17 @@
         render();
       });
     });
+
+    var backBtn = document.querySelector(".vc-rank-editor-topbar .vc-user-profile-backbtn");
+    if (backBtn && backBtn.dataset.vcBackBound !== "1") {
+      backBtn.dataset.vcBackBound = "1";
+      backBtn.addEventListener("click", function (ev) {
+        var id = String((loaded && loaded.userId) || parseTargetUserId() || "").trim();
+        if (!/^\d{17,20}$/.test(id)) return;
+        ev.preventDefault();
+        redirectToProfile(id);
+      });
+    }
 
     Array.prototype.slice.call(document.querySelectorAll("[data-rank-wallpaper]")).forEach(function (button) {
       button.addEventListener("click", function () {

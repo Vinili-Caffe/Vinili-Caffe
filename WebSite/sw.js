@@ -1,5 +1,5 @@
+/* v=202608192200-push-icon-fix */
 /* Vinili & Caffè — Web Push service worker */
-/* v=20260818ios-native-only */
 /* eslint-disable no-restricted-globals */
 
 self.addEventListener("install", function (event) {
@@ -23,13 +23,22 @@ self.addEventListener("pushsubscriptionchange", function (event) {
   );
 });
 
+var PUSH_ICON_PATH = "/images/vc-server-icon.png";
+
+function normalizePushIcon(icon) {
+  var s = String(icon || "").trim();
+  if (!s) return PUSH_ICON_PATH;
+  if (/apple-touch-icon|pwa-icon|vinylmusics_logo/i.test(s)) return PUSH_ICON_PATH;
+  return s;
+}
+
 function parsePushPayload(event) {
   var fallback = {
     title: "Nuova notifica",
     body: "Nuova notifica",
     openUrl: "/",
-    icon: "/apple-touch-icon.png",
-    badge: "/apple-touch-icon.png",
+    icon: PUSH_ICON_PATH,
+    badge: PUSH_ICON_PATH,
     id: "",
   };
   if (!event.data) return { type: "dismiss", all: false, title: "", body: "", id: "" };
@@ -42,8 +51,8 @@ function parsePushPayload(event) {
       title: String(data.title || fallback.title).slice(0, 120),
       body: String(data.body || fallback.body).slice(0, 500),
       openUrl: String(data.openUrl || fallback.openUrl).slice(0, 2000),
-      icon: String(data.icon || fallback.icon).slice(0, 500),
-      badge: String(data.badge || data.icon || fallback.badge).slice(0, 500),
+      icon: normalizePushIcon(data.icon || fallback.icon).slice(0, 500),
+      badge: normalizePushIcon(data.badge || data.icon || fallback.badge).slice(0, 500),
       image: String(data.image || "").trim().slice(0, 500),
       kind: String(data.kind || "info").slice(0, 24),
       id: String(data.id || "").trim().slice(0, 40),
@@ -280,7 +289,7 @@ function isMobileUa() {
 }
 
 function absAsset(path) {
-  var p = String(path || "").trim() || "/apple-touch-icon.png";
+  var p = String(path || "").trim() || PUSH_ICON_PATH;
   try {
     return new URL(p, self.location.origin).href;
   } catch (e) {
@@ -448,11 +457,9 @@ function isReminderPayload(payload) {
 }
 
 function shouldSilenceOsNotification(payload, anyFocused, ticketId, watchingTicket) {
-  // Reminder/promemoria: sempre banner nativo.
   if (isReminderPayload(payload)) return false;
-  // Chat ticket: silenzia solo se stai DAVVERO guardando quel ticket.
   if (ticketId) return isDefinitelyWatchingTicket(ticketId, watchingTicket);
-  // Banner di sistema anche con PWA/sito aperti (iOS/Android/desktop).
+  if (anyFocused) return true;
   return false;
 }
 
@@ -576,7 +583,7 @@ function dismissShownNotifications(spec) {
 }
 
 function notificationVisuals(payload) {
-  var logo = absAsset((payload && (payload.icon || payload.badge)) || "/apple-touch-icon.png");
+  var logo = absAsset((payload && (payload.icon || payload.badge)) || PUSH_ICON_PATH);
   var isAndroid = /Android/i.test(uaString());
   var visuals = { badge: logo };
   // Android: `icon` = thumbnail a destra. Solo `badge` mette il logo a sinistra.
@@ -608,6 +615,7 @@ self.addEventListener("push", function (event) {
       }
       if (watchingTicket) return null;
       var silent = shouldSilenceOsNotification(payload, anyFocused, ticketId, watchingTicket);
+      if (anyFocused && silent && !isReminderPayload(payload)) return null;
       var visuals = notificationVisuals(payload);
       var messageId = String(payload.messageId || "").trim();
       var opts = {

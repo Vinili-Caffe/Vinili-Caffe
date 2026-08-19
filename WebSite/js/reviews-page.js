@@ -180,6 +180,22 @@
     }
   }
 
+  function reviewActionUrl(reviewId, suffix) {
+    var id = String(reviewId || "").trim();
+    var extra = String(suffix || "").trim().replace(/^\/+/, "");
+    var base = apiUrl();
+    if (!base || !id) return base || "";
+    try {
+      var u = new URL(base, window.location.origin);
+      u.pathname = String(u.pathname || "").replace(/\/$/, "") + "/" + encodeURIComponent(id) + (extra ? "/" + extra : "");
+      return u.href;
+    } catch (e) {
+      var parts = String(base).split("?");
+      var path = String(parts[0] || "").replace(/\/$/, "") + "/" + encodeURIComponent(id) + (extra ? "/" + extra : "");
+      return path + (parts[1] ? "?" + parts[1] : "");
+    }
+  }
+
   function reviewsRealtimeWsUrl() {
     var explicit = String(cfg().wsUrl || "").trim();
     if (explicit) return explicit;
@@ -912,9 +928,11 @@
     });
   }
 
+  var _delegationBound = false;
   function bind() {
     var taModal = byId("vc-review-modal-content");
-    if (taModal) {
+    if (taModal && !taModal._vcBound) {
+      taModal._vcBound = true;
       taModal.addEventListener("input", function () {
         state.draft.server.content = taModal.value;
         if (window.VcFormDrafts) {
@@ -925,78 +943,52 @@
         }
       });
     }
-
-    Array.prototype.slice.call(document.querySelectorAll("[data-review-modal-dismiss]")).forEach(function (el) {
-      el.addEventListener("click", function () {
-        state.editModalOpen = false;
-        render();
-      });
-    });
-
-    Array.prototype.slice.call(document.querySelectorAll("[data-review-edit-open]")).forEach(function (button) {
-      button.addEventListener("click", function () {
-        syncDraftFromPayload();
-        state.editModalOpen = true;
-        render();
+    if (_delegationBound) return;
+    _delegationBound = true;
+    document.addEventListener("click", function (ev) {
+      var el = ev.target;
+      if (!el || typeof el.closest !== "function") return;
+      var dismiss = el.closest("[data-review-modal-dismiss]");
+      if (dismiss) { state.editModalOpen = false; render(); return; }
+      var editOpen = el.closest("[data-review-edit-open]");
+      if (editOpen) {
+        syncDraftFromPayload(); state.editModalOpen = true; render();
         var ta = byId("vc-review-modal-content");
-        if (ta) {
-          window.requestAnimationFrame(function () {
-            window.requestAnimationFrame(function () {
-              try {
-                ta.focus();
-              } catch (e) {}
-            });
-          });
-        }
-      });
-    });
-
-    Array.prototype.slice.call(document.querySelectorAll("[data-review-set-rating]")).forEach(function (button) {
-      button.addEventListener("click", function () {
-        var value = Math.max(1, Math.min(5, Math.round(Number(button.getAttribute("data-rating-value") || 0) || 0)));
-        state.draft.server.rating = value;
-        render();
-      });
-    });
-
-    Array.prototype.slice.call(document.querySelectorAll("[data-review-submit]")).forEach(function (button) {
-      button.addEventListener("click", function () {
-        submitReview();
-      });
-    });
-
-    Array.prototype.slice.call(document.querySelectorAll("[data-review-delete]")).forEach(function (button) {
-      button.addEventListener("click", function () {
-        var reviewId = String(button.getAttribute("data-review-delete") || "").trim();
-        if (!reviewId) return;
-        deleteReview(reviewId);
-      });
-    });
-
-    Array.prototype.slice.call(document.querySelectorAll("[data-review-like]")).forEach(function (button) {
-      button.addEventListener("click", function () {
-        if (button.disabled) return;
-        var reviewId = String(button.getAttribute("data-review-like") || "").trim();
-        if (!reviewId) return;
-        toggleReviewLike(reviewId, button);
-      });
-    });
-
-    Array.prototype.slice.call(document.querySelectorAll("[data-review-reply-toggle]")).forEach(function (button) {
-      button.addEventListener("click", function () {
-        var reviewId = String(button.getAttribute("data-review-reply-toggle") || "").trim();
-        if (!reviewId) return;
-        state.replyOpenId = state.replyOpenId === reviewId ? null : reviewId;
-        render();
-      });
-    });
-
-    Array.prototype.slice.call(document.querySelectorAll("[data-review-reply-submit]")).forEach(function (button) {
-      button.addEventListener("click", function () {
-        var reviewId = String(button.getAttribute("data-review-reply-submit") || "").trim();
-        if (!reviewId) return;
-        submitServerReply(reviewId, button);
-      });
+        if (ta) { window.requestAnimationFrame(function () { window.requestAnimationFrame(function () { try { ta.focus(); } catch (e) {} }); }); }
+        return;
+      }
+      var rating = el.closest("[data-review-set-rating]");
+      if (rating) {
+        var value = Math.max(1, Math.min(5, Math.round(Number(rating.getAttribute("data-rating-value") || 0) || 0)));
+        state.draft.server.rating = value; render(); return;
+      }
+      var submit = el.closest("[data-review-submit]");
+      if (submit) { submitReview(); return; }
+      var del = el.closest("[data-review-delete]");
+      if (del) {
+        var delId = String(del.getAttribute("data-review-delete") || "").trim();
+        if (delId) deleteReview(delId);
+        return;
+      }
+      var like = el.closest("[data-review-like]");
+      if (like) {
+        if (like.disabled) return;
+        var likeId = String(like.getAttribute("data-review-like") || "").trim();
+        if (likeId) toggleReviewLike(likeId, like);
+        return;
+      }
+      var replyToggle = el.closest("[data-review-reply-toggle]");
+      if (replyToggle) {
+        var rtId = String(replyToggle.getAttribute("data-review-reply-toggle") || "").trim();
+        if (rtId) { state.replyOpenId = state.replyOpenId === rtId ? null : rtId; render(); }
+        return;
+      }
+      var replySub = el.closest("[data-review-reply-submit]");
+      if (replySub) {
+        var rsId = String(replySub.getAttribute("data-review-reply-submit") || "").trim();
+        if (rsId) submitServerReply(rsId, replySub);
+        return;
+      }
     });
   }
 
@@ -1075,7 +1067,7 @@
     }
     if (buttonEl) buttonEl.disabled = true;
     setStatus("", false);
-    fetch(apiUrl() + "/" + encodeURIComponent(reviewId) + "/like", {
+    fetch(reviewActionUrl(reviewId, "like"), {
       method: "POST",
       headers: {
         Authorization: "Bearer " + token,
@@ -1113,7 +1105,7 @@
     }
     if (buttonEl) buttonEl.disabled = true;
     setStatus("Pubblicazione risposta...", false);
-    fetch(apiUrl() + "/" + encodeURIComponent(reviewId) + "/server-reply", {
+    fetch(reviewActionUrl(reviewId, "server-reply"), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -1149,7 +1141,7 @@
     var run = function () {
       state.editModalOpen = false;
       setStatus(t("reviews.deleting", "Eliminazione recensione in corso..."), false);
-      fetch(apiUrl() + "/" + encodeURIComponent(reviewId), {
+      fetch(reviewActionUrl(reviewId), {
         method: "DELETE",
         headers: {
           Authorization: "Bearer " + token,

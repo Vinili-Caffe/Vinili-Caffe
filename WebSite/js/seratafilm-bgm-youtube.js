@@ -431,8 +431,14 @@
             player.setVolume(Math.round(baseVol * 100));
           } catch (e6) {}
         },
-        onError: function () {
-          ensureHint("YouTube bloccato. Consenti youtube-nocookie.com.");
+        onError: function (ev) {
+          var code = ev && ev.data != null ? ev.data : "?";
+          var c = Number(code);
+          if (c === 101 || c === 150 || c === 153) {
+            ensureHint("Questo brano non può essere riprodotto qui.");
+            return;
+          }
+          ensureHint("Musica non disponibile al momento. Tocca per riprovare.");
         },
       },
     };
@@ -497,7 +503,7 @@
         createPlayerAndCue();
       })
       .catch(function () {
-        ensureHint("YouTube non caricato. Controlla ad-blocker.");
+        ensureHint("Musica non pronta. Controlla connessione o impostazioni privacy del browser, poi riprova.");
       });
     return true;
   };

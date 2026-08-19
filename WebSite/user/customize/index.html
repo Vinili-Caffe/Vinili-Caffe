@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html class="vc-site-polish" lang="it">
   <head>
+    <style id="vc-anti-fouc-css">html.vc-site-polish:not(.vc-styles-ready) body{visibility:hidden!important}html.vc-site-polish.vc-styles-ready body{visibility:visible!important}</style>
 {{COOKIEYES_BLOCK}}{{GA_BLOCK}}
     <meta charset="utf-8" />
     <title>{{SITE_NAME}} | Personalizza Rank Card</title>
@@ -10,7 +11,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="preload" as="font" type="font/woff2" href="/fonts/cormorant/cormorant-garamond-latin.woff2" crossorigin />
     <link rel="preload" as="font" type="font/woff2" href="/fonts/inter/inter-latin.woff2" crossorigin />
-    <link rel="stylesheet" href="/css/vc-fonts.css?v=siteFonts1" />
+    <link rel="stylesheet" href="/css/vc-fonts.css?v={{BUILD_ASSET_VERSION}}" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="{{OG_SITE_NAME}}" />
     <meta property="og:locale" content="it_IT" />
@@ -29,9 +30,72 @@
       rel="stylesheet" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css"
       crossorigin="anonymous" referrerpolicy="no-referrer" />
-    <link rel="stylesheet" href="/css/tw-build.css" />
-    <link rel="stylesheet" href="/css/vc-landing.css" />
-    <script src="/js/vc-auth-pending.js"></script>
+    <link rel="stylesheet" href="/css/tw-build.css?v={{BUILD_ASSET_VERSION}}" />
+    <link rel="stylesheet" href="/css/vc-landing.css?v={{BUILD_ASSET_VERSION}}" />
+    <script src="/js/vc-page-cine-boot.js?v={{BUILD_ASSET_VERSION}}"></script>
+    <script>
+      (function () {
+        document.documentElement.classList.add("vc-rank-customize-pending");
+      })();
+    </script>
+    <style id="vc-rank-customize-boot-css">
+      html.vc-rank-customize-pending,
+      html.vc-rank-customize-pending body {
+        overflow: hidden !important;
+        overflow-x: hidden !important;
+        overflow-y: hidden !important;
+        overscroll-behavior: none !important;
+        height: 100% !important;
+        max-height: 100dvh !important;
+        touch-action: none;
+      }
+
+      html.vc-rank-customize-pending body {
+        position: fixed !important;
+        inset: 0 !important;
+        width: 100% !important;
+      }
+
+      html.vc-rank-customize-pending .vc-home-cine,
+      html.vc-rank-customize-pending .vc-blob,
+      html.vc-rank-customize-pending body > header,
+      html.vc-rank-customize-pending body > footer {
+        display: none !important;
+        visibility: hidden !important;
+        pointer-events: none !important;
+      }
+
+      html.vc-rank-customize-pending #vc-rank-customize-page > :not(#vc-rank-customize-loading) {
+        display: none !important;
+      }
+
+      html.vc-rank-customize-pending #vc-rank-customize-loading:not([hidden]),
+      html.vc-rank-customize-pending .vc-user-profile-boot:not([hidden]) {
+        position: fixed !important;
+        inset: 0 !important;
+        z-index: 110000 !important;
+        display: flex !important;
+        visibility: visible !important;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 0.95rem;
+        margin: 0 !important;
+        width: 100vw !important;
+        max-width: none !important;
+        height: 100dvh !important;
+        min-height: 100dvh !important;
+        padding: 1.5rem !important;
+        border: 0 !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+        pointer-events: auto !important;
+        background-color: #0b0806 !important;
+        background-image:
+          radial-gradient(ellipse 92% 74% at 50% 38%, rgba(232, 196, 156, 0.16) 0%, rgba(28, 20, 14, 0.94) 52%, #0a0706 100%) !important;
+      }
+    </style>
+    <script src="/js/vc-auth-pending.js?v={{BUILD_ASSET_VERSION}}"></script>
     <link rel="icon" href="{{GUILD_ICON_URL}}" />
   </head>
   <body class="vc-body vc-users-page relative min-h-screen overflow-x-hidden font-sans text-slate-100 antialiased">
@@ -137,10 +201,10 @@
     <main class="relative z-10 mx-auto max-w-6xl px-4 pb-24 pt-28 sm:pt-32">
       <section id="vc-rank-customize-page" class="vc-rank-customize-page">
         <div id="vc-rank-save-toast-host" class="vc-rank-save-toast-host" aria-live="polite"></div>
-        <div class="vc-rank-customize-loading" id="vc-rank-customize-loading">
-          <span class="vc-rank-customize-loading__spin" aria-hidden="true"></span>
-          <p class="vc-rank-customize-loading__text">Caricamento profilo</p>
-          <p class="vc-rank-customize-loading__sub">Sto recuperando le statistiche dell'utente...</p>
+        <div class="vc-user-profile-loader vc-user-profile-boot" id="vc-rank-customize-loading" data-vc-profile-boot role="status" aria-live="polite" aria-label="Caricamento editor rank card">
+          <span class="vc-user-profile-loader__spin" aria-hidden="true"></span>
+          <p class="vc-user-profile-loader__title">Caricamento editor</p>
+          <p class="vc-user-profile-loader__sub">Sto preparando la tua rank card...</p>
         </div>
         <div id="vc-rank-customize-app" hidden></div>
         <script>
@@ -154,6 +218,10 @@
               if (loading.hidden) return;
               fired = true;
               loading.hidden = true;
+              try {
+                document.documentElement.classList.remove("vc-rank-customize-pending");
+                document.documentElement.classList.remove("vc-loading-scroll-lock");
+              } catch (ePending) {}
               app.hidden = false;
               app.innerHTML =
                 '<div class="vc-rank-customize-fatal">' +
@@ -206,11 +274,11 @@
         rankApiUrlLocal: "{{RANK_CARD_API_URL_LOCAL}}"
       };
     </script>
-    <script src="/js/discord-auth.js" defer></script>  <script src="../../js/vc-cursor-trail.js" defer></script>
+    <script src="/js/discord-auth.js?v={{BUILD_ASSET_VERSION}}" defer></script>  <script src="../../js/vc-cursor-trail.js?v={{BUILD_ASSET_VERSION}}" defer></script>
 
-    <script src="/js/vc-landing.js" defer></script>
-    <script src="/js/user-rank-customize-page.js" defer></script>
-    <script src="/js/vc-ptr.js" defer></script>
-    <script src="/js/vc-home-cine.js" defer></script>
+    <script src="/js/vc-landing.js?v={{BUILD_ASSET_VERSION}}" defer></script>
+    <script src="/js/user-rank-customize-page.js?v={{BUILD_ASSET_VERSION}}" defer></script>
+    <script src="/js/vc-ptr.js?v={{BUILD_ASSET_VERSION}}" defer></script>
+    <script src="/js/vc-home-cine.js?v={{BUILD_ASSET_VERSION}}" defer></script>
 </body>
 </html>

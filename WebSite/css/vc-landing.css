@@ -130,6 +130,12 @@ html {
   cursor: url("../images/cursors/vc-cursor-vinyl.svg") 16 16, auto;
 }
 
+@media (max-width: 639.98px), (pointer: coarse) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
 /* Vetro: blur solo sui pannelli menu (dropdown), non sullo sfondo della pagina */
 header .vc-header-snav .vc-snav-details[open] .vc-snav-panel,
 header .vc-header-bar details.vc-notif-dropdown[open] .vc-notif-panel,
@@ -895,7 +901,7 @@ body.vc-dashboard-premium-page .vc-dash-premium-hero__ico {
 }
 
 .vc-support-donate-role--premium {
-  overflow: hidden;
+  overflow: visible;
   position: relative;
 }
 
@@ -2343,7 +2349,7 @@ body.vc-body.vc-perks-page .vc-support-donate-role--perks-block {
   flex-direction: column;
   height: 100%;
   min-height: 100%;
-  overflow: hidden;
+  overflow: visible;
   border-radius: 1.35rem;
   border: 1px solid var(--vc-support-cta-border);
   background: var(--vc-support-cta-bg);
@@ -2355,7 +2361,7 @@ body.vc-body.vc-perks-page .vc-support-donate-role--perks-block {
 .vc-support-donate-role--donatore,
 .vc-support-donate-role--vip,
 .vc-support-donate-role--premium {
-  overflow: hidden;
+  overflow: visible;
   position: relative;
 }
 
@@ -2374,19 +2380,18 @@ body.vc-body.vc-perks-page .vc-support-donate-role--perks-block {
   box-shadow:
     0 4px 16px rgba(0, 0, 0, 0.4),
     0 0 0 1px rgba(0, 0, 0, 0.2);
+  top: 0 !important;
+  right: 0 !important;
+  transform: translate(26%, -18%) !important;
 }
 
 .vc-support-donate-role__badge--novita {
-  top: 0.72rem;
-  right: 0.72rem;
   color: #1a0f06;
   background: linear-gradient(135deg, #fef3c7, #fbbf24 45%, #d97706);
   border: 1px solid rgba(253, 230, 138, 0.95);
 }
 
 .vc-support-donate-role__badge--popular {
-  top: 0.72rem;
-  right: 0.72rem;
   color: rgba(255, 251, 235, 0.98);
   background: linear-gradient(135deg, rgba(90, 62, 42, 0.96), rgba(42, 28, 18, 0.98));
   border: 1px solid rgba(212, 168, 136, 0.55);
@@ -2400,8 +2405,6 @@ body.vc-body.vc-perks-page .vc-support-donate-role--perks-block {
 }
 
 .vc-support-donate-role__badge--cheap {
-  top: 0.72rem;
-  right: 0.72rem;
   color: rgba(255, 244, 230, 0.98);
   background: linear-gradient(135deg, rgba(136, 90, 58, 0.96), rgba(84, 52, 30, 0.98));
   border: 1px solid rgba(205, 142, 98, 0.62);
@@ -2416,10 +2419,10 @@ body.vc-body.vc-perks-page .vc-support-donate-role--perks-block {
 
 .vc-support-donate-role__head {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 0.65rem 0.85rem;
+  gap: 0.45rem 0.85rem;
   margin: 0 0 0.65rem;
   min-width: 0;
 }
@@ -2447,13 +2450,14 @@ body.vc-body.vc-perks-page .vc-support-donate-role--perks-block {
 .vc-support-donate-role--vip-plus .vc-support-donate-role__head,
 .vc-support-donate-role--donatore .vc-support-donate-role__head,
 .vc-support-donate-role--premium .vc-support-donate-role__head {
-  padding-right: 6.5rem;
+  padding-right: 0;
 }
 
 .vc-support-donate-role__head .vc-support-donate-role__price {
   margin: 0;
-  flex-shrink: 0;
+  flex-shrink: 1;
   white-space: nowrap;
+  min-width: 0;
 }
 
 .vc-support-donate-role__title {
@@ -2772,17 +2776,74 @@ body.vc-body.vc-donazioni-page:not(.vc-perks-page) .vc-support-donate-roles__gri
   }
 }
 
+body.vc-donazioni-page .vc-support-donate-role {
+  position: relative;
+  overflow: visible !important;
+}
+
+body.vc-donazioni-page .vc-support-donate-roles,
+body.vc-donazioni-page .vc-support-donate-roles__grid,
+body.vc-donazioni-page .vc-support-donate-roles__grid--podium {
+  overflow: visible !important;
+}
+
+body.vc-donazioni-page .vc-support-donate-roles__grid--podium {
+  padding-top: 2rem !important;
+}
+
 body.vc-donazioni-page .vc-support-donate-role__head {
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: flex-start;
-  gap: 0.55rem;
-  padding-right: 0 !important;
-  padding-top: 1.55rem;
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 0.65rem 0.85rem !important;
+  margin: 0 0 0.65rem !important;
+  min-width: 0 !important;
+}
+
+body.vc-donazioni-page .vc-support-donate-role__head .vc-support-donate-role__title {
+  min-height: 0;
+  margin: 0;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 body.vc-donazioni-page .vc-support-donate-role__head .vc-support-donate-role__price {
-  align-self: flex-start;
+  margin: 0;
+  flex-shrink: 0;
+  margin-left: auto;
+  text-align: right;
+  transform: translateX(0.2rem);
+}
+
+body.vc-donazioni-page .vc-support-donate-role__badge {
+  position: absolute;
+  top: 0 !important;
+  right: 0 !important;
+  left: auto;
+  transform: translate(26%, -18%) !important;
+  margin: 0;
+  z-index: 10;
+}
+
+body.vc-donazioni-page .vc-support-donate-role__badge--novita,
+body.vc-donazioni-page .vc-support-donate-role__badge--popular,
+body.vc-donazioni-page .vc-support-donate-role__badge--popular-silver,
+body.vc-donazioni-page .vc-support-donate-role__badge--cheap {
+  top: 0 !important;
+  right: 0 !important;
+  transform: translate(26%, -18%) !important;
+}
+
+@media (min-width: 768px) {
+  body.vc-donazioni-page .vc-support-donate-roles__grid--podium .vc-support-donate-role {
+    display: flex;
+    flex-direction: column;
+  }
+
+  body.vc-donazioni-page .vc-support-donate-roles__grid--podium .vc-support-donate-role__perks {
+    flex: 1 1 auto;
+  }
 }
 
 body.vc-body .vc-support-donate-role--vip-plus {
@@ -3289,6 +3350,14 @@ html.vc-session-verify-pending button[data-vc-discord-login] {
   animation: vc-page-reveal 0.68s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
+@media (max-width: 639.98px), (pointer: coarse) {
+  .vc-body main,
+  .vc-body > header {
+    animation: none !important;
+    transform: none !important;
+  }
+}
+
 /* Dashboard: niente translateY sul main (su Brave/Chromium fa â€œghostâ€ del testo sotto lâ€™header). */
 body.vc-dashboard-page main,
 body.vc-dashboard-faq-page main {
@@ -3399,8 +3468,8 @@ header .vc-nav-shell.vc-glass.vc-nav-shell--scrolled {
   box-shadow:
     0 10px 38px rgba(0, 0, 0, 0.42),
     0 0 36px rgba(212, 168, 136, 0.06);
-  backdrop-filter: blur(calc(var(--vc-glass-blur-strong) + 4px)) saturate(180%);
-  -webkit-backdrop-filter: blur(calc(var(--vc-glass-blur-strong) + 4px)) saturate(180%);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 body.vc-body > header,
@@ -3596,12 +3665,16 @@ body.vc-body header.fixed .vc-nav-shell.vc-glass.vc-nav-shell--scrolled {
 }
 
 .vc-header-promo-btn__label {
+  display: inline-flex;
+  align-items: center;
   font-weight: 700;
   flex-shrink: 0;
+  line-height: 1;
 }
 
 .vc-header-promo-btn__clip {
-  display: block;
+  display: flex;
+  align-items: center;
   min-width: 0;
   flex: 1 1 auto;
   overflow: hidden;
@@ -3631,6 +3704,7 @@ body.vc-body header.fixed .vc-nav-shell.vc-glass.vc-nav-shell--scrolled {
   align-items: center;
   gap: 0.42rem;
   flex: 0 0 auto;
+  line-height: 1;
 }
 
 .vc-header-promo-btn__unit.is-clone {
@@ -3656,13 +3730,13 @@ body.vc-body header.fixed .vc-nav-shell.vc-glass.vc-nav-shell--scrolled {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0.2rem 0.48rem;
+  padding: 0.18rem 0.48rem;
   border-radius: 9999px;
   font-size: 0.58rem;
   font-weight: 800;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  line-height: 1.1;
+  line-height: 1;
   background: linear-gradient(180deg, #f0dcc8 0%, #d4a888 58%, #b88968 100%);
   color: #1a120e;
   border: 1px solid rgba(255, 244, 232, 0.22);
@@ -8276,9 +8350,10 @@ body.vc-body.vc-sponsor-page .vc-sponsor-embed--popular:hover {
 
   #header-quick-actions #vc-header-promo-btn {
     z-index: 1;
-    width: max-content;
-    max-width: none;
-    flex: 0 0 auto;
+    width: auto;
+    max-width: min(24vw, 4.85rem);
+    min-width: 0;
+    flex: 0 1 auto;
   }
 
   #header-quick-actions #discord-login-btn,
@@ -12950,16 +13025,17 @@ body.vc-body--home header .vc-notif-summary.vc-icon-btn:hover {
   }
 
   body.vc-body--home #vc-header-promo-btn {
-    flex: 0 0 auto;
+    flex: 0 1 auto;
     min-width: 0;
-    width: max-content;
-    max-width: none;
+    width: auto;
+    max-width: min(24vw, 4.85rem);
     z-index: 1;
   }
 
   body.vc-body--home .vc-header-bar > div:first-child {
+    flex: 1 1 auto;
     min-width: 0;
-    max-width: calc(100% - 10.5rem);
+    max-width: none;
   }
 }
 
@@ -14586,6 +14662,10 @@ body.vc-body--home a.vc-header-logo-link + a[href]:focus-visible {
 /* Compact layout for rank customization page */
 .vc-rank-customize-page .vc-rank-editor-topbar { margin-bottom: 1.15rem; }
 .vc-rank-customize-page .vc-user-profile-backbtn {
+  position: relative;
+  z-index: 2;
+  isolation: isolate;
+  cursor: pointer;
   border-radius: 0.72rem;
   min-height: 2.35rem;
   padding: 0 0.9rem;
@@ -19903,6 +19983,46 @@ body.vc-body .vc-vote-pager {
   background:
     radial-gradient(ellipse 115% 85% at 15% 0%, rgba(236, 205, 176, 0.12), transparent 54%),
     linear-gradient(145deg, rgba(28, 20, 15, 0.62), rgba(14, 10, 8, 0.56)) !important;
+}
+
+/* Vote page: glass depth + homepage-like reveal for center cards. */
+body.vc-body.vc-vote-page .vc-vote-live-card,
+body.vc-body.vc-vote-page .vc-vote-live-statbox,
+body.vc-body.vc-vote-page .vc-vote-progress,
+body.vc-body.vc-vote-page .vc-vote-podium-row,
+body.vc-body.vc-vote-page .vc-vote-list-row,
+body.vc-body.vc-vote-page .vc-vote-morelist,
+body.vc-body.vc-vote-page .vc-vote-pager,
+body.vc-body.vc-vote-page .vc-vote-reward-head + .mt-6,
+body.vc-body.vc-vote-page article.vc-vote-reveal {
+  -webkit-backdrop-filter: blur(var(--vc-glass-blur)) saturate(158%) !important;
+  backdrop-filter: blur(var(--vc-glass-blur)) saturate(158%) !important;
+}
+
+body.vc-body.vc-vote-page .vc-vote-reveal {
+  opacity: 0;
+  transform: translateY(18px) scale(0.995);
+  filter: blur(2px);
+  transition:
+    opacity 0.62s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.62s cubic-bezier(0.22, 1, 0.36, 1),
+    filter 0.62s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+body.vc-body.vc-vote-page .vc-vote-reveal.is-inview {
+  opacity: 1;
+  transform: none;
+  filter: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.vc-body.vc-vote-page .vc-vote-reveal,
+  body.vc-body.vc-vote-page .vc-vote-reveal.is-inview {
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+    transition: none !important;
+  }
 }
 
 body.vc-body .vc-vote-live-title,
@@ -41723,14 +41843,14 @@ html body.vc-body--home header.fixed .vc-nav-shell.vc-nav-shell--scrolled::befor
 
 html body.vc-body--home > header .vc-nav-shell.vc-glass.vc-nav-shell--scrolled,
 html body.vc-body--home header.fixed .vc-nav-shell.vc-glass.vc-nav-shell--scrolled {
-  background: rgba(24, 17, 13, 0.34) !important;
+  background: rgba(20, 15, 12, 0.96) !important;
   border-color: rgba(255, 244, 232, 0.22) !important;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.16),
     0 12px 40px rgba(0, 0, 0, 0.28),
     0 0 24px rgba(214, 172, 132, 0.1) !important;
-  backdrop-filter: blur(28px) saturate(185%) !important;
-  -webkit-backdrop-filter: blur(28px) saturate(185%) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
 @media (prefers-reduced-transparency: reduce) {
@@ -42409,8 +42529,24 @@ header .vc-lang-toggle,
 
 @media (max-width: 639.98px) {
   .vc-header-bar > div:first-child {
-    flex: 0 1 auto !important;
-    max-width: calc(100% - 11.25rem);
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    max-width: none !important;
+  }
+
+  .vc-header-bar > div:first-child > a.vc-header-logo-link + a,
+  .vc-header-bar > div:first-child a.vc-header-site-name,
+  .vc-mobile-nav-drawer__brand a.vc-header-logo-link + a,
+  .vc-mobile-nav-drawer__brand a.vc-header-site-name {
+    flex: 1 1 auto !important;
+    flex-grow: 1 !important;
+    min-width: 0 !important;
+    max-width: none !important;
+  }
+
+  .vc-header-bar > div:first-child .vc-lang-dropdown,
+  .vc-mobile-nav-drawer__brand .vc-lang-dropdown {
+    flex: 0 0 auto !important;
   }
 }
 
@@ -42712,14 +42848,14 @@ html.vc-site-polish body.vc-body header.fixed .vc-nav-shell.vc-nav-shell--scroll
 
 html.vc-site-polish body.vc-body > header .vc-nav-shell.vc-glass.vc-nav-shell--scrolled,
 html.vc-site-polish body.vc-body header.fixed .vc-nav-shell.vc-glass.vc-nav-shell--scrolled {
-  background: rgba(24, 17, 13, 0.34) !important;
+  background: rgba(20, 15, 12, 0.96) !important;
   border-color: rgba(255, 244, 232, 0.22) !important;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.16),
     0 12px 40px rgba(0, 0, 0, 0.28),
     0 0 24px rgba(214, 172, 132, 0.1) !important;
-  backdrop-filter: blur(28px) saturate(185%) !important;
-  -webkit-backdrop-filter: blur(28px) saturate(185%) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
 @media (max-width: 720px) {
@@ -42736,9 +42872,9 @@ html.vc-site-polish body.vc-body header.fixed .vc-nav-shell.vc-glass.vc-nav-shel
 
   html.vc-site-polish body.vc-body > header .vc-nav-shell.vc-glass.vc-nav-shell--scrolled,
   html.vc-site-polish body.vc-body header.fixed .vc-nav-shell.vc-glass.vc-nav-shell--scrolled {
-    background: rgba(24, 17, 13, 0.34) !important;
-    backdrop-filter: blur(28px) saturate(185%) !important;
-    -webkit-backdrop-filter: blur(28px) saturate(185%) !important;
+    background: rgba(20, 15, 12, 0.96) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
   }
 }
 
@@ -43146,6 +43282,19 @@ html.vc-site-polish .vc-home-cine::before {
     top: 56%;
     width: min(84vw, 44vh);
     height: min(84vw, 44vh);
+    opacity: 0.72;
+  }
+
+  html.vc-site-polish .vc-home-cine {
+    background:
+      radial-gradient(ellipse 92% 68% at 50% 18%, rgba(234, 214, 187, 0.08), transparent 58%),
+      linear-gradient(180deg, #0d0907 0%, #130d0a 24%, #120d0a 58%, #090705 100%);
+  }
+
+  html.vc-site-polish .vc-home-cine__veil {
+    background:
+      linear-gradient(180deg, rgba(10, 7, 5, 0.46) 0%, rgba(10, 7, 5, 0.12) 26%, rgba(10, 7, 5, 0.16) 64%, rgba(10, 7, 5, 0.62) 100%),
+      radial-gradient(ellipse 70% 50% at 50% 34%, rgba(10, 7, 5, 0.16), transparent 72%);
   }
 }
 
@@ -43813,12 +43962,16 @@ html.vc-user-leader-pending,
 html.vc-user-leader-pending body,
 html.vc-user-profile-pending,
 html.vc-user-profile-pending body,
+html.vc-rank-customize-pending,
+html.vc-rank-customize-pending body,
 html.vc-session-verify-pending,
 html.vc-session-verify-pending body,
 html:has(.vc-session-verify-overlay:not(.vc-session-verify-overlay--hidden)),
 html:has(.vc-session-verify-overlay:not(.vc-session-verify-overlay--hidden)) body,
 html:has(.vc-rank-customize-loading:not([hidden])),
 html:has(.vc-rank-customize-loading:not([hidden])) body,
+html:has(#vc-rank-customize-loading:not([hidden])),
+html:has(#vc-rank-customize-loading:not([hidden])) body,
 html:has(#vc-user-profile-view:not([hidden]) .vc-user-profile-loader),
 html:has(#vc-user-profile-view:not([hidden]) .vc-user-profile-loader) body,
 html:has(.vc-reviews-gate:not([hidden]):not(.vc-reviews-gate--dismissed)),
@@ -43838,8 +43991,10 @@ html.vc-loading-scroll-lock body {
 
 html.vc-user-leader-pending body,
 html.vc-user-profile-pending body,
+html.vc-rank-customize-pending body,
 html.vc-loading-scroll-lock body,
 html:has(.vc-ul-loading:not([hidden])) body,
+html:has(#vc-rank-customize-loading:not([hidden])) body,
 html:has(#vc-user-profile-view:not([hidden]) .vc-user-profile-loader) body {
   position: fixed !important;
   inset: 0 !important;
@@ -43873,7 +44028,7 @@ html.vc-site-polish #vc-user-profile-view:not([hidden]) .vc-user-profile-loader 
 }
 
 html.vc-site-polish .vc-rank-customize-loading:not([hidden]),
-html.vc-site-polish .vc-user-profile-loader {
+html.vc-site-polish .vc-user-profile-loader:not([hidden]) {
   display: flex !important;
   flex-direction: column;
   align-items: center;
@@ -43897,11 +44052,19 @@ html.vc-user-profile-pending .vc-home-cine,
 html.vc-user-profile-pending .vc-blob,
 html.vc-user-profile-pending body > header,
 html.vc-user-profile-pending body > footer,
+html.vc-rank-customize-pending .vc-home-cine,
+html.vc-rank-customize-pending .vc-blob,
+html.vc-rank-customize-pending body > header,
+html.vc-rank-customize-pending body > footer,
 html:has(body > .vc-ul-loading:not([hidden])) .vc-home-cine,
 html:has(body > .vc-ul-loading:not([hidden])) .vc-blob,
 html:has(body > .vc-ul-loading:not([hidden])) body > header,
 html:has(body > .vc-ul-loading:not([hidden])) body > footer,
 html:has(body > .vc-ul-loading:not([hidden])) main,
+html:has(#vc-rank-customize-loading:not([hidden])) .vc-home-cine,
+html:has(#vc-rank-customize-loading:not([hidden])) .vc-blob,
+html:has(#vc-rank-customize-loading:not([hidden])) body > header,
+html:has(#vc-rank-customize-loading:not([hidden])) body > footer,
 html:has(#vc-user-profile-view:not([hidden]) .vc-user-profile-loader) .vc-home-cine,
 html:has(#vc-user-profile-view:not([hidden]) .vc-user-profile-loader) .vc-blob,
 html:has(#vc-user-profile-view:not([hidden]) .vc-user-profile-loader) body > header,
@@ -44231,35 +44394,43 @@ html.vc-site-polish body.vc-body .vc-header-logo-link:focus-visible {
   body.vc-body .vc-header-promo-btn:visited,
   body.vc-body #header-quick-actions #vc-header-promo-btn,
   body.vc-body--home #vc-header-promo-btn {
-    width: max-content !important;
-    max-width: none !important;
-    flex: 0 0 auto !important;
+    width: auto !important;
+    max-width: min(24vw, 4.85rem) !important;
+    flex: 0 1 auto !important;
     min-width: 0 !important;
-    overflow: visible;
-    font-size: 0.62rem;
-    padding: 0.26rem 0.34rem 0.26rem 0.4rem;
-    gap: 0.32rem;
+    overflow: hidden;
+    font-size: 0.52rem;
+    padding: 0.18rem 0.26rem 0.18rem 0.3rem;
+    gap: 0.22rem;
+  }
+
+  body.vc-body .vc-header-promo-btn .vc-header-promo-btn__dot {
+    width: 0.28rem;
+    height: 0.28rem;
+    flex-shrink: 0;
   }
 
   body.vc-body .vc-header-promo-btn .vc-header-promo-btn__clip {
-    flex: 0 0 auto !important;
-    width: auto !important;
-    overflow: visible !important;
+    display: flex !important;
+    align-items: center !important;
+    min-width: 0 !important;
+    flex: 1 1 auto !important;
+    overflow: hidden !important;
+    max-width: 100%;
   }
 
-  body.vc-body .vc-header-promo-btn.is-marquee .vc-header-promo-btn__track,
-  body.vc-body .vc-header-promo-btn .vc-header-promo-btn__track {
-    animation: none !important;
-    transform: none !important;
-  }
-
-  body.vc-body .vc-header-promo-btn .vc-header-promo-btn__unit.is-clone {
-    display: none !important;
+  body.vc-body .vc-header-promo-btn .vc-header-promo-btn__track,
+  body.vc-body .vc-header-promo-btn .vc-header-promo-btn__unit,
+  body.vc-body .vc-header-promo-btn .vc-header-promo-btn__label,
+  body.vc-body .vc-header-promo-btn .vc-header-promo-btn__badge {
+    align-items: center !important;
+    line-height: 1 !important;
   }
 
   body.vc-body .vc-header-promo-btn .vc-header-promo-btn__badge {
-    padding: 0.16rem 0.38rem;
-    font-size: 0.54rem;
+    padding: 0.12rem 0.28rem;
+    font-size: 0.5rem;
+    letter-spacing: 0.08em;
   }
 
   body.vc-hw-shop-page .vc-hw-shop-card__art {
@@ -44390,6 +44561,10 @@ html.vc-site-polish .vc-page-cine-hero {
   isolation: auto;
 }
 
+body.vc-page-cine-layout {
+  overflow-anchor: none;
+}
+
 body.vc-page-cine-layout .vc-page-cine-hero {
   position: relative;
   z-index: 10;
@@ -44421,6 +44596,7 @@ body.vc-page-cine-layout .vc-page-cine-hero.vc-hero-scroll-clip,
 html.vc-site-polish body.vc-page-cine-layout .vc-page-cine-hero.vc-hero-scroll-clip {
   overflow: hidden !important;
   justify-content: center !important;
+  overflow-anchor: none;
   transition: none !important;
 }
 
@@ -45056,6 +45232,35 @@ body.vc-page-cine-layout #vc-page-content .vc-page-cine-card {
   backdrop-filter: blur(12px) saturate(140%);
   -webkit-backdrop-filter: blur(12px) saturate(140%);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+html.vc-site-polish body.vc-body:not(.vc-body--home) #vc-page-content .vc-page-cine-card.vc-home-panel,
+html.vc-site-polish body.vc-body:not(.vc-body--home) #vc-page-content .vc-page-cine-card.vc-fx-card,
+html.vc-site-polish body.vc-body:not(.vc-body--home) #vc-page-content .vc-home-panel[class*="rounded-"],
+html.vc-site-polish body.vc-body:not(.vc-body--home) #vc-page-content .vc-fx-card[class*="rounded-"] {
+  border-color: rgba(var(--vc-reviews-emerald-rgb), 0.18) !important;
+  background: transparent !important;
+  background-image: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 16px 36px rgba(0, 0, 0, 0.22) !important;
+}
+
+html.vc-site-polish body.vc-body:not(.vc-body--home) #vc-page-content h2,
+html.vc-site-polish body.vc-body:not(.vc-body--home) #vc-page-content h3,
+html.vc-site-polish body.vc-body:not(.vc-body--home) .vc-page-cine-body h2,
+html.vc-site-polish body.vc-body:not(.vc-body--home) .vc-page-cine-body h3 {
+  color: rgba(232, 201, 168, 0.78);
+  text-shadow: 0 1px 14px rgba(0, 0, 0, 0.42);
+}
+
+html.vc-site-polish body.vc-body:not(.vc-body--home) #vc-page-content p,
+html.vc-site-polish body.vc-body:not(.vc-body--home) .vc-page-cine-body p,
+html.vc-site-polish body.vc-body:not(.vc-body--home) #vc-page-content li,
+html.vc-site-polish body.vc-body:not(.vc-body--home) .vc-page-cine-body li {
+  color: rgba(248, 242, 234, 0.92);
 }
 
 html.vc-site-polish .vc-support-intro-shell .vc-page-cine-card h1,
@@ -45965,6 +46170,18 @@ body.vc-page-cine-layout > .vc-home-scrollcue {
   bottom: max(1.35rem, calc(env(safe-area-inset-bottom, 0px) + 0.85rem));
 }
 
+/* Community hero: optical vertical center (header vs scroll cue), cue stays fixed. */
+body.vc-users-page.vc-page-cine-layout:not(.vc-user-profile-route) .vc-page-cine-hero {
+  justify-content: center !important;
+  padding-top: max(5.35rem, calc(env(safe-area-inset-top, 0px) + 4.05rem)) !important;
+  padding-bottom: max(8.2rem, calc(env(safe-area-inset-bottom, 0px) + 6.8rem)) !important;
+}
+
+body.vc-users-page.vc-page-cine-layout:not(.vc-user-profile-route) .vc-page-cine-hero > .vc-home-scrollcue {
+  bottom: max(2rem, calc(env(safe-area-inset-bottom, 0px) + 1.15rem)) !important;
+  z-index: 12 !important;
+}
+
 /* Appelli: unmute must keep the same glow/decode treatment as unban. */
 body.vc-appelli-page #vc-appelli-hero-heading,
 body.vc-appelli-page #vc-appelli-hero-heading.vc-home-rise,
@@ -46236,6 +46453,10 @@ html.vc-site-polish body.vc-page-cine-layout .vc-page-cine-hero .vc-page-cine-as
   mask-image: none !important;
 }
 
+html.vc-site-polish body.vc-body:not(.vc-body--home) .vc-support-donate-role {
+  overflow: visible !important;
+}
+
 html.vc-site-polish body.vc-body:not(.vc-body--home) :is(
   .vc-fx-card,
   .vc-notify-stat,
@@ -46336,7 +46557,7 @@ html.vc-site-polish body.vc-body:not(.vc-body--home).vc-page-cine-layout .vc-her
   html body .vc-header-bar > div:first-child {
     flex: 1 1 auto !important;
     min-width: 0 !important;
-    max-width: calc(100% - 12.5rem) !important;
+    max-width: none !important;
   }
 
   html body #header-quick-actions,
@@ -46358,8 +46579,9 @@ html.vc-site-polish body.vc-body:not(.vc-body--home).vc-page-cine-layout .vc-her
 
   html body #header-quick-actions #vc-header-promo-btn,
   html body #header-quick-actions .vc-header-promo-btn {
-    max-width: min(34vw, 7.5rem) !important;
+    max-width: min(24vw, 4.85rem) !important;
     min-width: 0 !important;
+    flex: 0 1 auto !important;
   }
 
   html body #vc-mobile-nav-toggle,
@@ -46712,53 +46934,95 @@ html:not(.vc-user-leader-pending):not(.vc-user-profile-pending):not(.vc-loading-
   touch-action: auto !important;
 }
 
-/* Community /user: hug the intro card under the navbar so the leaderboard is visible without a full-screen empty hero. */
-body.vc-users-page.vc-page-cine-layout:not(.vc-user-profile-route):not(.vc-roles-page) .vc-page-cine-hero,
-body.vc-users-page.vc-page-cine-layout:not(.vc-user-profile-route):not(.vc-roles-page) .vc-page-cine-hero:not(.is-collapsed),
-body.vc-users-page.vc-page-cine-layout:not(.vc-user-profile-route):not(.vc-roles-page) .vc-page-cine-hero.vc-support-page-hero:not(.is-collapsed),
-html.vc-site-polish body.vc-users-page.vc-page-cine-layout:not(.vc-user-profile-route):not(.vc-roles-page) .vc-page-cine-hero,
-html.vc-site-polish body.vc-users-page.vc-page-cine-layout:not(.vc-user-profile-route):not(.vc-roles-page) .vc-page-cine-hero:not(.is-collapsed),
-html.vc-site-polish body.vc-users-page.vc-page-cine-layout:not(.vc-user-profile-route):not(.vc-roles-page) .vc-page-cine-hero.vc-support-page-hero:not(.is-collapsed),
-html.vc-site-polish body.vc-users-page.vc-page-cine-layout:not(.vc-user-profile-route):not(.vc-roles-page) .vc-page-cine-hero.vc-support-page-hero:first-of-type:not(.is-collapsed) {
-  min-height: 0 !important;
+/* Profilo utente: ripristina scroll dopo il loader (html+body). */
+html.vc-user-profile-route:not(.vc-user-profile-pending):not(.vc-loading-scroll-lock):not(:has(#vc-user-profile-view:not([hidden]) .vc-user-profile-loader)) {
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
   height: auto !important;
   max-height: none !important;
+  overscroll-behavior-y: contain !important;
+}
+
+html.vc-user-profile-route:not(.vc-user-profile-pending):not(.vc-loading-scroll-lock):not(:has(#vc-user-profile-view:not([hidden]) .vc-user-profile-loader)) body.vc-users-page.vc-user-profile-route,
+html.vc-user-profile-route:not(.vc-user-profile-pending):not(.vc-loading-scroll-lock):not(:has(#vc-user-profile-view:not([hidden]) .vc-user-profile-loader)) body.vc-users-page.vc-user-profile-page {
+  overflow: visible !important;
+  overflow-x: hidden !important;
+  overflow-y: visible !important;
+  height: auto !important;
+  max-height: none !important;
+  position: static !important;
+  inset: auto !important;
+  top: auto !important;
+  right: auto !important;
+  bottom: auto !important;
+  left: auto !important;
+  width: auto !important;
+  touch-action: auto !important;
+}
+
+/* Community /user: usa il page-cine shared come homepage. */
+body.vc-users-page.vc-page-cine-layout:not(.vc-user-profile-route) > main.vc-page-cine-main {
+  padding-top: 0 !important;
+  max-width: none !important;
+  width: 100% !important;
+  margin-top: 0 !important;
+}
+
+body.vc-users-page.vc-page-cine-layout:not(.vc-user-profile-route) .vc-page-cine-hero.vc-support-page-hero:not(.is-collapsed) {
+  min-height: 100svh !important;
+  min-height: 100dvh !important;
   display: flex !important;
   flex-direction: column !important;
   align-items: center !important;
+  justify-content: center !important;
+  padding-top: max(5.35rem, calc(env(safe-area-inset-top, 0px) + 4.05rem)) !important;
+  padding-bottom: max(8.2rem, calc(env(safe-area-inset-bottom, 0px) + 6.8rem)) !important;
+  box-sizing: border-box !important;
+}
+
+body.vc-users-page.vc-page-cine-layout:not(.vc-user-profile-route) .vc-page-cine-hero > .vc-home-scrollcue.is-away,
+body.vc-users-page.vc-page-cine-layout:not(.vc-user-profile-route) .vc-home-scrollcue.is-away {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+body.vc-users-page.vc-page-cine-layout:not(.vc-user-profile-route) .vc-page-cine-hero > .vc-home-scrollcue {
+  position: fixed !important;
+  inset: auto 0 max(1.6rem, calc(env(safe-area-inset-bottom, 0px) + 1.1rem)) 0 !important;
+  bottom: max(1.6rem, calc(env(safe-area-inset-bottom, 0px) + 1.1rem)) !important;
+  z-index: 14 !important;
+}
+
+body.vc-users-page.vc-page-cine-layout:not(.vc-user-profile-route) .vc-page-cine-hero.is-collapsed,
+body.vc-users-page.vc-page-cine-layout:not(.vc-user-profile-route) .vc-page-cine-hero.vc-support-page-hero.is-collapsed {
+  min-height: 0 !important;
+  height: auto !important;
   justify-content: flex-start !important;
-  padding-top: 7.1rem !important;
-  padding-bottom: 1.15rem !important;
-  overflow: visible !important;
+  padding-top: max(5.35rem, calc(env(safe-area-inset-top, 0px) + 4.05rem)) !important;
+  padding-bottom: 0.85rem !important;
 }
 
-@media (max-width: 639.98px) {
-  body.vc-users-page.vc-page-cine-layout:not(.vc-user-profile-route):not(.vc-roles-page) .vc-page-cine-hero,
-  body.vc-users-page.vc-page-cine-layout:not(.vc-user-profile-route):not(.vc-roles-page) .vc-page-cine-hero:not(.is-collapsed),
-  html.vc-site-polish body.vc-users-page.vc-page-cine-layout:not(.vc-user-profile-route):not(.vc-roles-page) .vc-page-cine-hero:not(.is-collapsed),
-  html.vc-site-polish body.vc-users-page.vc-page-cine-layout:not(.vc-user-profile-route):not(.vc-roles-page) .vc-page-cine-hero.vc-support-page-hero:first-of-type:not(.is-collapsed) {
-    min-height: 0 !important;
-    justify-content: flex-start !important;
-    padding-top: max(5.7rem, calc(env(safe-area-inset-top, 0px) + 4.7rem)) !important;
-    padding-bottom: 1.15rem !important;
-  }
+body.vc-users-page.vc-page-cine-layout:not(.vc-user-profile-route) .vc-page-cine-hero.is-collapsed .vc-page-cine-hero__inner {
+  transform: none !important;
 }
 
-body.vc-users-page.vc-page-cine-layout:not(.vc-user-profile-route):not(.vc-roles-page) .vc-page-cine-hero > .vc-page-cine-hero__inner,
-body.vc-users-page.vc-page-cine-layout:not(.vc-user-profile-route):not(.vc-roles-page) .vc-page-cine-hero .vc-hero-head {
-  position: relative !important;
-  z-index: 1 !important;
+body.vc-users-page.vc-page-cine-layout:not(.vc-user-profile-route) .vc-page-cine-hero .vc-page-cine-hero__inner {
+  transform: translateY(-1.65rem) !important;
+  margin-inline: auto !important;
 }
 
-body.vc-users-page.vc-page-cine-layout:not(.vc-user-profile-route):not(.vc-roles-page) .vc-page-cine-hero > .vc-home-scrollcue,
-html.vc-site-polish body.vc-users-page.vc-page-cine-layout:not(.vc-user-profile-route):not(.vc-roles-page) .vc-page-cine-hero > .vc-home-scrollcue,
-body.vc-users-page.vc-page-cine-layout:not(.vc-user-profile-route):not(.vc-roles-page) > .vc-home-scrollcue {
-  display: none !important;
+html.vc-page-cine-ready:has(body.vc-users-page.vc-page-cine-layout:not(.vc-user-profile-route)) {
+  overflow-y: auto !important;
+  height: auto !important;
+  max-height: none !important;
+  min-height: 100%;
 }
 
-body.vc-users-page.vc-page-cine-layout:not(.vc-user-profile-route):not(.vc-roles-page) #vc-page-content,
-body.vc-users-page.vc-page-cine-layout:not(.vc-user-profile-route):not(.vc-roles-page) .vc-page-cine-body {
-  padding-top: 0.35rem !important;
+body.vc-users-page.vc-page-cine-layout:not(.vc-user-profile-route) #vc-page-content {
+  display: block !important;
+  visibility: visible !important;
+  min-height: 1px;
 }
 
 /* Shared pager: arrows + one jump button (no 1 2 3 4 chips). Same look everywhere. */
@@ -46987,9 +47251,9 @@ html.vc-session-verify-pending::before,
 .vc-rank-customize-loading:not([hidden]),
 .vc-session-verify-overlay:not(.vc-session-verify-overlay--hidden),
 .vc-page-transition.vc-page-transition--on,
-.vc-user-profile-loader,
-#vc-user-profile-loading.vc-user-profile-loader,
-html.vc-site-polish #vc-user-profile-view:not([hidden]) .vc-user-profile-loader,
+.vc-user-profile-loader:not([hidden]),
+#vc-user-profile-loading.vc-user-profile-loader:not([hidden]),
+html.vc-site-polish #vc-user-profile-view:not([hidden]) .vc-user-profile-loader:not([hidden]),
 html.vc-site-polish .vc-rank-customize-loading:not([hidden]),
 body.vc-body.vc-users-page .vc-ul-loading:not([hidden]),
 body.vc-body.vc-roles-page .vc-ul-loading:not([hidden]),
@@ -47034,35 +47298,14 @@ html.vc-site-polish body.vc-body .vc-staff-loading:not([hidden]):not(.vc-staff-l
 html.vc-site-polish body.vc-body .vc-staff-loading[hidden],
 html.vc-site-polish body.vc-body .vc-staff-loading.vc-staff-loading--hidden,
 .vc-rank-customize-loading[hidden],
+#vc-rank-customize-loading[hidden],
+.vc-user-profile-loader[hidden],
+#vc-user-profile-loading[hidden],
 .vc-session-verify-overlay.vc-session-verify-overlay--hidden,
 #vc-dashboard-loading.vc-dashboard-loading[hidden],
 #vc-dashboard-guild-loading.vc-dashboard-loading[hidden],
 html.vc-hw-loading-done .vc-hw-loading {
   display: none !important;
-}
-
-.vc-ul-loading:not([hidden])::after,
-.vc-staff-loading:not([hidden]):not(.vc-staff-loading--hidden)::after,
-.vc-rank-customize-loading:not([hidden])::after,
-.vc-session-verify-overlay:not(.vc-session-verify-overlay--hidden)::after,
-.vc-page-transition.vc-page-transition--on::after,
-.vc-user-profile-loader::after,
-#vc-dashboard-loading.vc-dashboard-loading:not([hidden])::after,
-#vc-dashboard-guild-loading.vc-dashboard-loading:not([hidden])::after,
-.vc-hw-loading:not([hidden])::after {
-  content: "";
-  position: absolute;
-  top: max(1.4rem, 7vh);
-  right: max(1.4rem, 8vw);
-  width: 2.05rem;
-  height: 2.05rem;
-  border-radius: 9999px;
-  border: 1.5px solid rgba(247, 236, 223, 0.18);
-  box-shadow:
-    0 0 0 5px rgba(247, 236, 223, 0.06),
-    inset 0 0 0 4px rgba(247, 236, 223, 0.1);
-  opacity: 0.62;
-  pointer-events: none;
 }
 
 .vc-ul-loading-card,

@@ -379,23 +379,64 @@
   function clearLeaderPending() {
     try {
       document.documentElement.classList.remove("vc-user-leader-pending");
-      if (isProfileMode()) {
-        document.documentElement.classList.add("vc-page-cine-ready");
-        document.documentElement.classList.remove("vc-page-cine-boot");
-        return;
-      }
-      var body = document.body;
-      if (body && body.dataset.vcPageCineLayout === "1") {
-        document.documentElement.classList.add("vc-page-cine-ready");
-        document.documentElement.classList.remove("vc-page-cine-boot");
-        return;
-      }
-      if (typeof window.__vcPageHeroLayout === "function") {
-        window.__vcPageHeroLayout();
-      } else {
-        document.documentElement.classList.add("vc-page-cine-ready");
-      }
+      document.documentElement.classList.remove("vc-loading-scroll-lock");
+      document.documentElement.classList.add("vc-page-cine-ready");
+      document.documentElement.classList.remove("vc-page-cine-boot");
     } catch (ePending) {}
+    try {
+      var html = document.documentElement;
+      var body = document.body;
+      if (html) {
+        html.style.removeProperty("overflow");
+        html.style.removeProperty("overflow-x");
+        html.style.removeProperty("overflow-y");
+        html.style.removeProperty("height");
+        html.style.removeProperty("max-height");
+        html.style.removeProperty("touch-action");
+      }
+      if (body) {
+        body.style.removeProperty("position");
+        body.style.removeProperty("inset");
+        body.style.removeProperty("top");
+        body.style.removeProperty("right");
+        body.style.removeProperty("bottom");
+        body.style.removeProperty("left");
+        body.style.removeProperty("width");
+        body.style.removeProperty("overflow");
+        body.style.removeProperty("overflow-x");
+        body.style.removeProperty("overflow-y");
+        body.style.removeProperty("height");
+        body.style.removeProperty("max-height");
+        body.style.removeProperty("touch-action");
+      }
+    } catch (eStyle) {}
+    if (isProfileMode()) return;
+    function refreshCommunityLayout() {
+      try {
+        if (typeof window.__vcEnsureCommunityPageCineLayout === "function") {
+          window.__vcEnsureCommunityPageCineLayout();
+          return;
+        }
+        if (typeof window.__vcPageHeroLayout === "function") {
+          window.__vcPageHeroLayout({ force: true });
+        }
+      } catch (eLayout) {}
+    }
+    function resetCommunityScroll() {
+      try {
+        window.scrollTo(0, 0);
+        if (document.documentElement) document.documentElement.scrollTop = 0;
+        if (document.body) document.body.scrollTop = 0;
+      } catch (eScroll) {}
+    }
+    refreshCommunityLayout();
+    window.setTimeout(refreshCommunityLayout, 0);
+    window.setTimeout(refreshCommunityLayout, 150);
+    window.setTimeout(function () {
+      refreshCommunityLayout();
+      resetCommunityScroll();
+    }, 320);
+    window.requestAnimationFrame(resetCommunityScroll);
   }
 
   function setLoading(on, label) {
@@ -830,6 +871,11 @@
       return renderCard(r, board);
     }).join("");
     animateNumberTargets(grid);
+    try {
+      if (typeof window.__vcSitePolishRise === "function") window.__vcSitePolishRise();
+      if (typeof window.__vcInitPanelTilt === "function") window.__vcInitPanelTilt();
+      document.dispatchEvent(new Event("vc:ul-ready"));
+    } catch (ePolishFx) {}
     state.totalPages = Math.max(1, Number(data.totalPages) || 1);
     updatePager();
   }

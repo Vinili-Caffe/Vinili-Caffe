@@ -224,7 +224,7 @@
 
   function profileCustomizeUrl(userId) {
     var id = String(userId || "").trim();
-    return id ? "/user/" + encodeURIComponent(id) + "/personalizza" : "/user/personalizza";
+    return id ? "/user/personalizza/?id=" + encodeURIComponent(id) : "/user/personalizza";
   }
 
   function formatIntIt(n) {
@@ -438,10 +438,78 @@
       });
   }
 
+  function fetchProfileBundle(userId) {
+    var url = buildApiUrl("profile", userId);
+    if (!url) {
+      return Promise.resolve({
+        ok: false,
+        notFound: false,
+        profile: null,
+        level: null,
+        weekly: null,
+        messages: null,
+        voice: null,
+      });
+    }
+    return cachedJsonFetch(url, PROFILE_CACHE_TTL_MS)
+      .then(function (out) {
+        var b = out && out.body ? out.body : {};
+        var rows = b && b.rows && typeof b.rows === "object" ? b.rows : {};
+        return {
+          ok: Boolean(out && out.httpOk && b && b.ok === true),
+          notFound: Boolean(b && b.notFound),
+          profile: b && b.profile ? b.profile : null,
+          level: rows.level || null,
+          weekly: rows.weekly || null,
+          messages: rows.messages || null,
+          voice: rows.voice || null,
+        };
+      })
+      .catch(function () {
+        return {
+          ok: false,
+          notFound: false,
+          profile: null,
+          level: null,
+          weekly: null,
+          messages: null,
+          voice: null,
+        };
+      });
+  }
+
   function clearProfilePending() {
     try {
       document.documentElement.classList.remove("vc-user-profile-pending");
+      document.documentElement.classList.remove("vc-loading-scroll-lock");
     } catch (e) {}
+    try {
+      var html = document.documentElement;
+      var body = document.body;
+      if (html) {
+        html.style.removeProperty("overflow");
+        html.style.removeProperty("overflow-x");
+        html.style.removeProperty("overflow-y");
+        html.style.removeProperty("height");
+        html.style.removeProperty("max-height");
+        html.style.removeProperty("touch-action");
+      }
+      if (body) {
+        body.style.removeProperty("position");
+        body.style.removeProperty("inset");
+        body.style.removeProperty("top");
+        body.style.removeProperty("right");
+        body.style.removeProperty("bottom");
+        body.style.removeProperty("left");
+        body.style.removeProperty("width");
+        body.style.removeProperty("overflow");
+        body.style.removeProperty("overflow-x");
+        body.style.removeProperty("overflow-y");
+        body.style.removeProperty("height");
+        body.style.removeProperty("max-height");
+        body.style.removeProperty("touch-action");
+      }
+    } catch (eStyle) {}
   }
 
   function clearProfileLoading() {
@@ -467,8 +535,8 @@
   }
 
   function renderError(root) {
-    clearProfilePending();
     clearProfileLoading();
+    root.hidden = false;
     root.innerHTML =
       '<section class="vc-user-profile-shell">' +
       '<div class="vc-user-profile-empty">' +
@@ -477,12 +545,13 @@
       '<p class="vc-user-profile-empty__text">Non sono riuscito a caricare i dati del profilo in questo momento.</p>' +
       '<a class="vc-user-profile-empty__cta" href="/user">Torna alla Community</a>' +
       "</div></section>";
+    clearProfilePending();
   }
 
   function renderEmpty(root, userId) {
-    clearProfilePending();
     clearProfileLoading();
-    document.title = siteName() + " | Profilo " + userId;
+    document.title = siteName() + " | Profilo ";
+    root.hidden = false;
     root.innerHTML =
       '<section class="vc-user-profile-shell vc-user-profile-shell--notfound">' +
       '<div class="vc-user-profile-notfound">' +
@@ -490,6 +559,7 @@
       '<h1 class="vc-user-profile-notfound__title">Utente non trovato</h1>' +
       '<a class="vc-user-profile-notfound__cta" href="/user">Torna alla Community</a>' +
       "</div></section>";
+    clearProfilePending();
   }
 
   function includesAnyRole(roleText, terms) {
@@ -621,8 +691,8 @@
   }
 
   function renderProfile(root, userId, payload) {
-    clearProfilePending();
     clearProfileLoading();
+    root.hidden = false;
     var level = payload.level || {};
     var weekly = payload.weekly || {};
     var messages = payload.messages || {};
@@ -868,7 +938,7 @@
           "</section>"
         : "";
 
-    document.title = siteName() + " | Profilo " + userId;
+    document.title = siteName() + " | Profilo ";
     root.innerHTML =
       '<section class="vc-user-profile-shell">' +
       '<section class="vc-user-profile-hero">' +
@@ -973,6 +1043,7 @@
       rolesHtml +
       "</div></section>" +
       "</section>";
+    clearProfilePending();
   }
 
   function releaseProfileRankObjectUrl() {
@@ -1080,6 +1151,72 @@
 
   var profileInitialLoadDone = false;
 
+  function applyProfileResult(root, userId, result, silent) {
+    var level = result && result.level ? result.level : null;
+    var weekly = result && result.weekly ? result.weekly : null;
+    var messages = result && result.messages ? result.messages : null;
+    var voice = result && result.voice ? result.voice : null;
+    var profile = (result && result.profile ? result.profile : {}) || {};
+
+    if (result && result.notFound) {
+      if (silent) return false;
+      renderEmpty(root, userId);
+      return false;
+    }
+
+    if (!result || !result.ok) {
+      if (silent) return false;
+      renderError(root);
+      return false;
+    }
+
+    var hasAny =
+      Boolean(level || weekly || messages || voice) &&
+      ((level && Number(level.exp) > 0) ||
+        (weekly && Number(weekly.weeklyExp) > 0) ||
+        (messages && Number(messages.messagesTotal) > 0) ||
+        (voice && Number(voice.voiceTotalSeconds) > 0) ||
+        Boolean(profile.customProfile));
+
+    if (!hasAny) {
+      if (silent) return false;
+      renderEmpty(root, userId);
+      return false;
+    }
+
+    lastRenderedProfile = {
+      root: root,
+      userId: userId,
+      payload: {
+        profile: profile || {},
+        level: level || {},
+        weekly: weekly || {},
+        messages: messages || {},
+        voice: voice || {},
+      },
+    };
+
+    profileInitialLoadDone = true;
+    renderProfile(root, userId, lastRenderedProfile.payload);
+    loadProfileRankCardPreview(userId);
+    return true;
+  }
+
+  function readCachedProfileBundle(userId) {
+    var url = buildApiUrl("profile", userId);
+    if (!url) return null;
+    var key = "vc:profilecache:" + String(url || "");
+    var now = Date.now();
+    var mem = profileMemoryCache.get(key);
+    if (mem && Number.isFinite(mem.expireAt) && mem.expireAt > now && mem.value) {
+      return mem.value;
+    }
+    var sess = readSessionCache(key, now);
+    if (!sess) return null;
+    profileMemoryCache.set(key, { expireAt: now + PROFILE_CACHE_TTL_MS, value: sess });
+    return sess;
+  }
+
   function loadProfile(options) {
     options = options || {};
     var silent = Boolean(options.silent);
@@ -1091,71 +1228,33 @@
     if (!silent) {
       currentViewer = (typeof window !== "undefined" && window.__VC_DISCORD_PROFILE) || currentViewer;
       hideLeaderOnlySections();
-      renderLoading(root);
+      var cachedOut = readCachedProfileBundle(userId);
+      var cachedBody = cachedOut && cachedOut.body ? cachedOut.body : null;
+      if (cachedOut && cachedOut.httpOk && cachedBody && cachedBody.ok && !cachedBody.notFound) {
+        applyProfileResult(
+          root,
+          userId,
+          {
+            ok: true,
+            notFound: false,
+            profile: cachedBody.profile || null,
+            level: cachedBody.rows && cachedBody.rows.level ? cachedBody.rows.level : null,
+            weekly: cachedBody.rows && cachedBody.rows.weekly ? cachedBody.rows.weekly : null,
+            messages: cachedBody.rows && cachedBody.rows.messages ? cachedBody.rows.messages : null,
+            voice: cachedBody.rows && cachedBody.rows.voice ? cachedBody.rows.voice : null,
+          },
+          false,
+        );
+      } else {
+        renderLoading(root);
+      }
     }
 
-    return Promise.all([
-      fetchBoard("level", userId),
-      fetchBoard("weekly", userId),
-      fetchBoard("messages", userId),
-      fetchBoard("voice", userId),
-    ]).then(function (results) {
-      var level = results[0] && results[0].rows && results[0].rows[0] ? results[0].rows[0] : null;
-      var weekly = results[1] && results[1].rows && results[1].rows[0] ? results[1].rows[0] : null;
-      var messages = results[2] && results[2].rows && results[2].rows[0] ? results[2].rows[0] : null;
-      var voice = results[3] && results[3].rows && results[3].rows[0] ? results[3].rows[0] : null;
-      var profile = {};
-      var hasAny = false;
-      var i;
-
-      for (i = 0; i < results.length; i += 1) {
-        if (results[i] && results[i].profile) {
-          var nextProfile = results[i].profile || {};
-          profile = Object.assign({}, profile, nextProfile);
-          if (Array.isArray(nextProfile.roles) && nextProfile.roles.length) {
-            profile.roles = nextProfile.roles.slice();
-          }
-          if (Array.isArray(nextProfile.weeklyMultiplierSources) && nextProfile.weeklyMultiplierSources.length) {
-            profile.weeklyMultiplierSources = nextProfile.weeklyMultiplierSources.slice();
-          }
-          if (nextProfile.customProfile) {
-            profile.customProfile = nextProfile.customProfile;
-          }
-        }
-      }
-
-      hasAny =
-        Boolean(level || weekly || messages || voice) &&
-        ((level && Number(level.exp) > 0) ||
-          (weekly && Number(weekly.weeklyExp) > 0) ||
-          (messages && Number(messages.messagesTotal) > 0) ||
-          (voice && Number(voice.voiceTotalSeconds) > 0) ||
-          Boolean(profile.customProfile));
-
-      if (!hasAny) {
-        if (silent) return;
-        renderEmpty(root, userId);
-        return;
-      }
-
-      lastRenderedProfile = {
-        root: root,
-        userId: userId,
-        payload: {
-          profile: profile || {},
-          level: level || {},
-          weekly: weekly || {},
-          messages: messages || {},
-          voice: voice || {},
-        },
-      };
-
-      profileInitialLoadDone = true;
-      renderProfile(root, userId, lastRenderedProfile.payload);
-      loadProfileRankCardPreview(userId);
+    return fetchProfileBundle(userId).then(function (result) {
+      applyProfileResult(root, userId, result, silent);
     }).catch(function () {
       if (silent) return;
-      renderError(root);
+      if (!profileInitialLoadDone) renderError(root);
     });
   }
 

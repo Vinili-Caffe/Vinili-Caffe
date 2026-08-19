@@ -224,6 +224,9 @@ function isBenignDiscordMinigameError(err) {
 function warnMinigame(err) {
   if (isBenignDiscordMinigameError(err)) return;
   const msg = err?.message || err?.response?.data || String(err);
+  if (typeof msg === "string") {
+    if (msg.includes("treasure_hunt_react_failed:decoy")) return;
+  }
   const status = err?.response?.status;
   const url = err?.response?.config?.url || err?.config?.url;
   const is429 = status === 429 || (typeof msg === "string" && msg.includes("429"));
@@ -394,6 +397,10 @@ function logMinigameDebug(message, data = null) {
     return;
   }
   global.logger?.info?.(`[MINIGAMES][DEBUG] ${message}`);
+}
+
+function logTreasureHuntReactDebug(message, data = null) {
+  logMinigameDebug(`TreasureHunt ${message}`, data);
 }
 
 /**
@@ -12610,11 +12617,25 @@ async function reactTreasureHuntEmojiWithFallbacks(message, token) {
   const intended = String(token || "").trim();
   if (!intended || typeof message?.react !== "function") return null;
   const client = message.client;
-  if (await botPlacedTreasureReaction(message, intended, client).catch(() => false)) return intended;
+  const baseMeta = {
+    channelId: String(message?.channelId || message?.channel?.id || ""),
+    messageId: String(message?.id || ""),
+    intended,
+  };
+  if (await botPlacedTreasureReaction(message, intended, client).catch(() => false)) {
+    logTreasureHuntReactDebug("reaction already present before react", baseMeta);
+    return intended;
+  }
 
-  if (await reactTreasureHuntEmoji(message, intended, { quiet: true })) return intended;
+  if (await reactTreasureHuntEmoji(message, intended, { quiet: true })) {
+    logTreasureHuntReactDebug("primary react ok", baseMeta);
+    return intended;
+  }
   const afterPrimary = await message.fetch().catch(() => message);
-  if (findMessageReactionByToken(afterPrimary || message, intended)) return intended;
+  if (findMessageReactionByToken(afterPrimary || message, intended)) {
+    logTreasureHuntReactDebug("primary react visible after fetch", baseMeta);
+    return intended;
+  }
 
   const candidates = [];
   const seen = new Set([intended, normalizeTreasureEmojiKey(intended)]);
@@ -12626,14 +12647,27 @@ async function reactTreasureHuntEmojiWithFallbacks(message, token) {
   };
   for (const fb of TREASURE_HUNT_REACT_FALLBACKS) add(fb);
   for (const candidate of candidates) {
-    if (findMessageReactionByToken(afterPrimary || message, candidate)) return candidate;
-    if (await reactTreasureHuntEmoji(message, candidate, { quiet: true })) return candidate;
+    if (findMessageReactionByToken(afterPrimary || message, candidate)) {
+      logTreasureHuntReactDebug("fallback already present", { ...baseMeta, fallback: candidate });
+      return candidate;
+    }
+    if (await reactTreasureHuntEmoji(message, candidate, { quiet: true })) {
+      logTreasureHuntReactDebug("fallback react ok", { ...baseMeta, fallback: candidate });
+      return candidate;
+    }
   }
   const latest = await message.fetch().catch(() => afterPrimary || message);
-  if (findMessageReactionByToken(latest, intended)) return intended;
-  for (const candidate of candidates) {
-    if (findMessageReactionByToken(latest, candidate)) return candidate;
+  if (findMessageReactionByToken(latest, intended)) {
+    logTreasureHuntReactDebug("intended reaction visible on final fetch", baseMeta);
+    return intended;
   }
+  for (const candidate of candidates) {
+    if (findMessageReactionByToken(latest, candidate)) {
+      logTreasureHuntReactDebug("fallback visible on final fetch", { ...baseMeta, fallback: candidate });
+      return candidate;
+    }
+  }
+  logTreasureHuntReactDebug("all react attempts failed", { ...baseMeta, fallbackCount: candidates.length });
   return null;
 }
 
@@ -12998,8 +13032,22 @@ async function handleTreasureHuntIncomingMessage(message, client, cfg) {
   const winnerIndex = Math.max(1, Number(live.winnerIndex || 1));
   const isWinner = nextCount === winnerIndex;
   const emoji = isWinner ? live.winner : live.decoy;
+  logTreasureHuntReactDebug("incoming candidate", {
+    channelId: String(message?.channelId || message?.channel?.id || ""),
+    messageId: msgId,
+    authorId: String(message?.author?.id || ""),
+    nextCount,
+    winnerIndex,
+    isWinner,
+    emoji,
+  });
   let placedToken = await reactTreasureHuntEmojiWithFallbacks(message, emoji);
   if (!placedToken && isWinner) {
+    logTreasureHuntReactDebug("winner primary react failed, retrying", {
+      channelId: String(message?.channelId || message?.channel?.id || ""),
+      messageId: msgId,
+      winner: live.winner,
+    });
     await new Promise((r) => setTimeout(r, 400));
     placedToken = await reactTreasureHuntEmojiWithFallbacks(message, live.winner);
   }
@@ -13008,12 +13056,32 @@ async function handleTreasureHuntIncomingMessage(message, client, cfg) {
     if (stillThere && findMessageReactionByToken(stillThere, emoji)) {
       placedToken = emoji;
     } else if (stillThere) {
+      global.logger?.warn?.("[MINIGAMES] TreasureHunt react placement failed", {
+        channelId: String(message?.channelId || message?.channel?.id || ""),
+        messageId: msgId,
+        authorId: String(message?.author?.id || ""),
+        nextCount,
+        winnerIndex,
+        isWinner,
+        intendedEmoji: emoji,
+        winnerEmoji: live.winner,
+        decoyEmoji: live.decoy,
+        reactionKeys: Array.from(stillThere.reactions?.cache?.keys?.() || []),
+      });
       warnMinigame(new Error(`treasure_hunt_react_failed:${isWinner ? "winner" : "decoy"}:${emoji}`));
+      return false;
     }
   } else {
     if (isWinner && placedToken !== live.winner) live.winner = placedToken;
     if (!isWinner && placedToken !== live.decoy) live.decoy = placedToken;
   }
+  logTreasureHuntReactDebug("reaction placed", {
+    channelId: String(message?.channelId || message?.channel?.id || ""),
+    messageId: msgId,
+    nextCount,
+    isWinner,
+    placedToken,
+  });
   live.collectedCount = nextCount;
   if (!Array.isArray(live.candidateIds)) live.candidateIds = [];
   live.candidateIds.push(msgId);

@@ -60,6 +60,7 @@ function resolveGuildId(client) {
 
 function parseBoard(raw) {
   const b = String(raw || "level").trim().toLowerCase();
+  if (b === "profile") return "profile";
   if (b === "weekly" || b === "messages" || b === "voice") return b;
   return "level";
 }
@@ -455,10 +456,199 @@ function buildWeeklyMultiplierSources(member, settings, fallbackGlobalExpMultipl
   return sources;
 }
 
-async function buildRowFromDoc(client, guild, board, d, rank, pageMaxSecondary, globalExpMultiplier, overrides, weeklyEffectiveMultiplier) {
+async function getCachedWeeklyHourlySorted(guild) {
+  if (!guild) return [];
+  const cacheKey = `v1:${guild.id}:weekly-hourly-sorted`;
+  const cached = cacheGet(cacheKey);
+  if (Array.isArray(cached)) return cached;
+  const breakdown = await computeLeaderboardRows(guild, "weekly", 8000).catch(() => []);
+  const sorted = sortHourlyBreakdownForBoard(breakdown, "weekly");
+  cacheSet(cacheKey, sorted);
+  return sorted;
+}
+
+async function computeUserSearchRankMeta({ guild, guildId, board, doc, searchId, weeklySorted, romeDayKey }) {
+  let pageMaxSecondary = 1;
+  let hourlySingular = null;
+  let searchRank = 1;
+  const useHourlyBoard = Boolean(guild) && board === "weekly";
+  if (useHourlyBoard) {
+    const sorted = Array.isArray(weeklySorted) ? weeklySorted : [];
+    const idx = sorted.findIndex((r) => String(r.userId) === searchId);
+    const agg = idx >= 0 ? sorted[idx] : null;
+    searchRank = idx >= 0 ? idx + 1 : 0;
+    pageMaxSecondary = Math.max(1, nInt(agg?.exp ?? 0));
+    hourlySingular = { weeklyExp: nInt(agg?.exp ?? 0) };
+  } else if (board === "weekly") {
+    const we = nInt(doc.profile?.totals?.exp?.weeklyExp);
+    pageMaxSecondary = Math.max(1, we);
+    const higher = await ActivityUserProfile.countDocuments({
+      guildId,
+      "profile.totals.exp.weeklyExp": { $gt: we },
+    }).catch(() => 0);
+    searchRank = higher + 1;
+  } else if (board === "messages") {
+    const mt = nInt(doc.profile?.totals?.messagesTotal);
+    pageMaxSecondary = Math.max(1, mt);
+    const higherAgg = await ActivityUserProfile.aggregate([
+      { $match: { guildId, "profile.totals.exp.totalExp": { $gt: 0 } } },
+      { $addFields: { __sortVal: numericSortExpr("messages") } },
+      { $match: { __sortVal: { $gt: mt } } },
+      { $count: "n" },
+    ]).catch(() => []);
+    const higher = nInt(higherAgg?.[0]?.n);
+    searchRank = higher + 1;
+  } else if (board === "voice") {
+    const vs = nInt(doc.profile?.totals?.voiceTotalSeconds);
+    pageMaxSecondary = Math.max(1, vs);
+    const higherAgg = await ActivityUserProfile.aggregate([
+      { $match: { guildId, "profile.totals.exp.totalExp": { $gt: 0 } } },
+      { $addFields: { __sortVal: numericSortExpr("voice") } },
+      { $match: { __sortVal: { $gt: vs } } },
+      { $count: "n" },
+    ]).catch(() => []);
+    const higher = nInt(higherAgg?.[0]?.n);
+    searchRank = higher + 1;
+  } else if (board === "level") {
+    const te = nInt(doc.profile?.totals?.exp?.totalExp);
+    const higher = await ActivityUserProfile.countDocuments({
+      guildId,
+      "profile.totals.exp.totalExp": { $gt: te },
+    }).catch(() => 0);
+    searchRank = higher + 1;
+  }
+  let overrides =
+    useHourlyBoard && hourlySingular && board === "weekly" ? { weeklyExp: hourlySingular.weeklyExp } : null;
+  let dayOvr = {};
+  if (guild && (board === "messages" || board === "voice")) {
+    dayOvr = siteRomeDayOverridesFromDoc(doc, board, romeDayKey);
+  }
+  overrides = { ...(overrides || {}), ...dayOvr };
+  return { searchRank, pageMaxSecondary, overrides };
+}
+
+async function buildProfileSearchPayload(client, guildId, searchId) {
+  const guild = client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
+  const doc = await ActivityUserProfile.findOne({ guildId, userId: searchId }).select(SEARCH_SELECT).lean().catch(() => null);
+  if (!doc) {
+    return {
+      ok: true,
+      search: true,
+      notFound: true,
+      board: "profile",
+      page: 1,
+      perPage: 1,
+      total: 0,
+      totalPages: 1,
+      profile: null,
+      rows: {},
+    };
+  }
+
+  const boards = ["level", "weekly", "messages", "voice"];
+  const romeDayKey = getRomeDayKey(new Date());
+  const [member, customProfile, globalExpMultiplierRaw, guildExpSettings, weeklySorted] = await Promise.all([
+    guild?.members?.cache?.get?.(searchId) ||
+      (guild ? guild.members.fetch({ user: searchId, force: true }).catch(() => null) : null),
+    buildCustomProfileData(guild, searchId),
+    getGlobalMultiplier(guildId).catch(() => 1),
+    getGuildExpSettings(guildId).catch(() => null),
+    guild ? getCachedWeeklyHourlySorted(guild) : Promise.resolve([]),
+  ]);
+
+  let globalExpMultiplier = Number(globalExpMultiplierRaw);
+  if (!Number.isFinite(globalExpMultiplier) || globalExpMultiplier <= 0) globalExpMultiplier = 1;
+
+  const [identity, expMultiplierResolved, ...rankMetas] = await Promise.all([
+    fetchUserIdentity(client, guild, searchId),
+    guild && searchId ? getResolvedWeeklyExpMultiplier(guild, searchId, guildExpSettings).catch(() => null) : null,
+    ...boards.map((board) =>
+      computeUserSearchRankMeta({ guild, guildId, board, doc, searchId, weeklySorted, romeDayKey }),
+    ),
+  ]);
+
+  const rows = {};
+  for (let i = 0; i < boards.length; i += 1) {
+    const board = boards[i];
+    const meta = rankMetas[i];
+    rows[board] = await buildRowFromDoc(
+      client,
+      guild,
+      board,
+      doc,
+      meta.searchRank,
+      meta.pageMaxSecondary,
+      globalExpMultiplier,
+      meta.overrides,
+      board === "weekly" ? expMultiplierResolved : null,
+      identity,
+    );
+  }
+
+  const levelRow = rows.level || {};
+  const profileRoles = member?.roles?.cache
+    ? [...member.roles.cache.values()]
+        .filter((role) => String(role?.id || "") && String(role.id) !== String(guild?.id || ""))
+        .sort((a, b) => Number(b?.position || 0) - Number(a?.position || 0))
+        .map((role) => ({
+          id: String(role.id),
+          name: String(role.name || "Ruolo"),
+          color:
+            String(role.hexColor || "").trim() && String(role.hexColor || "").trim() !== "#000000"
+              ? String(role.hexColor || "").trim()
+              : "",
+        }))
+    : [];
+  const profileAvatarUrl =
+    (member && siteMemberAvatarUrl(member, 256)) || String(levelRow.avatarUrl || "").trim();
+  const weeklyMultiplierSources = buildWeeklyMultiplierSources(member, guildExpSettings, globalExpMultiplier);
+  const effectiveJoined = member ? await getEffectiveJoinedAt(member).catch(() => null) : null;
+
+  return {
+    ok: true,
+    search: true,
+    notFound: false,
+    board: "profile",
+    page: 1,
+    perPage: 1,
+    total: 1,
+    totalPages: 1,
+    profile: {
+      userId: String(levelRow.userId || searchId),
+      username: String(levelRow.username || "").trim(),
+      displayName: String((member && member.user?.username) || levelRow.username || "").trim(),
+      avatarUrl: String(profileAvatarUrl || "").trim(),
+      joinedAt: effectiveJoined
+        ? effectiveJoined.toISOString()
+        : member?.joinedAt
+          ? new Date(member.joinedAt).toISOString()
+          : "",
+      rankCard: getRankCardThemeFromDoc(doc),
+      rankCardResolvedWallpaper: resolveRankCardWallpaper(doc?.profile?.rankCard || {}),
+      roles: profileRoles,
+      ...(customProfile ? { customProfile } : {}),
+      ...(Array.isArray(weeklyMultiplierSources) ? { weeklyMultiplierSources } : {}),
+      ...(Number.isFinite(Number(expMultiplierResolved)) ? { expMultiplierResolved: Number(expMultiplierResolved) } : {}),
+    },
+    rows,
+  };
+}
+
+async function buildRowFromDoc(
+  client,
+  guild,
+  board,
+  d,
+  rank,
+  pageMaxSecondary,
+  globalExpMultiplier,
+  overrides,
+  weeklyEffectiveMultiplier,
+  identityPreload,
+) {
   const ov = overrides && typeof overrides === "object" ? overrides : null;
   const userId = String(d.userId || "");
-  const id = await fetchUserIdentity(client, guild, userId);
+  const id = identityPreload || (await fetchUserIdentity(client, guild, userId));
   if (board === "level") {
     const totalExp = nInt(d.profile?.totals?.exp?.totalExp);
     const li = getLevelInfo(totalExp);
@@ -600,7 +790,7 @@ function buildSearchStats(guild, board, d, topAccountUsername, globalExpMult, ho
 
 /**
  * GET JSON classifica utenti.
- * Query: board=level|weekly|messages|voice, page, perPage, userId (ricerca singolo profilo).
+ * Query: board=level|weekly|messages|voice|profile, page, perPage, userId (ricerca singolo profilo).
  */
 async function handleSiteUsersLeaderboardGet(client, req, res) {
   try {
@@ -611,6 +801,19 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
     const q = req.query || {};
     const board = parseBoard(q.board);
     const searchId = parseSearchUserId(q.userId ?? q.user_id ?? q.id ?? q.searchUserId ?? q.uid);
+
+    if (searchId && board === "profile") {
+      const profileCacheKey = `profile:${guildId}:${searchId}`;
+      const cachedProfile = cacheGet(profileCacheKey);
+      if (cachedProfile) {
+        res.setHeader("Cache-Control", "public, max-age=15");
+        return res.json(cachedProfile);
+      }
+      const payload = await buildProfileSearchPayload(client, guildId, searchId);
+      cacheSet(profileCacheKey, payload);
+      res.setHeader("Cache-Control", payload.notFound ? "no-store" : "public, max-age=15");
+      return res.json(payload);
+    }
 
     if (searchId) {
       const guild = client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));

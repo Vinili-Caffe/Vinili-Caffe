@@ -419,9 +419,32 @@
     return Promise.reject(new Error("yt_api"));
   }
 
-  function onYoutubeBlocked() {
+  function youtubeErrorHint(code) {
+    var c = Number(code);
+    if (c === 101 || c === 150 || c === 153) {
+      return "Questo brano non può essere riprodotto qui.";
+    }
+    if (c === 100) {
+      return "Video non trovato o non più disponibile.";
+    }
+    if (c === 2 || c === 5) {
+      return "Riproduzione non disponibile al momento.";
+    }
+    return "Musica non disponibile al momento. Riprova tra poco.";
+  }
+
+  function youtubeApiHint() {
+    try {
+      if (window.__vcYoutubeApiBlocked) {
+        return "Impossibile caricare YouTube. Se il browser blocca cookie o script di terze parti, consenti youtube.com.";
+      }
+    } catch (eB) {}
+    return "Musica non pronta. Controlla la connessione e tocca per riprovare.";
+  }
+
+  function onYoutubeBlocked(kind, code) {
     ytLoadFailed = true;
-    ensureHint("Musica bloccata dall’ad-blocker. Consenti youtube-nocookie.com.");
+    ensureHint(kind === "api" ? youtubeApiHint() : youtubeErrorHint(code));
   }
 
   function tryNextYoutubeVideo() {
@@ -489,7 +512,7 @@
           booting = false;
           if (tryNextYoutubeVideo()) return;
           var code = ev && ev.data != null ? ev.data : "?";
-          onYoutubeBlocked();
+          onYoutubeBlocked("player", code);
           var btn = document.getElementById("vc-hw-music-btn");
           if (btn) btn.title = "Musica non disponibile (YouTube " + code + ")";
         },
@@ -546,7 +569,7 @@
         if (!player) createPlayer();
       })
       .catch(function () {
-        onYoutubeBlocked();
+        onYoutubeBlocked("api");
       });
   }
 
@@ -629,7 +652,7 @@
     if (!force && !bgmAllowed()) return;
     if (force) ytLoadFailed = false;
     else if (ytLoadFailed) {
-      onYoutubeBlocked();
+      onYoutubeBlocked("api");
       return;
     }
     if (pausedForEmbeddedVideo) {

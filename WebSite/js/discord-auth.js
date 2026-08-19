@@ -639,19 +639,35 @@
     }
   }
 
-  function profileHref(userId) {
-    if (isStaffContextPath()) {
-      return "/staff/profilo/";
-    }
-    if (isDashboardContextPath()) {
-      try {
-        var d = window.__VC_SITE_DASHBOARD || {};
-        if (d.profilePageUrl) return String(d.profilePageUrl);
-      } catch (e0) {}
-      return "/dashboard/profilo/";
-    }
+  function resolveAccountUserId(userId) {
     var id = String(userId || "").trim();
-    return id ? "/users/" + encodeURIComponent(id) : "/user";
+    if (/^\d{17,22}$/.test(id)) return id;
+    try {
+      var profile = window.__VC_DISCORD_PROFILE;
+      var fromProfile = String(profile && profile.id || "").trim();
+      if (/^\d{17,22}$/.test(fromProfile)) return fromProfile;
+    } catch (eP) {}
+    return "";
+  }
+
+  function profileHref(userId) {
+    var id = resolveAccountUserId(userId);
+    return id ? "/user/?id=" + encodeURIComponent(id) : "/user";
+  }
+
+  function isOwnProfileCurrent(userId) {
+    var id = resolveAccountUserId(userId);
+    if (!id) return false;
+    try {
+      var path = String(window.location.pathname || "").replace(/\/+$/, "") || "/";
+      if (path === "/user/personalizza" || path === "/user/customize") return false;
+      var q = new URLSearchParams(window.location.search || "");
+      var qid = String(q.get("id") || q.get("userId") || q.get("uid") || "").trim();
+      if (qid === id && (path === "/user" || path === "/users")) return true;
+      var m = String(window.location.pathname || "").match(/^\/users?\/(\d{17,22})(?:\/|$)/i);
+      if (m && String(m[1]) === id) return true;
+    } catch (e) {}
+    return false;
   }
 
   function dashboardPageHref() {
@@ -1123,7 +1139,7 @@
     var href = escAttr(profileHref(user && user.id));
     var dashHref = escAttr(dashboardPageHref());
     var staffHref = escAttr(staffPageHref());
-    var isProfileCurrent = isProfileContextPath();
+    var isProfileCurrent = isOwnProfileCurrent(user && user.id);
     var isDashCurrent = isDashboardContextPath();
     var isStaffAreaCurrent = isStaffAreaContextPath();
     var avatarVisual = img
@@ -1153,7 +1169,7 @@
       label +
       "</span></div>" +
       '<div class="discord-account-popover__nav" role="none">' +
-      '<a class="discord-account-popover__item' +
+      '<a id="discord-profile-menu-link" class="discord-account-popover__item' +
       (isProfileCurrent ? " is-current" : "") +
       '" role="menuitem" href="' +
       href +

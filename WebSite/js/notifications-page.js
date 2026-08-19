@@ -1041,16 +1041,18 @@
       var actions = document.createElement("div");
       actions.className = "vc-notify-row-actions";
 
-      var openBtn = document.createElement("button");
-      openBtn.type = "button";
+      var openBtn = document.createElement(destRaw ? "a" : "button");
+      if (!destRaw) openBtn.type = "button";
       openBtn.className = "vc-notify-open-btn";
+      if (destRaw) openBtn.href = resolveNotifDestUrl(destRaw);
       openBtn.appendChild(document.createTextNode(t("notifPage.goTo") + " "));
       var openChev = document.createElement("i");
       openChev.className = "fa fa-chevron-right";
       openChev.setAttribute("aria-hidden", "true");
       openBtn.appendChild(openChev);
       openBtn.setAttribute("aria-label", t("notifPage.goToAria"));
-      openBtn.addEventListener("click", function () {
+      openBtn.addEventListener("click", function (ev) {
+        if (destRaw && ev && typeof ev.preventDefault === "function") ev.preventDefault();
         openAndMarkRead(n, destRaw);
       });
 

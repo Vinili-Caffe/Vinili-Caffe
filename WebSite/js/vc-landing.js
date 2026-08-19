@@ -88,6 +88,23 @@
 
   if (!maybeRestoreFromHome() && isStandalonePwa()) saveResume(currentPath());
 
+  function isSameOriginHref(href) {
+    try {
+      var url = new URL(String(href || ""), window.location.href);
+      return url.origin === window.location.origin;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function assignInApp(url) {
+    try {
+      window.location.assign(url.pathname + url.search + url.hash);
+    } catch (eA) {
+      window.location.href = String(url.href || "/");
+    }
+  }
+
   document.addEventListener(
     "click",
     function (ev) {
@@ -99,6 +116,25 @@
         return;
       }
       if (!isStandalonePwa()) return;
+      if (
+        !ev.defaultPrevented &&
+        ev.button === 0 &&
+        !ev.metaKey &&
+        !ev.ctrlKey &&
+        !ev.shiftKey &&
+        !ev.altKey &&
+        isSameOriginHref(href) &&
+        !a.hasAttribute("download")
+      ) {
+        var target = String(a.getAttribute("target") || "").toLowerCase();
+        if (target === "_blank") {
+          ev.preventDefault();
+          try {
+            assignInApp(new URL(href, window.location.href));
+          } catch (eNav) {}
+          return;
+        }
+      }
       if (isHomeHref(href)) {
         try {
           sessionStorage.setItem(WANT_HOME_KEY, "1");
@@ -1196,7 +1232,7 @@
     var ov = document.querySelector(".vc-session-verify-overlay:not(.vc-session-verify-overlay--hidden)");
     if (ov) return true;
     if (document.querySelector(".vc-ul-loading:not([hidden])")) return true;
-    if (document.querySelector(".vc-rank-customize-loading:not([hidden])")) return true;
+    if (document.querySelector("#vc-rank-customize-loading:not([hidden])")) return true;
     if (document.getElementById("vc-user-profile-loading")) return true;
     if (document.querySelector("body > .vc-user-profile-loader")) return true;
     if (document.querySelector("#vc-user-profile-view:not([hidden]) .vc-user-profile-loader")) return true;
@@ -1224,6 +1260,76 @@
   var loaderScrollLockSideEffects = false;
   var loaderScrollLockMoTimer = 0;
   var loaderScrollListenersBound = false;
+  var scrollPinned = false;
+  var scrollPinSavedY = 0;
+
+  function pageScrollY() {
+    try {
+      return (
+        window.pageYOffset ||
+        (document.documentElement && document.documentElement.scrollTop) ||
+        (document.body && document.body.scrollTop) ||
+        0
+      );
+    } catch (eY) {
+      return 0;
+    }
+  }
+
+  function isPageScrollFrozen() {
+    if (isBlockingLoaderVisible()) return true;
+    try {
+      var root = document.documentElement;
+      if (root.classList.contains("vc-rank-customize-pending")) return true;
+      if (root.classList.contains("vc-mobile-nav-open")) return true;
+      if (root.classList.contains("vc-user-leader-pending")) return true;
+      if (root.classList.contains("vc-user-profile-pending")) return true;
+      if (root.classList.contains("vc-session-verify-pending")) return true;
+    } catch (eFrozen) {}
+    return false;
+  }
+
+  function pinPageScroll() {
+    if (scrollPinned) return;
+    var body = document.body;
+    if (!body) return;
+    scrollPinSavedY = pageScrollY();
+    scrollPinned = true;
+    try {
+      body.style.position = "fixed";
+      body.style.left = "0";
+      body.style.right = "0";
+      body.style.width = "100%";
+      body.style.top = "-" + scrollPinSavedY + "px";
+      body.style.overflow = "hidden";
+    } catch (ePin) {}
+  }
+
+  function unpinPageScroll() {
+    if (!scrollPinned) return;
+    var body = document.body;
+    var y = scrollPinSavedY;
+    scrollPinned = false;
+    scrollPinSavedY = 0;
+    if (body) {
+      try {
+        body.style.removeProperty("position");
+        body.style.removeProperty("left");
+        body.style.removeProperty("right");
+        body.style.removeProperty("top");
+        body.style.removeProperty("width");
+        body.style.removeProperty("overflow");
+      } catch (eUnpinStyle) {}
+    }
+    try {
+      window.scrollTo(0, y);
+    } catch (eUnpin) {}
+  }
+
+  try {
+    window.__vcPinPageScroll = pinPageScroll;
+    window.__vcUnpinPageScroll = unpinPageScroll;
+  } catch (ePinExport) {}
 
   function isLoaderScrollLocked() {
     try {
@@ -1231,13 +1337,12 @@
       if (root.classList.contains("vc-loading-scroll-lock")) return true;
       if (root.classList.contains("vc-user-leader-pending")) return true;
       if (root.classList.contains("vc-user-profile-pending")) return true;
-      if (root.classList.contains("vc-page-cine-boot") && !root.classList.contains("vc-page-cine-ready")) return true;
     } catch (eLockCls) {}
     return false;
   }
 
   function blockLoaderScroll(e) {
-    if (!isLoaderScrollLocked()) return;
+    if (!isPageScrollFrozen() && !isLoaderScrollLocked()) return;
     try {
       e.preventDefault();
     } catch (ePrev) {}
@@ -1253,14 +1358,26 @@
     } catch (eBind) {}
   }
 
+  var lastScrollLockFrozen = null;
+  var lastScrollLockOverlay = null;
+
   function syncLoaderScrollLock() {
+    var frozen = false;
+    try {
+      frozen = isPageScrollFrozen();
+    } catch (eVis) {}
     var on = false;
     try {
       on = isBlockingLoaderVisible();
-    } catch (eVis) {}
+    } catch (eVis2) {}
+    if (frozen === lastScrollLockFrozen && on === lastScrollLockOverlay) return;
+    lastScrollLockFrozen = frozen;
+    lastScrollLockOverlay = on;
     try {
       document.documentElement.classList.toggle("vc-loading-scroll-lock", on);
     } catch (eLock) {}
+    if (frozen && !scrollPinned) pinPageScroll();
+    if (!frozen && scrollPinned) unpinPageScroll();
     if (on || isLoaderScrollLocked()) bindLoaderScrollGuards();
     if (wasPageLoaderVisible && !on) resetScrollAfterOverlay();
     wasPageLoaderVisible = on;
@@ -1284,6 +1401,10 @@
       syncLoaderScrollLock();
     }, 0);
   }
+
+  try {
+    window.__vcSyncLoaderScrollLock = syncLoaderScrollLock;
+  } catch (eSyncExport) {}
 
   function closeNotifDropdownForLoader() {
     var dd = document.getElementById("vc-notif-dropdown");
@@ -2361,14 +2482,16 @@
     listEl.innerHTML = "";
     all.forEach(function (n) {
       var li = document.createElement("li");
-      var btn = document.createElement("button");
-      btn.type = "button";
+      var destRaw = String(n.openUrl || "").trim();
+      var btn = document.createElement(destRaw ? "a" : "button");
+      if (!destRaw) btn.type = "button";
       btn.className = "vc-notif-item";
       if (n.kind === "success") btn.classList.add("vc-notif-item--success");
       if (n.read) btn.classList.add("vc-notif-item--read");
       btn.setAttribute("data-id", n.id);
-      btn.setAttribute("data-open-url", String(n.openUrl || "").trim());
+      btn.setAttribute("data-open-url", destRaw);
       btn.setAttribute("data-kind", String(n.kind || "info"));
+      if (destRaw) btn.href = resolveNotifDestUrl(destRaw);
       var ico = document.createElement("span");
       ico.className = "vc-notif-item-ico";
       ico.setAttribute("aria-hidden", "true");
@@ -2871,8 +2994,8 @@
       renotify: true,
       silent: false,
       lang: "it",
-      icon: "/apple-touch-icon.png",
-      badge: "/apple-touch-icon.png",
+      icon: "/images/vc-server-icon.png",
+      badge: "/images/vc-server-icon.png",
       data: {
         openUrl: String(item.openUrl || "/").trim() || "/",
         kind: String(item.kind || "info"),
@@ -4756,6 +4879,7 @@
         var mergeResult = mergeStoredWithServerNotificationList(list, uid);
         if (mergeResult.changed) render();
         tryFlushClickReads();
+        dismissOsNotificationsForReadItems(loadStored());
         if (mergeResult.toastRow) {
           playNotifSound();
           showNativeOsBanner(mergeResult.toastRow);
@@ -4862,6 +4986,7 @@
     document.addEventListener("visibilitychange", function () {
       if (document.visibilityState === "visible") {
         clearMobileOsToastsOnAppOpen();
+        syncSiteNotificationsFromServer();
         if (normalizeUserId(currentUserId) && getDiscordAccessToken()) {
           syncExistingWebPushSubscription();
         }
@@ -4894,7 +5019,7 @@
           dismissOneSiteNotification(dismissBtn.getAttribute("data-id") || "");
           return;
         }
-        var btn = t.closest("button.vc-notif-item");
+        var btn = t.closest(".vc-notif-item");
         if (!btn || !listEl.contains(btn)) return;
         var id = btn.getAttribute("data-id");
         var dest = String(btn.getAttribute("data-open-url") || "").trim();
@@ -5091,17 +5216,20 @@
     }
   }
 
-  function mobileProfileHref(userId) {
-    try {
-      var p = String(window.location.pathname || "").toLowerCase().replace(/\/+$/, "") || "/";
-      if (p === "/dashboard" || p.indexOf("/dashboard/") === 0) {
-        var d = window.__VC_SITE_DASHBOARD || {};
-        if (d.profilePageUrl) return String(d.profilePageUrl);
-        return "/dashboard/profilo/";
-      }
-    } catch (e0) {}
+  function resolveMobileAccountUserId(userId) {
     var id = String(userId || "").trim();
-    return id ? "/users/" + encodeURIComponent(id) : "/user";
+    if (/^\d{17,22}$/.test(id)) return id;
+    try {
+      var profile = window.__VC_DISCORD_PROFILE;
+      var fromProfile = String(profile && profile.id || "").trim();
+      if (/^\d{17,22}$/.test(fromProfile)) return fromProfile;
+    } catch (eP) {}
+    return "";
+  }
+
+  function mobileProfileHref(userId) {
+    var id = resolveMobileAccountUserId(userId);
+    return id ? "/user/?id=" + encodeURIComponent(id) : "/user";
   }
 
   function syncDrawerFooter() {
@@ -6153,7 +6281,7 @@
     if (document.querySelector('script[src*="vc-site-polish.js"]')) return;
   } catch (e0) {}
   var s = document.createElement("script");
-  s.src = "/js/vc-site-polish.js?v=20260817hwSkip1";
+  s.src = "/js/vc-site-polish.js?v=20260819mobileGlassFix1";
   s.defer = true;
   (document.body || document.documentElement).appendChild(s);
 })();

@@ -301,9 +301,37 @@
     });
   }
 
+  function initVoteReveal() {
+    var nodes = document.querySelectorAll(".vc-vote-reveal");
+    if (!nodes || !nodes.length) return;
+    if (typeof window === "undefined" || typeof window.IntersectionObserver !== "function") {
+      for (var i = 0; i < nodes.length; i += 1) nodes[i].classList.add("is-inview");
+      return;
+    }
+    var observer = new IntersectionObserver(
+      function (entries) {
+        for (var i = 0; i < entries.length; i += 1) {
+          var entry = entries[i];
+          if (entry.isIntersecting && entry.intersectionRatio >= 0.12) {
+            entry.target.classList.add("is-inview");
+          } else if (!entry.isIntersecting) {
+            entry.target.classList.remove("is-inview");
+          }
+        }
+      },
+      {
+        root: null,
+        rootMargin: "0px 0px -6% 0px",
+        threshold: [0, 0.12, 0.22, 0.4, 0.7],
+      }
+    );
+    for (var n = 0; n < nodes.length; n += 1) observer.observe(nodes[n]);
+  }
+
   function main() {
     if (!byId("vc-vote-live-shell")) return;
     currentUser = (typeof window !== "undefined" && window.__VC_DISCORD_PROFILE) || null;
+    initVoteReveal();
     initButtons();
     initVoteResume();
     fetchVotes();

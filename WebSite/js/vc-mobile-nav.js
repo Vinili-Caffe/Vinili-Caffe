@@ -37,6 +37,9 @@
     try {
       document.documentElement.classList.remove(BODY_OPEN_CLASS);
     } catch (e0) {}
+    try {
+      if (typeof window.__vcSyncLoaderScrollLock === "function") window.__vcSyncLoaderScrollLock();
+    } catch (eSyncClose) {}
     if (onEscapeDrawer) {
       document.removeEventListener("keydown", onEscapeDrawer);
       onEscapeDrawer = null;
@@ -62,6 +65,9 @@
     try {
       document.documentElement.classList.add(BODY_OPEN_CLASS);
     } catch (e2) {}
+    try {
+      if (typeof window.__vcSyncLoaderScrollLock === "function") window.__vcSyncLoaderScrollLock();
+    } catch (eSyncOpen) {}
     onEscapeDrawer = function (ev) {
       if (ev.key === "Escape") {
         ev.preventDefault();
@@ -95,17 +101,20 @@
     }
   }
 
-  function mobileProfileHref(userId) {
-    try {
-      var p = String(window.location.pathname || "").toLowerCase().replace(/\/+$/, "") || "/";
-      if (p === "/dashboard" || p.indexOf("/dashboard/") === 0) {
-        var d = window.__VC_SITE_DASHBOARD || {};
-        if (d.profilePageUrl) return String(d.profilePageUrl);
-        return "/dashboard/profilo/";
-      }
-    } catch (e0) {}
+  function resolveMobileAccountUserId(userId) {
     var id = String(userId || "").trim();
-    return id ? "/users/" + encodeURIComponent(id) : "/user";
+    if (/^\d{17,22}$/.test(id)) return id;
+    try {
+      var profile = window.__VC_DISCORD_PROFILE;
+      var fromProfile = String(profile && profile.id || "").trim();
+      if (/^\d{17,22}$/.test(fromProfile)) return fromProfile;
+    } catch (eP) {}
+    return "";
+  }
+
+  function mobileProfileHref(userId) {
+    var id = resolveMobileAccountUserId(userId);
+    return id ? "/user/?id=" + encodeURIComponent(id) : "/user";
   }
 
   function syncDrawerFooter() {

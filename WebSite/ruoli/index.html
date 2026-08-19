@@ -2,7 +2,8 @@
 <html class="vc-site-polish vc-page-cine-boot" lang="it">
 
 <head>
-    <style id="vc-page-cine-boot-css">html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready),html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready) body{background:#100c09!important;overflow:hidden!important;overscroll-behavior:none!important}html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready)::before{content:"";position:fixed;inset:0;z-index:2147483000;background:#100c09;pointer-events:none}html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready) body.vc-body>main,html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready) body.vc-body>footer{opacity:0!important;visibility:hidden!important;pointer-events:none!important}html.vc-site-polish.vc-page-cine-boot .vc-home-cine{position:fixed;inset:0;z-index:0;pointer-events:none;background:#100c09}</style>
+    <style id="vc-anti-fouc-css">html.vc-site-polish:not(.vc-styles-ready) body{visibility:hidden!important}html.vc-site-polish.vc-styles-ready body{visibility:visible!important}</style>
+    <style id="vc-page-cine-boot-css">html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready),html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready) body{background:#100c09!important;overflow:hidden!important;overscroll-behavior:none!important}html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready)::before{content:"";position:fixed;inset:0;z-index:2147483000;background:#100c09;pointer-events:none}html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready) body.vc-body>header,html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready) body.vc-body>main,html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready) body.vc-body>footer{opacity:0!important;visibility:hidden!important;pointer-events:none!important}html.vc-site-polish.vc-page-cine-boot .vc-home-cine{position:fixed;inset:0;z-index:0;pointer-events:none;background:#100c09}</style>
 <noscript><style>html.vc-page-cine-boot body.vc-body>main,html.vc-page-cine-boot body.vc-body>footer{opacity:1!important;visibility:visible!important}</style></noscript>
 
   {{COOKIEYES_BLOCK}}{{GA_BLOCK}}
@@ -14,7 +15,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="preload" as="font" type="font/woff2" href="/fonts/cormorant/cormorant-garamond-latin.woff2" crossorigin />
     <link rel="preload" as="font" type="font/woff2" href="/fonts/inter/inter-latin.woff2" crossorigin />
-    <link rel="stylesheet" href="/css/vc-fonts.css?v=siteFonts1" />
+    <link rel="stylesheet" href="/css/vc-fonts.css?v={{BUILD_ASSET_VERSION}}" />
   <meta property="og:type" content="website" />
   <meta property="og:title" content="{{RUOLI_OG_TITLE}}" />
   <meta property="og:description" content="{{RUOLI_META_DESCRIPTION}}" />
@@ -27,8 +28,8 @@
     rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css"
     crossorigin="anonymous" referrerpolicy="no-referrer" />
-  <link rel="stylesheet" href="../css/tw-build.css" />
-  <link rel="stylesheet" href="../css/vc-landing.css" />
+  <link rel="stylesheet" href="../css/tw-build.css?v={{BUILD_ASSET_VERSION}}" />
+  <link rel="stylesheet" href="../css/vc-landing.css?v={{BUILD_ASSET_VERSION}}" />
   <style id="vc-roles-loading-boot-css">
     html:has(#vc-roles-loading:not([hidden])),
     html:has(#vc-roles-loading:not([hidden])) body {
@@ -55,8 +56,8 @@
       pointer-events: none !important;
     }
   </style>
-  <script src="../js/vc-page-cine-boot.js"></script>
-  <script src="../js/vc-auth-pending.js"></script>
+  <script src="../js/vc-page-cine-boot.js?v={{BUILD_ASSET_VERSION}}"></script>
+  <script src="../js/vc-auth-pending.js?v={{BUILD_ASSET_VERSION}}"></script>
   <link rel="icon" href="{{GUILD_ICON_URL}}" />
 </head>
 
@@ -396,14 +397,14 @@
       inviteUrl: "{{DISCORD_INVITE_URL}}"
     };
   </script>
-  <script src="../js/discord-auth.js" defer></script>  <script src="../js/vc-cursor-trail.js" defer></script>
+  <script src="../js/discord-auth.js?v={{BUILD_ASSET_VERSION}}" defer></script>  <script src="../js/vc-cursor-trail.js?v={{BUILD_ASSET_VERSION}}" defer></script>
 
-  <script src="../js/vc-mini-pager.js" defer></script>
-  <script src="../js/vc-landing.js" defer></script>
-  <script src="../js/roles-page.js" defer></script>
-  <script src="/js/vc-ptr.js" defer></script>
-  <script src="/js/vc-site-polish.js" defer></script>
-    <script src="/js/vc-home-cine.js" defer></script>
+  <script src="../js/vc-mini-pager.js?v={{BUILD_ASSET_VERSION}}" defer></script>
+  <script src="../js/vc-landing.js?v={{BUILD_ASSET_VERSION}}" defer></script>
+  <script src="../js/roles-page.js?v={{BUILD_ASSET_VERSION}}" defer></script>
+  <script src="/js/vc-ptr.js?v={{BUILD_ASSET_VERSION}}" defer></script>
+  <script src="/js/vc-site-polish.js?v={{BUILD_ASSET_VERSION}}" defer></script>
+    <script src="/js/vc-home-cine.js?v={{BUILD_ASSET_VERSION}}" defer></script>
 </body>
 
 </html>

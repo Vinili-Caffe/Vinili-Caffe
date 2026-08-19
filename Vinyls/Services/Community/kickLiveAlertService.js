@@ -389,8 +389,8 @@ async function setVoiceChannelStatus(client, channelId, status, reason = "Kick l
   }
 }
 
-async function updateStreamVoiceChannel(client, streamer, mode) {
-  const channelId = String(streamer?.streamVoiceChannelId || "").trim();
+async function updateStreamVoiceChannelById(client, channelId, streamer, mode) {
+  channelId = String(channelId || "").trim();
   if (!channelId) return { ok: false, reason: "missing_channel" };
   const guildId = String(client?.config?.mainGuildId || IDs.guilds?.main || "").trim();
   const guild = await getClientGuildCached(client, guildId).catch(() => null);
@@ -415,10 +415,15 @@ async function updateStreamVoiceChannel(client, streamer, mode) {
   return { ok: true, channelId, mode: isOn ? "on" : "off" };
 }
 
+async function updateStreamVoiceChannel(client, streamer, mode) {
+  return updateStreamVoiceChannelById(client, streamer?.streamVoiceChannelId, streamer, mode);
+}
+
 async function applyStreamerOfflineState(client, streamer, prev) {
   const patch = {
     isLive: false,
     voiceChannelMode: "off",
+    voiceChannelId: null,
     lastOfflineAt: new Date().toISOString(),
   };
   if (prev?.messageId) {
@@ -429,17 +434,30 @@ async function applyStreamerOfflineState(client, streamer, prev) {
     }
   }
   await saveStreamerState(streamer.slug, patch);
-  if (streamer.streamVoiceChannelId && prev?.voiceChannelMode !== "off") {
-    await updateStreamVoiceChannel(client, streamer, "off");
+  if (prev?.voiceChannelMode !== "off") {
+    const offChannelId = String(prev?.voiceChannelId || streamer.streamVoiceChannelId || "").trim();
+    if (offChannelId) {
+      await updateStreamVoiceChannelById(client, offChannelId, streamer, "off");
+    }
   }
 }
 
 async function applyStreamerOnlineVoiceState(client, streamer, prev) {
-  if (!streamer.streamVoiceChannelId) return { ok: false, reason: "missing_channel" };
-  if (prev?.voiceChannelMode === "on") return { ok: true, skipped: true, reason: "already_on" };
+  const configuredChannelId = String(streamer?.streamVoiceChannelId || "").trim();
+  if (!configuredChannelId) return { ok: false, reason: "missing_channel" };
+  const previousChannelId = String(prev?.voiceChannelId || "").trim();
+  if (prev?.voiceChannelMode === "on" && previousChannelId === configuredChannelId) {
+    return { ok: true, skipped: true, reason: "already_on" };
+  }
+  if (prev?.voiceChannelMode === "on" && previousChannelId && previousChannelId !== configuredChannelId) {
+    await updateStreamVoiceChannelById(client, previousChannelId, streamer, "off");
+  }
   const channel = await updateStreamVoiceChannel(client, streamer, "on");
   if (channel?.ok) {
-    await saveStreamerState(streamer.slug, { voiceChannelMode: "on" });
+    await saveStreamerState(streamer.slug, {
+      voiceChannelMode: "on",
+      voiceChannelId: configuredChannelId,
+    });
   }
   return channel;
 }

@@ -3,6 +3,7 @@ const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Schemas/Community/co
 
 const DOC = SITE_DOCUMENT_TYPE.WEB_PUSH_SUBSCRIPTION;
 const DEFAULT_SITE_ORIGIN = "https://www.viniliecaffe.it";
+const PUSH_NOTIFICATION_ICON = "/images/vc-server-icon.png";
 
 let vapidConfigured = false;
 
@@ -207,7 +208,7 @@ async function sendWebPushToUser(userId, payload = {}) {
   const openUrl = absoluteOpenUrl(payload.openUrl);
   const kind = String(payload.kind || "info").trim().slice(0, 24);
   const origin = resolveSitePublicOrigin().replace("://viniliecaffe.it", "://www.viniliecaffe.it");
-  const icon = `${origin}/apple-touch-icon.png`;
+  const icon = `${origin}${PUSH_NOTIFICATION_ICON}`;
   const data = JSON.stringify(
     isDismiss
       ? {

@@ -255,11 +255,16 @@ async function sendRejoinDm(member) {
   if (!dmChannel) return;
 
   const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setLabel("Rientra nel server").setStyle(ButtonStyle.Link).setURL(IDs.links.invite),);
+  const embed = new EmbedBuilder()
+    .setColor("#ff6b6b")
+    .setTitle("Sei uscito dal server")
+    .setDescription(
+      "Puoi rientrare quando vuoi con il pulsante qui sotto.",
+    );
 
   await dmChannel
     .send({
-      content:
-        "<:vegax:1443934876440068179> Sei uscito dal server! Puoi rientrare quando vuoi con il pulsante qui sotto.",
+      embeds: [embed],
       components: [row],
     })
     .catch((error) => {

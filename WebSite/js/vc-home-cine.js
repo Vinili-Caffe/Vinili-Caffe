@@ -169,7 +169,7 @@
     if (top < 0) top = 0;
     window.scrollTo({
       top: top,
-      behavior: prefersReduced() ? "auto" : "smooth",
+      behavior: prefersReduced() || isCoarse() ? "auto" : "smooth",
     });
   }
 
@@ -347,6 +347,49 @@
 
   function isUsersCommunityPage() {
     return !shouldSkipPageCineHeroLayout() && Boolean(document.body && document.body.classList.contains("vc-users-page"));
+  }
+
+  function isCommunityLeaderReady() {
+    var root = document.documentElement;
+    if (!root) return true;
+    if (root.classList.contains("vc-user-leader-pending")) return false;
+    if (root.classList.contains("vc-user-profile-pending")) return false;
+    var loader = document.getElementById("vc-ul-loading");
+    if (loader && !loader.hidden) return false;
+    return true;
+  }
+
+  function whenCommunityLeaderReady(fn) {
+    if (typeof fn !== "function") return;
+    if (!isUsersCommunityPage()) {
+      fn();
+      return;
+    }
+    if (isCommunityLeaderReady()) {
+      fn();
+      return;
+    }
+    var done = false;
+    function run() {
+      if (done || !isCommunityLeaderReady()) return;
+      done = true;
+      try {
+        obs.disconnect();
+      } catch (eObs) {}
+      try {
+        if (loaderObs) loaderObs.disconnect();
+      } catch (eLoaderObs) {}
+      fn();
+    }
+    var obs = new MutationObserver(run);
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+    var loader = document.getElementById("vc-ul-loading");
+    var loaderObs = null;
+    if (loader) {
+      loaderObs = new MutationObserver(run);
+      loaderObs.observe(loader, { attributes: true, attributeFilter: ["hidden"] });
+    }
+    run();
   }
 
   function markPageCineReady(immediate) {
@@ -797,12 +840,19 @@
     if (body.dataset.vcPageCineLayout === "1") {
       var laidHero = document.querySelector(".vc-page-cine-hero");
       if (!opts.force || !laidHero || laidHero === hero) {
-        buildHomeHeroInterior(hero);
-        polishHeroChrome(hero);
+        if (opts.force) {
+          restructurePageMain(container, laidHero || hero);
+          container.classList.add("vc-page-cine-main");
+          body.classList.add("vc-page-cine-layout");
+          body.dataset.vcPageCineLayout = "1";
+        }
+        buildHomeHeroInterior(laidHero || hero);
+        polishHeroChrome(laidHero || hero);
         flushSponsorAsideToContent(document.getElementById("vc-page-content"));
-        ensureScrollCueFor(hero, container);
-        initPageHeroRise(hero);
+        ensureScrollCueFor(laidHero || hero, container);
+        initPageHeroRise(laidHero || hero);
         markPageCineReady();
+        if (opts.force) snapScrollTopIfPristine();
         return;
       }
     }
@@ -843,7 +893,20 @@
     });
   }
 
+  function ensureCommunityPageCineLayout() {
+    if (!isUsersCommunityPage()) return;
+    whenCommunityLeaderReady(function () {
+      initPageHeroLayout({ force: true });
+      bindInnerHeroScrollFx();
+      snapScrollTopIfPristine();
+      requestAnimationFrame(function () {
+        initPageHeroLayout({ force: true });
+      });
+    });
+  }
+
   window.__vcPageHeroLayout = initPageHeroLayout;
+  window.__vcEnsureCommunityPageCineLayout = ensureCommunityPageCineLayout;
 
   function startCueBounce(cue) {
     if (!cue) return;
@@ -1076,25 +1139,90 @@
     }
   }
 
-  function pinCommunityScrollRoot() {
-    if (!isUsersCommunityPage()) return;
-    if (window.__vcCommunityScrollPinned) return;
-    window.__vcCommunityScrollPinned = true;
-    function settleTop() {
-      try {
-        var y = window.pageYOffset || document.documentElement.scrollTop || 0;
-        if (y > 2) return;
-        if (document.documentElement) document.documentElement.scrollTop = 0;
-        if (document.body) document.body.scrollTop = 0;
-      } catch (ePin) {}
-    }
-    window.addEventListener("scroll", settleTop, { passive: true });
-    window.addEventListener("touchend", settleTop, { passive: true });
-  }
-
   function bindInnerHeroScrollFx() {
-    /* Inner heroes are compact (no 100svh). Height animation snapped on iOS. */
-    return;
+    var body = document.body;
+    if (!body || body.classList.contains("vc-body--home")) return;
+    if (!isPolishPage() || shouldSkipPageCineHeroLayout()) return;
+
+    var coarse = isCoarse();
+
+    var section =
+      document.querySelector("main .vc-page-cine-hero") ||
+      document.querySelector("main .vc-support-page-hero") ||
+      document.querySelector("main .vc-notify-hero") ||
+      document.querySelector("main .vc-vote-page-hero") ||
+      document.querySelector("main .vc-staff-hero");
+    if (!section) return;
+
+    var card =
+      section.querySelector(".vc-hero-head") ||
+      section.querySelector(".vc-support-intro-shell") ||
+      section.querySelector(".vc-page-cine-hero__inner");
+    if (!card) return;
+
+    if (section.dataset.vcInnerHeroFxBound === "1") {
+      if (section._vcInnerHeroFxTick) section._vcInnerHeroFxTick();
+      return;
+    }
+    section.dataset.vcInnerHeroFxBound = "1";
+    section.classList.add("vc-hero-scroll-clip");
+
+    var cue = section.querySelector(".vc-home-scrollcue");
+    var raf = 0;
+    function tick() {
+      raf = 0;
+      var y = window.pageYOffset || document.documentElement.scrollTop || 0;
+
+      if (y <= 2) {
+        section.classList.remove("is-collapsed");
+        card.style.removeProperty("transition");
+        card.style.removeProperty("transform");
+        card.style.removeProperty("opacity");
+        if (cue) {
+          cue.style.removeProperty("transition");
+          cue.style.removeProperty("opacity");
+          cue.style.removeProperty("pointer-events");
+        }
+        return;
+      }
+
+      // Never toggle layout collapse (min-height 100svh -> 0): it changes document
+      // height at the scroll threshold and makes the scrollbar oscillate forever.
+      section.classList.remove("is-collapsed");
+
+      if (!prefersReduced()) {
+        var shift = coarse ? Math.min(24, y * 0.1) : Math.min(48, y * 0.18);
+        var opacity = Math.max(coarse ? 0.55 : 0.35, 1 - y / (coarse ? 680 : 520));
+        card.style.transition = "none";
+        card.style.transform = "translate3d(0," + shift.toFixed(1) + "px,0)";
+        card.style.opacity = String(opacity);
+      }
+
+      if (cue && !prefersReduced()) {
+        var cueOpacity = Math.max(0, 1 - y / 220);
+        cue.style.transition = "none";
+        cue.style.opacity = String(cueOpacity);
+        if (cueOpacity <= 0.04) cue.style.pointerEvents = "none";
+        else cue.style.removeProperty("pointer-events");
+      }
+    }
+
+    section._vcInnerHeroFxTick = tick;
+    window.addEventListener(
+      "scroll",
+      function () {
+        if (!raf) raf = requestAnimationFrame(tick);
+      },
+      { passive: true }
+    );
+    window.addEventListener(
+      "resize",
+      function () {
+        if (!raf) raf = requestAnimationFrame(tick);
+      },
+      { passive: true }
+    );
+    tick();
   }
 
   function initHomeExtraFx() {
@@ -1190,10 +1318,15 @@
       var vote = Boolean(body && body.classList.contains("vc-vote-page"));
       if (shouldSkipPageCineHeroLayout()) {
         resetUsersPageCineLayout();
+      } else if (isUsersCommunityPage()) {
+        whenCommunityLeaderReady(function () {
+          initPageHeroLayout({ force: true });
+          bindInnerHeroScrollFx();
+          snapScrollTopIfPristine();
+        });
       } else {
         initPageHeroLayout();
         bindInnerHeroScrollFx();
-        pinCommunityScrollRoot();
       }
       try {
         document.documentElement.classList.add("vc-home-motion-ready");

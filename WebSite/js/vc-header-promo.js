@@ -59,34 +59,8 @@
     return "event";
   }
 
-  function isCompactPromoViewport() {
-    try {
-      return window.matchMedia("(max-width: 639.98px)").matches;
-    } catch (e) {
-      return Number(window.innerWidth || 0) < 640;
-    }
-  }
-
-  function ensureClone(trackEl, unitEl) {
-    var clone = trackEl.querySelector(".vc-header-promo-btn__unit.is-clone");
-    if (!clone) {
-      clone = unitEl.cloneNode(true);
-      clone.classList.add("is-clone");
-      clone.setAttribute("aria-hidden", "true");
-      trackEl.appendChild(clone);
-    }
-    return clone;
-  }
-
   function applyMarqueeMetrics(btn, clip, unitEl) {
     if (!btn || btn.hidden) return;
-    if (isCompactPromoViewport()) {
-      btn.classList.remove("is-marquee");
-      btn.style.removeProperty("--vc-promo-marquee-distance");
-      btn.style.removeProperty("--vc-promo-marquee-duration");
-      unitEl.style.paddingInlineEnd = "";
-      return;
-    }
     var clipW = Math.floor(clip.clientWidth || clip.getBoundingClientRect().width || 0);
     var unitW = Math.ceil(unitEl.getBoundingClientRect().width || unitEl.scrollWidth || 0);
     var overflow = clipW >= 4 && unitW > clipW + 2;
@@ -105,6 +79,17 @@
     var duration = Math.max(8, Math.min(22, segmentW / 22));
     btn.style.setProperty("--vc-promo-marquee-duration", duration.toFixed(1) + "s");
     btn.classList.add("is-marquee");
+  }
+
+  function ensureClone(trackEl, unitEl) {
+    var clone = trackEl.querySelector(".vc-header-promo-btn__unit.is-clone");
+    if (!clone) {
+      clone = unitEl.cloneNode(true);
+      clone.classList.add("is-clone");
+      clone.setAttribute("aria-hidden", "true");
+      trackEl.appendChild(clone);
+    }
+    return clone;
   }
 
   function ensureMarquee(btn) {
