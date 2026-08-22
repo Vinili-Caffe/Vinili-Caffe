@@ -954,6 +954,12 @@ async function dispatchVoteReminder(client, { guildId, userId, voteListing, last
       discadiaVoteTimers.delete(timerKey);
     }
 
+    const skipDm = await shouldSkipVoteDmByNoDm(client, gid, uid, listing);
+    if (skipDm) {
+      // Stesso opt-out dei DM: niente notifica in-app sul sito.
+      return { ok: true, delivered: false, skippedOptOut: true };
+    }
+
     const siteOpts = buildVoteSiteInAppNotificationOpts(client, gid, uid, listing, lastVoteAtMs, cooldownMs);
     await enqueueSiteInAppNotification(siteOpts).catch((err) => {
       global.logger?.warn?.("[VOTE REMINDER] site notification failed:", uid, err?.message || err);
@@ -964,11 +970,6 @@ async function dispatchVoteReminder(client, { guildId, userId, voteListing, last
     if (!member) {
       // Utente fuori dal server: niente DM e niente ping in canale (slot già claimato).
       return { ok: true, delivered: false, skippedOptOut: false, skippedNotInGuild: true };
-    }
-
-    const skipDm = await shouldSkipVoteDmByNoDm(client, gid, uid, listing);
-    if (skipDm) {
-      return { ok: true, delivered: false, skippedOptOut: true };
     }
 
     let user = member.user || (await getUserCached(client, uid));

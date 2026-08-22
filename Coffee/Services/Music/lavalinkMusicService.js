@@ -4,11 +4,15 @@ const { Shoukaku, Connectors, LoadType, Constants, Utils } = require("shoukaku")
 const { applyDefaultFooterToEmbeds } = require("../../Utils/Embeds/defaultFooter");
 const fs = require("fs");
 const path = require("path");
+const { execFile } = require("child_process");
+const { promisify } = require("util");
+const execFileAsync = promisify(execFile);
 const { readSnapshotWithMeta, writeSnapshotWithMeta } = require("../../../shared/recovery/snapshotStore");
 const { registerShutdownFlush, armShutdownCheckpoint } = require("../../../shared/recovery/shutdownCheckpoint");
 const { notifyBotPresenceVoiceActivity } = require("../../../shared/discord/botPresenceActivity");
 const MUSIC_LOGS = String(process.env.MUSIC_LOGS || "0").trim() === "1";
 const MUSIC_DEFAULT_LAVALINK_VOLUME = 20;
+const YT_DLP_BIN = String(process.env.YT_DLP_BIN || "/usr/local/bin/yt-dlp").trim() || "/usr/local/bin/yt-dlp";
 
 /**
  * Lavalink v4: il volume globale del player è in percentuale 0–100 (100 = 100%).
@@ -320,9 +324,7 @@ function scheduleMusicPlaybackResume(client) {
     }
     if (!isLavalinkUsable(client)) {
       client._musicPlaybackResumeScheduled = false;
-      global.logger?.info?.(
-        "[MUSIC] playback resume deferred: Lavalink non ancora CONNECTED (riprovo al collegamento nodo)",
-      );
+      logMusic("playback resume deferred: Lavalink non ancora CONNECTED (riprovo al collegamento nodo)");
       return;
     }
     client._musicPlaybackResumeDone = true;
@@ -340,7 +342,7 @@ async function resumeRestoredMusicSessions(client) {
   const maxAgeMs = resolveMusicResumeMaxSnapshotAgeMs(client);
   const snapMtime = getMusicQueueSnapshotFileMtimeMs();
   if (snapMtime > 0 && Date.now() - snapMtime > maxAgeMs) {
-    global.logger?.info?.("[MUSIC] voice resume skipped: snapshot file older than restore max age");
+    logMusic("voice resume skipped: snapshot file older than restore max age");
     for (const [, session] of guildQueues.entries()) {
       if (!session || typeof session !== "object") continue;
       session.voiceChannelId = null;
@@ -397,7 +399,7 @@ async function resumeRestoredMusicSessions(client) {
       await player.setGlobalVolume(resolveDefaultJoinGlobalVolume());
       await playEncodedFromStart(player, encoded);
       persistMusicQueueSnapshotNow(client);
-      global.logger?.info?.(`[MUSIC] resumed session in guild ${gid}`);
+      logMusic(`resumed session in guild ${gid}`);
     } catch (err) {
       global.logger?.warn?.("[MUSIC] resume join/play failed", gid, err?.message || err);
     }
@@ -484,16 +486,18 @@ async function getYoutubeOauthAccessToken() {
  * @param {import("shoukaku").Player} player
  * @param {string} encoded
  */
-async function playEncodedFromStart(player, encoded) {
+async function playEncodedFromStart(player, encoded, options = {}) {
   const enc = String(encoded || "").trim();
   if (!enc || typeof player?.playTrack !== "function") {
     throw new Error("playEncodedFromStart: argomenti non validi");
   }
-  const access = await getYoutubeOauthAccessToken().catch(() => null);
+  const skipOauth = Boolean(options?.skipOauth);
+  const access = skipOauth ? null : await getYoutubeOauthAccessToken().catch(() => null);
   const track = access
     ? { encoded: enc, userData: { "oauth-token": access } }
     : { encoded: enc };
   if (access) logMusic("play with yt oauth-token", enc.slice(0, 24));
+  else logMusic("playTrack from start", enc.slice(0, 24));
   await player.playTrack({ track, position: 0 });
 }
 
@@ -981,6 +985,75 @@ async function remirrorToStableAudio(node, track) {
   return pick;
 }
 
+function youtubeWatchUrlFromTrack(track) {
+  const info = track?.info || {};
+  const uri = String(info.uri || "").trim();
+  if (/youtube\.com\/watch|youtu\.be\//i.test(uri)) return uri;
+  const id = String(info.identifier || "").trim();
+  if (/^[\w-]{11}$/.test(id)) return `https://www.youtube.com/watch?v=${id}`;
+  return "";
+}
+
+/**
+ * YouTube innertube/SABR spesso loadfailed: yt-dlp → URL stream → source http.
+ * @param {string} watchUrl
+ * @returns {Promise<string|null>}
+ */
+async function resolveYoutubeStreamUrlViaYtDlp(watchUrl) {
+  const url = String(watchUrl || "").trim();
+  if (!url) return null;
+  try {
+    const { stdout, stderr } = await execFileAsync(
+      YT_DLP_BIN,
+      ["-g", "-f", "ba/bestaudio/best", "--no-playlist", "--no-warnings", url],
+      { timeout: 55_000, maxBuffer: 2_000_000, windowsHide: true },
+    );
+    const line = String(stdout || "")
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .find((l) => /^https?:\/\//i.test(l));
+    if (!line) {
+      logMusic("yt-dlp no url", String(stderr || "").slice(0, 180));
+      return null;
+    }
+    return line;
+  } catch (err) {
+    logMusic("yt-dlp fail", err?.message || err);
+    return null;
+  }
+}
+
+/**
+ * @param {import("shoukaku").Node} node
+ * @param {import("shoukaku").Track} track
+ * @returns {Promise<import("shoukaku").Track|null>}
+ */
+async function remirrorYoutubeViaHttp(node, track) {
+  const watch = youtubeWatchUrlFromTrack(track);
+  if (!watch || typeof node?.rest?.resolve !== "function") return null;
+  const streamUrl = await resolveYoutubeStreamUrlViaYtDlp(watch);
+  if (!streamUrl) return null;
+  try {
+    const resolved = await node.rest.resolve(streamUrl);
+    const found = tracksFromResolve(resolved);
+    const pick = found[0];
+    if (!pick?.encoded) return null;
+    const out = cloneTrackWithRequester(track, pick, track?.info || {}, 1);
+    if (out?.info) {
+      if (track?.info?.title) out.info.title = track.info.title;
+      if (track?.info?.author) out.info.author = track.info.author;
+      if (track?.info?.artworkUrl) out.info.artworkUrl = track.info.artworkUrl;
+      if (track?.info?.uri) out.info.uri = track.info.uri;
+      out.info.sourceName = "http";
+    }
+    logMusic("yt-dlp http remirror ok", String(track?.info?.identifier || "").slice(0, 12));
+    return out;
+  } catch (err) {
+    logMusic("yt-dlp http resolve fail", err?.message || err);
+    return null;
+  }
+}
+
 /**
  * Prova più mirror finché lo stream resta vivo ~1s.
  * @param {import("shoukaku").Player} player
@@ -1001,12 +1074,32 @@ async function playWithMirrorFallbacks(player, session, node, track) {
     const src = String(track?.info?.sourceName || "").toLowerCase();
     if (track?.encoded && src && src !== "spotify") list = [track];
   }
-  // YouTube prima di SoundCloud (SC spesso matcha ma stream 404).
+
   const isYt = (cand) => {
     const s = String(cand?.info?.sourceName || "").toLowerCase();
     return s === "youtube" || s === "youtubemusic";
   };
-  list = [...list.filter(isYt), ...list.filter((c) => !isYt(c))].slice(0, 4);
+  const isHttp = (cand) => String(cand?.info?.sourceName || "").toLowerCase() === "http";
+
+  // YouTube nativo loadfailed (SABR/login): yt-dlp → URL stream → source http.
+  const ytSeed =
+    list.find((c) => isYt(c)) ||
+    (isYt(track) ? track : null);
+  if (ytSeed) {
+    const httpAlt = await remirrorYoutubeViaHttp(node, ytSeed).catch((err) => {
+      logMusic("yt-dlp remirror err", err?.message || err);
+      return null;
+    });
+    if (httpAlt?.encoded) {
+      list = [httpAlt, ...list.filter((c) => String(c?.encoded) !== String(httpAlt.encoded))];
+    }
+  }
+
+  list = [
+    ...list.filter(isHttp),
+    ...list.filter((c) => !isHttp(c) && isYt(c)),
+    ...list.filter((c) => !isHttp(c) && !isYt(c)),
+  ].slice(0, 5);
   logMusic(
     "mirror try",
     list.map((c) => `${c?.info?.sourceName}:${String(c?.info?.identifier || "").slice(0, 12)}`).join(","),
@@ -1018,12 +1111,11 @@ async function playWithMirrorFallbacks(player, session, node, track) {
     session.playingEncoded = cand.encoded;
     try {
       if (player.paused) await player.setPaused(false).catch(() => {});
-      await playEncodedFromStart(player, cand.encoded);
+      await playEncodedFromStart(player, cand.encoded, { skipOauth: isHttp(cand) });
     } catch (err) {
       logMusic("play mirror fail", cand?.info?.sourceName, err?.message || err);
       continue;
     }
-    // Non aspettare position (playerUpdateInterval può essere 5s): basta traccia viva senza loadfailed.
     const probe = await probeMirrorPlayback(player, session, playGen, cand, 1800);
     if (probe === "interrupted") {
       return { ok: false, interrupted: true, track: cand };
@@ -2472,8 +2564,8 @@ async function waitForLavalinkTcpThenInitShoukaku(client) {
     if ((await probeLavalinkTcp(host, portNum)) && (await probeLavalinkHttpReady(host, portNum))) break;
     if (!warnedOffline) {
       warnedOffline = true;
-      global.logger?.info?.(
-        `[MUSIC] Lavalink non ancora pronto su ${host}:${portNum}, attendo prima di collegare Shoukaku...`,
+      logMusic(
+        `Lavalink non ancora pronto su ${host}:${portNum}, attendo prima di collegare Shoukaku...`,
       );
     }
     await new Promise((r) => setTimeout(r, 2000));
@@ -2530,8 +2622,8 @@ async function waitForLavalinkTcpThenInitShoukaku(client) {
       if (isTransientLavalinkConnectError(err)) {
         if (!refusedLogged) {
           refusedLogged = true;
-          global.logger?.info?.(
-            `[MUSIC] Shoukaku node ${name}: Lavalink momentaneamente non raggiungibile, riconnessione automatica...`,
+          logMusic(
+            `Shoukaku node ${name}: Lavalink momentaneamente non raggiungibile, riconnessione automatica...`,
           );
         }
         return;
@@ -2541,7 +2633,7 @@ async function waitForLavalinkTcpThenInitShoukaku(client) {
     });
     shoukaku.on("ready", (name) => {
       refusedLogged = false;
-      global.logger?.info?.(`[MUSIC] Lavalink collegato (nodo ${name})`);
+      logMusic(`Lavalink collegato (nodo ${name})`);
       if (musicRestoreVoiceOnRestartEnabled(client)) scheduleMusicPlaybackResume(client);
     });
     startMusicInactivityWatcher(client);

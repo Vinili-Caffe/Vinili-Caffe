@@ -4,6 +4,7 @@ const { resolveHogwartsEventConfig } = require("../../Utils/Web/hogwartsSortingC
 const { getHouseMeta, HOUSES } = require("../../Utils/Web/hogwartsSortingBank");
 const { pickSpellListPair, formatSpellListBody } = require("../../Utils/Community/hogwartsForbiddenSpellLists");
 const { assignManualHousePoints } = require("./hogwartsManualHousePointsService");
+const { addGaleoni, formatGaleoni } = require("./gringottService");
 const { isUserHighStaffExcludedFromHogwartsEvent } = require("../../Utils/Web/hogwartsEventParticipation");
 const { getGuildMemberCached, getGuildChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
 const IDs = require("../../Utils/Config/ids");
@@ -18,14 +19,25 @@ const DEFAULT_CONFIG = {
   eventDate: "2026-08-22",
   eventEndDate: "2026-08-23",
   startHour: 12,
-  endHour: 10,
+  endHour: 12,
   roundDurationMs: 55 * 60 * 1000,
   rewardHousePoints: 100,
+  rewardGaleoni: 50,
+  slotIntervalMs: 60 * 60 * 1000,
+  spawnMinOffsetMs: 3 * 60 * 1000,
+  spawnMaxOffsetMs: 52 * 60 * 1000,
+  hintBeforeExpiryMs: 5 * 60 * 1000,
 };
 const loopState = new WeakSet();
 
 function normalizeId(value) {
   return String(value || "").trim();
+}
+
+function safeInt(value, fallback, min = 0, max = Number.MAX_SAFE_INTEGER) {
+  const n = Math.floor(Number(value));
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(min, Math.min(max, n));
 }
 
 function cfg(client) {
@@ -42,9 +54,24 @@ function cfg(client) {
   out.eventEndDate = normalizeId(out.eventEndDate) || (overnight ? nextDateKey(out.eventDate) : out.eventDate);
   out.roundDurationMs = Math.max(5 * 60 * 1000, Math.floor(Number(out.roundDurationMs) || DEFAULT_CONFIG.roundDurationMs));
   out.rewardHousePoints = Math.max(0, Math.floor(Number(out.rewardHousePoints) || DEFAULT_CONFIG.rewardHousePoints));
+  out.rewardGaleoni = Math.max(0, Math.floor(Number(out.rewardGaleoni) || DEFAULT_CONFIG.rewardGaleoni));
+  out.slotIntervalMs = safeInt(out.slotIntervalMs, DEFAULT_CONFIG.slotIntervalMs, 60_000, 24 * 60 * 60 * 1000);
+  out.spawnMinOffsetMs = safeInt(out.spawnMinOffsetMs, DEFAULT_CONFIG.spawnMinOffsetMs, 0, out.slotIntervalMs - 60_000);
+  out.spawnMaxOffsetMs = safeInt(
+    out.spawnMaxOffsetMs,
+    DEFAULT_CONFIG.spawnMaxOffsetMs,
+    out.spawnMinOffsetMs,
+    out.slotIntervalMs - 60_000,
+  );
+  out.hintBeforeExpiryMs = safeInt(
+    out.hintBeforeExpiryMs,
+    DEFAULT_CONFIG.hintBeforeExpiryMs,
+    60_000,
+    out.roundDurationMs,
+  );
   out.announceChannelId = normalizeId(out.announceChannelId || IDs.channels?.chat);
   out.eventsRoleId = normalizeId(out.eventsRoleId || IDs.roles?.HogwartsEventParticipant);
-  out.leaderboardChannelId = normalizeId(out.leaderboardChannelId || IDs.channels?.hogwartsHouseActivityReport);
+  out.leaderboardChannelId = normalizeId(out.leaderboardChannelId || IDs.channels?.eventAnnouncements);
   out.excludedChannelIds = (Array.isArray(out.excludedChannelIds) ? out.excludedChannelIds : [])
     .map(normalizeId)
     .filter(Boolean);
@@ -121,6 +148,41 @@ function roundIdFromParts(parts) {
   return `${String(parts.year)}${String(parts.month).padStart(2, "0")}${String(parts.day).padStart(2, "0")}T${String(parts.hour).padStart(2, "0")}`;
 }
 
+function lastRoundHour(c) {
+  if (c.endHour > c.startHour) return Math.max(c.startHour, c.endHour - 1);
+  return Math.max(0, c.endHour - 1);
+}
+
+function isFirstRoundSlot(parts, c) {
+  return romeDateKey(parts) === c.eventDate && parts.hour === c.startHour;
+}
+
+function isLastRoundSlot(parts, c) {
+  return romeDateKey(parts) === c.eventEndDate && parts.hour === lastRoundHour(c);
+}
+
+function slotSpawnOffsetMs(c, roundId, parts) {
+  if (parts && (isFirstRoundSlot(parts, c) || isLastRoundSlot(parts, c))) return 0;
+  const intervalMs = safeInt(c.slotIntervalMs, DEFAULT_CONFIG.slotIntervalMs, 60_000, 24 * 60 * 60 * 1000);
+  const minOffset = safeInt(c.spawnMinOffsetMs, DEFAULT_CONFIG.spawnMinOffsetMs, 0, intervalMs - 60_000);
+  const maxOffset = safeInt(c.spawnMaxOffsetMs, DEFAULT_CONFIG.spawnMaxOffsetMs, minOffset, intervalMs - 60_000);
+  const span = Math.max(0, maxOffset - minOffset);
+  const seed = `${normalizeId(c.eventKey)}:${normalizeId(roundId)}`;
+  let hash = 0;
+  for (let i = 0; i < seed.length; i += 1) {
+    hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
+  }
+  return minOffset + (span > 0 ? hash % (span + 1) : 0);
+}
+
+function shouldSpawnHourSlot(parts, c) {
+  if (!isWithinHuntWindow(parts, c)) return false;
+  const roundId = roundIdFromParts(parts);
+  const offsetMs = slotSpawnOffsetMs(c, roundId, parts);
+  const elapsedMs = Math.max(0, Math.floor(Number(parts.minute) || 0)) * 60 * 1000;
+  return elapsedMs >= offsetMs;
+}
+
 function dedupeKeyFromRoundId(eventKey, roundId) {
   return `${normalizeId(eventKey)}:${normalizeId(roundId)}`;
 }
@@ -180,7 +242,7 @@ async function pickRandomHuntChannel(guild, c) {
       if (!perms?.has([PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages])) return false;
     }
     const memberPerms = channel.permissionsFor(roleToCheck);
-    if (!memberPerms?.has([PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages])) return false;
+    if (!memberPerms?.has(PermissionsBitField.Flags.ViewChannel)) return false;
     return true;
   });
   const list = [...channels.values()];
@@ -194,7 +256,7 @@ function buildListEmbed(pair, slot, roundId) {
   const spells = isA ? pair.spellsA : pair.spellsB;
   return new EmbedBuilder()
     .setColor(0x2b1a10)
-    .setTitle(`📜 ${title}`)
+    .setTitle(`<:VC_emoji:1485419161168511036> ${title}`)
     .setDescription(
       [
         "<a:VC_Events:1482706144953897223> **Lista della Sezione Proibita**.",
@@ -204,7 +266,7 @@ function buildListEmbed(pair, slot, roundId) {
         "> Premi il bottone qui sotto.",
       ].join("\n"),
     )
-    .setFooter({ text: `Turno ${roundId.replace("T", " · ")}` });
+    .setFooter({ text: `Turno ${roundId.replace("T", " \u2022 ")}` });
 }
 
 async function disableListButtons(message, reason) {
@@ -249,25 +311,123 @@ async function announceInChat(client, guild, c, text, embeds = []) {
     .catch(() => null);
 }
 
-async function finalizeMixedHouses(client, guild, c, doc, houseA, houseB) {
-  doc.status = "mixed_houses";
-  doc.rawWebhook.resolvedAt = new Date();
-  await saveRound(doc);
-  const labelA = houseLabel(houseA, client);
-  const labelB = houseLabel(houseB, client);
-  await announceInChat(
-    client,
-    guild,
-    c,
-    `<a:VC_Alert:1482706673176150077> **Caccia alle liste** — le due liste sono state trovate da case diverse (**${labelA}** e **${labelB}**). Nessun punto casa assegnato per questo turno.`,
-  );
-  for (const key of ["a", "b"]) {
-    const row = doc.rawWebhook?.lists?.[key];
-    if (!row?.messageId || !row?.channelId) continue;
-    const ch = await getGuildChannelCached(guild, row.channelId).catch(() => null);
-    const msg = ch ? await ch.messages.fetch(row.messageId).catch(() => null) : null;
-    if (msg) await disableListButtons(msg, "Case diverse — nessun premio");
+function formatSpellListHousePointsAward(points, award) {
+  const pts = Math.max(0, Math.floor(Number(points) || 0));
+  if (pts <= 0) return "";
+  const mult = Math.max(1, Number(award?.multiplier) || 1);
+  if (mult <= 1) return `**+${pts} punti casa**`;
+  const boostName = String(award?.petName || award?.consumableLabels?.[0] || "boost").trim();
+  return `**+${pts} punti casa** (×${mult}${boostName ? ` ${boostName}` : ""})`;
+}
+
+async function peekSpellListHousePointsAward(client, guildId, userId, houseId, basePoints) {
+  const base = Math.max(0, Math.floor(Number(basePoints) || 0));
+  const uid = normalizeId(userId);
+  const hid = normalizeHouseId(houseId);
+  const gid = normalizeId(guildId);
+  if (base <= 0 || !uid || !gid) {
+    return { userId: uid, points: base, multiplier: 1, petMult: 1, consumableMult: 1, petName: "", consumableLabels: [], petUsable: false };
   }
+  const {
+    isHogwartsShopBoostActive,
+    loadShopInventory,
+    petHousePointsMultiplier,
+    getShopDurableBoostUsage,
+  } = require("./hogwartsShopBoostsService");
+  const { SHOP_CATEGORIES } = require("../../Utils/Web/hogwartsShopCatalog");
+  const { resolveHousePointsConsumableMultiplier } = require("./hogwartsConsumableBoostsService");
+  if (!isHogwartsShopBoostActive(client)) {
+    return { userId: uid, points: base, multiplier: 1, petMult: 1, consumableMult: 1, petName: "", consumableLabels: [], petUsable: false };
+  }
+  const inventory = await loadShopInventory(gid, uid);
+  const pet = inventory[SHOP_CATEGORIES.PET];
+  let petMult = petHousePointsMultiplier(pet);
+  let petUsable = petMult > 1;
+  if (petUsable) {
+    const usage = await getShopDurableBoostUsage(client, gid, uid, SHOP_CATEGORIES.PET);
+    if (usage?.exhausted) {
+      petMult = 1;
+      petUsable = false;
+    }
+  }
+  const consumable = await resolveHousePointsConsumableMultiplier(client, gid, uid, hid);
+  const consumableMult = Math.max(1, Number(consumable?.multiplier) || 1);
+  const multiplier = (petMult > 1 ? petMult : 1) * consumableMult;
+  return {
+    userId: uid,
+    points: Math.max(0, Math.floor(base * multiplier)),
+    multiplier,
+    petMult: petMult > 1 ? petMult : 1,
+    consumableMult,
+    petName: petMult > 1 ? String(pet?.name || "").trim() : "",
+    consumableLabels: Array.isArray(consumable?.labels) ? consumable.labels.filter(Boolean) : [],
+    petUsable,
+  };
+}
+
+async function resolveBestSpellListHousePointsAward(client, guildId, houseId, userIds, basePoints) {
+  const base = Math.max(0, Math.floor(Number(basePoints) || 0));
+  const ids = [...new Set((Array.isArray(userIds) ? userIds : []).map((id) => normalizeId(id)).filter(Boolean))];
+  if (base <= 0 || !ids.length) {
+    return { points: 0, multiplier: 1, petMult: 1, consumableMult: 1, petName: "", consumableLabels: [], userId: "" };
+  }
+  let best = await peekSpellListHousePointsAward(client, guildId, ids[0], houseId, base);
+  for (let i = 1; i < ids.length; i += 1) {
+    const row = await peekSpellListHousePointsAward(client, guildId, ids[i], houseId, base);
+    if (row.points > best.points || (row.points === best.points && row.multiplier > best.multiplier)) best = row;
+  }
+  if (best.petUsable && best.petMult > 1 && best.userId) {
+    const { tryConsumeShopDurableBoostUse, ensureShopBoostMinigameBackfill } = require("./hogwartsShopBoostsService");
+    const { SHOP_CATEGORIES } = require("../../Utils/Web/hogwartsShopCatalog");
+    await ensureShopBoostMinigameBackfill(client, guildId, best.userId).catch(() => null);
+    const consume = await tryConsumeShopDurableBoostUse(client, guildId, best.userId, SHOP_CATEGORIES.PET);
+    if (!consume.ok) {
+      best = {
+        ...best,
+        points: Math.max(0, Math.floor(base * best.consumableMult)),
+        multiplier: best.consumableMult,
+        petMult: 1,
+        petName: "",
+        petUsable: false,
+      };
+    }
+  }
+  return best;
+}
+
+async function awardSpellListGaleoniToWinners(client, guildId, eventKey, roundId, userIds, amount) {
+  const gid = normalizeId(guildId);
+  const ek = normalizeId(eventKey) || DEFAULT_CONFIG.eventKey;
+  const rid = normalizeId(roundId);
+  const credit = Math.max(0, Math.floor(Number(amount) || 0));
+  const ids = [...new Set((Array.isArray(userIds) ? userIds : []).map((id) => normalizeId(id)).filter(Boolean))];
+  if (!gid || !rid || credit <= 0 || !ids.length) {
+    return { paid: 0, total: 0, perUser: credit, payouts: [] };
+  }
+  const payouts = [];
+  for (const uid of ids) {
+    const result = await addGaleoni({
+      guildId: gid,
+      userId: uid,
+      amount: credit,
+      reason: "Caccia alle liste — turno vinto",
+      actorId: "bot",
+      source: "hogwarts_spell_list_hunt",
+      eventKey: ek,
+      rewardKey: `${ek}:${rid}:galeoni:${uid}`,
+    });
+    if (result?.ok === true) {
+      payouts.push({ userId: uid, amount: credit });
+    }
+  }
+  const total = payouts.reduce((sum, row) => sum + row.amount, 0);
+  return { paid: payouts.length, total, perUser: credit, payouts };
+}
+
+function formatSpellListGaleoniLine(payouts) {
+  const rows = Array.isArray(payouts) ? payouts : [];
+  if (!rows.length) return "";
+  return rows.map((row) => `<@${row.userId}> — **${formatGaleoni(row.amount)}**`).join("\n");
 }
 
 async function finalizeHouseWin(client, guild, c, doc, houseId, claimA, claimB) {
@@ -275,7 +435,15 @@ async function finalizeHouseWin(client, guild, c, doc, houseId, claimA, claimB) 
   doc.rawWebhook.resolvedAt = new Date();
   doc.rawWebhook.winningHouseId = houseId;
   await saveRound(doc);
-  const pts = c.rewardHousePoints;
+  const basePts = c.rewardHousePoints;
+  const award = await resolveBestSpellListHousePointsAward(
+    client,
+    guild.id,
+    houseId,
+    [claimA?.userId, claimB?.userId],
+    basePts,
+  );
+  const pts = award.points;
   if (pts > 0) {
     await assignManualHousePoints(client, {
       guildId: guild.id,
@@ -285,7 +453,21 @@ async function finalizeHouseWin(client, guild, c, doc, houseId, claimA, claimB) 
       reason: `Caccia alle liste ${doc.rawWebhook?.roundLabel || ""}`,
     });
   }
+  const galeoniAward = await awardSpellListGaleoniToWinners(
+    client,
+    guild.id,
+    c.eventKey,
+    doc.rawWebhook?.roundId || doc.dedupeKey,
+    [claimA?.userId, claimB?.userId],
+    c.rewardGaleoni,
+  );
   const label = houseLabel(houseId, client);
+  const rewardLines = [];
+  if (pts > 0) rewardLines.push(`<a:VC_Winner:1482535294757507255> ${formatSpellListHousePointsAward(pts, award)} alla ${label}.`);
+  const galeoniLines = formatSpellListGaleoniLine(galeoniAward.payouts);
+  if (galeoniLines) {
+    rewardLines.push("", "**Galeoni ai due maghi:**", galeoniLines);
+  }
   const embed = new EmbedBuilder()
     .setColor(0xd4af37)
     .setTitle("<a:VC_Events:1482706144953897223> Caccia alle liste — Vittoria!")
@@ -295,7 +477,7 @@ async function finalizeHouseWin(client, guild, c, doc, houseId, claimA, claimB) 
         `• <@${claimA.userId}>`,
         `• <@${claimB.userId}>`,
         "",
-        pts > 0 ? `<a:VC_Winner:1482535294757507255> **+${pts} punti casa** alla ${label}.` : "",
+        ...rewardLines,
       ].join("\n"),
     )
     .setTimestamp();
@@ -307,6 +489,7 @@ async function finalizeHouseWin(client, guild, c, doc, houseId, claimA, claimB) 
     const msg = ch ? await ch.messages.fetch(row.messageId).catch(() => null) : null;
     if (msg) await disableListButtons(msg, "Lista raccolta");
   }
+  return { ...award, galeoniAward };
 }
 
 async function spawnRound(client, guild, c, parts) {
@@ -315,14 +498,23 @@ async function spawnRound(client, guild, c, parts) {
   const existing = await loadRound(guild.id, c.eventKey, roundId);
   if (existing) return false;
   const pair = pickSpellListPair(huntRoundIndex(parts, c));
-  if (!pair) return false;
+  if (!pair) {
+    global.logger?.warn?.(`[HOGWARTS SPELL LIST HUNT] Turno ${roundId} non avviato: coppia liste assente.`);
+    return false;
+  }
   let channelA = await pickRandomHuntChannel(guild, c);
   let channelB = await pickRandomHuntChannel(guild, c);
-  if (!channelA || !channelB) return false;
+  if (!channelA || !channelB) {
+    global.logger?.warn?.(`[HOGWARTS SPELL LIST HUNT] Turno ${roundId} non avviato: canali insufficienti.`);
+    return false;
+  }
   if (channelA.id === channelB.id) {
     channelB = await pickRandomHuntChannel(guild, { ...c, excludedChannelIds: [...c.excludedChannelIds, channelA.id] });
   }
-  if (!channelB || channelB.id === channelA.id) return false;
+  if (!channelB || channelB.id === channelA.id) {
+    global.logger?.warn?.(`[HOGWARTS SPELL LIST HUNT] Turno ${roundId} non avviato: servono due canali distinti.`);
+    return false;
+  }
   const expiresAt = new Date(Date.now() + c.roundDurationMs);
   const roundLabel = `${parts.hour}:00`;
   const postList = async (channel, slot) => {
@@ -332,7 +524,7 @@ async function spawnRound(client, guild, c, parts) {
         .setCustomId(buildButtonCustomId(roundId, slot))
         .setLabel(slot === "a" ? "Ho trovato questa lista" : "Ho trovato questa lista")
         .setStyle(ButtonStyle.Primary)
-        .setEmoji("📜"),
+        .setEmoji({ id: "1485419161168511036" }),
     );
     const msg = await channel.send({ embeds: [embed], components: [row] }).catch(() => null);
     return msg?.id ? { channelId: channel.id, messageId: msg.id } : null;
@@ -340,6 +532,7 @@ async function spawnRound(client, guild, c, parts) {
   const listA = await postList(channelA, "a");
   const listB = await postList(channelB, "b");
   if (!listA || !listB) {
+    global.logger?.warn?.(`[HOGWARTS SPELL LIST HUNT] Turno ${roundId} non avviato: invio liste fallito (#${channelA?.name || "?"}, #${channelB?.name || "?"}).`);
     if (listA?.messageId) {
       const ch = await getGuildChannelCached(guild, listA.channelId).catch(() => null);
       const msg = ch ? await ch.messages.fetch(listA.messageId).catch(() => null) : null;
@@ -354,13 +547,13 @@ async function spawnRound(client, guild, c, parts) {
   }
   const intro = new EmbedBuilder()
     .setColor(0xd4af37)
-    .setTitle("<a:VC_Events:1482706144953897223> Caccia alle liste — Sezione Proibita")
+    .setTitle("<a:VC_Events:1482706144953897223> Caccia alle liste \u2014 Sezione Proibita")
     .setDescription(
       [
         "Sono state nascoste **due liste di incantesimi** della Sezione Proibita in **due canali** del server.",
         "",
         "Per vincere **punti casa** servono **due maghi diversi della stessa casa**: uno per lista.",
-        "Se le trovano case diverse, **nessun punto** per questo turno.",
+        "Se le trovano case diverse il turno **resta aperto**: un compagno di casa pu\u00f2 riprendere lo slot sbagliato, oppure si attende la scadenza.",
         "",
         `> Turno attivo fino alle **${String(parts.hour + 1).padStart(2, "0")}:00**.`,
       ].join("\n"),
@@ -417,6 +610,60 @@ async function expireRound(client, guild, c, doc) {
   }
 }
 
+function spellListHintDue(doc, c, nowMs = Date.now()) {
+  if (!doc || normalizeId(doc.status) !== "active") return false;
+  if (doc.rawWebhook?.hintSentAt) return false;
+  const expMs = new Date(doc.rawWebhook?.expiresAt || 0).getTime();
+  if (!Number.isFinite(expMs) || expMs <= nowMs) return false;
+  const hintBeforeMs = safeInt(c.hintBeforeExpiryMs, DEFAULT_CONFIG.hintBeforeExpiryMs, 60_000, c.roundDurationMs);
+  return nowMs >= expMs - hintBeforeMs;
+}
+
+async function announceSpellListHint(client, guild, c, doc) {
+  const expMs = new Date(doc.rawWebhook?.expiresAt || 0).getTime();
+  const nowMs = Date.now();
+  if (!Number.isFinite(expMs) || expMs <= nowMs) return false;
+  const listA = doc.rawWebhook?.lists?.a;
+  const listB = doc.rawWebhook?.lists?.b;
+  const chA = listA?.channelId ? `<#${listA.channelId}>` : "un canale del server";
+  const chB = listB?.channelId ? `<#${listB.channelId}>` : "un altro canale del server";
+  const remainingMin = Math.max(1, Math.ceil((expMs - nowMs) / 60_000));
+  const claims = doc.rawWebhook?.claims && typeof doc.rawWebhook.claims === "object" ? doc.rawWebhook.claims : {};
+  const lines = [
+    `<:VC_Owlcall:1510941826176126976> Nessuna casata ha ancora completato entrambe le liste del turno **${doc.rawWebhook?.roundLabel || ""}**.`,
+    "",
+    `<:VC_Dobby:1510941838138413146> **Indizio:** le liste sono in ${chA} e ${chB}.`,
+  ];
+  if (claims.a?.userId || claims.b?.userId) {
+    lines.push(
+      "",
+      "Una o entrambe le liste sono già state segnalate: serve un **secondo mago della stessa casa** per chiudere il turno.",
+    );
+  }
+  lines.push("", `<a:VC_pixeltime:1482535344103620771> Restano circa **${remainingMin} minuti**.`);
+  const embed = new EmbedBuilder()
+    .setColor(0xd4af37)
+    .setTitle("<a:VC_Events:1482706144953897223> Caccia alle liste — indizio!")
+    .setDescription(lines.join("\n"))
+    .setTimestamp();
+  const sent = await announceInChat(client, guild, c, "", [embed]);
+  if (!sent?.id) return false;
+  await SiteDocument.updateOne(
+    {
+      _id: doc._id,
+      status: "active",
+      $or: [{ "rawWebhook.hintSentAt": { $exists: false } }, { "rawWebhook.hintSentAt": null }],
+    },
+    { $set: { "rawWebhook.hintSentAt": new Date() } },
+  ).catch(() => null);
+  return true;
+}
+
+async function maybeAnnounceSpellListHint(client, guild, c, doc) {
+  if (!spellListHintDue(doc, c)) return false;
+  return announceSpellListHint(client, guild, c, doc);
+}
+
 async function tickRounds(client) {
   const c = cfg(client);
   if (!c.enabled) return;
@@ -425,9 +672,10 @@ async function tickRounds(client) {
   const guildId = normalizeId(IDs.guilds?.main || client?.guilds?.cache?.first?.()?.id);
   const guild = client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
   if (!guild) return;
-  const hogwartsEventKey = normalizeId(resolveHogwartsEventConfig(client)?.eventKey) || "hogwarts";
-  if (isWithinHuntWindow(parts, c) && parts.minute < 8) {
-    await spawnRound(client, guild, c, parts);
+  if (shouldSpawnHourSlot(parts, c)) {
+    const roundId = roundIdFromParts(parts);
+    const existing = await loadRound(guild.id, c.eventKey, roundId);
+    if (!existing) await spawnRound(client, guild, c, parts);
   }
   const active = await SiteDocument.find({
     docType: HUNT_DOC,
@@ -441,7 +689,11 @@ async function tickRounds(client) {
   const now = Date.now();
   for (const doc of active) {
     const exp = doc?.rawWebhook?.expiresAt ? new Date(doc.rawWebhook.expiresAt).getTime() : 0;
-    if (Number.isFinite(exp) && now > exp) await expireRound(client, guild, c, doc);
+    if (Number.isFinite(exp) && now > exp) {
+      await expireRound(client, guild, c, doc);
+      continue;
+    }
+    await maybeAnnounceSpellListHint(client, guild, c, doc);
   }
 }
 
@@ -455,14 +707,14 @@ async function handleSpellListHuntButton(interaction, client) {
   const doc = await loadRound(guildId, c.eventKey, parsed.roundId);
   if (!doc || doc.status !== "active") {
     await interaction
-      .reply({ content: "<a:VC_Alert:1482706673176150077> Questo turno non è più attivo.", flags: 1 << 6 })
+      .reply({ content: "<a:VC_Alert:1482706673176150077> Questo turno non \u00e8 pi\u00f9 attivo.", flags: 1 << 6 })
       .catch(() => null);
     return true;
   }
   const exp = doc.rawWebhook?.expiresAt ? new Date(doc.rawWebhook.expiresAt).getTime() : 0;
   if (Number.isFinite(exp) && Date.now() > exp) {
     await interaction
-      .reply({ content: "<a:VC_Alert:1482706673176150077> Il tempo per questo turno è scaduto.", flags: 1 << 6 })
+      .reply({ content: "<a:VC_Alert:1482706673176150077> Il tempo per questo turno \u00e8 scaduto.", flags: 1 << 6 })
       .catch(() => null);
     return true;
   }
@@ -487,27 +739,40 @@ async function handleSpellListHuntButton(interaction, client) {
   const claims = doc.rawWebhook?.claims && typeof doc.rawWebhook.claims === "object" ? { ...doc.rawWebhook.claims } : {};
   const slot = parsed.slot;
   const otherSlot = slot === "a" ? "b" : "a";
-  if (claims[slot]?.userId) {
-    const same = normalizeId(claims[slot].userId) === uid;
+  const slotClaim = claims[slot];
+  const otherClaim = claims[otherSlot];
+  if (slotClaim?.userId && normalizeId(slotClaim.userId) === uid) {
     await interaction
       .reply({
-        content: same
-          ? "<a:VC_Alert:1482706673176150077> Hai già segnalato questa lista."
-          : "<a:VC_Alert:1482706673176150077> Questa lista è già stata trovata da un altro mago.",
+        content: "<a:VC_Alert:1482706673176150077> Hai gi\u00e0 segnalato questa lista.",
         flags: 1 << 6,
       })
       .catch(() => null);
     return true;
   }
-  if (claims[otherSlot]?.userId && normalizeId(claims[otherSlot].userId) === uid) {
+  if (otherClaim?.userId && normalizeId(otherClaim.userId) === uid) {
     await interaction
       .reply({
-        content: "<a:VC_Alert:1482706673176150077> Hai già trovato l'altra lista: serve un **secondo mago** della tua casata.",
+        content: "<a:VC_Alert:1482706673176150077> Hai gi\u00e0 trovato l'altra lista: serve un **secondo mago** della tua casata.",
         flags: 1 << 6,
       })
       .catch(() => null);
     return true;
   }
+  const canOverwriteSlot =
+    Boolean(slotClaim?.userId) &&
+    Boolean(otherClaim?.userId) &&
+    normalizeHouseId(otherClaim.houseId) === houseId;
+  if (slotClaim?.userId && !canOverwriteSlot) {
+    await interaction
+      .reply({
+        content: "<a:VC_Alert:1482706673176150077> Questa lista \u00e8 gi\u00e0 stata trovata da un altro mago.",
+        flags: 1 << 6,
+      })
+      .catch(() => null);
+    return true;
+  }
+  const stoleSlot = Boolean(slotClaim?.userId) && canOverwriteSlot;
   claims[slot] = { userId: uid, houseId, at: new Date().toISOString() };
   doc.rawWebhook.claims = claims;
   await saveRound(doc);
@@ -523,19 +788,27 @@ async function handleSpellListHuntButton(interaction, client) {
   }
   const otherHouse = normalizeHouseId(claims[otherSlot].houseId);
   if (otherHouse && otherHouse !== houseId) {
-    await finalizeMixedHouses(client, interaction.guild, c, doc, houseId, otherHouse);
     await interaction
       .reply({
-        content: `<a:VC_Alert:1482706673176150077> Liste trovate da **case diverse** (${label} e ${houseLabel(otherHouse, client)}): nessun punto casa questo turno.`,
+        content: `<a:VC_Alert:1482706673176150077> Liste trovate da **case diverse** (${label} e ${houseLabel(otherHouse, client)}). Il turno **resta aperto**: un mago della stessa casa del primo pu\u00f2 riprendere lo slot sbagliato, oppure si attende la scadenza.`,
         flags: 1 << 6,
       })
       .catch(() => null);
     return true;
   }
-  await finalizeHouseWin(client, interaction.guild, c, doc, houseId, claims.a, claims.b);
+  const award = await finalizeHouseWin(client, interaction.guild, c, doc, houseId, claims.a, claims.b);
+  const pointsLine = formatSpellListHousePointsAward(award.points, award);
+  const selfPayout = (award.galeoniAward?.payouts || []).find((row) => normalizeId(row.userId) === uid);
+  const galeoniLine = selfPayout
+    ? ` Tu ricevi **${formatGaleoni(selfPayout.amount)}**.`
+    : award.galeoniAward?.perUser > 0
+      ? ` ${formatGaleoni(award.galeoniAward.perUser)} a ciascuno dei due maghi.`
+      : "";
   await interaction
     .reply({
-      content: `<a:VC_Events:1482706144953897223> **${label}** completa il turno! +${c.rewardHousePoints} punti casa.`,
+      content: stoleSlot
+        ? `<a:VC_Events:1482706144953897223> **${label}** completa il turno riprendendo lo slot! ${pointsLine}.${galeoniLine}`
+        : `<a:VC_Events:1482706144953897223> **${label}** completa il turno! ${pointsLine}.${galeoniLine}`,
       flags: 1 << 6,
     })
     .catch(() => null);
@@ -548,8 +821,7 @@ function startHogwartsSpellListHuntLoop(client) {
   const tick = () => {
     tickRounds(client).catch((err) => global.logger?.warn?.("[HOGWARTS SPELL LIST HUNT] tick:", err?.message || err));
   };
-  const first = setTimeout(tick, 45 * 1000);
-  if (typeof first.unref === "function") first.unref();
+  tick();
   const interval = setInterval(tick, 60 * 1000);
   if (typeof interval.unref === "function") interval.unref();
 }

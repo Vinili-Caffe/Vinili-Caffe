@@ -341,7 +341,7 @@
   function shouldSkipPageCineHeroLayout() {
     if (isUserProfileRoute()) return true;
     var p = String(location.pathname || "").replace(/\/+$/, "");
-    if (/^\/user\/(personalizza|customize)(\/|$)/.test(p)) return true;
+    if (/^\/user\/(personalizza|customize|custom)(\/|$)/.test(p)) return true;
     return false;
   }
 
@@ -421,8 +421,14 @@
       } catch (eData) {}
     }
     if (root) {
-      root.classList.add("vc-page-cine-ready");
-      root.classList.remove("vc-page-cine-boot");
+      var stillPending =
+        root.classList.contains("vc-rank-customize-pending") ||
+        root.classList.contains("vc-custom-profile-pending") ||
+        root.classList.contains("vc-user-profile-pending");
+      if (!stillPending) {
+        root.classList.add("vc-page-cine-ready");
+        root.classList.remove("vc-page-cine-boot");
+      }
     }
     var heroes = document.querySelectorAll(".vc-page-cine-hero");
     for (var i = 0; i < heroes.length; i++) {
@@ -894,7 +900,10 @@
   }
 
   function ensureCommunityPageCineLayout() {
-    if (!isUsersCommunityPage()) return;
+    if (!isUsersCommunityPage()) {
+      initPageHeroLayout({ force: true });
+      return;
+    }
     whenCommunityLeaderReady(function () {
       initPageHeroLayout({ force: true });
       bindInnerHeroScrollFx();
@@ -1325,7 +1334,7 @@
           snapScrollTopIfPristine();
         });
       } else {
-        initPageHeroLayout();
+        initPageHeroLayout({ force: true });
         bindInnerHeroScrollFx();
       }
       try {

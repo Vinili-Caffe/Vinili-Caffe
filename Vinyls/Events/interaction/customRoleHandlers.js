@@ -499,12 +499,17 @@ async function updatePanelMessage(interaction, panelMessageId, role) {
 
 async function createCustomRoleGrantRequest({ client, guildId, channelId, requesterId, targetId, roleId, timeoutMs = 60_000 }) {
   const guild = await getClientGuildCached(client, guildId);
-  const channel = await fetchGuildChannel(guild, channelId);
+  const channel = channelId ? await fetchGuildChannel(guild, channelId) : null;
   const targetMember = await fetchGuildMember(guild, targetId);
   const requesterMember = await fetchGuildMember(guild, requesterId);
   const role = await fetchGuildRole(guild, roleId);
-  if (!guild || !channel || !targetMember || !requesterMember || !role)
-    return { ok: false };
+  // channelId è opzionale (flusso sito /personalizza: solo DM all'utente target).
+  if (!guild || !targetMember || !requesterMember || !role) {
+    return { ok: false, error: "invalid_context" };
+  }
+  if (channelId && !channel) {
+    return { ok: false, error: "channel_missing" };
+  }
 
   const token = crypto.randomBytes(16).toString("hex");
   const dmRow = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`customrole_grant:${token}:yes`)
@@ -528,19 +533,21 @@ async function createCustomRoleGrantRequest({ client, guildId, channelId, reques
       ? await targetUser.send({ embeds: [dmEmbed], components: [dmRow] }).catch(() => null)
       : null;
   if (!dmSent) {
-    await channel
-      .send({
-        embeds: [
-          new EmbedBuilder()
-            .setColor("Red")
-            .setTitle("<a:VC_Alert:1482706673176150077> Impossibile inviare DM")
-            .setDescription(
-              `<:vegax:1443934876440068179> Non posso inviare il messaggio privato a ${targetMember}.`,
-            ),
-        ],
-      })
-      .catch(() => null);
-    return { ok: false };
+    if (channel) {
+      await channel
+        .send({
+          embeds: [
+            new EmbedBuilder()
+              .setColor("Red")
+              .setTitle("<a:VC_Alert:1482706673176150077> Impossibile inviare DM")
+              .setDescription(
+                `<:vegax:1443934876440068179> Non posso inviare il messaggio privato a ${targetMember}.`,
+              ),
+          ],
+        })
+        .catch(() => null);
+    }
+    return { ok: false, error: "dm_closed" };
   }
 
   const waitingEmbed = new EmbedBuilder()
@@ -549,14 +556,27 @@ async function createCustomRoleGrantRequest({ client, guildId, channelId, reques
     .setDescription(
       `<a:VC_Timer:1482527426557775954> Sto aspettando che ${targetMember} accetti di ricevere il ruolo **${role.name}**.`,
     );
-  const promptMsg = await channel.send({ embeds: [waitingEmbed] }).catch(() => null);
-  if (!promptMsg) {
-    await dmSent.edit({ components: [] }).catch(() => {});
-    return { ok: false };
+  let promptMsg = null;
+  if (channel) {
+    promptMsg = await channel.send({ embeds: [waitingEmbed] }).catch(() => null);
+    if (!promptMsg) {
+      await dmSent.edit({ components: [] }).catch(() => {});
+      return { ok: false, error: "channel_send_failed" };
+    }
   }
 
   ensurePendingLoaded();
-  pendingRoleGrants.set(token, { guildId, channelId, requesterId, targetId, roleId, promptMessageId: promptMsg.id, dmChannelId: dmSent.channelId, dmMessageId: dmSent.id, expiresAt: Date.now() + Math.max(15_000, Number(timeoutMs || 60_000)), });
+  pendingRoleGrants.set(token, {
+    guildId,
+    channelId: channelId ? String(channelId) : null,
+    requesterId,
+    targetId,
+    roleId,
+    promptMessageId: promptMsg?.id || null,
+    dmChannelId: dmSent.channelId,
+    dmMessageId: dmSent.id,
+    expiresAt: Date.now() + Math.max(15_000, Number(timeoutMs || 60_000)),
+  });
   persistPendingNow();
 
   const expiryTimer = setTimeout(
@@ -567,24 +587,30 @@ async function createCustomRoleGrantRequest({ client, guildId, channelId, reques
       pendingRoleGrants.delete(token);
       persistPendingNow();
       const g = await getClientGuildCached(client, req.guildId);
-      const ch = await fetchGuildChannel(g, req.channelId);
-      const msg = ch?.messages?.cache?.get(req.promptMessageId) || (await ch?.messages?.fetch(req.promptMessageId).catch(() => null));
-      if (msg) {
-        await msg
-          .edit({
-            embeds: [
-              new EmbedBuilder()
-                .setColor("#e67e22")
-                .setTitle("<:VC_update:1478721333096349817> Scaduto")
-                .setDescription(`<a:VC_Timer:1482527426557775954> <@${req.targetId}> non ha risposto in tempo.`),
-            ],
-          })
-          .catch(() => { });
+      if (req.channelId && req.promptMessageId) {
+        const ch = await fetchGuildChannel(g, req.channelId);
+        const msg =
+          ch?.messages?.cache?.get(req.promptMessageId) ||
+          (await ch?.messages?.fetch(req.promptMessageId).catch(() => null));
+        if (msg) {
+          await msg
+            .edit({
+              embeds: [
+                new EmbedBuilder()
+                  .setColor("#e67e22")
+                  .setTitle("<:VC_update:1478721333096349817> Scaduto")
+                  .setDescription(`<a:VC_Timer:1482527426557775954> <@${req.targetId}> non ha risposto in tempo.`),
+              ],
+            })
+            .catch(() => {});
+        }
       }
 
       const user = await getUserCached(client, req.targetId);
       const dmChannel = user?.dmChannel || (await user?.createDM().catch(() => null));
-      const dmMsg = dmChannel?.messages?.cache?.get(req.dmMessageId) || (await dmChannel?.messages?.fetch(req.dmMessageId).catch(() => null));
+      const dmMsg =
+        dmChannel?.messages?.cache?.get(req.dmMessageId) ||
+        (await dmChannel?.messages?.fetch(req.dmMessageId).catch(() => null));
       if (dmMsg) {
         await dmMsg
           .edit({
@@ -592,18 +618,18 @@ async function createCustomRoleGrantRequest({ client, guildId, channelId, reques
               new EmbedBuilder()
                 .setColor("#e67e22")
                 .setTitle("<:VC_update:1478721333096349817> Scaduto")
-                .setDescription( "<a:VC_Timer:1482527426557775954> Tempo scaduto: la richiesta non è più valida." ),
+                .setDescription("<a:VC_Timer:1482527426557775954> Tempo scaduto: la richiesta non è più valida."),
             ],
             components: [],
           })
-          .catch(() => { });
+          .catch(() => {});
       }
     },
     Math.max(15_000, Number(timeoutMs || 60_000)),
   );
   if (typeof expiryTimer?.unref === "function") expiryTimer.unref();
 
-  return { ok: true, promptMessageId: promptMsg.id };
+  return { ok: true, promptMessageId: promptMsg?.id || null, dmOnly: !channel };
 }
 
 function buildSiteRoleRequestButtons(token, disabled = false) {

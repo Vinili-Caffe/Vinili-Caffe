@@ -14,6 +14,7 @@
     activeRequestRoleId: "",
     requestAuthRequired: false,
     submittingRequest: false,
+    leavingRole: false,
     lastSnapshot: "",
     lastAppliedSummarySig: "",
     lastProfileViewerForGrid: "\u0000",
@@ -67,6 +68,13 @@
     if (direct && !isTemplatePlaceholder(direct)) return direct;
 
     return "/webhooks/site-roles/request";
+  }
+
+  function resolvedLeaveApiUrl() {
+    var request = resolvedRequestApiUrl();
+    if (!request) return "";
+    if (/\/request\/?$/i.test(request)) return request.replace(/\/request\/?$/i, "/leave");
+    return String(request).replace(/\/+$/, "") + "/leave";
   }
 
   function authCfg() {
@@ -375,8 +383,12 @@
     }
     if (viewerHasRole(row)) {
       return (
-        '<button type="button" class="vc-role-card-cta vc-role-card-cta--already-member" disabled title="Hai già questo ruolo">' +
-        '<i class="fa fa-check" aria-hidden="true"></i> Già tuo</button>'
+        '<button type="button" class="vc-role-card-cta vc-role-card-cta--leave" data-leave-role-id="' +
+        rid +
+        '" data-role-id="' +
+        rid +
+        '" title="Rimuovi questo ruolo custom dal tuo account Discord">' +
+        '<i class="fa fa-sign-out" aria-hidden="true"></i> Togliti</button>'
       );
     }
     return (
@@ -389,7 +401,7 @@
   }
 
   function renderCard(row) {
-    var ownerName = String(row.ownerUsername || row.ownerDisplayName || "Utente").trim() || "Utente";
+    var ownerName = String(row.ownerDisplayName || row.ownerUsername || "Utente").trim() || "Utente";
     var expiryChip = row.isPermanent
       ? '<span class="vc-role-chip vc-role-chip--perm"><i class="fa fa-link" aria-hidden="true"></i> Permanente</span>'
       : '<span class="vc-role-chip vc-role-chip--temp"><i class="fa fa-clock-o" aria-hidden="true"></i> ' + esc(formatDateIt(row.expiresAt)) + "</span>";
@@ -481,7 +493,7 @@
   }
 
   function renderMemberRow(member) {
-    var name = String(member.username || "Utente").trim() || "Utente";
+    var name = String(member.displayName || member.username || "Utente").trim() || "Utente";
     return (
       '<a class="vc-role-member" role="listitem" href="' + esc(profileHref(member.userId)) + '">' +
       '<img class="vc-role-member-avatar" src="' + esc(memberAvatarUrl(member)) + '" alt="" width="56" height="56" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src=\'' + esc(fallbackAvatarById(member.userId)) + '\'" />' +
@@ -680,6 +692,80 @@
     state.lastFocusEl = null;
   }
 
+  async function leaveRole(roleId) {
+    var rid = String(roleId || "").trim();
+    var row = findRow(rid);
+    if (!row) {
+      setState("Ruolo non trovato.", true);
+      return;
+    }
+    if (viewerIsRoleOwner(row)) {
+      setState("Sei il creatore di questo ruolo: non puoi togliertelo da qui.", true);
+      return;
+    }
+    if (!viewerHasRole(row)) {
+      setState("Non hai questo ruolo.", true);
+      return;
+    }
+    var token = getToken();
+    if (!token) {
+      setState("Accedi con Discord per toglierti dal ruolo.", true);
+      triggerDiscordLogin();
+      return;
+    }
+    var api = resolvedLeaveApiUrl();
+    if (!api) {
+      setState("Manca l'endpoint API per lasciare il ruolo.", true);
+      return;
+    }
+    var roleName = String(row.roleName || "questo ruolo").trim() || "questo ruolo";
+    var ok = false;
+    try {
+      ok = window.confirm(
+        "Vuoi toglierti il ruolo «" + roleName + "»?\n\nVerrà rimosso dal tuo account Discord sul server."
+      );
+    } catch (e) {
+      ok = false;
+    }
+    if (!ok) return;
+    if (state.leavingRole) return;
+
+    state.leavingRole = true;
+    setState("Rimozione ruolo in corso…", false);
+    try {
+      var res = await fetch(api, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          Authorization: "Bearer " + token
+        },
+        body: JSON.stringify({ roleId: rid })
+      });
+      var text = await res.text();
+      var data = null;
+      try {
+        data = text ? JSON.parse(text) : null;
+      } catch (e) {
+        data = null;
+      }
+      if (!res.ok || !data || data.ok !== true) {
+        var fallbackMsg =
+          (data && data.message) ||
+          (text && String(text).trim()) ||
+          ("Rimozione non riuscita (HTTP " + res.status + ")");
+        throw new Error(fallbackMsg);
+      }
+      setState("Ruolo rimosso. Aggiorno l’elenco…", false);
+      await load({ silent: true });
+      setState("Ti sei tolto dal ruolo «" + roleName + "».", false);
+    } catch (err) {
+      setState(err && err.message ? err.message : "Non sono riuscito a rimuovere il ruolo.", true);
+    } finally {
+      state.leavingRole = false;
+    }
+  }
+
   async function submitRoleRequest() {
     var token = getToken();
     var textarea = byId("vc-role-request-reason");
@@ -868,6 +954,12 @@
         if (cta) {
           ev.preventDefault();
           ev.stopPropagation();
+
+          var leaveRoleId = String(cta.getAttribute("data-leave-role-id") || "").trim();
+          if (leaveRoleId) {
+            if (!state.leavingRole) leaveRole(leaveRoleId);
+            return;
+          }
 
           var requestRoleId = String(cta.getAttribute("data-request-role-id") || "").trim();
           if (requestRoleId) {

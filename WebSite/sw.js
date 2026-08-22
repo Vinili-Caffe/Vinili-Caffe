@@ -1,4 +1,4 @@
-/* v=202608192200-push-icon-fix */
+/* v=20260820notifnav1 */
 /* Vinili & Caffè — Web Push service worker */
 /* eslint-disable no-restricted-globals */
 
@@ -803,12 +803,6 @@ self.addEventListener("notificationclick", function (event) {
     nd = event.notification && event.notification.data ? event.notification.data : {};
   } catch (eNd) {}
   event.notification.close();
-  var closeSiblings = closeMatchingNotifications({
-    id: String(nd.id || "").trim(),
-    ticketId: String(nd.ticketId || "").trim(),
-    ids: [String(nd.id || "").trim(), String(nd.messageId || "").trim()].filter(Boolean),
-    ticketIds: String(nd.ticketId || "").trim() ? [String(nd.ticketId || "").trim()] : [],
-  });
   var dest = String(nd.openUrl || "/").trim() || "/";
   var notifId = String(nd.id || "").trim();
   var clickTicketId = String(nd.ticketId || "").trim();
@@ -836,6 +830,17 @@ self.addEventListener("notificationclick", function (event) {
     navDest = appendSearchParam(navDest, "vcReplyTo", messageId);
   }
 
+  // Stash subito: su iOS la PWA può aprirsi su start_url (/) in parallelo
+  // e il resume PWA deve trovare già la destinazione della notifica.
+  var stashEarly = stashPendingNav(navDest, clickTicketId);
+
+  var closeSiblings = closeMatchingNotifications({
+    id: String(nd.id || "").trim(),
+    ticketId: String(nd.ticketId || "").trim(),
+    ids: [String(nd.id || "").trim(), String(nd.messageId || "").trim()].filter(Boolean),
+    ticketIds: String(nd.ticketId || "").trim() ? [String(nd.ticketId || "").trim()] : [],
+  });
+
   function openFromNotif() {
     return stashPendingNav(navDest, clickTicketId).then(function () {
       return openOrFocusTicketFromNotif(navDest, notifId, clickTicketId, sameOrigin);
@@ -844,28 +849,29 @@ self.addEventListener("notificationclick", function (event) {
 
   event.waitUntil(
     Promise.all([
+      stashEarly.catch(function () {}),
       closeSiblings.catch(function () {}),
       stashPendingReadId(notifId).then(function () {
-      if (action === "reply" && replyText && clickTicketId) {
-        return sendTicketReplyFromSw(clickTicketId, replyText, messageId).then(function (ok) {
-          if (ok) {
-            return self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(function (clientList) {
-              (clientList || []).forEach(function (client) {
-                try {
-                  client.postMessage({
-                    type: "vc:notif-mark-read",
-                    id: notifId,
-                    ticketId: clickTicketId,
-                  });
-                } catch (eMsg) {}
+        if (action === "reply" && replyText && clickTicketId) {
+          return sendTicketReplyFromSw(clickTicketId, replyText, messageId).then(function (ok) {
+            if (ok) {
+              return self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(function (clientList) {
+                (clientList || []).forEach(function (client) {
+                  try {
+                    client.postMessage({
+                      type: "vc:notif-mark-read",
+                      id: notifId,
+                      ticketId: clickTicketId,
+                    });
+                  } catch (eMsg) {}
+                });
               });
-            });
-          }
-          return openFromNotif();
-        });
-      }
-      return openFromNotif();
-    }),
+            }
+            return openFromNotif();
+          });
+        }
+        return openFromNotif();
+      }),
     ]),
   );
 });

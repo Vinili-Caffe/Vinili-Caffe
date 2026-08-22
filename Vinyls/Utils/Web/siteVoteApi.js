@@ -108,8 +108,13 @@ async function fetchUserIdentity(client, guild, userId) {
     user = await client.users.fetch(out.userId, { force: true }).catch(() => null);
   }
   out.username = String(user?.username || "").trim();
-  out.displayName = String(user?.username || "Utente").trim() || "Utente";
-  out.avatarUrl = userAvatarUrlDynamic(user, { size: 256 }) || "";
+  out.displayName = String(
+    member?.displayName || user?.globalName || user?.username || "Utente"
+  ).trim() || "Utente";
+  out.avatarUrl =
+    (member && (userAvatarUrlDynamic(member, { size: 256 }) || "")) ||
+    userAvatarUrlDynamic(user, { size: 256 }) ||
+    "";
   return out;
 }
 

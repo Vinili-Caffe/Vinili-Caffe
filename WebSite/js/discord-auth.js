@@ -660,7 +660,7 @@
     if (!id) return false;
     try {
       var path = String(window.location.pathname || "").replace(/\/+$/, "") || "/";
-      if (path === "/user/personalizza" || path === "/user/customize") return false;
+      if (path === "/user/personalizza" || path === "/user/customize" || path === "/user/custom") return false;
       var q = new URLSearchParams(window.location.search || "");
       var qid = String(q.get("id") || q.get("userId") || q.get("uid") || "").trim();
       if (qid === id && (path === "/user" || path === "/users")) return true;
@@ -750,7 +750,7 @@
       if (p === "/staff/profilo" || p.indexOf("/staff/profilo/") === 0) return true;
       if (p === "/dashboard/profilo" || p.indexOf("/dashboard/profilo/") === 0) return true;
       if (p === "/dashboard/transcript" || p.indexOf("/dashboard/transcript/") === 0) return true;
-      if (p === "/user" || p === "/user/customize" || p === "/user/personalizza") return true;
+      if (p === "/user" || p === "/user/customize" || p === "/user/personalizza" || p === "/user/custom") return true;
       return /^\/users\/\d{17,22}$/.test(p);
     } catch (e) {
       return false;

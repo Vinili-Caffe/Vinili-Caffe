@@ -4,7 +4,7 @@ const { userAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
 const { isHogwartsSystemRoleId } = require("./hogwartsSortingConfig");
 const { collectBlockedSystemRoleIds, isListableUserCustomRole } = require("../Community/userCustomRoleFilter");
 
-const CACHE_TTL_MS = 30_000;
+const CACHE_TTL_MS = 90_000;
 let cache = { at: 0, payload: null };
 const BLOCKED_ROLE_IDS = collectBlockedSystemRoleIds();
 
@@ -66,7 +66,9 @@ async function fetchUserIdentity(client, guild, userId) {
   const user = member?.user || (await fetchDiscordUser(client, guild, userId));
   if (!user) return out;
   out.ownerUsername = String(user.username || "").trim();
-  out.ownerDisplayName = String(user.username || "").trim();
+  out.ownerDisplayName = String(
+    member?.displayName || user.globalName || user.username || ""
+  ).trim() || out.ownerUsername;
   out.ownerAvatar = user.avatar ? String(user.avatar) : "";
   out.ownerAvatarUrl = userAvatarUrlDynamic(member || user, { size: 256 }) || "";
   return out;
@@ -122,7 +124,9 @@ function memberIdentityFromGuildMember(member, ownerId, guild) {
   const user = member?.user || null;
   const userId = String(user?.id || member?.id || "").trim();
   const username = String(user?.username || "").trim();
-  const displayName = String(username || "Utente").trim();
+  const displayName = String(
+    member?.displayName || user?.globalName || username || "Utente"
+  ).trim();
   const avatarGuild = member?.avatar != null ? String(member.avatar) : "";
   const avatarUser = user?.avatar ? String(user.avatar) : "";
   const avatar = avatarGuild || avatarUser;
@@ -169,14 +173,17 @@ async function handleSiteRolesGet(client, req, res) {
     }
 
     await guild.roles.fetch().catch(() => null);
-    const membersFetchResult = await guild.members.fetch().catch((err) => {
-      global.logger?.warn?.("[WEBHOOK] site-roles members.fetch failed:", err?.message || err);
-      return null;
-    });
-    if (!membersFetchResult || !(guild.members?.cache?.size > 1)) {
-      global.logger?.warn?.(
-        `[WEBHOOK] site-roles members cache thin: size=${guild.members?.cache?.size || 0}`,
-      );
+    // Full member scrape is expensive (~3–5s). Only do it when the cache is thin.
+    if (!(guild.members?.cache?.size > 50)) {
+      const membersFetchResult = await guild.members.fetch().catch((err) => {
+        global.logger?.warn?.("[WEBHOOK] site-roles members.fetch failed:", err?.message || err);
+        return null;
+      });
+      if (!membersFetchResult || !(guild.members?.cache?.size > 1)) {
+        global.logger?.warn?.(
+          `[WEBHOOK] site-roles members cache thin: size=${guild.members?.cache?.size || 0}`,
+        );
+      }
     }
 
     const docs = await CustomRole.find({ guildId }).lean().catch(() => []);
@@ -219,7 +226,7 @@ async function handleSiteRolesGet(client, req, res) {
           .sort((a, b) => {
             if (a.isOwner && !b.isOwner) return -1;
             if (!a.isOwner && b.isOwner) return 1;
-            return String(a.username || "").localeCompare(String(b.username || ""), "it", {
+            return String(a.displayName || a.username || "").localeCompare(String(b.displayName || b.username || ""), "it", {
               sensitivity: "base",
             });
           });
@@ -275,4 +282,8 @@ async function handleSiteRolesGet(client, req, res) {
   }
 }
 
-module.exports = { handleSiteRolesGet };
+function invalidateSiteRolesCache() {
+  cache = { at: 0, payload: null };
+}
+
+module.exports = { handleSiteRolesGet, invalidateSiteRolesCache };

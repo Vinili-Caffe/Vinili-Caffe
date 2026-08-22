@@ -18,7 +18,66 @@
   var liveCustomizePollTimer = null;
   var LIVE_CUSTOMIZE_POLL_MS = 90000;
   var PREVIEW_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
-  var PREVIEW_CACHE_KEY = "vc_rank_customize_preview_cache_v1";
+  var PREVIEW_CACHE_KEY = "vc_rank_customize_preview_cache_v5";
+  var RANK_TAB_STORAGE_KEY = "vc_rank_customize_active_tab";
+
+  function normalizeRankTab(value) {
+    var t = String(value || "").trim().toLowerCase();
+    if (t === "wallpaper" || t === "wall" || t === "sfondo") return "wallpaper";
+    if (t === "colors" || t === "colori" || t === "color") return "colors";
+    return "";
+  }
+
+  function readStoredRankTab() {
+    try {
+      return normalizeRankTab(sessionStorage.getItem(RANK_TAB_STORAGE_KEY) || "");
+    } catch (e) {
+      return "";
+    }
+  }
+
+  function writeStoredRankTab(tab) {
+    try {
+      sessionStorage.setItem(RANK_TAB_STORAGE_KEY, normalizeRankTab(tab) || "colors");
+    } catch (e) {}
+  }
+
+  function syncRankTabToUrl(tab) {
+    var next = normalizeRankTab(tab) || "colors";
+    activeTab = next;
+    writeStoredRankTab(next);
+    try {
+      var url = new URL(window.location.href);
+      var q = url.searchParams;
+      if (!q.get("target") || q.get("target") === "wallpaper" || q.get("target") === "colors" || q.get("target") === "colori") {
+        q.set("target", "rank");
+      }
+      if (next === "wallpaper") q.set("rankTab", "wallpaper");
+      else q.delete("rankTab");
+      /* Avoid hub mistaking generic tab= for a different section. */
+      if (String(q.get("tab") || "").toLowerCase() === "wallpaper" || String(q.get("tab") || "").toLowerCase() === "colors" || String(q.get("tab") || "").toLowerCase() === "colori") {
+        q.delete("tab");
+      }
+      var qs = q.toString();
+      var nextUrl = url.pathname + (qs ? "?" + qs : "") + (url.hash || "");
+      if (nextUrl !== window.location.pathname + window.location.search + window.location.hash) {
+        window.history.replaceState({}, "", nextUrl);
+      }
+    } catch (e) {}
+  }
+
+  function restoreRankTabFromUrl() {
+    var fromUrl = "";
+    try {
+      var q = new URLSearchParams(window.location.search || "");
+      fromUrl = normalizeRankTab(q.get("rankTab") || q.get("tab") || "");
+    } catch (e) {}
+    var fromStore = readStoredRankTab();
+    var next = fromUrl || fromStore || "colors";
+    activeTab = next;
+    writeStoredRankTab(next);
+    return next;
+  }
 
   function setLocalOpacityDragPreview(enabled) {
     var overlay = byId("vc-rank-editor-preview-live-overlay");
@@ -112,7 +171,11 @@
   function clearRankCustomizePending() {
     try {
       document.documentElement.classList.remove("vc-rank-customize-pending");
+      document.documentElement.classList.remove("vc-custom-profile-pending");
       document.documentElement.classList.remove("vc-loading-scroll-lock");
+      document.documentElement.classList.remove("vc-page-cine-boot");
+      document.documentElement.classList.add("vc-page-cine-ready");
+      document.documentElement.classList.add("vc-styles-ready");
     } catch (e) {}
     try {
       var html = document.documentElement;
@@ -126,6 +189,10 @@
         html.style.removeProperty("touch-action");
       }
       if (body) {
+        body.classList.remove("vc-page-cine-layout");
+        try {
+          delete body.dataset.vcPageCineLayout;
+        } catch (eDs) {}
         body.style.removeProperty("position");
         body.style.removeProperty("inset");
         body.style.removeProperty("top");
@@ -141,21 +208,44 @@
         body.style.removeProperty("touch-action");
       }
     } catch (eStyle) {}
+    try {
+      var kill = document.querySelectorAll(
+        '[id="vc-rank-customize-loading"], [id="vc-custom-profile-loading"]'
+      );
+      for (var ki = 0; ki < kill.length; ki++) {
+        kill[ki].hidden = true;
+        kill[ki].setAttribute("hidden", "");
+        kill[ki].style.setProperty("display", "none", "important");
+        if (kill[ki].parentNode) kill[ki].parentNode.removeChild(kill[ki]);
+      }
+    } catch (eKill) {}
   }
 
   function hideRankCustomizeLoading() {
+    var nodes = [];
+    try {
+      nodes = Array.prototype.slice.call(document.querySelectorAll('[id="vc-rank-customize-loading"]'));
+    } catch (eQ) {
     var loading = byId("vc-rank-customize-loading");
-    if (loading) {
-      loading.hidden = true;
-      loading.setAttribute("aria-hidden", "true");
+      if (loading) nodes = [loading];
+    }
+    for (var i = 0; i < nodes.length; i++) {
+      nodes[i].hidden = true;
+      nodes[i].setAttribute("aria-hidden", "true");
+      nodes[i].setAttribute("hidden", "");
+      try {
+        nodes[i].style.setProperty("display", "none", "important");
+      } catch (eSt) {}
     }
     clearRankCustomizePending();
   }
 
   function showRankFatalError(message) {
-    hideRankCustomizeLoading();
     var app = byId("vc-rank-customize-app");
-    if (!app) return;
+    if (!app) {
+      hideRankCustomizeLoading();
+      return;
+    }
     var home = "/";
     try {
       if (window.__VC_AUTH && window.__VC_AUTH.homeUrl) home = String(window.__VC_AUTH.homeUrl).replace(/\/+$/, "") || "/";
@@ -171,6 +261,7 @@
       "<div><h1>Impossibile caricare</h1><p>" +
       esc(String(message || "Errore sconosciuto.")) +
       "</p></div></section></div>";
+    hideRankCustomizeLoading();
   }
 
   function profileUrl(userId) {
@@ -361,9 +452,11 @@
   function previewMarkup(data, theme) {
     var signature = previewSignatureForTheme(theme);
     var matchingCache = loadCachedPreview(signature, true);
+    // Mai mostrare lo skeleton con rank-box: tieni l'ultima anteprima mentre rigenera.
     var initialPreviewSrc = "";
     if (matchingCache) initialPreviewSrc = matchingCache;
-    else if (previewObjectUrl && previewLastSignature === signature) initialPreviewSrc = previewObjectUrl;
+    else if (previewObjectUrl) initialPreviewSrc = previewObjectUrl;
+    else initialPreviewSrc = loadLatestCachedPreview(true) || "";
     return (
       '<div class="vc-rank-editor-preview__imagewrap' + (initialPreviewSrc ? " is-ready" : "") + '">' +
       '<div class="vc-rankcard-ph" aria-hidden="true">' +
@@ -567,8 +660,10 @@
     }
     var myToken = ++previewRenderToken;
     setCustomizePreviewStatus(status, "", false);
-    if (!img.getAttribute("src")) markCustomizePreviewReady(img, false);
-    img.classList.add("is-rendering");
+    var hadSrc = Boolean(img.getAttribute("src"));
+    if (!hadSrc) markCustomizePreviewReady(img, false);
+    /* Non dimmare se c'è già un'anteprima: evita flash a ogni poll/re-render. */
+    if (!hadSrc) img.classList.add("is-rendering");
     fetchWithTimeout(url, {
       method: "POST",
       headers: {
@@ -611,13 +706,16 @@
         }
         var prevObjectUrl = previewObjectUrl;
         previewObjectUrl = nextObjectUrl;
+        /* Soft swap: cambia src solo se diverso (il decode è già ok dal probe). */
+        if (img.getAttribute("src") !== nextObjectUrl) {
         img.src = previewObjectUrl;
+        }
         img.classList.remove("is-rendering");
         markCustomizePreviewReady(img, true);
         setCustomizePreviewStatus(status, "", false);
         previewLastSignature = signature;
         if (nextDataUrl) saveCachedPreview(signature, nextDataUrl);
-        if (prevObjectUrl) {
+        if (prevObjectUrl && prevObjectUrl !== nextObjectUrl) {
           try {
             window.URL.revokeObjectURL(prevObjectUrl);
           } catch (ePrev) {}
@@ -714,7 +812,12 @@
   function render() {
     var app = byId("vc-rank-customize-app");
     if (!app || !loaded || !draft) return;
-    var backHref = profileUrl(loaded.userId);
+    var backHref = profileUrl(
+      (loaded && loaded.userId) ||
+        parseTargetUserId() ||
+        (currentUser && currentUser.id) ||
+        ""
+    );
     var colorCards = COLOR_FIELDS.map(function (field) {
       var value = normalizeHexDisplay(draft[field.key], field.key === "primaryTextColor" ? "#FFCB05" : "#202225");
       var pickerValue = value.toLowerCase();
@@ -738,45 +841,61 @@
       );
     }).join("");
 
-    app.innerHTML =
-      '<div class="vc-rank-editor-topbar"><a class="vc-user-profile-backbtn" href="' + esc(backHref) + '"><i class="fa fa-chevron-left" aria-hidden="true"></i> Torna al Profilo</a></div>' +
-      '<section class="vc-rank-editor-hero">' +
-      '<div class="vc-rank-editor-hero__icon"><i class="fa fa-magic" aria-hidden="true"></i></div>' +
-      '<div><h1>Personalizza Rank Card</h1><p>Crea la tua scheda livello unica per Discord</p></div>' +
-      "</section>" +
-      '<div class="vc-rank-editor-tabs">' +
-      '<button type="button" class="vc-rank-editor-tab ' + (activeTab === "colors" ? "is-active" : "") + '" data-rank-tab="colors"><i class="fa fa-tint" aria-hidden="true"></i> Colori</button>' +
-      '<button type="button" class="vc-rank-editor-tab ' + (activeTab === "wallpaper" ? "is-active" : "") + '" data-rank-tab="wallpaper"><i class="fa fa-picture-o" aria-hidden="true"></i> Wallpaper</button>' +
+    /* Conserva il DOM dell'anteprima: innerHTML completo faceva flashare l'immagine. */
+    var preservedPreview = app.querySelector(".vc-rank-editor-preview__imagewrap");
+    if (preservedPreview) preservedPreview.remove();
+
+    var hubOn = Boolean(window.__VC_PERS_HUB && window.__VC_PERS_HUB.enabled);
+    var panelBody =
+      activeTab === "colors"
+        ? '<div class="vc-rank-opacity-row">' +
+          '<span class="vc-rank-opacity-row__icon" aria-hidden="true"><i class="fa fa-sliders"></i></span>' +
+          '<span class="vc-rank-opacity-row__copy">' +
+          "<strong>Opacità sfondo</strong>" +
+          "<em>Trasparenza dei box contenitori</em>" +
+          "</span>" +
+          '<input id="vc-rank-opacity-range" class="vc-rank-opacity-row__range" type="range" min="0" max="100" step="5" value="' + esc(String(toPct(draft.overlayOpacity))) + '" aria-label="Opacità sfondo" />' +
+          '<span class="vc-rank-opacity-row__pct" id="vc-rank-opacity-label">' + esc(String(toPct(draft.overlayOpacity))) + "%</span>" +
       "</div>" +
-      '<div class="vc-rank-editor-layout">' +
-      '<div class="vc-rank-editor-panel">' +
-      (activeTab === "colors"
-        ? '<details class="vc-rank-editor-card" data-rank-accordion="opacity"' + (activeAccordion === "opacity" ? " open" : "") + ">" +
-          '<summary class="vc-rank-editor-card__summary" data-rank-accordion-trigger="opacity">' +
-          '<span class="vc-rank-editor-card__icon"><i class="fa fa-sliders" aria-hidden="true"></i></span>' +
-          '<span class="vc-rank-editor-card__copy"><strong>Opacità sfondo</strong><span>Trasparenza dei box contenitori</span></span>' +
-          '<span class="vc-rank-editor-card__badge">' + esc(String(toPct(draft.overlayOpacity))) + "%</span>" +
-          '<i class="fa fa-angle-down vc-rank-editor-card__chev" aria-hidden="true"></i>' +
-          "</summary>" +
-          '<div class="vc-rank-editor-card__body">' +
-          '<div class="vc-rank-editor-sliderrow">' +
-          '<input id="vc-rank-opacity-range" type="range" min="0" max="100" step="5" value="' + esc(String(toPct(draft.overlayOpacity))) + '" />' +
-          '<span id="vc-rank-opacity-label">' + esc(String(toPct(draft.overlayOpacity))) + "%</span>" +
-          "</div></div></details>" +
           colorCards
-        : '<section class="vc-rank-editor-wallgrid">' + wallpaperGalleryMarkup() + "</section>" + wallpaperCustomMarkup()) +
-      '<div class="vc-rank-editor-actions"><button type="button" class="vc-rank-editor-save" id="vc-rank-save"><i class="fa fa-floppy-o" aria-hidden="true"></i> Salva Modifiche</button><button type="button" class="vc-rank-editor-reset" id="vc-rank-reset"><i class="fa fa-undo" aria-hidden="true"></i> Reset</button></div>' +
-      '<p class="vc-rank-editor-status" id="vc-rank-status"></p>' +
+        : '<section class="vc-rank-editor-wallgrid">' + wallpaperGalleryMarkup() + "</section>" + wallpaperCustomMarkup();
+
+    app.innerHTML =
+      '<div class="vc-cpf vc-rank-as-cpf">' +
+      '<a class="vc-cpf-back" href="' + esc(backHref) + '"><i class="fa fa-chevron-left" aria-hidden="true"></i><span>Profilo</span></a>' +
+      (hubOn ? "" : '<header class="vc-cpf-top"><h1>Rank card</h1></header>') +
+      '<nav class="vc-rank-subtabs" aria-label="Sezioni rank card">' +
+      '<button type="button" class="vc-rank-subtabs__item' + (activeTab === "colors" ? " is-active" : "") + '" data-rank-tab="colors"><i class="fa fa-tint" aria-hidden="true"></i><span>Colori</span></button>' +
+      '<button type="button" class="vc-rank-subtabs__item' + (activeTab === "wallpaper" ? " is-active" : "") + '" data-rank-tab="wallpaper"><i class="fa fa-picture-o" aria-hidden="true"></i><span>Wallpaper</span></button>' +
+      "</nav>" +
+      '<div class="vc-rank-shell">' +
+      '<aside class="vc-rank-preview" aria-label="Anteprima">' +
+      '<div class="vc-rank-preview__frame">' +
+      '<div id="vc-rank-preview-mount"></div>' +
+      "</div></aside>" +
+      '<div class="vc-rank-controls">' +
+      '<div class="vc-rank-controls__panel">' +
+      panelBody +
       "</div>" +
-      '<aside class="vc-rank-editor-side">' +
-      '<div class="vc-rank-editor-previewcard"><div class="vc-rank-editor-previewcard__head"><span class="vc-rank-editor-previewcard__icon"><i class="fa fa-eye" aria-hidden="true"></i></span><div><strong>Anteprima Live</strong></div></div>' +
-      previewMarkup(loaded, draft) +
-      '<div class="vc-rank-editor-previewnote"><strong>Anteprima live</strong><span>Wallpaper, opacità e colori si vedono subito qui. "Salva Modifiche" le conferma su Discord (+rank).</span></div>' +
-      '<div class="vc-rank-editor-previewbadge">Preview identica a <code>+rank</code> su Discord</div>' +
-      "</div></aside></div>";
+      '<div class="vc-rank-controls__footer">' +
+      '<div class="vc-cpf-actions vc-rank-editor-actions">' +
+      '<button type="button" class="vc-cpf-btn vc-cpf-btn--primary vc-rank-editor-save" id="vc-rank-save"><i class="fa fa-floppy-o" aria-hidden="true"></i> Salva modifiche</button>' +
+      '<button type="button" class="vc-cpf-btn vc-rank-editor-reset" id="vc-rank-reset"><i class="fa fa-undo" aria-hidden="true"></i> Reset</button>' +
+      "</div>" +
+      '<p class="vc-rank-editor-status" id="vc-rank-status"></p>' +
+      "</div></div></div></div>";
+
+    var mount = byId("vc-rank-preview-mount");
+    if (preservedPreview && mount) {
+      mount.replaceWith(preservedPreview);
+    } else if (mount) {
+      mount.insertAdjacentHTML("beforebegin", previewMarkup(loaded, draft));
+      mount.remove();
+    }
 
     app.hidden = false;
     bindUi();
+    hideRankCustomizeLoading();
     refreshServerPreview();
   }
 
@@ -972,8 +1091,8 @@
 
     Array.prototype.slice.call(document.querySelectorAll("[data-rank-tab]")).forEach(function (button) {
       button.addEventListener("click", function () {
-        activeTab = button.getAttribute("data-rank-tab");
-        activeAccordion = activeTab === "wallpaper" ? "" : "opacity";
+        syncRankTabToUrl(button.getAttribute("data-rank-tab"));
+        activeAccordion = activeTab === "wallpaper" ? "" : activeAccordion || "panelColor";
         render();
       });
     });
@@ -1232,9 +1351,13 @@
         .then(function (body) {
           if (!body || body.ok !== true) return;
           if (!loaded) return;
+          var nextTheme = normalizeTheme(body.theme || {});
+          if (!nextTheme.wallpaperKey) nextTheme.wallpaperKey = "default";
+          var prevSig = previewSignatureForTheme(normalizeTheme(loaded.theme || {}));
+          var nextSig = previewSignatureForTheme(nextTheme);
           loaded = body;
-          draft = normalizeTheme(body.theme || {});
-          if (!draft.wallpaperKey) draft.wallpaperKey = "default";
+          if (prevSig === nextSig) return;
+          draft = nextTheme;
           render();
         })
         .catch(function () {});
@@ -1286,13 +1409,35 @@
     });
   }
 
+  function isPersHubRankTab() {
+    var hub = typeof window !== "undefined" ? window.__VC_PERS_HUB : null;
+    if (!hub || !hub.enabled) return true;
+    return Boolean(hub.isRank);
+  }
+
   function main() {
+    if (!isPersHubRankTab()) {
+      try {
+        var skips = document.querySelectorAll('[id="vc-rank-customize-loading"]');
+        for (var si = 0; si < skips.length; si++) {
+          skips[si].hidden = true;
+          skips[si].setAttribute("hidden", "");
+          skips[si].style.setProperty("display", "none", "important");
+        }
+      } catch (eSkip) {
+        var loadingSkip = byId("vc-rank-customize-loading");
+        if (loadingSkip) loadingSkip.hidden = true;
+      }
+      return;
+    }
+    try {
+      restoreRankTabFromUrl();
+    } catch (eTab) {}
     var targetUserId = parseTargetUserId();
     currentUser = (typeof window !== "undefined" && window.__VC_DISCORD_PROFILE) || null;
     if (enforceTargetOwnership(targetUserId, currentUser)) return;
     fetchRankData()
       .then(function (body) {
-        hideRankCustomizeLoading();
         if (!body || body.ok !== true) {
           showRankFatalError(
             (body && body.message) || "Impossibile caricare la personalizzazione rank card."
@@ -1313,13 +1458,13 @@
         }
       })
       .catch(function () {
-        hideRankCustomizeLoading();
         showRankFatalError("Errore imprevisto durante il caricamento.");
       });
   }
 
   window.addEventListener("vc-discord-profile", function (ev) {
     currentUser = ev && ev.detail ? ev.detail.user || null : null;
+    if (!isPersHubRankTab()) return;
     enforceTargetOwnership(parseTargetUserId(), currentUser);
   });
 
@@ -1329,7 +1474,8 @@
     main();
   }
 
+  if (isPersHubRankTab()) {
   startLiveCustomizePolling();
-
   window.addEventListener("beforeunload", stopLiveCustomizePolling);
+  }
 })();

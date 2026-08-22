@@ -193,6 +193,52 @@ body {
   }
 }
 
+/* Suono tastiera (toggle mute) */
+.vc-type-sfx-player.vc-bgm-player {
+  z-index: 10110;
+  right: max(0.75rem, env(safe-area-inset-right, 0px));
+  bottom: max(0.85rem, env(safe-area-inset-bottom, 0px));
+  border-color: rgba(244, 226, 204, 0.28);
+  background: linear-gradient(155deg, rgba(22, 24, 20, 0.96), rgba(10, 12, 10, 0.94));
+}
+
+.vc-type-sfx-player .vc-bgm-player__toggle {
+  border-color: rgba(244, 226, 204, 0.3);
+  background: rgba(12, 14, 12, 0.88);
+  color: #f4e2cc;
+}
+
+.vc-type-sfx-player.is-muted .vc-bgm-player__toggle,
+.vc-type-sfx-player .vc-bgm-player__toggle.is-muted {
+  color: rgba(203, 213, 225, 0.75);
+  border-color: rgba(148, 163, 184, 0.35);
+}
+
+.vc-type-sfx-player .vc-bgm-player__label {
+  color: rgba(244, 226, 204, 0.9);
+}
+
+/* Kick PiP di default è in basso a sinistra: non alzare la tastiera (destra). */
+body:has(.vc-hw-music-fab:not([hidden])) .vc-type-sfx-player,
+body:has(.vc-bgm-player--hogwarts:not([hidden])) .vc-type-sfx-player {
+  bottom: max(5.4rem, calc(env(safe-area-inset-bottom, 0px) + 4.5rem));
+}
+
+html.vc-type-sfx-off .vc-type-sfx-player {
+  display: none !important;
+}
+
+.vc-type-sfx-player[hidden] {
+  display: none !important;
+}
+
+@media (hover: none) and (pointer: coarse), (max-width: 920px) and (pointer: coarse) {
+  .vc-type-sfx-player,
+  #vc-type-sfx-player {
+    display: none !important;
+  }
+}
+
 /* CaffÃƒÂ¨ su link / controlli; campi testo sotto con I-beam */
 a:any-link,
 button:not(:disabled),
@@ -3347,7 +3393,9 @@ html.vc-session-verify-pending button[data-vc-discord-login] {
 }
 
 .vc-body main {
-  animation: vc-page-reveal 0.68s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: none !important;
+  opacity: 1 !important;
+  transform: none !important;
 }
 
 @media (max-width: 639.98px), (pointer: coarse) {
@@ -3367,11 +3415,14 @@ body.vc-dashboard-faq-page main {
 }
 
 .vc-body > footer {
-  animation: vc-page-reveal 0.68s cubic-bezier(0.22, 1, 0.36, 1) 0.12s both;
+  animation: none !important;
+  opacity: 1 !important;
+  transform: none !important;
 }
 
 .vc-body > header {
-  animation: vc-header-enter 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: none !important;
+  transform: none !important;
 }
 
 .vc-body ::selection {
@@ -3450,26 +3501,30 @@ body.vc-dashboard-page [class*="backdrop-blur"] {
   -webkit-backdrop-filter: blur(var(--vc-glass-blur)) saturate(160%);
 }
 
-header .vc-nav-shell.vc-glass {
-  /* Fondo pieno: evita testo pagina che passa dietro i link in scroll. */
-  background: #140f0c;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-  transition:
-    background-color 220ms ease,
-    border-color 220ms ease,
-    box-shadow 220ms ease,
-    transform 220ms ease;
+/* Nav shell: MAI blur/vetro — anche un frame di .vc-glass fa flashare un rettangolo. */
+header .vc-nav-shell,
+header .vc-nav-shell.vc-glass,
+.vc-nav-shell.vc-glass {
+  background: #140f0c !important;
+  background-color: #140f0c !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  transition: none !important;
+  max-width: none !important;
+  width: 100% !important;
 }
 
-header .vc-nav-shell.vc-glass.vc-nav-shell--scrolled {
-  background: #140f0c;
+header .vc-nav-shell.vc-glass.vc-nav-shell--scrolled,
+.vc-nav-shell.vc-glass.vc-nav-shell--scrolled {
+  background: #140f0c !important;
+  background-color: #140f0c !important;
   border-color: rgba(255, 255, 255, 0.12);
   box-shadow:
     0 10px 38px rgba(0, 0, 0, 0.42),
     0 0 36px rgba(212, 168, 136, 0.06);
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  transition: none !important;
 }
 
 body.vc-body > header,
@@ -3482,16 +3537,28 @@ body.vc-body header.fixed {
   padding-left: max(0.75rem, env(safe-area-inset-left, 0px));
   padding-right: max(0.75rem, env(safe-area-inset-right, 0px));
   padding-bottom: 0;
-  background: transparent;
+  background: #100c09 !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  transition: none !important;
+  animation: none !important;
+  transform: none !important;
 }
 
-/* La shell resta opaca: se il main ha transform/animazioni, il testo non deve mai â€œpassareâ€ nei link. */
+/* La shell: sempre piena (niente transparent che flasha il rettangolo). */
 body.vc-body > header .vc-nav-shell,
 body.vc-body header.fixed .vc-nav-shell {
-  isolation: isolate;
+  isolation: auto;
   background: #140f0c !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
+}
+
+body.vc-dashboard-page > header .vc-nav-shell,
+body.vc-dashboard-page header.fixed .vc-nav-shell,
+body.vc-dashboard-page > header .vc-nav-shell.vc-glass,
+body.vc-dashboard-page header.fixed .vc-nav-shell.vc-glass {
+  background: #140f0c !important;
 }
 
 /* Menu header sopra hero/card con backdrop-filter nel main */
@@ -3515,10 +3582,9 @@ body.vc-body header.fixed .vc-nav-shell.vc-glass.vc-nav-shell--scrolled {
   max-width: none !important;
   width: 100%;
   overflow: visible;
-  border-radius: 1.25rem;
+  border-radius: 1rem;
   background: #140f0c;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-color: rgba(var(--vc-sand-rgb), 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow:
     0 8px 40px rgba(0, 0, 0, 0.48),
     0 0 48px rgba(212, 168, 136, 0.07);
@@ -3536,11 +3602,11 @@ body.vc-body header.fixed .vc-nav-shell.vc-glass.vc-nav-shell--scrolled {
   body.vc-body > header .vc-nav-shell.vc-glass.vc-nav-shell--scrolled,
   body.vc-body header.fixed .vc-nav-shell.vc-glass,
   body.vc-body header.fixed .vc-nav-shell.vc-glass.vc-nav-shell--scrolled {
-    border-radius: 9999px;
+    border-radius: 1rem;
   }
 }
 
-/* Telefono: stessa pillola della dashboard (niente barra rettangolare edge-to-edge) */
+/* Telefono: stessa pillola inset della desktop */
 @media (max-width: 720px) {
   body.vc-body > header,
   body.vc-body header.fixed,
@@ -3550,7 +3616,7 @@ body.vc-body header.fixed .vc-nav-shell.vc-glass.vc-nav-shell--scrolled {
     width: 100%;
     max-width: 100%;
     box-sizing: border-box;
-    background: transparent !important;
+    background: #100c09 !important;
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
     padding-top: max(0.35rem, env(safe-area-inset-top, 0px));
@@ -3576,8 +3642,8 @@ body.vc-body header.fixed .vc-nav-shell.vc-glass.vc-nav-shell--scrolled {
     background: #140f0c !important;
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
-    border: 1px solid rgba(255, 255, 255, 0.12) !important;
-    border-radius: 1.15rem !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-radius: 1rem !important;
     box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35) !important;
     margin-inline: 0;
   }
@@ -3596,8 +3662,9 @@ body.vc-body header.fixed .vc-nav-shell.vc-glass.vc-nav-shell--scrolled {
   text-transform: uppercase;
   text-decoration: none;
   transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
-  backdrop-filter: blur(var(--vc-header-ctrl-blur)) saturate(150%);
-  -webkit-backdrop-filter: blur(var(--vc-header-ctrl-blur)) saturate(150%);
+  /* blur sotto header fixed = rettangolo flash continuo su Chromium */
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 .vc-header-promo-btn,
@@ -3606,9 +3673,9 @@ body.vc-body header.fixed .vc-nav-shell.vc-glass.vc-nav-shell--scrolled {
   align-items: center;
   gap: 0.42rem;
   width: auto;
-  max-width: none;
+  max-width: 8.75rem;
   min-width: 0;
-  flex: 0 0 auto;
+  flex: 0 1 auto;
   padding: 0.32rem 0.4rem 0.32rem 0.5rem;
   border-radius: 9999px;
   border: 1px solid rgba(212, 168, 136, 0.34);
@@ -3622,12 +3689,12 @@ body.vc-body header.fixed .vc-nav-shell.vc-glass.vc-nav-shell--scrolled {
   line-height: 1;
   white-space: nowrap;
   overflow: hidden;
-  isolation: isolate;
+  isolation: auto;
   position: relative;
   z-index: 1;
   transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
-  backdrop-filter: blur(10px) saturate(140%);
-  -webkit-backdrop-filter: blur(10px) saturate(140%);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   box-shadow: inset 0 1px 0 rgba(255, 244, 232, 0.08);
 }
 
@@ -3761,8 +3828,8 @@ body.vc-body header.fixed .vc-nav-shell.vc-glass.vc-nav-shell--scrolled {
   .vc-header-promo-btn,
   .vc-header-promo-btn:visited {
     width: auto;
-    max-width: none;
-    flex: 0 0 auto;
+    max-width: 9.5rem;
+    flex: 0 1 auto;
   }
 }
 
@@ -6072,10 +6139,49 @@ a.vc-home-staff-roster__person:focus-visible {
 
 #header-quick-actions {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   justify-content: flex-end;
-  gap: 0.65rem;
+  gap: 0.55rem;
+  min-width: 0;
+  max-width: 100%;
+  /* spazio dal bordo arrotondato della pillola: altrimenti avatar/campana vengono tagliati */
+  padding-inline-end: 0.15rem;
+  overflow: visible;
+  position: relative;
+  z-index: 6;
+}
+
+/* Promo EVENTO/CANDIDATURE non deve mangiare notif + profilo */
+#header-quick-actions > .vc-header-promo-btn {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: min(9.5rem, 42vw);
+}
+
+#header-quick-actions > .vc-notif-dropdown,
+#header-quick-actions > .discord-account-menu,
+#header-quick-actions > .discord-login-row,
+#header-quick-actions > #discord-login-state,
+#header-quick-actions > #discord-login-btn,
+#header-quick-actions > .vc-icon-btn {
+  flex: 0 0 auto;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 2;
+}
+
+/* Colonna destra header: non comprimere sotto notif+avatar (+ promo) */
+@media (min-width: 1024px) {
+  .vc-header-bar.grid {
+    grid-template-columns: minmax(0, 1fr) auto minmax(max-content, 1fr) !important;
+  }
+
+  .vc-header-bar > #header-quick-actions {
+    justify-self: end;
+    width: max-content;
+    max-width: 100%;
+  }
 }
 
 body.vc-dashboard-page #header-quick-actions {
@@ -8816,13 +8922,11 @@ header #vc-mobile-nav-toggle {
   }
 
   nav.vc-header-snav.vc-glass {
-    border-radius: 9999px;
-    padding: 0.2rem 0.45rem 0.2rem 0.5rem;
-    background: rgba(20, 15, 12, 0.96);
-    border: 1px solid rgba(212, 168, 136, 0.14);
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.05),
-      0 2px 14px rgba(0, 0, 0, 0.28);
+    border-radius: 0;
+    padding: 0.2rem 0;
+    background: transparent;
+    border: none;
+    box-shadow: none;
   }
 
   .vc-header-snav > .vc-snav-item,
@@ -11976,19 +12080,37 @@ textarea.vc-candidature-input {
 .vc-notify-row-actions {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
+  justify-content: flex-end;
+  gap: 0.4rem;
+  align-self: center;
 }
 
 .vc-notify-open-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  box-sizing: border-box;
   border: 1px solid rgba(var(--vc-reviews-emerald-rgb), 0.22);
   border-radius: 0.55rem;
   min-height: 2rem;
-  padding: 0 0.7rem;
+  height: 2rem;
+  padding: 0 0.75rem;
+  line-height: 1;
   background: rgba(16, 32, 44, 0.4);
   color: rgba(226, 232, 240, 0.94);
   font-size: 0.78rem;
   font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
   cursor: pointer;
+}
+
+.vc-notify-open-btn .fa {
+  display: inline-block;
+  font-size: 0.72em;
+  line-height: 1;
+  transform: translateY(0.02em);
 }
 
 .vc-notify-open-btn:hover {
@@ -11998,10 +12120,16 @@ textarea.vc-candidature-input {
 }
 
 .vc-notify-close-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
   border: 0;
   border-radius: 0.55rem;
   width: 2rem;
   height: 2rem;
+  padding: 0;
+  line-height: 1;
   background: transparent;
   color: rgba(226, 232, 240, 0.72);
   cursor: pointer;
@@ -12406,6 +12534,94 @@ a.vc-palette-link:hover {
   margin-left: auto;
 }
 
+.vc-user-profile-customize--pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  width: auto;
+  min-width: 0;
+  height: auto;
+  min-height: 2.35rem;
+  padding: 0 0.9rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(248, 250, 252, 0.92);
+  font-size: 0.84rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-decoration: none;
+  box-shadow: none;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.vc-user-profile-customize--pill:hover,
+.vc-user-profile-customize--pill:focus-visible {
+  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.09);
+  color: #fff;
+}
+
+.vc-user-profile-customize--pill .fa {
+  font-size: 0.88rem;
+  opacity: 0.9;
+}
+
+.vc-user-profile-levelbar {
+  display: grid;
+  gap: 0.38rem;
+  margin: 0.9rem 0 0.55rem;
+}
+
+.vc-user-profile-levelbar__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  color: rgba(240, 222, 201, 0.78);
+  font-size: 0.7rem;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.vc-user-profile-levelbar__track {
+  width: 100%;
+  height: 0.5rem;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(8, 6, 5, 0.55);
+  border: 1px solid rgba(232, 196, 156, 0.14);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.28);
+}
+
+.vc-user-profile-levelbar__fill {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #b88962, #e8c49c 58%, #f4e0c4);
+  box-shadow: 0 0 10px rgba(232, 196, 156, 0.22);
+  transition: width 0.3s ease;
+}
+
+.vc-user-profile-hero .vc-user-profile-badges {
+  margin-top: 0.65rem;
+}
+
+@media (max-width: 640px) {
+  .vc-user-profile-customize--pill span {
+    display: none;
+  }
+  .vc-user-profile-customize--pill {
+    width: 2.35rem;
+    min-height: 2.35rem;
+    padding: 0;
+    border-radius: 0.75rem;
+  }
+}
+
 .vc-user-profile-empty__cta {
   margin-top: 1.6rem;
 }
@@ -12496,8 +12712,8 @@ a.vc-palette-link:hover {
 .vc-user-profile-avatarclip {
   position: relative;
   z-index: 1;
-  width: calc(100% - 8px);
-  height: calc(100% - 8px);
+  width: 100%;
+  height: 100%;
   overflow: hidden;
   border-radius: inherit;
   display: grid;
@@ -12548,7 +12764,7 @@ a.vc-palette-link:hover {
   color: #fff;
   position: relative;
   z-index: 1;
-  transform: scale(1.04);
+  transform: none;
   transform-origin: center;
 }
 
@@ -13036,7 +13252,7 @@ body.vc-body--home header .vc-notif-summary.vc-icon-btn:hover {
   }
 
   body.vc-body--home .vc-header-bar > div:first-child {
-    flex: 1 1 auto;
+    flex: 0 1 auto;
     min-width: 0;
     max-width: none;
   }
@@ -13446,6 +13662,29 @@ body.vc-body--home a.vc-header-logo-link + a[href]:focus-visible {
   color: rgba(203, 213, 225, 0.8);
 }
 
+.vc-user-profile-block--rankcard {
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.vc-user-profile-block--rankcard .vc-user-profile-multiplier {
+  position: relative;
+  z-index: 3;
+  margin-top: 0.85rem;
+  padding: 0;
+  border-top: 0;
+  border-radius: 0.95rem;
+  border: 1px solid rgba(232, 196, 156, 0.18);
+  background:
+    radial-gradient(ellipse 115% 85% at 15% 0%, rgba(236, 205, 176, 0.1), transparent 54%),
+    linear-gradient(145deg, rgba(28, 20, 15, 0.72), rgba(14, 10, 8, 0.66));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 10px 22px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+  isolation: isolate;
+}
+
 .vc-user-profile-multiplier {
   width: 100%;
 }
@@ -13454,84 +13693,144 @@ body.vc-body--home a.vc-header-logo-link + a[href]:focus-visible {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  gap: 0.75rem;
+  min-height: 2.55rem;
+  padding: 0.7rem 0.85rem;
   cursor: pointer;
   list-style: none;
+  user-select: none;
+  background: transparent;
+  border: 0;
 }
 
 .vc-user-profile-multiplier__summary::-webkit-details-marker {
   display: none;
 }
 
-.vc-user-profile-multiplier__head {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
+.vc-user-profile-multiplier__left {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  color: rgba(240, 222, 201, 0.78);
+  font-size: 0.72rem;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
-.vc-user-profile-multiplier__title {
-  color: #fff;
-  font-size: 1.15rem;
-  font-weight: 800;
+.vc-user-profile-multiplier__left .fa {
+  color: rgba(232, 196, 156, 0.92);
+  font-size: 0.86rem;
 }
 
-.vc-user-profile-multiplier__sub {
-  color: rgba(219, 234, 254, 0.82);
+.vc-user-profile-multiplier__right {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-shrink: 0;
 }
 
 .vc-user-profile-multiplier__total {
-  color: #bca5ff;
-  font-size: 2rem;
-  font-weight: 900;
-  text-shadow:
-    0 0 16px rgba(167, 139, 250, 0.24),
-    0 0 28px rgba(96, 165, 250, 0.18);
+  color: rgba(247, 236, 223, 0.98);
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-shadow: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.vc-user-profile-multiplier__chev {
+  color: rgba(232, 196, 156, 0.72);
+  font-size: 0.86rem;
+  transition: transform 0.16s ease;
+}
+
+.vc-user-profile-multiplier[open] .vc-user-profile-multiplier__chev {
+  transform: rotate(180deg);
 }
 
 .vc-user-profile-multiplier__body {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
-  gap: 0.8rem;
-  margin-top: 1rem;
+  gap: 0;
+  margin: 0;
+  padding: 0 0.85rem 0.35rem;
+  border: 0;
+  border-top: 1px solid rgba(232, 196, 156, 0.12);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  isolation: isolate;
+  overflow: hidden;
 }
 
-.vc-user-profile-multiplier__body--inline {
-  margin-top: 1.1rem;
+.vc-user-profile-multiplier__hint {
+  display: none;
 }
 
 .vc-user-profile-multisource {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
-  padding: 0.95rem 1rem;
-  border-radius: 1rem;
-  border: 1px solid color-mix(in srgb, var(--vc-multi-accent, #22d3ee) 52%, rgba(255,255,255,0.12));
-  background:
-    linear-gradient(135deg,
-      color-mix(in srgb, var(--vc-multi-accent, #22d3ee) 24%, rgba(255,255,255,0.06)),
-      color-mix(in srgb, var(--vc-multi-accent, #22d3ee) 16%, rgba(15,23,42,0.22))
-    );
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    0 0 0 1px rgba(255, 255, 255, 0.03),
-    0 10px 28px rgba(10, 18, 40, 0.18),
-    0 0 24px color-mix(in srgb, var(--vc-multi-accent, #22d3ee) 18%, transparent);
+  gap: 0.75rem;
+  min-height: 2.35rem;
+  padding: 0.55rem 0.1rem;
+  border: 0;
+  border-bottom: 1px solid rgba(232, 196, 156, 0.1);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.vc-user-profile-multisource:last-child {
+  border-bottom: 0;
+}
+
+.vc-user-profile-multisource.is-active {
+  background: transparent;
+}
+
+.vc-user-profile-multisource.is-active .vc-user-profile-multisource__label,
+.vc-user-profile-multisource.is-active .vc-user-profile-multisource__value {
+  color: rgba(255, 247, 236, 0.98);
 }
 
 .vc-user-profile-multisource__label {
-  color: var(--vc-rank-value);
-  font-weight: 700;
-  text-shadow: 0 1px 0 rgba(7, 12, 24, 0.25);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+  color: rgba(240, 222, 201, 0.9);
+  font-weight: 650;
+  font-size: 0.9rem;
+}
+
+.vc-user-profile-multisource__dot {
+  width: 0.48rem;
+  height: 0.48rem;
+  border-radius: 999px;
+  flex-shrink: 0;
+  background: var(--vc-multi-accent, #d4a888);
+  box-shadow: none;
+}
+
+.vc-user-profile-multisource.is-base .vc-user-profile-multisource__dot {
+  background: #e8c49c;
 }
 
 .vc-user-profile-multisource__value {
-  color: color-mix(in srgb, var(--vc-multi-accent, #67e8f9) 92%, white);
-  font-size: 1.2rem;
-  font-weight: 900;
-  text-shadow:
-    0 0 12px color-mix(in srgb, var(--vc-multi-accent, #67e8f9) 32%, transparent),
-    0 1px 0 rgba(7, 12, 24, 0.3);
+  color: rgba(240, 222, 201, 0.88);
+  font-size: 0.9rem;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+  text-shadow: none;
+}
+
+.vc-user-profile-multisource__badge {
+  display: none;
 }
 
 .vc-user-profile-sectioneyebrow {
@@ -13719,7 +14018,16 @@ body.vc-body--home a.vc-header-logo-link + a[href]:focus-visible {
 .vc-user-profile-customicon__img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+  object-position: center;
+  display: block;
+}
+
+/* emoji Discord già tonda: niente alone del dot colorato intorno */
+.vc-user-profile-customcard__dot:has(.vc-user-profile-customicon__img) {
+  background: transparent !important;
+  box-shadow: none !important;
+  overflow: visible;
 }
 
 .vc-user-profile-customicon__emoji {
@@ -14533,7 +14841,7 @@ body.vc-body--home a.vc-header-logo-link + a[href]:focus-visible {
   font-weight: 900;
 }
 
-.vc-rank-editor-lockcard__head span {
+.vc-rank-editor-lockcard__head > div > span {
   display: block;
   margin-top: 0.2rem;
   color: rgba(226, 232, 240, 0.78);
@@ -14543,12 +14851,24 @@ body.vc-body--home a.vc-header-logo-link + a[href]:focus-visible {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
   width: 3.4rem;
   height: 3.4rem;
+  margin: 0;
+  overflow: visible;
   border-radius: 1rem;
   background: rgba(251, 191, 36, 0.18);
   color: #fbbf24;
   font-size: 1.35rem;
+  line-height: 1;
+}
+
+.vc-rank-editor-lockcard__icon .fa {
+  display: block;
+  margin: 0;
+  line-height: 1;
+  width: 1em;
+  text-align: center;
 }
 
 .vc-rank-editor-lockcard__chips {
@@ -14802,7 +15122,7 @@ body.vc-body--home a.vc-header-logo-link + a[href]:focus-visible {
 .vc-rankcard-ph {
   display: block;
   width: 100%;
-  aspect-ratio: 934 / 282;
+  aspect-ratio: 976 / 276;
   border-radius: 1.15rem;
   overflow: hidden;
   box-sizing: border-box;
@@ -14815,6 +15135,31 @@ body.vc-body--home a.vc-header-logo-link + a[href]:focus-visible {
 
 .vc-rank-editor-preview__imagewrap.is-ready .vc-rankcard-ph {
   display: none !important;
+}
+
+.vc-rank-editor-preview__imagewrap:has(.vc-rank-editor-preview__image[src]:not([src=""])) .vc-rankcard-ph {
+  display: none !important;
+}
+
+.vc-rank-editor-preview__image.is-rendering {
+  /* Niente opacity dip: faceva flashare l'anteprima a ogni refresh. */
+  opacity: 1;
+}
+
+/* Personalizza / rank: navbar sempre piena, zero transition. */
+body.vc-rank-customize-page > header .vc-nav-shell,
+body.vc-rank-customize-page header.fixed .vc-nav-shell,
+body.vc-users-page.vc-rank-customize-page > header .vc-nav-shell,
+html.vc-site-polish body.vc-rank-customize-page > header .vc-nav-shell,
+html.vc-site-polish body.vc-rank-customize-page header.fixed .vc-nav-shell {
+  background: #140f0c !important;
+  background-color: #140f0c !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  transition: none !important;
+  animation: none !important;
+  transform: none !important;
+  filter: none !important;
 }
 
 .vc-rankcard-ph__hero {
@@ -16608,6 +16953,19 @@ body.vc-body.vc-roles-page.vc-page-cine-layout .vc-roles-hero-guide {
   background: linear-gradient(90deg, rgba(100, 100, 120, 0.55), rgba(70, 70, 88, 0.5));
 }
 
+.vc-role-card-cta.vc-role-card-cta--leave {
+  background: linear-gradient(90deg, rgba(148, 163, 184, 0.35), rgba(100, 116, 139, 0.45));
+  box-shadow: none;
+  color: #f8fafc;
+  border: 1px solid rgba(248, 250, 252, 0.14);
+}
+
+.vc-role-card-cta.vc-role-card-cta--leave:hover {
+  filter: brightness(1.08);
+  background: linear-gradient(90deg, rgba(239, 68, 68, 0.55), rgba(185, 28, 28, 0.65));
+  border-color: rgba(252, 165, 165, 0.35);
+}
+
 .vc-role-card-actions {
   display: grid;
   grid-template-columns: 1fr;
@@ -17291,6 +17649,585 @@ body.vc-body.vc-roles-page.vc-page-cine-layout .vc-roles-hero-guide {
 .vc-live-event-reopen:hover {
   filter: brightness(1.06);
 }
+
+/* Kick live PIP (mini anteprima) */
+.vc-kick-pip[hidden],
+.vc-kick-pip-reopen[hidden] {
+  display: none !important;
+}
+
+.vc-kick-pip {
+  position: fixed;
+  z-index: 10120;
+  width: min(17.5rem, 44vw);
+  border-radius: 1rem;
+  border: 1px solid rgba(83, 252, 24, 0.35);
+  background:
+    linear-gradient(165deg, rgba(12, 18, 10, 0.96), rgba(8, 10, 8, 0.98));
+  box-shadow:
+    0 14px 36px rgba(0, 0, 0, 0.48),
+    0 0 28px rgba(83, 252, 24, 0.12);
+  overflow: hidden;
+  backdrop-filter: blur(12px) saturate(140%);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.vc-kick-pip--corner-bl {
+  left: max(0.75rem, env(safe-area-inset-left, 0px));
+  bottom: max(0.85rem, env(safe-area-inset-bottom, 0px));
+  right: auto;
+  top: auto;
+}
+
+.vc-kick-pip--corner-br {
+  right: max(0.75rem, env(safe-area-inset-right, 0px));
+  bottom: max(0.85rem, env(safe-area-inset-bottom, 0px));
+  left: auto;
+  top: auto;
+}
+
+.vc-kick-pip--corner-tl {
+  left: max(0.75rem, env(safe-area-inset-left, 0px));
+  /* sotto la navbar: altrimenti copre campana + profilo */
+  top: max(5.75rem, calc(env(safe-area-inset-top, 0px) + 5.25rem));
+  right: auto;
+  bottom: auto;
+}
+
+.vc-kick-pip--corner-tr {
+  right: max(0.75rem, env(safe-area-inset-right, 0px));
+  top: max(5.75rem, calc(env(safe-area-inset-top, 0px) + 5.25rem));
+  left: auto;
+  bottom: auto;
+}
+
+.vc-kick-pip--free {
+  right: auto;
+  bottom: auto;
+}
+
+.vc-kick-pip--dragging {
+  opacity: 0.96;
+  box-shadow:
+    0 18px 44px rgba(0, 0, 0, 0.55),
+    0 0 34px rgba(83, 252, 24, 0.18);
+  cursor: grabbing;
+}
+
+.vc-kick-pip--dragging .vc-kick-pip__player {
+  pointer-events: none !important;
+}
+
+.vc-kick-pip__chrome {
+  position: absolute;
+  top: 0.32rem;
+  right: 0.32rem;
+  z-index: 12;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  pointer-events: auto;
+}
+
+.vc-kick-pip__drag,
+.vc-kick-pip__open,
+.vc-kick-pip__float,
+.vc-kick-pip__close {
+  position: relative;
+  z-index: 1;
+  width: 1.65rem;
+  height: 1.65rem;
+  border: 0;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  color: #f8fafc;
+  cursor: pointer;
+  touch-action: none;
+  text-decoration: none;
+  pointer-events: auto;
+}
+
+.vc-kick-pip__drag {
+  cursor: grab;
+}
+
+.vc-kick-pip--dragging .vc-kick-pip__drag {
+  cursor: grabbing;
+}
+
+.vc-kick-pip__drag:hover,
+.vc-kick-pip__open:hover,
+.vc-kick-pip__float:hover,
+.vc-kick-pip__close:hover {
+  background: rgba(0, 0, 0, 0.72);
+  color: #f8fafc;
+}
+
+.vc-kick-pip__float[hidden] {
+  display: none !important;
+}
+
+.vc-kick-pip__media {
+  position: relative;
+  display: block;
+  aspect-ratio: 16 / 9;
+  background:
+    radial-gradient(circle at 30% 20%, rgba(83, 252, 24, 0.18), transparent 55%),
+    linear-gradient(145deg, rgba(20, 28, 18, 0.95), rgba(8, 10, 8, 0.98));
+  overflow: hidden;
+}
+
+.vc-kick-pip__thumb {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  z-index: 0;
+  transition: opacity 0.25s ease;
+}
+
+.vc-kick-pip__thumb[hidden] {
+  display: none !important;
+}
+
+.vc-kick-pip__player {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+  background: #000;
+  z-index: 1;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.vc-kick-pip__video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+  object-fit: cover;
+  background: transparent;
+  z-index: 1;
+  opacity: 0;
+}
+
+.vc-kick-pip--playing .vc-kick-pip__player,
+.vc-kick-pip--playing .vc-kick-pip__video {
+  opacity: 1;
+}
+
+/* NON usare opacity:0 sul video in loading: Chrome/PWA Windows non decodifica e resta nero. */
+.vc-kick-pip--playing:not(.vc-kick-pip--ready) .vc-kick-pip__video {
+  opacity: 1 !important;
+  z-index: 1;
+}
+
+.vc-kick-pip--playing:not(.vc-kick-pip--ready) .vc-kick-pip__player {
+  opacity: 0 !important;
+}
+
+.vc-kick-pip--playing:not(.vc-kick-pip--ready) .vc-kick-pip__thumb {
+  opacity: 1 !important;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.vc-kick-pip--playing.vc-kick-pip--ready .vc-kick-pip__thumb {
+  opacity: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.vc-kick-pip--playing.vc-kick-pip--ready .vc-kick-pip__video {
+  opacity: 1;
+  z-index: 2;
+}
+
+.vc-kick-pip--playing.vc-kick-pip--iframe .vc-kick-pip__video {
+  opacity: 0 !important;
+  pointer-events: none;
+}
+
+.vc-kick-pip--playing.vc-kick-pip--iframe.vc-kick-pip--ready .vc-kick-pip__player {
+  opacity: 1;
+}
+
+.vc-kick-pip--iframe .vc-kick-pip__sound {
+  display: none !important;
+}
+
+.vc-kick-pip__sound {
+  position: absolute;
+  left: 0.4rem;
+  bottom: 0.4rem;
+  z-index: 3;
+  width: 1.85rem;
+  height: 1.85rem;
+  border: 0;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  color: #f8fafc;
+  cursor: pointer;
+}
+
+.vc-kick-pip__play {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 4;
+  width: 3.1rem;
+  height: 3.1rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transform: translate(-50%, -50%);
+  background: rgba(0, 0, 0, 0.62);
+  color: #f8fafc;
+  cursor: pointer;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.vc-kick-pip__play i {
+  margin-left: 0.12rem;
+  font-size: 1.15rem;
+}
+
+.vc-kick-pip__play:hover {
+  background: rgba(83, 252, 24, 0.88);
+  color: #052e16;
+}
+
+.vc-kick-pip__play.is-loading {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.vc-kick-pip__play[hidden],
+.vc-kick-pip--ready .vc-kick-pip__play,
+.vc-kick-pip--locked .vc-kick-pip__play {
+  display: none !important;
+}
+
+.vc-kick-pip--awaiting-play .vc-kick-pip__thumb {
+  opacity: 1;
+}
+
+.vc-kick-pip__sub {
+  position: static;
+  flex: 0 0 auto;
+  align-self: center;
+  z-index: 2;
+  min-height: 1.85rem;
+  margin: 0 0.55rem 0 0;
+  padding: 0 0.65rem;
+  border: 1px solid rgba(83, 252, 24, 0.85);
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(83, 252, 24, 0.95);
+  color: #052e16;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  box-shadow: none;
+}
+
+.vc-kick-pip__sub:hover {
+  filter: brightness(1.05);
+}
+
+.vc-kick-pip__sub:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.vc-kick-pip--sub-need-login .vc-kick-pip__sub {
+  background: rgba(15, 23, 42, 0.88);
+  border-color: rgba(148, 163, 184, 0.55);
+  color: #e2e8f0;
+}
+
+.vc-kick-pip--sub-linked .vc-kick-pip__sub {
+  background: rgba(15, 23, 42, 0.9);
+  border-color: rgba(83, 252, 24, 0.7);
+  color: #bbf7d0;
+}
+
+.vc-kick-pip--sub-active .vc-kick-pip__sub {
+  background: rgba(22, 163, 74, 0.95);
+  border-color: rgba(187, 247, 208, 0.9);
+  color: #ecfdf5;
+}
+
+.vc-kick-pip__sub[hidden] {
+  display: none !important;
+}
+
+.vc-kick-pip__footer {
+  position: relative;
+  z-index: 8;
+  display: flex;
+  align-items: stretch;
+  gap: 0.35rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.12);
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.vc-kick-pip__footer .vc-kick-pip__meta {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.vc-kick-pip__sound:hover {
+  background: rgba(0, 0, 0, 0.78);
+}
+
+.vc-kick-pip--sound-on .vc-kick-pip__sound {
+  background: rgba(83, 252, 24, 0.28);
+  color: #ecfccb;
+}
+
+.vc-kick-pip__gate {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.75rem;
+  text-align: center;
+  text-decoration: none;
+  color: #f8fafc;
+  /* Un solo frosted layer: niente blur sul thumb sotto (evita due sfocature diverse). */
+  background:
+    radial-gradient(ellipse at 50% 42%, rgba(18, 32, 14, 0.55), rgba(4, 8, 4, 0.88) 70%),
+    rgba(6, 10, 6, 0.72);
+  backdrop-filter: blur(12px) saturate(0.75);
+  -webkit-backdrop-filter: blur(12px) saturate(0.75);
+}
+
+.vc-kick-pip__gate[hidden] {
+  display: none !important;
+}
+
+.vc-kick-pip--locked .vc-kick-pip__thumb,
+.vc-kick-pip--locked .vc-kick-pip__video,
+.vc-kick-pip--locked .vc-kick-pip__player {
+  /* Solo leggero scuro/scala: la sfocatura la fa solo il gate. */
+  filter: brightness(0.72) saturate(0.85);
+  transform: scale(1.04);
+}
+
+.vc-kick-pip--locked .vc-kick-pip__thumb {
+  opacity: 1 !important;
+  z-index: 2;
+}
+
+.vc-kick-pip--locked .vc-kick-pip__video,
+.vc-kick-pip--locked .vc-kick-pip__player {
+  opacity: 0 !important;
+}
+
+.vc-kick-pip--locked .vc-kick-pip__sound {
+  display: none !important;
+}
+
+.vc-kick-pip--locked .vc-kick-pip__live {
+  z-index: 6;
+}
+
+.vc-kick-pip__gate-title {
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #bbf7d0;
+}
+
+.vc-kick-pip__gate-text {
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: rgba(248, 250, 252, 0.9);
+  max-width: 12.5rem;
+}
+
+.vc-kick-pip__gate-cta {
+  margin-top: 0.25rem;
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.7rem;
+  padding: 0 0.7rem;
+  border-radius: 999px;
+  border: 1px solid rgba(83, 252, 24, 0.55);
+  background: linear-gradient(135deg, rgba(22, 40, 16, 0.95), rgba(12, 18, 10, 0.9));
+  color: #ecfccb;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.vc-kick-pip__live {
+  position: absolute;
+  left: 0.45rem;
+  top: 0.45rem;
+  z-index: 4;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  padding: 0.16rem 0.45rem;
+  border-radius: 999px;
+  background: rgba(220, 38, 38, 0.92);
+  color: #fff;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  pointer-events: none;
+}
+
+.vc-kick-pip--vod .vc-kick-pip__live {
+  background: rgba(15, 23, 42, 0.88);
+  border: 1px solid rgba(134, 239, 172, 0.35);
+  color: #ecfccb;
+  letter-spacing: 0.1em;
+}
+
+.vc-kick-pip__live-dot {
+  width: 0.42rem;
+  height: 0.42rem;
+  border-radius: 999px;
+  background: #fff;
+  animation: vc-kick-pip-pulse 1.4s ease-in-out infinite;
+}
+
+.vc-kick-pip--vod .vc-kick-pip__live-dot {
+  animation: none;
+  background: #86efac;
+}
+
+@keyframes vc-kick-pip-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.55; transform: scale(0.82); }
+}
+
+.vc-kick-pip__meta {
+  display: grid;
+  gap: 0.12rem;
+  padding: 0.55rem 0.65rem 0.62rem;
+  color: inherit;
+  text-decoration: none;
+  cursor: grab;
+  touch-action: none;
+}
+
+.vc-kick-pip__name {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #86efac;
+}
+
+.vc-kick-pip__title {
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: rgba(248, 250, 252, 0.92);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.vc-kick-pip__category {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: rgba(134, 239, 172, 0.88);
+  letter-spacing: 0.02em;
+}
+
+.vc-kick-pip__category[hidden] {
+  display: none !important;
+}
+
+.vc-kick-pip__viewers {
+  font-size: 0.68rem;
+  color: rgba(203, 213, 225, 0.78);
+}
+
+.vc-kick-pip-reopen {
+  position: fixed;
+  left: max(0.75rem, env(safe-area-inset-left, 0px));
+  bottom: max(0.85rem, env(safe-area-inset-bottom, 0px));
+  z-index: 10115;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 2rem;
+  padding: 0 0.72rem;
+  border-radius: 999px;
+  border: 1px solid rgba(83, 252, 24, 0.42);
+  background: linear-gradient(135deg, rgba(12, 18, 10, 0.96), rgba(22, 40, 16, 0.72));
+  color: #ecfccb;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.42), 0 0 18px rgba(83, 252, 24, 0.14);
+}
+
+.vc-kick-pip-reopen__dot {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: #53fc18;
+  box-shadow: 0 0 10px rgba(83, 252, 24, 0.65);
+  animation: vc-kick-pip-pulse 1.4s ease-in-out infinite;
+}
+
+/* Solo angolo basso-sx di default: non forzare se l'utente ha spostato la PiP */
+body:has(#vc-live-event-home:not([hidden])) .vc-kick-pip.vc-kick-pip--corner-bl,
+body.vc-site-sponsor-ad-visible .vc-kick-pip.vc-kick-pip--corner-bl,
+body:has(#vc-live-event-home:not([hidden])) .vc-kick-pip-reopen:not([hidden]),
+body.vc-site-sponsor-ad-visible .vc-kick-pip-reopen:not([hidden]) {
+  bottom: max(5.75rem, calc(env(safe-area-inset-bottom, 0px) + 4.75rem));
+}
+
+html.vc-notif-overlay-active .vc-kick-pip,
+html.vc-notif-overlay-active .vc-kick-pip-reopen:not([hidden]),
+html.vc-notif-dropdown-open .vc-kick-pip,
+html.vc-notif-dropdown-open .vc-kick-pip-reopen:not([hidden]),
+html.vc-header-account-open .vc-kick-pip,
+html.vc-header-account-open .vc-kick-pip-reopen:not([hidden]) {
+  display: none !important;
+}
+
+@media (max-width: 639.98px) {
+  .vc-kick-pip {
+    width: min(16rem, 52vw);
+  }
+}
+
 
 html.vc-notif-overlay-active #vc-live-event-home:not([hidden]),
 html.vc-notif-overlay-active #vc-live-event-reopen:not([hidden]) {
@@ -19198,8 +20135,7 @@ body.vc-body.vc-roles-page .vc-ul-loading-sub {
 .vc-user-profile-loader__title,
 .vc-user-profile-empty__title,
 .vc-user-profile-name,
-.vc-user-profile-block__title,
-.vc-user-profile-multiplier__title {
+.vc-user-profile-block__title {
   color: rgba(167, 243, 208, 0.96);
 }
 
@@ -19207,8 +20143,7 @@ body.vc-body.vc-roles-page .vc-ul-loading-sub {
 .vc-user-profile-empty__text,
 .vc-user-profile-empty__hint,
 .vc-user-profile-id,
-.vc-user-profile-block__sub,
-.vc-user-profile-multiplier__sub {
+.vc-user-profile-block__sub {
   color: rgba(226, 232, 240, 0.84);
 }
 
@@ -19239,8 +20174,7 @@ body.vc-body.vc-roles-page .vc-ul-loading-sub {
 }
 
 .vc-user-profile-stat__value,
-.vc-user-profile-mini__value,
-.vc-user-profile-multiplier__total {
+.vc-user-profile-mini__value {
   color: rgba(167, 243, 208, 0.96);
   text-shadow: 0 0 16px rgba(var(--vc-reviews-glow-rgb), 0.22);
 }
@@ -19579,7 +20513,6 @@ body.vc-body.vc-users-page :where(
   .vc-user-profile-mini,
   .vc-user-profile-disclosure,
   .vc-user-profile-accordion,
-  .vc-user-profile-multiplier,
   .vc-ul-filters-panel,
   .vc-ul-stat-wide
 ) {
@@ -19809,6 +20742,7 @@ body.vc-body.vc-users-page :where(
   .vc-user-profile-hero,
   .vc-user-profile-block,
   .vc-user-profile-accordion,
+  .vc-user-profile-multiplier,
   .vc-user-profile-customcard,
   .vc-user-profile-shared
 ) {
@@ -20520,7 +21454,7 @@ body:has(.vc-session-verify-overlay:not(.vc-session-verify-overlay--hidden)) .vc
   opacity: 0 !important;
   pointer-events: none !important;
 }
-}
+
 
 @keyframes vc-notif-pop-in {
   from {
@@ -20675,12 +21609,9 @@ body.vc-body .vc-auth-required-card .vc-auth-required-login:hover {
 /* Rank customize page: full moka/panna palette */
 body.vc-body.vc-rank-customize-page :is(
   .vc-rank-customize-loading,
-  .vc-rank-editor-panel,
   .vc-rank-editor-previewcard,
   .vc-rank-editor-tabs,
-  .vc-rank-editor-card,
   .vc-rank-editor-lockcard,
-  .vc-rank-editor-wallcard,
   .vc-rank-editor-colorrow__hex,
   .vc-rank-editor-sliderrow input[type="range"]
 ) {
@@ -20837,22 +21768,37 @@ body.vc-body.vc-users-page.vc-user-profile-page :is(.vc-user-profile-hero, .vc-u
 }
 
 body.vc-body.vc-users-page.vc-user-profile-page .vc-user-profile-avatarwrap {
+  --vc-avatar-ring: var(--vc-rank-ring, #e8c49c);
   background:
-    radial-gradient(circle at 30% 25%, rgba(255, 255, 255, 0.2), transparent 38%),
-    linear-gradient(145deg, rgba(111, 78, 55, 0.92), rgba(74, 52, 37, 0.68)) !important;
+    radial-gradient(circle at 30% 25%, rgba(255, 255, 255, 0.16), transparent 40%),
+    #120e0b !important;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.32) !important;
 }
 
 body.vc-body.vc-users-page.vc-user-profile-page .vc-user-profile-avatarwrap::before {
-  background:
-    radial-gradient(circle, rgba(var(--vc-sand-rgb), 0.34) 0%, rgba(var(--vc-mocha-rgb), 0.18) 46%, transparent 72%) !important;
+  background: radial-gradient(
+    circle,
+    var(--vc-avatar-ring) 0%,
+    color-mix(in srgb, var(--vc-avatar-ring) 35%, transparent) 46%,
+    transparent 72%
+  ) !important;
+  opacity: 0.85 !important;
+  filter: blur(11px) !important;
 }
 
 body.vc-body.vc-users-page.vc-user-profile-page .vc-user-profile-avatarwrap::after {
-  border-color: rgba(var(--vc-sand-rgb), 0.74) !important;
+  border-color: var(--vc-avatar-ring) !important;
+  border-width: 3px !important;
   box-shadow:
-    0 0 0 2px rgba(var(--vc-mocha-rgb), 0.24),
-    0 0 18px rgba(var(--vc-sand-rgb), 0.34),
-    0 0 34px rgba(var(--vc-sand-rgb), 0.18) !important;
+    0 0 0 2px rgba(0, 0, 0, 0.35),
+    0 0 16px var(--vc-avatar-ring),
+    0 0 32px var(--vc-avatar-ring) !important;
+}
+
+@supports not (background: color-mix(in srgb, red 50%, blue)) {
+  body.vc-body.vc-users-page.vc-user-profile-page .vc-user-profile-avatarwrap::before {
+    background: radial-gradient(circle, var(--vc-avatar-ring) 0%, transparent 70%) !important;
+  }
 }
 
 body.vc-body.vc-users-page.vc-user-profile-page :is(
@@ -20887,6 +21833,63 @@ body.vc-body.vc-users-page.vc-user-profile-page .vc-user-profile-badges {
   background:
     radial-gradient(circle at 12% 0%, rgba(var(--vc-sand-rgb), 0.16), transparent 40%),
     linear-gradient(145deg, rgba(36, 26, 20, 0.52), rgba(18, 13, 10, 0.46)) !important;
+}
+
+body.vc-body.vc-users-page.vc-user-profile-page .vc-user-profile-levelbar__meta {
+  color: rgba(240, 222, 201, 0.78) !important;
+}
+
+body.vc-body.vc-users-page.vc-user-profile-page .vc-user-profile-levelbar__track {
+  background: rgba(8, 6, 5, 0.58) !important;
+  border-color: rgba(var(--vc-sand-rgb), 0.18) !important;
+}
+
+body.vc-body.vc-users-page.vc-user-profile-page .vc-user-profile-levelbar__fill {
+  background: linear-gradient(90deg, #b88962, #e8c49c 58%, #f4e0c4) !important;
+  box-shadow: 0 0 10px rgba(var(--vc-sand-rgb), 0.22) !important;
+}
+
+body.vc-body.vc-users-page.vc-user-profile-page .vc-user-profile-multiplier {
+  border-color: rgba(var(--vc-sand-rgb), 0.22) !important;
+  background:
+    radial-gradient(ellipse 115% 85% at 15% 0%, rgba(236, 205, 176, 0.12), transparent 54%),
+    linear-gradient(145deg, rgba(28, 20, 15, 0.72), rgba(14, 10, 8, 0.66)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 10px 22px rgba(0, 0, 0, 0.2),
+    0 0 16px rgba(var(--vc-sand-rgb), 0.08) !important;
+}
+
+body.vc-body.vc-users-page.vc-user-profile-page .vc-user-profile-multiplier__body {
+  background: transparent !important;
+  border-color: rgba(var(--vc-sand-rgb), 0.14) !important;
+  box-shadow: none !important;
+}
+
+body.vc-body.vc-users-page.vc-user-profile-page .vc-user-profile-multiplier__left,
+body.vc-body.vc-users-page.vc-user-profile-page .vc-user-profile-multiplier__left .fa {
+  color: rgba(240, 222, 201, 0.82) !important;
+}
+
+body.vc-body.vc-users-page.vc-user-profile-page .vc-user-profile-multiplier__left .fa {
+  color: rgba(232, 196, 156, 0.95) !important;
+}
+
+body.vc-body.vc-users-page.vc-user-profile-page .vc-user-profile-multiplier__total {
+  color: rgba(247, 236, 223, 0.98) !important;
+}
+
+body.vc-body.vc-users-page.vc-user-profile-page .vc-user-profile-multiplier__chev {
+  color: rgba(232, 196, 156, 0.78) !important;
+}
+
+body.vc-body.vc-users-page.vc-user-profile-page .vc-user-profile-multisource {
+  border-bottom-color: rgba(var(--vc-sand-rgb), 0.12) !important;
+}
+
+body.vc-body.vc-users-page.vc-user-profile-page .vc-user-profile-multisource__label,
+body.vc-body.vc-users-page.vc-user-profile-page .vc-user-profile-multisource__value {
+  color: rgba(240, 222, 201, 0.9) !important;
 }
 
 body.vc-body.vc-users-page.vc-user-profile-page .vc-user-profile-badge {
@@ -20978,6 +21981,34 @@ body.vc-body.vc-rank-customize-page .vc-rank-editor-card__badge {
     inset 0 1px 0 rgba(255, 255, 255, 0.08),
     0 8px 20px rgba(0, 0, 0, 0.2),
     0 0 14px rgba(var(--vc-sand-rgb), 0.1) !important;
+}
+
+/* CPF flat: niente “riquadro” sul valore % dello slider (resta solo il badge in summary). */
+body.vc-body.vc-rank-customize-page #vc-rank-customize-app .vc-rank-as-cpf .vc-rank-editor-sliderrow span {
+  display: inline-flex !important;
+  min-width: 2.6rem !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: rgba(247, 236, 223, 0.92) !important;
+  font-size: 0.92rem !important;
+  font-weight: 800 !important;
+  justify-content: flex-end !important;
+}
+
+body.vc-body.vc-rank-customize-page #vc-rank-customize-app .vc-rank-as-cpf .vc-rank-editor-card__badge {
+  width: auto !important;
+  min-width: 2.6rem !important;
+  height: 2.35rem !important;
+  padding: 0 0.55rem !important;
+  border-radius: 999px !important;
+  border: 1px solid rgba(232, 196, 156, 0.28) !important;
+  background: rgba(232, 196, 156, 0.12) !important;
+  box-shadow: none !important;
+  font-size: 0.82rem !important;
+  font-weight: 800 !important;
 }
 
 body.vc-body.vc-rank-customize-page .vc-rank-editor-sliderrow input[type="range"] {
@@ -22178,9 +23209,15 @@ body.vc-body :where(
   a[href],
   button,
   summary,
-  input:not([type="hidden"]),
+  input[type="button"],
+  input[type="submit"],
+  input[type="reset"],
+  input[type="checkbox"],
+  input[type="radio"],
+  input[type="file"],
+  input[type="range"],
+  input[type="color"],
   select,
-  textarea,
   [role="button"],
   [tabindex]:not([tabindex="-1"])
 ):focus-visible {
@@ -22194,13 +23231,42 @@ body.vc-body :where(
   a[href],
   button,
   summary,
-  input:not([type="hidden"]),
+  input[type="button"],
+  input[type="submit"],
+  input[type="reset"],
+  input[type="checkbox"],
+  input[type="radio"],
+  input[type="file"],
+  input[type="range"],
+  input[type="color"],
   select,
-  textarea,
   [role="button"],
   [tabindex]:not([tabindex="-1"])
 ):focus:not(:focus-visible) {
   outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Campi di scrittura: niente rettangolo esterno al focus (bastano bordo/cursore). */
+body.vc-body :where(
+  input:not([type]),
+  input[type="text"],
+  input[type="search"],
+  input[type="email"],
+  input[type="password"],
+  input[type="url"],
+  input[type="tel"],
+  input[type="number"],
+  textarea,
+  [contenteditable="true"],
+  [contenteditable=""]
+):is(:focus, :focus-visible),
+body.vc-body .vc-roles-search:focus-within,
+body.vc-body .vc-roles-search-input:is(:focus, :focus-visible),
+body.vc-body .vc-cmd-search:focus-within,
+body.vc-body .vc-ul-filters-input:is(:focus, :focus-visible) {
+  outline: none !important;
+  outline-offset: 0 !important;
   box-shadow: none !important;
 }
 
@@ -25348,6 +26414,7 @@ body.vc-body.vc-users-page :where(
   .vc-user-profile-hero,
   .vc-user-profile-block,
   .vc-user-profile-accordion,
+  .vc-user-profile-multiplier,
   .vc-user-profile-customcard,
   .vc-user-profile-shared,
   .vc-rank-editor-panel,
@@ -41321,6 +42388,7 @@ body.vc-body--home .vc-home-cine {
   pointer-events: none;
   overflow: hidden;
   background: #100c09;
+  contain: paint;
   --vc-spot-x: 72%;
   --vc-spot-y: 28%;
 }
@@ -41366,7 +42434,8 @@ body.vc-body--home .vc-home-cine__grain {
   inset: 0;
   z-index: 4;
   opacity: 0.09;
-  mix-blend-mode: overlay;
+  /* overlay + canvas rAF = flash a riquadro sotto navbar rounded */
+  mix-blend-mode: normal;
   background-image:
     repeating-linear-gradient(0deg, transparent 0 2px, rgba(255, 255, 255, 0.04) 2px 3px),
     repeating-linear-gradient(90deg, transparent 0 3px, rgba(0, 0, 0, 0.05) 3px 4px);
@@ -41712,7 +42781,7 @@ body.vc-body--home .vc-home-scrollcue__chev span:nth-child(2) {
 }
 
 html body.vc-body--home {
-  --vc-header-ctrl-bg: transparent;
+  --vc-header-ctrl-bg: #140f0c;
   --vc-header-ctrl-bg-hover: rgba(255, 255, 255, 0.06);
 }
 
@@ -41722,22 +42791,16 @@ html body.vc-body--home > header .vc-nav-shell.vc-glass.vc-nav-shell--scrolled,
 html body.vc-body--home header.fixed .vc-nav-shell,
 html body.vc-body--home header.fixed .vc-nav-shell.vc-glass,
 html body.vc-body--home header.fixed .vc-nav-shell.vc-glass.vc-nav-shell--scrolled {
-  background: transparent !important;
-  border-color: rgba(var(--vc-reviews-emerald-rgb), 0.2) !important;
+  background: #140f0c !important;
+  border-color: rgba(var(--vc-sand-rgb), 0.22) !important;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.04),
-    0 14px 34px rgba(0, 0, 0, 0.24),
-    0 0 20px rgba(214, 172, 132, 0.08) !important;
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 8px 40px rgba(0, 0, 0, 0.48),
+    0 0 48px rgba(212, 168, 136, 0.07) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
-}
-
-html body.vc-body--home header nav.vc-header-snav.vc-glass {
-  background: transparent !important;
-  border-color: rgba(var(--vc-reviews-emerald-rgb), 0.2) !important;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04) !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
+  transition: none !important;
+  isolation: auto !important;
 }
 
 html body.vc-body--home header .vc-icon-btn,
@@ -41801,36 +42864,30 @@ html body.vc-body--home > footer.vc-premium-footer .vc-premium-footer__social:ho
   html body.vc-body--home header.fixed .vc-nav-shell,
   html body.vc-body--home header.fixed .vc-nav-shell.vc-glass,
   html body.vc-body--home header.fixed .vc-nav-shell.vc-glass.vc-nav-shell--scrolled {
-    background: transparent !important;
+    background: #140f0c !important;
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
   }
 }
 
-/* Home: in cima resta trasparente; in scroll vetro smerigliato (si intravede lo sfondo). */
+/* Home: navbar sempre piena (niente transparent→scroll = flash rettangolo). */
 html body.vc-body--home > header .vc-nav-shell,
 html body.vc-body--home header.fixed .vc-nav-shell {
   position: relative;
   isolation: auto !important;
+  background: #140f0c !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  transition: none !important;
 }
 
 html body.vc-body--home > header .vc-nav-shell::before,
-html body.vc-body--home header.fixed .vc-nav-shell::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  border-radius: inherit;
-  pointer-events: none;
-  opacity: 0;
-  background: linear-gradient(
-    180deg,
-    rgba(255, 244, 232, 0.14) 0%,
-    rgba(255, 255, 255, 0.04) 42%,
-    rgba(255, 244, 232, 0.03) 100%
-  );
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
-  transition: opacity 0.28s ease;
+html body.vc-body--home header.fixed .vc-nav-shell::before,
+html body.vc-body--home > header .vc-nav-shell.vc-nav-shell--scrolled::before,
+html body.vc-body--home header.fixed .vc-nav-shell.vc-nav-shell--scrolled::before {
+  content: none !important;
+  display: none !important;
+  opacity: 0 !important;
 }
 
 html body.vc-body--home > header .vc-nav-shell > *,
@@ -41839,19 +42896,14 @@ html body.vc-body--home header.fixed .vc-nav-shell > * {
   z-index: 1;
 }
 
-html body.vc-body--home > header .vc-nav-shell.vc-nav-shell--scrolled::before,
-html body.vc-body--home header.fixed .vc-nav-shell.vc-nav-shell--scrolled::before {
-  opacity: 1;
-}
-
 html body.vc-body--home > header .vc-nav-shell.vc-glass.vc-nav-shell--scrolled,
 html body.vc-body--home header.fixed .vc-nav-shell.vc-glass.vc-nav-shell--scrolled {
-  background: rgba(20, 15, 12, 0.96) !important;
-  border-color: rgba(255, 244, 232, 0.22) !important;
+  background: #140f0c !important;
+  border-color: rgba(var(--vc-sand-rgb), 0.22) !important;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.16),
-    0 12px 40px rgba(0, 0, 0, 0.28),
-    0 0 24px rgba(214, 172, 132, 0.1) !important;
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 8px 40px rgba(0, 0, 0, 0.48),
+    0 0 48px rgba(212, 168, 136, 0.07) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
@@ -42789,14 +43841,14 @@ html.vc-site-polish body.vc-body header.fixed .vc-nav-shell.vc-glass,
 html.vc-site-polish body.vc-body header.fixed .vc-nav-shell.vc-glass.vc-nav-shell--scrolled {
   position: relative;
   isolation: auto !important;
-  background: transparent !important;
-  border-color: rgba(var(--vc-reviews-emerald-rgb), 0.2) !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.04),
-    0 14px 34px rgba(0, 0, 0, 0.24),
-    0 0 20px rgba(214, 172, 132, 0.08) !important;
+  /* Sempre opaca: transparent→scrolled flasha un rettangolo vuoto in Chromium. */
+  background: #140f0c !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 1rem !important;
+  box-shadow: none !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
+  transition: none !important;
 }
 
 html.vc-site-polish body.vc-body header nav.vc-header-snav.vc-glass {
@@ -42860,21 +43912,10 @@ html.vc-site-polish body.vc-body header .discord-login-row .discord-logout-btn.v
 
 html.vc-site-polish body.vc-body > header .vc-nav-shell::before,
 html.vc-site-polish body.vc-body header.fixed .vc-nav-shell::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  border-radius: inherit;
-  pointer-events: none;
-  opacity: 0;
-  background: linear-gradient(
-    180deg,
-    rgba(255, 244, 232, 0.14) 0%,
-    rgba(255, 255, 255, 0.04) 42%,
-    rgba(255, 244, 232, 0.03) 100%
-  );
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
-  transition: opacity 0.28s ease;
+  content: none !important;
+  display: none !important;
+  opacity: 0 !important;
+  transition: none !important;
 }
 
 html.vc-site-polish body.vc-body > header .vc-nav-shell > *,
@@ -42885,17 +43926,16 @@ html.vc-site-polish body.vc-body header.fixed .vc-nav-shell > * {
 
 html.vc-site-polish body.vc-body > header .vc-nav-shell.vc-nav-shell--scrolled::before,
 html.vc-site-polish body.vc-body header.fixed .vc-nav-shell.vc-nav-shell--scrolled::before {
-  opacity: 1;
+  content: none !important;
+  display: none !important;
+  opacity: 0 !important;
 }
 
 html.vc-site-polish body.vc-body > header .vc-nav-shell.vc-glass.vc-nav-shell--scrolled,
 html.vc-site-polish body.vc-body header.fixed .vc-nav-shell.vc-glass.vc-nav-shell--scrolled {
-  background: rgba(20, 15, 12, 0.96) !important;
-  border-color: rgba(255, 244, 232, 0.22) !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.16),
-    0 12px 40px rgba(0, 0, 0, 0.28),
-    0 0 24px rgba(214, 172, 132, 0.1) !important;
+  background: #140f0c !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
@@ -42903,18 +43943,11 @@ html.vc-site-polish body.vc-body header.fixed .vc-nav-shell.vc-glass.vc-nav-shel
 @media (max-width: 720px) {
   html.vc-site-polish body.vc-body > header .vc-nav-shell,
   html.vc-site-polish body.vc-body > header .vc-nav-shell.vc-glass,
-  html.vc-site-polish body.vc-body > header .vc-nav-shell.vc-glass.vc-nav-shell--scrolled,
   html.vc-site-polish body.vc-body header.fixed .vc-nav-shell,
   html.vc-site-polish body.vc-body header.fixed .vc-nav-shell.vc-glass,
-  html.vc-site-polish body.vc-body header.fixed .vc-nav-shell.vc-glass.vc-nav-shell--scrolled {
-    background: transparent !important;
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
-  }
-
   html.vc-site-polish body.vc-body > header .vc-nav-shell.vc-glass.vc-nav-shell--scrolled,
   html.vc-site-polish body.vc-body header.fixed .vc-nav-shell.vc-glass.vc-nav-shell--scrolled {
-    background: rgba(20, 15, 12, 0.96) !important;
+    background: #140f0c !important;
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
   }
@@ -42930,7 +43963,8 @@ html.vc-site-polish body.vc-body header.fixed .vc-nav-shell.vc-glass.vc-nav-shel
 
   html.vc-site-polish body.vc-body > header .vc-nav-shell.vc-nav-shell--scrolled::before,
   html.vc-site-polish body.vc-body header.fixed .vc-nav-shell.vc-nav-shell--scrolled::before {
-    opacity: 0;
+    content: none !important;
+    opacity: 0 !important;
   }
 }
 
@@ -42962,17 +43996,26 @@ body.vc-vote-page .vc-site-atmos {
   display: none !important;
 }
 
+html.vc-site-polish--pwa body.vc-body > header .vc-nav-shell,
+html.vc-site-polish--pwa body.vc-body > header .vc-nav-shell.vc-glass,
 html.vc-site-polish--pwa body.vc-body > header .vc-nav-shell.vc-glass.vc-nav-shell--scrolled,
+html.vc-site-polish--pwa body.vc-body header.fixed .vc-nav-shell,
+html.vc-site-polish--pwa body.vc-body header.fixed .vc-nav-shell.vc-glass,
 html.vc-site-polish--pwa body.vc-body header.fixed .vc-nav-shell.vc-glass.vc-nav-shell--scrolled,
+html.vc-site-polish--pwa body.vc-vote-page > header .vc-nav-shell,
+html.vc-site-polish--pwa body.vc-vote-page > header .vc-nav-shell.vc-glass,
 html.vc-site-polish--pwa body.vc-vote-page > header .vc-nav-shell.vc-glass.vc-nav-shell--scrolled {
-  background: rgba(20, 15, 12, 0.94) !important;
+  background: #140f0c !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
+  transition: none !important;
 }
 
 html.vc-site-polish--pwa body.vc-body > header .vc-nav-shell.vc-nav-shell--scrolled::before,
 html.vc-site-polish--pwa body.vc-vote-page > header .vc-nav-shell.vc-nav-shell--scrolled::before {
-  opacity: 0;
+  content: none !important;
+  display: none !important;
+  opacity: 0 !important;
 }
 
 body.vc-vote-page .vc-home-rise,
@@ -43020,15 +44063,23 @@ body.vc-vote-page #vc-session-verify-overlay {
     display: none !important;
   }
 
+  html.vc-site-polish body.vc-body > header .vc-nav-shell,
+  html.vc-site-polish body.vc-body > header .vc-nav-shell.vc-glass,
   html.vc-site-polish body.vc-body > header .vc-nav-shell.vc-glass.vc-nav-shell--scrolled,
+  html.vc-site-polish body.vc-body header.fixed .vc-nav-shell,
+  html.vc-site-polish body.vc-body header.fixed .vc-nav-shell.vc-glass,
   html.vc-site-polish body.vc-body header.fixed .vc-nav-shell.vc-glass.vc-nav-shell--scrolled {
-    background: rgba(20, 15, 12, 0.94) !important;
+    background: #140f0c !important;
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
+    transition: none !important;
   }
 
+  html.vc-site-polish body.vc-body > header .vc-nav-shell::before,
   html.vc-site-polish body.vc-body > header .vc-nav-shell.vc-nav-shell--scrolled::before {
-    opacity: 0;
+    content: none !important;
+    display: none !important;
+    opacity: 0 !important;
   }
 }
 
@@ -43087,13 +44138,10 @@ html body.vc-body header .vc-header-snav .vc-snav-row:hover {
   color: #f7eadb !important;
 }
 
-/* Menù aperti: la barra resta uguale. Il blur dei pannelli in Chromium
-   promuove tutto .vc-nav-shell a un layer opaco (sembra che cambi colore). */
+/* Menù aperti: la barra resta uguale (niente transition su bg/border = no flash). */
 html body.vc-body--home > header .vc-nav-shell,
 html.vc-site-polish body.vc-body > header .vc-nav-shell {
-  transition:
-    border-color 220ms ease,
-    box-shadow 220ms ease !important;
+  transition: none !important;
 }
 
 html body.vc-body--home header .vc-nav-shell .vc-snav-panel,
@@ -43114,7 +44162,7 @@ html:has(header .discord-account-menu:focus-within) body.vc-body--home > header 
 html.vc-site-polish:has(header .vc-snav-details[open]) body.vc-body > header .vc-nav-shell.vc-glass:not(.vc-nav-shell--scrolled),
 html.vc-site-polish.vc-notif-dropdown-open body.vc-body > header .vc-nav-shell.vc-glass:not(.vc-nav-shell--scrolled),
 html.vc-site-polish.vc-header-account-open body.vc-body > header .vc-nav-shell.vc-glass:not(.vc-nav-shell--scrolled) {
-  background: transparent !important;
+  background: #140f0c !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
@@ -43127,9 +44175,9 @@ html:has(header .discord-account-menu:focus-within) body.vc-body--home > header 
 html.vc-site-polish.vc-notif-dropdown-open body.vc-body > header .vc-nav-shell.vc-glass.vc-nav-shell--scrolled,
 html.vc-site-polish.vc-header-account-open body.vc-body > header .vc-nav-shell.vc-glass.vc-nav-shell--scrolled,
 html.vc-site-polish:has(header .vc-snav-details[open]) body.vc-body > header .vc-nav-shell.vc-glass.vc-nav-shell--scrolled {
-  background: rgba(24, 17, 13, 0.34) !important;
-  backdrop-filter: blur(28px) saturate(185%) !important;
-  -webkit-backdrop-filter: blur(28px) saturate(185%) !important;
+  background: #140f0c !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
 /* Inner pages: same transparent chrome as home (cards/hero/footer, not only the nav). */
@@ -43394,7 +44442,8 @@ html.vc-site-polish .vc-home-cine__grain {
 }
 
 html.vc-site-polish body.vc-body > header {
-  z-index: 50;
+  z-index: 200;
+  background: transparent !important;
 }
 
 html.vc-site-polish body.vc-body main,
@@ -43413,7 +44462,7 @@ html.vc-site-polish body.vc-body .vc-blob {
   html.vc-site-polish body.vc-body header.fixed .vc-nav-shell.vc-glass {
     max-width: none !important;
     width: 100%;
-    border-radius: 9999px !important;
+    border-radius: 1rem !important;
   }
 }
 
@@ -43632,6 +44681,22 @@ html.vc-site-polish body.vc-users-page .vc-ul-filters-submit:hover,
 html.vc-site-polish body.vc-body .vc-candidature-submit:hover:not(:disabled) {
   border-color: rgba(245, 214, 183, 0.55) !important;
   filter: brightness(1.05) !important;
+}
+
+html.vc-site-polish body.vc-roles-page .vc-role-card-cta.vc-role-card-cta--leave,
+html.vc-site-polish body.vc-roles-page .vc-role-card-cta.vc-role-card-cta--leave:is(:link, :visited, :hover, :active, :focus, :focus-visible) {
+  border: 1px solid rgba(248, 250, 252, 0.16) !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: rgba(247, 236, 223, 0.96) !important;
+  box-shadow: none !important;
+  filter: none !important;
+}
+
+html.vc-site-polish body.vc-roles-page .vc-role-card-cta.vc-role-card-cta--leave:hover {
+  border-color: rgba(252, 165, 165, 0.45) !important;
+  background: linear-gradient(135deg, rgba(185, 28, 28, 0.55), rgba(127, 29, 29, 0.7)) !important;
+  color: #fff !important;
+  filter: none !important;
 }
 
 html.vc-site-polish body.vc-vote-page .vc-vote-more-btn:not(.vc-vote-more-btn--primary) {
@@ -44010,10 +45075,10 @@ html.vc-session-verify-pending,
 html.vc-session-verify-pending body,
 html:has(.vc-session-verify-overlay:not(.vc-session-verify-overlay--hidden)),
 html:has(.vc-session-verify-overlay:not(.vc-session-verify-overlay--hidden)) body,
-html:has(.vc-rank-customize-loading:not([hidden])),
-html:has(.vc-rank-customize-loading:not([hidden])) body,
-html:has(#vc-rank-customize-loading:not([hidden])),
-html:has(#vc-rank-customize-loading:not([hidden])) body,
+html:has(.vc-rank-customize-loading:not([hidden])):not(.vc-page-cine-ready),
+html:has(.vc-rank-customize-loading:not([hidden])):not(.vc-page-cine-ready) body,
+html:has(#vc-rank-customize-loading:not([hidden])):not(.vc-page-cine-ready),
+html:has(#vc-rank-customize-loading:not([hidden])):not(.vc-page-cine-ready) body,
 html:has(#vc-user-profile-view:not([hidden]) .vc-user-profile-loader),
 html:has(#vc-user-profile-view:not([hidden]) .vc-user-profile-loader) body,
 html:has(.vc-reviews-gate:not([hidden]):not(.vc-reviews-gate--dismissed)),
@@ -44036,7 +45101,7 @@ html.vc-user-profile-pending body,
 html.vc-rank-customize-pending body,
 html.vc-loading-scroll-lock body,
 html:has(.vc-ul-loading:not([hidden])) body,
-html:has(#vc-rank-customize-loading:not([hidden])) body,
+html:has(#vc-rank-customize-loading:not([hidden])):not(.vc-page-cine-ready) body,
 html:has(#vc-user-profile-view:not([hidden]) .vc-user-profile-loader) body {
   position: fixed !important;
   inset: 0 !important;
@@ -44559,23 +45624,23 @@ body.vc-user-profile-page > .vc-user-profile-loader {
 
 html:has(#vc-user-profile-loading),
 html:has(#vc-user-profile-loading) body,
-html:has(body > .vc-user-profile-loader),
-html:has(body > .vc-user-profile-loader) body {
+html:not(.vc-page-cine-ready):has(body > .vc-user-profile-loader:not([hidden])),
+html:not(.vc-page-cine-ready):has(body > .vc-user-profile-loader:not([hidden])) body {
   overflow: hidden !important;
   overscroll-behavior: none !important;
 }
 
-body:has(#vc-user-profile-loading) > header,
-body:has(> .vc-user-profile-loader#vc-user-profile-loading) > header,
-body:has(> #vc-user-profile-loading) > header,
-body:has(#vc-user-profile-loading) .vc-blob,
-body:has(> #vc-user-profile-loading) .vc-blob {
+body:has(#vc-user-profile-loading:not([hidden])) > header,
+body:has(> .vc-user-profile-loader#vc-user-profile-loading:not([hidden])) > header,
+body:has(> #vc-user-profile-loading:not([hidden])) > header,
+body:has(#vc-user-profile-loading:not([hidden])) .vc-blob,
+body:has(> #vc-user-profile-loading:not([hidden])) .vc-blob {
   visibility: hidden !important;
   pointer-events: none !important;
 }
 
-body:has(#vc-user-profile-loading) > footer,
-body:has(> .vc-user-profile-loader) > footer {
+body:has(#vc-user-profile-loading:not([hidden])) > footer,
+body:has(> .vc-user-profile-loader:not([hidden])) > footer {
   visibility: hidden !important;
   pointer-events: none !important;
 }
@@ -45249,6 +46314,16 @@ html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready)::before {
   z-index: 2147483000;
   background: #100c09;
   pointer-events: none;
+}
+
+/* Loader sopra l'overlay cine-boot: altrimenti schermo nero senza spinner */
+html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready) #vc-custom-profile-loading.vc-user-profile-loader:not([hidden]),
+html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready) body > .vc-user-profile-loader:not([hidden]),
+html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready) #vc-rank-customize-loading:not([hidden]) {
+  z-index: 2147483646 !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
 }
 
 html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready) body.vc-body > main,
@@ -46552,9 +47627,44 @@ html.vc-site-polish .vc-fx-sheen {
 }
 
 html.vc-site-polish body.vc-body:not(.vc-body--home) .vc-fx-card:hover > .vc-fx-sheen,
+html.vc-site-polish body.vc-body:not(.vc-body--home) .vc-fx-card:active > .vc-fx-sheen,
 html.vc-site-polish body.vc-body:not(.vc-body--home).vc-page-cine-layout .vc-hero-head:hover > .vc-fx-sheen {
   opacity: 1;
   animation: vcHomeSheen 1.05s cubic-bezier(0.22, 1, 0.36, 1) 1;
+}
+
+/* Touch: niente hover, ma rise + tap sheen restano attivi. */
+@media (hover: none), (pointer: coarse) {
+  html.vc-site-polish body.vc-body:not(.vc-body--home) :is(
+    .vc-fx-card,
+    .vc-notify-stat,
+    .vc-notify-row,
+    .vc-role-card,
+    .vc-ul-card,
+    .vc-legal-card,
+    .vc-faq-group,
+    .vc-reviews-card,
+    .vc-reviews-formcard,
+    .vc-staff-block,
+    .vc-staff-hub-card,
+    .vc-sponsor-card,
+    .vc-sponsor-embed,
+    .vc-wiki-cmd-shell,
+    .vc-cmd-grp,
+    .vc-perks-card,
+    .vc-candidature-card,
+    .vc-regole-card,
+    .vc-support-donate-role,
+    .vc-vote-live-card,
+    .vc-vote-live-statbox
+  ):active {
+    transform: translateY(-2px);
+    border-color: rgba(245, 214, 183, 0.36) !important;
+  }
+
+  html.vc-home-motion-ready.vc-site-polish .vc-home-rise {
+    transform: translate3d(0, 0.35rem, 0);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -46597,7 +47707,7 @@ html.vc-site-polish body.vc-body:not(.vc-body--home).vc-page-cine-layout .vc-her
   }
 
   html body .vc-header-bar > div:first-child {
-    flex: 1 1 auto !important;
+    flex: 0 1 auto !important;
     min-width: 0 !important;
     max-width: none !important;
   }
@@ -46778,9 +47888,9 @@ html body.vc-body--home #stats {
 }
 
 /* Inner pages: same panel chrome as homepage stats/deck/feature (below the hero). */
-html.vc-site-polish body.vc-body:not(.vc-body--home) .vc-home-panel,
+html.vc-site-polish body.vc-body:not(.vc-body--home) .vc-home-panel:not(.vc-stat-strip):not(.vc-vote-live-stats),
 html.vc-site-polish body.vc-body:not(.vc-body--home) :is(
-  .vc-home-panel,
+  .vc-home-panel:not(.vc-stat-strip):not(.vc-vote-live-stats),
   .vc-wiki-cmd-shell,
   .vc-faq-group,
   .vc-legal-card,
@@ -46805,7 +47915,7 @@ html.vc-site-polish body.vc-body:not(.vc-body--home) :is(
   .vc-user-profile-block,
   .vc-user-profile-hero:not(.vc-page-cine-hero),
   .vc-page-cine-card
-):not(.vc-page-cine-hero):not(.vc-wt-board):not(.vc-wt-sidebar) {
+):not(.vc-page-cine-hero):not(.vc-wt-board):not(.vc-wt-sidebar):not(.vc-stat-strip):not(.vc-vote-live-stats) {
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
@@ -46848,8 +47958,8 @@ html.vc-site-polish body.vc-body:not(.vc-body--home) :is(
     box-shadow 0.22s ease;
 }
 
-html.vc-site-polish body.vc-body:not(.vc-body--home) .vc-home-panel:hover,
-html.vc-site-polish body.vc-body:not(.vc-body--home) .vc-fx-card.vc-home-panel:hover,
+html.vc-site-polish body.vc-body:not(.vc-body--home) .vc-home-panel:not(.vc-stat-strip):not(.vc-vote-live-stats):hover,
+html.vc-site-polish body.vc-body:not(.vc-body--home) .vc-fx-card.vc-home-panel:not(.vc-stat-strip):not(.vc-vote-live-stats):hover,
 html.vc-site-polish body.vc-body:not(.vc-body--home) :is(
   .vc-wiki-cmd-shell,
   .vc-faq-group,
@@ -46910,7 +48020,37 @@ html.vc-site-polish body.vc-body:not(.vc-body--home) .vc-perks-showcase,
 html.vc-site-polish body.vc-body:not(.vc-body--home) #wiki-comandi-panel,
 html.vc-site-polish body.vc-body:not(.vc-body--home) #vc-regole-list,
 html.vc-site-polish body.vc-body:not(.vc-body--home) #vc-roles-grid,
-html.vc-site-polish body.vc-body:not(.vc-body--home) #vc-ul-grid {
+html.vc-site-polish body.vc-body:not(.vc-body--home) #vc-ul-grid,
+html body.vc-body #vc-roles-grid,
+html body.vc-body #vc-ul-grid,
+html body.vc-body .vc-roles-grid,
+html body.vc-body .vc-ul-grid,
+html body.vc-body .vc-reviews-grid,
+html body.vc-body .vc-card-grid-wrap,
+html body.vc-body .vc-card-grid-wrap.vc-home-panel,
+html body.vc-body .vc-card-grid-wrap.vc-fx-card,
+html body.vc-body :is(.vc-home-panel, .vc-fx-card):has(#vc-roles-grid),
+html body.vc-body :is(.vc-home-panel, .vc-fx-card):has(#vc-ul-grid),
+html body.vc-body :is(.vc-home-panel, .vc-fx-card):has(.vc-roles-grid),
+html body.vc-body :is(.vc-home-panel, .vc-fx-card):has(.vc-ul-grid),
+html body.vc-body :is(.vc-home-panel, .vc-fx-card):has(.vc-role-card),
+html body.vc-body :is(.vc-home-panel, .vc-fx-card):has(.vc-ul-card),
+html body.vc-body :is(.vc-home-panel, .vc-fx-card):has(.vc-reviews-card),
+html body.vc-body :is(.vc-home-panel, .vc-fx-card):has(.vc-reviews-grid),
+html body.vc-body :is(.vc-home-panel, .vc-fx-card):has(#vc-regole-list),
+html body.vc-body :is(.vc-home-panel, .vc-fx-card):has(#wiki-comandi-panel),
+html body.vc-body :is(.vc-home-panel, .vc-fx-card):has(.vc-faq-group),
+html body.vc-body :is(.vc-home-panel, .vc-fx-card):has(.vc-perks-card),
+html body.vc-body :is(.vc-home-panel, .vc-fx-card):has(.vc-wiki-cmd-shell),
+html body.vc-body :is(.vc-home-panel, .vc-fx-card):has(.vc-legal-card),
+html body.vc-body :is(.vc-home-panel, .vc-fx-card):has(.vc-staff-block),
+html body.vc-body :is(.vc-home-panel, .vc-fx-card):has(.vc-sponsor-embed),
+html body.vc-body :is(.vc-home-panel, .vc-fx-card):has(.vc-notify-stat),
+html body.vc-body :is(.vc-home-panel, .vc-fx-card):has(.vc-notify-row),
+html body.vc-body :is(.vc-home-panel, .vc-fx-card):has(.vc-roles-search),
+html body.vc-body :is(.vc-home-panel, .vc-fx-card):has(.vc-regole-card),
+html body.vc-body :is(.vc-home-panel, .vc-fx-card):has(.vc-candidature-card),
+html body.vc-body :is(.vc-home-panel, .vc-fx-card):has(.vc-support-donate-role) {
   border: 0 !important;
   outline: 0 !important;
   box-shadow: none !important;
@@ -46920,6 +48060,64 @@ html.vc-site-polish body.vc-body:not(.vc-body--home) #vc-ul-grid {
   -webkit-backdrop-filter: none !important;
   filter: none !important;
   border-radius: 0 !important;
+  padding: 0 !important;
+  overflow: visible !important;
+}
+
+html body.vc-body .vc-card-grid-wrap > .vc-fx-sheen,
+html body.vc-body :is(.vc-home-panel, .vc-fx-card):has(#vc-roles-grid) > .vc-fx-sheen,
+html body.vc-body :is(.vc-home-panel, .vc-fx-card):has(#vc-ul-grid) > .vc-fx-sheen,
+html body.vc-body :is(.vc-home-panel, .vc-fx-card):has(.vc-role-card) > .vc-fx-sheen,
+html body.vc-body :is(.vc-home-panel, .vc-fx-card):has(.vc-ul-card) > .vc-fx-sheen,
+html body.vc-body :is(.vc-home-panel, .vc-fx-card):has(.vc-reviews-card) > .vc-fx-sheen,
+html body.vc-body :is(.vc-home-panel, .vc-fx-card):has(.vc-notify-stat) > .vc-fx-sheen {
+  display: none !important;
+}
+
+/* Griglie stats / liste: niente cornice sul wrapper, solo sui riquadri interni. */
+html.vc-site-polish body.vc-body .vc-stat-strip,
+html.vc-site-polish body.vc-body .vc-stat-strip.vc-home-panel,
+html.vc-site-polish body.vc-body .vc-stat-strip.vc-fx-card,
+html.vc-site-polish body.vc-body .vc-stat-strip.vc-home-rise,
+html body.vc-body .vc-stat-strip,
+html body.vc-body .vc-stat-strip.vc-home-panel,
+html body.vc-body .vc-stat-strip.vc-fx-card,
+html.vc-site-polish body.vc-body:not(.vc-body--home) :is(section, div).vc-home-panel:has(> .vc-notify-stat),
+html.vc-site-polish body.vc-body:not(.vc-body--home) :is(section, div).vc-fx-card:has(> .vc-notify-stat),
+html.vc-site-polish body.vc-body:not(.vc-body--home) :is(section, div):has(> .vc-notify-stat),
+html.vc-site-polish body.vc-body:not(.vc-body--home) :is(section, div).vc-home-panel:has(> .vc-vote-live-statbox),
+html.vc-site-polish body.vc-body:not(.vc-body--home) :is(section, div).vc-fx-card:has(> .vc-vote-live-statbox),
+html.vc-site-polish body.vc-body:not(.vc-body--home) :is(section, div):has(> .vc-vote-live-statbox),
+html.vc-site-polish body.vc-body:not(.vc-body--home) :is(section, div).vc-home-panel:has(> .vc-notify-row),
+html.vc-site-polish body.vc-body:not(.vc-body--home) :is(section, div).vc-fx-card:has(> .vc-notify-row),
+html.vc-site-polish body.vc-body:not(.vc-body--home) :is(section, div).vc-home-panel:has(> .vc-roles-search),
+html.vc-site-polish body.vc-body:not(.vc-body--home) :is(section, div).vc-fx-card:has(> .vc-roles-search),
+html.vc-site-polish body.vc-body:not(.vc-body--home) .vc-vote-live-stats,
+html.vc-site-polish body.vc-body:not(.vc-body--home) .vc-vote-live-stats.vc-home-panel,
+html.vc-site-polish body.vc-body:not(.vc-body--home) .vc-vote-live-stats.vc-fx-card {
+  border: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  background-image: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  filter: none !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  overflow: visible !important;
+  transform: none !important;
+}
+
+html.vc-site-polish body.vc-body .vc-stat-strip > .vc-fx-sheen,
+html body.vc-body .vc-stat-strip > .vc-fx-sheen,
+html.vc-site-polish body.vc-body:not(.vc-body--home) :is(section, div):has(> .vc-notify-stat) > .vc-fx-sheen,
+html.vc-site-polish body.vc-body:not(.vc-body--home) :is(section, div):has(> .vc-vote-live-statbox) > .vc-fx-sheen,
+html.vc-site-polish body.vc-body:not(.vc-body--home) :is(section, div):has(> .vc-notify-row) > .vc-fx-sheen,
+html.vc-site-polish body.vc-body:not(.vc-body--home) :is(section, div):has(> .vc-roles-search) > .vc-fx-sheen,
+html.vc-site-polish body.vc-body:not(.vc-body--home) .vc-vote-live-stats > .vc-fx-sheen {
+  display: none !important;
+  content: none !important;
 }
 
 @media (min-width: 768px) {
@@ -47399,6 +48597,7 @@ body.vc-body.vc-roles-page .vc-ul-loading-card,
   border-right-color: rgba(232, 196, 156, 0.35) !important;
   box-shadow: 0 0 22px rgba(232, 196, 156, 0.28) !important;
   background: transparent !important;
+  animation: vc-page-spin 0.9s linear infinite !important;
 }
 
 .vc-staff-loading__card::before,
@@ -47466,4 +48665,2482 @@ body.vc-body.vc-roles-page .vc-ul-loading-card,
   color: rgba(247, 236, 223, 0.78) !important;
 }
 
+/* navflash5: header OPACO (#100c09 = fondo pagina) dietro la pillola = niente dirty-rect. */
+html body.vc-body > header,
+html body.vc-body header.fixed,
+html body.vc-body--home > header,
+html.vc-site-polish body.vc-body > header,
+html.vc-site-polish body.vc-body header.fixed {
+  background: #100c09 !important;
+  background-color: #100c09 !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  transition: none !important;
+  animation: none !important;
+  transform: none !important;
+  contain: none;
+  box-shadow: none !important;
+  filter: none !important;
+}
 
+html body.vc-body header .vc-nav-shell,
+html body.vc-body header .vc-nav-shell.vc-glass,
+html body.vc-body header .vc-nav-shell.vc-glass.vc-nav-shell--scrolled,
+html body.vc-body--home header .vc-nav-shell,
+html body.vc-body--home header .vc-nav-shell.vc-glass,
+html body.vc-body--home header .vc-nav-shell.vc-glass.vc-nav-shell--scrolled,
+html.vc-site-polish body.vc-body header .vc-nav-shell,
+html.vc-site-polish body.vc-body header .vc-nav-shell.vc-glass,
+html.vc-site-polish body.vc-body header .vc-nav-shell.vc-glass.vc-nav-shell--scrolled,
+html.vc-site-polish--pwa body.vc-body header .vc-nav-shell,
+html.vc-site-polish--pwa body.vc-body header .vc-nav-shell.vc-glass,
+html.vc-site-polish--pwa body.vc-body header .vc-nav-shell.vc-glass.vc-nav-shell--scrolled {
+  background: #140f0c !important;
+  background-color: #140f0c !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  filter: none !important;
+  transition: none !important;
+  max-width: none !important;
+  width: 100% !important;
+  isolation: auto !important;
+  /* niente glow crema: sul compositor flasha come rettangolo in palette */
+  box-shadow: none !important;
+}
+
+html body.vc-body header .vc-nav-shell::before,
+html body.vc-body header .vc-nav-shell.vc-nav-shell--scrolled::before {
+  content: none !important;
+  display: none !important;
+  opacity: 0 !important;
+}
+
+/* Header opaco: atmos/cine full-bleed (non tagliare lo sfondo). */
+html body.vc-body--home .vc-home-cine,
+html.vc-site-polish .vc-site-atmos,
+html.vc-site-polish body.vc-body .vc-home-cine {
+  position: fixed !important;
+  inset: 0 !important;
+  top: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  z-index: 0 !important;
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: none !important;
+}
+
+html body.vc-body header *,
+html body.vc-body header *::before,
+html body.vc-body header *::after {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* Atmosferici full-screen: niente fascia vuota sotto header (header è opaco). */
+html body.vc-body::before,
+html body.vc-body::after,
+html body.vc-body--home.vc-body::before,
+html body.vc-body--home.vc-body::after {
+  top: 0 !important;
+  clip-path: none !important;
+}
+
+/* kickpip-hdr1: anteprima Kick NON sopra campana/profilo.
+   Header z-index era 200, PiP 10120 → con angolo TR o drag in alto copriva i controlli.
+   contain:paint tagliava anche i menu aperti. */
+html body.vc-body > header,
+html body.vc-body header.fixed,
+html body.vc-body--home > header,
+html.vc-site-polish body.vc-body > header,
+html.vc-site-polish body.vc-body header.fixed {
+  z-index: 10150 !important;
+  contain: none !important;
+  overflow: visible !important;
+}
+
+html body.vc-body header .vc-nav-shell,
+html body.vc-body header .vc-nav-shell.vc-glass,
+html body.vc-body header .vc-nav-shell.vc-glass.vc-nav-shell--scrolled {
+  overflow: visible !important;
+}
+
+html body.vc-body .vc-kick-pip {
+  z-index: 10120;
+}
+
+html body.vc-body .vc-kick-pip.vc-kick-pip--corner-tl,
+html body.vc-body .vc-kick-pip.vc-kick-pip--corner-tr {
+  top: max(5.75rem, calc(env(safe-area-inset-top, 0px) + 5.25rem)) !important;
+}
+
+/* Custom role / voice editor — allineato al profilo (sand/mocha) */
+.vc-user-profile-customcard--link {
+  display: flex;
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+  transition: border-color 0.18s ease, background 0.18s ease, transform 0.18s ease;
+}
+
+.vc-user-profile-customcard--link:hover,
+.vc-user-profile-customcard--link:focus-visible {
+  border-color: rgba(232, 196, 156, 0.42);
+  background: rgba(255, 244, 232, 0.05);
+  transform: translateY(-1px);
+}
+
+/* Custom profile editor — layout stage + editor */
+.vc-custom-profile-page {
+  --vc-cpf-sand: #e8c49c;
+  --vc-cpf-ink: #f6eadc;
+  --vc-cpf-muted: rgba(246, 234, 220, 0.62);
+  --vc-cpf-line: rgba(255, 255, 255, 0.1);
+  --vc-cpf-panel: rgba(16, 11, 8, 0.55);
+}
+
+.vc-cpf {
+  display: grid;
+  gap: 1.15rem;
+  width: min(100%, 42rem);
+  margin-inline: auto;
+  border: 0 !important;
+  outline: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  animation: vc-cpf-rise 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes vc-cpf-rise {
+  from {
+    opacity: 0;
+    transform: translateY(0.7rem);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.vc-cpf.is-busy,
+#vc-custom-profile-app.is-busy {
+  pointer-events: none;
+  opacity: 0.72;
+}
+
+.vc-cpf-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  width: fit-content;
+  margin-inline: 0;
+  justify-self: start;
+  padding: 0.45rem 0.85rem 0.45rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid var(--vc-cpf-line);
+  background: rgba(20, 15, 12, 0.72);
+  color: var(--vc-cpf-ink);
+  text-decoration: none;
+  font-size: 0.84rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  transition: border-color 0.18s ease, background 0.18s ease;
+}
+
+.vc-cpf-back:hover {
+  border-color: rgba(232, 196, 156, 0.42);
+  background: rgba(28, 20, 14, 0.9);
+}
+
+.vc-cpf-top {
+  display: grid;
+  gap: 0.85rem;
+  justify-items: center;
+  text-align: center;
+}
+
+.vc-cpf-top__row {
+  display: flex;
+  flex-direction: column;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.85rem;
+  width: 100%;
+}
+
+.vc-cpf-kicker {
+  margin: 0 0 0.25rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--vc-cpf-sand);
+}
+
+.vc-cpf-top h1 {
+  margin: 0;
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: clamp(1.85rem, 4.2vw, 2.55rem);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.08;
+  color: var(--vc-cpf-ink);
+}
+
+.vc-cpf-lead {
+  margin: 0.35rem auto 0;
+  max-width: 28rem;
+  color: var(--vc-cpf-muted);
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
+.vc-cpf-switch {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.2rem;
+  padding: 0.28rem;
+  border-radius: 999px;
+  border: 1px solid var(--vc-cpf-line);
+  background: rgba(10, 7, 5, 0.55);
+}
+
+.vc-cpf-switch__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 2.4rem;
+  padding: 0 0.95rem;
+  border-radius: 999px;
+  text-decoration: none;
+  color: var(--vc-cpf-muted);
+  font-size: 0.84rem;
+  font-weight: 750;
+  transition: background 0.16s ease, color 0.16s ease;
+}
+
+.vc-cpf-switch__item:hover {
+  color: var(--vc-cpf-ink);
+  background: rgba(255, 244, 232, 0.05);
+}
+
+.vc-cpf-switch__item.is-active {
+  color: #1a120e;
+  background: linear-gradient(135deg, #f0dcc8, #c8966e);
+}
+
+.vc-cpf-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+  align-items: start;
+  justify-items: stretch;
+}
+
+.vc-cpf-layout.is-single {
+  grid-template-columns: 1fr;
+}
+
+.vc-cpf-stage {
+  position: static;
+  width: min(100%, 26rem);
+  margin-inline: auto;
+  justify-self: center;
+}
+
+.vc-cpf-stage__card {
+  display: grid;
+  justify-items: center;
+  text-align: center;
+  gap: 0.75rem;
+  padding: 1.85rem 1.5rem 1.7rem;
+  border-radius: 1.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background:
+    radial-gradient(ellipse 90% 70% at 50% 0%, color-mix(in srgb, var(--vc-cpf-accent, #d4a888) 28%, transparent), transparent 62%),
+    linear-gradient(165deg, rgba(28, 20, 14, 0.92), rgba(10, 7, 5, 0.96));
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+  overflow: hidden;
+}
+
+.vc-cpf-stage__card.has-color {
+  background:
+    linear-gradient(
+      165deg,
+      color-mix(in srgb, var(--vc-cpf-accent, #d4a888) 34%, #1c140e) 0%,
+      color-mix(in srgb, var(--vc-cpf-accent2, var(--vc-cpf-accent, #d4a888)) 18%, #0a0705) 100%
+    );
+  border-color: color-mix(in srgb, var(--vc-cpf-accent, #d4a888) 42%, rgba(255, 255, 255, 0.12));
+}
+
+.vc-cpf-stage__swatch {
+  width: min(100%, 11rem);
+  height: 0.55rem;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    var(--vc-cpf-accent, #d4a888),
+    var(--vc-cpf-accent2, var(--vc-cpf-accent, #d4a888))
+  );
+  box-shadow: 0 0 18px color-mix(in srgb, var(--vc-cpf-accent, #d4a888) 45%, transparent);
+}
+
+.vc-cpf-stage__card.has-color .vc-cpf-stage__title {
+  color: var(--vc-cpf-accent, #f6eadc);
+}
+
+.vc-cpf-stage__title.is-gradient-text {
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+.vc-cpf-stage__card.is-holo .vc-cpf-stage__swatch {
+  background: linear-gradient(
+    90deg,
+    var(--vc-cpf-accent, #a9c0ff),
+    #ffc0ec,
+    var(--vc-cpf-accent2, #ffc8a0),
+    var(--vc-cpf-accent, #a9c0ff)
+  );
+  background-size: 200% 100%;
+  animation: vc-cpf-holo 2.8s linear infinite;
+}
+
+@keyframes vc-cpf-holo {
+  from {
+    background-position: 0% 50%;
+  }
+  to {
+    background-position: 200% 50%;
+  }
+}
+
+.vc-cpf-actions--modes .vc-cpf-modebtn.is-active {
+  border-color: rgba(232, 196, 156, 0.5);
+  background: linear-gradient(135deg, #f0dcc8, #c8966e);
+  color: #1a120e;
+}
+
+.vc-cpf-stage__card.is-empty {
+  opacity: 0.9;
+}
+
+.vc-cpf-stage__mark {
+  width: 4.25rem;
+  height: 4.25rem;
+  border-radius: 9999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  font-size: 1.55rem;
+  color: var(--vc-cpf-ink);
+  background: color-mix(in srgb, var(--vc-cpf-accent, #d4a888) 34%, #1a1410);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
+}
+
+.vc-cpf-stage__mark:has(img) {
+  /* l'emoji Discord è già tonda: niente secondo cerchio / alone intorno */
+  width: 4.25rem;
+  height: 4.25rem;
+  padding: 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  overflow: visible;
+}
+
+.vc-cpf-stage__mark img {
+  width: 4.25rem;
+  height: 4.25rem;
+  max-width: 4.25rem;
+  max-height: 4.25rem;
+  object-fit: contain;
+  object-position: center;
+  display: block;
+  transform: none;
+  border-radius: 0;
+}
+
+.vc-cpf-stage__title {
+  margin: 0;
+  max-width: 20rem;
+  color: var(--vc-cpf-ink);
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: clamp(1.45rem, 3vw, 1.95rem);
+  font-weight: 600;
+  line-height: 1.15;
+}
+
+.vc-cpf-stage__meta {
+  margin: 0;
+  color: var(--vc-cpf-muted);
+  font-size: 0.82rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+}
+
+.vc-cpf-editor {
+  display: grid;
+  gap: 0.85rem;
+  width: 100%;
+}
+
+.vc-cpf-block {
+  padding: 0.85rem 0 0.95rem;
+  border-top: 1px solid var(--vc-cpf-line);
+}
+
+.vc-cpf-block:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.vc-cpf-block__head {
+  display: none !important;
+}
+
+.vc-cpf-block__head h2 {
+  margin: 0;
+  color: var(--vc-cpf-ink);
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.vc-cpf-block__head p {
+  margin: 0.28rem 0 0;
+  color: var(--vc-cpf-muted);
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+
+.vc-cpf-block__body {
+  display: grid;
+  gap: 0.9rem;
+  margin-top: 0.95rem;
+}
+
+.vc-cpf-grid {
+  display: grid;
+  gap: 0.75rem;
+}
+
+@media (min-width: 640px) {
+  .vc-cpf-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .vc-cpf-field--narrow {
+    max-width: 8.5rem;
+  }
+
+  .vc-cpf-grid--voice-id {
+    grid-template-columns: minmax(0, 1fr) minmax(9.5rem, 11.5rem);
+    align-items: start;
+  }
+
+  .vc-cpf-grid--voice-id .vc-cpf-field--emoji {
+    max-width: none;
+  }
+}
+
+.vc-cpf-grid--voice-id .vc-cpf-actions--field {
+  margin-top: 0.15rem;
+}
+
+.vc-cpf-grid--voice-id .vc-cpf-actions--field .vc-cpf-btn {
+  width: 100%;
+}
+
+.vc-cpf-field--emoji .vc-cpf-inputrow input,
+#vc-cpf-emoji {
+  text-align: center;
+  font-size: 1.35rem;
+  line-height: 1.2;
+  padding-left: 0.55rem;
+  padding-right: 0.55rem;
+}
+
+.vc-cpf-field {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.vc-cpf-field > span {
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(246, 234, 220, 0.52);
+}
+
+.vc-cpf-colorpick {
+  display: grid;
+  grid-template-columns: 2.75rem minmax(0, 1fr);
+  gap: 0.55rem;
+  align-items: center;
+  position: relative;
+}
+
+.vc-cpf-colorpick__native {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 2.75rem;
+  height: 2.75rem;
+  opacity: 0;
+  cursor: pointer;
+  z-index: 2;
+}
+
+.vc-cpf-colorpick__chip {
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 0.9rem;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.25),
+    0 8px 18px rgba(0, 0, 0, 0.28);
+  pointer-events: none;
+}
+
+.vc-cpf-colorpick input[type="text"] {
+  width: 100%;
+  min-height: 2.85rem;
+  padding: 0 0.95rem;
+  border-radius: 0.9rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(8, 6, 5, 0.62);
+  color: #f8fafc;
+  font-weight: 650;
+  outline: none;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  letter-spacing: 0.04em;
+}
+
+.vc-cpf-colorpick input[type="text"]:focus {
+  border-color: rgba(232, 196, 156, 0.5);
+  box-shadow: 0 0 0 3px rgba(232, 196, 156, 0.12);
+}
+
+.vc-cpf-iconrow {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.75rem;
+}
+
+.vc-cpf-field--grow {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.vc-cpf-iconprev {
+  width: 2.85rem;
+  height: 2.85rem;
+  border-radius: 9999px;
+  object-fit: contain;
+  object-position: center;
+  flex-shrink: 0;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(8, 6, 5, 0.55);
+  overflow: hidden;
+  padding: 0;
+  box-sizing: border-box;
+  transform: none;
+}
+.vc-cpf-iconprev[src] {
+  /* stessa logica dell'anteprima stage: solo l'emoji, senza alone */
+  border: none;
+  background: transparent;
+  border-radius: 0;
+  overflow: visible;
+  object-fit: contain;
+  transform: none;
+}
+
+.vc-cpf-iconprev.is-emoji,
+.vc-cpf-iconprev.is-empty {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  color: rgba(246, 234, 220, 0.7);
+}
+
+.vc-cpf-field input,
+.vc-cpf-field select,
+.vc-cpf-field textarea,
+.vc-cpf-inline input {
+  width: 100%;
+  min-height: 2.85rem;
+  padding: 0 0.95rem;
+  border-radius: 0.9rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(8, 6, 5, 0.62);
+  color: #f8fafc;
+  font-weight: 650;
+  font: inherit;
+  outline: none;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.vc-cpf-field textarea {
+  min-height: 7.5rem;
+  padding: 0.85rem 0.95rem;
+  resize: vertical;
+  line-height: 1.45;
+}
+
+.vc-cpf-field select {
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, rgba(247, 236, 223, 0.7) 50%),
+    linear-gradient(135deg, rgba(247, 236, 223, 0.7) 50%, transparent 50%);
+  background-position: calc(100% - 1.15rem) 1.2rem, calc(100% - 0.75rem) 1.2rem;
+  background-size: 0.4rem 0.4rem, 0.4rem 0.4rem;
+  background-repeat: no-repeat;
+  padding-right: 2.2rem;
+}
+
+.vc-cpf-field input:focus,
+.vc-cpf-field select:focus,
+.vc-cpf-field textarea:focus,
+.vc-cpf-inline input:focus {
+  border-color: rgba(232, 196, 156, 0.5);
+  box-shadow: 0 0 0 3px rgba(232, 196, 156, 0.12);
+}
+
+.vc-cpf-actions,
+.vc-cpf-inline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.vc-cpf-inline input {
+  flex: 1 1 12rem;
+}
+
+.vc-cpf-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.55rem;
+  padding: 0 1.05rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--vc-cpf-ink);
+  font-weight: 750;
+  font-size: 0.86rem;
+  cursor: pointer;
+  transition: background 0.16s ease, border-color 0.16s ease, filter 0.16s ease;
+}
+
+.vc-cpf-btn:hover {
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.vc-cpf-btn:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+.vc-cpf-btn--primary {
+  border-color: rgba(232, 196, 156, 0.45);
+  background: linear-gradient(135deg, #f0dcc8, #c8966e);
+  color: #1a120e;
+}
+
+.vc-cpf-btn--primary:hover {
+  filter: brightness(1.05);
+}
+
+.vc-cpf-btn--ghost {
+  background: transparent;
+}
+
+.vc-cpf-btn--danger {
+  border-color: rgba(248, 113, 113, 0.35);
+  background: rgba(127, 29, 29, 0.22);
+  color: #fecaca;
+}
+
+.vc-cpf-btn--sm {
+  min-height: 2rem;
+  padding: 0 0.75rem;
+  font-size: 0.78rem;
+}
+
+.vc-cpf-members-wrap {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.vc-cpf-members {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.vc-cpf-members__row {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: 0.95rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.vc-cpf-members__av {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.vc-cpf-members__av.is-fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(246, 234, 220, 0.7);
+}
+
+.vc-cpf-members__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.vc-cpf-members__name {
+  min-width: 0;
+  font-weight: 750;
+  color: var(--vc-cpf-ink);
+}
+.vc-cpf-members__badge {
+  display: inline-flex;
+  width: fit-content;
+  padding: 0.08rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid rgba(232, 196, 156, 0.28);
+  background: rgba(232, 196, 156, 0.1);
+  color: #f0d7b8;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.vc-cpf-members__owner-note {
+  flex: 0 0 auto;
+  color: rgba(246, 234, 220, 0.55);
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+.vc-cpf-members__row.is-owner {
+  border-color: rgba(232, 196, 156, 0.22);
+  background: rgba(232, 196, 156, 0.05);
+}
+
+.vc-cpf-empty {
+  margin: 0;
+  color: var(--vc-cpf-muted);
+  font-size: 0.94rem;
+  line-height: 1.5;
+}
+
+.vc-cpf-dangerzone {
+  margin-top: 0.35rem;
+  padding-top: 1rem;
+  border-top: none;
+}
+
+.vc-cpf-req__lead,
+.vc-cpf-req__rule,
+.vc-cpf-req__status,
+.vc-cpf-req__warn {
+  margin: 0;
+  color: var(--vc-cpf-muted);
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+.vc-cpf-req__rule {
+  margin-top: 0.75rem;
+}
+.vc-cpf-req__chips {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0.65rem 0 0;
+  padding: 0;
+}
+.vc-cpf-req__chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.28rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid rgba(232, 196, 156, 0.28);
+  background: rgba(232, 196, 156, 0.1);
+  color: #f6eadc;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+.vc-cpf-req__progress {
+  margin-top: 0.95rem;
+  padding: 0.85rem 0.95rem;
+  border-radius: 0.95rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(8, 6, 5, 0.4);
+}
+.vc-cpf-req__progress-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  color: rgba(246, 234, 220, 0.88);
+  font-size: 0.86rem;
+  font-weight: 650;
+}
+.vc-cpf-req__bar {
+  margin-top: 0.55rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+.vc-cpf-req__bar > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #c9966a, #f0d4b0);
+}
+.vc-cpf-req__status {
+  margin-top: 0.55rem;
+}
+.vc-cpf-req__status.is-ok {
+  color: rgba(167, 243, 208, 0.92);
+}
+.vc-cpf-req__warn {
+  margin-top: 0.45rem;
+  color: rgba(252, 165, 165, 0.95);
+}
+
+.vc-user-profile-createcard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.05rem 1.15rem;
+  border-radius: 1.2rem;
+  border: 1px dashed rgba(232, 196, 156, 0.32);
+  background: rgba(232, 196, 156, 0.05);
+}
+.vc-user-profile-createcard__copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+.vc-user-profile-createcard__title {
+  color: rgba(247, 236, 223, 0.98);
+  font-size: 1rem;
+  font-weight: 800;
+}
+.vc-user-profile-createcard__meta {
+  color: rgba(226, 232, 240, 0.7);
+  font-size: 0.88rem;
+}
+.vc-user-profile-createcard__btn {
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: 0.85rem;
+  padding: 0.65rem 1rem;
+  font-weight: 750;
+  color: #1a120e;
+  background: linear-gradient(145deg, #f0d4b0, #c9966a);
+  cursor: pointer;
+}
+.vc-user-profile-createcard__btn:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+.vc-user-profile-createcard.is-locked {
+  border-style: solid;
+  border-color: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+}
+.vc-user-profile-createcard.is-locked .vc-user-profile-createcard__btn {
+  display: none;
+}
+
+.vc-cpf-toast {
+  pointer-events: none;
+  width: fit-content;
+  max-width: min(92vw, 28rem);
+  padding: 0.85rem 1.15rem;
+  border-radius: 0.95rem;
+  border: 1px solid rgba(232, 196, 156, 0.45);
+  background: rgba(20, 15, 12, 0.96);
+  color: #f6eadc;
+  font-weight: 750;
+  font-size: 0.95rem;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+  animation: vc-cpf-rise 0.35s ease both;
+}
+
+.vc-cpf-toast.is-error {
+  border-color: rgba(248, 113, 113, 0.4);
+  background: rgba(60, 16, 16, 0.94);
+  color: #fecaca;
+}
+
+.vc-cpf-toast-host {
+  position: fixed !important;
+  left: 50% !important;
+  right: auto !important;
+  top: auto !important;
+  bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px)) !important;
+  transform: translateX(-50%) !important;
+  z-index: 120500 !important;
+  width: max-content !important;
+  max-width: min(92vw, 28rem) !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  pointer-events: none !important;
+}
+
+/* Niente riquadro/glass sul contenitore della pagina custom */
+body.vc-custom-profile-page > main,
+body.vc-custom-profile-page #vc-custom-profile-page,
+body.vc-custom-profile-page #vc-custom-profile-app,
+body.vc-custom-profile-page .vc-cpf {
+  border: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  background-image: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border-radius: 0 !important;
+}
+
+/* Custom profile: loader fullscreen come profilo/users; chrome normale a caricamento finito */
+body.vc-custom-profile-page:not(:has(#vc-custom-profile-loading:not([hidden]))),
+html:not(:has(#vc-custom-profile-loading:not([hidden]))) body.vc-custom-profile-page {
+  position: static !important;
+  inset: auto !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  height: auto !important;
+  max-height: none !important;
+}
+body.vc-custom-profile-page:not(:has(#vc-custom-profile-loading:not([hidden]))) > header,
+body.vc-custom-profile-page:not(:has(#vc-custom-profile-loading:not([hidden]))) > footer {
+  display: block !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+}
+body.vc-custom-profile-page:not(:has(#vc-custom-profile-loading:not([hidden]))) .vc-home-cine,
+body.vc-custom-profile-page:not(:has(#vc-custom-profile-loading:not([hidden]))) .vc-blob {
+  display: block !important;
+  visibility: visible !important;
+  pointer-events: none !important;
+}
+
+/* Loader custom: stesso overlay delle altre pagine */
+body.vc-custom-profile-page > #vc-custom-profile-loading.vc-user-profile-loader:not([hidden]) {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 2147483646 !important;
+}
+html:not(.vc-pers-tab-rank):has(#vc-custom-profile-loading.vc-user-profile-loader:not([hidden])),
+html:not(.vc-pers-tab-rank):has(#vc-custom-profile-loading.vc-user-profile-loader:not([hidden])) body {
+  overflow: hidden !important;
+  overscroll-behavior: none !important;
+}
+html:not(.vc-pers-tab-rank) body:has(> #vc-custom-profile-loading.vc-user-profile-loader:not([hidden])) > header,
+html:not(.vc-pers-tab-rank) body:has(> #vc-custom-profile-loading.vc-user-profile-loader:not([hidden])) > footer,
+html:not(.vc-pers-tab-rank) body:has(> #vc-custom-profile-loading.vc-user-profile-loader:not([hidden])) .vc-home-cine,
+html:not(.vc-pers-tab-rank) body:has(> #vc-custom-profile-loading.vc-user-profile-loader:not([hidden])) .vc-blob,
+html:not(.vc-pers-tab-rank) body:has(> #vc-custom-profile-loading.vc-user-profile-loader:not([hidden])) > main {
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+#vc-custom-profile-loading.vc-user-profile-loader[hidden] {
+  display: none !important;
+}
+
+.vc-cpf-inputrow {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+.vc-cpf-inputrow input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.vc-cpf-emojibtn {
+  flex: 0 0 auto;
+  width: 2.85rem;
+  height: 2.85rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.9rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(8, 6, 5, 0.62);
+  color: #f6eadc;
+  cursor: pointer;
+  transition: border-color 0.16s ease, background 0.16s ease;
+}
+.vc-cpf-emojibtn:hover {
+  border-color: rgba(232, 196, 156, 0.45);
+  background: rgba(28, 20, 14, 0.9);
+}
+.vc-emoji-picker.is-unicode-only .vc-emoji-picker__tabs {
+  display: none;
+}
+
+
+
+/* cpfix 20260821cpfix135802 */
+html body.vc-body--home .vc-home-cine{position:fixed!important;inset:0!important;z-index:0!important;display:block!important;opacity:1!important;visibility:visible!important;pointer-events:none!important}
+html body.vc-body--home .vc-home-cine__canvas{position:absolute!important;inset:0!important;width:100%!important;height:100%!important;display:block!important;opacity:1!important}
+html body.vc-body--home .vc-home-cine__grain{display:none!important}
+html body.vc-body--home .vc-kick-pip{z-index:10120!important}
+
+/* navpill6: pillola OK, header opaco sotto = stop flash Chromium. */
+html body.vc-body > header,
+html body.vc-body header.fixed,
+html body.vc-body--home > header,
+html body.vc-dashboard-page > header,
+html body.vc-dashboard-page header.fixed,
+html body.vc-vote-page > header,
+html.vc-site-polish body.vc-body > header,
+html.vc-site-polish body.vc-body header.fixed,
+html.vc-site-polish--pwa body.vc-body > header,
+html.vc-site-polish--pwa body.vc-vote-page > header {
+  background: #100c09 !important;
+  background-color: #100c09 !important;
+  padding-top: max(0.85rem, env(safe-area-inset-top, 0px)) !important;
+  padding-left: max(1rem, env(safe-area-inset-left, 0px)) !important;
+  padding-right: max(1rem, env(safe-area-inset-right, 0px)) !important;
+  padding-bottom: 0 !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  transition: none !important;
+  animation: none !important;
+  transform: none !important;
+}
+
+html body.vc-body header .vc-nav-shell,
+html body.vc-body header .vc-nav-shell.vc-glass,
+html body.vc-body header .vc-nav-shell.vc-nav-shell--scrolled,
+html body.vc-body header .vc-nav-shell.vc-glass.vc-nav-shell--scrolled,
+html body.vc-body--home header .vc-nav-shell,
+html body.vc-body--home header .vc-nav-shell.vc-glass,
+html body.vc-body--home header .vc-nav-shell.vc-nav-shell--scrolled,
+html body.vc-body--home header .vc-nav-shell.vc-glass.vc-nav-shell--scrolled,
+html body.vc-dashboard-page header .vc-nav-shell,
+html body.vc-dashboard-page header .vc-nav-shell.vc-glass,
+html body.vc-dashboard-page header .vc-nav-shell.vc-nav-shell--scrolled,
+html body.vc-dashboard-page header .vc-nav-shell.vc-glass.vc-nav-shell--scrolled,
+html body.vc-vote-page header .vc-nav-shell,
+html.vc-site-polish body.vc-body header .vc-nav-shell,
+html.vc-site-polish body.vc-body > header .vc-nav-shell,
+html.vc-site-polish body.vc-body header.fixed .vc-nav-shell,
+html.vc-site-polish body.vc-body header .vc-nav-shell.vc-glass,
+html.vc-site-polish body.vc-body header .vc-nav-shell.vc-nav-shell--scrolled,
+html.vc-site-polish body.vc-body header .vc-nav-shell.vc-glass.vc-nav-shell--scrolled,
+html.vc-site-polish--pwa body.vc-body header .vc-nav-shell,
+html.vc-site-polish--pwa body.vc-body header .vc-nav-shell.vc-glass,
+html.vc-site-polish--pwa body.vc-body header .vc-nav-shell.vc-nav-shell--scrolled,
+html.vc-site-polish--pwa body.vc-body header .vc-nav-shell.vc-glass.vc-nav-shell--scrolled {
+  border-radius: 1rem !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  /* niente glow crema: flasha come rettangolo su Chromium */
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35) !important;
+  margin: 0 !important;
+  max-width: none !important;
+  width: 100% !important;
+  background: #140f0c !important;
+  background-color: #140f0c !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  filter: none !important;
+  transition: none !important;
+  animation: none !important;
+  transform: none !important;
+  isolation: isolate !important;
+}
+
+html body.vc-body header .vc-nav-shell::before,
+html body.vc-body header .vc-nav-shell.vc-nav-shell--scrolled::before,
+html.vc-site-polish body.vc-body header .vc-nav-shell::before,
+html.vc-site-polish body.vc-body header .vc-nav-shell.vc-nav-shell--scrolled::before {
+  content: none !important;
+  display: none !important;
+  opacity: 0 !important;
+}
+
+/* Con header opaco il cine può stare full-bleed (niente fascia vuota / sfondo sparito). */
+html body.vc-body--home .vc-home-cine,
+html.vc-site-polish body.vc-body .vc-home-cine,
+html body.vc-body .vc-home-cine {
+  position: fixed !important;
+  inset: 0 !important;
+  top: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  z-index: 0 !important;
+  display: block !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: none !important;
+}
+
+html.vc-site-polish .vc-site-atmos {
+  display: none !important;
+}
+
+/* custom profile: card centrale + settings sotto, scroll pagina libero */
+html:has(body.vc-custom-profile-page),
+html:has(body.vc-custom-profile-page) body,
+body.vc-custom-profile-page {
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  height: auto !important;
+  max-height: none !important;
+  position: static !important;
+  inset: auto !important;
+  touch-action: auto !important;
+  overscroll-behavior: auto !important;
+}
+
+body.vc-custom-profile-page > main {
+  padding-top: 6.25rem !important;
+  max-width: 44rem !important;
+  margin-inline: auto !important;
+}
+
+body.vc-custom-profile-page.vc-page-cine-layout > main,
+body.vc-custom-profile-page > main.vc-page-cine-main {
+  max-width: 44rem !important;
+  padding-left: 1rem !important;
+  padding-right: 1rem !important;
+  padding-top: 6.25rem !important;
+}
+
+body.vc-custom-profile-page .vc-page-cine-hero,
+body.vc-custom-profile-page #vc-custom-profile-page.vc-page-cine-hero {
+  min-height: 0 !important;
+  height: auto !important;
+  display: block !important;
+  place-items: unset !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+}
+
+body.vc-custom-profile-page .vc-cpf-layout {
+  grid-template-columns: 1fr !important;
+}
+
+body.vc-custom-profile-page .vc-cpf-stage {
+  position: static !important;
+  width: min(100%, 28rem) !important;
+  margin-inline: auto !important;
+}
+
+body.vc-custom-profile-page .vc-cpf-editor {
+  width: 100%;
+  text-align: left;
+}
+
+body.vc-custom-profile-page > footer {
+  visibility: visible !important;
+  pointer-events: auto !important;
+}
+
+/* Custom: sfondo cine sempre pieno (vinile + canvas), mai tagliato/nascosto */
+html.vc-site-polish body.vc-custom-profile-page .vc-home-cine,
+html.vc-site-polish.vc-home-cine-live body.vc-custom-profile-page .vc-home-cine,
+body.vc-custom-profile-page .vc-home-cine {
+  position: fixed !important;
+  inset: 0 !important;
+  top: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  z-index: 0 !important;
+  display: block !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: none !important;
+  background: #100c09 !important;
+}
+body.vc-custom-profile-page .vc-home-cine__canvas,
+html.vc-site-polish.vc-home-cine-live body.vc-custom-profile-page .vc-home-cine__canvas {
+  display: block !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+body.vc-custom-profile-page .vc-blob {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 0.22 !important;
+  pointer-events: none !important;
+}
+/* Fallback gradient anche con cine-live (altrimenti body trasparente = nero piatto) */
+html.vc-site-polish body.vc-custom-profile-page,
+html.vc-site-polish.vc-home-cine-live body.vc-body.vc-custom-profile-page {
+  background-color: #100c09 !important;
+  background-image:
+    radial-gradient(ellipse 96% 72% at 84% 4%, rgba(244, 224, 196, 0.18), transparent 50%),
+    radial-gradient(ellipse 102% 84% at 10% 90%, rgba(111, 78, 55, 0.28), transparent 58%),
+    linear-gradient(180deg, #120d09 0%, #1a120d 40%, #0b0806 100%) !important;
+}
+
+/* ========== navfix7 SITEWIDE: navbar + sfondo, stop rettangolo flash ========== */
+html body.vc-body > header,
+html body.vc-body header.fixed,
+html body.vc-body--home > header,
+html body.vc-dashboard-page > header,
+html body.vc-dashboard-page header.fixed,
+html body.vc-vote-page > header,
+html.vc-site-polish body.vc-body > header,
+html.vc-site-polish body.vc-body header.fixed,
+html.vc-site-polish--pwa body.vc-body > header {
+  background: #100c09 !important;
+  background-color: #100c09 !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  transition: none !important;
+  animation: none !important;
+  transform: none !important;
+  filter: none !important;
+}
+
+html body.vc-body header .vc-nav-shell,
+html body.vc-body header .vc-nav-shell.vc-glass,
+html body.vc-body header .vc-nav-shell.vc-nav-shell--scrolled,
+html body.vc-body header .vc-nav-shell.vc-glass.vc-nav-shell--scrolled,
+html body.vc-body--home header .vc-nav-shell,
+html body.vc-body--home header .vc-nav-shell.vc-glass,
+html body.vc-body--home header .vc-nav-shell.vc-nav-shell--scrolled,
+html body.vc-dashboard-page header .vc-nav-shell,
+html body.vc-vote-page header .vc-nav-shell,
+html.vc-site-polish body.vc-body header .vc-nav-shell,
+html.vc-site-polish body.vc-body header .vc-nav-shell.vc-glass,
+html.vc-site-polish body.vc-body header .vc-nav-shell.vc-nav-shell--scrolled,
+html.vc-site-polish body.vc-body header .vc-nav-shell.vc-glass.vc-nav-shell--scrolled,
+html.vc-site-polish--pwa body.vc-body header .vc-nav-shell {
+  border-radius: 1rem !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35) !important;
+  background: #140f0c !important;
+  background-color: #140f0c !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  filter: none !important;
+  transition: none !important;
+  animation: none !important;
+  transform: none !important;
+  max-width: none !important;
+  width: 100% !important;
+  margin: 0 !important;
+  isolation: isolate !important;
+}
+
+html body.vc-body header .vc-nav-shell::before,
+html body.vc-body header .vc-nav-shell.vc-nav-shell--scrolled::before,
+html.vc-site-polish body.vc-body header .vc-nav-shell::before,
+html.vc-site-polish body.vc-body header .vc-nav-shell.vc-nav-shell--scrolled::before,
+html body.vc-body--home header .vc-nav-shell::before {
+  content: none !important;
+  display: none !important;
+  opacity: 0 !important;
+  background: none !important;
+  box-shadow: none !important;
+}
+
+/* Cine/atmos full-bleed ovunque (header opaco → niente flash / fascia vuota) */
+html body.vc-body .vc-home-cine,
+html body.vc-body--home .vc-home-cine,
+html.vc-site-polish body.vc-body .vc-home-cine,
+html.vc-site-polish .vc-site-atmos {
+  position: fixed !important;
+  inset: 0 !important;
+  top: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  z-index: 0 !important;
+  display: block !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: none !important;
+}
+
+html.vc-site-polish .vc-site-atmos {
+  display: none !important;
+}
+
+html body.vc-body .vc-home-cine__canvas,
+html.vc-site-polish body.vc-body .vc-home-cine__canvas {
+  display: block !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+html body.vc-body::before,
+html body.vc-body::after,
+html body.vc-body--home.vc-body::before,
+html body.vc-body--home.vc-body::after {
+  top: 0 !important;
+}
+
+/* Classifica: feedback hover/press sui tab Top livello / settimanale / … */
+body.vc-body.vc-users-page .vc-ul-board-tabs .vc-notify-filter-btn,
+body.vc-body.vc-users-page .vc-ul-board-tabs .vc-ul-filter-tab {
+  transition:
+    background 0.14s ease,
+    border-color 0.14s ease,
+    color 0.14s ease,
+    box-shadow 0.14s ease,
+    transform 0.12s ease !important;
+}
+
+body.vc-body.vc-users-page .vc-ul-board-tabs .vc-notify-filter-btn:hover,
+body.vc-body.vc-users-page .vc-ul-board-tabs .vc-ul-filter-tab:hover {
+  background: rgba(232, 196, 156, 0.12) !important;
+  border-color: rgba(232, 196, 156, 0.38) !important;
+  color: #fff7ec !important;
+  box-shadow: 0 0 0 1px rgba(232, 196, 156, 0.12) !important;
+}
+
+body.vc-body.vc-users-page .vc-ul-board-tabs .vc-notify-filter-btn:focus-visible,
+body.vc-body.vc-users-page .vc-ul-board-tabs .vc-ul-filter-tab:focus-visible {
+  outline: none !important;
+  background: rgba(232, 196, 156, 0.14) !important;
+  border-color: rgba(232, 196, 156, 0.5) !important;
+  box-shadow: 0 0 0 3px rgba(232, 196, 156, 0.2) !important;
+}
+
+body.vc-body.vc-users-page .vc-ul-board-tabs .vc-notify-filter-btn:active,
+body.vc-body.vc-users-page .vc-ul-board-tabs .vc-ul-filter-tab:active {
+  background: rgba(232, 196, 156, 0.22) !important;
+  border-color: rgba(232, 196, 156, 0.55) !important;
+  color: #fff7ec !important;
+  transform: scale(0.97) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+}
+
+body.vc-body.vc-users-page .vc-ul-board-tabs .vc-notify-filter-btn--on,
+body.vc-body.vc-users-page .vc-ul-board-tabs .vc-ul-filter-tab--open,
+body.vc-body.vc-users-page .vc-ul-board-tabs .vc-ul-filter-tab[aria-expanded="true"] {
+  background: linear-gradient(135deg, rgba(122, 84, 58, 0.9), rgba(78, 54, 38, 0.88)) !important;
+  border-color: rgba(232, 196, 156, 0.48) !important;
+  color: #fff7ec !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 0 18px rgba(212, 168, 136, 0.16) !important;
+}
+
+body.vc-body.vc-users-page .vc-ul-board-tabs .vc-notify-filter-btn--on:hover,
+body.vc-body.vc-users-page .vc-ul-board-tabs .vc-ul-filter-tab--open:hover,
+body.vc-body.vc-users-page .vc-ul-board-tabs .vc-ul-filter-tab[aria-expanded="true"]:hover {
+  background: linear-gradient(135deg, rgba(138, 96, 66, 0.95), rgba(90, 62, 44, 0.92)) !important;
+  border-color: rgba(240, 214, 183, 0.62) !important;
+}
+
+body.vc-body.vc-users-page .vc-ul-board-tabs .vc-notify-filter-btn--on:active,
+body.vc-body.vc-users-page .vc-ul-board-tabs .vc-ul-filter-tab--open:active,
+body.vc-body.vc-users-page .vc-ul-board-tabs .vc-ul-filter-tab[aria-expanded="true"]:active {
+  transform: scale(0.97) !important;
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.28) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.vc-body.vc-users-page .vc-ul-board-tabs .vc-notify-filter-btn,
+  body.vc-body.vc-users-page .vc-ul-board-tabs .vc-ul-filter-tab {
+    transition: none !important;
+  }
+  body.vc-body.vc-users-page .vc-ul-board-tabs .vc-notify-filter-btn:active,
+  body.vc-body.vc-users-page .vc-ul-board-tabs .vc-ul-filter-tab:active,
+  body.vc-body.vc-users-page .vc-ul-board-tabs .vc-notify-filter-btn--on:active,
+  body.vc-body.vc-users-page .vc-ul-board-tabs .vc-ul-filter-tab--open:active,
+  body.vc-body.vc-users-page .vc-ul-board-tabs .vc-ul-filter-tab[aria-expanded="true"]:active {
+    transform: none !important;
+  }
+}
+
+/* Unified Personalizza hub (rank + custom roles/voice) */
+.vc-pers-hub {
+  display: grid;
+  gap: 0.95rem;
+  justify-items: center;
+  text-align: center;
+  margin: 0 0 1.35rem;
+}
+
+.vc-pers-hub__kicker {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.4rem 0.85rem;
+  border-radius: 999px;
+  border: 1px solid rgba(232, 196, 156, 0.28);
+  background: rgba(28, 20, 14, 0.72);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--vc-cpf-sand, #e8c49c);
+}
+
+.vc-pers-hub__title {
+  margin: 0;
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: clamp(2rem, 4.8vw, 2.85rem);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+  color: #f6efe6;
+}
+
+.vc-pers-hub__lead {
+  margin: 0;
+  max-width: 34rem;
+  color: rgba(245, 232, 216, 0.72);
+  font-size: 0.98rem;
+  line-height: 1.45;
+}
+
+.vc-pers-hub__tabs {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.35rem;
+  border-radius: 1.1rem;
+  border: 1px solid rgba(232, 196, 156, 0.22);
+  background: rgba(16, 12, 9, 0.72);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.vc-pers-hub__tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 2.65rem;
+  padding: 0 0.95rem;
+  border-radius: 0.85rem;
+  border: 1px solid transparent;
+  color: rgba(245, 232, 216, 0.78);
+  font-size: 0.88rem;
+  font-weight: 700;
+  text-decoration: none;
+  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+}
+
+.vc-pers-hub__tab:hover {
+  color: #fff7ec;
+  background: rgba(232, 196, 156, 0.1);
+  border-color: rgba(232, 196, 156, 0.22);
+}
+
+.vc-pers-hub__tab.is-active {
+  color: #fff7ec;
+  background: linear-gradient(135deg, rgba(122, 84, 58, 0.92), rgba(78, 54, 38, 0.9));
+  border-color: rgba(232, 196, 156, 0.42);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+html.vc-pers-tab-rank #vc-custom-profile-page,
+html.vc-pers-tab-rank #vc-custom-profile-loading,
+html.vc-pers-tab-rank body > #vc-custom-profile-loading.vc-user-profile-loader {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+html.vc-pers-tab-custom #vc-rank-customize-page,
+html.vc-pers-tab-custom #vc-rank-customize-loading,
+html.vc-pers-tab-custom body > #vc-rank-customize-loading.vc-user-profile-loader {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+html.vc-rank-customize-pending #vc-pers-hub,
+html.vc-custom-profile-pending #vc-pers-hub {
+  display: none !important;
+}
+
+/* Dopo il boot Personalizza: sblocca scroll solo quando non è più in pending. */
+html.vc-page-cine-ready.vc-pers-tab-rank:not(.vc-rank-customize-pending):not(.vc-custom-profile-pending),
+html.vc-page-cine-ready.vc-pers-tab-custom:not(.vc-rank-customize-pending):not(.vc-custom-profile-pending),
+html.vc-page-cine-ready.vc-pers-tab-rank:not(.vc-rank-customize-pending):not(.vc-custom-profile-pending) body,
+html.vc-page-cine-ready.vc-pers-tab-custom:not(.vc-rank-customize-pending):not(.vc-custom-profile-pending) body {
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overflow: auto !important;
+  height: auto !important;
+  max-height: none !important;
+  touch-action: auto !important;
+  overscroll-behavior: auto !important;
+}
+html.vc-page-cine-ready.vc-pers-tab-rank:not(.vc-rank-customize-pending):not(.vc-custom-profile-pending) body,
+html.vc-page-cine-ready.vc-pers-tab-custom:not(.vc-rank-customize-pending):not(.vc-custom-profile-pending) body {
+  position: static !important;
+  inset: auto !important;
+  width: auto !important;
+}
+html.vc-page-cine-ready:not(.vc-rank-customize-pending):not(.vc-custom-profile-pending) #vc-rank-customize-loading,
+html.vc-page-cine-ready:not(.vc-rank-customize-pending):not(.vc-custom-profile-pending) #vc-custom-profile-loading {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+.vc-pers-hub ~ .vc-custom-profile-page .vc-cpf-switch,
+.vc-pers-hub ~ #vc-custom-profile-page .vc-cpf-switch {
+  display: none !important;
+}
+
+#vc-personalizza-root .vc-cpf-switch {
+  display: none !important;
+}
+
+/* Rank card: shell ampia, anteprima full-width, controlli sabbia come CPF. */
+body.vc-rank-customize-page,
+#vc-rank-customize-page {
+  --vc-cpf-sand: #e8c49c;
+  --vc-cpf-ink: #f6eadc;
+  --vc-cpf-muted: rgba(246, 234, 220, 0.62);
+  --vc-cpf-line: rgba(255, 255, 255, 0.1);
+  --vc-cpf-panel: rgba(16, 11, 8, 0.55);
+}
+
+#vc-rank-customize-app .vc-rank-as-cpf {
+  display: grid;
+  gap: 1.25rem;
+  width: min(100%, 56rem);
+  margin-inline: auto;
+  justify-items: stretch;
+}
+
+#vc-rank-customize-app .vc-rank-as-cpf > .vc-cpf-back {
+  justify-self: start;
+}
+
+#vc-rank-customize-app .vc-rank-as-cpf > .vc-cpf-top {
+  justify-self: stretch;
+  text-align: center;
+}
+
+#vc-rank-customize-app .vc-rank-subtabs {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-self: center;
+  justify-content: center;
+  gap: 0.25rem;
+  padding: 0.3rem;
+  border-radius: 999px;
+  border: 1px solid rgba(232, 196, 156, 0.22);
+  background: rgba(10, 7, 5, 0.62);
+  box-shadow: inset 0 1px 0 rgba(255, 244, 232, 0.06);
+}
+
+#vc-rank-customize-app .vc-rank-subtabs__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 2.55rem;
+  padding: 0 1.15rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--vc-cpf-muted);
+  font-size: 0.88rem;
+  font-weight: 750;
+  cursor: pointer;
+  transition: background 0.16s ease, color 0.16s ease, box-shadow 0.16s ease;
+}
+
+#vc-rank-customize-app .vc-rank-subtabs__item:hover {
+  color: var(--vc-cpf-ink);
+  background: rgba(255, 244, 232, 0.06);
+}
+
+#vc-rank-customize-app .vc-rank-subtabs__item.is-active {
+  color: #1a120e;
+  background: linear-gradient(135deg, #f3e2cf, #c8966e);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.22);
+}
+
+#vc-rank-customize-app .vc-rank-shell {
+  display: grid;
+  gap: 1.35rem;
+  width: 100%;
+}
+
+#vc-rank-customize-app .vc-rank-preview {
+  width: 100%;
+}
+
+#vc-rank-customize-app .vc-rank-preview__frame {
+  width: 100%;
+  padding: 0;
+  border-radius: 1.1rem;
+  border: 1px solid rgba(232, 196, 156, 0.2);
+  background: transparent;
+  box-shadow: none;
+  overflow: hidden;
+}
+
+#vc-rank-customize-app .vc-rank-as-cpf .vc-rank-editor-preview__imagewrap {
+  position: relative;
+  display: block;
+  width: 100%;
+  margin: 0;
+  aspect-ratio: 976 / 276;
+  border-radius: 1.05rem;
+  overflow: hidden;
+  background: #0b0908;
+}
+
+#vc-rank-customize-app .vc-rank-as-cpf .vc-rank-editor-preview__image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  object-fit: cover;
+  object-position: center;
+  border-radius: 0;
+}
+
+#vc-rank-customize-app .vc-rank-as-cpf .vc-rankcard-ph {
+  position: absolute;
+  inset: 0;
+}
+
+#vc-rank-customize-app .vc-rank-controls {
+  display: grid;
+  gap: 0.95rem;
+}
+
+#vc-rank-customize-app .vc-rank-controls__panel {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+#vc-rank-customize-app .vc-rank-as-cpf .vc-rank-editor-panel {
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+#vc-rank-customize-app .vc-rank-as-cpf .vc-rank-editor-card {
+  margin: 0;
+  padding: 0;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  overflow: visible;
+}
+
+#vc-rank-customize-app .vc-rank-as-cpf .vc-rank-editor-card + .vc-rank-editor-card {
+  border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+#vc-rank-customize-app .vc-rank-as-cpf .vc-rank-editor-card__summary {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.95rem 0.1rem;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  color: var(--vc-cpf-ink);
+  cursor: pointer;
+  list-style: none;
+}
+
+#vc-rank-customize-app .vc-rank-as-cpf .vc-rank-editor-card__summary::-webkit-details-marker {
+  display: none;
+}
+
+#vc-rank-customize-app .vc-rank-as-cpf .vc-rank-editor-card__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.35rem;
+  height: 2.35rem;
+  border-radius: 0.7rem;
+  background: rgba(232, 196, 156, 0.1);
+  border: 1px solid rgba(232, 196, 156, 0.22);
+  color: var(--vc-cpf-sand);
+  font-size: 0.95rem;
+  box-shadow: none !important;
+}
+
+#vc-rank-customize-app .vc-rank-as-cpf .vc-rank-editor-card__copy {
+  display: grid;
+  gap: 0.12rem;
+  min-width: 0;
+}
+
+#vc-rank-customize-app .vc-rank-as-cpf .vc-rank-editor-card__copy strong {
+  color: var(--vc-cpf-ink);
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
+#vc-rank-customize-app .vc-rank-as-cpf .vc-rank-editor-card__copy span {
+  color: var(--vc-cpf-muted);
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+#vc-rank-customize-app .vc-rank-as-cpf .vc-rank-editor-card__swatch,
+#vc-rank-customize-app .vc-rank-as-cpf .vc-rank-editor-card__badge {
+  width: 2.35rem;
+  height: 2.35rem;
+  min-width: 2.35rem;
+  border-radius: 0.65rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.25);
+}
+
+#vc-rank-customize-app .vc-rank-as-cpf .vc-rank-editor-card__badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0.35rem;
+  background: rgba(232, 196, 156, 0.1);
+  color: var(--vc-cpf-sand);
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+#vc-rank-customize-app .vc-rank-as-cpf .vc-rank-editor-card__chev {
+  color: rgba(246, 234, 220, 0.45);
+  transition: transform 0.18s ease;
+}
+
+#vc-rank-customize-app .vc-rank-as-cpf .vc-rank-editor-card[open] .vc-rank-editor-card__chev {
+  transform: rotate(180deg);
+}
+
+#vc-rank-customize-app .vc-rank-as-cpf .vc-rank-editor-card__body {
+  padding: 0 0.1rem 0.95rem;
+  background: transparent !important;
+}
+
+#vc-rank-customize-app .vc-rank-as-cpf .vc-rank-editor-wallgrid {
+  display: grid;
+  gap: 0.9rem 0.85rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: 0.35rem 0 0.85rem;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+#vc-rank-customize-app .vc-rank-as-cpf .vc-rank-editor-wallcard,
+body.vc-body.vc-rank-customize-page #vc-rank-customize-app .vc-rank-as-cpf .vc-rank-editor-wallcard {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  transform: none !important;
+  text-align: left;
+  cursor: pointer;
+  overflow: visible !important;
+}
+
+#vc-rank-customize-app .vc-rank-as-cpf .vc-rank-editor-wallcard:hover,
+#vc-rank-customize-app .vc-rank-as-cpf .vc-rank-editor-wallcard:focus-visible,
+#vc-rank-customize-app .vc-rank-as-cpf .vc-rank-editor-wallcard.is-selected,
+body.vc-body.vc-rank-customize-page #vc-rank-customize-app .vc-rank-as-cpf .vc-rank-editor-wallcard:hover,
+body.vc-body.vc-rank-customize-page #vc-rank-customize-app .vc-rank-as-cpf .vc-rank-editor-wallcard:focus-visible,
+body.vc-body.vc-rank-customize-page #vc-rank-customize-app .vc-rank-as-cpf .vc-rank-editor-wallcard.is-selected {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  transform: none !important;
+  outline: none;
+}
+
+#vc-rank-customize-app .vc-rank-as-cpf .vc-rank-editor-wallcard__preview {
+  aspect-ratio: 16 / 10;
+  min-height: 0 !important;
+  width: 100%;
+  border-radius: 0.85rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: none !important;
+  background-size: cover !important;
+  background-position: center !important;
+  background-repeat: no-repeat !important;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+#vc-rank-customize-app .vc-rank-as-cpf .vc-rank-editor-wallcard:hover .vc-rank-editor-wallcard__preview,
+#vc-rank-customize-app .vc-rank-as-cpf .vc-rank-editor-wallcard:focus-visible .vc-rank-editor-wallcard__preview {
+  border-color: rgba(232, 196, 156, 0.55);
+}
+
+#vc-rank-customize-app .vc-rank-as-cpf .vc-rank-editor-wallcard.is-selected .vc-rank-editor-wallcard__preview {
+  border-color: rgba(232, 196, 156, 0.85);
+  box-shadow: 0 0 0 1px rgba(232, 196, 156, 0.35);
+}
+
+#vc-rank-customize-app .vc-rank-as-cpf .vc-rank-editor-wallcard__preview::before {
+  display: none !important;
+}
+
+#vc-rank-customize-app .vc-rank-as-cpf .vc-rank-editor-wallcard__preview::after {
+  background: rgba(20, 15, 12, 0.72);
+  color: #f6eadc;
+  border: 1px solid rgba(232, 196, 156, 0.35);
+  font-weight: 750;
+}
+
+#vc-rank-customize-app .vc-rank-as-cpf .vc-rank-editor-wallcard.is-selected .vc-rank-editor-wallcard__preview::after {
+  content: "Selezionato";
+  background: linear-gradient(135deg, #f0dcc8, #c8966e);
+  color: #1a120e;
+  border-color: transparent;
+}
+
+#vc-rank-customize-app .vc-rank-as-cpf .vc-rank-editor-wallcard__check {
+  width: 2.4rem;
+  height: 2.4rem;
+  font-size: 1rem;
+  background: #c8966e;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.28);
+}
+
+#vc-rank-customize-app .vc-rank-as-cpf .vc-rank-editor-wallcard__label {
+  margin: 0;
+  padding: 0 0.1rem;
+  color: var(--vc-cpf-muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-align: left;
+}
+
+#vc-rank-customize-app .vc-rank-as-cpf .vc-rank-editor-lockcard {
+  margin: 0.35rem 0 0;
+  padding: 0.85rem 0 0;
+  border: 0 !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+#vc-rank-customize-app .vc-rank-as-cpf .vc-rank-editor-lockcard__head {
+  gap: 0.75rem;
+}
+
+#vc-rank-customize-app .vc-rank-as-cpf .vc-rank-editor-lockcard__icon {
+  background: rgba(232, 196, 156, 0.1);
+  border: 1px solid rgba(232, 196, 156, 0.22);
+  color: var(--vc-cpf-sand);
+  box-shadow: none !important;
+}
+
+#vc-rank-customize-app .vc-rank-as-cpf .vc-rank-editor-lockchip {
+  border-color: rgba(232, 196, 156, 0.28);
+  background: rgba(232, 196, 156, 0.08);
+  color: var(--vc-cpf-ink);
+}
+
+#vc-rank-customize-app .vc-rank-as-cpf .vc-rank-editor-colorrow {
+  display: grid;
+  grid-template-columns: 3rem minmax(0, 9rem) auto;
+  gap: 0.65rem;
+  align-items: center;
+  justify-content: start;
+}
+
+#vc-rank-customize-app .vc-rank-as-cpf .vc-rank-editor-colorrow__picker {
+  width: 3rem;
+  height: 3rem;
+  border-radius: 0.8rem;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: transparent;
+  padding: 0;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+#vc-rank-customize-app .vc-rank-as-cpf .vc-rank-editor-colorrow__hex {
+  min-height: 2.55rem;
+  width: 100%;
+  padding: 0 0.8rem;
+  border-radius: 0.8rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(8, 6, 4, 0.55);
+  color: var(--vc-cpf-ink);
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+#vc-rank-customize-app .vc-rank-as-cpf .vc-rank-editor-updatebtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 2.55rem;
+  padding: 0 1rem;
+  border-radius: 999px;
+  border: 1px solid rgba(232, 196, 156, 0.38);
+  background: rgba(232, 196, 156, 0.12);
+  color: var(--vc-cpf-ink);
+  font-size: 0.84rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+#vc-rank-customize-app .vc-rank-as-cpf .vc-rank-editor-updatebtn:hover {
+  background: rgba(232, 196, 156, 0.2);
+}
+
+#vc-rank-customize-app .vc-rank-as-cpf .vc-rank-editor-sliderrow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.85rem;
+  align-items: center;
+}
+
+#vc-rank-customize-app .vc-rank-as-cpf .vc-rank-editor-sliderrow input[type="range"] {
+  width: 100%;
+  accent-color: #c8966e;
+}
+
+#vc-rank-customize-app .vc-rank-controls__footer {
+  display: grid;
+  gap: 0.55rem;
+  padding: 0.35rem 0.1rem 0.2rem;
+}
+
+#vc-rank-customize-app .vc-rank-as-cpf .vc-rank-editor-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: transparent;
+}
+
+#vc-rank-customize-app .vc-rank-as-cpf .vc-rank-editor-actions .vc-cpf-btn {
+  min-height: 2.7rem;
+  padding: 0 1.15rem;
+  border-radius: 999px;
+  font-size: 0.9rem;
+}
+
+#vc-rank-customize-app .vc-rank-as-cpf .vc-rank-editor-status {
+  margin: 0;
+  color: var(--vc-cpf-muted);
+  font-size: 0.86rem;
+  font-weight: 650;
+}
+
+#vc-rank-customize-app .vc-rank-as-cpf .vc-rank-editor-status.is-error {
+  color: #fecaca;
+}
+
+#vc-rank-customize-app .vc-rank-as-cpf .vc-rank-editor-previewcard__head,
+#vc-rank-customize-app .vc-rank-as-cpf .vc-rank-editor-previewnote,
+#vc-rank-customize-app .vc-rank-as-cpf .vc-rank-editor-previewbadge {
+  display: none !important;
+}
+
+@media (max-width: 42rem) {
+  #vc-rank-customize-app .vc-rank-as-cpf .vc-rank-editor-colorrow {
+    grid-template-columns: 3rem minmax(0, 1fr);
+  }
+  #vc-rank-customize-app .vc-rank-as-cpf .vc-rank-editor-updatebtn {
+    grid-column: 1 / -1;
+  }
+}
+
+/* ---- Rank opacity row + flat chrome (must stay in repo) ---- */
+#vc-rank-customize-app .vc-rank-as-cpf .vc-rank-opacity-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) minmax(8rem, 1.35fr) 3rem;
+  align-items: center;
+  column-gap: 0.85rem;
+  row-gap: 0.35rem;
+  margin: 0;
+  padding: 0.85rem 0.1rem 1rem;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+#vc-rank-customize-app .vc-rank-as-cpf .vc-rank-opacity-row__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.35rem;
+  height: 2.35rem;
+  border-radius: 0.7rem;
+  border: 1px solid rgba(232, 196, 156, 0.22);
+  background: rgba(232, 196, 156, 0.1);
+  color: #e8c49c;
+  font-size: 0.95rem;
+  box-shadow: none;
+}
+
+#vc-rank-customize-app .vc-rank-as-cpf .vc-rank-opacity-row__copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+#vc-rank-customize-app .vc-rank-as-cpf .vc-rank-opacity-row__copy strong {
+  display: block;
+  margin: 0;
+  color: #f6eadc;
+  font-size: 0.95rem;
+  font-weight: 800;
+  font-style: normal;
+  line-height: 1.25;
+}
+
+#vc-rank-customize-app .vc-rank-as-cpf .vc-rank-opacity-row__copy em {
+  display: block;
+  margin: 0;
+  color: rgba(246, 234, 220, 0.62);
+  font-size: 0.8rem;
+  font-weight: 500;
+  font-style: normal;
+  line-height: 1.35;
+}
+
+#vc-rank-customize-app .vc-rank-as-cpf .vc-rank-opacity-row__range,
+#vc-rank-customize-app .vc-rank-as-cpf .vc-rank-opacity-row input[type="range"] {
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  accent-color: #c8966e;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+#vc-rank-customize-app .vc-rank-as-cpf .vc-rank-opacity-row__pct {
+  display: inline-flex;
+  justify-content: flex-end;
+  min-width: 2.75rem;
+  margin: 0;
+  padding: 0;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: #f6eadc;
+  font-size: 0.9rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+#vc-rank-customize-app .vc-rank-as-cpf .vc-rank-controls__panel,
+#vc-rank-customize-app .vc-rank-as-cpf .vc-rank-editor-panel,
+#vc-rank-customize-app .vc-rank-as-cpf .vc-rank-editor-wallgrid {
+  background: transparent !important;
+  background-image: none !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+}
+
+#vc-rank-customize-app .vc-rank-as-cpf .vc-rank-editor-wallgrid {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 0.9rem 0.85rem !important;
+  padding: 0.35rem 0 0.85rem !important;
+}
+
+@media (max-width: 40rem) {
+  #vc-rank-customize-app .vc-rank-as-cpf .vc-rank-opacity-row {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      "icon copy pct"
+      "range range range";
+  }
+  #vc-rank-customize-app .vc-rank-as-cpf .vc-rank-opacity-row__icon { grid-area: icon; }
+  #vc-rank-customize-app .vc-rank-as-cpf .vc-rank-opacity-row__copy { grid-area: copy; }
+  #vc-rank-customize-app .vc-rank-as-cpf .vc-rank-opacity-row__pct { grid-area: pct; }
+  #vc-rank-customize-app .vc-rank-as-cpf .vc-rank-opacity-row__range,
+  #vc-rank-customize-app .vc-rank-as-cpf .vc-rank-opacity-row input[type="range"] {
+    grid-area: range;
+  }
+}
+
+
+/* Profile extras + DM prefs (site +profile port) */
+.vc-profile-extras__toggles,
+.vc-dm-prefs__list {
+  display: grid;
+  gap: 0.65rem;
+}
+.vc-profile-extras__toggle,
+.vc-dm-prefs__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  width: 100%;
+  text-align: left;
+  border-radius: 0.9rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: #f8fafc;
+  padding: 0.85rem 1rem;
+  cursor: pointer;
+}
+.vc-profile-extras__toggle.is-on,
+.vc-dm-prefs__row.is-on {
+  border-color: rgba(212, 168, 136, 0.35);
+}
+.vc-profile-extras__toggle.is-off,
+.vc-dm-prefs__row.is-off {
+  opacity: 0.78;
+}
+.vc-profile-extras__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-bottom: 0.85rem;
+}
+.vc-profile-extras__chip {
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: #f1e7dc;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.vc-profile-extras__chip.is-active {
+  border-color: rgba(212, 168, 136, 0.45);
+  background: rgba(212, 168, 136, 0.16);
+}
+.vc-profile-extras__row label {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  color: rgba(247, 236, 223, 0.85);
+}
+.vc-profile-extras__preview,
+.vc-profile-extras__list {
+  margin: 0 0 0.85rem;
+  color: rgba(247, 236, 223, 0.9);
+}
+.vc-profile-extras__roles .vc-cpf-block__body {
+  display: grid;
+  gap: 0.95rem;
+}
+.vc-profile-extras__options {
+  display: grid;
+  gap: 0.5rem;
+}
+.vc-profile-extras__option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.85rem;
+  width: 100%;
+  text-align: left;
+  border-radius: 0.95rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: #f7ecdf;
+  padding: 0.85rem 1rem;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+}
+.vc-profile-extras__option:hover,
+.vc-profile-extras__option:focus-visible {
+  border-color: rgba(212, 168, 136, 0.42);
+  background: rgba(212, 168, 136, 0.1);
+  outline: none;
+}
+.vc-profile-extras__option.is-selected {
+  border-color: rgba(212, 168, 136, 0.55);
+  background: rgba(212, 168, 136, 0.18);
+}
+.vc-profile-extras__option.is-remove {
+  color: rgba(247, 236, 223, 0.78);
+}
+.vc-profile-extras__option-label {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+.vc-profile-extras__option-mark {
+  width: 1.25rem;
+  text-align: center;
+  color: #e8c49c;
+}
+.vc-profile-extras__hint {
+  margin: 0;
+  font-size: 0.82rem;
+  color: rgba(247, 236, 223, 0.62);
+}
+.vc-cpf-inline select,
+.vc-profile-extras select {
+  flex: 1 1 auto;
+  min-width: 0;
+  border-radius: 0.85rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(20, 15, 12, 0.92);
+  color: #f7ecdf;
+  padding: 0.7rem 0.85rem;
+  font: inherit;
+}
+.vc-dm-prefs {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 1.15rem;
+  background: rgba(20, 15, 12, 0.55);
+  padding: 1.15rem 1.2rem 1.25rem;
+}
+.vc-dm-prefs__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.85rem;
+  margin-bottom: 0.9rem;
+}
+.vc-dm-prefs__title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #fff7ec;
+}
+.vc-dm-prefs__sub {
+  margin: 0.35rem 0 0;
+  color: rgba(247, 236, 223, 0.72);
+  font-size: 0.92rem;
+}
+.vc-dm-prefs__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.vc-dm-prefs__btn {
+  border-radius: 0.75rem;
+  border: 1px solid rgba(212, 168, 136, 0.35);
+  background: linear-gradient(135deg, rgba(212, 184, 150, 0.92), rgba(171, 133, 99, 0.9));
+  color: #1c130d;
+  font-weight: 700;
+  padding: 0.55rem 0.85rem;
+  cursor: pointer;
+}
+.vc-dm-prefs__btn--ghost {
+  background: rgba(255, 255, 255, 0.05);
+  color: #f7ecdf;
+  border-color: rgba(255, 255, 255, 0.12);
+}
+.vc-dm-prefs__status {
+  margin: 0 0 0.75rem;
+  font-size: 0.9rem;
+  color: rgba(190, 242, 200, 0.95);
+}
+.vc-dm-prefs__status.is-error {
+  color: rgba(252, 165, 165, 0.95);
+}
+.vc-dm-prefs__empty {
+  margin: 0;
+  color: rgba(247, 236, 223, 0.7);
+}
+
+/* Notification filters dropdown (compact cascading panel) */
+.vc-notif-prefs {
+  position: relative;
+  display: inline-flex;
+}
+.vc-notif-prefs__panel {
+  position: absolute;
+  top: calc(100% + 0.45rem);
+  left: 0;
+  z-index: 40;
+  width: min(22.5rem, calc(100vw - 2rem));
+  max-height: min(70vh, 28rem);
+  overflow: auto;
+  border-radius: 0.95rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: linear-gradient(165deg, rgba(28, 21, 17, 0.98), rgba(16, 12, 9, 0.98));
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  padding: 0.65rem 0.7rem 0.75rem;
+}
+.vc-notif-prefs__status {
+  margin: 0 0 0.55rem;
+  font-size: 0.78rem;
+  color: rgba(190, 242, 200, 0.95);
+}
+.vc-notif-prefs__status.is-error {
+  color: rgba(252, 165, 165, 0.95);
+}
+.vc-notif-prefs__empty {
+  margin: 0.35rem 0;
+  font-size: 0.82rem;
+  color: rgba(247, 236, 223, 0.65);
+}
+.vc-notif-prefs__acc {
+  border-radius: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  margin-bottom: 0.45rem;
+  overflow: hidden;
+}
+.vc-notif-prefs__acc:last-of-type {
+  margin-bottom: 0.55rem;
+}
+.vc-notif-prefs__acc-head {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  width: 100%;
+  text-align: left;
+  padding: 0.55rem 0.7rem;
+  background: transparent;
+  border: 0;
+  color: #fff7ec;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 0.86rem;
+}
+.vc-notif-prefs__acc-title {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.vc-notif-prefs__acc-hint {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(212, 168, 136, 0.85);
+  white-space: nowrap;
+}
+.vc-notif-prefs__acc-chev {
+  font-size: 0.7rem;
+  opacity: 0.7;
+  transition: transform 0.18s ease;
+}
+.vc-notif-prefs__acc.is-open .vc-notif-prefs__acc-chev {
+  transform: rotate(180deg);
+}
+.vc-notif-prefs__acc-body {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0 0.55rem 0.55rem;
+}
+.vc-notif-prefs__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.35rem 0.2rem;
+}
+.vc-notif-prefs__row-label {
+  font-size: 0.84rem;
+  color: rgba(247, 236, 223, 0.92);
+}
+.vc-notif-prefs__switch {
+  position: relative;
+  width: 2.55rem;
+  height: 1.45rem;
+  flex-shrink: 0;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  cursor: pointer;
+  transition: background 0.18s ease;
+  padding: 0;
+}
+.vc-notif-prefs__switch.is-on {
+  background: linear-gradient(135deg, rgba(212, 184, 150, 0.95), rgba(171, 133, 99, 0.95));
+}
+.vc-notif-prefs__knob {
+  position: absolute;
+  top: 0.18rem;
+  left: 0.18rem;
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  transition: transform 0.18s ease;
+}
+.vc-notif-prefs__switch.is-on .vc-notif-prefs__knob {
+  transform: translateX(1.1rem);
+}
+.vc-notif-prefs__foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  padding-top: 0.15rem;
+}
+.vc-notif-prefs__foot button {
+  flex: 1 1 auto;
+  border-radius: 0.65rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+  color: #f7ecdf;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.4rem 0.55rem;
+  cursor: pointer;
+}
+.vc-notif-prefs__foot button:hover {
+  border-color: rgba(212, 168, 136, 0.4);
+  background: rgba(212, 168, 136, 0.12);
+}
+@media (max-width: 640px) {
+  .vc-notif-prefs__panel {
+    left: auto;
+    right: 0;
+  }
+}
+.vc-pers-hub__tabs {
+  flex-wrap: wrap;
+}

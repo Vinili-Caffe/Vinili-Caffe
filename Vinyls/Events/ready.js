@@ -56,6 +56,7 @@ const { startWeeklyStaffResocontoLoop } = require("../Services/Staff/weeklyStaff
 const { startWeeklyActivityWinnersLoop } = require("../Services/Community/weeklyActivityWinnersService");
 const { startTwitchLiveAlertLoop } = require("../Services/Community/twitchLiveAlertService");
 const { startKickLiveAlertLoop } = require("../Services/Community/kickLiveAlertService");
+const { startKickSubscriberSyncLoop } = require("../Services/Community/kickSubscriberSyncService");
 const { startHogwartsHouseCupLoop } = require("../Services/Community/hogwartsHouseCupPublishService");
 const { syncHogwartsShopLogsOnStartup } = require("../Services/Community/hogwartsShopLogService");
 const { syncShopBoostMinigameUsageBackfillOnStartup } = require("../Services/Community/hogwartsShopBoostsService");
@@ -1265,6 +1266,7 @@ function startPrimaryLoops(client, engagementTick) {
     ["[EXP EVENT ANNOUNCE] Failed to start loop", () => startGlobalExpEventAnnouncementLoop(client)],
     ["[TWITCH LIVE] Failed to start loop", () => startTwitchLiveAlertLoop(client)],
     ["[KICK LIVE] Failed to start loop", () => startKickLiveAlertLoop(client)],
+    ["[KICK SUB] Failed to start sync loop", () => startKickSubscriberSyncLoop(client)],
     ["[DB MAINTENANCE] Failed to start loop", () => startDbMaintenanceLoop(client)],
     ["[STAFF GRACE PURGE] Failed to start loop", () => startStaffGracePurgeLoop(client)],
     ["[JOIN RAID RESTORE] Failed to start loop", () => {
@@ -1475,12 +1477,7 @@ module.exports = {
       } catch (err) {
         global.logger?.error?.("[PUBLIC VOICE HUB INIT ERROR]", err);
       }
-      try {
-        const { startStanzaVoiceRecovery } = require("../Services/Voice/stanzaVoiceRoomsService");
-        startStanzaVoiceRecovery(client);
-      } catch (err) {
-        global.logger?.error?.("[STANZA VOICE INIT ERROR]", err);
-      }
+      // Stanze: recovery solo su Caffè (evita doppio ownership dei canali).
       try {
         const { sweepUntrustedBotsInGuild } = require("../Services/Moderation/trustedBotGuardService");
         const mainGuildId = String(require("../Utils/Config/ids").guilds?.main || "").trim();

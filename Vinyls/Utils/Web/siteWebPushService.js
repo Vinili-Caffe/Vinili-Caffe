@@ -110,6 +110,16 @@ async function upsertWebPushSubscription(userId, subscription, meta = {}) {
       },
       { upsert: true, new: true, setDefaultsOnInsert: true },
     );
+    // Un solo endpoint per stesso UA: tab + PWA sullo stesso browser altrimenti
+    // mandano due push OS identiche sullo stesso device.
+    if (userAgent) {
+      await SiteDocument.deleteMany({
+        docType: DOC,
+        userId: uid,
+        pushUserAgent: userAgent,
+        pushEndpoint: { $ne: endpoint },
+      }).catch(() => null);
+    }
     return { ok: true };
   } catch (err) {
     global.logger?.warn?.("[siteWebPush] upsert failed:", err?.message || err);
@@ -153,10 +163,23 @@ async function listSubscriptionsForUser(userId) {
   const uid = normalizeUserId(userId);
   if (!uid) return [];
   const docs = await SiteDocument.find({ docType: DOC, userId: uid })
-    .select("pushEndpoint pushP256dh pushAuth pushUserAgent")
+    .select("pushEndpoint pushP256dh pushAuth pushUserAgent updatedAt createdAt")
+    .sort({ updatedAt: -1, createdAt: -1 })
     .lean()
     .catch(() => []);
-  return Array.isArray(docs) ? docs : [];
+  const list = Array.isArray(docs) ? docs : [];
+  // Stesso browser/UA = stesso device: una sola push (evita tab+PWA doppie).
+  const seenUa = new Set();
+  const out = [];
+  for (const sub of list) {
+    const ua = String(sub?.pushUserAgent || "").trim();
+    if (ua) {
+      if (seenUa.has(ua)) continue;
+      seenUa.add(ua);
+    }
+    out.push(sub);
+  }
+  return out;
 }
 
 function isMobilePushSubscription(sub) {

@@ -1,4 +1,4 @@
-const { EmbedBuilder, PermissionFlagsBits } = require("discord.js");
+const { EmbedBuilder } = require("discord.js");
 const mongoose = require("mongoose");
 const IDs = require("../Config/ids");
 const { SiteDocument, ActivityUserProfile, SITE_DOCUMENT_TYPE } = require("../../Schemas/Community/communitySchemas");
@@ -61,6 +61,7 @@ function sanitizeReplyContent(value) {
     .slice(0, 800);
 }
 
+/** Risposta ufficiale a nome del server: solo Admin / High Staff / owner (non staff normale). */
 function memberCanReplyAsServer(member) {
   if (!member || member.user?.bot) return false;
   const hasRole = (id) => {
@@ -69,10 +70,8 @@ function memberCanReplyAsServer(member) {
   };
   if (hasRole(ADMIN_ROLE_ID)) return true;
   if (hasRole(HIGH_STAFF_ROLE_ID)) return true;
-  if (hasRole(STAFF_ROLE_ID)) return true;
   try {
-    if (member.permissions?.has?.(PermissionFlagsBits.Administrator)) return true;
-    if (member.permissions?.has?.(PermissionFlagsBits.ManageGuild)) return true;
+    if (String(member.guild?.ownerId || "") === String(member.id)) return true;
   } catch (_) {
     /* ignore */
   }

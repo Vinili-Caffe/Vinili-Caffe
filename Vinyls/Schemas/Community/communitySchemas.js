@@ -558,6 +558,9 @@ const activityUserProfileSchema = new Schema(
       noDmPreference: {
         categories: { type: [String], default: null },
       },
+      siteNotifPrefs: {
+        mutedKinds: { type: [String], default: [] },
+      },
       tenantPartnership: {
         suppressManagerPing: { type: Boolean, default: false },
         ephemeralCommands: { type: Boolean, default: false },

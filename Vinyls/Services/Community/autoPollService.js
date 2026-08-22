@@ -3,6 +3,7 @@ const axios = require("axios");
 const Poll = require("../../Schemas/Poll/pollSchema");
 const IDs = require("../../Utils/Config/ids");
 const { createPollForGuild } = require("../../Commands/Admin/poll");
+const { LOCAL_POLLS_BANK } = require("../../Data/Polls/autoPollLocalBank");
 const { getClientChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
 const TIMEZONE = "Europe/Rome";
 const COUNTER_FILTER_QUESTION = "__counter__";
@@ -17,7 +18,7 @@ const OPENROUTER_MAX_ROUNDS = 2;
 const OPENROUTER_RETRY_DELAY_MS = 1500;
 const OPENROUTER_RATE_LIMIT_COOLDOWN_MS = 15 * 60 * 1000;
 const DEFAULT_OPENROUTER_RETRY_UNTIL_HOUR = 22;
-const DEFAULT_DUPLICATE_LOOKBACK_DAYS = 60;
+const DEFAULT_DUPLICATE_LOOKBACK_DAYS = 21;
 const DEFAULT_MAX_CANDIDATE_ATTEMPTS = 80;
 const AUTO_POLL_RETRY_MS = 2 * 60 * 1000;
 const AUTO_POLL_RETRY_JITTER_MS = 20_000;
@@ -31,103 +32,15 @@ const ABS_MAX_CANDIDATE_ATTEMPTS = 250;
 const GENERIC_OPENROUTER_MODEL_ALIASES = new Set(["openrouter/free", "openrouter/auto"]);
 let openRouterCooldownUntil = 0;
 
-const LOCAL_POLLS_BANK = [
-  { question: "Qual è il momento migliore della giornata?", answers: ["Mattina presto", "Tarda mattinata", "Pomeriggio", "Prima serata", "Notte"] },
-  { question: "Quale stagione ti rappresenta di più?", answers: ["Primavera", "Estate", "Autunno", "Inverno"] },
-  { question: "Come preferisci iniziare la giornata?", answers: ["Con calma", "Con una colazione abbondante", "Allenandomi", "Con musica o podcast", "Di corsa ma produttivo"] },
-  { question: "Quale tipo di vacanza sceglieresti?", answers: ["Mare", "Montagna", "Città d'arte", "Road trip", "Relax totale"] },
-  { question: "Cosa conta di più in un film?", answers: ["Trama", "Personaggi", "Colonna sonora", "Finale", "Fotografia"] },
-  { question: "Quale pasto preferisci in assoluto?", answers: ["Colazione", "Pranzo", "Cena", "Spuntino"] },
-  { question: "Che rapporto hai con il freddo?", answers: ["Lo adoro", "Mi piace solo se sono coperto bene", "Lo tollero", "Lo odio"] },
-  { question: "Se potessi vivere in un'altra epoca, quale sceglieresti?", answers: ["Anni 80", "Anni 90", "Primi 2000", "Futuro", "Resto nel presente"] },
-  { question: "Quale qualità apprezzi di più in una persona?", answers: ["Sincerità", "Ironia", "Intelligenza", "Gentilezza", "Determinazione"] },
-  { question: "Come scegli di solito cosa guardare la sera?", answers: ["Consigli degli amici", "Trending", "Vado a caso", "Riguardo qualcosa che conosco", "Recensioni online"] },
-  { question: "Qual è il tuo comfort food ideale?", answers: ["Pizza", "Pasta", "Dolci", "Panino o fast food", "Cibo fatto in casa"] },
-  { question: "Che tipo di weekend preferisci?", answers: ["Pieno di impegni", "Fuori casa", "Chill totale", "Tra amici", "Improvvisato"] },
-  { question: "Quale mezzo di trasporto sopporti meglio?", answers: ["Auto", "Treno", "Aereo", "Moto", "A piedi"] },
-  { question: "Quale app usi più spesso in una giornata normale?", answers: ["WhatsApp", "Instagram", "TikTok", "YouTube", "Spotify"] },
-  { question: "Che tipo di meteo ti mette più di buon umore?", answers: ["Sole pieno", "Pioggia leggera", "Temporale", "Freddo secco", "Cielo coperto"] },
-  { question: "Se dovessi scegliere un superpotere, quale prenderesti?", answers: ["Teletrasporto", "Leggere nel pensiero", "Invisibilità", "Volare", "Fermare il tempo"] },
-  { question: "Che tipo di contenuto ti intrattiene di più?", answers: ["Video brevi", "Film", "Serie TV", "Podcast", "Streaming live"] },
-  { question: "Quando sei stanco, cosa ti recupera prima?", answers: ["Dormire", "Mangiare", "Uscire", "Musica", "Stare da solo"] },
-  { question: "Se potessi cambiare una cosa del tuo carattere, cosa sarebbe?", answers: ["Ansia", "Pigrizia", "Timidezza", "Impulsività", "Nulla, mi va bene così"] },
-  { question: "Quale drink scegli più spesso?", answers: ["Acqua", "Caffè", "Tè", "Energy drink", "Bibita"] },
-  { question: "Preferisci ascoltare musica con cuffie o casse?", answers: ["Cuffie", "Casse", "Entrambi", "Dipende dal momento"] },
-  { question: "Quando scopri una canzone che ti piace, cosa fai?", answers: ["La metto in loop", "La aggiungo a una playlist", "La condivido", "La ascolto e basta"] },
-  { question: "Se dovessi scegliere un solo genere musicale per sempre, quale?", answers: ["Pop", "Rap/Trap", "Rock", "Elettronica", "Indie"] },
-  { question: "Team karaoke?", answers: ["Sì, sempre", "Solo con amici", "Mai", "Dipende dall'alcol"] },
-  { question: "Sei più da playlist o da album?", answers: ["Playlist", "Album", "Entrambi", "Dipende dall'artista"] },
-  { question: "Qual è la tua snack choice da film/serie?", answers: ["Popcorn", "Patatine", "Dolci", "Frutta", "Niente"] },
-  { question: "Dolce preferito in generale?", answers: ["Tiramisù", "Gelato", "Cioccolato", "Biscotti", "Torte"] },
-  { question: "Pizza: quale scegli più spesso?", answers: ["Margherita", "Diavola", "Quattro formaggi", "Capricciosa", "Dipende"] },
-  { question: "Pasta: come la preferisci?", answers: ["Rossa", "Bianca", "Pesto", "Piccante", "Dipende"] },
-  { question: "Caffè: come lo prendi di solito?", answers: ["Espresso", "Macchiato", "Cappuccino", "Freddo", "Non bevo caffè"] },
-  { question: "Se potessi mangiare una sola cucina per una settimana?", answers: ["Italiana", "Giapponese", "Messicana", "Americana", "Cinese"] },
-  { question: "Colazione: quanto è importante per te?", answers: ["Fondamentale", "Carina ma non sempre", "La salto spesso", "Solo caffè", "Dipende"] },
-  { question: "Scegli: salato o dolce?", answers: ["Salato", "Dolce", "Entrambi", "Dipende dall'umore"] },
-  { question: "Se potessi avere un animale domestico “perfetto”, quale?", answers: ["Gatto", "Cane", "Coniglio", "Uccellino", "Nessuno"] },
-  { question: "Preferisci stare in casa o uscire?", answers: ["In casa", "Uscire", "Un po' e un po'", "Dipende dal meteo"] },
-  { question: "Quando vuoi rilassarti, cosa scegli?", answers: ["Musica", "Serie/film", "Gaming", "Passeggiata", "Dormire"] },
-  { question: "Quanto sei puntuale di solito?", answers: ["Sempre puntuale", "5 minuti di ritardo", "Spesso in ritardo", "Dipende", "Arrivo troppo presto"] },
-  { question: "Sei più da organizzazione o improvvisazione?", answers: ["Organizzazione", "Improvvisazione", "Mix", "Dipende dal contesto"] },
-  { question: "Come preferisci comunicare?", answers: ["Messaggi", "Chiamate", "Vocali", "Dal vivo", "Dipende"] },
-  { question: "Vocali: li mandi spesso?", answers: ["Sempre", "Ogni tanto", "Raramente", "Mai", "Solo se necessario"] },
-  { question: "Qual è la tua “modalità studio/lavoro” ideale?", answers: ["Silenzio", "Musica", "Rumore bianco", "Caffè e caos", "Dipende"] },
-  { question: "Sei più produttivo/a di giorno o di sera?", answers: ["Di giorno", "Di sera", "Notte", "Dipende", "Mai"] },
-  { question: "Che tipo di sport ti piace di più?", answers: ["Fitness/palestra", "Sport di squadra", "Corsa", "Nessuno", "Altro"] },
-  { question: "Se potessi imparare subito una skill, quale?", answers: ["Suonare uno strumento", "Cucinare bene", "Parlare una lingua", "Programmare", "Disegnare"] },
-  { question: "Quale lingua vorresti sapere meglio?", answers: ["Inglese", "Spagnolo", "Giapponese", "Francese", "Tedesco"] },
-  { question: "Se potessi vivere in una città a caso, dove?", answers: ["Roma", "Milano", "Napoli", "Firenze", "All'estero"] },
-  { question: "Mare: cosa fai di solito?", answers: ["Nuoto", "Prendo il sole", "Passeggiata", "Sport", "Dipende"] },
-  { question: "Montagna: cosa preferisci?", answers: ["Escursioni", "Relax", "Sci", "Foto/panorami", "Dipende"] },
-  { question: "Qual è il tuo “sì” automatico tra questi?", answers: ["Sushi", "Pizza", "Gelato", "Cinema", "Caffè"] },
-  { question: "Quando sei stressato/a, cosa fai per primo?", answers: ["Dormo", "Parlo con qualcuno", "Musica", "Esco", "Mangio"] },
-  { question: "Quale social ti stanca di più?", answers: ["TikTok", "Instagram", "X/Twitter", "Facebook", "Nessuno"] },
-  { question: "Quanto guardi video brevi?", answers: ["Troppo", "Abbastanza", "Poco", "Quasi mai", "Dipende"] },
-  { question: "Se potessi eliminare una cosa per sempre, quale?", answers: ["Pubblicità", "Zanzare", "Traffico", "Ansia", "Lunedì"] },
-  { question: "Quale emoji usi più spesso?", answers: ["😂", "😭", "❤️", "✨", "😅"] },
-  { question: "Sei più da chat di gruppo o DM?", answers: ["Chat di gruppo", "DM", "Entrambi", "Dipende"] },
-  { question: "Preferisci leggere o guardare?", answers: ["Leggere", "Guardare", "Entrambi", "Dipende"] },
-  { question: "Libro: come lo preferisci?", answers: ["Cartaceo", "E-book", "Audiolibro", "Non leggo", "Dipende"] },
-  { question: "Videogiochi: quando giochi di più?", answers: ["Sera", "Notte", "Weekend", "Mai", "Dipende"] },
-  { question: "Che tipo di giochi preferisci?", answers: ["Story", "Competitivi", "Co-op", "Casual", "Non gioco"] },
-  { question: "Scegli un mood di serata perfetto:", answers: ["Cinema e relax", "Uscita con amici", "Gaming", "Musica e chill", "Dormire presto"] },
-  { question: "Preferisci essere chiamato/a o scrivere?", answers: ["Chiamato/a", "Scrivere", "Entrambi", "Dipende"] },
-  { question: "Se potessi avere un “tasto”, quale?", answers: ["Pausa", "Riavvolgi", "Salta", "Silenzio", "Turbo"] },
-  { question: "Sei più da doccia mattina o sera?", answers: ["Mattina", "Sera", "Entrambe", "Dipende"] },
-  { question: "Qual è la tua pasta shape preferita?", answers: ["Spaghetti", "Penne", "Fusilli", "Rigatoni", "Tagliatelle"] },
-  { question: "Gelato: cono o coppetta?", answers: ["Cono", "Coppetta", "Entrambi", "Dipende"] },
-  { question: "Cioccolato: fondente o al latte?", answers: ["Fondente", "Al latte", "Bianco", "Non mi piace", "Dipende"] },
-  { question: "Se dovessi scegliere un hobby nuovo, quale?", answers: ["Fotografia", "Palestra", "Cucina", "Disegno", "Collezionismo"] },
-  { question: "Quanto sei competitivo/a?", answers: ["Molto", "Abbastanza", "Poco", "Per niente", "Dipende"] },
-  { question: "Quale ti descrive meglio?", answers: ["Calmo/a", "Energico/a", "Ansioso/a", "Ironico/a", "Introverso/a"] },
-  { question: "Sei più da “parlo tanto” o “ascolto tanto”?", answers: ["Parlo", "Ascolto", "Entrambi", "Dipende"] },
-  { question: "Ti piace cucinare?", answers: ["Sì", "Un po'", "No", "Solo cose facili", "Dipende"] },
-  { question: "Quando guardi una serie, come fai?", answers: ["Binge", "1 episodio al giorno", "A caso", "Solo weekend", "Dipende"] },
-  { question: "Quale “vibe” di musica preferisci?", answers: ["Chill", "Energica", "Triste", "Romantica", "Dipende"] },
-  { question: "Preferisci l'estate per...", answers: ["Mare", "Serate", "Vacanze", "Vestiario", "Non la preferisco"] },
-  { question: "Preferisci l'inverno per...", answers: ["Coperte", "Cioccolata calda", "Atmosfera", "Sport invernali", "Non lo preferisco"] },
-  { question: "Cosa ti fa perdere più tempo?", answers: ["Scroll", "Serie", "Gaming", "Chat", "Procrastinazione"] },
-  { question: "Scegli: film horror sì o no?", answers: ["Sì", "No", "Solo con qualcuno", "Solo se non troppo", "Dipende"] },
-  { question: "Se potessi vedere un film per la prima volta di nuovo?", answers: ["Sì, spesso", "Sì, qualche volta", "No", "Non ci penso", "Dipende"] },
-  { question: "Quale tipo di film scegli più spesso?", answers: ["Commedia", "Azione", "Drammatico", "Fantasy", "Thriller"] },
-  { question: "Se potessi scegliere un talento artistico, quale?", answers: ["Cantare", "Ballare", "Disegnare", "Recitare", "Scrivere"] },
-  { question: "Preferisci conoscere poche persone ma bene o tante?", answers: ["Poche ma bene", "Tante", "Dipende", "Non lo so"] },
-  { question: "Ti piace provare cose nuove?", answers: ["Sì sempre", "Spesso", "Ogni tanto", "Raramente", "Dipende"] },
-  { question: "Qual è la tua “pausa” preferita?", answers: ["Caffè", "Snack", "Passeggiata", "TikTok", "Niente"] },
-  { question: "Sei più da notte in bianco o sonno sacro?", answers: ["Notte in bianco", "Sonno sacro", "Dipende", "Non reggo più"] },
-  { question: "Ti piace il piccante?", answers: ["Sì molto", "Abbastanza", "Poco", "No", "Dipende"] },
-  { question: "Che tipo di pane preferisci?", answers: ["Pane fresco", "Focaccia", "Panino", "Crackers", "Indifferente"] },
-  { question: "Cosa scegli al cinema?", answers: ["Popcorn", "Nachos", "Caramelle", "Bevanda", "Niente"] },
-  { question: "Preferisci uscire a pranzo o a cena?", answers: ["Pranzo", "Cena", "Entrambi", "Dipende"] },
-  { question: "Se potessi viaggiare domani, dove andresti?", answers: ["Mare", "Montagna", "Città europea", "USA", "Asia"] },
-  { question: "Sei più da foto o da video?", answers: ["Foto", "Video", "Entrambi", "Dipende"] },
-  { question: "Quanto ti piace fare foto?", answers: ["Molto", "Abbastanza", "Poco", "Per niente", "Dipende"] },
-  { question: "Come preferisci ricevere una notizia?", answers: ["Subito", "Con calma", "A piccoli pezzi", "Non ditemelo", "Dipende"] },
-  { question: "Cosa ti rende più felice tra queste?", answers: ["Una buona notizia", "Cibo buono", "Tempo libero", "Un messaggio", "Una canzone"] },
-  { question: "Scegli una cosa da portarti sempre dietro:", answers: ["Cuffie", "Powerbank", "Acqua", "Agenda", "Caramelle"] },
-  { question: "Se potessi avere un animale “fantasy”, quale?", answers: ["Drago", "Fenice", "Unicorno", "Grifone", "Gatto magico"] },
-];
+function resolveMinOptions(cfg = {}) {
+  return clampOptionCount(cfg.minOptions, 2);
+}
+
+function resolveMaxOptions(cfg = {}) {
+  const min = resolveMinOptions(cfg);
+  return Math.max(min, clampOptionCount(cfg.maxOptions, 6));
+}
+
 
 function normalizeText(value) {
   return String(value || "")
@@ -202,8 +115,8 @@ function resolveOpenRouterModels(cfg = {}) {
 }
 
 function pickNextOptionTarget(client, cfg = {}) {
-  const minOptions = clampOptionCount(cfg.minOptions, 4);
-  const maxOptions = Math.max(minOptions, clampOptionCount(cfg.maxOptions, 5));
+  const minOptions = resolveMinOptions(cfg);
+  const maxOptions = resolveMaxOptions(cfg);
   const lowMax = Math.min(maxOptions, Math.max(minOptions, 4));
   const midMin = Math.max(minOptions, 5);
   const midMax = Math.min(maxOptions, 6);
@@ -230,8 +143,8 @@ function pickNextOptionTarget(client, cfg = {}) {
 function applyOptionCount(payload, cfg = {}, forcedTargetOptions = null, options = {}) {
   if (!payload) return null;
   const shuffleAnswers = options.shuffleAnswers !== false;
-  const minOptions = clampOptionCount(cfg.minOptions, 4);
-  const maxOptions = Math.max(minOptions, clampOptionCount(cfg.maxOptions, 6));
+  const minOptions = resolveMinOptions(cfg);
+  const maxOptions = resolveMaxOptions(cfg);
   const targetOptions = Number.isFinite(Number(forcedTargetOptions)) ? Math.max(minOptions, Math.min(maxOptions, Math.floor(Number(forcedTargetOptions)))) : maxOptions;
   let answers = Array.isArray(payload.answers) ? payload.answers.map((x) => normalizeText(String(x || ""))).filter(Boolean) : [];
   if (answers.length < minOptions) return null;
@@ -388,11 +301,10 @@ async function pickNonDuplicateLocalPoll(guildId, cfg = {}, forcedTargetOptions 
       forcedTargetOptions,
       { shuffleAnswers: false },
     );
-    if (!candidate?.question || !Array.isArray(candidate.answers) || candidate.answers.length < 4) {
+    if (!candidate?.question || !Array.isArray(candidate.answers) || candidate.answers.length < resolveMinOptions(cfg)) {
       continue;
     }
     if (await isDuplicateQuestion(guildId, candidate.question)) continue;
-    if (await isDuplicatePollContent(guildId, candidate)) continue;
     return candidate;
   }
   return pickLocalPollByOldestReuse(guildId, cfg, forcedTargetOptions);
@@ -438,7 +350,7 @@ async function pickLocalPollByOldestReuse(guildId, cfg = {}, forcedTargetOptions
       forcedTargetOptions,
       { shuffleAnswers: false },
     );
-    if (!candidate?.question || !Array.isArray(candidate.answers) || candidate.answers.length < 4) {
+    if (!candidate?.question || !Array.isArray(candidate.answers) || candidate.answers.length < resolveMinOptions(cfg)) {
       continue;
     }
     return candidate;
@@ -532,12 +444,11 @@ function validateGeneratedPollPayload(payload, cfg = {}, forcedTargetOptions = n
     answers.push(answer);
   }
 
-  if (!question || question.length < 12 || question.length > 120) return null;
+  if (!question || question.length < 10 || question.length > 140) return null;
   if (!/\?$/.test(question)) return null;
   if (/qual e la tua opinione su/i.test(question)) return null;
-  if (/quale museo nazionale/i.test(question)) return null;
-  if (answers.length < 4) return null;
-  if (answers.some((answer) => answer.length < 2 || answer.length > 55)) return null;
+  if (answers.length < resolveMinOptions(cfg)) return null;
+  if (answers.some((answer) => answer.length < 1 || answer.length > 70)) return null;
 
   return applyOptionCount({ question, answers }, cfg, forcedTargetOptions);
 }
@@ -549,7 +460,10 @@ async function fetchPollFromOpenRouter(cfg = {}, forcedTargetOptions = null) {
 
   const models = resolveOpenRouterModels(cfg);
   if (!models.length) return null;
-  const optionCount = Math.max(4, Math.min(6, Number(forcedTargetOptions || 5)));
+  const optionCount = Math.max(
+    resolveMinOptions(cfg),
+    Math.min(resolveMaxOptions(cfg), Number(forcedTargetOptions || pickRandomFromRange(resolveMinOptions(cfg), Math.min(6, resolveMaxOptions(cfg))))),
+  );
   let lastError = null;
   let had429 = false;
 
@@ -631,7 +545,7 @@ async function fetchPollFromOpenRouterWithRetry(cfg = {}, forcedTargetOptions = 
     for (let round = 0; round < maxRounds; round += 1) {
       if (isOpenRouterCoolingDown()) break;
       const payload = await fetchPollFromOpenRouter(cfg, forcedTargetOptions).catch(() => null);
-      if (payload?.question && Array.isArray(payload?.answers) && payload.answers.length >= 4) {
+      if (payload?.question && Array.isArray(payload?.answers) && payload.answers.length >= resolveMinOptions(cfg)) {
         return payload;
       }
       if (isOpenRouterCoolingDown()) break;
@@ -658,23 +572,24 @@ async function fetchPollFromOpenRouterWithRetry(cfg = {}, forcedTargetOptions = 
   return null;
 }
 
-async function pickPollCandidate(cfg = {}, forcedTargetOptions = null) {
-  const configuredSources = Array.isArray(cfg.sources) && cfg.sources.length ? cfg.sources.map((v) => String(v || "").trim().toLowerCase()).filter(Boolean) : DEFAULT_SOURCES;
+async function pickPollCandidate(cfg = {}, forcedTargetOptions = null, guildId = "") {
+  const configuredSources = Array.isArray(cfg.sources) && cfg.sources.length
+    ? cfg.sources.map((v) => String(v || "").trim().toLowerCase()).filter(Boolean)
+    : DEFAULT_SOURCES;
   const sources = shuffle(configuredSources.length ? configuredSources : DEFAULT_SOURCES);
 
   for (const source of sources) {
-    let candidate = null;
+    if (source === "local") {
+      const local = guildId
+        ? await pickNonDuplicateLocalPoll(guildId, cfg, forcedTargetOptions)
+        : buildLocalAttualitaPoll(cfg, forcedTargetOptions);
+      if (local?.question && Array.isArray(local?.answers)) return local;
+    }
 
     if (source === "openrouter") {
-      candidate = await fetchPollFromOpenRouterWithRetry(cfg, forcedTargetOptions).catch(() => null);
-      if (!candidate) candidate = buildLocalAttualitaPoll(cfg, forcedTargetOptions);
+      const candidate = await fetchPollFromOpenRouterWithRetry(cfg, forcedTargetOptions).catch(() => null);
+      if (candidate?.question && Array.isArray(candidate?.answers)) return candidate;
     }
-
-    if (!candidate && source === "local") {
-      candidate = buildLocalAttualitaPoll(cfg, forcedTargetOptions);
-    }
-
-    if (candidate?.question && Array.isArray(candidate?.answers)) return candidate;
   }
 
   return buildLocalAttualitaPoll(cfg, forcedTargetOptions);
@@ -767,12 +682,11 @@ async function runAutoPoll(client, pollOpts = {}) {
 
   for (let i = 0; i < maxAttempts && !payload; i += 1) {
     if (i > 0 && i % 20 === 0) await sleep(300);
-    const candidate = await pickPollCandidate(cfg, optionTarget);
-    if (!candidate?.question || !Array.isArray(candidate.answers) || candidate.answers.length < 4) {
+    const candidate = await pickPollCandidate(cfg, optionTarget, guild.id);
+    if (!candidate?.question || !Array.isArray(candidate.answers) || candidate.answers.length < resolveMinOptions(cfg)) {
       continue;
     }
     if (await isDuplicateQuestion(guild.id, candidate.question)) continue;
-    if (await isDuplicatePollContent(guild.id, candidate)) continue;
     payload = candidate;
   }
 
@@ -811,6 +725,10 @@ function startAutoPollLoop(client) {
   clearAutoPollRetryTimer(client);
 
   const scheduleCfg = client?.config?.autoPoll || {};
+  if (scheduleCfg.enabled !== false && !String(process.env.OPENROUTER_API_KEY || "").trim()) {
+    global.logger?.info?.("[poll.auto] OPENROUTER_API_KEY assente: i sondaggi useranno il banco locale.");
+  }
+  global.logger?.info?.(`[poll.auto] banco locale: ${LOCAL_POLLS_BANK.length} domande.`);
   client._autoPollTask = cron.schedule(
     buildAutoPollCronExpression(scheduleCfg),
     () => {

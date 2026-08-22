@@ -174,6 +174,7 @@ function drawText(ctx, text, x, y, options = {}) {
     color = "#ffffff",
     align = "left",
     baseline = "middle",
+    shadow = false,
   } = options;
 
   ctx.font = canvasFont(size, weight);
@@ -181,11 +182,45 @@ function drawText(ctx, text, x, y, options = {}) {
   ctx.textBaseline = baseline;
   ctx.fillStyle = color;
 
+  if (shadow) {
+    ctx.save();
+    ctx.shadowColor = "rgba(0,0,0,0.62)";
+    ctx.shadowBlur = 10;
+    ctx.shadowOffsetY = 1;
+    ctx.fillText(String(text ?? ""), x, y);
+    ctx.restore();
+    return;
+  }
+
   ctx.fillText(String(text ?? ""), x, y);
 }
 
 function drawCoverImage(ctx, image, x, y, width, height) {
+  if (!image || !image.width || !image.height || width <= 0 || height <= 0) return;
   const scale = Math.max(width / image.width, height / image.height);
+  const drawWidth = image.width * scale;
+  const drawHeight = image.height * scale;
+  const drawX = x + (width - drawWidth) / 2;
+  const drawY = y + (height - drawHeight) / 2;
+  ctx.drawImage(image, drawX, drawY, drawWidth, drawHeight);
+}
+
+/**
+ * Wallpaper fill for the short 976×276 card.
+ * Cover + adaptive zoom crops baked-in letterbox bars (common on meme wallpapers)
+ * that otherwise show as a harsh bright rectangular strip behind the hero.
+ */
+function drawWallpaperImage(ctx, image, x, y, width, height) {
+  if (!image || !image.width || !image.height || width <= 0 || height <= 0) return;
+  ctx.fillStyle = "#0b0d12";
+  ctx.fillRect(x, y, width, height);
+
+  const cover = Math.max(width / image.width, height / image.height);
+  const aspectSrc = image.width / Math.max(1, image.height);
+  const aspectDst = width / Math.max(1, height);
+  const mismatch = Math.max(aspectSrc / aspectDst, aspectDst / aspectSrc);
+  const zoom = mismatch > 1.25 ? Math.min(1.4, 1 + (mismatch - 1) * 0.4) : 1;
+  const scale = cover * zoom;
   const drawWidth = image.width * scale;
   const drawHeight = image.height * scale;
   const drawX = x + (width - drawWidth) / 2;
@@ -197,13 +232,18 @@ async function drawAvatar(ctx, avatarUrl, x, y, size, palette, avatarImageOverri
   const cx = x + size / 2;
   const cy = y + size / 2;
   const radius = size / 2;
+  const ring = String(palette.ringColor || "#ffcb05");
 
+  // Alone soft, anello sottile (niente glow troppo grossolano).
   ctx.save();
-  ctx.shadowColor = palette.ringColor;
-  ctx.shadowBlur = 22;
-  ctx.fillStyle = palette.ringColor;
+  const glowR = radius + 11;
+  const glow = ctx.createRadialGradient(cx, cy, Math.max(1, radius * 0.82), cx, cy, glowR);
+  glow.addColorStop(0, hexToRgba(ring, 0.28));
+  glow.addColorStop(0.7, hexToRgba(ring, 0.08));
+  glow.addColorStop(1, hexToRgba(ring, 0));
+  ctx.fillStyle = glow;
   ctx.beginPath();
-  ctx.arc(cx, cy, radius + 4, 0, Math.PI * 2);
+  ctx.arc(cx, cy, glowR, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 
@@ -225,15 +265,10 @@ async function drawAvatar(ctx, avatarUrl, x, y, size, palette, avatarImageOverri
   ctx.restore();
 
   ctx.save();
-  ctx.lineWidth = 6;
-  ctx.strokeStyle = palette.ringColor;
+  ctx.lineWidth = 3.2;
+  ctx.strokeStyle = ring;
   ctx.beginPath();
-  ctx.arc(cx, cy, radius + 2, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.lineWidth = 2;
-  ctx.strokeStyle = "rgba(255,255,255,0.65)";
-  ctx.beginPath();
-  ctx.arc(cx, cy, radius - 4, 0, Math.PI * 2);
+  ctx.arc(cx, cy, radius + 0.8, 0, Math.PI * 2);
   ctx.stroke();
   ctx.restore();
 }
@@ -242,8 +277,11 @@ function drawProgressBar(ctx, x, y, width, height, progressPercent, currentExp, 
   const progress = clamp(progressPercent, 0, 100) / 100;
 
   roundedRect(ctx, x, y, width, height, height / 2);
-  ctx.fillStyle = "rgba(255,255,255,0.12)";
+  ctx.fillStyle = "rgba(0,0,0,0.28)";
   ctx.fill();
+  ctx.strokeStyle = "rgba(255,255,255,0.10)";
+  ctx.lineWidth = 1;
+  ctx.stroke();
 
   if (progress > 0) {
     ctx.save();
@@ -252,27 +290,26 @@ function drawProgressBar(ctx, x, y, width, height, progressPercent, currentExp, 
     const gradient = ctx.createLinearGradient(x, y, x + width, y);
     gradient.addColorStop(0, palette.progressStartColor);
     gradient.addColorStop(1, palette.progressEndColor);
-    ctx.shadowColor = palette.progressEndColor;
-    ctx.shadowBlur = 14;
     ctx.fillStyle = gradient;
     ctx.fillRect(x, y, Math.max(height, width * progress), height);
     ctx.restore();
   }
 
   drawText(ctx, `${formatInt(currentExp)} / ${formatInt(targetExp)} XP`, x + width / 2, y + height / 2 + 1, {
-    size: 16,
+    size: 15,
     weight: 800,
     color: "#FFFFFF",
     align: "center",
+    shadow: true,
   });
 }
 
 /** Same SVG paths as WebSite/js/user-rank-customize-page.js (previewStatIcon), scaled to canvas. */
 function drawStatIcon(ctx, icon, x, y, color) {
-  const scale = 0.8;
+  const scale = 0.72;
   ctx.save();
   ctx.translate(x, y);
-  if (icon === "trophy") ctx.translate(0, -2);
+  if (icon === "trophy") ctx.translate(0, -1);
   ctx.scale(scale, scale);
   ctx.translate(-16, -16);
   ctx.fillStyle = color;
@@ -298,33 +335,29 @@ function drawStatIcon(ctx, icon, x, y, color) {
 }
 
 function drawStatPill(ctx, x, y, width, height, icon, label, value, palette, panelAlpha) {
-  roundedRect(ctx, x, y, width, height, 10);
-  ctx.fillStyle = hexToRgba(palette.panelColor, panelAlpha);
+  const fillA = Math.min(1, Math.max(panelAlpha, 0.22) * 0.92 + 0.1);
+  roundedRect(ctx, x, y, width, height, 14);
+  ctx.fillStyle = hexToRgba(palette.panelColor, fillA);
   ctx.fill();
-  ctx.strokeStyle = "rgba(255,255,255,0.10)";
+  ctx.strokeStyle = "rgba(255,255,255,0.08)";
   ctx.lineWidth = 1;
   ctx.stroke();
 
-  ctx.save();
-  roundedRect(ctx, x, y, width, height, 10);
-  ctx.clip();
-  ctx.fillStyle = palette.labelColor;
-  ctx.fillRect(x, y, 4, height);
-  ctx.restore();
+  const iconColor = palette.primaryTextColor;
+  drawStatIcon(ctx, icon, x + 26, y + height / 2, iconColor);
 
-  drawStatIcon(ctx, icon, x + 28, y + height / 2, palette.labelColor);
-
-  drawText(ctx, label.toUpperCase(), x + 56, y + 18, {
-    size: 11,
+  drawText(ctx, label.toUpperCase(), x + 48, y + 19, {
+    size: 10,
     weight: 800,
     color: palette.labelColor,
     align: "left",
   });
-  drawText(ctx, value, x + 56, y + 36, {
+  drawText(ctx, value, x + 48, y + 39, {
     size: 17,
     weight: 900,
     color: palette.primaryTextColor,
     align: "left",
+    shadow: true,
   });
 }
 
@@ -393,14 +426,52 @@ function drawPresetWallpaperFromKey(ctx, x, y, width, height, key) {
   ctx.fillRect(x, y, width, height);
 }
 
+async function loadGifDataUrlFirstFrameImage(dataUrl) {
+  if (!ffmpegPath || !isGifDataUrlWallpaper(dataUrl)) return null;
+  const gifBuf = decodeGifDataUrlToBuffer(dataUrl);
+  if (!gifBuf) return null;
+  let tmpDir = "";
+  try {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "vc-rank-wp-"));
+    const gifPath = path.join(tmpDir, "wallpaper.gif");
+    const framePath = path.join(tmpDir, "frame.png");
+    fs.writeFileSync(gifPath, gifBuf);
+    const ok = runFfmpeg([
+      "-y",
+      "-i",
+      gifPath,
+      "-vf",
+      "scale=976:276:force_original_aspect_ratio=increase,crop=976:276",
+      "-frames:v",
+      "1",
+      framePath,
+    ]);
+    if (!ok || !fs.existsSync(framePath)) return null;
+    return await safeLoadImage(framePath, { suppressWarning: true });
+  } catch {
+    return null;
+  } finally {
+    if (tmpDir) {
+      try {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      } catch {}
+    }
+  }
+}
+
 async function drawWallpaper(ctx, x, y, width, height, palette, wallpaperImageOverride = null) {
   if (wallpaperImageOverride) {
-    drawCoverImage(ctx, wallpaperImageOverride, x, y, width, height);
+    drawWallpaperImage(ctx, wallpaperImageOverride, x, y, width, height);
     return;
   }
   const wallpaper = resolveRankCardWallpaper(palette);
   if (wallpaper && isGifDataUrlWallpaper(wallpaper)) {
-    /* node-canvas non gestisce in modo affidabile GIF data URL: evitiamo warning rumorosi. */
+    /* node-canvas non decodifica bene i GIF data URL: primo frame via ffmpeg. */
+    const frame = await loadGifDataUrlFirstFrameImage(wallpaper);
+    if (frame) {
+      drawWallpaperImage(ctx, frame, x, y, width, height);
+      return;
+    }
     drawPresetWallpaperFromKey(ctx, x, y, width, height, palette.wallpaperKey);
     return;
   }
@@ -409,7 +480,7 @@ async function drawWallpaper(ctx, x, y, width, height, palette, wallpaperImageOv
     if (svgBuf) {
       const raster = await safeLoadImage(svgBuf, { suppressWarning: true });
       if (raster) {
-        drawCoverImage(ctx, raster, x, y, width, height);
+        drawWallpaperImage(ctx, raster, x, y, width, height);
         return;
       }
     }
@@ -420,7 +491,7 @@ async function drawWallpaper(ctx, x, y, width, height, palette, wallpaperImageOv
   const image = wallpaper ? await safeLoadImage(wallpaper) : null;
 
   if (image) {
-    drawCoverImage(ctx, image, x, y, width, height);
+    drawWallpaperImage(ctx, image, x, y, width, height);
     return;
   }
 
@@ -503,6 +574,8 @@ async function renderRankPngBuffer(data, avatarImageOverride = null, wallpaperIm
   const canvas = createCanvas(width, height);
   const ctx = canvas.getContext("2d");
   const panelAlpha = clamp(palette.overlayOpacity, 0, 1);
+  // Chrome UI (hero/stats/rank): leggibile anche con opacità molto bassa.
+  const chromeAlpha = Math.min(1, Math.max(panelAlpha, 0.34) * 0.88 + 0.12);
 
   ctx.clearRect(0, 0, width, height);
 
@@ -511,40 +584,45 @@ async function renderRankPngBuffer(data, avatarImageOverride = null, wallpaperIm
     y: 0,
     w: width,
     h: height,
+    r: 18,
+  };
+
+  // Layout che riempie l'altezza (niente letterbox), wallpaper full-bleed come +rank.
+  const padX = 16;
+  const padY = 14;
+  const gap = 10;
+  const statH = 58;
+  const hero = {
+    x: padX,
+    y: padY,
+    w: width - padX * 2,
+    h: height - padY * 2 - gap - statH,
     r: 16,
   };
+  const statsY = hero.y + hero.h + gap;
+  const statsX = hero.x;
 
   ctx.save();
   roundedRect(ctx, card.x, card.y, card.w, card.h, card.r);
   ctx.clip();
   await drawWallpaper(ctx, card.x, card.y, card.w, card.h, palette, wallpaperImageOverride);
-  ctx.fillStyle = hexToRgba(palette.panelColor, panelAlpha * 0.55);
+  ctx.fillStyle = hexToRgba(palette.panelColor, panelAlpha * 0.42);
   ctx.fillRect(card.x, card.y, card.w, card.h);
   ctx.restore();
 
-  const padX = 23;
-  const padTop = 22;
-  const hero = {
-    x: padX,
-    y: padTop,
-    w: width - padX * 2,
-    h: 147,
-    r: 18,
-  };
-
   roundedRect(ctx, hero.x, hero.y, hero.w, hero.h, hero.r);
-  ctx.fillStyle = hexToRgba(palette.panelColor, panelAlpha);
+  ctx.fillStyle = hexToRgba(palette.panelColor, chromeAlpha);
   ctx.fill();
-  ctx.strokeStyle = "rgba(255,255,255,0.12)";
-  ctx.lineWidth = 2;
+  ctx.strokeStyle = "rgba(255,255,255,0.08)";
+  ctx.lineWidth = 1.25;
   ctx.stroke();
 
   const heroPadX = 16;
-  const heroGap = 17;
-  const avatarColW = 138;
-  const rankBoxW = 109;
-  const rankBoxH = 88;
-  const avatarSize = 122;
+  const heroGap = 14;
+  const avatarColW = 124;
+  const rankBoxW = 94;
+  const rankBoxH = 74;
+  const avatarSize = Math.min(108, hero.h - 22);
   const avatarX = hero.x + heroPadX + (avatarColW - avatarSize) / 2;
   const avatarY = hero.y + (hero.h - avatarSize) / 2;
   await drawAvatar(ctx, data.avatarUrl, avatarX, avatarY, avatarSize, palette, avatarImageOverride);
@@ -552,42 +630,39 @@ async function renderRankPngBuffer(data, avatarImageOverride = null, wallpaperIm
   const copyX = hero.x + heroPadX + avatarColW + heroGap;
   const rankBoxX = hero.x + hero.w - heroPadX - rankBoxW;
   const rankBoxY = hero.y + Math.round((hero.h - rankBoxH) / 2);
-  const copyW = rankBoxX - copyX - heroGap;
-  const topY = hero.y + 39;
+  const copyW = Math.max(180, rankBoxX - copyX - heroGap);
+  const topY = avatarY + Math.round(avatarSize * 0.3);
 
   const levelText = `Lv. ${formatInt(data.level)}`;
-  ctx.font = canvasFont(28, 850);
+  ctx.font = canvasFont(26, 850);
   const levelWidth = ctx.measureText(levelText).width;
-  ctx.font = canvasFont(38, 900);
-  const username = ellipsize(ctx, data.username || "utente", Math.max(220, copyW - levelWidth - 62));
+  ctx.font = canvasFont(34, 900);
+  const username = ellipsize(ctx, data.username || "utente", Math.max(200, copyW - levelWidth - 88));
   const usernameWidth = ctx.measureText(username).width;
 
   drawText(ctx, username, copyX, topY, {
-    size: 38,
+    size: 34,
     weight: 900,
     color: palette.primaryTextColor,
+    shadow: true,
   });
-  drawText(ctx, "-", copyX + usernameWidth + 24, topY + 1, {
-    size: 20,
-    weight: 900,
+  drawText(ctx, levelText, copyX + usernameWidth + 14, topY + 1, {
+    size: 24,
+    weight: 800,
     color: palette.secondaryTextColor,
-  });
-  drawText(ctx, levelText, copyX + usernameWidth + 58, topY + 1, {
-    size: 28,
-    weight: 850,
-    color: palette.secondaryTextColor,
+    shadow: true,
   });
 
   const multiplierText = `x${Number(data.multiplier || 1).toFixed(1)}`;
-  const multiplierX = Math.min(copyX + usernameWidth + levelWidth + 94, copyX + copyW - 74);
-  roundedRect(ctx, multiplierX, topY - 17, 62, 30, 15);
-  ctx.fillStyle = "rgba(0,0,0,0.14)";
+  const multiplierX = Math.min(copyX + usernameWidth + levelWidth + 28, copyX + copyW - 70);
+  roundedRect(ctx, multiplierX, topY - 15, 58, 26, 13);
+  ctx.fillStyle = "rgba(0,0,0,0.22)";
   ctx.fill();
-  ctx.strokeStyle = palette.multiplierColor;
-  ctx.lineWidth = 2;
+  ctx.strokeStyle = hexToRgba(palette.multiplierColor, 0.85);
+  ctx.lineWidth = 1.5;
   ctx.stroke();
-  drawText(ctx, multiplierText, multiplierX + 31, topY - 2, {
-    size: 15,
+  drawText(ctx, multiplierText, multiplierX + 29, topY - 1, {
+    size: 14,
     weight: 900,
     color: palette.multiplierColor,
     align: "center",
@@ -597,40 +672,45 @@ async function renderRankPngBuffer(data, avatarImageOverride = null, wallpaperIm
   const nextLevelExp = Math.max(currentLevelExp + 1, Number(data.nextLevelExp || currentLevelExp + 1));
   const currentProgressExp = Math.max(0, Number(data.totalExp || 0) - currentLevelExp);
   const targetProgressExp = Math.max(1, nextLevelExp - currentLevelExp);
-  drawProgressBar(ctx, copyX, hero.y + 92, copyW, 18, data.progressPercent, currentProgressExp, targetProgressExp, palette);
+  drawProgressBar(ctx, copyX, avatarY + avatarSize - 26, copyW, 16, data.progressPercent, currentProgressExp, targetProgressExp, palette);
 
-  roundedRect(ctx, rankBoxX, rankBoxY, rankBoxW, rankBoxH, 16);
-  ctx.fillStyle = hexToRgba(palette.panelColor, panelAlpha);
+  roundedRect(ctx, rankBoxX, rankBoxY, rankBoxW, rankBoxH, 14);
+  ctx.fillStyle = hexToRgba(palette.panelColor, chromeAlpha);
   ctx.fill();
-  ctx.strokeStyle = rankBoxColor;
-  ctx.lineWidth = 4;
+  ctx.strokeStyle = hexToRgba(rankBoxColor, 0.92);
+  ctx.lineWidth = 2.4;
   ctx.stroke();
 
   const rankText = data.hideLeaderboardRanks ? "-" : formatRankValue(data.allTimeRank);
-  drawText(ctx, rankText, rankBoxX + rankBoxW / 2, rankBoxY + 33, {
-    size: rankText.length > 7 ? 24 : 28,
+  drawText(ctx, rankText, rankBoxX + rankBoxW / 2, rankBoxY + 28, {
+    size: rankText.length > 7 ? 22 : 26,
     weight: 950,
     color: rankBoxColor,
     align: "center",
+    shadow: true,
   });
-  drawText(ctx, "RANK", rankBoxX + rankBoxW / 2, rankBoxY + 66, {
-    size: 12,
-    weight: 900,
+  drawText(ctx, "RANK", rankBoxX + rankBoxW / 2, rankBoxY + 52, {
+    size: 11,
+    weight: 800,
     color: palette.labelColor,
     align: "center",
   });
 
-  const statsY = hero.y + hero.h + 16;
-  const statH = 60;
-  const gap = 15;
-  const statsTotalW = 660;
-  const statW = Math.floor((statsTotalW - gap * 2) / 3);
-  const statsX = Math.round((width - statsTotalW) / 2);
+  const statsTotalW = hero.w;
+  const statGap = 10;
+  const statW = Math.floor((statsTotalW - statGap * 2) / 3);
   const weeklyRankValue = data.hideLeaderboardRanks ? "-" : formatRankValue(data.weeklyRank);
 
-  drawStatPill(ctx, statsX, statsY, statW, statH, "trophy", "Weekly rank", weeklyRankValue, palette, panelAlpha);
-  drawStatPill(ctx, statsX + statW + gap, statsY, statW, statH, "bolt", "Weekly XP", formatInt(data.weeklyExp), palette, panelAlpha);
-  drawStatPill(ctx, statsX + (statW + gap) * 2, statsY, statW, statH, "star", "Multiplier", multiplierText, palette, panelAlpha);
+  drawStatPill(ctx, statsX, statsY, statW, statH, "trophy", "Weekly rank", weeklyRankValue, palette, chromeAlpha);
+  drawStatPill(ctx, statsX + statW + statGap, statsY, statW, statH, "bolt", "Weekly XP", formatInt(data.weeklyExp), palette, chromeAlpha);
+  drawStatPill(ctx, statsX + (statW + statGap) * 2, statsY, statW, statH, "star", "Multiplier", multiplierText, palette, chromeAlpha);
+
+  ctx.save();
+  roundedRect(ctx, card.x + 0.5, card.y + 0.5, card.w - 1, card.h - 1, card.r);
+  ctx.strokeStyle = "rgba(255,255,255,0.12)";
+  ctx.lineWidth = 1.25;
+  ctx.stroke();
+  ctx.restore();
 
   return canvas.toBuffer("image/png");
 }
@@ -658,7 +738,8 @@ async function renderRankAnimatedGifBuffer(data) {
       runFfmpeg([
         "-y",
         "-i", avatarPath,
-        "-vf", "fps=10,scale=122:122:flags=lanczos",
+        "-vf",
+        "fps=10,scale=122:122:force_original_aspect_ratio=increase:flags=lanczos,crop=122:122",
         "-frames:v", "12",
         avatarFramesPattern,
       ]);
@@ -668,7 +749,8 @@ async function renderRankAnimatedGifBuffer(data) {
       runFfmpeg([
         "-y",
         "-i", wallpaperPath,
-        "-vf", "fps=10,scale=976:276:flags=lanczos",
+        "-vf",
+        "fps=10,scale=976:276:force_original_aspect_ratio=increase:flags=lanczos,crop=976:276",
         "-frames:v", "12",
         wallpaperFramesPattern,
       ]);

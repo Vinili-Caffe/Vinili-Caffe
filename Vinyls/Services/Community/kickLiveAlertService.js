@@ -14,6 +14,7 @@ const TOKEN_REFRESH_BUFFER_MS = 120_000;
 const KICK_TOKEN_URL = "https://id.kick.com/oauth/token";
 const KICK_API_CHANNELS_URL = "https://api.kick.com/public/v1/channels";
 const KICK_PUBLIC_LOOKUP_SCRIPT = path.join(__dirname, "../../Scripts/kickChannelLookup.py");
+const KICK_VIDEOS_LOOKUP_SCRIPT = path.join(__dirname, "../../Scripts/kickVideosLookup.py");
 const KICK_BRAND_COLOR = "#53FC18";
 const loopStarted = new WeakSet();
 let tokenCache = { accessToken: "", expiresAt: 0 };
@@ -127,6 +128,7 @@ function normalizeLiveStreamFromOfficial(channel) {
   return {
     id,
     slug,
+    kind: "live",
     title: String(channel?.stream_title || "Diretta in corso").trim() || "Diretta in corso",
     category: String(channel?.category?.name || "").trim(),
     viewer_count: Math.max(0, Math.floor(Number(stream.viewer_count) || 0)),
@@ -138,7 +140,10 @@ function normalizeLiveStreamFromOfficial(channel) {
 function normalizeLiveStreamFromPublic(payload) {
   const livestream = payload?.livestream && typeof payload.livestream === "object" ? payload.livestream : null;
   if (!livestream || !livestream.id) return null;
-  if (livestream.is_live === false) return null;
+  if (livestream.is_live !== true && livestream.is_live !== 1 && livestream.is_live !== "true") {
+    // Kick lascia playback_url anche offline → non trattare come live.
+    return null;
+  }
   const slug = normalizeSlug(payload?.slug || payload?.user?.username);
   const categories = Array.isArray(livestream.categories) ? livestream.categories : [];
   const categoryName = String(categories[0]?.name || livestream.category?.name || "").trim();
@@ -147,11 +152,13 @@ function normalizeLiveStreamFromPublic(payload) {
   return {
     id: String(livestream.id),
     slug,
+    kind: "live",
     title: String(livestream.session_title || livestream.title || "Diretta in corso").trim() || "Diretta in corso",
     category: categoryName,
     viewer_count: Math.max(0, Math.floor(Number(livestream.viewer_count) || 0)),
     thumbnail_url: thumb,
     started_at: String(livestream.created_at || livestream.start_time || "").trim() || null,
+    playback_url: String(payload?.playback_url || "").trim() || null,
   };
 }
 
@@ -211,6 +218,70 @@ async function fetchLiveStreamPublic(slug) {
     throw new Error(`Kick public channel HTTP ${parsed?.status || "?"} ${detail}`.trim());
   }
   return normalizeLiveStreamFromPublic(parsed.data || {});
+}
+
+function normalizeVodFromPublic(channelSlug, video) {
+  if (!video || typeof video !== "object") return null;
+  if (video.is_live === true) return null;
+  const vodSlug = String(video.slug || "").trim();
+  const id = String(video.id || "").trim();
+  const source = String(video.source || "").trim();
+  if (!id || !source) return null;
+  const channel = normalizeSlug(channelSlug);
+  const categories = Array.isArray(video.categories) ? video.categories : [];
+  const categoryName = String(categories[0]?.name || video.category?.name || "").trim();
+  const thumb =
+    String(video?.thumbnail?.src || video?.thumbnail?.url || video?.thumbnail || "").trim() || null;
+  const views = Math.max(0, Math.floor(Number(video.views ?? video.viewer_count) || 0));
+  return {
+    id: `vod:${id}`,
+    slug: channel,
+    kind: "vod",
+    title: String(video.session_title || video.title || "Ultimo VOD").trim() || "Ultimo VOD",
+    category: categoryName,
+    viewer_count: views,
+    thumbnail_url: thumb,
+    started_at: String(video.created_at || video.start_time || "").trim() || null,
+    playback_url: source,
+    vod_slug: vodSlug || null,
+    duration_ms: Math.max(0, Math.floor(Number(video.duration) || 0)),
+    url: channel && vodSlug ? `https://kick.com/${channel}/videos/${encodeURIComponent(vodSlug)}` : channel ? `https://kick.com/${channel}` : "https://kick.com/",
+  };
+}
+
+async function fetchLatestVodPublic(slug) {
+  const key = normalizeSlug(slug);
+  if (!key) return null;
+  let stdout = "";
+  try {
+    const result = await execFileAsync("python3", [KICK_VIDEOS_LOOKUP_SCRIPT, key], {
+      timeout: 25_000,
+      maxBuffer: 4 * 1024 * 1024,
+      windowsHide: true,
+    });
+    stdout = String(result?.stdout || "").trim();
+  } catch (err) {
+    stdout = String(err?.stdout || "").trim();
+    if (!stdout) {
+      throw new Error(`Kick videos lookup failed: ${err?.message || err}`);
+    }
+  }
+  let parsed = null;
+  try {
+    parsed = JSON.parse(stdout);
+  } catch {
+    throw new Error(`Kick videos lookup invalid JSON: ${stdout.slice(0, 180)}`);
+  }
+  if (!parsed?.ok) {
+    const detail = String(parsed?.error || parsed?.status || "unknown").slice(0, 240);
+    throw new Error(`Kick videos HTTP ${parsed?.status || "?"} ${detail}`.trim());
+  }
+  const rows = Array.isArray(parsed.data) ? parsed.data : [];
+  for (const row of rows) {
+    const vod = normalizeVodFromPublic(key, row);
+    if (vod) return vod;
+  }
+  return null;
 }
 
 async function fetchLiveStreams(cfg) {
@@ -384,7 +455,87 @@ async function setVoiceChannelStatus(client, channelId, status, reason = "Kick l
     }
     return true;
   } catch (err) {
-    global.logger?.warn?.("[KICK LIVE] voice status failed:", chId, err?.message || err);
+    const msg = String(err?.message || err || "");
+    // Stage / forum / ecc.: l'API voice-status non è supportata — non spammiamo i log.
+    if (/Cannot execute action on this channel type/i.test(msg) || Number(err?.code) === 50024) {
+      return false;
+    }
+    global.logger?.warn?.("[KICK LIVE] voice status failed:", chId, msg);
+    return false;
+  }
+}
+
+function isStageChannel(channel) {
+  if (!channel) return false;
+  if (typeof channel.isStageChannel === "function" && channel.isStageChannel()) return true;
+  return Number(channel.type) === 13;
+}
+
+function channelSupportsVoiceStatus(channel) {
+  if (!channel?.isVoiceBased?.()) return false;
+  // GuildStageVoice: rename ok, voice-status no → usiamo il topic Stage.
+  if (isStageChannel(channel)) return false;
+  return true;
+}
+
+/**
+ * Topic Stage (max 120). ON: crea/aggiorna Stage Instance; OFF: chiude l'istanza.
+ */
+async function syncKickStageTopic(guild, channel, topic, live) {
+  if (!guild?.stageInstances || !isStageChannel(channel)) return false;
+  const channelId = String(channel.id || "").trim();
+  if (!channelId) return false;
+  const topicText = String(topic || "").trim().slice(0, 120);
+
+  try {
+    let existing = channel.stageInstance || null;
+    if (!existing && guild.stageInstances.cache?.size) {
+      existing =
+        guild.stageInstances.cache.find((row) => String(row?.channelId || "") === channelId) || null;
+    }
+    if (!existing) {
+      const fetched = await guild.stageInstances.fetch(channelId).catch(() => null);
+      if (fetched) existing = fetched;
+    }
+
+    if (live) {
+      if (!topicText) return false;
+      if (existing) {
+        if (String(existing.topic || "") === topicText) return true;
+        if (typeof existing.setTopic === "function") {
+          await existing.setTopic(topicText);
+        } else {
+          await guild.stageInstances.edit(channelId, { topic: topicText });
+        }
+        return true;
+      }
+      try {
+        await guild.stageInstances.create(channelId, {
+          topic: topicText,
+          privacyLevel: 2, // GuildOnly
+        });
+      } catch (createErr) {
+        const msg = String(createErr?.message || createErr || "");
+        // Istanza già attiva (avviata a mano): aggiorna solo il topic.
+        if (/already|exist/i.test(msg) || Number(createErr?.code) === 150000 || Number(createErr?.code) === 150006) {
+          await guild.stageInstances.edit(channelId, { topic: topicText });
+        } else {
+          throw createErr;
+        }
+      }
+      return true;
+    }
+
+    if (existing) {
+      if (typeof existing.delete === "function") {
+        await existing.delete();
+      } else {
+        await guild.stageInstances.delete(channelId);
+      }
+    }
+    return true;
+  } catch (err) {
+    global.logger?.warn?.("[KICK LIVE] stage topic failed:", channelId, err?.message || err);
     return false;
   }
 }
@@ -402,15 +553,19 @@ async function updateStreamVoiceChannelById(client, channelId, streamer, mode) {
   const name = isOn
     ? String(streamer.voiceNameOn || "").trim()
     : String(streamer.voiceNameOff || "").trim();
-  if (name) {
+  if (name && String(channel.name || "") !== name.slice(0, 100)) {
     await channel.setName(name.slice(0, 100), `Kick live ${isOn ? "ON" : "OFF"}`).catch((err) => {
       global.logger?.warn?.("[KICK LIVE] rename failed:", channelId, err?.message || err);
     });
   }
-  if (isOn) {
-    await setVoiceChannelStatus(client, channelId, streamer.voiceStatusOn, "Kick live ON");
-  } else {
-    await setVoiceChannelStatus(client, channelId, "", "Kick live OFF");
+  if (isStageChannel(channel)) {
+    await syncKickStageTopic(guild, channel, streamer.voiceStatusOn, isOn);
+  } else if (channelSupportsVoiceStatus(channel)) {
+    if (isOn) {
+      await setVoiceChannelStatus(client, channelId, streamer.voiceStatusOn, "Kick live ON");
+    } else {
+      await setVoiceChannelStatus(client, channelId, "", "Kick live OFF");
+    }
   }
   return { ok: true, channelId, mode: isOn ? "on" : "off" };
 }
@@ -447,6 +602,8 @@ async function applyStreamerOnlineVoiceState(client, streamer, prev) {
   if (!configuredChannelId) return { ok: false, reason: "missing_channel" };
   const previousChannelId = String(prev?.voiceChannelId || "").trim();
   if (prev?.voiceChannelMode === "on" && previousChannelId === configuredChannelId) {
+    // Già ON: riallinea comunque il topic Stage (es. palco già avviato a mano).
+    await updateStreamVoiceChannelById(client, configuredChannelId, streamer, "on");
     return { ok: true, skipped: true, reason: "already_on" };
   }
   if (prev?.voiceChannelMode === "on" && previousChannelId && previousChannelId !== configuredChannelId) {
@@ -555,6 +712,10 @@ module.exports = {
   runKickLiveAlertPoll,
   evaluateLiveAnnouncementDecision,
   resolveConfig,
+  fetchLiveStreams,
+  fetchLiveStreamPublic,
+  fetchLatestVodPublic,
   buildAnnouncementContent,
   normalizeSlug,
+  updateStreamVoiceChannelById,
 };

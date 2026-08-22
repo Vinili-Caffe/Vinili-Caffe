@@ -221,6 +221,24 @@ function boostAnnounceLooksLikeBoost(text) {
   );
 }
 
+/** Un embed "doppio" copre 2 slot; uno singolo ne copre 1. */
+function boostAnnounceSlotWeightFromText(text) {
+  const t = String(text || "");
+  if (!boostAnnounceLooksLikeBoost(t)) return 0;
+  if (/doppio\s+boost/i.test(t) || /PER IL DOPPIO BOOST/i.test(t)) return 2;
+  return 1;
+}
+
+function messageBoostAnnounceSlotWeight(message, uid, botId) {
+  if (!messageMatchesBotBoostAnnounce(message, uid, botId)) return 0;
+  const embeds = Array.isArray(message.embeds) ? message.embeds : [];
+  const embedTexts = embeds.map((embed) =>
+    [embed?.title || "", embed?.description || "", embed?.footer?.text || ""].join("\n"),
+  );
+  const text = [message.content || "", ...embedTexts].join("\n");
+  return boostAnnounceSlotWeightFromText(text);
+}
+
 function messageMatchesBotBoostAnnounce(message, uid, botId) {
   if (botId && String(message?.author?.id || "") !== botId) return false;
   if (!botId && !message?.author?.bot) return false;
@@ -248,10 +266,9 @@ async function countRecentBotBoostAnnouncesForUser(channel, userId, opts = {}) {
   for (const message of recent.values()) {
     const ts = Number(message?.createdTimestamp || 0);
     if (!ts || ts < sinceMs) continue;
-    if (!messageMatchesBotBoostAnnounce(message, uid, botId)) continue;
-    count += 1;
+    count += messageBoostAnnounceSlotWeight(message, uid, botId);
   }
-  return count;
+  return Math.min(2, count);
 }
 
 async function countRecentBotBoostAnnouncesForUserMulti(channel, userId, thresholds = {}) {
@@ -275,12 +292,17 @@ async function countRecentBotBoostAnnouncesForUserMulti(channel, userId, thresho
   for (const message of recent.values()) {
     const ts = Number(message?.createdTimestamp || 0);
     if (!ts) continue;
-    if (!messageMatchesBotBoostAnnounce(message, uid, botId)) continue;
-    if (ts >= sinceMs) since += 1;
-    if (ts >= periodSinceMs) period += 1;
-    if (ts >= lookbackSinceMs) lookback += 1;
+    const w = messageBoostAnnounceSlotWeight(message, uid, botId);
+    if (!w) continue;
+    if (ts >= sinceMs) since += w;
+    if (ts >= periodSinceMs) period += w;
+    if (ts >= lookbackSinceMs) lookback += w;
   }
-  return { since, period, lookback };
+  return {
+    since: Math.min(2, since),
+    period: Math.min(2, period),
+    lookback: Math.min(2, lookback),
+  };
 }
 
 async function resolveBoostAnnounceSyncState(guild, userId, channel, opts = {}) {
@@ -841,25 +863,52 @@ async function sendBoostEmbeds(channel, member, times, boostCount, priorAnnounce
   if (!channel?.isTextBased?.()) return 0;
   const safeTimes = Math.max(0, Number(times || 0));
   const start = Math.max(0, Math.floor(Number(priorAnnouncedSlots || 0)));
+  if (safeTimes <= 0) return 0;
+
+  const endExclusive = start + safeTimes;
+  // Arrivando al 2° slot (insieme da 0→2 OPPURE 2° boost dopo un po'):
+  // manda SOLO l'embed doppio, mai di nuovo quello da 1 boost.
+  if (start < 2 && endExclusive >= 2) {
+    const embed = buildBoostEmbedSecond(member, Math.max(1, Number(boostCount || 0)));
+    const sent = await channel
+      .send({
+        content: buildBoostAnnounceContent(member.user),
+        embeds: [embed],
+      })
+      .catch((err) => {
+        global.logger?.warn?.(
+          "[guildMemberUpdate] boost embed send failed:",
+          member?.id,
+          err?.message || err,
+        );
+        return null;
+      });
+    if (!sent?.id) return 0;
+    return Math.max(0, 2 - start);
+  }
+
   let sentCount = 0;
   for (let i = 0; i < safeTimes; i += 1) {
     const slotIndex = start + i;
     const remainingInBatch = safeTimes - i - 1;
     const countForEmbed = Math.max(1, Number(boostCount || 0) - remainingInBatch);
-    const embed = slotIndex >= 1
-      ? buildBoostEmbedSecond(member, countForEmbed)
-      : buildBoostEmbed(member, countForEmbed);
-    const sent = await channel.send({
-      content: buildBoostAnnounceContent(member.user),
-      embeds: [embed],
-    }).catch((err) => {
-      global.logger?.warn?.(
-        "[guildMemberUpdate] boost embed send failed:",
-        member?.id,
-        err?.message || err,
-      );
-      return null;
-    });
+    const embed =
+      slotIndex >= 1
+        ? buildBoostEmbedSecond(member, countForEmbed)
+        : buildBoostEmbed(member, countForEmbed);
+    const sent = await channel
+      .send({
+        content: buildBoostAnnounceContent(member.user),
+        embeds: [embed],
+      })
+      .catch((err) => {
+        global.logger?.warn?.(
+          "[guildMemberUpdate] boost embed send failed:",
+          member?.id,
+          err?.message || err,
+        );
+        return null;
+      });
     if (!sent?.id) break;
     sentCount += 1;
     if (i + 1 < safeTimes) await sleep(350);
@@ -1846,8 +1895,11 @@ async function recoverMissingBoostEmbedsForUser(guild, userId, opts = {}) {
     limit: 100,
   }).catch(() => ({ since: 0, period: 0, lookback: 0 }));
   const channelEmbedsInPeriod = Math.max(0, Number(embedCounts.period || 0));
-  if (channelEmbedsInPeriod >= slotTarget) {
-    await syncAnnouncedBoostSlotsFromChannelCount(gid, uid, Math.max(announcedSlots, channelEmbedsInPeriod));
+  // Slot già contati: canale + stato persistito (il 2° boost "dopo un po'" non deve
+  // ripartire da 0 e rimandare anche l'embed da 1 boost).
+  const priorSlots = Math.max(channelEmbedsInPeriod, announcedSlots);
+  if (priorSlots >= slotTarget) {
+    await syncAnnouncedBoostSlotsFromChannelCount(gid, uid, Math.max(announcedSlots, priorSlots));
     await markBoostAnnounceHandledIfSynced(guild, uid, boostAnnounceChannel, {
       sinceMs,
       nativeLookbackMs,
@@ -1860,14 +1912,14 @@ async function recoverMissingBoostEmbedsForUser(guild, userId, opts = {}) {
   const recoveryStartedAt = Number.isFinite(Number(opts.startedAt)) ? Number(opts.startedAt) : 0;
   const recentRecovery =
     recoveryStartedAt > 0 && Date.now() - recoveryStartedAt <= nativeLookbackMs;
-  let extraMissing = Math.max(0, slotTarget - channelEmbedsInPeriod);
+  let extraMissing = Math.max(0, slotTarget - priorSlots);
   if (recentRecovery) {
     if (forcedSlots > 0) {
-      extraMissing = Math.max(extraMissing, Math.max(0, forcedSlots - channelSinceStart));
+      extraMissing = Math.max(extraMissing, Math.max(0, forcedSlots - Math.max(channelSinceStart, priorSlots)));
     }
-    extraMissing = Math.max(extraMissing, Math.max(0, nativeBoostEvents - channelInLookback));
+    extraMissing = Math.max(extraMissing, Math.max(0, nativeBoostEvents - Math.max(channelInLookback, priorSlots)));
   }
-  extraMissing = Math.min(extraMissing, Math.max(0, slotTarget - channelEmbedsInPeriod));
+  extraMissing = Math.min(extraMissing, Math.max(0, slotTarget - priorSlots));
   if (extraMissing <= 0) {
     await markBoostAnnounceHandledIfSynced(guild, uid, boostAnnounceChannel, {
       sinceMs,
@@ -1882,7 +1934,7 @@ async function recoverMissingBoostEmbedsForUser(guild, userId, opts = {}) {
   }
   boostAnnounceSendLocks.add(boostKey);
   try {
-    if (channelSinceStart >= nativeBoostEvents && forcedSlots <= 0 && channelEmbedsInPeriod >= slotTarget) {
+    if (channelSinceStart >= nativeBoostEvents && forcedSlots <= 0 && priorSlots >= slotTarget) {
       await markBoostAnnounceHandledIfSynced(guild, uid, boostAnnounceChannel, {
         sinceMs,
         nativeLookbackMs,
@@ -1893,11 +1945,11 @@ async function recoverMissingBoostEmbedsForUser(guild, userId, opts = {}) {
     await addPerkRoleIfPossible(member).catch(() => { });
     const maxSend = Math.max(0, Math.floor(Number(opts.maxSend || 0)));
     const toSend = maxSend > 0 ? Math.min(extraMissing, maxSend) : extraMissing;
-    const sentNow = await sendBoostEmbeds(boostAnnounceChannel, member, toSend, latestCount, channelEmbedsInPeriod);
+    const sentNow = await sendBoostEmbeds(boostAnnounceChannel, member, toSend, latestCount, priorSlots);
     if (sentNow <= 0) {
       return { ok: true, sent: 0, reason: "send_failed" };
     }
-    await trackBoostSlotsAnnouncedAndMaybeGrantDoubleBooster(member, gid, channelEmbedsInPeriod + sentNow);
+    await trackBoostSlotsAnnouncedAndMaybeGrantDoubleBooster(member, gid, priorSlots + sentNow);
     rememberBoostAnnounce(boostKey, latestCount, member.premiumSinceTimestamp);
     await markBoostAnnounceHandledIfSynced(guild, uid, boostAnnounceChannel, {
       sinceMs,

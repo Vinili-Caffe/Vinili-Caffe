@@ -93,7 +93,7 @@ function listCustomPrivateVoiceChannelsByOwner(guild, ownerId) {
   const Connect = PermissionsBitField.Flags.Connect;
   const list = [];
   for (const ch of guild.channels.cache.values()) {
-    if (!ch?.isVoiceBased?.()) continue;
+    if (ch.type !== ChannelType.GuildVoice) continue;
     if (!privateCategoryIds.has(String(ch.parentId || ""))) continue;
     const ow = ch.permissionOverwrites?.cache?.get(uid);
     if (!ow?.allow) continue;
@@ -112,7 +112,7 @@ function discoverCustomPrivateVoiceOwnersFromGuild(guild) {
   const MoveMembers = PermissionsBitField.Flags.MoveMembers;
   const Connect = PermissionsBitField.Flags.Connect;
   for (const ch of guild.channels.cache.values()) {
-    if (!ch?.isVoiceBased?.()) continue;
+    if (ch.type !== ChannelType.GuildVoice) continue;
     if (!privateCategoryIds.has(String(ch.parentId || ""))) continue;
     const overwrites = ch.permissionOverwrites?.cache;
     if (!overwrites) continue;
@@ -209,7 +209,7 @@ function parseCustomVocName(rawName) {
   const name = String(rawName || "").trim();
   if (!name) return { emoji: "", baseName: "privata" };
 
-  const separators = ["\uFE32", "︲", "|"];
+  const separators = ["\uFE32", "︲", "|", "│", "｜", "⠂", "•", "·", "—", "–"];
   for (const separator of separators) {
     if (!name.includes(separator)) continue;
     const parts = name.split(separator);

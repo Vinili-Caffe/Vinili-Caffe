@@ -1079,7 +1079,18 @@ async function handleTicketInteraction(interaction) {
           if (logChannel?.isTextBased?.()) {
             const logMessage = await logChannel.messages.fetch(ratedTicket.closeLogMessageId).catch(() => null);
             if (logMessage) {
-              const updatedEmbed = runtimeBuildTicketClosedEmbed({ ...ratedTicket.toObject(), guildName: ticketGuild?.name || interaction.client.guilds.cache.get(ratedTicket.guildId)?.name || "Ticket System", guildIconURL: ticketGuild?.iconURL?.({ size: 128 }) || null, });
+              const ratedPlain =
+                typeof ratedTicket.toObject === "function"
+                  ? ratedTicket.toObject({ virtuals: false })
+                  : { ...ratedTicket };
+              const updatedEmbed = runtimeBuildTicketClosedEmbed({
+                ...ratedPlain,
+                guildName:
+                  ticketGuild?.name ||
+                  interaction.client.guilds.cache.get(ratedTicket.guildId)?.name ||
+                  "Ticket System",
+                guildIconURL: ticketGuild?.iconURL?.({ size: 128 }) || null,
+              });
               await logMessage.edit({ embeds: [updatedEmbed] }).catch(() => { });
             }
           }

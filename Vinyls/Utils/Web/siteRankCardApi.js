@@ -57,7 +57,12 @@ async function getRankCardCustomization(client, payload) {
     status: 200,
     userId: resolved.userId,
     username: String(resolved.member?.user?.username || "").trim(),
-    displayName: String(resolved.member?.user?.username || "Utente").trim() || "Utente",
+    displayName: String(
+      resolved.member?.displayName ||
+        resolved.member?.user?.globalName ||
+        resolved.member?.user?.username ||
+        "Utente"
+    ).trim() || "Utente",
     avatarUrl: resolvePreferredAvatarUrl(resolved.member),
     theme,
     defaults: DEFAULT_RANK_CARD_THEME,

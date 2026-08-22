@@ -59,6 +59,48 @@
     }
   }
 
+  var PENDING_NAV_CACHE = "vc-pending-nav-v1";
+  var PENDING_NAV_URL = "/__vc/pending-nav";
+
+  function pendingNavToPath(data) {
+    var url = String((data && data.url) || "").trim();
+    var tid = String((data && data.ticketId) || "").trim();
+    if (!url && /^[a-f0-9]{24}$/i.test(tid)) {
+      url = "/tickets/?ticketId=" + encodeURIComponent(tid) + "#" + tid;
+    }
+    if (!url) return "";
+    try {
+      var u = new URL(url, window.location.origin);
+      if (u.origin !== window.location.origin) return "";
+      return u.pathname + u.search + u.hash;
+    } catch (e) {
+      return "";
+    }
+  }
+
+  function readPendingNavPath() {
+    if (!("caches" in window)) return Promise.resolve("");
+    return caches
+      .open(PENDING_NAV_CACHE)
+      .then(function (cache) {
+        return cache.match(PENDING_NAV_URL).then(function (res) {
+          if (!res) return "";
+          return res.json().then(function (data) {
+            var at = Number(data && data.at) || 0;
+            if (at && Date.now() - at > 120000) {
+              return cache.delete(PENDING_NAV_URL).then(function () {
+                return "";
+              });
+            }
+            return pendingNavToPath(data);
+          });
+        });
+      })
+      .catch(function () {
+        return "";
+      });
+  }
+
   function maybeRestoreFromHome() {
     if (!isStandalonePwa()) return false;
     var here = currentPath();
@@ -86,7 +128,27 @@
     return false;
   }
 
-  if (!maybeRestoreFromHome() && isStandalonePwa()) saveResume(currentPath());
+  // Su apertura da notifica iOS apre spesso start_url (/). Il resume PWA
+  // non deve vincere sulla destinazione stashed dal service worker.
+  if (isStandalonePwa() && currentPath() === "/") {
+    readPendingNavPath().then(function (pendingPath) {
+      if (pendingPath) {
+        try {
+          var hereFull = window.location.pathname + window.location.search + window.location.hash;
+          if (hereFull !== pendingPath) {
+            window.location.replace(pendingPath);
+            return;
+          }
+        } catch (eP) {
+          window.location.replace(pendingPath);
+          return;
+        }
+      }
+      if (!maybeRestoreFromHome()) saveResume(currentPath());
+    });
+  } else if (isStandalonePwa()) {
+    saveResume(currentPath());
+  }
 
   function isSameOriginHref(href) {
     try {
@@ -323,7 +385,7 @@
       }
       var legacyCustomizeMatch = String(window.location.pathname || "").match(/^\/users\/(\d{17,20})\/customize\/?$/);
       if (legacyCustomizeMatch) {
-        window.location.replace("/user/customize/?id=" + encodeURIComponent(legacyCustomizeMatch[1]));
+        window.location.replace("/user/personalizza/?id=" + encodeURIComponent(legacyCustomizeMatch[1]) + "&target=rank");
         return true;
       }
       var m = String(window.location.pathname || "").match(/^\/users?\/(\d{17,20})\/?$/);
@@ -954,26 +1016,12 @@
 })();
 (function () {
   function initHeaderScrollState() {
-    var navShell = document.querySelector("header .vc-nav-shell.vc-glass");
+    var navShell = document.querySelector("header .vc-nav-shell");
     if (!navShell) return;
-    var ticking = false;
-
-    function applyScrollState() {
-      ticking = false;
-      navShell.classList.toggle("vc-nav-shell--scrolled", window.scrollY > 8);
-    }
-
-    applyScrollState();
-    window.addEventListener(
-      "scroll",
-      function () {
-        if (ticking) return;
-        ticking = true;
-        window.requestAnimationFrame(applyScrollState);
-      },
-      { passive: true },
-    );
-    window.addEventListener("resize", applyScrollState, { passive: true });
+    // Niente toggle scrolled: ogni cambio classe rieseguiva paint/blur e flashava un rettangolo.
+    try {
+      navShell.classList.remove("vc-nav-shell--scrolled");
+    } catch (e0) {}
   }
 
   if (document.readyState === "loading") {
@@ -2128,7 +2176,7 @@
     pendingNavPollTimer = setInterval(function () {
       n += 1;
       consumePendingNavFromSwCache().then(function (moved) {
-        if (moved || n >= 16) {
+        if (moved || n >= 40) {
           try {
             clearInterval(pendingNavPollTimer);
           } catch (eC) {}
@@ -2779,6 +2827,10 @@
             });
             return;
           }
+          rememberRecentOsPush(String(p.id || "").trim());
+          rememberRecentOsPush(String(p.messageId || "").trim());
+          rememberRecentOsPush(String(p.ticketId || "").trim());
+          setPushSubActive(true);
           if (isWatchingTicketChat(p.ticketId, p.openUrl)) {
             var seenId = String(p.id || "").trim();
             if (seenId) {
@@ -2787,7 +2839,6 @@
             }
             return;
           }
-          rememberRecentOsPush(String(p.id || "").trim());
           playNotifSound();
           pulseNotifSummary();
           return;
@@ -2980,17 +3031,65 @@
     recentOsPushAt[sid] = Date.now();
   }
 
+  function recentlyGotOsPush(item) {
+    var nowMs = Date.now();
+    var ids = [
+      String((item && item.id) || "").trim(),
+      String((item && item.messageId) || "").trim(),
+      String((item && item.ticketId) || "").trim(),
+    ];
+    for (var i = 0; i < ids.length; i += 1) {
+      var sid = ids[i];
+      if (!sid) continue;
+      if (recentOsPushAt[sid] && nowMs - recentOsPushAt[sid] < 60000) return true;
+    }
+    return false;
+  }
+
+  function clientOwnsOsBanner() {
+    // Con Web Push attivo lo SW mostra già la notifica OS.
+    // Un secondo showNotification dal sync WS = doppione su PWA/PC.
+    if (pushSubActive === true) return false;
+    try {
+      if (
+        pushSubActive !== false &&
+        "serviceWorker" in navigator &&
+        navigator.serviceWorker.controller &&
+        typeof Notification !== "undefined" &&
+        Notification.permission === "granted"
+      ) {
+        // Stato push ancora sconosciuto: meglio non rischiare il doppione.
+        return false;
+      }
+    } catch (eOwn) {}
+    return true;
+  }
+
   function showNativeOsBanner(item) {
     if (!item || item.read) return;
     if (isWatchingTicketChat(item.ticketId, item.openUrl)) return;
     if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+    if (!clientOwnsOsBanner()) return;
+    if (recentlyGotOsPush(item)) return;
+    try {
+      if (document.visibilityState === "visible" && document.hasFocus()) return;
+    } catch (eFocus) {}
     var sid = String(item.id || "").trim();
+    var messageId = String(item.messageId || "").trim();
+    var ticketId = String(item.ticketId || "").trim();
     var nowMs = Date.now();
-    if (sid && recentOsPushAt[sid] && nowMs - recentOsPushAt[sid] < 12000) return;
     if (sid) recentOsPushAt[sid] = nowMs;
+    if (messageId) recentOsPushAt[messageId] = nowMs;
     var title = String(item.title || "Vinili & Caffè").replace(/\s+/g, " ").trim().slice(0, 120) || "Nuova notifica";
     var body = String(item.body || "").trim().slice(0, 500);
-    var tag = sid ? "vc-site-" + sid : "vc-site-" + String(nowMs);
+    // Stesso schema tag dello SW, così un eventuale secondo show sostituisce invece di duplicare.
+    var tag = messageId
+      ? "vc-site-msg-" + messageId
+      : ticketId && sid
+        ? "vc-site-ticket-" + ticketId + "-" + sid
+        : sid
+          ? "vc-site-" + sid
+          : "vc-site-" + String(nowMs);
     var opts = {
       body: body || "Nuova notifica",
       tag: tag,
@@ -3003,7 +3102,8 @@
         openUrl: String(item.openUrl || "/").trim() || "/",
         kind: String(item.kind || "info"),
         id: sid,
-        ticketId: String(item.ticketId || "").trim(),
+        ticketId: ticketId,
+        messageId: messageId,
       },
     };
     function viaPage() {
@@ -4832,6 +4932,8 @@
         at: fr.at,
         read: fr.read,
         openUrl: fr.openUrl,
+        ticketId: fr.ticketId,
+        messageId: fr.messageId,
       };
       // Preferisci "voto completato" rispetto a un promemoria più vecchio nella stessa sync.
       if (!toastRow || fr.kind === "vote") {
@@ -6296,7 +6398,7 @@ function vcPageAssetVer() {
     if (document.querySelector('script[src*="vc-site-polish.js"]')) return;
   } catch (e0) {}
   var s = document.createElement("script");
-  s.src = "/js/vc-site-polish.js?v=" + vcPageAssetVer();
+  s.src = "/js/vc-site-polish.js?v=20260820fxalign1";
   s.defer = true;
   (document.body || document.documentElement).appendChild(s);
 })();
@@ -6349,6 +6451,114 @@ function vcPageAssetVer() {
     if (n < 1) n = 1;
     if (n > tp) n = tp;
     return n;
+  }
+
+  function headerOffsetPx() {
+    try {
+      var bar = document.querySelector(".vc-header-bar") || document.querySelector("header");
+      var h = bar ? bar.getBoundingClientRect().height : 72;
+      return Math.round(Math.max(64, h + 12));
+    } catch (eOff) {
+      return 88;
+    }
+  }
+
+  function resolveScrollAnchor(root) {
+    if (!root) return null;
+    try {
+      var custom = String(root.getAttribute("data-pager-scroll") || "").trim();
+      if (custom) {
+        var bySel = document.querySelector(custom);
+        if (bySel) return bySel;
+      }
+      var wrapped = root.closest("[data-pager-anchor]");
+      if (wrapped) return wrapped;
+      var scope = root.closest("main") || document.body;
+      if (!scope) return root;
+      var candidates = scope.querySelectorAll(
+        [
+          "#vc-ul-toolbar",
+          "#vc-ul-board-tabs",
+          "#vc-ul-grid",
+          "#vc-roles-toolbar",
+          "#vc-roles-grid",
+          "#vc-reviews-server-list",
+          "#vc-suggestions-list",
+          "[data-pager-list]",
+          ".vc-wt-list",
+          ".vc-tprof-list",
+          ".vc-dash-table-wrap",
+          "#vc-page-content",
+        ].join(",")
+      );
+      var pagerY =
+        root.getBoundingClientRect().top + (window.pageYOffset || document.documentElement.scrollTop || 0);
+      var best = null;
+      for (var i = 0; i < candidates.length; i++) {
+        var c = candidates[i];
+        if (!c || root.contains(c)) continue;
+        var y = c.getBoundingClientRect().top + (window.pageYOffset || document.documentElement.scrollTop || 0);
+        if (y <= pagerY + 12) best = c;
+      }
+      return best || root;
+    } catch (eRes) {
+      return root;
+    }
+  }
+
+  function scrollToPagerContent(root, behavior) {
+    var anchor = resolveScrollAnchor(root);
+    if (!anchor) return;
+    try {
+      var y =
+        anchor.getBoundingClientRect().top +
+        (window.pageYOffset || document.documentElement.scrollTop || 0) -
+        headerOffsetPx();
+      if (y < 0) y = 0;
+      window.scrollTo({ top: y, behavior: behavior || "auto" });
+    } catch (eScroll) {
+      try {
+        anchor.scrollIntoView({ block: "start", behavior: behavior || "auto" });
+      } catch (e2) {}
+    }
+  }
+
+  function wrapHandlers(root, handlers, opts) {
+    handlers = handlers || {};
+    opts = opts || {};
+    if (opts.scroll === false) return handlers;
+    var behavior = opts.scrollBehavior || "auto";
+    function bump() {
+      window.requestAnimationFrame(function () {
+        scrollToPagerContent(root, behavior);
+      });
+      window.setTimeout(function () {
+        scrollToPagerContent(root, behavior);
+      }, 90);
+    }
+    var out = {};
+    if (typeof handlers.go === "function") {
+      out.go = function (page) {
+        var cur = Number(root.getAttribute("data-pager-page") || 1);
+        var next = Math.max(1, Number(page) || 1);
+        if (next === cur) return;
+        handlers.go(next);
+        bump();
+      };
+    }
+    if (typeof handlers.prev === "function") {
+      out.prev = function () {
+        handlers.prev();
+        bump();
+      };
+    }
+    if (typeof handlers.next === "function") {
+      out.next = function () {
+        handlers.next();
+        bump();
+      };
+    }
+    return out;
   }
 
   function html(page, total, opts) {
@@ -6422,11 +6632,12 @@ function vcPageAssetVer() {
     handlers.go(next);
   }
 
-  function bind(root, handlers) {
+  function bind(root, handlers, opts) {
     if (!root || !handlers) return;
     if (root.dataset.vcMiniPager === "1") return;
     root.dataset.vcMiniPager = "1";
     root.classList.add("vc-mini-pager");
+    var h = wrapHandlers(root, handlers, opts);
 
     root.addEventListener("click", function (ev) {
       var t = ev.target && ev.target.closest ? ev.target.closest("button, input") : null;
@@ -6453,16 +6664,16 @@ function vcPageAssetVer() {
       if (t.matches("[data-pager-prev]")) {
         if (t.disabled) return;
         var cur = Number(root.getAttribute("data-pager-page") || 1);
-        if (typeof handlers.prev === "function") handlers.prev();
-        else if (typeof handlers.go === "function") handlers.go(Math.max(1, cur - 1));
+        if (typeof h.prev === "function") h.prev();
+        else if (typeof h.go === "function") h.go(Math.max(1, cur - 1));
         return;
       }
       if (t.matches("[data-pager-next]")) {
         if (t.disabled) return;
         var curN = Number(root.getAttribute("data-pager-page") || 1);
         var tot = Number(root.getAttribute("data-pager-total") || 1);
-        if (typeof handlers.next === "function") handlers.next();
-        else if (typeof handlers.go === "function") handlers.go(Math.min(tot, curN + 1));
+        if (typeof h.next === "function") h.next();
+        else if (typeof h.go === "function") h.go(Math.min(tot, curN + 1));
       }
     });
 
@@ -6470,13 +6681,13 @@ function vcPageAssetVer() {
       if (!ev || ev.key !== "Enter") return;
       if (!ev.target || !ev.target.matches || !ev.target.matches("[data-pager-input]")) return;
       ev.preventDefault();
-      commit(root, handlers);
+      commit(root, h);
     });
     root.addEventListener("focusout", function (ev) {
       if (!ev || !ev.target || !ev.target.matches || !ev.target.matches("[data-pager-input]")) return;
       window.setTimeout(function () {
         if (root.contains(document.activeElement)) return;
-        commit(root, handlers);
+        commit(root, h);
       }, 0);
     });
   }
@@ -6496,6 +6707,7 @@ function vcPageAssetVer() {
     html: html,
     bind: bind,
     closeAll: closeAll,
+    scrollToContent: scrollToPagerContent,
     sync: function (root, page, total) {
       if (!root) return;
       var p = Math.max(1, Number(page) || 1);
@@ -6527,7 +6739,8 @@ function vcPageAssetVer() {
       root.setAttribute("data-pager-page", String(p));
       root.setAttribute("data-pager-total", String(tp));
       root.innerHTML = html(p, tp, opts);
-      if (handlers) bind(root, handlers);
+      if (handlers) bind(root, handlers, opts);
     },
   };
 })();
+

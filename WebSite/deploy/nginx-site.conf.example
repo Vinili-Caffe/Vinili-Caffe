@@ -6,15 +6,24 @@ server {
     server_name www.esempio.it esempio.it;
     root /var/www/viniliecaffe;
     index index.html;
-    location ~ ^/user/(\d{17,20})/personalizza/?$ {
+    location ~ "^/user/(\d{17,20})/personalizza/?$" {
         try_files /user/personalizza/index.html =404;
     }
-    location ~ ^/users/(\d{17,20})/customize/?$ {
-        try_files /user/customize/index.html =404;
+    location ~ "^/users/(\d{17,20})/customize/?$" {
+        return 301 /user/personalizza/?id=$1&target=rank;
     }
-    location ~ ^/users?/(\d{17,20})/?$ {
+    location = /user/customize { return 301 /user/personalizza/?target=rank; }
+    location = /user/customize/ { return 301 /user/personalizza/?target=rank; }
+    location = /user/custom { return 301 /user/personalizza/?target=primary; }
+    location = /user/custom/ {
+        # Keep ?target= via client stub; nginx can't easily rewrite query here.
+        try_files /user/custom/index.html =404;
+    }
+    location ~ "^/users?/(\d{17,20})/?$" {
         try_files /user/index.html =404;
     }
+    location = /users { return 301 /user/; }
+    location = /users/ { return 301 /user/; }
     # Stesso codice invite di site.config.json (path /api/v10/invites/CODICE?with_counts=true).
     location = /discord-invite.json {
         proxy_pass https://discord.com/api/v10/invites/viniliecaffe?with_counts=true;

@@ -234,9 +234,10 @@
       "all"
     ],
     "sources": [
-      "openrouter",
-      "local"
+      "local",
+      "openrouter"
     ],
+    "duplicateLookbackDays": 21,
     "maxCandidateAttempts": 80,
     "minOptions": 2,
     "maxOptions": 10,
@@ -713,11 +714,16 @@
     "eventDate": "2026-08-22",
     "eventEndDate": "2026-08-23",
     "startHour": 12,
-    "endHour": 10,
+    "endHour": 12,
     "roundDurationMs": 3300000,
     "rewardHousePoints": 25,
+    "rewardGaleoni": 50,
+    "slotIntervalMs": 3600000,
+    "spawnMinOffsetMs": 180000,
+    "spawnMaxOffsetMs": 3120000,
+    "hintBeforeExpiryMs": 300000,
     "eventsRoleId": "1507000390493798511",
-    "leaderboardChannelId": "1507685351102353448"
+    "leaderboardChannelId": "1481660281032675510"
   },
   "hogwartsPotions": {
     "enabled": true,
@@ -752,7 +758,7 @@
     "enabled": true,
     "pollIntervalSec": 90,
     "reannounceCooldownSec": 2700,
-    "streamVoiceChannelId": "1539417055391121440",
+    "streamVoiceChannelId": "1540424077255123096",
     "streamers": [
       {
         "slug": "d1uk",
@@ -764,6 +770,16 @@
         "voiceStatusOn": "Sono in live su https://kick.com/d1uk"
       }
     ]
+  },
+  "kickSubscriberSync": {
+    "enabled": true,
+    "streamerSlug": "d1uk",
+    "roleId": "1539781035360002089",
+    "moderatorRoleId": "1540420675313860618",
+    "graceHours": 48,
+    "moderatorGraceHours": 336,
+    "reconcileIntervalMs": 900000,
+    "redirectUri": "https://www.viniliecaffe.it/webhooks/site-kick-sub/oauth-callback"
   },
   "serverEconomy": {
     "enabled": false,

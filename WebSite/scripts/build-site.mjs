@@ -1103,6 +1103,57 @@ function parseSiteSponsorAdMs(value, endOfDay) {
   return Number.isFinite(ms) ? ms : NaN;
 }
 
+function buildKickLivePipBootHtml(cfg, opts) {
+  const pip = cfg.kickLivePip && typeof cfg.kickLivePip === "object" ? cfg.kickLivePip : null;
+  if (!pip || pip.enabled === false) return "";
+  const scriptPrefix = opts && typeof opts.scriptPrefix === "string" ? opts.scriptPrefix : "";
+  const scriptSrc = scriptPrefix ? `${scriptPrefix}js/vc-kick-pip.js` : "/js/vc-kick-pip.js";
+  const pollMs = Number.isFinite(Number(pip.pollIntervalMs)) ? Number(pip.pollIntervalMs) : 90000;
+  const previewLimitMs = Number.isFinite(Number(pip.previewLimitMs)) ? Number(pip.previewLimitMs) : 600000;
+  const payload = {
+    enabled: true,
+    apiUrl: String(pip.apiUrl || "/webhooks/site-kick-live").trim() || "/webhooks/site-kick-live",
+    apiUrlLocal: String(pip.apiUrlLocal || "").trim(),
+    subApiUrl: String(pip.subApiUrl || "/webhooks/site-kick-sub").trim() || "/webhooks/site-kick-sub",
+    pollIntervalMs: Math.max(30000, Math.min(180000, pollMs)),
+    previewLimitMs: Math.max(60000, Math.min(3600000, previewLimitMs)),
+  };
+  const json = JSON.stringify(payload).replace(/</g, "\\u003c");
+  return (
+    `    <script>window.__VC_KICK_PIP=${json};</script>\n` +
+    `    <script src="${scriptSrc}" defer></script>\n`
+  );
+}
+
+function applyKickLivePipToDist(distDir, cfg) {
+  const pip = cfg.kickLivePip && typeof cfg.kickLivePip === "object" ? cfg.kickLivePip : null;
+  if (!pip || pip.enabled === false) return;
+  const walk = (dir) => {
+    for (const name of fs.readdirSync(dir)) {
+      const p = path.join(dir, name);
+      const st = fs.statSync(p);
+      if (st.isDirectory()) {
+        walk(p);
+        continue;
+      }
+      if (!name.toLowerCase().endsWith(".html")) continue;
+      const html = fs.readFileSync(p, "utf8");
+      if (html.includes("window.__VC_KICK_PIP") || html.includes("js/vc-kick-pip.js")) continue;
+      if (html.includes("vc-seratafilm-page")) continue;
+      if (html.includes("vc-dashboard-page")) continue;
+      const scriptPrefix = relativeScriptPrefixFromHtml(p);
+      const boot = buildKickLivePipBootHtml(cfg, { scriptPrefix });
+      if (!boot) continue;
+      let next = html;
+      if (next.includes("</body>")) next = next.replace("</body>", `${boot}  </body>`);
+      else if (next.includes("</head>")) next = next.replace("</head>", `${boot}  </head>`);
+      else next += `\n${boot}`;
+      if (next !== html) fs.writeFileSync(p, next, "utf8");
+    }
+  };
+  walk(distDir);
+}
+
 function buildSiteSponsorAdBootHtml(cfg, opts) {
   const ad = cfg.siteSponsorAd && typeof cfg.siteSponsorAd === "object" ? cfg.siteSponsorAd : null;
   if (!ad || ad.enabled === false) return "";
@@ -1560,6 +1611,37 @@ function applyCursorTrailToDist(distDir, assetVersion = "") {
       if (html.includes("vc-cursor-trail.js")) continue;
       if (!html.includes("vc-landing.css") && !html.includes("discord-auth.js")) continue;
       const boot = `  <script src="/js/vc-cursor-trail.js${suffix}" defer></script>\n`;
+      let next = html;
+      if (next.includes("</body>")) next = next.replace("</body>", `${boot}  </body>`);
+      else if (next.includes("</head>")) next = next.replace("</head>", `${boot}  </head>`);
+      else next += `\n${boot}`;
+      if (next !== html) fs.writeFileSync(p, next, "utf8");
+    }
+  };
+  walk(distDir);
+}
+
+function applyTypeSfxToDist(distDir, assetVersion = "") {
+  const suffix = assetVersion ? `?v=${encodeURIComponent(String(assetVersion))}` : "";
+  const walk = (dir) => {
+    for (const name of fs.readdirSync(dir)) {
+      const p = path.join(dir, name);
+      const st = fs.statSync(p);
+      if (st.isDirectory()) {
+        walk(p);
+        continue;
+      }
+      if (!name.toLowerCase().endsWith(".html")) continue;
+      const html = fs.readFileSync(p, "utf8");
+      if (html.includes("vc-type-sfx.js")) continue;
+      if (
+        !html.includes("vc-landing.css") &&
+        !html.includes("vc-cursor-trail.js") &&
+        !html.includes("discord-auth.js")
+      ) {
+        continue;
+      }
+      const boot = `  <script src="/js/vc-type-sfx.js${suffix}" defer></script>\n`;
       let next = html;
       if (next.includes("</body>")) next = next.replace("</body>", `${boot}  </body>`);
       else if (next.includes("</head>")) next = next.replace("</head>", `${boot}  </head>`);
@@ -3496,6 +3578,10 @@ async function main() {
     rankCardApiLocalRaw && /^https?:\/\//i.test(rankCardApiLocalRaw)
       ? rankCardApiLocalRaw
       : "";
+  const customProfileApiResolved = siteBaseNoSlash
+    ? `${siteBaseNoSlash}/webhooks/site-custom-profile`
+    : "/webhooks/site-custom-profile";
+  const customProfileApiLocalResolved = "";
   const reviewsPageUrl = siteBaseNoSlash ? `${siteBaseNoSlash}/recensioni` : "/recensioni";
   const suggestionsPageUrl = siteBaseNoSlash ? `${siteBaseNoSlash}/suggerimenti` : "/suggerimenti";
   const ticketsPageUrl = siteBaseNoSlash ? `${siteBaseNoSlash}/tickets` : "/tickets";
@@ -3793,6 +3879,8 @@ async function main() {
     ROLES_API_URL_LOCAL: escAttr(distApiLocal(rolesApiLocalResolved)),
     RANK_CARD_API_URL: escAttr(rankCardApiResolved),
     RANK_CARD_API_URL_LOCAL: escAttr(distApiLocal(rankCardApiLocalResolved)),
+    CUSTOM_PROFILE_API_URL: escAttr(customProfileApiResolved),
+    CUSTOM_PROFILE_API_URL_LOCAL: escAttr(distApiLocal(customProfileApiLocalResolved)),
     USER_PAGE_TITLE: `${siteName} | Community · Classifica`,
     USER_META_DESCRIPTION: escAttr(
       `Classifica livelli ed EXP del server Discord ${siteName}: utenti ordinati per esperienza totale.`,
@@ -4317,11 +4405,11 @@ async function main() {
     console.warn("[build-site] Manca sponsor/index.html (saltato placeholder).");
   }
 
-  const rankCustomizeRel = ["user/personalizza/index.html", "user/customize/index.html"];
+  const rankCustomizeRel = ["user/personalizza/index.html", "user/customize/index.html", "user/custom/index.html"];
   for (const rel of rankCustomizeRel) {
     const customizePath = path.join(DIST, rel);
     if (!fs.existsSync(customizePath)) {
-      console.warn("[build-site] Manca pagina personalizzazione rank:", rel);
+      console.warn("[build-site] Manca pagina personalizzazione:", rel);
       continue;
     }
     let customizeHtml = fs.readFileSync(customizePath, "utf8");
@@ -4352,12 +4440,14 @@ async function main() {
   applyAvatarFallbackToDist(DIST, buildAssetVersion);
   applyVcDialogToDist(DIST, buildAssetVersion);
   applyCursorTrailToDist(DIST, buildAssetVersion);
+  applyTypeSfxToDist(DIST, buildAssetVersion);
   applyPtrToDist(DIST, buildAssetVersion);
   applyMobileNavToDist(DIST, buildAssetVersion);
   applyHeaderNameMarqueeToDist(DIST, buildAssetVersion);
   applyI18nToDist(DIST, buildAssetVersion);
   applyLiveStatsBootToDist(DIST, cfg, inviteCode);
   applySiteSponsorAdToDist(DIST, cfg);
+  applyKickLivePipToDist(DIST, cfg);
   applyMaintenanceGateToDist(DIST, maintenanceBoot);
   applySiteRouteGuardToDist(DIST, cfg);
   applyHeaderPromoToDist(DIST, headerPromoButtonHtml, headerPromoClientConfig);

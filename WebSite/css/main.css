@@ -102,9 +102,15 @@ a:active {
   a[href],
   button,
   summary,
-  input:not([type="hidden"]),
+  input[type="button"],
+  input[type="submit"],
+  input[type="reset"],
+  input[type="checkbox"],
+  input[type="radio"],
+  input[type="file"],
+  input[type="range"],
+  input[type="color"],
   select,
-  textarea,
   [role="button"],
   [tabindex]:not([tabindex="-1"])
 ):focus-visible {
@@ -118,13 +124,35 @@ a:active {
   a[href],
   button,
   summary,
-  input:not([type="hidden"]),
+  input[type="button"],
+  input[type="submit"],
+  input[type="reset"],
+  input[type="checkbox"],
+  input[type="radio"],
+  input[type="file"],
+  input[type="range"],
+  input[type="color"],
   select,
-  textarea,
   [role="button"],
   [tabindex]:not([tabindex="-1"])
 ):focus:not(:focus-visible) {
   outline: none !important;
+  box-shadow: none !important;
+}
+
+:where(
+  input:not([type]),
+  input[type="text"],
+  input[type="search"],
+  input[type="email"],
+  input[type="password"],
+  input[type="url"],
+  input[type="tel"],
+  input[type="number"],
+  textarea
+):is(:focus, :focus-visible) {
+  outline: none !important;
+  outline-offset: 0 !important;
   box-shadow: none !important;
 }
 

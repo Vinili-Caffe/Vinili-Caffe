@@ -1,5 +1,7 @@
 const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Schemas/Community/communitySchemas");
 const mongoose = require("mongoose");
+const IDs = require("../Config/ids");
+const { shouldSkipSiteInAppNotif, buildSkipContext } = require("./siteNotifPrefs");
 
 const NOTIF = SITE_DOCUMENT_TYPE.IN_APP_NOTIFICATION;
 const MAX_PER_USER = 150;
@@ -464,6 +466,19 @@ async function enqueueSiteInAppNotification(opts = {}) {
   const sendPush = opts.push !== false;
   const pushOpts = { push: sendPush };
 
+  const prefsGuildId = guildId !== "global" ? guildId : String(IDs.guilds?.main || "").trim();
+  if (
+    await shouldSkipSiteInAppNotif(prefsGuildId, userId, {
+      kind,
+      title,
+      body,
+      dedupeKey: dedupeKeyRaw,
+      openUrl,
+    }).catch(() => false)
+  ) {
+    return false;
+  }
+
   if (replaceDedupe) {
     const replaced = await replaceInboxItemByDedupeKey(userId, dedupeKeyRaw, {
       title,
@@ -738,7 +753,13 @@ async function listSiteInAppNotificationsForUser(userId, limit = 50) {
     const tb = new Date(b.createdAt || 0).getTime();
     return tb - ta;
   });
-  return sorted.slice(0, lim).map((doc) => {
+  const prefsGuildId = String(IDs.guilds?.main || "").trim();
+  const skipCtx = await buildSkipContext(prefsGuildId, uid).catch(() => ({
+    mutedKinds: [],
+    voteBlocked: { bump: false, vote_topgg: false },
+  }));
+  const mapped = [];
+  for (const doc of sorted) {
     let kind = normalizeKind(doc.notifKind || doc.kind);
     const title = String(doc.title || "");
     const body = String(doc.body || "");
@@ -748,18 +769,32 @@ async function listSiteInAppNotificationsForUser(userId, limit = 50) {
     ) {
       kind = "vote_reminder";
     }
-    return {
+    const openUrl = String(doc.openUrl || "").trim();
+    const dedupeKey = String(doc.dedupeKey || "").trim();
+    const skip = await shouldSkipSiteInAppNotif(prefsGuildId || doc.guildId, uid, {
+      kind,
+      title,
+      body,
+      dedupeKey,
+      openUrl,
+      mutedKinds: skipCtx.mutedKinds,
+      voteBlocked: skipCtx.voteBlocked,
+    }).catch(() => false);
+    if (skip) continue;
+    mapped.push({
       id: String(doc._id),
       title,
       body,
       kind,
       at: doc.createdAt ? new Date(doc.createdAt).getTime() : Date.now(),
-      openUrl: String(doc.openUrl || "").trim(),
+      openUrl,
       ticketId: normalizeTicketId(doc.ticketId) || ticketIdFromOpenUrl(doc.openUrl),
       read: Boolean(doc.readAt),
       readAt: doc.readAt ? new Date(doc.readAt).getTime() : null,
-    };
-  });
+    });
+    if (mapped.length >= lim) break;
+  }
+  return mapped;
 }
 
 async function deleteSiteInAppNotificationForUser(userId, notificationId) {

@@ -6,9 +6,7 @@
   if (!document.getElementById("vc-anti-fouc-css")) {
     var anti = document.createElement("style");
     anti.id = "vc-anti-fouc-css";
-    anti.textContent =
-      "html.vc-site-polish:not(.vc-styles-ready) body{visibility:hidden!important}" +
-      "html.vc-site-polish.vc-styles-ready body{visibility:visible!important}";
+    anti.textContent = "html,body{background:#100c09}";
     (document.head || root).appendChild(anti);
   }
 
@@ -25,7 +23,7 @@
     path.indexOf("/seratafilm") === 0 ||
     path.indexOf("/evento") === 0 ||
     /^\/users?\/\d{17,20}$/.test(path) ||
-    /^\/user\/(personalizza|customize)(\/|$)/.test(path) ||
+    /^\/user\/(personalizza|customize|custom)(\/|$)/.test(path) ||
     profileQuery ||
     root.classList.contains("vc-user-profile-pending");
 
@@ -97,7 +95,7 @@
       finish();
       return;
     }
-    window.setTimeout(finish, 3200);
+    window.setTimeout(finish, 1200);
   }
 
   try {
@@ -106,10 +104,12 @@
   } catch (eExport) {}
 
   function runLayout() {
+    // Users/leaderboard: layout dopo che la griglia è pronta.
     if (typeof window.__vcEnsureCommunityPageCineLayout === "function") {
       window.__vcEnsureCommunityPageCineLayout();
-      return true;
     }
+    // Sempre: hero full-viewport + content wrap (FAQ/wiki/regole/…).
+    // Prima ensureCommunity tornava true senza layout → pagine “strette” senza spazi/effetti home.
     if (typeof window.__vcPageHeroLayout === "function") {
       window.__vcPageHeroLayout({ force: true });
       return true;
@@ -161,15 +161,9 @@
   if (!skipLayoutBoot) {
     root.classList.add("vc-page-cine-boot");
     if (!document.getElementById("vc-page-cine-boot-css")) {
-      var css =
-        "html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready),html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready) body{background:#100c09!important;overflow:hidden!important;overscroll-behavior:none!important}" +
-        "html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready)::before{" +
-        'content:"";position:fixed;inset:0;z-index:2147483000;background:#100c09;pointer-events:none}' +
-        "html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready) body.vc-body>header," +
-        "html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready) body.vc-body>main," +
-        "html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready) body.vc-body>footer{" +
-        "opacity:0!important;visibility:hidden!important;pointer-events:none!important}" +
-        "html.vc-site-polish.vc-page-cine-boot .vc-home-cine{position:fixed;inset:0;z-index:0;pointer-events:none;background:#100c09}";
+      // Solo sfondo: niente overlay nero / visibility:hidden (su mobile
+      // aspettare vc-landing.css ~1MB lasciava la pagina nera per secondi).
+      var css = "html.vc-site-polish.vc-page-cine-boot,html.vc-site-polish.vc-page-cine-boot body{background:#100c09!important}";
       var style = document.createElement("style");
       style.id = "vc-page-cine-boot-css";
       style.textContent = css;

@@ -144,8 +144,10 @@ function mountSiteWebhookRoutes(app, client, deps) {
   const { handleSiteVoteGet } = require("../../Utils/Web/siteVoteApi");
   const { handleSiteLiveEventGet } = require("../../Utils/Web/siteLiveEventApi");
   const { handleSiteRolesGet } = require("../../Utils/Web/siteRolesApi");
-  const { submitSiteRoleRequest } = require("../../Utils/Web/siteRoleRequestApi");
+  const { submitSiteRoleRequest, leaveSiteRole } = require("../../Utils/Web/siteRoleRequestApi");
   const { getRankCardCustomization, updateRankCardCustomization, getRankCardPreview, getPublicRankCardPreview } = require("../../Utils/Web/siteRankCardApi");
+  const { getCustomProfileCustomization, getCustomProfileGuildEmojis, mutateCustomProfile } = require("../../Utils/Web/siteCustomProfileApi");
+  const { getProfileExtras, mutateProfileExtras } = require("../../Utils/Web/siteProfileExtrasApi");
   const { getSiteReviews, submitSiteReview, deleteSiteReview, toggleSiteReviewLike, upsertServerReviewReply } = require("../../Utils/Web/siteReviewsApi");
   const { getSiteSuggestions, createSiteSuggestion, updateOwnSiteSuggestion, deleteOwnSiteSuggestion, addSiteSuggestionComment, updateSiteSuggestionComment, deleteSiteSuggestionComment, setSiteSuggestionCommentVote, setSiteSuggestionVote, staffAcceptSiteSuggestion, staffRejectSiteSuggestion, staffSetSiteSuggestionDecision, staffDeleteSiteSuggestion } = require("../../Utils/Web/siteSuggestionsApi");
   const {
@@ -616,6 +618,42 @@ function mountSiteWebhookRoutes(app, client, deps) {
   app.get("/webhooks/site-live-event", (req, res) => {
     return handleSiteLiveEventGet(client, req, res);
   });
+  app.get("/webhooks/site-kick-live", (req, res) => {
+    const { handleSiteKickLiveGet } = require("../../Utils/Web/siteKickLiveApi");
+    return handleSiteKickLiveGet(client, req, res);
+  });
+  app.get("/webhooks/site-kick-live/stream.m3u8", (req, res) => {
+    const { handleSiteKickLiveStreamPlaylist } = require("../../Utils/Web/siteKickLiveApi");
+    return handleSiteKickLiveStreamPlaylist(client, req, res);
+  });
+  app.get("/webhooks/site-kick-live/preview.mp4", (req, res) => {
+    const { handleSiteKickLivePreviewMp4 } = require("../../Utils/Web/siteKickLiveApi");
+    return handleSiteKickLivePreviewMp4(client, req, res);
+  });
+  app.get("/webhooks/site-kick-live/proxy", (req, res) => {
+    const { handleSiteKickLiveProxy } = require("../../Utils/Web/siteKickLiveApi");
+    return handleSiteKickLiveProxy(client, req, res);
+  });
+  app.get("/webhooks/site-kick-sub/oauth-callback", (req, res) => {
+    const { handleKickSubOAuthCallback } = require("../../Utils/Web/kickSubscriberWebhookApi");
+    return handleKickSubOAuthCallback(client, req, res);
+  });
+  app.get("/webhooks/site-kick-sub/oauth-start", (req, res) => {
+    const { handleKickSubOAuthStartGet } = require("../../Utils/Web/kickSubscriberWebhookApi");
+    return handleKickSubOAuthStartGet(client, req, res);
+  });
+  app.get("/webhooks/site-kick-sub/status", (req, res) => {
+    const { handleKickSubStatusGet } = require("../../Utils/Web/kickSubscriberWebhookApi");
+    return handleKickSubStatusGet(client, req, res);
+  });
+  app.post("/webhooks/site-kick-sub/unlink", (req, res) => {
+    const { handleKickSubUnlinkPost } = require("../../Utils/Web/kickSubscriberWebhookApi");
+    return handleKickSubUnlinkPost(client, req, res);
+  });
+  app.post("/webhooks/site-kick-sub/events", (req, res) => {
+    const { handleKickSubEventsWebhook } = require("../../Utils/Web/kickSubscriberWebhookApi");
+    return handleKickSubEventsWebhook(client, req, res);
+  });
   app.get("/webhooks/site-roles", (req, res) => {
     return handleSiteRolesGet(client, req, res);
   });
@@ -638,6 +676,27 @@ function mountSiteWebhookRoutes(app, client, deps) {
       return res.status(Number(out.status) || 500).json(out);
     } catch (err) {
       global.logger?.error?.("[WEBHOOK] site-roles request:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+  app.post("/webhooks/site-roles/leave", async (req, res) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      if (!accessToken) {
+        return res.status(401).json({
+          ok: false,
+          error: "missing_token",
+          message: "Header Authorization: Bearer <token> richiesto.",
+        });
+      }
+      const body = req.body && typeof req.body === "object" ? req.body : {};
+      const out = await leaveSiteRole(client, {
+        accessToken,
+        roleId: body.roleId,
+      });
+      return res.status(Number(out.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-roles leave:", err);
       return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
     }
   });
@@ -718,6 +777,107 @@ function mountSiteWebhookRoutes(app, client, deps) {
       return res.status(200).send(out.image);
     } catch (err) {
       global.logger?.error?.("[WEBHOOK] site-rank-card-public get:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+  app.get("/webhooks/site-custom-profile", async (req, res) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      if (!accessToken) {
+        return res.status(401).json({
+          ok: false,
+          error: "missing_token",
+          message: "Header Authorization: Bearer <token> richiesto.",
+        });
+      }
+      const out = await getCustomProfileCustomization(client, { accessToken });
+      return res.status(Number(out.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-custom-profile get:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+  app.get("/webhooks/site-custom-profile/emojis", async (req, res) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      if (!accessToken) {
+        return res.status(401).json({
+          ok: false,
+          error: "missing_token",
+          message: "Header Authorization: Bearer <token> richiesto.",
+        });
+      }
+      const force = String(req.query?.fresh || "") === "1" || String(req.query?.force || "") === "1";
+      const out = await getCustomProfileGuildEmojis(client, { accessToken, force });
+      if (out && out.ok) res.setHeader("Cache-Control", "private, max-age=60");
+      return res.status(Number(out.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-custom-profile emojis:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+  app.post("/webhooks/site-custom-profile", async (req, res) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      if (!accessToken) {
+        return res.status(401).json({
+          ok: false,
+          error: "missing_token",
+          message: "Header Authorization: Bearer <token> richiesto.",
+        });
+      }
+      const body = req.body && typeof req.body === "object" ? req.body : {};
+      const out = await mutateCustomProfile(client, {
+        accessToken,
+        target: body.target,
+        action: body.action,
+        name: body.name,
+        baseName: body.baseName,
+        mode: body.mode,
+        hex: body.hex,
+        hex2: body.hex2,
+        value: body.value,
+        emoji: body.emoji,
+        memberId: body.memberId,
+      });
+      return res.status(Number(out.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-custom-profile post:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+  app.get("/webhooks/site-profile-extras", async (req, res) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      if (!accessToken) {
+        return res.status(401).json({
+          ok: false,
+          error: "missing_token",
+          message: "Header Authorization: Bearer <token> richiesto.",
+        });
+      }
+      const out = await getProfileExtras(client, { accessToken });
+      return res.status(Number(out.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-profile-extras get:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+  app.post("/webhooks/site-profile-extras", async (req, res) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      if (!accessToken) {
+        return res.status(401).json({
+          ok: false,
+          error: "missing_token",
+          message: "Header Authorization: Bearer <token> richiesto.",
+        });
+      }
+      const body = req.body && typeof req.body === "object" ? req.body : {};
+      const out = await mutateProfileExtras(client, { accessToken, ...body });
+      return res.status(Number(out.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-profile-extras post:", err);
       return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
     }
   });

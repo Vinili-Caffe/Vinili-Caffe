@@ -227,6 +227,14 @@
     "introFallbackMs": 45000,
     "liveEventPollMs": 90000
   },
+  "kickLivePip": {
+    "enabled": true,
+    "apiUrl": "/webhooks/site-kick-live",
+    "apiUrlLocal": "",
+    "subApiUrl": "/webhooks/site-kick-sub",
+    "pollIntervalMs": 90000,
+    "previewLimitMs": 600000
+  },
   "statMembers": "0",
   "statBoosts": "0",
   "statStaff": "0",

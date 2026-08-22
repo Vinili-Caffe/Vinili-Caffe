@@ -15,7 +15,6 @@ const { handleAfk, handleCounting, handleMentionAutoReactions, handleMentionAuto
 const { runAutoModMessage } = require("../Services/Moderation/automodService");
 const { handleCustomProfilePromptMessage } = require("./interaction/customRoleHandlers");
 const { handleTicketMemberPromptMessage } = require("../Utils/Ticket/ticketMemberPrompt");
-const { handleStanzaPanelPromptMessageCreate } = require("../Services/Voice/stanzaVoiceRoomsService");
 const { handleUntrustedBotMessage, handleUntrustedApplicationMessage } = require("../Services/Moderation/trustedBotGuardService");
 const { handleProfileMentionResponsePromptMessage } = require("../Buttons/profile");
 const IDs = require("../Utils/Config/ids");
@@ -517,7 +516,7 @@ module.exports = {
         if (await handleProfileMentionResponsePromptMessage(message)) return;
         if (await handleCustomProfilePromptMessage(message)) return;
         if (await handleTicketMemberPromptMessage(message)) return;
-        if (await handleStanzaPanelPromptMessageCreate(message)) return;
+        // prompt rename/emoji/limit stanza → solo Caffè
       } catch (error) {
         logEventError(resolvedClient, "CUSTOM PROFILE PROMPT ERROR", error);
       }

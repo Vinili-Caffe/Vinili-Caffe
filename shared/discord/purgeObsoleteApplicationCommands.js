@@ -8,6 +8,7 @@ const DEFAULT_OBSOLETE_SLASH_NAMES = [
   "aggiungi-punti",
   "rimuovi-punti",
   "rimuovi",
+  "kick",
 ];
 
 /** Context menu / slash da rimuovere anche se il nome coincide con comandi ancora attivi (altro type). */

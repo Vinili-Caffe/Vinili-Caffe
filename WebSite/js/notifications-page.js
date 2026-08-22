@@ -578,8 +578,7 @@
   }
 
   function iconClass(kind) {
-    if (kind === "vote") return "fa-trophy";
-    if (kind === "vote_reminder") return "fa-clock-o";
+    if (kind === "vote" || kind === "vote_reminder") return "fa-check";
     if (kind === "success") return "fa-check-circle";
     if (kind === "review") return "fa-star";
     if (kind === "mod") return "fa-shield";
@@ -1104,6 +1103,318 @@
     flushPendingLoginNotification();
     syncSiteNotificationsFromServer();
     renderList();
+    initNotifPrefs();
+  }
+
+  var VOTE_DM_KEYS = { bump: true, vote_topgg: true };
+  var DISCORD_DM_KEYS = { broadcast: true, invites: true, perks: true };
+  var DM_LABEL_OVERRIDE = {
+    bump: "Discadia",
+    vote_topgg: "Top.gg",
+    broadcast: "Avvisi staff",
+    invites: "Inviti",
+    perks: "Livelli e perk",
+  };
+  var notifPrefsState = { dm: null, siteNotif: null };
+  var notifPrefsOpenSections = { vote: true, discord: false, site: false };
+  var notifPrefsWired = false;
+
+  function prefsApiUrl() {
+    var c = window.__VC_PROFILE_EXTRAS || {};
+    return String(c.apiUrl || "/webhooks/site-profile-extras").trim() || "/webhooks/site-profile-extras";
+  }
+
+  function prefsToken() {
+    try {
+      if (typeof window.__vcDiscordGetAccessToken === "function") {
+        var viaAuth = String(window.__vcDiscordGetAccessToken() || "").trim();
+        if (viaAuth) return viaAuth;
+      }
+      return String(localStorage.getItem(DISCORD_ACCESS_TOKEN_KEY) || "").trim();
+    } catch (e) {
+      return "";
+    }
+  }
+
+  function setPrefsStatus(msg, isErr) {
+    var el = byId("vc-notif-prefs-status");
+    if (!el) return;
+    if (!msg) {
+      el.hidden = true;
+      el.textContent = "";
+      el.classList.remove("is-error");
+      return;
+    }
+    el.hidden = false;
+    el.textContent = msg;
+    el.classList.toggle("is-error", Boolean(isErr));
+  }
+
+  function setPrefsPanelOpen(open) {
+    var panel = byId("vc-notif-prefs-panel");
+    var btn = byId("vc-notif-prefs-btn");
+    if (!panel || !btn) return;
+    panel.hidden = !open;
+    btn.setAttribute("aria-expanded", open ? "true" : "false");
+    btn.classList.toggle("vc-notify-filter-btn--on", Boolean(open));
+  }
+
+  function toggleSwitchHtml(opts) {
+    var on = Boolean(opts && opts.enabled);
+    var section = String((opts && opts.section) || "");
+    var key = String((opts && opts.key) || "");
+    var label = String((opts && opts.label) || key);
+    return (
+      '<div class="vc-notif-prefs__row">' +
+      '<span class="vc-notif-prefs__row-label">' +
+      label +
+      "</span>" +
+      '<button type="button" class="vc-notif-prefs__switch' +
+      (on ? " is-on" : "") +
+      '" role="switch" aria-checked="' +
+      (on ? "true" : "false") +
+      '" data-prefs-section="' +
+      section +
+      '" data-prefs-key="' +
+      key +
+      '" aria-label="' +
+      label +
+      '"><span class="vc-notif-prefs__knob" aria-hidden="true"></span></button>' +
+      "</div>"
+    );
+  }
+
+  function accordionSectionHtml(id, title, hint, rowsHtml, open) {
+    return (
+      '<div class="vc-notif-prefs__acc' +
+      (open ? " is-open" : "") +
+      '" data-acc="' +
+      id +
+      '">' +
+      '<button type="button" class="vc-notif-prefs__acc-head" data-acc-toggle="' +
+      id +
+      '" aria-expanded="' +
+      (open ? "true" : "false") +
+      '">' +
+      '<span class="vc-notif-prefs__acc-title">' +
+      title +
+      "</span>" +
+      (hint
+        ? '<span class="vc-notif-prefs__acc-hint">' + hint + "</span>"
+        : "") +
+      '<i class="fa fa-chevron-down vc-notif-prefs__acc-chev" aria-hidden="true"></i>' +
+      "</button>" +
+      '<div class="vc-notif-prefs__acc-body"' +
+      (open ? "" : " hidden") +
+      ">" +
+      rowsHtml +
+      "</div></div>"
+    );
+  }
+
+  function renderNotifPrefs() {
+    var body = byId("vc-notif-prefs-body");
+    if (!body) return;
+    var dmCats = (notifPrefsState.dm && notifPrefsState.dm.categories) || [];
+    var siteGroups = (notifPrefsState.siteNotif && notifPrefsState.siteNotif.groups) || [];
+    if (!dmCats.length && !siteGroups.length) {
+      body.innerHTML = '<p class="vc-notif-prefs__empty">Nessuna preferenza disponibile.</p>';
+      return;
+    }
+
+    var voteRows = dmCats
+      .filter(function (c) {
+        return VOTE_DM_KEYS[c.key];
+      })
+      .map(function (c) {
+        return toggleSwitchHtml({
+          section: "dm",
+          key: c.key,
+          label: DM_LABEL_OVERRIDE[c.key] || c.label || c.key,
+          enabled: c.enabled,
+        });
+      })
+      .join("");
+
+    var discordRows = dmCats
+      .filter(function (c) {
+        return DISCORD_DM_KEYS[c.key];
+      })
+      .map(function (c) {
+        return toggleSwitchHtml({
+          section: "dm",
+          key: c.key,
+          label: DM_LABEL_OVERRIDE[c.key] || c.label || c.key,
+          enabled: c.enabled,
+        });
+      })
+      .join("");
+
+    var siteRows = siteGroups
+      .map(function (g) {
+        return toggleSwitchHtml({
+          section: "site_notif",
+          key: g.key,
+          label: g.label || g.key,
+          enabled: g.enabled,
+        });
+      })
+      .join("");
+
+    body.innerHTML =
+      accordionSectionHtml(
+        "vote",
+        "Promemoria voto",
+        "DM + sito",
+        voteRows || '<p class="vc-notif-prefs__empty">—</p>',
+        notifPrefsOpenSections.vote,
+      ) +
+      accordionSectionHtml(
+        "discord",
+        "Discord DM",
+        "",
+        discordRows || '<p class="vc-notif-prefs__empty">—</p>',
+        notifPrefsOpenSections.discord,
+      ) +
+      accordionSectionHtml(
+        "site",
+        "Sito",
+        "",
+        siteRows || '<p class="vc-notif-prefs__empty">—</p>',
+        notifPrefsOpenSections.site,
+      );
+  }
+
+  async function prefsRequest(body) {
+    var token = prefsToken();
+    if (!token) throw new Error("Accedi con Discord per gestire i filtri.");
+    var res = await fetch(prefsApiUrl(), {
+      method: body ? "POST" : "GET",
+      headers: Object.assign(
+        { Accept: "application/json", Authorization: "Bearer " + token },
+        body ? { "Content-Type": "application/json" } : {},
+      ),
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    var data = null;
+    try {
+      data = await res.json();
+    } catch (e) {
+      data = null;
+    }
+    if (!data || !data.ok) throw new Error((data && data.message) || "Operazione non riuscita.");
+    return data;
+  }
+
+  function applyPrefsPayload(data) {
+    if (data && data.dm) notifPrefsState.dm = data.dm;
+    if (data && data.siteNotif) notifPrefsState.siteNotif = data.siteNotif;
+    renderNotifPrefs();
+  }
+
+  async function refreshNotifPrefs() {
+    var data = await prefsRequest(null);
+    notifPrefsState.dm = data.dm || null;
+    notifPrefsState.siteNotif = data.siteNotif || null;
+    renderNotifPrefs();
+    setPrefsStatus("", false);
+  }
+
+  async function mutatePrefs(section, action, key) {
+    setPrefsStatus("Salvataggio…", false);
+    try {
+      var data = await prefsRequest({ section: section, action: action, key: key });
+      applyPrefsPayload(data);
+      setPrefsStatus(data.message || "Preferenze aggiornate.", false);
+      lastNotifyListRenderSig = "";
+      syncSiteNotificationsFromServer();
+      renderList();
+    } catch (err) {
+      setPrefsStatus(err && err.message ? err.message : "Errore.", true);
+    }
+  }
+
+  async function mutateAllPrefs(action) {
+    setPrefsStatus("Salvataggio…", false);
+    try {
+      var dmData = await prefsRequest({ section: "dm", action: action });
+      var siteData = await prefsRequest({ section: "site_notif", action: action });
+      applyPrefsPayload({
+        dm: dmData.dm || notifPrefsState.dm,
+        siteNotif: siteData.siteNotif || notifPrefsState.siteNotif,
+        message: siteData.message || dmData.message,
+      });
+      setPrefsStatus("Preferenze aggiornate.", false);
+      lastNotifyListRenderSig = "";
+      syncSiteNotificationsFromServer();
+      renderList();
+    } catch (err) {
+      setPrefsStatus(err && err.message ? err.message : "Errore.", true);
+    }
+  }
+
+  function initNotifPrefs() {
+    var root = byId("vc-notif-prefs");
+    var body = byId("vc-notif-prefs-body");
+    var btn = byId("vc-notif-prefs-btn");
+    var panel = byId("vc-notif-prefs-panel");
+    var allOn = byId("vc-notif-prefs-all-on");
+    var allOff = byId("vc-notif-prefs-all-off");
+    if (!root || !body || !btn || !panel) return;
+
+    if (!prefsToken()) {
+      body.innerHTML =
+        '<p class="vc-notif-prefs__empty">Accedi con Discord per gestire i filtri notifiche.</p>';
+      setPrefsPanelOpen(false);
+    }
+
+    if (!notifPrefsWired) {
+      notifPrefsWired = true;
+      btn.addEventListener("click", function (ev) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        setPrefsPanelOpen(panel.hidden);
+      });
+      document.addEventListener("click", function (ev) {
+        if (panel.hidden) return;
+        if (root.contains(ev.target)) return;
+        setPrefsPanelOpen(false);
+      });
+      document.addEventListener("keydown", function (ev) {
+        if (ev.key === "Escape" && !panel.hidden) setPrefsPanelOpen(false);
+      });
+      body.addEventListener("click", function (ev) {
+        var t = ev.target;
+        var accBtn = t && t.closest ? t.closest("[data-acc-toggle]") : null;
+        if (accBtn) {
+          var accId = accBtn.getAttribute("data-acc-toggle");
+          if (accId && Object.prototype.hasOwnProperty.call(notifPrefsOpenSections, accId)) {
+            notifPrefsOpenSections[accId] = !notifPrefsOpenSections[accId];
+            renderNotifPrefs();
+          }
+          return;
+        }
+        var sw = t && t.closest ? t.closest("[data-prefs-section][data-prefs-key]") : null;
+        if (!sw) return;
+        mutatePrefs(sw.getAttribute("data-prefs-section"), "toggle", sw.getAttribute("data-prefs-key"));
+      });
+      if (allOn) {
+        allOn.addEventListener("click", function () {
+          mutateAllPrefs("all_on");
+        });
+      }
+      if (allOff) {
+        allOff.addEventListener("click", function () {
+          mutateAllPrefs("all_off");
+        });
+      }
+    }
+
+    if (!prefsToken()) return;
+    refreshNotifPrefs().catch(function (err) {
+      setPrefsStatus(err && err.message ? err.message : "Impossibile caricare i filtri.", true);
+      body.innerHTML = '<p class="vc-notif-prefs__empty">Impossibile caricare i filtri.</p>';
+    });
   }
 
   window.addEventListener("vc-discord-profile", function (ev) {
@@ -1111,6 +1422,7 @@
     flushPendingLoginNotification();
     syncSiteNotificationsFromServer();
     renderList();
+    initNotifPrefs();
   });
 
   document.addEventListener("vc:langchange", function () {

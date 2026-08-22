@@ -1,4 +1,4 @@
-﻿(function vcMiniPager() {
+(function vcMiniPager() {
   if (window.__vcMiniPager) return;
 
   function langEn() {
@@ -33,6 +33,114 @@
     if (n < 1) n = 1;
     if (n > tp) n = tp;
     return n;
+  }
+
+  function headerOffsetPx() {
+    try {
+      var bar = document.querySelector(".vc-header-bar") || document.querySelector("header");
+      var h = bar ? bar.getBoundingClientRect().height : 72;
+      return Math.round(Math.max(64, h + 12));
+    } catch (eOff) {
+      return 88;
+    }
+  }
+
+  function resolveScrollAnchor(root) {
+    if (!root) return null;
+    try {
+      var custom = String(root.getAttribute("data-pager-scroll") || "").trim();
+      if (custom) {
+        var bySel = document.querySelector(custom);
+        if (bySel) return bySel;
+      }
+      var wrapped = root.closest("[data-pager-anchor]");
+      if (wrapped) return wrapped;
+      var scope = root.closest("main") || document.body;
+      if (!scope) return root;
+      var candidates = scope.querySelectorAll(
+        [
+          "#vc-ul-toolbar",
+          "#vc-ul-board-tabs",
+          "#vc-ul-grid",
+          "#vc-roles-toolbar",
+          "#vc-roles-grid",
+          "#vc-reviews-server-list",
+          "#vc-suggestions-list",
+          "[data-pager-list]",
+          ".vc-wt-list",
+          ".vc-tprof-list",
+          ".vc-dash-table-wrap",
+          "#vc-page-content",
+        ].join(",")
+      );
+      var pagerY =
+        root.getBoundingClientRect().top + (window.pageYOffset || document.documentElement.scrollTop || 0);
+      var best = null;
+      for (var i = 0; i < candidates.length; i++) {
+        var c = candidates[i];
+        if (!c || root.contains(c)) continue;
+        var y = c.getBoundingClientRect().top + (window.pageYOffset || document.documentElement.scrollTop || 0);
+        if (y <= pagerY + 12) best = c;
+      }
+      return best || root;
+    } catch (eRes) {
+      return root;
+    }
+  }
+
+  function scrollToPagerContent(root, behavior) {
+    var anchor = resolveScrollAnchor(root);
+    if (!anchor) return;
+    try {
+      var y =
+        anchor.getBoundingClientRect().top +
+        (window.pageYOffset || document.documentElement.scrollTop || 0) -
+        headerOffsetPx();
+      if (y < 0) y = 0;
+      window.scrollTo({ top: y, behavior: behavior || "auto" });
+    } catch (eScroll) {
+      try {
+        anchor.scrollIntoView({ block: "start", behavior: behavior || "auto" });
+      } catch (e2) {}
+    }
+  }
+
+  function wrapHandlers(root, handlers, opts) {
+    handlers = handlers || {};
+    opts = opts || {};
+    if (opts.scroll === false) return handlers;
+    var behavior = opts.scrollBehavior || "auto";
+    function bump() {
+      window.requestAnimationFrame(function () {
+        scrollToPagerContent(root, behavior);
+      });
+      window.setTimeout(function () {
+        scrollToPagerContent(root, behavior);
+      }, 90);
+    }
+    var out = {};
+    if (typeof handlers.go === "function") {
+      out.go = function (page) {
+        var cur = Number(root.getAttribute("data-pager-page") || 1);
+        var next = Math.max(1, Number(page) || 1);
+        if (next === cur) return;
+        handlers.go(next);
+        bump();
+      };
+    }
+    if (typeof handlers.prev === "function") {
+      out.prev = function () {
+        handlers.prev();
+        bump();
+      };
+    }
+    if (typeof handlers.next === "function") {
+      out.next = function () {
+        handlers.next();
+        bump();
+      };
+    }
+    return out;
   }
 
   function html(page, total, opts) {
@@ -106,11 +214,12 @@
     handlers.go(next);
   }
 
-  function bind(root, handlers) {
+  function bind(root, handlers, opts) {
     if (!root || !handlers) return;
     if (root.dataset.vcMiniPager === "1") return;
     root.dataset.vcMiniPager = "1";
     root.classList.add("vc-mini-pager");
+    var h = wrapHandlers(root, handlers, opts);
 
     root.addEventListener("click", function (ev) {
       var t = ev.target && ev.target.closest ? ev.target.closest("button, input") : null;
@@ -137,16 +246,16 @@
       if (t.matches("[data-pager-prev]")) {
         if (t.disabled) return;
         var cur = Number(root.getAttribute("data-pager-page") || 1);
-        if (typeof handlers.prev === "function") handlers.prev();
-        else if (typeof handlers.go === "function") handlers.go(Math.max(1, cur - 1));
+        if (typeof h.prev === "function") h.prev();
+        else if (typeof h.go === "function") h.go(Math.max(1, cur - 1));
         return;
       }
       if (t.matches("[data-pager-next]")) {
         if (t.disabled) return;
         var curN = Number(root.getAttribute("data-pager-page") || 1);
         var tot = Number(root.getAttribute("data-pager-total") || 1);
-        if (typeof handlers.next === "function") handlers.next();
-        else if (typeof handlers.go === "function") handlers.go(Math.min(tot, curN + 1));
+        if (typeof h.next === "function") h.next();
+        else if (typeof h.go === "function") h.go(Math.min(tot, curN + 1));
       }
     });
 
@@ -154,13 +263,13 @@
       if (!ev || ev.key !== "Enter") return;
       if (!ev.target || !ev.target.matches || !ev.target.matches("[data-pager-input]")) return;
       ev.preventDefault();
-      commit(root, handlers);
+      commit(root, h);
     });
     root.addEventListener("focusout", function (ev) {
       if (!ev || !ev.target || !ev.target.matches || !ev.target.matches("[data-pager-input]")) return;
       window.setTimeout(function () {
         if (root.contains(document.activeElement)) return;
-        commit(root, handlers);
+        commit(root, h);
       }, 0);
     });
   }
@@ -180,6 +289,7 @@
     html: html,
     bind: bind,
     closeAll: closeAll,
+    scrollToContent: scrollToPagerContent,
     sync: function (root, page, total) {
       if (!root) return;
       var p = Math.max(1, Number(page) || 1);
@@ -211,7 +321,7 @@
       root.setAttribute("data-pager-page", String(p));
       root.setAttribute("data-pager-total", String(tp));
       root.innerHTML = html(p, tp, opts);
-      if (handlers) bind(root, handlers);
+      if (handlers) bind(root, handlers, opts);
     },
   };
 })();

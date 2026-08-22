@@ -2,7 +2,7 @@
  * Client Discord “lite” solo REST (niente gateway): può coesistere col bot online.
  * Espone la superficie usata dalle API sito e dai worker (scheduler / backup / vote-drain).
  */
-const { REST, Routes, PermissionsBitField } = require("discord.js");
+const { REST, Routes, PermissionsBitField, OverwriteType } = require("discord.js");
 
 function routeCall(name, ...args) {
   const fn = Routes[name];
@@ -325,29 +325,87 @@ function wrapUser(raw, clientRef = null) {
   return user;
 }
 
+function colorValueToInt(raw) {
+  if (raw == null || raw === "") return null;
+  if (typeof raw === "number" && Number.isFinite(raw)) return Math.max(0, Math.floor(raw));
+  const s = String(raw).trim();
+  if (!s) return null;
+  if (s.startsWith("#")) {
+    const hex = s.slice(1).replace(/[^0-9a-fA-F]/g, "");
+    if (hex.length === 3) {
+      const full = hex
+        .split("")
+        .map((c) => c + c)
+        .join("");
+      return parseInt(full, 16);
+    }
+    if (hex.length === 6) return parseInt(hex, 16);
+    return null;
+  }
+  const n = Number(s);
+  return Number.isFinite(n) ? Math.max(0, Math.floor(n)) : null;
+}
+
+function buildRoleColorsApiBody(colorsObj) {
+  if (!colorsObj || typeof colorsObj !== "object") return null;
+  const primary = colorValueToInt(colorsObj.primaryColor ?? colorsObj.primary_color);
+  if (primary == null) return null;
+  const body = { primary_color: primary };
+  const secondary = colorValueToInt(colorsObj.secondaryColor ?? colorsObj.secondary_color);
+  if (secondary != null) body.secondary_color = secondary;
+  else body.secondary_color = null;
+  const tertiary = colorValueToInt(colorsObj.tertiaryColor ?? colorsObj.tertiary_color);
+  if (tertiary != null) body.tertiary_color = tertiary;
+  else body.tertiary_color = null;
+  return body;
+}
+
+async function bufferToRoleIconDataUri(buf) {
+  if (!buf) return null;
+  const b = Buffer.isBuffer(buf) ? buf : Buffer.from(buf);
+  if (!b.length) return null;
+  // PNG/GIF/JPEG: Discord accetta data URI.
+  let mime = "image/png";
+  if (b[0] === 0x47 && b[1] === 0x49) mime = "image/gif";
+  else if (b[0] === 0xff && b[1] === 0xd8) mime = "image/jpeg";
+  return `data:${mime};base64,${b.toString("base64")}`;
+}
+
 function wrapRole(raw, guild = null, existingMembers = null) {
   if (!raw?.id) return null;
   const members =
     existingMembers && typeof existingMembers.set === "function" ? existingMembers : asCacheMap();
   const roleId = String(raw.id);
-  return {
+  const colorsRaw = raw.colors && typeof raw.colors === "object" ? raw.colors : null;
+  const primaryFromColors = colorValueToInt(colorsRaw?.primary_color ?? colorsRaw?.primaryColor);
+  const colorInt = primaryFromColors != null ? primaryFromColors : Number(raw.color || 0);
+  const secondaryFromColors = colorValueToInt(colorsRaw?.secondary_color ?? colorsRaw?.secondaryColor);
+  const tertiaryFromColors = colorValueToInt(colorsRaw?.tertiary_color ?? colorsRaw?.tertiaryColor);
+
+  const role = {
     id: roleId,
     name: raw.name,
-    color: raw.color,
+    color: colorInt,
+    colors: {
+      primaryColor: colorInt,
+      secondaryColor: secondaryFromColors,
+      tertiaryColor: tertiaryFromColors,
+    },
     hoist: Boolean(raw.hoist),
     managed: Boolean(raw.managed),
     mentionable: Boolean(raw.mentionable),
     tags: raw.tags || null,
-    hexColor:
-      Number(raw.color) > 0 ? `#${Number(raw.color).toString(16).padStart(6, "0")}` : "#000000",
+    hexColor: colorInt > 0 ? `#${colorInt.toString(16).padStart(6, "0")}` : "#000000",
     position: raw.position,
     permissions: wrapPermissionBits(raw.permissions),
     unicodeEmoji: raw.unicode_emoji || raw.unicodeEmoji || null,
     icon: raw.icon || null,
     iconURL: (opts = {}) => {
-      if (!raw.icon) return null;
+      if (!raw.icon && !role.icon) return null;
+      const hash = role.icon || raw.icon;
+      if (!hash || String(hash).startsWith("data:")) return null;
       const size = opts.size || 256;
-      return `https://cdn.discordapp.com/role-icons/${raw.id}/${raw.icon}.png?size=${size}`;
+      return `https://cdn.discordapp.com/role-icons/${raw.id}/${hash}.png?size=${size}`;
     },
     createdAt: snowflakeCreatedAt(roleId),
     members,
@@ -360,7 +418,48 @@ function wrapRole(raw, guild = null, existingMembers = null) {
       guild.roles.cache.delete(roleId);
       return true;
     },
+    edit: async (payload = {}, reason) => {
+      const rest = guild?.client?._rest;
+      if (!rest || !guild?.id) throw new Error("REST unavailable");
+      const body = {};
+      if (payload.name != null) body.name = String(payload.name).slice(0, 100);
+      if (payload.hoist != null) body.hoist = Boolean(payload.hoist);
+      if (payload.mentionable != null) body.mentionable = Boolean(payload.mentionable);
+      if (Object.prototype.hasOwnProperty.call(payload, "unicodeEmoji") || Object.prototype.hasOwnProperty.call(payload, "unicode_emoji")) {
+        const ue = payload.unicodeEmoji !== undefined ? payload.unicodeEmoji : payload.unicode_emoji;
+        body.unicode_emoji = ue == null || ue === "" ? null : String(ue);
+      }
+      if (Object.prototype.hasOwnProperty.call(payload, "icon")) {
+        if (payload.icon == null) body.icon = null;
+        else if (Buffer.isBuffer(payload.icon) || payload.icon instanceof Uint8Array) {
+          body.icon = await bufferToRoleIconDataUri(payload.icon);
+        } else if (typeof payload.icon === "string") {
+          body.icon = payload.icon;
+        }
+      }
+      if (payload.colors && typeof payload.colors === "object") {
+        const colorsBody = buildRoleColorsApiBody(payload.colors);
+        if (colorsBody) {
+          body.colors = colorsBody;
+          body.color = colorsBody.primary_color;
+        }
+      } else if (payload.color != null) {
+        const c = colorValueToInt(payload.color);
+        if (c != null) {
+          body.color = c;
+          body.colors = { primary_color: c, secondary_color: null, tertiary_color: null };
+        }
+      }
+      const updated = await rest.patch(Routes.guildRole(guild.id, roleId), {
+        body,
+        reason: reason ? String(reason).slice(0, 512) : undefined,
+      });
+      const wrapped = wrapRole(updated, guild, role.members);
+      guild.roles.cache.set(roleId, wrapped);
+      return wrapped;
+    },
   };
+  return role;
 }
 
 function encodeReactionEmoji(emoji) {
@@ -533,6 +632,7 @@ function wrapChannel(raw, guild, clientRef) {
         const existing = overwriteCache.get(targetId) || {
           allow: wrapPermissionBits(0),
           deny: wrapPermissionBits(0),
+          type: 1,
         };
         let allow = BigInt(existing.allow?.bitfield ?? 0);
         let deny = BigInt(existing.deny?.bitfield ?? 0);
@@ -544,8 +644,12 @@ function wrapChannel(raw, guild, clientRef) {
           if (value === true) allow |= bit;
           else if (value === false) deny |= bit;
         }
-        const overwriteType =
-          target?.user || (target?.bot != null && target?.username != null) ? 1 : Number(existing.type || 0);
+        let overwriteType = 1;
+        if (opts.type === OverwriteType.Role || opts.type === 0 || opts.type === "0") overwriteType = 0;
+        else if (opts.type === OverwriteType.Member || opts.type === 1 || opts.type === "1") overwriteType = 1;
+        else if (target?.user || (target?.bot != null && target?.username != null)) overwriteType = 1;
+        else if (guild?.roles?.cache?.has?.(targetId) || targetId === String(guild?.id || "")) overwriteType = 0;
+        else if (overwriteCache.has(targetId) && existing?.type != null) overwriteType = Number(existing.type) === 0 ? 0 : 1;
         await rest.put(channelPermissionPath(channelId, targetId), {
           body: {
             id: targetId,
@@ -561,6 +665,19 @@ function wrapChannel(raw, guild, clientRef) {
           allow: wrapPermissionBits(allow),
           deny: wrapPermissionBits(deny),
         });
+        return true;
+      },
+      create: async (target, options = {}, opts = {}) => {
+        return channel.permissionOverwrites.edit(target, options, opts);
+      },
+      delete: async (target, reason) => {
+        const rest = restClient?._rest;
+        if (!rest) throw new Error("REST unavailable");
+        const targetId = String(target?.id || target);
+        await rest.delete(channelPermissionPath(channelId, targetId), {
+          reason: reason ? String(reason).slice(0, 512) : undefined,
+        });
+        overwriteCache.delete(targetId);
         return true;
       },
     },
@@ -665,6 +782,39 @@ function wrapChannel(raw, guild, clientRef) {
       if (guild?.channels?.cache) guild.channels.cache.delete(channelId);
       if (restClient?.channels?.cache) restClient.channels.cache.delete(channelId);
       return true;
+    },
+    edit: async (payload = {}, reason) => {
+      const rest = restClient?._rest;
+      if (!rest) throw new Error("REST unavailable");
+      const body = {};
+      if (payload.name != null) body.name = String(payload.name).slice(0, 100);
+      if (payload.topic != null) body.topic = payload.topic == null ? null : String(payload.topic);
+      if (payload.bitrate != null) body.bitrate = Number(payload.bitrate);
+      if (payload.userLimit != null) body.user_limit = Number(payload.userLimit);
+      if (payload.parent != null || payload.parentId != null) {
+        body.parent_id = payload.parentId != null ? String(payload.parentId) : String(payload.parent?.id || payload.parent || "") || null;
+      }
+      if (payload.nsfw != null) body.nsfw = Boolean(payload.nsfw);
+      if (payload.rateLimitPerUser != null) body.rate_limit_per_user = Number(payload.rateLimitPerUser);
+      if (payload.rtcRegion !== undefined) body.rtc_region = payload.rtcRegion;
+      const updated = await rest.patch(Routes.channel(channelId), {
+        body,
+        reason: reason ? String(reason).slice(0, 512) : undefined,
+      });
+      const wrapped = wrapChannel(updated, guild, restClient);
+      if (guild?.channels?.cache) guild.channels.cache.set(channelId, wrapped);
+      if (restClient?.channels?.cache) restClient.channels.cache.set(channelId, wrapped);
+      Object.assign(channel, {
+        name: wrapped.name,
+        topic: wrapped.topic,
+        bitrate: wrapped.bitrate,
+        userLimit: wrapped.userLimit,
+        parentId: wrapped.parentId,
+        nsfw: wrapped.nsfw,
+        rateLimitPerUser: wrapped.rateLimitPerUser,
+        rtcRegion: wrapped.rtcRegion,
+      });
+      return channel;
     },
   };
   return channel;

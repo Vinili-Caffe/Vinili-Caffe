@@ -197,7 +197,23 @@ async function main() {
   // Un solo hop (nginx → site-api); evita ERR_ERL_PERMISSIVE_TRUST_PROXY con express-rate-limit.
   app.set("trust proxy", 1);
   mountSiteApiRateLimit(app);
-  app.use(express.json({ limit: "12mb" }));
+  app.use(
+    express.json({
+      limit: "12mb",
+      verify: (req, _res, buf) => {
+        const pathOnly = String(req.originalUrl || req.url || req.path || "")
+          .split("?")[0]
+          .replace(/\/+$/, "") || "/";
+        // Kick firma sul raw body: senza questo JSON.stringify(req.body) fallisce la verify → 401.
+        if (
+          pathOnly === "/webhooks/site-kick-sub/events" ||
+          pathOnly.endsWith("/site-kick-sub/events")
+        ) {
+          req._kickSubRawBody = Buffer.isBuffer(buf) ? Buffer.from(buf) : buf;
+        }
+      },
+    }),
+  );
   app.use(express.urlencoded({ extended: true, limit: "256kb" }));
 
   const candidatureCorsAllowlist = expandCorsOriginAllowlist(
@@ -220,6 +236,8 @@ async function main() {
     const isSiteUsers = pathStr.startsWith("/webhooks/site-users");
     const isSiteVote = pathStr.startsWith("/webhooks/site-vote");
     const isSiteLiveEvent = pathStr.startsWith("/webhooks/site-live-event");
+    const isSiteKickLive = pathStr.startsWith("/webhooks/site-kick-live");
+    const isSiteKickSub = pathStr.startsWith("/webhooks/site-kick-sub");
     const isSiteRoles = pathStr.startsWith("/webhooks/site-roles");
     const isSiteRankCard = pathStr.startsWith("/webhooks/site-rank-card");
     const isSiteReviews = pathStr.startsWith("/webhooks/site-reviews");
@@ -243,6 +261,8 @@ async function main() {
       pathStr.startsWith("/webhooks/site-staff-seratafilm") ||
       pathStr.startsWith("/webhooks/site-staff-guide");
     const isSiteHogwartsSorting = pathStr.startsWith("/webhooks/site-hogwarts-sorting");
+    const isSiteCustomProfile = pathStr.startsWith("/webhooks/site-custom-profile");
+    const isSiteProfileExtras = pathStr.startsWith("/webhooks/site-profile-extras");
     if (
       !isStatus &&
       !isCandidature &&
@@ -252,6 +272,8 @@ async function main() {
       !isSiteUsers &&
       !isSiteVote &&
       !isSiteLiveEvent &&
+      !isSiteKickLive &&
+      !isSiteKickSub &&
       !isSiteRoles &&
       !isSiteRankCard &&
       !isSiteReviews &&
@@ -263,7 +285,9 @@ async function main() {
       !isSitePayments &&
       !isSiteSeratafilmAccess &&
       !isSiteStaffAccess &&
-      !isSiteHogwartsSorting
+      !isSiteHogwartsSorting &&
+      !isSiteCustomProfile &&
+      !isSiteProfileExtras
     ) {
       return next();
     }
@@ -291,6 +315,8 @@ async function main() {
       isSiteUsers ||
       isSiteVote ||
       isSiteLiveEvent ||
+      isSiteKickLive ||
+      isSiteKickSub ||
       isSiteRoles ||
       isSiteRankCard ||
       isSiteReviews ||

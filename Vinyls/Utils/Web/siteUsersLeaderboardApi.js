@@ -15,6 +15,25 @@ const { getEffectiveJoinedAt } = require("../../Services/Community/effectiveMemb
 const LIST_CACHE_TTL_MS = 30_000;
 const listCache = new Map();
 
+/** Site API must never ship data: wallpapers (can be 300KB+ each and freeze /user profile). */
+function stripDataUrl(value) {
+  const s = String(value || "").trim();
+  if (!s || /^data:/i.test(s)) return "";
+  return s;
+}
+
+function siteSafeRankCard(doc) {
+  const theme = getRankCardThemeFromDoc(doc) || {};
+  return {
+    ...theme,
+    wallpaperUrl: stripDataUrl(theme.wallpaperUrl),
+  };
+}
+
+function siteSafeResolvedWallpaper(doc) {
+  return stripDataUrl(resolveRankCardWallpaper(doc?.profile?.rankCard || {}));
+}
+
 function siteMemberAvatarUrl(member, size = 128) {
   return (
     stabilizeDiscordCdnAvatarUrl(
@@ -65,10 +84,23 @@ function parseBoard(raw) {
   return "level";
 }
 
-/** Handle account Discord (`User.username`). Non usare `User.displayName` (global name) né `GuildMember.displayName` (include nickname server). */
+/** Handle account Discord (`User.username`) — resta disponibile per tag/ID tecnici. */
 function accountUsernameFromUser(user) {
   if (!user) return "";
   return String(user.username || "").trim();
+}
+
+/** Nome pubblico: nickname server → display name Discord → username. */
+function publicDisplayNameFromMemberOrUser(member, user) {
+  const m = member || null;
+  const u = user || m?.user || null;
+  const nick = String(m?.nickname || "").trim();
+  if (nick) return nick;
+  const memberDn = String(m?.displayName || "").trim();
+  if (memberDn) return memberDn;
+  const global = String(u?.globalName || "").trim();
+  if (global) return global;
+  return accountUsernameFromUser(u);
 }
 
 async function fetchDiscordUserForIdentity(client, guild, userId) {
@@ -148,25 +180,34 @@ async function fetchUserIdentity(client, guild, userId) {
     discriminator: "0",
   };
   if (!userId) return out;
-  const u = await fetchDiscordUserForIdentity(client, guild, userId);
-  if (!u) return out;
-  out.username = accountUsernameFromUser(u);
-  out.displayName = out.username;
-  out.avatar = u.avatar ? String(u.avatar) : "";
-  out.discriminator = String(u.discriminator || "0");
+  const id = String(userId || "").trim();
+  let member = guild?.members?.cache?.get(id) || null;
+  if (!member && guild?.members?.fetch) {
+    member = await guild.members.fetch({ user: id, force: false }).catch(() => null);
+  }
+  const u = member?.user || (await fetchDiscordUserForIdentity(client, guild, id));
+  if (!u && !member) return out;
+  out.username = accountUsernameFromUser(u || member?.user);
+  out.displayName = publicDisplayNameFromMemberOrUser(member, u) || out.username;
+  const userObj = u || member?.user;
+  out.avatar = userObj?.avatar ? String(userObj.avatar) : "";
+  out.discriminator = String(userObj?.discriminator || "0");
   out.avatarUrl = stabilizeDiscordCdnAvatarUrl(
-    userAvatarUrlStatic(u, { size: 256 }) || userAvatarUrlDynamic(u, { size: 256 }) || "",
+    (member && siteMemberAvatarUrl(member, 256)) ||
+      userAvatarUrlStatic(userObj, { size: 256 }) ||
+      userAvatarUrlDynamic(userObj, { size: 256 }) ||
+      "",
     { size: 256 },
   );
-  if (!out.avatarUrl && u.id) {
-    const h = u.avatar;
+  if (!out.avatarUrl && userObj?.id) {
+    const h = userObj.avatar;
     if (h) {
-      out.avatarUrl = `https://cdn.discordapp.com/avatars/${u.id}/${h}.png?size=256`;
+      out.avatarUrl = `https://cdn.discordapp.com/avatars/${userObj.id}/${h}.png?size=256`;
     } else {
       let idx = 0;
-      if (/^\d{5,22}$/.test(String(u.id)))
+      if (/^\d{5,22}$/.test(String(userObj.id)))
         try {
-          idx = Number((BigInt(u.id) >> 22n) % 6n);
+          idx = Number((BigInt(userObj.id) >> 22n) % 6n);
         } catch {
           idx = 0;
         }
@@ -174,6 +215,39 @@ async function fetchUserIdentity(client, guild, userId) {
     }
   }
   return out;
+}
+
+function roleHexPair(role) {
+  if (!role) return { color: "", color2: "", colorMode: "solid" };
+  const primary =
+    String(role.hexColor || "").trim() && String(role.hexColor || "").trim() !== "#000000"
+      ? String(role.hexColor || "").trim().toLowerCase()
+      : "";
+  let color2 = "";
+  let tertiary = 0;
+  let secondaryInt = 0;
+  let primaryInt = 0;
+  try {
+    primaryInt = Number(role.colors?.primaryColor ?? 0) || 0;
+    secondaryInt = Number(role.colors?.secondaryColor ?? 0) || 0;
+    tertiary = Number(role.colors?.tertiaryColor ?? 0) || 0;
+    if (secondaryInt > 0) {
+      color2 = `#${secondaryInt.toString(16).padStart(6, "0")}`.toLowerCase();
+    }
+  } catch (_) {
+    /* ignore */
+  }
+  // Stessi valori di HOLO in customProfileMutations.js
+  const HOLO_P = 11127295;
+  const HOLO_S = 16759788;
+  const HOLO_T = 16761760;
+  let colorMode = "solid";
+  if (primaryInt === HOLO_P && secondaryInt === HOLO_S && tertiary === HOLO_T) {
+    colorMode = "holo";
+  } else if (secondaryInt > 0) {
+    colorMode = "gradient";
+  }
+  return { color: primary, color2, colorMode };
 }
 
 async function buildCustomProfileData(guild, userId) {
@@ -208,44 +282,71 @@ async function buildCustomProfileData(guild, userId) {
 
   let roleMembers = role?.members ? Array.from(role.members.values()).filter((m) => !m.user?.bot) : [];
   if (role && roleMembers.length === 0) {
-    await guild.members.fetch().catch(() => null);
-    roleMembers = role.members ? Array.from(role.members.values()).filter((m) => !m.user?.bot) : [];
+    // Non fare guild.members.fetch() globale: su guild grandi blocca /webhooks/site-custom-profile.
+    const ownerMember =
+      guild.members.cache.get(String(userId)) ||
+      (await guild.members.fetch({ user: String(userId), force: false }).catch(() => null));
+    if (ownerMember && !ownerMember.user?.bot && ownerMember.roles?.cache?.has?.(role.id)) {
+      roleMembers = [ownerMember];
+    }
   }
-  const roleMemberCount = roleMembers.length;
+  const ownerSid = String(userId || "").trim();
+  const mapSharedMember = (member, isOwner) => ({
+    id: String(member.id || member.user?.id || ""),
+    username: String(member.user?.username || "").trim(),
+    displayName: String(member.displayName || member.user?.globalName || member.user?.username || "Utente").trim(),
+    avatarUrl: siteMemberAvatarUrl(member, 128),
+    isOwner: Boolean(isOwner),
+  });
+  const sortSharedMembers = (a, b) => {
+    if (a.isOwner && !b.isOwner) return -1;
+    if (!a.isOwner && b.isOwner) return 1;
+    return String(a.displayName || a.username || "").localeCompare(String(b.displayName || b.username || ""), "it");
+  };
+  const roleMemberCount = Math.max(roleMembers.length, Number(role?.members?.size) || 0);
   const roleSharedMembers = roleMembers
-    .sort((a, b) =>
-      String(a.user?.username || "").localeCompare(String(b.user?.username || ""), "it"),
-    )
-    .slice(0, 60)
-    .map((member) => ({
-      id: String(member.id || member.user?.id || ""),
-      username: String(member.user?.username || "").trim(),
-      displayName: String(member.user?.username || "Utente").trim(),
-      avatarUrl: siteMemberAvatarUrl(member, 128),
-    }))
-    .filter((member) => member.id);
+    .map((member) => mapSharedMember(member, String(member.id || member.user?.id || "") === ownerSid))
+    .filter((member) => member.id)
+    .sort(sortSharedMembers)
+    .slice(0, 60);
+  if (ownerSid && role && !roleSharedMembers.some((m) => m.id === ownerSid)) {
+    const ownerMember =
+      guild.members.cache.get(ownerSid) ||
+      (await guild.members.fetch({ user: ownerSid, force: false }).catch(() => null));
+    if (ownerMember && !ownerMember.user?.bot) {
+      roleSharedMembers.unshift(mapSharedMember(ownerMember, true));
+    } else {
+      roleSharedMembers.unshift({ id: ownerSid, username: "", displayName: "Tu", avatarUrl: "", isOwner: true });
+    }
+  }
   let secondaryRoleMembers = secondaryRole?.members ? Array.from(secondaryRole.members.values()).filter((m) => !m.user?.bot) : [];
   if (secondaryRole && secondaryRoleMembers.length === 0) {
-    await guild.members.fetch().catch(() => null);
-    secondaryRoleMembers = secondaryRole.members ? Array.from(secondaryRole.members.values()).filter((m) => !m.user?.bot) : [];
+    const ownerMember =
+      guild.members.cache.get(ownerSid) ||
+      (await guild.members.fetch({ user: ownerSid, force: false }).catch(() => null));
+    if (ownerMember && !ownerMember.user?.bot && ownerMember.roles?.cache?.has?.(secondaryRole.id)) {
+      secondaryRoleMembers = [ownerMember];
+    }
   }
   const secondaryRoleSharedMembers = secondaryRoleMembers
-    .sort((a, b) =>
-      String(a.user?.username || "").localeCompare(String(b.user?.username || ""), "it"),
-    )
-    .slice(0, 60)
-    .map((member) => ({
-      id: String(member.id || member.user?.id || ""),
-      username: String(member.user?.username || "").trim(),
-      displayName: String(member.user?.username || "Utente").trim(),
-      avatarUrl: siteMemberAvatarUrl(member, 128),
-    }))
-    .filter((member) => member.id);
-  /** Solo utenti aggiunti alla voc (overwrite membro: Connect+ViewChannel, senza Gestisci canali come il proprietario). */
+    .map((member) => mapSharedMember(member, String(member.id || member.user?.id || "") === ownerSid))
+    .filter((member) => member.id)
+    .sort(sortSharedMembers)
+    .slice(0, 60);
+  if (ownerSid && secondaryRole && !secondaryRoleSharedMembers.some((m) => m.id === ownerSid)) {
+    const ownerMember =
+      guild.members.cache.get(ownerSid) ||
+      (await guild.members.fetch({ user: ownerSid, force: false }).catch(() => null));
+    if (ownerMember && !ownerMember.user?.bot) {
+      secondaryRoleSharedMembers.unshift(mapSharedMember(ownerMember, true));
+    } else {
+      secondaryRoleSharedMembers.unshift({ id: ownerSid, username: "", displayName: "Tu", avatarUrl: "", isOwner: true });
+    }
+  }
+  /** Owner sempre in lista; gli altri sono overwrite membro (Connect+ViewChannel, senza Gestisci canali). */
   let voiceSharedCount = 0;
   const voiceSharedMembers = [];
   if (voice?.permissionOverwrites?.cache) {
-    const ownerSid = String(userId || "").trim();
     const botSid = String(guild.members?.me?.id || guild.client?.user?.id || "").trim();
     const V = PermissionsBitField.Flags.ViewChannel;
     const C = PermissionsBitField.Flags.Connect;
@@ -261,20 +362,30 @@ async function buildCustomProfileData(guild, userId) {
       sharedIds.push(sid);
       voiceSharedCount += 1;
     });
-    for (const sid of sharedIds.slice(0, 60)) {
-      const member = guild.members.cache.get(sid) || (await guild.members.fetch({ user: sid, force: true }).catch(() => null));
-      if (!member || member.user?.bot) continue;
+    const ownerMember =
+      guild.members.cache.get(ownerSid) ||
+      (await guild.members.fetch({ user: ownerSid, force: false }).catch(() => null));
+    if (ownerMember && !ownerMember.user?.bot) {
+      voiceSharedMembers.push(mapSharedMember(ownerMember, true));
+    } else if (ownerSid) {
       voiceSharedMembers.push({
-        id: String(member.id || member.user?.id || ""),
-        username: String(member.user?.username || "").trim(),
-        displayName: String(member.user?.username || "Utente").trim(),
-        avatarUrl: siteMemberAvatarUrl(member, 128),
+        id: ownerSid,
+        username: "",
+        displayName: "Tu",
+        avatarUrl: "",
+        isOwner: true,
       });
     }
-    voiceSharedMembers.sort((a, b) =>
-      String(a.username || "").localeCompare(String(b.username || ""), "it"),
-    );
+    for (const sid of sharedIds.slice(0, 59)) {
+      const member = guild.members.cache.get(sid) || (await guild.members.fetch({ user: sid, force: true }).catch(() => null));
+      if (!member || member.user?.bot) continue;
+      voiceSharedMembers.push(mapSharedMember(member, false));
+    }
+    voiceSharedMembers.sort(sortSharedMembers);
   }
+
+  const primaryColors = roleHexPair(role);
+  const secondaryColors = roleHexPair(secondaryRole);
 
   return {
     expiresAt: doc?.expiresAt ? new Date(doc.expiresAt).toISOString() : "",
@@ -282,10 +393,9 @@ async function buildCustomProfileData(guild, userId) {
       ? {
           id: String(role.id),
           name: String(role.name || "Ruolo personalizzato"),
-          color:
-            String(role.hexColor || "").trim() && String(role.hexColor || "").trim() !== "#000000"
-              ? String(role.hexColor || "").trim()
-              : "",
+          color: primaryColors.color,
+          color2: primaryColors.color2,
+          colorMode: primaryColors.colorMode || "solid",
           emoji: String(role.unicodeEmoji || "").trim(),
           iconUrl: typeof role.iconURL === "function" ? String(role.iconURL({ extension: "png", size: 128 }) || "") : "",
           createdAt: role.createdAt ? new Date(role.createdAt).toISOString() : "",
@@ -297,10 +407,9 @@ async function buildCustomProfileData(guild, userId) {
       ? {
           id: String(secondaryRole.id),
           name: String(secondaryRole.name || "Ruolo personalizzato secondario"),
-          color:
-            String(secondaryRole.hexColor || "").trim() && String(secondaryRole.hexColor || "").trim() !== "#000000"
-              ? String(secondaryRole.hexColor || "").trim()
-              : "",
+          color: secondaryColors.color,
+          color2: secondaryColors.color2,
+          colorMode: secondaryColors.colorMode || "solid",
           emoji: String(secondaryRole.unicodeEmoji || "").trim(),
           iconUrl: typeof secondaryRole.iconURL === "function" ? String(secondaryRole.iconURL({ extension: "png", size: 128 }) || "") : "",
           createdAt: secondaryRole.createdAt ? new Date(secondaryRole.createdAt).toISOString() : "",
@@ -383,7 +492,6 @@ const SEARCH_SELECT =
 
 function buildWeeklyMultiplierSources(member, settings, fallbackGlobalExpMultiplier) {
   const sources = [];
-  const baseMultiplier = 1;
   const globalBase = Number(settings?.baseMultiplier);
   const globalEvent = Number(settings?.eventMultiplier);
   const effectiveGlobal =
@@ -394,64 +502,80 @@ function buildWeeklyMultiplierSources(member, settings, fallbackGlobalExpMultipl
         : 1;
   const map = settings?.roleMultipliersMerged instanceof Map ? settings.roleMultipliersMerged : new Map();
   const veteranoRoleId = String(IDs.roles?.Veterano || "").trim();
-  let chosenRole = null;
-  let chosenRoleMultiplier = 1;
-  let chosenRoleSpecific = false;
 
   sources.push({
     key: "base",
     label: "Base",
     type: "base",
-    multiplier: 1,
-    contribution: 1,
+    multiplier: Number(Math.max(1, effectiveGlobal).toFixed(2)),
+    contribution: Number(Math.max(1, effectiveGlobal).toFixed(2)),
+    active: true,
   });
 
-  if (effectiveGlobal > 1) {
-    sources.push({
-      key: "server",
-      label:
-        Number.isFinite(globalEvent) && globalEvent > 1
-          ? "Server + evento"
-          : "Server",
-      type: "global",
-      multiplier: Number(effectiveGlobal.toFixed(2)),
-      contribution: Number((effectiveGlobal - 1).toFixed(2)),
-    });
-  }
+  const roleSources = [];
+  let chosenRoleId = "";
+  let chosenRoleMultiplier = 1;
+  let chosenRoleSpecific = false;
+  let veteranoMulti = 1;
+  let veteranoPresent = false;
 
   if (member?.roles?.cache && map.size) {
     for (const [roleId, value] of map.entries()) {
       if (!member.roles.cache.has(roleId)) continue;
       const parsed = Math.max(1, Number(value) || 1);
+      if (parsed <= 1) continue;
       const roleObj = member.roles.cache.get(roleId);
-      if (veteranoRoleId && String(roleId) === veteranoRoleId) {
-        if (!chosenRoleSpecific && parsed > chosenRoleMultiplier) {
-          chosenRole = roleObj;
-          chosenRoleMultiplier = parsed;
-        }
-        continue;
-      }
-      if (parsed > chosenRoleMultiplier || !chosenRoleSpecific) {
-        chosenRole = roleObj;
+      const id = String(roleId || "");
+      const isVeterano = Boolean(veteranoRoleId && id === veteranoRoleId);
+      if (isVeterano) {
+        veteranoPresent = true;
+        veteranoMulti = Math.max(veteranoMulti, parsed);
+      } else if (parsed > chosenRoleMultiplier || !chosenRoleSpecific) {
+        chosenRoleId = id;
         chosenRoleMultiplier = parsed;
         chosenRoleSpecific = true;
       }
+      roleSources.push({
+        key: "role:" + id,
+        label: String(roleObj?.name || "Ruolo bonus"),
+        type: "role",
+        multiplier: Number(parsed.toFixed(2)),
+        contribution: Number((parsed - 1).toFixed(2)),
+        color:
+          String(roleObj?.hexColor || "").trim() && String(roleObj?.hexColor || "").trim() !== "#000000"
+            ? String(roleObj.hexColor || "").trim()
+            : "",
+        roleId: id,
+        position: Number(roleObj?.position || 0),
+        isVeterano,
+        active: false,
+      });
     }
   }
 
-  if (chosenRole && chosenRoleMultiplier > 1) {
-    sources.push({
-      key: "role:" + String(chosenRole.id || ""),
-      label: String(chosenRole.name || "Ruolo bonus"),
-      type: "role",
-      multiplier: Number(chosenRoleMultiplier.toFixed(2)),
-      contribution: Number((chosenRoleMultiplier - 1).toFixed(2)),
-      color:
-        String(chosenRole.hexColor || "").trim() && String(chosenRole.hexColor || "").trim() !== "#000000"
-          ? String(chosenRole.hexColor || "").trim()
-          : "",
-    });
+  if (!chosenRoleSpecific && veteranoPresent && veteranoMulti > 1) {
+    chosenRoleId = veteranoRoleId;
+    chosenRoleMultiplier = veteranoMulti;
   }
+
+  roleSources
+    .sort((a, b) => {
+      if (b.multiplier !== a.multiplier) return b.multiplier - a.multiplier;
+      return Number(b.position || 0) - Number(a.position || 0);
+    })
+    .forEach((row) => {
+      const active = Boolean(chosenRoleId && String(row.roleId) === String(chosenRoleId));
+      sources.push({
+        key: row.key,
+        label: row.label,
+        type: row.type,
+        multiplier: row.multiplier,
+        contribution: row.contribution,
+        color: row.color,
+        active,
+        ...(active && chosenRoleMultiplier > 1 ? { applied: true } : {}),
+      });
+    });
 
   return sources;
 }
@@ -616,15 +740,20 @@ async function buildProfileSearchPayload(client, guildId, searchId) {
     profile: {
       userId: String(levelRow.userId || searchId),
       username: String(levelRow.username || "").trim(),
-      displayName: String((member && member.user?.username) || levelRow.username || "").trim(),
+      displayName: String(
+        publicDisplayNameFromMemberOrUser(member, member?.user) ||
+          levelRow.displayName ||
+          levelRow.username ||
+          ""
+      ).trim(),
       avatarUrl: String(profileAvatarUrl || "").trim(),
       joinedAt: effectiveJoined
         ? effectiveJoined.toISOString()
         : member?.joinedAt
           ? new Date(member.joinedAt).toISOString()
           : "",
-      rankCard: getRankCardThemeFromDoc(doc),
-      rankCardResolvedWallpaper: resolveRankCardWallpaper(doc?.profile?.rankCard || {}),
+      rankCard: siteSafeRankCard(doc),
+      rankCardResolvedWallpaper: siteSafeResolvedWallpaper(doc),
       roles: profileRoles,
       ...(customProfile ? { customProfile } : {}),
       ...(Array.isArray(weeklyMultiplierSources) ? { weeklyMultiplierSources } : {}),
@@ -954,15 +1083,20 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
         profile: {
           userId: String(row.userId || searchId),
           username: String(row.username || "").trim(),
-          displayName: String((member && member.user?.username) || row.username || "").trim(),
+          displayName: String(
+            publicDisplayNameFromMemberOrUser(member, member?.user) ||
+              row.displayName ||
+              row.username ||
+              ""
+          ).trim(),
           avatarUrl: String(profileAvatarUrl || "").trim(),
           joinedAt: effectiveJoined
             ? effectiveJoined.toISOString()
             : member?.joinedAt
               ? new Date(member.joinedAt).toISOString()
               : "",
-          rankCard: getRankCardThemeFromDoc(doc),
-          rankCardResolvedWallpaper: resolveRankCardWallpaper(doc?.profile?.rankCard || {}),
+          rankCard: siteSafeRankCard(doc),
+          rankCardResolvedWallpaper: siteSafeResolvedWallpaper(doc),
           roles: profileRoles,
           ...(customProfile ? { customProfile } : {}),
           ...(Array.isArray(weeklyMultiplierSources) ? { weeklyMultiplierSources } : {}),
@@ -1225,4 +1359,4 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
   }
 }
 
-module.exports = { handleSiteUsersLeaderboardGet };
+module.exports = { handleSiteUsersLeaderboardGet, buildCustomProfileData };

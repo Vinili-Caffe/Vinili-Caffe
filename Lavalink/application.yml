@@ -10,8 +10,9 @@ logging:
     lavalink: WARN
     # YouTube clients (TVHTML5 / WEBEMBEDDED) falliscono spesso e ritentano:
     # AllClientsFailedException + dump formati itag inquinano PM2 senza essere crash.
-    dev.lavalink.youtube: ERROR
-    dev.lavalink.youtube.http.YoutubeOauth2Handler: WARN
+    # WARN temporaneo: vedere quale client fallisce (SABR / login / 403)
+    dev.lavalink.youtube: WARN
+    dev.lavalink.youtube.http.YoutubeOauth2Handler: INFO
     com.sedmelluq.discord.lavaplayer: ERROR
     com.sedmelluq.discord.lavaplayer.track.playback: ERROR
   request:
@@ -40,8 +41,10 @@ plugins:
     allowDirectVideoIds: true
     allowDirectPlaylistIds: true
     # YouTube cambia spesso lo script signature: senza remote cipher → loadfailed a stream.
+    # In prod: docker `yt-cipher` su 127.0.0.1:8001 (ghcr.io/kikkia/yt-cipher:master).
+    # Fallback pubblico: https://cipher.kikkia.dev/
     remoteCipher:
-      url: "https://cipher.kikkia.dev/"
+      url: "http://127.0.0.1:8001"
       userAgent: "vinili-caffe-bots"
     # Video age-restricted / explicit spesso: "This video requires login" → OAuth obbligatorio.
     # Al primo boot Lavalink stampa un link + codice; dopo salva refreshToken sotto.
@@ -50,18 +53,18 @@ plugins:
       # Persistito dopo device-login (non rifare OAuth a ogni restart).
       refreshToken: "1//098cQCzO4Ej4sCgYIARAAGAkSNwF-L9IrzaWojR_YL51oRTGLnMyNFZyu646jsr721EMlzKIZjuqXWw7obdRTehacEwP0tORhFRk"
     clients:
-      # TV + OAuth sblocca age-gate (itag 18 fix nello snapshot sotto).
-      # WEBEMBEDDED: age-gate limitato + Opus. WEB/MWEB spesso "requires login" su explicit.
+      # TV+OAuth per playback; MUSIC solo metadata/search (playback false).
+      # WEB/MWEB = SABR senza URL → loadfailed.
       - TV
       - WEBEMBEDDED
       - ANDROID_VR
-      - WEB
-      - MWEB
-      - ANDROID_MUSIC
-      - TVHTML5_SIMPLY
       - MUSIC
     clientOptions:
       MUSIC:
+        playback: false
+      WEB:
+        playback: false
+      MWEB:
         playback: false
 
 lavalink:
@@ -72,11 +75,15 @@ lavalink:
     trackStuckThresholdMs: 15000
     playerUpdateInterval: 5
     timeouts:
-      connectTimeoutMs: 10000
-      connectionRequestTimeoutMs: 10000
-      socketTimeoutMs: 10000
+      # cipher remoto + innertube: 10s troppo stretti su datacenter IP
+      connectTimeoutMs: 15000
+      connectionRequestTimeoutMs: 15000
+      socketTimeoutMs: 20000
     sources:
       youtube: false
+      # Fallback: yt-dlp risolve URL diretti → Lavaplayer http source
+      http: true
+      soundcloud: true
   plugins:
     # 1.18.2: fix itag=18 + ResponseStatusException (ex snapshot post-1.18.1).
     - dependency: "dev.lavalink.youtube:youtube-plugin:1.18.2"

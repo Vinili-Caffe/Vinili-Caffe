@@ -69,6 +69,8 @@ const CUSTOM_VOC_BOT_PERMS = {
 
 function isCustomPrivateVoiceChannel(channel, guild = null) {
   if (!channel?.isVoiceBased?.()) return false;
+  // Palchi / stage non sono mai vocali private utente.
+  if (channel.type === ChannelType.GuildStageVoice) return false;
   return isChannelInCustomPrivateCategory(channel, guild || channel.guild);
 }
 

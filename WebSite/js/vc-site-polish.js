@@ -100,7 +100,7 @@
     try {
       var r = el.getBoundingClientRect();
       var fold = window.innerHeight || 800;
-      return r.top < fold * 0.92 && r.bottom > 36;
+      return r.top < fold * 0.98 && r.bottom > 12;
     } catch (e) {
       return true;
     }
@@ -116,23 +116,44 @@
       el.id === "vc-roles-grid" ||
       el.id === "vc-ul-grid" ||
       (el.classList &&
-        (el.classList.contains("vc-page-cine-body") ||
+        (el.classList.contains("vc-stat-strip") ||
+          el.classList.contains("vc-page-cine-body") ||
           el.classList.contains("vc-page-cine-aside") ||
           el.classList.contains("vc-page-cine-aside-inline") ||
           el.classList.contains("vc-reviews-section") ||
           el.classList.contains("vc-reviews-sections-row") ||
-          el.classList.contains("vc-perks-showcase")))
+          el.classList.contains("vc-perks-showcase") ||
+          el.classList.contains("vc-vote-live-stats") ||
+          el.classList.contains("vc-card-grid-wrap") ||
+          el.classList.contains("vc-roles-grid") ||
+          el.classList.contains("vc-ul-grid") ||
+          el.classList.contains("vc-reviews-grid")))
     ) {
       return;
     }
-    if (el.querySelector && el.querySelector(".vc-reviews-card, .vc-role-card, .vc-ul-card, .vc-perks-card, .vc-faq-group, .vc-wiki-cmd-shell")) {
+    if (
+      el.querySelector &&
+      el.querySelector(
+        "#vc-roles-grid, #vc-ul-grid, .vc-roles-grid, .vc-ul-grid, .vc-reviews-grid, #vc-regole-list, #wiki-comandi-panel, .vc-card-grid-wrap, .vc-reviews-card, .vc-role-card, .vc-ul-card, .vc-perks-card, .vc-faq-group, .vc-wiki-cmd-shell, .vc-notify-stat, .vc-vote-live-statbox, .vc-notify-row, .vc-roles-search, .vc-ul-toolbar, .vc-ul-board-tabs, .vc-legal-card, .vc-staff-block, .vc-sponsor-embed, .vc-candidature-card, .vc-regole-card, .vc-support-donate-role, .vc-cmd-grp",
+      )
+    ) {
       var isSelfCard =
         el.classList.contains("vc-reviews-card") ||
         el.classList.contains("vc-role-card") ||
         el.classList.contains("vc-ul-card") ||
         el.classList.contains("vc-perks-card") ||
         el.classList.contains("vc-faq-group") ||
-        el.classList.contains("vc-wiki-cmd-shell");
+        el.classList.contains("vc-wiki-cmd-shell") ||
+        el.classList.contains("vc-notify-stat") ||
+        el.classList.contains("vc-vote-live-statbox") ||
+        el.classList.contains("vc-notify-row") ||
+        el.classList.contains("vc-legal-card") ||
+        el.classList.contains("vc-staff-block") ||
+        el.classList.contains("vc-sponsor-embed") ||
+        el.classList.contains("vc-candidature-card") ||
+        el.classList.contains("vc-regole-card") ||
+        el.classList.contains("vc-support-donate-role") ||
+        el.classList.contains("vc-cmd-grp");
       if (!isSelfCard) return;
     }
     if (
@@ -233,7 +254,98 @@
     }
   }
 
+  function undressEl(el) {
+    if (!el || !el.classList) return;
+    el.classList.remove("vc-home-panel", "vc-fx-card", "is-tilting");
+    try {
+      var sheens = el.querySelectorAll(":scope > .vc-fx-sheen");
+      for (var s = 0; s < sheens.length; s++) sheens[s].remove();
+    } catch (eSheen) {}
+  }
+
+  function undressLayoutWrappers() {
+    var nodes = document.querySelectorAll(
+      [
+        ".vc-stat-strip",
+        ".vc-card-grid-wrap",
+        ".vc-vote-live-stats",
+        "#vc-roles-grid",
+        "#vc-ul-grid",
+        ".vc-roles-grid",
+        ".vc-ul-grid",
+        ".vc-reviews-grid",
+        "#vc-regole-list",
+        "#wiki-comandi-panel",
+        ".vc-home-panel:has(#vc-roles-grid)",
+        ".vc-fx-card:has(#vc-roles-grid)",
+        ".vc-home-panel:has(#vc-ul-grid)",
+        ".vc-fx-card:has(#vc-ul-grid)",
+        ".vc-home-panel:has(.vc-roles-grid)",
+        ".vc-fx-card:has(.vc-roles-grid)",
+        ".vc-home-panel:has(.vc-ul-grid)",
+        ".vc-fx-card:has(.vc-ul-grid)",
+        ".vc-home-panel:has(.vc-role-card)",
+        ".vc-fx-card:has(.vc-role-card)",
+        ".vc-home-panel:has(.vc-ul-card)",
+        ".vc-fx-card:has(.vc-ul-card)",
+        ".vc-home-panel:has(.vc-reviews-card)",
+        ".vc-fx-card:has(.vc-reviews-card)",
+        ".vc-home-panel:has(.vc-reviews-grid)",
+        ".vc-fx-card:has(.vc-reviews-grid)",
+        ".vc-home-panel:has(.vc-notify-stat)",
+        ".vc-fx-card:has(.vc-notify-stat)",
+        ".vc-home-panel:has(.vc-notify-row)",
+        ".vc-fx-card:has(.vc-notify-row)",
+        ".vc-home-panel:has(.vc-roles-search)",
+        ".vc-fx-card:has(.vc-roles-search)",
+        ".vc-home-panel:has(.vc-faq-group)",
+        ".vc-fx-card:has(.vc-faq-group)",
+        ".vc-home-panel:has(.vc-perks-card)",
+        ".vc-fx-card:has(.vc-perks-card)",
+        ".vc-home-panel:has(.vc-wiki-cmd-shell)",
+        ".vc-fx-card:has(.vc-wiki-cmd-shell)",
+        ".vc-home-panel:has(.vc-legal-card)",
+        ".vc-fx-card:has(.vc-legal-card)",
+        ".vc-home-panel:has(.vc-staff-block)",
+        ".vc-fx-card:has(.vc-staff-block)",
+        ".vc-home-panel:has(#vc-regole-list)",
+        ".vc-fx-card:has(#vc-regole-list)",
+        ".vc-home-panel:has(#wiki-comandi-panel)",
+        ".vc-fx-card:has(#wiki-comandi-panel)",
+        "section:has(> .vc-notify-stat)",
+        "div:has(> .vc-notify-stat)",
+        "section:has(> .vc-roles-search)",
+        "div:has(> .vc-roles-search)",
+      ].join(", "),
+    );
+    for (var i = 0; i < nodes.length; i++) {
+      var el = nodes[i];
+      // Mai togliere la cornice alle card stesse.
+      if (
+        el.classList &&
+        (el.classList.contains("vc-role-card") ||
+          el.classList.contains("vc-ul-card") ||
+          el.classList.contains("vc-reviews-card") ||
+          el.classList.contains("vc-notify-stat") ||
+          el.classList.contains("vc-notify-row") ||
+          el.classList.contains("vc-perks-card") ||
+          el.classList.contains("vc-faq-group") ||
+          el.classList.contains("vc-wiki-cmd-shell") ||
+          el.classList.contains("vc-legal-card") ||
+          el.classList.contains("vc-staff-block") ||
+          el.classList.contains("vc-sponsor-embed") ||
+          el.classList.contains("vc-regole-card") ||
+          el.classList.contains("vc-candidature-card") ||
+          el.classList.contains("vc-support-donate-role"))
+      ) {
+        continue;
+      }
+      undressEl(el);
+    }
+  }
+
   function initRise() {
+    undressLayoutWrappers();
     var nodes = pickRiseNodes();
     var seen = [];
     function seenHas(el) {
@@ -276,7 +388,7 @@
           io.unobserve(entries[e].target);
         }
       },
-      { root: null, rootMargin: "0px 0px -6% 0px", threshold: 0.08 }
+      { root: null, rootMargin: "0px 0px -2% 0px", threshold: 0.02 }
     );
     for (var n = 0; n < riseNodes.length; n++) {
       if (riseNodes[n].dataset.vcRiseIo === "1") continue;
@@ -291,7 +403,7 @@
       if (document.querySelector('script[src*="vc-home-cine"]')) return;
     } catch (e0) {}
     var s = document.createElement("script");
-    s.src = "/js/vc-home-cine.js?v=20260819communityScroll";
+    s.src = "/js/vc-home-cine.js?v=20260820fxalign1";
     s.defer = true;
     (document.body || document.documentElement).appendChild(s);
   }

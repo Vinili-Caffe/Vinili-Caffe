@@ -265,9 +265,7 @@
       headers: authHeaders(),
       cache: "no-store",
     })
-      .then(function (response) {
-        return response.json();
-      })
+      .then(parseJsonResponse)
       .then(function (body) {
         if (!body || body.ok !== true) return;
         var fp = reviewsPayloadFingerprint(body);
@@ -997,6 +995,24 @@
     return token ? { Authorization: "Bearer " + token } : {};
   }
 
+  function parseJsonResponse(response) {
+    return response.text().then(function (text) {
+      var raw = String(text || "").trim();
+      if (!raw) {
+        throw new Error(
+          t("reviews.apiUnavailable", "Servizio temporaneamente non disponibile. Riprova tra poco.")
+        );
+      }
+      try {
+        return JSON.parse(raw);
+      } catch (e) {
+        throw new Error(
+          t("reviews.apiUnavailable", "Servizio temporaneamente non disponibile. Riprova tra poco.")
+        );
+      }
+    });
+  }
+
   function fetchPayload() {
     setStatus("", false);
     return fetch(apiUrl(), {
@@ -1004,7 +1020,7 @@
       headers: authHeaders(),
       cache: "no-store",
     })
-      .then(function (response) { return response.json(); })
+      .then(parseJsonResponse)
       .then(function (body) {
         if (!body || body.ok !== true) throw new Error((body && body.message) || t("reviews.loadError", "Impossibile caricare le recensioni."));
         state.payload = body;
@@ -1044,7 +1060,7 @@
       },
       body: JSON.stringify(payload),
     })
-      .then(function (response) { return response.json(); })
+      .then(parseJsonResponse)
       .then(function (body) {
         if (!body || body.ok !== true) {
           throw new Error((body && body.message) || t("reviews.saveError", "Errore durante il salvataggio."));
@@ -1073,9 +1089,7 @@
         Authorization: "Bearer " + token,
       },
     })
-      .then(function (response) {
-        return response.json();
-      })
+      .then(parseJsonResponse)
       .then(function (body) {
         if (!body || body.ok !== true) {
           throw new Error((body && body.message) || t("reviews.likeError", "Errore like."));
@@ -1113,9 +1127,7 @@
       },
       body: JSON.stringify({ content: content }),
     })
-      .then(function (response) {
-        return response.json();
-      })
+      .then(parseJsonResponse)
       .then(function (body) {
         if (!body || body.ok !== true) {
           throw new Error((body && body.message) || t("reviews.replyError", "Errore risposta."));
@@ -1147,7 +1159,7 @@
           Authorization: "Bearer " + token,
         },
       })
-        .then(function (response) { return response.json(); })
+        .then(parseJsonResponse)
         .then(function (body) {
           if (!body || body.ok !== true) {
             throw new Error((body && body.message) || t("reviews.deleteError", "Errore durante l'eliminazione."));

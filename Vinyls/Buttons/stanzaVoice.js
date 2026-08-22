@@ -1,12 +1,10 @@
-const { handleStanzaButton } = require("../Services/Voice/stanzaVoiceRoomsService");
-
-function match(interaction) {
-  return Boolean(interaction?.isButton?.() && String(interaction.customId || "").startsWith("stanza_"));
+// Stanze gestite solo da Caffè — non claimare i button stanza_* su Vinili.
+function match() {
+  return false;
 }
 
-async function execute(interaction) {
-  const handled = await handleStanzaButton(interaction);
-  return handled === true;
+async function execute() {
+  return false;
 }
 
 module.exports = {

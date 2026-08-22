@@ -1,11 +1,11 @@
 <!DOCTYPE html>
 <html class="vc-site-polish" lang="it">
   <head>
-    <style id="vc-anti-fouc-css">html.vc-site-polish:not(.vc-styles-ready) body{visibility:hidden!important}html.vc-site-polish.vc-styles-ready body{visibility:visible!important}</style>
+    <style id="vc-anti-fouc-css">html,body{background:#100c09}</style><style id="vc-nav-noflash">body.vc-body>header,body.vc-body header.fixed,body.vc-dashboard-page>header,body.vc-vote-page>header,body.vc-body--home>header{background:#100c09!important;background-color:#100c09!important;padding-top:max(0.85rem,env(safe-area-inset-top,0px))!important;padding-left:max(1rem,env(safe-area-inset-left,0px))!important;padding-right:max(1rem,env(safe-area-inset-right,0px))!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;transition:none!important;animation:none!important;transform:none!important;box-shadow:none!important}body.vc-body header .vc-nav-shell,body.vc-body header .vc-nav-shell.vc-glass,body.vc-body header .vc-nav-shell.vc-nav-shell--scrolled,body.vc-body header .vc-nav-shell.vc-glass.vc-nav-shell--scrolled{background:#140f0c!important;background-color:#140f0c!important;border-radius:1rem!important;border:1px solid rgba(255,255,255,.1)!important;box-shadow:0 10px 28px rgba(0,0,0,.35)!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;filter:none!important;transition:none!important;animation:none!important;max-width:none!important;width:100%!important;margin:0!important}body.vc-body header .vc-nav-shell::before{content:none!important;display:none!important}</style>
 {{COOKIEYES_BLOCK}}{{GA_BLOCK}}
     <meta charset="utf-8" />
-    <title>{{SITE_NAME}} | Personalizza Rank Card</title>
-    <meta name="description" content="Personalizza la tua rank card direttamente dal sito." />
+    <title>{{SITE_NAME}} | Personalizza</title>
+    <meta name="description" content="Personalizza rank card, wallpaper, ruoli custom e vocale privata dal sito Vinili & Caffè." />
     <meta name="author" content="{{SITE_NAME}}" />
     <meta name="robots" content="index, follow" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -31,7 +31,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css"
       crossorigin="anonymous" referrerpolicy="no-referrer" />
     <link rel="stylesheet" href="/css/tw-build.css?v={{BUILD_ASSET_VERSION}}" />
-    <link rel="stylesheet" href="/css/vc-landing.css?v={{BUILD_ASSET_VERSION}}" />
+    <link rel="stylesheet" href="/css/vc-landing.css?v=20260821norim1" />
     <script src="/js/vc-page-cine-boot.js?v={{BUILD_ASSET_VERSION}}"></script>
     <style>
       .vc-rank-editor-colorrow {
@@ -135,12 +135,50 @@
     </style>
     <script>
       (function () {
-        document.documentElement.classList.add("vc-rank-customize-pending");
+        function parseTab() {
+          try {
+            var q = new URLSearchParams(window.location.search || "");
+            var t = String(q.get("target") || q.get("slot") || q.get("tab") || "")
+              .trim()
+              .toLowerCase();
+            if (t === "vocale") return "voice";
+            if (t === "primary" || t === "secondary" || t === "voice") return t;
+            if (t === "ruoli" || t === "rolepanel" || t === "colors" || t === "colori") return "roles";
+            if (t === "mention" || t === "mention_reaction") return "reactions";
+            if (t === "mention_response") return "response";
+            if (
+              t === "birthday" ||
+              t === "privacy" ||
+              t === "roles" ||
+              t === "reactions" ||
+              t === "response" ||
+              t === "hogwarts"
+            )
+              return t;
+            if (t === "rank" || t === "wallpaper") return "rank";
+          } catch (e) {}
+          return "rank";
+        }
+        var tab = parseTab();
+        var isRank = tab === "rank";
+        var isExtras =
+          tab === "birthday" ||
+          tab === "privacy" ||
+          tab === "roles" ||
+          tab === "reactions" ||
+          tab === "response" ||
+          tab === "hogwarts";
+        window.__VC_PERS_HUB = { enabled: true, tab: tab, isRank: isRank, isExtras: isExtras, isCustom: !isRank && !isExtras };
+        document.documentElement.setAttribute("data-vc-pers-tab", tab);
+        document.documentElement.classList.add(isRank ? "vc-pers-tab-rank" : "vc-pers-tab-custom");
+        document.documentElement.classList.add(isRank ? "vc-rank-customize-pending" : "vc-custom-profile-pending");
       })();
     </script>
     <style id="vc-rank-customize-boot-css">
       html.vc-rank-customize-pending,
-      html.vc-rank-customize-pending body {
+      html.vc-rank-customize-pending body,
+      html.vc-custom-profile-pending,
+      html.vc-custom-profile-pending body {
         overflow: hidden !important;
         overflow-x: hidden !important;
         overflow-y: hidden !important;
@@ -150,32 +188,66 @@
         touch-action: none;
       }
 
-      html.vc-rank-customize-pending body {
+      html.vc-rank-customize-pending body,
+      html.vc-custom-profile-pending body {
         position: fixed !important;
         inset: 0 !important;
         width: 100% !important;
+        background: #100c09 !important;
       }
 
       html.vc-rank-customize-pending .vc-home-cine,
       html.vc-rank-customize-pending .vc-blob,
-      html.vc-rank-customize-pending body > header,
-      html.vc-rank-customize-pending body > footer {
+      html.vc-rank-customize-pending body > footer,
+      html.vc-custom-profile-pending .vc-home-cine,
+      html.vc-custom-profile-pending .vc-blob,
+      html.vc-custom-profile-pending body > footer,
+      html.vc-custom-profile-pending body > main {
         display: none !important;
         visibility: hidden !important;
         pointer-events: none !important;
       }
 
-      html.vc-rank-customize-pending #vc-rank-customize-page > :not(#vc-rank-customize-loading) {
+      /* Navbar sempre visibile e piena: hide→show faceva flashare il rettangolo. */
+      html.vc-rank-customize-pending body > header,
+      html.vc-custom-profile-pending body > header {
+        display: block !important;
+        visibility: visible !important;
+        pointer-events: auto !important;
+        opacity: 1 !important;
+        z-index: 2147483647 !important;
+      }
+      html.vc-rank-customize-pending body > header .vc-nav-shell,
+      html.vc-custom-profile-pending body > header .vc-nav-shell {
+        background: #140f0c !important;
+        background-color: #140f0c !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+        box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35) !important;
+        transition: none !important;
+        transform: none !important;
+      }
+
+      html.vc-rank-customize-pending body > main,
+      html.vc-custom-profile-pending body > main {
+        visibility: hidden !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+      }
+
+      html.vc-rank-customize-pending #vc-pers-hub,
+      html.vc-custom-profile-pending #vc-pers-hub {
         display: none !important;
       }
 
-      html.vc-rank-customize-pending #vc-rank-customize-loading:not([hidden]),
-      html.vc-rank-customize-pending .vc-user-profile-boot:not([hidden]) {
+      html.vc-rank-customize-pending #vc-rank-customize-loading,
+      html.vc-custom-profile-pending #vc-custom-profile-loading {
         position: fixed !important;
         inset: 0 !important;
-        z-index: 110000 !important;
+        z-index: 2147483646 !important;
         display: flex !important;
         visibility: visible !important;
+        opacity: 1 !important;
         flex-direction: column;
         align-items: center;
         justify-content: center;
@@ -194,6 +266,46 @@
         background-image:
           radial-gradient(ellipse 92% 74% at 50% 38%, rgba(232, 196, 156, 0.16) 0%, rgba(28, 20, 14, 0.94) 52%, #0a0706 100%) !important;
       }
+      html.vc-pers-tab-rank #vc-custom-profile-page,
+      html.vc-pers-tab-rank #vc-custom-profile-loading,
+      html.vc-pers-tab-rank body > #vc-custom-profile-loading.vc-user-profile-loader {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+      }
+      html.vc-pers-tab-custom #vc-rank-customize-page,
+      html.vc-pers-tab-custom #vc-rank-customize-loading,
+      html.vc-pers-tab-custom body > #vc-rank-customize-loading.vc-user-profile-loader {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+      }
+
+      html.vc-page-cine-ready.vc-pers-tab-rank:not(.vc-rank-customize-pending):not(.vc-custom-profile-pending),
+      html.vc-page-cine-ready.vc-pers-tab-custom:not(.vc-rank-customize-pending):not(.vc-custom-profile-pending),
+      html.vc-page-cine-ready.vc-pers-tab-rank:not(.vc-rank-customize-pending):not(.vc-custom-profile-pending) body,
+      html.vc-page-cine-ready.vc-pers-tab-custom:not(.vc-rank-customize-pending):not(.vc-custom-profile-pending) body {
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
+        overflow: auto !important;
+        height: auto !important;
+        max-height: none !important;
+        touch-action: auto !important;
+      }
+      html.vc-page-cine-ready.vc-pers-tab-rank:not(.vc-rank-customize-pending):not(.vc-custom-profile-pending) body,
+      html.vc-page-cine-ready.vc-pers-tab-custom:not(.vc-rank-customize-pending):not(.vc-custom-profile-pending) body {
+        position: static !important;
+        inset: auto !important;
+        width: auto !important;
+      }
+      html.vc-page-cine-ready:not(.vc-rank-customize-pending):not(.vc-custom-profile-pending) #vc-rank-customize-loading,
+      html.vc-page-cine-ready:not(.vc-rank-customize-pending):not(.vc-custom-profile-pending) #vc-custom-profile-loading {
+        display: none !important;
+        visibility: hidden !important;
+        pointer-events: none !important;
+      }
     </style>
     <script src="/js/vc-auth-pending.js?v={{BUILD_ASSET_VERSION}}"></script>
     <link rel="icon" href="{{GUILD_ICON_URL}}" />
@@ -210,15 +322,22 @@
     <div class="vc-blob vc-blob-c" aria-hidden="true"></div>
 
     <header class="fixed inset-x-0 top-0 z-50 px-4 pt-4">
-      <div class="vc-nav-shell vc-glass mx-auto flex max-w-6xl flex-col gap-0 overflow-visible rounded-2xl border border-white/[0.08] bg-[#140f0c]/78 shadow-[0_8px_40px_rgba(0,0,0,0.48),0_0_48px_rgba(212,168,136,0.07)]">
+      <div class="vc-nav-shell rounded-2xl mx-auto flex flex-col gap-0 overflow-visible border border-white/[0.08] bg-[#140f0c] shadow-[0_10px_28px_rgba(0,0,0,0.35)]">
         <div class="vc-header-bar grid w-full grid-cols-1 items-center gap-y-2.5 gap-x-2 px-4 py-3 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:gap-x-3 sm:px-5">
           <div class="flex min-w-0 items-center gap-2.5 justify-self-start sm:gap-3">
             <a class="vc-header-logo-link shrink-0 rounded-2xl ring-1 ring-[#d4a888]/35 transition hover:ring-[#d4a888]/55 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#d4a888]/60"
               href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer" aria-label="Entra su Discord"><img
                 src="{{GUILD_ICON_URL}}" width="40" height="40" class="vc-header-logo-img" alt=""
                 loading="eager" decoding="async" /></a>
-            <a class="min-w-0 truncate text-[0.7rem] font-bold uppercase tracking-[0.18em] text-white underline-offset-4 transition hover:text-[#e8c9a8] hover:underline sm:text-xs"
+            <a class="vc-header-site-name min-w-0 truncate text-[0.7rem] font-bold uppercase tracking-[0.18em] text-white underline-offset-4 transition hover:text-[#e8c9a8] hover:underline sm:text-xs"
               href="{{SITE_URL}}" aria-label="Vai alla homepage">{{SITE_NAME}}</a>
+            <div class="vc-lang-dropdown" id="vc-lang-dropdown">
+              <button type="button" class="vc-lang-toggle" id="vc-lang-toggle" aria-label="Lingua" aria-haspopup="listbox" aria-expanded="false" data-i18n-attr="aria-label:nav.language"><span class="vc-lang-flag vc-lang-flag--it" id="vc-lang-flag" data-vc-lang-flag="it" aria-hidden="true"></span></button>
+              <div class="vc-lang-panel" id="vc-lang-panel" role="listbox" hidden aria-label="Scegli lingua" data-i18n-attr="aria-label:nav.languageList">
+                <button type="button" class="vc-lang-option" data-vc-lang="it" role="option" aria-selected="true"><span class="vc-lang-flag vc-lang-flag--it" aria-hidden="true"></span><span data-i18n="lang.it">Italiano</span></button>
+                <button type="button" class="vc-lang-option" data-vc-lang="en" role="option" aria-selected="false"><span class="vc-lang-flag vc-lang-flag--en" aria-hidden="true"></span><span data-i18n="lang.en">English</span></button>
+              </div>
+            </div>
           </div>
           <nav
             class="vc-header-snav vc-glass flex max-w-full flex-wrap items-center justify-center justify-self-center gap-0.5 px-1.5 py-1 sm:min-w-0 sm:gap-1 sm:px-2"
@@ -298,17 +417,47 @@
       </div>
     </header>
 
-    <main class="relative z-10 mx-auto max-w-6xl px-4 pb-24 pt-28 sm:pt-32">
+    <div class="vc-user-profile-loader vc-user-profile-boot" id="vc-custom-profile-loading" data-vc-profile-boot role="status" aria-live="polite" aria-label="Caricamento Personalizza">
+      <span class="vc-user-profile-loader__spin" aria-hidden="true"></span>
+      <p class="vc-user-profile-loader__title">Caricamento Personalizza</p>
+      <p class="vc-user-profile-loader__sub">Sto preparando rank card, ruoli e vocale...</p>
+    </div>
+    <div class="vc-user-profile-loader vc-user-profile-boot" id="vc-rank-customize-loading" data-vc-profile-boot role="status" aria-live="polite" aria-label="Caricamento Personalizza">
+      <span class="vc-user-profile-loader__spin" aria-hidden="true"></span>
+      <p class="vc-user-profile-loader__title">Caricamento Personalizza</p>
+      <p class="vc-user-profile-loader__sub">Sto preparando rank card, ruoli e vocale...</p>
+    </div>
+
+    <main id="vc-personalizza-root" class="relative z-10 mx-auto w-full max-w-6xl px-4 pb-24 pt-28 sm:pt-32" data-vc-page-hero="off">
+      <header class="vc-pers-hub" id="vc-pers-hub">
+        <p class="vc-pers-hub__kicker"><i class="fa fa-magic" aria-hidden="true"></i> Personalizzazione profilo</p>
+        <h1 class="vc-pers-hub__title">Personalizza</h1>
+        <p class="vc-pers-hub__lead">Rank card, ruoli, privacy e tutto ciò che trovi in +profile su Discord.</p>
+        <nav class="vc-pers-hub__tabs" id="vc-pers-hub-tabs" aria-label="Sezioni personalizzazione">
+          <a class="vc-pers-hub__tab" data-pers-tab="rank" href="/user/personalizza/?target=rank"><i class="fa fa-id-card-o" aria-hidden="true"></i><span>Rank card</span></a>
+          <a class="vc-pers-hub__tab" data-pers-tab="primary" href="/user/personalizza/?target=primary"><i class="fa fa-star" aria-hidden="true"></i><span>Principale</span></a>
+          <a class="vc-pers-hub__tab" data-pers-tab="secondary" href="/user/personalizza/?target=secondary"><i class="fa fa-star-o" aria-hidden="true"></i><span>Secondario</span></a>
+          <a class="vc-pers-hub__tab" data-pers-tab="voice" href="/user/personalizza/?target=voice"><i class="fa fa-microphone" aria-hidden="true"></i><span>Vocale</span></a>
+          <a class="vc-pers-hub__tab" data-pers-tab="roles" href="/user/personalizza/?target=roles"><i class="fa fa-tags" aria-hidden="true"></i><span>Ruoli</span></a>
+          <a class="vc-pers-hub__tab" data-pers-tab="birthday" href="/user/personalizza/?target=birthday"><i class="fa fa-birthday-cake" aria-hidden="true"></i><span>Compleanno</span></a>
+          <a class="vc-pers-hub__tab" data-pers-tab="privacy" href="/user/personalizza/?target=privacy"><i class="fa fa-lock" aria-hidden="true"></i><span>Privacy</span></a>
+          <a class="vc-pers-hub__tab" data-pers-tab="reactions" href="/user/personalizza/?target=reactions"><i class="fa fa-smile-o" aria-hidden="true"></i><span>Reactions</span></a>
+          <a class="vc-pers-hub__tab" data-pers-tab="response" href="/user/personalizza/?target=response"><i class="fa fa-commenting-o" aria-hidden="true"></i><span>Response</span></a>
+          <a class="vc-pers-hub__tab" data-pers-tab="hogwarts" href="/user/personalizza/?target=hogwarts"><i class="fa fa-magic" aria-hidden="true"></i><span>Hogwarts</span></a>
+        </nav>
+      </header>
+
       <section id="vc-rank-customize-page" class="vc-rank-customize-page">
         <div id="vc-rank-save-toast-host" class="vc-rank-save-toast-host" aria-live="polite"></div>
-        <div class="vc-user-profile-loader vc-user-profile-boot" id="vc-rank-customize-loading" data-vc-profile-boot role="status" aria-live="polite" aria-label="Caricamento editor rank card">
-          <span class="vc-user-profile-loader__spin" aria-hidden="true"></span>
-          <p class="vc-user-profile-loader__title">Caricamento editor</p>
-          <p class="vc-user-profile-loader__sub">Sto preparando la tua rank card...</p>
-        </div>
         <div id="vc-rank-customize-app" hidden></div>
         <script>
           (function () {
+            var hub = window.__VC_PERS_HUB || {};
+            if (hub.enabled && !hub.isRank) {
+              var loadingEarly = document.getElementById("vc-rank-customize-loading");
+              if (loadingEarly) loadingEarly.hidden = true;
+              return;
+            }
             var fired = false;
             window.setTimeout(function () {
               if (fired) return;
@@ -333,26 +482,123 @@
           })();
         </script>
       </section>
+
+      <section id="vc-custom-profile-page" class="vc-custom-profile-page" hidden>
+        <div id="vc-custom-profile-app" hidden></div>
+        <script>
+          (function () {
+            var hub = window.__VC_PERS_HUB || {};
+            var customLoading = document.getElementById("vc-custom-profile-loading");
+            if (hub.enabled && hub.isRank) {
+              if (customLoading) customLoading.hidden = true;
+              return;
+            }
+            if (customLoading) customLoading.hidden = false;
+            window.__VC_CPF_BOOT = window.__VC_CPF_BOOT || { done: false, timer: 0 };
+            window.__VC_CPF_BOOT.timer = window.setTimeout(function () {
+              if (window.__VC_CPF_BOOT && window.__VC_CPF_BOOT.done) return;
+              var loading = document.getElementById("vc-custom-profile-loading");
+              var app = document.getElementById("vc-custom-profile-app");
+              if (!loading || !app) return;
+              if (loading.hidden || !loading.isConnected) return;
+              if (app.dataset.vcCpfReady === "1") return;
+              loading.hidden = true;
+              try {
+                document.documentElement.classList.remove("vc-loading-scroll-lock");
+                document.documentElement.classList.remove("vc-rank-customize-pending");
+                document.documentElement.classList.remove("vc-custom-profile-pending");
+                document.documentElement.classList.remove("vc-page-cine-boot");
+                document.documentElement.classList.add("vc-page-cine-ready");
+              } catch (ePending) {}
+              app.hidden = false;
+              app.innerHTML =
+                '<div class="vc-custom-profile-fatal">' +
+                '<section class="vc-custom-profile-hero">' +
+                '<div class="vc-custom-profile-hero__icon"><i class="fa fa-exclamation-triangle" aria-hidden="true"></i></div>' +
+                "<div><h1>Caricamento non riuscito</h1><p>Ricarica la pagina. Se il problema continua, esegui logout/login Discord e riprova.</p></div>" +
+                "</section></div>";
+            }, 45000);
+          })();
+        </script>
+      </section>
     </main>
 
-    <footer class="relative z-10 border-t border-white/8 bg-slate-950/20">
-      <div class="mx-auto flex max-w-6xl flex-col items-center gap-5 px-4 py-10 text-center">
-        <div class="vc-footer-brand-row flex flex-wrap items-center justify-center gap-3 sm:gap-5" aria-label="Social e home">
-{{FOOTER_SOCIAL_LEFT}}
-          <a
-            class="inline-flex items-center rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-3 text-lg font-extrabold tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
-            href="{{SITE_URL}}">{{SITE_NAME}}</a>
-{{FOOTER_SOCIAL_RIGHT}}
+    <footer class="vc-premium-footer" aria-label="Footer" data-i18n-attr="aria-label:footer.aria">
+      <div class="vc-premium-footer__card">
+        <div class="vc-premium-footer__outer">
+          <div class="vc-premium-footer__inner">
+            <div class="vc-premium-footer__grid">
+              <section class="vc-premium-footer__brand" aria-label="{{SITE_NAME}}">
+                <a class="vc-premium-footer__logo-row" href="{{SITE_URL}}">
+                  <span class="vc-premium-footer__logo" aria-hidden="true">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M4 20C4 20 4 14 10 10C16 6 20 4 20 4C20 4 18 8 14 14C10 20 4 20 4 20Z" fill="white" />
+                      <path d="M4 20L10 14" stroke="white" stroke-width="2" stroke-linecap="round" />
+                    </svg>
+                  </span>
+                  <span class="vc-premium-footer__wordmark">{{SITE_NAME}}</span>
+                </a>
+                <p class="vc-premium-footer__desc" data-i18n="footer.desc">Community italiana Discord curata nei dettagli: musica, socialità, ruoli personalizzati, eventi e strumenti sviluppati su misura.</p>
+                <div class="vc-premium-footer__socials" aria-label="Social" data-i18n-attr="aria-label:footer.social">
+                  <a class="vc-premium-footer__social" href="{{INSTAGRAM_URL}}" target="_blank" rel="noopener noreferrer" aria-label="Instagram">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3.4" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="16.8" cy="7.2" r="1.1" fill="currentColor"/></svg>
+                  </a>
+                  <a class="vc-premium-footer__social" href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer" aria-label="Discord">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.5 5.4A17 17 0 0 0 15.2 4l-.2.4a13 13 0 0 1 3.2 1.6 10.8 10.8 0 0 0-4-1.2 11.2 11.2 0 0 0-4.4.2A10.8 10.8 0 0 0 5.8 6a13 13 0 0 1 3.3-1.6L8.9 4a17 17 0 0 0-4.4 1.4C1.8 9.4 1 13.3 1.4 17.2A17 17 0 0 0 6.6 20l1.1-1.5c-.6-.2-1.2-.5-1.8-.9l.4-.3c3.4 1.6 7.2 1.6 10.6 0l.4.3c-.6.4-1.2.7-1.8.9l1.1 1.5a17 17 0 0 0 5.2-2.8c.5-4.5-.8-8.4-2.3-11.8ZM8.8 15.1c-1 0-1.8-.9-1.8-2s.8-2 1.8-2 1.8.9 1.8 2-.8 2-1.8 2Zm6.4 0c-1 0-1.8-.9-1.8-2s.8-2 1.8-2 1.8.9 1.8 2-.8 2-1.8 2Z" fill="currentColor"/></svg>
+                  </a>
+                  <a class="vc-premium-footer__social" href="{{TIKTOK_URL}}" target="_blank" rel="noopener noreferrer" aria-label="TikTok">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 4v9.1a4.4 4.4 0 1 1-4.4-4.4c.35 0 .7.04 1.03.12v2.55a1.9 1.9 0 1 0 1.03 1.68V4h2.34Zm0 0c.4 2.15 1.74 3.43 3.7 3.84v2.42c-1.52-.08-2.8-.56-3.7-1.36" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  </a>
+                </div>
+              </section>
+              <nav class="vc-premium-footer__col" aria-label="Community" data-i18n-attr="aria-label:footer.community">
+                <h4 data-i18n="footer.community">Community</h4>
+                <ul>
+                  <li><a href="{{SITE_URL}}" data-i18n="footer.home">Home</a></li>
+                  <li><a href="{{USER_PAGE_URL}}" data-i18n="footer.users">Users</a></li>
+                  <li><a href="{{RUOLI_PAGE_URL}}" data-i18n="footer.roles">Ruoli</a></li>
+                </ul>
+              </nav>
+              <nav class="vc-premium-footer__col" aria-label="Scopri" data-i18n-attr="aria-label:footer.discover">
+                <h4 data-i18n="footer.discover">Scopri</h4>
+                <ul>
+                  <li><a href="{{WIKI_URL}}" data-i18n="footer.wiki">Wiki</a></li>
+                  <li><a href="{{COMMUNITY_RULES_URL}}" data-i18n="footer.rules">Regole</a></li>
+                  <li><a href="{{FAQ_URL}}" data-i18n="footer.faq">FAQ</a></li>
+                  <li><a href="{{SPONSOR_URL}}" data-i18n="footer.sponsor">Sponsor</a></li>
+                </ul>
+              </nav>
+              <nav class="vc-premium-footer__col" aria-label="Supporta" data-i18n-attr="aria-label:footer.support">
+                <h4 data-i18n="footer.support">Supporta</h4>
+                <ul>
+                  <li><a href="{{PERKS_URL}}" data-i18n="footer.perks">Perks</a></li>
+                  <li><a href="{{VOTE_URL}}" data-i18n="footer.vote">Vota</a></li>
+                  <li><a href="{{REVIEWS_PAGE_URL}}" data-i18n="footer.reviews">Recensioni</a></li>
+                  <li><a href="{{DONATIONS_URL}}" data-i18n="footer.donations">Donazioni</a></li>
+                </ul>
+              </nav>
+              <nav class="vc-premium-footer__col" aria-label="Richieste" data-i18n-attr="aria-label:footer.requests">
+                <h4 data-i18n="footer.requests">Richieste</h4>
+                <ul>
+                  <li><a href="{{RICHIESTE_UNBAN_URL}}" data-i18n="footer.appeals">Appelli</a></li>
+                  <li><a href="{{RICHIESTE_CANDIDATURE_URL}}" data-i18n="footer.applications">Candidature</a></li>
+                  <li><a href="{{RICHIESTE_SUGGERIMENTI_URL}}" data-i18n="footer.suggestions">Suggerimenti</a></li>
+                  <li><a href="{{TICKETS_PAGE_URL}}" data-i18n="footer.tickets">Tickets</a></li>
+                </ul>
+              </nav>
+            </div>
+          </div>
+          <div class="vc-premium-footer__legal">
+            <p><a class="vc-footer-copy-link" href="{{COPYRIGHT_URL}}">© {{YEAR}} {{SITE_NAME}}. All rights reserved.</a></p>
+            <nav aria-label="Link legali" data-i18n-attr="aria-label:footer.legalLinks">
+              <a href="{{TERMS_URL}}" data-i18n="footer.terms">Termini di Servizio</a>
+              <span aria-hidden="true"></span>
+              <a href="{{PRIVACY_URL}}" data-i18n="footer.privacy">Privacy Policy</a>
+              <span aria-hidden="true"></span>
+              <a href="{{COOKIE_POLICY_URL}}" data-i18n="footer.cookies">Cookie Policy</a>
+            </nav>
+          </div>
         </div>
-        <nav class="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-slate-300/80" aria-label="Link legali">
-          <a class="transition hover:text-white" href="{{TERMS_URL}}">Termini di Servizio</a>
-          <a class="transition hover:text-white" href="{{PRIVACY_URL}}">Privacy Policy</a>
-          <a class="transition hover:text-white" href="{{COOKIE_POLICY_URL}}">Cookie Policy</a>
-        </nav>
-        <p class="max-w-xl text-sm leading-relaxed text-slate-400">
-          © {{YEAR}} {{SITE_NAME}}. Sito realizzato da {{SITE_NAME}} con
-          <span class="vc-footer-heart" role="img" aria-label="amore">❤️</span> per la community.
-        </p>
       </div>
     </footer>
 
@@ -373,12 +619,78 @@
         rankApiUrl: "{{RANK_CARD_API_URL}}",
         rankApiUrlLocal: "{{RANK_CARD_API_URL_LOCAL}}"
       };
+      window.__VC_CUSTOM_PROFILE = {
+        apiUrl: "/webhooks/site-custom-profile",
+        apiUrlLocal: "",
+        profileUrl: "/user/"
+      };
+      window.__VC_PROFILE_EXTRAS = {
+        apiUrl: "/webhooks/site-profile-extras",
+        apiUrlLocal: ""
+      };
     </script>
-    <script src="/js/discord-auth.js?v={{BUILD_ASSET_VERSION}}" defer></script>  <script src="../../js/vc-cursor-trail.js?v={{BUILD_ASSET_VERSION}}" defer></script>
-
+    <script src="/js/user-personalizza-hub.js?v={{BUILD_ASSET_VERSION}}"></script>
+    <script src="/js/discord-auth.js?v={{BUILD_ASSET_VERSION}}" defer></script>
+    <script src="/js/vc-i18n.js?v={{BUILD_ASSET_VERSION}}" defer></script>
+    <script src="../../js/vc-cursor-trail.js?v={{BUILD_ASSET_VERSION}}" defer></script>
     <script src="/js/vc-landing.js?v={{BUILD_ASSET_VERSION}}" defer></script>
+    <script src="/js/vc-site-polish.js?v={{BUILD_ASSET_VERSION}}" defer></script>
+    <script src="/js/vc-emoji-picker.js?v={{BUILD_ASSET_VERSION}}" defer></script>
     <script src="/js/user-rank-customize-page.js?v={{BUILD_ASSET_VERSION}}" defer></script>
+    <script src="/js/user-profile-extras-page.js?v={{BUILD_ASSET_VERSION}}" defer></script>
+    <script src="/js/user-custom-profile-page.js?v={{BUILD_ASSET_VERSION}}" defer></script>
+    <script src="/js/vc-dialog.js?v={{BUILD_ASSET_VERSION}}" defer></script>
     <script src="/js/vc-ptr.js?v={{BUILD_ASSET_VERSION}}" defer></script>
     <script src="/js/vc-home-cine.js?v={{BUILD_ASSET_VERSION}}" defer></script>
+    <script id="vc-pers-failsafe">
+      (function () {
+        window.setTimeout(function () {
+          try {
+            var h = document.documentElement;
+            var pending =
+              h.classList.contains("vc-rank-customize-pending") ||
+              h.classList.contains("vc-custom-profile-pending");
+            var ready = h.classList.contains("vc-page-cine-ready");
+            if (!pending && ready) return;
+            h.classList.remove(
+              "vc-rank-customize-pending",
+              "vc-custom-profile-pending",
+              "vc-loading-scroll-lock",
+              "vc-page-cine-boot"
+            );
+            h.classList.add("vc-page-cine-ready");
+            var b = document.body;
+            if (b) {
+              b.style.removeProperty("position");
+              b.style.removeProperty("inset");
+              b.style.removeProperty("width");
+              b.style.removeProperty("height");
+              b.style.removeProperty("max-height");
+              b.style.removeProperty("overflow");
+              b.style.removeProperty("touch-action");
+            }
+            h.style.removeProperty("overflow");
+            h.style.removeProperty("height");
+            h.style.removeProperty("max-height");
+            h.style.removeProperty("touch-action");
+            var nodes = document.querySelectorAll(
+              '[id="vc-rank-customize-loading"], [id="vc-custom-profile-loading"]'
+            );
+            for (var i = 0; i < nodes.length; i++) {
+              nodes[i].hidden = true;
+              nodes[i].setAttribute("hidden", "");
+              nodes[i].style.setProperty("display", "none", "important");
+              if (nodes[i].parentNode) nodes[i].parentNode.removeChild(nodes[i]);
+            }
+            var main = document.getElementById("vc-personalizza-root");
+            if (main) {
+              main.style.visibility = "visible";
+              main.style.opacity = "1";
+              main.style.pointerEvents = "auto";
+            }
+          } catch (e) {}
+        }, 8000);
+      })();
+    </script>
 </body>
 </html>

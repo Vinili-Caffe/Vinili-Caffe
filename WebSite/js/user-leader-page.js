@@ -68,7 +68,7 @@
       idx = disc % 5;
     } else if (id && /^\d{5,22}$/.test(id)) {
       try {
-        idx = Number((BigInt(id) >> 22n) % 6n);
+        idx = Number((BigInt(id) >> BigInt(22)) % BigInt(6));
       } catch (e) {
         idx = 0;
       }
@@ -236,9 +236,17 @@
       if (diff !== 0) return diff;
       return (Number(a && a.rank) || 0) - (Number(b && b.rank) || 0);
     });
+    var page = Math.max(1, Number(state.page) || 1);
+    var offset = (page - 1) * PER_PAGE;
     return list.map(function (row, idx) {
       var copy = Object.assign({}, row);
-      copy.rank = idx + 1;
+      var apiRank = Number(row && row.rank) || 0;
+      // Rank globale: pagina 2 = 10–18… In ricerca singolo mantieni il rank API.
+      if (state.searchUserId && apiRank > 0) {
+        copy.rank = apiRank;
+      } else {
+        copy.rank = offset + idx + 1;
+      }
       return copy;
     });
   }
@@ -267,7 +275,7 @@
       idx = disc % 5;
     } else if (id && /^\d{5,22}$/.test(id)) {
       try {
-        idx = Number((BigInt(id) >> 22n) % 6n);
+        idx = Number((BigInt(id) >> BigInt(22)) % BigInt(6));
       } catch (e) {
         idx = 0;
       }
@@ -294,6 +302,7 @@
   var USERS_CACHE_TTL_MS = 30000;
   var USERS_FETCH_TIMEOUT_MS = 25000;
   var usersMemoryCache = new Map();
+  var pendingScrollToCards = false;
 
   function fetchWithTimeout(url, options, timeoutMs) {
     var ms = Math.max(1000, Number(timeoutMs) || USERS_FETCH_TIMEOUT_MS);
@@ -376,7 +385,8 @@
       });
   }
 
-  function clearLeaderPending() {
+  function clearLeaderPending(opts) {
+    var shouldScroll = !(opts && opts.scroll === false);
     try {
       document.documentElement.classList.remove("vc-user-leader-pending");
       document.documentElement.classList.remove("vc-loading-scroll-lock");
@@ -422,21 +432,46 @@
         }
       } catch (eLayout) {}
     }
-    function resetCommunityScroll() {
+    function headerOffsetPx() {
       try {
-        window.scrollTo(0, 0);
-        if (document.documentElement) document.documentElement.scrollTop = 0;
-        if (document.body) document.body.scrollTop = 0;
-      } catch (eScroll) {}
+        var bar = document.querySelector(".vc-header-bar") || document.querySelector("header");
+        var h = bar ? bar.getBoundingClientRect().height : 72;
+        return Math.round(Math.max(64, h + 12));
+      } catch (eOff) {
+        return 88;
+      }
+    }
+    function scrollToLeaderCards(behavior) {
+      var anchor =
+        byId("vc-ul-toolbar") ||
+        byId("vc-ul-board-tabs") ||
+        byId("vc-ul-grid") ||
+        document.getElementById("vc-page-content");
+      if (!anchor) return;
+      try {
+        var y =
+          anchor.getBoundingClientRect().top +
+          (window.pageYOffset || document.documentElement.scrollTop || 0) -
+          headerOffsetPx();
+        if (y < 0) y = 0;
+        window.scrollTo({ top: y, behavior: behavior || "auto" });
+      } catch (eScroll) {
+        try {
+          anchor.scrollIntoView({ block: "start", behavior: behavior || "auto" });
+        } catch (e2) {}
+      }
     }
     refreshCommunityLayout();
     window.setTimeout(refreshCommunityLayout, 0);
     window.setTimeout(refreshCommunityLayout, 150);
+    if (!shouldScroll) return;
     window.setTimeout(function () {
       refreshCommunityLayout();
-      resetCommunityScroll();
-    }, 320);
-    window.requestAnimationFrame(resetCommunityScroll);
+      scrollToLeaderCards("auto");
+    }, 120);
+    window.requestAnimationFrame(function () {
+      scrollToLeaderCards("auto");
+    });
   }
 
   function setLoading(on, label) {
@@ -449,7 +484,11 @@
     if (title) title.textContent = label || "Caricamento classifica";
     if (sub) sub.textContent = state.loading ? "Sto aggiornando i dati della community…" : "";
     if (grid) grid.setAttribute("aria-busy", state.loading ? "true" : "false");
-    if (!state.loading) clearLeaderPending();
+    if (!state.loading) {
+      var doScroll = pendingScrollToCards;
+      pendingScrollToCards = false;
+      clearLeaderPending({ scroll: doScroll });
+    }
   }
 
   function setState(msg, isErr) {
@@ -461,7 +500,7 @@
   }
 
   function cardHead(row) {
-    var rawName = String(row.username || "").trim();
+    var rawName = String(row.displayName || row.username || "").trim();
     var name = rawName || "Utente";
     var rank = Number(row.rank) || 0;
     var rankAria = rank > 0 ? "Posizione " + String(rank) : "Non in classifica";
@@ -698,7 +737,7 @@
           var next = Math.max(1, Math.min(cap, Number(page) || 1));
           if (next === state.page) return;
           state.page = next;
-          load();
+          load({ scroll: true });
         },
       });
       return;
@@ -761,7 +800,7 @@
       }
     }
     if (tn && topRow) {
-      tn.textContent = String(topRow.username || "").trim() || "—";
+      tn.textContent = String(topRow.displayName || topRow.username || "").trim() || "—";
     }
     if (sub) {
       var blurb = "";
@@ -825,7 +864,7 @@
     }
 
     if (tn && topRow) {
-      tn.textContent = String(topRow.username || "").trim() || "—";
+      tn.textContent = String(topRow.displayName || topRow.username || "").trim() || "—";
     } else if (tn) {
       tn.textContent = String(st.topPlayerUsername || "—").trim() || "—";
     }
@@ -910,6 +949,7 @@
       /* CDN/proxy che ignorano la query o cache GET: varia l’URL e disabilita cache browser */
       url += "&_vcq=" + encodeURIComponent(String(Date.now()));
     }
+    if (opts && opts.scroll) pendingScrollToCards = true;
     if (!silent) {
       setLoading(true, state.page === 1 ? "Caricamento classifica" : "Aggiornamento classifica");
       setState("Caricamento…", false);
@@ -987,7 +1027,14 @@
         syncSearchUi();
       })
       .finally(function () {
-        if (!silent) setLoading(false);
+        if (!silent) {
+          setLoading(false);
+          return;
+        }
+        if (pendingScrollToCards) {
+          pendingScrollToCards = false;
+          clearLeaderPending({ scroll: true });
+        }
       });
   }
 
@@ -1029,7 +1076,7 @@
         this.setAttribute("aria-current", "true");
         var sidInp = byId("vc-ul-search-id");
         if (sidInp && state.searchUserId) sidInp.value = state.searchUserId;
-        load();
+        load({ scroll: true });
       });
     }
   }
@@ -1065,7 +1112,7 @@
         if (inp) inp.value = "";
         state.page = 1;
         setFiltersOpen(false);
-        load();
+        load({ scroll: true });
         syncSearchUi();
         return;
       }
@@ -1078,7 +1125,7 @@
       state.searchUserId = digits;
       state.page = 1;
       if (inp) inp.value = digits;
-      load({ silent: true });
+      load({ silent: true, scroll: true });
       syncSearchUi();
     }
     if (form) {

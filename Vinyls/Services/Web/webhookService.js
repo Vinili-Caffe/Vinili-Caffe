@@ -456,6 +456,9 @@ async function startWebhookServer(client) {
         if (pathOnly === "/webhooks/discadia") {
           req._discadiaRawBody = buf;
         }
+        if (pathOnly === "/webhooks/site-kick-sub/events" || pathOnly.endsWith("/site-kick-sub/events")) {
+          req._kickSubRawBody = Buffer.isBuffer(buf) ? Buffer.from(buf) : buf;
+        }
       },
     }),
   );
@@ -485,6 +488,8 @@ async function startWebhookServer(client) {
     const isSiteUsers = pathStr.startsWith("/webhooks/site-users");
     const isSiteVote = pathStr.startsWith("/webhooks/site-vote");
     const isSiteLiveEvent = pathStr.startsWith("/webhooks/site-live-event");
+    const isSiteKickLive = pathStr.startsWith("/webhooks/site-kick-live");
+    const isSiteKickSub = pathStr.startsWith("/webhooks/site-kick-sub");
     const isSiteRoles = pathStr.startsWith("/webhooks/site-roles");
     const isSiteRankCard = pathStr.startsWith("/webhooks/site-rank-card");
     const isSiteReviews = pathStr.startsWith("/webhooks/site-reviews");
@@ -508,7 +513,9 @@ async function startWebhookServer(client) {
       pathStr.startsWith("/webhooks/site-staff-seratafilm") ||
       pathStr.startsWith("/webhooks/site-staff-guide");
     const isSiteHogwartsSorting = pathStr.startsWith("/webhooks/site-hogwarts-sorting");
-    if (!isStatus && !isCandidature && !isUnban && !isUnmute && !isSiteRules && !isSiteUsers && !isSiteVote && !isSiteLiveEvent && !isSiteRoles && !isSiteRankCard && !isSiteReviews && !isSiteSuggestions && !isSiteBotFeedback && !isSiteWebTickets && !isSiteNotifications && !isSiteVerify && !isSitePayments && !isSiteSeratafilmAccess && !isSiteStaffAccess && !isSiteHogwartsSorting) return next();
+    const isSiteCustomProfile = pathStr.startsWith("/webhooks/site-custom-profile");
+    const isSiteProfileExtras = pathStr.startsWith("/webhooks/site-profile-extras");
+    if (!isStatus && !isCandidature && !isUnban && !isUnmute && !isSiteRules && !isSiteUsers && !isSiteVote && !isSiteLiveEvent && !isSiteKickLive && !isSiteKickSub && !isSiteRoles && !isSiteRankCard && !isSiteReviews && !isSiteSuggestions && !isSiteBotFeedback && !isSiteWebTickets && !isSiteNotifications && !isSiteVerify && !isSitePayments && !isSiteSeratafilmAccess && !isSiteStaffAccess && !isSiteHogwartsSorting && !isSiteCustomProfile && !isSiteProfileExtras) return next();
     const originRaw = String(req.headers.origin || "").trim();
     const originNorm = originRaw ? normalizeCorsOriginEntry(originRaw) || originRaw : "";
     let allowOrigin = "";
@@ -527,7 +534,7 @@ async function startWebhookServer(client) {
     if (allowOrigin) {
       res.setHeader("Access-Control-Allow-Origin", allowOrigin);
       res.append("Vary", "Origin");
-    } else if (isStatus || isSiteRules || isSiteUsers || isSiteVote || isSiteLiveEvent || isSiteRoles || isSiteRankCard || isSiteReviews || isSiteSuggestions || isSiteBotFeedback || isSiteNotifications || isSitePayments || isSiteSeratafilmAccess || isSiteStaffAccess || isSiteHogwartsSorting) {
+    } else if (isStatus || isSiteRules || isSiteUsers || isSiteVote || isSiteLiveEvent || isSiteKickLive || isSiteKickSub || isSiteRoles || isSiteRankCard || isSiteReviews || isSiteSuggestions || isSiteBotFeedback || isSiteNotifications || isSitePayments || isSiteSeratafilmAccess || isSiteStaffAccess || isSiteHogwartsSorting) {
       res.setHeader("Access-Control-Allow-Origin", "*");
     }
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS");

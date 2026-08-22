@@ -138,6 +138,65 @@ async function applyPollReactions(pollMessage, reactionEmojis) {
   }
 }
 
+function normalizePollThreadName(question) {
+  let name = String(question || "")
+    .replace(/\s+/g, " ")
+    .replace(/\?+$/g, "")
+    .trim();
+  if (!name) name = "Commenti sondaggio";
+  return name.slice(0, 100);
+}
+
+async function createPollDiscussionThread(pollMessage, question) {
+  if (!pollMessage?.startThread) return null;
+  if (pollMessage.hasThread) {
+    return pollMessage.thread || (await pollMessage.fetch().then((msg) => msg.thread).catch(() => null));
+  }
+  const name = normalizePollThreadName(question);
+  for (const autoArchiveDuration of [10080, 1440, 4320]) {
+    const thread = await pollMessage
+      .startThread({
+        name,
+        autoArchiveDuration,
+        reason: "Thread commenti sondaggio",
+      })
+      .catch(() => null);
+    if (thread) return thread;
+  }
+  global.logger?.warn?.("[poll] thread create failed for poll message", pollMessage.id);
+  return null;
+}
+
+async function announcePollPublishedInChat(guild, pollMessage, question) {
+  const chatId = String(IDs.channels?.chat || "").trim();
+  if (!chatId || !pollMessage?.id || !guild?.client) return null;
+  const chatChannel =
+    guild.channels.cache.get(chatId) ||
+    (await getClientChannelCached(guild.client, chatId).catch(() => null)) ||
+    (await guild.client.channels.fetch(chatId).catch(() => null));
+  if (!chatChannel?.isTextBased?.()) return null;
+
+  const pollChannelId = String(pollMessage.channelId || IDs.channels?.polls || "").trim();
+  const link = `https://discord.com/channels/${guild.id}/${pollChannelId}/${pollMessage.id}`;
+  const pollsChannelMention = pollChannelId ? `<#${pollChannelId}>` : "#sondaggi";
+
+  return chatChannel
+    .send({
+      content: [
+        "<:VC_PinkQuestionMark:1471892611026391306> **Nuovo sondaggio** pubblicato in " + pollsChannelMention + "!",
+        "",
+        `**${question}**`,
+        "",
+        `> Vota con le reazioni sul [messaggio del sondaggio](${link}) e commenta la tua scelta nel thread dedicato.`,
+      ].join("\n"),
+      allowedMentions: { parse: [] },
+    })
+    .catch((err) => {
+      global.logger?.warn?.("[poll] chat announce failed:", err?.message || err);
+      return null;
+    });
+}
+
 async function findPollById(guildId, pollId) {
   return Poll.findOne(buildGuildPollFilter(guildId, { pollcount: pollId }));
 }
@@ -252,6 +311,13 @@ async function createPollForGuild(guild, payload = {}) {
 
   await applyPollReactions(pollMessage, validEmojis);
 
+  const skipThread = payload.skipThread === true;
+  const skipChatAlert = payload.skipChatAlert === true;
+  const thread = skipThread ? null : await createPollDiscussionThread(pollMessage, question);
+  if (!skipChatAlert) {
+    await announcePollPublishedInChat(guild, pollMessage, question);
+  }
+
   try {
     await Poll.create({
       guildId,
@@ -275,7 +341,7 @@ async function createPollForGuild(guild, payload = {}) {
     };
   }
 
-  return { ok: true, pollNumber, messageId: pollMessage.id };
+  return { ok: true, pollNumber, messageId: pollMessage.id, threadId: thread?.id || null };
 }
 
 async function handleCreate(interaction) {

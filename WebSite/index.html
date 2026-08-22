@@ -2,7 +2,7 @@
 <html lang="it">
 
 <head>
-  <style id="vc-anti-fouc-css">html:not(.vc-home-styles-ready) body.vc-body--home{visibility:hidden!important}</style>
+  <style id="vc-anti-fouc-css">html,body{background:#100c09}</style><style id="vc-nav-noflash">body.vc-body>header,body.vc-body header.fixed,body.vc-dashboard-page>header,body.vc-vote-page>header,body.vc-body--home>header{background:#100c09!important;background-color:#100c09!important;padding-top:max(0.85rem,env(safe-area-inset-top,0px))!important;padding-left:max(1rem,env(safe-area-inset-left,0px))!important;padding-right:max(1rem,env(safe-area-inset-right,0px))!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;transition:none!important;animation:none!important;transform:none!important;box-shadow:none!important}body.vc-body header .vc-nav-shell,body.vc-body header .vc-nav-shell.vc-glass,body.vc-body header .vc-nav-shell.vc-nav-shell--scrolled,body.vc-body header .vc-nav-shell.vc-glass.vc-nav-shell--scrolled{background:#140f0c!important;background-color:#140f0c!important;border-radius:1rem!important;border:1px solid rgba(255,255,255,.1)!important;box-shadow:0 10px 28px rgba(0,0,0,.35)!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;filter:none!important;transition:none!important;animation:none!important;max-width:none!important;width:100%!important;margin:0!important}body.vc-body header .vc-nav-shell::before{content:none!important;display:none!important}</style>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <script>
@@ -88,7 +88,7 @@
         }
         var legacyCustomizeMatch = String(window.location.pathname || "").match(/^\/users\/(\d{17,20})\/customize\/?$/);
         if (legacyCustomizeMatch) {
-          window.location.replace("/user/customize/?id=" + encodeURIComponent(legacyCustomizeMatch[1]));
+          window.location.replace("/user/personalizza/?id=" + encodeURIComponent(legacyCustomizeMatch[1]) + "&target=rank");
           return;
         }
         var m = String(window.location.pathname || "").match(/^\/users?\/(\d{17,20})\/?$/);
@@ -97,7 +97,7 @@
       } catch (e) { }
     })();
   </script>
-  <link rel="preload" as="style" href="/css/vc-landing.css?v={{BUILD_ASSET_VERSION}}" />
+  <link rel="preload" as="style" href="/css/vc-landing.css?v=20260821navfix7site" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css"
     media="print" onload="this.media='all'"
     crossorigin="anonymous" referrerpolicy="no-referrer" />
@@ -106,7 +106,7 @@
       crossorigin="anonymous" referrerpolicy="no-referrer" />
   </noscript>
   <link rel="stylesheet" href="/css/tw-build.css?v={{BUILD_ASSET_VERSION}}" />
-  <link rel="stylesheet" href="/css/vc-landing.css?v={{BUILD_ASSET_VERSION}}" />
+  <link rel="stylesheet" href="/css/vc-landing.css?v=20260821navfix7site" />
   <script>
     (function () {
       var root = document.documentElement;
@@ -118,7 +118,7 @@
       var i;
       for (i = 0; i < links.length; i += 1) {
         var href = String(links[i].getAttribute("href") || links[i].href || "");
-        if (href.indexOf("tw-build.css") === -1 && href.indexOf("vc-landing.css") === -1) continue;
+        if (href.indexOf("tw-build.css") === -1 && href.indexOf("vc-landing.css?v=20260821navfix7site") === -1) continue;
         pending += 1;
         (function (link) {
           function onDone() {
@@ -153,9 +153,9 @@
 
   <header class="fixed inset-x-0 top-0 z-50 px-4 pt-4">
     <div
-      class="vc-nav-shell vc-glass mx-auto flex max-w-6xl flex-col gap-0 overflow-visible rounded-2xl border border-white/[0.08] bg-[#140f0c]/78 shadow-[0_8px_40px_rgba(0,0,0,0.48),0_0_48px_rgba(212,168,136,0.07)]">
+      class="vc-nav-shell rounded-2xl mx-auto flex flex-col gap-0 overflow-visible border border-white/[0.08] bg-[#140f0c] shadow-[0_10px_28px_rgba(0,0,0,0.35)]">
       <div
-        class="vc-header-bar grid w-full grid-cols-1 items-center gap-y-2.5 gap-x-2 px-4 py-3 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:gap-x-3 sm:px-5">
+        class="vc-header-bar grid w-full grid-cols-1 items-center gap-y-2.5 gap-x-2 px-4 py-3 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:gap-x-3 sm:px-5">
         <div class="flex min-w-0 items-center gap-2.5 justify-self-start sm:gap-3">
           <a class="vc-header-logo-link shrink-0 rounded-2xl ring-1 ring-[#d4a888]/35 transition hover:ring-[#d4a888]/55 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#d4a888]/60"
             href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer" aria-label="Entra su Discord"><img

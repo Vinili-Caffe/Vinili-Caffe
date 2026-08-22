@@ -152,7 +152,7 @@ const DEFAULT_WEEKS = Object.freeze([
     start: "2026-08-17",
     end: "2026-08-23",
     activities: [
-      { title: "Evento | Caccia alle liste", summary: "Sabato 22 Agosto | Ogni ora due liste di incantesimi della Sezione Proibita vengono inviati in canali diversi e i primi due della stessa casa a cliccarli vincono.", icon: "fa-search" },
+      { title: "Evento | Caccia alle liste", summary: "Sabato 22 Agosto 12:00 → Domenica 23 Agosto 11:00 | Ogni ora due liste della Sezione Proibita appaiono in canali diversi: due maghi della stessa casa devono raccoglierle entrambe. Se le trovano case diverse il turno resta aperto fino a una coppia della stessa casa o alla scadenza.", icon: "fa-search" },
       { title: "Risultati anno accademico", summary: "Domenica 23 Agosto | Classifica attività delle due settimane.", pageId: "points", icon: "fa-trophy" },
       { title: "Fine 6º anno", summary: "Termine del sesto anno accademico.", icon: "fa-graduation-cap" },
     ],

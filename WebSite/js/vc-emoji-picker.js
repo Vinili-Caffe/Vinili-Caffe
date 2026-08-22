@@ -125,7 +125,7 @@
     root.setAttribute("hidden", "");
     root.innerHTML =
       '<div class="vc-emoji-picker__panel" role="dialog" aria-label="Scegli emoji">' +
-      '<div class="vc-emoji-picker__tabs">' +
+      '<div class="vc-emoji-picker__tabs" data-vc-ep-tabs>' +
       '<button type="button" class="vc-emoji-picker__tab is-active" data-vc-ep-tab="unicode">Emoji</button>' +
       '<button type="button" class="vc-emoji-picker__tab" data-vc-ep-tab="custom">Server</button>' +
       "</div>" +
@@ -273,7 +273,7 @@
 
   function setTab(useCustom) {
     if (!pending) return;
-    pending.useCustom = Boolean(useCustom);
+    pending.useCustom = pending.unicodeOnly ? false : Boolean(useCustom);
     var root = ensureRoot();
     root.querySelectorAll("[data-vc-ep-tab]").forEach(function (btn) {
       var isCustom = btn.getAttribute("data-vc-ep-tab") === "custom";
@@ -436,16 +436,23 @@
   function openPicker(opts) {
     opts = opts || {};
     bindDocHandlers();
+    var unicodeOnly = opts.unicodeOnly === true;
     pending = {
       anchor: opts.anchor || null,
-      guildEmojis: Array.isArray(opts.guildEmojis) ? opts.guildEmojis : [],
-      useCustom: opts.preferCustom === true,
+      guildEmojis: unicodeOnly ? [] : Array.isArray(opts.guildEmojis) ? opts.guildEmojis : [],
+      useCustom: unicodeOnly ? false : opts.preferCustom === true,
+      unicodeOnly: unicodeOnly,
       onPick: typeof opts.onPick === "function" ? opts.onPick : null,
     };
     bindReposition(pending.anchor);
     var root = ensureRoot();
     root.removeAttribute("hidden");
     root.classList.add("is-open");
+    root.classList.toggle("is-unicode-only", unicodeOnly);
+    var tabs = root.querySelector("[data-vc-ep-tabs]");
+    if (tabs) tabs.hidden = unicodeOnly;
+    var customTab = root.querySelector('[data-vc-ep-tab="custom"]');
+    if (customTab) customTab.hidden = unicodeOnly;
     setTab(pending.useCustom);
     requestAnimationFrame(function () {
       if (!pending) return;
@@ -469,6 +476,7 @@
     var root = document.getElementById(ROOT_ID);
     if (!root) return;
     root.classList.remove("is-open");
+    root.classList.remove("is-unicode-only");
     root.setAttribute("hidden", "");
   }
 

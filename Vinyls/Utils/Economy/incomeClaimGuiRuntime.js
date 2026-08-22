@@ -105,11 +105,11 @@ async function renderPanel(session, client = null) {
   }
 }
 
-async function buildIncomeClaimPayload(session, notice = "", panelClosed = false, client = null) {
+async function buildIncomeClaimPayload(session, notice = "", panelClosed = false, client = null, withButtons = true) {
   const attachment = await renderPanel(session, client);
   return buildImageButtonPayload({
     files: attachment.files || [],
-    components: buildRows(session, panelClosed),
+    components: withButtons ? buildRows(session, panelClosed) : [],
   });
 }
 
@@ -197,7 +197,7 @@ async function runIncomeDirect(client, message, incomeType) {
   const notice = formatClaimNotice(claimed.result, incomeType, client);
   return {
     ok: true,
-    payload: await buildIncomeClaimPayload(session, notice, true, client),
+    payload: await buildIncomeClaimPayload(session, notice, true, client, false),
   };
 }
 

@@ -15,7 +15,9 @@ function shouldSkipRateLimit(req) {
   return (
     path === "/webhooks/site-api/health" ||
     path === "/webhooks/health" ||
-    path === "/webhooks/status"
+    path === "/webhooks/status" ||
+    // Kick chat webhooks: volume alto, non devono mai prendere 429.
+    path === "/webhooks/site-kick-sub/events"
   );
 }
 
@@ -35,6 +37,8 @@ function createSiteApiRateLimiters() {
     legacyHeaders: false,
     skip: shouldSkipRateLimit,
     handler: rateLimitedJson,
+    // App behind nginx with trust proxy=true; IP spoofing is mitigated at the edge.
+    validate: { trustProxy: false },
   };
 
   const globalMax = parsePositiveInt(process.env.SITE_API_RATE_GLOBAL_MAX, 100);
@@ -63,6 +67,7 @@ const STRICT_WEBHOOK_PREFIXES = [
   "/webhooks/site-unmute",
   "/webhooks/site-users",
   "/webhooks/site-notifications",
+  // site-custom-profile: fuori dallo strict — editor fa GET+emojis+mutate in sequenza
 ];
 
 function mountSiteApiRateLimit(app) {

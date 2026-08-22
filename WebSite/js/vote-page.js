@@ -109,7 +109,7 @@
       esc(defaultEmbedAvatarUrl(row.userId)) +
       '\'" />' +
       '<span class="vc-vote-list-name">' +
-      esc(row.username || t("vote.userFallback")) +
+      esc(row.displayName || row.username || t("vote.userFallback")) +
       "</span>" +
       '<span class="vc-vote-list-score">' +
       esc(formatIntIt(row.votes || 0)) +
@@ -135,7 +135,7 @@
       esc(defaultEmbedAvatarUrl(row.userId)) +
       '\'" />' +
       '<span class="vc-vote-podium-name">' +
-      esc(row.username || t("vote.userFallback")) +
+      esc(row.displayName || row.username || t("vote.userFallback")) +
       "</span>" +
       '<span class="vc-vote-podium-score">' +
       esc(formatIntIt(row.votes || 0)) +

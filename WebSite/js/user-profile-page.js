@@ -9,6 +9,10 @@
   var PROFILE_RANK_PREVIEW_CACHE_TTL_MS = 10 * 60 * 1000;
   var PROFILE_RANK_PREVIEW_CACHE_PREFIX = "vc:profile-rank-preview:";
   var profileMemoryCache = new Map();
+  var lastProfileRenderSignature = "";
+  var lastRankPreviewUserId = "";
+  var lastRankPreviewLoadedAt = 0;
+  var RANK_PREVIEW_RELOAD_MIN_MS = 5 * 60 * 1000;
 
   function byId(id) {
     return document.getElementById(id);
@@ -81,7 +85,13 @@
       profileMemoryCache.set(key, { expireAt: now + Math.max(1, Number(ttlMs) || PROFILE_CACHE_TTL_MS), value: sess });
       return Promise.resolve(sess);
     }
-    return fetch(url, { credentials: "omit" })
+    var fetchOpts = { credentials: "omit" };
+    try {
+      if (typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function") {
+        fetchOpts.signal = AbortSignal.timeout(20000);
+      }
+    } catch (eTimeout) {}
+    return fetch(url, fetchOpts)
       .then(function (r) {
         return r.json().then(function (body) {
           return { httpOk: r.ok, body: body };
@@ -90,7 +100,12 @@
       .then(function (payload) {
         var ttl = Math.max(1, Number(ttlMs) || PROFILE_CACHE_TTL_MS);
         profileMemoryCache.set(key, { expireAt: now + ttl, value: payload });
-        writeSessionCache(key, payload, ttl, now);
+        try {
+          var approx = JSON.stringify(payload || {}).length;
+          if (approx > 0 && approx < 120000) {
+            writeSessionCache(key, payload, ttl, now);
+          }
+        } catch (eCache) {}
         return payload;
       });
   }
@@ -101,7 +116,49 @@
     if (!base || !/^\d{17,20}$/.test(id)) return "";
     var root = base.split("?")[0];
     var endpoint = root.replace(/\/site-users\/?$/i, "/site-rank-card-public");
-    return endpoint + "?userId=" + encodeURIComponent(id) + "&_v=" + encodeURIComponent(String(Date.now()));
+    // niente Date.now(): altrimenti ogni poll/auth event rifà fetch + flash della card
+    return endpoint + "?userId=" + encodeURIComponent(id);
+  }
+
+  function profileRenderSignature(userId, payload, viewerId) {
+    var p = payload || {};
+    var level = p.level || {};
+    var weekly = p.weekly || {};
+    var messages = p.messages || {};
+    var voice = p.voice || {};
+    var profile = p.profile || {};
+    var custom = profile.customProfile || {};
+    var role = custom.role || null;
+    var secondary = custom.secondaryRole || null;
+    var cvoice = custom.voice || null;
+    return [
+      String(userId || ""),
+      String(viewerId || ""),
+      String(level.level || 0),
+      String(level.exp || 0),
+      String(level.rank || ""),
+      String(weekly.weeklyExp || 0),
+      String(weekly.weeklyRank || ""),
+      String(messages.messagesTotal || 0),
+      String(messages.messagesWeekly || 0),
+      String(messages.messagesDaily || 0),
+      String(voice.voiceTotalSeconds || 0),
+      String(voice.voiceWeeklySeconds || 0),
+      String(voice.voiceDailySeconds || 0),
+      role ? String(role.id || "") + ":" + String(role.name || "") + ":" + String(role.color || "") + ":" + String(role.memberCount || 0) : "",
+      secondary ? String(secondary.id || "") + ":" + String(secondary.name || "") + ":" + String(secondary.memberCount || 0) : "",
+      cvoice ? String(cvoice.id || "") + ":" + String(cvoice.name || "") + ":" + String(cvoice.memberCount || 0) : "",
+      String((profile.displayName || profile.username || "")),
+      String(profile.avatarUrl || ""),
+      String(profile.expMultiplierResolved || weekly.expMultiplier || ""),
+      Array.isArray(profile.weeklyMultiplierSources)
+        ? profile.weeklyMultiplierSources
+            .map(function (s) {
+              return String((s && s.key) || "") + ":" + String((s && s.multiplier) || "") + ":" + String((s && s.active) || "");
+            })
+            .join(",")
+        : "",
+    ].join("|");
   }
 
   function profileRankPreviewCacheKey(userId) {
@@ -224,7 +281,103 @@
 
   function profileCustomizeUrl(userId) {
     var id = String(userId || "").trim();
-    return id ? "/user/personalizza/?id=" + encodeURIComponent(id) : "/user/personalizza";
+    return id ? "/user/personalizza/?id=" + encodeURIComponent(id) + "&target=rank" : "/user/personalizza/?target=rank";
+  }
+
+  function profilePersonalizzaHubUrl(userId) {
+    var id = String(userId || "").trim();
+    return id ? "/user/personalizza/?id=" + encodeURIComponent(id) : "/user/personalizza/";
+  }
+
+  function customProfileEditorUrl(target) {
+    var t = String(target || "primary").trim().toLowerCase();
+    if (t !== "primary" && t !== "secondary" && t !== "voice") t = "primary";
+    return "/user/personalizza/?target=" + encodeURIComponent(t);
+  }
+
+  function getDiscordToken() {
+    try {
+      var t = localStorage.getItem("vc_discord_access_token");
+      var exp = Number(localStorage.getItem("vc_discord_expires_at") || "0");
+      if (!t || !exp || Date.now() >= exp) return "";
+      return t;
+    } catch (e) {
+      return "";
+    }
+  }
+
+  function customProfileApiUrl() {
+    var c = (typeof window !== "undefined" && window.__VC_CUSTOM_PROFILE) || {};
+    var local = String(c.apiUrlLocal || "").trim();
+    if (isLocalFrontendOrigin() && local) return local;
+    return String(c.apiUrl || "/webhooks/site-custom-profile").trim() || "/webhooks/site-custom-profile";
+  }
+
+  function createCustomCardHtml(target, title, meta) {
+    return (
+      '<div class="vc-user-profile-createcard" data-vc-cpf-create="' +
+      esc(target) +
+      '">' +
+      '<div class="vc-user-profile-createcard__copy">' +
+      '<strong class="vc-user-profile-createcard__title">' +
+      esc(title) +
+      "</strong>" +
+      '<span class="vc-user-profile-createcard__meta">' +
+      esc(meta) +
+      "</span>" +
+      "</div>" +
+      '<button type="button" class="vc-user-profile-createcard__btn" data-vc-cpf-create-btn="' +
+      esc(target) +
+      '">Crea</button>' +
+      "</div>"
+    );
+  }
+
+  async function createCustomFromProfile(target) {
+    var token = getDiscordToken();
+    if (!token) {
+      window.alert("Effettua il login Discord per creare ruolo o vocale.");
+      return;
+    }
+    var t = String(target || "").trim().toLowerCase();
+    if (t !== "primary" && t !== "secondary" && t !== "voice") return;
+    var btn = document.querySelector('[data-vc-cpf-create-btn="' + t + '"]');
+    if (btn) btn.disabled = true;
+    try {
+      var res = await fetch(customProfileApiUrl(), {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          Authorization: "Bearer " + token,
+        },
+        credentials: "omit",
+        body: JSON.stringify({ target: t, action: "create" }),
+      });
+      var data = await res.json().catch(function () {
+        return null;
+      });
+      if (!data || data.ok !== true) {
+        window.alert((data && data.message) || "Creazione non riuscita.");
+        if (btn) btn.disabled = false;
+        return;
+      }
+      window.location.href = customProfileEditorUrl(t);
+    } catch (e) {
+      window.alert("Errore di rete. Riprova.");
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  function wireProfileCustomCreate(root) {
+    if (!root || root._vcCpfCreateWired) return;
+    root._vcCpfCreateWired = true;
+    root.addEventListener("click", function (ev) {
+      var btn = ev.target && ev.target.closest ? ev.target.closest("[data-vc-cpf-create-btn]") : null;
+      if (!btn) return;
+      ev.preventDefault();
+      createCustomFromProfile(btn.getAttribute("data-vc-cpf-create-btn"));
+    });
   }
 
   function formatIntIt(n) {
@@ -365,7 +518,7 @@
     var idx = 0;
     if (/^\d{17,20}$/.test(String(userId || ""))) {
       try {
-        idx = Number((BigInt(String(userId)) >> 22n) % 6n);
+        idx = Number((BigInt(String(userId)) >> BigInt(22)) % BigInt(6));
       } catch (e) {
         idx = 0;
       }
@@ -515,6 +668,12 @@
   function clearProfileLoading() {
     var overlay = byId("vc-user-profile-loading");
     if (overlay) overlay.remove();
+    try {
+      var boots = document.querySelectorAll("[data-vc-profile-boot]");
+      for (var i = 0; i < boots.length; i += 1) {
+        boots[i].remove();
+      }
+    } catch (eBoot) {}
   }
 
   function renderInlineLoading(root) {
@@ -690,6 +849,88 @@
     return out.length ? '<div class="vc-user-profile-badges">' + out.join("") + "</div>" : "";
   }
 
+  function formatMultiplierX(value) {
+    var n = Number(value);
+    if (!Number.isFinite(n) || n <= 0) n = 1;
+    return "×" + n.toFixed(1);
+  }
+
+  function cleanMultiplierLabel(label, type) {
+    var s = String(label == null ? "" : label).trim();
+    if (String(type || "") === "role") {
+      s = s.replace(/^[\s\u00a0]*(?:༄|✦|✧|★|☆|◆|◇|•|·|❖|✵)+[\s\u00a0]*/g, "").trim();
+    }
+    return s || "Fonte";
+  }
+
+  function buildMultiplierSourcesHtml(sources, totalMultiplier) {
+    var raw = Array.isArray(sources) ? sources.slice() : [];
+    var list = [];
+    var baseMult = 1;
+    for (var i = 0; i < raw.length; i += 1) {
+      var row = raw[i] || {};
+      var type = String(row.type || "").toLowerCase();
+      if (type === "global" || type === "server" || type === "event") {
+        var g = Number(row.multiplier);
+        if (Number.isFinite(g) && g > baseMult) baseMult = g;
+        continue;
+      }
+      if (type === "base") {
+        var b = Number(row.multiplier);
+        if (Number.isFinite(b) && b > 0) baseMult = Math.max(baseMult, b);
+        continue;
+      }
+      list.push(row);
+    }
+    list.unshift({
+      key: "base",
+      label: "Base",
+      type: "base",
+      multiplier: baseMult > 0 ? baseMult : 1,
+      active: true,
+    });
+    var rows = list
+      .map(function (src) {
+        var type = String((src && src.type) || "");
+        var label = cleanMultiplierLabel((src && src.label) || "Fonte", type);
+        var mult = Number(src && src.multiplier);
+        if (!Number.isFinite(mult) || mult <= 0) mult = 1;
+        var color = String((src && src.color) || "").trim();
+        var isRole = type === "role";
+        var isActive = Boolean(src && (src.active || src.applied));
+        var accent = color || (isRole ? "#e8c49c" : "#94a3b8");
+        return (
+          '<div class="vc-user-profile-multisource' +
+          (isActive && isRole ? " is-active" : "") +
+          (type === "base" ? " is-base" : "") +
+          '" style="--vc-multi-accent:' +
+          esc(accent) +
+          '">' +
+          '<span class="vc-user-profile-multisource__label">' +
+          '<span class="vc-user-profile-multisource__dot" aria-hidden="true"></span>' +
+          "<span>" +
+          esc(label) +
+          "</span></span>" +
+          '<span class="vc-user-profile-multisource__value">' +
+          esc(formatMultiplierX(mult)) +
+          "</span></div>"
+        );
+      })
+      .join("");
+    return (
+      '<details class="vc-user-profile-multiplier">' +
+      '<summary class="vc-user-profile-multiplier__summary">' +
+      '<span class="vc-user-profile-multiplier__left"><i class="fa fa-bolt" aria-hidden="true"></i> Moltiplicatore EXP</span>' +
+      '<span class="vc-user-profile-multiplier__right"><strong class="vc-user-profile-multiplier__total">' +
+      esc(formatMultiplierX(totalMultiplier)) +
+      '</strong><i class="fa fa-angle-down vc-user-profile-multiplier__chev" aria-hidden="true"></i></span>' +
+      "</summary>" +
+      '<div class="vc-user-profile-multiplier__body">' +
+      rows +
+      "</div></details>"
+    );
+  }
+
   function renderProfile(root, userId, payload) {
     clearProfileLoading();
     root.hidden = false;
@@ -698,7 +939,7 @@
     var messages = payload.messages || {};
     var voice = payload.voice || {};
     var profile = payload.profile || {};
-    var profileUsername = String(profile.username || level.username || "Utente").trim() || "Utente";
+    var profileUsername = String(profile.displayName || profile.username || level.username || "Utente").trim() || "Utente";
     var avatar = String(profile.avatarUrl || level.avatarUrl || "").trim();
     var progressPct = formatPct(level.progressPercent || 0);
     var rankText = level.rank ? "#" + formatIntIt(level.rank) : "-";
@@ -714,11 +955,22 @@
     var customSecondaryRole = customProfile && customProfile.secondaryRole ? customProfile.secondaryRole : null;
     var customVoice = customProfile && customProfile.voice ? customProfile.voice : null;
     var rankCardTheme = profile.rankCard || {};
+    var avatarRing = String(rankCardTheme.ringColor || rankCardTheme.primaryTextColor || "").trim();
+    if (avatarRing && avatarRing.charAt(0) !== "#") avatarRing = "#" + avatarRing;
+    if (!/^#[0-9a-fA-F]{6}$/i.test(avatarRing)) avatarRing = "";
+    var avatarRingStyle = avatarRing
+      ? ' style="--vc-rank-ring:' + esc(avatarRing) + '"'
+      : "";
     var multiplier = Number(
       (weekly && weekly.expMultiplier != null && weekly.expMultiplier !== "" ? weekly.expMultiplier : null) ||
         profile.expMultiplierResolved ||
         1,
     );
+    if (!Number.isFinite(multiplier) || multiplier <= 0) multiplier = 1;
+    var multiplierSources = Array.isArray(profile.weeklyMultiplierSources)
+      ? profile.weeklyMultiplierSources
+      : [];
+    var multiplierHtml = buildMultiplierSourcesHtml(multiplierSources, multiplier);
     var badgesHtml = buildProfileBadges(level.rank, roles);
     var customRoleCount = (customRole ? 1 : 0) + (customSecondaryRole ? 1 : 0);
     var customRoleIconHtml = customRole
@@ -757,7 +1009,7 @@
         '<div class="vc-user-profile-shared__list">' +
         list
           .map(function (member) {
-            var name = String(member.username || "Utente").trim() || "Utente";
+            var name = String(member.displayName || member.username || "Utente").trim() || "Utente";
             var username = String(member.username || "").trim();
             var href = profilePublicUrl(member.id);
             var avatarUrl = String(member.avatarUrl || "").trim();
@@ -788,8 +1040,14 @@
       var count = Math.max(0, Number(voice.memberCount || 0));
       var created = voice.createdAt ? formatDateIt(voice.createdAt) : "—";
       var name = String(voice.name || customVoiceName || "Canale vocale privato").trim() || "Canale vocale privato";
+      var cardOpen = viewerOwns
+        ? '<a class="vc-user-profile-customcard vc-user-profile-customcard--link" href="' +
+          esc(customProfileEditorUrl("voice")) +
+          '" title="Vocale privata">'
+        : '<article class="vc-user-profile-customcard">';
+      var cardClose = viewerOwns ? "</a>" : "</article>";
       return (
-        '<article class="vc-user-profile-customcard">' +
+        cardOpen +
         '<div class="vc-user-profile-customcard__main">' +
         '<span class="vc-user-profile-customcard__dot vc-user-profile-customcard__dot--voice">' +
         '<i class="fa fa-microphone" aria-hidden="true"></i>' +
@@ -806,7 +1064,7 @@
         '<span class="vc-user-profile-customcard__date"><i class="fa fa-calendar-o" aria-hidden="true"></i>Creato<br><strong>' +
         esc(created) +
         "</strong></span>" +
-        "</article>" +
+        cardClose +
         sharedMembersMarkup(voice.sharedMembers, count, "Utenti con accesso")
       );
     }
@@ -821,9 +1079,9 @@
       : '<span class="vc-user-profile-role vc-user-profile-role--muted">Nessun ruolo mostrabile</span>';
 
     var customEconomyHtml =
-      customRole || customVoice
+      customRole || customSecondaryRole || customVoice || viewerOwns
         ? '<section class="vc-user-profile-block vc-user-profile-block--custom">' +
-          '<div class="vc-user-profile-sectioneyebrow"><i class="fa fa-diamond" aria-hidden="true"></i> Ruoli & Economy</div>' +
+          '<div class="vc-user-profile-sectioneyebrow"><i class="fa fa-diamond" aria-hidden="true"></i> Ruoli & Vocale Custom</div>' +
           '<details class="vc-user-profile-accordion vc-user-profile-accordion--role"' +
               (viewerOwns ? " open" : "") +
               ">" +
@@ -836,7 +1094,11 @@
                 ? "Ruolo principale + 1 ruolo secondario"
                 : customRole
                   ? "Ruolo principale"
-                  : "1 ruolo secondario") +
+                  : customSecondaryRole
+                    ? "1 ruolo secondario"
+                    : viewerOwns
+                      ? "Crea il tuo ruolo custom"
+                      : "Nessun ruolo custom") +
               "</span>" +
               "</span>" +
               '<span class="vc-user-profile-accordion__badge">' +
@@ -846,7 +1108,7 @@
               "</summary>" +
               '<div class="vc-user-profile-accordion__body">' +
               (customRole
-                ? '<article class="vc-user-profile-customcard">' +
+                ? (viewerOwns ? '<a class="vc-user-profile-customcard vc-user-profile-customcard--link" href="' + esc(customProfileEditorUrl("primary")) + '" title="Ruolo principale">' : '<article class="vc-user-profile-customcard">') +
                   '<div class="vc-user-profile-customcard__main">' +
                   '<span class="vc-user-profile-customcard__dot vc-user-profile-customcard__dot--role"' +
                   (customRole.color ? ' style="--vc-custom-dot:' + esc(customRole.color) + '"' : "") +
@@ -863,10 +1125,12 @@
                   '<span class="vc-user-profile-customcard__date"><i class="fa fa-calendar-o" aria-hidden="true"></i>Creato<br><strong>' +
                   esc(formatDateIt(customRole.createdAt)) +
                   "</strong></span>" +
-                  "</article>"
-                : "") +
+                  (viewerOwns ? "</a>" : "</article>")
+                : viewerOwns
+                  ? createCustomCardHtml("primary", "Ruolo principale", "Crea direttamente dal profilo")
+                  : "") +
               (customSecondaryRole
-                ? '<article class="vc-user-profile-customcard vc-user-profile-customcard--secondary">' +
+                ? (viewerOwns ? '<a class="vc-user-profile-customcard vc-user-profile-customcard--secondary vc-user-profile-customcard--link" href="' + esc(customProfileEditorUrl("secondary")) + '" title="Ruolo secondario">' : '<article class="vc-user-profile-customcard vc-user-profile-customcard--secondary">') +
                   '<div class="vc-user-profile-customcard__main">' +
                   '<span class="vc-user-profile-customcard__dot vc-user-profile-customcard__dot--voice">' +
                   (customSecondaryRole.iconUrl
@@ -885,36 +1149,14 @@
                   '<span class="vc-user-profile-customcard__date"><i class="fa fa-calendar-o" aria-hidden="true"></i>Creato<br><strong>' +
                   esc(formatDateIt(customSecondaryRole.createdAt)) +
                   "</strong></span>" +
-                  "</article>"
-                : "") +
+                  (viewerOwns ? "</a>" : "</article>")
+                : viewerOwns && customRole
+                  ? createCustomCardHtml("secondary", "Ruolo secondario", "Serve VIP+ / Double Booster / Lv 120")
+                  : "") +
               (customRole ? sharedMembersMarkup(customRole.sharedMembers, customRole.memberCount, "Condiviso con") : "") +
               (customSecondaryRole ? sharedMembersMarkup(customSecondaryRole.sharedMembers, customSecondaryRole.memberCount, "Secondario condiviso con") : "") +
               "</div>" +
               "</details>" +
-          (false
-            ? '<details>' +
-              '<article class="vc-user-profile-customcard">' +
-              '<div class="vc-user-profile-customcard__main">' +
-              '<span class="vc-user-profile-customcard__dot"' +
-              (customRole.color ? ' style="--vc-custom-dot:' + esc(customRole.color) + '"' : "") +
-              "></span>" +
-              '<div class="vc-user-profile-customcard__copy">' +
-              '<strong class="vc-user-profile-customcard__title">' +
-              esc(customRole.name || "Ruolo personalizzato") +
-              "</strong>" +
-              '<span class="vc-user-profile-customcard__meta">Creato ' +
-              esc(formatDateIt(customRole.createdAt)) +
-              "</span>" +
-              "</div>" +
-              "</div>" +
-              '<span class="vc-user-profile-customcard__aside">' +
-              esc(formatIntIt(customRole.memberCount || 0)) +
-              " membri</span>" +
-              "</article>" +
-              sharedMembersMarkup(customRole.sharedMembers, customRole.memberCount, "Condiviso con") +
-              "</div>" +
-              "</details>"
-            : "") +
           (customVoice
             ? '<details class="vc-user-profile-accordion vc-user-profile-accordion--voice"' +
               (viewerOwns ? " open" : "") +
@@ -934,7 +1176,21 @@
               voiceStatsHtml(customVoice) +
               "</div>" +
               "</details>"
-            : "") +
+            : viewerOwns
+              ? '<details class="vc-user-profile-accordion vc-user-profile-accordion--voice" open>' +
+                '<summary class="vc-user-profile-accordion__summary">' +
+                '<span class="vc-user-profile-accordion__icon"><i class="fa fa-microphone" aria-hidden="true"></i></span>' +
+                '<span class="vc-user-profile-accordion__copy">' +
+                '<span class="vc-user-profile-accordion__title">Canale vocale privato</span>' +
+                '<span class="vc-user-profile-accordion__sub">Crea la tua stanza</span>' +
+                "</span>" +
+                '<span class="vc-user-profile-accordion__badge">0</span>' +
+                '<i class="fa fa-angle-down vc-user-profile-accordion__chev" aria-hidden="true"></i>' +
+                "</summary>" +
+                '<div class="vc-user-profile-accordion__body">' +
+                createCustomCardHtml("voice", "Vocale privata", "Gestisci nome, emoji e accesso") +
+                "</div></details>"
+              : "") +
           "</section>"
         : "";
 
@@ -943,7 +1199,9 @@
       '<section class="vc-user-profile-shell">' +
       '<section class="vc-user-profile-hero">' +
       '<div class="vc-user-profile-hero__head">' +
-      '<div class="vc-user-profile-avatarwrap">' +
+      '<div class="vc-user-profile-avatarwrap"' +
+      avatarRingStyle +
+      ">" +
       '<span class="vc-user-profile-avatarclip">' +
       (avatar
         ? '<img class="vc-user-profile-avatar" src="' +
@@ -962,6 +1220,28 @@
       esc(userId) +
       "</p>" +
       "</div>" +
+      (viewerOwns
+        ? '<a class="vc-user-profile-customize vc-user-profile-customize--pill" href="' +
+          esc(profilePersonalizzaHubUrl(userId)) +
+          '" title="Personalizza profilo"><i class="fa fa-paint-brush" aria-hidden="true"></i><span>Personalizza</span></a>'
+        : "") +
+      "</div>" +
+      '<div class="vc-user-profile-levelbar" aria-label="Progresso livello">' +
+      '<div class="vc-user-profile-levelbar__meta">' +
+      "<span>Livello " +
+      esc(String(level.level != null ? level.level : 0)) +
+      "</span>" +
+      "<span>" +
+      esc(formatIntIt(currentXp)) +
+      " / " +
+      esc(formatIntIt(targetXp)) +
+      " EXP</span>" +
+      "</div>" +
+      '<div class="vc-user-profile-levelbar__track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' +
+      esc(String(progressPct)) +
+      '"><span class="vc-user-profile-levelbar__fill" style="width:' +
+      esc(String(progressPct)) +
+      '%"></span></div>' +
       "</div>" +
       badgesHtml +
       '<div class="vc-user-profile-stats">' +
@@ -1033,7 +1313,9 @@
       "</div>" +
       '<img id="vc-user-rankcard-image" class="vc-rank-editor-preview__image" alt="" decoding="async" hidden />' +
       '<p id="vc-user-rankcard-image-status" class="vc-rank-editor-preview__imagestatus" hidden></p>' +
-      "</div></section>" +
+      "</div>" +
+      multiplierHtml +
+      "</section>" +
       customEconomyHtml +
       '<section class="vc-user-profile-block vc-user-profile-block--roles">' +
       '<div class="vc-user-profile-block__head"><span class="vc-user-profile-block__title">Ruoli</span><span class="vc-user-profile-block__sub">' +
@@ -1044,6 +1326,7 @@
       "</div></section>" +
       "</section>";
     clearProfilePending();
+    if (viewerOwns) wireProfileCustomCreate(root);
   }
 
   function releaseProfileRankObjectUrl() {
@@ -1063,10 +1346,26 @@
     }
   }
 
-  function loadProfileRankCardPreview(userId) {
+  function loadProfileRankCardPreview(userId, options) {
+    options = options || {};
+    var force = Boolean(options.force);
     var img = byId("vc-user-rankcard-image");
     var status = byId("vc-user-rankcard-image-status");
     if (!img || !status) return;
+    var uid = String(userId || "").trim();
+    var now = Date.now();
+    var wrapReady = Boolean(img.closest && img.closest(".vc-rank-editor-preview__imagewrap.is-ready"));
+    var hasSrc = Boolean(img.getAttribute("src"));
+    if (
+      !force &&
+      uid &&
+      lastRankPreviewUserId === uid &&
+      hasSrc &&
+      wrapReady &&
+      now - lastRankPreviewLoadedAt < RANK_PREVIEW_RELOAD_MIN_MS
+    ) {
+      return;
+    }
     var url = resolvedPublicRankPreviewUrl(userId);
     if (!url) {
       status.hidden = false;
@@ -1075,12 +1374,14 @@
       return;
     }
     var myToken = ++profileRankRenderToken;
-    function showImage(src) {
+    function showImage(src, fromCache) {
       if (myToken !== profileRankRenderToken) return;
       img.onload = function () {
         if (myToken !== profileRankRenderToken) return;
         img.classList.remove("is-rendering");
         setRankCardPreviewReady(img, true);
+        lastRankPreviewUserId = uid;
+        lastRankPreviewLoadedAt = Date.now();
         status.hidden = true;
         status.textContent = "";
         status.className = "vc-rank-editor-preview__imagestatus";
@@ -1088,26 +1389,40 @@
       img.onerror = function () {
         if (myToken !== profileRankRenderToken) return;
         img.classList.remove("is-rendering");
+        if (fromCache && hasSrc) {
+          setRankCardPreviewReady(img, true);
+          status.hidden = true;
+          return;
+        }
         setRankCardPreviewReady(img, false);
         status.hidden = false;
         status.textContent = "Anteprima non disponibile al momento.";
         status.className = "vc-rank-editor-preview__imagestatus is-error";
       };
       img.alt = "Rank card";
+      if (img.getAttribute("src") === src) {
+        img.classList.remove("is-rendering");
+        setRankCardPreviewReady(img, true);
+        lastRankPreviewUserId = uid;
+        lastRankPreviewLoadedAt = Date.now();
+        status.hidden = true;
+        return;
+      }
       img.src = src;
     }
     var cachedDataUrl = loadCachedProfileRankPreview(userId);
     if (cachedDataUrl) {
       releaseProfileRankObjectUrl();
-      showImage(cachedDataUrl);
-    } else {
+      showImage(cachedDataUrl, true);
+      // soft refresh in background without blanking the card
+    } else if (!hasSrc || force) {
       setRankCardPreviewReady(img, false);
       status.hidden = true;
       status.textContent = "";
       status.className = "vc-rank-editor-preview__imagestatus";
       img.classList.add("is-rendering");
     }
-    fetch(url, { cache: "no-store" })
+    fetch(url, { cache: "default", credentials: "omit" })
       .then(function (r) {
         if (!r.ok) throw new Error("http_" + r.status);
         return r.blob();
@@ -1125,7 +1440,7 @@
         var nextObjectUrl = window.URL.createObjectURL(blob);
         var prevObjectUrl = profileRankObjectUrl;
         profileRankObjectUrl = nextObjectUrl;
-        showImage(nextObjectUrl);
+        showImage(nextObjectUrl, false);
         if (dataUrl) saveCachedProfileRankPreview(userId, dataUrl);
         if (prevObjectUrl) {
           try {
@@ -1196,10 +1511,29 @@
       },
     };
 
-    profileInitialLoadDone = true;
-    renderProfile(root, userId, lastRenderedProfile.payload);
-    loadProfileRankCardPreview(userId);
-    return true;
+    var viewerId = currentViewer && currentViewer.id ? String(currentViewer.id) : "";
+    var nextSig = profileRenderSignature(userId, lastRenderedProfile.payload, viewerId);
+    var sameDom = silent && nextSig === lastProfileRenderSignature && root.querySelector("#vc-user-rankcard-image");
+    if (sameDom) {
+      profileInitialLoadDone = true;
+      return true;
+    }
+    lastProfileRenderSignature = nextSig;
+    try {
+      renderProfile(root, userId, lastRenderedProfile.payload);
+      profileInitialLoadDone = true;
+      loadProfileRankCardPreview(userId, { force: !silent });
+      return true;
+    } catch (eRender) {
+      if (!silent) {
+        try {
+          renderError(root);
+        } catch (eErr) {
+          clearProfilePending();
+        }
+      }
+      return false;
+    }
   }
 
   function readCachedProfileBundle(userId) {
@@ -1284,11 +1618,19 @@
   }
 
   window.addEventListener("vc-discord-profile", function (ev) {
+    var prevViewerId = currentViewer && currentViewer.id ? String(currentViewer.id) : "";
     currentViewer = ev && ev.detail ? ev.detail.user || null : null;
-    if (lastRenderedProfile && lastRenderedProfile.root) {
-      renderProfile(lastRenderedProfile.root, lastRenderedProfile.userId, lastRenderedProfile.payload);
-      loadProfileRankCardPreview(lastRenderedProfile.userId);
+    var nextViewerId = currentViewer && currentViewer.id ? String(currentViewer.id) : "";
+    if (!lastRenderedProfile || !lastRenderedProfile.root) return;
+    // Solo se cambia ownership (login/logout): evita re-render continuo della rank card
+    if (prevViewerId === nextViewerId) return;
+    var sig = profileRenderSignature(lastRenderedProfile.userId, lastRenderedProfile.payload, nextViewerId);
+    if (sig === lastProfileRenderSignature && lastRenderedProfile.root.querySelector("#vc-user-rankcard-image")) {
+      return;
     }
+    lastProfileRenderSignature = sig;
+    renderProfile(lastRenderedProfile.root, lastRenderedProfile.userId, lastRenderedProfile.payload);
+    loadProfileRankCardPreview(lastRenderedProfile.userId, { force: false });
   });
 
   if (document.readyState === "loading") {

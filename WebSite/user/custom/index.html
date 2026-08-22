@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html class="vc-site-polish" lang="it">
+  <head>
+    <script>
+      (function () {
+        try {
+          var q = new URLSearchParams(window.location.search || "");
+          var t = String(q.get("target") || q.get("slot") || "primary")
+            .trim()
+            .toLowerCase();
+          if (t === "vocale") t = "voice";
+          if (t !== "primary" && t !== "secondary" && t !== "voice") t = "primary";
+          var next = new URLSearchParams();
+          next.set("target", t);
+          var id = String(q.get("id") || q.get("userId") || "").trim();
+          if (/^\d{17,20}$/.test(id)) next.set("id", id);
+          window.location.replace("/user/personalizza/?" + next.toString());
+        } catch (e) {
+          window.location.replace("/user/personalizza/?target=primary");
+        }
+      })();
+    </script>
+    <meta charset="utf-8" />
+    <title>{{SITE_NAME}} | Personalizza</title>
+    <meta http-equiv="refresh" content="0;url=/user/personalizza/?target=primary" />
+    <link rel="canonical" href="/user/personalizza/?target=primary" />
+  </head>
+  <body>
+    <p><a href="/user/personalizza/?target=primary">Vai a Personalizza</a></p>
+</body>
+</html>
