@@ -7,6 +7,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex, nofollow">
     <title>{{SITE_NAME}} | Grazie · Serata Film</title>
+    <script src="/js/vc-page-title.js?v=20260825pageTitle1"></script>
     <link rel="icon" href="{{GUILD_ICON_URL}}" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <link rel="stylesheet" href="../../css/seratafilm-page.css?v={{BUILD_ASSET_VERSION}}" />
@@ -16,7 +17,11 @@
     <script src="../../js/vc-i18n-pages-extra.js?v={{BUILD_ASSET_VERSION}}"></script>
     <script src="../../js/vc-i18n-locales.js?v={{BUILD_ASSET_VERSION}}"></script>
     <script src="../../js/vc-suppress-extension-errors.js?v={{BUILD_ASSET_VERSION}}"></script>
-</head>
+    <script src="/js/vc-youtube-iframe-api.js?v={{BUILD_ASSET_VERSION}}"></script>
+    <script defer src="../../js/seratafilm-event-utils.js?v={{BUILD_ASSET_VERSION}}"></script>
+    <script defer src="../../js/seratafilm-hogwarts-theme.js?v={{BUILD_ASSET_VERSION}}"></script>
+<script src="/js/vc-site-toast.js?v=20260825siteToast1"></script>
+    </head>
 <body id="top" class="vc-seratafilm-page vc-seratafilm-thanks-page">
 <div id="vc-seratafilm-hogwarts-bg" class="vc-seratafilm-hogwarts-bg" hidden aria-hidden="true">
   <video id="vc-seratafilm-hogwarts-bg-video" class="vc-seratafilm-hogwarts-bg__video" muted loop playsinline preload="none"></video>
@@ -98,6 +103,30 @@
             });
           }
         } catch (eEarly) {}
+      })();
+      (function () {
+        function applySfHogwartsTheme() {
+          try {
+            if (typeof window.__vcSeratafilmApplyHogwartsTheme === "function") {
+              window.__vcSeratafilmApplyHogwartsTheme();
+              return true;
+            }
+          } catch (eTh) {}
+          return false;
+        }
+        function bootSfHogwartsTheme() {
+          if (applySfHogwartsTheme()) return;
+          var n = 0;
+          var t = setInterval(function () {
+            n += 1;
+            if (applySfHogwartsTheme() || n > 150) clearInterval(t);
+          }, 32);
+        }
+        if (document.readyState === "loading") {
+          document.addEventListener("DOMContentLoaded", bootSfHogwartsTheme);
+        } else {
+          bootSfHogwartsTheme();
+        }
       })();
     </script>
 <div id="vc-seratafilm-app" style="display: none">
@@ -186,10 +215,12 @@
             window.__vcSeratafilmRenderThanks();
           }
           setTimeout(function () {
-            Promise.all([
-              loadScript("seratafilm-bgm-youtube.js"),
-              loadScript("seratafilm-bgm.js"),
-            ]).then(function () {
+            loadScript("vc-chrome-sync.js").then(function () {
+              return Promise.all([
+                loadScript("seratafilm-bgm-youtube.js"),
+                loadScript("seratafilm-bgm.js"),
+              ]);
+            }).then(function () {
               if (typeof window.__vcSeratafilmBgmSetup === "function") {
                 window.__vcSeratafilmBgmSetup();
               }

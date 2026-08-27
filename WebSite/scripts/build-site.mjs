@@ -453,9 +453,16 @@ function applyPlaceholderMap(html, map) {
 /** Canonical + JSON-LD (homepage) per SEO / Lighthouse. */
 function ensureSeoEnhancements(html, map) {
   let out = String(html || "");
-  const canonical = String(map?.OG_URL || map?.SITE_URL || "").trim();
+  const pageOgUrl = (out.match(/<meta\s+property=["']og:url["']\s+content=["']([^"']+)["']/i) || [])[1] || "";
+  const canonical = String(pageOgUrl || map?.OG_URL || map?.SITE_URL || "").trim();
   if (canonical && !/<link\s+rel=["']canonical["']/i.test(out)) {
     out = out.replace(/<\/head>/i, `    <link rel="canonical" href="${canonical}" />\n  </head>`);
+  } else if (canonical && pageOgUrl) {
+    // Prefer page og:url over homepage SITE_URL injected on subpages.
+    out = out.replace(
+      /(<link\s+rel=["']canonical["']\s+href=["'])([^"']+)(["']\s*\/?>)/i,
+      `$1${canonical}$3`,
+    );
   }
   if (!/<script[^>]+type=["']application\/ld\+json["']/i.test(out) && /vc-body--home|id=["']intro["']/i.test(out)) {
     const siteName = String(map?.SITE_NAME || "Vinili & Caffè");
@@ -585,10 +592,28 @@ function ensureDiscordShareMeta(html, map) {
   if (!/itemprop=["']image["']/i.test(out)) {
     injectAfterOgImage(`<meta itemprop="image" content="${ogImage}" />`);
   }
-  if (!/name=["']twitter:title["']/i.test(out) && map?.OG_TITLE) {
-    injectAfterOgImage(
-      `<meta name="twitter:title" content="${String(map.OG_TITLE)}" />\n    <meta name="twitter:description" content="${String(map.OG_DESCRIPTION || "")}" />`,
-    );
+  const pageOgTitle = (out.match(/<meta\s+property=["']og:title["']\s+content=["']([^"']+)["']/i) || [])[1] || "";
+  const pageOgDesc = (out.match(/<meta\s+property=["']og:description["']\s+content=["']([^"']+)["']/i) || [])[1] || "";
+  const twitterTitle = String(pageOgTitle || map?.OG_TITLE || "").trim();
+  const twitterDesc = String(pageOgDesc || map?.OG_DESCRIPTION || "").trim();
+  if (twitterTitle) {
+    if (!/name=["']twitter:title["']/i.test(out)) {
+      injectAfterOgImage(
+        `<meta name="twitter:title" content="${twitterTitle}" />\n    <meta name="twitter:description" content="${twitterDesc}" />`,
+      );
+    } else {
+      // Subpages: never keep homepage twitter:title if page already has og:title.
+      out = out.replace(
+        /(<meta\s+name=["']twitter:title["']\s+content=["'])([^"']+)(["']\s*\/?>)/i,
+        `$1${twitterTitle}$3`,
+      );
+      if (twitterDesc && /name=["']twitter:description["']/i.test(out)) {
+        out = out.replace(
+          /(<meta\s+name=["']twitter:description["']\s+content=["'])([^"']+)(["']\s*\/?>)/i,
+          `$1${twitterDesc}$3`,
+        );
+      }
+    }
   }
   const appleTouchIcon =
     `<link rel="apple-touch-icon" sizes="180x180" href="/favicon.ico?v=iosfix6" />\n    <link rel="apple-touch-icon" href="/favicon.ico?v=iosfix6" />\n    <link rel="apple-touch-icon-precomposed" sizes="180x180" href="/favicon.ico?v=iosfix6" />\n    <link rel="icon" type="image/png" sizes="180x180" href="/favicon.ico?v=iosfix6" />\n    <link rel="shortcut icon" href="/favicon.ico?v=iosfix6" />`;
@@ -602,7 +627,7 @@ function ensureDiscordShareMeta(html, map) {
   if (!/rel=["']manifest["']/i.test(out)) {
     out = out.replace(
       /<\/head>/i,
-      `  <link rel="manifest" href="/site.webmanifest?v=pwabar2" />\n    <meta name="apple-mobile-web-app-capable" content="yes" />\n    <meta name="mobile-web-app-capable" content="yes" />\n    <meta name="apple-mobile-web-app-title" content="Vinili" />\n    ${appleTouchIcon}\n  </head>`,
+      `  <link rel="manifest" href="/site.webmanifest?v=20260825pwa7" />\n    <meta name="apple-mobile-web-app-capable" content="yes" />\n    <meta name="mobile-web-app-capable" content="yes" />\n    <meta name="apple-mobile-web-app-title" content="Vinili & Caffè" />\n    ${appleTouchIcon}\n  </head>`,
     );
   } else {
     out = out.replace(
@@ -613,17 +638,17 @@ function ensureDiscordShareMeta(html, map) {
     if (!/name=["']apple-mobile-web-app-title["']/i.test(out)) {
       out = out.replace(
         /<\/head>/i,
-        `  <meta name="apple-mobile-web-app-title" content="Vinili" />\n  </head>`,
+        `  <meta name="apple-mobile-web-app-title" content="Vinili & Caffè" />\n  </head>`,
       );
     } else {
       out = out.replace(
         /<meta[^>]+name=["']apple-mobile-web-app-title["'][^>]*>/gi,
-        `<meta name="apple-mobile-web-app-title" content="Vinili" />`,
+        `<meta name="apple-mobile-web-app-title" content="Vinili & Caffè" />`,
       );
     }
     out = out.replace(
       /(href=["'])\/site\.webmanifest(?:\?[^"']*)?(["'])/i,
-      `$1/site.webmanifest?v=pwabar2$2`,
+      `$1/site.webmanifest?v=20260825pwa7$2`,
     );
   }
   return out;
@@ -1019,14 +1044,15 @@ function memberStaffProfileHref(m) {
 function memberStaffAvatarUrl(m, guildId = "") {
   const uid = String(m?.user?.id || "").trim();
   if (!uid) return "";
+  // Preferisci avatar globale PNG: gli hash guild/webp scadono spesso (404 → lettera fallback).
+  const userHash = m?.user?.avatar != null ? String(m.user.avatar).trim() : "";
+  if (userHash) {
+    return `https://cdn.discordapp.com/avatars/${uid}/${userHash}.png?size=80`;
+  }
   const gid = String(guildId || "").trim();
   const guildHash = m?.avatar != null ? String(m.avatar).trim() : "";
   if (gid && guildHash) {
-    return `https://cdn.discordapp.com/guilds/${gid}/users/${uid}/avatars/${guildHash}.webp?size=80`;
-  }
-  const userHash = m?.user?.avatar != null ? String(m.user.avatar).trim() : "";
-  if (userHash) {
-    return `https://cdn.discordapp.com/avatars/${uid}/${userHash}.webp?size=80`;
+    return `https://cdn.discordapp.com/guilds/${gid}/users/${uid}/avatars/${guildHash}.png?size=80`;
   }
   return discordCdnUserAvatarUrl(uid, "") || "";
 }
@@ -1034,7 +1060,6 @@ function memberStaffAvatarUrl(m, guildId = "") {
 function staffHoverMemberPayload(mem, roleId, roleLabel, ownerUserId, guildId, flags = {}) {
   return {
     name: memberStaffDisplayName(mem, ownerUserId),
-    userId: String(mem?.user?.id || "").trim(),
     avatarUrl: memberStaffAvatarUrl(mem, guildId) || "",
     profileUrl: memberStaffProfileHref(mem),
     isOwner: isServerOwnerMember(mem, ownerUserId),
@@ -1108,6 +1133,7 @@ function buildKickLivePipBootHtml(cfg, opts) {
   if (!pip || pip.enabled === false) return "";
   const scriptPrefix = opts && typeof opts.scriptPrefix === "string" ? opts.scriptPrefix : "";
   const scriptSrc = scriptPrefix ? `${scriptPrefix}js/vc-kick-pip.js` : "/js/vc-kick-pip.js";
+  const syncSrc = scriptPrefix ? `${scriptPrefix}js/vc-chrome-sync.js` : "/js/vc-chrome-sync.js";
   const pollMs = Number.isFinite(Number(pip.pollIntervalMs)) ? Number(pip.pollIntervalMs) : 90000;
   const previewLimitMs = Number.isFinite(Number(pip.previewLimitMs)) ? Number(pip.previewLimitMs) : 600000;
   const payload = {
@@ -1121,6 +1147,7 @@ function buildKickLivePipBootHtml(cfg, opts) {
   const json = JSON.stringify(payload).replace(/</g, "\\u003c");
   return (
     `    <script>window.__VC_KICK_PIP=${json};</script>\n` +
+    `    <script src="${syncSrc}" defer></script>\n` +
     `    <script src="${scriptSrc}" defer></script>\n`
   );
 }
@@ -1128,30 +1155,19 @@ function buildKickLivePipBootHtml(cfg, opts) {
 function applyKickLivePipToDist(distDir, cfg) {
   const pip = cfg.kickLivePip && typeof cfg.kickLivePip === "object" ? cfg.kickLivePip : null;
   if (!pip || pip.enabled === false) return;
-  const walk = (dir) => {
-    for (const name of fs.readdirSync(dir)) {
-      const p = path.join(dir, name);
-      const st = fs.statSync(p);
-      if (st.isDirectory()) {
-        walk(p);
-        continue;
-      }
-      if (!name.toLowerCase().endsWith(".html")) continue;
-      const html = fs.readFileSync(p, "utf8");
-      if (html.includes("window.__VC_KICK_PIP") || html.includes("js/vc-kick-pip.js")) continue;
-      if (html.includes("vc-seratafilm-page")) continue;
-      if (html.includes("vc-dashboard-page")) continue;
-      const scriptPrefix = relativeScriptPrefixFromHtml(p);
-      const boot = buildKickLivePipBootHtml(cfg, { scriptPrefix });
-      if (!boot) continue;
-      let next = html;
-      if (next.includes("</body>")) next = next.replace("</body>", `${boot}  </body>`);
-      else if (next.includes("</head>")) next = next.replace("</head>", `${boot}  </head>`);
-      else next += `\n${boot}`;
-      if (next !== html) fs.writeFileSync(p, next, "utf8");
-    }
-  };
-  walk(distDir);
+  // Solo homepage: non iniettare Kick PIP su altre pagine.
+  const homePath = path.join(distDir, "index.html");
+  if (!fs.existsSync(homePath)) return;
+  const html = fs.readFileSync(homePath, "utf8");
+  if (html.includes("window.__VC_KICK_PIP") || html.includes("js/vc-kick-pip.js")) return;
+  if (html.includes("vc-seratafilm-page") || html.includes("vc-dashboard-page")) return;
+  const boot = buildKickLivePipBootHtml(cfg, { scriptPrefix: "/" });
+  if (!boot) return;
+  let next = html;
+  if (next.includes("</body>")) next = next.replace("</body>", `${boot}  </body>`);
+  else if (next.includes("</head>")) next = next.replace("</head>", `${boot}  </head>`);
+  else next += `\n${boot}`;
+  if (next !== html) fs.writeFileSync(homePath, next, "utf8");
 }
 
 function buildSiteSponsorAdBootHtml(cfg, opts) {
@@ -1444,11 +1460,22 @@ function applySiteRouteGuardToDist(distDir, cfg) {
     const s = p.replace(/\/+$/, "") || "/";
     return s.startsWith("/") ? s : `/${s}`;
   });
+  const aliasesRaw = siteRoutesRaw.aliases && typeof siteRoutesRaw.aliases === "object"
+    ? siteRoutesRaw.aliases
+    : {};
+  const aliases = {};
+  for (const [from, to] of Object.entries(aliasesRaw)) {
+    const src = String(from || "").trim().replace(/\/+$/, "") || "/";
+    const dest = String(to || "").trim();
+    if (!dest) continue;
+    aliases[src.startsWith("/") ? src : `/${src}`] = dest;
+  }
   const payload = {
     home: "/",
     paths,
     patterns: SITE_ROUTE_GUARD_PATTERNS,
     hidden,
+    aliases,
   };
   const boot = buildSiteRouteGuardBoot(payload);
   const walk = (dir) => {
@@ -1571,6 +1598,40 @@ function applyAvatarFallbackToDist(distDir, assetVersion = "") {
   walk(distDir);
 }
 
+function applyEmojiRenderToDist(distDir, assetVersion = "") {
+  const suffix = assetVersion ? `?v=${encodeURIComponent(String(assetVersion))}` : "";
+  const walk = (dir) => {
+    for (const name of fs.readdirSync(dir)) {
+      const p = path.join(dir, name);
+      const st = fs.statSync(p);
+      if (st.isDirectory()) {
+        walk(p);
+        continue;
+      }
+      if (!name.toLowerCase().endsWith(".html")) continue;
+      const html = fs.readFileSync(p, "utf8");
+      if (html.includes("vc-emoji-render.js")) continue;
+      const scriptPrefix = relativeScriptPrefixFromHtml(p);
+      const boot = `  <script src="${scriptPrefix}js/vc-emoji-render.js${suffix}" defer></script>\n`;
+      let next = html;
+      if (next.includes("vc-avatar-fallback.js")) {
+        next = next.replace(
+          /(<script[^>]*vc-avatar-fallback\.js[^>]*><\/script>)/i,
+          `$1\n${boot.trimEnd()}`,
+        );
+      } else if (next.includes("</body>")) {
+        next = next.replace("</body>", `${boot}  </body>`);
+      } else if (next.includes("</head>")) {
+        next = next.replace("</head>", `${boot}  </head>`);
+      } else {
+        next += `\n${boot}`;
+      }
+      if (next !== html) fs.writeFileSync(p, next, "utf8");
+    }
+  };
+  walk(distDir);
+}
+
 function applyVcDialogToDist(distDir, assetVersion = "") {
   const suffix = assetVersion ? `?v=${encodeURIComponent(String(assetVersion))}` : "";
   const walk = (dir) => {
@@ -1641,7 +1702,9 @@ function applyTypeSfxToDist(distDir, assetVersion = "") {
       ) {
         continue;
       }
-      const boot = `  <script src="/js/vc-type-sfx.js${suffix}" defer></script>\n`;
+      const boot =
+        `  <script src="/js/vc-chrome-sync.js${suffix}" defer></script>\n` +
+        `  <script src="/js/vc-type-sfx.js${suffix}" defer></script>\n`;
       let next = html;
       if (next.includes("</body>")) next = next.replace("</body>", `${boot}  </body>`);
       else if (next.includes("</head>")) next = next.replace("</head>", `${boot}  </head>`);
@@ -1671,7 +1734,11 @@ function applyPtrToDist(distDir, assetVersion = "") {
         !html.includes("vc-cursor-trail.js") &&
         !html.includes("discord-auth.js") &&
         !html.includes("vc-dashboard-page") &&
-        !html.includes("vc-seratafilm-page")
+        !html.includes("vc-seratafilm-page") &&
+        !html.includes("vc-staff-area") &&
+        !html.includes("vc-staff-route") &&
+        !html.includes("staff-access-gate.js") &&
+        !html.includes("staff-tools-common.js")
       ) {
         continue;
       }
@@ -2356,7 +2423,6 @@ async function buildStaffListBlock(cfg, guildId) {
     const boostCount = doubleBoosterRoleId && rids.includes(doubleBoosterRoleId) ? 2 : 1;
     boostByUserId.set(uid, {
       name: memberBoostDisplayName(m),
-      userId: uid,
       avatarUrl: memberStaffAvatarUrl(m, gid) || "",
       profileUrl: memberStaffProfileHref(m),
       boostCount,
@@ -3008,13 +3074,6 @@ async function main() {
       localRaw && /^https?:\/\//i.test(localRaw) ? localRaw : "";
     return { resolved, localResolved };
   }
-  const staffDirectoryApi = resolveStaffToolApi(
-    "VC_STAFF_DIRECTORY_API_URL",
-    "staffDirectoryApiUrl",
-    "VC_STAFF_DIRECTORY_API_URL_LOCAL",
-    "staffDirectoryApiUrlLocal",
-    "/webhooks/site-staff-directory",
-  );
   const staffPmHubApi = resolveStaffToolApi(
     "VC_STAFF_PM_HUB_API_URL",
     "staffPmHubApiUrl",
@@ -3022,12 +3081,19 @@ async function main() {
     "staffPmHubApiUrlLocal",
     "/webhooks/site-staff-pm-hub",
   );
-  const staffValwarnApi = resolveStaffToolApi(
-    "VC_STAFF_VALWARN_API_URL",
-    "staffValwarnApiUrl",
-    "VC_STAFF_VALWARN_API_URL_LOCAL",
-    "staffValwarnApiUrlLocal",
-    "/webhooks/site-staff-valwarn",
+  const staffPmShopApi = resolveStaffToolApi(
+    "VC_STAFF_PM_SHOP_API_URL",
+    "staffPmShopApiUrl",
+    "VC_STAFF_PM_SHOP_API_URL_LOCAL",
+    "staffPmShopApiUrlLocal",
+    "/webhooks/site-staff-pm-shop",
+  );
+  const staffPmPointsRemovedApi = resolveStaffToolApi(
+    "VC_STAFF_PM_POINTS_REMOVED_API_URL",
+    "staffPmPointsRemovedApiUrl",
+    "VC_STAFF_PM_POINTS_REMOVED_API_URL_LOCAL",
+    "staffPmPointsRemovedApiUrlLocal",
+    "/webhooks/site-staff-pm-points-removed",
   );
   const staffTicketsApi = resolveStaffToolApi(
     "VC_STAFF_TICKETS_API_URL",
@@ -3063,6 +3129,13 @@ async function main() {
     "VC_STAFF_MANAGE_API_URL_LOCAL",
     "staffManageApiUrlLocal",
     "/webhooks/site-staff-manage",
+  );
+  const staffOrganicoApi = resolveStaffToolApi(
+    "VC_STAFF_ORGANICO_API_URL",
+    "staffOrganicoApiUrl",
+    "VC_STAFF_ORGANICO_API_URL_LOCAL",
+    "staffOrganicoApiUrlLocal",
+    "/webhooks/site-staff-organico",
   );
   const hogwartsSortingApiFromEnv = String(process.env.VC_HOGWARTS_SORTING_API_URL ?? "").trim();
   const hogwartsSortingApiRaw =
@@ -3259,10 +3332,6 @@ async function main() {
       endsAtMs: hogwartsSortingStaticWindowState.endsAtMs ?? parseDateEndMs(hogwartsEventRaw.endDate || "2026-09-01T12:00:00", hogwartsEventTimezone),
     },
     questions: getHogwartsPublicQuestions(),
-    scoringQuestions: hogwartsScoringQuestions.map((q) => ({
-      id: q.id,
-      choices: q.choices.map((c) => ({ id: c.id, weights: c.weights })),
-    })),
     houses: hogwartsHouses.map((id) => getHogwartsHouseMeta(id, String(hogwartsEventRaw.houses?.[id]?.crestUrl || "").trim() || undefined)).filter(Boolean),
   };
   const hogwartsStaticBootstrapUri = encodeURIComponent(JSON.stringify(hogwartsStaticBootstrap)).replace(/'/g, "%27");
@@ -3480,8 +3549,12 @@ async function main() {
         : 0,
     },
     overrideIso: String(seratafilmEventRaw.overrideIso || seratafilmEventRaw.fixedIso || "").trim(),
-    linkFilm: String(seratafilmEventRaw.linkFilm || "").trim(),
     hogwartsThemeVideoUrl: String(seratafilmEventRaw.hogwartsThemeVideoUrl || hogwartsIntroVideo).trim(),
+    hogwartsEventWindow: {
+      enabled: hogwartsEventRaw.enabled !== false,
+      startMs: parseDateStartMs(hogwartsEventRaw.startDate || "2026-06-01T14:00:00", hogwartsEventTimezone),
+      endMs: parseDateEndMs(hogwartsEventRaw.endDate || "2026-09-01T12:00:00", hogwartsEventTimezone),
+    },
     filmTitle: String(seratafilmEventRaw.filmTitle || "").trim(),
     nextFilmTitle: String(seratafilmEventRaw.nextFilmTitle || "").trim(),
     adBreak: (() => {
@@ -3761,12 +3834,12 @@ async function main() {
     STAFF_PAUSE_API_URL_LOCAL: escAttr(distApiLocal(staffPauseApiLocalResolved)),
     STAFF_PROFILE_API_URL: escAttr(staffProfileApiResolved),
     STAFF_PROFILE_API_URL_LOCAL: escAttr(distApiLocal(staffProfileApiLocalResolved)),
-    STAFF_DIRECTORY_API_URL: escAttr(staffDirectoryApi.resolved),
-    STAFF_DIRECTORY_API_URL_LOCAL: escAttr(distApiLocal(staffDirectoryApi.localResolved)),
     STAFF_PM_HUB_API_URL: escAttr(staffPmHubApi.resolved),
     STAFF_PM_HUB_API_URL_LOCAL: escAttr(distApiLocal(staffPmHubApi.localResolved)),
-    STAFF_VALWARN_API_URL: escAttr(staffValwarnApi.resolved),
-    STAFF_VALWARN_API_URL_LOCAL: escAttr(distApiLocal(staffValwarnApi.localResolved)),
+    STAFF_PM_SHOP_API_URL: escAttr(staffPmShopApi.resolved),
+    STAFF_PM_SHOP_API_URL_LOCAL: escAttr(distApiLocal(staffPmShopApi.localResolved)),
+    STAFF_PM_POINTS_REMOVED_API_URL: escAttr(staffPmPointsRemovedApi.resolved),
+    STAFF_PM_POINTS_REMOVED_API_URL_LOCAL: escAttr(distApiLocal(staffPmPointsRemovedApi.localResolved)),
     STAFF_TICKETS_API_URL: escAttr(staffTicketsApi.resolved),
     STAFF_TICKETS_API_URL_LOCAL: escAttr(distApiLocal(staffTicketsApi.localResolved)),
     STAFF_SERATAFILM_API_URL: escAttr(staffSerataFilmApi.resolved),
@@ -3777,6 +3850,8 @@ async function main() {
     STAFF_DASHBOARD_API_URL_LOCAL: escAttr(distApiLocal(staffDashboardApi.localResolved)),
     STAFF_MANAGE_API_URL: escAttr(staffManageApi.resolved),
     STAFF_MANAGE_API_URL_LOCAL: escAttr(distApiLocal(staffManageApi.localResolved)),
+    STAFF_ORGANICO_API_URL: escAttr(staffOrganicoApi.resolved),
+    STAFF_ORGANICO_API_URL_LOCAL: escAttr(distApiLocal(staffOrganicoApi.localResolved)),
     HOGWARTS_SORTING_API_URL: escAttr(hogwartsSortingApiResolved),
     HOGWARTS_SORTING_API_URL_LOCAL: escAttr(distApiLocal(hogwartsSortingApiLocalResolved)),
     HOGWARTS_SHOP_API_URL: escAttr(`${hogwartsSortingApiResolved.replace(/\/+$/, "")}/shop`),
@@ -4364,14 +4439,13 @@ async function main() {
   const staffPageRels = [
     "staff/index.html",
     "staff/pause/index.html",
-    "staff/profilo/index.html",
+    "staff/punti-tolti/index.html",
     "staff/accesso-richiesto/index.html",
-    "staff/directory/index.html",
-    "staff/pm/index.html",
-    "staff/valutazioni/index.html",
     "staff/ticket/index.html",
     "staff/guida/index.html",
     "staff/gestione/index.html",
+    "staff/organico/index.html",
+    "staff/inbox/index.html",
   ];
   for (const rel of staffPageRels) {
     const staffPath = path.join(DIST, rel);
@@ -4438,6 +4512,7 @@ async function main() {
   }
 
   applyAvatarFallbackToDist(DIST, buildAssetVersion);
+  applyEmojiRenderToDist(DIST, buildAssetVersion);
   applyVcDialogToDist(DIST, buildAssetVersion);
   applyCursorTrailToDist(DIST, buildAssetVersion);
   applyTypeSfxToDist(DIST, buildAssetVersion);

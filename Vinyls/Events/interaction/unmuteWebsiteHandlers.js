@@ -1,5 +1,11 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const IDs = require("../../Utils/Config/ids");
+const {
+  isDiscordWorkflowUiEnabled,
+  isDiscordWorkflowChannelPostsEnabled,
+  newSiteWorkflowMessageId,
+  buildInboxManageLinkRow,
+} = require("../../Utils/Web/discordWorkflowUiGate");
 const { getBotState, setBotState } = require("../../Utils/BotState/botStateStore");
 const { EPHEMERAL_TTL_PING_ONLY_MS, scheduleMessageDeletion } = require("../../Utils/Config/ephemeralMessageTtl");
 const { resolveSubmissionChannel } = require("./candidatureApplicationHandlers");
@@ -8,6 +14,10 @@ const {
   isCommunicationTimeoutActive,
   restoreRolesAfterCommunicationTimeoutEnd,
 } = require("../../Services/Moderation/mutedMirrorRoleService");
+const {
+  ensureWebsiteGuild,
+  fetchWebsiteGuildMember,
+} = require("../../Utils/Web/websiteGuildMemberFetch");
 
 const UNMUTE_VISIONE_REACTIONS = ["<:thumbsup:1471292172145004768>", "<:thumbsdown:1471292163957457013>"];
 const UNMUTE_PENDING_COLOR = TENANT_EMBED_COLOR;
@@ -78,7 +88,7 @@ function normalizeHeaderSecret(raw) {
 function memberIsMuted(member) {
   if (!member) return false;
   const mutedRoleId = String(IDs.roles?.Muted || "").trim();
-  const hasMutedRole = mutedRoleId ? member.roles.cache.has(mutedRoleId) : false;
+  const hasMutedRole = mutedRoleId ? member.roles?.cache?.has?.(mutedRoleId) : false;
   const hasTimeout = isCommunicationTimeoutActive(member);
   return Boolean(hasMutedRole || hasTimeout);
 }
@@ -110,17 +120,28 @@ async function resolveWebsiteMutedUser(client, accessToken) {
     return { ok: false, status: 401, error: "invalid_user", message: "Profilo Discord non valido." };
   }
 
+  const displayName = String(meJson?.global_name || meJson?.globalName || meJson?.username || "").trim();
+  const username = String(meJson?.username || "").trim();
+  const avatarHash = String(meJson?.avatar || "").trim();
+  const avatarUrl = avatarHash
+    ? `https://cdn.discordapp.com/avatars/${userId}/${avatarHash}.png?size=128`
+    : "";
+
   const guildId = String(IDs.guilds?.main || "").trim();
   if (!guildId) {
     return { ok: false, status: 503, error: "misconfigured", message: "Guild principale non configurata." };
   }
-  const guild = client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
+
+  const guild = await ensureWebsiteGuild(client, guildId);
   if (!guild) {
     return { ok: false, status: 503, error: "guild_unavailable", message: "Server Discord temporaneamente non disponibile." };
   }
 
-  const member =
-    guild.members.cache.get(userId) || (await guild.members.fetch(userId).catch(() => null));
+  let member = guild.members?.cache?.get(userId) || null;
+  if (!member) {
+    member = await fetchWebsiteGuildMember(guild, userId).catch(() => null);
+  }
+
   const isMuted = memberIsMuted(member);
   return {
     ok: true,
@@ -128,6 +149,11 @@ async function resolveWebsiteMutedUser(client, accessToken) {
     guild,
     userId,
     member,
+    displayName:
+      displayName ||
+      String(member?.displayName || member?.user?.globalName || member?.user?.username || username || "").trim(),
+    username,
+    avatarUrl,
     isMuted,
     inGuild: Boolean(member),
   };
@@ -201,6 +227,68 @@ async function submitWebsiteUnmute(client, payload) {
     return { ok: false, status: 400, error: "incomplete", message: "Compila tutti i campi obbligatori." };
   }
 
+  const subjectName =
+    String(resolved.displayName || resolved.username || "").trim() || String(resolved.userId);
+  const bodyText = [
+    `Utente: ${subjectName} (\`${resolved.userId}\`)`,
+    "",
+    `**Come mai sei stato mutato?**`,
+    q1,
+    "",
+    `**Le tue scuse allo staff e alla community**`,
+    q2,
+    "",
+    `**Informazioni aggiuntive (opzionale)**`,
+    q3 || "Nessuna",
+  ].join("\n");
+
+  if (!isDiscordWorkflowChannelPostsEnabled()) {
+    const messageId = newSiteWorkflowMessageId();
+    try {
+      const { persistAppealWorkflowFromPayload } = require("../../Utils/Web/siteStaffWorkflowStore");
+      await persistAppealWorkflowFromPayload(resolved.guild, {
+        messageId,
+        channelId: "site",
+        userId: resolved.userId,
+        kind: "unmute",
+        status: "pending",
+        title: "Richiesta Unmute",
+        body: bodyText,
+        displayName: subjectName,
+        avatarUrl: resolved.avatarUrl || "",
+        createdAt: new Date(),
+      });
+    } catch (_) {
+      return {
+        ok: false,
+        status: 500,
+        error: "send_failed",
+        message: "Impossibile salvare la richiesta unmute. Riprova più tardi.",
+      };
+    }
+    const nextAt = Date.now() + UNMUTE_COOLDOWN_MS;
+    await setCooldownUntil(resolved.userId, nextAt);
+    try {
+      const { notifyInboxStaffNewItem } = require("../../Utils/Web/siteStaffWorkflowNotifications");
+      void notifyInboxStaffNewItem({
+        guild: resolved.guild,
+        queue: "appelli",
+        subjectUserId: String(resolved.userId),
+        subjectName,
+        title: "Nuovo appello unmute",
+        body: `${subjectName} ha inviato una richiesta unmute.`,
+        messageId: String(messageId),
+        dedupeKey: `inbox:appelli:new:${messageId}`,
+      }).catch(() => 0);
+    } catch (_) {}
+    return {
+      ok: true,
+      status: 200,
+      cooldown_until_ms: nextAt,
+      message: "Richiesta unmute inviata con successo.",
+    };
+  }
+
   const target = await resolveSubmissionChannel(resolved.guild);
   if (!target?.isTextBased?.()) {
     return {
@@ -214,35 +302,24 @@ async function submitWebsiteUnmute(client, payload) {
   const embed = new EmbedBuilder()
     .setColor(UNMUTE_PENDING_COLOR)
     .setTitle("Richiesta Unmute")
-    .setDescription(
-      [
-        `Utente: <@${resolved.userId}> (\`${resolved.userId}\`)`,
-        "",
-        `**Come mai sei stato mutato?**`,
-        q1,
-        "",
-        `**Le tue scuse allo staff e alla community**`,
-        q2,
-        "",
-        `**Informazioni aggiuntive (opzionale)**`,
-        q3 || "Nessuna",
-      ].join("\n"),
-    )
+    .setDescription(bodyText)
     .setTimestamp(new Date());
 
   const uidBtn = String(resolved.userId || "").trim();
-  const decisionRow = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId(`website_unmute_acc:${uidBtn}`)
-      .setLabel("Accetta unmute")
-      .setStyle(ButtonStyle.Success)
-      .setEmoji("<:success:1461731530333229226>"),
-    new ButtonBuilder()
-      .setCustomId(`website_unmute_rej:${uidBtn}`)
-      .setLabel("Rifiuta")
-      .setStyle(ButtonStyle.Danger)
-      .setEmoji("<:cancel:1461730653677551691>"),
-  );
+  const decisionRow = isDiscordWorkflowUiEnabled()
+    ? new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`website_unmute_acc:${uidBtn}`)
+          .setLabel("Accetta unmute")
+          .setStyle(ButtonStyle.Success)
+          .setEmoji("<:success:1461731530333229226>"),
+        new ButtonBuilder()
+          .setCustomId(`website_unmute_rej:${uidBtn}`)
+          .setLabel("Rifiuta")
+          .setStyle(ButtonStyle.Danger)
+          .setEmoji("<:cancel:1461730653677551691>"),
+      )
+    : buildInboxManageLinkRow("appelli");
 
   const highStaffRoleId = IDs.roles.HighStaff;
   const mention = highStaffRoleId ? `<@&${highStaffRoleId}>` : null;
@@ -262,10 +339,9 @@ async function submitWebsiteUnmute(client, payload) {
     };
   }
 
-  if (typeof sent.startThread === "function") {
-    const userDisc = await client.users.fetch(resolved.userId).catch(() => null);
+  if (isDiscordWorkflowUiEnabled() && typeof sent.startThread === "function") {
     const threadUserLabel =
-      String(userDisc?.globalName || userDisc?.username || resolved.userId)
+      String(subjectName || resolved.userId)
         .replace(/[\r\n#:@<>`]/g, " ")
         .replace(/\s+/g, " ")
         .trim()
@@ -283,12 +359,42 @@ async function submitWebsiteUnmute(client, payload) {
     }
   }
 
-  for (const emoji of UNMUTE_VISIONE_REACTIONS) {
-    await sent.react(emoji).catch(() => {});
+  if (isDiscordWorkflowUiEnabled()) {
+    for (const emoji of UNMUTE_VISIONE_REACTIONS) {
+      await sent.react(emoji).catch(() => {});
+    }
   }
 
   const nextAt = Date.now() + UNMUTE_COOLDOWN_MS;
   await setCooldownUntil(resolved.userId, nextAt);
+  try {
+    const { persistAppealWorkflowFromPayload } = require("../../Utils/Web/siteStaffWorkflowStore");
+    await persistAppealWorkflowFromPayload(resolved.guild, {
+      messageId: sent.id,
+      channelId: sent.channelId,
+      userId: resolved.userId,
+      kind: "unmute",
+      status: "pending",
+      title: "Richiesta Unmute",
+      body: bodyText,
+      displayName: subjectName,
+      avatarUrl: resolved.avatarUrl || "",
+      createdAt: sent.createdAt || new Date(),
+    });
+  } catch (_) {}
+  try {
+    const { notifyInboxStaffNewItem } = require("../../Utils/Web/siteStaffWorkflowNotifications");
+    void notifyInboxStaffNewItem({
+      guild: resolved.guild,
+      queue: "appelli",
+      subjectUserId: String(resolved.userId),
+      subjectName,
+      title: "Nuovo appello unmute",
+      body: `${subjectName} ha inviato una richiesta unmute.`,
+      messageId: String(sent?.id || ""),
+      dedupeKey: `inbox:appelli:new:${sent?.id || resolved.userId}`,
+    }).catch(() => 0);
+  } catch (_) {}
   return {
     ok: true,
     status: 200,

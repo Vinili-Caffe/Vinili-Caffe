@@ -545,7 +545,7 @@ function combineWeeklyExpMultiplier(globalExpMultiplier, roleMultiplier) {
  * @param {string} userId
  * @param {Awaited<ReturnType<typeof getGuildExpSettings>>|null} [guildSettings] cache opzionale
  */
-async function getResolvedWeeklyExpMultiplier(guild, userId, guildSettings = null) {
+async function getResolvedWeeklyExpMultiplier(guild, userId, guildSettings = null, memberHint = null) {
   if (!userId) return 1;
   const settings =
     guildSettings && typeof guildSettings === "object"
@@ -560,9 +560,13 @@ async function getResolvedWeeklyExpMultiplier(guild, userId, guildSettings = nul
         ? Number(await getGlobalMultiplier(guild.id).catch(() => 1)) || 1
         : 1;
   if (!guild) return combineWeeklyExpMultiplier(globalMulti, 1);
-  let member = guild.members?.cache?.get?.(String(userId)) || null;
+  // Prefer member già risolto (API sito REST): evita un secondo guild.members.fetch force.
+  let member =
+    memberHint ||
+    guild.members?.cache?.get?.(String(userId)) ||
+    null;
   if (!member && guild.members?.fetch) {
-    member = await guild.members.fetch({ user: String(userId), force: true }).catch(() => null);
+    member = await guild.members.fetch({ user: String(userId), force: false }).catch(() => null);
   }
   if (!member) return combineWeeklyExpMultiplier(globalMulti, 1);
   return combineWeeklyExpMultiplier(globalMulti, getRoleMultiplier(member, settings));
@@ -930,7 +934,10 @@ async function syncLevelRolesForMember(guild, userId, level) {
   const freshMember = await getGuildMemberCached(guild, userId, { preferFresh: true });
   if (!freshMember) return awarded;
   if (safeLevel >= 10) await addPerkRoleIfPossible(freshMember);
-  else await removePerkRoleIfPossible(freshMember);
+  else {
+    const { tryRevokePicPermsIfIneligible } = require("../../Utils/Community/manualSocialRoleAnnounceAndPicPerms");
+    await tryRevokePicPermsIfIneligible(freshMember);
+  }
   return awarded;
 }
 

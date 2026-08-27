@@ -6,6 +6,10 @@ const {
 } = require("../Events/interaction/pauseHandlers");
 const { PAUSE_REQUEST_OPEN_ID } = require("../Utils/Pause/pauseStickyPanelRuntime");
 const { PAUSE_ROLE_PICK_PREFIX } = require("../Utils/Pause/pauseRequestSubmitRuntime");
+const {
+  isDiscordWorkflowUiEnabled,
+  replyWorkflowMovedToSite,
+} = require("../Utils/Web/discordWorkflowUiGate");
 
 const PREFIXES = ["pause_accept:", "pause_reject:", "pause_cancel:", "pause_list:", "pause_list_month:"];
 const PAUSE_REQUEST_MODAL_ID = "pause_request:modal";
@@ -20,6 +24,11 @@ function match(interaction) {
 }
 
 async function execute(interaction) {
+  if (!isDiscordWorkflowUiEnabled()) {
+    const id = String(interaction?.customId || "");
+    const kind = id.startsWith("pause_list") ? "pause" : id.includes("accept") || id.includes("reject") || id.includes("cancel") ? "pauseInbox" : "pause";
+    return replyWorkflowMovedToSite(interaction, kind);
+  }
   if (await handlePauseRequestModal(interaction)) return;
   if (await handlePauseRequestOpen(interaction)) return;
   if (await handlePauseRolePickForPending(interaction)) return;

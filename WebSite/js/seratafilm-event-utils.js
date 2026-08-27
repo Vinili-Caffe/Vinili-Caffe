@@ -233,8 +233,43 @@
       .replace(/"/g, "&quot;");
   }
 
+  function resolveHogwartsEventWindow() {
+    try {
+      var bgm = window.__VC_SERATAFILM_BGM || {};
+      var w = bgm.hogwartsEventWindow;
+      if (w && w.enabled !== false && Number.isFinite(Number(w.startMs)) && Number.isFinite(Number(w.endMs))) {
+        return w;
+      }
+      var ev = eventCfg();
+      w = ev.hogwartsEventWindow;
+      if (w && w.enabled !== false && Number.isFinite(Number(w.startMs)) && Number.isFinite(Number(w.endMs))) {
+        return w;
+      }
+      if (String(ev.hogwartsThemeVideoUrl || "").trim()) {
+        return {
+          enabled: true,
+          startMs: Date.parse("2026-06-01T12:00:00+02:00"),
+          endMs: Date.parse("2026-09-01T12:00:00+02:00"),
+        };
+      }
+    } catch (eW) {}
+    return null;
+  }
+
+  function isHogwartsEventWindowActive(nowMs) {
+    var w = resolveHogwartsEventWindow();
+    if (!w || w.enabled === false) return false;
+    var now = Number.isFinite(Number(nowMs)) ? Number(nowMs) : Date.now();
+    var start = Number(w.startMs);
+    var end = Number(w.endMs);
+    if (!Number.isFinite(start) || !Number.isFinite(end)) return false;
+    return now >= start && now < end;
+  }
+
   window.__vcSeratafilmEventUtils = {
     eventCfg: eventCfg,
+    resolveHogwartsEventWindow: resolveHogwartsEventWindow,
+    isHogwartsEventWindowActive: isHogwartsEventWindowActive,
     resolveCurrentScreeningDateKey: resolveCurrentScreeningDateKey,
     resolveNextScreening: resolveNextScreening,
     formatScreeningDateLabel: formatScreeningDateLabel,

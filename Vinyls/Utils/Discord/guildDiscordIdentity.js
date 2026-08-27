@@ -252,6 +252,25 @@ function accountUsername(userLike) {
 }
 
 /**
+ * Nome pubblico in server: nickname → displayName membro → globalName → username.
+ * @param {import("discord.js").GuildMember|import("discord.js").User|null|undefined} memberLike
+ * @param {import("discord.js").User|null|undefined} [fallbackUser]
+ * @returns {string}
+ */
+function memberDisplayName(memberLike, fallbackUser) {
+  if (memberLike && memberLike.user && typeof memberLike.displayName === "string") {
+    const dn = String(memberLike.displayName || "").trim();
+    if (dn) return dn;
+  }
+  const nick = String(memberLike?.nickname || "").trim();
+  if (nick) return nick;
+  const user = resolveUserFromLike(memberLike) || resolveUserFromLike(fallbackUser);
+  const global = String(user?.globalName || "").trim();
+  if (global) return global;
+  return accountUsername(user);
+}
+
+/**
  * Thumbnail “contesto server”: icona guild se presente, altrimenti avatar utente animato.
  * @param {import("discord.js").Guild|null|undefined} guild
  * @param {import("discord.js").User|import("discord.js").GuildMember|null|undefined} userLike
@@ -275,5 +294,6 @@ module.exports = {
   guildMemberDisplayAvatarUrlDynamic,
   guildMemberDisplayAvatarUrlStatic,
   accountUsername,
+  memberDisplayName,
   guildFirstThumbnailUrl,
 };

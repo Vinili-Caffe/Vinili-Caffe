@@ -1104,6 +1104,17 @@ function logEventError(client, label, error) {
   });
 }
 
+function isBenignCountingReactionError(err) {
+  const code = Number(err?.code ?? err?.rawError?.code);
+  if (code === 90001) return true;
+  return /reaction blocked/i.test(String(err?.message || err?.rawError?.message || ""));
+}
+
+function logCountingReactionError(client, err) {
+  if (isBenignCountingReactionError(err)) return;
+  logEventError(client, "COUNTING", err);
+}
+
 async function sendCountingFailureReply(message, embed, client, restoreContext = null) {
   const { createRestoreToken, attachRestoreMessageId, buildCountingRestoreRow } = require("../Community/countingRestoreService");
   const components = [];
@@ -1398,7 +1409,7 @@ async function handleCountingLocked(message, client, guildId) {
   const reaction = "<:success:1461731530333229226>";
   if (isCountingMessageAlreadyAccepted(countdata, messageValue, message.author.id)) {
     if (!messageHasBotSuccessReaction(message)) {
-      await message.react(reaction).catch((err) => logEventError(client, "COUNTING", err));
+      await message.react(reaction).catch((err) => logCountingReactionError(client, err));
     }
     return;
   }
@@ -1441,7 +1452,7 @@ async function handleCountingLocked(message, client, guildId) {
     countdata.LastUser = " ";
     message
       .react("<:cancel:1461730653677551691>")
-      .catch((err) => logEventError(client, "COUNTING", err));
+      .catch((err) => logCountingReactionError(client, err));
   } else if (isAlone) {
     const lostCount = countNow;
     const lostLastUser = countdata.LastUser;
@@ -1459,13 +1470,13 @@ async function handleCountingLocked(message, client, guildId) {
     countdata.LastUser = " ";
     message
       .react("<:cancel:1461730653677551691>")
-      .catch((err) => logEventError(client, "COUNTING", err));
+      .catch((err) => logCountingReactionError(client, err));
   } else {
     countdata.Count = countNow + 1;
     countdata.LastUser = message.author.id;
     message
       .react(reaction)
-      .catch((err) => logEventError(client, "COUNTING", err));
+      .catch((err) => logCountingReactionError(client, err));
   }
   await countdata.save();
   invalidateCountingConfig(guildId);
@@ -1623,7 +1634,7 @@ async function softSyncCountingCatchUpForGuild(guild, client, countdata) {
     const authorId = String(message.author?.id || "");
     if (value === counterNow && authorId && authorId === lastUser) {
       if (!messageHasBotSuccessReaction(message)) {
-        await message.react(successReaction).catch((err) => logEventError(client, "COUNTING", err));
+        await message.react(successReaction).catch((err) => logCountingReactionError(client, err));
       }
       continue;
     }
@@ -1637,7 +1648,7 @@ async function softSyncCountingCatchUpForGuild(guild, client, countdata) {
     dirty = true;
     advanced += 1;
     if (!messageHasBotSuccessReaction(message)) {
-      await message.react(successReaction).catch((err) => logEventError(client, "COUNTING", err));
+      await message.react(successReaction).catch((err) => logCountingReactionError(client, err));
     }
   }
 

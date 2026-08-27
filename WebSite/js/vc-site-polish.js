@@ -13,6 +13,7 @@
     if (p === "/seratafilm" || p.indexOf("/seratafilm/") === 0) return true;
     if (p === "/dashboard" || p.indexOf("/dashboard/") === 0) return true;
     if (p === "/evento" || p.indexOf("/evento/") === 0) return true;
+    if (p === "/staff" || p.indexOf("/staff/") === 0) return true;
     return false;
   }
 
@@ -23,6 +24,8 @@
     if (b.classList.contains("vc-dashboard-page")) return true;
     if (b.classList.contains("vc-seratafilm-page")) return true;
     if (b.classList.contains("vc-hw-page")) return true;
+    if (b.classList.contains("vc-staff-area")) return true;
+    if (document.documentElement && document.documentElement.classList.contains("vc-staff-route")) return true;
     return excludedPath();
   }
 
@@ -403,7 +406,7 @@
       if (document.querySelector('script[src*="vc-home-cine"]')) return;
     } catch (e0) {}
     var s = document.createElement("script");
-    s.src = "/js/vc-home-cine.js?v=20260820fxalign1";
+    s.src = "/js/vc-home-cine.js?v=20260822staffui";
     s.defer = true;
     (document.body || document.documentElement).appendChild(s);
   }

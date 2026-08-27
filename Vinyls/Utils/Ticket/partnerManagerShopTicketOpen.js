@@ -32,6 +32,15 @@ async function pinFirstTicketMessage(channel, message) {
   }
 }
 
+async function openPartnerManagerShopTicketForMember(client, guild, member, tier) {
+  const tierN = Math.floor(Number(tier) || 0);
+  if (!client || !guild || !member?.user) {
+    return { ok: false, userMessage: "<a:VC_Cross:1482532424570376253> Richiesta non valida." };
+  }
+  const interaction = { client, guild, user: member.user, member };
+  return openPartnerManagerShopManualTicket(interaction, tierN);
+}
+
 async function openPartnerManagerShopManualTicket(interaction, tier) {
   const guild = interaction.guild;
   const tierN = Math.floor(Number(tier) || 0);
@@ -221,10 +230,14 @@ async function openPartnerManagerShopManualTicket(interaction, tier) {
       return { ok: false, userMessage: "<a:VC_Cross:1482532424570376253> Impossibile registrare il ticket. Riprova." };
     }
 
-    return { ok: true, channel };
+    return {
+      ok: true,
+      channel,
+      userMessage: `<:VC_Ticket:1482535175283019888> Ticket High Staff aperto: ${channel}`,
+    };
   } finally {
     interaction.client.ticketOpenLocks.delete(ticketLockKey);
   }
 }
 
-module.exports = { openPartnerManagerShopManualTicket };
+module.exports = { openPartnerManagerShopManualTicket, openPartnerManagerShopTicketForMember };

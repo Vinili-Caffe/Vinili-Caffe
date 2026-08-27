@@ -72,6 +72,29 @@ function extractManagerIdFromPartnershipText(text) {
   return mentions.length ? mentions[mentions.length - 1] : null;
 }
 
+/** User id da URL avatar Discord (author icon del thank-you embed). */
+function extractUserIdFromDiscordAssetUrl(url) {
+  const raw = String(url || "").trim();
+  if (!raw) return null;
+  const guildUser = raw.match(/\/guilds\/\d+\/users\/(\d{16,20})\//);
+  if (guildUser?.[1]) return guildUser[1];
+  const avatar = raw.match(/\/avatars\/(\d{16,20})\//);
+  if (avatar?.[1]) return avatar[1];
+  return null;
+}
+
+function extractPmUserIdFromThankYouEmbedAuthor(message) {
+  for (const embed of message?.embeds || []) {
+    const author = embed?.author;
+    if (!author) continue;
+    const fromUrl =
+      extractUserIdFromDiscordAssetUrl(author.iconURL) ||
+      extractUserIdFromDiscordAssetUrl(author.proxyIconURL);
+    if (fromUrl) return fromUrl;
+  }
+  return null;
+}
+
 function extractPartnerNamesFromMessage(message) {
   const names = new Set();
   for (const embed of message?.embeds || []) {
@@ -123,6 +146,8 @@ module.exports = {
   isThankYouPartnershipMessage,
   normalizePartnerLookupName,
   extractManagerIdFromPartnershipText,
+  extractUserIdFromDiscordAssetUrl,
+  extractPmUserIdFromThankYouEmbedAuthor,
   extractPartnerNamesFromMessage,
   extractPartnershipLogIdFromText,
   extractPartnershipLogIdFromMessage,

@@ -357,16 +357,28 @@
 
   function setStatus(text, isError, opts) {
     var node = byId("vc-reviews-status");
-    if (!node) return;
-    clearStatusTimer();
-    if (!text) {
+    if (node) {
       node.hidden = true;
       node.textContent = "";
       node.className = "vc-reviews-status";
+    }
+    clearStatusTimer();
+    var msg = String(text || "").trim();
+    if (window.VcSiteToast) {
+      if (!msg) {
+        window.VcSiteToast.hide();
+        return;
+      }
+      window.VcSiteToast.show(msg, Boolean(isError), {
+        pending: Boolean(opts && opts.sticky) || undefined,
+        sticky: Boolean(opts && opts.sticky) || undefined,
+      });
       return;
     }
+    if (!node) return;
+    if (!msg) return;
     node.hidden = false;
-    node.textContent = text;
+    node.textContent = msg;
     node.className = "vc-reviews-status" + (isError ? " is-error" : "");
     if (!(opts && opts.sticky)) {
       statusTimer = setTimeout(function () {

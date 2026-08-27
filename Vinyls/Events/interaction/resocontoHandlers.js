@@ -22,6 +22,26 @@ const WEEKLY_LIMITS_POSITIVE_REASON = "Limiti settimanali completati.";
 const WEEKLY_LIMITS_NEGATIVE_REASON = "Limiti settimanali non raggiunti.";
 const STAFF_ACTIONS = new Set(["px", "dp", "vp", "vn", "nl", "batch"]);
 const PM_ACTIONS = new Set(["dp", "rc", "nl"]);
+
+function fireResocontoPexDepexNotif(guild, actor, targetUser, kind, oldRoleId, newRoleId, reason, sourceHint) {
+  try {
+    const { notifyStaffPexDepex, memberDisplayName } = require("../../Utils/Web/siteStaffEventNotifications");
+    const actorUser = actor?.user || actor;
+    void notifyStaffPexDepex({
+      guild,
+      kind,
+      targetUserId: String(targetUser?.id || ""),
+      targetName: memberDisplayName(null, targetUser, targetUser?.id),
+      oldRoleId,
+      newRoleId,
+      reason,
+      actorUserId: String(actorUser?.id || ""),
+      actorName: memberDisplayName(actor?.member || actor, actorUser, actorUser?.id),
+      sourceHint,
+    }).catch(() => 0);
+  } catch (_) {}
+}
+
 const ROLE_UP = {
   [String(IDs.roles.Helper)]: String(IDs.roles.Mod),
   [String(IDs.roles.Mod)]: String(IDs.roles.SeniorModerator),
@@ -194,7 +214,8 @@ async function ensureRoleRemoved(guild, member, roleId) {
 }
 
 async function sendValutazioneLogEmbed(guild, actor, targetUser, reason, positive, valutazioniCount, sectionOrdinal) {
-  const channel = await getGuildChannelCached(guild, IDs.channels.valutazioniStaff);
+  const { resolveStaffValutazioniChannel } = require("../../Utils/Staff/staffChannelUtils");
+  const channel = await resolveStaffValutazioniChannel(guild);
   if (!channel?.isTextBased?.()) return;
 
   const ord = Math.max(0, Math.floor(Number(sectionOrdinal || 0)));
@@ -312,17 +333,13 @@ async function applyDepexSideEffects(guild, member, roleId) {
 }
 
 async function resolvePexDepexChannel(guild) {
-  const channelId = IDs.channels?.pexDepex;
-  if (!guild || !channelId) return null;
-  const id = String(channelId);
-  return (
-    guild.channels?.cache?.get(id) ||
-    (await getGuildChannelCached(guild, id)) ||
-    (guild.client ? await getClientChannelCached(guild.client, id) : null)
-  );
+  const { resolveStaffPexDepexChannel } = require("../../Utils/Staff/staffChannelUtils");
+  return resolveStaffPexDepexChannel(guild);
 }
 
 async function sendPexDepexLog(guild, type, targetUser, oldRoleId, newRoleId, reason) {
+  const { isDiscordStaffChannelPostsEnabled } = require("../../Utils/Web/discordWorkflowUiGate");
+  if (!isDiscordStaffChannelPostsEnabled()) return;
   const channel = await resolvePexDepexChannel(guild);
   if (!channel?.isTextBased?.()) return;
   const oldRole = guild.roles.cache.get(String(oldRoleId || ""));
@@ -351,17 +368,167 @@ async function fetchActiveResocontoMessage(guild, channelId, messageId) {
   return message;
 }
 
+async function fetchResocontoMessage(guild, channelId, messageId) {
+  const channel = await getGuildChannelCached(guild, channelId);
+  if (!channel?.isTextBased?.()) return null;
+  return channel.messages.fetch(messageId).catch(() => null);
+}
+
+async function syncResocontoWorkflowOutcome(guild, channelId, messageId, opts = {}) {
+  const mid = String(messageId || "").trim();
+  let idOk = /^\d{16,22}$/.test(mid);
+  if (!idOk) {
+    try {
+      const { isWorkflowMessageId } = require("../../Utils/Web/discordWorkflowUiGate");
+      idOk = isWorkflowMessageId(mid);
+    } catch (_) {}
+  }
+  if (!guild?.id || !idOk) return null;
+  const accepted = opts.accepted !== false;
+  let status = accepted ? "accepted" : "rejected";
+  let statusLabel = String(opts.statusLabel || "").trim();
+  let workflowActionKey = String(opts.actionKey || opts.workflowActionKey || "").trim().toLowerCase();
+  const actorId = String(opts.actorId || "").trim();
+  const actorName = String(opts.actorName || opts.decidedByName || "").trim();
+  let msg = opts.message || null;
+  if (!msg) {
+    msg = await fetchResocontoMessage(guild, channelId, mid).catch(() => null);
+  }
+  const rawBody = String(msg?.content || "");
+
+  if (!statusLabel && !accepted) statusLabel = "Azione negata";
+  if (!statusLabel && accepted) {
+    try {
+      const { resocontoActionLabelForKey } = require("../../Utils/Web/siteStaffWorkflowStore");
+      statusLabel = resocontoActionLabelForKey(workflowActionKey) || "Accettata";
+    } catch {
+      statusLabel = "Accettata";
+    }
+  }
+
+  if (/azione confermata da|azione negata da/i.test(rawBody)) {
+    try {
+      const { parseResocontoOutcomeFromContent } = require("../../Utils/Web/siteStaffWorkflowStore");
+      const outcome = parseResocontoOutcomeFromContent(rawBody);
+      status = outcome?.rejected ? "rejected" : "accepted";
+      if (outcome?.label) statusLabel = outcome.label;
+      if (outcome?.actionKey) workflowActionKey = outcome.actionKey;
+    } catch (_) {}
+  }
+
+  const syncExtras = {
+    ...(actorId ? { decidedBy: actorId } : {}),
+    ...(actorName ? { decidedByName: actorName } : {}),
+    ...(String(opts.userId || "").trim() ? { userId: String(opts.userId).trim() } : {}),
+    ...(String(opts.kind || "").trim() ? { kind: String(opts.kind).trim() } : {}),
+    ...(opts.roleId != null && String(opts.roleId).trim() ? { roleId: String(opts.roleId).trim() } : {}),
+    ...(String(channelId || "").trim() ? { channelId: String(channelId).trim() } : {}),
+    statusLabel,
+    ...(workflowActionKey ? { workflowActionKey } : {}),
+    ...(rawBody ? { messageContent: rawBody } : {}),
+  };
+
+  try {
+    const {
+      updateStaffWorkflowFromMessage,
+      upsertStaffWorkflowItem,
+      buildWorkflowDedupeKey,
+      parseResocontoFromMessage,
+      resocontoWorkflowItemFromDoc,
+    } = require("../../Utils/Web/siteStaffWorkflowStore");
+    let doc = await updateStaffWorkflowFromMessage(guild.id, "resoconti", mid, status, syncExtras);
+    if (!doc && msg) {
+      const payload = parseResocontoFromMessage(msg);
+      if (payload) {
+        doc = await upsertStaffWorkflowItem({
+          guildId: guild.id,
+          queue: "resoconti",
+          dedupeKey: buildWorkflowDedupeKey("resoconti", [mid]),
+          userId: payload.userId,
+          messageId: mid,
+          channelId: String(msg.channelId || channelId || ""),
+          kind: payload.kind,
+          roleId: payload.roleId,
+          actionKey: workflowActionKey || payload.actionKey,
+          status,
+          statusLabel,
+          staffReason: statusLabel,
+          title:
+            payload.kind === "p"
+              ? `Resoconto PM · ${payload.actionKey || ""}`.trim()
+              : `Resoconto staff · ${payload.actionKey || ""}`.trim(),
+          preview: rawBody.slice(0, 400),
+          content: rawBody,
+          createdAt: msg.createdAt,
+          ...(actorId ? { decidedBy: actorId } : {}),
+          ...(actorName ? { decidedByName: actorName } : {}),
+        });
+        if (doc && status !== "pending") {
+          try {
+            const { broadcastSiteStaffWorkflowChanged } = require("../../Utils/Web/siteSuggestionsBroadcast");
+            broadcastSiteStaffWorkflowChanged("resoconti");
+          } catch (_) {}
+        }
+      }
+    }
+    if (!doc) {
+      const uid = String(opts.userId || "").trim();
+      if (/^\d{16,22}$/.test(uid)) {
+        doc = await upsertStaffWorkflowItem({
+          guildId: guild.id,
+          queue: "resoconti",
+          dedupeKey: buildWorkflowDedupeKey("resoconti", [mid]),
+          userId: uid,
+          messageId: mid,
+          channelId: String(channelId || msg?.channelId || ""),
+          kind: String(opts.kind || ""),
+          roleId: opts.roleId != null ? String(opts.roleId) : "",
+          actionKey: workflowActionKey,
+          status,
+          statusLabel,
+          staffReason: statusLabel,
+          preview: rawBody.slice(0, 400),
+          content: rawBody,
+          ...(actorId ? { decidedBy: actorId } : {}),
+          ...(actorName ? { decidedByName: actorName } : {}),
+        });
+        if (doc && status !== "pending") {
+          try {
+            const { broadcastSiteStaffWorkflowChanged } = require("../../Utils/Web/siteSuggestionsBroadcast");
+            broadcastSiteStaffWorkflowChanged("resoconti");
+          } catch (_) {}
+        }
+      }
+    }
+    return doc ? resocontoWorkflowItemFromDoc(doc) : null;
+  } catch (err) {
+    global.logger?.warn?.("[RESOCONTO] workflow sync:", err?.message || err);
+    return null;
+  }
+}
+
+function resocontoActorFields(actor) {
+  const member = actor?.member || actor;
+  const user = actor?.user || member?.user || actor;
+  const id = String(user?.id || member?.id || actor?.id || "").trim();
+  const name = String(
+    member?.displayName || user?.globalName || user?.username || actor?.displayName || "",
+  ).trim();
+  return { actorId: id, actorName: name };
+}
+
 async function appendOutcomeToMessage(guild, channelId, messageId, actorId, accepted, statusText) {
   const channel = await getGuildChannelCached(guild, channelId);
-  if (!channel?.isTextBased?.()) return;
+  if (!channel?.isTextBased?.()) return null;
   const message = await channel.messages.fetch(messageId).catch(() => null);
-  if (!message) return;
+  if (!message) return null;
   const existingContent = String(message.content || "");
   const line = accepted ? `\n\n<:success:1461731530333229226> Azione confermata da <@${actorId}>:${statusText}`
     : `\n\n<:cancel:1461730653677551691> Azione negata da <@${actorId}>`;
   const content = `${existingContent}${line}`.slice(0, 1900);
-  await message.edit({ content, components: [] }).catch(() => null);
-  await deleteThreadForMessage(guild, messageId);
+  const edited = await message.edit({ content, components: [] }).catch(() => null);
+  void deleteThreadForMessage(guild, message).catch(() => null);
+  return edited || Object.assign(message, { content });
 }
 
 async function applyStaffAction(guild, actor, payload, reasonOverride = null) {
@@ -385,22 +552,37 @@ async function applyStaffAction(guild, actor, payload, reasonOverride = null) {
     ) {
       return "<:success:1461731530333229226> Valutazione Positiva già registrata.";
     }
-    const channel = await getGuildChannelCached(guild, IDs.channels.valutazioniStaff);
-    if (!channel?.isTextBased?.()) return "<a:VC_Alert:1482706673176150077> Canale valutazioni non disponibile.";
+    const { resolveStaffValutazioniChannel } = require("../../Utils/Staff/staffChannelUtils");
+    const channel = await resolveStaffValutazioniChannel(guild);
     const { valutazionePositiveAddCore } = require("../../Utils/Staff/valutazionePanelActions");
     const result = await valutazionePositiveAddCore(profileDoc, targetUser, reason, actor, channel);
-    if (!result?.message) return "<a:VC_Alert:1482706673176150077> Errore registrazione valutazione positiva.";
+    if (!(result?.ok || result?.message)) {
+      return "<a:VC_Alert:1482706673176150077> Errore registrazione valutazione positiva.";
+    }
     return "<:thumbsup:1471292172145004768> Registrata Valutazione Positiva.";
   }
 
   if (payload.actionKey === "vn") {
     const profileDoc = await getOrCreateStaffDoc(guild.id, payload.userId);
+    const {
+      shouldSkipManualResocontoVn,
+      resolveResocontoWeekKey,
+    } = require("../../Services/Staff/weeklyStaffResocontoService");
+    const staffDoc = ensureStaff(profileDoc);
     const reason = String(reasonOverride || "").trim() || WEEKLY_LIMITS_NEGATIVE_REASON;
-    const channel = await getGuildChannelCached(guild, IDs.channels.valutazioniStaff);
-    if (!channel?.isTextBased?.()) return "<a:VC_Alert:1482706673176150077> Canale valutazioni non disponibile.";
+    if (
+      staffDoc &&
+      shouldSkipManualResocontoVn(staffDoc, resolveResocontoWeekKey(), payload.roleId, reason)
+    ) {
+      return "<:success:1461731530333229226> Valutazione Negativa già registrata.";
+    }
+    const { resolveStaffValutazioniChannel } = require("../../Utils/Staff/staffChannelUtils");
+    const channel = await resolveStaffValutazioniChannel(guild);
     const { valutazioneNegativeAddCore } = require("../../Utils/Staff/valutazionePanelActions");
     const result = await valutazioneNegativeAddCore(guild, profileDoc, targetUser, reason, actor, channel);
-    if (!result?.message) return "<a:VC_Alert:1482706673176150077> Errore registrazione valutazione negativa.";
+    if (!(result?.ok || result?.message)) {
+      return "<a:VC_Alert:1482706673176150077> Errore registrazione valutazione negativa.";
+    }
     return "<:thumbsdown:1471292163957457013> Registrata Valutazione Negativa.";
   }
 
@@ -433,6 +615,7 @@ async function applyStaffAction(guild, actor, payload, reasonOverride = null) {
     await profileDoc.save();
     await clearStaffPendingPurgeAt(guild.id, payload.userId);
     await sendPexDepexLog(guild, "pex", targetUser, roleBeforeId, roleAfterId, reason);
+    fireResocontoPexDepexNotif(guild, actor, targetUser, "pex", roleBeforeId, roleAfterId, reason, `resoconto-pex:${payload.userId}`);
     queueStaffListRefreshAfterRoleMutation(guild.client, guild.id);
     return "<:success:1461731530333229226> Pex applicato.";
   }
@@ -469,6 +652,7 @@ async function applyStaffAction(guild, actor, payload, reasonOverride = null) {
     profileDoc.markModified("staff");
     await profileDoc.save().catch(() => null);
     await sendPexDepexLog(guild, "depex", targetUser, roleBeforeId, roleAfterId, reason);
+    fireResocontoPexDepexNotif(guild, actor, targetUser, "depex", roleBeforeId, roleAfterId, reason, `resoconto-depex:${payload.userId}`);
     queueStaffListRefreshAfterRoleMutation(guild.client, guild.id);
     return "<:success:1461731530333229226> Depex applicato.";
   }
@@ -520,6 +704,7 @@ async function applyStaffResocontoPendingValutazioni(
 ) {
   const {
     shouldSkipManualResocontoVp,
+    shouldSkipManualResocontoVn,
     resolveResocontoWeekKey,
   } = require("../../Services/Staff/weeklyStaffResocontoService");
   const actions = Array.isArray(pendingActions) ? pendingActions : [];
@@ -547,6 +732,14 @@ async function applyStaffResocontoPendingValutazioni(
       shouldSkipManualResocontoVp(staffDoc, resocontoWeekKey, payload.roleId, action?.reason)
     ) {
       lines.push("<:success:1461731530333229226> Valutazione Positiva già registrata.");
+      continue;
+    }
+    if (
+      actionKey === "vn" &&
+      staffDoc &&
+      shouldSkipManualResocontoVn(staffDoc, resocontoWeekKey, payload.roleId, action?.reason)
+    ) {
+      lines.push("<:success:1461731530333229226> Valutazione Negativa già registrata.");
       continue;
     }
     const useOverride = Boolean(
@@ -588,11 +781,39 @@ async function resolveStaffResocontoApplyExecution(guild, payload) {
         mergedPayload: payload,
       };
     }
+    const mergedPayload = { ...payload, actionKey };
+    const reason = resolveAutoReasonForResocontoAction(mergedPayload) || "";
+    if (actionKey === "vp" || actionKey === "vn") {
+      const {
+        shouldSkipManualResocontoVp,
+        shouldSkipManualResocontoVn,
+        resolveResocontoWeekKey,
+      } = require("../../Services/Staff/weeklyStaffResocontoService");
+      const profileDoc = await getOrCreateStaffDoc(guild.id, payload.userId).catch(() => null);
+      const staffDoc = profileDoc ? ensureStaff(profileDoc) : null;
+      const weekKey = resolveResocontoWeekKey();
+      const skip =
+        actionKey === "vp"
+          ? staffDoc &&
+            shouldSkipManualResocontoVp(staffDoc, weekKey, payload.roleId, reason)
+          : staffDoc &&
+            shouldSkipManualResocontoVn(staffDoc, weekKey, payload.roleId, reason);
+      if (skip) {
     return {
-      pendingManualActions: [{ actionKey, reason: resolveAutoReasonForResocontoAction(payload) || "" }],
-      requiresModal: shouldOpenReasonModalForResocontoApply(payload),
-      autoReason: resolveAutoReasonForResocontoAction(payload),
-      mergedPayload: payload,
+          pendingManualActions: [],
+          requiresModal: false,
+          autoReason: null,
+          mergedPayload,
+          alreadyHandled: true,
+          alreadyHandledActionKey: actionKey,
+        };
+      }
+    }
+    return {
+      pendingManualActions: [{ actionKey, reason }],
+      requiresModal: shouldOpenReasonModalForResocontoApply(mergedPayload),
+      autoReason: resolveAutoReasonForResocontoAction(mergedPayload),
+      mergedPayload,
     };
   }
 
@@ -614,6 +835,16 @@ async function resolveStaffResocontoApplyExecution(guild, payload) {
     ) || null;
 
   if (payload.actionKey === "batch" || pendingManualActions.length > 1) {
+    if (String(payload.actionKey || "") === "batch" && !pendingManualActions.length) {
+      return {
+        pendingManualActions: [],
+        requiresModal: false,
+        autoReason: null,
+        plan,
+        alreadyHandled: true,
+        alreadyHandledActionKey: "batch",
+      };
+    }
     const modalAction = findModalPendingAction(pendingManualActions);
     return {
       pendingManualActions,
@@ -769,10 +1000,11 @@ async function handleResocontoButton(interaction) {
 
   if (execution.alreadyHandled) {
     await interaction.deferUpdate().catch(() => null);
+    const handledMessageId = payload.messageId || interaction.message.id;
     await appendOutcomeToMessage(
       interaction.guild,
       interaction.channelId,
-      payload.messageId || interaction.message.id,
+      handledMessageId,
       interaction.user.id,
       true,
       "<:success:1461731530333229226> Valutazioni già registrate dal sistema.",
@@ -782,6 +1014,17 @@ async function handleResocontoButton(interaction) {
       interaction.channel,
       interaction.user.id,
       payload,
+    );
+    await syncResocontoWorkflowOutcome(
+      interaction.guild,
+      interaction.channelId,
+      handledMessageId,
+      {
+        ...resocontoActorFields(interaction),
+        actionKey: payload.actionKey,
+        accepted: true,
+        statusLabel: "Azioni multiple",
+      },
     );
     return true;
   }
@@ -827,6 +1070,17 @@ async function handleResocontoButton(interaction) {
     interaction.channel,
     interaction.user.id,
     payload,
+  );
+  await syncResocontoWorkflowOutcome(
+    interaction.guild,
+    interaction.channelId,
+    payload.messageId || interaction.message.id,
+    {
+      ...resocontoActorFields(interaction),
+      actionKey: payload.actionKey,
+      accepted: true,
+      statusLabel: stripResocontoWebMessage(statusText) || undefined,
+    },
   );
   if (parsedOverride) {
     await interaction
@@ -903,6 +1157,12 @@ async function handleResocontoModal(interaction) {
     interaction.user.id,
     parsed,
   );
+  await syncResocontoWorkflowOutcome(interaction.guild, interaction.channelId, parsed.messageId, {
+    ...resocontoActorFields(interaction),
+    actionKey: parsed.actionKey,
+    accepted: true,
+    statusLabel: stripResocontoWebMessage(statusText) || undefined,
+  });
   await interaction
     .editReply({
       content: `<:success:1461731530333229226> Azione eseguita: ${statusText}`,
@@ -921,4 +1181,338 @@ async function handleResocontoActionInteraction(interaction) {
   return false;
 }
 
-module.exports = { RESOCONTO_APPLY_PREFIX, RESOCONTO_REJECT_PREFIX, handleResocontoActionInteraction, applyDepexSideEffects, sendPexDepexLog };
+function stripResocontoWebMessage(text) {
+  return String(text || "")
+    .replace(/<a?:[\w~-]+:\d+>/g, "")
+    .replace(/<[@#&!]?\d+>/g, "")
+    .replace(/[*_`~|]+/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function resolveResocontoChannelId(channelId) {
+  const fromArg = String(channelId || "").trim();
+  if (fromArg === "site") return "site";
+  if (/^\d{16,22}$/.test(fromArg)) return fromArg;
+  const configured = String(IDs.channels?.resocontiStaff || IDs.channels?.valutazioniStaff || "").trim();
+  if (configured) return configured;
+  try {
+    const { isDiscordWorkflowChannelPostsEnabled } = require("../../Utils/Web/discordWorkflowUiGate");
+    if (!isDiscordWorkflowChannelPostsEnabled()) return "site";
+  } catch (_) {}
+  return "";
+}
+
+function buildWebResocontoAlternatives(kind) {
+  if (String(kind || "") === "p") {
+    return [
+      { actionKey: "dp", label: "Depex" },
+      { actionKey: "rc", label: "Richiamo" },
+      { actionKey: "nl", label: "Nulla" },
+    ];
+  }
+  return [
+    { actionKey: "px", label: "Pex" },
+    { actionKey: "dp", label: "Depex" },
+    { actionKey: "vp", label: "Valutazione +" },
+    { actionKey: "vn", label: "Valutazione -" },
+    { actionKey: "nl", label: "Nulla" },
+  ];
+}
+
+/**
+ * Accetta/Rifiuta resoconto dal sito (stessa logica Discord).
+ * reject senza overrideActionKey = sola chiusura ("azione negata").
+ * reject/accept con overrideActionKey = azione esplicita (come menu dopo Rifiuta su Discord).
+ */
+async function decideResocontoFromWeb(guild, actorMember, opts = {}) {
+  const action = String(opts.action || "").trim().toLowerCase();
+  const messageId = String(opts.messageId || "").trim();
+  const userId = String(opts.userId || "").trim();
+  const kind = String(opts.kind || "").trim().toLowerCase();
+  const roleId = String(opts.roleId || "").trim();
+  let channelId = resolveResocontoChannelId(opts.channelId);
+  const reason = String(opts.reason || opts.motivo || "").trim().slice(0, 500);
+  const overrideActionKey = String(opts.overrideActionKey || opts.altActionKey || "").trim().toLowerCase();
+  const proposedActionKey = String(opts.actionKey || "").trim().toLowerCase();
+
+  const { isWorkflowMessageId, isDiscordWorkflowChannelPostsEnabled } = require("../../Utils/Web/discordWorkflowUiGate");
+  const discordPosts = isDiscordWorkflowChannelPostsEnabled();
+  if (!channelId && !discordPosts) channelId = "site";
+
+  if (!guild || !actorMember?.id) {
+    return { ok: false, status: 400, error: "bad_request", message: "Richiesta non valida." };
+  }
+  if (!["accept", "reject"].includes(action)) {
+    return { ok: false, status: 400, error: "bad_action", message: "Azione non valida." };
+  }
+  if (!isWorkflowMessageId(messageId) || !/^\d{16,22}$/.test(userId)) {
+    return {
+      ok: false,
+      status: 400,
+      error: "missing_fields",
+      message: "messageId e userId richiesti.",
+    };
+  }
+  if (discordPosts && !channelId) {
+    return {
+      ok: false,
+      status: 400,
+      error: "missing_fields",
+      message: "messageId, userId e canale resoconti richiesti.",
+    };
+  }
+  if (kind !== "s" && kind !== "p") {
+    return { ok: false, status: 400, error: "bad_kind", message: "Tipo resoconto non valido." };
+  }
+
+  const accessPayload = { kind, userId, roleId: kind === "s" ? roleId : null };
+  if (!memberHasResocontoButtonAccess(actorMember, accessPayload)) {
+    return {
+      ok: false,
+      status: 403,
+      error: "forbidden",
+      message: "Non autorizzato a gestire questo resoconto.",
+    };
+  }
+
+  const resocontoItemCtx = { messageId, userId, kind, roleId, channelId };
+  const ensureResocontoItem = (syncedItem, extra = {}) => {
+    if (syncedItem) return syncedItem;
+    try {
+      const { resocontoWorkflowItemFromSnapshot } = require("../../Utils/Web/siteStaffWorkflowStore");
+      return resocontoWorkflowItemFromSnapshot({ ...resocontoItemCtx, ...extra });
+    } catch {
+      return null;
+    }
+  };
+
+  const activeMessage =
+    channelId && channelId !== "site"
+      ? await fetchActiveResocontoMessage(guild, channelId, messageId)
+      : null;
+
+  let dbWorkflowDetail = null;
+  if (!activeMessage) {
+    try {
+      const { getStaffWorkflowDetailFromDb } = require("../../Utils/Web/siteStaffWorkflowStore");
+      dbWorkflowDetail = await getStaffWorkflowDetailFromDb(
+        guild.client,
+        guild.id,
+        "resoconti",
+        messageId,
+        userId,
+      );
+    } catch (_) {
+      dbWorkflowDetail = null;
+    }
+    const dbPending = String(dbWorkflowDetail?.status || "").toLowerCase() === "pending";
+    if (!dbPending) {
+      const syncedItem = await syncResocontoWorkflowOutcome(guild, channelId, messageId, {
+        ...resocontoActorFields(actorMember),
+        userId,
+        kind,
+        roleId: kind === "s" ? roleId : null,
+        channelId,
+      });
+      const item = ensureResocontoItem(syncedItem, { status: "accepted", statusLabel: "Accettata" });
+      return {
+        ok: false,
+        status: 409,
+        error: "already_handled",
+        message: "Questo resoconto è già stato gestito.",
+        ...(item ? { item } : {}),
+      };
+    }
+  }
+
+  const channel =
+    channelId && channelId !== "site"
+      ? (await getGuildChannelCached(guild, channelId).catch(() => null)) || activeMessage?.channel || null
+      : null;
+  const markWorkflow = async (status, statusLabel, appliedActionKey = "", editedMessage = null) => {
+    return syncResocontoWorkflowOutcome(guild, channelId, messageId, {
+      ...resocontoActorFields(actorMember),
+      userId,
+      kind,
+      roleId: kind === "s" ? roleId : null,
+      channelId,
+      actionKey: appliedActionKey,
+      accepted: status !== "rejected",
+      statusLabel,
+      ...(editedMessage ? { message: editedMessage } : {}),
+    });
+  };
+  const decisionLabel = (actionKey, rejected = false) => {
+    if (rejected) return "Azione negata";
+    try {
+      const { resocontoActionLabelForKey } = require("../../Utils/Web/siteStaffWorkflowStore");
+      return resocontoActionLabelForKey(actionKey) || "Accettata";
+    } catch {
+      return "Accettata";
+    }
+  };
+
+  // Rifiuta senza alternativa → chiudi come "azione negata" (senza Pex/Depex/VP).
+  if (action === "reject" && !overrideActionKey) {
+    const editedMsg = await appendOutcomeToMessage(guild, channelId, messageId, actorMember.id, false, "");
+    const syncedItem = await markWorkflow("rejected", decisionLabel("", true), "", editedMsg);
+    void onResocontoOutcomeRecorded(guild, channel, actorMember.id, accessPayload).catch(() => null);
+    const item = ensureResocontoItem(syncedItem, {
+      status: "rejected",
+      statusLabel: decisionLabel("", true),
+      body: String(editedMsg?.content || ""),
+    });
+    return {
+      ok: true,
+      status: 200,
+      message: "Resoconto rifiutato (nessuna azione applicata).",
+      alternatives: buildWebResocontoAlternatives(kind),
+      ...(item ? { item } : {}),
+    };
+  }
+
+  let resolvedProposedKey = proposedActionKey;
+  if (!overrideActionKey && !resolvedProposedKey && activeMessage) {
+    try {
+      const { parseResocontoFromMessage } = require("../../Utils/Web/siteStaffWorkflowStore");
+      const parsed = parseResocontoFromMessage(activeMessage);
+      resolvedProposedKey = String(parsed?.actionKey || "").trim().toLowerCase();
+    } catch (_) {}
+  }
+  if (!overrideActionKey && !resolvedProposedKey && dbWorkflowDetail) {
+    resolvedProposedKey = String(dbWorkflowDetail.actionKey || "").trim().toLowerCase();
+  }
+
+  const acceptDefaultKey = kind === "p" ? "nl" : "batch";
+  const effectiveActionKey =
+    overrideActionKey ||
+    (action === "accept" ? resolvedProposedKey || acceptDefaultKey : "");
+  if (kind === "s" && effectiveActionKey && !STAFF_ACTIONS.has(effectiveActionKey)) {
+    return { ok: false, status: 400, error: "bad_action_key", message: "Azione staff non valida." };
+  }
+  if (kind === "p" && effectiveActionKey && !PM_ACTIONS.has(effectiveActionKey)) {
+    return { ok: false, status: 400, error: "bad_action_key", message: "Azione PM non valida." };
+  }
+
+  const payload = {
+    mode: "apply",
+    kind,
+    userId,
+    roleId: kind === "s" ? roleId : null,
+    actionKey: effectiveActionKey || (kind === "s" ? "batch" : "nl"),
+    messageId,
+    explicitChoice: Boolean(overrideActionKey),
+  };
+
+  const execution = await resolveStaffResocontoApplyExecution(guild, payload);
+  if (execution.alreadyHandled) {
+    const handledKey = String(execution.alreadyHandledActionKey || payload.actionKey || "batch").trim();
+    const handledLabel = decisionLabel(handledKey);
+    const handledStatus =
+      handledKey === "vp"
+        ? "<:success:1461731530333229226> Valutazione Positiva già registrata."
+        : handledKey === "vn"
+          ? "<:success:1461731530333229226> Valutazione Negativa già registrata."
+          : "<:success:1461731530333229226> Valutazioni già registrate dal sistema.";
+    await appendOutcomeToMessage(
+      guild,
+      channelId,
+      messageId,
+      actorMember.id,
+      true,
+      handledStatus,
+    );
+    await onResocontoOutcomeRecorded(guild, channel, actorMember.id, payload);
+    const syncedItem = await markWorkflow("accepted", handledLabel, handledKey);
+    const item = ensureResocontoItem(syncedItem, {
+      status: "accepted",
+      actionKey: handledKey,
+      statusLabel: handledLabel,
+    });
+    return {
+      ok: true,
+      status: 200,
+      message:
+        handledKey === "vp"
+          ? "Valutazione Positiva già registrata."
+          : handledKey === "vn"
+            ? "Valutazione Negativa già registrata."
+            : "Valutazioni già registrate dal sistema.",
+      ...(item ? { item } : {}),
+    };
+  }
+
+  if (execution.requiresModal && !reason) {
+    const modalKey = String(execution.mergedPayload?.actionKey || payload.actionKey || "").trim();
+    return {
+      ok: false,
+      status: 400,
+      error: "reason_required",
+      message:
+        modalKey === "px"
+          ? "Inserisci il motivo del Pex."
+          : modalKey === "dp"
+            ? "Inserisci il motivo del Depex."
+            : "Inserisci una motivazione per proseguire.",
+      needsReason: true,
+      actionKey: modalKey || null,
+      alternatives: buildWebResocontoAlternatives(kind),
+    };
+  }
+
+  let statusText;
+  if (execution.pendingManualActions?.length) {
+    statusText = await applyStaffResocontoPendingValutazioni(
+      guild,
+      actorMember,
+      payload,
+      execution.pendingManualActions,
+      reason || null,
+      reason ? String(execution.mergedPayload?.actionKey || payload.actionKey || "") : null,
+    );
+  } else if (payload.kind === "s") {
+    statusText = await applyStaffAction(
+      guild,
+      actorMember,
+      execution.mergedPayload || payload,
+      reason || execution.autoReason || resolveAutoReasonForResocontoAction(payload) || null,
+    );
+  } else {
+    statusText = await applyPmAction(
+      guild,
+      payload,
+      reason || resolveAutoReasonForResocontoAction(payload) || null,
+    );
+  }
+
+  const editedMsg = await appendOutcomeToMessage(guild, channelId, messageId, actorMember.id, true, statusText);
+  const appliedKey = effectiveActionKey || payload.actionKey;
+  const appliedLabel = decisionLabel(appliedKey);
+  const syncedItem = await markWorkflow("accepted", appliedLabel, appliedKey, editedMsg);
+  void onResocontoOutcomeRecorded(guild, channel, actorMember.id, payload).catch(() => null);
+
+  const item = ensureResocontoItem(syncedItem, {
+    status: "accepted",
+    actionKey: appliedKey,
+    statusLabel: appliedLabel,
+    body: String(editedMsg?.content || ""),
+  });
+
+  return {
+    ok: true,
+    status: 200,
+    message: stripResocontoWebMessage(statusText) || "Resoconto applicato.",
+    ...(item ? { item } : {}),
+  };
+}
+
+module.exports = {
+  RESOCONTO_APPLY_PREFIX,
+  RESOCONTO_REJECT_PREFIX,
+  handleResocontoActionInteraction,
+  applyDepexSideEffects,
+  sendPexDepexLog,
+  decideResocontoFromWeb,
+  buildWebResocontoAlternatives,
+};

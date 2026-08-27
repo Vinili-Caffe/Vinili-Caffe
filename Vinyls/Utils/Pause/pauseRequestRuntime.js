@@ -5,6 +5,11 @@ const { getOnePausePerMonthWarning, getOneWeekBetweenWarning, normalizePauseRole
 const { getGuildChannelCached, getClientChannelCached } = require("../Interaction/interactionEntityCache");
 const { hydrateGuildMembersForRolePings } = require("../Discord/threadRoleMembers");
 const { maybeRepositionPauseSticky } = require("./pauseStickyPanelRuntime");
+const {
+  isDiscordWorkflowUiEnabled,
+  isDiscordWorkflowChannelPostsEnabled,
+  buildInboxManageLinkRow,
+} = require("../Web/discordWorkflowUiGate");
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const IT_MONTHS = { gennaio: 1, feb: 2, febbraio: 2, mar: 3, marzo: 3, apr: 4, aprile: 4, mag: 5, maggio: 5, giu: 6, giugno: 6, lug: 7, luglio: 7, ago: 8, agosto: 8, set: 9, sett: 9, settembre: 9, ott: 10, ottobre: 10, nov: 11, novembre: 11, dic: 12, dicembre: 12 };
 const PAUSE_REQUEST_ROLE_IDS = [
@@ -218,7 +223,6 @@ async function createPauseRequest({ guild, userId, requesterMention, rawStart, r
       ? requesterMention
       : `<@${uid}>`;
   const client = guild.client;
-  const pauseChannel = guild.channels.cache.get(IDs.channels?.pause) || (await getGuildChannelCached(guild, IDs.channels?.pause)) || (await getClientChannelCached(client, IDs.channels?.pause));
   const normalized = normalizePauseDates(rawStart, rawEnd);
   if (!normalized) {
     return { ok: false, error: "<a:VC_Alert:1482706673176150077> Date non valide. Formati supportati: `domani`, `GG/MM`, `GG/MM/AAAA`, `1 agosto`, `1 agosto 2027`." };
@@ -229,7 +233,13 @@ async function createPauseRequest({ guild, userId, requesterMention, rawStart, r
   if (!String(reason || "").trim()) {
     return { ok: false, error: "<a:VC_Alert:1482706673176150077> Devi specificare una motivazione valida." };
   }
-  if (!pauseChannel?.isTextBased?.()) {
+  const discordPosts = isDiscordWorkflowChannelPostsEnabled();
+  const pauseChannel = discordPosts
+    ? guild.channels.cache.get(IDs.channels?.pause) ||
+      (await getGuildChannelCached(guild, IDs.channels?.pause)) ||
+      (await getClientChannelCached(client, IDs.channels?.pause))
+    : null;
+  if (discordPosts && !pauseChannel?.isTextBased?.()) {
     return { ok: false, error: "<a:VC_Alert:1482706673176150077> Canale pause non disponibile." };
   }
   const stafferDoc = await getOrCreateStaffDoc(guildId, uid);
@@ -268,68 +278,110 @@ async function createPauseRequest({ guild, userId, requesterMention, rawStart, r
     ? "\n\n<a:VC_Alert:1482706673176150077> **Requisiti non rispettati:**\n" + requisitiNonRispettati.map((r) => `• ${r}`).join("\n") + "\n\n_L'High Staff può accettare comunque._"
     : "";
 
-  const content = `<:VC_Staff:1494286904089247754> <@&${IDs.roles.HighStaff}> ${mention} ha richiesto una pausa.\n<:VC_Mention:1482526855289634997> Ruolo pausa richiesto: **${ruoloRichiestoDisplay}**\n<a:VC_Calendar:1482706208149475358> Data richiesta: ${normalized.dataRichiesta}\n<a:VC_Calendar:1482706208149475358> Data ritorno: ${normalized.dataRitorno}\n<:VC_reason:1478517122929004544> Motivo: ${reason}`;
-  const posted = await pauseChannel.send({
-    content,
-    components: [buildPauseRequestButtonsRow(uid, pauseId)],
-    __skipNoticeEmbed: true,
-  }).catch(() => null);
-  if (!posted) {
-    createdPause.status = "cancelled";
-    stafferDoc.markModified("staff");
-    await stafferDoc.save().catch(() => null);
-    return { ok: false, error: "<a:VC_Alert:1482706673176150077> Non sono riuscito a inviare la richiesta nel canale." };
-  }
-  createdPause.requestChannelId = String(pauseChannel.id ?? "").trim();
-  createdPause.requestMessageId = posted.id ? String(posted.id) : null;
-  stafferDoc.markModified("staff");
-  try {
-    await stafferDoc.save();
-  } catch (err) {
-    global.logger?.error?.("[createPauseRequest] save (messageId) failed", err);
-  }
+  const content = `<:VC_Staff:1494286904089247754> <@&${IDs.roles.HighStaff}> ${mention} ha richiesto una pausa.\n<:VC_Mention:1482526855289634997> Ruolo pausa richiesto: **${ruoloRichiestoDisplay}**\n<a:VC_Calendar:1482706208149475358> Data richiesta: ${normalized.dataRichiesta}\n<a:VC_Calendar:1482706208149475358> Data ritorno: ${normalized.dataRitorno}\n<:VC_reason:1478517122929004544> Motivo: ${reason}${warningBlock}`;
 
-  let thread = null;
-  try {
-    thread = await pauseChannel.threads.create({
-      name: `Pausa – ${(member?.user?.username || userId).toString().slice(0, 80)}`,
-      type: ChannelType.PrivateThread,
-      reason: "Richiesta pausa staff",
-    });
-  } catch (e) {
+  if (discordPosts && pauseChannel?.isTextBased?.()) {
+    const discordUi = isDiscordWorkflowUiEnabled();
+    const pauseComponents = discordUi
+      ? [buildPauseRequestButtonsRow(uid, pauseId)]
+      : [buildInboxManageLinkRow("pause")];
+    const posted = await pauseChannel
+      .send({
+        content,
+        components: pauseComponents,
+        __skipNoticeEmbed: true,
+      })
+      .catch(() => null);
+    if (!posted) {
+      createdPause.status = "cancelled";
+      stafferDoc.markModified("staff");
+      await stafferDoc.save().catch(() => null);
+      return {
+        ok: false,
+        error:
+          "<a:VC_Alert:1482706673176150077> Non sono riuscito a inviare la richiesta nel canale.",
+      };
+    }
+    createdPause.requestChannelId = String(pauseChannel.id ?? "").trim();
+    createdPause.requestMessageId = posted.id ? String(posted.id) : null;
+    stafferDoc.markModified("staff");
+    try {
+      await stafferDoc.save();
+    } catch (err) {
+      global.logger?.error?.("[createPauseRequest] save (messageId) failed", err);
+    }
+
+    if (discordUi) {
+      let thread = null;
+      try {
+        thread = await pauseChannel.threads.create({
+          name: `Pausa – ${(member?.user?.username || userId).toString().slice(0, 80)}`,
+          type: ChannelType.PrivateThread,
+          reason: "Richiesta pausa staff",
+        });
+      } catch (e) {
+        // Thread opzionale.
+      }
+      if (thread) {
+        await thread.members.add(uid).catch(() => null);
+        const highStaffRoleId = String(IDs.roles.HighStaff || "");
+        if (highStaffRoleId) {
+          await hydrateGuildMembersForRolePings(guild, "[pause thread HighStaff]");
+          const membersWithHighStaff = guild.members.cache.filter((m) =>
+            m.roles.cache.has(highStaffRoleId),
+          );
+          for (const m of membersWithHighStaff.values()) {
+            if (m.user?.bot) continue;
+            await thread.members.add(m.id).catch(() => null);
+          }
+        }
+        await thread
+          .send({
+            content: `<:VC_Staff:1494286904089247754> Discussione per la richiesta pausa di ${mention}. Il messaggio con i pulsanti è nel canale.`,
+            __skipNoticeEmbed: true,
+          })
+          .catch(() => null);
+        if (warningBlock) {
+          await thread
+            .send({ content: warningBlock.trim(), __skipNoticeEmbed: true })
+            .catch(() => null);
+        }
+        createdPause.requestThreadId = String(thread.id ?? "").trim();
+        stafferDoc.markModified("staff");
+        try {
+          await stafferDoc.save();
+        } catch (err) {
+          global.logger?.error?.("[createPauseRequest] save (threadId) failed", err);
+        }
+      }
+    }
     if (!isSiteApiProcess()) {
       void maybeRepositionPauseSticky(pauseChannel, client).catch(() => null);
     }
-    return { ok: true, pauseId };
   }
-  await thread.members.add(uid).catch(() => null);
-  const highStaffRoleId = String(IDs.roles.HighStaff || "");
-  if (highStaffRoleId) {
-    await hydrateGuildMembersForRolePings(guild, "[pause thread HighStaff]");
-    const membersWithHighStaff = guild.members.cache.filter((m) => m.roles.cache.has(highStaffRoleId));
-    for (const m of membersWithHighStaff.values()) {
-      if (m.user?.bot) continue;
-      await thread.members.add(m.id).catch(() => null);
-    }
-  }
-  await thread.send({
-    content: `<:VC_Staff:1494286904089247754> Discussione per la richiesta pausa di ${mention}. Il messaggio con i pulsanti è nel canale.`,
-    __skipNoticeEmbed: true,
-  }).catch(() => null);
-  if (warningBlock) {
-    await thread.send({ content: warningBlock.trim(), __skipNoticeEmbed: true }).catch(() => null);
-  }
-  createdPause.requestThreadId = String(thread.id ?? "").trim();
-  stafferDoc.markModified("staff");
+
   try {
-    await stafferDoc.save();
-  } catch (err) {
-    global.logger?.error?.("[createPauseRequest] save (threadId) failed", err);
-  }
-  // Da site-api lo sticky lo ripubblica il gateway bots sul MESSAGE_CREATE (REST non è affidabile qui).
-  if (!isSiteApiProcess()) {
-    void maybeRepositionPauseSticky(pauseChannel, client).catch(() => null);
-  }
+    const { upsertPauseWorkflowFromPause, syncPausesToWorkflowStore } = require("../Web/siteStaffWorkflowStore");
+    await upsertPauseWorkflowFromPause(client, guild, uid, createdPause);
+    void syncPausesToWorkflowStore(guild.client, guild.id).catch(() => 0);
+  } catch (_) {}
+  try {
+    const { notifyInboxStaffNewItem } = require("../Web/siteStaffWorkflowNotifications");
+    const subjectName =
+      String(member?.displayName || member?.user?.globalName || member?.user?.username || "").trim() ||
+      uid;
+    const period = `${normalized.dataRichiesta} → ${normalized.dataRitorno}`;
+    void notifyInboxStaffNewItem({
+      guild,
+      queue: "pause",
+      subjectUserId: uid,
+      subjectName,
+      title: "Nuova richiesta pausa",
+      body: `${subjectName} ha richiesto una pausa (${period}).`,
+      pauseId,
+      dedupeKey: `inbox:pause:new:${pauseId}`,
+    }).catch(() => 0);
+  } catch (_) {}
   return { ok: true, pauseId };
 }
 

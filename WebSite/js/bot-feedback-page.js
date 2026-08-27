@@ -75,16 +75,28 @@
 
   function setStatus(msg, isError, opts) {
     var el = byId("vc-bot-feedback-status");
-    if (!el) return;
-    clearStatusTimer();
-    if (!msg) {
+    if (el) {
       el.hidden = true;
       el.textContent = "";
       el.className = "vc-reviews-status vc-reviews-status--global";
+    }
+    clearStatusTimer();
+    var text = String(msg || "").trim();
+    if (window.VcSiteToast) {
+      if (!text) {
+        window.VcSiteToast.hide();
+        return;
+      }
+      window.VcSiteToast.show(text, Boolean(isError), {
+        pending: Boolean(opts && opts.sticky) || undefined,
+        sticky: Boolean(opts && opts.sticky) || undefined,
+      });
       return;
     }
+    if (!el) return;
+    if (!text) return;
     el.hidden = false;
-    el.textContent = msg;
+    el.textContent = text;
     el.className = "vc-reviews-status vc-reviews-status--global" + (isError ? " is-error" : "");
     if (!(opts && opts.sticky)) {
       statusTimer = setTimeout(function () {

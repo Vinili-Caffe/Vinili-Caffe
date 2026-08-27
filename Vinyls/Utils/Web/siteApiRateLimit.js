@@ -12,12 +12,16 @@ function webhookPath(req) {
 function shouldSkipRateLimit(req) {
   if (String(req.method || "").toUpperCase() === "OPTIONS") return true;
   const path = webhookPath(req);
+  const method = String(req.method || "").toUpperCase();
   return (
     path === "/webhooks/site-api/health" ||
     path === "/webhooks/health" ||
     path === "/webhooks/status" ||
     // Kick chat webhooks: volume alto, non devono mai prendere 429.
-    path === "/webhooks/site-kick-sub/events"
+    path === "/webhooks/site-kick-sub/events" ||
+    // Area staff: molte GET parallele (access + manage + organico + inbox + poll).
+    // I POST restano rate-limitati.
+    (method === "GET" && path.startsWith("/webhooks/site-staff-"))
   );
 }
 
@@ -41,8 +45,8 @@ function createSiteApiRateLimiters() {
     validate: { trustProxy: false },
   };
 
-  const globalMax = parsePositiveInt(process.env.SITE_API_RATE_GLOBAL_MAX, 100);
-  const strictMax = parsePositiveInt(process.env.SITE_API_RATE_STRICT_MAX, 35);
+  const globalMax = parsePositiveInt(process.env.SITE_API_RATE_GLOBAL_MAX, 250);
+  const strictMax = parsePositiveInt(process.env.SITE_API_RATE_STRICT_MAX, 60);
 
   return {
     global: rateLimit({

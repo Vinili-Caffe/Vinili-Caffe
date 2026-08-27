@@ -1,0 +1,12 @@
+    # Staff HTML: mai in cache CDN/browser (deploy frequenti).
+    location ^~ /staff/ {
+        sub_filter_once on;
+        sub_filter 'name="theme-color" content="#140f0c"' 'name="theme-color" content="$vc_theme_color"';
+
+        add_header Cache-Control "no-store, no-cache, must-revalidate, max-age=0" always;
+        add_header Pragma "no-cache" always;
+        add_header CDN-Cache-Control "no-store" always;
+        error_page 405 =200 $uri;
+        try_files $uri $uri/ $uri/index.html =404;
+    }
+

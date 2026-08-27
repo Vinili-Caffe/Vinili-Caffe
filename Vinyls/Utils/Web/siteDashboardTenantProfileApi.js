@@ -132,6 +132,7 @@ async function buildTenantProfilePayload(client, userId) {
   const snapshot = await getTenantProfileSnapshot(guildId, userId, {
     client,
     langUserId: userId,
+    evaluateObjectives: false,
   });
   const [user, notifications] = await Promise.all([
     resolveProfileUser(client, userId),
@@ -204,6 +205,7 @@ async function patchDashboardTenantProfile(client, accessToken, body) {
     const unlocked = await getTenantProfileSnapshot(guildId, gate.userId, {
       client,
       langUserId: gate.userId,
+      evaluateObjectives: false,
     });
     const unlockedIds = new Set((unlocked.unlockedBadges || []).map((b) => String(b.id)));
     const cleaned = [];
@@ -237,6 +239,7 @@ async function patchDashboardTenantProfile(client, accessToken, body) {
     const unlocked = await getTenantProfileSnapshot(guildId, gate.userId, {
       client,
       langUserId: gate.userId,
+      evaluateObjectives: false,
     });
     const unlockedIds = new Set((unlocked.unlockedBadges || []).map((b) => String(b.id)));
     if (!unlockedIds.has(badgeId)) {

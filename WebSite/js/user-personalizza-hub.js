@@ -9,7 +9,6 @@
     { id: "privacy", icon: "fa-lock", label: "Privacy" },
     { id: "reactions", icon: "fa-smile-o", label: "Reactions" },
     { id: "response", icon: "fa-commenting-o", label: "Response" },
-    { id: "hogwarts", icon: "fa-magic", label: "Hogwarts" },
   ];
   var CUSTOM_TABS = { primary: true, secondary: true, voice: true };
   var EXTRAS_TABS = {
@@ -18,7 +17,6 @@
     roles: true,
     reactions: true,
     response: true,
-    hogwarts: true,
   };
 
   function byId(id) {
@@ -175,7 +173,8 @@
       }
     }
     try {
-      document.title = "Vinili & Caffè | " + label;
+      if (window.VcPageTitle) window.VcPageTitle.set(label);
+      else document.title = "Vinili & Caffè | " + label;
     } catch (e) {}
   }
 
@@ -186,11 +185,61 @@
     syncDocumentTitle(hub);
   }
 
+  function getDiscordAccessToken() {
+    try {
+      if (typeof window.__vcDiscordGetAccessToken === "function") {
+        return String(window.__vcDiscordGetAccessToken() || "").trim();
+      }
+    } catch (eUse) {}
+    try {
+      var t = localStorage.getItem("vc_discord_access_token");
+      if (!t) return "";
+      var exp = Number(localStorage.getItem("vc_discord_expires_at") || "0");
+      if (exp && Date.now() >= exp) return "";
+      return String(t).trim();
+    } catch (eLs) {
+      return "";
+    }
+  }
+
+  function whenDiscordSessionReady(fn, options) {
+    if (typeof fn !== "function") return;
+    options = options || {};
+    var maxMs = Number(options.maxMs);
+    if (!Number.isFinite(maxMs) || maxMs <= 0) maxMs = 350;
+    var started = Date.now();
+    var done = false;
+    function finish() {
+      if (done) return;
+      done = true;
+      fn();
+    }
+    if (getDiscordAccessToken() || window.__VC_DISCORD_PROFILE) {
+      finish();
+      return;
+    }
+    window.addEventListener("vc-discord-profile", finish, { once: true });
+    (function poll() {
+      if (done) return;
+      if (getDiscordAccessToken() || window.__VC_DISCORD_PROFILE) {
+        finish();
+        return;
+      }
+      if (Date.now() - started >= maxMs) {
+        finish();
+        return;
+      }
+      setTimeout(poll, 120);
+    })();
+  }
+
   window.__VC_PERS_HUB_API = {
     parseTab: parseTabFromSearch,
     hrefForTab: hrefForTab,
     ensure: ensureHubState,
     sync: boot,
+    getToken: getDiscordAccessToken,
+    whenSessionReady: whenDiscordSessionReady,
     TABS: TABS,
   };
 

@@ -609,24 +609,47 @@
   }
 
   function filteredRows(rows) {
+    var list = Array.isArray(rows) ? rows : [];
+    if (filterMode === "filtered") {
+      return list.filter(function (n) {
+        return Boolean(n && n.filtered);
+      });
+    }
+    var active = list.filter(function (n) {
+      return !(n && n.filtered);
+    });
     if (filterMode === "unread") {
-      return rows.filter(function (n) {
+      return active.filter(function (n) {
         return !n.read;
       });
     }
-    return rows;
+    return active;
   }
 
   function setFilterButtons() {
     var allBtn = byId("vc-filter-all");
     var unreadBtn = byId("vc-filter-unread");
+    var filteredBtn = byId("vc-filter-filtered");
+    var filteredCard = byId("vc-stat-filtered-card");
     if (allBtn) allBtn.classList.toggle("vc-notify-filter-btn--on", filterMode === "all");
     if (unreadBtn) unreadBtn.classList.toggle("vc-notify-filter-btn--on", filterMode === "unread");
+    if (filteredBtn) filteredBtn.classList.toggle("vc-notify-filter-btn--on", filterMode === "filtered");
+    if (filteredCard) {
+      filteredCard.classList.toggle("vc-notify-stat--active", filterMode === "filtered");
+      filteredCard.setAttribute("aria-pressed", filterMode === "filtered" ? "true" : "false");
+    }
   }
 
-  function renderStats(allRows, shownRows) {
-    var total = allRows.length;
-    var unread = allRows.filter(function (n) {
+  function renderStats(allRows) {
+    var list = Array.isArray(allRows) ? allRows : [];
+    var active = list.filter(function (n) {
+      return !(n && n.filtered);
+    });
+    var filteredCount = list.filter(function (n) {
+      return Boolean(n && n.filtered);
+    }).length;
+    var total = active.length;
+    var unread = active.filter(function (n) {
       return !n.read;
     }).length;
     var read = total - unread;
@@ -655,8 +678,8 @@
       else readEl.textContent = String(read);
     }
     if (filteredEl) {
-      if (countApi && typeof countApi.set === "function") countApi.set(filteredEl, shownRows.length, "int");
-      else filteredEl.textContent = String(shownRows.length);
+      if (countApi && typeof countApi.set === "function") countApi.set(filteredEl, filteredCount, "int");
+      else filteredEl.textContent = String(filteredCount);
     }
   }
 
@@ -804,6 +827,7 @@
       read: Boolean(row.read === true || row.readAt),
       kind: kind,
       openUrl: openUrl,
+      filtered: Boolean(row && row.filtered),
     };
   }
   function buildNotifyPageSignature(items, shownCount) {
@@ -815,6 +839,8 @@
         String(n.id || "") +
           "\x1e" +
           (n.read ? "1" : "0") +
+          "\x1e" +
+          (n.filtered ? "1" : "0") +
           "\x1e" +
           String(n.at || 0) +
           "\x1e" +
@@ -898,7 +924,19 @@
     if (!token || !uid) return;
     var url = resolvedSiteNotificationsUrl();
     if (!url) return;
-    fetch(url, { headers: { Authorization: "Bearer " + token }, credentials: "omit" })
+    var headers = { Authorization: "Bearer " + token };
+    try {
+      if (window.VcPerf && typeof window.VcPerf.apiHeaders === "function") {
+        headers = window.VcPerf.apiHeaders(headers);
+      }
+      if (window.VcPerf && typeof window.VcPerf.notificationsLimit === "function") {
+        var lim = window.VcPerf.notificationsLimit(50);
+        url += (url.indexOf("?") >= 0 ? "&" : "?") + "limit=" + encodeURIComponent(String(lim));
+        if (window.VcPerf.isLite && window.VcPerf.isLite()) url += "&lite=1&perf=lite";
+        else if (window.VcPerf.tier && window.VcPerf.tier() === "mid") url += "&perf=mid";
+      }
+    } catch (ePerfN) {}
+    fetch(url, { headers: headers, credentials: "omit" })
       .then(function (r) {
         if (r && r.status === 401) return null;
         return r.json();
@@ -979,7 +1017,7 @@
     var all = loadStored();
     var shown = filteredRows(all);
     setFilterButtons();
-    renderStats(all, shown);
+    renderStats(all);
     var sig = buildNotifyPageSignature(all, shown.length);
     if (sig === lastNotifyListRenderSig) return;
     lastNotifyListRenderSig = sig;
@@ -997,6 +1035,7 @@
       li.classList.add("vc-notify-row--kind-" + String(n.kind || "info"));
       if (n.kind === "success") li.classList.add("vc-notify-row--success");
       if (n.read) li.classList.add("vc-notify-row--read");
+      if (n.filtered) li.classList.add("vc-notify-row--filtered");
       li.setAttribute("data-id", n.id);
       var destRaw = String((n && n.openUrl) || "").trim();
       if (destRaw) li.classList.add("vc-notify-row--link");
@@ -1079,18 +1118,40 @@
     setCurrentUser(window.__VC_DISCORD_PROFILE || null);
     var allBtn = byId("vc-filter-all");
     var unreadBtn = byId("vc-filter-unread");
+    var filteredBtn = byId("vc-filter-filtered");
+    var filteredCard = byId("vc-stat-filtered-card");
     var clearBtn = byId("vc-notify-clear-all-page");
+
+    function setMode(mode) {
+      filterMode = mode;
+      lastNotifyListRenderSig = "";
+      renderList();
+    }
 
     if (allBtn) {
       allBtn.addEventListener("click", function () {
-        filterMode = "all";
-        renderList();
+        setMode("all");
       });
     }
     if (unreadBtn) {
       unreadBtn.addEventListener("click", function () {
-        filterMode = "unread";
-        renderList();
+        setMode("unread");
+      });
+    }
+    if (filteredBtn) {
+      filteredBtn.addEventListener("click", function () {
+        setMode("filtered");
+      });
+    }
+    if (filteredCard) {
+      filteredCard.addEventListener("click", function () {
+        setMode(filterMode === "filtered" ? "all" : "filtered");
+      });
+      filteredCard.addEventListener("keydown", function (ev) {
+        if (ev.key === "Enter" || ev.key === " ") {
+          ev.preventDefault();
+          setMode(filterMode === "filtered" ? "all" : "filtered");
+        }
       });
     }
     if (clearBtn) {

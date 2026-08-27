@@ -471,7 +471,7 @@ async function sendPmAfkSanctionNotice(client, guild, opts = {}) {
     .setTitle("<:banhammer:1443651875441217639> Sanzione AFK vocale applicata")
     .setDescription(
       [
-        `${target} è stato **mutato** per AFK in vocale (regola **3.6**).`,
+        `${target} è stato **mutato** per AFK in vocale (regola **3.5**).`,
         `Canale: ${channelRef}`,
         `Sanzione: **${stepLabel || "Mute"}** (${durationLabel})`,
         reason ? `Motivo: ${reason}` : null,

@@ -9,6 +9,7 @@ const { PERSONALITY_MENTION_ROLE_IDS, PERSONALITY_HOBBY_ROLE_IDS } = require("..
 const { getGuildMemberCached, getUserCached } = require("../Utils/Interaction/interactionEntityCache");
 const { applyDepexOneLevel } = require("../Services/Staff/staffWarnService");
 const { syncStaffDbAndPauseChannelAfterDepex } = require("../Utils/Staff/staffPmUtils");
+const { appendStaffRolesHistoryEntry } = require("../Utils/Staff/staffDocUtils");
 const { sendPexDepexLog } = require("../Events/interaction/resocontoHandlers");
 const { checkButtonPermission, checkStringSelectPermission, buildGlobalPermissionDeniedEmbed, buildGlobalChannelDeniedEmbed, buildGlobalNotYourControlEmbed, } = require("../Utils/Moderation/commandPermissions");
 const { ROLE_TRY_AGAIN, ROLE_PLUS_FORBIDDEN } = require("../Utils/Text/replyMessages");
@@ -21,17 +22,16 @@ const { buildStaffGuideMenuRow, STAFF_GUIDE_MENU_ID, STAFF_GUIDE_SECTION_IDS } =
 const { buildStaffGuideEmbed } = require("../Embeds/staff");
 const { applyDefaultFooter } = require("../Utils/Embeds/defaultFooter");
 const { MOD_RULE_DETAIL } = require("../Utils/Moderation/modRegolamentoConstants");
+const { buildStaffGuideSectionMarkdown } = require("../Utils/Staff/staffGuideContent");
+const {
+  buildModerationGuideStickyPayload,
+  moderationGuideEmbedColor,
+} = require("../Utils/Moderation/moderationGuidePanelComponents");
 const {
   panelSelectFollowUp,
   buildFollowUpInteractionProxy,
   resetPanelSelectMenu,
 } = require("../../shared/discord/panelSelectMenuRuntime");
-
-function staffSanctionRuleIntro(ruleKey) {
-  const body = MOD_RULE_DETAIL[ruleKey];
-  if (!body) return "";
-  return `<:VC_Dot:1482532364222595303> ${body}\n`;
-}
 
 function v2Text(content) {
   return new TextDisplayBuilder().setContent(String(content || ""));
@@ -189,7 +189,33 @@ async function handleStaffButtons(interaction) {
     await syncStaffDbAndPauseChannelAfterDepex(guild, userId, freshMember);
     const oldRoleId = result.roleRemoved;
     const newRoleId = result.newRole || (result.fullDepex ? String(IDs.roles?.Member || "") : "");
+    await appendStaffRolesHistoryEntry(guild.id, userId, {
+      oldRole: oldRoleId,
+      newRole: newRoleId,
+      reason: "Depex da 2 warn staff (scelta High Staff).",
+      displayName: (freshMember?.displayName || targetUser?.globalName || targetUser?.username || "").trim() || null,
+      username: String(targetUser?.username || "").trim() || null,
+      avatarUrl:
+        (typeof freshMember?.displayAvatarURL === "function" && freshMember.displayAvatarURL({ size: 128 })) ||
+        (typeof targetUser?.displayAvatarURL === "function" && targetUser.displayAvatarURL({ size: 128 })) ||
+        null,
+    });
     await sendPexDepexLog(guild, "depex", targetUser, oldRoleId, newRoleId, "Depex da 2 warn staff (scelta High Staff).");
+    try {
+      const { notifyStaffPexDepex, memberDisplayName } = require("../Utils/Web/siteStaffEventNotifications");
+      void notifyStaffPexDepex({
+        guild,
+        kind: "depex",
+        targetUserId: userId,
+        targetName: memberDisplayName(freshMember, targetUser, userId),
+        oldRoleId,
+        newRoleId,
+        reason: "Depex da 2 warn staff (scelta High Staff).",
+        actorUserId: String(interaction.user.id),
+        actorName: memberDisplayName(interaction.member, interaction.user, interaction.user.id),
+        sourceHint: `warn-depex-btn:${userId}`,
+      }).catch(() => 0);
+    } catch (_) {}
     await interaction.update({
       content: "<:vegacheckmark:1443666279058772028> Depex applicato (un livello in basso).",
       embeds: [],
@@ -218,29 +244,13 @@ async function handleStaffButtons(interaction) {
   }*/
 
   if (interaction.customId == "moderazione_staff") {
-    const embed = new EmbedBuilder()
-      .setColor("#6f4e37")
-      .setDescription(
-        `<a:VC_Alarm:1482706641618079816> Per **applicare** le __sanzioni__, è necessario __attenersi__ alle **indicazioni** riportate di seguito e **consultare** le procedure disponibili __cliccando__ sui **bottoni** alla fine del messaggio.
-
-<:VC_1:1482706338021642333> <a:VC_Arrow:1482706699365257397> Bisogna **__sempre__** allegare le **prove** (screen, video, link di messaggi).
-
-<:VC_2:1482706376525611090> <a:VC_Arrow:1482706699365257397> Il __numero__ della **sanzione** si basa su quante volte l'**utente** è stato **sanzionato __specificatamente__ per quella regola**.
-
-<:VC_3:1482706404773990460> <a:VC_Arrow:1482706699365257397> Quando **sanzionate**, usate sempre l'**__articolo__** del **regolamento** infranto.
-
-<:VC_4:1482706432347344916> <a:VC_Arrow:1482706699365257397> Per visualizzare **quante** volte un __utente__ è stato **sanzionato**, usate il comando +modlogs **__\`ID\`__**.
-
-<:VC_5:1482706459765637272> <a:VC_Arrow:1482706699365257397> Bisogna **__sempre__** sanzionare nel canale <#1442569245878648924> usando i comandi di <@1329118940110127204>
-
-<:VC_6:1482706490769801327> <a:VC_Arrow:1482706699365257397> Ogni volta che si __oltrepassa__ il numero di **sanzioni ottenibili** si **ricomincia** il __ciclo__ di sanzioni per quella **specifica __regola__**.`,
-      );
-    const rowModeration = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId("generalimoderazione").setLabel("︲GENERALI").setEmoji("<:appdirectoryallwhite:1443308556995788840>").setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId("testualimoderazione").setLabel("︲TESTUALI").setEmoji("<:discordchannelwhite:1443308552536985810>").setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId("vocalimoderazione").setLabel("︲VOCALI").setEmoji("<:microphone:1443307206824169573>").setStyle(ButtonStyle.Secondary),
-    );
-    await interaction.reply({ embeds: [embed], components: [rowModeration], flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
+    const payload = buildModerationGuideStickyPayload();
+    await interaction
+      .reply({ embeds: payload.embeds, components: payload.components, flags: PRIVATE_FLAG })
+      .catch((err) => {
+        logButtonErr(err);
+        return null;
+      });
     return true;
   }
 
@@ -302,9 +312,15 @@ async function handleStaffButtons(interaction) {
   }
 
   if (interaction.customId == "pause") {
+    let pauseHint =
+      "> Per __richiedere__ una pausa apri la pagina sul **sito**: https://www.viniliecaffe.it/staff/pause/\n\n";
+    try {
+      const { siteWorkflowUrl } = require("../Utils/Web/discordWorkflowUiGate");
+      pauseHint = `> Per __richiedere__ una pausa apri la pagina sul **sito**: ${siteWorkflowUrl("pause")}\n\n`;
+    } catch (_) {}
     const embed = new EmbedBuilder().setColor("#6f4e37").setDescription(
       "<:Clock:1330530065133338685> Vinili & Caffè presenta un **sistema** di **`pause`** _sofisticato_, infatti è tutto __organizzato__ per **garantire** al meglio l'__attività__ del server.\n" +
-      "> Per __richiedere__ una pausa basta scrivere nel canale <#1442569255315832945> usando il formato corretto.\n\n" +
+      pauseHint +
       "<a:VC_Arrow:1482706699365257397> **__LIMITI__**\n" +
       "<a:loading:1443934440614264924> In un anno si possono chiedere __massimo__ **`60 giorni`** di pausa che si possono usufruire in __tutti__ i **12 mesi** dell'anno.\n\n" +
       "> Nei giorni **festivi** avrete anche dei giorni in più **ulteriori** al __normale mese__:\n" +
@@ -423,30 +439,8 @@ async function handleStaffButtons(interaction) {
   }
 
   if (interaction.customId == "guidapartners") {
-    const pmCmdChannelId = "1495544523848286340";
-    const embed = new EmbedBuilder().setColor("#6f4e37").setDescription(
-      "<:VC_PartnerManager:1494286911286808576> **__GUIDA PARTNERS__**\n\n" +
-      "> <:VC_Attention:1482534443632558151> In caso di **infrazione** del _regolamento_ verrà **rimosso** il `punto` della __partner__. Ogni **__`Partner Manager`__** ha _diritto_ a `1` mese e `15` giorni di **pausa** __ogni__ anno.\n" +
-      "> <a:VC_Alert:1482706673176150077> Per richiedere una pausa bisogna andare nel canale <#" + IDs.channels.pause + "> e compilare quel semplice modulo all'interno del canale.\n" +
-      "<:VC_DoubleReply:1482532332509466797> **Non** fare la stessa __partnership__ più di una volta al **giorno**;\n" +
-      "<:VC_DoubleReply:1482532332509466797> **Non** fare __partnership__ con se stessi più di una volta al **giorno**;\n" +
-      "<:VC_DoubleReply:1482532332509466797> **Non** mettere più di __`5` partnership__ con lo stesso **utente**;\n" +
-      "<:VC_DoubleReply:1482532332509466797> **Non** mettere partner con link **scaduti**;\n" +
-      "<:VC_DoubleReply:1482532332509466797> Il **numero minimo** di __partnership__ da __fare__ in una settimana è __`30`__;\n" +
-      "<:VC_Reply:1482532158080942191> È **vietato** fare __partnership__ con qualsiasi tipo di __server__ `NSFW` o che violi i `ToS` di **Discord**.\n\n" +
-      "<a:VC_Exclamation:1482534702077444217> **Comandi utili: (da usare con <@" + IDs.bots.ViniliCaffeBot + "> nei ticket o nel thread dei comandi)**\n" +
-      "> `/partnership` - Utilizzabile direttamente in <#" + pmCmdChannelId + "> o nei <#" + IDs.channels.ticket + ">\n" +
-      "> `+desc` - Utilizzabile solo nei <#" + IDs.channels.ticket + "> `partnership`, manda velocemente la descrizione del server\n" +
-      "> `+ticket` - Comando unico per la gestione del ticket\n" +
-      "> `+classifica` - Per vedere la classifica punti partner settimanale e totale\n" +
-      "> `+blacklist` - Per vedere i server in blacklist\n" +
-      "> `+profile` - Per vedere il vostro profilo partner manager\n\n" +
-      "<a:VC_Exclamation:1482534702077444217> **Info utili:**\n" +
-      "> <a:VC_Cross:1482532424570376253> **Non ci sono requisiti per le partner**\n" +
-      "> <a:VC_Verified:1482532479637127188> **Il manager deve aver completato l'inserimento o non si può fare la partner.**\n" +
-      "> <a:VC_PepeExit:1446190735937245415> **Il manager non deve uscire dal server o la partner verrà cancellata.**\n" +
-      "> <:VC_Collab:1482534540089098260> **Quando viene aperto un ticket cercate di completare tutto lì facendovi inviare la descrizione e facendo i comandi direttamente lì.**",
-    );
+    const body = buildStaffGuideSectionMarkdown("guidapartners");
+    const embed = new EmbedBuilder().setColor("#6f4e37").setDescription(body || "Sezione non disponibile.");
     await interaction.reply({ embeds: [embed], flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
     return true;
   }
@@ -504,13 +498,24 @@ async function handleStaffButtons(interaction) {
       "<a:VC_Calendar:1482706208149475358> Ogni settimana un <@&" + IDs.roles.Director + "> dovrà controllare tutte le <#" + IDs.channels.partnerships + "> e assicurarsi che rispettino la guida partners\n\n" +
       "<:VC_Quest:1482534879257165865> Qualsiasi partner che non rispetta quelle regole dovrà essere reportata qua settimanalmente tramite un semplice modulo\n\n" +
       "```\nlink messaggio -> regola infranta -> @partner manager\n```\n\n" +
-      "<:VC_Attention:1482534443632558151> Molte regole sono già coperte da <@" + IDs.bots.ViniliCaffeBot + "> e prima di segnalare una partner dovrete controllare <#" + IDs.channels.puntiTolti + "> per capire se il bot ha già tolto il punto o meno.",
+      "<:VC_Attention:1482534443632558151> Molte regole sono già coperte da <@" + IDs.bots.ViniliCaffeBot + "> e prima di segnalare una partner controlla la pagina **Punti tolti PM** sul sito staff per capire se il bot ha già tolto il punto o meno.",
     );
     await interaction.reply({ embeds: [embed], flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
     return true;
   }
 
   if (interaction.customId == "regolamento") {
+    const payload = buildModerationGuideStickyPayload();
+    await interaction
+      .reply({ embeds: payload.embeds, components: payload.components, flags: PRIVATE_FLAG })
+      .catch((err) => {
+        logButtonErr(err);
+        return null;
+      });
+    return true;
+  }
+
+  if (interaction.customId == "regole_staff") {
     const embed = new EmbedBuilder().setColor("#6f4e37").setDescription(
       "<:rules:1443307208543703131> **__REGOLAMENTO STAFF__**\n\n" +
       `<:VC_1:1482706338021642333> **Rispettare** le regole del server.\n` +
@@ -527,72 +532,28 @@ async function handleStaffButtons(interaction) {
   }
 
   if (interaction.customId == "generalimoderazione") {
-    const embed = new EmbedBuilder().setColor("#6f4e37").setDescription(`<:rules:1443307208543703131> **__Regola \`1.1\`__**
-${staffSanctionRuleIntro("1.1")}                <:VC_Reply:1482532158080942191> Sanzione: **Ban**
-
-                <:rules:1443307208543703131> **__Regola \`1.2\`__**
-${staffSanctionRuleIntro("1.2")}                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Mute __4h__**
-                <:VC_DoubleReply:1482532332509466797> 2° Sanzione: **Mute __12h__**
-                <:VC_Reply:1482532158080942191> 3° Sanzione: **Mute __24h__**
-
-                <:rules:1443307208543703131> **__Regola \`1.3\`__**
-${staffSanctionRuleIntro("1.3")}                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Mute __4h__**
-                <:VC_DoubleReply:1482532332509466797> 2° Sanzione: **Mute __8h__**
-                <:VC_Reply:1482532158080942191> 3° Sanzione: **Mute __18h__**
-
-                <:rules:1443307208543703131> **__Regola \`1.4\`__**
-${staffSanctionRuleIntro("1.4")}                <:VC_Reply:1482532158080942191> Sanzione: **Ban**
-
-                <:rules:1443307208543703131> **__Regola \`1.5\`__**
-${staffSanctionRuleIntro("1.5")}                <:VC_Reply:1482532158080942191> Sanzione: **Ban**`);
+    const body = buildStaffGuideSectionMarkdown("generalimoderazione");
+    const embed = new EmbedBuilder()
+      .setColor(moderationGuideEmbedColor())
+      .setDescription(body || "Sezione non disponibile.");
     await interaction.reply({ embeds: [embed], flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
     return true;
   }
 
   if (interaction.customId == "testualimoderazione") {
-    const embed = new EmbedBuilder().setColor("#6f4e37").setDescription(`<:rules:1443307208543703131> **__Regola \`2.1\`__**
-${staffSanctionRuleIntro("2.1")}                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Mute __24h__**
-                <:VC_Reply:1482532158080942191> 2° Sanzione: **Ban**
-
-                <:rules:1443307208543703131> **__Regola \`2.2\`__**
-${staffSanctionRuleIntro("2.2")}                <:VC_Reply:1482532158080942191> Sanzione: **Ban**
-
-                <:rules:1443307208543703131> **__Regola \`2.3\`__**
-${staffSanctionRuleIntro("2.3")}                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Mute __3h__**
-                <:VC_Reply:1482532158080942191> 2° Sanzione: **Mute __6h__**
-
-                <:rules:1443307208543703131> **__Regola \`2.4\`__**
-${staffSanctionRuleIntro("2.4")}                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Warn**
-                <:VC_Reply:1482532158080942191> 2° Sanzione: **Mute __2h__**`);
+    const body = buildStaffGuideSectionMarkdown("testualimoderazione");
+    const embed = new EmbedBuilder()
+      .setColor(moderationGuideEmbedColor())
+      .setDescription(body || "Sezione non disponibile.");
     await interaction.reply({ embeds: [embed], flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
     return true;
   }
 
   if (interaction.customId == "vocalimoderazione") {
-    const embed = new EmbedBuilder().setColor("#6f4e37").setDescription(`<:rules:1443307208543703131> **__Regola \`3.1\`__**
-${staffSanctionRuleIntro("3.1")}                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Mute __12h__**
-                <:VC_DoubleReply:1482532332509466797> 2° Sanzione: **Mute __24h__**
-                <:VC_Reply:1482532158080942191> 3° Sanzione: **Ban**
-
-                <:rules:1443307208543703131> **__Regola \`3.2\`__**
-${staffSanctionRuleIntro("3.2")}                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Mute __4h__**
-                <:VC_DoubleReply:1482532332509466797> 2° Sanzione: **Mute __12h__**
-                <:VC_Reply:1482532158080942191> 3° Sanzione: **Mute __24h__**
-
-                <:rules:1443307208543703131> **__Regola \`3.3\`__**
-${staffSanctionRuleIntro("3.3")}                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Mute __2h__**
-                <:VC_DoubleReply:1482532332509466797> 2° Sanzione: **Mute __6h__**
-                <:VC_Reply:1482532158080942191> 3° Sanzione: **Mute __12h__**
-
-                <:rules:1443307208543703131> **__Regola \`3.4\`__**
-${staffSanctionRuleIntro("3.4")}                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Mute __6h__**
-                <:VC_DoubleReply:1482532332509466797> 2° Sanzione: **Mute __15h__**
-                <:VC_Reply:1482532158080942191> 3° Sanzione: **Mute __35h__**
-
-                <:rules:1443307208543703131> **__Regola \`3.6\`__**
-${staffSanctionRuleIntro("3.6")}                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Mute __5h__**
-                <:VC_DoubleReply:1482532332509466797> 2° Sanzione: **Mute __11h__**
-                <:VC_Reply:1482532158080942191> 3° Sanzione: **Mute __24h__**`);
+    const body = buildStaffGuideSectionMarkdown("vocalimoderazione");
+    const embed = new EmbedBuilder()
+      .setColor(moderationGuideEmbedColor())
+      .setDescription(body || "Sezione non disponibile.");
     await interaction.reply({ embeds: [embed], flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
     return true;
   }
@@ -1100,8 +1061,8 @@ module.exports = {
         "<:rules:1443307208543703131> **`REGOLA VOCALE 3.4`**",
         `<:VC_Reply:1482532158080942191> ${MOD_RULE_DETAIL["3.4"]}`,
         "",
-        "<:rules:1443307208543703131> **`REGOLA VOCALE 3.6`**",
-        `<:VC_Reply:1482532158080942191> ${MOD_RULE_DETAIL["3.6"]}`,
+        "<:rules:1443307208543703131> **`REGOLA VOCALE 3.5`**",
+        `<:VC_Reply:1482532158080942191> ${MOD_RULE_DETAIL["3.5"]}`,
       ].join("\n");
       await interaction.reply({
         components: [

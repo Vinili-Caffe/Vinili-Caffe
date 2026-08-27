@@ -2,6 +2,10 @@ const { EmbedBuilder } = require("discord.js");
 const IDs = require("../Utils/Config/ids");
 const { enqueueSiteInAppNotification } = require("../Utils/Web/siteInAppNotificationsService");
 const { applyWebsiteUnmute } = require("../Events/interaction/unmuteWebsiteHandlers");
+const {
+  isDiscordWorkflowUiEnabled,
+  replyWorkflowMovedToSite,
+} = require("../Utils/Web/discordWorkflowUiGate");
 
 const ACC_PREFIX = "website_unmute_acc";
 const REJ_PREFIX = "website_unmute_rej";
@@ -50,6 +54,9 @@ async function setUnmuteMessageStatusColor(message, color) {
 }
 
 async function execute(interaction) {
+  if (!isDiscordWorkflowUiEnabled()) {
+    return replyWorkflowMovedToSite(interaction, "appelliInbox");
+  }
   const { accept, uid } = parseTargetUserId(interaction.customId);
   if (!/^\d{17,20}$/.test(uid)) {
     await interaction

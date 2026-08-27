@@ -120,22 +120,25 @@ const STAFF_PM_SHOP_PREFIX = "staff_pm_shop";
 const STAFF_VAL_NEG_TRADE_PREFIX = "staff_val_neg_trade";
 const STAFF_VAL_PAUSE_TRADE_PREFIX = "staff_val_pause_trade";
 
-function buildPmShopSelfRedeemRows(viewerId, targetId, partnerPtsForRedeem) {
+function buildPmShopSelfRedeemRows(viewerId, targetId, partnerPtsForRedeem, blocks) {
   const v = String(viewerId || "");
   const t = String(targetId || "");
   if (!v || v !== t) return [];
   const pts = Math.max(0, Math.floor(Number(partnerPtsForRedeem || 0)));
+  const locks = blocks && typeof blocks === "object" ? blocks : {};
   const rowA = [];
   const rowB = [];
   for (const tier of PARTNER_MANAGER_REDEEM_TIERS) {
     const cost = getPartnerRewardPointCost(tier);
-    const can = partnerManagerCanAffordReward(pts, tier);
+    const blocked =
+      tier === 50 ? Boolean(locks.customBlocked) : tier === 100 ? Boolean(locks.vipBlocked) : false;
+    const can = !blocked && partnerManagerCanAffordReward(pts, tier);
     const short = tier === 50 || tier === 100 ? `r${tier}` : `t${tier}`;
     const b = new ButtonBuilder()
       .setCustomId(`${STAFF_PM_SHOP_PREFIX}:${short}:${v}:${t}`)
-      .setLabel(`${cost} pt`)
-      .setStyle(tier <= 100 ? ButtonStyle.Success : ButtonStyle.Primary)
-      .setDisabled(!can);
+      .setLabel(blocked ? "Bloccato" : `${cost} pt`)
+      .setStyle(blocked ? ButtonStyle.Secondary : tier <= 100 ? ButtonStyle.Success : ButtonStyle.Primary)
+      .setDisabled(!can || blocked);
     if (tier <= 150) rowA.push(b);
     else rowB.push(b);
   }
@@ -200,22 +203,62 @@ function resolveStaffProfileDisplayRoleId(member) {
 }
 
 function buildFullProfileRoleLabelForEmbed(guild, member) {
-  if (!member?.roles?.cache || !guild?.roles?.cache) return "—";
+  const badges = buildStaffProfileRoleBadges(guild, member);
+  if (!badges.length) return "—";
+  return badges.map((b) => b.label).join(" & ");
+}
+
+function staffProfileRoleBadgeKind(roleId) {
+  const id = String(roleId || "");
+  if (IDs.roles.Founder && id === String(IDs.roles.Founder)) return "founder";
+  if (IDs.roles.Manager && id === String(IDs.roles.Manager)) return "manager";
+  if (IDs.roles.PartnerManager && id === String(IDs.roles.PartnerManager)) return "pm";
+  return "staff";
+}
+
+function staffProfileRoleBadgeIcon(kind) {
+  if (kind === "founder") return "fa-star-o";
+  if (kind === "manager") return "fa-briefcase";
+  if (kind === "pm") return "fa-handshake-o";
+  return "fa-shield";
+}
+
+function staffProfileRoleColorHex(role) {
+  if (role?.hexColor && role.hexColor !== "#000000") return role.hexColor;
+  return "#d4a888";
+}
+
+/** Badge ruolo separati per profilo web (es. Founder + Partner Manager, non combinati). */
+function buildStaffProfileRoleBadges(guild, member) {
+  if (!member?.roles?.cache || !guild?.roles?.cache) return [];
   const pmId = String(IDs.roles.PartnerManager || "");
-  let staffLabel = null;
+  const badges = [];
   for (const roleId of STAFF_PROFILE_DISPLAY_ROLE_PRIORITY) {
     if (!roleId || String(roleId) === pmId) continue;
     if (member.roles.cache.has(roleId)) {
-      staffLabel = guild.roles.cache.get(roleId)?.name || `<@&${roleId}>`;
+      const discordRole = guild.roles.cache.get(roleId);
+      const kind = staffProfileRoleBadgeKind(roleId);
+      badges.push({
+        kind,
+        icon: staffProfileRoleBadgeIcon(kind),
+        label: discordRole?.name || "Staff",
+        color: staffProfileRoleColorHex(discordRole),
+        roleId: String(roleId),
+      });
       break;
     }
   }
-  const hasPm = Boolean(pmId && member.roles.cache.has(pmId));
-  const pmLabel = hasPm ? guild.roles.cache.get(pmId)?.name || "Partner Manager" : null;
-  if (staffLabel && pmLabel) return `${staffLabel} & ${pmLabel}`;
-  if (staffLabel) return staffLabel;
-  if (pmLabel) return pmLabel;
-  return "—";
+  if (pmId && member.roles.cache.has(pmId)) {
+    const pmRole = guild.roles.cache.get(pmId);
+    badges.push({
+      kind: "pm",
+      icon: "fa-handshake-o",
+      label: pmRole?.name || "Partner Manager",
+      color: staffProfileRoleColorHex(pmRole),
+      roleId: pmId,
+    });
+  }
+  return badges;
 }
 
 function hasDisplayTierStaffBeforePartnerManager(member) {
@@ -232,11 +275,19 @@ function hasDisplayTierStaffBeforePartnerManager(member) {
 function viewerCanUsePartnerPointsPanel(member) {
   if (!member?.roles?.cache) return false;
   const c = member.roles.cache;
-  return Boolean(
+  if (
     (IDs.roles.HighStaff && c.has(IDs.roles.HighStaff)) ||
     (IDs.roles.Director && c.has(IDs.roles.Director)) ||
-    (IDs.roles.Founder && c.has(IDs.roles.Founder)),
-  );
+    (IDs.roles.Founder && c.has(IDs.roles.Founder))
+  ) {
+    return true;
+  }
+  try {
+    const { memberIsResocontoPmReviewer } = require("../Ticket/ticketPartnershipStaffRoles");
+    return memberIsResocontoPmReviewer(member);
+  } catch {
+    return false;
+  }
 }
 
 function viewerIsFounder(member) {
@@ -984,7 +1035,21 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
       ? `<a:VC_Money:1482724694699278487> Shop premi · ${name}`
       : `<a:VC_Money:1482724694699278487> Shop premi · ${name}`;
     const shopBtnRows =
-      hasPm && String(viewerId) === String(tid) ? buildPmShopSelfRedeemRows(viewerId, tid, partnerPtsForRedeem) : [];
+      hasPm && String(viewerId) === String(tid)
+        ? buildPmShopSelfRedeemRows(
+            viewerId,
+            tid,
+            partnerPtsForRedeem,
+            (() => {
+              try {
+                const { resolvePartnerManagerShopInstantBlocks } = require("./partnerManagerTimedPerks");
+                return resolvePartnerManagerShopInstantBlocks(member, { staff: s });
+              } catch (_) {
+                return {};
+              }
+            })(),
+          )
+        : [];
     return {
       embeds: [
         new EmbedBuilder()
@@ -1286,6 +1351,7 @@ module.exports = {
   resolveStaffPartnerPointsDisplay,
   resolveStaffProfileKind,
   buildFullProfileRoleLabelForEmbed,
+  buildStaffProfileRoleBadges,
   resolveStaffProfileDisplayRoleId,
   viewerCanUsePartnerPointsPanel,
   viewerIsCoordinatorOrAbove,

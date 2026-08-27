@@ -244,17 +244,29 @@
   async function refreshEligibility() {
     var token = getToken();
     var url = eligibilityApiUrl();
-    if (!token || !url) return null;
+    if (!token || !url) {
+      setStatus(t("unmute.checkError"), false);
+      toggleForm(false);
+      return null;
+    }
+    var ctrl = typeof AbortController !== "undefined" ? new AbortController() : null;
+    var timer = null;
     try {
+      if (ctrl) timer = setTimeout(function () { try { ctrl.abort(); } catch (eA) {} }, 12000);
       var res = await fetch(url, {
         method: "GET",
         headers: { Authorization: "Bearer " + token },
+        signal: ctrl ? ctrl.signal : undefined,
       });
       var data = {};
       try {
         data = await res.json();
       } catch (e) {}
-      if (!res.ok || !data.ok) return null;
+      if (!res.ok || !data.ok) {
+        setStatus(String(data.message || data.error || t("unmute.checkError")), false);
+        toggleForm(false);
+        return null;
+      }
       lastEligibility = data;
       if (!data.is_muted) {
         setStatus(t("unmute.notMuted"), true);
@@ -273,6 +285,8 @@
       setStatus(t("unmute.checkError"), false);
       toggleForm(false);
       return null;
+    } finally {
+      if (timer) clearTimeout(timer);
     }
   }
 

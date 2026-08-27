@@ -23,6 +23,69 @@ function partnerManagerCustomBundleActiveFromLean(lean) {
   return partnerManagerPerkDateActive(lean?.staff?.partnerManagerCustomPerksUntil);
 }
 
+function partnerManagerVipActiveFromLean(lean) {
+  return partnerManagerPerkDateActive(lean?.staff?.partnerManagerVipUntil);
+}
+
+function memberHasVipRole(member) {
+  if (!member?.roles?.cache) return false;
+  const vipIds = [IDs.roles?.VIP, IDs.roles?.VIPplus, IDs.roles?.["VIP+"]]
+    .map((id) => String(id || "").trim())
+    .filter(Boolean);
+  return vipIds.some((roleId) => member.roles.cache.has(roleId));
+}
+
+function memberHasVipPlusRole(member) {
+  if (!member?.roles?.cache) return false;
+  const plusIds = [IDs.roles?.VIPplus, IDs.roles?.["VIP+"]]
+    .map((id) => String(id || "").trim())
+    .filter(Boolean);
+  return plusIds.some((roleId) => member.roles.cache.has(roleId));
+}
+
+function memberHasCustomRoleOrVocPermission(member) {
+  if (!member?.roles?.cache) return false;
+  try {
+    const { memberHasCustomRolePanelAccess } = require("../Community/customRoleSlots");
+    if (memberHasCustomRolePanelAccess(member)) return true;
+  } catch (_) {}
+  const vocRoleIds = [
+    IDs?.roles?.VIP,
+    IDs?.roles?.DoubleBooster,
+    IDs?.roles?.VIPplus,
+    IDs?.roles?.["VIP+"],
+    IDs?.roles?.Level50,
+  ]
+    .map((id) => String(id || "").trim())
+    .filter(Boolean);
+  return vocRoleIds.some((roleId) => member.roles.cache.has(roleId));
+}
+
+/**
+ * Premi istantanei già goduti → bloccati (come richiesto sullo shop web/Discord).
+ * - 50: custom role/voc già attivi (bundle PM o permesso ruolo)
+ * - 100: VIP già attivo (timer PM, ruolo VIP o VIP+)
+ */
+function resolvePartnerManagerShopInstantBlocks(member, lean) {
+  const customActive = partnerManagerCustomBundleActiveFromLean(lean);
+  const vipActive = partnerManagerVipActiveFromLean(lean);
+  const hasVipPlus = memberHasVipPlusRole(member);
+  const hasVip = memberHasVipRole(member);
+  const hasCustomPerm = memberHasCustomRoleOrVocPermission(member);
+  return {
+    customBlocked: Boolean(customActive || hasCustomPerm),
+    vipBlocked: Boolean(vipActive || hasVip),
+    customBlockedReason: customActive
+      ? "Hai già Custom Role / Custom Voc attivi dallo shop (30 giorni)."
+      : "Hai già il permesso Custom Role / Custom Voc.",
+    vipBlockedReason: vipActive
+      ? "Hai già il premio VIP attivo dallo shop (30 giorni)."
+      : hasVipPlus
+        ? "Hai già il ruolo VIP+."
+        : "Hai già il ruolo VIP.",
+  };
+}
+
 async function applyPartnerManagerRedeem50(guildId, userId) {
   const until = new Date(Date.now() + THIRTY_DAYS_MS);
   const g = String(guildId ?? "").trim();
@@ -110,6 +173,10 @@ module.exports = {
   partnerManagerPerkDateActive,
   fetchPartnerManagerTimedPerkLean,
   partnerManagerCustomBundleActiveFromLean,
+  partnerManagerVipActiveFromLean,
+  memberHasVipRole,
+  memberHasCustomRoleOrVocPermission,
+  resolvePartnerManagerShopInstantBlocks,
   applyPartnerManagerRedeem50,
   applyPartnerManagerRedeem100,
   sweepExpiredPartnerManagerTimedPerks,

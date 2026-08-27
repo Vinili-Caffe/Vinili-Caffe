@@ -92,9 +92,24 @@ async function incrementStaffValutazioneCounters(guildId, userId, kind, reason =
 }
 
 async function deleteThreadForMessage(guild, messageIdOrMessage) {
-  const id = typeof messageIdOrMessage === "object" && messageIdOrMessage != null
-    ? String(messageIdOrMessage?.id || "")
-    : String(messageIdOrMessage || "");
+  if (typeof messageIdOrMessage === "object" && messageIdOrMessage != null) {
+    const msg = messageIdOrMessage;
+    if (msg.thread) {
+      await msg.thread.delete().catch(() => null);
+      return;
+    }
+    const linkedThreadId = String(msg.threadId || "").trim();
+    if (linkedThreadId) {
+      const linked = guild.channels.cache.get(linkedThreadId) || (await getGuildChannelCached(guild, linkedThreadId));
+      if (linked?.isThread?.()) {
+        await linked.delete().catch(() => null);
+        return;
+      }
+    }
+    messageIdOrMessage = msg.id;
+  }
+
+  const id = String(messageIdOrMessage || "");
   if (!/^\d{16,20}$/.test(id)) return;
   const thread = guild.channels.cache.get(id) || (await getGuildChannelCached(guild, id));
   if (thread?.isThread?.()) {
@@ -155,10 +170,21 @@ function messageLooksRelatedToUser(msg, userId) {
     return true;
   }
   const embeds = Array.isArray(msg.embeds) ? msg.embeds : [];
-  return embeds.some((e) => {
-    const blob = embedTextBlob(e?.data || e);
-    return blob.includes(uid) || blob.includes(`<@${uid}>`) || blob.includes(`<@!${uid}>`);
-  });
+  if (
+    embeds.some((e) => {
+      const blob = embedTextBlob(e?.data || e);
+      return blob.includes(uid) || blob.includes(`<@${uid}>`) || blob.includes(`<@!${uid}>`);
+    })
+  ) {
+    return true;
+  }
+  // Resoconti / azioni staff: userId nei customId dei bottoni (Accetta/Rifiuta).
+  for (const row of msg.components || []) {
+    for (const c of row.components || []) {
+      if (String(c?.customId || "").includes(uid)) return true;
+    }
+  }
+  return false;
 }
 
 function collectStaffMessageRefs(staff) {
@@ -327,13 +353,28 @@ async function deleteStaffRelatedMessagesFromConfiguredChannels(guild, userId, s
   let deleted = 0;
   if (staff) deleted += await deleteStaffMessagesByKnownIds(guild, staff);
   const channelIds = [
-    IDs.channels?.pause,
-    IDs.channels?.valutazioniStaff,
-    IDs.channels?.warnStaff,
-    IDs.channels?.puntiTolti,
-  ]
-    .map((x) => String(x || "").trim())
-    .filter(Boolean);
+    ...new Set(
+      [
+        IDs.channels?.pause,
+        ...( (() => {
+          try {
+            const { isDiscordStaffChannelPostsEnabled } = require("../Web/discordWorkflowUiGate");
+            if (!isDiscordStaffChannelPostsEnabled()) return [];
+          } catch (_) {
+            return [];
+          }
+          return [
+            IDs.channels?.valutazioniStaff,
+            IDs.channels?.resocontiStaff,
+            IDs.channels?.warnStaff,
+            IDs.channels?.puntiTolti,
+          ];
+        })() ),
+      ]
+        .map((x) => String(x || "").trim())
+        .filter(Boolean),
+    ),
+  ];
   for (const channelId of channelIds) {
     deleted += await deleteUserRelatedMessagesInChannel(guild, channelId, uid);
   }
@@ -359,7 +400,8 @@ const STAFF_LADDER_TRACK_RESET_SET = {
   "staff.bestStaffPauseBonusYears": [],
   "staff.serataFilmAttendanceSaturdayKey": null,
   "staff.serataFilmWillAttend": null,
-  "staff.pauses": [],
+  // Non toccare staff.pauses: il reset ladder (re-pex) non deve cancellare
+  // pause accettate/storiche usate da calendario e conteggio giorni.
 };
 
 function buildStaffLadderTrackResetUpdate() {
@@ -386,7 +428,7 @@ function applyStaffLadderTrackResetToObject(staffObj) {
   staffObj.bestStaffPauseBonusYears = [];
   staffObj.serataFilmAttendanceSaturdayKey = null;
   staffObj.serataFilmWillAttend = null;
-  staffObj.pauses = [];
+  // Keep staffObj.pauses (accepted/history) across re-pex ladder resets.
 }
 
 async function resetStaffLadderTrackInDb(guildId, userId) {
@@ -403,8 +445,58 @@ async function purgeStaffChannelMessagesForUser(guild, userId) {
   return deleteStaffRelatedMessagesFromConfiguredChannels(guild, userId);
 }
 
+async function appendStaffRolesHistoryEntry(
+  guildId,
+  userId,
+  { oldRole, newRole, reason, date, kind, displayName, username, avatarUrl, actorId, actorName },
+) {
+  const gid = String(guildId || "").trim();
+  const uid = String(userId || "").trim();
+  if (!gid || !uid || !/^\d{16,22}$/.test(uid)) return false;
+  const profileDoc = await getOrCreateStaffDoc(gid, uid);
+  const s = ensureStaff(profileDoc);
+  if (!Array.isArray(s.rolesHistory)) s.rolesHistory = [];
+  const entry = {
+    oldRole: String(oldRole || "").trim(),
+    newRole: String(newRole ?? "").trim(),
+    reason: String(reason || "").trim() || null,
+    date: date instanceof Date && Number.isFinite(date.getTime()) ? date : new Date(),
+  };
+  if (kind === "pex" || kind === "depex") entry.kind = kind;
+  const snapName = String(displayName || "").trim();
+  const snapUser = String(username || "").trim();
+  const snapAvatar = String(avatarUrl || "").trim();
+  if (snapName && !/^\d{16,22}$/.test(snapName)) entry.displayName = snapName.slice(0, 128);
+  if (snapUser && !/^\d{16,22}$/.test(snapUser)) entry.username = snapUser.slice(0, 64);
+  if (snapAvatar && /^https:\/\//i.test(snapAvatar)) entry.avatarUrl = snapAvatar.slice(0, 512);
+  const actor = String(actorId || "").trim();
+  if (actor && /^\d{16,22}$/.test(actor)) entry.actorId = actor;
+  const actorLabel = String(actorName || "").trim();
+  if (actorLabel) entry.actorName = actorLabel.slice(0, 128);
+  s.rolesHistory.push(entry);
+  profileDoc.markModified("staff");
+  await profileDoc.save().catch((err) => {
+    global.logger?.warn?.("[staffDocUtils] appendStaffRolesHistoryEntry save:", uid, err?.message || err);
+    return null;
+  });
+  try {
+    const { appendStaffTrackHistory, actorLabelFromUser } = require("./staffTrackHistory");
+    await appendStaffTrackHistory(gid, uid, {
+      kind: entry.kind || (entry.newRole ? "pex" : "depex"),
+      reason: entry.reason,
+      date: entry.date,
+      actorId: entry.actorId || null,
+      actorName: entry.actorName || actorLabelFromUser(null, entry.actorId),
+      oldRole: entry.oldRole,
+      newRole: entry.newRole,
+    });
+  } catch (_) {}
+  return true;
+}
+
 module.exports = {
   getOrCreateStaffDoc,
+  appendStaffRolesHistoryEntry,
   incrementStaffValutazioneCounters,
   deleteThreadForMessage,
   deleteStaffPauseRequestChannelMessages,

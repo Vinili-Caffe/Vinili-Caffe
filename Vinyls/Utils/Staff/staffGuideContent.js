@@ -1,5 +1,6 @@
 const IDs = require("../Config/ids");
 const { MOD_RULE_DETAIL } = require("../Moderation/modRegolamentoConstants");
+const { siteWorkflowUrl } = require("../Web/discordWorkflowUiGate");
 
 function staffSanctionRuleIntro(ruleKey) {
   const body = MOD_RULE_DETAIL[ruleKey];
@@ -9,9 +10,9 @@ function staffSanctionRuleIntro(ruleKey) {
 
 /** Same labels as staffGuideMenuComponents.STAFF_GUIDE_SECTIONS */
 const TOP_LEVEL_SECTION_META = [
-  { id: "regolamento", label: "Regolamento", description: "Regole fondamentali dello staff", emoji: "<:rules:1443307208543703131>" },
+  { id: "regolamento", label: "Regolamento", description: "Regole e sanzioni utenti", emoji: "<:rules:1443307208543703131>" },
+  { id: "regole_staff", label: "Regole staff", description: "Regole di comportamento dello staff", emoji: "<:discordstaff:1443651872258003005>" },
   { id: "limiti", label: "Limiti settimanali", description: "Obiettivi di attività settimanale", emoji: "<:reportmessage:1443670575376765130>" },
-  { id: "moderazione_staff", label: "Moderazione", description: "Procedure e sanzioni", emoji: "<:discordstaff:1443651872258003005>" },
   { id: "compiti_fissi", label: "Compiti fissi", description: "Compiti fissi da svolgere ogni settimana", emoji: "<:VC_Quest:1482534879257165865>" },
   { id: "pause", label: "Pause", description: "Come funzionano le pause staff", emoji: "<:Clock:1330530065133338685>" },
   { id: "lineeguida", label: "Linee guida", description: "Comportamento e buone pratiche", emoji: "<:VC_PinkQuestionMark:1471892611026391306>" },
@@ -28,27 +29,27 @@ const NESTED_SECTION_META = [
     id: "generalimoderazione",
     label: "Generali",
     description: "Sanzioni regole generali",
-    parent: "moderazione_staff",
+    parent: "regolamento",
     emoji: "<:appdirectoryallwhite:1443308556995788840>",
   },
   {
     id: "testualimoderazione",
     label: "Testuali",
     description: "Sanzioni regole testuali",
-    parent: "moderazione_staff",
+    parent: "regolamento",
     emoji: "<:discordchannelwhite:1443308552536985810>",
   },
   {
     id: "vocalimoderazione",
     label: "Vocali",
     description: "Sanzioni regole vocali",
-    parent: "moderazione_staff",
+    parent: "regolamento",
     emoji: "<:microphone:1443307206824169573>",
   },
   {
     id: "middle_ticket",
     label: "Gestione Ticket",
-    description: "Supporto ticket per middle staff",
+    description: "Ticket sul sito (staff)",
     parent: "guidamiddle",
     emoji: "<:VC_Ticket:1482535175283019888>",
   },
@@ -76,6 +77,9 @@ const NESTED_SECTION_META = [
 ];
 
 const SECTION_CHILDREN = {
+  // Stesso contenuto sticky del canale #sanzioni-utenti
+  regolamento: ["generalimoderazione", "testualimoderazione", "vocalimoderazione"],
+  // Alias legacy (menu Discord / bottoni vecchi)
   moderazione_staff: ["generalimoderazione", "testualimoderazione", "vocalimoderazione"],
   guidamiddle: ["middle_ticket", "middle_selfie", "middle_follower", "middle_partnership"],
 };
@@ -115,15 +119,36 @@ function buildStaffGuideIntroMarkdown() {
     "",
     "> <a:VC_Rule:1482706839928967280> Apri una sezione dal menu per leggere il capitolo completo.",
     "",
-    "<:VC_Attention:1482534443632558151> **Canali di riferimento**",
+    "<:VC_Attention:1482534443632558151> **Canali e sito di riferimento**",
+    `<:VC_Dot:1482532364222595303> Guida staff completa: ${siteWorkflowUrl("guida")}`,
     `<:VC_Dot:1482532364222595303> Sanzioni utenti: <#${ch.sanzioniUtenti}>`,
-    `<:VC_Dot:1482532364222595303> Richiesta pause: <#${ch.pause}>`,
-    `<:VC_Dot:1482532364222595303> Valutazioni e Warn staff: <#${ch.valutazioniStaff}>`,
+    `<:VC_Dot:1482532364222595303> Ticket (supporto, perks, high, partnership): ${siteWorkflowUrl("ticketsStaff")}`,
+    `<:VC_Dot:1482532364222595303> Pause / profilo / organico / valutazioni: sul **sito staff**`,
   ].join("\n");
 }
 
+/** Intro sticky del canale #sanzioni-utenti (stesso testo di moderazione_staff). */
+function buildModerationStaffIntroMarkdown() {
+  return `<a:VC_Alarm:1482706641618079816> Per **applicare** le __sanzioni__, è necessario __attenersi__ alle **indicazioni** riportate di seguito e **consultare** le procedure disponibili nelle sottosezioni.
+
+<:VC_1:1482706338021642333> <a:VC_Arrow:1482706699365257397> Bisogna **__sempre__** allegare le **prove** (screen, video, link di messaggi).
+
+<:VC_2:1482706376525611090> <a:VC_Arrow:1482706699365257397> Il __numero__ della **sanzione** si basa su quante volte l'**utente** è stato **sanzionato __specificatamente__ per quella regola**.
+
+<:VC_3:1482706404773990460> <a:VC_Arrow:1482706699365257397> Quando **sanzionate**, usate sempre l'**__articolo__** del **regolamento** infranto.
+
+<:VC_4:1482706432347344916> <a:VC_Arrow:1482706699365257397> Per visualizzare **quante** volte un __utente__ è stato **sanzionato**, usate il comando +modlogs **__\`ID\`__**.
+
+<:VC_5:1482706459765637272> <a:VC_Arrow:1482706699365257397> Bisogna **__sempre__** sanzionare nel canale <#1442569245878648924> usando i comandi di <@1329118940110127204>
+
+<:VC_6:1482706490769801327> <a:VC_Arrow:1482706699365257397> Ogni volta che si __oltrepassa__ il numero di **sanzioni ottenibili** si **ricomincia** il __ciclo__ di sanzioni per quella **specifica __regola__**.`;
+}
+
 const SECTION_BUILDERS = {
-  regolamento: () =>
+  // Intro sticky #sanzioni-utenti + sottosezioni Generali/Testuali/Vocali
+  regolamento: () => buildModerationStaffIntroMarkdown(),
+
+  regole_staff: () =>
     "<:rules:1443307208543703131> **__REGOLAMENTO STAFF__**\n\n" +
     `<:VC_1:1482706338021642333> **Rispettare** le regole del server.\n` +
     `<:VC_2:1482706376525611090> __Non__ **chiedere** pex _continuamente_.\n` +
@@ -159,7 +184,7 @@ const SECTION_BUILDERS = {
     "<:VC_DoubleReply:1482532332509466797> **__550__** messaggi\n" +
     "<:VC_Reply:1482532158080942191> **__5,5h__** in vocale\n\n" +
     "> <:VC_Attention:1482534443632558151> Verrà **valutato** anche il **modo** in cui questi __limiti__ vengono raggiunti, ovvero se lo **staffer** è stato costante o no.\n" +
-    "> <:reportmessage:1443670575376765130> Ogni staffer per sanzionare dovrà __seguire__ la <#1442569237142044773>.\n\n" +
+    `> <:reportmessage:1443670575376765130> Ogni staffer per sanzionare dovrà __seguire__ la guida (sezione **Regolamento**) sul sito: ${siteWorkflowUrl("guida")}\n\n` +
     "> <a:VC_Arrow:1482706699365257397> **__LIMITI SETTIMANALI SULLE SANZIONI__**\n" +
     "<:VC_Dot:1482532364222595303> Ogni <@&" +
     IDs.roles.Helper +
@@ -175,20 +200,7 @@ const SECTION_BUILDERS = {
     "> dovrà __eseguire__ almeno: **`1 sanzione`**\n\n" +
     "> Chi __rispetterà__ questi limiti riceverà **una valutazione positiva**.",
 
-  moderazione_staff: () =>
-    `<a:VC_Alarm:1482706641618079816> Per **applicare** le __sanzioni__, è necessario __attenersi__ alle **indicazioni** riportate di seguito e **consultare** le procedure disponibili nelle sottosezioni.
-
-<:VC_1:1482706338021642333> <a:VC_Arrow:1482706699365257397> Bisogna **__sempre__** allegare le **prove** (screen, video, link di messaggi).
-
-<:VC_2:1482706376525611090> <a:VC_Arrow:1482706699365257397> Il __numero__ della **sanzione** si basa su quante volte l'**utente** è stato **sanzionato __specificatamente__ per quella regola**.
-
-<:VC_3:1482706404773990460> <a:VC_Arrow:1482706699365257397> Quando **sanzionate**, usate sempre l'**__articolo__** del **regolamento** infranto.
-
-<:VC_4:1482706432347344916> <a:VC_Arrow:1482706699365257397> Per visualizzare **quante** volte un __utente__ è stato **sanzionato**, usate il comando +modlogs **__\`ID\`__**.
-
-<:VC_5:1482706459765637272> <a:VC_Arrow:1482706699365257397> Bisogna **__sempre__** sanzionare nel canale <#1442569245878648924> usando i comandi di <@1329118940110127204>
-
-<:VC_6:1482706490769801327> <a:VC_Arrow:1482706699365257397> Ogni volta che si __oltrepassa__ il numero di **sanzioni ottenibili** si **ricomincia** il __ciclo__ di sanzioni per quella **specifica __regola__**.`,
+  moderazione_staff: () => buildModerationStaffIntroMarkdown(),
 
   compiti_fissi: () =>
     "<:VC_Quest:1482534879257165865> **__COMPITI FISSI__**\n\n" +
@@ -200,13 +212,11 @@ const SECTION_BUILDERS = {
     "<:VC_Dot:1482532364222595303> **Convincere nuovi utenti a boostare il server o acquistare un pacchetto come Donator, VIP o VIP+**\n\n" +
     "<:VC_bluthumbsup:1482458262401061044> Svolgere uno tra questi compiti ogni settimana garantirà una **valutazione positiva** e maggiore possibilità di essere pexato.\n" +
     "<:VC_bluthumbsdown:1482458289131360306> Non farlo garantirà una **valutazione negativa** e maggiore possibilità di essere depexato.\n\n" +
-    "<:VC_Ticket:1482535175283019888> Per garantire la correttezza dei compiti è necessario allegare le prove in un <#" +
-    IDs.channels.ticket +
-    "> `HIGH STAFF`.",
+    `<:VC_Ticket:1482535175283019888> Per garantire la correttezza dei compiti è necessario allegare le prove aprendo un ticket **High Staff** sul sito: ${siteWorkflowUrl("tickets")}`,
 
   pause: () =>
     "<:Clock:1330530065133338685> Vinili & Caffè presenta un **sistema** di **`pause`** _sofisticato_, infatti è tutto __organizzato__ per **garantire** al meglio l'__attività__ del server.\n" +
-    "> Per __richiedere__ una pausa basta scrivere nel canale <#1442569255315832945> usando il formato corretto.\n\n" +
+    `> Per __richiedere__ una pausa apri la pagina sul **sito**: ${siteWorkflowUrl("pause")}\n\n` +
     "<a:VC_Arrow:1482706699365257397> **__LIMITI__**\n" +
     "<a:loading:1443934440614264924> In un anno si possono chiedere __massimo__ **`60 giorni`** di pausa che si possono usufruire in __tutti__ i **12 mesi** dell'anno.\n\n" +
     "> Nei giorni **festivi** avrete anche dei giorni in più **ulteriori** al __normale mese__:\n" +
@@ -255,17 +265,13 @@ const SECTION_BUILDERS = {
     "Per portare avanti un progetto, renderlo bello e arricchirlo personalmente sono necessari davvero pochi e piccoli passi. Seguiteli e vedrete che andrà tutto bene! **E ricordati di divertirti!**",
 
   comandi: () =>
-    "<a:VC_StarPink:1330194976440848500> Visto l'alto flusso di utenti che entrano solo per trollare o flammare, abbiamo deciso di creare una guida dedicata ai comandi sulla moderazione, ulteriore a quella già presente in <#" +
-    IDs.channels.guidaStaff +
-    ">.\n" +
-    "> <:VC_Quest:1482534879257165865> Per i tempi e le regole è necessario seguire sempre <#" +
-    IDs.channels.guidaStaff +
-    "> sezione `MODERAZIONE`. Inoltre avete tutti un limite di sanzioni che dovrete fare ogni settimana per ricevere una valutazione positiva (Helper: **1**, Mod/Senior: **2**, Director: **1**). Non è un obbligo ma aiuta noi a capire chi è più attivo nello staff e a tenere pulito il server.\n\n" +
+    `<a:VC_StarPink:1330194976440848500> Visto l'alto flusso di utenti che entrano solo per trollare o flammare, abbiamo una guida dedicata ai comandi di moderazione (oltre al **Regolamento** nella guida staff sul sito: ${siteWorkflowUrl("guida")}).\n` +
+    `> <:VC_Quest:1482534879257165865> Per i tempi e le regole seguite sempre la sezione **Regolamento** della guida. Inoltre avete tutti un limite di sanzioni settimanali per una valutazione positiva (Helper: **1**, Mod/Senior: **2**, Director: **1**). Non è un obbligo ma aiuta a capire chi è più attivo e a tenere pulito il server.\n\n` +
     "<:VC_BanHammer:1482534474502897795> **LISTA DEI COMANDI**\n\n" +
     "`+purge` <a:VC_Arrow:1482706699365257397> Serve per cancellare i messaggi di un determinato canale o utente, utilizzabile solo dall'<@&" +
     IDs.roles.HighStaff +
     ">\n\n" +
-    "`+warn` <a:VC_Arrow:1482706699365257397> Serve per dare un avviso a un utente, esso è eseguibile da tutti. I warn vengono dati anche a chi apre un ticket e non risponde nell'arco delle 24 ore oppure trolla all'interno.\n\n" +
+    "`+warn` <a:VC_Arrow:1482706699365257397> Serve per dare un avviso a un utente, esso è eseguibile da tutti. I warn vengono dati anche a chi apre un ticket sul sito e non risponde nell'arco delle 24 ore oppure trolla all'interno.\n\n" +
     "`+mute` <a:VC_Arrow:1482706699365257397> Questo comando si può utilizzare solo da <@&" +
     IDs.roles.Mod +
     "> in sù e serve per silenziare un membro che commette un infrazione delle regole. Questo comando oltre a mutare mettere in \"quarantena\" l'utente, ovvero toglie completamente i ruoli all'utente e ne mette uno con cui non può fare nulla.\n\n" +
@@ -287,9 +293,7 @@ const SECTION_BUILDERS = {
     "> in sù.\n\n" +
     "## <a:VC_Alert:1482706673176150077> Prendi tempo per sanzionare!\n" +
     "È meglio una sanzione legittima con una motivazione corretta e una tempistica giusta rispetto a un utente che si lamenta dello staff del server!\n\n" +
-    "<a:VC_Exclamation:1482534702077444217> Ricordo naturalmente di seguire anche le altre linee guida su come sanzionare in modo corretto un utente in <#" +
-    IDs.channels.guidaStaff +
-    ">.",
+    `<a:VC_Exclamation:1482534702077444217> Ricordo di seguire anche le linee guida su come sanzionare correttamente nella sezione **Regolamento**: ${siteWorkflowUrl("guida")}`,
 
   valutazioni: () =>
     "<a:1370everythingisstable:1444006799643508778> **__VALUTAZIONI POSITIVE__**\n\n" +
@@ -307,7 +311,7 @@ const SECTION_BUILDERS = {
     "<:VC_1:1482706338021642333> **Mettendo il link vanity o il sito nello status o nella bio, o mettendo una nostra GUILD TAGS**\n" +
     "<:VC_2:1482706376525611090> **Seguendo le pagine social**\n" +
     "<:VC_3:1482706404773990460> **Mettendo una recensione sul [nostro sito](https://www.viniliecaffe.it/recensioni)**\n" +
-    "<:VC_4:1482706432347344916> **Boostando il server o comprando un ruolo come Donator, VIP o VIP+ \n(<:VC_Attention:1482534443632558151> __Attenzione: per i boost varrà anche solo con un boost, se viene trasferito verrà rimossa anche la valutazione.__ Solo per il ruolo Supporter e Follower bisognerà aprire un ticket \`PERKS\`)**\n\n" +
+    `<:VC_4:1482706432347344916> **Boostando il server o comprando un ruolo come Donator, VIP o VIP+ \n(<:VC_Attention:1482534443632558151> __Attenzione: per i boost varrà anche solo con un boost, se viene trasferito verrà rimossa anche la valutazione.__ Solo per i ruoli Supporter e Follower bisogna aprire un ticket **Perks** sul sito: ${siteWorkflowUrl("tickets")})**\n\n` +
     "> L'<@&" +
     IDs.roles.HighStaff +
     "> può inoltre decidere di assegnare valutazioni extra a discrezione in base a comportamenti particolarmente virtuosi o dannosi per la community.",
@@ -342,39 +346,32 @@ const SECTION_BUILDERS = {
     "<:VC_Attention:1482534443632558151> I **warn staff** non possono essere __rimossi__. Il **reset** dei __warn staff__ avviene ogni **__6 mesi__**.",
 
   guidapartners: () => {
-    const pmCmdChannelId = "1495544523848286340";
+    const pmCmdChannelId = String(IDs.channels.staffCmds || "").trim();
     return (
       "<:VC_PartnerManager:1494286911286808576> **__GUIDA PARTNERS__**\n\n" +
       "> <:VC_Attention:1482534443632558151> In caso di **infrazione** del _regolamento_ verrà **rimosso** il `punto` della __partner__. Ogni **__`Partner Manager`__** ha _diritto_ a `1` mese e `15` giorni di **pausa** __ogni__ anno.\n" +
-      "> <a:VC_Alert:1482706673176150077> Per richiedere una pausa bisogna andare nel canale <#" +
-      IDs.channels.pause +
-      "> e compilare quel semplice modulo all'interno del canale.\n" +
+      `> <a:VC_Alert:1482706673176150077> Per richiedere una pausa apri la pagina sul **sito**: ${siteWorkflowUrl("pause")}\n` +
       "<:VC_DoubleReply:1482532332509466797> **Non** fare la stessa __partnership__ più di una volta al **giorno**;\n" +
       "<:VC_DoubleReply:1482532332509466797> **Non** fare __partnership__ con se stessi più di una volta al **giorno**;\n" +
       "<:VC_DoubleReply:1482532332509466797> **Non** mettere più di __`5` partnership__ con lo stesso **utente**;\n" +
       "<:VC_DoubleReply:1482532332509466797> **Non** mettere partner con link **scaduti**;\n" +
       "<:VC_DoubleReply:1482532332509466797> Il **numero minimo** di __partnership__ da __fare__ in una settimana è __`30`__;\n" +
       "<:VC_Reply:1482532158080942191> È **vietato** fare __partnership__ con qualsiasi tipo di __server__ `NSFW` o che violi i `ToS` di **Discord**.\n\n" +
-      "<a:VC_Exclamation:1482534702077444217> **Comandi utili: (da usare con <@" +
-      IDs.bots.ViniliCaffeBot +
-      "> nei ticket o nel thread dei comandi)**\n" +
-      "> `/partnership` - Utilizzabile direttamente in <#" +
-      pmCmdChannelId +
-      "> o nei <#" +
-      IDs.channels.ticket +
-      ">\n" +
-      "> `+desc` - Utilizzabile solo nei <#" +
-      IDs.channels.ticket +
-      "> `partnership`, manda velocemente la descrizione del server\n" +
-      "> `+ticket` - Comando unico per la gestione del ticket\n" +
+      "<a:VC_Exclamation:1482534702077444217> **Comandi e ticket:**\n" +
+      (pmCmdChannelId
+        ? `> \`/partnership\` - Utilizzabile in <#${pmCmdChannelId}> (thread comandi PM) o dal pannello comandi nei **ticket Partnership** sul sito\n`
+        : "> `/partnership` - Utilizzabile dal pannello comandi nei **ticket Partnership** sul sito\n") +
+      "> `+desc` / comandi partnership - nei **ticket Partnership** sul sito (pannello comandi del ticket)\n" +
+      `> Ticket staff: ${siteWorkflowUrl("ticketsStaff")}\n` +
       "> `+classifica` - Per vedere la classifica punti partner settimanale e totale\n" +
       "> `+blacklist` - Per vedere i server in blacklist\n" +
-      "> `+profile` - Per vedere il vostro profilo partner manager\n\n" +
+      `> Profilo / shop PM: sul **sito staff** → ${siteWorkflowUrl("staff")}\n` +
+      `> Punti tolti: ${siteWorkflowUrl("puntiTolti")}\n\n` +
       "<a:VC_Exclamation:1482534702077444217> **Info utili:**\n" +
       "> <a:VC_Cross:1482532424570376253> **Non ci sono requisiti per le partner**\n" +
       "> <a:VC_Verified:1482532479637127188> **Il manager deve aver completato l'inserimento o non si può fare la partner.**\n" +
       "> <a:VC_PepeExit:1446190735937245415> **Il manager non deve uscire dal server o la partner verrà cancellata.**\n" +
-      "> <:VC_Collab:1482534540089098260> **Quando viene aperto un ticket cercate di completare tutto lì facendovi inviare la descrizione e facendo i comandi direttamente lì.**"
+      `> <:VC_Collab:1482534540089098260> **I ticket partnership si gestiscono sul sito (${siteWorkflowUrl("ticketsStaff")}): fatevi inviare la descrizione e usate i comandi direttamente lì.**`
     );
   },
 
@@ -388,38 +385,34 @@ const SECTION_BUILDERS = {
 <:VC_4:1482706432347344916> **Gestione Partnership**`,
 
   middle_ticket: () =>
-    "<:VC_Ticket:1482535175283019888> Naturalmente, essendo voi un ruolo superiore non vi è richiesto di rispondere prontamente ai ticket. Anzi, dovrete cercare di dare supporto ai low staff e intervenire solo facendovi aggiungere.\n\n" +
-    "<a:VC_pixeltime:1482535344103620771> Se un ticket rimarrà non claimato per più di 5 minuti allora **dovete** claimarlo e gestirlo voi.",
+    `<:VC_Ticket:1482535175283019888> I ticket si gestiscono sul **sito**: ${siteWorkflowUrl("ticketsStaff")}. Essendo un ruolo superiore non vi è richiesto di rispondere subito a tutti: date supporto al low staff e intervenite quando serve.\n\n` +
+    "<a:VC_pixeltime:1482535344103620771> Se un ticket rimarrà **non claimato** per più di **5 minuti** allora **dovete** claimarlo e gestirlo voi.",
 
   middle_selfie: () =>
-    "<:VC_Ticket:1482535175283019888> Con l'aggiunta dei ticket `PERKS` tutti voi avrete accesso ad esso per gestire i ruoli e <@&" +
+    `<:VC_Ticket:1482535175283019888> I ticket **Perks** (verifica selfie) sono sul sito: ${siteWorkflowUrl("ticketsStaff")}. Da lì gestite i ruoli <@&` +
     IDs.roles.Verificato +
     "> / <@&" +
     IDs.roles.VerifiedNeo +
     "> / <@&" +
     IDs.roles.Verificata +
     ">.\n\n" +
-    "<a:VC_Alert:1482706673176150077> Quando un utente aprirà il ticket per chiedere la verifica selfie sarà necessario da parte vostra controllare facendo seguire i passaggi in foto e una volta accertatovi, se siete <@&" +
+    "<a:VC_Alert:1482706673176150077> Quando un utente apre un ticket Perks per la verifica selfie controllate i passaggi richiesti; se siete <@&" +
     IDs.roles.SeniorModerator +
-    "> dovrete taggare un <@&" +
+    "> taggate un <@&" +
     IDs.roles.Director +
-    "> oppure da <@&" +
+    "> oppure, da <@&" +
     IDs.roles.Director +
-    "> potrete direttamente mettere il ruolo\n" +
+    ">, assegnate direttamente il ruolo.\n" +
     "> PS: Occhio a dare ruoli sbagliati, il bot potrebbe bannarvi <:VC_Eye:1331619214410383381>",
 
   middle_follower: () =>
     "<a:VC_Calendar:1482706208149475358> Ogni settimana vi dovrete organizzare per decidere chi deve controllare queste due liste.\n\n" +
     "<a:VC_Verified:1482532479637127188> Per controllare le liste dovrete usare [questo documento](<https://docs.google.com/spreadsheets/d/1rsyOqlveEraSv2YeSCY9Qg_xF3Rn6bqLj6G3-FI4Zu0/edit?usp=sharing>) chiedendo l'accesso a <@295500038401163264>.\n\n" +
-    "<:VC_Quest:1482534879257165865> Ognuno di voi può controllare al **massimo 1 lista** a settimana. Ogni Sabato in questo post uno di voi compilerà un modulo come questo:\n\n" +
+    "<:VC_Quest:1482534879257165865> Ognuno di voi può controllare al **massimo 1 lista** a settimana. Ogni sabato uno di voi comunica l'assegnazione (in staff chat / news) così:\n\n" +
     "```\n@staffer -> lista che controlla\n@staff -> lista che controlla\n```\n\n" +
-    "<:VC_Ticket:1482535175283019888> Con l'aggiunta dei ticket `PERKS` tutti voi avrete accesso ad esso per gestire i ruoli <@&" +
-    IDs.roles.Follower +
-    "> & <@&" +
-    IDs.roles.SocialSupporter +
-    ">, quando un utente aprirà un ticket per chiedere uno di questi due ruoli accertatevi con delle prove e, se siete <@&" +
+    `<:VC_Ticket:1482535175283019888> I ticket **Perks** per <@&${IDs.roles.Follower}> e <@&${IDs.roles.SocialSupporter}> sono sul sito: ${siteWorkflowUrl("ticketsStaff")}. Controllate le prove e, se siete <@&` +
     IDs.roles.SeniorModerator +
-    "> chiamate un <@&" +
+    "> , chiamate un <@&" +
     IDs.roles.Director +
     "> per assegnare il ruolo.\n" +
     "> PS: Gentilmente, ogni volta che viene dato anche questo ruolo aggiornate le liste <a:VC_Alarm:1482706641618079816>\n\n" +
@@ -435,9 +428,7 @@ const SECTION_BUILDERS = {
     "```\nlink messaggio -> regola infranta -> @partner manager\n```\n\n" +
     "<:VC_Attention:1482534443632558151> Molte regole sono già coperte da <@" +
     IDs.bots.ViniliCaffeBot +
-    "> e prima di segnalare una partner dovrete controllare <#" +
-    IDs.channels.puntiTolti +
-    "> per capire se il bot ha già tolto il punto o meno.",
+    "> e prima di segnalare una partner controlla la pagina **Punti tolti PM** sul sito staff per capire se il bot ha già tolto il punto o meno.",
 
   generalimoderazione: () => `<:rules:1443307208543703131> **__Regola \`1.1\`__**
 ${staffSanctionRuleIntro("1.1")}                <:VC_Reply:1482532158080942191> Sanzione: **Ban**
@@ -493,8 +484,8 @@ ${staffSanctionRuleIntro("3.4")}                <:VC_DoubleReply:148253233250946
                 <:VC_DoubleReply:1482532332509466797> 2° Sanzione: **Mute __15h__**
                 <:VC_Reply:1482532158080942191> 3° Sanzione: **Mute __35h__**
 
-                <:rules:1443307208543703131> **__Regola \`3.6\`__**
-${staffSanctionRuleIntro("3.6")}                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Mute __5h__**
+                <:rules:1443307208543703131> **__Regola \`3.5\`__**
+${staffSanctionRuleIntro("3.5")}                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Mute __5h__**
                 <:VC_DoubleReply:1482532332509466797> 2° Sanzione: **Mute __11h__**
                 <:VC_Reply:1482532158080942191> 3° Sanzione: **Mute __24h__**`,
 };

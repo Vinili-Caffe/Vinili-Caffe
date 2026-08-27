@@ -5,7 +5,7 @@ const { getUserRanks, getResolvedWeeklyExpMultiplier } = require("../../Services
 const renderRankCanvas = require("../../Utils/Render/rankCanvas");
 const { getRankCardThemeFromDoc } = require("../../Utils/Render/rankCardTheme");
 const IDs = require("../../Utils/Config/ids");
-const { guildMemberDisplayAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
+const { guildMemberDisplayAvatarUrlDynamic, memberDisplayName } = require("../../Utils/Discord/guildDiscordIdentity");
 
 function resolvePreferredAvatarUrl(member, user) {
   return guildMemberDisplayAvatarUrlDynamic(member || user, { size: 256 }) || "";
@@ -76,7 +76,7 @@ module.exports = {
 
     const avatarUrl = resolvePreferredAvatarUrl(targetMember, targetUser);
     const card = await renderRankCanvas({
-      username: targetUser.username,
+      username: memberDisplayName(targetMember, targetUser),
       avatarUrl,
       level: stats.level,
       totalExp: stats.totalExp,

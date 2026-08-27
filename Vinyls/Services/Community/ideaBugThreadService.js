@@ -18,6 +18,30 @@ const EVERYONE_PING_DELETE_DELAY_MS = 5000;
 const botThreadPingSent = new Map();
 let cachedOwnerPingCategoryId = "";
 
+function parseReactionToken(token) {
+  const raw = String(token || "").trim();
+  const match = raw.match(/^<(a?):([^:>]+):(\d+)>$/);
+  if (match) {
+    return { name: match[2], id: match[3], animated: match[1] === "a" };
+  }
+  return { name: raw, id: "", animated: false };
+}
+
+function reactionMatchesConfigured(emoji, token) {
+  const parsed = parseReactionToken(token);
+  const emojiId = String(emoji?.id || "");
+  const emojiName = String(emoji?.name || "");
+  if (parsed.id && emojiId && emojiId === parsed.id) return true;
+  if (parsed.name && emojiName && emojiName === parsed.name) return true;
+  return false;
+}
+
+function isConfiguredIdeaBugReaction(reaction) {
+  const emoji = reaction?.emoji;
+  if (!emoji) return false;
+  return REACTIONS.some((token) => reactionMatchesConfigured(emoji, token));
+}
+
 function cleanupBotThreadPingDedupe(now = Date.now()) {
   for (const [threadId, at] of botThreadPingSent.entries()) {
     if (now - Number(at || 0) > BOT_THREAD_PING_DEDUPE_MS) botThreadPingSent.delete(threadId);
@@ -262,6 +286,82 @@ async function addIdeaBugReactions(message) {
   }
 }
 
+async function resolveIdeaBugParentMessage(message) {
+  if (!message) return null;
+  const live = message.partial ? await message.fetch().catch(() => null) : message;
+  if (!live?.guild) return null;
+  if (live.channel?.isThread?.()) return null;
+  if (!getMessageKind(live)) return null;
+  return live;
+}
+
+async function resolveIdeaBugThreadFromMessage(message) {
+  const parent = await resolveIdeaBugParentMessage(message);
+  if (!parent) return null;
+  if (parent.hasThread && parent.thread) return parent.thread;
+  const fetched = parent.partial ? await parent.fetch().catch(() => null) : parent;
+  if (!fetched?.hasThread) return null;
+  return fetched.thread || (await fetched.fetch().then((msg) => msg.thread).catch(() => null));
+}
+
+async function collectUsersFromConfiguredReactions(message) {
+  const ids = new Set();
+  if (!message?.reactions?.cache) return [];
+  for (const reaction of message.reactions.cache.values()) {
+    if (!isConfiguredIdeaBugReaction(reaction)) continue;
+    let live = reaction;
+    if (live.partial) live = await live.fetch().catch(() => null);
+    if (!live) continue;
+    let users = live.users?.cache;
+    if (!users?.size && typeof live.users?.fetch === "function") {
+      users = await live.users.fetch().catch(() => null);
+    }
+    if (!users) continue;
+    for (const reactor of users.values()) {
+      if (!reactor?.bot) ids.add(String(reactor.id));
+    }
+  }
+  return [...ids].filter((id) => /^\d{16,22}$/.test(id));
+}
+
+async function syncIdeaBugReactionMembersToThread(thread, message, opts = {}) {
+  if (!thread?.members?.add || !message?.guild) return { added: 0, failed: 0, skipped: 0 };
+  const userIds = await collectUsersFromConfiguredReactions(message);
+  if (!userIds.length) return { added: 0, failed: 0, skipped: 0 };
+  await ensureBotJoinedThread(thread, message.guild);
+  return addUserIdsToThread(thread, userIds, {
+    logTag: opts.logTag || "[IDEA BUG THREAD]",
+    throttleEvery: 6,
+    throttleMs: 40,
+  });
+}
+
+async function handleIdeaBugReaction(reaction, user) {
+  if (!user || user.bot) return false;
+  if (!isConfiguredIdeaBugReaction(reaction)) return false;
+
+  let message = reaction.message;
+  if (message?.partial) message = await message.fetch().catch(() => null);
+  if (!message?.guild) return false;
+
+  const parentMessage = await resolveIdeaBugParentMessage(message);
+  if (!parentMessage) return false;
+
+  const thread = await resolveIdeaBugThreadFromMessage(parentMessage);
+  if (!thread?.members?.add) return false;
+
+  const userId = String(user.id || "").trim();
+  if (!/^\d{16,22}$/.test(userId)) return false;
+
+  await ensureBotJoinedThread(thread, message.guild);
+  await addUserIdsToThread(thread, [userId], {
+    logTag: "[IDEA BUG THREAD]",
+    throttleEvery: 0,
+    throttleMs: 0,
+  });
+  return true;
+}
+
 async function createIdeaBugThread(message, kind) {
   if (!message?.startThread || !message?.author?.id) return null;
   const name = buildThreadName(kind, message);
@@ -281,6 +381,7 @@ async function createIdeaBugThread(message, kind) {
   if (!thread?.isTextBased?.()) return thread;
 
   await sendThreadOpeningPing(thread, message.guild, { authorId: message.author.id });
+  await syncIdeaBugReactionMembersToThread(thread, message);
 
   return thread;
 }
@@ -334,4 +435,6 @@ module.exports = {
   REACTIONS,
   handleIdeaBugMessage,
   handleIdeaBugCategoryThreadCreate,
+  handleIdeaBugReaction,
+  syncIdeaBugReactionMembersToThread,
 };

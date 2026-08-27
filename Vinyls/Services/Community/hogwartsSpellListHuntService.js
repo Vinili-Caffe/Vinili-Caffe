@@ -281,6 +281,24 @@ async function disableListButtons(message, reason) {
   await message.edit({ components: [row] }).catch(() => null);
 }
 
+async function deleteSpawnedListMessages(guild, doc, fallbackReason = "Turno concluso") {
+  const lists = doc?.rawWebhook?.lists;
+  if (!lists || typeof lists !== "object") return;
+  for (const key of ["a", "b"]) {
+    const row = lists[key];
+    if (!row?.messageId || !row?.channelId) continue;
+    const ch = await getGuildChannelCached(guild, row.channelId).catch(() => null);
+    if (!ch?.messages?.fetch) continue;
+    const msg = await ch.messages.fetch(row.messageId).catch(() => null);
+    if (!msg) continue;
+    if (msg.deletable) {
+      await msg.delete().catch(() => disableListButtons(msg, fallbackReason));
+    } else {
+      await disableListButtons(msg, fallbackReason);
+    }
+  }
+}
+
 async function loadRound(guildId, eventKey, roundId) {
   return SiteDocument.findOne({
     docType: HUNT_DOC,
@@ -482,13 +500,7 @@ async function finalizeHouseWin(client, guild, c, doc, houseId, claimA, claimB) 
     )
     .setTimestamp();
   await announceInChat(client, guild, c, "", [embed]);
-  for (const key of ["a", "b"]) {
-    const row = doc.rawWebhook?.lists?.[key];
-    if (!row?.messageId || !row?.channelId) continue;
-    const ch = await getGuildChannelCached(guild, row.channelId).catch(() => null);
-    const msg = ch ? await ch.messages.fetch(row.messageId).catch(() => null) : null;
-    if (msg) await disableListButtons(msg, "Lista raccolta");
-  }
+  await deleteSpawnedListMessages(guild, doc, "Lista raccolta");
   return { ...award, galeoniAward };
 }
 
@@ -601,13 +613,7 @@ async function expireRound(client, guild, c, doc) {
     c,
     `<a:VC_Alert:1482706673176150077> **Caccia alle liste** — turno **${doc.rawWebhook?.roundLabel || ""}** scaduto senza vittoria di casata.`,
   );
-  for (const key of ["a", "b"]) {
-    const row = doc.rawWebhook?.lists?.[key];
-    if (!row?.messageId || !row?.channelId) continue;
-    const ch = await getGuildChannelCached(guild, row.channelId).catch(() => null);
-    const msg = ch ? await ch.messages.fetch(row.messageId).catch(() => null) : null;
-    if (msg) await disableListButtons(msg, "Turno scaduto");
-  }
+  await deleteSpawnedListMessages(guild, doc, "Turno scaduto");
 }
 
 function spellListHintDue(doc, c, nowMs = Date.now()) {
@@ -668,11 +674,10 @@ async function tickRounds(client) {
   const c = cfg(client);
   if (!c.enabled) return;
   const parts = getRomeParts();
-  if (!isHuntCalendarDay(parts, c)) return;
   const guildId = normalizeId(IDs.guilds?.main || client?.guilds?.cache?.first?.()?.id);
   const guild = client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
   if (!guild) return;
-  if (shouldSpawnHourSlot(parts, c)) {
+  if (isHuntCalendarDay(parts, c) && shouldSpawnHourSlot(parts, c)) {
     const roundId = roundIdFromParts(parts);
     const existing = await loadRound(guild.id, c.eventKey, roundId);
     if (!existing) await spawnRound(client, guild, c, parts);
@@ -788,12 +793,7 @@ async function handleSpellListHuntButton(interaction, client) {
   }
   const otherHouse = normalizeHouseId(claims[otherSlot].houseId);
   if (otherHouse && otherHouse !== houseId) {
-    await interaction
-      .reply({
-        content: `<a:VC_Alert:1482706673176150077> Liste trovate da **case diverse** (${label} e ${houseLabel(otherHouse, client)}). Il turno **resta aperto**: un mago della stessa casa del primo pu\u00f2 riprendere lo slot sbagliato, oppure si attende la scadenza.`,
-        flags: 1 << 6,
-      })
-      .catch(() => null);
+    await interaction.deferUpdate().catch(() => null);
     return true;
   }
   const award = await finalizeHouseWin(client, interaction.guild, c, doc, houseId, claims.a, claims.b);

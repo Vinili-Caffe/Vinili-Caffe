@@ -26,6 +26,40 @@ const loopStarted = new WeakSet();
 let appTokenCache = { accessToken: "", expiresAt: 0 };
 let publicKeyCache = { pem: "", at: 0 };
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isTransientKickHttp(status, bodyText) {
+  const st = Number(status) || 0;
+  if (st >= 500 || st === 429 || st === 408) return true;
+  const t = String(bodyText || "").toLowerCase();
+  return (
+    t.includes("deadline_exceeded") ||
+    t.includes("context deadline exceeded") ||
+    t.includes("timeout") ||
+    t.includes("temporarily unavailable") ||
+    t.includes("service unavailable")
+  );
+}
+
+async function fetchKickHttp(url, options, timeoutMs = 20_000) {
+  if (typeof AbortController === "undefined") {
+    return fetch(url, options);
+  }
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => {
+    try {
+      ctrl.abort();
+    } catch (_) {}
+  }, timeoutMs);
+  try {
+    return await fetch(url, { ...(options || {}), signal: ctrl.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 function emptyState() {
   return {
     linksByDiscord: {},
@@ -121,31 +155,58 @@ function createPkcePair() {
   return { verifier, challenge };
 }
 
-async function getAppAccessToken(cfg) {
+async function getAppAccessToken(cfg, opts = {}) {
   const now = Date.now();
   if (appTokenCache.accessToken && now < appTokenCache.expiresAt - 60_000) {
     return appTokenCache.accessToken;
   }
+  const attempts = Math.max(1, Math.min(5, Number(opts.attempts) || 4));
   const body = new URLSearchParams({
     grant_type: "client_credentials",
     client_id: cfg.clientId,
     client_secret: cfg.clientSecret,
   });
-  const res = await fetch(KICK_TOKEN_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
-    body,
-  });
-  if (!res.ok) {
-    const t = await res.text().catch(() => "");
-    throw new Error(`Kick app token HTTP ${res.status} ${t.slice(0, 180)}`);
+  let lastErr = null;
+  for (let i = 0; i < attempts; i += 1) {
+    try {
+      const res = await fetchKickHttp(
+        KICK_TOKEN_URL,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
+          body,
+        },
+        22_000,
+      );
+      if (!res.ok) {
+        const t = await res.text().catch(() => "");
+        if (isTransientKickHttp(res.status, t) && i < attempts - 1) {
+          await sleep(1500 + i * 2000);
+          continue;
+        }
+        throw new Error(`Kick app token HTTP ${res.status} ${t.slice(0, 180)}`);
+      }
+      const data = await res.json().catch(() => ({}));
+      const accessToken = String(data.access_token || "").trim();
+      const expiresIn = Math.max(300, Math.floor(Number(data.expires_in) || 3600));
+      if (!accessToken) throw new Error("Kick app token missing");
+      appTokenCache = { accessToken, expiresAt: now + expiresIn * 1000 };
+      return accessToken;
+    } catch (err) {
+      lastErr = err;
+      const transient =
+        err?.name === "AbortError" ||
+        /abort|timeout|network|fetch failed|econnreset|enotfound|etimedout/i.test(
+          String(err?.message || err?.cause?.message || ""),
+        );
+      if (transient && i < attempts - 1) {
+        await sleep(1500 + i * 2000);
+        continue;
+      }
+      throw err;
+    }
   }
-  const data = await res.json().catch(() => ({}));
-  const accessToken = String(data.access_token || "").trim();
-  const expiresIn = Math.max(300, Math.floor(Number(data.expires_in) || 3600));
-  if (!accessToken) throw new Error("Kick app token missing");
-  appTokenCache = { accessToken, expiresAt: now + expiresIn * 1000 };
-  return accessToken;
+  throw lastErr || new Error("Kick app token unavailable");
 }
 
 async function exchangeAuthorizationCode(cfg, code, codeVerifier) {
@@ -728,6 +789,42 @@ async function reconcileKickSubRoles(client) {
   await saveState(state);
 }
 
+async function bootstrapKickEventSubscriptions(client) {
+  const cfg = resolveSubSyncConfig(client);
+  if (!cfg.enabled || !cfg.roleId || !cfg.clientId || !cfg.clientSecret) return false;
+  try {
+    let state = await loadState();
+    state = await ensureEventSubscriptions(cfg, state);
+    await saveState(state);
+    client._kickSubBootstrapOk = true;
+    client._kickSubBootstrapRetryCount = 0;
+    return true;
+  } catch (err) {
+    const msg = String(err?.message || err || "");
+    const transient = isTransientKickHttp(500, msg) || /deadline_exceeded|timeout|abort|network/i.test(msg);
+    global.logger?.warn?.(
+      transient
+        ? "[KICK SUB] bootstrap subscribe: Kick OAuth temporaneamente lento — riprovo in background."
+        : "[KICK SUB] bootstrap subscribe:",
+      msg,
+    );
+    return false;
+  }
+}
+
+function scheduleKickSubBootstrapRetry(client) {
+  if (!client || client._kickSubBootstrapOk || client._kickSubBootstrapRetryTimer) return;
+  const n = Math.max(0, Number(client._kickSubBootstrapRetryCount) || 0);
+  const delayMs = Math.min(3_600_000, Math.max(90_000, 90_000 * 2 ** Math.min(n, 4)));
+  client._kickSubBootstrapRetryTimer = setTimeout(async () => {
+    client._kickSubBootstrapRetryTimer = null;
+    client._kickSubBootstrapRetryCount = n + 1;
+    const ok = await bootstrapKickEventSubscriptions(client);
+    if (!ok) scheduleKickSubBootstrapRetry(client);
+  }, delayMs);
+  client._kickSubBootstrapRetryTimer.unref?.();
+}
+
 async function startKickSubscriberSyncLoop(client) {
   if (!client || loopStarted.has(client)) return;
   const cfg = resolveSubSyncConfig(client);
@@ -745,13 +842,8 @@ async function startKickSubscriberSyncLoop(client) {
   }
   loopStarted.add(client);
 
-  try {
-    let state = await loadState();
-    state = await ensureEventSubscriptions(cfg, state);
-    await saveState(state);
-  } catch (err) {
-    global.logger?.warn?.("[KICK SUB] bootstrap subscribe:", err?.message || err);
-  }
+  const bootOk = await bootstrapKickEventSubscriptions(client);
+  if (!bootOk) scheduleKickSubBootstrapRetry(client);
 
   const tick = () =>
     reconcileKickSubRoles(client).catch((err) => {

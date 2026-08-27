@@ -440,9 +440,18 @@
     return m ? m[1] : "";
   }
 
+  function preferStableDiscordAvatarUrl(url) {
+    var u = String(url || "").trim();
+    if (!u) return "";
+    // Preferisci PNG statico: webp/gif guild a volte 404 dopo cambio avatar.
+    return u.replace(/\.(webp|gif|jpe?g)(\?|#|$)/i, ".png$2");
+  }
+
   function safeDiscordAvatarUrl(url) {
     var u = String(url || "").trim();
-    if (/^https:\/\/(?:cdn\.discordapp\.com|media\.discordapp\.net)\//i.test(u)) return u;
+    if (/^https:\/\/(?:cdn\.discordapp\.com|media\.discordapp\.net)\//i.test(u)) {
+      return preferStableDiscordAvatarUrl(u) || u;
+    }
     return "";
   }
 
@@ -466,7 +475,7 @@
     var src = safeDiscordAvatarUrl(member && member.avatarUrl) || (uid ? defaultDiscordAvatarUrl(uid) : "");
     var initial = escText(staffInitial(member && member.name));
     if (!src) {
-        return (
+      return (
         '<span class="vc-home-staff-roster__avatar" style="--vc-staff-badge-h:' +
         hue +
         '" aria-hidden="true">' +
@@ -474,6 +483,7 @@
         "</span>"
       );
     }
+    // Niente this.remove(): vc-avatar-fallback.js gestisce PNG → default Discord → SVG.
     return (
       '<span class="vc-home-staff-roster__avatar vc-home-staff-roster__avatar--img" style="--vc-staff-badge-h:' +
       hue +
@@ -482,7 +492,7 @@
       escText(src) +
       '" alt="" width="40" height="40" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-vc-avatar="1"' +
       (uid ? ' data-user-id="' + escText(uid) + '"' : "") +
-      ' onerror="this.onerror=null;this.remove();" />' +
+      " />" +
       '<span class="vc-home-staff-roster__avatar-fallback">' +
       initial +
       "</span></span>"
@@ -967,8 +977,8 @@
     var gid = guild && guild.id != null ? String(guild.id).trim() : "";
     var icon = guild && guild.icon != null ? String(guild.icon).trim() : "";
     if (!gid || !icon) return "";
-    var ext = icon.indexOf("a_") === 0 ? "gif" : "png";
-    return "https://cdn.discordapp.com/icons/" + gid + "/" + icon + "." + ext + "?size=128";
+    // Always use static PNG at display size — animated GIF hurts Lighthouse (bytes + 3P cookies).
+    return "https://cdn.discordapp.com/icons/" + gid + "/" + icon + ".png?size=64";
   }
 
   function applyHeaderGuildIcon(url) {
@@ -983,6 +993,9 @@
       // Non sovrascrivere logo del server sulla dashboard guild.
       if (imgs[i].getAttribute("data-vc-guild-brand") === "1") continue;
       if (imgs[i].id === "vc-dashboard-header-guild-icon") continue;
+      // Keep local static brand asset when present (Lighthouse + no Discord CDN cookies).
+      var cur = String(imgs[i].getAttribute("src") || "");
+      if (cur.indexOf("/images/vc-header-logo.") >= 0) continue;
       if (imgs[i].getAttribute("src") !== u) imgs[i].setAttribute("src", u);
     }
   }
@@ -1150,7 +1163,7 @@
       },
     );
     obs.observe(root);
-    var fallbackMs = Math.max(12000, Math.min(120000, Number(cfg.introFallbackMs) || 45000));
+    var fallbackMs = Math.max(4000, Math.min(120000, Number(cfg.introFallbackMs) || 8000));
     ioFallbackTimer = setTimeout(function () {
       obs.disconnect();
       if (!introHasStarted) startIntroThenPoll();
@@ -1179,6 +1192,14 @@
     if (window.__VC_DISABLE_LIVE_EVENT_UI === true) return;
     if (document.body && document.body.classList.contains("vc-hw-page")) return;
     if (document.body && document.body.classList.contains("vc-seratafilm-page")) return;
+    // Banner evento Discord live: solo homepage
+    var isHome =
+      (document.body && document.body.classList.contains("vc-body--home")) ||
+      (function () {
+        var p = String(window.location.pathname || "/").replace(/\/+$/, "") || "/";
+        return p === "/" || p === "/index.html";
+      })();
+    if (!isHome) return;
   } catch (e0) {}
   var apiProd = String(cfg.liveEventApiUrl || "").trim();
   if (!apiProd) return;

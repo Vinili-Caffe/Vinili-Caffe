@@ -145,7 +145,7 @@ function mountSiteWebhookRoutes(app, client, deps) {
   const { handleSiteLiveEventGet } = require("../../Utils/Web/siteLiveEventApi");
   const { handleSiteRolesGet } = require("../../Utils/Web/siteRolesApi");
   const { submitSiteRoleRequest, leaveSiteRole } = require("../../Utils/Web/siteRoleRequestApi");
-  const { getRankCardCustomization, updateRankCardCustomization, getRankCardPreview, getPublicRankCardPreview } = require("../../Utils/Web/siteRankCardApi");
+  const { getRankCardCustomization, getServerAvatarOnly, updateRankCardCustomization, getRankCardPreview, getPublicRankCardPreview } = require("../../Utils/Web/siteRankCardApi");
   const { getCustomProfileCustomization, getCustomProfileGuildEmojis, mutateCustomProfile } = require("../../Utils/Web/siteCustomProfileApi");
   const { getProfileExtras, mutateProfileExtras } = require("../../Utils/Web/siteProfileExtrasApi");
   const { getSiteReviews, submitSiteReview, deleteSiteReview, toggleSiteReviewLike, upsertServerReviewReply } = require("../../Utils/Web/siteReviewsApi");
@@ -171,17 +171,27 @@ function mountSiteWebhookRoutes(app, client, deps) {
     handleSiteNotificationsPushUnsubscribePost,
   } = require("../../Utils/Web/siteInAppNotificationsApi");
   const { completeSiteVerify } = require("../../Utils/Web/siteVerifyApi");
-  const { handleSiteSeratafilmAccessGet } = require("../../Utils/Web/siteSeratafilmAccessApi");
+  const {
+    handleSiteSeratafilmAccessGet,
+    handleSiteSeratafilmFilmGet,
+  } = require("../../Utils/Web/siteSeratafilmAccessApi");
+  const {
+    handleSiteChromePrefsGet,
+    handleSiteChromePrefsPost,
+  } = require("../../Utils/Web/siteChromePrefsApi");
   const { handleSiteStaffAccessGet } = require("../../Utils/Web/siteStaffAccessApi");
   const { handleSiteStaffPauseGet, handleSiteStaffPausePost } = require("../../Utils/Web/siteStaffPauseApi");
   const { handleSiteStaffProfileGet } = require("../../Utils/Web/siteStaffProfileApi");
   const { handleSiteStaffGuideGet } = require("../../Utils/Web/siteStaffGuideApi");
   const { handleSiteStaffDashboardGet } = require("../../Utils/Web/siteStaffDashboardApi");
   const { handleSiteStaffManageGet, handleSiteStaffManagePost } = require("../../Utils/Web/siteStaffManageApi");
+  const { handleSiteStaffOrganicoGet, handleSiteStaffOrganicoPost } = require("../../Utils/Web/siteStaffOrganicoApi");
+  const { handleSiteStaffWorkflowGet, handleSiteStaffWorkflowPost } = require("../../Utils/Web/siteStaffWorkflowApi");
+  const { handleSiteStaffPmActionsPost } = require("../../Utils/Web/siteStaffPmActionsApi");
+  const { handleSiteStaffValTradePost } = require("../../Utils/Web/siteStaffValTradeApi");
+  const { handleSiteStaffModLookupGet } = require("../../Utils/Web/siteStaffModApi");
   const {
-    handleSiteStaffDirectoryGet,
     handleSiteStaffPmHubGet,
-    handleSiteStaffValwarnGet,
     handleSiteStaffTicketsGet,
     handleSiteStaffSerataFilmGet,
     handleSiteStaffSerataFilmPost,
@@ -259,20 +269,71 @@ function mountSiteWebhookRoutes(app, client, deps) {
     return handleSiteNotificationsPushUnsubscribePost(client, req, res);
   });
   app.get("/webhooks/site-seratafilm-access", (req, res) => handleSiteSeratafilmAccessGet(client, req, res));
+  app.get("/webhooks/site-seratafilm-film", (req, res) => handleSiteSeratafilmFilmGet(client, req, res));
+  app.get("/webhooks/site-chrome-prefs", (req, res) => handleSiteChromePrefsGet(client, req, res));
+  app.post("/webhooks/site-chrome-prefs", (req, res) => handleSiteChromePrefsPost(client, req, res));
   app.get("/webhooks/site-staff-access", (req, res) => handleSiteStaffAccessGet(client, req, res));
   app.get("/webhooks/site-staff-dashboard", (req, res) => handleSiteStaffDashboardGet(client, req, res));
   app.get("/webhooks/site-staff-manage", (req, res) => handleSiteStaffManageGet(client, req, res));
   app.post("/webhooks/site-staff-manage", (req, res) => handleSiteStaffManagePost(client, req, res));
+  app.get("/webhooks/site-staff-organico", (req, res) => handleSiteStaffOrganicoGet(client, req, res));
+  app.post("/webhooks/site-staff-organico", (req, res) => handleSiteStaffOrganicoPost(client, req, res));
   app.get("/webhooks/site-staff-pause", (req, res) => handleSiteStaffPauseGet(client, req, res));
   app.post("/webhooks/site-staff-pause", (req, res) => handleSiteStaffPausePost(client, req, res));
   app.get("/webhooks/site-staff-profile", (req, res) => handleSiteStaffProfileGet(client, req, res));
-  app.get("/webhooks/site-staff-directory", (req, res) => handleSiteStaffDirectoryGet(client, req, res));
   app.get("/webhooks/site-staff-pm-hub", (req, res) => handleSiteStaffPmHubGet(client, req, res));
-  app.get("/webhooks/site-staff-valwarn", (req, res) => handleSiteStaffValwarnGet(client, req, res));
   app.get("/webhooks/site-staff-tickets", (req, res) => handleSiteStaffTicketsGet(client, req, res));
   app.get("/webhooks/site-staff-seratafilm", (req, res) => handleSiteStaffSerataFilmGet(client, req, res));
   app.post("/webhooks/site-staff-seratafilm", (req, res) => handleSiteStaffSerataFilmPost(client, req, res));
   app.get("/webhooks/site-staff-guide", (req, res) => handleSiteStaffGuideGet(client, req, res));
+  app.get("/webhooks/site-staff-workflows", (req, res) => handleSiteStaffWorkflowGet(client, req, res));
+  app.post("/webhooks/site-staff-workflows", (req, res) => handleSiteStaffWorkflowPost(client, req, res));
+  const {
+    handleSiteStaffWorkflowChatGet,
+    handleSiteStaffWorkflowChatPost,
+    handleSiteStaffWorkflowChatReactionPost,
+    handleSiteStaffWorkflowChatEmojisGet,
+    handleSiteStaffWorkflowChatFileGet,
+    handleSiteStaffWorkflowChatSubjectPost,
+  } = require("../../Utils/Web/siteStaffWorkflowChatApi");
+  app.get("/webhooks/site-staff-workflow-chat/emojis", (req, res) => handleSiteStaffWorkflowChatEmojisGet(client, req, res));
+  app.get("/webhooks/site-staff-workflow-chat/files/:folderKey/:fileName", (req, res) =>
+    handleSiteStaffWorkflowChatFileGet(client, req, res),
+  );
+  app.post("/webhooks/site-staff-workflow-chat/reactions", (req, res) =>
+    handleSiteStaffWorkflowChatReactionPost(client, req, res),
+  );
+  app.post("/webhooks/site-staff-workflow-chat/subject", (req, res) =>
+    handleSiteStaffWorkflowChatSubjectPost(client, req, res),
+  );
+  app.get("/webhooks/site-staff-workflow-chat", (req, res) => handleSiteStaffWorkflowChatGet(client, req, res));
+  app.post("/webhooks/site-staff-workflow-chat", (req, res) => handleSiteStaffWorkflowChatPost(client, req, res));
+  const { handleSiteUserWorkflowsGet } = require("../../Utils/Web/siteUserWorkflowApi");
+  app.get("/webhooks/site-user-workflows", (req, res) => handleSiteUserWorkflowsGet(client, req, res));
+  app.get("/webhooks/site-user-workflow-chat/emojis", (req, res) => handleSiteStaffWorkflowChatEmojisGet(client, req, res));
+  app.get("/webhooks/site-user-workflow-chat/files/:folderKey/:fileName", (req, res) =>
+    handleSiteStaffWorkflowChatFileGet(client, req, res),
+  );
+  app.post("/webhooks/site-user-workflow-chat/reactions", (req, res) =>
+    handleSiteStaffWorkflowChatReactionPost(client, req, res),
+  );
+  app.get("/webhooks/site-user-workflow-chat", (req, res) => handleSiteStaffWorkflowChatGet(client, req, res));
+  app.post("/webhooks/site-user-workflow-chat", (req, res) => handleSiteStaffWorkflowChatPost(client, req, res));
+  app.post("/webhooks/site-staff-pm-actions", (req, res) => handleSiteStaffPmActionsPost(client, req, res));
+  const { handleSiteStaffPmShopPost } = require("../../Utils/Web/siteStaffPmShopApi");
+  app.post("/webhooks/site-staff-pm-shop", (req, res) => handleSiteStaffPmShopPost(client, req, res));
+  const {
+    handleSiteStaffPmPointsRemovedGet,
+    handleSiteStaffPmPointsRemovedPost,
+  } = require("../../Utils/Web/siteStaffPmPointsRemovedApi");
+  app.get("/webhooks/site-staff-pm-points-removed", (req, res) =>
+    handleSiteStaffPmPointsRemovedGet(client, req, res),
+  );
+  app.post("/webhooks/site-staff-pm-points-removed", (req, res) =>
+    handleSiteStaffPmPointsRemovedPost(client, req, res),
+  );
+  app.post("/webhooks/site-staff-valtrade", (req, res) => handleSiteStaffValTradePost(client, req, res));
+  app.get("/webhooks/site-staff-mod", (req, res) => handleSiteStaffModLookupGet(client, req, res));
 
   app.get("/webhooks/site-web-tickets/meta", (req, res) => {
     try {
@@ -322,9 +383,9 @@ function mountSiteWebhookRoutes(app, client, deps) {
       return res.status(500).json({ ok: false, error: "internal" });
     }
   });
-  app.get("/webhooks/site-web-tickets/files/:ticketId/:fileName", (req, res) => {
+  app.get("/webhooks/site-web-tickets/files/:ticketId/:fileName", async (req, res) => {
     try {
-      return handleSiteWebTicketsFileGet(req, res);
+      return await handleSiteWebTicketsFileGet(client, req, res);
     } catch (err) {
       global.logger?.error?.("[WEBHOOK] site-web-tickets file:", err);
       return res.status(500).json({ ok: false, error: "internal" });
@@ -710,7 +771,19 @@ function mountSiteWebhookRoutes(app, client, deps) {
           message: "Header Authorization: Bearer <token> richiesto.",
         });
       }
-      const out = await getRankCardCustomization(client, { accessToken });
+      const avatarOnly =
+        String(req.query?.avatarOnly || req.query?.fields || "")
+          .trim()
+          .toLowerCase() === "1" ||
+        String(req.query?.fields || "")
+          .trim()
+          .toLowerCase() === "avatar";
+      const out = avatarOnly
+        ? await getServerAvatarOnly(client, { accessToken })
+        : await getRankCardCustomization(client, { accessToken });
+      if (avatarOnly && out?.ok) {
+        res.setHeader("Cache-Control", "private, max-age=120");
+      }
       return res.status(Number(out.status) || 500).json(out);
     } catch (err) {
       global.logger?.error?.("[WEBHOOK] site-rank-card get:", err);
@@ -856,7 +929,8 @@ function mountSiteWebhookRoutes(app, client, deps) {
           message: "Header Authorization: Bearer <token> richiesto.",
         });
       }
-      const out = await getProfileExtras(client, { accessToken });
+      const section = String(req.query?.section || req.query?.target || "").trim();
+      const out = await getProfileExtras(client, { accessToken, section });
       return res.status(Number(out.status) || 500).json(out);
     } catch (err) {
       global.logger?.error?.("[WEBHOOK] site-profile-extras get:", err);
@@ -1252,9 +1326,9 @@ function mountSiteWebhookRoutes(app, client, deps) {
     }
   });
 
-  app.get("/webhooks/site-bot-feedback/files/:feedbackId/:fileName", (req, res) => {
+  app.get("/webhooks/site-bot-feedback/files/:feedbackId/:fileName", async (req, res) => {
     try {
-      serveBotFeedbackFile(req, res);
+      await serveBotFeedbackFile(client, req, res);
     } catch (err) {
       global.logger?.error?.("[WEBHOOK] site-bot-feedback file:", err);
       return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });

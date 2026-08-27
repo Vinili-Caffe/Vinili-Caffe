@@ -1,4 +1,8 @@
 const { handleResocontoActionInteraction } = require("../Events/interaction/resocontoHandlers");
+const {
+  isDiscordWorkflowUiEnabled,
+  replyWorkflowMovedToSite,
+} = require("../Utils/Web/discordWorkflowUiGate");
 
 function match(interaction) {
   const id = String(interaction?.customId || "");
@@ -11,6 +15,9 @@ function match(interaction) {
 }
 
 async function execute(interaction) {
+  if (!isDiscordWorkflowUiEnabled()) {
+    return replyWorkflowMovedToSite(interaction, "resocontiInbox");
+  }
   return await handleResocontoActionInteraction(interaction);
 }
 

@@ -58,6 +58,19 @@ const STAFF_HIGH_STAFF_ELIGIBLE_KEYS = Object.freeze([
   "HighStaff",
 ]);
 
+function memberIsHighStaffEligible(member) {
+  return memberHasAnyRoleKey(member, STAFF_HIGH_STAFF_ELIGIBLE_KEYS);
+}
+
+/** Director: candidature + appelli in inbox (non le pause High Staff). */
+function memberHasDirectorRole(member) {
+  return memberHasAnyRoleKey(member, ["Director"]);
+}
+
+function memberCanReviewAppelli(member) {
+  return memberIsHighStaffEligible(member) || memberHasDirectorRole(member);
+}
+
 module.exports = {
   STAFF_LADDER_KEYS_HIGH_TO_LOW,
   STAFF_PROMOTION_ROLE_UP,
@@ -67,4 +80,7 @@ module.exports = {
   staffLadderRoleIds,
   getHighestStaffLadderRoleId,
   memberHasAnyRoleKey,
+  memberIsHighStaffEligible,
+  memberHasDirectorRole,
+  memberCanReviewAppelli,
 };

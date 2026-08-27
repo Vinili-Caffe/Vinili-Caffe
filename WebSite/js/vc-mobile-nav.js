@@ -1,4 +1,7 @@
 (function () {
+  // Su homepage e molte pagine vc-landing.js già gestisce il menu mobile.
+  if (window.__vcLandingMobileNavActive) return;
+
   var DRAWER_ID = "vc-mobile-nav-drawer";
   var TOGGLE_ID = "vc-mobile-nav-toggle";
   var BODY_OPEN_CLASS = "vc-mobile-nav-open";
@@ -127,9 +130,14 @@
     var loginState = document.getElementById("discord-login-state");
     var hasToken = false;
     try {
-      var t = localStorage.getItem("vc_discord_access_token");
-      var exp = Number(localStorage.getItem("vc_discord_expires_at") || "0");
-      hasToken = Boolean(t) && (!exp || exp > Date.now());
+      if (typeof window.__vcDiscordGetAccessToken === "function") {
+        hasToken = Boolean(window.__vcDiscordGetAccessToken());
+      }
+      if (!hasToken) {
+        var t = localStorage.getItem("vc_discord_access_token");
+        var exp = Number(localStorage.getItem("vc_discord_expires_at") || "0");
+        hasToken = Boolean(t) && (!exp || exp > Date.now());
+      }
     } catch (eTok) {}
     var pendingShell = loginState && loginState.querySelector(".vc-auth-pending-shell");
     if (pendingShell || (hasToken && !profile)) {
@@ -137,16 +145,23 @@
       pending.className = "vc-mobile-nav-footer__account";
       pending.setAttribute("aria-busy", "true");
       pending.innerHTML =
+        '<div class="vc-mobile-nav-footer__who">' +
         '<div class="vc-mobile-nav-footer__account-start"><span class="vc-mobile-nav-footer__avatar vc-mobile-nav-footer__avatar--fb" aria-hidden="true"><span class="vc-ui-spinner"></span></span></div>' +
-        '<div class="vc-mobile-nav-footer__meta"><span class="vc-mobile-nav-footer__name">Verifica sessione…</span></div>';
+        '<div class="vc-mobile-nav-footer__meta">' +
+        '<span class="vc-mobile-nav-footer__name">Verifica sessione…</span>' +
+        '<span class="vc-mobile-nav-footer__hint">Account Discord</span>' +
+        "</div></div>";
       foot.appendChild(pending);
       return;
     }
-    if (profile && logoutBtn) {
+    if (profile && (hasToken || logoutBtn || profile.id)) {
       var wrap = document.createElement("div");
       wrap.className = "vc-mobile-nav-footer__account";
       var imgUrl = mobileAvatarUrl(profile);
-      var name = String(profile.username || "Utente").trim() || "Utente";
+      var name =
+        String(profile.global_name || profile.username || "Utente").trim() || "Utente";
+      var who = document.createElement("div");
+      who.className = "vc-mobile-nav-footer__who";
       var left = document.createElement("div");
       left.className = "vc-mobile-nav-footer__account-start";
       if (imgUrl) {
@@ -171,37 +186,53 @@
       nm.className = "vc-mobile-nav-footer__name";
       nm.textContent = name;
       meta.appendChild(nm);
+      var hint = document.createElement("span");
+      hint.className = "vc-mobile-nav-footer__hint";
+      hint.textContent = "Account Discord";
+      meta.appendChild(hint);
+      who.appendChild(left);
+      who.appendChild(meta);
+      var actions = document.createElement("div");
+      actions.className = "vc-mobile-nav-footer__actions";
       var prof = document.createElement("a");
-      prof.className = "vc-mobile-nav-footer__profile";
+      prof.className = "vc-mobile-nav-footer__action vc-mobile-nav-footer__action--profile";
       prof.href = mobileProfileHref(profile.id);
-      prof.textContent = "Profilo";
-      meta.appendChild(prof);
+      prof.innerHTML = '<i class="fa fa-user" aria-hidden="true"></i> Profilo';
       var lo = document.createElement("button");
       lo.type = "button";
-      lo.className = "vc-mobile-nav-footer__logout";
-      lo.textContent = "Logout";
+      lo.className = "vc-mobile-nav-footer__action vc-mobile-nav-footer__action--logout";
+      lo.innerHTML = '<i class="fa fa-sign-out" aria-hidden="true"></i> Esci';
       lo.addEventListener("click", function () {
-        logoutBtn.click();
+        if (logoutBtn) logoutBtn.click();
+        else if (typeof window.__vcDiscordClearToken === "function") {
+          try {
+            window.__vcDiscordClearToken();
+          } catch (eClear) {}
+          try {
+            window.location.reload();
+          } catch (eRel) {}
+        }
         closeDrawer();
       });
-      wrap.appendChild(left);
-      wrap.appendChild(meta);
-      wrap.appendChild(lo);
+      actions.appendChild(prof);
+      actions.appendChild(lo);
+      wrap.appendChild(who);
+      wrap.appendChild(actions);
       foot.appendChild(wrap);
       return;
     }
-    if (loginBtn && !loginBtn.hidden) {
+    if (!hasToken) {
       var b = document.createElement("button");
       b.type = "button";
       b.className = "vc-mobile-nav-footer__login";
-      b.textContent = "LOGIN";
+      b.textContent = "Accedi con Discord";
       b.addEventListener("click", function () {
         if (typeof window.__vcDiscordStartOAuthRedirect === "function") {
           window.__vcDiscordStartOAuthRedirect(b);
           closeDrawer();
           return;
         }
-        loginBtn.click();
+        if (loginBtn) loginBtn.click();
       });
       foot.appendChild(b);
     }
@@ -530,6 +561,7 @@
   }
 
   var lastToggleAt = 0;
+  var lastToggleTouchAt = 0;
 
   function isToggleEventTarget(ev) {
     var t = ev && ev.target;
@@ -538,23 +570,106 @@
     return Boolean(t && t.closest && t.closest("#" + TOGGLE_ID));
   }
 
+  function recoverDrawerIfMissing() {
+    if (drawer) return drawer;
+    try {
+      var quick = document.getElementById("header-quick-actions");
+      var existingToggle = document.getElementById(TOGGLE_ID);
+      if (existingToggle) toggle = existingToggle;
+      if (quick && toggle) {
+        drawer = document.getElementById(DRAWER_ID) || document.createElement("div");
+        drawer.id = DRAWER_ID;
+        mountDrawer(drawer);
+        backdrop = drawer.querySelector(".vc-mobile-nav-drawer__backdrop");
+        if (backdrop && backdrop.getAttribute("data-vc-mobile-nav-bound") !== "1") {
+          backdrop.setAttribute("data-vc-mobile-nav-bound", "1");
+          backdrop.addEventListener("click", closeDrawer);
+        }
+        var closeBtn = document.getElementById("vc-mobile-nav-close");
+        if (closeBtn && closeBtn.getAttribute("data-vc-mobile-nav-bound") !== "1") {
+          closeBtn.setAttribute("data-vc-mobile-nav-bound", "1");
+          closeBtn.addEventListener("click", closeDrawer);
+        }
+      }
+    } catch (eRec) {}
+    return drawer;
+  }
+
+  function shouldIgnoreDuplicateToggleEvent(ev) {
+    if (!ev) return false;
+    if (ev.type === "click" && Date.now() - lastToggleTouchAt < 450) return true;
+    if (ev.type === "pointerup" && ev.pointerType === "mouse") return true;
+    return false;
+  }
+
+  function toggleMenuFromEvent(ev) {
+    if (shouldIgnoreDuplicateToggleEvent(ev)) {
+      if (ev.preventDefault) ev.preventDefault();
+      if (ev.stopPropagation) ev.stopPropagation();
+      return false;
+    }
+    try {
+      ensure();
+    } catch (eEns) {}
+    if (!drawer) recoverDrawerIfMissing();
+    if (!drawer) {
+      if (ev && ev.preventDefault) ev.preventDefault();
+      if (ev && ev.stopPropagation) ev.stopPropagation();
+      window.requestAnimationFrame(function () {
+        try {
+          ensure();
+        } catch (eRetry) {}
+        if (!drawer) recoverDrawerIfMissing();
+        if (!drawer) return;
+        if (drawer.classList.contains("vc-mobile-nav-drawer--open")) closeDrawer();
+        else openDrawer();
+      });
+      return false;
+    }
+    var now = Date.now();
+    if (now - lastToggleAt < 280) {
+      if (ev.preventDefault) ev.preventDefault();
+      if (ev.stopPropagation) ev.stopPropagation();
+      return false;
+    }
+    if (ev && ev.preventDefault) ev.preventDefault();
+    if (ev && ev.stopPropagation) ev.stopPropagation();
+    if (drawer.classList.contains("vc-mobile-nav-drawer--open")) closeDrawer();
+    else openDrawer();
+    lastToggleAt = now;
+    if (ev && (ev.type === "touchend" || ev.type === "pointerup")) lastToggleTouchAt = now;
+    if (ev && typeof ev.stopImmediatePropagation === "function") ev.stopImmediatePropagation();
+    return true;
+  }
+
+  function bindToggleDirect(btn) {
+    if (!btn || btn.getAttribute("data-vc-mobile-nav-bound") === "1") return;
+    btn.setAttribute("data-vc-mobile-nav-bound", "1");
+    btn.addEventListener(
+      "click",
+      function (ev) {
+        if (!isToggleEventTarget(ev)) return;
+        toggleMenuFromEvent(ev);
+      },
+      true,
+    );
+    btn.addEventListener(
+      "touchend",
+      function (ev) {
+        if (!isToggleEventTarget(ev)) return;
+        toggleMenuFromEvent(ev);
+      },
+      { capture: true, passive: false },
+    );
+  }
+
   function onDelegatedToggle(ev) {
     if (!isToggleEventTarget(ev)) return;
     if (ev.type === "pointerup") {
       if (typeof ev.button === "number" && ev.button !== 0) return;
       if (ev.pointerType === "mouse") return;
     }
-    var now = Date.now();
-    if (now - lastToggleAt < 350) {
-      if (ev.preventDefault) ev.preventDefault();
-      return;
-    }
-    lastToggleAt = now;
-    ensure();
-    if (!drawer) return;
-    if (ev.preventDefault) ev.preventDefault();
-    if (drawer.classList.contains("vc-mobile-nav-drawer--open")) closeDrawer();
-    else openDrawer();
+    toggleMenuFromEvent(ev);
   }
 
   function bindGlobalToggle() {
@@ -562,6 +677,13 @@
     window.__vcMobileNavDelegated = true;
     document.addEventListener("click", onDelegatedToggle, true);
     document.addEventListener("pointerup", onDelegatedToggle, true);
+    document.addEventListener(
+      "touchend",
+      function (ev) {
+        onDelegatedToggle(ev);
+      },
+      true,
+    );
   }
 
   function drawerMarkup() {
@@ -598,8 +720,12 @@
     bindGlobalToggle();
     var existingToggle = document.getElementById(TOGGLE_ID);
     var existingDrawer = document.getElementById(DRAWER_ID);
+    if (existingToggle) toggle = existingToggle;
+    if (existingDrawer) drawer = existingDrawer;
     if (existingToggle && existingDrawer && toggle && drawer) {
       mountDrawer(drawer);
+      backdrop = drawer.querySelector(".vc-mobile-nav-drawer__backdrop");
+      bindToggleDirect(toggle);
       return;
     }
 
@@ -620,7 +746,7 @@
       toggle.innerHTML =
         '<span class="vc-mobile-nav-toggle-bars" aria-hidden="true"><span></span><span></span><span></span></span>';
       var notif = document.getElementById("vc-notif-dropdown");
-      if (notif) {
+      if (notif && notif.parentElement === quick) {
         if (notif.nextSibling) quick.insertBefore(toggle, notif.nextSibling);
         else quick.appendChild(toggle);
       } else {
@@ -657,6 +783,7 @@
       backdrop.setAttribute("data-vc-mobile-nav-bound", "1");
       backdrop.addEventListener("click", closeDrawer);
     }
+    bindToggleDirect(toggle);
     if (window.__vcMobileNavListenersBound !== true) {
       window.__vcMobileNavListenersBound = true;
       window.addEventListener("vc-discord-profile", function () {
@@ -697,6 +824,9 @@
   }
 
   window.__vcMobileNavRebuild = refreshMobileNav;
+  try {
+    window.__vcMobileNavToggle = toggleMenuFromEvent;
+  } catch (eExportToggle) {}
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", init);

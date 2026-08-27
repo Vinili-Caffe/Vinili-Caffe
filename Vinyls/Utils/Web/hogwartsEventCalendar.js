@@ -437,7 +437,7 @@ function buildEventHeaderHtml({
                   <i class="fa fa-chevron-right" aria-hidden="true"></i></a>
               </div>`
     : "";
-  return `<header class="fixed inset-x-0 top-0 z-50 px-4 pt-4">
+  return `<header class="fixed inset-x-0 top-0 z-50 px-4 pt-4 vc-hw-event-header">
     <div
       class="vc-nav-shell vc-glass mx-auto flex max-w-6xl flex-col gap-0 overflow-visible rounded-2xl border border-white/[0.08] bg-[#140f0c]/78 shadow-[0_8px_40px_rgba(0,0,0,0.48),0_0_48px_rgba(212,168,136,0.07)]">
       <div
@@ -497,6 +497,7 @@ function buildEventHeaderHtml({
               ${notifFoot}
             </div>
           </details>
+          <button type="button" class="vc-mobile-nav-toggle vc-icon-btn" id="vc-mobile-nav-toggle" aria-label="Apri menu di navigazione" aria-controls="vc-mobile-nav-drawer" aria-expanded="false"><span class="vc-mobile-nav-toggle-bars" aria-hidden="true"><span></span><span></span><span></span></span></button>
           <button class="vc-header-pill" id="discord-login-btn" type="button">Login</button>
           <div class="header-login-state" id="discord-login-state" hidden></div>
         </div>

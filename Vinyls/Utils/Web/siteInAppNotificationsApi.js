@@ -1,6 +1,7 @@
 const {
   listSiteInAppNotificationsForUser,
   markSiteInAppNotificationRead,
+  markSiteInAppNotificationsReadMany,
   markAllSiteInAppNotificationsRead,
   markSiteInAppNotificationsReadForTicket,
   deleteAllSiteInAppNotificationsForUser,
@@ -12,6 +13,7 @@ const {
   upsertWebPushSubscription,
   removeWebPushSubscription,
 } = require("./siteWebPushService");
+const { isLitePerf, resolveSitePerfTier } = require("./sitePerfHints");
 
 const BEARER_USER_CACHE_TTL_MS = 90_000;
 const bearerUserCache = new Map();
@@ -69,9 +71,16 @@ async function handleSiteNotificationsGet(client, req, res) {
     if (!resolved.ok) {
       return res.status(Number(resolved.status) || 401).json(resolved);
     }
-    const items = await listSiteInAppNotificationsForUser(resolved.userId, 50);
+    const q = req.query || {};
+    const perfTier = resolveSitePerfTier(req);
+    const lite = isLitePerf(req);
+    const rawLimit = Number(q.limit);
+    const defaultLimit = lite ? 30 : perfTier === "mid" ? 50 : 100;
+    const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(100, Math.floor(rawLimit)) : defaultLimit;
+    const items = await listSiteInAppNotificationsForUser(resolved.userId, limit);
     res.setHeader("Cache-Control", "private, no-store");
-    return res.status(200).json({ ok: true, items });
+    res.setHeader("X-VC-Perf", perfTier);
+    return res.status(200).json({ ok: true, items, perf: perfTier });
   } catch (err) {
     global.logger?.error?.("[WEBHOOK] site-notifications get:", err);
     return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
@@ -95,7 +104,13 @@ async function handleSiteNotificationsMarkReadPost(client, req, res) {
       const modified = await markSiteInAppNotificationsReadForTicket(resolved.userId, ticketId);
       return res.status(200).json({ ok: true, modified });
     }
-    const id = String(body.id || "").trim();
+    const idsRaw = Array.isArray(body.ids) ? body.ids : [];
+    const ids = idsRaw.map((x) => String(x || "").trim()).filter(Boolean);
+    if (ids.length > 1) {
+      const modified = await markSiteInAppNotificationsReadMany(resolved.userId, ids);
+      return res.status(200).json({ ok: true, modified, updated: modified > 0 });
+    }
+    const id = String(body.id || ids[0] || "").trim();
     if (!id) {
       return res.status(400).json({ ok: false, error: "missing_id", message: "Campo id richiesto." });
     }

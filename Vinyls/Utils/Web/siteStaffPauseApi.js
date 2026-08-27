@@ -1,5 +1,9 @@
 const IDs = require("../Config/ids");
-const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
+const {
+  ActivityUserProfile,
+  SiteDocument,
+  SITE_DOCUMENT_TYPE,
+} = require("../../Schemas/Community/communitySchemas");
 const {
   parseItalianDate,
   filterPausesByMonth,
@@ -15,6 +19,15 @@ const {
 const { createPauseRequest } = require("../Pause/pauseRequestRuntime");
 const { memberCanRequestPause } = require("../Pause/pauseRequestSubmitRuntime");
 const { assertWebsiteStaffAccess, normalizeHeaderSecret } = require("./siteStaffAccessApi");
+const {
+  getPendingPauseWorkflowForMember,
+  buildWorkflowDedupeKey,
+} = require("./siteStaffWorkflowStore");
+const {
+  resolveWebUserIdentitiesBatch,
+  safeDisplayLabel,
+} = require("./siteWebUserIdentity");
+const mongoose = require("mongoose");
 
 const CAL_CACHE_TTL_MS = 45_000;
 const CAL_CACHE_MAX = 24;
@@ -105,6 +118,23 @@ function buildRequestMeta(member) {
   };
 }
 
+function serializePendingPauseChat(item) {
+  if (!item) return null;
+  const dedupeKey = String(item.dedupeKey || "").trim();
+  if (!dedupeKey) return null;
+  return {
+    dedupeKey,
+    pauseId: String(item.pauseId || item.id || "").trim(),
+    status: String(item.status || "pending"),
+    statusLabel: String(item.statusLabel || "In attesa"),
+    preview: String(item.preview || item.motivazione || "").slice(0, 400),
+    start: String(item.start || ""),
+    end: String(item.end || ""),
+    ruoloRichiesto: String(item.ruoloRichiesto || ""),
+    createdAt: item.createdAt || null,
+  };
+}
+
 function defaultAvatarUrl(userId) {
   try {
     const id = BigInt(String(userId || "0"));
@@ -115,13 +145,24 @@ function defaultAvatarUrl(userId) {
   }
 }
 
-function resolveMemberDisplay(guild, userId) {
+function resolveMemberDisplay(guild, userId, identityMap = null) {
   const id = String(userId || "").trim();
   if (!id) return { displayName: "Staff", username: "", avatarUrl: "" };
+  if (identityMap && identityMap.has(id)) {
+    const hit = identityMap.get(id);
+    return {
+      displayName: safeDisplayLabel(hit.displayName, id, "Staff"),
+      username: hit.username || "",
+      avatarUrl: hit.avatarUrl || defaultAvatarUrl(id),
+    };
+  }
   const member = guild?.members?.cache?.get?.(id) || null;
   const user = member?.user || null;
-  const displayName =
-    String(member?.displayName || user?.globalName || user?.username || id).trim() || id;
+  const displayName = safeDisplayLabel(
+    member?.displayName || user?.globalName || user?.username,
+    id,
+    "Staff",
+  );
   const username = String(user?.username || "").trim();
   let avatarUrl = "";
   try {
@@ -146,9 +187,9 @@ function expandPauseDayKeys(startRaw, endRaw) {
   return keys;
 }
 
-function serializePause(doc, pause, guild, today) {
+function serializePause(doc, pause, guild, today, identityMap = null) {
   const userId = String(doc?.userId || "").trim();
-  const identity = resolveMemberDisplay(guild, userId);
+  const identity = resolveMemberDisplay(guild, userId, identityMap);
   const startRaw = String(pause?.dataRichiesta || "").trim();
   const endRaw = String(pause?.dataRitorno || "").trim();
   const phase = getPausePhase(startRaw, endRaw, today);
@@ -201,12 +242,86 @@ function invalidateStaffPauseCalendarCache() {
   calendarCache.clear();
 }
 
-async function hydrateMembersForUserIds(guild, userIds) {
-  if (!guild || !Array.isArray(userIds) || !userIds.length) return;
-  const missing = userIds.filter((id) => id && !guild.members.cache.has(id));
-  if (!missing.length) return;
-  const chunk = missing.slice(0, 40);
-  await Promise.all(chunk.map((id) => guild.members.fetch(id).catch(() => null)));
+async function hydrateMembersForUserIds(client, guild, userIds) {
+  return resolveWebUserIdentitiesBatch(client, guild, userIds, {
+    cap: 60,
+    budgetMs: 4000,
+  });
+}
+
+function pauseEntryFromWorkflowDoc(doc) {
+  const fields = doc?.workflowFields && typeof doc.workflowFields === "object" ? doc.workflowFields : {};
+  const start = String(fields.start || fields.dataRichiesta || "").trim();
+  const end = String(fields.end || fields.dataRitorno || "").trim();
+  const pauseId = String(doc?.workflowPauseId || "").trim();
+  if (!pauseId || !start || !end) return null;
+  return {
+    _id: pauseId,
+    dataRichiesta: start,
+    dataRitorno: end,
+    motivazione: String(doc?.preview || doc?.content || doc?.body || "").trim(),
+    ruolo: String(fields.ruoloLabel || fields.ruoloRichiesto || "").trim(),
+    ruoloRichiesto: String(fields.ruoloRichiesto || fields.ruoloLabel || "").trim(),
+    status: "accepted",
+    createdAt: doc?.createdAt || null,
+  };
+}
+
+/**
+ * Re-pex / ladder reset ha azzerato staff.pauses lasciando i workflow accepted.
+ * Ripristina le entry mancanti così calendario e conteggio giorni restano allineati.
+ */
+async function healAcceptedPausesFromWorkflowStore(guildId, workflowDocs) {
+  const gid = String(guildId || "").trim();
+  if (!gid || !Array.isArray(workflowDocs) || !workflowDocs.length) return 0;
+  let healed = 0;
+  for (const w of workflowDocs) {
+    const uid = String(w?.userId || "").trim();
+    const pause = pauseEntryFromWorkflowDoc(w);
+    if (!uid || !pause) continue;
+    const pauseId = String(pause._id);
+    const existing = await ActivityUserProfile.findOne(
+      { guildId: gid, userId: uid },
+      { "staff.pauses._id": 1 },
+    )
+      .lean()
+      .catch(() => null);
+    const has = (Array.isArray(existing?.staff?.pauses) ? existing.staff.pauses : []).some(
+      (p) => String(p?._id || "") === pauseId,
+    );
+    if (has) continue;
+    const oid = mongoose.Types.ObjectId.isValid(pauseId) ? new mongoose.Types.ObjectId(pauseId) : pauseId;
+    const entry = {
+      _id: oid,
+      dataRichiesta: pause.dataRichiesta,
+      dataRitorno: pause.dataRitorno,
+      motivazione: pause.motivazione,
+      ruolo: pause.ruolo || null,
+      ruoloRichiesto: pause.ruoloRichiesto || null,
+      status: "accepted",
+      giorniUsati: 0,
+      createdAt: pause.createdAt ? new Date(pause.createdAt) : new Date(),
+    };
+    const res = await ActivityUserProfile.updateOne(
+      { guildId: gid, userId: uid, staff: { $exists: true } },
+      { $push: { "staff.pauses": entry } },
+    ).catch(() => null);
+    if (Number(res?.modifiedCount || 0) > 0) {
+      healed += 1;
+      continue;
+    }
+    // Profilo senza staff: crea solo lo stub pause, senza azzerare altri campi.
+    await ActivityUserProfile.updateOne(
+      { guildId: gid, userId: uid },
+      {
+        $setOnInsert: { guildId: gid, userId: uid },
+        $push: { "staff.pauses": entry },
+      },
+      { upsert: true },
+    ).catch(() => null);
+    healed += 1;
+  }
+  return healed;
 }
 
 async function buildStaffPauseCalendarPayload(client, year, month) {
@@ -231,30 +346,105 @@ async function buildStaffPauseCalendarPayload(client, year, month) {
     guild = await client.guilds.fetch(guildId).catch(() => null);
   }
 
-  const docs = await ActivityUserProfile.find(
-    { guildId, "staff.pauses.status": "accepted" },
-    { userId: 1, "staff.pauses": 1 },
-  )
-    .lean()
-    .catch(() => []);
+  const [docs, workflowDocs] = await Promise.all([
+    ActivityUserProfile.find(
+      { guildId, "staff.pauses.status": "accepted" },
+      { userId: 1, "staff.pauses": 1 },
+    )
+      .lean()
+      .catch(() => []),
+    SiteDocument.find({
+      docType: SITE_DOCUMENT_TYPE.STAFF_WORKFLOW,
+      guildId,
+      workflowQueue: "pause",
+      status: "accepted",
+    })
+      .select(
+        "userId workflowPauseId workflowFields preview content body createdAt workflowSubjectName workflowSubjectAvatarUrl title",
+      )
+      .lean()
+      .catch(() => []),
+  ]);
+
+  // Heal best-effort: non bloccare il calendario se fallisce.
+  void healAcceptedPausesFromWorkflowStore(guildId, workflowDocs).catch(() => 0);
 
   const today = getTodayUtc();
   const pending = [];
-  for (const doc of docs) {
+  const seenPauseKeys = new Set();
+
+  for (const doc of docs || []) {
     const all = Array.isArray(doc?.staff?.pauses) ? doc.staff.pauses : [];
     const accepted = all.filter((p) => p && String(p.status || "") === "accepted");
     const inMonth = filterPausesByMonth(accepted, y, m);
     for (const pause of inMonth) {
+      const key = `${String(doc.userId || "")}:${String(pause?._id || "")}`;
+      if (seenPauseKeys.has(key)) continue;
+      seenPauseKeys.add(key);
       pending.push({ doc, pause });
     }
+  }
+
+  for (const w of workflowDocs || []) {
+    const pause = pauseEntryFromWorkflowDoc(w);
+    if (!pause) continue;
+    const uid = String(w.userId || "").trim();
+    if (!uid) continue;
+    const key = `${uid}:${String(pause._id)}`;
+    if (seenPauseKeys.has(key)) continue;
+    if (!filterPausesByMonth([pause], y, m).length) continue;
+    seenPauseKeys.add(key);
+    pending.push({
+      doc: {
+        userId: uid,
+        displayNameHint: w.workflowSubjectName || w.title || "",
+        avatarHint: w.workflowSubjectAvatarUrl || "",
+      },
+      pause,
+    });
   }
 
   const needIds = [
     ...new Set(pending.map((row) => String(row.doc?.userId || "").trim()).filter(Boolean)),
   ];
-  await hydrateMembersForUserIds(guild, needIds);
+  const identityMap = await hydrateMembersForUserIds(client, guild, needIds);
 
-  const pauses = pending.map(({ doc, pause }) => serializePause(doc, pause, guild, today));
+  let knownStaffIds = null;
+  try {
+    const { loadRosterSnapshot } = require("./siteStaffRosterCache");
+    const snap = await loadRosterSnapshot(guildId).catch(() => null);
+    if (Array.isArray(snap?.userIds) && snap.userIds.length) {
+      knownStaffIds = new Set(snap.userIds.map((id) => String(id || "").trim()).filter(Boolean));
+    }
+  } catch (_) {}
+
+  const {
+    memberHasAnyStaffPresenceForDepexSync,
+    memberHasPartnerManagerRole,
+  } = require("../Staff/staffPmUtils");
+  function calendarMemberEligible(member, ruoloRaw) {
+    if (!member) return false;
+    const role = String(ruoloRaw || "Staff")
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, "");
+    if (role === "partnermanager" || role === "pm") return memberHasPartnerManagerRole(member);
+    if (role === "entrambi" || role === "both") {
+      return memberHasAnyStaffPresenceForDepexSync(member) || memberHasPartnerManagerRole(member);
+    }
+    return memberHasAnyStaffPresenceForDepexSync(member);
+  }
+  const pauses = pending
+    .filter(({ doc, pause }) => {
+      const uid = String(doc?.userId || "").trim();
+      if (!uid) return false;
+      const member = guild?.members?.cache?.get?.(uid) || null;
+      const ruolo = pause?.ruoloRichiesto || pause?.ruolo || "Staff";
+      if (member) return calendarMemberEligible(member, ruolo);
+      if (knownStaffIds) return knownStaffIds.has(uid);
+      return false;
+    })
+    .map(({ doc, pause }) => serializePause(doc, pause, guild, today, identityMap));
 
   pauses.sort((a, b) => {
     const as = String(a.startIso || "");
@@ -321,9 +511,16 @@ async function handleSiteStaffPauseGet(client, req, res) {
     const year = req.query?.year != null ? Number(req.query.year) : now.getUTCFullYear();
     const month = req.query?.month != null ? Number(req.query.month) : now.getUTCMonth() + 1;
     const out = await buildStaffPauseCalendarPayload(client, year, month);
+    const guildId = String(access.member?.guild?.id || IDs.guilds.main || "").trim();
+    const pendingChat = guildId
+      ? await getPendingPauseWorkflowForMember(guildId, access.member.id, client).catch(() => null)
+      : null;
     const payload = {
       ...out,
-      me: buildRequestMeta(access.member),
+      me: {
+        ...buildRequestMeta(access.member),
+        pendingRequest: serializePendingPauseChat(pendingChat),
+      },
     };
     res.setHeader("Cache-Control", "private, max-age=30");
     return res.status(Number(payload.status) || 500).json(payload);
@@ -429,11 +626,14 @@ async function handleSiteStaffPausePost(client, req, res) {
     }
 
     res.setHeader("Cache-Control", "private, no-store");
+    const pauseId = String(result.pauseId || "").trim();
+    const dedupeKey = pauseId ? buildWorkflowDedupeKey("pause", [member.id, pauseId]) : "";
     return res.status(200).json({
       ok: true,
-      pauseId: String(result.pauseId || ""),
+      pauseId,
+      dedupeKey,
       message:
-        "Richiesta inviata. Gli High Staff la vedranno su Discord con i pulsanti Accetta / Rifiuta.",
+        "Richiesta inviata. Puoi discutere con gli High Staff dalla chat qui sotto (come il thread Discord). Si chiude automaticamente a decisione.",
       role: requestedRole,
     });
   } catch (err) {

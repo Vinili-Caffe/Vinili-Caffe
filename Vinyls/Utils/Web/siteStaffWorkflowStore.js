@@ -1,0 +1,2790 @@
+const IDs = require("../Config/ids");
+const { SiteDocument, SITE_DOCUMENT_TYPE, ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
+const { getBotState, setBotState } = require("../BotState/botStateStore");
+const { getGuildMemberCached, getUserCached } = require("../Interaction/interactionEntityCache");
+const {
+  userAvatarUrlStatic,
+  guildMemberDisplayAvatarUrlStatic,
+} = require("../Discord/guildDiscordIdentity");
+const {
+  getPauseStatusLabel,
+  getPausePhase,
+  getPauseTimingText,
+  computePauseScaledDaysThisYear,
+  getCurrentYearBoundsUtc,
+  getTodayUtc,
+  formatPauseRoleLabelForMessage,
+  normalizePauseRoleChoice,
+} = require("../Pause/pauseHandlersUtils");
+const { resolveSubmissionChannel } = require("../../Events/interaction/candidatureApplicationHandlers");
+const {
+  listCandidatureApplications,
+  getCandidatureApplicationDetail,
+  parseCandidateTypeFromMessage,
+} = require("../../Events/interaction/candidatureApplicationHandlers");
+const {
+  getAppealDetail,
+  parseAppealFromMessageOrEmbed,
+  deriveAppealStatus,
+  appealSanctionStillActive,
+  closeAppealAsObsolete,
+  autoCloseObsoletePendingAppeals,
+} = require("./siteStaffAppealsRuntime");
+const { memberHasResocontoButtonAccess } = require("../Staff/resocontoAccess");
+const { RESOCONTO_APPLY_PREFIX, RESOCONTO_REJECT_PREFIX } = require("../../Events/interaction/resocontoHandlers");
+
+const WORKFLOW_DOC = SITE_DOCUMENT_TYPE.STAFF_WORKFLOW;
+const BACKFILL_STATE_KEY = "staffWorkflowBackfillAt";
+const BACKFILL_MIN_INTERVAL_MS = 6 * 60 * 60 * 1000;
+const ENSURE_WEEK_KEYS_MIN_MS = 10 * 60 * 1000;
+const INBOX_SYNC_MIN_MS = 120000;
+const INBOX_PRUNE_MIN_MS = 60000;
+const INBOX_WEEKS_CACHE_MS = 30000;
+let backfillInFlight = null;
+
+/** Inbox resoconti: PM → Helper → Mod → Senior Mod → Director (come in Discord). */
+const RESOCONTO_LIST_ROLE_RANK = new Map(
+  [
+    IDs.roles.PartnerManager,
+    IDs.roles.Helper,
+    IDs.roles.Mod,
+    IDs.roles.SeniorModerator,
+    IDs.roles.Director,
+  ]
+    .filter(Boolean)
+    .map((roleId, index) => [String(roleId), index]),
+);
+const RESOCONTO_LIST_RANK_FALLBACK = 50;
+
+function resocontoListSortRank(doc) {
+  const kind = String(doc?.workflowKind || "").trim().toLowerCase();
+  if (kind === "p") return 0;
+  const roleId = String(doc?.workflowRoleId || "").trim();
+  if (roleId && RESOCONTO_LIST_ROLE_RANK.has(roleId)) return RESOCONTO_LIST_ROLE_RANK.get(roleId);
+  return RESOCONTO_LIST_RANK_FALLBACK;
+}
+
+function stripDiscordDecorations(text, opts = {}) {
+  const keepNewlines = Boolean(opts?.keepNewlines);
+  const keepCustomEmoji = Boolean(opts?.keepCustomEmoji);
+  let s = String(text || "")
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F\uFFFD]/g, "")
+    // Keep ZWJ (\u200D) for composite unicode emoji.
+    .replace(/[\u200B\u200C\uFEFF]/g, "");
+  const emojiTokens = [];
+  if (keepCustomEmoji) {
+    s = s.replace(/<(a?):([\w~-]+):(\d+)>/g, (m) => {
+      const i = emojiTokens.length;
+      emojiTokens.push(m);
+      return `{{VCEMOJI${i}}}`;
+    });
+  } else {
+    s = s.replace(/<a?:[\w~-]+:\d+>/g, "");
+  }
+  s = s
+    .replace(/<(?:@(?:!|&)?|#)\d+>/g, "")
+    // Dopo strip menzioni resta spesso "(123...)" / "(`123...`)" — ridondante sul sito.
+    .replace(/\(\s*`?\d{16,20}`?\s*\)/g, "")
+    .replace(/```[\s\S]*?```/g, (block) =>
+      block.replace(/^```[^\n]*\n?/, "").replace(/```$/, ""),
+    )
+    .replace(/\[([^\]]+)\]\(\s*<?https?:\/\/[^)\s>]+>?\s*\)/gi, "$1")
+    .replace(/\\([\\`*_{}[\]()#+\-.!|>])/g, "$1")
+    .replace(/\*\*\*(.+?)\*\*\*/g, "$1")
+    .replace(/\*\*(.+?)\*\*/g, "$1")
+    .replace(/__(.+?)__/g, "$1")
+    .replace(/~~(.+?)~~/g, "$1")
+    .replace(/\|\|(.+?)\|\|/g, "$1")
+    .replace(/`([^`\n]+)`/g, "$1")
+    .replace(/[*_`~|]+/g, "");
+  if (emojiTokens.length) {
+    for (let i = 0; i < emojiTokens.length; i += 1) {
+      s = s.split(`{{VCEMOJI${i}}}`).join(emojiTokens[i]);
+    }
+  }
+  if (keepNewlines) {
+    return s
+      .replace(/\r\n/g, "\n")
+      .replace(/[ \t]+\n/g, "\n")
+      .replace(/\n{3,}/g, "\n\n")
+      .replace(/[ \t]{2,}/g, " ")
+      .trim();
+  }
+  return s.replace(/\s+/g, " ").trim();
+}
+
+function weekKeyFromDate(input) {
+  const d = input instanceof Date ? input : new Date(input);
+  if (Number.isNaN(d.getTime())) return "";
+  try {
+    const ymd = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Europe/Rome",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(d);
+    const wd = new Intl.DateTimeFormat("en-US", {
+      timeZone: "Europe/Rome",
+      weekday: "short",
+    }).format(d);
+    const map = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+    const offset = map[wd] ?? 0;
+    const [y, m, day] = ymd.split("-").map((n) => Number(n));
+    const sunday = new Date(Date.UTC(y, m - 1, day - offset));
+    const sy = sunday.getUTCFullYear();
+    const sm = String(sunday.getUTCMonth() + 1).padStart(2, "0");
+    const sd = String(sunday.getUTCDate()).padStart(2, "0");
+    return `${sy}-${sm}-${sd}`;
+  } catch {
+    return "";
+  }
+}
+
+function formatWeekLabel(weekKey) {
+  const raw = String(weekKey || "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw || "Settimana";
+  const [y, m, d] = raw.split("-").map((n) => Number(n));
+  const start = new Date(Date.UTC(y, m - 1, d));
+  const end = new Date(Date.UTC(y, m - 1, d + 6));
+  const fmt = (dt) =>
+    `${String(dt.getUTCDate()).padStart(2, "0")}/${String(dt.getUTCMonth() + 1).padStart(2, "0")}`;
+  return `${fmt(start)} – ${fmt(end)}/${String(end.getUTCFullYear()).slice(2)}`;
+}
+
+function buildWorkflowDedupeKey(queue, parts) {
+  const q = String(queue || "").trim().toLowerCase();
+  return `${q}:${parts.filter(Boolean).join(":")}`;
+}
+
+function normalizeStatus(raw, fallback = "pending") {
+  const s = String(raw || fallback).trim().toLowerCase();
+  if (["pending", "accepted", "rejected", "closed", "cancelled"].includes(s)) return s;
+  return fallback;
+}
+
+function statusLabelFor(status, pauseLabel) {
+  const st = String(status || "").toLowerCase();
+  const stored = String(pauseLabel || "").trim();
+  // Non riusare etichette "pending" (es. "Richiesta") se lo stato è già deciso.
+  if (stored) {
+    if (st === "pending") return stored;
+    if (st === "accepted" && /^(programmata|in corso|finita|accettata)$/i.test(stored)) return stored;
+    if (st === "cancelled" && !/^richiesta$/i.test(stored)) return stored;
+    if (st === "rejected" && /^rifiutata$/i.test(stored)) return stored;
+  }
+  const map = {
+    pending: "In attesa",
+    accepted: "Accettata",
+    rejected: "Rifiutata",
+    closed: "Chiusa",
+    cancelled: "Annullata",
+  };
+  return map[st] || status;
+}
+
+function pauseTrackRoleKey(pauseOrFields) {
+  const raw =
+    pauseOrFields?.ruoloTrack ??
+    pauseOrFields?.ruoloRichiesto ??
+    pauseOrFields?.ruolo ??
+    (typeof pauseOrFields === "string" ? pauseOrFields : "");
+  const normalized = normalizePauseRoleChoice(raw);
+  if (normalized) return normalized;
+  const label = String(pauseOrFields?.ruoloLabel || raw || "")
+    .trim()
+    .toLowerCase();
+  if (/partner\s*manager|\bpm\b/.test(label)) return "PartnerManager";
+  if (/entrambi|\bboth\b/.test(label)) return "Entrambi";
+  // Gradi staff (Helper/Mod/…) o valori legacy non normalizzati → track Staff.
+  return "Staff";
+}
+
+function cleanPauseSubjectDisplayName(name, userId) {
+  let n = stripDiscordDecorations(String(name || "")).trim();
+  n = n
+    .replace(/\s*[|/·\-–—]\s*sono in pausa!?/gi, "")
+    .replace(/\s*sono in pausa!?/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  // Nick “invisibili” / placeholder unicode (Hangul filler, etc.)
+  if (!n || /^[\s\u115f\u1160\u200b\u200c\u200d\u2060\u3164\ufeff\uffa0ღ᲼]+$/iu.test(n)) {
+    return "";
+  }
+  if (isSnowflakeLikeLabel(n, userId)) return "";
+  return n;
+}
+
+function pauseRoleDisplayLabel(trackOrFields, member, guild = null) {
+  const track = pauseTrackRoleKey(trackOrFields);
+  const labeled =
+    trackOrFields && typeof trackOrFields === "object"
+      ? String(trackOrFields.ruoloLabel || "").trim()
+      : "";
+  if (labeled && !/^(staff|partnermanager|partner manager|entrambi|both)$/i.test(labeled)) {
+    return labeled;
+  }
+  try {
+    return formatPauseRoleLabelForMessage(guild || member?.guild || null, track, member);
+  } catch (_) {
+    return track === "PartnerManager" ? "Partner Manager" : track === "Entrambi" ? "Entrambi" : "Staff";
+  }
+}
+
+const RESOCONTO_ACTION_LABELS = {
+  vp: "Val +",
+  vn: "Val -",
+  nl: "Nulla",
+  px: "Pex",
+  dp: "Depex",
+  rc: "Richiamo",
+  batch: "Azioni multiple",
+};
+
+const GENERIC_RESOCONTO_STATUS_LABELS = new Set([
+  "accettata",
+  "rifiutata",
+  "chiusa",
+  "in attesa",
+  "annullata",
+  "annullato (depex)",
+]);
+
+function resocontoActionLabelForKey(raw) {
+  const k = String(raw || "").trim().toLowerCase();
+  return RESOCONTO_ACTION_LABELS[k] || "";
+}
+
+function parseResocontoOutcomeFromContent(text) {
+  const raw = String(text || "");
+  if (/azione negata da/i.test(raw)) {
+    return { rejected: true, actionKey: "", label: "Azione negata" };
+  }
+  const confirmMatch = raw.match(/azione confermata da[\s\S]*?:([\s\S]*?)(?:\n\n|$)/i);
+  const outcomeText = confirmMatch ? String(confirmMatch[1] || "").trim() : "";
+  const plain = stripDiscordDecorations(outcomeText, { keepNewlines: false }).toLowerCase();
+  if (/pex applicato/.test(plain)) return { rejected: false, actionKey: "px", label: "Pex" };
+  if (/depex pm applicato|depex applicato/.test(plain)) {
+    return { rejected: false, actionKey: "dp", label: "Depex" };
+  }
+  if (/valutazione positiva/.test(plain)) return { rejected: false, actionKey: "vp", label: "Val +" };
+  if (/valutazione negativa/.test(plain)) return { rejected: false, actionKey: "vn", label: "Val -" };
+  if (/richiamo/.test(plain)) return { rejected: false, actionKey: "rc", label: "Richiamo" };
+  if (/nessuna azione/.test(plain)) return { rejected: false, actionKey: "nl", label: "Nulla" };
+  if (/valutazioni gi[aà] registrate|azioni multiple/.test(plain)) {
+    return { rejected: false, actionKey: "batch", label: "Azioni multiple" };
+  }
+  return { rejected: false, actionKey: "", label: "" };
+}
+
+function deriveResocontoStatusLabel(doc) {
+  const status = resolveResocontoDocStatus(doc);
+  if (status === "pending") return statusLabelFor("pending");
+  if (status === "cancelled") {
+    return String(doc?.workflowFields?.statusLabel || doc?.staffReason || "Annullato (depex)").trim();
+  }
+
+  const stored = String(doc?.workflowFields?.statusLabel || doc?.staffReason || "").trim();
+  if (stored && !GENERIC_RESOCONTO_STATUS_LABELS.has(stored.toLowerCase())) return stored;
+
+  const fromKey = resocontoActionLabelForKey(doc?.workflowActionKey);
+  if (fromKey) return fromKey;
+
+  const outcome = parseResocontoOutcomeFromContent(doc?.content || doc?.body || "");
+  if (outcome.label) return outcome.label;
+
+  if (status === "rejected" || outcome.rejected) return "Azione negata";
+  if (status === "accepted") return "Accettata";
+  return statusLabelFor(status);
+}
+
+function resolveResocontoDocStatus(doc) {
+  let status = normalizeStatus(doc?.status, "pending");
+  if (status !== "pending") return status;
+  const raw = String(doc?.content || doc?.body || "");
+  if (/azione negata da/i.test(raw)) return "rejected";
+  if (/azione confermata da/i.test(raw)) return "accepted";
+  return status;
+}
+
+function isSnowflakeLikeLabel(value, userId) {
+  const v = String(value || "").trim();
+  if (!v) return true;
+  const uid = String(userId || "").trim();
+  if (uid && v === uid) return true;
+  return /^\d{16,22}$/.test(v);
+}
+
+function isGenericWorkflowSubjectLabel(value, doc) {
+  const v = String(value || "").trim();
+  if (!v) return true;
+  if (/^richiesta\s+(unban|unmute)\b/i.test(v)) return true;
+  if (/^candidatura\b/i.test(v)) return true;
+  if (/^appello\b/i.test(v)) return true;
+  return isWorkflowRoleSlug(v, doc);
+}
+
+/** Prefer real Discord names; never keep raw snowflake / generic titles as subject. */
+function pickSubjectDisplayName(userId, ...candidates) {
+  const uid = String(userId || "").trim();
+  for (const raw of candidates) {
+    const name = String(raw || "").trim();
+    if (!name || isSnowflakeLikeLabel(name, uid) || isGenericWorkflowSubjectLabel(name)) continue;
+    return name.slice(0, 120);
+  }
+  return "";
+}
+
+function memberToSubjectFields(member, userId) {
+  const uid = String(userId || member?.id || member?.user?.id || "").trim();
+  const displayName = pickSubjectDisplayName(
+    uid,
+    member?.displayName,
+    member?.user?.globalName,
+    member?.user?.username,
+  );
+  // Solo avatar reali (PNG statico). Niente default embed: la lista altrimenti
+  // resta bloccata sul logo Discord anche quando il dettaglio trova la foto.
+  const avatarUrl =
+    guildMemberDisplayAvatarUrlStatic(member, { size: 128 }) ||
+    userAvatarUrlStatic(member?.user || member, { size: 128 }) ||
+    "";
+  return {
+    ...(displayName ? { displayName } : {}),
+    ...(avatarUrl ? { avatarUrl } : {}),
+  };
+}
+
+function hasRealDiscordAvatarUrl(url) {
+  return /cdn\.discordapp\.com\/avatars\/\d+\//i.test(String(url || ""));
+}
+
+/** Member in guild, altrimenti user Discord globale (bannati / usciti). */
+async function resolveWorkflowSubject(client, guild, userId) {
+  const uid = String(userId || "").trim();
+  if (!/^\d{16,20}$/.test(uid)) return { displayName: "", avatarUrl: "" };
+
+  const member = guild ? await getGuildMemberCached(guild, uid).catch(() => null) : null;
+  let user = member?.user || null;
+  if (!user && client) {
+    user = await getUserCached(client, uid).catch(() => null);
+  }
+
+  const displayName = pickSubjectDisplayName(
+    uid,
+    member?.displayName,
+    user?.globalName,
+    user?.username,
+  );
+  const avatarUrl =
+    guildMemberDisplayAvatarUrlStatic(member, { size: 128 }) ||
+    userAvatarUrlStatic(user || member, { size: 128 }) ||
+    "";
+
+  return {
+    displayName: displayName || "",
+    avatarUrl,
+  };
+}
+
+async function applyWorkflowSubjectToItem(client, guild, item) {
+  if (!item) return item;
+  const uid = String(item.userId || "").trim();
+  if (!/^\d{16,20}$/.test(uid)) return item;
+  const name = pickSubjectDisplayName(uid, item.displayName);
+  const nameMissing = !name;
+  if (hasRealDiscordAvatarUrl(item.avatarUrl) && !nameMissing) return item;
+
+  const sub = await resolveWorkflowSubject(client, guild, uid);
+  const resolvedName = pickSubjectDisplayName(uid, sub.displayName);
+  return {
+    ...item,
+    displayName: name || resolvedName || "",
+    // Se non c’è avatar reale, lascia vuoto: il client usa il default, e un fetch successivo può ancora riempirlo.
+    avatarUrl: sub.avatarUrl || (hasRealDiscordAvatarUrl(item.avatarUrl) ? item.avatarUrl : "") || "",
+  };
+}
+
+async function enrichWorkflowListSubjects(client, guild, items) {
+  if (!client || !Array.isArray(items) || !items.length) return items || [];
+
+  const needIds = [
+    ...new Set(
+      items
+        .filter((it) => {
+          const uid = String(it?.userId || "").trim();
+          if (!/^\d{16,20}$/.test(uid)) return false;
+          const name = String(it?.displayName || "").trim();
+          const nameIsId = !name || name === uid || /^\d{16,20}$/.test(name);
+          return nameIsId || !hasRealDiscordAvatarUrl(it?.avatarUrl);
+        })
+        .map((it) => String(it.userId)),
+    ),
+  ].slice(0, 60);
+
+  const resolved = new Map();
+  // A piccoli batch: 20 fetch paralleli su site-api REST fanno spesso fallire e lasciano il logo Discord.
+  for (let i = 0; i < needIds.length; i += 5) {
+    const chunk = needIds.slice(i, i + 5);
+    await Promise.all(
+      chunk.map(async (uid) => {
+        const sub = await resolveWorkflowSubject(client, guild, uid);
+        if (sub.displayName || sub.avatarUrl) resolved.set(uid, sub);
+      }),
+    );
+  }
+
+  return items.map((it) => {
+    const uid = String(it?.userId || "").trim();
+    const sub = resolved.get(uid);
+    if (!sub) {
+      if (hasRealDiscordAvatarUrl(it.avatarUrl)) return it;
+      // Togli URL default embed salvati per errore: altrimenti restano “finti” avatar.
+      if (/cdn\.discordapp\.com\/embed\/avatars\//i.test(String(it.avatarUrl || ""))) {
+        return { ...it, avatarUrl: "" };
+      }
+      return it;
+    }
+    const name = String(it.displayName || "").trim();
+    const nameIsId = !name || name === uid || /^\d{16,20}$/.test(name);
+    const subName = String(sub.displayName || "").trim();
+    const subIsId = !subName || subName === uid || /^\d{16,20}$/.test(subName);
+    return {
+      ...it,
+      displayName: nameIsId ? (subIsId ? "Utente" : subName) : it.displayName,
+      avatarUrl: sub.avatarUrl || (hasRealDiscordAvatarUrl(it.avatarUrl) ? it.avatarUrl : "") || "",
+    };
+  });
+}
+
+function cleanAppealPreviewText(text) {
+  return stripDiscordDecorations(String(text || ""), { keepNewlines: true })
+    .replace(/^Utente\s*:?\s*/im, "")
+    .replace(/\(\s*`?\d{16,20}`?\s*\)/g, "")
+    .replace(/\b\d{16,20}\b/g, "")
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function isWorkflowRoleSlug(value, doc) {
+  const v = String(value || "").trim().toLowerCase();
+  if (!v) return true;
+  const type = String(doc?.workflowType || doc?.workflowKind || "").trim().toLowerCase();
+  if (type && v === type) return true;
+  return /^(helper|partnermanager|partner manager)$/.test(v);
+}
+
+function readStoredSubject(doc) {
+  const uid = String(doc?.userId || "").trim();
+  const storedName = pickSubjectDisplayName(uid, stripDiscordDecorations(doc?.workflowSubjectName || ""));
+  const storedAvatar = String(doc?.workflowSubjectAvatarUrl || "").trim();
+  const title = stripDiscordDecorations(doc?.title || "");
+  const queue = String(doc?.workflowQueue || "");
+  if (storedName) {
+    return { displayName: storedName, avatarUrl: storedAvatar };
+  }
+  if (queue === "pause" && title && !isGenericWorkflowSubjectLabel(title, doc) && !isSnowflakeLikeLabel(title, uid)) {
+    return { displayName: title, avatarUrl: "" };
+  }
+  // Appelli/candidature: il title è generico ("Richiesta Unban", "Candidatura Helper") — non usarlo come nome.
+  if (queue !== "appelli" && queue !== "candidature" && title && !isGenericWorkflowSubjectLabel(title, doc) && !isSnowflakeLikeLabel(title, uid)) {
+    return { displayName: title, avatarUrl: "" };
+  }
+  return { displayName: "", avatarUrl: storedAvatar };
+}
+
+function docToListItem(doc, memberCache) {
+  const queue = String(doc?.workflowQueue || "");
+  const status = queue === "resoconti" ? resolveResocontoDocStatus(doc) : normalizeStatus(doc?.status, "pending");
+  const userId = String(doc?.userId || "");
+  const member = memberCache?.get?.(userId) || null;
+  const stored = readStoredSubject(doc);
+  const displayName =
+    pickSubjectDisplayName(
+      userId,
+      member?.displayName,
+      member?.user?.globalName,
+      member?.user?.username,
+      stored.displayName,
+    ) || stored.displayName || "";
+  const decidedBy = String(doc?.workflowDecidedBy || "").trim();
+  const decidedMember = decidedBy ? memberCache?.get?.(decidedBy) || null : null;
+  const decidedByName = decidedBy
+    ? String(
+        decidedMember?.displayName ||
+          decidedMember?.user?.globalName ||
+          decidedMember?.user?.username ||
+          doc?.workflowDecidedByName ||
+          decidedBy,
+      ).trim() || decidedBy
+    : "";
+  const createdFromMsg = snowflakeToDate(doc?.workflowMessageId);
+  const createdAt = createdFromMsg || (doc?.createdAt ? new Date(doc.createdAt) : null);
+  const avatarUrl =
+    guildMemberDisplayAvatarUrlStatic(member, { size: 128 }) ||
+    userAvatarUrlStatic(member?.user, { size: 128 }) ||
+    (hasRealDiscordAvatarUrl(stored.avatarUrl) ? stored.avatarUrl : "") ||
+    "";
+  const base = {
+    recordId: String(doc?._id || ""),
+    dedupeKey: String(doc?.dedupeKey || ""),
+    userId,
+    displayName: stripDiscordDecorations(displayName) || displayName,
+    avatarUrl,
+    title: stripDiscordDecorations(doc?.title || ""),
+    preview: stripDiscordDecorations(doc?.body || ""),
+    createdAt: createdAt ? createdAt.toISOString() : null,
+    status,
+    statusLabel: statusLabelFor(status, doc?.workflowFields?.statusLabel || doc?.staffReason || null),
+    canAct: status === "pending",
+    decidedBy: decidedBy || null,
+    decidedByName: decidedByName || null,
+    decidedAt: doc?.decidedAt ? new Date(doc.decidedAt).toISOString() : null,
+  };
+  if (queue === "pause") {
+    const track = pauseTrackRoleKey(doc?.workflowFields || {});
+    const roleLabel = pauseRoleDisplayLabel(doc?.workflowFields || {}, member, member?.guild || null);
+    const start = String(doc?.workflowFields?.start || doc?.workflowFields?.dataRichiesta || "");
+    const end = String(doc?.workflowFields?.end || doc?.workflowFields?.dataRitorno || "");
+    const today = getTodayUtc();
+    const liveStatusLabel =
+      status === "accepted"
+        ? getPauseStatusLabel(
+            { status: "accepted", dataRichiesta: start, dataRitorno: end },
+            today,
+          )
+        : statusLabelFor(status, doc?.workflowFields?.statusLabel || doc?.staffReason || null);
+    const cleanedName =
+      cleanPauseSubjectDisplayName(displayName, userId) ||
+      cleanPauseSubjectDisplayName(stored.displayName, userId) ||
+      displayName;
+    return {
+      ...base,
+      displayName: cleanedName || base.displayName,
+      id: String(doc?.workflowPauseId || ""),
+      start,
+      end,
+      motivazione: stripDiscordDecorations(doc?.reason || doc?.body || ""),
+      ruoloRichiesto: roleLabel || track,
+      ruoloTrack: track,
+      phase: getPausePhase(start, end, today),
+      statusLabel: liveStatusLabel,
+    };
+  }
+  if (queue === "candidature") {
+    return {
+      ...base,
+      messageId: String(doc?.workflowMessageId || ""),
+      channelId: String(doc?.workflowChannelId || ""),
+      type: String(doc?.workflowType || ""),
+    };
+  }
+  if (queue === "appelli") {
+    return {
+      ...base,
+      preview: cleanAppealPreviewText(doc?.body || doc?.content || base.preview || ""),
+      messageId: String(doc?.workflowMessageId || ""),
+      channelId: String(doc?.workflowChannelId || ""),
+      kind: String(doc?.workflowKind || ""),
+    };
+  }
+  if (queue === "resoconti") {
+    const weekKey =
+      String(doc?.workflowWeekKey || "").trim() ||
+      weekKeyFromDate(createdFromMsg || doc?.createdAt) ||
+      "";
+    return {
+      ...base,
+      preview: stripDiscordDecorations(doc?.body || doc?.content || "", {
+        keepNewlines: true,
+        keepCustomEmoji: true,
+      }).slice(0, 500),
+      messageId: String(doc?.workflowMessageId || ""),
+      channelId: String(doc?.workflowChannelId || ""),
+      kind: String(doc?.workflowKind || ""),
+      actionKey: normalizeResocontoActionKey(doc?.workflowActionKey || ""),
+      roleId: doc?.workflowRoleId ? String(doc.workflowRoleId) : null,
+      weekKey,
+      weekLabel: formatWeekLabel(weekKey),
+      statusLabel: deriveResocontoStatusLabel(doc),
+    };
+  }
+  return base;
+}
+
+function parseNumberedQaBlocks(text) {
+  const raw = stripDiscordDecorations(text || "", { keepNewlines: true });
+  if (!raw) return [];
+  const normalized = raw
+    .replace(/\s+(\d{1,2})\.\s+/g, "\n$1. ")
+    .replace(/^\n+/, "")
+    .trim();
+  const chunks = normalized
+    .split(/\n(?=\d{1,2}\.\s)/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (chunks.length <= 1 && !/^\d{1,2}\.\s/.test(normalized)) return [];
+
+  return chunks
+    .map((chunk) => {
+      const match = chunk.match(/^(\d{1,2})\.\s*([\s\S]+)$/);
+      if (!match) return null;
+      const num = match[1];
+      const rest = String(match[2] || "").trim();
+      if (!rest) return { name: `Domanda ${num}`, value: "—" };
+
+      const nl = rest.indexOf("\n");
+      if (nl > 0) {
+        const qLine = rest.slice(0, nl).trim();
+        const aBlock = rest.slice(nl + 1).trim();
+        if (qLine && aBlock) {
+          return {
+            name: `${num}. ${qLine}`,
+            value: aBlock || "—",
+          };
+        }
+      }
+
+      const withQuestion = rest.match(/^([\s\S]{1,220}?\?)\s+([\s\S]+)$/);
+      if (withQuestion && String(withQuestion[2] || "").trim()) {
+        return {
+          name: `${num}. ${withQuestion[1].trim()}`,
+          value: withQuestion[2].trim() || "—",
+        };
+      }
+
+      const idLine = rest.match(/^(ID(?:\s+Discord)?)\s+(.+)$/i);
+      if (idLine) return { name: `${num}. ${idLine[1]}`, value: idLine[2].trim() || "—" };
+
+      const ageLine = rest.match(/^(Et[aà])\s+(.+)$/i);
+      if (ageLine) return { name: `${num}. ${ageLine[1]}`, value: ageLine[2].trim() || "—" };
+
+      return { name: `Domanda ${num}`, value: rest };
+    })
+    .filter(Boolean);
+}
+
+function normalizeResocontoActionKey(raw) {
+  const k = String(raw || "").trim().toLowerCase();
+  const codes = new Set(["vp", "vn", "nl", "px", "dp", "rc", "batch"]);
+  if (codes.has(k)) return k;
+  for (const [code, label] of Object.entries(RESOCONTO_ACTION_LABELS)) {
+    if (k === String(label || "").trim().toLowerCase()) return code;
+  }
+  if (/^nulla\b|nessuna azione/.test(k)) return "nl";
+  if (/depex/.test(k)) return "dp";
+  if (/richiamo/.test(k)) return "rc";
+  if (/^pex\b/.test(k)) return "px";
+  if (/positiv/.test(k)) return "vp";
+  if (/negativ/.test(k)) return "vn";
+  if (/multiple|registrate/.test(k)) return "batch";
+  return "";
+}
+
+function parseResocontoBodyFields(text) {
+  const raw = String(text || "")
+    .replace(/\r\n/g, "\n")
+    .trim();
+  if (!raw) return [];
+  if (!/(Staffer|Partner Manager|Ruolo|Messaggi in una settimana|Azione:)/i.test(raw)) return [];
+
+  const lines = raw.split("\n");
+  const blocks = [];
+  let current = null;
+  let inCode = false;
+  let codeLines = [];
+
+  const flush = () => {
+    if (!current) return;
+    if (codeLines.length) {
+      current.value = `${current.value ? `${current.value}\n` : ""}${codeLines.join("\n")}`;
+      codeLines = [];
+    }
+    const val = String(current.value || "").trim();
+    if (current.name || val) blocks.push({ name: current.name || "Dettaglio", value: val || "—" });
+    current = null;
+  };
+
+  const parseLabelLine = (line) => {
+    const emojiTokens = [];
+    const protectedLine = String(line || "").replace(/<(a?):([\w~-]+):(\d+)>/g, (m) => {
+      const i = emojiTokens.length;
+      emojiTokens.push(m);
+      return `{{VCEMOJI${i}}}`;
+    });
+    let cleaned = stripDiscordDecorations(protectedLine, { keepNewlines: false, keepCustomEmoji: true });
+    if (emojiTokens.length) {
+      for (let i = 0; i < emojiTokens.length; i += 1) {
+        cleaned = cleaned.split(`{{VCEMOJI${i}}}`).join(emojiTokens[i]);
+      }
+    }
+    if (!cleaned) return null;
+    if (/azione confermata da/i.test(cleaned)) {
+      return {
+        name: "Esito revisione",
+        value: cleaned.replace(/^[\s\S]*?azione confermata da\s*/i, "Confermata da ").trim(),
+      };
+    }
+    if (/azione negata da/i.test(cleaned)) {
+      return {
+        name: "Esito revisione",
+        value: cleaned.replace(/^[\s\S]*?azione negata da\s*/i, "Negata da ").trim(),
+      };
+    }
+    // Proteggi di nuovo le emoji prima dello split su ":" (altrimenti spezza <:Nome:ID>).
+    const tokens2 = [];
+    const masked = cleaned.replace(/<(a?):([\w~-]+):(\d+)>/g, (m) => {
+      const i = tokens2.length;
+      tokens2.push(m);
+      return `{{VCEMOJI${i}}}`;
+    });
+    const colon = masked.match(/^(.*):\s*(.*)$/);
+    if (!colon) return null;
+    let label = String(colon[1] || "").trim();
+    let value = String(colon[2] || "").trim();
+    if (!label || label.length > 120) return null;
+    if (/^\{\{VCEMOJI\d+\}\}$/.test(label)) return null;
+    for (let i = 0; i < tokens2.length; i += 1) {
+      label = label.split(`{{VCEMOJI${i}}}`).join(tokens2[i]);
+      value = value.split(`{{VCEMOJI${i}}}`).join(tokens2[i]);
+    }
+    return { name: label, value };
+  };
+
+  lines.forEach((line) => {
+    const trimmed = line.trim();
+    if (trimmed === "```") {
+      inCode = !inCode;
+      return;
+    }
+    if (inCode) {
+      codeLines.push(line);
+      return;
+    }
+    if (!trimmed) return;
+    if (/^messaggi per giorno$/i.test(stripDiscordDecorations(trimmed))) {
+      if (current) current.value = `${current.value ? `${current.value}\n` : ""}messaggi per giorno`;
+      return;
+    }
+    const hit = parseLabelLine(line);
+    if (hit) {
+      flush();
+      current = { name: hit.name, value: hit.value };
+      return;
+    }
+    if (/\u2192/.test(trimmed) && /messaggi|ore/i.test(trimmed)) {
+      flush();
+      current = { name: "Scambio limiti", value: stripDiscordDecorations(trimmed, { keepCustomEmoji: true }) };
+      flush();
+      return;
+    }
+    if (current) current.value = `${current.value ? `${current.value}\n` : ""}${trimmed}`;
+  });
+  flush();
+  return blocks.filter((b) => stripDiscordDecorations(b.name || "") || stripDiscordDecorations(b.value || "", { keepCustomEmoji: true }));
+}
+
+function buildDetailFields(doc, member = null) {
+  const queue = String(doc?.workflowQueue || "");
+  const keepEmoji = queue === "resoconti";
+  const body = stripDiscordDecorations(doc?.content || doc?.body || "", {
+    keepNewlines: true,
+    keepCustomEmoji: keepEmoji,
+  });
+  if (queue === "resoconti") {
+    const resocontoFields = parseResocontoBodyFields(body);
+    if (resocontoFields.length) return resocontoFields;
+  }
+  if (queue === "candidature") {
+    const candidatureFields = parseNumberedQaBlocks(doc?.content || doc?.body || "");
+    if (candidatureFields.length) return candidatureFields;
+  }
+  const wf = doc?.workflowFields;
+  if (Array.isArray(wf) && wf.length) {
+    const status = normalizeStatus(doc?.status, "pending");
+    const rows = wf
+      .map((field) => {
+        const name = stripDiscordDecorations(field?.name || "", { keepNewlines: true });
+        let value = stripDiscordDecorations(field?.value || "", { keepNewlines: true });
+        if (queue === "pause") {
+          if (/^stato$/i.test(name)) value = statusLabelFor(status, value);
+          if (/^ruolo/i.test(name)) {
+            value = pauseRoleDisplayLabel(
+              { ruoloRichiesto: value, ruoloLabel: String(doc?.workflowFields?.ruoloLabel || "") },
+              member,
+              member?.guild || null,
+            );
+          }
+        }
+        return { name, value };
+      })
+      .filter((field) => field.name || field.value);
+    if (rows.length) return rows;
+  }
+  if (wf && typeof wf === "object" && !Array.isArray(wf)) {
+    const rows = [];
+    const status = normalizeStatus(doc?.status, "pending");
+    if (wf.start || wf.end) rows.push({ name: "Periodo", value: `${wf.start || "?"} → ${wf.end || "?"}` });
+    if (queue === "pause") {
+      const roleLabel = pauseRoleDisplayLabel(wf, member, member?.guild || null);
+      if (roleLabel) rows.push({ name: "Ruolo richiesto", value: roleLabel });
+    } else if (wf.ruoloRichiesto) {
+      rows.push({ name: "Ruolo richiesto", value: String(wf.ruoloRichiesto) });
+    }
+    const motivazione = stripDiscordDecorations(doc?.reason || doc?.body || "", { keepNewlines: true });
+    if (motivazione) rows.push({ name: "Motivazione", value: motivazione });
+    rows.push({
+      name: "Stato",
+      value: statusLabelFor(status, wf.statusLabel || doc?.staffReason || null),
+    });
+    if (rows.length) return rows;
+  }
+  return parseNumberedQaBlocks(doc?.content || doc?.body || "");
+}
+
+function docToDetail(doc, member, memberCache) {
+  const cache =
+    memberCache ||
+    (member && doc?.userId ? new Map([[String(doc.userId || ""), member]]) : null);
+  const item = docToListItem(doc, cache);
+  const keepEmoji = String(doc?.workflowQueue || "") === "resoconti";
+  const body = stripDiscordDecorations(doc?.content || doc?.body || "", {
+    keepNewlines: true,
+    keepCustomEmoji: keepEmoji,
+  });
+  const fields = buildDetailFields(doc, member);
+  return {
+    ...item,
+    body,
+    fields,
+    motivazione: stripDiscordDecorations(doc?.reason || doc?.body || item.motivazione || "", {
+      keepNewlines: true,
+      keepCustomEmoji: keepEmoji,
+    }),
+    timing: doc?.workflowFields?.timing || null,
+    giorniScalati: doc?.workflowFields?.giorniScalati ?? null,
+  };
+}
+
+async function upsertStaffWorkflowItem(payload) {
+  const guildId = String(payload?.guildId || IDs.guilds.main || "").trim();
+  const queue = String(payload?.queue || payload?.workflowQueue || "").trim().toLowerCase();
+  const userId = String(payload?.userId || "").trim();
+  const dedupeKey = String(payload?.dedupeKey || "").trim();
+  if (!guildId || !queue || !dedupeKey) return null;
+
+  const statusIncoming = normalizeStatus(payload?.status, "pending");
+  const existing = await SiteDocument.findOne({ docType: WORKFLOW_DOC, guildId, dedupeKey })
+    .select(
+      "workflowDecidedBy workflowDecidedByName decidedAt status workflowSubjectName workflowSubjectAvatarUrl createdAt workflowWeekKey workflowActionKey staffReason workflowFields",
+    )
+    .lean()
+    .catch(() => null);
+  const existingStatus = normalizeStatus(existing?.status, "");
+  // Non riaprire resoconti cancellati (depex) / già chiusi solo perché Discord sync li rilegge.
+  let status = statusIncoming;
+  const preserveDecided =
+    queue === "resoconti" &&
+    statusIncoming === "pending" &&
+    (existingStatus === "cancelled" ||
+      existingStatus === "closed" ||
+      existingStatus === "accepted" ||
+      existingStatus === "rejected");
+  if (preserveDecided) {
+    status = existingStatus;
+  }
+  const decidedBy = String(payload?.decidedBy || payload?.workflowDecidedBy || "").trim();
+  const subjectDisplayName = pickSubjectDisplayName(
+    userId,
+    payload?.displayName,
+    payload?.subjectDisplayName,
+    payload?.workflowSubjectName,
+    existing?.workflowSubjectName,
+  );
+  const subjectAvatarUrl = String(payload?.avatarUrl || payload?.subjectAvatarUrl || payload?.workflowSubjectAvatarUrl || "").trim();
+  const incomingWorkflowFields = payload?.workflowFields ?? payload?.fields ?? null;
+  const keepEmoji = queue === "resoconti";
+  const createdFromPayload = payload?.createdAt ? new Date(payload.createdAt) : null;
+  const createdFromSnow = snowflakeToDate(payload?.messageId || payload?.workflowMessageId);
+  const createdAt =
+    createdFromPayload && !Number.isNaN(createdFromPayload.getTime())
+      ? createdFromPayload
+      : createdFromSnow;
+  const weekKey =
+    queue === "resoconti"
+      ? String(payload?.weekKey || payload?.workflowWeekKey || "").trim() ||
+        weekKeyFromDate(createdAt || existing?.createdAt) ||
+        ""
+      : "";
+  const incomingActionKey = normalizeResocontoActionKey(payload?.actionKey || payload?.workflowActionKey || "");
+  const appliedActionKey =
+    preserveDecided && existing?.workflowActionKey
+      ? normalizeResocontoActionKey(existing.workflowActionKey)
+      : incomingActionKey;
+  const incomingStaffReason = String(payload?.staffReason || payload?.statusLabel || "").trim();
+  const staffReason = (
+    preserveDecided && existing?.staffReason
+      ? String(existing.staffReason)
+      : incomingStaffReason
+  ).slice(0, 200);
+  const preservedStatusLabel = String(existing?.workflowFields?.statusLabel || existing?.staffReason || "").trim();
+  const incomingStatusLabel = String(payload?.statusLabel || payload?.staffReason || "").trim();
+  const workflowStatusLabel =
+    preserveDecided && preservedStatusLabel
+      ? preservedStatusLabel.slice(0, 200)
+      : incomingStatusLabel.slice(0, 200);
+  const update = {
+    docType: WORKFLOW_DOC,
+    guildId,
+    userId,
+    dedupeKey,
+    workflowQueue: queue,
+    workflowKind: String(payload?.kind || payload?.workflowKind || ""),
+    workflowType: String(payload?.type || payload?.workflowType || ""),
+    workflowMessageId: String(payload?.messageId || payload?.workflowMessageId || ""),
+    workflowChannelId: String(payload?.channelId || payload?.workflowChannelId || ""),
+    workflowPauseId: String(payload?.pauseId || payload?.workflowPauseId || ""),
+    workflowRoleId: payload?.roleId != null ? String(payload.roleId) : "",
+    workflowActionKey: appliedActionKey,
+    workflowWeekKey: weekKey,
+    title: stripDiscordDecorations(payload?.title || "", { keepCustomEmoji: keepEmoji }).slice(0, 120),
+    body: stripDiscordDecorations(payload?.preview || payload?.body || "", {
+      keepCustomEmoji: keepEmoji,
+    }).slice(0, 500),
+    content: stripDiscordDecorations(payload?.content || payload?.bodyFull || payload?.body || "", {
+      keepNewlines: true,
+      keepCustomEmoji: keepEmoji,
+    }).slice(0, 50000),
+    reason: stripDiscordDecorations(payload?.reason || payload?.motivazione || "", {
+      keepNewlines: true,
+      keepCustomEmoji: keepEmoji,
+    }).slice(0, 500),
+    status,
+    workflowSubjectName:
+      subjectDisplayName ||
+      pickSubjectDisplayName(userId, existing?.workflowSubjectName) ||
+      "",
+    workflowSubjectAvatarUrl: subjectAvatarUrl.slice(0, 512) || String(existing?.workflowSubjectAvatarUrl || ""),
+    staffReason,
+    workflowDecidedBy: decidedBy || String(existing?.workflowDecidedBy || ""),
+    decidedAt:
+      payload?.decidedAt ||
+      (status !== "pending" ? existing?.decidedAt || new Date() : null),
+  };
+  if (
+    incomingWorkflowFields &&
+    typeof incomingWorkflowFields === "object" &&
+    !Array.isArray(incomingWorkflowFields)
+  ) {
+    update.workflowFields = incomingWorkflowFields;
+  }
+  if (queue === "resoconti" && workflowStatusLabel) {
+    const mergedFields =
+      update.workflowFields && typeof update.workflowFields === "object" && !Array.isArray(update.workflowFields)
+        ? { ...update.workflowFields }
+        : existing?.workflowFields && typeof existing.workflowFields === "object" && !Array.isArray(existing.workflowFields)
+          ? { ...existing.workflowFields }
+          : {};
+    mergedFields.statusLabel = workflowStatusLabel;
+    update.workflowFields = mergedFields;
+  }
+
+  const updateOps = { $set: update };
+  if (createdAt) {
+    updateOps.$set.createdAt = createdAt;
+  } else {
+    updateOps.$setOnInsert = { createdAt: new Date() };
+  }
+
+  const doc = await SiteDocument.findOneAndUpdate(
+    { docType: WORKFLOW_DOC, guildId, dedupeKey },
+    updateOps,
+    { upsert: true, new: true, setDefaultsOnInsert: true },
+  ).catch((err) => {
+    global.logger?.warn?.("[staff-workflow] upsert failed:", dedupeKey, err?.message || err);
+    return null;
+  });
+  return doc;
+}
+
+async function updateStaffWorkflowStatusByDedupe(guildId, dedupeKey, status, extras = {}) {
+  const gid = String(guildId || "").trim();
+  const key = String(dedupeKey || "").trim();
+  const next = normalizeStatus(status, "closed");
+  if (!gid || !key) return null;
+  const resolvedStatusLabel =
+    String(extras.statusLabel || extras.staffReason || "").trim() || statusLabelFor(next);
+  const set = {
+    status: next,
+    decidedAt: extras.decidedAt || new Date(),
+    staffReason: resolvedStatusLabel.slice(0, 200),
+    workflowDecidedBy: String(extras.decidedBy || "").slice(0, 32),
+  };
+  const decidedByName = String(extras.decidedByName || extras.decidedByDisplayName || "").trim();
+  if (decidedByName) set.workflowDecidedByName = decidedByName.slice(0, 120);
+  {
+    const existingFieldsDoc = await SiteDocument.findOne({ docType: WORKFLOW_DOC, guildId: gid, dedupeKey: key })
+      .select("workflowFields")
+      .lean()
+      .catch(() => null);
+    const mergedFields =
+      existingFieldsDoc?.workflowFields &&
+      typeof existingFieldsDoc.workflowFields === "object" &&
+      !Array.isArray(existingFieldsDoc.workflowFields)
+        ? { ...existingFieldsDoc.workflowFields }
+        : {};
+    mergedFields.statusLabel = resolvedStatusLabel.slice(0, 200);
+    set.workflowFields = mergedFields;
+  }
+  const appliedActionKey = normalizeResocontoActionKey(extras.workflowActionKey || extras.actionKey || "");
+  if (appliedActionKey) set.workflowActionKey = appliedActionKey;
+  const messageContent = String(extras.messageContent || extras.content || "").trim();
+  if (messageContent) {
+    set.content = messageContent.slice(0, 50000);
+    set.body = stripDiscordDecorations(messageContent, {
+      keepNewlines: true,
+      keepCustomEmoji: true,
+    }).slice(0, 500);
+  }
+  let doc = await SiteDocument.findOneAndUpdate(
+    { docType: WORKFLOW_DOC, guildId: gid, dedupeKey: key },
+    { $set: set },
+    { new: true },
+  ).catch(() => null);
+  if (!doc && key.startsWith("resoconti:")) {
+    const messageId = key.slice("resoconti:".length);
+    if (/^\d{16,22}$/.test(messageId)) {
+      doc = await SiteDocument.findOneAndUpdate(
+        { docType: WORKFLOW_DOC, guildId: gid, workflowQueue: "resoconti", workflowMessageId: messageId },
+        { $set: set },
+        { new: true },
+      ).catch(() => null);
+    }
+    if (!doc) {
+      const uid = String(extras.userId || "").trim();
+      if (/^\d{16,22}$/.test(messageId) && /^\d{16,22}$/.test(uid)) {
+        doc = await upsertStaffWorkflowItem({
+          guildId: gid,
+          queue: "resoconti",
+          dedupeKey: key,
+          userId: uid,
+          messageId,
+          channelId: String(extras.channelId || ""),
+          kind: String(extras.kind || ""),
+          roleId: extras.roleId != null ? String(extras.roleId) : "",
+          actionKey: appliedActionKey,
+          status: next,
+          statusLabel: resolvedStatusLabel || set.staffReason,
+          staffReason: resolvedStatusLabel || set.staffReason,
+          content: messageContent,
+          preview: messageContent.slice(0, 400),
+          ...(extras.decidedBy ? { decidedBy: extras.decidedBy } : {}),
+          ...(extras.decidedByName ? { decidedByName: extras.decidedByName } : {}),
+        });
+      }
+    }
+  }
+  // Chat web: resta in sola lettura dopo la decisione (non cancellare la cronologia).
+  if (doc && next !== "pending") {
+    try {
+      const { broadcastSiteStaffWorkflowChanged } = require("./siteSuggestionsBroadcast");
+      broadcastSiteStaffWorkflowChanged(String(doc.workflowQueue || ""));
+    } catch (_) {}
+  }
+  return doc;
+}
+
+async function updateStaffWorkflowFromMessage(guildId, queue, messageId, status, extras = {}) {
+  const gid = String(guildId || "").trim();
+  const mid = String(messageId || "").trim();
+  if (!gid || !mid) return null;
+  const dedupeKey = buildWorkflowDedupeKey(queue, [mid]);
+  return updateStaffWorkflowStatusByDedupe(gid, dedupeKey, status, extras);
+}
+
+async function updateStaffWorkflowFromPause(guildId, userId, pauseId, status, extras = {}) {
+  const dedupeKey = buildWorkflowDedupeKey("pause", [userId, pauseId]);
+  const st = String(status || "").trim().toLowerCase();
+  const updated = await updateStaffWorkflowStatusByDedupe(guildId, dedupeKey, status, extras);
+  if (["accepted", "rejected", "cancelled"].includes(st)) {
+    try {
+      const { notifyPauseRequesterDecision } = require("./siteStaffWorkflowNotifications");
+      const decidedBy = String(extras.decidedBy || "").trim();
+      const uid = String(userId || "").trim();
+      // Non notificare se l'annullamento è dello stesso richiedente.
+      if (!(st === "cancelled" && decidedBy && decidedBy === uid)) {
+        const fields = updated?.workflowFields || extras.workflowFields || {};
+        const start = String(fields.start || extras.start || "").trim();
+        const end = String(fields.end || extras.end || "").trim();
+        const periodText = start && end ? `${start} → ${end}` : "";
+        void notifyPauseRequesterDecision({
+          guildId,
+          userId: uid,
+          pauseId,
+          status: st,
+          decidedByName: String(extras.decidedByName || "").trim(),
+          periodText,
+        }).catch(() => false);
+      }
+    } catch (_) {}
+  }
+  // Cancelled/rejected restano in cronologia inbox (filtro staff attuale a list time).
+  return updated;
+}
+
+/**
+ * Annulla resoconti pending in inbox.
+ * @param {string} [extras.kind] `s` = solo staff, `p` = solo PM; omit = entrambi.
+ */
+async function cancelPendingResocontiWorkflowForUser(guildId, userId, extras = {}) {
+  const gid = String(guildId || "").trim();
+  const uid = String(userId || "").trim();
+  if (!gid || !uid) return 0;
+  const kind = String(extras.kind || "").trim().toLowerCase();
+  const filter = {
+    docType: WORKFLOW_DOC,
+    guildId: gid,
+    userId: uid,
+    workflowQueue: "resoconti",
+    status: "pending",
+  };
+  if (kind === "s" || kind === "p") filter.workflowKind = kind;
+  const result = await SiteDocument.updateMany(
+    filter,
+    {
+      $set: {
+        status: "cancelled",
+        decidedAt: extras.decidedAt || new Date(),
+        staffReason: String(extras.statusLabel || extras.staffReason || "Annullato (depex)").slice(0, 200),
+        workflowDecidedBy: String(extras.decidedBy || "system").slice(0, 32),
+        ...(String(extras.decidedByName || "").trim()
+          ? { workflowDecidedByName: String(extras.decidedByName).trim().slice(0, 120) }
+          : {}),
+      },
+    },
+  ).catch(() => null);
+  // Cronologia chat: resta in sola lettura anche dopo annullamento (depex).
+  const modified = Number(result?.modifiedCount || 0);
+  if (modified > 0) {
+    try {
+      const { broadcastSiteStaffWorkflowChanged } = require("./siteSuggestionsBroadcast");
+      broadcastSiteStaffWorkflowChanged("resoconti");
+    } catch (_) {}
+  }
+  return modified;
+}
+
+function memberStillRelevantForStaffResoconto(member, roleId) {
+  const { memberHasAnyStaffPresenceForDepexSync } = require("../Staff/staffPmUtils");
+  if (!member) return false;
+  const rid = String(roleId || "").trim();
+  if (rid && !member.roles?.cache?.has?.(rid)) return false;
+  return memberHasAnyStaffPresenceForDepexSync(member);
+}
+
+function memberStillRelevantForResoconto(member, kind, roleId) {
+  const { memberHasPartnerManagerRole } = require("../Staff/staffPmUtils");
+  const k = String(kind || "").trim().toLowerCase();
+  if (!member) return false;
+  if (k === "p") return memberHasPartnerManagerRole(member);
+  if (k === "s") return memberStillRelevantForStaffResoconto(member, roleId);
+  return false;
+}
+
+function resocontoAutoCancelLabel(member, kind) {
+  if (!member) return "Annullato (uscita)";
+  const k = String(kind || "").trim().toLowerCase();
+  if (k === "p") return "Annullato (depex PM)";
+  return "Annullato (depex)";
+}
+
+/**
+ * Annulla resoconti pending se l'utente è uscito o non ha più il ruolo rilevante.
+ */
+async function pruneDepexedPendingResoconti(guild, guildId) {
+  const gid = String(guildId || "").trim();
+  if (!gid || !guild) return 0;
+  const pendingDocs = await SiteDocument.find({
+    docType: WORKFLOW_DOC,
+    guildId: gid,
+    workflowQueue: "resoconti",
+    status: "pending",
+  })
+    .select("userId workflowKind workflowRoleId dedupeKey")
+    .lean()
+    .catch(() => []);
+  if (!pendingDocs?.length) return 0;
+
+  const memberByUser = new Map();
+  let updated = 0;
+  for (const doc of pendingDocs) {
+    const uid = String(doc?.userId || "").trim();
+    const dedupeKey = String(doc?.dedupeKey || "").trim();
+    const kind = String(doc?.workflowKind || "").trim().toLowerCase();
+    if (!uid || !dedupeKey || (kind !== "s" && kind !== "p")) continue;
+
+    if (!memberByUser.has(uid)) {
+      const member = await getGuildMemberCached(guild, uid, { preferFresh: true }).catch(() => null);
+      memberByUser.set(uid, member || null);
+    }
+    const member = memberByUser.get(uid);
+    if (memberStillRelevantForResoconto(member, kind, doc?.workflowRoleId)) continue;
+
+    const statusLabel = resocontoAutoCancelLabel(member, kind);
+    await updateStaffWorkflowStatusByDedupe(gid, dedupeKey, "cancelled", {
+      statusLabel,
+      decidedBy: "system",
+    });
+    updated += 1;
+  }
+  return updated;
+}
+
+function memberEligibleForPauseRole(member, ruoloRichiesto) {
+  const {
+    memberHasAnyStaffPresenceForDepexSync,
+    memberHasPartnerManagerRole,
+  } = require("../Staff/staffPmUtils");
+  if (!member) return false;
+  const role = String(ruoloRichiesto || "Staff")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "");
+  if (role === "partnermanager" || role === "pm") {
+    return memberHasPartnerManagerRole(member);
+  }
+  if (role === "entrambi" || role === "both") {
+    return memberHasAnyStaffPresenceForDepexSync(member) || memberHasPartnerManagerRole(member);
+  }
+  return memberHasAnyStaffPresenceForDepexSync(member);
+}
+
+function pauseAutoCancelLabel(member) {
+  return member ? "Annullato (depex)" : "Annullato (uscita)";
+}
+
+/**
+ * Annulla pause pending in inbox (e opzionalmente nel DB).
+ */
+async function cancelPendingPauseWorkflowForUser(guildId, userId, extras = {}) {
+  const gid = String(guildId || "").trim();
+  const uid = String(userId || "").trim();
+  if (!gid || !uid) return 0;
+  const pauseId = String(extras.pauseId || extras.workflowPauseId || "").trim();
+  const filter = {
+    docType: WORKFLOW_DOC,
+    guildId: gid,
+    userId: uid,
+    workflowQueue: "pause",
+    status: "pending",
+  };
+  if (pauseId) filter.workflowPauseId = pauseId;
+  const statusLabel = String(extras.statusLabel || extras.staffReason || "Annullato (depex)").slice(0, 200);
+  const result = await SiteDocument.updateMany(filter, {
+    $set: {
+      status: "cancelled",
+      decidedAt: extras.decidedAt || new Date(),
+      staffReason: statusLabel,
+      "workflowFields.statusLabel": statusLabel,
+      workflowDecidedBy: String(extras.decidedBy || "system").slice(0, 32),
+      ...(String(extras.decidedByName || "").trim()
+        ? { workflowDecidedByName: String(extras.decidedByName).trim().slice(0, 120) }
+        : {}),
+    },
+  }).catch(() => null);
+  // Cronologia chat: resta in sola lettura anche dopo annullamento.
+  return Number(result?.modifiedCount || 0);
+}
+
+async function autoCancelPendingPausesIfNotEligible(guild, userId, options = {}) {
+  const gid = String(guild?.id || "").trim();
+  const uid = String(userId || "").trim();
+  if (!gid || !uid) return 0;
+  const { getStaffPauseRecord, updatePauseInDb } = require("../Pause/pauseHandlersUtils");
+  const { resolveGuildMemberPresence } = require("../Interaction/interactionEntityCache");
+  const presence = await resolveGuildMemberPresence(guild, uid, { preferFresh: true }).catch(() => ({
+    member: null,
+    left: false,
+    uncertain: true,
+  }));
+  // Timeout/rete Discord: non cancellare pratiche valide.
+  if (presence.uncertain && !presence.member) return 0;
+  const member = presence.member || null;
+  const leftServer = Boolean(presence.left) || !member;
+  const record = await getStaffPauseRecord(gid, uid);
+  const pauses = Array.isArray(record?.staff?.pauses) ? record.staff.pauses : [];
+  let count = 0;
+
+  for (const pause of pauses) {
+    if (String(pause?.status || "") !== "pending") continue;
+    const pauseId = String(pause?._id || "").trim();
+    if (!pauseId) continue;
+    const ruolo = pause.ruoloRichiesto || pause.ruolo || "Staff";
+    if (!leftServer && memberEligibleForPauseRole(member, ruolo)) continue;
+    const statusLabel = String(
+      options.statusLabel || (leftServer ? "Annullato (uscita)" : pauseAutoCancelLabel(member)),
+    ).slice(0, 200);
+    await updatePauseInDb(gid, uid, pauseId, { status: "cancelled", cancelledAt: new Date() }).catch(() => null);
+    await updateStaffWorkflowFromPause(gid, uid, pauseId, "cancelled", {
+      statusLabel,
+      staffReason: statusLabel,
+      decidedBy: String(options.decidedBy || "system"),
+    }).catch(() => null);
+    count += 1;
+  }
+  return count;
+}
+
+async function reconcilePendingPauseWorkflows(client, guildId) {
+  const gid = String(guildId || "").trim();
+  if (!gid) return 0;
+  const guild =
+    client?.guilds?.cache?.get(gid) || (await client?.guilds?.fetch(gid).catch(() => null));
+  if (!guild) return 0;
+  const { getStaffPauseRecord } = require("../Pause/pauseHandlersUtils");
+  const { resolveGuildMemberPresence } = require("../Interaction/interactionEntityCache");
+  const pendingDocs = await SiteDocument.find({
+    docType: WORKFLOW_DOC,
+    guildId: gid,
+    workflowQueue: "pause",
+    status: "pending",
+  })
+    .select("userId workflowPauseId dedupeKey workflowFields")
+    .lean()
+    .catch(() => []);
+  let updated = 0;
+  for (const doc of pendingDocs || []) {
+    const uid = String(doc?.userId || "").trim();
+    const pauseId = String(doc?.workflowPauseId || "").trim();
+    const dedupeKey = String(doc?.dedupeKey || "").trim();
+    if (!uid || !pauseId || !dedupeKey) continue;
+    const presence = await resolveGuildMemberPresence(guild, uid, { preferFresh: true }).catch(() => ({
+      member: null,
+      left: false,
+      uncertain: true,
+    }));
+    // Non cancellare su fetch Discord fallito (timeout).
+    if (presence.uncertain && !presence.member) continue;
+    const member = presence.member || null;
+    const leftServer = Boolean(presence.left) || !member;
+    const ruolo = doc?.workflowFields?.ruoloRichiesto || "Staff";
+    if (leftServer || !memberEligibleForPauseRole(member, ruolo)) {
+      const statusLabel = leftServer ? "Annullato (uscita)" : pauseAutoCancelLabel(member);
+      await updateStaffWorkflowFromPause(gid, uid, pauseId, "cancelled", {
+        statusLabel,
+        decidedBy: "system",
+      }).catch(() => null);
+      const { updatePauseInDb } = require("../Pause/pauseHandlersUtils");
+      await updatePauseInDb(gid, uid, pauseId, {
+        status: "cancelled",
+        cancelledAt: new Date(),
+      }).catch(() => null);
+      updated += 1;
+      continue;
+    }
+    const record = await getStaffPauseRecord(gid, uid);
+    const pause = (Array.isArray(record?.staff?.pauses) ? record.staff.pauses : []).find(
+      (p) => String(p?._id || "") === pauseId,
+    );
+    if (!pause) {
+      await SiteDocument.deleteOne({
+        docType: WORKFLOW_DOC,
+        guildId: gid,
+        dedupeKey,
+      }).catch(() => null);
+      updated += 1;
+      continue;
+    }
+    if (String(pause.status || "") !== "pending") {
+      await updateStaffWorkflowFromPause(gid, uid, pauseId, normalizeStatus(pause.status), {
+        statusLabel: getPauseStatusLabel(pause, getTodayUtc()),
+        decidedBy: "system",
+      });
+      updated += 1;
+    }
+  }
+  // Pause rifiutate/cancellate rimosse da AUP non devono restare orfane in inbox
+  // (lo sync le ricreava se AUP aveva ancora la pausa; dopo purge AUP restavano zombie).
+  updated += await pruneOrphanClosedPauseWorkflows(gid).catch(() => 0);
+  return updated;
+}
+
+/** Elimina workflow pause rejected/cancelled la cui pausa non esiste più in AUP. */
+async function pruneOrphanClosedPauseWorkflows(guildId) {
+  const gid = String(guildId || "").trim();
+  if (!gid) return 0;
+  const { getStaffPauseRecord } = require("../Pause/pauseHandlersUtils");
+  const closed = await SiteDocument.find({
+    docType: WORKFLOW_DOC,
+    guildId: gid,
+    workflowQueue: "pause",
+    status: { $in: ["rejected", "cancelled"] },
+  })
+    .select("userId workflowPauseId dedupeKey")
+    .limit(200)
+    .lean()
+    .catch(() => []);
+  let removed = 0;
+  const pauseIdsByUser = new Map();
+  for (const doc of closed || []) {
+    const uid = String(doc?.userId || "").trim();
+    const pauseId = String(doc?.workflowPauseId || "").trim();
+    const dedupeKey = String(doc?.dedupeKey || "").trim();
+    if (!uid || !pauseId || !dedupeKey) continue;
+    let idSet = pauseIdsByUser.get(uid);
+    if (!idSet) {
+      const record = await getStaffPauseRecord(gid, uid);
+      const pauses = Array.isArray(record?.staff?.pauses) ? record.staff.pauses : [];
+      idSet = new Set(pauses.map((p) => String(p?._id || "")).filter(Boolean));
+      pauseIdsByUser.set(uid, idSet);
+    }
+    if (idSet.has(pauseId)) continue;
+    const del = await SiteDocument.deleteOne({
+      docType: WORKFLOW_DOC,
+      guildId: gid,
+      dedupeKey,
+    }).catch(() => null);
+    if (del?.deletedCount) removed += 1;
+  }
+  return removed;
+}
+
+/**
+ * Filtro veloce solo su cache Discord (+ opz. set staff noti): non blocca l'inbox su cellulare.
+ * Tutti gli stati: solo staff attuale. Pending senza member in cache restano (prune async).
+ */
+function filterPauseInboxItemsCachedOnly(guild, items, knownStaffIds = null) {
+  if (!guild || !Array.isArray(items) || !items.length) return items || [];
+  const known =
+    knownStaffIds instanceof Set
+      ? knownStaffIds
+      : Array.isArray(knownStaffIds)
+        ? new Set(knownStaffIds.map((id) => String(id || "").trim()).filter(Boolean))
+        : null;
+  const out = [];
+  for (const item of items) {
+    const status = String(item?.status || "").trim().toLowerCase() || "pending";
+    const uid = String(item?.userId || "").trim();
+    if (!uid) continue;
+    const ruolo =
+      item?.ruoloRichiesto ||
+      item?.ruolo ||
+      item?.ruoloTrack ||
+      item?.workflowFields?.ruoloRichiesto ||
+      item?.fields?.ruoloRichiesto ||
+      "Staff";
+    const member = guild.members?.cache?.get(uid) || null;
+    if (member) {
+      if (!memberEligibleForPauseRole(member, ruolo)) continue;
+      out.push(item);
+      continue;
+    }
+    // Nessun member in cache: usa roster/snapshot se disponibile.
+    if (known && known.has(uid)) {
+      out.push(item);
+      continue;
+    }
+    // Pending senza prove: tieni (prune async). Altri stati: nascondi (ex-staff).
+    if (status === "pending") out.push(item);
+  }
+  return out;
+}
+
+async function prunePendingPauseInboxUsers(guild, client, guildId, items) {
+  const pendingUsers = [];
+  const seen = new Set();
+  for (const item of items || []) {
+    if (String(item?.status || "") !== "pending") continue;
+    const uid = String(item?.userId || "").trim();
+    if (!uid || seen.has(uid)) continue;
+    seen.add(uid);
+    pendingUsers.push(uid);
+  }
+  for (const uid of pendingUsers) {
+    await autoCancelPendingPausesIfNotEligible(guild, uid, { decidedBy: "system" }).catch(() => 0);
+  }
+  if (client && guildId) {
+    await reconcilePendingPauseWorkflows(client, guildId).catch(() => 0);
+  }
+}
+
+/** @deprecated kept name for callers; prefer cached-only + background prune */
+async function filterPauseInboxItemsToEligibleStaff(guild, items) {
+  return filterPauseInboxItemsCachedOnly(guild, items);
+}
+
+function snowflakeToDate(id) {
+  const raw = String(id || "").trim();
+  if (!/^\d{16,20}$/.test(raw)) return null;
+  try {
+    const ms = Number((BigInt(raw) >> 22n) + 1420070400000n);
+    if (!Number.isFinite(ms) || ms <= 0) return null;
+    return new Date(ms);
+  } catch {
+    return null;
+  }
+}
+
+function workflowSortTimestamp(doc) {
+  const fromMsg = snowflakeToDate(doc?.workflowMessageId);
+  if (fromMsg) return fromMsg.getTime();
+  const created = doc?.createdAt ? new Date(doc.createdAt).getTime() : NaN;
+  return Number.isFinite(created) ? created : 0;
+}
+
+async function loadMembersForIds(guild, ids, limit = 40) {
+  const cache = new Map();
+  if (!guild) return cache;
+  const unique = [...new Set((Array.isArray(ids) ? ids : []).map((id) => String(id || "")).filter(Boolean))].slice(
+    0,
+    Math.max(1, Math.min(60, Number(limit) || 40)),
+  );
+  await Promise.all(
+    unique.map(async (uid) => {
+      try {
+        const member = await Promise.race([
+          getGuildMemberCached(guild, uid),
+          new Promise((resolve) => setTimeout(() => resolve(null), 2500)),
+        ]);
+        if (member) cache.set(uid, member);
+      } catch {
+        /* ignore */
+      }
+    }),
+  );
+  return cache;
+}
+
+async function loadMembersForDocs(guild, docs) {
+  const ids = docs.flatMap((d) => [String(d?.userId || ""), String(d?.workflowDecidedBy || "")]).filter(Boolean);
+  return loadMembersForIds(guild, ids);
+}
+
+async function ensureResocontiWeekKeys(guildId) {
+  const gid = String(guildId || "").trim();
+  if (!gid) return 0;
+  if (!ensureResocontiWeekKeys.__at) ensureResocontiWeekKeys.__at = new Map();
+  const last = Number(ensureResocontiWeekKeys.__at.get(gid) || 0);
+  if (Date.now() - last < ENSURE_WEEK_KEYS_MIN_MS) return 0;
+  ensureResocontiWeekKeys.__at.set(gid, Date.now());
+  const missing = await SiteDocument.find({
+    docType: WORKFLOW_DOC,
+    guildId: gid,
+    workflowQueue: "resoconti",
+    $or: [{ workflowWeekKey: { $exists: false } }, { workflowWeekKey: null }, { workflowWeekKey: "" }],
+  })
+    .select("_id createdAt workflowMessageId")
+    .lean()
+    .catch(() => []);
+  let updated = 0;
+  for (const doc of missing || []) {
+    const key =
+      weekKeyFromDate(snowflakeToDate(doc?.workflowMessageId)) ||
+      weekKeyFromDate(doc?.createdAt) ||
+      "";
+    if (!key) continue;
+    const ok = await SiteDocument.updateOne(
+      { _id: doc._id },
+      { $set: { workflowWeekKey: key } },
+    ).catch(() => null);
+    if (ok?.modifiedCount) updated += 1;
+  }
+  return updated;
+}
+
+async function listResocontiWeeks(guildId, opts = {}) {
+  const gid = String(guildId || "").trim();
+  if (!gid) return [];
+  const cacheKey = `${gid}:${String(opts.scope || "all").toLowerCase()}:${String(opts.filter || "").toLowerCase()}`;
+  if (!listResocontiWeeks.__cache) listResocontiWeeks.__cache = new Map();
+  const hit = listResocontiWeeks.__cache.get(cacheKey);
+  if (hit && Date.now() - hit.at < INBOX_WEEKS_CACHE_MS) return hit.weeks;
+  void ensureResocontiWeekKeys(gid).catch(() => 0);
+  const match = { docType: WORKFLOW_DOC, guildId: gid, workflowQueue: "resoconti" };
+  if (String(opts.scope || "").toLowerCase() === "pending") match.status = "pending";
+  const roleFilter = String(opts.filter || "").trim().toLowerCase();
+  if (roleFilter === "staff" || roleFilter === "s") match.workflowKind = "s";
+  else if (roleFilter === "pm" || roleFilter === "p" || roleFilter === "partnermanager") {
+    match.workflowKind = "p";
+  }
+  const rows = await SiteDocument.aggregate([
+    { $match: match },
+    { $group: { _id: "$workflowWeekKey", count: { $sum: 1 } } },
+    { $match: { _id: { $regex: /^\d{4}-\d{2}-\d{2}$/ } } },
+    { $sort: { _id: -1 } },
+  ]).catch(() => []);
+  const weeks = (rows || []).map((row) => ({
+    weekKey: String(row._id),
+    label: formatWeekLabel(row._id),
+    count: Number(row.count) || 0,
+  }));
+  listResocontiWeeks.__cache.set(cacheKey, { at: Date.now(), weeks });
+  return weeks;
+}
+
+async function listUserWorkflowsForMember(guildId, userId, opts = {}) {
+  const scope = String(opts.scope || "pending").toLowerCase();
+  const gid = String(guildId || "").trim();
+  const uid = String(userId || "").trim();
+  if (!gid || !uid) return [];
+  // Solo pause: unica coda in cui il richiedente partecipa alla chat.
+  const filter = { docType: WORKFLOW_DOC, guildId: gid, userId: uid, workflowQueue: "pause" };
+  if (scope === "pending") filter.status = "pending";
+  const docs = await SiteDocument.find(filter).sort({ createdAt: -1 }).limit(40).lean().catch(() => []);
+  return (docs || []).map((doc) => docToListItem(doc, null));
+}
+
+async function getUserWorkflowDetailFromDb(guildId, userId, dedupeKey) {
+  const gid = String(guildId || "").trim();
+  const uid = String(userId || "").trim();
+  const key = String(dedupeKey || "").trim();
+  if (!gid || !uid || !key) return null;
+  if (!key.toLowerCase().startsWith("pause:")) return null;
+  const doc = await SiteDocument.findOne({
+    docType: WORKFLOW_DOC,
+    guildId: gid,
+    userId: uid,
+    dedupeKey: key,
+    workflowQueue: "pause",
+  })
+    .lean()
+    .catch(() => null);
+  if (!doc) return null;
+  return docToDetail(doc, null, null);
+}
+
+/** Richiesta pausa pending del membro (per chat live su /staff/pause). */
+async function getPendingPauseWorkflowForMember(guildId, userId, client = null) {
+  const gid = String(guildId || "").trim();
+  const uid = String(userId || "").trim();
+  if (!gid || !uid) return null;
+  let doc = await SiteDocument.findOne({
+    docType: WORKFLOW_DOC,
+    guildId: gid,
+    userId: uid,
+    workflowQueue: "pause",
+    status: "pending",
+  })
+    .sort({ createdAt: -1 })
+    .lean()
+    .catch(() => null);
+  if (!doc) {
+    // Fallback: pratica ancora pending in DB pause ma doc workflow assente/cancellato per errore.
+    try {
+      const { getStaffPauseRecord } = require("../Pause/pauseHandlersUtils");
+      const record = await getStaffPauseRecord(gid, uid);
+      const pause = (Array.isArray(record?.staff?.pauses) ? record.staff.pauses : [])
+        .filter((p) => String(p?.status || "") === "pending")
+        .sort((a, b) => new Date(b?.createdAt || 0) - new Date(a?.createdAt || 0))[0];
+      if (pause?._id) {
+        const bot = client || global.client || null;
+        const guild =
+          bot?.guilds?.cache?.get(gid) || (await bot?.guilds?.fetch(gid).catch(() => null));
+        await upsertPauseWorkflowFromPause(bot, guild, uid, pause).catch(() => null);
+        doc = await SiteDocument.findOne({
+          docType: WORKFLOW_DOC,
+          guildId: gid,
+          userId: uid,
+          workflowQueue: "pause",
+          status: "pending",
+          workflowPauseId: String(pause._id),
+        })
+          .lean()
+          .catch(() => null);
+      }
+    } catch (_) {}
+  }
+  if (!doc) return null;
+  return docToDetail(doc, null, null);
+}
+
+async function listStaffWorkflowFromDb(client, guildId, queue, opts = {}) {
+  const scope = String(opts.scope || "all").toLowerCase();
+  const page = Math.max(1, Number(opts.page) || 1);
+  const pageSize = Math.min(50, Math.max(5, Number(opts.pageSize) || 20));
+  const gid = String(guildId || "").trim();
+  const q = String(queue || "").trim().toLowerCase();
+  const filter = { docType: WORKFLOW_DOC, guildId: gid, workflowQueue: q };
+  if (scope === "pending") {
+    filter.status = "pending";
+  } else if (q === "pause") {
+    // Cronologia completa, ma solo staff attuale (roster snapshot).
+    try {
+      const { loadRosterSnapshot } = require("./siteStaffRosterCache");
+      const snap = await loadRosterSnapshot(gid).catch(() => null);
+      const ids = (Array.isArray(snap?.userIds) ? snap.userIds : [])
+        .map((id) => String(id || "").trim())
+        .filter((id) => /^\d{16,22}$/.test(id));
+      if (ids.length) filter.userId = { $in: ids };
+    } catch (_) {}
+  }
+
+  const roleFilter = String(opts.filter || "").trim().toLowerCase();
+  if (roleFilter && roleFilter !== "all") {
+    if (q === "candidature") {
+      if (roleFilter === "helper" || roleFilter === "partnermanager" || roleFilter === "pm") {
+        filter.workflowType = roleFilter === "pm" ? "partnermanager" : roleFilter;
+      }
+    } else if (q === "appelli") {
+      if (roleFilter === "unban" || roleFilter === "unmute") filter.workflowKind = roleFilter;
+    } else if (q === "pause") {
+      if (roleFilter === "staff") {
+        // Track Staff, oppure legacy senza ruoloTrack e non PM/Entrambi (gradi Helper/Mod…).
+        filter.$and = [
+          ...(Array.isArray(filter.$and) ? filter.$and : []),
+          {
+            $or: [
+              { "workflowFields.ruoloTrack": "Staff" },
+              {
+                "workflowFields.ruoloTrack": { $nin: ["Staff", "PartnerManager", "Entrambi"] },
+                "workflowFields.ruoloRichiesto": {
+                  $nin: ["PartnerManager", "Entrambi", "Partner Manager"],
+                },
+              },
+            ],
+          },
+        ];
+      } else if (roleFilter === "pm" || roleFilter === "partnermanager") {
+        filter.$or = [
+          { "workflowFields.ruoloTrack": "PartnerManager" },
+          { "workflowFields.ruoloRichiesto": "PartnerManager" },
+          { "workflowFields.ruoloRichiesto": "Partner Manager" },
+        ];
+      } else if (roleFilter === "both" || roleFilter === "entrambi") {
+        filter.$or = [
+          { "workflowFields.ruoloTrack": "Entrambi" },
+          { "workflowFields.ruoloRichiesto": "Entrambi" },
+        ];
+      }
+    } else if (q === "resoconti") {
+      if (roleFilter === "staff" || roleFilter === "s") filter.workflowKind = "s";
+      else if (roleFilter === "pm" || roleFilter === "p" || roleFilter === "partnermanager") {
+        filter.workflowKind = "p";
+      }
+    }
+  }
+
+  let weeks = [];
+  let week = String(opts.week || opts.weekKey || "").trim();
+  if (q === "resoconti") {
+    if (!week) {
+      try {
+        const { getResocontoCycleWeekKey } = require("../../Services/Staff/weeklyStaffResocontoService");
+        week = String(getResocontoCycleWeekKey() || "").trim();
+      } catch {
+        week = "";
+      }
+    }
+    weeks = await listResocontiWeeks(gid, { scope, filter: roleFilter });
+    if (!week && weeks.length) week = String(weeks[0].weekKey || "");
+    if (week) filter.workflowWeekKey = week;
+  }
+
+  const total = await SiteDocument.countDocuments(filter).maxTimeMS(8000).catch(() => 0);
+  const skip = (page - 1) * pageSize;
+
+  // Chronology via snowflake ms when messageId is Discord; else createdAt.
+  // (Site ObjectIds are hex → $convert to long fails → old _sortMsg:0 put newest site items last.)
+  // Resoconti: PM → Helper → Mod → Senior → Director (come spawn Discord), poi messaggio ASC.
+  const resocontoRoleBranches = [...RESOCONTO_LIST_ROLE_RANK.entries()].map(([roleId, rank]) => ({
+    case: { $eq: ["$workflowRoleId", roleId] },
+    then: rank,
+  }));
+  const sortTsExpr = {
+    $cond: {
+      if: {
+        $regexMatch: {
+          input: { $toString: { $ifNull: ["$workflowMessageId", ""] } },
+          regex: "^\\d{16,20}$",
+        },
+      },
+      then: {
+        $add: [
+          {
+            $toLong: {
+              $floor: {
+                $divide: [
+                  { $convert: { input: "$workflowMessageId", to: "long", onError: 0, onNull: 0 } },
+                  4194304,
+                ],
+              },
+            },
+          },
+          1420070400000,
+        ],
+      },
+      else: { $convert: { input: "$createdAt", to: "long", onError: 0, onNull: 0 } },
+    },
+  };
+  const sortStages =
+    q === "resoconti"
+      ? [
+          {
+            $addFields: {
+              _sortRole: {
+                $switch: {
+                  branches: [
+                    { case: { $eq: ["$workflowKind", "p"] }, then: 0 },
+                    ...resocontoRoleBranches,
+                  ],
+                  default: RESOCONTO_LIST_RANK_FALLBACK,
+                },
+              },
+              _sortTs: sortTsExpr,
+              _sortCreated: {
+                $convert: { input: "$createdAt", to: "long", onError: 0, onNull: 0 },
+              },
+            },
+          },
+          { $sort: { _sortRole: 1, _sortTs: 1, _sortCreated: 1, _id: 1 } },
+          { $skip: skip },
+          { $limit: pageSize },
+          { $project: { _sortRole: 0, _sortTs: 0, _sortCreated: 0 } },
+        ]
+      : [
+          {
+            $addFields: {
+              _sortTs: sortTsExpr,
+              _sortCreated: {
+                $convert: { input: "$createdAt", to: "long", onError: 0, onNull: 0 },
+              },
+            },
+          },
+          { $sort: { _sortTs: -1, _sortCreated: -1, _id: -1 } },
+          { $skip: skip },
+          { $limit: pageSize },
+          { $project: { _sortTs: 0, _sortCreated: 0 } },
+        ];
+
+  let docs = await SiteDocument.aggregate([{ $match: filter }, ...sortStages])
+    .option({ maxTimeMS: 8000 })
+    .catch(() => null);
+  if (!Array.isArray(docs)) {
+    const all = await SiteDocument.find(filter).maxTimeMS(8000).lean().catch(() => []);
+    if (q === "resoconti") {
+      all.sort((a, b) => {
+        const roleDiff = resocontoListSortRank(a) - resocontoListSortRank(b);
+        if (roleDiff) return roleDiff;
+        return workflowSortTimestamp(a) - workflowSortTimestamp(b);
+      });
+      docs = all.slice(skip, skip + pageSize);
+    } else {
+      all.sort((a, b) => workflowSortTimestamp(b) - workflowSortTimestamp(a));
+      docs = all.slice(skip, skip + pageSize);
+    }
+  }
+
+  // Lista: solo campi DB (nome/avatar già denormalizzati). Niente fetch Discord qui:
+  // con Discord lento bloccava pause/candidature/appelli/resoconti → "Impossibile caricare la coda".
+  let items = (docs || []).map((doc) => docToListItem(doc, null));
+
+  // Pause: prova a ripulire nick "SONO IN PAUSA" / placeholder con identità web (budget breve).
+  if (q === "pause" && client && items.length) {
+    try {
+      const { resolveWebUserIdentitiesBatch, safeDisplayLabel } = require("./siteWebUserIdentity");
+      const guild =
+        client.guilds?.cache?.get(gid) || (await client.guilds?.fetch?.(gid).catch(() => null));
+      const needIds = items.map((it) => String(it.userId || "").trim()).filter(Boolean);
+      const identityMap = await resolveWebUserIdentitiesBatch(client, guild, needIds, {
+        cap: 40,
+        budgetMs: 2200,
+      });
+      items = items.map((item) => {
+        const hit = identityMap?.get?.(String(item.userId || ""));
+        if (!hit) return item;
+        const cleaned =
+          cleanPauseSubjectDisplayName(hit.displayName, item.userId) ||
+          cleanPauseSubjectDisplayName(hit.username, item.userId) ||
+          cleanPauseSubjectDisplayName(safeDisplayLabel(hit.displayName, item.userId, ""), item.userId);
+        return {
+          ...item,
+          displayName: cleaned || item.displayName,
+          avatarUrl: hit.avatarUrl || item.avatarUrl,
+        };
+      });
+    } catch (_) {}
+  }
+
+  return {
+    items,
+    pagination: {
+      page,
+      pageSize,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / pageSize) || 1),
+    },
+    week: q === "resoconti" ? week || null : null,
+    weeks: q === "resoconti" ? weeks : undefined,
+  };
+}
+
+async function getStaffWorkflowDetailFromDb(client, guildId, queue, itemId, userId) {
+  const gid = String(guildId || "").trim();
+  const q = String(queue || "").trim().toLowerCase();
+  const id = String(itemId || "").trim();
+  const uid = String(userId || "").trim();
+  if (!gid || !q || !id) return null;
+
+  let doc = null;
+  if (/^[a-f0-9]{24}$/i.test(id)) {
+    doc = await SiteDocument.findOne({ _id: id, docType: WORKFLOW_DOC, guildId: gid, workflowQueue: q }).lean().catch(() => null);
+  }
+  if (!doc && q === "pause" && uid) {
+    doc = await SiteDocument.findOne({
+      docType: WORKFLOW_DOC,
+      guildId: gid,
+      workflowQueue: "pause",
+      workflowPauseId: id,
+      userId: uid,
+    })
+      .lean()
+      .catch(() => null);
+  }
+  if (!doc) {
+    doc = await SiteDocument.findOne({
+      docType: WORKFLOW_DOC,
+      guildId: gid,
+      workflowQueue: q,
+      workflowMessageId: id,
+    })
+      .lean()
+      .catch(() => null);
+  }
+  if (!doc) return null;
+
+  // Fast path: dettaglio subito dal DB (niente attesa Discord).
+  const fast = docToDetail(doc, null, null);
+  const needsSubject =
+    !hasRealDiscordAvatarUrl(fast.avatarUrl) ||
+    !pickSubjectDisplayName(fast.userId, fast.displayName);
+
+  if (!needsSubject || !client) return fast;
+
+  const enrich = (async () => {
+    const guild = client?.guilds?.cache?.get(gid) || (await client?.guilds?.fetch(gid).catch(() => null));
+    const memberCache = await loadMembersForIds(guild, [String(doc.userId || ""), String(doc.workflowDecidedBy || "")]);
+    const member = memberCache.get(String(doc.userId || "")) || null;
+    const detail = docToDetail(doc, member, memberCache);
+    const enriched = await applyWorkflowSubjectToItem(client, guild, detail);
+    // Denormalizza nome/avatar risolti così la lista successiva non resta con solo l'ID.
+    const resolvedName = pickSubjectDisplayName(enriched?.userId, enriched?.displayName);
+    const resolvedAvatar = hasRealDiscordAvatarUrl(enriched?.avatarUrl) ? String(enriched.avatarUrl) : "";
+    const storedName = pickSubjectDisplayName(doc.userId, doc.workflowSubjectName);
+    const storedAvatar = hasRealDiscordAvatarUrl(doc.workflowSubjectAvatarUrl)
+      ? String(doc.workflowSubjectAvatarUrl)
+      : "";
+    if (
+      doc?._id &&
+      ((resolvedName && resolvedName !== storedName) || (resolvedAvatar && resolvedAvatar !== storedAvatar))
+    ) {
+      void SiteDocument.updateOne(
+        { _id: doc._id },
+        {
+          $set: {
+            ...(resolvedName ? { workflowSubjectName: resolvedName.slice(0, 120) } : {}),
+            ...(resolvedAvatar ? { workflowSubjectAvatarUrl: resolvedAvatar.slice(0, 512) } : {}),
+          },
+        },
+      ).catch(() => null);
+    }
+    return enriched;
+  })().catch(() => null);
+
+  const enriched = await Promise.race([
+    enrich,
+    new Promise((resolve) => setTimeout(() => resolve(null), 900)),
+  ]);
+  return enriched || fast;
+}
+
+function parseResocontoPayloadFromCustomId(customId) {
+  const raw = String(customId || "");
+  const isApply = raw.startsWith(`${RESOCONTO_APPLY_PREFIX}:`);
+  const isReject = raw.startsWith(`${RESOCONTO_REJECT_PREFIX}:`);
+  const isOverride = raw.startsWith("resoconto_override:");
+  const isReason = raw.startsWith("resoconto_reason:");
+  if (!isApply && !isReject && !isOverride && !isReason) return null;
+  const parts = raw.split(":");
+  const kind = String(parts[1] || "");
+  const userId = String(parts[2] || "");
+  if (!/^\d{16,20}$/.test(userId)) return null;
+  if (kind === "s") {
+    const roleId = String(parts[3] || "");
+    const actionKey = String(parts[4] || parts[3] || "");
+    if (roleId && !/^\d{16,20}$/.test(roleId)) return null;
+    return { kind, userId, roleId: roleId || null, actionKey, pending: isApply };
+  }
+  if (kind === "p") {
+    return { kind, userId, roleId: null, actionKey: String(parts[3] || ""), pending: isApply };
+  }
+  return null;
+}
+
+function parseResocontoFromMessage(msg) {
+  for (const row of msg?.components || []) {
+    for (const comp of row?.components || []) {
+      const parsed = parseResocontoPayloadFromCustomId(comp?.customId);
+      if (parsed) return parsed;
+    }
+  }
+  const content = String(msg?.content || "");
+  if (!/\*\*Staffer:\*\*|\*\*Partner Manager:\*\*|Staffer:|Partner Manager:/i.test(content)) return null;
+  const userId = content.match(/<@!?(\d{16,20})>/)?.[1];
+  if (!/^\d{16,20}$/.test(String(userId || ""))) return null;
+  const actionMatch =
+    content.match(/\*\*Azione:\*\*\s*__([^_]+)__/) ||
+    content.match(/\*\*Azione:\*\*\s*([^\n*]+)/i) ||
+    content.match(/Azione:\s*([^\n]+)/i);
+  const displayAction = String(actionMatch?.[1] || "nl").trim();
+  const actionKey = normalizeResocontoActionKey(displayAction) || "";
+  if (/\*\*Partner Manager:\*\*|Partner Manager:/i.test(content)) {
+    return { kind: "p", userId, roleId: null, actionKey, pending: false };
+  }
+  const roleId = content.match(/<@&(\d{16,20})>/)?.[1] || null;
+  return { kind: "s", userId, roleId, actionKey, pending: false };
+}
+
+async function syncAppealsToWorkflowStore(guild, opts = {}) {
+  const guildId = String(guild?.id || "").trim();
+  if (!guildId) return 0;
+  const channel = await resolveSubmissionChannel(guild);
+  if (!channel?.messages?.fetch) return 0;
+  const scope = String(opts.scope || "all").toLowerCase();
+  const maxPages = Math.max(1, Math.min(20, Number(opts.maxPages) || 5));
+  let count = 0;
+  let before;
+  for (let page = 0; page < maxPages; page += 1) {
+    const fetched = await channel.messages
+      .fetch({ limit: 100, ...(before ? { before } : {}) })
+      .catch(() => null);
+    if (!fetched?.size) break;
+    const msgs = [...fetched.values()];
+    before = msgs[msgs.length - 1]?.id;
+    for (const msg of msgs) {
+      const parsed = parseAppealFromMessageOrEmbed(msg);
+      if (!parsed) continue;
+      let status = deriveAppealStatus(msg);
+      if (status === "pending" && !(await appealSanctionStillActive(guild, parsed.kind, parsed.userId))) {
+        await closeAppealAsObsolete(guild, msg, parsed, { messageId: msg.id }).catch(() => null);
+        status = "cancelled";
+      }
+      if (scope === "pending" && status !== "pending") continue;
+      await persistAppealWorkflowFromMessage(guild, msg, parsed, status);
+      count += 1;
+    }
+    if (fetched.size < 100) break;
+  }
+  return count;
+}
+
+async function syncResocontiToWorkflowStore(guild, opts = {}) {
+  const { isDiscordStaffChannelPostsEnabled } = require("./discordWorkflowUiGate");
+  if (!isDiscordStaffChannelPostsEnabled()) return 0;
+  const guildId = String(guild?.id || "").trim();
+  if (!guildId) return 0;
+  const channelId = String(IDs.channels?.resocontiStaff || IDs.channels?.valutazioniStaff || "").trim();
+  if (!channelId) return 0;
+  const channel = guild.channels.cache.get(channelId) || (await guild.channels.fetch(channelId).catch(() => null));
+  if (!channel?.messages?.fetch) return 0;
+
+  let count = 0;
+  let before;
+  const maxPages = Math.max(1, Math.min(20, Number(opts.maxPages) || 3));
+  for (let page = 0; page < maxPages; page += 1) {
+    const fetched = await channel.messages
+      .fetch({ limit: 100, ...(before ? { before } : {}) })
+      .catch(() => null);
+    if (!fetched?.size) break;
+    const msgs = [...fetched.values()];
+    before = msgs[msgs.length - 1]?.id;
+    for (const msg of msgs) {
+      const payload = parseResocontoFromMessage(msg);
+      if (!payload) continue;
+      const hasActionButtons = (msg.components || []).some((row) =>
+        (row.components || []).some((c) => {
+          const id = String(c?.customId || "");
+          return id.startsWith(`${RESOCONTO_APPLY_PREFIX}:`) || id.startsWith(`${RESOCONTO_REJECT_PREFIX}:`);
+        }),
+      );
+      const rawBody = String(msg.content || "");
+      const decidedMarker = /azione confermata da|azione negata da/i.test(rawBody);
+      const outcome = decidedMarker ? parseResocontoOutcomeFromContent(rawBody) : null;
+      const member = await getGuildMemberCached(guild, payload.userId).catch(() => null);
+      let stillRelevant = memberStillRelevantForResoconto(member, payload.kind, payload.roleId);
+      let status = "pending";
+      if (decidedMarker) {
+        status = outcome?.rejected ? "rejected" : "accepted";
+      } else if (hasActionButtons) {
+        status = "pending";
+      } else if (!stillRelevant) {
+        status = "cancelled";
+      }
+      const appliedActionKey =
+        normalizeResocontoActionKey(outcome?.actionKey || "") || normalizeResocontoActionKey(payload.actionKey);
+      const title =
+        payload.kind === "p"
+          ? `Resoconto PM · ${payload.actionKey || ""}`.trim()
+          : `Resoconto staff · ${payload.actionKey || ""}`.trim();
+      const subject = await resolveWorkflowSubject(guild?.client, guild, payload.userId);
+      const fromMember = memberToSubjectFields(member, payload.userId);
+      await upsertStaffWorkflowItem({
+        guildId,
+        queue: "resoconti",
+        dedupeKey: buildWorkflowDedupeKey("resoconti", [msg.id]),
+        userId: payload.userId,
+        messageId: msg.id,
+        channelId: String(msg.channelId || channel.id),
+        kind: payload.kind,
+        roleId: payload.roleId,
+        actionKey: appliedActionKey || payload.actionKey,
+        status,
+        ...(status === "cancelled"
+          ? {
+              statusLabel: resocontoAutoCancelLabel(member, payload.kind),
+              decidedBy: "system",
+            }
+          : outcome?.label
+            ? { statusLabel: outcome.label, staffReason: outcome.label }
+            : {}),
+        title,
+        preview: rawBody.slice(0, 400),
+        content: rawBody,
+        createdAt: msg.createdAt,
+        weekKey: weekKeyFromDate(msg.createdAt),
+        displayName: fromMember.displayName || subject.displayName || "",
+        avatarUrl: fromMember.avatarUrl || subject.avatarUrl || "",
+      });
+      count += 1;
+    }
+    if (fetched.size < 100) break;
+  }
+  return count;
+}
+
+async function upsertPauseWorkflowFromPause(client, guild, userId, pause) {
+  const gid = String(guild?.id || IDs.guilds.main || "").trim();
+  const uid = String(userId || "").trim();
+  const pauseId = String(pause?._id || pause?.id || "").trim();
+  if (!gid || !uid || !pauseId) return null;
+  const today = getTodayUtc();
+  const yearBounds = getCurrentYearBoundsUtc(today);
+  const status = normalizeStatus(pause?.status, "pending");
+  const statusLabel = getPauseStatusLabel(pause, today);
+  const member = guild ? await getGuildMemberCached(guild, uid).catch(() => null) : null;
+  const subject = await resolveWorkflowSubject(guild?.client || client, guild, uid);
+  const fromMember = memberToSubjectFields(member, uid);
+  const roleTrack = pauseTrackRoleKey(pause);
+  const roleLabel = pauseRoleDisplayLabel(
+    { ruoloRichiesto: roleTrack, ruoloLabel: String(pause?.ruoloLabel || pause?.ruolo || "").trim() },
+    member,
+    guild,
+  );
+  return upsertStaffWorkflowItem({
+    guildId: gid,
+    queue: "pause",
+    dedupeKey: buildWorkflowDedupeKey("pause", [uid, pauseId]),
+    userId: uid,
+    pauseId,
+    status,
+    statusLabel,
+    title: fromMember.displayName || subject.displayName || uid,
+    displayName: fromMember.displayName || subject.displayName || uid,
+    avatarUrl: fromMember.avatarUrl || subject.avatarUrl || "",
+    preview: String(pause.motivazione || "").slice(0, 500),
+    motivazione: String(pause.motivazione || ""),
+    content: String(pause.motivazione || ""),
+    createdAt: pause.createdAt,
+    fields: [
+      { name: "Periodo", value: `${pause.dataRichiesta || "?"} → ${pause.dataRitorno || "?"}` },
+      { name: "Ruolo richiesto", value: roleLabel },
+      { name: "Motivazione", value: String(pause.motivazione || "—") },
+      { name: "Stato", value: statusLabel },
+    ],
+    workflowFields: {
+      start: String(pause.dataRichiesta || ""),
+      end: String(pause.dataRitorno || ""),
+      dataRichiesta: String(pause.dataRichiesta || ""),
+      dataRitorno: String(pause.dataRitorno || ""),
+      ruoloTrack: roleTrack,
+      ruoloRichiesto: roleTrack,
+      ruoloLabel: roleLabel,
+      phase: getPausePhase(pause.dataRichiesta, pause.dataRitorno, today),
+      timing: getPauseTimingText(pause.dataRichiesta, pause.dataRitorno, today),
+      statusLabel,
+      giorniScalati: computePauseScaledDaysThisYear(pause, today, yearBounds.yearStart, yearBounds.yearEnd),
+    },
+  });
+}
+
+/** Se manca il doc workflow ma la pausa pending esiste ancora in DB, lo ricrea (per la chat). */
+async function ensurePauseWorkflowDoc(client, guildId, dedupeKey) {
+  const gid = String(guildId || "").trim();
+  const key = String(dedupeKey || "").trim();
+  if (!gid || !key.toLowerCase().startsWith("pause:")) return null;
+  const existing = await SiteDocument.findOne({ docType: WORKFLOW_DOC, guildId: gid, dedupeKey: key })
+    .select("status workflowQueue userId dedupeKey")
+    .lean()
+    .catch(() => null);
+  if (existing) return existing;
+
+  const parts = key.split(":");
+  // pause:userId:pauseId
+  const uid = String(parts[1] || "").trim();
+  const pauseId = String(parts.slice(2).join(":") || "").trim();
+  if (!uid || !pauseId) return null;
+
+  const { getStaffPauseRecord } = require("../Pause/pauseHandlersUtils");
+  const record = await getStaffPauseRecord(gid, uid);
+  const pause = (Array.isArray(record?.staff?.pauses) ? record.staff.pauses : []).find(
+    (p) => String(p?._id || "") === pauseId,
+  );
+  if (!pause || String(pause.status || "") !== "pending") return null;
+
+  const guild =
+    client?.guilds?.cache?.get(gid) || (await client?.guilds?.fetch(gid).catch(() => null));
+  await upsertPauseWorkflowFromPause(client, guild, uid, pause).catch(() => null);
+  return SiteDocument.findOne({ docType: WORKFLOW_DOC, guildId: gid, dedupeKey: key })
+    .select("status workflowQueue userId dedupeKey")
+    .lean()
+    .catch(() => null);
+}
+
+async function syncPauseWorkflowFieldsFromProfiles(guildId) {
+  const gid = String(guildId || "").trim();
+  if (!gid) return 0;
+  const docs = await ActivityUserProfile.find(
+    { guildId: gid, "staff.pauses.0": { $exists: true } },
+    { userId: 1, "staff.pauses": 1 },
+  )
+    .lean()
+    .catch(() => []);
+  let count = 0;
+  for (const doc of docs || []) {
+    const userId = String(doc?.userId || "").trim();
+    if (!userId) continue;
+    for (const pause of Array.isArray(doc?.staff?.pauses) ? doc.staff.pauses : []) {
+      if (!pause?._id) continue;
+      await upsertPauseWorkflowFromPause(null, null, userId, pause).catch(() => null);
+      count += 1;
+    }
+  }
+  // Legacy: riempi ruoloTrack sui doc workflow senza track.
+  const legacy = await SiteDocument.find({
+    docType: WORKFLOW_DOC,
+    guildId: gid,
+    workflowQueue: "pause",
+    $or: [
+      { "workflowFields.ruoloTrack": { $exists: false } },
+      { "workflowFields.ruoloTrack": null },
+      { "workflowFields.ruoloTrack": "" },
+    ],
+  })
+    .select("_id workflowFields")
+    .limit(300)
+    .lean()
+    .catch(() => []);
+  for (const w of legacy || []) {
+    const track = pauseTrackRoleKey(w.workflowFields || {});
+    await SiteDocument.updateOne(
+      { _id: w._id },
+      {
+        $set: {
+          "workflowFields.ruoloTrack": track,
+          "workflowFields.ruoloRichiesto": track,
+        },
+      },
+    ).catch(() => null);
+  }
+  return count;
+}
+
+async function syncPausesToWorkflowStore(client, guildId) {
+  const gid = String(guildId || "").trim();
+  await syncPauseWorkflowFieldsFromProfiles(gid).catch(() => 0);
+  const docs = await ActivityUserProfile.find({ guildId: gid, "staff.pauses.0": { $exists: true } }, { userId: 1, staff: 1 })
+    .lean()
+    .catch(() => []);
+  const guild = client?.guilds?.cache?.get(gid) || (await client?.guilds?.fetch(gid).catch(() => null));
+  let count = 0;
+  const seenUsers = new Set();
+  for (const doc of docs) {
+    const userId = String(doc?.userId || "").trim();
+    const pauses = Array.isArray(doc?.staff?.pauses) ? doc.staff.pauses : [];
+    const member = guild ? await getGuildMemberCached(guild, userId).catch(() => null) : null;
+    if (guild && userId && !seenUsers.has(userId)) {
+      seenUsers.add(userId);
+      await autoCancelPendingPausesIfNotEligible(guild, userId, { decidedBy: "system" }).catch(() => 0);
+    }
+    for (const pause of pauses) {
+      if (!pause?._id) continue;
+      const pauseId = String(pause._id);
+      let status = normalizeStatus(pause.status, "pending");
+      const ruolo = pause.ruoloRichiesto || pause.ruolo || "Staff";
+      // Solo se il member è stato caricato: timeout Discord non deve cancellare pratiche.
+      if (status === "pending" && member && !memberEligibleForPauseRole(member, ruolo)) {
+        const { updatePauseInDb } = require("../Pause/pauseHandlersUtils");
+        const statusLabel = pauseAutoCancelLabel(member);
+        await updatePauseInDb(gid, userId, pauseId, { status: "cancelled", cancelledAt: new Date() }).catch(
+          () => null,
+        );
+        status = "cancelled";
+        pause.status = "cancelled";
+        pause.cancelledAt = new Date();
+      }
+      await upsertPauseWorkflowFromPause(client, guild, userId, { ...pause, status, _id: pauseId });
+      count += 1;
+    }
+  }
+  await reconcilePendingPauseWorkflows(client, gid).catch(() => 0);
+  return count;
+}
+
+async function backfillStaffWorkflowFromDiscord(client, guild, viewerMember) {
+  const guildId = String(guild?.id || "").trim();
+  if (!guildId) return { ok: false, counts: {} };
+  const counts = { pause: 0, candidature: 0, appelli: 0, resoconti: 0 };
+
+  counts.pause = await syncPausesToWorkflowStore(client, guildId);
+
+  const cands = await listCandidatureApplications(guild, { scope: "all", limit: 100 });
+  for (const item of cands) {
+    const detail = await getCandidatureApplicationDetail(guild, item.messageId).catch(() => null);
+    const member = guild ? await getGuildMemberCached(guild, item.userId).catch(() => null) : null;
+    const subject = await resolveWorkflowSubject(guild?.client || client, guild, item.userId);
+    const fromMember = memberToSubjectFields(member, item.userId);
+    await upsertStaffWorkflowItem({
+      guildId,
+      queue: "candidature",
+      dedupeKey: buildWorkflowDedupeKey("candidature", [item.messageId]),
+      userId: item.userId,
+      messageId: item.messageId,
+      channelId: item.channelId,
+      type: item.type,
+      status: item.status,
+      title: item.title,
+      preview: item.preview,
+      content: detail?.body || item.preview,
+      fields: detail?.fields || [],
+      createdAt: item.createdAt,
+      displayName: fromMember.displayName || subject.displayName || "",
+      avatarUrl: fromMember.avatarUrl || subject.avatarUrl || "",
+    });
+    counts.candidature += 1;
+  }
+
+  counts.appelli = await syncAppealsToWorkflowStore(guild, { scope: "all", maxPages: 10 });
+
+  const channelId = String(IDs.channels?.resocontiStaff || IDs.channels?.valutazioniStaff || "").trim();
+  if (channelId) {
+    counts.resoconti = await syncResocontiToWorkflowStore(guild, { maxPages: 10 });
+  }
+
+  await setBotState(BACKFILL_STATE_KEY, Date.now()).catch(() => null);
+  return { ok: true, counts };
+}
+
+async function scheduleStaffWorkflowBackfill(client, guild, viewerMember, opts = {}) {
+  const guildId = String(guild?.id || "").trim();
+  if (!guildId || !client) return false;
+  const force = Boolean(opts.force);
+  const existing = await SiteDocument.countDocuments({ docType: WORKFLOW_DOC, guildId }).catch(() => 0);
+  const last = Number((await getBotState(BACKFILL_STATE_KEY, 0)) || 0);
+  const due = Date.now() - last > BACKFILL_MIN_INTERVAL_MS;
+  if (!force && existing > 0 && !due) return false;
+  if (backfillInFlight) return true;
+  backfillInFlight = backfillStaffWorkflowFromDiscord(client, guild, viewerMember)
+    .catch((err) => {
+      global.logger?.warn?.("[staff-workflow] backfill failed:", err?.message || err);
+      return { ok: false };
+    })
+    .finally(() => {
+      backfillInFlight = null;
+    });
+  if (opts.awaitCompletion) {
+    await backfillInFlight.catch(() => null);
+  }
+  return true;
+}
+
+async function maybeBackfillStaffWorkflowStore(client, guild, viewerMember) {
+  return scheduleStaffWorkflowBackfill(client, guild, viewerMember);
+}
+
+async function listStaffWorkflowForInbox(client, guild, viewerMember, queue, opts = {}) {
+  const q = String(queue || "").trim().toLowerCase();
+  const guildId = String(guild?.id || "").trim();
+
+  if (q === "appelli" && guild) {
+    const appealSyncKey = `appeals:${guildId}`;
+    if (!listStaffWorkflowForInbox.__syncAt) listStaffWorkflowForInbox.__syncAt = new Map();
+    const lastAppeal = Number(listStaffWorkflowForInbox.__syncAt.get(appealSyncKey) || 0);
+    if (opts.forceSync || Date.now() - lastAppeal > INBOX_SYNC_MIN_MS) {
+      listStaffWorkflowForInbox.__syncAt.set(appealSyncKey, Date.now());
+      void syncAppealsToWorkflowStore(guild, { scope: "all", maxPages: opts.forceSync ? 10 : 2 }).catch(() => 0);
+    }
+    if (!listStaffWorkflowForInbox.__pruneAt) listStaffWorkflowForInbox.__pruneAt = new Map();
+    const lastAppealPrune = Number(listStaffWorkflowForInbox.__pruneAt.get(appealSyncKey) || 0);
+    if (opts.forceSync || Date.now() - lastAppealPrune > INBOX_PRUNE_MIN_MS) {
+      listStaffWorkflowForInbox.__pruneAt.set(appealSyncKey, Date.now());
+      void autoCloseObsoletePendingAppeals(guild, { limit: 30 }).catch(() => 0);
+    }
+  }
+
+  if (q === "pause" && client && guildId) {
+    const pauseSyncKey = `pause:${guildId}`;
+    if (!listStaffWorkflowForInbox.__syncAt) listStaffWorkflowForInbox.__syncAt = new Map();
+    const last = Number(listStaffWorkflowForInbox.__syncAt.get(pauseSyncKey) || 0);
+    // Mai await sul request path: su cellulare il sync profili bloccava il primo load.
+    if (opts.forceSync || Date.now() - last > INBOX_SYNC_MIN_MS) {
+      listStaffWorkflowForInbox.__syncAt.set(pauseSyncKey, Date.now());
+      void syncPauseWorkflowFieldsFromProfiles(guildId).catch(() => 0);
+      void syncPausesToWorkflowStore(client, guildId).catch(() => 0);
+    }
+  }
+
+  // Resoconti: sync/prune in background; never block the inbox list response.
+  if (q === "resoconti" && guild) {
+    const resoSyncKey = `resoconti:${guildId}`;
+    if (!listStaffWorkflowForInbox.__syncAt) listStaffWorkflowForInbox.__syncAt = new Map();
+    const lastReso = Number(listStaffWorkflowForInbox.__syncAt.get(resoSyncKey) || 0);
+    if (opts.forceSync || Date.now() - lastReso > INBOX_SYNC_MIN_MS) {
+      listStaffWorkflowForInbox.__syncAt.set(resoSyncKey, Date.now());
+      const syncPromise = syncResocontiToWorkflowStore(guild, { maxPages: opts.forceSync ? 2 : 2 }).catch(() => 0);
+      if (opts.forceSync) await syncPromise;
+      else void syncPromise;
+    }
+    if (!listStaffWorkflowForInbox.__pruneAt) listStaffWorkflowForInbox.__pruneAt = new Map();
+    const lastPrune = Number(listStaffWorkflowForInbox.__pruneAt.get(resoSyncKey) || 0);
+    if (opts.forceSync || Date.now() - lastPrune > INBOX_PRUNE_MIN_MS) {
+      listStaffWorkflowForInbox.__pruneAt.set(resoSyncKey, Date.now());
+      void pruneDepexedPendingResoconti(guild, guildId).catch(() => 0);
+    }
+  }
+
+  const result = await listStaffWorkflowFromDb(client, guildId, queue, opts);
+  let items = result.items;
+  if (q === "pause" && guild) {
+    let knownStaffIds = null;
+    try {
+      const { loadRosterSnapshot } = require("./siteStaffRosterCache");
+      const snap = await loadRosterSnapshot(guildId).catch(() => null);
+      if (Array.isArray(snap?.userIds) && snap.userIds.length) {
+        knownStaffIds = new Set(snap.userIds.map((id) => String(id || "").trim()).filter(Boolean));
+      }
+    } catch (_) {}
+    // Mai attendere Discord qui: su cellulare il primo load andava in timeout.
+    items = filterPauseInboxItemsCachedOnly(guild, items, knownStaffIds);
+    const pausePruneKey = `pausePrune:${guildId}`;
+    if (!listStaffWorkflowForInbox.__pruneAt) listStaffWorkflowForInbox.__pruneAt = new Map();
+    const lastPausePrune = Number(listStaffWorkflowForInbox.__pruneAt.get(pausePruneKey) || 0);
+    if (opts.forceSync || Date.now() - lastPausePrune > INBOX_PRUNE_MIN_MS) {
+      listStaffWorkflowForInbox.__pruneAt.set(pausePruneKey, Date.now());
+      const pendingSnapshot = items.filter((item) => String(item?.status || "") === "pending");
+      void prunePendingPauseInboxUsers(guild, client, guildId, pendingSnapshot).catch((err) => {
+        global.logger?.warn?.("[staffWorkflow] prune depexed pauses:", err?.message || err);
+      });
+    }
+  }
+  if (q === "resoconti" && viewerMember?.id) {
+    items = items.map((item) => ({
+      ...item,
+      canAct:
+        item.status === "pending" &&
+        memberHasResocontoButtonAccess(viewerMember, {
+          kind: item.kind,
+          userId: item.userId,
+          roleId: item.roleId,
+        }),
+    }));
+  }
+  return {
+    items,
+    pagination: result.pagination,
+    week: result.week ?? null,
+    weeks: result.weeks,
+  };
+}
+
+async function persistCandidatureWorkflowFromMessage(guild, message, type, userId, status = "pending") {
+  if (!guild || !message) return null;
+  const embed = message.embeds?.[0];
+  const fullBody = (Array.isArray(message.embeds) ? message.embeds : [])
+    .map((e) => String(e?.description || "").trim())
+    .filter(Boolean)
+    .join("\n\n");
+  const body = stripDiscordDecorations(fullBody || String(embed?.description || ""), { keepNewlines: true });
+  const fieldsFromEmbed = (Array.isArray(embed?.fields) ? embed.fields : [])
+    .map((field) => ({
+      name: String(field?.name || "").trim(),
+      value: stripDiscordDecorations(field?.value || ""),
+    }))
+    .filter((field) => field.name || field.value);
+  const fieldsFromBody = parseNumberedQaBlocks(body);
+  const fields = fieldsFromBody.length ? fieldsFromBody : fieldsFromEmbed;
+  return persistCandidatureWorkflowFromPayload(guild, {
+    messageId: message.id,
+    channelId: message.channelId,
+    type,
+    userId,
+    status,
+    title: stripDiscordDecorations(embed?.title || "Candidatura") || "Candidatura",
+    body,
+    fields,
+    createdAt: message.createdAt,
+  });
+}
+
+async function persistCandidatureWorkflowFromPayload(guild, payload = {}) {
+  if (!guild) return null;
+  const messageId = String(payload.messageId || "").trim();
+  const userId = String(payload.userId || "").trim();
+  if (!messageId || !userId) return null;
+  const body = stripDiscordDecorations(String(payload.body || ""), { keepNewlines: true });
+  const fieldsFromBody = parseNumberedQaBlocks(body);
+  const fields =
+    Array.isArray(payload.fields) && payload.fields.length
+      ? payload.fields
+      : fieldsFromBody;
+  const member = await getGuildMemberCached(guild, userId).catch(() => null);
+  const subject = await resolveWorkflowSubject(guild?.client, guild, userId);
+  const fromMember = memberToSubjectFields(member, userId);
+  return upsertStaffWorkflowItem({
+    guildId: guild.id,
+    queue: "candidature",
+    dedupeKey: buildWorkflowDedupeKey("candidature", [messageId]),
+    userId,
+    type: payload.type,
+    messageId,
+    channelId: String(payload.channelId || "site"),
+    status: payload.status || "pending",
+    title: stripDiscordDecorations(payload.title || "Candidatura") || "Candidatura",
+    preview: body.slice(0, 400),
+    content: body,
+    fields,
+    workflowFields: fields.length ? fields : null,
+    createdAt: payload.createdAt || new Date(),
+    displayName: fromMember.displayName || subject.displayName || "",
+    avatarUrl: fromMember.avatarUrl || subject.avatarUrl || "",
+  });
+}
+
+async function persistAppealWorkflowFromMessage(guild, message, parsed, status = "pending") {
+  if (!guild || !message || !parsed) return null;
+  const embed = message.embeds?.[0];
+  const body = stripDiscordDecorations(String(embed?.description || ""), { keepNewlines: true });
+  const fallbackTitle = parsed.kind === "unban" ? "Richiesta Unban" : "Richiesta Unmute";
+  return persistAppealWorkflowFromPayload(guild, {
+    messageId: message.id,
+    channelId: message.channelId,
+    userId: parsed.userId,
+    kind: parsed.kind,
+    status,
+    title: stripDiscordDecorations(embed?.title || fallbackTitle) || fallbackTitle,
+    body,
+    createdAt: message.createdAt,
+  });
+}
+
+async function persistAppealWorkflowFromPayload(guild, payload = {}) {
+  if (!guild) return null;
+  const messageId = String(payload.messageId || "").trim();
+  const userId = String(payload.userId || "").trim();
+  const kind = String(payload.kind || "").trim().toLowerCase();
+  if (!messageId || !userId || (kind !== "unban" && kind !== "unmute")) return null;
+  const body = stripDiscordDecorations(String(payload.body || ""), { keepNewlines: true });
+  const fallbackTitle = kind === "unban" ? "Richiesta Unban" : "Richiesta Unmute";
+  const member = await getGuildMemberCached(guild, userId).catch(() => null);
+  const subject = await resolveWorkflowSubject(guild?.client, guild, userId);
+  const fromMember = memberToSubjectFields(member, userId);
+  const displayName = pickSubjectDisplayName(
+    userId,
+    payload.displayName,
+    payload.subjectDisplayName,
+    payload.workflowSubjectName,
+    fromMember.displayName,
+    subject.displayName,
+  );
+  const avatarUrl =
+    String(payload.avatarUrl || payload.subjectAvatarUrl || "").trim() ||
+    fromMember.avatarUrl ||
+    subject.avatarUrl ||
+    "";
+  return upsertStaffWorkflowItem({
+    guildId: guild.id,
+    queue: "appelli",
+    dedupeKey: buildWorkflowDedupeKey("appelli", [messageId]),
+    userId,
+    kind,
+    messageId,
+    channelId: String(payload.channelId || "site"),
+    status: payload.status || "pending",
+    title: stripDiscordDecorations(payload.title || fallbackTitle) || fallbackTitle,
+    preview: cleanAppealPreviewText(body).slice(0, 500),
+    content: body,
+    createdAt: payload.createdAt || new Date(),
+    displayName,
+    avatarUrl,
+  });
+}
+
+async function persistResocontoWorkflowFromMessage(guild, message, payload, status = "pending") {
+  if (!guild || !message || !payload) return null;
+  const rawBody = String(message.content || "");
+  return persistResocontoWorkflowFromPayload(guild, {
+    messageId: message.id,
+    channelId: message.channelId,
+    userId: payload.userId,
+    kind: payload.kind,
+    roleId: payload.roleId,
+    actionKey: payload.actionKey,
+    content: rawBody,
+    createdAt: message.createdAt,
+    status,
+  });
+}
+
+async function persistResocontoWorkflowFromPayload(guild, payload = {}) {
+  if (!guild) return null;
+  const messageId = String(payload.messageId || "").trim();
+  const userId = String(payload.userId || "").trim();
+  if (!messageId || !userId) return null;
+  const rawBody = String(payload.content || payload.body || "");
+  const kind = String(payload.kind || "").trim();
+  const title =
+    kind === "p"
+      ? `Resoconto PM · ${payload.actionKey || ""}`.trim()
+      : `Resoconto staff · ${payload.actionKey || ""}`.trim();
+  const createdAt = payload.createdAt || new Date();
+  const member = await getGuildMemberCached(guild, userId).catch(() => null);
+  const subject = await resolveWorkflowSubject(guild?.client, guild, userId);
+  const fromMember = memberToSubjectFields(member, userId);
+  return upsertStaffWorkflowItem({
+    guildId: guild.id,
+    queue: "resoconti",
+    dedupeKey: buildWorkflowDedupeKey("resoconti", [messageId]),
+    userId,
+    kind,
+    roleId: payload.roleId,
+    actionKey: payload.actionKey,
+    messageId,
+    channelId: String(payload.channelId || "site"),
+    status: payload.status || "pending",
+    title,
+    preview: rawBody.slice(0, 400),
+    content: rawBody,
+    createdAt,
+    weekKey: weekKeyFromDate(createdAt),
+    displayName: fromMember.displayName || subject.displayName || "",
+    avatarUrl: fromMember.avatarUrl || subject.avatarUrl || "",
+  });
+}
+
+function workflowActorExtras(actorMember) {
+  const id = String(actorMember?.id || actorMember?.user?.id || "").trim();
+  const name = String(
+    actorMember?.displayName || actorMember?.user?.globalName || actorMember?.user?.username || "",
+  ).trim();
+  return {
+    ...(id ? { decidedBy: id } : {}),
+    ...(name ? { decidedByName: name } : {}),
+  };
+}
+
+function resocontoWorkflowItemFromDoc(doc) {
+  if (!doc) return null;
+  const status = resolveResocontoDocStatus(doc);
+  return {
+    messageId: String(doc?.workflowMessageId || ""),
+    channelId: String(doc?.workflowChannelId || ""),
+    dedupeKey: String(doc?.dedupeKey || ""),
+    userId: String(doc?.userId || ""),
+    kind: String(doc?.workflowKind || ""),
+    roleId: doc?.workflowRoleId ? String(doc.workflowRoleId) : null,
+    actionKey: normalizeResocontoActionKey(doc?.workflowActionKey || ""),
+    status,
+    statusLabel: deriveResocontoStatusLabel(doc),
+    canAct: status === "pending",
+    body: String(doc?.content || doc?.body || ""),
+    content: String(doc?.content || doc?.body || ""),
+    preview: stripDiscordDecorations(doc?.body || doc?.content || "", {
+      keepNewlines: true,
+      keepCustomEmoji: true,
+    }).slice(0, 500),
+  };
+}
+
+function resocontoWorkflowItemFromSnapshot(fields = {}) {
+  const messageId = String(fields.messageId || "").trim();
+  const status = normalizeStatus(fields.status, "accepted");
+  const actionKey = normalizeResocontoActionKey(fields.actionKey || "");
+  const body = String(fields.body || fields.content || "");
+  const statusLabel =
+    String(fields.statusLabel || "").trim() ||
+    resocontoActionLabelForKey(actionKey) ||
+    (status === "rejected" ? "Azione negata" : statusLabelFor(status));
+  return {
+    messageId,
+    channelId: String(fields.channelId || ""),
+    dedupeKey: String(fields.dedupeKey || buildWorkflowDedupeKey("resoconti", [messageId])),
+    userId: String(fields.userId || ""),
+    kind: String(fields.kind || ""),
+    roleId: fields.roleId ? String(fields.roleId) : null,
+    actionKey,
+    status,
+    statusLabel,
+    canAct: status === "pending",
+    body,
+    content: body,
+    preview: stripDiscordDecorations(body, {
+      keepNewlines: true,
+      keepCustomEmoji: true,
+    }).slice(0, 500),
+  };
+}
+
+module.exports = {
+  WORKFLOW_DOC,
+  buildWorkflowDedupeKey,
+  upsertStaffWorkflowItem,
+  updateStaffWorkflowStatusByDedupe,
+  updateStaffWorkflowFromMessage,
+  updateStaffWorkflowFromPause,
+  cancelPendingResocontiWorkflowForUser,
+  cancelPendingPauseWorkflowForUser,
+  autoCancelPendingPausesIfNotEligible,
+  reconcilePendingPauseWorkflows,
+  pruneDepexedPendingResoconti,
+  memberStillRelevantForResoconto,
+  memberEligibleForPauseRole,
+  listStaffWorkflowFromDb,
+  listStaffWorkflowForInbox,
+  listUserWorkflowsForMember,
+  getUserWorkflowDetailFromDb,
+  getPendingPauseWorkflowForMember,
+  getStaffWorkflowDetailFromDb,
+  backfillStaffWorkflowFromDiscord,
+  scheduleStaffWorkflowBackfill,
+  maybeBackfillStaffWorkflowStore,
+  syncPausesToWorkflowStore,
+  syncPauseWorkflowFieldsFromProfiles,
+  upsertPauseWorkflowFromPause,
+  ensurePauseWorkflowDoc,
+  persistCandidatureWorkflowFromMessage,
+  persistCandidatureWorkflowFromPayload,
+  persistAppealWorkflowFromMessage,
+  persistAppealWorkflowFromPayload,
+  persistResocontoWorkflowFromMessage,
+  persistResocontoWorkflowFromPayload,
+  parseAppealFromMessageOrEmbed,
+  deriveAppealStatus,
+  parseCandidateTypeFromMessage,
+  parseResocontoFromMessage,
+  syncResocontiToWorkflowStore,
+  workflowActorExtras,
+  memberToSubjectFields,
+  resocontoActionLabelForKey,
+  resocontoWorkflowItemFromDoc,
+  resocontoWorkflowItemFromSnapshot,
+  parseResocontoOutcomeFromContent,
+  deriveResocontoStatusLabel,
+};

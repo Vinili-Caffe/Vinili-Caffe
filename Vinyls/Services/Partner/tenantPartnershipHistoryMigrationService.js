@@ -13,6 +13,7 @@ const {
   extractManagerIdFromPartnershipText,
   collectPartnershipMessageText,
   extractPartnerNamesFromMessage,
+  extractPmUserIdFromThankYouEmbedAuthor,
 } = require("../../Utils/Partner/partnershipLogMessageUtils");
 const { extractInviteCode, extractInviteCodeFromUrl } = require("../../Utils/Partner/partnershipMessageUtils");
 const { getOrCreateStaffDoc, ensureStaff } = require("../../Utils/Staff/staffDocUtils");
@@ -422,6 +423,12 @@ function resolvePmUserIdFromMessage(message, opts = {}) {
   const managerHint = String(opts?.managerId || "").trim() || null;
 
   if (message?.author && !message.author.bot) return String(message.author.id);
+
+  // Thank-you del bot: l'attore è nell'author icon dell'embed (guild avatar URL).
+  const embedAuthorId = extractPmUserIdFromThankYouEmbedAuthor(message);
+  if (embedAuthorId && (!pmUserIds?.size || pmUserIds.has(embedAuthorId))) {
+    return embedAuthorId;
+  }
 
   const blob = collectInviteScanText(message);
   const labeledManager = extractManagerIdFromPartnershipText(blob) || managerHint;

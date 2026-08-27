@@ -123,7 +123,13 @@ function memberIsHighStaffForPointReview(member) {
   if (!member?.roles?.cache) return false;
   const IDs = require("../Config/ids");
   const ids = [IDs.roles?.HighStaff, IDs.roles?.Founder, IDs.roles?.Manager, IDs.roles?.Admin].filter(Boolean).map(String);
-  return ids.some((rid) => member.roles.cache.has(rid));
+  if (ids.some((rid) => member.roles.cache.has(rid))) return true;
+  try {
+    const { memberIsResocontoPmReviewer } = require("../Ticket/ticketPartnershipStaffRoles");
+    return memberIsResocontoPmReviewer(member);
+  } catch {
+    return false;
+  }
 }
 
 function isHumanPartnershipChannelMessage(message) {

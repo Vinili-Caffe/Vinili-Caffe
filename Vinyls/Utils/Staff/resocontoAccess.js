@@ -181,10 +181,10 @@ function hasCandidatureReviewAccess(interaction) {
 
   if (!member?.roles?.cache) return false;
 
-  const allowed = [IDs.roles?.Admin, IDs.roles?.Manager, IDs.roles?.Founder]
+  const allowed = [IDs.roles?.Admin, IDs.roles?.Manager, IDs.roles?.Founder, IDs.roles?.Director]
     .filter(Boolean)
     .map((id) => String(id));
-  // Admin/Manager/Founder vincono anche se la persona ha anche Director.
+  // Admin/Manager/Founder/Director vincono anche se la persona ha altri ruoli staff.
   return allowed.some((roleId) => member.roles.cache.has(roleId));
 }
 

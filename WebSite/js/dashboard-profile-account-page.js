@@ -55,15 +55,21 @@
 
   function setStatus(msg, isError) {
     var el = byId("vc-profile-account-status");
-    if (!el) return;
-    if (!msg) {
+    if (el) {
       el.hidden = true;
       el.textContent = "";
       el.classList.remove("is-error");
+    }
+    var text = String(msg || "").trim();
+    if (window.VcSiteToast) {
+      if (!text) window.VcSiteToast.hide();
+      else window.VcSiteToast.show(text, Boolean(isError));
       return;
     }
+    if (!el) return;
+    if (!text) return;
     el.hidden = false;
-    el.textContent = msg;
+    el.textContent = text;
     el.classList.toggle("is-error", Boolean(isError));
   }
 

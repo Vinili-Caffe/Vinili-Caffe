@@ -3,6 +3,11 @@ const path = require("path");
 const { AutoModerationActionType, AutoModerationRuleEventType, AutoModerationRuleKeywordPresetType, AutoModerationRuleTriggerType, ChannelType, PermissionsBitField } = require("discord.js");
 const IDs = require("../../Utils/Config/ids");
 const { isTicketCategoryName, isChannelInTicketCategory, isTicketChannelName } = require("../../Utils/Ticket/ticketCategoryUtils");
+const {
+  collectDiscordAutomodExemptChannelIds,
+  getAutomodExemptCategoryIds,
+  isAutomodExemptChannel,
+} = require("../../Utils/Moderation/automodChannelExemptions");
 const { ACTIVITY_MAIN_GUILD_ID } = require("../../Schemas/Community/communitySchemas");
 const RULE_PREFIX = "[VC] ";
 const AUTOMOD_ALERT_CHANNEL_ID = String(IDs.channels?.sanzioniUtenti || "1442569245878648924");
@@ -226,12 +231,22 @@ function prioritizeAutomodExemptChannelIds(guild, ids) {
   const staffChatId = String(IDs.channels?.staffChat || "").trim();
   const staffCmdsId = String(IDs.channels?.staffCmds || "").trim();
   const staffZone = [];
+  const automodZones = [];
   const ticketCategories = [];
   const ticketChannels = [];
+  const automodCategorySet = guild ? getAutomodExemptCategoryIds(guild) : new Set();
   for (const id of existing) {
     const channel = guild.channels.cache.get(id);
+    if (automodCategorySet.has(id)) {
+      automodZones.push(id);
+      continue;
+    }
     if (isStaffAutomodExemptChannel(channel, staffChatId, staffCmdsId)) {
       staffZone.push(id);
+      continue;
+    }
+    if (channel && isAutomodExemptChannel(channel, guild, guild?.client)) {
+      automodZones.push(id);
       continue;
     }
     if (channel.type === ChannelType.GuildCategory && isTicketCategoryName(channel.name)) {
@@ -250,6 +265,7 @@ function prioritizeAutomodExemptChannelIds(guild, ids) {
     }
   };
   push(staffZone);
+  push(automodZones);
   push(ticketCategories);
   push(ticketChannels);
   global.logger?.warn?.(
@@ -263,6 +279,7 @@ function collectExemptChannelIds(guild) {
   return prioritizeAutomodExemptChannelIds(guild, [
     ...collectTicketAutomodExemptChannelIds(guild),
     ...collectStaffAutomodExemptChannelIds(guild),
+    ...collectDiscordAutomodExemptChannelIds(guild, guild?.client),
   ]);
 }
 
@@ -271,6 +288,9 @@ function shouldResyncAutomodForChannel(channel) {
   const staffChatId = String(IDs.channels?.staffChat || "").trim();
   const staffCmdsId = String(IDs.channels?.staffCmds || "").trim();
   if (isStaffAutomodExemptChannel(channel, staffChatId, staffCmdsId)) return true;
+  if (isAutomodExemptChannel(channel, channel.guild, channel.client)) return true;
+  const automodCategorySet = getAutomodExemptCategoryIds(channel.guild);
+  if (automodCategorySet.has(String(channel.id || ""))) return true;
   if (channel.type === ChannelType.GuildCategory) return isTicketCategoryName(channel.name);
   return isChannelInTicketCategory(channel) || isTicketChannelName(channel.name);
 }

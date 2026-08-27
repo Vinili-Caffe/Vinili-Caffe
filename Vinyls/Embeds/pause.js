@@ -1,8 +1,10 @@
 const IDs = require("../Utils/Config/ids");
 const { getClientChannelCached } = require("../Utils/Interaction/interactionEntityCache");
 const { ensurePauseStickyPanel } = require("../Utils/Pause/pauseStickyPanelRuntime");
+const { isDiscordWorkflowChannelPostsEnabled } = require("../Utils/Web/discordWorkflowUiGate");
 
 async function run(client) {
+  if (!isDiscordWorkflowChannelPostsEnabled()) return;
   const pauseChannelId = String(IDs.channels?.pause || "").trim();
   if (!pauseChannelId) return;
   const channel =

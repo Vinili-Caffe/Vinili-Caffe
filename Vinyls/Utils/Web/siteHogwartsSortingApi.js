@@ -80,8 +80,8 @@ const POTIONS_DEFAULT_CONFIG = Object.freeze({
   enabled: true,
   startDate: "2026-08-24T12:00:00",
   cooldownMs: 12 * 60 * 60 * 1000,
-  rewardGaleoni: 10,
-  rewardHousePoints: 10,
+  rewardGaleoni: 100,
+  rewardHousePoints: 100,
   roundSize: 4,
 });
 const { housePointPeriodKey: resolveHousePointPeriod } = require("./hogwartsHousePointPeriods");
@@ -976,6 +976,77 @@ function housePointPeriodKey(nowMs = Date.now()) {
   return period?.key || "";
 }
 
+async function previewPotionsHouseReward(client, guildId, userId, basePoints) {
+  const base = safeInt(basePoints, 0, 0, 1000);
+  const empty = {
+    base,
+    housePoints: base,
+    petMultiplier: 1,
+    petName: "",
+    consumableMultiplier: 1,
+    consumableLabels: [],
+  };
+  if (base <= 0) return empty;
+  try {
+    const {
+      isHogwartsShopBoostActive,
+      loadShopInventory,
+      petHousePointsMultiplier,
+      getShopDurableBoostUsage,
+      SHOP_CATEGORIES,
+    } = require("../../Services/Community/hogwartsShopBoostsService");
+    if (!isHogwartsShopBoostActive(client)) return empty;
+    const inventory = await loadShopInventory(guildId, userId);
+    const pet = inventory?.[SHOP_CATEGORIES.PET] || null;
+    let petMult = petHousePointsMultiplier(pet);
+    let petName = "";
+    if (petMult > 1) {
+      const usage = await getShopDurableBoostUsage(client, guildId, userId, SHOP_CATEGORIES.PET).catch(() => null);
+      if (usage?.exhausted) petMult = 1;
+      else petName = String(pet?.name || "").trim();
+    } else {
+      petMult = 1;
+    }
+    let consumableMult = 1;
+    let consumableLabels = [];
+    try {
+      const { resolveHousePointsConsumableMultiplier } = require("../../Services/Community/hogwartsConsumableBoostsService");
+      const { resolveSortedHouseForUser } = require("../../Services/Community/galeoniEconomyService");
+      const houseId = await resolveSortedHouseForUser(guildId, userId, client).catch(() => "");
+      const consumable = await resolveHousePointsConsumableMultiplier(client, guildId, userId, houseId);
+      consumableMult = Math.max(1, Number(consumable?.multiplier) || 1);
+      consumableLabels = Array.isArray(consumable?.labels) ? consumable.labels : [];
+    } catch (_) {}
+    const afterPet = petMult <= 1 ? base : Math.max(0, Math.floor(base * petMult));
+    const housePoints = consumableMult <= 1 ? afterPet : Math.max(0, Math.floor(afterPet * consumableMult));
+    return {
+      base,
+      housePoints,
+      petMultiplier: petMult > 1 ? petMult : 1,
+      petName: petMult > 1 ? petName : "",
+      consumableMultiplier: consumableMult > 1 ? consumableMult : 1,
+      consumableLabels,
+    };
+  } catch (_) {
+    return empty;
+  }
+}
+
+function formatPotionsRewardMessage({ success, correct, total, galeoni, housePoints, petMultiplier, petName, consumableLabels }) {
+  if (!success) return `Hai indovinato ${correct}/${total}. Potrai riprovare tra 12 ore.`;
+  const g = Math.max(0, Math.floor(Number(galeoni) || 0));
+  const hp = Math.max(0, Math.floor(Number(housePoints) || 0));
+  const bits = [];
+  const mult = Math.max(1, Number(petMultiplier) || 1);
+  const name = String(petName || "").trim();
+  if (mult > 1 && name) bits.push(`×${mult} ${name}`);
+  else if (mult > 1) bits.push(`×${mult} animale`);
+  const labels = Array.isArray(consumableLabels) ? consumableLabels.filter(Boolean) : [];
+  if (labels.length) bits.push(labels.join(" + "));
+  const boostTag = bits.length ? ` (${bits.join(" · ")})` : "";
+  return `Pozioni abbinate alla perfezione: +${g} Galeoni e +${hp} punti casa${boostTag}.`;
+}
+
 async function awardPotionsHousePoints(client, guildId, userId, houseId, eventKey, points) {
   const base = safeInt(points, 0, 0, 1000);
   const house = String(houseId || "").trim();
@@ -1012,7 +1083,16 @@ async function awardPotionsHousePoints(client, guildId, userId, houseId, eventKe
     },
     { upsert: true, new: true, setDefaultsOnInsert: true },
   ).catch(() => null);
-  return { houseId: house, points: amount };
+  const petMultiplier = Math.max(1, Number(boosted?.multiplier) || 1);
+  return {
+    houseId: house,
+    points: amount,
+    base,
+    petMultiplier: petMultiplier > 1 ? petMultiplier : 0,
+    petName: String(boosted?.petName || "").trim(),
+    consumableMultiplier: Math.max(1, Number(boosted?.consumableMultiplier) || 1),
+    consumableLabels: Array.isArray(boosted?.consumableLabels) ? boosted.consumableLabels : [],
+  };
 }
 
 async function handleHogwartsPotionsGet(client, req, res) {
@@ -1025,6 +1105,14 @@ async function handleHogwartsPotionsGet(client, req, res) {
       ? { state: {}, round: previewRound }
       : await ensurePotionsRound(resolved.guild.id, resolved.userId, cfg.eventKey, potionsCfg);
     const gringott = await getGringottBalance(resolved.guild.id, resolved.userId, cfg.eventKey);
+    const rewardPreview = previewViewer
+      ? { galeoni: 0, housePoints: 0, base: 0, petMultiplier: 1, petName: "", consumableMultiplier: 1, consumableLabels: [] }
+      : await previewPotionsHouseReward(
+          client,
+          resolved.guild.id,
+          resolved.userId,
+          potionsCfg.rewardHousePoints,
+        );
     res.setHeader("Cache-Control", "private, no-store");
     return res.status(200).json({
       ok: true,
@@ -1035,7 +1123,12 @@ async function handleHogwartsPotionsGet(client, req, res) {
       potions: publicPotionsState(state, potionsCfg),
       reward: {
         galeoni: previewViewer ? 0 : potionsCfg.rewardGaleoni,
-        housePoints: previewViewer ? 0 : potionsCfg.rewardHousePoints,
+        housePoints: previewViewer ? 0 : rewardPreview.housePoints,
+        housePointsBase: previewViewer ? 0 : potionsCfg.rewardHousePoints,
+        petMultiplier: previewViewer ? 0 : rewardPreview.petMultiplier > 1 ? rewardPreview.petMultiplier : 0,
+        petName: previewViewer ? "" : rewardPreview.petName || "",
+        consumableMultiplier: previewViewer ? 1 : rewardPreview.consumableMultiplier || 1,
+        consumableLabels: previewViewer ? [] : rewardPreview.consumableLabels || [],
         previewDisabled: Boolean(previewViewer),
       },
       round,
@@ -1162,6 +1255,12 @@ async function handleHogwartsPotionsPost(client, req, res) {
         potions: publicPotionsState(currentState, potionsCfg),
       });
     }
+    try {
+      const { schedulePotionReminder } = require("../../Services/Community/hogwartsPotionReminderService");
+      schedulePotionReminder(client, resolved.guild.id, resolved.userId, nextAvailableAt);
+    } catch (errSched) {
+      global.logger?.warn?.("[HOGWARTS POTIONS] schedule reminder:", errSched?.message || errSched);
+    }
     const rewardKey = `${cfg.eventKey}:potions:${resolved.userId}:${roundKey}`;
     let gringottAward = null;
     let housePointsAward = null;
@@ -1182,6 +1281,22 @@ async function handleHogwartsPotionsPost(client, req, res) {
     }
     const updatedState = reserved?.profile?.events?.hogwarts?.potions || {};
     const gringott = gringottAward?.state || await getGringottBalance(resolved.guild.id, resolved.userId, cfg.eventKey);
+    const awardedGaleoni = success ? potionsCfg.rewardGaleoni : 0;
+    const awardedHousePoints = success
+      ? Math.max(
+          0,
+          Math.floor(
+            Number(housePointsAward?.points) ||
+              (housePointsAward ? 0 : potionsCfg.rewardHousePoints) ||
+              0,
+          ),
+        )
+      : 0;
+    const petMultiplier = Math.max(0, Math.floor(Number(housePointsAward?.petMultiplier) || 0));
+    const petName = String(housePointsAward?.petName || "").trim();
+    const consumableLabels = Array.isArray(housePointsAward?.consumableLabels)
+      ? housePointsAward.consumableLabels
+      : [];
     res.setHeader("Cache-Control", "private, no-store");
     return res.status(200).json({
       ok: true,
@@ -1191,15 +1306,27 @@ async function handleHogwartsPotionsPost(client, req, res) {
       house: houseId,
       houseMeta,
       reward: {
-        galeoni: success ? potionsCfg.rewardGaleoni : 0,
-        housePoints: success ? potionsCfg.rewardHousePoints : 0,
+        galeoni: awardedGaleoni,
+        housePoints: awardedHousePoints,
+        housePointsBase: success ? potionsCfg.rewardHousePoints : 0,
+        petMultiplier,
+        petName,
+        consumableMultiplier: Math.max(1, Number(housePointsAward?.consumableMultiplier) || 1),
+        consumableLabels,
         housePointsAward,
       },
       potions: publicPotionsState(updatedState, potionsCfg),
       gringott: toPublicGringottPayload(gringott || { eventKey: cfg.eventKey }),
-      message: success
-        ? `Pozioni abbinate alla perfezione: +${potionsCfg.rewardGaleoni} Galeoni e +${potionsCfg.rewardHousePoints} punti casa.`
-        : `Hai indovinato ${correct}/${total}. Potrai riprovare tra 12 ore.`,
+      message: formatPotionsRewardMessage({
+        success,
+        correct,
+        total,
+        galeoni: awardedGaleoni,
+        housePoints: awardedHousePoints,
+        petMultiplier,
+        petName,
+        consumableLabels,
+      }),
     });
   } catch (err) {
     global.logger?.error?.("[WEBHOOK] hogwarts-potions post:", err);

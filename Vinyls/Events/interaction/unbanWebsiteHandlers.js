@@ -1,5 +1,11 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const IDs = require("../../Utils/Config/ids");
+const {
+  isDiscordWorkflowUiEnabled,
+  isDiscordWorkflowChannelPostsEnabled,
+  newSiteWorkflowMessageId,
+  buildInboxManageLinkRow,
+} = require("../../Utils/Web/discordWorkflowUiGate");
 const { getBotState, setBotState } = require("../../Utils/BotState/botStateStore");
 const { EPHEMERAL_TTL_PING_ONLY_MS, scheduleMessageDeletion } = require("../../Utils/Config/ephemeralMessageTtl");
 const { resolveSubmissionChannel } = require("./candidatureApplicationHandlers");
@@ -92,6 +98,13 @@ async function resolveWebsiteUser(client, accessToken) {
     return { ok: false, status: 401, error: "invalid_user", message: "Profilo Discord non valido." };
   }
 
+  const displayName = String(meJson?.global_name || meJson?.globalName || meJson?.username || "").trim();
+  const username = String(meJson?.username || "").trim();
+  const avatarHash = String(meJson?.avatar || "").trim();
+  const avatarUrl = avatarHash
+    ? `https://cdn.discordapp.com/avatars/${userId}/${avatarHash}.png?size=128`
+    : "";
+
   const guildId = String(IDs.guilds?.main || "").trim();
   if (!guildId) {
     return { ok: false, status: 503, error: "misconfigured", message: "Guild principale non configurata." };
@@ -103,7 +116,10 @@ async function resolveWebsiteUser(client, accessToken) {
 
   let banEntry = null;
   try {
-    banEntry = await guild.bans.fetch(userId).catch(() => null);
+    banEntry = await Promise.race([
+      guild.bans.fetch(userId).catch(() => null),
+      new Promise((resolve) => setTimeout(() => resolve(null), 8000)),
+    ]);
   } catch {
     banEntry = null;
   }
@@ -112,6 +128,9 @@ async function resolveWebsiteUser(client, accessToken) {
     status: 200,
     guild,
     userId,
+    displayName: displayName || username || "",
+    username,
+    avatarUrl,
     isBanned: Boolean(banEntry),
   };
 }
@@ -170,6 +189,68 @@ async function submitWebsiteUnban(client, payload) {
     return { ok: false, status: 400, error: "incomplete", message: "Compila tutti i campi obbligatori." };
   }
 
+  const subjectName =
+    String(resolved.displayName || resolved.username || "").trim() || String(resolved.userId);
+  const bodyText = [
+    `Utente: ${subjectName} (\`${resolved.userId}\`)`,
+    "",
+    `**Come mai sei stato bannato?**`,
+    q1,
+    "",
+    `**Le tue scuse allo staff e alla community**`,
+    q2,
+    "",
+    `**Informazioni aggiuntive (opzionale)**`,
+    q3 || "Nessuna",
+  ].join("\n");
+
+  if (!isDiscordWorkflowChannelPostsEnabled()) {
+    const messageId = newSiteWorkflowMessageId();
+    try {
+      const { persistAppealWorkflowFromPayload } = require("../../Utils/Web/siteStaffWorkflowStore");
+      await persistAppealWorkflowFromPayload(resolved.guild, {
+        messageId,
+        channelId: "site",
+        userId: resolved.userId,
+        kind: "unban",
+        status: "pending",
+        title: "Richiesta Unban",
+        body: bodyText,
+        displayName: subjectName,
+        avatarUrl: resolved.avatarUrl || "",
+        createdAt: new Date(),
+      });
+    } catch (_) {
+      return {
+        ok: false,
+        status: 500,
+        error: "send_failed",
+        message: "Impossibile salvare la richiesta unban. Riprova più tardi.",
+      };
+    }
+    const nextAt = Date.now() + UNBAN_COOLDOWN_MS;
+    await setCooldownUntil(resolved.userId, nextAt);
+    try {
+      const { notifyInboxStaffNewItem } = require("../../Utils/Web/siteStaffWorkflowNotifications");
+      void notifyInboxStaffNewItem({
+        guild: resolved.guild,
+        queue: "appelli",
+        subjectUserId: String(resolved.userId),
+        subjectName,
+        title: "Nuovo appello unban",
+        body: `${subjectName} ha inviato una richiesta unban.`,
+        messageId: String(messageId),
+        dedupeKey: `inbox:appelli:new:${messageId}`,
+      }).catch(() => 0);
+    } catch (_) {}
+    return {
+      ok: true,
+      status: 200,
+      cooldown_until_ms: nextAt,
+      message: "Richiesta unban inviata con successo.",
+    };
+  }
+
   const target = await resolveSubmissionChannel(resolved.guild);
   if (!target?.isTextBased?.()) {
     return {
@@ -183,35 +264,24 @@ async function submitWebsiteUnban(client, payload) {
   const embed = new EmbedBuilder()
     .setColor(UNBAN_PENDING_COLOR)
     .setTitle("Richiesta Unban")
-    .setDescription(
-      [
-        `Utente: <@${resolved.userId}> (\`${resolved.userId}\`)`,
-        "",
-        `**Come mai sei stato bannato?**`,
-        q1,
-        "",
-        `**Le tue scuse allo staff e alla community**`,
-        q2,
-        "",
-        `**Informazioni aggiuntive (opzionale)**`,
-        q3 || "Nessuna",
-      ].join("\n"),
-    )
+    .setDescription(bodyText)
     .setTimestamp(new Date());
 
   const uidBtn = String(resolved.userId || "").trim();
-  const decisionRow = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId(`website_unban_acc:${uidBtn}`)
-      .setLabel("Accetta unban")
-      .setStyle(ButtonStyle.Success)
-      .setEmoji("<:success:1461731530333229226>"),
-    new ButtonBuilder()
-      .setCustomId(`website_unban_rej:${uidBtn}`)
-      .setLabel("Rifiuta")
-      .setStyle(ButtonStyle.Danger)
-      .setEmoji("<:cancel:1461730653677551691>"),
-  );
+  const decisionRow = isDiscordWorkflowUiEnabled()
+    ? new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`website_unban_acc:${uidBtn}`)
+          .setLabel("Accetta unban")
+          .setStyle(ButtonStyle.Success)
+          .setEmoji("<:success:1461731530333229226>"),
+        new ButtonBuilder()
+          .setCustomId(`website_unban_rej:${uidBtn}`)
+          .setLabel("Rifiuta")
+          .setStyle(ButtonStyle.Danger)
+          .setEmoji("<:cancel:1461730653677551691>"),
+      )
+    : buildInboxManageLinkRow("appelli");
 
   const highStaffRoleId = IDs.roles.HighStaff;
   const mention = highStaffRoleId ? `<@&${highStaffRoleId}>` : null;
@@ -231,10 +301,9 @@ async function submitWebsiteUnban(client, payload) {
     };
   }
 
-  if (typeof sent.startThread === "function") {
-    const userDisc = await client.users.fetch(resolved.userId).catch(() => null);
+  if (isDiscordWorkflowUiEnabled() && typeof sent.startThread === "function") {
     const threadUserLabel =
-      String(userDisc?.globalName || userDisc?.username || resolved.userId)
+      String(subjectName || resolved.userId)
         .replace(/[\r\n#:@<>`]/g, " ")
         .replace(/\s+/g, " ")
         .trim()
@@ -252,12 +321,42 @@ async function submitWebsiteUnban(client, payload) {
     }
   }
 
-  for (const emoji of UNBAN_VISIONE_REACTIONS) {
-    await sent.react(emoji).catch(() => {});
+  if (isDiscordWorkflowUiEnabled()) {
+    for (const emoji of UNBAN_VISIONE_REACTIONS) {
+      await sent.react(emoji).catch(() => {});
+    }
   }
 
   const nextAt = Date.now() + UNBAN_COOLDOWN_MS;
   await setCooldownUntil(resolved.userId, nextAt);
+  try {
+    const { persistAppealWorkflowFromPayload } = require("../../Utils/Web/siteStaffWorkflowStore");
+    await persistAppealWorkflowFromPayload(resolved.guild, {
+      messageId: sent.id,
+      channelId: sent.channelId,
+      userId: resolved.userId,
+      kind: "unban",
+      status: "pending",
+      title: "Richiesta Unban",
+      body: bodyText,
+      displayName: subjectName,
+      avatarUrl: resolved.avatarUrl || "",
+      createdAt: sent.createdAt || new Date(),
+    });
+  } catch (_) {}
+  try {
+    const { notifyInboxStaffNewItem } = require("../../Utils/Web/siteStaffWorkflowNotifications");
+    void notifyInboxStaffNewItem({
+      guild: resolved.guild,
+      queue: "appelli",
+      subjectUserId: String(resolved.userId),
+      subjectName,
+      title: "Nuovo appello unban",
+      body: `${subjectName} ha inviato una richiesta unban.`,
+      messageId: String(sent?.id || ""),
+      dedupeKey: `inbox:appelli:new:${sent?.id || resolved.userId}`,
+    }).catch(() => 0);
+  } catch (_) {}
   return {
     ok: true,
     status: 200,

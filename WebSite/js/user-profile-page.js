@@ -6,6 +6,8 @@
   var liveProfilePollTimer = null;
   var LIVE_PROFILE_POLL_MS = 60000;
   var PROFILE_CACHE_TTL_MS = 90000;
+  var PROFILE_FETCH_TIMEOUT_MS = 20000;
+  var PROFILE_FETCH_MAX_RETRIES = 2;
   var PROFILE_RANK_PREVIEW_CACHE_TTL_MS = 10 * 60 * 1000;
   var PROFILE_RANK_PREVIEW_CACHE_PREFIX = "vc:profile-rank-preview:";
   var profileMemoryCache = new Map();
@@ -13,6 +15,23 @@
   var lastRankPreviewUserId = "";
   var lastRankPreviewLoadedAt = 0;
   var RANK_PREVIEW_RELOAD_MIN_MS = 5 * 60 * 1000;
+  var profileBootGaveUp = false;
+
+  function isStandalonePwa() {
+    try {
+      if (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) return true;
+    } catch (e1) {}
+    try {
+      if (window.matchMedia && window.matchMedia("(display-mode: fullscreen)").matches) return true;
+    } catch (e2) {}
+    try {
+      if (navigator.standalone) return true;
+    } catch (e3) {}
+    return false;
+  }
+
+  var PROFILE_BOOT_FAILSAFE_MS =
+    PROFILE_FETCH_TIMEOUT_MS * (PROFILE_FETCH_MAX_RETRIES + 1) + (isStandalonePwa() ? 12000 : 8000);
 
   function byId(id) {
     return document.getElementById(id);
@@ -73,6 +92,24 @@
     } catch (e) {}
   }
 
+  function clearProfileSessionCaches() {
+    try {
+      profileMemoryCache.clear();
+    } catch (eMem) {}
+    try {
+      var keys = [];
+      for (var i = 0; i < sessionStorage.length; i += 1) {
+        var k = sessionStorage.key(i);
+        if (k && (k.indexOf("vc:profilecache:") === 0 || k.indexOf(PROFILE_RANK_PREVIEW_CACHE_PREFIX) === 0)) {
+          keys.push(k);
+        }
+      }
+      for (var j = 0; j < keys.length; j += 1) {
+        sessionStorage.removeItem(keys[j]);
+      }
+    } catch (eSess) {}
+  }
+
   function cachedJsonFetch(url, ttlMs) {
     var key = "vc:profilecache:" + String(url || "");
     var now = Date.now();
@@ -85,28 +122,48 @@
       profileMemoryCache.set(key, { expireAt: now + Math.max(1, Number(ttlMs) || PROFILE_CACHE_TTL_MS), value: sess });
       return Promise.resolve(sess);
     }
-    var fetchOpts = { credentials: "omit" };
-    try {
-      if (typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function") {
-        fetchOpts.signal = AbortSignal.timeout(20000);
-      }
-    } catch (eTimeout) {}
+    var fetchOpts = { credentials: "omit", cache: "no-store" };
     return fetch(url, fetchOpts)
       .then(function (r) {
-        return r.json().then(function (body) {
-          return { httpOk: r.ok, body: body };
-        });
+        return r.json().then(
+          function (body) {
+            return { httpOk: r.ok, body: body };
+          },
+          function () {
+            return { httpOk: false, body: null };
+          },
+        );
       })
       .then(function (payload) {
-        var ttl = Math.max(1, Number(ttlMs) || PROFILE_CACHE_TTL_MS);
-        profileMemoryCache.set(key, { expireAt: now + ttl, value: payload });
-        try {
-          var approx = JSON.stringify(payload || {}).length;
-          if (approx > 0 && approx < 120000) {
-            writeSessionCache(key, payload, ttl, now);
-          }
-        } catch (eCache) {}
+        var body = payload && payload.body ? payload.body : null;
+        var success = Boolean(payload && payload.httpOk && body && body.ok === true);
+        if (success) {
+          var ttl = Math.max(1, Number(ttlMs) || PROFILE_CACHE_TTL_MS);
+          profileMemoryCache.set(key, { expireAt: now + ttl, value: payload });
+          try {
+            var approx = JSON.stringify(payload || {}).length;
+            if (approx > 0 && approx < 120000) {
+              writeSessionCache(key, payload, ttl, now);
+            }
+          } catch (eCache) {}
+        } else {
+          try {
+            profileMemoryCache.delete(key);
+          } catch (eMemDel) {}
+          try {
+            sessionStorage.removeItem(key);
+          } catch (eSessDel) {}
+        }
         return payload;
+      })
+      .catch(function () {
+        try {
+          profileMemoryCache.delete(key);
+        } catch (eMemDel) {}
+        try {
+          sessionStorage.removeItem(key);
+        } catch (eSessDel) {}
+        return { httpOk: false, body: null };
       });
   }
 
@@ -604,20 +661,82 @@
         voice: null,
       });
     }
-    return cachedJsonFetch(url, PROFILE_CACHE_TTL_MS)
-      .then(function (out) {
-        var b = out && out.body ? out.body : {};
-        var rows = b && b.rows && typeof b.rows === "object" ? b.rows : {};
-        return {
-          ok: Boolean(out && out.httpOk && b && b.ok === true),
-          notFound: Boolean(b && b.notFound),
-          profile: b && b.profile ? b.profile : null,
-          level: rows.level || null,
-          weekly: rows.weekly || null,
-          messages: rows.messages || null,
-          voice: rows.voice || null,
-        };
-      })
+
+    function mapBody(out) {
+      var b = out && out.body ? out.body : {};
+      var rows = b && b.rows && typeof b.rows === "object" ? b.rows : {};
+      return {
+        ok: Boolean(out && out.httpOk && b && b.ok === true),
+        notFound: Boolean(b && b.notFound),
+        profile: b && b.profile ? b.profile : null,
+        level: rows.level || null,
+        weekly: rows.weekly || null,
+        messages: rows.messages || null,
+        voice: rows.voice || null,
+      };
+    }
+
+    var prefetch = null;
+    try {
+      prefetch = window.__VC_PROFILE_PREFETCH;
+      if (
+        prefetch &&
+        String(prefetch.userId || "") === String(userId) &&
+        prefetch.promise &&
+        typeof prefetch.promise.then === "function"
+      ) {
+        window.__VC_PROFILE_PREFETCH = null;
+        var fetchPromise = prefetch.promise
+          .then(function (out) {
+            return mapBody(out);
+          })
+          .catch(function () {
+            return cachedJsonFetch(url, PROFILE_CACHE_TTL_MS).then(mapBody);
+          });
+        return new Promise(function (resolve) {
+          var settled = false;
+          var timer = setTimeout(function () {
+            if (settled) return;
+            settled = true;
+            resolve({
+              ok: false,
+              notFound: false,
+              timedOut: true,
+              profile: null,
+              level: null,
+              weekly: null,
+              messages: null,
+              voice: null,
+            });
+          }, PROFILE_FETCH_TIMEOUT_MS);
+          fetchPromise
+            .then(function (result) {
+              if (settled) return;
+              settled = true;
+              clearTimeout(timer);
+              resolve(result);
+            })
+            .catch(function () {
+              if (settled) return;
+              settled = true;
+              clearTimeout(timer);
+              resolve({
+                ok: false,
+                notFound: false,
+                timedOut: true,
+                profile: null,
+                level: null,
+                weekly: null,
+                messages: null,
+                voice: null,
+              });
+            });
+        });
+      }
+    } catch (ePref) {}
+
+    var fetchPromise = cachedJsonFetch(url, PROFILE_CACHE_TTL_MS)
+      .then(mapBody)
       .catch(function () {
         return {
           ok: false,
@@ -629,6 +748,45 @@
           voice: null,
         };
       });
+    return new Promise(function (resolve) {
+      var settled = false;
+      var timer = setTimeout(function () {
+        if (settled) return;
+        settled = true;
+        resolve({
+          ok: false,
+          notFound: false,
+          timedOut: true,
+          profile: null,
+          level: null,
+          weekly: null,
+          messages: null,
+          voice: null,
+        });
+      }, PROFILE_FETCH_TIMEOUT_MS);
+      fetchPromise
+        .then(function (result) {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          resolve(result);
+        })
+        .catch(function () {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          resolve({
+            ok: false,
+            notFound: false,
+            timedOut: true,
+            profile: null,
+            level: null,
+            weekly: null,
+            messages: null,
+            voice: null,
+          });
+        });
+    });
   }
 
   function clearProfilePending() {
@@ -693,7 +851,7 @@
     renderInlineLoading(root);
   }
 
-  function renderError(root) {
+  function renderError(root, message) {
     clearProfileLoading();
     root.hidden = false;
     root.innerHTML =
@@ -701,15 +859,30 @@
       '<div class="vc-user-profile-empty">' +
       '<div class="vc-user-profile-empty__emoji" aria-hidden="true">!</div>' +
       '<h1 class="vc-user-profile-empty__title">Profilo non disponibile</h1>' +
-      '<p class="vc-user-profile-empty__text">Non sono riuscito a caricare i dati del profilo in questo momento.</p>' +
-      '<a class="vc-user-profile-empty__cta" href="/user">Torna alla Community</a>' +
-      "</div></section>";
+      '<p class="vc-user-profile-empty__text">' +
+      esc(message || "Non sono riuscito a caricare i dati del profilo in questo momento.") +
+      "</p>" +
+      '<div class="vc-user-profile-empty__actions">' +
+      '<button type="button" class="vc-user-profile-empty__cta" id="vc-user-profile-retry">Riprova</button>' +
+      '<a class="vc-user-profile-empty__cta vc-user-profile-empty__cta--ghost" href="/user">Torna alla Community</a>' +
+      "</div></div></section>";
     clearProfilePending();
+    var retryBtn = byId("vc-user-profile-retry");
+    if (retryBtn) {
+      retryBtn.addEventListener("click", function () {
+        profileBootGaveUp = false;
+        window.__VC_PROFILE_GAVE_UP = false;
+        profileInitialLoadDone = false;
+        clearProfileSessionCaches();
+        main({ force: true });
+      });
+    }
   }
 
   function renderEmpty(root, userId) {
     clearProfileLoading();
-    document.title = siteName() + " | Profilo ";
+    if (window.VcPageTitle) window.VcPageTitle.set("Profilo");
+    else document.title = siteName() + " | Profilo";
     root.hidden = false;
     root.innerHTML =
       '<section class="vc-user-profile-shell vc-user-profile-shell--notfound">' +
@@ -939,7 +1112,8 @@
     var messages = payload.messages || {};
     var voice = payload.voice || {};
     var profile = payload.profile || {};
-    var profileUsername = String(profile.displayName || profile.username || level.username || "Utente").trim() || "Utente";
+    var profileNick = String(profile.displayName || profile.username || level.username || "Utente").trim() || "Utente";
+    var profileHandle = String(profile.username || level.username || "").trim();
     var avatar = String(profile.avatarUrl || level.avatarUrl || "").trim();
     var progressPct = formatPct(level.progressPercent || 0);
     var rankText = level.rank ? "#" + formatIntIt(level.rank) : "-";
@@ -1194,7 +1368,8 @@
           "</section>"
         : "";
 
-    document.title = siteName() + " | Profilo ";
+    if (window.VcPageTitle) window.VcPageTitle.set("Profilo");
+    else document.title = siteName() + " | Profilo";
     root.innerHTML =
       '<section class="vc-user-profile-shell">' +
       '<section class="vc-user-profile-hero">' +
@@ -1214,8 +1389,11 @@
       "</div>" +
       '<div class="vc-user-profile-hero__copy">' +
       '<h1 class="vc-user-profile-name">' +
-      esc(profileUsername) +
+      esc(profileNick) +
       "</h1>" +
+      (profileHandle
+        ? '<p class="vc-user-profile-handle">@' + esc(profileHandle) + "</p>"
+        : "") +
       '<p class="vc-user-profile-id">ID: ' +
       esc(userId) +
       "</p>" +
@@ -1481,17 +1659,30 @@
 
     if (!result || !result.ok) {
       if (silent) return false;
-      renderError(root);
+      if (profileInitialLoadDone) return false;
+      renderError(
+        root,
+        result && result.timedOut
+          ? "Il server impiega troppo tempo a rispondere. Riprova tra qualche secondo."
+          : undefined,
+      );
       return false;
     }
 
-    var hasAny =
-      Boolean(level || weekly || messages || voice) &&
-      ((level && Number(level.exp) > 0) ||
-        (weekly && Number(weekly.weeklyExp) > 0) ||
-        (messages && Number(messages.messagesTotal) > 0) ||
-        (voice && Number(voice.voiceTotalSeconds) > 0) ||
-        Boolean(profile.customProfile));
+    var hasStats =
+      (level && Number(level.exp) > 0) ||
+      (weekly && Number(weekly.weeklyExp) > 0) ||
+      (messages && Number(messages.messagesTotal) > 0) ||
+      (voice && Number(voice.voiceTotalSeconds) > 0);
+    var hasProfileShell =
+      Boolean(profile.customProfile) ||
+      Boolean(String(profile.displayName || profile.username || "").trim()) ||
+      (Array.isArray(profile.roles) && profile.roles.length > 0);
+    var hasAny = Boolean(level || weekly || messages || voice) && (hasStats || hasProfileShell);
+
+    if (!hasAny && hasProfileShell) {
+      hasAny = true;
+    }
 
     if (!hasAny) {
       if (silent) return false;
@@ -1554,46 +1745,122 @@
   function loadProfile(options) {
     options = options || {};
     var silent = Boolean(options.silent);
+    var force = Boolean(options.force);
+    var allowRetry = options.retry !== false;
+    var retryCount = Math.max(0, Number(options.retryCount) || 0);
+    if (profileBootGaveUp && !silent) {
+      return Promise.resolve();
+    }
+    if (window.__VC_PROFILE_GAVE_UP && !silent) {
+      profileBootGaveUp = true;
+      return Promise.resolve();
+    }
     var userId = parseProfileId();
-    if (!userId) return Promise.resolve();
+    if (!userId) {
+      if (!silent) clearProfilePending();
+      return Promise.resolve();
+    }
     var root = byId("vc-user-profile-view");
-    if (!root) return Promise.resolve();
+    if (!root) {
+      if (!silent) clearProfilePending();
+      return Promise.resolve();
+    }
+
+    if (!silent && force) {
+      clearProfileSessionCaches();
+    }
 
     if (!silent) {
       currentViewer = (typeof window !== "undefined" && window.__VC_DISCORD_PROFILE) || currentViewer;
-      hideLeaderOnlySections();
-      var cachedOut = readCachedProfileBundle(userId);
-      var cachedBody = cachedOut && cachedOut.body ? cachedOut.body : null;
-      if (cachedOut && cachedOut.httpOk && cachedBody && cachedBody.ok && !cachedBody.notFound) {
-        applyProfileResult(
-          root,
-          userId,
-          {
-            ok: true,
-            notFound: false,
-            profile: cachedBody.profile || null,
-            level: cachedBody.rows && cachedBody.rows.level ? cachedBody.rows.level : null,
-            weekly: cachedBody.rows && cachedBody.rows.weekly ? cachedBody.rows.weekly : null,
-            messages: cachedBody.rows && cachedBody.rows.messages ? cachedBody.rows.messages : null,
-            voice: cachedBody.rows && cachedBody.rows.voice ? cachedBody.rows.voice : null,
-          },
-          false,
-        );
-      } else {
+      try {
+        hideLeaderOnlySections();
+      } catch (eHide) {}
+      if (!force && retryCount === 0) {
+        var cachedOut = readCachedProfileBundle(userId);
+        var cachedBody = cachedOut && cachedOut.body ? cachedOut.body : null;
+        if (cachedOut && cachedOut.httpOk && cachedBody && cachedBody.ok && !cachedBody.notFound) {
+          applyProfileResult(
+            root,
+            userId,
+            {
+              ok: true,
+              notFound: false,
+              profile: cachedBody.profile || null,
+              level: cachedBody.rows && cachedBody.rows.level ? cachedBody.rows.level : null,
+              weekly: cachedBody.rows && cachedBody.rows.weekly ? cachedBody.rows.weekly : null,
+              messages: cachedBody.rows && cachedBody.rows.messages ? cachedBody.rows.messages : null,
+              voice: cachedBody.rows && cachedBody.rows.voice ? cachedBody.rows.voice : null,
+            },
+            false,
+          );
+        } else if (!profileInitialLoadDone) {
+          renderLoading(root);
+        }
+      } else if (!profileInitialLoadDone) {
         renderLoading(root);
       }
     }
 
-    return fetchProfileBundle(userId).then(function (result) {
-      applyProfileResult(root, userId, result, silent);
-    }).catch(function () {
-      if (silent) return;
-      if (!profileInitialLoadDone) renderError(root);
-    });
+    return fetchProfileBundle(userId)
+      .then(function (result) {
+        if (
+          !silent &&
+          allowRetry &&
+          retryCount < PROFILE_FETCH_MAX_RETRIES &&
+          result &&
+          !result.ok &&
+          !result.notFound
+        ) {
+          return new Promise(function (resolve) {
+            setTimeout(resolve, 400 + retryCount * 500);
+          }).then(function () {
+            return loadProfile({
+              silent: false,
+              retry: false,
+              retryCount: retryCount + 1,
+              force: true,
+            });
+          });
+        }
+        var applied = applyProfileResult(root, userId, result, silent);
+        return applied;
+      })
+      .catch(function () {
+        if (silent) return false;
+        if (profileInitialLoadDone) return false;
+        if (allowRetry && retryCount < PROFILE_FETCH_MAX_RETRIES) {
+          return new Promise(function (resolve) {
+            setTimeout(resolve, 400 + retryCount * 500);
+          }).then(function () {
+            return loadProfile({
+              silent: false,
+              retry: false,
+              retryCount: retryCount + 1,
+              force: true,
+            });
+          });
+        }
+        renderError(root);
+        return false;
+      });
   }
 
   function main(options) {
-    return loadProfile(options || {});
+    try {
+      return loadProfile(options || {});
+    } catch (eMain) {
+      try {
+        var root = byId("vc-user-profile-view");
+        if (root) renderError(root);
+        else {
+          clearProfilePending();
+          clearProfileLoading();
+        }
+      } catch (eErr) {
+        clearProfilePending();
+      }
+      return Promise.resolve();
+    }
   }
 
   function refreshProfileSilently() {
@@ -1633,6 +1900,31 @@
     loadProfileRankCardPreview(lastRenderedProfile.userId, { force: false });
   });
 
+  // Failsafe: se il boot resta appeso (JS parziale / API morta / PWA Brave), sblocca la UI.
+  try {
+    window.setTimeout(function () {
+      try {
+        if (!document.documentElement.classList.contains("vc-user-profile-pending")) return;
+        if (profileInitialLoadDone) {
+          clearProfilePending();
+          clearProfileLoading();
+          return;
+        }
+        profileBootGaveUp = true;
+        window.__VC_PROFILE_GAVE_UP = true;
+        var root = byId("vc-user-profile-view");
+        if (root) {
+          renderError(root, "Il caricamento si è bloccato (cache app). Premi Riprova o svuota i dati del sito su Brave.");
+        } else {
+          clearProfilePending();
+          clearProfileLoading();
+        }
+      } catch (eFs) {
+        clearProfilePending();
+      }
+    }, PROFILE_BOOT_FAILSAFE_MS);
+  } catch (eFsTimer) {}
+
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", main);
   } else {
@@ -1643,8 +1935,10 @@
 
   window.addEventListener("pageshow", function (ev) {
     if (ev && ev.persisted && parseProfileId()) {
+      profileBootGaveUp = false;
       profileInitialLoadDone = false;
-      main();
+      clearProfileSessionCaches();
+      main({ force: true });
     }
   });
 

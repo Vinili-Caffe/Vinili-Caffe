@@ -369,6 +369,15 @@ async function purgeDueStaffGraceProfiles(client = null) {
       await deleteStaffRelatedMessagesFromConfiguredChannels(guild, uid).catch((err) => {
         global.logger?.warn?.("[STAFF GRACE PURGE] staff channel cleanup:", uid, err?.message || err);
       });
+      try {
+        const { cancelPendingResocontiWorkflowForUser } = require("../../Utils/Web/siteStaffWorkflowStore");
+        await cancelPendingResocontiWorkflowForUser(gid, uid, {
+          statusLabel: "Annullato (depex)",
+          decidedBy: "system",
+        });
+      } catch (err) {
+        global.logger?.warn?.("[STAFF GRACE PURGE] cancel pending resoconti:", uid, err?.message || err);
+      }
     }
     await archiveStaffRolesHistoryThenUnsetStaff(gid, uid);
     await ActivityUserProfile.updateOne(

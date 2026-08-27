@@ -114,6 +114,18 @@ function memberIsResocontoPmReviewer(member) {
   return Boolean(uid && RESOCONTO_PM_REVIEWER_USER_IDS.includes(uid));
 }
 
+/** High Staff+ oppure gestore PM (revisore resoconto PM): gestisce punti / pex-depex PM come HS. */
+function memberCanManagePartnerManagers(member) {
+  if (!member) return false;
+  try {
+    const { memberIsHighStaffEligible } = require("../Staff/staffRoleHierarchy");
+    if (memberIsHighStaffEligible(member)) return true;
+  } catch {
+    /* ignore */
+  }
+  return memberIsResocontoPmReviewer(member);
+}
+
 function memberHasTicketElevatedClosePrivileges(member, ticketDoc = null) {
   // Chi ha aperto il ticket non chiude “da staff”, anche se High Staff / reviewer.
   if (
@@ -150,6 +162,7 @@ module.exports = {
   syncOpenPartnershipTicketReviewerAccess,
   getPartnershipTicketStaffRoleIds,
   memberIsResocontoPmReviewer,
+  memberCanManagePartnerManagers,
   memberHasTicketElevatedClosePrivileges,
   memberCanAccessPartnershipTicket,
 };

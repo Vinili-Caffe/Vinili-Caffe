@@ -499,16 +499,19 @@ async function startWebhookServer(client) {
     const isSiteNotifications = pathStr.startsWith("/webhooks/site-notifications");
     const isSiteVerify = pathStr.startsWith("/webhooks/site-verify");
     const isSitePayments = pathStr.startsWith("/webhooks/site-payments");
-    const isSiteSeratafilmAccess = pathStr.startsWith("/webhooks/site-seratafilm-access");
+    const isSiteSeratafilmAccess =
+      pathStr.startsWith("/webhooks/site-seratafilm-access") ||
+      pathStr.startsWith("/webhooks/site-seratafilm-film");
     const isSiteStaffAccess =
       pathStr.startsWith("/webhooks/site-staff-access") ||
       pathStr.startsWith("/webhooks/site-staff-dashboard") ||
       pathStr.startsWith("/webhooks/site-staff-manage") ||
+      pathStr.startsWith("/webhooks/site-staff-organico") ||
       pathStr.startsWith("/webhooks/site-staff-pause") ||
       pathStr.startsWith("/webhooks/site-staff-profile") ||
-      pathStr.startsWith("/webhooks/site-staff-directory") ||
       pathStr.startsWith("/webhooks/site-staff-pm-hub") ||
-      pathStr.startsWith("/webhooks/site-staff-valwarn") ||
+      pathStr.startsWith("/webhooks/site-staff-pm-points-removed") ||
+      pathStr.startsWith("/webhooks/site-staff-pm-actions") ||
       pathStr.startsWith("/webhooks/site-staff-tickets") ||
       pathStr.startsWith("/webhooks/site-staff-seratafilm") ||
       pathStr.startsWith("/webhooks/site-staff-guide");

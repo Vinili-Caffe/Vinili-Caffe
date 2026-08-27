@@ -1,7 +1,36 @@
 (function () {
+  /* Load adaptive perf helper as early as possible (sync) for CSS tiers. */
+  try {
+    if (!window.VcPerf || !window.VcPerf.__ready) {
+      var cur = document.currentScript;
+      var ver = "20260827perfAdapt1";
+      var url = "/js/vc-perf.js?v=" + ver;
+      try {
+        if (cur && cur.src) {
+          url = String(cur.src).replace(/vc-page-cine-boot\.js[^?]*/i, "vc-perf.js");
+          if (/vc-page-cine-boot/i.test(url)) url = "/js/vc-perf.js?v=" + ver;
+          else if (url.indexOf("?") < 0) url += "?v=" + ver;
+          else url = url.replace(/([?&]v=)[^&"']*/i, "$1" + ver);
+        }
+      } catch (eUrl) {}
+      document.write('<script src="' + url.replace(/"/g, "") + '"><\/script>');
+    } else if (typeof window.VcPerf.apply === "function") {
+      window.VcPerf.apply();
+    }
+  } catch (ePerf) {}
+
   window.__VC_PAGE_CINE_BOOT_RAN = true;
   var root = document.documentElement;
   if (!root || !root.classList.contains("vc-site-polish")) return;
+
+  var BOOT_CSS =
+    "html.vc-site-polish.vc-page-cine-boot,html.vc-site-polish.vc-page-cine-boot body{background:#100c09!important}" +
+    "html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready){overflow:hidden!important;overscroll-behavior:none!important}" +
+    "html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready)::before{content:\"\";position:fixed;inset:0;z-index:2147483000;" +
+    "background-color:#100c09;background-image:radial-gradient(ellipse 92% 74% at 50% 38%,rgba(232,196,156,.14) 0%,rgba(28,20,14,.94) 52%,#0a0706 100%);pointer-events:none}" +
+    "html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready) body.vc-body>main," +
+    "html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready) body.vc-body>footer{opacity:0!important;visibility:hidden!important;pointer-events:none!important}" +
+    "html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready) body.vc-body>header{position:relative;z-index:2147483001;visibility:visible!important;opacity:1!important}";
 
   if (!document.getElementById("vc-anti-fouc-css")) {
     var anti = document.createElement("style");
@@ -10,22 +39,23 @@
     (document.head || root).appendChild(anti);
   }
 
-  var path = String(location.pathname || "/").replace(/\/+$/, "") || "/";
-  var profileQuery = false;
-  try {
-    var q = new URLSearchParams(location.search || "");
-    profileQuery = /^\d{17,20}$/.test(String(q.get("id") || q.get("userId") || q.get("uid") || "").trim());
-  } catch (eQ) {}
+  root.classList.add("vc-page-cine-boot");
+  var bootStyle = document.getElementById("vc-page-cine-boot-css");
+  if (!bootStyle) {
+    bootStyle = document.createElement("style");
+    bootStyle.id = "vc-page-cine-boot-css";
+    (document.head || root).insertBefore(bootStyle, (document.head || root).firstChild);
+  }
+  // Sempre aggiorna: i template avevano solo lo sfondo → flash del layout grezzo.
+  bootStyle.textContent = BOOT_CSS;
 
-  var skipLayoutBoot =
-    path === "/" ||
-    path.indexOf("/dashboard") === 0 ||
-    path.indexOf("/seratafilm") === 0 ||
-    path.indexOf("/evento") === 0 ||
-    /^\/users?\/\d{17,20}$/.test(path) ||
-    /^\/user\/(personalizza|customize|custom)(\/|$)/.test(path) ||
-    profileQuery ||
-    root.classList.contains("vc-user-profile-pending");
+  var path = String(location.pathname || "/").replace(/\/+$/, "") || "/";
+  var waitStaffCinePaint =
+    (root.classList.contains("vc-staff-cine-route") || path === "/staff") &&
+    !root.classList.contains("vc-staff-inbox-route") &&
+    path !== "/staff/inbox";
+
+  var finished = false;
 
   function markStylesReady() {
     root.classList.add("vc-styles-ready");
@@ -33,14 +63,109 @@
 
   function markReady() {
     root.classList.add("vc-page-cine-ready");
+    root.classList.remove("vc-page-cine-boot");
     try {
       document.dispatchEvent(new Event("vc:page-cine-ready"));
     } catch (eReadyEvt) {}
   }
 
   function finishBoot() {
+    if (finished) return;
+    finished = true;
     markStylesReady();
     markReady();
+  }
+
+  function staffLayoutLooksReady() {
+    try {
+      var p = String(location.pathname || "/").replace(/\/+$/, "") || "/";
+      // Profilo staff / pagine senza hero card: ok reveal dopo styles (come public layoutLooksApplied).
+      if (
+        p === "/staff" ||
+        (document.body && document.body.classList.contains("vc-staff-profile-home"))
+      ) {
+        return true;
+      }
+      return Boolean(
+        document.body &&
+          document.body.classList.contains("vc-page-cine-layout") &&
+          document.querySelector(
+            ".vc-page-cine-hero .vc-page-cine-hero__inner .vc-hero-head, .vc-page-cine-hero > .vc-page-cine-hero__inner > .vc-hero-head",
+          ),
+      );
+    } catch (eReady) {
+      return false;
+    }
+  }
+
+  function forceStaffCineLayout() {
+    try {
+      if (typeof window.__vcBootStaffCineLayout === "function") {
+        window.__vcBootStaffCineLayout(true);
+        return;
+      }
+    } catch (eBoot) {}
+    try {
+      if (typeof window.__vcPageHeroLayout === "function") {
+        window.__vcPageHeroLayout({ force: true });
+      }
+    } catch (eLayout) {}
+  }
+
+  function waitForStaffCineThenFinish() {
+    markStylesReady();
+    forceStaffCineLayout();
+    if (
+      root.classList.contains("vc-home-cine-live") ||
+      (root.classList.contains("vc-page-cine-ready") && staffLayoutLooksReady())
+    ) {
+      finishBoot();
+      return;
+    }
+    var done = false;
+    var tries = 0;
+    function complete() {
+      if (done) return;
+      done = true;
+      try {
+        obs.disconnect();
+      } catch (eObs) {}
+      document.removeEventListener("vc:page-cine-ready", onReadyEvt);
+      forceStaffCineLayout();
+      finishBoot();
+    }
+    function onReadyEvt() {
+      forceStaffCineLayout();
+      if (staffLayoutLooksReady() || root.classList.contains("vc-home-cine-live") || tries > 8) {
+        complete();
+      }
+    }
+    document.addEventListener("vc:page-cine-ready", onReadyEvt);
+    var obs = new MutationObserver(function () {
+      if (root.classList.contains("vc-home-cine-live") || staffLayoutLooksReady()) {
+        complete();
+      }
+    });
+    try {
+      obs.observe(root, { attributes: true, attributeFilter: ["class"] });
+      if (document.body) obs.observe(document.body, { attributes: true, attributeFilter: ["class"] });
+    } catch (eObserve) {}
+    function tick() {
+      if (done) return;
+      tries += 1;
+      forceStaffCineLayout();
+      if (root.classList.contains("vc-home-cine-live") || staffLayoutLooksReady()) {
+        complete();
+        return;
+      }
+      if (tries < 36) {
+        window.setTimeout(tick, 80);
+        return;
+      }
+      complete();
+    }
+    window.setTimeout(tick, 40);
+    window.setTimeout(complete, 3200);
   }
 
   function stylesheetPending(link) {
@@ -95,7 +220,7 @@
       finish();
       return;
     }
-    window.setTimeout(finish, 1200);
+    window.setTimeout(finish, 450);
   }
 
   try {
@@ -104,12 +229,9 @@
   } catch (eExport) {}
 
   function runLayout() {
-    // Users/leaderboard: layout dopo che la griglia è pronta.
     if (typeof window.__vcEnsureCommunityPageCineLayout === "function") {
       window.__vcEnsureCommunityPageCineLayout();
     }
-    // Sempre: hero full-viewport + content wrap (FAQ/wiki/regole/…).
-    // Prima ensureCommunity tornava true senza layout → pagine “strette” senza spazi/effetti home.
     if (typeof window.__vcPageHeroLayout === "function") {
       window.__vcPageHeroLayout({ force: true });
       return true;
@@ -117,29 +239,72 @@
     return false;
   }
 
+  function layoutLooksApplied() {
+    try {
+      if (!document.body) return false;
+      if (document.body.classList.contains("vc-page-cine-layout")) return true;
+      // Pagine senza hero cine (profilo, evento, customize…): ok reveal dopo styles.
+      if (
+        root.classList.contains("vc-user-profile-route") ||
+        root.classList.contains("vc-user-profile-pending") ||
+        document.body.classList.contains("vc-hw-page") ||
+        document.body.classList.contains("vc-seratafilm-page") ||
+        document.body.classList.contains("vc-user-profile-page")
+      ) {
+        return true;
+      }
+    } catch (eL) {}
+    return false;
+  }
+
   function waitForLayoutThenFinish() {
-    if (runLayout()) {
+    markStylesReady();
+    if (root.classList.contains("vc-page-cine-ready")) {
       finishBoot();
       return;
     }
+    if (runLayout() && layoutLooksApplied()) {
+      requestAnimationFrame(function () {
+        requestAnimationFrame(finishBoot);
+      });
+      return;
+    }
+
+    document.addEventListener(
+      "vc:page-cine-ready",
+      function onReady() {
+        try {
+          runLayout();
+        } catch (eR) {}
+        finishBoot();
+      },
+      { once: true },
+    );
+
     var tries = 0;
     var timer = window.setInterval(function () {
       tries += 1;
-      if (runLayout()) {
+      var ok = runLayout();
+      if ((ok && layoutLooksApplied()) || root.classList.contains("vc-page-cine-ready")) {
         window.clearInterval(timer);
-        finishBoot();
+        requestAnimationFrame(function () {
+          requestAnimationFrame(finishBoot);
+        });
         return;
       }
-      if (tries > 50) {
+      if (tries > 36) {
         window.clearInterval(timer);
         finishBoot();
       }
     }, 40);
+
+    // Failsafe: non lasciare schermo nero se JS cine non parte.
+    window.setTimeout(finishBoot, 1600);
   }
 
   function afterStyles() {
-    if (skipLayoutBoot) {
-      finishBoot();
+    if (waitStaffCinePaint) {
+      waitForStaffCineThenFinish();
       return;
     }
     waitForLayoutThenFinish();
@@ -156,19 +321,6 @@
     pendingObs.observe(root, { attributes: true, attributeFilter: ["class"] });
     waitForCoreStyles(function () {});
     return;
-  }
-
-  if (!skipLayoutBoot) {
-    root.classList.add("vc-page-cine-boot");
-    if (!document.getElementById("vc-page-cine-boot-css")) {
-      // Solo sfondo: niente overlay nero / visibility:hidden (su mobile
-      // aspettare vc-landing.css ~1MB lasciava la pagina nera per secondi).
-      var css = "html.vc-site-polish.vc-page-cine-boot,html.vc-site-polish.vc-page-cine-boot body{background:#100c09!important}";
-      var style = document.createElement("style");
-      style.id = "vc-page-cine-boot-css";
-      style.textContent = css;
-      (document.head || root).appendChild(style);
-    }
   }
 
   if (document.readyState === "loading") {

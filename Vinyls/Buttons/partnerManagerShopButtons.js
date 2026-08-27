@@ -1,9 +1,10 @@
 const IDs = require("../Utils/Config/ids");
 const Ticket = require("../Schemas/Ticket/ticketSchema");
 const { EmbedBuilder } = require("discord.js");
+const { ActivityUserProfile } = require("../Schemas/Community/communitySchemas");
 const { completePartnerManagerRedeemForGuild } = require("../Utils/Staff/partnerManagerRedeemRuntime");
 const { parsePartnerManagerShopAckCustomId, matchPartnerManagerShopAckInteraction, memberCanAckPartnerManagerShopRedeem } = require("../Utils/Staff/partnerManagerShopAckRuntime");
-const { openPartnerManagerShopManualTicket } = require("../Utils/Ticket/partnerManagerShopTicketOpen");
+const { openPartnerManagerShopWebTicketForMember } = require("../Utils/Ticket/partnerManagerShopWebTicketOpen");
 const { closeTicket } = require("../Utils/Ticket/ticketCloseRuntime");
 const { safeReply: safeReplyHelper, safeEditReply: safeEditReplyHelper, safeMessageEdit } = require("../../shared/discord/replyRuntime");
 const { STAFF_PM_SHOP_PREFIX, buildStaffProfilePayload, SECTION_SHOP, parseStaffProfileSelectCustomId, parseStaffProfileCloseCustomId } = require("../Utils/Staff/staffProfilePanelRuntime");
@@ -179,6 +180,24 @@ async function handleStaffPmShopButton(interaction) {
       await interaction.reply({ content: "<a:VC_Cross:1482532424570376253> Azione non valida.", flags: PRIVATE_FLAG }).catch(() => {});
       return true;
     }
+    const lean = await ActivityUserProfile.findOne({ guildId: guild.id, userId: parsed.targetId })
+      .select("staff.partnerManagerCustomPerksUntil staff.partnerManagerVipUntil")
+      .lean()
+      .catch(() => null);
+    const { resolvePartnerManagerShopInstantBlocks } = require("../Utils/Staff/partnerManagerTimedPerks");
+    const blocks = resolvePartnerManagerShopInstantBlocks(interaction.member, lean);
+    if (parsed.tier === 50 && blocks.customBlocked) {
+      await interaction
+        .reply({ content: `<a:VC_Cross:1482532424570376253> ${blocks.customBlockedReason}`, flags: PRIVATE_FLAG })
+        .catch(() => {});
+      return true;
+    }
+    if (parsed.tier === 100 && blocks.vipBlocked) {
+      await interaction
+        .reply({ content: `<a:VC_Cross:1482532424570376253> ${blocks.vipBlockedReason}`, flags: PRIVATE_FLAG })
+        .catch(() => {});
+      return true;
+    }
     await interaction.deferUpdate().catch(() => {});
     const res = await completePartnerManagerRedeemForGuild(guild, interaction.client, {
       targetUserId: parsed.targetId,
@@ -200,14 +219,22 @@ async function handleStaffPmShopButton(interaction) {
       return true;
     }
     await interaction.deferReply({ flags: PRIVATE_FLAG }).catch(() => {});
-    const opened = await openPartnerManagerShopManualTicket(interaction, parsed.tier);
+    const opened = await openPartnerManagerShopWebTicketForMember(
+      interaction.client,
+      guild,
+      interaction.member,
+      parsed.tier,
+    );
     if (!opened.ok) {
-      await interaction.editReply({ content: opened.userMessage }).catch(() => {});
+      const extra = opened.ticketUrl ? `\n${opened.ticketUrl}` : "";
+      await interaction.editReply({ content: `<a:VC_Cross:1482532424570376253> ${opened.userMessage}${extra}` }).catch(() => {});
       return true;
     }
     await interaction
       .editReply({
-        content: `<:VC_Ticket:1482535175283019888> Ticket High Staff aperto: ${opened.channel}`,
+        content:
+          `<:VC_Ticket:1482535175283019888> Ticket High Staff **#${opened.ticketNumber}** aperto sul sito per «${opened.rewardLabel}».\n` +
+          `${opened.ticketUrl}`,
       })
       .catch(() => {});
     return true;

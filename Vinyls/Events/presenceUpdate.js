@@ -346,6 +346,14 @@ async function executeFanRemoval(member, channel) {
   }
 
   try {
+    const { tryRevokePicPermsIfIneligible } = require("../Utils/Community/manualSocialRoleAnnounceAndPicPerms");
+    const freshAfterFan = (await refreshMember(member.guild, member.id)) || member;
+    await tryRevokePicPermsIfIneligible(freshAfterFan);
+  } catch (err) {
+    global.logger?.warn?.("[presenceUpdate] picPerms revoke after fan removal:", err?.message || err);
+  }
+
+  try {
     await member.send(
       "Hai rimosso il link dallo status: hai perso i tuoi perks. Per riaverli, rimetti il link nel tuo status.",
     );

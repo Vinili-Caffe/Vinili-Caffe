@@ -228,6 +228,10 @@ async function applyClanTagGuildedRoles(member, client, options = {}) {
           lastGuildedChannelAnnounceByUserId.delete(String(member.id));
           await deleteGuildedAnnouncementForUser(member).catch(() => false);
           lastGuildedAnnouncementMessageByUserId.delete(String(member.id));
+          try {
+            const { tryRevokePicPermsIfIneligible } = require("../../Utils/Community/manualSocialRoleAnnounceAndPicPerms");
+            await tryRevokePicPermsIfIneligible(member);
+          } catch (_) {}
         }
         return { added: false, addedMain: false, addedSponsor: false };
       }
@@ -249,6 +253,10 @@ async function applyClanTagGuildedRoles(member, client, options = {}) {
       lastGuildedChannelAnnounceByUserId.delete(String(member.id));
       await deleteGuildedAnnouncementForUser(member).catch(() => false);
       lastGuildedAnnouncementMessageByUserId.delete(String(member.id));
+      try {
+        const { tryRevokePicPermsIfIneligible } = require("../../Utils/Community/manualSocialRoleAnnounceAndPicPerms");
+        await tryRevokePicPermsIfIneligible(member);
+      } catch (_) {}
     } else if (lookupFailed) {
       global.logger?.warn?.(
         "[ClanTagService] skip rimozione Guilded: lookup clan fallito",
@@ -288,6 +296,10 @@ async function applyClanTagGuildedRoles(member, client, options = {}) {
       const presentConfigured = configuredIds.filter((rid) => member.roles.cache.has(rid));
       if (presentConfigured.length) {
         await removeRolesFromMember(member, presentConfigured, "Ruolo Guilded sponsor reset");
+        try {
+          const { tryRevokePicPermsIfIneligible } = require("../../Utils/Community/manualSocialRoleAnnounceAndPicPerms");
+          await tryRevokePicPermsIfIneligible(member);
+        } catch (_) {}
       }
     }
     return { added: addedMain || addedSponsor, addedMain, addedSponsor };

@@ -752,6 +752,27 @@ async function buildClassificaPayload(guild, mode = "weekly", options = {}) {
   return { embeds: [embed], components: buildClassificaButtons(safeMode, options) };
 }
 
+/** EXP settimanale (domenica 21 Rome → now) da bucket hourly di un solo profilo — O(1), no scan guild. */
+function computeWeeklyExpFromProfileDoc(doc, now = new Date()) {
+  const userId = String(doc?.userId || "");
+  if (!userId) return 0;
+  const weeklyStartMs = findLastSunday21RomeMs(now);
+  const hourKeys = new Set(buildHourKeysBetweenRome(weeklyStartMs, now.getTime()));
+  if (!hourKeys.size) return 0;
+  const hourly = toObjectMap(doc?.profile?.totals?.hourly || {});
+  let textCount = 0;
+  let voiceSeconds = 0;
+  for (const [hourKey, row] of Object.entries(hourly)) {
+    if (!hourKeys.has(String(hourKey))) continue;
+    textCount += Math.max(0, Number(row?.textCount || 0));
+    voiceSeconds += Math.max(0, Number(row?.voiceSeconds || 0));
+  }
+  if (textCount <= 0 && voiceSeconds <= 0) return 0;
+  const baseExpFromText = textCount * MESSAGE_EXP;
+  const baseExpFromVoice = Math.floor((voiceSeconds * VOICE_EXP_PER_MINUTE) / 60);
+  return Math.max(0, Math.floor(baseExpFromText + baseExpFromVoice));
+}
+
 module.exports = {
   name: "classifica",
   aliases: ["c", "cs"],
@@ -831,6 +852,7 @@ module.exports = {
   buildClassificaPayload,
   /** Weekly: finestra hourly domenica 21 Europe/Rome. Monthly: somma bucket daily del mese solare Rome. All-time: daily completo. Usata dal sito /user per il breakdown weekly. */
   computeLeaderboardRows,
+  computeWeeklyExpFromProfileDoc,
   computeDailyBucketTotalsByUser,
   sortDailyActivityTotals,
   getRomeDayKey,

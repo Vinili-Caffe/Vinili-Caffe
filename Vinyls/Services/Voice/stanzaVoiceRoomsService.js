@@ -57,7 +57,7 @@ const stanzaLimitPending = new Map();
 const stanzaDescPending = new Map();
 /** @type {Map<string, { voiceChannelId: string, expiresAt: number, timerId: ReturnType<typeof setTimeout> | null }>} */
 const stanzaVicePending = new Map();
-/** @type {Map<string, { voiceChannelId: string, action: 'include'|'exclude'|'silenzia', expiresAt: number, timerId: ReturnType<typeof setTimeout> | null, interactionApplicationId?: string, interactionToken?: string }>} */
+/** @type {Map<string, { voiceChannelId: string, action: 'include'|'exclude'|'silenzia'|'smuta', expiresAt: number, timerId: ReturnType<typeof setTimeout> | null, interactionApplicationId?: string, interactionToken?: string }>} */
 const stanzaUsersMemberPending = new Map();
 
 const STANZA_NAME_LEAD = "༄";
@@ -564,6 +564,8 @@ const STANZA_VOICE_BOT_OVERWRITE = {
   Speak: true,
   ManageChannels: true,
   MoveMembers: true,
+  MuteMembers: true,
+  DeafenMembers: true,
 };
 
 const STANZA_VOICE_MEMBER_ALLOW = {
@@ -622,14 +624,36 @@ async function setStanzaPrivilegedUserVoiceOverwrite(voiceChannel, userId, reaso
 async function ensureStanzaBotVoiceOverwrite(voiceChannel, botUserId) {
   const id = String(botUserId || "");
   if (!id) return false;
-  if (voiceChannel.permissionOverwrites.cache.has(id)) return true;
-  return voiceChannel.permissionOverwrites
-    .create(id, STANZA_VOICE_BOT_OVERWRITE, {
-      reason: "Stanza: accesso bot",
-      type: OverwriteType.Member,
-    })
-    .then(() => true)
-    .catch(() => false);
+  try {
+    if (voiceChannel.permissionOverwrites.cache.has(id)) {
+      await voiceChannel.permissionOverwrites.edit(id, STANZA_VOICE_BOT_OVERWRITE, {
+        reason: "Stanza: accesso bot",
+        type: OverwriteType.Member,
+      });
+    } else {
+      await voiceChannel.permissionOverwrites.create(id, STANZA_VOICE_BOT_OVERWRITE, {
+        reason: "Stanza: accesso bot",
+        type: OverwriteType.Member,
+      });
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Deny Speak alone often leaves people already in VC still audible — force server mute. */
+async function applyStanzaMemberServerMute(member, voiceChannelId, muted, reason) {
+  if (!member?.voice) return false;
+  if (String(member.voice.channelId || "") !== String(voiceChannelId || "")) return false;
+  if (Boolean(member.voice.serverMute) === Boolean(muted)) return true;
+  try {
+    await member.voice.setMute(Boolean(muted), reason);
+    return true;
+  } catch (err) {
+    global.logger?.warn?.("[stanza] server mute failed:", err?.message || err);
+    return false;
+  }
 }
 
 async function removeStanzaMemberVoiceOverwrite(voiceChannel, userId) {
@@ -847,9 +871,9 @@ function buildStanzaUsersManageEmbed(voiceChannel) {
     .setFooter({ text: "🏠 Stanze • discord.gg/viniliecaffe" });
 }
 
-function buildStanzaUsersManageRows(channelId) {
-  const cid = String(channelId || "");
-  const row = new ActionRowBuilder().addComponents(
+function buildStanzaUsersManageRows(voiceChannel, meta = null) {
+  const cid = String(voiceChannel?.id || voiceChannel || "");
+  const row1 = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(`stanza_users_include:${cid}`)
       .setLabel("Includi")
@@ -866,17 +890,24 @@ function buildStanzaUsersManageRows(channelId) {
       .setEmoji("🔇")
       .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
+      .setCustomId(`stanza_users_smuta:${cid}`)
+      .setLabel("Smuta")
+      .setEmoji("🔊")
+      .setStyle(ButtonStyle.Success),
+    new ButtonBuilder()
       .setCustomId(`stanza_users_list:${cid}`)
       .setLabel("Lista Membri")
       .setEmoji("👥")
       .setStyle(ButtonStyle.Secondary),
+  );
+  const row2 = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(`stanza_users_back:${cid}`)
       .setLabel("Indietro")
       .setEmoji("<:1343arrowleft:1525249879151083621>️")
       .setStyle(ButtonStyle.Primary),
   );
-  return [row];
+  return [row1, row2];
 }
 
 async function postStanzaPanel(guild, member, voiceChannel, textChannel, metaForEmbed = null) {
@@ -1367,7 +1398,7 @@ async function handleStanzaButton(interaction) {
     await interaction
       .update({
         embeds: [buildStanzaUsersManageEmbed(updated)],
-        components: buildStanzaUsersManageRows(parsed.channelId),
+        components: buildStanzaUsersManageRows(updated, meta),
       })
       .catch(async () => {
         await interaction.reply({ content: "Non è stato possibile aggiornare il pannello.", flags: 64 }).catch(() => {});
@@ -1500,7 +1531,15 @@ async function handleStanzaButton(interaction) {
   if (parsed.head === "stanza_users_silenzia") {
     registerStanzaUsersMemberPending(guild.id, interaction.user.id, parsed.channelId, "silenzia", interaction);
     await interaction
-      .reply({ content: "🛡️ *Menziona l'utente da silenziare o smutare.*", flags: 64 })
+      .reply({ content: "🛡️ *Menziona l'utente da silenziare.*", flags: 64 })
+      .catch(() => {});
+    return true;
+  }
+
+  if (parsed.head === "stanza_users_smuta") {
+    registerStanzaUsersMemberPending(guild.id, interaction.user.id, parsed.channelId, "smuta", interaction);
+    await interaction
+      .reply({ content: "🔊 *Menziona l'utente da smutare.*", flags: 64 })
       .catch(() => {});
     return true;
   }
@@ -1524,6 +1563,7 @@ function getStanzaPanelViewKind(msg) {
         id.startsWith("stanza_users_include:") ||
         id.startsWith("stanza_users_exclude:") ||
         id.startsWith("stanza_users_silenzia:") ||
+        id.startsWith("stanza_users_smuta:") ||
         id.startsWith("stanza_users_list:") ||
         id.startsWith("stanza_users_back:")
       ) {
@@ -1561,7 +1601,7 @@ async function refreshStanzaPanelEmbedsIfPossible(guild, voiceChannelId) {
     kind === "manage"
       ? buildStanzaManageRows(voiceCh)
       : kind === "users"
-        ? buildStanzaUsersManageRows(vid)
+        ? buildStanzaUsersManageRows(voiceCh, meta)
         : buildStanzaHomeRows(vid);
   await msg.edit({ embeds, components }).catch(() => {});
 }
@@ -1843,23 +1883,35 @@ async function handleStanzaUsersMemberMessageCreate(message) {
     }
     doneLine = ok ? `⛔ *${targetMember} è stato **escluso**.*` : failPerm;
   } else if (action === "silenzia") {
+    const botId = String(message.client?.user?.id || "");
+    if (botId) await ensureStanzaBotVoiceOverwrite(voiceCh, botId).catch(() => {});
+    ok = await applyStanzaMemberVoicePerms(
+      voiceCh,
+      targetId,
+      STANZA_VOICE_MEMBER_SILENCE,
+      "Stanza: silenzia utente (canale)",
+    );
+    if (ok) {
+      await applyStanzaMemberServerMute(targetMember, voiceCh.id, true, "Stanza: silenzia utente").catch(() => {});
+    }
+    doneLine = ok ? `🔇 *${targetMember} è stato **silenziato**.*` : failPerm;
+  } else if (action === "smuta") {
     const ow = voiceCh.permissionOverwrites.cache.get(targetId);
     const muted =
       ow &&
       ow.deny.has(P.Speak) &&
       !ow.deny.has(P.ViewChannel) &&
       !ow.deny.has(P.Connect);
-    if (muted) {
-      ok = await applyStanzaMemberVoicePerms(voiceCh, targetId, STANZA_VOICE_MEMBER_ALLOW, "Stanza: smuta utente");
-      doneLine = ok ? `🔊 *${targetMember} è stato **smutato**.*` : failPerm;
+    if (!muted) {
+      doneLine = `⚠️ *${targetMember} non risulta silenziato in questa stanza.*`;
     } else {
-      ok = await applyStanzaMemberVoicePerms(
-        voiceCh,
-        targetId,
-        STANZA_VOICE_MEMBER_SILENCE,
-        "Stanza: silenzia utente (canale)",
-      );
-      doneLine = ok ? `🔇 *${targetMember} è stato **silenziato**.*` : failPerm;
+      const botId = String(message.client?.user?.id || "");
+      if (botId) await ensureStanzaBotVoiceOverwrite(voiceCh, botId).catch(() => {});
+      ok = await applyStanzaMemberVoicePerms(voiceCh, targetId, STANZA_VOICE_MEMBER_ALLOW, "Stanza: smuta utente");
+      if (ok) {
+        await applyStanzaMemberServerMute(targetMember, voiceCh.id, false, "Stanza: smuta utente").catch(() => {});
+      }
+      doneLine = ok ? `🔊 *${targetMember} è stato **smutato**.*` : failPerm;
     }
   }
 
@@ -2177,6 +2229,21 @@ async function handleStanzaPanelPromptMessageCreate(message) {
   return false;
 }
 
+function isAutomodExemptStanzaChannel(channel, guild) {
+  if (!channel || !guild) return false;
+  const chId = String(channel.id || "");
+  if (stanzaChannelMeta.has(chId)) return true;
+  for (const meta of stanzaChannelMeta.values()) {
+    if (String(meta?.textChannelId || "") === chId) return true;
+  }
+  const lobby = guild.channels?.cache?.get(STANZA_LOBBY_VOICE_ID);
+  const parentFilter = lobby?.parentId ? String(lobby.parentId) : "";
+  if (channel.isVoiceBased?.() && isStanzaVoiceChannelCandidate(channel, parentFilter)) return true;
+  const stanzeCat = String(IDs.categories?.categoryStanze || "").trim();
+  if (stanzeCat && String(channel.parentId || "") === stanzeCat) return true;
+  return false;
+}
+
 module.exports = {
   handleStanzaVoiceLobbyJoin,
   handleStanzaVoiceOccupied,
@@ -2191,4 +2258,5 @@ module.exports = {
   handleStanzaViceMessageCreate,
   handleStanzaPanelPromptMessageCreate,
   buildStanzaChannelName,
+  isAutomodExemptStanzaChannel,
 };

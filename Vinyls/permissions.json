@@ -1871,6 +1871,9 @@
         "regolamento": [
             "roles.Staff"
         ],
+        "regole_staff": [
+            "roles.Staff"
+        ],
         "resoconto_apply:*": [
             "roles.Manager",
             "roles.Founder"

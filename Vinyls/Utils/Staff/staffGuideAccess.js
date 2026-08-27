@@ -4,6 +4,7 @@ const { listStaffGuideSectionMeta } = require("./staffGuideContent");
 /** Same set as STAFF_GUIDE_BUTTON_IDS in commandPermissions.js */
 const STAFF_GUIDE_LADDER_SECTION_IDS = new Set([
   "regolamento",
+  "regole_staff",
   "limiti",
   "pause",
   "valutazioni",

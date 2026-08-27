@@ -104,6 +104,39 @@ async function getGuildMemberCached(guild, userId, options = {}) {
   });
 }
 
+/**
+ * Distingue uscita dal server (Unknown Member) da timeout/rete Discord.
+ * @returns {{ member: import("discord.js").GuildMember|null, left: boolean, uncertain: boolean }}
+ */
+async function resolveGuildMemberPresence(guild, userId, options = {}) {
+  const uid = String(userId || "").trim();
+  if (!guild || !uid) return { member: null, left: false, uncertain: true };
+  const preferFresh = Boolean(options.preferFresh);
+  const cached = guild.members?.cache?.get(uid) || null;
+  if (cached && !preferFresh) {
+    return { member: cached, left: false, uncertain: false };
+  }
+  if (!guild.members || typeof guild.members.fetch !== "function") {
+    return { member: cached || null, left: false, uncertain: !cached };
+  }
+  try {
+    const member = await guild.members.fetch(
+      preferFresh || !cached ? { user: uid, force: true } : uid,
+    );
+    return { member: member || null, left: false, uncertain: false };
+  } catch (err) {
+    if (isUnknownDiscordMemberError(err)) {
+      try {
+        guild.members?.cache?.delete?.(uid);
+      } catch (_) {}
+      entityCache.delete(buildCacheKey("member", guild.id, uid));
+      return { member: null, left: true, uncertain: false };
+    }
+    if (cached) return { member: cached, left: false, uncertain: false };
+    return { member: null, left: false, uncertain: true };
+  }
+}
+
 async function getGuildRoleCached(guild, roleId, options = {}) {
   if (!guild || !roleId) return null;
   return getOrFetchEntity({
@@ -184,4 +217,4 @@ async function addRolesAndGetMember(guild, userId, roleIds) {
   return getGuildMemberCached(guild, userId, { preferFresh: true }).catch(() => member);
 }
 
-module.exports = { buildCacheKey, getCachedValue, setCachedValue, getClientChannelCached, getClientGuildCached, getGuildChannelCached, getGuildMemberCached, getGuildRoleCached, getUserCached, addRolesAndGetMember, isUnknownDiscordMemberError };
+module.exports = { buildCacheKey, getCachedValue, setCachedValue, getClientChannelCached, getClientGuildCached, getGuildChannelCached, getGuildMemberCached, resolveGuildMemberPresence, getGuildRoleCached, getUserCached, addRolesAndGetMember, isUnknownDiscordMemberError };

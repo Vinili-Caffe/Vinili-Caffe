@@ -1,4 +1,17 @@
 (function () {
+  try {
+    if (!window.VcPerf || !window.VcPerf.__ready) {
+      var s = document.createElement("script");
+      s.src = "/js/vc-perf.js?v=20260827perfAdapt1";
+      s.async = false;
+      (document.head || document.documentElement).appendChild(s);
+    } else if (typeof window.VcPerf.apply === "function") {
+      window.VcPerf.apply();
+    }
+  } catch (ePerfBoot) {}
+})();
+
+(function () {
   var RESUME_KEY = "vc-pwa-resume";
   var WANT_HOME_KEY = "vc-pwa-want-home";
 
@@ -350,6 +363,14 @@
       }
       rememberCookieConsent();
       closeCookieBanner(root);
+      try {
+        window.dispatchEvent(new CustomEvent("vc:cookie-accepted"));
+      } catch (eEv) {}
+      try {
+        if (typeof window.__vcHogwartsYoutubeStartFromGesture === "function") {
+          window.__vcHogwartsYoutubeStartFromGesture();
+        }
+      } catch (eBgm) {}
     }
     var acceptEl = root.querySelector(".vc-necessity-banner__accept");
     if (acceptEl) acceptEl.addEventListener("click", dismissFromUserAction);
@@ -1230,6 +1251,7 @@
   var PENDING_READ_PREFIX = "vc_notifications_pending_read_v1:";
   var MARK_ALL_AT_PREFIX = "vc_notifications_mark_all_at_v1:";
   var CLEAR_ALL_AT_PREFIX = "vc_notifications_clear_all_at_v1:";
+  var TOASTED_PREFIX = "vc_notifications_toasted_v1:";
   var CLICK_READ_KEY = "vc_notifications_click_read_v1";
   var SW_PENDING_READ_CACHE = "vc-notif-pending-read-v1";
   var SW_PENDING_READ_URL = "/__vc/pending-notif-read";
@@ -1245,8 +1267,8 @@
   var siteNotifsTimer = null;
   var siteRealtimeWs = null;
   var siteRealtimeWsReconnectTimer = null;
-  var SITE_NOTIFS_POLL_MS = 15000;
-  var SITE_NOTIFS_POLL_HIDDEN_MS = 60000;
+  var SITE_NOTIFS_POLL_MS = 30000;
+  var SITE_NOTIFS_POLL_HIDDEN_MS = 90000;
   var siteNotifsVisibilityTimer = null;
   var notifPeerSyncTimer = null;
   var notifSyncBc = null;
@@ -1538,21 +1560,89 @@
       };
     }
   } catch (e) {}
+  function siteBrandName() {
+    try {
+      if (window.VcPageTitle && typeof window.VcPageTitle.brand === "function") {
+        return window.VcPageTitle.brand();
+      }
+    } catch (ePt) {}
+    try {
+      var auth = typeof window !== "undefined" && window.__VC_AUTH ? window.__VC_AUTH : null;
+      var n = String((auth && auth.siteName) || "").trim();
+      if (n) return n;
+    } catch (eAuth) {}
+    return "Vinili & Caffè";
+  }
+
+  /** Delegato a vc-page-title.js: sempre "Vinili & Caffè | <pagina>". */
+  function normalizeBaseDocumentTitle(raw) {
+    try {
+      if (window.VcPageTitle && typeof window.VcPageTitle.format === "function") {
+        return window.VcPageTitle.format(raw);
+      }
+    } catch (eNorm) {}
+    var brand = siteBrandName();
+    var cleaned = String(raw || "")
+      .trim()
+      .replace(/\{\{\s*SITE_NAME\s*\}\}/g, brand)
+      .replace(/\{\{[A-Z0-9_]+\}\}/g, "")
+      .replace(/^\(\d+\+?(?:\s+notifich[ea])?\)\s+/i, "")
+      .replace(/^●\s+/, "")
+      .replace(/^Vinili(?:\s*&\s*Caff[eè])?\s*[-–—]\s+/i, "")
+      .trim()
+      .replace(/\bstaff\b/gi, "Staff");
+    if (!cleaned) return brand;
+    var pipe = cleaned.indexOf("|");
+    if (pipe >= 0) {
+      var left = cleaned.slice(0, pipe).trim();
+      var right = cleaned.slice(pipe + 1).trim();
+      if (!right) return brand;
+      if (!left || /^vinili$/i.test(left)) return brand + " | " + right;
+      return left + " | " + right;
+    }
+    return brand + " | " + cleaned;
+  }
+
   function captureBaseDocumentTitle() {
     var raw = String(document.title || "").trim();
-    var cleaned = raw.replace(/^\(\d+\+?\)\s+/, "").replace(/^●\s+/, "").trim();
-    if (windowAttentionTimer && windowAttentionTitle && cleaned === windowAttentionTitle) {
-      return baseDocumentTitle;
+    var cleaned = normalizeBaseDocumentTitle(raw);
+    if (windowAttentionTimer && windowAttentionTitle) {
+      var attn = String(windowAttentionTitle || "").trim();
+      if (cleaned === attn || cleaned === normalizeBaseDocumentTitle(attn)) {
+        return baseDocumentTitle || cleaned;
+      }
     }
     if (!baseDocumentTitle) {
-      baseDocumentTitle = cleaned || raw || "Vinili & Caffè";
+      baseDocumentTitle = cleaned || siteBrandName();
       return baseDocumentTitle;
     }
     // Se la pagina ha cambiato titolo (navigazione SPA / i18n), aggiorna la base.
-    if (cleaned && cleaned !== baseDocumentTitle && !/^\(\d+\+?\)\s+/.test(raw) && !/^●\s+/.test(raw)) {
+    if (
+      cleaned &&
+      cleaned !== baseDocumentTitle &&
+      !/^\(\d+\+?(?:\s+notifich[ea])?\)\s+/i.test(raw) &&
+      !/^●\s+/.test(raw)
+    ) {
       baseDocumentTitle = cleaned;
     }
     return baseDocumentTitle;
+  }
+
+  /** Formato tab/PWA: sempre "(2) Vinili & Caffè | <pagina>" (mai brand con trattino). */
+  function formatTabTitleWithUnread(unread, base) {
+    try {
+      if (window.VcPageTitle && typeof window.VcPageTitle.formatWithUnread === "function") {
+        return window.VcPageTitle.formatWithUnread(
+          unread,
+          base || baseDocumentTitle || document.title || siteBrandName(),
+        );
+      }
+    } catch (eFmt) {}
+    var n = Math.max(0, Math.floor(Number(unread) || 0));
+    var rest = normalizeBaseDocumentTitle(base || baseDocumentTitle || document.title || siteBrandName());
+    if (n <= 0) return rest;
+    var count = n > 99 ? "99+" : String(n);
+    return "(" + count + ") " + rest;
   }
 
   function resolveFaviconLink() {
@@ -1671,33 +1761,34 @@
     lastUnreadForAttention = n;
     if (windowAttentionTimer) return;
     captureBaseDocumentTitle();
+    var want = formatTabTitleWithUnread(n, baseDocumentTitle);
     if (n === lastTabUnreadShown) {
       // Titolo potrebbe essere stato resettato da altro script: ripristina se serve.
-      var want =
-        n > 0
-          ? "(" + (n > 99 ? "99+" : String(n)) + ") " + baseDocumentTitle
-          : baseDocumentTitle;
       if (String(document.title || "") !== want) document.title = want;
       return;
     }
     lastTabUnreadShown = n;
+    document.title = want;
     if (n > 0) {
-      document.title = "(" + (n > 99 ? "99+" : String(n)) + ") " + baseDocumentTitle;
       if (typeof navigator.setAppBadge === "function") {
         try {
           navigator.setAppBadge(n > 99 ? 99 : n);
         } catch (eBadge) {}
       }
-    } else {
-      document.title = baseDocumentTitle;
-      if (typeof navigator.clearAppBadge === "function") {
-        try {
-          navigator.clearAppBadge();
-        } catch (eClear) {}
-      }
+    } else if (typeof navigator.clearAppBadge === "function") {
+      try {
+        navigator.clearAppBadge();
+      } catch (eClear) {}
     }
     updateFaviconBadge(n);
   }
+
+  // Allinea subito il titolo al formato unico Brand | Pagina (anche in PWA).
+  try {
+    captureBaseDocumentTitle();
+    lastTabUnreadShown = -1;
+    syncBrowserTabNotifBadge(0);
+  } catch (eTitleBoot) {}
 
   function pageNeedsWindowAttention() {
     if (typeof document.hidden === "boolean" && document.hidden) return true;
@@ -1926,6 +2017,11 @@
   }
   function isAutoClientNotifId(id) {
     return String(id || "").indexOf("auto:") === 0;
+  }
+  /** Notifiche solo-client (login, welcome, …) da non cancellare al sync server. */
+  function isClientLocalNotifId(id) {
+    var s = String(id || "").trim();
+    return s.indexOf("auto:") === 0 || s.indexOf("sys:") === 0;
   }
   function isServerBackedNotifId(id) {
     return /^[a-f0-9]{24}$/i.test(String(id || "").trim());
@@ -2242,9 +2338,8 @@
   function flushPendingReadsToServer() {
     var map = loadPendingReadMap();
     var ids = Object.keys(map);
-    for (var fi = 0; fi < ids.length; fi += 1) {
-      markSiteNotificationReadOnServer(ids[fi]);
-    }
+    if (!ids.length) return;
+    markSiteNotificationsReadBatchOnServer(ids);
   }
   function rememberPendingForItem(item) {
     if (!item) return;
@@ -2275,6 +2370,50 @@
     } catch (e) {
       return false;
     }
+  }
+  function toastedKey() {
+    var uid = normalizeUserId(currentUserId);
+    return TOASTED_PREFIX + (uid || "anon");
+  }
+  function loadToastedMap() {
+    var map = {};
+    try {
+      var raw = localStorage.getItem(toastedKey());
+      var obj = raw ? JSON.parse(raw) : {};
+      if (!obj || typeof obj !== "object") return map;
+      var now = Date.now();
+      var keep = {};
+      for (var k in obj) {
+        if (!Object.prototype.hasOwnProperty.call(obj, k)) continue;
+        var at = Number(obj[k] || 0);
+        if (at && now - at < 1000 * 60 * 60 * 48) {
+          keep[k] = at;
+          map[k] = true;
+        }
+      }
+      if (Object.keys(keep).length !== Object.keys(obj).length) {
+        try {
+          localStorage.setItem(toastedKey(), JSON.stringify(keep));
+        } catch (eW) {}
+      }
+    } catch (e) {}
+    return map;
+  }
+  function rememberToastedId(id) {
+    var sid = String(id || "").trim();
+    if (!sid) return;
+    try {
+      var raw = localStorage.getItem(toastedKey());
+      var obj = raw ? JSON.parse(raw) : {};
+      if (!obj || typeof obj !== "object") obj = {};
+      obj[sid] = Date.now();
+      localStorage.setItem(toastedKey(), JSON.stringify(obj));
+    } catch (e) {}
+  }
+  function wasAlreadyToasted(id) {
+    var sid = String(id || "").trim();
+    if (!sid) return false;
+    return Boolean(loadToastedMap()[sid]);
   }
   function clearAllStampKey() {
     var uid = normalizeUserId(currentUserId);
@@ -2372,12 +2511,15 @@
       notifyNotifStorePeers();
     } catch (e) {}
   }
+  function isFilteredNotif(n) {
+    return Boolean(n && n.filtered);
+  }
   function rows() {
     var s = loadStored();
     var uid = normalizeUserId(currentUserId);
     var dismissed = loadDismissedSet(uid);
     s = s.filter(function (n) {
-      return !isClearedAwayServerRow(n, dismissed);
+      return !isClearedAwayServerRow(n, dismissed) && !isFilteredNotif(n);
     });
     return ephemeralDemo ? [ephemeralDemo].concat(s) : s;
   }
@@ -2397,6 +2539,22 @@
     } catch (e) {
       return NOTIFICATIONS_PATH;
     }
+  }
+
+  function tUi(key, vars, fallback) {
+    try {
+      if (window.VcI18n && typeof window.VcI18n.t === "function") {
+        var v = window.VcI18n.t(key, vars);
+        if (v && v !== key) return v;
+      }
+    } catch (e) {}
+    var out = fallback != null ? fallback : key;
+    if (vars && typeof out === "string") {
+      out = out.replace(/\{(\w+)\}/g, function (_, k) {
+        return vars[k] != null ? String(vars[k]) : "{" + k + "}";
+      });
+    }
+    return out;
   }
 
   function ensureNotifSeeAllLink() {
@@ -2419,7 +2577,7 @@
       seeAll.className = "vc-notif-see-all";
       var label = document.createElement("span");
       label.setAttribute("data-i18n", "notif.seeAll");
-      label.textContent = nt("notif.seeAll", null, "Vedi tutte le notifiche");
+      label.textContent = tUi("notif.seeAll", null, "Vedi tutte le notifiche");
       seeAll.appendChild(label);
       seeAll.appendChild(document.createTextNode(" "));
       var chev = document.createElement("i");
@@ -2429,7 +2587,7 @@
       foot.appendChild(seeAll);
     }
     seeAll.href = notificationsPageUrl();
-    seeAll.setAttribute("aria-label", nt("notif.seeAll", null, "Vedi tutte le notifiche"));
+    seeAll.setAttribute("aria-label", tUi("notif.seeAll", null, "Vedi tutte le notifiche"));
     if (isStandalonePwa()) dd.classList.add("vc-notif-dropdown--pwa");
     return seeAll;
   }
@@ -2443,6 +2601,8 @@
         String(n.id || "") +
           "\x1e" +
           (n.read ? "1" : "0") +
+          "\x1e" +
+          (n.filtered ? "1" : "0") +
           "\x1e" +
           String(n.at || 0) +
           "\x1e" +
@@ -2459,21 +2619,7 @@
   }
 
   function timeAgoLocalized(atMs) {
-    function nt(key, vars, fallback) {
-      try {
-        if (window.VcI18n && typeof window.VcI18n.t === "function") {
-          var v = window.VcI18n.t(key, vars);
-          if (v && v !== key) return v;
-        }
-      } catch (e) {}
-      var out = fallback != null ? fallback : key;
-      if (vars && typeof out === "string") {
-        out = out.replace(/\{(\w+)\}/g, function (_, k) {
-          return vars[k] != null ? String(vars[k]) : "{" + k + "}";
-        });
-      }
-      return out;
-    }
+    var nt = tUi;
     var s = Math.floor((Date.now() - atMs) / 1000);
     if (s < 45) return nt("notif.justNow", null, "Ora");
     var m = Math.floor(s / 60);
@@ -2498,6 +2644,8 @@
   }
   function render(options) {
     bindClearAllButton();
+    wireNotifMobileSheet();
+    wireNotifListClicks();
     var root = document.getElementById("vc-notif-dropdown");
     var listEl = document.getElementById("vc-notif-list");
     var badge = document.getElementById("vc-notif-badge");
@@ -2600,6 +2748,8 @@
     saveStored(
       loadStored().map(function (x) {
         rememberPendingForItem(x);
+        var xid = String((x && x.id) || "").trim();
+        if (xid) rememberToastedId(xid);
         return Object.assign({}, x, { read: true });
       }),
     );
@@ -2720,6 +2870,7 @@
     if (sid) {
       rememberPendingRead(sid);
       rememberClickRead(sid);
+      rememberToastedId(sid);
     }
     var ticketIds = {};
     var idsToPost = sid ? [sid] : [];
@@ -2750,11 +2901,7 @@
       afterMark();
       return;
     }
-    Promise.all(
-      idsToPost.map(function (nid) {
-        return markSiteNotificationReadOnServer(nid);
-      }),
-    ).then(afterMark, afterMark);
+    markSiteNotificationsReadBatchOnServer(idsToPost).then(afterMark, afterMark);
   }
   function consumeNotifReadFromUrl() {
     try {
@@ -2812,6 +2959,17 @@
   function wirePushNotifMarkRead() {
     consumeNotifReadFromUrl();
     consumePendingReadFromSwCache();
+    var pushSyncTimer = 0;
+    function scheduleInboxSyncFromPush() {
+      // Coalesce burst di push: aggiorna campanella subito dopo l’OS notification.
+      if (pushSyncTimer) clearTimeout(pushSyncTimer);
+      pushSyncTimer = setTimeout(function () {
+        pushSyncTimer = 0;
+        try {
+          syncSiteNotificationsFromServer();
+        } catch (eSync) {}
+      }, 220);
+    }
     try {
       if (!("serviceWorker" in navigator)) return;
       navigator.serviceWorker.addEventListener("message", function (ev) {
@@ -2825,12 +2983,15 @@
               id: p.id,
               all: p.all === true,
             });
+            scheduleInboxSyncFromPush();
             return;
           }
           rememberRecentOsPush(String(p.id || "").trim());
           rememberRecentOsPush(String(p.messageId || "").trim());
           rememberRecentOsPush(String(p.ticketId || "").trim());
           setPushSubActive(true);
+          // Non aspettare WS/poll (60s): la push è già arrivata su questo browser.
+          scheduleInboxSyncFromPush();
           if (isWatchingTicketChat(p.ticketId, p.openUrl)) {
             var seenId = String(p.id || "").trim();
             if (seenId) {
@@ -3093,7 +3254,7 @@
     var opts = {
       body: body || "Nuova notifica",
       tag: tag,
-      renotify: true,
+      renotify: false,
       silent: false,
       lang: "it",
       icon: "/images/vc-server-icon.png",
@@ -3362,9 +3523,155 @@
     }
   }
 
+  function ensureSiteNotifDropdown() {
+    var actions = document.getElementById("header-quick-actions");
+    if (!actions) return null;
+    var existing = document.getElementById("vc-notif-dropdown");
+    if (existing) {
+      normalizeHeaderQuickActionsOrder(actions);
+      return existing;
+    }
+    var toggle = actions.querySelector("#vc-mobile-nav-toggle");
+    var loginBtn = actions.querySelector("#discord-login-btn, [data-vc-discord-login]");
+    var html =
+      '<details class="vc-notif-dropdown" id="vc-notif-dropdown">' +
+      '<summary class="vc-icon-btn vc-notif-summary relative inline-flex" aria-label="Notifiche"><i class="fa fa-bell-o" aria-hidden="true"></i><span class="vc-notif-badge" id="vc-notif-badge" hidden aria-live="polite">0</span></summary>' +
+      '<div class="vc-notif-panel" role="region" aria-label="Elenco notifiche">' +
+      '<div class="vc-notif-panel-head"><div class="vc-notif-panel-head-start"><span class="vc-notif-panel-head-ico" aria-hidden="true"><i class="fa fa-bell-o"></i></span><div class="vc-notif-panel-head-text"><span class="vc-notif-panel-title">Notifiche</span><span class="vc-notif-panel-sub" id="vc-notif-unread-sub">0 non lette</span></div></div>' +
+      '<div class="vc-notif-panel-head-actions"><button type="button" class="vc-notif-action" id="vc-notif-clear-all" title="Elimina tutte" aria-label="Elimina tutte"><i class="fa fa-trash-o" aria-hidden="true"></i></button></div></div>' +
+      '<div class="vc-notif-panel-body"><div class="vc-notif-empty-wrap" id="vc-notif-empty-wrap"><div class="vc-notif-empty"><div class="vc-notif-empty-ico" aria-hidden="true"><i class="fa fa-bell-o"></i></div><p class="vc-notif-empty-title">Nessuna notifica</p><p class="vc-notif-empty-sub">Sei tutto aggiornato!</p></div></div><div class="vc-notif-list-wrap" id="vc-notif-list-wrap"><ul class="vc-notif-list" id="vc-notif-list" role="list"></ul></div></div>' +
+      '<div class="vc-notif-panel-foot" id="vc-notif-panel-foot"><a href="/notifications/" class="vc-notif-see-all" id="vc-notif-see-all">Vedi tutte le notifiche <i class="fa fa-chevron-right" aria-hidden="true"></i></a></div></div></details>';
+    var anchor = toggle || loginBtn;
+    if (anchor) anchor.insertAdjacentHTML("beforebegin", html);
+    else actions.insertAdjacentHTML("afterbegin", html);
+    normalizeHeaderQuickActionsOrder(actions);
+    return document.getElementById("vc-notif-dropdown");
+  }
+
+  function placeNotifFlyFallback(root) {
+    if (!root) return;
+    var rw = Math.min(320, Math.max(240, window.innerWidth - 24));
+    root.style.width = rw + "px";
+    root.style.top = Math.round(Math.max(12, (window.__vcSafeTop || 0) + 12)) + "px";
+    root.style.right = "12px";
+    root.style.left = "auto";
+    root.style.bottom = "auto";
+    root.style.setProperty("--vc-pop-ox", rw - 28 + "px");
+  }
+
   function showNotifFlyToast(row) {
-    /* Solo notifica nativa di sistema: niente riquadro custom. */
+    var toastId = String((row && row.id) || "");
+    var nowMs = Date.now();
+    if (toastId && toastId === lastFlyToastId && nowMs - lastFlyToastAt < 2500) return;
+    lastFlyToastId = toastId;
+    lastFlyToastAt = nowMs;
+    ensureSiteNotifDropdown();
+    var bell = document.querySelector("#vc-notif-dropdown summary.vc-notif-summary");
+    var dd = document.getElementById("vc-notif-dropdown");
+    if (dd && dd.open) {
+      pulseNotifSummary();
+      return;
+    }
+    var title = row && row.title ? String(row.title) : "Nuova notifica";
+    var body = row && row.body ? String(row.body) : "";
+    var kind = String((row && row.kind) || "info");
+    var dest = resolveNotifDestUrl(String((row && row.openUrl) || "").trim());
+    var atMs = typeof (row && row.at) === "number" ? row.at : Date.now();
+
+    var root = document.createElement("div");
+    root.className = "vc-notif-fly-card";
+    if (kind === "success") root.classList.add("vc-notif-fly-card--success");
+    root.setAttribute("role", "status");
+    root.setAttribute("aria-live", "polite");
+
+    var ico = document.createElement("span");
+    ico.className = "vc-notif-fly-card__ico";
+    ico.setAttribute("aria-hidden", "true");
+    var fi = document.createElement("i");
+    fi.className = "fa " + iconClass(kind);
+    ico.appendChild(fi);
+
+    var main = document.createElement("button");
+    main.type = "button";
+    main.className = "vc-notif-fly-card__main";
+    var t = document.createElement("strong");
+    t.className = "vc-notif-fly-card__t";
+    t.textContent = title;
+    var b = document.createElement("span");
+    b.className = "vc-notif-fly-card__b";
+    b.textContent = body;
+    var time = document.createElement("time");
+    time.className = "vc-notif-fly-card__time";
+    time.dateTime = new Date(atMs).toISOString();
+    time.textContent = timeAgoLocalized(atMs);
+    main.appendChild(t);
+    if (body) main.appendChild(b);
+    main.appendChild(time);
+
+    var dismiss = document.createElement("button");
+    dismiss.type = "button";
+    dismiss.className = "vc-notif-fly-card__x";
+    dismiss.setAttribute("aria-label", "Chiudi");
+    dismiss.innerHTML = '<i class="fa fa-times" aria-hidden="true"></i>';
+
+    root.appendChild(ico);
+    root.appendChild(main);
+    root.appendChild(dismiss);
+    document.body.appendChild(root);
+    notifFlyActiveCount += 1;
+    syncGlobalNotifOverlayClass();
+    if (bell) placeNotifPopNearBell(root, bell);
+    else placeNotifFlyFallback(root);
     pulseNotifSummary();
+
+    var finished = false;
+    function finish(fromClick) {
+      if (finished) return;
+      finished = true;
+      root.classList.add("vc-notif-fly-card--out");
+      window.setTimeout(function () {
+        try {
+          root.remove();
+        } catch (e2) {}
+        notifFlyActiveCount = Math.max(0, notifFlyActiveCount - 1);
+        syncGlobalNotifOverlayClass();
+        if (!fromClick) pulseNotifSummary();
+      }, NOTIF_FLY_ANIM_MS + 40);
+    }
+
+    main.addEventListener("click", function (ev) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      finish(true);
+      if (row && row.id) {
+        try {
+          markOneRead(row.id);
+        } catch (eMark) {}
+      }
+      if (dest) {
+        openNotifDestination(dest, kind);
+        return;
+      }
+      try {
+        if (dd && !dd.open) dd.setAttribute("open", "");
+      } catch (eOpen) {}
+    });
+    dismiss.addEventListener("click", function (ev) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      finish(true);
+    });
+
+    var onResize = function () {
+      if (finished) return;
+      if (bell) placeNotifPopNearBell(root, bell);
+      else placeNotifFlyFallback(root);
+    };
+    window.addEventListener("resize", onResize);
+    window.setTimeout(function () {
+      window.removeEventListener("resize", onResize);
+      if (!finished) finish(false);
+    }, NOTIF_FLY_READ_MS);
   }
 
   function addNotif(p) {
@@ -3475,6 +3782,12 @@
     } catch (e2) {}
     if (!p || !p.__noRender) render();
     if (!incomingRead && !p.__skipOsBanner) showNativeOsBanner(item);
+    if (!incomingRead && !p.__skipFlyToast) {
+      try {
+        if (stableId) rememberToastedId(stableId);
+        showNotifFlyToast(item);
+      } catch (eFly) {}
+    }
     return { added: true };
   }
   function flushPendingLoginNotification() {
@@ -3520,6 +3833,88 @@
   var notifPortalGuardUntil = 0;
   var notifPortalSyncing = false;
 
+  function normalizeHeaderQuickActionsOrder(actions) {
+    if (!actions) actions = document.getElementById("header-quick-actions");
+    if (!actions) return;
+    var promo = actions.querySelector("#vc-header-promo-btn, .vc-header-promo-btn");
+    var notif = actions.querySelector("#vc-notif-dropdown");
+    var toggle = actions.querySelector("#vc-mobile-nav-toggle");
+    var loginBtn = actions.querySelector("#discord-login-btn, [data-vc-discord-login]");
+    var loginState = actions.querySelector("#discord-login-state");
+    var cursor = actions.firstElementChild;
+    function place(el) {
+      if (!el || el.parentElement !== actions) return;
+      actions.insertBefore(el, cursor);
+      cursor = el.nextElementSibling;
+    }
+    place(promo);
+    place(notif);
+    place(toggle);
+    place(loginBtn);
+    place(loginState);
+  }
+
+  try {
+    window.__vcNormalizeHeaderQuickActionsOrder = normalizeHeaderQuickActionsOrder;
+  } catch (eNormExport) {}
+
+  /** Riporta la campanella in #header-quick-actions (a sinistra dell'hamburger). */
+  function ensureNotifDropdownInHeader(force) {
+    var dd = document.getElementById("vc-notif-dropdown");
+    if (!dd) return null;
+    var actions = document.getElementById("header-quick-actions");
+    if (!actions) return dd;
+    if (dd.open && !force) return dd;
+    if (dd.parentElement === actions) {
+      normalizeHeaderQuickActionsOrder(actions);
+      return dd;
+    }
+    var slot = document.getElementById("vc-notif-dropdown-slot");
+    if (slot && slot.parentNode === actions) {
+      actions.insertBefore(dd, slot);
+      try {
+        if (slot.parentNode) slot.parentNode.removeChild(slot);
+      } catch (eSlot) {}
+    } else {
+      var toggle = actions.querySelector("#vc-mobile-nav-toggle");
+      var promo = actions.querySelector("#vc-header-promo-btn, .vc-header-promo-btn");
+      if (toggle) actions.insertBefore(dd, toggle);
+      else if (promo && promo.nextSibling) actions.insertBefore(dd, promo.nextSibling);
+      else actions.appendChild(dd);
+    }
+    normalizeHeaderQuickActionsOrder(actions);
+    return dd;
+  }
+
+  try {
+    window.__vcEnsureNotifDropdownInHeader = ensureNotifDropdownInHeader;
+  } catch (eEnsExport) {}
+
+  function setNotifHeaderSlotHold(active) {
+    var actions = document.getElementById("header-quick-actions");
+    if (!actions) return;
+    var dd = document.getElementById("vc-notif-dropdown");
+    var slot = document.getElementById("vc-notif-dropdown-slot");
+    if (active) {
+      if (!slot) {
+        slot = document.createElement("span");
+        slot.id = "vc-notif-dropdown-slot";
+        var toggle = actions.querySelector("#vc-mobile-nav-toggle");
+        if (dd && dd.parentElement === actions) actions.insertBefore(slot, dd);
+        else if (toggle) actions.insertBefore(slot, toggle);
+        else actions.appendChild(slot);
+      }
+      slot.className = "vc-notif-dropdown-slot vc-notif-dropdown-slot--hold";
+      slot.hidden = false;
+      slot.setAttribute("aria-hidden", "true");
+      return;
+    }
+    if (slot) {
+      slot.className = "vc-notif-dropdown-slot";
+      slot.hidden = true;
+    }
+  }
+
   function portalNotifDropdownToBody(dd, enable) {
     if (!dd) return;
     var slotId = "vc-notif-dropdown-slot";
@@ -3535,6 +3930,7 @@
         }
         document.body.appendChild(dd);
       }
+      setNotifHeaderSlotHold(true);
       // Safari/iOS: spostare un <details open> nel DOM lo chiude; riforziamo subito + rAF.
       function forceOpen() {
         try {
@@ -3549,26 +3945,8 @@
       notifPortalGuardUntil = Date.now() + 700;
       return;
     }
-    if (slot && slot.parentNode && dd.parentElement === document.body) {
-      slot.parentNode.insertBefore(dd, slot);
-      return;
-    }
-    if (dd.parentElement === document.body) {
-      var actions = document.getElementById("header-quick-actions");
-      if (actions) {
-        var promo = document.getElementById("vc-header-promo-btn");
-        var toggle = document.getElementById("vc-mobile-nav-toggle");
-        // Ripristina ordine: promo → campanella → hamburger → login
-        if (promo && promo.parentElement === actions) {
-          if (promo.nextSibling) actions.insertBefore(dd, promo.nextSibling);
-          else actions.appendChild(dd);
-        } else if (toggle && toggle.parentElement === actions) {
-          actions.insertBefore(dd, toggle);
-        } else {
-          actions.appendChild(dd);
-        }
-      }
-    }
+    setNotifHeaderSlotHold(false);
+    ensureNotifDropdownInHeader(true);
   }
 
   function syncNotifMobileSheetChrome() {
@@ -3611,6 +3989,8 @@
         var oldBd = dd.querySelector(".vc-notif-mobile-backdrop");
         if (oldBd) oldBd.remove();
         portalNotifDropdownToBody(dd, false);
+        // Safety: se lo sheet è chiuso la campanella deve restare nella navbar.
+        if (!dd.open) ensureNotifDropdownInHeader(true);
       }
       syncGlobalNotifOverlayClass();
     } finally {
@@ -4556,10 +4936,19 @@
   }
   window.__vcDismissNotif = dismissOneSiteNotification;
   function markSiteNotificationReadOnServer(id) {
+    return markSiteNotificationsReadBatchOnServer([id]);
+  }
+  function markSiteNotificationsReadBatchOnServer(ids) {
     var token = getDiscordAccessToken();
     var uid = normalizeUserId(currentUserId);
-    var sid = String(id || "").trim();
-    if (!token || !uid || !sid) return Promise.resolve(false);
+    var list = Array.isArray(ids)
+      ? ids.map(function (x) { return String(x || "").trim(); }).filter(Boolean)
+      : [];
+    if (!token || !uid || !list.length) return Promise.resolve(false);
+    var body =
+      list.length === 1
+        ? JSON.stringify({ id: list[0] })
+        : JSON.stringify({ ids: list });
     return fetch(resolvedSiteNotificationsReadUrl(), {
       method: "POST",
       headers: {
@@ -4568,14 +4957,18 @@
       },
       credentials: "omit",
       keepalive: true,
-      body: JSON.stringify({ id: sid }),
+      body: body,
     })
       .then(function (r) {
         if (!r || !r.ok) return false;
         return r
           .json()
           .then(function (j) {
-            return Boolean(j && (j.updated === true || Number(j.modified) > 0));
+            var ok = Boolean(j && (j.updated === true || Number(j.modified) > 0 || j.ok === true));
+            if (ok) {
+              for (var i = 0; i < list.length; i += 1) forgetPendingRead(list[i]);
+            }
+            return ok;
           })
           .catch(function () {
             return false;
@@ -4836,6 +5229,7 @@
       kind: kind,
       openUrl: openUrl,
       ticketId: ticketId,
+      filtered: Boolean(row && row.filtered),
     };
   }
   function mergeStoredWithServerNotificationList(list, uid) {
@@ -4902,7 +5296,8 @@
       var it = oldItems[li];
       var lid = String((it && it.id) || "").trim();
       if (!lid) continue;
-      if (!isAutoClientNotifId(lid) || serverIdMap[lid]) continue;
+      // Prima solo auto: → sparivano "Login effettuato" (sys:login_*) al primo sync.
+      if (!isClientLocalNotifId(lid) || serverIdMap[lid]) continue;
       var exKind = String((it && it.kind) || "info");
       var exOpen = String((it && it.openUrl) || "");
       var fpId = buildNotifFingerprintId(it, uid, exKind, exOpen);
@@ -4915,14 +5310,19 @@
     var changed = beforeSig !== buildNotifStoreSignature(merged);
     var freshMs = 600000;
     var toastRow = null;
+    var toastedMap = loadToastedMap();
     for (var ti = 0; ti < fromServer.length; ti += 1) {
       var fr = fromServer[ti];
       if (!fr) continue;
       var frid = String(fr.id || "").trim();
       if (!frid || oldIdMap[frid]) continue;
+      if (toastedMap[frid]) continue;
+      if (isFilteredNotif(fr)) continue;
       if (isNotifDismissed(fr, uid, dismissed)) continue;
       if (Date.now() - (fr.at || 0) >= freshMs) continue;
       if (fr.read) continue;
+      var oldSameRead = oldById[frid];
+      if (oldSameRead && oldSameRead.read) continue;
       if (isWatchingTicketChat(fr.ticketId, fr.openUrl)) continue;
       var candidate = {
         id: fr.id,
@@ -4965,6 +5365,17 @@
       headers: { Authorization: "Bearer " + token },
       credentials: "omit",
     };
+    try {
+      if (window.VcPerf && typeof window.VcPerf.apiHeaders === "function") {
+        opts.headers = window.VcPerf.apiHeaders(opts.headers);
+      }
+      if (window.VcPerf && typeof window.VcPerf.notificationsLimit === "function") {
+        var lim = window.VcPerf.notificationsLimit(50);
+        url += (url.indexOf("?") >= 0 ? "&" : "?") + "limit=" + encodeURIComponent(String(lim));
+        if (window.VcPerf.isLite && window.VcPerf.isLite()) url += "&lite=1&perf=lite";
+        else if (window.VcPerf.tier && window.VcPerf.tier() === "mid") url += "&perf=mid";
+      }
+    } catch (ePerfN) {}
     if (ctrl) opts.signal = ctrl.signal;
     fetch(url, opts)
       .then(function (r) {
@@ -4986,9 +5397,18 @@
         tryFlushClickReads();
         dismissOsNotificationsForReadItems(loadStored());
         if (mergeResult.toastRow) {
-          playNotifSound();
-          showNativeOsBanner(mergeResult.toastRow);
-          pulseNotifSummary();
+          var toastId = String(mergeResult.toastRow.id || "").trim();
+          if (toastId && wasAlreadyToasted(toastId)) {
+            /* già mostrata: non ripeti OS/fly dopo SW update o re-sync */
+          } else {
+            if (toastId) rememberToastedId(toastId);
+            playNotifSound();
+            showNativeOsBanner(mergeResult.toastRow);
+            try {
+              showNotifFlyToast(mergeResult.toastRow);
+            } catch (eFlySync) {}
+            pulseNotifSummary();
+          }
         }
       })
       .catch(function () {})
@@ -5028,27 +5448,50 @@
     var rs = siteRealtimeWs ? siteRealtimeWs.readyState : 3;
     if (wsUrl && rs !== 0 && rs !== 1) connectSiteRealtimeWebSocket();
   }
+  var notifSheetResizeWired = false;
+  var notifSheetEscWired = false;
+
   function wireNotifMobileSheet() {
     var dd = document.getElementById("vc-notif-dropdown");
-    if (!dd) return;
-    dd.addEventListener("toggle", function () {
-      syncNotifMobileSheetChrome();
-      if (dd.open) {
-        markAllReadOnBellOpen();
-        syncPushPromptUi();
-        maybeAskNativePush();
-      } else {
-        syncPushPromptUi();
-      }
-    });
-    window.addEventListener("resize", function () {
-      if (!isMobileNotifViewport()) syncNotifMobileSheetChrome();
-    });
-    document.addEventListener("keydown", function (ev) {
-      if (ev.key !== "Escape") return;
-      if (!isMobileNotifViewport() || !dd.open) return;
-      dd.removeAttribute("open");
-    });
+    if (!dd) return false;
+    // Su /staff la campanella nasce dopo init (staff-site-nav): riaggancia se manca.
+    if (!dd.__vcNotifSheetWired) {
+      dd.__vcNotifSheetWired = true;
+      dd.addEventListener("toggle", function () {
+        syncNotifMobileSheetChrome();
+        if (dd.open) {
+          markAllReadOnBellOpen();
+          syncPushPromptUi();
+          maybeAskNativePush();
+        } else {
+          syncPushPromptUi();
+          ensureNotifDropdownInHeader(true);
+        }
+      });
+    }
+    if (!notifSheetResizeWired) {
+      notifSheetResizeWired = true;
+      window.addEventListener("resize", function () {
+        if (!isMobileNotifViewport()) syncNotifMobileSheetChrome();
+        var liveDd = document.getElementById("vc-notif-dropdown");
+        if (!liveDd || !liveDd.open) ensureNotifDropdownInHeader(true);
+      });
+      window.addEventListener("pageshow", function () {
+        ensureNotifDropdownInHeader(true);
+      });
+      document.addEventListener("visibilitychange", function () {
+        if (document.visibilityState === "visible") ensureNotifDropdownInHeader(true);
+      });
+    }
+    if (!notifSheetEscWired) {
+      notifSheetEscWired = true;
+      document.addEventListener("keydown", function (ev) {
+        if (ev.key !== "Escape") return;
+        var live = document.getElementById("vc-notif-dropdown");
+        if (!isMobileNotifViewport() || !live || !live.open) return;
+        live.removeAttribute("open");
+      });
+    }
     var head = dd.querySelector(".vc-notif-panel-head");
     if (head && !head.querySelector(".vc-notif-close-mobile")) {
       var closeM = document.createElement("button");
@@ -5066,9 +5509,58 @@
       });
       head.appendChild(closeM);
     }
+    return true;
+  }
+
+  function wireNotifListClicks() {
+    var listEl = document.getElementById("vc-notif-list");
+    if (!listEl || listEl.__vcNotifListWired) return false;
+    listEl.__vcNotifListWired = true;
+    listEl.addEventListener("click", function (ev) {
+      var t = ev.target;
+      if (!t || !t.closest) return;
+      var dismissBtn = t.closest("button.vc-notif-dismiss");
+      if (dismissBtn && listEl.contains(dismissBtn)) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        dismissOneSiteNotification(dismissBtn.getAttribute("data-id") || "");
+        return;
+      }
+      var btn = t.closest(".vc-notif-item");
+      if (!btn || !listEl.contains(btn)) return;
+      var id = btn.getAttribute("data-id");
+      var dest = String(btn.getAttribute("data-open-url") || "").trim();
+      var kind = String(btn.getAttribute("data-kind") || "info").toLowerCase();
+      if (id || dest) markOneRead(id, { openUrl: dest });
+      var href = resolveNotifDestUrl(dest);
+      if (href) {
+        ev.preventDefault();
+        var ddNav = document.getElementById("vc-notif-dropdown");
+        if (ddNav) ddNav.removeAttribute("open");
+        openNotifDestination(href, kind);
+      }
+    });
+    return true;
+  }
+
+  function ensureStaffLateNotifUi() {
+    ensureSiteNotifDropdown();
+    var had = Boolean(document.getElementById("vc-notif-dropdown"));
+    wireNotifMobileSheet();
+    wireNotifListClicks();
+    ensureNotifSeeAllLink();
+    bindClearAllButton();
+    removeMarkAllButton();
+    if (!had) return;
+    lastNotifRenderSig = "";
+    render({ force: true });
+    if (normalizeUserId(currentUserId) && getDiscordAccessToken()) {
+      scheduleSiteNotificationsPolling();
+    }
   }
 
   function init() {
+    ensureSiteNotifDropdown();
     setCurrentUser(window.__VC_DISCORD_PROFILE || null);
     wirePushNotifMarkRead();
     wirePushPermissionWatch();
@@ -5102,10 +5594,10 @@
     document.addEventListener("pointerdown", unlockNotifAudio, true);
     document.addEventListener("keydown", unlockNotifAudio, true);
     wireNotifMobileSheet();
+    wireNotifListClicks();
     ensureNotifSeeAllLink();
     removeMarkAllButton();
     var seeAll = document.getElementById("vc-notif-see-all");
-    var listEl = document.getElementById("vc-notif-list");
     bindClearAllButton();
     if (seeAll) {
       seeAll.addEventListener("click", function (ev) {
@@ -5113,32 +5605,8 @@
         window.location.href = notificationsPageUrl();
       });
     }
-    if (listEl) {
-      listEl.addEventListener("click", function (ev) {
-        var t = ev.target;
-        if (!t || !t.closest) return;
-        var dismissBtn = t.closest("button.vc-notif-dismiss");
-        if (dismissBtn && listEl.contains(dismissBtn)) {
-          ev.preventDefault();
-          ev.stopPropagation();
-          dismissOneSiteNotification(dismissBtn.getAttribute("data-id") || "");
-          return;
-        }
-        var btn = t.closest(".vc-notif-item");
-        if (!btn || !listEl.contains(btn)) return;
-        var id = btn.getAttribute("data-id");
-        var dest = String(btn.getAttribute("data-open-url") || "").trim();
-        var kind = String(btn.getAttribute("data-kind") || "info").toLowerCase();
-        if (id || dest) markOneRead(id, { openUrl: dest });
-        var href = resolveNotifDestUrl(dest);
-        if (href) {
-          ev.preventDefault();
-          var ddNav = document.getElementById("vc-notif-dropdown");
-          if (ddNav) ddNav.removeAttribute("open");
-          openNotifDestination(href, kind);
-        }
-      });
-    }
+    window.addEventListener("vc:staff-access-ok", ensureStaffLateNotifUi);
+    window.addEventListener("vc:staff-notif-ready", ensureStaffLateNotifUi);
     window.vcNotify = { add: addNotif, refresh: render, clearAll: clearAll };
     flushPendingLoginNotification();
     scheduleSiteNotificationsPolling();
@@ -5215,6 +5683,10 @@
   }
 })();
 (function () {
+  // Evita che vc-mobile-nav.js (caricato dopo) reinizializzi drawer/toggle in conflitto.
+  try {
+    window.__vcLandingMobileNavActive = true;
+  } catch (eOwn) {}
   var DRAWER_ID = "vc-mobile-nav-drawer";
   var TOGGLE_ID = "vc-mobile-nav-toggle";
   var BODY_OPEN_CLASS = "vc-mobile-nav-open";
@@ -5263,6 +5735,11 @@
     try {
       document.documentElement.classList.remove(BODY_OPEN_CLASS);
     } catch (e0) {}
+    try {
+      if (typeof window.__vcEnsureNotifDropdownInHeader === "function") {
+        window.__vcEnsureNotifDropdownInHeader(true);
+      }
+    } catch (eNotifHome) {}
     if (onEscapeDrawer) {
       document.removeEventListener("keydown", onEscapeDrawer);
       onEscapeDrawer = null;
@@ -5279,8 +5756,17 @@
     if (!drawer) return;
     mountDrawer(drawer);
     closeNotifDropdown();
-    rebuildGrid();
-    syncDrawerFooter();
+    try {
+      if (typeof window.__vcEnsureNotifDropdownInHeader === "function") {
+        window.__vcEnsureNotifDropdownInHeader(true);
+      }
+    } catch (eNotifOpen) {}
+    try {
+      rebuildGrid();
+    } catch (eGrid) {}
+    try {
+      syncDrawerFooter();
+    } catch (eFoot) {}
     drawer.classList.add("vc-mobile-nav-drawer--open");
     drawer.setAttribute("aria-hidden", "false");
     if (toggle) toggle.setAttribute("aria-expanded", "true");
@@ -5347,9 +5833,14 @@
     var loginState = document.getElementById("discord-login-state");
     var hasToken = false;
     try {
-      var t = localStorage.getItem("vc_discord_access_token");
-      var exp = Number(localStorage.getItem("vc_discord_expires_at") || "0");
-      hasToken = Boolean(t) && (!exp || exp > Date.now());
+      if (typeof window.__vcDiscordGetAccessToken === "function") {
+        hasToken = Boolean(window.__vcDiscordGetAccessToken());
+      }
+      if (!hasToken) {
+        var t = localStorage.getItem("vc_discord_access_token");
+        var exp = Number(localStorage.getItem("vc_discord_expires_at") || "0");
+        hasToken = Boolean(t) && (!exp || exp > Date.now());
+      }
     } catch (eTok) {}
     var pendingShell = loginState && loginState.querySelector(".vc-auth-pending-shell");
     if (pendingShell || (hasToken && !profile)) {
@@ -5357,16 +5848,24 @@
       pending.className = "vc-mobile-nav-footer__account";
       pending.setAttribute("aria-busy", "true");
       pending.innerHTML =
+        '<div class="vc-mobile-nav-footer__who">' +
         '<div class="vc-mobile-nav-footer__account-start"><span class="vc-mobile-nav-footer__avatar vc-mobile-nav-footer__avatar--fb" aria-hidden="true"><span class="vc-ui-spinner"></span></span></div>' +
-        '<div class="vc-mobile-nav-footer__meta"><span class="vc-mobile-nav-footer__name">Verifica sessione…</span></div>';
+        '<div class="vc-mobile-nav-footer__meta">' +
+        '<span class="vc-mobile-nav-footer__name">Verifica sessione…</span>' +
+        '<span class="vc-mobile-nav-footer__hint">Account Discord</span>' +
+        "</div></div>";
       foot.appendChild(pending);
       return;
     }
-    if (profile && logoutBtn) {
+    // Profilo presente = loggato (logoutBtn può mancare se lo stato header è ancora in rendering).
+    if (profile && (hasToken || logoutBtn || profile.id)) {
       var wrap = document.createElement("div");
       wrap.className = "vc-mobile-nav-footer__account";
       var imgUrl = mobileAvatarUrl(profile);
-      var name = String(profile.username || "Utente").trim() || "Utente";
+      var name =
+        String(profile.global_name || profile.username || "Utente").trim() || "Utente";
+      var who = document.createElement("div");
+      who.className = "vc-mobile-nav-footer__who";
       var left = document.createElement("div");
       left.className = "vc-mobile-nav-footer__account-start";
       if (imgUrl) {
@@ -5391,37 +5890,53 @@
       nm.className = "vc-mobile-nav-footer__name";
       nm.textContent = name;
       meta.appendChild(nm);
+      var hint = document.createElement("span");
+      hint.className = "vc-mobile-nav-footer__hint";
+      hint.textContent = "Account Discord";
+      meta.appendChild(hint);
+      who.appendChild(left);
+      who.appendChild(meta);
+      var actions = document.createElement("div");
+      actions.className = "vc-mobile-nav-footer__actions";
       var prof = document.createElement("a");
-      prof.className = "vc-mobile-nav-footer__profile";
+      prof.className = "vc-mobile-nav-footer__action vc-mobile-nav-footer__action--profile";
       prof.href = mobileProfileHref(profile.id);
-      prof.textContent = "Profilo";
-      meta.appendChild(prof);
+      prof.innerHTML = '<i class="fa fa-user" aria-hidden="true"></i> Profilo';
       var lo = document.createElement("button");
       lo.type = "button";
-      lo.className = "vc-mobile-nav-footer__logout";
-      lo.textContent = "Logout";
+      lo.className = "vc-mobile-nav-footer__action vc-mobile-nav-footer__action--logout";
+      lo.innerHTML = '<i class="fa fa-sign-out" aria-hidden="true"></i> Esci';
       lo.addEventListener("click", function () {
-        logoutBtn.click();
+        if (logoutBtn) logoutBtn.click();
+        else if (typeof window.__vcDiscordClearToken === "function") {
+          try {
+            window.__vcDiscordClearToken();
+          } catch (eClear) {}
+          try {
+            window.location.reload();
+          } catch (eRel) {}
+        }
         closeDrawer();
       });
-      wrap.appendChild(left);
-      wrap.appendChild(meta);
-      wrap.appendChild(lo);
+      actions.appendChild(prof);
+      actions.appendChild(lo);
+      wrap.appendChild(who);
+      wrap.appendChild(actions);
       foot.appendChild(wrap);
       return;
     }
-    if (loginBtn && !loginBtn.hidden) {
+    if (!hasToken) {
       var b = document.createElement("button");
       b.type = "button";
       b.className = "vc-mobile-nav-footer__login";
-      b.textContent = "LOGIN";
+      b.textContent = "Accedi con Discord";
       b.addEventListener("click", function () {
         if (typeof window.__vcDiscordStartOAuthRedirect === "function") {
           window.__vcDiscordStartOAuthRedirect(b);
           closeDrawer();
           return;
         }
-        loginBtn.click();
+        if (loginBtn) loginBtn.click();
       });
       foot.appendChild(b);
     }
@@ -5739,7 +6254,7 @@
     if (!isMobile()) closeDrawer();
   }
 
-  var lastToggleAt = 0;
+  var lastToggleTouchAt = 0;
 
   function isToggleEventTarget(ev) {
     var t = ev && ev.target;
@@ -5748,23 +6263,135 @@
     return Boolean(t && t.closest && t.closest("#" + TOGGLE_ID));
   }
 
+  function recoverDrawerIfMissing() {
+    if (drawer) return drawer;
+    try {
+      var quick = document.getElementById("header-quick-actions");
+      var existingToggle = document.getElementById(TOGGLE_ID);
+      if (existingToggle) toggle = existingToggle;
+      if (quick && toggle) {
+        drawer = document.getElementById(DRAWER_ID) || document.createElement("div");
+        drawer.id = DRAWER_ID;
+        mountDrawer(drawer);
+        backdrop = drawer.querySelector(".vc-mobile-nav-drawer__backdrop");
+        if (backdrop && backdrop.getAttribute("data-vc-mobile-nav-bound") !== "1") {
+          backdrop.setAttribute("data-vc-mobile-nav-bound", "1");
+          backdrop.addEventListener("click", closeDrawer);
+        }
+        var closeBtn = document.getElementById("vc-mobile-nav-close");
+        if (closeBtn && closeBtn.getAttribute("data-vc-mobile-nav-bound") !== "1") {
+          closeBtn.setAttribute("data-vc-mobile-nav-bound", "1");
+          closeBtn.addEventListener("click", closeDrawer);
+        }
+      }
+    } catch (eRec) {}
+    return drawer;
+  }
+
+  function shouldIgnoreDuplicateToggleEvent(ev) {
+    if (!ev) return false;
+    if (ev.type === "click" && Date.now() - lastToggleTouchAt < 450) return true;
+    if (ev.type === "pointerup" && ev.pointerType === "mouse") return true;
+    return false;
+  }
+
+  function toggleMenuFromEvent(ev) {
+    // Staff pages: staff-site-nav owns the hamburger (avoids open→close race).
+    if (window.__vcStaffHamburgerOwnsToggle) {
+      if (ev && ev.preventDefault) ev.preventDefault();
+      if (ev && ev.stopPropagation) ev.stopPropagation();
+      return false;
+    }
+    if (ev && ev.__vcMobileNavHandled) {
+      if (ev.preventDefault) ev.preventDefault();
+      if (ev.stopPropagation) ev.stopPropagation();
+      return false;
+    }
+    if (shouldIgnoreDuplicateToggleEvent(ev)) {
+      if (ev.preventDefault) ev.preventDefault();
+      if (ev.stopPropagation) ev.stopPropagation();
+      return false;
+    }
+    try {
+      ensure();
+    } catch (eEns) {}
+    if (!drawer) recoverDrawerIfMissing();
+    // Always re-bind to live DOM node (stale closure = silent no-op).
+    try {
+      var liveDrawer = document.getElementById(DRAWER_ID);
+      if (liveDrawer) drawer = liveDrawer;
+    } catch (eLive) {}
+    if (!drawer) {
+      if (ev && ev.preventDefault) ev.preventDefault();
+      if (ev && ev.stopPropagation) ev.stopPropagation();
+      if (ev) {
+        try {
+          ev.__vcMobileNavHandled = true;
+        } catch (eH) {}
+      }
+      // Single retry only — never schedule two toggles for the same click.
+      if (!window.__vcMobileNavRetryScheduled) {
+        window.__vcMobileNavRetryScheduled = true;
+        window.requestAnimationFrame(function () {
+          window.__vcMobileNavRetryScheduled = false;
+          try {
+            ensure();
+          } catch (eRetry) {}
+          if (!drawer) recoverDrawerIfMissing();
+          try {
+            var live2 = document.getElementById(DRAWER_ID);
+            if (live2) drawer = live2;
+          } catch (eLive2) {}
+          if (!drawer) return;
+          if (drawer.classList.contains("vc-mobile-nav-drawer--open")) closeDrawer();
+          else openDrawer();
+        });
+      }
+      return false;
+    }
+    if (ev && ev.preventDefault) ev.preventDefault();
+    if (ev && ev.stopPropagation) ev.stopPropagation();
+    if (drawer.classList.contains("vc-mobile-nav-drawer--open")) closeDrawer();
+    else openDrawer();
+    if (ev) {
+      ev.__vcMobileNavHandled = true;
+      if (typeof ev.stopImmediatePropagation === "function") ev.stopImmediatePropagation();
+    }
+    if (ev && (ev.type === "touchend" || ev.type === "pointerup")) lastToggleTouchAt = Date.now();
+    return true;
+  }
+
+  function bindToggleDirect(btn) {
+    if (!btn || btn.getAttribute("data-vc-mobile-nav-bound") === "1") return;
+    btn.setAttribute("data-vc-mobile-nav-bound", "1");
+    btn.addEventListener(
+      "click",
+      function (ev) {
+        if (!isToggleEventTarget(ev)) return;
+        toggleMenuFromEvent(ev);
+      },
+      true,
+    );
+    btn.addEventListener(
+      "touchend",
+      function (ev) {
+        if (!isToggleEventTarget(ev)) return;
+        toggleMenuFromEvent(ev);
+      },
+      { capture: true, passive: false },
+    );
+  }
+
   function onDelegatedToggle(ev) {
+    if (ev && ev.__vcMobileNavHandled) return;
     if (!isToggleEventTarget(ev)) return;
     if (ev.type === "pointerup") {
       if (typeof ev.button === "number" && ev.button !== 0) return;
       if (ev.pointerType === "mouse") return;
     }
-    var now = Date.now();
-    if (now - lastToggleAt < 350) {
-      if (ev.preventDefault) ev.preventDefault();
-      return;
-    }
-    lastToggleAt = now;
-    ensure();
-    if (!drawer) return;
-    if (ev.preventDefault) ev.preventDefault();
-    if (drawer.classList.contains("vc-mobile-nav-drawer--open")) closeDrawer();
-    else openDrawer();
+    var btn = document.getElementById(TOGGLE_ID);
+    if (btn && btn.getAttribute("data-vc-mobile-nav-bound") === "1") return;
+    toggleMenuFromEvent(ev);
   }
 
   function bindGlobalToggle() {
@@ -5772,6 +6399,13 @@
     window.__vcMobileNavDelegated = true;
     document.addEventListener("click", onDelegatedToggle, true);
     document.addEventListener("pointerup", onDelegatedToggle, true);
+    document.addEventListener(
+      "touchend",
+      function (ev) {
+        onDelegatedToggle(ev);
+      },
+      true,
+    );
   }
 
   function drawerMarkup() {
@@ -5808,8 +6442,12 @@
     bindGlobalToggle();
     var existingToggle = document.getElementById(TOGGLE_ID);
     var existingDrawer = document.getElementById(DRAWER_ID);
+    if (existingToggle) toggle = existingToggle;
+    if (existingDrawer) drawer = existingDrawer;
     if (existingToggle && existingDrawer && toggle && drawer) {
       mountDrawer(drawer);
+      backdrop = drawer.querySelector(".vc-mobile-nav-drawer__backdrop");
+      bindToggleDirect(toggle);
       return;
     }
 
@@ -5831,15 +6469,20 @@
         '<span class="vc-mobile-nav-toggle-bars" aria-hidden="true"><span></span><span></span><span></span></span>';
       var notif = document.getElementById("vc-notif-dropdown");
       var loginBtn = document.getElementById("discord-login-btn");
-      if (notif && notif.parentElement === quick) {
+      if (loginBtn && loginBtn.parentElement === quick) {
+        quick.insertBefore(toggle, loginBtn);
+      } else if (notif && notif.parentElement === quick) {
         if (notif.nextSibling) quick.insertBefore(toggle, notif.nextSibling);
         else quick.appendChild(toggle);
-      } else if (loginBtn && loginBtn.parentElement === quick) {
-        quick.insertBefore(toggle, loginBtn);
       } else {
         quick.appendChild(toggle);
       }
     }
+    try {
+      if (typeof window.__vcNormalizeHeaderQuickActionsOrder === "function") {
+        window.__vcNormalizeHeaderQuickActionsOrder(quick);
+      }
+    } catch (eNorm) {}
     toggle.setAttribute("aria-controls", DRAWER_ID);
     if (!toggle.getAttribute("aria-label")) {
       toggle.setAttribute("aria-label", "Apri menu di navigazione");
@@ -5870,6 +6513,7 @@
       backdrop.setAttribute("data-vc-mobile-nav-bound", "1");
       backdrop.addEventListener("click", closeDrawer);
     }
+    bindToggleDirect(toggle);
     if (window.__vcLandingMobileNavListenersBound !== true) {
       window.__vcLandingMobileNavListenersBound = true;
       window.addEventListener("vc-discord-profile", function () {
@@ -5880,6 +6524,25 @@
       window.addEventListener("vc-dashboard-access", function () {
         rebuildGrid();
         removeHeaderDashboardBtn();
+      });
+      window.addEventListener("vc:staff-access-ok", function () {
+        try {
+          var btn = document.getElementById(TOGGLE_ID);
+          if (btn) btn.removeAttribute("data-vc-mobile-nav-bound");
+        } catch (eUnbind) {}
+        try {
+          ensure();
+        } catch (eStaffEnsure) {}
+        rebuildGrid();
+        syncDrawerFooter();
+      });
+      window.addEventListener("vc:staff-notif-ready", function () {
+        try {
+          if (typeof window.__vcNormalizeHeaderQuickActionsOrder === "function") {
+            window.__vcNormalizeHeaderQuickActionsOrder(document.getElementById("header-quick-actions"));
+          }
+        } catch (eStaffNorm) {}
+        rebuildGrid();
       });
     }
   }
@@ -5906,6 +6569,15 @@
   if (!window.__vcMobileNavRebuild) {
     window.__vcMobileNavRebuild = refreshMobileNav;
   }
+  try {
+    window.__vcMobileNavToggle = toggleMenuFromEvent;
+  } catch (eExportToggle) {}
+  try {
+    window.__vcMobileNavSyncFooter = syncDrawerFooter;
+  } catch (eExportFoot) {}
+  try {
+    window.__vcMobileNavClose = closeDrawer;
+  } catch (eExportClose) {}
 
   function mergeForbiddenCollected(extra) {
     var merged = [];
@@ -6363,11 +7035,22 @@
     revealForbiddenSectionBooks();
   });
 
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init);
-  } else {
+  function bootMobileNav() {
     init();
   }
+
+  if (document.body) {
+    bootMobileNav();
+  } else if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", bootMobileNav);
+  } else {
+    bootMobileNav();
+  }
+  window.addEventListener("vc:staff-notif-ready", function () {
+    try {
+      refreshMobileNav();
+    } catch (eStaffNav) {}
+  });
 })();
 
 function vcPageAssetVer() {
@@ -6395,6 +7078,8 @@ function vcPageAssetVer() {
 
 (function loadSitePolish() {
   try {
+    var p = String(location.pathname || "").replace(/\/+$/, "") || "/";
+    if (p === "/staff" || p.indexOf("/staff/") === 0) return;
     if (document.querySelector('script[src*="vc-site-polish.js"]')) return;
   } catch (e0) {}
   var s = document.createElement("script");
@@ -6405,7 +7090,22 @@ function vcPageAssetVer() {
 
 (function loadHeaderPromo() {
   try {
-    if (!document.getElementById("vc-header-promo-btn") && !window.__VC_HEADER_PROMO) return;
+    var hasActions = Boolean(document.getElementById("header-quick-actions"));
+    if (!hasActions) return;
+    if (!document.getElementById("vc-header-promo-btn") && !window.__VC_HEADER_PROMO) {
+      window.__VC_HEADER_PROMO = {
+        eventUrl: "/evento",
+        candidatureUrl: "/candidature",
+        event: {
+          enabled: true,
+          previewMode: false,
+          startDate: "2026-06-01T12:00:00",
+          sortingStartDate: "2026-06-01T12:00:00",
+          endDate: "2026-09-01T12:00:00",
+          timezone: "Europe/Rome",
+        },
+      };
+    }
     if (document.querySelector('script[src*="vc-header-promo.js"]')) return;
   } catch (e0) {
     return;
@@ -6581,7 +7281,7 @@ function vcPageAssetVer() {
       prevAria +
       '"><i class="fa fa-chevron-left" aria-hidden="true"></i></button>' +
       '<div class="vc-mini-pager__jump">' +
-      '<button type="button" class="vc-mini-pager__now" data-pager-jump aria-haspopup="dialog" aria-expanded="false" aria-label="' +
+      '<button type="button" class="vc-mini-pager__now" data-pager-jump aria-haspopup="dialog" aria-expanded="false" title="' +
       jumpAria +
       '">' +
       String(p) +

@@ -1,6 +1,7 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const { isValidGuildUserId } = require("../DB/validateWriteIds");
+const { siteWorkflowUrl } = require("../Web/discordWorkflowUiGate");
 const TIME_ZONE = "Europe/Rome";
 const TARGET_WEEKDAY = 6;
 const PANEL_PREFIX = "staff_profile_panel";
@@ -122,7 +123,7 @@ function buildSerataFilmAttendanceDescriptionLine(state, isSelfView = false) {
     `<a:VC_Calendar:1482706208149475358> **Serata film:** Presenza prevista ${status}`,
   ];
   if (isSelfView && state?.editable) {
-    lines.push("_Puoi segnalare l'assenza fino alle 20:45 di sabato._");
+    lines.push(`_Segnala l'assenza sul **sito staff** entro le 20:45 di sabato: <${siteWorkflowUrl("staff")}>_`);
   }
   return lines.join("\n");
 }
@@ -179,17 +180,20 @@ async function setSerataFilmWillAttend(guildId, userId, willAttend, now = new Da
   if (!canEditSerataFilmAttendance(now)) return { ok: false, code: "closed" };
   const saturdayKey = getRomeSaturdayKeyForWeek(now);
   if (willAttend === true) {
-    await ActivityUserProfile.updateOne(
+    const unsetRes = await ActivityUserProfile.updateOne(
       { guildId: String(guildId), userId: String(userId), "staff.serataFilmAttendanceSaturdayKey": saturdayKey },
       { $unset: { "staff.serataFilmWillAttend": "", "staff.serataFilmAttendanceSaturdayKey": "" } },
     ).catch(() => null);
+    // Nessun match = già presente (default): ok.
+    if (!unsetRes) return { ok: false, code: "db_error" };
     return { ok: true };
   }
-  await ActivityUserProfile.findOneAndUpdate(
+  const setRes = await ActivityUserProfile.findOneAndUpdate(
     { guildId: String(guildId), userId: String(userId) },
     { $set: { "staff.serataFilmAttendanceSaturdayKey": saturdayKey, "staff.serataFilmWillAttend": false } },
     { upsert: true, setDefaultsOnInsert: true },
   ).catch(() => null);
+  if (!setRes) return { ok: false, code: "db_error" };
   return { ok: true };
 }
 

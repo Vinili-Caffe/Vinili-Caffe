@@ -3,17 +3,27 @@ const { getStaffChatThreadIds, getStaffCmdsThreadIds } = require("../Global/glob
 const { applyPronounGenderToTextForMember } = require("../Community/pronounGenderUtils");
 const { resolveStaffChatPmThread } = require("./staffChatChannelUtils");
 const { getGuildChannelCached } = require("../Interaction/interactionEntityCache");
+const { siteWorkflowUrl } = require("../Web/discordWorkflowUiGate");
 
-const HELPER_STAFF_WELCOME_BODY = `# Benvenutx nello staff <:VC_Staff:1494286904089247754>
-
-> **Per iniziare al meglio controlla:** <:VC_id:1478517313618575419>
-<:VC_DoubleReply:1482532332509466797> <#1442569237142044773>
-<:VC_DoubleReply:1482532332509466797> <#1442569239063167139>
-<:VC_Reply:1482532158080942191> <#1442569253281730653>
-
-Ricordati di entrare in [questo server](https://discord.gg/7eUKb48tPW), è __**obbligatorio**__
-
-__Per qualsiasi cosa l'High Staff è disponibile__ <:VC_Staff:1494286904089247754>`;
+function buildHelperStaffWelcomeBody() {
+  const staffNews = String(IDs.channels?.staffNews || "").trim();
+  const lines = [
+    "# Benvenutx nello staff <:VC_Staff:1494286904089247754>",
+    "",
+    "> **Per iniziare al meglio controlla:** <:VC_id:1478517313618575419>",
+  ];
+  lines.push(`<:VC_DoubleReply:1482532332509466797> Guida staff: ${siteWorkflowUrl("guida")}`);
+  if (staffNews) lines.push(`<:VC_DoubleReply:1482532332509466797> News staff: <#${staffNews}>`);
+  lines.push(
+    `<:VC_DoubleReply:1482532332509466797> Area staff (profilo, organico, gestione): ${siteWorkflowUrl("staff")}`,
+    `<:VC_Reply:1482532158080942191> Organico e Staff del Mese: ${siteWorkflowUrl("organico")}`,
+    "",
+    "Ricordati di entrare in [questo server](https://discord.gg/7eUKb48tPW), è __**obbligatorio**__",
+    "",
+    "__Per qualsiasi cosa l'High Staff è disponibile__ <:VC_Staff:1494286904089247754>",
+  );
+  return lines.join("\n");
+}
 
 function buildStaffWelcomeContent(member, body) {
   const user = member?.user || member;
@@ -22,7 +32,6 @@ function buildStaffWelcomeContent(member, body) {
 }
 
 async function buildPartnerManagerWelcomeBody() {
-  const guidaStaff = String(IDs.channels?.guidaStaff || "").trim();
   const [chatIds, cmdsIds] = await Promise.all([getStaffChatThreadIds(), getStaffCmdsThreadIds()]);
   const lines = [
     "# Benvenutx nei Partner Manager <:VC_PartnerManager:1494286911286808576>",
@@ -31,8 +40,13 @@ async function buildPartnerManagerWelcomeBody() {
   ];
   if (chatIds.pm) lines.push(`<:VC_DoubleReply:1482532332509466797> Chat PM: <#${chatIds.pm}>`);
   if (cmdsIds.pm) lines.push(`<:VC_DoubleReply:1482532332509466797> Comandi PM: <#${cmdsIds.pm}>`);
-  if (guidaStaff) lines.push(`<:VC_Reply:1482532158080942191> <#${guidaStaff}>`);
-  lines.push("", "__Per qualsiasi cosa l'High Staff è disponibile__ <:VC_Staff:1494286904089247754>");
+  lines.push(`<:VC_DoubleReply:1482532332509466797> Guida staff: ${siteWorkflowUrl("guida")}`);
+  lines.push(
+    `<:VC_DoubleReply:1482532332509466797> Profilo e shop PM sul sito: ${siteWorkflowUrl("staff")}`,
+    `<:VC_Reply:1482532158080942191> Punti tolti PM: ${siteWorkflowUrl("puntiTolti")}`,
+    "",
+    "__Per qualsiasi cosa l'High Staff è disponibile__ <:VC_Staff:1494286904089247754>",
+  );
   return lines.join("\n");
 }
 
@@ -62,7 +76,7 @@ async function sendPartnerManagerWelcome(clientOrChannel, member) {
 async function sendHelperWelcome(staffChannel, member) {
   if (!staffChannel?.isTextBased?.()) return;
   await staffChannel
-    .send({ content: buildStaffWelcomeContent(member, HELPER_STAFF_WELCOME_BODY) })
+    .send({ content: buildStaffWelcomeContent(member, buildHelperStaffWelcomeBody()) })
     .catch(() => null);
 }
 

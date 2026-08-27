@@ -263,11 +263,10 @@ async function sendWebPushToUser(userId, payload = {}) {
   let sent = 0;
   let failed = 0;
   for (const sub of subs) {
-    // iOS/Android: un push "dismiss" diventa una notifica vuota (Apple obbliga
-    // uno show, Chrome mostra "updated in the background"). Solo desktop.
-    // iOS: un push "dismiss" senza show diventa toast di sistema / vuota.
-    // Android: close() nel SW basta. Desktop: close() ok.
-    if (isDismiss && isApplePushSubscription(sub)) continue;
+    // Dismiss senza showNotification → Chrome desktop: "Il sito è aggiornato in background".
+    // Apple: obbliga uno show (toast vuoto). Desktop: close locale via postMessage/BC basta.
+    // Android: serve il push dismiss per chiudere il tray su altri device.
+    if (isDismiss && (isApplePushSubscription(sub) || isDesktopPushSubscription(sub))) continue;
     const endpoint = normalizeEndpoint(sub.pushEndpoint);
     const p256dh = normalizeKey(sub.pushP256dh);
     const auth = normalizeKey(sub.pushAuth, 256);

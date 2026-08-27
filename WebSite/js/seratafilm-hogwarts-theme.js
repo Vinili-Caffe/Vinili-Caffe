@@ -13,23 +13,27 @@
     }
   }
 
-  function hogwartsWindowCfg() {
+  function isHogwartsEventActive() {
+    try {
+      if (
+        window.__vcSeratafilmEventUtils &&
+        typeof window.__vcSeratafilmEventUtils.isHogwartsEventWindowActive === "function"
+      ) {
+        return window.__vcSeratafilmEventUtils.isHogwartsEventWindowActive();
+      }
+    } catch (eU) {}
     try {
       var bgm = window.__VC_SERATAFILM_BGM || {};
-      return bgm.hogwartsEventWindow || null;
+      var w = bgm.hogwartsEventWindow;
+      if (!w || w.enabled === false) return false;
+      var now = Date.now();
+      var start = Number(w.startMs);
+      var end = Number(w.endMs);
+      if (!Number.isFinite(start) || !Number.isFinite(end)) return false;
+      return now >= start && now < end;
     } catch (e2) {
-      return null;
+      return false;
     }
-  }
-
-  function isHogwartsEventActive() {
-    var w = hogwartsWindowCfg();
-    if (!w || w.enabled === false) return false;
-    var now = Date.now();
-    var start = Number(w.startMs);
-    var end = Number(w.endMs);
-    if (!Number.isFinite(start) || !Number.isFinite(end)) return false;
-    return now >= start && now < end;
   }
 
   function parseYoutubeVideoId(input) {
@@ -62,16 +66,10 @@
   }
 
   function youtubeApiScriptSrc() {
-    try {
-      var scripts = document.getElementsByTagName("script");
-      for (var i = 0; i < scripts.length; i += 1) {
-        var src = String(scripts[i].src || "");
-        if (/seratafilm-hogwarts-theme\.js/.test(src)) {
-          return src.replace(/seratafilm-hogwarts-theme\.js.*$/, "vc-youtube-iframe-api.js");
-        }
-      }
-    } catch (eS) {}
-    return "../js/vc-youtube-iframe-api.js";
+    var v = String(window.__vcSeratafilmAssetVersion || "").trim();
+    var base = "/js/vc-youtube-iframe-api.js";
+    if (v) base += "?v=" + encodeURIComponent(v);
+    return base;
   }
 
   function loadYoutubeIframeApi() {

@@ -10,11 +10,15 @@ const {
 } = require("../../Services/Moderation/mutedMirrorRoleService");
 const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
 const { applyPronounGenderToEmbedForMember } = require("./pronounGenderUtils");
+const { collectGuildedRoleIds } = require("./rejoinConditionalRoleEligibility");
+const { fetchNumericProfileLevel } = require("./personalityColorUnlocks");
 const MAIN_GUILD_ID = String(IDs.guilds?.main || "");
 const SUPPORTERS_CHANNEL_ID = IDs.channels?.supporters;
 const PIC_PERMS_ROLE_ID = IDs.roles.PicPerms;
+const PIC_PERMS_LEVEL_MIN = 10;
 const PIC_PERMS_BUNDLE_ROLE_IDS = [ IDs.roles.Follower, IDs.roles.SocialSupporter, IDs.roles.Fan, IDs.roles.Guilded ].filter(Boolean);
 const PIC_PERMS_AUTO_TRIGGER_ROLE_IDS = [ IDs.roles.Guilded, IDs.roles.SocialSupporter, IDs.roles.Fan, IDs.roles.Follower, IDs.roles.VerifiedNeo, IDs.roles.Verificata, IDs.roles.Verificato ].filter(Boolean);
+const PIC_PERMS_EXTRA_ELIGIBILITY_ROLE_IDS = [IDs.roles.Promoter].filter(Boolean);
 const AUDIT_FETCH_LIMIT = 40;
 const AUDIT_LOOKBACK_MS = 180 * 1000;
 const MEMBER_ROLE_AUDIT_TYPE = AuditLogEvent.MemberRoleUpdate ?? 25;
@@ -206,6 +210,36 @@ function hasManageRolesPermission(member) {
   return Boolean(me?.permissions?.has(PermissionsBitField.Flags.ManageRoles));
 }
 
+function collectPicPermsEligibilityRoleIds(client) {
+  const ids = new Set([
+    ...PIC_PERMS_AUTO_TRIGGER_ROLE_IDS,
+    ...PIC_PERMS_EXTRA_ELIGIBILITY_ROLE_IDS,
+  ]);
+  for (const rid of collectGuildedRoleIds(client)) ids.add(rid);
+  return ids;
+}
+
+async function memberEligibleForPicPerms(member) {
+  if (!member?.roles?.cache) return false;
+  if (memberIsInMuteMirrorState(member)) return true;
+  const roleIds = collectPicPermsEligibilityRoleIds(member.client);
+  if ([...roleIds].some((rid) => rid && member.roles.cache.has(rid))) return true;
+  const level = Number(await fetchNumericProfileLevel(member.guild.id, member.id).catch(() => 0)) || 0;
+  return level >= PIC_PERMS_LEVEL_MIN;
+}
+
+async function tryRevokePicPermsIfIneligible(member) {
+  if (!member?.guild || !PIC_PERMS_ROLE_ID) return false;
+  if (!member.roles.cache.has(PIC_PERMS_ROLE_ID)) return false;
+  if (memberIsInMuteMirrorState(member)) return false;
+  if (await memberEligibleForPicPerms(member)) return false;
+  const me = member.guild.members.me;
+  if (!me || !hasManageRolesPermission(member)) return false;
+  const role = member.guild.roles.cache.get(PIC_PERMS_ROLE_ID);
+  if (!role || role.position >= me.roles.highest.position) return false;
+  return Boolean(await member.roles.remove(PIC_PERMS_ROLE_ID).then(() => true).catch(() => false));
+}
+
 async function tryGrantPicPermsRoleIfMissing(member) {
   if (!member?.guild || !PIC_PERMS_ROLE_ID) return;
   const me = member.guild.members.me;
@@ -356,6 +390,7 @@ async function recoverManualSocialRoleAnnouncesOnStartup(client, opts = {}) {
     if (!memberIsInMuteMirrorState(member)) {
       await tryGrantPicPermsIfBundleComplete(member);
       await tryGrantPicPermsIfAnyAutoTrigger(member);
+      await tryRevokePicPermsIfIneligible(member);
     }
   }
   return { ok: true, recovered };
@@ -416,10 +451,13 @@ async function maybeAnnounceManualSocialRolesAndGrantPicPermsBundle(oldMember, n
   if (!memberIsInMuteMirrorState(newMember)) {
     await tryGrantPicPermsIfBundleComplete(newMember);
     await tryGrantPicPermsIfAnyAutoTrigger(newMember);
+    await tryRevokePicPermsIfIneligible(newMember);
   }
 }
 
 module.exports = {
   maybeAnnounceManualSocialRolesAndGrantPicPermsBundle,
   recoverManualSocialRoleAnnouncesOnStartup,
+  memberEligibleForPicPerms,
+  tryRevokePicPermsIfIneligible,
 };

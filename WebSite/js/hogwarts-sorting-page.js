@@ -429,8 +429,15 @@
     }
   }
 
+  function stripPrivateBootstrapFields(bootstrap) {
+    if (!bootstrap || typeof bootstrap !== "object") return bootstrap;
+    if (bootstrap.scoringQuestions) delete bootstrap.scoringQuestions;
+    return bootstrap;
+  }
+
   async function loadBootstrap() {
     var staticBootstrap = typeof window !== "undefined" && window.__VC_HOGWARTS_STATIC_BOOTSTRAP;
+    if (staticBootstrap) staticBootstrap = stripPrivateBootstrapFields(staticBootstrap);
     var out = null;
     try {
       out = await fetchJson(apiBase() + "/bootstrap", { method: "GET" });
@@ -890,13 +897,15 @@
   }
 
   function showLocalFallbackResult(detail) {
-    var local = computeLocalSortingResult();
-    if (!local || !local.houseMeta) return false;
-    var msg = "Il Cappello Parlante ti assegna " + (local.houseMeta.label || local.house) + "!";
-    msg += " Il server Discord non ha risposto in tempo: se il ruolo o i Galeoni non arrivano, riprova più tardi.";
+    var msg =
+      "Il Cappello Parlante sta deliberando… Il server Discord non ha risposto in tempo: se il ruolo o i Galeoni non arrivano, riprova tra poco.";
     if (detail) msg += " Dettaglio: " + String(detail).slice(0, 120);
-    showResult(local.houseMeta, msg, true);
-    return true;
+    var waitEl = byId("vc-hw-sorting-wait");
+    if (waitEl) {
+      waitEl.textContent = msg;
+      setHidden(waitEl, false);
+    }
+    return false;
   }
 
   async function submitSorting() {

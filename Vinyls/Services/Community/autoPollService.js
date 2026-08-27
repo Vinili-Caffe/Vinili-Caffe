@@ -1,4 +1,4 @@
-﻿const cron = require("node-cron");
+const cron = require("node-cron");
 const axios = require("axios");
 const Poll = require("../../Schemas/Poll/pollSchema");
 const IDs = require("../../Utils/Config/ids");
@@ -435,11 +435,14 @@ function validateGeneratedPollPayload(payload, cfg = {}, forcedTargetOptions = n
   const rawAnswers = Array.isArray(payload?.answers) ? payload.answers : [];
   const answers = [];
   const seen = new Set();
+  const fillerAnswerRe =
+    /^(altro|dipende|non so|boh|idk|n\/a|nessuna|nessuno|tutte|entrambe|nessuna delle (?:precedenti|seguenti)|tutte le (?:precedenti|seguenti)|non mi interessa|preferisco non rispondere)$/i;
 
   for (const entry of rawAnswers) {
     const answer = normalizeText(entry);
     const key = answer.toLowerCase();
     if (!answer || seen.has(key)) continue;
+    if (fillerAnswerRe.test(answer)) continue;
     seen.add(key);
     answers.push(answer);
   }
@@ -447,8 +450,15 @@ function validateGeneratedPollPayload(payload, cfg = {}, forcedTargetOptions = n
   if (!question || question.length < 10 || question.length > 140) return null;
   if (!/\?$/.test(question)) return null;
   if (/qual e la tua opinione su/i.test(question)) return null;
+  if (/:\s*[^?]+\?$/.test(question)) return null;
   if (answers.length < resolveMinOptions(cfg)) return null;
   if (answers.some((answer) => answer.length < 1 || answer.length > 70)) return null;
+
+  const qLower = question.toLowerCase();
+  for (const answer of answers) {
+    const aLower = answer.toLowerCase();
+    if (aLower.length >= 5 && qLower.includes(aLower)) return null;
+  }
 
   return applyOptionCount({ question, answers }, cfg, forcedTargetOptions);
 }
@@ -470,8 +480,8 @@ async function fetchPollFromOpenRouter(cfg = {}, forcedTargetOptions = null) {
   for (const model of models) {
     if (isOpenRouterCoolingDown()) break;
     const payload = {
-      model, messages: [{ role: "system", content: "Genera sondaggi su attualità per utenti italiani. Regole: (1) Italiano naturale, domande brevi e che invoglino a votare. (2) Evita domande generiche tipo 'Quanto sei preoccupato per X' o 'Qual è la tua opinione su Y'. (3) Preferisci domande su scelte concrete, preferenze chiare, fatti recenti o trend. (4) Temi: cronaca, società, politica, ambiente, lavoro, tech, economia, salute, diritti, Europa, media. (5) Risposte corte, coerenti tra loro, senza 'dipende'/'altro'/'non so' se non necessari. (6) Niente riferimenti a Discord o community. (7) Output solo JSON: {\"question\":\"...\",\"answers\":[\"...\"]}.", }, {
-        role: "user", content: `Genera un poll con ${optionCount} risposte. Domanda su attualità: concreta, non generica. Esempi di stile: 'Se votassi domani per X, sceglieresti?', 'Dove andresti a vivere?', 'Quale notizia ti ha colpito di più?'. Opzioni concrete e realistiche. Solo JSON.`,
+      model, messages: [{ role: "system", content: "Genera sondaggi su attualità per utenti italiani. Regole: (1) Italiano naturale, domande brevi che invoglino a votare. (2) Evita generiche tipo 'Quanto sei preoccupato per X' o 'Qual è la tua opinione su Y'. (3) Preferisci scelte concrete, preferenze chiare, fatti recenti o trend. (4) Temi: cronaca, società, politica, ambiente, lavoro, tech, economia, salute, diritti, Europa, media. (5) Ogni risposta deve essere un'opzione concreta e distinta: MAI 'Altro', 'Dipende', 'Non so', 'Boh'. (6) La domanda NON deve ripetere o anticipare una risposta (vietato 'Cosa preferisci: uscire con amici?'). (7) Niente riferimenti a Discord o community. (8) Output solo JSON: {\"question\":\"...\",\"answers\":[\"...\"]}.", }, {
+        role: "user", content: `Genera un poll con ${optionCount} risposte. Domanda neutra che non contiene già una delle opzioni. Esempi OK: 'In inverno preferisci uscire o restare in casa?', 'Quale fonte di notizie usi di più?'. Opzioni tutte diverse e specifiche. Solo JSON.`,
       },
       ],
       max_tokens: 220,

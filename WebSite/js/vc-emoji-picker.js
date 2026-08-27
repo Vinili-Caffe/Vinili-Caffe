@@ -461,11 +461,17 @@
         if (!pending) return;
         positionNear(pending.anchor);
       });
-      var search = root.querySelector("#vc-ep-search");
-      if (search && typeof search.focus === "function") {
+      // Non autofocusare "Cerca…": rubava il focus al box testo (Response / chat).
+      // L'utente clicca Cerca solo quando vuole filtrare.
+      var restore = opts.focusTarget || null;
+      if (restore && typeof restore.focus === "function") {
         try {
-          search.focus();
-        } catch (e) {}
+          restore.focus({ preventScroll: true });
+        } catch (eFocus) {
+          try {
+            restore.focus();
+          } catch (eFocus2) {}
+        }
       }
     });
   }

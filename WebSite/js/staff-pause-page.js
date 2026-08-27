@@ -27,6 +27,7 @@
     pauseWs: null,
     pauseWsReconnectTimer: null,
     pauseWsRefreshTimer: null,
+    pendingChatKey: "",
   };
 
   function isLocalOrigin() {
@@ -181,8 +182,16 @@
       ws.onmessage = function (ev) {
         try {
           var data = JSON.parse(String(ev.data || ""));
-          if (data && (data.type === "staff_pauses_changed" || data.type === "realtime_hello")) {
-            if (data.type === "staff_pauses_changed") scheduleRefreshFromRealtime();
+          if (!data) return;
+          if (data.type === "staff_pauses_changed") {
+            scheduleRefreshFromRealtime();
+            return;
+          }
+          if (
+            data.type === "staff_workflow_changed" &&
+            String(data.queue || "").toLowerCase() === "pause"
+          ) {
+            scheduleRefreshFromRealtime();
           }
         } catch (e4) {}
       };
@@ -236,7 +245,7 @@
     return new Date(Date.UTC(y, m, 0)).getUTCDate();
   }
 
-  /** Monday=0 … Sunday=6 for first of month (UTC calendar day). */
+  /** Monday=0 \u2026 Sunday=6 for first of month (UTC calendar day). */
   function mondayIndexFirst(y, m) {
     var dow = new Date(Date.UTC(y, m - 1, 1)).getUTCDay();
     return (dow + 6) % 7;
@@ -278,8 +287,24 @@
 
   function setStatus(text, isError) {
     var el = byId("vc-staff-pause-status");
+    if (el) {
+      el.textContent = "";
+      el.hidden = true;
+      el.classList.remove("vc-staff-pause-status--error");
+    }
+    var msg = String(text || "").trim();
+    if (window.VcSiteToast) {
+      if (!msg) window.VcSiteToast.hide();
+      else window.VcSiteToast.show(msg, Boolean(isError));
+      return;
+    }
+    if (window.VCStaffTools && window.VCStaffTools.showStaffToast) {
+      window.VCStaffTools.showStaffToast(msg, Boolean(isError));
+      return;
+    }
     if (!el) return;
-    el.textContent = String(text || "");
+    el.textContent = msg;
+    el.hidden = !msg;
     el.classList.toggle("vc-staff-pause-status--error", Boolean(isError));
   }
 
@@ -380,12 +405,12 @@
         avatar +
         '<div class="vc-staff-day-detail__meta">' +
         '<p class="vc-staff-day-detail__name">' +
-        esc(e.displayName || e.userId) +
+        esc((window.VCStaffTools && VCStaffTools.userLabel ? VCStaffTools.userLabel(e.displayName, e.userId) : e.displayName) || "Utente") +
         "</p>" +
         '<p class="vc-staff-day-detail__range">' +
         "Periodo: " +
         esc(e.start) +
-        " → " +
+        " \u2192 " +
         esc(e.end) +
         "</p>" +
         '<p class="vc-staff-day-detail__phase">' +
@@ -393,7 +418,7 @@
         "</p>" +
         '<p class="vc-staff-day-detail__phase">' +
         esc(phaseLabelCurrent(e.phase)) +
-        (e.ruolo ? " · " + esc(e.ruolo) : "") +
+        (e.ruolo ? " \u00B7 " + esc(e.ruolo) : "") +
         "</p>" +
         "</div></article>";
     }
@@ -425,12 +450,12 @@
         "</p>" +
         '<p class="vc-staff-pause-list__range">' +
         esc(p.start) +
-        " → " +
+        " \u2192 " +
         esc(p.end) +
         "</p>" +
         '<p class="vc-staff-pause-list__phase">' +
         esc(phaseLabelCurrent(p.phase)) +
-        (p.ruolo ? " · " + esc(p.ruolo) : "") +
+        (p.ruolo ? " \u00B7 " + esc(p.ruolo) : "") +
         "</p>" +
         (p.motivazione
           ? '<p class="vc-staff-pause-list__reason">' + esc(p.motivazione) + "</p>"
@@ -556,26 +581,9 @@
     var token = getToken();
     if (!token) return Promise.resolve(null);
     monthFetchKey = key;
-    monthFetchPromise = fetch(pauseApiUrl(year, month), {
-      method: "GET",
-      headers: { Authorization: "Bearer " + token },
-      mode: "cors",
-      credentials: "omit",
-      cache: "no-store",
-    })
-      .then(function (res) {
-        return res
-          .json()
-          .catch(function () {
-            return {};
-          })
-          .then(function (data) {
-            return { res: res, data: data };
-          });
-      })
-      .catch(function () {
-        return null;
-      });
+    monthFetchPromise = pauseChatFetchJson(pauseApiUrl(year, month), { timeoutMs: 30000 }).catch(function () {
+      return null;
+    });
     return monthFetchPromise;
   }
 
@@ -632,6 +640,156 @@
     });
   }
 
+  function escHtml(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  function chatApiBase() {
+    var T = window.VCStaffTools;
+    if (T && typeof T.resolveApiUrl === "function") {
+      return T.resolveApiUrl(window.__VC_STAFF_WORKFLOW_CHAT, "/webhooks/site-staff-workflow-chat");
+    }
+    return "/webhooks/site-staff-workflow-chat";
+  }
+
+  function formatDiscordHtml(text, opts) {
+    var keepNewlines = Boolean(opts && opts.keepNewlines);
+    var tokens = [];
+    var withPlaceholders = String(text || "").replace(/<(a?):([\w~-]+):(\d+)>/g, function (_m, animated, name, id) {
+      var i = tokens.length;
+      var src =
+        "https://cdn.discordapp.com/emojis/" +
+        escHtml(id) +
+        ".webp?size=64" +
+        (animated === "a" ? "&animated=true" : "&quality=lossless");
+      tokens.push(
+        '<img class="vc-emoji vc-discord-emoji" src="' +
+          src +
+          '" alt=":' +
+          escHtml(name) +
+          ':" title=":' +
+          escHtml(name) +
+          ':" width="20" height="20" loading="lazy" decoding="async" />',
+      );
+      return "{{E" + i + "}}";
+    });
+    var html = escHtml(withPlaceholders);
+    if (keepNewlines) html = html.replace(/\n/g, "<br>");
+    tokens.forEach(function (img, i) {
+      html = html.split("{{E" + i + "}}").join(img);
+    });
+    return html;
+  }
+
+  function avatarHtml(url, userId) {
+    var T = window.VCStaffTools;
+    if (T && typeof T.avatarImgHtml === "function") {
+      return T.avatarImgHtml(url, userId, { size: 28 });
+    }
+    var src = String(url || "").trim();
+    if (!src) src = "https://cdn.discordapp.com/embed/avatars/0.png";
+    return '<img src="' + escHtml(src) + '" alt="" width="28" height="28" loading="lazy" decoding="async" />';
+  }
+
+  function pauseChatFetchJson(url, opts) {
+    var T = window.VCStaffTools;
+    if (T && typeof T.fetchJson === "function") return T.fetchJson(url, opts);
+    opts = opts || {};
+    var token = getToken();
+    var headers = Object.assign({ Accept: "application/json" }, opts.headers || {});
+    if (token) headers.Authorization = "Bearer " + token;
+    return fetch(url, {
+      method: opts.method || "GET",
+      headers: headers,
+      body: opts.body,
+      mode: "cors",
+      credentials: "omit",
+      cache: "no-store",
+    }).then(function (res) {
+      return res
+        .json()
+        .catch(function () {
+          return {};
+        })
+        .then(function (data) {
+          return { res: res, data: data };
+        });
+    });
+  }
+
+  function initPauseWorkflowChat() {
+    if (!window.VcWorkflowChat) return;
+    var T = window.VCStaffTools || {};
+    window.VcWorkflowChat.init({
+      apiBase: chatApiBase,
+      getProfileId: function () {
+        return String((window.__VC_DISCORD_PROFILE && window.__VC_DISCORD_PROFILE.id) || "");
+      },
+      getToken: getToken,
+      dedupeKeyForItem: function (item) {
+        return String((item && item.dedupeKey) || "").trim();
+      },
+      formatMessageHtml: formatDiscordHtml,
+      esc: T.esc || escHtml,
+      avatarHtml: avatarHtml,
+      fetchJson: pauseChatFetchJson,
+      byId: byId,
+      sendBtnClass: "vc-staff-request__submit",
+      userKindLabel: "Tu",
+      panelTitle: "Discussione",
+      panelHint: "Chat privata sulla richiesta · si chiude alla decisione",
+      closedMessage: "Chat in sola lettura: la richiesta non è più in attesa.",
+    });
+  }
+
+  function teardownPendingChat() {
+    if (window.VcWorkflowChat) window.VcWorkflowChat.teardown();
+    state.pendingChatKey = "";
+    var mount = byId("vc-staff-pause-chat-mount");
+    if (mount) mount.innerHTML = "";
+    var root = byId("vc-staff-pause-chat");
+    if (root) root.setAttribute("hidden", "");
+  }
+
+  function syncPendingChatPanel(pending) {
+    var root = byId("vc-staff-pause-chat");
+    var mount = byId("vc-staff-pause-chat-mount");
+    var meta = byId("vc-staff-pause-chat-meta");
+    if (!root || !mount) return;
+
+    var req = pending && typeof pending === "object" ? pending : null;
+    var key = req ? String(req.dedupeKey || "").trim() : "";
+    if (!key) {
+      teardownPendingChat();
+      return;
+    }
+
+    var bits = [];
+    if (req.start || req.end) bits.push((req.start || "?") + " \u2192 " + (req.end || "?"));
+    if (req.ruoloRichiesto) bits.push(String(req.ruoloRichiesto));
+    if (req.statusLabel) bits.push(String(req.statusLabel));
+    if (meta) meta.textContent = bits.join(" \u00b7 ");
+
+    root.removeAttribute("hidden");
+    initPauseWorkflowChat();
+    if (!window.VcWorkflowChat) return;
+
+    var item = {
+      dedupeKey: key,
+      status: String(req.status || "pending"),
+      pauseId: String(req.pauseId || ""),
+    };
+    if (state.pendingChatKey !== key || !byId("vc-wfc-root")) {
+      mount.innerHTML = window.VcWorkflowChat.renderPanel(item, "pause");
+      state.pendingChatKey = key;
+    }
+    window.VcWorkflowChat.boot(item, "pause");
+  }
+
   function applyRequestMeta(me) {
     state.me = me && typeof me === "object" ? me : null;
     var root = byId("vc-staff-request");
@@ -639,6 +797,7 @@
     if (!state.me || !state.me.canRequest) {
       root.setAttribute("hidden", "");
       setRequestOpen(false);
+      syncPendingChatPanel(null);
       return;
     }
     root.removeAttribute("hidden");
@@ -654,6 +813,7 @@
       if (start && start.value && (!end.value || end.value < start.value)) end.value = start.value;
     }
     renderRolePills(state.me.roleChoices || []);
+    syncPendingChatPanel(state.me.pendingRequest || null);
   }
 
   function submitPauseRequest(ev) {
@@ -693,19 +853,19 @@
     }
     var needsPick = Boolean(state.me && state.me.needsRolePick);
     if (needsPick && !state.selectedRole) {
-      setRequestFeedback("Scegli il ruolo della pausa.", "error");
+      setRequestFeedback("Indica quale attività mettere in pausa.", "error");
       unlock();
       return;
     }
 
     var token = getToken();
     if (!token) {
-      setRequestFeedback("Sessione Discord assente. Rieffettua il login.", "error");
+      setRequestFeedback("Accedi per continuare.", "error");
       unlock();
       return;
     }
 
-    setRequestFeedback("Invio in corso…", "");
+    setRequestFeedback("Invio in corso\u2026", "");
 
     var body = {
       start: startVal,
@@ -747,12 +907,36 @@
           return;
         }
         setRequestFeedback(
-          out.data.message || "Richiesta inviata agli High Staff su Discord.",
+          out.data.message || "Richiesta inviata. Chat aperta qui sotto.",
           "ok",
         );
         if (reasonEl) reasonEl.value = "";
         var count = byId("vc-staff-request-reason-count");
         if (count) count.textContent = "0";
+        var dedupeKey = String(out.data.dedupeKey || "").trim();
+        var pauseId = String(out.data.pauseId || "").trim();
+        if (dedupeKey) {
+          if (!state.me) state.me = {};
+          state.me.pendingRequest = {
+            dedupeKey: dedupeKey,
+            pauseId: pauseId,
+            status: "pending",
+            statusLabel: "In attesa",
+            start: startVal,
+            end: endVal,
+            ruoloRichiesto: state.selectedRole || "",
+            preview: reason,
+          };
+          setRequestOpen(false);
+          syncPendingChatPanel(state.me.pendingRequest);
+          var chatEl = byId("vc-staff-pause-chat");
+          if (chatEl && typeof chatEl.scrollIntoView === "function") {
+            try {
+              chatEl.scrollIntoView({ behavior: "smooth", block: "start" });
+            } catch (eScroll) {}
+          }
+        }
+        refreshMonthQuiet();
       })
       .catch(function () {
         setRequestFeedback("Errore di rete. Riprova.", "error");
@@ -793,17 +977,16 @@
     state.year = year;
     state.month = month;
     renderMonthLabel();
-    // Griglia subito (senza dati), poi popola — niente schermo vuoto.
+    // Griglia subito (senza dati), poi popola \u2014 niente schermo vuoto.
     if (!state.payload) {
       state.payload = { days: {}, pauses: [], today: "" };
       renderCalendar();
       renderSidebar();
     }
-    setStatus("Caricamento calendario…", false);
 
     var token = getToken();
     if (!token) {
-      setStatus("Sessione Discord assente.", true);
+      setStatus("Accedi per continuare.", true);
       return;
     }
 
@@ -850,6 +1033,11 @@
     wireRequestForm();
     loadMonth(ym.year, ym.month);
     connectPauseWebSocket();
+    window.__vcStaffPageRefresh = function () {
+      var cur = currentRomeYearMonth();
+      return Promise.resolve(loadMonth(cur.year, cur.month));
+    };
+    window.__vcPtrSoftRefresh = window.__vcStaffPageRefresh;
   }
 
   function boot() {
@@ -859,18 +1047,33 @@
       if (getToken()) prefetchMonth(ym.year, ym.month);
     } catch (ePf) {}
 
-    if (document.documentElement.classList.contains("vc-staff-app-revealed")) {
-      initAfterAccess();
-      return;
+    function tryInit() {
+      if (pageInited) return true;
+      if (
+        document.documentElement.classList.contains("vc-staff-app-revealed") ||
+        window.__VC_STAFF_PERMS ||
+        window.__VC_ACCESS_OK ||
+        window.__VC_STAFF_ACCESS_OPTIMISTIC
+      ) {
+        initAfterAccess();
+        return true;
+      }
+      return false;
     }
-    window.addEventListener("vc:staff-access-ok", function once() {
-      window.removeEventListener("vc:staff-access-ok", once);
-      initAfterAccess();
-    });
+
+    if (tryInit()) return;
+    window.addEventListener("vc:staff-access-ok", initAfterAccess, { once: true });
+    window.addEventListener("vc:access-ok", initAfterAccess, { once: true });
+    // Retry: evento access può arrivare prima del listener (cache gate).
+    var tries = 0;
+    var timer = window.setInterval(function () {
+      tries += 1;
+      if (tryInit() || tries > 40) window.clearInterval(timer);
+    }, 250);
   }
 
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", boot);
+    document.addEventListener("DOMContentLoaded", boot, { once: true });
   } else {
     boot();
   }

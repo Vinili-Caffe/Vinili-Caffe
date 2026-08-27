@@ -249,7 +249,7 @@ const HOGWARTS_QUIZ_BANK = [
   { question: "Quale animale è il simbolo di Voldemort?", answers: ["Serpente"] },
   { question: "Chi uccide Remus e Tonks?", answers: ["Mangiamorte", "Bellatrix"] },
   { question: "Quale abilità ha Tonks?", answers: ["Metamorfosi", "Metamorfomaga"] },
-  { question: "Quale parente dei Black è zia di Sirius?", answers: ["Bellatrix","Narcissa"] },
+  { question: "Quale parente dei Black è sorella di Sirius?", answers: ["Bellatrix","Narcissa"] },
   { question: "Completa: «Aspetta che mio padre...»", answers: ["lo venga a sapere"] },
   { question: "«I tuoi genitori erano così orgogliosi» — chi provoca Harry?", answers: ["Malfoy","Draco Malfoy", "Draco"] },
   { question: "Chi regala Harry la Nimbus 2000?", answers: ["McGranitt", "Minerva McGranitt"] },

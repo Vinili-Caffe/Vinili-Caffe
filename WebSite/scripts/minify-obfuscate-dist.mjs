@@ -22,6 +22,7 @@ const SKIP_JS_OBFUSCATION = new Set([
   "dashboard-guild-page.js",
   "site-maintenance.js",
   "roles-page.js",
+  "staff-punti-tolti-page.js",
   // Dictionary + apply must keep literal i18n keys (stringArray breaks lookups).
   "vc-i18n.js",
   "vc-i18n-pages.js",

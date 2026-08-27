@@ -1,5 +1,12 @@
 (function () {
-  var PER_PAGE = 9;
+  var PER_PAGE = (function () {
+    try {
+      if (window.VcPerf && typeof window.VcPerf.leaderboardPerPage === "function") {
+        return window.VcPerf.leaderboardPerPage(9);
+      }
+    } catch (e) {}
+    return 9;
+  })();
 
   function isProfileMode() {
     try {
@@ -299,8 +306,8 @@
   var state = { page: 1, totalPages: 1, loading: false, board: "level", searchUserId: "", filtersOpen: false, renderFingerprint: "" };
   var liveUsersPollTimer = null;
   var LIVE_USERS_POLL_MS = 45000;
-  var USERS_CACHE_TTL_MS = 30000;
-  var USERS_FETCH_TIMEOUT_MS = 25000;
+  var USERS_CACHE_TTL_MS = 45000;
+  var USERS_FETCH_TIMEOUT_MS = 55000;
   var usersMemoryCache = new Map();
   var pendingScrollToCards = false;
 
@@ -352,17 +359,50 @@
 
   function cachedUsersFetch(url, opts) {
     var useCache = Boolean(opts && opts.useCache);
-    if (!useCache) {
-      return fetchWithTimeout(url, { credentials: "omit", cache: "no-store" }, USERS_FETCH_TIMEOUT_MS)
-        .then(function (r) {
-          return r.json().then(function (j) {
-            return { ok: r.ok, status: r.status, body: j };
-          });
-        });
-    }
     var ttl = Math.max(1, Number((opts && opts.ttlMs) || USERS_CACHE_TTL_MS));
     var now = Date.now();
     var key = usersCacheKey(url);
+
+    function networkOnce() {
+      var headers = { Accept: "application/json" };
+      try {
+        if (window.VcPerf && typeof window.VcPerf.apiHeaders === "function") {
+          headers = window.VcPerf.apiHeaders(headers);
+        }
+      } catch (eH) {}
+      return fetchWithTimeout(
+        url,
+        { credentials: "omit", cache: "no-store", headers: headers },
+        USERS_FETCH_TIMEOUT_MS,
+      ).then(function (r) {
+        return r.json().then(function (j) {
+          return { ok: r.ok, status: r.status, body: j };
+        });
+      });
+    }
+
+    function networkWithRetry() {
+      return networkOnce().catch(function (err) {
+        var timedOut =
+          err &&
+          (err.name === "AbortError" ||
+            String(err.message || "")
+              .toLowerCase()
+              .indexOf("abort") >= 0);
+        if (!timedOut) throw err;
+        // Un retry automatico: spesso la 1ª richiesta è lenta (cold cache Discord/Mongo).
+        try {
+          var overlay = document.getElementById("vc-ul-loading");
+          var sub = overlay ? overlay.querySelector(".vc-ul-loading-sub") : null;
+          if (sub) sub.textContent = "Ancora un momento, sto recuperando la classifica…";
+        } catch (eSub) {}
+        return networkOnce();
+      });
+    }
+
+    if (!useCache) {
+      return networkWithRetry();
+    }
     var mem = usersMemoryCache.get(key);
     if (mem && Number.isFinite(mem.expireAt) && mem.expireAt > now) {
       return Promise.resolve(mem.value);
@@ -372,17 +412,11 @@
       usersMemoryCache.set(key, { expireAt: now + ttl, value: sess });
       return Promise.resolve(sess);
     }
-    return fetchWithTimeout(url, { credentials: "omit" }, USERS_FETCH_TIMEOUT_MS)
-      .then(function (r) {
-        return r.json().then(function (j) {
-          return { ok: r.ok, status: r.status, body: j };
-        });
-      })
-      .then(function (payload) {
-        usersMemoryCache.set(key, { expireAt: now + ttl, value: payload });
-        writeUsersSessionCache(key, payload, ttl, now);
-        return payload;
-      });
+    return networkWithRetry().then(function (payload) {
+      usersMemoryCache.set(key, { expireAt: now + ttl, value: payload });
+      writeUsersSessionCache(key, payload, ttl, now);
+      return payload;
+    });
   }
 
   function clearLeaderPending(opts) {
@@ -941,6 +975,13 @@
       encodeURIComponent(String(PER_PAGE)) +
       "&board=" +
       encodeURIComponent(String(state.board || "level"));
+    try {
+      if (window.VcPerf && typeof window.VcPerf.apiQuery === "function") {
+        var pq = window.VcPerf.apiQuery({});
+        if (pq.lite) url += "&lite=1";
+        if (pq.perf) url += "&perf=" + encodeURIComponent(String(pq.perf));
+      }
+    } catch (ePerfQ) {}
     if (state.searchUserId) {
       var sid = encodeURIComponent(state.searchUserId);
       url += "&userId=" + sid;

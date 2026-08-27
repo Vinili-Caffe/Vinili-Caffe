@@ -1,6 +1,10 @@
 const { EmbedBuilder } = require("discord.js");
 const IDs = require("../Utils/Config/ids");
 const { enqueueSiteInAppNotification } = require("../Utils/Web/siteInAppNotificationsService");
+const {
+  isDiscordWorkflowUiEnabled,
+  replyWorkflowMovedToSite,
+} = require("../Utils/Web/discordWorkflowUiGate");
 const ACC_PREFIX = "website_unban_acc";
 const REJ_PREFIX = "website_unban_rej";
 const EPHEMERAL = 1 << 6;
@@ -49,6 +53,9 @@ async function setUnbanMessageStatusColor(message, color) {
 }
 
 async function execute(interaction) {
+  if (!isDiscordWorkflowUiEnabled()) {
+    return replyWorkflowMovedToSite(interaction, "appelliInbox");
+  }
   const { accept, uid } = parseTargetUserId(interaction.customId);
   if (!/^\d{17,20}$/.test(uid)) {
     await interaction.reply({ content: "<a:VC_Cross:1482532424570376253> ID utente non valido.", flags: EPHEMERAL }).catch(() => null);

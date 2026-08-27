@@ -1,0 +1,1228 @@
+const fs = require("fs");
+const path = require("path");
+const crypto = require("crypto");
+const mongoose = require("mongoose");
+const IDs = require("../Config/ids");
+const { assertWebsiteStaffAccess, normalizeHeaderSecret } = require("./siteStaffAccessApi");
+const { resolveWebsiteGuildMember } = require("./siteRoleRequestApi");
+const { memberIsHighStaffEligible, memberCanReviewAppelli } = require("../Staff/staffRoleHierarchy");
+const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Schemas/Community/communitySchemas");
+const {
+  memberHasCandidatureReviewAccess,
+} = require("../../Events/interaction/candidatureApplicationHandlers");
+const {
+  SiteWorkflowChatMessage,
+  purgeWorkflowChatByDedupe,
+} = require("../../Schemas/Web/siteWorkflowChatSchemas");
+const { broadcastSiteRealtime } = require("./siteSuggestionsBroadcast");
+const {
+  guildMemberDisplayAvatarUrlStatic,
+  userAvatarUrlStatic,
+  discordDefaultAvatarUrl,
+  accountUsername,
+} = require("../Discord/guildDiscordIdentity");
+const { buildSiteLinkRow, subjectWorkflowChatPath } = require("./discordWorkflowUiGate");
+const {
+  notifyWorkflowSubjectInvited,
+  notifyWorkflowSubjectRemoved,
+  notifyWorkflowChatNewMessage,
+} = require("./siteStaffWorkflowNotifications");
+
+const WORKFLOW_DOC = SITE_DOCUMENT_TYPE.STAFF_WORKFLOW;
+const QUEUES = new Set(["pause", "candidature", "appelli", "resoconti"]);
+const INVITE_ONLY_QUEUES = new Set(["candidature", "appelli"]);
+const MAX_MESSAGES = 200;
+const MAX_CONTENT = 2000;
+const MAX_IMAGES = 3;
+const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
+const MAX_REACTION_KINDS = 12;
+const MAX_REACTION_USERS = 80;
+const ALLOWED_MEDIA_MIME = new Set(["image/png", "image/jpeg", "image/webp", "image/gif", "video/mp4", "video/webm", "video/quicktime"]);
+const UPLOAD_ROOT = path.resolve(__dirname, "../../Data/uploads/workflow-chat");
+
+function bearerFromRequest(req) {
+  const header = normalizeHeaderSecret(req?.headers?.authorization);
+  if (header) return header;
+  return normalizeHeaderSecret(req?.query?.accessToken || req?.query?.token);
+}
+
+function parseQueueFromDedupe(dedupeKey) {
+  const key = String(dedupeKey || "").trim();
+  const q = key.split(":")[0];
+  return QUEUES.has(q) ? q : "";
+}
+
+function uploadFolderKey(dedupeKey) {
+  return crypto.createHash("sha256").update(String(dedupeKey || "")).digest("hex").slice(0, 32);
+}
+
+async function resolveMainGuild(client) {
+  const guildId = String(IDs.guilds.main || "").trim();
+  if (!guildId) return null;
+  return client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
+}
+
+function memberCanAccessQueue(member, guild, queue) {
+  const q = String(queue || "").trim().toLowerCase();
+  if (q === "pause") return memberIsHighStaffEligible(member);
+  if (q === "appelli") return memberCanReviewAppelli(member);
+  if (q === "candidature") return memberHasCandidatureReviewAccess(member, guild);
+  if (q === "resoconti") {
+    return Boolean(member?.id);
+  }
+  return false;
+}
+
+function avatarForMember(member) {
+  return (
+    guildMemberDisplayAvatarUrlStatic(member, { size: 128 }) ||
+    userAvatarUrlStatic(member?.user, { size: 128 }) ||
+    userAvatarUrlStatic(member, { size: 128 }) ||
+    discordDefaultAvatarUrl(member?.user || member, { size: 128 }) ||
+    ""
+  );
+}
+
+async function resolveAuthorAvatarUrl(client, member) {
+  let url = avatarForMember(member);
+  if (url && !/embed\/avatars\//.test(url)) return url;
+  const uid = String(member?.id || member?.user?.id || "").trim();
+  if (!uid || !/^\d{17,20}$/.test(uid)) return url || "";
+  try {
+    const cached = client?.users?.cache?.get?.(uid) || null;
+    const user = cached || (await client.users.fetch(uid).catch(() => null));
+    if (user) {
+      const fresh =
+        guildMemberDisplayAvatarUrlStatic(member, { size: 128 }) ||
+        userAvatarUrlStatic(user, { size: 128 }) ||
+        "";
+      if (fresh && !/embed\/avatars\//.test(fresh)) return fresh;
+    }
+  } catch (_) {}
+  return avatarForMember(member);
+}
+
+async function loadAuthorAvatarOverrides(client, docs) {
+  const need = new Set();
+  for (const d of docs || []) {
+    const id = String(d?.authorId || "").trim();
+    if (!id || id === "system") continue;
+    const stored = String(d?.authorAvatarUrl || "").trim();
+    if (!stored || /embed\/avatars\//.test(stored)) need.add(id);
+  }
+  if (!need.size) return new Map();
+  const out = new Map();
+  await Promise.all(
+    [...need].map(async (id) => {
+      try {
+        const user = client?.users?.cache?.get?.(id) || (await client.users.fetch(id).catch(() => null));
+        if (!user) return;
+        const url = userAvatarUrlStatic(user, { size: 128 }) || discordDefaultAvatarUrl(user, { size: 128 });
+        if (url) out.set(id, url);
+      } catch (_) {}
+    }),
+  );
+  return out;
+}
+
+function displayNameForMember(member) {
+  return String(
+    member?.displayName || member?.user?.globalName || member?.user?.username || accountUsername(member?.user) || "",
+  ).trim();
+}
+
+function extForMime(mime) {
+  if (mime === "image/png") return "png";
+  if (mime === "image/webp") return "webp";
+  if (mime === "image/gif") return "gif";
+  if (mime === "video/mp4") return "mp4";
+  if (mime === "video/webm") return "webm";
+  if (mime === "video/quicktime") return "mov";
+  return "jpg";
+}
+
+function parseDataUrlMedia(raw) {
+  const s = String(raw || "").trim();
+  const m = /^data:((?:image\/(?:png|jpeg|jpg|webp|gif)|video\/(?:mp4|webm|quicktime)));base64,([a-z0-9+/=\s]+)$/i.exec(s);
+  if (!m) return null;
+  let mime = String(m[1] || "").toLowerCase();
+  if (mime === "image/jpg") mime = "image/jpeg";
+  if (!ALLOWED_MEDIA_MIME.has(mime) && mime !== "image/jpeg") return null;
+  let buf;
+  try {
+    buf = Buffer.from(String(m[2] || "").replace(/\s+/g, ""), "base64");
+  } catch {
+    return null;
+  }
+  if (!buf.length || buf.length > MAX_IMAGE_BYTES) return null;
+  return { mime, buffer: buf };
+}
+
+function ensureUploadDir(dedupeKey) {
+  const dir = path.join(UPLOAD_ROOT, uploadFolderKey(dedupeKey));
+  fs.mkdirSync(dir, { recursive: true });
+  return dir;
+}
+
+function saveWorkflowImages(dedupeKey, imagesInput) {
+  const list = Array.isArray(imagesInput) ? imagesInput : [];
+  const urls = [];
+  const folder = uploadFolderKey(dedupeKey);
+  const dir = ensureUploadDir(dedupeKey);
+  let idx = 0;
+  for (const item of list.slice(0, MAX_IMAGES)) {
+    const parsed = parseDataUrlMedia(item);
+    if (!parsed) continue;
+    idx += 1;
+    const name = `${String(idx).padStart(2, "0")}-${crypto.randomBytes(4).toString("hex")}.${extForMime(parsed.mime)}`;
+    fs.writeFileSync(path.join(dir, name), parsed.buffer);
+    urls.push(
+      `/webhooks/site-staff-workflow-chat/files/${encodeURIComponent(folder)}/${encodeURIComponent(name)}`,
+    );
+  }
+  return urls;
+}
+
+function normalizeReactionUsers(row) {
+  const users = Array.isArray(row?.users) ? row.users : [];
+  const out = [];
+  const seen = new Set();
+  for (const u of users) {
+    const id = String(u?.id || "").trim();
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    out.push({ id, name: String(u?.name || "").trim().slice(0, 80) });
+  }
+  const ids = Array.isArray(row?.userIds) ? row.userIds : [];
+  for (const raw of ids) {
+    const id = String(raw || "").trim();
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    out.push({ id, name: "" });
+  }
+  return out.slice(0, MAX_REACTION_USERS);
+}
+
+function parseReactionInput(raw, body) {
+  const fromBody = body && typeof body === "object" ? body : {};
+  let s = String(raw != null ? raw : fromBody.emoji || fromBody.markup || "").trim().slice(0, 80);
+  if (!s && fromBody.emojiId) {
+    const id = String(fromBody.emojiId || "").trim();
+    const name = String(fromBody.name || "emoji")
+      .trim()
+      .replace(/[^a-zA-Z0-9_]/g, "")
+      .slice(0, 64) || "emoji";
+    const animated = fromBody.animated === true;
+    if (!/^\d{5,32}$/.test(id)) return null;
+    s = `<${animated ? "a" : ""}:${name}:${id}>`;
+  }
+  const custom = /^<(a?):([a-zA-Z0-9_]+):(\d{5,32})>$/.exec(s);
+  if (custom) {
+    return {
+      key: `c:${custom[3]}`,
+      emoji: s,
+      emojiId: custom[3],
+      name: custom[2],
+      animated: custom[1] === "a",
+    };
+  }
+  if (!s || s.length > 16 || /[<>\n\r]/.test(s)) return null;
+  return {
+    key: `u:${s}`,
+    emoji: s,
+    emojiId: null,
+    name: "",
+    animated: false,
+  };
+}
+
+function serializeReactions(rows) {
+  return (Array.isArray(rows) ? rows : []).map((row) => {
+    const users = normalizeReactionUsers(row);
+    return {
+      key: String(row?.key || "").trim(),
+      emoji: String(row?.emoji || "").trim(),
+      emojiId: row?.emojiId ? String(row.emojiId).trim() : null,
+      name: String(row?.name || "").trim(),
+      animated: Boolean(row?.animated),
+      userIds: users.map((u) => u.id),
+      users,
+    };
+  });
+}
+
+function replyPreview(content) {
+  const plain = String(content || "")
+    .replace(/<(a?):[\w~-]+:\d+>/g, ":$2:")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!plain) return "Allegato";
+  return plain.length > 120 ? `${plain.slice(0, 117)}…` : plain;
+}
+
+function serializeMessage(doc, replyMap, avatarOverrides) {
+  const replyToId = doc?.replyToId ? String(doc.replyToId) : null;
+  const replyDoc = replyToId && replyMap ? replyMap.get(replyToId) : null;
+  const authorId = String(doc?.authorId || "");
+  let authorAvatarUrl = String(doc?.authorAvatarUrl || "").trim();
+  if (!authorAvatarUrl && avatarOverrides && avatarOverrides.get(authorId)) {
+    authorAvatarUrl = String(avatarOverrides.get(authorId) || "").trim();
+  }
+  if (!authorAvatarUrl && authorId && authorId !== "system") {
+    authorAvatarUrl = discordDefaultAvatarUrl({ id: authorId }, { size: 128 });
+  }
+  return {
+    id: String(doc?._id || ""),
+    dedupeKey: String(doc?.dedupeKey || ""),
+    queue: String(doc?.queue || ""),
+    subjectUserId: String(doc?.subjectUserId || ""),
+    authorId,
+    authorName: String(doc?.authorName || ""),
+    authorAvatarUrl,
+    authorKind: String(doc?.authorKind || "staff"),
+    content: String(doc?.content || ""),
+    imageUrls: Array.isArray(doc?.imageUrls) ? doc.imageUrls.map(String) : [],
+    replyToId,
+    replyTo: replyDoc
+      ? {
+          id: String(replyDoc._id || ""),
+          authorName: String(replyDoc.authorName || ""),
+          content: replyPreview(replyDoc.content),
+        }
+      : null,
+    reactions: serializeReactions(doc?.reactions),
+    editedAt: doc?.editedAt ? new Date(doc.editedAt).toISOString() : null,
+    createdAt: doc?.createdAt ? new Date(doc.createdAt).toISOString() : null,
+  };
+}
+
+async function loadWorkflowDoc(guildId, dedupeKey) {
+  return SiteDocument.findOne({
+    docType: WORKFLOW_DOC,
+    guildId: String(guildId || ""),
+    dedupeKey: String(dedupeKey || ""),
+  })
+    .select("status workflowQueue userId dedupeKey workflowFields workflowKind workflowType")
+    .lean()
+    .catch(() => null);
+}
+
+function isInviteOnlyQueue(queue) {
+  return INVITE_ONLY_QUEUES.has(String(queue || "").trim().toLowerCase());
+}
+
+function normalizeSubjectChat(raw) {
+  const src = raw && typeof raw === "object" ? raw : {};
+  const windows = [];
+  for (const row of Array.isArray(src.windows) ? src.windows : []) {
+    if (!row || typeof row !== "object") continue;
+    const joinedAt = row.joinedAt ? new Date(row.joinedAt) : null;
+    if (!joinedAt || Number.isNaN(joinedAt.getTime())) continue;
+    const leftRaw = row.leftAt ? new Date(row.leftAt) : null;
+    const leftAt = leftRaw && !Number.isNaN(leftRaw.getTime()) ? leftRaw : null;
+    windows.push({ joinedAt, leftAt });
+  }
+  const dmRaw = src.inviteDmSentAt ? new Date(src.inviteDmSentAt) : null;
+  const dmSkipRaw = src.inviteDmUnavailableAt ? new Date(src.inviteDmUnavailableAt) : null;
+  return {
+    windows,
+    inviteDmSentAt: dmRaw && !Number.isNaN(dmRaw.getTime()) ? dmRaw : null,
+    inviteDmUnavailableAt: dmSkipRaw && !Number.isNaN(dmSkipRaw.getTime()) ? dmSkipRaw : null,
+  };
+}
+
+function subjectChatHasActive(chat) {
+  return (chat?.windows || []).some((w) => !w.leftAt);
+}
+
+function subjectChatEverInvited(chat) {
+  return (chat?.windows || []).length > 0;
+}
+
+function messageVisibleInSubjectWindows(msg, windows) {
+  const t = new Date(msg?.createdAt).getTime();
+  if (!Number.isFinite(t)) return false;
+  return (windows || []).some((w) => {
+    const from = new Date(w.joinedAt).getTime();
+    if (!Number.isFinite(from) || t < from) return false;
+    if (!w.leftAt) return true;
+    const to = new Date(w.leftAt).getTime();
+    return Number.isFinite(to) && t <= to;
+  });
+}
+
+function serializeSubjectChatMeta(chat, { inviteOnly, status, isStaffReviewer }) {
+  const active = subjectChatHasActive(chat);
+  const invited = subjectChatEverInvited(chat);
+  const pending = String(status || "").toLowerCase() === "pending";
+  return {
+    inviteOnly: Boolean(inviteOnly),
+    invited,
+    active,
+    canInvite: Boolean(isStaffReviewer && inviteOnly && pending && !active),
+    canRemove: Boolean(isStaffReviewer && inviteOnly && active),
+    windows: (chat?.windows || []).map((w) => ({
+      joinedAt: w.joinedAt ? new Date(w.joinedAt).toISOString() : null,
+      leftAt: w.leftAt ? new Date(w.leftAt).toISOString() : null,
+    })),
+  };
+}
+
+async function patchSubjectChat(guildId, dedupeKey, mutator) {
+  const doc = await SiteDocument.findOne({
+    docType: WORKFLOW_DOC,
+    guildId: String(guildId || ""),
+    dedupeKey: String(dedupeKey || ""),
+  }).select("workflowFields");
+  if (!doc) return null;
+  const prev =
+    doc.workflowFields && typeof doc.workflowFields === "object"
+      ? typeof doc.workflowFields.toObject === "function"
+        ? doc.workflowFields.toObject()
+        : { ...doc.workflowFields }
+      : {};
+  const chat = normalizeSubjectChat(prev.subjectChat);
+  await mutator(chat, doc);
+  prev.subjectChat = {
+    windows: (chat.windows || []).map((w) => ({
+      joinedAt: w.joinedAt,
+      leftAt: w.leftAt || null,
+    })),
+    inviteDmSentAt: chat.inviteDmSentAt || null,
+    inviteDmUnavailableAt: chat.inviteDmUnavailableAt || null,
+  };
+  doc.workflowFields = prev;
+  doc.markModified("workflowFields");
+  await doc.save();
+  return chat;
+}
+
+function appealLabelFromWorkflow(workflow) {
+  const kind = String(workflow?.workflowKind || workflow?.workflowType || "")
+    .trim()
+    .toLowerCase();
+  if (kind === "unmute") return "richiesta unmute";
+  if (kind === "unban") return "richiesta unban";
+  return "richiesta unban/unmute";
+}
+
+function subjectInviteLabel(queue, workflow) {
+  if (String(queue || "") === "candidature") return "candidatura";
+  return appealLabelFromWorkflow(workflow);
+}
+
+function isDiscordDmUnavailableError(err) {
+  const code = Number(err?.code || err?.rawError?.code || 0);
+  if (code === 50007 || code === 50278) return true;
+  const msg = String(err?.rawError?.message || err?.message || err || "").toLowerCase();
+  return msg.includes("no mutual guild") || msg.includes("cannot send messages to this user");
+}
+
+async function resolveSubjectInviteDmTarget(access, userId) {
+  const guild = access?.guild;
+  if (!guild) return { ok: false, reason: "no_guild" };
+  const member =
+    guild.members?.cache?.get?.(userId) ||
+    (await guild.members.fetch(userId).catch(() => null));
+  if (member && typeof member.send === "function") return { ok: true, target: member };
+  // Fuori server / bannati: Discord blocca i DM (50278 no mutual guilds).
+  const ban = await guild.bans.fetch(userId).catch(() => null);
+  if (ban || !member) return { ok: false, reason: "dm_unavailable" };
+  return { ok: false, reason: "no_user" };
+}
+
+async function sendSubjectInviteDmOnce(client, access, chat) {
+  if (chat.inviteDmSentAt) return { sent: false, reason: "already_sent" };
+  if (chat.inviteDmUnavailableAt) return { sent: false, reason: "dm_unavailable" };
+  const userId = String(access.subjectUserId || "").trim();
+  if (!userId) return { sent: false, reason: "no_user" };
+  const label = subjectInviteLabel(access.queue, access.workflow);
+  const path = subjectWorkflowChatPath(access.queue, access.dedupeKey);
+  const payload = {
+    content: `Hai un messaggio nella tua **${label}** su Vinili & Caffè.\nApri la chat per leggere e rispondere allo staff.`,
+    components: [buildSiteLinkRow("Apri chat", path)],
+  };
+
+  const deliver = await resolveSubjectInviteDmTarget(access, userId);
+  if (!deliver.ok) {
+    if (deliver.reason === "dm_unavailable") chat.inviteDmUnavailableAt = new Date();
+    return { sent: false, reason: deliver.reason || "dm_unavailable" };
+  }
+
+  try {
+    await deliver.target.send(payload);
+    chat.inviteDmSentAt = new Date();
+    return { sent: true };
+  } catch (err) {
+    if (isDiscordDmUnavailableError(err)) {
+      chat.inviteDmUnavailableAt = new Date();
+      return { sent: false, reason: "dm_unavailable" };
+    }
+    const msg = String(err?.rawError?.message || err?.message || err || "");
+    global.logger?.warn?.("[workflow-chat] invite DM failed:", msg);
+    return { sent: false, reason: "dm_failed" };
+  }
+}
+
+async function createSystemChatMessage(access, content) {
+  const doc = await SiteWorkflowChatMessage.create({
+    guildId: access.guild.id,
+    dedupeKey: access.dedupeKey,
+    queue: access.queue,
+    subjectUserId: access.subjectUserId,
+    authorId: "system",
+    authorName: "Sistema",
+    authorAvatarUrl: "",
+    authorKind: "system",
+    content: String(content || "").trim().slice(0, MAX_CONTENT) || " ",
+    imageUrls: [],
+  }).catch(() => null);
+  if (!doc) return null;
+  const message = serializeMessage(doc, new Map());
+  emitChatEvent("workflow_chat_message", {
+    dedupeKey: access.dedupeKey,
+    queue: access.queue,
+    message,
+  });
+  return message;
+}
+
+async function resolveSubjectDisplayName(client, access) {
+  const uid = String(access?.subjectUserId || "").trim();
+  const fields =
+    access?.workflow?.workflowFields && typeof access.workflow.workflowFields === "object"
+      ? access.workflow.workflowFields
+      : {};
+  const fromFields = String(
+    fields.displayName || fields.username || fields.userName || fields.subjectName || "",
+  ).trim();
+  if (fromFields && !/^\d{16,22}$/.test(fromFields)) return fromFields.slice(0, 80);
+
+  if (uid && access?.guild?.members?.cache?.get?.(uid)) {
+    return displayNameForMember(access.guild.members.cache.get(uid)).slice(0, 80);
+  }
+  if (uid && access?.guild?.members?.fetch) {
+    const m = await withTimeout(access.guild.members.fetch(uid).catch(() => null), 2500, "member_timeout").catch(
+      () => null,
+    );
+    if (m) return displayNameForMember(m).slice(0, 80);
+  }
+  if (uid && client?.users?.fetch) {
+    const u = await withTimeout(client.users.fetch(uid).catch(() => null), 2500, "user_timeout").catch(() => null);
+    const name = String(u?.globalName || u?.username || "").trim();
+    if (name) return name.slice(0, 80);
+  }
+  return uid ? `Utente ${uid}` : "Richiedente";
+}
+
+async function ensurePauseWorkflowFromKey(client, guildId, dedupeKey) {
+  try {
+    const { ensurePauseWorkflowDoc } = require("./siteStaffWorkflowStore");
+    return await ensurePauseWorkflowDoc(client, guildId, dedupeKey);
+  } catch {
+    return null;
+  }
+}
+
+function emitChatEvent(type, payload) {
+  try {
+    broadcastSiteRealtime({
+      type,
+      at: new Date().toISOString(),
+      ...payload,
+    });
+  } catch (_) {}
+}
+
+async function withTimeout(promise, ms, label = "timeout") {
+  let timer = null;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error(label)), Math.max(500, Number(ms) || 5000));
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+async function resolveOAuthIdentity(accessToken) {
+  const token = normalizeHeaderSecret(accessToken);
+  if (!token) {
+    return { ok: false, status: 401, error: "missing_token", message: "Token mancante." };
+  }
+  try {
+    const meRes = await withTimeout(
+      fetch("https://discord.com/api/v10/users/@me", {
+        headers: { Authorization: `Bearer ${token}` },
+      }),
+      8000,
+      "oauth_timeout",
+    );
+    if (!meRes.ok) {
+      return {
+        ok: false,
+        status: 401,
+        error: "invalid_token",
+        message: "Sessione Discord non valida o scaduta: effettua di nuovo il login.",
+      };
+    }
+    const meJson = await meRes.json();
+    const userId = String(meJson?.id || "").trim();
+    if (!/^\d{17,20}$/.test(userId)) {
+      return { ok: false, status: 401, error: "invalid_user", message: "Profilo Discord non valido." };
+    }
+    return { ok: true, userId, meJson };
+  } catch (err) {
+    const timedOut = /timeout/i.test(String(err?.message || err || ""));
+    return {
+      ok: false,
+      status: timedOut ? 504 : 502,
+      error: timedOut ? "oauth_timeout" : "discord_unreachable",
+      message: timedOut
+        ? "Verifica sessione Discord troppo lenta. Riprova."
+        : "Impossibile contattare Discord.",
+    };
+  }
+}
+
+function syntheticMemberFromOauth(oauth) {
+  const userId = String(oauth?.userId || "").trim();
+  const me = oauth?.meJson || {};
+  const username = String(me.username || me.global_name || "Utente").trim() || "Utente";
+  const globalName = String(me.global_name || "").trim();
+  const avatar = me.avatar
+    ? `https://cdn.discordapp.com/avatars/${userId}/${me.avatar}.png?size=128`
+    : "";
+  return {
+    id: userId,
+    displayName: globalName || username,
+    user: {
+      id: userId,
+      username,
+      globalName: globalName || null,
+      avatar: me.avatar || null,
+      displayAvatarURL: () => avatar,
+    },
+  };
+}
+
+async function resolveSubjectChatMember(client, guild, accessToken, { inviteOnly }) {
+  // Per candidature/appelli il richiedente può essere fuori server (es. unban).
+  // Non dipendere da guild.members.fetch (può appendere / fallire).
+  if (inviteOnly) {
+    const oauth = await resolveOAuthIdentity(accessToken);
+    if (!oauth.ok) return oauth;
+    let member = guild?.members?.cache?.get?.(oauth.userId) || null;
+    if (!member) {
+      member = await withTimeout(guild.members.fetch(oauth.userId).catch(() => null), 3500, "member_timeout").catch(
+        () => null,
+      );
+    }
+    return {
+      ok: true,
+      userId: oauth.userId,
+      member: member || syntheticMemberFromOauth(oauth),
+    };
+  }
+
+  const userRes = await resolveWebsiteGuildMember(client, accessToken);
+  if (!userRes.ok) {
+    return {
+      ok: false,
+      status: userRes.status || 403,
+      error: userRes.error || "forbidden",
+      message: userRes.message || "Non autorizzato.",
+    };
+  }
+  return { ok: true, userId: userRes.userId, member: userRes.member };
+}
+
+async function resolveWorkflowChatAccess(client, accessToken, dedupeKey) {
+  const token = normalizeHeaderSecret(accessToken);
+  if (!token) {
+    return {
+      ok: false,
+      status: 401,
+      error: "missing_token",
+      message: "Header Authorization: Bearer <token> richiesto.",
+    };
+  }
+
+  const guild = await resolveMainGuild(client);
+  if (!guild) {
+    return { ok: false, status: 503, error: "guild_unavailable", message: "Server non disponibile." };
+  }
+
+  const key = String(dedupeKey || "").trim();
+  if (!key) {
+    return { ok: false, status: 400, error: "bad_key", message: "dedupeKey mancante." };
+  }
+
+  const queue = parseQueueFromDedupe(key);
+  if (!queue) {
+    return { ok: false, status: 400, error: "bad_key", message: "Pratica non valida." };
+  }
+
+  const workflow =
+    (await loadWorkflowDoc(guild.id, key)) ||
+    (queue === "pause" ? await ensurePauseWorkflowFromKey(client, guild.id, key) : null);
+  if (!workflow) {
+    return { ok: false, status: 404, error: "not_found", message: "Pratica non trovata." };
+  }
+
+  const subjectUserId = String(workflow.userId || "").trim();
+  const status = String(workflow.status || "pending").toLowerCase();
+  const pending = status === "pending";
+  const inviteOnly = isInviteOnlyQueue(queue);
+  const subjectChat = normalizeSubjectChat(workflow?.workflowFields?.subjectChat);
+  const subjectActive = subjectChatHasActive(subjectChat);
+  const subjectEverInvited = subjectChatEverInvited(subjectChat);
+  // Pause: chat aperta col richiedente (come Discord).
+  // Candidature / appelli: solo dopo invito staff (finestre temporali).
+  // Resoconti: solo staff.
+  const subjectMayJoin = queue === "pause" || (inviteOnly && subjectEverInvited);
+
+  const staffAccess = await assertWebsiteStaffAccess(client, token);
+  if (staffAccess.ok && memberCanAccessQueue(staffAccess.member, guild, queue)) {
+    const memberId = String(staffAccess.member?.id || "").trim();
+    const isSubject = Boolean(subjectUserId && memberId && subjectUserId === memberId);
+    if (!(isSubject && !subjectMayJoin)) {
+      return {
+        ok: true,
+        guild,
+        workflow,
+        queue,
+        dedupeKey: key,
+        member: staffAccess.member,
+        isStaffReviewer: true,
+        isSubject,
+        authorKind: isSubject && subjectMayJoin ? "user" : "staff",
+        canSend: pending,
+        status,
+        subjectUserId,
+        inviteOnly,
+        subjectChat,
+        subjectActive,
+        subjectMayJoin,
+      };
+    }
+  }
+
+  if (!subjectMayJoin) {
+    return {
+      ok: false,
+      status: 403,
+      error: inviteOnly ? "not_invited" : "forbidden",
+      message: inviteOnly
+        ? "Non sei ancora stato aggiunto a questa discussione."
+        : "Questa chat è riservata allo staff.",
+    };
+  }
+
+  const userRes = await resolveSubjectChatMember(client, guild, token, { inviteOnly });
+  if (!userRes.ok) {
+    return {
+      ok: false,
+      status: userRes.status || 403,
+      error: userRes.error || "forbidden",
+      message: userRes.message || "Non autorizzato.",
+    };
+  }
+
+  if (!subjectUserId || String(userRes.userId) !== subjectUserId) {
+    return { ok: false, status: 403, error: "forbidden", message: "Non autorizzato." };
+  }
+
+  return {
+    ok: true,
+    guild,
+    workflow,
+    queue,
+    dedupeKey: key,
+    member: userRes.member,
+    isStaffReviewer: false,
+    isSubject: true,
+    authorKind: "user",
+    canSend: pending && (!inviteOnly || subjectActive),
+    status,
+    subjectUserId,
+    inviteOnly,
+    subjectChat,
+    subjectActive,
+    subjectMayJoin,
+  };
+}
+
+async function handleSiteStaffWorkflowChatGet(client, req, res) {
+  try {
+    const dedupeKey = String(req.query?.dedupeKey || req.query?.key || "").trim();
+    const access = await resolveWorkflowChatAccess(client, bearerFromRequest(req), dedupeKey);
+    if (!access.ok) {
+      return res.status(access.status).json({ ok: false, error: access.error, message: access.message });
+    }
+
+    const docs = await SiteWorkflowChatMessage.find({
+      guildId: access.guild.id,
+      dedupeKey: access.dedupeKey,
+    })
+      .sort({ createdAt: 1 })
+      .limit(MAX_MESSAGES)
+      .lean()
+      .catch(() => []);
+
+    let visible = docs || [];
+    if (access.isSubject && !access.isStaffReviewer && access.inviteOnly) {
+      visible = visible.filter((d) => messageVisibleInSubjectWindows(d, access.subjectChat?.windows));
+    }
+
+    const replyMap = new Map(visible.map((d) => [String(d._id), d]));
+    const avatarOverrides = await loadAuthorAvatarOverrides(client, visible);
+    const subjectChatMeta = serializeSubjectChatMeta(access.subjectChat, {
+      inviteOnly: access.inviteOnly,
+      status: access.status,
+      isStaffReviewer: access.isStaffReviewer,
+    });
+
+    return res.status(200).json({
+      ok: true,
+      dedupeKey: access.dedupeKey,
+      queue: access.queue,
+      status: access.status,
+      canSend: access.canSend,
+      isSubject: access.isSubject,
+      isStaffReviewer: access.isStaffReviewer,
+      subjectUserId: access.subjectUserId,
+      subjectChat: subjectChatMeta,
+      maxImages: MAX_IMAGES,
+      messages: visible.map((d) => serializeMessage(d, replyMap, avatarOverrides)),
+    });
+  } catch (err) {
+    global.logger?.error?.("[WEBHOOK] site-staff-workflow-chat GET:", err);
+    return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+  }
+}
+
+async function handleSiteStaffWorkflowChatPost(client, req, res) {
+  try {
+    const body = req.body && typeof req.body === "object" ? req.body : {};
+    const dedupeKey = String(body.dedupeKey || body.key || "").trim();
+    const content = String(body.content || "").trim().slice(0, MAX_CONTENT);
+    const imageUrls = saveWorkflowImages(dedupeKey, body.images);
+    if (!content && !imageUrls.length) {
+      return res.status(400).json({ ok: false, error: "empty", message: "Messaggio vuoto." });
+    }
+
+    const access = await resolveWorkflowChatAccess(client, bearerFromRequest(req), dedupeKey);
+    if (!access.ok) {
+      return res.status(access.status).json({ ok: false, error: access.error, message: access.message });
+    }
+    if (!access.canSend) {
+      return res.status(409).json({ ok: false, error: "closed", message: "La pratica è chiusa: puoi solo leggere la chat." });
+    }
+
+    const authorId = String(access.member?.id || "").trim();
+    if (!authorId) {
+      return res.status(401).json({ ok: false, error: "unauthorized", message: "Sessione non valida." });
+    }
+
+    const authorAvatarUrl = await resolveAuthorAvatarUrl(client, access.member);
+
+    let replyToId = null;
+    const rawReply = String(body.replyToId || body.replyTo || "").trim();
+    if (rawReply && mongoose.isValidObjectId(rawReply)) {
+      const target = await SiteWorkflowChatMessage.findOne({
+        _id: rawReply,
+        guildId: access.guild.id,
+        dedupeKey: access.dedupeKey,
+      })
+        .select("_id")
+        .lean()
+        .catch(() => null);
+      if (target) replyToId = target._id;
+    }
+
+    const doc = await SiteWorkflowChatMessage.create({
+      guildId: access.guild.id,
+      dedupeKey: access.dedupeKey,
+      queue: access.queue,
+      subjectUserId: access.subjectUserId,
+      authorId,
+      authorName: displayNameForMember(access.member),
+      authorAvatarUrl,
+      authorKind: access.authorKind,
+      content: content || (imageUrls.length ? " " : ""),
+      imageUrls,
+      replyToId,
+    }).catch(() => null);
+
+    if (!doc) {
+      return res.status(500).json({ ok: false, error: "save_failed", message: "Salvataggio fallito." });
+    }
+
+    const replyMap = replyToId
+      ? await SiteWorkflowChatMessage.find({ _id: { $in: [replyToId] } })
+          .lean()
+          .then((rows) => new Map((rows || []).map((d) => [String(d._id), d])))
+          .catch(() => new Map())
+      : new Map();
+
+    const message = serializeMessage(doc, replyMap);
+    emitChatEvent("workflow_chat_message", { dedupeKey: access.dedupeKey, queue: access.queue, message });
+
+    try {
+      const subjectInChat =
+        access.queue === "pause" ||
+        !access.inviteOnly ||
+        subjectChatHasActive(access.subjectChat);
+      await notifyWorkflowChatNewMessage({
+        guild: access.guild,
+        guildId: access.guild.id,
+        queue: access.queue,
+        dedupeKey: access.dedupeKey,
+        subjectUserId: access.subjectUserId,
+        authorId,
+        authorKind: access.authorKind,
+        authorName: displayNameForMember(access.member),
+        preview: content || (imageUrls.length ? "Allegato" : ""),
+        subjectInChat,
+        workflow: access.workflow,
+        kind: access.workflow?.workflowKind,
+        roleId: access.workflow?.workflowRoleId || access.workflow?.workflowFields?.roleId,
+      });
+    } catch (_) {}
+
+    return res.status(201).json({ ok: true, message });
+  } catch (err) {
+    global.logger?.error?.("[WEBHOOK] site-staff-workflow-chat POST:", err);
+    return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+  }
+}
+
+async function handleSiteStaffWorkflowChatReactionPost(client, req, res) {
+  try {
+    const body = req.body && typeof req.body === "object" ? req.body : {};
+    const dedupeKey = String(body.dedupeKey || req.query?.dedupeKey || "").trim();
+    const messageId = String(body.messageId || req.params?.messageId || "").trim();
+    const access = await resolveWorkflowChatAccess(client, bearerFromRequest(req), dedupeKey);
+    if (!access.ok) {
+      return res.status(access.status).json({ ok: false, error: access.error, message: access.message });
+    }
+    if (!access.canSend) {
+      return res.status(409).json({ ok: false, error: "closed", message: "La pratica è chiusa: puoi solo leggere la chat." });
+    }
+    if (!mongoose.isValidObjectId(messageId)) {
+      return res.status(400).json({ ok: false, error: "invalid_message", message: "Messaggio non valido." });
+    }
+
+    const parsed = parseReactionInput(body.emoji ?? body.markup, body);
+    if (!parsed) {
+      return res.status(400).json({ ok: false, error: "invalid_emoji", message: "Emoji non valida." });
+    }
+
+    const msg = await SiteWorkflowChatMessage.findOne({
+      _id: messageId,
+      guildId: access.guild.id,
+      dedupeKey: access.dedupeKey,
+    });
+    if (!msg) {
+      return res.status(404).json({ ok: false, error: "not_found", message: "Messaggio non trovato." });
+    }
+    if (String(msg.authorKind || "") === "system") {
+      return res.status(400).json({ ok: false, error: "system_message", message: "Non puoi reagire ai messaggi di sistema." });
+    }
+
+    const reactions = serializeReactions(msg.reactions);
+    let row = reactions.find((r) => String(r.key) === parsed.key);
+    let added = false;
+    const uid = String(access.member?.id || "");
+    const uname = displayNameForMember(access.member);
+
+    if (row) {
+      const users = Array.isArray(row.users) ? row.users.slice() : [];
+      const idx = users.findIndex((u) => String(u.id) === uid);
+      if (idx >= 0) {
+        users.splice(idx, 1);
+        row.users = users;
+        row.userIds = users.map((u) => u.id);
+        if (!users.length) {
+          const ri = reactions.findIndex((r) => String(r.key) === parsed.key);
+          if (ri >= 0) reactions.splice(ri, 1);
+        }
+        added = false;
+      } else {
+        if (users.length >= MAX_REACTION_USERS) {
+          return res.status(429).json({ ok: false, error: "reaction_full", message: "Troppe reazioni su questa emoji." });
+        }
+        users.push({ id: uid, name: uname });
+        row.users = users;
+        row.userIds = users.map((u) => u.id);
+        added = true;
+      }
+    } else {
+      if (reactions.length >= MAX_REACTION_KINDS) {
+        return res.status(429).json({
+          ok: false,
+          error: "too_many_reactions",
+          message: `Massimo ${MAX_REACTION_KINDS} emoji diverse per messaggio.`,
+        });
+      }
+      reactions.push({
+        key: parsed.key,
+        emoji: parsed.emoji,
+        emojiId: parsed.emojiId,
+        name: parsed.name || "",
+        animated: Boolean(parsed.animated),
+        userIds: [uid],
+        users: [{ id: uid, name: uname }],
+      });
+      added = true;
+    }
+
+    msg.reactions = reactions;
+    msg.markModified("reactions");
+    await msg.save();
+
+    const replyMap = msg.replyToId
+      ? await SiteWorkflowChatMessage.find({ _id: msg.replyToId })
+          .lean()
+          .then((rows) => new Map((rows || []).map((d) => [String(d._id), d])))
+          .catch(() => new Map())
+      : new Map();
+
+    const message = serializeMessage(msg.toObject(), replyMap);
+    emitChatEvent("workflow_chat_reaction", {
+      dedupeKey: access.dedupeKey,
+      queue: access.queue,
+      message,
+      added,
+      actorId: uid,
+    });
+
+    return res.status(200).json({ ok: true, message, added });
+  } catch (err) {
+    global.logger?.error?.("[WEBHOOK] site-staff-workflow-chat reaction:", err);
+    return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+  }
+}
+
+async function handleSiteStaffWorkflowChatEmojisGet(client, req, res) {
+  try {
+    const dedupeKey = String(req.query?.dedupeKey || "").trim();
+    const access = await resolveWorkflowChatAccess(client, bearerFromRequest(req), dedupeKey);
+    if (!access.ok) {
+      return res.status(access.status).json({ ok: false, error: access.error, message: access.message });
+    }
+    await access.guild.emojis.fetch().catch(() => null);
+    const emojis = [...access.guild.emojis.cache.values()].map((e) => ({
+      id: String(e.id),
+      name: String(e.name || ""),
+      animated: Boolean(e.animated),
+    }));
+    res.setHeader("Cache-Control", "private, max-age=60");
+    return res.status(200).json({ ok: true, guildId: access.guild.id, count: emojis.length, emojis });
+  } catch (err) {
+    global.logger?.error?.("[WEBHOOK] site-staff-workflow-chat emojis:", err);
+    return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+  }
+}
+
+async function handleSiteStaffWorkflowChatFileGet(client, req, res) {
+  try {
+    const folderKey = String(req.params?.folderKey || "").trim();
+    const fileName = path.basename(String(req.params?.fileName || "").trim());
+    if (!folderKey || !fileName || !/^[a-f0-9]{32}$/.test(folderKey)) {
+      return res.status(400).json({ ok: false, error: "bad_path", message: "File non valido." });
+    }
+    const dedupeKey = String(req.query?.dedupeKey || "").trim();
+    if (!dedupeKey || uploadFolderKey(dedupeKey) !== folderKey) {
+      return res.status(403).json({ ok: false, error: "forbidden", message: "Accesso negato." });
+    }
+    const access = await resolveWorkflowChatAccess(client, bearerFromRequest(req), dedupeKey);
+    if (!access.ok) {
+      return res.status(access.status).json({ ok: false, error: access.error, message: access.message });
+    }
+    const filePath = path.join(UPLOAD_ROOT, folderKey, fileName);
+    if (!filePath.startsWith(UPLOAD_ROOT) || !fs.existsSync(filePath)) {
+      return res.status(404).json({ ok: false, error: "not_found", message: "File non trovato." });
+    }
+    const ext = path.extname(fileName).toLowerCase();
+    const type =
+      ext === ".png"
+        ? "image/png"
+        : ext === ".webp"
+          ? "image/webp"
+          : ext === ".gif"
+            ? "image/gif"
+            : ext === ".mp4"
+              ? "video/mp4"
+              : ext === ".webm"
+                ? "video/webm"
+                : ext === ".mov"
+                  ? "video/quicktime"
+                  : "application/octet-stream";
+    res.setHeader("Cache-Control", "private, max-age=3600");
+    if (type !== "application/octet-stream") res.type(type);
+    return res.sendFile(filePath);
+  } catch (err) {
+    global.logger?.error?.("[WEBHOOK] site-staff-workflow-chat file:", err);
+    return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+  }
+}
+
+async function handleSiteStaffWorkflowChatSubjectPost(client, req, res) {
+  try {
+    const body = req.body && typeof req.body === "object" ? req.body : {};
+    const dedupeKey = String(body.dedupeKey || body.key || req.query?.dedupeKey || "").trim();
+    const action = String(body.action || body.op || "").trim().toLowerCase();
+    if (action !== "invite" && action !== "remove") {
+      return res.status(400).json({
+        ok: false,
+        error: "bad_action",
+        message: 'Azione non valida (usa "invite" o "remove").',
+      });
+    }
+
+    const access = await resolveWorkflowChatAccess(client, bearerFromRequest(req), dedupeKey);
+    if (!access.ok) {
+      return res.status(access.status).json({ ok: false, error: access.error, message: access.message });
+    }
+    if (!access.isStaffReviewer) {
+      return res.status(403).json({ ok: false, error: "forbidden", message: "Solo lo staff può gestire la chat." });
+    }
+    if (!access.inviteOnly) {
+      return res.status(400).json({
+        ok: false,
+        error: "not_supported",
+        message: "Questa pratica non supporta l'invito del richiedente.",
+      });
+    }
+    if (String(access.status || "").toLowerCase() !== "pending" && action === "invite") {
+      return res.status(409).json({
+        ok: false,
+        error: "closed",
+        message: "La pratica è chiusa: non puoi più aggiungere il richiedente.",
+      });
+    }
+
+    let chat = null;
+    let dm = { sent: false };
+    if (action === "invite") {
+      if (subjectChatHasActive(access.subjectChat)) {
+        return res.status(409).json({
+          ok: false,
+          error: "already_active",
+          message: "Il richiedente è già nella discussione.",
+        });
+      }
+      chat = await patchSubjectChat(access.guild.id, access.dedupeKey, async (next) => {
+        next.windows.push({ joinedAt: new Date(), leftAt: null });
+        dm = await sendSubjectInviteDmOnce(client, access, next);
+      });
+      if (!chat) {
+        return res.status(500).json({ ok: false, error: "save_failed", message: "Salvataggio fallito." });
+      }
+      const subjectName = await resolveSubjectDisplayName(client, access);
+      await createSystemChatMessage(
+        access,
+        `${subjectName} è stato aggiunto alla discussione.`,
+      );
+      try {
+        await notifyWorkflowSubjectInvited({
+          guild: access.guild,
+          queue: access.queue,
+          subjectUserId: access.subjectUserId,
+          dedupeKey: access.dedupeKey,
+          actorId: String(access.member?.id || ""),
+          actorName: displayNameForMember(access.member),
+          workflow: access.workflow,
+          kind: access.workflow?.workflowKind,
+          roleId: access.workflow?.workflowRoleId || access.workflow?.workflowFields?.roleId,
+        });
+      } catch (_) {}
+    } else {
+      if (!subjectChatHasActive(access.subjectChat)) {
+        return res.status(409).json({
+          ok: false,
+          error: "not_active",
+          message: "Il richiedente non è nella discussione.",
+        });
+      }
+      const subjectName = await resolveSubjectDisplayName(client, access);
+      const sysMsg = await createSystemChatMessage(
+        access,
+        `${subjectName} è stato rimosso dalla discussione.`,
+      );
+      const leftAt = sysMsg?.createdAt ? new Date(sysMsg.createdAt) : new Date();
+      chat = await patchSubjectChat(access.guild.id, access.dedupeKey, (next) => {
+        for (const w of next.windows) {
+          if (!w.leftAt) w.leftAt = leftAt;
+        }
+      });
+      if (!chat) {
+        return res.status(500).json({ ok: false, error: "save_failed", message: "Salvataggio fallito." });
+      }
+      try {
+        await notifyWorkflowSubjectRemoved({
+          guild: access.guild,
+          queue: access.queue,
+          subjectUserId: access.subjectUserId,
+          dedupeKey: access.dedupeKey,
+          actorId: String(access.member?.id || ""),
+          actorName: displayNameForMember(access.member),
+          workflow: access.workflow,
+          kind: access.workflow?.workflowKind,
+          roleId: access.workflow?.workflowRoleId || access.workflow?.workflowFields?.roleId,
+        });
+      } catch (_) {}
+    }
+
+    const subjectChatMeta = serializeSubjectChatMeta(chat, {
+      inviteOnly: true,
+      status: access.status,
+      isStaffReviewer: true,
+    });
+    emitChatEvent("workflow_chat_subject", {
+      dedupeKey: access.dedupeKey,
+      queue: access.queue,
+      action,
+      subjectChat: subjectChatMeta,
+      subjectUserId: access.subjectUserId,
+    });
+
+    const inviteDmSent = Boolean(dm?.sent);
+    let message = action === "invite" ? "Richiedente aggiunto alla chat." : "Richiedente rimosso dalla chat.";
+    if (action === "invite" && !inviteDmSent) {
+      message =
+        dm?.reason === "dm_unavailable"
+          ? "Richiedente aggiunto. DM Discord non disponibile (es. fuori server / unban): notificato sul sito."
+          : "Richiedente aggiunto. DM non inviato: notificato sul sito.";
+    }
+
+    return res.status(200).json({
+      ok: true,
+      action,
+      subjectChat: subjectChatMeta,
+      inviteDmSent,
+      inviteDmReason: dm?.reason || null,
+      message,
+    });
+  } catch (err) {
+    global.logger?.error?.("[WEBHOOK] site-staff-workflow-chat subject:", err);
+    return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+  }
+}
+
+module.exports = {
+  handleSiteStaffWorkflowChatGet,
+  handleSiteStaffWorkflowChatPost,
+  handleSiteStaffWorkflowChatReactionPost,
+  handleSiteStaffWorkflowChatEmojisGet,
+  handleSiteStaffWorkflowChatFileGet,
+  handleSiteStaffWorkflowChatSubjectPost,
+  purgeWorkflowChatByDedupe,
+  parseQueueFromDedupe,
+  resolveWorkflowChatAccess,
+};

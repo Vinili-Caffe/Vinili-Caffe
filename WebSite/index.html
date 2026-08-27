@@ -2,7 +2,7 @@
 <html lang="it">
 
 <head>
-  <style id="vc-anti-fouc-css">html,body{background:#100c09}</style><style id="vc-nav-noflash">body.vc-body>header,body.vc-body header.fixed,body.vc-dashboard-page>header,body.vc-vote-page>header,body.vc-body--home>header{background:#100c09!important;background-color:#100c09!important;padding-top:max(0.85rem,env(safe-area-inset-top,0px))!important;padding-left:max(1rem,env(safe-area-inset-left,0px))!important;padding-right:max(1rem,env(safe-area-inset-right,0px))!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;transition:none!important;animation:none!important;transform:none!important;box-shadow:none!important}body.vc-body header .vc-nav-shell,body.vc-body header .vc-nav-shell.vc-glass,body.vc-body header .vc-nav-shell.vc-nav-shell--scrolled,body.vc-body header .vc-nav-shell.vc-glass.vc-nav-shell--scrolled{background:#140f0c!important;background-color:#140f0c!important;border-radius:1rem!important;border:1px solid rgba(255,255,255,.1)!important;box-shadow:0 10px 28px rgba(0,0,0,.35)!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;filter:none!important;transition:none!important;animation:none!important;max-width:none!important;width:100%!important;margin:0!important}body.vc-body header .vc-nav-shell::before{content:none!important;display:none!important}</style>
+  <style id="vc-anti-fouc-css">html,body{background:#100c09}</style><style id="vc-nav-noflash">body.vc-body>header,body.vc-body header.fixed,body.vc-dashboard-page>header,body.vc-vote-page>header,body.vc-body--home>header{background:transparent!important;background-color:transparent!important;padding-top:max(0.85rem,env(safe-area-inset-top,0px))!important;padding-left:max(1rem,env(safe-area-inset-left,0px))!important;padding-right:max(1rem,env(safe-area-inset-right,0px))!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;transition:none!important;animation:none!important;transform:none!important;box-shadow:none!important}body.vc-body header .vc-nav-shell,body.vc-body header .vc-nav-shell.vc-glass,body.vc-body header .vc-nav-shell.vc-nav-shell--scrolled,body.vc-body header .vc-nav-shell.vc-glass.vc-nav-shell--scrolled{background:#140f0c!important;background-color:#140f0c!important;border-radius:1rem!important;border:1px solid rgba(255,255,255,.1)!important;box-shadow:0 10px 28px rgba(0,0,0,.35)!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;filter:none!important;transition:none!important;animation:none!important;max-width:none!important;width:100%!important;margin:0!important}body.vc-body header .vc-nav-shell::before{content:none!important;display:none!important}</style>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <script>
@@ -32,6 +32,7 @@
       } catch (e1) {}
     })();
   </script>
+  <script src="/js/vc-perf.js?v=20260827perfAdapt1"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="preload" as="font" type="font/woff2" href="/fonts/cormorant/cormorant-garamond-latin.woff2" crossorigin />
@@ -52,6 +53,7 @@
     html:not(.vc-home-motion-ready) body.vc-body--home .vc-home-rise{opacity:1!important;transform:none!important}
   </style>
   <title>{{OG_TITLE}}</title>
+    <script src="/js/vc-page-title.js?v=20260825pageTitle1"></script>
   <meta name="description" content="{{META_DESCRIPTION}}" />
   <meta name="author" content="{{SITE_NAME}}" />
   <meta name="keywords" content="{{META_KEYWORDS}}" />
@@ -97,7 +99,7 @@
       } catch (e) { }
     })();
   </script>
-  <link rel="preload" as="style" href="/css/vc-landing.css?v=20260821navfix7site" />
+  <link rel="preload" as="style" href="/css/vc-landing.css?v=20260826cssBust2" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css"
     media="print" onload="this.media='all'"
     crossorigin="anonymous" referrerpolicy="no-referrer" />
@@ -106,7 +108,7 @@
       crossorigin="anonymous" referrerpolicy="no-referrer" />
   </noscript>
   <link rel="stylesheet" href="/css/tw-build.css?v={{BUILD_ASSET_VERSION}}" />
-  <link rel="stylesheet" href="/css/vc-landing.css?v=20260821navfix7site" />
+  <link rel="stylesheet" href="/css/vc-landing.css?v=20260826cssBust2" />
   <script>
     (function () {
       var root = document.documentElement;
@@ -118,7 +120,7 @@
       var i;
       for (i = 0; i < links.length; i += 1) {
         var href = String(links[i].getAttribute("href") || links[i].href || "");
-        if (href.indexOf("tw-build.css") === -1 && href.indexOf("vc-landing.css?v=20260821navfix7site") === -1) continue;
+        if (href.indexOf("tw-build.css") === -1 && href.indexOf("vc-landing.css?v=20260826cssBust2") === -1) continue;
         pending += 1;
         (function (link) {
           function onDone() {
@@ -463,7 +465,8 @@
   <script src="/js/discord-auth.js?v={{BUILD_ASSET_VERSION}}" defer></script>
   <script src="/js/vc-header-name-marquee.js?v={{BUILD_ASSET_VERSION}}" defer></script>
   <script src="/js/vc-cursor-trail.js?v={{BUILD_ASSET_VERSION}}" defer></script>
-  <script src="/js/vc-landing.js?v={{BUILD_ASSET_VERSION}}" defer></script>
+<script src="/js/vc-site-toast.js?v=20260825siteToast1"></script>
+    <script src="/js/vc-landing.js?v={{BUILD_ASSET_VERSION}}" defer></script>
   <script src="/js/vc-mobile-nav.js?v={{BUILD_ASSET_VERSION}}" defer></script>
   <script src="/js/vc-home-cine.js?v={{BUILD_ASSET_VERSION}}" defer></script>
   <script src="/js/vc-ptr.js?v={{BUILD_ASSET_VERSION}}" defer></script>

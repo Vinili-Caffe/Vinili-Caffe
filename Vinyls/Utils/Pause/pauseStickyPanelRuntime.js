@@ -3,6 +3,11 @@ const IDs = require("../Config/ids");
 const { getGuildChannelCached, getClientChannelCached } = require("../Interaction/interactionEntityCache");
 const { upsertPanelMessage } = require("../../../shared/discord/panelUpsertRuntime");
 const { personalityPanelUpdateOne } = require("../Global/globalSettingsGuildStores");
+const {
+  isDiscordWorkflowUiEnabled,
+  buildSiteLinkRow,
+  siteWorkflowPath,
+} = require("../Web/discordWorkflowUiGate");
 
 const PAUSE_REQUEST_OPEN_ID = "pause_request:open";
 const PAUSE_STICKY_EMBED_SIGNATURE = "richiesta pausa|vinili & caffè";
@@ -30,7 +35,10 @@ function componentCustomId(c) {
 function isPauseStickyPanelMessage(message) {
   if (!message?.author?.bot) return false;
   for (const c of iterMessageComponents(message)) {
-    if (componentCustomId(c) === PAUSE_REQUEST_OPEN_ID) return true;
+    const id = componentCustomId(c);
+    if (id === PAUSE_REQUEST_OPEN_ID) return true;
+    // Link panel (sito): stesso sticky senza customId di richiesta.
+    if (String(c?.url || c?.data?.url || "").includes("/staff/pause")) return true;
   }
   const sig = String(
     message?.embeds?.[0]?.title || message?.embeds?.[0]?.data?.title || "",
@@ -66,27 +74,40 @@ async function savePausePanelMessageId(channelId, messageId) {
 }
 
 function buildPauseStickyPanelPayload() {
+  const discordUi = isDiscordWorkflowUiEnabled();
   const embed = new EmbedBuilder()
     .setColor("#6f4e37")
     .setTitle("Richiesta pausa")
     .setDescription(
-      [
-        "<:VC_Staff:1494286904089247754> Usa il pulsante qui sotto per inviare una **richiesta pausa**.",
-        "",
-        "<a:VC_Calendar:1482706208149475358> Ti verranno chiesti **data di inizio**, **data di ritorno** e **motivo**.",
-        "",
-        "**Formati data accettati:** `GG/MM`, `GG/MM/AAAA`, `1 agosto`, `domani`",
-        "",
-        "<:VC_Attention:1482534443632558151> La pausa deve iniziare **almeno da domani**.",
-      ].join("\n"),
+      discordUi
+        ? [
+            "<:VC_Staff:1494286904089247754> Usa il pulsante qui sotto per inviare una **richiesta pausa**.",
+            "",
+            "<a:VC_Calendar:1482706208149475358> Ti verranno chiesti **data di inizio**, **data di ritorno** e **motivo**.",
+            "",
+            "**Formati data accettati:** `GG/MM`, `GG/MM/AAAA`, `1 agosto`, `domani`",
+            "",
+            "<:VC_Attention:1482534443632558151> La pausa deve iniziare **almeno da domani**.",
+          ].join("\n")
+        : [
+            "<:VC_Staff:1494286904089247754> Le **richieste pausa** si inviano e gestiscono **solo sul sito**.",
+            "",
+            "<a:VC_Calendar:1482706208149475358> Apri la pagina pause, scegli le date e il motivo, poi invia la richiesta.",
+            "",
+            "<:VC_Attention:1482534443632558151> La pausa deve iniziare **almeno da domani**.",
+            "",
+            "La chat con l'High Staff è disponibile nella stessa pagina dopo l'invio.",
+          ].join("\n"),
     );
-  const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId(PAUSE_REQUEST_OPEN_ID)
-      .setLabel("Richiedi pausa")
-      .setEmoji("<a:VC_Calendar:1482706208149475358>")
-      .setStyle(ButtonStyle.Primary),
-  );
+  const row = discordUi
+    ? new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId(PAUSE_REQUEST_OPEN_ID)
+          .setLabel("Richiedi pausa")
+          .setEmoji("<a:VC_Calendar:1482706208149475358>")
+          .setStyle(ButtonStyle.Primary),
+      )
+    : buildSiteLinkRow("Apri richieste pausa", siteWorkflowPath("pause"));
   return { embeds: [embed], components: [row] };
 }
 

@@ -10,7 +10,7 @@ const { handleIdeaBugMessage } = require("../Services/Community/ideaBugThreadSer
 const { handleStaffProofRequestMessage } = require("../Services/Staff/staffProofRequestThreadService");
 const { handleMainStaffAlertThreadMessage } = require("../Services/Staff/mainStaffAlertThreadService");
 const { handleOfficialPrefixMessage } = require("../Utils/Prefix/officialPrefixDispatcher");
-const { channelAllowsMedia, getCachedOrFetchMember, handleDisboardBump, handleDiscadiaBump, handleMovieNightVoteMessage, handlePauseChannelMessage, handleThreadVoteMessage, handleVoteManagerMessage, hasMediaPermission, isDiscordInviteLinkMessage, isMediaMessage, } = require("../Utils/Message/officialMessageAutomationHandlers");
+const { channelAllowsMedia, getCachedOrFetchMember, handleDisboardBump, handleDiscadiaBump, handleMovieNightVoteMessage, handlePauseChannelMessage, handleSanzioniChannelMessage, handleThreadVoteMessage, handleVoteManagerMessage, hasMediaPermission, isDiscordInviteLinkMessage, isMediaMessage, } = require("../Utils/Message/officialMessageAutomationHandlers");
 const { handleAfk, handleCounting, handleMentionAutoReactions, handleMentionAutoResponses, handleWordReactions, logEventError, } = require("../Utils/Message/officialMessageCommunityHandlers");
 const { runAutoModMessage } = require("../Services/Moderation/automodService");
 const { handleCustomProfilePromptMessage } = require("./interaction/customRoleHandlers");
@@ -493,6 +493,7 @@ module.exports = {
         if (await handleMovieNightVoteMessage(message)) return;
         if (await handleThreadVoteMessage(message, resolvedClient)) return;
         if (await handlePauseChannelMessage(message)) return;
+        if (await handleSanzioniChannelMessage(message)) return;
       }
     } catch (error) {
       logEventError(resolvedClient, "DISBOARD REMINDER ERROR", error);

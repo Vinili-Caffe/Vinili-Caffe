@@ -20,14 +20,18 @@
     }
   }
 
-  function snapScrollTopIfPristine() {
-    if (homeHasAnchor()) return;
-    if (pageScrollY() > 8) return;
+  function forceScrollTop() {
     try {
       window.scrollTo(0, 0);
       if (document.documentElement) document.documentElement.scrollTop = 0;
       if (document.body) document.body.scrollTop = 0;
-    } catch (eSnap) {}
+    } catch (eForce) {}
+  }
+
+  function snapScrollTopIfPristine() {
+    if (homeHasAnchor()) return;
+    if (pageScrollY() > 8) return;
+    forceScrollTop();
   }
 
   function resetHomeScroll(ev) {
@@ -75,6 +79,13 @@
   }
 
   function useLiteCanvas() {
+    try {
+      if (window.VcPerf && typeof window.VcPerf.isLite === "function" && window.VcPerf.isLite()) return true;
+      if (window.VcPerf && typeof window.VcPerf.isMidOrLite === "function" && window.VcPerf.isMidOrLite()) {
+        /* mid: still lite canvas on heavy pages / PWA */
+        if (isLiteFxPage() || isStandalonePwa()) return true;
+      }
+    } catch (ePerf) {}
     return isLiteFxPage() || isStandalonePwa();
   }
 
@@ -112,6 +123,21 @@
     } catch (e) {
       return Number(navigator.maxTouchPoints || 0) > 0;
     }
+  }
+
+  function ensureCursorTrailScript() {
+    try {
+      if (window.__VC_CURSOR_TRAIL_INIT) return;
+      if (document.documentElement.classList.contains("vc-cursor-trail-off")) return;
+      try {
+        if (window.VcPerf && typeof window.VcPerf.isLite === "function" && window.VcPerf.isLite()) return;
+      } catch (eLite) {}
+      if (document.querySelector('script[src*="vc-cursor-trail.js"]')) return;
+      var s = document.createElement("script");
+      s.src = "/js/vc-cursor-trail.js?v=20260825cursorFx1";
+      s.defer = true;
+      (document.head || document.documentElement).appendChild(s);
+    } catch (eTrail) {}
   }
 
   function ensureSpotlightLayer(stage) {
@@ -173,9 +199,74 @@
     });
   }
 
+  function isStaffRoute() {
+    var p = String(location.pathname || "/").replace(/\/+$/, "") || "/";
+    return p === "/staff" || p.indexOf("/staff/") === 0;
+  }
+
+  function isEventoPage() {
+    var p = String(location.pathname || "/").replace(/\/+$/, "") || "/";
+    if (p === "/evento" || p.indexOf("/evento/") === 0) return true;
+    return Boolean(document.body && document.body.classList.contains("vc-hw-page"));
+  }
+
+  function isStaffProfileHome() {
+    var p = String(location.pathname || "/").replace(/\/+$/, "") || "/";
+    if (p === "/staff") return true;
+    return Boolean(document.body && document.body.classList.contains("vc-staff-profile-home"));
+  }
+
+  /** Inbox: canvas cine sì, layout hero full-viewport no (mobile first-load). */
+  function isStaffInboxPage() {
+    var p = String(location.pathname || "/").replace(/\/+$/, "") || "/";
+    if (p === "/staff/inbox") return true;
+    return Boolean(
+      (document.body && document.body.classList.contains("vc-staff-inbox-page")) ||
+        (document.documentElement && document.documentElement.classList.contains("vc-staff-inbox-route")),
+    );
+  }
+
+  function isStaffCinePage() {
+    var p = String(location.pathname || "/").replace(/\/+$/, "") || "/";
+    // /staff (profilo) vuole solo lo sfondo cine, non la card hero centrale.
+    if (p === "/staff" || isStaffProfileHome()) return false;
+    // Inbox: stessa logica (layout compatto sotto header; niente 100svh).
+    if (isStaffInboxPage()) return false;
+    if (
+      p === "/staff/guida" ||
+      p === "/staff/pause" ||
+      p === "/staff/gestione" ||
+      p === "/staff/organico" ||
+      p === "/staff/punti-tolti"
+    ) {
+      return true;
+    }
+    return Boolean(
+      (document.body &&
+        (document.body.classList.contains("vc-staff-cine-page") ||
+          document.body.classList.contains("vc-staff-manage-page") ||
+          document.body.classList.contains("vc-staff-organico-page") ||
+          document.body.classList.contains("vc-staff-guide-page"))) ||
+        (document.documentElement && document.documentElement.classList.contains("vc-staff-cine-route")),
+    );
+  }
+
+  /** @deprecated alias — use isStaffCinePage */
+  function isStaffInboxCinePage() {
+    return isStaffCinePage();
+  }
+
   function skipScrollCuePage() {
+    if (isEventoPage()) return true;
+    if (isStaffInboxPage()) return true;
+    if (isStaffRoute() && !isStaffCinePage()) return true;
     var body = document.body;
     if (!body) return false;
+    // Profilo staff: cine sì, cue “scorri” no (come /user/profilo).
+    if (isStaffProfileHome() || body.classList.contains("vc-staff-profile-home")) return true;
+    if (body.classList.contains("vc-user-profile-route") || body.classList.contains("vc-user-profile-page")) {
+      return true;
+    }
     if (body.classList.contains("vc-roles-page")) return false;
     if (
       body.classList.contains("vc-users-page") &&
@@ -319,11 +410,11 @@
   }
 
   function excludedPolishPath() {
+    if (isStaffRoute() && !isStaffCinePage()) return true;
     var p = String(location.pathname || "/").replace(/\/+$/, "") || "/";
     if (p === "/") return true;
     if (p === "/seratafilm" || p.indexOf("/seratafilm/") === 0) return true;
     if (p === "/dashboard" || p.indexOf("/dashboard/") === 0) return true;
-    if (p === "/evento" || p.indexOf("/evento/") === 0) return true;
     return false;
   }
 
@@ -339,6 +430,10 @@
   }
 
   function shouldSkipPageCineHeroLayout() {
+    // Evento Hogwarts: solo sfondo cine, layout pagine invariato.
+    if (isEventoPage()) return true;
+    // Staff tools: layout operativo — eccezione pagine cine (profilo/inbox/guida/pause/gestione).
+    if (isStaffRoute() && !isStaffCinePage()) return true;
     if (isUserProfileRoute()) return true;
     var p = String(location.pathname || "").replace(/\/+$/, "");
     if (/^\/user\/(personalizza|customize|custom)(\/|$)/.test(p)) return true;
@@ -393,10 +488,36 @@
   }
 
   function markPageCineReady(immediate) {
+    // Staff cine: aspetta il primo paint del canvas per evitare flash UI su stage vuoto.
+    // immediate=true → reveal forzato (failsafe / no-canvas), senza fingere vc-home-cine-live.
+    if (
+      !immediate &&
+      isStaffCinePage() &&
+      document.documentElement &&
+      !document.documentElement.classList.contains("vc-home-cine-live")
+    ) {
+      if (!window.__vcStaffCineReadyFailsafe) {
+        window.__vcStaffCineReadyFailsafe = window.setTimeout(function () {
+          // Prima del reveal: ripeti layout (access gate / race al primo load).
+          try {
+            bootStaffCineLayout(true);
+          } catch (eFsLayout) {}
+          // Non aggiungere vc-home-cine-live qui: body trasparente su canvas non disegnato
+          // fa sparire l'atmosfera (bug "cine che va e viene").
+          markPageCineReady(true);
+        }, 1400);
+      }
+      return;
+    }
+    if (window.__vcStaffCineReadyFailsafe) {
+      window.clearTimeout(window.__vcStaffCineReadyFailsafe);
+      window.__vcStaffCineReadyFailsafe = 0;
+    }
     function apply() {
       var root = document.documentElement;
       if (!root) return;
       root.classList.add("vc-page-cine-ready");
+      root.classList.remove("vc-page-cine-boot");
       try {
         document.dispatchEvent(new Event("vc:page-cine-ready"));
       } catch (eReadyEvt) {}
@@ -408,6 +529,47 @@
     requestAnimationFrame(function () {
       requestAnimationFrame(apply);
     });
+  }
+
+  function resetStaffPageCineLayout() {
+    if (!isStaffRoute()) return;
+    var body = document.body;
+    if (body) {
+      body.classList.remove("vc-page-cine-layout");
+      try {
+        delete body.dataset.vcPageCineLayout;
+      } catch (eData) {}
+    }
+    var cues = document.querySelectorAll(".vc-home-scrollcue");
+    for (var c = 0; c < cues.length; c++) {
+      try {
+        cues[c].remove();
+      } catch (eCue) {}
+    }
+    var heroes = document.querySelectorAll(".vc-staff-hero, .vc-page-cine-hero, .vc-support-page-hero");
+    for (var i = 0; i < heroes.length; i++) {
+      heroes[i].classList.remove("vc-page-cine-hero", "vc-home-cine-hero", "is-collapsed", "vc-hero-scroll-clip");
+      try {
+        heroes[i].style.removeProperty("min-height");
+        heroes[i].style.removeProperty("height");
+        heroes[i].style.removeProperty("justify-content");
+      } catch (eHeroStyle) {}
+    }
+    var mains = document.querySelectorAll("main.vc-page-cine-main");
+    for (var m = 0; m < mains.length; m++) {
+      mains[m].classList.remove("vc-page-cine-main");
+    }
+    // Staff cine pages keep the vinyl canvas; accesso-richiesto / redirect drop it.
+    // Profilo staff also keeps the canvas (flat layout, no hero card).
+    if (!isStaffCinePage() && !isStaffProfileHome()) {
+      var stage = document.querySelector(".vc-home-cine");
+      if (stage) {
+        try {
+          stage.remove();
+        } catch (eStage) {}
+      }
+    }
+    markPageCineReady(true);
   }
 
   function resetUsersPageCineLayout() {
@@ -524,6 +686,7 @@
   function findHeroPanel(hero) {
     if (!hero) return null;
     return (
+      hero.querySelector(":scope > .vc-page-cine-hero-panel") ||
       hero.querySelector(":scope > .grid") ||
       hero.querySelector(":scope > .vc-vote-page-hero__inner") ||
       hero.querySelector(":scope > .vc-sponsor-hero-layout")
@@ -533,9 +696,9 @@
   function findHeroCopyRoot(panel) {
     if (!panel) return null;
     return (
-      panel.querySelector(".max-w-3xl") ||
       panel.querySelector(".vc-page-cine-hero-copy") ||
       panel.querySelector(".vc-sponsor-hero-copy") ||
+      panel.querySelector(".max-w-3xl") ||
       panel.firstElementChild
     );
   }
@@ -607,11 +770,13 @@
   }
 
   function buildHomeHeroInterior(hero) {
-    if (!hero || hero.dataset.vcHomeHeroBuilt === "1") return;
-    if (hero.querySelector(":scope > .vc-page-cine-hero__inner .vc-hero-head")) {
+    if (!hero) return;
+    // Already transformed (baked HTML or prior boot) — never nest/rebuild.
+    if (hasRealCineInterior(hero)) {
       hero.dataset.vcHomeHeroBuilt = "1";
       return;
     }
+    if (hero.dataset.vcHomeHeroBuilt === "1") return;
 
     var cue = hero.querySelector(":scope > .vc-home-scrollcue");
     var panel = findHeroPanel(hero);
@@ -649,12 +814,17 @@
     } else {
       copyRoot.classList.add("vc-page-cine-hero-copy", "mx-auto", "w-full", "text-center");
     }
+    // Evita che max-w-3xl / text-left del markup originale lasciano la card “a sinistra”.
+    try {
+      copyRoot.classList.remove("max-w-3xl", "max-w-2xl", "max-w-xl", "text-left", "sm:text-left", "lg:text-left");
+      copyRoot.classList.add("text-center", "mx-auto", "w-full");
+    } catch (eCopyCls) {}
     var btnRow = copyRoot.querySelector("[class*='flex-wrap']");
     if (btnRow) btnRow.classList.add("justify-center");
 
     var inner = document.createElement("div");
     inner.className =
-      "relative z-10 mx-auto max-w-6xl px-4 pb-0 pt-2 text-center vc-page-cine-hero__inner";
+      "relative z-10 mx-auto w-full px-4 pb-0 pt-2 text-center vc-page-cine-hero__inner";
 
     var head = document.createElement("div");
     head.className = "vc-hero-head vc-glass mx-auto text-center";
@@ -678,10 +848,12 @@
   function polishHeroChrome(hero) {
     if (!hero) return;
 
+    // Never stamp vc-hero-head on the raw 2-col `.grid` — that fakes a "ready" cine layout
+    // without the full-viewport interior (gestione stayed flat + board on first screen).
     var head =
       hero.querySelector(":scope > .vc-page-cine-hero__inner .vc-hero-head") ||
       hero.querySelector(":scope > .vc-support-intro-shell .vc-hero-head") ||
-      hero.querySelector(":scope > .grid") ||
+      hero.querySelector(":scope > .vc-vote-page-hero__inner.vc-hero-head") ||
       hero.querySelector(":scope > .vc-vote-page-hero__inner");
     if (head && !head.classList.contains("vc-hero-head")) {
       head.classList.add("vc-hero-head", "vc-glass");
@@ -844,13 +1016,32 @@
     }
 
     if (body.dataset.vcPageCineLayout === "1") {
-      var laidHero = document.querySelector(".vc-page-cine-hero");
+      var laidHero = document.querySelector(".vc-page-cine-hero") || hero;
+      var interiorOk = hasRealCineInterior(laidHero || hero);
+      // Never strip a real interior — that caused gestione cine→flat flash.
+      if (interiorOk) {
+        ensureStaffCineClasses(laidHero || hero);
+        if (opts.force) {
+          restructurePageMain(container, laidHero || hero);
+          container.classList.add("vc-page-cine-main");
+        }
+        polishHeroChrome(laidHero || hero);
+        flushSponsorAsideToContent(document.getElementById("vc-page-content"));
+        ensureScrollCueFor(laidHero || hero, container);
+        initPageHeroRise(laidHero || hero);
+        markPageCineReady();
+        if (opts.force) snapScrollTopIfPristine();
+        return;
+      }
       if (!opts.force || !laidHero || laidHero === hero) {
         if (opts.force) {
           restructurePageMain(container, laidHero || hero);
           container.classList.add("vc-page-cine-main");
           body.classList.add("vc-page-cine-layout");
           body.dataset.vcPageCineLayout = "1";
+          if (laidHero || hero) {
+            (laidHero || hero).classList.add("vc-page-cine-hero", "vc-home-cine-hero");
+          }
         }
         buildHomeHeroInterior(laidHero || hero);
         polishHeroChrome(laidHero || hero);
@@ -896,6 +1087,7 @@
     requestAnimationFrame(function () {
       ensureScrollCueFor(hero, container);
       bindInnerHeroScrollFx();
+      snapScrollTopIfPristine();
     });
   }
 
@@ -904,6 +1096,11 @@
       initPageHeroLayout({ force: true });
       return;
     }
+    // Applica subito il layout cine (card centrata + scroll), senza aspettare il loader:
+    // prima il main riceveva padding-top e la card finiva troppo in basso.
+    initPageHeroLayout({ force: true });
+    bindInnerHeroScrollFx();
+    snapScrollTopIfPristine();
     whenCommunityLeaderReady(function () {
       initPageHeroLayout({ force: true });
       bindInnerHeroScrollFx();
@@ -994,8 +1191,10 @@
 
     // Extra FX: do NOT gate on prefers-reduced-motion.
     // On Windows/Brave that media query is often wrongly true and killed the whole homepage feel.
-    // Only skip heavy pointer FX on coarse touch.
-    if (!coarse) {
+    // Skip heavy pointer FX on coarse touch or lite perf tier (slow device/network).
+    var skipHeavyFx =
+      coarse || (window.VcPerf && typeof window.VcPerf.isLite === "function" && window.VcPerf.isLite());
+    if (!skipHeavyFx) {
       initPanelTilt();
       initHomeExtraFx();
     } else {
@@ -1301,7 +1500,200 @@
     // Brand glow stays CSS-only (no per-frame rAF).
   }
 
+  function hasRealCineInterior(hero) {
+    if (!hero || !hero.querySelector) return false;
+    try {
+      return Boolean(
+        hero.querySelector(".vc-page-cine-hero__inner .vc-hero-head") ||
+          hero.querySelector(":scope > .vc-page-cine-hero__inner > .vc-hero-head"),
+      );
+    } catch (eReal) {
+      return Boolean(hero.querySelector(".vc-page-cine-hero__inner .vc-hero-head"));
+    }
+  }
+
+  function ensureStaffCineClasses(hero) {
+    var body = document.body;
+    if (body) {
+      body.classList.add("vc-page-cine-layout");
+      body.dataset.vcPageCineLayout = "1";
+    }
+    var main = document.querySelector("main");
+    if (main) main.classList.add("vc-page-cine-main");
+    if (hero) {
+      hero.classList.add("vc-page-cine-hero", "vc-home-cine-hero");
+      hero.dataset.vcHomeHeroBuilt = "1";
+      if (!hero.id) hero.id = "vc-page-intro";
+      hero.classList.remove("mb-8", "sm:mb-10", "mb-10", "sm:mb-12", "mt-8");
+    }
+  }
+
+  function staffCineLayoutReady() {
+    var body = document.body;
+    if (!body || !body.classList.contains("vc-page-cine-layout")) return false;
+    var hero = document.querySelector(".vc-page-cine-hero");
+    if (!hero) return false;
+    if (!hasRealCineInterior(hero)) return false;
+    var main = document.querySelector("main");
+    if (!main || !main.classList.contains("vc-page-cine-main")) return false;
+    // Flat leftover: board still sitting next to the hero inside <main>.
+    var board =
+      document.querySelector(".vc-staff-manage-board, .vc-staff-pause-board, #vc-staff-organico-board, #vc-staff-inbox") ||
+      null;
+    if (
+      board &&
+      hero.parentElement &&
+      board.parentElement === hero.parentElement &&
+      hero.parentElement.tagName === "MAIN"
+    ) {
+      return false;
+    }
+    return true;
+  }
+
+  function clearStaffCineLayoutStale() {
+    // CRITICAL: never tear down a real baked/built cine interior (gestione flash→flat bug).
+    var existing = document.querySelector(".vc-support-page-hero, .vc-page-cine-hero");
+    if (existing && hasRealCineInterior(existing)) {
+      ensureStaffCineClasses(existing);
+      return;
+    }
+    if (staffCineLayoutReady()) return;
+    var body = document.body;
+    if (body) {
+      try {
+        delete body.dataset.vcPageCineLayout;
+      } catch (eData) {}
+      body.classList.remove("vc-page-cine-layout");
+    }
+    var heroes = document.querySelectorAll(".vc-support-page-hero, .vc-page-cine-hero, .vc-staff-hero");
+    for (var i = 0; i < heroes.length; i++) {
+      if (hasRealCineInterior(heroes[i])) {
+        ensureStaffCineClasses(heroes[i]);
+        continue;
+      }
+      try {
+        delete heroes[i].dataset.vcHomeHeroBuilt;
+        delete heroes[i].dataset.vcAsideMoved;
+        delete heroes[i].dataset.vcHeroRise;
+        delete heroes[i].dataset.vcInnerHeroFxBound;
+      } catch (eHero) {}
+      heroes[i].classList.remove("vc-page-cine-hero", "vc-home-cine-hero", "is-collapsed", "vc-hero-scroll-clip");
+      var fakeHeads = heroes[i].querySelectorAll(".grid.vc-hero-head");
+      for (var f = 0; f < fakeHeads.length; f++) {
+        fakeHeads[f].classList.remove("vc-hero-head", "vc-glass");
+      }
+    }
+    var mains = document.querySelectorAll("main.vc-page-cine-main");
+    for (var m = 0; m < mains.length; m++) {
+      mains[m].classList.remove("vc-page-cine-main");
+    }
+  }
+
+  function bootStaffCineLayout(forceRebuild) {
+    if (!isStaffCinePage()) return;
+    var heroNow =
+      document.querySelector(".vc-page-cine-hero") ||
+      document.querySelector(".vc-support-page-hero");
+    // Baked gestione/organico: keep interior forever — only reinforce classes + cue.
+    if (heroNow && hasRealCineInterior(heroNow)) {
+      ensureStaffCineClasses(heroNow);
+      ensureScrollCueFor(heroNow);
+      snapScrollTopIfPristine();
+      try {
+        document.documentElement.classList.add("vc-home-motion-ready");
+      } catch (eStaffMotion0) {}
+      markPageCineReady();
+      return;
+    }
+    if (staffCineLayoutReady() && !forceRebuild) return;
+    if (!staffCineLayoutReady()) clearStaffCineLayoutStale();
+    initPageHeroLayout({ force: true });
+    bindInnerHeroScrollFx();
+    snapScrollTopIfPristine();
+    try {
+      document.documentElement.classList.add("vc-home-motion-ready");
+    } catch (eStaffMotion) {}
+    if (!document.body.classList.contains("vc-vote-page")) {
+      initPolishHeroFx();
+      if (!isCoarse() && !(window.VcPerf && window.VcPerf.isLite && window.VcPerf.isLite())) initPanelTilt();
+    }
+    if (!staffCineLayoutReady()) {
+      window.setTimeout(function () {
+        if (!isStaffCinePage()) return;
+        var h2 =
+          document.querySelector(".vc-page-cine-hero") ||
+          document.querySelector(".vc-support-page-hero");
+        if (h2 && hasRealCineInterior(h2)) {
+          ensureStaffCineClasses(h2);
+          ensureScrollCueFor(h2);
+          return;
+        }
+        if (staffCineLayoutReady()) return;
+        clearStaffCineLayoutStale();
+        initPageHeroLayout({ force: true });
+        ensureScrollCueFor(document.querySelector(".vc-page-cine-hero"));
+        snapScrollTopIfPristine();
+      }, 120);
+    } else {
+      ensureScrollCueFor(document.querySelector(".vc-page-cine-hero"));
+    }
+  }
+
+  function watchStaffCineLayout() {
+    if (!isStaffCinePage()) return;
+    if (window.__vcStaffCineWatchBound) return;
+    window.__vcStaffCineWatchBound = true;
+    var tries = 0;
+    function retry() {
+      if (!isStaffCinePage()) return;
+      tries += 1;
+      if (!staffCineLayoutReady()) bootStaffCineLayout(true);
+      if (!staffCineLayoutReady() && tries < 40) {
+        window.setTimeout(retry, 150);
+      }
+    }
+    function afterAccess() {
+      bootStaffCineLayout(true);
+      window.setTimeout(function () {
+        bootStaffCineLayout(true);
+      }, 60);
+      window.setTimeout(function () {
+        if (!staffCineLayoutReady()) bootStaffCineLayout(true);
+      }, 320);
+    }
+    window.addEventListener("vc:staff-access-ok", afterAccess);
+    window.addEventListener("vc:access-ok", afterAccess);
+    window.addEventListener("pageshow", function (ev) {
+      if (ev && ev.persisted) bootStaffCineLayout(true);
+    });
+    try {
+      var root = document.documentElement;
+      if (root && !root.classList.contains("vc-staff-app-revealed")) {
+        var obs = new MutationObserver(function () {
+          if (!root.classList.contains("vc-staff-app-revealed")) return;
+          try {
+            obs.disconnect();
+          } catch (eObs) {}
+          afterAccess();
+        });
+        obs.observe(root, { attributes: true, attributeFilter: ["class"] });
+      } else if (root && root.classList.contains("vc-staff-app-revealed")) {
+        afterAccess();
+      }
+    } catch (eWatch) {}
+    retry();
+  }
+
+  try {
+    window.__vcBootStaffCineLayout = bootStaffCineLayout;
+  } catch (eBootExport) {}
+
   function boot() {
+    if (isStaffRoute() && !isStaffCinePage() && !isStaffProfileHome()) {
+      resetStaffPageCineLayout();
+      return;
+    }
     var body = document.body;
     var home = Boolean(body && body.classList.contains("vc-body--home"));
     var polish = isPolishPage();
@@ -1325,7 +1717,14 @@
       initHomeFx();
     } else if (polish) {
       var vote = Boolean(body && body.classList.contains("vc-vote-page"));
-      if (shouldSkipPageCineHeroLayout()) {
+      if (isStaffCinePage()) {
+        bootStaffCineLayout();
+        watchStaffCineLayout();
+      } else if (isStaffProfileHome() || isEventoPage()) {
+        // Profilo staff / evento: sfondo cine senza card hero centrale.
+        if (isStaffProfileHome()) resetStaffPageCineLayout();
+        else resetUsersPageCineLayout();
+      } else if (shouldSkipPageCineHeroLayout()) {
         resetUsersPageCineLayout();
       } else if (isUsersCommunityPage()) {
         whenCommunityLeaderReady(function () {
@@ -1336,28 +1735,52 @@
       } else {
         initPageHeroLayout({ force: true });
         bindInnerHeroScrollFx();
+        snapScrollTopIfPristine();
       }
       try {
         document.documentElement.classList.add("vc-home-motion-ready");
       } catch (eInnerMotion) {}
-      if (!shouldSkipPageCineHeroLayout() && !vote) {
+      if ((!shouldSkipPageCineHeroLayout() || isStaffCinePage()) && !vote && !isStaffProfileHome() && !isEventoPage()) {
         initPolishHeroFx();
-        if (!isCoarse()) initPanelTilt();
+        if (!isCoarse() && !(window.VcPerf && window.VcPerf.isLite && window.VcPerf.isLite())) initPanelTilt();
       }
     }
 
-    if (isAuditBot()) return;
+    if (isAuditBot()) {
+      try {
+        document.documentElement.classList.add("vc-home-cine-live");
+      } catch (eAuditLive) {}
+      markPageCineReady(true);
+      return;
+    }
 
     var lite = useLiteCanvas();
     var stage = ensureStage();
+    ensureCursorTrailScript();
     var votePage = Boolean(body && body.classList.contains("vc-vote-page"));
-    if (!votePage && !isCoarse()) {
+    var skipPointerFx = Boolean(
+      isCoarse() ||
+        (window.VcPerf && typeof window.VcPerf.isLite === "function" && window.VcPerf.isLite()),
+    );
+    if (!votePage && !skipPointerFx) {
       initCursorSpotlight();
     }
     var canvas = stage.querySelector(".vc-home-cine__canvas");
-    if (!canvas || !canvas.getContext) return;
+    if (!canvas || !canvas.getContext) {
+      try {
+        document.documentElement.classList.add("vc-home-cine-live");
+      } catch (eNoCanvas) {}
+      markPageCineReady(true);
+      return;
+    }
     var ctx = canvas.getContext("2d", { alpha: false });
-    if (!ctx) return;
+    if (!ctx) {
+      try {
+        document.documentElement.classList.add("vc-home-cine-live");
+      } catch (eNoCtx) {}
+      markPageCineReady(true);
+      return;
+    }
 
     var reduced = prefersReduced();
     var coarse = isCoarse();
@@ -1390,7 +1813,12 @@
     function resize() {
       var nextW = Math.max(1, window.innerWidth || 1);
       var nextH = Math.max(1, window.innerHeight || 1);
-      dpr = Math.min(lite ? 1.25 : 1.6, window.devicePixelRatio || 1);
+      var dprCap = lite ? 1.15 : 1.6;
+      try {
+        if (window.VcPerf && window.VcPerf.tier() === "mid") dprCap = Math.min(dprCap, 1.35);
+        if (window.VcPerf && window.VcPerf.isLite()) dprCap = 1.1;
+      } catch (eDpr) {}
+      dpr = Math.min(dprCap, window.devicePixelRatio || 1);
       w = nextW;
       h = nextH;
       canvas.width = Math.round(w * dpr);
@@ -1398,7 +1826,12 @@
       canvas.style.width = w + "px";
       canvas.style.height = h + "px";
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      spawnDust(lite ? (coarse ? 12 : 22) : coarse ? 22 : 40);
+      var dustN = lite ? (coarse ? 10 : 18) : coarse ? 22 : 40;
+      try {
+        if (window.VcPerf && window.VcPerf.isLite()) dustN = coarse ? 8 : 12;
+        else if (window.VcPerf && window.VcPerf.tier() === "mid") dustN = Math.min(dustN, coarse ? 16 : 28);
+      } catch (eDust) {}
+      spawnDust(dustN);
     }
 
     function drawVinyl(cx, cy, r, rot, alpha) {
@@ -1465,6 +1898,22 @@
       ctx.restore();
     }
 
+    var paintedOnce = false;
+
+    function afterFirstPaint() {
+      if (paintedOnce) return;
+      paintedOnce = true;
+      try {
+        document.documentElement.classList.add("vc-home-cine-live");
+      } catch (eLiveClass) {}
+      if (polish && typeof window.__vcSitePolishRise === "function") {
+        try {
+          window.__vcSitePolishRise();
+        } catch (eRise) {}
+      }
+      markPageCineReady(true);
+    }
+
     function frame(now) {
       raf = 0;
       if (!running) return;
@@ -1489,7 +1938,7 @@
       var cx = mobile ? w * 0.5 : w * (0.78 + (mx - 0.5) * 0.04);
       var cy = mobile ? h * 0.56 : h * (0.54 + (my - 0.5) * 0.03);
       var r = mobile ? Math.min(w * 0.84, h * 0.44) : Math.min(w, h) * 0.46;
-      var alpha = mobile ? (lite ? 0.58 : 0.62) : lite ? 0.62 : 0.68;
+      var alpha = mobile ? (lite ? 0.66 : 0.7) : lite ? 0.62 : 0.68;
       drawVinyl(cx, cy, r, t * 0.18, alpha);
 
       var cupX = mobile ? w * 0.18 : w * 0.18;
@@ -1522,6 +1971,7 @@
       ctx.fillStyle = floor;
       ctx.fillRect(0, 0, w, h);
 
+      afterFirstPaint();
       if (!raf) raf = window.requestAnimationFrame(frame);
     }
 
@@ -1529,12 +1979,8 @@
       if (running) return;
       running = true;
       t0 = performance.now();
-      try {
-        document.documentElement.classList.add("vc-home-cine-live");
-      } catch (eLiveClass) {}
-      if (polish && typeof window.__vcSitePolishRise === "function") {
-        window.__vcSitePolishRise();
-      }
+      // Do not add vc-home-cine-live until afterFirstPaint — otherwise CSS vinyl
+      // disappears before the canvas draws (common flash on slower phones).
       if (!raf) raf = window.requestAnimationFrame(frame);
     }
 

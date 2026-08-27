@@ -82,6 +82,10 @@
       var style = document.createElement("style");
       style.id = "vc-session-verify-early-css";
       style.textContent =
+        "html.vc-session-verify-pending,html.vc-session-verify-pending body{" +
+        "overflow:hidden!important;overflow-x:hidden!important;overflow-y:hidden!important;" +
+        "overscroll-behavior:none!important;height:100%!important;max-height:100dvh!important;touch-action:none}" +
+        "html.vc-session-verify-pending body{position:fixed!important;inset:0!important;width:100%!important}" +
         "html.vc-session-verify-pending .vc-reviews-gate," +
         "html.vc-session-verify-pending .vc-auth-required-card{" +
         "visibility:hidden!important;pointer-events:none!important;}" +
@@ -154,7 +158,7 @@
       } catch (eFs) {
         clearSessionPendingUi();
       }
-    }, 1800);
+    }, 1000);
   }
 
   function armSessionPendingUi() {

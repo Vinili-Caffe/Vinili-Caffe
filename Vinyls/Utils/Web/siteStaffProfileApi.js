@@ -1,7 +1,7 @@
 const IDs = require("../Config/ids");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
-const { accountUsername, userAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
-const { countModActionsByMod } = require("../Moderation/modCaseStore");
+const { accountUsername, memberDisplayName, userAvatarUrlDynamic, discordDefaultAvatarUrl } = require("../Discord/guildDiscordIdentity");
+const { summarizeModActionsByModWindows } = require("../Moderation/modCaseStore");
 const {
   computeConsumedPauseDays,
   getBasePauseLimit,
@@ -19,18 +19,20 @@ const {
   resolveStaffPartnerPointsDisplay,
   resolveStaffProfileKind,
   buildFullProfileRoleLabelForEmbed,
+  buildStaffProfileRoleBadges,
   resolveStaffProfileDisplayRoleId,
   PROFILE_FULL,
   PROFILE_PM_ONLY,
   PROFILE_PROSPECT,
 } = require("../Staff/staffProfilePanelRuntime");
 const { resolveSerataFilmAttendanceForWeek } = require("../Staff/serataFilmAttendanceUtils");
+const { loadLegacyStaffByUserIds, mergeStaffEmbedded } = require("../Staff/staffLegacyMerge");
 const { assertWebsiteStaffAccess, normalizeHeaderSecret } = require("./siteStaffAccessApi");
 
-const PROFILE_CACHE_TTL_MS = 20_000;
+const PROFILE_CACHE_TTL_MS = 120_000;
 const PROFILE_CACHE_MAX = 200;
 const profileCache = new Map();
-const PROFILE_PAYLOAD_VERSION = 2;
+const PROFILE_PAYLOAD_VERSION = 6;
 
 function stripDiscordDecorations(text) {
   return String(text || "")
@@ -64,6 +66,12 @@ function writeProfileCache(userId, payload) {
     exp: Date.now() + PROFILE_CACHE_TTL_MS,
     payload,
   });
+}
+
+function clearStaffProfileCacheForUser(userId) {
+  try {
+    profileCache.delete(profileCacheKey(userId));
+  } catch (e) {}
 }
 
 function recentReasonLines(list, limit = 5) {
@@ -179,15 +187,40 @@ function serializePauseHistory(staffObj, profileKind, limit = 8) {
   return rows;
 }
 
-function serializeRolesHistory(staffObj, limit = 10) {
+function humanizeRoleKey(key) {
+  return String(key || "")
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2")
+    .trim();
+}
+
+function roleNameFromId(guild, roleIdOrName) {
+  const raw = String(roleIdOrName || "").trim();
+  if (!raw || raw === "—" || raw === "-") return "—";
+  if (!/^\d{16,22}$/.test(raw)) {
+    return stripDiscordDecorations(raw) || raw;
+  }
+  const live = guild?.roles?.cache?.get(raw)?.name;
+  if (live) return stripDiscordDecorations(live) || live;
+  const roles = IDs.roles || {};
+  for (const [key, val] of Object.entries(roles)) {
+    if (String(val) === raw) {
+      const label = humanizeRoleKey(key);
+      return label || raw;
+    }
+  }
+  return raw;
+}
+
+function serializeRolesHistory(guild, staffObj, limit = 10) {
   const hist = Array.isArray(staffObj?.rolesHistory) ? staffObj.rolesHistory : [];
   return hist
     .map((row) => {
       const d = row?.date ? new Date(row.date) : null;
       const iso = d && Number.isFinite(d.getTime()) ? d.toISOString() : null;
       return {
-        oldRole: stripDiscordDecorations(row?.oldRole || "") || "—",
-        newRole: stripDiscordDecorations(row?.newRole || "") || "—",
+        oldRole: roleNameFromId(guild, row?.oldRole),
+        newRole: roleNameFromId(guild, row?.newRole),
         reason: stripDiscordDecorations(row?.reason || "") || null,
         dateIso: iso,
         dateLabel: iso ? formatTenureLabel(iso) : null,
@@ -226,37 +259,73 @@ function formatTenureLabel(iso) {
   }
 }
 
+const MODSTATS_BUDGET_MS = 8000;
+
+async function buildModstatsWithBudget(guildId, userId) {
+  try {
+    return await Promise.race([
+      buildModstats(guildId, userId),
+      new Promise((resolve) => {
+        setTimeout(() => resolve(null), MODSTATS_BUDGET_MS);
+      }),
+    ]);
+  } catch {
+    return null;
+  }
+}
+
 async function buildModstats(guildId, userId) {
-  const now = Date.now();
-  const d7 = new Date(now - 7 * 24 * 60 * 60 * 1000);
-  const d30 = new Date(now - 30 * 24 * 60 * 60 * 1000);
-  const count = (action, since = null) => countModActionsByMod(guildId, userId, action, since);
-  const [m7, m30, mall, b7, b30, ball, k7, k30, kall, w7, w30, wall] = await Promise.all([
-    count("MUTE", d7),
-    count("MUTE", d30),
-    count("MUTE"),
-    count("BAN", d7),
-    count("BAN", d30),
-    count("BAN"),
-    count("KICK", d7),
-    count("KICK", d30),
-    count("KICK"),
-    count("WARN", d7),
-    count("WARN", d30),
-    count("WARN"),
-  ]);
-  const pack = (mute, ban, kick, warn) => ({
-    mute: Number(mute) || 0,
-    ban: Number(ban) || 0,
-    kick: Number(kick) || 0,
-    warn: Number(warn) || 0,
-    total: (Number(mute) || 0) + (Number(ban) || 0) + (Number(kick) || 0) + (Number(warn) || 0),
-  });
-  return {
-    d7: pack(m7, b7, k7, w7),
-    d30: pack(m30, b30, k30, w30),
-    all: pack(mall, ball, kall, wall),
+  const buckets = await summarizeModActionsByModWindows(guildId, userId);
+  const pack = (windowKey) => {
+    const mute = Number(buckets.MUTE?.[windowKey]) || 0;
+    const ban = Number(buckets.BAN?.[windowKey]) || 0;
+    const kick = Number(buckets.KICK?.[windowKey]) || 0;
+    const warn = Number(buckets.WARN?.[windowKey]) || 0;
+    return {
+      mute,
+      ban,
+      kick,
+      warn,
+      total: mute + ban + kick + warn,
+    };
   };
+  return {
+    d7: pack("d7"),
+    d30: pack("d30"),
+    all: pack("all"),
+  };
+}
+
+async function resolveStaffProfileAvatarUrl(client, guild, member, user, userId) {
+  const uid = String(userId || "").trim();
+  if (!uid) return discordDefaultAvatarUrl(null, { size: 256 });
+
+  let avatarSubject = member;
+  let targetUser = member?.user || user || null;
+  const userHasAvatar = Boolean(targetUser?.avatar);
+  const memberHasServerAvatar = Boolean(member?.avatar);
+  const userHasDisplayFn = typeof targetUser?.displayAvatarURL === "function";
+
+  if (!userHasAvatar && !userHasDisplayFn && client?.users?.fetch) {
+    targetUser = (await client.users.fetch(uid).catch(() => null)) || targetUser;
+  }
+
+  if (guild && !memberHasServerAvatar) {
+    const liveMember = guild.members?.cache?.get(uid) || (await guild.members.fetch(uid).catch(() => null));
+    if (liveMember?.avatar) avatarSubject = liveMember;
+    else if (liveMember?.user?.avatar && !targetUser?.avatar) targetUser = liveMember.user;
+  }
+
+  const fromMember =
+    avatarSubject?.avatar != null && avatarSubject.avatar !== ""
+      ? userAvatarUrlDynamic(avatarSubject, { size: 256 })
+      : null;
+  if (fromMember) return fromMember;
+
+  const fromUser = userAvatarUrlDynamic(targetUser || avatarSubject, { size: 256 });
+  if (fromUser) return fromUser;
+
+  return discordDefaultAvatarUrl(targetUser || { id: uid }, { size: 256 });
 }
 
 async function buildStaffProfilePayloadForWeb(client, member, user) {
@@ -267,10 +336,13 @@ async function buildStaffProfilePayloadForWeb(client, member, user) {
   }
 
   const guild = member.guild || client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
-  const targetUser = member.user || user || (await client.users.fetch(userId).catch(() => null));
-  const displayName = accountUsername(member) || accountUsername(targetUser) || userId;
-  const username = String(targetUser?.username || member?.user?.username || "").trim() || displayName;
-  const avatarUrl = userAvatarUrlDynamic(targetUser || member, { size: 256 }) || null;
+  let targetUser = member?.user || user || null;
+  if (!targetUser?.avatar && typeof targetUser?.displayAvatarURL !== "function" && client?.users?.fetch) {
+    targetUser = (await client.users.fetch(userId).catch(() => null)) || targetUser;
+  }
+  const username = accountUsername(targetUser) || accountUsername(member) || userId;
+  const displayName = memberDisplayName(member, targetUser) || username;
+  const avatarUrl = await resolveStaffProfileAvatarUrl(client, guild, member, targetUser, userId);
 
   const profileKind = resolveStaffProfileKind(member);
   if (profileKind === PROFILE_PROSPECT) {
@@ -287,27 +359,48 @@ async function buildStaffProfilePayloadForWeb(client, member, user) {
   const displayRoleId = resolveStaffProfileDisplayRoleId(member);
   const displayRole = displayRoleId ? guild?.roles?.cache?.get(displayRoleId) : null;
   let roleLabel = "—";
+  let roleBadges = [];
   if (profileKind === PROFILE_PM_ONLY) {
     roleLabel = displayRole?.name || guild?.roles?.cache?.get(pmRoleId)?.name || "Partner Manager";
+    roleBadges = [
+      {
+        kind: "pm",
+        icon: "fa-handshake-o",
+        label: roleLabel,
+        color:
+          displayRole?.hexColor && displayRole.hexColor !== "#000000"
+            ? displayRole.hexColor
+            : "#e8c49c",
+        roleId: pmRoleId || null,
+      },
+    ];
   } else {
+    roleBadges = buildStaffProfileRoleBadges(guild, member);
     roleLabel = buildFullProfileRoleLabelForEmbed(guild, member);
   }
   roleLabel = stripDiscordDecorations(roleLabel) || roleLabel;
+  roleBadges = roleBadges.map((b) => ({
+    kind: b.kind || "staff",
+    icon: b.icon || "fa-shield",
+    label: stripDiscordDecorations(b.label) || b.label || "—",
+    color: b.color || "#d4a888",
+    roleId: b.roleId || null,
+  }));
   const roleColor =
     displayRole?.hexColor && displayRole.hexColor !== "#000000"
       ? displayRole.hexColor
       : "#d4a888";
 
-  const doc = await ActivityUserProfile.findOne({ guildId, userId })
-    .select("staff")
-    .lean()
-    .catch(() => null);
-  const staff = doc?.staff || {};
+  const [doc, legacyMap] = await Promise.all([
+    ActivityUserProfile.findOne({ guildId, userId }).select("staff").lean().catch(() => null),
+    loadLegacyStaffByUserIds(guildId, [userId]),
+  ]);
+  const staff = mergeStaffEmbedded(doc?.staff || {}, legacyMap.get(userId) || null);
 
   const pauseRole = profileKind === PROFILE_PM_ONLY ? PAUSE_ROLE_PM : PAUSE_ROLE_STAFF;
   const baseLimit = getBasePauseLimit(member, pauseRole);
-  const bonus = getStaffPauseBonusDaysTotal(member, doc);
-  const tradedBonus = getValPosTradedPauseBonusDays(doc);
+  const bonus = getStaffPauseBonusDaysTotal(member, doc || { staff });
+  const tradedBonus = getValPosTradedPauseBonusDays(doc || { staff });
   const maxDays = Math.max(0, baseLimit + bonus);
   const usedDays = Math.max(0, computeConsumedPauseDays(staff.pauses));
   const remainingDays = Math.max(0, maxDays - usedDays);
@@ -319,7 +412,7 @@ async function buildStaffProfilePayloadForWeb(client, member, user) {
 
   const tenureIso = resolveTenureIso(staff);
   const showModstats = profileKind === PROFILE_FULL;
-  const modstats = showModstats ? await buildModstats(guildId, userId) : null;
+  const modstats = showModstats ? await buildModstatsWithBudget(guildId, userId) : null;
 
   let serataFilm = null;
   if (profileKind === PROFILE_FULL) {
@@ -346,6 +439,7 @@ async function buildStaffProfilePayloadForWeb(client, member, user) {
     },
     role: {
       label: roleLabel,
+      badges: roleBadges,
       kind: profileKind === PROFILE_PM_ONLY ? "pm_only" : "full",
       isPm,
       color: roleColor,
@@ -375,11 +469,18 @@ async function buildStaffProfilePayloadForWeb(client, member, user) {
       recent: recentReasonLines(staff.warnReasons, 5),
     },
     partner: isPm
-      ? {
-          points: Math.max(0, Math.floor(Number(resolveStaffPartnerPointsDisplay(staff) || 0))),
-          partnerCount: Math.max(0, Math.floor(Number(staff.partnerCount || 0))),
-          redeemSpend: Math.max(0, Math.floor(Number(staff.partnerRedeemSpend || 0))),
-        }
+      ? (() => {
+          const points = Math.max(0, Math.floor(Number(resolveStaffPartnerPointsDisplay(staff) || 0)));
+          const partnerCount = Math.max(0, Math.floor(Number(staff.partnerCount || 0)));
+          const redeemSpend = Math.max(0, Math.floor(Number(staff.partnerRedeemSpend || 0)));
+          const { buildPmShopCatalogForWeb } = require("./siteStaffPmShopApi");
+          return {
+            points,
+            partnerCount,
+            redeemSpend,
+            shop: buildPmShopCatalogForWeb(points, { member, lean: { staff } }),
+          };
+        })()
       : null,
     modstats,
     serataFilm,
@@ -390,7 +491,7 @@ async function buildStaffProfilePayloadForWeb(client, member, user) {
             label: formatTenureLabel(tenureIso),
           }
         : null,
-      rolesHistory: serializeRolesHistory(staff, 10),
+      rolesHistory: serializeRolesHistory(guild, staff, 10),
     },
   };
 }
@@ -434,4 +535,5 @@ async function handleSiteStaffProfileGet(client, req, res) {
 module.exports = {
   handleSiteStaffProfileGet,
   buildStaffProfilePayloadForWeb,
+  clearStaffProfileCacheForUser,
 };

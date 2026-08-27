@@ -2,6 +2,8 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBu
 const { skullboardFindOneLean, skullboardUpsert } = require("../Utils/Global/globalSettingsGuildStores");
 const { handleMinigameReaction } = require("../Services/Minigames/minigameService");
 const { handleReactPressReaction } = require("../Services/Community/hogwartsReactPressService");
+const { handleIdeaBugReaction } = require("../Services/Community/ideaBugThreadService");
+const { handlePollVoteReaction } = require("../Services/Community/pollReactionThreadService");
 const IDs = require("../Utils/Config/ids");
 const { getGuildChannelCached, getGuildMemberCached } = require("../Utils/Interaction/interactionEntityCache");
 const { cacheRoleIcon } = require("../Utils/Cache/roleIconCache");
@@ -292,6 +294,10 @@ module.exports = {
         if (reactPressHandled) return;
         const handled = await handleMinigameReaction(client, reaction, user);
         if (handled) return;
+        const ideaBugHandled = await handleIdeaBugReaction(reaction, user);
+        if (ideaBugHandled) return;
+        const pollVoteHandled = await handlePollVoteReaction(reaction, user);
+        if (pollVoteHandled) return;
       } catch (mgErr) {
         global.logger?.error?.("[ReactionAdd] event reaction handler:", mgErr?.message || mgErr);
       }

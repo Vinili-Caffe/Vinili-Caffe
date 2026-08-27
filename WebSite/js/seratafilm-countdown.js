@@ -137,8 +137,12 @@
   }
 
   function linkFilmUrl() {
+    try {
+      var protectedUrl = String(window.__VC_SERATAFILM_FILM_URL || "").trim();
+      if (protectedUrl) return protectedUrl;
+    } catch (eProt) {}
     var u = String(eventCfg().linkFilm || "").trim();
-    return u || "https://streamingcommunityz.moe/it/watch/51833";
+    return u;
   }
 
   function resolveFilmUrl(raw) {
@@ -220,10 +224,20 @@
 
   function isInlineFilmUrl(url) {
     var s = String(url || "").trim();
-    if (!s || !/\.(mp4|webm|ogg|mov)(\?|#|$)/i.test(s)) return false;
+    if (!s) return false;
+    try {
+      var u = new URL(s, window.location.href);
+      if (/\/webhooks\/site-seratafilm-film/i.test(u.pathname)) {
+        return u.origin === window.location.origin;
+      }
+      if (/^https?:\/\//i.test(s) && u.origin === window.location.origin) {
+        return /\.(mp4|webm|ogg|mov)(\?|#|$)/i.test(u.pathname + u.search);
+      }
+    } catch (e0) {}
+    if (!/\.(mp4|webm|ogg|mov)(\?|#|$)/i.test(s)) return false;
     try {
       if (/^https?:\/\//i.test(s)) return new URL(s).origin === window.location.origin;
-    } catch (e0) {}
+    } catch (e1) {}
     return true;
   }
 
@@ -427,7 +441,8 @@
   function forceAssignAdVideoSrc(adVideo, url, cacheBust) {
     if (!adVideo || !url) return;
     var finalUrl = url;
-    if (cacheBust) {
+    var isBlob = String(url).indexOf("blob:") === 0;
+    if (cacheBust && !isBlob) {
       try {
         var u = new URL(url, window.location.href);
         u.searchParams.set("vcadb", String(Date.now()));
@@ -593,18 +608,33 @@
    * Il tag <video src="/images/..."> sul nuovo file spesso non arriva a nginx
    * (challenge CF → HTML → player nero a 0:00 senza errori console).
    */
+  function adFetchUrl(url, bust) {
+    var abs = url;
+    try {
+      abs = new URL(url, window.location.href).href;
+    } catch (eAbs) {}
+    try {
+      var u = new URL(abs);
+      u.searchParams.set("vcad", String(bust || Date.now()));
+      return u.href;
+    } catch (eU) {
+      return abs + (abs.indexOf("?") >= 0 ? "&" : "?") + "vcad=" + String(bust || Date.now());
+    }
+  }
+
   function fetchAdObjectUrl(url) {
     var abs = url;
     try {
       abs = new URL(url, window.location.href).href;
     } catch (eAbs) {}
+    var fetchUrl = adFetchUrl(abs, Date.now());
     if (cachedAdObjectUrl && cachedAdSourceUrl === abs) {
       return Promise.resolve({ ok: true, objectUrl: cachedAdObjectUrl, via: "cache" });
     }
-    return fetch(abs, {
+    return fetch(fetchUrl, {
       method: "GET",
       credentials: "same-origin",
-      cache: "force-cache",
+      cache: "no-store",
       headers: { Accept: "video/mp4,video/*,*/*" },
     })
       .then(function (res) {
@@ -620,12 +650,14 @@
               head = new TextDecoder("utf-8").decode(bytes.subarray(0, 64));
             } catch (eDec) {}
             if (looksLikeHtmlText(head) || ctype.indexOf("text/html") >= 0) {
+              cachedAdSourceUrl = "";
               return {
                 ok: false,
                 status: res.status,
                 detail: "CF/HTML al posto del video",
               };
             }
+            cachedAdSourceUrl = "";
             return { ok: false, status: res.status, detail: "file non-MP4" };
           }
           var blob = new Blob([buf], { type: "video/mp4" });
@@ -643,11 +675,67 @@
       });
   }
 
+  function assignAdPlaySrc(adVideo, playSrc) {
+    if (!adVideo || !playSrc) return;
+    if (String(playSrc).indexOf("blob:") === 0) {
+      try {
+        adVideo.removeAttribute("srcObject");
+        adVideo.removeAttribute("src");
+      } catch (eRm) {}
+      try {
+        adVideo.pause();
+      } catch (eP) {}
+      adVideo.preload = "auto";
+      adVideo.src = playSrc;
+      adVideoLoadLocked = true;
+      try {
+        adVideo.load();
+      } catch (eL) {}
+      return;
+    }
+    forceAssignAdVideoSrc(adVideo, playSrc, true);
+  }
+
+  function prepareAdBreakVideoEl(playSrc) {
+    destroyLiveAdPlayer();
+    var inline = document.getElementById("vc-seratafilm-ad-video");
+    if (inline) {
+      inline.playsInline = true;
+      inline.muted = true;
+      inline.setAttribute("muted", "");
+      inline.autoplay = true;
+      inline.controls = false;
+      inline.disablePictureInPicture = true;
+      inline.preload = "auto";
+      inline.volume = 1;
+      inline.setAttribute("controlslist", "nodownload noplaybackrate noremoteplayback");
+      assignAdPlaySrc(inline, playSrc);
+      setAdVideoStage(inline, "play");
+      return inline;
+    }
+    return createLiveAdPlayerFromSrc(playSrc);
+  }
+
+  function resetAdBreakVideoEl() {
+    destroyLiveAdPlayer();
+    var inline = document.getElementById("vc-seratafilm-ad-video");
+    if (!inline) return;
+    try {
+      inline.pause();
+      inline.removeAttribute("src");
+    } catch (eR) {}
+    setAdVideoStage(inline, "idle");
+  }
+
   function createLiveAdPlayerFromSrc(src) {
     destroyLiveAdPlayer();
+    var host =
+      document.getElementById("vc-seratafilm-ad-break") ||
+      document.getElementById("vc-seratafilm-film") ||
+      document.body;
     var adVideo = document.createElement("video");
     adVideo.id = "vc-seratafilm-ad-live";
-    adVideo.className = "vc-seratafilm-ad-video--fs";
+    adVideo.className = "vc-seratafilm-ad-break__video is-playing";
     adVideo.setAttribute("playsinline", "");
     adVideo.setAttribute("webkit-playsinline", "");
     adVideo.setAttribute("muted", "");
@@ -659,9 +747,9 @@
     adVideo.preload = "auto";
     adVideo.volume = 1;
     adVideo.setAttribute("controlslist", "nodownload noplaybackrate noremoteplayback");
-    adVideo.src = src;
+    assignAdPlaySrc(adVideo, src);
     if (String(src).indexOf("blob:") === 0) liveAdBlobUrl = src;
-    document.body.appendChild(adVideo);
+    host.appendChild(adVideo);
     liveAdPlayer = adVideo;
     return adVideo;
   }
@@ -678,8 +766,10 @@
       card.setAttribute("hidden", "");
     }
 
+    setAdBreakUi(true);
     setAdSpotPlaying(true);
     hideAdTapToPlay();
+    setFilmLoading(false);
 
     var adVideo = null;
     var usedUrl = url;
@@ -739,7 +829,7 @@
           var playedMs = playStartedAt
             ? Math.max(0, Date.now() - playStartedAt)
             : Math.max(0, (Number(adVideo && adVideo.currentTime) || 0) * 1000);
-          destroyLiveAdPlayer();
+          resetAdBreakVideoEl();
           resolve({
             playedMs: playedMs,
             completed: Boolean(result && result.completed),
@@ -835,7 +925,7 @@
             tapTries += 1;
             tap.disabled = true;
             tap.textContent = "Avvio…";
-            if (!adVideo) wirePlayer(createLiveAdPlayerFromSrc(playSrc));
+            if (!adVideo) wirePlayer(prepareAdBreakVideoEl(playSrc));
             attemptPlay().then(function (ok) {
               if (ok || done) return;
               finish({ completed: false });
@@ -848,16 +938,20 @@
           finish({ completed: adVideo && Number(adVideo.currentTime) > 1 });
         }, maxMsSafe + 3000);
 
-        // Auto: crea player senza controlli e parte da solo (muted → unmute).
-        wirePlayer(createLiveAdPlayerFromSrc(playSrc));
-        attemptPlay().then(function (ok) {
-          if (ok || done) return;
-          // Solo se il browser blocca l’autoplay mostriamo il tap.
-          armTap("Tocca per avviare lo spot");
-          gaveUpTimer = setTimeout(function () {
-            if (done || (adVideo && Number(adVideo.currentTime) > 0.5)) return;
-            finish({ completed: false });
-          }, 15000);
+        // Auto: player fullscreen + attendi buffer prima del play.
+        var bootEl = prepareAdBreakVideoEl(playSrc);
+        wirePlayer(bootEl);
+        waitForAdVideoReady(bootEl, 15000).then(function () {
+          if (done) return;
+          attemptPlay().then(function (ok) {
+            if (ok || done) return;
+            // Solo se il browser blocca l’autoplay mostriamo il tap.
+            armTap("Tocca per avviare lo spot");
+            gaveUpTimer = setTimeout(function () {
+              if (done || (adVideo && Number(adVideo.currentTime) > 0.5)) return;
+              finish({ completed: false });
+            }, 15000);
+          });
         });
       });
     });
@@ -1099,6 +1193,7 @@
     var el = document.getElementById("vc-seratafilm-film-loading");
     if (!el) return;
     if (show) {
+      ensureFilmLoadingUi(el);
       el.hidden = false;
       el.removeAttribute("hidden");
       if (message) {
@@ -1214,7 +1309,7 @@
       p.then(function () {
         unmuteIfArmed();
         hideFilmGestureTap();
-        setFilmLoading(false);
+        maybeHideFilmLoading(video);
       }).catch(function () {
         try {
           video.muted = true;
@@ -1225,7 +1320,7 @@
           p2.then(function () {
             unmuteIfArmed();
             hideFilmGestureTap();
-            setFilmLoading(false);
+            maybeHideFilmLoading(video);
             if (!playbackGestureArmed) {
               showFilmGestureTap("Tocca per audio e schermo intero", function () {
                 unmuteIfArmed();
@@ -1253,6 +1348,45 @@
   var filmLastProgressAt = 0;
   var filmLastProgressTime = 0;
   var filmStallWatchTimer = 0;
+  var filmBootLoadingUntil = 0;
+  var filmBufferReady = false;
+  var FILM_BOOT_LOADING_MIN_MS = 2800;
+
+  function markFilmBufferReady() {
+    filmBufferReady = true;
+    maybeHideFilmLoading();
+  }
+
+  function maybeHideFilmLoading(video) {
+    var el = document.getElementById("vc-seratafilm-film-loading");
+    if (!el || el.hidden) return;
+    if (!filmStarted) return;
+    video = video || document.getElementById("vc-seratafilm-film-video");
+    if (!video) return;
+    var minTimeOk = Date.now() >= filmBootLoadingUntil;
+    var bufferOk =
+      filmBufferReady ||
+      Number(video.readyState) >= 3 ||
+      (Number(video.buffered && video.buffered.length ? video.buffered.end(0) : 0) > 1.5);
+    var playingFrame = !video.paused && Number(video.currentTime) > 0.08;
+    if (minTimeOk && (bufferOk || playingFrame)) {
+      setFilmLoading(false);
+    }
+  }
+
+  function ensureFilmLoadingUi(el) {
+    if (!el || el.querySelector(".vc-seratafilm-film__loading-spinner")) return;
+    var text = el.querySelector(".vc-seratafilm-film__loading-text");
+    if (!text) return;
+    var card = document.createElement("div");
+    card.className = "vc-seratafilm-film__loading-card";
+    var spinner = document.createElement("div");
+    spinner.className = "vc-seratafilm-film__loading-spinner";
+    spinner.setAttribute("aria-hidden", "true");
+    el.insertBefore(card, text);
+    card.appendChild(spinner);
+    card.appendChild(text);
+  }
 
   function clearFilmStallWatch() {
     if (!filmStallWatchTimer) return;
@@ -1282,7 +1416,7 @@
       filmLastProgressTime = t;
       filmLastProgressAt = Date.now();
       if (delta < 2.5) filmStallRecoveries = 0;
-      setFilmLoading(false);
+      maybeHideFilmLoading(video);
     }
   }
 
@@ -1368,10 +1502,17 @@
     });
     video.addEventListener("playing", function () {
       filmLastProgressAt = Date.now();
-      setFilmLoading(false);
+      maybeHideFilmLoading(video);
     });
     video.addEventListener("canplay", function () {
-      if (filmStarted) setFilmLoading(false);
+      if (Number(video.readyState) >= 3) markFilmBufferReady();
+      else maybeHideFilmLoading(video);
+    });
+    video.addEventListener("canplaythrough", function () {
+      markFilmBufferReady();
+    });
+    video.addEventListener("loadeddata", function () {
+      if (Number(video.readyState) >= 3) markFilmBufferReady();
     });
     video.addEventListener("seeking", function () {
       if (!filmStarted || adBreakRunning) return;
@@ -1424,6 +1565,8 @@
     adBreakLastCurrentTime = 0;
     filmPostAdGraceUntil = 0;
     filmStallRecoveries = 0;
+    filmBufferReady = false;
+    filmBootLoadingUntil = Date.now() + FILM_BOOT_LOADING_MIN_MS;
     filmLastProgressAt = Date.now();
     filmLastProgressTime = 0;
     filmSeenCurrentTime = 0;
@@ -1460,7 +1603,7 @@
     root.hidden = false;
     root.removeAttribute("hidden");
     root.setAttribute("aria-hidden", "false");
-    setFilmLoading(true, "Avvio proiezione…");
+    setFilmLoading(true, "Buffering…");
     video.playsInline = true;
     video.controls = true;
     video.preload = "auto";
@@ -1489,14 +1632,16 @@
       { once: true },
     );
     video.addEventListener(
-      "canplay",
+      "canplaythrough",
       function () {
+        markFilmBufferReady();
         kickInlineFilmPlayback(video);
       },
       { once: true },
     );
-    [150, 500, 1200].forEach(function (delayMs) {
+    [150, 500, 1200, 2800].forEach(function (delayMs) {
       setTimeout(function () {
+        maybeHideFilmLoading(video);
         kickInlineFilmPlayback(video);
       }, delayMs);
     });
@@ -1659,8 +1804,10 @@
       } catch (eT0) {}
       window.__vcSeratafilmCountdownTickTimeout = 0;
     }
+    function currentFilmUrl() {
+      return resolveFilmUrl(linkFilmUrl());
+    }
     var openNow = document.getElementById("openNow");
-    var filmUrl = resolveFilmUrl(linkFilmUrl());
     if (openNow && !openNow.dataset.vcSeratafilmOpenBound) {
       openNow.dataset.vcSeratafilmOpenBound = "1";
       openNow.addEventListener("click", function () {
@@ -1673,7 +1820,8 @@
         clearCountdownAudioFastGuard();
         // Keep FS if already active — exiting here burns the user gesture for play/FS.
         clearFinalCountdownUi({ keepFullscreen: true });
-        if (isInlineFilmUrl(filmUrl)) preloadInlineFilm(filmUrl, { forceAuto: true });
+        var clickFilmUrl = currentFilmUrl();
+        if (isInlineFilmUrl(clickFilmUrl)) preloadInlineFilm(clickFilmUrl, { forceAuto: true });
         openFilm(true);
       });
     }
@@ -1681,6 +1829,7 @@
       var oraAttuale = Date.now();
       var dataFilm = getFilmAtForCountdown(oraAttuale);
       var distanza = dataFilm - oraAttuale;
+      var filmUrl = currentFilmUrl();
 
       if (typeof window.__vcSeratafilmBgmOnTick === "function") {
         window.__vcSeratafilmBgmOnTick(distanza);
@@ -1813,4 +1962,13 @@
   } else {
     bootFilmEndRedirect();
   }
+
+  try {
+    window.addEventListener("vc:access-ok", function () {
+      var url = resolveFilmUrl(linkFilmUrl());
+      if (!isInlineFilmUrl(url)) return;
+      injectFilmPreloadLink(url);
+      preloadInlineFilm(url, { forceAuto: true });
+    });
+  } catch (eAccessOk) {}
 })();

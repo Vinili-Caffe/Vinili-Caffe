@@ -17,7 +17,7 @@ const CUSTOM_ID_PREFIX_DENY = "pm_afk_watch_deny:";
 const STAFF_ROLE_ID = String(IDs.roles?.Staff || "").trim();
 const MAIN_GUILD_ID = String(IDs.guilds?.main || "").trim();
 
-const RULE_DOT = "3.6";
+const RULE_DOT = "3.5";
 const RULE_MATCH_RE = /\b3\s*[\._-]\s*6\b/i;
 const REASON_MATCH_RE = /(afk.*voc|voc.*afk|farm.*voc|resta.*afk)/i;
 

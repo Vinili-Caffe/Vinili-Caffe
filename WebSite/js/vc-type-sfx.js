@@ -3,8 +3,8 @@
 
   var STORAGE_KEY = "vc_type_sfx";
   var VOL_KEY = "vc_type_sfx_vol";
-  var MAX_RATE_MS = 28;
-  var BASE_PEAK = 0.55;
+  var MAX_RATE_MS = 22;
+  var BASE_PEAK = 0.85;
   var lastPlayAt = 0;
   var ctx = null;
   var unlocked = false;
@@ -87,16 +87,16 @@
 
   function buildClickBuffer(c, seed) {
     var sr = c.sampleRate || 44100;
-    var len = Math.max(32, Math.floor(sr * 0.028));
+    var len = Math.max(64, Math.floor(sr * 0.045));
     var buf = c.createBuffer(1, len, sr);
     var d = buf.getChannelData(0);
-    var base = 880 + (seed % 5) * 70;
+    var base = 920 + (seed % 5) * 85;
     for (var i = 0; i < len; i++) {
       var t = i / sr;
-      var env = Math.exp(-t * 95);
+      var env = Math.exp(-t * 70);
       var click = Math.sin(2 * Math.PI * base * t);
       var noise = ((seed * 1103515245 + i * 12345) & 0xffff) / 0xffff - 0.5;
-      d[i] = (click * 0.72 + noise * 0.38) * env;
+      d[i] = (click * 0.82 + noise * 0.42) * env;
     }
     return buf;
   }
@@ -161,23 +161,57 @@
 
   function playTick() {
     var vol = effectiveVol();
-    if (vol <= 0.001 || !unlocked) return;
+    if (vol <= 0.001) return;
     var now = performance && performance.now ? performance.now() : Date.now();
     if (now - lastPlayAt < MAX_RATE_MS) return;
     var c = ensureCtx();
     if (!c) return;
+    unlocked = true;
+    lastPlayAt = now;
 
-    if (c.state === "suspended") {
-      lastPlayAt = now;
-      unlock().then(function (ready) {
-        if (!ready || effectiveVol() <= 0.001) return;
-        emitTick(ready, vol);
-      });
-      return;
+    function fire() {
+      if (effectiveVol() <= 0.001) return;
+      emitTick(c, vol);
     }
 
-    lastPlayAt = now;
-    emitTick(c, vol);
+    // resume() nel gesto (keydown); poi play. Non fare unlock().then() a catena.
+    if (c.state === "suspended") {
+      try {
+        var p = c.resume();
+        if (p && typeof p.then === "function") {
+          p.then(function () {
+            fire();
+            warmPipeline(c);
+          }).catch(function () {});
+        } else {
+          fire();
+        }
+      } catch (eSus) {
+        unlock().then(function (ready) {
+          if (ready) emitTick(ready, vol);
+        });
+      }
+      return;
+    }
+    fire();
+  }
+
+  function shouldSkipSoftKeyboardNoise(ev) {
+    // Solo telefoni reali (hover none + coarse). Laptop touch/desktop devono suonare.
+    if (!isTouchUi()) return false;
+    try {
+      if (ev && String(ev.key || "").length === 1) return false;
+    } catch (eK) {}
+    return true;
+  }
+
+  function onTypingSound(ev) {
+    if (effectiveVol() <= 0.001) return;
+    var target = (ev && (ev.target || ev.srcElement)) || null;
+    if (!isTypingTarget(target)) return;
+    setShellVisible(true);
+    if (shouldSkipSoftKeyboardNoise(ev)) return;
+    playTick();
   }
 
   function isTypingTarget(el) {
@@ -237,20 +271,14 @@
 
   function isTouchUi() {
     try {
-      if (window.matchMedia("(hover: none) and (pointer: coarse)").matches) return true;
-      if (window.matchMedia("(max-width: 920px) and (pointer: coarse)").matches) return true;
-    } catch (e0) {}
-    try {
-      return Number(navigator.maxTouchPoints || 0) > 0 && window.innerWidth < 921;
-    } catch (e1) {
+      // Solo touch-primary (telefono): evita falsi positivi su laptop Windows touch.
+      return window.matchMedia("(hover: none) and (pointer: coarse)").matches;
+    } catch (e0) {
       return false;
     }
   }
 
   function setShellVisible(show) {
-    if (isTouchUi()) {
-      show = false;
-    }
     if (show) {
       ensureShell();
       if (wrap) {
@@ -266,7 +294,13 @@
   }
 
   function refreshShellVisibility() {
-    setShellVisible(pageHasTypingTargets());
+    var active = null;
+    try {
+      active = document.activeElement;
+    } catch (eA) {}
+    var show =
+      pageHasTypingTargets() || (active && isTypingTarget(active) && isVisibleField(active));
+    setShellVisible(show);
   }
 
   function isPrintableKey(ev) {
@@ -287,20 +321,21 @@
       "aria-label",
       on
         ? isIt()
-          ? "Disattiva suono tastiera"
-          : "Mute typing sounds"
+          ? "Volume suono tastiera"
+          : "Typing sound volume"
         : isIt()
-          ? "Attiva suono tastiera"
-          : "Enable typing sounds",
+          ? "Suono tastiera disattivato — alza lo slider"
+          : "Typing sound off — raise the slider",
     );
     btn.title = btn.getAttribute("aria-label");
     btn.classList.toggle("is-muted", !on);
     if (wrap) wrap.classList.toggle("is-muted", !on);
     var icon = btn.querySelector(".fa");
-    if (icon) icon.className = on ? "fa fa-keyboard-o" : "fa fa-volume-off";
+    // Icona fissa: niente swap keyboard ↔ volume-off.
+    if (icon) icon.className = "fa fa-keyboard-o";
     if (rangeEl) {
-      var showVol = mutedByUser ? 0 : Math.round(clamp01(userVol) * 100);
-      rangeEl.value = String(showVol);
+      // Come la musica: lo slider riflette userVol anche se muto (non forzare 0).
+      rangeEl.value = String(Math.round(clamp01(userVol) * 100));
     }
   }
 
@@ -334,6 +369,15 @@
         ev.stopPropagation();
       } catch (eS) {}
     });
+    rangeEl.addEventListener(
+      "touchstart",
+      function (ev) {
+        try {
+          ev.stopPropagation();
+        } catch (eT) {}
+      },
+      { passive: true },
+    );
   }
 
   function ensureShell() {
@@ -370,20 +414,19 @@
       btn.__vcTypeSfxBound = true;
       btn.addEventListener("click", function (ev) {
         ev.preventDefault();
-        unlock();
-        if (effectiveVol() > 0.001) {
-          mutedByUser = true;
-        } else {
-          mutedByUser = false;
-          if (userVol <= 0.001) userVol = lastAudibleVol > 0.001 ? lastAudibleVol : 0.7;
-        }
-        persistPrefs();
-        syncUi();
+        try {
+          var c = ensureCtx();
+          if (c && c.state === "suspended") c.resume();
+        } catch (eC) {}
+        unlocked = true;
         if (effectiveVol() > 0.001) playTick();
       });
     }
     bindVolumeUi();
     syncUi();
+    try {
+      if (window.__VC_CHROME_SYNC) window.__VC_CHROME_SYNC.bindExpandablePlayer(wrap, btn);
+    } catch (eEx) {}
     return wrap;
   }
 
@@ -391,38 +434,40 @@
     if (window.__VC_TYPE_SFX_INIT) return;
     window.__VC_TYPE_SFX_INIT = true;
     if (document.documentElement.classList.contains("vc-type-sfx-off")) return;
-    // Mobile/touch: niente FAB flottante (ingombra) e niente click su soft-keyboard.
-    if (isTouchUi()) {
-      try {
-        document.documentElement.classList.add("vc-type-sfx-off");
-      } catch (eOff) {}
-      return;
-    }
     readPrefs();
     refreshShellVisibility();
 
     document.addEventListener(
       "keydown",
       function (ev) {
-        if (effectiveVol() <= 0.001) return;
         if (!isPrintableKey(ev)) return;
-        if (!isTypingTarget(ev.target)) return;
-        setShellVisible(true);
-        unlocked = true;
-        // Se il context è già running (focus/click), tick immediato; altrimenti unlock+play.
-        playTick();
-        if (ctx && ctx.state === "suspended") unlock();
+        onTypingSound(ev);
       },
       true,
     );
+
+    // Niente beforeinput/input su desktop: keydown è sufficiente e più affidabile per l’audio.
+    // Su soft-keyboard mobile non suoniamo (rumore).
 
     document.addEventListener(
       "focusin",
       function (ev) {
         if (!isTypingTarget(ev.target) || !isVisibleField(ev.target)) return;
         setShellVisible(true);
-        // Preriscalda AudioContext al focus: il 1° tasto non aspetta resume().
-        unlock();
+        // Sblocca AudioContext al focus campo (gesto utente tipico).
+        try {
+          var c = ensureCtx();
+          if (c && c.state === "suspended") c.resume();
+        } catch (eF) {}
+        unlocked = true;
+      },
+      true,
+    );
+
+    document.addEventListener(
+      "focusout",
+      function () {
+        window.setTimeout(refreshShellVisibility, 80);
       },
       true,
     );
@@ -430,7 +475,11 @@
     document.addEventListener(
       "pointerdown",
       function (ev) {
-        unlock();
+        try {
+          var c = ensureCtx();
+          if (c && c.state === "suspended") c.resume();
+        } catch (eP0) {}
+        unlocked = true;
         try {
           if (ev && ev.target && isTypingTarget(ev.target)) setShellVisible(true);
         } catch (eP) {}

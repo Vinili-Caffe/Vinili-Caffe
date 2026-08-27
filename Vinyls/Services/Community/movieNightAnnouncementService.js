@@ -8,6 +8,7 @@ const { isMongoReady } = require("../../Utils/Database/mongoConnect");
 const { getClientGuildCached, getGuildChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
 const IDs = require("../../Utils/Config/ids");
 const { extractMovieNightProposalTitle } = require("../../Utils/Community/movieNightProposal");
+const { siteWorkflowUrl } = require("../../Utils/Web/discordWorkflowUiGate");
 const { resolveSerataFilmHouseLeaderboard, sendSerataFilmHouseLeaderboardToReportChannel, formatCombinedRankingLines, collectHouseRoleIdsFromRanked, HOUSE_POINTS_BY_RANK, startSerataFilmHouseAttendanceSession, snapshotSerataFilmHouseAttendance, clearSerataFilmHouseAttendanceSession, restoreSerataFilmHouseAttendanceSession } = require("./hogwartsSerataFilmHouseLeaderboardService");
 const { isHogwartsWeeklyTopReplaced } = require("./weeklyActivityWinnersService");
 const TIME_ZONE = "Europe/Rome";
@@ -411,7 +412,7 @@ function buildMovieNightStaffCommunicationMessage({ title, dateLabel }) {
     "",
     "> <a:VC_Rocket:1468544312475123753> Vi ricordo anche che in vocale gli **XP** sono **doppi**. Questo è da tenere in considerazione per futuri eventi.",
     "",
-    "> <:VC_OfflineStatus:1482527117051957380> Ricordo a tutti che potete segnalare la vostra assenza alla serata film fino alle 20:45 di Sabato direttamente in `+profile`, ciò per evitare valutazioni negative errate.",
+    `> <:VC_OfflineStatus:1482527117051957380> Ricordo a tutti che potete segnalare la vostra assenza alla serata film fino alle 20:45 di Sabato sul **sito staff** (<${siteWorkflowUrl("staff")}>), ciò per evitare valutazioni negative errate.`,
     "",
     `<a:VC_Ping:1482694298687246377>・<@&${STAFF_COMMUNICATION_ROLE_ID}>`,
   ].join("\n");

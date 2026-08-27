@@ -1191,10 +1191,18 @@ async function cancelOpenPausesOnMemberLeave(guild, userId, options = {}) {
     if (!pauseId) continue;
 
     if (status === "pending") {
-      await updatePauseInDb(guildId, uid, pauseId, { status: "rejected", cancelledAt: new Date() });
-      pause.status = "rejected";
+      await updatePauseInDb(guildId, uid, pauseId, { status: "cancelled", cancelledAt: new Date() });
+      pause.status = "cancelled";
       pause.cancelledAt = new Date();
       cancelled += 1;
+      try {
+        const { updateStaffWorkflowFromPause } = require("../Web/siteStaffWorkflowStore");
+        await updateStaffWorkflowFromPause(guildId, uid, pauseId, "cancelled", {
+          statusLabel: String(options.reason || "Annullato (uscita)").slice(0, 200),
+          staffReason: String(options.reason || "Annullato (uscita)").slice(0, 200),
+          decidedBy: "system",
+        });
+      } catch (_) {}
       await deletePauseDiscordMessages(pause);
       continue;
     }

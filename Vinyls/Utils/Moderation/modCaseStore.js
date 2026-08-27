@@ -634,16 +634,29 @@ async function findModLogsPage(guildId, userId, skip, perPage) {
   return merged.slice(skip, skip + perPage);
 }
 
+/**
+ * Conta azioni di un moderatore. Non scansiona tutta la guild:
+ * filtra subito per modId (elemMatch / query legacy).
+ */
 async function countModActionsByMod(guildId, modId, action, since) {
   const act = normalizeAction(action);
+  const mid = String(modId || "");
   const seen = new Set();
   let n = 0;
   if (useCompactModCase()) {
-    const parents = await ActivityUserProfile.find({ guildId: String(guildId) }).select(MOD_CASES_PATH).lean().catch(() => []);
+    const elem = { modId: mid, action: act };
+    if (since) elem.createdAt = { $gte: since };
+    const parents = await ActivityUserProfile.find({
+      guildId: String(guildId),
+      [MOD_CASES_PATH]: { $elemMatch: elem },
+    })
+      .select(MOD_CASES_PATH)
+      .lean()
+      .catch(() => []);
     for (const p of parents) {
       for (const c of p.moderation?.modCases || []) {
-        if (String(c.modId || "") !== String(modId)) continue;
-        if (String(c.action || "") !== act) continue;
+        if (String(c.modId || "") !== mid) continue;
+        if (normalizeAction(c.action) !== act) continue;
         if (since && new Date(c.createdAt || 0) < since) continue;
         const key = String(Number(c.caseId));
         if (seen.has(key)) continue;
@@ -653,7 +666,7 @@ async function countModActionsByMod(guildId, modId, action, since) {
     }
   }
   if (useLegacyModCase()) {
-    const q = { guildId: String(guildId), modId: String(modId), action: act };
+    const q = { guildId: String(guildId), modId: mid, action: act };
     if (since) q.createdAt = { $gte: since };
     const leg = await ModCase.find(q).select("caseId").lean().catch(() => []);
     for (const d of leg) {
@@ -664,6 +677,65 @@ async function countModActionsByMod(guildId, modId, action, since) {
     }
   }
   return n;
+}
+
+/**
+ * Una sola passata: conteggi MUTE/BAN/KICK/WARN per finestre 7g / 30g / all.
+ * Usato dal profilo staff web (prima faceva 12 full-scan della collection).
+ */
+async function summarizeModActionsByModWindows(guildId, modId) {
+  const mid = String(modId || "");
+  const actions = ["MUTE", "BAN", "KICK", "WARN"];
+  const now = Date.now();
+  const t7 = now - 7 * 24 * 60 * 60 * 1000;
+  const t30 = now - 30 * 24 * 60 * 60 * 1000;
+  const empty = () => ({ d7: 0, d30: 0, all: 0 });
+  const buckets = Object.fromEntries(actions.map((a) => [a, empty()]));
+  const seen = Object.fromEntries(actions.map((a) => [a, new Set()]));
+
+  function bump(act, caseId, createdAt) {
+    const a = normalizeAction(act);
+    if (!buckets[a]) return;
+    const key = String(Number(caseId));
+    if (seen[a].has(key)) return;
+    seen[a].add(key);
+    const t = new Date(createdAt || 0).getTime();
+    buckets[a].all += 1;
+    if (Number.isFinite(t) && t >= t30) buckets[a].d30 += 1;
+    if (Number.isFinite(t) && t >= t7) buckets[a].d7 += 1;
+  }
+
+  if (useCompactModCase() && mid) {
+    const parents = await ActivityUserProfile.find({
+      guildId: String(guildId),
+      [MOD_CASES_PATH]: { $elemMatch: { modId: mid } },
+    })
+      .select(MOD_CASES_PATH)
+      .lean()
+      .catch(() => []);
+    for (const p of parents) {
+      for (const c of p.moderation?.modCases || []) {
+        if (String(c.modId || "") !== mid) continue;
+        bump(c.action, c.caseId, c.createdAt);
+      }
+    }
+  }
+
+  if (useLegacyModCase() && mid) {
+    const leg = await ModCase.find({
+      guildId: String(guildId),
+      modId: mid,
+      action: { $in: actions },
+    })
+      .select("caseId action createdAt")
+      .lean()
+      .catch(() => []);
+    for (const d of leg) {
+      bump(d.action, d.caseId, d.createdAt);
+    }
+  }
+
+  return buckets;
 }
 
 async function aggregateSanctionsByModInWeek(guildId, weekStart, weekEnd, sanctionActions) {
@@ -861,6 +933,7 @@ module.exports = {
   countModLogsForUser,
   findModLogsPage,
   countModActionsByMod,
+  summarizeModActionsByModWindows,
   aggregateSanctionsByModInWeek,
   findLifecycleCandidates,
   appendCaseEditStore,

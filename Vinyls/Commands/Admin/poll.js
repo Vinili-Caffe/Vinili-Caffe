@@ -8,6 +8,9 @@ const COUNTER_FILTER_QUESTION = "__counter__";
 const POLL_CHANNEL_CACHE_TTL_MS = 30_000;
 const POLL_CHANNEL_CACHE_TTL_NULL_MS = 5_000;
 const NUMBER_EMOJIS = ["<:1_:1444099163116535930>", "<:2_:1444099161673826368>", "<:3_:1444099160294031471>", "<:4_:1444099158859321435>", "<:5_:1444099157194440884>", "<:6_:1444099156007194887>", "<:7_:1444099154610618368>", "<:8_:1444099153125703690>", "<:9_:1444099151443919004>", "<:VC_10:1482706613663174707>",];
+const POLL_VOTE_EMOJI_IDS = new Set(
+  NUMBER_EMOJIS.map((entry) => String(entry.match(/:(\d+)>$/)?.[1] || "").trim()).filter(Boolean),
+);
 const pollChannelCache = new Map();
 
 function errorEmbed(description) {
@@ -647,4 +650,5 @@ module.exports = {
   },
   createPollForGuild,
   getPollChannelFromGuild,
+  POLL_VOTE_EMOJI_IDS,
 };

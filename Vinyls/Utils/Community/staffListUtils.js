@@ -277,9 +277,10 @@ async function getStaffListNewBadgeRoleIdsByUser(guildId) {
 async function getStaffListPausedUserIds(guildId) {
   const { hasActiveAcceptedStaffPause, getTodayUtc } = require("../Pause/pauseHandlersUtils");
   const today = getTodayUtc();
+  const gid = String(guildId);
   const docs = await ActivityUserProfile.find(
     {
-      guildId: String(guildId),
+      guildId: gid,
       "staff.pauses": { $elemMatch: { status: "accepted" } },
     },
     { userId: 1, "staff.pauses": 1 },
@@ -294,6 +295,23 @@ async function getStaffListPausedUserIds(guildId) {
     const pauses = Array.isArray(doc?.staff?.pauses) ? doc.staff.pauses : [];
     if (hasActiveAcceptedStaffPause(pauses, today)) out.add(uid);
   }
+
+  try {
+    const mongoose = require("mongoose");
+    const legacy = await mongoose.connection.db
+      .collection("staffs")
+      .find({ guildId: gid, "pauses.status": "accepted" }, { projection: { userId: 1, pauses: 1 } })
+      .toArray();
+    for (const row of legacy || []) {
+      const uid = String(row?.userId || "").trim();
+      if (!uid || out.has(uid)) continue;
+      const pauses = Array.isArray(row?.pauses) ? row.pauses : [];
+      if (hasActiveAcceptedStaffPause(pauses, today)) out.add(uid);
+    }
+  } catch (_) {
+    /* optional legacy collection */
+  }
+
   return out;
 }
 
@@ -486,13 +504,27 @@ async function sendStaffListParts(channel, parts, needsPmMessage) {
 }
 
 async function fetchChannelMessage(channel, messageId) {
-  if (!messageId) return null;
-  return channel.messages.cache.get(messageId) || (await channel.messages.fetch(messageId).catch(() => null));
+  if (!messageId || !channel?.messages?.fetch) return null;
+  const cached = channel.messages.cache?.get?.(messageId);
+  if (cached) return cached;
+  return channel.messages.fetch(messageId).catch(() => null);
+}
+
+async function resolveMessageChannel(client, channel) {
+  if (!channel) return null;
+  if (channel.messages?.fetch) return channel;
+  const channelId = String(channel.id || "").trim();
+  if (!channelId || !client) return null;
+  const fetched =
+    (await getClientChannelCached(client, channelId, { ttlMs: 0 }).catch(() => null)) ||
+    (await client.channels?.fetch?.(channelId).catch(() => null));
+  return fetched?.messages?.fetch ? fetched : null;
 }
 
 async function resolveStaffListMessages(channel, client, guildId) {
   const state = ensureState(client);
   const gk = String(guildId ?? "").trim();
+  if (!channel?.messages?.fetch) return { main: null, pm: null };
   const known = state.messageIdsByGuild.get(gk);
   if (Array.isArray(known) && known[0]) {
     const main = await fetchChannelMessage(channel, known[0]);
@@ -593,6 +625,8 @@ async function fetchMembersForStaffList(guild) {
 }
 
 async function refreshStaffList(client, guildId = IDs.guilds.main, opts = {}) {
+  const { isDiscordStaffChannelPostsEnabled } = require("../Web/discordWorkflowUiGate");
+  if (!isDiscordStaffChannelPostsEnabled()) return;
   const force = Boolean(opts?.force);
   const bootstrapOnly = Boolean(opts?.bootstrapOnly);
   const state = ensureState(client);
@@ -608,11 +642,21 @@ async function refreshStaffList(client, guildId = IDs.guilds.main, opts = {}) {
   }
 
   const channelId = IDs.channels.staffList;
-  const channel = guild.channels.cache.get(channelId) || (await getGuildChannelCached(guild, channelId)) || (await getClientChannelCached(client, channelId));
+  let channel = guild.channels.cache.get(channelId) || (await getGuildChannelCached(guild, channelId)) || (await getClientChannelCached(client, channelId));
   if (!channel?.isTextBased?.()) {
     global.logger?.error?.("[STAFF LIST] canale staff list assente o non testuale", {
       guildId: gidKey,
       channelId: String(channelId || ""),
+      channelType: channel?.type ?? null,
+    });
+    return;
+  }
+
+  channel = (await resolveMessageChannel(client, channel)) || channel;
+  if (!channel?.messages?.fetch) {
+    global.logger?.error?.("[STAFF LIST] canale staff list senza message manager (canale parziale o tipo non supportato)", {
+      guildId: gidKey,
+      channelId: String(channel.id || channelId || ""),
       channelType: channel?.type ?? null,
     });
     return;
@@ -848,6 +892,8 @@ async function refreshStaffList(client, guildId = IDs.guilds.main, opts = {}) {
 }
 
 function startStaffListPeriodicRefreshLoop(client) {
+  const { isDiscordStaffChannelPostsEnabled } = require("../Web/discordWorkflowUiGate");
+  if (!isDiscordStaffChannelPostsEnabled()) return;
   if (!client || client._staffListPeriodicRefreshStarted) return;
   client._staffListPeriodicRefreshStarted = true;
   // Bootstrap senza force: se il contenuto è già allineato non fa edit Discord.
@@ -855,6 +901,8 @@ function startStaffListPeriodicRefreshLoop(client) {
 }
 
 function scheduleStaffListRefresh(client, guildId = IDs.guilds.main, delayMs = 500, opts = {}) {
+  const { isDiscordStaffChannelPostsEnabled } = require("../Web/discordWorkflowUiGate");
+  if (!isDiscordStaffChannelPostsEnabled()) return;
   const state = ensureState(client);
   const gidKey = String(guildId ?? IDs.guilds.main ?? "").trim();
   if (!gidKey) return;

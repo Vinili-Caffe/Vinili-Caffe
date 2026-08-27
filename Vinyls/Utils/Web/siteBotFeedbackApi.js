@@ -5,6 +5,7 @@ const mongoose = require("mongoose");
 const IDs = require("../Config/ids");
 const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Schemas/Community/communitySchemas");
 const { resolveWebsiteGuildMember } = require("./siteRoleRequestApi");
+const { normalizeHeaderSecret } = require("./siteStaffAccessApi");
 const { guildMemberDisplayAvatarUrlDynamic, guildMemberDisplayAvatarUrlStatic } = require("../Discord/guildDiscordIdentity");
 const { enqueueSiteInAppNotification } = require("./siteInAppNotificationsService");
 const { recordTenantBugReport } = require("../../Services/Partner/tenantObjectiveService");
@@ -25,6 +26,63 @@ const MAX_IMAGES = 4;
 const MAX_IMAGE_BYTES = 2.5 * 1024 * 1024;
 const ALLOWED_IMAGE_MIME = new Set(["image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif"]);
 const UPLOAD_ROOT = path.resolve(__dirname, "../../../Data/uploads/bot-feedback");
+const FEEDBACK_FILE_TOKEN_TTL_MS = 4 * 60 * 60 * 1000;
+
+function feedbackFileAccessSecret() {
+  return String(
+    process.env.VC_SITE_UPLOAD_FILE_SECRET ||
+      process.env.VC_SERATAFILM_FILM_SECRET ||
+      process.env.SITE_WEBHOOK_SECRET ||
+      process.env.DISCORD_TOKEN ||
+      "vinili-site-upload-file",
+  ).trim();
+}
+
+function createFeedbackFileAccessToken(feedbackId, fileName) {
+  const fid = String(feedbackId || "").trim();
+  const name = String(fileName || "").trim();
+  if (!fid || !name) return "";
+  const exp = Date.now() + FEEDBACK_FILE_TOKEN_TTL_MS;
+  const payload = `${fid}:${name}:${exp}`;
+  const sig = crypto.createHmac("sha256", feedbackFileAccessSecret()).update(payload).digest("base64url");
+  return Buffer.from(`${payload}:${sig}`).toString("base64url");
+}
+
+function verifyFeedbackFileAccessToken(st, feedbackId, fileName) {
+  try {
+    const fid = String(feedbackId || "").trim();
+    const name = String(fileName || "").trim();
+    const raw = Buffer.from(String(st || ""), "base64url").toString("utf8");
+    const parts = raw.split(":");
+    if (parts.length !== 4) return false;
+    const [tokenFid, tokenName, expStr, sig] = parts;
+    if (tokenFid !== fid || tokenName !== name) return false;
+    const exp = Number(expStr);
+    if (!Number.isFinite(exp) || Date.now() > exp) return false;
+    const payload = `${tokenFid}:${tokenName}:${expStr}`;
+    const expect = crypto.createHmac("sha256", feedbackFileAccessSecret()).update(payload).digest("base64url");
+    return sig === expect;
+  } catch (_) {
+    return false;
+  }
+}
+
+function withFeedbackFileAccessToken(feedbackId, rawUrl) {
+  const url = String(rawUrl || "").trim();
+  if (!url || !url.includes("/webhooks/site-bot-feedback/files/")) return url;
+  const m = /\/files\/[^/]+\/([^/?#]+)/.exec(url);
+  if (!m) return url;
+  let fileName = "";
+  try {
+    fileName = decodeURIComponent(m[1]);
+  } catch (_) {
+    fileName = m[1];
+  }
+  const st = createFeedbackFileAccessToken(feedbackId, fileName);
+  if (!st) return url;
+  const base = url.split("?")[0];
+  return `${base}?st=${encodeURIComponent(st)}`;
+}
 
 function displayNameForMember(member) {
   return String(member?.user?.username || "").trim() || "Utente";
@@ -178,7 +236,7 @@ function serializeFeedback(doc, viewerUserId) {
   const downList = Array.isArray(doc.downvoterUserIds) ? doc.downvoterUserIds.map((x) => String(x)) : [];
   const vid = String(viewerUserId || "").trim();
   const images = Array.isArray(doc.imageUrls)
-    ? doc.imageUrls.map((u) => String(u || "").trim()).filter(Boolean)
+    ? doc.imageUrls.map((u) => withFeedbackFileAccessToken(String(doc._id || ""), u)).filter(Boolean)
     : [];
   return {
     id: String(doc._id),
@@ -704,13 +762,51 @@ async function staffDeleteBotFeedback(client, payload = {}) {
   return { ok: true, status: 200, message: "Feedback eliminato definitivamente." };
 }
 
-function serveBotFeedbackFile(req, res) {
-  const full = resolveStoredFile(req.params?.feedbackId, req.params?.fileName);
+async function serveBotFeedbackFile(client, req, res) {
+  const feedbackId = String(req.params?.feedbackId || "").trim();
+  const fileName = String(req.params?.fileName || "").trim();
+  const st = String(req.query?.st || "").trim();
+  let allowed = verifyFeedbackFileAccessToken(st, feedbackId, fileName);
+  if (!allowed) {
+    const accessToken = normalizeHeaderSecret(req.headers.authorization);
+    const resolved = await resolveWebsiteGuildMember(client, accessToken);
+    if (!resolved.ok) {
+      res.status(Number(resolved.status) || 401).json({
+        ok: false,
+        error: resolved.error || "unauthorized",
+        message: resolved.message || "Accesso negato.",
+      });
+      return;
+    }
+    const doc = await SiteDocument.findOne({
+      docType: BF,
+      _id: feedbackId,
+      guildId: resolved.guild.id,
+    })
+      .select({ userId: 1 })
+      .lean();
+    if (!doc) {
+      res.status(404).json({ ok: false, error: "not_found" });
+      return;
+    }
+    const isOwner = String(doc.userId || "") === String(resolved.userId || "");
+    const isStaff = memberCanModerate(resolved.member);
+    if (!isOwner && !isStaff) {
+      res.status(403).json({ ok: false, error: "forbidden", message: "Accesso negato." });
+      return;
+    }
+    allowed = true;
+  }
+  if (!allowed) {
+    res.status(401).json({ ok: false, error: "unauthorized" });
+    return;
+  }
+  const full = resolveStoredFile(feedbackId, fileName);
   if (!full) {
     res.status(404).json({ ok: false, error: "not_found" });
     return;
   }
-  res.setHeader("Cache-Control", "public, max-age=86400");
+  res.setHeader("Cache-Control", "private, no-store");
   res.setHeader("Content-Type", mimeFromFileName(req.params?.fileName));
   fs.createReadStream(full).pipe(res);
 }

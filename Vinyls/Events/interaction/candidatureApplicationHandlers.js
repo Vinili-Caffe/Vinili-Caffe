@@ -39,7 +39,14 @@ const cooldownByUserAndType = new Map();
 let cooldownLoaded = false;
 let countersLoaded = false;
 let draftsLoaded = false;
-const WEBSITE_AUTH_TIMEOUT_MS = 7000;
+const WEBSITE_AUTH_TIMEOUT_MS = 10000;
+const {
+  readCachedWebsiteMember,
+  writeCachedWebsiteMember,
+  ensureWebsiteGuild,
+  fetchWebsiteGuildMember,
+  isUnknownMemberError,
+} = require("../../Utils/Web/websiteGuildMemberFetch");
 
 function withTimeout(promise, timeoutMs, label) {
   let timer = null;
@@ -502,10 +509,21 @@ function recolorEmbeds(embeds, color) {
     .map((embed) => EmbedBuilder.from(embed).setColor(color));
 }
 
-async function setApplicationMessageStatusColor(message, color) {
+async function setApplicationMessageStatusColor(message, color, decidedBy = "", decidedByName = "") {
   if (!message?.editable) return;
   const embeds = recolorEmbeds(message.embeds, color);
   await message.edit({ embeds, components: [] }).catch(() => null);
+  try {
+    const { updateStaffWorkflowFromMessage } = require("../../Utils/Web/siteStaffWorkflowStore");
+    const status =
+      String(color || "").toLowerCase() === String(APPLICATION_ACCEPTED_COLOR).toLowerCase()
+        ? "accepted"
+        : "rejected";
+    await updateStaffWorkflowFromMessage(message.guild?.id, "candidature", message.id, status, {
+      decidedBy: String(decidedBy || ""),
+      decidedByName: String(decidedByName || ""),
+    });
+  } catch (_) {}
 }
 
 function getTargetRoleIdByType(type) {
@@ -729,19 +747,70 @@ async function handleStartButton(interaction, type, step = 1, forceStep = false)
 async function postCandidatureToVisioneModuli(client, guild, user, type, answers, stateKey) {
   const cfg = APPLICATIONS[type];
   if (!cfg) return { ok: false, code: "send_failed" };
-  const channel = await resolveSubmissionChannel(guild);
-  if (!channel?.isTextBased?.()) {
-    return { ok: false, code: "no_channel" };
-  }
+
+  const {
+    isDiscordWorkflowUiEnabled,
+    isDiscordWorkflowChannelPostsEnabled,
+    buildInboxManageLinkRow,
+    newSiteWorkflowMessageId,
+  } = require("../../Utils/Web/discordWorkflowUiGate");
+  const discordPosts = isDiscordWorkflowChannelPostsEnabled();
+  const discordUi = isDiscordWorkflowUiEnabled();
 
   const member =
     guild?.members?.cache?.get(user.id) ||
     (await guild.members.fetch(user.id).catch(() => null));
   const authorLike = member || user;
-
   const applicationNumber = await nextApplicationNumber(type);
   const fullText = formatApplicationDescription(type, answers);
   const descChunks = capChunksToMaxEmbeds(chunkStringForEmbedDescriptions(fullText));
+  const bodyText = descChunks.join("\n\n");
+
+  if (!discordPosts) {
+    const messageId = newSiteWorkflowMessageId();
+    try {
+      const { persistCandidatureWorkflowFromPayload } = require("../../Utils/Web/siteStaffWorkflowStore");
+      await persistCandidatureWorkflowFromPayload(guild, {
+        messageId,
+        channelId: "site",
+        type,
+        userId: user.id,
+        status: "pending",
+        title: `Candidatura ${cfg.label} (#${applicationNumber})`,
+        body: bodyText,
+        createdAt: new Date(),
+      });
+    } catch (_) {
+      return { ok: false, code: "send_failed" };
+    }
+    const nextAllowedAt = Date.now() + APPLICATION_COOLDOWN_MS;
+    await setCooldown(user.id, nextAllowedAt, type);
+    if (stateKey) await clearDraftState(stateKey);
+    try {
+      const { notifyInboxStaffNewItem } = require("../../Utils/Web/siteStaffWorkflowNotifications");
+      const subjectName =
+        String(user?.globalName || user?.username || user?.tag || "").trim() || String(user.id);
+      const typeLabel =
+        String(type || "").toLowerCase() === "partnermanager" ? "Partner Manager" : "Helper";
+      void notifyInboxStaffNewItem({
+        guild,
+        queue: "candidature",
+        subjectUserId: String(user.id),
+        subjectName,
+        title: "Nuova candidatura",
+        body: `${subjectName} ha inviato una candidatura ${typeLabel}.`,
+        messageId,
+        dedupeKey: `inbox:candidature:new:${messageId}`,
+      }).catch(() => 0);
+    } catch (_) {}
+    return { ok: true, nextAllowedAt, messageId };
+  }
+
+  const channel = await resolveSubmissionChannel(guild);
+  if (!channel?.isTextBased?.()) {
+    return { ok: false, code: "no_channel" };
+  }
+
   const embeds = descChunks.map((chunk, idx) => {
     const e = new EmbedBuilder().setColor(APPLICATION_PENDING_COLOR);
     if (idx === 0) {
@@ -764,12 +833,15 @@ async function postCandidatureToVisioneModuli(client, guild, user, type, answers
 
   const highStaffRoleId = IDs.roles.HighStaff;
   const mention = highStaffRoleId ? `<@&${highStaffRoleId}>` : null;
-  const sent = await channel.send({ content: mention || undefined, embeds, components: [buildCandidateActionRow(type, user.id)], }).catch(() => null);
+  const actionComponents = discordUi
+    ? [buildCandidateActionRow(type, user.id)]
+    : [buildInboxManageLinkRow("candidature")];
+  const sent = await channel.send({ content: mention || undefined, embeds, components: actionComponents, }).catch(() => null);
   if (!sent) {
     return { ok: false, code: "send_failed" };
   }
 
-  if (typeof sent.startThread === "function") {
+  if (discordUi && typeof sent.startThread === "function") {
     const threadUserLabel = String(user.globalName || user.username || user.id).replace(/[\r\n#:@<>`]/g, " ")
       .replace(/\s+/g, " ")
       .trim()
@@ -782,7 +854,7 @@ async function postCandidatureToVisioneModuli(client, guild, user, type, answers
       .catch(() => null);
   }
 
-  if (typeof sent.react === "function") {
+  if (discordUi && typeof sent.react === "function") {
     for (const emoji of APPLICATION_REACTIONS) {
       await sent.react(emoji).catch(() => { });
     }
@@ -792,7 +864,27 @@ async function postCandidatureToVisioneModuli(client, guild, user, type, answers
   await setCooldown(user.id, nextAllowedAt, type);
   if (stateKey) await clearDraftState(stateKey);
 
-  return { ok: true, nextAllowedAt };
+  try {
+    const { persistCandidatureWorkflowFromMessage } = require("../../Utils/Web/siteStaffWorkflowStore");
+    await persistCandidatureWorkflowFromMessage(guild, sent, type, user.id, "pending");
+  } catch (_) {}
+  try {
+    const { notifyInboxStaffNewItem } = require("../../Utils/Web/siteStaffWorkflowNotifications");
+    const subjectName = String(user?.globalName || user?.username || user?.tag || "").trim() || String(user.id);
+    const typeLabel = String(type || "").toLowerCase() === "partnermanager" ? "Partner Manager" : "Helper";
+    void notifyInboxStaffNewItem({
+      guild,
+      queue: "candidature",
+      subjectUserId: String(user.id),
+      subjectName,
+      title: "Nuova candidatura",
+      body: `${subjectName} ha inviato una candidatura ${typeLabel}.`,
+      messageId: String(sent?.id || ""),
+      dedupeKey: `inbox:candidature:new:${sent?.id || user.id}`,
+    }).catch(() => 0);
+  } catch (_) {}
+
+  return { ok: true, nextAllowedAt, messageId: String(sent?.id || "") };
 }
 
 async function finalizeApplication(interaction, type, state, stateKey = null) {
@@ -884,14 +976,38 @@ async function resolveWebsiteCandidatureMember(client, accessToken) {
     return { ok: false, status: 503, error: "misconfigured", message: "Guild principale non configurata." };
   }
 
-  const guild = client.guilds.cache.get(guildId) || (await withTimeout(client.guilds.fetch(guildId), WEBSITE_AUTH_TIMEOUT_MS, "guild_fetch").catch(() => null));
+  const guild = await ensureWebsiteGuild(client, guildId, WEBSITE_AUTH_TIMEOUT_MS);
   if (!guild) {
     return { ok: false, status: 503, error: "guild_unavailable", message: "Server Discord temporaneamente non disponibile." };
   }
 
-  let member = guild.members.cache.get(userId) || null;
+  let member = guild.members.cache.get(userId) || readCachedWebsiteMember(userId) || null;
   if (!member) {
-    member = await withTimeout(guild.members.fetch(userId), WEBSITE_AUTH_TIMEOUT_MS, "member_fetch").catch(() => null);
+    try {
+      member = await fetchWebsiteGuildMember(guild, userId);
+    } catch (err) {
+      const msg = String(err?.message || err || "");
+      if (isUnknownMemberError(err)) {
+        return {
+          ok: false,
+          status: 403,
+          error: "not_in_guild",
+          message: "Non sei nel server Discord: entra prima con lo stesso account con cui hai fatto login.",
+          userId,
+        };
+      }
+      // Timeout Discord: già loggato (rate-limited) in websiteGuildMemberFetch.
+      if (!/member_fetch_timeout/i.test(msg)) {
+        global.logger?.warn?.("[candidature-site] member fetch failed:", msg || err);
+      }
+      return {
+        ok: false,
+        status: 503,
+        error: "member_fetch_failed",
+        message: "Verifica temporaneamente non disponibile. Riprova tra poco.",
+        userId,
+      };
+    }
   }
   if (!member) {
     return {
@@ -902,6 +1018,7 @@ async function resolveWebsiteCandidatureMember(client, accessToken) {
       userId,
     };
   }
+  writeCachedWebsiteMember(userId, member);
 
   return { ok: true, userId, member, guild };
 }
@@ -1078,10 +1195,30 @@ async function completeCandidatePexAfterRole(guild, member, type, reason, source
   }
 
   await sendCandidatePexLog(guild, member, targetRoleId, roleBeforeId, reason);
+  try {
+    const { notifyStaffPexDepex, memberDisplayName } = require("../../Utils/Web/siteStaffEventNotifications");
+    void notifyStaffPexDepex({
+      guild,
+      kind: "pex",
+      targetUserId: member.id,
+      targetName: memberDisplayName(member, member.user, member.id),
+      oldRoleId: roleBeforeId,
+      newRoleId: String(targetRoleId),
+      reason: String(reason || "").trim(),
+      actorUserId: String(opts.decidedBy || ""),
+      actorName: String(opts.decidedByName || "Staff").trim(),
+      sourceHint: `candidature-pex:${member.id}:${String(sourceMessage?.id || "")}`,
+    }).catch(() => 0);
+  } catch (_) {}
   await sendCandidatePexWelcome(guild, member, targetRoleId);
 
   if (sourceMessage) {
-    await setApplicationMessageStatusColor(sourceMessage, APPLICATION_ACCEPTED_COLOR);
+    await setApplicationMessageStatusColor(
+      sourceMessage,
+      APPLICATION_ACCEPTED_COLOR,
+      String(opts.decidedBy || ""),
+      String(opts.decidedByName || ""),
+    );
     await deleteThreadForMessage(guild, sourceMessage);
   }
 
@@ -1108,7 +1245,11 @@ async function applyCandidatePex(guild, actor, type, userId, reason, sourceMessa
   const member = guild.members.cache.get(String(userId)) || (await getGuildMemberCached(guild, String(userId)));
   if (!member) return "Utente non trovato nel server.";
   if (member.roles.cache.has(String(targetRoleId))) {
-    await completeCandidatePexAfterRole(guild, member, type, reason, sourceMessage, { recovery: true });
+  await completeCandidatePexAfterRole(guild, member, type, reason, sourceMessage, {
+    recovery: true,
+    decidedBy: String(actor?.id || actor || ""),
+    decidedByName: String(actor?.displayName || actor?.username || actor?.globalName || ""),
+  });
     return `Utente già pexato su quel ruolo: ho reinviato pex e benvenuto.`;
   }
 
@@ -1139,7 +1280,10 @@ async function applyCandidatePex(guild, actor, type, userId, reason, sourceMessa
     }
   }
 
-  await completeCandidatePexAfterRole(guild, member, type, reason, sourceMessage);
+  await completeCandidatePexAfterRole(guild, member, type, reason, sourceMessage, {
+    decidedBy: String(actor?.id || actor || ""),
+    decidedByName: String(actor?.displayName || actor?.username || actor?.globalName || ""),
+  });
   return `Pex completato per <@${member.id}>.`;
 }
 
@@ -1343,7 +1487,7 @@ async function handleCandidatureApplicationInteraction(interaction) {
       if (!parsed) return false;
       if (!hasCandidatureReviewAccess(interaction)) {
         await interaction.reply({
-          content: "<a:VC_Cross:1482532424570376253> Questo bottone è riservato ad Admin, Manager e Founder.",
+          content: "<a:VC_Cross:1482532424570376253> Questo bottone è riservato ad Admin, Manager, Founder e Director.",
           flags: 1 << 6,
         }).catch(() => null);
         return true;
@@ -1371,7 +1515,7 @@ async function handleCandidatureApplicationInteraction(interaction) {
     if (String(interaction.customId || "").startsWith(`${APPLY_REJECT_PREFIX}:`)) {
       if (!hasCandidatureReviewAccess(interaction)) {
         await interaction.reply({
-          content: "<a:VC_Cross:1482532424570376253> Questo bottone è riservato ad Admin, Manager e Founder.",
+          content: "<a:VC_Cross:1482532424570376253> Questo bottone è riservato ad Admin, Manager, Founder e Director.",
           flags: 1 << 6,
         }).catch(() => null);
         return true;
@@ -1381,7 +1525,12 @@ async function handleCandidatureApplicationInteraction(interaction) {
       const rejUid = String(rejParts[2] || "").trim();
       const rejMessageId = String(interaction.message?.id || "").trim();
       if (interaction.message) {
-        await setApplicationMessageStatusColor(interaction.message, APPLICATION_REJECTED_COLOR);
+        await setApplicationMessageStatusColor(
+          interaction.message,
+          APPLICATION_REJECTED_COLOR,
+          String(interaction.user?.id || ""),
+          String(interaction.member?.displayName || interaction.user?.globalName || interaction.user?.username || ""),
+        );
         await deleteThreadForMessage(interaction.guild, interaction.message);
       }
       if (rejUid && ["helper", "partnermanager"].includes(rejType)) {
@@ -1477,7 +1626,7 @@ async function handleCandidatureApplicationInteraction(interaction) {
     if (!parsed) return false;
     if (!hasCandidatureReviewAccess(interaction)) {
       await interaction.reply({
-        content: "<a:VC_Cross:1482532424570376253> Questo modulo è riservato ad Admin, Manager e Founder.",
+        content: "<a:VC_Cross:1482532424570376253> Questo modulo è riservato ad Admin, Manager, Founder e Director.",
         flags: 1 << 6,
       }).catch(() => null);
       return true;
@@ -1494,6 +1643,243 @@ async function handleCandidatureApplicationInteraction(interaction) {
   return handleModalSubmit(interaction, type, step);
 }
 
+function memberHasCandidatureReviewAccess(member, guild) {
+  const userId = String(member?.id || "").trim();
+  const ownerId = String(guild?.ownerId || "").trim();
+  if (userId && ownerId && userId === ownerId) return true;
+  if (!member?.roles?.cache) return false;
+  const allowed = [IDs.roles?.Admin, IDs.roles?.Manager, IDs.roles?.Founder, IDs.roles?.Director]
+    .filter(Boolean)
+    .map((id) => String(id));
+  return allowed.some((roleId) => member.roles.cache.has(roleId));
+}
+
+function parseCandidateTypeFromMessage(message) {
+  const rows = message?.components || [];
+  for (const row of rows) {
+    for (const comp of row?.components || []) {
+      const id = String(comp?.customId || "");
+      if (id.startsWith(`${APPLY_PEX_PREFIX}:`)) {
+        const [, type, userId] = id.split(":");
+        if (["helper", "partnermanager"].includes(String(type || "")) && /^\d{16,20}$/.test(String(userId || ""))) {
+          return { type: String(type), userId: String(userId) };
+        }
+      }
+    }
+  }
+  const title = String(message?.embeds?.[0]?.title || "");
+  if (/partner\s*manager/i.test(title)) return { type: "partnermanager", userId: parseUserIdFromEmbedFooter(message) };
+  if (/helper/i.test(title)) return { type: "helper", userId: parseUserIdFromEmbedFooter(message) };
+  return null;
+}
+
+function parseUserIdFromEmbedFooter(message) {
+  const footer = String(message?.embeds?.[0]?.footer?.text || "");
+  const m = footer.match(/User ID:\s*(\d{16,20})/i);
+  return m ? String(m[1]) : "";
+}
+
+function messageHasPendingCandidatureButtons(message) {
+  const rows = message?.components || [];
+  for (const row of rows) {
+    for (const comp of row?.components || []) {
+      const id = String(comp?.customId || "");
+      if (id.startsWith(`${APPLY_PEX_PREFIX}:`)) return true;
+    }
+  }
+  return false;
+}
+
+function deriveCandidatureStatus(message) {
+  if (messageHasPendingCandidatureButtons(message)) return "pending";
+  const color = Number(message?.embeds?.[0]?.color ?? 0);
+  if (color === 0x2ecc71) return "accepted";
+  if (color === 0xed4245) return "rejected";
+  return "closed";
+}
+
+function embedFieldsToPlain(embed) {
+  const fields = Array.isArray(embed?.fields) ? embed.fields : [];
+  return fields
+    .map((field) => ({
+      name: String(field?.name || "").trim(),
+      value: stripDiscordDecorations(field?.value || ""),
+    }))
+    .filter((field) => field.name || field.value);
+}
+
+async function listCandidatureApplications(guild, opts = {}) {
+  const scope = String(opts.scope || "all").toLowerCase();
+  const limit = Math.min(100, Math.max(1, Number(opts.limit) || 60));
+  const channel = await resolveSubmissionChannel(guild);
+  if (!channel?.messages?.fetch) return [];
+  const fetchLimit = scope === "all" ? 100 : 50;
+  const fetched = await channel.messages.fetch({ limit: fetchLimit }).catch(() => null);
+  if (!fetched) return [];
+  const items = [];
+  for (const msg of fetched.values()) {
+    const parsed = parseCandidateTypeFromMessage(msg);
+    if (!parsed?.userId) continue;
+    const status = deriveCandidatureStatus(msg);
+    if (scope === "pending" && status !== "pending") continue;
+    const embed = msg.embeds?.[0];
+    items.push({
+      messageId: String(msg.id),
+      channelId: String(msg.channelId || channel.id),
+      type: parsed.type,
+      userId: parsed.userId,
+      title: String(embed?.title || "Candidatura").trim(),
+      preview: stripDiscordDecorations(String(embed?.description || "")).slice(0, 400),
+      createdAt: msg.createdAt ? msg.createdAt.toISOString() : null,
+      status,
+      canAct: status === "pending",
+    });
+  }
+  return items.sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || ""))).slice(0, limit);
+}
+
+async function listPendingCandidatureApplications(guild) {
+  return listCandidatureApplications(guild, { scope: "pending" });
+}
+
+function embedDescriptionsJoined(message) {
+  const embeds = Array.isArray(message?.embeds) ? message.embeds : [];
+  return embeds
+    .map((embed) => String(embed?.description || "").trim())
+    .filter(Boolean)
+    .join("\n\n");
+}
+
+function stripDiscordDecorationsKeepNewlines(text) {
+  return String(text || "")
+    .replace(/[\u0000-\u001F\u007F\uFFFD]/g, (ch) => (ch === "\n" || ch === "\t" ? ch : ""))
+    .replace(/[\u200B\u200C\u200D\uFEFF]/g, "")
+    .replace(/<a?:[\w~-]+:\d+>/g, "")
+    .replace(/<[@#&!]?\d+>/g, "")
+    .replace(/\\([\\`*_{}[\]()#+\-.!|>])/g, "$1")
+    .replace(/\*\*\*(.+?)\*\*\*/g, "$1")
+    .replace(/\*\*(.+?)\*\*/g, "$1")
+    .replace(/__(.+?)__/g, "$1")
+    .replace(/~~(.+?)~~/g, "$1")
+    .replace(/\|\|(.+?)\|\|/g, "$1")
+    .replace(/`([^`\n]+)`/g, "$1")
+    .replace(/[*_`~|]+/g, "")
+    .replace(/\r\n/g, "\n")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .replace(/[ \t]{2,}/g, " ")
+    .trim();
+}
+
+async function getCandidatureApplicationDetail(guild, messageId) {
+  const channel = await resolveSubmissionChannel(guild);
+  const msg = channel ? await channel.messages.fetch(String(messageId)).catch(() => null) : null;
+  if (!msg) return null;
+  const parsed = parseCandidateTypeFromMessage(msg);
+  if (!parsed?.userId) return null;
+  const embed = msg.embeds?.[0];
+  const status = deriveCandidatureStatus(msg);
+  const fullBody = embedDescriptionsJoined(msg) || String(embed?.description || "");
+  const body = stripDiscordDecorationsKeepNewlines(fullBody);
+  return {
+    messageId: String(msg.id),
+    channelId: String(msg.channelId || channel.id),
+    type: parsed.type,
+    userId: parsed.userId,
+    title: String(embed?.title || "Candidatura").trim(),
+    body,
+    preview: stripDiscordDecorations(body).slice(0, 400),
+    fields: embedFieldsToPlain(embed),
+    createdAt: msg.createdAt ? msg.createdAt.toISOString() : null,
+    status,
+    canAct: status === "pending",
+  };
+}
+
+async function webRejectCandidateApplication(guild, actorMember, messageId, type, userId) {
+  if (!memberHasCandidatureReviewAccess(actorMember, guild)) {
+    return { ok: false, status: 403, message: "Non hai i permessi per rifiutare candidature." };
+  }
+  const decidedBy = String(actorMember?.id || "");
+  const decidedByName = String(
+    actorMember?.displayName || actorMember?.user?.globalName || actorMember?.user?.username || "",
+  );
+  const channel = await resolveSubmissionChannel(guild);
+  const msg = channel ? await channel.messages.fetch(String(messageId)).catch(() => null) : null;
+  if (msg) {
+    await setApplicationMessageStatusColor(msg, APPLICATION_REJECTED_COLOR, decidedBy, decidedByName);
+    await deleteThreadForMessage(guild, msg);
+  } else {
+    try {
+      const { updateStaffWorkflowFromMessage } = require("../../Utils/Web/siteStaffWorkflowStore");
+      await updateStaffWorkflowFromMessage(guild.id, "candidature", String(messageId), "rejected", {
+        decidedBy,
+        decidedByName,
+      });
+    } catch (_) {}
+  }
+  const rejType = String(type || "").trim();
+  const rejUid = String(userId || "").trim();
+  if (rejUid && ["helper", "partnermanager"].includes(rejType)) {
+    try {
+      const { enqueueSiteInAppNotification } = require("../../Utils/Web/siteInAppNotificationsService");
+      const label = rejType === "partnermanager" ? "Partner Manager" : "Helper";
+      await enqueueSiteInAppNotification({
+        guildId: guild.id,
+        userId: rejUid,
+        title: "Candidatura rifiutata",
+        body: `La tua candidatura per ${label} non è stata accettata. Puoi inviare una nuova richiesta dopo il cooldown indicato sul sito.`,
+        kind: "mod",
+        openUrl: "/candidature",
+        dedupeKey: `cand-rej-${rejType}-${rejUid}-${messageId}`,
+        dedupeWindowMs: 86_400_000,
+      });
+    } catch (_) {}
+  }
+  return { ok: true, status: 200, message: "Candidatura rifiutata." };
+}
+
+async function webAcceptCandidateApplication(guild, actorMember, messageId, type, userId, reason) {
+  if (!memberHasCandidatureReviewAccess(actorMember, guild)) {
+    return { ok: false, status: 403, message: "Non hai i permessi per accettare candidature." };
+  }
+  const trimmedReason = String(reason || "").trim();
+  if (trimmedReason.length < 3) {
+    return { ok: false, status: 400, message: "Inserisci un motivo valido (min. 3 caratteri)." };
+  }
+  const decidedBy = String(actorMember?.id || "");
+  const decidedByName = String(
+    actorMember?.displayName || actorMember?.user?.globalName || actorMember?.user?.username || "",
+  );
+  const channel = await resolveSubmissionChannel(guild);
+  const msg = channel ? await channel.messages.fetch(String(messageId)).catch(() => null) : null;
+  const status = await applyCandidatePex(guild, actorMember, type, userId, trimmedReason, msg || null);
+  const ok = !String(status || "").toLowerCase().includes("impossibile") && !String(status || "").toLowerCase().includes("non trovato");
+  if (ok) {
+    try {
+      const { updateStaffWorkflowFromMessage } = require("../../Utils/Web/siteStaffWorkflowStore");
+      await updateStaffWorkflowFromMessage(guild.id, "candidature", String(messageId), "accepted", {
+        decidedBy,
+        decidedByName,
+      });
+    } catch (_) {}
+  }
+  return {
+    ok,
+    status: ok ? 200 : 400,
+    message: stripDiscordDecorations(status) || (ok ? "Candidatura accettata." : "Operazione non riuscita."),
+  };
+}
+
+function stripDiscordDecorations(text) {
+  return String(text || "")
+    .replace(/<a?:[\w~]+:\d+>/g, "")
+    .replace(/<[@#&!]?\d+>/g, "")
+    .replace(/[*_`~|]+/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 module.exports = {
   handleCandidatureApplicationInteraction,
   submitCandidatureWebsite,
@@ -1501,4 +1887,11 @@ module.exports = {
   resolveWebsiteCandidatureMember,
   resolveSubmissionChannel,
   bumpApplicationCooldownAfterStaffDepex,
+  memberHasCandidatureReviewAccess,
+  parseCandidateTypeFromMessage,
+  listCandidatureApplications,
+  listPendingCandidatureApplications,
+  getCandidatureApplicationDetail,
+  webRejectCandidateApplication,
+  webAcceptCandidateApplication,
 };

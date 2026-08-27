@@ -158,6 +158,14 @@ async function runModCaseLifecycleTick(client) {
     }).catch((err) => {
       global.logger?.warn?.("[mutedMirrorRole] active mute reconcile failed:", err?.message || err);
     });
+    const { isViniliFullFeatureGuild } = require("../../MultiGuild/core/guildFeatureScope");
+    const { autoCloseObsoletePendingAppeals } = require("../../Utils/Web/siteStaffAppealsRuntime");
+    for (const guild of client.guilds.cache.values()) {
+      if (!isViniliFullFeatureGuild(guild.id)) continue;
+      await autoCloseObsoletePendingAppeals(guild, { limit: 25 }).catch((err) => {
+        global.logger?.warn?.("[appeals] obsolete auto-close sweep failed:", guild.id, err?.message || err);
+      });
+    }
   } finally {
     lifecycleTickInFlight = false;
   }

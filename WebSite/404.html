@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="it">
+  <head>
+{{COOKIEYES_BLOCK}}{{GA_BLOCK}}
+    <meta charset="utf-8" />
+    <title>{{SITE_NAME}} | Pagina non trovata</title>
+    <script src="/js/vc-page-title.js?v=20260825pageTitle1"></script>
+    <meta name="description" content="Pagina non trovata." />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#140f0c" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&amp;family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="stylesheet" href="/css/tw-build.css?v={{BUILD_ASSET_VERSION}}" />
+    <link rel="stylesheet" href="/css/vc-landing.css?v=20260826cssBust2" />
+    <link rel="icon" href="{{GUILD_ICON_URL}}" />
+    <style>
+      .vc-404-card {
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: rgba(20, 15, 12, 0.82);
+        box-shadow: 0 18px 48px rgba(0, 0, 0, 0.35);
+      }
+      .vc-404-code {
+        font-family: "Cormorant Garamond", Georgia, serif;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        color: #d4a888;
+        line-height: 1;
+      }
+      .vc-404-actions a,
+      .vc-404-actions button {
+        min-height: 2.75rem;
+      }
+    </style>
+<script src="/js/vc-site-toast.js?v=20260825siteToast1"></script>
+    </head>
+  <body class="vc-body relative min-h-screen overflow-x-hidden font-sans text-slate-100 antialiased">
+    <div class="vc-blob vc-blob-a" aria-hidden="true"></div>
+    <div class="vc-blob vc-blob-b" aria-hidden="true"></div>
+    <header class="fixed inset-x-0 top-0 z-50 px-4 pt-4">
+      <div class="vc-nav-shell rounded-2xl mx-auto flex items-center justify-between gap-3 border border-white/[0.08] bg-[#140f0c] px-4 py-3 sm:px-5">
+        <div class="flex min-w-0 items-center gap-2.5">
+          <a class="vc-header-logo-link shrink-0 rounded-2xl ring-1 ring-[#d4a888]/35" href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer" aria-label="Entra su Discord"><img src="{{GUILD_ICON_URL}}" width="40" height="40" class="vc-header-logo-img" alt="" /></a>
+          <a class="min-w-0 truncate text-[0.7rem] font-bold uppercase tracking-[0.18em] text-white sm:text-xs" href="{{SITE_URL}}">{{SITE_NAME}}</a>
+        </div>
+      </div>
+    </header>
+    <main id="vc-404-main" class="relative z-10 mx-auto flex min-h-screen max-w-2xl items-center justify-center px-4 pb-10 pt-28 sm:pt-32" hidden>
+      <section class="vc-404-card w-full max-w-md rounded-3xl p-6 sm:p-8" aria-labelledby="vc-404-title">
+        <p class="vc-404-code text-center text-6xl sm:text-7xl" aria-hidden="true">404</p>
+        <h1 id="vc-404-title" class="mt-3 text-center text-3xl font-extrabold tracking-tight text-white sm:text-4xl">Pagina non trovata</h1>
+        <p id="vc-404-hint" class="mt-3 text-center text-sm text-slate-300"></p>
+        <div class="vc-404-actions mt-6 flex flex-col gap-3">
+          <button id="vc-404-back" type="button" class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-sm font-semibold text-slate-100 hover:bg-white/10">
+            <i class="fa fa-arrow-left" aria-hidden="true"></i> <span>Torna indietro</span>
+          </button>
+          <a class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#6f4e37] px-4 py-3 text-sm font-bold text-white hover:brightness-110" href="{{SITE_URL}}">
+            <i class="fa fa-home" aria-hidden="true"></i> <span>Homepage</span>
+          </a>
+          <div id="vc-404-suggest-wrap" hidden>
+            <a id="vc-404-suggest" class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[#d4a888]/35 px-4 py-3 text-sm font-semibold text-[#d4a888] hover:bg-[#d4a888]/10" href="/"></a>
+          </div>
+        </div>
+      </section>
+    </main>
+    <noscript>
+      <main class="relative z-10 mx-auto flex min-h-screen max-w-2xl items-center justify-center px-4 pt-28">
+        <p class="text-center text-slate-200">Pagina non trovata. <a class="text-[#d4a888] underline" href="/">Torna alla home</a>.</p>
+      </main>
+    </noscript>
+    <script src="/js/vc-smart-404.js?v={{BUILD_ASSET_VERSION}}" defer></script>
+  </body>
+</html>

@@ -41,7 +41,7 @@ const STAFF_REGOLA_STEPS = {
     { type: "mute", duration: "15h" },
     { type: "mute", duration: "35h" },
   ],
-  "3.6": [
+  "3.5": [
     { type: "mute", duration: "5h" },
     { type: "mute", duration: "11h" },
     { type: "mute", duration: "24h" },
@@ -54,7 +54,10 @@ function normalizeRuleDot(raw) {
   const s = String(raw || "").trim().replace(",", ".").replace("_", ".");
   const m = s.match(/^(\d+)\s*[\._-]?\s*(\d+)$/);
   if (!m) return null;
-  return `${m[1]}.${m[2]}`;
+  const dot = `${m[1]}.${m[2]}`;
+  // Legacy: AFK vocale era etichettata 3.6 (dopo 3.4).
+  if (dot === "3.6") return "3.5";
+  return dot;
 }
 
 function buildRuleMatchRe(ruleDot) {

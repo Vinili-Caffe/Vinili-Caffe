@@ -124,8 +124,6 @@
     "enabled": true,
     "syncOnStartup": true,
     "skipBotDetectionFor": [
-      "invite",
-      "link_blacklist",
       "word_blacklist",
       "mention_everyone",
       "mention_hour_cap"

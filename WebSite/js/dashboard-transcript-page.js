@@ -262,7 +262,7 @@
     frame.onerror = finish;
     frame.src = blobUrl;
     // blob + sandbox a volte non sparano onload: fallback sicuro.
-    loadingTimer = setTimeout(finish, 1200);
+    loadingTimer = setTimeout(finish, 600);
     requestAnimationFrame(function () {
       try {
         if (frame.contentDocument && frame.contentDocument.readyState === "complete") finish();

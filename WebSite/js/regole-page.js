@@ -69,6 +69,8 @@
       var btn = document.createElement("button");
       btn.type = "button";
       btn.className = "vc-regole-tab" + (cat.id === activeCategory ? " vc-regole-tab--on" : "");
+      btn.setAttribute("role", "tab");
+      btn.setAttribute("aria-selected", cat.id === activeCategory ? "true" : "false");
       btn.setAttribute("data-cat", cat.id);
       var ic = document.createElement("i");
       ic.className = "fa " + faForCategoryIcon(cat.icon);

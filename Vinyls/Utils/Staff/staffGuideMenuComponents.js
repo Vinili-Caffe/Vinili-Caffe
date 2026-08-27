@@ -7,9 +7,9 @@ const {
 const STAFF_GUIDE_MENU_ID = "staff_guide_menu";
 
 const STAFF_GUIDE_SECTIONS = [
-  { id: "regolamento", label: "Regolamento", description: "Regole fondamentali dello staff", emoji: "<:rules:1443307208543703131>" },
+  { id: "regolamento", label: "Regolamento", description: "Regole e sanzioni utenti", emoji: "<:rules:1443307208543703131>" },
+  { id: "regole_staff", label: "Regole staff", description: "Regole di comportamento dello staff", emoji: "<:discordstaff:1443651872258003005>" },
   { id: "limiti", label: "Limiti settimanali", description: "Obiettivi di attività settimanale", emoji: "<:reportmessage:1443670575376765130>" },
-  { id: "moderazione_staff", label: "Moderazione", description: "Procedure e sanzioni", emoji: "<:discordstaff:1443651872258003005>" },
   { id: "compiti_fissi", label: "Compiti fissi", description: "Compiti fissi da svolgere ogni settimana", emoji: "<:VC_Quest:1482534879257165865>" },
   { id: "pause", label: "Pause", description: "Come funzionano le pause staff", emoji: "<:Clock:1330530065133338685>" },
   { id: "lineeguida", label: "Linee guida", description: "Comportamento e buone pratiche", emoji: "<:VC_PinkQuestionMark:1471892611026391306>" },

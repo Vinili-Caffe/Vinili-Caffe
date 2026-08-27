@@ -200,9 +200,34 @@ async function upsertSnapshot(guildId, userId, roleIds) {
   const ids = normalizeSnapshotRoleIds(roleIds);
   const key = snapshotKey(gid, uid);
   if (!isValidGuildUserId(gid, uid)) return false;
-  memorySnapshots.set(key, ids);
 
+  // Non sovrascrivere mai uno snapshot pieno con uno più corto (race strip/rejoin).
+  const existingMem = Array.isArray(memorySnapshots.get(key)) ? memorySnapshots.get(key) : [];
+  let existingDb = [];
   await ensureMongoReady({ maxWaitMs: SNAPSHOT_PERSIST_WAIT_MS }).catch(() => false);
+  if (dbReady()) {
+    existingDb = await loadProfileMuteSnapshotRoleIds(gid, uid).catch(() => []);
+  }
+  const existing = existingMem.length >= existingDb.length ? existingMem : existingDb;
+  if (existing.length > 0 && ids.length < existing.length) {
+    global.logger?.warn?.(
+      "[mutedMirrorRole] skip snapshot shrink:",
+      gid,
+      uid,
+      `${ids.length}<${existing.length}`,
+    );
+    memorySnapshots.set(key, existing);
+    return true;
+  }
+  if (existing.length > 0 && ids.length === existing.length) {
+    const same = ids.every((id) => existing.includes(id));
+    if (same) {
+      memorySnapshots.set(key, existing);
+      return true;
+    }
+  }
+
+  memorySnapshots.set(key, ids);
 
   await persistMuteRoleSnapshotToProfile(gid, uid, ids).catch((err) => {
     global.logger?.warn?.("[mutedMirrorRole] snapshot persist failed:", gid, uid, err?.message || err);
@@ -538,6 +563,25 @@ async function restoreRolesAfterCommunicationTimeoutEnd(member, options = {}) {
       global.logger?.warn?.("[mutedMirrorRole] profile resync failed:", guild.id, member.id, err?.message || err);
       return null;
     });
+    // Secondo passaggio level roles: dopo roles.set Discord a volte non ha ancora
+    // aggiornato la cache e syncLevelRoles no-op/fail al primo tentativo.
+    if (profileResync?.ok) {
+      try {
+        const { getUserExpStats, syncLevelRolesForMember } = require("../Community/expService");
+        const stats = await getUserExpStats(guild.id, member.id).catch(() => null);
+        if (stats?.level != null) {
+          const again = await getGuildMemberCached(guild, member.id, { preferFresh: true }).catch(() => null);
+          if (again) {
+            const extra = await syncLevelRolesForMember(guild, member.id, stats.level).catch(() => []);
+            if (Array.isArray(extra) && extra.length) {
+              profileResync.levelRoles = [...new Set([...(profileResync.levelRoles || []), ...extra])];
+            }
+          }
+        }
+      } catch (err) {
+        global.logger?.warn?.("[mutedMirrorRole] level roles retry failed:", guild.id, member.id, err?.message || err);
+      }
+    }
   }
 
   const pendingSnapshot = await loadSnapshot(guild.id, member.id);
@@ -1023,7 +1067,13 @@ async function captureMuteRoleSnapshot(member, options = {}) {
 
   const fromProfile = await loadProfileMuteSnapshotRoleIds(member.guild.id, member.id);
   const current = collectSnapshotRoleIds(member, mutedRoleId);
-  const roleIds = fromProfile.length ? fromProfile : current;
+  // Preferisci il set più completo tra profilo e ruoli attuali.
+  const roleIds =
+    fromProfile.length >= current.length && fromProfile.length
+      ? fromProfile
+      : current.length
+        ? current
+        : fromProfile;
   if (!roleIds.length) return { ok: false, reason: "empty_roles", roleIds: [] };
 
   await upsertSnapshot(member.guild.id, member.id, roleIds);

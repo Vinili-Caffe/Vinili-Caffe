@@ -2,10 +2,21 @@
   var cfg = typeof window !== "undefined" ? window.__VC_KICK_PIP : null;
   if (!cfg || cfg.enabled !== true) return;
 
+  function isHomePage() {
+    try {
+      if (document.body && document.body.classList.contains("vc-body--home")) return true;
+      var p = String(window.location.pathname || "/").replace(/\/+$/, "") || "/";
+      return p === "/" || p === "/index.html";
+    } catch (eHome) {
+      return false;
+    }
+  }
+  if (!isHomePage()) return;
   if (document.body && document.body.classList.contains("vc-dashboard-page")) return;
   if (document.body && document.body.classList.contains("vc-seratafilm-page")) return;
 
-  var DISMISS_KEY = "vc_kick_pip_dismiss_v1";
+  var DISMISS_KEY = "vc_kick_pip_dismiss_v2";
+  var DISMISS_TTL_MS = 18 * 60 * 60 * 1000;
   var POS_KEY = "vc_kick_pip_pos_v2";
   var WATCH_KEY = "vc_kick_pip_watch_v2";
   var pollMs = Math.max(30000, Math.min(180000, Number(cfg.pollIntervalMs) || 90000));
@@ -43,14 +54,38 @@
     try {
       var t = Number(videoEl && videoEl.currentTime) || 0;
       if (t > 0.2) playbackResumeAt = t;
-      if (lastStreamId && t > 0.2) sessionStorage.setItem(resumeStorageKey(lastStreamId), String(t));
+      if (lastStreamId && t > 0.2) {
+        localStorage.setItem(resumeStorageKey(lastStreamId), String(t));
+        try {
+          if (window.__VC_CHROME_SYNC) {
+            window.__VC_CHROME_SYNC.publish({
+              kickPip: {
+                resume: { id: lastStreamId, t: t, at: Date.now() },
+              },
+            });
+          }
+        } catch (eSy) {}
+      }
     } catch (eMem) {}
   }
 
   function loadRememberedTime(streamId) {
     playbackResumeAt = 0;
     try {
-      var t = Number(sessionStorage.getItem(resumeStorageKey(streamId)) || "0") || 0;
+      var sync = window.__VC_CHROME_SYNC && window.__VC_CHROME_SYNC.get();
+      if (
+        sync &&
+        sync.kickPip &&
+        sync.kickPip.resume &&
+        String(sync.kickPip.resume.id || "") === String(streamId || "") &&
+        Number(sync.kickPip.resume.t) > 0.2
+      ) {
+        playbackResumeAt = Number(sync.kickPip.resume.t);
+        return;
+      }
+    } catch (eSy) {}
+    try {
+      var t = Number(localStorage.getItem(resumeStorageKey(streamId)) || sessionStorage.getItem(resumeStorageKey(streamId)) || "0") || 0;
       if (t > 0.2) playbackResumeAt = t;
     } catch (eLoad) {}
   }
@@ -128,26 +163,105 @@
     return Promise.resolve();
   }
 
-  function getDismissedStreamId() {
+  function readDismissState() {
     try {
-      return String(localStorage.getItem(DISMISS_KEY) || "").trim();
+      var raw = localStorage.getItem(DISMISS_KEY);
+      if (!raw) {
+        // Migrazione chiave v1 (solo stream id).
+        var legacy = String(localStorage.getItem("vc_kick_pip_dismiss_v1") || "").trim();
+        if (!legacy) return null;
+        return { ids: [legacy], slug: "", at: Date.now() };
+      }
+      if (raw.charAt(0) !== "{") {
+        return { ids: [String(raw).trim()].filter(Boolean), slug: "", at: Date.now() };
+      }
+      var j = JSON.parse(raw);
+      if (!j || typeof j !== "object") return null;
+      var ids = Array.isArray(j.ids)
+        ? j.ids.map(function (x) {
+            return String(x || "").trim();
+          }).filter(Boolean)
+        : [];
+      if (j.id) ids.push(String(j.id).trim());
+      return {
+        ids: ids,
+        slug: String(j.slug || "").trim().toLowerCase(),
+        at: Number(j.at) || Date.now(),
+      };
     } catch (e) {
-      return "";
+      return null;
     }
   }
 
-  function setDismissedStreamId(id) {
-    var s = String(id || "").trim();
-    if (!s) return;
+  function writeDismissState(state) {
     try {
-      localStorage.setItem(DISMISS_KEY, s);
+      if (!state) {
+        localStorage.removeItem(DISMISS_KEY);
+        localStorage.removeItem("vc_kick_pip_dismiss_v1");
+      } else {
+        localStorage.setItem(
+          DISMISS_KEY,
+          JSON.stringify({
+            ids: Array.isArray(state.ids) ? state.ids : [],
+            slug: String(state.slug || "").trim().toLowerCase(),
+            at: Number(state.at) || Date.now(),
+          }),
+        );
+      }
     } catch (e) {}
+    try {
+      if (window.__VC_CHROME_SYNC) {
+        window.__VC_CHROME_SYNC.publish({
+          kickPip: { dismiss: state || null },
+        });
+      }
+    } catch (eSy) {}
+  }
+
+  function getDismissedStreamId() {
+    var st = readDismissState();
+    return st && st.ids && st.ids[0] ? String(st.ids[0]) : "";
+  }
+
+  function isStreamDismissed(stream) {
+    var st = readDismissState();
+    if (!st) return false;
+    if (Number(st.at) && Date.now() - Number(st.at) > DISMISS_TTL_MS) {
+      writeDismissState(null);
+      return false;
+    }
+    var sid = String((stream && stream.id) || "").trim();
+    var slug = String((stream && stream.slug) || "")
+      .trim()
+      .toLowerCase();
+    if (sid && st.ids && st.ids.indexOf(sid) >= 0) return true;
+    // Stesso canale: se chiudi la live e l'API passa a VOD (id diverso), non riaprire al cambio pagina.
+    if (slug && st.slug && slug === st.slug) return true;
+    return false;
+  }
+
+  function setDismissedStream(stream) {
+    var sid = String((stream && stream.id) || lastStreamId || "").trim();
+    var slug = String((stream && stream.slug) || (lastPayload && lastPayload.slug) || "")
+      .trim()
+      .toLowerCase();
+    if (!sid && !slug) return;
+    var prev = readDismissState() || { ids: [], slug: "", at: Date.now() };
+    var ids = Array.isArray(prev.ids) ? prev.ids.slice() : [];
+    if (sid && ids.indexOf(sid) < 0) ids.push(sid);
+    writeDismissState({
+      ids: ids.slice(-8),
+      slug: slug || prev.slug || "",
+      at: Date.now(),
+    });
+  }
+
+  function setDismissedStreamId(id) {
+    setDismissedStream({ id: id, slug: (lastPayload && lastPayload.slug) || "" });
   }
 
   function clearDismissedStreamId() {
-    try {
-      localStorage.removeItem(DISMISS_KEY);
-    } catch (e) {}
+    writeDismissState(null);
   }
 
   function loadPos() {
@@ -166,6 +280,11 @@
     try {
       localStorage.setItem(POS_KEY, JSON.stringify(pos || { corner: "bl" }));
     } catch (e) {}
+    try {
+      if (window.__VC_CHROME_SYNC) {
+        window.__VC_CHROME_SYNC.publish({ kickPip: { pos: pos || { corner: "bl" } } });
+      }
+    } catch (eSy) {}
   }
 
   function safeInset(side) {
@@ -411,7 +530,8 @@
     }
     if (labelEl) labelEl.textContent = label;
     else subBtn.textContent = label;
-    subBtn.setAttribute("aria-label", title);
+    // Accessible name must match visible label; longer hint stays in title/tooltip.
+    subBtn.setAttribute("aria-label", label);
     subBtn.title = title;
     subBtn.disabled = subBusy;
   }
@@ -815,6 +935,8 @@
       thumbEl.hidden = true;
       return;
     }
+    // Prefer a smaller Kick thumbnail when the CDN path allows it.
+    base = base.replace(/\/(\d{3,4})\.webp(\?|$)/i, "/160.webp$2");
     var sep = base.indexOf("?") >= 0 ? "&" : "?";
     thumbEl.src = base + sep + "vc_t=" + encodeURIComponent(String(Date.now()));
     thumbEl.hidden = false;
@@ -1368,7 +1490,7 @@
     var sid = String(stream.id).trim();
     lastStreamId = sid;
     loadRememberedTime(sid);
-    var dismissed = getDismissedStreamId() === sid;
+    var dismissed = isStreamDismissed(stream);
 
     var url = String(stream.url || "").trim() || "https://kick.com/";
     var name = String(stream.displayName || stream.slug || "Kick").trim() || "Kick";
@@ -1385,7 +1507,8 @@
     var previewMp4 = String(stream.previewMp4Url || "").trim();
 
     linkEl.setAttribute("href", url);
-    linkEl.setAttribute("aria-label", kindUi.openLabel + ": " + name);
+    // Visible meta (name/title/viewers) is the accessible name; avoid aria mismatch.
+    linkEl.removeAttribute("aria-label");
     if (openKickEl) {
       openKickEl.setAttribute("href", url);
       openKickEl.setAttribute("aria-label", kindUi.openLabel + ": " + name);
@@ -1651,7 +1774,8 @@
       e.preventDefault();
       e.stopPropagation();
       flushWatchSession();
-      if (lastStreamId) setDismissedStreamId(lastStreamId);
+      if (lastPayload) setDismissedStream(lastPayload);
+      else if (lastStreamId) setDismissedStreamId(lastStreamId);
       closeDocPip(true);
       clearPlayer();
       root.hidden = true;
@@ -1751,7 +1875,7 @@
         if (sticky && pollMisses < POLL_HIDE_AFTER_MISSES) {
           return;
         }
-        if (lastStreamId && getDismissedStreamId() === lastStreamId) clearDismissedStreamId();
+        // Non azzerare il dismiss: altrimenti al cambio pagina / glitch API il PiP riparte da solo.
         lastPayload = null;
         lastStreamId = "";
         pollMisses = 0;
@@ -1790,4 +1914,42 @@
     });
   } else setTimeout(poll, 350);
   setInterval(poll, pollMs);
+
+  try {
+    if (window.__VC_CHROME_SYNC) {
+      window.__VC_CHROME_SYNC.subscribe(function (prefs) {
+        if (!prefs || !prefs.kickPip) return;
+        if (prefs.kickPip.pos) {
+          try {
+            localStorage.setItem(POS_KEY, JSON.stringify(prefs.kickPip.pos));
+            restorePos();
+          } catch (eP) {}
+        }
+        if (prefs.kickPip.dismiss === null) {
+          try {
+            localStorage.removeItem(DISMISS_KEY);
+          } catch (eC) {}
+          if (reopenBtn) reopenBtn.hidden = true;
+          return;
+        }
+        if (prefs.kickPip.dismiss && typeof prefs.kickPip.dismiss === "object") {
+          try {
+            localStorage.setItem(DISMISS_KEY, JSON.stringify(prefs.kickPip.dismiss));
+          } catch (eD) {}
+          if (lastPayload && isStreamDismissed(lastPayload)) {
+            hideAll();
+            if (reopenBtn) reopenBtn.hidden = false;
+          }
+        }
+        if (prefs.kickPip.resume && prefs.kickPip.resume.id && Number(prefs.kickPip.resume.t) > 0.2) {
+          try {
+            localStorage.setItem(
+              resumeStorageKey(prefs.kickPip.resume.id),
+              String(prefs.kickPip.resume.t),
+            );
+          } catch (eR) {}
+        }
+      });
+    }
+  } catch (eSub) {}
 })();

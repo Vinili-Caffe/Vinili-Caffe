@@ -86,15 +86,21 @@
 
   function setStatus(msg, isError, opts) {
     var el = byId("vc-dash-premium-status");
-    if (!el) return;
-    if (!msg) {
+    if (el) {
       el.hidden = true;
       el.textContent = "";
       el.classList.remove("is-error", "is-ok");
+    }
+    var text = String(msg || "").trim();
+    if (window.VcSiteToast) {
+      if (!text) window.VcSiteToast.hide();
+      else window.VcSiteToast.show(text, Boolean(isError), opts || null);
       return;
     }
+    if (!el) return;
+    if (!text) return;
     el.hidden = false;
-    el.textContent = msg;
+    el.textContent = text;
     el.classList.toggle("is-error", Boolean(isError));
     el.classList.toggle("is-ok", Boolean(opts && opts.ok) && !isError);
   }

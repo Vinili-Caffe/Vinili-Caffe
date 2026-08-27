@@ -46,7 +46,7 @@
 
   var SESSION_OVERLAY_ID = "vc-session-verify-overlay";
   /** Hard stop: @me / site-verify appesi non devono bloccare la pagina. */
-  var SESSION_VERIFY_HARD_MS = 2000;
+  var SESSION_VERIFY_HARD_MS = 1200;
   var sessionVerifyWatchdog = null;
 
   function byId(id) {
@@ -423,7 +423,7 @@
         sessionStorage.removeItem(OAUTH_STATE_NONCE_KEY);
       } catch (e0) {}
       out.validNonce = Boolean(expected) && Boolean(n) && n === expected;
-      if (!out.validNonce && !expected && out.returnPath && Number.isFinite(ts) && Math.abs(Date.now() - ts) <= 10 * 60 * 1000) {
+      if (!out.validNonce && !expected && out.returnPath && Number.isFinite(ts) && Math.abs(Date.now() - ts) <= 30 * 60 * 1000) {
         out.validNonce = true;
       }
       return out;
@@ -459,6 +459,16 @@
       } catch (eS) {}
     }
     if (!t) return { token: "", freshLogin: false, returnPath: "" };
+    if (!stateParsed.validNonce) {
+      var pendingReturn = "";
+      try {
+        pendingReturn = normalizeReturnPath(sessionStorage.getItem(OAUTH_PENDING_RETURN_KEY));
+      } catch (ePr) {}
+      if (pendingReturn) {
+        if (!returnPath) returnPath = pendingReturn;
+        stateParsed.validNonce = true;
+      }
+    }
     if (!stateParsed.validNonce) return { token: "", freshLogin: false, returnPath: "", stateMismatch: true };
     try {
       sessionStorage.removeItem(OAUTH_PENDING_RETURN_KEY);
@@ -490,23 +500,27 @@
     return t;
   }
 
-  try {
-    window.__vcDiscordGetAccessToken = getToken;
-    window.__vcDiscordTokenHasScope = tokenHasOAuthScope;
-    window.__vcDiscordGetStoredScopes = getStoredOAuthScopes;
-    window.__vcDiscordHasCommandPermissionsScope = hasCommandPermissionsScope;
-    window.__vcDiscordReauthorizeForCommandPermissions = reauthorizeForCommandPermissions;
-  } catch (eGt) {}
-
   function clearToken() {
     localStorage.removeItem(ACCESS_TOKEN_KEY);
     localStorage.removeItem(EXPIRES_AT_KEY);
     try {
       localStorage.removeItem(OAUTH_SCOPES_KEY);
       sessionStorage.removeItem(ME_CACHE_KEY);
+      sessionStorage.removeItem("vc_menu_staff_v1");
+      sessionStorage.removeItem("vc_menu_dash_v1");
+      sessionStorage.removeItem("vc_server_avatar_v1");
     } catch (eCt) {}
     syncTokenToServiceWorker("");
   }
+
+  try {
+    window.__vcDiscordGetAccessToken = getToken;
+    window.__vcDiscordClearToken = clearToken;
+    window.__vcDiscordTokenHasScope = tokenHasOAuthScope;
+    window.__vcDiscordGetStoredScopes = getStoredOAuthScopes;
+    window.__vcDiscordHasCommandPermissionsScope = hasCommandPermissionsScope;
+    window.__vcDiscordReauthorizeForCommandPermissions = reauthorizeForCommandPermissions;
+  } catch (eGt) {}
 
   function syncTokenToServiceWorker(token) {
     try {
@@ -620,22 +634,138 @@
     return "/webhooks/site-rank-card";
   }
 
+  function menuTokenFp(token) {
+    return String(token || "").slice(0, 24);
+  }
+
+  function readMenuCache(key, token, maxAgeMs) {
+    try {
+      var raw = sessionStorage.getItem(key);
+      if (!raw) return null;
+      var data = JSON.parse(raw);
+      if (!data || data.fp !== menuTokenFp(token)) return null;
+      if (Date.now() - Number(data.at || 0) > (maxAgeMs || 300000)) return null;
+      return data;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function writeMenuCache(key, token, payload) {
+    try {
+      sessionStorage.setItem(
+        key,
+        JSON.stringify(Object.assign({}, payload, { fp: menuTokenFp(token), at: Date.now() })),
+      );
+    } catch (e) {}
+  }
+
+  function readGateStaffAllowed(token) {
+    try {
+      var raw = sessionStorage.getItem("vc_staff_access_ok_v2") || localStorage.getItem("vc_staff_access_ok_v2_local");
+      if (!raw) return null;
+      var data = JSON.parse(raw);
+      if (!data || data.ok !== true) return null;
+      if (Number(data.exp || 0) <= Date.now()) return null;
+      return true;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function readGateDashAllowed(token) {
+    try {
+      var raw = sessionStorage.getItem("vc_dash_access_ok_v1");
+      if (!raw) return null;
+      var data = JSON.parse(raw);
+      if (!data || !(data.ok === true || data.allowed === true)) return null;
+      if (Number(data.exp || 0) <= Date.now()) return null;
+      return { allowed: true, blacklisted: Boolean(data.blacklisted) };
+    } catch (e) {
+      return null;
+    }
+  }
+
   async function fetchServerAvatarUrl(accessToken) {
     if (window.__VC_DISABLE_RANK_CARD_FETCH === true) return "";
     var token = String(accessToken || "").trim();
     if (!token) return "";
+    var cached = readMenuCache("vc_server_avatar_v1", token, 600000);
+    if (cached && cached.url) return String(cached.url || "");
     try {
-      var res = await fetch(resolveRankCardApiUrl(), {
+      var res = await fetch(resolveRankCardApiUrl() + (resolveRankCardApiUrl().indexOf("?") >= 0 ? "&" : "?") + "avatarOnly=1", {
         headers: { Authorization: "Bearer " + token },
+        cache: "no-store",
       });
       if (!res.ok) return "";
       var data = await res.json().catch(function () {
         return {};
       });
       var u = String(data && data.avatarUrl || "").trim();
-      return /^https?:\/\//i.test(u) ? u : "";
+      if (!/^https?:\/\//i.test(u)) return "";
+      writeMenuCache("vc_server_avatar_v1", token, { url: u });
+      return u;
     } catch (e) {
       return "";
+    }
+  }
+
+  async function fetchDashboardMenuAccess(token) {
+    var t = String(token || "").trim();
+    if (!t) return { allowed: false, blacklisted: false };
+    var cached = readMenuCache("vc_menu_dash_v1", t, 180000);
+    if (cached) {
+      return { allowed: Boolean(cached.allowed), blacklisted: Boolean(cached.blacklisted) };
+    }
+    var fromGate = readGateDashAllowed(t);
+    if (fromGate) {
+      writeMenuCache("vc_menu_dash_v1", t, fromGate);
+      return fromGate;
+    }
+    try {
+      var res = await fetch(dashboardApiBase() + "/access", {
+        headers: { Authorization: "Bearer " + t },
+        cache: "no-store",
+      });
+      if (!res.ok) return { allowed: false, blacklisted: false };
+      var data = await res.json().catch(function () {
+        return {};
+      });
+      if (!data || data.ok !== true) return { allowed: false, blacklisted: false };
+      var out = {
+        allowed: Boolean(data.allowed),
+        blacklisted: Boolean(data.blacklisted),
+      };
+      writeMenuCache("vc_menu_dash_v1", t, out);
+      return out;
+    } catch (e) {
+      return { allowed: false, blacklisted: false };
+    }
+  }
+
+  async function fetchStaffMenuAccess(token) {
+    var t = String(token || "").trim();
+    if (!t) return false;
+    var cached = readMenuCache("vc_menu_staff_v1", t, 300000);
+    if (cached) return Boolean(cached.allowed);
+    if (readGateStaffAllowed(t) === true) {
+      writeMenuCache("vc_menu_staff_v1", t, { allowed: true });
+      return true;
+    }
+    try {
+      var res = await fetch(staffApiBase(), {
+        headers: { Authorization: "Bearer " + t },
+        cache: "no-store",
+      });
+      if (!res.ok) return false;
+      var data = await res.json().catch(function () {
+        return {};
+      });
+      var allowed = Boolean(data && data.ok === true);
+      writeMenuCache("vc_menu_staff_v1", t, { allowed: allowed });
+      return allowed;
+    } catch (e) {
+      return false;
     }
   }
 
@@ -757,28 +887,6 @@
     }
   }
 
-  async function fetchDashboardMenuAccess(token) {
-    var t = String(token || "").trim();
-    if (!t) return { allowed: false, blacklisted: false };
-    try {
-      var res = await fetch(dashboardApiBase() + "/access", {
-        headers: { Authorization: "Bearer " + t },
-        cache: "no-store",
-      });
-      if (!res.ok) return { allowed: false, blacklisted: false };
-      var data = await res.json().catch(function () {
-        return {};
-      });
-      if (!data || data.ok !== true) return { allowed: false, blacklisted: false };
-      return {
-        allowed: Boolean(data.allowed),
-        blacklisted: Boolean(data.blacklisted),
-      };
-    } catch (e) {
-      return { allowed: false, blacklisted: false };
-    }
-  }
-
   function revealDashboardMenuItem(access) {
     var allowed = Boolean(access && access.allowed);
     var blacklisted = Boolean(access && access.blacklisted);
@@ -823,24 +931,6 @@
         window.__vcMobileNavRebuild();
       }
     } catch (eRebuild) {}
-  }
-
-  async function fetchStaffMenuAccess(token) {
-    var t = String(token || "").trim();
-    if (!t) return false;
-    try {
-      var res = await fetch(staffApiBase(), {
-        headers: { Authorization: "Bearer " + t },
-        cache: "no-store",
-      });
-      if (!res.ok) return false;
-      var data = await res.json().catch(function () {
-        return {};
-      });
-      return Boolean(data && data.ok === true);
-    } catch (e) {
-      return false;
-    }
   }
 
   function revealStaffMenuItem(allowed) {
@@ -1099,6 +1189,11 @@
       }
       if (p.endsWith("/staff/accesso-richiesto")) {
         try {
+          if (sessionStorage.getItem("vc_staff_oauth_invalid") === "1") return "";
+          var qsStaff = new URLSearchParams(window.location.search || "");
+          if (qsStaff.get("reason") === "denied" || qsStaff.get("stay") === "1") return "";
+        } catch (eGuardStaff) {}
+        try {
           var fromStaff = String(new URLSearchParams(window.location.search || "").get("from") || "").trim();
           if (
             fromStaff &&
@@ -1118,6 +1213,14 @@
 
   function renderLoggedIn(user) {
     hideSessionVerifyOverlay();
+    try {
+      if (sessionStorage.getItem("vc_staff_oauth_invalid") === "1") {
+        clearToken();
+        sessionStorage.removeItem("vc_staff_oauth_invalid");
+        renderLoggedOut();
+        return;
+      }
+    } catch (eInv) {}
     var jump = postOAuthAccessoRedirectPath();
     if (jump) {
       try {
@@ -1222,7 +1325,7 @@
     fetchStaffMenuAccess(token).then(function (allowed) {
       revealStaffMenuItem(allowed);
     });
-    fetchServerAvatarUrl(token).then(function (serverAvatar) {
+    var applyServerAvatar = function (serverAvatar) {
       if (!serverAvatar) return;
       try {
         var clips = state.querySelectorAll(".discord-avatar-clip, .discord-account-popover__avatar");
@@ -1242,7 +1345,15 @@
             '">';
         }
       } catch (e) {}
-    });
+    };
+    var runAvatar = function () {
+      fetchServerAvatarUrl(token).then(applyServerAvatar);
+    };
+    if (typeof window.requestIdleCallback === "function") {
+      window.requestIdleCallback(runAvatar, { timeout: 2500 });
+    } else {
+      window.setTimeout(runAvatar, 400);
+    }
     emitProfile(user);
   }
 
@@ -1281,7 +1392,7 @@
   }
 
   function fetchMe(token, timeoutMs) {
-    var ms = Math.max(3000, Number(timeoutMs) || 12000);
+    var ms = Math.max(2500, Number(timeoutMs) || 8000);
     var ac = new AbortController();
     var tid = setTimeout(function () {
       try {
@@ -1351,7 +1462,7 @@
       try {
         ac.abort();
       } catch (eAb) {}
-    }, 6000);
+    }, 3500);
     return fetch("/webhooks/site-verify/complete", {
       method: "POST",
       headers: {
@@ -1521,7 +1632,7 @@
         renderAuthPendingShell();
         setTimeout(function () {
           if (!getToken() || window.__VC_DISCORD_PROFILE) return;
-          fetchMe(t, 8000)
+          fetchMe(t, 5000)
             .then(function (user) {
               writeCachedDiscordMe(t, user);
               renderLoggedIn(user);
@@ -1534,7 +1645,7 @@
               }
               forceUnlockSessionVerifyUi();
             });
-        }, 900);
+        }, 400);
       });
   }
 
@@ -1563,4 +1674,15 @@
     ensureHeaderMenusMutex();
     main();
   }
+
+  // Gate accesso centralizzato (tutto il sito): no-op sulle pagine pubbliche.
+  (function bootVcAccessGate() {
+    try {
+      if (window.__VC_ACCESS_GATE_LOADED || window.__VC_ACCESS_GATE_BOOT) return;
+      window.__VC_ACCESS_GATE_BOOT = true;
+      var s = document.createElement("script");
+      s.src = "/js/vc-access-gate.js?v=20260826localCache1";
+      (document.head || document.documentElement).appendChild(s);
+    } catch (eBoot) {}
+  })();
 })();

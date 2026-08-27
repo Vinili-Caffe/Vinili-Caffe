@@ -947,6 +947,25 @@
   }
 
   function showSaveToast(msg, isError, opts) {
+    if (window.VcSiteToast && typeof window.VcSiteToast.show === "function") {
+      setSuccess("");
+      setError("");
+      if (!String(msg || "").trim() && !(opts && opts.pending)) {
+        window.VcSiteToast.hide();
+        return;
+      }
+      window.VcSiteToast.show(
+        msg ||
+          (isError
+            ? i18n("dash.errorShort", "Errore")
+            : opts && opts.pending
+              ? i18n("dash.savingShort", "Salvataggio…")
+              : i18n("dash.savedShort", "Salvato")),
+        Boolean(isError),
+        opts || null,
+      );
+      return;
+    }
     var host = byId("vc-dash-save-toast-host");
     if (!host) return;
     // Evita il banner verde/rosso in alto quando usiamo il toast in basso.
@@ -7254,7 +7273,8 @@
     }
 
     try {
-      document.title = isPlaceholder ? nameUpper : nameUpper + " | Dashboard";
+      if (window.VcPageTitle && !isPlaceholder) window.VcPageTitle.set("Dashboard", nameUpper);
+      else document.title = isPlaceholder ? nameUpper : nameUpper + " | Dashboard";
     } catch (e) {}
 
     try {

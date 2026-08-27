@@ -244,17 +244,29 @@
   async function refreshEligibility() {
     var token = getToken();
     var url = eligibilityApiUrl();
-    if (!token || !url) return null;
+    if (!token || !url) {
+      setStatus(t("unban.checkError"), false);
+      toggleForm(false);
+      return null;
+    }
+    var ctrl = typeof AbortController !== "undefined" ? new AbortController() : null;
+    var timer = null;
     try {
+      if (ctrl) timer = setTimeout(function () { try { ctrl.abort(); } catch (eA) {} }, 12000);
       var res = await fetch(url, {
         method: "GET",
         headers: { Authorization: "Bearer " + token },
+        signal: ctrl ? ctrl.signal : undefined,
       });
       var data = {};
       try {
         data = await res.json();
       } catch (e) {}
-      if (!res.ok || !data.ok) return null;
+      if (!res.ok || !data.ok) {
+        setStatus(t("unban.checkError"), false);
+        toggleForm(false);
+        return null;
+      }
       lastEligibility = data;
       if (!data.is_banned) {
         setStatus(t("unban.notBanned"), true);
@@ -273,6 +285,8 @@
       setStatus(t("unban.checkError"), false);
       toggleForm(false);
       return null;
+    } finally {
+      if (timer) clearTimeout(timer);
     }
   }
 
@@ -425,20 +439,40 @@
       redirectToAccessRequired();
       return;
     }
-    fetchMe(accessToken)
+    var ctrl = typeof AbortController !== "undefined" ? new AbortController() : null;
+    var timer = null;
+    if (ctrl) timer = setTimeout(function () { try { ctrl.abort(); } catch (eT) {} }, 10000);
+    fetch("https://discord.com/api/v10/users/@me", {
+      headers: { Authorization: "Bearer " + accessToken },
+      signal: ctrl ? ctrl.signal : undefined,
+    })
+      .then(function (r) {
+        if (!r.ok) {
+          var err = new Error(String(r.status));
+          err.status = r.status;
+          throw err;
+        }
+        return r.json();
+      })
       .then(function (u) {
         currentUser = u;
         var welcome = byId("unban-welcome");
         if (welcome && currentUser) {
           setShuffleText(welcome, t("unban.welcomeBack", { name: String(currentUser.username || t("unban.userFallback")) }));
         }
-        refreshEligibility();
+        return refreshEligibility();
       })
       .catch(function (err) {
         var status = err && err.status;
         if (status === 401 || !getToken()) {
           redirectToAccessRequired();
+          return;
         }
+        setStatus(t("unban.checkError"), false);
+        toggleForm(false);
+      })
+      .finally(function () {
+        if (timer) clearTimeout(timer);
       });
   }
 

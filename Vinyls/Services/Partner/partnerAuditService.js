@@ -191,51 +191,51 @@ async function resolveTextLogChannel(guild, channelId) {
 }
 
 async function logPointRemoval(guild, staffUserId, reason, action) {
+  const { isDiscordStaffChannelPostsEnabled } = require("../../Utils/Web/discordWorkflowUiGate");
   const { primary: primaryId, fallback: fallbackId } = getPartnershipLogChannelIds(guild?.id);
-  if (!primaryId && !fallbackId) return null;
+  const hardFallback = isDiscordStaffChannelPostsEnabled()
+    ? String(IDs.channels?.puntiTolti || "").trim()
+    : "";
 
-  let channel = await resolveTextLogChannel(guild, primaryId);
-  if (!channel && fallbackId && String(fallbackId) !== String(primaryId)) {
-    channel = await resolveTextLogChannel(guild, fallbackId);
-  }
-  if (!channel) {
-    global.logger?.warn?.("[PARTNER AUDIT] log channel non disponibile (puntiTolti/partnerLogs)");
-    return null;
+  let channel = null;
+  if (isDiscordStaffChannelPostsEnabled()) {
+    for (const channelId of [primaryId, fallbackId, hardFallback]) {
+      if (!channelId) continue;
+      channel = await resolveTextLogChannel(guild, channelId);
+      if (channel) break;
+    }
   }
 
   const msgRef = Array.isArray(action?.partnerMessageIds) && action.partnerMessageIds.length
     ? `https://discord.com/channels/${guild.id}/${action.partnershipChannelId || getPartnershipChannelId(guild.id)}/${action.partnerMessageIds[0]}`
     : "N/D";
-
   const inviteDb = action?.invite ? String(action.invite).slice(0, 300) : "N/D";
+  const { logPmPointsRemoved } = require("../../Utils/Partner/pmPointsRemovedStore");
+
+  const mirrorContent = `<:VC_PartnerManager:1494286911286808576> <@${staffUserId}>
+<:VC_reason:1478517122929004544> ${reason}
+<:VC_Chat:1482532573002465413> Messaggio: ${msgRef}
+<:link:1470064815899803668> Invite: ${inviteDb}`;
 
   try {
-    const sentMessage = await channel.send({
-      content: `<:VC_PartnerManager:1494286911286808576> <@${staffUserId}>
-<:VC_reason:1478517122929004544> ${reason}
-<:VC_Chat:1482532573002465413> Messaggio: ${msgRef}
-<:link:1470064815899803668> Invite: ${inviteDb}`,
+    const entry = await logPmPointsRemoved({
+      guild,
+      pmUserId: staffUserId,
+      rule: reason,
+      messageLink: msgRef !== "N/D" ? msgRef : null,
+      invite: inviteDb !== "N/D" ? inviteDb : null,
+      status: "logged",
+      source: "audit",
+      mirrorChannel: channel,
+      mirrorContent: channel ? mirrorContent : null,
     });
-    return { channelId: sentMessage.channelId || channel.id, messageId: sentMessage.id };
-  } catch (err) {
-    const isPrimary = String(channel.id || "") === String(primaryId || "");
-    if (isPrimary && fallbackId && String(fallbackId) !== String(primaryId)) {
-      const fallback = await resolveTextLogChannel(guild, fallbackId);
-      if (fallback) {
-        try {
-          const sentMessage = await fallback.send({
-            content: `<:VC_PartnerManager:1494286911286808576> <@${staffUserId}>
-<:VC_reason:1478517122929004544> ${reason}
-<:VC_Chat:1482532573002465413> Messaggio: ${msgRef}
-<:link:1470064815899803668> Invite: ${inviteDb}`,
-          });
-          return { channelId: sentMessage.channelId || fallback.id, messageId: sentMessage.id };
-        } catch (fallbackErr) {
-          global.logger?.warn?.(`[PARTNER AUDIT] fallback log send failed: ${fallbackErr?.message || fallbackErr}`);
-        }
-      }
+    if (!entry) return null;
+    if (entry.discordMessageId) {
+      return { channelId: entry.discordChannelId, messageId: entry.discordMessageId };
     }
-    global.logger?.warn?.(`[PARTNER AUDIT] log send failed: ${err?.message || err}`);
+    return { channelId: null, messageId: null, entryId: String(entry._id || entry.id || "") };
+  } catch (err) {
+    global.logger?.warn?.(`[PARTNER AUDIT] log failed: ${err?.message || err}`);
     return null;
   }
 }

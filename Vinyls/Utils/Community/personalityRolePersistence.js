@@ -12,7 +12,7 @@ const PERSONALITY_CATEGORY_ROLE_IDS = {
   dm: ["1442569004215697438", "1442569005071077417", "1442569006543274126"],
   relationship: ["1442569028173299732", "1442569029263818906"],
   zodiac: ZODIAC_ROLE_IDS,
-  mentions: [IDs.roles.ReviveChat, IDs.roles.ReviveVoc, IDs.roles.SerataFilm, IDs.roles.Partnership, IDs.roles.Events, IDs.roles.News, IDs.roles.Polls, IDs.roles.Bump, IDs.roles.Minigames, IDs.roles.Notturno, IDs.roles.Live, IDs.roles.Status, IDs.roles.Changelogs].filter(Boolean),
+  mentions: [IDs.roles.ReviveChat, IDs.roles.ReviveVoc, IDs.roles.SerataFilm, IDs.roles.Partnership, IDs.roles.Events, IDs.roles.News, IDs.roles.Polls, IDs.roles.Bump, IDs.roles.Minigames, IDs.roles.Notturno, IDs.roles.Live, IDs.roles.Updates].filter(Boolean),
   hobby: [IDs.roles.HobbyAnimeManga, IDs.roles.HobbyLettura, IDs.roles.HobbyScrittura, IDs.roles.HobbyFilmSerieTV, IDs.roles.HobbySport, IDs.roles.HobbyMusica, IDs.roles.HobbyGaming, IDs.roles.HobbyDisegno, IDs.roles.HobbyCucina, IDs.roles.HobbyFotografia].filter(Boolean),
   colors1: PERSONALITY_NORMAL_COLOR_ROLE_IDS_ALL,
   colors_plus: [IDs.roles.redPlus, IDs.roles.orangePlus, IDs.roles.yellowPlus, IDs.roles.greenPlus, IDs.roles.bluePlus, IDs.roles.purplePlus, IDs.roles.pinkPlus, IDs.roles.blackPlus, IDs.roles.grayPlus, IDs.roles.whitePlus, IDs.roles.orangeBlackPlus, IDs.roles.greenBlackPlus, IDs.roles.aquaBlackPlus].filter(Boolean),

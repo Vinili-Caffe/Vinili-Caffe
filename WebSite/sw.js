@@ -1,4 +1,4 @@
-/* v=20260820notifnav1 */
+/* v=20260826pushAck1 */
 /* Vinili & Caffè — Web Push service worker */
 /* eslint-disable no-restricted-globals */
 
@@ -9,6 +9,35 @@ self.addEventListener("install", function (event) {
 self.addEventListener("activate", function (event) {
   event.waitUntil(self.clients.claim());
 });
+
+/**
+ * Chrome (userVisibleOnly): ogni push DEVE finire con showNotification, altrimenti
+ * appare "Il sito è aggiornato in background". Per ack silenziosi: show + close subito.
+ */
+function satisfyUserVisibleOnly(tagHint) {
+  var tag = String(tagHint || "vc-site-ack").slice(0, 80) + "-" + String(Date.now());
+  return self.registration
+    .showNotification("Vinili & Caffè", {
+      body: "\u200b",
+      tag: tag,
+      silent: true,
+      renotify: false,
+      lang: "it",
+      icon: PUSH_ICON_PATH,
+      badge: PUSH_ICON_PATH,
+      data: { ack: true },
+    })
+    .then(function () {
+      return self.registration.getNotifications({ tag: tag }).then(function (list) {
+        (list || []).forEach(function (n) {
+          try {
+            n.close();
+          } catch (e) {}
+        });
+      });
+    })
+    .catch(function () {});
+}
 
 /** Se Apple/Chrome ruota l'endpoint, avvisa le pagine aperte per riscrivere la subscription. */
 self.addEventListener("pushsubscriptionchange", function (event) {
@@ -595,7 +624,12 @@ function notificationVisuals(payload) {
 self.addEventListener("push", function (event) {
   var payload = parsePushPayload(event);
   if (payload.type === "dismiss") {
-    event.waitUntil(dismissShownNotifications(payload));
+    event.waitUntil(
+      dismissShownNotifications(payload).then(function () {
+        // Chromium: senza showNotification → "Il sito è aggiornato in background".
+        return satisfyUserVisibleOnly("vc-ack-dismiss");
+      }),
+    );
     return;
   }
   var ticketId = ticketIdFromPayload(payload);
@@ -613,9 +647,12 @@ self.addEventListener("push", function (event) {
           client.postMessage({ type: "vc:push-received", payload: payload });
         } catch (eMsg) {}
       }
-      if (watchingTicket) return null;
+      // Tab aperta sul ticket / focus: in-app basta, ma Chrome richiede comunque uno show.
+      if (watchingTicket) return satisfyUserVisibleOnly("vc-ack-watch");
       var silent = shouldSilenceOsNotification(payload, anyFocused, ticketId, watchingTicket);
-      if (anyFocused && silent && !isReminderPayload(payload)) return null;
+      if (anyFocused && silent && !isReminderPayload(payload)) {
+        return satisfyUserVisibleOnly("vc-ack-focus");
+      }
       var visuals = notificationVisuals(payload);
       var messageId = String(payload.messageId || "").trim();
       var opts = {

@@ -2,7 +2,7 @@
  * Hub WebSocket (stessa porta degli altri /webhooks/*).
  * Path canonico: /webhooks/site-realtime-ws — alias: /webhooks/site-suggestions-ws (nginx già configurato).
  * Messaggi: suggestions_changed, notifications_changed, reviews_changed, staff_pauses_changed,
- * web_ticket_*, web_tickets_list_changed, + hello iniziali.
+ * staff_workflow_changed, web_ticket_*, web_tickets_list_changed, workflow_chat_message, + hello iniziali.
  */
 const SITE_REALTIME_WS_PATH = "/webhooks/site-realtime-ws";
 const LEGACY_SUGGESTIONS_WS_PATH = "/webhooks/site-suggestions-ws";
@@ -131,6 +131,16 @@ function broadcastSiteStaffPausesChanged() {
   notifyExternalSiteRealtime(payload);
 }
 
+function broadcastSiteStaffWorkflowChanged(queue = "") {
+  const payload = {
+    type: "staff_workflow_changed",
+    queue: String(queue || "").trim().toLowerCase(),
+    at: new Date().toISOString(),
+  };
+  broadcastSiteRealtime(payload);
+  notifyExternalSiteRealtime(payload);
+}
+
 function broadcastSiteWebTicketsEvent(payload) {
   if (!payload || typeof payload !== "object") return;
   const body = { ...payload };
@@ -146,6 +156,7 @@ module.exports = {
   broadcastSiteNotificationsChanged,
   broadcastSiteReviewsChanged,
   broadcastSiteStaffPausesChanged,
+  broadcastSiteStaffWorkflowChanged,
   broadcastSiteWebTicketsEvent,
   broadcastSiteRealtime,
   SUGGESTIONS_WS_PATH: LEGACY_SUGGESTIONS_WS_PATH,

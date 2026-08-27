@@ -44,9 +44,13 @@
 
   function getToken() {
     try {
+      if (typeof window.__vcDiscordGetAccessToken === "function") {
+        return String(window.__vcDiscordGetAccessToken() || "").trim();
+      }
       var token = String(localStorage.getItem(ACCESS_TOKEN_KEY) || "").trim();
       var exp = Number(localStorage.getItem(EXPIRES_AT_KEY) || "0");
-      if (!token || !exp || Date.now() >= exp) return "";
+      if (!token) return "";
+      if (exp && Date.now() >= exp) return "";
       return token;
     } catch (e) {
       return "";
@@ -136,11 +140,18 @@
   }
 
   function showToast(message, kind) {
+    var msg = String(message || "").trim();
+    var isError = kind === "error" || kind === "err";
+    if (window.VcSiteToast) {
+      if (!msg) window.VcSiteToast.hide();
+      else window.VcSiteToast.show(msg, isError, { pending: kind === "pending" || kind === "" });
+      return;
+    }
     var el = byId("vc-hw-shop-toast");
     if (!el) return;
-    el.textContent = message || "";
+    el.textContent = msg;
     el.className = "vc-hw-shop-toast mt-6" + (kind ? " vc-hw-shop-toast--" + kind : "");
-    setHidden(el, !message);
+    setHidden(el, !msg);
   }
 
   function ownedTierPrice(owned) {

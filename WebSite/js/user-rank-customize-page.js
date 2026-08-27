@@ -19,6 +19,8 @@
   var LIVE_CUSTOMIZE_POLL_MS = 90000;
   var PREVIEW_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
   var PREVIEW_CACHE_KEY = "vc_rank_customize_preview_cache_v5";
+  var THEME_CACHE_KEY = "vc_rank_customize_payload_v1";
+  var THEME_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
   var RANK_TAB_STORAGE_KEY = "vc_rank_customize_active_tab";
 
   function normalizeRankTab(value) {
@@ -126,9 +128,19 @@
   }
 
   function getToken() {
+    try {
+      var hub = window.__VC_PERS_HUB_API;
+      if (hub && typeof hub.getToken === "function") return hub.getToken();
+    } catch (eHub) {}
+    try {
+      if (typeof window.__vcDiscordGetAccessToken === "function") {
+        return String(window.__vcDiscordGetAccessToken() || "").trim();
+      }
+    } catch (eDc) {}
     var t = localStorage.getItem(ACCESS_TOKEN_KEY);
+    if (!t) return "";
     var exp = Number(localStorage.getItem(ACCESS_EXPIRES_KEY) || "0");
-    if (!t || !exp || Date.now() >= exp) return "";
+    if (exp && Date.now() >= exp) return "";
     return t;
   }
 
@@ -911,11 +923,27 @@
 
   function setStatus(text, isError, opts) {
     var el = byId("vc-rank-status");
-    if (!el) return;
+    if (el) {
+      el.textContent = "";
+      el.className = "vc-rank-editor-status";
+    }
     clearStatusTimer();
-    el.textContent = text || "";
-    el.className = "vc-rank-editor-status" + (isError ? " is-error" : "") + (text ? " is-visible" : "");
-    if (text && !(opts && opts.sticky)) {
+    var msg = String(text || "").trim();
+    if (window.VcSiteToast) {
+      if (!msg) {
+        window.VcSiteToast.hide();
+        return;
+      }
+      window.VcSiteToast.show(msg, Boolean(isError), {
+        sticky: Boolean(opts && opts.sticky),
+        pending: Boolean(opts && opts.sticky) || undefined,
+      });
+      return;
+    }
+    if (!el) return;
+    el.textContent = msg;
+    el.className = "vc-rank-editor-status" + (isError ? " is-error" : "") + (msg ? " is-visible" : "");
+    if (msg && !(opts && opts.sticky)) {
       statusTimer = setTimeout(function () {
         statusTimer = null;
         setStatus("");
@@ -1162,6 +1190,56 @@
     }
   }
 
+  function saveRankPayloadCache(body) {
+    if (!body || body.ok !== true) return;
+    try {
+      localStorage.setItem(
+        THEME_CACHE_KEY,
+        JSON.stringify({
+          at: Date.now(),
+          userId: String(body.userId || ""),
+          username: body.username || "",
+          displayName: body.displayName || "",
+          avatarUrl: body.avatarUrl || "",
+          theme: body.theme || {},
+          defaults: body.defaults || null,
+          wallpapers: body.wallpapers || null,
+          permissions: body.permissions || null,
+          stats: body.stats || null,
+        })
+      );
+    } catch (e) {}
+  }
+
+  function loadRankPayloadCache(preferredUserId) {
+    try {
+      var raw = localStorage.getItem(THEME_CACHE_KEY) || "";
+      if (!raw) return null;
+      var parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== "object") return null;
+      var at = Number(parsed.at || 0);
+      if (!Number.isFinite(at) || Date.now() - at > THEME_CACHE_TTL_MS) return null;
+      var uid = String(parsed.userId || "");
+      var want = String(preferredUserId || "").trim();
+      if (want && uid && want !== uid) return null;
+      return {
+        ok: true,
+        userId: uid,
+        username: parsed.username || "",
+        displayName: parsed.displayName || "",
+        avatarUrl: parsed.avatarUrl || "",
+        theme: parsed.theme || {},
+        defaults: parsed.defaults || undefined,
+        wallpapers: Array.isArray(parsed.wallpapers) ? parsed.wallpapers : undefined,
+        permissions: parsed.permissions || undefined,
+        stats: parsed.stats || undefined,
+        _fromCache: true,
+      };
+    } catch (e) {
+      return null;
+    }
+  }
+
   function fetchRankData() {
     var url = resolvedRankApiUrl();
     if (!url) {
@@ -1181,7 +1259,7 @@
       method: "GET",
       headers: { Authorization: "Bearer " + token },
       cache: "no-store",
-    }, 15000)
+    }, 8000)
       .then(function (r) {
         return r.text().then(function (text) {
           var parsed = null;
@@ -1415,7 +1493,19 @@
     return Boolean(hub.isRank);
   }
 
-  function main() {
+  function isRetryableRankLoadError(body) {
+    if (!body || body.ok === true) return false;
+    var msg = String((body && body.message) || "").toLowerCase();
+    return (
+      msg.indexOf("timeout") >= 0 ||
+      msg.indexOf("rete") >= 0 ||
+      msg.indexOf("connessione") >= 0 ||
+      msg.indexOf("impiegando troppo") >= 0
+    );
+  }
+
+  function main(attempt) {
+    attempt = Number(attempt) || 0;
     if (!isPersHubRankTab()) {
       try {
         var skips = document.querySelectorAll('[id="vc-rank-customize-loading"]');
@@ -1436,9 +1526,54 @@
     var targetUserId = parseTargetUserId();
     currentUser = (typeof window !== "undefined" && window.__VC_DISCORD_PROFILE) || null;
     if (enforceTargetOwnership(targetUserId, currentUser)) return;
+
+    /* First paint immediato: cache locale o shell minima — niente splash bloccante. */
+    if (!loaded && attempt === 0) {
+      try {
+        var cached = loadRankPayloadCache(
+          targetUserId || (currentUser && currentUser.id) || ""
+        );
+        if (cached && cached.theme) {
+          loaded = cached;
+          draft = normalizeTheme(cached.theme || {});
+          if (!draft.wallpaperKey) draft.wallpaperKey = "default";
+          render();
+        } else if (getToken()) {
+          loaded = {
+            ok: true,
+            userId: String(targetUserId || (currentUser && currentUser.id) || ""),
+            username: (currentUser && (currentUser.username || currentUser.global_name)) || "",
+            displayName:
+              (currentUser && (currentUser.global_name || currentUser.username)) || "Tu",
+            avatarUrl: "",
+            theme: {},
+            wallpapers: [],
+            permissions: { canUseCustomWallpaper: false, wallpaperCustomRoles: [], activeWallpaperRoles: [] },
+            stats: {},
+            _skeleton: true,
+          };
+          draft = normalizeTheme({});
+          if (!draft.wallpaperKey) draft.wallpaperKey = "default";
+          render();
+        }
+      } catch (eCache) {}
+    }
+
     fetchRankData()
       .then(function (body) {
+        if ((!body || body.ok !== true) && isRetryableRankLoadError(body) && attempt < 1) {
+          return new Promise(function (resolve) {
+            setTimeout(resolve, 500);
+          }).then(function () {
+            main(attempt + 1);
+          });
+        }
         if (!body || body.ok !== true) {
+          if (loaded && draft) {
+            /* Cache già mostrata: non sostituire con fatal se la rete fallisce. */
+            setStatus((body && body.message) || "Aggiornamento non riuscito: mostro l'ultima versione salvata.", true);
+            return;
+          }
           showRankFatalError(
             (body && body.message) || "Impossibile caricare la personalizzazione rank card."
           );
@@ -1449,6 +1584,7 @@
           return;
         }
         try {
+          saveRankPayloadCache(body);
           loaded = body;
           draft = normalizeTheme(body.theme || {});
           if (!draft.wallpaperKey) draft.wallpaperKey = "default";
@@ -1458,8 +1594,31 @@
         }
       })
       .catch(function () {
+        if (attempt < 1) {
+          setTimeout(function () {
+            main(attempt + 1);
+          }, 500);
+          return;
+        }
+        if (loaded && draft) return;
         showRankFatalError("Errore imprevisto durante il caricamento.");
       });
+  }
+
+  function scheduleMain() {
+    try {
+      var hub = window.__VC_PERS_HUB_API;
+      if (hub && typeof hub.whenSessionReady === "function") {
+        hub.whenSessionReady(
+          function () {
+            main(0);
+          },
+          { maxMs: 350 }
+        );
+        return;
+      }
+    } catch (eSch) {}
+    main(0);
   }
 
   window.addEventListener("vc-discord-profile", function (ev) {
@@ -1469,9 +1628,9 @@
   });
 
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", main);
+    document.addEventListener("DOMContentLoaded", scheduleMain);
   } else {
-    main();
+    scheduleMain();
   }
 
   if (isPersHubRankTab()) {

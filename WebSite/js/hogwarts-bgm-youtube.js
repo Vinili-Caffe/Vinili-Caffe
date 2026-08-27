@@ -68,6 +68,12 @@
 
   function isUserOptedOut() {
     try {
+      var sync = window.__VC_CHROME_SYNC && window.__VC_CHROME_SYNC.get();
+      if (sync && sync.hogwartsBgm && typeof sync.hogwartsBgm.enabled === "boolean") {
+        return sync.hogwartsBgm.enabled === false;
+      }
+    } catch (eSy) {}
+    try {
       return localStorage.getItem(BGM_PREF_KEY) === "0";
     } catch (eP) {
       return false;
@@ -78,6 +84,13 @@
     try {
       localStorage.setItem(BGM_PREF_KEY, enabled ? "1" : "0");
     } catch (eP) {}
+    try {
+      if (window.__VC_CHROME_SYNC) {
+        window.__VC_CHROME_SYNC.publish({
+          hogwartsBgm: { enabled: Boolean(enabled), volume: userVol },
+        });
+      }
+    } catch (eS) {}
   }
 
   function readVolume() {
@@ -86,6 +99,14 @@
       var c = window.__VC_HOGWARTS_BGM || {};
       cfgVol = Math.min(1, Math.max(0.05, Number(c.baseVolume) || 0.35));
     } catch (eV) {}
+    try {
+      var sync = window.__VC_CHROME_SYNC && window.__VC_CHROME_SYNC.get();
+      if (sync && sync.hogwartsBgm && Number.isFinite(Number(sync.hogwartsBgm.volume))) {
+        userVol = Math.min(1, Math.max(0, Number(sync.hogwartsBgm.volume)));
+        baseVol = userVol;
+        return;
+      }
+    } catch (eSy) {}
     try {
       var raw = localStorage.getItem(VOL_PREF_KEY);
       if (raw != null && raw !== "") {
@@ -107,12 +128,30 @@
     try {
       localStorage.setItem(VOL_PREF_KEY, String(Math.round(userVol * 100) / 100));
     } catch (eP) {}
+    try {
+      if (window.__VC_CHROME_SYNC) {
+        window.__VC_CHROME_SYNC.publish({
+          hogwartsBgm: { enabled: !isUserOptedOut(), volume: userVol },
+        });
+      }
+    } catch (eS) {}
   }
 
   function applyPlayerVolume() {
     if (!player || !playerReady) return;
     try {
-      player.setVolume(Math.round(Math.min(1, Math.max(0, baseVol)) * 100));
+      if (window.__VC_CHROME_SYNC && typeof window.__VC_CHROME_SYNC.applyYtVolume === "function") {
+        window.__VC_CHROME_SYNC.applyYtVolume(player, mutedByUser ? 0 : baseVol);
+        return;
+      }
+      var v = Math.round(Math.min(1, Math.max(0, mutedByUser ? 0 : baseVol)) * 100);
+      if (v <= 0) {
+        player.mute();
+        player.setVolume(0);
+      } else {
+        player.unMute();
+        player.setVolume(v);
+      }
     } catch (eAv) {}
   }
 
@@ -175,6 +214,9 @@
     wrap.appendChild(meta);
     bindVolumeUi();
     syncVolumeSliderUi();
+    try {
+      if (window.__VC_CHROME_SYNC) window.__VC_CHROME_SYNC.bindExpandablePlayer(wrap, btn);
+    } catch (eEx) {}
     return wrap;
   }
 
@@ -182,6 +224,26 @@
     var range = document.getElementById("vc-hw-music-vol");
     if (!range) return;
     range.value = String(Math.round(Math.min(1, Math.max(0, userVol)) * 100));
+  }
+
+  function nudgeVolume(delta) {
+    var next = Math.min(1, Math.max(0, userVol + (Number(delta) || 0)));
+    persistVolume(next);
+    if (next <= 0.001) {
+      if (!mutedByUser) pauseAudible();
+      else applyPlayerVolume();
+    } else {
+      applyPlayerVolume();
+      if (mutedByUser || !isAudiblePlaying()) {
+        rememberBgmEnabled(true);
+        mutedByUser = false;
+        hideHint();
+        detachFirstPointer();
+        playAudible(true);
+      }
+    }
+    syncVolumeSliderUi();
+    updateMusicButtonUi();
   }
 
   function bindVolumeUi() {
@@ -215,6 +277,15 @@
         ev.stopPropagation();
       } catch (eS) {}
     });
+    range.addEventListener(
+      "touchstart",
+      function (ev) {
+        try {
+          ev.stopPropagation();
+        } catch (eT) {}
+      },
+      { passive: true },
+    );
   }
 
   function isAudiblePlaying() {
@@ -237,7 +308,8 @@
     if (!btn) return;
     var ico = btn.querySelector(".fa");
     if (!ico) return;
-    if (isAudiblePlaying()) {
+    var playing = isAudiblePlaying();
+    if (playing) {
       ico.className = "fa fa-volume-up";
       btn.setAttribute("aria-label", "Disattiva musica di sottofondo");
       btn.title = "Disattiva musica Hogwarts";
@@ -247,6 +319,32 @@
       btn.title = "Attiva musica Hogwarts";
     }
     syncVolumeSliderUi();
+    try {
+      if (window.__VC_CHROME_SYNC) {
+        window.__VC_CHROME_SYNC.setMediaSession({
+          title: "Musica Hogwarts",
+          artist: "Vinili & Caffè",
+          album: "Evento",
+          playing: playing,
+          artwork: [{ src: "/images/logo.png", sizes: "512x512", type: "image/png" }],
+          onPlay: function () {
+            if (!isAudiblePlaying()) {
+              rememberBgmEnabled(true);
+              mutedByUser = false;
+              playAudible(true);
+              updateMusicButtonUi();
+            }
+          },
+          onPause: function () {
+            pauseAudible();
+            mutedByUser = true;
+            rememberBgmEnabled(false);
+            updateMusicButtonUi();
+          },
+          onVolumeDelta: nudgeVolume,
+        });
+      }
+    } catch (eMs) {}
   }
 
   function showMusicButton() {
@@ -404,8 +502,9 @@
     var wrap = document.createElement("div");
     wrap.id = "vc-hw-yt-host";
     wrap.setAttribute("aria-hidden", "true");
+    // Keep a tiny in-viewport host: off-screen / opacity≈0 players often get YT error 153.
     wrap.style.cssText =
-      "position:fixed;left:-9999px;top:0;width:320px;height:180px;opacity:0.01;pointer-events:none;z-index:0;overflow:hidden";
+      "position:fixed;left:0;bottom:0;width:1px;height:1px;opacity:0.02;pointer-events:none;z-index:0;overflow:hidden;clip-path:inset(0)";
     document.body.appendChild(wrap);
     var inner = document.createElement("div");
     inner.id = "vc-hw-yt-player";
@@ -808,12 +907,51 @@
         }
         rememberBgmEnabled(true);
         mutedByUser = false;
+        ytLoadFailed = false;
         hideHint();
         detachFirstPointer();
         playAudible(true);
       });
     }
+    try {
+      if (window.__VC_CHROME_SYNC) {
+        window.__VC_CHROME_SYNC.subscribe(function (prefs) {
+          if (!prefs || !prefs.hogwartsBgm) return;
+          if (Number.isFinite(Number(prefs.hogwartsBgm.volume))) {
+            userVol = Math.min(1, Math.max(0, Number(prefs.hogwartsBgm.volume)));
+            baseVol = userVol;
+            try {
+              localStorage.setItem(VOL_PREF_KEY, String(Math.round(userVol * 100) / 100));
+            } catch (eV) {}
+            applyPlayerVolume();
+            syncVolumeSliderUi();
+          }
+          if (typeof prefs.hogwartsBgm.enabled === "boolean") {
+            try {
+              localStorage.setItem(BGM_PREF_KEY, prefs.hogwartsBgm.enabled ? "1" : "0");
+            } catch (eE) {}
+            if (!prefs.hogwartsBgm.enabled) {
+              mutedByUser = true;
+              pauseAudible();
+            }
+          }
+          updateMusicButtonUi();
+        });
+      }
+    } catch (eSub) {}
     startDefaultBgm();
+  });
+
+  window.addEventListener("vc:cookie-accepted", function () {
+    if (isUserOptedOut() || cinemaIntroActive()) return;
+    rememberBgmEnabled(true);
+    mutedByUser = false;
+    ytLoadFailed = false;
+    try {
+      window.__vcHogwartsBgmAllowed = true;
+    } catch (eA) {}
+    showMusicButton();
+    playAudible(true);
   });
 
   window.addEventListener("pagehide", function () {

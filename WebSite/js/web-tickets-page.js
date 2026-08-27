@@ -156,6 +156,11 @@
       el.hidden = true;
     }
     var text = String(msg || "").trim();
+    if (window.VcSiteToast) {
+      if (!text) window.VcSiteToast.hide();
+      else window.VcSiteToast.show(text, Boolean(isError));
+      return;
+    }
     if (!text) {
       hideStatusToast();
       return;
@@ -1294,7 +1299,11 @@
   function rememberMentionName(type, id, name) {
     if (!id || !name) return;
     if (!state.mentionNames) state.mentionNames = {};
-    state.mentionNames[String(type) + ":" + String(id)] = String(name);
+    var cleaned = String(name);
+    if (String(type) === "channel" && window.VcEmojiRender && window.VcEmojiRender.sanitizeDiscordChannelName) {
+      cleaned = window.VcEmojiRender.sanitizeDiscordChannelName(cleaned) || cleaned;
+    }
+    state.mentionNames[String(type) + ":" + String(id)] = cleaned;
   }
 
   function resolveMentionName(type, id) {
@@ -2182,12 +2191,37 @@
       );
     }
     if (/^[ \t]{0,3}>\s?/.test(raw)) {
-      return (
-        '<blockquote class="vc-wt-md-quote">' +
-        mdMark(raw.match(/^[ \t]{0,3}>\s?/)[0]) +
-        formatDiscordInlineKeepMarks(raw.replace(/^[ \t]{0,3}>\s?/, "")) +
-        "</blockquote>"
-      );
+      var quotedKeep = raw.replace(/^[ \t]{0,3}>\s?/, "");
+      var quotePrefix = mdMark(raw.match(/^[ \t]{0,3}>\s?/)[0]);
+      var quoteBody = "";
+      if (/^[ \t]{0,3}###\s+/.test(quotedKeep)) {
+        quoteBody =
+          '<div class="vc-wt-md-h3">' +
+          mdMark(quotedKeep.match(/^[ \t]{0,3}###\s+/)[0]) +
+          formatDiscordInlineKeepMarks(quotedKeep.replace(/^[ \t]{0,3}###\s+/, "")) +
+          "</div>";
+      } else if (/^[ \t]{0,3}##\s+/.test(quotedKeep)) {
+        quoteBody =
+          '<div class="vc-wt-md-h2">' +
+          mdMark(quotedKeep.match(/^[ \t]{0,3}##\s+/)[0]) +
+          formatDiscordInlineKeepMarks(quotedKeep.replace(/^[ \t]{0,3}##\s+/, "")) +
+          "</div>";
+      } else if (/^[ \t]{0,3}#\s+/.test(quotedKeep)) {
+        quoteBody =
+          '<div class="vc-wt-md-h1">' +
+          mdMark(quotedKeep.match(/^[ \t]{0,3}#\s+/)[0]) +
+          formatDiscordInlineKeepMarks(quotedKeep.replace(/^[ \t]{0,3}#\s+/, "")) +
+          "</div>";
+      } else if (/^[ \t]{0,3}-#\s+/.test(quotedKeep)) {
+        quoteBody =
+          '<div class="vc-wt-md-sub">' +
+          mdMark(quotedKeep.match(/^[ \t]{0,3}-#\s+/)[0]) +
+          formatDiscordInlineKeepMarks(quotedKeep.replace(/^[ \t]{0,3}-#\s+/, "")) +
+          "</div>";
+      } else {
+        quoteBody = formatDiscordInlineKeepMarks(quotedKeep);
+      }
+      return '<blockquote class="vc-wt-md-quote">' + quotePrefix + quoteBody + "</blockquote>";
     }
     return formatDiscordInlineKeepMarks(raw) || "<br>";
   }
@@ -2436,10 +2470,23 @@
         parts.push('<div class="vc-wt-md-sub">' + formatDiscordInline(line.replace(/^[ \t]{0,3}-#\s+/, "")) + "</div>");
         continue;
       }
-      if (/^[ \t]{0,3}>\s?/.test(line)) {
-        parts.push('<blockquote class="vc-wt-md-quote">' + formatDiscordInline(line.replace(/^[ \t]{0,3}>\s?/, "")) + "</blockquote>");
-        continue;
+    if (/^[ \t]{0,3}>\s?/.test(line)) {
+      var quoted = line.replace(/^[ \t]{0,3}>\s?/, "");
+      var quoteInner = "";
+      if (/^[ \t]{0,3}###\s+/.test(quoted)) {
+        quoteInner = '<div class="vc-wt-md-h3">' + formatDiscordInline(quoted.replace(/^[ \t]{0,3}###\s+/, "")) + "</div>";
+      } else if (/^[ \t]{0,3}##\s+/.test(quoted)) {
+        quoteInner = '<div class="vc-wt-md-h2">' + formatDiscordInline(quoted.replace(/^[ \t]{0,3}##\s+/, "")) + "</div>";
+      } else if (/^[ \t]{0,3}#\s+/.test(quoted)) {
+        quoteInner = '<div class="vc-wt-md-h1">' + formatDiscordInline(quoted.replace(/^[ \t]{0,3}#\s+/, "")) + "</div>";
+      } else if (/^[ \t]{0,3}-#\s+/.test(quoted)) {
+        quoteInner = '<div class="vc-wt-md-sub">' + formatDiscordInline(quoted.replace(/^[ \t]{0,3}-#\s+/, "")) + "</div>";
+      } else {
+        quoteInner = formatDiscordInline(quoted);
       }
+      parts.push('<blockquote class="vc-wt-md-quote">' + quoteInner + "</blockquote>");
+      continue;
+    }
       parts.push(formatDiscordInline(line));
       if (i < lines.length - 1) parts.push("<br>");
     }

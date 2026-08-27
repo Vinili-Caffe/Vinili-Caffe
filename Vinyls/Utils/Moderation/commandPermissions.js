@@ -84,6 +84,7 @@ const HIGH_STAFF_COMMANDS_ZONE_TOKEN = "__zone:highStaffCommands";
 const PM_COMMANDS_THREAD_ZONE_TOKEN = "__zone:pmCommandsThread";
 const STAFF_GUIDE_BUTTON_IDS = new Set([
   "regolamento",
+  "regole_staff",
   "limiti",
   "pause",
   "valutazioni",

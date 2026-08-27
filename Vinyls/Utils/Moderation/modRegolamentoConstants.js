@@ -14,7 +14,7 @@ const MOD_RULE_DETAIL = {
   "3.2": "È vietato **disconnettere il bot** o cambiare musica mentre un utente sta ascoltando una canzone tramite il bot per il solo scopo di dare fastidio.",
   "3.3": "Non **urlare** o fare **errape**. Utilizzare **SoundBoard** esterne a quelle di Discord o qualunque tipo di **VoiceChanger** non è accettato.",
   "3.4": "È vietato **uscire** e **rientrare** continuamente dalle **vocali**.",
-  "3.6": "Non restare in vocale se sei **AFK**. Se vuoi comunque rimanere nei canali **VC** con gli altri, silenzia il **microfono** e l'**audio**. Farmare **EXP** in questa maniera non è consentito. Nel caso, durante un controllo, ti trovassimo per più di **10 minuti** inattivo in un vocale o non risponderai in testuale o alle chiamate, sarai sanzionato.",
+  "3.5": "Non restare in vocale se sei **AFK**. Se vuoi comunque rimanere nei canali **VC** con gli altri, silenzia il **microfono** e l'**audio**. Farmare **EXP** in questa maniera non è consentito. Nel caso, durante un controllo, ti trovassimo per più di **10 minuti** inattivo in un vocale o non risponderai in testuale o alle chiamate, sarai sanzionato.",
 };
 
 const BUCKET_PRIORITY = ["2_3", "2_1", "1_2", "1_4", "2_4"];
@@ -23,7 +23,7 @@ const BUCKET_VIOLATION_KEYS = {
   "2_3": new Set(["scam_pattern", "scam_image_bait", "panic_mode"]),
   "2_1": new Set(["nsfw_link"]),
   "1_2": new Set(["word_blacklist"]),
-  "1_4": new Set(["link_blacklist"]),
+  "1_4": new Set(["link_blacklist", "invite"]),
   "2_4": new Set([
     "regular_message",
     "emoji_spam",

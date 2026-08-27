@@ -31,6 +31,14 @@
 
   function isHogwartsEventBgmActive() {
     try {
+      if (
+        window.__vcSeratafilmEventUtils &&
+        typeof window.__vcSeratafilmEventUtils.isHogwartsEventWindowActive === "function"
+      ) {
+        return window.__vcSeratafilmEventUtils.isHogwartsEventWindowActive();
+      }
+    } catch (eU) {}
+    try {
       var c = window.__VC_SERATAFILM_BGM || {};
       var w = c.hogwartsEventWindow;
       if (!w || w.enabled === false) return false;
@@ -171,16 +179,19 @@
   }
 
   function youtubeApiScriptSrc() {
+    var v = String(window.__vcSeratafilmAssetVersion || "").trim();
+    var base = "/js/vc-youtube-iframe-api.js";
+    if (v) base += "?v=" + encodeURIComponent(v);
+    return base;
+  }
+
+  function youtubeApiBlockedHint() {
     try {
-      var scripts = document.getElementsByTagName("script");
-      for (var i = 0; i < scripts.length; i += 1) {
-        var src = String(scripts[i].src || "");
-        if (/seratafilm-bgm-youtube\.js/.test(src)) {
-          return src.replace(/seratafilm-bgm-youtube\.js.*$/, "vc-youtube-iframe-api.js");
-        }
+      if (window.__vcYoutubeApiBlocked) {
+        return "Impossibile caricare YouTube. Consenti cookie/script di terze parti per youtube.com, poi riprova.";
       }
-    } catch (eS) {}
-    return "../js/vc-youtube-iframe-api.js";
+    } catch (eB) {}
+    return "Musica non pronta. Controlla connessione o impostazioni privacy del browser, poi riprova.";
   }
 
   function loadYoutubeIframeApi() {
@@ -231,6 +242,14 @@
       var fadeSec = Math.max(5, Math.min(3600, Number(c.fadeStartSeconds) || 120));
       fadeWindowMs = fadeSec * 1000;
       try {
+        var sync = window.__VC_CHROME_SYNC && window.__VC_CHROME_SYNC.get();
+        if (sync && sync.seratafilmBgm && Number.isFinite(Number(sync.seratafilmBgm.volume))) {
+          userVol = Math.min(1, Math.max(0, Number(sync.seratafilmBgm.volume)));
+          baseVol = userVol;
+          return;
+        }
+      } catch (eSy) {}
+      try {
         var raw = localStorage.getItem(VOL_PREF_KEY);
         if (raw != null && raw !== "") {
           var n = Number(raw);
@@ -252,6 +271,11 @@
     try {
       localStorage.setItem(VOL_PREF_KEY, String(Math.round(userVol * 100) / 100));
     } catch (eP) {}
+    try {
+      if (window.__VC_CHROME_SYNC) {
+        window.__VC_CHROME_SYNC.publish({ seratafilmBgm: { volume: userVol } });
+      }
+    } catch (eS) {}
   }
 
   function syncVolumeSliderUi() {
@@ -260,19 +284,84 @@
     range.value = String(Math.round(Math.min(1, Math.max(0, userVol)) * 100));
   }
 
+  function applyVolumeFromUiPct(pct) {
+    pct = Math.min(100, Math.max(0, Number(pct) || 0));
+    persistVolume(pct / 100);
+    if (pct <= 0) {
+      mutedByUser = true;
+      try {
+        if (player) {
+          player.pauseVideo();
+          if (window.__VC_CHROME_SYNC && window.__VC_CHROME_SYNC.applyYtVolume) {
+            window.__VC_CHROME_SYNC.applyYtVolume(player, 0);
+          } else {
+            player.setVolume(0);
+            if (typeof player.mute === "function") player.mute();
+          }
+        }
+      } catch (eZ) {}
+      started = false;
+      updateMusicButtonUi();
+      return;
+    }
+    mutedByUser = false;
+    try {
+      if (player && playerReady) {
+        if (window.__VC_CHROME_SYNC && window.__VC_CHROME_SYNC.applyYtVolume) {
+          window.__VC_CHROME_SYNC.applyYtVolume(player, baseVol);
+        } else {
+          if (typeof player.unMute === "function") player.unMute();
+          player.setVolume(Math.round(baseVol * 100));
+        }
+      }
+    } catch (eV) {}
+    if (!started) startFromUserGesture(true);
+    updateMusicButtonUi();
+  }
+
+  function nudgeVolume(delta) {
+    var next = Math.min(1, Math.max(0, userVol + (Number(delta) || 0)));
+    applyVolumeFromUiPct(Math.round(next * 100));
+  }
+
   function updateMusicButtonUi() {
     ensurePlayerShell();
     var btn = document.getElementById("vc-sf-music-btn");
     if (!btn) return;
     var ico = btn.querySelector(".fa");
+    var playing = started && !mutedByUser;
     if (ico) {
-      ico.className = started && !mutedByUser ? "fa fa-volume-up" : "fa fa-volume-off";
+      ico.className = playing ? "fa fa-volume-up" : "fa fa-volume-off";
     }
     btn.setAttribute(
       "aria-label",
-      started && !mutedByUser ? "Disattiva musica di sottofondo" : "Attiva musica di sottofondo",
+      playing ? "Disattiva musica di sottofondo" : "Attiva musica di sottofondo",
     );
     syncVolumeSliderUi();
+    try {
+      if (window.__VC_CHROME_SYNC) {
+        window.__VC_CHROME_SYNC.setMediaSession({
+          title: "Musica Serata Film",
+          artist: "Vinili & Caffè",
+          album: "Serata Film",
+          playing: playing,
+          artwork: [{ src: "/images/logo.png", sizes: "512x512", type: "image/png" }],
+          onPlay: function () {
+            mutedByUser = false;
+            startFromUserGesture(true);
+            updateMusicButtonUi();
+          },
+          onPause: function () {
+            mutedByUser = true;
+            try {
+              if (player) player.pauseVideo();
+            } catch (eP) {}
+            updateMusicButtonUi();
+          },
+          onVolumeDelta: nudgeVolume,
+        });
+      }
+    } catch (eMs) {}
   }
 
   function ensurePlayerShell() {
@@ -326,6 +415,9 @@
     wrap.appendChild(btn);
     wrap.appendChild(meta);
     document.body.appendChild(wrap);
+    try {
+      if (window.__VC_CHROME_SYNC) window.__VC_CHROME_SYNC.bindExpandablePlayer(wrap, btn);
+    } catch (eEx) {}
 
     btn.addEventListener("click", function (ev) {
       if (ev) {
@@ -348,26 +440,7 @@
     });
 
     function onVolInput() {
-      var pct = Math.min(100, Math.max(0, Number(range.value) || 0));
-      persistVolume(pct / 100);
-      if (pct <= 0) {
-        mutedByUser = true;
-        try {
-          if (player) {
-            player.pauseVideo();
-            player.setVolume(0);
-          }
-        } catch (eZ) {}
-        started = false;
-        updateMusicButtonUi();
-        return;
-      }
-      mutedByUser = false;
-      try {
-        if (player && playerReady) player.setVolume(Math.round(baseVol * 100));
-      } catch (eV) {}
-      if (!started) startFromUserGesture(true);
-      updateMusicButtonUi();
+      applyVolumeFromUiPct(range.value);
     }
     range.addEventListener("input", onVolInput);
     range.addEventListener("change", onVolInput);
@@ -376,6 +449,15 @@
         ev.stopPropagation();
       } catch (eS) {}
     });
+    range.addEventListener(
+      "touchstart",
+      function (ev) {
+        try {
+          ev.stopPropagation();
+        } catch (eT) {}
+      },
+      { passive: true },
+    );
     volumeUiBound = true;
     syncVolumeSliderUi();
     return wrap;
@@ -448,12 +530,44 @@
     player = new window.YT.Player("vc-seratafilm-yt-player", opts);
   }
 
+  function bootPlayerFromGesture(force) {
+    if (!youtubePublicCfg()) return Promise.resolve(false);
+    if (playerReady && player) return Promise.resolve(true);
+    return loadYoutubeIframeApi()
+      .then(function () {
+        if (!youtubePublicCfg()) return false;
+        if (!player) createPlayerAndCue();
+        return new Promise(function (resolve) {
+          var n = 0;
+          var poll = setInterval(function () {
+            n += 1;
+            if (playerReady && player) {
+              clearInterval(poll);
+              resolve(true);
+              return;
+            }
+            if (n >= 120) {
+              clearInterval(poll);
+              resolve(false);
+            }
+          }, 50);
+        });
+      })
+      .catch(function () {
+        return false;
+      });
+  }
+
   function startFromUserGesture(force) {
     if (lockedOffForFilm || isProjectionBlockingBgm()) return;
     if (!force && (started || !youtubePublicCfg())) return;
     if (!youtubePublicCfg()) return;
     if (!playerReady || !player) {
-      ensureHint("Caricamento… tocca di nuovo tra un attimo.");
+      ensureHint("Caricamento musica…");
+      bootPlayerFromGesture(force).then(function (ok) {
+        if (ok) startFromUserGesture(force);
+        else ensureHint(youtubeApiBlockedHint());
+      });
       return;
     }
     started = true;
@@ -494,6 +608,22 @@
     if (!youtubePublicCfg()) return false;
     readFadeFromGlobalBgm();
     showMusicPlayer();
+    try {
+      if (window.__VC_CHROME_SYNC && !window.__VC_CHROME_SYNC.__sfSub) {
+        window.__VC_CHROME_SYNC.__sfSub = true;
+        window.__VC_CHROME_SYNC.subscribe(function (prefs) {
+          if (!prefs || !prefs.seratafilmBgm) return;
+          if (!Number.isFinite(Number(prefs.seratafilmBgm.volume))) return;
+          userVol = Math.min(1, Math.max(0, Number(prefs.seratafilmBgm.volume)));
+          baseVol = userVol;
+          try {
+            localStorage.setItem(VOL_PREF_KEY, String(Math.round(userVol * 100) / 100));
+          } catch (eV) {}
+          syncVolumeSliderUi();
+          updateMusicButtonUi();
+        });
+      }
+    } catch (eSub) {}
     ensureHint();
     armFirstPointer();
     loadYoutubeIframeApi()
@@ -503,7 +633,7 @@
         createPlayerAndCue();
       })
       .catch(function () {
-        ensureHint("Musica non pronta. Controlla connessione o impostazioni privacy del browser, poi riprova.");
+        ensureHint(youtubeApiBlockedHint());
       });
     return true;
   };
@@ -529,6 +659,7 @@
     }
     try {
       player.setVolume(Math.round(vol * 100));
+      if (vol > 0.001 && typeof player.unMute === "function") player.unMute();
     } catch (e9) {}
   };
 

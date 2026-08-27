@@ -93,6 +93,15 @@ async function syncStaffDbAndPauseChannelAfterDepex(guild, userId, member) {
   const doc = await ActivityUserProfile.findOne({ guildId: gid, userId: uid }, { staff: 1 }).lean().catch(() => null);
   await deleteStaffPauseRequestChannelMessages(guild, uid);
   await deleteStaffRelatedMessagesFromConfiguredChannels(guild, uid, doc?.staff);
+  try {
+    const { cancelPendingResocontiWorkflowForUser } = require("../Web/siteStaffWorkflowStore");
+    await cancelPendingResocontiWorkflowForUser(gid, uid, {
+      statusLabel: "Annullato (depex)",
+      decidedBy: "system",
+    });
+  } catch (err) {
+    global.logger?.warn?.("[staffPmUtils] cancel pending resoconti on depex:", uid, err?.message || err);
+  }
   await applyStaffDatabaseAfterDepex(gid, uid, verified);
   queueStaffListRefreshAfterRoleMutation(guild.client, gid);
 }

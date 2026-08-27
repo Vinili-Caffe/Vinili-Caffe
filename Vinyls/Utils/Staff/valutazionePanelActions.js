@@ -1,6 +1,11 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
-const { getOrCreateStaffDoc, ensureStaff, incrementStaffValutazioneCounters } = require("../../Utils/Staff/staffDocUtils");
+const {
+  getOrCreateStaffDoc,
+  ensureStaff,
+  incrementStaffValutazioneCounters,
+  appendStaffRolesHistoryEntry,
+} = require("../../Utils/Staff/staffDocUtils");
 const IDs = require("../../Utils/Config/ids");
 const { getGuildChannelCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
 const {
@@ -11,6 +16,7 @@ const {
   NEGATIVES_PER_STAFF_WARN,
 } = require("../../Services/Staff/staffWarnService");
 const { syncStaffDbAndPauseChannelAfterDepex } = require("../../Utils/Staff/staffPmUtils");
+const { resolveStaffValutazioniChannel, resolveStaffPexDepexChannel } = require("./staffChannelUtils");
 const { accountUsername, guildMemberDisplayAvatarUrlDynamic, resolveEmbedUserAvatarUrl } = require("../Discord/guildDiscordIdentity");
 const { TENANT_EMBED_COLOR } = require("../../MultiGuild/utils/tenantEmbedBranding");
 
@@ -220,7 +226,26 @@ function pushValutazioneEntry(staff, kind, reason, message, meta = null) {
   };
   if (meta?.sectionId != null) row.sectionId = Number(meta.sectionId);
   if (meta?.globalId != null) row.globalId = Number(meta.globalId);
+  const actorId = String(meta?.actorId || "").trim();
+  if (actorId && /^\d{16,22}$/.test(actorId)) row.actorId = actorId;
+  const actorName = String(meta?.actorName || "").trim();
+  if (actorName) row.actorName = actorName.slice(0, 128);
   staff[listName].push(row);
+}
+
+async function mirrorValTrackHistory(guildId, userId, kind, reason, actor, entryId) {
+  try {
+    const { appendStaffTrackHistory, actorLabelFromUser } = require("./staffTrackHistory");
+    const actorLike = actor?.member || actor?.user || actor;
+    await appendStaffTrackHistory(guildId, userId, {
+      kind,
+      reason,
+      date: new Date(),
+      actorId: String(actorLike?.id || "").trim() || null,
+      actorName: actorLabelFromUser(actorLike, actorLike?.id),
+      entryId: entryId || null,
+    });
+  } catch (_) {}
 }
 
 function removeValutazioneEntry(staff, kind, index) {
@@ -290,6 +315,8 @@ async function resolveValutazioneRemoveIndexFromChannelScan(guild, staff, kind, 
 
   const channelId = String(IDs.channels?.valutazioniStaff || "").trim();
   if (!channelId) return -1;
+  const { isDiscordStaffChannelPostsEnabled } = require("../Web/discordWorkflowUiGate");
+  if (!isDiscordStaffChannelPostsEnabled()) return -1;
   const channel = guild.channels.cache.get(channelId) || (await getGuildChannelCached(guild, channelId));
   if (!channel?.messages?.fetch) return -1;
 
@@ -343,6 +370,8 @@ async function resolveValutazioneRemoveIndexFull(guild, staff, kind, removeId, t
 }
 
 async function editOriginalValutazioneMessage(guild, entry, embed) {
+  const { isDiscordStaffChannelPostsEnabled } = require("../Web/discordWorkflowUiGate");
+  if (!isDiscordStaffChannelPostsEnabled()) return false;
   const channelId = String(entry?.channelId || "").trim();
   const messageId = String(entry?.messageId || "").trim();
   if (!guild || !channelId || !messageId) return false;
@@ -379,16 +408,32 @@ async function valutazionePositiveAddCore(profileDoc, staffUser, reason, actor, 
     reason,
     counts.sectionCount,
     VALUTAZIONE_EMBED_COLOR,
-    channel.guild,
+    channel?.guild || null,
   );
-  const message = await sendChannelEmbed(channel, { content: formatStaffMention(staffUser), embeds: [embed] });
+  const message = channel?.isTextBased?.()
+    ? await sendChannelEmbed(channel, { content: formatStaffMention(staffUser), embeds: [embed] })
+    : null;
   pushValutazioneEntry(s, "positive", reason, message, {
     sectionId: counts.sectionCount,
     globalId: counts.valutazioniCount,
+    actorId: String(actor?.id || actor?.user?.id || "").trim() || null,
+    actorName: String(actor?.username || actor?.user?.username || actor?.displayName || "").trim() || null,
   });
   profileDoc.markModified("staff");
   await profileDoc.save();
-  return { message };
+  await mirrorValTrackHistory(guildId, userId, "val_pos", reason, actor, counts.sectionCount);
+  try {
+    const { notifyStaffValutazione, memberDisplayName } = require("../Web/siteStaffEventNotifications");
+    void notifyStaffValutazione({
+      guild: channel?.guild || null,
+      staffUserId: userId,
+      kind: "positive",
+      reason,
+      actorName: memberDisplayName(null, actor, actor?.id),
+      sectionId: counts.sectionCount,
+    }).catch(() => 0);
+  } catch (_) {}
+  return { message, ok: true };
 }
 
 async function valutazionePositiveRemoveCore(profileDoc, staffUser, removeId, reason, actor, channel) {
@@ -412,6 +457,14 @@ async function valutazionePositiveRemoveCore(profileDoc, staffUser, removeId, re
   s.valutazioniCount = Math.max(0, s.valutazioniCount - 1);
   profileDoc.markModified("staff");
   await profileDoc.save();
+  await mirrorValTrackHistory(
+    String(profileDoc?.guildId || channel?.guild?.id || ""),
+    String(staffUser?.id || ""),
+    "val_pos_rm",
+    reason || removedReason,
+    actor,
+    removeId,
+  );
   const embed = makeRemovalEmbed(
     actor,
     staffUser,
@@ -421,7 +474,7 @@ async function valutazionePositiveRemoveCore(profileDoc, staffUser, removeId, re
     "<:VC_update:1478721333096349817> __Valutazioni Positive Totali__",
     `<:VC_OnlineStatus:1482527088912240650> Ora sei a \`${s.positiveCount}\` valutazioni positive!`,
   );
-  const edited = await editOriginalValutazioneMessage(channel.guild, originalEntry, embed);
+  const edited = await editOriginalValutazioneMessage(channel?.guild || null, originalEntry, embed);
   if (!edited) await sendChannelEmbed(channel, { embeds: [embed] });
   return { ok: true };
 }
@@ -445,13 +498,18 @@ async function valutazioneNegativeAddCore(guild, profileDoc, staffUser, reason, 
     VALUTAZIONE_EMBED_COLOR,
     guild,
   );
-  const message = await sendChannelEmbed(channel, { content: formatStaffMention(staffUser), embeds: [embed] });
+  const message = channel?.isTextBased?.()
+    ? await sendChannelEmbed(channel, { content: formatStaffMention(staffUser), embeds: [embed] })
+    : null;
   pushValutazioneEntry(s, "negative", reason, message, {
     sectionId: counts.sectionCount,
     globalId: counts.valutazioniCount,
+    actorId: String(actor?.id || actor?.user?.id || "").trim() || null,
+    actorName: String(actor?.username || actor?.user?.username || actor?.displayName || "").trim() || null,
   });
   profileDoc.markModified("staff");
   await profileDoc.save();
+  await mirrorValTrackHistory(guildId, userId, "val_neg", reason, actor, counts.sectionCount);
   const warnResult = await addStaffWarnFromNegatives(
     guild.id,
     staffUser.id,
@@ -459,6 +517,8 @@ async function valutazioneNegativeAddCore(guild, profileDoc, staffUser, reason, 
     STAFF_WARN_THREE_NEGATIVES_REASON,
   );
   const warnChannel = channel?.isTextBased?.() ? channel : null;
+  let fullDepexRoleId = null;
+  let fullDepexOk = false;
   if (warnResult.added) {
     // Conversione vera: le 3 negative più vecchie escono dal profilo (restano solo come log convertito).
     await syncProfileStaffFromDb(profileDoc, guild.id, staffUser.id);
@@ -500,9 +560,25 @@ async function valutazioneNegativeAddCore(guild, profileDoc, staffUser, reason, 
       const currentRoleId = getHighestStaffRoleId(member);
       const fullResult = await applyFullDepex(guild, member, currentRoleId);
       if (fullResult.ok) {
+        fullDepexOk = true;
+        fullDepexRoleId = currentRoleId;
         const memberAfterFull = await getGuildMemberCached(guild, staffUser.id, { preferFresh: true }).catch(() => member);
         await syncStaffDbAndPauseChannelAfterDepex(guild, staffUser.id, memberAfterFull);
-        const pexDepexChannel = await getGuildChannelCached(guild, IDs.channels?.pexDepex);
+        await appendStaffRolesHistoryEntry(guild.id, staffUser.id, {
+          oldRole: currentRoleId,
+          newRole: "",
+          reason: "Depex automatico: 3 warn staff (valutazioni negative).",
+          displayName: String(
+            memberAfterFull?.displayName || staffUser?.globalName || staffUser?.username || "",
+          ).trim() || null,
+          username: String(staffUser?.username || "").trim() || null,
+          avatarUrl:
+            (typeof memberAfterFull?.displayAvatarURL === "function" &&
+              memberAfterFull.displayAvatarURL({ size: 128 })) ||
+            (typeof staffUser?.displayAvatarURL === "function" && staffUser.displayAvatarURL({ size: 128 })) ||
+            null,
+        });
+        const pexDepexChannel = await resolveStaffPexDepexChannel(guild);
         if (pexDepexChannel?.isTextBased?.()) {
           await pexDepexChannel.send({
             content: `**<:cancel:1461730653677551691> DEPEX** ${formatStaffMention(staffUser)}\n` +
@@ -514,7 +590,41 @@ async function valutazioneNegativeAddCore(guild, profileDoc, staffUser, reason, 
       }
     }
   }
-  return { message, warnResult };
+  try {
+    const { notifyStaffValutazione, notifyStaffWarn, notifyStaffPexDepex, memberDisplayName } = require("../Web/siteStaffEventNotifications");
+    void notifyStaffValutazione({
+      guild,
+      staffUserId: staffUser.id,
+      kind: "negative",
+      reason,
+      actorName: memberDisplayName(null, actor, actor?.id),
+      sectionId: counts.sectionCount,
+    }).catch(() => 0);
+    if (warnResult.added) {
+      void notifyStaffWarn({
+        guild,
+        staffUserId: staffUser.id,
+        staffName: memberDisplayName(null, staffUser, staffUser.id),
+        warnCount: warnResult.warnCount,
+        reason: STAFF_WARN_THREE_NEGATIVES_REASON,
+        isAutoFromNegatives: true,
+        needsDepexDecision: warnResult.shouldAskDepex,
+      }).catch(() => 0);
+    }
+    if (fullDepexOk) {
+      void notifyStaffPexDepex({
+        guild,
+        kind: "depex",
+        targetUserId: staffUser.id,
+        targetName: memberDisplayName(null, staffUser, staffUser.id),
+        oldRoleId: fullDepexRoleId,
+        newRoleId: "",
+        reason: "Depex automatico: 3 warn staff (valutazioni negative).",
+        sourceHint: `auto-warn-depex:${staffUser.id}`,
+      }).catch(() => 0);
+    }
+  } catch (_) {}
+  return { message, warnResult, ok: true };
 }
 
 async function valutazioneNegativeRemoveCore(profileDoc, staffUser, removeId, reason, actor, channel) {
@@ -538,6 +648,14 @@ async function valutazioneNegativeRemoveCore(profileDoc, staffUser, removeId, re
   s.valutazioniCount = Math.max(0, s.valutazioniCount - 1);
   profileDoc.markModified("staff");
   await profileDoc.save();
+  await mirrorValTrackHistory(
+    String(profileDoc?.guildId || channel?.guild?.id || ""),
+    String(staffUser?.id || ""),
+    "val_neg_rm",
+    reason || removedReason,
+    actor,
+    removeId,
+  );
   const embed = makeRemovalEmbed(
     actor,
     staffUser,
@@ -547,7 +665,7 @@ async function valutazioneNegativeRemoveCore(profileDoc, staffUser, removeId, re
     "<:VC_update:1478721333096349817> __Valutazioni Negative Totali__",
     `<:VC_OnlineStatus:1482527088912240650> Ora sei a \`${s.negativeCount}\` valutazioni negative!`,
   );
-  const edited = await editOriginalValutazioneMessage(channel.guild, originalEntry, embed);
+  const edited = await editOriginalValutazioneMessage(channel?.guild || null, originalEntry, embed);
   if (!edited) await sendChannelEmbed(channel, { embeds: [embed] });
   return { ok: true };
 }
@@ -687,8 +805,7 @@ async function convertOldestNegativesToStaffWarn(s, count, actor, staffUser, cha
 async function runValutazionePositiveAddForPanel(guild, actorMember, staffUser, reason) {
   try {
     const channel =
-      guild.channels.cache.get(IDs.channels?.valutazioniStaff) ||
-      (await getGuildChannelCached(guild, IDs.channels?.valutazioniStaff));
+      (await resolveStaffValutazioniChannel(guild));
     const profileDoc = await ensureStaffProfileDoc(
       await getStaffDoc(guild.id, staffUser.id),
       guild.id,
@@ -705,8 +822,7 @@ async function runValutazionePositiveAddForPanel(guild, actorMember, staffUser, 
 async function runValutazioneNegativeAddForPanel(guild, actorMember, staffUser, reason) {
   try {
     const channel =
-      guild.channels.cache.get(IDs.channels?.valutazioniStaff) ||
-      (await getGuildChannelCached(guild, IDs.channels?.valutazioniStaff));
+      (await resolveStaffValutazioniChannel(guild));
     const profileDoc = await ensureStaffProfileDoc(
       await getStaffDoc(guild.id, staffUser.id),
       guild.id,
@@ -723,8 +839,7 @@ async function runValutazioneNegativeAddForPanel(guild, actorMember, staffUser, 
 async function runValutazionePositiveRemoveForPanel(guild, actorMember, staffUser, removeId, reason) {
   try {
     const channel =
-      guild.channels.cache.get(IDs.channels?.valutazioniStaff) ||
-      (await getGuildChannelCached(guild, IDs.channels?.valutazioniStaff));
+      (await resolveStaffValutazioniChannel(guild));
     const profileDoc = await ensureStaffProfileDoc(
       await getStaffDoc(guild.id, staffUser.id),
       guild.id,
@@ -748,8 +863,7 @@ async function runValutazionePositiveRemoveForPanel(guild, actorMember, staffUse
 async function runValutazioneNegativeRemoveForPanel(guild, actorMember, staffUser, removeId, reason) {
   try {
     const channel =
-      guild.channels.cache.get(IDs.channels?.valutazioniStaff) ||
-      (await getGuildChannelCached(guild, IDs.channels?.valutazioniStaff));
+      (await resolveStaffValutazioniChannel(guild));
     const profileDoc = await ensureStaffProfileDoc(
       await getStaffDoc(guild.id, staffUser.id),
       guild.id,
@@ -902,8 +1016,7 @@ async function runValutazioneNegTradeForPanel(guild, actorMember, staffUser, neg
   }
   try {
     const channel =
-      guild.channels.cache.get(IDs.channels?.valutazioniStaff) ||
-      (await getGuildChannelCached(guild, IDs.channels?.valutazioniStaff));
+      (await resolveStaffValutazioniChannel(guild));
     const profileDoc = await ensureStaffProfileDoc(
       await getStaffDoc(guild.id, staffUser.id),
       guild.id,
@@ -931,8 +1044,7 @@ async function runValutazionePosPauseTradeForPanel(guild, actorMember, staffUser
   }
   try {
     const channel =
-      guild.channels.cache.get(IDs.channels?.valutazioniStaff) ||
-      (await getGuildChannelCached(guild, IDs.channels?.valutazioniStaff));
+      (await resolveStaffValutazioniChannel(guild));
     const profileDoc = await ensureStaffProfileDoc(
       await getStaffDoc(guild.id, staffUser.id),
       guild.id,

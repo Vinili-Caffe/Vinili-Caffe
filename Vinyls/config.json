@@ -729,10 +729,10 @@
     "enabled": true,
     "startDate": "2026-08-24T12:00:00",
     "cooldownMs": 43200000,
-    "rewardGaleoni": 10,
-    "rewardHousePoints": 10,
+    "rewardGaleoni": 100,
+    "rewardHousePoints": 100,
     "roundSize": 4,
-    "reminderSweepMs": 1800000,
+    "reminderSweepMs": 60000,
     "reminderDmCategory": "perks",
     "pageUrl": "/evento/pozioni",
     "redirectUrl": "/evento/shop"

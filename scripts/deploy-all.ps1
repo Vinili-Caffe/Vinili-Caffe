@@ -20,6 +20,8 @@ param(
 
 $SiteLargeAssetUploadSkipPatterns = @(
   '(?i)(?:^|/)images/evento-hogwarts/ven-web\.mp4$',
+  '(?i)(?:^|/)images/evento-hogwarts/streamingcommunityz\.mp4$',
+  '(?i)(?:^|/)images/evento-hogwarts/streamingcommunityz-web\.mp4$',
   '(?i)(?:^|/)images/evento-hogwarts/Watch Harry Potter.*\.mp4$',
   '(?i)(?:^|/)images/Watch Harry Potter.*\.mp4$'
 )

@@ -1,8 +1,6 @@
 const { MessageFlags } = require("discord.js");
-const { removePartnerPoints, formatPartnerPointsChange } = require("../Utils/Staff/partnerPointsUtils");
-const { resolvePartnerTotalEarned, resolvePartnerPointsShown } = require("../Utils/Staff/partnerPointsDisplayUtils");
 const { memberIsHighStaffForPointReview } = require("../Utils/Partner/partnerPointContextUtils");
-const { memberHasPartnerManagerRole } = require("../Utils/Partner/partnershipConfigResolver");
+const { reviewPartnerPointReport } = require("../Utils/Partner/partnerPointReportReviewRuntime");
 
 const PREFIX_OK = "partner_pt_ok:";
 const PREFIX_NO = "partner_pt_no:";
@@ -19,23 +17,6 @@ function parseReportButton(customId, prefix) {
   return { pmUserId, reporterUserId };
 }
 
-function disableRows(components) {
-  const rows = Array.isArray(components) ? components : [];
-  return rows.map((row) => {
-    const comps = Array.isArray(row?.components) ? row.components : [];
-    return {
-      type: row.type,
-      components: comps.map((c) => ({
-        type: c.type,
-        style: c.style,
-        label: c.label,
-        custom_id: c.customId || c.custom_id,
-        disabled: true,
-      })),
-    };
-  });
-}
-
 module.exports = {
   name: "partnerPointReportButtons",
   order: 40,
@@ -47,7 +28,7 @@ module.exports = {
     if (!interaction.guild || !interaction.member) return true;
     if (!memberIsHighStaffForPointReview(interaction.member)) {
       await interaction.reply({
-        content: "<a:VC_Cross:1482532424570376253> Solo l'High Staff può gestire le segnalazioni.",
+        content: "<a:VC_Cross:1482532424570376253> Solo High Staff o gestore PM può gestire le segnalazioni.",
         flags: EPHEMERAL,
       });
       return true;
@@ -58,50 +39,24 @@ module.exports = {
       await interaction.reply({ content: "<a:VC_Cross:1482532424570376253> Pulsante non valido.", flags: EPHEMERAL });
       return true;
     }
-    const originalContent = String(interaction.message?.content || "");
-    const statusLine = isConfirm
-      ? `<:success:1461731530333229226> Rimozione **confermata** da <@${interaction.user.id}> (<t:${Math.floor(Date.now() / 1000)}:f>).`
-      : `<:cancel:1461730653677551691> Segnalazione **negata** da <@${interaction.user.id}> (<t:${Math.floor(Date.now() / 1000)}:f>).`;
-    const nextContent = originalContent
-      .replace(/\n?<:VC_Attention:1482534443632558151> In attesa di conferma High Staff\.\s*$/i, "")
-      .trim();
-    const updatedContent = `${nextContent}\n${statusLine}`;
-    if (isConfirm) {
-      const pmMember = await interaction.guild.members.fetch(parsed.pmUserId).catch(() => null);
-      if (!memberHasPartnerManagerRole(pmMember, interaction.guild.id)) {
-        await interaction.reply({
-          content: "<a:VC_Cross:1482532424570376253> L'utente non è più Partner Manager.",
-          flags: EPHEMERAL,
-        });
-        return true;
-      }
-      const staffData = await removePartnerPoints(interaction.guild.id, parsed.pmUserId, 1);
-      if (!staffData) {
-        await interaction.reply({
-          content: "<a:VC_Cross:1482532424570376253> Impossibile aggiornare i punti partner.",
-          flags: EPHEMERAL,
-        });
-        return true;
-      }
-      await interaction.message
-        ?.edit({ content: updatedContent, components: disableRows(interaction.message.components) })
-        .catch(() => null);
-      const changeLabel = formatPartnerPointsChange("remove", staffData?._partnerPointsRemoved ?? 1);
-      const total = resolvePartnerTotalEarned(staffData?.staff);
-      const spendable = resolvePartnerPointsShown(staffData?.staff);
-      const saldoHint =
-        Number(spendable) !== Number(total) ? ` · Saldo shop: \`${spendable}\`` : "";
+    const result = await reviewPartnerPointReport({
+      guild: interaction.guild,
+      message: interaction.message,
+      entryId: interaction.message?.id,
+      isConfirm,
+      reviewerUserId: String(interaction.user.id),
+      pmUserId: parsed.pmUserId,
+      reporterUserId: parsed.reporterUserId,
+    });
+    if (!result.ok) {
       await interaction.reply({
-        content: `<:success:1461731530333229226> **${changeLabel}** a <@${parsed.pmUserId}>. Totale: \`${total}\`${saldoHint}.`,
+        content: `<a:VC_Cross:1482532424570376253> ${result.message || "Operazione non riuscita."}`,
         flags: EPHEMERAL,
       });
       return true;
     }
-    await interaction.message
-      ?.edit({ content: updatedContent, components: disableRows(interaction.message.components) })
-      .catch(() => null);
     await interaction.reply({
-      content: "<:success:1461731530333229226> Segnalazione negata.",
+      content: `<:success:1461731530333229226> ${result.message || "Fatto."}`,
       flags: EPHEMERAL,
     });
     return true;

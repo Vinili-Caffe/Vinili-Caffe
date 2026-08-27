@@ -308,7 +308,7 @@ async function escalatePmAfkToStaff(client, member, voiceChannelId, aloneMs) {
         `${member} non ha risposto in vocale al controllo automatico.`,
         `È da ${formatItalianMinutesBold(minutes)} da solo in ${channelRef}.`,
         "",
-        "Verificate la regola **3.6**: se l'utente è AFK senza risposta, procedete con le sanzioni previste.",
+        "Verificate la regola **3.5**: se l'utente è AFK senza risposta, procedete con le sanzioni previste.",
         "Per usare i pulsanti serve essere **nello stesso canale vocale** dell'utente.",
       ].join("\n"),
     )
@@ -467,7 +467,7 @@ async function startPmVoiceAfkProbe(client, opts = {}) {
 
     await editProbeAlertMessage(client, guildId, voiceChannelId, alertMessageId, [
       "⚠️ **Non ti abbiamo sentito** nel tempo previsto.",
-      "Se non sei AFK, **parla ora in vocale** o scrivi in chat; altrimenti lo staff potrebbe intervenire (regola **3.6**).",
+      "Se non sei AFK, **parla ora in vocale** o scrivi in chat; altrimenti lo staff potrebbe intervenire (regola **3.5**).",
     ]);
     await escalatePmAfkToStaff(client, liveMember, voiceChannelId, aloneMs);
   })().catch((err) => {

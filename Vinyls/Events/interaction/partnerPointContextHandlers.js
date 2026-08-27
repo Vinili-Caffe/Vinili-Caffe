@@ -14,12 +14,15 @@ const {
 const { deletePartnershipFromContextMessage } = require("../../Services/Partner/tenantPartnershipDeleteService");
 const { memberHasPartnerManagerRole, getPartnershipLogChannelIds, shouldApplyMainPartnershipFilters } = require("../../Utils/Partner/partnershipConfigResolver");
 const { recordTenantBugReport } = require("../../Services/Partner/tenantObjectiveService");
+const { logPmPointsRemoved, entryMessageId } = require("../../Utils/Partner/pmPointsRemovedStore");
 const { safeReply, safeDeferReply } = require("../../../shared/discord/replyRuntime");
 
 const IN_RULE = "regolaViolata";
 const EPHEMERAL = MessageFlags.Ephemeral;
 
 async function resolvePartnerLogChannel(guild) {
+  const { isDiscordStaffChannelPostsEnabled } = require("../../Utils/Web/discordWorkflowUiGate");
+  if (!isDiscordStaffChannelPostsEnabled()) return null;
   const IDs = require("../../Utils/Config/ids");
   const { primary, fallback } = getPartnershipLogChannelIds(guild?.id);
   const hardFallback = String(IDs.channels?.puntiTolti || "").trim();
@@ -77,12 +80,6 @@ async function handlePartnerSegnalaModal(interaction) {
     return true;
   }
   const logChannel = await resolvePartnerLogChannel(guild);
-  if (!logChannel) {
-    await safeReply(interaction, {
-      content: "<a:VC_Cross:1482532424570376253> Canale log partnership non disponibile.",
-    });
-    return true;
-  }
   const messageLink = buildPartnershipMessageLink(guild.id, parsed.channelId, parsed.partnershipMsgId);
   const content = buildPartnerPointLogContent({
     pmUserId: parsed.pmUserId,
@@ -102,15 +99,43 @@ async function handlePartnerSegnalaModal(interaction) {
       .setLabel("Nega segnalazione")
       .setStyle(ButtonStyle.Secondary),
   );
-  await logChannel
-    .send({
-      content,
-      components: [row],
-      allowedMentions: { roles: getPartnerPointHighStaffPingRoleIds() },
-    })
-    .catch(() => null);
+  const entry = await logPmPointsRemoved({
+    guild,
+    pmUserId: parsed.pmUserId,
+    rule,
+    messageLink,
+    reporterUserId: parsed.actorId,
+    status: "pending",
+    source: "report",
+    mirrorChannel: logChannel,
+    mirrorContent: content,
+    mirrorComponents: [row],
+    mirrorAllowedMentions: { roles: getPartnerPointHighStaffPingRoleIds() },
+  });
+  if (!entry) {
+    await safeReply(interaction, {
+      content: "<a:VC_Cross:1482532424570376253> Impossibile registrare la segnalazione.",
+    });
+    return true;
+  }
+  if (entryMessageId(entry)) {
+    try {
+      const { notifyPuntiToltiPending, memberDisplayName } = require("../../Utils/Web/siteStaffEventNotifications");
+      const reporterMember = await guild.members.fetch(parsed.actorId).catch(() => null);
+      void notifyPuntiToltiPending({
+        guild,
+        pmUserId: parsed.pmUserId,
+        pmName: memberDisplayName(pmMember, null, parsed.pmUserId),
+        reporterName: memberDisplayName(reporterMember, null, parsed.actorId),
+        rule,
+        messageId: entryMessageId(entry),
+      }).catch(() => 0);
+    } catch (_) {}
+  }
   await safeReply(interaction, {
-    content: `<:success:1461731530333229226> Segnalazione inviata in ${logChannel}.`,
+    content: logChannel
+      ? `<:success:1461731530333229226> Segnalazione inviata in ${logChannel}.`
+      : "<:success:1461731530333229226> Segnalazione registrata. L'High Staff può gestirla dal sito.",
   });
   void recordTenantBugReport(interaction.client, guild.id, parsed.actorId, {
     discordLocale: interaction.locale,
@@ -210,20 +235,31 @@ async function handlePartnerEliminaMainModal(interaction) {
     messageLink,
     actorUserId: parsed.actorId,
   });
-  if (logChannel?.isTextBased?.()) {
-    const sent = await logChannel.send({ content }).catch((err) => {
-      global.logger?.warn?.(
-        "[partnerElimina] puntiTolti send failed:",
-        err?.message || err,
-        `channel=${logChannel.id}`,
-      );
-      return null;
-    });
-    if (!sent) {
-      global.logger?.warn?.("[partnerElimina] puntiTolti log non inviato dopo delete partnership");
-    }
-  } else {
-    global.logger?.warn?.("[partnerElimina] canale puntiTolti non trovato");
+  const entry = await logPmPointsRemoved({
+    guild,
+    pmUserId: pointsUserId,
+    rule,
+    messageLink,
+    actorUserId: parsed.actorId,
+    status: "logged",
+    source: "partnership_delete",
+    mirrorChannel: logChannel,
+    mirrorContent: content,
+  });
+  if (entry && deleteResult.pointsAdjusted) {
+    try {
+      const { notifyPuntiToltiPointsRemoved, memberDisplayName } = require("../../Utils/Web/siteStaffEventNotifications");
+      const actorMember = await guild.members.fetch(parsed.actorId).catch(() => null);
+      void notifyPuntiToltiPointsRemoved({
+        guild,
+        pmUserId: pointsUserId,
+        rule,
+        actorName: memberDisplayName(actorMember, null, parsed.actorId),
+        dedupeKey: `pt-removed:${entryMessageId(entry)}`,
+      }).catch(() => 0);
+    } catch (_) {}
+  } else if (!entry && !logChannel) {
+    global.logger?.warn?.("[partnerElimina] punti tolti non registrati (Mongo fallito, canale assente)");
   }
 
   const saldoHint =
@@ -293,8 +329,29 @@ async function handlePartnerRimuoviModal(interaction) {
     messageLink,
     actorUserId: parsed.actorId,
   });
-  if (logChannel?.isTextBased?.()) {
-    await logChannel.send({ content }).catch(() => null);
+  const entry = await logPmPointsRemoved({
+    guild,
+    pmUserId: parsed.pmUserId,
+    rule,
+    messageLink,
+    actorUserId: parsed.actorId,
+    status: "logged",
+    source: "removal",
+    mirrorChannel: logChannel,
+    mirrorContent: content,
+  });
+  if (entry?.id || entry?._id) {
+    try {
+      const { notifyPuntiToltiPointsRemoved, memberDisplayName } = require("../../Utils/Web/siteStaffEventNotifications");
+      const actorMember = await guild.members.fetch(parsed.actorId).catch(() => null);
+      void notifyPuntiToltiPointsRemoved({
+        guild,
+        pmUserId: parsed.pmUserId,
+        rule,
+        actorName: memberDisplayName(actorMember, null, parsed.actorId),
+        dedupeKey: `pt-removed:${entryMessageId(entry)}`,
+      }).catch(() => 0);
+    } catch (_) {}
   }
   const changeLabel = formatPartnerPointsChange("remove", staffData?._partnerPointsRemoved ?? 1);
   const total = resolvePartnerTotalEarned(staffData?.staff);

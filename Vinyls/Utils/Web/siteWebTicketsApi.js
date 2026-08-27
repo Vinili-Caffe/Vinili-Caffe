@@ -17,6 +17,7 @@ const {
   guildMemberDisplayAvatarUrlDynamic,
   guildMemberDisplayAvatarUrlStatic,
 } = require("../Discord/guildDiscordIdentity");
+const { sanitizeDiscordChannelName } = require("../Discord/discordDisplayName");
 const { enqueueSiteInAppNotification, removeInboxItemByDedupeKey } = require("./siteInAppNotificationsService");
 const {
   setWebTicketPagePresence,
@@ -90,8 +91,22 @@ const LEGACY_CATEGORY_ALIASES = Object.freeze({
   "high_staff": "high",
 });
 
+function knownBotDisplayName(userId) {
+  const uid = String(userId || "").trim();
+  if (!uid) return "";
+  if (uid === String(IDs.bots?.ViniliCaffeBot || "").trim()) return "Vinili";
+  if (uid === String(IDs.bots?.ViniliCaffeBotTest || "").trim()) return "Vinili (test)";
+  return "";
+}
+
 function displayNameForMember(member) {
-  return String(member?.user?.username || member?.displayName || "").trim() || "Utente";
+  const uid = String(member?.id || member?.user?.id || "").trim();
+  const known = knownBotDisplayName(uid);
+  if (known) return known;
+  return (
+    String(member?.displayName || member?.user?.globalName || member?.user?.username || "").trim() ||
+    "Utente"
+  );
 }
 
 function panelConfigForWebCategory(category) {
@@ -861,6 +876,64 @@ function ensureUploadDir(ticketId) {
   return dir;
 }
 
+const TICKET_FILE_TOKEN_TTL_MS = 4 * 60 * 60 * 1000;
+
+function ticketFileAccessSecret() {
+  return String(
+    process.env.VC_SITE_UPLOAD_FILE_SECRET ||
+      process.env.VC_SERATAFILM_FILM_SECRET ||
+      process.env.SITE_WEBHOOK_SECRET ||
+      process.env.DISCORD_TOKEN ||
+      "vinili-site-upload-file",
+  ).trim();
+}
+
+function createTicketFileAccessToken(ticketId, fileName) {
+  const tid = String(ticketId || "").trim();
+  const name = String(fileName || "").trim();
+  if (!tid || !name) return "";
+  const exp = Date.now() + TICKET_FILE_TOKEN_TTL_MS;
+  const payload = `${tid}:${name}:${exp}`;
+  const sig = crypto.createHmac("sha256", ticketFileAccessSecret()).update(payload).digest("base64url");
+  return Buffer.from(`${payload}:${sig}`).toString("base64url");
+}
+
+function verifyTicketFileAccessToken(st, ticketId, fileName) {
+  try {
+    const tid = String(ticketId || "").trim();
+    const name = String(fileName || "").trim();
+    const raw = Buffer.from(String(st || ""), "base64url").toString("utf8");
+    const parts = raw.split(":");
+    if (parts.length !== 4) return false;
+    const [tokenTid, tokenName, expStr, sig] = parts;
+    if (tokenTid !== tid || tokenName !== name) return false;
+    const exp = Number(expStr);
+    if (!Number.isFinite(exp) || Date.now() > exp) return false;
+    const payload = `${tokenTid}:${tokenName}:${expStr}`;
+    const expect = crypto.createHmac("sha256", ticketFileAccessSecret()).update(payload).digest("base64url");
+    return sig === expect;
+  } catch (_) {
+    return false;
+  }
+}
+
+function withTicketFileAccessToken(ticketId, rawUrl) {
+  const url = String(rawUrl || "").trim();
+  if (!url || !url.includes("/webhooks/site-web-tickets/files/")) return url;
+  const m = /\/files\/[^/]+\/([^/?#]+)/.exec(url);
+  if (!m) return url;
+  let fileName = "";
+  try {
+    fileName = decodeURIComponent(m[1]);
+  } catch (_) {
+    fileName = m[1];
+  }
+  const st = createTicketFileAccessToken(ticketId, fileName);
+  if (!st) return url;
+  const base = url.split("?")[0];
+  return `${base}?st=${encodeURIComponent(st)}`;
+}
+
 function saveTicketImages(ticketId, imagesInput) {
   const list = Array.isArray(imagesInput) ? imagesInput : [];
   const urls = [];
@@ -1134,7 +1207,9 @@ function serializeMessage(doc, nameMap, staffRatings, staffRoles, ticket = null,
     authorAvatarUrl: String(doc.authorAvatarUrl || "").trim(),
     authorKind,
     content: String(doc.content || ""),
-    imageUrls: Array.isArray(doc.imageUrls) ? doc.imageUrls.map((u) => String(u || "").trim()).filter(Boolean) : [],
+    imageUrls: Array.isArray(doc.imageUrls)
+      ? doc.imageUrls.map((u) => withTicketFileAccessToken(String(doc.ticketId || ticket?._id || ""), u)).filter(Boolean)
+      : [],
     reactions: serializeReactions(doc.reactions, nameMap),
     editedAt: doc.editedAt ? new Date(doc.editedAt).toISOString() : null,
     createdAt: doc.createdAt ? new Date(doc.createdAt).toISOString() : null,
@@ -1416,6 +1491,12 @@ function serializeTicket(doc, { includeStaffFields = false, permissions = null, 
     createdAt: doc.createdAt ? new Date(doc.createdAt).toISOString() : null,
     updatedAt: doc.updatedAt ? new Date(doc.updatedAt).toISOString() : null,
   };
+  const pmTier = Math.floor(Number(doc.partnerManagerShopRedeemTier) || 0);
+  if (pmTier === 150 || pmTier === 200 || pmTier === 250) {
+    out.partnerManagerShopRedeemTier = pmTier;
+    out.partnerManagerShopRedeemAckResult = String(doc.partnerManagerShopRedeemAckResult || "").trim() || null;
+    out.isPartnerManagerShopRedeem = true;
+  }
   if (permissions && typeof permissions === "object") {
     const nextPerms = { ...permissions };
     nextPerms.canRate = Boolean(
@@ -2517,7 +2598,9 @@ async function createBotCommandMessage(ticket, content, client) {
     guildId: String(ticket.guildId),
     ticketId: ticket._id,
     authorId: String(bot?.id || "bot"),
-    authorName: String(bot?.displayName || bot?.username || "Bot").slice(0, 80),
+    authorName: String(
+      knownBotDisplayName(bot?.id) || bot?.displayName || bot?.username || "Bot",
+    ).slice(0, 80),
     authorAvatarUrl: typeof bot?.displayAvatarURL === "function" ? bot.displayAvatarURL({ size: 128 }) : "",
     authorKind: "bot",
     content: safeContent,
@@ -2787,7 +2870,7 @@ async function listGuildMentionChannels(client, guildId) {
     rows.push({
       type: "channel",
       id: String(ch.id),
-      name: String(ch.name || "canale").trim() || "canale",
+      name: sanitizeDiscordChannelName(ch.name || "canale") || "canale",
       markup: `<#${ch.id}>`,
       channelType: type,
       channelKind: meta.label,
@@ -4935,7 +5018,7 @@ async function handleSiteWebTicketsResolvePost(client, req, res) {
       if (!memberCanViewChannelId(actor.member, guild, cid)) continue;
       channels[cid] = {
         id: cid,
-        name: String(ch.name || "canale").trim() || "canale",
+        name: sanitizeDiscordChannelName(ch.name || "canale") || "canale",
         type: Number(ch.type) || 0,
       };
     } catch {
@@ -4973,6 +5056,7 @@ async function handleSiteWebTicketsResolvePost(client, req, res) {
       users[uid] = {
         id: uid,
         name:
+          knownBotDisplayName(uid) ||
           String(user.globalName || user.displayName || user.username || "").trim() ||
           "utente",
         avatarUrl: avatarUrl || "",
@@ -5036,7 +5120,7 @@ async function handleSiteWebTicketsResolvePost(client, req, res) {
             kind: "message",
             url: rawUrl,
             channelId: parsed.channelId,
-            channelName: String(ch.name || "canale"),
+            channelName: sanitizeDiscordChannelName(ch.name || "canale") || "canale",
             messageId: parsed.messageId,
             authorName: String(msg.member?.displayName || msg.author?.globalName || msg.author?.username || "Utente"),
             content: String(msg.content || "").trim().slice(0, 220),
@@ -5049,7 +5133,7 @@ async function handleSiteWebTicketsResolvePost(client, req, res) {
         kind: "channel",
         url: rawUrl,
         channelId: parsed.channelId,
-        channelName: String(ch.name || "canale"),
+        channelName: sanitizeDiscordChannelName(ch.name || "canale") || "canale",
       };
     } catch (err) {
       global.logger?.warn?.("[WEB TICKETS] resolve link:", err?.message || err);
@@ -5118,11 +5202,35 @@ async function handleSiteWebTicketsCommandPost(client, req, res) {
   }
 }
 
-function handleSiteWebTicketsFileGet(req, res) {
+async function handleSiteWebTicketsFileGet(client, req, res) {
   const ticketId = String(req.params?.ticketId || "").trim();
   const fileName = String(req.params?.fileName || "").trim();
   if (!mongoose.isValidObjectId(ticketId) || !/^[a-zA-Z0-9._-]+$/.test(fileName)) {
     return res.status(400).json({ ok: false, error: "invalid_file" });
+  }
+  const st = String(req.query?.st || "").trim();
+  let allowed = verifyTicketFileAccessToken(st, ticketId, fileName);
+  if (!allowed) {
+    const actor = await resolveMemberOrStaff(client, req);
+    if (!actor.ok) {
+      return res.status(Number(actor.status) || 401).json({
+        ok: false,
+        error: actor.error || "unauthorized",
+        message: actor.message || "Accesso negato.",
+      });
+    }
+    const loaded = await loadTicketForActor(ticketId, actor);
+    if (!loaded.ok) {
+      return res.status(Number(loaded.status) || 403).json({
+        ok: false,
+        error: loaded.error || "forbidden",
+        message: loaded.message || "Accesso negato.",
+      });
+    }
+    allowed = true;
+  }
+  if (!allowed) {
+    return res.status(401).json({ ok: false, error: "unauthorized", message: "Accesso negato." });
   }
   const filePath = path.join(UPLOAD_ROOT, ticketId, fileName);
   if (!filePath.startsWith(UPLOAD_ROOT) || !fs.existsSync(filePath)) {
@@ -5143,7 +5251,7 @@ function handleSiteWebTicketsFileGet(req, res) {
               : ext === ".mov"
                 ? "video/quicktime"
                 : "image/jpeg";
-  res.setHeader("Cache-Control", "public, max-age=86400");
+  res.setHeader("Cache-Control", "private, no-store");
   res.type(type);
   return fs.createReadStream(filePath).pipe(res);
 }
@@ -5303,4 +5411,9 @@ module.exports = {
   countOpenWebTickets,
   CATEGORY_LABELS,
   WEB_TICKET_CATEGORIES,
+  emitTicketEvent,
+  serializeTicket,
+  serializeMessage,
+  ticketBroadcastPayload,
+  notifyStaffNewTicket,
 };

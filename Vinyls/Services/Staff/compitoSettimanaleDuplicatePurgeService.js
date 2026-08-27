@@ -571,6 +571,8 @@ function resolveCompitoPurgeSinceMs(referenceNow = new Date()) {
 }
 
 async function purgeDuplicateCompitoSettimanaleValutazioni(client, opts = {}) {
+  const { isDiscordStaffChannelPostsEnabled } = require("../../Utils/Web/discordWorkflowUiGate");
+  if (!isDiscordStaffChannelPostsEnabled()) return { ok: false, skipped: "staff_discord_posts_disabled" };
   const dryRun = Boolean(opts.dryRun);
   const guildId = String(IDs.guilds?.main || "");
   if (!guildId) return { ok: false, skipped: "no_guild" };

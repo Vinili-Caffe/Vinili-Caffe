@@ -18,6 +18,7 @@
   var watchdog = 0;
   var reloadTimer = 0;
   var holdMax = 0;
+  var suppressClickUntil = 0;
 
   function injectCss() {
     if (document.getElementById("vc-ptr-css")) return;
@@ -82,7 +83,7 @@
     try {
       if (window.visualViewport && Number(window.visualViewport.offsetTop || 0) > 1) return false;
     } catch (e) {}
-    return y <= 2;
+    return y <= 4;
   }
 
   function isScrollableY(el) {
@@ -100,8 +101,9 @@
 
   function canPullFrom(target) {
     var el = target;
+    if (el && el.nodeType === 3) el = el.parentElement;
     while (el && el !== document.body && el !== document.documentElement) {
-      if (isScrollableY(el) && Number(el.scrollTop || 0) > 2) return false;
+      if (isScrollableY(el) && Number(el.scrollTop || 0) > 4) return false;
       el = el.parentElement;
     }
     return windowAtTop();
@@ -176,8 +178,11 @@
     var node = target;
     if (node && node.nodeType === 3) node = node.parentElement;
     if (node && node.closest) {
-      if (node.closest("input, textarea, select, [contenteditable='true']")) return true;
-      if (node.closest("header, button, a, summary, #vc-mobile-nav-toggle, #header-quick-actions")) return true;
+      // Solo campi editabili / widget drag: NON ignorare header, link e button
+      // (le pagine staff sono piene di bottoni e altrimenti il PTR non parte quasi mai).
+      if (node.closest("input, textarea, select, [contenteditable='true'], [role='slider'], .vc-no-ptr")) {
+        return true;
+      }
     }
     return false;
   }
@@ -243,15 +248,66 @@
     root.classList.remove("is-on", "is-armed", "is-snap");
     root.classList.add("is-refreshing");
     setHint("refresh");
-    try {
-      sessionStorage.setItem(PTR_KEY, "1");
-    } catch (e) {}
-    if (reloadTimer) window.clearTimeout(reloadTimer);
-    reloadTimer = window.setTimeout(function () {
+
+    function hardReload() {
+      try {
+        sessionStorage.setItem(PTR_KEY, "1");
+      } catch (e) {}
       try {
         window.location.reload();
       } catch (eRel) {}
-    }, 220);
+    }
+
+    // Soft refresh: solo se la pagina espone una Promise reale.
+    // Se manca / non restituisce thenable → reload duro (comportamento atteso).
+    var preferSoft = false;
+    try {
+      preferSoft = window.__vcPtrPreferSoft === true;
+    } catch (ePref) {}
+    var softFn = preferSoft ? window.__vcPtrSoftRefresh || window.__vcStaffPageRefresh : null;
+    if (typeof softFn === "function") {
+      var softDone = false;
+      function finishSoft(ok) {
+        if (softDone) return;
+        softDone = true;
+        if (reloadTimer) {
+          window.clearTimeout(reloadTimer);
+          reloadTimer = 0;
+        }
+        if (ok === false) {
+          hardReload();
+          return;
+        }
+        refreshing = false;
+        snapBack();
+      }
+      var ret = null;
+      try {
+        ret = softFn();
+      } catch (eSoftCall) {
+        hardReload();
+        return;
+      }
+      if (!ret || typeof ret.then !== "function") {
+        // Handler sync senza Promise → non è un refresh reale.
+        hardReload();
+        return;
+      }
+      reloadTimer = window.setTimeout(function () {
+        finishSoft(false);
+      }, 12000);
+      Promise.resolve(ret)
+        .then(function () {
+          finishSoft(true);
+        })
+        .catch(function () {
+          finishSoft(false);
+        });
+      return;
+    }
+
+    if (reloadTimer) window.clearTimeout(reloadTimer);
+    reloadTimer = window.setTimeout(hardReload, 220);
     window.setTimeout(function () {
       if (!refreshing) return;
       resetPtrUi();
@@ -272,10 +328,11 @@
     pullY = 0;
     armWatchdog();
     if (holdMax) window.clearTimeout(holdMax);
+    // Non abortire se già armati (soglia raggiunta): altrimenti rilascio dopo 2s = zero refresh.
     holdMax = window.setTimeout(function () {
       holdMax = 0;
-      if (tracking && !refreshing) abortPull(true);
-    }, 2200);
+      if (tracking && !refreshing && !armed) abortPull(true);
+    }, 10000);
   }
 
   function onTouchMove(ev) {
@@ -306,9 +363,11 @@
     tracking = false;
     clearWatchdog();
     if (armed && pullY >= THRESHOLD * 0.86) {
+      suppressClickUntil = Date.now() + 450;
       triggerReload();
       return;
     }
+    if (pullY > 18) suppressClickUntil = Date.now() + 320;
     snapBack();
     armed = false;
     pullY = 0;
@@ -334,20 +393,49 @@
     }, 420);
   }
 
-  function initPtr() {
-    if (!isTouchUi()) return;
-    reducedMotion = prefersReduced();
-    injectCss();
-    document.documentElement.classList.add("vc-ptr-ready");
-    ensureRoot();
-    showJustReloaded();
+  function shouldDeferPtr() {
+    try {
+      var html = document.documentElement;
+      if (html.classList.contains("vc-staff-access-pending") && !html.classList.contains("vc-staff-app-revealed")) {
+        return true;
+      }
+      if (html.classList.contains("vc-staff-denied-open")) return true;
+      if (html.classList.contains("vc-dash-access-pending") && !html.classList.contains("vc-dash-access-ready")) {
+        return true;
+      }
+      if (html.classList.contains("vc-session-verify-pending")) return true;
+      if (html.classList.contains("vc-user-leader-pending")) return true;
+      if (html.classList.contains("vc-user-profile-pending")) return true;
+      if (html.classList.contains("vc-rank-customize-pending")) return true;
+    } catch (eDef) {}
+    return false;
+  }
+
+  function bindPtrListeners() {
+    if (window.__vcPtrListenersBound) return;
+    window.__vcPtrListenersBound = true;
     document.addEventListener("touchstart", onTouchStart, { passive: true });
     document.addEventListener("touchmove", onTouchMove, { passive: false });
     document.addEventListener("touchend", onTouchEnd, { passive: true });
     document.addEventListener("touchcancel", onTouchEnd, { passive: true });
-    window.addEventListener("scroll", function () {
-      if (tracking && !windowAtTop()) abortPull(true);
-    }, { passive: true });
+    document.addEventListener(
+      "click",
+      function (ev) {
+        if (!suppressClickUntil || Date.now() > suppressClickUntil) return;
+        try {
+          ev.preventDefault();
+          ev.stopPropagation();
+        } catch (eClick) {}
+      },
+      true,
+    );
+    window.addEventListener(
+      "scroll",
+      function () {
+        if (tracking && !windowAtTop()) abortPull(true);
+      },
+      { passive: true },
+    );
     window.addEventListener("pagehide", function () {
       resetPtrUi();
     });
@@ -357,6 +445,45 @@
     document.addEventListener("visibilitychange", function () {
       if (document.visibilityState === "hidden") abortPull(false);
     });
+  }
+
+  function initPtr() {
+    if (window.__vcPtrListenersBound) return;
+    // Touch / pen / hybrid: non solo (pointer: coarse), così funziona anche su
+    // tablet/desktop touch e PWA Brave che a volte riportano pointer fine.
+    if (!isTouchUi() && !(Number(navigator.maxTouchPoints || 0) > 0)) return;
+    if (shouldDeferPtr()) {
+      window.addEventListener("vc:staff-access-ok", initPtr, { once: true });
+      window.addEventListener("vc:access-ok", initPtr, { once: true });
+      window.addEventListener("vc-dashboard-access", initPtr, { once: true });
+      window.setTimeout(function () {
+        if (!window.__vcPtrListenersBound && !shouldDeferPtr()) initPtr();
+      }, 400);
+      window.setTimeout(function () {
+        if (!window.__vcPtrListenersBound && !shouldDeferPtr()) initPtr();
+      }, 2500);
+      // Ultima chance: dopo il gate staff a volte la classe pending resta stale.
+      window.setTimeout(function () {
+        if (window.__vcPtrListenersBound) return;
+        try {
+          if (document.documentElement.classList.contains("vc-staff-app-revealed")) {
+            reducedMotion = prefersReduced();
+            injectCss();
+            document.documentElement.classList.add("vc-ptr-ready");
+            ensureRoot();
+            showJustReloaded();
+            bindPtrListeners();
+          }
+        } catch (eLate) {}
+      }, 5000);
+      return;
+    }
+    reducedMotion = prefersReduced();
+    injectCss();
+    document.documentElement.classList.add("vc-ptr-ready");
+    ensureRoot();
+    showJustReloaded();
+    bindPtrListeners();
   }
 
   if (document.readyState === "loading") {

@@ -38,6 +38,7 @@ function panelRowFromDoc(row) {
     ticketPanelMessageId: o.ticketPanelMessageId ?? null,
     sponsorTicketPanelMessageId: o.sponsorTicketPanelMessageId ?? null,
     pausePanelMessageId: o.pausePanelMessageId ?? null,
+    sanzioniPanelMessageId: o.sanzioniPanelMessageId ?? null,
   };
 }
 

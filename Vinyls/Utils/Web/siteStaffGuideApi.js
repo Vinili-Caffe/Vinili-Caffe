@@ -1,4 +1,5 @@
 const IDs = require("../Config/ids");
+const { sanitizeDiscordChannelName } = require("../Discord/discordDisplayName");
 const { assertWebsiteStaffAccess, normalizeHeaderSecret } = require("./siteStaffAccessApi");
 const {
   listReadableStaffGuideSections,
@@ -18,6 +19,13 @@ function escapeHtml(text) {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+}
+
+function humanizeIdKey(key) {
+  return String(key || "")
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/[_-]+/g, " ")
+    .trim();
 }
 
 function buildRoleNameMap(guild) {
@@ -45,24 +53,94 @@ function buildChannelNameMap(guild) {
     const cid = String(id || "").trim();
     if (!cid) continue;
     const fromGuild = guild?.channels?.cache?.get?.(cid);
-    const name = fromGuild?.name || key;
+    const name = sanitizeDiscordChannelName(fromGuild?.name || key);
     map.set(cid, name);
   }
   if (guild?.channels?.cache) {
     for (const ch of guild.channels.cache.values()) {
-      if (ch?.id && ch?.name) map.set(String(ch.id), ch.name);
+      if (ch?.id && ch?.name) map.set(String(ch.id), sanitizeDiscordChannelName(ch.name));
     }
+  }
+  return map;
+}
+
+function buildUserNameMap(guild, extra = null) {
+  const map = new Map();
+  if (extra && typeof extra.entries === "function") {
+    for (const [id, name] of extra.entries()) {
+      const uid = String(id || "").trim();
+      const label = String(name || "").trim();
+      if (uid && label) map.set(uid, label);
+    }
+  }
+  for (const [key, id] of Object.entries(IDs.bots || {})) {
+    const uid = String(id || "").trim();
+    if (!uid || map.has(uid)) continue;
+    if (key === "ViniliCaffeBot") map.set(uid, "Vinili");
+    else if (key === "ViniliCaffeBotTest") map.set(uid, "Vinili (test)");
+    else map.set(uid, humanizeIdKey(key));
+  }
+  if (guild?.members?.cache) {
+    for (const member of guild.members.cache.values()) {
+      const uid = String(member?.id || member?.user?.id || "").trim();
+      if (!uid || map.has(uid)) continue;
+      const label = String(member?.displayName || member?.user?.globalName || member?.user?.username || "").trim();
+      if (label) map.set(uid, label);
+    }
+  }
+  const users = guild?.client?.users?.cache;
+  if (users) {
+    for (const user of users.values()) {
+      const uid = String(user?.id || "").trim();
+      if (!uid || map.has(uid)) continue;
+      const label = String(user?.globalName || user?.username || "").trim();
+      if (label) map.set(uid, label);
+    }
+  }
+  return map;
+}
+
+function collectMentionUserIds(markdown) {
+  const ids = [];
+  const re = /<@!?(\d{16,22})>/g;
+  let m;
+  const text = String(markdown || "");
+  while ((m = re.exec(text))) ids.push(m[1]);
+  return [...new Set(ids)];
+}
+
+async function resolveGuideUserNames(client, guild, markdown) {
+  const map = buildUserNameMap(guild);
+  const missing = collectMentionUserIds(markdown).filter((id) => !map.has(id));
+  if (!missing.length || !client?.users?.fetch) return map;
+  const chunkSize = 5;
+  for (let i = 0; i < missing.length; i += chunkSize) {
+    const chunk = missing.slice(i, i + chunkSize);
+    await Promise.all(
+      chunk.map(async (uid) => {
+        try {
+          const user = await client.users.fetch(uid);
+          const label = String(user?.globalName || user?.username || "").trim();
+          if (label) map.set(uid, label);
+        } catch {
+          /* keep unresolved */
+        }
+      }),
+    );
   }
   return map;
 }
 
 function applyInlineMarkdown(escaped) {
   let s = String(escaped || "");
-  // Links: [label](url) or Discord [label](<url>)
-  s = s.replace(/\[([^\]]+)\]\(\s*<?(https?:\/\/[^)\s>]+)>?\s*\)/gi, (_m, label, url) => {
-    const safeUrl = String(url).replace(/"/g, "");
-    return `<a href="${safeUrl}" target="_blank" rel="noopener noreferrer">${label}</a>`;
-  });
+  // Links already escaped: [label](&lt;https...&gt;) or [label](https...)
+  s = s.replace(
+    /\[([^\]]+)\]\(\s*(?:&lt;)?(https?:\/\/[^)\s&]+)(?:&gt;)?\s*\)/gi,
+    (_m, label, url) => {
+      const safeUrl = String(url).replace(/&amp;/g, "&").replace(/"/g, "");
+      return `<a href="${safeUrl}" target="_blank" rel="noopener noreferrer">${label}</a>`;
+    },
+  );
   // Bold / italic / underline / code (order matters)
   s = s.replace(/`([^`]+)`/g, "<code>$1</code>");
   s = s.replace(/\*\*__(.+?)__\*\*/g, "<strong><em>$1</em></strong>");
@@ -74,12 +152,31 @@ function applyInlineMarkdown(escaped) {
   return s;
 }
 
+function formatQuotedOrHeadingLine(line, formatInline) {
+  const trimmed = String(line || "").trim();
+  if (/^###\s+/.test(trimmed)) {
+    return `<h3 class="vc-staff-guide-h3">${formatInline(trimmed.replace(/^###\s+/, ""))}</h3>`;
+  }
+  if (/^##\s+/.test(trimmed)) {
+    return `<h2 class="vc-staff-guide-h2">${formatInline(trimmed.replace(/^##\s+/, ""))}</h2>`;
+  }
+  if (/^#\s+/.test(trimmed)) {
+    return `<h2 class="vc-staff-guide-h2">${formatInline(trimmed.replace(/^#\s+/, ""))}</h2>`;
+  }
+  if (/^-#\s+/.test(trimmed)) {
+    return `<p class="vc-staff-guide-sub">${formatInline(trimmed.replace(/^-#\s+/, ""))}</p>`;
+  }
+  if (!trimmed) return "";
+  return `<p class="vc-staff-guide-p vc-staff-guide-p--quote">${formatInline(line)}</p>`;
+}
+
 /**
  * Convert Discord-flavored markdown (as used in staff guide embeds) to simple HTML.
  */
-function discordGuideMarkdownToHtml(markdown, { guild } = {}) {
+function discordGuideMarkdownToHtml(markdown, { guild, userNames = null } = {}) {
   const roleNames = buildRoleNameMap(guild);
   const channelNames = buildChannelNameMap(guild);
+  const userNameMap = buildUserNameMap(guild, userNames);
   const tokens = [];
   const stash = (html) => {
     const key = `\u0000VC${tokens.length}\u0000`;
@@ -91,10 +188,19 @@ function discordGuideMarkdownToHtml(markdown, { guild } = {}) {
 
   // Custom emoji → img (placeholder until after escape)
   text = text.replace(/<(a?):([A-Za-z0-9_~]+):(\d+)>/g, (_m, animated, name, id) => {
-    const ext = animated ? "gif" : "png";
-    const src = `https://cdn.discordapp.com/emojis/${id}.${ext}?size=48&quality=lossless`;
+    const src = animated
+      ? `https://cdn.discordapp.com/emojis/${id}.webp?size=64&animated=true`
+      : `https://cdn.discordapp.com/emojis/${id}.webp?size=64&quality=lossless`;
     return stash(
-      `<img class="vc-staff-guide-emoji" src="${src}" alt=":${escapeHtml(name)}:" width="22" height="22" loading="lazy" />`,
+      `<img class="vc-emoji vc-discord-emoji vc-staff-guide-emoji" src="${src}" alt=":${escapeHtml(name)}:" width="22" height="22" loading="lazy" decoding="async" />`,
+    );
+  });
+
+  // Markdown links BEFORE escapeHtml (Discord uses [label](<url>))
+  text = text.replace(/\[([^\]]+)\]\(\s*<?(https?:\/\/[^)\s>]+)>?\s*\)/gi, (_m, label, url) => {
+    const safeUrl = String(url || "").replace(/"/g, "");
+    return stash(
+      `<a class="vc-staff-guide-link" href="${escapeHtml(safeUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(label)}</a>`,
     );
   });
 
@@ -107,7 +213,11 @@ function discordGuideMarkdownToHtml(markdown, { guild } = {}) {
     return stash(`<span class="vc-staff-guide-mention vc-staff-guide-mention--channel">#${escapeHtml(name)}</span>`);
   });
   text = text.replace(/<@!?(\d+)>/g, (_m, id) => {
-    return stash(`<span class="vc-staff-guide-mention vc-staff-guide-mention--user">@${escapeHtml(id)}</span>`);
+    const name = userNameMap.get(String(id)) || null;
+    const label = name || "Utente";
+    return stash(
+      `<span class="vc-staff-guide-mention vc-staff-guide-mention--user" title="${escapeHtml(id)}">@${escapeHtml(label)}</span>`,
+    );
   });
 
   function restoreTokens(fragment) {
@@ -126,7 +236,7 @@ function discordGuideMarkdownToHtml(markdown, { guild } = {}) {
 
   function flushQuote() {
     if (!quoteBuf.length) return;
-    const inner = quoteBuf.map((line) => formatInline(line)).join("<br />");
+    const inner = quoteBuf.map((line) => formatQuotedOrHeadingLine(line, formatInline)).join("");
     htmlParts.push(`<blockquote class="vc-staff-guide-quote">${inner}</blockquote>`);
     quoteBuf = [];
   }
@@ -157,14 +267,13 @@ function discordGuideMarkdownToHtml(markdown, { guild } = {}) {
       continue;
     }
 
-    if (rawLine.startsWith(">")) {
+    if (/^>\s?/.test(rawLine) || rawLine.startsWith(">")) {
       quoteBuf.push(rawLine.replace(/^>\s?/, ""));
       continue;
     }
     flushQuote();
 
     if (!trimmed) {
-      htmlParts.push("<br />");
       continue;
     }
 
@@ -176,6 +285,22 @@ function discordGuideMarkdownToHtml(markdown, { guild } = {}) {
       htmlParts.push(`<h2 class="vc-staff-guide-h2">${formatInline(trimmed.replace(/^##\s+/, ""))}</h2>`);
       continue;
     }
+    if (/^#\s+/.test(trimmed)) {
+      htmlParts.push(`<h2 class="vc-staff-guide-h2">${formatInline(trimmed.replace(/^#\s+/, ""))}</h2>`);
+      continue;
+    }
+    if (/^-#\s+/.test(trimmed)) {
+      htmlParts.push(`<p class="vc-staff-guide-sub">${formatInline(trimmed.replace(/^-#\s+/, ""))}</p>`);
+      continue;
+    }
+
+    // Righe "albero" (emoji Reply/Dot): dopo lo stash sono token → controlla alt ripristinato.
+    const restoredStart = restoreTokens(trimmed).slice(0, 120);
+    const isTreeLine = /alt=":[^"]*(?:Reply|Dot|DoubleReply)[^"]*:"/i.test(restoredStart);
+    if (isTreeLine) {
+      htmlParts.push(`<p class="vc-staff-guide-p vc-staff-guide-p--tree">${formatInline(rawLine)}</p>`);
+      continue;
+    }
 
     htmlParts.push(`<p class="vc-staff-guide-p">${formatInline(rawLine)}</p>`);
   }
@@ -183,19 +308,20 @@ function discordGuideMarkdownToHtml(markdown, { guild } = {}) {
   flushQuote();
   if (inCode) flushCode();
 
-  return htmlParts.join("\n");
+  return htmlParts.join("");
 }
 
-function buildIntroPayload(guild) {
+async function buildIntroPayload(client, guild) {
   const markdown = buildStaffGuideIntroMarkdown();
+  const userNames = await resolveGuideUserNames(client, guild, markdown);
   return {
     title: "Guida staff",
     markdown,
-    html: discordGuideMarkdownToHtml(markdown, { guild }),
+    html: discordGuideMarkdownToHtml(markdown, { guild, userNames }),
   };
 }
 
-function buildSectionPayload(member, sectionId) {
+async function buildSectionPayload(client, member, sectionId) {
   const meta = getStaffGuideSectionMeta(sectionId);
   const markdown = buildStaffGuideSectionMarkdown(sectionId);
   if (!meta || markdown == null) return null;
@@ -210,12 +336,13 @@ function buildSectionPayload(member, sectionId) {
         : { id: cid, label: cid, description: "" };
     });
 
+  const userNames = await resolveGuideUserNames(client, guild, markdown);
   const payload = {
     id: meta.id,
     label: meta.label,
     description: meta.description,
     markdown,
-    html: discordGuideMarkdownToHtml(markdown, { guild }),
+    html: discordGuideMarkdownToHtml(markdown, { guild, userNames }),
   };
   if (meta.parent) payload.parent = meta.parent;
   if (children.length) payload.children = children;
@@ -255,13 +382,20 @@ async function handleSiteStaffGuideGet(client, req, res) {
           message: "Non hai i permessi per leggere questa sezione della guida.",
         });
       }
-      const section = buildSectionPayload(member, sectionId);
+      const section = await buildSectionPayload(client, member, sectionId);
+      if (!section) {
+        return res.status(404).json({
+          ok: false,
+          error: "section_unavailable",
+          message: "Sezione non disponibile.",
+        });
+      }
       res.setHeader("Cache-Control", "private, max-age=60");
       return res.status(200).json({ ok: true, section });
     }
 
     const sections = listReadableStaffGuideSections(member);
-    const intro = buildIntroPayload(member.guild);
+    const intro = await buildIntroPayload(client, member.guild);
     res.setHeader("Cache-Control", "private, max-age=60");
     return res.status(200).json({ ok: true, sections, intro });
   } catch (err) {

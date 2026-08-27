@@ -110,7 +110,7 @@ function formatStaffLimitsSwapLine(limitsEval) {
 }
 const STAFF_SANCTION_LIMITS = {
   [String(IDs.roles.Helper)]: 1,
-  [String(IDs.roles.Mod)]: 1,
+  [String(IDs.roles.Mod)]: 2,
   [String(IDs.roles.SeniorModerator)]: 2,
   [String(IDs.roles.Director)]: 1,
 };
@@ -225,6 +225,111 @@ function collectVoiceChannelIdsUnderCategory(guild, categoryId) {
     out.add(String(ch.id));
   }
   return out;
+}
+
+/** Vocali pubbliche / hub (Duo Trio Quad Lounge Squad) e stanze temp: contano nei limiti. */
+const RESOCONTO_PUBLIC_VOICE_NAME_RE = /\b(Lounge|Duo|Trio|Quad|Squad)\b/i;
+
+function isResocontoPublicVoiceName(name) {
+  return RESOCONTO_PUBLIC_VOICE_NAME_RE.test(String(name || ""));
+}
+
+function isResocontoStanzeChannel(channel) {
+  const stanzeCat = String(IDs.categories?.categoryStanze || "").trim();
+  if (!stanzeCat || !channel) return false;
+  if (String(channel.parentId || "") === stanzeCat) return true;
+  const lobbyId = String(IDs.channels?.stanzaLobbyVoice || "").trim();
+  if (lobbyId && String(channel.id || "") === lobbyId) return true;
+  return false;
+}
+
+/**
+ * Esclude vocali non rilevanti per i limiti staff (Private / Staff / Bench / …),
+ * ma non Duo-Trio-Quad-Lounge-Squad né stanze temporanee.
+ */
+function collectResocontoVoiceExcludeIds(guild) {
+  const out = new Set();
+  const excludeParents = new Set(
+    [
+      IDs.categories?.categoryPrivate,
+      IDs.categories?.categoryStaff,
+      IDs.categories?.categoryBench,
+      IDs.categories?.categoryLogs,
+      IDs.categories?.categorySystem,
+      IDs.categories?.categoryReport,
+      IDs.categories?.categoryPartner,
+      IDs.categories?.categorySponsor,
+      IDs.categories?.categoryMidHigh,
+    ]
+      .map((id) => String(id || "").trim())
+      .filter(Boolean),
+  );
+  if (!guild?.channels?.cache) return out;
+  for (const ch of guild.channels.cache.values()) {
+    if (!ch?.isVoiceBased?.()) continue;
+    const id = String(ch.id || "").trim();
+    if (!id) continue;
+    if (isResocontoStanzeChannel(ch) || isResocontoPublicVoiceName(ch.name)) continue;
+    const parent = String(ch.parentId || "");
+    if (parent && excludeParents.has(parent)) {
+      out.add(id);
+      continue;
+    }
+    const keyHit = Object.entries(IDs.channels || {}).some(([key, value]) => {
+      if (!/^vocprivata/i.test(String(key || ""))) return false;
+      return String(value || "").trim() === id;
+    });
+    if (keyHit) out.add(id);
+  }
+  return out;
+}
+
+function buildResocontoActivityScope(guild) {
+  const includeTextChannelIds = new Set();
+  // Voice: nessun whitelist — contano tutte tranne exclude (private).
+  // Così restano in conteggio anche Duo/Trio/Quad e stanze già cancellate (ID storici).
+  const includeVoiceChannelIds = null;
+  const addText = (id) => {
+    const value = String(id || "").trim();
+    if (value) includeTextChannelIds.add(value);
+  };
+
+  addText(IDs.channels?.chat);
+  addText(IDs.channels?.media);
+  addText(IDs.channels?.commands);
+  addText(IDs.channels?.selfieVerificati);
+  addText(IDs.channels?.noMic);
+
+  const publicsCategoryId = String(IDs.categories?.categoryPublics || "").trim();
+  const stanzeCategoryId = String(IDs.categories?.categoryStanze || "").trim();
+  const countableParents = new Set(
+    [publicsCategoryId, stanzeCategoryId].filter(Boolean),
+  );
+
+  for (const ch of guild?.channels?.cache?.values?.() || []) {
+    const parentId = String(ch?.parentId || "");
+    const channelId = String(ch?.id || "").trim();
+    if (!channelId) continue;
+    const underCountableParent = countableParents.has(parentId);
+    const publicVoiceName = isResocontoPublicVoiceName(ch?.name);
+    const isStanze = isResocontoStanzeChannel(ch);
+    if (ch?.isVoiceBased?.() && (underCountableParent || publicVoiceName || isStanze)) {
+      // Messaggi nella chat della vocale (Discord voice text).
+      addText(channelId);
+    }
+  }
+
+  // Hub noti anche se cache canali incompleta.
+  for (const id of Array.isArray(IDs.publicVoiceHubChannelIds) ? IDs.publicVoiceHubChannelIds : []) {
+    addText(id);
+  }
+  for (const [key, value] of Object.entries(IDs.channels || {})) {
+    if (!/^(vocale(Duo|Trio|Quad|Lounge|Squad)|vocaleduo|trio\d)/i.test(String(key || ""))) continue;
+    addText(value);
+  }
+  addText(IDs.channels?.stanzaLobbyVoice);
+
+  return { includeTextChannelIds, includeVoiceChannelIds };
 }
 
 function wait(ms) {
@@ -1008,6 +1113,18 @@ function staffHasPositiveValutazioneNeedle(staffDoc, needles) {
   });
 }
 
+function staffHasNegativeValutazioneNeedle(staffDoc, needles) {
+  const list = Array.isArray(staffDoc?.negativeReasons) ? staffDoc.negativeReasons : [];
+  const normalizedNeedles = (Array.isArray(needles) ? needles : [])
+    .map((needle) => String(needle || "").toLowerCase())
+    .filter(Boolean);
+  if (!normalizedNeedles.length) return false;
+  return list.some((entry) => {
+    const normalized = String(entry || "").toLowerCase();
+    return normalizedNeedles.some((needle) => normalized.includes(needle));
+  });
+}
+
 function hasStaffLimitsValutazioneForCycle(staffDoc, resocontoWeekKey, staffRoleId) {
   // Solo la chiave auto della settimana corrente: ragioni storiche
   // "Limiti settimanali completati" non devono far passare "già registrata".
@@ -1020,17 +1137,76 @@ function hasStaffSanctionsValutazioneForCycle(staffDoc, resocontoWeekKey, staffR
 
 function shouldSkipManualResocontoVp(staffDoc, resocontoWeekKey, staffRoleId, reason) {
   const reasonNorm = String(reason || "").toLowerCase();
+  const since = getResocontoCycleMessagesSince();
   if (reasonNorm.includes("limiti settimanali")) {
-    return hasStaffLimitsValutazioneForCycle(staffDoc, resocontoWeekKey, staffRoleId);
+    if (hasStaffLimitsValutazioneForCycle(staffDoc, resocontoWeekKey, staffRoleId)) return true;
+    return Boolean(
+      findLogForReasonNeedlesSince(
+        staffDoc,
+        ["limiti settimanali completati", "limiti settimanali rispettati"],
+        "positive",
+        since,
+      ),
+    );
   }
   if (reasonNorm.includes("compito sanzioni")) {
-    return hasStaffSanctionsValutazioneForCycle(staffDoc, resocontoWeekKey, staffRoleId);
+    if (hasStaffSanctionsValutazioneForCycle(staffDoc, resocontoWeekKey, staffRoleId)) return true;
+    return Boolean(
+      findLogForReasonNeedlesSince(staffDoc, ["compito sanzioni completato"], "positive", since),
+    );
   }
   if (reasonNorm.includes("griglia")) {
-    return staffHasPositiveValutazioneNeedle(staffDoc, [
-      "griglia attività/condotta",
-      "valutazione positiva da griglia",
-    ]);
+    if (
+      staffHasPositiveValutazioneNeedle(staffDoc, [
+        "griglia attività/condotta",
+        "valutazione positiva da griglia",
+      ])
+    ) {
+      return true;
+    }
+    return Boolean(
+      findLogForReasonNeedlesSince(
+        staffDoc,
+        ["griglia attività/condotta", "valutazione positiva da griglia"],
+        "positive",
+        since,
+      ),
+    );
+  }
+  return false;
+}
+
+function shouldSkipManualResocontoVn(staffDoc, resocontoWeekKey, staffRoleId, reason) {
+  const reasonNorm = String(reason || "").toLowerCase();
+  const since = getResocontoCycleMessagesSince();
+  if (reasonNorm.includes("limiti settimanali")) {
+    if (hasStaffLimitsValutazioneForCycle(staffDoc, resocontoWeekKey, staffRoleId)) return true;
+    return Boolean(
+      findLogForReasonNeedlesSince(
+        staffDoc,
+        ["limiti settimanali non raggiunti", "limiti settimanali non rispettati"],
+        "negative",
+        since,
+      ),
+    );
+  }
+  if (reasonNorm.includes("griglia")) {
+    if (
+      staffHasNegativeValutazioneNeedle(staffDoc, [
+        "griglia attività/condotta",
+        "valutazione negativa da griglia",
+      ])
+    ) {
+      return true;
+    }
+    return Boolean(
+      findLogForReasonNeedlesSince(
+        staffDoc,
+        ["griglia attività/condotta", "valutazione negativa da griglia"],
+        "negative",
+        since,
+      ),
+    );
   }
   return false;
 }
@@ -1614,9 +1790,9 @@ async function ensureWeeklyLimitAutoValutazione({ guild, member, key, type, reas
   const keyStr = String(key || "");
   const lockKey = autoValutazioneLockKey(guild.id, member.id, keyStr);
   return withAutoValutazioneLock(lockKey, async () => {
-  const channel = guild.channels.cache.get(IDs.channels?.valutazioniStaff) ||
-    (await getClientChannelCached(guild.client, IDs.channels?.valutazioniStaff).catch(() => null));
-  if (!channel?.isTextBased?.()) return { ok: false, skipped: "no_channel" };
+  const { resolveStaffValutazioniChannel } = require("../../Utils/Staff/staffChannelUtils");
+  const channel = await resolveStaffValutazioniChannel(guild, guild.client);
+  // Canale Discord opzionale: se disabilitato/assente, la val resta solo su Mongo/sito.
 
   let profileDoc = await ensureStaffProfileDoc(
     await getStaffDoc(guild.id, member.id),
@@ -1794,7 +1970,7 @@ async function ensureWeeklyLimitAutoValutazione({ guild, member, key, type, reas
     ? await valutazioneNegativeAddCore(guild, profileDoc, member.user, reason, actor, channel)
     : await valutazionePositiveAddCore(profileDoc, member.user, reason, actor, channel);
 
-  if (!result?.message) {
+  if (!result?.ok && !result?.message) {
     return { ok: false, skipped: "valutazione_post_failed" };
   }
 
@@ -1812,7 +1988,7 @@ async function ensureWeeklyLimitAutoValutazione({ guild, member, key, type, reas
     key: keyStr,
     type: String(type),
     reason: String(reason || ""),
-    channelId: String(channel.id || ""),
+    channelId: channel?.id ? String(channel.id) : null,
     messageId: result?.message?.id ? String(result.message.id) : null,
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -1955,6 +2131,13 @@ function pmActionToKey(action) {
 }
 
 function buildResocontoButtons(kind, userId, actionKey, roleId = null) {
+  const {
+    isDiscordWorkflowUiEnabled,
+    buildInboxManageLinkRow,
+  } = require("../../Utils/Web/discordWorkflowUiGate");
+  if (!isDiscordWorkflowUiEnabled()) {
+    return buildInboxManageLinkRow("resoconti");
+  }
   const payload = kind === "s" ? `${kind}:${userId}:${roleId}:${actionKey}`
     : `${kind}:${userId}:${actionKey}`;
   return new ActionRowBuilder().addComponents(
@@ -2094,6 +2277,10 @@ async function filterResocontoReviewersNotInPause(guildId, reviewerUserIds) {
 }
 
 async function createResocontoThread(message, userId, userLabel = null, staffDoc = null, segment = null, staffRoleId = null) {
+  try {
+    const { isDiscordWorkflowUiEnabled } = require("../../Utils/Web/discordWorkflowUiGate");
+    if (!isDiscordWorkflowUiEnabled()) return;
+  } catch (_) {}
   if (!message?.startThread) return;
   const safeUserId = String(userId || "");
   if (!/^\d{16,20}$/.test(safeUserId)) return;
@@ -2295,24 +2482,30 @@ async function runWeeklyStaffResocontoSegment(client, segment, opts = {}) {
   const forceTarget = Boolean(opts.force && /^\d{16,20}$/.test(targetUserId));
   const ignorePostedState = Boolean(opts.ignorePostedState);
 
+  const {
+    isDiscordWorkflowChannelPostsEnabled,
+    isDiscordStaffChannelPostsEnabled,
+    newSiteWorkflowMessageId,
+  } = require("../../Utils/Web/discordWorkflowUiGate");
+  const discordPostsEnabled =
+    isDiscordStaffChannelPostsEnabled() && isDiscordWorkflowChannelPostsEnabled();
+
   const guildId = String(IDs.guilds?.main || "");
   const channelId = String(IDs.channels?.resocontiStaff || "");
-  if (!guildId || !channelId) return { sent: 0, eligible: 0, segment };
+  if (!guildId) return { sent: 0, eligible: 0, segment };
 
   const guild = await getClientGuildCached(client, guildId);
   if (!guild) return { sent: 0, eligible: 0, segment };
   await hydrateGuildMembersForResoconto(guild, segment);
 
-  const resocontoExcludeVoiceChannels = collectVoiceChannelIdsUnderCategory(
-    guild,
-    String(IDs.categories?.categoryPrivate || ""),
-  );
+  const resocontoExcludeVoiceChannels = collectResocontoVoiceExcludeIds(guild);
   const resocontoOverviewVoiceExclude =
     resocontoExcludeVoiceChannels.size > 0 ? resocontoExcludeVoiceChannels : null;
   const resocontoScope = buildResocontoActivityScope(guild);
 
-  const channel = await resolveChannel(client, channelId);
-  if (!channel?.isTextBased?.()) return { sent: 0, eligible: 0, segment };
+  const channel =
+    discordPostsEnabled && channelId ? await resolveChannel(client, channelId) : null;
+  const useDiscordPosts = Boolean(discordPostsEnabled && channel?.isTextBased?.());
 
   const now = new Date();
   const { weekStart, weekEnd } = getPmResocontoWindow(now);
@@ -2323,6 +2516,26 @@ async function runWeeklyStaffResocontoSegment(client, segment, opts = {}) {
   const resocontoWeekKey = `${closingPartsForResocontoKey.year}-${String(closingPartsForResocontoKey.month).padStart(2, "0")}-${String(closingPartsForResocontoKey.day).padStart(2, "0")}`;
   const staffResocontoPostedIds = await loadStaffResocontoPostedIds(guildId, resocontoWeekKey);
   const staffDocs = await ActivityUserProfile.find({ guildId, staff: { $exists: true } }, { userId: 1, staff: 1 }).lean().catch(() => []);
+
+  async function hasSiteResocontoThisWeek(userId, kind) {
+    try {
+      const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Schemas/Community/communitySchemas");
+      const doc = await SiteDocument.findOne({
+        docType: SITE_DOCUMENT_TYPE.STAFF_WORKFLOW,
+        guildId,
+        workflowQueue: "resoconti",
+        userId: String(userId),
+        workflowKind: String(kind),
+        workflowWeekKey: resocontoWeekKey,
+      })
+        .select({ _id: 1 })
+        .lean()
+        .catch(() => null);
+      return Boolean(doc);
+    } catch {
+      return false;
+    }
+  }
 
   const wantStaffForSegment =
     segment === "helper" ||
@@ -2420,7 +2633,9 @@ async function runWeeklyStaffResocontoSegment(client, segment, opts = {}) {
       staffRoleId &&
       (
         (!ignorePostedState && hadStaffRoleResocontoPostedThisCycle(staffResocontoPostedIds, staffRoleId, userId)) ||
-        await recentStaffResocontoMessageExists(channel, userId, staffRoleId, resocontoMessageSince)
+        (useDiscordPosts
+          ? await recentStaffResocontoMessageExists(channel, userId, staffRoleId, resocontoMessageSince)
+          : await hasSiteResocontoThisWeek(userId, "s"))
       );
     const shouldSkipStaffResoconto =
       matchStaffSegment &&
@@ -2548,18 +2763,71 @@ async function runWeeklyStaffResocontoSegment(client, segment, opts = {}) {
         ),
       ];
 
-      const staffMsg = await sendResocontoMessageWithRetry(
-        channel,
-        {
-          content: contentLines.join("\n"),
-          ...(staffComponents.length ? { components: staffComponents } : {}),
-        },
-        { userId, segment },
-      );
+      const contentBody = contentLines.join("\n");
+      let staffMsg = null;
+      if (useDiscordPosts) {
+        staffMsg = await sendResocontoMessageWithRetry(
+          channel,
+          {
+            content: contentBody,
+            ...(staffComponents.length ? { components: staffComponents } : {}),
+          },
+          { userId, segment },
+        );
+      } else {
+        const siteMessageId = newSiteWorkflowMessageId();
+        try {
+          const { persistResocontoWorkflowFromPayload } = require("../../Utils/Web/siteStaffWorkflowStore");
+          await persistResocontoWorkflowFromPayload(guild, {
+            messageId: siteMessageId,
+            channelId: "site",
+            userId,
+            kind: "s",
+            roleId: staffRoleId,
+            actionKey,
+            content: contentBody,
+            status: "pending",
+            createdAt: new Date(),
+          });
+          staffMsg = { id: siteMessageId };
+        } catch (err) {
+          global.logger?.warn?.("[WEEKLY STAFF RESOCONTO] site persist failed:", err?.message || err);
+          staffMsg = null;
+        }
+      }
       if (staffMsg) {
         sentCount += 1;
         completedCount += 1;
-        await createResocontoThread(staffMsg, userId, member.user?.username, staffDoc, segment, staffRoleId);
+        try {
+          if (useDiscordPosts) {
+            const { persistResocontoWorkflowFromMessage } = require("../../Utils/Web/siteStaffWorkflowStore");
+            await persistResocontoWorkflowFromMessage(
+              guild,
+              staffMsg,
+              { kind: "s", userId, roleId: staffRoleId, actionKey },
+              "pending",
+            );
+          }
+        } catch (_) {}
+        try {
+          const { notifyInboxStaffNewItem } = require("../../Utils/Web/siteStaffWorkflowNotifications");
+          const subjectName = String(member?.displayName || member?.user?.username || userId).trim();
+          void notifyInboxStaffNewItem({
+            guild,
+            queue: "resoconti",
+            subjectUserId: String(userId),
+            subjectName,
+            kind: "s",
+            roleId: staffRoleId,
+            title: "Nuovo resoconto staff",
+            body: `Resoconto di ${subjectName} in attesa di revisione.`,
+            messageId: String(staffMsg?.id || ""),
+            dedupeKey: `inbox:resoconti:new:${staffMsg?.id || userId}`,
+          }).catch(() => 0);
+        } catch (_) {}
+        if (useDiscordPosts) {
+          await createResocontoThread(staffMsg, userId, member.user?.username, staffDoc, segment, staffRoleId);
+        }
         await appendStaffResocontoPostedId(guildId, resocontoWeekKey, userId);
         await appendStaffResocontoPostedRoleId(guildId, resocontoWeekKey, userId, staffRoleId);
         staffResocontoPostedIds.add(userId);
@@ -2601,7 +2869,9 @@ async function runWeeklyStaffResocontoSegment(client, segment, opts = {}) {
     const alreadyHadPmResocontoThisCycle =
       matchPmSegment &&
       !forceTarget &&
-      await recentPmResocontoMessageExists(channel, userId, resocontoMessageSince);
+      (useDiscordPosts
+        ? await recentPmResocontoMessageExists(channel, userId, resocontoMessageSince)
+        : await hasSiteResocontoThisWeek(userId, "p"));
     const pmWindow = matchPmSegment ? getPmResocontoWindow(new Date()) : null;
     const pmPromotedInResocontoWindow = pmWindow
       ? wasPmPromotedInResocontoSkipWindow(staffDoc, pmWindow.weekStart, pmWindow.weekEnd)
@@ -2648,17 +2918,69 @@ async function runWeeklyStaffResocontoSegment(client, segment, opts = {}) {
       if (pmPauseLine) pmContentLines.push(pmPauseLine);
 
       const pmComponents = [buildResocontoButtons("p", userId, pmActionToKey(basePmAction))];
-      const pmMsg = await sendResocontoMessageWithRetry(
-        channel,
-        {
-          content: pmContentLines.join("\n"),
-          ...(pmComponents.length ? { components: pmComponents } : {}),
-        },
-        { userId, segment },
-      );
+      const pmContentBody = pmContentLines.join("\n");
+      let pmMsg = null;
+      if (useDiscordPosts) {
+        pmMsg = await sendResocontoMessageWithRetry(
+          channel,
+          {
+            content: pmContentBody,
+            ...(pmComponents.length ? { components: pmComponents } : {}),
+          },
+          { userId, segment },
+        );
+      } else {
+        const siteMessageId = newSiteWorkflowMessageId();
+        try {
+          const { persistResocontoWorkflowFromPayload } = require("../../Utils/Web/siteStaffWorkflowStore");
+          await persistResocontoWorkflowFromPayload(guild, {
+            messageId: siteMessageId,
+            channelId: "site",
+            userId,
+            kind: "p",
+            roleId: null,
+            actionKey: pmActionToKey(basePmAction),
+            content: pmContentBody,
+            status: "pending",
+            createdAt: new Date(),
+          });
+          pmMsg = { id: siteMessageId };
+        } catch (err) {
+          global.logger?.warn?.("[WEEKLY STAFF RESOCONTO] site PM persist failed:", err?.message || err);
+          pmMsg = null;
+        }
+      }
       if (pmMsg) {
         sentCount += 1;
-        await createResocontoThread(pmMsg, userId, member.user?.username, staffDoc, "pm");
+        try {
+          if (useDiscordPosts) {
+            const { persistResocontoWorkflowFromMessage } = require("../../Utils/Web/siteStaffWorkflowStore");
+            await persistResocontoWorkflowFromMessage(
+              guild,
+              pmMsg,
+              { kind: "p", userId, roleId: null, actionKey: pmActionToKey(basePmAction) },
+              "pending",
+            );
+          }
+        } catch (_) {}
+        try {
+          const { notifyInboxStaffNewItem } = require("../../Utils/Web/siteStaffWorkflowNotifications");
+          const subjectName = String(member?.displayName || member?.user?.username || userId).trim();
+          void notifyInboxStaffNewItem({
+            guild,
+            queue: "resoconti",
+            subjectUserId: String(userId),
+            subjectName,
+            kind: "p",
+            title: "Nuovo resoconto PM",
+            body: `Resoconto Partner Manager di ${subjectName} in attesa di revisione.`,
+            messageId: String(pmMsg?.id || ""),
+            dedupeKey: `inbox:resoconti:new:${pmMsg?.id || userId}`,
+          }).catch(() => 0);
+        } catch (_) {}
+        if (useDiscordPosts) {
+          await createResocontoThread(pmMsg, userId, member.user?.username, staffDoc, "pm");
+        }
       }
     } else if (matchPmSegment) {
       const reason = alreadyHadPmResocontoThisCycle
@@ -2706,10 +3028,7 @@ async function runPreResocontoReminders(client) {
   const guild = await getClientGuildCached(client, guildId);
   if (!guild) return;
 
-  const resocontoExcludeVoiceChannels = collectVoiceChannelIdsUnderCategory(
-    guild,
-    String(IDs.categories?.categoryPrivate || ""),
-  );
+  const resocontoExcludeVoiceChannels = collectResocontoVoiceExcludeIds(guild);
   const resocontoOverviewVoiceExclude =
     resocontoExcludeVoiceChannels.size > 0 ? resocontoExcludeVoiceChannels : null;
   const resocontoScope = buildResocontoActivityScope(guild);
@@ -2826,10 +3145,7 @@ async function runWeeklyLimitAutoValutazioniCatchupSegment(client, segment, now 
   if (!guild) return;
   await hydrateGuildMembersForResoconto(guild, `catchup_${segment}`);
 
-  const resocontoExcludeVoiceChannels = collectVoiceChannelIdsUnderCategory(
-    guild,
-    String(IDs.categories?.categoryPrivate || ""),
-  );
+  const resocontoExcludeVoiceChannels = collectResocontoVoiceExcludeIds(guild);
   const resocontoOverviewVoiceExclude =
     resocontoExcludeVoiceChannels.size > 0 ? resocontoExcludeVoiceChannels : null;
   const resocontoScope = buildResocontoActivityScope(guild);
@@ -3138,7 +3454,14 @@ async function buildStaffResocontoApplyPlanForMember(guild, userId, staffRoleId)
   );
 
   const resocontoScope = buildResocontoActivityScope(guild);
-  const overview = await getUserOverviewStats(guild.id, userId, resocontoScope).catch(() => null);
+  const resocontoVoiceExclude = collectResocontoVoiceExcludeIds(guild);
+  const overview = await getUserOverviewStats(
+    guild.id,
+    userId,
+    7,
+    resocontoVoiceExclude.size > 0 ? resocontoVoiceExclude : null,
+    resocontoScope,
+  ).catch(() => null);
   const overviewUnavailable = overviewLooksLikeEmptyFallback(overview);
   const d7 = overview?.windows?.d7;
   const weeklyMessages = Math.max(0, Math.floor(toSafeNumber(d7?.text ?? 0)));
@@ -3202,6 +3525,7 @@ module.exports = {
   rememberResocontoCompitoClaim,
   buildStaffResocontoApplyPlanForMember,
   shouldSkipManualResocontoVp,
+  shouldSkipManualResocontoVn,
   resolveResocontoWeekKey,
   ensureWeeklyLimitAutoValutazione,
   STAFF_ACTIVITY_LIMITS,

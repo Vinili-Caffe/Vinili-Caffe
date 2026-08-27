@@ -1,7 +1,14 @@
 (function () {
   var ACCESS_TOKEN_KEY = "vc_discord_access_token";
   var EXPIRES_AT_KEY = "vc_discord_expires_at";
-  var state = { data: null, answers: {}, submitting: false, timer: null };
+  var state = {
+    data: null,
+    answers: {},
+    submitting: false,
+    timer: null,
+    loadSeq: 0,
+    loading: false,
+  };
 
   function byId(id) {
     return document.getElementById(id);
@@ -49,9 +56,13 @@
 
   function getToken() {
     try {
+      if (typeof window.__vcDiscordGetAccessToken === "function") {
+        return String(window.__vcDiscordGetAccessToken() || "").trim();
+      }
       var token = String(localStorage.getItem(ACCESS_TOKEN_KEY) || "").trim();
       var exp = Number(localStorage.getItem(EXPIRES_AT_KEY) || "0");
-      if (!token || !exp || Date.now() >= exp) return "";
+      if (!token) return "";
+      if (exp && Date.now() >= exp) return "";
       return token;
     } catch (e) {
       return "";
@@ -114,27 +125,95 @@
   }
 
   function showToast(message, kind) {
+    var msg = String(message || "").trim();
+    var isError = kind === "error" || kind === "err";
+    if (window.VcSiteToast) {
+      if (!msg) window.VcSiteToast.hide();
+      else window.VcSiteToast.show(msg, isError, { pending: !kind || kind === "pending" });
+      return;
+    }
     var el = byId("vc-hw-potions-toast");
     if (!el) return;
-    el.textContent = message || "";
+    el.textContent = msg;
     el.className = "vc-hw-shop-toast mt-6" + (kind ? " vc-hw-shop-toast--" + kind : "");
-    setHidden(el, !message);
+    setHidden(el, !msg);
+  }
+
+  function normalizeRequestError(res, data) {
+    var payload = data && typeof data === "object" ? data : {};
+    if (payload.error) return payload;
+    var status = Number(res && res.status) || 0;
+    if (status === 401) {
+      return {
+        error: "invalid_token",
+        message: "Sessione Discord non valida o scaduta: effettua di nuovo il login.",
+      };
+    }
+    if (status === 403) {
+      return { error: "forbidden", message: "Accesso negato alle pozioni." };
+    }
+    if (status === 429 || status === 503) {
+      return {
+        error: "rate_limited",
+        message: "Troppe richieste. Attendi un attimo e riprova.",
+      };
+    }
+    if (status >= 500) {
+      return { error: "internal", message: "Il server non risponde. Riprovo…" };
+    }
+    return {
+      error: "request_failed",
+      message: "Pozioni non disponibili al momento.",
+      status: status || undefined,
+    };
   }
 
   function request(method, body) {
     var token = getToken();
-    if (!token) return Promise.reject({ error: "missing_token", message: "Accedi con Discord per aprire pozioni." });
+    if (!token) {
+      return Promise.reject({
+        error: "missing_token",
+        message: "Accedi con Discord per aprire pozioni.",
+      });
+    }
+    var headers = { Authorization: "Bearer " + token };
+    if (body) headers["Content-Type"] = "application/json";
     return fetch(apiUrl(""), {
       method: method,
-      headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+      headers: headers,
       body: body ? JSON.stringify(body) : undefined,
       cache: "no-store",
-    }).then(function (res) {
-      return res.json().catch(function () { return {}; }).then(function (data) {
-        if (!res.ok || !data || data.ok !== true) throw data || {};
-        return data;
+    })
+      .then(function (res) {
+        return res
+          .json()
+          .catch(function () {
+            return null;
+          })
+          .then(function (data) {
+            if (!res.ok || !data || data.ok !== true) {
+              throw normalizeRequestError(res, data);
+            }
+            return data;
+          });
+      })
+      .catch(function (err) {
+        if (err && typeof err === "object" && err.error) throw err;
+        throw {
+          error: "network",
+          message: "Connessione instabile. Riprovo…",
+        };
       });
-    });
+  }
+
+  function isTransientPotionsError(err) {
+    var code = String((err && err.error) || "").toLowerCase();
+    return (
+      code === "network" ||
+      code === "internal" ||
+      code === "request_failed" ||
+      code === "rate_limited"
+    );
   }
 
   function formatDuration(ms) {
@@ -211,44 +290,101 @@
     setHidden(byId("vc-hw-potions-shell"), false);
     var reward = byId("vc-hw-potions-reward");
     if (reward && data.reward) {
-      reward.textContent = data.reward.previewDisabled
-        ? "Preview High Staff: premi disattivati"
-        : Number(data.reward.galeoni || 0) + " Galeoni + " + Number(data.reward.housePoints || 0) + " punti casa";
+      if (data.reward.previewDisabled) {
+        reward.textContent = "Preview High Staff: premi disattivati";
+      } else {
+        var galeoni = Number(data.reward.galeoni || 0);
+        var hp = Number(data.reward.housePoints || 0);
+        var bits = [galeoni + " Galeoni + " + hp + " punti casa"];
+        var petMult = Number(data.reward.petMultiplier || 0);
+        var petName = String(data.reward.petName || "").trim();
+        if (petMult > 1) bits.push("×" + petMult + (petName ? " " + petName : ""));
+        reward.textContent = bits.join(" · ");
+      }
     }
     syncCooldown();
     renderGame();
   }
 
-  function loadPotions() {
+  function loadPotions(attempt) {
+    var tryNo = Number(attempt) || 0;
     setHidden(byId("vc-hw-potions-app"), false);
-    showToast("", "");
+    if (tryNo === 0) showToast("", "");
     if (redirectIfLockedWithoutPreview()) return;
     if (!getToken()) {
       showLoading(false);
+      state.loading = false;
       showGate("Accedi con Discord e completa lo smistamento per partecipare alle pozioni.", "login");
       return;
     }
+    if (tryNo === 0) {
+      if (state.loading) return;
+      state.loading = true;
+      state.loadSeq += 1;
+    }
+    var seq = state.loadSeq;
     showLoading(true);
+    if (tryNo > 0) {
+      showToast("Connessione instabile. Riprovo…", "pending");
+    }
     request("GET")
       .then(function (data) {
+        if (seq !== state.loadSeq) return;
+        state.loading = false;
         state.data = data;
         state.answers = {};
+        showToast("", "");
         showLoading(false);
         render();
       })
       .catch(function (err) {
+        if (seq !== state.loadSeq) return;
+        if (tryNo < 3 && isTransientPotionsError(err)) {
+          var waitMs =
+            String((err && err.error) || "") === "rate_limited"
+              ? 1200 + tryNo * 800
+              : 400 + tryNo * 500;
+          window.setTimeout(function () {
+            if (seq !== state.loadSeq) return;
+            loadPotions(tryNo + 1);
+          }, waitMs);
+          return;
+        }
+        state.loading = false;
         showLoading(false);
-        var code = String(err && err.error || "");
-        if (code === "missing_token") showGate(err.message || "Accedi con Discord per aprire pozioni.", "login");
-        else if (code === "not_sorted") showGate(err.message || "Completa prima lo smistamento per accedere alle pozioni.", "sort");
-        else if (code === "event_not_started" || code === "preview_forbidden" || code === "forbidden") {
+        showToast("", "");
+        // Una risposta fallita non deve cancellare una schermata già caricata.
+        if (state.data) {
+          showToast(
+            err && err.message ? err.message : "Aggiornamento pozioni non riuscito.",
+            "error",
+          );
+          return;
+        }
+        var code = String((err && err.error) || "");
+        if (code === "missing_token" || code === "invalid_token") {
+          showGate(err.message || "Accedi con Discord per aprire pozioni.", "login");
+        } else if (code === "not_sorted") {
+          showGate(err.message || "Completa prima lo smistamento per accedere alle pozioni.", "sort");
+        } else if (
+          code === "event_not_started" ||
+          code === "preview_forbidden" ||
+          code === "forbidden"
+        ) {
           try {
             window.location.replace(err.redirectUrl || redirectUrl());
           } catch (e) {
             window.location.href = err.redirectUrl || redirectUrl();
           }
+        } else {
+          showGate(
+            err && err.message
+              ? String(err.message).replace(/\s*Riprovo…?\s*$/i, "").trim() ||
+                  "Pozioni non disponibili al momento."
+              : "Pozioni non disponibili al momento.",
+            "",
+          );
         }
-        else showGate(err && err.message ? err.message : "Pozioni non disponibili al momento.", "");
       });
   }
 
@@ -287,10 +423,26 @@
 
   function init() {
     bind();
-    loadPotions();
+    var started = false;
+    function start() {
+      if (started) return;
+      started = true;
+      loadPotions(0);
+    }
+    if (window.__VC_DISCORD_PROFILE || getToken()) {
+      start();
+      return;
+    }
+    window.addEventListener("vc-discord-profile", start, { once: true });
+    // Fallback: se il profilo Discord non arriva, prova comunque (login gate se manca token).
+    window.setTimeout(start, 1600);
   }
 
-  window.addEventListener("vc-discord-profile", loadPotions);
+  window.addEventListener("vc-discord-profile", function () {
+    // Evita di ricalcare sopra un load già in corso / riuscito allo stesso boot.
+    if (state.loading || state.data) return;
+    loadPotions(0);
+  });
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
   else init();
 })();

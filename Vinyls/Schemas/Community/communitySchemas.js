@@ -100,6 +100,7 @@ const personalityPanelEntrySchema = new Schema(
     ticketPanelMessageId: { type: String, default: null },
     sponsorTicketPanelMessageId: { type: String, default: null },
     pausePanelMessageId: { type: String, default: null },
+    sanzioniPanelMessageId: { type: String, default: null },
   },
   { _id: false },
 );
@@ -169,6 +170,8 @@ const globalSettingsSchema = new Schema(
     personalityPanels: { type: [personalityPanelEntrySchema], default: [] },
     channelSnapshots: { type: [channelSnapshotEntrySchema], default: [] },
     skullboardPosts: { type: [skullboardPostEntrySchema], default: [] },
+    /** Snapshot organico/directory: evita list completo guild su site-api REST. */
+    staffRosterSnapshot: { type: Schema.Types.Mixed, default: null },
   },
   { timestamps: true },
 );
@@ -217,7 +220,28 @@ const staffRolesHistoryEntrySchema = new Schema(
     oldRole: String,
     newRole: String,
     reason: String,
+    kind: { type: String, default: null },
     date: { type: Date, default: Date.now },
+    /** Snapshot at write time (organico history still works if Discord resolve fails). */
+    displayName: { type: String, default: null },
+    username: { type: String, default: null },
+    avatarUrl: { type: String, default: null },
+    /** Who performed the pex/depex (when known). */
+    actorId: { type: String, default: null },
+    actorName: { type: String, default: null },
+  },
+  { _id: false },
+);
+const staffTrackHistoryEntrySchema = new Schema(
+  {
+    kind: { type: String, default: "" },
+    reason: { type: String, default: "" },
+    date: { type: Date, default: Date.now },
+    actorId: { type: String, default: null },
+    actorName: { type: String, default: null },
+    oldRole: { type: String, default: null },
+    newRole: { type: String, default: null },
+    entryId: { type: Number, default: null },
   },
   { _id: false },
 );
@@ -293,6 +317,8 @@ const staffValutazioneLogEntrySchema = new Schema(
     channelId: { type: String, default: null },
     messageId: { type: String, default: null },
     createdAt: { type: Date, default: Date.now },
+    actorId: { type: String, default: null },
+    actorName: { type: String, default: null },
   },
   { _id: false },
 );
@@ -300,6 +326,8 @@ const staffValutazioneLogEntrySchema = new Schema(
 const staffEmbeddedSchema = new Schema(
   {
     rolesHistory: { type: [staffRolesHistoryEntrySchema], default: [] },
+    /** Append-only: pex/depex/val/warn (add+remove) with actor for /staff/gestione cronologia. */
+    trackHistory: { type: [staffTrackHistoryEntrySchema], default: [] },
     idCount: { type: Number, default: 0 },
     warnCount: { type: Number, default: 0 },
     warnReasons: { type: [String], default: [] },
@@ -561,6 +589,11 @@ const activityUserProfileSchema = new Schema(
       siteNotifPrefs: {
         mutedKinds: { type: [String], default: [] },
       },
+      /** Preferenze UI chrome sito (musica, kick pip) — sync PC/telefono. */
+      siteChromePrefs: {
+        type: Schema.Types.Mixed,
+        default: () => ({}),
+      },
       tenantPartnership: {
         suppressManagerPing: { type: Boolean, default: false },
         ephemeralCommands: { type: Boolean, default: false },
@@ -733,6 +766,8 @@ const SITE_DOCUMENT_TYPE = Object.freeze({
   COUNTING_RESTORE_TOKEN: "counting_restore_token",
   /** Web Push: una riga per endpoint browser (chiavi VAPID). */
   WEB_PUSH_SUBSCRIPTION: "web_push_subscription",
+  /** Inbox staff: candidature, appelli, resoconti (e mirror pause). */
+  STAFF_WORKFLOW: "staff_workflow",
 });
 
 const siteSuggestionCommentSchema = new Schema(
@@ -850,6 +885,23 @@ const siteDocumentSchema = new Schema(
     pushP256dh: { type: String, default: "", trim: true, maxlength: 512 },
     pushAuth: { type: String, default: "", trim: true, maxlength: 256 },
     pushUserAgent: { type: String, default: "", trim: true, maxlength: 300 },
+
+    /** staff_workflow: coda inbox (pause|candidature|appelli|resoconti). */
+    workflowQueue: { type: String, default: "", trim: true, maxlength: 24, index: true },
+    workflowKind: { type: String, default: "", trim: true, maxlength: 32 },
+    workflowType: { type: String, default: "", trim: true, maxlength: 32 },
+    workflowMessageId: { type: String, default: "", trim: true, maxlength: 32, index: true },
+    workflowChannelId: { type: String, default: "", trim: true, maxlength: 32 },
+    workflowPauseId: { type: String, default: "", trim: true, maxlength: 32, index: true },
+    workflowRoleId: { type: String, default: "", trim: true, maxlength: 32 },
+    workflowActionKey: { type: String, default: "", trim: true, maxlength: 48 },
+    /** staff_workflow resoconti: domenica di chiusura ciclo (YYYY-MM-DD, Europe/Rome). */
+    workflowWeekKey: { type: String, default: "", trim: true, maxlength: 16, index: true },
+    workflowFields: { type: Schema.Types.Mixed, default: null },
+    workflowDecidedBy: { type: String, default: "", trim: true, maxlength: 32 },
+    workflowDecidedByName: { type: String, default: "", trim: true, maxlength: 120 },
+    workflowSubjectName: { type: String, default: "", trim: true, maxlength: 120 },
+    workflowSubjectAvatarUrl: { type: String, default: "", trim: true, maxlength: 512 },
   },
   { timestamps: true },
 );
@@ -997,6 +1049,25 @@ siteDocumentSchema.index(
 siteDocumentSchema.index(
   { docType: 1, guildId: 1, userId: 1, dedupeKey: 1 },
   { unique: true, name: "hogwarts_serata_film_lb_publish_unique", partialFilterExpression: { docType: SITE_DOC.HOGWARTS_SERATA_FILM_LB_PUBLISH } },
+);
+siteDocumentSchema.index(
+  { docType: 1, guildId: 1, dedupeKey: 1 },
+  { unique: true, name: "staff_workflow_dedupe_unique", partialFilterExpression: { docType: SITE_DOC.STAFF_WORKFLOW } },
+);
+siteDocumentSchema.index(
+  { docType: 1, guildId: 1, workflowQueue: 1, status: 1, createdAt: -1 },
+  { name: "staff_workflow_queue_status_created", partialFilterExpression: { docType: SITE_DOC.STAFF_WORKFLOW } },
+);
+siteDocumentSchema.index(
+  { docType: 1, guildId: 1, workflowQueue: 1, workflowWeekKey: 1, createdAt: -1 },
+  {
+    name: "staff_workflow_resoconti_week",
+    partialFilterExpression: { docType: SITE_DOC.STAFF_WORKFLOW, workflowQueue: "resoconti" },
+  },
+);
+siteDocumentSchema.index(
+  { docType: 1, guildId: 1, workflowPauseId: 1, userId: 1 },
+  { name: "staff_workflow_pause_lookup", partialFilterExpression: { docType: SITE_DOC.STAFF_WORKFLOW, workflowQueue: "pause" } },
 );
 
 const MOD_CASE_COLLECTION = process.env.MOD_CASE_COLLECTION ? String(process.env.MOD_CASE_COLLECTION).trim() : "mod_case";

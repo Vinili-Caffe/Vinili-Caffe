@@ -78,7 +78,9 @@ function stripHubLobbyCreatePhrase(name) {
     .trim();
 }
 
-function voiceHubGroupKey(name) {
+function voiceHubGroupKey(name, channelId) {
+  const fromId = HUB_CHANNEL_GROUP_KEYS[String(channelId || "").trim()];
+  if (fromId) return fromId;
   const raw = String(name || "");
   if (/\bduo\b/i.test(raw)) return "duo";
   if (/\btrio\b/i.test(raw)) return "trio";
@@ -86,6 +88,11 @@ function voiceHubGroupKey(name) {
   if (/\blounge\b/i.test(raw)) return "lounge";
   if (/\bsquad\b/i.test(raw)) return "squad";
   return "";
+}
+
+function resolveHubGroupKey(channel) {
+  if (!channel) return "";
+  return voiceHubGroupKey(channel.name, channel.id);
 }
 
 function resolveHubSpawnBaseName(hubChannel) {
@@ -100,8 +107,8 @@ function resolveHubSpawnBaseName(hubChannel) {
 function isHubGroupSpawnChannel(channel, hubChannel, client) {
   if (!channel || channel.type !== ChannelType.GuildVoice) return false;
   if (isPublicVoiceHubId(channel.id, client)) return false;
-  const hubKey = voiceHubGroupKey(hubChannel?.name);
-  if (!hubKey || voiceHubGroupKey(channel.name) !== hubKey) return false;
+  const hubKey = resolveHubGroupKey(hubChannel);
+  if (!hubKey || resolveHubGroupKey(channel) !== hubKey) return false;
   return parseVoiceSuffixIndex(channel.name) > 0;
 }
 
@@ -127,11 +134,11 @@ function listCategoryChannelsSorted(guild, parentId) {
 
 function listHubGroupChannels(guild, hubChannel) {
   const parentId = String(hubChannel.parentId || "");
-  const hubKey = voiceHubGroupKey(hubChannel.name);
+  const hubKey = resolveHubGroupKey(hubChannel);
   if (!hubKey) return [];
   return listCategoryChannelsSorted(guild, parentId)
     .filter((ch) => ch.type === ChannelType.GuildVoice)
-    .filter((ch) => voiceHubGroupKey(ch.name) === hubKey);
+    .filter((ch) => resolveHubGroupKey(ch) === hubKey);
 }
 
 function nextSpawnSuffixIndex(groupChannels, hubId) {
@@ -148,7 +155,7 @@ function nextSpawnSuffixIndex(groupChannels, hubId) {
 
 function resolveInsertSlot(hubChannel, guild, client) {
   const parentId = String(hubChannel.parentId || "");
-  const hubKey = voiceHubGroupKey(hubChannel.name);
+  const hubKey = resolveHubGroupKey(hubChannel);
   if (!hubKey) return null;
   const siblings = listCategoryChannelsSorted(guild, parentId);
   const hubIndex = siblings.findIndex((ch) => String(ch.id) === String(hubChannel.id));
@@ -159,15 +166,22 @@ function resolveInsertSlot(hubChannel, guild, client) {
     const ch = siblings[i];
     if (ch.type !== ChannelType.GuildVoice) continue;
     if (isPublicVoiceHubId(ch.id, client)) break;
-    if (voiceHubGroupKey(ch.name) !== hubKey) break;
+    if (resolveHubGroupKey(ch) !== hubKey) break;
     insertAt = i + 1;
   }
 
+  const prev = siblings[insertAt - 1];
+  if (!prev) return null;
+  const prevPos = Number(prev.rawPosition);
+  if (!Number.isFinite(prevPos)) return null;
+
   if (insertAt < siblings.length) {
-    return Number(siblings[insertAt].rawPosition);
+    const next = siblings[insertAt];
+    const nextPos = Number(next.rawPosition);
+    if (Number.isFinite(nextPos) && nextPos > prevPos + 1) return prevPos + 1;
+    if (Number.isFinite(nextPos)) return nextPos;
   }
-  const last = siblings[siblings.length - 1];
-  return Number(last?.rawPosition ?? hubChannel.rawPosition) + 1;
+  return prevPos + 1;
 }
 
 function resolveInsertPosition(hubChannel, guild, client) {
@@ -269,25 +283,53 @@ function computeCategoryPositionUpdates(currentSorted, desiredOrder) {
   return updates;
 }
 
-async function applyCategoryPositionUpdates(guild, updates) {
-  if (!updates.length) return { applied: 0 };
-  for (const row of updates) {
-    const ch = guild.channels.cache.get(row.channel);
-    if (ch && ch.manageable === false) {
-      return { applied: 0, reason: "unmanageable", channelId: String(row.channel) };
+function buildLimitateCategoryDesiredOrder(guild, client, parentId) {
+  const siblings = listCategoryChannelsSorted(guild, parentId);
+  const hubs = getHubChannelIds(client)
+    .map((id) => guild.channels.cache.get(id))
+    .filter((hub) => hub && String(hub.parentId || "") === String(parentId))
+    .sort((a, b) => a.rawPosition - b.rawPosition || String(a.id).localeCompare(String(b.id)));
+
+  const used = new Set();
+  const ordered = [];
+  for (const hub of hubs) {
+    ordered.push(hub);
+    used.add(String(hub.id));
+    const spawns = siblings
+      .filter((ch) => !used.has(String(ch.id)) && isHubGroupSpawnChannel(ch, hub, client))
+      .sort((a, b) => parseVoiceSuffixIndex(a.name) - parseVoiceSuffixIndex(b.name));
+    for (const spawn of spawns) {
+      ordered.push(spawn);
+      used.add(String(spawn.id));
     }
   }
+  for (const ch of siblings) {
+    if (!used.has(String(ch.id))) ordered.push(ch);
+  }
+  return ordered;
+}
+
+async function applyCategoryPositionUpdates(guild, updates) {
+  if (!updates.length) return { applied: 0 };
+  const movable = [];
+  for (const row of updates) {
+    const ch = guild.channels.cache.get(row.channel);
+    if (!ch) continue;
+    if (ch.manageable === false) continue;
+    movable.push(row);
+  }
+  if (!movable.length) return { applied: 0, reason: "nothing_movable" };
   try {
     if (typeof guild.channels?.setPositions === "function") {
-      await guild.channels.setPositions(updates);
+      await guild.channels.setPositions(movable);
     } else {
-      for (const row of updates) {
+      for (const row of movable) {
         const ch = guild.channels.cache.get(row.channel);
         if (ch?.setPosition) await ch.setPosition(row.position);
       }
     }
     await guild.channels.fetch(undefined, { force: true }).catch(() => null);
-    return { applied: updates.length };
+    return { applied: movable.length };
   } catch (err) {
     return {
       applied: 0,
@@ -297,70 +339,112 @@ async function applyCategoryPositionUpdates(guild, updates) {
   }
 }
 
+async function moveMisplacedHubSpawns(guild, client, parentId, desiredOrder, options = {}) {
+  const gapMs = Number(options.gapMs) > 0 ? Number(options.gapMs) : 350;
+  let current = listCategoryChannelsSorted(guild, parentId);
+  let moved = 0;
+  for (let targetIdx = desiredOrder.length - 1; targetIdx >= 0; targetIdx -= 1) {
+    const target = desiredOrder[targetIdx];
+    if (!target || isPublicVoiceHubId(target.id, client)) continue;
+    const currentIdx = current.findIndex((ch) => String(ch.id) === String(target.id));
+    if (currentIdx === targetIdx) continue;
+    const fresh = guild.channels.cache.get(target.id) || target;
+    if (!fresh.manageable) continue;
+    const anchor = desiredOrder[targetIdx + 1] || null;
+    let ok = false;
+    if (anchor) {
+      const anchorFresh = guild.channels.cache.get(anchor.id) || anchor;
+      ok = await fresh.setPosition(anchorFresh.rawPosition).then(() => true).catch(() => false);
+    } else {
+      const prev = desiredOrder[targetIdx - 1];
+      const prevPos = Number(prev?.rawPosition);
+      if (Number.isFinite(prevPos)) {
+        ok = await fresh.setPosition(prevPos + 1).then(() => true).catch(() => false);
+      }
+    }
+    if (ok) {
+      moved += 1;
+      if (gapMs > 0) await pauseMs(gapMs);
+      if (options.skipFetch !== true) {
+        await guild.channels.fetch(undefined, { force: true }).catch(() => null);
+      }
+      current = listCategoryChannelsSorted(guild, parentId);
+    }
+  }
+  return moved;
+}
+
+async function reorderLimitateCategory(guild, client, options = {}) {
+  const stats = { moved: 0, failed: 0, parentId: "" };
+  if (!guild || !(await botCanManageVoiceHubs(guild))) return stats;
+  const quick = options.quick === true;
+  const maxAttempts = quick ? 1 : 3;
+  const retryPauseMs = quick ? 0 : 450;
+  const spawnGapMs = quick ? 0 : 350;
+
+  const parentId = String(
+    options.parentId ||
+      IDs.categories?.categoryLimitate ||
+      guild.channels.cache.get(getHubChannelIds(client)[0] || "")?.parentId ||
+      "",
+  );
+  if (!parentId) return stats;
+  stats.parentId = parentId;
+
+  await refreshParentChannelsCache(guild, parentId, client, { force: options.forceFetch === true && !quick });
+  const desired = buildLimitateCategoryDesiredOrder(guild, client, parentId);
+  let siblings = listCategoryChannelsSorted(guild, parentId);
+  if (siblingsOrderEqual(siblings, desired)) return stats;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    siblings = listCategoryChannelsSorted(guild, parentId);
+    const desiredOrder = buildLimitateCategoryDesiredOrder(guild, client, parentId);
+    if (siblingsOrderEqual(siblings, desiredOrder)) break;
+
+    const updates = computeCategoryPositionUpdates(siblings, desiredOrder);
+    const batch = await applyCategoryPositionUpdates(guild, updates);
+    if (batch.applied > 0) {
+      stats.moved += 1;
+      if (retryPauseMs > 0) await pauseMs(retryPauseMs);
+      continue;
+    }
+
+    const spawnMoved = await moveMisplacedHubSpawns(guild, client, parentId, desiredOrder, {
+      gapMs: spawnGapMs,
+      skipFetch: quick,
+    });
+    if (spawnMoved > 0) {
+      stats.moved += spawnMoved;
+      continue;
+    }
+
+    stats.failed += 1;
+    if (!quick) {
+      global.logger?.warn?.(
+        "[publicVoiceHub] limitate reorder failed:",
+        batch.reason || "spawn_move_failed",
+        batch.error || "",
+        siblings.map((ch) => `${ch.name}@${ch.rawPosition}`).join(" | "),
+      );
+    }
+    break;
+  }
+
+  return stats;
+}
+
 function pauseMs(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function ensureHubGroupChannelOrder(guild, hubChannel, client, options = {}) {
-  const parentId = String(hubChannel.parentId || "");
-  const stats = { moved: 0, skipped: 0, failed: 0, hubId: String(hubChannel?.id || "") };
-  if (!parentId || !(await botCanManageVoiceHubs(guild))) return stats;
-  const hubKey = voiceHubGroupKey(hubChannel.name);
-  if (!hubKey) return stats;
-
-  await refreshParentChannelsCache(guild, parentId, client, { force: options.forceFetch === true });
-  const freshHub = guild.channels.cache.get(hubChannel.id) || hubChannel;
-  let siblings = listCategoryChannelsSorted(guild, parentId);
-  const spawns = siblings
-    .filter((ch) => isHubGroupSpawnChannel(ch, freshHub, client))
-    .sort((a, b) => parseVoiceSuffixIndex(a.name) - parseVoiceSuffixIndex(b.name));
-  if (!spawns.length) return stats;
-
-  const desired = buildDesiredSiblingsWithHubSpawns(siblings, freshHub, spawns);
-  if (siblingsOrderEqual(siblings, desired)) {
-    const preVerify = verifyHubGroupChannelOrder(guild, freshHub, client);
-    if (preVerify.ok) return stats;
-  }
-
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    await refreshParentChannelsCache(guild, parentId, client, { force: true });
-    siblings = listCategoryChannelsSorted(guild, parentId);
-    const freshSpawns = spawns
-      .map((ch) => guild.channels.cache.get(ch.id) || siblings.find((row) => String(row.id) === String(ch.id)))
-      .filter(Boolean)
-      .sort((a, b) => parseVoiceSuffixIndex(a.name) - parseVoiceSuffixIndex(b.name));
-    const desiredOrder = buildDesiredSiblingsWithHubSpawns(siblings, freshHub, freshSpawns);
-    if (siblingsOrderEqual(siblings, desiredOrder)) break;
-
-    const updates = computeCategoryPositionUpdates(siblings, desiredOrder);
-    if (!updates.length) {
-      global.logger?.warn?.(
-        "[publicVoiceHub] realign skipped empty updates:",
-        freshHub.name || freshHub.id,
-        siblings.map((ch) => `${ch.name}@${ch.rawPosition}`).join(" | "),
-      );
-      break;
-    }
-
-    const moveResult = await applyCategoryPositionUpdates(guild, updates);
-    if (moveResult.applied > 0) stats.moved += 1;
-    else {
-      stats.failed += 1;
-      if (moveResult.reason) {
-        global.logger?.warn?.(
-          "[publicVoiceHub] realign failed:",
-          moveResult.channelId || freshHub.id,
-          moveResult.reason,
-          moveResult.error || "",
-        );
-      }
-      break;
-    }
-    if (attempt < 2) await pauseMs(450);
-  }
-
-  await refreshParentChannelsCache(guild, parentId, client, { force: true });
-  const verify = verifyHubGroupChannelOrder(guild, freshHub, client);
+  const parentId = String(hubChannel?.parentId || "");
+  const stats = await reorderLimitateCategory(guild, client, {
+    parentId,
+    forceFetch: options.forceFetch === true,
+  });
+  stats.hubId = String(hubChannel?.id || "");
+  const verify = verifyHubGroupChannelOrder(guild, hubChannel, client);
   if (!verify.ok) stats.misplaced = verify.misplaced;
   return stats;
 }
@@ -369,16 +453,14 @@ async function realignAllPublicVoiceHubGroups(guild, client) {
   const summary = { moved: 0, skipped: 0, failed: 0, misplaced: [] };
   if (!guild || !(await botCanManageVoiceHubs(guild))) return summary;
   await guild.channels.fetch(undefined, { force: true }).catch(() => null);
+  const stats = await reorderLimitateCategory(guild, client, { forceFetch: true });
+  summary.moved += stats.moved || 0;
+  summary.failed += stats.failed || 0;
   for (const hubId of getHubChannelIds(client)) {
     const hub = guild.channels.cache.get(hubId) || (await guild.channels.fetch(hubId).catch(() => null));
     if (!hub?.isVoiceBased?.()) continue;
-    const stats = await ensureHubGroupChannelOrder(guild, hub, client, { forceFetch: true });
-    summary.moved += stats.moved || 0;
-    summary.skipped += stats.skipped || 0;
-    summary.failed += stats.failed || 0;
-    if (Array.isArray(stats.misplaced) && stats.misplaced.length) {
-      summary.misplaced.push(...stats.misplaced);
-    }
+    const verify = verifyHubGroupChannelOrder(guild, hub, client);
+    if (!verify.ok && Array.isArray(verify.misplaced)) summary.misplaced.push(...verify.misplaced);
   }
   return summary;
 }
@@ -691,12 +773,12 @@ function isSpawnedHubChannel(channel, client) {
   if (!channel || channel.type !== ChannelType.GuildVoice) return false;
   if (!INDEX_SUFFIX_RE.test(String(channel.name || ""))) return false;
   const parentId = String(channel.parentId || "");
-  const hubKey = voiceHubGroupKey(channel.name);
+  const hubKey = resolveHubGroupKey(channel);
   if (!hubKey) return false;
   for (const hubId of getHubChannelIds(client)) {
     const hub = channel.guild?.channels?.cache?.get(hubId);
     if (!hub || String(hub.parentId || "") !== parentId) continue;
-    if (voiceHubGroupKey(hub.name) === hubKey) return true;
+    if (resolveHubGroupKey(hub) === hubKey) return true;
   }
   return false;
 }
@@ -814,11 +896,57 @@ function scheduleSpawnedChannelDelete(channel, client) {
       return false;
     });
     if (!deleted) return;
+    const hubId = spawnedHubByChannel.get(channelId) || null;
     forgetSpawnedChannel(channelId);
-    queueCategoryRenumber(client, guild.id);
+    let hub = hubId ? guild.channels.cache.get(hubId) : null;
+    if (!hub) {
+      const hubKey = resolveHubGroupKey(fresh);
+      if (hubKey) {
+        hub = getHubChannelIds(client)
+          .map((id) => guild.channels.cache.get(id))
+          .find(
+            (row) =>
+              row &&
+              String(row.parentId || "") === String(fresh.parentId || "") &&
+              resolveHubGroupKey(row) === hubKey,
+          );
+      }
+    }
+    if (hub) {
+      await reorderLimitateCategory(guild, client, { parentId: fresh.parentId, forceFetch: true }).catch(() => null);
+    }
+    queueCategoryRenumber(client, guild.id, 5000);
   }, EMPTY_DELETE_DELAY_MS);
   timer.unref?.();
   emptyDeleteTimers.set(channelId, timer);
+}
+
+function scheduleHubSpawnFollowUp(guild, client, hubChannel, createdChannelId) {
+  const guildId = String(guild?.id || "");
+  const hubId = String(hubChannel?.id || "");
+  const channelId = String(createdChannelId || "");
+  if (!guildId || !hubId) return;
+  setImmediate(() => {
+    (async () => {
+      const liveGuild = client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
+      if (!liveGuild) return;
+      const hub = liveGuild.channels.cache.get(hubId) || (await liveGuild.channels.fetch(hubId).catch(() => null));
+      if (!hub) return;
+      const created =
+        liveGuild.channels.cache.get(channelId) ||
+        (channelId ? await liveGuild.channels.fetch(channelId).catch(() => null) : null);
+      if (created) {
+        await ensureSpawnedChannelMemberTextAccess(created, liveGuild).catch(() => null);
+      }
+      await reorderLimitateCategory(liveGuild, client, {
+        parentId: hub.parentId,
+        forceFetch: true,
+      }).catch(() => null);
+      queueCategoryRenumber(client, liveGuild.id, 5000);
+    })().catch((err) => {
+      global.logger?.warn?.("[publicVoiceHub] deferred follow-up failed:", err?.message || err);
+    });
+  });
 }
 
 async function handlePublicVoiceHubJoin(oldState, newState, client) {
@@ -849,9 +977,8 @@ async function handlePublicVoiceHubJoin(oldState, newState, client) {
 
   try {
     await withHubCreateLock(joinedId, async () => {
-      await refreshParentChannelsCache(guild, hub.parentId, client, { force: true });
+      await refreshParentChannelsCache(guild, hub.parentId, client, { force: false });
       const freshHub = guild.channels.cache.get(joinedId) || hub;
-      await ensureHubLobbySpeakDenied(freshHub, guild);
       const group = listHubGroupChannels(guild, freshHub);
       const nextIndex = nextSpawnSuffixIndex(group, joinedId);
       const spawnName = `${resolveHubSpawnBaseName(freshHub)}${toSuperscriptNumber(nextIndex, MIN_SUFFIX_DIGITS)}`;
@@ -876,14 +1003,6 @@ async function handlePublicVoiceHubJoin(oldState, newState, client) {
       });
       if (!created) return;
 
-      await ensureSpawnedChannelMemberTextAccess(created, guild);
-
-      if (Number.isFinite(position) && Number(created.rawPosition) !== Number(position)) {
-        await created.setPosition(position).catch((err) => {
-          global.logger?.warn?.("[publicVoiceHub] setPosition failed:", err?.message || err);
-        });
-      }
-
       rememberSpawnedChannel(created.id, joinedId);
 
       const freshMember = await resolveGuildMemberVoiceState(guild, member, uid);
@@ -903,14 +1022,7 @@ async function handlePublicVoiceHubJoin(oldState, newState, client) {
         return;
       }
 
-      const realignStats = await ensureHubGroupChannelOrder(guild, freshHub, client, { forceFetch: true });
-      if (Array.isArray(realignStats.misplaced) && realignStats.misplaced.length) {
-        global.logger?.warn?.(
-          "[publicVoiceHub] spawn still misplaced after join realign:",
-          realignStats.misplaced.map((row) => row.name || row.id).join(", "),
-        );
-      }
-      queueCategoryRenumber(client, guild.id);
+      scheduleHubSpawnFollowUp(guild, client, freshHub, created.id);
     });
   } finally {
     userCreateLocks.delete(uid);
@@ -964,6 +1076,7 @@ module.exports = {
   isSpawnedHubChannel,
   stripVoiceSuffix,
   voiceHubGroupKey,
+  resolveHubGroupKey,
   resolveHubSpawnBaseName,
   isHubGroupSpawnChannel,
   parseVoiceSuffixIndex,
@@ -978,6 +1091,8 @@ module.exports = {
   hubLobbyRoleIds,
   resolveInsertSlot,
   resolveInsertPosition,
+  reorderLimitateCategory,
+  buildLimitateCategoryDesiredOrder,
   ensureHubGroupChannelOrder,
   realignAllPublicVoiceHubGroups,
   realignPublicVoiceHubGroupsOnStartup,

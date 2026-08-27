@@ -6,8 +6,9 @@ const {
   resolveStaffProfileKind,
 } = require("../Staff/staffProfilePanelRuntime");
 const {
-  STAFF_HIGH_STAFF_ELIGIBLE_KEYS,
-  memberHasAnyRoleKey,
+  memberIsHighStaffEligible,
+  memberHasDirectorRole,
+  memberCanReviewAppelli,
 } = require("../Staff/staffRoleHierarchy");
 const { assertWebsiteStaffAccess, normalizeHeaderSecret } = require("./siteStaffAccessApi");
 const {
@@ -21,10 +22,6 @@ const { countOpenWebTickets } = require("./siteWebTicketsApi");
 
 const DASH_CACHE_TTL_MS = 20_000;
 let dashCache = null;
-
-function memberIsHighStaffEligible(member) {
-  return memberHasAnyRoleKey(member, STAFF_HIGH_STAFF_ELIGIBLE_KEYS);
-}
 
 async function buildDashboardPayload(client, viewerMember) {
   const guildId = String(IDs.guilds.main || "");
@@ -77,13 +74,10 @@ async function buildDashboardPayload(client, viewerMember) {
     },
     byRole: roster.byRole || [],
     tools: [
-      { id: "profilo", href: "/staff/profilo/", title: "Profilo", desc: "Ruolo, pause, val e serata film", icon: "id-card-o" },
-      { id: "pause", href: "/staff/pause/", title: "Pause", desc: "Calendario e richieste", icon: "calendar" },
-      { id: "directory", href: "/staff/directory/", title: "Directory", desc: "Chi è in staff ora", icon: "users" },
-      { id: "pm", href: "/staff/pm/", title: "Partner Manager", desc: "Punti e blacklist", icon: "handshake-o" },
-      { id: "valutazioni", href: "/staff/valutazioni/", title: "Val / Warn", desc: "Conti e overview team", icon: "star-half-o" },
-      { id: "ticket", href: "/staff/ticket/", title: "Ticket", desc: "Chat live ticket sul sito", icon: "ticket" },
       { id: "guida", href: "/staff/guida/", title: "Guida", desc: "Procedure ufficiali", icon: "book" },
+      { id: "pause", href: "/staff/pause/", title: "Pause", desc: "Calendario e richieste", icon: "calendar" },
+      { id: "inbox", href: "/staff/inbox/", title: "Inbox", desc: "Pause, candidature, appelli e resoconti", icon: "inbox" },
+      { id: "ticket", href: "/staff/ticket/", title: "Ticket", desc: "Chat live ticket sul sito", icon: "ticket" },
     ],
   };
 }
@@ -123,4 +117,6 @@ async function handleSiteStaffDashboardGet(client, req, res) {
 module.exports = {
   handleSiteStaffDashboardGet,
   memberIsHighStaffEligible,
+  memberHasDirectorRole,
+  memberCanReviewAppelli,
 };

@@ -20,7 +20,8 @@
           ".vc-staff-tools-rank",
           ".vc-staff-profile-identity__avatar-wrap",
           ".vc-staff-hub-preview",
-          ".vc-staff-day-detail__avatar",
+          ".vc-staff-avatar-wrap",
+          ".vc-staff-inbox-item",
           ".vc-ul-avatar",
           ".vc-user-profile-avatarwrap",
           ".vc-user-profile-shared__avatar",
@@ -33,7 +34,8 @@
           ".vc-role-member-avatar",
           ".vc-vote-list-avatar",
           ".vc-vote-podium-avatar",
-          "[class*='avatar']",
+          ".vc-wfc-msg__av img",
+          ".vc-wfc-avatar",
         ].join(", "),
       )
     ) {
@@ -86,9 +88,15 @@
 
   function staticPngFromDiscordAvatar(src) {
     var u = String(src || "").trim();
-    var m = u.match(/^(https:\/\/cdn\.discordapp\.com\/avatars\/\d+\/(?:a_)?[a-f0-9]+)\.(gif|webp|jpg|jpeg)(\?.*)?$/i);
-    if (!m) return "";
-    return m[1] + ".png" + (m[3] || "");
+    var user = u.match(
+      /^(https:\/\/cdn\.discordapp\.com\/avatars\/\d+\/(?:a_)?[a-f0-9]+)\.(gif|webp|jpg|jpeg)(\?.*)?$/i,
+    );
+    if (user) return user[1] + ".png" + (user[3] || "");
+    var guild = u.match(
+      /^(https:\/\/cdn\.discordapp\.com\/guilds\/\d+\/users\/\d+\/avatars\/(?:a_)?[a-f0-9]+)\.(gif|webp|jpg|jpeg)(\?.*)?$/i,
+    );
+    if (guild) return guild[1] + ".png" + (guild[3] || "");
+    return "";
   }
 
   function setSrcOnce(img, next) {
@@ -106,15 +114,18 @@
 
     var current = String(img.getAttribute("src") || "");
     var stage = Number(img.dataset[FALLBACK_MARK] || "0");
+    var isGuildAvatar = /cdn\.discordapp\.com\/guilds\/\d+\/users\/\d+\/avatars\//i.test(current);
 
-    // 1) gif/webp rotto → stesso hash in PNG statico
+    // 1) gif/webp rotto → stesso hash in PNG statico (skip per guild: spesso 404 anche in png)
     if (stage < 1) {
-      var png = staticPngFromDiscordAvatar(current);
-      if (png && png !== current) {
-        img.dataset[FALLBACK_MARK] = "1";
-        img.classList.add("vc-avatar-fallback-img");
-        setSrcOnce(img, png);
-        return;
+      if (!isGuildAvatar) {
+        var png = staticPngFromDiscordAvatar(current);
+        if (png && png !== current) {
+          img.dataset[FALLBACK_MARK] = "1";
+          img.classList.add("vc-avatar-fallback-img");
+          setSrcOnce(img, png);
+          return;
+        }
       }
       img.dataset[FALLBACK_MARK] = "1";
     }

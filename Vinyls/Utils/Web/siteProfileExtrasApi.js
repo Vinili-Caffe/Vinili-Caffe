@@ -40,7 +40,7 @@ const {
 } = require("../Community/personalityRolePersistence");
 const { ROLE_PANEL_CATEGORY_KEYS, normalizeRolePanelCategory } = require("../Community/ruoliColoriPanelComponents");
 const { inferBirthYearFromAge, tryCelebrateBirthdayAfterProfileSave } = require("../../Services/Community/birthdayService");
-const { fetchHogwartsProfileSection, isHogwartsProfileSectionEnabled } = require("../../Services/Community/hogwartsProfileSectionService");
+const { isHogwartsProfileSectionEnabled } = require("../../Services/Community/hogwartsProfileSectionService");
 const {
   getSerializedSiteNotifPrefs,
   mutateSiteNotifPrefs,
@@ -59,6 +59,41 @@ const ROLE_PANEL_LABELS = Object.freeze({
   colors_level: "Colori Livelli",
   colors_plus: "Colori Plus",
 });
+
+const EXTRAS_GET_CACHE_TTL_MS = 25_000;
+const extrasGetCache = new Map();
+
+function extrasCacheKey(userId) {
+  return String(userId || "");
+}
+
+function readExtrasCache(userId) {
+  const key = extrasCacheKey(userId);
+  const hit = extrasGetCache.get(key);
+  if (!hit || Number(hit.exp || 0) <= Date.now()) {
+    extrasGetCache.delete(key);
+    return null;
+  }
+  return hit.payload;
+}
+
+function writeExtrasCache(userId, payload) {
+  const key = extrasCacheKey(userId);
+  extrasGetCache.set(key, { exp: Date.now() + EXTRAS_GET_CACHE_TTL_MS, payload });
+  if (extrasGetCache.size > 300) {
+    const first = extrasGetCache.keys().next().value;
+    if (first) extrasGetCache.delete(first);
+  }
+}
+
+function clearExtrasCache(userId) {
+  const uid = extrasCacheKey(userId);
+  if (!uid) return;
+  extrasGetCache.delete(uid);
+  for (const key of [...extrasGetCache.keys()]) {
+    if (key === uid || String(key).indexOf(uid + ":") === 0) extrasGetCache.delete(key);
+  }
+}
 
 function resolveGuildId(client) {
   return String(client?.config?.mainGuildId || IDs.guilds?.main || "").trim();
@@ -81,16 +116,44 @@ function serializeDmPrefs(prefs) {
 
 async function readPrivacyState(guildId, userId) {
   const out = {};
-  for (const kind of PRIVACY_CONTENT_KINDS) {
-    const model = privacyContentModel(kind);
-    const row = model ? await model.findOne({ guildId, userId }).lean().catch(() => null) : null;
-    out[kind] = {
-      key: kind,
-      label: PRIVACY_CONTENT_LABELS[kind] || kind,
-      blocked: Boolean(row?.blocked),
-    };
-  }
+  await Promise.all(
+    PRIVACY_CONTENT_KINDS.map(async (kind) => {
+      const model = privacyContentModel(kind);
+      const row = model ? await model.findOne({ guildId, userId }).lean().catch(() => null) : null;
+      out[kind] = {
+        key: kind,
+        label: PRIVACY_CONTENT_LABELS[kind] || kind,
+        blocked: Boolean(row?.blocked),
+      };
+    }),
+  );
   return out;
+}
+
+function normalizeExtrasSection(raw) {
+  const s = String(raw || "")
+    .trim()
+    .toLowerCase();
+  if (s === "birthday" || s === "privacy" || s === "roles" || s === "role_panel") return s === "role_panel" ? "roles" : s;
+  if (s === "reactions" || s === "mention_reaction") return "reactions";
+  if (s === "response" || s === "mention_response") return "response";
+  return "";
+}
+
+function extrasSkeleton(userId) {
+  return {
+    ok: true,
+    status: 200,
+    userId,
+    dm: { blockAll: false, categories: [] },
+    siteNotif: { groups: [] },
+    privacy: { kinds: [] },
+    birthday: { day: null, month: null, birthYear: null, showAge: true },
+    mentionReaction: { access: false, max: 0, reactions: [], display: [] },
+    mentionResponse: { access: false, accessHint: MENTION_RESPONSE_ACCESS_HINT_IT, text: "" },
+    rolePanel: { categories: [], byKey: {} },
+    hogwarts: { enabled: false, sortingUrl: "/evento/smistamento/", summary: null },
+  };
 }
 
 function roleOptionLabel(guild, roleId, fallback) {
@@ -160,81 +223,106 @@ async function buildRolePanelCategory(guild, member, cat, prefetched = {}) {
   };
 }
 
-async function getProfileExtras(client, { accessToken }) {
+async function getProfileExtras(client, { accessToken, section: sectionRaw } = {}) {
   const resolved = await resolveWebsiteGuildMember(client, accessToken);
   if (!resolved.ok) return resolved;
   const { guild, member, userId } = resolved;
+  const section = normalizeExtrasSection(sectionRaw);
 
-  const [dmPrefs, siteNotif, privacy, birthday, reactionDoc, mentionResponse, hogwartsEnabled, profileLevel, canPlus] =
-    await Promise.all([
-      getNoDmPreferences(guild.id, userId).catch(() => ({ blockAll: false, disabled: new Set() })),
-      getSerializedSiteNotifPrefs(guild.id, userId).catch(() => ({ groups: [] })),
-      readPrivacyState(guild.id, userId),
-      getBirthdayProfile(guild.id, userId).catch(() => null),
-      MentionReaction.findOne({ guildId: guild.id, userId }).lean().catch(() => null),
-      getMentionResponse(guild.id, userId).catch(() => null),
-      Promise.resolve(isHogwartsProfileSectionEnabled(client)),
-      colorUnlocks.fetchNumericProfileLevel(guild.id, userId).catch(() => 0),
-      colorUnlocks.memberHasPlusColorFullEligibilityAsync(member).catch(() => false),
-    ]);
+  const cacheKey = section ? `${userId}:${section}` : userId;
+  const cached = readExtrasCache(cacheKey);
+  if (cached) return { ...cached, cached: true };
 
-  const reactionMax = getCustomReactionMax(member);
-  const reactionTokens = Array.isArray(reactionDoc?.reactions) ? reactionDoc.reactions.slice(0, reactionMax) : [];
-  const rolePrefetch = { level: Number(profileLevel) || 0, canPlus: Boolean(canPlus) };
-  const rolePanels = await Promise.all(
-    ROLE_PANEL_CATEGORY_KEYS.map((key) => buildRolePanelCategory(guild, member, key, rolePrefetch)),
-  );
-  const roleCategories = {};
-  for (const panel of rolePanels) {
-    if (panel?.key) roleCategories[panel.key] = panel;
+  const needAll = !section;
+  const needBirthday = needAll || section === "birthday";
+  const needPrivacy = needAll || section === "privacy";
+  const needRoles = needAll || section === "roles";
+  const needReactions = needAll || section === "reactions";
+  const needResponse = needAll || section === "response";
+  const needDm = needAll;
+  const needNotif = needAll;
+
+  const [
+    dmPrefs,
+    siteNotif,
+    privacy,
+    birthday,
+    reactionDoc,
+    mentionResponse,
+    hogwartsEnabled,
+    profileLevel,
+    canPlus,
+  ] = await Promise.all([
+    needDm ? getNoDmPreferences(guild.id, userId).catch(() => ({ blockAll: false, disabled: new Set() })) : null,
+    needNotif ? getSerializedSiteNotifPrefs(guild.id, userId).catch(() => ({ groups: [] })) : null,
+    needPrivacy ? readPrivacyState(guild.id, userId) : null,
+    needBirthday ? getBirthdayProfile(guild.id, userId).catch(() => null) : null,
+    needReactions ? MentionReaction.findOne({ guildId: guild.id, userId }).lean().catch(() => null) : null,
+    needResponse ? getMentionResponse(guild.id, userId).catch(() => null) : null,
+    Promise.resolve(isHogwartsProfileSectionEnabled(client)),
+    needRoles ? colorUnlocks.fetchNumericProfileLevel(guild.id, userId).catch(() => 0) : 0,
+    needRoles ? colorUnlocks.memberHasPlusColorFullEligibilityAsync(member).catch(() => false) : false,
+  ]);
+
+  const payload = extrasSkeleton(userId);
+  payload.hogwarts.enabled = Boolean(hogwartsEnabled);
+
+  if (needDm && dmPrefs) payload.dm = serializeDmPrefs(dmPrefs);
+  if (needNotif && siteNotif) {
+    payload.siteNotif = siteNotif && Array.isArray(siteNotif.groups) ? siteNotif : { groups: [] };
   }
-
-  let hogwarts = null;
-  if (hogwartsEnabled) {
-    hogwarts = await fetchHogwartsProfileSection(client, guild.id, userId, member, guild).catch(() => null);
+  if (needPrivacy && privacy) {
+    payload.privacy = { kinds: PRIVACY_CONTENT_KINDS.map((k) => privacy[k]) };
   }
-
-  return {
-    ok: true,
-    status: 200,
-    userId,
-    dm: serializeDmPrefs(dmPrefs),
-    siteNotif: siteNotif && Array.isArray(siteNotif.groups) ? siteNotif : { groups: [] },
-    privacy: {
-      kinds: PRIVACY_CONTENT_KINDS.map((k) => privacy[k]),
-    },
-    birthday: birthday
+  if (needBirthday) {
+    payload.birthday = birthday
       ? {
           day: Number(birthday.day) || null,
           month: Number(birthday.month) || null,
           birthYear: Number(birthday.birthYear) || null,
           showAge: birthday.showAge !== false,
         }
-      : { day: null, month: null, birthYear: null, showAge: true },
-    mentionReaction: {
+      : { day: null, month: null, birthYear: null, showAge: true };
+  }
+  if (needReactions) {
+    const reactionMax = getCustomReactionMax(member);
+    const reactionTokens = Array.isArray(reactionDoc?.reactions)
+      ? reactionDoc.reactions.slice(0, reactionMax)
+      : [];
+    payload.mentionReaction = {
       access: memberHasCustomReactionRoleAccess(member),
       max: reactionMax,
       reactions: reactionTokens,
       display: reactionTokens.map((t) => toDisplay(t, guild)).filter(Boolean),
-    },
-    mentionResponse: {
+    };
+  }
+  if (needResponse) {
+    payload.mentionResponse = {
       access: memberHasMentionResponseAccess(member),
       accessHint: MENTION_RESPONSE_ACCESS_HINT_IT,
       text: String(mentionResponse?.text || "").trim(),
-    },
-    rolePanel: {
+    };
+  }
+  if (needRoles) {
+    const rolePrefetch = { level: Number(profileLevel) || 0, canPlus: Boolean(canPlus) };
+    const rolePanels = await Promise.all(
+      ROLE_PANEL_CATEGORY_KEYS.map((key) => buildRolePanelCategory(guild, member, key, rolePrefetch)),
+    );
+    const roleCategories = {};
+    for (const panel of rolePanels) {
+      if (panel?.key) roleCategories[panel.key] = panel;
+    }
+    payload.rolePanel = {
       categories: ROLE_PANEL_CATEGORY_KEYS.map((k) => ({
         key: k,
         label: ROLE_PANEL_LABELS[k] || k,
       })),
       byKey: roleCategories,
-    },
-    hogwarts: {
-      enabled: Boolean(hogwartsEnabled),
-      sortingUrl: "/evento/smistamento/",
-      summary: hogwarts || null,
-    },
-  };
+    };
+  }
+
+  writeExtrasCache(cacheKey, payload);
+  return payload;
 }
 
 async function mutateDm(guildId, userId, payload) {
@@ -310,7 +398,7 @@ async function mutateBirthday(guild, userId, client, payload) {
     const current = (await getBirthdayProfile(guild.id, userId).catch(() => null)) || {};
     const showAge = payload?.showAge == null ? !(current.showAge === false) : Boolean(payload.showAge);
     if (!Number(current.day) || !Number(current.month) || !Number(current.birthYear)) {
-      return { ok: false, reason: "birthday_incomplete", message: "Imposta prima data e età." };
+      return { ok: false, reason: "birthday_incomplete", message: "Imposta prima giorno, mese e anno di nascita." };
     }
     await setBirthdayProfile(guild.id, userId, {
       day: Number(current.day),
@@ -338,15 +426,23 @@ async function mutateBirthday(guild, userId, client, payload) {
     const month = Number(payload?.month);
     let birthYear = Number(payload?.birthYear);
     const age = Number(payload?.age);
-    const showAge = payload?.showAge == null ? true : Boolean(payload.showAge);
+    const current = (await getBirthdayProfile(guild.id, userId).catch(() => null)) || {};
+    const showAge = payload?.showAge == null ? current.showAge !== false : Boolean(payload.showAge);
     if (!Number.isInteger(day) || !Number.isInteger(month) || day < 1 || day > 31 || month < 1 || month > 12) {
       return { ok: false, reason: "invalid_date", message: "Data non valida (giorno/mese)." };
     }
     if (!Number.isInteger(birthYear) || birthYear < 1900) {
       if (!Number.isInteger(age) || age < 1 || age > 120) {
-        return { ok: false, reason: "invalid_age", message: "Indica l’età o l’anno di nascita." };
+        return { ok: false, reason: "invalid_age", message: "Indica l'anno di nascita (es. 2001)." };
       }
       birthYear = inferBirthYearFromAge(day, month, age);
+    }
+    const nowY = new Date().getFullYear();
+    if (birthYear > nowY) {
+      return { ok: false, reason: "invalid_age", message: "L'anno di nascita non puo essere nel futuro." };
+    }
+    if (birthYear < nowY - 120) {
+      return { ok: false, reason: "invalid_age", message: "Anno di nascita non valido." };
     }
     await setBirthdayProfile(guild.id, userId, { day, month, birthYear, showAge });
     await tryCelebrateBirthdayAfterProfileSave(guild, userId, client).catch(() => null);
@@ -380,9 +476,16 @@ async function mutateMentionReaction(guild, member, userId, client, payload) {
     return { ok: true, mentionReaction: { access: true, max, reactions: [], display: [] }, message: "Reaction rimosse." };
   }
   if (action === "set") {
-    const tokens = parseReactionTokens(payload?.value || payload?.reactions || "", max, guild);
+    const tokens = Array.isArray(payload?.reactions)
+      ? payload.reactions.map((t) => String(t || "").trim()).filter(Boolean).slice(0, max)
+      : parseReactionTokens(payload?.value || "", max, guild);
     if (!tokens.length) {
-      return { ok: false, reason: "invalid_params", message: "Inserisci almeno un’emoji valida." };
+      await MentionReaction.deleteOne({ guildId: guild.id, userId }).catch(() => null);
+      return {
+        ok: true,
+        mentionReaction: { access: true, max, reactions: [], display: [] },
+        message: "Reaction rimosse.",
+      };
     }
     await MentionReaction.findOneAndUpdate(
       { guildId: guild.id, userId },
@@ -536,6 +639,7 @@ async function mutateProfileExtras(client, payload) {
     };
   }
 
+  clearExtrasCache(userId);
   return { ok: true, status: 200, ...result };
 }
 

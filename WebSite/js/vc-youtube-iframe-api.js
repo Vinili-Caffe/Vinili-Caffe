@@ -1,13 +1,13 @@
 (function () {
   if (window.__vcLoadYoutubeIframeApi) return;
 
-  // Stesso host per iframe_api e YT.Player: mix youtube.com + nocookie → postMessage origin mismatch.
+  // Prefer nocookie first when browsers block third-party youtube.com cookies.
   var API_SOURCES = [
-    { api: "https://www.youtube.com/iframe_api", host: "https://www.youtube.com" },
     { api: "https://www.youtube-nocookie.com/iframe_api", host: "https://www.youtube-nocookie.com" },
+    { api: "https://www.youtube.com/iframe_api", host: "https://www.youtube.com" },
   ];
 
-  window.__vcYoutubePlayerHost = "https://www.youtube.com";
+  window.__vcYoutubePlayerHost = "https://www.youtube-nocookie.com";
 
   function hasIframeApiScript() {
     try {

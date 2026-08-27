@@ -74,6 +74,10 @@ const siteWebTicketSchema = new Schema(
     /** Log Discord chiusura (canale ticket logs, come i ticket Discord). */
     closeLogChannelId: { type: String, default: "", trim: true, maxlength: 32 },
     closeLogMessageId: { type: String, default: "", trim: true, maxlength: 32 },
+    /** Riscatto shop Partner Manager (tier 150/200/250) — ticket High Staff dedicato. */
+    partnerManagerShopRedeemTier: { type: Number, default: null },
+    partnerManagerShopRedeemAckResult: { type: String, default: null, trim: true, maxlength: 32 },
+    partnerManagerShopRedeemAckAt: { type: Date, default: null },
   },
   { timestamps: true },
 );

@@ -13,7 +13,7 @@ const MOD_RULE_TITLE_IT = {
   "3.2": "Comportamenti scorretti in vocale",
   "3.3": "Errape, SoundBoard e VoiceChanger",
   "3.4": "Uscire e rientrare dalle vocali",
-  "3.6": "AFK in vocale",
+  "3.5": "AFK in vocale",
 };
 
 const ICON_BY_ID = {
@@ -30,7 +30,7 @@ const ICON_BY_ID = {
   "3.2": "music",
   "3.3": "volume-off",
   "3.4": "refresh",
-  "3.6": "microphone",
+  "3.5": "microphone",
 };
 
 function stripDiscordMarkup(s) {

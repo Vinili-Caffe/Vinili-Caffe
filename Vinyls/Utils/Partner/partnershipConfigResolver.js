@@ -414,7 +414,16 @@ function getPartnershipLogsChannelId(guildId) {
 
 function getPointsRemovedLogChannelId(guildId) {
   const cfg = resolvePartnershipConfigSync(guildId);
-  return cfg?.pointsRemovedChannelId || null;
+  const id = cfg?.pointsRemovedChannelId || null;
+  if (!id) return null;
+  const legacyPuntiTolti = String(IDs.channels?.puntiTolti || "").trim();
+  if (legacyPuntiTolti && String(id) === legacyPuntiTolti) {
+    try {
+      const { isDiscordStaffChannelPostsEnabled } = require("../Web/discordWorkflowUiGate");
+      if (!isDiscordStaffChannelPostsEnabled()) return null;
+    } catch (_) {}
+  }
+  return id;
 }
 
 /** Log partnership eseguite / eliminate (canale log configurato in setup). */

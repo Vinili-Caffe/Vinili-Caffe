@@ -159,6 +159,8 @@ const ids = {
     counting: "1442569179743125554",
     riunioneStaff: "1443958044802420798",
     commands: "1442569138114662490",
+    /** Chat testo collegata al palco / live dello streamer (no automod). */
+    streamerChat: "1539973769588908082",
     stanzaLobbyVoice: "1499754530076626964",
     staffCmds: "1442569262689554444",
     partnerships: "1442569193470824448",
@@ -345,8 +347,12 @@ const ids = {
     Live: "1522594136006594580",
     KickSub: "1539781035360002089",
     KickModerator: "1540420675313860618",
-    Status: "1525971150297895065",
+    /** Ex-Changelogs; Status migrato qui e ruolo Status eliminato. */
+    Updates: "1525971161761058826",
+    /** @deprecated alias di Updates */
     Changelogs: "1525971161761058826",
+    /** @deprecated migrato in Updates */
+    Status: "1525971161761058826",
     HobbyAnimeManga: "1522300283693039736",
     HobbyLettura: "1522300334683455680",
     HobbyScrittura: "1522300393860759613",

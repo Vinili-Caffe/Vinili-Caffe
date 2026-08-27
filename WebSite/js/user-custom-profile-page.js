@@ -34,9 +34,19 @@
   }
 
   function getToken() {
+    try {
+      var hub = window.__VC_PERS_HUB_API;
+      if (hub && typeof hub.getToken === "function") return hub.getToken();
+    } catch (eHub) {}
+    try {
+      if (typeof window.__vcDiscordGetAccessToken === "function") {
+        return String(window.__vcDiscordGetAccessToken() || "").trim();
+      }
+    } catch (eDc) {}
     var t = localStorage.getItem(ACCESS_TOKEN_KEY);
+    if (!t) return "";
     var exp = Number(localStorage.getItem(ACCESS_EXPIRES_KEY) || "0");
-    if (!t || !exp || Date.now() >= exp) return "";
+    if (exp && Date.now() >= exp) return "";
     return t;
   }
 
@@ -335,6 +345,12 @@
   }
 
   function showToast(message, isError) {
+    var msg = String(message || "").trim();
+    if (window.VcSiteToast) {
+      if (!msg) window.VcSiteToast.hide();
+      else window.VcSiteToast.show(msg, Boolean(isError));
+      return;
+    }
     var host = byId("vc-custom-profile-toast-host");
     if (!host) {
       host = document.createElement("div");
@@ -347,7 +363,7 @@
     }
     host.className = "vc-cpf-toast-host";
     host.innerHTML =
-      '<div class="vc-cpf-toast' + (isError ? " is-error" : "") + '">' + esc(message || "") + "</div>";
+      '<div class="vc-cpf-toast' + (isError ? " is-error" : "") + '">' + esc(msg) + "</div>";
     if (toastTimer) clearTimeout(toastTimer);
     toastTimer = setTimeout(function () {
       host.innerHTML = "";
@@ -1460,7 +1476,8 @@
         return;
       }
       applyStatePayload(data);
-      document.title = "Vinili & Caffè | " + targetLabel(parseTarget());
+      if (window.VcPageTitle) window.VcPageTitle.set(targetLabel(parseTarget()));
+      else document.title = "Vinili & Caffè | " + targetLabel(parseTarget());
       render();
     } catch (e) {
       if (attempt < 2) {
@@ -1481,9 +1498,22 @@
     }
   }
 
+  function scheduleBoot() {
+    try {
+      var hub = window.__VC_PERS_HUB_API;
+      if (hub && typeof hub.whenSessionReady === "function") {
+        hub.whenSessionReady(function () {
+          boot(0);
+        });
+        return;
+      }
+    } catch (eSch) {}
+    boot(0);
+  }
+
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", boot);
+    document.addEventListener("DOMContentLoaded", scheduleBoot);
   } else {
-    boot();
+    scheduleBoot();
   }
 })();

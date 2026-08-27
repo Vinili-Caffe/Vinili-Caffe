@@ -233,6 +233,16 @@ async function handlePauseButton(interaction) {
     const rejectedSuffix = currentContent.includes("<:cancel:1461730653677551691>") ? "" : `\n\n<:cancel:1461730653677551691> **Richiesta pausa rifiutata** per <@${effectiveUserId}>.`;
     const updatedContent = currentContent + rejectedSuffix;
     await interaction.message?.edit({ content: updatedContent, components: [] });
+    try {
+      const { updateStaffWorkflowFromPause, workflowActorExtras } = require("../../Utils/Web/siteStaffWorkflowStore");
+      await updateStaffWorkflowFromPause(
+        guildId,
+        effectiveUserId,
+        effectivePauseId,
+        "rejected",
+        workflowActorExtras(interaction.member || interaction.user),
+      );
+    } catch (_) {}
     return true;
   }
 
@@ -342,6 +352,16 @@ async function handlePauseButton(interaction) {
     await interaction.channel?.send({ content: `<:cancel:1461730653677551691> Pausa annullata per <@${effectiveUserId}>. <a:VC_Calendar:1482706208149475358> Giorni scalati: \`${consumedForCancelledPause}\`. <:VC_Clock:1473359204189474886> Totale usati: \`${giorniTotaliUsati}/${maxGiorni}\` (\`${giorniRimanenti}\` rimanenti).` });
     void maybeRepositionPauseSticky(interaction.channel, interaction.client).catch(() => null);
     notifyStaffPauseCalendarChanged();
+    try {
+      const { updateStaffWorkflowFromPause, workflowActorExtras } = require("../../Utils/Web/siteStaffWorkflowStore");
+      await updateStaffWorkflowFromPause(
+        guildId,
+        effectiveUserId,
+        effectivePauseId,
+        "cancelled",
+        workflowActorExtras(interaction.member || interaction.user),
+      );
+    } catch (_) {}
     return true;
   }
 
@@ -502,6 +522,16 @@ async function handlePauseButton(interaction) {
   scheduleStaffListRefresh(interaction.client, guildId, 800);
   void maybeRepositionPauseSticky(interaction.channel, interaction.client).catch(() => null);
   notifyStaffPauseCalendarChanged();
+  try {
+    const { updateStaffWorkflowFromPause, workflowActorExtras } = require("../../Utils/Web/siteStaffWorkflowStore");
+    await updateStaffWorkflowFromPause(
+      guildId,
+      effectiveUserId,
+      effectivePauseId,
+      "accepted",
+      workflowActorExtras(interaction.member || interaction.user),
+    );
+  } catch (_) {}
   return true;
   } finally { pauseActionLocks.delete(lockKey) }
   }

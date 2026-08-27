@@ -63,6 +63,13 @@ module.exports = {
       .setTimestamp();
 
       await logChannel.send({ embeds: [embed] }).catch(() => null);
+
+      try {
+        const { autoClosePendingAppealsForUser } = require("../Utils/Web/siteStaffAppealsRuntime");
+        void autoClosePendingAppealsForUser(guild, targetId, "unban").catch((err) => {
+          global.logger?.warn?.("[guildBanRemove] appeal auto-close unban:", targetId, err?.message || err);
+        });
+      } catch (_) {}
     } catch (error) {
       global.logger?.error?.("[guildBanRemove] failed:", error);
     }

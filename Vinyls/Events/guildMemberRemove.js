@@ -30,6 +30,8 @@ const { guildMemberDisplayAvatarUrlDynamic } = require("../Utils/Discord/guildDi
 const { trackMemberLeave } = require("../Services/Community/dailyMemberStatsService");
 const { handleMainGuildMemberRemove } = require("../Services/Staff/staffAccessMirrorService");
 const { cancelOpenPausesOnMemberLeave } = require("../Utils/Pause/pauseHandlersUtils");
+const { appendStaffRolesHistoryEntry } = require("../Utils/Staff/staffDocUtils");
+const { identityFromMember } = require("../Utils/Web/siteStaffRosterCache");
 
 function isViniliFullFeatureGuild(guildId) {
   try {
@@ -202,26 +204,54 @@ async function handleTrackedStaffLeave(member) {
     { $set: { staffPendingPurgeAt: pruneAt, updatedAt: new Date() } },
   ).catch(() => { });
 
-  const resignChannel = guild.channels.cache.get(IDs.channels.pexDepex) || (await getGuildChannelCached(guild, IDs.channels.pexDepex));
-  if (!resignChannel?.isTextBased?.()) return;
-
   const userRole = guild.roles.cache.get(IDs.roles.Member);
   const userRoleLabel = userRole?.name || "User";
 
   const pmRole = hasPm ? guild.roles.cache.get(PARTNER_MANAGER_ROLE_ID) : null;
   const pmLabel = pmRole?.name || "Partner Manager";
 
+  const resignChannel = await (async () => {
+    const { resolveStaffPexDepexChannel } = require("../Utils/Staff/staffChannelUtils");
+    return resolveStaffPexDepexChannel(guild);
+  })();
+
   if (highestStaffExPm) {
-    const content = buildStaffLeaveResignationContent(member, highestStaffExPm, userRoleLabel);
-    await resignChannel.send({ content, __skipNoticeEmbed: true }).catch(() => null);
+    const idSnap = identityFromMember(member);
+    await appendStaffRolesHistoryEntry(guild.id, member.id, {
+      oldRole: highestStaffExPm.id,
+      newRole: String(IDs.roles?.Member || ""),
+      reason: "Dimissioni (Esce dal server)",
+      date: new Date(),
+      kind: "depex",
+      displayName: idSnap.displayName,
+      username: idSnap.username,
+      avatarUrl: idSnap.avatarUrl,
+    });
+    if (resignChannel?.isTextBased?.()) {
+      const content = buildStaffLeaveResignationContent(member, highestStaffExPm, userRoleLabel);
+      await resignChannel.send({ content, __skipNoticeEmbed: true }).catch(() => null);
+    }
   }
   if (hasPm) {
-    const contentPm = buildStaffLeaveResignationContent(
-      member,
-      pmRole || { id: PARTNER_MANAGER_ROLE_ID, name: pmLabel },
-      userRoleLabel,
-    );
-    await resignChannel.send({ content: contentPm, __skipNoticeEmbed: true }).catch(() => null);
+    const idSnap = identityFromMember(member);
+    await appendStaffRolesHistoryEntry(guild.id, member.id, {
+      oldRole: PARTNER_MANAGER_ROLE_ID,
+      newRole: String(IDs.roles?.Member || ""),
+      reason: "Dimissioni (Esce dal server)",
+      date: new Date(),
+      kind: "depex",
+      displayName: idSnap.displayName,
+      username: idSnap.username,
+      avatarUrl: idSnap.avatarUrl,
+    });
+    if (resignChannel?.isTextBased?.()) {
+      const contentPm = buildStaffLeaveResignationContent(
+        member,
+        pmRole || { id: PARTNER_MANAGER_ROLE_ID, name: pmLabel },
+        userRoleLabel,
+      );
+      await resignChannel.send({ content: contentPm, __skipNoticeEmbed: true }).catch(() => null);
+    }
   }
 }
 
@@ -515,6 +545,19 @@ module.exports = {
       }).catch((err) => {
         global.logger?.warn?.("[guildMemberRemove] cancel pauses:", err?.message || err);
       });
+      try {
+        const { cancelPendingPauseWorkflowForUser, cancelPendingResocontiWorkflowForUser } = require("../Utils/Web/siteStaffWorkflowStore");
+        await cancelPendingPauseWorkflowForUser(member.guild.id, member.id, {
+          statusLabel: "Annullato (uscita)",
+          decidedBy: "system",
+        });
+        await cancelPendingResocontiWorkflowForUser(member.guild.id, member.id, {
+          statusLabel: "Annullato (uscita)",
+          decidedBy: "system",
+        });
+      } catch (err) {
+        global.logger?.warn?.("[guildMemberRemove] cancel pending workflows on leave:", member.id, err?.message || err);
+      }
       await handlePartnershipOnLeave(member, client);
       await handleTenantPartnerManagerLeave(member, client);
       await handleMuteMirrorOnMemberLeave(member).catch(() => null);

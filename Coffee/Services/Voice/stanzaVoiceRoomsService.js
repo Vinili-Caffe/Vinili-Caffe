@@ -43,7 +43,7 @@ const stanzaLimitPending = new Map();
 const stanzaDescPending = new Map();
 /** @type {Map<string, { voiceChannelId: string, expiresAt: number, timerId: ReturnType<typeof setTimeout> | null }>} */
 const stanzaVicePending = new Map();
-/** @type {Map<string, { voiceChannelId: string, action: 'include'|'exclude'|'silenzia', expiresAt: number, timerId: ReturnType<typeof setTimeout> | null, interactionApplicationId?: string, interactionToken?: string }>} */
+/** @type {Map<string, { voiceChannelId: string, action: 'include'|'exclude'|'silenzia'|'smuta', expiresAt: number, timerId: ReturnType<typeof setTimeout> | null, interactionApplicationId?: string, interactionToken?: string }>} */
 const stanzaUsersMemberPending = new Map();
 
 const STANZA_NAME_LEAD = "༄";
@@ -745,7 +745,7 @@ function isStanzaMemberRoleConnectBlocked(voiceChannel, guild) {
 const STANZA_VOICE_MEMBER_ROLE_PUBLIC = { ViewChannel: true, Connect: true, Speak: true, UseVAD: true, Stream: true, UseEmbeddedActivities: true, UseExternalApps: true };
 const STANZA_VOICE_MEMBER_ROLE_LOCKED = { ViewChannel: false, Connect: false };
 const STANZA_VOICE_OWNER_OVERWRITE = { ViewChannel: true, Connect: true, Speak: true, UseVAD: true, Stream: true, UseEmbeddedActivities: true, UseExternalApps: true, MoveMembers: true, MuteMembers: true, DeafenMembers: true, ManageChannels: true };
-const STANZA_VOICE_BOT_OVERWRITE = { ViewChannel: true, Connect: true, Speak: true, ManageChannels: true, MoveMembers: true };
+const STANZA_VOICE_BOT_OVERWRITE = { ViewChannel: true, Connect: true, Speak: true, ManageChannels: true, MoveMembers: true, MuteMembers: true, DeafenMembers: true };
 const STANZA_VOICE_MEMBER_WITH_PANEL_CHAT = { ViewChannel: true, Connect: true, Speak: true, UseVAD: true, Stream: true, UseEmbeddedActivities: true, UseExternalApps: true, SendMessages: true, ReadMessageHistory: true, EmbedLinks: true, AttachFiles: true, AddReactions: true };
 const STANZA_VOICE_OWNER_WITH_PANEL_CHAT = { ...STANZA_VOICE_OWNER_OVERWRITE, SendMessages: true, ReadMessageHistory: true, EmbedLinks: true, AttachFiles: true, AddReactions: true, ManageMessages: true };
 const STANZA_VOICE_BOT_WITH_PANEL_CHAT = { ...STANZA_VOICE_BOT_OVERWRITE, SendMessages: true, ReadMessageHistory: true, EmbedLinks: true, AttachFiles: true, ManageMessages: true };
@@ -808,11 +808,36 @@ async function setStanzaPrivilegedUserVoiceOverwrite(voiceChannel, userId, reaso
 async function ensureStanzaBotVoiceOverwrite(voiceChannel, botUserId) {
   const id = String(botUserId || "");
   if (!id) return false;
-  if (voiceChannel.permissionOverwrites.cache.has(id)) return true;
-  return voiceChannel.permissionOverwrites
-    .create(id, STANZA_VOICE_BOT_OVERWRITE, { reason: "Stanza: accesso bot", type: OverwriteType.Member })
-    .then(() => true)
-    .catch(() => false);
+  try {
+    if (voiceChannel.permissionOverwrites.cache.has(id)) {
+      await voiceChannel.permissionOverwrites.edit(id, STANZA_VOICE_BOT_OVERWRITE, {
+        reason: "Stanza: accesso bot",
+        type: OverwriteType.Member,
+      });
+    } else {
+      await voiceChannel.permissionOverwrites.create(id, STANZA_VOICE_BOT_OVERWRITE, {
+        reason: "Stanza: accesso bot",
+        type: OverwriteType.Member,
+      });
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Deny Speak alone often leaves people already in VC still audible — force server mute. */
+async function applyStanzaMemberServerMute(member, voiceChannelId, muted, reason) {
+  if (!member?.voice) return false;
+  if (String(member.voice.channelId || "") !== String(voiceChannelId || "")) return false;
+  if (Boolean(member.voice.serverMute) === Boolean(muted)) return true;
+  try {
+    await member.voice.setMute(Boolean(muted), reason);
+    return true;
+  } catch (err) {
+    global.logger?.warn?.("[stanza] server mute failed:", err?.message || err);
+    return false;
+  }
 }
 
 async function removeStanzaMemberVoiceOverwrite(voiceChannel, userId) {
@@ -1205,9 +1230,10 @@ function buildStanzaUsersManageEmbed(voiceChannel) {
     )
 }
 
-function buildStanzaUsersManageRows(channelId) {
-  const cid = String(channelId || "");
-  const row = new ActionRowBuilder().addComponents(
+function buildStanzaUsersManageRows(voiceChannel, meta = null) {
+  const cid = String(voiceChannel?.id || voiceChannel || "");
+  const ch = voiceChannel && typeof voiceChannel === "object" ? voiceChannel : null;
+  const row1 = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(`stanza_users_include:${cid}`)
       .setLabel("Includi")
@@ -1224,17 +1250,24 @@ function buildStanzaUsersManageRows(channelId) {
       .setEmoji("🔇")
       .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
+      .setCustomId(`stanza_users_smuta:${cid}`)
+      .setLabel("Smuta")
+      .setEmoji("🔊")
+      .setStyle(ButtonStyle.Success),
+    new ButtonBuilder()
       .setCustomId(`stanza_users_list:${cid}`)
       .setLabel("Lista Membri")
       .setEmoji("👥")
       .setStyle(ButtonStyle.Secondary),
+  );
+  const row2 = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(`stanza_users_back:${cid}`)
       .setLabel("Indietro")
       .setEmoji("<:1343arrowleft:1525249879151083621>️")
       .setStyle(ButtonStyle.Primary),
   );
-  return [row];
+  return [row1, row2];
 }
 
 async function postStanzaPanel(guild, member, voiceChannel, textChannel, metaForEmbed = null) {
@@ -2195,7 +2228,7 @@ async function handleStanzaButton(interaction) {
     await interaction
       .update({
         embeds: [buildStanzaUsersManageEmbed(updated)],
-        components: buildStanzaUsersManageRows(parsed.channelId),
+        components: buildStanzaUsersManageRows(updated, meta),
       })
       .catch(async () => {
         await interaction.reply({ content: "<a:VC_Cross:1482532424570376253> Non è stato possibile aggiornare il pannello.", flags: 64 }).catch(() => {});
@@ -2349,8 +2382,18 @@ async function handleStanzaButton(interaction) {
     registerStanzaUsersMemberPending(guild.id, interaction.user.id, parsed.channelId, "silenzia", interaction);
     await interaction
       .reply({
-        content:
-          "🛡️ Menziona l'utente da silenziare o smutare.",
+        content: "🛡️ Menziona l'utente da silenziare.",
+        flags: 64,
+      })
+      .catch(() => {});
+    return true;
+  }
+
+  if (parsed.head === "stanza_users_smuta") {
+    registerStanzaUsersMemberPending(guild.id, interaction.user.id, parsed.channelId, "smuta", interaction);
+    await interaction
+      .reply({
+        content: "🔊 Menziona l'utente da smutare.",
         flags: 64,
       })
       .catch(() => {});
@@ -2376,6 +2419,7 @@ function getStanzaPanelViewKind(msg) {
         id.startsWith("stanza_users_include:") ||
         id.startsWith("stanza_users_exclude:") ||
         id.startsWith("stanza_users_silenzia:") ||
+        id.startsWith("stanza_users_smuta:") ||
         id.startsWith("stanza_users_list:") ||
         id.startsWith("stanza_users_back:")
       ) {
@@ -2413,7 +2457,7 @@ async function refreshStanzaPanelEmbedsIfPossible(guild, voiceChannelId) {
     kind === "manage"
       ? buildStanzaManageRows(voiceCh)
       : kind === "users"
-        ? buildStanzaUsersManageRows(vid)
+        ? buildStanzaUsersManageRows(voiceCh, meta)
         : buildStanzaHomeRows(vid);
   await msg.edit({ embeds, components }).catch(() => {});
 }
@@ -2696,24 +2740,36 @@ async function handleStanzaUsersMemberMessageCreate(message) {
     }
     doneLine = ok ? `<a:VC_Verified:1482532479637127188> ${targetMember} è stato escluso.` : failPerm;
   } else if (action === "silenzia") {
+    const botId = String(message.client?.user?.id || "");
+    if (botId) await ensureStanzaBotVoiceOverwrite(voiceCh, botId).catch(() => {});
+    ok = await applyStanzaMemberVoicePerms(voiceCh, targetId, STANZA_VOICE_MEMBER_SILENCE, "Stanza: silenzia utente").catch(() => {});
+    if (ok && tchUsers) {
+      await applyStanzaMemberTextPerms(tchUsers, targetId, STANZA_TEXT_MEMBER_SILENCE, "Stanza: silenzia utente").catch(() => {});
+    }
+    if (ok) {
+      await applyStanzaMemberServerMute(targetMember, voiceCh.id, true, "Stanza: silenzia utente").catch(() => {});
+    }
+    doneLine = ok ? `<a:VC_Verified:1482532479637127188> ${targetMember} è stato silenziato.` : failPerm;
+  } else if (action === "smuta") {
     const ow = voiceCh.permissionOverwrites.cache.get(targetId);
     const muted =
       ow &&
       ow.deny.has(P.Speak) &&
       !ow.deny.has(P.ViewChannel) &&
       !ow.deny.has(P.Connect);
-    if (muted) {
+    if (!muted) {
+      doneLine = `<a:VC_Cross:1482532424570376253> ${targetMember} non risulta silenziato in questa stanza.`;
+    } else {
+      const botId = String(message.client?.user?.id || "");
+      if (botId) await ensureStanzaBotVoiceOverwrite(voiceCh, botId).catch(() => {});
       ok = await applyStanzaMemberVoicePerms(voiceCh, targetId, STANZA_VOICE_MEMBER_ALLOW, "Stanza: smuta utente").catch(() => {});
       if (ok && tchUsers) {
         await applyStanzaMemberTextPerms(tchUsers, targetId, STANZA_TEXT_MEMBER_ALLOW, "Stanza: smuta utente").catch(() => {});
       }
-      doneLine = ok ? `<a:VC_Verified:1482532479637127188> ${targetMember} è stato smutato.` : failPerm;
-    } else {
-      ok = await applyStanzaMemberVoicePerms(voiceCh, targetId, STANZA_VOICE_MEMBER_SILENCE, "Stanza: silenzia utente").catch(() => {});
-      if (ok && tchUsers) {
-        await applyStanzaMemberTextPerms(tchUsers, targetId, STANZA_TEXT_MEMBER_SILENCE, "Stanza: silenzia utente").catch(() => {});
+      if (ok) {
+        await applyStanzaMemberServerMute(targetMember, voiceCh.id, false, "Stanza: smuta utente").catch(() => {});
       }
-      doneLine = ok ? `<a:VC_Verified:1482532479637127188> ${targetMember} è stato silenziato.` : failPerm;
+      doneLine = ok ? `<a:VC_Verified:1482532479637127188> ${targetMember} è stato smutato.` : failPerm;
     }
   }
 

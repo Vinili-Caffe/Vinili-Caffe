@@ -113,6 +113,18 @@ function asCacheMap(seed = []) {
     some: (fn) => [...map.values()].some(fn),
     every: (fn) => [...map.values()].every(fn),
     first: () => map.values().next().value ?? null,
+    last: () => {
+      let out = null;
+      for (const value of map.values()) out = value;
+      return out;
+    },
+    at: (index) => {
+      const arr = [...map.values()];
+      const i = Number(index);
+      if (!Number.isFinite(i)) return null;
+      const idx = i < 0 ? arr.length + i : i;
+      return idx >= 0 && idx < arr.length ? arr[idx] : null;
+    },
   };
   return api;
 }
@@ -417,6 +429,18 @@ function wrapRole(raw, guild = null, existingMembers = null) {
       });
       guild.roles.cache.delete(roleId);
       return true;
+    },
+    setPosition: async (position, opts = {}) => {
+      const rest = guild?.client?._rest;
+      if (!rest || !guild?.id) throw new Error("REST unavailable");
+      const pos = Number(position);
+      if (!Number.isFinite(pos)) return role;
+      await rest.patch(Routes.guildRoles(guild.id), {
+        body: [{ id: roleId, position: Math.max(0, Math.floor(pos)) }],
+        reason: opts?.reason ? String(opts.reason).slice(0, 512) : undefined,
+      });
+      role.position = Math.max(0, Math.floor(pos));
+      return role;
     },
     edit: async (payload = {}, reason) => {
       const rest = guild?.client?._rest;
@@ -1167,6 +1191,66 @@ function wrapGuild(raw, client) {
     return roleId ? guild.roles.cache.get(String(roleId)) || null : guild.roles.cache;
   };
 
+  guild.roles.create = async (options = {}) => {
+    const rest = client._rest;
+    if (!rest) throw new Error("REST unavailable");
+    const body = {};
+    if (options.name != null) body.name = String(options.name).slice(0, 100);
+    if (options.hoist != null) body.hoist = Boolean(options.hoist);
+    if (options.mentionable != null) body.mentionable = Boolean(options.mentionable);
+    if (Object.prototype.hasOwnProperty.call(options, "unicodeEmoji") || Object.prototype.hasOwnProperty.call(options, "unicode_emoji")) {
+      const ue = options.unicodeEmoji !== undefined ? options.unicodeEmoji : options.unicode_emoji;
+      body.unicode_emoji = ue == null || ue === "" ? null : String(ue);
+    }
+    if (Object.prototype.hasOwnProperty.call(options, "icon")) {
+      if (options.icon == null) body.icon = null;
+      else if (Buffer.isBuffer(options.icon) || options.icon instanceof Uint8Array) {
+        body.icon = await bufferToRoleIconDataUri(options.icon);
+      } else if (typeof options.icon === "string") {
+        body.icon = options.icon;
+      }
+    }
+    if (options.permissions != null) {
+      try {
+        body.permissions = String(PermissionsBitField.resolve(options.permissions));
+      } catch (_) {}
+    }
+    if (options.colors && typeof options.colors === "object") {
+      const colorsBody = buildRoleColorsApiBody(options.colors);
+      if (colorsBody) {
+        body.colors = colorsBody;
+        body.color = colorsBody.primary_color;
+      }
+    } else if (options.color != null) {
+      const c = colorValueToInt(options.color);
+      if (c != null) {
+        body.color = c;
+        body.colors = { primary_color: c, secondary_color: null, tertiary_color: null };
+      }
+    }
+    const created = await rest.post(Routes.guildRoles(guild.id), {
+      body,
+      reason: options.reason ? String(options.reason).slice(0, 512) : undefined,
+    });
+    const wrapped = wrapRole(created, guild);
+    if (wrapped?.id) guild.roles.cache.set(wrapped.id, wrapped);
+    if (wrapped && options.position != null && typeof wrapped.setPosition === "function") {
+      await wrapped.setPosition(options.position, { reason: options.reason }).catch(() => {});
+    }
+    return wrapped;
+  };
+
+  guild.roles.edit = async (roleId, payload = {}, reason) => {
+    const id = String(roleId?.id || roleId || "").trim();
+    if (!id) throw new Error("roleId required");
+    let role = guild.roles.cache.get(id);
+    if (!role || typeof role.edit !== "function") {
+      role = await guild.roles.fetch(id);
+    }
+    if (!role || typeof role.edit !== "function") throw new Error("role_not_found");
+    return role.edit(payload, reason);
+  };
+
   guild.channels.fetch = async (channelId) => {
     if (channelId) {
       const cached = guild.channels.cache.get(String(channelId));
@@ -1182,6 +1266,59 @@ function wrapGuild(raw, client) {
       guild.channels.cache.set(ch.id, ch);
     }
     return guild.channels.cache;
+  };
+
+  guild.channels.create = async (options = {}) => {
+    const rest = client._rest;
+    if (!rest) throw new Error("REST unavailable");
+    const body = {
+      name: String(options.name || "channel").slice(0, 100),
+    };
+    if (options.type != null) body.type = Number(options.type);
+    const parentId = options.parentId || options.parent?.id || options.parent || null;
+    if (parentId) body.parent_id = String(parentId);
+    if (options.topic != null) body.topic = String(options.topic).slice(0, 1024);
+    if (options.nsfw != null) body.nsfw = Boolean(options.nsfw);
+    if (options.bitrate != null) body.bitrate = Number(options.bitrate);
+    if (options.userLimit != null) body.user_limit = Number(options.userLimit);
+    if (options.rateLimitPerUser != null) body.rate_limit_per_user = Number(options.rateLimitPerUser);
+    if (options.position != null) body.position = Number(options.position);
+    if (Array.isArray(options.permissionOverwrites) && options.permissionOverwrites.length) {
+      body.permission_overwrites = options.permissionOverwrites.map((ow) => {
+        const id = String(ow?.id?.id || ow?.id || "").trim();
+        let type = 0;
+        if (ow?.type === OverwriteType.Member || ow?.type === 1 || ow?.type === "1") type = 1;
+        else if (ow?.type === OverwriteType.Role || ow?.type === 0 || ow?.type === "0") type = 0;
+        else if (id && id === String(guild.id)) type = 0;
+        else if (id && guild.roles?.cache?.has?.(id)) type = 0;
+        else type = 1;
+        let allow = 0n;
+        let deny = 0n;
+        try {
+          allow = BigInt(PermissionsBitField.resolve(ow?.allow ?? 0));
+        } catch (_) {
+          allow = 0n;
+        }
+        try {
+          deny = BigInt(PermissionsBitField.resolve(ow?.deny ?? 0));
+        } catch (_) {
+          deny = 0n;
+        }
+        return {
+          id,
+          type,
+          allow: String(allow),
+          deny: String(deny),
+        };
+      }).filter((row) => row.id);
+    }
+    const created = await rest.post(Routes.guildChannels(guild.id), {
+      body,
+      reason: options.reason ? String(options.reason).slice(0, 512) : undefined,
+    });
+    const wrapped = wrapChannel(created, guild, client);
+    if (wrapped?.id) guild.channels.cache.set(wrapped.id, wrapped);
+    return wrapped;
   };
 
   guild.emojis.fetch = async () => {
@@ -1223,7 +1360,15 @@ function wrapGuild(raw, client) {
           const cached = guild.members.cache.get(uid);
           if (cached) return cached;
         }
-        const rawM = await client._rest.get(Routes.guildMember(guild.id, uid)).catch(() => null);
+        let rawM;
+        try {
+          rawM = await client._rest.get(Routes.guildMember(guild.id, uid));
+        } catch (err) {
+          const code = Number(err?.code ?? err?.rawError?.code ?? 0);
+          const msg = String(err?.message || err || "");
+          if (code === 10007 || /unknown member/i.test(msg)) return null;
+          throw err;
+        }
         if (!rawM) return null;
         const member = wrapMember(rawM, guild, wrapUser(rawM.user, client));
         guild.members.cache.set(uid, member);
@@ -1332,7 +1477,11 @@ function wrapGuild(raw, client) {
 }
 
 async function createSiteApiRestClient(config, token, options = {}) {
-  const rest = new REST({ version: "10" }).setToken(token);
+  const rest = new REST({
+    version: "10",
+    // Evita hang lunghi su Discord REST (site-api senza gateway).
+    timeout: Math.max(3000, Number(options.restTimeoutMs) || 8000),
+  }).setToken(token);
   const me = await rest.get(Routes.user("@me"));
   const guildCache = asCacheMap();
 
@@ -1395,6 +1544,17 @@ async function createSiteApiRestClient(config, token, options = {}) {
     },
     guilds: {
       cache: guildCache,
+      /** Solo guild + ruoli: auth sito / member fetch senza cold-start pesante. */
+      fetchLite: async (id) => {
+        const gid = String(id);
+        const hit = guildCache.get(gid);
+        if (hit?.members && typeof hit.members.fetch === "function") return hit;
+        const raw = await rest.get(Routes.guild(gid));
+        const guild = wrapGuild(raw, client);
+        await enrichGuildRoles(rest, guild).catch(() => {});
+        guildCache.set(gid, guild);
+        return guild;
+      },
       fetch: async (id) => {
         const gid = String(id);
         const raw = await rest.get(Routes.guild(gid), {

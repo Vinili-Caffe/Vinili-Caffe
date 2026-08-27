@@ -5,6 +5,11 @@ const { upsertVoteRole } = require("../../Services/Community/communityOpsService
 const { PAUSE_REQUEST_ROLE_IDS, parsePauseChannelMessageContent } = require("../Pause/pauseRequestRuntime");
 const { submitPauseRequestForMember } = require("../Pause/pauseRequestSubmitRuntime");
 const { maybeRepositionPauseSticky, isPauseStickyPanelMessage } = require("../Pause/pauseStickyPanelRuntime");
+const {
+  maybeRepositionModerationSticky,
+  isModerationStickyPanelMessage,
+  getSanzioniChannelId,
+} = require("../Moderation/moderationStickyPanelRuntime");
 const IDs = require("../Config/ids");
 const { getGuildChannelCached, getGuildMemberCached } = require("../Interaction/interactionEntityCache");
 const { EPHEMERAL_TTL_NORMAL_MS, scheduleMessageDeletion } = require("../Config/ephemeralMessageTtl");
@@ -13,6 +18,7 @@ const { TENANT_EMBED_COLOR } = require("../../MultiGuild/utils/tenantEmbedBrandi
 const VOTE_CHANNEL_ID = IDs.channels.supporters;
 const COMMANDS_CHANNEL_ID = IDs.channels.commands;
 const PAUSE_CHANNEL_ID = IDs.channels.pause;
+const SANZIONI_CHANNEL_ID = getSanzioniChannelId();
 const VOTE_ROLE_ID = IDs.roles.Voter;
 const VOTE_URL = IDs.links.vote;
 const DEFAULT_THREAD_VOTE_REACTION = "👍";
@@ -1019,6 +1025,30 @@ async function handleDiscadiaBump(message, client) {
   return true;
 }
 
+async function handleSanzioniChannelMessage(message) {
+  if (!message?.guild) return false;
+
+  const sanzioniChannelId = String(SANZIONI_CHANNEL_ID || "");
+  const isSanzioniChannel = Boolean(sanzioniChannelId && String(message.channelId) === sanzioniChannelId);
+  if (!isSanzioniChannel) return false;
+
+  const content = String(message.content || "");
+  const isAutomodTransient =
+    content.includes("AutoMod ha bloccato") ||
+    content.includes("Messaggio bloccato da AutoMod");
+
+  if (message.author?.bot || message.webhookId || message.system) {
+    if (!isModerationStickyPanelMessage(message)) {
+      if (isAutomodTransient) return false;
+      void maybeRepositionModerationSticky(message.channel, message.client).catch(() => null);
+    }
+    return false;
+  }
+
+  void maybeRepositionModerationSticky(message.channel, message.client).catch(() => null);
+  return false;
+}
+
 async function handlePauseChannelMessage(message) {
   if (!message?.guild) return false;
 
@@ -1039,6 +1069,24 @@ async function handlePauseChannelMessage(message) {
   const finish = () => {
     void maybeRepositionPauseSticky(message.channel, message.client).catch(() => null);
   };
+
+  try {
+    const {
+      isDiscordWorkflowUiEnabled,
+      siteWorkflowUrl,
+    } = require("../Web/discordWorkflowUiGate");
+    if (!isDiscordWorkflowUiEnabled()) {
+      const warning = await message.channel
+        .send({
+          content: `${message.author} le richieste pausa si inviano **solo sul sito**:\n${siteWorkflowUrl("pause")}`,
+        })
+        .catch(() => null);
+      await message.delete().catch(() => {});
+      if (warning) scheduleMessageDeletion(warning, EPHEMERAL_TTL_NORMAL_MS);
+      finish();
+      return true;
+    }
+  } catch (_) {}
 
   if (!message.member && message.guild?.id && message.author?.id) {
     message.member = await getGuildMemberCached(message.guild, message.author.id);
@@ -1243,4 +1291,4 @@ async function processAllRecentAutomationMessages(client) {
   await processRecentCommandsChannelMessages(client);
 }
 
-module.exports = { channelAllowsMedia, getCachedOrFetchMember, handleDisboardBump, handleDiscadiaBump, handlePauseChannelMessage, handleThreadVoteMessage, handleMovieNightVoteMessage, handleVoteManagerMessage, hasMediaPermission, isDiscordInviteLinkMessage, isMediaMessage, processRecentVoteChannelMessages, processRecentCommandsChannelMessages, processRecentPauseChannelMessages, processAllRecentAutomationMessages, processDiscadiaVote };
+module.exports = { channelAllowsMedia, getCachedOrFetchMember, handleDisboardBump, handleDiscadiaBump, handlePauseChannelMessage, handleSanzioniChannelMessage, handleThreadVoteMessage, handleMovieNightVoteMessage, handleVoteManagerMessage, hasMediaPermission, isDiscordInviteLinkMessage, isMediaMessage, processRecentVoteChannelMessages, processRecentCommandsChannelMessages, processRecentPauseChannelMessages, processAllRecentAutomationMessages, processDiscadiaVote };

@@ -11,7 +11,7 @@ const { applyDepexOneLevel } = require("../../Services/Staff/staffWarnService");
 const { applyDepexSideEffects: applyResocontoStaffDepexSideEffects } = require("../../Events/interaction/resocontoHandlers");
 const { clearStaffPendingPurgeAt } = require("../../Services/Community/userLeaveBackupService");
 const { sendPartnerManagerWelcome, sendHelperWelcome } = require("./staffWelcomeMessages");
-const { resolveStaffValutazioniChannel } = require("./staffChannelUtils");
+const { resolveStaffValutazioniChannel, resolveStaffPexDepexChannel } = require("./staffChannelUtils");
 const ROLE_MEMBER = IDs.roles.Member;
 const ROLE_PARTNER_MANAGER = IDs.roles.PartnerManager;
 const ROLE_STAFF = IDs.roles.Staff;
@@ -23,6 +23,58 @@ const ROLE_DIRECTOR = IDs.roles.Director;
 const ROLE_ADMIN = IDs.roles.Admin;
 const ROLE_MANAGER = IDs.roles.Manager;
 const ROLE_CO_OWNER = "";
+
+function pushRolesHistoryWithActor(staff, { oldRole, newRole, reason, kind, actorUser }) {
+  if (!Array.isArray(staff.rolesHistory)) staff.rolesHistory = [];
+  const { actorLabelFromUser } = require("./staffTrackHistory");
+  const actorId = String(actorUser?.id || "").trim() || null;
+  const actorName = actorLabelFromUser(actorUser, actorId);
+  const entry = {
+    oldRole: String(oldRole || "").trim(),
+    newRole: String(newRole ?? "").trim(),
+    reason: String(reason || "").trim() || null,
+    date: new Date(),
+    kind: kind === "pex" || kind === "depex" ? kind : undefined,
+  };
+  if (actorId && /^\d{16,22}$/.test(actorId)) entry.actorId = actorId;
+  if (actorName) entry.actorName = actorName;
+  staff.rolesHistory.push(entry);
+  return entry;
+}
+
+async function mirrorTrackHistory(guildId, userId, entry, kindOverride) {
+  try {
+    const { appendStaffTrackHistory } = require("./staffTrackHistory");
+    await appendStaffTrackHistory(guildId, userId, {
+      kind: kindOverride || entry.kind,
+      reason: entry.reason,
+      date: entry.date,
+      actorId: entry.actorId,
+      actorName: entry.actorName,
+      oldRole: entry.oldRole,
+      newRole: entry.newRole,
+      entryId: entry.entryId,
+    });
+  } catch (_) {}
+}
+
+function firePexDepexSiteNotif(guild, { kind, targetUser, oldRoleId, newRoleId, reason, actorUser, sourceHint }) {
+  try {
+    const { notifyStaffPexDepex, memberDisplayName } = require("../Web/siteStaffEventNotifications");
+    void notifyStaffPexDepex({
+      guild,
+      kind,
+      targetUserId: String(targetUser?.id || ""),
+      targetName: memberDisplayName(null, targetUser, targetUser?.id),
+      oldRoleId,
+      newRoleId,
+      reason,
+      actorUserId: String(actorUser?.id || ""),
+      actorName: memberDisplayName(null, actorUser, actorUser?.id),
+      sourceHint,
+    }).catch(() => 0);
+  } catch (_) {}
+}
 const ROLE_OWNER = IDs.roles.Founder;
 const SUCCESS_COLOR = "#6f4e37";
 
@@ -300,7 +352,7 @@ async function runProspectStaffPex(guild, client, targetUser, actorUser, reason,
     return {
       ok: false,
       message:
-        "<:VC_Attention:1482534443632558151> L'utente ha già un ruolo nella scala staff. Usa **Pex** dal pannello completo (`+profile`).",
+        "<:VC_Attention:1482534443632558151> L'utente ha già un ruolo nella scala staff. Usa **Pex** da **Gestione** sul sito staff.",
     };
   }
   const roleAfter = String(targetRoleId || "");
@@ -326,9 +378,7 @@ async function runProspectStaffPex(guild, client, targetUser, actorUser, reason,
   const staffChat =
     guild.channels.cache.get(IDs.channels?.staffChat) ||
     (await getGuildChannelCached(guild, IDs.channels?.staffChat));
-  const pexDepexChannel =
-    guild.channels.cache.get(IDs.channels?.pexDepex) ||
-    (await getGuildChannelCached(guild, IDs.channels?.pexDepex));
+  const pexDepexChannel = await resolveStaffPexDepexChannel(guild, client || guild.client);
   const staffDoc = await getOrCreateStaffDoc(guild.id, targetUser.id);
   const hadLadderRoleBeforePex = Boolean(getHighestLadderRole(member));
   const wasPmOnlyBeforePex = Boolean(
@@ -357,10 +407,16 @@ async function runProspectStaffPex(guild, client, targetUser, actorUser, reason,
   }
   const profileDoc = staffDoc;
   const s = ensureStaff(profileDoc);
-  if (!Array.isArray(s.rolesHistory)) s.rolesHistory = [];
-  s.rolesHistory.push({ oldRole: roleBeforeForHistory, newRole: roleAfter, reason, date: new Date() });
+  const histEntry = pushRolesHistoryWithActor(s, {
+    oldRole: roleBeforeForHistory,
+    newRole: roleAfter,
+    reason,
+    kind: "pex",
+    actorUser,
+  });
   profileDoc.markModified("staff");
   await profileDoc.save();
+  await mirrorTrackHistory(guild.id, targetUser.id, histEntry, "pex");
   await clearStaffPendingPurgeAt(guild.id, targetUser.id);
   queueStaffListRefreshAfterRoleMutation(client || guild.client, guild.id);
   const rb = roleBeforeForHistory ? guild.roles.cache.get(roleBeforeForHistory) : null;
@@ -374,6 +430,15 @@ ${actionEmoji} \`${rb?.name || "Member"}\` <a:VC_Arrow:1482706699365257397> \`${
     __skipNoticeEmbed: true,
     })
     .catch(() => null);
+  firePexDepexSiteNotif(guild, {
+    kind: "pex",
+    targetUser,
+    oldRoleId: roleBeforeForHistory,
+    newRoleId: roleAfter,
+    reason,
+    actorUser,
+    sourceHint: "prospect-pex",
+  });
   return { ok: true };
 }
 
@@ -404,9 +469,7 @@ async function runProspectStaffPexToPartnerManager(guild, client, targetUser, ac
   const staffChat =
     guild.channels.cache.get(IDs.channels?.staffChat) ||
     (await getGuildChannelCached(guild, IDs.channels?.staffChat));
-  const pexDepexChannel =
-    guild.channels.cache.get(IDs.channels?.pexDepex) ||
-    (await getGuildChannelCached(guild, IDs.channels?.pexDepex));
+  const pexDepexChannel = await resolveStaffPexDepexChannel(guild, client || guild.client);
   const staffDoc = await getOrCreateStaffDoc(guild.id, targetUser.id);
   const hadStaffRolesBeforePex = memberHasStaffRole(member);
   await member.roles.add(roleAfter);
@@ -430,10 +493,16 @@ async function runProspectStaffPexToPartnerManager(guild, client, targetUser, ac
   const profileDoc = staffDoc;
   const s = ensureStaff(profileDoc);
   initPartnerManagerFieldsIfMissing(s);
-  if (!Array.isArray(s.rolesHistory)) s.rolesHistory = [];
-  s.rolesHistory.push({ oldRole: roleBeforeForHistory, newRole: roleAfter, reason, date: new Date() });
+  const histEntry = pushRolesHistoryWithActor(s, {
+    oldRole: roleBeforeForHistory,
+    newRole: roleAfter,
+    reason,
+    kind: "pex",
+    actorUser,
+  });
   profileDoc.markModified("staff");
   await profileDoc.save();
+  await mirrorTrackHistory(guild.id, targetUser.id, histEntry, "pex");
   await clearStaffPendingPurgeAt(guild.id, targetUser.id);
   queueStaffListRefreshAfterRoleMutation(client || guild.client, guild.id);
   const rb = roleBeforeForHistory ? guild.roles.cache.get(roleBeforeForHistory) : null;
@@ -447,6 +516,15 @@ ${actionEmoji} \`${rb?.name || "Member"}\` <a:VC_Arrow:1482706699365257397> \`${
     __skipNoticeEmbed: true,
     })
     .catch(() => null);
+  firePexDepexSiteNotif(guild, {
+    kind: "pex",
+    targetUser,
+    oldRoleId: roleBeforeForHistory,
+    newRoleId: roleAfter,
+    reason,
+    actorUser,
+    sourceHint: "prospect-pex-pm",
+  });
   return { ok: true };
 }
 
@@ -464,7 +542,7 @@ async function runProfileStaffPex(guild, client, targetUser, actorUser, reason) 
     return {
       ok: false,
       message:
-        "<:VC_Attention:1482534443632558151> Nessun ruolo nella scala staff (Helper→Founder) rilevato. Per casi speciali (ruoli manuali) usa il pannello High Staff (`+profile`).",
+        "<:VC_Attention:1482534443632558151> Nessun ruolo nella scala staff (Helper→Founder) rilevato. Per casi speciali (ruoli manuali) usa **Gestione** sul sito staff.",
     };
   }
   const roleAfter = getNextLadderRoleId(roleBefore);
@@ -477,9 +555,7 @@ async function runProfileStaffPex(guild, client, targetUser, actorUser, reason) 
   const staffChat =
     guild.channels.cache.get(IDs.channels?.staffChat) ||
     (await getGuildChannelCached(guild, IDs.channels?.staffChat));
-  const pexDepexChannel =
-    guild.channels.cache.get(IDs.channels?.pexDepex) ||
-    (await getGuildChannelCached(guild, IDs.channels?.pexDepex));
+  const pexDepexChannel = await resolveStaffPexDepexChannel(guild, client || guild.client);
   const staffDoc = await getOrCreateStaffDoc(guild.id, targetUser.id);
   const hadLadderRoleBeforePex = Boolean(getHighestLadderRole(member));
   await member.roles.add(roleAfter);
@@ -503,10 +579,16 @@ async function runProfileStaffPex(guild, client, targetUser, actorUser, reason) 
   const profileDoc = staffDoc;
   const s = ensureStaff(profileDoc);
   if (roleAfter === ROLE_PARTNER_MANAGER) initPartnerManagerFieldsIfMissing(s);
-  if (!Array.isArray(s.rolesHistory)) s.rolesHistory = [];
-  s.rolesHistory.push({ oldRole: roleBefore, newRole: roleAfter, reason, date: new Date() });
+  const histEntry = pushRolesHistoryWithActor(s, {
+    oldRole: roleBefore,
+    newRole: roleAfter,
+    reason,
+    kind: "pex",
+    actorUser,
+  });
   profileDoc.markModified("staff");
   await profileDoc.save();
+  await mirrorTrackHistory(guild.id, targetUser.id, histEntry, "pex");
   await clearStaffPendingPurgeAt(guild.id, targetUser.id);
   queueStaffListRefreshAfterRoleMutation(client || guild.client, guild.id);
   const rb = guild.roles.cache.get(roleBefore);
@@ -520,6 +602,15 @@ ${actionEmoji} \`${rb?.name || roleBefore}\` <a:VC_Arrow:1482706699365257397> \`
     __skipNoticeEmbed: true,
     })
     .catch(() => null);
+  firePexDepexSiteNotif(guild, {
+    kind: "pex",
+    targetUser,
+    oldRoleId: roleBefore,
+    newRoleId: roleAfter,
+    reason,
+    actorUser,
+    sourceHint: "profile-pex",
+  });
   return { ok: true };
 }
 
@@ -532,9 +623,7 @@ async function runProfileStaffDepex(guild, client, targetUser, actorUser, reason
   if (!member) {
     return { ok: false, message: "<:VC_Attention:1482534443632558151> Utente non trovato nel server." };
   }
-  const pexDepexChannel =
-    guild.channels.cache.get(IDs.channels?.pexDepex) ||
-    (await getGuildChannelCached(guild, IDs.channels?.pexDepex));
+  const pexDepexChannel = await resolveStaffPexDepexChannel(guild, client || guild.client);
   const mode = String(targetRemoval || "auto").toLowerCase();
   const ladderRole = getHighestLadderRole(member);
   const hasPmRole = member.roles.cache.has(ROLE_PARTNER_MANAGER);
@@ -598,7 +687,7 @@ async function runProfileStaffDepex(guild, client, targetUser, actorUser, reason
     return {
       ok: false,
       message:
-        "<:VC_Attention:1482534443632558151> Nessun ruolo staff rilevato per il depex. Per depex manuale sui ruoli usa il pannello High Staff (`+profile`).",
+        "<:VC_Attention:1482534443632558151> Nessun ruolo staff rilevato per il depex. Per depex manuale sui ruoli usa **Gestione** sul sito staff.",
     };
   }
 
@@ -607,15 +696,16 @@ async function runProfileStaffDepex(guild, client, targetUser, actorUser, reason
 
   const profileDoc = await getOrCreateStaffDoc(guild.id, targetUser.id);
   const s = ensureStaff(profileDoc);
-  if (!Array.isArray(s.rolesHistory)) s.rolesHistory = [];
-  s.rolesHistory.push({
+  const histEntry = pushRolesHistoryWithActor(s, {
     oldRole: oldRoleForLog,
     newRole: newRoleForLog || "",
     reason,
-    date: new Date(),
+    kind: "depex",
+    actorUser,
   });
   profileDoc.markModified("staff");
   await profileDoc.save().catch(() => null);
+  await mirrorTrackHistory(guild.id, targetUser.id, histEntry, "depex");
 
   const oldRoleObj = guild.roles.cache.get(oldRoleForLog);
   const newRoleObj = newRoleForLog ? guild.roles.cache.get(newRoleForLog) : null;
@@ -629,6 +719,15 @@ ${actionEmoji} \`${oldRoleObj?.name || oldRoleForLog}\` <a:VC_Arrow:148270669936
     __skipNoticeEmbed: true,
     })
     .catch(() => null);
+  firePexDepexSiteNotif(guild, {
+    kind: "depex",
+    targetUser,
+    oldRoleId: oldRoleForLog,
+    newRoleId: newRoleForLog || "",
+    reason,
+    actorUser,
+    sourceHint: "profile-depex",
+  });
   return { ok: true };
 }
 
@@ -648,6 +747,17 @@ async function runProfileStaffWarnAdd(guild, client, targetUser, actorUser, reas
   ).catch(() => null);
   const profileDoc = await getOrCreateStaffDoc(guild.id, targetUser.id);
   const s = ensureStaff(profileDoc);
+  try {
+    const { appendStaffTrackHistory, actorLabelFromUser } = require("./staffTrackHistory");
+    await appendStaffTrackHistory(guild.id, targetUser.id, {
+      kind: "warn",
+      reason,
+      date: new Date(),
+      actorId: String(actorUser?.id || "").trim() || null,
+      actorName: actorLabelFromUser(actorUser, actorUser?.id),
+      entryId: Math.max(0, Math.floor(Number(s.warnCount) || 0)) || null,
+    });
+  } catch (_) {}
   const targetMember = await guild.members.fetch(targetUser.id).catch(() => null);
   const warnEmbed = new EmbedBuilder()
     .setAuthor({
@@ -665,6 +775,20 @@ async function runProfileStaffWarnAdd(guild, client, targetUser, actorUser, reas
   if (warnChannel) {
     await warnChannel.send({ content: `${targetUser}`, embeds: [warnEmbed] }).catch(() => null);
   }
+  try {
+    const freshDoc = await getOrCreateStaffDoc(guild.id, targetUser.id);
+    const warnCount = Math.max(0, Number(ensureStaff(freshDoc)?.warnCount || s.warnCount || 0));
+    const { notifyStaffWarn, memberDisplayName } = require("../Web/siteStaffEventNotifications");
+    void notifyStaffWarn({
+      guild,
+      staffUserId: targetUser.id,
+      staffName: memberDisplayName(targetMember, targetUser, targetUser.id),
+      warnCount,
+      reason,
+      actorName: memberDisplayName(null, actorUser, actorUser?.id),
+      needsDepexDecision: warnCount === 2,
+    }).catch(() => 0);
+  } catch (_) {}
   return { ok: true };
 }
 
@@ -718,6 +842,17 @@ async function runProfileStaffWarnRemove(guild, client, targetUser, actorUser, r
   s.warnCount = Math.max(0, Number(s.warnCount || 0) - 1);
   profileDoc.markModified("staff");
   await profileDoc.save();
+  try {
+    const { appendStaffTrackHistory, actorLabelFromUser } = require("./staffTrackHistory");
+    await appendStaffTrackHistory(guild.id, targetUser.id, {
+      kind: "warn_rm",
+      reason: reason || `Rimozione warn #${removeId}`,
+      date: new Date(),
+      actorId: String(actorUser?.id || "").trim() || null,
+      actorName: actorLabelFromUser(actorUser, actorUser?.id),
+      entryId: removeId,
+    });
+  } catch (_) {}
 
   if (warnChannel?.isTextBased?.()) {
     const tradeLine = tradedPositives
@@ -809,9 +944,7 @@ async function runProfileStaffCompleteDepex(guild, client, targetUser, actorMemb
   const refreshedMember = (await resolveMember(targetUser.id)) || verification.member || member;
   await syncStaffDbAndPauseChannelAfterDepex(guild, targetUser.id, refreshedMember);
 
-  const pexDepexChannel =
-    guild.channels.cache.get(IDs.channels?.pexDepex) ||
-    (await getGuildChannelCached(guild, IDs.channels?.pexDepex));
+  const pexDepexChannel = await resolveStaffPexDepexChannel(guild, client || guild.client);
   const oldRoleObj = guild.roles.cache.get(roleToRemove);
   const actionEmoji = getStaffRoleEmojiByRoleId(roleToRemove);
   await pexDepexChannel
@@ -822,9 +955,17 @@ ${actionEmoji} \`${oldRoleObj?.name || roleToRemove}\` <a:VC_Arrow:1482706699365
     __skipNoticeEmbed: true,
     })
     .catch(() => null);
+  firePexDepexSiteNotif(guild, {
+    kind: "depex",
+    targetUser,
+    oldRoleId: roleToRemove,
+    newRoleId: ROLE_MEMBER || "",
+    reason,
+    actorUser,
+    sourceHint: "profile-depex-complete",
+  });
   return { ok: true };
 }
-
 
 module.exports = {
   runProfileStaffPex,

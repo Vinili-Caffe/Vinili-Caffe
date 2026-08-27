@@ -204,7 +204,7 @@ body.vc-web-tickets-page .vc-wt-app {
   }
 }
 
-/* Layout cine: board sotto l'hero, stessa larghezza della homepage. */
+/* Layout cine: board sotto lo scroll dell'hero (stesso ritmo di FAQ/inbox). */
 body.vc-web-tickets-page.vc-page-cine-layout main.vc-page-cine-main {
   width: 100% !important;
   max-width: none !important;
@@ -218,9 +218,13 @@ body.vc-web-tickets-page.vc-page-cine-layout #vc-page-content {
   max-width: 86rem !important;
   margin-left: auto !important;
   margin-right: auto !important;
+  padding-top: 0.35rem !important;
+  padding-bottom: 2.5rem !important;
   padding-left: max(1rem, env(safe-area-inset-left, 0px)) !important;
   padding-right: max(1rem, env(safe-area-inset-right, 0px)) !important;
   box-sizing: border-box !important;
+  position: relative !important;
+  z-index: 5 !important;
 }
 @media (max-width: 900px) {
   body.vc-web-tickets-page .vc-wt-layout {

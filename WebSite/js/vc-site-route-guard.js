@@ -3,6 +3,19 @@
   var cfg = window.__VC_SITE_ROUTES;
   if (!cfg || typeof cfg !== "object") return;
 
+  /** Percorsi rimossi / rinominati → destinazione stabile (senza pagina intermedia). */
+  var DEFAULT_ALIASES = {
+    "/richieste": "/staff/pause/",
+    "/richieste/stato": "/staff/pause/",
+    "/staff/ticket": "/tickets/?view=staff",
+    "/staff/tickets": "/tickets/?view=staff",
+    "/staff/directory": "/staff/organico/",
+    "/staff/valutazioni": "/staff/",
+    "/staff/profilo": "/staff/",
+    "/staff/pm": "/staff/gestione/?tab=pm",
+    "/staff/moderazione": "/staff/gestione/",
+  };
+
   function normPath(pathname) {
     var p = String(pathname || "/").split("?")[0].split("#")[0];
     p = p.replace(/\/index\.html$/i, "");
@@ -12,6 +25,24 @@
 
   function isAssetPath(p) {
     return /\.(css|js|mjs|json|png|jpe?g|gif|webp|svg|ico|woff2?|ttf|mp4|webm|txt|xml|map|html)$/i.test(p);
+  }
+
+  function mergeAliases() {
+    var out = {};
+    var k;
+    for (k in DEFAULT_ALIASES) {
+      if (Object.prototype.hasOwnProperty.call(DEFAULT_ALIASES, k)) out[normPath(k)] = DEFAULT_ALIASES[k];
+    }
+    var extra = cfg.aliases;
+    if (extra && typeof extra === "object") {
+      for (k in extra) {
+        if (!Object.prototype.hasOwnProperty.call(extra, k)) continue;
+        var dest = String(extra[k] || "").trim();
+        if (!dest) continue;
+        out[normPath(k)] = dest;
+      }
+    }
+    return out;
   }
 
   function pathAllowed(p) {
@@ -42,17 +73,46 @@
     return false;
   }
 
-  function redirectHome() {
-    var home = String(cfg.home || "/").trim() || "/";
+  function go(url) {
+    var target = String(url || "/").trim() || "/";
     try {
-      window.location.replace(home);
+      window.location.replace(target);
     } catch (e) {
-      window.location.href = home;
+      window.location.href = target;
     }
+  }
+
+  function nearestAllowedParent(p) {
+    if (p === "/" || !p) return "";
+    var parts = p.split("/").filter(Boolean);
+    while (parts.length > 1) {
+      parts.pop();
+      var cand = "/" + parts.join("/");
+      if (pathAllowed(cand) && !pathHidden(cand)) {
+        return cand === "/" ? "/" : cand + "/";
+      }
+    }
+    if (parts.length === 1) {
+      var rootSection = "/" + parts[0];
+      if (pathAllowed(rootSection) && !pathHidden(rootSection)) {
+        return rootSection + "/";
+      }
+    }
+    return "";
   }
 
   var path = normPath(window.location.pathname);
   if (isAssetPath(path)) return;
   if (path === normPath(cfg.home)) return;
-  if (pathHidden(path) || !pathAllowed(path)) redirectHome();
+
+  var aliases = mergeAliases();
+  if (aliases[path]) {
+    go(aliases[path]);
+    return;
+  }
+
+  if (pathHidden(path) || !pathAllowed(path)) {
+    var parent = nearestAllowedParent(path);
+    go(parent || cfg.home || "/");
+  }
 })();

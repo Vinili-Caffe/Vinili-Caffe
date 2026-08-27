@@ -763,19 +763,39 @@ async function execute(interaction) {
       const staffData = await removePartnerPoints(guild.id, targetUser.id, amount);
       const removedAmount = Math.max(0, Math.floor(Number(staffData?._partnerPointsRemoved ?? amount) || 0));
       const changeLabel = formatPartnerPointsChange("remove", removedAmount);
-      const removedPointsChannel = guild.channels.cache.get(IDs.channels?.puntiTolti);
-      if (removedPointsChannel) {
-        const logLines = [
-          `<:VC_PartnerManager:1494286911286808576> ${targetUser}`,
-          `<:VC_reason:1478517122929004544> ${motivo}`,
-        ];
-        if (messageLink) {
-          logLines.push(`<:VC_Link:1482460590894088222> ${messageLink}`);
+      const { logPmPointsRemoved } = require("../Utils/Partner/pmPointsRemovedStore");
+      const { getPartnershipLogChannelIds } = require("../Utils/Partner/partnershipConfigResolver");
+      const { isDiscordStaffChannelPostsEnabled } = require("../Utils/Web/discordWorkflowUiGate");
+      const IDs = require("../Utils/Config/ids");
+      const channelIds = getPartnershipLogChannelIds(guild.id);
+      const hardFallback = isDiscordStaffChannelPostsEnabled()
+        ? String(IDs.channels?.puntiTolti || "").trim()
+        : "";
+      let mirrorChannel = null;
+      if (isDiscordStaffChannelPostsEnabled()) {
+        for (const cid of [channelIds.primary, channelIds.fallback, hardFallback]) {
+          if (!cid) continue;
+          mirrorChannel = guild.channels.cache.get(cid) || null;
+          if (mirrorChannel?.isTextBased?.()) break;
+          mirrorChannel = null;
         }
-        await removedPointsChannel
-          .send({ content: logLines.join("\n") })
-          .catch(() => null);
       }
+      const logLines = [
+        `<:VC_PartnerManager:1494286911286808576> ${targetUser}`,
+        `<:VC_reason:1478517122929004544> ${motivo}`,
+      ];
+      if (messageLink) logLines.push(`<:VC_Link:1482460590894088222> ${messageLink}`);
+      await logPmPointsRemoved({
+        guild,
+        pmUserId: targetUser.id,
+        rule: motivo,
+        messageLink: messageLink || null,
+        actorUserId: interaction.user.id,
+        status: "logged",
+        source: "hs_manual",
+        mirrorChannel,
+        mirrorContent: logLines.join("\n"),
+      });
       await tryRefreshStaffPanelMessage(interaction, parsed, interaction.client);
       await sendModalReply({
         content: `<a:VC_Verified:1482532479637127188> **${changeLabel}** a ${targetUser}. Totale: \`${resolveStaffPartnerPointsDisplay(staffData?.staff)}\`.`,

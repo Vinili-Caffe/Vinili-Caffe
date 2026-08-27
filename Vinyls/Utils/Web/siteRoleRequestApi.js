@@ -8,9 +8,16 @@ const { collectBlockedSystemRoleIds, isListableUserCustomRole } = require("../Co
 
 const ROLE_REQUEST_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
 const BLOCKED_ROLE_IDS = collectBlockedSystemRoleIds();
+const RESOLVE_MEMBER_TTL_MS = 5 * 60_000;
+const resolveMemberCache = new Map();
+const resolveMemberInflight = new Map();
 
 function resolveGuildId(client) {
   return String(client?.config?.mainGuildId || IDs.guilds?.main || "").trim();
+}
+
+function resolveMemberCacheKey(token) {
+  return `${String(token || "").length}:${String(token || "").slice(-20)}`;
 }
 
 function isExpired(doc) {
@@ -45,44 +52,68 @@ async function resolveWebsiteGuildMember(client, accessToken) {
     return { ok: false, status: 401, error: "missing_token", message: "Sessione Discord mancante: effettua il login." };
   }
 
-  let meJson;
-  try {
-    const meRes = await fetch("https://discord.com/api/v10/users/@me", {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!meRes.ok) {
-      return { ok: false, status: 401, error: "invalid_token", message: "Sessione Discord non valida o scaduta: effettua di nuovo il login." };
+  const cacheKey = resolveMemberCacheKey(token);
+  const cached = resolveMemberCache.get(cacheKey);
+  if (cached && Number(cached.exp || 0) > Date.now() && cached.value) {
+    return cached.value;
+  }
+  if (resolveMemberInflight.has(cacheKey)) {
+    return resolveMemberInflight.get(cacheKey);
+  }
+
+  const work = (async () => {
+    let meJson;
+    try {
+      const meRes = await fetch("https://discord.com/api/v10/users/@me", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!meRes.ok) {
+        return { ok: false, status: 401, error: "invalid_token", message: "Sessione Discord non valida o scaduta: effettua di nuovo il login." };
+      }
+      meJson = await meRes.json();
+    } catch {
+      return { ok: false, status: 502, error: "discord_unreachable", message: "Impossibile contattare Discord in questo momento." };
     }
-    meJson = await meRes.json();
-  } catch {
-    return { ok: false, status: 502, error: "discord_unreachable", message: "Impossibile contattare Discord in questo momento." };
-  }
 
-  const userId = String(meJson?.id || "").trim();
-  if (!/^\d{17,20}$/.test(userId)) {
-    return { ok: false, status: 401, error: "invalid_user", message: "Profilo Discord non valido." };
-  }
+    const userId = String(meJson?.id || "").trim();
+    if (!/^\d{17,20}$/.test(userId)) {
+      return { ok: false, status: 401, error: "invalid_user", message: "Profilo Discord non valido." };
+    }
 
-  const guildId = resolveGuildId(client);
-  if (!guildId) {
-    return { ok: false, status: 503, error: "misconfigured", message: "Guild principale non configurata." };
-  }
-  const guild = client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
-  if (!guild) {
-    return { ok: false, status: 503, error: "guild_unavailable", message: "Server Discord temporaneamente non disponibile." };
-  }
+    const guildId = resolveGuildId(client);
+    if (!guildId) {
+      return { ok: false, status: 503, error: "misconfigured", message: "Guild principale non configurata." };
+    }
+    const guild = client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
+    if (!guild) {
+      return { ok: false, status: 503, error: "guild_unavailable", message: "Server Discord temporaneamente non disponibile." };
+    }
 
-  const member = guild.members.cache.get(userId) || (await guild.members.fetch(userId).catch(() => null));
-  if (!member) {
-    return {
-      ok: false,
-      status: 403,
-      error: "not_in_guild",
-      message: "Per richiedere un ruolo devi essere presente nel server Discord.",
-    };
-  }
+    const member = guild.members.cache.get(userId) || (await guild.members.fetch(userId).catch(() => null));
+    if (!member) {
+      return {
+        ok: false,
+        status: 403,
+        error: "not_in_guild",
+        message: "Per richiedere un ruolo devi essere presente nel server Discord.",
+      };
+    }
 
-  return { ok: true, status: 200, guild, member, userId };
+    const okPayload = { ok: true, status: 200, guild, member, userId };
+    resolveMemberCache.set(cacheKey, { exp: Date.now() + RESOLVE_MEMBER_TTL_MS, value: okPayload });
+    if (resolveMemberCache.size > 400) {
+      const first = resolveMemberCache.keys().next().value;
+      if (first) resolveMemberCache.delete(first);
+    }
+    return okPayload;
+  })();
+
+  resolveMemberInflight.set(cacheKey, work);
+  try {
+    return await work;
+  } finally {
+    resolveMemberInflight.delete(cacheKey);
+  }
 }
 
 async function submitSiteRoleRequest(client, payload) {

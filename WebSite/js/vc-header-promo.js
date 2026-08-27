@@ -160,7 +160,8 @@
     btn.href = href || (isEvent ? "/evento" : "/candidature");
     btn.classList.remove("vc-header-promo-btn--event", "vc-header-promo-btn--candidature");
     btn.classList.add(isEvent ? "vc-header-promo-btn--event" : "vc-header-promo-btn--candidature");
-    btn.setAttribute("aria-label", isEvent ? label + " " + badge : label + " " + badge);
+    // Prefer visible label+badge for accessible name (avoids text-transform mismatch).
+    btn.removeAttribute("aria-label");
     var labelEls = btn.querySelectorAll(".vc-header-promo-btn__label");
     var badgeEls = btn.querySelectorAll(".vc-header-promo-btn__badge");
     var i;
@@ -183,7 +184,6 @@
     var btn = document.createElement("a");
     btn.className = "vc-header-promo-btn " + modClass;
     btn.id = "vc-header-promo-btn";
-    btn.setAttribute("aria-label", label + " " + badge);
     btn.innerHTML =
       '<span class="vc-header-promo-btn__dot" aria-hidden="true"></span>' +
       '<span class="vc-header-promo-btn__clip"><span class="vc-header-promo-btn__track">' +

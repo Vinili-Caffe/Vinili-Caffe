@@ -9,7 +9,7 @@ const {
 } = require("../Render/rankCardTheme");
 const { getUserRanks, getResolvedWeeklyExpMultiplier } = require("../../Services/Community/expService");
 const renderRankCanvas = require("../Render/rankCanvas");
-const { guildMemberDisplayAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
+const { guildMemberDisplayAvatarUrlDynamic, memberDisplayName } = require("../Discord/guildDiscordIdentity");
 
 const VIP_PLUS_ROLE_ID = String(IDs?.roles?.["VIP+"] || "1495472189347074119").trim();
 const DOUBLE_BOOSTER_ROLE_ID = String(IDs?.roles?.DoubleBooster || "1494996567214788818").trim();
@@ -34,22 +34,40 @@ function resolvePreferredAvatarUrl(member) {
   return guildMemberDisplayAvatarUrlDynamic(member, { size: 256 }) || "";
 }
 
+/** Solo avatar guild (per header account). Niente rank/Mongo count. */
+async function getServerAvatarOnly(client, payload) {
+  const accessToken = String(payload?.accessToken || "").trim();
+  const resolved = await resolveWebsiteGuildMember(client, accessToken);
+  if (!resolved.ok) return resolved;
+  return {
+    ok: true,
+    status: 200,
+    userId: resolved.userId,
+    avatarUrl: resolvePreferredAvatarUrl(resolved.member),
+  };
+}
+
 async function getRankCardCustomization(client, payload) {
   const accessToken = String(payload?.accessToken || "").trim();
   const resolved = await resolveWebsiteGuildMember(client, accessToken);
   if (!resolved.ok) return resolved;
 
-  const doc = await ActivityUserProfile.findOne({
-    guildId: resolved.guild.id,
-    userId: resolved.userId,
-  })
-    .select("profile.rankCard profile.totals.exp")
-    .lean()
-    .catch(() => null);
+  const [doc, ranks, multiplier] = await Promise.all([
+    ActivityUserProfile.findOne({
+      guildId: resolved.guild.id,
+      userId: resolved.userId,
+    })
+      .select("profile.rankCard profile.totals.exp")
+      .lean()
+      .catch(() => null),
+    getUserRanks(resolved.guild.id, resolved.userId).catch(() => null),
+    getResolvedWeeklyExpMultiplier(resolved.guild, resolved.userId, null, resolved.member).catch(() => 1),
+  ]);
 
   const theme = mergeRankCardTheme(doc?.profile?.rankCard || {});
-  const { stats, weeklyRank, allTimeRank } = await getUserRanks(resolved.guild.id, resolved.userId);
-  const multiplier = await getResolvedWeeklyExpMultiplier(resolved.guild, resolved.userId, null).catch(() => 1);
+  const stats = ranks?.stats || {};
+  const weeklyRank = ranks?.weeklyRank ?? null;
+  const allTimeRank = ranks?.allTimeRank ?? null;
   const permissions = getRankCardPermissions(resolved.member);
 
   return {
@@ -57,12 +75,7 @@ async function getRankCardCustomization(client, payload) {
     status: 200,
     userId: resolved.userId,
     username: String(resolved.member?.user?.username || "").trim(),
-    displayName: String(
-      resolved.member?.displayName ||
-        resolved.member?.user?.globalName ||
-        resolved.member?.user?.username ||
-        "Utente"
-    ).trim() || "Utente",
+    displayName: memberDisplayName(resolved.member, resolved.member?.user),
     avatarUrl: resolvePreferredAvatarUrl(resolved.member),
     theme,
     defaults: DEFAULT_RANK_CARD_THEME,
@@ -132,8 +145,13 @@ async function getRankCardPreview(client, payload) {
   const resolved = await resolveWebsiteGuildMember(client, accessToken);
   if (!resolved.ok) return resolved;
 
-  const { stats, weeklyRank, allTimeRank } = await getUserRanks(resolved.guild.id, resolved.userId);
-  const multiplier = await getResolvedWeeklyExpMultiplier(resolved.guild, resolved.userId, null).catch(() => 1);
+  const [ranks, multiplier] = await Promise.all([
+    getUserRanks(resolved.guild.id, resolved.userId).catch(() => null),
+    getResolvedWeeklyExpMultiplier(resolved.guild, resolved.userId, null, resolved.member).catch(() => 1),
+  ]);
+  const stats = ranks?.stats || {};
+  const weeklyRank = ranks?.weeklyRank ?? null;
+  const allTimeRank = ranks?.allTimeRank ?? null;
   const permissions = getRankCardPermissions(resolved.member);
   const theme = mergeRankCardTheme(payload?.theme || {});
   if (!permissions.canUseCustomWallpaper) {
@@ -143,7 +161,7 @@ async function getRankCardPreview(client, payload) {
   const avatarUrl = resolvePreferredAvatarUrl(resolved.member);
 
   const rendered = await renderRankCanvas({
-    username: String(resolved.member?.user?.username || "utente").trim() || "utente",
+    username: memberDisplayName(resolved.member, resolved.member?.user),
     avatarUrl,
     level: Number(stats?.level || 0),
     totalExp: Number(stats?.totalExp || 0),
@@ -197,7 +215,7 @@ async function getPublicRankCardPreview(client, payload) {
   const theme = getRankCardThemeFromDoc(doc);
   const avatarUrl = resolvePreferredAvatarUrl(member);
   const rendered = await renderRankCanvas({
-    username: String(member?.user?.username || "utente").trim() || "utente",
+    username: memberDisplayName(member, member?.user),
     avatarUrl,
     level: Number(stats?.level || 0),
     totalExp: Number(stats?.totalExp || 0),
@@ -224,6 +242,7 @@ async function getPublicRankCardPreview(client, payload) {
 
 module.exports = {
   getRankCardCustomization,
+  getServerAvatarOnly,
   updateRankCardCustomization,
   getRankCardPreview,
   getPublicRankCardPreview,

@@ -381,6 +381,9 @@ async function recordManualStaffRoleHistoryIfNeeded(oldMember, newMember) {
   const guildId = String(newMember?.guild?.id || "").trim();
   if (!guildId || guildId !== String(IDs.guilds?.main || "")) return;
   if (newMember?.user?.bot) return;
+  // Founder: carriera fissa (Member → Founder); non loggare altri ruoli staff aggiunti a mano.
+  const founderRoleId = String(IDs.roles?.Founder || "").trim();
+  if (founderRoleId && newMember?.roles?.cache?.has?.(founderRoleId)) return;
   const addedRoleIds = listStaffRolesAdded(oldMember, newMember);
   if (!addedRoleIds.length) return;
 
@@ -412,6 +415,12 @@ async function recordManualStaffRoleHistoryIfNeeded(oldMember, newMember) {
       newRole: addedRoleId,
       reason: "Ruolo staff aggiunto manualmente.",
       date: now,
+      displayName: String(newMember.displayName || newMember.user?.globalName || newMember.user?.username || "").trim() || null,
+      username: String(newMember.user?.username || "").trim() || null,
+      avatarUrl:
+        (typeof newMember.displayAvatarURL === "function"
+          ? newMember.displayAvatarURL({ size: 128, extension: "png" })
+          : "") || null,
     });
     changed = true;
   }
@@ -2861,6 +2870,17 @@ module.exports = {
       await syncMutedMirrorRoleFromMemberUpdate(oldMember, newMember).catch((err) => {
         global.logger?.warn?.("[guildMemberUpdate] muted mirror role:", newMember.id, err?.message || err);
       });
+      try {
+        const { memberIsMuted } = require("../Events/interaction/unmuteWebsiteHandlers");
+        const { autoClosePendingAppealsForUser } = require("../Utils/Web/siteStaffAppealsRuntime");
+        const wasMuted = memberIsMuted(oldMember);
+        const isMuted = memberIsMuted(newMember);
+        if (wasMuted && !isMuted) {
+          void autoClosePendingAppealsForUser(newMember.guild, newMember.id, "unmute").catch((err) => {
+            global.logger?.warn?.("[guildMemberUpdate] appeal auto-close unmute:", newMember.id, err?.message || err);
+          });
+        }
+      } catch (_) {}
       await sendMemberRoleUpdateLog(oldMember, newMember);
       await enforceJoinGatePostJoinUsername(oldMember, newMember);
       const resolvedClientForClan = client || newMember.client;
@@ -2916,11 +2936,75 @@ module.exports = {
               await deleteStaffRelatedMessagesFromConfiguredChannels(newMember.guild, newMember.id, staffLean?.staff).catch((err) => {
                 global.logger?.warn?.("[guildMemberUpdate] staff channels scan delete:", newMember.id, err?.message || err);
               });
+              try {
+                const {
+                  cancelPendingResocontiWorkflowForUser,
+                  autoCancelPendingPausesIfNotEligible,
+                } = require("../Utils/Web/siteStaffWorkflowStore");
+                // Solo resoconti staff: se resta PM, i resoconti PM restano in inbox.
+                await cancelPendingResocontiWorkflowForUser(newMember.guild.id, newMember.id, {
+                  kind: "s",
+                  statusLabel: "Annullato (depex)",
+                  decidedBy: "system",
+                });
+                if (!memberHasPartnerManagerRole(verifiedMember)) {
+                  await cancelPendingResocontiWorkflowForUser(newMember.guild.id, newMember.id, {
+                    kind: "p",
+                    statusLabel: "Annullato (depex PM)",
+                    decidedBy: "system",
+                  });
+                }
+                await autoCancelPendingPausesIfNotEligible(newMember.guild, newMember.id, {
+                  decidedBy: "system",
+                  statusLabel: "Annullato (depex)",
+                }).catch((err) => {
+                  global.logger?.warn?.(
+                    "[guildMemberUpdate] cancel pending pauses on depex:",
+                    newMember.id,
+                    err?.message || err,
+                  );
+                });
+              } catch (err) {
+                global.logger?.warn?.("[guildMemberUpdate] cancel pending resoconti on depex:", newMember.id, err?.message || err);
+              }
               if (!memberIsInMuteMirrorState(verifiedMember)) {
                 await archiveStaffRolesHistoryThenUnsetStaff(newMember.guild.id, newMember.id);
                 await autoUnclaimOpenTicketsClaimedByUser(newMember.guild, newMember.id).catch((err) => {
                   global.logger?.warn?.("[guildMemberUpdate] ticket auto-unclaim on depex:", newMember.id, err?.message || err);
                 });
+              }
+            }
+          }
+          if (memberHasPartnerManagerRole(oldMember) && !memberHasPartnerManagerRole(newMember)) {
+            const verifiedPm = await newMember.guild.members
+              .fetch({ user: newMember.id, force: true })
+              .catch(() => null);
+            if (verifiedPm && !memberHasPartnerManagerRole(verifiedPm)) {
+              try {
+                const {
+                  cancelPendingResocontiWorkflowForUser,
+                  autoCancelPendingPausesIfNotEligible,
+                } = require("../Utils/Web/siteStaffWorkflowStore");
+                await cancelPendingResocontiWorkflowForUser(newMember.guild.id, newMember.id, {
+                  kind: "p",
+                  statusLabel: "Annullato (depex PM)",
+                  decidedBy: "system",
+                });
+                await autoCancelPendingPausesIfNotEligible(newMember.guild, newMember.id, {
+                  decidedBy: "system",
+                }).catch((err) => {
+                  global.logger?.warn?.(
+                    "[guildMemberUpdate] cancel pending pauses on PM depex:",
+                    newMember.id,
+                    err?.message || err,
+                  );
+                });
+              } catch (err) {
+                global.logger?.warn?.(
+                  "[guildMemberUpdate] cancel pending PM resoconti on depex:",
+                  newMember.id,
+                  err?.message || err,
+                );
               }
             }
           }

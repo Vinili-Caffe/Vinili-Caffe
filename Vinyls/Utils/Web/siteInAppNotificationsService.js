@@ -463,21 +463,19 @@ async function enqueueSiteInAppNotification(opts = {}) {
   const dedupeKeyRaw = opts.dedupeKey != null ? String(opts.dedupeKey).trim().slice(0, DEDUPE_KEY_MAX) : "";
   const dedupeWindowMs = Number(opts.dedupeWindowMs) || 0;
   const replaceDedupe = opts.replaceDedupe === true && Boolean(dedupeKeyRaw);
-  const sendPush = opts.push !== false;
-  const pushOpts = { push: sendPush };
 
   const prefsGuildId = guildId !== "global" ? guildId : String(IDs.guilds?.main || "").trim();
-  if (
-    await shouldSkipSiteInAppNotif(prefsGuildId, userId, {
-      kind,
-      title,
-      body,
-      dedupeKey: dedupeKeyRaw,
-      openUrl,
-    }).catch(() => false)
-  ) {
-    return false;
-  }
+  // Preferenze mute: salva comunque in inbox (visibile solo in /notifications → Filtrate),
+  // ma non inviare push di sistema né far apparire la notifica “attiva” in campanella.
+  const softFiltered = await shouldSkipSiteInAppNotif(prefsGuildId, userId, {
+    kind,
+    title,
+    body,
+    dedupeKey: dedupeKeyRaw,
+    openUrl,
+  }).catch(() => false);
+  const sendPush = opts.push !== false && !softFiltered;
+  const pushOpts = { push: sendPush };
 
   if (replaceDedupe) {
     const replaced = await replaceInboxItemByDedupeKey(userId, dedupeKeyRaw, {
@@ -686,6 +684,34 @@ async function markSiteInAppNotificationRead(userId, notificationId) {
   return modified;
 }
 
+async function markSiteInAppNotificationsReadMany(userId, notificationIds) {
+  const uid = normalizeUserId(userId);
+  const ids = Array.isArray(notificationIds)
+    ? [...new Set(notificationIds.map((x) => String(x || "").trim()).filter((id) => isValidNotificationId(id)))]
+    : [];
+  if (!uid || !ids.length) return 0;
+  if (ids.length === 1) {
+    const ok = await markSiteInAppNotificationRead(uid, ids[0]);
+    return ok ? 1 : 0;
+  }
+  await migrateLegacyInAppNotificationsForUser(uid).catch(() => null);
+  const oids = ids.map((id) => new mongoose.Types.ObjectId(id));
+  const out = await SiteDocument.updateOne(
+    inboxQuery(uid),
+    { $set: { "inAppNotifItems.$[i].readAt": new Date() } },
+    { arrayFilters: [{ "i._id": { $in: oids } }] },
+  ).catch(() => null);
+  const modified = Number(out?.modifiedCount ?? out?.nModified ?? 0) > 0 ? ids.length : 0;
+  if (modified > 0) {
+    fireNotifDismissPush(uid, { all: true });
+    try {
+      const { broadcastSiteNotificationsChanged } = require("./siteSuggestionsBroadcast");
+      broadcastSiteNotificationsChanged();
+    } catch (_) {}
+  }
+  return modified;
+}
+
 async function markAllSiteInAppNotificationsRead(userId) {
   const uid = normalizeUserId(userId);
   if (!uid) return 0;
@@ -771,7 +797,7 @@ async function listSiteInAppNotificationsForUser(userId, limit = 50) {
     }
     const openUrl = String(doc.openUrl || "").trim();
     const dedupeKey = String(doc.dedupeKey || "").trim();
-    const skip = await shouldSkipSiteInAppNotif(prefsGuildId || doc.guildId, uid, {
+    const filtered = await shouldSkipSiteInAppNotif(prefsGuildId || doc.guildId, uid, {
       kind,
       title,
       body,
@@ -780,7 +806,6 @@ async function listSiteInAppNotificationsForUser(userId, limit = 50) {
       mutedKinds: skipCtx.mutedKinds,
       voteBlocked: skipCtx.voteBlocked,
     }).catch(() => false);
-    if (skip) continue;
     mapped.push({
       id: String(doc._id),
       title,
@@ -791,6 +816,7 @@ async function listSiteInAppNotificationsForUser(userId, limit = 50) {
       ticketId: normalizeTicketId(doc.ticketId) || ticketIdFromOpenUrl(doc.openUrl),
       read: Boolean(doc.readAt),
       readAt: doc.readAt ? new Date(doc.readAt).getTime() : null,
+      filtered: Boolean(filtered),
     });
     if (mapped.length >= lim) break;
   }
@@ -853,6 +879,7 @@ module.exports = {
   deleteAllSiteInAppNotificationsForUser,
   deleteSiteInAppNotificationForUser,
   markSiteInAppNotificationRead,
+  markSiteInAppNotificationsReadMany,
   markAllSiteInAppNotificationsRead,
   markSiteInAppNotificationsReadForTicket,
   migrateLegacyInAppNotificationsForUser,

@@ -141,7 +141,9 @@ function inferVoteListingFromNotif({ title, body, dedupeKey, openUrl } = {}) {
 }
 
 /**
- * True if this in-app item should be hidden/skipped for the user.
+ * True if this in-app item is muted by site/DM prefs (soft-filter).
+ * Soft-filtered items are still stored, but skip push and stay out of the bell;
+ * they appear only on /notifications under the "Filtrate" view.
  * Pass preloaded mutedKinds / voteBlocked to avoid repeated DB reads.
  */
 async function shouldSkipSiteInAppNotif(
